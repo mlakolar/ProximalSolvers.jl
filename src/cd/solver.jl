@@ -80,7 +80,7 @@ With `workingset = true`, on a `SparseIterate` and a model with
 run on a working set instead of all coordinates, as in Celer (Massias, Gramfort
 and Salmon, 2018) and skglm (Bertrand et al., 2022): the nonzero coordinates
 and those whose proximal step would move them most, scored from one full
-gradient. The set starts with `max(10, 2s)` coordinates for `s` nonzero ones
+gradient. The set starts with `max(100, 2s)` coordinates for `s` nonzero ones
 and doubles each time, and each set is solved to `0.3` times the largest score
 outside it; the run stops when no coordinate's step moves it by more than `tol`
 (scaled as above), or with `gaptol` when the gap is small enough. Paths and

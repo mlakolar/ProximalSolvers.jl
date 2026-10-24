@@ -17,7 +17,7 @@
 # passes to a working set of its own (the candidates), so the working sets are
 # not used there.
 
-const _ws_start = 10        # the size of the first working set, at least
+const _ws_start = 100       # the size of the first working set, at least (Celer's p0)
 const _ws_ratio = 0.3       # the tolerance of a round, relative to the largest score
 
 # whether the run uses working sets: asked for, on a SparseIterate, with a model
