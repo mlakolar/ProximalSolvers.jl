@@ -116,7 +116,10 @@ relative gap `(P - D) / |P|` is below `gaptol`, a tolerance that means the same
 for every problem, and `gapsafe = true` adds the gap-safe screening of Fercoq,
 Gramfort and Salmon (2015), which removes the coordinates proven zero at the
 solution from the passes. `ProximalOptions(; gaptol)` does the same for the
-gradient solvers and ADMM. For the losses without a gap, such as the
+gradient solvers and ADMM. `CDSolver(; workingset = true)` replaces the passes
+over all coordinates of a single solve by passes over a growing working set of
+the nonzero coordinates and those whose step would move them most (Celer,
+skglm). For the losses without a gap, such as the
 quadratics, `kkt_residual(f, g, x)` measures optimality on the scale of the
 stopping rule.
 
@@ -292,7 +295,7 @@ res.converged, res.iterations
 | `AccProxGradDescent(; β = 0.5, α = 0.9)` | `f` smooth, `g` proximable | Accelerated proximal gradient (Parikh and Boyd, §4.3) with backtracking that also lets the step grow (`α`), and adaptive restart |
 | `ActiveAccProxGradDescent(; β, α, max_add, growth, max_outer)` | `f` smooth, `g` separable (`NormL1`, ...) or `GroupNormL2`, sparse solution | Active set: adds the coordinates (whole groups, for the group lasso) that violate the optimality conditions, the largest violations first, about `max(max_add, (growth - 1) s)` entries when `s` are nonzero, and runs `AccProxGradDescent` on the active coordinates only |
 | `ADMMSolver(; ρ, α, abstol, reltol, adaptive)` | `f`, `g` both proximable | Over-relaxed scaled ADMM (Boyd et al., 2011), optionally with residual balancing of `ρ`; warm starts from the scaled dual variable and `ρ` of a previous result |
-| `CDSolver(; maxpasses, tol, order, relative, anderson, momentum, gaptol, gapsafe)` | `f` least squares, quadratic, `KronQuadratic` or a GLM; `g` separable or `GroupNormL2` | Coordinate descent with full and active passes, in random order with momentum or in cyclic order with Anderson acceleration, and a scale-free stopping rule (see below) |
+| `CDSolver(; maxpasses, tol, order, relative, anderson, momentum, gaptol, gapsafe, workingset)` | `f` least squares, quadratic, `KronQuadratic` or a GLM; `g` separable or `GroupNormL2` | Coordinate descent with full and active passes, in random order with momentum or in cyclic order with Anderson acceleration, and a scale-free stopping rule (see below) |
 | `ProxNewton(; inner, maxiter, tol, β)` | `f` a `GLMLoss` (logistic, Poisson, Huber), `g` separable | Proximal Newton (glmnet's IRLS): coordinate descent on the weighted least-squares model of `f`, then backtracking |
 
 All solvers are called the same way:
