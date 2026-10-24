@@ -74,6 +74,18 @@ zero and left out of the full passes for the rest of the run. On the lasso
 designs of `benchmark/gap` it removes most coordinates but saves less time than
 its gaps cost, so it is off by default. The relative gap at the end is the `gap`
 of the [`CDResults`](@ref), `NaN` when it was not computed.
+
+With `workingset = true`, on a `SparseIterate` and a model with
+[`coordinate_derivatives`](@ref) (least squares, GLMs, quadratics), the passes
+run on a working set instead of all coordinates, as in Celer (Massias, Gramfort
+and Salmon, 2018) and skglm (Bertrand et al., 2022): the nonzero coordinates
+and those whose proximal step would move them most, scored from one full
+gradient. The set starts with `max(100, 2s)` coordinates for `s` nonzero ones
+and doubles each time, and each set is solved to `0.3` times the largest score
+outside it; the run stops when no coordinate's step moves it by more than `tol`
+(scaled as above), or with `gaptol` when the gap is small enough. Paths and
+continuation screen each level with the strong rule, a working set of its own,
+and do not use them.
 """
 struct CDSolver <: ProximalSolver
   maxpasses::Int
@@ -84,11 +96,12 @@ struct CDSolver <: ProximalSolver
   momentum::Union{Nothing, Bool}
   gaptol::Float64
   gapsafe::Bool
+  workingset::Bool
 end
 
 function CDSolver(; maxpasses::Integer = 100_000, tol::Real = 1e-7, order::Symbol = :random,
                   relative::Bool = true, anderson::Integer = 0, momentum::Union{Nothing, Bool} = nothing,
-                  gaptol::Real = 0.0, gapsafe::Bool = false)
+                  gaptol::Real = 0.0, gapsafe::Bool = false, workingset::Bool = false)
   maxpasses >= 0 || throw(ArgumentError("maxpasses must be nonnegative, but it is $maxpasses."))
   tol >= 0 || throw(ArgumentError("tol must be nonnegative, but it is $tol."))
   order in (:random, :cyclic) || throw(ArgumentError("order must be :random or :cyclic, but it is :$order."))
@@ -97,7 +110,7 @@ function CDSolver(; maxpasses::Integer = 100_000, tol::Real = 1e-7, order::Symbo
     throw(ArgumentError("momentum needs order = :random; with the cyclic order it can stall far from the minimizer."))
   gaptol >= 0 || throw(ArgumentError("gaptol must be nonnegative, but it is $gaptol."))
   CDSolver(Int(maxpasses), Float64(tol), order === :random, relative, Int(anderson), momentum,
-           Float64(gaptol), gapsafe)
+           Float64(gaptol), gapsafe, workingset)
 end
 
 Base.summary(::CDSolver) = "Coordinate Descent"
@@ -182,6 +195,15 @@ mutable struct _GapState{T}
   base::Union{Nothing, Vector{Int}}    # the candidates on entry to _cd!
 end
 
+# the buffers of the working sets of a run (see CDSolver's workingset and
+# src/cd/workingset.jl)
+mutable struct _WorkingSet{T}
+  grad::Vector{T}         # ∇f(x)
+  score::Vector{T}        # √aₖ |Δxₖ| of a proximal step on each coordinate
+  set::Vector{Int}        # the working set
+  rest::Vector{Int}       # the coordinates outside the support, to rank
+end
+
 # the state of one run: the coordinate order, the momentum, and what the passes
 # report
 mutable struct _CDState{T}
@@ -195,11 +217,12 @@ mutable struct _CDState{T}
   tolerance::T
   gap::Union{Nothing, _GapState{T}}      # created when a run first needs it
   relgap::T                              # the last relative duality gap, NaN if none
+  ws::Union{Nothing, _WorkingSet{T}}     # the buffers of workingset, created when needed
 end
 
 _CDState(::Type{T}, x, random::Bool) where {T} =
   _CDState{T}(random, Vector{Int}(undef, random ? ncoordinates(x) : 0), nothing, _Momentum{T}(), 0, false,
-              T(NaN), T(NaN), nothing, T(NaN))
+              T(NaN), T(NaN), nothing, T(NaN), nothing)
 
 # a uniformly random order of 1:n in order[1:n] (Fisher–Yates), drawn from the
 # global random number generator with the calls of CoordinateDescent.jl, so that
@@ -290,6 +313,7 @@ end
 # gaptol, when the duality gap after a full pass is small enough; see
 # _afterpass!). The model m must be current for x.
 function _cd!(x, m, g, st::_CDState{T}, s::CDSolver) where {T}
+  _useworkingset(s, m, x, st) && return _cd_workingset!(x, m, g, st, s)
   gs = _gapstart!(st, m, g, x, s)
   if s.anderson > 0 && !s.random && !(x isa AtomIterate)
     _cd_anderson!(x, m, g, st, s, gs)

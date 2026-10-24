@@ -12,6 +12,7 @@ tests = [
   "coordinate_descent",
   "glm",
   "duality_gap",
+  "workingset",
   "aqua",
 ]
 

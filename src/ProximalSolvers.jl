@@ -73,6 +73,7 @@ include("cd/sqrtlasso.jl")
 include("cd/sqrtquadratic.jl")
 include("cd/glm.jl")
 include("cd/gap.jl")
+include("cd/workingset.jl")
 include("cd/path.jl")
 include("cd/drivers.jl")
 
