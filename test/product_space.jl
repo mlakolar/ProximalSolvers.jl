@@ -43,9 +43,9 @@ struct BlockNorm end
 (::BlockNorm)(x::Tuple) = sum(LinearAlgebra.norm, x)
 (::BlockNorm)(x::Tuple, y::Tuple) = sum(map(norm_diff, x, y))
 
-solvers = (ProximalGradientDescent(), AccProxGradDescent())
+solvers = (ProximalGradientDescent(), AccProxGradDescent(), MonotoneAccProxGradDescent())
 
-@testset "a tuple of one array is the array $(summary(method))" for method in solvers
+@testset "a tuple of one array is the array $(summary(method))" for method in (solvers..., ProximalGradientDescent(; normalized = true))
   rng = Xoshiro(1)
   n, p = 60, 20
   X, y = randn(rng, n, p), randn(rng, n)
@@ -60,6 +60,37 @@ solvers = (ProximalGradientDescent(), AccProxGradDescent())
   @test (r1.iterations, r1.minimum, r1.f_calls, r1.prox_calls) == (r2.iterations, r2.minimum, r2.f_calls, r2.prox_calls)
   @test (r1.x_residual, r1.f_residual, r1.g_residual) == (r2.x_residual, r2.f_residual, r2.g_residual)
   @test occursin("Minimizer", sprint(show, r2))
+end
+
+@testset "normalized steps use the support of the whole product space" begin
+  PS = ProximalSolvers
+  for T in (Float32, Float64)
+    A = T[2 0; 0 5]
+    f = SeparableSum(QuadraticFunction(A, T[-1, 2]), SqrNormL2(T(3), ones(T, 2, 1)))
+    g = SeparableSum(ZeroFunction(), ZeroFunction())
+    method = ProximalGradientDescent(; normalized = true)
+    for x0 in ((zeros(T, 2), zeros(T, 2, 1)),
+               (T[1, 0], zeros(T, 2, 1)),
+               (zeros(T, 2), reshape(T[0.2, 0], 2, 1)))
+      st = PS.initial_state(method, ProximalOptions(), f, g, map(copy, x0))
+      foreach(copyto!, st.x_previous, st.x)
+      foreach(copyto!, st.grad_f_x_previous, st.grad_f_x)
+      st.f_x_previous = st.f_x
+      st.L = T(2)
+      whole = all(block -> all(iszero, block), x0)
+      d = map((x, grad) -> map((v, a) -> whole || !iszero(v) ? a : zero(T), x, grad),
+              x0, st.grad_f_x)
+      dd = sum(block -> sum(abs2, block), d)
+      curvature = dot(d[1], A * d[1]) + T(3) * sum(abs2, d[2])
+      expected_trial = map((x, dk) -> x .- dk ./ T(2), x0, d)
+      PS._normalized_step!(f, st)
+      @test st.L ≈ curvature / dd rtol = (T === Float32 ? 2e-5 : 1e-12)
+      @test st.xhat[1] ≈ expected_trial[1]
+      @test st.xhat[2] ≈ expected_trial[2]
+      # A wholly zero block does not expand an already nonempty support.
+      !whole && all(iszero, x0[2]) && @test all(iszero, st.xhat[2])
+    end
+  end
 end
 
 @testset "a tuple of one array is the array: ADMM" begin
@@ -197,7 +228,7 @@ end
     end
     @allocated ProximalSolvers.update_state!(f, g, state, method)
   end
-  for method in solvers
+  for method in (solvers..., ProximalGradientDescent(; normalized = true))
     @test step_bytes(fq, g, method, x0) == 0
   end
   # ADMM: the bytes of 40 iterations less those of 20, which never converge to
@@ -216,6 +247,7 @@ end
   g = SeparableSum(NormL1(0.1), NormL1(0.1))
   @test_throws DimensionMismatch solve!((zeros(3), zeros(4)), f, g, ADMMSolver(); u = (zeros(3), zeros(5)))
   @test_throws DimensionMismatch solve!((zeros(3), zeros(4)), f, g, ADMMSolver(); u = (zeros(3),))
+  @test_throws ArgumentError solve!((zeros(3), zeros(4)), f, g, ProximalGradientDescent(; debias = 1))
 end
 
 end

@@ -47,7 +47,7 @@ end
 # the iterates have the type of the starting point x0; the gradients are dense.
 # After each iteration y and grad_f_y hold the point the kept step was taken
 # from and the gradient there, for the stopping rules.
-mutable struct MonotoneAccProxGradDescentState{T, X<:AbstractArray{T}, G<:AbstractArray{T}}
+mutable struct MonotoneAccProxGradDescentState{T, X<:Union{AbstractArray{T}, _Blocks{T}}, G<:Union{AbstractArray{T}, _Blocks{T}}}
     x::X
     f_x::T
     g_x::T
@@ -76,18 +76,19 @@ mutable struct MonotoneAccProxGradDescentState{T, X<:AbstractArray{T}, G<:Abstra
     prox_calls::Int
 end
 
-function initial_state(method::MonotoneAccProxGradDescent, options, f, g, x0::AbstractArray{T}) where T
+function initial_state(method::MonotoneAccProxGradDescent, options, f, g,
+                       x0::Union{AbstractArray{T}, _Blocks{T}}) where T
     f_x = f(x0)
     _check_start(f_x)
     g_x = g(x0)
     MonotoneAccProxGradDescentState(
         x0, f_x, g_x,
-        copy(x0), T(NaN), T(NaN),         # x_previous = x0, so the first y is x0
-        similar(x0), Array{T}(undef, size(x0)),
-        copy(x0), T(NaN), T(NaN),         # z = x0
-        similar(x0), T(NaN), T(NaN),
-        Array{T}(undef, size(x0)),
-        similar(x0), similar(x0),
+        _copy(x0), T(NaN), T(NaN),        # x_previous = x0, so the first y is x0
+        _similar(x0), _dense_similar(x0),
+        _copy(x0), T(NaN), T(NaN),        # z = x0
+        _similar(x0), T(NaN), T(NaN),
+        _dense_similar(x0),
+        _similar(x0), _similar(x0),
         one(T),                           # L
         one(T), zero(T),                  # t₁ = 1, t₀ = 0
         T(-Inf),                          # maxResidual
@@ -98,17 +99,17 @@ function update_state!(f, g, state::MonotoneAccProxGradDescentState{T}, method::
     a = state.t_previous / state.t
     b = (state.t_previous - 1) / state.t
     state.L *= T(method.α)
-    @. state.y = state.x + a * (state.z - state.x) + b * (state.x - state.x_previous)
+    _extrapolate_point!(state.y, state.x, state.z, state.x_previous, a, b)
     _drop!(state.y)
 
-    copyto!(state.x_previous, state.x)
+    _copyto!(state.x_previous, state.x)
     state.f_x_previous = state.f_x
     state.g_x_previous = state.g_x
     F_x = state.f_x + state.g_x
 
     state.f_z, state.g_z = _prox_grad_step!(state.z, state.grad_f_y, f, g, state.y, state, method)
     F_z = state.f_z + state.g_z
-    if F_z <= F_x - T(method.δ) * state.L * norm_diff(state.z, state.y, 2)^2
+    if F_z <= F_x - T(method.δ) * state.L * _norm_diff(state.z, state.y, 2)^2
       _keep!(state, state.z, state.f_z, state.g_z)
       state.accelerated += 1
     else
@@ -118,22 +119,22 @@ function update_state!(f, g, state::MonotoneAccProxGradDescentState{T}, method::
         _keep!(state, state.z, state.f_z, state.g_z)
       else
         _keep!(state, state.v, state.f_v, state.g_v)
-        copyto!(state.y, state.x_previous)
-        copyto!(state.grad_f_y, state.grad_f_x)
+        _copyto!(state.y, state.x_previous)
+        _copyto!(state.grad_f_y, state.grad_f_x)
         # with y off the domain of f there was no step from y: extrapolate from
         # the new iterate alone next time
-        isfinite(F_z) || copyto!(state.z, state.x)
+        isfinite(F_z) || _copyto!(state.z, state.x)
       end
     end
 
     state.t_previous = state.t
     state.t = (sqrt(4 * state.t^2 + 1) + 1) / 2
-    @. state.deltaX = state.x - state.x_previous
+    _sub!(state.deltaX, state.x, state.x_previous)
     state
 end
 
 function _keep!(state::MonotoneAccProxGradDescentState, w, f_w, g_w)
-    copyto!(state.x, w)
+    _copyto!(state.x, w)
     state.f_x = f_w
     state.g_x = g_w
 end
@@ -148,18 +149,18 @@ function _prox_grad_step!(w, grad, f, g, u, state::MonotoneAccProxGradDescentSta
     state.grad_calls += 1
     isfinite(f_u) || return T(Inf), T(Inf)
     while true
-      @. state.xhat = u - grad / state.L
+      _step!(state.xhat, u, grad, state.L)
       g_w = value_and_prox!(w, g, state.xhat, one(T) / state.L)
       _drop!(w)
       f_w = f(w)
       state.prox_calls += 1
       state.f_calls += 1
 
-      @. state.xhat = w - u
-      upper = f_u + dot(grad, state.xhat) + state.L / 2 * sum(abs2, state.xhat)
+      _sub!(state.xhat, w, u)
+      upper = f_u + _dot(grad, state.xhat) + state.L / 2 * _sumabs2(state.xhat)
       state.backtrack_steps += 1
       # slack guards against an endless loop from rounding error near the solution
-      f_w <= upper + 10 * eps(T) * max(abs(f_u), one(T)) && return f_w, T(g_w)
+      isfinite(f_w) && f_w <= upper + 10 * eps(T) * max(abs(f_u), one(T)) && return f_w, T(g_w)
       state.L /= method.β
     end
 end

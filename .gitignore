@@ -21,3 +21,6 @@
 /benchmark/quic/*.csv
 /benchmark/quic/results/
 /test/oracles/Manifest*.toml
+/benchmark/nonconvex/Manifest*.toml
+/benchmark/nonconvex/mendel/Manifest*.toml
+/benchmark/nonconvex/results/

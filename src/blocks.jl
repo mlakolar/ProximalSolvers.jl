@@ -12,7 +12,7 @@ using ProximalBase: norm_diff
 
 export _Blocks, _copy, _similar, _zero, _dense_similar, _copyto!, _copy!, _sub!, _step!, _extrapolate_point!,
        _relax!, _rdiv!, _norm, _norm_diff, _norm_inf, _dot, _dot_diff, _sumabs2, _length, _size,
-       _maxabs_diff, _maxabs_axpy, _maxabs_stepdiff, _maxabs_residual
+       _maxabs_diff, _maxabs_axpy, _maxabs_stepdiff, _maxabs_residual, _allzero, _restricted_step!
 
 # the iterates of a product space: a tuple of arrays with one element type
 const _Blocks{T} = Tuple{AbstractArray{T}, Vararg{AbstractArray{T}}}
@@ -47,6 +47,31 @@ _step!(y::Tuple, x::Tuple, g::Tuple, L) = (foreach((yk, xk, gk) -> _step!(yk, xk
 # y = x + ω (x - xp)
 _extrapolate_point!(y::AbstractArray, x, xp, ω) = (@. y = x + ω * (x - xp); y)
 _extrapolate_point!(y::Tuple, x::Tuple, xp::Tuple, ω) = (foreach((yk, xk, pk) -> _extrapolate_point!(yk, xk, pk, ω), y, x, xp); y)
+
+# y = x + a (z - x) + b (x - xp), the extrapolation of monotone APG
+_extrapolate_point!(y::AbstractArray, x, z, xp, a, b) = (@. y = x + a * (z - x) + b * (x - xp); y)
+_extrapolate_point!(y::Tuple, x::Tuple, z::Tuple, xp::Tuple, a, b) =
+  (foreach((yk, xk, zk, pk) -> _extrapolate_point!(yk, xk, zk, pk, a, b), y, x, z, xp); y)
+
+# The support of a product-space iterate is the union of its block supports.
+# Decide whether the WHOLE iterate is zero before constructing any block trial:
+# a zero block in a nonzero tuple must not use its unrestricted gradient.
+_allzero(x::AbstractArray) = all(iszero, x)
+_allzero(x::Tuple) = all(_allzero, x)
+
+# w = x - τ d, where d is the gradient on the support of x, or the whole
+# gradient when whole is true. Return ‖d‖², over all blocks for a tuple.
+function _restricted_step!(w::AbstractArray, x::AbstractArray{T}, grad::AbstractArray, τ, whole::Bool) where {T}
+  dd = zero(T)
+  @inbounds for i in eachindex(x)
+    d = (whole || !iszero(x[i])) ? grad[i] : zero(T)
+    dd += d^2
+    w[i] = x[i] - τ * d
+  end
+  dd
+end
+_restricted_step!(w::Tuple, x::Tuple, grad::Tuple, τ, whole::Bool) =
+  sum(map((wk, xk, gk) -> _restricted_step!(wk, xk, gk, τ, whole), w, x, grad))
 
 # y = α x + (1 - α) z + u
 _relax!(y::AbstractArray, α, x, z, u) = (@. y = α * x + (one(α) - α) * z + u; y)

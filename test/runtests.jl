@@ -4,6 +4,7 @@ using Test
 tests = [
   "prox_solvers",
   "nonconvex",
+  "nonconvex_blocks",
   "linesearch",
   "image_models",
   "call_limits",

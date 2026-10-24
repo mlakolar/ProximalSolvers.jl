@@ -20,6 +20,8 @@ options help iterative hard thresholding:
   the previous step: the minimizer of `f` along the gradient restricted to the
   support of `x` (all of it when `x = 0`). It costs one evaluation of `f`, and
   is exact for a quadratic `f` (least squares, `KronQuadratic`).
+  For a tuple, the unrestricted gradient is used only when every block is
+  zero; otherwise each block uses its own current support.
 - `debias = k > 0` refits `f` on the support of `x` once the support has not
   changed for `k` iterations, with [`refit!`](@ref), and keeps the refit if it
   lowers the objective, as MendelIHT does. It needs a loss that `refit!`
@@ -156,14 +158,9 @@ end
 # from L = 1/μ; it keeps L when the estimate is not positive and finite.
 function _normalized_step!(f, state::ProximalGradientDescentState{T}) where T
     x, grad, w = state.x_previous, state.grad_f_x_previous, state.xhat
-    whole = all(iszero, x)
+    whole = _allzero(x)
     τ = one(T) / state.L
-    dd = zero(T)
-    @inbounds for i in eachindex(x)
-      d = (whole || !iszero(x[i])) ? grad[i] : zero(T)
-      dd += d^2
-      w[i] = x[i] - τ * d
-    end
+    dd = _restricted_step!(w, x, grad, τ, whole)
     iszero(dd) && return state
     f_w = f(w)
     state.f_calls += 1

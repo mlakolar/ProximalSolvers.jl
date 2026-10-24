@@ -177,6 +177,53 @@ increases and every limit point is a critical point of ``F``, while for a
 convex problem the method keeps the accelerated rate ``O(1/k^2)``. An
 iteration that falls back costs a second gradient and a second search.
 
+## Sparse plus low-rank block iterates
+
+All three gradient methods accept tuples of arrays, including
+`MonotoneAccProxGradDescent`. The blocks can have different shapes and storage:
+a `SymmetricSparseIterate` for a sparse symmetric matrix `S` and a dense
+rectangular factor `U`, for example. They use one backtracked step size for
+the whole pair and the Euclidean norm across both blocks.
+
+For a latent graphical model, write `Θ = S + U * U'` and supply a smooth
+loss with
+
+```math
+f(S,U) = \operatorname{tr}(\Sigma\Theta)-\log\det\Theta,\qquad
+G = \Sigma-\Theta^{-1},\quad \nabla_S f=G,\quad \nabla_U f=2GU.
+```
+
+The loss must test a Cholesky factorization of `Θ` before taking its inverse
+or log determinant. Return `Inf` when factorization fails, including from
+`value_and_gradient!`, and leave gradient buffers unused at that point. The
+line search rejects these trials. With this loss `f`, the solver call is
+
+```julia
+x = (SymmetricSparseIterate(Matrix(1.0I, p, p)), copy(U0))
+g = SeparableSum(IndBallL0(s; diagonal = false), ZeroFunction())
+r = solve!(x, f, g, MonotoneAccProxGradDescent())
+```
+
+The same interface applies to a D-trace loss composed with `S + U * U'`.
+Its gradient in `S` is the symmetric part of the matrix gradient, and the
+factor gradient is twice that symmetric part times `U`. The sign of the
+low-rank term is part of the supplied model; a solver does not choose it.
+
+For `ProximalGradientDescent(; normalized = true)`, support restriction is
+applied to every block. The unrestricted gradient is used only when the
+**entire tuple** is zero. A zero block beside an active block remains
+excluded from the curvature trial. For a nonlinear coupled loss this
+curvature estimate is a trial heuristic; backtracking still checks the
+original loss. Tuple debiasing is not supported: `debias > 0` requires a
+single iterate supported by `refit!`.
+
+The symmetric projection requires ProximalBase 0.5.3. When the diagonal counts
+toward the sparsity budget, an off-diagonal pair is ranked by its Frobenius
+weight `√2 * abs(S[i,j])`. This can select a different support from a legacy
+routine that ranks every stored entry by magnitude, even without ties.
+These nonconvex problems can also have different local solutions; a lower
+objective does not establish a global optimum.
+
 ## Stopping rules
 
 The methods stop at the first of these tests to pass, after the iteration
