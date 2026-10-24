@@ -70,6 +70,9 @@ end
   x = SparseIterate(p)
   solve!(x, ls, NormL1(0.02λmax), CDSolver(; tol = 1e-10, workingset = true); continuation = 8)
   @test kkt_residual(ls, NormL1(0.02λmax), x) <= 1e-9
+  x = SparseIterate(p)
+  r = solve!(x, ls, NormL1(0.02λmax), CDSolver(; workingset = true, gaptol = 1e-9); continuation = 8)
+  @test r.converged && r.gap <= 1e-9
 end
 
 @testset "fallback to the plain passes" begin

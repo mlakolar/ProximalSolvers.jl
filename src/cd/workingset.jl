@@ -105,7 +105,7 @@ function _cd_workingset!(x::SparseIterate{T}, m, g, st::_CDState{T}, s::CDSolver
     # the round: the passes on the set, to a tolerance relative to the scores
     st.candidates = set
     rtol = max(T(s.tol), T(_ws_ratio) * (scaled ? maxscore / sy : maxscore))
-    inner = CDSolver(s.maxpasses - passes, Float64(rtol), s.random, s.relative, s.anderson, s.momentum, 0.0, false, false)
+    inner = _with(s; maxpasses = s.maxpasses - passes, tol = Float64(rtol), gaptol = 0.0, gapsafe = false, workingset = false)
     _cd!(x, m, g, st, inner)
     passes += st.passes
     size = min(n, 2 * size)
