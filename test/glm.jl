@@ -1,6 +1,6 @@
 module GLMTests
 
-using ProximalSolvers, ProximalBase, LinearAlgebra, Random, Statistics, Test
+using ProximalSolvers, ProximalBase, LinearAlgebra, Random, SparseArrays, Statistics, Test
 logistic(z) = 1 / (1 + exp(-z))
 function kkt_l1(grad, x, λ)
   maximum(i -> x[i] == 0 ? max(abs(grad[i]) - λ, 0.0) : abs(grad[i] + λ * sign(x[i])), eachindex(x))
@@ -190,6 +190,104 @@ end
   r32 = solve!(x32, m32, NormL1(Float32(λ)), ProxNewton(; tol = 1e-6, inner = CDSolver(; tol = 1e-6)))
   @test r32.converged && eltype(r32.minimum) == Float32
   @test Vector(x32) ≈ Vector(x) atol = 1e-3
+end
+
+@testset "proximal Newton with an intercept: columns centered when screening admits them" begin
+  # Along a screened path, each Newton step centers only the candidates of the
+  # strong rule; a column that a check of the optimality conditions adds is
+  # centered from the next step on. Column 3 is correlated with column 1 but
+  # orthogonal to the weighted residuals of the fit with the intercept alone,
+  # so its gradient is zero at λmax and the strong rule leaves it out at the
+  # next level. Its small penalty weight then makes it violate the optimality
+  # conditions there once column 1 enters: it enters through the check.
+  rng = Xoshiro(11)
+  n, p = 150, 40
+  X = randn(rng, n, p)
+  y = Float64.(rand(rng, n) .< logistic.(0.4 .+ 2.0 .* X[:, 1] .- 0.7 .* X[:, 2]))
+  wt = Float64.(rand(rng, 1:3, n))
+  d = wt .* (y .- sum(wt .* y) / sum(wt))
+  u = X[:, 1] .+ 0.5 .* randn(rng, n)
+  X[:, 3] .= u .- (dot(u, d) / dot(d, d)) .* d
+  X[:, 4] .= 2.0                                   # a constant column
+  ω = ones(p); ω[3] = 0.02
+  g = NormL1(1.0, ω)
+  newton = ProxNewton(; tol = 1e-14, inner = CDSolver(; tol = 1e-10, rng = Xoshiro(1)))
+  gradient(A, β, b) = A' * (wt .* (logistic.(b .+ A * β) .- y)) / sum(wt)
+
+  for A in (X, sparse(X))
+    f = (1 / sum(wt)) * LogisticLoss(y, A; weights = wt)
+    λmax = lambda_max(ProximalSolvers.cdmodel(f, SparseIterate(p); intercept = true), g, SparseIterate(p))
+    λs = λmax * (1 + 1e-8) .* [1.0, 0.9, 0.7, 0.5, 0.3]
+    paths = map((true, false)) do screening
+      b0s = Float64[]
+      path = solve_path(ProximalSolvers.cdmodel(f, SparseIterate(p); intercept = true), g, λs, newton; devmax = 1.0,
+                        screening, callback = (k, λ, x, m) -> (push!(b0s, ProximalSolvers.intercept(m, x)); false))
+      (path = path, b0s = b0s)
+    end
+    path, b0s = paths[1]
+    @test length(path.λ) == length(λs) && all(path.converged)
+    # column 3 enters at the second level, through the check
+    @test nnz(path.solutions[1]) == 0 && path.solutions[2][3] != 0
+    @test abs(gradient(A, Vector(path.solutions[1]), b0s[1])[3]) < (2λs[2] - λs[1]) * ω[3]
+    @test path.kkt_checks[2] >= 2
+    # the solutions satisfy the optimality conditions of β and of the intercept,
+    # and agree with those of the path without screening, which centers every
+    # column at every step
+    for k in eachindex(λs)
+      βk = Vector(path.solutions[k])
+      μk = logistic.(b0s[k] .+ A * βk)
+      @test abs(sum(wt .* (μk .- y))) / sum(wt) < 1e-10
+      @test kkt_l1(gradient(A, βk, b0s[k]) ./ ω, βk, λs[k]) < 1e-8
+      @test norm(path.solutions[k] - paths[2].path.solutions[k]) < 1e-9
+      @test b0s[k] ≈ paths[2].b0s[k] atol = 1e-9
+    end
+    @test path.values ≈ paths[2].path.values rtol = 1e-12
+  end
+
+  # the means themselves: a step centers the candidates at its weights, the
+  # constant column at its value exactly, and leaves the other columns alone
+  # until a later call admits them
+  f = (1 / sum(wt)) * LogisticLoss(y, X; weights = wt)
+  λl = 0.5 * lambda_max(ProximalSolvers.cdmodel(f, SparseIterate(p); intercept = true), g, SparseIterate(p))
+  gl = NormL1(λl, ω)
+  means(ws, cols) = X[:, cols]' * ws.v ./ sum(ws.v)
+  m = ProximalSolvers.cdmodel(f, SparseIterate(p); intercept = true)
+  x = SparseIterate(p)
+  ProximalSolvers.initialize!(m, x)
+  ws = ProximalSolvers._NewtonWorkspace(m, x, newton.inner)
+  ProximalSolvers._proxnewton!(x, m, gl, newton, ws, [1, 2, 4])
+  @test ws.model.xbar[[1, 2]] ≈ means(ws, [1, 2]) atol = 1e-12
+  @test ws.model.xbar[4] == 2.0
+  @test all(iszero, ws.model.xbar[[3; 5:p]])
+  ProximalSolvers._proxnewton!(x, m, gl, newton, ws, [1, 2, 3, 4])
+  @test ws.model.xbar[[1, 2, 3]] ≈ means(ws, [1, 2, 3]) atol = 1e-12
+  @test all(iszero, ws.model.xbar[5:p])
+  # the solution over the candidates, with its intercept
+  β, b = Vector(x), ProximalSolvers.intercept(m, x)
+  @test β[3] != 0
+  @test abs(sum(wt .* (logistic.(b .+ X * β) .- y))) / sum(wt) < 1e-10
+  @test kkt_l1(gradient(X, β, b)[1:4] ./ ω[1:4], β[1:4], λl) < 1e-8
+  # centering allocates nothing, over some columns or all of them
+  centerbytes(ws, cols) = @allocated ProximalSolvers._center!(ws, cols)
+  cols = [1, 2, 3, 4]
+  centerbytes(ws, cols); centerbytes(ws, nothing)
+  @test centerbytes(ws, cols) == 0
+  @test centerbytes(ws, nothing) == 0
+  # every column with the duality gaps of gapsafe in the inner solves, which
+  # read them all, and with candidates for more than half of the columns of a
+  # dense X
+  others = [k for k in 1:p if k != 4]
+  for (inner, cand) in ((CDSolver(; tol = 1e-10, gapsafe = true, rng = Xoshiro(1)), [1, 2, 4]),
+                        (newton.inner, collect(1:div(p, 2) + 1)))
+    method = ProxNewton(; tol = 1e-14, inner)
+    m = ProximalSolvers.cdmodel(f, SparseIterate(p); intercept = true)
+    x = SparseIterate(p)
+    ProximalSolvers.initialize!(m, x)
+    ws = ProximalSolvers._NewtonWorkspace(m, x, method.inner)
+    ProximalSolvers._proxnewton!(x, m, gl, method, ws, cand)
+    @test ws.model.xbar[others] ≈ means(ws, others) atol = 1e-12
+    @test ws.model.xbar[4] == 2.0
+  end
 end
 
 end

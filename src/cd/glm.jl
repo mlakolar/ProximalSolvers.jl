@@ -392,18 +392,69 @@ function _NewtonWorkspace(m::GLMModel{T}, x::SparseIterate{T}, inner::CDSolver) 
 end
 
 # the weighted means of the columns and of z that center the least-squares model
-# of a step for the intercept
-function _center!(ws::_NewtonWorkspace{T}) where {T}
+# of a step for the intercept. With `cols`, only the means of those columns: the
+# others keep stale means, which the step must not read (see _centered_columns).
+function _center!(ws::_NewtonWorkspace{T}, cols::Union{Nothing, Vector{Int}}) where {T}
   model, v, X = ws.model, ws.v, ws.model.X
   sv = sum(v)
-  mul!(model.xbar, transpose(X), v)
-  model.xbar ./= sv
-  @inbounds for k in eachindex(ws.constant)
-    ws.constant[k] && (model.xbar[k] = X[1, k])
+  if cols === nothing
+    mul!(model.xbar, transpose(X), v)
+    model.xbar ./= sv
+    @inbounds for k in eachindex(ws.constant)
+      ws.constant[k] && (model.xbar[k] = X[1, k])
+    end
+  else
+    _column_means!(model.xbar, X, v, sv, cols)
+    @inbounds for k in cols
+      ws.constant[k] && (model.xbar[k] = X[1, k])
+    end
   end
   model.ybar = dot(v, ws.z) / sv
   model.wsum = sv
   ws
+end
+
+# xbar[k] = X[:, k]'v / sv for the columns k in cols
+function _column_means!(xbar::Vector{T}, X::AbstractMatrix{T}, v::Vector{T}, sv::T, cols::Vector{Int}) where {T}
+  @inbounds for k in cols
+    s = zero(T)
+    @simd for i in eachindex(v)
+      s += X[i, k] * v[i]
+    end
+    xbar[k] = s / sv
+  end
+  xbar
+end
+
+function _column_means!(xbar::Vector{T}, X::SparseMatrixCSC{T}, v::Vector{T}, sv::T, cols::Vector{Int}) where {T}
+  rows, vals = rowvals(X), nonzeros(X)
+  @inbounds for k in cols
+    s = zero(T)
+    for j in nzrange(X, k)
+      s += vals[j] * v[rows[j]]
+    end
+    xbar[k] = s / sv
+  end
+  xbar
+end
+
+# The columns whose means a step centers: all of them, or the candidates of
+# screening. The inner coordinate descent then reads the means of the
+# candidates only. Its first pass is over the candidates, and the dropzeros!
+# after it removes any other stored zero, so that the active set stays among
+# the candidates; screening counts the nonzero coordinates among them, and the
+# line search moves between two points supported on them. The columns that a
+# check of the optimality conditions adds are centered from the next call on.
+# The duality gap of gaptol and gapsafe reads every column of the model, so it
+# needs all the means, as does a dense X with more candidates than half its
+# columns, whose product X'v costs less than the columns one at a time.
+function _centered_columns(X::AbstractMatrix, candidates::Union{Nothing, Vector{Int}}, inner::CDSolver)
+  (candidates === nothing || inner.gaptol > 0 || inner.gapsafe) && return nothing
+  2 * length(candidates) > size(X, 2) ? nothing : candidates
+end
+
+function _centered_columns(X::SparseMatrixCSC, candidates::Union{Nothing, Vector{Int}}, inner::CDSolver)
+  (candidates === nothing || inner.gaptol > 0 || inner.gapsafe) ? nothing : candidates
 end
 
 # Proximal Newton steps on f + g from x, with m.η = Xx + β₀ + o current; with
@@ -416,6 +467,7 @@ function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton
   n = length(η)
   F = _glmvalue(loss, y, w, s, η) + g(x)
   passes, converged, inner_converged = 0, false, true
+  cols = m.intercept ? _centered_columns(model.X, candidates, method.inner) : nothing
   for _ in 1:method.maxiter
     # the quadratic model at x: weights v, responses z (working responses minus
     # the offset), updated in place
@@ -425,7 +477,7 @@ function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton
       v[i] = _obsweight(w, i, T) * d2
       z[i] = η[i] - d1 / d2 - (o === nothing ? zero(T) : o[i])
     end
-    m.intercept && _center!(ws)
+    m.intercept && _center!(ws, cols)
     copyto!(ws.x0, x)
     copyto!(ws.η0, η)
     b0 = m.β0
