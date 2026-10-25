@@ -175,6 +175,12 @@ function _slope_kkt(X,y,x,lambda,scale,w::_SLOPEWorkspace)
   residual,grad,w.trial
 end
 
+function _slope_inner!(b,f,g,method::SLOPEAPG,budget,target)
+  options = ProximalOptions(;maxiter=max(2,budget),ftol=eps(Float64),
+    xtol=eps(Float64),gradtol=method.tol/10,allow_f_increases=true)
+  solve!(b,f,g,AccProxGradDescent(),options).iterations
+end
+
 function _slope_fit!(x,X,y,lambda,scale,candidates,method,w)
   p = length(x)
   indices = collect(candidates)
@@ -191,10 +197,7 @@ function _slope_fit!(x,X,y,lambda,scale,candidates,method,w)
       b = x[E]
       f = scale * _slope_restricted_loss(X,y,E,w)
       g = SLOPE(lambda[1:length(E)])
-      options = ProximalOptions(;maxiter=max(2,method.maxiter-total),ftol=eps(Float64),
-        xtol=eps(Float64),gradtol=method.tol/10,allow_f_increases=true)
-      r = solve!(b,f,g,AccProxGradDescent(),options)
-      total += r.iterations
+      total += _slope_inner!(b,f,g,method,method.maxiter-total,target)
       x[E] = b
     end
     residual, grad, trial = _slope_kkt(X,y,x,lambda,scale,w)
@@ -253,6 +256,10 @@ The caller supplies already prepared data and penalty weights. See
 """
 function solve_path(f::AbstractFunction,g::SLOPE,factors::AbstractVector{<:Real},method::SLOPEAPG;
                     x=_slope_default_x(f),screening::Bool=true)
+  _slope_path(f,g,factors,method;x,screening)
+end
+
+function _slope_path(f,g,factors,method;x,screening)
   X,y,scale = _check_slope_data(x,f,g)
   T = eltype(x);a = T.(factors)
   !isempty(a) && all(isfinite,a) && all(>(0),a) && issorted(a;rev=true) ||
