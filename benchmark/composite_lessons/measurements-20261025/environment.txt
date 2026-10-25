@@ -1,0 +1,9 @@
+Julia 1.13.2; CPU apple-m3; threads 1
+BLAS LBTConfig([ILP64] libopenblas64_.0.3.30.dylib, [LP64] libopenblas.0.3.34.dylib); threads 1
+repeats=3; common certificate target=1.0e-6
+JuMP 1.32.1; HiGHS 1.26.1
+ProximalBase 0.5.3 source=646fe3505dc7d888f5b16fdf2e62b20a3e1549b2 tracked_changes=false
+ProximalSolvers 0.1.1 source=62a4761c1db33bce0e629d74cab9c1f1fcd4a63a tracked_changes=true
+examples/support/primal_dual_lessons.jl git-blob=d87d626d28ec1159372e69ef5bcde4e771314e2c
+benchmark/composite_lessons/run.jl git-blob=7dbefab69e13e56404dce58f7683cf341f1334e1
+benchmark/composite_lessons/qp.jl git-blob=4e6ec36fb185134cd1d6bf9f1103daaf387bf3d6

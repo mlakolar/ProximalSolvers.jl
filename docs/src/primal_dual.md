@@ -1,5 +1,10 @@
 # Primal–dual splitting
 
+For a derivation, harder worked problems, and comparisons with QP and ordinary
+or specialized ADMM methods, read [Choosing a splitting for a composite problem](@ref composite_lessons).
+That lecture explains when this solver is useful and when a specialized
+proximal operator or a different splitting is preferable.
+
 [`CondatVu`](@ref) minimizes
 
 ```math

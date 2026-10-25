@@ -35,3 +35,9 @@ Run `julia --project=test/oracles test/oracles/primal_dual.jl` after instantiati
 this environment. HiGHS independently checks quantile-regression coefficients
 and dual scores at three quantiles, with dense and sparse designs, and a
 second-difference generalized lasso against a quadratic program.
+
+The same script checks the graph-fusion and trend-filtering lecture examples
+against independent QPs. It verifies the shared strong-convexity lower bound
+at arbitrary nonoptimal points, the reconstructed trend-filtering dual, and
+objective/coefficient discrepancies for Condat–Vũ and the reference ADMM
+algorithms. The 62 additional assertions pass on Julia 1.10.12 and 1.13.2.

@@ -1,0 +1,19 @@
+[deps]
+HiGHS = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
+JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+ProximalBase = "0a755509-c5b1-5d6f-9b24-59bcda3c37a3"
+ProximalSolvers = "fc4971f5-6616-4709-9bfc-89a819252f6b"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+
+[sources]
+ProximalBase = {url = "https://github.com/mlakolar/ProximalBase.jl", rev = "646fe3505dc7d888f5b16fdf2e62b20a3e1549b2"}
+ProximalSolvers = {path = "../.."}
+
+[compat]
+HiGHS = "1"
+JuMP = "1"
+ProximalBase = "0.5.3"
+julia = "1.10"

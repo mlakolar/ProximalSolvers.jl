@@ -18,6 +18,42 @@ function quantile_lp(X,b,q,λ)
   JuMP.value.(bp)-JuMP.value.(bm), -JuMP.dual.(eq), JuMP.objective_value(m)
 end
 
+# The lecture examples compare different splittings. Check their shared
+# lower bound and reconstructed dual against an independent QP, including
+# arbitrary nonoptimal points so a formula that only works at convergence
+# cannot pass unnoticed.
+include(joinpath(@__DIR__, "..", "..", "examples", "support", "primal_dual_lessons.jl"))
+using .PrimalDualLessons
+include(joinpath(@__DIR__, "..", "..", "benchmark", "composite_lessons", "qp.jl"))
+
+@testset "Composite lecture certificates and reference algorithms" begin
+  rng = MersenneTwister(1516)
+  for a in (graph_problem(5), trend_problem(40))
+    reference = qp_solve(a; tol = 1e-7)
+    @test reference.converged
+    for _ in 1:5
+      x = randn(rng, a.p)
+      y = 10a.λ2 * randn(rng, size(a.D, 1))
+      c = certificate(a, x, y)
+      @test c.lower <= reference.cert.primal + 1e-8
+      @test c.primal - reference.cert.primal <= c.gap + 1e-8
+      @test norm(x - reference.x) <= c.distance_bound + reference.cert.distance_bound + 1e-8
+      @test norm(c.dual, Inf) <= a.λ2
+      if a.name == "trend"
+        d = a.D' * c.dual
+        @test c.lower ≈ dot(a.b, d) - sum(abs2, d) / 2 atol = 1e-8
+      end
+    end
+    fits = [native_solve(a; tol = 1e-7), split_admm(a; tol = 1e-7)]
+    a.name == "trend" && push!(fits, trend_admm(a; tol = 1e-7))
+    for r in fits
+      @test r.converged
+      @test abs(r.cert.primal - reference.cert.primal) <= r.cert.gap + reference.cert.gap + 1e-8
+      @test norm(r.x - reference.x) <= r.cert.distance_bound + reference.cert.distance_bound + 1e-8
+    end
+  end
+end
+
 function quantile_data(n,p,q=.3)
   rng=MersenneTwister(23+n+p)
   X=randn(rng,n,p); X ./= sqrt.(sum(abs2,X;dims=1)./n)

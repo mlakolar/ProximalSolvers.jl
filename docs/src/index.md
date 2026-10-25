@@ -47,6 +47,7 @@ determines which structure of the loss and penalty the algorithm uses.
 | Adaptive weights, local linear approximation and post-selection refits | [Reweighting and refitting](@ref), [Nonconvex penalties: exact steps or local linear approximation](@ref) |
 | Penalized GLMs and the graphical lasso | [Proximal Newton](@ref) |
 | Low-rank regression and general proximal problems | [Proximal gradient methods](@ref), [ADMM](@ref) |
+| Graph fusion, trend filtering, and the choice of a composite splitting | [Choosing a splitting for a composite problem](@ref composite_lessons) |
 | Sparse problems with a restricted gradient calculation | [Active-set proximal gradient](@ref) |
 | A loss of your own | [A coordinate descent model of your own](@ref) |
 

@@ -27,3 +27,6 @@
 
 /benchmark/primal_dual/Manifest*.toml
 /benchmark/primal_dual/results/
+
+/benchmark/composite_lessons/Manifest*.toml
+/benchmark/composite_lessons/results/

@@ -31,6 +31,15 @@ with their output.
 | [`11_low_rank_regression.jl`](11_low_rank_regression.jl) | multi-response regression | `NuclearNorm` with a matrix iterate; the subgradient of the nuclear norm as a check |
 | [`12_graphical_lasso.jl`](12_graphical_lasso.jl) | the graphical lasso | `ADMMSolver` with `LogDetLoss` and a weighted `NormL1`: adaptive ρ, over-relaxation, warm starts along a path |
 | [`13_custom_model.jl`](13_custom_model.jl) | the lasso with a sparse design | a `CDModel` of your own: `initialize!`, `coordinate_derivatives`, `update_cache!` and the optional functions |
+| [`14_primal_dual.jl`](14_primal_dual.jl) | second-difference generalized lasso | `CondatVu`, KKT residuals, primal/dual warm starts |
+| [`15_graph_fusion.jl`](15_graph_fusion.jl) | sparse regression on an irregular graph | separate coefficient and edge penalties; a common accuracy certificate; comparison with factorization-based ADMM |
+| [`16_trend_filtering.jl`](16_trend_filtering.jl) | piecewise linear signal estimation | ordinary and TV-split ADMM compared with Condat–Vũ; why specialized splittings matter |
 
 The building blocks, the functions and their proximal operators, have their
 own examples in [ProximalBase.jl](https://github.com/mlakolar/ProximalBase.jl/tree/master/examples).
+
+Examples 15 and 16 are accompanied by a lecture on composite splitting in the
+documentation. Their reference algorithms are in `support/`, outside the
+package API. Independent QP checks and repeated timings live in the separate
+`benchmark/composite_lessons` environment; JuMP and HiGHS are not required by
+the examples, normal tests, or documentation build.
