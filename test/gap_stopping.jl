@@ -46,20 +46,21 @@ end
   ref = solve_path(f, NormL1(1.0), λs, CDSolver(; tol = 1e-13); gaptol = 0)
   @test all(isnan, ref.gap)
   lassogap(k, s) = relgap(duality_gap(f, NormL1(λs[k]), SparseIterate(Vector(s))))
-  @test PS.PATH_GAPTOL == 1e-8
+  @test PS.PATH_GAPTOL == 1e-4
   passes = Dict{Float64, Int}()
-  for screening in (true, false), (kw, gaptol) in (((;), 1e-8), ((; gaptol = 1e-6), 1e-6))
+  for screening in (true, false), (kw, gaptol) in (((;), 1e-4), ((; gaptol = 1e-3), 1e-3), ((; gaptol = 1e-8), 1e-8))
     r = solve_path(f, NormL1(1.0), λs, CDSolver(; rng = Xoshiro(1)); screening, kw...)
     checkgaps(r, gaptol, lassogap)
     screening && (passes[gaptol] = sum(r.passes))
-    # a relative gap ε certifies P - P* ≤ ε|P|; in practice the solutions are
-    # within about 10ε of the solution
+    # a relative gap ε certifies P - P* ≤ ε|P|; in practice the coefficients
+    # are within about ε of the solution, relative to the largest, and about
+    # 50ε at worst
     for k in eachindex(λs)
       @test r.values[k] - ref.values[k] <= gaptol * abs(ref.values[k]) + 1e-14
-      @test norm(r.solutions[k] - ref.solutions[k], Inf) <= 1e3 * gaptol * max(norm(ref.solutions[k], Inf), 1e-3)
+      @test norm(r.solutions[k] - ref.solutions[k], Inf) <= 200 * gaptol * max(norm(ref.solutions[k], Inf), 1e-3)
     end
   end
-  @test passes[1e-6] < passes[1e-8]
+  @test passes[1e-3] < passes[1e-4] < passes[1e-8]
   # gaptol of the method is the default target; gaptol = 0 is the rule on the changes
   r = solve_path(f, NormL1(1.0), λs, CDSolver(; gaptol = 1e-5, rng = Xoshiro(1)))
   checkgaps(r, 1e-5, lassogap)
@@ -80,7 +81,7 @@ end
     λs = λmax .* 10 .^ range(0, -1.5; length = 20)
     for screening in (true, false)
       r = solve_path(f, g, λs, CDSolver(; rng = Xoshiro(1)); screening)
-      checkgaps(r, 1e-8, (k, s) -> relgap(duality_gap(f, gapg(λs[k]), SparseIterate(Vector(s)))))
+      checkgaps(r, PS.PATH_GAPTOL, (k, s) -> relgap(duality_gap(f, gapg(λs[k]), SparseIterate(Vector(s)))))
     end
   end
 
@@ -96,7 +97,7 @@ end
       r = solve_path(m, NormL1(1.0), λs, CDSolver(; rng = Xoshiro(1)); x = SparseIterate(p), screening)
       gapof(k, s) = icpt ? relgap(duality_gap(cdmodel(fx, SparseIterate(p); intercept = true), NormL1(λs[k]), SparseIterate(Vector(s)))) :
                            relgap(duality_gap(fx, NormL1(λs[k]), SparseIterate(Vector(s))))
-      checkgaps(r, 1e-8, gapof)
+      checkgaps(r, PS.PATH_GAPTOL, gapof)
     end
   end
 end
@@ -113,13 +114,13 @@ end
   λs = λmax .* 10 .^ range(0, -1.5; length = 20)
   for screening in (true, false)
     r = solve_path(f, g, λs, CDSolver(; rng = Xoshiro(1)); x = AtomIterate(p, groups), screening)
-    checkgaps(r, 1e-8, (k, s) -> relgap(duality_gap(f, GroupNormL2(λs[k], groups, wg), AtomIterate(Vector(s), groups))))
+    checkgaps(r, PS.PATH_GAPTOL, (k, s) -> relgap(duality_gap(f, GroupNormL2(λs[k], groups, wg), AtomIterate(Vector(s), groups))))
   end
   sg = Scaled(SparseGroupNormL2(0.5, 0.5, groups, wg), 1.0)
   λmax = lambda_max(f, sg, x0)
   λs = λmax .* 10 .^ range(0, -1.5; length = 20)
   r = solve_path(f, sg, λs, CDSolver(; rng = Xoshiro(1)); x = AtomIterate(p, groups))
-  checkgaps(r, 1e-8, (k, s) -> relgap(duality_gap(f, Scaled(SparseGroupNormL2(0.5, 0.5, groups, wg), λs[k]),
+  checkgaps(r, PS.PATH_GAPTOL, (k, s) -> relgap(duality_gap(f, Scaled(SparseGroupNormL2(0.5, 0.5, groups, wg), λs[k]),
                                                   AtomIterate(Vector(s), groups))))
 end
 
@@ -130,7 +131,7 @@ end
   λmax = lambda_max(f, NormL1(1.0), SparseIterate(p))
   λs = λmax .* 10 .^ range(0, -1.5; length = 20)
   gapof(k, s) = relgap(duality_gap(f, NormL1(λs[k]), SparseIterate(Vector(s))))
-  for gaptol in (1e-8, 1e-6)
+  for gaptol in (1e-3, 1e-4, 1e-8)
     checkgaps(solve_path(f, NormL1(1.0), λs, CDSolver(; rng = Xoshiro(1)); gaptol), gaptol, gapof)
     for screening in (true, false)
       r = solve_path(f, NormL1(1.0), λs, ProxNewton(; inner = CDSolver(; rng = Xoshiro(1))); gaptol, screening, devmax = 1)
@@ -155,7 +156,7 @@ end
   n, p = size(X)
   f = (1 / n) * LeastSquaresLoss(y, X)
   λ = 0.05 * lambda_max(f, NormL1(1.0), SparseIterate(p))
-  for (kw, gaptol) in (((;), 1e-8), ((; gaptol = 1e-6), 1e-6)), screening in (true, false)
+  for (kw, gaptol) in (((;), 1e-4), ((; gaptol = 1e-3), 1e-3), ((; gaptol = 1e-8), 1e-8)), screening in (true, false)
     x = SparseIterate(p)
     r = solve!(x, f, NormL1(λ), CDSolver(; rng = Xoshiro(1)); continuation = 10, screening, kw...)
     @test r.converged

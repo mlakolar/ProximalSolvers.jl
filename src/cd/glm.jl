@@ -685,7 +685,7 @@ and the explained fraction tends to one. `devmax = 1` never stops; the rule is
 off for a scalar loss whose saturated loss is unknown.
 
 As for coordinate descent, each level stops on a relative duality gap of at
-most `gaptol` ([`PATH_GAPTOL`](@ref) `= 1e-8` by default, `1e-6` for the
+most `gaptol` ([`PATH_GAPTOL`](@ref) `= 1e-4` by default, `1e-3` for the
 faster setting) when the loss and the penalty have one (the squared, logistic,
 Poisson and Huber losses with `NormL1`, `NormL1Nonneg` or `ElasticNet`): the
 Newton steps stop on the gap of the problem restricted to the candidates, each

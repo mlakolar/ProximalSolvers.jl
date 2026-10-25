@@ -165,18 +165,18 @@ end
 const _GAPRETRIES = 3
 
 """
-    PATH_GAPTOL = 1e-8
+    PATH_GAPTOL = 1e-4
 
 The default target of the relative duality gap at each level of
 [`solve_path`](@ref) and at the last level of continuation; see
-[`solve_path`](@ref). `gaptol = 1e-6` is the documented faster setting, for
-cross-validation and prediction. In single precision the default is
-`64 eps(Float32) ≈ 7.6e-6`, since the gap is computed to about `eps |P|`.
+[`solve_path`](@ref). The coefficients are then within about `1e-4` of the
+solution, relative to the largest, and within about `5e-3` at worst.
+`gaptol = 1e-3` is the documented faster setting, for cross-validation and
+prediction, and `gaptol = 0` gives back the rule on the changes.
 """
-const PATH_GAPTOL = 1e-8
+const PATH_GAPTOL = 1e-4
 
-# PATH_GAPTOL, but at least 64 roundings: the gap is computed to about eps |P|,
-# so that Float32 has the default 64 eps(Float32) ≈ 7.6e-6
+# PATH_GAPTOL, but at least 64 roundings: the gap is computed to about eps |P|
 _default_gaptol(::Type{T}) where {T} = max(PATH_GAPTOL, 64 * Float64(eps(T)))
 
 # The solver of the levels of a path or of the last level of continuation, with
@@ -205,8 +205,8 @@ tolerance `continuation_tol` (`√tol` for the tolerance `tol` of `method`, by
 default) by the rule on the changes, and only `g` to the final accuracy;
 `continuation_tol = method.tol` solves every level to `tol`. As the levels of
 [`solve_path`](@ref), the level of `g` stops on a relative duality gap of at
-most `gaptol` when `f` and `g` have one: [`PATH_GAPTOL`](@ref) `= 1e-8` by
-default (or `method.gaptol` when it is positive), `1e-6` for a faster, looser
+most `gaptol` when `f` and `g` have one: [`PATH_GAPTOL`](@ref) `= 1e-4` by
+default (or `method.gaptol` when it is positive), `1e-3` for a faster, looser
 solve, `0` for the rule on the changes with `tol`. The `gap` of the results
 reports the gap reached. With `screening`, each level is screened with the strong rule
 (see [`solve_path`](@ref)); the default screens except on a
@@ -387,20 +387,22 @@ with `P = f + gₖ` at the solution and `D` the dual objective at the dual point
 built from the gradient (see [`duality_gap`](@ref)), when `f` and `g` have a
 gap: least squares and the GLMs with the squared, logistic, Poisson or Huber
 loss, with `NormL1`, `NormL1Nonneg`, `ElasticNet`, `GroupNormL2` or the sparse
-group lasso. The default `gaptol` is [`PATH_GAPTOL`](@ref) `= 1e-8` (or
-`method.gaptol` when it is positive); `gaptol = 1e-6` is the faster setting for
+group lasso. The default `gaptol` is [`PATH_GAPTOL`](@ref) `= 1e-4` (or
+`method.gaptol` when it is positive); `gaptol = 1e-3` is the faster setting for
 cross-validation and prediction. During the solve the gap is that of the
 problem restricted to the candidates of the strong rule, at the cost of one
 pass over them; the full gradient of the optimality check of screening then
 gives the gap of the whole problem, which the `gap` of the results reports.
-A relative gap `ε` bounds the relative suboptimality of `P`, and the
-coefficients are then within about `√ε` (relative) of the solution, for a
-strongly convex restriction to the support: `1e-4` at the default, `1e-3` at
-`1e-6`, well below the statistical error of most fits. Other losses and
-penalties, a coordinate without penalty whose gradient is not zero (whose dual
-point does not exist), and `gaptol = 0` keep the rule on the changes of
-[`CDSolver`](@ref) with its `tol`, which reaches relative suboptimalities of
-`1e-11` to `1e-16` on least squares.
+A relative gap `ε` certifies a relative suboptimality of at most `ε`; in
+practice the suboptimality is about `ε²`, since this gap shrinks only as fast
+as the error of the fitted values, and the coefficients are within about `ε`
+of the solution, relative to the largest (median over the levels), and within
+about `50ε` at worst: about `1e-4` (worst `5e-3`) at the default and `1e-3`
+(worst `2e-2`) at `1e-3`, well below the statistical error of most fits. Other
+losses and penalties, a coordinate without penalty whose gradient is not zero
+(whose dual point does not exist), and `gaptol = 0` keep the rule on the
+changes of [`CDSolver`](@ref) with its `tol`, which reaches relative
+suboptimalities of `1e-11` to `1e-16` on least squares.
 
 The slope test at zero, on which λmax and screening rest, agrees with the
 exact coordinate steps of `MCP(λ, a)`, `SCAD(λ, a)`, `GroupMCP` and `GroupSCAD`
