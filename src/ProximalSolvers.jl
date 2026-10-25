@@ -33,6 +33,7 @@ export
   AccProxGradDescent,
   MonotoneAccProxGradDescent,
   ActiveAccProxGradDescent,
+  SLOPEAPG,
   ADMMSolver,
   CondatVu,
   CDSolver,
@@ -51,7 +52,8 @@ export
   ProximalSolver,
   ProximalOptions,
   OptimizationState, OptimizationTrace,
-  CDResults, PathResults, ReweightResults
+  CDResults, PathResults, ReweightResults,
+  SLOPEResults, SLOPEPathResults
 
 # the interface of coordinate descent models (see CDModel) and the accessors of
 # the least-squares and GLM models: public, not exported
@@ -95,6 +97,8 @@ include("cd/path.jl")
 include("cd/refit_cache.jl")
 include("cd/drivers.jl")
 include("cd/lla.jl")
+
+include("solvers/slope.jl")
 
 include("utils.jl")
 

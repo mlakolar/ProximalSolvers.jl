@@ -23,6 +23,7 @@ ProximalGradientDescent
 AccProxGradDescent
 MonotoneAccProxGradDescent
 ActiveAccProxGradDescent
+SLOPEAPG
 ProximalSolvers.LineSearches.BackTracking
 ```
 
@@ -48,6 +49,8 @@ ProximalSolvers.ActiveSetResults
 ProximalSolvers.ADMMResults
 ProximalSolvers.PrimalDualResults
 CDResults
+SLOPEResults
+SLOPEPathResults
 OptimizationState
 OptimizationTrace
 ```

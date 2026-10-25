@@ -37,6 +37,7 @@ refits on the same engine.
 |:--------|:-------|:----------------|
 | Smooth loss and a convex penalty with a proximal operator | [`AccProxGradDescent`](@ref), [`ProximalGradientDescent`](@ref) | [Proximal gradient methods](@ref) |
 | Smooth loss and a nonconvex penalty with a proximal operator | [`MonotoneAccProxGradDescent`](@ref), [`ProximalGradientDescent`](@ref) | [Nonconvex penalties](@ref) |
+| Single-response least squares with a sorted L1 penalty and a penalty path | [`SLOPEAPG`](@ref) | [Screened SLOPE paths](@ref) |
 | Smooth loss, sparse solution, and supported restrictions to active coordinates | [`ActiveAccProxGradDescent`](@ref) | [Active-set proximal gradient](@ref) |
 | Convex `f + g + h(D*x)` with a smooth `f` and proximal operators for `g` and `h` | [`CondatVu`](@ref) | [Primal–dual splitting](@ref) |
 | Two functions with proximal operators | [`ADMMSolver`](@ref) | [ADMM](@ref) |
