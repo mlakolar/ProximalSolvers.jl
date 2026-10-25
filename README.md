@@ -103,6 +103,21 @@ penalty paths, group penalties, low-rank models and graphical models.
 place these solvers in the statistical software collection and describe the
 performance comparisons.
 
+## Development and tests
+
+From the package checkout, resolve dependencies and run the complete suite with:
+
+```sh
+julia scripts/instantiate.jl
+julia scripts/test_master.jl
+```
+
+The bootstrap uses sibling `master` checkouts for workspace dependencies. The
+runner creates an isolated environment containing the package and its test
+extras, including extra-only master dependencies on Julia 1.10, while keeping
+this package's `Project.toml` unchanged. See [CONTRIBUTING.md](CONTRIBUTING.md)
+for the naming policy and development setup.
+
 ## License
 
 MIT, see [LICENSE](LICENSE).

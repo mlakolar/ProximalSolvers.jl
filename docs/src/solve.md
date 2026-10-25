@@ -52,14 +52,14 @@ inner solve of the active-set method:
 | `allow_f_increases` | `false` | keep going when the objective increases |
 | `time_limit` | `Inf` | the longest run time, in seconds |
 | `f_calls_limit`, `grad_calls_limit`, `prox_calls_limit` | `0` | the largest number of evaluations of ``f``, of its gradient and of proximal operators; `0` is no limit |
-| `store_trace`, `show_trace`, `extended_trace`, `printEvery` | `false`, `false`, `false`, `1` | record or print the progress |
-| `callback` | `nothing` | called every `printEvery` iterations; returning `true` stops |
+| `store_trace`, `show_trace`, `extended_trace`, `print_every` | `false`, `false`, `false`, `1` | record or print the progress |
+| `callback` | `nothing` | called every `print_every` iterations; returning `true` stops |
 | `gaptol`, `gapevery` | `0`, `10` | with `gaptol > 0`, stop when the relative duality gap, computed every `gapevery` iterations, is at most `gaptol` (see [Duality gaps](@ref)) |
 
 The tests of `ftol`, `xtol` and `gradtol` are those of
 [Proximal gradient methods](@ref "Stopping rules"); the solver stops when any
 of them passes. [`ADMMSolver`](@ref) has its own tolerances and uses only
-`maxiter`, `time_limit`, `prox_calls_limit`, `show_trace`, `printEvery`,
+`maxiter`, `time_limit`, `prox_calls_limit`, `show_trace`, `print_every`,
 `gaptol` and `gapevery`.
 [`CDSolver`](@ref) and [`ProxNewton`](@ref) take their settings as keywords
 of their constructors instead: `CDSolver(; maxpasses, tol, order, relative,
@@ -127,10 +127,19 @@ With `store_trace = true` the proximal gradient solvers record an
 [`OptimizationState`](@ref) per iteration in `res.trace`: the iteration, the
 objective `fg_x`, the relative change of the iterate `dxx` and the inverse step
 size `L`. `extended_trace = true` also stores the iterate and the gradient.
-`show_trace = true` prints the same every `printEvery` iterations. A
+`show_trace = true` prints the same every `print_every` iterations. A
 `callback` receives the trace, or the current state when the trace is not
 stored, and stops the solver by returning `true`.
 
 For the penalty paths of coordinate descent, `solve_path(...; callback)` calls
 `callback(k, λ, x, m)` after each level instead; see
 [Penalty paths and screening](@ref).
+
+## Naming compatibility
+
+Use `ProximalOptions(; print_every=...)` and `CondatVu(; norm_d=...)`.
+The previous keyword and property names `printEvery` and `normD` remain
+available with deprecation warnings. Supplying both spellings of a keyword
+is an error. These changes preserve option meanings and positional
+constructor ordering. Internal solver-state fields now use `delta_x` and
+`max_residual`.

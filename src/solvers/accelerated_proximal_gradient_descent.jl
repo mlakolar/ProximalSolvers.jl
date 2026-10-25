@@ -51,9 +51,9 @@ mutable struct AccProxGradDescentState{T, X<:Union{AbstractArray{T}, _Blocks{T}}
     f_y::T
     grad_f_y::G
     xhat::X
-    deltaX::X
+    delta_x::X
     L::T
-    maxResidual::T
+    max_residual::T
     k::Int            # iterations since the last restart
     restarts::Int
     backtrack_steps::Int
@@ -92,7 +92,7 @@ function initial_state(
                          _similar(x0), # Temporary storage
                          _similar(x0), # Temporary storage for x1 - x0
                          one(T),      # L
-                         T(-Inf),     # maxResidual
+                         T(-Inf),     # max_residual
                          0,
                          0,
                          0,           # backtrack_steps
@@ -143,7 +143,7 @@ function update_state!(
     end
 
     state.k += 1
-    _sub!(state.deltaX, state.x, state.x_previous)
+    _sub!(state.delta_x, state.x, state.x_previous)
     state
 end
 

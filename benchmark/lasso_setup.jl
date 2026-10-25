@@ -15,7 +15,7 @@ using Serialization
 
 include(joinpath(@__DIR__, "lasso_common.jl"))
 include(joinpath(@__DIR__, "lasso_legacy_client.jl"))
-import CoordinateDescent, GLMNet, Lasso
+import HighDimensionalModels, GLMNet, Lasso
 
 ################################################################################
 # solvers at one λ: (P, λ, tol) -> dense β, solved from β = 0
@@ -27,20 +27,20 @@ struct Solver{F}
   needs_gram::Bool
 end
 
-cd_options(tol; kwargs...) = CoordinateDescent.CDOptions(; opt_tol = Float64(tol), max_iter = 1_000_000, kwargs...)
+cd_options(tol; kwargs...) = HighDimensionalModels.CDOptions(; opt_tol = Float64(tol), max_iter = 1_000_000, kwargs...)
 prox_options(tol) = ProximalOptions(; maxiter = 1_000_000, ftol = tol, xtol = tol, gradtol = tol,
                                     time_limit = 60.0)
 
 function run_cd(P, λ, tol; kwargs...)
   x = SparseIterate(P.p)
-  CoordinateDescent.coordinate_descent!(x, CoordinateDescent.CDLeastSquaresLoss(P.y, P.X),
+  HighDimensionalModels.coordinate_descent!(x, HighDimensionalModels.CDLeastSquaresLoss(P.y, P.X),
     NormL1(λ), cd_options(tol; kwargs...); rng = Xoshiro(20261024))
   Vector(x)
 end
 
 function run_cd_gram(P, λ, tol)
   x = SparseIterate(P.p)
-  CoordinateDescent.coordinate_descent!(x, CoordinateDescent.CDQuadraticLoss(P.G, P.mc),
+  HighDimensionalModels.coordinate_descent!(x, HighDimensionalModels.CDQuadraticLoss(P.G, P.mc),
     NormL1(λ), cd_options(tol; order = :random); rng = Xoshiro(20261024))
   Vector(x)
 end
@@ -70,10 +70,10 @@ const SOLVERS = [
   Solver("CD 0.5.6 random",         "CoordinateDescent 0.5.6", LegacyRun(:random), false),
   Solver("CD 0.5.6 path from λmax", "CoordinateDescent 0.5.6", LegacyRun(:continuation), false),
   Solver("CD 0.5.6 X'X/n",          "CoordinateDescent 0.5.6", LegacyRun(:gram), true),
-  Solver("CD 0.8 cyclic",           "CoordinateDescent $(pkgversion(CoordinateDescent))", (P, λ, t) -> run_cd(P, λ, t; order = :cyclic), false),
-  Solver("CD 0.8 random",           "CoordinateDescent $(pkgversion(CoordinateDescent))", (P, λ, t) -> run_cd(P, λ, t; order = :random), false),
-  Solver("CD 0.8 path from λmax",   "CoordinateDescent $(pkgversion(CoordinateDescent))", (P, λ, t) -> run_cd(P, λ, t; order = :random, warm_start = false), false),
-  Solver("CD 0.8 X'X/n",            "CoordinateDescent $(pkgversion(CoordinateDescent))", run_cd_gram, true),
+  Solver("CD 0.8 cyclic",           "HighDimensionalModels $(pkgversion(HighDimensionalModels))", (P, λ, t) -> run_cd(P, λ, t; order = :cyclic), false),
+  Solver("CD 0.8 random",           "HighDimensionalModels $(pkgversion(HighDimensionalModels))", (P, λ, t) -> run_cd(P, λ, t; order = :random), false),
+  Solver("CD 0.8 path from λmax",   "HighDimensionalModels $(pkgversion(HighDimensionalModels))", (P, λ, t) -> run_cd(P, λ, t; order = :random, warm_start = false), false),
+  Solver("CD 0.8 X'X/n",            "HighDimensionalModels $(pkgversion(HighDimensionalModels))", run_cd_gram, true),
   Solver("ProxGrad",                "ProximalSolvers", (P, λ, t) -> run_prox(P, λ, t, ProximalGradientDescent()), false),
   Solver("AccProxGrad",             "ProximalSolvers", (P, λ, t) -> run_prox(P, λ, t, AccProxGradDescent()), false),
   Solver("ActiveAccProxGrad",       "ProximalSolvers", (P, λ, t) -> run_prox(P, λ, t, ActiveAccProxGradDescent()), false),
@@ -86,7 +86,7 @@ const SOLVERS = [
 # each package at its default options
 const DEFAULT_RUNS = [
   ("CD 0.5.6 lasso()",  LegacyRun(:default)),
-  ("CD 0.8 lasso()",    (P, λ) -> Vector(CoordinateDescent.lasso(P.X, P.y, λ; rng = Xoshiro(20261024)).x)),
+  ("CD 0.8 lasso()",    (P, λ) -> Vector(HighDimensionalModels.lasso(P.X, P.y, λ; rng = Xoshiro(20261024)).x)),
   ("ProxGrad",          (P, λ) -> (x = zeros(P.p); solve!(x, LeastSquaresLoss(P.ys, P.Xs), NormL1(λ), ProximalGradientDescent()); x)),
   ("AccProxGrad",       (P, λ) -> (x = zeros(P.p); solve!(x, LeastSquaresLoss(P.ys, P.Xs), NormL1(λ), AccProxGradDescent()); x)),
   ("ActiveAccProxGrad", (P, λ) -> (x = zeros(P.p); solve!(x, LeastSquaresLoss(P.ys, P.Xs), NormL1(λ), ActiveAccProxGradDescent()); x)),
@@ -99,17 +99,17 @@ const DEFAULT_RUNS = [
 # (P, λs, tol) -> vector of dense solutions
 
 function path_cd(P, λs, tol)
-  path = CoordinateDescent.LassoPath(P.X, P.y, λs, cd_options(tol; order = :random);
+  path = HighDimensionalModels.LassoPath(P.X, P.y, λs, cd_options(tol; order = :random);
     standardize_x = false, rng = Xoshiro(20261024))
   [Vector(b) for b in path.βpath]
 end
 
 function path_cd_gram(P, λs, tol)
   x = SparseIterate(P.p)
-  f = CoordinateDescent.CDQuadraticLoss(P.G, P.mc)
+  f = HighDimensionalModels.CDQuadraticLoss(P.G, P.mc)
   options = cd_options(tol; order = :random)
   rng = Xoshiro(20261024)
-  [(CoordinateDescent.coordinate_descent!(x, f, NormL1(λ), options; rng); Vector(x)) for λ in λs]
+  [(HighDimensionalModels.coordinate_descent!(x, f, NormL1(λ), options; rng); Vector(x)) for λ in λs]
 end
 
 function path_prox(P, λs, tol, method; gram = false)
@@ -135,8 +135,8 @@ end
 const PATH_SOLVERS = [
   Solver("CD 0.5.6 LassoPath",      "CoordinateDescent 0.5.6", LegacyRun(:path), false),
   Solver("CD 0.5.6 X'X/n",          "CoordinateDescent 0.5.6", LegacyRun(:path_gram), true),
-  Solver("CD 0.8 LassoPath",        "CoordinateDescent $(pkgversion(CoordinateDescent))", path_cd, false),
-  Solver("CD 0.8 X'X/n",            "CoordinateDescent $(pkgversion(CoordinateDescent))", path_cd_gram, true),
+  Solver("CD 0.8 LassoPath",        "HighDimensionalModels $(pkgversion(HighDimensionalModels))", path_cd, false),
+  Solver("CD 0.8 X'X/n",            "HighDimensionalModels $(pkgversion(HighDimensionalModels))", path_cd_gram, true),
   Solver("ProxGrad",                "ProximalSolvers", (P, λs, t) -> path_prox(P, λs, t, ProximalGradientDescent()), false),
   Solver("AccProxGrad",             "ProximalSolvers", (P, λs, t) -> path_prox(P, λs, t, AccProxGradDescent()), false),
   Solver("ActiveAccProxGrad",       "ProximalSolvers", (P, λs, t) -> path_prox(P, λs, t, ActiveAccProxGradDescent()), false),

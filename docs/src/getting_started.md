@@ -14,13 +14,18 @@ using Pkg
 Pkg.add(["ProximalBase", "ProximalSolvers"])
 ```
 
-For the development versions, add ProximalBase first:
+For development, run these commands from the ProximalSolvers checkout:
 
-```julia
-using Pkg
-Pkg.add(url = "https://github.com/mlakolar/ProximalBase.jl", rev = "master")
-Pkg.add(url = "https://github.com/mlakolar/ProximalSolvers.jl", rev = "master")
+```sh
+julia scripts/instantiate.jl
+julia scripts/test_master.jl
 ```
+
+The bootstrap develops the sibling ProximalBase `master` checkout, cloning it
+if missing. The test runner uses an isolated environment with the full test
+extras and master dependencies, including on Julia 1.10, without changing the
+package's `Project.toml`. To prepare the documentation environment, use
+`julia scripts/instantiate.jl docs`.
 
 The package was called ProximalOPT before its first release.
 

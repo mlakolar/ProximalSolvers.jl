@@ -33,3 +33,9 @@
 
 /benchmark/panocplus/results/
 /benchmark/adaptive/results/
+
+# Generated master dependency test environments
+.master-test-env/
+
+# Local Julia-minor environments are regenerated from master checkouts
+/Manifest-v*.toml

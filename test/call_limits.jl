@@ -150,10 +150,10 @@ end
 
   @testset "exact counts" begin
     f, g = CountingProx(LogDetLoss(S)), CountingProx(NormL1(0.1))
-    # the trace evaluates f every printEvery iterations
+    # the trace evaluates f every print_every iterations
     res = redirect_stdout(devnull) do
       solve!(Matrix(1.0I, q, q), f, g, ADMMSolver(),
-             ProximalOptions(; maxiter = 5000, show_trace = true, printEvery = 3))
+             ProximalOptions(; maxiter = 5000, show_trace = true, print_every = 3))
     end
     @test res.converged
     @test !res.call_limit_reached
