@@ -30,8 +30,10 @@ with tempfile.TemporaryDirectory() as temporary:
         with contextlib.redirect_stdout(io.StringIO()):return analyze(root,"main",root/"out")
     write("calls",calls);write("levels",levels)
     assert silent()["phase_gate"]
+    bad_L=[dict(r,initial_L=2) if r["method"]=="carry_L" and r["level"]==2 else r for r in levels]
+    bad_k=[dict(r,initial_k=1) if r["method"]=="full_state" and r["level"]==2 else r for r in levels]
     for cs,ls in ((calls[:-1],levels),(calls+[calls[0]],levels),(calls,levels[:-1]),
-                  (calls,[dict(levels[0],valid="false")]+levels[1:])):
+                  (calls,[dict(levels[0],valid="false")]+levels[1:]),(calls,bad_L),(calls,bad_k)):
         write("calls",cs);write("levels",ls)
         try:silent()
         except AssertionError:pass
