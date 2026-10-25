@@ -52,4 +52,29 @@ end
     end
   end
 end
+
+@testset "unpenalized convolution scores and explicit legacy stopping" begin
+  rng=Xoshiro(84); X=randn(rng,71,5); y=.3 .+ X*[.8,-.4,0,0,0] .+ randn(rng,71)
+  n,p=size(X); target=1e-6
+  for kernel in (:uniform,:epanechnikov), w in (ones(p),[0.,1,1,1,1])
+    loss=ProximalBase.ConvolutionCheck(.5,.3;kernel)
+    f=(1/n)*ProximalBase.GLMLoss(loss,y,X); x=SparseIterate(p);m=PS.cdmodel(f,x;intercept=true)
+    aa=Float64[];save(k,λ,x,m)=(push!(aa,PS.intercept(m,x));false)
+    method=ProxNewton(;tol=1e-10,maxiter=200,inner=CDSolver(;tol=1e-9,maxpasses=20000,rng=Xoshiro(19)))
+    r=solve_path(m,NormL1(1.,w),[.1,0.],method;gaptol=target,devmax=1,callback=save)
+    @test length(r.λ)==2
+    for k in eachindex(r.λ)
+      b=Vector(r.solutions[k]);η=X*b .+ aa[k];d=[ProximalBase.deriv(loss,η[i],y[i]) for i in 1:n]
+      grad=X'd/n;P=sum(loss(η[i],y[i]) for i in 1:n)/n+r.λ[k]*dot(w,abs.(b))
+      @test abs(sum(d)/n)<=target
+      @test maximum(abs(b[j]-sign(b[j]-grad[j])*max(abs(b[j]-grad[j])-r.λ[k]*w[j],0)) for j in 1:p)<=target
+      @test abs(P+sum(PS._conjugate(loss,d[i],y[i]) for i in 1:n)/n)<=target*(1+abs(P))
+    end
+    legacy=solve_path(f,NormL1(1.,w),[.1,.03],method;gaptol=0,devmax=1)
+    @test all(isnan,legacy.gap)
+    @test all(isfinite,legacy.values)
+    stopped=solve_path(f,NormL1(1.,w),[.03],ProxNewton(;maxiter=1,inner=CDSolver(;maxpasses=1));gaptol=1e-10)
+    @test !only(stopped.converged)
+  end
+end
 end
