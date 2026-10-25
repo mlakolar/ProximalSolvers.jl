@@ -505,7 +505,7 @@ function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton
   if gapmode
     F, relgap = _newton_gap!(x, m, g, ws, candidates)
     gapmode = !isnan(relgap)          # no gap at x: the rule on the objective
-    if relgap <= gaptol
+    if relgap <= gaptol && _newton_raw_ok(m, g, x, ws.grad, candidates, gaptol)
       ws.st.candidates = nothing
       return F, 0, true, relgap
     end
@@ -559,8 +559,8 @@ function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton
       F, relgap = _newton_gap!(x, m, g, ws, candidates)
       if isnan(relgap)
         gapmode = false
-        done && (converged = true; break)
-      elseif relgap <= gaptol
+        done && _newton_raw_ok(m, g, x, ws.grad, candidates, gaptol) && (converged = true; break)
+      elseif relgap <= gaptol && _newton_raw_ok(m, g, x, ws.grad, candidates, gaptol)
         converged = true
         break
       end
@@ -568,7 +568,7 @@ function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton
         innerfloor <= 4 * eps(T) && break
         innerfloor = max(innerfloor / 100, 4 * eps(T))
       end
-    elseif done
+    elseif done && _newton_raw_ok(m, g, x, ws.grad, candidates, gaptol)
       converged = true
       break
     end
@@ -578,6 +578,30 @@ function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton
 end
 
 const _NEWTON_INNER = 0.01
+
+# A feasible contracted dual can certify objective accuracy without providing
+# equally accurate raw observation scores. Quantile inference needs the latter.
+# This guard never projects or substitutes the scores returned by the model.
+_newton_raw_ok(m, g, x, grad, candidates, tol) = true
+function _newton_raw_ok(m::GLMModel{T, <:ProximalBase.ConvolutionCheck}, g::NormL1,
+                        x::SparseIterate{T}, grad, candidates, tol) where {T}
+  tol > 0 || return true              # gaptol=0 explicitly selects the legacy rule
+  if candidates === nothing
+    gradient!(grad, m, x)
+  else
+    _partial_gradient!(grad, m, x, candidates)
+  end
+  inds = candidates === nothing ? eachindex(x) : candidates
+  stationarity = maximum((abs(x[j] - prox_entry(g, x[j] - grad[j], j, one(T))) for j in inds); init=zero(T))
+  stationarity <= tol || return false
+  if m.intercept
+    c = m.s * sum(_obsweight(m.w, i, T) * T(ProximalBase.deriv(m.loss, m.η[i], m.y[i])) for i in eachindex(m.η))
+    abs(c) <= tol || return false
+  end
+  P = loss_value(m, x) + g(x)
+  rawgap = P + _glm_conjugate(m.loss, m.y, m.w, m.offset, m.s, m.η, one(T))
+  isfinite(rawgap) && abs(rawgap) <= tol * (one(T) + abs(P))
+end
 
 # method with the inner solver stopping on the relative gap gaptol
 _with_inner(method::ProxNewton, gaptol) =
@@ -767,9 +791,10 @@ function _screened_newton!(x, m::GLMModel{T}, g, λprev, grad::AbstractArray, me
     isnan(relgap) && break
     res = _gap_at(grad, m, g, x, nothing)
     relgap = res === nothing ? T(NaN) : max(res[1] - res[2], 4 * eps(T) * abs(res[1])) / max(abs(res[1]), floatmin(T))
-    (relgap <= gaptol || !converged || retries >= _GAPRETRIES) && break
+    ((relgap <= gaptol && _newton_raw_ok(m, g, x, ws.grad, nothing, gaptol)) || !converged || retries >= _GAPRETRIES) && break
     retries += 1
     gk /= 10
   end
+  converged &= _newton_raw_ok(m, g, x, ws.grad, nothing, gaptol)
   F, passes, converged, checks, relgap
 end
