@@ -84,3 +84,16 @@ julia --startup-file=no --project=benchmark/slope benchmark/slope/run.jl \
 
 Run identity: `20261025T0850Z-ps-slope`. Exact source revisions, environment,
 launchers and outcomes are recorded in the lightweight project run registry.
+
+## Accuracy-control amendment
+
+The strict-library main grid passed every target but did not meet the prototype
+gate. Because a negative conclusion could be biased by libslope's stricter
+internal tolerance, a separately recorded control fixes its internal tolerance
+at 1e-6 (`--library-tol 1e-6`), reruns the same grid and applies the same external
+certificate and decision gate. All original results remain intact. No instance
+selects its fastest tolerance, and invalid results are retained. Fresh seeds
+6--7 use this fixed control setting, two timing blocks, and the complete grid.
+This control was specified after viewing the strict main results and before
+viewing any control/fresh-seed measurements. It is not a prespecified
+confirmation of the strict-tolerance comparison. Package settings are unchanged.

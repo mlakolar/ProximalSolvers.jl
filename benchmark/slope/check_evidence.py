@@ -5,7 +5,7 @@ from summarize import evaluate
 
 root = Path(__file__).resolve().parent / "evidence" / "20261025"
 with tempfile.TemporaryDirectory() as temporary:
-    for phase in ("main", "confirmation"):
+    for phase in ("main", "accuracy_control", "confirmation"):
         output = Path(temporary) / phase
         evaluate(root / phase, phase, output)
         summaries = root / f"{phase}-summary"

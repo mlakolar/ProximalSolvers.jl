@@ -5,6 +5,7 @@ const SEEDS=parse.(Int,split(option("--seeds","1,2,3,4,5"),','))
 const ROUNDS=parse(Int,option("--rounds","3"))
 const LIMIT=parse(Float64,option("--limit","10"))
 const TOL=parse(Float64,option("--tol","1e-6"))
+const LIBRARY_TOL=parse(Float64,option("--library-tol","1e-9"))
 const CANARY="--canary" in ARGS
 mkpath(OUT)
 
@@ -12,7 +13,7 @@ mkpath(OUT)
 P=problem(40,60,0.5,5,0)
 for kind in ("linear","bh"),method in ("PG","APG","SLOPE.jl")
     w=weight_sequence(kind,60);a=alpha_max(P.X,P.y,w)
-    timed_fit(P.X,P.y,w,a.*[1.,0.3,0.05],method;tol=TOL,limit=2.0)
+    timed_fit(P.X,P.y,w,a.*[1.,0.3,0.05],method;tol=TOL,limit=2.0,library_tol=LIBRARY_TOL)
 end
 callfields=("n","p","rho","sparsity","weights","seed","round","mode","method","seconds","julia_bytes","valid","status","returned","expected","max_gap","iterations","nnz","clusters","coef_inf_vs_library","prediction_rel_vs_library","objective_rel_vs_library")
 levelfields=("n","p","rho","sparsity","weights","seed","round","mode","method","level","fraction","alpha","valid","status","gap","primal","dual","feasibility","fixedpoint","nnz","clusters","iterations","f_calls","grad_calls","prox_calls","certificate_calls")
@@ -36,7 +37,7 @@ open(joinpath(OUT,"levels-$SHARD.csv"),"w") do levels
                 results=Dict()
                 for (mi,method) in order
                     mode,fractions=modes[mi]
-                    fit=try timed_fit(P.X,P.y,weights,amax.*fractions,method;tol=TOL,limit=LIMIT) catch err
+                    fit=try timed_fit(P.X,P.y,weights,amax.*fractions,method;tol=TOL,limit=LIMIT,library_tol=LIBRARY_TOL) catch err
                         println(stderr,"FIT_ERROR n=$n p=$p rho=$rho s=$sparsity seed=$seed method=$method mode=$mode: ",sprint(showerror,err))
                         nothing
                     end

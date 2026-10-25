@@ -17,7 +17,7 @@ def identity(row):
 
 
 def expected_grid(phase):
-    seeds, rounds = (range(1, 6), range(1, 4)) if phase == "main" else (range(6, 8), range(1, 3))
+    seeds, rounds = (range(1, 6), range(1, 4)) if phase in ("main", "accuracy_control") else (range(6, 8), range(1, 3))
     return {(n, p, rho, s, w, seed, rep, mode, method)
             for (n, p), rho, s, w, seed, rep, mode, method in itertools.product(
                 ((200, 500), (1000, 2000)), (0., .9), (10, 100), ("linear", "bh"),
@@ -99,7 +99,7 @@ def evaluate(root, phase, out):
             "library_valid_calls": sum(r["valid"] == "true" for r in lib),
             "library_calls": len(lib), "library_success_rate": reliability,
             "candidate_strata": candidates, "prototype_gate": reliability >= .99 and len(candidates) >= 2,
-            "fresh_seed_confirmation_required": phase == "main"}
+            "fresh_seed_confirmation_required": phase != "confirmation"}
     diagnostics = {}
     for method in ("PG", "APG", "SLOPE.jl"):
         rows = [r for r in calls if r["method"] == method]
@@ -118,7 +118,7 @@ def evaluate(root, phase, out):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("root", type=Path)
-    parser.add_argument("--phase", choices=("main", "confirmation"), default="main")
+    parser.add_argument("--phase", choices=("main", "accuracy_control", "confirmation"), default="main")
     parser.add_argument("--out", required=True, type=Path)
     args = parser.parse_args()
     evaluate(args.root, args.phase, args.out)

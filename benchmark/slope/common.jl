@@ -129,9 +129,9 @@ function final_metrics(X,y,weights,alpha,x)
       fixedpoint,nnz=count(!iszero,x),clusters=length(unique(abs.(filter(!iszero,x)))))
 end
 
-function timed_fit(X,y,weights,alphas,method;tol=1e-6,limit=10.0)
+function timed_fit(X,y,weights,alphas,method;tol=1e-6,limit=10.0,library_tol=1e-9)
     GC.gc(); result=nothing
-    t=@timed result=method=="SLOPE.jl" ? library_fit(X,y,weights,alphas) : package_fit(X,y,weights,alphas,method;tol,limit)
+    t=@timed result=method=="SLOPE.jl" ? library_fit(X,y,weights,alphas;tol=library_tol) : package_fit(X,y,weights,alphas,method;tol,limit)
     betas=method=="SLOPE.jl" ? [Vector(b[:,1]) for b in result.coefficients] : result.betas
     infos=method=="SLOPE.jl" ? [(;status=:library_returned,iterations=-1,nf=-1,ng=-1,np=-1,certificate_calls=-1) for _ in betas] : result.infos
     if method=="SLOPE.jl"
