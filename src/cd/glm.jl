@@ -512,7 +512,7 @@ function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton
   end
   stepper = method
   for _ in 1:method.maxiter
-    stepper = gapmode ? _with_inner(method, max(innerfloor, T(_NEWTON_INNER) * relgap)) : method
+    stepper = gapmode ? _with_inner(method, max(innerfloor, T(_NEWTON_INNER) * relgap), loss) : method
     # the quadratic model at x: weights v, responses z (working responses minus
     # the offset), updated in place
     @inbounds for i in 1:n
@@ -606,6 +606,16 @@ end
 # method with the inner solver stopping on the relative gap gaptol
 _with_inner(method::ProxNewton, gaptol) =
   ProxNewton(_with(method.inner; gaptol = Float64(gaptol)), method.maxiter, method.tol, method.β)
+
+_with_inner(method::ProxNewton, gaptol, loss) = _with_inner(method, gaptol)
+function _with_inner(method::ProxNewton, target, loss::ProximalBase.ConvolutionCheck)
+  # Outside the kernel window the curvature floor makes the working response
+  # huge. Relative changes/gaps of that quadratic inherit a huge irrelevant
+  # constant. Solve it on absolute scaled coordinate changes instead; the
+  # original smoothed problem still has the certified outer gap and raw guard.
+  inner = _with(method.inner; tol=min(method.inner.tol, Float64(target)), relative=false, gaptol=0.0)
+  ProxNewton(inner, method.maxiter, method.tol, method.β)
+end
 
 # (f + g, relative gap) of the problem restricted to the candidates at x, after
 # fitting the intercept exactly for x (which only decreases f): the dual point
