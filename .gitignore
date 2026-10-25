@@ -30,3 +30,6 @@
 
 /benchmark/composite_lessons/Manifest*.toml
 /benchmark/composite_lessons/results/
+
+/benchmark/panocplus/results/
+/benchmark/adaptive/results/

@@ -28,3 +28,43 @@ lasso comparison uses gamma=1, with a separate deliberately invalid-step check.
 
 See [the shared harness methodology](../panocplus/README.md) for timing,
 certificates, allocation accounting, reproduction commands and limitations.
+
+## Discovery results (2026-10-25)
+
+All **624/624** comparison fits met their targets: 432 graphical-lasso fits,
+96 lasso fits and 96 quartic fits. At initial gamma=1, median paired time ratios
+against APG were:
+
+| problem | adaPGM / APG | MM / APG |
+|---|---:|---:|
+| graphical lasso (benign grid) | 0.772 | 0.767 |
+| lasso | 0.896 | 1.208 |
+| quartic + l1 | 0.293 | 0.355 |
+
+The lasso/quartic rows each use 12 paired fits per method at this initial step;
+the graphical-lasso rows use 108. Initial-step sensitivity is preserved: adaPGM's
+median lasso/APG ratio was 1.096 at gamma=0.01 and 1.137 at gamma=10. Its quartic/APG
+ratios were 0.185 and 0.322, respectively. Do not select the best initialization
+and report it as the general result. These are small synthetic tests with two
+seeds, not broad evidence of superiority. Submillisecond quartic timings deserve
+particular caution; their consistent gains motivate broader confirmation.
+
+Both adaptive rules had zero measured incremental bytes per iteration on the
+fixed 20/120-step vector least-squares checks. Total setup and certificate bytes
+remain in the raw data. No runtime dependency or solver option was added.
+
+**Decision:** adaPGM is worth a separate, opt-in convex-method follow-up, with
+broader confirmation on globally finite smooth losses. It should not become a
+default log-det step rule from these benign tests. Keep the domain-stress failures
+alongside these successful results, and do not infer accelerated or nonconvex
+convergence guarantees. MM is a useful comparator; these measurements do not
+support prioritizing it over adaPGM.
+
+See the [raw evidence](../panocplus/evidence/20261025) and the PANOCplus README
+for run identity, checked quantities and reproduction details.
+
+The explicit S=10I domain stress test confirms the limitation: adaPGM and MM
+both leave the SPD cone on the first step for gamma0=1,10,100, with no hidden
+retry. All six failures are retained in `domain-probes.csv`. The safeguarded
+PANOCplus prototype recovers in all three corresponding runs. This domain is
+outside the cited globally finite smooth-loss assumptions.

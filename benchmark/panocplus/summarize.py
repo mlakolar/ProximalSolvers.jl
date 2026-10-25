@@ -14,7 +14,7 @@ groups=collections.defaultdict(list)
 for r in rows:groups[tuple(r[k] for k in keys)].append(r)
 out=Path(a.out);out.mkdir(parents=True,exist_ok=True)
 with (out/"summary.csv").open("w") as h:
-    w=csv.writer(h);w.writerow((*keys,"returned","valid","median_valid_seconds","median_valid_error","max_rejections"))
+    w=csv.writer(h,lineterminator="\n");w.writerow((*keys,"returned","valid","median_valid_seconds","median_valid_error","max_rejections"))
     for k,rs in sorted(groups.items()):
         good=[r for r in rs if r["ok"]]
         med=lambda field:statistics.median(float(r[field]) for r in good) if good else math.nan
@@ -32,7 +32,7 @@ for r in rows:
         ratio=float(r["seconds"])/float(b["seconds"]) if r["ok"] and b["ok"] else math.nan
         pairs.append({k:r[k] for k in ("track","family","p","seed","round","mode","level","lambda","method","gamma0")}|{"baseline":base,"valid_pair":math.isfinite(ratio),"ratio":ratio})
 with (out/"paired.csv").open("w") as h:
-    w=csv.DictWriter(h,fieldnames=list(pairs[0]));w.writeheader();w.writerows(pairs)
+    w=csv.DictWriter(h,fieldnames=list(pairs[0]),lineterminator="\n");w.writeheader();w.writerows(pairs)
 stats=collections.defaultdict(list)
 for r in pairs:stats[(r["track"],r["family"],r["method"],r["baseline"],r["gamma0"])].append(r)
 report=[]

@@ -77,3 +77,41 @@ python3 benchmark/panocplus/summarize.py panocplus.csv adaptive.csv --out summar
 Run identity: `20261025T0730Z-ps-issue25`, Discovery EPYC 7513, Julia 1.13.2,
 ProximalSolvers base `1c29626`, ProximalBase `3857c3d`. The lightweight project
 registry preserves exact source snapshots, launcher, scheduler IDs and outcomes.
+
+## Discovery results (2026-10-25)
+
+All **324/324** graphical-lasso fits passed independent symmetry, positive
+definiteness and relative-gap checks. Each of PANOCplus, APG and QUIC contributed
+108 fits. Median paired time ratios (PANOCplus / comparator) were:
+
+| p | / APG | / QUIC |
+|---:|---:|---:|
+| 50 | 1.107 | 2.193 |
+| 200 | 1.430 | 3.183 |
+| 600 | 1.422 | 6.620 |
+| all sizes | 1.370 | 3.149 |
+
+Across individual pairs the ratios ranged from 0.675 to 1.751 against APG,
+and from 1.025 to 17.186 against QUIC. PANOCplus sometimes beat APG, but did
+not beat QUIC on this grid. The allocation experiment measured zero incremental
+bytes per iteration for PANOCplus at both vector least-squares dimensions.
+Setup memory remains substantially larger than APG because of the dense L-BFGS
+history. This prototype therefore does **not** meet #25's gate for a public native
+solver. Keep the benchmark and defer promotion; these results do not rule out a
+benefit on other losses, graph structures or conditioning regimes.
+
+The [raw tables and summaries](evidence/20261025) preserve all 948 fits across
+both tracks, allocation measurements and validation output. The complete run
+used jobs 13422318 (canary), 13422324 (failed launcher before any benchmark fit;
+GNU Parallel was not loaded), and 13422333 (successful comparison). The final
+benchmark job passed 37 assertions and completed in 3m01s. Experimental source
+was commit `7da468d`; source tarballs and the environment lockfile are retained
+in the project run record. Domain stress probes are reported separately.
+
+The separate [domain-stress table](evidence/20261025/domain-probes.csv), job
+13422355 (10s), uses S=10I, p=20, X0=I and gamma0=1,10,100. All three
+PANOCplus fits reach the target after rejecting 5, 8 and 11 off-cone trials,
+respectively. Both adaptive rules terminate with `invalid_domain` at their
+first step for all three initializations (six intentional failures, retained).
+These nine probes are separate from the 948 successful comparison fits.
+Reproduce with `benchmark/panocplus/domain_probes.jl --out domain-probes.csv`.
