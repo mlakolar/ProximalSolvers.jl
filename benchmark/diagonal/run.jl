@@ -9,7 +9,7 @@ workers_by_mode = Dict("baseline" => only(addprocs(1; exeflags=`--startup-file=n
 workers_by_mode["diagonal"] = workers_by_mode["none"]
 worker_file = joinpath(@__DIR__, "worker.jl")
 for w in unique(values(workers_by_mode))
-  remotecall_fetch(include, w, worker_file)
+  remotecall_fetch(Core.eval, w, Main, :(include($worker_file); nothing))
 end
 cases = ("ls-well", "ls-scaled", "logistic-scaled")
 solvers = ("pgd", "apg")

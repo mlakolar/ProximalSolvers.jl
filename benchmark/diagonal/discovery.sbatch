@@ -16,5 +16,7 @@ export JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
 export JULIA_NUM_PRECOMPILE_TASKS=1 JULIA_PKG_PRECOMPILE_AUTO=0
 JULIA=/home1/mkolar/juliaPkg/julia-1.13.2/bin/julia
 "$JULIA" --startup-file=no setup.jl
-"$JULIA" --startup-file=no --project=env-candidate candidate/test/runtests.jl > tests.log 2>&1
-"$JULIA" --startup-file=no candidate/benchmark/diagonal/run.jl env-baseline env-candidate results.csv 10
+if [[ "${PS92_SKIP_TESTS:-0}" != 1 ]]; then
+  "$JULIA" --startup-file=no --project=env-candidate candidate/test/runtests.jl > tests.log 2>&1
+fi
+"$JULIA" --startup-file=no "${PS92_HARNESS:-candidate/benchmark/diagonal}/run.jl" env-baseline env-candidate results.csv 10
