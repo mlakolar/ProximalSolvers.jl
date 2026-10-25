@@ -1,11 +1,13 @@
 """Validate coverage and print paired runtime ratios (candidate / baseline)."""
 import csv
+import math
 import statistics as st
 import sys
 from collections import defaultdict
 rows = list(csv.DictReader(open(sys.argv[1])))
 groups = defaultdict(dict)
 for row in rows:
+    assert math.isfinite(float(row['seconds'])) and float(row['seconds']) > 0
     key = (row['case'], row['solver'], row['rep'])
     assert row['mode'] not in groups[key]
     groups[key][row['mode']] = row
@@ -24,6 +26,7 @@ for case in ('ls-well', 'ls-scaled', 'logistic-scaled'):
     for solver in ('pgd', 'apg'):
         gs = [g for (c, s, _), g in groups.items() if c == case and s == solver]
         assert len(gs) == 10
+        assert {rep for (c, s, rep) in groups if c == case and s == solver} == {str(i) for i in range(1, 11)}
         ratios = [float(g['none']['seconds']) / float(g['baseline']['seconds']) for g in gs]
         q1, _, q3 = st.quantiles(ratios, n=4)
         diag = [float(g['diagonal']['seconds']) / float(g['none']['seconds']) for g in gs]
