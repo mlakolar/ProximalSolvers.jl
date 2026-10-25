@@ -43,7 +43,7 @@ of a tuple by `x -> sum(LinearAlgebra.norm, x)`. If `norm` also has a method
 without forming the differences.
 
 Of the [`ProximalOptions`](@ref), only `maxiter`, `time_limit`,
-`prox_calls_limit`, `show_trace`, `printEvery`, `gaptol` and `gapevery` are
+`prox_calls_limit`, `show_trace`, `print_every`, `gaptol` and `gapevery` are
 used. With `gaptol > 0` and functions that have a duality gap (see
 [`duality_gap`](@ref); among them the graphical lasso, a `LogDetLoss` with a
 `NormL1`), the gap at `z` replaces the residual tests. Use with
@@ -231,7 +231,7 @@ function _solve_admm!(z::Union{AbstractArray{T}, _Blocks{T}}, f, g, method, opti
     end
     call_limit_reached = options.prox_calls_limit > 0 && prox_calls >= options.prox_calls_limit
 
-    if options.show_trace && iteration % options.printEvery == 0
+    if options.show_trace && iteration % options.print_every == 0
       @printf "%6d   %14e   %14e   %14e\n" iteration f(z) + g(z) r_norm s_norm
       f_calls += 1
     end

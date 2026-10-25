@@ -294,7 +294,7 @@ method stops on a plain full pass, and screening checks an exact gradient.
 
 By default (`momentum = nothing`), momentum is used with the random order on a
 `SparseIterate` for least squares, generalized linear losses, quadratics and
-the two square-root losses. On CoordinateDescent.jl's benchmark it makes lasso
+the two square-root losses. On HighDimensionalModels.jl's benchmark it makes lasso
 paths 2.8 to 4.5 times faster and single solves at small penalties 1.3 to 2.2
 times; on logistic lasso problems coordinate descent is 1.4 to 5.6 times
 faster with it. `momentum = true` turns it on for any model on a

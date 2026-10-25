@@ -50,8 +50,8 @@ value_and_gradient_at_x!(state, f) = value_and_gradient!(state.grad_f_x, f, stat
 function backtrack!(state, ls::BackTracking{T}, f, g) where T
 
     # Quick exit if no progress made
-    _sub!(state.deltaX, state.x, state.x_previous)
-    xy_sq = _norm( state.deltaX )^2
+    _sub!(state.delta_x, state.x, state.x_previous)
+    xy_sq = _norm( state.delta_x )^2
 
     if xy_sq == zero(T)
       # in the gradient mode, update_state! expects ∇f(x), but state.grad_f_x may
@@ -74,11 +74,11 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
         return false
     end
 
-    localL = Inf
+    local_l = Inf
     # Compute Lipschitz estimate
     if state.backtrack_simple
-        q_x = state.f_x_previous + _dot( state.deltaX, state.grad_f_x_previous ) + 0.5 * state.L * xy_sq
-        localL = state.L + 2. * max( state.f_x - q_x, zero(T) ) / xy_sq
+        q_x = state.f_x_previous + _dot( state.delta_x, state.grad_f_x_previous ) + 0.5 * state.L * xy_sq
+        local_l = state.L + 2. * max( state.f_x - q_x, zero(T) ) / xy_sq
         # as in TFOCS, keep the function value estimate while f(x) and f(x') are far
         # enough apart to compare in floating point, then switch for good to the
         # gradient estimate, which needs ∇f(x)
@@ -92,14 +92,14 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
         value_and_gradient_at_x!(state, f)
         state.f_calls += 1
         state.grad_calls += 1
-        localL = _dot_diff(T, state.grad_f_x, state.grad_f_x_previous, state.deltaX)
-        localL *= 2. / xy_sq
+        local_l = _dot_diff(T, state.grad_f_x, state.grad_f_x_previous, state.delta_x)
+        local_l *= 2. / xy_sq
     end
 
     # Exit if Lipschitz criterion satisfied, or if we hit Lexact
     state.backtrack_steps += 1;
-    (localL <= state.L || state.L >= ls.Lexact) && return true
-    state.L = min( ls.Lexact, max( localL, state.L / ls.β ) )
+    (local_l <= state.L || state.L >= ls.Lexact) && return true
+    state.L = min( ls.Lexact, max( local_l, state.L / ls.β ) )
 
     return false
 end

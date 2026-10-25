@@ -8,9 +8,9 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 
 [sources]
-CovarianceSelection = {url = "https://github.com/mlakolar/CovarianceSelection.jl", rev = "edba5de"}
-ProximalBase = {url = "https://github.com/mlakolar/ProximalBase.jl", rev = "master"}
+ProximalBase = {path = "../../../ProximalBase.jl"}
 ProximalSolvers = {path = "../.."}
+CovarianceSelection = {url = "https://github.com/mlakolar/CovarianceSelection.jl", rev = "edba5de"}
 
 [compat]
 CovarianceSelection = "0.1"

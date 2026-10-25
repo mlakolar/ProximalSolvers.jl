@@ -1,5 +1,5 @@
 """
-    CondatVu(; τ = nothing, σ = nothing, normD = nothing, L = nothing,
+    CondatVu(; τ = nothing, σ = nothing, norm_d = nothing, L = nothing,
                abstol = 1e-6, reltol = 1e-4, adaptive = true, restart = true,
                checkevery = 25, max_adaptations = 50)
 
@@ -9,10 +9,10 @@ Primal–dual splitting for convex `f(x) + g(x) + h(D*x)`. Use
 `x` is a floating vector (including `SparseIterate`), and `D` a real matrix.
 The dual proximal step uses `Conjugate(h)` and cached Moreau buffers.
 
-Steps satisfy `τ*(L/2 + σ*normD^2) < 1`. `L` defaults to `lipschitz(f)`.
+Steps satisfy `τ*(L/2 + σ*norm_d^2) < 1`. `L` defaults to `lipschitz(f)`.
 Some `lipschitz` implementations, including least squares, return a numerical
 estimate; supply a known `L` bound when a certified step condition is needed.
-`normD` defaults to the guaranteed matrix bound
+`norm_d` defaults to the guaranteed matrix bound
 `√(opnorm(D, 1)*opnorm(D, Inf))`; for faster steps, supply a tighter known
 bound. ProximalBase's Lanczos estimate `sqrt(opnorm2(D))` can guide that
 choice, but is not a certified upper bound. Explicit steps are checked
@@ -49,7 +49,7 @@ Gap computations and user callbacks are excluded from the evaluation counters. `
 struct CondatVu{T<:AbstractFloat} <: ProximalSolver
   τ::Union{Nothing,T}
   σ::Union{Nothing,T}
-  normD::Union{Nothing,T}
+  norm_d::Union{Nothing,T}
   L::Union{Nothing,T}
   abstol::T
   reltol::T
@@ -60,23 +60,38 @@ struct CondatVu{T<:AbstractFloat} <: ProximalSolver
 end
 
 function CondatVu(; τ::Union{Nothing,Real} = nothing, σ::Union{Nothing,Real} = nothing,
-                  normD::Union{Nothing,Real} = nothing, L::Union{Nothing,Real} = nothing,
+                  norm_d::Union{Nothing,Real} = nothing, L::Union{Nothing,Real} = nothing,
+                  normD::Union{Nothing,Real} = nothing,
                   abstol::Real = 1e-6, reltol::Real = 1e-4,
                   adaptive::Bool = true, restart::Bool = true,
                   checkevery::Integer = 25, max_adaptations::Integer = 50)
+  if normD !== nothing
+    norm_d === nothing || throw(ArgumentError("use only norm_d; normD is deprecated"))
+    Base.depwarn("normD is deprecated; use norm_d", :CondatVu)
+    norm_d = normD
+  end
   for (name, v) in ((:τ, τ), (:σ, σ))
     v === nothing || (isfinite(v) && v > 0) || throw(ArgumentError("$name must be finite and positive"))
   end
-  for (name, v) in ((:normD, normD), (:L, L))
+  for (name, v) in ((:norm_d, norm_d), (:L, L))
     v === nothing || (isfinite(v) && v >= 0) || throw(ArgumentError("$name must be finite and nonnegative"))
   end
   isfinite(abstol) && abstol >= 0 && isfinite(reltol) && reltol >= 0 && abstol + reltol > 0 ||
     throw(ArgumentError("tolerances must be finite, nonnegative and not both zero"))
   checkevery > 0 && max_adaptations >= 0 || throw(ArgumentError("invalid adaptation limits"))
-  T = float(promote_type(typeof(abstol), typeof(reltol), map(v -> v === nothing ? Bool : typeof(v), (τ, σ, normD, L))...))
+  T = float(promote_type(typeof(abstol), typeof(reltol), map(v -> v === nothing ? Bool : typeof(v), (τ, σ, norm_d, L))...))
   cv(v) = v === nothing ? nothing : T(v)
-  CondatVu{T}(cv(τ), cv(σ), cv(normD), cv(L), T(abstol), T(reltol), adaptive, restart, checkevery, max_adaptations)
+  CondatVu{T}(cv(τ), cv(σ), cv(norm_d), cv(L), T(abstol), T(reltol), adaptive, restart, checkevery, max_adaptations)
 end
+function Base.getproperty(method::CondatVu, name::Symbol)
+  if name === :normD
+    Base.depwarn("normD is deprecated; use norm_d", :getproperty)
+    return getfield(method, :norm_d)
+  end
+  getfield(method, name)
+end
+Base.propertynames(method::CondatVu, private::Bool=false) =
+  (fieldnames(typeof(method))..., :normD)
 Base.summary(::CondatVu) = "Condat–Vũ primal–dual splitting"
 
 """
@@ -194,8 +209,8 @@ function _pd_steps(ω::T, L, nD) where {T}
 end
 function _pd_startsteps(method, f, D, ::Type{T}) where {T}
   L = T(method.L === nothing ? lipschitz(f) : method.L)
-  nD = T(method.normD === nothing ? sqrt(T(opnorm(D,1)))*sqrt(T(opnorm(D,Inf))) : method.normD)
-  isfinite(L) && L >= 0 && isfinite(nD) || throw(ArgumentError("finite global L and normD bounds are required"))
+  nD = T(method.norm_d === nothing ? sqrt(T(opnorm(D,1)))*sqrt(T(opnorm(D,Inf))) : method.norm_d)
+  isfinite(L) && L >= 0 && isfinite(nD) || throw(ArgumentError("finite global L and norm_d bounds are required"))
   τ, σ = method.τ, method.σ
   if τ === nothing && σ === nothing
     τ, σ = _pd_steps(one(T), L, nD)
@@ -208,7 +223,7 @@ function _pd_startsteps(method, f, D, ::Type{T}) where {T}
   end
   τ, σ = T(τ), T(σ)
   isfinite(τ) && τ > 0 && isfinite(σ) && σ > 0 && τ*(L/2 + σ*nD*nD) < 1 ||
-    throw(ArgumentError("steps must satisfy τ*(L/2 + σ*normD^2) < 1 in the iterate's precision"))
+    throw(ArgumentError("steps must satisfy τ*(L/2 + σ*norm_d^2) < 1 in the iterate's precision"))
   τ, σ, L, nD
 end
 
@@ -304,7 +319,7 @@ function solve!(x::AbstractVector{T}, f::AbstractFunction, g::AbstractFunction,
         done = false
       end
     end
-    if (options.store_trace || options.show_trace || options.callback !== nothing) && iteration % options.printEvery == 0
+    if (options.store_trace || options.show_trace || options.callback !== nothing) && iteration % options.print_every == 0
       F = f(x)+g(x)+h(s.Dx); fc += 1
       md = Dict{String,Any}("primal_residual"=>r[1], "dual_residual"=>r[2], "σ"=>σ)
       if options.extended_trace

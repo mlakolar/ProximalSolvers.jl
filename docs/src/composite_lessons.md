@@ -139,9 +139,9 @@ the problem and checks two solutions. Its main call is represented by
 f = Sum(LeastSquaresLoss(b, X), SqrNormL2(μ))
 g, h = NormL1(λ1), NormL1(λ2)
 L = opnorm(X, 1) * opnorm(X, Inf) + μ
-normD = sqrt(opnorm(D, 1) * opnorm(D, Inf))
+norm_d = sqrt(opnorm(D, 1) * opnorm(D, Inf))
 res = solve!(zeros(size(X, 2)), f, g, h, D,
-             CondatVu(; L, normD), options; gap = relative_certificate)
+             CondatVu(; L, norm_d), options; gap = relative_certificate)
 ```
 
 Here `relative_certificate` is the callback derived below, and `options`

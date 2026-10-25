@@ -26,7 +26,7 @@ jobs:
           version: '1'
       - uses: julia-actions/cache@v3
       - name: Install the documentation environment
-        run: julia --project=docs -e 'using Pkg; Pkg.instantiate()'
+        run: julia scripts/instantiate.jl docs
       - name: Build and deploy
         run: julia --project=docs docs/make.jl
         env:

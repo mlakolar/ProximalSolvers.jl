@@ -8,7 +8,7 @@ ProximalSolvers = "fc4971f5-6616-4709-9bfc-89a819252f6b"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [sources]
-ProximalBase = {url = "https://github.com/mlakolar/ProximalBase.jl", rev = "master"}
+ProximalBase = {path = "../../../ProximalBase.jl"}
 ProximalSolvers = {path = "../.."}
 
 [compat]

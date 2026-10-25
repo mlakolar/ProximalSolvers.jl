@@ -65,11 +65,11 @@ mutable struct MonotoneAccProxGradDescentState{T, X<:Union{AbstractArray{T}, _Bl
     g_v::T
     grad_f_x::G
     xhat::X
-    deltaX::X
+    delta_x::X
     L::T
     t::T
     t_previous::T
-    maxResidual::T
+    max_residual::T
     accelerated::Int  # iterations that kept the step from y
     backtrack_steps::Int
     f_calls::Int
@@ -101,7 +101,7 @@ function initial_state(method::MonotoneAccProxGradDescent, options, f, g,
         _similar(x0), _similar(x0),
         one(T),                           # L
         one(T), zero(T),                  # t₁ = 1, t₀ = 0
-        T(-Inf),                          # maxResidual
+        T(-Inf),                          # max_residual
         0, 0, 1, 0, 0,
         model, z_x,
         z_x === nothing ? nothing : copy(z_x),
@@ -153,7 +153,7 @@ function update_state!(f, g, state::MonotoneAccProxGradDescentState{T}, method::
 
     state.t_previous = state.t
     state.t = (sqrt(4 * state.t^2 + 1) + 1) / 2
-    _sub!(state.deltaX, state.x, state.x_previous)
+    _sub!(state.delta_x, state.x, state.x_previous)
     state
 end
 
@@ -217,7 +217,7 @@ function reinitialize_state!(state::MonotoneAccProxGradDescentState{T}, f, g,
     state.f_z = state.g_z = state.f_v = state.g_v = T(NaN)
     state.L = state.t = one(T)
     state.t_previous = zero(T)
-    state.maxResidual = T(-Inf)
+    state.max_residual = T(-Inf)
     state.accelerated = state.backtrack_steps = state.grad_calls = state.prox_calls = 0
     state.f_calls = 1
     state

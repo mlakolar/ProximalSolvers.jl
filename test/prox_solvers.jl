@@ -17,7 +17,7 @@ end
 @testset "callable callbacks" for solver in (ProximalGradientDescent(), AccProxGradDescent(),
                                             MonotoneAccProxGradDescent()), store_trace in (false, true)
   callback = StopAfter(0, 2)
-  options = ProximalOptions(; callback, store_trace, printEvery = 2,
+  options = ProximalOptions(; callback, store_trace, print_every = 2,
                              ftol = 1e-300, xtol = 1e-300, gradtol = 1e-300)
   @test options.callback === callback
   f = QuadraticFunction(Matrix(Diagonal([1., 10., 100.])), [-1., -1., -1.])

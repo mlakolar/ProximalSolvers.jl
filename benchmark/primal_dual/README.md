@@ -39,7 +39,7 @@ checks. Those checks also run directly with
 - Native fixed steps and ProximalAlgorithms use identical step pairs. Native
   adaptation starts with that same pair. The quantile spectral norm is computed
   once by dense SVD outside all iterative timings; TV uses the analytic bound
-  `normD = 2`. Data generation and reference solutions are also outside those
+  `norm_d = 2`. Data generation and reference solutions are also outside those
   timings. HiGHS timings include model construction and optimization.
 - Exact keyword-call signatures, iterations and scheduled gap checks are warmed
   before timing. These are single exploratory timings,

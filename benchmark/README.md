@@ -4,7 +4,7 @@
 
     minimize  ‖y - Xβ‖² / (2n) + λ ‖β‖₁
 
-against the current CoordinateDescent 0.8 API and an independent historical
+against the current HighDimensionalModels API and an independent historical
 CoordinateDescent 0.5.6 implementation, with glmnet (through GLMNet.jl) and
 Lasso.jl as outside references.
 
@@ -37,12 +37,13 @@ The run writes `benchmark/results/single.csv` and `path.csv`, which
 write a check into a separate output directory.
 
 The two environments are intentionally separate. `benchmark/Project.toml`
-loads the current ProximalSolvers checkout, ProximalBase 0.5.3,
-CoordinateDescent 0.8, GLMNet, and Lasso. Its CoordinateDescent source override
-uses [master on GitHub](https://github.com/mlakolar/CoordinateDescent.jl) until
-0.8 is registered. `benchmark/legacy_cd/Project.toml` pins the independent historical
-baseline to CoordinateDescent 0.5.6 and ProximalBase 0.4.0. Their incompatible
-ProximalBase requirements cannot be satisfied in one Julia environment.
+loads local master checkouts of ProximalSolvers, ProximalBase, and
+HighDimensionalModels, together with GLMNet and Lasso. The package formerly
+named CoordinateDescent is now HighDimensionalModels; its UUID is unchanged.
+`benchmark/legacy_cd/Project.toml` retains the independent historical baseline
+CoordinateDescent 0.5.6 and ProximalBase 0.4.0. That frozen comparison uses its
+original environment and does not participate in the master development stack.
+
 `instantiate_lasso.jl` prepares both and requires Julia 1.10.8 or later
 (`[sources]` needs explicit setup on 1.10). It maintains separate native
 `Manifest-v1.10.toml`, `Manifest-v1.13.toml`, etc. locks in each environment,
@@ -51,12 +52,9 @@ are reused. An existing shared `Manifest.toml` seeds the new lock when its
 Julia minor matches; otherwise it is preserved and the new runtime resolves
 its own lock from `Project.toml`. This avoids incompatible Statistics entries
 when switching runtimes without updating the other runtime's locked packages.
-Set `PROXIMAL_BASE_PATH` and/or `COORDINATE_DESCENT_PATH` when instantiating to
-use existing local checkouts instead of their development URLs. These optional
-settings are useful for immutable cluster source snapshots; the normal commands
-above use the development URLs directly. On Julia 1.10, setup develops
-CoordinateDescent, ProximalBase, and the local ProximalSolvers together because
-that runtime does not apply `[sources]`.
+The development paths are sibling master checkouts. The setup script uses the
+same recursive master bootstrap as the package and explicitly develops the
+current packages together, including on Julia 1.10.
 
 The historical baseline runs in one persistent Julia child process with one BLAS thread.
 Each generated design, response, and Gram matrix is serialized to it once,
@@ -67,12 +65,12 @@ runtime/BLAS configuration are printed. The full run still records errors
 and unattained accuracy targets as before; `--smoke` makes errors fatal.
 Set `PROXIMAL_LEGACY_CD_PROJECT` to use another checkout of the same pinned
 historical environment.
-Do not point it at the current CoordinateDescent package, which delegates to
+Do not point it at the current HighDimensionalModels package, which delegates to
 the current solver and would change the independence of the baseline.
 
 Rows labeled `CD 0.5.6` use that historical worker. Rows labeled `CD 0.8` use
 the modern package's `snake_case` API in the main process; the CSV package
-column and startup log record its exact version. Modern CoordinateDescent
+column and startup log record its exact version. HighDimensionalModels
 delegates to ProximalSolvers, so those rows measure its current API and path
 handling rather than an independent optimization engine. Both sets use the
 same generated data and reproducible random coordinate orders. The reference

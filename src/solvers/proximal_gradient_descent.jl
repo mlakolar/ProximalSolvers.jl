@@ -56,9 +56,9 @@ mutable struct ProximalGradientDescentState{T, X<:Union{AbstractArray{T}, _Block
     g_x_previous::T
     grad_f_x_previous::G
     xhat::X
-    deltaX::X
+    delta_x::X
     L::T
-    maxResidual::T
+    max_residual::T
     backtrack_simple::Bool  # line search uses function values, not gradients
     backtrack_steps::Int
     f_calls::Int
@@ -101,7 +101,7 @@ function initial_state(
                          _similar(x0), # Temporary storage
                          _similar(x0), # Temporary storage for x1 - x0
                          one(T),      # L
-                         T(-Inf),     # maxResidual
+                         T(-Inf),     # max_residual
                          true,        # backtrack_simple
                          0,           # backtrack_steps
                          1,           # f_calls
@@ -203,7 +203,7 @@ function _debias!(f, g, state::ProximalGradientDescentState{T}, method::Proximal
     state.g_x = g_s
     state.f_calls += 1
     state.grad_calls += 1
-    @. state.deltaX = state.x - state.x_previous
+    @. state.delta_x = state.x - state.x_previous
     state
 end
 

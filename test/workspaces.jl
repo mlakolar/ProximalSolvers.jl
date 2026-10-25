@@ -115,7 +115,7 @@ end
     calls = Ref(0)
     callback = _ -> (calls[] += 1; true)
     wo = SolverWorkspace(zeros(3), f, g, method,
-                         ProximalOptions(; callback, store_trace = true, printEvery = 2, maxiter = 100))
+                         ProximalOptions(; callback, store_trace = true, print_every = 2, maxiter = 100))
     for _ in 1:2
       reinit!(wo, zeros(3))
       result = solve!(wo)
