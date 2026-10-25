@@ -9,6 +9,7 @@ tests = [
   "nonconvex_blocks",
   "linesearch",
   "image_models",
+  "apg_numerical_failure",
   "call_limits",
   "admm",
   "primal_dual",

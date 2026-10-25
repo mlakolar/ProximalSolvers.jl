@@ -19,6 +19,9 @@ curvature is smaller, as in TFOCS; `α = 1` keeps `L` from decreasing. On the
 lasso of the benchmark, `α = 0.9` takes 1.2 to 6.5 times less time than
 `α = 1`.
 
+Backtracking raises an error if roundoff prevents a representable step from
+satisfying the descent bound, or the next curvature estimate is not finite.
+
 The momentum restarts whenever the objective would increase (O'Donoghue and
 Candès, *Adaptive restart for accelerated gradient schemes*, 2015), so the
 objective is nonincreasing. Use with [`solve!`](@ref).
@@ -168,11 +171,20 @@ function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, method::AccPr
       state.f_calls += 1
 
       _sub!(state.xhat, state.x, state.y)
-      upper = state.f_y + _dot(state.grad_f_y, state.xhat) + state.L / 2 * _sumabs2(state.xhat)
+      stepnorm2 = _sumabs2(state.xhat)
+      upper = state.f_y + _dot(state.grad_f_y, state.xhat) + state.L / 2 * stepnorm2
       state.backtrack_steps += 1
       # slack guards against an endless loop from rounding error near the solution
       state.f_x <= upper + 10 * eps(T) * max(abs(state.f_y), one(T)) && break
-      state.L /= method.β
+      # A rounded zero step cannot repair an inconsistent image/value bound by
+      # increasing L. In particular, do not let L overflow and turn Inf*0 into
+      # NaN, after which the backtracking comparison would fail forever.
+      isfinite(upper) && !iszero(stepnorm2) ||
+        error("APG line search failed: no representable step satisfies the descent bound")
+      next_L = state.L / method.β
+      isfinite(next_L) && next_L > state.L ||
+        error("APG line search failed: the curvature estimate cannot increase finitely")
+      state.L = next_L
     end
     state
 end
