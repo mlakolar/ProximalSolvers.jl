@@ -46,7 +46,7 @@ function trace!(tr, f, g, state, iteration, method::ProximalSolver, options)
             iteration,
             state.f_x,
             state.g_x,
-            _norm_diff(state.x, state.x_previous) / _norm(state.x),
+            _state_normdiff(state) / _state_norm(state, state.x),
             state.L,
             dt,
             options.store_trace,
@@ -70,12 +70,13 @@ f_residual(f_x, f_x_previous, f_tol) =
 g_residual(grad_f_x, grad_f_x_previous, delta_x, L) = _maxabs_residual(grad_f_x, grad_f_x_previous, delta_x, L)
 
 g_residual(state::ProximalGradientDescentState) =
-  g_residual(state.grad_f_x, state.grad_f_x_previous, state.delta_x, state.L)
+  _metric_residual(state.metric, state.grad_f_x, state.grad_f_x_previous, state.delta_x, state.L)
 # The accelerated method takes its step from y, so L (y - x) - ∇f(y) ∈ ∂g(x) and
 # r = ∇f(x) - ∇f(y) - L (x - y) ∈ ∇f(x) + ∂g(x). It does not evaluate ∇f(x), but
 # ‖r‖ ≤ (L + L_f) ‖x - y‖ when ∇f is L_f-Lipschitz, so L ‖x - y‖ is used instead.
 # The monotone method keeps y as the point its kept step came from.
-g_residual(state::Union{AccProxGradDescentState, MonotoneAccProxGradDescentState}) = state.L * _maxabs_diff(state.x, state.y)
+g_residual(state::MonotoneAccProxGradDescentState) = state.L * _maxabs_diff(state.x, state.y)
+g_residual(state::AccProxGradDescentState) = _metric_mapping(state.metric, state.x, state.y, state.L)
 
 function convergence_assessment(
   state::Union{ProximalGradientDescentState, AccProxGradDescentState, MonotoneAccProxGradDescentState},
@@ -84,8 +85,8 @@ function convergence_assessment(
 
   x_converged, f_converged, grad_converged, f_increased = false, false, false, false
 
-  norm_x = _norm( state.x )
-  norm_dx = _norm( state.delta_x )
+  norm_x = _state_norm(state, state.x)
+  norm_dx = _state_norm(state, state.delta_x)
 
   if norm_dx < options.xtol * max( norm_x, 1. )
     x_converged = true
@@ -117,8 +118,8 @@ function gradient_converged!(state::ProximalGradientDescentState{T}, options::Pr
   residual = g_residual(state)
   state.max_residual = max(state.max_residual, residual)
   # (xhat - x) / τ = -(L (x - x_previous) + ∇f(x_previous))
-  subgrad = _maxabs_axpy(state.L, state.delta_x, state.grad_f_x_previous)
-  normalizer = max(_norm_inf(state.grad_f_x), subgrad) + options.gradtol
+  subgrad = _metric_subgrad(state.metric, state.L, state.delta_x, state.grad_f_x_previous)
+  normalizer = max(_metric_dualnorm(state.metric, state.grad_f_x), subgrad) + options.gradtol
   n_residual = residual / normalizer
   residual / (state.max_residual + options.gradtol) < options.gradtol || n_residual < options.gradtol
 end
@@ -128,10 +129,23 @@ function gradient_converged!(state::Union{AccProxGradDescentState{T}, MonotoneAc
   residual = g_residual(state)
   state.max_residual = max(state.max_residual, residual)
   # (xhat - x) / τ = L (y - x) - ∇f(y), with xhat = y - τ∇f(y)
-  subgrad = _maxabs_stepdiff(state.L, state.y, state.x, state.grad_f_y)
-  normalizer = max(_norm_inf(state.grad_f_y), subgrad) + options.gradtol
+  subgrad = _apg_subgrad(state)
+  normalizer = max(_apg_gradnorm(state), subgrad) + options.gradtol
   n_residual = residual / normalizer
   residual / (state.max_residual + options.gradtol) < options.gradtol || n_residual < options.gradtol
 end
 
 ##############################
+
+_apg_subgrad(s::MonotoneAccProxGradDescentState) = _maxabs_stepdiff(s.L, s.y, s.x, s.grad_f_y)
+_apg_gradnorm(s::MonotoneAccProxGradDescentState) = _norm_inf(s.grad_f_y)
+_apg_subgrad(s::AccProxGradDescentState) = _metric_subgrad_diff(s.metric, s.L, s.y, s.x, s.grad_f_y)
+_apg_gradnorm(s::AccProxGradDescentState) = _metric_dualnorm(s.metric, s.grad_f_y)
+
+_state_norm(s::MonotoneAccProxGradDescentState, x) = _norm(x)
+_state_norm(s::Union{ProximalGradientDescentState, AccProxGradDescentState}, x) = _metric_norm(s.metric, x)
+
+LineSearches.stepnorm2(s::ProximalGradientDescentState, d) = _pgd_norm2(s.metric, d)
+
+_state_normdiff(s::MonotoneAccProxGradDescentState) = _norm_diff(s.x, s.x_previous, 2.)
+_state_normdiff(s::Union{ProximalGradientDescentState, AccProxGradDescentState}) = _metric_normdiff(s.metric, s.x, s.x_previous)

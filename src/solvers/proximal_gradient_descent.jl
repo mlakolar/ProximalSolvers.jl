@@ -4,7 +4,7 @@
 # https://web.stanford.edu/~boyd/papers/pdf/prox_algs.pdf
 
 """
-    ProximalGradientDescent(; ls = LineSearches.BackTracking(), normalized = false, debias = 0)
+    ProximalGradientDescent(; ls = LineSearches.BackTracking(), normalized = false, debias = 0, preconditioner = :none)
 
 Proximal gradient descent (Parikh and Boyd, *Proximal Algorithms*, §4.2):
 `x ← prox_{g/L}(x - ∇f(x) / L)`, with the step size `1/L` chosen by the
@@ -26,27 +26,42 @@ options help iterative hard thresholding:
   changed for `k` iterations, with [`refit!`](@ref), and keeps the refit if it
   lowers the objective, as MendelIHT does. It needs a loss that `refit!`
   supports and a vector, `SparseIterate` or `SymmetricSparseIterate` iterate.
+
+With `preconditioner = :diagonal`, compute coordinate curvatures once using
+`coordinate_lipschitz!` and take entrywise steps `1 ./ (L .* D)`. Backtracking
+chooses the scalar `1/L` in the `D` norm; the diagonal alone is not a global
+curvature bound. Optimality residuals and iterate tolerances use the coordinates
+`sqrt.(D) .* x`; duality gaps still certify the original objective. Zero
+curvatures use unit metric entries; negative or nonfinite curvatures are rejected.
+This option needs independently stored real floating point entries and a penalty with an
+array-step `value_and_prox!` method. Tuple blocks and `SymmetricSparseIterate` are not supported. Keep loss
+data fixed when reusing a workspace, which also reuses the metric.
+
 """
-struct ProximalGradientDescent{L} <: ProximalSolver
+struct ProximalGradientDescent{L, P} <: ProximalSolver
   ls::L
   normalized::Bool
   debias::Int
+  preconditioner::P
 end
 
 Base.summary(::ProximalGradientDescent) = "Proximal Gradient Descent"
 
-ProximalGradientDescent(ls) = ProximalGradientDescent(ls, false, 0)
+ProximalGradientDescent(ls) = ProximalGradientDescent(; ls)
+ProximalGradientDescent(ls, normalized::Bool, debias::Int) = ProximalGradientDescent(; ls, normalized, debias)
 
-function ProximalGradientDescent(; ls = LineSearches.BackTracking(), normalized::Bool = false, debias::Integer = 0)
+function ProximalGradientDescent(; ls = LineSearches.BackTracking(), normalized::Bool = false, debias::Integer = 0, preconditioner::Symbol = :none)
   debias >= 0 || throw(ArgumentError("debias must be nonnegative, but it is $debias."))
-  ProximalGradientDescent{typeof(ls)}(ls, normalized, Int(debias))
+  p = _preconditioner(preconditioner)
+  normalized && p === :diagonal && throw(ArgumentError("normalized and diagonal preconditioning cannot be combined."))
+  ProximalGradientDescent(ls, normalized, Int(debias), p)
 end
 
 # the iterates have the type of the starting point x0, an array or a tuple of
 # arrays; the gradients are dense. For a loss of a linear image, f(x) = F(Ax),
 # the state keeps the image of x (see image_models.jl); otherwise model and the
 # image are nothing
-mutable struct ProximalGradientDescentState{T, X<:Union{AbstractArray{T}, _Blocks{T}}, G<:Union{AbstractArray{T}, _Blocks{T}}, M, Z}
+mutable struct ProximalGradientDescentState{T, X<:Union{AbstractArray{T}, _Blocks{T}}, G<:Union{AbstractArray{T}, _Blocks{T}}, M, Z, P}
     x::X
     f_x::T
     g_x::T
@@ -69,6 +84,7 @@ mutable struct ProximalGradientDescentState{T, X<:Union{AbstractArray{T}, _Block
     dz::Z             # F' at A x
     stable::Int             # iterations with the same support, for debias
     refitted::Bool          # whether the current support was refitted
+    metric::P
 end
 
 
@@ -79,6 +95,7 @@ function initial_state(
           g,
           x0::Union{AbstractArray{T}, _Blocks{T}}) where T
 
+    metric = _diagonal_metric(method.preconditioner, f, x0)
     grad_f_x = _dense_similar(x0)
     model = _image_model(f)
     z_x = model === nothing ? nothing : _image_buffer(model)
@@ -111,7 +128,8 @@ function initial_state(
                          z_x,
                          dz,
                          0,           # stable
-                         false        # refitted
+                         false,       # refitted
+                         metric
                          )
 end
 
@@ -132,8 +150,8 @@ function update_state!(
     # backtracking loop
     while true
       # find next point
-      _step!(state.xhat, state.x_previous, state.grad_f_x_previous, state.L)
-      state.g_x = value_and_prox!(state.x, g, state.xhat, one(T) / state.L)
+      _metric_step!(state.xhat, state.x_previous, state.grad_f_x_previous, state.L, state.metric)
+      state.g_x = _metric_prox!(state.x, g, state.xhat, state.L, state.metric)
       _drop!(state.x)
       state.f_x = _value!(f, state.x, state.model, state.z_x)
       state.prox_calls += 1

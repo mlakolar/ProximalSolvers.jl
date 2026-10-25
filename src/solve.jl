@@ -142,7 +142,7 @@ function _solve_gradient!(state, f, g, method, options, gapev, t0 = time())
                 converged,
                 x_converged,
                 options.xtol,
-                Float64(_norm_diff(state.x, state.x_previous, 2.)),
+                Float64(_state_normdiff(state)),
                 fg_converged,
                 options.ftol,
                 Float64(f_residual(state.f_x + state.g_x, state.f_x_previous + state.g_x_previous, options.ftol)),
