@@ -1,0 +1,121 @@
+  Activating new project at `~/juliaPkg/runs/20261026-ps92-diagonal/env-baseline`
+   Resolving package versions...
+    Updating `~/juliaPkg/runs/20261026-ps92-diagonal/env-baseline/Project.toml`
+  [0a755509] + ProximalBase v0.5.3 `~/juliaPkg/runs/20261026-ps92-diagonal/ProximalBase.jl`
+  [fc4971f5] + ProximalSolvers v0.1.1 `~/juliaPkg/runs/20261026-ps92-diagonal/baseline`
+    Updating `~/juliaPkg/runs/20261026-ps92-diagonal/env-baseline/Manifest.toml`
+  [aea7be01] + PrecompileTools v1.3.4
+  [21216c6a] + Preferences v1.6.1
+  [0a755509] + ProximalBase v0.5.3 `~/juliaPkg/runs/20261026-ps92-diagonal/ProximalBase.jl`
+  [fc4971f5] + ProximalSolvers v0.1.1 `~/juliaPkg/runs/20261026-ps92-diagonal/baseline`
+  [56f22d72] + Artifacts v1.11.0
+  [ade2ca70] + Dates v1.11.0
+  [8f399da3] + Libdl v1.11.0
+  [37e2e46d] + LinearAlgebra v1.13.0
+  [de0858da] + Printf v1.11.0
+  [9a3f8284] + Random v1.11.0
+  [ea8e919c] + SHA v1.0.0
+  [9e88b42a] + Serialization v1.11.0
+  [2f01184e] + SparseArrays v1.13.0
+  [fa267f1f] + TOML v1.0.3
+  [4ec0a83e] + Unicode v1.11.0
+  [e66e0078] + CompilerSupportLibraries_jll v1.5.5+2
+  [4536629a] + OpenBLAS_jll v0.3.30+0
+  [bea87d4a] + SuiteSparse_jll v7.10.1+0
+  [8e850b90] + libblastrampoline_jll v5.15.0+0
+  Activating new project at `~/juliaPkg/runs/20261026-ps92-diagonal/env-candidate`
+   Resolving package versions...
+    Updating `~/juliaPkg/runs/20261026-ps92-diagonal/env-candidate/Project.toml`
+  [0a755509] + ProximalBase v0.5.3 `~/juliaPkg/runs/20261026-ps92-diagonal/ProximalBase.jl`
+  [fc4971f5] + ProximalSolvers v0.1.1 `~/juliaPkg/runs/20261026-ps92-diagonal/candidate`
+    Updating `~/juliaPkg/runs/20261026-ps92-diagonal/env-candidate/Manifest.toml`
+  [aea7be01] + PrecompileTools v1.3.4
+  [21216c6a] + Preferences v1.6.1
+  [0a755509] + ProximalBase v0.5.3 `~/juliaPkg/runs/20261026-ps92-diagonal/ProximalBase.jl`
+  [fc4971f5] + ProximalSolvers v0.1.1 `~/juliaPkg/runs/20261026-ps92-diagonal/candidate`
+  [56f22d72] + Artifacts v1.11.0
+  [ade2ca70] + Dates v1.11.0
+  [8f399da3] + Libdl v1.11.0
+  [37e2e46d] + LinearAlgebra v1.13.0
+  [de0858da] + Printf v1.11.0
+  [9a3f8284] + Random v1.11.0
+  [ea8e919c] + SHA v1.0.0
+  [9e88b42a] + Serialization v1.11.0
+  [2f01184e] + SparseArrays v1.13.0
+  [fa267f1f] + TOML v1.0.3
+  [4ec0a83e] + Unicode v1.11.0
+  [e66e0078] + CompilerSupportLibraries_jll v1.5.5+2
+  [4536629a] + OpenBLAS_jll v0.3.30+0
+  [bea87d4a] + SuiteSparse_jll v7.10.1+0
+  [8e850b90] + libblastrampoline_jll v5.15.0+0
+   Resolving package versions...
+    Updating `~/juliaPkg/runs/20261026-ps92-diagonal/env-candidate/Project.toml`
+  [4c88cf16] + Aqua v0.8.18
+  [10745b16] + Statistics v1.11.5
+    Updating `~/juliaPkg/runs/20261026-ps92-diagonal/env-candidate/Manifest.toml`
+  [4c88cf16] + Aqua v0.8.18
+  [34da2185] + Compat v4.18.1
+  [10745b16] + Statistics v1.11.5
+  [0dad84c5] + ArgTools v1.1.2
+  [2a0f44e3] + Base64 v1.11.0
+  [f43a241f] + Downloads v1.7.0
+  [7b1f6079] + FileWatching v1.11.0
+  [b77e0a4c] + InteractiveUtils v1.11.0
+  [ac6e5ff7] + JuliaSyntaxHighlighting v1.12.0
+  [b27032c2] + LibCURL v1.0.0
+  [76f85450] + LibGit2 v1.11.0
+  [56ddb016] + Logging v1.11.0
+  [d6f4376e] + Markdown v1.11.0
+  [ca575930] + NetworkOptions v1.3.0
+  [44cfe95a] + Pkg v1.13.0
+  [f489334b] + StyledStrings v1.11.0
+  [a4e569a6] + Tar v1.10.0
+  [8dfed614] + Test v1.11.0
+  [cf7118a7] + UUIDs v1.11.0
+  [deac9b47] + LibCURL_jll v8.22.0+0
+  [e37daf67] + LibGit2_jll v1.9.7+0
+  [29816b5a] + LibSSH2_jll v1.11.104+0
+  [14a3606d] + MozillaCACerts_jll v2026.8.13
+  [458c3c95] + OpenSSL_jll v3.5.8+0
+  [efcefdf7] + PCRE2_jll v10.46.0+0
+  [83775a58] + Zlib_jll v1.3.2+0
+  [3161d3a3] + Zstd_jll v1.5.7+1
+  [8e850ede] + nghttp2_jll v1.70.0+0
+  [3f19e933] + p7zip_jll v17.8.3+0
+ERROR: LoadError: UndefVarError: `#trial` not defined in `Main`
+Suggestion: check for spelling errors or missing imports.
+Stacktrace:
+ [1] deserialize_datatype(s::Distributed.ClusterSerializer{Sockets.TCPSocket}, full::Bool)
+   @ Serialization ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Serialization/src/Serialization.jl:1543
+ [2] handle_deserialize(s::Distributed.ClusterSerializer{Sockets.TCPSocket}, b::Int32)
+   @ Serialization ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Serialization/src/Serialization.jl:904
+ [3] deserialize(s::Distributed.ClusterSerializer{Sockets.TCPSocket})
+   @ Serialization ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Serialization/src/Serialization.jl:851
+ [4] handle_deserialize(s::Distributed.ClusterSerializer{Sockets.TCPSocket}, b::Int32)
+   @ Serialization ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Serialization/src/Serialization.jl:911
+ [5] deserialize
+   @ ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Serialization/src/Serialization.jl:851 [inlined]
+ [6] deserialize_msg(s::Distributed.ClusterSerializer{Sockets.TCPSocket})
+   @ Distributed ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Distributed/src/messages.jl:87
+ [7] message_handler_loop(r_stream::Sockets.TCPSocket, w_stream::Sockets.TCPSocket, incoming::Bool)
+   @ Distributed ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Distributed/src/process_messages.jl:176
+ [8] process_tcp_streams(r_stream::Sockets.TCPSocket, w_stream::Sockets.TCPSocket, incoming::Bool)
+   @ Distributed ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Distributed/src/process_messages.jl:133
+ [9] (::Distributed.var"#process_messages##0#process_messages##1"{Sockets.TCPSocket, Sockets.TCPSocket, Bool})()
+   @ Distributed ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Distributed/src/process_messages.jl:121
+Stacktrace:
+ [1] remotecall_fetch(f::Function, w::Distributed.Worker, args::String; kwargs::@Kwargs{})
+   @ Distributed ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Distributed/src/remotecall.jl:465
+ [2] remotecall_fetch
+   @ ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Distributed/src/remotecall.jl:454 [inlined]
+ [3] remotecall_fetch(f::Function, id::Int64, args::String)
+   @ Distributed ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Distributed/src/remotecall.jl:492
+ [4] top-level scope
+   @ ~/juliaPkg/runs/20261026-ps92-diagonal/candidate/benchmark/diagonal/run.jl:12
+ [5] include(mod::Module, _path::String)
+   @ Base ./Base.jl:309
+ [6] exec_options(opts::Base.JLOptions)
+   @ Base ./client.jl:344
+ [7] _start()
+   @ Base ./client.jl:577
+in expression starting at /home1/mkolar/juliaPkg/runs/20261026-ps92-diagonal/candidate/benchmark/diagonal/run.jl:11

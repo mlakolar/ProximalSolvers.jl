@@ -8,7 +8,7 @@
 # so the objective is nonincreasing across iterations.
 
 """
-    AccProxGradDescent(; β = 0.5, α = 0.9)
+    AccProxGradDescent(; β = 0.5, α = 0.9, preconditioner = :none)
 
 Accelerated proximal gradient descent (Parikh and Boyd, *Proximal Algorithms*,
 §4.3). Each iteration extrapolates `y = x + k/(k+3) (x - x')` and takes a
@@ -25,25 +25,38 @@ satisfying the descent bound, or the next curvature estimate is not finite.
 The momentum restarts whenever the objective would increase (O'Donoghue and
 Candès, *Adaptive restart for accelerated gradient schemes*, 2015), so the
 objective is nonincreasing. Use with [`solve!`](@ref).
+With `preconditioner = :diagonal`, compute coordinate curvatures once using
+`coordinate_lipschitz!` and take entrywise steps `1 ./ (L .* D)`. Backtracking
+chooses the scalar `1/L` in the `D` norm; the diagonal alone is not a global
+curvature bound. Optimality residuals and iterate tolerances use the coordinates
+`sqrt.(D) .* x`; duality gaps still certify the original objective. Zero
+curvatures use unit metric entries; negative or nonfinite curvatures are rejected.
+This option needs independently stored real floating point entries and a penalty with an
+array-step `value_and_prox!` method. Tuple blocks and `SymmetricSparseIterate` are not supported. Keep loss
+data fixed when reusing a workspace, which also reuses the metric.
+
 """
-struct AccProxGradDescent{T<:AbstractFloat} <: ProximalSolver
+struct AccProxGradDescent{T<:AbstractFloat, P} <: ProximalSolver
   β::T          # factor by which the step size 1/L shrinks during backtracking
   α::T          # factor by which L shrinks before each iteration, so the step can grow
+  preconditioner::P
 end
 
 Base.summary(::AccProxGradDescent) = "Accelerated Proximal Gradient Descent"
 
-function AccProxGradDescent(; β::AbstractFloat = 0.5, α::AbstractFloat = 0.9)
+AccProxGradDescent(β::AbstractFloat, α::AbstractFloat) = AccProxGradDescent(; β, α)
+
+function AccProxGradDescent(; β::AbstractFloat = 0.5, α::AbstractFloat = 0.9, preconditioner::Symbol = :none)
   0 < β < 1 || error("β must be in (0, 1).")
   0 < α <= 1 || error("α must be in (0, 1].")
-  AccProxGradDescent(promote(β, α)...)
+  AccProxGradDescent(promote(β, α)..., _preconditioner(preconditioner))
 end
 
 # the iterates have the type of the starting point x0, an array or a tuple of
 # arrays; the gradient is dense. For a loss of a linear image, f(x) = F(Ax), the
 # state keeps the images of x, x_previous and y (see image_models.jl); otherwise
 # model and the images are nothing
-mutable struct AccProxGradDescentState{T, X<:Union{AbstractArray{T}, _Blocks{T}}, G<:Union{AbstractArray{T}, _Blocks{T}}, M, Z}
+mutable struct AccProxGradDescentState{T, X<:Union{AbstractArray{T}, _Blocks{T}}, G<:Union{AbstractArray{T}, _Blocks{T}}, M, Z, P}
     x::X
     f_x::T
     g_x::T
@@ -68,6 +81,7 @@ mutable struct AccProxGradDescentState{T, X<:Union{AbstractArray{T}, _Blocks{T}}
     z_previous::Z     # A x_previous
     z_y::Z            # A y
     dz::Z             # F' at A y
+    metric::P
 end
 
 
@@ -78,6 +92,7 @@ function initial_state(
           g,
           x0::Union{AbstractArray{T}, _Blocks{T}}) where T
 
+    metric = _diagonal_metric(method.preconditioner, f, x0)
     model = _image_model(f)
     z_x = model === nothing ? nothing : _image_buffer(model)
     f_x = _value!(f, x0, model, z_x)
@@ -106,7 +121,8 @@ function initial_state(
                          z_x,
                          z_x === nothing ? nothing : copy(z_x),     # A x_previous
                          z_x === nothing ? nothing : similar(z_x),  # A y
-                         z_x === nothing ? nothing : similar(z_x)   # F' at A y
+                         z_x === nothing ? nothing : similar(z_x),  # F' at A y
+                         metric
                          )
 end
 
@@ -163,15 +179,15 @@ function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, method::AccPr
       return state
     end
     while true
-      _step!(state.xhat, state.y, state.grad_f_y, state.L)
-      state.g_x = value_and_prox!(state.x, g, state.xhat, one(T) / state.L)
+      _metric_step!(state.xhat, state.y, state.grad_f_y, state.L, state.metric)
+      state.g_x = _metric_prox!(state.x, g, state.xhat, state.L, state.metric)
       _drop!(state.x)
       state.f_x = _value!(f, state.x, state.model, state.z_x)
       state.prox_calls += 1
       state.f_calls += 1
 
       _sub!(state.xhat, state.x, state.y)
-      stepnorm2 = _sumabs2(state.xhat)
+      stepnorm2 = _metric_norm2(state.metric, state.xhat)
       upper = state.f_y + _dot(state.grad_f_y, state.xhat) + state.L / 2 * stepnorm2
       state.backtrack_steps += 1
       # slack guards against an endless loop from rounding error near the solution
