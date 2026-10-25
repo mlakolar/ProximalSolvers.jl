@@ -1028,7 +1028,7 @@ end
   xref = SparseIterate(p)
   solve!(xref, f, NormL1(λ), plain)
   x = SparseIterate(p)
-  @test solve!(x, f, NormL1(λ), mom; continuation = 10).converged
+  @test solve!(x, f, NormL1(λ), mom; continuation = 10, gaptol = 0).converged
   @test Vector(x) ≈ Vector(xref) atol = 1e-6
   f100 = (1 / n) * LeastSquaresLoss(y, X[:, 1:100])
   x0, x1 = SparseIterate(100), SparseIterate(100)
@@ -1036,8 +1036,8 @@ end
   solve!(x1, f100, ZeroFunction(), mom)
   @test Vector(x1) ≈ Vector(x0) atol = 1e-6
   λpath = [0.2, 0.1, 0.05, 0.02] .* (maximum(abs, X' * y) / n)
-  path0 = solve_path(f, NormL1(1.0), λpath, plain)
-  path1 = solve_path(f, NormL1(1.0), λpath, mom)
+  path0 = solve_path(f, NormL1(1.0), λpath, plain; gaptol = 0)
+  path1 = solve_path(f, NormL1(1.0), λpath, mom; gaptol = 0)
   @test all(path1.converged)
   for k in eachindex(λpath)
     @test Vector(path1.solutions[k]) ≈ Vector(path0.solutions[k]) atol = 1e-6

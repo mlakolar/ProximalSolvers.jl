@@ -134,10 +134,10 @@ end
     λs = λmax .* T[1.01, 0.6, 0.3]
     tol = T === Float32 ? 2e-5 : 1e-10
     method = CDSolver(; order = :cyclic, tol)
-    screened = solve_path(m, g, λs, method; x)
+    screened = solve_path(m, g, λs, method; x, gaptol = 0)
     xplain = AtomIterate(T, p, groups)
     plain = solve_path(cdmodel(f, xplain; intercept = fit_intercept), g, λs, method;
-                       x = xplain, screening = false)
+                       x = xplain, screening = false, gaptol = 0)
     @test all(screened.converged) && all(plain.converged)
     @test all(screened.kkt_checks .>= 1)
     @test iszero(norm(screened.solutions[1]))
