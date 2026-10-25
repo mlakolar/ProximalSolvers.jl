@@ -1,0 +1,9 @@
+{
+  "phase": "canary",
+  "paths": 32,
+  "valid_paths": 32,
+  "points": 384,
+  "valid_points": 384,
+  "profile_pairs": 4,
+  "decision": "Defer hybrid unless it adds useful capability beyond matching libslope; no speed-ratio acceptance gate"
+}

@@ -1,0 +1,74 @@
+[
+  {
+    "rho": 0.0,
+    "solver": "pgd",
+    "strong_vs_none": {
+      "pairs": 2,
+      "both_valid": 2,
+      "method_only": 0,
+      "baseline_only": 0,
+      "unresolved": 0,
+      "median_ratio": 0.5822416391538426
+    }
+  },
+  {
+    "rho": 0.0,
+    "solver": "fista",
+    "strong_vs_none": {
+      "pairs": 2,
+      "both_valid": 2,
+      "method_only": 0,
+      "baseline_only": 0,
+      "unresolved": 0,
+      "median_ratio": 0.5536943709766061
+    }
+  },
+  {
+    "rho": 0.0,
+    "solver": "hybrid",
+    "strong_vs_none": {
+      "pairs": 2,
+      "both_valid": 2,
+      "method_only": 0,
+      "baseline_only": 0,
+      "unresolved": 0,
+      "median_ratio": 0.933364798019302
+    }
+  },
+  {
+    "rho": 0.9,
+    "solver": "pgd",
+    "strong_vs_none": {
+      "pairs": 2,
+      "both_valid": 2,
+      "method_only": 0,
+      "baseline_only": 0,
+      "unresolved": 0,
+      "median_ratio": 0.4960322748681305
+    }
+  },
+  {
+    "rho": 0.9,
+    "solver": "fista",
+    "strong_vs_none": {
+      "pairs": 2,
+      "both_valid": 2,
+      "method_only": 0,
+      "baseline_only": 0,
+      "unresolved": 0,
+      "median_ratio": 0.5231789457026369
+    }
+  },
+  {
+    "rho": 0.9,
+    "solver": "hybrid",
+    "strong_vs_none": {
+      "pairs": 2,
+      "both_valid": 2,
+      "method_only": 0,
+      "baseline_only": 0,
+      "unresolved": 0,
+      "median_ratio": 0.9604414298315773
+    }
+  }
+]

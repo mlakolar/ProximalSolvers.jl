@@ -1,0 +1,5 @@
+Seq	Host	Starttime	JobRuntime	Send	Receive	Exitval	Signal	Command
+1	:	1792924579.260	   141.747	0	0	0	0	srun --exclusive --exact -N1 -n1 -c1 --mem=3500M "$JULIA" --startup-file=no --project=source/benchmark/slope source/benchmark/slope/first_order/run.jl --shard 1 --shards 4 --profiles --out main > main-1.log 2>&1
+2	:	1792924579.262	   186.688	0	0	0	0	srun --exclusive --exact -N1 -n1 -c1 --mem=3500M "$JULIA" --startup-file=no --project=source/benchmark/slope source/benchmark/slope/first_order/run.jl --shard 2 --shards 4 --profiles --out main > main-2.log 2>&1
+4	:	1792924579.268	   227.322	0	0	0	0	srun --exclusive --exact -N1 -n1 -c1 --mem=3500M "$JULIA" --startup-file=no --project=source/benchmark/slope source/benchmark/slope/first_order/run.jl --shard 4 --shards 4 --profiles --out main > main-4.log 2>&1
+3	:	1792924579.264	   227.571	0	0	0	0	srun --exclusive --exact -N1 -n1 -c1 --mem=3500M "$JULIA" --startup-file=no --project=source/benchmark/slope source/benchmark/slope/first_order/run.jl --shard 3 --shards 4 --profiles --out main > main-3.log 2>&1

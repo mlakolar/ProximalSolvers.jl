@@ -3,10 +3,13 @@
 Benchmark-only comparison of current PG/APG with SLOPE.jl 1.3.1 (libslope).
 No public solver, runtime dependency or penalty API is added.
 
-**Latest follow-up:** the [focused path-state comparison](path_reuse/README.md)
-is complete. Reusing APG state leaves a confirmed 3.2--3.4x primary gap on large
-correlated paths, supporting a narrowly scoped benchmark hybrid prototype.
-The initial broad gate and its negative result below remain unchanged.
+**Current framing:** the [first-order controls and APG profiling](first_order/README.md)
+separate solver choice, screening and implementation costs. A useful generic
+solver need not match a specialist's runtime. Defer a hybrid unless it adds useful
+capability beyond chasing libslope's solve time. The completed
+[path-state comparison](path_reuse/README.md) leaves a 3.2--3.4x primary gap on
+large correlated paths; its earlier speed-based prototype recommendation is
+superseded by this capability-oriented framing. Historical gate results remain.
 
 ## Protocol fixed before measurements
 

@@ -3,6 +3,9 @@
 This follow-up to #57/PR #90 isolates APG path handoffs before deciding whether
 the large-path libslope advantage motivates a hybrid cluster-coordinate
 prototype. Everything is benchmark-only; production solver code is unchanged.
+The subsequent [first-order controls/profiling](../first_order/README.md)
+supersede the speed-based development recommendation: a hybrid is deferred
+unless it adds useful capability beyond matching a specialist's solve time.
 
 ## Protocol fixed before measurements
 
@@ -45,7 +48,7 @@ Checks cover cached values/images after penalty changes, equality to the
 original reset trajectory, carried L values, known orthogonal optima and failed
 path truncation. No Julia execution runs on the local Mac.
 
-## Focused decision
+## Historical focused decision rule
 
 The earlier broad gate remains unchanged and failed. This is a new, narrower
 decision for the already identified large correlated path workload. A focused
@@ -78,9 +81,9 @@ time is 7m29s and counts against the same conservative two-hour task allowance.
 
 ## Results and reassessment (2026-10-25)
 
-**A focused benchmark-only hybrid cluster-coordinate prototype is now justified
-for large correlated-design paths.** The main and unused-seed grids both meet
-the focused gate. Curvature/workspace reuse improves allocation substantially
+**Both grids met the historical focused timing gate.** This motivated a
+prototype recommendation that is superseded by the capability-oriented framing
+above. Curvature/workspace reuse improves allocation substantially
 but explains little of the runtime gap. Even the diagnostic full-state handoff
 leaves a median ratio above three in both stages. This supersedes the request
 for a path-state control; it does not change the earlier failed broad gate or
@@ -131,15 +134,13 @@ but the reset/library ratio is now 3.336 rather than the earlier 6.358. That
 cross-run change is **not attributed to path reuse**. The paired ablation gives
 the much smaller 2--5% reuse effects above.
 
-The remaining gap warrants a small prototype confined to the identified
-least-squares/SLOPE path workload. Compare it with both workspace_L and
-full_state, alongside SLOPE.jl, at the same external target. Follow the
-[hybrid method of Larsson et al.](https://proceedings.mlr.press/v206/larsson23a.html):
-alternate proximal-gradient cluster refreshes with cluster-coordinate updates.
-Keep screening off initially to isolate the cluster method and retain a full
-external certificate. New performance/validation evidence is required before
-considering any public solver option. No hybrid implementation or speed claim
-for a native Julia hybrid is made by this PR.
+The remaining gap motivated first-order/screening controls and APG profiling;
+it does not require a hybrid. The earlier proposal to follow the
+[hybrid method of Larsson et al.](https://proceedings.mlr.press/v206/larsson23a.html)
+is deferred unless it adds useful capability. If such a use case emerges,
+compare a benchmark prototype with workspace_L, full_state and SLOPE.jl at the
+same external target, isolate screening and retain a full certificate. No
+hybrid implementation or native-hybrid speed claim is made by this PR.
 
 ### Evidence and recreation
 
