@@ -1,7 +1,7 @@
 """Complete-grid, failure-aware summary of the prospective adaPGM protocol."""
 import argparse,csv,collections,json,math,statistics,random
 from pathlib import Path
-p=argparse.ArgumentParser();p.add_argument("files",nargs="+");p.add_argument("--out",required=True);p.add_argument("--expected",type=int);a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument("files",nargs="+");p.add_argument("--out",required=True);p.add_argument("--expected",type=int);p.add_argument("--phase",choices=("main","confirmation"),default="main");a=p.parse_args()
 rows=[]
 for file in a.files:
     with open(file) as h:rows.extend(csv.DictReader(h))
@@ -74,6 +74,12 @@ for (family,base),rs in sorted(byfam.items()):
     report.append(d)
 (out/"primary.json").write_text(json.dumps(clean(report),indent=2,allow_nan=False)+"\n")
 
+conditioning=[]
+condition_groups=collections.defaultdict(list)
+for r in primary:condition_groups[(r["family"],r["p"],r["kappa"],r["baseline"])].append(r)
+for key,rs in sorted(condition_groups.items()):conditioning.append(dict(zip(("family","p","kappa","baseline"),key))|ratio_summary(rs))
+(out/"conditioning.json").write_text(json.dumps(clean(conditioning),indent=2,allow_nan=False)+"\n")
+
 allinit=[]
 byinit=collections.defaultdict(list)
 for r in pairs:byinit[(r["family"],r["initialization"],r["baseline"])].append(r)
@@ -83,7 +89,7 @@ for key,rs in sorted(byinit.items()):allinit.append(dict(zip(("family","initiali
 pr=[r for r in rows if r["method"]=="adaPGM" and r["initialization"]==("unit" if r["family"]=="quartic" else "reference")]
 rate=sum(r["ok"] for r in pr)/len(pr)
 candidates=[r["family"] for r in report if r["baseline"]=="APG" and r["median_failure_aware_ratio"] is not None and r["median_failure_aware_ratio"]<=.8 and r["adaptive_valid"]>=.99*r["pairs"]]
-result={"rows":len(rows),"valid":sum(r["ok"] for r in rows),"primary_fits":len(pr),"primary_valid":sum(r["ok"] for r in pr),"primary_success_rate":rate,"candidate_families":candidates,"main_gate":rate>=.99 and len(candidates)>=2,"fresh_seed_confirmation_required":True}
+result={"phase":a.phase,"rows":len(rows),"valid":sum(r["ok"] for r in rows),"primary_fits":len(pr),"primary_valid":sum(r["ok"] for r in pr),"primary_success_rate":rate,"candidate_families":candidates,"main_gate":rate>=.99 and len(candidates)>=2,"fresh_seed_confirmation_required":a.phase=="main"}
 (out/"gate.json").write_text(json.dumps(result,indent=2)+"\n")
 print(json.dumps(result,indent=2))
 for r in report:print(r)

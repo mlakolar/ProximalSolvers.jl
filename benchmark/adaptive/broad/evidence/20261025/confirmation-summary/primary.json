@@ -1,0 +1,172 @@
+[
+  {
+    "family": "huber",
+    "baseline": "APG",
+    "pairs": 120,
+    "both_valid": 110,
+    "adaptive_valid": 110,
+    "baseline_valid": 114,
+    "unresolved": 6,
+    "adaptive_only": 0,
+    "baseline_only": 4,
+    "median_failure_aware_ratio": 1.256065810571991,
+    "median_both_valid_ratio": 1.190062857714787,
+    "seed_bootstrap_median_ratio_95ci": [
+      1.1124693530434584,
+      1.3132368236233358
+    ]
+  },
+  {
+    "family": "huber",
+    "baseline": "PG",
+    "pairs": 120,
+    "both_valid": 110,
+    "adaptive_valid": 110,
+    "baseline_valid": 110,
+    "unresolved": 10,
+    "adaptive_only": 0,
+    "baseline_only": 0,
+    "median_failure_aware_ratio": 0.734944464907739,
+    "median_both_valid_ratio": 0.734944464907739,
+    "seed_bootstrap_median_ratio_95ci": [
+      0.7052136655536502,
+      0.743078713815404
+    ]
+  },
+  {
+    "family": "logistic",
+    "baseline": "APG",
+    "pairs": 120,
+    "both_valid": 106,
+    "adaptive_valid": 106,
+    "baseline_valid": 120,
+    "unresolved": 0,
+    "adaptive_only": 0,
+    "baseline_only": 14,
+    "median_failure_aware_ratio": 2.7920899465107976,
+    "median_both_valid_ratio": 2.373002337915614,
+    "seed_bootstrap_median_ratio_95ci": [
+      2.4127811076541006,
+      2.9699200903875185
+    ]
+  },
+  {
+    "family": "logistic",
+    "baseline": "PG",
+    "pairs": 120,
+    "both_valid": 102,
+    "adaptive_valid": 106,
+    "baseline_valid": 102,
+    "unresolved": 14,
+    "adaptive_only": 4,
+    "baseline_only": 0,
+    "median_failure_aware_ratio": 0.5045785236275787,
+    "median_both_valid_ratio": 0.5104635332916896,
+    "seed_bootstrap_median_ratio_95ci": [
+      0.4572154133641884,
+      0.5192874626145045
+    ]
+  },
+  {
+    "family": "ls",
+    "baseline": "APG",
+    "pairs": 120,
+    "both_valid": 120,
+    "adaptive_valid": 120,
+    "baseline_valid": 120,
+    "unresolved": 0,
+    "adaptive_only": 0,
+    "baseline_only": 0,
+    "median_failure_aware_ratio": 1.1692548196799344,
+    "median_both_valid_ratio": 1.1692548196799344,
+    "seed_bootstrap_median_ratio_95ci": [
+      1.1513968576876676,
+      1.242243714376856
+    ]
+  },
+  {
+    "family": "ls",
+    "baseline": "PG",
+    "pairs": 120,
+    "both_valid": 120,
+    "adaptive_valid": 120,
+    "baseline_valid": 120,
+    "unresolved": 0,
+    "adaptive_only": 0,
+    "baseline_only": 0,
+    "median_failure_aware_ratio": 0.6982908560337562,
+    "median_both_valid_ratio": 0.6982908560337562,
+    "seed_bootstrap_median_ratio_95ci": [
+      0.6817991039893273,
+      0.713029503704107
+    ]
+  },
+  {
+    "family": "poisson",
+    "baseline": "APG",
+    "pairs": 120,
+    "both_valid": 110,
+    "adaptive_valid": 110,
+    "baseline_valid": 120,
+    "unresolved": 0,
+    "adaptive_only": 0,
+    "baseline_only": 10,
+    "median_failure_aware_ratio": 2.183310997658769,
+    "median_both_valid_ratio": 2.0273531591017786,
+    "seed_bootstrap_median_ratio_95ci": [
+      2.067394094262847,
+      2.332172402928188
+    ]
+  },
+  {
+    "family": "poisson",
+    "baseline": "PG",
+    "pairs": 120,
+    "both_valid": 110,
+    "adaptive_valid": 110,
+    "baseline_valid": 110,
+    "unresolved": 10,
+    "adaptive_only": 0,
+    "baseline_only": 0,
+    "median_failure_aware_ratio": 0.6503255821322489,
+    "median_both_valid_ratio": 0.6503255821322489,
+    "seed_bootstrap_median_ratio_95ci": [
+      0.6376818007315411,
+      0.652842969233429
+    ]
+  },
+  {
+    "family": "quartic",
+    "baseline": "APG",
+    "pairs": 120,
+    "both_valid": 120,
+    "adaptive_valid": 120,
+    "baseline_valid": 120,
+    "unresolved": 0,
+    "adaptive_only": 0,
+    "baseline_only": 0,
+    "median_failure_aware_ratio": 1.2116662173767065,
+    "median_both_valid_ratio": 1.2116662173767065,
+    "seed_bootstrap_median_ratio_95ci": [
+      1.1375540537386684,
+      1.3571109805175308
+    ]
+  },
+  {
+    "family": "quartic",
+    "baseline": "PG",
+    "pairs": 120,
+    "both_valid": 120,
+    "adaptive_valid": 120,
+    "baseline_valid": 120,
+    "unresolved": 0,
+    "adaptive_only": 0,
+    "baseline_only": 0,
+    "median_failure_aware_ratio": 0.5586005576724571,
+    "median_both_valid_ratio": 0.5586005576724571,
+    "seed_bootstrap_median_ratio_95ci": [
+      0.5251175075470497,
+      0.5816066717516346
+    ]
+  }
+]

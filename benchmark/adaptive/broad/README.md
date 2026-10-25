@@ -89,8 +89,9 @@ julia --startup-file=no --project=. benchmark/adaptive/broad/run.jl \
 ```
 
 Project run: `20261025T0800Z-ps-adapgm-broad`. Final raw data, source reference,
-Slurm job records, launch commands and summaries will be retained with the
-resulting decision. This protocol precedes those results.
+Slurm job records, launch commands and summaries are retained with the
+resulting decision. The protocol was committed as `4653b2e` before the main
+results were inspected; the fixed confirmation/summary code was `3461d93`.
 
 Fresh-seed confirmation uses the same full loss/dimension/conditioning/penalty
 grid at seeds 11--15, two timing repetitions, and unit-step adaPGM plus default
@@ -98,3 +99,93 @@ PG/APG only (1,800 fits). It uses `--primary-only --seeds 11,12,13,14,15 --round
 This avoids selecting an initialization from the main sweep for confirmation.
 `check_summary.py` checks solved/failed pairing, unresolved pairs, and duplicate
 row rejection with a small fixture before the scientific summaries are used.
+
+## Result and recommendation (2026-10-25)
+
+**Do not add a public opt-in adaPGM solver option from these measurements.**
+Neither the main grid nor the fresh-seed confirmation met the prospective gate.
+Keep the benchmark implementation and evidence; prefer existing APG for the
+composite problems studied here. This is an empirical decision about this rule
+and these workloads, not a claim that adaptive methods cannot be useful.
+
+All **11,160 main fits** and **1,800 fresh-seed fits** were recorded, with exact
+expected identity-set coverage and no duplicates. Respectively 10,172 and 1,722
+met both accuracy targets; all other outcomes are retained. These are not
+all-pass numerical campaigns. The focused harness checks passed 51 assertions;
+summary failure-accounting and duplicate-row checks passed separately.
+
+At absolute initial gamma=1, median paired adaPGM/APG times **among pairs where
+both methods met the targets** were:
+
+| loss | main adaPGM valid / 360 | main APG valid / 360 | main time ratio | fresh-seed time ratio |
+|---|---:|---:|---:|---:|
+| least squares | 360 | 360 | 1.317 | 1.169 |
+| logistic | 321 | 360 | 2.708 | 2.373 |
+| Huber | 330 | 354 | 1.642 | 1.190 |
+| Poisson | 330 | 360 | 2.117 | 2.027 |
+| coupled quartic | 360 | 360 | 1.216 | 1.212 |
+
+Each fresh-seed family has 120 pairs. Ratios above one favor APG. Failed fits are
+not erased: `primary.json` additionally reports failure-aware comparisons,
+coverage and seed-cluster bootstrap intervals. In that convention an adaptive-only
+success ranks as zero, a baseline-only success as infinity, and two failures
+remain unresolved. These markers are rankings, not measured speed ratios. Every
+loss-family failure-aware median also favors APG in both stages.
+
+Across stages, unit-step adaPGM met the common budget/targets in **2,267/2,400**
+fits (94.46%), compared with **2,388/2,400** (99.50%) for default APG. The unit-step
+misses were time/iteration caps, concentrated in the small-penalty, poorly
+conditioned settings. They do not prove mathematical nonconvergence. Extending
+these caps was unnecessary for the decision: even fully converged pairs favored
+APG, and the complete least-squares/quartic families also failed the speed gate.
+No loss family supplied the required 20% broad median advantage over APG.
+
+### Conditioning and initialization
+
+The direction of the result changes with conditioning. At design-Gram condition
+one, main-grid unit-step adaPGM/APG medians were 0.268 (least squares) and 0.773
+(Huber). At condition 10,000 they were 3.800 and 3.406 among converged pairs.
+The other families also became less favorable as conditioning worsened. The
+orthogonal least-squares case is especially favorable to gamma=1 because that
+single proximal step is its exact solution; this is not a general speed result.
+
+Against **plain PG**, unit-step adaPGM was often useful: main both-valid medians
+ranged from 0.476 to 0.718, and fresh-seed medians from 0.510 to 0.735. APG already
+provides the stronger general comparison. An additional option needs a concrete
+workload that benefits beyond the existing methods, not only a faster comparison
+to unaccelerated PG.
+
+Other initializations did not rescue the broad APG comparison. All 360 Poisson
+runs at gamma0=10,000/L0 produced nonfinite gradients. At gamma0=100/L0, 36 Poisson
+runs stopped with `invalid_step` and 30 hit the time cap. These are floating-point
+failures on a mathematically globally finite loss; no line search or retry was
+inserted. Initial gamma=1 did not produce those numerical failures on this grid.
+
+The initial pilot's separable quartic, its stopping criteria and scaling differ
+from this coupled, jointly certified experiment. Do not pool their time ratios
+or attribute the change solely to conditioning. The broader results supersede
+the pilot's suggestion to pursue an opt-in integration.
+
+### Retained evidence and reproduction
+
+[Evidence directory](evidence/20261025) contains all eight raw worker CSVs,
+main and confirmation summaries, checked counts, and run provenance. The
+analysis can be regenerated with:
+
+```sh
+python3 benchmark/adaptive/broad/check_summary.py
+python3 benchmark/adaptive/broad/summarize.py \
+  benchmark/adaptive/broad/evidence/20261025/main-*.csv \
+  --expected 11160 --phase main --out /tmp/adapgm-main-summary
+python3 benchmark/adaptive/broad/summarize.py \
+  benchmark/adaptive/broad/evidence/20261025/confirmation-*.csv \
+  --expected 1800 --phase confirmation --out /tmp/adapgm-confirmation-summary
+```
+
+Discovery jobs 13422390 (canary, 1m13s), 13422402 (main, 7m28s) and 13422420
+(confirmation, 2m13s) all completed. Peak allocation was four CPUs and 16GB;
+Julia 1.13.2 and BLAS each used one thread per worker. Total allocated running
+time was 10m54s. Main source was `4653b2e`; confirmation source was `3461d93`.
+The adaPGM rule engine and existing PG/APG implementations were unchanged from
+the initial benchmark. Source archives, launchers and the referenced exact
+package environment are in the project run registry.

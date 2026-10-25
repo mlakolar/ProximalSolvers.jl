@@ -1,5 +1,7 @@
 # Separate adaptive proximal-gradient evaluation
 
+**Current decision:** the [broader evaluation](broad/README.md#result-and-recommendation-2026-10-25) and fresh-seed confirmation do not support a public opt-in adaPGM option. The pilot results below are retained as historical evidence; their follow-up recommendation is superseded.
+
 This track implements the equations independently of PANOCplus and of the
 unregistered author package. It adds no solver API or package dependency.
 
@@ -68,3 +70,5 @@ both leave the SPD cone on the first step for gamma0=1,10,100, with no hidden
 retry. All six failures are retained in `domain-probes.csv`. The safeguarded
 PANOCplus prototype recovers in all three corresponding runs. This domain is
 outside the cited globally finite smooth-loss assumptions.
+
+The completed broader campaign includes 12,960 fits on five coupled globally finite convex losses, three design-conditioning levels and 15 seeds. adaPGM generally beat plain PG but lost to APG across every loss-family median in both stages. No runtime solver option was added. See `broad/README.md` for counts, failures, conditioning effects and the decision.

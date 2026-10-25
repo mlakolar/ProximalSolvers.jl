@@ -115,3 +115,5 @@ respectively. Both adaptive rules terminate with `invalid_domain` at their
 first step for all three initializations (six intentional failures, retained).
 These nine probes are separate from the 948 successful comparison fits.
 Reproduce with `benchmark/panocplus/domain_probes.jl --out domain-probes.csv`.
+
+The separate [broader adaPGM evaluation](../adaptive/broad/README.md) is also complete. Its main and fresh-seed results favor retaining APG and deferring a public adaPGM option.
