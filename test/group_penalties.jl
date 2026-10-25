@@ -191,9 +191,9 @@ end
   groups = [1:30, 31:60]
   λmax = lambda_max(f, GroupNormL2(1.0, groups), AtomIterate(p, groups))
   λs = λmax .* [1.0, 0.5, 0.25, 0.1]
-  path = solve_path(f, GroupNormL2(1.0, groups), λs, CDSolver(; tol = 1e-12); x = AtomIterate(p, groups))
+  path = solve_path(f, GroupNormL2(1.0, groups), λs, CDSolver(; tol = 1e-12); x = AtomIterate(p, groups), gaptol = 0)
   @test all(path.converged)
-  plain = solve_path(f, GroupNormL2(1.0, groups), λs, CDSolver(; tol = 1e-12); x = AtomIterate(p, groups), screening = false)
+  plain = solve_path(f, GroupNormL2(1.0, groups), λs, CDSolver(; tol = 1e-12); x = AtomIterate(p, groups), screening = false, gaptol = 0)
   @test all(norm(Vector(a) - Vector(b)) <= 1e-8 * (1 + norm(Vector(b))) for (a, b) in zip(path.solutions, plain.solutions))
   @test path.values ≈ plain.values rtol = 1e-12
   # duality gaps and gap-safe screening also take the gradient

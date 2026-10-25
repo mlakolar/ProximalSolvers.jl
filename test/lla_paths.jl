@@ -135,7 +135,7 @@ end
   λmax = lambda_max(f, NormL1(1.0, w), SparseIterate(p))
   λs = λmax .* exp.(range(0, log(0.02); length = 10))
   r = solve_path(f, NormL1(1.0, w), λs, LLA(TIGHT))
-  rl = solve_path(f, NormL1(1.0, w), λs, TIGHT)
+  rl = solve_path(f, NormL1(1.0, w), λs, TIGHT; gaptol = 0)
   @test all(==(1), r.stages)
   @test all(==(1), rl.stages)
   @test maximum(norm.(r.solutions .- rl.solutions, Inf)) < 1e-8

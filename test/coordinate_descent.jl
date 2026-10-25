@@ -78,7 +78,7 @@ end
     @test kkt_l1(lsgrad(X, y, x), x, λ) < 1e-7
     groups = [i:i+4 for i in 1:5:p]
     xg = zeros(p)
-    solve!(xg, f, GroupNormL2(λ, groups, ones(length(groups))), CDSolver(; tol = 1e-10); continuation = 5)
+    solve!(xg, f, GroupNormL2(λ, groups, ones(length(groups))), CDSolver(; tol = 1e-10); continuation = 5, gaptol = 0)
     @test any(!iszero, xg)
   end
 
@@ -415,13 +415,13 @@ end
 
   λ = 0.05λmax
   x = SparseIterate(p)
-  r = solve!(x, f, NormL1(λ), CDSolver(; tol = 1e-10); continuation = 20)
+  r = solve!(x, f, NormL1(λ), CDSolver(; tol = 1e-10); continuation = 20, gaptol = 0)
   @test kkt_l1(lsgrad(X, y, Vector(x)), Vector(x), λ) < 1e-7
   @test r.kkt_checks >= 21
   # the levels before λ are solved to √tol by default, and λ itself to tol
   for ctol in (1e-10, 1e-3, 0.0)
     xc = SparseIterate(p)
-    rc = solve!(xc, f, NormL1(λ), CDSolver(; tol = 1e-10); continuation = 20, continuation_tol = ctol)
+    rc = solve!(xc, f, NormL1(λ), CDSolver(; tol = 1e-10); continuation = 20, continuation_tol = ctol, gaptol = 0)
     @test rc.converged && rc.tolerance == r.tolerance
     @test kkt_l1(lsgrad(X, y, Vector(xc)), Vector(xc), λ) < 1e-7
     @test Vector(xc) ≈ Vector(x) atol = 1e-7
@@ -430,7 +430,7 @@ end
 
   λs = λmax .* 10 .^ range(0, -2; length = 15)
   for screening in (true, false)
-    path = solve_path(f, NormL1(1.0), λs, CDSolver(; tol = 1e-10); screening)
+    path = solve_path(f, NormL1(1.0), λs, CDSolver(; tol = 1e-10); screening, gaptol = 0)
     @test path.λ == λs
     for k in eachindex(λs)
       b = Vector(path.solutions[k])
@@ -462,7 +462,7 @@ end
       @test nnz(x) == 0
       ls = lm .* 10 .^ range(0, -2; length = 12)
       for screening in (true, false)
-        path = solve_path(f, g, ls, CDSolver(; tol = 1e-10); screening)
+        path = solve_path(f, g, ls, CDSolver(; tol = 1e-10); screening, gaptol = 0)
         @test path.λ == ls && all(path.converged)
         @test screening ? all(>=(1), path.kkt_checks) : all(iszero, path.kkt_checks)
         for k in eachindex(ls)
@@ -479,7 +479,7 @@ end
       # continuation down to a level
       λ = 0.05lm
       xc = SparseIterate(p)
-      rc = solve!(xc, f, Scaled(ElasticNet(α, 1 - α, w), λ), CDSolver(; tol = 1e-10); continuation = 10)
+      rc = solve!(xc, f, Scaled(ElasticNet(α, 1 - α, w), λ), CDSolver(; tol = 1e-10); continuation = 10, gaptol = 0)
       @test rc.kkt_checks >= 11
       @test kkt_l1(lsgrad(X, y, Vector(xc)) .+ λ * (1 - α) .* Vector(xc), Vector(xc), λ * α, w) < 1e-6
     end
@@ -488,7 +488,7 @@ end
   end
 
   @testset "cyclic order, weights, and a level of λmax or more" begin
-    pc = solve_path(f, NormL1(1.0), λs, CDSolver(; order = :cyclic, tol = 1e-10))
+    pc = solve_path(f, NormL1(1.0), λs, CDSolver(; order = :cyclic, tol = 1e-10); gaptol = 0)
     for k in eachindex(λs)
       b = Vector(pc.solutions[k])
       @test kkt_l1(lsgrad(X, y, b), b, λs[k]) < 1e-6
@@ -496,7 +496,7 @@ end
     # a weighted least-squares loss screens with its weighted gradient
     w = rand(Xoshiro(36), n) .+ 0.5
     fw = GLMLoss(ProximalBase.Squared(), y, X; weights = w ./ n)
-    pw = solve_path(fw, NormL1(1.0), λs, CDSolver(; tol = 1e-10))
+    pw = solve_path(fw, NormL1(1.0), λs, CDSolver(; tol = 1e-10); gaptol = 0)
     for k in eachindex(λs)
       b = Vector(pw.solutions[k])
       @test kkt_l1(X' * (w .* (X * b - y)) / n, b, λs[k]) < 1e-6
@@ -510,7 +510,7 @@ end
     for g in (ZeroFunction(), IndBox(-0.5, 0.5))
       x1 = SparseIterate(20); x1[3] = 1.0
       x2 = SparseIterate(20)
-      Random.seed!(5); r1 = solve!(x1, f20, g, CDSolver(; tol = 1e-10); continuation = 10)
+      Random.seed!(5); r1 = solve!(x1, f20, g, CDSolver(; tol = 1e-10); continuation = 10, gaptol = 0)
       Random.seed!(5); r2 = solve!(x2, f20, g, CDSolver(; tol = 1e-10))
       @test Vector(x1) == Vector(x2) && r1.passes == r2.passes && r1.converged && r1.kkt_checks == 0
     end
@@ -525,7 +525,7 @@ end
     ys = Xs[:, 1] - 0.9 * Xs[:, 2] + 0.01 * randn(rng, 100)
     fs = (1 / 100) * LeastSquaresLoss(ys, Xs)
     lm = lambda_max(fs, NormL1(1.0), SparseIterate(30))
-    path = solve_path(fs, NormL1(1.0), [lm, 0.05lm], CDSolver(; tol = 1e-10))
+    path = solve_path(fs, NormL1(1.0), [lm, 0.05lm], CDSolver(; tol = 1e-10); gaptol = 0)
     b = Vector(path.solutions[2])
     @test kkt_l1(lsgrad(Xs, ys, b), b, 0.05lm) < 1e-7
   end
@@ -539,12 +539,12 @@ end
     @test lm ≈ maximum(abs, Sy - Sx)
     # continuation, which does not screen a symmetric iterate by default
     xs = SymmetricSparseIterate(q)
-    solve!(xs, fk, NormL1(0.2lm), CDSolver(; tol = 1e-12); continuation = 10)
+    solve!(xs, fk, NormL1(0.2lm), CDSolver(; tol = 1e-12); continuation = 10, gaptol = 0)
     D = Matrix(xs)
     @test kkt_l1(vec((Sx * D * Sy + Sy * D * Sx) / 2 + (Sx - Sy)), vec(D), 0.2lm) < 1e-8
     for screening in (true, false)
       pk = solve_path(fk, NormL1(1.0), lm .* 10 .^ range(0, -1; length = 6), CDSolver(; tol = 1e-12);
-                      x = SymmetricSparseIterate(q), screening)
+                      x = SymmetricSparseIterate(q), screening, gaptol = 0)
       for k in eachindex(pk.λ)
         D = Matrix(pk.solutions[k])
         @test kkt_l1(vec((Sx * D * Sy + Sy * D * Sx) / 2 + (Sx - Sy)), vec(D), pk.λ[k]) < 1e-8
@@ -625,7 +625,7 @@ end
   @test Vector(x0) ≈ xd atol = 1e-8
   # λmax, and a path from the default iterate
   @test lambda_max(f, NormL1(1.0), SparseIterate(p)) ≈ maximum(abs, b) / sqrt(c)
-  path = solve_path(f, NormL1(1.0), [4λ, 2λ, λ], CDSolver(; tol = 1e-12))
+  path = solve_path(f, NormL1(1.0), [4λ, 2λ, λ], CDSolver(; tol = 1e-12); gaptol = 0)
   @test Vector(path.solutions[3]) ≈ xd atol = 1e-6
 
   # momentum moves the cache Ax with the point, and the value of the quadratic,
@@ -862,7 +862,7 @@ PS.update_cache!(m::MinimalQuadratic, x, k::Int, h) = (m.u .+= h .* view(m.A, :,
   K = kron(Sy, Sx)
   lk = lambda_max(fk, NormL1(1.0), SparseIterate(q * q))
   @test lk ≈ maximum(abs, C)
-  pk = solve_path(fk, NormL1(1.0), lk .* [1.0, 0.5, 0.2], CDSolver(; tol = 1e-12); x = SparseIterate(q * q))
+  pk = solve_path(fk, NormL1(1.0), lk .* [1.0, 0.5, 0.2], CDSolver(; tol = 1e-12); x = SparseIterate(q * q), gaptol = 0)
   θ = Vector(pk.solutions[3])
   @test kkt_l1(K * θ + vec(C), θ, 0.2lk) < 1e-9
   xk = SparseIterate(θ)
@@ -873,7 +873,7 @@ PS.update_cache!(m::MinimalQuadratic, x, k::Int, h) = (m.u .+= h .* view(m.A, :,
   solve!(x2, 2 * fk, NormL1(0.4lk), CDSolver(; tol = 1e-12))
   @test Vector(x2) ≈ θ atol = 1e-8
   # a matrix iterate keeps its shape along a path
-  pm = solve_path(fk, NormL1(1.0), lk .* [1.0, 0.2], CDSolver(; tol = 1e-12); x = SparseIterate(q, q))
+  pm = solve_path(fk, NormL1(1.0), lk .* [1.0, 0.2], CDSolver(; tol = 1e-12); x = SparseIterate(q, q), gaptol = 0)
   @test size(pm.solutions[2]) == (q, q)
   @test vec(Matrix(pm.solutions[2])) ≈ θ atol = 1e-8
   @test_throws ArgumentError solve_path(fk, NormL1(1.0), [lk])        # no iterate to start from
@@ -881,12 +881,12 @@ PS.update_cache!(m::MinimalQuadratic, x, k::Int, h) = (m.u .+= h .* view(m.A, :,
   # paths of the quadratic, the square-root lasso, a logistic loss, groups,
   # and the nonnegative lasso
   Aq, bq = Matrix(Symmetric(X' * X / n)), -X' * y / n
-  pq = solve_path(QuadraticFunction(Aq, bq), NormL1(1.0), λs, CDSolver(; tol = 1e-10))
+  pq = solve_path(QuadraticFunction(Aq, bq), NormL1(1.0), λs, CDSolver(; tol = 1e-10); gaptol = 0)
   @test kkt_l1(Aq * Vector(pq.solutions[end]) + bq, Vector(pq.solutions[end]), λs[end]) < 1e-8
   fs = SqrtLeastSquaresLoss(y, X)
   @test fs(ones(p)) ≈ norm(y - X * ones(p))
   ls = maximum(abs, X' * y) / norm(y)
-  ps = solve_path(fs, NormL1(1.0), ls .* [1.0, 0.7, 0.5], CDSolver(; tol = 1e-12); x = SparseIterate(p))
+  ps = solve_path(fs, NormL1(1.0), ls .* [1.0, 0.7, 0.5], CDSolver(; tol = 1e-12); x = SparseIterate(p), gaptol = 0)
   bs = Vector(ps.solutions[3]); rs = y - X * bs
   @test kkt_l1(-X' * rs / norm(rs), bs, 0.5ls) < 1e-7
   m = cdmodel(fs, SparseIterate(bs)); PS.initialize!(m, SparseIterate(bs))
@@ -896,7 +896,7 @@ PS.update_cache!(m::MinimalQuadratic, x, k::Int, h) = (m.u .+= h .* view(m.A, :,
   fl = LogisticLoss(yl, X; weights = w)
   gl(b) = X' * (w .* (1 ./ (1 .+ exp.(-X * b)) .- yl))
   ll = maximum(abs, gl(zeros(p)))
-  pl = solve_path(fl, NormL1(1.0), ll .* [1.0, 0.5, 0.3], CDSolver(; tol = 1e-10, maxpasses = 10^6))
+  pl = solve_path(fl, NormL1(1.0), ll .* [1.0, 0.5, 0.3], CDSolver(; tol = 1e-10, maxpasses = 10^6); gaptol = 0)
   bl = Vector(pl.solutions[3])
   @test kkt_l1(gl(bl), bl, 0.3ll) < 1e-6 * ll
   groups = [i:i+4 for i in 1:5:p]
@@ -904,9 +904,9 @@ PS.update_cache!(m::MinimalQuadratic, x, k::Int, h) = (m.u .+= h .* view(m.A, :,
   lg = lambda_max((1 / n) * LeastSquaresLoss(y, X), gg, AtomIterate(Float64, p, groups))
   @test lg ≈ maximum(G -> norm(X[:, G]' * y / n), groups)
   pg = solve_path((1 / n) * LeastSquaresLoss(y, X), gg, lg .* [1 + 1e-9, 0.5], CDSolver(; tol = 1e-10);
-                  x = AtomIterate(Float64, p, groups))
+                  x = AtomIterate(Float64, p, groups), gaptol = 0)
   @test length(pg.solutions[2]) == p && nnz(pg.solutions[1]) == 0
-  pn = solve_path((1 / n) * LeastSquaresLoss(y, X), NormL1Nonneg(1.0), λs, CDSolver(; tol = 1e-10))
+  pn = solve_path((1 / n) * LeastSquaresLoss(y, X), NormL1Nonneg(1.0), λs, CDSolver(; tol = 1e-10); gaptol = 0)
   @test all(b -> all(>=(0), b), pn.solutions)
 
   # scaled least squares with weights; an intercept with an offset

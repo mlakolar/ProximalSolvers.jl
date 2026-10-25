@@ -163,7 +163,7 @@ end
   @test all(norm(path.solutions[k] - path0.solutions[k]) < 1e-6 for k in eachindex(λs))
   @test path.values ≈ path0.values rtol = 1e-8
   # without an intercept, the path from a GLMLoss
-  pathf = solve_path(f, NormL1(1.0), λs[5:end], newton; devmax = 1.0)
+  pathf = solve_path(f, NormL1(1.0), λs[5:end], newton; devmax = 1.0, gaptol = 0)
   xk = SparseIterate(p)
   solve!(xk, f, NormL1(λs[end]), newton)
   @test Vector(pathf.solutions[end]) ≈ Vector(xk) atol = 1e-6

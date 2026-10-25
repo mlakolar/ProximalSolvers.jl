@@ -133,8 +133,11 @@ Each level stops on a certified relative duality gap,
 
 when the loss and the penalty have one (see [Stopping on the duality
 gap](@ref)): the default `gaptol` is [`PATH_GAPTOL`](@ref
-ProximalSolvers.PATH_GAPTOL) `= 1e-8`, and `gaptol = 1e-6` is the faster
-setting for cross-validation and prediction. In step 2, coordinate descent
+ProximalSolvers.PATH_GAPTOL) `= 1e-4`, which puts the coefficients within
+about `1e-4` of the solution, relative to the largest (about 50 times the
+target at worst), and `gaptol = 1e-3` is the faster setting for
+cross-validation and prediction; `gaptol = 0` gives back the rule on the
+changes. In step 2, coordinate descent
 stops on the gap of the problem restricted to ``S``, the coordinates outside
 held at zero, at the cost of one pass over ``S``, where the gap of the whole
 problem reads every column. The full gradient of step 3 gives the gap of the
@@ -185,7 +188,7 @@ changes the gradient everywhere, so that the checks cost more passes than they
 save). The levels before `g` only provide warm starts, so they are solved to
 the looser tolerance `continuation_tol`, ``\sqrt{\mathrm{tol}}`` by default,
 by the rule on the changes, and only `g` itself to the final accuracy: a
-relative gap of `gaptol` (`PATH_GAPTOL = 1e-8` by default) when the loss and
+relative gap of `gaptol` (`PATH_GAPTOL = 1e-4` by default) when the loss and
 the penalty have one, `tol` otherwise; `continuation_tol = tol` solves every
 level fully. It returns the solution at `g`. When the level of `g` is zero or at
 least ``\lambda_{\max}``, or `g` has no level (`IndBox`, `ZeroFunction`), it
