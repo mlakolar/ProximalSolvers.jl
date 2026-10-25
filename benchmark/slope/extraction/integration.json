@@ -1,0 +1,40 @@
+{
+  "frozen_benchmark_solver": "335ea905da207a6cc1cd3bd945bb7bbbf9f4eba4",
+  "combined_solver_api": "36f623a1747dfec6cac964fba8341819685c5146",
+  "merged_master": "73a1c8e927d8917e4f16483271b053fcdb25b488",
+  "reason": "HDM master77a62cd now calls the existing PS#86 gaptol path API; update dependency rather than discard new caller semantics",
+  "numerical_source_identity": [
+    {
+      "file": "src/solvers/slope.jl",
+      "frozen_blob": "7ea91082238d8420091e2dd6a2fb0f50883115e4",
+      "combined_blob": "7ea91082238d8420091e2dd6a2fb0f50883115e4",
+      "identical": true
+    },
+    {
+      "file": "src/solvers/accelerated_proximal_gradient_descent.jl",
+      "frozen_blob": "5e94703efee5cde4de0e735b08ffd0e59638d60a",
+      "combined_blob": "5e94703efee5cde4de0e735b08ffd0e59638d60a",
+      "identical": true
+    },
+    {
+      "file": "src/solvers/image_models.jl",
+      "frozen_blob": "80d725167848fbc627a5f883ec7c02ae28496841",
+      "combined_blob": "80d725167848fbc627a5f883ec7c02ae28496841",
+      "identical": true
+    },
+    {
+      "file": "src/solve.jl",
+      "frozen_blob": "b3b43fd47c487e325bfa422c1f5476c2186b322d",
+      "combined_blob": "b3b43fd47c487e325bfa422c1f5476c2186b322d",
+      "identical": true
+    },
+    {
+      "file": "src/types.jl",
+      "frozen_blob": "aec69381ca1062a471689057fc21e903fa9a90ff",
+      "combined_blob": "aec69381ca1062a471689057fc21e903fa9a90ff",
+      "identical": true
+    }
+  ],
+  "discovery_compatibility_base": "0e98c8eddc2e251be7e0b963c4d32e9a5a69231d",
+  "base_scope": "Ordered SLOPE operator and least-squares value/gradient unchanged from frozen benchmark dependency; constructor/prox/cache code changed. Frozen timing cohort is not reinterpreted as a new-dependency timing."
+}

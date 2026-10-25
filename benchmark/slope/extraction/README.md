@@ -113,3 +113,20 @@ forced screening repairs, finite/invalid inputs, failed-level retention and budg
 limits, warm starts, input preservation, snapshot ownership, normalized/unscaled
 losses, Float32, dense/sparse and screened/full agreement. The model-layer tests
 cover sparse centering/standardization and wrapper delegation.
+
+## Compatibility with concurrent master updates
+
+While the extraction was being validated, HDM master `77a62cd` added calls to
+ProximalSolvers #86's `gaptol` path API. Pinning the earlier SLOPE-only snapshot
+caused the GitHub merge build to fail before tests. Combined API commit
+`36f623a1747dfec6cac964fba8341819685c5146` merges existing PS master `73a1c8e`
+into this branch, preserving the new gap-stopping semantics. It also retains
+master's policy of tracking ProximalBase master in package/docs/Julia 1.10 CI.
+
+`integration.json` records exact Git blob identity of the SLOPE driver, inner APG,
+image models, generic gradient iteration loop and options/results types between
+the benchmark snapshot and this merge. No SLOPE numerical source was changed.
+The old timing cohorts retain their original dependency snapshots; constructor
+and cache changes in newer ProximalBase are not assigned performance claims from
+these old measurements. Combined dependency validation is recorded by the
+coordinated HDM Discovery run using a separate immutable source/environment.
