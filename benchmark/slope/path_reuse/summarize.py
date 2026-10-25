@@ -54,6 +54,11 @@ def analyze(root,phase,out):
     assert set(points)=={key+(k,) for key in index for k in range(1,13)},"point coverage"
     for key,r in index.items():
         rs=[points[key+(k,)] for k in range(1,13)]
+        first_alpha=float(rs[0]["alpha"])
+        assert first_alpha>0 and all(math.isclose(float(x["alpha"])/first_alpha,
+            math.exp(math.log(.05)*i/11),rel_tol=1e-12) for i,x in enumerate(rs)),("alpha path",key)
+        assert all(float(points[key[:-1]+(m,k+1)]["alpha"])==float(x["alpha"])
+                   for k,x in enumerate(rs) for m in METHODS),("different alpha grids",key)
         assert (r["valid"]=="true")==all(x["valid"]=="true" for x in rs),("path validity",key)
         if key[-1]=="SLOPE.jl":continue
         returned=[x for x in rs if x["status"]!="not_returned"]

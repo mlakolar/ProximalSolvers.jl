@@ -1,5 +1,5 @@
 """Keep missing paths and scientific failures out of speed wins."""
-import contextlib,csv,io,tempfile
+import contextlib,csv,io,math,tempfile
 from pathlib import Path
 from summarize import FIELDS,analyze,expected,paired,identity
 
@@ -21,7 +21,7 @@ with tempfile.TemporaryDirectory() as temporary:
             f_calls=1,grad_calls=1,prox_calls=1,certificate_calls=1)
         calls.append(r)
         for k in range(1,13):
-            levels.append(dict(zip(FIELDS,key))|dict(level=k,valid="true",status="target",gap=0,
+            levels.append(dict(zip(FIELDS,key))|dict(level=k,alpha=math.exp(math.log(.05)*(k-1)/11),valid="true",status="target",gap=0,
                 feasibility=1,fixedpoint=0,initial_L=1,final_L=1,initial_k=0,final_k=0))
     def write(kind,rows):
         with (root/f"{kind}-1.csv").open("w") as h:
