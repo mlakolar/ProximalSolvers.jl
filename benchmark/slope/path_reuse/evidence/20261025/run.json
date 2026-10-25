@@ -1,0 +1,74 @@
+{
+  "run_id": "20261025T0930Z-ps-slope-reuse",
+  "preceding_run": "20261025T0850Z-ps-slope",
+  "main_source": "f8ba6a0404afc51b6a148448fd395fbdf576fdd7",
+  "numerical_engine": "5b1b7513159ecc2c591e103014eea9cd19fb0adf",
+  "analysis_source": "796757ed2ca15bbb138d7ce0e1ce9d0d59e59194",
+  "package_source": "9041e236f3de8ffdc02103e5a505993463e00bb1",
+  "proximalbase": "1f93b03c9c4652636ab0f173e6027268d877aa3a",
+  "julia": "1.13.2",
+  "SLOPE": "1.3.1",
+  "slope_jll": "6.5.2+0",
+  "environment": "Unchanged versions from benchmark/slope/evidence/20261025/environment.toml; copy lockfile and rebind only ProximalSolvers source path",
+  "cluster": {
+    "name": "Discovery",
+    "account": "mkolar_1314",
+    "partition": "main",
+    "constraint": "epyc-7513"
+  },
+  "threads_per_worker": 1,
+  "max_resources": "4CPUs16GB",
+  "target": "common external relative gap <=1e-6; library internal tol1e-6",
+  "jobs": [
+    {
+      "id": 13423208,
+      "stage": "canary",
+      "state": "COMPLETED",
+      "elapsed": "1m58s",
+      "checks": 143,
+      "paths": 12,
+      "points": 144
+    },
+    {
+      "id": 13423213,
+      "stage": "main",
+      "state": "COMPLETED",
+      "elapsed": "1m26s",
+      "checks": 146,
+      "paths": 720,
+      "points": 8640
+    },
+    {
+      "id": 13423214,
+      "stage": "confirmation",
+      "state": "COMPLETED",
+      "elapsed": "41s",
+      "paths": 288,
+      "points": 3456
+    }
+  ],
+  "running_time": "4m05s this follow-up;11m34s including preceding related7m29s",
+  "main_seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "confirmation_seeds": [
+    8,
+    9,
+    10
+  ],
+  "main_rounds": 3,
+  "confirmation_rounds": 2,
+  "comparison_totals": {
+    "paths": 1008,
+    "valid_paths": 1008,
+    "points": 12096,
+    "valid_points": 12096
+  },
+  "decision": "Focused hybrid benchmark prototype justified for large correlated paths: workspace_L/library3.224main,3.429fresh; full_state3.123main,3.295fresh; no reliable variant closes below3. Earlier broad gate remains failed; no public solver recommendation.",
+  "interpretation": "Workspace_L reduces median paired time2.2%main/3.2%fresh vs contemporaneous reset onrho0.9; Julia bytes fall85.1%. Most of the gap remains; nativehybrid speed is not measured.",
+  "cross_run_caveat": "Contemporaneous reset/library ratios3.336main/3.659fresh differ from preceding5-6x observations. All120matchingmain reset iteration counts equal prior APGpath counts; timing differences across runs/drivers are not attributed to reuse. Reuse effects use only within-block paired comparisons; dedicated APG iteration function barrier is used for all handoff variants."
+}

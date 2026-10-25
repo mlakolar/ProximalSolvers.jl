@@ -59,6 +59,7 @@ makedocs(
         "Proximal methods" => [
             "Proximal gradient" => "proximal_gradient.md",
             "Active-set proximal gradient" => "active_set.md",
+            "Screened SLOPE paths" => "slope.md",
             "ADMM" => "admm.md",
             "Primal–dual splitting" => "primal_dual.md",
             "Lecture: choosing a composite splitting" => "composite_lessons.md",

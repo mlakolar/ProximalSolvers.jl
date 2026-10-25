@@ -1,0 +1,13 @@
+{
+  "phase": "main",
+  "paths": 720,
+  "valid_paths": 720,
+  "points": 8640,
+  "valid_points": 8640,
+  "primary_success_rate": 1.0,
+  "library_success_rate": 1.0,
+  "primary_remaining_library_ratio": 3.2243355902325175,
+  "closing_variants": [],
+  "phase_gate": true,
+  "confirmation_required": true
+}

@@ -14,6 +14,7 @@ tests = [
   "primal_dual",
   "product_space",
   "active_set",
+  "slope",
   "group_lasso",
   "multiresponse",
   "low_rank",

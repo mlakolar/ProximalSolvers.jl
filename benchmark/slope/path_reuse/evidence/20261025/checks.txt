@@ -1,0 +1,5 @@
+Test Summary:                             | Pass  Total  Time
+Path handoff caches and reset equivalence |  124    124  3.3s
+Test Summary:                                   | Pass  Total  Time
+Known orthogonal optima and failed path handoff |   22     22  2.0s
+PATH_REUSE_CHECKS_PASSED

@@ -1,0 +1,9 @@
+{
+  "phase": "main",
+  "paths": 576,
+  "valid_paths": 552,
+  "points": 6912,
+  "valid_points": 6855,
+  "profile_pairs": 72,
+  "decision": "Defer hybrid unless it adds useful capability beyond matching libslope; no speed-ratio acceptance gate"
+}

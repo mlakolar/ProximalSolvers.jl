@@ -1,0 +1,13 @@
+{
+  "phase": "confirmation",
+  "paths": 288,
+  "valid_paths": 288,
+  "points": 3456,
+  "valid_points": 3456,
+  "primary_success_rate": 1.0,
+  "library_success_rate": 1.0,
+  "primary_remaining_library_ratio": 3.4289977882190454,
+  "closing_variants": [],
+  "phase_gate": true,
+  "confirmation_required": false
+}

@@ -1,0 +1,32 @@
+[
+  {
+    "rho": 0.0,
+    "paths": 36,
+    "all_exact_replays": true,
+    "median_instrumented_over_plain": 1.0193865076188546,
+    "median_fractions": {
+      "gradient": 0.3379281003011755,
+      "prox": 0.09362954085415841,
+      "trial_loss": 0.430490315123518,
+      "remaining_update": 0.00731163731723263,
+      "certificate": 0.11930744898525558,
+      "setup": 0.005605980695451469,
+      "remaining_path": 0.0012862078735262502
+    }
+  },
+  {
+    "rho": 0.9,
+    "paths": 36,
+    "all_exact_replays": true,
+    "median_instrumented_over_plain": 1.0055284397298094,
+    "median_fractions": {
+      "gradient": 0.3319847293941631,
+      "prox": 0.12869018400883336,
+      "trial_loss": 0.43290674353720837,
+      "remaining_update": 0.0072522855478734174,
+      "certificate": 0.0916456453131003,
+      "setup": 0.0016365243379891548,
+      "remaining_path": 0.0012791749099569515
+    }
+  }
+]

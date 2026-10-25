@@ -1,0 +1,4 @@
+Seq	Host	Starttime	JobRuntime	Send	Receive	Exitval	Signal	Command
+1	:	1792930325.970	    84.207	0	0	0	0	srun --exclusive --exact -N1 -n1 -c1 "$JULIA" --startup-file=no --project=combined-env harness/run.jl 1 results > process-1.log 2>&1
+2	:	1792930325.973	    94.820	0	0	0	0	srun --exclusive --exact -N1 -n1 -c1 "$JULIA" --startup-file=no --project=combined-env harness/run.jl 2 results > process-2.log 2>&1
+3	:	1792930410.181	    21.283	0	0	0	0	srun --exclusive --exact -N1 -n1 -c1 "$JULIA" --startup-file=no --project=combined-env harness/run.jl 3 results > process-3.log 2>&1
