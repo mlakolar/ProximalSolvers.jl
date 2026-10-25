@@ -1,7 +1,7 @@
 # Extracted screened SLOPE APG engine
 
 The screened path driver belongs in ProximalSolvers. HighDimensionalModels
-(currently named CoordinateDescent on PR #84's branch) prepares data and weights,
+(named CoordinateDescent in the frozen benchmark snapshot) prepares data and weights,
 recovers intercepts and coefficient units, and provides statistical model results.
 It calls `SLOPEAPG`, `solve!`, `solve_path` and `lambda_max` from ProximalSolvers.
 The cluster-coordinate hybrid remains deferred.
