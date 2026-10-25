@@ -1,0 +1,10 @@
+Test Summary:                                    | Pass  Total  Time
+Controlled design and coupled quartic derivative |   15     15  2.1s
+Test Summary:                                         | Pass  Total  Time
+Both certificates and known orthogonal lasso solution |    6      6  3.4s
+Test Summary:             | Pass  Total   Time
+Broad family smoke checks |   30     30  11.0s
+BROAD_CHECKS_PASSED
+SUMMARY_FAILURE_ACCOUNTING_PASSED
+MAIN_EXACT_GRID_COVERAGE_PASSED 11160
+CONFIRMATION_EXACT_GRID_COVERAGE_PASSED 1800

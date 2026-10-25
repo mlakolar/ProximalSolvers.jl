@@ -1,0 +1,10 @@
+method,p,gamma0,status,valid,error,iterations,domain_rejections,step_shrinks
+PANOCplus,20,1.0,target,true,0.0,10,5,7
+adaPGM,20,1.0,invalid_domain,false,0.6697414907005955,1,0,0
+MM,20,1.0,invalid_domain,false,0.6697414907005955,1,0,0
+PANOCplus,20,10.0,target,true,0.0,10,8,11
+adaPGM,20,10.0,invalid_domain,false,0.6697414907005955,1,0,0
+MM,20,10.0,invalid_domain,false,0.6697414907005955,1,0,0
+PANOCplus,20,100.0,target,true,0.0,10,11,14
+adaPGM,20,100.0,invalid_domain,false,0.6697414907005955,1,0,0
+MM,20,100.0,invalid_domain,false,0.6697414907005955,1,0,0
