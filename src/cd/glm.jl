@@ -143,7 +143,30 @@ function _fit_intercept(m::GLMModel{T}, c::T) where {T}
     c, fc = cnew, fnew
     done && break
   end
+  # near the minimizer the values no longer resolve it (to about √eps), which
+  # leaves Σᵢ wᵢ ℓ'(ηᵢ + c) away from zero, the constraint of the dual point of
+  # the duality gap; Newton steps on the derivative, kept while they shrink
+  # it, reach the precision
+  G, H = _intercept_derivatives(m, c)
+  for _ in 1:3
+    (H > 0 && isfinite(G) && isfinite(H) && !iszero(G)) || break
+    cnew = c - G / H
+    Gnew, Hnew = _intercept_derivatives(m, cnew)
+    abs(Gnew) < abs(G) || break
+    c, G, H = cnew, Gnew, Hnew
+  end
   c
+end
+
+function _intercept_derivatives(m::GLMModel{T}, c::T) where {T}
+  loss, y, w, η = m.loss, m.y, m.w, m.η
+  G, H = zero(T), zero(T)
+  @inbounds for i in eachindex(η)
+    wi = _obsweight(w, i, T)
+    G += wi * T(ProximalBase.deriv(loss, η[i] + c, y[i]))
+    H += wi * T(ProximalBase.deriv2(loss, η[i] + c, y[i]))
+  end
+  G, H
 end
 
 function _curvaturebound!(m::GLMModel{T}, k::Int) where {T}
@@ -381,6 +404,7 @@ struct _NewtonWorkspace{T, M<:LSModel{T}, S<:_CDState{T}}
   model::M
   st::S
   constant::BitVector
+  grad::Vector{T}       # ∇f on the candidates, for the duality gap
 end
 
 function _NewtonWorkspace(m::GLMModel{T}, x::SparseIterate{T}, inner::CDSolver) where {T}
@@ -388,7 +412,7 @@ function _NewtonWorkspace(m::GLMModel{T}, x::SparseIterate{T}, inner::CDSolver) 
   v, z = zeros(T, n), zeros(T, n)
   model = LSModel(z, m.X, v, nothing, m.s)
   constant = m.intercept ? BitVector(n > 0 && all(==(m.X[1, k]), view(m.X, :, k)) for k in 1:p) : falses(0)
-  _NewtonWorkspace(v, z, zeros(T, n), zeros(T, n), copy(x), copy(x), model, _CDState(T, x, inner), constant)
+  _NewtonWorkspace(v, z, zeros(T, n), zeros(T, n), copy(x), copy(x), model, _CDState(T, x, inner), constant, zeros(T, p))
 end
 
 # the weighted means of the columns and of z that center the least-squares model
@@ -445,30 +469,50 @@ end
 # the candidates; screening counts the nonzero coordinates among them, and the
 # line search moves between two points supported on them. The columns that a
 # check of the optimality conditions adds are centered from the next call on.
-# The duality gap of gaptol and gapsafe reads every column of the model, so it
-# needs all the means, as does a dense X with more candidates than half its
-# columns, whose product X'v costs less than the columns one at a time.
+# The duality gap of gaptol and gapsafe is that of the problem restricted to the
+# candidates, and reads only their means. A dense X with more candidates than
+# half its columns needs all the means, whose product X'v costs less than the
+# columns one at a time.
 function _centered_columns(X::AbstractMatrix, candidates::Union{Nothing, Vector{Int}}, inner::CDSolver)
-  (candidates === nothing || inner.gaptol > 0 || inner.gapsafe) && return nothing
+  candidates === nothing && return nothing
   2 * length(candidates) > size(X, 2) ? nothing : candidates
 end
 
-function _centered_columns(X::SparseMatrixCSC, candidates::Union{Nothing, Vector{Int}}, inner::CDSolver)
-  (candidates === nothing || inner.gaptol > 0 || inner.gapsafe) ? nothing : candidates
-end
+_centered_columns(X::SparseMatrixCSC, candidates::Union{Nothing, Vector{Int}}, inner::CDSolver) = candidates
 
 # Proximal Newton steps on f + g from x, with m.η = Xx + β₀ + o current; with
 # `candidates`, the inner coordinate descent visits only those coordinates (and
-# the active ones), as screening does. Returns (f + g, passes, converged).
+# the active ones), as screening does. Returns (f + g, passes, converged, gap).
+#
+# With gaptol > 0 and a loss and penalty that have a duality gap, the steps stop
+# when the relative gap of the problem restricted to the candidates is at most
+# gaptol (gap, NaN otherwise), computed after each step at the cost of one pass
+# over the candidate columns, with the intercept fitted exactly first, so that
+# the dual point satisfies its constraint. Each inner solve then stops on the
+# gap of the quadratic model too, at _NEWTON_INNER times the last gap of f + g
+# (inexact Newton), but not below gaptol / 10; when the steps stall above
+# gaptol, the inner target falls a hundredfold.
 function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton, ws::_NewtonWorkspace{T},
-                      candidates::Union{Nothing, Vector{Int}}) where {T}
+                      candidates::Union{Nothing, Vector{Int}}, gaptol::Real = 0.0) where {T}
   loss, y, w, o, s = m.loss, m.y, m.w, m.offset, m.s
   η, v, z, model = m.η, ws.v, ws.z, ws.model
   n = length(η)
   F = _glmvalue(loss, y, w, s, η) + g(x)
   passes, converged, inner_converged = 0, false, true
   cols = m.intercept ? _centered_columns(model.X, candidates, method.inner) : nothing
+  gapmode = gaptol > 0 && _hasgap(m, g)
+  relgap, innerfloor = T(NaN), T(gaptol) / 10
+  if gapmode
+    F, relgap = _newton_gap!(x, m, g, ws, candidates)
+    gapmode = !isnan(relgap)          # no gap at x: the rule on the objective
+    if relgap <= gaptol
+      ws.st.candidates = nothing
+      return F, 0, true, relgap
+    end
+  end
+  stepper = method
   for _ in 1:method.maxiter
+    stepper = gapmode ? _with_inner(method, max(innerfloor, T(_NEWTON_INNER) * relgap)) : method
     # the quadratic model at x: weights v, responses z (working responses minus
     # the offset), updated in place
     @inbounds for i in 1:n
@@ -482,7 +526,7 @@ function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton
     copyto!(ws.η0, η)
     b0 = m.β0
     ws.st.candidates = candidates
-    Fnew, t, p = _newton_step!(x, m, g, g, F, b0, method, ws)
+    Fnew, t, p = _newton_step!(x, m, g, g, F, b0, stepper, ws)
     passes += p
     if t < 1 && _isdampable(g)
       # MCP and SCAD are weakly convex, with concavity ρ = 1/a and 1/(a - 1).
@@ -499,7 +543,7 @@ function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton
       # points are unchanged. Keep the better of the two.
       xu, ηu, bu = copy(x), copy(η), m.β0
       copyto!(x, ws.x0); copyto!(η, ws.η0); m.β0 = b0
-      Fd, _, p = _newton_step!(x, m, g, Regularize(g, 2 * _concavity(g), Vector(ws.x0)), F, b0, method, ws)
+      Fd, _, p = _newton_step!(x, m, g, Regularize(g, 2 * _concavity(g), Vector(ws.x0)), F, b0, stepper, ws)
       passes += p
       if Fd <= Fnew
         Fnew = Fd
@@ -511,13 +555,49 @@ function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton
     dropzeros!(x)
     done = abs(F - Fnew) <= method.tol * max(abs(Fnew), one(T))
     F = Fnew
-    if done
+    if gapmode
+      F, relgap = _newton_gap!(x, m, g, ws, candidates)
+      if isnan(relgap)
+        gapmode = false
+        done && (converged = true; break)
+      elseif relgap <= gaptol
+        converged = true
+        break
+      end
+      if done          # stalled above gaptol: solve the quadratic models more accurately
+        innerfloor <= 4 * eps(T) && break
+        innerfloor = max(innerfloor / 100, 4 * eps(T))
+      end
+    elseif done
       converged = true
       break
     end
   end
   ws.st.candidates = nothing
-  F, passes, converged && inner_converged
+  F, passes, converged && inner_converged, relgap
+end
+
+const _NEWTON_INNER = 0.01
+
+# method with the inner solver stopping on the relative gap gaptol
+_with_inner(method::ProxNewton, gaptol) =
+  ProxNewton(_with(method.inner; gaptol = Float64(gaptol)), method.maxiter, method.tol, method.β)
+
+# (f + g, relative gap) of the problem restricted to the candidates at x, after
+# fitting the intercept exactly for x (which only decreases f): the dual point
+# then satisfies the constraint Σᵢ θᵢ = 0 of the unpenalized intercept
+function _newton_gap!(x::SparseIterate{T}, m::GLMModel{T}, g, ws::_NewtonWorkspace{T},
+                      candidates::Union{Nothing, Vector{Int}}) where {T}
+  if m.intercept
+    m.η .-= m.β0
+    m.β0 = _fit_intercept(m, m.β0)
+    m.η .+= m.β0
+  end
+  res = _restricted_gap!(ws.grad, m, g, x, candidates)
+  F = loss_value(m, x) + g(x)
+  res === nothing && return F, T(NaN)
+  P, D, _ = res
+  F, max(P - D, 4 * eps(T) * abs(P)) / max(abs(P), floatmin(T))
 end
 
 # One proximal Newton step from x = ws.x0 (with m.η = ws.η0 and the intercept
@@ -578,12 +658,13 @@ function _solve_newton!(x::SparseIterate{T}, f, g::AbstractFunction, method::Pro
   _predictor!(m, x)
   m.intercept && (m.η .+= m.β0)          # warm started from the intercept of the model
   ws = _NewtonWorkspace(m, x, method.inner)
-  F, passes, converged = _proxnewton!(x, m, g, method, ws, nothing)
+  F, passes, converged, _ = _proxnewton!(x, m, g, method, ws, nothing)
   CDResults(x, F, passes, converged, T(NaN), T(method.tol), 0)
 end
 
 """
-    solve_path(f, g, λs, method::ProxNewton; x, screening = true, maxnnz = Inf, callback = nothing, devmax = 0.999)
+    solve_path(f, g, λs, method::ProxNewton; x, screening = true, maxnnz = Inf, callback = nothing, devmax = 0.999,
+               gaptol)
 
 The path of [`ProxNewton`](@ref) solutions along the decreasing levels `λs`,
 for a `GLMLoss` `f` or its model with an intercept (`cdmodel(f, x;
@@ -602,10 +683,22 @@ explains, `1 - D/D₀`, reaches `devmax`, as glmnet's does: `D` is the deviance
 Along a logistic path on separable data the coefficients grow without bound,
 and the explained fraction tends to one. `devmax = 1` never stops; the rule is
 off for a scalar loss whose saturated loss is unknown.
+
+As for coordinate descent, each level stops on a relative duality gap of at
+most `gaptol` ([`PATH_GAPTOL`](@ref) `= 1e-8` by default, `1e-6` for the
+faster setting) when the loss and the penalty have one (the squared, logistic,
+Poisson and Huber losses with `NormL1`, `NormL1Nonneg` or `ElasticNet`): the
+Newton steps stop on the gap of the problem restricted to the candidates, each
+inner solve stops on the gap of its quadratic model at a hundredth of the last
+gap, and the full gradient of the optimality check confirms the gap of the
+whole problem, which the `gap` of the results reports. With an intercept, the
+intercept is fitted exactly before each gap. `gaptol = 0`, and the other
+penalties (MCP, SCAD, …), keep the rule on the change of the objective with
+`method.tol` and the inner solver's own rule.
 """
 function solve_path(f::Union{AbstractFunction, CDModel}, g::AbstractFunction, λs::AbstractVector{<:Real},
                     method::ProxNewton; x = _default_iterate(f), screening::Bool = true, maxnnz::Real = Inf,
-                    callback = nothing, devmax::Real = 0.999)
+                    callback = nothing, devmax::Real = 0.999, gaptol::Union{Nothing, Real} = nothing)
   all(λ -> λ >= 0, λs) || throw(ArgumentError("The penalty levels must be nonnegative."))
   issorted(λs; rev = true) || throw(ArgumentError("The penalty levels must be decreasing."))
   isseparable(g) || throw(ArgumentError("ProxNewton needs a separable penalty, but g is a $(typeof(g))."))
@@ -613,48 +706,53 @@ function solve_path(f::Union{AbstractFunction, CDModel}, g::AbstractFunction, λ
   T = eltype(m)
   _check_iterate(g, x)
   isempty(λs) || _with_level(g, T(first(λs)))      # a penalty with a level
+  gaptol === nothing || gaptol >= 0 || throw(ArgumentError("gaptol must be nonnegative, but it is $gaptol."))
+  gt = gaptol === nothing ? (_hasgap(m, g) ? _default_gaptol(T) : 0.0) : Float64(gaptol)
   initialize!(m, x)
   ws = _NewtonWorkspace(m, x, method.inner)
   D0 = devmax < 1 ? _null_deviance(m) : T(NaN)
   grad, inS, λprev = _screening_state(x, m, g, screening)
   solutions = Any[]
-  out = PathResults(T[], [], T[], Int[], Bool[], Int[], Int[])
+  out = PathResults(T[], [], T[], Int[], Bool[], Int[], Int[], T[])
   for (k, λ) in enumerate(λs)
     gk = _with_level(g, T(λ))
     if screening
-      F, passes, converged, checks = _screened_newton!(x, m, gk, λprev, grad, method, ws, inS)
+      F, passes, converged, checks, relgap = _screened_newton!(x, m, gk, λprev, grad, method, ws, inS, gt)
       λprev = T(λ)
     else
-      F, passes, converged = _proxnewton!(x, m, gk, method, ws, nothing)
+      F, passes, converged, relgap = _proxnewton!(x, m, gk, method, ws, nothing, gt)
       checks = 0
     end
     push!(out.λ, T(λ)); push!(solutions, _snapshot(x)); push!(out.values, F)
     push!(out.passes, passes); push!(out.converged, converged); push!(out.kkt_checks, checks); push!(out.stages, 1)
+    push!(out.gap, relgap)
     (callback !== nothing && callback(k, T(λ), x, m) === true) && break
     nactive(x) > maxnnz && break
     D0 > 0 && 1 - _deviance(m, m.η) / D0 >= devmax && break
   end
   S = isempty(solutions) ? Any : typeof(first(solutions))
   PathResults{S, T}(out.λ, convert(Vector{S}, solutions), out.values, out.passes, out.converged, out.kkt_checks,
-                    out.stages)
+                    out.stages, out.gap)
 end
 
 # _screened! for proximal Newton: the strong rule for the step from λprev to the
 # level of g selects the coordinates of the inner solves, and the optimality
 # conditions of the others are checked at the solution; violators are added and
 # the level solved again. grad holds the gradient at x on entry and on return.
+# With gaptol, the full gradient of the check gives the gap of the whole
+# problem, as in _screened!.
 function _screened_newton!(x, m::GLMModel{T}, g, λprev, grad::AbstractArray, method::ProxNewton,
-                           ws::_NewtonWorkspace{T}, inS::BitVector) where {T}
+                           ws::_NewtonWorkspace{T}, inS::BitVector, gaptol::Real = 0.0) where {T}
   λ = _level(g)
   threshold = 2λ - λprev
   for k in eachindex(inS)
     w = _coordweight(g, x, k)
     inS[k] = iszero(w) || _isnonzero(x, k) || _strongkeep(g, grad, x, k, threshold, w)
   end
-  passes, checks = 0, 0
-  F, converged = T(NaN), false
+  passes, checks, retries = 0, 0, 0
+  F, converged, relgap, gk = T(NaN), false, T(NaN), T(gaptol)
   while true
-    F, p, converged = _proxnewton!(x, m, g, method, ws, findall(inS))
+    F, p, converged, relgap = _proxnewton!(x, m, g, method, ws, findall(inS), gk)
     passes += p
     gradient!(grad, m, x)
     checks += 1
@@ -665,7 +763,13 @@ function _screened_newton!(x, m::GLMModel{T}, g, λprev, grad::AbstractArray, me
         violated = true
       end
     end
-    violated || break
+    violated && continue
+    isnan(relgap) && break
+    res = _gap_at(grad, m, g, x, nothing)
+    relgap = res === nothing ? T(NaN) : max(res[1] - res[2], 4 * eps(T) * abs(res[1])) / max(abs(res[1]), floatmin(T))
+    (relgap <= gaptol || !converged || retries >= _GAPRETRIES) && break
+    retries += 1
+    gk /= 10
   end
-  F, passes, converged, checks
+  F, passes, converged, checks, relgap
 end

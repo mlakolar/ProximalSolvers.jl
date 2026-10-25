@@ -68,9 +68,16 @@ With `gaptol > 0`, the method stops when the relative duality gap
 `(P - D) / |P|` at `x` is at most `gaptol`, where `P = f + g` and `D` is the
 dual objective at a dual point built from the gradient (see
 [`duality_gap`](@ref)): a certificate that `P(x)` is within `gaptol ⋅ |P|` of
-the optimum. The gap is computed, at the cost of one full gradient, where the
-rule on the changes would stop; when it is not yet small enough, `tol` is
-tightened tenfold and the passes go on. This needs a loss of a linear map with a known
+the optimum. The rule on the changes then only decides when to compute the
+gap: its tolerance starts at `gaptol` (relative, instead of `tol`), the gap is
+computed where that rule would stop, and while it is above `gaptol` the
+tolerance falls by the factor the gap asks for and the passes go on. A gap
+costs one gradient over the candidate coordinates (all of them without
+screening; the paths confirm it with the full gradient of their optimality
+checks). The gap is taken as at least `4 eps |P|`. A single `solve!` stops on
+the gap only with `gaptol > 0`; the paths of [`solve_path`](@ref) and the last
+level of continuation do by default (see [`PATH_GAPTOL`](@ref
+ProximalSolvers.PATH_GAPTOL)). This needs a loss of a linear map with a known
 conjugate (`LeastSquaresLoss`, a `GLMLoss` with the squared, logistic or Huber
 loss, possibly scaled, with or without an intercept) and a convex penalty with
 a known conjugate (`NormL1`, `NormL1Nonneg` and `ElasticNet` with positive
@@ -210,11 +217,13 @@ mutable struct _CDState{T, R<:AbstractRNG}
   tolerance::T
   gap::Union{Nothing, _GapState{T}}      # created when a run first needs it
   relgap::T                              # the last relative duality gap, NaN if none
+  gapmode::Bool                          # whether the run stops on the duality gap (see _tolerances)
+  tolchange::T                           # the tolerance of the rule on the changes, from s.tol
 end
 
 _CDState(::Type{T}, x, s::CDSolver) where {T} =
   _CDState{T, typeof(s.rng)}(s.random, s.rng, Vector{Int}(undef, s.random ? ncoordinates(x) : 0), nothing,
-                             _Momentum{T}(), 0, false, T(NaN), T(NaN), nothing, T(NaN))
+                             _Momentum{T}(), 0, false, T(NaN), T(NaN), nothing, T(NaN), false, T(NaN))
 
 # the state of a run whose random orders come from the default generator
 _CDState(::Type{T}, x, random::Bool) where {T} = _CDState(T, x, CDSolver(; order = random ? :random : :cyclic))
@@ -320,19 +329,32 @@ function _cd!(x, m, g, st::_CDState{T}, s::CDSolver) where {T}
   x
 end
 
-# the tolerance on the scaled changes, whether the changes are scaled, and the
+# The tolerance on the scaled changes, whether the changes are scaled, and the
 # smallest tolerance that gaptol may tighten it to, a few roundings on the
 # scale of the data: the gap of a scaled dual point shrinks only as fast as the
-# changes, so a gap near the precision needs changes near it too
-function _tolerances(m, x, s::CDSolver, ::Type{T}) where {T}
+# changes, so a gap near the precision needs changes near it too. When the run
+# stops on the duality gap (gaptol with a model and penalty that have one), the
+# changes only decide when to compute it, and their tolerance starts at
+# _GAPSTART gaptol (relative), near where the gap reaches gaptol, since the
+# relative gap of the rescaled residuals is about proportional to the largest
+# scaled change. The tolerance of the method, s.tol, is kept in st.tolchange
+# for when the gap is not available at x.
+function _tolerances(m, x, s::CDSolver, ::Type{T}, st::_CDState{T}, gs) where {T}
   sy = s.relative ? response_scale(m, x) : one(T)
   scaled = s.relative && sy > 0
-  tol = scaled ? T(s.tol) * sy : T(s.tol)
-  tol, scaled, 8 * eps(T) * (scaled ? sy : one(T))
+  u = scaled ? sy : one(T)
+  tol = T(s.tol) * u
+  st.tolchange = tol
+  st.gapmode = gs !== nothing && s.gaptol > 0
+  tolmin = 8 * eps(T) * u
+  st.gapmode && scaled && (tol = max(T(_GAPSTART * s.gaptol) * u, tolmin))
+  tol, scaled, tolmin
 end
 
+const _GAPSTART = 1.0
+
 function _cd_plain!(x, m, g, st::_CDState{T}, s::CDSolver, gs) where {T}
-  tol, scaled, tolmin = _tolerances(m, x, s, T)
+  tol, scaled, tolmin = _tolerances(m, x, s, T, st, gs)
   st.passes, st.converged, st.maxchange, st.tolerance = 0, false, T(NaN), tol
   converged = true
   for pass in 1:s.maxpasses
@@ -375,7 +397,7 @@ _momentum_default(m::CDModel) = _cache(m) !== nothing
 # does not drift into the stopping rule, the duality gap or the optimality
 # checks of screening
 function _cd_momentum!(x, m, g, st::_CDState{T}, s::CDSolver, gs) where {T}
-  tol, scaled, tolmin = _tolerances(m, x, s, T)
+  tol, scaled, tolmin = _tolerances(m, x, s, T, st, gs)
   st.passes, st.converged, st.maxchange, st.tolerance = 0, false, T(NaN), tol
   mom = _momentum_start!(st.momentum, x, m)
   converged = true
@@ -481,7 +503,7 @@ end
 
 # the same passes with Anderson extrapolation on the active set
 function _cd_anderson!(x, m, g, st::_CDState{T}, s::CDSolver, gs) where {T}
-  tol, scaled, tolmin = _tolerances(m, x, s, T)
+  tol, scaled, tolmin = _tolerances(m, x, s, T, st, gs)
   st.passes, st.converged, st.maxchange, st.tolerance = 0, false, T(NaN), tol
   acc = _Anderson(T, s.anderson)
   converged = true

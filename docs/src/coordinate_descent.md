@@ -195,10 +195,56 @@ with ``A = X^\top X/n`` and ``b = -X^\top y/n``,
 of least squares. With `relative = false`, or when ``\sigma = 0``, the rule is
 absolute: ``\max_k |\Delta x_k| < \mathrm{tol}``.
 
-With `gaptol > 0`, a duality gap certifies the solution where one is known:
-where the rule would stop, the relative gap is computed, and the passes go on
-with a tenfold smaller `tol` until it is at most `gaptol`; see
-[Duality gaps](@ref).
+## Stopping on the duality gap
+
+With `gaptol > 0`, and a loss and penalty with a duality gap (least squares
+and the GLMs with the squared, logistic, Poisson or Huber loss, with
+`NormL1`, `NormL1Nonneg`, `ElasticNet`, `GroupNormL2` or the sparse group
+lasso; see [Duality gaps](@ref)), the method stops when the relative gap
+
+```math
+\frac{P(x) - D(\theta)}{|P(x)|} \le \mathrm{gaptol}, \qquad P = f + g,
+```
+
+at the dual point ``\theta`` built from the gradient is at most `gaptol`. Weak
+duality makes this a certificate: ``P(x) - P^\star \le \mathrm{gaptol}\,|P(x)|``.
+The rule on the changes then only decides when to compute the gap: its
+tolerance starts at ``\mathrm{gaptol}\cdot\sigma``, since the gap of this dual
+point is about proportional to the largest scaled change, and after a full
+pass with smaller changes the gap is computed; if it is above `gaptol`, the
+tolerance falls by ``\tfrac12\mathrm{gaptol}/\mathrm{gap}`` (between 0.01 and
+0.5) and the passes go on. With screening, the gap is that of the problem
+restricted to the candidate coordinates, the others held at zero, which costs
+one pass over them; the optimality check of screening then confirms it with
+the full gradient (see [Penalty paths and screening](@ref)). The gap is taken
+as at least ``4\epsilon|P|``, the rounding of ``P - D``. Where the dual point
+does not exist (a coordinate without penalty whose gradient is not zero), the
+rule on the changes with `tol` applies.
+
+The paths of [`solve_path`](@ref) and the last level of continuation stop on
+the gap by default, at [`PATH_GAPTOL`](@ref ProximalSolvers.PATH_GAPTOL)
+`= 1e-8`; a single `solve!` keeps the rule on the changes unless `gaptol` is
+given, so that a one-off solve stays as accurate as before.
+
+What a target buys, on the lasso designs of the benchmark (``n = 500`` to
+``5000``, ``p = 500`` to ``2500``, 50 levels down to ``0.01\lambda_{\max}``) and
+a logistic path:
+
+| relative gap ``\varepsilon`` | relative suboptimality | coefficient error (relative, ``\infty``-norm), median / max |
+|:-----------------------------|:-----------------------|:-------------------------------------------------------------|
+| ``10^{-8}`` | below ``10^{-15}`` | ``10^{-8}`` / ``2\times10^{-7}`` |
+| ``10^{-6}`` | ``10^{-13}``           | ``10^{-6}`` / ``10^{-5}`` |
+| ``10^{-4}`` | ``10^{-9}``            | ``10^{-4}`` / ``10^{-3}`` |
+| ``10^{-3}`` | ``10^{-7}``            | ``10^{-3}`` / ``10^{-2}`` |
+| rule on the changes, `tol = 1e-7` | ``10^{-13}`` (``10^{-16}`` to ``10^{-9}``) | ``10^{-6}`` / ``5\times10^{-4}`` |
+
+The suboptimality is far below the certified bound, about the square of the
+gap: the dual point of the rescaled gradient is off the optimal one by about
+the error of the fitted values, which enters the gap linearly (through the
+slack of the active constraints) and the suboptimality quadratically. The
+coefficients are within about ``\varepsilon`` to ``10\varepsilon`` of the
+solution. The gap means the same on every design and level, where the rule on
+the changes is accurate on some levels and loose on others.
 
 ## Momentum
 
