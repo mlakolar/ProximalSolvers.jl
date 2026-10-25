@@ -28,10 +28,13 @@ include("common.jl")
 end
 @testset "Matched library scaling, full paths, and independent final checks" begin
     P=problem(60,100,0.9,10,57)
+    savedX=copy(P.X);savedy=copy(P.y)
     for kind in ("linear","bh")
         weights=weight_sequence(kind,100);amax=alpha_max(P.X,P.y,weights)
         alphas=amax.*[1.,0.3,0.05]
         fits=[timed_fit(P.X,P.y,weights,alphas,method;limit=10) for method in ("PG","APG","SLOPE.jl")]
+        @test P.X==savedX
+        @test P.y==savedy
         for fit in fits
             @test fit.valid
             @test length(fit.betas)==3

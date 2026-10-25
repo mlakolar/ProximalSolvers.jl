@@ -22,8 +22,10 @@ open(joinpath(OUT,"levels-$SHARD.csv"),"w") do levels
     sizes=CANARY ? [(80,120)] : [(200,500),(1000,2000)]
     rhos=CANARY ? [0.9] : [0.,0.9]
     sparsities=CANARY ? [10] : [10,100]
+    case_index=0
     for (n,p) in sizes,rho in rhos,sparsity in sparsities,seed in SEEDS
-        mod(seed-1,SHARDS)+1==SHARD || continue
+        case_index+=1
+        mod(case_index-1,SHARDS)+1==SHARD || continue
         P=problem(n,p,rho,sparsity,seed)
         for kind in ("linear","bh")
             weights=weight_sequence(kind,p);amax=alpha_max(P.X,P.y,weights)
