@@ -14,8 +14,10 @@ The two-loop recursion has no history-sized allocations inside the iterations.
 Curvature pairs with insufficient positive curvature are skipped. The default
 initial step is 1; each path level starts fresh memory and step state.
 
-For `LogDetLoss`, both the quasi-Newton trial and its proximal point must have
-finite loss and gradient. Infeasible trials reduce the direction step; infeasible
+For `LogDetLoss`, the quasi-Newton trial must have finite loss and gradient;
+its proximal point must have finite loss. The proximal-point gradient is not
+evaluated unless the optional residual stopping check requests it.
+Infeasible trials reduce the direction step; infeasible
 proximal points reduce gamma. After 31 unsuccessful direction backtracks the
 trial is the proximal-gradient fallback. A failed merit test is never accepted
 just because a retry cap is reached. Retry caps return failure. This is an

@@ -33,7 +33,8 @@ matrix product from a generic custom loss cannot manufacture an adaptive gain.
 
 ## Common stopping and validation
 
-Every method checks the same external certificate every ten iterations. A fit
+Every method checks the same external certificate every ten iterations, with
+an additional starting-point check for PG/APG and first-step check for adaPGM. A fit
 must satisfy **both** the l1 KKT infinity residual divided by
 max(||gradient f(0)||_inf,lambda,eps) <= 1e-6 and an objective error certificate
 <= 1e-6 relative to max(1,|F(x)|). Existing Fenchel dual gaps certify the four
@@ -174,6 +175,7 @@ analysis can be regenerated with:
 
 ```sh
 python3 benchmark/adaptive/broad/check_summary.py
+python3 benchmark/adaptive/broad/check_evidence.py
 python3 benchmark/adaptive/broad/summarize.py \
   benchmark/adaptive/broad/evidence/20261025/main-*.csv \
   --expected 11160 --phase main --out /tmp/adapgm-main-summary
@@ -181,6 +183,11 @@ python3 benchmark/adaptive/broad/summarize.py \
   benchmark/adaptive/broad/evidence/20261025/confirmation-*.csv \
   --expected 1800 --phase confirmation --out /tmp/adapgm-confirmation-summary
 ```
+
+`check_evidence.py` verifies the exact prescribed identity sets (including all
+initializations and timing blocks) and regenerates every committed broad
+summary for a byte-for-byte comparison. CI runs both Python checks. These
+checks use the retained measurements; they do not rerun numerical timings.
 
 Discovery jobs 13422390 (canary, 1m13s), 13422402 (main, 7m28s) and 13422420
 (confirmation, 2m13s) all completed. Peak allocation was four CPUs and 16GB;

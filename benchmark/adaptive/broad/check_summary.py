@@ -1,6 +1,22 @@
 """Regression check: scientific failures must survive the summary."""
 import csv,json,subprocess,sys,tempfile
 from pathlib import Path
+from check_evidence import FIELDS, expected_identities, validate_grid
+
+# A row-count check alone cannot detect a missing configuration replaced by an
+# unexpected one. Exercise exact-grid validation without numerical work.
+for phase, count in (("main", 11160), ("confirmation", 1800)):
+    grid = [dict(zip(FIELDS, map(str, key))) for key in sorted(expected_identities(phase))]
+    assert len(grid) == count
+    validate_grid(grid, phase)
+    for malformed in (grid[:-1], grid + [grid[0]], [dict(grid[0], seed="999")] + grid[1:]):
+        try:
+            validate_grid(malformed, phase)
+        except AssertionError:
+            pass
+        else:
+            raise AssertionError("malformed experiment grid accepted")
+
 with tempfile.TemporaryDirectory() as td:
     root=Path(td);raw=root/'fixture.csv'
     fields=('family','p','kappa','seed','lambda_fraction','round','method','initialization','valid','seconds','kkt','gap','status')
