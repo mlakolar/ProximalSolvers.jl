@@ -85,7 +85,7 @@ function _check_slope_data(x::Vector{T}, f, g::SLOPE) where {T<:AbstractFloat}
   n > 0 && p > 0 || throw(ArgumentError("X must have positive dimensions"))
   length(y) == n && length(x) == p && length(g.λ) == p ||
     throw(DimensionMismatch("response, iterate and SLOPE weights must match X"))
-  T == float(promote_type(eltype(X),eltype(y))) ||
+  eltype(X) == T && eltype(y) == T ||
     throw(ArgumentError("loss data and iterate must have the same floating-point element type"))
   isfinite(scale) && scale > 0 || throw(ArgumentError("loss scale must be finite and positive"))
   # Implicit matrices must not be scanned entry by entry (centering a sparse
@@ -263,6 +263,7 @@ function solve_path(f::AbstractFunction,g::SLOPE,factors::AbstractVector{<:Real}
   out = SLOPEPathResults(a,Vector{T}[],Int[],BitVector(),T[],Int[],Int[])
   for (i,factor) in enumerate(a)
     current = factor.*g.λ
+    all(isfinite,current) || throw(ArgumentError("scaled SLOPE weights must be finite"))
     E = !screening || i == 1 ? collect(eachindex(x)) :
       union(_slope_strong(grad,previous,current),findall(!iszero,x))
     r = _slope_fit!(x,X,y,current,scale,E,method,workspace)
