@@ -11,6 +11,7 @@ const LIMIT=parse(Float64,option("--limit","1"))
 const TOL=parse(Float64,option("--tol","1e-6"))
 const MAXITER=parse(Int,option("--maxiter","50000"))
 const FAMILIES=split(option("--families","ls,logistic,huber,poisson,quartic"),',')
+const PRIMARY_ONLY="--primary-only" in ARGS
 const FRACS=parse.(Float64,split(option("--fractions","0.05,0.005"),','))
 mkpath(dirname(OUT))
 # Compile each loss/method/certificate path outside every recorded timing.
@@ -32,6 +33,9 @@ open(OUT,"w") do io
                 P=problem(family,A,seed,kappa)
                 for frac in FRACS, round in 1:ROUNDS
                     configs=configurations(P)
+                    if PRIMARY_ONLY
+                        filter!(c->c[1]!="adaPGM" || c[2]==(family=="quartic" ? "unit" : "reference"),configs)
+                    end
                     # Randomized complete blocks; all initializations and baselines
                     # use identical data and x=0, with no best-step selection.
                     shuffle!(Xoshiro(seed+100round+1000Int(kappa)+10p),configs)

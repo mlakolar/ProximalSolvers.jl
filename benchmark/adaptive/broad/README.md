@@ -91,3 +91,10 @@ julia --startup-file=no --project=. benchmark/adaptive/broad/run.jl \
 Project run: `20261025T0800Z-ps-adapgm-broad`. Final raw data, source reference,
 Slurm job records, launch commands and summaries will be retained with the
 resulting decision. This protocol precedes those results.
+
+Fresh-seed confirmation uses the same full loss/dimension/conditioning/penalty
+grid at seeds 11--15, two timing repetitions, and unit-step adaPGM plus default
+PG/APG only (1,800 fits). It uses `--primary-only --seeds 11,12,13,14,15 --rounds 2`.
+This avoids selecting an initialization from the main sweep for confirmation.
+`check_summary.py` checks solved/failed pairing, unresolved pairs, and duplicate
+row rejection with a small fixture before the scientific summaries are used.
