@@ -45,7 +45,7 @@ selected = findall(k -> any(!iszero, β[groups[k]]), eachindex(groups))
 # `AtomIterate` with the groups of the penalty.
 
 λs = λmax .* 10 .^ range(0, -1.5; length = 20)
-path = solve_path(f, GroupNormL2(1.0, groups), λs, CDSolver(; tol = 1e-10); x = AtomIterate(p, groups))
+path = solve_path(f, GroupNormL2(1.0, groups), λs; x = AtomIterate(p, groups), gaptol = 1e-10)
 [count(k -> any(!iszero, b[groups[k]]), eachindex(groups)) for b in path.solutions]'
 
 # --- By proximal gradient ---
