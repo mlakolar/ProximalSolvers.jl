@@ -223,28 +223,48 @@ rule on the changes with `tol` applies.
 
 The paths of [`solve_path`](@ref) and the last level of continuation stop on
 the gap by default, at [`PATH_GAPTOL`](@ref ProximalSolvers.PATH_GAPTOL)
-`= 1e-8`; a single `solve!` keeps the rule on the changes unless `gaptol` is
-given, so that a one-off solve stays as accurate as before.
+`= 1e-4`; `gaptol = 1e-3` is the faster setting, for cross-validation and
+prediction, and `gaptol = 0` gives back the rule on the changes with `tol`. A
+single `solve!` keeps the rule on the changes unless `gaptol` is given, so
+that a one-off solve stays as accurate as before.
 
-What a target buys, on the lasso designs of the benchmark (``n = 500`` to
-``5000``, ``p = 500`` to ``2500``, 50 levels down to ``0.01\lambda_{\max}``) and
-a logistic path:
+What a target buys, over the 690 levels of ten lasso paths: the designs A–E
+and L of the benchmark (``n = 500`` to ``5000``, ``p = 500`` to ``10^5``, 50
+levels down to ``0.01\lambda_{\max}``) and the four AR(1) designs of
+CoordinateDescent's `LassoPath` benchmark (``n = 200`` to ``1000``, ``p = 10^3``
+to ``10^4``, 100 levels down to ``0.01\lambda_{\max}``, or ``10^{-4}\lambda_{\max}``
+when ``n \ge p``). The coefficient error is ``\lVert\hat\beta -
+\beta^\star\rVert_\infty / \lVert\beta^\star\rVert_\infty`` against a near-exact
+reference, the suboptimality is relative, and the time is that of whole paths
+against the rule on the changes, from an interleaved benchmark on one core of
+an AMD EPYC 7513 (lasso and logistic paths, CoordinateDescent's `LassoPath`,
+`CVLassoPath` and `GLMLassoPath`, neighborhood selection). glmnet 5.1 solved the same problems
+(`standardize = FALSE`, `intercept = FALSE`) at its default `thresh = 1e-7`
+and at `1e-10` and `1e-14`:
 
-| relative gap ``\varepsilon`` | relative suboptimality | coefficient error (relative, ``\infty``-norm), median / max |
-|:-----------------------------|:-----------------------|:-------------------------------------------------------------|
-| ``10^{-8}`` | below ``10^{-15}`` | ``10^{-8}`` / ``2\times10^{-7}`` |
-| ``10^{-6}`` | ``10^{-13}``           | ``10^{-6}`` / ``10^{-5}`` |
-| ``10^{-4}`` | ``10^{-9}``            | ``10^{-4}`` / ``10^{-3}`` |
-| ``10^{-3}`` | ``10^{-7}``            | ``10^{-3}`` / ``10^{-2}`` |
-| rule on the changes, `tol = 1e-7` | ``10^{-13}`` (``10^{-16}`` to ``10^{-9}``) | ``10^{-6}`` / ``5\times10^{-4}`` |
+| relative gap ``\varepsilon`` | coefficient error, median / worst | suboptimality, median / worst | time against the rule on the changes | glmnet with about the same accuracy |
+|:---|:---|:---|:---|:---|
+| ``10^{-3}`` (fast) | ``7\times10^{-4}`` / ``2\times10^{-2}`` | ``7\times10^{-8}`` / ``2\times10^{-6}`` | 0.36 to 0.74 | more accurate than glmnet's default `thresh = 1e-7` (``3\times10^{-3}`` / ``0.5``) |
+| ``10^{-4}`` (default) | ``7\times10^{-5}`` / ``5\times10^{-3}`` | ``6\times10^{-10}`` / ``10^{-7}`` | 0.59 to 0.96 (1.1 for a GLM path and 1.2 for a lasso path with ``n = p``) | `thresh = 1e-10` (``10^{-4}`` / ``5\times10^{-2}``) |
+| ``10^{-6}`` | ``7\times10^{-7}`` / ``5\times10^{-5}`` | ``6\times10^{-14}`` / ``8\times10^{-12}`` | 0.97 to 1.56 | `thresh = 1e-14` (``10^{-6}`` / ``3\times10^{-3}``) |
+| ``10^{-8}`` | ``7\times10^{-9}`` / ``4\times10^{-7}`` | below ``10^{-15}`` | 1.3 to 2.0 | beyond `thresh = 1e-14` |
+| rule on the changes, `tol = 1e-7` (`gaptol = 0`) | ``9\times10^{-7}`` / ``2\times10^{-3}`` | ``10^{-13}`` / ``2\times10^{-7}`` | 1 | median as `thresh = 1e-14` |
 
-The suboptimality is far below the certified bound, about the square of the
-gap: the dual point of the rescaled gradient is off the optimal one by about
-the error of the fitted values, which enters the gap linearly (through the
-slack of the active constraints) and the suboptimality quadratically. The
-coefficients are within about ``\varepsilon`` to ``10\varepsilon`` of the
-solution. The gap means the same on every design and level, where the rule on
-the changes is accurate on some levels and loose on others.
+The coefficients are within about ``\varepsilon`` of the solution, relative to
+the largest, in the median over the levels, and **within about ``50\varepsilon``
+at worst**. The suboptimality is far below the certified bound ``\varepsilon``,
+about ``\varepsilon^2``: the dual point of the rescaled gradient is off the
+optimal one by about the error of the fitted values, which enters the gap
+linearly (through the slack of the active constraints) and the suboptimality
+quadratically. The gap means the same on every design and level, where the
+rule on the changes is accurate on some levels and loose on others (its
+coefficient error reached ``2\times10^{-3}`` and its gap ``2\times10^{-3}``). [`ProxNewton`](@ref) paths are faster at every target,
+since their inner solves stop on the gap too (0.6 times the time at
+``10^{-4}`` on a logistic path). glmnet at its default took 1 to 8 times less
+time than these paths at ``10^{-4}`` (54 times less with ``n = p``), with
+coefficients 9 to 60 times further from the solution in the median (400 times
+with ``n = p``); at `thresh = 1e-10`, which matches ``10^{-4}`` in the median,
+it took 0.5 to 8 times the time.
 
 ## Momentum
 
