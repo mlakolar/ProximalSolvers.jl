@@ -73,7 +73,7 @@ end
     @test lambda_max(f, g, AtomIterate(Float64, p, groups)) ≈ λmaxg     # the slope at zero of the group lasso
     λs = λmaxg .* 10 .^ range(0, -1.5; length = 10)
     for screening in (true, false)
-      path = solve_path(f, g, λs, CDSolver(; tol = 1e-12); x = AtomIterate(Float64, p, groups), screening)
+      path = solve_path(f, g, λs, CDSolver(; tol = 1e-12); x = AtomIterate(Float64, p, groups), screening, gaptol = 0)
       @test all(path.converged)
       @test norm(path.solutions[1]) <= 1e-12               # zero at λmax, up to rounding at the boundary
       @test count(!iszero, path.solutions[end]) >= 5
@@ -92,9 +92,9 @@ end
   end
   # as a → ∞ the penalty becomes the group lasso
   path_l2 = solve_path(f, GroupNormL2(1.0, groups), λmaxg .* [1, 0.3, 0.1], CDSolver(; tol = 1e-12);
-                       x = AtomIterate(Float64, p, groups))
+                       x = AtomIterate(Float64, p, groups), gaptol = 0)
   path_mcp = solve_path(f, GroupMCP(1.0, groups; a = 1e8), λmaxg .* [1, 0.3, 0.1], CDSolver(; tol = 1e-12);
-                        x = AtomIterate(Float64, p, groups))
+                        x = AtomIterate(Float64, p, groups), gaptol = 0)
   for k in 1:3
     @test Vector(path_mcp.solutions[k]) ≈ Vector(path_l2.solutions[k]) atol = 1e-6
   end

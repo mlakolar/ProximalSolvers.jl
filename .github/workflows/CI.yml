@@ -77,7 +77,7 @@ jobs:
         shell: julia --color=yes --project=. {0}
         run: |
           using Pkg
-          Pkg.add(url="https://github.com/mlakolar/ProximalBase.jl", rev="1f93b03c9c4652636ab0f173e6027268d877aa3a")
+          Pkg.add(url="https://github.com/mlakolar/ProximalBase.jl", rev="master")
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1

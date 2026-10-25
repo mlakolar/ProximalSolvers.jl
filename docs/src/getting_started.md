@@ -88,8 +88,10 @@ objective value, up to floating point error.
 ## Compute a penalty path
 
 Next, we solve the problem along a decreasing sequence of penalty levels.
-Each solve starts from the preceding solution, and screening reduces the
-coordinates considered at the new level:
+Each solve starts from the preceding solution, screening reduces the
+coordinates considered at the new level, and each level stops once its
+relative duality gap is at most `1e-4` (`path.gap`), which puts the
+coefficients within about `1e-4` of the solution, relative to the largest:
 
 ```@example getting_started
 λs = λmax .* 10 .^ range(0, -2; length = 50)

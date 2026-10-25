@@ -55,9 +55,9 @@ _hasdual(::Union{NormL1, NormL1Nonneg, ElasticNet, GroupNormL2}) = true
 # |t zᵢ| ≤ λ wᵢ for the ℓ1 norm, -t zᵢ ≤ λ wᵢ on the nonnegative orthant,
 # ‖t z_G‖ ≤ λ w_G for the groups. nothing when a coordinate without penalty has
 # a nonzero gradient, which no scaling fixes.
-function _dualscale(g::NormL1, z::AbstractVector{T}) where {T}
+function _dualscale(g::NormL1, z::AbstractVector{T}, idx = eachindex(z)) where {T}
   t = one(T)
-  @inbounds for i in eachindex(z)
+  @inbounds for i in idx
     a, c = abs(z[i]), T(g.λ0) * T(_entryweight(g.w, i, T))
     a > c || continue
     iszero(c) && return nothing
@@ -66,9 +66,9 @@ function _dualscale(g::NormL1, z::AbstractVector{T}) where {T}
   t
 end
 
-function _dualscale(g::NormL1Nonneg, z::AbstractVector{T}) where {T}
+function _dualscale(g::NormL1Nonneg, z::AbstractVector{T}, idx = eachindex(z)) where {T}
   t = one(T)
-  @inbounds for i in eachindex(z)
+  @inbounds for i in idx
     a, c = -z[i], T(g.λ0) * T(_entryweight(g.w, i, T))
     a > c || continue
     iszero(c) && return nothing
@@ -78,15 +78,21 @@ function _dualscale(g::NormL1Nonneg, z::AbstractVector{T}) where {T}
 end
 
 # with a ridge term, g* is finite everywhere and needs no scaling
-_dualscale(g::ElasticNet, z::AbstractVector{T}) where {T} =
-  iszero(g.λ2) ? _dualscale(NormL1(g.λ1, g.w), z) : one(T)
+_dualscale(g::ElasticNet, z::AbstractVector{T}, idx = eachindex(z)) where {T} =
+  iszero(g.λ2) ? _dualscale(NormL1(g.λ1, g.w), z, idx) : one(T)
 
 function _dualscale(g::GroupNormL2, z::AbstractVector{T}) where {T}
   for i in eachindex(z)        # an index in no group is not penalized
     (i > length(g.group_of) || iszero(g.group_of[i])) && !iszero(z[i]) && return nothing
   end
+  _groupscale(g, z, eachindex(g.groups))
+end
+
+# the same over the groups ks only
+function _groupscale(g::GroupNormL2, z::AbstractVector{T}, ks) where {T}
   t = one(T)
-  for (k, G) in enumerate(g.groups)
+  for k in ks
+    G = g.groups[k]
     a = zero(T)
     @inbounds for i in G
       a += z[i] * z[i]
@@ -99,13 +105,24 @@ function _dualscale(g::GroupNormL2, z::AbstractVector{T}) where {T}
   t
 end
 
+# The scale t for the problem restricted to the candidate coordinates cand
+# (the whole problem for nothing): the same test over the entries of the
+# candidates only, where z holds ∇f(x). nothing for a penalty without a
+# restricted form, which then has no restricted gap.
+_dualscale_on(g, z::AbstractVector, x, ::Nothing) = _dualscale(g, z)
+_dualscale_on(g, z::AbstractVector, x, cand::Vector{Int}) = nothing
+_dualscale_on(g::Union{NormL1, NormL1Nonneg, ElasticNet}, z::AbstractVector, x::SparseIterate, cand::Vector{Int}) =
+  _dualscale(g, z, cand)
+_dualscale_on(g::GroupNormL2, z::AbstractVector, x::AtomIterate, cand::Vector{Int}) = _groupscale(g, z, cand)
+
 # g*(-t z), which is zero for the norms once t has scaled the point into the
-# domain, and Σᵢ (|t zᵢ| - λ1 wᵢ)₊² / (2λ2) for the elastic net
-_conjugate_penalty(g, z::AbstractVector{T}, t::T) where {T} = zero(T)
-function _conjugate_penalty(g::ElasticNet, z::AbstractVector{T}, t::T) where {T}
+# domain, and Σᵢ (|t zᵢ| - λ1 wᵢ)₊² / (2λ2) for the elastic net, over the
+# indices idx
+_conjugate_penalty(g, z::AbstractVector{T}, t::T, idx = eachindex(z)) where {T} = zero(T)
+function _conjugate_penalty(g::ElasticNet, z::AbstractVector{T}, t::T, idx = eachindex(z)) where {T}
   iszero(g.λ2) && return zero(T)
   v = zero(T)
-  @inbounds for i in eachindex(z)
+  @inbounds for i in idx
     d = abs(t * z[i]) - T(g.λ1) * T(_entryweight(g.w, i, T))
     d > 0 && (v += d * d)
   end
@@ -122,14 +139,82 @@ _hasgap(m::LSModel, g) = _hasdual(g)
 _hasgap(m::GLMModel, g) = _hasdual(g) && _hasconjugate(m.loss)
 
 # (P(x), D(tθ), t) for a model current for x, writing ∇f(x) into z; nothing
-# without a gap. For least squares θᵢ = -s wᵢ rᵢ with the residuals r = ỹ - Ax
-# (m.r .+ m.δ, see LSModel), so F*(tθ) = Σᵢ -t s wᵢ rᵢ ỹᵢ + t² s wᵢ rᵢ²/2.
-_gap!(z, m::CDModel, g, x) = nothing
-
-function _gap!(z::AbstractVector{T}, m::LSModel{T}, g, x) where {T}
-  _hasdual(g) || return nothing
+# without a gap
+function _gap!(z::AbstractVector, m::CDModel, g, x)
+  _hasgap(m, g) || return nothing
   gradient!(z, m, x)
-  t = _dualscale(g, z)
+  _gap_at(z, m, g, x, nothing)
+end
+
+# The same for the problem restricted to the candidate coordinates cand, the
+# others held at zero (the whole problem for cand = nothing), writing ∇f(x) on
+# the entries of the candidates into z: a pass over the candidate columns,
+# where the gap of the whole problem reads every column. At a point whose other
+# coordinates satisfy their optimality conditions, the two gaps agree.
+function _restricted_gap!(z::AbstractVector, m::CDModel, g, x, cand::Union{Nothing, Vector{Int}})
+  _hasgap(m, g) || return nothing
+  cand === nothing && return _gap!(z, m, g, x)
+  _partial_gradient!(z, m, x, cand)
+  _gap_at(z, m, g, x, cand)
+end
+
+# the entries of coordinate k of x
+@inline _coordentries(::SparseIterate, k::Int) = k:k
+@inline _coordentries(x::AtomIterate, k::Int) = x.groups[k]
+
+# ∇f(x) on the entries of the coordinates in cand: for least squares
+# -s (X[:, j] - x̄ⱼ)' W r, as the coordinate steps compute it
+function _partial_gradient!(z::AbstractVector{T}, m::LSModel{T}, x, cand::Vector{Int}) where {T}
+  for k in cand, j in _coordentries(x, k)
+    a, b = _column_dot(m, j)
+    m.a[j] = a
+    @inbounds z[j] = -m.s * b
+  end
+  z
+end
+
+# for a GLM s X[:, j]' d, with dᵢ = wᵢ ℓ'(ηᵢ, yᵢ) computed once
+function _partial_gradient!(z::AbstractVector{T}, m::GLMModel{T}, x, cand::Vector{Int}) where {T}
+  d = m.d
+  @inbounds for i in eachindex(m.η)
+    d[i] = _obsweight(m.w, i, T) * T(ProximalBase.deriv(m.loss, m.η[i], m.y[i]))
+  end
+  for k in cand, j in _coordentries(x, k)
+    @inbounds z[j] = m.s * _coldot(m.X, d, j)
+  end
+  z
+end
+
+@inline function _coldot(X::AbstractMatrix{T}, v::AbstractVector{T}, k::Int) where {T}
+  b = zero(T)
+  @inbounds @simd for i in eachindex(v)
+    b += X[i, k] * v[i]
+  end
+  b
+end
+
+@inline function _coldot(X::SparseMatrixCSC{T}, v::AbstractVector{T}, k::Int) where {T}
+  rows, vals = rowvals(X), nonzeros(X)
+  b = zero(T)
+  @inbounds for j in nzrange(X, k)
+    b += vals[j] * v[rows[j]]
+  end
+  b
+end
+
+# g*(-t z) over the problem restricted to cand
+_conjugate_penalty_on(g, z, t, x, ::Nothing) = _conjugate_penalty(g, z, t)
+_conjugate_penalty_on(g, z, t, x::SparseIterate, cand::Vector{Int}) = _conjugate_penalty(g, z, t, cand)
+_conjugate_penalty_on(g, z, t, x, cand::Vector{Int}) = zero(t)      # the group penalties
+
+# (P(x), D(tθ), t) from z = ∇f(x) on the entries of cand (everywhere for
+# nothing), for a model current for x. For least squares θᵢ = -s wᵢ rᵢ with the
+# residuals r = ỹ - Ax (m.r .+ m.δ, see LSModel), so
+# F*(tθ) = Σᵢ -t s wᵢ rᵢ ỹᵢ + t² s wᵢ rᵢ²/2.
+_gap_at(z, m::CDModel, g, x, cand) = nothing
+
+function _gap_at(z::AbstractVector{T}, m::LSModel{T}, g, x, cand) where {T}
+  t = _dualscale_on(g, z, x, cand)
   t === nothing && return nothing
   r, δ, y, o, w, ȳ = m.r, m.δ, m.y, m.offset, m.w, m.ybar
   v = zero(T)
@@ -140,16 +225,14 @@ function _gap!(z::AbstractVector{T}, m::LSModel{T}, g, x) where {T}
     v += wi * ri * (t * ri / 2 - ỹ)
   end
   P = loss_value(m, x) + g(x)
-  P, -t * m.s * v - _conjugate_penalty(g, z, t), t
+  P, -t * m.s * v - _conjugate_penalty_on(g, z, t, x, cand), t
 end
 
-function _gap!(z::AbstractVector{T}, m::GLMModel{T}, g, x) where {T}
-  _hasgap(m, g) || return nothing
-  gradient!(z, m, x)
-  t = _dualscale(g, z)
+function _gap_at(z::AbstractVector{T}, m::GLMModel{T}, g, x, cand) where {T}
+  t = _dualscale_on(g, z, x, cand)
   t === nothing && return nothing
   P = loss_value(m, x) + g(x)
-  P, -_glm_conjugate(m.loss, m.y, m.w, m.offset, m.s, m.η, t) - _conjugate_penalty(g, z, t), t
+  P, -_glm_conjugate(m.loss, m.y, m.w, m.offset, m.s, m.η, t) - _conjugate_penalty_on(g, z, t, x, cand), t
 end
 
 # F*(tθ) for θᵢ = s wᵢ ℓ'(ηᵢ, yᵢ), η = Ax + o: Σᵢ s wᵢ (ℓ*(uᵢ; yᵢ) - uᵢ oᵢ) with
@@ -197,10 +280,15 @@ end
 # whether the stopping rule was met. Without a gap, the run stops after a full
 # pass with changes below tol. With gaptol, the gap is computed where that rule
 # would stop, a full pass with changes below tol: the run stops if the gap is
-# small enough, and tol is tightened tenfold otherwise. A gap costs a full
-# gradient, which can cost much more than a pass over the candidates of the
-# strong rule, so it is not computed after the other full passes, except for
-# the screening of gapsafe, which pays only if it comes early.
+# at most gaptol, and tol is tightened otherwise, by the factor that the gap
+# asks for (the gap shrinks about as the square of the changes). The gap is that
+# of the problem restricted to the candidates of the run (all coordinates
+# without screening), which costs one pass over them; screening checks the
+# other coordinates afterwards (_screened!). It is not computed after the other
+# full passes, except for the screening of gapsafe, which pays only if it comes
+# early. When the gap is not available at x (a coordinate without penalty has
+# a nonzero gradient), the run falls back on the rule on the changes with the
+# tolerance of the method.
 @inline function _afterpass!(::Nothing, x, m, g, st, s::CDSolver, full::Bool, maxh, tol, tolmin)
   converged = maxh < tol
   full && converged, converged, tol, true
@@ -211,34 +299,55 @@ function _afterpass!(gs::_GapState{T}, x, m, g, st::_CDState{T}, s::CDSolver, fu
   converged = maxh < tol
   (full && (converged || s.gapsafe)) || return false, converged, tol, true
   available, certified, moved = _gapcheck!(gs, x, m, g, st, s)
-  certified && return true, converged, tol, true
+  if certified
+    st.gapmode = true
+    return true, converged, tol, true
+  end
   moved && return false, false, tol, true        # screening changed x: pass again
   converged || return false, converged, tol, true
-  (s.gaptol > 0 && available) || return true, converged, tol, true
+  if !(s.gaptol > 0 && available)
+    st.gapmode = false
+    tol > st.tolchange || return true, converged, tol, true
+    tol = st.tolchange                            # no gap at x: the rule on the changes
+    return false, maxh < tol, tol, true
+  end
   tol <= tolmin && return true, converged, tol, false    # tol cannot be tightened further
-  tol = max(tol / 10, tolmin)
+  tol = max(tol * _tighten(st.relgap, s.gaptol), tolmin)
   false, maxh < tol, tol, true
 end
 
+# the factor of the tolerance on the changes when the relative gap is above
+# gaptol: the gap is about proportional to the changes
+_tighten(relgap, gaptol) = clamp(_TIGHTEN * gaptol / relgap, 0.01, 0.5)
+const _TIGHTEN = 0.5
+
 # the relative duality gap at x, recorded in st, and the gap-safe screening;
 # returns (available, certified, moved): whether the gap could be computed,
-# whether it is at most gaptol, and whether screening changed x
+# whether it is at most gaptol, and whether screening changed x. P - D carries
+# rounding errors of the order of eps |P|: near the solution it can come out
+# zero, so the gap is taken as at least 4 eps |P|, for the certificate and for
+# screening, where a sphere of radius zero would remove the coordinates whose
+# dual constraint is tight up to rounding, the nonzero ones among them.
 function _gapcheck!(gs::_GapState{T}, x, m, g, st::_CDState{T}, s::CDSolver) where {T}
-  res = _gap!(gs.z, m, g, x)
+  res = _restricted_gap!(gs.z, m, g, x, gs.base)
   if res === nothing
     st.relgap = T(NaN)
     return false, false, false
   end
   P, D, t = res
-  gap = max(P - D, zero(T))
+  gap = max(P - D, 4 * eps(T) * abs(P))
   st.relgap = gap / max(abs(P), floatmin(T))
   certified = s.gaptol > 0 && st.relgap <= s.gaptol
-  # P - D carries rounding errors of the order of eps |P|: near the solution it
-  # can come out zero, and a sphere of radius zero would remove the coordinates
-  # whose dual constraint is tight up to rounding, the nonzero ones among them;
-  # screening takes the gap as at least 4 eps |P|
-  moved = s.gapsafe && !certified && _gapscreen!(gs, m, g, x, st, t, gap + 4 * eps(T) * abs(P))
+  moved = s.gapsafe && !certified && _gapscreen!(gs, m, g, x, st, t, gap)
   true, certified, moved
+end
+
+# the relative gap of the whole problem at x from the full gradient grad, which
+# the checks of screening compute, recorded in st; NaN without a gap at x
+function _fullgap!(st::_CDState{T}, m, g, x, grad::AbstractVector) where {T}
+  res = _gap_at(grad, m, g, x, nothing)
+  st.relgap = res === nothing ? T(NaN) :
+              max(res[1] - res[2], 4 * eps(T) * abs(res[1])) / max(abs(res[1]), floatmin(T))
 end
 
 # Gap-safe screening (Fercoq, Gramfort and Salmon, 2015; Ndiaye, Fercoq,
@@ -254,7 +363,7 @@ end
 function _gapscreen!(gs::_GapState{T}, m, g, x, st::_CDState{T}, t::T, gap::T) where {T}
   z, keep = gs.z, gs.keep
   moved, screened = false, false
-  for k in eachindex(keep)
+  for k in (gs.base === nothing ? eachindex(keep) : gs.base)     # z holds ∇f on the candidates only
     keep[k] || continue
     _safezero(g, m, z, x, k, t, gap) || continue
     keep[k] = false

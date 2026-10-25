@@ -60,7 +60,7 @@ export
 @static if VERSION >= v"1.11.0-DEV.469"
   eval(Expr(:public, :initialize!, :coordinate_step!, :coordinate_derivatives, :update_cache!,
             :coordinate_scale, :response_scale, :loss_value, :check_penalty, :intercept, :residuals,
-            :linear_predictor, :deviance, :nulldeviance))
+            :linear_predictor, :deviance, :nulldeviance, :PATH_GAPTOL))
 end
 
 include("types.jl")

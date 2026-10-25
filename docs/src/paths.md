@@ -122,13 +122,43 @@ section. The condition often holds but can fail, so the rule is checked. At each
    violators join ``S``, and step 2 runs again from the current solution.
 
 The gradient computed in step 3 is the one the rule needs at the next level.
+
+## The accuracy of each level
+
+Each level stops on a certified relative duality gap,
+
+```math
+\frac{P_k(x) - D_k(\theta)}{|P_k(x)|} \le \mathrm{gaptol}, \qquad P_k = f + g_{\lambda_k},
+```
+
+when the loss and the penalty have one (see [Stopping on the duality
+gap](@ref)): the default `gaptol` is [`PATH_GAPTOL`](@ref
+ProximalSolvers.PATH_GAPTOL) `= 1e-4`, which puts the coefficients within
+about `1e-4` of the solution, relative to the largest (about 50 times the
+target at worst), and `gaptol = 1e-3` is the faster setting for
+cross-validation and prediction; `gaptol = 0` gives back the rule on the
+changes. In step 2, coordinate descent
+stops on the gap of the problem restricted to ``S``, the coordinates outside
+held at zero, at the cost of one pass over ``S``, where the gap of the whole
+problem reads every column. The full gradient of step 3 gives the gap of the
+whole problem: without violators the two agree up to rounding, since the
+coordinates outside ``S`` then satisfy their dual constraints; if it still
+exceeds `gaptol`, step 2 runs again to a tenfold smaller target. The results
+report this gap per level. [`ProxNewton`](@ref) paths stop their Newton steps
+on the gap of the GLM in the same way, with each inner solve stopping on the
+gap of its quadratic model at a hundredth of the current gap, and the
+intercept, when the model has one, fitted exactly before each gap.
+
+Other losses and penalties, a coordinate without penalty whose gradient is
+not zero, [`LLA`](@ref) paths and `gaptol = 0` keep the rule on the changes of
+[`CDSolver`](@ref), with its `tol`.
 `solve_path` starts the rule at the ``\lambda_{\max}`` of its starting point,
 which need not be zero. The results report, per level, the passes and the
 number of checks: one when the strong rule made no mistake.
 
 ## Calling `solve_path`
 
-`solve_path(f, g, λs, method = CDSolver(); x, screening = true, maxnnz = Inf, callback = nothing)`
+`solve_path(f, g, λs, method = CDSolver(); x, screening = true, maxnnz = Inf, callback = nothing, gaptol)`
 takes decreasing nonnegative levels. The iterate `x` is the starting point and
 holds the last solution on return; it defaults to a zero `SparseIterate` when
 the loss has columns, and must be given otherwise, as an `AtomIterate` for a
@@ -138,8 +168,9 @@ coordinates, or when `callback(k, λ, x, m)` returns `true`; `m` is the model of
 the loss, current for `x`, from which a callback can compute a validation
 error, residuals or a gradient. The [`PathResults`](@ref) hold, per level, the
 level, the solution as a sparse vector (a sparse matrix for a matrix iterate),
-the objective, the passes, whether coordinate descent converged, and the number
-of checks.
+the objective, the passes, whether coordinate descent converged, the number
+of checks, and the certified relative gap (`NaN` where the rule on the changes
+stopped the level).
 
 ## Continuation
 
@@ -156,8 +187,10 @@ the default except on a `SymmetricSparseIterate`, where a coordinate step
 changes the gradient everywhere, so that the checks cost more passes than they
 save). The levels before `g` only provide warm starts, so they are solved to
 the looser tolerance `continuation_tol`, ``\sqrt{\mathrm{tol}}`` by default,
-and only `g` itself to `tol`; `continuation_tol = tol` solves every level
-fully. It returns the solution at `g`. When the level of `g` is zero or at
+by the rule on the changes, and only `g` itself to the final accuracy: a
+relative gap of `gaptol` (`PATH_GAPTOL = 1e-4` by default) when the loss and
+the penalty have one, `tol` otherwise; `continuation_tol = tol` solves every
+level fully. It returns the solution at `g`. When the level of `g` is zero or at
 least ``\lambda_{\max}``, or `g` has no level (`IndBox`, `ZeroFunction`), it
 solves from zero directly.
 

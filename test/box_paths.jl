@@ -77,7 +77,7 @@ end
   λmax = lambda_max(f, g, SparseIterate(p))
   λs = λmax * (1 + 1e-9) .* 10 .^ range(0, -2; length = 15)   # just above λmax, whatever the rounding
   paths = map((true, false)) do screening
-    path = solve_path(f, g, λs, CDSolver(; tol = 1e-10); screening)
+    path = solve_path(f, g, λs, CDSolver(; tol = 1e-10); screening, gaptol = 0)
     @test path.λ == λs && all(path.converged)
     @test screening ? all(>=(1), path.kkt_checks) : all(iszero, path.kkt_checks)
     for k in eachindex(λs)
@@ -96,7 +96,7 @@ end
   # continuation down to one level
   λ = 0.02λmax
   x = SparseIterate(p)
-  r = solve!(x, f, Constrained(NormL1(λ), box), CDSolver(; tol = 1e-10); continuation = 10)
+  r = solve!(x, f, Constrained(NormL1(λ), box), CDSolver(; tol = 1e-10); continuation = 10, gaptol = 0)
   @test r.converged && r.kkt_checks >= 11
   @test inbox(Vector(x), l, u)
   @test kkt_box(lsgrad(X, y, Vector(x)), Vector(x), λ, l, u) < 1e-6
@@ -106,8 +106,8 @@ end
   w = rand(Xoshiro(3), p) .+ 0.5
   λmax = lambda_max(f, Constrained(NormL1(1.0, w), IndBox(0.0, Inf)), SparseIterate(p))
   λs = λmax .* 10 .^ range(0, -2; length = 10)
-  pb = solve_path(f, Constrained(NormL1(1.0, w), IndBox(0.0, Inf)), λs, CDSolver(; tol = 1e-10))
-  pn = solve_path(f, NormL1Nonneg(1.0, w), λs, CDSolver(; tol = 1e-10))
+  pb = solve_path(f, Constrained(NormL1(1.0, w), IndBox(0.0, Inf)), λs, CDSolver(; tol = 1e-10); gaptol = 0)
+  pn = solve_path(f, NormL1Nonneg(1.0, w), λs, CDSolver(; tol = 1e-10); gaptol = 0)
   @test pb.values ≈ pn.values rtol = 1e-10
   @test all(k -> isapprox(Vector(pb.solutions[k]), Vector(pn.solutions[k]); atol = 1e-5), eachindex(λs))
 end
@@ -121,7 +121,7 @@ end
     λmax = lambda_max(f, gb, SparseIterate(p))
     @test λmax ≈ maximum(max.(z, 0) .+ max.(-z, 0)) / α     # both directions are open
     λs = λmax .* 10 .^ range(0, -2; length = 10)
-    path = solve_path(f, gb, λs, CDSolver(; tol = 1e-10))
+    path = solve_path(f, gb, λs, CDSolver(; tol = 1e-10); gaptol = 0)
     for k in eachindex(λs)
       b = Vector(path.solutions[k])
       @test inbox(b, l, u)
@@ -133,12 +133,12 @@ end
     gb = Constrained(g, IndBox(0.0, 1.0))
     λmax = lambda_max(f, gb, SparseIterate(p))
     @test λmax ≈ maximum(max.(z, 0))
-    path = solve_path(f, gb, λmax * (1 + 1e-9) .* 10 .^ range(0, -2; length = 10), CDSolver(; tol = 1e-10))
+    path = solve_path(f, gb, λmax * (1 + 1e-9) .* 10 .^ range(0, -2; length = 10), CDSolver(; tol = 1e-10); gaptol = 0)
     @test all(path.converged)
     @test all(b -> inbox(Vector(b), zeros(p), ones(p)), path.solutions)
     @test nnz(path.solutions[1]) == 0 && nnz(path.solutions[end]) > 0
     x = SparseIterate(p)
-    solve!(x, f, Constrained(atlevel(g, 0.05λmax), IndBox(0.0, 1.0)), CDSolver(; tol = 1e-10); continuation = 10)
+    solve!(x, f, Constrained(atlevel(g, 0.05λmax), IndBox(0.0, 1.0)), CDSolver(; tol = 1e-10); continuation = 10, gaptol = 0)
     @test inbox(Vector(x), zeros(p), ones(p))
   end
 end

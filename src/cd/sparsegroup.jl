@@ -145,8 +145,17 @@ function _dualscale(g::Union{_SGL, _ScaledSGL}, z::AbstractVector{T}) where {T}
   for i in eachindex(z)        # an index in no group is not penalized
     (i > length(f.group_of) || iszero(f.group_of[i])) && !iszero(z[i]) && return nothing
   end
+  _sglscale(g, z, eachindex(f.groups))
+end
+
+# the same over the groups ks only, as for the problem restricted to them
+_dualscale_on(g::Union{_SGL, _ScaledSGL}, z::AbstractVector, x::AtomIterate, cand::Vector{Int}) = _sglscale(g, z, cand)
+
+function _sglscale(g::Union{_SGL, _ScaledSGL}, z::AbstractVector{T}, ks) where {T}
+  f = g isa _SGL ? g : g.f
   t = one(T)
-  for (k, G) in enumerate(f.groups)
+  for k in ks
+    G = f.groups[k]
     c1, c2 = _sglthresholds(g, k, T)
     _softnorm(z, G, c1) > c2 || continue
     ρ = _sgl_root(z, G, c1, c2)
