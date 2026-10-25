@@ -1,0 +1,84 @@
+{
+  "run_id": "20261025T0850Z-ps-slope",
+  "cluster": "Discovery",
+  "account": "mkolar_1314",
+  "partition": "main",
+  "constraint": "epyc-7513",
+  "julia": "1.13.2",
+  "threads_per_worker": 1,
+  "blas_threads": 1,
+  "max_resources": "4CPUs16GB",
+  "source_base": "9041e236f3de8ffdc02103e5a505993463e00bb1",
+  "main_source": "bb69eb1123c7ab3b691ebf748af5970f070650a3",
+  "control_and_fresh_source": "ef6ec58",
+  "final_checks_source": "d3d0e5f",
+  "proximalbase": "1f93b03c9c4652636ab0f173e6027268d877aa3a",
+  "SLOPE": "1.3.1",
+  "slope_jll": "6.5.2+0",
+  "CxxWrap": "0.17.5",
+  "certificate_target": 1e-06,
+  "main_library_tolerance": 1e-09,
+  "control_and_fresh_library_tolerance": 1e-06,
+  "jobs": [
+    {
+      "id": 13422767,
+      "stage": "setup",
+      "state": "FAILED",
+      "elapsed": "5s",
+      "note": "Random stdlib UUID error; no fits"
+    },
+    {
+      "id": 13422769,
+      "stage": "setup_retry_and_canary",
+      "state": "COMPLETED",
+      "elapsed": "1m23s",
+      "checks": 81,
+      "calls": 18,
+      "levels": 84
+    },
+    {
+      "id": 13422780,
+      "stage": "main",
+      "state": "COMPLETED",
+      "elapsed": "2m16s",
+      "checks": 85,
+      "calls": 2160,
+      "levels": 10080
+    },
+    {
+      "id": 13423094,
+      "stage": "accuracy_control",
+      "state": "COMPLETED",
+      "elapsed": "2m40s",
+      "checks": 85,
+      "calls": 2160,
+      "levels": 10080
+    },
+    {
+      "id": 13423095,
+      "stage": "fresh_control",
+      "state": "COMPLETED",
+      "elapsed": "48s",
+      "calls": 576,
+      "levels": 2688
+    },
+    {
+      "id": 13423109,
+      "stage": "final_validation",
+      "state": "COMPLETED",
+      "elapsed": "17s",
+      "checks": 85
+    }
+  ],
+  "allocated_running_time_total": "7m29s including failed setup and validation; sequential jobs",
+  "comparison_totals": {
+    "calls": 4896,
+    "valid_calls": 4896,
+    "levels": 22848,
+    "valid_levels": 22848
+  },
+  "validation_note": "Initial source snapshot omitted optional ProximalBase Test extension; assertions still passed. Final validation restored pinned ext files and passed cleanly. Measured loss and solver sources unchanged. Final helper threads nondefault tol to final validator; all measurements used unchanged1e-6 default.",
+  "environment": "environment.toml: original resolved lockfile; rebind its two local development paths before recreation",
+  "decision": "Broad hybrid-prototype gate not met in strict, tolerance-control or fresh stage. Defer general native hybrid; first isolate APG path-state reuse on large correlated designs, where libslope path advantage persists.",
+  "scope_limit": "No native hybrid was tested. Library/native-path-state, language/runtime and certificates differ. Common achieved-gap comparisons are not identical achieved accuracies or causal attribution to cluster updates."
+}

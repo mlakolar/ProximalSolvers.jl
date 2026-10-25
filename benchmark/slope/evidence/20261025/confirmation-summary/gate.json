@@ -1,0 +1,13 @@
+{
+  "phase": "confirmation",
+  "calls": 576,
+  "levels": 2688,
+  "valid_calls": 576,
+  "valid_levels": 2688,
+  "library_valid_calls": 192,
+  "library_calls": 192,
+  "library_success_rate": 1.0,
+  "candidate_strata": [],
+  "prototype_gate": false,
+  "fresh_seed_confirmation_required": false
+}

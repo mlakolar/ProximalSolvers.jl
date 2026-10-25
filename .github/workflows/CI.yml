@@ -31,6 +31,7 @@ jobs:
       - run: python benchmark/adaptive/broad/check_summary.py
       - run: python benchmark/adaptive/broad/check_evidence.py
       - run: python benchmark/slope/check_summary.py
+      - run: python benchmark/slope/check_evidence.py
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}

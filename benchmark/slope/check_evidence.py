@@ -1,4 +1,4 @@
-"""Regenerate both scientific summaries and compare them with retained evidence."""
+"""Regenerate every stage's summaries and compare with retained evidence."""
 import tempfile
 from pathlib import Path
 from summarize import evaluate
