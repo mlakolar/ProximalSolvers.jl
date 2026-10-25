@@ -146,8 +146,9 @@ end
   # screening gives the solutions of the path without it
   λs = λmax * (1 + 1e-8) .* exp.(range(0, log(0.05); length = 20))     # above λmax, so rounding can't make it nonzero
   b0s = Float64[]
+  # gaptol = 0: the rule on the objective with the tight tol of newton, for near-exact optimality
   path = solve_path(ProximalSolvers.cdmodel(f, x; intercept = true), NormL1(1.0), λs, newton; devmax = 1.0,
-                    callback = (k, λ, x, m) -> (push!(b0s, ProximalSolvers.intercept(m, x)); false))
+                    gaptol = 0, callback = (k, λ, x, m) -> (push!(b0s, ProximalSolvers.intercept(m, x)); false))
   @test length(path.λ) == 20 && all(path.converged)
   @test nnz(path.solutions[1]) == 0
   for k in (2, 10, 20)
@@ -157,7 +158,7 @@ end
     @test kkt_l1(X' * (μk .- y) / n, βk, λs[k]) < 1e-6
   end
   @test all(path.kkt_checks .>= 1)
-  path0 = solve_path(ProximalSolvers.cdmodel(f, x; intercept = true), NormL1(1.0), λs, newton; devmax = 1.0,
+  path0 = solve_path(ProximalSolvers.cdmodel(f, x; intercept = true), NormL1(1.0), λs, newton; devmax = 1.0, gaptol = 0,
                      screening = false)
   @test all(norm(path.solutions[k] - path0.solutions[k]) < 1e-6 for k in eachindex(λs))
   @test path.values ≈ path0.values rtol = 1e-8
