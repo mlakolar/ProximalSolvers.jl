@@ -2,6 +2,19 @@ include("../common.jl")
 
 const REUSE_METHODS=("reset","carry_L","workspace_reset","workspace_L","full_state","SLOPE.jl")
 
+# Function barrier keeps the numerical loop specialized for the concrete state,
+# loss, penalty and certificate, independently of the outer handoff selection.
+function drive_level!(st,f,g,solver,cert,tol,start,limit,maxiter)
+    cert(st.x;tol) && return :target,0
+    for k in 1:maxiter
+        ProximalSolvers.update_state!(f,g,st,solver)
+        k%10==0 && cert(st.x;tol) && return :target,k
+        time()-start>=limit && return :time_limit,k
+        all(isfinite,st.x) || return :nonfinite,k
+    end
+    :maxiter,maxiter
+end
+
 # Same production APG updates; only the handoff between penalty levels changes.
 # Loss data and x are unchanged at a handoff, so cached f(x) and X*x remain valid.
 # Penalty values must be refreshed before an update can test objective descent.
@@ -45,23 +58,7 @@ function reuse_path(X,y,weights,alphas,mode;tol=1e-6,limit=10.,maxiter=20000,obs
         end
         initial_L,initial_k=st.L,st.k
         observer===nothing || observer(level,st,g,f)
-        status=:maxiter;iterations=0
-        if cert(st.x;tol)
-            status=:target
-        else
-            for k in 1:maxiter
-                ProximalSolvers.update_state!(f,g,st,solver);iterations=k
-                if k%10==0 && cert(st.x;tol)
-                    status=:target;break
-                end
-                if time()-start>=limit
-                    status=:time_limit;break
-                end
-                if !all(isfinite,st.x)
-                    status=:nonfinite;break
-                end
-            end
-        end
+        status,iterations=drive_level!(st,f,g,solver,cert,tol,start,limit,maxiter)
         copyto!(x,st.x);push!(betas,copy(x));previous_L=st.L
         push!(infos,(;status,iterations,nf=st.f_calls,ng=st.grad_calls,np=st.prox_calls,
                       certificate_calls=cert.calls,initial_L,final_L=st.L,initial_k,final_k=st.k,
