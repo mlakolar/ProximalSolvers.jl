@@ -513,7 +513,7 @@ function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton
   stepper = method
   curvature_floor = _newton_curvature_floor(loss, T, gaptol)
   for _ in 1:method.maxiter
-    stepper = gapmode ? _with_inner(method, max(innerfloor, T(_NEWTON_INNER) * relgap), loss) : method
+    stepper = gapmode ? _with_inner(method, max(innerfloor, T(_NEWTON_INNER) * relgap), loss) : _newton_no_gap(method, loss, gaptol)
     # the quadratic model at x: weights v, responses z (working responses minus
     # the offset), updated in place
     @inbounds for i in 1:n
@@ -619,6 +619,9 @@ _with_inner(method::ProxNewton, gaptol) =
   ProxNewton(_with(method.inner; gaptol = Float64(gaptol)), method.maxiter, method.tol, method.β)
 
 _with_inner(method::ProxNewton, gaptol, loss) = _with_inner(method, gaptol)
+_newton_no_gap(method::ProxNewton, loss, gaptol) = method
+_newton_no_gap(method::ProxNewton, loss::ProximalBase.ConvolutionCheck, gaptol) =
+  gaptol > 0 ? _with_inner(method, gaptol / 10, loss) : method
 function _with_inner(method::ProxNewton, target, loss::ProximalBase.ConvolutionCheck)
   # Outside the kernel window the curvature floor makes the working response
   # huge. Relative changes/gaps of that quadratic inherit a huge irrelevant
