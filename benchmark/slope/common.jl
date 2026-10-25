@@ -120,8 +120,8 @@ function library_fit(X,y,weights,alphas;tol=1e-9,maxiter=20000)
     fit
 end
 
-function final_metrics(X,y,weights,alpha,x)
-    c=Certificate(X,y,weights,alpha);valid=c(x)
+function final_metrics(X,y,weights,alpha,x;tol=1e-6)
+    c=Certificate(X,y,weights,alpha);valid=c(x;tol)
     g=PB.SLOPE(alpha.*weights)
     z=similar(x);PB.prox!(z,g,x+c.gradient,1.0)
     fixedpoint=norm(x-z,Inf)/max(1,norm(x,Inf))
@@ -137,7 +137,7 @@ function timed_fit(X,y,weights,alphas,method;tol=1e-6,limit=10.0,library_tol=1e-
     if method=="SLOPE.jl"
         length(result.α)==length(alphas) && all(isapprox.(result.α,alphas;rtol=1e-12)) || error("library returned a truncated/different alpha grid")
     end
-    metrics=[final_metrics(X,y,weights,alphas[k],x) for (k,x) in enumerate(betas)]
+    metrics=[final_metrics(X,y,weights,alphas[k],x;tol) for (k,x) in enumerate(betas)]
     valid=length(betas)==length(alphas)&&all(m.valid for m in metrics)
     (;seconds=t.time,julia_bytes=t.bytes,betas,infos,metrics,valid,
       status=valid ? :target : (isempty(infos) ? :empty : last(infos).status))

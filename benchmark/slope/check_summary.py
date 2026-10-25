@@ -1,8 +1,14 @@
 """Failure accounting must not turn incomplete or unsuccessful paths into wins."""
 import csv
+import contextlib
+import io
 import tempfile
 from pathlib import Path
 from summarize import IDENTITY, evaluate, expected_grid, paired_summary
+
+def silent_evaluate(*args):
+    with contextlib.redirect_stdout(io.StringIO()):
+        return evaluate(*args)
 
 def row(valid, seconds=1):
     return {"valid": str(valid).lower(), "seconds": str(seconds)}
@@ -34,13 +40,13 @@ with tempfile.TemporaryDirectory() as temporary:
             writer = csv.DictWriter(handle, fieldnames=list(rows[0]), lineterminator="\n")
             writer.writeheader(); writer.writerows(rows)
     write("calls", calls); write("levels", levels)
-    result = evaluate(root, "main", root / "out")
+    result = silent_evaluate(root, "main", root / "out")
     assert result["prototype_gate"] and result["valid_levels"] == 10080
     for malformed_calls, malformed_levels in ((calls[:-1], levels), (calls + [calls[0]], levels),
                                                 (calls, levels[:-1])):
         write("calls", malformed_calls); write("levels", malformed_levels)
         try:
-            evaluate(root, "main", root / "bad")
+            silent_evaluate(root, "main", root / "bad")
         except AssertionError:
             pass
         else:
