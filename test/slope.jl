@@ -16,9 +16,11 @@ using Test, Random, LinearAlgebra, SparseArrays, ProximalBase, ProximalSolvers
   @test limited.iterations<=2
   @test !limited.converged
   warm=solve!(fill(.1,4),f,g,method;candidates=Int[])
-  @test warm.converged && warm.minimizer≈x atol=1e-7
+  @test warm.converged
+  @test warm.minimizer≈x atol=1e-7
   unscaled=solve!(zeros(4),LeastSquaresLoss(y,X),SLOPE(4lambda),method)
-  @test unscaled.converged && unscaled.minimizer≈x atol=1e-7
+  @test unscaled.converged
+  @test unscaled.minimizer≈x atol=1e-7
   amax=lambda_max(f,g,zeros(4))
   @test amax≈maximum(cumsum(sort(abs.(X'y/4);rev=true))./cumsum(lambda))
   @test lambda_max(f,SLOPE(zeros(4)),zeros(4))==Inf
@@ -32,7 +34,7 @@ using Test, Random, LinearAlgebra, SparseArrays, ProximalBase, ProximalSolvers
   saved=copy(path.solutions[2]);path.solutions[1][1]=99
   @test path.solutions[2]==saved
   for seed in 1:4
-    rng=Xoshiro(seed);A=randn(rng,60,90);A[:,2:10].+=.8.*A[:,1]
+    rng=Xoshiro(seed);A=randn(rng,60,90);A[:,2:10] .+= 0.8 .* A[:,1]
     b=2A[:,1]-A[:,20]+randn(rng,60)
     weights=collect(range(.2,.03;length=90));loss=(1/60)*LeastSquaresLoss(b,A)
     penalty=SLOPE(weights);top=lambda_max(loss,penalty,zeros(90))
