@@ -8,7 +8,7 @@ include("common.jl")
     baseline=reuse_path(P.X,P.y,weights,alphas,"reset";limit=20.)
     @test baseline.betas==original.betas
     @test [i.iterations for i in baseline.infos]==[i.iterations for i in original.infos]
-    savedX=copy(P.X);savedy=copy(P.y)
+    savedX=copy(P.X);savedy=copy(P.y);savedweights=copy(weights)
     for mode in REUSE_METHODS[1:5]
         seen=Int[]
         observer=function(level,st,g,f)
@@ -28,6 +28,10 @@ include("common.jl")
         fit=reuse_path(P.X,P.y,weights,alphas,mode;limit=20.,observer)
         @test seen==collect(1:4)
         @test all(final_metrics(P.X,P.y,weights,alphas[k],b).valid for (k,b) in enumerate(fit.betas))
+        if mode=="workspace_reset"
+            @test all(isapprox(b,r;rtol=1e-12,atol=1e-12) for (b,r) in zip(fit.betas,baseline.betas))
+            @test [i.iterations for i in fit.infos]==[i.iterations for i in baseline.infos]
+        end
         if mode in ("carry_L","workspace_L","full_state")
             @test all(fit.infos[k].initial_L==fit.infos[k-1].final_L for k in 2:4)
         else
@@ -36,6 +40,7 @@ include("common.jl")
     end
     @test P.X==savedX
     @test P.y==savedy
+    @test weights==savedweights
 end
 
 @testset "Known orthogonal optima and failed path handoff" begin
