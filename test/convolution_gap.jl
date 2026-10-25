@@ -27,6 +27,7 @@ end
   rng=Xoshiro(819); X=randn(rng,83,6); y=.4 .+ X*[1.,-.7,.3,0,0,0] .+ randn(rng,83)
   n,p=size(X); w=[1.,.7,1.3,1.,1.,.8]; ls=[.3,.1,.03]; target=1e-6
   for kernel in (:uniform,:epanechnikov), τ in (.2,.5,.8), int in (false,true), sp in (false,true)
+    @testset "$kernel tau=$τ intercept=$int sparse=$sp" begin
     A=sp ? sparse(X) : X
     loss=ProximalBase.ConvolutionCheck(τ,.3;kernel)
     f=(1/n)*ProximalBase.GLMLoss(loss,y,A)
@@ -47,6 +48,7 @@ end
       @test maximum(abs.(grad).-ls[k].*w)<=target
       @test maximum(abs(b[j]-sign(b[j]-grad[j])*max(abs(b[j]-grad[j])-ls[k]*w[j],0)) for j in 1:p)<=target
       @test !int || abs(sum(d)/n)<=target
+    end
     end
   end
 end

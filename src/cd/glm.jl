@@ -511,13 +511,14 @@ function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton
     end
   end
   stepper = method
+  curvature_floor = _newton_curvature_floor(loss, T, gaptol)
   for _ in 1:method.maxiter
     stepper = gapmode ? _with_inner(method, max(innerfloor, T(_NEWTON_INNER) * relgap), loss) : method
     # the quadratic model at x: weights v, responses z (working responses minus
     # the offset), updated in place
     @inbounds for i in 1:n
       d1 = T(ProximalBase.deriv(loss, η[i], y[i]))
-      d2 = max(T(ProximalBase.deriv2(loss, η[i], y[i])), sqrt(eps(T)))
+      d2 = max(T(ProximalBase.deriv2(loss, η[i], y[i])), curvature_floor)
       v[i] = _obsweight(w, i, T) * d2
       z[i] = η[i] - d1 / d2 - (o === nothing ? zero(T) : o[i])
     end
@@ -578,6 +579,16 @@ function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton
 end
 
 const _NEWTON_INNER = 0.01
+
+_newton_curvature_floor(loss, ::Type{T}, gaptol) where {T} = sqrt(eps(T))
+function _newton_curvature_floor(loss::ProximalBase.ConvolutionCheck, ::Type{T}, gaptol) where {T}
+  # Compact kernels have exactly flat tails. A vanishingly small Hessian floor
+  # makes z and the quadratic residual huge, losing precision when the next
+  # predictor is recovered from their difference. This positive curvature
+  # damping keeps that cancellation below the score targets; backtracking and
+  # certification still use the original objective. Preserve gaptol=0 behavior.
+  gaptol > 0 ? sqrt(sqrt(eps(T))) * T(ProximalBase.curvature(loss)) : sqrt(eps(T))
+end
 
 # A feasible contracted dual can certify objective accuracy without providing
 # equally accurate raw observation scores. Quantile inference needs the latter.
