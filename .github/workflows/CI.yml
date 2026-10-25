@@ -73,8 +73,8 @@ jobs:
       - uses: julia-actions/julia-processcoverage@v1
       - uses: codecov/codecov-action@v7
         with:
-          # Codecov still identifies this integration by its original repository slug.
-          slug: mlakolar/ProximalOPT.jl
+          # Codecov repository lookup requires its canonical lowercase slug.
+          slug: mlakolar/proximalsolvers.jl
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
