@@ -505,19 +505,20 @@ function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton
   if gapmode
     F, relgap = _newton_gap!(x, m, g, ws, candidates)
     gapmode = !isnan(relgap)          # no gap at x: the rule on the objective
-    if relgap <= gaptol
+    if relgap <= gaptol && _newton_raw_ok(m, g, x, ws.grad, candidates, gaptol)
       ws.st.candidates = nothing
       return F, 0, true, relgap
     end
   end
   stepper = method
+  curvature_floor = _newton_curvature_floor(loss, T, gaptol)
   for _ in 1:method.maxiter
-    stepper = gapmode ? _with_inner(method, max(innerfloor, T(_NEWTON_INNER) * relgap)) : method
+    stepper = gapmode ? _with_inner(method, max(innerfloor, T(_NEWTON_INNER) * relgap), loss) : _newton_no_gap(method, loss, gaptol)
     # the quadratic model at x: weights v, responses z (working responses minus
     # the offset), updated in place
     @inbounds for i in 1:n
       d1 = T(ProximalBase.deriv(loss, η[i], y[i]))
-      d2 = max(T(ProximalBase.deriv2(loss, η[i], y[i])), sqrt(eps(T)))
+      d2 = max(T(ProximalBase.deriv2(loss, η[i], y[i])), curvature_floor)
       v[i] = _obsweight(w, i, T) * d2
       z[i] = η[i] - d1 / d2 - (o === nothing ? zero(T) : o[i])
     end
@@ -559,8 +560,8 @@ function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton
       F, relgap = _newton_gap!(x, m, g, ws, candidates)
       if isnan(relgap)
         gapmode = false
-        done && (converged = true; break)
-      elseif relgap <= gaptol
+        done && _newton_raw_ok(m, g, x, ws.grad, candidates, gaptol) && (converged = true; break)
+      elseif relgap <= gaptol && _newton_raw_ok(m, g, x, ws.grad, candidates, gaptol)
         converged = true
         break
       end
@@ -568,7 +569,7 @@ function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton
         innerfloor <= 4 * eps(T) && break
         innerfloor = max(innerfloor / 100, 4 * eps(T))
       end
-    elseif done
+    elseif done && _newton_raw_ok(m, g, x, ws.grad, candidates, gaptol)
       converged = true
       break
     end
@@ -579,9 +580,56 @@ end
 
 const _NEWTON_INNER = 0.01
 
+_newton_curvature_floor(loss, ::Type{T}, gaptol) where {T} = sqrt(eps(T))
+function _newton_curvature_floor(loss::ProximalBase.ConvolutionCheck, ::Type{T}, gaptol) where {T}
+  # Compact kernels have exactly flat tails. A vanishingly small Hessian floor
+  # makes z and the quadratic residual huge, losing precision when the next
+  # predictor is recovered from their difference. This positive curvature
+  # damping keeps that cancellation below the score targets; backtracking and
+  # certification still use the original objective. Preserve gaptol=0 behavior.
+  gaptol > 0 ? sqrt(sqrt(eps(T))) * T(ProximalBase.curvature(loss)) : sqrt(eps(T))
+end
+
+# A feasible contracted dual can certify objective accuracy without providing
+# equally accurate raw observation scores. Quantile inference needs the latter.
+# This guard never projects or substitutes the scores returned by the model.
+_newton_raw_ok(m, g, x, grad, candidates, tol) = true
+function _newton_raw_ok(m::GLMModel{T, <:ProximalBase.ConvolutionCheck}, g::NormL1,
+                        x::SparseIterate{T}, grad, candidates, tol) where {T}
+  tol > 0 || return true              # gaptol=0 explicitly selects the legacy rule
+  if candidates === nothing
+    gradient!(grad, m, x)
+  else
+    _partial_gradient!(grad, m, x, candidates)
+  end
+  inds = candidates === nothing ? eachindex(x) : candidates
+  stationarity = maximum((abs(x[j] - prox_entry(g, x[j] - grad[j], j, one(T))) for j in inds); init=zero(T))
+  stationarity <= tol || return false
+  if m.intercept
+    c = m.s * sum(_obsweight(m.w, i, T) * T(ProximalBase.deriv(m.loss, m.η[i], m.y[i])) for i in eachindex(m.η))
+    abs(c) <= tol || return false
+  end
+  P = loss_value(m, x) + g(x)
+  rawgap = P + _glm_conjugate(m.loss, m.y, m.w, m.offset, m.s, m.η, one(T))
+  isfinite(rawgap) && abs(rawgap) <= tol * (one(T) + abs(P))
+end
+
 # method with the inner solver stopping on the relative gap gaptol
 _with_inner(method::ProxNewton, gaptol) =
   ProxNewton(_with(method.inner; gaptol = Float64(gaptol)), method.maxiter, method.tol, method.β)
+
+_with_inner(method::ProxNewton, gaptol, loss) = _with_inner(method, gaptol)
+_newton_no_gap(method::ProxNewton, loss, gaptol) = method
+_newton_no_gap(method::ProxNewton, loss::ProximalBase.ConvolutionCheck, gaptol) =
+  gaptol > 0 ? _with_inner(method, gaptol / 10, loss) : method
+function _with_inner(method::ProxNewton, target, loss::ProximalBase.ConvolutionCheck)
+  # Outside the kernel window the curvature floor makes the working response
+  # huge. Relative changes/gaps of that quadratic inherit a huge irrelevant
+  # constant. Solve it on absolute scaled coordinate changes instead; the
+  # original smoothed problem still has the certified outer gap and raw guard.
+  inner = _with(method.inner; tol=min(method.inner.tol, Float64(target)), relative=false, gaptol=0.0)
+  ProxNewton(inner, method.maxiter, method.tol, method.β)
+end
 
 # (f + g, relative gap) of the problem restricted to the candidates at x, after
 # fitting the intercept exactly for x (which only decreases f): the dual point
@@ -687,7 +735,7 @@ off for a scalar loss whose saturated loss is unknown.
 As for coordinate descent, each level stops on a relative duality gap of at
 most `gaptol` ([`PATH_GAPTOL`](@ref) `= 1e-4` by default, `1e-3` for the
 faster setting) when the loss and the penalty have one (the squared, logistic,
-Poisson and Huber losses with `NormL1`, `NormL1Nonneg` or `ElasticNet`): the
+Poisson, Huber and convolution check losses with `NormL1`, `NormL1Nonneg` or `ElasticNet`): the
 Newton steps stop on the gap of the problem restricted to the candidates, each
 inner solve stops on the gap of its quadratic model at a hundredth of the last
 gap, and the full gradient of the optimality check confirms the gap of the
@@ -695,6 +743,14 @@ whole problem, which the `gap` of the results reports. With an intercept, the
 intercept is fitted exactly before each gap. `gaptol = 0`, and the other
 penalties (MCP, SCAD, …), keep the rule on the change of the objective with
 `method.tol` and the inner solver's own rule.
+
+For convolution check loss and `NormL1`, positive `gaptol` also checks the raw
+score stationarity, intercept constraint and absolute raw gap at that tolerance.
+The feasible scaled dual used for the certificate never replaces those scores.
+Compact-kernel flat tails use positive curvature damping and absolute scaled
+coordinate changes for the quadratic subproblems, avoiding a relative stopping
+scale dominated by their large working responses. Backtracking evaluates the
+original objective. `gaptol=0` preserves the objective-change route.
 """
 function solve_path(f::Union{AbstractFunction, CDModel}, g::AbstractFunction, λs::AbstractVector{<:Real},
                     method::ProxNewton; x = _default_iterate(f), screening::Bool = true, maxnnz::Real = Inf,
@@ -767,9 +823,10 @@ function _screened_newton!(x, m::GLMModel{T}, g, λprev, grad::AbstractArray, me
     isnan(relgap) && break
     res = _gap_at(grad, m, g, x, nothing)
     relgap = res === nothing ? T(NaN) : max(res[1] - res[2], 4 * eps(T) * abs(res[1])) / max(abs(res[1]), floatmin(T))
-    (relgap <= gaptol || !converged || retries >= _GAPRETRIES) && break
+    ((relgap <= gaptol && _newton_raw_ok(m, g, x, ws.grad, nothing, gaptol)) || !converged || retries >= _GAPRETRIES) && break
     retries += 1
     gk /= 10
   end
+  converged &= _newton_raw_ok(m, g, x, ws.grad, nothing, gaptol)
   F, passes, converged, checks, relgap
 end

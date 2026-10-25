@@ -40,8 +40,24 @@ function _conjugate(ℓ::ProximalBase.Huber, u::T, y) where {T}
   u * u / 2 + u * T(y)
 end
 
+# The solver differentiates with respect to prediction η, whereas the check
+# loss is a function of residual y - η. Its residual score is therefore -u.
+function _conjugate(ℓ::ProximalBase.ConvolutionCheck, u::T, y) where {T}
+  τ = T(ℓ.τ)
+  _indomain(u, -τ, one(T) - τ) || return T(Inf)
+  q = clamp(-u - (τ - T(0.5)), -T(0.5), T(0.5))
+  u * T(y) + _check_conjugate(ℓ, q)
+end
+_check_conjugate(ℓ::ProximalBase.ConvolutionCheck{<:Any, :uniform}, q::T) where {T} =
+  -T(ℓ.h) * (one(T) - (2q)^2) / 4
+function _check_conjugate(ℓ::ProximalBase.ConvolutionCheck{<:Any, :epanechnikov}, q::T) where {T}
+  s = 2sin(asin(2q) / 3)
+  -3T(ℓ.h) * (one(T) - s*s)^2 / 16
+end
+
 _hasconjugate(ℓ) = false
 _hasconjugate(::Union{ProximalBase.Squared, ProximalBase.Logistic, ProximalBase.Poisson, ProximalBase.Huber}) = true
+_hasconjugate(::ProximalBase.ConvolutionCheck) = true
 
 # whether p lies in [a, b], up to rounding
 @inline _indomain(p::T, a, b) where {T} = (tol = 8 * eps(T) * max(one(T), abs(p)); a - tol <= p <= b + tol)

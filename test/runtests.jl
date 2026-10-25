@@ -33,6 +33,7 @@ tests = [
   "newton_nonconvex",
   "duality_gap",
   "gap_stopping",
+  "convolution_gap",
   "quic",
   "generic_newton",
   "examples",
