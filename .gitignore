@@ -33,3 +33,6 @@
 
 /benchmark/panocplus/results/
 /benchmark/adaptive/results/
+
+/benchmark/slope/Manifest*.toml
+/benchmark/slope/results/
