@@ -135,8 +135,10 @@ end
     max(primal - bound, 0.0) / max(abs(primal), 1.0)
   end
   @test f(x1) + g(x1) ≈ f(x2) + g(x2) rtol = 1e-12
-  @test relative_gap(x1) <= 1e-12
-  @test relative_gap(x2) <= 1e-12
+  # The dual gap is first-order in coefficient error, while the objective
+  # stopping test is second-order near this strongly convex minimizer.
+  @test relative_gap(x1) <= sqrt(opt.ftol)
+  @test relative_gap(x2) <= sqrt(opt.ftol)
 end
 
 @testset "SparseIterate, Float32 and several responses $(summary(method))" for method in solvers
