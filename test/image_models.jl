@@ -122,7 +122,23 @@ end
   x1, x2 = zeros(p), zeros(p)
   solve!(x1, f, g, method, opt)
   solve!(x2, opaque(f, zeros(p)), g, method, opt)
-  @test x1 ≈ x2 rtol = 1e-8
+  # Objective stopping at ftol does not imply an O(ftol) coefficient error.
+  # Certify both solutions with the lasso dual and compare objective values;
+  # rounding can send the two line searches along different converged paths.
+  λ = 0.1 * norm(X'y / n, Inf)
+  function relative_gap(x)
+    residual = y - X*x
+    dual = residual / n
+    dual .*= min(1.0, λ / max(norm(X'dual, Inf), eps(Float64)))
+    primal = dot(residual, residual) / (2n) + λ*norm(x, 1)
+    bound = dot(y, dual) - n*dot(dual, dual)/2
+    max(primal - bound, 0.0) / max(abs(primal), 1.0)
+  end
+  @test f(x1) + g(x1) ≈ f(x2) + g(x2) rtol = 1e-12
+  # The dual gap is first-order in coefficient error, while the objective
+  # stopping test is second-order near this strongly convex minimizer.
+  @test relative_gap(x1) <= sqrt(opt.ftol)
+  @test relative_gap(x2) <= sqrt(opt.ftol)
 end
 
 @testset "SparseIterate, Float32 and several responses $(summary(method))" for method in solvers

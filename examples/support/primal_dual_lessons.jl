@@ -76,8 +76,8 @@ function native_solve(a; tol = 1e-6, adaptive = true, maxiter = 200_000, time_li
     setup = @elapsed begin
         g, h = NormL1(a.λ1), NormL1(a.λ2)
         L = a.X === nothing ? a.L : opnorm(a.X, 1) * opnorm(a.X, Inf) + a.μ
-        normD = sqrt(opnorm(a.D, 1) * opnorm(a.D, Inf))
-        method = CondatVu(; L, normD, adaptive, restart = adaptive)
+        norm_d = sqrt(opnorm(a.D, 1) * opnorm(a.D, Inf))
+        method = CondatVu(; L, norm_d, adaptive, restart = adaptive)
         options = ProximalOptions(; maxiter, gaptol = tol, gapevery = 25, time_limit)
         gap = (x, y) -> certificate(a, x, y).relative
         x = zeros(a.p)

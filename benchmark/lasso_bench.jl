@@ -1,5 +1,5 @@
 # Lasso benchmark: ProximalSolvers's proximal gradient solvers against
-# current and historical CoordinateDescent.jl, with glmnet (GLMNet.jl) and
+# current HighDimensionalModels.jl and historical CoordinateDescent.jl, with glmnet (GLMNet.jl) and
 # Lasso.jl for reference.
 #
 #     julia --project=benchmark benchmark/lasso_bench.jl            # 1.5 to 3.5 hours
@@ -80,7 +80,7 @@ function main()
   println(env_summary(), SMOKE ? " (smoke run)" : QUICK ? " (quick run)" : "")
   println("Current packages: ProximalSolvers ", pkgversion(ProximalSolvers),
           ", ProximalBase ", pkgversion(ProximalBase),
-          ", CoordinateDescent ", pkgversion(CoordinateDescent), ", GLMNet ", pkgversion(GLMNet),
+          ", HighDimensionalModels ", pkgversion(HighDimensionalModels), ", GLMNet ", pkgversion(GLMNet),
           ", Lasso ", pkgversion(Lasso))
   warmup()
   mkpath(OUT)

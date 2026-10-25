@@ -2,6 +2,7 @@ using Test
 
 
 tests = [
+  "naming",
   "workspaces",
   "prox_solvers",
   "nonconvex",

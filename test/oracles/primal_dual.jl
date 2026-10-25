@@ -69,7 +69,7 @@ end
     D=sparseD ? sparse(X) : X
     xlp,ylp,Flp=quantile_lp(X,b,q,λ)
     f,g,h=ZeroFunction(),NormL1(λ),Scaled(Translate(CheckLoss(1-q),b),1/length(b))
-    res=solve!(zeros(12),f,g,h,D,CondatVu(abstol=1e-10,reltol=1e-9,normD=opnorm(X)),
+    res=solve!(zeros(12),f,g,h,D,CondatVu(abstol=1e-10,reltol=1e-9,norm_d=opnorm(X)),
                ProximalOptions(maxiter=500_000,gaptol=1e-9,gapevery=25,time_limit=60))
     @test res.converged
     @test abs(res.minimum-Flp) <= 2e-8

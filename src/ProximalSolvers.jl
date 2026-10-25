@@ -14,7 +14,7 @@ ProximalOPT.
 module ProximalSolvers
 
 include("blocks.jl")
-include("lineSearches.jl")
+include("line_searches.jl")
 
 using LinearAlgebra
 using LinearAlgebra: BlasInt, LAPACKException, libblastrampoline

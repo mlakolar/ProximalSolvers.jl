@@ -5,7 +5,7 @@ three for estimation and inference and two for the optimization beneath them:
 
 | Package | |
 |:--------|:--|
-| [CoordinateDescent.jl](https://github.com/mlakolar/CoordinateDescent.jl) | the lasso and its paths; the group, square-root, scaled and heteroscedastic lasso; varying-coefficient models |
+| [HighDimensionalModels.jl](https://github.com/mlakolar/HighDimensionalModels.jl) | the lasso and its paths; the group, square-root, scaled and heteroscedastic lasso; varying-coefficient models |
 | [CovarianceSelection.jl](https://github.com/mlakolar/CovarianceSelection.jl) | Gaussian graphical models: the graphical lasso, CLIME and ACLIME, precision matrices by the scaled lasso, the fused graphical lasso, and the difference of two precision matrices |
 | [DiffPrecTest.jl](https://github.com/mlakolar/DiffPrecTest.jl) | confidence intervals and tests for the difference of two precision matrices |
 | **ProximalSolvers.jl** (this package) | the solvers: coordinate descent with penalty paths, screening and active sets; proximal gradient methods, proximal Newton and ADMM |
@@ -18,9 +18,9 @@ the functions and iterates used to construct them.
 ## Benchmarks
 
 The [`benchmark/`](https://github.com/mlakolar/ProximalSolvers.jl/tree/master/benchmark)
-folder compares the solvers on the lasso with CoordinateDescent.jl, glmnet and
+folder compares the solvers on the lasso with HighDimensionalModels.jl, glmnet and
 Lasso.jl. Its README gives the environments, commands and results.
 Furthermore,
 [`benchmark/engine/`](https://github.com/mlakolar/ProximalSolvers.jl/tree/master/benchmark/engine)
 compares the coordinate descent engine with the implementations it replaces in
-CoordinateDescent.jl, CovarianceSelection.jl and DiffPrecTest.jl.
+HighDimensionalModels.jl, CovarianceSelection.jl and DiffPrecTest.jl.

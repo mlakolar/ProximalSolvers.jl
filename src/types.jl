@@ -28,10 +28,10 @@ returns `true`.
 - `allow_f_increases = false`: keep iterating when the objective increases.
 - `store_trace = false`: record an [`OptimizationState`](@ref) per iteration in
   the results.
-- `show_trace = false`: print the progress every `printEvery` iterations.
+- `show_trace = false`: print the progress every `print_every` iterations.
 - `extended_trace = false`: also store the iterate and gradient in each state.
-- `printEvery = 1`: how often to print, store and call `callback`.
-- `callback = nothing`: a callable object called every `printEvery` iterations with
+- `print_every = 1`: how often to print, store and call `callback`.
+- `callback = nothing`: a callable object called every `print_every` iterations with
   the trace (if `store_trace`) or the current state; return `true` to stop.
 - `time_limit = Inf`: maximum run time in seconds.
 - `f_calls_limit = 0`, `grad_calls_limit = 0`, `prox_calls_limit = 0`: stop
@@ -73,7 +73,7 @@ struct ProximalOptions{TCallback}
   store_trace::Bool
   show_trace::Bool
   extended_trace::Bool
-  printEvery::Int64
+  print_every::Int64
   callback::TCallback
   time_limit::Float64
   gaptol::Float64
@@ -91,18 +91,26 @@ function ProximalOptions(;maxiter::Integer       = 200,
                          store_trace::Bool       = false,
                          show_trace::Bool        = false,
                          extended_trace::Bool    = false,
-                         printEvery::Integer     = 1,
+                         print_every::Union{Nothing,Integer} = nothing,
+                         printEvery::Union{Nothing,Integer} = nothing,
                          callback                = nothing,
                          time_limit              = Inf,
                          gaptol::Real            = 0.0,
                          gapevery::Integer       = 10)
+
+  if printEvery !== nothing
+    print_every === nothing || throw(ArgumentError("use only print_every; printEvery is deprecated"))
+    Base.depwarn("printEvery is deprecated; use print_every", :ProximalOptions)
+    print_every = printEvery
+  end
+  print_every = something(print_every, 1)
 
   maxiter > 1 || error("maxiter must be an integer greater than 1.")
   ftol > 0 || error("ftol must be a positive real value.")
   xtol > 0 || error("xtol must be a positive real value.")
   gaptol >= 0 || error("gaptol must be nonnegative.")
   gapevery > 0 || error("gapevery must be positive.")
-  printEvery = printEvery > 0 ? printEvery : 1
+  print_every = print_every > 0 ? print_every : 1
 
   ProximalOptions{typeof(callback)}(
                   convert(Int64, maxiter),
@@ -116,13 +124,23 @@ function ProximalOptions(;maxiter::Integer       = 200,
                   store_trace,
                   show_trace,
                   extended_trace,
-                  convert(Int64, printEvery),
+                  convert(Int64, print_every),
                   callback,
                   time_limit,
                   convert(Float64, gaptol),
                   convert(Int, gapevery)
                   )
 end
+
+function Base.getproperty(options::ProximalOptions, name::Symbol)
+  if name === :printEvery
+    Base.depwarn("printEvery is deprecated; use print_every", :getproperty)
+    return getfield(options, :print_every)
+  end
+  getfield(options, name)
+end
+Base.propertynames(options::ProximalOptions, private::Bool=false) =
+  (fieldnames(typeof(options))..., :printEvery)
 
 function print_header(options::ProximalOptions)
   if options.show_trace

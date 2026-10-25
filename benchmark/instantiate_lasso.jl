@@ -26,19 +26,14 @@ function activate_lasso_environment(path)
   Pkg.activate(path)
 end
 
+# The modern comparison always uses the same recursively developed master
+# dependency stack as the package, docs and CI, including on Julia 1.10.
+include(joinpath(@__DIR__, "..", "scripts", "master_dependencies.jl"))
 activate_lasso_environment(@__DIR__)
-if haskey(ENV, "PROXIMAL_BASE_PATH") || haskey(ENV, "COORDINATE_DESCENT_PATH") || VERSION < v"1.11"
-  # Julia 1.10 ignores [sources]. The development losses are not all registered.
-  base = haskey(ENV, "PROXIMAL_BASE_PATH") ? PackageSpec(path = ENV["PROXIMAL_BASE_PATH"]) :
-    PackageSpec(url = "https://github.com/mlakolar/ProximalBase.jl")
-  cd = haskey(ENV, "COORDINATE_DESCENT_PATH") ? PackageSpec(path = ENV["COORDINATE_DESCENT_PATH"]) :
-    PackageSpec(url = "https://github.com/mlakolar/CoordinateDescent.jl")
-  Pkg.develop([base, cd,
-               PackageSpec(path = dirname(@__DIR__))])
-end
-# Refresh dependency metadata within this runtime's own lock.
-Pkg.resolve()
-Pkg.instantiate()
+instantiate_master(@__DIR__; workspace=dirname(dirname(@__DIR__)),
+                    owner=dirname(@__DIR__))
+
+# Preserve the independently pinned historical worker environment.
 activate_lasso_environment(joinpath(@__DIR__, "legacy_cd"))
 Pkg.resolve()
 Pkg.instantiate()

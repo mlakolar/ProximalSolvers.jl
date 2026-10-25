@@ -119,3 +119,10 @@ compares it with the built-in model on a dense copy of ``X``.
 - **Testing.** Compare the solution with that of a built-in model on a small
   problem, and check the optimality conditions of the penalized problem, as
   the examples do.
+
+## Running the package suite
+
+From the package checkout, run `julia scripts/test_master.jl` after adding or
+changing an implementation. This uses the complete test extras and workspace
+master dependencies on Julia 1.10 and newer, with bounds checking enabled,
+while leaving the package's `Project.toml` unchanged.

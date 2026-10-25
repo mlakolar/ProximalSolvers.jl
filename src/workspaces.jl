@@ -184,7 +184,7 @@ function reinitialize_state!(state::ProximalGradientDescentState{T}, f, g,
   state.g_x = g(state.x)
   state.f_x_previous = state.g_x_previous = T(NaN)
   state.L = one(T)
-  state.maxResidual = T(-Inf)
+  state.max_residual = T(-Inf)
   state.backtrack_simple = true
   state.backtrack_steps = state.prox_calls = state.stable = 0
   state.f_calls = state.grad_calls = 1
@@ -201,7 +201,7 @@ function reinitialize_state!(state::AccProxGradDescentState{T}, f, g,
   state.model === nothing || copyto!(state.z_previous, state.z_x)
   state.f_x_previous = state.g_x_previous = state.f_y = T(NaN)
   state.L = one(T)
-  state.maxResidual = T(-Inf)
+  state.max_residual = T(-Inf)
   state.k = state.restarts = state.backtrack_steps = state.grad_calls = state.prox_calls = 0
   state.f_calls = 1
   state

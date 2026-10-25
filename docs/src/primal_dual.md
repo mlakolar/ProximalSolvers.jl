@@ -36,10 +36,10 @@ Restart and gap checks perform additional operations.
 
 ## Step sizes and adaptation
 
-The condition is `τ*(L/2 + σ*normD^2) < 1`, where `L` bounds the Lipschitz
-constant of `∇f` and `normD` bounds the spectral norm of `D`. The defaults use
+The condition is `τ*(L/2 + σ*norm_d^2) < 1`, where `L` bounds the Lipschitz
+constant of `∇f` and `norm_d` bounds the spectral norm of `D`. The defaults use
 `lipschitz(f)` and `sqrt(opnorm(D, 1)*opnorm(D, Inf))`, without densifying a
-sparse matrix. Supply known tighter bounds through `CondatVu(; L, normD)`.
+sparse matrix. Supply known tighter bounds through `CondatVu(; L, norm_d)`.
 Some `lipschitz` implementations, including least squares, return numerical
 estimates; supply a certified `L` when the formal step guarantee is needed.
 Lanczos norm estimates can help choose steps experimentally, but are not
@@ -82,7 +82,7 @@ oracle counters, as are user callbacks.
 Warm start both iterates and the final step sizes:
 
 ```julia
-method = CondatVu(τ = res.τ, σ = res.σ, L = L, normD = normD)
+method = CondatVu(τ = res.τ, σ = res.σ, L = L, norm_d = norm_d)
 next = solve!(res.minimizer, f, next_g, h, D, method, options; y = res.y)
 ```
 
