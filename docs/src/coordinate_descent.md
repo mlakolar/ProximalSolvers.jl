@@ -198,7 +198,7 @@ absolute: ``\max_k |\Delta x_k| < \mathrm{tol}``.
 ## Stopping on the duality gap
 
 With `gaptol > 0`, and a loss and penalty with a duality gap (least squares
-and the GLMs with the squared, logistic, Poisson or Huber loss, with
+and the GLMs with the squared, logistic, Poisson, Huber or convolution check loss, with
 `NormL1`, `NormL1Nonneg`, `ElasticNet`, `GroupNormL2` or the sparse group
 lasso; see [Duality gaps](@ref)), the method stops when the relative gap
 

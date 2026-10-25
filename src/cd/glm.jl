@@ -735,7 +735,7 @@ off for a scalar loss whose saturated loss is unknown.
 As for coordinate descent, each level stops on a relative duality gap of at
 most `gaptol` ([`PATH_GAPTOL`](@ref) `= 1e-4` by default, `1e-3` for the
 faster setting) when the loss and the penalty have one (the squared, logistic,
-Poisson and Huber losses with `NormL1`, `NormL1Nonneg` or `ElasticNet`): the
+Poisson, Huber and convolution check losses with `NormL1`, `NormL1Nonneg` or `ElasticNet`): the
 Newton steps stop on the gap of the problem restricted to the candidates, each
 inner solve stops on the gap of its quadratic model at a hundredth of the last
 gap, and the full gradient of the optimality check confirms the gap of the
@@ -743,6 +743,14 @@ whole problem, which the `gap` of the results reports. With an intercept, the
 intercept is fitted exactly before each gap. `gaptol = 0`, and the other
 penalties (MCP, SCAD, …), keep the rule on the change of the objective with
 `method.tol` and the inner solver's own rule.
+
+For convolution check loss and `NormL1`, positive `gaptol` also checks the raw
+score stationarity, intercept constraint and absolute raw gap at that tolerance.
+The feasible scaled dual used for the certificate never replaces those scores.
+Compact-kernel flat tails use positive curvature damping and absolute scaled
+coordinate changes for the quadratic subproblems, avoiding a relative stopping
+scale dominated by their large working responses. Backtracking evaluates the
+original objective. `gaptol=0` preserves the objective-change route.
 """
 function solve_path(f::Union{AbstractFunction, CDModel}, g::AbstractFunction, λs::AbstractVector{<:Real},
                     method::ProxNewton; x = _default_iterate(f), screening::Bool = true, maxnnz::Real = Inf,
