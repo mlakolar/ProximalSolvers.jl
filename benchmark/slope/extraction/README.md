@@ -1,0 +1,91 @@
+# Extracted screened SLOPE APG engine
+
+The screened path driver belongs in ProximalSolvers. HighDimensionalModels
+(currently named CoordinateDescent on PR #84's branch) prepares data and weights,
+recovers intercepts and coefficient units, and provides statistical model results.
+It calls `SLOPEAPG`, `solve!`, `solve_path` and `lambda_max` from ProximalSolvers.
+The cluster-coordinate hybrid remains deferred.
+
+## Discovery extraction comparison
+
+The old HDM driver is frozen verbatim from `95993030f5fa34b01364dcdf9eebf42a4eab15ba`
+in `legacy_slope_9599303.jl` as a benchmark fixture. It is not a second runtime
+implementation. Compare it with the new numerical driver and the thin HDM wrapper:
+
+- PS engine commit `ffdc26c1a20703da7afe8c0e7755e1768c07f2b5` (test-only syntax correction `fdfccdd`).
+- HDM integration commit `307753be26f739282658db45369b02d43d3c2399`.
+- The same current inner APG, ProximalBase `1f93b03c9c4652636ab0f173e6027268d877aa3a`,
+  Julia 1.13.2 and one BLAS thread for all three backends. This isolates the driver
+  extraction; it does not compare the complete historical dependency environment.
+- Dense n=320, p=640; seeds 1–3, rho=0/.9; raw data or centering plus nontrivial
+  rescaling/standardization/intercept; BH weights, 12 identical positive path
+  factors ending at .15 of the null threshold. No statistical FDR claim.
+- Three fresh processes, each with three randomized complete timing blocks per
+  case. Each backend is warmed before timing; compilation and final checks are
+  excluded. Timing includes model preprocessing for the old and new wrappers;
+  the direct engine receives prepared data and excludes model preprocessing.
+- Every result is checked against the old driver for coefficients, fitted values,
+  iterations, convergence flags, working-set sizes and repair counts. A separately
+  evaluated full proximal residual divided by `max(1,norm(X'y/n,Inf))` must be at
+  most 1e-7. This is a fixed-point criterion, distinct from the independent duality
+  gap used in earlier specialist comparisons.
+
+All **324/324 paths and 3,888/3,888 levels** passed. Coefficient and fitted-value
+differences were exactly zero, and all checked diagnostics were identical.
+Maximum normalized full residual was **8.43e-8**. The three processes each passed
+612 assertions. These checks cover this workload; nonunique problems should also
+be assessed through predictions/objectives rather than coefficient equality.
+
+Median paired new-wrapper/old-wrapper time (27 pairs per stratum):
+
+| rho | Center and standardize | Time ratio | Julia allocated-byte ratio |
+|---:|:---|---:|---:|
+| 0 | no | 0.931 | 0.539 |
+| 0 | yes | 0.927 | 0.539 |
+| .9 | no | 0.755 | 0.188 |
+| .9 | yes | 0.817 | 0.188 |
+
+The extraction avoids copying the full design for a full working set and avoids
+redundant initial-gradient work. It shows no regression here and reduces observed
+end-to-end time by about 7–24%. The direct-engine/old-wrapper ratios .706–.772
+exclude model preprocessing from the direct call and are not an end-to-end solver
+comparison. Julia allocation bytes are not peak RSS. Sparse accuracy, process RSS
+and comparisons to SLOPE.jl/R belong to the coordinated PR #84 campaign, not this
+small dense extraction comparison. Earlier benchmark conclusions are unchanged.
+
+## Validation, failures and recreation
+
+All numerical work ran under Discovery Slurm, run
+`20261025T1210Z-ps-slope-extract`:
+
+- Initial canary 13424016 exited after 2 seconds on test syntax `.8.*`; retained.
+- Recovery 13424019 ran 43 seconds: **50/50 numerical engine assertions passed
+  Julia 1.13.2**. Its subsequent Julia 1.10 command failed before testing because
+  the copied 1.13 environment selected incompatible PrecompileTools (`StaticData`
+  undefined). This is retained as an environment failure, not a passed LTS check.
+  The compatible Julia 1.10 check is coordinated with PR #84's existing environment.
+- Benchmark 13424032 completed in **1m46s**, all three worker exit codes/signals zero.
+  Steps were serialized by Slurm; each timing used one CPU/BLAS thread. Peak request
+  two CPUs/4GB. Total owned allocation time including failures **2m31s**; overlapping
+  tasks count once in the shared run budget.
+
+`evidence/20261025/` contains complete timing rows, process test summaries, worker
+outcomes, canary failures and the exact copied Project/Manifest files. Regenerate:
+
+```sh
+python3 benchmark/slope/extraction/check_results.py
+```
+
+To repeat on Discovery, extract snapshots of the two source commits into `source/`
+and `hdm/`, and these harness files into `harness/` under a new run directory.
+`prepare.py` rebinds copies of the established HDM comparison environment; it does
+not resolve moving dependencies. Supply equivalent paths when recreating elsewhere.
+Submit `harness/main.sbatch`; it runs three fresh processes via GNU Parallel/srun.
+The compatible pinned environment is recorded in
+`evidence/20261025/validation/combined-env/`.
+
+The numerical unit suite is `test/slope.jl`; it covers a known orthogonal optimum,
+forced screening repairs, finite/invalid inputs, failed-level retention and budget
+limits, warm starts, input preservation, snapshot ownership, normalized/unscaled
+losses, Float32, dense/sparse and screened/full agreement. The model-layer tests
+cover sparse centering/standardization and wrapper delegation.

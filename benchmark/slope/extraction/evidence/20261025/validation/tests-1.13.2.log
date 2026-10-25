@@ -1,0 +1,15 @@
+ERROR: LoadError: ParseError:
+# Error @ /home1/mkolar/juliaPkg/runs/20261025T1210Z-ps-slope-extract/source/test/slope.jl:35:54
+  for seed in 1:4
+    rng=Xoshiro(seed);A=randn(rng,60,90);A[:,2:10].+=.8.*A[:,1]
+#                                                    └─┘ ── invalid numeric constant
+Stacktrace:
+ [1] top-level scope
+   @ ~/juliaPkg/runs/20261025T1210Z-ps-slope-extract/source/test/slope.jl:35
+ [2] include(mod::Module, _path::String)
+   @ Base ./Base.jl:309
+ [3] exec_options(opts::Base.JLOptions)
+   @ Base ./client.jl:344
+ [4] _start()
+   @ Base ./client.jl:577
+in expression starting at /home1/mkolar/juliaPkg/runs/20261025T1210Z-ps-slope-extract/source/test/slope.jl:35
