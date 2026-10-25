@@ -37,6 +37,8 @@ a failed point never seeds the next. Keep the same 10-second soft APG path cap,
 20,000 iterations/level and library max_it cap. Native C++ allocations are not
 included in Julia bytes. Report iteration/oracle counts and handoff L/k values
 to distinguish less work from less allocation.
+The backtracking field is the production trial-evaluation counter, not just
+the number of step halvings.
 
 The main grid has 720 paths / 8,640 points; confirmation has 288 / 3,456.
 Checks cover cached values/images after penalty changes, equality to the
@@ -73,3 +75,86 @@ julia --startup-file=no --project=benchmark/slope benchmark/slope/path_reuse/run
 
 Run `20261025T0930Z-ps-slope-reuse`, peak four CPUs/16GB. Prior related running
 time is 7m29s and counts against the same conservative two-hour task allowance.
+
+## Results and reassessment (2026-10-25)
+
+**A focused benchmark-only hybrid cluster-coordinate prototype is now justified
+for large correlated-design paths.** The main and unused-seed grids both meet
+the focused gate. Curvature/workspace reuse improves allocation substantially
+but explains little of the runtime gap. Even the diagnostic full-state handoff
+leaves a median ratio above three in both stages. This supersedes the request
+for a path-state control; it does not change the earlier failed broad gate or
+recommend a public solver.
+
+All **720/720 main paths (8,640 points)** and **288/288 confirmation paths
+(3,456 points)** met the common external target. No failed pair is omitted.
+The expanded correctness checks passed **146 assertions**, including equality
+of cache-only and reset iterates/iteration counts. Exact identities, all shared
+alpha grids, complete-path validity, recorded L/k handoffs and reproducible
+summaries are checked in Python and CI.
+
+The following are median **paired** whole-path ratios for rho=0.9. Method/reset
+below one favors reuse; method/library above one favors SLOPE.jl. Each main row
+has 60 pairs across both sparsities and weight shapes; confirmation has 24.
+The ratios are separately computed medians, not products of table entries.
+
+| APG handoff | main / reset | main / library | unused seeds / reset | unused seeds / library |
+|---|---:|---:|---:|---:|
+| reset | 1.000 | 3.336 | 1.000 | 3.659 |
+| carry L only | 0.979 | 3.270 | 0.958 | 3.570 |
+| reuse workspace/cache, reset L | 0.992 | 3.288 | 0.992 | 3.583 |
+| reuse workspace/cache and L (primary) | 0.978 | 3.224 | 0.968 | 3.429 |
+| carry full state | 0.958 | 3.123 | 0.950 | 3.295 |
+
+Primary reuse saved **2.2%** main and **3.2%** confirmation paired time; full
+state saved **4.2%** and **5.0%**. Median Julia allocations fell about **85.1%**
+(3,088,432 to 461,440 bytes main; 3,088,464 to 461,440 confirmation). These are
+Julia allocation comparisons within APG, not total memory comparisons to C++.
+The primary variant's median iteration counts were 755 versus reset's 755 main,
+and 715 versus 725 confirmation. Full state used 735 and 695, respectively.
+Carrying L reduced some backtracking, but the main iteration workload remained.
+
+On the independent-design control (rho=0), reuse also did not remove the
+library advantage: primary/library ratios were **2.412** main and **2.329**
+confirmation; full state **2.399** and **2.365**. Carrying L alone was slightly
+slower than reset in these controls (ratios 1.026 and 1.020), so it is not a
+universal speed improvement. All detailed sparsity/weight strata remain in
+the summaries.
+
+### Interpretation and next step
+
+Use only the contemporaneous paired ratios to assess reuse. This study's reset
+driver specializes the numerical loop to APG; the earlier comparison used a
+PG/APG driver. Across jobs, driver and machine timing effects also vary. All
+120 matching main reset iteration counts equal the preceding APG path counts,
+but the reset/library ratio is now 3.336 rather than the earlier 6.358. That
+cross-run change is **not attributed to path reuse**. The paired ablation gives
+the much smaller 2--5% reuse effects above.
+
+The remaining gap warrants a small prototype confined to the identified
+least-squares/SLOPE path workload. Compare it with both workspace_L and
+full_state, alongside SLOPE.jl, at the same external target. Follow the
+[hybrid method of Larsson et al.](https://proceedings.mlr.press/v206/larsson23a.html):
+alternate proximal-gradient cluster refreshes with cluster-coordinate updates.
+Keep screening off initially to isolate the cluster method and retain a full
+external certificate. New performance/validation evidence is required before
+considering any public solver option. No hybrid implementation or speed claim
+for a native Julia hybrid is made by this PR.
+
+### Evidence and recreation
+
+[Evidence](evidence/20261025) retains both grids, three summaries per stage,
+the clean 146-check output, launchers and provenance. Regenerate using:
+
+```sh
+python3 benchmark/slope/path_reuse/check_summary.py
+python3 benchmark/slope/path_reuse/check_evidence.py
+```
+
+Discovery jobs **13423208** (canary, 1m58s), **13423213** (main, 1m26s) and
+**13423214** (confirmation, 41s) all completed. This follow-up used **4m05s**;
+including the preceding evaluation, related running time is **11m34s**, peak
+four CPUs/16GB and one Julia/BLAS/OpenMP thread per worker. Canary checks passed
+143 assertions; the main job added three checks and passed 146. Numerical
+source was `5b1b751`; main/confirmation assembly `f8ba6a0` only added checks.
+The pinned environment and production solver sources are unchanged.

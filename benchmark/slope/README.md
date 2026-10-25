@@ -3,6 +3,11 @@
 Benchmark-only comparison of current PG/APG with SLOPE.jl 1.3.1 (libslope).
 No public solver, runtime dependency or penalty API is added.
 
+**Latest follow-up:** the [focused path-state comparison](path_reuse/README.md)
+is complete. Reusing APG state leaves a confirmed 3.2--3.4x primary gap on large
+correlated paths, supporting a narrowly scoped benchmark hybrid prototype.
+The initial broad gate and its negative result below remain unchanged.
+
 ## Protocol fixed before measurements
 
 The objective is `||y-X*beta||²/(2n) + alpha*sum(lambda .* sort(abs(beta),rev=true))`.
@@ -105,9 +110,9 @@ gate was not met in the strict reference, the tolerance control or the fresh
 control stage. No dimension/correlation stratum had a 3x median advantage on
 both single fits and paths. This does not rule out a useful path-specific method:
 the larger correlated-design paths show a substantial, reproducible advantage
-for libslope. The next lower-cost experiment should isolate APG path-state reuse
-(especially its curvature estimate) before attributing that gap to cluster
-coordinate updates or implementing another algorithm.
+for libslope. This motivated the now-completed [APG path-state control](path_reuse/README.md).
+Its paired results, rather than differences between runs, support the updated
+focused prototype recommendation above.
 
 Every requested call and point met the common certificate:
 
