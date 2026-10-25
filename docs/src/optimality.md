@@ -113,8 +113,11 @@ relative accuracy is sensitive to the denominator. Note that adding a
 constant to the objective changes the relative gap but leaves the absolute
 gap unchanged.
 
-With `CDSolver(; gaptol = 1e-8)`, we check the gap where the coordinate
-change rule would stop, and tighten `tol` if the gap is still too large. For [`ProximalGradientDescent`](@ref), [`AccProxGradDescent`](@ref)
+With `CDSolver(; gaptol = 1e-8)`, coordinate descent stops on the gap: the
+rule on the coordinate changes only decides when to compute it, and tightens
+until the gap is small enough (see [Stopping on the duality gap](@ref)). The
+paths of [`solve_path`](@ref) do this by default, at a relative gap of
+`1e-4`. For [`ProximalGradientDescent`](@ref), [`AccProxGradDescent`](@ref)
 and [`ADMMSolver`](@ref), use `ProximalOptions(; gaptol, gapevery)` to check it
 every `gapevery` iterations in place of their other convergence tests.
 

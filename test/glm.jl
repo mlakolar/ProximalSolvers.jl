@@ -146,8 +146,9 @@ end
   # screening gives the solutions of the path without it
   λs = λmax * (1 + 1e-8) .* exp.(range(0, log(0.05); length = 20))     # above λmax, so rounding can't make it nonzero
   b0s = Float64[]
+  # gaptol = 0: the rule on the objective with the tight tol of newton, for near-exact optimality
   path = solve_path(ProximalSolvers.cdmodel(f, x; intercept = true), NormL1(1.0), λs, newton; devmax = 1.0,
-                    callback = (k, λ, x, m) -> (push!(b0s, ProximalSolvers.intercept(m, x)); false))
+                    gaptol = 0, callback = (k, λ, x, m) -> (push!(b0s, ProximalSolvers.intercept(m, x)); false))
   @test length(path.λ) == 20 && all(path.converged)
   @test nnz(path.solutions[1]) == 0
   for k in (2, 10, 20)
@@ -157,12 +158,12 @@ end
     @test kkt_l1(X' * (μk .- y) / n, βk, λs[k]) < 1e-6
   end
   @test all(path.kkt_checks .>= 1)
-  path0 = solve_path(ProximalSolvers.cdmodel(f, x; intercept = true), NormL1(1.0), λs, newton; devmax = 1.0,
+  path0 = solve_path(ProximalSolvers.cdmodel(f, x; intercept = true), NormL1(1.0), λs, newton; devmax = 1.0, gaptol = 0,
                      screening = false)
   @test all(norm(path.solutions[k] - path0.solutions[k]) < 1e-6 for k in eachindex(λs))
   @test path.values ≈ path0.values rtol = 1e-8
   # without an intercept, the path from a GLMLoss
-  pathf = solve_path(f, NormL1(1.0), λs[5:end], newton; devmax = 1.0)
+  pathf = solve_path(f, NormL1(1.0), λs[5:end], newton; devmax = 1.0, gaptol = 0)
   xk = SparseIterate(p)
   solve!(xk, f, NormL1(λs[end]), newton)
   @test Vector(pathf.solutions[end]) ≈ Vector(xk) atol = 1e-6
@@ -220,8 +221,9 @@ end
     λs = λmax * (1 + 1e-8) .* [1.0, 0.9, 0.7, 0.5, 0.3]
     paths = map((true, false)) do screening
       b0s = Float64[]
+      # gaptol = 0: the rule on the objective with tol = 1e-14, for near-exact solutions to compare
       path = solve_path(ProximalSolvers.cdmodel(f, SparseIterate(p); intercept = true), g, λs, newton; devmax = 1.0,
-                        screening, callback = (k, λ, x, m) -> (push!(b0s, ProximalSolvers.intercept(m, x)); false))
+                        gaptol = 0, screening, callback = (k, λ, x, m) -> (push!(b0s, ProximalSolvers.intercept(m, x)); false))
       (path = path, b0s = b0s)
     end
     path, b0s = paths[1]
@@ -273,20 +275,24 @@ end
   centerbytes(ws, cols); centerbytes(ws, nothing)
   @test centerbytes(ws, cols) == 0
   @test centerbytes(ws, nothing) == 0
-  # every column with the duality gaps of gapsafe in the inner solves, which
-  # read them all, and with candidates for more than half of the columns of a
-  # dense X
+  # the duality gaps of gaptol and gapsafe in the inner solves are those of the
+  # problem restricted to the candidates, which read only their means; every
+  # column with candidates for more than half of the columns of a dense X
   others = [k for k in 1:p if k != 4]
-  for (inner, cand) in ((CDSolver(; tol = 1e-10, gapsafe = true, rng = Xoshiro(1)), [1, 2, 4]),
-                        (newton.inner, collect(1:div(p, 2) + 1)))
+  for (inner, cand, cols) in ((CDSolver(; tol = 1e-10, gapsafe = true, rng = Xoshiro(1)), [1, 2, 4], [1, 2]),
+                              (CDSolver(; gaptol = 1e-10, rng = Xoshiro(1)), [1, 2, 4], [1, 2]),
+                              (newton.inner, collect(1:div(p, 2) + 1), others))
     method = ProxNewton(; tol = 1e-14, inner)
     m = ProximalSolvers.cdmodel(f, SparseIterate(p); intercept = true)
     x = SparseIterate(p)
     ProximalSolvers.initialize!(m, x)
     ws = ProximalSolvers._NewtonWorkspace(m, x, method.inner)
     ProximalSolvers._proxnewton!(x, m, gl, method, ws, cand)
-    @test ws.model.xbar[others] ≈ means(ws, others) atol = 1e-12
+    @test ws.model.xbar[cols] ≈ means(ws, cols) atol = 1e-12
     @test ws.model.xbar[4] == 2.0
+    cols === others || @test all(iszero, ws.model.xbar[setdiff(others, cols)])
+    β, b = Vector(x), ProximalSolvers.intercept(m, x)
+    @test kkt_l1(gradient(X, β, b)[cand] ./ ω[cand], β[cand], λl) < 1e-7
   end
 end
 

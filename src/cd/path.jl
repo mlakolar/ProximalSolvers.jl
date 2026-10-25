@@ -121,6 +121,12 @@ end
 # solved again. m must be current for x, and grad holds the gradient at x on
 # entry and on return; inS has one entry per coordinate. Returns the number of
 # checks; st.passes holds the passes of all the solves.
+#
+# With gaptol, each solve stops on the gap of the problem restricted to the
+# candidates, and the full gradient of the check gives the gap of the whole
+# problem, which st.relgap then holds: without violators, the two agree up to
+# rounding. If the whole gap still exceeds gaptol, the candidates are solved
+# again to a tenfold smaller restricted gap, at most _GAPRETRIES times.
 function _screened!(x, m::CDModel{T}, g, λprev, grad::AbstractArray, st::_CDState{T}, s::CDSolver,
                     inS::BitVector) where {T}
   λ = _level(g)
@@ -129,10 +135,11 @@ function _screened!(x, m::CDModel{T}, g, λprev, grad::AbstractArray, st::_CDSta
     w = _coordweight(g, x, k)
     inS[k] = iszero(w) || _isnonzero(x, k) || _strongkeep(g, grad, x, k, threshold, w)
   end
-  passes, checks = 0, 0
+  passes, checks, retries = 0, 0, 0
+  sk = s
   while true
     st.candidates = findall(inS)
-    _cd!(x, m, g, st, s)
+    _cd!(x, m, g, st, sk)
     passes += st.passes
     gradient!(grad, m, x)
     checks += 1
@@ -143,23 +150,65 @@ function _screened!(x, m::CDModel{T}, g, λprev, grad::AbstractArray, st::_CDSta
         violated = true
       end
     end
-    violated || break
+    violated && continue
+    st.gapmode || break
+    _fullgap!(st, m, g, x, grad) <= s.gaptol && break
+    (st.converged && retries < _GAPRETRIES) || break
+    retries += 1
+    sk = _with(sk; gaptol = sk.gaptol / 10)
   end
   st.candidates = nothing
   st.passes = passes
   checks
 end
 
+const _GAPRETRIES = 3
+
 """
-    solve!(x, f, g, method::CDSolver; continuation, continuation_tol, screening)
+    PATH_GAPTOL = 1e-4
+
+The default target of the relative duality gap at each level of
+[`solve_path`](@ref) and at the last level of continuation; see
+[`solve_path`](@ref). The coefficients are then within about `1e-4` of the
+solution, relative to the largest, and within about `5e-3` at worst.
+`gaptol = 1e-3` is the documented faster setting, for cross-validation and
+prediction, and `gaptol = 0` gives back the rule on the changes.
+"""
+const PATH_GAPTOL = 1e-4
+
+# PATH_GAPTOL, but at least 64 roundings: the gap is computed to about eps |P|
+_default_gaptol(::Type{T}) where {T} = max(PATH_GAPTOL, 64 * Float64(eps(T)))
+
+# The solver of the levels of a path or of the last level of continuation, with
+# the gap target gaptol: nothing for the default, the gaptol of s when it has
+# one and _default_gaptol otherwise; 0 for the rule on the changes. The default
+# is dropped without a warning when m and g have no duality gap, which then
+# keep the rule on the changes.
+function _path_solver(s::CDSolver, gaptol::Union{Nothing, Real}, m, g)
+  if gaptol === nothing
+    s.gaptol > 0 && return s
+    _hasgap(m, g) || return s
+    return _with(s; gaptol = _default_gaptol(eltype(m)))
+  end
+  gaptol >= 0 || throw(ArgumentError("gaptol must be nonnegative, but it is $gaptol."))
+  _with(s; gaptol = Float64(gaptol))
+end
+
+"""
+    solve!(x, f, g, method::CDSolver; continuation, continuation_tol, screening, gaptol)
 
 With `continuation = n > 0`, `x` is set to zero and `f + g` is minimized along
 `n` penalty levels spaced geometrically from [`lambda_max`](@ref) down to the
 level of `g`, then at `g` itself, each warm started from the previous solution.
 The levels before `g` only give warm starts, so they are solved to the looser
 tolerance `continuation_tol` (`√tol` for the tolerance `tol` of `method`, by
-default), and only `g` to `tol`; `continuation_tol = method.tol` solves every
-level to `tol`. With `screening`, each level is screened with the strong rule
+default) by the rule on the changes, and only `g` to the final accuracy;
+`continuation_tol = method.tol` solves every level to `tol`. As the levels of
+[`solve_path`](@ref), the level of `g` stops on a relative duality gap of at
+most `gaptol` when `f` and `g` have one: [`PATH_GAPTOL`](@ref) `= 1e-4` by
+default (or `method.gaptol` when it is positive), `1e-3` for a faster, looser
+solve, `0` for the rule on the changes with `tol`. The `gap` of the results
+reports the gap reached. With `screening`, each level is screened with the strong rule
 (see [`solve_path`](@ref)); the default screens except on a
 `SymmetricSparseIterate`, whose coordinate steps update the gradient
 everywhere, so that the optimality checks of screening cost more passes than
@@ -171,20 +220,22 @@ levels, and an `ArgumentError` says so when they are not.
 """
 function solve!(x::Union{SparseIterate, SymmetricSparseIterate, AtomIterate}, f::Union{AbstractFunction, CDModel},
                 g::AbstractFunction, method::CDSolver; continuation::Integer,
-                continuation_tol::Real = sqrt(method.tol), screening::Bool = !(x isa SymmetricSparseIterate))
+                continuation_tol::Real = sqrt(method.tol), screening::Bool = !(x isa SymmetricSparseIterate),
+                gaptol::Union{Nothing, Real} = nothing)
   continuation_tol >= 0 || throw(ArgumentError("continuation_tol must be nonnegative, but it is $continuation_tol."))
   tol = max(Float64(continuation_tol), method.tol)
-  _continuation!(x, f, g, method, continuation, screening, k -> tol)
+  _continuation!(x, f, g, method, continuation, screening, k -> tol, gaptol)
 end
 
 # continuation along n levels, solving level k < n to the tolerance tolk(k)
-# and the last one, g, to method.tol
-function _continuation!(x, f, g, method::CDSolver, continuation::Integer, screening::Bool, tolk)
+# and the last one, g, with method and the gap target gaptol (see _path_solver)
+function _continuation!(x, f, g, method::CDSolver, continuation::Integer, screening::Bool, tolk, gaptol = nothing)
   continuation >= 0 || throw(ArgumentError("continuation must be nonnegative, but it is $continuation."))
-  continuation == 0 && return solve!(x, f, g, method)
+  continuation == 0 && return solve!(x, f, g, gaptol === nothing ? method : _with(method; gaptol = Float64(gaptol)))
   m = f isa CDModel ? f : cdmodel(f, x)
   _check_iterate(g, x)
   check_penalty(m, g)
+  method = _path_solver(method, gaptol, m, g)
   T = eltype(m)
   fill!(x, zero(T))
   initialize!(m, x)
@@ -235,8 +286,11 @@ Returned by [`solve_path`](@ref): the penalty levels `λ` that were solved
 for, the `solutions` (a `SparseVector` per level for a vector iterate, a sparse
 matrix for a matrix iterate), the objective `values`, and per level the
 `passes`, whether coordinate descent `converged`, the number of `kkt_checks`
-of the screening, and the number of `stages`: 1, except along a path of
-[`LLA`](@ref), where the passes and the checks are summed over the stages.
+of the screening, the number of `stages` (1, except along a path of
+[`LLA`](@ref), where the passes and the checks are summed over the stages),
+and the relative duality `gap` certified at each level when the levels stop on
+the gap (see `gaptol` in [`solve_path`](@ref)), `NaN` where they stop on the
+rule on the changes.
 """
 struct PathResults{S, T}
   λ::Vector{T}
@@ -246,6 +300,7 @@ struct PathResults{S, T}
   converged::Vector{Bool}
   kkt_checks::Vector{Int}
   stages::Vector{Int}
+  gap::Vector{T}
 end
 
 # a compact copy of the solution
@@ -305,7 +360,7 @@ function _screening_state(x, m, g, screening::Bool)
 end
 
 """
-    solve_path(f, g, λs, method = CDSolver(); x, screening = true, maxnnz = Inf, callback = nothing)
+    solve_path(f, g, λs, method = CDSolver(); x, screening = true, maxnnz = Inf, callback = nothing, gaptol)
 
 Minimize `f + gₖ` along the decreasing penalty levels `λs`, where `gₖ` is `g`
 with level `λs[k]`, each warm started from the previous solution. The level of
@@ -327,6 +382,28 @@ than `maxnnz` nonzero coordinates, or when `callback(k, λ, x, m)` returns `true
 (`m` is the [`CDModel`](@ref), current for `x`; use it, for example, to compute
 a validation loss). Returns [`PathResults`](@ref).
 
+Each level stops on a certified relative duality gap, `(P - D)/|P| ≤ gaptol`
+with `P = f + gₖ` at the solution and `D` the dual objective at the dual point
+built from the gradient (see [`duality_gap`](@ref)), when `f` and `g` have a
+gap: least squares and the GLMs with the squared, logistic, Poisson or Huber
+loss, with `NormL1`, `NormL1Nonneg`, `ElasticNet`, `GroupNormL2` or the sparse
+group lasso. The default `gaptol` is [`PATH_GAPTOL`](@ref) `= 1e-4` (or
+`method.gaptol` when it is positive); `gaptol = 1e-3` is the faster setting for
+cross-validation and prediction. During the solve the gap is that of the
+problem restricted to the candidates of the strong rule, at the cost of one
+pass over them; the full gradient of the optimality check of screening then
+gives the gap of the whole problem, which the `gap` of the results reports.
+A relative gap `ε` certifies a relative suboptimality of at most `ε`; in
+practice the suboptimality is about `ε²`, since this gap shrinks only as fast
+as the error of the fitted values, and the coefficients are within about `ε`
+of the solution, relative to the largest (median over the levels), and within
+about `50ε` at worst: about `1e-4` (worst `5e-3`) at the default and `1e-3`
+(worst `2e-2`) at `1e-3`, well below the statistical error of most fits. Other
+losses and penalties, a coordinate without penalty whose gradient is not zero
+(whose dual point does not exist), and `gaptol = 0` keep the rule on the
+changes of [`CDSolver`](@ref) with its `tol`, which reaches relative
+suboptimalities of `1e-11` to `1e-16` on least squares.
+
 The slope test at zero, on which λmax and screening rest, agrees with the
 exact coordinate steps of `MCP(λ, a)`, `SCAD(λ, a)`, `GroupMCP` and `GroupSCAD`
 only when each coordinate problem is convex: `a·Lₖ > 1` for MCP and
@@ -340,7 +417,7 @@ condition.
 """
 function solve_path(f::Union{AbstractFunction, CDModel}, g::AbstractFunction, λs::AbstractVector{<:Real},
                     method::CDSolver = CDSolver(); x = _default_iterate(f), screening::Bool = true,
-                    maxnnz::Real = Inf, callback = nothing)
+                    maxnnz::Real = Inf, callback = nothing, gaptol::Union{Nothing, Real} = nothing)
   all(λ -> λ >= 0, λs) || throw(ArgumentError("The penalty levels must be nonnegative."))
   issorted(λs; rev = true) || throw(ArgumentError("The penalty levels must be decreasing."))
   m = f isa CDModel ? f : cdmodel(f, x)
@@ -348,12 +425,13 @@ function solve_path(f::Union{AbstractFunction, CDModel}, g::AbstractFunction, λ
   _check_iterate(g, x)
   check_penalty(m, g)
   isempty(λs) || _with_level(g, T(first(λs)))      # a penalty with a level
+  method = _path_solver(method, gaptol, m, g)
   initialize!(m, x)
   _check_convex_steps(m, g, x)
   st = _CDState(T, x, method)
   grad, inS, λprev = _screening_state(x, m, g, screening)
   solutions = Any[]
-  out = PathResults(T[], [], T[], Int[], Bool[], Int[], Int[])
+  out = PathResults(T[], [], T[], Int[], Bool[], Int[], Int[], T[])
   for (k, λ) in enumerate(λs)
     gk = _with_level(g, T(λ))
     if screening
@@ -367,12 +445,13 @@ function solve_path(f::Union{AbstractFunction, CDModel}, g::AbstractFunction, λ
     _warn_not_converged(st, method)
     push!(out.λ, T(λ)); push!(solutions, _snapshot(x)); push!(out.values, loss_value(m, x) + gk(x))
     push!(out.passes, st.passes); push!(out.converged, st.converged); push!(out.kkt_checks, checks); push!(out.stages, 1)
+    push!(out.gap, st.relgap)
     (callback !== nothing && callback(k, T(λ), x, m) === true) && break
     nactive(x) > maxnnz && break
   end
   S = isempty(solutions) ? Any : typeof(first(solutions))
   PathResults{S, T}(out.λ, convert(Vector{S}, solutions), out.values, out.passes, out.converged, out.kkt_checks,
-                    out.stages)
+                    out.stages, out.gap)
 end
 
 _default_iterate(f::LeastSquaresLoss{T, <:AbstractVector}) where {T} = SparseIterate(T, size(f.X, 2))

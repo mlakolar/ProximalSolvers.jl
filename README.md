@@ -68,6 +68,7 @@ penalty levels with warm starts and screening:
 ```julia
 λs = λmax .* 10 .^ range(0, -2; length = 50)
 path = solve_path(f, NormL1(1.0), λs)
+path.gap       # each level stops at a relative duality gap of at most 1e-4
 ```
 
 ## Choosing a method

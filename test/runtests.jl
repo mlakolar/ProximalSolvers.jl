@@ -29,6 +29,7 @@ tests = [
   "glm",
   "newton_nonconvex",
   "duality_gap",
+  "gap_stopping",
   "quic",
   "generic_newton",
   "examples",

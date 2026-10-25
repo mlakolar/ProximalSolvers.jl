@@ -34,9 +34,12 @@ end
 
 # Each level starts from the solution at the level before, so it needs few
 # passes, and one check of the optimality conditions, which costs one gradient.
+# Each level stops once its relative duality gap is at most
+# `ProximalSolvers.PATH_GAPTOL = 1e-4` (`path.gap` reports it), which puts the
+# coefficients within about `1e-4` of the solution, relative to the largest.
 # Screening leaves the solutions as they are: without it, the objective values
-# agree to rounding, but every full pass visits all 2000 coordinates instead of
-# those that the strong rule keeps.
+# agree to that accuracy, but every full pass visits all 2000 coordinates
+# instead of those that the strong rule keeps.
 
 unscreened = solve_path(f, NormL1(1.0), λs; screening = false)
 gap = maximum(abs.(path.values .- unscreened.values) ./ path.values)
@@ -63,7 +66,9 @@ best = argmin(errors)
 
 # --- Checks ---
 #
-# The optimality conditions hold at every level, and screening changes nothing.
+# Every level is certified to the gap target, the optimality conditions hold to
+# that accuracy, and screening changes nothing beyond it: two solutions within
+# a relative gap ε of the optimum have objective values within ε of each other.
 
 Xt, yt = X[train, :], y[train]
 function kkt(b, λ)
@@ -71,7 +76,8 @@ function kkt(b, λ)
     maximum(k -> iszero(b[k]) ? max(abs(grad[k]) - λ, 0.0) : abs(grad[k] + λ * sign(b[k])), eachindex(b))
 end
 @assert maximum(abs, path.solutions[1]) < 1e-12        # zero, up to rounding at λmax
-@assert all(kkt(Vector(path.solutions[k]), λs[k]) < 1e-5 * λmax for k in eachindex(λs))
-@assert gap < 1e-8
+@assert all(path.gap .<= ProximalSolvers.PATH_GAPTOL) && all(unscreened.gap .<= ProximalSolvers.PATH_GAPTOL)
+@assert all(kkt(Vector(path.solutions[k]), λs[k]) < 1e-3 * λmax for k in eachindex(λs))
+@assert gap <= 1.01 * ProximalSolvers.PATH_GAPTOL
 @assert length(stopped.λ) < length(λs)
 @assert issubset(findall(!iszero, β_true), findall(!iszero, stopped.solutions[best]))

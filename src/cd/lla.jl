@@ -191,7 +191,7 @@ function solve_path(f::Union{AbstractFunction, CDModel}, g::AbstractFunction, λ
   inS = falses(ncoordinates(x))
   λprev = _lambda_max(x, grad, _lla_stage(g1, one(T), w0))      # λmax at the starting point
   solutions = Any[]
-  out = PathResults(T[], [], T[], Int[], Bool[], Int[], Int[])
+  out = PathResults(T[], [], T[], Int[], Bool[], Int[], Int[], T[])
   for (k, λ) in enumerate(λs)
     λ = T(λ)
     gλ = _lla_with_level(g, λ)
@@ -219,13 +219,13 @@ function solve_path(f::Union{AbstractFunction, CDModel}, g::AbstractFunction, λ
     λprev = λ
     push!(out.λ, λ); push!(solutions, _snapshot(x)); push!(out.values, loss_value(m, x) + gλ(x))
     push!(out.passes, passes); push!(out.converged, converged); push!(out.kkt_checks, checks)
-    push!(out.stages, stages)
+    push!(out.stages, stages); push!(out.gap, st.relgap)
     (callback !== nothing && callback(k, λ, x, m) === true) && break
     nactive(x) > maxnnz && break
   end
   S = isempty(solutions) ? Any : typeof(first(solutions))
   PathResults{S, T}(out.λ, convert(Vector{S}, solutions), out.values, out.passes, out.converged, out.kkt_checks,
-                    out.stages)
+                    out.stages, out.gap)
 end
 
 # one stage, screened for the step from the level λprev, or not; m is current

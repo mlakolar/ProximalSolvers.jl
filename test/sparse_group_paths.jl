@@ -123,9 +123,9 @@ end
     λmax = lambda_max(f, g, AtomIterate(p, groups))
     λs = λmax .* 10 .^ range(0, -2; length = 25)
     Random.seed!(3)
-    a = solve_path(f, g, λs, CDSolver(; tol = 1e-10); x = AtomIterate(p, groups))
-    b = solve_path(f, g, λs, CDSolver(; tol = 1e-10); x = AtomIterate(p, groups), screening = false)
-    c = solve_path(f, g, λs, CDSolver(; tol = 1e-10, gapsafe = true); x = AtomIterate(p, groups))
+    a = solve_path(f, g, λs, CDSolver(; tol = 1e-10); x = AtomIterate(p, groups), gaptol = 0)
+    b = solve_path(f, g, λs, CDSolver(; tol = 1e-10); x = AtomIterate(p, groups), screening = false, gaptol = 0)
+    c = solve_path(f, g, λs, CDSolver(; tol = 1e-10, gapsafe = true); x = AtomIterate(p, groups), gaptol = 0)
     d = solve_path(f, g, λs, CDSolver(; gaptol = 1e-12); x = AtomIterate(p, groups))
     for r in (a, b, c, d)
       @test all(r.converged)
@@ -141,7 +141,7 @@ end
     end
     # continuation to the last level reaches the same minimum
     xc = AtomIterate(p, groups)
-    r = solve!(xc, f, sgl(α, groups, λs[end]), CDSolver(; tol = 1e-10); continuation = 10)
+    r = solve!(xc, f, sgl(α, groups, λs[end]), CDSolver(; tol = 1e-10); continuation = 10, gaptol = 0)
     @test r.minimum ≈ b.values[end] rtol = 1e-9
   end
 end
@@ -152,14 +152,14 @@ end
   f = (1 / n) * LeastSquaresLoss(y, X)
   # α = 0: the group lasso
   λs = lambda_max(f, GroupNormL2(1.0, groups), AtomIterate(p, groups)) .* 10 .^ range(0, -2; length = 15)
-  s = solve_path(f, sgl(0.0, groups), λs, CDSolver(; tol = 1e-11); x = AtomIterate(p, groups))
-  gl = solve_path(f, GroupNormL2(1.0, groups), λs, CDSolver(; tol = 1e-11); x = AtomIterate(p, groups))
+  s = solve_path(f, sgl(0.0, groups), λs, CDSolver(; tol = 1e-11); x = AtomIterate(p, groups), gaptol = 0)
+  gl = solve_path(f, GroupNormL2(1.0, groups), λs, CDSolver(; tol = 1e-11); x = AtomIterate(p, groups), gaptol = 0)
   @test s.values ≈ gl.values rtol = 1e-10
   @test all(norm(Vector(s.solutions[k]) - Vector(gl.solutions[k])) <= 1e-6 for k in eachindex(λs))
   # α = 1: the lasso, on groups or on single coordinates
   λs = lambda_max(f, NormL1(1.0), SparseIterate(p)) .* 10 .^ range(0, -2; length = 15)
-  s = solve_path(f, sgl(1.0, groups), λs, CDSolver(; tol = 1e-11); x = AtomIterate(p, groups))
-  l1 = solve_path(f, NormL1(1.0), λs, CDSolver(; tol = 1e-11))
+  s = solve_path(f, sgl(1.0, groups), λs, CDSolver(; tol = 1e-11); x = AtomIterate(p, groups), gaptol = 0)
+  l1 = solve_path(f, NormL1(1.0), λs, CDSolver(; tol = 1e-11); gaptol = 0)
   @test s.values ≈ l1.values rtol = 1e-10
   @test all(norm(Vector(s.solutions[k]) - Vector(l1.solutions[k])) <= 1e-6 for k in eachindex(λs))
 end
@@ -176,8 +176,8 @@ end
     g = sgl(α, groups)
     λmax = lambda_max(f, g, AtomIterate(p, groups))
     λs = λmax .* [1.0, 0.6, 0.3, 0.1]
-    a = solve_path(f, g, λs, CDSolver(; tol = 1e-11); x = AtomIterate(p, groups))
-    b = solve_path(f, g, λs, CDSolver(; tol = 1e-11); x = AtomIterate(p, groups), screening = false)
+    a = solve_path(f, g, λs, CDSolver(; tol = 1e-11); x = AtomIterate(p, groups), gaptol = 0)
+    b = solve_path(f, g, λs, CDSolver(; tol = 1e-11); x = AtomIterate(p, groups), screening = false, gaptol = 0)
     @test all(a.converged)
     @test a.values ≈ b.values rtol = 1e-9
     for k in eachindex(λs)
