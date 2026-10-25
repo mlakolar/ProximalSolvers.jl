@@ -14,36 +14,36 @@
   ],
   "strata": [
     {
-      "engine_over_legacy": 0.717030858730427,
+      "engine_over_legacy": 0.6609885480878039,
       "intercept_and_standardize": false,
       "paired_requests": 27,
       "rho": 0.0,
-      "wrapper_bytes_over_legacy": 0.5389872133997589,
-      "wrapper_over_legacy": 0.9308861523391128
+      "wrapper_bytes_over_legacy": 0.5390005047247848,
+      "wrapper_over_legacy": 0.8776682623734828
     },
     {
-      "engine_over_legacy": 0.718138754871744,
+      "engine_over_legacy": 0.7310030681514573,
       "intercept_and_standardize": true,
       "paired_requests": 27,
       "rho": 0.0,
-      "wrapper_bytes_over_legacy": 0.5388163956979803,
-      "wrapper_over_legacy": 0.926554761517018
+      "wrapper_bytes_over_legacy": 0.5388473051269683,
+      "wrapper_over_legacy": 0.8467702796137476
     },
     {
-      "engine_over_legacy": 0.7058194455020987,
+      "engine_over_legacy": 0.8312832618580939,
       "intercept_and_standardize": false,
       "paired_requests": 27,
       "rho": 0.9,
-      "wrapper_bytes_over_legacy": 0.1883204270426136,
-      "wrapper_over_legacy": 0.7554787893254625
+      "wrapper_bytes_over_legacy": 0.18832278241554,
+      "wrapper_over_legacy": 0.8512617780900835
     },
     {
-      "engine_over_legacy": 0.7720427440838378,
+      "engine_over_legacy": 0.8446926051019569,
       "intercept_and_standardize": true,
       "paired_requests": 27,
       "rho": 0.9,
-      "wrapper_bytes_over_legacy": 0.1884924250973532,
-      "wrapper_over_legacy": 0.8166200293951161
+      "wrapper_bytes_over_legacy": 0.1884931321854621,
+      "wrapper_over_legacy": 0.8958066451352577
     }
   ],
   "valid_paths": 324,

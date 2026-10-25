@@ -2,16 +2,17 @@
 import csv
 import json
 import math
+import re
 from pathlib import Path
 from statistics import median
 
 ROOT=Path(__file__).resolve().parent
 DATA=ROOT/'evidence/20261025'
 
-def summarize():
+def summarize(data):
     rows=[]
     for process in (1,2,3):
-        with (DATA/f'process-{process}.tsv').open() as stream:
+        with (data/f'process-{process}.tsv').open() as stream:
             rows.extend(csv.DictReader(stream,delimiter='\t'))
     expected={(str(process),str(seed),rho,prepared,backend,str(block))
               for process in (1,2,3) for seed in (1,2,3) for rho in ('0.0','0.9')
@@ -54,7 +55,18 @@ def summarize():
             'strata':strata}
 
 if __name__=='__main__':
-    result=summarize()
+    result=summarize(DATA/'final')
+    previous=summarize(DATA)
+    for folder, worker_file in ((DATA/'validation', 'workers.tsv'),
+                                (DATA/'final/validation', 'workers-final.tsv')):
+        with (folder/worker_file).open() as stream:
+            workers=list(csv.DictReader(stream,delimiter='\t'))
+        assert len(workers)==3
+        assert all(w['Exitval']=='0' and w['Signal']=='0' for w in workers)
+    for version in ('1.13.2','1.10.12'):
+        receipt=(DATA/'final/validation'/f'tests-final-{version}.log').read_text()
+        assert re.search(r'\|\s+53\s+53\s+',receipt)
+    assert previous==json.loads((ROOT/'summary_before_input_guards.json').read_text())
     import sys
     summary=ROOT/'summary.json'
     if '--write' in sys.argv:

@@ -27,6 +27,12 @@ not choose statistically calibrated weights. It returns zero for a zero null
 gradient and can return infinity when all penalty weights are zero. Supply an
 explicit positive grid in those cases.
 
+Use matching floating-point types for the loss data and coefficient vector.
+For Float32 data, also use a Float32 loss scale, for example
+`(1f0 / length(y)) * LeastSquaresLoss(y, X)`, so that the underlying APG scalar
+state has the coefficient type. Mixed-precision scalar promotion is not provided
+by this driver.
+
 Centering, standardization, intercept recovery, noise estimation and statistical
 weight calibration belong to the model layer. HighDimensionalModels uses this
 engine for its SLOPE estimator and adds these model operations. The public engine

@@ -12,10 +12,11 @@ The old HDM driver is frozen verbatim from `95993030f5fa34b01364dcdf9eebf42a4eab
 in `legacy_slope_9599303.jl` as a benchmark fixture. It is not a second runtime
 implementation. Compare it with the new numerical driver and the thin HDM wrapper:
 
-- PS engine commit `ffdc26c1a20703da7afe8c0e7755e1768c07f2b5` (test-only syntax correction `fdfccdd`).
+- Final PS engine commit `335ea905da207a6cc1cd3bd945bb7bbbf9f4eba4`.
 - HDM integration commit `307753be26f739282658db45369b02d43d3c2399`.
 - The same current inner APG, ProximalBase `1f93b03c9c4652636ab0f173e6027268d877aa3a`,
-  Julia 1.13.2 and one BLAS thread for all three backends. This isolates the driver
+  Julia 1.13.2 and one BLAS thread for all three backends on AMD EPYC 7313
+  (`b11-09`, Discovery debug partition). This isolates the driver
   extraction; it does not compare the complete historical dependency environment.
 - Dense n=320, p=640; seeds 1–3, rho=0/.9; raw data or centering plus nontrivial
   rescaling/standardization/intercept; BH weights, 12 identical positive path
@@ -40,14 +41,14 @@ Median paired new-wrapper/old-wrapper time (27 pairs per stratum):
 
 | rho | Center and standardize | Time ratio | Julia allocated-byte ratio |
 |---:|:---|---:|---:|
-| 0 | no | 0.931 | 0.539 |
-| 0 | yes | 0.927 | 0.539 |
-| .9 | no | 0.755 | 0.188 |
-| .9 | yes | 0.817 | 0.188 |
+| 0 | no | 0.878 | 0.539 |
+| 0 | yes | 0.847 | 0.539 |
+| .9 | no | 0.851 | 0.188 |
+| .9 | yes | 0.896 | 0.188 |
 
 The extraction avoids copying the full design for a full working set and avoids
 redundant initial-gradient work. It shows no regression here and reduces observed
-end-to-end time by about 7–24%. The direct-engine/old-wrapper ratios .706–.772
+end-to-end time by about 10–15%. The direct-engine/old-wrapper ratios .661–.845
 exclude model preprocessing from the direct call and are not an end-to-end solver
 comparison. Julia allocation bytes are not peak RSS. Sparse accuracy, process RSS
 and comparisons to SLOPE.jl/R belong to the coordinated PR #84 campaign, not this
@@ -63,11 +64,28 @@ All numerical work ran under Discovery Slurm, run
   Julia 1.13.2**. Its subsequent Julia 1.10 command failed before testing because
   the copied 1.13 environment selected incompatible PrecompileTools (`StaticData`
   undefined). This is retained as an environment failure, not a passed LTS check.
-  The compatible Julia 1.10 check is coordinated with PR #84's existing environment.
+  Final checks use PR #84's compatible Julia 1.10 environment.
 - Benchmark 13424032 completed in **1m46s**, all three worker exit codes/signals zero.
   Steps were serialized by Slurm; each timing used one CPU/BLAS thread. Peak request
-  two CPUs/4GB. Total owned allocation time including failures **2m31s**; overlapping
+  two CPUs/4GB. Initial-phase allocation time including failures **2m31s**; overlapping
   tasks count once in the shared run budget.
+- Final API checks 13424116 completed in **1m14s**: **53/53 assertions on both
+  Julia 1.13.2 and 1.10.12**. This includes three additional input-contract checks.
+- Final frozen-API benchmark 13424137 completed in **1m28s**: all 324 paths,
+  3,888 levels and 1,836 assertions passed; all worker exit codes/signals zero.
+  Both jobs used one CPU/2GB on EPYC 7313. Main was saturated by unrelated jobs;
+  only these pending jobs were moved to the documented short debug/testing
+  partition, keeping job QoS, requested resources and dependency unchanged.
+  No unrelated jobs were changed. Total owned allocation time across all attempts
+  **5m13s**.
+
+The first successful comparison (engine `ffdc26c`, EPYC 7513, job 13424032)
+remains in the top-level evidence tables and `summary_before_input_guards.json`.
+The final input-guard commit adds an O(p) finite-weight check per level, so the
+reported primary timing table was rerun on the exact final API. Its records are
+in `evidence/20261025/final/`; `check_results.py` checks both complete cohorts.
+Do not combine absolute times across these CPU models or attribute their timing
+differences to the input guards.
 
 `evidence/20261025/` contains complete timing rows, process test summaries, worker
 outcomes, canary failures and the exact copied Project/Manifest files. Regenerate:
@@ -82,7 +100,13 @@ and `hdm/`, and these harness files into `harness/` under a new run directory.
 not resolve moving dependencies. Supply equivalent paths when recreating elsewhere.
 Submit `harness/main.sbatch`; it runs three fresh processes via GNU Parallel/srun.
 The compatible pinned environment is recorded in
-`evidence/20261025/validation/combined-env/`.
+`evidence/20261025/final/validation/combined-env335/`.
+For the primary table, stage PS `335ea90` into `source335/`, then run
+`python3 harness/prepare.py "$PWD" --final` and submit
+`harness/final_main.sbatch`; the earlier `main.sbatch` and environment reproduce the preserved initial
+cohort. The debug partition is documented by
+[USC CARC](https://www.carc.usc.edu/user-guides/hpc-systems/discovery/resource-overview-discovery)
+for short debugging jobs. These are bounded development validation runs.
 
 The numerical unit suite is `test/slope.jl`; it covers a known orthogonal optimum,
 forced screening repairs, finite/invalid inputs, failed-level retention and budget

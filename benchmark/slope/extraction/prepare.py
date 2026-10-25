@@ -1,14 +1,16 @@
 """Prepare copied pinned environments on Discovery; no numerical execution.
 
-Usage: python3 harness/prepare.py /absolute/run/path
-Extract source-ffdc26c.tar, hdm-307753b.tar and harness-v1.tar beforehand.
+Usage: python3 harness/prepare.py /absolute/run/path [--final]
+Extract the PS snapshot into source/ (old) or source335/ (final), HDM into
+hdm/, and the harness files into harness/ beforehand.
 """
 from pathlib import Path
 import re
 import sys
 run=Path(sys.argv[1]).resolve()
 prior=Path('/home1/mkolar/juliaPkg/runs/20261025-cd82-compare/env')
-env=run/'combined-env'
+final='--final' in sys.argv[2:]
+env=run/('combined-env335' if final else 'combined-env')
 env.mkdir(exist_ok=True)
 project=(prior/'Project.toml').read_text()
 # Only add direct standard-library imports for the comparison harness.
@@ -17,7 +19,7 @@ project=project.replace('[deps]','[deps]\nLinearAlgebra = "37e2e46d-f89d-539d-b4
 manifest=(prior/'Manifest.toml').read_text()
 for name,path in {
     'CoordinateDescent':run/'hdm',
-    'ProximalSolvers':run/'source',
+    'ProximalSolvers':run/('source335' if final else 'source'),
     'ProximalBase':Path('/home1/mkolar/juliaPkg/runs/20261025T0850Z-ps-slope/base'),
 }.items():
     pattern=r'(\[\[deps\.'+name+r'\]\]\n)(.*?)(?=\n\[\[deps\.|\Z)'
