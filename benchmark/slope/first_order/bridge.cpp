@@ -4,7 +4,7 @@
 #include <cstdio>
 #include <exception>
 
-extern "C" int slope_control(
+extern "C" __attribute__((visibility("default"))) int slope_control(
     const double* x, const double* y, const double* weights, const double* alphas,
     int n, int p, int levels, int solver, int screening, double tolerance,
     int max_iterations, double limit_seconds, double* coefficients,

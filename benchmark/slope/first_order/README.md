@@ -8,15 +8,18 @@ capability beyond chasing the specialist's runtime. No production code changes.
 ## Protocol fixed before execution
 
 Use the same pinned Julia 1.13.2 / ProximalBase 1f93b03 / SLOPE.jl 1.3.1 /
-slope_jll 6.5.2+0 environment. The installed artifact contains libslope's headers
-and static library. `bridge.cpp` exposes its PGD, FISTA and hybrid solvers, each
+slope_jll 6.5.2+0 environment. `bridge.cpp` exposes PGD, FISTA and hybrid solvers from
+libslope v6.5.2, source commit a9899cbf3677ea63236d54dc18626ad3a5aeddc6, each
 with screening `none` or `strong`; all other fit settings match the original
 Julia adapter. Strong rules retain the library's KKT checks. A bridge hybrid /
 strong control is compared to the existing SLOPE.jl adapter to reveal bridge or
 build differences. The bridge's templated path code is compiled with GCC 13.3,
-Eigen 3.4, `-O3 -DNDEBUG -std=c++17 -fPIC -shared -fopenmp`; linked implementation
-code comes from the unchanged artifact. Do not interpret a bridge change as
-purely an algorithm effect.
+Eigen 3.4, `-O3 -DNDEBUG -std=c++17 -fPIC -shared -fopenmp`. Its implementation is
+rebuilt consistently from the pinned source, with hidden symbols / symbolic
+binding to isolate it from the separately loaded Julia artifact. The first
+canary linking against the artifact static library crashed during native fitting;
+that failed attempt is retained. Do not interpret bridge/build differences as
+purely algorithm effects.
 
 Compare these six native controls with existing SLOPE.jl and APG workspace/L
 reuse. Every independent path starts from zero; all use the same 12 alphas from
