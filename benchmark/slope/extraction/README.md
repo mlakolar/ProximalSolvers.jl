@@ -130,3 +130,13 @@ The old timing cohorts retain their original dependency snapshots; constructor
 and cache changes in newer ProximalBase are not assigned performance claims from
 these old measurements. Combined dependency validation is recorded by the
 coordinated HDM Discovery run using a separate immutable source/environment.
+
+The subsequent canonical-naming/dependency-bootstrap master `b00e869` is included
+in API `3bee2f91604fe08d34a07d45bcc638e3b4face3a`. The SLOPE driver, image models
+and generic gradient loop remain byte-identical to the benchmark snapshot; APG
+changes only the internal field identifiers `deltaX`/`maxResidual` to snake case.
+The default numerical options are unchanged. Current development follows the
+new sibling-master bootstrap. The companion HDM feature PR needs a documented,
+temporary exact-revision exception until #90 is merged; normal dependencies and
+existing checkouts retain master behavior. Historical workers keep their frozen
+package names and pins, as allowed by `CONTRIBUTING.md`.
