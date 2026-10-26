@@ -35,8 +35,36 @@ by this driver.
 
 Centering, standardization, intercept recovery, noise estimation and statistical
 weight calibration belong to the model layer. HighDimensionalModels uses this
-engine for its SLOPE estimator and adds these model operations. The public engine
-contains no cluster-coordinate hybrid updates.
+engine for its SLOPE estimator and adds these model operations.
+
+## Opt-in cluster hybrid
+
+Select `SLOPEHybrid(; maxiter=10_000, tol=1e-7)` explicitly to interleave PG
+steps with nonzero-cluster coordinate sweeps. The existing APG choice remains
+available and unchanged. Both methods share screening, working-set repairs,
+the full residual criterion and the result types described below.
+
+The hybrid reuses storage for cluster membership, ranks and scratch across sweeps and path
+levels. Its dense signed-column cache holds at most `n * min(p, 32)` entries,
+including for sparse inputs. Cached values are refreshed after PG and invalidated
+by relevant cluster changes. PG steps can split clusters and activate zeros.
+By default, up to ten CD sweeps follow each PG step. A bounded initial hybrid
+trial reserves at least half of the remaining iteration budget for APG. If the
+reduced full fixed-point residual fails to decrease by 20% for two cycles, or
+a cluster block is invalid or increases the objective, that reduced solve
+switches permanently to APG. These safeguards use numerical progress rather
+than an estimate of predictor correlation. See [`SLOPEHybrid`](@ref).
+
+For this option, `maxiter` counts PG/APG steps and complete CD sweeps, summed
+over repairs. These units have different costs; compare matched-accuracy time,
+allocation and certificate results rather than raw iterations. Convergence
+still requires the full problem check. Benchmark results and retained failures
+are recorded under `benchmark/slope/hybrid/optimized/`. The accompanying
+`LIBSLOPE_COMPARISON.md` distinguishes the common PG/CD schedule from our
+APG fallback, documents stopping-rule and allocation-counter differences, and
+records the limits of the native-library comparison. The bounded study found
+a benefit on correlated dense designs; sparse and independent controls do not
+show a consistent benefit, and process RSS did not improve.
 
 ## Accuracy and retained failures
 
@@ -47,7 +75,8 @@ This tests the zero cluster as well as the nonzero clusters. A reduced fit alone
 cannot certify convergence. Violations trigger a larger working set and a refit;
 `screening=false` disables screening while keeping the full check.
 
-`maxiter` limits the sum of APG iterations across repairs at each level. Failed
+For `SLOPEAPG`, `maxiter` limits APG iterations across repairs at each level.
+For `SLOPEHybrid`, it limits the combined steps and sweeps described above. Failed
 levels remain in `path.solutions` with `converged=false`, their residuals and
 iteration counts. Later levels receive their own checks. Saved coefficient
 vectors are independent snapshots; an optional starting vector `x` is updated

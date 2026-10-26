@@ -11,6 +11,11 @@ capability beyond chasing libslope's solve time. The completed
 large correlated paths; its earlier speed-based prototype recommendation is
 superseded by this capability-oriented framing. Historical gate results remain.
 
+The bounded [native hybrid pilot for #95](hybrid/REPORT.md) is a **no-go**:
+the prototype loses convergence on difficult dense paths and does not meet the
+declared work gate. Its raw failures and benchmark-only implementation are
+retained; screened APG remains the supported engine.
+
 ## Protocol fixed before measurements
 
 The objective is `||y-X*beta||²/(2n) + alpha*sum(lambda .* sort(abs(beta),rev=true))`.

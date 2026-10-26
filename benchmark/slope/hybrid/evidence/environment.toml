@@ -1,0 +1,16 @@
+dependency_commit = "b6c949f3dd26cad09252e1c2c9e49810eb69403e"
+solver_base = "531ff55fcf8a5ce2c6997c144d4f57e85cf79f3e"
+machine = "arm64-apple-darwin27.0.0"
+os = "Darwin"
+cpu = "apple-m3"
+threads = 1
+blas_threads = 1
+flags = "--startup-file=no --compiled-modules=existing --project=.master-test-env/v1.13"
+julia = "1.13.2"
+dependency_clean = true
+blas = "LBTConfig([ILP64] libopenblas64_.0.3.30.dylib)"
+
+[sha256]
+"benchmark/slope/hybrid/prototype.jl" = "a42525954744c4ee2f426c487039144420869b1a600cc2529534af993ef99e94"
+"benchmark/slope/hybrid/pilot.jl" = "3099531eea853bd9201d3035d70f9aa43299c9bc5878b5a54973c487778b8f15"
+"src/solvers/slope.jl" = "aaa5da89509aa644cd18c04eedc56d49cb9738849d6582f2a943b39dccb538e1"

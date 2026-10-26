@@ -24,6 +24,7 @@ AccProxGradDescent
 MonotoneAccProxGradDescent
 ActiveAccProxGradDescent
 SLOPEAPG
+SLOPEHybrid
 ProximalSolvers.LineSearches.BackTracking
 ```
 

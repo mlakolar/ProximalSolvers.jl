@@ -1,0 +1,13 @@
+case	method	returned	certified	max_gap	max_residual	timing_file	native_tolerance
+1	apg	6	true	2.727107010051639e-8	8.806976973814967e-9	rss-1-apg.time	n/a
+1	hybrid	6	true	5.8116309447397095e-9	3.9960656014836653e-10	rss-1-hybrid.time	n/a
+1	libslope	6	true	2.2643568769872907e-11	4.948754681237337e-11	rss-tight-1-libslope.time	1e-10
+20	apg	12	true	3.467304257598336e-8	9.746616867756241e-9	rss-20-apg.time	n/a
+20	hybrid	12	true	2.1926130563953983e-8	8.791260275309298e-9	rss-20-hybrid.time	n/a
+20	libslope	12	false	0.0020741251751122403	0.002625274545928898	rss-tight-20-libslope.time	1e-10
+169	apg	12	true	2.8460291946288928e-8	9.99501528114017e-9	rss-169-apg.time	n/a
+169	hybrid	12	true	3.799906405304866e-8	9.789126242318767e-9	rss-169-hybrid.time	n/a
+169	libslope	6	false	2.8299760801832967e-9	7.744857506093216e-9	rss-tight-169-libslope.time	1e-10
+171	apg	12	true	7.025748247489337e-8	6.373373689916306e-9	rss-171-apg.time	n/a
+171	hybrid	12	true	4.2651433274087935e-8	5.444794948239462e-9	rss-171-hybrid.time	n/a
+171	libslope	12	true	9.903957518931412e-11	1.627763757117151e-9	rss-tight-171-libslope.time	1e-10

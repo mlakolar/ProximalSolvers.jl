@@ -34,6 +34,7 @@ export
   MonotoneAccProxGradDescent,
   ActiveAccProxGradDescent,
   SLOPEAPG,
+  SLOPEHybrid,
   ADMMSolver,
   CondatVu,
   CDSolver,
@@ -100,6 +101,7 @@ include("cd/drivers.jl")
 include("cd/lla.jl")
 
 include("solvers/slope.jl")
+include("solvers/slope_hybrid.jl")
 
 include("utils.jl")
 

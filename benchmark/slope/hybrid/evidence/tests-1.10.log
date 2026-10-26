@@ -1,0 +1,9 @@
+Julia 1.10.12
+Test Summary:                       | Pass  Total   Time
+Screened SLOPE APG numerical engine |   53     53  11.0s
+Test Summary:                     | Pass  Total  Time
+SLOPE scalar cluster minimization |  384    384  0.3s
+Test Summary:                                       | Pass  Total  Time
+Hybrid paths, representations, repairs and fallback |   30     30  2.3s
+Test Summary:             | Pass  Total  Time
+SLOPE sweep and splitting |   12     12  1.7s

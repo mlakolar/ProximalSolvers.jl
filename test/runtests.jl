@@ -17,6 +17,8 @@ tests = [
   "product_space",
   "active_set",
   "slope",
+  "slope_hybrid",
+  "slope_hybrid_evaluation",
   "group_lasso",
   "multiresponse",
   "low_rank",

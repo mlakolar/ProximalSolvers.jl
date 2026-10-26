@@ -1,0 +1,4 @@
+Test Summary:                | Pass  Total  Time
+Reusable SLOPE cluster state |  347    347  3.5s
+Test Summary:                                  | Pass  Total   Time
+Opt-in SLOPE hybrid and slow-progress fallback |   35     35  10.0s
