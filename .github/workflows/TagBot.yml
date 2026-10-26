@@ -4,22 +4,8 @@ on:
     types:
       - created
   workflow_dispatch:
-    inputs:
-      lookback:
-        default: "3"
-permissions:
-  actions: read
-  checks: read
-  contents: write
-  deployments: read
-  issues: write # lets TagBot open an issue when it fails
-  discussions: read
-  packages: read
-  pages: read
-  pull-requests: read
-  repository-projects: read
-  security-events: read
-  statuses: read
+# Use the repository write defaults. An explicit permissions block omits
+# permissions needed when releasing commits that change workflow files.
 jobs:
   TagBot:
     if: github.event_name == 'workflow_dispatch' || github.actor == 'JuliaTagBot'
