@@ -36,8 +36,6 @@ function instantiate_master(environment::AbstractString;
                 url = "https://github.com/mlakolar/$repository"
                 run(`git clone --branch master --single-branch $url $checkout`)
             end
-            branch = strip(read(`git -C $checkout branch --show-current`, String))
-            (is_owner || branch == "master") || error("$name must use its master checkout: $checkout is on $branch")
             dependency = TOML.parsefile(joinpath(checkout, "Project.toml"))
             dependency["name"] == name || error("wrong package name at $checkout")
             dependency["uuid"] == deps[name] || error("wrong UUID for $name at $checkout")

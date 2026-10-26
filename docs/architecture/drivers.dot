@@ -1,0 +1,22 @@
+digraph drivers {
+  graph [rankdir=TB, bgcolor="white", label="Paths, screening and estimator drivers", labelloc=t, fontname="Helvetica", fontsize=18];
+  node [shape=box, style="rounded,filled", fillcolor="#edf4fc", fontname="Helvetica", fontsize=12];
+  edge [fontname="Helvetica", fontsize=10, color="#2463a0"];
+  grid [label="solve_path / continuation\nvalidate penalty levels"];
+  warm [label="warm x and model cache\nnew penalty level"];
+  strong [label="strong-rule candidates\nretain support and unpenalized coordinates"];
+  fit [label="restricted solve\nCD / GLM Newton / SLOPE"];
+  check [label="full gradient / optimality check\nfull gap where supported"];
+  repair [label="reactivate violations\nrefine restricted gap if needed"];
+  save [label="independent solution snapshot\nrecord failures and diagnostics", fillcolor="#fff1d2"];
+  grid -> warm -> strong -> fit -> check;
+  check -> repair [label="violations"];
+  repair -> fit;
+  check -> save [label="level complete"];
+  save -> warm [label="next level"];
+  lla [label="LLA / reweight!\nnew weights from previous fit"];
+  refit [label="refit!\nzero outside selected support\nQR or reusable factor"];
+  lla -> fit;
+  fit -> lla [label="next stage"];
+  save -> refit [label="optional caller operation"];
+}

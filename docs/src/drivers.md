@@ -150,3 +150,8 @@ factorization above.
   American Statistical Association*, 101(476), 2006.
 - H. Zou and R. Li. One-Step Sparse Estimates in Nonconcave Penalized
   Likelihood Models. *Annals of Statistics*, 36(4), 2008.
+
+Explicit `support` indices must be unique and valid. Entries outside that
+support are zeroed before fitting, including for an empty support. A cached
+factor is valid for one unchanged loss or model; create a new cache after
+changing data, weights, centering or scales, even when dimensions agree.

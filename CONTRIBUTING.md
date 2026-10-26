@@ -7,14 +7,20 @@ abbreviations such as `maxiter`, and mathematical identifiers such as `X`
 and `λ`. Deprecated names are compatibility exceptions, not examples for
 new code.
 
-Develop and test against local `master` checkouts of workspace dependencies,
-including ProximalBase. Active package, documentation and benchmark
-environments specify those checkouts with relative `[sources]` paths. Run
-`julia scripts/instantiate.jl` from the package root to develop the full master
-stack explicitly on Julia 1.10 and newer. Use
-`julia scripts/instantiate.jl docs` for the documentation environment.
-Frozen historical benchmark workers retain their original package names and
-version pins; they are independent baselines, not development dependencies.
+Use standard Julia `Pkg` environments to select dependencies explicitly:
+
+```sh
+julia --project=. -e 'using Pkg; Pkg.develop(path="../ProximalBase.jl"); Pkg.instantiate(); Pkg.test()'
+```
+
+The optional workspace helpers prepare package, documentation and benchmark
+environments from existing sibling checkouts; missing dependencies are cloned
+from `master`. They validate package identity and UUID, but do not require a
+particular branch or change an existing checkout. Record dependency commits
+and dirty source hashes when reporting validation. A version string does not
+identify an unreleased source edition. Julia 1.10 ignores `[sources]`, so use
+explicit `Pkg.develop` calls there. The package itself has no local path source
+requirement. Historical benchmark workers retain their original pins.
 
 Keep package version numbering unchanged during this migration.
 
@@ -26,5 +32,5 @@ julia scripts/test_master.jl
 
 The runner creates an isolated environment with the package, dependencies and
 test extras, and runs the suite with bounds checking. It preserves extra-only
-master dependencies on Julia 1.10 and leaves the package's `Project.toml`
+workspace dependencies on Julia 1.10 and leaves the package's `Project.toml`
 unchanged. This is the development test command used by CI.

@@ -1,0 +1,17 @@
+digraph runtime {
+ graph [rankdir=TB, bgcolor="white", label="solve! dispatch and runtime calls", labelloc=t, fontname="Helvetica", fontsize=18];
+ node [shape=box, style="rounded,filled", fillcolor="#edf4fc", fontname="Helvetica", fontsize=13];
+ edge [fontname="Helvetica", fontsize=11, color="#2463a0"];
+ entry [label="solve!(x, f, g, method, ...)\npublic operation", fillcolor="#d4e5fa"];
+ pg [label="gradient methods\ninitial_state / _solve_gradient!"];
+ split [label="splitting methods\nADMM: _solve_admm!\nCondatVu: _pd_step!"];
+ drivers [label="specialized drivers\nCD: cdmodel / initialize! / _cd!\nNewton: GLM / QUIC / generic\nSLOPE: _slope_fit!"];
+ entry -> {pg split drivers} [style=dashed, label="dispatch"];
+ update [label="update_state!\ntrial steps and acceptance"];
+ pg -> update [label="calls"];
+ stop [label="selected stopping rule\nlimits and callback where supported"];
+ update -> stop;
+ {split drivers} -> stop;
+ result [label="result sharing caller's minimizer\nstatus, residuals, available counters", fillcolor="#fff1d2"];
+ stop -> result;
+}

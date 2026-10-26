@@ -141,8 +141,7 @@ Use `ProximalOptions(; print_every=...)` and `CondatVu(; norm_d=...)`.
 The previous keyword and property names `printEvery` and `normD` remain
 available with deprecation warnings. Supplying both spellings of a keyword
 is an error. These changes preserve option meanings and positional
-constructor ordering. Internal solver-state fields now use `delta_x` and
-`max_residual`.
+constructor ordering. Internal solver-state fields are not a stable extension interface.
 
 ## Diagonal preconditioning
 

@@ -14,18 +14,26 @@ using Pkg
 Pkg.add(["ProximalBase", "ProximalSolvers"])
 ```
 
-For development, run these commands from the ProximalSolvers checkout:
+The current development source needs ProximalBase 0.5.3 or later. While that
+version is unregistered, install both repositories explicitly:
 
-```sh
-julia scripts/instantiate.jl
-julia scripts/test_master.jl
+```julia
+Pkg.add(url="https://github.com/mlakolar/ProximalBase.jl", rev="master")
+Pkg.add(url="https://github.com/mlakolar/ProximalSolvers.jl", rev="master")
 ```
 
-The bootstrap develops the sibling ProximalBase `master` checkout, cloning it
-if missing. The test runner uses an isolated environment with the full test
-extras and master dependencies, including on Julia 1.10, without changing the
-package's `Project.toml`. To prepare the documentation environment, use
-`julia scripts/instantiate.jl docs`.
+For local development, standard `Pkg` operations are sufficient. From a checkout
+with the sibling dependency available:
+
+```sh
+julia --project=. -e 'using Pkg; Pkg.develop(path="../ProximalBase.jl"); Pkg.instantiate(); Pkg.test()'
+```
+
+To use another dependency branch or isolated checkout, pass its path instead.
+The optional `scripts/instantiate.jl` and `scripts/test_master.jl` helpers also
+prepare sibling dependencies and the test extras on Julia 1.10. Existing
+checkouts retain their branches and working files. Use
+`julia scripts/instantiate.jl docs` for the documentation environment.
 
 The package was called ProximalOPT before its first release.
 
@@ -95,8 +103,8 @@ objective value, up to floating point error.
 Next, we solve the problem along a decreasing sequence of penalty levels.
 Each solve starts from the preceding solution, screening reduces the
 coordinates considered at the new level, and each level stops once its
-relative duality gap is at most `1e-4` (`path.gap`), which puts the
-coefficients within about `1e-4` of the solution, relative to the largest:
+relative duality gap is at most `1e-4` (`path.gap`), when that certificate is available. This controls objective error; coefficient
+accuracy also depends on the design:
 
 ```@example getting_started
 λs = λmax .* 10 .^ range(0, -2; length = 50)

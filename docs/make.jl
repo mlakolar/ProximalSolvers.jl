@@ -45,6 +45,7 @@ makedocs(
         "User guide" => [
             "Getting started" => "getting_started.md",
             "Choosing a solver" => "choosing_solver.md",
+            "Architecture" => "architecture.md",
             "Calling the solvers" => "solve.md",
             "Checking a solution" => "optimality.md",
         ],

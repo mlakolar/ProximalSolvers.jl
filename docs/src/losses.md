@@ -156,6 +156,12 @@ of the noise ``\varepsilon``. The loss is not differentiable where the residuals
 vanish, so coordinate descent does not take a majorization step but
 minimizes ``f + \lambda\sum_k w_k|\beta_k|`` exactly over each coordinate.
 
+At zero residual the nonsmooth loss couples coordinates, so a coordinatewise
+minimum can fail to be a joint minimum. The solver returns an exact fit with
+positive penalty as `converged = false`; it does not solve the joint subgradient
+feasibility problem there. Zero objective is certified. This restriction also
+applies to `SqrtQuadraticFunction` at a zero quadratic value.
+
 Fix every coordinate but ``k``. With the partial residual
 ``r = y - X\beta + X_k\beta_k`` and ``x = X_k``, let ``a = \|x\|^2``,
 ``\sigma = x^\top r`` and ``\rho = \|r\|^2``, and write ``\lambda_k = \lambda w_k``. The

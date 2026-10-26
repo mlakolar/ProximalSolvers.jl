@@ -53,7 +53,12 @@ with ``\sigma`` the logistic function; for the Poisson loss ``e^\eta - y\eta``,
    ``t`` falls below ``10^{-10}``, the step is abandoned and ``\beta`` kept.
 
 The method stops when ``|F(\beta) - F(\beta^+)| \le \mathrm{tol}\cdot\max\{|F(\beta^+)|, 1\}``,
-or after `maxiter` steps. For a convex loss and penalty, and with the
+and the original proximal fixed-point residual is at most
+`sqrt(tol) * max(1, norm(x, Inf))`, including the intercept score when fitted.
+The square root converts the objective-change tolerance to a first-order guard;
+it is not a bound on coefficient error.
+A rejected or stagnant nonstationary step is not convergence. The iteration
+limit is `maxiter`. For a convex loss and penalty, and with the
 quadratic model strongly convex, ``d`` is a descent direction of ``F`` unless
 ``\beta`` is a minimizer, and with exact inner solves the method converges,
 superlinearly near the solution (Lee, Sun and Saunders, 2014).

@@ -7,7 +7,8 @@ and ProximalCore are benchmark/oracle dependencies only.
 ## Reproduce
 
 Instantiate this environment against this checkout and the ProximalBase
-companion pinned in `Project.toml`. On Julia 1.10, which ignores `[sources]`,
+companion selected through its local `[sources]` path. Record its exact commit;
+the path alone does not pin a revision. On Julia 1.10, which ignores `[sources]`,
 `Pkg.develop` both checkouts explicitly before instantiating.
 
 ```sh

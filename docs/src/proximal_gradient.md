@@ -135,8 +135,10 @@ operator, such as the indicator of the ℓ0 ball `IndBallL0(s)`, `IndBallRank`,
 nonconvex problem. The step from ``x`` still minimizes
 ``Q_L(\cdot\,; x) + g``, so under the upper bound
 ``F(x^+) \le Q_L(x^+; x) + g(x^+) \le Q_L(x; x) + g(x) = F(x)``: the objective
-of proximal gradient descent never increases, and every limit point of its
-iterates is a critical point of ``F``. With `g = IndBallL0(s)` it is iterative
+of proximal gradient descent does not increase in exact arithmetic. A
+limit-point stationarity result also requires a proper lower semicontinuous
+penalty, suitable smoothness and bounded-step conditions, and bounded
+iterates; the function traits do not establish these conditions. With `g = IndBallL0(s)` it is iterative
 hard thresholding with a line search, and
 `ProximalGradientDescent(; normalized = false, debias = 0)` has two options
 from that literature:
@@ -173,8 +175,10 @@ with the backtracking of [`AccProxGradDescent`](@ref) on the upper bound at
 ``F(z_{k+1}) \le F(x_k) - \delta L\|z_{k+1} - y_k\|^2``, by default with
 ``\delta = 10^{-3}``. Otherwise it also takes a plain step from ``x_k``, with
 its own backtracking, and keeps the better of the two. So the objective never
-increases and every limit point is a critical point of ``F``, while for a
-convex problem the method keeps the accelerated rate ``O(1/k^2)``. An
+increases in exact arithmetic under the accepted majorization bounds. The
+cited stationarity and accelerated-rate results require their additional
+assumptions; numerical backtracking, restarts and approximate proximal
+operators do not establish those results by themselves. An
 iteration that falls back costs a second gradient and a second search.
 
 For least-squares and generalized linear losses, including scaled losses,

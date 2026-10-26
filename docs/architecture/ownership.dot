@@ -1,0 +1,18 @@
+digraph ownership {
+  graph [rankdir=TB, bgcolor="white", label="Storage ownership and reuse", labelloc=t, fontname="Helvetica", fontsize=18];
+  node [shape=box, style="rounded,filled", fillcolor="#edf4fc", fontname="Helvetica", fontsize=12];
+  edge [fontname="Helvetica", fontsize=10];
+  caller [label="caller x\nand supplied ADMM u / CondatVu y", fillcolor="#fff1d2"];
+  workspace [label="SolverWorkspace\nimmutable outer struct"];
+  buffers [label="mutable solver buffers\nstate / CD model / gap work / dual"];
+  data [label="loss data and group partitions\nfixed while workspace is reused"];
+  result [label="result minimizer\nADMM u / CondatVu y"];
+  saved [label="path solutions\nextended trace arrays"];
+  refit [label="RefitCache\nfactor, support, owner identity"];
+  workspace -> buffers [arrowtail=diamond, dir=both, arrowhead=none, label="owns fields"];
+  workspace -> caller [style=dashed, color="#a33a28", label="shares x"];
+  buffers -> data [style=dashed, color="#a33a28", label="references / derived caches"];
+  result -> caller [style=dashed, color="#a33a28", label="aliases"];
+  caller -> saved [color="#2463a0", label="independent copies"];
+  refit -> data [style=dashed, color="#a33a28", label="valid for one unchanged loss"];
+}

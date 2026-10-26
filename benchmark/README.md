@@ -37,7 +37,7 @@ The run writes `benchmark/results/single.csv` and `path.csv`, which
 write a check into a separate output directory.
 
 The two environments are intentionally separate. `benchmark/Project.toml`
-loads local master checkouts of ProximalSolvers, ProximalBase, and
+loads explicitly selected sibling checkouts of ProximalSolvers, ProximalBase, and
 HighDimensionalModels, together with GLMNet and Lasso. The package formerly
 named CoordinateDescent is now HighDimensionalModels; its UUID is unchanged.
 `benchmark/legacy_cd/Project.toml` retains the independent historical baseline
@@ -52,7 +52,7 @@ are reused. An existing shared `Manifest.toml` seeds the new lock when its
 Julia minor matches; otherwise it is preserved and the new runtime resolves
 its own lock from `Project.toml`. This avoids incompatible Statistics entries
 when switching runtimes without updating the other runtime's locked packages.
-The development paths are sibling master checkouts. The setup script uses the
+The development paths are sibling checkouts; existing branches are preserved. The setup script uses the
 same recursive master bootstrap as the package and explicitly develops the
 current packages together, including on Julia 1.10.
 

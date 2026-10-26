@@ -33,10 +33,13 @@ soft thresholding for the ℓ1 norm, ``\operatorname{shrink}(v, \gamma\lambda_1)
 for the elastic net, firm thresholding for MCP, a clamp for bounds. For a
 quadratic loss the step minimizes ``F`` exactly over the coordinate; otherwise
 it minimizes a majorizer, and in both cases ``F`` does not increase. A
-coordinate with ``a_k = 0``, which the loss does not depend on, goes to the
-minimizer of ``g_k`` nearest zero.
+coordinate with ``a_k = 0`` and zero derivative goes to the minimizer of
+``g_k`` nearest zero. A quadratic can also have a nonzero linear slope along
+a flat coordinate. That case raises an error; use a different solver or
+positive curvature rather than discarding the slope.
 
-For a convex loss and a convex separable penalty, under mild conditions,
+For a differentiable convex loss and a convex separable penalty, with suitable
+regularity and coordinate curvature conditions,
 every limit point of coordinate descent that visits each coordinate at least
 once in every ``T`` consecutive steps is a minimizer of ``F``: for exact
 minimization over each coordinate (Tseng, 2001), and for the majorization
@@ -123,8 +126,8 @@ x_G^+ = \operatorname{prox}_{(\lambda w_k / L_k)\|\cdot\|_2}(u)
       = \max\Big\{1 - \frac{\lambda w_k}{L_k \|u\|_2},\ 0\Big\}\, u .
 ```
 
-For least squares, ``L_k = s\,\lambda_{\max}(X_G^\top W X_G)``, computed on the
-first visit to the group without allocating, and kept for the rest of a path. A group at zero stays at zero exactly
+For least squares, ``L_k = s\,\lambda_{\max}(X_G^\top W X_G)``, computed on the first visit to the group using reusable eigensolver buffers,
+and kept for the rest of a path. First use can grow those buffers. A group at zero stays at zero exactly
 when ``\|\nabla_G f(x)\|_2 \le \lambda w_k``, its optimality condition, which is
 checked first: ``L_k`` is never computed for a group that does not move.
 
@@ -228,7 +231,7 @@ prediction, and `gaptol = 0` gives back the rule on the changes with `tol`. A
 single `solve!` keeps the rule on the changes unless `gaptol` is given, so
 that a one-off solve stays as accurate as before.
 
-What a target buys, over the 690 levels of ten lasso paths: the designs A–E
+The following historical empirical comparison covers 690 levels of ten lasso paths: the designs A–E
 and L of the benchmark (``n = 500`` to ``5000``, ``p = 500`` to ``10^5``, 50
 levels down to ``0.01\lambda_{\max}``) and the four AR(1) designs of
 CoordinateDescent's `LassoPath` benchmark (``n = 200`` to ``1000``, ``p = 10^3``
@@ -250,9 +253,10 @@ and at `1e-10` and `1e-14`:
 | ``10^{-8}`` | ``7\times10^{-9}`` / ``4\times10^{-7}`` | below ``10^{-15}`` | 1.3 to 2.0 | beyond `thresh = 1e-14` |
 | rule on the changes, `tol = 1e-7` (`gaptol = 0`) | ``9\times10^{-7}`` / ``2\times10^{-3}`` | ``10^{-13}`` / ``2\times10^{-7}`` | 1 | median as `thresh = 1e-14` |
 
-The coefficients are within about ``\varepsilon`` of the solution, relative to
+In those measured workloads, the coefficients were within about ``\varepsilon`` of the solution, relative to
 the largest, in the median over the levels, and **within about ``50\varepsilon``
-at worst**. The suboptimality is far below the certified bound ``\varepsilon``,
+at worst**. These are empirical errors against the chosen reference, not
+universal consequences of a duality-gap target. The suboptimality is far below the certified bound ``\varepsilon``,
 about ``\varepsilon^2``: the dual point of the rescaled gradient is off the
 optimal one by about the error of the fitted values, which enters the gap
 linearly (through the slack of the active constraints) and the suboptimality

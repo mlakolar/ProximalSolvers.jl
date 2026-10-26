@@ -11,7 +11,7 @@ or with ProximalSolvers and ProximalBase installed in your environment. They
 need only these two packages and the standard library.
 
 Every script ends by checking its result, usually the optimality conditions of
-the problem, so a script that runs to the end has found a correct solution. The
+the problem, so successful execution validates the stated checks for that example. The
 test suite runs all of them, and the
 [documentation](https://mlakolar.github.io/ProximalSolvers.jl/dev/) renders them
 with their output.
