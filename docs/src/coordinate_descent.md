@@ -33,10 +33,14 @@ soft thresholding for the ℓ1 norm, ``\operatorname{shrink}(v, \gamma\lambda_1)
 for the elastic net, firm thresholding for MCP, a clamp for bounds. For a
 quadratic loss the step minimizes ``F`` exactly over the coordinate; otherwise
 it minimizes a majorizer, and in both cases ``F`` does not increase. A
-coordinate with ``a_k = 0`` and zero derivative goes to the minimizer of
-``g_k`` nearest zero. A quadratic can also have a nonzero linear slope along
-a flat coordinate. That case raises an error; use a different solver or
-positive curvature rather than discarding the slope.
+coordinate with ``a_k = 0`` and derivative ``G`` goes to a minimizer of
+``G(x - \beta_k) + g_k(x)`` when one exists: the minimizer of ``g_k`` nearest
+zero, which for the ℓ1 norm is a minimizer while ``|G| \le \lambda_k``, or the
+far bound of a box. Along a flat coordinate where this is unbounded below,
+such as ``|G| > \lambda_k`` for the ℓ1 norm, ``F`` has no minimizer and the solver
+raises an `ArgumentError`. Other penalties with a flat coordinate and nonzero
+``G``, such as the elastic net, also raise an error; give the coordinate
+positive curvature.
 
 For a differentiable convex loss and a convex separable penalty, with suitable
 regularity and coordinate curvature conditions,

@@ -186,11 +186,23 @@ function _groupstep!(m::QuadModel{T}, g::GroupNormL2, x::AtomIterate{T}, k::Int,
 
   # v = x[G] - ∇_G f(x) / L
   L = _groupcurvature!(m, x, k)
-  iszero(L) && any(i -> !iszero(v[i]), eachindex(G)) &&
-    throw(ArgumentError("a group with zero curvature and a nonzero linear slope needs a different solver or positive curvature"))
+  if iszero(L)
+    # min v'z + c‖z‖ is bounded only for ‖v‖ ≤ c, at z = 0
+    sqrt(t) <= c ||
+      throw(ArgumentError("group $k has zero curvature and its linear term makes f + g unbounded below along it"))
+    maxh = zero(T)
+    for j in G
+      h = -x[j]
+      iszero(h) && continue
+      x[j] = zero(T)
+      _quad_axpy!(u, A, j, h)
+      maxh = max(maxh, _scaledchange(m, x, j, h, scaled))
+    end
+    return maxh
+  end
   t = zero(T)
   for (i, j) in enumerate(G)
-    d = iszero(L) ? x[j] : x[j] - v[i] / L
+    d = x[j] - v[i] / L
     v[i] = d
     t += d * d
   end

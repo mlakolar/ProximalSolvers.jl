@@ -137,21 +137,44 @@ function cdmodel end
 cdmodel(f::AbstractFunction, x) =
   throw(ArgumentError("coordinate descent does not know the structure of $(typeof(f)); see the documentation of cdmodel."))
 
-# A zero Hessian diagonal does not exclude a linear term. Do not silently
-# minimize the penalty alone in that case. Share this check with the fused
-# quadratic kernels and the fixed-point diagnostic.
+# The minimizer of a(x - old)²/2 + G(x - old) + μ gᵢ(x), the coordinate step
+# shared by the fused quadratic kernels and the fixed-point diagnostic.
 @inline function _coordinate_minimizer(g, old::T, G, a, i, μ = one(T)) where {T}
   isfinite(G) && isfinite(a) && a >= 0 ||
     throw(ArgumentError("coordinate descent needs finite derivatives and nonnegative curvature"))
   if iszero(a)
-    iszero(G) || throw(ArgumentError("a coordinate with zero curvature and a nonzero linear slope needs a different solver or positive curvature"))
-    return prox_entry(g, zero(T), i, floatmax(T))
+    new = _flat_minimizer(g, old, T(G), i, μ)
+    new === nothing &&
+      throw(ArgumentError("coordinate $i has zero curvature and its linear term $G makes f + g unbounded below along it, or no minimizer is available for this penalty"))
+    return new
   end
   ainv = inv(a)
   isfinite(ainv) || throw(ArgumentError("the inverse coordinate curvature overflows; rescale the problem"))
   new = prox_entry(g, old - G * ainv, i, μ * ainv)
   isfinite(new) || throw(ArgumentError("the coordinate step is not finite; rescale the problem or check the model and penalty"))
   new
+end
+
+# With zero curvature the coordinate problem is min G(x - old) + μ gᵢ(x), which
+# has a minimizer x exactly when x = prox_{tμgᵢ}(x - tG) for some (every) t > 0.
+# Two candidates cover the separable penalties: the minimizer of the penalty
+# nearest zero (the minimizer of a norm while |G| ≤ μλ) and the far end of a
+# proximal step against G (a bound of a box). The step t scales G to the size
+# of the candidate, so that rounding cannot make a huge point look fixed.
+# Returns nothing when neither candidate is a minimizer.
+function _flat_minimizer(g, old::T, G::T, i, μ) where {T}
+  c = prox_entry(g, zero(T), i, floatmax(T))
+  iszero(G) && return c
+  _flat_fixed(g, c, G, i, μ) && return c
+  c = prox_entry(g, -copysign(floatmax(T), G), i, μ)
+  _flat_fixed(g, c, G, i, μ) ? c : nothing
+end
+
+function _flat_fixed(g, c::T, G::T, i, μ) where {T}
+  isfinite(c) || return false
+  t = max(one(T), abs(c) / abs(G))
+  v = c - t * G
+  isfinite(v) && prox_entry(g, v, i, t * μ) == c
 end
 
 # the coordinate step from coordinate_derivatives and update_cache!, for models

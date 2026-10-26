@@ -680,8 +680,12 @@ end
 The largest scaled change `√aₖ ⋅ |Δxₖ|` that one coordinate step of
 [`CDSolver`](@ref) would make at `x`, over all coordinates, where `aₖ` is the
 curvature of `f` along coordinate `k` and the step is the proximal step from
-[`coordinate_derivatives`](@ref). It is zero exactly at a minimizer of `f + g`
-when both are convex, and it is the quantity that the stopping rule of
+[`coordinate_derivatives`](@ref). When both are convex and `f` is
+differentiable at `x`, it is zero exactly at a minimizer of `f + g`; for the
+square-root losses at a zero residual it can be zero at a point that is not
+(use the duality gap of [`CDSolver`](@ref)'s results there). It is `Inf` along
+a coordinate with zero curvature where `f + g` is unbounded below. It is the
+quantity that the stopping rule of
 `CDSolver` compares with `tol`: with `relative`, it is divided by the scale of
 the data ([`response_scale`](@ref)), as there. `x` is not changed.
 
@@ -713,14 +717,21 @@ end
 function _fixedpoint_residual(m::CDModel{T}, g, x::SparseIterate{T}, k::Int) where {T}
   G, a = coordinate_derivatives(m, x, k)
   old = x[k]
-  new = _coordinate_minimizer(g, old, G, a, k)
-  (iszero(a) ? one(T) : sqrt(a)) * abs(new - old)
+  _fixedpoint_change(g, old, G, a, k, one(T))
 end
 
 function _fixedpoint_residual(m::CDModel{T}, g, x::SymmetricSparseIterate{T}, k::Int) where {T}
   G, a = coordinate_derivatives(m, x, k)
   r, c = tril_cartesian(x.p, k)
   old = coordinates(x)[k]
-  new = _coordinate_minimizer(g, old, G, a, _entry(x.p, r, c), _multiplicity(T, r, c))
-  (iszero(a) ? one(T) : sqrt(a)) * abs(new - old)
+  _fixedpoint_change(g, old, G, a, _entry(x.p, r, c), _multiplicity(T, r, c))
+end
+
+# A flat coordinate along which f + g is unbounded has no stationary point: Inf.
+function _fixedpoint_change(g, old::T, G, a, i, μ) where {T}
+  if iszero(a) && isfinite(G)
+    new = _flat_minimizer(g, old, T(G), i, μ)
+    return new === nothing ? T(Inf) : abs(new - old)
+  end
+  sqrt(a) * abs(_coordinate_minimizer(g, old, G, a, i, μ) - old)
 end

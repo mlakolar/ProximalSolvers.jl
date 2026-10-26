@@ -3,17 +3,42 @@ using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
 
 @testset "flat curvature retains the linear term" begin
+  # min -x + 0.1|x| is unbounded below: no point may be returned as a solution
   f = QuadraticFunction(zeros(1, 1), [-1.0])
-  for g in (NormL1(0.1), IndBox(-1.0, 1.0))
-    x = SparseIterate(1)
-    @test_throws ArgumentError solve!(x, f, g, CDSolver())
-    @test iszero(x[1])
-    @test_throws ArgumentError kkt_residual(f, g, x)
-  end
+  x = SparseIterate(1)
+  @test_throws ArgumentError solve!(x, f, NormL1(0.1), CDSolver())
+  @test iszero(x[1])
+  @test kkt_residual(f, NormL1(0.1), x) == Inf
   f = KronQuadratic(zeros(1, 1), ones(1, 1), -ones(1, 1))
   for x in (SparseIterate(1), SymmetricSparseIterate(1))
     @test_throws ArgumentError solve!(x, f, NormL1(0.1), CDSolver())
   end
+  # Bounded flat directions have minimizers, which the subgradient condition
+  # -G ∈ ∂g(x) identifies: a bound of a box, or zero for |G| ≤ λ.
+  for (A, b, g, expected) in ((zeros(1, 1), [-1.0], IndBox(-1.0, 1.0), [1.0]),
+                              (zeros(1, 1), [1.0], IndBox(-1.0, 1.0), [-1.0]),
+                              (zeros(1, 1), [-0.05], NormL1(0.1), [0.0]),
+                              (zeros(1, 1), [-0.1], NormL1(0.1), [0.0]),
+                              (zeros(1, 1), [1.0], NormL1Nonneg(0.1), [0.0]),
+                              ([0.0 0.0; 0.0 1.0], [0.05, -1.0], NormL1(0.1), [0.0, 0.9]))
+    f = QuadraticFunction(A, b)
+    x = SparseIterate(length(b))
+    @test solve!(x, f, g, CDSolver()).converged
+    @test Vector(x) ≈ expected
+    @test kkt_residual(f, g, x) <= 1e-12
+  end
+  x = SparseIterate([0.5])
+  f = QuadraticFunction(zeros(1, 1), [-0.05])
+  @test solve!(x, f, NormL1(0.1), CDSolver()).converged && iszero(x[1])
+  f = KronQuadratic([0.0 0.0; 0.0 1.0], ones(1, 1), reshape([0.05, -1.0], 2, 1))
+  x = SparseIterate(2)
+  @test solve!(x, f, NormL1(0.1), CDSolver()).converged
+  @test Vector(x) ≈ [0.0, 0.9]
+  # an active group with zero curvature and ‖∇‖ ≤ λ moves to zero
+  groups = [1:2]
+  xg = AtomIterate([1.0, -1.0], groups)
+  @test solve!(xg, QuadraticFunction(zeros(2, 2), [0.03, 0.04]), GroupNormL2(0.1, groups), CDSolver()).converged
+  @test all(iszero, Vector(xg))
   # A flat loss does not make a nonzero penalized coefficient stationary.
   x = SparseIterate([2.0])
   f = QuadraticFunction(zeros(1, 1), zeros(1))
