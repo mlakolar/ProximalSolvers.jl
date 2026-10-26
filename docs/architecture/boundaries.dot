@@ -8,7 +8,7 @@ digraph boundaries {
   hdm [label="HighDimensionalModels\nestimators, CV, custom CD models"];
   cov [label="CovarianceSelection\nADMM, IHT, refits"];
   diff [label="DiffPrecTest\nKronecker coordinate solves and paths"];
-  private [label="known private dependencies\nHDM: SqrtQuadModel, _saturated\nretain pending separate migration", fillcolor="#fff1d2"];
+  private [label="known private dependencies\nHDM: SqrtQuadModel, _saturated\n_hasconjugate (quantile fallback)\nretain pending separate migration", fillcolor="#fff1d2"];
   solvers -> base [label="calls public oracles"];
   model -> solvers [style=dashed, label="dispatch extensions"];
   {hdm cov diff} -> solvers [label="calls"];

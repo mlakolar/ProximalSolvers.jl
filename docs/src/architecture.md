@@ -11,11 +11,12 @@ are authoritative. Their SVG renderings are included here. An empty triangular
 arrow means subtyping, a diamond means composition through a field, a dashed
 blue arrow means dispatch or method extension, and a solid blue arrow means a
 runtime call. Dashed red arrows indicate shared storage or a private dependency.
-Each diagram labels its edges where their meaning could be ambiguous.
+Each diagram labels its edges where their meaning could be ambiguous. Select a
+diagram to open the full-size SVG.
 
 ## Solver and model types
 
-![Solver and model types](assets/architecture/types.svg)
+[![Solver and model types](assets/architecture/types.svg)](assets/architecture/types.svg)
 
 [`ProximalSolver`](@ref) is the abstract supertype for the solver settings.
 [`LLA`](@ref) is a separate driver holding a [`CDSolver`](@ref); it is not a
@@ -31,7 +32,7 @@ example, `CDSolver` keeps a reference to its random-number generator.
 
 ## Dispatch and accepted iterates
 
-![Runtime dispatch](assets/architecture/runtime.svg)
+[![Runtime dispatch](assets/architecture/runtime.svg)](assets/architecture/runtime.svg)
 
 The entry point dispatches on the method, loss, penalty and iterate types.
 The gradient engine in
@@ -57,7 +58,7 @@ algorithm's convergence rate.
 
 ## Coordinate-model operations
 
-![Coordinate model interface](assets/architecture/coordinates.svg)
+[![Coordinate model interface](assets/architecture/coordinates.svg)](assets/architecture/coordinates.svg)
 
 The public extension surface is [`CDModel`](@ref) with `initialize!` and either
 `coordinate_step!` or the pair `coordinate_derivatives` and `update_cache!`.
@@ -85,7 +86,7 @@ joint subgradient feasibility problem. A zero objective is certified.
 
 ## Ownership and cache validity
 
-![Storage ownership](assets/architecture/ownership.svg)
+[![Storage ownership](assets/architecture/ownership.svg)](assets/architecture/ownership.svg)
 
 [`SolverWorkspace`](@ref) owns reusable buffers and shares the caller's `x`.
 Results share the minimizer and supplied splitting dual arrays. Saved path
@@ -110,7 +111,7 @@ to share between tasks.
 
 ## Paths and estimator drivers
 
-![Estimator drivers](assets/architecture/drivers.svg)
+[![Estimator drivers](assets/architecture/drivers.svg)](assets/architecture/drivers.svg)
 
 [`solve_path`](@ref) and continuation change penalty levels while reusing the
 iterate and model. Strong screening is a prediction; full checks reactivate
@@ -129,7 +130,7 @@ and [`src/cd/drivers.jl`](https://github.com/mlakolar/ProximalSolvers.jl/blob/ma
 
 ## Package boundaries
 
-![Package boundaries](assets/architecture/boundaries.svg)
+[![Package boundaries](assets/architecture/boundaries.svg)](assets/architecture/boundaries.svg)
 
 ProximalBase defines function oracles and iterate storage. ProximalSolvers owns
 solver scheduling, coordinate caches and results. HighDimensionalModels adds
@@ -138,7 +139,7 @@ extends the public coordinate-model operations. CovarianceSelection calls
 ADMM, gradient and refit operations. DiffPrecTest uses coordinate solves and
 paths for structured inverse-Hessian problems.
 
-Known HighDimensionalModels calls to `SqrtQuadModel` and `_saturated` are private
+Known HighDimensionalModels calls to `SqrtQuadModel`, `_saturated` and `_hasconjugate` are private
 dependencies retained for compatibility, not recommended extension points.
 They should be migrated in that package separately. The public model protocol
 already supplies the supported route for new extensions. No logging redesign

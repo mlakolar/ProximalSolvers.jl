@@ -1,0 +1,49 @@
+{
+  "ProximalOPT.jl": {
+    "files": 77,
+    "changed": [],
+    "head_matches_initial": true,
+    "branch_matches_initial": true,
+    "status_matches_initial": true
+  },
+  "HighDimensionalModels.jl": {
+    "files": 40,
+    "changed": [],
+    "head_matches_initial": true,
+    "branch_matches_initial": true,
+    "status_matches_initial": true
+  },
+  "CovarianceSelection.jl": {
+    "files": 38,
+    "changed": [],
+    "head_matches_initial": true,
+    "branch_matches_initial": true,
+    "status_matches_initial": true
+  },
+  "DiffPrecTest.jl": {
+    "files": 31,
+    "changed": [],
+    "head_matches_initial": true,
+    "branch_matches_initial": true,
+    "status_matches_initial": true
+  },
+  "primary_diff_matches_initial": true,
+  "tested_current_source_exports": {
+    "HighDimensionalModels.jl": {
+      "checked_files": 254,
+      "changed_files": []
+    },
+    "CovarianceSelection.jl": {
+      "checked_files": 35,
+      "changed_files": []
+    },
+    "DiffPrecTest.jl": {
+      "checked_files": 27,
+      "changed_files": []
+    },
+    "KernelSmoothing.jl": {
+      "checked_files": 110,
+      "changed_files": []
+    }
+  }
+}

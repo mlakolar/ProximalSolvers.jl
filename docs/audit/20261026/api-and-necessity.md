@@ -19,10 +19,14 @@ Actual sibling consumers were found by searching source, imports, method
 extensions and dependency UUIDs. HighDimensionalModels uses solver/results,
 coordinate models, public initialization/cache/scale operations, intercepts,
 residuals, GLM predictors/deviance and paths. It defines `_LossModel <: CDModel`
-and `solve!` methods. Its `SqrtQuadModel` import and `_saturated` calls are private
+and `solve!` methods. Its `SqrtQuadModel` import, `_saturated` calls and current-master `_hasconjugate` checks are private
 coupling. Retain them here; a separate downstream migration should use public
 model construction or own the scalar saturated-loss formula rather than promote
-private helpers. CovarianceSelection uses ADMM, gradient settings, options and
+private helpers. The smoothed quantile fallback uses `_hasconjugate` to detect
+an older solver edition; a future public capability contract would be a separate
+API decision, with post-fit raw-score checks retained. Current master also uses
+SLOPE fits/paths; its optional HiGHS and ProximalAlgorithms extensions are tested
+through the downstream suite, not presented as ProximalSolvers extensions. CovarianceSelection uses ADMM, gradient settings, options and
 refits. DiffPrecTest uses CD and paths with Kronecker quadratics. CovSel is a
 second checkout of CovarianceSelection, not an independent consumer. The checked
 FunctionalGraphicalModels has indirect dependencies through these packages;
@@ -52,3 +56,26 @@ runtime solver API. Exact editions and dirty patches are recorded adjacent.
 Broad new result status enums, data-mutation detection, public internal kernels,
 a cross-package logging contract and a new joint square-root feasibility solver
 are deferred redesigns. None is needed to make this repair set reviewable.
+
+
+## Public-family inventory
+
+| Family | Names / retained compatibility | Documentation and evidence |
+|---|---|---|
+| Solver settings | `ProximalSolver`, `ProximalGradientDescent`, `AccProxGradDescent`, `MonotoneAccProxGradDescent`, `ActiveAccProxGradDescent`, `SLOPEAPG`, `SLOPEHybrid`, `ADMMSolver`, `CondatVu`, `CDSolver`, `ProxNewton` | Solver API page, method manuals, complete suite; constructor keywords remain per-family rather than inventing a common interface |
+| Invocation and reuse | `solve!`, `SolverWorkspace`, `reinit!`, `ProximalOptions` | Solve/workspace docs and fresh-versus-reused tests; fixed-data and ownership restrictions explicit |
+| Coordinate protocol | `CDModel`, `cdmodel`; qualified `initialize!`, `coordinate_step!`, `coordinate_derivatives`, `update_cache!`, `coordinate_scale`, `response_scale`, `loss_value`, `check_penalty` | Extension manual/API; custom model and downstream extensions exercised |
+| Model accessors | Qualified `intercept`, `residuals`, `linear_predictor`, `deviance`, `nulldeviance` | Coordinate API and GLM/weighted/intercept tests |
+| Losses | `SqrtLeastSquaresLoss`, `SqrtQuadraticFunction` | Loss manual and exact-fit limitation/regression; ordinary losses/operators belong to ProximalBase |
+| Paths and drivers | `lambda_max`, `solve_path`, `LLA`, `reweight!`, `refit!`, `RefitCache`; qualified `PATH_GAPTOL` | Path/driver docs; repeated/empty grids, screening, snapshots, rank-deficient/empty refits tested |
+| Certificates | `duality_gap`, `kkt_residual` | Optimality/API docs; independent residuals and weak-duality arithmetic regression |
+| Exported records | `CDResults`, `PathResults`, `ReweightResults`, `SLOPEResults`, `SLOPEPathResults`, `OptimizationState`, `OptimizationTrace` | API and return-field tables; no field order redesign |
+| Documented qualified records | `OptimizationResults`, `ActiveSetResults`, `ADMMResults`, `PrimalDualResults` | API page already documents them; public declarations now agree on Julia versions supporting `public` |
+| Qualified line search | `LineSearches.BackTracking(; α, β, Lexact)` | Gradient/API docs; established `Lexact` keyword retained |
+| Legacy helpers and aliases | Qualified result accessor methods remain callable; `printEvery`/`normD` aliases retained | Used by result displays and sibling callers; not removed or generalized across incompatible result families |
+
+Internal states, concrete CD models, `Blocks`, cache kernels and scheduling helpers
+are not promoted to stable APIs. Generated keyword constructors and specialized
+storage methods were checked through their public entry points and the dispatch/
+allocation suites. Julia's `public` declaration is absent on 1.10, so qualified
+access there is tested directly rather than inferred from API introspection.

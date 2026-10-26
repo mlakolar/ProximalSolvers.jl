@@ -1,0 +1,2 @@
+pages=39 checked_local_references=3154 missing_targets_or_anchors=0 deployment_generated_script_references_excluded=78
+Excluded only Documenter deployment-generated siteinfo.js and versions.js scripts. No HTTP link availability claim is made by this check.

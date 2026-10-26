@@ -33,10 +33,12 @@ end
 makedocs(
     sitename = "ProximalSolvers.jl",
     authors = "Mladen Kolar",
+    repo = Documenter.Remotes.GitHub("mlakolar", "ProximalSolvers.jl"),
     modules = [ProximalSolvers],
     format = Documenter.HTML(
         prettyurls = get(ENV, "CI", "false") == "true",
         canonical = "https://mlakolar.github.io/ProximalSolvers.jl/stable/",
+        edit_link = "master",
         mathengine = Documenter.KaTeX(),
         size_threshold = 400_000,
     ),

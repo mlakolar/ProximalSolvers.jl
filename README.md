@@ -33,6 +33,10 @@ using Pkg
 Pkg.add(["ProximalBase", "ProximalSolvers"])
 ```
 
+General currently provides version 0.1.0 with an older API. This manual and
+the examples below describe the development API, including coordinate descent,
+and require the development installation below.
+
 The current development source requires ProximalBase 0.5.3 or later. Until
 that dependency is registered, install both development repositories:
 

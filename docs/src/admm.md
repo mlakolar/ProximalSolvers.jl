@@ -123,7 +123,7 @@ solve!(x, f, g, ADMMSolver(; ρ = res.ρ, adaptive = true), options; u = res.u)
 ```
 
 Of the [`ProximalOptions`](@ref), ADMM uses `maxiter`, `time_limit`,
-`prox_calls_limit`, `show_trace` and `print_every`. Each iteration evaluates
+`prox_calls_limit`, `show_trace`, `print_every`, `gaptol` and `gapevery`. Each iteration evaluates
 two proximal operators and no function values, except to print the trace and
 to report the minimum.
 
