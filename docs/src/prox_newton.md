@@ -53,10 +53,15 @@ with ``\sigma`` the logistic function; for the Poisson loss ``e^\eta - y\eta``,
    ``t`` falls below ``10^{-10}``, the step is abandoned and ``\beta`` kept.
 
 The method stops when ``|F(\beta) - F(\beta^+)| \le \mathrm{tol}\cdot\max\{|F(\beta^+)|, 1\}``,
-and the original proximal fixed-point residual is at most
-`sqrt(tol) * max(1, norm(x, Inf))`, including the intercept score when fitted.
-The square root converts the objective-change tolerance to a first-order guard;
-it is not a bound on coefficient error.
+and the original problem is stationary to the matching accuracy. Each exact
+coordinate step ``\Delta_j`` of ``F`` at ``\beta``, with the curvature
+``a_j`` of the Newton model there, must satisfy
+``\sqrt{a_j}\,|\Delta_j| \le \sqrt{\mathrm{tol}}\, s``, where ``s`` is the same measure
+of the Newton step from the starting predictor; the intercept is checked the
+same way when fitted. Since ``a_j\Delta_j^2/2`` is about the decrease the step
+offers, the square root matches the objective tolerance. The test is unchanged
+when ``f`` is scaled or a constant is added to it. It is not a bound on
+coefficient error.
 A rejected or stagnant nonstationary step is not convergence. The iteration
 limit is `maxiter`. For a convex loss and penalty, and with the
 quadratic model strongly convex, ``d`` is a descent direction of ``F`` unless

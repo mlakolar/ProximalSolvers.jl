@@ -273,10 +273,16 @@ the curvature of the model exceeds their concavity (`ρ = 1/a`, `1/(a - 1)`), a
 step that does not decrease the objective is taken again with the proximal
 term `ρ‖x - xₖ‖²`, which makes it a descent step without changing the fixed
 points (the stationary points of `f + g`).
-A small objective change triggers a check of the original proximal
-fixed-point residual, at `tol * max(1, norm(x, Inf))`, including the intercept
-score when fitted. Both are required for convergence without a dual gap.
-The method also stops after `maxiter` steps. Use with [`solve!`](@ref) on a `SparseIterate`;
+Without a duality gap, the steps stop when the objective changes by at most
+`tol` relative to `max(|F|, 1)` and the original problem is stationary to the
+matching accuracy: every exact coordinate step of `f + g` at `x` (and the
+intercept step, when fitted), measured as `√aⱼ |Δⱼ|` with `aⱼ` the curvature of
+coordinate `j` in the Newton model at `x`, is at most `√tol` times the same
+measure of the Newton step available at the starting predictor. The square of
+this measure is about the decrease of `f + g` the step still offers, so the
+test matches `tol`, and it does not change when `f` is scaled or a constant is
+added to it. The method also stops after
+`maxiter` steps, with `converged = false`. Use with [`solve!`](@ref) on a `SparseIterate`;
 returns [`CDResults`](@ref), whose `passes` sum the inner passes.
 
 `f` may also be the model of a `GLMLoss` built with
@@ -414,6 +420,7 @@ struct _NewtonWorkspace{T, M<:LSModel{T}, S<:_CDState{T}}
   st::S
   constant::BitVector
   grad::Vector{T}       # ∇f on the candidates, for the duality gap
+  vs::Vector{T}         # the curvatures of the stationarity check
 end
 
 function _NewtonWorkspace(m::GLMModel{T}, x::SparseIterate{T}, inner::CDSolver) where {T}
@@ -421,7 +428,8 @@ function _NewtonWorkspace(m::GLMModel{T}, x::SparseIterate{T}, inner::CDSolver) 
   v, z = zeros(T, n), zeros(T, n)
   model = LSModel(z, m.X, v, nothing, m.s)
   constant = m.intercept ? BitVector(n > 0 && all(==(m.X[1, k]), view(m.X, :, k)) for k in 1:p) : falses(0)
-  _NewtonWorkspace(v, z, zeros(T, n), zeros(T, n), copy(x), copy(x), model, _CDState(T, x, inner), constant, zeros(T, p))
+  _NewtonWorkspace(v, z, zeros(T, n), zeros(T, n), copy(x), copy(x), model, _CDState(T, x, inner), constant, zeros(T, p),
+                    zeros(T, n))
 end
 
 # the weighted means of the columns and of z that center the least-squares model
@@ -569,14 +577,16 @@ function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton
     end
     inner_converged &= ws.st.converged
     dropzeros!(x)
+    # a stall tightens the inner solves in gap mode; it ends the steps only at a
+    # stationary point
     done = abs(F - Fnew) <= method.tol * max(abs(Fnew), one(T))
-    done && (done = _newton_stationary!(ws.grad, m, g, x, candidates, method.tol))
+    stationary = done && _newton_stationary!(ws, m, g, x, candidates, method.tol, curvature_floor)
     F = Fnew
     if gapmode
       F, relgap = _newton_gap!(x, m, g, ws, candidates)
       if isnan(relgap)
         gapmode = false
-        done && _newton_raw_ok(m, g, x, ws.grad, candidates, gaptol) && (converged = true; break)
+        stationary && _newton_raw_ok(m, g, x, ws.grad, candidates, gaptol) && (converged = true; break)
       elseif relgap <= gaptol && _newton_raw_ok(m, g, x, ws.grad, candidates, gaptol)
         converged = true
         break
@@ -585,7 +595,7 @@ function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton
         innerfloor <= 4 * eps(T) && break
         innerfloor = max(innerfloor / 100, 4 * eps(T))
       end
-    elseif done && _newton_raw_ok(m, g, x, ws.grad, candidates, gaptol)
+    elseif stationary && _newton_raw_ok(m, g, x, ws.grad, candidates, gaptol)
       converged = true
       break
     end
@@ -594,26 +604,41 @@ function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton
   F, passes, converged && inner_converged, relgap
 end
 
-# An objective offset, rejected direction or tiny step cannot establish
-# stationarity. This check uses the original GLM gradient, never the IRLS model.
-function _newton_stationary!(grad, m::GLMModel{T}, g, x, candidates, tol) where {T}
+# A small objective change does not establish stationarity: a constant in the
+# loss, a rejected direction or a tiny step can all produce one. Check the
+# original problem at x in the metric of the Newton model, the curvatures
+# vᵢ = wᵢ max(ℓ''(ηᵢ), floor) of the next step: the exact coordinate step Δⱼ of
+# the original gradient with curvature aⱼ = s Σᵢ vᵢ Xᵢⱼ², measured as √aⱼ |Δⱼ|,
+# and likewise the intercept. The square of this measure is about the decrease
+# of f + g the step offers; it is compared with √tol times the decrease
+# available from the starting predictor (the offset), the scale of the problem.
+# Neither side changes when f is scaled or a constant is added to it.
+function _newton_stationary!(ws::_NewtonWorkspace{T}, m::GLMModel{T}, g, x, candidates, tol, floor) where {T}
+  v, grad = ws.vs, ws.grad
+  sy, a0 = zero(T), zero(T)
+  @inbounds for i in eachindex(m.η)
+    wi = _obsweight(m.w, i, T)
+    if iszero(wi)
+      v[i] = zero(T)
+      continue
+    end
+    oi = m.offset === nothing ? zero(T) : T(m.offset[i])
+    sy += wi * T(ProximalBase.deriv(m.loss, oi, m.y[i]))^2 / max(T(ProximalBase.deriv2(m.loss, oi, m.y[i])), floor)
+    v[i] = wi * max(T(ProximalBase.deriv2(m.loss, m.η[i], m.y[i])), floor)
+    a0 += v[i]
+  end
+  sy = sqrt(m.s * sy)
+  threshold = sqrt(T(tol)) * (sy > 0 ? sy : one(T))
   candidates === nothing ? gradient!(grad, m, x) : _partial_gradient!(grad, m, x, candidates)
-  # tol controls a change in the objective, which is second order near a
-  # stationary point. Use its square root for this additional first-order
-  # guard; demanding tol itself can be below attainable gradient accuracy.
-  threshold = sqrt(T(tol)) * max(one(T), norm(x, Inf))
   for j in (candidates === nothing ? eachindex(x) : candidates)
-    r = abs(x[j] - prox_entry(g, x[j] - grad[j], j, one(T)))
+    a = m.s * _weighted_sqnorm(m.X, v, j)
+    iszero(a) && continue                  # a column that no observation sees
+    r = sqrt(a) * abs(prox_entry(g, x[j] - grad[j] / a, j, inv(a)) - x[j])
     isfinite(r) && r <= threshold || return false
   end
-  if m.intercept
-    score = zero(T)
-    for i in eachindex(m.η)
-      wi = _obsweight(m.w, i, T)
-      iszero(wi) || (score += wi * T(ProximalBase.deriv(m.loss, m.η[i], m.y[i])))
-    end
-    score *= m.s
-    isfinite(score) && abs(score) <= threshold || return false
+  if m.intercept && a0 > 0
+    r = abs(m.s * sum(m.d)) / sqrt(m.s * a0)    # m.d holds wᵢ ℓ'(ηᵢ) from the gradient
+    isfinite(r) && r <= threshold || return false
   end
   true
 end
