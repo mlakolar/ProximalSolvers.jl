@@ -50,6 +50,7 @@ makedocs(
             "Architecture" => "architecture.md",
             "Calling the solvers" => "solve.md",
             "Checking a solution" => "optimality.md",
+            "Migrating to this release" => "migration.md",
         ],
         "Coordinate descent" => [
             "The method" => "coordinate_descent.md",

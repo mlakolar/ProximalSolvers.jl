@@ -106,8 +106,8 @@ struct Big1000 end
   end
 
   @testset "argument checks" begin
-    @test_throws ErrorException ADMMSolver(; ρ = 0.)
-    @test_throws ErrorException ADMMSolver(; α = 2.)
+    @test_throws ArgumentError ADMMSolver(; ρ = 0.)
+    @test_throws ArgumentError ADMMSolver(; α = 2.)
   end
 
 end

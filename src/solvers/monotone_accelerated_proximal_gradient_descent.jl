@@ -38,9 +38,9 @@ end
 Base.summary(::MonotoneAccProxGradDescent) = "Monotone Accelerated Proximal Gradient Descent"
 
 function MonotoneAccProxGradDescent(; β::Real = 0.5, α::Real = 0.9, δ::Real = 1e-3)
-  0 < β < 1 || error("β must be in (0, 1).")
-  0 < α <= 1 || error("α must be in (0, 1].")
-  δ > 0 || error("δ must be positive.")
+  0 < β < 1 || throw(ArgumentError("β must be in (0, 1)."))
+  0 < α <= 1 || throw(ArgumentError("α must be in (0, 1]."))
+  δ > 0 || throw(ArgumentError("δ must be positive."))
   MonotoneAccProxGradDescent(promote(float(β), float(α), float(δ))...)
 end
 

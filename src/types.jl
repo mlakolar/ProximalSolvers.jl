@@ -90,29 +90,21 @@ function ProximalOptions(;maxiter::Integer       = 200,
                          store_trace::Bool       = false,
                          show_trace::Bool        = false,
                          extended_trace::Bool    = false,
-                         print_every::Union{Nothing,Integer} = nothing,
-                         printEvery::Union{Nothing,Integer} = nothing,
+                         print_every::Integer    = 1,
                          callback                = nothing,
                          time_limit              = Inf,
                          gaptol::Real            = 0.0,
                          gapevery::Integer       = 10)
 
-  if printEvery !== nothing
-    print_every === nothing || throw(ArgumentError("use only print_every; printEvery is deprecated"))
-    Base.depwarn("printEvery is deprecated; use print_every", :ProximalOptions)
-    print_every = printEvery
-  end
-  print_every = something(print_every, 1)
-
-  maxiter > 1 || error("maxiter must be an integer greater than 1.")
-  isfinite(Float64(ftol)) && ftol > 0 || error("ftol must be finite and positive.")
-  isfinite(Float64(xtol)) && xtol > 0 || error("xtol must be finite and positive.")
+  maxiter > 1 || throw(ArgumentError("maxiter must be an integer greater than 1."))
+  isfinite(Float64(ftol)) && ftol > 0 || throw(ArgumentError("ftol must be finite and positive."))
+  isfinite(Float64(xtol)) && xtol > 0 || throw(ArgumentError("xtol must be finite and positive."))
   isfinite(Float64(gradtol)) && gradtol >= 0 || throw(ArgumentError("gradtol must be finite and nonnegative."))
-  isfinite(Float64(gaptol)) && gaptol >= 0 || error("gaptol must be finite and nonnegative.")
+  isfinite(Float64(gaptol)) && gaptol >= 0 || throw(ArgumentError("gaptol must be finite and nonnegative."))
   min(f_calls_limit, grad_calls_limit, prox_calls_limit) >= 0 || throw(ArgumentError("call limits must be nonnegative."))
   isnan(time_limit) && throw(ArgumentError("time_limit must not be NaN."))
-  gapevery > 0 || error("gapevery must be positive.")
-  print_every = print_every > 0 ? print_every : 1
+  gapevery > 0 || throw(ArgumentError("gapevery must be positive."))
+  print_every > 0 || throw(ArgumentError("print_every must be positive."))
 
   ProximalOptions{typeof(callback)}(
                   convert(Int64, maxiter),
@@ -134,15 +126,6 @@ function ProximalOptions(;maxiter::Integer       = 200,
                   )
 end
 
-function Base.getproperty(options::ProximalOptions, name::Symbol)
-  if name === :printEvery
-    Base.depwarn("printEvery is deprecated; use print_every", :getproperty)
-    return getfield(options, :print_every)
-  end
-  getfield(options, name)
-end
-Base.propertynames(options::ProximalOptions, private::Bool=false) =
-  (fieldnames(typeof(options))..., :printEvery)
 
 function print_header(options::ProximalOptions)
   if options.show_trace

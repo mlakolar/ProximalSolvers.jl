@@ -68,8 +68,8 @@ Base.summary(::ADMMSolver) = "ADMM"
 
 function ADMMSolver(; ρ::Real = 1.0, α::Real = 1.0, abstol::Real = 1e-6, reltol::Real = 1e-4,
                     adaptive::Bool = false, abstol_dual::Real = abstol, norm = nothing)
-  isfinite(ρ) && ρ > 0 || error("ρ must be finite and positive.")
-  0 < α < 2 || error("α must be in (0, 2).")
+  isfinite(ρ) && ρ > 0 || throw(ArgumentError("ρ must be finite and positive."))
+  0 < α < 2 || throw(ArgumentError("α must be in (0, 2)."))
   all(t -> isfinite(t) && t >= 0, (abstol, abstol_dual, reltol)) ||
     throw(ArgumentError("ADMM tolerances must be finite and nonnegative."))
   T = float(promote_type(typeof(ρ), typeof(α), typeof(abstol), typeof(reltol), typeof(abstol_dual)))

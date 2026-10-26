@@ -135,13 +135,13 @@ For the penalty paths of coordinate descent, `solve_path(...; callback)` calls
 `callback(k, λ, x, m)` after each level instead; see
 [Penalty paths and screening](@ref).
 
-## Naming compatibility
+## Naming
 
-Use `ProximalOptions(; print_every=...)` and `CondatVu(; norm_d=...)`.
-The previous keyword and property names `printEvery` and `normD` remain
-available with deprecation warnings. Supplying both spellings of a keyword
-is an error. These changes preserve option meanings and positional
-constructor ordering. Internal solver-state fields are not a stable extension interface.
+Options and solver settings use `snake_case` keywords, such as
+`ProximalOptions(; print_every=...)` and `CondatVu(; norm_d=...)`. Invalid
+settings raise an `ArgumentError`. Internal solver-state fields are not a
+stable extension interface. See [Migrating to this release](@ref) for the
+names removed since version 0.1.0.
 
 ## Diagonal preconditioning
 

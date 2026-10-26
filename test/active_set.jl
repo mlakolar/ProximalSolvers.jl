@@ -209,10 +209,10 @@ opt = ProximalOptions(; ftol = 1e-12, xtol = 1e-12, gradtol = 1e-10, maxiter = 5
     @test occursin("Outer iterations: $(res.outer_iterations)", str)
     @test occursin("Inner iterations: $(res.inner_iterations)", str)
 
-    @test_throws ErrorException ActiveAccProxGradDescent(; β = 1.)
-    @test_throws ErrorException ActiveAccProxGradDescent(; max_add = 0)
-    @test_throws ErrorException ActiveAccProxGradDescent(; growth = 0)
-    @test_throws ErrorException ActiveAccProxGradDescent(; max_outer = 0)
+    @test_throws ArgumentError ActiveAccProxGradDescent(; β = 1.)
+    @test_throws ArgumentError ActiveAccProxGradDescent(; max_add = 0)
+    @test_throws ArgumentError ActiveAccProxGradDescent(; growth = 0)
+    @test_throws ArgumentError ActiveAccProxGradDescent(; max_outer = 0)
   end
 
 end

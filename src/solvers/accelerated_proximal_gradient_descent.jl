@@ -47,8 +47,8 @@ Base.summary(::AccProxGradDescent) = "Accelerated Proximal Gradient Descent"
 AccProxGradDescent(β::AbstractFloat, α::AbstractFloat) = AccProxGradDescent(; β, α)
 
 function AccProxGradDescent(; β::AbstractFloat = 0.5, α::AbstractFloat = 0.9, preconditioner::Symbol = :none)
-  0 < β < 1 || error("β must be in (0, 1).")
-  0 < α <= 1 || error("α must be in (0, 1].")
+  0 < β < 1 || throw(ArgumentError("β must be in (0, 1)."))
+  0 < α <= 1 || throw(ArgumentError("α must be in (0, 1]."))
   AccProxGradDescent(promote(β, α)..., _preconditioner(preconditioner))
 end
 

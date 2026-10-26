@@ -70,11 +70,11 @@ Base.summary(::ActiveAccProxGradDescent) = "Active-Set Accelerated Proximal Grad
 
 function ActiveAccProxGradDescent(; β::AbstractFloat = 0.5, α::AbstractFloat = 0.9, max_add::Integer = 100,
                                   growth::Integer = 2, max_outer::Integer = 1000)
-  0 < β < 1 || error("β must be in (0, 1).")
-  0 < α <= 1 || error("α must be in (0, 1].")
-  max_add > 0 || error("max_add must be positive.")
-  growth > 0 || error("growth must be positive.")
-  max_outer > 0 || error("max_outer must be positive.")
+  0 < β < 1 || throw(ArgumentError("β must be in (0, 1)."))
+  0 < α <= 1 || throw(ArgumentError("α must be in (0, 1]."))
+  max_add > 0 || throw(ArgumentError("max_add must be positive."))
+  growth > 0 || throw(ArgumentError("growth must be positive."))
+  max_outer > 0 || throw(ArgumentError("max_outer must be positive."))
   ActiveAccProxGradDescent(promote(β, α)..., Int(max_add), Int(growth), Int(max_outer))
 end
 

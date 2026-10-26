@@ -83,8 +83,8 @@ end
 end
 
 @testset "MonotoneAccProxGradDescent" begin
-  @test_throws ErrorException MonotoneAccProxGradDescent(; δ = 0)
-  @test_throws ErrorException MonotoneAccProxGradDescent(; β = 1)
+  @test_throws ArgumentError MonotoneAccProxGradDescent(; δ = 0)
+  @test_throws ArgumentError MonotoneAccProxGradDescent(; β = 1)
   @test summary(MonotoneAccProxGradDescent()) == "Monotone Accelerated Proximal Gradient Descent"
 
   # on a convex lasso it agrees with AccProxGradDescent, and its objective never increases

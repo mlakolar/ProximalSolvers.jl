@@ -92,7 +92,7 @@ end
                                   SeparableSum(NormL1(0.2), NormL1(0.2)), ADMMSolver(); u)
   @test_throws ArgumentError ADMMSolver(abstol = Inf)
   @test_throws ArgumentError ADMMSolver(reltol = -1)
-  @test_throws ErrorException ADMMSolver(ρ = Inf)
+  @test_throws ArgumentError ADMMSolver(ρ = Inf)
 end
 
 @testset "active-set success needs a full residual" begin
@@ -205,7 +205,7 @@ ProximalBase.value_and_gradient!(out, ::InvalidGradient, x) = (fill!(out, eltype
 end
 
 @testset "finite tolerances and penalty grids" begin
-  @test_throws Exception ProximalOptions(gaptol = Inf)
+  @test_throws ArgumentError ProximalOptions(gaptol = Inf)
   @test_throws ArgumentError CDSolver(gaptol = Inf)
   @test_throws ArgumentError ProxNewton(tol = Inf)
   @test_throws ArgumentError LLA(tol = Inf)
