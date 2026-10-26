@@ -70,6 +70,7 @@ def summarize(name, seeds):
         certified = [p for p in pairs if all(
             r["converged"] == r["certified"] == r["levels"] for r in p.values())]
         ratios = {}
+        observations = {}
         if certified:
             for metric in ("seconds", "bytes", "products", "full_products", "entries"):
                 ratios[metric] = median(float(p["hybrid"][metric]) / float(p["apg"][metric])
@@ -77,8 +78,20 @@ def summarize(name, seeds):
             ratios["entries_including_clusters"] = median(
                 (int(p["hybrid"]["entries"]) + int(p["hybrid"]["cluster_entries"])) /
                 int(p["apg"]["entries"]) for p in certified)
+            observations = {
+                "hybrid_time_wins": sum(float(p["hybrid"]["seconds"]) < float(p["apg"]["seconds"])
+                                        for p in certified),
+                "hybrid_allocation_wins": sum(int(p["hybrid"]["bytes"]) < int(p["apg"]["bytes"])
+                                              for p in certified),
+                "median_path_ms": {m: 1000 * median(float(p[m]["seconds"]) for p in certified)
+                                   for m in ("apg", "hybrid")},
+                "median_cumulative_allocation_mib": {
+                    m: median(int(p[m]["bytes"]) for p in certified) / 2**20
+                    for m in ("apg", "hybrid")},
+            }
         strata.append({"rho": float(rho), "storage": storage,
                        "requested_pairs": len(pairs), "certified_pairs": len(certified),
+                       "observations_on_certified_pairs": observations,
                        "median_hybrid_over_apg_on_certified_pairs": ratios})
     failures = [r for r in levels if r["converged"] != "true" or float(r["gap"]) > 1e-6]
     accuracy_pass = all(t["converged"] == t["certified"] == t["levels"]
@@ -88,6 +101,39 @@ def summarize(name, seeds):
     return {"totals": totals, "strata": strata, "failed_levels": failures,
             "accuracy_gate_pass": accuracy_pass, "work_gate_pass": work_pass,
             "promote_to_production": accuracy_pass and work_pass}
+
+
+def specialist_controls():
+    """Within-build solver comparisons from the prior, independent study."""
+    output = {}
+    for cohort, expected_pairs in (("main", 36), ("confirmation", 16)):
+        folder = ROOT.parent / "first_order" / "evidence" / "20261025" / cohort
+        rows = [r for path in sorted(folder.glob("calls-*.csv"))
+                for r in csv.DictReader(path.open())]
+        pairs = {}
+        for row in rows:
+            key = tuple(row[k] for k in ("n", "p", "rho", "sparsity", "weights", "seed", "round"))
+            assert row["method"] not in pairs.setdefault(key, {})
+            pairs[key][row["method"]] = row
+        strata = []
+        for rho in ("0.0", "0.9"):
+            selected = [p for k, p in pairs.items() if k[2] == rho]
+            assert len(selected) == expected_pairs
+            for pair in selected:
+                assert all(pair[m]["valid"] == "true" and pair[m]["returned"] == "12"
+                           for m in ("native_hybrid_strong", "native_pgd_strong", "native_fista_strong"))
+            comparisons = {}
+            for reference in ("native_pgd_strong", "native_fista_strong"):
+                ratios = [float(p["native_hybrid_strong"]["seconds"]) / float(p[reference]["seconds"])
+                          for p in selected]
+                comparisons[reference] = {"median_time_ratio": median(ratios),
+                                          "hybrid_time_wins": sum(r < 1 for r in ratios)}
+            strata.append({"rho": float(rho), "paired_timing_blocks": len(selected),
+                           "hybrid_strong_over_reference": comparisons})
+        output[cohort] = strata
+    return {"source_commit": "a9899cbf3677ea63236d54dc18626ad3a5aeddc6",
+            "libslope_version": "6.5.2", "n": 1000, "p": 2000, "cohorts": output,
+            "note": "Historical within-build controls; not a comparison with the current screened APG engine."}
 
 
 def main():
@@ -114,6 +160,7 @@ def main():
     result = {"main": summarize("main", (1, 2, 3)),
               "confirmation": summarize("confirmation", (11, 12))}
     result["decision"] = "go" if all(r["promote_to_production"] for r in result.values()) else "no-go"
+    result["specialist_controls"] = specialist_controls()
     target = ROOT / "summary.json"
     if args.write:
         target.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")

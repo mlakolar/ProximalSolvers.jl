@@ -6,6 +6,118 @@ does **not** justify adding this hybrid to the public solvers. Keep screened
 and workloads below, not a rejection of the published algorithm or a claim
 about an optimized specialist implementation.
 
+The follow-up source audit below materially qualifies this recommendation:
+libslope uses the hybrid on correlated designs, and our earlier within-library
+controls found a benefit there. An opt-in numerical solver remains a reasonable
+future interface; the current allocation-heavy prototype has not demonstrated
+a repeatable runtime advantage, even on the independent controls.
+
+## What libslope actually does (source audit, 2026-10-26)
+
+The specialist reference is libslope, the C++ backend behind SLOPE.jl. This is
+the implementation we have measured, not a claim that a globally fastest solver
+has been established. The audit checked the previously benchmarked 6.5.2 source
+at `a9899cb` and release 6.5.4. Their hybrid loop and solver factory agree on the
+following behavior:
+
+1. The C++ `auto` selector chooses `hybrid`; it does not inspect predictor
+   correlations to choose PGD, FISTA or hybrid. The selector accepts an explicit
+   solver choice. Wrapper defaults or loss restrictions should be checked
+   separately when considering other likelihoods.
+2. Each outer hybrid call takes one **unaccelerated PGD** step with line search,
+   builds nonzero clusters, then performs **up to ten CD sweeps by default**.
+   `setHybridCdIterations` changes that number. Our pilot instead uses four.
+3. A nonfinite or increasing CD-sweep objective restores the state immediately
+   before that sweep and ends the current CD block. Earlier accepted sweeps
+   remain. The next outer call again uses PGD followed by CD. This is not a
+   permanent switch to APG and is not a correlation or stagnation detector.
+4. The surrounding path driver supplies warm starts, strong screening,
+   working-set repairs, and dual-gap/full-problem checks. These are separate
+   from the PG/CD schedule.
+
+Sources: [solver selection](https://github.com/jolars/libslope/blob/v6.5.4/src/slope/solvers/setup_solver.cpp#L19),
+[hybrid loop and rollback](https://github.com/jolars/libslope/blob/v6.5.4/include/slope/solvers/hybrid.h#L154),
+[default configuration](https://github.com/jolars/libslope/blob/v6.5.4/include/slope/slope.h#L1152),
+[path stopping and repair](https://github.com/jolars/libslope/blob/v6.5.4/include/slope/slope.h#L681).
+
+The mature implementation also differs from our prototype in relevant ways.
+It updates cluster membership/order incrementally within each CD block and
+searches rank thresholds locally from the current rank. It skips the zero
+cluster, specializes singleton updates, normally permutes the cluster traversal,
+and updates residuals incrementally only when coefficients change. Its sparse
+collapsed-column workspace tracks touched entries. It does still allocate and
+copy some vectors/matrices; the source does **not** justify calling it
+allocation-free or claiming that it caches every signed cluster column across
+sweeps. Our prototype repeatedly creates index sets, membership arrays and sorted
+complement magnitudes, and starts the threshold search at zero.
+See [cluster updates](https://github.com/jolars/libslope/blob/v6.5.4/src/slope/clusters.cpp#L104),
+[local threshold search](https://github.com/jolars/libslope/blob/v6.5.4/src/slope/solvers/slope_threshold.cpp#L18),
+and [CD implementation](https://github.com/jolars/libslope/blob/v6.5.4/include/slope/solvers/hybrid_cd.h#L545).
+
+### Evidence that the mature hybrid can help on correlated problems
+
+The earlier [first-order controls](../first_order/README.md) compare methods in
+the **same rebuilt libslope 6.5.2 binary**, with strong screening for both sides,
+`n=1000`, `p=2000`, linear/BH weights and a common independent gap target.
+These median paired **hybrid/PGD time ratios** are regenerated directly from the
+archived raw rows by `summarize.py`:
+
+| Design | Main: 36 paired timing blocks | Confirmation: 16 blocks | Hybrid faster blocks, main / confirmation |
+|:--|--:|--:|--:|
+| Independent, rho=0 | 1.111 | 1.119 | 10/36 / 4/16 |
+| Correlated, rho=.9 | 0.648 | 0.610 | 32/36 / 16/16 |
+
+All hybrid, screened PGD and screened FISTA requests in those controls were
+certified. Thus the mature hybrid reduced time relative to screened PGD by
+about 35–39% on the correlated cohort, while screened PGD was modestly faster
+in aggregate on the independent cohort. Against screened native FISTA, the
+correlated hybrid ratios were .260 main and .200 confirmation.
+
+This is positive evidence for the hybrid under correlation, with bounded
+workloads. It is not a comparison with today's shared screened APG engine:
+the historical APG comparator preceded that extraction. Nor does it tell us
+whether libslope passes the new rho=.99 fixtures: that head-to-head was not run.
+The historical library's outer-pass budget, which includes CD sweeps, is also
+different from our prototype's mixed PG-step/CD-sweep budget. We have not
+isolated which prototype/implementation choices cause the new failures.
+
+### Does our prototype help anywhere, and what does it allocate?
+
+Across the final main and confirmation cohorts, **147/160 paired paths** passed
+both checks for both methods. The hybrid was faster on **one of those 147**
+single timing observations and allocated more cumulative Julia bytes on
+**all 147**. The isolated timing win was seed 2, independent dense design,
+8 signals, stepped weights and a 12-level path: 1.395 ms hybrid versus 2.372 ms
+APG, with 3,683,232 versus 641,408 allocated bytes (5.74 times as much).
+It was not repeated as a timing block and is not an established useful regime.
+Held-out seeds did not reproduce a timing win.
+
+The full conditional ratio table below shows the scale of the allocation
+problem, including independent problems. For example, on certified main
+correlated dense paths, marginal median cumulative allocations were about
+2.09 GiB for the hybrid versus 3.33 MiB for APG. These are cumulative temporary
+allocation volumes over a path, **not** live workspace size or peak RSS.
+Our Julia counters do not measure libslope's C++ heap allocations, so no
+native-hybrid-versus-native-PGD allocation conclusion follows from those counters.
+Source inspection alone does not supply that missing measurement.
+
+### Decision about an opt-in solver
+
+An eventual `SLOPEHybrid` should be opt-in while APG remains the default. It
+need not win for every correlation level. A repeatable advantage on a useful
+workload, acceptable allocations, full certificates and reliable fallback would
+be sufficient justification to consider it. The present prototype does not
+supply that evidence: it reduces some matrix products but pays more overall
+runtime and allocations on almost every successful pair.
+
+The source audit motivates a revised implementation/evaluation rather than
+abandoning the hybrid idea: maintain cluster/rank buffers incrementally, reuse
+scratch, compare permuted traversal and the specialist's schedule, and detect
+finite slow progress so that a fallback can reserve work for APG. Such a
+fallback should use observed progress/cost, not an unvalidated correlation
+threshold. Compare the candidate, current screened APG and pinned libslope on
+the same fixtures and independently checked accuracy before promoting it.
+
 ## Accuracy and decision
 
 Both methods use the existing screening, reduced losses, working-set repairs,

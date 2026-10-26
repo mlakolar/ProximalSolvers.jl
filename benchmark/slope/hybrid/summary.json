@@ -95,6 +95,18 @@
           "products": 0.5795085870533657,
           "seconds": 9.677467548010506
         },
+        "observations_on_certified_pairs": {
+          "hybrid_allocation_wins": 0,
+          "hybrid_time_wins": 0,
+          "median_cumulative_allocation_mib": {
+            "apg": 0.6840057373046875,
+            "hybrid": 53.471778869628906
+          },
+          "median_path_ms": {
+            "apg": 1.548271,
+            "hybrid": 22.823020500000002
+          }
+        },
         "requested_pairs": 16,
         "rho": 0.0,
         "storage": "dense"
@@ -108,6 +120,18 @@
           "full_products": 0.8879598662207357,
           "products": 0.4727997080469558,
           "seconds": 16.09227797469651
+        },
+        "observations_on_certified_pairs": {
+          "hybrid_allocation_wins": 0,
+          "hybrid_time_wins": 0,
+          "median_cumulative_allocation_mib": {
+            "apg": 0.4350433349609375,
+            "hybrid": 41.13966369628906
+          },
+          "median_path_ms": {
+            "apg": 1.249229,
+            "hybrid": 20.288896
+          }
         },
         "requested_pairs": 16,
         "rho": 0.0,
@@ -123,6 +147,18 @@
           "products": 6.371955468556049,
           "seconds": 76.63605396436967
         },
+        "observations_on_certified_pairs": {
+          "hybrid_allocation_wins": 0,
+          "hybrid_time_wins": 0,
+          "median_cumulative_allocation_mib": {
+            "apg": 2.8582763671875,
+            "hybrid": 2533.978660583496
+          },
+          "median_path_ms": {
+            "apg": 15.020375000000001,
+            "hybrid": 1148.9571454999998
+          }
+        },
         "requested_pairs": 16,
         "rho": 0.99,
         "storage": "dense"
@@ -136,6 +172,18 @@
           "full_products": 0.7975067385444744,
           "products": 0.4297136418474426,
           "seconds": 11.629026295825595
+        },
+        "observations_on_certified_pairs": {
+          "hybrid_allocation_wins": 0,
+          "hybrid_time_wins": 0,
+          "median_cumulative_allocation_mib": {
+            "apg": 0.49607086181640625,
+            "hybrid": 48.51966094970703
+          },
+          "median_path_ms": {
+            "apg": 1.7091665,
+            "hybrid": 19.161084000000002
+          }
         },
         "requested_pairs": 16,
         "rho": 0.99,
@@ -357,6 +405,18 @@
           "products": 0.5895124868348239,
           "seconds": 14.961900215286976
         },
+        "observations_on_certified_pairs": {
+          "hybrid_allocation_wins": 0,
+          "hybrid_time_wins": 1,
+          "median_cumulative_allocation_mib": {
+            "apg": 0.7137069702148438,
+            "hybrid": 66.11776733398438
+          },
+          "median_path_ms": {
+            "apg": 2.1812704999999997,
+            "hybrid": 33.6382495
+          }
+        },
         "requested_pairs": 24,
         "rho": 0.0,
         "storage": "dense"
@@ -370,6 +430,18 @@
           "full_products": 0.8119607843137255,
           "products": 0.45534348668415536,
           "seconds": 15.264625126622963
+        },
+        "observations_on_certified_pairs": {
+          "hybrid_allocation_wins": 0,
+          "hybrid_time_wins": 0,
+          "median_cumulative_allocation_mib": {
+            "apg": 0.44539642333984375,
+            "hybrid": 40.21302032470703
+          },
+          "median_path_ms": {
+            "apg": 1.376271,
+            "hybrid": 19.446479500000002
+          }
         },
         "requested_pairs": 24,
         "rho": 0.0,
@@ -385,6 +457,18 @@
           "products": 5.626679869854294,
           "seconds": 51.14903463170529
         },
+        "observations_on_certified_pairs": {
+          "hybrid_allocation_wins": 0,
+          "hybrid_time_wins": 0,
+          "median_cumulative_allocation_mib": {
+            "apg": 3.334320068359375,
+            "hybrid": 2142.838088989258
+          },
+          "median_path_ms": {
+            "apg": 18.900042,
+            "hybrid": 1127.522041
+          }
+        },
         "requested_pairs": 24,
         "rho": 0.99,
         "storage": "dense"
@@ -398,6 +482,18 @@
           "full_products": 0.6877880184331797,
           "products": 0.4294874315262651,
           "seconds": 12.793095316631591
+        },
+        "observations_on_certified_pairs": {
+          "hybrid_allocation_wins": 0,
+          "hybrid_time_wins": 0,
+          "median_cumulative_allocation_mib": {
+            "apg": 0.45154571533203125,
+            "hybrid": 57.84455108642578
+          },
+          "median_path_ms": {
+            "apg": 1.8018955,
+            "hybrid": 25.0244795
+          }
         },
         "requested_pairs": 24,
         "rho": 0.99,
@@ -421,5 +517,74 @@
       }
     },
     "work_gate_pass": false
+  },
+  "specialist_controls": {
+    "cohorts": {
+      "confirmation": [
+        {
+          "hybrid_strong_over_reference": {
+            "native_fista_strong": {
+              "hybrid_time_wins": 10,
+              "median_time_ratio": 0.9697359542417425
+            },
+            "native_pgd_strong": {
+              "hybrid_time_wins": 4,
+              "median_time_ratio": 1.1191544674021308
+            }
+          },
+          "paired_timing_blocks": 16,
+          "rho": 0.0
+        },
+        {
+          "hybrid_strong_over_reference": {
+            "native_fista_strong": {
+              "hybrid_time_wins": 16,
+              "median_time_ratio": 0.2002995289908009
+            },
+            "native_pgd_strong": {
+              "hybrid_time_wins": 16,
+              "median_time_ratio": 0.6101553838677635
+            }
+          },
+          "paired_timing_blocks": 16,
+          "rho": 0.9
+        }
+      ],
+      "main": [
+        {
+          "hybrid_strong_over_reference": {
+            "native_fista_strong": {
+              "hybrid_time_wins": 25,
+              "median_time_ratio": 0.9557808152568128
+            },
+            "native_pgd_strong": {
+              "hybrid_time_wins": 10,
+              "median_time_ratio": 1.1114048035426636
+            }
+          },
+          "paired_timing_blocks": 36,
+          "rho": 0.0
+        },
+        {
+          "hybrid_strong_over_reference": {
+            "native_fista_strong": {
+              "hybrid_time_wins": 33,
+              "median_time_ratio": 0.25983765768026074
+            },
+            "native_pgd_strong": {
+              "hybrid_time_wins": 32,
+              "median_time_ratio": 0.6483854343971014
+            }
+          },
+          "paired_timing_blocks": 36,
+          "rho": 0.9
+        }
+      ]
+    },
+    "libslope_version": "6.5.2",
+    "n": 1000,
+    "note": "Historical within-build controls; not a comparison with the current screened APG engine.",
+    "p": 2000,
+    "source_commit": "a9899cbf3677ea63236d54dc18626ad3a5aeddc6"
   }
 }
