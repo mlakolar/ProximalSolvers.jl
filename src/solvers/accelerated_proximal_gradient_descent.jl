@@ -191,8 +191,8 @@ function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, method::AccPr
       upper = state.f_y + _dot(state.grad_f_y, state.xhat) + state.L / 2 * stepnorm2
       state.backtrack_steps += 1
       # slack guards against an endless loop from rounding error near the solution
-      _majorization_ok(state.model, state.z_y, state.z_x, state.f_y, state.f_x,
-                       upper, state.L, stepnorm2) && break
+      _majorization_ok(f, state.model, state.z_y, state.z_x, state.f_y, state.f_x,
+                       upper, state.L, stepnorm2, state.xhat) && break
       # A rounded zero step cannot repair an inconsistent image/value bound by
       # increasing L. In particular, do not let L overflow and turn Inf*0 into
       # NaN, after which the backtracking comparison would fail forever.

@@ -124,3 +124,17 @@ function _majorization_ok(model::_LSImage, zu, zw, fu, fw, upper, L, stepnorm2)
   rounding = 8 * eps(typeof(L)) * sqrt(abs(model.α)) * max(norm(zu), norm(zw))
   sqrt(remainder) <= sqrt(bound) + rounding
 end
+
+_majorization_ok(f, model, zu, zw, fu, fw, upper, L, stepnorm2, d) =
+  _majorization_ok(model, zu, zw, fu, fw, upper, L, stepnorm2)
+_majorization_ok(f::QuadraticFunction, model, zu, zw, fu, fw, upper, L, stepnorm2, d) =
+  _quadratic_majorization_ok(f.A, one(L), d, fw, L, stepnorm2)
+_majorization_ok(f::Scaled{<:QuadraticFunction}, model, zu, zw, fu, fw, upper, L, stepnorm2, d) =
+  _quadratic_majorization_ok(f.f.A, f.α, d, fw, L, stepnorm2)
+
+function _quadratic_majorization_ok(A, scale, d, fw, L, stepnorm2)
+  isfinite(fw) || return false
+  remainder, bound = scale * dot(d, A, d), L * stepnorm2
+  isfinite(remainder) && isfinite(bound) &&
+    remainder <= bound + 8 * eps(typeof(L)) * max(abs(remainder), bound)
+end

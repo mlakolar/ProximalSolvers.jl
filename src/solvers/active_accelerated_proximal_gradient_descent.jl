@@ -197,7 +197,8 @@ function solve!(
       @printf "%5d   %6d   %6d   %14e\n" outer_iterations length(S) _num_entries(x, violators) max_violation
     end
     xS = T[x[i] for i in S]
-    res = solve!(xS, restrict(f, S), restrict(g, S), inner_method, options)
+    res = _active_inner_solve!(xS, restrict(f, S), restrict(g, S), inner_method,
+                               options, options.gradtol * stationarity_scale)
     moved = false
     for (j, i) in enumerate(S)
       moved |= x[i] != xS[j]
@@ -208,6 +209,29 @@ function solve!(
     solved = converged(res)
     inner_converged &= solved
   end
+end
+
+# Keep acceleration state when a change rule would stop before stationarity.
+# Certificate work occurs only at a proposed stop and is counted in the inner
+# result. A requested dual gap retains its existing independent stopping rule.
+function _active_inner_solve!(x, f, g, method, options, threshold)
+  issmooth(f) && isproximable(g) || throw(ArgumentError("the restricted active-set problem needs a smooth loss and proximable penalty"))
+  t0 = time()
+  state = initial_state(method, options, f, g, x)
+  gapev = options.gaptol > 0 ? _gapevaluator(f, g, x) : nothing
+  gapev === nothing || return _solve_gradient!(state, f, g, method, options, gapev, t0)
+  gradient, point = similar(x), similar(x)
+  certificate = function (st)
+    value_and_gradient!(gradient, f, st.x)
+    st.f_calls += 1
+    st.grad_calls += 1
+    @. point = st.x - gradient
+    prox!(gradient, g, point, one(eltype(x)))
+    st.prox_calls += 1
+    residual = _maxabs_diff(st.x, gradient)
+    isfinite(residual) && residual <= threshold
+  end
+  _solve_gradient!(state, f, g, method, options, nothing, t0; certificate)
 end
 
 # a dense x is converted to an iterate and overwritten with the solution: an

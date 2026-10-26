@@ -186,8 +186,8 @@ function _prox_grad_step!(w, grad, f, g, u, state::MonotoneAccProxGradDescentSta
       upper = f_u + _dot(grad, state.xhat) + state.L / 2 * stepnorm2
       state.backtrack_steps += 1
       # slack guards against an endless loop from rounding error near the solution
-      _majorization_ok(state.model, image_u, image_w, f_u, f_w, upper,
-                       state.L, stepnorm2) && return f_w, T(g_w)
+      _majorization_ok(f, state.model, image_u, image_w, f_u, f_w, upper,
+                       state.L, stepnorm2, state.xhat) && return f_w, T(g_w)
       state.L = LineSearches.next_curvature(state.L, method.β)
     end
 end

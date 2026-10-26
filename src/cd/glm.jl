@@ -598,13 +598,21 @@ end
 # stationarity. This check uses the original GLM gradient, never the IRLS model.
 function _newton_stationary!(grad, m::GLMModel{T}, g, x, candidates, tol) where {T}
   candidates === nothing ? gradient!(grad, m, x) : _partial_gradient!(grad, m, x, candidates)
-  threshold = T(tol) * max(one(T), norm(x, Inf))
+  # tol controls a change in the objective, which is second order near a
+  # stationary point. Use its square root for this additional first-order
+  # guard; demanding tol itself can be below attainable gradient accuracy.
+  threshold = sqrt(T(tol)) * max(one(T), norm(x, Inf))
   for j in (candidates === nothing ? eachindex(x) : candidates)
     r = abs(x[j] - prox_entry(g, x[j] - grad[j], j, one(T)))
     isfinite(r) && r <= threshold || return false
   end
   if m.intercept
-    score = m.s * sum(_obsweight(m.w, i, T) * T(ProximalBase.deriv(m.loss, m.η[i], m.y[i])) for i in eachindex(m.η))
+    score = zero(T)
+    for i in eachindex(m.η)
+      wi = _obsweight(m.w, i, T)
+      iszero(wi) || (score += wi * T(ProximalBase.deriv(m.loss, m.η[i], m.y[i])))
+    end
+    score *= m.s
     isfinite(score) && abs(score) <= threshold || return false
   end
   true

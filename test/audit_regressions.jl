@@ -67,7 +67,7 @@ end
                                   SeparableSum(NormL1(0.2), NormL1(0.2)), ADMMSolver(); u)
   @test_throws ArgumentError ADMMSolver(abstol = Inf)
   @test_throws ArgumentError ADMMSolver(reltol = -1)
-  @test_throws ArgumentError ADMMSolver(ρ = Inf)
+  @test_throws ErrorException ADMMSolver(ρ = Inf)
 end
 
 @testset "active-set success needs a full residual" begin

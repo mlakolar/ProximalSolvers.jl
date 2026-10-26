@@ -217,11 +217,4 @@ opt = ProximalOptions(; ftol = 1e-12, xtol = 1e-12, gradtol = 1e-10, maxiter = 5
 
 end
 
-# timing comparison, printed but not tested
-x_full, x = zeros(p), SparseIterate(p)
-t_full = @elapsed solve!(x_full, f, penalties.lasso, AccProxGradDescent(), opt)
-t_active = @elapsed solve!(x, f, penalties.lasso, ActiveAccProxGradDescent(), opt)
-println("  lasso with n = $n, p = $p: AccProxGradDescent $(round(t_full; sigdigits = 3)) s, ",
-        "ActiveAccProxGradDescent $(round(t_active; sigdigits = 3)) s")
-
 end
