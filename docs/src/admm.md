@@ -38,9 +38,13 @@ u^{k+1} &= u^k + \hat x^{k+1} - z^{k+1}.
 The ``x``-update minimizes ``f(x) + \frac{\rho}{2}\|x - z^k + u^k\|^2``, which
 is the proximal operator of ``f`` with step ``1/\rho``, and the ``z``-update
 does the same for ``g``. With ``\alpha = 1`` this is plain ADMM; values between
-1.5 and 1.8 often converge faster. For closed, proper, convex ``f`` and ``g``
-and a problem with a solution, the iterates converge to a minimizer for every
+1.5 and 1.8 are common choices; their effect depends on the problem. For closed,
+proper, convex ``f`` and ``g`` whose split Lagrangian has a saddle point,
+with exact proximal updates the iterates converge to a minimizer for every
 ``\rho > 0`` and ``\alpha \in (0, 2)`` (Eckstein and Bertsekas, 1992).
+The saddle-point condition includes dual attainment and strong duality;
+existence of a primal solution alone is not the stated convergence hypothesis
+(Boyd et al., 2011, §3.2).
 
 The solver starts from ``z^0 = x``, the given starting point, and ``u^0 = 0``
 or a given ``u``. It returns ``z``, which lies in the domain of ``g``: for the

@@ -579,8 +579,14 @@ function _extrapolate!(a::_Anderson{T}, x, m, g, full::Bool) where {T}
   a
 end
 
-_warn_not_converged(st::_CDState, s::CDSolver) =
-  st.converged || @warn "coordinate descent did not converge after $(st.passes) passes (maxpasses = $(s.maxpasses), last change $(round(st.maxchange; sigdigits = 3)), tolerance $(round(st.tolerance; sigdigits = 3))); a small change alone may not certify this model."
+function _warn_not_converged(st::_CDState, s::CDSolver)
+  st.converged && return
+  if st.passes >= s.maxpasses
+    @warn "coordinate descent did not converge in maxpasses = $(s.maxpasses) passes (last change $(round(st.maxchange; sigdigits = 3)), tolerance $(round(st.tolerance; sigdigits = 3)))."
+  else
+    @warn "coordinate descent did not converge after $(st.passes) passes (maxpasses = $(s.maxpasses), last change $(round(st.maxchange; sigdigits = 3)), tolerance $(round(st.tolerance; sigdigits = 3))); a small change alone may not certify this model."
+  end
+end
 
 """
     solve!(x, f, g, method::CDSolver)

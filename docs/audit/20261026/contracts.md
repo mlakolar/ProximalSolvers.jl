@@ -33,3 +33,13 @@ options explicitly check call limits after completed iterations. Zero means no
 call limit; ProximalOptions still requires maxiter greater than one, while
 CDSolver supports zero passes. A callback/limit can stop an accurate point, so the
 returned convergence flag is evaluated at that point under its selected rule.
+
+## External theorem check
+
+The ADMM hypothesis was checked against Boyd et al. (2011), §3.2,
+Assumptions 1–2 (printed pp. 15–16), and over-relaxation against §3.4.3
+(printed p. 21), at the [author-hosted paper](https://web.stanford.edu/~boyd/papers/pdf/admm_distr_stats.pdf),
+DOI 10.1561/2200000016, accessed 2026-10-26. This was a statement/hypothesis
+check, not a new proof audit of the cited literature. The manual now requires
+a saddle point and exact proximal updates. A primal solution alone does not
+supply the paper's dual-attainment hypothesis.

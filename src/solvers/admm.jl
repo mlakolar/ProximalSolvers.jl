@@ -18,7 +18,10 @@ Multipliers*, 2011). It splits `x = z` and iterates
     u ← u + α x + (1 - α) z_previous - z
 
 `ρ > 0` is the augmented Lagrangian parameter and `α ∈ (0, 2)` the
-over-relaxation (`α = 1` is plain ADMM; 1.5 to 1.8 usually converges faster).
+over-relaxation (`α = 1` is plain ADMM; 1.5 to 1.8 are common choices).
+The usual convergence result requires closed proper convex functions, exact
+proximal updates and a saddle point of the split Lagrangian. A successful
+residual test is not a general convergence guarantee for nonconvex functions.
 It stops when the primal residual `‖x - z‖` is below `√n abstol + reltol ⋅
 max(‖x‖, ‖z‖)` and the dual residual `ρ‖z - z_previous‖` below `√n abstol_dual
 + reltol ⋅ ρ‖u‖` (§3.3 of the paper). With `adaptive`, `ρ` balances the two
