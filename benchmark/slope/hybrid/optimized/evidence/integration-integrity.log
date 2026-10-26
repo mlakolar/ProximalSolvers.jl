@@ -1,0 +1,12 @@
+Validated 1980 requests / 19437 returned levels; 54 failed or internally flagged requests retained.
+| Case | Solver | none / baseline median [Q1, Q3] | Diagonal / scalar median | Diagonal iterations | Scalar iterations | Scalar gap |
+|---|---|---:|---:|---:|---:|---:|
+| ls-well | pgd | 0.979 [0.955, 1.003] | 0.9123 | 540 | 600 | 9.77e-06 |
+| ls-well | apg | 0.979 [0.960, 0.987] | 1.1297 | 100 | 90 | 5.64e-06 |
+| ls-scaled | pgd | 0.965 [0.958, 0.976] | 0.0947 | 560 | 6000 | 0.976 |
+| ls-scaled | apg | 0.970 [0.958, 0.980] | 0.0190 | 100 | 6000 | 0.719 |
+| logistic-scaled | pgd | 0.984 [0.978, 0.986] | 0.0986 | 590 | 6000 | 0.94 |
+| logistic-scaled | apg | 0.987 [0.982, 0.993] | 0.0162 | 90 | 6000 | 0.471 |
+
+Scaled scalar runs at the iteration cap are lower bounds on time to the requested gap, not equal-accuracy speedups.
+Naming declarations checked in 1 package(s).

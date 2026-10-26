@@ -143,3 +143,36 @@ available with deprecation warnings. Supplying both spellings of a keyword
 is an error. These changes preserve option meanings and positional
 constructor ordering. Internal solver-state fields now use `delta_x` and
 `max_residual`.
+
+## Diagonal preconditioning
+
+`ProximalGradientDescent(preconditioner = :diagonal)` and
+`AccProxGradDescent(preconditioner = :diagonal)` use the coordinate curvatures
+from `coordinate_lipschitz!(D, f)`. This can help when design columns have very
+different scales. The default `:none` retains scalar steps.
+
+```julia
+x = zeros(size(X, 2))
+r = solve!(x, LeastSquaresLoss(y, X), NormL1(0.1),
+           AccProxGradDescent(preconditioner = :diagonal),
+           ProximalOptions(gaptol = 1e-6, maxiter = 5000))
+```
+
+Each trial uses steps `1 ./ (L .* D)`. Backtracking finds the scalar `1/L`
+in the norm `sqrt(sum(D .* abs2.(dx)))`; coordinate curvatures alone do not
+majorize the loss. Momentum and objective restarts retain their usual form.
+The gradient residual and its normalizer use the transformed coordinates
+`u = sqrt.(D) .* x`, as do iterate stopping tests and reported iterate residuals.
+Duality gaps are evaluated on the original loss and penalty without modification.
+For PGD, `ls.Lexact`, if supplied, must bound curvature in this metric.
+
+Zero curvatures receive unit metric entries, so flat coordinates still have
+positive steps. Nonfinite or negative curvatures raise `ArgumentError`, as does
+a loss without coordinate-curvature support. The penalty must implement
+array-step proximal operators, as separable penalties, group norms, the simplex
+and the ℓ1 ball do. Group ℓ2 and ℓ∞ norms use a scalar optimality equation
+within each group, since ProximalBase's group-step API assumes a constant
+metric inside each group. Tuple blocks, `SymmetricSparseIterate`, and combining PGD's
+`normalized = true` with diagonal preconditioning are unsupported.
+`SolverWorkspace` computes the metric once and reuses it; its loss data must
+remain fixed, including across `reinit!` calls.

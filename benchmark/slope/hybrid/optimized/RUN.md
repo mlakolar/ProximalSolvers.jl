@@ -48,6 +48,7 @@ The allocation ceiling was 8 CPUs, 16 GB and 7,200 active seconds across retries
 | 13456165 | Uniform tighter native RSS followup | 2 CPUs, 8 GB, 5 min | 44 | Four additional native RSS fits at 1e-10; two still missed complete-path accuracy within the cap. Original and followup results retained separately. |
 | 13456194 | Final aggregation and integrity | 1 CPU, 4 GB, 5 min | 5 | Passed: both RSS cohorts, primary matched summary, report and all historical CI benchmark integrity checks. |
 | 13456227 | Explicit production-kernel edge checks | 2 CPUs, 8 GB, 3 min | 21 | Passed 896 focused assertions on each Julia version, adding exact zero-curvature and initially tied PG splitting checks; solver unchanged. |
+| 13456300 | Integration with updated master/APG state | 2 CPUs, 16 GB, 15 min | 540 | Passed merged full suite: 18,533 assertions on Julia 1.13.2; 896 focused checks on Julia 1.10.12; eight representative fits reproduced saved coefficients exactly. |
 
 The final focused checks cover independent scalar minimization oracles,
 objective decrease, residual consistency, membership and ranks through repeated
@@ -66,10 +67,31 @@ failed targets remain visible. Both calibrations and their adverse outputs are r
 chosen on seed-1 canaries before the main and confirmation run. There was no
 per-case tolerance adjustment or removal of difficult cases.
 
-Total allocation-active time was 2,117 seconds (35 minutes 17 seconds), including
+Total allocation-active time was 2,657 seconds (44 minutes 17 seconds), including
 all failed attempts. All task allocations finished. The source and dependency
 archives, native libraries and serialized RSS solutions remain at the remote run
 root. Compact raw reporting inputs, environment manifests, logs, source hashes
 and scheduler receipts are checked in under `evidence/`. No original adverse
 results were removed. The full suite passed before the eight additional focused
 assertions; those final focused tests passed separately on both Julia versions.
+
+## Integration with updated master
+
+PR #98 merged diagonal preconditioning while the hybrid study was running.
+The branch integrates master `fbb6d93b187c7cab30a61a2762b9838ae3df3c68` and
+preserves both sets of CI evidence checks. APG now carries a metric field; its
+default `nothing` dispatch delegates to the original scalar operations. The
+hybrid's numerical kernel required no adjustment.
+
+Job `13456300` tested this integration with the full Julia 1.13.2 suite (18,533
+assertions), the final Julia 1.10.12 focused suite (896 assertions), naming and
+both new benchmark integrity checks. It also replayed the four RSS workloads
+with APG and hybrid: all eight fits met the common targets and reproduced every
+saved coefficient exactly. These are representative integration replays. The
+220-workload timing/allocation study remains tied to its original measured
+snapshot; it was not rerun after this merge.
+
+The integration source archive is `source-integration.tar`, SHA-256
+`ae66c9df58d12033107193352819ce758680ac00ca2dd5a12ffec4e769ad5dd5`.
+The source archive, manifests, Slurm/worker receipts and complete logs identify
+the tested integration independently of later reporting edits.

@@ -1,0 +1,15 @@
+[deps]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+ProximalBase = "0a755509-c5b1-5d6f-9b24-59bcda3c37a3"
+ProximalSolvers = "fc4971f5-6616-4709-9bfc-89a819252f6b"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[sources]
+ProximalBase = {path = "../ProximalBase.jl"}
+ProximalSolvers = {path = "../integration-source"}

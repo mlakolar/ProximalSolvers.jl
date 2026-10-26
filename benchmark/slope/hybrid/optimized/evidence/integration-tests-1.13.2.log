@@ -1,0 +1,539 @@
+┌ Warning: coordinate descent did not converge in maxpasses = 50 passes (largest change of a coordinate in the last pass 0.00097 > tolerance 2.86e-7); the solution may be inaccurate.
+└ @ ProximalSolvers ~/juliaPkg/runs/20261026-ps95-hybrid-v2/integration-source/src/cd/solver.jl:580
+┌ Warning: coordinate descent did not converge in maxpasses = 1 passes (largest change of a coordinate in the last pass 1.42 > tolerance 1.0e-7); the solution may be inaccurate.
+└ @ ProximalSolvers ~/juliaPkg/runs/20261026-ps95-hybrid-v2/integration-source/src/cd/solver.jl:580
+┌ Warning: coordinate descent did not converge in maxpasses = 1 passes (largest change of a coordinate in the last pass 1.94 > tolerance 1.0e-11); the solution may be inaccurate.
+└ @ ProximalSolvers ~/juliaPkg/runs/20261026-ps95-hybrid-v2/integration-source/src/cd/solver.jl:580
+┌ Warning: coordinate descent did not converge in maxpasses = 1 passes (largest change of a coordinate in the last pass 1.31 > tolerance 1.0e-7); the solution may be inaccurate.
+└ @ ProximalSolvers ~/juliaPkg/runs/20261026-ps95-hybrid-v2/integration-source/src/cd/solver.jl:580
+┌ Warning: coordinate descent did not converge in maxpasses = 1 passes (largest change of a coordinate in the last pass 1.61 > tolerance 1.0e-11); the solution may be inaccurate.
+└ @ ProximalSolvers ~/juliaPkg/runs/20261026-ps95-hybrid-v2/integration-source/src/cd/solver.jl:580
+* running naming.jl ...
+Test Summary:                   | Pass  Total  Time
+option naming and compatibility |   12     12  1.4s
+done (took 37.872437719 seconds).
+* running workspaces.jl ...
+Test Summary:                               | Pass  Total   Time
+gradient workspaces reset and reuse buffers |  276    276  11.6s
+Test Summary:                             | Pass  Total  Time
+tuple, matrix and generic-loss workspaces |   36     36  4.4s
+Test Summary:                                     | Pass  Total  Time
+tuple source aliases are rejected before mutation |    4      4  0.2s
+Test Summary:                                     | Pass  Total  Time
+grouped gradient workspaces and nested partitions |   54     54  3.5s
+Test Summary:                              | Pass  Total  Time
+gap and callback configuration is retained |   27     27  2.5s
+Test Summary:                                               | Pass  Total  Time
+resizing a shared iterate cannot invalidate scratch storage |   10     10  1.6s
+Test Summary:                | Pass  Total  Time
+coordinate-descent workspace |   36     36  0.6s
+Test Summary:                                  | Pass  Total  Time
+coordinate workspace resets gap-safe screening |   12     12  0.2s
+Test Summary:                  | Pass  Total  Time
+ADMM cold and dual warm starts |   16     16  0.8s
+Test Summary:                                          | Pass  Total  Time
+repeated runs avoid dimension-sized solver allocations |    6      6  1.1s
+done (took 29.210263708 seconds).
+* running prox_solvers.jl ...
+Test Summary:      | Pass  Total  Time
+callable callbacks |    4      4  0.2s
+Test Summary:      | Pass  Total  Time
+callable callbacks |    4      4  0.0s
+Test Summary:      | Pass  Total  Time
+callable callbacks |    4      4  0.2s
+Test Summary:      | Pass  Total  Time
+callable callbacks |    4      4  0.0s
+Test Summary:      | Pass  Total  Time
+callable callbacks |    4      4  0.2s
+Test Summary:      | Pass  Total  Time
+callable callbacks |    4      4  0.0s
+Test Summary:             | Pass  Total  Time
+Proximal Gradient Descent |   11     11  3.1s
+Test Summary:                         | Pass  Total  Time
+Accelerated Proximal Gradient Descent |   11     11  1.0s
+Test Summary:                                  | Pass  Total  Time
+Monotone Accelerated Proximal Gradient Descent |   11     11  1.3s
+Test Summary:                                     | Pass  Total  Time
+gradient residual stops Proximal Gradient Descent |    5      5  0.0s
+Test Summary:                                                 | Pass  Total  Time
+gradient residual stops Accelerated Proximal Gradient Descent |    5      5  0.0s
+Test Summary:                                                          | Pass  Total  Time
+gradient residual stops Monotone Accelerated Proximal Gradient Descent |    5      5  0.0s
+Test Summary:                           | Pass  Total  Time
+SparseIterate Proximal Gradient Descent |   10     10  1.0s
+Test Summary:                                       | Pass  Total  Time
+SparseIterate Accelerated Proximal Gradient Descent |   10     10  0.8s
+Test Summary:                                                | Pass  Total  Time
+SparseIterate Monotone Accelerated Proximal Gradient Descent |   10     10  0.8s
+Test Summary:                     | Pass  Total  Time
+Float32 Proximal Gradient Descent |    8      8  2.0s
+Test Summary:                                 | Pass  Total  Time
+Float32 Accelerated Proximal Gradient Descent |    8      8  0.6s
+Test Summary:                                          | Pass  Total  Time
+Float32 Monotone Accelerated Proximal Gradient Descent |    8      8  0.8s
+Test Summary:                                            | Pass  Total  Time
+Float32 Active-Set Accelerated Proximal Gradient Descent |    8      8  1.8s
+done (took 15.093803305 seconds).
+* running nonconvex.jl ...
+Test Summary:                                          | Pass  Total  Time
+iterative hard thresholding: Proximal Gradient Descent |    3      3  1.1s
+Test Summary:                                                      | Pass  Total  Time
+iterative hard thresholding: Accelerated Proximal Gradient Descent |    3      3  0.2s
+Test Summary:                                                               | Pass  Total  Time
+iterative hard thresholding: Monotone Accelerated Proximal Gradient Descent |    3      3  0.3s
+Test Summary:                                              | Pass  Total  Time
+IHT on a SymmetricSparseIterate: Proximal Gradient Descent |   21     21  2.2s
+Test Summary:                                                          | Pass  Total  Time
+IHT on a SymmetricSparseIterate: Accelerated Proximal Gradient Descent |   21     21  0.4s
+Test Summary:                                                                   | Pass  Total  Time
+IHT on a SymmetricSparseIterate: Monotone Accelerated Proximal Gradient Descent |   21     21  0.4s
+Test Summary:                                                          | Pass  Total  Time
+IHT with LogDetLoss stays positive definite: Proximal Gradient Descent |    4      4  0.5s
+Test Summary:                                                                      | Pass  Total  Time
+IHT with LogDetLoss stays positive definite: Accelerated Proximal Gradient Descent |    4      4  0.1s
+Test Summary:                                                                               | Pass  Total  Time
+IHT with LogDetLoss stays positive definite: Monotone Accelerated Proximal Gradient Descent |    4      4  0.2s
+Test Summary:              | Pass  Total  Time
+MonotoneAccProxGradDescent |    8      8  0.0s
+Test Summary:        | Pass  Total  Time
+normalized IHT steps |    4      4  0.1s
+Test Summary: | Pass  Total  Time
+debiasing     |    7      7  1.0s
+done (took 6.706491164 seconds).
+* running nonconvex_blocks.jl ...
+Test Summary:                                | Pass  Total  Time
+the coupled losses have both block gradients |    2      2  1.2s
+Test Summary:                                      | Pass  Total  Time
+latent log-det IHT rejects points outside the cone | 1228   1228  1.4s
+Test Summary:                            | Pass  Total  Time
+latent D-trace IHT on mixed block shapes |  820    820  0.8s
+done (took 3.578312666 seconds).
+* running linesearch.jl ...
+Test Summary:                          | Pass  Total  Time
+solver reuse Proximal Gradient Descent |    6      6  0.6s
+Test Summary:                                      | Pass  Total  Time
+solver reuse Accelerated Proximal Gradient Descent |    6      6  0.1s
+Test Summary:                                             | Pass  Total  Time
+TFOCS backtracking switches to gradients near convergence |    6      6  0.3s
+Test Summary:                                           | Pass  Total  Time
+gradient is current when a retried step does not move x |    3      3  0.0s
+Test Summary:                                  | Pass  Total  Time
+the graphical lasso: trial points off the cone |   35     35  2.0s
+done (took 3.362269429 seconds).
+* running diagonal_preconditioner.jl ...
+Test Summary:                                   | Pass  Total  Time
+diagonal metric matches a change of coordinates |  140    140  4.2s
+Test Summary:                            | Pass  Total  Time
+scaled designs, gaps and reusable metric |   16     16  1.0s
+Test Summary:                 | Pass  Total  Time
+penalties and matrix iterates |   30     30  9.2s
+Test Summary:                  | Pass  Total  Time
+validation and scalar defaults |   15     15  3.0s
+Test Summary:                       | Pass  Total  Time
+lazy coordinate curvature contracts |   26     26  0.7s
+done (took 18.837737557 seconds).
+* running image_models.jl ...
+Test Summary:                                    | Pass  Total  Time
+products per iteration Proximal Gradient Descent |  203    203  1.2s
+Test Summary:                                                | Pass  Total  Time
+products per iteration Accelerated Proximal Gradient Descent |  203    203  0.2s
+Test Summary:                                                         | Pass  Total  Time
+products per iteration Monotone Accelerated Proximal Gradient Descent |  203    203  0.3s
+Test Summary:                                                           | Pass  Total  Time
+the iterates agree with those without a model Proximal Gradient Descent |   15     15  4.4s
+Test Summary:                                                                       | Pass  Total  Time
+the iterates agree with those without a model Accelerated Proximal Gradient Descent |   15     15  1.4s
+Test Summary:                                                                                | Pass  Total  Time
+the iterates agree with those without a model Monotone Accelerated Proximal Gradient Descent |   15     15  1.9s
+Test Summary:                       | Pass  Total  Time
+solutions Proximal Gradient Descent |    3      3  0.1s
+Test Summary:                                   | Pass  Total  Time
+solutions Accelerated Proximal Gradient Descent |    3      3  0.1s
+Test Summary:                                            | Pass  Total  Time
+solutions Monotone Accelerated Proximal Gradient Descent |    3      3  0.1s
+Test Summary:                                              | Pass  Total  Time
+solutions Active-Set Accelerated Proximal Gradient Descent |    3      3  0.3s
+Test Summary:                                                          | Pass  Total  Time
+SparseIterate, Float32 and several responses Proximal Gradient Descent |    7      7  1.6s
+Test Summary:                                                                      | Pass  Total  Time
+SparseIterate, Float32 and several responses Accelerated Proximal Gradient Descent |    7      7  0.7s
+Test Summary:                                                                               | Pass  Total  Time
+SparseIterate, Float32 and several responses Monotone Accelerated Proximal Gradient Descent |    7      7  0.9s
+Test Summary:                                          | Pass  Total  Time
+no allocations per iteration Proximal Gradient Descent |    2      2  0.0s
+Test Summary:                                                      | Pass  Total  Time
+no allocations per iteration Accelerated Proximal Gradient Descent |    2      2  0.0s
+Test Summary:                                                               | Pass  Total  Time
+no allocations per iteration Monotone Accelerated Proximal Gradient Descent |    2      2  0.0s
+Test Summary:                                                 | Pass  Total  Time
+monotone images follow both candidates and the accepted point | 1446   1446  0.7s
+Test Summary:                          | Pass  Total  Time
+monotone cache reset reuses the images |   17     17  0.0s
+done (took 14.80136851 seconds).
+* running apg_numerical_failure.jl ...
+Test Summary:                                        | Pass  Total  Time
+APG reports cancellation-induced line search failure |    3      3  2.9s
+done (took 3.178422275 seconds).
+* running call_limits.jl ...
+Test Summary:                          | Pass  Total  Time
+exact counts Proximal Gradient Descent |   17     17  0.6s
+Test Summary:                                      | Pass  Total  Time
+exact counts Accelerated Proximal Gradient Descent |   17     17  0.4s
+Test Summary:                          | Pass  Total  Time
+exact counts in both line search modes |  103    103  0.1s
+Test Summary:                                 | Pass  Total  Time
+f_calls_limit stops Proximal Gradient Descent |    7      7  0.2s
+Test Summary:                                    | Pass  Total  Time
+grad_calls_limit stops Proximal Gradient Descent |    7      7  0.2s
+Test Summary:                                    | Pass  Total  Time
+prox_calls_limit stops Proximal Gradient Descent |    7      7  0.2s
+Test Summary:                                             | Pass  Total  Time
+f_calls_limit stops Accelerated Proximal Gradient Descent |    7      7  0.2s
+Test Summary:                                                | Pass  Total  Time
+grad_calls_limit stops Accelerated Proximal Gradient Descent |    7      7  0.2s
+Test Summary:                                                | Pass  Total  Time
+prox_calls_limit stops Accelerated Proximal Gradient Descent |    7      7  0.2s
+Test Summary: | Pass  Total  Time
+ADMM          |   15     15  0.4s
+Test Summary:                         | Pass  Total  Time
+zero limits Proximal Gradient Descent |    6      6  0.0s
+Test Summary:                                     | Pass  Total  Time
+zero limits Accelerated Proximal Gradient Descent |    6      6  0.0s
+Test Summary:    | Pass  Total  Time
+zero limits ADMM |    6      6  0.0s
+done (took 3.247232458 seconds).
+* running admm.jl ...
+Test Summary: | Pass  Total  Time
+ADMM          |   42     42  3.9s
+done (took 3.964820095 seconds).
+* running primal_dual.jl ...
+Test Summary: | Pass  Total   Time
+Condat–Vũ     |  125    125  16.2s
+done (took 16.301770274 seconds).
+* running product_space.jl ...
+Test Summary:                                               | Pass  Total  Time
+a tuple of one array is the array Proximal Gradient Descent |    5      5  0.5s
+Test Summary:                                                           | Pass  Total  Time
+a tuple of one array is the array Accelerated Proximal Gradient Descent |    5      5  0.3s
+Test Summary:                                                                    | Pass  Total  Time
+a tuple of one array is the array Monotone Accelerated Proximal Gradient Descent |    5      5  0.3s
+Test Summary:                                               | Pass  Total  Time
+a tuple of one array is the array Proximal Gradient Descent |    5      5  0.0s
+Test Summary:                                               | Pass  Total  Time
+normalized steps use the support of the whole product space |   20     20  1.9s
+Test Summary:                           | Pass  Total  Time
+a tuple of one array is the array: ADMM |    6      6  0.6s
+Test Summary:                                          | Pass  Total  Time
+two separate problems as one Proximal Gradient Descent |    3      3  0.2s
+Test Summary:                                                      | Pass  Total  Time
+two separate problems as one Accelerated Proximal Gradient Descent |    3      3  0.2s
+Test Summary:                                                               | Pass  Total  Time
+two separate problems as one Monotone Accelerated Proximal Gradient Descent |    3      3  0.3s
+Test Summary:                     | Pass  Total  Time
+two separate problems as one ADMM |    3      3  0.2s
+Test Summary:                            | Pass  Total  Time
+the fused graphical lasso for two groups |   10     10  1.5s
+Test Summary:                                       | Pass  Total  Time
+a tuple of one array is the array: ADMM with a norm |    2      2  0.4s
+Test Summary:  | Pass  Total  Time
+Float32 blocks |    4      4  2.1s
+Test Summary:                | Pass  Total  Time
+no allocations per iteration |    6      6  0.5s
+Test Summary: | Pass  Total  Time
+errors        |    3      3  0.3s
+done (took 9.996382055 seconds).
+* running active_set.jl ...
+Test Summary:            | Pass  Total  Time
+ActiveAccProxGradDescent |  123    123  3.4s
+  lasso with n = 100, p = 2000: AccProxGradDescent 0.0443 s, ActiveAccProxGradDescent 0.000313 s
+done (took 3.870196487 seconds).
+* running slope.jl ...
+Test Summary:                       | Pass  Total  Time
+Screened SLOPE APG numerical engine |   53     53  5.0s
+done (took 5.030663969 seconds).
+* running slope_hybrid.jl ...
+Test Summary:                | Pass  Total  Time
+Reusable SLOPE cluster state |  853    853  2.6s
+Test Summary:                                  | Pass  Total  Time
+Opt-in SLOPE hybrid and slow-progress fallback |   43     43  4.9s
+done (took 8.40364098 seconds).
+* running slope_hybrid_evaluation.jl ...
+Test Summary:                     | Pass  Total  Time
+SLOPE scalar cluster minimization |  384    384  0.1s
+Test Summary:                                       | Pass  Total  Time
+Hybrid paths, representations, repairs and fallback |   30     30  3.3s
+Test Summary:             | Pass  Total  Time
+SLOPE sweep and splitting |   12     12  2.0s
+done (took 5.529226916 seconds).
+* running group_lasso.jl ...
+Test Summary: | Pass  Total  Time
+group lasso   |   70     70  5.3s
+done (took 5.633760358 seconds).
+* running multiresponse.jl ...
+Test Summary:                | Pass  Total  Time
+multi-response least squares |   19     19  3.7s
+done (took 3.777526985 seconds).
+* running low_rank.jl ...
+Test Summary:                      | Pass  Total  Time
+low-rank multi-response regression |   19     19  0.8s
+done (took 1.084982575 seconds).
+* running coordinate_descent.jl ...
+Test Summary: | Pass  Total  Time
+closed forms  |    7      7  0.2s
+Test Summary:          | Pass  Total   Time
+lasso and its variants |   78     78  21.0s
+Test Summary:                     | Pass  Total  Time
+warm starts from nonzero iterates |    3      3  1.3s
+Test Summary: | Pass  Total  Time
+group lasso   |    5      5  2.1s
+Test Summary: | Pass  Total  Time
+KronQuadratic |   19     19  6.7s
+Test Summary:                | Pass  Total  Time
+paths, continuation and λmax |  312    312  5.5s
+Test Summary:     | Pass  Total  Time
+square-root lasso |   15     15  1.1s
+Test Summary:              | Pass  Total  Time
+square root of a quadratic |   22     22  0.8s
+Test Summary: | Pass  Total  Time
+reweighting   |    4      4  0.3s
+Test Summary: | Pass  Total  Time
+refit         |    7      7  0.8s
+Test Summary:               | Pass  Total  Time
+scales of the stopping rule |   12     12  0.6s
+Test Summary:                     | Pass  Total   Time
+more losses, iterates and drivers |   33     33  10.3s
+Test Summary:      | Pass  Total  Time
+user-defined model |   14     14  1.3s
+Test Summary: | Pass  Total  Time
+momentum      |   44     44  2.7s
+Test Summary:   | Pass  Total  Time
+argument checks |   17     17  3.5s
+Test Summary: | Pass  Total  Time
+allocations   |   32     32  7.3s
+Test Summary:    | Pass  Total  Time
+group curvatures |  188    188  2.4s
+done (took 70.089347356 seconds).
+* running structured_quadratics.jl ...
+Test Summary:                                     | Pass  Total  Time
+structured Hessian storage and cached derivatives |  145    145  4.6s
+Test Summary:                                      | Pass  Total   Time
+structured coordinate and group solves match dense |  136    136  15.0s
+Test Summary:                                       | Pass  Total  Time
+native matrix changes are seen after initialization |   44     44  0.6s
+Test Summary:                              | Pass  Total  Time
+structured refits densify only the support |   50     50  5.3s
+Test Summary:                                                     | Pass  Total  Time
+structured models avoid dense storage and warmed pass allocations |   32     32  2.7s
+done (took 29.315169639 seconds).
+* running path_snapshots.jl ...
+Test Summary:                      | Pass  Total  Time
+compact independent path snapshots |   78     78  0.7s
+Test Summary:                    | Pass  Total  Time
+sparse and dense snapshot routes |   34     34  0.4s
+Test Summary:                                    | Pass  Total  Time
+dense copy-back clears implicit and stored zeros |   40     40  0.4s
+Test Summary:                          | Pass  Total  Time
+snapshots avoid dense temporary arrays |    3      3  0.1s
+done (took 1.938038821 seconds).
+* running sparse_x.jl ...
+Test Summary:                                      | Pass  Total  Time
+least squares: sparse X takes the steps of dense X |  113    113  3.2s
+Test Summary:                           | Pass  Total  Time
+square-root lasso and the logistic loss |   25     25  5.2s
+Test Summary:                     | Pass  Total  Time
+paths, refits, groups and Float32 |    8      8  3.2s
+Test Summary:                | Pass  Total  Time
+no allocations in the passes |   13     13  0.9s
+done (took 12.688520853 seconds).
+* running group_penalties.jl ...
+Test Summary: | Pass  Total  Time
+GroupNormLinf |   55     55  0.8s
+Test Summary:                         | Pass  Total  Time
+separable penalties on an AtomIterate |    3      3  1.2s
+Test Summary:                     | Pass  Total  Time
+a group that f does not depend on |    2      2  0.1s
+Test Summary:                              | Pass  Total  Time
+weighted gradients after large group steps |  128    128  4.3s
+Test Summary:                             | Pass  Total  Time
+weighted paths with a group larger than n |   40     40  6.1s
+Test Summary: | Pass  Total  Time
+allocations   |   11     11  1.6s
+Test Summary:                             | Pass  Total  Time
+weighted models with groups larger than n |   27     27  1.4s
+done (took 15.927755996 seconds).
+* running sparse_group_paths.jl ...
+Test Summary:       | Pass  Total  Time
+the root of a group |    7      7  0.2s
+Test Summary: | Pass  Total  Time
+λmax          |   44     44  0.7s
+Test Summary: | Pass  Total  Time
+paths         |  186    186  0.5s
+Test Summary:   | Pass  Total  Time
+α = 0 and α = 1 |    4      4  0.1s
+Test Summary:                            | Pass  Total  Time
+weighted model with groups larger than n |   12     12  0.7s
+Test Summary: | Pass  Total  Time
+duality gap   |   25     25  1.1s
+Test Summary: | Pass  Total  Time
+allocations   |    4      4  0.1s
+done (took 4.047034099 seconds).
+* running box_paths.jl ...
+Test Summary: | Pass  Total  Time
+λmax on a box |   14     14  2.8s
+Test Summary:         | Pass  Total  Time
+paths on a box: x ≥ 0 |  100    100  0.9s
+Test Summary:         | Pass  Total  Time
+paths on a box: x ≤ 0 |  100    100  0.0s
+Test Summary:                  | Pass  Total  Time
+paths on a box: -0.5 ≤ x ≤ 0.8 |  100    100  0.0s
+Test Summary:                  | Pass  Total  Time
+paths on a box: per coordinate |  100    100  0.5s
+Test Summary:                                | Pass  Total  Time
+the nonnegative lasso: a box or NormL1Nonneg |    2      2  3.1s
+Test Summary:            | Pass  Total  Time
+other penalties on a box |   52     52  6.7s
+Test Summary:                      | Pass  Total  Time
+generalized linear models on a box |   43     43  2.7s
+Test Summary:           | Pass  Total  Time
+zero must be in the box |    6      6  0.3s
+done (took 17.285478391 seconds).
+* running refit_cache.jl ...
+Test Summary: | Pass  Total  Time
+RefitCache    |  275    275  2.3s
+done (took 3.1672921 seconds).
+* running nonconvex_penalties.jl ...
+Test Summary:                   | Pass  Total  Time
+capped ℓ1, log and ℓq penalties |   31     31  8.4s
+Test Summary:            | Pass  Total  Time
+group MCP and group SCAD |  497    497  1.4s
+done (took 10.068101718 seconds).
+* running lla_paths.jl ...
+Test Summary:                         | Pass  Total  Time
+the stages of a level, from the lasso |  155    155  2.0s
+Test Summary:                      | Pass  Total  Time
+more stages decrease the objective |   15     15  0.7s
+Test Summary:                          | Pass  Total  Time
+stages until the weights stop changing |  755    755  0.1s
+Test Summary:                         | Pass  Total  Time
+first weights from the previous level |   35     35  0.0s
+Test Summary:                      | Pass  Total  Time
+the lasso is its own linearization |    4      4  0.3s
+Test Summary:            | Pass  Total  Time
+group MCP and group SCAD |   32     32  1.1s
+Test Summary:                        | Pass  Total  Time
+logistic regression, and a quadratic |    4      4  1.4s
+Test Summary:              | Pass  Total  Time
+one level: solve! with LLA |   11     11  0.3s
+Test Summary:                           | Pass  Total  Time
+λmax of the capped ℓ1 and log penalties |    5      5  0.0s
+Test Summary:          | Pass  Total  Time
+early stops and errors |   11     11  0.5s
+Test Summary:                                  | Pass  Total  Time
+the guard of exact-proximal MCP and SCAD paths |   28     28  7.1s
+done (took 14.725806228 seconds).
+* running glm.jl ...
+Test Summary:             | Pass  Total  Time
+generalized linear losses |   15     15  3.3s
+Test Summary:                            | Pass  Total  Time
+proximal Newton: an intercept, and paths |   40     40  7.1s
+Test Summary:                                                                  | Pass  Total  Time
+proximal Newton with an intercept: columns centered when screening admits them |   71     71  5.5s
+done (took 16.210474991 seconds).
+* running newton_nonconvex.jl ...
+Test Summary:                | Pass  Total  Time
+MCP and SCAD paths: logistic |   44     44  4.9s
+Test Summary:                | Pass  Total  Time
+MCP and SCAD paths: logistic |   44     44  1.3s
+Test Summary:               | Pass  Total  Time
+MCP and SCAD paths: poisson |   44     44  1.1s
+Test Summary:               | Pass  Total  Time
+MCP and SCAD paths: poisson |   44     44  0.0s
+Test Summary:                              | Pass  Total  Time
+a SCAD path where the undamped steps stall |    1      1  1.1s
+Test Summary:                          | Pass  Total  Time
+a single level from zero, and on a box |    7      7  2.6s
+done (took 11.052087305 seconds).
+* running duality_gap.jl ...
+Test Summary:                                | Pass  Total  Time
+weak duality, and a zero gap at the solution |  174    174  3.4s
+Test Summary: | Pass  Total  Time
+no gap        |    7      7  0.1s
+Test Summary:                | Pass  Total  Time
+gaptol in coordinate descent |  124    124  0.3s
+Test Summary:      | Pass  Total  Time
+gap-safe screening |   61     61  0.9s
+Test Summary:                                              | Pass  Total  Time
+gradient result convergence follows the selected criterion |  105    105  0.8s
+Test Summary:                              | Pass  Total  Time
+ADMM result convergence uses the final gap |   23     23  0.2s
+Test Summary:                           | Pass  Total  Time
+gaptol in the gradient solvers and ADMM |   19     19  0.3s
+Test Summary: | Pass  Total  Time
+kkt_residual  |   15     15  0.3s
+Test Summary: | Pass  Total  Time
+Float32       |    2      2  0.0s
+Test Summary: | Pass  Total  Time
+allocations   |    8      8  0.2s
+done (took 7.012274977 seconds).
+* running gap_stopping.jl ...
+Test Summary:               | Pass  Total  Time
+lasso paths stop on the gap | 1009   1009  0.9s
+Test Summary:                             | Pass  Total  Time
+weights, elastic net, intercept, sparse X |  868    868  5.8s
+Test Summary:                            | Pass  Total  Time
+group lasso and sparse group lasso paths |  186    186  1.7s
+Test Summary:                                          | Pass  Total  Time
+logistic paths: coordinate descent and proximal Newton |  931    931  2.1s
+Test Summary:                                | Pass  Total  Time
+continuation stops its last level on the gap |   20     20  0.1s
+Test Summary:                              | Pass  Total  Time
+no gap: the rule on the changes, unchanged |    9      9  2.7s
+done (took 13.687672729 seconds).
+* running convolution_gap.jl ...
+Test Summary:                | Pass  Total  Time
+convolution check conjugates | 2232   2232  0.2s
+Test Summary:                               | Pass  Total  Time
+Newton convolution paths certify raw scores |  360    360  4.9s
+Test Summary:                                               | Pass  Total  Time
+unpenalized convolution scores and explicit legacy stopping |   40     40  1.7s
+done (took 7.046155199 seconds).
+* running quic.jl ...
+Test Summary:                                     | Pass  Total  Time
+agreement with ADMM and the optimality conditions |   21     21  5.4s
+Test Summary: | Pass  Total  Time
+components    |    6      6  0.1s
+Test Summary:   | Pass  Total  Time
+starting points |    3      3  0.0s
+Test Summary: | Pass  Total  Time
+Float32       |    1      1  3.9s
+Test Summary:                          | Pass  Total  Time
+the U = ΘB model agrees with KronModel |   89     89  2.0s
+done (took 13.609901832 seconds).
+* running generic_newton.jl ...
+Test Summary:                      | Pass  Total  Time
+quadratic and least-squares models |   44     44  1.8s
+Test Summary:                               | Pass  Total  Time
+default inner tolerance on an unscaled loss |    2      2  0.0s
+Test Summary:                   | Pass  Total  Time
+a custom quadratic-model oracle |   32     32  2.3s
+Test Summary:                                      | Pass  Total  Time
+symmetric Kronecker models and pair multiplicities |   16     16  6.0s
+Test Summary:                                    | Pass  Total  Time
+asymmetric penalty weights on symmetric iterates |   16     16  0.3s
+Test Summary:                                         | Pass  Total  Time
+Inf trials are rejected without taking their gradient |   12     12  0.0s
+Test Summary:                                                 | Pass  Total  Time
+stopping reports stationarity, not a failed or truncated step |    5      5  0.0s
+Test Summary:                  | Pass  Total  Time
+an ascent direction is refused |    8      8  0.0s
+Test Summary:           | Pass  Total  Time
+oracle and model errors |    6      6  0.0s
+done (took 13.01755906 seconds).
+* running examples.jl ...
+Test Summary: | Pass  Total   Time
+examples      |   16     16  20.8s
+done (took 20.810454307 seconds).
+* running aqua.jl ...
+Test Summary: | Pass  Total   Time
+Aqua          |   11     11  11.0s
+done (took 11.616613694 seconds).

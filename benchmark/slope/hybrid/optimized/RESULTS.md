@@ -4,6 +4,8 @@ These are empirical results on bounded synthetic workloads. Use `SLOPEHybrid()` 
 
 The optimized hybrid uses reusable cluster state and an APG fallback with the existing stopping rules. The original prototype and its adverse results remain in the parent directory. See [the protocol](README.md) for fixtures, stopping targets, allocation scope, versions and recreation.
 
+The timing study uses the recorded source snapshot before the later master/APG-state integration. The merged branch passed a fresh full suite, and eight representative APG/hybrid fits reproduced saved coefficients exactly. See [the integration receipt](RUN.md#integration-with-updated-master). The timing study was not rerun after that merge.
+
 Coverage: 1,980 requested path fits across 220 workloads and three repetitions per method. 19,437 returned levels out of 19,440 requested. Every returned level has independent gap and full-residual records.
 
 ## Accuracy and retained failures
