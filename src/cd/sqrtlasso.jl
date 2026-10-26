@@ -13,7 +13,9 @@ or with observation weights `w ≥ 0` the weighted norm `√(∑ᵢ wᵢ (yᵢ -
 It is not differentiable where the residuals vanish, so coordinate descent
 ([`CDSolver`](@ref)) minimizes `f + g` exactly over each coordinate, which it
 does for `g = NormL1(λ, w)`. With [`cdmodel`](@ref)`(f, x; intercept = true)`
-the loss is minimized over an unpenalized intercept as well.
+the loss is minimized over an unpenalized intercept as well. At zero residual,
+coordinatewise optimality need not imply joint optimality. An exact fit with
+a positive penalty returns `converged = false`; zero objective is certified.
 """
 struct SqrtLeastSquaresLoss{T<:AbstractFloat, Ty<:AbstractVector, TX<:AbstractMatrix,
                             W<:Union{Nothing, AbstractVector}} <: AbstractFunction
@@ -219,6 +221,11 @@ _cache_moved!(m::SqrtLSModel{T, <:SparseMatrixCSC}, x::SparseIterate{T}) where {
 
 check_penalty(::SqrtLSModel, g) = g isa NormL1 ||
   throw(ArgumentError("coordinate descent on SqrtLeastSquaresLoss needs a NormL1 penalty, but g is a $(typeof(g))."))
+
+# At zero residual the nonsmooth loss couples coordinates: coordinatewise
+# optimality need not imply joint optimality. Only the zero-objective case is
+# certified here; a general subgradient feasibility solve is outside CD.
+_cd_solution_valid(m::SqrtLSModel, g, x) = loss_value(m, x) > 0 || iszero(g(x))
 
 function _sqnorm!(m::SqrtLSModel{T}, k::Int) where {T}
   a = m.a[k]

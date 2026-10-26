@@ -125,6 +125,7 @@ function _fit_intercept(m::GLMModel{T}, c::T) where {T}
     G, H = zero(T), zero(T)
     @inbounds for i in eachindex(η)
       wi = _obsweight(w, i, T)
+      iszero(wi) && continue
       G += wi * T(ProximalBase.deriv(loss, η[i] + c, y[i]))
       H += wi * T(ProximalBase.deriv2(loss, η[i] + c, y[i]))
     end
@@ -163,6 +164,7 @@ function _intercept_derivatives(m::GLMModel{T}, c::T) where {T}
   G, H = zero(T), zero(T)
   @inbounds for i in eachindex(η)
     wi = _obsweight(w, i, T)
+    iszero(wi) && continue
     G += wi * T(ProximalBase.deriv(loss, η[i] + c, y[i]))
     H += wi * T(ProximalBase.deriv2(loss, η[i] + c, y[i]))
   end
@@ -201,7 +203,9 @@ end
   X, η, y = m.X, m.η, m.y
   G = zero(T)
   @inbounds for i in eachindex(η)
-    G += _obsweight(m.w, i, T) * T(ProximalBase.deriv(m.loss, η[i], y[i])) * X[i, k]
+    wi = _obsweight(m.w, i, T)
+    iszero(wi) && continue
+    G += wi * T(ProximalBase.deriv(m.loss, η[i], y[i])) * X[i, k]
   end
   m.s * G, _curvaturebound!(m, k)
 end
@@ -213,7 +217,9 @@ end
   G = zero(T)
   @inbounds for j in nzrange(X, k)
     i = rows[j]
-    G += _obsweight(m.w, i, T) * T(ProximalBase.deriv(m.loss, η[i], y[i])) * vals[j]
+    wi = _obsweight(m.w, i, T)
+    iszero(wi) && continue
+    G += wi * T(ProximalBase.deriv(m.loss, η[i], y[i])) * vals[j]
   end
   m.s * G, _curvaturebound!(m, k)
 end
@@ -230,23 +236,20 @@ coordinate_scale(m::GLMModel, x, k::Int) = sqrt(_curvaturebound!(m, k))
 function response_scale(m::GLMModel{T}, x) where {T}
   v = zero(T)
   @inbounds for i in eachindex(m.y)
+    wi = _obsweight(m.w, i, T)
+    iszero(wi) && continue
     oi = m.offset === nothing ? zero(T) : m.offset[i]
-    v += _obsweight(m.w, i, T) * T(ProximalBase.deriv(m.loss, oi, m.y[i]))^2
+    v += wi * T(ProximalBase.deriv(m.loss, oi, m.y[i]))^2
   end
   sqrt(m.s * v / m.bound)
 end
 
-function loss_value(m::GLMModel{T}, x) where {T}
-  v = zero(T)
-  @inbounds for i in eachindex(m.η)
-    v += _obsweight(m.w, i, T) * T(m.loss(m.η[i], m.y[i]))
-  end
-  m.s * v
-end
+loss_value(m::GLMModel, x) = _glmvalue(m.loss, m.y, m.w, m.s, m.η)
 
 function gradient!(G::AbstractVector{T}, m::GLMModel{T}, x) where {T}
   @inbounds for i in eachindex(m.η)
-    m.d[i] = _obsweight(m.w, i, T) * T(ProximalBase.deriv(m.loss, m.η[i], m.y[i]))
+    wi = _obsweight(m.w, i, T)
+    m.d[i] = iszero(wi) ? zero(T) : wi * T(ProximalBase.deriv(m.loss, m.η[i], m.y[i]))
   end
   mul!(G, transpose(m.X), m.d)
   G .*= m.s
@@ -270,8 +273,10 @@ the curvature of the model exceeds their concavity (`ρ = 1/a`, `1/(a - 1)`), a
 step that does not decrease the objective is taken again with the proximal
 term `ρ‖x - xₖ‖²`, which makes it a descent step without changing the fixed
 points (the stationary points of `f + g`).
-It stops when the objective changes by less than `tol` relative to its value,
-or after `maxiter` steps. Use with [`solve!`](@ref) on a `SparseIterate`;
+A small objective change triggers a check of the original proximal
+fixed-point residual, at `tol * max(1, norm(x, Inf))`, including the intercept
+score when fitted. Both are required for convergence without a dual gap.
+The method also stops after `maxiter` steps. Use with [`solve!`](@ref) on a `SparseIterate`;
 returns [`CDResults`](@ref), whose `passes` sum the inner passes.
 
 `f` may also be the model of a `GLMLoss` built with
@@ -324,7 +329,7 @@ end
 function ProxNewton(; inner::CDSolver = CDSolver(; tol = 1e-8), maxiter::Integer = 100, tol::Real = 1e-8,
                     β::Real = 0.5)
   maxiter >= 1 || throw(ArgumentError("maxiter must be positive, but it is $maxiter."))
-  tol >= 0 || throw(ArgumentError("tol must be nonnegative, but it is $tol."))
+  isfinite(Float64(tol)) && tol >= 0 || throw(ArgumentError("tol must be nonnegative, but it is $tol."))
   0 < β < 1 || throw(ArgumentError("β must be in (0, 1), but it is $β."))
   ProxNewton(inner, Int(maxiter), Float64(tol), Float64(β))
 end
@@ -341,7 +346,9 @@ _newton_model(f) = throw(ArgumentError("ProxNewton needs a GLMLoss, but f is a $
 function _glmvalue(loss, y, w, s::T, η::Vector{T}, c::T = zero(T)) where {T}
   v = zero(T)
   @inbounds for i in eachindex(η)
-    v += _obsweight(w, i, T) * T(loss(η[i] + c, y[i]))
+    wi = _obsweight(w, i, T)
+    iszero(wi) && continue
+    v += wi * T(loss(η[i] + c, y[i]))
   end
   s * v
 end
@@ -359,7 +366,9 @@ _xlogx(t::T) where {T} = t > 0 ? t * log(t) : zero(T)
 function _deviance(m::GLMModel{T}, η::AbstractVector{T}) where {T}
   v = zero(T)
   @inbounds for i in eachindex(η)
-    v += _obsweight(m.w, i, T) * (T(m.loss(η[i], m.y[i])) - _saturated(m.loss, m.y[i]))
+    wi = _obsweight(m.w, i, T)
+    iszero(wi) && continue
+    v += wi * (T(m.loss(η[i], m.y[i])) - _saturated(m.loss, m.y[i]))
   end
   2v
 end
@@ -498,6 +507,7 @@ function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton
   η, v, z, model = m.η, ws.v, ws.z, ws.model
   n = length(η)
   F = _glmvalue(loss, y, w, s, η) + g(x)
+  isfinite(F) || throw(ArgumentError("ProxNewton needs a finite starting objective"))
   passes, converged, inner_converged = 0, false, true
   cols = m.intercept ? _centered_columns(model.X, candidates, method.inner) : nothing
   gapmode = gaptol > 0 && _hasgap(m, g)
@@ -517,9 +527,14 @@ function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton
     # the quadratic model at x: weights v, responses z (working responses minus
     # the offset), updated in place
     @inbounds for i in 1:n
+      wi = _obsweight(w, i, T)
+      if iszero(wi)
+        v[i] = z[i] = zero(T)
+        continue
+      end
       d1 = T(ProximalBase.deriv(loss, η[i], y[i]))
       d2 = max(T(ProximalBase.deriv2(loss, η[i], y[i])), curvature_floor)
-      v[i] = _obsweight(w, i, T) * d2
+      v[i] = wi * d2
       z[i] = η[i] - d1 / d2 - (o === nothing ? zero(T) : o[i])
     end
     m.intercept && _center!(ws, cols)
@@ -555,6 +570,7 @@ function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton
     inner_converged &= ws.st.converged
     dropzeros!(x)
     done = abs(F - Fnew) <= method.tol * max(abs(Fnew), one(T))
+    done && (done = _newton_stationary!(ws.grad, m, g, x, candidates, method.tol))
     F = Fnew
     if gapmode
       F, relgap = _newton_gap!(x, m, g, ws, candidates)
@@ -576,6 +592,22 @@ function _proxnewton!(x::SparseIterate{T}, m::GLMModel{T}, g, method::ProxNewton
   end
   ws.st.candidates = nothing
   F, passes, converged && inner_converged, relgap
+end
+
+# An objective offset, rejected direction or tiny step cannot establish
+# stationarity. This check uses the original GLM gradient, never the IRLS model.
+function _newton_stationary!(grad, m::GLMModel{T}, g, x, candidates, tol) where {T}
+  candidates === nothing ? gradient!(grad, m, x) : _partial_gradient!(grad, m, x, candidates)
+  threshold = T(tol) * max(one(T), norm(x, Inf))
+  for j in (candidates === nothing ? eachindex(x) : candidates)
+    r = abs(x[j] - prox_entry(g, x[j] - grad[j], j, one(T)))
+    isfinite(r) && r <= threshold || return false
+  end
+  if m.intercept
+    score = m.s * sum(_obsweight(m.w, i, T) * T(ProximalBase.deriv(m.loss, m.η[i], m.y[i])) for i in eachindex(m.η))
+    isfinite(score) && abs(score) <= threshold || return false
+  end
+  true
 end
 
 const _NEWTON_INNER = 0.01
@@ -645,7 +677,7 @@ function _newton_gap!(x::SparseIterate{T}, m::GLMModel{T}, g, ws::_NewtonWorkspa
   F = loss_value(m, x) + g(x)
   res === nothing && return F, T(NaN)
   P, D, _ = res
-  F, max(P - D, 4 * eps(T) * abs(P)) / max(abs(P), floatmin(T))
+  F, _relative_gap(P, D)
 end
 
 # One proximal Newton step from x = ws.x0 (with m.η = ws.η0 and the intercept
@@ -755,14 +787,14 @@ original objective. `gaptol=0` preserves the objective-change route.
 function solve_path(f::Union{AbstractFunction, CDModel}, g::AbstractFunction, λs::AbstractVector{<:Real},
                     method::ProxNewton; x = _default_iterate(f), screening::Bool = true, maxnnz::Real = Inf,
                     callback = nothing, devmax::Real = 0.999, gaptol::Union{Nothing, Real} = nothing)
-  all(λ -> λ >= 0, λs) || throw(ArgumentError("The penalty levels must be nonnegative."))
+  all(λ -> isfinite(λ) && λ >= 0, λs) || throw(ArgumentError("The penalty levels must be finite and nonnegative."))
   issorted(λs; rev = true) || throw(ArgumentError("The penalty levels must be decreasing."))
   isseparable(g) || throw(ArgumentError("ProxNewton needs a separable penalty, but g is a $(typeof(g))."))
   m = _newton_model(f)
   T = eltype(m)
   _check_iterate(g, x)
   isempty(λs) || _with_level(g, T(first(λs)))      # a penalty with a level
-  gaptol === nothing || gaptol >= 0 || throw(ArgumentError("gaptol must be nonnegative, but it is $gaptol."))
+  gaptol === nothing || isfinite(Float64(gaptol)) && gaptol >= 0 || throw(ArgumentError("gaptol must be nonnegative, but it is $gaptol."))
   gt = gaptol === nothing ? (_hasgap(m, g) ? _default_gaptol(T) : 0.0) : Float64(gaptol)
   initialize!(m, x)
   ws = _NewtonWorkspace(m, x, method.inner)

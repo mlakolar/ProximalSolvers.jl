@@ -81,10 +81,10 @@ end
   A, B, M = m.A, m.B, m.M
   p = size(M, 1)
   r, c = mod1(k, p), div(k - 1, p) + 1
-  ainv = inv(m.s * (@inbounds(A[r, r]) * @inbounds(B[c, c])))
+  a = m.s * (@inbounds(A[r, r]) * @inbounds(B[c, c]))
   G = m.s * (@inbounds(M[r, c]) + _C(m.C, r, c, T))
   old = x[k]
-  new = isinf(ainv) ? prox_entry(g, zero(T), k, floatmax(T)) : prox_entry(g, old - G * ainv, k, ainv)
+  new = _coordinate_minimizer(g, old, G, a, k)
   h = new - old
   iszero(h) && return h      # nothing to update, as for most coordinates at zero
   x[k] = new
@@ -110,7 +110,7 @@ end
   cx = coordinates(x)
   old = cx[k]
   i = _entry(p, r, c)
-  new = iszero(a) ? prox_entry(g, zero(T), i, floatmax(T)) : prox_entry(g, old - G / a, i, _multiplicity(T, r, c) / a)
+  new = _coordinate_minimizer(g, old, G, a, i, _multiplicity(T, r, c))
   h = new - old
   iszero(h) && return h
   cx[k] = new

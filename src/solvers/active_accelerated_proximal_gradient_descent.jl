@@ -38,7 +38,7 @@ and `max_add = typemax(Int)` removes the limit.
 
 Step 5 runs on `restrict(f, S)` and `restrict(g, S)` from ProximalBase, a
 problem in the active entries `S` only; step 2 is the only one that involves
-all coordinates. `f` and `g` need `restrict`, `g` needs `kkt_violation`, and
+all coordinates. `f` and `g` need `restrict`, `g` needs `kkt_violation` and a full `prox!`, and
 `f` needs `value_and_gradient!` at the iterate: in ProximalBase these are, among
 others, `QuadraticFunction`, `SqrNormL2`, `LeastSquaresLoss` and `GLMLoss`,
 with `NormL1`, `GroupNormL2`, `ZeroFunction` and the other separable penalties.
@@ -49,6 +49,10 @@ leaves the active set whole. A dense `x` takes this route when the groups of `g`
 cover all coordinates. With a `SparseIterate`, the coordinates of a group at
 zero share the violation of the group, so a group that violates the optimality
 conditions joins the active set whole too.
+
+Success also requires the full proximal fixed-point residual to be at most
+`options.gradtol * max(1, norm(initial_gradient, Inf))`. A repeated inner solution
+that fails this check returns `converged = false`.
 
 `max_outer` limits the number of outer iterations. The
 [`ProximalOptions`](@ref) apply to each inner solve. Use with
@@ -80,8 +84,8 @@ end
 Returned by [`solve!`](@ref) with an [`ActiveAccProxGradDescent`](@ref):
 `minimizer` (the `x` passed to `solve!`), `minimum` (`f + g` at the
 minimizer), `outer_iterations`, `inner_iterations` (summed over the inner
-solves), `converged` (no coordinate outside the active set violates the
-optimality conditions, and the last inner solve converged), `inner_converged`
+solves), `converged` (the full proximal fixed-point residual meets the requested
+threshold after the inner solve), `inner_converged`
 (every inner solve converged), `max_violation` (the largest `kkt_violation`
 outside the active set at the minimizer, `-Inf` if there is no such
 coordinate) and `active_set_size` (the number of entries in the active set,
@@ -129,6 +133,7 @@ function solve!(
   _check_groups(x, g)
   inner_method = AccProxGradDescent(; β = T(method.β), α = T(method.α))
   grad = Vector{T}(undef, length(x))
+  trial, point = similar(grad), similar(grad)
   violators, violations = Int[], T[]
   S = Int[]                   # the active entries
 
@@ -137,23 +142,26 @@ function solve!(
   moved = true                # the last inner solve changed an entry of x
   inner_converged = true
   kkt_converged = false
+  stationarity_scale = one(T)
 
   options.show_trace && @printf "Outer   Active    Added   Largest violation\n"
 
   while true
     dropzeros!(x)
     f_x = value_and_gradient!(grad, f, x)
+    outer_iterations == 0 && (stationarity_scale = max(one(T), norm(grad, Inf)))
     max_violation = _kkt_violators!(violators, violations, g, grad, x)
 
     # a minimizer over the active set that no coordinate outside it can improve
     # is a minimizer; so is x = 0 if no coordinate can improve it. A converged
     # inner solve that changed nothing would only be repeated
-    if isempty(violators) && (solved || nactive(x) == 0)
-      kkt_converged = true
-    elseif solved && !moved
-      kkt_converged = true
+    if isempty(violators) || (solved && !moved)
+      @. point = x - grad
+      prox!(trial, g, point, one(T))
+      residual = _maxabs_diff(x, trial)
+      kkt_converged = isfinite(residual) && residual <= options.gradtol * stationarity_scale
     end
-    if kkt_converged || outer_iterations == method.max_outer
+    if kkt_converged || outer_iterations == method.max_outer || (solved && !moved)
       return ActiveSetResults(x, f_x + g(x), outer_iterations, inner_iterations,
                               kkt_converged, inner_converged, max_violation,
                               length(_active_entries!(S, x)))

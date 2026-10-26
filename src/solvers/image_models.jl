@@ -60,6 +60,7 @@ function _image_value(m::_GLMImage{F, A, T}, z) where {F, A, T}
   @inbounds for i in eachindex(z)
     η = o === nothing ? z[i] : z[i] + o[i]
     wᵢ = w === nothing ? one(T) : convert(T, w[i])
+    iszero(wᵢ) && continue
     s += wᵢ * convert(T, f.loss(η, f.y[i]))
   end
   m.α * s
@@ -80,8 +81,12 @@ function _image_value_and_gradient!(G, m::_GLMImage{F, A, T}, z, d) where {F, A,
   s = zero(T)
   @inbounds for i in eachindex(z)
     η = o === nothing ? z[i] : z[i] + o[i]
-    v, dv = ProximalBase.value_and_deriv(f.loss, η, f.y[i])
     wᵢ = w === nothing ? one(T) : convert(T, w[i])
+    if iszero(wᵢ)
+      d[i] = zero(T)
+      continue
+    end
+    v, dv = ProximalBase.value_and_deriv(f.loss, η, f.y[i])
     s += wᵢ * convert(T, v)
     d[i] = wᵢ * dv
   end
@@ -97,3 +102,25 @@ _value!(f, x, m, z) = (_image!(z, m, x); _image_value(m, z))
 # f(x) and ∇f(x) into G, from the image z of x when f has a model; d is a buffer
 _value_and_gradient!(G, f, x, ::Nothing, z, d) = value_and_gradient!(G, f, x)
 _value_and_gradient!(G, f, x, m, z, d) = _image_value_and_gradient!(G, m, z, d)
+
+_majorization_ok(model, zu, zw, fu, fw, upper, L, stepnorm2) =
+  isfinite(fw) && fw <= upper + 10 * eps(typeof(L)) * max(abs(fu), one(L))
+
+# For least squares the Taylor remainder is exactly α*norm(A(w-u))²/2.
+# Comparing it with L*norm(w-u)²/2 avoids subtracting nearly equal objectives.
+# The existing image buffers supply the difference without another product.
+function _majorization_ok(model::_LSImage, zu, zw, fu, fw, upper, L, stepnorm2)
+  isfinite(fw) || return false
+  image_step2 = zero(eltype(zw))
+  @inbounds @simd for i in eachindex(zu, zw)
+    image_step2 += abs2(zw[i] - zu[i])
+  end
+  remainder, bound = model.α * image_step2, L * stepnorm2
+  isfinite(remainder) && isfinite(bound) || return false
+  remainder <= bound + 8 * eps(typeof(L)) * max(remainder, bound) && return true
+  # Extrapolated and freshly multiplied images can differ by a few roundings,
+  # even when the points coincide. Account for that error in image units,
+  # rather than adding an objective-scale slack that masks a bad curvature.
+  rounding = 8 * eps(typeof(L)) * sqrt(abs(model.α)) * max(norm(zu), norm(zw))
+  sqrt(remainder) <= sqrt(bound) + rounding
+end

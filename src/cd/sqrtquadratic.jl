@@ -134,4 +134,6 @@ response_scale(m::SqrtQuadModel{T}, x) where {T} = sqrt(max(m.c, zero(T)))
 
 loss_value(m::SqrtQuadModel{T}, x) where {T} = sqrt(max(m.q, zero(T)))
 
+_cd_solution_valid(m::SqrtQuadModel, g, x) = loss_value(m, x) > 0 || iszero(g(x))
+
 gradient!(G::AbstractVector{T}, m::SqrtQuadModel{T}, x) where {T} = (G .= (m.u .+ m.b) ./ sqrt(m.q))

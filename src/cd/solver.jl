@@ -111,12 +111,12 @@ function CDSolver(; maxpasses::Integer = 100_000, tol::Real = 1e-7, order::Symbo
                   relative::Bool = true, anderson::Integer = 0, momentum::Union{Nothing, Bool} = nothing,
                   rng::AbstractRNG = default_rng(), gaptol::Real = 0.0, gapsafe::Bool = false)
   maxpasses >= 0 || throw(ArgumentError("maxpasses must be nonnegative, but it is $maxpasses."))
-  tol >= 0 || throw(ArgumentError("tol must be nonnegative, but it is $tol."))
+  isfinite(Float64(tol)) && tol >= 0 || throw(ArgumentError("tol must be nonnegative, but it is $tol."))
   order in (:random, :cyclic) || throw(ArgumentError("order must be :random or :cyclic, but it is :$order."))
   anderson >= 0 || throw(ArgumentError("anderson must be nonnegative, but it is $anderson."))
   momentum === true && order === :cyclic &&
     throw(ArgumentError("momentum needs order = :random; with the cyclic order it can stall far from the minimizer."))
-  gaptol >= 0 || throw(ArgumentError("gaptol must be nonnegative, but it is $gaptol."))
+  isfinite(Float64(gaptol)) && gaptol >= 0 || throw(ArgumentError("gaptol must be nonnegative, but it is $gaptol."))
   CDSolver(Int(maxpasses), Float64(tol), order === :random, relative, Int(anderson), momentum, rng,
            Float64(gaptol), gapsafe)
 end
@@ -325,9 +325,12 @@ function _cd!(x, m, g, st::_CDState{T}, s::CDSolver) where {T}
   else
     _cd_plain!(x, m, g, st, s, gs)
   end
+  st.converged &= _cd_solution_valid(m, g, x)
   gs === nothing || (st.candidates = gs.base)
   x
 end
+
+_cd_solution_valid(m::CDModel, g, x) = true
 
 # The tolerance on the scaled changes, whether the changes are scaled, and the
 # smallest tolerance that gaptol may tighten it to, a few roundings on the
@@ -577,7 +580,7 @@ function _extrapolate!(a::_Anderson{T}, x, m, g, full::Bool) where {T}
 end
 
 _warn_not_converged(st::_CDState, s::CDSolver) =
-  st.converged || @warn "coordinate descent did not converge in maxpasses = $(s.maxpasses) passes (largest change of a coordinate in the last pass $(round(st.maxchange; sigdigits = 3)) > tolerance $(round(st.tolerance; sigdigits = 3))); the solution may be inaccurate."
+  st.converged || @warn "coordinate descent did not converge after $(st.passes) passes (maxpasses = $(s.maxpasses), last change $(round(st.maxchange; sigdigits = 3)), tolerance $(round(st.tolerance; sigdigits = 3))); a small change alone may not certify this model."
 
 """
     solve!(x, f, g, method::CDSolver)

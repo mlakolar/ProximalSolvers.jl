@@ -137,13 +137,30 @@ function cdmodel end
 cdmodel(f::AbstractFunction, x) =
   throw(ArgumentError("coordinate descent does not know the structure of $(typeof(f)); see the documentation of cdmodel."))
 
+# A zero Hessian diagonal does not exclude a linear term. Do not silently
+# minimize the penalty alone in that case. Share this check with the fused
+# quadratic kernels and the fixed-point diagnostic.
+@inline function _coordinate_minimizer(g, old::T, G, a, i, μ = one(T)) where {T}
+  isfinite(G) && isfinite(a) && a >= 0 ||
+    throw(ArgumentError("coordinate descent needs finite derivatives and nonnegative curvature"))
+  if iszero(a)
+    iszero(G) || throw(ArgumentError("a coordinate with zero curvature and a nonzero linear slope needs a different solver or positive curvature"))
+    return prox_entry(g, zero(T), i, floatmax(T))
+  end
+  ainv = inv(a)
+  isfinite(ainv) || throw(ArgumentError("the inverse coordinate curvature overflows; rescale the problem"))
+  new = prox_entry(g, old - G * ainv, i, μ * ainv)
+  isfinite(new) || throw(ArgumentError("the coordinate step is not finite; rescale the problem or check the model and penalty"))
+  new
+end
+
 # the coordinate step from coordinate_derivatives and update_cache!, for models
 # that do not define their own; a coordinate with zero curvature, which the loss
 # does not depend on, goes to the minimizer of the penalty nearest zero
 @inline function coordinate_step!(m::CDModel{T}, g, x::SparseIterate{T}, k::Int) where {T}
   G, a = coordinate_derivatives(m, x, k)
   old = x[k]
-  new = iszero(a) ? prox_entry(g, zero(T), k, floatmax(T)) : prox_entry(g, old - G / a, k, inv(a))
+  new = _coordinate_minimizer(g, old, G, a, k)
   h = new - old
   iszero(h) && return h
   x[k] = new
@@ -157,7 +174,7 @@ end
   cx = coordinates(x)
   old = cx[k]
   i = _entry(x.p, r, c)
-  new = iszero(a) ? prox_entry(g, zero(T), i, floatmax(T)) : prox_entry(g, old - G / a, i, _multiplicity(T, r, c) / a)
+  new = _coordinate_minimizer(g, old, G, a, i, _multiplicity(T, r, c))
   h = new - old
   iszero(h) && return h
   cx[k] = new
@@ -170,10 +187,16 @@ end
 # of an AtomIterate, _groupstep! returns the largest scaled change of an entry
 @inline function _visit!(m::CDModel, g, x, k::Int, scaled::Bool)
   h = abs(coordinate_step!(m, g, x, k))
-  scaled && !iszero(h) ? h * coordinate_scale(m, x, k) : h
+  change = scaled && !iszero(h) ? h * coordinate_scale(m, x, k) : h
+  isfinite(change) || throw(ArgumentError("a coordinate step or its stopping scale is not finite"))
+  change
 end
 
-@inline _visit!(m::CDModel, g, x::AtomIterate, k::Int, scaled::Bool) = _groupstep!(m, g, x, k, scaled)
+@inline function _visit!(m::CDModel, g, x::AtomIterate, k::Int, scaled::Bool)
+  change = _groupstep!(m, g, x, k, scaled)
+  isfinite(change) || throw(ArgumentError("a group step or its stopping scale is not finite"))
+  change
+end
 
 ####################################
 #  coordinates of the iterates
@@ -308,6 +331,10 @@ _check_iterate(g::Scaled, x) = _check_iterate(g.f, x)
 function _check_iterate(g::AbstractFunction, x)
   if isseparable(g)
     ProximalBase._checkparams(g, x)
+    if x isa SymmetricSparseIterate && g isa Union{NormL1, NormL1Nonneg, ElasticNet} && g.w !== nothing
+      issymmetric(reshape(g.w, size(x))) ||
+        throw(ArgumentError("coordinate descent on a symmetric iterate needs symmetric penalty weights"))
+    end
     return nothing
   end
   if g isa ProximalBase.AbstractGroupNorm

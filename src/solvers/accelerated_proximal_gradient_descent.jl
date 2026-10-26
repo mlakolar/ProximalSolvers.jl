@@ -191,16 +191,14 @@ function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, method::AccPr
       upper = state.f_y + _dot(state.grad_f_y, state.xhat) + state.L / 2 * stepnorm2
       state.backtrack_steps += 1
       # slack guards against an endless loop from rounding error near the solution
-      state.f_x <= upper + 10 * eps(T) * max(abs(state.f_y), one(T)) && break
+      _majorization_ok(state.model, state.z_y, state.z_x, state.f_y, state.f_x,
+                       upper, state.L, stepnorm2) && break
       # A rounded zero step cannot repair an inconsistent image/value bound by
       # increasing L. In particular, do not let L overflow and turn Inf*0 into
       # NaN, after which the backtracking comparison would fail forever.
       isfinite(upper) && !iszero(stepnorm2) ||
         error("APG line search failed: no representable step satisfies the descent bound")
-      next_L = state.L / method.β
-      isfinite(next_L) && next_L > state.L ||
-        error("APG line search failed: the curvature estimate cannot increase finitely")
-      state.L = next_L
+      state.L = LineSearches.next_curvature(state.L, method.β)
     end
     state
 end

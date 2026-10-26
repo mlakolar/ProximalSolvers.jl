@@ -68,7 +68,7 @@ function _quic!(X::SymmetricSparseIterate{T}, S::Matrix{T}, w::T, g::NormL1, met
   trSX, l1X = dot(S, Xd), g(Xd)
   F = w * (trSX - ld) + l1X
   Dual = _glasso_dual!(M, S, Wd, g, w)
-  converged = F - Dual <= tol * abs(F)
+  converged = _relative_gap(F, Dual) <= tol
 
   Cm = zeros(T, p, p)                     # S - W, the linear term of the model
   model = KronUModel(Wd, Wd, Cm, w)       # A = B = W, updated in place
@@ -133,7 +133,7 @@ function _quic!(X::SymmetricSparseIterate{T}, S::Matrix{T}, w::T, g::NormL1, met
     end
     accepted || break                    # no decrease along the step
     Dual = _glasso_dual!(M, S, Wd, g, w)
-    converged = F - Dual <= tol * abs(F)
+    converged = _relative_gap(F, Dual) <= tol
   end
   fill!(X, zero(T))
   for c in 1:p, r in c:p
@@ -144,12 +144,19 @@ function _quic!(X::SymmetricSparseIterate{T}, S::Matrix{T}, w::T, g::NormL1, met
 end
 
 # the objective of one variable at its closed-form solution x = 1/(Sᵢᵢ + λᵢᵢ/w)
-_glasso_scalar(s::T, λ::T, w::T) where {T} = (x = one(T) / (s + λ / w); (x, w * (s * x - log(x)) + λ * x))
+function _glasso_scalar(s::T, λ::T, w::T) where {T}
+  a = s + λ / w
+  isfinite(a) && a > 0 || throw(ArgumentError("the graphical-lasso diagonal needs a finite positive S[i,i] + penalty[i,i]/weight"))
+  x = inv(a)
+  isfinite(x) || throw(ArgumentError("the graphical-lasso diagonal solution overflows"))
+  (x, w * (s * x - log(x)) + λ * x)
+end
 
 function solve!(X::SymmetricSparseIterate{T}, f::LogDetLoss{T}, g::NormL1, method::ProxNewton) where {T}
   S, w, p = f.S, f.w, X.p
   size(S, 1) == p || throw(DimensionMismatch("X is $p × $p and S is $(size(S, 1)) × $(size(S, 1))"))
   ProximalBase._checkparams(g, X)
+  g = _newton_penalty(g, X)
   w > 0 || throw(ArgumentError("the weight of the LogDetLoss must be positive."))
   comps = _glasso_components(S, g, w)
   Xs = [_block_start(X, S, g, w, C) for C in comps]
@@ -177,7 +184,7 @@ function solve!(X::SymmetricSparseIterate{T}, f::LogDetLoss{T}, g::NormL1, metho
     tol = method.tol * abs(F) / Fabs
   end
   _assemble!(X, comps, Xs, S, g, w)
-  relgap = (F - Dual) / abs(F)
+  relgap = _relative_gap(F, Dual)
   CDResults(X, F, passes, converged && relgap <= method.tol, T(NaN), T(method.tol), 0, relgap)
 end
 

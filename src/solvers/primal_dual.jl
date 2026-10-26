@@ -242,7 +242,7 @@ function solve!(x::AbstractVector{T}, f::AbstractFunction, g::AbstractFunction,
   if options.gaptol > 0 && gap === nothing
     gap = (x,y) -> begin
       cert = duality_gap(f,g,h,D,x,y)
-      cert.gap / max(abs(cert.primal), floatmin(T))
+      _relative_gap(cert.primal, cert.dual)
     end
   end
   t0 = time()
@@ -373,5 +373,5 @@ function duality_gap(f::AbstractFunction, g::AbstractFunction, h::AbstractFuncti
     fx = value_and_gradient!(u,f,x)
     dual = fx-dot(x,u)-Conjugate(g)(-u-Dty)-Conjugate(h)(y)
   end
-  (;gap=max(primal-dual,zero(T)),primal,dual)
+  (;gap=primal-dual,primal,dual)
 end

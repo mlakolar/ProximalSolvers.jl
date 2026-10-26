@@ -88,10 +88,10 @@ end
 # semidefinite, goes to the minimizer of the penalty nearest zero
 @inline function coordinate_step!(m::QuadModel{T}, g, x::SparseIterate{T}, k::Int) where {T}
   A, u = m.A, m.u
-  ainv = inv(m.s * @inbounds(A[k, k]))
+  a = m.s * @inbounds(A[k, k])
   G = m.s * (@inbounds(u[k]) + _linear(m.b, k, T))
   old = x[k]
-  new = isinf(ainv) ? prox_entry(g, zero(T), k, floatmax(T)) : prox_entry(g, old - G * ainv, k, ainv)
+  new = _coordinate_minimizer(g, old, G, a, k)
   h = new - old
   iszero(h) && return h      # x and Ax do not change
   x[k] = new
@@ -186,6 +186,8 @@ function _groupstep!(m::QuadModel{T}, g::GroupNormL2, x::AtomIterate{T}, k::Int,
 
   # v = x[G] - ∇_G f(x) / L
   L = _groupcurvature!(m, x, k)
+  iszero(L) && any(i -> !iszero(v[i]), eachindex(G)) &&
+    throw(ArgumentError("a group with zero curvature and a nonzero linear slope needs a different solver or positive curvature"))
   t = zero(T)
   for (i, j) in enumerate(G)
     d = iszero(L) ? x[j] : x[j] - v[i] / L
