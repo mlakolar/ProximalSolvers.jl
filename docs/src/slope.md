@@ -45,8 +45,9 @@ available and unchanged. Both methods share screening, working-set repairs,
 the full residual criterion and the result types described below.
 
 The hybrid reuses storage for cluster membership, ranks and scratch across sweeps and path
-levels. It caches at most 32 signed cluster columns rather than constructing a
-full dense collapsed design. PG steps can split clusters and activate zeros.
+levels. Its dense signed-column cache holds at most `n * min(p, 32)` entries,
+including for sparse inputs. Cached values are refreshed after PG and invalidated
+by relevant cluster changes. PG steps can split clusters and activate zeros.
 By default, up to ten CD sweeps follow each PG step. A bounded initial hybrid
 trial reserves at least half of the remaining iteration budget for APG. If the
 reduced full fixed-point residual fails to decrease by 20% for two cycles, or
@@ -58,7 +59,12 @@ For this option, `maxiter` counts PG/APG steps and complete CD sweeps, summed
 over repairs. These units have different costs; compare matched-accuracy time,
 allocation and certificate results rather than raw iterations. Convergence
 still requires the full problem check. Benchmark results and retained failures
-are recorded under `benchmark/slope/hybrid/optimized/`.
+are recorded under `benchmark/slope/hybrid/optimized/`. The accompanying
+`LIBSLOPE_COMPARISON.md` distinguishes the common PG/CD schedule from our
+APG fallback, documents stopping-rule and allocation-counter differences, and
+records the limits of the native-library comparison. The bounded study found
+a benefit on correlated dense designs; sparse and independent controls do not
+show a consistent benefit, and process RSS did not improve.
 
 ## Accuracy and retained failures
 

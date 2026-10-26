@@ -1,5 +1,9 @@
 # Opt-in reusable-state SLOPE hybrid
 
+The algorithm and evidence comparison with libslope is documented in
+[LIBSLOPE_COMPARISON.md](LIBSLOPE_COMPARISON.md). The pre-merge self-review and
+its fixed integer-boundary finding are recorded in [REVIEW.md](REVIEW.md).
+
 Results are in [RESULTS.md](RESULTS.md); validation and source receipts are in
 [RUN.md](RUN.md).
 
@@ -14,7 +18,11 @@ working-set repairs. The hybrid reuses arrays for cluster membership, ordering,
 ranks and scratch across sweeps and levels. Linked lists permit merging without
 allocating coefficient-index sets. Rank-local scalar minimization crosses only
 neighboring clusters. Up to 32 signed cluster columns and their curvatures are
-cached. Dense and CSC column accumulation have allocation-free kernels; an
+cached. Dense cache capacity is `n * min(p, 32)` entries even for sparse inputs;
+it can hold all groups in a small problem. Column values are refreshed after PG
+and invalidated when the relevant group membership or signs change. Reuse is
+within a CD block; the storage survives across path levels. Dense and CSC column
+accumulation have allocation-free kernels; an
 implicit matrix must provide efficient products and column restriction.
 
 Each hybrid cycle takes one unaccelerated PG step and up to ten cluster sweeps.

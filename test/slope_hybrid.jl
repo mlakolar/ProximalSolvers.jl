@@ -82,6 +82,11 @@ end
   @test_throws ArgumentError SLOPEHybrid(;cd_sweeps=0)
   @test_throws ArgumentError SLOPEHybrid(;stall_cycles=0)
   @test_throws ArgumentError SLOPEHybrid(;tol=Inf)
+  @test all(PS._slope_hybrid_trial_budget(SLOPEHybrid(;cd_sweeps=s),b) ==
+            min(b÷2,10*(s+1)) for s in 1:16,b in 2:128)
+  large=SLOPEHybrid(;cd_sweeps=typemax(Int))
+  @test PS._slope_hybrid_trial_budget(large,10000) == 5000
+  @test PS._slope_hybrid_trial_budget(large,typemax(Int)) == typemax(Int)÷2
   A=2Matrix{Float64}(I,4,4); y=[3.,2.,1.,0.]; weights=[.4,.3,.2,.1]
   f=.25*LeastSquaresLoss(y,A); g=SLOPE(weights)
   method=SLOPEHybrid(;tol=1e-9)

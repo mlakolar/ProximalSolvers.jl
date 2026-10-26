@@ -9,8 +9,9 @@ choice. Call `solve!(x,f,g,SLOPEHybrid())` or
 
 One PG step is followed by up to `cd_sweeps` exact nonzero-cluster sweeps.
 Cluster ordering, membership and scratch are reused; at most 32 signed cluster
-columns are cached, so the solver never builds an entire dense collapsed design
-for a sparse input. PG steps can split clusters and activate zeros.
+columns are cached, bounding dense cache storage even for a sparse input.
+Cached values are refreshed after PG and invalidated by relevant cluster
+changes. PG steps can split clusters and activate zeros.
 
 If the reduced fixed-point residual fails to decrease by 20% for `stall_cycles`
 successive cycles, or a cluster block is nonfinite or increases the objective,
@@ -319,7 +320,12 @@ function _slope_hybrid_residual!(x,X,y,scale,g,w)
   result
 end
 
-_slope_hybrid_trial_budget(method,budget) = min(budget÷2,10*(method.cd_sweeps+1))
+function _slope_hybrid_trial_budget(method,budget)
+  half = budget÷2
+  # Saturate before multiplying, including for very large user sweep counts.
+  method.cd_sweeps >= half÷10 && return half
+  min(half,10*(method.cd_sweeps+1))
+end
 
 function _slope_inner!(x,f,g,method::SLOPEHybrid,budget,target,workspace::_SLOPEHybridWorkspace)
   X,y,scale = _slope_loss(f)

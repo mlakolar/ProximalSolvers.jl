@@ -95,3 +95,19 @@ The integration source archive is `source-integration.tar`, SHA-256
 `ae66c9df58d12033107193352819ce758680ac00ca2dd5a12ffec4e769ad5dd5`.
 The source archive, manifests, Slurm/worker receipts and complete logs identify
 the tested integration independently of later reporting edits.
+
+## Pre-merge review followup
+
+The self-review in [REVIEW.md](REVIEW.md) found and fixed overflow of the hybrid
+trial-budget expression for extreme positive sweep counts. Three new assertions
+check both the integer limits and unchanged ordinary parameter behavior.
+Discovery job `13456761` (2 CPUs, 8 GB, five-minute allowance) completed in
+56 seconds. Both Julia versions passed all 899 focused assertions. The existing
+full-suite and benchmark receipts remain applicable to their recorded snapshots;
+no full benchmark rerun is claimed for this boundary-arithmetic fix.
+
+Including this review followup, total task allocation-active time is **2,713
+seconds (45 minutes 13 seconds)**. The earlier total above describes the study
+through master integration. All failures and earlier source snapshots remain
+preserved. The review patch archive and hash identify the additionally tested
+implementation.
