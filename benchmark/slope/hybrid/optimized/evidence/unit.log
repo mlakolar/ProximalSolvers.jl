@@ -1,0 +1,85 @@
+ERROR: LoadError: Some tests did not pass: 18 passed, 6 failed, 0 errored, 0 broken.
+in expression starting at /home1/mkolar/juliaPkg/runs/20261026-ps95-hybrid-v2/source/test/slope_hybrid.jl:1
+Test Summary:                | Pass  Total  Time
+Reusable SLOPE cluster state |  347    347  3.4s
+
+Opt-in SLOPE hybrid and slow-progress fallback: Test Failed at /home1/mkolar/juliaPkg/runs/20261026-ps95-hybrid-v2/source/test/slope_hybrid.jl:71
+  Expression: used == 30
+   Evaluated: 11 == 30
+  Stacktrace:
+   [1] top-level scope
+     @ ~/juliaPkg/runs/20261026-ps95-hybrid-v2/source/test/slope_hybrid.jl:37
+   [2] macro expansion
+     @ ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Test/src/Test.jl:1967 [inlined]
+   [3] macro expansion
+     @ ~/juliaPkg/runs/20261026-ps95-hybrid-v2/source/test/slope_hybrid.jl:71 [inlined]
+   [4] macro expansion
+     @ ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Test/src/Test.jl:758 [inlined]
+
+Opt-in SLOPE hybrid and slow-progress fallback: Test Failed at /home1/mkolar/juliaPkg/runs/20261026-ps95-hybrid-v2/source/test/slope_hybrid.jl:72
+  Expression: workspace.clusters.fallbacks == 1
+   Evaluated: 0 == 1
+  Stacktrace:
+   [1] top-level scope
+     @ ~/juliaPkg/runs/20261026-ps95-hybrid-v2/source/test/slope_hybrid.jl:37
+   [2] macro expansion
+     @ ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Test/src/Test.jl:1967 [inlined]
+   [3] macro expansion
+     @ ~/juliaPkg/runs/20261026-ps95-hybrid-v2/source/test/slope_hybrid.jl:72 [inlined]
+   [4] macro expansion
+     @ ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Test/src/Test.jl:758 [inlined]
+
+Opt-in SLOPE hybrid and slow-progress fallback: Test Failed at /home1/mkolar/juliaPkg/runs/20261026-ps95-hybrid-v2/source/test/slope_hybrid.jl:73
+  Expression: workspace.clusters.pg_steps >= 15
+   Evaluated: 1 >= 15
+  Stacktrace:
+   [1] top-level scope
+     @ ~/juliaPkg/runs/20261026-ps95-hybrid-v2/source/test/slope_hybrid.jl:37
+   [2] macro expansion
+     @ ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Test/src/Test.jl:1967 [inlined]
+   [3] macro expansion
+     @ ~/juliaPkg/runs/20261026-ps95-hybrid-v2/source/test/slope_hybrid.jl:73 [inlined]
+   [4] macro expansion
+     @ ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Test/src/Test.jl:758 [inlined]
+
+Opt-in SLOPE hybrid and slow-progress fallback: Test Failed at /home1/mkolar/juliaPkg/runs/20261026-ps95-hybrid-v2/source/test/slope_hybrid.jl:71
+  Expression: used == 30
+   Evaluated: 11 == 30
+  Stacktrace:
+   [1] top-level scope
+     @ ~/juliaPkg/runs/20261026-ps95-hybrid-v2/source/test/slope_hybrid.jl:37
+   [2] macro expansion
+     @ ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Test/src/Test.jl:1967 [inlined]
+   [3] macro expansion
+     @ ~/juliaPkg/runs/20261026-ps95-hybrid-v2/source/test/slope_hybrid.jl:71 [inlined]
+   [4] macro expansion
+     @ ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Test/src/Test.jl:758 [inlined]
+
+Opt-in SLOPE hybrid and slow-progress fallback: Test Failed at /home1/mkolar/juliaPkg/runs/20261026-ps95-hybrid-v2/source/test/slope_hybrid.jl:72
+  Expression: workspace.clusters.fallbacks == 1
+   Evaluated: 0 == 1
+  Stacktrace:
+   [1] top-level scope
+     @ ~/juliaPkg/runs/20261026-ps95-hybrid-v2/source/test/slope_hybrid.jl:37
+   [2] macro expansion
+     @ ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Test/src/Test.jl:1967 [inlined]
+   [3] macro expansion
+     @ ~/juliaPkg/runs/20261026-ps95-hybrid-v2/source/test/slope_hybrid.jl:72 [inlined]
+   [4] macro expansion
+     @ ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Test/src/Test.jl:758 [inlined]
+
+Opt-in SLOPE hybrid and slow-progress fallback: Test Failed at /home1/mkolar/juliaPkg/runs/20261026-ps95-hybrid-v2/source/test/slope_hybrid.jl:73
+  Expression: workspace.clusters.pg_steps >= 15
+   Evaluated: 1 >= 15
+  Stacktrace:
+   [1] top-level scope
+     @ ~/juliaPkg/runs/20261026-ps95-hybrid-v2/source/test/slope_hybrid.jl:37
+   [2] macro expansion
+     @ ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Test/src/Test.jl:1967 [inlined]
+   [3] macro expansion
+     @ ~/juliaPkg/runs/20261026-ps95-hybrid-v2/source/test/slope_hybrid.jl:73 [inlined]
+   [4] macro expansion
+     @ ~/juliaPkg/julia-1.13.2/share/julia/stdlib/v1.13/Test/src/Test.jl:758 [inlined]
+Test Summary:                                  | Pass  Fail  Total  Time
+Opt-in SLOPE hybrid and slow-progress fallback |   18     6     24  9.6s
+RNG of the outermost testset: Random.Xoshiro(0xdea4a6b7cce1b817, 0x35fcdcc7cd64ecbe, 0x610711a366c4c40e, 0x311a6932466a06b2, 0xbd7775a023ce8175)

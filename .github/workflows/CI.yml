@@ -38,6 +38,7 @@ jobs:
       - run: python benchmark/slope/first_order/check_evidence.py
       - run: python benchmark/slope/extraction/check_results.py
       - run: python benchmark/slope/hybrid/summarize.py
+      - run: python benchmark/slope/hybrid/optimized/summarize.py --check
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}

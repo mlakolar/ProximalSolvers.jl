@@ -1,0 +1,130 @@
+Validated 1980 requests / 19437 returned levels; 54 failed or internally flagged requests retained.
+Validated 1980 requests / 19437 returned levels; 54 failed or internally flagged requests retained.
+SUMMARY_FAILURE_ACCOUNTING_PASSED
+main: 11160 exact identities; all summaries reproduced
+confirmation: 1800 exact identities; all summaries reproduced
+EVIDENCE_CHECKS_PASSED
+SLOPE_SUMMARY_CHECKS_PASSED
+{
+  "phase": "main",
+  "calls": 2160,
+  "levels": 10080,
+  "valid_calls": 2160,
+  "valid_levels": 10080,
+  "library_valid_calls": 720,
+  "library_calls": 720,
+  "library_success_rate": 1.0,
+  "candidate_strata": [],
+  "prototype_gate": false,
+  "fresh_seed_confirmation_required": true
+}
+{
+  "phase": "accuracy_control",
+  "calls": 2160,
+  "levels": 10080,
+  "valid_calls": 2160,
+  "valid_levels": 10080,
+  "library_valid_calls": 720,
+  "library_calls": 720,
+  "library_success_rate": 1.0,
+  "candidate_strata": [],
+  "prototype_gate": false,
+  "fresh_seed_confirmation_required": true
+}
+{
+  "phase": "confirmation",
+  "calls": 576,
+  "levels": 2688,
+  "valid_calls": 576,
+  "valid_levels": 2688,
+  "library_valid_calls": 192,
+  "library_calls": 192,
+  "library_success_rate": 1.0,
+  "candidate_strata": [],
+  "prototype_gate": false,
+  "fresh_seed_confirmation_required": false
+}
+SLOPE_EVIDENCE_REPRODUCTION_PASSED
+PATH_REUSE_SUMMARY_CHECKS_PASSED
+{
+  "phase": "main",
+  "paths": 720,
+  "valid_paths": 720,
+  "points": 8640,
+  "valid_points": 8640,
+  "primary_success_rate": 1.0,
+  "library_success_rate": 1.0,
+  "primary_remaining_library_ratio": 3.2243355902325175,
+  "closing_variants": [],
+  "phase_gate": true,
+  "confirmation_required": true
+}
+{
+  "phase": "confirmation",
+  "paths": 288,
+  "valid_paths": 288,
+  "points": 3456,
+  "valid_points": 3456,
+  "primary_success_rate": 1.0,
+  "library_success_rate": 1.0,
+  "primary_remaining_library_ratio": 3.4289977882190454,
+  "closing_variants": [],
+  "phase_gate": true,
+  "confirmation_required": false
+}
+PATH_REUSE_EVIDENCE_REPRODUCED
+FIRST_ORDER_SUMMARY_CHECKS_PASSED
+FIRST_ORDER_EVIDENCE_CHECKS_PASSED
+{
+  "all_metadata_equal": true,
+  "max_coefficient_error": 0.0,
+  "max_prediction_error": 0.0,
+  "max_residual": 8.429298836057259e-08,
+  "paths": 324,
+  "points": 3888,
+  "process_repetitions": 3,
+  "randomized_blocks": 3,
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "strata": [
+    {
+      "engine_over_legacy": 0.6609885480878039,
+      "intercept_and_standardize": false,
+      "paired_requests": 27,
+      "rho": 0.0,
+      "wrapper_bytes_over_legacy": 0.5390005047247848,
+      "wrapper_over_legacy": 0.8776682623734828
+    },
+    {
+      "engine_over_legacy": 0.7310030681514573,
+      "intercept_and_standardize": true,
+      "paired_requests": 27,
+      "rho": 0.0,
+      "wrapper_bytes_over_legacy": 0.5388473051269683,
+      "wrapper_over_legacy": 0.8467702796137476
+    },
+    {
+      "engine_over_legacy": 0.8312832618580939,
+      "intercept_and_standardize": false,
+      "paired_requests": 27,
+      "rho": 0.9,
+      "wrapper_bytes_over_legacy": 0.18832278241554,
+      "wrapper_over_legacy": 0.8512617780900835
+    },
+    {
+      "engine_over_legacy": 0.8446926051019569,
+      "intercept_and_standardize": true,
+      "paired_requests": 27,
+      "rho": 0.9,
+      "wrapper_bytes_over_legacy": 0.1884931321854621,
+      "wrapper_over_legacy": 0.8958066451352577
+    }
+  ],
+  "valid_paths": 324,
+  "valid_points": 3888
+}
+Hybrid pilot: no-go; all requested paths and failures accounted for.
+FINALIZATION_COMPLETE

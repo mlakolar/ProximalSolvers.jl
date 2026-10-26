@@ -1,5 +1,9 @@
 # Hybrid SLOPE decision pilot (issue #95)
 
+This directory preserves the original prototype evaluation. The subsequently
+authorized opt-in implementation and matched Discovery comparison are in
+[`optimized/`](optimized/README.md).
+
 This bounded evaluation targets repeated least-squares SLOPE paths with highly
 correlated predictors and tied coefficient magnitudes, as arise in the existing
 HighDimensionalModels integration. The proposed benefit is fewer design products
