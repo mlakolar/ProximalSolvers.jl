@@ -86,7 +86,9 @@ sparse group lasso, `SparseGroupNormL2` or its scaled form, on an
 `AtomIterate`, whose screening uses its dual norm as in Ndiaye, Fercoq,
 Gramfort and Salmon, 2016); with
 other losses and penalties the rule on the changes applies, and `gaptol` is
-ignored. With `gapsafe = true` and such a loss and penalty, each gap
+ignored, except for the square-root losses ([`SqrtLeastSquaresLoss`](@ref),
+[`SqrtQuadraticFunction`](@ref)), whose final point must have a relative gap
+of at most `gaptol` (`1e-2` when `gaptol = 0`) to count as converged. With `gapsafe = true` and such a loss and penalty, each gap
 evaluation also screens the coordinates by the gap-safe rule of Fercoq,
 Gramfort and Salmon (*Mind the duality gap: safer rules for the lasso*, 2015),
 after every full pass: a coordinate it proves zero at the solution is set to
@@ -325,12 +327,14 @@ function _cd!(x, m, g, st::_CDState{T}, s::CDSolver) where {T}
   else
     _cd_plain!(x, m, g, st, s, gs)
   end
-  st.converged &= _cd_solution_valid(m, g, x)
+  st.converged = _certified!(st, m, g, x, s) && st.converged
   gs === nothing || (st.candidates = gs.base)
   x
 end
 
-_cd_solution_valid(m::CDModel, g, x) = true
+# A model whose small coordinate changes need not mean a minimizer checks the
+# point here; it may record a relative duality gap in st.relgap.
+_certified!(st, m::CDModel, g, x, s) = true
 
 # The tolerance on the scaled changes, whether the changes are scaled, and the
 # smallest tolerance that gaptol may tighten it to, a few roundings on the
@@ -584,7 +588,7 @@ function _warn_not_converged(st::_CDState, s::CDSolver)
   if st.passes >= s.maxpasses
     @warn "coordinate descent did not converge in maxpasses = $(s.maxpasses) passes (last change $(round(st.maxchange; sigdigits = 3)), tolerance $(round(st.tolerance; sigdigits = 3)))."
   else
-    @warn "coordinate descent did not converge after $(st.passes) passes (maxpasses = $(s.maxpasses), last change $(round(st.maxchange; sigdigits = 3)), tolerance $(round(st.tolerance; sigdigits = 3))); a small change alone may not certify this model."
+    @warn "coordinate descent stopped after $(st.passes) passes, but the relative duality gap $(round(st.relgap; sigdigits = 3)) does not certify the point; it may be far from a minimizer."
   end
 end
 

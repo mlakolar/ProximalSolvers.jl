@@ -115,17 +115,39 @@ end
   @test residual <= 1e-5 * max(1, norm(X'y, Inf))
 end
 
-@testset "nonsmooth exact fits need joint optimality" begin
+@testset "square-root losses converge only with a duality gap" begin
+  # Coordinatewise stops at an exact fit: objective 0.2, while zero gives 0.01.
   X = [1.0 1.0; 0.0 0.01]
   start = [1.0, -1.0]; y = X * start; g = NormL1(0.1)
   for f in (SqrtLeastSquaresLoss(y, X), SqrtQuadraticFunction(X'X, -X'y, dot(y,y)))
     x = SparseIterate(start)
-    r = @test_logs (:warn, r"coordinate descent did not converge") solve!(x, f, g, CDSolver(order = :cyclic))
+    r = @test_logs (:warn, r"coordinate descent") solve!(x, f, g, CDSolver(order = :cyclic))
     @test !r.converged
     @test r.minimum > f(zeros(2)) + g(zeros(2))
   end
+  # The same trap with a residual outside the column space, which never
+  # becomes exactly zero
+  X3 = [1.0 1.0; 0.0 0.01; 0.0 0.0]
+  for δ in (1e-12, 1e-9)
+    y3 = X3 * start + [0.0, 0.0, δ]
+    x = SparseIterate(start)
+    r = @test_logs (:warn, r"coordinate descent") solve!(x, SqrtLeastSquaresLoss(y3, X3), g, CDSolver(order = :cyclic))
+    @test !r.converged
+    @test r.gap > 0.5
+  end
   x = SparseIterate(2)
   @test solve!(x, SqrtLeastSquaresLoss(zeros(2), X), g, CDSolver()).converged
+  # an ordinary fit is certified, and its gap bounds the suboptimality
+  rng = Xoshiro(3)
+  Xn = randn(rng, 100, 10); yn = Xn[:, 1:2] * [1.0, -1.0] + 0.5randn(rng, 100)
+  λ = 0.2 * norm(Xn'yn, Inf) / norm(yn)
+  x = SparseIterate(10)
+  r = solve!(x, SqrtLeastSquaresLoss(yn, Xn), NormL1(λ), CDSolver())
+  @test r.converged
+  @test 0 <= r.gap <= 1e-4
+  θ = (yn - Xn*Vector(x)) / norm(yn - Xn*Vector(x))
+  θ .*= min(1, λ / norm(Xn'θ, Inf))
+  @test r.minimum - dot(yn, θ) <= 1e-4 * r.minimum
 end
 
 # Adding a constant must not let an incomplete Newton step certify stationarity.

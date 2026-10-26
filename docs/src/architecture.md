@@ -77,12 +77,12 @@ both penalty terms. Coordinate-descent penalty weights must be symmetric.
 QUIC and generic symmetric Newton average transposed L1 weights, preserving
 the supplied objective on symmetric matrices.
 
-For a zero curvature and zero slope, a scalar update minimizes the penalty.
-A nonzero linear slope along a flat coordinate raises an error instead of
-being discarded. At a square-root loss's zero residual, coordinatewise
-optimality need not be joint optimality. A positive-penalty exact fit is
-returned with `converged = false`; the current CD engine does not solve its
-joint subgradient feasibility problem. A zero objective is certified.
+A coordinate with zero curvature solves `min G(x - xₖ) + gₖ(x)` exactly when
+it is bounded below: the minimizer of the penalty nearest zero (for a norm,
+while `|G| ≤ λ`) or the far bound of a box, recognized as a fixed point of a
+proximal step. An unbounded direction raises an `ArgumentError`, and
+`kkt_residual` reports `Inf` there. The square-root losses accept a stop only
+with a relative duality gap; see [Losses for coordinate descent](@ref).
 
 ## Ownership and cache validity
 
