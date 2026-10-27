@@ -94,6 +94,28 @@ end
   @test duality_gap(LogDetLoss(S), g, x).gap < 1e-7
 end
 
+@testset "tilts preserve symmetric coordinate validation" begin
+  A = Matrix(1.0I, 2, 2)
+  f = KronQuadratic(A, A, [0.0 -0.25; -0.25 0.0])
+  asym = NormL1(0.1, [0.0 1.0; 3.0 0.0])
+  # The scalar objective for the common off-diagonal is z²-0.1z:
+  # z=0.05 beats zero. Looking only at the lower weight falsely kept zero.
+  g = Tilt(asym, zeros(2,2))
+  @test f([0.0 0.05; 0.05 0.0]) + g([0.0 0.05; 0.05 0.0]) < 0
+  start = [1.0 0.2; 0.2 1.0]
+  for penalty in (g, Scaled(g, 2.0), Tilt(Scaled(asym, 2.0), zeros(2,2)),
+                  Tilt(NormL1(0.1), [0.0 0.5; -0.5 0.0]))
+    x = SymmetricSparseIterate(start)
+    @test_throws ArgumentError solve!(x, f, penalty, CDSolver())
+    @test Matrix(x) == start
+  end
+  # Symmetric tilts remain supported: z² - z + 0.2|z| has minimizer 0.4.
+  x = SymmetricSparseIterate(2)
+  penalty = Tilt(NormL1(0.1), [0.0 -0.5; -0.5 0.0])
+  @test solve!(x, KronQuadratic(A,A,zeros(2,2)), penalty, CDSolver()).converged
+  @test Matrix(x) ≈ [0.0 0.4; 0.4 0.0]
+end
+
 @testset "bounded result display" begin
   r = solve!([big"1.1"], ZeroFunction(), ZeroFunction(), AccProxGradDescent())
   @test occursin("Minimizer", sprint(show, r))

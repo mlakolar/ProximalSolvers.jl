@@ -376,6 +376,15 @@ end
 # group penalty (GroupNormL2, GroupNormLinf, ...) on an AtomIterate with its
 # groups; a scaled penalty goes with the iterates of the penalty it scales
 _check_iterate(g::Scaled, x) = _check_iterate(g.f, x)
+function _check_iterate(g::ProximalBase.Tilt, x)
+  ProximalBase._checkparams(g, x)
+  _check_iterate(g.f, x)
+  if x isa SymmetricSparseIterate
+    issymmetric(reshape(g.c, size(x))) ||
+      throw(ArgumentError("coordinate descent on a symmetric iterate needs a symmetric linear tilt"))
+  end
+  nothing
+end
 function _check_iterate(g::AbstractFunction, x)
   if isseparable(g)
     ProximalBase._checkparams(g, x)

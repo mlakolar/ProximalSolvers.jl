@@ -115,7 +115,9 @@ The iterate fixes what a coordinate is.
   ```
 
   The weights of a weighted ℓ1 norm are indexed like the full matrix and must
-  be symmetric.
+  be symmetric, including through `Scaled` and `Tilt` wrappers. A `Tilt`
+  must also have a symmetric linear coefficient array; otherwise the solver
+  rejects it before changing the iterate.
 - On an `AtomIterate`, a coordinate is a group of entries, for the group
   lasso; see the next section.
 

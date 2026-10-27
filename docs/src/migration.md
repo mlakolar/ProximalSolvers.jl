@@ -43,7 +43,9 @@ This release needs ProximalBase 0.5.3 or later.
 - **`refit!`** sets the coefficients outside `support` to zero, and checks that
   `support` has unique indices in range.
 - **Symmetric matrices.** Coordinate descent on a `SymmetricSparseIterate`
-  needs symmetric penalty weights. The graphical lasso and generic proximal
+  needs symmetric penalty weights, including through `Scaled` and `Tilt`.
+  Linear coefficients of a `Tilt` must also be symmetric. These checks occur
+  before mutation. The graphical lasso and generic proximal
   Newton average transposed weights, which leaves the objective unchanged.
 - **`duality_gap(f, g, h, D, x, y)`** returns the raw difference of the primal
   and dual values, which can be negative or `NaN` when the dual point is
