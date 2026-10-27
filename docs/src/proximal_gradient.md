@@ -200,6 +200,14 @@ a `SymmetricSparseIterate` for a sparse symmetric matrix `S` and a dense
 rectangular factor `U`, for example. They use one backtracked step size for
 the whole pair and the Euclidean norm across both blocks.
 
+On a `SymmetricSparseIterate`, the three gradient solvers prepare ``g`` by
+the same parameter rule as [coordinate descent](@ref "Coordinates of the iterates"):
+they average parameters that enter linearly and require the other per-entry
+parameters to be symmetric. For a tuple with a `SeparableSum` penalty, the
+rule applies block by block. Penalties that couple blocks pass unchanged;
+their compatibility with symmetric storage is the caller's responsibility.
+The smooth loss ``f`` is unchanged.
+
 For a latent graphical model, write `Θ = S + U * U'` and supply a smooth
 loss with
 

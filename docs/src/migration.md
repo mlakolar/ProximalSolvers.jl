@@ -43,10 +43,28 @@ Version 0.2.0 needs registered ProximalBase 0.5.3 or later within the 0.5 series
 - **`refit!`** sets the coefficients outside `support` to zero, and checks that
   `support` has unique indices in range.
 - **Symmetric matrices.** Coordinate descent on a `SymmetricSparseIterate`
-  needs symmetric penalty weights, including through `Scaled` and `Tilt`.
-  Linear coefficients of a `Tilt` must also be symmetric. These checks occur
-  before mutation. The graphical lasso and generic proximal
-  Newton average transposed weights, which leaves the objective unchanged.
+  now averages transposed parameters that enter the penalty linearly; see
+  [Coordinates of the iterates](@ref). It accepts asymmetric weights of
+  `NormL1`, `NormL1Nonneg` and `ElasticNet` and asymmetric `Tilt` coefficients,
+  directly or through `Scaled` and `Tilt`, which 0.2.0 rejected.
+
+  Version 0.2.0 accepted other asymmetric parameters but used only one triangle
+  in the coordinate steps. The weights of `CappedL1`, `LogPenalty`, `NormLq`,
+  `Berhu`, `CheckLoss`, `EpsInsensitiveLoss` and `HingeLoss`, the coefficients
+  of `LinearFunction`, and L1 weights inside `Translate`, `Regularize`,
+  `Constrained(·, IndBox)` and scalar `Precompose` are now averaged. Bounds
+  (`IndBox`, including constrained penalties), patterns (`IndPattern`),
+  centers (`SqrNormL2`, `Regularize`), translations (`Translate`), labels
+  (`HingeLoss`) and references (`KLDivergence`) must now be symmetric or an
+  `ArgumentError` is raised before mutation. Inside `MoreauEnvelope`,
+  `Conjugate` and linear constraints, these per-entry parameters must already
+  be symmetric, including the linear constraint's coefficient `a`.
+
+  [`lambda_max`](@ref) and the gradient solvers on symmetric storage also used
+  only one triangle in 0.2.0 and now follow the same averaging and rejection
+  rule. The graphical lasso and generic symmetric proximal Newton continue
+  to average transposed L1 weights. Averaging preserves the supplied objective
+  on symmetric matrices, up to floating-point rounding.
 - **`duality_gap(f, g, h, D, x, y)`** returns the raw difference of the primal
   and dual values, which can be negative or `NaN` when the dual point is
   infeasible, instead of clipping it at zero.
