@@ -1,8 +1,0 @@
-Test Summary:                                                | Pass  Total  Time
-L-BFGS circular history agrees with explicit inverse updates |   16     16  1.7s
-Test Summary:                                                      | Pass  Total  Time
-PANOCplus certificates, envelope descent, bad steps and directions |   11     11  8.6s
-Test Summary:                                             | Pass  Total  Time
-adaptive rules match equations and independent trajectory |   10     10  1.6s
-PROTOTYPE_CHECKS_PASSED
-EVALUATION_COMPLETE

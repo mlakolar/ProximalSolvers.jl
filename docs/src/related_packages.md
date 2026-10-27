@@ -16,10 +16,8 @@ the functions and iterates used to construct them.
 
 ## Benchmarks
 
-The [`benchmark/`](https://github.com/mlakolar/ProximalSolvers.jl/tree/master/benchmark)
-folder compares the solvers on the lasso with HighDimensionalModels.jl, glmnet and
-Lasso.jl. Its README gives the environments, commands and results.
-Furthermore,
-[`benchmark/engine/`](https://github.com/mlakolar/ProximalSolvers.jl/tree/master/benchmark/engine)
-compares the coordinate descent engine with the implementations it replaces in
-HighDimensionalModels.jl, CovarianceSelection.jl and DiffPrecTest.jl.
+The [benchmark harness in `benchmark/`](https://github.com/mlakolar/ProximalSolvers.jl/blob/master/benchmark/README.md)
+times the solvers to an independently certified accuracy and compares revisions.
+Historical comparisons with HighDimensionalModels.jl, glmnet, Lasso.jl and the
+replaced coordinate-descent code are retained in the
+[snapshot](https://github.com/mlakolar/ProximalSolvers.jl/tree/f7e3f28026a8e83e0fa18203b39839cf57a1c949/benchmark).

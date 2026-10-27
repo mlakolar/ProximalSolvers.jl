@@ -108,9 +108,9 @@ with respect to predictions. Centered residual scores lie in `[q-1, q]`;
 adding `1-q` gives dual rank-score coordinates in `[0,1]`. Penalization
 changes their moment constraints. For rank-score
 tests, check dual accuracy at the required fixed quantile; objective accuracy
-alone does not certify individual dual coordinates. The benchmark includes
-small LP comparisons of coefficients and duals. LPs can be faster at moderate
-sizes.
+alone does not certify individual dual coordinates. The oracle tests in
+`test/oracles` include small LP comparisons of coefficients and duals. LPs can
+be faster at moderate sizes.
 
 For generalized lasso, set `f` to a least-squares loss, `g` to the coefficient
 penalty (or `ZeroFunction()`), `h = NormL1(λ)`, and `D` to a sparse difference
@@ -118,6 +118,6 @@ or incidence matrix. The example below uses second differences. For ordinary
 chain TV denoising, ProximalBase's direct `TotalVariation1D` proximal operator
 is the faster available route.
 
-See [benchmark/primal_dual](https://github.com/mlakolar/ProximalSolvers.jl/tree/master/benchmark/primal_dual)
-for the oracle checks and comparison with ProximalAlgorithms through the
-existing adapter. Neither package is a runtime dependency.
+See the [historical primal–dual study](https://github.com/mlakolar/ProximalSolvers.jl/tree/f7e3f28026a8e83e0fa18203b39839cf57a1c949/benchmark/primal_dual)
+for retained oracle checks and the comparison with ProximalAlgorithms through
+the adapter in that snapshot. Neither package is a runtime dependency.

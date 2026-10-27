@@ -90,10 +90,11 @@ of at most `gaptol` (`1e-4` when `gaptol = 0`) to count as converged. With `gaps
 evaluation also screens the coordinates by the gap-safe rule of Fercoq,
 Gramfort and Salmon (*Mind the duality gap: safer rules for the lasso*, 2015),
 after every full pass: a coordinate it proves zero at the solution is set to
-zero and left out of the full passes for the rest of the run. On the lasso
-designs of `benchmark/gap` it removes most coordinates but saves less time than
-its gaps cost, so it is off by default. The relative gap at the end is the `gap`
-of the [`CDResults`](@ref), `NaN` when it was not computed.
+zero and left out of the full passes for the rest of the run. It is off by
+default; workload-specific screening and timing comparisons are retained in the
+[historical gap benchmarks](https://github.com/mlakolar/ProximalSolvers.jl/tree/f7e3f28026a8e83e0fa18203b39839cf57a1c949/benchmark/gap).
+The relative gap at the end is the `gap` of the [`CDResults`](@ref), `NaN` when
+it was not computed.
 """
 struct CDSolver{R<:AbstractRNG} <: ProximalSolver
   maxpasses::Int

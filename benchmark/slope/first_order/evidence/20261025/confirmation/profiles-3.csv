@@ -1,1 +1,0 @@
-n,p,rho,sparsity,weights,seed,round,profile_first,plain_seconds,profile_seconds,valid,exact_match,iterations,grad_calls,prox_calls,certificate_calls,restarts,backtracks,gradient_ns,prox_ns,trial_loss_ns,update_ns,certificate_ns,setup_ns,total_ns

@@ -27,7 +27,9 @@ Read the examples in this order:
 The executable examples use only ProximalBase, ProximalSolvers and the standard
 library. Their small reference algorithms are teaching code in
 `examples/support/primal_dual_lessons.jl`, not additional public solvers. The
-separate benchmark environment adds JuMP and HiGHS for independent QP checks.
+independent QP checks use JuMP and HiGHS in the oracle tests (`test/oracles`).
+Historical timings are retained in the
+[snapshot](https://github.com/mlakolar/ProximalSolvers.jl/tree/f7e3f28026a8e83e0fa18203b39839cf57a1c949/benchmark/composite_lessons).
 
 ## Why introduce a dual variable?
 
@@ -170,7 +172,9 @@ within a fit, so its Cholesky factorization can be reused. Forming the normal
 matrix and factoring it may be inexpensive on a small graph. On other graphs,
 fill-in can make a sparse input yield a much less sparse factor. A factorization
 can also be reused across penalty values if ``X``, ``D``, ``\mu`` and ``\rho``
-remain fixed; the benchmark below measures fresh single fits.
+remain fixed; the
+[historical benchmark](https://github.com/mlakolar/ProximalSolvers.jl/tree/f7e3f28026a8e83e0fa18203b39839cf57a1c949/benchmark/composite_lessons)
+measures fresh single fits.
 
 Condat–Vũ instead applies ``X``, ``X^\top``, ``D`` and ``D^\top`` at every
 ordinary iteration. The tradeoff is cheaper steps versus the stronger
@@ -332,9 +336,10 @@ optimization. The fit can differ visibly from the planted signal even while
 the two optimization methods agree closely. The QP reference is itself a
 floating-point numerical solution, not an exact symbolic optimum.
 
-## Measured comparisons
+## Historical measured comparisons
 
-The benchmark runs two graph sizes and two sequence lengths. It warms the
+The [historical benchmark](https://github.com/mlakolar/ProximalSolvers.jl/tree/f7e3f28026a8e83e0fa18203b39839cf57a1c949/benchmark/composite_lessons)
+runs two graph sizes and two sequence lengths. It warms the
 complete call paths, repeats each method three times, and reports the measured
 run with median total time. Setup includes constructing/factoring ADMM systems
 or building the QP model; solve time includes scheduled certificate checks for
@@ -352,11 +357,11 @@ Each iterative run has a 200,000-iteration and 15-second solve limit.
 Runs that hit a limit are marked as unsuccessful at the common target;
 their elapsed times must not be compared as times to convergence.
 
-The retained results and interpretation follow in the [measurement record](composite_results.md).
-The [benchmark directory](https://github.com/mlakolar/ProximalSolvers.jl/tree/master/benchmark/composite_lessons)
-contains the independent QP model, raw CSV, source/environment record and
-recreation commands. JuMP/HiGHS stay outside the runtime and documentation
-dependencies.
+The historical results, interpretation, raw CSV, source/environment record
+and recreation commands are retained in the
+[snapshot's composite-splitting study](https://github.com/mlakolar/ProximalSolvers.jl/tree/f7e3f28026a8e83e0fa18203b39839cf57a1c949/benchmark/composite_lessons).
+The independent QP model is in `test/oracles/qp.jl`. JuMP/HiGHS stay
+outside the runtime and documentation dependencies.
 
 ## What to take to another problem
 

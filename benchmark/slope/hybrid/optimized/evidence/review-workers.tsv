@@ -1,3 +1,0 @@
-Seq	Host	Starttime	JobRuntime	Send	Receive	Exitval	Signal	Command
-2	:	1792993378.502	    49.132	0	0	0	0	srun --exclusive --exact -N1 -n1 -c1 --mem=4G bash review-source/benchmark/slope/hybrid/optimized/review_worker.sh 1.10.12 review-env110
-1	:	1792993378.500	    54.634	0	0	0	0	srun --exclusive --exact -N1 -n1 -c1 --mem=4G bash review-source/benchmark/slope/hybrid/optimized/review_worker.sh 1.13.2 review-env
