@@ -32,6 +32,8 @@ This release needs ProximalBase 0.5.3 or later.
   with a positive penalty, common with `p ≥ n` and a small penalty, now return
   `converged = false` with a warning; they used to report convergence at points
   that can be far from the minimizer.
+  If an unpenalized coordinate prevents dual scaling, the coordinate-change
+  fallback remains; see [The square-root lasso](@ref).
 - **Proximal Newton** without a duality gap stops only when the objective has
   stalled and the original problem is stationary; see [Proximal Newton](@ref).
   A run that cannot meet both returns `converged = false` after `maxiter`.

@@ -238,6 +238,13 @@ prediction, and `gaptol = 0` gives back the rule on the changes with `tol`. A
 single `solve!` keeps the rule on the changes unless `gaptol` is given, so
 that a one-off solve stays as accurate as before.
 
+The square-root losses add a final certificate check even with `gaptol = 0`:
+the default relative-gap target is `1e-4`. Their coordinate-change rule can
+otherwise stop far from a joint minimizer near an exact fit. A positive
+`gaptol` sets the certificate target explicitly. When an unpenalized coordinate
+prevents dual scaling, the method falls back to coordinate changes; see
+[The square-root lasso](@ref) for this limitation and exact-fit behavior.
+
 The [historical gap benchmarks](https://github.com/mlakolar/ProximalSolvers.jl/tree/master/benchmark/gap)
 retain the workloads, scripts and earlier timing and accuracy comparisons.
 They concern earlier source editions and do not establish performance of this

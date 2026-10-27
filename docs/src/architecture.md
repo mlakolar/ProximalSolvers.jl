@@ -82,8 +82,9 @@ convex norm and box cases use the minimizer of the penalty nearest zero (for a n
 while `|G| ≤ λ`) or the minimizing bound of a box. Proximal fixed points certify convex
 subproblems only. A nonzero slope with a nonconvex penalty is rejected, as are
 unsupported flat subproblems. An unbounded direction raises an `ArgumentError`, and
-`kkt_residual` reports `Inf` there. The square-root losses accept a stop only
-with a relative duality gap; see [Losses for coordinate descent](@ref).
+`kkt_residual` reports `Inf` there. The square-root losses check a relative
+duality gap when dual scaling is available; unpenalized coordinates can require
+a fallback to the change rule. See [Losses for coordinate descent](@ref).
 
 ## Ownership and cache validity
 
