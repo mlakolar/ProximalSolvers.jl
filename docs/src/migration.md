@@ -1,4 +1,4 @@
-# Migrating to 0.2.0
+# Migrating to this release
 
 This page lists the changes from the previous development version (the
 `master` branch before this release). Version 0.1.0 in the General registry
