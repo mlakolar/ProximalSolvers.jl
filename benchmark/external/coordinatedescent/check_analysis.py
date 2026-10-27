@@ -741,6 +741,51 @@ def crosscheck_controls(root):
     return artifact, arms
 
 
+def arm_subset_controls(root, run):
+    artifact = root / "subset-artifact"
+    artifact.mkdir()
+    x = raw_file(artifact, "X.f64", [1.], [1, 1])
+    y = raw_file(artifact, "y.f64", [2.], [1])
+    write_toml(artifact / "manifest.toml", dict(
+        design=[dict(id="A", n=1, p=1, files=dict(X=x, y=y))],
+        case=[dict(id=CASE, lambda_values=[1.])]))
+    arms = fixture(root / "subset-arms", runs=1, accuracy=0)
+    shutil.rmtree(arms / "current-AA")
+    for side in ("legacy", "current"):
+        folder = arms / side
+        controls.edit_meta(folder, "artifact_sha256", crosscheck.sha256(artifact / "manifest.toml"))
+        coef = folder / "coef"
+        coef.mkdir()
+        data = raw_file(coef, "control.f64", [1.], [1, 1])
+        write_table(coef / "manifest.tsv", [dict(id=CASE, setting_index=0, rep=1,
+                                                 file=data["file"], sha256=data["sha256"])])
+    result = run("crosscheck.py", artifact, arms)
+    assert result.returncode == 2 and "MISMATCH missing arm: current-AA" in result.stdout
+    assert "CROSSCHECK arms=legacy,current,current-AA " in result.stdout
+    result = run("crosscheck.py", artifact, arms, "--arms", "legacy,current")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "CROSSCHECK arms=legacy,current " in result.stdout and "coefficients=2" in result.stdout
+    single = root / "subset-single"
+    shutil.copytree(arms / "current", single / "current")
+    result = run("crosscheck.py", artifact, single, "--arms", "current")
+    assert result.returncode == 0 and "CROSSCHECK arms=current " in result.stdout and "coefficients=1" in result.stdout
+    for names, message in (("unknown", "unknown arm names"), ("current,current", "duplicate arm names"),
+                           ("", "arms list must not be empty")):
+        result = run("crosscheck.py", artifact, arms, "--arms", names)
+        assert result.returncode == 2 and message in result.stderr, result.stderr
+    result = run("crosscheck.py", artifact, single, "--arms", "legacy")
+    assert result.returncode == 2 and "missing arm: legacy" in result.stdout
+    empty = root / "subset-empty"
+    (empty / "current").mkdir(parents=True)
+    result = run("crosscheck.py", artifact, empty, "--arms", "current")
+    assert result.returncode == 2 and "no process records: current" in result.stdout
+    next((arms / "legacy").glob("*-metadata.toml")).write_text("invalid metadata [")
+    (arms / "current-AA").mkdir()
+    (arms / "current-AA" / "invalid-metadata.toml").write_text("invalid metadata [")
+    result = run("crosscheck.py", artifact, arms, "--arms", "current")
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 def cli_controls(root, artifact, arms):
     scripts = Path(__file__).resolve().parent
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
@@ -763,6 +808,7 @@ def cli_controls(root, artifact, arms):
     isolated = subprocess.run([sys.executable, "-I", str(scripts / "crosscheck.py"), str(artifact), str(arms)],
                               capture_output=True, text=True, env=env, check=False)
     assert isolated.returncode == 0, isolated.stdout + isolated.stderr
+    arm_subset_controls(root, run)
 
 
 def main():
@@ -780,7 +826,7 @@ def main():
         schema_controls(root)
         artifact, arms = crosscheck_controls(root)
         cli_controls(root, artifact, arms)
-    print("ANALYSIS_CONTROLS_PASSED optional-calibration-AA,required-confirmation-AA,"
+    print("ANALYSIS_CONTROLS_PASSED crosscheck-arm-subsets,optional-calibration-AA,required-confirmation-AA,"
           "selection-families,primary-secondary,union-rungs,target-pairing,same-rung-AA,"
           "t-CDF,paired-intervals,block-bootstrap,known-mean-coverage,"
           "order-statistic-bound,BH,selection-ties,not-reached,failures,all-failed,"

@@ -28,6 +28,8 @@ tolerance 1e-6 or absolute tolerance 1e-12. Uncertifiable recomputations match
 only nonfinite recorded values; missing coefficients for finite values fail.
 The final-sample-only archive can validate worst_value only when that final
 sample actually attains it. A discrepancy is reported, never silently ignored.
+By default all three arms are checked. --arms selects a comma-separated subset;
+only requested arms are read, and each must contain process records.
 """
 
 import argparse
@@ -356,10 +358,24 @@ def coefficient_rows(root):
     return result
 
 
-def crosscheck(artifact_root, arms_root):
+def parse_arms(value):
+    names = tuple(name.strip() for name in value.split(","))
+    if not value.strip():
+        raise ValueError("arms list must not be empty")
+    unknown = sorted(set(names) - set(ARMS))
+    if unknown:
+        raise ValueError(f"unknown arm names: {unknown}; expected {','.join(ARMS)}")
+    duplicates = sorted(name for name, count in Counter(names).items() if count > 1)
+    if duplicates:
+        raise ValueError(f"duplicate arm names: {duplicates}")
+    return names
+
+
+def crosscheck(artifact_root, arms_root, arms=ARMS):
+    arms = parse_arms(arms if isinstance(arms, str) else ",".join(arms))
     artifact, arms_root = Artifact(artifact_root), Path(arms_root)
     counts, issues = Counter(), []
-    for side in ARMS:
+    for side in arms:
         folder = arms_root / side
         if not folder.is_dir():
             issues.append(f"missing arm: {side}")
@@ -439,7 +455,7 @@ def crosscheck(artifact_root, arms_root):
                     counts["failed_without_coefficients"] += 1
     for issue in issues:
         print(f"MISMATCH {issue}")
-    print(f"CROSSCHECK raw_files={len(artifact.files)} coefficients={counts['coefficients']} "
+    print(f"CROSSCHECK arms={','.join(arms)} raw_files={len(artifact.files)} coefficients={counts['coefficients']} "
           f"levels={counts['levels']} matched={counts['matched']} "
           f"incomplete_archives={counts['incomplete_archives']} "
           f"failed_without_coefficients={counts['failed_without_coefficients']} mismatches={len(issues)}")
@@ -450,9 +466,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("artifact", type=Path)
     parser.add_argument("arms_dir", type=Path)
+    parser.add_argument("--arms", default=",".join(ARMS),
+                        help="comma-separated arms to check (default: %(default)s)")
     args = parser.parse_args()
     try:
-        valid = crosscheck(args.artifact, args.arms_dir)
+        valid = crosscheck(args.artifact, args.arms_dir, args.arms)
     except (OSError, ValueError, KeyError, TypeError, OverflowError, csv.Error) as error:
         parser.exit(2, f"CROSSCHECK FAILED: {error}\n")
     raise SystemExit(0 if valid else 2)
