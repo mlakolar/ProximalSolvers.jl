@@ -2,6 +2,7 @@ using Test
 
 
 tests = [
+  "audit_regressions",
   "naming",
   "workspaces",
   "prox_solvers",

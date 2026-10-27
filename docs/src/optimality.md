@@ -104,14 +104,20 @@ the gap is zero in exact arithmetic.
 `dual`. The solver result instead stores the relative gap in `res.gap`:
 
 ```math
-\frac{\max\{P(x)-D(\theta),0\}}{\max\{|P(x)|,\mathrm{floatmin}(T)\}},
+\frac{G(P,D)}{\max\{|P|,\mathrm{floatmin}(T)\}}.
 ```
 
-where ``T`` is the floating point type. The clipping handles a negative gap
-caused by rounding, and the denominator avoids division by zero. The absolute gap remains useful when the objective is close to zero, where
-relative accuracy is sensitive to the denominator. Note that adding a
-constant to the objective changes the relative gap but leaves the absolute
-gap unchanged.
+Here the internal stopping and screening calculation first requires finite
+primal and dual values and checks weak duality. A negative `P-D` is tolerated
+only within `8eps(T) * max(abs(P), abs(D))`; a material violation gives `Inf`
+and cannot certify convergence or screen a coordinate. Within that rounding
+tolerance, `G` is the larger of `P-D` and `4eps(T)*abs(P)`. The public
+`duality_gap` returns the raw `P-D`, including nonfinite or negative arithmetic,
+so it remains available for diagnosis. This rounding rule does not establish
+mathematical feasibility of a user-supplied dual point.
+
+The absolute gap is useful when the objective is close to zero. Adding an
+objective constant changes relative accuracy without changing absolute error.
 
 With `CDSolver(; gaptol = 1e-8)`, coordinate descent stops on the gap: the
 rule on the coordinate changes only decides when to compute it, and tightens

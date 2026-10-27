@@ -90,8 +90,8 @@ function _solve_generic_newton!(x::_GenericNewtonIterate{T}, f::AbstractFunction
   ProximalBase.hashessian(f) ||
     throw(ArgumentError("ProxNewton needs quadratic_model and quadratic_model! for $(typeof(f)); see ProximalBase.hashessian."))
   isseparable(g) || throw(ArgumentError("ProxNewton needs a separable penalty, but g is a $(typeof(g))."))
-  _check_iterate(g, x)
   g = _newton_penalty(g, x)
+  _check_iterate(g, x)
   F = T(f(x) + g(x))
   isfinite(F) || throw(ArgumentError("ProxNewton needs a starting point with a finite objective."))
 

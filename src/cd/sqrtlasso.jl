@@ -14,6 +14,17 @@ It is not differentiable where the residuals vanish, so coordinate descent
 ([`CDSolver`](@ref)) minimizes `f + g` exactly over each coordinate, which it
 does for `g = NormL1(λ, w)`. With [`cdmodel`](@ref)`(f, x; intercept = true)`
 the loss is minimized over an unpenalized intercept as well.
+
+Near an exact fit (`p ≥ n` with a small penalty, or nearly noiseless data),
+coordinate steps can stop far from the minimizer, since the loss is not
+differentiable at zero residuals. A run therefore converges only when the
+relative duality gap of the dual point `t r/‖r‖` (see [`duality_gap`](@ref) for
+its meaning) is at most `gaptol`, or `1e-4` with the default `gaptol = 0`; the
+results report this gap. That dual point cannot certify an exact or nearly
+exact fit with a positive penalty, which is reported as not converged. With a
+coordinate without penalty (a zero weight or level), the dual point exists
+only where its derivative vanishes; otherwise the rule on the changes decides
+alone and exact fits are not detected.
 """
 struct SqrtLeastSquaresLoss{T<:AbstractFloat, Ty<:AbstractVector, TX<:AbstractMatrix,
                             W<:Union{Nothing, AbstractVector}} <: AbstractFunction
@@ -57,6 +68,7 @@ mutable struct SqrtLSModel{T<:AbstractFloat, MX<:AbstractMatrix{T}, VY<:Abstract
   tmp::Vector{T}        # wᵢ rᵢ, for the gradient of a weighted loss
   δ::T                  # the residuals are r .+ δ (a sparse X with an intercept)
   rbuf::Vector{T}       # r .+ δ, for residuals(m)
+  grad::Vector{T}       # ∇f, for the duality gap at the end of a run
 end
 
 function cdmodel(f::SqrtLeastSquaresLoss{T}, x; intercept::Bool = false) where {T}
@@ -69,7 +81,7 @@ function cdmodel(f::SqrtLeastSquaresLoss{T}, x; intercept::Bool = false) where {
   SqrtLSModel{T, typeof(X), typeof(y), typeof(w)}(X, y, w, zeros(T, length(y)), fill(T(NaN), p),
                                                   intercept ? _column_means(X, w) : zeros(T, p),
                                                   intercept ? _mean_response(y, nothing, w) : zero(T), N,
-                                                  w === nothing ? T[] : zeros(T, length(y)), zero(T), T[])
+                                                  w === nothing ? T[] : zeros(T, length(y)), zero(T), T[], zeros(T, p))
 end
 
 intercept(m::SqrtLSModel, x::AbstractArray) = m.ybar - dot(m.xbar, x)
@@ -219,6 +231,47 @@ _cache_moved!(m::SqrtLSModel{T, <:SparseMatrixCSC}, x::SparseIterate{T}) where {
 
 check_penalty(::SqrtLSModel, g) = g isa NormL1 ||
   throw(ArgumentError("coordinate descent on SqrtLeastSquaresLoss needs a NormL1 penalty, but g is a $(typeof(g))."))
+
+# The square-root losses f = ‖r‖ are not differentiable where r = 0. Near a
+# nearly exact fit the curvature along a coordinate, about 1/‖r‖, far exceeds
+# the scale of the stopping rule, so tiny coordinate changes do not show that x
+# is a minimizer: with p ≥ n and a small penalty they can stop at several times
+# the minimum. A stop is accepted only with a relative duality gap. Since
+# ∇f(x) = -X̃'r/‖r‖ (centered and weighted with an intercept and weights),
+# θ = t r/‖r‖ is dual feasible for t = _dualscale(g, ∇f(x)), with dual value
+# θ'ỹ = t (f(x) - ∇f(x)'x); this holds for any norm ‖ỹ - X̃x‖, so for
+# SqrtQuadraticFunction too. Its residual direction cannot certify an exact or
+# nearly exact fit, which is then reported as not converged.
+# Match the default objective-accuracy target of penalty paths. An explicit
+# positive gaptol overrides this target; tol still controls coordinate changes.
+const _SQRT_GAPCHECK = 1e-4
+
+_certified!(st, m::SqrtLSModel, g, x, s) = _sqrt_certified!(st, m, g, x, s)
+
+function _sqrt_certified!(st, m, g, x, s)
+  T = eltype(m)
+  f = loss_value(m, x)
+  P = f + T(g(x))
+  D = zero(T)
+  if f > 0
+    G = gradient!(m.grad, m, x)
+    t = _dualscale(g, G)
+    if t === nothing
+      # a coordinate without penalty and a nonzero gradient: no dual point, and
+      # the rule on the changes decides, as for the other losses
+      st.relgap = T(NaN)
+      return true
+    end
+    Gx = zero(T)
+    for k in eachindex(G)
+      xk = x[k]
+      iszero(xk) || (Gx += G[k] * xk)
+    end
+    D = t * (f - Gx)
+  end
+  st.relgap = _relative_gap(P, D)
+  st.relgap <= (s.gaptol > 0 ? s.gaptol : _SQRT_GAPCHECK)
+end
 
 function _sqnorm!(m::SqrtLSModel{T}, k::Int) where {T}
   a = m.a[k]

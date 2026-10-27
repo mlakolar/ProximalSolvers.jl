@@ -59,6 +59,8 @@ function _groupstep!(m::QuadModel{T}, g::AbstractFunction, x::AtomIterate{T}, k:
   end
 
   L = _groupcurvature!(m, x, k)
+  iszero(L) && any(i -> !iszero(buf[i]), eachindex(G)) &&
+    throw(ArgumentError("group $k has zero curvature and a nonzero linear term; coordinate descent supports this only for GroupNormL2"))
   storage = x.storage
   for (i, j) in enumerate(G)
     old = storage[j]

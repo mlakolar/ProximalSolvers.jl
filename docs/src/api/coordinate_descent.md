@@ -33,6 +33,9 @@ CDModel
 cdmodel
 ProximalSolvers.intercept
 ProximalSolvers.residuals
+ProximalSolvers.linear_predictor
+ProximalSolvers.deviance
+ProximalSolvers.nulldeviance
 ```
 
 The interface of a model (see [A coordinate descent model of your own](@ref)):

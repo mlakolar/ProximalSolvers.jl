@@ -38,7 +38,7 @@ and `max_add = typemax(Int)` removes the limit.
 
 Step 5 runs on `restrict(f, S)` and `restrict(g, S)` from ProximalBase, a
 problem in the active entries `S` only; step 2 is the only one that involves
-all coordinates. `f` and `g` need `restrict`, `g` needs `kkt_violation`, and
+all coordinates. `f` and `g` need `restrict`, `g` needs `kkt_violation` and a full `prox!`, and
 `f` needs `value_and_gradient!` at the iterate: in ProximalBase these are, among
 others, `QuadraticFunction`, `SqrNormL2`, `LeastSquaresLoss` and `GLMLoss`,
 with `NormL1`, `GroupNormL2`, `ZeroFunction` and the other separable penalties.
@@ -49,6 +49,10 @@ leaves the active set whole. A dense `x` takes this route when the groups of `g`
 cover all coordinates. With a `SparseIterate`, the coordinates of a group at
 zero share the violation of the group, so a group that violates the optimality
 conditions joins the active set whole too.
+
+Success also requires the full proximal fixed-point residual to be at most
+`options.gradtol * max(1, norm(initial_gradient, Inf))`. A repeated inner solution
+that fails this check returns `converged = false`.
 
 `max_outer` limits the number of outer iterations. The
 [`ProximalOptions`](@ref) apply to each inner solve. Use with
@@ -66,11 +70,11 @@ Base.summary(::ActiveAccProxGradDescent) = "Active-Set Accelerated Proximal Grad
 
 function ActiveAccProxGradDescent(; β::AbstractFloat = 0.5, α::AbstractFloat = 0.9, max_add::Integer = 100,
                                   growth::Integer = 2, max_outer::Integer = 1000)
-  0 < β < 1 || error("β must be in (0, 1).")
-  0 < α <= 1 || error("α must be in (0, 1].")
-  max_add > 0 || error("max_add must be positive.")
-  growth > 0 || error("growth must be positive.")
-  max_outer > 0 || error("max_outer must be positive.")
+  0 < β < 1 || throw(ArgumentError("β must be in (0, 1)."))
+  0 < α <= 1 || throw(ArgumentError("α must be in (0, 1]."))
+  max_add > 0 || throw(ArgumentError("max_add must be positive."))
+  growth > 0 || throw(ArgumentError("growth must be positive."))
+  max_outer > 0 || throw(ArgumentError("max_outer must be positive."))
   ActiveAccProxGradDescent(promote(β, α)..., Int(max_add), Int(growth), Int(max_outer))
 end
 
@@ -80,8 +84,8 @@ end
 Returned by [`solve!`](@ref) with an [`ActiveAccProxGradDescent`](@ref):
 `minimizer` (the `x` passed to `solve!`), `minimum` (`f + g` at the
 minimizer), `outer_iterations`, `inner_iterations` (summed over the inner
-solves), `converged` (no coordinate outside the active set violates the
-optimality conditions, and the last inner solve converged), `inner_converged`
+solves), `converged` (the full proximal fixed-point residual meets the requested
+threshold after the inner solve), `inner_converged`
 (every inner solve converged), `max_violation` (the largest `kkt_violation`
 outside the active set at the minimizer, `-Inf` if there is no such
 coordinate) and `active_set_size` (the number of entries in the active set,
@@ -129,6 +133,7 @@ function solve!(
   _check_groups(x, g)
   inner_method = AccProxGradDescent(; β = T(method.β), α = T(method.α))
   grad = Vector{T}(undef, length(x))
+  trial, point = similar(grad), similar(grad)
   violators, violations = Int[], T[]
   S = Int[]                   # the active entries
 
@@ -137,23 +142,26 @@ function solve!(
   moved = true                # the last inner solve changed an entry of x
   inner_converged = true
   kkt_converged = false
+  stationarity_scale = one(T)
 
   options.show_trace && @printf "Outer   Active    Added   Largest violation\n"
 
   while true
     dropzeros!(x)
     f_x = value_and_gradient!(grad, f, x)
+    outer_iterations == 0 && (stationarity_scale = max(one(T), norm(grad, Inf)))
     max_violation = _kkt_violators!(violators, violations, g, grad, x)
 
     # a minimizer over the active set that no coordinate outside it can improve
     # is a minimizer; so is x = 0 if no coordinate can improve it. A converged
     # inner solve that changed nothing would only be repeated
-    if isempty(violators) && (solved || nactive(x) == 0)
-      kkt_converged = true
-    elseif solved && !moved
-      kkt_converged = true
+    if isempty(violators) || (solved && !moved)
+      @. point = x - grad
+      prox!(trial, g, point, one(T))
+      residual = _maxabs_diff(x, trial)
+      kkt_converged = isfinite(residual) && residual <= options.gradtol * stationarity_scale
     end
-    if kkt_converged || outer_iterations == method.max_outer
+    if kkt_converged || outer_iterations == method.max_outer || (solved && !moved)
       return ActiveSetResults(x, f_x + g(x), outer_iterations, inner_iterations,
                               kkt_converged, inner_converged, max_violation,
                               length(_active_entries!(S, x)))
@@ -189,7 +197,8 @@ function solve!(
       @printf "%5d   %6d   %6d   %14e\n" outer_iterations length(S) _num_entries(x, violators) max_violation
     end
     xS = T[x[i] for i in S]
-    res = solve!(xS, restrict(f, S), restrict(g, S), inner_method, options)
+    res = _active_inner_solve!(xS, restrict(f, S), restrict(g, S), inner_method,
+                               options, options.gradtol * stationarity_scale)
     moved = false
     for (j, i) in enumerate(S)
       moved |= x[i] != xS[j]
@@ -200,6 +209,29 @@ function solve!(
     solved = converged(res)
     inner_converged &= solved
   end
+end
+
+# Keep acceleration state when a change rule would stop before stationarity.
+# Certificate work occurs only at a proposed stop and is counted in the inner
+# result. A requested dual gap retains its existing independent stopping rule.
+function _active_inner_solve!(x, f, g, method, options, threshold)
+  issmooth(f) && isproximable(g) || throw(ArgumentError("the restricted active-set problem needs a smooth loss and proximable penalty"))
+  t0 = time()
+  state = initial_state(method, options, f, g, x)
+  gapev = options.gaptol > 0 ? _gapevaluator(f, g, x) : nothing
+  gapev === nothing || return _solve_gradient!(state, f, g, method, options, gapev, t0)
+  gradient, point = similar(x), similar(x)
+  certificate = function (st)
+    value_and_gradient!(gradient, f, st.x)
+    st.f_calls += 1
+    st.grad_calls += 1
+    @. point = st.x - gradient
+    prox!(gradient, g, point, one(eltype(x)))
+    st.prox_calls += 1
+    residual = _maxabs_diff(st.x, gradient)
+    isfinite(residual) && residual <= threshold
+  end
+  _solve_gradient!(state, f, g, method, options, nothing, t0; certificate)
 end
 
 # a dense x is converted to an iterate and overwritten with the solution: an

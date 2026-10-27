@@ -1,0 +1,54 @@
+Julia Version 1.13.2
+Commit 45b6d15e34b (2026-10-14 20:33 UTC)
+Build Info:
+  Official https://julialang.org release
+Platform Info:
+  OS: macOS (arm64-apple-darwin27.0.0)
+  CPU: 12 × Apple M3 Pro
+  WORD_SIZE: 64
+  LLVM: libLLVM-20.1.8 (ORCJIT, apple-m3)
+  GC: Built with stock GC
+Threads: 1 default, 1 interactive, 1 GC (on 12 virtual cores)
+Environment:
+  JULIA_PKG_PRECOMPILE_AUTO = 0
+  JULIA_NUM_PRECOMPILE_TASKS = 1
+BLAS.get_config() = LBTConfig([ILP64] libopenblas64_.0.3.30.dylib)
+BLAS.get_num_threads() = 1
+Threads.nthreads() = 1
+family	seconds_min7	bytes	iterations	converged	objective	relative_gap	fixedpoint
+PG	3.571709e-5	7856.0	20	true	0.11962194937871806	7.174579416477737e-9	3.6399652736385235e-10
+COUNTS PG f_calls=43 grad_calls=21 prox_calls=22 backtrack_steps=22
+first-use PG seconds=0.459444 bytes=383754944
+APG	0.00010929916	9920.0	50	true	0.11962194937871805	8.555287051981369e-10	4.332323388922532e-11
+COUNTS APG f_calls=144 grad_calls=68 prox_calls=75 backtrack_steps=75
+first-use APG seconds=0.020609542 bytes=14281440
+monotone	5.6056250000000004e-5	13264.0	20	true	0.11962194937871806	2.8500872285010386e-9	2.3217969213895628e-10
+COUNTS monotone f_calls=73 grad_calls=35 prox_calls=37 backtrack_steps=37
+first-use monotone seconds=0.030107125 bytes=18025696
+active	0.00057367542	42400.0	270	true	0.11962194937871806	9.648497133817404e-10	4.885908344576251e-11
+COUNTS active outer_iterations=1 inner_iterations=270
+first-use active seconds=0.243130667 bytes=218922560
+CD	5.70541e-6	5568.0	9	true	0.11962194937871806	2.992181881659445e-10	2.2768786855920098e-11
+COUNTS CD 
+first-use CD seconds=0.14051025 bytes=114252608
+CSC-CD	1.5904999999999998e-5	5600.0	9	true	0.11962194937871806	2.992186522208401e-10	2.2768786855920098e-11
+COUNTS CSC-CD 
+first-use CSC-CD seconds=0.651897208 bytes=183496656
+ADMM	4.0308330000000004e-5	5072.0	50	true	0.11962194937871806	5.576146273025721e-10	3.7356673310284805e-11
+COUNTS ADMM f_calls=1 grad_calls=0 prox_calls=100
+first-use ADMM seconds=0.331260667 bytes=139302576
+stage	bytes	seconds_min7
+ProximalGradientDescent	construction	4736	1.375e-6
+ProximalGradientDescent	iteration	48	1.375e-6
+ProximalGradientDescent	stopping	16	8.3e-8
+ProximalGradientDescent	gap	2864	2.833e-6
+AccProxGradDescent	construction	6816	1.0e-6
+AccProxGradDescent	iteration	32	1.375e-6
+AccProxGradDescent	stopping	16	1.25e-7
+AccProxGradDescent	gap	2864	2.875e-6
+MonotoneAccProxGradDescent	construction	10160	1.125e-6
+MonotoneAccProxGradDescent	iteration	32	1.709e-6
+MonotoneAccProxGradDescent	stopping	16	1.25e-7
+MonotoneAccProxGradDescent	gap	2864	2.792e-6
+COUNTS GLM-Newton passes=72; evaluation counts unavailable in CDResults
+GLM-Newton	8.054708e-5	15216.0	72	true	0.6052731866916887	NaN	4.717892743144603e-13

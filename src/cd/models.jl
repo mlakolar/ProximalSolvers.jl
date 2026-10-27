@@ -137,13 +137,78 @@ function cdmodel end
 cdmodel(f::AbstractFunction, x) =
   throw(ArgumentError("coordinate descent does not know the structure of $(typeof(f)); see the documentation of cdmodel."))
 
+# The minimizer of a(x - old)²/2 + G(x - old) + μ gᵢ(x), the coordinate step
+# shared by the fused quadratic kernels and the fixed-point diagnostic.
+@inline function _coordinate_minimizer(g, old::T, G, a, i, μ = one(T)) where {T}
+  isfinite(G) && isfinite(a) && a >= 0 ||
+    throw(ArgumentError("coordinate descent needs finite derivatives and nonnegative curvature"))
+  if iszero(a)
+    new = _flat_minimizer(g, old, T(G), i, μ)
+    new === nothing &&
+      throw(ArgumentError("coordinate $i has zero curvature and its linear term $G makes f + g unbounded below along it, or no minimizer is available for this penalty"))
+    return new
+  end
+  ainv = inv(a)
+  isfinite(ainv) || throw(ArgumentError("the inverse coordinate curvature overflows; rescale the problem"))
+  new = prox_entry(g, old - G * ainv, i, μ * ainv)
+  isfinite(new) || throw(ArgumentError("the coordinate step is not finite; rescale the problem or check the model and penalty"))
+  new
+end
+
+# With zero curvature the coordinate problem is min G(x - old) + μ gᵢ(x).
+# For a convex penalty, a minimizer x is a fixed point of prox_{tμgᵢ}(x - tG).
+# This implication fails for nonconvex penalties: MCP and SCAD have bounded
+# values, so any nonzero slope makes the affine subproblem unbounded even
+# when zero is a proximal fixed point. Two candidates cover norms and bounds:
+# the minimizer of the penalty
+# nearest zero (the minimizer of a norm while |G| ≤ μλ) and the far end of a
+# proximal step against G (a bound of a box). The step t scales G to the size
+# of the candidate, so that rounding cannot make a huge point look fixed.
+# Returns nothing when neither candidate is a minimizer.
+function _flat_minimizer(g, old::T, G::T, i, μ) where {T}
+  !iszero(G) && !ProximalBase.isconvex(g) && return nothing
+  c = prox_entry(g, zero(T), i, floatmax(T))
+  iszero(G) && return c
+  _flat_fixed(g, c, G, i, μ) && return c
+  c = prox_entry(g, -copysign(floatmax(T), G), i, μ)
+  _flat_fixed(g, c, G, i, μ) ? c : nothing
+end
+
+# Project directly onto the minimizing end of a box. A finite endpoint near
+# floatmax must not be rejected because the fixed-point trial overflows.
+function _flat_minimizer(g::ProximalBase.IndBox, old::T, G::T, i, μ) where {T}
+  v = iszero(G) ? zero(T) : -copysign(T(Inf), G)
+  c = T(prox_entry(g, v, i, one(T)))
+  isfinite(c) ? c : nothing
+end
+
+function _flat_minimizer(g::ProximalBase.Scaled, old::T, G::T, i, μ) where {T}
+  scale = μ * g.α
+  isfinite(scale) && scale > 0 || return nothing
+  _flat_minimizer(g.f, old, G, i, scale)
+end
+
+function _flat_minimizer(g::ProximalBase.Tilt, old::T, G::T, i, μ) where {T}
+  slope = T(G + μ * g.c[i])
+  isfinite(slope) || return nothing
+  _flat_minimizer(g.f, old, slope, i, μ)
+end
+
+function _flat_fixed(g, c::T, G::T, i, μ) where {T}
+  isfinite(c) || return false
+  t = max(one(T), abs(c) / abs(G))
+  v = c - t * G
+  step = t * μ
+  isfinite(v) && isfinite(step) && prox_entry(g, v, i, step) == c
+end
+
 # the coordinate step from coordinate_derivatives and update_cache!, for models
 # that do not define their own; a coordinate with zero curvature, which the loss
 # does not depend on, goes to the minimizer of the penalty nearest zero
 @inline function coordinate_step!(m::CDModel{T}, g, x::SparseIterate{T}, k::Int) where {T}
   G, a = coordinate_derivatives(m, x, k)
   old = x[k]
-  new = iszero(a) ? prox_entry(g, zero(T), k, floatmax(T)) : prox_entry(g, old - G / a, k, inv(a))
+  new = _coordinate_minimizer(g, old, G, a, k)
   h = new - old
   iszero(h) && return h
   x[k] = new
@@ -157,7 +222,7 @@ end
   cx = coordinates(x)
   old = cx[k]
   i = _entry(x.p, r, c)
-  new = iszero(a) ? prox_entry(g, zero(T), i, floatmax(T)) : prox_entry(g, old - G / a, i, _multiplicity(T, r, c) / a)
+  new = _coordinate_minimizer(g, old, G, a, i, _multiplicity(T, r, c))
   h = new - old
   iszero(h) && return h
   cx[k] = new
@@ -170,10 +235,16 @@ end
 # of an AtomIterate, _groupstep! returns the largest scaled change of an entry
 @inline function _visit!(m::CDModel, g, x, k::Int, scaled::Bool)
   h = abs(coordinate_step!(m, g, x, k))
-  scaled && !iszero(h) ? h * coordinate_scale(m, x, k) : h
+  change = scaled && !iszero(h) ? h * coordinate_scale(m, x, k) : h
+  isfinite(change) || throw(ArgumentError("a coordinate step or its stopping scale is not finite"))
+  change
 end
 
-@inline _visit!(m::CDModel, g, x::AtomIterate, k::Int, scaled::Bool) = _groupstep!(m, g, x, k, scaled)
+@inline function _visit!(m::CDModel, g, x::AtomIterate, k::Int, scaled::Bool)
+  change = _groupstep!(m, g, x, k, scaled)
+  isfinite(change) || throw(ArgumentError("a group step or its stopping scale is not finite"))
+  change
+end
 
 ####################################
 #  coordinates of the iterates
@@ -305,9 +376,23 @@ end
 # group penalty (GroupNormL2, GroupNormLinf, ...) on an AtomIterate with its
 # groups; a scaled penalty goes with the iterates of the penalty it scales
 _check_iterate(g::Scaled, x) = _check_iterate(g.f, x)
+function _check_iterate(g::ProximalBase.Tilt, x)
+  isseparable(g) || throw(ArgumentError("coordinate descent supports Tilt only for a separable penalty"))
+  ProximalBase._checkparams(g, x)
+  _check_iterate(g.f, x)
+  if x isa SymmetricSparseIterate
+    issymmetric(reshape(g.c, size(x))) ||
+      throw(ArgumentError("coordinate descent on a symmetric iterate needs a symmetric linear tilt"))
+  end
+  nothing
+end
 function _check_iterate(g::AbstractFunction, x)
   if isseparable(g)
     ProximalBase._checkparams(g, x)
+    if x isa SymmetricSparseIterate && g isa Union{NormL1, NormL1Nonneg, ElasticNet} && g.w !== nothing
+      issymmetric(reshape(g.w, size(x))) ||
+        throw(ArgumentError("coordinate descent on a symmetric iterate needs symmetric penalty weights"))
+    end
     return nothing
   end
   if g isa ProximalBase.AbstractGroupNorm

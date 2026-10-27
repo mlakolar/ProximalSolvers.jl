@@ -61,15 +61,9 @@ end
 
 function CondatVu(; τ::Union{Nothing,Real} = nothing, σ::Union{Nothing,Real} = nothing,
                   norm_d::Union{Nothing,Real} = nothing, L::Union{Nothing,Real} = nothing,
-                  normD::Union{Nothing,Real} = nothing,
                   abstol::Real = 1e-6, reltol::Real = 1e-4,
                   adaptive::Bool = true, restart::Bool = true,
                   checkevery::Integer = 25, max_adaptations::Integer = 50)
-  if normD !== nothing
-    norm_d === nothing || throw(ArgumentError("use only norm_d; normD is deprecated"))
-    Base.depwarn("normD is deprecated; use norm_d", :CondatVu)
-    norm_d = normD
-  end
   for (name, v) in ((:τ, τ), (:σ, σ))
     v === nothing || (isfinite(v) && v > 0) || throw(ArgumentError("$name must be finite and positive"))
   end
@@ -83,15 +77,6 @@ function CondatVu(; τ::Union{Nothing,Real} = nothing, σ::Union{Nothing,Real} =
   cv(v) = v === nothing ? nothing : T(v)
   CondatVu{T}(cv(τ), cv(σ), cv(norm_d), cv(L), T(abstol), T(reltol), adaptive, restart, checkevery, max_adaptations)
 end
-function Base.getproperty(method::CondatVu, name::Symbol)
-  if name === :normD
-    Base.depwarn("normD is deprecated; use norm_d", :getproperty)
-    return getfield(method, :norm_d)
-  end
-  getfield(method, name)
-end
-Base.propertynames(method::CondatVu, private::Bool=false) =
-  (fieldnames(typeof(method))..., :normD)
 Base.summary(::CondatVu) = "Condat–Vũ primal–dual splitting"
 
 """
@@ -200,7 +185,7 @@ end
 _pd_merit(r) = hypot(r[1] / max(r[3], eps(typeof(r[3]))), r[2] / max(r[4], eps(typeof(r[4]))))
 _pd_converged(r) = r[1] <= r[3] && r[2] <= r[4]
 
-# τ = η/ω, σ = η*ω. Solving η*L/(2ω) + η²*normD² = 0.99
+# τ = η/ω, σ = η*ω. Solving η*L/(2ω) + η²*norm_d² = 0.99
 # preserves the step condition even when the primal weight changes.
 function _pd_steps(ω::T, L, nD) where {T}
   a, b = L / (2ω), nD*nD
@@ -242,7 +227,7 @@ function solve!(x::AbstractVector{T}, f::AbstractFunction, g::AbstractFunction,
   if options.gaptol > 0 && gap === nothing
     gap = (x,y) -> begin
       cert = duality_gap(f,g,h,D,x,y)
-      cert.gap / max(abs(cert.primal), floatmin(T))
+      _relative_gap(cert.primal, cert.dual)
     end
   end
   t0 = time()
@@ -373,5 +358,5 @@ function duality_gap(f::AbstractFunction, g::AbstractFunction, h::AbstractFuncti
     fx = value_and_gradient!(u,f,x)
     dual = fx-dot(x,u)-Conjugate(g)(-u-Dty)-Conjugate(h)(y)
   end
-  (;gap=max(primal-dual,zero(T)),primal,dual)
+  (;gap=primal-dual,primal,dual)
 end

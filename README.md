@@ -26,14 +26,17 @@ coordinates. The losses, penalties, constraints and sparse iterates come from
 
 ## Installation
 
-With Julia 1.10 or later:
+The registered package can be installed with Julia 1.10 or later:
 
 ```julia
 using Pkg
 Pkg.add(["ProximalBase", "ProximalSolvers"])
 ```
 
-For the development version and its dependencies, see the
+This release requires ProximalBase 0.5.3 or later within the 0.5 series.
+Julia resolves that registered dependency automatically.
+
+For local development and testing, see the
 [installation guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/getting_started/#Installation).
 
 ## The lasso by coordinate descent
@@ -97,7 +100,7 @@ The documentation includes the mathematical steps,
 [optimality checks](https://mlakolar.github.io/ProximalSolvers.jl/dev/optimality/),
 and the [API reference](https://mlakolar.github.io/ProximalSolvers.jl/dev/api/solvers/).
 
-The thirteen [examples](examples) are complete programs for regression,
+The [examples](examples) are complete programs for regression,
 penalty paths, group penalties, low-rank models and graphical models.
 [Related packages and benchmarks](https://mlakolar.github.io/ProximalSolvers.jl/dev/related_packages/)
 place these solvers in the statistical software collection and describe the
@@ -108,11 +111,12 @@ performance comparisons.
 From the package checkout, resolve dependencies and run the complete suite with:
 
 ```sh
-julia scripts/instantiate.jl
-julia scripts/test_master.jl
+julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.test()'
 ```
 
-The bootstrap uses sibling `master` checkouts for workspace dependencies. The
+For opt-in development-source checks, `scripts/instantiate.jl` and
+`scripts/test_master.jl` use existing sibling checkouts and clone missing
+dependencies from `master`. It does not change their branches. The
 runner creates an isolated environment containing the package and its test
 extras, including extra-only master dependencies on Julia 1.10, while keeping
 this package's `Project.toml` unchanged. See [CONTRIBUTING.md](CONTRIBUTING.md)

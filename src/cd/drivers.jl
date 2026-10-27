@@ -69,7 +69,7 @@ end
     refit!(x, f; support, cache = nothing)
 
 Overwrite `x` with the minimizer of the loss `f` over the iterates supported on
-`support`, the nonzero coordinates of `x` unless given: the refit after a
+`support` (entries outside it are set to zero), the nonzero coordinates of `x` unless given: the refit after a
 penalized fit, for least squares and the other quadratic losses (a model
 supports it if its coordinates are those of a quadratic, as for
 `LeastSquaresLoss`, a least-squares `GLMLoss`, `QuadraticFunction` and
@@ -86,19 +86,23 @@ function refit!(x::Union{SparseIterate, SymmetricSparseIterate}, f::Union{Abstra
                 support = _support(x), cache::Union{Nothing, RefitCache} = nothing)
   m = f isa CDModel ? f : cdmodel(f, x)
   S = collect(Int, support)
+  all(k -> 1 <= k <= ncoordinates(x), S) || throw(ArgumentError("support indices must be in 1:ncoordinates(x)"))
+  allunique(S) || throw(ArgumentError("support indices must be unique"))
+  cx = coordinates(x)
+  keep = Set(S)
+  for k in activecoordinates(x)
+    k in keep || (cx[k] = zero(eltype(x)))
+  end
   initialize!(m, x)
   δ = cache === nothing ? nothing : _refit_step(cache, f, m, x, S)
   δ === nothing && (δ = _refit_step(m, x, S))
   T = eltype(m)
-  cx = coordinates(x)
   for (j, k) in enumerate(S)
     h = T(δ[j])
     iszero(h) && continue
     cx[k] += h
     update_cache!(m, x, k, h)
   end
-  # coordinates outside the support stay as they are; zero them first to refit
-  # on the support only
   dropzeros!(x)
   x
 end

@@ -1,0 +1,19 @@
+digraph coordinates {
+  graph [rankdir=TB, bgcolor="white", label="Coordinate-model interface", labelloc=t, fontname="Helvetica", fontsize=18];
+  node [shape=box, style="rounded,filled", fillcolor="#edf4fc", fontname="Helvetica", fontsize=12];
+  edge [fontname="Helvetica", fontsize=10, color="#2463a0"];
+  entry [label="solve!(x, model::CDModel, g, CDSolver())", fillcolor="#d4e5fa"];
+  initialize [label="initialize!(model,x)\npublic: make cache current"];
+  pass [label="_cd! -> full / active / candidate pass\ninternal scheduling, momentum or Anderson"];
+  step [label="coordinate_step!(model,g,x,k)\npublic scalar extension point"];
+  derivatives [label="coordinate_derivatives(model,x,k)\npublic default-step input"];
+  cache [label="update_cache!(model,x,k,h)\npublic cache update after mutation"];
+  group [label="_groupstep!\ninternal built-in block kernels"];
+  extra [label="optional public operations\ncoordinate_scale / response_scale\nloss_value / check_penalty\nProximalBase.gradient!"];
+  entry -> initialize -> pass;
+  pass -> {step group} [style=dashed, label="iterate/model dispatch"];
+  step -> derivatives [label="default calls"];
+  derivatives -> cache [label="prox_entry, write x, then update"];
+  pass -> extra [label="stopping, reporting, screening"];
+  cache -> pass [label="next coordinate"];
+}

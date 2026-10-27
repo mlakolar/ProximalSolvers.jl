@@ -13,9 +13,9 @@ nonconvex penalties `CappedL1`, `LogPenalty`, `MCP`, `SCAD`, `GroupMCP` and
 `ε`, a fixed `a`). Each stage minimizes the loss plus the tangent of the
 penalty at the previous solution: the weighted lasso with the weights
 `pⱼ′(|xⱼ|)` of `ProximalBase.lla_weights!`, or the weighted group lasso with
-`pₖ′(‖x_Gₖ‖₂)` for a group penalty. Each stage is convex and is solved by
-`inner`; alternating stages and weights decreases the loss plus the penalty
-(majorization-minimization).
+`pₖ′(‖x_Gₖ‖₂)` for a group penalty. For a convex loss, each stage is convex and is solved by
+`inner`; exact stage minimization decreases the loss plus the penalty
+(majorization-minimization). Check inner convergence for approximate solves.
 
 - `stages`: the most stages at a level, the first one included. The stages
   stop early once the weights change by at most `tol`, relative to the largest
@@ -46,7 +46,7 @@ struct LLA
 
   function LLA(inner::CDSolver, stages::Integer, tol::Real, start::Symbol)
     stages >= 1 || throw(ArgumentError("stages must be positive, but it is $stages."))
-    tol >= 0 || throw(ArgumentError("tol must be nonnegative, but it is $tol."))
+    isfinite(Float64(tol)) && tol >= 0 || throw(ArgumentError("tol must be nonnegative, but it is $tol."))
     start in (:lasso, :previous) || throw(ArgumentError("start must be :lasso or :previous, but it is :$start."))
     new(inner, Int(stages), Float64(tol), start)
   end
@@ -151,7 +151,8 @@ weights `pⱼ′(0)`, warm started from the lasso at the previous level, and wit
 level and starts from it. The later stages start from the stage before.
 
 Every stage is a weighted lasso (a weighted group lasso for a group penalty),
-convex, so its screening is exact: with `screening`, the first stage uses the
+convex; its strong-rule predictions are checked against full optimality
+conditions: with `screening`, the first stage uses the
 sequential strong rule for the step from the previous level, and the later
 stages the coordinates that are nonzero or violate their optimality condition
 at the previous stage; the optimality conditions of the others are checked
@@ -170,7 +171,7 @@ stages at each level.
 function solve_path(f::Union{AbstractFunction, CDModel}, g::AbstractFunction, λs::AbstractVector{<:Real},
                     method::LLA; x = _default_iterate(f), screening::Bool = true, maxnnz::Real = Inf,
                     callback = nothing)
-  all(λ -> λ >= 0, λs) || throw(ArgumentError("The penalty levels must be nonnegative."))
+  all(λ -> isfinite(λ) && λ >= 0, λs) || throw(ArgumentError("The penalty levels must be finite and nonnegative."))
   issorted(λs; rev = true) || throw(ArgumentError("The penalty levels must be decreasing."))
   m = f isa CDModel ? f : cdmodel(f, x)
   T = eltype(m)

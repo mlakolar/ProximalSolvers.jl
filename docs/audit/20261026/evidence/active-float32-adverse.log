@@ -1,0 +1,68 @@
+ERROR: LoadError: Some tests did not pass: 7 passed, 1 failed, 0 errored, 0 broken.
+in expression starting at /Users/mladen.kolar/projects/juliaPkg/.audit-artifacts/proximalsolvers-20261026/debug-prox-solvers.jl:1
+Test Summary:      | Pass  Total  Time
+callable callbacks |    4      4  0.5s
+Test Summary:      | Pass  Total  Time
+callable callbacks |    4      4  0.0s
+Test Summary:      | Pass  Total  Time
+callable callbacks |    4      4  0.1s
+Test Summary:      | Pass  Total  Time
+callable callbacks |    4      4  0.0s
+Test Summary:      | Pass  Total  Time
+callable callbacks |    4      4  0.1s
+Test Summary:      | Pass  Total  Time
+callable callbacks |    4      4  0.0s
+Test Summary:             | Pass  Total  Time
+Proximal Gradient Descent |   11     11  1.5s
+Test Summary:                         | Pass  Total  Time
+Accelerated Proximal Gradient Descent |   11     11  0.6s
+Test Summary:                                  | Pass  Total  Time
+Monotone Accelerated Proximal Gradient Descent |   11     11  0.7s
+Test Summary:                                     | Pass  Total  Time
+gradient residual stops Proximal Gradient Descent |    5      5  0.0s
+Test Summary:                                                 | Pass  Total  Time
+gradient residual stops Accelerated Proximal Gradient Descent |    5      5  0.0s
+Test Summary:                                                          | Pass  Total  Time
+gradient residual stops Monotone Accelerated Proximal Gradient Descent |    5      5  0.0s
+Test Summary:                           | Pass  Total  Time
+SparseIterate Proximal Gradient Descent |   10     10  0.8s
+Test Summary:                                       | Pass  Total  Time
+SparseIterate Accelerated Proximal Gradient Descent |   10     10  0.4s
+Test Summary:                                                | Pass  Total  Time
+SparseIterate Monotone Accelerated Proximal Gradient Descent |   10     10  0.5s
+Test Summary:                     | Pass  Total  Time
+Float32 Proximal Gradient Descent |    8      8  1.7s
+Test Summary:                                 | Pass  Total  Time
+Float32 Accelerated Proximal Gradient Descent |    8      8  0.3s
+Test Summary:                                          | Pass  Total  Time
+Float32 Monotone Accelerated Proximal Gradient Descent |    8      8  0.4s
+typeof(f32) = ProximalBase.LeastSquaresLoss{Float32, Vector{Float32}, Matrix{Float32}, 1, Vector{Float32}}
+norm(gg, Inf) = 0.054924216f0
+norm(zz, Inf) = 16.582735f0
+norm(x32 - trial, Inf) = 0.006001413f0
+1.0e-5 * max(1, norm(zz, Inf)) = 0.0001658273506164551
+
+Float32 Active-Set Accelerated Proximal Gradient Descent: Test Failed at /Users/mladen.kolar/projects/juliaPkg/.audit-artifacts/proximalsolvers-20261026/debug-prox-solvers.jl:179
+  Expression: ProximalSolvers.converged(res)
+   Evaluated: ProximalSolvers.converged(Results of Optimization Algorithm
+ * Algorithm: Active-Set Accelerated Proximal Gradient Descent
+ * Minimum: 1.136033e+01
+ * Outer iterations: 1000
+ * Inner iterations: 1025
+ * Active set size: 25
+ * Convergence: false
+   * largest KKT violation outside the active set: -Inf
+   * every inner solve converged: false
+)
+  Stacktrace:
+   [1] macro expansion
+     @ ~/.julia/juliaup/julia-1.13.2+0.aarch64.apple.darwin14/Julia-1.13.app/Contents/Resources/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:758 [inlined]
+   [2] macro expansion
+     @ ~/projects/juliaPkg/.audit-artifacts/proximalsolvers-20261026/debug-prox-solvers.jl:179 [inlined]
+   [3] macro expansion
+     @ ~/.julia/juliaup/julia-1.13.2+0.aarch64.apple.darwin14/Julia-1.13.app/Contents/Resources/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:2048 [inlined]
+   [4] top-level scope
+     @ ~/projects/juliaPkg/.audit-artifacts/proximalsolvers-20261026/debug-prox-solvers.jl:2072
+Test Summary:                                            | Pass  Fail  Total  Time
+Float32 Active-Set Accelerated Proximal Gradient Descent |    7     1      8  1.8s
+RNG of the outermost testset: Random.Xoshiro(0xfff0241072ddab67, 0xc53bc12f4c3f0b4e, 0x56d451780b2dd4ba, 0x50a4aa153d208dd8, 0x3649a58b3b63d5db)

@@ -1,0 +1,32 @@
+stage	seconds_min7_per_call	bytes_per_call
+CHECK	atom-group-LS-64x24	true	0.09877858736092288	4.7042056539015695e-12
+atom-group-LS-64x24/complete-cold-fit	1.2420850000000002e-5	6832.0
+atom-group-LS-64x24/model-construction	5.5e-7	1664.0
+atom-group-LS-64x24/initialize	5.2050000000000006e-8	0.0
+atom-group-LS-64x24/warmed-pass	3.396e-7	0.0
+CHECK	matrix-row-group-LS-64x24x3	true	0.21101689177850413	5.057160181645203e-15
+matrix-row-group-LS-64x24x3/complete-cold-fit	5.90835e-6	4048.0
+matrix-row-group-LS-64x24x3/model-construction	6.646000000000001e-7	2432.0
+matrix-row-group-LS-64x24x3/initialize	1.5e-7	0.0
+matrix-row-group-LS-64x24x3/warmed-pass	1.2229e-6	0.0
+CHECK	CSC-quadratic-24	true	-7.481228970607165	7.993605777301127e-15
+CSC-quadratic-24/complete-cold-fit	3.6958500000000004e-6	1952.0
+CSC-quadratic-24/model-construction	7.085e-8	752.0
+CSC-quadratic-24/initialize	7.5e-8	0.0
+CSC-quadratic-24/warmed-pass	2.5835e-7	0.0
+CHECK	Kronecker-8x8	true	-9.444123691970695	3.1282754164863036e-12
+Kronecker-8x8/complete-cold-fit	0.00032074585	2800.0
+Kronecker-8x8/model-construction	1.4600000000000002e-8	592.0
+Kronecker-8x8/initialize	3.45415e-6	0.0
+Kronecker-8x8/warmed-pass	2.1645500000000003e-6	0.0
+REPORTING_ITERATIONS	disabled	18
+reporting/disabled	1.697915e-5	4288.0
+REPORTING_ITERATIONS	history	18
+reporting/history	1.81125e-5	7760.0
+REPORTING_ITERATIONS	extended-history	18
+reporting/extended-history	1.9825e-5	23600.0
+REPORTING_ITERATIONS	callback	18
+reporting/callback	1.7608350000000002e-5	5728.0
+path/three-owned-solutions	7.0666499999999995e-6	7328.0
+workspace/reinit	4.15e-9	0.0
+workspace/reinit-and-solve	1.88458e-5	224.0

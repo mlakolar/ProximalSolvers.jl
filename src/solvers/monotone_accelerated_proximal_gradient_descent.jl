@@ -18,10 +18,11 @@ gradient step from the extrapolated point
 where `z` is the previous step from `y` and `x'` the previous iterate, and keeps
 its result `z` if `F(z) ≤ F(x) - δ L ‖z - y‖²`, with `F = f + g` and `1/L` the
 step size. Otherwise it also takes a plain proximal gradient step `v` from `x`
-and keeps the better of `z` and `v`. So the objective never increases, and
-every limit point of the iterates is a critical point of `F` for nonconvex `g`
-as well, which `AccProxGradDescent` (restarted extrapolation) doesn't
-guarantee; for convex problems it keeps the accelerated rate.
+and keeps the better of `z` and `v`. Under valid majorization and exact proximal updates, the objective does not
+increase in exact arithmetic. The cited critical-point and accelerated-rate
+results require their additional smoothness, step-size and boundedness
+assumptions; traits and a successful numerical line search do not establish
+them. A stopping flag does not certify global optimality for nonconvex `g`.
 
 The step sizes come from backtracking as in [`AccProxGradDescent`](@ref):
 `L` is multiplied by `α ∈ (0, 1]` before each iteration and divided by
@@ -38,9 +39,9 @@ end
 Base.summary(::MonotoneAccProxGradDescent) = "Monotone Accelerated Proximal Gradient Descent"
 
 function MonotoneAccProxGradDescent(; β::Real = 0.5, α::Real = 0.9, δ::Real = 1e-3)
-  0 < β < 1 || error("β must be in (0, 1).")
-  0 < α <= 1 || error("α must be in (0, 1].")
-  δ > 0 || error("δ must be positive.")
+  0 < β < 1 || throw(ArgumentError("β must be in (0, 1)."))
+  0 < α <= 1 || throw(ArgumentError("α must be in (0, 1]."))
+  δ > 0 || throw(ArgumentError("δ must be positive."))
   MonotoneAccProxGradDescent(promote(float(β), float(α), float(δ))...)
 end
 
@@ -182,11 +183,13 @@ function _prox_grad_step!(w, grad, f, g, u, state::MonotoneAccProxGradDescentSta
       state.f_calls += 1
 
       _sub!(state.xhat, w, u)
-      upper = f_u + _dot(grad, state.xhat) + state.L / 2 * _sumabs2(state.xhat)
+      stepnorm2 = _sumabs2(state.xhat)
+      upper = f_u + _dot(grad, state.xhat) + state.L / 2 * stepnorm2
       state.backtrack_steps += 1
       # slack guards against an endless loop from rounding error near the solution
-      isfinite(f_w) && f_w <= upper + 10 * eps(T) * max(abs(f_u), one(T)) && return f_w, T(g_w)
-      state.L /= method.β
+      _majorization_ok(f, state.model, image_u, image_w, f_u, f_w, upper,
+                       state.L, stepnorm2, state.xhat) && return f_w, T(g_w)
+      state.L = LineSearches.next_curvature(state.L, method.β)
     end
 end
 

@@ -18,7 +18,10 @@ Multipliers*, 2011). It splits `x = z` and iterates
     u ← u + α x + (1 - α) z_previous - z
 
 `ρ > 0` is the augmented Lagrangian parameter and `α ∈ (0, 2)` the
-over-relaxation (`α = 1` is plain ADMM; 1.5 to 1.8 usually converges faster).
+over-relaxation (`α = 1` is plain ADMM; 1.5 to 1.8 are common choices).
+The usual convergence result requires closed proper convex functions, exact
+proximal updates and a saddle point of the split Lagrangian. A successful
+residual test is not a general convergence guarantee for nonconvex functions.
 It stops when the primal residual `‖x - z‖` is below `√n abstol + reltol ⋅
 max(‖x‖, ‖z‖)` and the dual residual `ρ‖z - z_previous‖` below `√n abstol_dual
 + reltol ⋅ ρ‖u‖` (§3.3 of the paper). With `adaptive`, `ρ` balances the two
@@ -65,8 +68,10 @@ Base.summary(::ADMMSolver) = "ADMM"
 
 function ADMMSolver(; ρ::Real = 1.0, α::Real = 1.0, abstol::Real = 1e-6, reltol::Real = 1e-4,
                     adaptive::Bool = false, abstol_dual::Real = abstol, norm = nothing)
-  ρ > 0 || error("ρ must be positive.")
-  0 < α < 2 || error("α must be in (0, 2).")
+  isfinite(ρ) && ρ > 0 || throw(ArgumentError("ρ must be finite and positive."))
+  0 < α < 2 || throw(ArgumentError("α must be in (0, 2)."))
+  all(t -> isfinite(t) && t >= 0, (abstol, abstol_dual, reltol)) ||
+    throw(ArgumentError("ADMM tolerances must be finite and nonnegative."))
   T = float(promote_type(typeof(ρ), typeof(α), typeof(abstol), typeof(reltol), typeof(abstol_dual)))
   ADMMSolver{T, typeof(norm)}(T(ρ), T(α), T(abstol), T(reltol), adaptive, T(abstol_dual), norm)
 end
@@ -168,6 +173,11 @@ function solve!(
   isproximable(f) || throw(ArgumentError("ADMM needs a proximable f (isproximable(f)), but f is a $(typeof(f))."))
   isproximable(g) || throw(ArgumentError("ADMM needs a proximable g (isproximable(g)), but g is a $(typeof(g))."))
   u === nothing || (typeof(u) == typeof(x) && _size(u) == _size(x)) || throw(DimensionMismatch("u must have the size of x"))
+  _workspace_noalias(x)
+  if u !== nothing
+    _workspace_noalias(u)
+    _admm_alias(x, u) && throw(ArgumentError("the primal and dual iterates must have separate storage"))
+  end
   t0 = time()
   ρ = T(method.ρ)
 
@@ -220,7 +230,7 @@ function _solve_admm!(z::Union{AbstractArray{T}, _Blocks{T}}, f, g, method, opti
     s_norm *= ρ
     eps_pri = sqrt_n * T(method.abstol) + T(method.reltol) * nxz
     eps_dual = sqrt_n * T(method.abstol_dual) + T(method.reltol) * ρ * nu
-    converged = r_norm <= eps_pri && s_norm <= eps_dual
+    converged = all(isfinite, (r_norm, s_norm, eps_pri, eps_dual)) && r_norm <= eps_pri && s_norm <= eps_dual
     if gapev !== nothing
       if iteration % options.gapevery == 0
         relgap, relgap_iteration = _relgap!(gapev, f, g, z), iteration
@@ -252,7 +262,7 @@ function _solve_admm!(z::Union{AbstractArray{T}, _Blocks{T}}, f, g, method, opti
     # A limit can stop before the next scheduled gap check. Certify the returned
     # point from its final gap, or from its residuals when that gap is unavailable.
     # Before any iteration the Inf placeholders do not provide a residual test.
-    converged = isnan(relgap) ? iteration > 0 && r_norm <= eps_pri && s_norm <= eps_dual : relgap <= options.gaptol
+    converged = isnan(relgap) ? iteration > 0 && all(isfinite, (r_norm, s_norm, eps_pri, eps_dual)) && r_norm <= eps_pri && s_norm <= eps_dual : relgap <= options.gaptol
   end
 
   # f(z) for the minimum is one more call
@@ -260,3 +270,6 @@ function _solve_admm!(z::Union{AbstractArray{T}, _Blocks{T}}, f, g, method, opti
               r_norm, s_norm, eps_pri, eps_dual, u, ρ,
               f_calls + 1, 0, prox_calls, call_limit_reached, relgap)
 end
+
+_admm_alias(x::AbstractArray, u::AbstractArray) = Base.mightalias(x, u)
+_admm_alias(x::Tuple, u::Tuple) = any(Base.mightalias(a, b) for a in x for b in u)

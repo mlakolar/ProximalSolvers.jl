@@ -1,0 +1,20 @@
+digraph types {
+  graph [rankdir=LR, bgcolor="white", label="Abstract types and concrete implementations", labelloc=t, fontname="Helvetica", fontsize=18];
+  node [shape=box, style="rounded,filled", fillcolor="#edf4fc", fontname="Helvetica", fontsize=12];
+  edge [fontname="Helvetica", fontsize=10];
+  solver [label="ProximalSolver\nabstract", fillcolor="#d4e5fa"];
+  gradient [label="ProximalGradientDescent\nAccProxGradDescent\nMonotoneAccProxGradDescent\nActiveAccProxGradDescent"];
+  split [label="ADMMSolver\nCondatVu"];
+  cd [label="CDSolver\nProxNewton"];
+  slope [label="SLOPEAPG\nSLOPEHybrid"];
+  {gradient split cd slope} -> solver [arrowhead=empty, label="subtype"];
+  model [label="CDModel{T}\nabstract", fillcolor="#d4e5fa"];
+  ls [label="LSModel / MLSModel\nresidual caches"];
+  quad [label="QuadModel / KronModel\nKronUModel"];
+  glm [label="GLMModel\nlinear predictor"];
+  sqrt [label="SqrtLSModel / SqrtQuadModel"];
+  {ls quad glm sqrt} -> model [arrowhead=empty, label="subtype"];
+  lla [label="LLA\nstandalone driver", fillcolor="#fff1d2"];
+  inner [label="CDSolver value"];
+  lla -> inner [arrowtail=diamond, dir=both, arrowhead=none, label="inner field"];
+}

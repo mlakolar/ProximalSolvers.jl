@@ -11,8 +11,10 @@ Proximal gradient descent (Parikh and Boyd, *Proximal Algorithms*, §4.2):
 backtracking line search `ls` of TFOCS. Use with [`solve!`](@ref).
 
 With a nonconvex `g`, such as `IndBallL0(s)` (iterative hard thresholding),
-`IndBallRank`, `NormL0`, `MCP` or `SCAD`, the line search keeps the objective
-decreasing, and every limit point of the iterates is a critical point. Two
+`IndBallRank`, `NormL0`, `MCP` or `SCAD`, the proximal step decreases the majorized objective in exact arithmetic.
+Stationarity results additionally require a proper lower semicontinuous
+penalty, suitable smoothness and bounded-step conditions, and bounded
+iterates. The traits alone do not verify those assumptions. Two
 options help iterative hard thresholding:
 - `normalized = true` starts the backtracking of each iteration from the
   normalized step of Blumensath and Davies (*Normalized iterative hard

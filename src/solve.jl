@@ -64,6 +64,7 @@ function solve!(
 
   issmooth(f) || throw(ArgumentError("$(summary(method)) needs a smooth f (issmooth(f)), but f is a $(typeof(f))."))
   isproximable(g) || throw(ArgumentError("$(summary(method)) needs a proximable g (isproximable(g)), but g is a $(typeof(g))."))
+  _workspace_noalias(initial_x)
   t0 = time()
   state = initial_state(method, options, f, g, initial_x)
   gapev = options.gaptol > 0 ? _gapevaluator(f, g, initial_x) : nothing
@@ -72,7 +73,7 @@ end
 
 # The iteration engine also serves SolverWorkspace, which supplies its existing
 # state and gap buffers after resetting the counters and starting point.
-function _solve_gradient!(state, f, g, method, options, gapev, t0 = time())
+function _solve_gradient!(state, f, g, method, options, gapev, t0 = time(); certificate = nothing)
 
   tr = OptimizationTrace{typeof(method)}()
   tracing = options.store_trace || options.show_trace || options.extended_trace || options.callback !== nothing
@@ -93,7 +94,15 @@ function _solve_gradient!(state, f, g, method, options, gapev, t0 = time())
   while !converged && !stopped && iteration < options.maxiter
     iteration += 1
 
-    update_state!(f, g, state, method)
+    try
+      update_state!(f, g, state, method)
+      isfinite(state.f_x + state.g_x) || error("the gradient step did not produce a finite objective")
+    catch
+      # Trials overwrite x for allocation-free iteration. An unsuccessful
+      # search must still leave the caller's last accepted point intact.
+      _copyto!(state.x, state.x_previous)
+      rethrow()
+    end
 
     x_converged, fg_converged,
     grad_converged, converged, f_increased = convergence_assessment(state, f, g, options)
@@ -106,6 +115,7 @@ function _solve_gradient!(state, f, g, method, options, gapev, t0 = time())
         converged = false
       end
     end
+    certificate === nothing || !(converged || f_increased) || (converged = certificate(state))
 
     if tracing
       # update trace; callbacks can stop routine early by returning true
@@ -119,7 +129,12 @@ function _solve_gradient!(state, f, g, method, options, gapev, t0 = time())
 
     # with a gap, an objective that rises by rounding near the solution does not
     # stop the solver: the primal converges before the dual point does
-    if (f_increased && !options.allow_f_increases && gapev === nothing) || stopped_by_callback ||
+    increased = f_increased && !options.allow_f_increases && gapev === nothing
+    if increased && certificate !== nothing
+      F, Fprev = state.f_x + state.g_x, state.f_x_previous + state.g_x_previous
+      increased = F - Fprev > 16 * eps(typeof(state.f_x)) * max(abs(F), abs(Fprev), one(F))
+    end
+    if increased || stopped_by_callback ||
         stopped_by_time_limit || f_limit_reached || grad_limit_reached || prox_limit_reached
         stopped = true
     end

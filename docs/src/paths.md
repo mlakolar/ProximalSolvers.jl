@@ -25,7 +25,7 @@ capped ℓ1 and log penalties have paths by local linear approximation (see
 | `GroupNormL2(λ, groups, w)` | ``\lambda\sum_k w_k\lVert x_{G_k}\rVert_2`` | ``w_k`` |
 | `Scaled(SparseGroupNormL2(α, 1 - α, groups, w), λ)` | ``\lambda\big(\alpha\lVert x\rVert_1 + (1 - \alpha)\sum_k w_k\lVert x_{G_k}\rVert_2\big)`` | see below |
 
-In each, a coordinate at zero is optimal (stationary, for MCP and SCAD) while
+In each, a coordinate at zero satisfies its slope condition (stationarity, for MCP and SCAD) while
 the gradient of the loss over it is at most ``\lambda w_k`` in absolute value,
 or in Euclidean norm for a group: the right derivative of every penalty at
 zero is ``\lambda w_k``. A coordinate with ``w_k = 0`` is not penalized.
@@ -133,9 +133,8 @@ Each level stops on a certified relative duality gap,
 
 when the loss and the penalty have one (see [Stopping on the duality
 gap](@ref)): the default `gaptol` is [`PATH_GAPTOL`](@ref
-ProximalSolvers.PATH_GAPTOL) `= 1e-4`, which puts the coefficients within
-about `1e-4` of the solution, relative to the largest (about 50 times the
-target at worst), and `gaptol = 1e-3` is the faster setting for
+ProximalSolvers.PATH_GAPTOL) `= 1e-4`. This bounds objective error when a certificate is available,
+without a general coefficient-error guarantee. `gaptol = 1e-3` is a looser target for
 cross-validation and prediction; `gaptol = 0` gives back the rule on the
 changes. In step 2, coordinate descent
 stops on the gap of the problem restricted to ``S``, the coordinates outside
@@ -159,7 +158,8 @@ number of checks: one when the strong rule made no mistake.
 ## Calling `solve_path`
 
 `solve_path(f, g, λs, method = CDSolver(); x, screening = true, maxnnz = Inf, callback = nothing, gaptol)`
-takes decreasing nonnegative levels. The iterate `x` is the starting point and
+takes finite nonnegative levels in nonincreasing order; repeated levels and an
+empty grid are allowed. The iterate `x` is the starting point and
 holds the last solution on return; it defaults to a zero `SparseIterate` when
 the loss has columns, and must be given otherwise, as an `AtomIterate` for a
 group penalty or a `SymmetricSparseIterate` for a symmetric matrix. The path
@@ -194,8 +194,8 @@ level fully. It returns the solution at `g`. When the level of `g` is zero or at
 least ``\lambda_{\max}``, or `g` has no level (`IndBox`, `ZeroFunction`), it
 solves from zero directly.
 
-On a convex problem the minimizer is the same either way, and continuation is
-a question of speed. On the lasso design of
+On a convex problem both routes target the same minimum value; coefficient
+vectors can differ when the minimizer is not unique. On the lasso design of
 [A lasso path](examples/02_lasso_path.md), it took half the passes of a direct
 solve from zero, or fewer, at ``0.01\lambda_{\max}``, and fewer at
 ``0.02\lambda_{\max}``, but more at ``0.05\lambda_{\max}`` and above, where the
@@ -250,10 +250,11 @@ weighted lasso with the weights ``p_k'(|x_k|)`` of the previous stage, from
 ``p_k'(\|x_{G_k}\|_2)`` for group MCP and SCAD. The slopes are taken from the
 right, so that at zero they are ``p_k'(0+)`` and the first stage from zero is
 the lasso. Each stage, solved exactly, decreases the loss plus the penalty
-(majorization-minimization), and each is convex, so λmax, the strong rule and
-the gap-safe rule are exact inside it, and the condition above does not arise.
+(majorization-minimization), and each is convex. The strong rule still needs full optimality rechecks;
+gap-safe screening needs a valid dual certificate. The nonconvex-coordinate
+curvature condition above does not apply to the weighted convex stages.
 
-`solve_path(f, g, λs, LLA(inner = CDSolver(); stages = 2, tol, start = :lasso))`
+`solve_path(f, g, λs, LLA(CDSolver(); stages = 2, tol = 1e-12, start = :lasso))`
 runs the stages at each level:
 
 - **The first stage** is, with `start = :lasso`, the lasso with the weights

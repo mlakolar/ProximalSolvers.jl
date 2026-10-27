@@ -30,7 +30,7 @@ returns `true`.
   the results.
 - `show_trace = false`: print the progress every `print_every` iterations.
 - `extended_trace = false`: also store the iterate and gradient in each state.
-- `print_every = 1`: how often to print, store and call `callback`.
+- `print_every = 1`: how often to print and call `callback`; stored gradient traces include every iteration.
 - `callback = nothing`: a callable object called every `print_every` iterations with
   the trace (if `store_trace`) or the current state; return `true` to stop.
 - `time_limit = Inf`: maximum run time in seconds.
@@ -56,10 +56,9 @@ composite problem, with its own KKT residual tolerances instead of `ftol`,
 `xtol` and `gradtol`. Unsupported composite conjugates raise an error when
 `gaptol > 0`; a valid relative gap callback can be supplied instead.
 
-The solvers work in the element type of the starting point, `Float32` as well
-as `Float64`. Tolerances below its precision, such as `ftol = 1e-8` in
-`Float32` (`eps(Float32) ≈ 1.2e-7`), cannot be met: the solver then stops when
-rounding makes the objective increase, with `converged` false.
+The solvers work in the starting point's element type, including `Float32`
+and `Float64`. Tolerances below working precision can produce stagnation or
+rounded residuals; they do not imply correspondingly accurate coefficients.
 """
 struct ProximalOptions{TCallback}
   maxiter::Int64
@@ -91,26 +90,21 @@ function ProximalOptions(;maxiter::Integer       = 200,
                          store_trace::Bool       = false,
                          show_trace::Bool        = false,
                          extended_trace::Bool    = false,
-                         print_every::Union{Nothing,Integer} = nothing,
-                         printEvery::Union{Nothing,Integer} = nothing,
+                         print_every::Integer    = 1,
                          callback                = nothing,
                          time_limit              = Inf,
                          gaptol::Real            = 0.0,
                          gapevery::Integer       = 10)
 
-  if printEvery !== nothing
-    print_every === nothing || throw(ArgumentError("use only print_every; printEvery is deprecated"))
-    Base.depwarn("printEvery is deprecated; use print_every", :ProximalOptions)
-    print_every = printEvery
-  end
-  print_every = something(print_every, 1)
-
-  maxiter > 1 || error("maxiter must be an integer greater than 1.")
-  ftol > 0 || error("ftol must be a positive real value.")
-  xtol > 0 || error("xtol must be a positive real value.")
-  gaptol >= 0 || error("gaptol must be nonnegative.")
-  gapevery > 0 || error("gapevery must be positive.")
-  print_every = print_every > 0 ? print_every : 1
+  maxiter > 1 || throw(ArgumentError("maxiter must be an integer greater than 1."))
+  isfinite(Float64(ftol)) && ftol > 0 || throw(ArgumentError("ftol must be finite and positive."))
+  isfinite(Float64(xtol)) && xtol > 0 || throw(ArgumentError("xtol must be finite and positive."))
+  isfinite(Float64(gradtol)) && gradtol >= 0 || throw(ArgumentError("gradtol must be finite and nonnegative."))
+  isfinite(Float64(gaptol)) && gaptol >= 0 || throw(ArgumentError("gaptol must be finite and nonnegative."))
+  min(f_calls_limit, grad_calls_limit, prox_calls_limit) >= 0 || throw(ArgumentError("call limits must be nonnegative."))
+  isnan(time_limit) && throw(ArgumentError("time_limit must not be NaN."))
+  gapevery > 0 || throw(ArgumentError("gapevery must be positive."))
+  print_every > 0 || throw(ArgumentError("print_every must be positive."))
 
   ProximalOptions{typeof(callback)}(
                   convert(Int64, maxiter),
@@ -132,15 +126,6 @@ function ProximalOptions(;maxiter::Integer       = 200,
                   )
 end
 
-function Base.getproperty(options::ProximalOptions, name::Symbol)
-  if name === :printEvery
-    Base.depwarn("printEvery is deprecated; use print_every", :getproperty)
-    return getfield(options, :print_every)
-  end
-  getfield(options, name)
-end
-Base.propertynames(options::ProximalOptions, private::Bool=false) =
-  (fieldnames(typeof(options))..., :printEvery)
 
 function print_header(options::ProximalOptions)
   if options.show_trace
@@ -277,11 +262,7 @@ call_limit_reached(r::OptimizationResults) = r.call_limit_reached
 
 
 function _show_minimizer(io::IO, x::AbstractArray)
-    if length(join(x, ",")) < 40
-        @printf io " * Minimizer: [%s]\n" join(x, ",")
-    else
-        @printf io " * Minimizer: [%s, ...]\n" join(x[1:2], ",")
-    end
+    @printf io " * Minimizer: [%s%s]\n" join(Iterators.take(x, 2), ",") (length(x) > 2 ? ", ..." : "")
 end
 _show_minimizer(io::IO, x::Tuple) =
     @printf io " * Minimizer: %d blocks of sizes %s\n" length(x) join(map(b -> join(size(b), "×"), x), ", ")

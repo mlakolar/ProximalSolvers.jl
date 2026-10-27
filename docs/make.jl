@@ -33,10 +33,12 @@ end
 makedocs(
     sitename = "ProximalSolvers.jl",
     authors = "Mladen Kolar",
+    repo = Documenter.Remotes.GitHub("mlakolar", "ProximalSolvers.jl"),
     modules = [ProximalSolvers],
     format = Documenter.HTML(
         prettyurls = get(ENV, "CI", "false") == "true",
         canonical = "https://mlakolar.github.io/ProximalSolvers.jl/stable/",
+        edit_link = "master",
         mathengine = Documenter.KaTeX(),
         size_threshold = 400_000,
     ),
@@ -45,8 +47,10 @@ makedocs(
         "User guide" => [
             "Getting started" => "getting_started.md",
             "Choosing a solver" => "choosing_solver.md",
+            "Architecture" => "architecture.md",
             "Calling the solvers" => "solve.md",
             "Checking a solution" => "optimality.md",
+            "Migrating to this release" => "migration.md",
         ],
         "Coordinate descent" => [
             "The method" => "coordinate_descent.md",

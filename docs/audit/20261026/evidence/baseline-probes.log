@@ -1,0 +1,21 @@
+┌ Warning: coordinate descent did not converge in maxpasses = 0 passes (largest change of a coordinate in the last pass NaN > tolerance 1.41e-7); the solution may be inaccurate.
+└ @ ProximalSolvers ~/projects/juliaPkg/ps-audit-20261026/src/cd/solver.jl:580
+zero curvature: 
+x = [0.0]
+r.converged = true
+PS.kkt_residual(f, NormL1(0.1), SparseIterate(x)) = 0.0
+explicit refit: 
+Vector(x) = [3.0, 2.0]
+ADMM dual alias: 
+x = [0.19999999999999996]
+r.minimum = 0.059999999999999984
+nonsmooth coordinate trap: 
+Vector(x) = [1.0, -1.0]
+r.converged = true
+r.minimum = 0.2
+f(zeros(2)) + g(zeros(2)) = 0.01
+nonfinite ADMM tolerance: 
+ADMMSolver(abstol = Inf) = ADMMSolver{Float64, Nothing}(1.0, 1.0, Inf, 0.0001, false, Inf, nothing)
+GLM no inner steps: 
+Vector(x) = [0.0]
+r.converged = false

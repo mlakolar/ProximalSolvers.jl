@@ -18,6 +18,20 @@
 #  conjugates
 ####################################
 
+# Check weak duality before rounding a certificate. NaN/Inf and a material
+# violation must never become a zero gap. The small floor also protects safe
+# screening from a radius lost to cancellation. Public gaps retain P - D.
+function _certificate_gap(P::T, D) where {T<:AbstractFloat}
+  isfinite(P) && isfinite(D) || return T(Inf)
+  gap = P - D
+  gap >= -8 * eps(T) * max(abs(P), abs(D)) || return T(Inf)
+  max(gap, 4 * eps(T) * abs(P))
+end
+function _relative_gap(P, D)
+  gap = _certificate_gap(P, D)
+  isfinite(gap) ? gap / max(abs(P), floatmin(typeof(P))) : gap
+end
+
 # the conjugate ℓ*(u; y) = sup_η uη - ℓ(η, y) of a scalar loss, Inf off its
 # domain; the arguments come from u = t ℓ'(η, y), which is in the domain up to
 # rounding
@@ -193,7 +207,8 @@ end
 function _partial_gradient!(z::AbstractVector{T}, m::GLMModel{T}, x, cand::Vector{Int}) where {T}
   d = m.d
   @inbounds for i in eachindex(m.η)
-    d[i] = _obsweight(m.w, i, T) * T(ProximalBase.deriv(m.loss, m.η[i], m.y[i]))
+    wi = _obsweight(m.w, i, T)
+    d[i] = iszero(wi) ? zero(T) : wi * T(ProximalBase.deriv(m.loss, m.η[i], m.y[i]))
   end
   for k in cand, j in _coordentries(x, k)
     @inbounds z[j] = m.s * _coldot(m.X, d, j)
@@ -351,10 +366,10 @@ function _gapcheck!(gs::_GapState{T}, x, m, g, st::_CDState{T}, s::CDSolver) whe
     return false, false, false
   end
   P, D, t = res
-  gap = max(P - D, 4 * eps(T) * abs(P))
+  gap = _certificate_gap(P, D)
   st.relgap = gap / max(abs(P), floatmin(T))
   certified = s.gaptol > 0 && st.relgap <= s.gaptol
-  moved = s.gapsafe && !certified && _gapscreen!(gs, m, g, x, st, t, gap)
+  moved = s.gapsafe && !certified && isfinite(gap) && _gapscreen!(gs, m, g, x, st, t, gap)
   true, certified, moved
 end
 
@@ -363,7 +378,7 @@ end
 function _fullgap!(st::_CDState{T}, m, g, x, grad::AbstractVector) where {T}
   res = _gap_at(grad, m, g, x, nothing)
   st.relgap = res === nothing ? T(NaN) :
-              max(res[1] - res[2], 4 * eps(T) * abs(res[1])) / max(abs(res[1]), floatmin(T))
+              _relative_gap(res[1], res[2])
 end
 
 # Gap-safe screening (Fercoq, Gramfort and Salmon, 2015; Ndiaye, Fercoq,
@@ -538,7 +553,8 @@ function _evalgap!(ev::_GLMGap{L, MX, VY, W, O, T}, g, x) where {L, MX, VY, W, O
   ev.o === nothing ? fill!(η, zero(T)) : (η .= ev.o)
   _addproduct!(η, ev.X, x, one(T))
   @inbounds for i in eachindex(η)
-    d[i] = ev.s * _obsweight(ev.w, i, T) * T(ProximalBase.deriv(ev.loss, η[i], ev.y[i]))
+    wi = _obsweight(ev.w, i, T)
+    d[i] = iszero(wi) ? zero(T) : ev.s * wi * T(ProximalBase.deriv(ev.loss, η[i], ev.y[i]))
   end
   mul!(ev.z, transpose(ev.X), d)
   t = _dualscale(g, ev.z)
@@ -607,7 +623,7 @@ function _relgap!(ev, f, g, x)
   res = _evalgap!(ev, f, g, x)
   res === nothing && return NaN
   P, D = res
-  Float64(max(P - D, zero(P)) / max(abs(P), floatmin(typeof(P))))
+  Float64(_relative_gap(P, D))
 end
 
 """
@@ -664,8 +680,13 @@ end
 The largest scaled change `√aₖ ⋅ |Δxₖ|` that one coordinate step of
 [`CDSolver`](@ref) would make at `x`, over all coordinates, where `aₖ` is the
 curvature of `f` along coordinate `k` and the step is the proximal step from
-[`coordinate_derivatives`](@ref). It is zero exactly at a minimizer of `f + g`
-when both are convex, and it is the quantity that the stopping rule of
+[`coordinate_derivatives`](@ref). When both are convex and `f` is
+differentiable at `x`, it is zero exactly at a minimizer of `f + g`.
+The square-root models do not supply the coordinate derivatives required
+by this diagnostic; inspect the gap in [`CDSolver`](@ref)'s results for those
+losses. It is `Inf` along
+a coordinate with zero curvature where `f + g` is unbounded below. It is the
+quantity that the stopping rule of
 `CDSolver` compares with `tol`: with `relative`, it is divided by the scale of
 the data ([`response_scale`](@ref)), as there. `x` is not changed.
 
@@ -696,15 +717,22 @@ end
 # √a |prox step| at coordinate k, without moving it
 function _fixedpoint_residual(m::CDModel{T}, g, x::SparseIterate{T}, k::Int) where {T}
   G, a = coordinate_derivatives(m, x, k)
-  iszero(a) && return zero(T)
   old = x[k]
-  sqrt(a) * abs(prox_entry(g, old - G / a, k, inv(a)) - old)
+  _fixedpoint_change(g, old, G, a, k, one(T))
 end
 
 function _fixedpoint_residual(m::CDModel{T}, g, x::SymmetricSparseIterate{T}, k::Int) where {T}
   G, a = coordinate_derivatives(m, x, k)
-  iszero(a) && return zero(T)
   r, c = tril_cartesian(x.p, k)
   old = coordinates(x)[k]
-  sqrt(a) * abs(prox_entry(g, old - G / a, _entry(x.p, r, c), _multiplicity(T, r, c) / a) - old)
+  _fixedpoint_change(g, old, G, a, _entry(x.p, r, c), _multiplicity(T, r, c))
+end
+
+# A flat coordinate along which f + g is unbounded has no stationary point: Inf.
+function _fixedpoint_change(g, old::T, G, a, i, μ) where {T}
+  if iszero(a) && isfinite(G)
+    new = _flat_minimizer(g, old, T(G), i, μ)
+    return new === nothing ? T(Inf) : abs(new - old)
+  end
+  sqrt(a) * abs(_coordinate_minimizer(g, old, G, a, i, μ) - old)
 end

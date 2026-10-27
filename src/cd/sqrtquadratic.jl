@@ -61,10 +61,11 @@ mutable struct SqrtQuadModel{T<:AbstractFloat, M<:AbstractMatrix{T}, V<:Abstract
   c::T
   u::Vector{T}          # A x
   q::T                  # x'Ax + 2b'x + c
+  grad::Vector{T}       # ∇f, for the duality gap at the end of a run
 end
 
 cdmodel(f::SqrtQuadraticFunction{T}, x) where {T} =
-  SqrtQuadModel{T, typeof(f.A), typeof(f.b)}(f.A, f.b, f.c, zeros(T, length(f.b)), f.c)
+  SqrtQuadModel{T, typeof(f.A), typeof(f.b)}(f.A, f.b, f.c, zeros(T, length(f.b)), f.c, zeros(T, length(f.b)))
 
 # x'Ax + 2b'x + c over the active entries of x, from u = Ax
 function _quadratic_value(m::SqrtQuadModel{T}, x::SparseIterate{T}) where {T}
@@ -133,5 +134,7 @@ coordinate_scale(m::SqrtQuadModel{T}, x, k::Int) where {T} = sqrt(max(m.A[k, k],
 response_scale(m::SqrtQuadModel{T}, x) where {T} = sqrt(max(m.c, zero(T)))
 
 loss_value(m::SqrtQuadModel{T}, x) where {T} = sqrt(max(m.q, zero(T)))
+
+_certified!(st, m::SqrtQuadModel, g, x, s) = _sqrt_certified!(st, m, g, x, s)
 
 gradient!(G::AbstractVector{T}, m::SqrtQuadModel{T}, x) where {T} = (G .= (m.u .+ m.b) ./ sqrt(m.q))

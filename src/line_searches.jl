@@ -36,10 +36,22 @@ the search retries with `L ← L / β`.
 The object holds settings only and can be shared between solves; the
 bookkeeping lives in the solver state.
 """
-Base.@kwdef struct BackTracking{T<:Real}
-    α::T      = 0.9
-    β::T      = 0.5
-    Lexact::T = Inf
+struct BackTracking{T<:Real}
+    α::T
+    β::T
+    Lexact::T
+end
+
+function BackTracking(; α::Real = 0.9, β::Real = 0.5, Lexact::Real = Inf)
+    0 < α <= 1 && 0 < β < 1 && Lexact > 0 ||
+        throw(ArgumentError("backtracking needs 0 < α <= 1, 0 < β < 1, and Lexact > 0"))
+    BackTracking(promote(float(α), float(β), float(Lexact))...)
+end
+
+function next_curvature(L, β)
+    next = typeof(L)(L / β)
+    isfinite(next) && next > L || error("line search failed: the curvature estimate cannot increase finitely")
+    next
 end
 
 # f(x) and ∇f(x) at the trial point state.x, into state.grad_f_x; a solver
@@ -55,7 +67,7 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
     _sub!(state.delta_x, state.x, state.x_previous)
     xy_sq = stepnorm2(state, state.delta_x)
 
-    if xy_sq == zero(T)
+    if xy_sq == zero(T) && isfinite(state.f_x)
       # in the gradient mode, update_state! expects ∇f(x), but state.grad_f_x may
       # hold the gradient at a rejected trial point
       if !state.backtrack_simple
@@ -72,7 +84,7 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
     # with step 0, would return x_previous as if converged.
     if !isfinite(state.f_x)
         state.backtrack_steps += 1
-        state.L /= ls.β
+        state.L = next_curvature(state.L, ls.β)
         return false
     end
 
@@ -101,7 +113,8 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
     # Exit if Lipschitz criterion satisfied, or if we hit Lexact
     state.backtrack_steps += 1;
     (local_l <= state.L || state.L >= ls.Lexact) && return true
-    state.L = min( ls.Lexact, max( local_l, state.L / ls.β ) )
+    state.L = min( ls.Lexact, max( local_l, next_curvature(state.L, ls.β) ) )
+    isfinite(state.L) || error("line search failed: nonfinite curvature estimate")
 
     return false
 end

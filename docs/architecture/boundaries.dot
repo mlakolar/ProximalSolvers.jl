@@ -1,0 +1,17 @@
+digraph boundaries {
+  graph [rankdir=TB, bgcolor="white", label="Package boundaries and downstream contracts", labelloc=t, fontname="Helvetica", fontsize=18];
+  node [shape=box, style="rounded,filled", fillcolor="#edf4fc", fontname="Helvetica", fontsize=12];
+  edge [fontname="Helvetica", fontsize=10, color="#2463a0"];
+  base [label="ProximalBase\nAbstractFunction / function traits\ngradient! / prox! / prox_entry\niterates / restrictions / Hessian models", fillcolor="#d4e5fa"];
+  solvers [label="ProximalSolvers\nsolver settings, dispatch, iteration\nmodels, paths, results"];
+  model [label="public CDModel interface\nqualified operations"];
+  hdm [label="HighDimensionalModels\nestimators, CV, custom CD models"];
+  cov [label="CovarianceSelection\nADMM, IHT, refits"];
+  diff [label="DiffPrecTest\nKronecker coordinate solves and paths"];
+  private [label="known private dependencies\nHDM: SqrtQuadModel, _saturated\n_hasconjugate (quantile fallback)\ninternal; no compatibility guarantee", fillcolor="#fff1d2"];
+  solvers -> base [label="calls public oracles"];
+  model -> solvers [style=dashed, label="dispatch extensions"];
+  {hdm cov diff} -> solvers [label="calls"];
+  hdm -> model [style=dashed, label="extends"];
+  hdm -> private [style=dashed, color="#a33a28", label="not a stable extension API"];
+}

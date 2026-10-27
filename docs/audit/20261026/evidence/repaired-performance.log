@@ -1,0 +1,40 @@
+Julia Version 1.13.2
+Commit 45b6d15e34b (2026-10-14 20:33 UTC)
+Build Info:
+  Official https://julialang.org release
+Platform Info:
+  OS: macOS (arm64-apple-darwin27.0.0)
+  CPU: 12 × Apple M3 Pro
+  WORD_SIZE: 64
+  LLVM: libLLVM-20.1.8 (ORCJIT, apple-m3)
+  GC: Built with stock GC
+Threads: 1 default, 1 interactive, 1 GC (on 12 virtual cores)
+BLAS.get_config() = LBTConfig([ILP64] libopenblas64_.0.3.30.dylib)
+BLAS.get_num_threads() = 1
+Threads.nthreads() = 1
+family	seconds_min7	bytes	iterations	converged	objective	relative_gap	fixedpoint
+PG	3.8459e-5	7856	20	true	0.11962194937871806	7.174579416477737e-9	3.6399652736385235e-10
+first-use PG seconds=0.498782125 bytes=399228608
+APG	6.7125e-5	9920	30	true	0.11962194937871808	1.9594717967009447e-13	1.9872992140790302e-14
+first-use APG seconds=0.02279975 bytes=15202144
+monotone	9.4667e-5	13264	30	true	0.11962194937871806	7.746236344921379e-13	7.382983113757291e-14
+first-use monotone seconds=0.031199958 bytes=18631120
+CD	5.584e-6	5568	9	true	0.11962194937871806	2.992181881659445e-10	2.2768786855920098e-11
+first-use CD seconds=0.151615416 bytes=127656960
+CSC-CD	1.9625e-5	5600	9	true	0.11962194937871806	2.992186522208401e-10	2.2768786855920098e-11
+first-use CSC-CD seconds=0.725407625 bytes=184216768
+ADMM	4.2958e-5	5072	50	true	0.11962194937871806	5.576146273025721e-10	3.7356673310284805e-11
+first-use ADMM seconds=0.504231542 bytes=190867968
+stage	bytes	seconds_min7
+ProximalGradientDescent	construction	4736	1.583e-6
+ProximalGradientDescent	iteration	48	1.459e-6
+ProximalGradientDescent	stopping	16	8.3e-8
+ProximalGradientDescent	gap	2864	3.083e-6
+AccProxGradDescent	construction	6816	1.0e-6
+AccProxGradDescent	iteration	32	1.542e-6
+AccProxGradDescent	stopping	16	8.3e-8
+AccProxGradDescent	gap	2864	2.958e-6
+MonotoneAccProxGradDescent	construction	10160	1.25e-6
+MonotoneAccProxGradDescent	iteration	32	2.0e-6
+MonotoneAccProxGradDescent	stopping	16	8.4e-8
+MonotoneAccProxGradDescent	gap	2864	2.917e-6

@@ -142,8 +142,8 @@ The bound is ``\bar\ell = 1/4`` for the logistic loss
 and ``\bar\ell = 1`` for the Huber loss. A step evaluates ``\ell'`` at every
 observation, and the bound is far above the curvature where the fitted
 probabilities are near 0 or 1, so the steps are short. [`ProxNewton`](@ref)
-uses the curvature at the current point instead, and is usually much faster;
-it also handles the Poisson loss ``e^\eta - y\eta``, whose curvature is
+uses the curvature at the current point instead; its relative cost depends on
+the problem and required accuracy. It also handles the Poisson loss ``e^\eta - y\eta``, whose curvature is
 unbounded and which coordinate descent therefore refuses.
 
 ## The square-root lasso
@@ -155,6 +155,23 @@ coefficients, ``-X^\top\varepsilon/\|\varepsilon\|``, does not depend on the sca
 of the noise ``\varepsilon``. The loss is not differentiable where the residuals
 vanish, so coordinate descent does not take a majorization step but
 minimizes ``f + \lambda\sum_k w_k|\beta_k|`` exactly over each coordinate.
+
+At zero residual the loss is not differentiable and couples the coordinates,
+and near an exact fit its curvature along a coordinate, about ``1/\|r\|``, is
+far larger than the scale of the stopping rule. Coordinate steps can then stop
+far from the minimizer: with ``p \ge n`` and a small penalty, at several times
+the minimum. The solver therefore accepts a stop only with a duality gap. With
+``\nabla f(\beta) = -X^\top r/\|r\|``, the point ``\theta = t\,r/\|r\|`` with the
+largest ``t \le 1`` such that ``\|X^\top\theta\|_\infty \le \lambda`` (weighted
+by ``w_k``) is dual feasible, with dual value ``y^\top\theta = t(f(\beta) - \nabla f(\beta)^\top\beta)``.
+A run converges when the relative gap ``(P - D)/P`` is at most `gaptol`, or
+`1e-4` by default, and the results report it as `gap`. This dual point cannot
+certify an exact or nearly exact fit with a positive penalty, which is reported
+as not converged, with a warning; a zero objective is certified. A coordinate
+without penalty (zero weight) has a dual point only where its derivative
+vanishes; without one, the rule on the changes decides alone, as for the other
+losses, and exact fits are not detected. The same applies to
+`SqrtQuadraticFunction`.
 
 Fix every coordinate but ``k``. With the partial residual
 ``r = y - X\beta + X_k\beta_k`` and ``x = X_k``, let ``a = \|x\|^2``,

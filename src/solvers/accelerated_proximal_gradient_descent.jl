@@ -15,9 +15,8 @@ Accelerated proximal gradient descent (Parikh and Boyd, *Proximal Algorithms*,
 proximal gradient step from `y`; the step size `1/L` is found by
 backtracking, shrinking it by the factor `β ∈ (0, 1)`. Before each iteration
 `L` is multiplied by `α ∈ (0, 1]`, so that the step grows again where the
-curvature is smaller, as in TFOCS; `α = 1` keeps `L` from decreasing. On the
-lasso of the benchmark, `α = 0.9` takes 1.2 to 6.5 times less time than
-`α = 1`.
+curvature is smaller, as in TFOCS; `α = 1` keeps `L` from decreasing. The runtime tradeoff depends on the number of accepted steps and rejected
+trials, so compare settings at matched accuracy.
 
 Backtracking raises an error if roundoff prevents a representable step from
 satisfying the descent bound, or the next curvature estimate is not finite.
@@ -47,8 +46,8 @@ Base.summary(::AccProxGradDescent) = "Accelerated Proximal Gradient Descent"
 AccProxGradDescent(β::AbstractFloat, α::AbstractFloat) = AccProxGradDescent(; β, α)
 
 function AccProxGradDescent(; β::AbstractFloat = 0.5, α::AbstractFloat = 0.9, preconditioner::Symbol = :none)
-  0 < β < 1 || error("β must be in (0, 1).")
-  0 < α <= 1 || error("α must be in (0, 1].")
+  0 < β < 1 || throw(ArgumentError("β must be in (0, 1)."))
+  0 < α <= 1 || throw(ArgumentError("α must be in (0, 1]."))
   AccProxGradDescent(promote(β, α)..., _preconditioner(preconditioner))
 end
 
@@ -191,16 +190,14 @@ function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, method::AccPr
       upper = state.f_y + _dot(state.grad_f_y, state.xhat) + state.L / 2 * stepnorm2
       state.backtrack_steps += 1
       # slack guards against an endless loop from rounding error near the solution
-      state.f_x <= upper + 10 * eps(T) * max(abs(state.f_y), one(T)) && break
+      _majorization_ok(f, state.model, state.z_y, state.z_x, state.f_y, state.f_x,
+                       upper, state.L, stepnorm2, state.xhat) && break
       # A rounded zero step cannot repair an inconsistent image/value bound by
       # increasing L. In particular, do not let L overflow and turn Inf*0 into
       # NaN, after which the backtracking comparison would fail forever.
       isfinite(upper) && !iszero(stepnorm2) ||
         error("APG line search failed: no representable step satisfies the descent bound")
-      next_L = state.L / method.β
-      isfinite(next_L) && next_L > state.L ||
-        error("APG line search failed: the curvature estimate cannot increase finitely")
-      state.L = next_L
+      state.L = LineSearches.next_curvature(state.L, method.β)
     end
     state
 end

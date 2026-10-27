@@ -53,12 +53,29 @@ with ``\sigma`` the logistic function; for the Poisson loss ``e^\eta - y\eta``,
    ``t`` falls below ``10^{-10}``, the step is abandoned and ``\beta`` kept.
 
 The method stops when ``|F(\beta) - F(\beta^+)| \le \mathrm{tol}\cdot\max\{|F(\beta^+)|, 1\}``,
-or after `maxiter` steps. For a convex loss and penalty, and with the
+and the original problem is stationary to the matching accuracy. Each exact
+coordinate step ``\Delta_j`` of ``F`` at ``\beta``, with the curvature
+``a_j`` of the Newton model there, must satisfy
+``\sqrt{a_j}\,|\Delta_j| \le \sqrt{\mathrm{tol}}\, S``; the intercept is checked the
+same way when fitted. The reference scale is
+
+```math
+S^2 = s\sum_i w_i\frac{\ell'(o_i,y_i)^2}{\max\{\ell''(o_i,y_i),\mathrm{floor}\}}.
+```
+
+If all offset scores vanish, the reference is ``S^2=s\sum_i w_i`` instead.
+Both sides scale by the square root of a positive scale applied to the loss
+and penalty, so the test is invariant to that scaling and to additive loss
+constants. The square root of `tol` compares squared coordinate-step measures
+in loss units; this is a stopping criterion, not a bound on objective or
+coefficient error.
+A rejected or stagnant nonstationary step is not convergence. The iteration
+limit is `maxiter`. For a convex loss and penalty, and with the
 quadratic model strongly convex, ``d`` is a descent direction of ``F`` unless
 ``\beta`` is a minimizer, and with exact inner solves the method converges,
 superlinearly near the solution (Lee, Sun and Saunders, 2014).
 
-## Why it is faster
+## Cost of a Newton step
 
 Coordinate descent on the loss itself ([Losses for coordinate descent](@ref))
 uses a global bound on the curvature, ``\sup\ell''``, which for the logistic
@@ -67,9 +84,10 @@ probabilities are close to 0 or 1: its steps are short. It also evaluates
 ``\ell'`` at every observation in every coordinate step. The quadratic model
 uses the curvature at the current point, and its coordinate steps are those of
 weighted least squares, which cost ``O(n)`` multiplications without
-evaluating the loss. On the logistic lasso problems of the package's
-benchmark, momentum makes the inner solves 1.0 to 4.5 times faster. The
-Poisson loss, whose curvature is unbounded, can only be fitted this way.
+evaluating the loss. The balance between outer iterations and inner work depends on the data and
+accuracy target. Poisson has unbounded curvature, so the direct GLM coordinate
+method is unavailable; proximal Newton and gradient methods with backtracking
+remain alternatives.
 
 ## Intercepts and paths
 

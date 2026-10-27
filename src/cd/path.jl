@@ -44,6 +44,11 @@ lasso, `Constrained(NormL1(λ), IndBox(0, Inf))`, is `maxₖ (-∇ₖf(0))₊ / 
 only, and their `λmax` is that of the first stage, the lasso with the slopes at
 zero: the weights `wₖ` and `wₖ/ε`. Zero is then a stationary point of
 `f + g`, and the first stage of LLA from zero stays there.
+
+For an unpenalized coordinate with nonzero gradient, this routine returns
+only the threshold over penalized coordinates; it is not a certificate that
+the whole coefficient vector can be zero. For nonconvex penalties the slope
+threshold describes stationarity at zero, not global optimality.
 """
 function lambda_max(f::Union{AbstractFunction, CDModel}, g::AbstractFunction, x)
   g isa _BoxConstrained && _check_zero_in_box(g.box)
@@ -169,8 +174,8 @@ const _GAPRETRIES = 3
 
 The default target of the relative duality gap at each level of
 [`solve_path`](@ref) and at the last level of continuation; see
-[`solve_path`](@ref). The coefficients are then within about `1e-4` of the
-solution, relative to the largest, and within about `5e-3` at worst.
+[`solve_path`](@ref). This controls objective error when a feasible dual certificate is available.
+Coefficient error requires additional curvature or identifiability assumptions.
 `gaptol = 1e-3` is the documented faster setting, for cross-validation and
 prediction, and `gaptol = 0` gives back the rule on the changes.
 """
@@ -190,7 +195,7 @@ function _path_solver(s::CDSolver, gaptol::Union{Nothing, Real}, m, g)
     _hasgap(m, g) || return s
     return _with(s; gaptol = _default_gaptol(eltype(m)))
   end
-  gaptol >= 0 || throw(ArgumentError("gaptol must be nonnegative, but it is $gaptol."))
+  isfinite(Float64(gaptol)) && gaptol >= 0 || throw(ArgumentError("gaptol must be nonnegative, but it is $gaptol."))
   _with(s; gaptol = Float64(gaptol))
 end
 
@@ -393,16 +398,11 @@ cross-validation and prediction. During the solve the gap is that of the
 problem restricted to the candidates of the strong rule, at the cost of one
 pass over them; the full gradient of the optimality check of screening then
 gives the gap of the whole problem, which the `gap` of the results reports.
-A relative gap `ε` certifies a relative suboptimality of at most `ε`; in
-practice the suboptimality is about `ε²`, since this gap shrinks only as fast
-as the error of the fitted values, and the coefficients are within about `ε`
-of the solution, relative to the largest (median over the levels), and within
-about `50ε` at worst: about `1e-4` (worst `5e-3`) at the default and `1e-3`
-(worst `2e-2`) at `1e-3`, well below the statistical error of most fits. Other
-losses and penalties, a coordinate without penalty whose gradient is not zero
-(whose dual point does not exist), and `gaptol = 0` keep the rule on the
-changes of [`CDSolver`](@ref) with its `tol`, which reaches relative
-suboptimalities of `1e-11` to `1e-16` on least squares.
+A valid relative gap `ε` bounds objective suboptimality by `ε * abs(P)`.
+It does not bound coefficient error without additional assumptions. Historical
+workload-specific comparisons are retained under `benchmark/gap`. Other losses and penalties,
+a coordinate without penalty whose gradient is nonzero, and `gaptol = 0` use
+the coordinate-change rule with `tol` instead.
 
 The slope test at zero, on which λmax and screening rest, agrees with the
 exact coordinate steps of `MCP(λ, a)`, `SCAD(λ, a)`, `GroupMCP` and `GroupSCAD`
@@ -418,7 +418,7 @@ condition.
 function solve_path(f::Union{AbstractFunction, CDModel}, g::AbstractFunction, λs::AbstractVector{<:Real},
                     method::CDSolver = CDSolver(); x = _default_iterate(f), screening::Bool = true,
                     maxnnz::Real = Inf, callback = nothing, gaptol::Union{Nothing, Real} = nothing)
-  all(λ -> λ >= 0, λs) || throw(ArgumentError("The penalty levels must be nonnegative."))
+  all(λ -> isfinite(λ) && λ >= 0, λs) || throw(ArgumentError("The penalty levels must be finite and nonnegative."))
   issorted(λs; rev = true) || throw(ArgumentError("The penalty levels must be decreasing."))
   m = f isa CDModel ? f : cdmodel(f, x)
   T = eltype(m)

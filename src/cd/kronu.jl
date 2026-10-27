@@ -74,7 +74,7 @@ end
   cx = coordinates(x)
   old = cx[k]
   i = _entry(p, r, c)
-  new = iszero(a) ? prox_entry(g, zero(T), i, floatmax(T)) : prox_entry(g, old - G / a, i, _multiplicity(T, r, c) / a)
+  new = _coordinate_minimizer(g, old, G, a, i, _multiplicity(T, r, c))
   h = new - old
   iszero(h) && return h
   cx[k] = new

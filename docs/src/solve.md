@@ -34,8 +34,8 @@ for coordinate descent or the active-set method converts it to one of these,
 and copies the solution back.
 
 The solvers compute in the element type of `x`, `Float64` or `Float32`. In
-`Float32`, tolerances below its precision, `eps(Float32) ≈ 1.2e-7`, cannot be
-met.
+`Float32`, tolerances below `eps(Float32) ≈ 1.2e-7` may cause stagnation or
+rounded residuals and do not imply corresponding coefficient accuracy.
 
 ## Options
 
@@ -101,7 +101,7 @@ results and optional refit/Anderson work are separate from buffer reuse.
 | [`ActiveAccProxGradDescent`](@ref) | [`ActiveSetResults`](@ref ProximalSolvers.ActiveSetResults) | `minimizer`, `minimum`, `outer_iterations`, `inner_iterations`, `converged`, `inner_converged`, `max_violation`, `active_set_size` |
 | [`ADMMSolver`](@ref) | [`ADMMResults`](@ref ProximalSolvers.ADMMResults) | `minimizer`, `minimum`, `iterations`, `converged`, the residuals `r_norm`, `s_norm` and their tolerances `eps_pri`, `eps_dual`, the scaled dual variable `u` and the final `ρ`, the counts of calls, `gap` |
 | [`CDSolver`](@ref), [`ProxNewton`](@ref) | [`CDResults`](@ref) | `minimizer`, `minimum`, `passes`, `converged`, `maxchange`, `tolerance`, `kkt_checks`, `gap` |
-| [`solve_path`](@ref) | [`PathResults`](@ref) | per level: `λ`, `solutions`, `values`, `passes`, `converged`, `kkt_checks`, `stages` |
+| [`solve_path`](@ref) | [`PathResults`](@ref) | per level: `λ`, `solutions`, `values`, `passes`, `converged`, `kkt_checks`, `stages`, `gap` |
 | [`reweight!`](@ref), `solve!` with [`LLA`](@ref) | [`ReweightResults`](@ref) | `minimizer`, `penalty`, `next`, `iterations`, `converged`, `change`, `passes`, `cd_converged` |
 
 `minimum` is ``f + g`` at the minimizer, and `gap` the relative duality gap
@@ -135,14 +135,13 @@ For the penalty paths of coordinate descent, `solve_path(...; callback)` calls
 `callback(k, λ, x, m)` after each level instead; see
 [Penalty paths and screening](@ref).
 
-## Naming compatibility
+## Naming
 
-Use `ProximalOptions(; print_every=...)` and `CondatVu(; norm_d=...)`.
-The previous keyword and property names `printEvery` and `normD` remain
-available with deprecation warnings. Supplying both spellings of a keyword
-is an error. These changes preserve option meanings and positional
-constructor ordering. Internal solver-state fields now use `delta_x` and
-`max_residual`.
+Options and solver settings use `snake_case` keywords, such as
+`ProximalOptions(; print_every=...)` and `CondatVu(; norm_d=...)`. Invalid
+settings raise an `ArgumentError`. Internal solver-state fields are not a
+stable extension interface. See [Migrating to this release](@ref) for the
+names removed since version 0.1.0.
 
 ## Diagonal preconditioning
 

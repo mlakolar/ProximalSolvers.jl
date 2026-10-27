@@ -49,11 +49,13 @@ active groups of an `AtomIterate`. Each outer iteration
 5. minimizes ``f + g`` over the vectors supported on ``S``, by
    [`AccProxGradDescent`](@ref) warm started from the current values.
 
-**Correctness.** When the method stops at step 3, ``x`` satisfies the
-optimality condition of every coordinate in ``S``, by the inner solve, and of
-every coordinate outside ``S``, where it is zero with no positive violation.
-For convex ``f`` and ``g`` it is therefore a minimizer of ``f + g`` over all
-coordinates, to the accuracy of the inner solve.
+**Stopping.** Before success, the full proximal fixed-point residual
+`norm(x - prox(g, x - gradient), Inf)` must also be at most
+`gradtol * max(1, norm(initial_gradient, Inf))`. An inner objective-change flag alone
+does not establish full optimality. A repeated inner solution that fails this
+check returns `converged = false`. For a convex problem the exact zero
+fixed-point residual characterizes optimality; a small residual needs additional
+curvature assumptions to bound coefficient or objective error.
 
 **The restricted problem.** Step 5 runs on
 [`restrict`](@extref ProximalBase.restrict)`(f, S)` and `restrict(g, S)`, the

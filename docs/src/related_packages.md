@@ -1,7 +1,6 @@
 # Related packages and benchmarks
 
-ProximalSolvers is one of five Julia packages for high-dimensional statistics,
-three for estimation and inference and two for the optimization beneath them:
+These packages use ProximalSolvers directly or supply its optimization primitives:
 
 | Package | |
 |:--------|:--|

@@ -32,9 +32,7 @@ With `anderson = K > 0` and `order = :cyclic`, the passes over an unchanged
 active set are accelerated by Anderson extrapolation (Bertrand and Massias,
 *Anderson acceleration of coordinate descent*, AISTATS 2021): every `K + 1`
 such passes, the iterates on the active set are extrapolated, and the
-extrapolated point is kept if it decreases `f + g`. On the lasso designs of the
-benchmark, `CDSolver(; order = :cyclic, anderson = 5)` takes 1.6 to 2.6 times
-less time than cyclic order alone at 0.02 λmax. A random order changes the map
+extrapolated point is kept if it decreases `f + g`. The benefit depends on the problem and required accuracy. A random order changes the map
 of a pass from one pass to the next, which the extrapolation needs to repeat,
 so `anderson` is ignored with it, as on an `AtomIterate`. Strongly correlated
 columns still favor a random order.
@@ -86,7 +84,9 @@ sparse group lasso, `SparseGroupNormL2` or its scaled form, on an
 `AtomIterate`, whose screening uses its dual norm as in Ndiaye, Fercoq,
 Gramfort and Salmon, 2016); with
 other losses and penalties the rule on the changes applies, and `gaptol` is
-ignored. With `gapsafe = true` and such a loss and penalty, each gap
+ignored, except for the square-root losses ([`SqrtLeastSquaresLoss`](@ref),
+[`SqrtQuadraticFunction`](@ref)), whose final point must have a relative gap
+of at most `gaptol` (`1e-4` when `gaptol = 0`) to count as converged. With `gapsafe = true` and such a loss and penalty, each gap
 evaluation also screens the coordinates by the gap-safe rule of Fercoq,
 Gramfort and Salmon (*Mind the duality gap: safer rules for the lasso*, 2015),
 after every full pass: a coordinate it proves zero at the solution is set to
@@ -111,12 +111,12 @@ function CDSolver(; maxpasses::Integer = 100_000, tol::Real = 1e-7, order::Symbo
                   relative::Bool = true, anderson::Integer = 0, momentum::Union{Nothing, Bool} = nothing,
                   rng::AbstractRNG = default_rng(), gaptol::Real = 0.0, gapsafe::Bool = false)
   maxpasses >= 0 || throw(ArgumentError("maxpasses must be nonnegative, but it is $maxpasses."))
-  tol >= 0 || throw(ArgumentError("tol must be nonnegative, but it is $tol."))
+  isfinite(Float64(tol)) && tol >= 0 || throw(ArgumentError("tol must be nonnegative, but it is $tol."))
   order in (:random, :cyclic) || throw(ArgumentError("order must be :random or :cyclic, but it is :$order."))
   anderson >= 0 || throw(ArgumentError("anderson must be nonnegative, but it is $anderson."))
   momentum === true && order === :cyclic &&
     throw(ArgumentError("momentum needs order = :random; with the cyclic order it can stall far from the minimizer."))
-  gaptol >= 0 || throw(ArgumentError("gaptol must be nonnegative, but it is $gaptol."))
+  isfinite(Float64(gaptol)) && gaptol >= 0 || throw(ArgumentError("gaptol must be nonnegative, but it is $gaptol."))
   CDSolver(Int(maxpasses), Float64(tol), order === :random, relative, Int(anderson), momentum, rng,
            Float64(gaptol), gapsafe)
 end
@@ -325,9 +325,14 @@ function _cd!(x, m, g, st::_CDState{T}, s::CDSolver) where {T}
   else
     _cd_plain!(x, m, g, st, s, gs)
   end
+  st.converged = _certified!(st, m, g, x, s) && st.converged
   gs === nothing || (st.candidates = gs.base)
   x
 end
+
+# A model whose small coordinate changes need not mean a minimizer checks the
+# point here; it may record a relative duality gap in st.relgap.
+_certified!(st, m::CDModel, g, x, s) = true
 
 # The tolerance on the scaled changes, whether the changes are scaled, and the
 # smallest tolerance that gaptol may tighten it to, a few roundings on the
@@ -576,8 +581,14 @@ function _extrapolate!(a::_Anderson{T}, x, m, g, full::Bool) where {T}
   a
 end
 
-_warn_not_converged(st::_CDState, s::CDSolver) =
-  st.converged || @warn "coordinate descent did not converge in maxpasses = $(s.maxpasses) passes (largest change of a coordinate in the last pass $(round(st.maxchange; sigdigits = 3)) > tolerance $(round(st.tolerance; sigdigits = 3))); the solution may be inaccurate."
+function _warn_not_converged(st::_CDState, s::CDSolver)
+  st.converged && return
+  if st.passes >= s.maxpasses
+    @warn "coordinate descent did not converge in maxpasses = $(s.maxpasses) passes (last change $(round(st.maxchange; sigdigits = 3)), tolerance $(round(st.tolerance; sigdigits = 3)))."
+  else
+    @warn "coordinate descent stopped after $(st.passes) passes, but the relative duality gap $(round(st.relgap; sigdigits = 3)) does not certify the point; it may be far from a minimizer."
+  end
+end
 
 """
     solve!(x, f, g, method::CDSolver)
