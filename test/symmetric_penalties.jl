@@ -192,6 +192,35 @@ end
   end
 end
 
+@testset "linear constraints require symmetric parameters" begin
+  a = [1.0 0.0; 0.0 1.0]
+  asymmetric_a = [1.0 1.0; 0.0 1.0]
+  W = [0.0 1.0; 3.0 0.0]
+  g = Constrained(NormL1(0.1), IndHyperplane(a, 0.0))
+  scalar = Constrained(NormL1(0.1), IndHyperplane(1.0, 0.0))
+  bad_normal = Constrained(NormL1(0.1), IndHyperplane(asymmetric_a, 0.0))
+  bad_weights = Constrained(NormL1(0.1, W), IndHyperplane(a, 0.0))
+  preserves_parameters((a, asymmetric_a, W)) do
+    @test PS._symmetric_penalty(g, SymmetricSparseIterate(2)) === g
+    @test PS._symmetric_penalty(scalar, SymmetricSparseIterate(2)) === scalar
+    x = warm_start()
+    rejects_symmetry(x) do
+      PS._symmetric_penalty(bad_normal, x)
+    end
+    # weights inside a linear constraint must already be symmetric
+    rejects_symmetry(x) do
+      PS._symmetric_penalty(bad_weights, x)
+    end
+    # trace zero leaves the off-diagonal objective z² - 0.5z + 0.2|z|
+    result = solve!(SymmetricSparseIterate(2), probe(), g, AccProxGradDescent(), gradient_options())
+    @test result.converged
+    @test Matrix(result.minimizer) ≈ [0.0 0.15; 0.15 0.0] atol = 1e-6
+    rejects_symmetry(x) do
+      solve!(x, probe(), bad_normal, AccProxGradDescent(), gradient_options())
+    end
+  end
+end
+
 @testset "identity for absent parameters and other storage" begin
   families, wrappers, arrays = exactness_table()
   x = SymmetricSparseIterate(2)
