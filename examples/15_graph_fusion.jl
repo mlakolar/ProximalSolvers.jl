@@ -59,7 +59,8 @@ println((solution_distance = distance, certified_bound = bound))
 #
 # Condat–Vũ works directly with X, X', D and D'. ADMM can take fewer steps
 # after paying for a factorization. Its advantage depends on fill-in and on
-# whether that factorization can be reused across fits. The separate
-# benchmark includes setup, checks both methods against a JuMP/HiGHS QP,
+# whether that factorization can be reused across fits. The
+# [historical benchmark](https://github.com/mlakolar/ProximalSolvers.jl/tree/f7e3f28026a8e83e0fa18203b39839cf57a1c949/benchmark/composite_lessons)
+# includes setup, checks both methods against a JuMP/HiGHS QP,
 # and reports two ADMM penalty parameters. A small graph is a correctness
 # example; it cannot establish a large-scale performance advantage.

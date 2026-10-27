@@ -13,14 +13,14 @@ Use standard Julia `Pkg` environments to select dependencies explicitly:
 julia --project=. -e 'using Pkg; Pkg.develop(path="../ProximalBase.jl"); Pkg.instantiate(); Pkg.test()'
 ```
 
-The optional workspace helpers prepare package, documentation and benchmark
+The optional workspace helpers prepare package and documentation
 environments from existing sibling checkouts; missing dependencies are cloned
 from `master`. They validate package identity and UUID, but do not require a
 particular branch or change an existing checkout. Record dependency commits
 and dirty source hashes when reporting validation. A version string does not
 identify an unreleased source edition. Julia 1.10 ignores `[sources]`, so use
 explicit `Pkg.develop` calls there. The package itself has no local path source
-requirement. Historical benchmark workers retain their original pins.
+requirement. For benchmarks, use the benchmark harness in `benchmark/`.
 
 Run the release test suite against registered dependencies with:
 

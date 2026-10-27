@@ -1,5 +1,0 @@
-Test Summary:                               | Pass  Total  Time
-SLOPE dual ball, alpha_max and known optima |   54     54  6.2s
-Test Summary:                                                     | Pass  Total  Time
-Matched library scaling, full paths, and independent final checks |   31     31  1.3s
-SLOPE_CHECKS_PASSED

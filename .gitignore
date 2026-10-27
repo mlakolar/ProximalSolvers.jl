@@ -8,34 +8,8 @@
 /docs/src/examples/
 /benchmark/Manifest*.toml
 /benchmark/results/
-
-/benchmark/engine/*/Manifest*.toml
-# raw results of benchmark/engine (solutions are large)
-/benchmark/engine/results/
-
-/benchmark/proxalg/Manifest*.toml
-/benchmark/proxalg/results/
-/benchmark/gap/Manifest*.toml
-/benchmark/gap/*.csv
-/benchmark/quic/Manifest*.toml
-/benchmark/quic/*.csv
-/benchmark/quic/results/
+/benchmark/__pycache__/
 /test/oracles/Manifest*.toml
-/benchmark/nonconvex/Manifest*.toml
-/benchmark/nonconvex/mendel/Manifest*.toml
-/benchmark/nonconvex/results/
-
-/benchmark/primal_dual/Manifest*.toml
-/benchmark/primal_dual/results/
-
-/benchmark/composite_lessons/Manifest*.toml
-/benchmark/composite_lessons/results/
-
-/benchmark/panocplus/results/
-/benchmark/adaptive/results/
-
-/benchmark/slope/Manifest*.toml
-/benchmark/slope/results/
 
 # Generated master dependency test environments
 .master-test-env/

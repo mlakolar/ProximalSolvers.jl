@@ -40,6 +40,8 @@ own examples in [ProximalBase.jl](https://github.com/mlakolar/ProximalBase.jl/tr
 
 Examples 15 and 16 are accompanied by a lecture on composite splitting in the
 documentation. Their reference algorithms are in `support/`, outside the
-package API. Independent QP checks and repeated timings live in the separate
-`benchmark/composite_lessons` environment; JuMP and HiGHS are not required by
-the examples, normal tests, or documentation build.
+package API. Independent QP checks are in `test/oracles`; historical repeated
+timings are retained in the
+[snapshot](https://github.com/mlakolar/ProximalSolvers.jl/tree/f7e3f28026a8e83e0fa18203b39839cf57a1c949/benchmark/composite_lessons).
+JuMP and HiGHS are not required by the examples, normal tests, or documentation
+build.

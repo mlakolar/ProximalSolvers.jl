@@ -400,8 +400,10 @@ pass over them; the full gradient of the optimality check of screening then
 gives the gap of the whole problem, which the `gap` of the results reports.
 A valid relative gap `ε` bounds objective suboptimality by `ε * abs(P)`.
 It does not bound coefficient error without additional assumptions. Historical
-workload-specific comparisons are retained under `benchmark/gap`. Other losses and penalties,
-a coordinate without penalty whose gradient is nonzero, and `gaptol = 0` use
+workload-specific comparisons are retained in the
+[snapshot](https://github.com/mlakolar/ProximalSolvers.jl/tree/f7e3f28026a8e83e0fa18203b39839cf57a1c949/benchmark/gap).
+Other losses and penalties, a coordinate without penalty whose gradient is
+nonzero, and `gaptol = 0` use
 the coordinate-change rule with `tol` instead.
 
 The slope test at zero, on which λmax and screening rest, agrees with the
