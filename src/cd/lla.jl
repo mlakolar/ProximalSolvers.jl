@@ -37,6 +37,9 @@ penalty at the previous solution: the weighted lasso with the weights
 LLA())` one level, with the first weights at `x`: from zero the first stage is
 the lasso, and from an initial estimate one stage is the one-step estimator of
 Zou and Li (2008).
+
+On a `SymmetricSparseIterate`, the parameter rule of [`solve!`](@ref) is
+applied before forming stage weights.
 """
 struct LLA
   inner::CDSolver
@@ -122,10 +125,12 @@ unpenalized fit, `LLA(stages = 1)` is the one-step estimator of Zou and Li
 `AtomIterate` with the groups of a group penalty, and holds the solution on
 return. Returns [`ReweightResults`](@ref): `iterations` is the number of stages,
 `converged` whether the weights stopped changing, `penalty` the weighted lasso
-of the last stage and `next` that of the stage after it.
+of the last stage and `next` that of the stage after it. On a
+`SymmetricSparseIterate`, both hold the averaged stage weights.
 """
 function solve!(x::Union{SparseIterate, SymmetricSparseIterate, AtomIterate}, f::Union{AbstractFunction, CDModel},
                 g::AbstractFunction, method::LLA)
+  g = _symmetric_penalty(g, x)
   λ = _lla_level(g)
   m = f isa CDModel ? f : cdmodel(f, x)
   T = eltype(m)
@@ -167,12 +172,16 @@ Returns [`PathResults`](@ref): its `values` are the loss plus `g` at each level,
 the passes and checks are summed over the stages, `converged` says whether
 coordinate descent converged in every stage, and `stages` gives the number of
 stages at each level.
+
+The symmetric-iterate parameter rule is applied before forming stage weights,
+as for [`LLA`](@ref) at one level.
 """
 function solve_path(f::Union{AbstractFunction, CDModel}, g::AbstractFunction, λs::AbstractVector{<:Real},
                     method::LLA; x = _default_iterate(f), screening::Bool = true, maxnnz::Real = Inf,
                     callback = nothing)
   all(λ -> isfinite(λ) && λ >= 0, λs) || throw(ArgumentError("The penalty levels must be finite and nonnegative."))
   issorted(λs; rev = true) || throw(ArgumentError("The penalty levels must be decreasing."))
+  g = _symmetric_penalty(g, x)
   m = f isa CDModel ? f : cdmodel(f, x)
   T = eltype(m)
   s = method.inner

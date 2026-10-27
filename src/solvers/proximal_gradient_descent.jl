@@ -9,6 +9,7 @@
 Proximal gradient descent (Parikh and Boyd, *Proximal Algorithms*, §4.2):
 `x ← prox_{g/L}(x - ∇f(x) / L)`, with the step size `1/L` chosen by the
 backtracking line search `ls` of TFOCS. Use with [`solve!`](@ref).
+Symmetric iterates follow the penalty parameter rule described there.
 
 With a nonconvex `g`, such as `IndBallL0(s)` (iterative hard thresholding),
 `IndBallRank`, `NormL0`, `MCP` or `SCAD`, the proximal step decreases the majorized objective in exact arithmetic.

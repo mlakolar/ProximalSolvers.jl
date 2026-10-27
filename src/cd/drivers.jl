@@ -34,6 +34,10 @@ and the relative change that it makes, from the solution `x` and the
 …). Stops when the change is below `tol`, or after `maxiter` solves. Returns
 [`ReweightResults`](@ref).
 
+On a `SymmetricSparseIterate`, each solve prepares the penalty by the parameter
+rule of [`solve!`](@ref). `update` receives the supplied penalty, which is also
+kept in the results; normalization does not replace it there.
+
 This covers the iterative lasso procedures: the scaled lasso (the level
 `λσ̂` with `σ̂ = ‖r‖/√n` from the residuals) and the lasso with data-driven
 penalty loadings. `update` follows every solve, the last one included, which

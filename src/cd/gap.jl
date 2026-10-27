@@ -580,7 +580,8 @@ end
 # the bound on the dual variable of entry (r, c) over symmetric matrices, the
 # mean of the penalties of (r, c) and (c, r), divided by w
 @inline _glasso_bound(g::NormL1, p::Int, r::Int, c::Int, w::T) where {T} =
-  T(g.λ0) * (T(_entryweight(g.w, (c - 1) * p + r, T)) + T(_entryweight(g.w, (r - 1) * p + c, T))) / (2w)
+  T(g.λ0) * _symmetric_pair_mean(T(_entryweight(g.w, (c - 1) * p + r, T)),
+                                T(_entryweight(g.w, (r - 1) * p + c, T))) / w
 
 # log det of the positive definite matrix whose upper triangle is factorized in
 # place in C, or nothing
@@ -696,9 +697,12 @@ It applies to the losses that [`cdmodel`](@ref) knows and that define
 `SymmetricSparseIterate`, with any separable penalty. For the losses without a
 duality gap (see [`duality_gap`](@ref)), such as the quadratics, it is the
 optimality measure to use.
+
+The symmetric-iterate parameter rule of [`solve!`](@ref) also applies here.
 """
 function kkt_residual(f::Union{AbstractFunction, CDModel}, g::AbstractFunction,
                       x::Union{SparseIterate, SymmetricSparseIterate}; relative::Bool = true)
+  g = _symmetric_penalty(g, x)
   m = f isa CDModel ? f : cdmodel(f, x)
   hasmethod(coordinate_derivatives, Tuple{typeof(m), typeof(x), Int}) ||
     throw(ArgumentError("kkt_residual needs coordinate_derivatives for $(nameof(typeof(m))) on a $(nameof(typeof(x)))."))
