@@ -1,10 +1,10 @@
-# Migrating to this release
+# Migrating to 0.2.0
 
 This page lists the changes from the previous development version (the
 `master` branch before this release). Version 0.1.0 in the General registry
 predates this API; start from [Getting started](@ref) instead.
 
-This release needs ProximalBase 0.5.3 or later.
+Version 0.2.0 needs registered ProximalBase 0.5.3 or later within the 0.5 series.
 
 ## Renamed and removed
 

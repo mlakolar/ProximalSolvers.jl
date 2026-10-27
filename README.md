@@ -33,17 +33,8 @@ using Pkg
 Pkg.add(["ProximalBase", "ProximalSolvers"])
 ```
 
-General currently provides version 0.1.0 with an older API. This manual and
-the examples below describe the development API, including coordinate descent,
-and require the development installation below.
-
-The current development source requires ProximalBase 0.5.3 or later. Until
-that dependency is registered, install both development repositories:
-
-```julia
-Pkg.add(url="https://github.com/mlakolar/ProximalBase.jl", rev="master")
-Pkg.add(url="https://github.com/mlakolar/ProximalSolvers.jl", rev="master")
-```
+This release requires ProximalBase 0.5.3 or later within the 0.5 series.
+Julia resolves that registered dependency automatically.
 
 For local development and testing, see the
 [installation guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/getting_started/#Installation).
@@ -120,11 +111,11 @@ performance comparisons.
 From the package checkout, resolve dependencies and run the complete suite with:
 
 ```sh
-julia scripts/instantiate.jl
-julia scripts/test_master.jl
+julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.test()'
 ```
 
-The optional bootstrap uses existing sibling checkouts and clones missing
+For opt-in development-source checks, `scripts/instantiate.jl` and
+`scripts/test_master.jl` use existing sibling checkouts and clone missing
 dependencies from `master`. It does not change their branches. The
 runner creates an isolated environment containing the package and its test
 extras, including extra-only master dependencies on Julia 1.10, while keeping
