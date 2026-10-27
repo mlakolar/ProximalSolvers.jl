@@ -142,8 +142,8 @@ The bound is ``\bar\ell = 1/4`` for the logistic loss
 and ``\bar\ell = 1`` for the Huber loss. A step evaluates ``\ell'`` at every
 observation, and the bound is far above the curvature where the fitted
 probabilities are near 0 or 1, so the steps are short. [`ProxNewton`](@ref)
-uses the curvature at the current point instead, and is usually much faster;
-it also handles the Poisson loss ``e^\eta - y\eta``, whose curvature is
+uses the curvature at the current point instead; its relative cost depends on
+the problem and required accuracy. It also handles the Poisson loss ``e^\eta - y\eta``, whose curvature is
 unbounded and which coordinate descent therefore refuses.
 
 ## The square-root lasso
@@ -165,7 +165,7 @@ the minimum. The solver therefore accepts a stop only with a duality gap. With
 largest ``t \le 1`` such that ``\|X^\top\theta\|_\infty \le \lambda`` (weighted
 by ``w_k``) is dual feasible, with dual value ``y^\top\theta = t(f(\beta) - \nabla f(\beta)^\top\beta)``.
 A run converges when the relative gap ``(P - D)/P`` is at most `gaptol`, or
-`1e-2` by default, and the results report it as `gap`. This dual point cannot
+`1e-4` by default, and the results report it as `gap`. This dual point cannot
 certify an exact or nearly exact fit with a positive penalty, which is reported
 as not converged, with a warning; a zero objective is certified. A coordinate
 without penalty (zero weight) has a dual point only where its derivative

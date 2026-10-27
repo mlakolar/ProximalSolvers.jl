@@ -114,8 +114,8 @@ the solution from forcing endless backtracking. With ``\alpha = 1``, ``L``
 never decreases, and without restarts this is the accelerated method with
 backtracking of Beck and Teboulle (2009), whose objective converges at the
 rate ``O(1/k^2)``, against ``O(1/k)`` without momentum. The default
-``\alpha = 0.9`` lets the step grow again, as in TFOCS, which on the lasso of
-the package's benchmark takes 1.2 to 6.5 times less time than ``\alpha = 1``.
+``\alpha = 0.9`` lets the step grow again, as in TFOCS. The number and cost of
+backtracking trials depend on the problem; neither setting is uniformly faster.
 
 **Restarts.** Momentum makes the objective oscillate when the extrapolation
 overshoots. Following the function-value scheme of O'Donoghue and Candès
@@ -286,8 +286,9 @@ increasing objective; see [Duality gaps](@ref).
 
 **Choosing tolerances.** Near a minimizer at which ``F`` grows quadratically,
 ``F(x) - F^\star`` is of the order of ``\|x - x^\star\|^2``, so the objective
-settles long before the iterate does: `ftol = 1e-12` gives roughly six correct
-digits of ``x``. When accurate solutions matter, tighten `gradtol` and `xtol`
+can settle before the iterate does. An objective-change threshold such as
+`ftol = 1e-12` does not by itself guarantee any number of correct coefficient
+digits: the change between iterations is not the error relative to the optimum. When accurate solutions matter, tighten `gradtol` and `xtol`
 as well, or check the optimality conditions of the problem afterwards, as the
 examples do.
 

@@ -31,7 +31,10 @@ with [`prox_entry`](@extref ProximalBase.prox_entry), where ``i`` is the entry
 of the coordinate and ``\mu`` the number of entries it sets (2 off the
 diagonal of a `SymmetricSparseIterate`), and writes the change only when the
 coordinate moves; see [The coordinate step](@ref). A coordinate with zero
-curvature goes to the minimizer of the penalty nearest zero.
+curvature must minimize the affine coordinate loss plus the penalty. The
+default handles supported bounded norm and box cases and raises an
+`ArgumentError` when it cannot obtain a finite minimizer; it never simply
+discards a nonzero derivative.
 
 ## An example
 
@@ -122,7 +125,14 @@ compares it with the built-in model on a dense copy of ``X``.
 
 ## Running the package suite
 
-From the package checkout, run `julia scripts/test_master.jl` after adding or
-changing an implementation. This uses the complete test extras and workspace
-master dependencies on Julia 1.10 and newer, with bounds checking enabled,
-while leaving the package's `Project.toml` unchanged.
+From the package checkout, run the complete suite after changing an
+implementation:
+
+```sh
+julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.test()'
+```
+
+This is the registered-dependency route used for release CI. The optional
+`julia scripts/test_master.jl` runner instead selects workspace development
+dependencies explicitly, with bounds checking and the complete test extras on
+Julia 1.10 and newer. It leaves the package's `Project.toml` unchanged.

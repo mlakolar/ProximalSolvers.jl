@@ -681,9 +681,10 @@ The largest scaled change `√aₖ ⋅ |Δxₖ|` that one coordinate step of
 [`CDSolver`](@ref) would make at `x`, over all coordinates, where `aₖ` is the
 curvature of `f` along coordinate `k` and the step is the proximal step from
 [`coordinate_derivatives`](@ref). When both are convex and `f` is
-differentiable at `x`, it is zero exactly at a minimizer of `f + g`; for the
-square-root losses at a zero residual it can be zero at a point that is not
-(use the duality gap of [`CDSolver`](@ref)'s results there). It is `Inf` along
+differentiable at `x`, it is zero exactly at a minimizer of `f + g`.
+The square-root models do not supply the coordinate derivatives required
+by this diagnostic; inspect the gap in [`CDSolver`](@ref)'s results for those
+losses. It is `Inf` along
 a coordinate with zero curvature where `f + g` is unbounded below. It is the
 quantity that the stopping rule of
 `CDSolver` compares with `tol`: with `relative`, it is divided by the scale of

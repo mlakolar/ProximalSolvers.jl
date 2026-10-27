@@ -15,9 +15,8 @@ Accelerated proximal gradient descent (Parikh and Boyd, *Proximal Algorithms*,
 proximal gradient step from `y`; the step size `1/L` is found by
 backtracking, shrinking it by the factor `β ∈ (0, 1)`. Before each iteration
 `L` is multiplied by `α ∈ (0, 1]`, so that the step grows again where the
-curvature is smaller, as in TFOCS; `α = 1` keeps `L` from decreasing. On the
-lasso of the benchmark, `α = 0.9` takes 1.2 to 6.5 times less time than
-`α = 1`.
+curvature is smaller, as in TFOCS; `α = 1` keeps `L` from decreasing. The runtime tradeoff depends on the number of accepted steps and rejected
+trials, so compare settings at matched accuracy.
 
 Backtracking raises an error if roundoff prevents a representable step from
 satisfying the descent bound, or the next curvature estimate is not finite.

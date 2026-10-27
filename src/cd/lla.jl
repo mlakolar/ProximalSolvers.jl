@@ -13,9 +13,9 @@ nonconvex penalties `CappedL1`, `LogPenalty`, `MCP`, `SCAD`, `GroupMCP` and
 `ε`, a fixed `a`). Each stage minimizes the loss plus the tangent of the
 penalty at the previous solution: the weighted lasso with the weights
 `pⱼ′(|xⱼ|)` of `ProximalBase.lla_weights!`, or the weighted group lasso with
-`pₖ′(‖x_Gₖ‖₂)` for a group penalty. Each stage is convex and is solved by
-`inner`; alternating stages and weights decreases the loss plus the penalty
-(majorization-minimization).
+`pₖ′(‖x_Gₖ‖₂)` for a group penalty. For a convex loss, each stage is convex and is solved by
+`inner`; exact stage minimization decreases the loss plus the penalty
+(majorization-minimization). Check inner convergence for approximate solves.
 
 - `stages`: the most stages at a level, the first one included. The stages
   stop early once the weights change by at most `tol`, relative to the largest

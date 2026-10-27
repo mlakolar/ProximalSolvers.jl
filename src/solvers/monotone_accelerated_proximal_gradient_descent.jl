@@ -18,10 +18,11 @@ gradient step from the extrapolated point
 where `z` is the previous step from `y` and `x'` the previous iterate, and keeps
 its result `z` if `F(z) ≤ F(x) - δ L ‖z - y‖²`, with `F = f + g` and `1/L` the
 step size. Otherwise it also takes a plain proximal gradient step `v` from `x`
-and keeps the better of `z` and `v`. So the objective never increases, and
-every limit point of the iterates is a critical point of `F` for nonconvex `g`
-as well, which `AccProxGradDescent` (restarted extrapolation) doesn't
-guarantee; for convex problems it keeps the accelerated rate.
+and keeps the better of `z` and `v`. Under valid majorization and exact proximal updates, the objective does not
+increase in exact arithmetic. The cited critical-point and accelerated-rate
+results require their additional smoothness, step-size and boundedness
+assumptions; traits and a successful numerical line search do not establish
+them. A stopping flag does not certify global optimality for nonconvex `g`.
 
 The step sizes come from backtracking as in [`AccProxGradDescent`](@ref):
 `L` is multiplied by `α ∈ (0, 1]` before each iteration and divided by

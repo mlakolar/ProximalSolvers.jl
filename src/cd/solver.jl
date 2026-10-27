@@ -32,9 +32,7 @@ With `anderson = K > 0` and `order = :cyclic`, the passes over an unchanged
 active set are accelerated by Anderson extrapolation (Bertrand and Massias,
 *Anderson acceleration of coordinate descent*, AISTATS 2021): every `K + 1`
 such passes, the iterates on the active set are extrapolated, and the
-extrapolated point is kept if it decreases `f + g`. On the lasso designs of the
-benchmark, `CDSolver(; order = :cyclic, anderson = 5)` takes 1.6 to 2.6 times
-less time than cyclic order alone at 0.02 λmax. A random order changes the map
+extrapolated point is kept if it decreases `f + g`. The benefit depends on the problem and required accuracy. A random order changes the map
 of a pass from one pass to the next, which the extrapolation needs to repeat,
 so `anderson` is ignored with it, as on an `AtomIterate`. Strongly correlated
 columns still favor a random order.
@@ -88,7 +86,7 @@ Gramfort and Salmon, 2016); with
 other losses and penalties the rule on the changes applies, and `gaptol` is
 ignored, except for the square-root losses ([`SqrtLeastSquaresLoss`](@ref),
 [`SqrtQuadraticFunction`](@ref)), whose final point must have a relative gap
-of at most `gaptol` (`1e-2` when `gaptol = 0`) to count as converged. With `gapsafe = true` and such a loss and penalty, each gap
+of at most `gaptol` (`1e-4` when `gaptol = 0`) to count as converged. With `gapsafe = true` and such a loss and penalty, each gap
 evaluation also screens the coordinates by the gap-safe rule of Fercoq,
 Gramfort and Salmon (*Mind the duality gap: safer rules for the lasso*, 2015),
 after every full pass: a coordinate it proves zero at the solution is set to

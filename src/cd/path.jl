@@ -400,7 +400,7 @@ pass over them; the full gradient of the optimality check of screening then
 gives the gap of the whole problem, which the `gap` of the results reports.
 A valid relative gap `ε` bounds objective suboptimality by `ε * abs(P)`.
 It does not bound coefficient error without additional assumptions. Historical
-workload-specific comparisons appear in the manual. Other losses and penalties,
+workload-specific comparisons are retained under `benchmark/gap`. Other losses and penalties,
 a coordinate without penalty whose gradient is nonzero, and `gaptol = 0` use
 the coordinate-change rule with `tol` instead.
 

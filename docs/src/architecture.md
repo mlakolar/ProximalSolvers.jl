@@ -77,10 +77,11 @@ both penalty terms. Coordinate-descent penalty weights must be symmetric.
 QUIC and generic symmetric Newton average transposed L1 weights, preserving
 the supplied objective on symmetric matrices.
 
-A coordinate with zero curvature solves `min G(x - xₖ) + gₖ(x)` exactly when
-it is bounded below: the minimizer of the penalty nearest zero (for a norm,
-while `|G| ≤ λ`) or the far bound of a box, recognized as a fixed point of a
-proximal step. An unbounded direction raises an `ArgumentError`, and
+A coordinate with zero curvature targets `min G(x - xₖ) + gₖ(x)`. Supported
+convex norm and box cases use the minimizer of the penalty nearest zero (for a norm,
+while `|G| ≤ λ`) or the minimizing bound of a box. Proximal fixed points certify convex
+subproblems only. A nonzero slope with a nonconvex penalty is rejected, as are
+unsupported flat subproblems. An unbounded direction raises an `ArgumentError`, and
 `kkt_residual` reports `Inf` there. The square-root losses accept a stop only
 with a relative duality gap; see [Losses for coordinate descent](@ref).
 
@@ -139,9 +140,6 @@ extends the public coordinate-model operations. CovarianceSelection calls
 ADMM, gradient and refit operations. DiffPrecTest uses coordinate solves and
 paths for structured inverse-Hessian problems.
 
-Known HighDimensionalModels calls to `SqrtQuadModel`, `_saturated` and `_hasconjugate` are private
-dependencies retained for compatibility, not recommended extension points.
-They should be migrated in that package separately. The public model protocol
-already supplies the supported route for new extensions. No logging redesign
-is implied by this architecture: callbacks and traces retain each solver's
-current documented behavior.
+Built-in model types and helpers such as `SqrtQuadModel`, `_saturated` and
+`_hasconjugate` are internal and may change. The public model protocol supplies
+the supported route for extensions. Callbacks and traces follow each solver's documented behavior.

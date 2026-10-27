@@ -46,8 +46,9 @@ decreases the objective at every step. At the fixed point,
 ```
 
 which is the optimality condition of the square-root lasso
-``\|y - X\beta\|/\sqrt n + \lambda_0\|\beta\|_1``: the two estimators coincide,
-and [`SqrtLeastSquaresLoss`](@ref) computes the same solution in one run.
+``\|y - X\beta\|/\sqrt n + \lambda_0\|\beta\|_1``: the two formulations coincide when the residual norm is positive.
+[`SqrtLeastSquaresLoss`](@ref) targets this coefficient problem directly,
+subject to its documented certificate and exact-fit limitations.
 
 ### Weights from a first fit
 
@@ -97,11 +98,11 @@ shrinkage of the lasso inflates its own residuals, and with them the loadings.
 ``S``, by default the nonzero coordinates of `x`:
 
 ```math
-x \leftarrow \operatorname*{argmin}\ \{f(z) : z_j = x_j \text{ for } j \notin S\}.
+x \leftarrow \operatorname*{argmin}\ \{f(z) : z_j = 0 \text{ for } j \notin S\}.
 ```
 
-Coordinates outside ``S`` keep their values, so zero them first to refit on
-``S`` alone. After a lasso fit this is the post-lasso estimator (Belloni and
+Coordinates outside ``S`` are zeroed before fitting, including when ``S`` is
+empty. After a lasso fit this is the post-lasso estimator (Belloni and
 Chernozhukov, 2013), which removes the shrinkage of the penalty.
 
 - **Least squares.** With the residuals ``r`` of the current fit, the step

@@ -23,10 +23,12 @@ This release needs ProximalBase 0.5.3 or later.
   linear term. It now finds the minimizer of the coordinate problem when it
   exists (zero for the ℓ1 norm while `|G| ≤ λ`, the bound of a box) and raises
   an `ArgumentError` when `f + g` is unbounded below along the coordinate.
-  `kkt_residual` reports `Inf` there.
+  Nonconvex affine subproblems with nonzero slope are rejected; unsupported
+  flat penalties may also raise an error. `kkt_residual` reports `Inf` when
+  no finite supported coordinate minimizer is available.
 - **Square-root losses.** `SqrtLeastSquaresLoss` and `SqrtQuadraticFunction`
   runs converge only when the relative duality gap is at most `gaptol`, or
-  `1e-2` by default, and the results report the gap. Exact or nearly exact fits
+  `1e-4` by default, and the results report the gap. Exact or nearly exact fits
   with a positive penalty, common with `p ≥ n` and a small penalty, now return
   `converged = false` with a warning; they used to report convergence at points
   that can be far from the minimizer.

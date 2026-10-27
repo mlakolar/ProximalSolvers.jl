@@ -22,9 +22,15 @@ identify an unreleased source edition. Julia 1.10 ignores `[sources]`, so use
 explicit `Pkg.develop` calls there. The package itself has no local path source
 requirement. Historical benchmark workers retain their original pins.
 
-Keep package version numbering unchanged during this migration.
+Run the release test suite against registered dependencies with:
 
-Run the complete tests with:
+```sh
+julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.test()'
+```
+
+CI and documentation builds use registered dependency resolution. A required
+dependency version must be available from General before release validation
+can pass. For optional dependency-source development checks, use:
 
 ```sh
 julia scripts/test_master.jl
@@ -33,4 +39,5 @@ julia scripts/test_master.jl
 The runner creates an isolated environment with the package, dependencies and
 test extras, and runs the suite with bounds checking. It preserves extra-only
 workspace dependencies on Julia 1.10 and leaves the package's `Project.toml`
-unchanged. This is the development test command used by CI.
+unchanged. This opt-in runner tests explicitly selected development sources;
+it does not substitute for registered-dependency release validation.
