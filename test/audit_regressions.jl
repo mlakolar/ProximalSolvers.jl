@@ -114,6 +114,9 @@ end
   penalty = Tilt(NormL1(0.1), [0.0 -0.5; -0.5 0.0])
   @test solve!(x, KronQuadratic(A,A,zeros(2,2)), penalty, CDSolver()).converged
   @test Matrix(x) ≈ [0.0 0.4; 0.4 0.0]
+  groups = [1:2]
+  @test_throws ArgumentError solve!(AtomIterate(2, groups),
+    QuadraticFunction(A, zeros(2)), Tilt(GroupNormL2(0.1, groups), zeros(2)), CDSolver())
 end
 
 @testset "bounded result display" begin

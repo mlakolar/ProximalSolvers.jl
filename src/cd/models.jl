@@ -377,6 +377,7 @@ end
 # groups; a scaled penalty goes with the iterates of the penalty it scales
 _check_iterate(g::Scaled, x) = _check_iterate(g.f, x)
 function _check_iterate(g::ProximalBase.Tilt, x)
+  isseparable(g) || throw(ArgumentError("coordinate descent supports Tilt only for a separable penalty"))
   ProximalBase._checkparams(g, x)
   _check_iterate(g.f, x)
   if x isa SymmetricSparseIterate
