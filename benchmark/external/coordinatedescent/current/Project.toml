@@ -1,0 +1,15 @@
+[deps]
+HighDimensionalModels = "676596c9-8d02-4dfa-b091-57818f5febe0"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+ProximalBase = "0a755509-c5b1-5d6f-9b24-59bcda3c37a3"
+ProximalSolvers = "fc4971f5-6616-4709-9bfc-89a819252f6b"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+
+[sources]
+HighDimensionalModels = {rev = "047c4193764b4171c659f4c649bbee8bf1df65fb", url = "https://github.com/mlakolar/HighDimensionalModels.jl"}
+ProximalSolvers = {path = "../../../.."}

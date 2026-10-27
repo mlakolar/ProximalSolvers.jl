@@ -380,3 +380,85 @@ function certify(problem::NamedTuple, β)
   end
   uncertifiable("unsupported problem kind $(a.kind)")
 end
+
+# These normalized certificates also cover scaled lasso after profiling out σ.
+function weighted_sqrt_dual_point(X, y, λ, w, β)
+  n = size(X, 1)
+  θ = (y - X * β) / (sqrt(n) * norm(y - X * β))
+  θ .*= cert_l1_scale(X' * θ, λ .* w)
+  θ
+end
+
+function weighted_sqrt_lasso_certificate(X, y, λ, w, β; fit_floor = 1e-12)
+  cert_regression_valid(X, y, 1.0, β) && length(w) == length(β) &&
+    cert_finite(λ, w, fit_floor) && λ >= 0 && all(>(0), w) && fit_floor >= 0 ||
+    return uncertifiable("invalid weighted square-root inputs")
+  rnorm = norm(y - X * β)
+  penalty = λ * dot(w, abs.(β))
+  P = rnorm / sqrt(size(X, 1)) + penalty
+  rnorm > fit_floor || return uncertifiable("residual norm at or below fit_floor"; primal = P)
+  θ = weighted_sqrt_dual_point(X, y, λ, w, β)
+  relative_certificate(P, dot(y, θ); scale = norm(y) / sqrt(size(X, 1)) + penalty,
+    terms = max(size(X)..., 1))
+end
+
+function feasible_lasso_loadings(X, residual)
+  size(X, 1) == length(residual) || throw(DimensionMismatch("one residual per row is required"))
+  n, p = size(X)
+  Γ = zeros(p)
+  for j in 1:p
+    value = 0.0
+    for i in 1:n
+      value += abs2(X[i, j] * residual[i])
+    end
+    Γ[j] = sqrt(value / n)
+  end
+  Γ
+end
+
+function cert_loading_refit(X, y, λ, Γ, β; tol, maxpasses)
+  # One independently solved fixed-loading fit defines the outer fixed-point map.
+  # The solver's returned penalty is deliberately not an input to this calculation.
+  n, p = size(X)
+  x, residual = copy(β), y - X * β
+  curvature = vec(sum(abs2, X; dims = 1)) / n
+  all(>(0), curvature) || return (; β = x, converged = false)
+  for _ in 1:maxpasses
+    change = 0.0
+    for j in 1:p
+      column = view(X, :, j)
+      next = cert_soft(x[j] + dot(column, residual) / (n * curvature[j]), λ * Γ[j] / curvature[j])
+      step = next - x[j]
+      residual .-= step .* column
+      x[j] = next
+      change = max(change, abs(step) * sqrt(curvature[j]))
+    end
+    if change <= tol * max(norm(y) / sqrt(n), 1.0)
+      residual .= y - X * x
+      cert = lasso_certificate(X, y, 1 / n, λ, Γ, x)
+      cert.status == :ok && cert.measure == :relative_gap && cert.value <= tol &&
+        return (; β = x, converged = true)
+    end
+  end
+  (; β = x, converged = false)
+end
+
+function feasible_lasso_self_consistency(X, y, λ, β; refit_tol = 1e-12, maxpasses = 100_000)
+  measure = :self_consistency
+  invalid(detail) = (; certificate = uncertifiable(detail; measure),
+    loadings_change = NaN, refit_converged = false)
+  cert_regression_valid(X, y, 1.0, β) && cert_finite(λ, refit_tol) && λ > 0 &&
+    refit_tol > 0 && maxpasses isa Integer && maxpasses > 0 || return invalid("invalid feasible-lasso inputs")
+  Γ = feasible_lasso_loadings(X, y - X * β)
+  all(>(0), Γ) || return invalid("zero or invalid residual loadings")
+  gap = lasso_certificate(X, y, 1 / size(X, 1), λ, Γ, β)
+  gap.status == :ok && gap.measure == :relative_gap || return invalid(gap.detail)
+  refit = cert_loading_refit(X, y, λ, Γ, β; tol = refit_tol, maxpasses)
+  refit.converged || return invalid("independent fixed-loading refit did not certify")
+  Γnext = feasible_lasso_loadings(X, y - X * refit.β)
+  change = cert_maxabs(Γnext - Γ) / max(cert_maxabs(Γnext), floatmin(Float64))
+  cert_finite(change) || return invalid("nonfinite loading fixed-point change")
+  certificate = Certificate(gap.value, measure, :ok, gap.primal, gap.dual,
+    "weighted-lasso gap at residual loadings; not a convex gap for the iterative procedure")
+  (; certificate, loadings_change = change, refit_converged = true)
+end

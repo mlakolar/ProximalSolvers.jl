@@ -421,3 +421,36 @@ if Base.find_package("ProximalSolvers") !== nothing
 else
   @info "Package agreement checks skipped: ProximalSolvers is not in this environment"
 end
+
+@testset "Normalized weighted square-root lasso" begin
+  X, y, λ, w = reshape([1.0, 1.0], 2, 1), [2.0, 0.0], 0.2, [1.5]
+  level = λ * w[1]
+  β = [1 - level / sqrt(1 - level^2)]
+  cert = weighted_sqrt_lasso_certificate(X, y, λ, w, β)
+  @test cert.status == :ok && cert.value < 1e-14
+  @test cert.primal ≈ norm(y - X * β) / sqrt(2) + λ * dot(w, abs.(β))
+  θ = weighted_sqrt_dual_point(X, y, λ, w, β)
+  @test norm(θ) <= 1 / sqrt(2) + 1e-14
+  @test abs(only(X' * θ)) <= λ * w[1] + 1e-14
+  @test weighted_sqrt_lasso_certificate(X, y, λ, w, [0.0]).value > 0.05
+  @test weighted_sqrt_lasso_certificate(X, y, λ / sqrt(2), w, β).value > 1e-4
+  @test weighted_sqrt_lasso_certificate(ones(1, 1), [1.0], λ, [1.0], [1.0]).status == :uncertifiable
+  for bad in ([0.0], [-1.0], [NaN], [Inf])
+    @test weighted_sqrt_lasso_certificate(X, y, λ, bad, β).status == :uncertifiable
+  end
+end
+
+@testset "Feasible-lasso residual-loadings fixed point" begin
+  X, y, λ = reshape([1.0, 1.0], 2, 1), [2.0, 0.0], 0.2
+  β = [1 - λ / sqrt(1 - λ^2)]
+  @test feasible_lasso_loadings(X, y) ≈ [sqrt(2)]
+  @test feasible_lasso_loadings(X, y - X * β) ≈ [inv(sqrt(1 - λ^2))]
+  cert = feasible_lasso_self_consistency(X, y, λ, β)
+  @test cert.certificate.measure == :self_consistency && cert.certificate.status == :ok
+  @test cert.certificate.value < 1e-14 && cert.loadings_change < 1e-14 && cert.refit_converged
+  nonoptimal = feasible_lasso_self_consistency(X, y, λ, [0.0])
+  @test nonoptimal.certificate.value > 0.1 && nonoptimal.loadings_change > 0.1
+  @test feasible_lasso_self_consistency(X, y, λ, [NaN]).certificate.status == :uncertifiable
+  @test feasible_lasso_self_consistency(X, y, λ, β; maxpasses = 0).certificate.status == :uncertifiable
+  @test feasible_lasso_self_consistency(zeros(2, 1), y, λ, [0.0]).certificate.status == :uncertifiable
+end

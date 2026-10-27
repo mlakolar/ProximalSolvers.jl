@@ -16,3 +16,5 @@
 
 # Local Julia-minor environments are regenerated from master checkouts
 /Manifest-v*.toml
+/benchmark/external/**/results/
+/benchmark/external/**/artifacts/
