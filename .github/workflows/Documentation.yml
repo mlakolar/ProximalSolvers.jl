@@ -26,9 +26,7 @@ jobs:
           version: '1'
       - uses: julia-actions/cache@v3
       - name: Install the documentation environment
-        run: julia scripts/instantiate.jl docs
-      - name: Record ProximalBase source commit
-        run: git -C ../ProximalBase.jl rev-parse HEAD
+        run: julia --color=yes --project=docs -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate(); Pkg.status(; mode=Pkg.PKGMODE_MANIFEST)'
       - name: Build and deploy
         run: julia --project=docs docs/make.jl
         env:
