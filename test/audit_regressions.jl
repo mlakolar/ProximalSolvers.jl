@@ -85,7 +85,11 @@ end
 @testset "symmetric coordinate penalties and QUIC use both weights" begin
   S = [1.0 0.5; 0.5 1.0]
   g = NormL1(0.1, [0.0 1.0; 3.0 0.0])
-  @test_throws ArgumentError solve!(SymmetricSparseIterate(2), KronQuadratic(S, S, S), g, CDSolver())
+  a, b = SymmetricSparseIterate(2), SymmetricSparseIterate(2)
+  solve!(a, KronQuadratic(S, S, S), g, CDSolver(; order = :cyclic, tol = 1e-13))
+  solve!(b, KronQuadratic(S, S, S), NormL1(0.1, [0.0 2.0; 2.0 0.0]),
+         CDSolver(; order = :cyclic, tol = 1e-13))
+  @test Matrix(a) ≈ Matrix(b) atol = 1e-12
   x, reference = Matrix(1.0I, 2, 2), Matrix(1.0I, 2, 2)
   solve!(x, LogDetLoss(S), g, ProxNewton(inner = CDSolver(rng = Xoshiro(1))))
   solve!(reference, LogDetLoss(S), NormL1(0.1, [0.0 2.0; 2.0 0.0]), ProxNewton(inner = CDSolver(rng = Xoshiro(1))))
@@ -94,20 +98,23 @@ end
   @test duality_gap(LogDetLoss(S), g, x).gap < 1e-7
 end
 
-@testset "tilts preserve symmetric coordinate validation" begin
+@testset "tilts and wrapped weights are averaged on symmetric iterates" begin
   A = Matrix(1.0I, 2, 2)
   f = KronQuadratic(A, A, [0.0 -0.25; -0.25 0.0])
   asym = NormL1(0.1, [0.0 1.0; 3.0 0.0])
-  # The scalar objective for the common off-diagonal is z²-0.1z:
-  # z=0.05 beats zero. Looking only at the lower weight falsely kept zero.
+  # the loss is z² - 0.5z. The pair penalty 0.4|z| gives z = 0.05;
+  # scaling by two gives 0.8|z| and z = 0. The antisymmetric tilt cancels,
+  # leaving 0.2|z| and z = 0.15. The diagonal entries minimize at zero.
   g = Tilt(asym, zeros(2,2))
   @test f([0.0 0.05; 0.05 0.0]) + g([0.0 0.05; 0.05 0.0]) < 0
   start = [1.0 0.2; 0.2 1.0]
-  for penalty in (g, Scaled(g, 2.0), Tilt(Scaled(asym, 2.0), zeros(2,2)),
-                  Tilt(NormL1(0.1), [0.0 0.5; -0.5 0.0]))
+  for (penalty, z) in ((g, 0.05), (Scaled(g, 2.0), 0.0),
+                       (Tilt(Scaled(asym, 2.0), zeros(2,2)), 0.0),
+                       (Tilt(NormL1(0.1), [0.0 0.5; -0.5 0.0]), 0.15))
     x = SymmetricSparseIterate(start)
-    @test_throws ArgumentError solve!(x, f, penalty, CDSolver())
-    @test Matrix(x) == start
+    r = solve!(x, f, penalty, CDSolver(; order = :cyclic, tol = 1e-13))
+    @test r.converged
+    @test Matrix(x) ≈ [0.0 z; z 0.0] atol = 1e-12
   end
   # Symmetric tilts remain supported: z² - z + 0.2|z| has minimizer 0.4.
   x = SymmetricSparseIterate(2)

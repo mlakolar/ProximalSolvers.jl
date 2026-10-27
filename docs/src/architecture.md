@@ -73,9 +73,10 @@ and block kernels in
 are internal. Scalar updates use an exact quadratic curvature or a majorizing
 bound. Group updates use a bound on the full block Hessian, not its diagonal.
 For symmetric storage an off-diagonal coordinate moves both entries and counts
-both penalty terms. Coordinate-descent penalty weights must be symmetric.
-QUIC and generic symmetric Newton average transposed L1 weights, preserving
-the supplied objective on symmetric matrices.
+both penalty terms. A single helper prepares the penalty for coordinate descent,
+QUIC, generic symmetric Newton and the gradient solvers on symmetric storage:
+it averages parameters that enter linearly and rejects other asymmetric
+per-entry parameters, as described in [Coordinates of the iterates](@ref).
 
 A coordinate with zero curvature targets `min G(x - xₖ) + gₖ(x)`. Supported
 convex norm and box cases use the minimizer of the penalty nearest zero (for a norm,

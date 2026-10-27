@@ -14,14 +14,7 @@ const _GenericNewtonIterate{T} = Union{SparseIterate{T}, SymmetricSparseIterate{
 
 _newton_penalty(g, ::SparseIterate) = g
 _newton_penalty(g::ZeroFunction, ::SymmetricSparseIterate) = g
-function _newton_penalty(g::NormL1, x::SymmetricSparseIterate)
-  g.w === nothing && return g
-  # On a symmetric variable the two entry weights add. The CD step visits
-  # one stored entry with multiplicity two, so it needs their mean, even
-  # when the user's weight matrix is asymmetric. The objective is unchanged.
-  weights = reshape(g.w, size(x))
-  NormL1(g.λ0, (weights .+ transpose(weights)) ./ 2)
-end
+_newton_penalty(g::NormL1, x::SymmetricSparseIterate) = _symmetric_penalty(g, x)
 _newton_penalty(g, ::SymmetricSparseIterate) =
   throw(ArgumentError("generic ProxNewton on a symmetric matrix supports NormL1 or ZeroFunction; use a vector iterate for other separable penalties."))
 

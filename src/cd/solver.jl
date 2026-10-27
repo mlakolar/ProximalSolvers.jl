@@ -599,6 +599,25 @@ of a group penalty `g`; `x` is overwritten with the solution. A dense vector `x`
 is converted to a `SparseIterate` (an `AtomIterate` for a group penalty) and
 overwritten with the solution. Returns a [`CDResults`](@ref). See
 [`CDSolver`](@ref).
+
+On a `SymmetricSparseIterate`, transposed entries are one variable. Solvers
+average asymmetric parameters that enter the penalty linearly: the weights
+of `NormL1`, `NormL1Nonneg`, `ElasticNet` (L1 term), `CappedL1`, `LogPenalty`,
+`NormLq`, `Berhu`, `CheckLoss`, `EpsInsensitiveLoss` and `HingeLoss`, and the
+coefficients `c` of `Tilt` and `LinearFunction`. Bounds of `IndBox`, patterns
+of `IndPattern`, centers `y` of `SqrNormL2`, centers `c` of `Regularize`,
+translations `b` of `Translate`, labels `y` of `HingeLoss` and references `q`
+of `KLDivergence` must be symmetric; otherwise an `ArgumentError` precedes
+any mutation. Normalization recurses through scaling, tilting, translation,
+regularization, box constraints and scalar `Precompose`. Inside
+`MoreauEnvelope`, `Conjugate` and linear constraints, every parameter must
+already be symmetric, including the constraint's coefficient `a`.
+
+Symmetric or absent parameters keep the supplied penalty itself, and supplied
+arrays are never changed. The reported minimum uses the supplied objective.
+Unknown penalty types pass unchanged and must have symmetric per-entry
+parameters. Infinite weights are preserved; their proximal behavior remains
+that of ProximalBase, which some non-L1 families do not support.
 """
 function solve!(x::Union{SparseIterate, SymmetricSparseIterate, AtomIterate}, f::AbstractFunction,
                 g::AbstractFunction, method::CDSolver)
@@ -645,11 +664,13 @@ end
 
 function solve!(x::Union{SparseIterate, SymmetricSparseIterate, AtomIterate}, m::CDModel{T},
                 g::AbstractFunction, method::CDSolver) where {T}
+  supplied = g
+  g = _symmetric_penalty(g, x)
   _check_iterate(g, x)
   check_penalty(m, g)
   initialize!(m, x)
   st = _CDState(T, x, method)
   _cd!(x, m, g, st, method)
   _warn_not_converged(st, method)
-  CDResults(x, loss_value(m, x) + g(x), st.passes, st.converged, st.maxchange, st.tolerance, 0, st.relgap)
+  CDResults(x, loss_value(m, x) + supplied(x), st.passes, st.converged, st.maxchange, st.tolerance, 0, st.relgap)
 end
