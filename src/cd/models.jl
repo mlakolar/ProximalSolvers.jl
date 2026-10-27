@@ -155,14 +155,18 @@ cdmodel(f::AbstractFunction, x) =
   new
 end
 
-# With zero curvature the coordinate problem is min G(x - old) + μ gᵢ(x), which
-# has a minimizer x exactly when x = prox_{tμgᵢ}(x - tG) for some (every) t > 0.
-# Two candidates cover the separable penalties: the minimizer of the penalty
+# With zero curvature the coordinate problem is min G(x - old) + μ gᵢ(x).
+# For a convex penalty, a minimizer x is a fixed point of prox_{tμgᵢ}(x - tG).
+# This implication fails for nonconvex penalties: MCP and SCAD have bounded
+# values, so any nonzero slope makes the affine subproblem unbounded even
+# when zero is a proximal fixed point. Two candidates cover norms and bounds:
+# the minimizer of the penalty
 # nearest zero (the minimizer of a norm while |G| ≤ μλ) and the far end of a
 # proximal step against G (a bound of a box). The step t scales G to the size
 # of the candidate, so that rounding cannot make a huge point look fixed.
 # Returns nothing when neither candidate is a minimizer.
 function _flat_minimizer(g, old::T, G::T, i, μ) where {T}
+  !iszero(G) && !ProximalBase.isconvex(g) && return nothing
   c = prox_entry(g, zero(T), i, floatmax(T))
   iszero(G) && return c
   _flat_fixed(g, c, G, i, μ) && return c
@@ -170,11 +174,32 @@ function _flat_minimizer(g, old::T, G::T, i, μ) where {T}
   _flat_fixed(g, c, G, i, μ) ? c : nothing
 end
 
+# Project directly onto the minimizing end of a box. A finite endpoint near
+# floatmax must not be rejected because the fixed-point trial overflows.
+function _flat_minimizer(g::ProximalBase.IndBox, old::T, G::T, i, μ) where {T}
+  v = iszero(G) ? zero(T) : -copysign(T(Inf), G)
+  c = T(prox_entry(g, v, i, one(T)))
+  isfinite(c) ? c : nothing
+end
+
+function _flat_minimizer(g::ProximalBase.Scaled, old::T, G::T, i, μ) where {T}
+  scale = μ * g.α
+  isfinite(scale) && scale > 0 || return nothing
+  _flat_minimizer(g.f, old, G, i, scale)
+end
+
+function _flat_minimizer(g::ProximalBase.Tilt, old::T, G::T, i, μ) where {T}
+  slope = T(G + μ * g.c[i])
+  isfinite(slope) || return nothing
+  _flat_minimizer(g.f, old, slope, i, μ)
+end
+
 function _flat_fixed(g, c::T, G::T, i, μ) where {T}
   isfinite(c) || return false
   t = max(one(T), abs(c) / abs(G))
   v = c - t * G
-  isfinite(v) && prox_entry(g, v, i, t * μ) == c
+  step = t * μ
+  isfinite(v) && isfinite(step) && prox_entry(g, v, i, step) == c
 end
 
 # the coordinate step from coordinate_derivatives and update_cache!, for models

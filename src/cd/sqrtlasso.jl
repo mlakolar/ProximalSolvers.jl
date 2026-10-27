@@ -19,7 +19,7 @@ Near an exact fit (`p ≥ n` with a small penalty, or nearly noiseless data),
 coordinate steps can stop far from the minimizer, since the loss is not
 differentiable at zero residuals. A run therefore converges only when the
 relative duality gap of the dual point `t r/‖r‖` (see [`duality_gap`](@ref) for
-its meaning) is at most `gaptol`, or `1e-2` with the default `gaptol = 0`; the
+its meaning) is at most `gaptol`, or `1e-4` with the default `gaptol = 0`; the
 results report this gap. That dual point cannot certify an exact or nearly
 exact fit with a positive penalty, which is reported as not converged. With a
 coordinate without penalty (a zero weight or level), the dual point exists
@@ -242,7 +242,9 @@ check_penalty(::SqrtLSModel, g) = g isa NormL1 ||
 # θ'ỹ = t (f(x) - ∇f(x)'x); this holds for any norm ‖ỹ - X̃x‖, so for
 # SqrtQuadraticFunction too. Its residual direction cannot certify an exact or
 # nearly exact fit, which is then reported as not converged.
-const _SQRT_GAPCHECK = 1e-2
+# Match the default objective-accuracy target of penalty paths. An explicit
+# positive gaptol overrides this target; tol still controls coordinate changes.
+const _SQRT_GAPCHECK = 1e-4
 
 _certified!(st, m::SqrtLSModel, g, x, s) = _sqrt_certified!(st, m, g, x, s)
 

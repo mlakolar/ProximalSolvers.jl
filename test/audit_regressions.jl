@@ -1,5 +1,5 @@
 module AuditRegressions
-using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
+using Test, LinearAlgebra, Random, SparseArrays, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
 
 @testset "flat curvature retains the linear term" begin
@@ -48,6 +48,38 @@ const PS = ProximalSolvers
   groups = [1:1]
   xg = AtomIterate(1, groups)
   @test_throws ArgumentError solve!(xg, QuadraticFunction(zeros(1,1), [-1.0]), GroupNormL2(0.1, groups), CDSolver())
+end
+
+@testset "flat affine subproblems need global minimizers" begin
+  f = QuadraticFunction(zeros(1, 1), [-0.05])
+  # MCP and SCAD are bounded above. Adding any nonzero linear slope makes
+  # the objective unbounded, even when zero is a local proximal fixed point.
+  for g in (MCP(0.1), SCAD(0.1), Scaled(MCP(0.1), 2.0),
+            Tilt(SCAD(0.1), [0.01]))
+    @test f([100.0]) + g([100.0]) < f([0.0]) + g([0.0])
+    x = SparseIterate(1)
+    @test_throws ArgumentError solve!(x, f, g, CDSolver())
+    @test iszero(x[1])
+    @test kkt_residual(f, g, x) == Inf
+  end
+  # A finite box endpoint is the analytic answer, even if a trial proximal
+  # fixed-point calculation would overflow. Include weighted/matrix bounds
+  # and both affine wrapper orders.
+  for g in (IndBox(1e308, 1.5e308), IndBox([1e308], [1.5e308]),
+            Scaled(IndBox(1e308, 1.5e308), 2.0),
+            Tilt(IndBox(1e308, 1.5e308), [0.0]))
+    x = SparseIterate(1)
+    r = solve!(x, QuadraticFunction(zeros(1,1), [-1e-308]), g, CDSolver())
+    @test r.converged
+    @test x[1] == 1.5e308
+  end
+  for g in (NormL1(0.1, [2.0]), NormL1Nonneg(0.1, [2.0]),
+            Scaled(NormL1(0.1), 2.0), Tilt(NormL1(0.1), [0.03]),
+            Scaled(Tilt(NormL1(0.1), [0.03]), 2.0))
+    x = SparseIterate([0.5])
+    @test solve!(x, f, g, CDSolver()).converged
+    @test iszero(x[1])
+  end
 end
 
 @testset "symmetric coordinate penalties and QUIC use both weights" begin
@@ -150,6 +182,35 @@ end
   @test r.minimum - dot(yn, θ) <= 1e-4 * r.minimum
 end
 
+@testset "square-root certificate with weights and sparse centering" begin
+  # In weighted centered coordinates, a=2, X'Wy=4 and the orthogonal
+  # residual has norm 1/2. Differentiating sqrt(2(β-2)^2+1/4)+λ|β|
+  # gives the following analytic minimizer.
+  y, w, λ = [-2.0, 0.5, 2.0], [1.0, 2.0, 1.0], 0.2
+  expected = 2 - λ * 0.5 / sqrt(2 * (2 - λ^2))
+  for X in (reshape([1.0, 2.0, 3.0], :, 1), sparse(reshape([1.0, 2.0, 3.0], :, 1)))
+    x = SparseIterate(1)
+    m = cdmodel(SqrtLeastSquaresLoss(y, X; weights = w), x; intercept = true)
+    r = solve!(x, m, NormL1(λ), CDSolver(order = :cyclic, gaptol = 1e-8))
+    @test r.converged
+    @test x[1] ≈ expected
+    b0 = PS.intercept(m, x)
+    residual = y .- b0 .- X * Vector(x)
+    θ = w .* residual / sqrt(dot(w, residual.^2))
+    θ .*= min(1.0, λ / norm(X'θ, Inf))
+    @test abs(sum(θ)) <= 1e-14
+    P = sqrt(dot(w, residual.^2)) + λ * abs(x[1])
+    @test isapprox(r.gap, (P - dot(y, θ)) / P; atol = 2e-14)
+    # The sufficient-statistic representation has the same scalar objective.
+    q = SqrtQuadraticFunction(reshape([2.0], 1, 1), [-4.0], 8.25)
+    z = SparseIterate(1)
+    rq = solve!(z, q, NormL1(λ), CDSolver(order = :cyclic, gaptol = 1e-8))
+    @test rq.converged
+    @test z[1] ≈ expected
+    @test rq.minimum ≈ P
+  end
+end
+
 # Adding a constant must not let an incomplete Newton step certify stationarity.
 struct ShiftedLogistic <: ProximalBase.ScalarLoss end
 (::ShiftedLogistic)(η, y) = ProximalBase.Logistic()(η, y) + 1e12
@@ -165,6 +226,23 @@ ProximalBase.curvature(::ShiftedLogistic) = 0.25
   grad = sum(X[i] * ProximalBase.deriv(ProximalBase.Logistic(), X[i]*x[1], y[i]) for i in eachindex(y))
   @test abs(grad + 0.1sign(x[1])) > 1e-3
   @test !r.converged
+end
+
+@testset "zero offset scores preserve Newton loss scaling" begin
+  # With fractional response 1/2, the score at offset zero is exactly zero;
+  # the unique penalized minimizer is zero for every positive loss scale.
+  # One Newton step from 1 is about -0.12434, so none may claim convergence.
+  for scale in (1e-20, 1.0, 1e20)
+    x = SparseIterate([1.0])
+    f = Scaled(GLMLoss(ShiftedLogistic(), [0.5], ones(1,1)), scale)
+    r = solve!(x, f, NormL1(0.01scale), ProxNewton(maxiter = 1))
+    @test abs(x[1]) > 0.1
+    @test !r.converged
+    x = SparseIterate([1.0])
+    r = solve!(x, f, NormL1(0.01scale), ProxNewton())
+    @test r.converged
+    @test abs(x[1]) <= 1e-8
+  end
 end
 
 @testset "invalid certificates cannot pass stopping" begin

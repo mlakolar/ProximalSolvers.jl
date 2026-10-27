@@ -277,11 +277,12 @@ Without a duality gap, the steps stop when the objective changes by at most
 `tol` relative to `max(|F|, 1)` and the original problem is stationary to the
 matching accuracy: every exact coordinate step of `f + g` at `x` (and the
 intercept step, when fitted), measured as `√aⱼ |Δⱼ|` with `aⱼ` the curvature of
-coordinate `j` in the Newton model at `x`, is at most `√tol` times the same
-measure of the Newton step available at the starting predictor. The square of
-this measure is about the decrease of `f + g` the step still offers, so the
-test matches `tol`, and it does not change when `f` is scaled or a constant is
-added to it. The method also stops after
+coordinate `j` in the Newton model at `x`, is at most `√tol * S`, where
+`S² = s Σᵢ wᵢ ℓ'(oᵢ,yᵢ)² / max(ℓ''(oᵢ,yᵢ), floor)` at the offset.
+When all offset scores vanish, use `S² = s Σᵢ wᵢ`. Both sides scale by the
+square root of a positive loss and penalty scale; additive loss constants do
+not enter. This criterion does not bound objective or coefficient error.
+The method also stops after
 `maxiter` steps, with `converged = false`. Use with [`solve!`](@ref) on a `SparseIterate`;
 returns [`CDResults`](@ref), whose `passes` sum the inner passes.
 
@@ -610,25 +611,30 @@ end
 # vᵢ = wᵢ max(ℓ''(ηᵢ), floor) of the next step: the exact coordinate step Δⱼ of
 # the original gradient with curvature aⱼ = s Σᵢ vᵢ Xᵢⱼ², measured as √aⱼ |Δⱼ|,
 # and likewise the intercept. The square of this measure is about the decrease
-# of f + g the step offers; it is compared with √tol times the decrease
-# available from the starting predictor (the offset), the scale of the problem.
-# Neither side changes when f is scaled or a constant is added to it.
+# of f + g the step offers; its reference scale is the weighted score norm
+# in observation-curvature units at the offset.
+# Both sides scale by the square root of a positive loss scale; neither
+# depends on an additive constant. If the offset scores all vanish, use the
+# square root of the total observation weight in the same loss units.
 function _newton_stationary!(ws::_NewtonWorkspace{T}, m::GLMModel{T}, g, x, candidates, tol, floor) where {T}
   v, grad = ws.vs, ws.grad
-  sy, a0 = zero(T), zero(T)
+  sy, a0, weight = zero(T), zero(T), zero(T)
   @inbounds for i in eachindex(m.η)
     wi = _obsweight(m.w, i, T)
     if iszero(wi)
       v[i] = zero(T)
       continue
     end
+    weight += wi
     oi = m.offset === nothing ? zero(T) : T(m.offset[i])
     sy += wi * T(ProximalBase.deriv(m.loss, oi, m.y[i]))^2 / max(T(ProximalBase.deriv2(m.loss, oi, m.y[i])), floor)
     v[i] = wi * max(T(ProximalBase.deriv2(m.loss, m.η[i], m.y[i])), floor)
     a0 += v[i]
   end
-  sy = sqrt(m.s * sy)
-  threshold = sqrt(T(tol)) * (sy > 0 ? sy : one(T))
+  isfinite(sy) && isfinite(weight) || return false
+  sy = sqrt(m.s * (sy > 0 ? sy : weight))
+  isfinite(sy) || return false
+  threshold = sqrt(T(tol)) * sy
   candidates === nothing ? gradient!(grad, m, x) : _partial_gradient!(grad, m, x, candidates)
   for j in (candidates === nothing ? eachindex(x) : candidates)
     a = m.s * _weighted_sqnorm(m.X, v, j)
