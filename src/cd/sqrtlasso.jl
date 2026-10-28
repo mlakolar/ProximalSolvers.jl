@@ -20,17 +20,22 @@ coordinate steps can stop far from the minimizer, since the loss is not
 differentiable at zero residuals. A run therefore converges only when the
 relative duality gap (see [`duality_gap`](@ref) for its meaning) is at most
 `gaptol`, or `1e-4` with the default `gaptol = 0`; the results report this gap.
-The residual direction `t r/‖r‖` is tried first. Otherwise a joint dual point
+The residual direction `t r/‖r‖` is tried first. Otherwise a joint witness
 is built from the nonzero and unpenalized coordinates and the residual
-orthogonal to their span. Its norm and all constraints, including the
-unpenalized and intercept equalities, are checked up to rounding. Residuals
-are recomputed from the data, including sparse centering and weights. If no
+orthogonal to their span. Its norm and penalized correlations use conservative
+rounding bounds. A projection bound subtracts the possible contribution of
+unpenalized coordinates and the uncentered intercept from the dual value;
+a small equality residual alone never certifies a run. Residuals are
+recomputed from the data, including sparse centering and weights. If no
 point passes, the always-feasible zero point gives a relative gap of one
 when the objective is positive. Coordinate changes alone never certify a run.
 
 The support solve allows dependent columns and at most 2000 coordinates.
-At an exact fit it certifies when the support equations determine the dual
-point, or their least-norm solution meets the remaining constraints. It may
+The Gram matrix is equilibrated before deciding its numerical rank. At an
+exact fit, the support equations can certify when their retained directions
+determine the dual point, or their least-norm point meets the other
+constraints, and the rounding and unrestricted projection bounds are small
+enough. An unresolved unrestricted span uses the zero witness. The method may
 miss another feasible point, so some exact minimizers still return
 `converged = false`. Nonfinite penalty loadings, including a zero level times
 an infinite weight, fix coordinates at zero and are excluded from the dual
@@ -91,6 +96,14 @@ mutable struct SqrtLSModel{T<:AbstractFloat, MX<:AbstractMatrix{T}, VY<:Abstract
   dualrhs::Vector{T}
   dualα::Vector{T}
   dualγ::Vector{T}
+  dualcorrerr::Vector{T}
+  dualscale::Vector{T}
+  dualunpen::Vector{Int}
+  dualunpenscale::Vector{T}
+  dualbound::T
+  dualinv::T
+  dualweighterror::Vector{T}
+  dualswerror::Vector{T}
 end
 
 function cdmodel(f::SqrtLeastSquaresLoss{T}, x; intercept::Bool = false) where {T}
@@ -106,7 +119,10 @@ function cdmodel(f::SqrtLeastSquaresLoss{T}, x; intercept::Bool = false) where {
                                                   zeros(T, length(y)), zero(T), zeros(T, length(y)), zeros(T, p),
                                                   zeros(T, length(y)), zeros(T, length(y)), w === nothing ? T[] : zeros(T, length(y)),
                                                   _GroupEig{T}(), Matrix{T}(undef, 0, 0), sizehint!(Int[], min(p, _SQRT_DUAL_MAXSUPPORT)),
-                                                  sizehint!(T[], min(p, _SQRT_DUAL_MAXSUPPORT)), T[], T[], T[])
+                                                  sizehint!(T[], min(p, _SQRT_DUAL_MAXSUPPORT)), T[], T[], T[],
+                                                  zeros(T, p), T[], sizehint!(Int[], min(p + 1, _SQRT_DUAL_MAXSUPPORT)),
+                                                  sizehint!(T[], min(p + 1, _SQRT_DUAL_MAXSUPPORT)), zero(T), zero(T),
+                                                  zeros(T, length(y)), zeros(T, length(y)))
 end
 
 intercept(m::SqrtLSModel, x::AbstractArray) = m.ybar - dot(m.xbar, x)
@@ -259,15 +275,77 @@ check_penalty(::SqrtLSModel, g) = g isa NormL1 ||
 
 _certified!(st, m::SqrtLSModel, g, x, s) = _sqrt_certified!(st, m, g, x, s)
 
+@inline _sqrt_observation(m::SqrtLSModel{T}, i, k) where {T} =
+  k == 0 ? one(T) : k < 0 ? m.y[i] : m.X[i, k]
+
+@inline function _sqrt_gram(m::SqrtLSModel{T}, k, j) where {T}
+  hi, lo, errors = zero(T), zero(T), zero(T)
+  for i in eachindex(m.y)
+    a, b = _sqrt_observation(m, i, k), _sqrt_observation(m, i, j)
+    w = m.w === nothing ? one(T) : m.w[i]
+    hi, lo, errors = _sqrt_addtriple(hi, lo, errors, a, b, w)
+  end
+  _sqrt_finish(hi, lo, errors, 3length(m.y))
+end
+
+function _sqrt_zerocol(m::SqrtLSModel, k)
+  for i in eachindex(m.y)
+    m.w !== nothing && iszero(m.w[i]) && continue
+    iszero(m.X[i, k]) || return false
+  end
+  true
+end
+
+function _sqrt_samecol(m::SqrtLSModel{T}, k, j) where {T}
+  same = opposite = constantk = constantj = true
+  seen = false
+  firstk, firstj = zero(T), zero(T)
+  for i in eachindex(m.y)
+    m.w !== nothing && iszero(m.w[i]) && continue
+    a, b = _sqrt_observation(m, i, k), _sqrt_observation(m, i, j)
+    if !seen
+      firstk, firstj, seen = a, b, true
+    end
+    same &= a == b
+    opposite &= a == -b
+    constantk &= a == firstk
+    constantj &= b == firstj
+  end
+  same || opposite || (constantk && constantj)
+end
+
+# The residual of the square root bounds its rounding. Near underflow the
+# relative bound avoids losing that residual to zero.
+@inline function _sqrt_rooterror(sw::T, w::T) where {T}
+  iszero(w) && return zero(T)
+  w < sqrt(floatmin(T)) && return _sqrt_upper(eps(T) * sw)
+  residual = abs(fma(sw, sw, -w))
+  _sqrt_upper(_sqrt_upper(residual / (2sw)) * (1 + 4eps(T)))
+end
+
+# This includes both the compensated dot and uncertainty in √wᵢ θᵢ.
+@inline function _sqrt_observation_product(m::SqrtLSModel{T}, k, weighted) where {T}
+  hi, lo, errors, uncertainty = zero(T), zero(T), zero(T), zero(T)
+  for i in eachindex(weighted)
+    a = _sqrt_observation(m, i, k)
+    hi, lo, errors = _sqrt_addproduct(hi, lo, errors, a, weighted[i])
+    uncertainty = _sqrt_upper(uncertainty + _sqrt_upmul(abs(a), m.dualweighterror[i]))
+  end
+  value, error = _sqrt_finish(hi, lo, errors, length(weighted))
+  value, _sqrt_upper(error + uncertainty)
+end
+
 # Work in weighted observation space, including rows with zero weight. The
 # fresh residual includes the centering shift of a sparse design.
 @inline function _sqrt_dualdata(m::SqrtLSModel{T}, x) where {T}
   Y, R = m.dualy, m.rbuf
   fill!(R, zero(T))
   shift = zero(T)
+  nactive = 0
   for k in activecoordinates(x)
     v = x[k]
     iszero(v) && continue
+    nactive += 1
     _column_axpy!(R, m.X, k, zero(T), v)
     shift += m.xbar[k] * v
   end
@@ -278,13 +356,15 @@ _certified!(st, m::SqrtLSModel, g, x, s) = _sqrt_certified!(st, m, g, x, s)
     R[i] += Y[i] + shift
     if sw !== nothing
       sw[i] = sqrt(m.w[i])
+      m.dualswerror[i] = _sqrt_rooterror(sw[i], m.w[i])
       Y[i] *= sw[i]
       R[i] *= sw[i]
     end
     fitted2 += (Y[i] - R[i])^2
   end
   f = norm(R)
-  rounding = _SQRT_DUAL_ROUNDING * eps(T) * (norm(Y) + sqrt(fitted2))
+  rounding = _SQRT_DUAL_ROUNDING * max(1, nactive) * eps(T) *
+             (norm(Y) + sqrt(fitted2) + abs(m.ybar) * sqrt(m.N))
   all(isfinite, R) && isfinite(f) ? (; R, Y, sw, f, rounding) : nothing
 end
 
@@ -300,18 +380,26 @@ function _sqrt_vectordual(m::SqrtLSModel{T}, data, g, θ) where {T}
       end
     end
   end
-  nθ = norm(θ)
+  nθ = _sqrt_normupper(θ)
   weighted = if data.sw === nothing
+    fill!(m.dualweighterror, zero(T))
     θ
   else
     m.tmp .= data.sw .* θ
+    for i in eachindex(θ)
+      producterror = abs(fma(data.sw[i], θ[i], -m.tmp[i]))
+      _sqrt_productrisk(data.sw[i], θ[i], m.tmp[i]) && (producterror += eps(zero(T)))
+      m.dualweighterror[i] = _sqrt_upper(producterror + _sqrt_upmul(abs(θ[i]), m.dualswerror[i]))
+    end
+    m.tmp
   end
-  if m.centered
-    abs(sum(weighted)) <= _SQRT_DUAL_ROUNDING * eps(T) * sqrt(m.N) * nθ || return nothing
+  z, errors = m.grad, m.dualcorrerr
+  for k in eachindex(z)
+    z[k], errors[k] = _sqrt_observation_product(m, k, weighted)
   end
-  z = mul!(m.grad, transpose(m.X), weighted)
-  z .-= m.xbar .* sum(weighted)
-  _sqrt_validated_dual(m, g, z, nθ, dot(data.Y, θ))
+  z₀, e₀ = m.centered ? _sqrt_observation_product(m, 0, weighted) : (zero(T), zero(T))
+  D, error = _sqrt_observation_product(m, -1, weighted)
+  _sqrt_validated_dual(m, g, z, nθ, _sqrt_lower(D - error), z₀, e₀)
 end
 
 function _sqrt_residualdual(m::SqrtLSModel, data, g, scale)

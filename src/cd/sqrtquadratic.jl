@@ -24,13 +24,17 @@ With `check`, `A` must be finite and symmetric, which costs O(p²); pass
 a covariance matrix do. `b` and `c` are always checked.
 
 As for [`SqrtLeastSquaresLoss`](@ref), a final relative duality gap must be at
-most `gaptol`, or `1e-4` by default. A support/residual dual point is tried
+most `gaptol`, or `1e-4` by default. A support/residual witness is tried
 when the residual direction does not certify, including with unpenalized
 coordinates. The support solve allows dependent columns and at most 2000
-coordinates; it can miss feasible dual points at some exact minimizers.
+coordinates. Its Gram matrix is equilibrated before the rank decision; it
+can still miss feasible dual points at some exact minimizers.
 `Ax` and the quadratic are recomputed for certification. A conservative
-rounding budget bounds the loss and the dual norm; compensated accumulation
-tightens it near cancellation. A quadratic negative beyond that budget
+rounding budget bounds the loss, dual norm and penalized correlations.
+Unrestricted directions require a projection correction to the dual value,
+or the zero witness when their span cannot be resolved. Compensated
+accumulation retains small products and tightens cancellation bounds.
+A quadratic negative beyond its budget
 violates the PSD assumption and is not certified. Nonfinite penalty loadings
 fix coordinates at zero and are excluded from the dual constraints, including
 a zero level times an infinite weight. The public `duality_gap` interface
@@ -89,6 +93,12 @@ mutable struct SqrtQuadModel{T<:AbstractFloat, M<:AbstractMatrix{T}, V<:Abstract
   dualrhs::Vector{T}
   dualα::Vector{T}
   dualγ::Vector{T}
+  dualcorrerr::Vector{T}
+  dualscale::Vector{T}
+  dualunpen::Vector{Int}
+  dualunpenscale::Vector{T}
+  dualbound::T
+  dualinv::T
 end
 
 cdmodel(f::SqrtQuadraticFunction{T}, x) where {T} =
@@ -96,7 +106,9 @@ cdmodel(f::SqrtQuadraticFunction{T}, x) where {T} =
                                          zeros(T, length(f.b)), zeros(T, length(f.b)), zeros(T, length(f.b)),
                                          zeros(T, length(f.b)), zeros(T, length(f.b)), sizehint!(Int[], length(f.b)),
                                          _GroupEig{T}(), Matrix{T}(undef, 0, 0), sizehint!(Int[], min(length(f.b), _SQRT_DUAL_MAXSUPPORT)),
-                                         sizehint!(T[], min(length(f.b), _SQRT_DUAL_MAXSUPPORT)), T[], T[], T[])
+                                         sizehint!(T[], min(length(f.b), _SQRT_DUAL_MAXSUPPORT)), T[], T[], T[],
+                                         zeros(T, length(f.b)), T[], sizehint!(Int[], min(length(f.b), _SQRT_DUAL_MAXSUPPORT)),
+                                         sizehint!(T[], min(length(f.b), _SQRT_DUAL_MAXSUPPORT)), zero(T), zero(T))
 
 # x'Ax + 2b'x + c over the active entries of x, from u = Ax
 function _quadratic_value(m::SqrtQuadModel{T}, x::SparseIterate{T}) where {T}
@@ -168,6 +180,12 @@ loss_value(m::SqrtQuadModel{T}, x) where {T} = sqrt(max(m.q, zero(T)))
 
 _certified!(st, m::SqrtQuadModel, g, x, s) = _sqrt_certified!(st, m, g, x, s)
 
+@inline _sqrt_gram(m::SqrtQuadModel{T}, k, j) where {T} =
+  (k < 0 ? m.c : m.A[k, j], zero(T))
+@inline _sqrt_zerocol(m::SqrtQuadModel, k) = iszero(m.A[k, k])
+@inline _sqrt_samecol(m::SqrtQuadModel, k, j) =
+  m.A[k, k] == m.A[j, j] && (m.A[k, j] == m.A[k, k] || m.A[k, j] == -m.A[k, k])
+
 # Accumulate product roundings as well as sum roundings. Near cancellation
 # this tightens the first-order budget without losing an exact binary fit.
 @inline function _sqrt_qadd(hi::T, lo::T, errors::T, value::T, error::T) where {T}
@@ -180,23 +198,15 @@ end
 function _sqrt_compensated_q(m::SqrtQuadModel{T}, xv, active) where {T}
   hi, lo, errors = m.c, zero(T), zero(T)
   for k in active
-    value = m.b[k] * xv[k]
-    error = fma(m.b[k], xv[k], -value)
     for _ in 1:2
-      hi, lo, errors = _sqrt_qadd(hi, lo, errors, value, error)
+      hi, lo, errors = _sqrt_addproduct(hi, lo, errors, m.b[k], xv[k])
     end
     for j in active
-      p = m.A[j, k] * xv[k]
-      pe = fma(m.A[j, k], xv[k], -p)
-      value = p * xv[j]
-      error = fma(p, xv[j], -value) + pe * xv[j]
-      hi, lo, errors = _sqrt_qadd(hi, lo, errors, value, error)
+      hi, lo, errors = _sqrt_addtriple(hi, lo, errors, m.A[j, k], xv[k], xv[j])
     end
   end
-  q, _, finalerror = _sqrt_qadd(hi, zero(T), zero(T), lo, zero(T))
   count = length(active)^2 + 2length(active) + 1
-  δq = finalerror + _SQRT_DUAL_ROUNDING * eps(T) * count * errors
-  q, δq
+  _sqrt_finish(hi, lo, errors, count)
 end
 
 # Recompute Ax, q and the scales of their roundings, independently of the
@@ -228,26 +238,37 @@ end
   q = dot(xv, u) + 2bx + m.c
   isfinite(q) && isfinite(budget) && q >= -budget || return nothing
   δq = budget
-  if abs(q) <= budget
-    refined, error = _sqrt_compensated_q(m, xv, active)
-    if refined >= 0 && isfinite(error)
-      q, δq = refined, min(budget, error)
-    end
+  refined, error = _sqrt_compensated_q(m, xv, active)
+  if refined >= 0 && isfinite(error)
+    q, δq = refined, error
   end
-  f = sqrt(max(q + δq, zero(T)))
+  f = _sqrt_upper(sqrt(max(_sqrt_upper(q + δq), zero(T))))
   s, serror = m.duals, m.dualerror
-  s .= .-(u .+ m.b)
-  serror .= rounding .* (au .+ abs.(m.b))
-  ry = m.c + bx
-  ryerror = rounding * (abs(m.c) + abx)
+  for i in eachindex(s)
+    hi, lo, errors = m.b[i], zero(T), zero(T)
+    for k in active
+      hi, lo, errors = _sqrt_addproduct(hi, lo, errors, m.A[i, k], xv[k])
+    end
+    value, serror[i] = _sqrt_finish(hi, lo, errors, length(active))
+    s[i] = -value
+  end
+  ry, ryerror = _sqrt_dotbounds(m.b, xv, m.c)
   allowance = budget / max(f, sqrt(budget), floatmin(T)) + rounding * sqrt(scale)
   (; q, δq, f, s, serror, ry, ryerror, rounding = allowance)
 end
 
 function _sqrt_residualdual(m::SqrtQuadModel{T}, data, g, scale) where {T}
-  nθ = abs(scale) * data.f
-  D = scale * data.ry - abs(scale) * data.ryerror
-  m.grad .= scale .* data.s
+  nθ = _sqrt_upmul(abs(scale), data.f)
+  D = scale * data.ry
+  producterror = abs(fma(scale, data.ry, -D))
+  _sqrt_productrisk(scale, data.ry, D) && (producterror += eps(zero(T)))
+  D = _sqrt_lower(D - _sqrt_upper(_sqrt_upmul(abs(scale), data.ryerror) + producterror))
+  for i in eachindex(m.grad)
+    m.grad[i] = scale * data.s[i]
+    producterror = abs(fma(scale, data.s[i], -m.grad[i]))
+    _sqrt_productrisk(scale, data.s[i], m.grad[i]) && (producterror += eps(zero(T)))
+    m.dualcorrerr[i] = _sqrt_upper(_sqrt_upmul(abs(scale), data.serror[i]) + producterror)
+  end
   _sqrt_validated_dual(m, g, m.grad, nθ, D)
 end
 
@@ -273,53 +294,56 @@ end
 
 function _sqrt_jointpoint(m::SqrtQuadModel{T}, data, g, S, geometry, α, γ) where {T}
   K, s = geometry.K, geometry.s
-  a, kg, h = zero(T), zero(T), dot(α, s)
-  aa, gg, ag = zero(T), zero(T), zero(T)
+  ah, al, ae = zero(T), zero(T), zero(T)
+  dh, dl, de = data.q, zero(T), zero(T)
+  hh, hl, he = zero(T), zero(T), zero(T)
   for j in eachindex(S), i in eachindex(S)
     value = K[i, j]
-    a += α[i] * value * α[j]
-    kg += γ[i] * value * γ[j]
-    h -= α[i] * value * γ[j]
-    aa += abs(α[i] * value * α[j])
-    gg += abs(γ[i] * value * γ[j])
-    ag += abs(α[i] * value * γ[j])
+    ah, al, ae = _sqrt_addtriple(ah, al, ae, α[i], value, α[j])
+    dh, dl, de = _sqrt_addtriple(dh, dl, de, γ[i], value, γ[j])
+    hh, hl, he = _sqrt_addtriple(hh, hl, he, -α[i], value, γ[j])
   end
-  as, gs, ae, ge = zero(T), zero(T), zero(T), zero(T)
-  ab, gb, acb, gcb = zero(T), zero(T), zero(T), zero(T)
+  derror, herror = data.δq, zero(T)
   for i in eachindex(S)
-    as += abs(α[i] * s[i])
-    gs += abs(γ[i] * s[i])
-    ae += abs(α[i]) * data.serror[S[i]]
-    ge += abs(γ[i]) * data.serror[S[i]]
-    ab += α[i] * m.b[S[i]]
-    gb += γ[i] * m.b[S[i]]
-    acb += abs(α[i] * m.b[S[i]])
-    gcb += abs(γ[i] * m.b[S[i]])
+    dh, dl, de = _sqrt_addtriple(dh, dl, de, -T(2), γ[i], s[i])
+    hh, hl, he = _sqrt_addproduct(hh, hl, he, α[i], s[i])
+    derror = _sqrt_upper(derror + _sqrt_upmul(T(2), _sqrt_upmul(abs(γ[i]), data.serror[S[i]])))
+    herror = _sqrt_upper(herror + _sqrt_upmul(abs(α[i]), data.serror[S[i]]))
   end
-  d = data.q - 2dot(γ, s) + kg
-  rounding = _SQRT_DUAL_ROUNDING * max(1, length(S)^2) * eps(T)
-  aerror = rounding * aa
-  derror = data.δq + 2ge + rounding * (abs(data.q) + 2gs + gg)
-  herror = ae + rounding * (as + ag)
+  n = length(S)^2 + 3length(S) + 1
+  a, aerror = _sqrt_finish(ah, al, ae, n)
+  d, error = _sqrt_finish(dh, dl, de, n)
+  derror = _sqrt_upper(derror + error)
+  h, error = _sqrt_finish(hh, hl, he, n)
+  herror = _sqrt_upper(herror + error)
   a >= -aerror && d >= -derror || return nothing
   β = _sqrt_residualpart(max(a, zero(T)), h, max(d - derror, zero(T)))
-  norm2 = a + 2β * h + β^2 * d
-  normerror = aerror + 2β * herror + β^2 * derror +
-              rounding * (abs(a) + 2β * abs(h) + β^2 * abs(d))
+  nh, nl, ne = _sqrt_addtriple(a, zero(T), zero(T), T(2), β, h)
+  nh, nl, ne = _sqrt_addtriple(nh, nl, ne, β, β, d)
+  norm2, error = _sqrt_finish(nh, nl, ne, 6)
+  normerror = _sqrt_upper(aerror + _sqrt_upmul(T(2), _sqrt_upmul(β, herror)) +
+                         _sqrt_upmul(β, _sqrt_upmul(β, derror)) + error)
   norm2 >= -normerror || return nothing
-  nθ = sqrt(max(norm2 + normerror, zero(T)))
+  nθ = _sqrt_upper(sqrt(max(_sqrt_upper(norm2 + normerror), zero(T))))
   z = m.grad
-  z .= β .* data.s
-  for j in eachindex(S)
-    for i in eachindex(z)
-      z[i] += m.A[i, S[j]] * (α[j] - β * γ[j])
+  for i in eachindex(z)
+    hi, lo, errors = _sqrt_addproduct(zero(T), zero(T), zero(T), β, data.s[i])
+    for j in eachindex(S)
+      hi, lo, errors = _sqrt_addproduct(hi, lo, errors, m.A[i, S[j]], α[j])
+      hi, lo, errors = _sqrt_addtriple(hi, lo, errors, m.A[i, S[j]], γ[j], -β)
     end
+    z[i], error = _sqrt_finish(hi, lo, errors, 4length(S) + 1)
+    m.dualcorrerr[i] = _sqrt_upper(error + _sqrt_upmul(β, data.serror[i]))
   end
   # These identities retain the support-solve error and its cross term.
-  D = -ab + β * (data.ry + gb)
-  Derror = _SQRT_DUAL_ROUNDING * max(1, length(S)) * eps(T) *
-           (acb + β * (abs(data.ry) + gcb)) + β * data.ryerror
-  _sqrt_validated_dual(m, g, z, nθ, D - Derror)
+  hi, lo, errors = _sqrt_addproduct(zero(T), zero(T), zero(T), β, data.ry)
+  for i in eachindex(S)
+    hi, lo, errors = _sqrt_addproduct(hi, lo, errors, -α[i], m.b[S[i]])
+    hi, lo, errors = _sqrt_addtriple(hi, lo, errors, β, γ[i], m.b[S[i]])
+  end
+  D, error = _sqrt_finish(hi, lo, errors, 4length(S) + 1)
+  Derror = _sqrt_upper(error + _sqrt_upmul(β, data.ryerror))
+  _sqrt_validated_dual(m, g, z, nθ, _sqrt_lower(D - Derror))
 end
 
 gradient!(G::AbstractVector{T}, m::SqrtQuadModel{T}, x) where {T} = (G .= (m.u .+ m.b) ./ sqrt(m.q))

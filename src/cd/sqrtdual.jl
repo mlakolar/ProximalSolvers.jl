@@ -7,19 +7,96 @@
 # For min ‖ỹ - X̃x‖_W + ∑ₖ λₖ|xₖ| the dual maximizes θ'Wỹ subject to
 # ‖θ‖_W ≤ 1, |X̃ₖ'Wθ| ≤ λₖ and equality on the unpenalized coordinates
 # and the intercept. The residual direction is tried first. Otherwise, on
-# the support together with the unpenalized coordinates, K = X̃_S'WX̃_S,
-# α ≈ K⁺c and γ ≈ K⁺X̃_S'WR give θ = X̃_Sα + β(R - X̃_Sγ), β ≥ 0.
-# Its actual norm, cross term included, and all its constraints are checked
-# before scaling. Truncating the support solve can only weaken this witness.
+# the support together with the unpenalized coordinates, let K = X̃_S'WX̃_S.
+# Scaled solves Kα ≈ c and Kγ ≈ X̃_S'WR give
+# θ = X̃_Sα + β(R - X̃_Sγ), β ≥ 0.
+# Its norm and penalized products are bounded before scaling, including the
+# cross term. Unrestricted leakage is corrected below. Truncating the support
+# solve can only weaken this witness.
 # Residuals and sufficient statistics are recomputed from the data. Norms of
-# quadratic witnesses use an upper rounding bound; equality constraints are
-# accepted only to rounding on the scale ‖X̃ₖ‖_W ‖θ‖_W. The zero point is
-# always feasible, so missing a witness cannot accept a change-only stop.
+# quadratic witnesses use an upper rounding bound. If zₖ approximates the
+# actual product with error eₖ, |Xₖ'Wθ| ≤ |zₖ| + eₖ gives the penalized scale.
+# An upper norm bound gives t‖θ‖_W ≤ 1, with both ratios rounded down.
+#
+# A tolerance on an unrestricted equality is insufficient. Feasibility on the
+# penalized coordinates gives P* ≥ tθ'Wy - tθ'WX_U x*_U. Cauchy–Schwarz and
+# P* ≤ P₀ give P* ≥ tθ'Wy - t‖P_Uθ‖_W B, where
+# B = ‖y‖_W + P₀ + ∑ₖ:0<λₖ<∞ ‖Xₖ‖_W P₀/λₖ bounds ‖X_U x*_U‖_W.
+# For an independent basis with column scales D, e = X_U'Wθ satisfies
+# ‖P_Uθ‖² = e'K_U⁺e ≤ ‖D⁻¹e‖²/λmin(D⁻¹K_UD⁻¹). Product errors and a lower
+# eigenvalue bound inflate this correction. Unresolved rank gives θ = 0.
+# The least-squares model uses the original y and X here and includes the
+# uncentered constant column, so rounded means require no equality assumption.
+# Reusing an old relative gap only within 512eps adds at most 512eps·P₀ to the
+# suboptimality bound, independently of the residual norm. It must also be
+# within one sixty-fourth of the target, to retain accuracy at lower precision.
 
 const _SQRT_GAPCHECK = 1e-4
 const _SQRT_DUAL_MAXSUPPORT = 2000
 const _SQRT_DUAL_ROUNDING = 64
 const _SQRT_DUAL_RANK = 8
+const _SQRT_GAPROUNDING = 512
+
+@inline _sqrt_upper(x::T) where {T<:AbstractFloat} = isfinite(x) && x > 0 ? nextfloat(x) : x
+@inline _sqrt_lower(x::T) where {T<:AbstractFloat} = isfinite(x) && x > 0 ? prevfloat(x) : x
+
+@inline function _sqrt_upmul(a::T, b::T) where {T}
+  p = a * b
+  iszero(p) && a > 0 && b > 0 ? eps(zero(T)) : _sqrt_upper(p)
+end
+
+@inline function _sqrt_updiv(a::T, b::T) where {T}
+  p = a / b
+  iszero(p) && a > 0 ? eps(zero(T)) : _sqrt_upper(p)
+end
+
+@inline _sqrt_productrisk(a::T, b::T, p::T) where {T} =
+  !iszero(a) && !iszero(b) && abs(p) < 4floatmin(T) / eps(T)
+
+@inline function _sqrt_addproduct(hi::T, lo::T, errors::T, a::T, b::T) where {T}
+  value = a * b
+  error = fma(a, b, -value)
+  _sqrt_productrisk(a, b, value) && (errors += floatmin(T))
+  _sqrt_qadd(hi, lo, errors, value, error)
+end
+
+# Error-free product and sum remainders avoid losing small correlations to
+# cancellation. Products near underflow carry a first-order budget through
+# the error accumulator, before a third factor can amplify their remainder.
+@inline function _sqrt_finish(hi::T, lo::T, errors::T, n::Int) where {T}
+  value, _, last = _sqrt_qadd(hi, zero(T), zero(T), lo, zero(T))
+  error = last + _SQRT_DUAL_ROUNDING * eps(T) * max(1, n) * errors
+  value, _sqrt_upper(error)
+end
+
+@inline function _sqrt_dotbounds(a::AbstractVector{T}, b::AbstractVector{T}, initial::T = zero(T)) where {T}
+  hi, lo, errors = initial, zero(T), zero(T)
+  for i in eachindex(a, b)
+    hi, lo, errors = _sqrt_addproduct(hi, lo, errors, a[i], b[i])
+  end
+  _sqrt_finish(hi, lo, errors, length(a))
+end
+
+@inline function _sqrt_addtriple(hi::T, lo::T, errors::T, a::T, b::T, c::T) where {T}
+  p = a * b
+  pe = fma(a, b, -p)
+  value = p * c
+  ve, low = fma(p, c, -value), pe * c
+  if _sqrt_productrisk(a, b, p)
+    errors += _sqrt_upmul(floatmin(T), max(one(T), abs(c)))
+  end
+  if _sqrt_productrisk(p, c, value) || _sqrt_productrisk(pe, c, low)
+    errors += floatmin(T)
+  end
+  errors += abs(ve) + abs(low)
+  error = ve + low
+  _sqrt_qadd(hi, lo, errors, value, error)
+end
+
+@inline function _sqrt_normupper(x::AbstractVector{T}) where {T}
+  q, error = _sqrt_dotbounds(x, x)
+  _sqrt_upper(sqrt(max(_sqrt_upper(q + error), zero(T))))
+end
 
 # Keep LAPACK's arrays as for group curvatures, requesting every eigenvector.
 # The buffers grow with the support and are reused by later runs.
@@ -43,7 +120,7 @@ function _sqrt_reserve!(m, n::Int)
   T = eltype(m)
   ws = m.dualeig
   ws.nmax >= n && return nothing
-  nmax = min(2n, length(m.grad), _SQRT_DUAL_MAXSUPPORT)
+  nmax = min(2n, max(n, length(m.grad)), _SQRT_DUAL_MAXSUPPORT)
   ws.B = Matrix{T}(undef, _sqrt_nrows(m), nmax)
   ws.C = zeros(T, nmax^2)
   ws.w = zeros(T, nmax)
@@ -59,13 +136,130 @@ function _sqrt_reserve!(m, n::Int)
   resize!(m.dualrhs, nmax)
   resize!(m.dualα, nmax)
   resize!(m.dualγ, nmax)
+  resize!(m.dualscale, nmax)
   ws.nmax = nmax
   nothing
 end
 
 @inline _sqrt_loading(g::NormL1, k, ::Type{T}) where {T} = T(g.λ0 * _weight(g, k))
-@inline _sqrt_colnorm(m::SqrtLSModel, k) = sqrt(max(_sqnorm!(m, k), zero(eltype(m))))
-@inline _sqrt_colnorm(m::SqrtQuadModel, k) = sqrt(max(m.A[k, k], zero(eltype(m))))
+
+@inline function _sqrt_eigen!(m, K::AbstractMatrix{T}) where {T}
+  n, ws = size(K, 1), m.dualeig
+  if T <: Union{Float32, Float64}
+    _sqrt_syevr!(ws, m.dualvectors, n, length(ws.work), length(ws.iwork)) == 0 || return false
+  else
+    F = eigen(Symmetric(K))
+    ws.w[1:n] .= F.values
+    m.dualvectors[1:n, 1:n] .= F.vectors
+  end
+  true
+end
+
+# For the computed QΛQ', λmin(G) ≥ λmin(Λ)(1 - ‖I - QQ'‖) -
+# ‖Ĝ - QΛQ'‖ - ‖G - Ĝ‖. Row sums of interval bounds bound both matrix norms,
+# so this test does not assume that LAPACK resolved a small eigenvalue.
+function _sqrt_unpen_lower(m, uncertainty, n)
+  T = eltype(m)
+  U, scales, Q, values = m.dualunpen, m.dualunpenscale, m.dualvectors, m.dualeig.w
+  minimumvalue = Base.minimum(view(values, 1:n))
+  minimumvalue > 0 || return zero(T)
+  residual, orthogonal = zero(T), zero(T)
+  for i in 1:n
+    rowresidual, roworthogonal = zero(T), zero(T)
+    for j in 1:n
+      a, b = minmax(i, j)
+      value, _ = _sqrt_gram(m, U[a], U[b])
+      value = (value / scales[a]) / scales[b]
+      rh, rl, re = -value, zero(T), zero(T)
+      oh, ol, oe = i == j ? -one(T) : zero(T), zero(T), zero(T)
+      for k in 1:n
+        rh, rl, re = _sqrt_addtriple(rh, rl, re, Q[i, k], values[k], Q[j, k])
+        oh, ol, oe = _sqrt_addproduct(oh, ol, oe, Q[i, k], Q[j, k])
+      end
+      r, er = _sqrt_finish(rh, rl, re, 3n)
+      o, eo = _sqrt_finish(oh, ol, oe, n)
+      rowresidual = _sqrt_upper(rowresidual + _sqrt_upper(abs(r) + er))
+      roworthogonal = _sqrt_upper(roworthogonal + _sqrt_upper(abs(o) + eo))
+    end
+    residual = max(residual, rowresidual)
+    orthogonal = max(orthogonal, roworthogonal)
+  end
+  orthogonal < 1 || return zero(T)
+  _sqrt_lower(_sqrt_lower(minimumvalue * _sqrt_lower(1 - orthogonal)) -
+              _sqrt_upper(residual + uncertainty))
+end
+
+# Drop only dependencies that are exact in the supplied data. An uncertain
+# small eigenvalue must not hide an independent unrestricted direction.
+@inline function _sqrt_unpenstart!(m, data, g, P)
+  T = eltype(m)
+  U, scales = m.dualunpen, m.dualunpenscale
+  empty!(U); empty!(scales)
+  m isa SqrtLSModel && m.centered && push!(U, 0)
+  for k in eachindex(m.grad)
+    iszero(_sqrt_loading(g, k, T)) || continue
+    _sqrt_zerocol(m, k) && continue
+    dependent = false
+    for j in U
+      if _sqrt_samecol(m, k, j)
+        dependent = true
+        break
+      end
+    end
+    dependent && continue
+    length(U) < _SQRT_DUAL_MAXSUPPORT || return false
+    push!(U, k)
+  end
+  m.dualbound = m.dualinv = zero(T)
+  isempty(U) && return true
+
+  q, error = _sqrt_gram(m, -1, -1)
+  q + error >= 0 || return false
+  P₀ = _sqrt_upper(P + data.rounding + _SQRT_DUAL_ROUNDING * max(1, length(m.grad)) * eps(T) * abs(P))
+  B = _sqrt_upper(_sqrt_upper(sqrt(max(_sqrt_upper(q + error), zero(T)))) + P₀)
+  for k in eachindex(m.grad)
+    λ = _sqrt_loading(g, k, T)
+    isfinite(λ) && λ > 0 || continue
+    q, error = _sqrt_gram(m, k, k)
+    q + error >= 0 || return false
+    column = _sqrt_upper(sqrt(max(_sqrt_upper(q + error), zero(T))))
+    B = _sqrt_upper(B + _sqrt_upmul(column, _sqrt_updiv(P₀, λ)))
+  end
+  isfinite(B) || return false
+  m.dualbound = B
+
+  n = length(U)
+  for k in U
+    q, error = _sqrt_gram(m, k, k)
+    q > error || return false
+    d = n == 1 ? _sqrt_lower(sqrt(_sqrt_lower(q - error))) : sqrt(q)
+    d > 0 && isfinite(d) || return false
+    push!(scales, d)
+  end
+  if n == 1
+    m.dualinv = one(T)
+    return true
+  end
+  _sqrt_reserve!(m, n)
+  K = reshape(view(m.dualeig.C, 1:n^2), n, n)
+  rows = view(m.dualrhs, 1:n)
+  fill!(rows, zero(T))
+  for j in 1:n, i in 1:j
+    q, error = _sqrt_gram(m, U[i], U[j])
+    value = (q / scales[i]) / scales[j]
+    δ = _sqrt_upper(_sqrt_updiv(_sqrt_updiv(error, scales[i]), scales[j]) +
+                    8eps(T) * max(one(T), abs(value)))
+    K[i, j] = K[j, i] = value
+    rows[i] = _sqrt_upper(rows[i] + δ)
+    i == j || (rows[j] = _sqrt_upper(rows[j] + δ))
+  end
+  uncertainty = maximum(rows)
+  all(isfinite, K) && _sqrt_eigen!(m, K) || return false
+  lower = _sqrt_unpen_lower(m, uncertainty, n)
+  lower > 0 || return false
+  m.dualinv = _sqrt_upper(inv(_sqrt_lower(sqrt(lower))))
+  isfinite(m.dualinv)
+end
 
 # Nonfinite loadings fix a coordinate at zero in the coordinate steps.
 @inline function _sqrt_support(m, g, x)
@@ -93,14 +287,16 @@ end
   fill!(α, zero(T)); fill!(γ, zero(T))
   isempty(c) && return (α, γ)
   all(isfinite, K) && all(isfinite, s) || return nothing
-  ws = m.dualeig
-  if T <: Union{Float32, Float64}
-    _sqrt_syevr!(ws, m.dualvectors, n, length(ws.work), length(ws.iwork)) == 0 || return nothing
-  else
-    F = eigen(Symmetric(K))
-    ws.w[1:n] .= F.values
-    m.dualvectors[1:n, 1:n] .= F.vectors
+  for i in 1:n
+    K[i, i] >= 0 || return nothing
+    m.dualscale[i] = iszero(K[i, i]) ? one(T) : sqrt(K[i, i])
   end
+  for j in 1:n, i in 1:j
+    value = (K[i, j] / m.dualscale[i]) / m.dualscale[j]
+    K[i, j] = K[j, i] = value
+  end
+  ws = m.dualeig
+  _sqrt_eigen!(m, K) || return nothing
   values = view(ws.w, 1:n)
   cutoff = _SQRT_DUAL_RANK * eps(T) * n * maximum(abs, values)
   Base.minimum(values) >= -cutoff || return nothing
@@ -108,9 +304,18 @@ end
     d = values[j]
     d > cutoff || continue
     v = view(m.dualvectors, 1:n, j)
-    a, b = dot(v, c) / d, dot(v, s) / d
+    a, b = zero(T), zero(T)
+    for i in 1:n
+      a += v[i] * (c[i] / m.dualscale[i])
+      b += v[i] * (s[i] / m.dualscale[i])
+    end
+    a /= d; b /= d
     α .+= a .* v
     γ .+= b .* v
+  end
+  for i in 1:n
+    α[i] /= m.dualscale[i]
+    γ[i] /= m.dualscale[i]
   end
   all(isfinite, α) && all(isfinite, γ) ? (α, γ) : nothing
 end
@@ -122,22 +327,31 @@ function _sqrt_residualpart(a::T, h::T, d::T) where {T}
   h >= 0 ? (1 - a) / (v + h) : (v - h) / d
 end
 
-# Validate equalities before scaling: no positive scale repairs a violated
-# equality. Products and norms refer to the vector actually constructed.
-function _sqrt_validated_dual(m, g, z::AbstractVector{T}, nθ, D) where {T}
-  isfinite(nθ) && nθ >= 0 && isfinite(D) && all(isfinite, z) || return nothing
-  t = nθ > 1 ? inv(nθ) : one(T)
+# Penalized products use intervals. Unrestricted products give the projection
+# correction above, rather than an equality tolerance.
+function _sqrt_validated_dual(m, g, z::AbstractVector{T}, nθ, D, z₀::T = zero(T), e₀::T = zero(T)) where {T}
+  errors = m.dualcorrerr
+  isfinite(nθ) && nθ >= 0 && isfinite(D) && all(isfinite, z) && all(isfinite, errors) || return nothing
+  t = nθ > 1 ? _sqrt_lower(inv(nθ)) : one(T)
   for k in eachindex(z)
     λ = _sqrt_loading(g, k, T)
     isfinite(λ) || continue
-    a = abs(z[k])
-    if iszero(λ)
-      a <= _SQRT_DUAL_ROUNDING * eps(T) * _sqrt_colnorm(m, k) * nθ || return nothing
-    elseif a > λ
-      t = min(t, λ / a)
+    iszero(λ) && continue
+    a = _sqrt_upper(abs(z[k]) + errors[k])
+    if a > λ
+      t = min(t, _sqrt_lower(λ / a))
     end
   end
-  t * D
+  projection = zero(T)
+  for (i, k) in enumerate(m.dualunpen)
+    upper = k == 0 ? _sqrt_upper(abs(z₀) + e₀) : _sqrt_upper(abs(z[k]) + errors[k])
+    v = _sqrt_updiv(upper, m.dualunpenscale[i])
+    projection = _sqrt_upper(hypot(projection, v) * (1 + 4eps(T)))
+  end
+  projection = _sqrt_upmul(projection, m.dualinv)
+  correction = _sqrt_upmul(_sqrt_upmul(t, projection), m.dualbound)
+  isfinite(correction) || return nothing
+  _sqrt_lower(_sqrt_lower(t * D) - correction)
 end
 
 @inline function _sqrt_jointdual(m, data, g, x)
@@ -176,6 +390,10 @@ function _sqrt_certified!(st, m, g, x, s)
 
   D = zero(T)
   iszero(P) && iszero(data.f) && (st.relgap = zero(T); return true)
+  if !_sqrt_unpenstart!(m, data, g, max(P, data.f + penalty))
+    st.relgap = _relative_gap(max(P, data.f + penalty), D)
+    return false
+  end
   if f > 0
     G = gradient!(m.grad, m, x)
     t = _dualscale(g, G)
@@ -191,11 +409,9 @@ function _sqrt_certified!(st, m, g, x, s)
         D = max(D, candidate)
         # Keep the arithmetic of ordinary certified runs when recomputation
         # confirms both values to rounding. No support factorization is paid.
-        allowance = (1 + abs(P) / max(f, data.f)) * data.rounding +
-                    _SQRT_DUAL_ROUNDING * eps(T) * abs(P)
         checkedgap = _relative_gap(max(P, data.f + penalty), candidate)
         if candidate > 0 && oldgap <= target && checkedgap <= target &&
-           abs(data.f - f) <= data.rounding && abs(candidate - oldD) <= allowance
+           abs(checkedgap - oldgap) <= min(_SQRT_GAPROUNDING * eps(T), target / 64)
           st.relgap = oldgap
           return true
         end

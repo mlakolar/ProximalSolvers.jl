@@ -14,6 +14,66 @@ function bounds_optimum(r, optimum)
 end
 
 @testset "square-root certificates" begin
+  @testset "rounded correlations retain small penalized constraints" begin
+    for T in (Float64, Float32)
+      τ = T === Float64 ? T(2)^-60 : T(2)^-30
+      X = T[1 0 τ 0; 1 1 1 1; -1 1 1 -1]
+      y = T[1, 1, -1]
+      g = NormL1(one(T), T[0.3, τ / 1024, τ / 1024, 0.2])
+      better = T[0, -inv(τ), inv(τ), 1]
+      @test X * better == y
+      bettervalue = g(better)
+      for design in (X, sparse(X))
+        r = quiet(() -> solve!(SparseIterate(T[1, 0, 0, 0]), SqrtLeastSquaresLoss(y, design), g,
+                                CDSolver(order = :cyclic)))
+        @test !r.converged && isfinite(r.gap)
+        @test r.minimum - bettervalue <= r.gap * r.minimum + 64eps(T) * r.minimum
+      end
+    end
+  end
+
+  @testset "unrestricted leakage needs a projection bound" begin
+    for T in (Float64, Float32)
+      M = T === Float64 ? T(2)^26 : T(2)^11
+      X, y = T[M M-1; 1 1], T[0, 1]
+      @test X * T[1-M, M] == y
+      for design in (X, sparse(X)), f in pair(y, design)
+        r = quiet(() -> solve!(SparseIterate(T, 2), f, NormL1(zero(T)), CDSolver(order = :cyclic)))
+        @test !r.converged && r.gap >= 1 - 16eps(T)
+        bounds_optimum(r, zero(T))
+      end
+    end
+  end
+
+  @testset "fast certificates retain conservative objective bounds" begin
+    for T in (Float64, Float32)
+      λ, c = T(0.9), one(T) + eps(T)
+      f = SqrtQuadraticFunction(ones(T, 1, 1), T[-1], c)
+      x = SparseIterate(T[1 - λ * sqrt(7eps(T))])
+      r = quiet(() -> solve!(x, f, NormL1(λ), CDSolver(maxpasses = 0)))
+      optimum = big(λ) + sqrt(big(c) - 1) * sqrt(1 - big(λ)^2)
+      deficit = (big(r.minimum) - optimum) / big(r.minimum)
+      @test big(r.gap) + 64eps(T) >= deficit
+      T === Float64 && @test big(r.gap) >= deficit > big(1e-9)
+      @test !r.converged && isfinite(r.gap)
+    end
+  end
+
+  @testset "rank decisions are invariant to column units" begin
+    for T in (Float64, Float32)
+      τ = T === Float64 ? T(2)^-30 : T(2)^-15
+      X, y, start = T[1 0; 0 τ], ones(T, 2), T[1, inv(τ)]
+      target = T === Float64 ? 1e-8 : 256eps(T)
+      for design in (X, sparse(X)), f in pair(y, design)
+        x = SparseIterate(start)
+        r = solve!(x, f, NormL1(T(0.1), T[1, τ]), CDSolver(; order = :cyclic, gaptol = target))
+        @test r.converged && 4eps(T) <= r.gap <= target
+        @test Vector(x) ≈ start
+        bounds_optimum(r, T(0.2))
+      end
+    end
+  end
+
   @testset "analytic exact fits and rank-deficient supports" begin
     for T in (Float64, Float32), λ in (T(0.1), T(0.4)),
         (X, start, optimum) in ((reshape(T[1, 2], 1, 2), T[0, 0.5], λ / 2),
@@ -147,10 +207,10 @@ end
         @test rq.converged && rq.gap <= target
         bounds_optimum(rq, λ + T(0.5) * sqrt(4 - λ^2))
         if T === Float32
-          # Cancellation in sufficient statistics can require a looser target.
+          # Compensated statistics retain a certificate at the stricter target.
           strict = quiet(() -> solve!(SparseIterate(Vector(rq.minimizer)), q, g,
                                       CDSolver(; order = :cyclic, tol, gaptol = 1e-4, maxpasses = 1000)))
-          @test !strict.converged && strict.gap > 1e-4
+          @test strict.converged && strict.gap <= 1e-4
           bounds_optimum(strict, λ + T(0.5) * sqrt(4 - λ^2))
         end
       end

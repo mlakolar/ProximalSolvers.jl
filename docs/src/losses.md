@@ -177,31 +177,58 @@ design ``\widetilde X``, observation weights ``W`` and residual ``R``, set
 ``K = \widetilde X_S^\top W\widetilde X_S``,
 ``s = \widetilde X_S^\top WR`` and support targets
 ``c_k = \lambda_k\operatorname{sign}(x_k)`` on nonzero penalized coordinates,
-zero on unpenalized coordinates. A rank-revealing solve gives
-``\alpha \approx K^+c`` and ``\gamma \approx K^+s``. The joint witness is
+zero on unpenalized coordinates. Let ``L`` contain the square roots of the
+diagonal of ``K`` and ``\widehat K=L^{-1}KL^{-1}``. A rank-revealing solve
+gives ``\alpha \approx L^{-1}\widehat K^+L^{-1}c`` and
+``\gamma \approx L^{-1}\widehat K^+L^{-1}s``. This equilibration prevents
+column units alone from discarding an independent direction. The joint witness is
 
 ```math
 \theta = \widetilde X_S\alpha + \beta(R - \widetilde X_S\gamma),\qquad \beta\ge 0.
 ```
 
 Its actual norm, including the cross term, determines ``\beta``. Scaling then
-enforces the norm and penalized constraints. Unpenalized columns and the
-intercept require equalities, which are checked to rounding on the scale of
-the column norm times the dual norm. The residuals, all products and the dual
-value are computed from the constructed vector in weighted observation space,
-including zero observation weights and sparse centering shifts. The best
-validated dual value is used. If neither candidate is valid, ``\theta=0``
+enforces an upper bound on the norm and the penalized constraints. Each
+correlation uses its computed magnitude plus an error bound, including
+product and summation roundings. Compensated accumulation retains correlations
+hidden by cancellation. For least squares, products and the dual value use
+the original design and response in weighted observation space, including
+zero observation weights and sparse centering shifts. The largest
+validated lower bound is used. If neither candidate is valid, ``\theta=0``
 gives a gap of one for a positive objective; coordinate changes alone never
 accept a run. A zero objective is certified. The same construction applies to
 `SqrtQuadraticFunction`. These losses still do not support the public
 `duality_gap` interface or gap-safe screening.
 
+An approximate equality on an unrestricted coefficient does not give a lower
+bound. Let ``U`` collect the unpenalized columns, including the uncentered
+constant column when fitting an intercept. If ``P_0`` bounds the current
+objective and ``P_U`` projects onto their weighted span, penalized feasibility
+and Cauchy–Schwarz give
+
+```math
+P^*\ge t\theta^\top Wy-t\|P_U\theta\|_W B,\qquad
+B=\|y\|_W+P_0+\sum_{k:\,0<\lambda_k<\infty}\|X_k\|_W P_0/\lambda_k.
+```
+
+Here ``B`` bounds ``\|X_Ux_U^*\|_W`` because ``P^*\le P_0`` bounds the
+residual and every positively penalized coefficient. The projection norm
+comes from the unrestricted correlations, their error intervals and an
+equilibrated Gram matrix. Exact zero and duplicate directions can be removed.
+An eigenvector residual and orthogonality check bound its inverse; unresolved
+rank falls back to the zero witness. Rounded means therefore do not supply
+an unchecked intercept equality. The sufficient-statistic model uses the
+same bound through its implicit design and response.
+
 The support has at most 2000 coordinates, including unpenalized ones, and
 does not need ``|S|\le n`` or full rank. Factorization buffers grow with the
 support and are retained for later runs. At an exact fit, satisfying the
-support equations makes the dual value equal to the penalty. Certification
-therefore succeeds when these equations determine the dual point or their
-least-norm solution satisfies all remaining constraints. This construction
+support equations makes the dual value equal to the penalty in exact
+arithmetic. Certification also needs the relevant equilibrated directions
+to survive the numerical rank decision, and the interval and unrestricted
+projection bounds to meet the requested tolerance. Subject to these checks,
+the support equations suffice when they determine the dual point or their
+least-norm point satisfies all remaining constraints. This construction
 can miss other feasible points. For example, with
 ``X=[1\ 2;\ 0\ 1]``, ``y=(1,0)``, ``x=(1,0)`` and ``\lambda=0.1``,
 ``\theta=(0.1,-0.1)`` certifies optimality, but the least-norm support point
@@ -271,13 +298,18 @@ first-order rounding budget is
 ``64m\operatorname{eps}(T)(|x|^\top|A||x|+2|b|^\top|x|+|c|)``, with
 ``m=\max(1,\operatorname{nnz}(x))``. Products in the joint witness have
 corresponding budgets for their vector or matrix sums.
-Compensated accumulation tightens this bound near cancellation, retaining
-exact binary fits. The upper loss and dual norm bounds make the reported gap
+Compensated accumulation tightens this bound, retaining exact binary fits and
+small residual products. The upper loss and dual norm bounds make the reported gap
 conservative up to rounding. The gap also covers a larger cached objective
 reported in the results. A quadratic negative beyond its budget violates the
-model's PSD assumption and cannot be certified. The support solve discards eigenvalues
-at most ``8|S|\operatorname{eps}(T)\|K\|_2``; all constraints and the dual
-value are still checked using the resulting coefficients and their cross terms.
+model's PSD assumption and cannot be certified. The support solve discards
+eigenvalues at most ``8|S|\operatorname{eps}(T)\|\widehat K\|_2`` of the
+equilibrated Gram matrix; the original products, norm and dual value still
+use the resulting coefficients and their cross terms. The previous gap
+arithmetic is retained only within ``512\operatorname{eps}(T)`` of the
+checked relative gap, and within one sixty-fourth of the target. This adds
+at most ``512\operatorname{eps}(T)P_0`` to the absolute suboptimality bound
+and does not grow as the residual vanishes.
 An infinite weight keeps a coordinate at zero. With ``A = S``,
 ``b = -S_{:j}`` and ``c = S_{jj}`` for a covariance matrix ``S``, and an
 infinite weight on coordinate ``j``, the loss is

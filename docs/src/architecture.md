@@ -85,7 +85,8 @@ subproblems only. A nonzero slope with a nonconvex penalty is rejected, as are
 unsupported flat subproblems. An unbounded direction raises an `ArgumentError`, and
 `kkt_residual` reports `Inf` there. The square-root losses check a relative
 duality gap after every run, trying the residual direction and then a support
-and residual witness with the unpenalized and intercept equalities. If neither
+and residual witness, with correlation error bounds and a projection
+correction for unrestricted coefficients, including the intercept. If neither
 candidate is valid, the zero dual point supplies a conservative gap;
 coordinate changes alone never certify these losses. See [Losses for coordinate descent](@ref).
 
