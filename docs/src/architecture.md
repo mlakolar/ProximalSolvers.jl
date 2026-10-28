@@ -83,14 +83,21 @@ coordinate's multiplicity `μ`. Norms and boxes retain their existing steps.
 Closed forms also minimize the elastic net, squared ℓ2 norm, Berhu, negative
 logarithm, negative entropy and KL divergence; `Regularize` of a convex penalty
 completes the square and takes one proximal step. `Scaled` changes `μ`, `Tilt`
-changes the effective slope, and `Translate` shifts the inner minimizer.
-`BoxConstrained` of a convex penalty clamps an available inner minimizer and
-otherwise checks finite box ends with a proximal fixed-point test, also at
-zero slope. Translation and clamping must preserve the inner domain: positive
+changes the effective slope. A small trait identifies exact flat penalties
+and their wrappers. `Translate` shifts an exact inner minimizer;
+`BoxConstrained` clamps it, or selects the finite end in an exact unbounded
+direction. Numerical unavailability propagates through the box. Other translated
+and boxed penalties keep the generic method on the whole wrapper. Exact formulas
+use balanced quotients and at least Float64 precision, preserving BigFloat
+iterates, and convert once at the outer call. Translation and clamping must
+preserve the inner domain: positive
 for `NegLog`, nonnegative
 for `NegEntropy` and `KLDivergence`, also through wrappers. See the formulas in
 [The coordinate step](@ref). Least-squares zero columns and intercept-constant
-columns use the same flat minimizer.
+columns use the same flat minimizer. A zero computed curvature triggers a check
+of the actual column on rows with positive weight, including implicit sparse
+zeros. If the column is not flat, the step rejects underflowed curvature and
+the diagnostic retains the actual slope.
 
 Proximal fixed points certify convex affine subproblems only. A nonzero
 effective slope with a nonconvex penalty is rejected, including on a box.

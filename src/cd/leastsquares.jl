@@ -34,6 +34,7 @@ mutable struct LSModel{T<:AbstractFloat, MX<:AbstractMatrix{T}, VY<:AbstractVect
   rbuf::Vector{T}       # r .+ δ, for residuals(m)
   wsum::T               # ∑ᵢ wᵢ (n without weights), for the centering of a sparse X
   gbuf::Vector{T}       # scratch space of the group steps, grown to the largest need
+  centered::Bool       # whether the constructor requested an intercept
 end
 
 function LSModel(y::AbstractVector, X::AbstractMatrix, w, offset, s::Real; intercept::Bool = false)
@@ -51,7 +52,7 @@ function LSModel(y::AbstractVector, X::AbstractMatrix, w, offset, s::Real; inter
   LSModel{T, typeof(Xt), typeof(yt), typeof(wt), typeof(ot)}(Xt, yt, wt, ot, T(s), zeros(T, n), fill(T(NaN), p),
                                                              xbar, ybar, T[], wt === nothing ? T[] : zeros(T, n),
                                                              _GroupEig{T}(), zero(T), T[],
-                                                             wt === nothing ? T(n) : T(sum(wt)), T[])
+                                                             wt === nothing ? T(n) : T(sum(wt)), T[], intercept)
 end
 
 _mean_response(y, ::Nothing) = sum(y) / length(y)
@@ -373,11 +374,44 @@ function _sqnorm!(m::LSModel{T}, k::Int) where {T}
   a
 end
 
+# Check actual entries only when curvature is zero, including implicit sparse zeros.
+function _flat_column(m::LSModel{T}, k::Int) where {T}
+  X, w = m.X, m.w
+  sparse = X isa SparseMatrixCSC
+  rows = sparse ? rowvals(X) : nothing
+  vals = sparse ? nonzeros(X) : nothing
+  j = sparse ? first(nzrange(X, k)) : 1
+  stop = sparse ? last(nzrange(X, k)) : 0
+  reference, seen = zero(T), !(m.centered || !iszero(m.xbar[k]))
+  for i in axes(X, 1)
+    v = if sparse
+      if j <= stop && rows[j] == i
+        value = vals[j]
+        j += 1
+        value
+      else
+        zero(T)
+      end
+    else
+      X[i, k]
+    end
+    w === nothing || w[i] > 0 || continue
+    if seen
+      v == reference || return false
+    else
+      reference, seen = v, true
+    end
+  end
+  true
+end
+
 # the coordinate goes to xₖ + b/a, with step 1/(s a) for the penalty; a column
 # that the loss does not depend on (a zero column, or a constant one with an
 # intercept) gets a minimizer of the penalty
 @inline function coordinate_step!(m::LSModel{T}, g, x::SparseIterate{T}, k::Int) where {T}
   a, b = _column_dot(m, k)
+  iszero(a) && !_flat_column(m, k) &&
+    throw(ArgumentError("the coordinate curvature underflows; rescale the data or loss"))
   old = x[k]
   new = iszero(a) ? _coordinate_minimizer(g, old, zero(T), zero(T), k) : prox_entry(g, old + b / a, k, inv(m.s * a))
   m.a[k] = a
@@ -391,7 +425,7 @@ end
 function coordinate_derivatives(m::LSModel{T}, x::SparseIterate{T}, k::Int) where {T}
   a, b = _column_dot(m, k)
   m.a[k] = a
-  iszero(a) && return zero(T), zero(T)
+  iszero(a) && _flat_column(m, k) && return zero(T), zero(T)
   -m.s * b, m.s * a
 end
 

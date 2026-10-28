@@ -181,6 +181,58 @@ end
   @test PS._flat_minimizer(SqrNormL2(1e-40), 0f0, -1f0, 1, 1f0) === nothing
 end
 
+@testset "exact directions and balanced ranges" begin
+  check_rejected(PB.BoxConstrained(PB.NegLog(1.0), IndBox(1e20, Inf)), 0.0; start = 1e20)
+  check_rejected(PB.BoxConstrained(PB.NegEntropy(1.0), IndBox(0.0, 1.0)), 1000.0; start = 0.5)
+  g = PB.BoxConstrained(PB.NegLog(1.0), IndBox(1e20, 2e20))
+  @test PS._coordinate_minimizer(g, 1e20, 0.0, 0.0, 1) === 2e20
+  for g in (SqrNormL2(0.0), PB.Berhu(0.0, 1.0))
+    for G in (-1.0, 1.0)
+      boxed = PB.BoxConstrained(g, IndBox(-2.0, 3.0))
+      @test PS._coordinate_minimizer(boxed, 0.0, G, 0.0, 1) === (G < 0 ? 3.0 : -2.0)
+    end
+  end
+  tiny, scale = nextfloat(0.0), floatmax(Float64)
+  denominator = BigFloat(tiny) * BigFloat(scale)
+  for G in (-1e-16, 1e-16)
+    ratio = BigFloat(G) / denominator
+    cases = ((Scaled(SqrNormL2(tiny), scale), -ratio),
+             (Scaled(PB.NegEntropy(tiny), scale), exp(-ratio - 1)),
+             (Scaled(PB.KLDivergence(2.0; λ = tiny), scale), 2exp(-ratio)),
+             (Scaled(ElasticNet(0.0, tiny), scale), -ratio))
+    for (g, oracle) in cases
+      @test PS._coordinate_minimizer(g, 0.0, G, 0.0, 1) ≈ Float64(oracle) rtol = 2e-15
+    end
+  end
+  for G in (-1e-14, 1e-14)
+    ratio = abs(BigFloat(G)) / denominator
+    g = Scaled(PB.Berhu(tiny, 1.0), scale)
+    @test PS._coordinate_minimizer(g, 0.0, G, 0.0, 1) ≈ Float64(-sign(G) * ratio) rtol = 2e-15
+    g = Scaled(ElasticNet(tiny, tiny, [2.0]), scale)
+    @test PS._coordinate_minimizer(g, 0.0, G, 0.0, 1) ≈ Float64(-sign(G) * (ratio - 2)) rtol = 2e-15
+  end
+  g = Scaled(PB.NegLog(tiny), scale)
+  @test PS._coordinate_minimizer(g, 0.0, 1e-14, 0.0, 1) ≈ Float64(denominator / BigFloat(1e-14)) rtol = 2e-15
+  g = ElasticNet(1e-250, 1e-300, [1e-250])
+  @test PS._coordinate_minimizer(g, 0.0, 1e-200, 0.0, 1, scale) === 0.0
+  G, threshold = 1.9, prevfloat(1.9)
+  g = ElasticNet(threshold, 1e-300)
+  oracle = -(BigFloat(G) - BigFloat(threshold)) / BigFloat(1e-300)
+  @test PS._coordinate_minimizer(g, 0.0, G, 0.0, 1) ≈ Float64(oracle) rtol = 2e-15
+  g = PB.Berhu(1e-250, 1e-200)
+  oracle = -BigFloat(1e100) * BigFloat(1e-200) / BigFloat(1e-250)
+  @test PS._coordinate_minimizer(g, 0.0, 1e100, 0.0, 1) ≈ Float64(oracle) rtol = 2e-15
+  # A subnormal regularization parameter still makes this closed form unavailable.
+  check_rejected(PB.Regularize(SqrNormL2(1.0), 1e-320), 1.0; start = 0.0)
+  F = floatmax(Float32)
+  @test PS._coordinate_minimizer(PB.KLDivergence(F), 0f0, 0f0, 0f0, 1) === F
+  g = PB.Translate(SqrNormL2(0.5), [-Float64(F)])
+  @test PS._coordinate_minimizer(g, 0f0, -F, 0f0, 1) === F
+  z = PS._coordinate_minimizer(SqrNormL2(big"2.0"), big"0.0", big"1.0", big"0.0", 1)
+  @test z isa BigFloat
+  @test z == big"-0.5"
+end
+
 @testset "nonconvex affine subproblems" begin
   for base in (MCP(0.1), SCAD(0.1))
     for g in (base, Scaled(base, 2.0), Tilt(base, [0.01]), PB.Translate(base, [2.0]),
@@ -227,6 +279,58 @@ end
   end
 end
 
+@testset "least squares curvature underflow" begin
+  for sparse_storage in (false, true)
+    X = fill(1f-23, 1, 1)
+    sparse_storage && (X = sparse(X))
+    f = LeastSquaresLoss(Float32[1f15], X)
+    x = SparseIterate(Float32[0])
+    m = cdmodel(f, x)
+    PS.initialize!(m, x)
+    @test PS._column_dot(m, 1) == (0f0, 1f-8)
+    before = (copy(m.r), copy(m.a), m.δ)
+    err = try
+      PS.coordinate_step!(m, NormL1(0f0), x, 1)
+    catch e
+      e
+    end
+    @test err isa ArgumentError
+    @test occursin("rescale", sprint(showerror, err))
+    @test x[1] === 0f0
+    @test isequal((m.r, m.a, m.δ), before)
+    @test kkt_residual(m, NormL1(0f0), x) == Inf
+    @test_throws ArgumentError solve!(x, f, NormL1(0f0), solver())
+    # The same column with an intercept is genuinely constant and retains zero.
+    m = cdmodel(f, x; intercept = true)
+    @test solve!(x, m, NormL1(0f0), solver()).converged
+    @test x[1] === 0f0
+    @test kkt_residual(m, NormL1(0f0), x) == 0f0
+    # A working model may set its centering means after construction.
+    m = cdmodel(f, x)
+    m.xbar[1] = X[1, 1]
+    @test PS._flat_column(m, 1)
+  end
+  # Implicit zeros and zero-weight rows both matter for sparse flatness.
+  for sparse_storage in (false, true)
+    X = reshape(Float32[0, 1f-23], 2, 1)
+    sparse_storage && (X = sparse(X))
+    x = SparseIterate(Float32[0])
+    f = LeastSquaresLoss(Float32[0, 1f15], X)
+    m = cdmodel(f, x; intercept = true)
+    PS.initialize!(m, x)
+    @test !PS._flat_column(m, 1)
+    @test_throws ArgumentError PS.coordinate_step!(m, NormL1(0f0), x, 1)
+    f = GLMLoss(PB.Squared(), Float32[0, 1f15], X; weights = Float32[0, 1])
+    m = cdmodel(f, x; intercept = true)
+    @test PS._flat_column(m, 1)
+    @test solve!(x, m, NormL1(0f0), solver()).converged
+    @test x[1] === 0f0
+    f = GLMLoss(PB.Squared(), Float32[0, 1f15], X; weights = Float32[1, 1])
+    m = cdmodel(f, x; intercept = true)
+    @test !PS._flat_column(m, 1)
+  end
+end
+
 @testset "symmetric multiplicities and original pair objective" begin
   W = [1.0 1.0; 3.0 1.0]
   C = [0.0 0.1; 0.3 0.0]
@@ -265,6 +369,7 @@ end
            (NormL1Nonneg(0.1), 1.0, 0.0), (IndBox(-1.0, 1.0), -1.0, 1.0),
            (IndBox(-1.0, 1.0), 1.0, -1.0), (PB.CheckLoss(0.3), -0.2, 0.0),
            (PB.HingeLoss(), 0.5, 1.0),
+           (PB.Translate(IndBox(-2.0, 2.0), [1.0]), 0.0, 0.0),
            (PB.BoxConstrained(ElasticNet(0.1, 1.0), IndBox(0.0, 0.5)), -1.0, 0.5),
            (PB.BoxConstrained(Tilt(NormL1(0.25), [-2.0]), IndBox(-1.0, 1.0)), 1.0, 1.0),
            (PB.BoxConstrained(NormL1(0.1), IndBox(-0.5, 0.5)), -1.0, 0.5))

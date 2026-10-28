@@ -55,14 +55,19 @@ A zero ridge parameter reduces to the norm or underlying penalty. A Berhu
 entry with zero level or weight minimizes at zero when ``G=0`` and is
 unbounded for nonzero ``G``. `NegLog` is unbounded for ``G\le0``.
 `Scaled` and `Tilt` reduce to the underlying penalty and its effective slope.
-`Translate(f, b)` adds ``b_i`` to the inner minimizer. For a convex penalty,
-`BoxConstrained` clamps an available inner minimizer and otherwise checks the
-finite box ends with a proximal fixed-point test, including when ``G=0``.
+For the exact penalties above, `Translate(f, b)` adds ``b_i`` to the inner
+minimizer. `BoxConstrained` clamps an exact finite minimizer or selects the
+finite end in an exact unbounded direction. An unavailable inner answer
+remains unavailable on a box. Other translated and boxed penalties keep the
+generic candidate method on the whole wrapper, preserving its choice of minimizer.
 A translated or clamped point must lie in the inner domain: strictly positive
 for `NegLog`, and
 nonnegative for `NegEntropy` and `KLDivergence`, including through wrappers.
 These rules also apply to least-squares columns that are zero, or constant
-with an intercept.
+with an intercept, on rows with positive weight. When a computed curvature
+is zero, the model checks the column entries, including implicit sparse zeros.
+A non-flat column whose curvature underflows raises an `ArgumentError` that
+requests rescaling; its actual slope is retained by `kkt_residual`.
 
 An unbounded flat subproblem, an unsupported one, or a minimizer or displacement
 that cannot be represented in the iterate's element type raises an
@@ -70,6 +75,10 @@ that cannot be represented in the iterate's element type raises an
 minimizers that underflow to zero are numerically unavailable. Such a numerical
 rejection does not assert unboundedness. The attempted coordinate and its cache
 are unchanged; earlier coordinates of the pass may already have moved.
+Exact formulas and wrapper compositions use at least Float64 precision (keeping
+BigFloat iterates) and convert once to the iterate's element type, then check
+finiteness, underflow and the domain. Balanced quotients avoid intermediate
+overflow and underflow from products and sequential divisions.
 Nonconvex penalties with a nonzero effective slope are rejected, including on
 a box: a local proximal fixed point does not establish a global minimizer.
 Other penalties keep the existing generic flat-candidate method; give an
