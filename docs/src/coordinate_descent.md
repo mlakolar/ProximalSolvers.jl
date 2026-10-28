@@ -57,9 +57,11 @@ unbounded for nonzero ``G``. `NegLog` is unbounded for ``G\le0``.
 `Scaled` and `Tilt` reduce to the underlying penalty and its effective slope.
 For the exact penalties above, `Translate(f, b)` adds ``b_i`` to the inner
 minimizer. `BoxConstrained` clamps an exact finite minimizer or selects the
-finite end in an exact unbounded direction. An unavailable inner answer
-remains unavailable on a box. Other translated and boxed penalties keep the
-generic candidate method on the whole wrapper, preserving its choice of minimizer.
+finite end in an exact unbounded or overflow direction. If the inner answer is
+unavailable, the whole boxed penalty uses the generic candidate method with
+a fixed-point check in higher precision. Other translated and boxed penalties
+keep the generic candidate method on the whole wrapper, preserving its choice
+of minimizer.
 A translated or clamped point must lie in the inner domain: strictly positive
 for `NegLog`, and
 nonnegative for `NegEntropy` and `KLDivergence`, including through wrappers.
@@ -71,12 +73,16 @@ requests rescaling; its actual slope is retained by `kkt_residual`.
 
 An unbounded flat subproblem, an unsupported one, or a minimizer or displacement
 that cannot be represented in the iterate's element type raises an
-`ArgumentError`; [`kkt_residual`](@ref) reports `Inf` there. Entropy and KL
-minimizers that underflow to zero are numerically unavailable. Such a numerical
-rejection does not assert unboundedness. The attempted coordinate and its cache
+`ArgumentError`; [`kkt_residual`](@ref) reports `Inf` there. Unboxed entropy and
+KL minimizers that underflow to zero are numerically unavailable. A box
+may still have a representable minimizer, including a single feasible domain
+point. Numerical rejection does not assert unboundedness. The attempted coordinate
+and its cache
 are unchanged; earlier coordinates of the pass may already have moved.
-Exact formulas and wrapper compositions use at least Float64 precision (keeping
-BigFloat iterates) and convert once to the iterate's element type, then check
+Exact formulas and wrapper compositions promote the iterate and penalty parameter
+types recursively, using at least Float64 precision and preserving BigFloat
+iterates and parameters. They convert once to the iterate's element type, then
+check
 finiteness, underflow and the domain. Balanced quotients avoid intermediate
 overflow and underflow from products and sequential divisions.
 Nonconvex penalties with a nonzero effective slope are rejected, including on

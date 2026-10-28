@@ -233,6 +233,50 @@ end
   @test z == big"-0.5"
 end
 
+@testset "wider penalty parameters" begin
+  δ = big"1e-20"
+  g = ElasticNet(BigFloat(1) - δ, δ)
+  oracle = -(BigFloat(1) - g.λ1) / g.λ2
+  for T in (Float64, Float32)
+    x = SparseIterate(T[0.7])
+    f = QuadraticFunction(zeros(T, 1, 1), T[1])
+    @test solve!(x, f, g, solver()).converged
+    @test x[1] === T(oracle) === -one(T)
+    @test kkt_residual(f, g, x; relative = false) == zero(T)
+    cases = ((Scaled(g, 1.0), oracle),
+             (Tilt(SqrNormL2(Float64(δ)), [-BigFloat(1) + δ]), -δ / BigFloat(Float64(δ))),
+             (PB.Translate(SqrNormL2(1.0), [big"0.5"]), big"-0.5"),
+             (PB.Regularize(NormL1(0.1), big"1.0", [big"0.0"]), -(1 - BigFloat(0.1))),
+             (PB.BoxConstrained(SqrNormL2(1.0), IndBox(big"-0.5", big"1.0")), big"-0.5"),
+             (ElasticNet(1.0, Float64(δ), [BigFloat(1) - δ]), -δ / BigFloat(Float64(δ))),
+             (SqrNormL2(1.0, [BigFloat(1) - δ]), -δ),
+             (PB.Berhu(1.0, 1.0, [BigFloat(1) - δ]), -1 / (1 - δ)),
+             (PB.NegLog(big"1.0"), big"1.0"),
+             (PB.NegEntropy(big"1.0"), exp(big"-2.0")),
+             (PB.KLDivergence(big"2.0"), 2exp(big"-1.0")))
+    for (penalty, expected) in cases
+      @test PS._flat_type(penalty) === BigFloat
+      z = PS._coordinate_minimizer(penalty, T(0.7), one(T), zero(T), 1)
+      @test z isa T
+      @test z ≈ T(expected) rtol = 2eps(T)
+    end
+  end
+end
+
+@testset "boxes recover unavailable inner answers" begin
+  g = PB.BoxConstrained(SqrNormL2(1e-300), IndBox(-1.0, 1.0))
+  check_solution(g, -1e300, 1.0, x -> (1e-300 * x, Inf))
+  @test PS._coordinate_minimizer(g, 0.7, -1e300, 0.0, 1) === 1.0
+  @test PS._coordinate_minimizer(g, 0.7, 1e300, 0.0, 1) === -1.0
+  check_rejected(SqrNormL2(1e-300), -1e300)
+  g = PB.BoxConstrained(PB.NegEntropy(1.0), IndBox(-1.0, 0.0))
+  check_solution(g, 1000.0, 0.0, x -> (-Inf, Inf))
+  @test PS._coordinate_minimizer(g, 0.7, 1000.0, 0.0, 1) === 0.0
+  check_rejected(PB.NegEntropy(1.0), 1000.0)
+  g = PB.BoxConstrained(PB.NegEntropy(1.0), IndBox(-1.0, 1.0))
+  @test PS._coordinate_minimizer(g, 0.7, -1000.0, 0.0, 1) === 1.0
+end
+
 @testset "nonconvex affine subproblems" begin
   for base in (MCP(0.1), SCAD(0.1))
     for g in (base, Scaled(base, 2.0), Tilt(base, [0.01]), PB.Translate(base, [2.0]),

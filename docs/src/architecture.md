@@ -85,11 +85,14 @@ logarithm, negative entropy and KL divergence; `Regularize` of a convex penalty
 completes the square and takes one proximal step. `Scaled` changes `μ`, `Tilt`
 changes the effective slope. A small trait identifies exact flat penalties
 and their wrappers. `Translate` shifts an exact inner minimizer;
-`BoxConstrained` clamps it, or selects the finite end in an exact unbounded
-direction. Numerical unavailability propagates through the box. Other translated
-and boxed penalties keep the generic method on the whole wrapper. Exact formulas
-use balanced quotients and at least Float64 precision, preserving BigFloat
-iterates, and convert once at the outer call. Translation and clamping must
+`BoxConstrained` clamps it, or selects the finite end in an unbounded or overflow
+direction. If the inner answer is unavailable, the whole boxed penalty uses
+the generic candidate method with a fixed-point check in higher precision.
+Other translated and boxed penalties keep the generic method on the whole wrapper.
+Exact formulas
+use balanced quotients and promote iterate and penalty parameter types recursively,
+with at least Float64 precision and preserving BigFloat iterates and parameters.
+They convert once at the outer call. Translation and clamping must
 preserve the inner domain: positive
 for `NegLog`, nonnegative
 for `NegEntropy` and `KLDivergence`, also through wrappers. See the formulas in
@@ -103,7 +106,8 @@ Proximal fixed points certify convex affine subproblems only. A nonzero
 effective slope with a nonconvex penalty is rejected, including on a box.
 Unbounded, unsupported and numerically unavailable flat steps raise an
 `ArgumentError`, and `kkt_residual` reports `Inf` there. Numerical rejection
-includes entropy or KL underflow to zero and does not assert unboundedness.
+includes unboxed entropy or KL underflow to zero and does not assert unboundedness.
+A box can still have a representable minimizer when its inner answer is unavailable.
 The candidate and its displacement are checked in the iterate's element type
 before changing the attempted coordinate or its cache; earlier coordinates
 of the pass may already have moved. The square-root losses check a relative

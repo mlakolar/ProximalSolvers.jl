@@ -168,13 +168,22 @@ end
 # Returns nothing when neither candidate is a minimizer.
 function _flat_minimizer(g, old::T, G::T, i, μ) where {T}
   _flat_exact(g) || return _flat_inexact(g, old, G, i, μ)
-  W = promote_type(T, Float64)
+  W = promote_type(T, Float64, _flat_type(g))
   v = _flat_closed(g, W(old), W(G), i, W(μ))
   v === nothing && return nothing
   c = _flat_candidate(T, v)
   c === nothing && return nothing
   iszero(c) && !iszero(v) && return nothing
   _flat_indomain(g, W(c), i) ? c : nothing
+end
+
+_flat_type(v) = Float64
+_flat_type(v::Real) = typeof(v)
+_flat_type(v::AbstractArray{T}) where {T} =
+  T <: Real && isconcretetype(T) ? T : mapreduce(_flat_type, promote_type, v; init = Float64)
+function _flat_type(g::AbstractFunction)
+  types = ntuple(i -> _flat_type(getfield(g, i)), fieldcount(typeof(g)))
+  promote_type(Float64, types...)
 end
 
 _flat_exact(g) = false
@@ -213,10 +222,10 @@ function _flat_generic(g, old::T, G::T, i, μ) where {T}
   _flat_fixed(g, c, G, i, μ) ? c : nothing
 end
 
-# Check finiteness after conversion to the iterate's element type.
-function _flat_candidate(::Type{T}, v) where {T}
+# Closed forms may retain an overflow direction until a surrounding box clamps it.
+function _flat_candidate(::Type{T}, v, extended::Bool = false) where {T}
   c = T(v)
-  isfinite(c) ? c : nothing
+  isfinite(c) || (extended && isinf(c)) ? c : nothing
 end
 
 _flat_indomain(g, v, i) = true
@@ -238,14 +247,14 @@ function _flat_closed(g::ElasticNet, old::T, G::T, i, μ) where {T}
   excess = abs(G) / scale - threshold
   excess <= 0 && return zero(T)
   iszero(λ2) && return -copysign(T(Inf), G)
-  _flat_candidate(T, _flat_quotient(-sign(G) * excess, μ, λ2, (scale,)))
+  _flat_candidate(T, _flat_quotient(-sign(G) * excess, μ, λ2, (scale,)), true)
 end
 
 # Minimize Gx + μλ(x - yᵢ)²/2 at yᵢ - G/(μλ), retaining an unbounded direction.
 function _flat_closed(g::ProximalBase.SqrNormL2, old::T, G::T, i, μ) where {T}
   iszero(g.λ) && return iszero(G) ? zero(T) : -copysign(T(Inf), G)
   y = g.y === nothing ? zero(T) : T(g.y[i])
-  _flat_candidate(T, y - _flat_quotient(G, μ, T(g.λ)))
+  _flat_candidate(T, y - _flat_quotient(G, μ, T(g.λ)), true)
 end
 
 # Minimize Gx + μ Berhuᵢ(x): zero below the threshold, -GM/(μλwᵢ) above.
@@ -254,19 +263,19 @@ function _flat_closed(g::ProximalBase.Berhu, old::T, G::T, i, μ) where {T}
   λ, w = T(g.λ), T(_entryweight(g.w, i, typeof(g.λ)))
   (iszero(λ) || iszero(w)) && return -copysign(T(Inf), G)
   _flat_quotient(λ, abs(G), one(T), (μ, w)) >= 1 && return zero(T)
-  _flat_candidate(T, _flat_quotient(-G, μ, λ, (T(g.M),), (w,)))
+  _flat_candidate(T, _flat_quotient(-G, μ, λ, (T(g.M),), (w,)), true)
 end
 
 # Minimize Gx - μλ log x at μλ/G for G > 0; otherwise it decreases toward +∞.
 function _flat_closed(g::ProximalBase.NegLog, old::T, G::T, i, μ) where {T}
   G > 0 || return T(Inf)
-  c = _flat_candidate(T, _flat_quotient(μ, G, one(T), (T(g.λ),)))
+  c = _flat_candidate(T, _flat_quotient(μ, G, one(T), (T(g.λ),)), true)
   c !== nothing && c > 0 ? c : nothing
 end
 
 # Minimize Gx + μλ x log x at exp(-G/(μλ) - 1); underflow gives no available point.
 function _flat_closed(g::ProximalBase.NegEntropy, old::T, G::T, i, μ) where {T}
-  c = _flat_candidate(T, exp(-_flat_quotient(G, μ, T(g.λ)) - one(T)))
+  c = _flat_candidate(T, exp(-_flat_quotient(G, μ, T(g.λ)) - one(T)), true)
   c !== nothing && c > 0 ? c : nothing
 end
 
@@ -274,7 +283,7 @@ end
 function _flat_closed(g::ProximalBase.KLDivergence, old::T, G::T, i, μ) where {T}
   q = T(g.q isa Real ? g.q : g.q[i])
   iszero(G) && return _flat_candidate(T, q)
-  c = _flat_candidate(T, exp(log(q) - _flat_quotient(G, μ, T(g.λ))))
+  c = _flat_candidate(T, exp(log(q) - _flat_quotient(G, μ, T(g.λ))), true)
   c !== nothing && c > 0 ? c : nothing
 end
 
@@ -294,15 +303,22 @@ function _flat_closed(g::ProximalBase.Translate, old::T, G::T, i, μ) where {T}
   y = _flat_closed(g.f, old, G, i, μ)
   y === nothing && return nothing
   isfinite(y) || return y
-  c = _flat_candidate(T, T(g.b[i]) + y)
+  c = _flat_candidate(T, T(g.b[i]) + y, true)
   c !== nothing && _flat_indomain(g.f, c - T(g.b[i]), i) ? c : nothing
 end
 
-# Clamp an exact inner minimizer or its unbounded direction; never clamp unavailability.
+# Clamp an exact inner answer or its direction; verify a generic candidate if unavailable.
 function _flat_closed(g::ProximalBase.BoxConstrained, old::T, G::T, i, μ) where {T}
   v = _flat_closed(g.f, old, G, i, μ)
-  v === nothing && return nothing
-  c = _flat_candidate(T, prox_entry(g.box, v, i, one(T)))
+  c = if v === nothing
+    candidate = _flat_generic(g, old, G, i, μ)
+    candidate === nothing && return nothing
+    # A small proximal move must not disappear from underflow in the verification.
+    _flat_fixed(g, BigFloat(candidate), BigFloat(G), i, BigFloat(μ)) || return nothing
+    candidate
+  else
+    _flat_candidate(T, prox_entry(g.box, v, i, one(T)))
+  end
   c !== nothing && _flat_indomain(g, c, i) ? c : nothing
 end
 
