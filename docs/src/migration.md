@@ -74,8 +74,10 @@ Version 0.2.0 needs registered ProximalBase 0.5.3 or later within the 0.5 series
   objective. Some exact minimizers can still miss a certificate and return
   `converged = false`. Correlation error bounds and a projection correction
   protect the gap when cancellation hides a constraint or an unrestricted
-  direction is ill-conditioned. Rank decisions use an equilibrated Gram
-  matrix; see [The square-root lasso](@ref).
+  direction is ill-conditioned. Compensated residuals and their error bounds
+  protect the primal objective from cancellation. Exactly zero unrestricted
+  correlation intervals certify without a Gram inverse. Rank decisions use an
+  equilibrated Gram matrix; see [The square-root lasso](@ref).
 - **Proximal Newton** without a duality gap stops only when the objective has
   stalled and the original problem is stationary; see [Proximal Newton](@ref).
   A run that cannot meet both returns `converged = false` after `maxiter`.

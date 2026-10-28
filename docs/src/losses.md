@@ -200,6 +200,14 @@ accept a run. A zero objective is certified. The same construction applies to
 `SqrtQuadraticFunction`. These losses still do not support the public
 `duality_gap` interface or gap-safe screening.
 
+Certification recomputes each residual with error-free product remainders and
+compensated sums, before fitted terms can cancel. The remainder magnitudes
+bound the residual error, including weights and the intercept shift. The norm
+of this error vector is added to the residual norm to obtain an upper loss;
+this upper loss supplies the primal gap, the zero-objective check and ``P_0``.
+The cached objective reported in the results can still differ after severe
+cancellation, so the gap uses the larger of it and the recomputed upper objective.
+
 An approximate equality on an unrestricted coefficient does not give a lower
 bound. Let ``U`` collect the unpenalized columns, including the uncentered
 constant column when fitting an intercept. If ``P_0`` bounds the current
@@ -215,9 +223,10 @@ Here ``B`` bounds ``\|X_Ux_U^*\|_W`` because ``P^*\le P_0`` bounds the
 residual and every positively penalized coefficient. The projection norm
 comes from the unrestricted correlations, their error intervals and an
 equilibrated Gram matrix. Exact zero and duplicate directions can be removed.
-An eigenvector residual and orthogonality check bound its inverse; unresolved
-rank falls back to the zero witness. Rounded means therefore do not supply
-an unchecked intercept equality. The sufficient-statistic model uses the
+An eigenvector residual and orthogonality check bound its inverse. Exactly zero
+unrestricted correlation intervals need no inverse, even for a singular Gram
+matrix; otherwise unresolved rank falls back to the zero witness. Rounded means
+therefore do not supply an unchecked intercept equality. The sufficient-statistic model uses the
 same bound through its implicit design and response.
 
 The support has at most 2000 coordinates, including unpenalized ones, and

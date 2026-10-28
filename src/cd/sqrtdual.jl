@@ -13,7 +13,12 @@
 # Its norm and penalized products are bounded before scaling, including the
 # cross term. Unrestricted leakage is corrected below. Truncating the support
 # solve can only weaken this witness.
-# Residuals and sufficient statistics are recomputed from the data. Norms of
+# Residuals and sufficient statistics are recomputed with error-free product
+# and sum remainders. Their residual error is bounded by the final rounding
+# plus 64m eps times the accumulated remainder magnitudes, of order
+# eps|rᵢ| + 64m² eps²∑ₖ|Xᵢₖxₖ|. Thus ‖r‖ ≤ ‖r̂‖ + ‖r - r̂‖ supplies an upper
+# loss for the primal objective, zero test and P₀ in B. The quadratic analogue
+# uses q ≤ q̂ + δq before taking its square root. Norms of
 # quadratic witnesses use an upper rounding bound. If zₖ approximates the
 # actual product with error eₖ, |Xₖ'Wθ| ≤ |zₖ| + eₖ gives the penalized scale.
 # An upper norm bound gives t‖θ‖_W ≤ 1, with both ratios rounded down.
@@ -24,7 +29,8 @@
 # B = ‖y‖_W + P₀ + ∑ₖ:0<λₖ<∞ ‖Xₖ‖_W P₀/λₖ bounds ‖X_U x*_U‖_W.
 # For an independent basis with column scales D, e = X_U'Wθ satisfies
 # ‖P_Uθ‖² = e'K_U⁺e ≤ ‖D⁻¹e‖²/λmin(D⁻¹K_UD⁻¹). Product errors and a lower
-# eigenvalue bound inflate this correction. Unresolved rank gives θ = 0.
+# eigenvalue bound inflate this correction. Exactly zero correlation intervals
+# give zero correction without an inverse; otherwise unresolved rank gives θ = 0.
 # The least-squares model uses the original y and X here and includes the
 # uncentered constant column, so rounded means require no equality assumption.
 # Reusing an old relative gap only within 512eps adds at most 512eps·P₀ to the
@@ -240,6 +246,17 @@ end
     m.dualinv = one(T)
     return true
   end
+  m.dualinv = -one(T)
+  true
+end
+
+# Delay the inverse bound until a candidate has nonzero unrestricted leakage.
+# A zero interval proves P_Uθ = 0 even when the unrestricted Gram is singular.
+function _sqrt_unpenfactor!(m)
+  T = eltype(m)
+  U, scales = m.dualunpen, m.dualunpenscale
+  n = length(U)
+  m.dualinv = T(Inf)
   _sqrt_reserve!(m, n)
   K = reshape(view(m.dualeig.C, 1:n^2), n, n)
   rows = view(m.dualrhs, 1:n)
@@ -348,8 +365,13 @@ function _sqrt_validated_dual(m, g, z::AbstractVector{T}, nθ, D, z₀::T = zero
     v = _sqrt_updiv(upper, m.dualunpenscale[i])
     projection = _sqrt_upper(hypot(projection, v) * (1 + 4eps(T)))
   end
-  projection = _sqrt_upmul(projection, m.dualinv)
-  correction = _sqrt_upmul(_sqrt_upmul(t, projection), m.dualbound)
+  correction = zero(T)
+  if !iszero(projection)
+    m.dualinv < 0 && !_sqrt_unpenfactor!(m) && return nothing
+    isfinite(m.dualinv) || return nothing
+    projection = _sqrt_upmul(projection, m.dualinv)
+    correction = _sqrt_upmul(_sqrt_upmul(t, projection), m.dualbound)
+  end
   isfinite(correction) || return nothing
   _sqrt_lower(_sqrt_lower(t * D) - correction)
 end
@@ -388,10 +410,11 @@ function _sqrt_certified!(st, m, g, x, s)
     end
   end
 
+  upperP = max(P, data.f + penalty)
   D = zero(T)
-  iszero(P) && iszero(data.f) && (st.relgap = zero(T); return true)
-  if !_sqrt_unpenstart!(m, data, g, max(P, data.f + penalty))
-    st.relgap = _relative_gap(max(P, data.f + penalty), D)
+  iszero(upperP) && (st.relgap = zero(T); return true)
+  if !_sqrt_unpenstart!(m, data, g, upperP)
+    st.relgap = _relative_gap(upperP, D)
     return false
   end
   if f > 0
@@ -409,7 +432,7 @@ function _sqrt_certified!(st, m, g, x, s)
         D = max(D, candidate)
         # Keep the arithmetic of ordinary certified runs when recomputation
         # confirms both values to rounding. No support factorization is paid.
-        checkedgap = _relative_gap(max(P, data.f + penalty), candidate)
+        checkedgap = _relative_gap(upperP, candidate)
         if candidate > 0 && oldgap <= target && checkedgap <= target &&
            abs(checkedgap - oldgap) <= min(_SQRT_GAPROUNDING * eps(T), target / 64)
           st.relgap = oldgap
@@ -422,12 +445,12 @@ function _sqrt_certified!(st, m, g, x, s)
   if data.f > 0
     candidate = _sqrt_residualdual(m, data, g, inv(data.f))
     candidate === nothing || (D = max(D, candidate))
-    st.relgap = _relative_gap(max(P, data.f + penalty), D)
+    st.relgap = _relative_gap(upperP, D)
     D > 0 && st.relgap <= target && return true
   end
   candidate = _sqrt_jointdual(m, data, g, x)
   candidate === nothing || (D = max(D, candidate))
   # Cover both the recomputed upper loss and the value reported from the cache.
-  st.relgap = _relative_gap(max(P, data.f + penalty), D)
-  (D > 0 || iszero(max(P, data.f + penalty))) && st.relgap <= target
+  st.relgap = _relative_gap(upperP, D)
+  (D > 0 || iszero(upperP)) && st.relgap <= target
 end

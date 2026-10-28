@@ -14,6 +14,55 @@ function bounds_optimum(r, optimum)
 end
 
 @testset "square-root certificates" begin
+  @testset "residual recomputation retains cancelled coefficients" begin
+    for T in (Float64, Float32)
+      M = T(2)^(T === Float64 ? 55 : 26)
+      u, v = T[1, -1, 1, -1], T[1, 1, -1, -1]
+      X, y = hcat(u, u, u, v), v
+      g = NormL1(T(0.1), T[0, 0, 0, 1])
+      for design in (X, sparse(X)), centered in (false, true)
+        x = SparseIterate(T[M, 1, -M, 1])
+        m = cdmodel(SqrtLeastSquaresLoss(y, design), x; intercept = centered)
+        r = quiet(() -> solve!(x, m, g, CDSolver(order = :cyclic)))
+        xb = big.(Vector(x))
+        residual = big.(y) - big.(X) * xb
+        centered && (residual .-= sum(residual) / length(residual))
+        P = norm(residual) + big(g.λ0) * abs(xb[4])
+        optimum = big(g.λ0)
+        @test P ≈ 2 + optimum
+        @test !r.converged && isfinite(r.gap)
+        @test P - optimum <= big(r.gap) * P + 512eps(T) * P
+        data = PS._sqrt_dualdata(m, x)
+        @test big(data.f) >= norm(residual)
+        # A cached zero objective needs the same upper residual check.
+        z = SparseIterate(T[M, 1, -M, 1])
+        rz = quiet(() -> solve!(z, cdmodel(SqrtLeastSquaresLoss(y, design), z; intercept = centered),
+                                 NormL1(zero(T)), CDSolver(order = :cyclic)))
+        @test !rz.converged && rz.gap >= 1 - 512eps(T)
+      end
+      # The sufficient-statistic cancellation has a larger, explicit budget.
+      x = SparseIterate(T[M, 1, -M, 1])
+      f = SqrtQuadraticFunction(X'X, -X'y, dot(y, y))
+      m = cdmodel(f, x)
+      data = PS._sqrt_dualdata(m, x)
+      @test big(data.q) + big(data.δq) >= 4
+      @test data.f >= 2
+      r = quiet(() -> solve!(x, m, g, CDSolver(maxpasses = 0)))
+      @test !r.converged && r.gap >= (2 - 512eps(T)) / T(2.1)
+    end
+  end
+
+  @testset "zero unrestricted correlations need no inverse" begin
+    for T in (Float64, Float32), design in (T[1 2; 0 0], sparse(T[1 2; 0 0]))
+      for f in pair(T[1, 1], design)
+        r = solve!(SparseIterate(T, 2), f, NormL1(zero(T)), CDSolver(order = :cyclic))
+        @test r.converged && r.minimum ≈ 1
+        @test r.gap <= 512eps(T)
+        bounds_optimum(r, one(T))
+      end
+    end
+  end
+
   @testset "rounded correlations retain small penalized constraints" begin
     for T in (Float64, Float32)
       τ = T === Float64 ? T(2)^-60 : T(2)^-30

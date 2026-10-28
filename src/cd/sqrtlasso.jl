@@ -26,17 +26,20 @@ orthogonal to their span. Its norm and penalized correlations use conservative
 rounding bounds. A projection bound subtracts the possible contribution of
 unpenalized coordinates and the uncentered intercept from the dual value;
 a small equality residual alone never certifies a run. Residuals are
-recomputed from the data, including sparse centering and weights. If no
-point passes, the always-feasible zero point gives a relative gap of one
-when the objective is positive. Coordinate changes alone never certify a run.
+recomputed with compensated products and sums, including sparse centering and
+weights. Their error bound supplies an upper loss even when large fitted
+terms cancel. If no point passes, the always-feasible zero point gives a
+relative gap of one when the objective is positive. Coordinate changes alone
+never certify a run.
 
 The support solve allows dependent columns and at most 2000 coordinates.
 The Gram matrix is equilibrated before deciding its numerical rank. At an
 exact fit, the support equations can certify when their retained directions
 determine the dual point, or their least-norm point meets the other
 constraints, and the rounding and unrestricted projection bounds are small
-enough. An unresolved unrestricted span uses the zero witness. The method may
-miss another feasible point, so some exact minimizers still return
+enough. Exactly zero unrestricted correlation intervals need no projection
+inverse; otherwise an unresolved unrestricted span uses the zero witness.
+The method may miss another feasible point, so some exact minimizers still return
 `converged = false`. Nonfinite penalty loadings, including a zero level times
 an infinite weight, fix coordinates at zero and are excluded from the dual
 constraints. The certificate is for this convention of the coordinate steps.
@@ -336,36 +339,61 @@ end
 end
 
 # Work in weighted observation space, including rows with zero weight. The
-# fresh residual includes the centering shift of a sparse design.
+# fresh residual includes the centering shift of a sparse design. Each product
+# and sum retains its remainder, before any fitted values can cancel.
 @inline function _sqrt_dualdata(m::SqrtLSModel{T}, x) where {T}
   Y, R = m.dualy, m.rbuf
-  fill!(R, zero(T))
-  shift = zero(T)
+  low, errors = m.tmp, m.dualweighterror
+  R .= m.y
+  fill!(low, zero(T)); fill!(errors, zero(T))
+  sh, sl, se = -m.ybar, zero(T), zero(T)
   nactive = 0
   for k in activecoordinates(x)
     v = x[k]
     iszero(v) && continue
     nactive += 1
-    _column_axpy!(R, m.X, k, zero(T), v)
-    shift += m.xbar[k] * v
+    _sqrt_residualcolumn!(m.X, R, low, errors, k, v)
+    sh, sl, se = _sqrt_addproduct(sh, sl, se, m.xbar[k], v)
   end
+  shift, shifterror = _sqrt_finish(sh, sl, se, nactive + 1)
   sw = m.w === nothing ? nothing : m.dualsw
-  fitted2 = zero(T)
   for i in eachindex(Y)
     Y[i] = m.y[i] - m.ybar
-    R[i] += Y[i] + shift
+    hi, lo, error = _sqrt_qadd(R[i], low[i], errors[i], shift, zero(T))
+    R[i], error = _sqrt_finish(hi, lo, error, nactive + 2)
+    error = _sqrt_upper(error + shifterror)
     if sw !== nothing
       sw[i] = sqrt(m.w[i])
       m.dualswerror[i] = _sqrt_rooterror(sw[i], m.w[i])
       Y[i] *= sw[i]
-      R[i] *= sw[i]
+      value = R[i] * sw[i]
+      producterror = abs(fma(R[i], sw[i], -value))
+      _sqrt_productrisk(R[i], sw[i], value) && (producterror += eps(zero(T)))
+      error = _sqrt_upper(_sqrt_upmul(error, _sqrt_upper(sw[i] + m.dualswerror[i])) +
+                          _sqrt_upmul(abs(R[i]), m.dualswerror[i]) + producterror)
+      R[i] = value
     end
-    fitted2 += (Y[i] - R[i])^2
+    errors[i] = error
   end
-  f = norm(R)
-  rounding = _SQRT_DUAL_ROUNDING * max(1, nactive) * eps(T) *
-             (norm(Y) + sqrt(fitted2) + abs(m.ybar) * sqrt(m.N))
+  f = _sqrt_upper(_sqrt_normupper(R) + _sqrt_normupper(errors))
+  rounding = _sqrt_upper(max(f - norm(R), zero(T)))
   all(isfinite, R) && isfinite(f) ? (; R, Y, sw, f, rounding) : nothing
+end
+
+function _sqrt_residualcolumn!(X, hi, lo, errors, k, v)
+  for i in axes(X, 1)
+    hi[i], lo[i], errors[i] = _sqrt_addproduct(hi[i], lo[i], errors[i], -X[i, k], v)
+  end
+  nothing
+end
+
+function _sqrt_residualcolumn!(X::SparseMatrixCSC, hi, lo, errors, k, v)
+  rows, values = rowvals(X), nonzeros(X)
+  for j in nzrange(X, k)
+    i = rows[j]
+    hi[i], lo[i], errors[i] = _sqrt_addproduct(hi[i], lo[i], errors[i], -values[j], v)
+  end
+  nothing
 end
 
 # Form and test the vector itself, rather than identities that assume an

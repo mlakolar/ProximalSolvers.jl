@@ -32,7 +32,8 @@ can still miss feasible dual points at some exact minimizers.
 `Ax` and the quadratic are recomputed for certification. A conservative
 rounding budget bounds the loss, dual norm and penalized correlations.
 Unrestricted directions require a projection correction to the dual value,
-or the zero witness when their span cannot be resolved. Compensated
+unless their correlation intervals are exactly zero, when no inverse is needed.
+Otherwise an unresolved span uses the zero witness. Compensated
 accumulation retains small products and tightens cancellation bounds.
 A quadratic negative beyond its budget
 violates the PSD assumption and is not certified. Nonfinite penalty loadings
@@ -188,6 +189,9 @@ _certified!(st, m::SqrtQuadModel, g, x, s) = _sqrt_certified!(st, m, g, x, s)
 
 # Accumulate product roundings as well as sum roundings. Near cancellation
 # this tightens the first-order budget without losing an exact binary fit.
+# The final error includes eps times the residual and 64m eps times the
+# accumulated remainder magnitudes, bounded by second-order term magnitudes.
+# The upper q, not its possibly cancelled cache, supplies the upper loss.
 @inline function _sqrt_qadd(hi::T, lo::T, errors::T, value::T, error::T) where {T}
   total = hi + value
   v = total - hi
