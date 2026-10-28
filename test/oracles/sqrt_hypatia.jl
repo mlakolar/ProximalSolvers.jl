@@ -13,7 +13,7 @@ import MathOptInterface as MOI
 # Work in Float64 even when coordinate descent uses Float32. Nonfinite
 # loadings fix coefficients at zero; zero loadings leave them unrestricted.
 function hypatia_solution(X, y, loadings; weights = nothing, intercept = false,
-                          conic_basis = nothing)
+                          conic_basis = nothing, design_in_basis = false)
   X64, y64, λ = Matrix{Float64}(X), Float64.(y), Float64.(loadings)
   n, p = size(X64)
   sw = weights === nothing ? ones(n) : sqrt.(Float64.(weights))
@@ -26,7 +26,7 @@ function hypatia_solution(X, y, loadings; weights = nothing, intercept = false,
     β, design = z, X64
   else
     β = conic_basis * z
-    design = X64 * conic_basis
+    design = design_in_basis ? X64 : Float64.(BigFloat.(X64) * BigFloat.(conic_basis))
   end
   b0 = intercept ? @variable(model, b0) : 0.0
   @variable(model, t)
@@ -79,20 +79,82 @@ function hypatia_solution(X, y, loadings; weights = nothing, intercept = false,
   (; P, D, status)
 end
 
-# Evaluate from the observations, without CD's residual or quadratic caches.
-# In particular, do not evaluate Inf * 0 for fixed coefficients.
-function data_objective(X, y, β, b0, loadings, weights)
-  r = Float64.(y) .- Float64(b0) .- Matrix{Float64}(X) * Float64.(β)
-  sw = weights === nothing ? ones(length(y)) : sqrt.(Float64.(weights))
-  penalty = 0.0
+# Lift stored data and coefficients before any multiply or subtraction. This
+# retains small residuals hidden by cancellation in Float32/Float64 arithmetic.
+function penalty_objective(β, loadings)
+  penalty = zero(BigFloat)
   for j in eachindex(β)
     if isfinite(loadings[j])
-      penalty += Float64(loadings[j]) * abs(Float64(β[j]))
+      penalty += BigFloat(loadings[j]) * abs(BigFloat(β[j]))
     else
       @test iszero(β[j])
     end
   end
-  norm(sw .* r) + penalty
+  penalty
+end
+
+function data_objective(X, y, β, b0, loadings, weights)
+  setprecision(BigFloat, 256) do
+    r = BigFloat.(y) .- BigFloat(b0) .- BigFloat.(Matrix(X)) * BigFloat.(β)
+    w = weights === nothing ? ones(BigFloat, length(y)) : BigFloat.(weights)
+    sqrt(sum(w .* abs2.(r))) + penalty_objective(β, loadings)
+  end
+end
+
+function statistics_objective(q, β, loadings)
+  setprecision(BigFloat, 256) do
+    x = BigFloat.(β)
+    value = dot(x, BigFloat.(q.A) * x) + 2 * dot(BigFloat.(q.b), x) + BigFloat(q.c)
+    # Match the stored loss's nonnegative-part convention even if the stored
+    # matrix is indefinite (in which case no convex conic reference is used).
+    sqrt(max(value, zero(BigFloat))) + penalty_objective(β, loadings)
+  end
+end
+
+# Pivoted Cholesky in BigFloat, including singular PSD matrices. Only errors
+# at BigFloat working precision are tolerated, never input-precision negative
+# eigenvalues. An indefinite stored Gram must not be silently projected to PSD.
+function psd_factor(G::Matrix{BigFloat})
+  d = size(G, 1)
+  residual, L = copy(G), zeros(BigFloat, d, d)
+  tol = 1024d^2 * eps(BigFloat) * max(one(BigFloat), maximum(abs, G))
+  for k in 1:d
+    j = argmax(diag(residual))
+    pivot = residual[j, j]
+    if pivot <= tol
+      maximum(abs, residual) <= tol || return nothing
+      return L[1:max(1, k-1), :]
+    end
+    row = residual[j, :] / sqrt(pivot)
+    L[k, :] .= row
+    residual .-= row * row'
+  end
+  maximum(abs, residual) <= tol || return nothing
+  L
+end
+
+function statistics_reference(name, q, loadings; conic_basis = nothing)
+  factor = setprecision(BigFloat, 256) do
+    p = length(q.b)
+    G = [BigFloat.(q.A) BigFloat.(q.b); transpose(BigFloat.(q.b)) BigFloat(q.c)]
+    if conic_basis !== nothing
+      C = zeros(BigFloat, p+1, p+1)
+      C[1:p, 1:p] .= BigFloat.(conic_basis)
+      C[end, end] = 1
+      G = C' * G * C
+    end
+    psd_factor(G)
+  end
+  if factor === nothing
+    println("STATISTICS_UNAVAILABLE name=", name, " reason=stored_augmented_matrix_not_psd")
+    @test_broken factor !== nothing
+    return nothing
+  end
+  # L[x; 1] is represented as y-X*x, including its constant column. When a
+  # basis is supplied, the factor already includes that congruence transform.
+  L = Float64.(factor)
+  hypatia_solution(-L[:, 1:end-1], L[:, end], loadings;
+                   conic_basis, design_in_basis = true)
 end
 
 function check_certificate(name, loss, result, P_CD, reference)
@@ -145,8 +207,8 @@ function check_case(name, X, y, λ, start; weights = nothing, intercept = false,
     check_result(name, "data", result, P_CD, reference)
 
     if quadratic
-      # Eliminate the intercept by weighted centering. Dividing BOTH the
-      # loss and penalty by √n preserves the minimizers and relative gaps.
+      # Center and scale before storing the statistics. Their rounding is
+      # part of the quadratic problem, so it needs its own conic reference.
       w = weights === nothing ? ones(T, n) : weights
       xbar = intercept ? vec(sum(w .* X; dims = 1)) ./ sum(w) : zeros(T, p)
       ybar = intercept ? dot(w, y) / sum(w) : zero(T)
@@ -154,13 +216,14 @@ function check_case(name, X, y, λ, start; weights = nothing, intercept = false,
       v = sqrt.(w) .* (y .- ybar)
       q = SqrtQuadraticFunction(R' * R / T(n), -R' * v / T(n), dot(v, v) / T(n))
       xq = SparseIterate(copy(start))
-      rq = solve!(xq, q, NormL1(λ / sqrt(T(n)), penalty_weights), method)
+      λq = λ / sqrt(T(n))
+      qloadings = penalty_weights === nothing ? fill(λq, p) : λq .* penalty_weights
+      qreference = statistics_reference(name, q, qloadings; conic_basis)
+      rq = solve!(xq, q, NormL1(λq, penalty_weights), method)
       βq = Vector(xq)
-      bq = intercept ? ybar - dot(xbar, βq) : zero(T)
-      # Report both losses in the original objective units. The returned gap
-      # is relative, so it needs no rescaling and obeys the same conic bound.
-      Pq = data_objective(X, y, βq, bq, loadings, weights)
-      check_result(name, "statistics", rq, Pq, reference)
+      # Report the actual stored quadratic objective in its own scaled units.
+      Pq = statistics_objective(q, βq, qloadings)
+      check_result(name, "statistics", rq, Pq, qreference)
     end
   end
 end
@@ -226,10 +289,27 @@ function oracle_cases()
     # transferring the deliberately ill-conditioned columns to the reference.
     B = [1.0 1-M; -1.0 M]
     @test X * B == Matrix{Float64}(I, 2, 2)
-    # X'X loses the small direction in Float64, so sufficient statistics do
-    # not represent an equivalent problem here; retain the data-loss check.
+    # The stored Gram is exact here. BigFloat congruence with B retains its
+    # small direction, so both the data and statistics references are used.
     check_case("ill_conditioned_unpenalized", X, [0.0, 1.0], 0.0, zeros(2);
-               quadratic = false, conic_basis = B)
+               conic_basis = B)
+
+    for T in (Float64, Float32)
+      M = T === Float64 ? T(2)^55 : T(2)^26
+      u, v = T[1, -1, 1, -1], T[1, 1, -1, -1]
+      X, start, pw = hcat(u, u, u, v), T[M, 1, -M, 1], T[0, 0, 0, 1]
+      # Combine identical unpenalized columns into one conic direction.
+      B = T[1 -1 -1 0; 0 1 0 0; 0 0 1 0; 0 0 0 1]
+      @test data_objective(X, v, start, zero(T), T(0.1) .* pw, nothing) ==
+            BigFloat(2) + BigFloat(T(0.1))
+      check_case("residual_cancellation_$(T)", X, v, T(0.1), start;
+                 penalty_weights = pw, conic_basis = B)
+    end
+
+    # The stored Float32 quadratic has a positive residual floor even though
+    # the original one-observation data problem admits an exact fit.
+    check_case("rounded_statistics_float32", reshape(Float32[1.5], 1, 1),
+               Float32[1.8], 0.75f0, Float32[0])
 
     X, y = ordinary_data(11301; T = Float32)
     λ = 0.2f0 * norm(X' * y, Inf) / norm(y)

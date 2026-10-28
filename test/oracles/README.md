@@ -57,17 +57,19 @@ model again with a fresh Hypatia optimizer at `1e-9` tolerances. Each
 used. The selected result must have optimal termination, feasible primal and
 dual points, and a conic bracket of width at most
 `1e-7 * max(1, abs(P_conic))`. Its primal and dual objectives supply the
-bracket used in all coordinate-descent certificate checks.
+bracket used in the corresponding coordinate-descent certificate checks.
+The data and stored-statistics losses have separate conic references.
 
 If both attempts lack optimal termination with feasible primal and dual
 points, the reference is unavailable. The optimal-status condition is recorded
 as a broken test, and each loss prints `HYPATIA_UNAVAILABLE name=... loss=...`.
-Only the conic bracket and certificate comparisons are skipped; both CD runs,
-independent objective evaluation, and finite nonnegative objective and gap
-checks still run. With Hypatia 0.11.0, `noiseless_seed11102_fraction0.2` was
+Only that reference's conic bracket and certificate comparisons are skipped.
+CD runs, independent objective evaluation, and finite nonnegative objective
+and gap checks still run. With Hypatia 0.11.0, `noiseless_seed11102_fraction0.2` was
 unavailable at both tolerances (`SLOW_PROGRESS` with unknown solution statuses),
 possibly because an exact-fit optimum at the cone apex is degenerate for the
-interior-point method. This affects both loss comparisons. If either attempt
+interior-point method. This was observed with the former shared data reference;
+the stored-statistics reference is now solved separately. If either attempt
 produces a usable optimum, all conic assertions run as usual.
 
 The cases cover exact fits from optimal and trapped starts, dependent columns,
@@ -82,12 +84,33 @@ Nonfinite penalty loadings fix coefficients at zero in the conic model.
 Each case checks coordinate descent's reported relative gap against the conic
 bracket, including runs returning `converged = false`. Converged runs must also
 agree with the conic dual objective within the reported gap or the default
-`1e-4` threshold. Objectives are independently evaluated from the observations.
-The equivalent sufficient-statistics loss and penalty are divided by `sqrt(n)`;
-the relative gap needs no scaling. Weighted centering eliminates intercepts
-for those runs. The ill-conditioned example only uses the data loss because
-forming its Gram matrix loses a direction in Float64. Its conic model uses an
-invertible coefficient change with `X * B = I` to preserve the original problem.
+`1e-4` threshold. Data objectives are evaluated in 256-bit BigFloat, converting
+stored data and coefficients before residual arithmetic. Float64 and Float32
+cancellation regressions start at `[M, 1, -M, 1]` on three identical unpenalized
+columns and one penalized column. Their true starting objectives are about
+`2.1`, although ordinary-precision residual arithmetic can return `0.1`.
+An invertible coefficient change gives the conic reference a well-conditioned
+basis without changing the optimum of about `0.1`.
+
+Weighted centering eliminates intercepts before forming the statistics, and
+both loss and penalty are divided by `sqrt(n)`. Rounding means this stored
+quadratic can differ from the data problem. Each statistics run therefore
+uses its own conic reference obtained by factoring the stored augmented
+matrix `[A b; b' c]` in BigFloat and modeling `norm(L * [x; 1])`. Its CD
+objective is also evaluated from those same stored statistics in BigFloat.
+Statistics lines report the scaled quadratic objective in its own units,
+with its own scaled penalty; relative gaps require no conversion.
+The Float32 example `X = [1.5]`, `y = [1.8]`, `lambda = 0.75` checks the
+positive residual floor introduced by rounding the stored quadratic.
+
+The pivoted BigFloat factorization allows singular PSD matrices and only
+tolerates errors at its working precision. If the stored matrix is indefinite,
+it is not projected onto the PSD cone: a broken test and a
+`STATISTICS_UNAVAILABLE` diagnostic identify the missing convex reference.
+CD execution and the independent objective and gap checks still run.
+The `M = 2^26` ill-conditioned example includes both losses: its stored Gram
+is exact. BigFloat congruence with an invertible coefficient change preserves
+its small direction before factorization; the data design satisfies `X * B = I`.
 
 Each `ORACLE_CASE` line reports the case and loss, conic termination status,
 `P_CD`, `P_conic`, `D_conic`, relative `gap`, `converged`, and `bound_slack`.
