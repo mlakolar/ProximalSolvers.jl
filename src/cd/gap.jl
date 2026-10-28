@@ -276,9 +276,7 @@ function _wide_gap(m::LSModel, g, x, cand)
     wr += wi * r[i]
     W += wi
   end
-  # Proximal Newton also centres its quadratic model in place.
-  centered = m.intercept || !iszero(m.ybar) || any(!iszero, m.xbar)
-  μ = centered ? wr / W : 0.0
+  μ = m.intercept ? wr / W : 0.0
   @inbounds for i in eachindex(r)
     wi = Float64(_obsweight(m.w, i, Float64))
     d[i] = iszero(wi) ? 0.0 : wi * (r[i] - μ)
@@ -296,15 +294,98 @@ function _wide_gap(m::LSModel, g, x, cand)
   t = _wide_dualscale_on(g, z, x, cand)
   t === nothing && return nothing
   P = s * v / 2 + _wide_penalty_value(g, x)
+  isfinite(P) || return P, -Inf, t
+  # With u = t(r - μ) and ζ = -tz = sX'Wu, Fenchel--Young gives
+  # P - D = s∑w(r - u)^2/2 + g(x) + g*(ζ) - ζ'x. The intercept
+  # contributes zero since ∑wu = 0. These nonnegative terms avoid products
+  # with the response, whose cancellation can lose the whole gap.
   v = 0.0
   @inbounds for i in eachindex(r)
     wi = Float64(_obsweight(m.w, i, Float64))
     iszero(wi) && continue
     u = t * (r[i] - μ)
-    y = Float64(m.y[i]) - (m.offset === nothing ? 0.0 : Float64(m.offset[i]))
-    v += wi * u * (y - u / 2)
+    v += wi * (r[i] - u)^2
   end
-  P, s * v - _conjugate_penalty_on(g, z, t, x, cand), t
+  gap = s * v / 2 + _wide_penalty_gap(g, x, z, t, cand)
+  P, P - gap, t
+end
+
+# Dual feasibility makes the slacks nonnegative; clamp their last-bit rounding.
+_wide_l1_gap(c, b, ζ) = abs(b) * max(c - sign(b) * ζ, 0.0)
+
+function _wide_penalty_gap(g::Union{NormL1, NormL1Nonneg}, x, z, t, cand)
+  v = 0.0
+  for j in (cand === nothing ? _certificate_entries(x) : cand)
+    b = Float64(x[j])
+    g isa NormL1Nonneg && b < 0 && return Inf
+    c = Float64(g.λ0) * Float64(_entryweight(g.w, j, Float64))
+    v += _wide_l1_gap(c, b, -t * z[j])
+  end
+  v
+end
+
+function _wide_penalty_gap(g::ElasticNet, x, z, t, cand)
+  v, λ2 = 0.0, Float64(g.λ2)
+  for j in (cand === nothing ? eachindex(x) : cand)
+    b, ζ = Float64(x[j]), -t * z[j]
+    c = Float64(g.λ1) * Float64(_entryweight(g.w, j, Float64))
+    if iszero(λ2)
+      v += _wide_l1_gap(c, b, ζ)
+    else
+      # Write ζ = a + q with a clipped to [-c, c] and q = soft(ζ, c).
+      # The scalar gap is λ2(b - q/λ2)^2/2 + c|b| - ab.
+      q = sign(ζ) * max(abs(ζ) - c, 0.0)
+      v += λ2 * (b - q / λ2)^2 / 2 + _wide_l1_gap(c, b, clamp(ζ, -c, c))
+    end
+  end
+  v
+end
+
+# For B = ‖b‖ and Q = ‖v‖, cB - v'b equals
+# (c - Q)B + QB‖b/B - v/Q‖²/2, without subtracting large products.
+# With c1 > 0, v = soft(ζ, c1) is the group part of the sparse-group dual.
+function _wide_group_gap(x, z, t, G, c, c1 = 0.0)
+  B, Q = 0.0, 0.0
+  for j in G
+    B += Float64(x[j])^2
+    Q += max(abs(t * z[j]) - c1, 0.0)^2
+  end
+  B, Q = sqrt(B), sqrt(Q)
+  iszero(B) && return 0.0
+  v = B * max(c - Q, 0.0)
+  iszero(Q) && return v
+  a = 0.0
+  for j in G
+    ζ = -t * z[j]
+    q = sign(ζ) * max(abs(ζ) - c1, 0.0)
+    a += (Float64(x[j]) / B - q / Q)^2
+  end
+  v + Q * B * a / 2
+end
+
+function _wide_penalty_gap(g::GroupNormL2, x, z, t, cand)
+  v = 0.0
+  for k in (cand === nothing ? eachindex(g.groups) : cand)
+    c = Float64(g.λ0) * Float64(g.w[k])
+    v += _wide_group_gap(x, z, t, g.groups[k], c)
+  end
+  v
+end
+
+function _wide_penalty_gap(g::Union{SparseGroupNormL2, Scaled{<:SparseGroupNormL2}}, x, z, t, cand)
+  f = g isa SparseGroupNormL2 ? g : g.f
+  v = 0.0
+  for k in (cand === nothing ? eachindex(f.groups) : cand)
+    G = f.groups[k]
+    c1, c2 = _sglthresholds(g, k, Float64, true)
+    # Split ζ into its clipped ℓ1 part and its soft-thresholded group part.
+    # The two norm gaps then sum to the sparse-group Fenchel--Young gap.
+    for j in G
+      v += _wide_l1_gap(c1, Float64(x[j]), clamp(-t * z[j], -c1, c1))
+    end
+    v += _wide_group_gap(x, z, t, G, c2, c1)
+  end
+  v
 end
 
 _wide_dualscale_on(g, z, x, cand) = _dualscale_on(g, z, x, cand)

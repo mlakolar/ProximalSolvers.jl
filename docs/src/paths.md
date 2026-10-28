@@ -152,10 +152,12 @@ The default target remains `1e-4` for `Float32`. For least squares, including
 stacked multitask group lasso, certificates use residuals formed directly in
 `Float64` from the represented data, loss scale, weights, offset and returned
 coefficients and intercept. Penalty parameters are also multiplied in
-`Float64`. The target is checked before the gap is rounded to `Float32` in
-the results. [`duality_gap`](@ref) uses the same accumulation and subtracts
-the objectives before rounding its fields to their public result types. The
-matrix-response least-squares model has no duality-gap certificate.
+`Float64`. The gap is accumulated from nonnegative Fenchel--Young terms,
+using residual-sized quantities to avoid cancellation against a large response.
+The target is checked before the gap is rounded to `Float32` in the results.
+[`duality_gap`](@ref) uses the same accumulation before rounding its fields
+to their public result types. The matrix-response least-squares model has no
+duality-gap certificate.
 
 For `Float32` and narrower types, the change tolerance can fall below
 `8eps(T)` times the data scale while the gap improves. A plateau in the

@@ -47,7 +47,7 @@ function penalty64(g::Union{SparseGroupNormL2, Scaled{<:SparseGroupNormL2}}, b, 
   P, lo, 0.0
 end
 
-function gap64(m, g, b, b0 = PS.intercept(m, b))
+function gap64(m, g, b, b0 = PS.intercept(m, b); candidates = nothing)
   X, y, b = Float64.(m.X), Float64.(m.y), Float64.(Vector(b))
   w = m.w === nothing ? ones(length(y)) : Float64.(m.w)
   o = m.offset === nothing ? zeros(length(y)) : Float64.(m.offset)
@@ -55,10 +55,40 @@ function gap64(m, g, b, b0 = PS.intercept(m, b))
   r = y .- o .- Float64(b0) .- X * b
   rd = m.intercept ? r .- dot(w, r) / sum(w) : r
   z = -s .* (X' * (w .* rd))
+  if candidates !== nothing
+    keep = falses(length(b))
+    if g isa Union{GroupNormL2, SparseGroupNormL2, Scaled{<:SparseGroupNormL2}}
+      f = g isa Scaled ? g.f : g
+      for k in candidates
+        keep[f.groups[k]] .= true
+      end
+    else
+      keep[candidates] .= true
+    end
+    z[.!keep] .= 0
+  end
   penalty, t, conjugate = penalty64(g, b, z)
   P = s * dot(w, r.^2) / 2 + penalty
   D = s * dot(w, t .* rd .* (y .- o) .- (t .* rd).^2 ./ 2) - conjugate
   (P - D) / max(abs(P), floatmin(Float64))
+end
+
+# The large-response oracle evaluates the original dual in BigFloat, rather
+# than sharing the residual-sized factorization used by the solver.
+function gapbig(m, g::NormL1, b)
+  b0 = BigFloat(PS.intercept(m, b))
+  X, y, b = BigFloat.(m.X), BigFloat.(m.y), BigFloat.(Vector(b))
+  w = m.w === nothing ? ones(BigFloat, length(y)) : BigFloat.(m.w)
+  o = m.offset === nothing ? zeros(BigFloat, length(y)) : BigFloat.(m.offset)
+  s = BigFloat(m.s)
+  r = y .- o .- b0 .- X * b
+  rd = m.intercept ? r .- dot(w, r) / sum(w) : r
+  z = s .* (X' * (w .* rd))
+  c = BigFloat(g.λ0) .* (g.w === nothing ? ones(BigFloat, length(b)) : BigFloat.(g.w))
+  t = minimum((iszero(z[j]) ? one(BigFloat) : c[j] / abs(z[j]) for j in eachindex(b)); init = one(BigFloat))
+  P = s * dot(w, r.^2) / 2 + dot(c, abs.(b))
+  D = s * dot(w, t .* rd .* (y .- o) .- (t .* rd).^2 ./ 2)
+  Float64((P - D) / P)
 end
 
 function multitask(T, seed; K = 3, n = 60, p = 40, σ = 0.1)
@@ -186,6 +216,87 @@ end
     rt = @test_logs solve!(xt, f, NormL1(0.125f0), CDSolver(; gaptol = 1e-7, options...))
     @test rt.converged && rt.gap <= 1e-7
     @test Vector(xt) == Float32[0.75, 1.75]
+  end
+end
+
+@testset "Wide Fenchel--Young gaps, full and restricted" begin
+  X = Float32[1 0 1 2; 0 1 2 1; 1 1 0 1; -1 0 1 0; 0 -1 0 1; 1 -1 1 0]
+  y, o = Float32[1, 2, 1, -1, 0, 1], Float32[0.1, -0.2, 0, 0.3, 0, -0.1]
+  w = Float32[0.7, 1.2, 0, 0.9, 1.1, 0.6]
+  pw, groups, gw = Float32[0.7, 1.3, 0.9, 1.1], [[1, 2], [3, 4]], Float32[0.7, 1.3]
+  sg = SparseGroupNormL2(0.37f0, 0.63f0, groups, gw)
+  for icpt in (false, true), g in (NormL1(0.13f0, pw), NormL1Nonneg(0.13f0, pw), ElasticNet(0.13f0, 0f0, pw),
+                                  ElasticNet(0.13f0, 0.17f0, pw), GroupNormL2(0.13f0, groups, gw), sg, Scaled(sg, 0.137f0)),
+      sign in (1f0, -1f0)
+    g isa NormL1Nonneg && sign < 0 && continue
+    grouped = g isa Union{GroupNormL2, SparseGroupNormL2, Scaled}
+    b = Float32[sign * 0.4, 0.25, 0, 0]
+    x = grouped ? AtomIterate(b, groups) : SparseIterate(b)
+    m = cdmodel(0.3f0 * GLMLoss(ProximalBase.Squared(), y, X; weights = w, offset = o), nothing; intercept = icpt)
+    PS.initialize!(m, x)
+    for cand in (nothing, grouped ? [1] : [1, 2])
+      P, D, t = PS._wide_gap(m, g, x, cand)
+      oracle = gap64(m, g, x; candidates = cand)
+      @test 0 < t <= 1
+      @test isapprox((P - D) / P, oracle; atol = 1e-11, rtol = 0)
+    end
+  end
+  # A tiny slack times a large coefficient must not subtract large products.
+  x = SparseIterate(Float32[1e16])
+  ζ = prevfloat(0.125)
+  actual = PS._wide_penalty_gap(NormL1(0.125f0), x, [-ζ], 1.0, nothing)
+  expected = Float64((BigFloat(0.125) - BigFloat(ζ)) * BigFloat(x[1]))
+  @test actual == expected
+end
+
+@testset "Large-response gaps avoid dual cancellation" begin
+  X = reshape(Float32[1, 0, -1], 3, 1)
+  for weighted in (false, true), screening in (false, true)
+    if weighted
+      XX = reshape(Float32[1, 0, -1, 2], 4, 1)
+      y, o = Float32[1e16, 5, -1e16, 3], Float32[5e15, 1, -5e15, 3]
+      f = 0.25f0 * GLMLoss(ProximalBase.Squared(), y, XX; weights = Float32[2, 1, 2, 0], offset = o)
+    else
+      f = LeastSquaresLoss(Float32[1e16, 1, -1e16], X)
+    end
+    m = cdmodel(f, nothing; intercept = true)
+    x = SparseIterate(Float32, 1)
+    r = @test_logs (:warn, r"relative duality gap .* does not certify") solve_path(m, NormL1(1f0), Float32[1e-22],
+                     CDSolver(; order = :cyclic, momentum = false); x, screening)
+    g = NormL1(r.λ[1])
+    oracle = gapbig(m, g, x)
+    @test !r.converged[1] && r.gap[1] > PS.PATH_GAPTOL
+    @test oracle > 0.1
+    @test isapprox(r.gap[1], oracle; atol = 2e-8, rtol = 0)
+    P, D, _ = PS._wide_gap(m, g, x, nothing)
+    @test isapprox((P - D) / P, oracle; atol = 1e-12, rtol = 0)
+    dg = duality_gap(m, g, x)
+    @test isapprox(dg.gap / dg.primal, oracle; atol = 3e-8, rtol = 0)
+  end
+end
+
+@testset "Centred Newton models retain the intercept constraint at zero means" begin
+  X = reshape(Float32[1, 0, -1], 3, 1)
+  for icpt in (false, true)
+    outer = cdmodel(LogisticLoss(Float32[0, 1, 0], X), nothing; intercept = icpt)
+    x = SparseIterate(Float32[1e16])
+    s = CDSolver(; order = :cyclic, momentum = false, gaptol = 1e-4)
+    ws = PS._NewtonWorkspace(outer, x, s)
+    ws.v .= 1
+    ws.z .= Float32[1e16, 1, -1e16]
+    @test !ws.model.intercept
+    icpt && PS._center!(ws, nothing)
+    m = ws.model
+    @test m.intercept == icpt
+    @test iszero(m.ybar) && all(iszero, m.xbar)
+    if icpt
+      r = @test_logs (:warn, r"relative duality gap .* does not certify") solve!(x, m, NormL1(0f0), s)
+      @test !r.converged && isapprox(r.gap, 1 / 3; atol = 2e-8, rtol = 0)
+    else
+      r = @test_logs solve!(x, m, NormL1(0f0), s)
+      @test r.converged && r.gap <= s.gaptol
+    end
+    @test isapprox(r.gap, gapbig(m, NormL1(0f0), x); atol = 2e-8, rtol = 0)
   end
 end
 

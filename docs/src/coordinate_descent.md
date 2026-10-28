@@ -279,7 +279,9 @@ and every gap check at the change-tolerance floor use fresh residuals and
 `Float64` accumulation. The primal is evaluated at the returned coefficients
 and intercept; the dual residuals are centred with the observation weights
 when the model fits an intercept. Loss scales and penalty weights are widened
-before multiplication. The residual cache used by coordinate updates and
+before multiplication. The gap is accumulated from nonnegative Fenchel--Young
+terms using residual-sized quantities, so a large response does not cancel
+out its certificate. The residual cache used by coordinate updates and
 momentum is left intact. Gap-safe screening retains a gap and a dual centre
 both computed in `T`.
 
