@@ -27,6 +27,16 @@ end
 _GroupEig{T}() where {T} =
   _GroupEig{T}(0, Matrix{T}(undef, 0, 0), T[], T[], BlasInt[], T[], BlasInt[], Ref{BlasInt}(0), Ref{BlasInt}(0))
 
+# Test hook: fail this many selected-eigenvalue calls with the given LAPACK info.
+const _group_eig_failure = Ref((0, 0))
+
+function _group_eig_failure!()
+  count, info = _group_eig_failure[]
+  count > 0 || return nothing
+  _group_eig_failure[] = (count - 1, info)
+  info
+end
+
 for (syevr, T) in ((:dsyevr_, :Float64), (:ssyevr_, :Float32))
   @eval function _syevr_max!(ws::_GroupEig{$T}, n::Int, lwork::Integer, liwork::Integer)
     ccall((@blasfunc($syevr), libblastrampoline), Cvoid,
@@ -63,7 +73,13 @@ end
 # eigenvalue (info > 0), as some LAPACK builds do on a near-identity matrix,
 # such as the Gram matrix of an orthonormalized group
 function _eigmax!(ws::_GroupEig, n::Int)
-  info = _syevr_max!(ws, n, length(ws.work), length(ws.iwork))
+  info = _group_eig_failure!()
+  if info === nothing
+    info = _syevr_max!(ws, n, length(ws.work), length(ws.iwork))
+  else
+    # A failed selected call destroys the matrix, so the retry must rebuild it.
+    fill!(view(ws.C, 1:n^2), NaN)
+  end
   info < 0 && throw(LAPACKException(info))
   info == 0 ? ws.w[1] : nothing
 end
@@ -72,5 +88,17 @@ end
 # its eigenvalues, where _eigmax! fails: computing all of them converges on
 # those matrices
 _eigmax_all(C) = maximum(eigvals(Symmetric(Matrix(C))))
+
+# Retry convergence failures only; unsupported element types still raise an error.
+function _eigmax_generic(C)
+  try
+    info = _group_eig_failure!()
+    info === nothing || throw(LAPACKException(info))
+    return eigmax(Symmetric(C))
+  catch err
+    err isa LAPACKException && err.info > 0 || rethrow()
+  end
+  _eigmax_all(C)
+end
 
 _maxgroup(x::AtomIterate) = maximum(length, x.groups; init = 0)
