@@ -136,4 +136,37 @@ end
   end
 end
 
+@testset "the active-set method with Float64-scaled functions" begin
+  method = ActiveAccProxGradDescent()
+  cases = ((1 / n, NormL1(0.01f0), NormL1(Float64(0.01f0))),
+           (1f0 / n, 2.0 * NormL1(0.005f0), 2.0 * NormL1(Float64(0.005f0))),
+           (1 / n, 2.0 * NormL1(0.005f0), 2.0 * NormL1(Float64(0.005f0))))
+  for (scale, g, g64) in cases
+    f = scale * LeastSquaresLoss(y, X)
+    f64 = Float64(scale) * LeastSquaresLoss(y64, X64)
+    reference = solve!(zeros(p), f64, g64, method, reference_options)
+    @test reference.converged
+    value = f64(reference.minimizer) + g64(reference.minimizer)
+    initial_gradient = zeros(Float32, p)
+    value_and_gradient!(initial_gradient, f, zeros(Float32, p))
+    threshold = ProximalOptions().gradtol * max(1f0, norm(initial_gradient, Inf))
+    for start in (SparseIterate(Float32, p), zeros(Float32, p))
+      res = solve!(start, f, g, method, options)
+      @test res.outer_iterations > 0
+      @test res.inner_iterations > 0
+      @test res.minimum isa Float32
+      @test res.max_violation isa Float32
+      _check_minimum(res, f, g)
+      _check_objective(res, f64, g64, value)
+      x = Vector(res.minimizer)
+      gradient = zeros(Float32, p)
+      value_and_gradient!(gradient, f, x)
+      residual = norm(x - prox(g, x - gradient, 1f0), Inf)
+      # Four Float32 epsilons at the iterate scale cover rounding in the residual.
+      slack = 4eps(Float32) * max(1f0, norm(x, Inf))
+      @test residual <= threshold + slack
+    end
+  end
+end
+
 end
