@@ -261,7 +261,7 @@ function _flat_minimizer(g::ProximalBase.Translate, old::T, G::T, i, μ) where {
 end
 
 # A convex affine subproblem on a box clamps its unconstrained minimizer.
-# Otherwise the generic fixed-point check finds a bound using the effective slope.
+# Without an inner minimizer, only finite ends can pass the fixed-point check.
 function _flat_minimizer(g::ProximalBase.BoxConstrained, old::T, G::T, i, μ) where {T}
   if ProximalBase.isconvex(g.f)
     v = _flat_minimizer(g.f, old, G, i, μ)
@@ -269,7 +269,13 @@ function _flat_minimizer(g::ProximalBase.BoxConstrained, old::T, G::T, i, μ) wh
       c = _flat_candidate(T, prox_entry(g.box, v, i, one(T)))
       return c !== nothing && _flat_indomain(g, c, i) ? c : nothing
     end
+    for bound in (T(-Inf), T(Inf))
+      c = T(prox_entry(g.box, bound, i, one(T)))
+      isfinite(c) && _flat_indomain(g, c, i) && _flat_fixed(g, c, G, i, μ) && return c
+    end
+    return nothing
   end
+  iszero(G) || return nothing
   c = _flat_generic(g, old, G, i, μ)
   c !== nothing && _flat_indomain(g, c, i) ? c : nothing
 end
@@ -296,7 +302,7 @@ end
 
 function _flat_fixed(g, c::T, G::T, i, μ) where {T}
   isfinite(c) || return false
-  t = max(one(T), abs(c) / abs(G))
+  t = iszero(G) ? one(T) : max(one(T), abs(c) / abs(G))
   v = c - t * G
   step = t * μ
   isfinite(v) && isfinite(step) && prox_entry(g, v, i, step) == c

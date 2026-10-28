@@ -85,8 +85,9 @@ logarithm, negative entropy and KL divergence; `Regularize` of a convex penalty
 completes the square and takes one proximal step. `Scaled` changes `μ`, `Tilt`
 changes the effective slope, and `Translate` shifts the inner minimizer.
 `BoxConstrained` of a convex penalty clamps an available inner minimizer and
-otherwise retains the generic proximal fixed-point check. Translation and
-clamping must preserve the inner domain: positive for `NegLog`, nonnegative
+otherwise checks finite box ends with a proximal fixed-point test, also at
+zero slope. Translation and clamping must preserve the inner domain: positive
+for `NegLog`, nonnegative
 for `NegEntropy` and `KLDivergence`, also through wrappers. See the formulas in
 [The coordinate step](@ref). Least-squares zero columns and intercept-constant
 columns use the same flat minimizer.

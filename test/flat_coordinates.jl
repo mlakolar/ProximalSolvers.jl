@@ -108,6 +108,26 @@ end
   check_rejected(PB.BoxConstrained(Scaled(PB.NegLog(1.0), 2.0), IndBox(-1.0, 0.0)), 1.0)
 end
 
+@testset "boxed penalties without an inner minimizer" begin
+  for G in (0.0, -1.0)
+    g = PB.BoxConstrained(PB.NegLog(1.0), IndBox(1.0, Inf))
+    check_rejected(g, G; start = 1.5)
+    x = SparseIterate([1.5])
+    @test_throws ArgumentError solve!(x, QuadraticFunction(zeros(1, 1), [G]), g, solver())
+    @test x[1] === 1.5
+    g = PB.BoxConstrained(PB.NegLog(1.0), IndBox(1.0, 5.0))
+    check_solution(g, G, 5.0, x -> (-1 / x, Inf); start = 1.5)
+    @test PS._coordinate_minimizer(g, 1.5, G, 0.0, 1) === 5.0
+  end
+  g = PB.BoxConstrained(ElasticNet(0.1, 1.0), IndBox(1.0, 2.0))
+  check_solution(g, 0.0, 1.0, x -> (-Inf, 0.1 + x))
+  @test PS._coordinate_minimizer(g, 1.5, 0.0, 0.0, 1) === 1.0
+  g = PB.BoxConstrained(SqrNormL2(0.0), IndBox(-Inf, 2.0))
+  @test PS._coordinate_minimizer(g, 1.5, -1.0, 0.0, 1) === 2.0
+  g = PB.BoxConstrained(SqrNormL2(0.0), IndBox(-2.0, Inf))
+  @test PS._coordinate_minimizer(g, 1.5, 1.0, 0.0, 1) === -2.0
+end
+
 @testset "range and conversion checks" begin
   g = ElasticNet(0.1, floatmax(Float64))
   z = PS._coordinate_minimizer(g, 0.0, -floatmax(Float64), 0.0, 1)
@@ -246,6 +266,7 @@ end
            (IndBox(-1.0, 1.0), 1.0, -1.0), (PB.CheckLoss(0.3), -0.2, 0.0),
            (PB.HingeLoss(), 0.5, 1.0),
            (PB.BoxConstrained(ElasticNet(0.1, 1.0), IndBox(0.0, 0.5)), -1.0, 0.5),
+           (PB.BoxConstrained(Tilt(NormL1(0.25), [-2.0]), IndBox(-1.0, 1.0)), 1.0, 1.0),
            (PB.BoxConstrained(NormL1(0.1), IndBox(-0.5, 0.5)), -1.0, 0.5))
   for (g, G, expected) in cases
     @test PS._coordinate_minimizer(g, 0.7, G, 0.0, 1) === expected

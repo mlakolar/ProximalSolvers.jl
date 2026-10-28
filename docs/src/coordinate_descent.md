@@ -56,9 +56,10 @@ entry with zero level or weight minimizes at zero when ``G=0`` and is
 unbounded for nonzero ``G``. `NegLog` is unbounded for ``G\le0``.
 `Scaled` and `Tilt` reduce to the underlying penalty and its effective slope.
 `Translate(f, b)` adds ``b_i`` to the inner minimizer. For a convex penalty,
-`BoxConstrained` clamps an available inner minimizer and otherwise uses the
-existing proximal fixed-point check to find a bound. A translated or clamped
-point must lie in the inner domain: strictly positive for `NegLog`, and
+`BoxConstrained` clamps an available inner minimizer and otherwise checks the
+finite box ends with a proximal fixed-point test, including when ``G=0``.
+A translated or clamped point must lie in the inner domain: strictly positive
+for `NegLog`, and
 nonnegative for `NegEntropy` and `KLDivergence`, including through wrappers.
 These rules also apply to least-squares columns that are zero, or constant
 with an intercept.
