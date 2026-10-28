@@ -148,6 +148,32 @@ on the gap of the GLM in the same way, with each inner solve stopping on the
 gap of its quadratic model at a hundredth of the current gap, and the
 intercept, when the model has one, fitted exactly before each gap.
 
+The default target remains `1e-4` for `Float32`. For least squares, including
+stacked multitask group lasso, certificates use residuals formed directly in
+`Float64` from the represented data, loss scale, weights, offset and returned
+coefficients and intercept. Penalty parameters are also multiplied in
+`Float64`. The gap is accumulated from nonnegative Fenchel--Young terms,
+using residual-sized quantities to avoid cancellation against a large response.
+The target is checked before the gap is rounded to `Float32` in the results.
+[`duality_gap`](@ref) uses the same accumulation before rounding its fields
+to their public result types. The matrix-response least-squares model has no
+duality-gap certificate.
+
+For `Float32` and narrower types, the change tolerance can fall below
+`8eps(T)` times the data scale while the gap improves. A plateau in the
+changes triggers a full pass and another gap check. Stagnation, or the
+backstop at `eps(T)^2` times the data scale, stops the level with
+`converged = false`, a warning and the gap reached. A failed final full
+certificate also leaves `converged = false`, including after screening
+retries or a pass limit. `Float64` and wider types retain their existing
+change-tolerance floor.
+
+Other GLM certificates stay in the model's element type, including the outer
+certificate of [`ProxNewton`](@ref). Only its inner least-squares
+certificates are widened. Their accuracy is limited by arithmetic in `T`;
+the native relative-gap floor is `4eps(T)` (about `4.8e-7` for `Float32`).
+This floor does not bound the accumulated rounding error of a GLM gap.
+
 Other losses and penalties, a coordinate without penalty whose gradient is
 not zero, [`LLA`](@ref) paths and `gaptol = 0` keep the rule on the changes of
 [`CDSolver`](@ref), with its `tol`.
