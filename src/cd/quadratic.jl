@@ -147,7 +147,7 @@ function _groupcurvature!(m::QuadModel{T}, x::AtomIterate{T}, k::Int) where {T}
   if isnan(L)
     G = x.groups[k]
     L = length(G) == 1 ? m.A[first(G), first(G)] : _gram_eigmax!(m, x, G)
-    L = max(m.s * L, zero(T))
+    L = T(max(m.s * L, zero(T)))
     m.L[k] = L
   end
   L
@@ -166,7 +166,7 @@ function _gram_eigmax!(m::QuadModel{T}, x::AtomIterate{T}, G) where {T<:Union{Fl
   L === nothing ? _eigmax_all(A[G, G]) : L
 end
 
-_gram_eigmax!(m::QuadModel{T}, x::AtomIterate{T}, G) where {T} = eigmax(Symmetric(m.A[G, G]))
+_gram_eigmax!(m::QuadModel{T}, x::AtomIterate{T}, G) where {T} = _eigmax_generic(Matrix(m.A[G, G]))
 
 # group k of x ← the proximal operator of λ0 wₖ ‖⋅‖₂ with step 1/L at
 # x[G] - ∇_G f(x) / L, as for least squares

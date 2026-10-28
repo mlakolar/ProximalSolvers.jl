@@ -217,4 +217,159 @@ opt = ProximalOptions(; ftol = 1e-12, xtol = 1e-12, gradtol = 1e-10, maxiter = 5
 
 end
 
+function _check_float32_result(res, f, g, reference; cutoff = false)
+  @test typeof(res.minimum) == Float32
+  @test typeof(res.max_violation) == Float32
+  @test eltype(res.minimizer) == Float32
+  @test res.converged == !cutoff
+  @test reference.converged == !cutoff
+  objective = Float32(f(res.minimizer) + g(res.minimizer))
+  @test abs(res.minimum - objective) <= eps(abs(objective))
+  @test res.minimum ≈ reference.minimum rtol = 1e-4 atol = 1e-6
+end
+
+function _inactive_violation(f, g, x)
+  grad = zeros(eltype(x), length(x))
+  value_and_gradient!(grad, f, x)
+  maximum((Float32(kkt_violation(g, grad, x, k)) for k in 1:ncoordinates(x)
+           if !isactive(x, k)); init = -Inf32)
+end
+
+@testset "Float64 parameters on Float32 data (#130)" begin
+  method = ActiveAccProxGradDescent()
+  A = Float32[2 0.5 0; 0.5 1 0; 0 0 1]
+  b = Float32[-1, 0.2, 0.05]
+  f = QuadraticFunction(A, b)
+  f64 = QuadraticFunction(Float64.(A), Float64.(b))
+  g = NormL1(0.1)
+  reference = solve!(SparseIterate(3), f64, g, method)
+
+  @testset "Sparse and dense starts" begin
+    for x in (SparseIterate(Float32, 3), zeros(Float32, 3))
+      res = solve!(x, f, g, method)
+      _check_float32_result(res, f, g, reference)
+      @test res.active_set_size < length(x)
+      if x isa SparseIterate
+        @test isfinite(res.max_violation) && res.max_violation < 0
+        @test res.max_violation == _inactive_violation(f, g, x)
+      end
+    end
+  end
+
+  rng = Xoshiro(7)
+  n, p = 40, 8
+  X = randn(rng, Float32, n, p)
+  y = X[:, 1:2] * Float32[1, -2] + 0.1f0 * randn(rng, Float32, n)
+  scale = 1f0 / n
+  f_ls = scale * LeastSquaresLoss(y, X)
+  f_ls64 = Float64(scale) * LeastSquaresLoss(Float64.(y), Float64.(X))
+
+  @testset "Other separable penalties" begin
+    for penalty in (ElasticNet(0.1, 0.5), MCP(0.1, 3.0))
+      ref = solve!(SparseIterate(p), f_ls64, penalty, method)
+      for x in (SparseIterate(Float32, p), zeros(Float32, p))
+        res = solve!(x, f_ls, penalty, method)
+        _check_float32_result(res, f_ls, penalty, ref)
+      end
+    end
+  end
+
+  @testset "Inactive coordinates and groups" begin
+    weighted = NormL1(0.1f0, [1.0, 2.0, 1.0])
+    x = SparseIterate(Float32, 3)
+    res = solve!(x, f, weighted, method)
+    ref = solve!(SparseIterate(3), f64, weighted, method)
+    _check_float32_result(res, f, weighted, ref)
+    @test res.active_set_size < length(x)
+    @test res.max_violation == _inactive_violation(f, weighted, x)
+
+    groups = [[1, 2], [3, 4], [5, 6]]
+    A6 = Matrix(2f0 * I, 6, 6)
+    b6 = Float32[-1, 0.2, 0.05, 0.03, -0.4, 0.01]
+    fg = QuadraticFunction(A6, b6)
+    fg64 = QuadraticFunction(Float64.(A6), Float64.(b6))
+    gg = GroupNormL2(0.1, groups)
+    ref = solve!(AtomIterate(6, groups), fg64, gg, method)
+    for x in (AtomIterate(Float32, 6, groups), SparseIterate(Float32, 6), zeros(Float32, 6))
+      res = solve!(x, fg, gg, method)
+      _check_float32_result(res, fg, gg, ref)
+      @test res.active_set_size < length(x)
+      @test all(iszero, x[groups[2]])
+      if x isa Union{SparseIterate, AtomIterate}
+        @test res.max_violation == _inactive_violation(fg, gg, x)
+      end
+    end
+  end
+
+  @testset "Minimum without an inner solve" begin
+    scaled = 1.1 * QuadraticFunction(Float32[1;;], Float32[0], 1f0)
+    scaled64 = 1.1 * QuadraticFunction(Float64[1;;], Float64[0], 1.0)
+    penalty = NormL1(0.1f0)
+    res = solve!(SparseIterate(Float32, 1), scaled, penalty, method)
+    ref = solve!(SparseIterate(1), scaled64, penalty, method)
+    _check_float32_result(res, scaled, penalty, ref)
+    @test res.outer_iterations == res.inner_iterations == 0
+    expected = Float32(1.1 * 0.5 * 0 + 1.1 * 1)
+    @test res.minimum === expected
+  end
+
+  @testset "Trace and gap options" begin
+    res = redirect_stdout(devnull) do
+      solve!(SparseIterate(Float32, 3), f, g, method, ProximalOptions(; show_trace = true))
+    end
+    _check_float32_result(res, f, g, reference)
+
+    res = @test_logs (:warn, r"there is no duality gap .*gaptol is ignored") solve!(
+      SparseIterate(Float32, 3), f, g, method, ProximalOptions(; gaptol = 1e-6))
+    _check_float32_result(res, f, g, reference)
+
+    options = ProximalOptions(; gaptol = 1e-6)
+    x = SparseIterate(Float32, p)
+    @test ProximalSolvers._gapevaluator(f_ls, g, x) !== nothing
+    res = solve!(x, f_ls, g, method, options)
+    ref = solve!(SparseIterate(p), f_ls64, g, method, options)
+    _check_float32_result(res, f_ls, g, ref)
+  end
+
+  @testset "Positive violation at the outer limit" begin
+    fc = QuadraticFunction(Matrix(2f0 * I, 3, 3), Float32[-1, -0.6, 0.05])
+    fc64 = QuadraticFunction(Matrix(2.0 * I, 3, 3), Float64.(Float32[-1, -0.6, 0.05]))
+    cutoff = ActiveAccProxGradDescent(; max_add = 1, growth = 1, max_outer = 1)
+    x = SparseIterate(Float32, 3)
+    res = solve!(x, fc, g, cutoff)
+    # Use the same outer limit to compare the unfinished Float64 solve.
+    ref = solve!(SparseIterate(3), fc64, g, cutoff)
+    _check_float32_result(res, fc, g, ref; cutoff = true)
+    @test res.outer_iterations == 1
+    @test res.active_set_size == 1
+    @test res.max_violation > 0
+    @test res.max_violation == _inactive_violation(fc, g, x)
+  end
+
+  @testset "All coordinates active" begin
+    fa = QuadraticFunction(Matrix(1f0 * I, 2, 2), Float32[-1, 0.6])
+    fa64 = QuadraticFunction(Matrix(1.0 * I, 2, 2), Float64.(Float32[-1, 0.6]))
+    x = SparseIterate(Float32, 2)
+    res = solve!(x, fa, g, method)
+    ref = solve!(SparseIterate(2), fa64, g, method)
+    _check_float32_result(res, fa, g, ref)
+    @test res.active_set_size == length(x)
+    @test res.max_violation === -Inf32
+  end
+
+  @testset "Violation rounded after evaluation" begin
+    fb = QuadraticFunction(Float32[1;;], Float32[0.1])
+    fb64 = QuadraticFunction(Float64[1;;], Float64.(Float32[0.1]))
+    x = SparseIterate(Float32, 1)
+    res = solve!(x, fb, g, method)
+    ref = solve!(SparseIterate(1), fb64, g, method)
+    _check_float32_result(res, fb, g, ref)
+    expected = Float32(abs(0.1f0) - 0.1)
+    @test expected > 0
+    @test res.max_violation === expected
+    @test res.max_violation == _inactive_violation(fb, g, x)
+    @test res.active_set_size == 0
+  end
+end
+
 end
