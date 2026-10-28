@@ -162,7 +162,8 @@ function _gram_eigmax!(m::QuadModel{T}, x::AtomIterate{T}, G) where {T<:Union{Fl
   for (j, l) in enumerate(G), (i, k) in enumerate(G)
     i <= j && (@inbounds C[(j - 1) * q + i] = A[k, l])
   end
-  _eigmax!(ws, q)
+  L = _eigmax!(ws, q)
+  L === nothing ? _eigmax_all(A[G, G]) : L
 end
 
 _gram_eigmax!(m::QuadModel{T}, x::AtomIterate{T}, G) where {T} = eigmax(Symmetric(m.A[G, G]))

@@ -59,11 +59,17 @@ function _reserve!(ws::_GroupEig{T}, nmax::Int, nrows::Int) where {T<:Union{Floa
 end
 
 # the largest eigenvalue of the symmetric n × n matrix in ws.C[1:n²] (its upper
-# triangle), destroying it
+# triangle), destroying it; nothing when syevr fails to converge to that one
+# eigenvalue (info > 0), as some LAPACK builds do on a near-identity matrix,
+# such as the Gram matrix of an orthonormalized group
 function _eigmax!(ws::_GroupEig, n::Int)
   info = _syevr_max!(ws, n, length(ws.work), length(ws.iwork))
-  info == 0 || throw(LAPACKException(info))
-  ws.w[1]
+  info < 0 && throw(LAPACKException(info))
+  info == 0 ? ws.w[1] : nothing
 end
+
+# the largest eigenvalue of the symmetric matrix C from all of its eigenvalues,
+# where _eigmax! fails: computing all of them converges on those matrices
+_eigmax_all(C) = maximum(eigvals(Symmetric(C)))
 
 _maxgroup(x::AtomIterate) = maximum(length, x.groups; init = 0)
