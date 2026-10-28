@@ -425,7 +425,7 @@ records when their integrity checks pass.
 
 ## Results and historical material
 
-`docs/src/performance.md` is the designated results page. Historical benchmarks
+[`docs/src/performance.md`](../../docs/src/performance.md) is the designated results page. Historical benchmarks
 remain in the [pre-cleanup tree](https://github.com/mlakolar/ProximalSolvers.jl/tree/f7e3f28026a8e83e0fa18203b39839cf57a1c949/benchmark).
 Their mixed-workload aggregates cover different estimators and objectives and
 do not serve as this suite's comparison aggregate.
