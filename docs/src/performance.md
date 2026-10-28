@@ -301,6 +301,8 @@ suite's measured A/A noise.
   excludes 1.
 - A candidate needs an independent rerun in fresh processes before it counts
   as a confirmed regression. No result here is independently confirmed.
+- The results describe ProximalSolvers 0.2.0 at the commit above. Later
+  releases, including 0.3.0, are not covered by this campaign.
 
 The 0.80 ratio from the retired `benchmark/engine` is a historical mixed-workload
 aggregate. It includes CovSel, DiffPrecTest, refit, IHT, gradient and ADMM cases

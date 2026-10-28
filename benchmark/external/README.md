@@ -29,6 +29,14 @@ and use only the standard library.
 The two package stacks require different versions of ProximalBase (0.4 and 0.5),
 so they cannot share a Julia process. Every arm uses a fresh process.
 
+These lockfiles are those of the 2026-10-28 campaign, at ProximalSolvers 0.2.0.
+The pinned HighDimensionalModels revision requires ProximalSolvers 0.2, so the
+current environment does not instantiate against ProximalSolvers 0.3 or later.
+A new campaign against a later ProximalSolvers first resolves a new `current`
+manifest with a HighDimensionalModels revision that admits it, checks the
+adapters against that revision with the fixtures, and commits the new lock;
+`setup.jl` only reproduces a committed lock.
+
 `setup.jl SIDE HDM_REV OUTDIR` creates an environment by copying the checked-in
 project and manifest, then instantiating without a new resolution. It checks
 package versions and refuses a manifest changed by instantiation. For current,
