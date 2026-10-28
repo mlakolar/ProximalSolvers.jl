@@ -23,6 +23,7 @@ mutable struct LSModel{T<:AbstractFloat, MX<:AbstractMatrix{T}, VY<:AbstractVect
   w::W
   offset::O
   s::T
+  intercept::Bool
   r::Vector{T}
   a::Vector{T}          # ∑ᵢ wᵢ (Xᵢₖ - x̄ₖ)², NaN until computed
   xbar::Vector{T}       # (weighted) column means with an intercept, otherwise zeros
@@ -48,7 +49,7 @@ function LSModel(y::AbstractVector, X::AbstractMatrix, w, offset, s::Real; inter
     throw(ArgumentError("an intercept needs weights with a positive sum"))
   xbar = intercept ? _column_means(Xt, wt) : zeros(T, p)
   ybar = intercept ? _mean_response(yt, ot, wt) : zero(T)
-  LSModel{T, typeof(Xt), typeof(yt), typeof(wt), typeof(ot)}(Xt, yt, wt, ot, T(s), zeros(T, n), fill(T(NaN), p),
+  LSModel{T, typeof(Xt), typeof(yt), typeof(wt), typeof(ot)}(Xt, yt, wt, ot, T(s), intercept, zeros(T, n), fill(T(NaN), p),
                                                              xbar, ybar, T[], wt === nothing ? T[] : zeros(T, n),
                                                              _GroupEig{T}(), zero(T), T[],
                                                              wt === nothing ? T(n) : T(sum(wt)), T[])
@@ -78,6 +79,52 @@ multi-response model of a matrix `Y`, the vector of the intercepts of the
 responses.
 """
 intercept(m::LSModel, x::AbstractArray) = m.ybar - dot(m.xbar, x)
+
+# Fresh residuals at the returned intercept and coefficients, without moving
+# the residual cache or the separate shift of a sparse design.
+# Float32/Float16 products are exact in Float64. Compensated additions retain
+# residual-sized accuracy when the larger data and fitted values cancel.
+function _wide_residuals(m::LSModel, x)
+  b = Float64(intercept(m, x))
+  r, c = Vector{Float64}(m.y), zeros(Float64, length(m.y))
+  @inbounds for i in eachindex(r)
+    m.offset === nothing || _wide_residual_add!(r, c, i, -Float64(m.offset[i]))
+    _wide_residual_add!(r, c, i, -b)
+  end
+  for k in _certificate_entries(x)
+    v = Float64(x[k])
+    iszero(v) || _wide_residual_axpy!(r, c, m.X, k, v)
+  end
+  @inbounds for i in eachindex(r)
+    r[i] += c[i]
+  end
+  r
+end
+
+_certificate_entries(x::AbstractVector) = eachindex(x)
+_certificate_entries(x::Union{SparseIterate, AtomIterate}) = _activeentries(x)
+
+@inline function _wide_residual_add!(r, c, i, v)
+  a = r[i]
+  s = a + v
+  c[i] += abs(a) >= abs(v) ? (a - s) + v : (v - s) + a
+  r[i] = s
+end
+
+function _wide_residual_axpy!(r, c, X::AbstractMatrix, k::Int, v::Float64)
+  @inbounds for i in eachindex(r)
+    _wide_residual_add!(r, c, i, -Float64(X[i, k]) * v)
+  end
+  r
+end
+
+function _wide_residual_axpy!(r, c, X::SparseMatrixCSC, k::Int, v::Float64)
+  rows, vals = rowvals(X), nonzeros(X)
+  @inbounds for j in nzrange(X, k)
+    _wide_residual_add!(r, c, rows[j], -Float64(vals[j]) * v)
+  end
+  r
+end
 
 """
     residuals(m::CDModel)
@@ -476,6 +523,7 @@ function _groupcurvature!(m::LSModel{T}, x::AtomIterate{T}, k::Int) where {T}
   if isnan(L)
     G = x.groups[k]
     L = length(G) == 1 ? m.s * _sqnorm!(m, first(G)) : max(m.s * _gram_eigmax!(m, x, G), zero(T))
+    L = T(L)
     m.L[k] = L
   end
   L
@@ -501,9 +549,9 @@ function _gram_eigmax!(m::LSModel{T}, x::AtomIterate{T}, G) where {T<:Union{Floa
 end
 
 function _gram_eigmax!(m::LSModel{T}, x::AtomIterate{T}, G) where {T}
-  XG = m.X[:, G] .- transpose(m.xbar[G])
+  XG = Matrix(m.X[:, G] .- transpose(m.xbar[G]))
   m.w === nothing || (XG .*= sqrt.(m.w))
-  eigmax(Symmetric(XG' * XG))
+  _eigmax_generic(XG' * XG)
 end
 
 # group k of x ← the proximal operator of λ0 wₖ ‖⋅‖₂ with step 1/L at

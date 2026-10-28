@@ -99,7 +99,7 @@ function _metric_dualnorm(m::_DiagonalMetric, g)
   r
 end
 
-_metric_prox!(x, g, z, L, m) = value_and_prox!(x, g, z, _metric_steps!(m, L))
+_metric_prox!(x, g, z, L, m) = convert(_eltype(x), value_and_prox!(x, g, z, _metric_steps!(m, L)))
 # The identity prox is independent of the metric. ZeroFunction only has a
 # scalar-step method in ProximalBase.
 function _metric_prox!(x, ::ZeroFunction, z, L, m::_DiagonalMetric)
@@ -115,7 +115,7 @@ function _metric_prox!(x, g::ProximalBase.AbstractGroupNorm, z, L, m::_DiagonalM
   for k in eachindex(g.groups)
     _metric_group!(x, z, g.groups[k], g.λ0 * g.w[k] / L, m.diagonal, g)
   end
-  g(x)
+  convert(_eltype(x), g(x))
 end
 
 function _metric_group!(x, z, G, c, d, ::GroupNormL2)
@@ -196,5 +196,5 @@ function _metric_prox!(x, g::Scaled{<:ProximalBase.AbstractGroupNorm}, z, L, m::
     _copyto!(x, z)
     return zero(eltype(x))
   end
-  g.α * _metric_prox!(x, g.f, z, L / g.α, m)
+  convert(_eltype(x), g.α * _metric_prox!(x, g.f, z, L / g.α, m))
 end

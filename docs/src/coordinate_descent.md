@@ -274,6 +274,35 @@ as at least ``4\epsilon|P|``, the rounding of ``P - D``. Where the dual point
 does not exist (a coordinate without penalty whose gradient is not zero), the
 rule on the changes with `tol` applies.
 
+For least squares with `Float32` or narrower data, a tentative certificate
+and every gap check at the change-tolerance floor use fresh residuals and
+`Float64` accumulation. The primal is evaluated at the returned coefficients
+and intercept; the dual residuals are centred with the observation weights
+when the model fits an intercept. Loss scales and penalty weights are widened
+before multiplication. The gap is accumulated from nonnegative Fenchel--Young
+terms using residual-sized quantities, so a large response does not cancel
+out its certificate. The residual cache used by coordinate updates and
+momentum is left intact. Gap-safe screening retains a gap and a dual centre
+both computed in `T`.
+
+Narrow types monitor progress below `8eps(T)` times the data scale. The
+tolerance can tighten to `eps(T)^2` times that scale while the gap falls,
+and a plateau in the changes also ends active passes for a full pass and a
+gap check. Progress means a gap at least 10% below the best seen; twelve
+consecutive checks without this progress end the run uncertified. A
+certificate is compared with `gaptol` in `Float64` before the reported gap
+is rounded to `T`. Thus a reachable target below `eps(Float32)` can still
+certify, while stagnation reports `converged = false`, a warning and the
+gap reached. `Float64` and wider types keep their existing tolerance floor.
+
+GLM certificates other than squared loss remain in `T`, including the outer
+certificate of [`ProxNewton`](@ref); its inner least-squares certificates
+use the wider accumulation. The native certificate floor `4eps(Float32)`
+is about `4.8e-7`, and accumulated rounding can be larger. It is not a
+guarantee of GLM gap accuracy. In the small binary-logistic regression paths
+tested with and without an intercept, reported gaps differ from a `Float64`
+recomputation by less than `1e-6`. This diagnostic is not a general error bound.
+
 The paths of [`solve_path`](@ref) and the last level of continuation stop on
 the gap by default, at [`PATH_GAPTOL`](@ref ProximalSolvers.PATH_GAPTOL)
 `= 1e-4`; `gaptol = 1e-3` is the faster setting, for cross-validation and

@@ -99,7 +99,7 @@ function initial_state(
     AccProxGradDescentState(
                          x0,          # Maintain current state in state.x
                          f_x,
-                         g(x0),
+                         T(g(x0)),
                          _copy(x0),   # x_previous = x0, so the first step has no momentum
                          T(NaN),
                          T(NaN),

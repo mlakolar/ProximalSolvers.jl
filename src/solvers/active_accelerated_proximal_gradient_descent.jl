@@ -162,7 +162,7 @@ function solve!(
       kkt_converged = isfinite(residual) && residual <= options.gradtol * stationarity_scale
     end
     if kkt_converged || outer_iterations == method.max_outer || (solved && !moved)
-      return ActiveSetResults(x, f_x + g(x), outer_iterations, inner_iterations,
+      return ActiveSetResults(x, convert(T, f_x + g(x)), outer_iterations, inner_iterations,
                               kkt_converged, inner_converged, max_violation,
                               length(_active_entries!(S, x)))
     end
@@ -293,7 +293,7 @@ function _kkt_violators!(violators, violations, g, grad, x::Union{SparseIterate{
   max_violation = T(-Inf)
   for k in 1:ncoordinates(x)
     isactive(x, k) && continue
-    v = kkt_violation(g, grad, x, k)
+    v = convert(T, kkt_violation(g, grad, x, k))
     max_violation = max(max_violation, v)
     if v > 0
       push!(violators, k)
