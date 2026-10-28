@@ -16,10 +16,10 @@ mutable struct _GroupEig{T}
   nmax::Int                 # the largest group it has room for
   B::Matrix{T}              # n × nmax: the centered, weighted columns of a group
   C::Vector{T}              # nmax²: the Gram matrix of a group, as a |G| × |G| matrix
-  w::Vector{T}              # the eigenvalue found by syevr
+  w::Vector{T}              # the eigenvalue, with room for a failed rescale of W(1:3)
   isuppz::Vector{BlasInt}
   work::Vector{T}
-  iwork::Vector{BlasInt}
+  iwork::Vector{BlasInt}     # IWORK starts at 2, leaving a spare entry for IWORK(0)
   m::Base.RefValue{BlasInt}
   info::Base.RefValue{BlasInt}
 end
@@ -37,15 +37,21 @@ function _group_eig_failure!()
   info
 end
 
+# on failure, xSTEBZ can write IWORK(0), corrupting a Julia array header, and
+# xSYEVR can rescale W(1:3), past the data of a two-entry array. Both are fixed
+# in Reference-LAPACK, but not in OpenBLAS 0.3.34 or earlier.
 for (syevr, T) in ((:dsyevr_, :Float64), (:ssyevr_, :Float32))
   @eval function _syevr_max!(ws::_GroupEig{$T}, n::Int, lwork::Integer, liwork::Integer)
-    ccall((@blasfunc($syevr), libblastrampoline), Cvoid,
-          (Ref{UInt8}, Ref{UInt8}, Ref{UInt8}, Ref{BlasInt}, Ptr{$T}, Ref{BlasInt},
-           Ref{$T}, Ref{$T}, Ref{BlasInt}, Ref{BlasInt}, Ref{$T}, Ptr{BlasInt}, Ptr{$T},
-           Ptr{$T}, Ref{BlasInt}, Ptr{BlasInt}, Ptr{$T}, Ref{BlasInt}, Ptr{BlasInt}, Ref{BlasInt},
-           Ptr{BlasInt}, Clong, Clong, Clong),
-          'N', 'I', 'U', n, ws.C, max(1, n), zero($T), zero($T), n, n, -one($T), ws.m, ws.w,
-          ws.w, max(1, n), ws.isuppz, ws.work, lwork, ws.iwork, liwork, ws.info, 1, 1, 1)
+    iwork = ws.iwork
+    GC.@preserve iwork begin
+      ccall((@blasfunc($syevr), libblastrampoline), Cvoid,
+            (Ref{UInt8}, Ref{UInt8}, Ref{UInt8}, Ref{BlasInt}, Ptr{$T}, Ref{BlasInt},
+             Ref{$T}, Ref{$T}, Ref{BlasInt}, Ref{BlasInt}, Ref{$T}, Ptr{BlasInt}, Ptr{$T},
+             Ptr{$T}, Ref{BlasInt}, Ptr{BlasInt}, Ptr{$T}, Ref{BlasInt}, Ptr{BlasInt}, Ref{BlasInt},
+             Ptr{BlasInt}, Clong, Clong, Clong),
+            'N', 'I', 'U', n, ws.C, max(1, n), zero($T), zero($T), n, n, -one($T), ws.m, ws.w,
+            ws.w, max(1, n), ws.isuppz, ws.work, lwork, pointer(iwork, 2), liwork, ws.info, 1, 1, 1)
+    end
     ws.info[]
   end
 end
@@ -56,14 +62,14 @@ function _reserve!(ws::_GroupEig{T}, nmax::Int, nrows::Int) where {T<:Union{Floa
   nmax = max(nmax, ws.nmax)
   ws.B = Matrix{T}(undef, nrows, nmax)
   ws.C = zeros(T, nmax^2)
-  ws.w = zeros(T, nmax)
+  ws.w = zeros(T, max(nmax, 3))
   ws.isuppz = zeros(BlasInt, 2nmax)
   # the sizes of the work arrays for nmax suffice for any smaller matrix
-  resize!(ws.work, 1); resize!(ws.iwork, 1)
+  resize!(ws.work, 1); resize!(ws.iwork, 2)
   info = _syevr_max!(ws, nmax, -1, -1)
   info == 0 || throw(LAPACKException(info))
   resize!(ws.work, max(1, round(Int, ws.work[1])))
-  resize!(ws.iwork, max(1, Int(ws.iwork[1])))
+  resize!(ws.iwork, 1 + max(1, Int(ws.iwork[2])))
   ws.nmax = nmax
   ws
 end
@@ -75,7 +81,7 @@ end
 function _eigmax!(ws::_GroupEig, n::Int)
   info = _group_eig_failure!()
   if info === nothing
-    info = _syevr_max!(ws, n, length(ws.work), length(ws.iwork))
+    info = _syevr_max!(ws, n, length(ws.work), length(ws.iwork) - 1)
   else
     # A failed selected call destroys the matrix, so the retry must rebuild it.
     fill!(view(ws.C, 1:n^2), NaN)
@@ -94,7 +100,18 @@ function _eigmax_generic(C)
   try
     info = _group_eig_failure!()
     info === nothing || throw(LAPACKException(info))
-    return eigmax(Symmetric(C))
+    T = LinearAlgebra.eigtype(eltype(C))
+    if T <: Union{Float32, Float64}
+      n = LinearAlgebra.checksquare(C)
+      ws = _reserve!(_GroupEig{T}(), n, 0)
+      for j in 1:n, i in 1:j
+        ws.C[(j - 1) * n + i] = C[i, j]
+      end
+      L = _eigmax!(ws, n)
+      L === nothing || return L
+    else
+      return eigmax(Symmetric(C))
+    end
   catch err
     err isa LAPACKException && err.info > 0 || rethrow()
   end
