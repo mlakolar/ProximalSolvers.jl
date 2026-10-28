@@ -1,6 +1,6 @@
 # Optional, independent conic oracle for the graphical lasso. This is not part
 # of the normal package tests and adds no main-package runtime dependencies.
-# Run package setup AND this script in a Discovery Slurm allocation. From the
+# Run package setup AND this script in a cluster (Slurm) allocation. From the
 # repository root, with PROXIMALBASE_SNAPSHOT pointing to the pinned dependency:
 #
 # julia --project=test/oracles -e 'using Pkg; Pkg.develop(path=pwd());

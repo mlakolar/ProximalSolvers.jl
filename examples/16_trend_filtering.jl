@@ -39,7 +39,9 @@ end
 #
 # Reaching a small certificate verifies optimization accuracy. It does not
 # select a statistically optimal λ or prove that the estimated knots are
-# correct. The benchmark reports solve and setup costs at this same target,
+# correct. The
+# [historical benchmark](https://github.com/mlakolar/ProximalSolvers.jl/tree/f7e3f28026a8e83e0fa18203b39839cf57a1c949/benchmark/composite_lessons)
+# reports solve and setup costs at this same target,
 # with an independent QP reference. Expect a specialized solver to be a
 # serious competitor here: the lesson is how structure determines the
 # algorithm, rather than that a general solver should always win.

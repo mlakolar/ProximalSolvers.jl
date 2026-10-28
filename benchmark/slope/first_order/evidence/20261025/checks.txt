@@ -1,2 +1,0 @@
-Test Summary:                                 | Pass  Total  Time
-Native controls and faithful APG phase timers |  100    100  9.4s

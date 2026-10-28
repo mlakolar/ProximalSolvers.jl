@@ -288,7 +288,7 @@ otherwise stop far from a joint minimizer near an exact fit. A positive
 prevents dual scaling, the method falls back to coordinate changes; see
 [The square-root lasso](@ref) for this limitation and exact-fit behavior.
 
-The [historical gap benchmarks](https://github.com/mlakolar/ProximalSolvers.jl/tree/master/benchmark/gap)
+The [historical gap benchmarks](https://github.com/mlakolar/ProximalSolvers.jl/tree/f7e3f28026a8e83e0fa18203b39839cf57a1c949/benchmark/gap)
 retain the workloads, scripts and earlier timing and accuracy comparisons.
 They concern earlier source editions and do not establish performance of this
 release. A gap target bounds objective error; coefficient error depends on

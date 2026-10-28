@@ -24,7 +24,7 @@ end
 # cannot pass unnoticed.
 include(joinpath(@__DIR__, "..", "..", "examples", "support", "primal_dual_lessons.jl"))
 using .PrimalDualLessons
-include(joinpath(@__DIR__, "..", "..", "benchmark", "composite_lessons", "qp.jl"))
+include(joinpath(@__DIR__, "qp.jl"))
 
 @testset "Composite lecture certificates and reference algorithms" begin
   rng = MersenneTwister(1516)

@@ -67,7 +67,6 @@ makedocs(
             "ADMM" => "admm.md",
             "Primal–dual splitting" => "primal_dual.md",
             "Lecture: choosing a composite splitting" => "composite_lessons.md",
-            "Composite splitting: measurements" => "composite_results.md",
         ],
         "Examples" => example_pages,
         "API reference" => [

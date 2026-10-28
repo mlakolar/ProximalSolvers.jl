@@ -20,26 +20,15 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
 jobs:
-  benchmark-evidence:
-    name: Benchmark evidence integrity
+  benchmark-analysis:
+    name: Benchmark analysis controls
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-      - run: python benchmark/adaptive/broad/check_summary.py
-      - run: python benchmark/adaptive/broad/check_evidence.py
-      - run: python benchmark/slope/check_summary.py
-      - run: python benchmark/slope/check_evidence.py
-      - run: python benchmark/slope/path_reuse/check_summary.py
-      - run: python benchmark/slope/path_reuse/check_evidence.py
-      - run: python benchmark/slope/first_order/check_summary.py
-      - run: python benchmark/slope/first_order/check_evidence.py
-      - run: python benchmark/slope/extraction/check_results.py
-      - run: python benchmark/slope/hybrid/summarize.py
-      - run: python benchmark/slope/hybrid/optimized/summarize.py --check
-      - run: python benchmark/diagonal/summarize.py benchmark/diagonal/evidence/discovery-20261026.csv
+      - run: python benchmark/check_analysis.py
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}

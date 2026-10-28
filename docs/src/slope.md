@@ -58,13 +58,15 @@ than an estimate of predictor correlation. See [`SLOPEHybrid`](@ref).
 For this option, `maxiter` counts PG/APG steps and complete CD sweeps, summed
 over repairs. These units have different costs; compare matched-accuracy time,
 allocation and certificate results rather than raw iterations. Convergence
-still requires the full problem check. Benchmark results and retained failures
-are recorded under `benchmark/slope/hybrid/optimized/`. The accompanying
-`LIBSLOPE_COMPARISON.md` distinguishes the common PG/CD schedule from our
-APG fallback, documents stopping-rule and allocation-counter differences, and
-records the limits of the native-library comparison. The bounded study found
-a benefit on correlated dense designs; sparse and independent controls do not
-show a consistent benefit, and process RSS did not improve.
+still requires the full problem check. Historical benchmark results and retained
+failures are in the
+[snapshot](https://github.com/mlakolar/ProximalSolvers.jl/tree/f7e3f28026a8e83e0fa18203b39839cf57a1c949/benchmark/slope/hybrid/optimized).
+The snapshot's `LIBSLOPE_COMPARISON.md` distinguishes the common PG/CD schedule
+from our APG fallback, documents stopping-rule and allocation-counter differences, and
+records the limits of the historical native-library comparison.
+The historical bounded study found a benefit on correlated dense designs;
+sparse and independent controls do not show a consistent benefit, and process
+RSS did not improve.
 
 ## Accuracy and retained failures
 
@@ -93,6 +95,7 @@ loss across path levels, without constructing a full dense design. The caller
 validates its matrix storage; the driver validates vector inputs, weights and
 finite null-gradient products without scanning an implicit matrix entry by entry.
 
-The extraction and its Discovery comparison are recorded under
-`benchmark/slope/extraction`. Earlier comparisons with SLOPE.jl and libslope
-remain separate experiments with their own protocols and limitations.
+The extraction and its historical comparison are retained in the
+[snapshot](https://github.com/mlakolar/ProximalSolvers.jl/tree/f7e3f28026a8e83e0fa18203b39839cf57a1c949/benchmark/slope/extraction).
+Earlier comparisons with SLOPE.jl and libslope are separate historical
+experiments in that snapshot, with their own protocols and limitations.
