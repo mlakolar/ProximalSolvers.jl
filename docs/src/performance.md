@@ -327,6 +327,9 @@ The [suite README](https://github.com/mlakolar/ProximalSolvers.jl/blob/master/be
 confirmation, validation, analysis and cross-check commands. The
 [campaign pre-release](https://github.com/mlakolar/ProximalSolvers.jl/releases/tag/cd-comparison-20261028) holds the raw records, coefficients, input
 artifact, lockfiles, commands and analysis outputs, with a SHA-256 list.
+The suite's checked-in lock has since moved to ProximalSolvers 0.3 and a later
+HighDimensionalModels revision. Reproducing this campaign uses the archived
+lockfiles and the commit above.
 
 The independent Python certificate cross-check matches
 1,990/1,990 calibration coefficient files and

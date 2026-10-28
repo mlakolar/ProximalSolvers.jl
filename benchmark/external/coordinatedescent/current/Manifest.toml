@@ -2,7 +2,7 @@
 
 julia_version = "1.13.3"
 manifest_format = "2.1"
-project_hash = "dcae6b1b0bec9439dc70fe35a57a78ffde6cd428"
+project_hash = "0b8471cecdeb4191747b28b2cb882a6a078487f5"
 
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
@@ -26,19 +26,21 @@ version = "0.10.2"
 
 [[deps.HighDimensionalModels]]
 deps = ["LinearAlgebra", "PrecompileTools", "ProximalBase", "ProximalSolvers", "Random", "SparseArrays", "SpecialFunctions", "Statistics", "StatsAPI"]
-git-tree-sha1 = "6e0001190abb9d529b25601967146af136838c02"
-repo-rev = "047c4193764b4171c659f4c649bbee8bf1df65fb"
+git-tree-sha1 = "d4569fb663e6032a4594b112f328bf58ec9f18da"
+repo-rev = "5e89ef48e0774348873248d2a45d9390e20f24f7"
 repo-url = "https://github.com/mlakolar/HighDimensionalModels.jl"
 uuid = "676596c9-8d02-4dfa-b091-57818f5febe0"
 version = "0.1.0"
 
     [deps.HighDimensionalModels.extensions]
     HighDimensionalModelsHiGHSExt = "HiGHS"
+    HighDimensionalModelsKnockoffsExt = "Knockoffs"
     HighDimensionalModelsProximalAlgorithmsExt = "ProximalAlgorithms"
     HighDimensionalModelsStatsModelsExt = "StatsModels"
 
     [deps.HighDimensionalModels.weakdeps]
     HiGHS = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
+    Knockoffs = "878bf26d-0c49-448a-9df5-b057c815d613"
     ProximalAlgorithms = "140ffc9f-1907-541a-a177-7475e0a401e9"
     StatsModels = "3eaba693-59b7-5ba5-a881-562e759f1c8d"
 
@@ -137,7 +139,7 @@ version = "0.5.4"
 deps = ["LinearAlgebra", "PrecompileTools", "Printf", "ProximalBase", "Random", "SparseArrays"]
 path = "../../../.."
 uuid = "fc4971f5-6616-4709-9bfc-89a819252f6b"
-version = "0.2.0"
+version = "0.3.0"
 
 [[deps.Random]]
 deps = ["SHA"]

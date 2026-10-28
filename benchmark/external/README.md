@@ -23,19 +23,21 @@ and use only the standard library.
 | Arm | Locked packages and source |
 |---|---|
 | `legacy` | CoordinateDescent 0.6.1, ProximalBase 0.4.1. |
-| `current` | HighDimensionalModels 0.1.0 at `047c4193764b4171c659f4c649bbee8bf1df65fb`, ProximalBase 0.5.4, ProximalSolvers 0.2.0 from this checkout. |
+| `current` | HighDimensionalModels 0.1.0 at `5e89ef48e0774348873248d2a45d9390e20f24f7`, ProximalBase 0.5.4, ProximalSolvers 0.3.0 from this checkout. |
 | `current-AA` | A separate environment with byte-identical copies of current's project and manifest, using the same checkout. |
 
 The two package stacks require different versions of ProximalBase (0.4 and 0.5),
 so they cannot share a Julia process. Every arm uses a fresh process.
 
-These lockfiles are those of the 2026-10-28 campaign, at ProximalSolvers 0.2.0.
-The pinned HighDimensionalModels revision requires ProximalSolvers 0.2, so the
-current environment does not instantiate against ProximalSolvers 0.3 or later.
-A new campaign against a later ProximalSolvers first resolves a new `current`
-manifest with a HighDimensionalModels revision that admits it, checks the
-adapters against that revision with the fixtures, and commits the new lock;
-`setup.jl` only reproduces a committed lock.
+The pinned HighDimensionalModels revision fixes the ProximalSolvers versions the
+current environment admits. To run against a later ProximalSolvers, resolve a
+new `current` manifest with a HighDimensionalModels revision that admits it,
+check the adapters against that revision with the fixtures, and commit the new
+lock. `setup.jl` only reproduces a committed lock. The 2026-10-28 campaign used
+HighDimensionalModels `047c4193764b4171c659f4c649bbee8bf1df65fb` with
+ProximalSolvers 0.2.0; its lockfiles are in the
+[campaign archive](https://github.com/mlakolar/ProximalSolvers.jl/releases/tag/cd-comparison-20261028)
+(`environments/`).
 
 `setup.jl SIDE HDM_REV OUTDIR` creates an environment by copying the checked-in
 project and manifest, then instantiating without a new resolution. It checks

@@ -56,10 +56,13 @@ function setup(side, revision, output)
   Pkg.instantiate()
   read(lock_path) == before || error("instantiation changed the locked manifest")
   deps = Pkg.dependencies()
-  for (name, version) in (side == "legacy" ?
-      (("CoordinateDescent", v"0.6.1"), ("ProximalBase", v"0.4.1")) :
-      (("HighDimensionalModels", v"0.1.0"), ("ProximalBase", v"0.5.4"), ("ProximalSolvers", v"0.2.0")))
-    only(d.version for d in values(deps) if d.name == name) == version || error("wrong $name version")
+  manifest = TOML.parsefile(lock_path)
+  names = side == "legacy" ? ("CoordinateDescent", "ProximalBase") :
+    ("HighDimensionalModels", "ProximalBase", "ProximalSolvers")
+  for name in names
+    entry = only(manifest["deps"][name])
+    dep = deps[Base.UUID(entry["uuid"])]
+    dep.version == VersionNumber(entry["version"]) || error("wrong $name version")
   end
   println("MANIFEST_SHA256 ", bytes2hex(sha256(read(lock_path))))
 end

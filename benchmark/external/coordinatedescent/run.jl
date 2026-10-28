@@ -230,6 +230,9 @@ function start_metadata(config, artifact, specs)
       path = joinpath(depot, "packages", "HighDimensionalModels", slug)
       isdir(path) && realpath(path) == loaded
     end || error("loaded HighDimensionalModels pkgdir differs from its manifest entry")
+    ps = only(manifest["deps"]["ProximalSolvers"])
+    pkgversion(ProximalSolvers) == VersionNumber(ps["version"]) || error("wrong locked ProximalSolvers version")
+    meta["proximalsolvers_version"] = string(pkgversion(ProximalSolvers))
     meta["highdimensionalmodels_rev"] = hdm["repo-rev"]
     meta["highdimensionalmodels_tree_hash"] = hdm["git-tree-sha1"]
     meta["highdimensionalmodels_version"] = string(pkgversion(CURRENT))
@@ -251,7 +254,7 @@ function observe(spec, data, limit, cache = coefficient_certificate_cache())
   status, detail, stack = :ok, "", ""
   try
     # v0.6.1 src/atom_iterator.jl:71-79 uses rand(range), hence the global RNG.
-    # ae44440 src/coordinate_descent.jl:138-144 and src/utils.jl:174-175 pass
+    # 5e89ef4 src/coordinate_descent.jl:134-142 and src/utils.jl:173-175 pass
     # Random.default_rng() into CDSolver; it is the same task-global seeded stream.
     # Active sets and stopping can diverge, so identical coordinate sequences are not assumed.
     Random.seed!(data.seed)

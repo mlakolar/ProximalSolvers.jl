@@ -11,5 +11,5 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 
 [sources]
-HighDimensionalModels = {rev = "047c4193764b4171c659f4c649bbee8bf1df65fb", url = "https://github.com/mlakolar/HighDimensionalModels.jl"}
+HighDimensionalModels = {rev = "5e89ef48e0774348873248d2a45d9390e20f24f7", url = "https://github.com/mlakolar/HighDimensionalModels.jl"}
 ProximalSolvers = {path = "../../../.."}
