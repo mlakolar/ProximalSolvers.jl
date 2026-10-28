@@ -185,7 +185,7 @@ function reinitialize_state!(state::ProximalGradientDescentState{T}, f, g,
   state.model === nothing || _image!(state.z_x, state.model, state.x)
   state.f_x = _value_and_gradient!(state.grad_f_x, f, state.x, state.model, state.z_x, state.dz)
   _check_start(state.f_x)
-  state.g_x = g(state.x)
+  state.g_x = T(g(state.x))
   state.f_x_previous = state.g_x_previous = T(NaN)
   state.L = one(T)
   state.max_residual = T(-Inf)
@@ -200,7 +200,7 @@ function reinitialize_state!(state::AccProxGradDescentState{T}, f, g,
                              method::AccProxGradDescent) where {T}
   state.f_x = _value!(f, state.x, state.model, state.z_x)
   _check_start(state.f_x)
-  state.g_x = g(state.x)
+  state.g_x = T(g(state.x))
   _copyto!(state.x_previous, state.x)
   state.model === nothing || copyto!(state.z_previous, state.z_x)
   state.f_x_previous = state.g_x_previous = state.f_y = T(NaN)

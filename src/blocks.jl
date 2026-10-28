@@ -12,10 +12,13 @@ using ProximalBase: norm_diff
 
 export _Blocks, _copy, _similar, _zero, _dense_similar, _copyto!, _copy!, _sub!, _step!, _extrapolate_point!,
        _relax!, _rdiv!, _norm, _norm_diff, _norm_inf, _dot, _dot_diff, _sumabs2, _length, _size,
-       _maxabs_diff, _maxabs_axpy, _maxabs_stepdiff, _maxabs_residual, _allzero, _restricted_step!
+       _maxabs_diff, _maxabs_axpy, _maxabs_stepdiff, _maxabs_residual, _allzero, _restricted_step!, _eltype
 
 # the iterates of a product space: a tuple of arrays with one element type
 const _Blocks{T} = Tuple{AbstractArray{T}, Vararg{AbstractArray{T}}}
+
+_eltype(x::AbstractArray) = eltype(x)
+_eltype(::_Blocks{T}) where {T} = T
 
 _copy(x::AbstractArray) = copy(x)
 _copy(x::Tuple) = map(_copy, x)

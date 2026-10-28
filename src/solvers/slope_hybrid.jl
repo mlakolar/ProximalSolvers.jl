@@ -378,7 +378,7 @@ function _slope_inner!(x,f,g,method::SLOPEHybrid,budget,target,workspace::_SLOPE
         valid || break
       end
       state.f_x = _value!(f,x,state.model,state.z_x)
-      state.g_x = g(x)
+      state.g_x = convert(_eltype(x), g(x))
       after = state.f_x+state.g_x
       if !valid || !isfinite(after) || after > before+10eps(eltype(x))*max(one(eltype(x)),abs(before))
         copyto!(x,1,w.saved,1,length(x))

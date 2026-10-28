@@ -91,7 +91,7 @@ function initial_state(method::MonotoneAccProxGradDescent, options, f, g,
     z_x = model === nothing ? nothing : _image_buffer(model)
     f_x = _value!(f, x0, model, z_x)
     _check_start(f_x)
-    g_x = g(x0)
+    g_x = T(g(x0))
     MonotoneAccProxGradDescentState(
         x0, f_x, g_x,
         _copy(x0), T(NaN), T(NaN),        # x_previous = x0, so the first y is x0
@@ -176,7 +176,7 @@ function _prox_grad_step!(w, grad, f, g, u, state::MonotoneAccProxGradDescentSta
     isfinite(f_u) || return T(Inf), T(Inf)
     while true
       _step!(state.xhat, u, grad, state.L)
-      g_w = value_and_prox!(w, g, state.xhat, one(T) / state.L)
+      g_w = T(value_and_prox!(w, g, state.xhat, one(T) / state.L))
       _drop!(w)
       f_w = _value!(f, w, state.model, image_w)
       state.prox_calls += 1
@@ -188,7 +188,7 @@ function _prox_grad_step!(w, grad, f, g, u, state::MonotoneAccProxGradDescentSta
       state.backtrack_steps += 1
       # slack guards against an endless loop from rounding error near the solution
       _majorization_ok(f, state.model, image_u, image_w, f_u, f_w, upper,
-                       state.L, stepnorm2, state.xhat) && return f_w, T(g_w)
+                       state.L, stepnorm2, state.xhat) && return f_w, g_w
       state.L = LineSearches.next_curvature(state.L, method.β)
     end
 end
@@ -209,7 +209,7 @@ function reinitialize_state!(state::MonotoneAccProxGradDescentState{T}, f, g,
                              method::MonotoneAccProxGradDescent) where T
     state.f_x = _value!(f, state.x, state.model, state.z_x)
     _check_start(state.f_x)
-    state.g_x = g(state.x)
+    state.g_x = T(g(state.x))
     _copyto!(state.x_previous, state.x)
     _copyto!(state.z, state.x)
     if state.model !== nothing

@@ -266,8 +266,8 @@ function _solve_admm!(z::Union{AbstractArray{T}, _Blocks{T}}, f, g, method, opti
   end
 
   # f(z) for the minimum is one more call
-  ADMMResults(z, f(z) + g(z), iteration, converged,
-              r_norm, s_norm, eps_pri, eps_dual, u, ρ,
+  ADMMResults(z, T(f(z) + g(z)), iteration, converged,
+              T(r_norm), T(s_norm), T(eps_pri), T(eps_dual), u, T(ρ),
               f_calls + 1, 0, prox_calls, call_limit_reached, relgap)
 end
 
