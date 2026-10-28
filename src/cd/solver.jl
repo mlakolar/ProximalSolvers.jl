@@ -72,7 +72,17 @@ computed where that rule would stop, and while it is above `gaptol` the
 tolerance falls by the factor the gap asks for and the passes go on. A gap
 costs one gradient over the candidate coordinates (all of them without
 screening; the paths confirm it with the full gradient of their optimality
-checks). The gap is taken as at least `4 eps |P|`. A single `solve!` stops on
+checks). Least-squares certificates for `Float32` and narrower types form
+fresh residuals and accumulate the objectives and penalty thresholds in
+`Float64`, at the returned coefficients and intercept. The comparison with
+`gaptol` precedes rounding the gap to the result's element type. Below the
+change tolerance `8eps(T)` times the data scale, narrow types keep tightening
+while the gap falls; plateaus also trigger gap checks. Stagnation ends the
+run with `converged = false`, a warning and the gap reached. `Float64` and
+wider types keep their change-tolerance floor. GLM certificates, including the
+outer certificate of `ProxNewton`, stay in `T`; only its inner least-squares
+certificates are widened. The gap is taken as at least `4 eps |P|` in its
+accumulation type. A single `solve!` stops on
 the gap only with `gaptol > 0`; the paths of [`solve_path`](@ref) and the last
 level of continuation do by default (see [`PATH_GAPTOL`](@ref
 ProximalSolvers.PATH_GAPTOL)). This needs a loss of a linear map with a known
@@ -220,11 +230,15 @@ mutable struct _CDState{T, R<:AbstractRNG}
   relgap::T                              # the last relative duality gap, NaN if none
   gapmode::Bool                          # whether the run stops on the duality gap (see _tolerances)
   tolchange::T                           # the tolerance of the rule on the changes, from s.tol
+  bestgap::T                             # best gap since the changes reached the rounding floor
+  gapstalls::Int                         # consecutive gap checks without sufficient progress
+  previouschange::T                      # largest change in the preceding pass
 end
 
 _CDState(::Type{T}, x, s::CDSolver) where {T} =
   _CDState{T, typeof(s.rng)}(s.random, s.rng, Vector{Int}(undef, s.random ? ncoordinates(x) : 0), nothing,
-                             _Momentum{T}(), 0, false, T(NaN), T(NaN), nothing, T(NaN), false, T(NaN))
+                             _Momentum{T}(), 0, false, T(NaN), T(NaN), nothing, T(NaN), false, T(NaN),
+                             T(Inf), 0, T(Inf))
 
 # the state of a run whose random orders come from the default generator
 _CDState(::Type{T}, x, random::Bool) where {T} = _CDState(T, x, CDSolver(; order = random ? :random : :cyclic))
@@ -318,6 +332,7 @@ end
 # after a full pass is small enough; see _afterpass!). The model m must be
 # current for x.
 function _cd!(x, m, g, st::_CDState{T}, s::CDSolver) where {T}
+  st.bestgap, st.gapstalls, st.previouschange = T(Inf), 0, T(Inf)
   gs = _gapstart!(st, m, g, x, s)
   if s.anderson > 0 && !s.random && !(x isa AtomIterate)
     _cd_anderson!(x, m, g, st, s, gs)
@@ -325,6 +340,9 @@ function _cd!(x, m, g, st::_CDState{T}, s::CDSolver) where {T}
     _cd_momentum!(x, m, g, st, s, gs)
   else
     _cd_plain!(x, m, g, st, s, gs)
+  end
+  if gs !== nothing && st.gapmode && !st.converged && st.passes >= s.maxpasses
+    _lastgap!(st, gs, m, g, x)
   end
   st.converged = _certified!(st, m, g, x, s) && st.converged
   gs === nothing || (st.candidates = gs.base)
@@ -336,15 +354,16 @@ end
 _certified!(st, m::CDModel, g, x, s) = true
 
 # The tolerance on the scaled changes, whether the changes are scaled, and the
-# smallest tolerance that gaptol may tighten it to, a few roundings on the
-# scale of the data: the gap of a scaled dual point shrinks only as fast as the
+# rounding floor of the tolerance, a few roundings on the scale of the data:
+# the gap of a scaled dual point shrinks only as fast as the
 # changes, so a gap near the precision needs changes near it too. When the run
 # stops on the duality gap (gaptol with a model and penalty that have one), the
 # changes only decide when to compute it, and their tolerance starts at
 # _GAPSTART gaptol (relative), near where the gap reaches gaptol, since the
 # relative gap of the rescaled residuals is about proportional to the largest
 # scaled change. The tolerance of the method, s.tol, is kept in st.tolchange
-# for when the gap is not available at x.
+# for when the gap is not available at x. Narrow types monitor gap progress
+# below tolmin, down to eps(T)^2 on the same scale.
 function _tolerances(m, x, s::CDSolver, ::Type{T}, st::_CDState{T}, gs) where {T}
   sy = s.relative ? response_scale(m, x) : one(T)
   scaled = s.relative && sy > 0
@@ -358,6 +377,8 @@ function _tolerances(m, x, s::CDSolver, ::Type{T}, st::_CDState{T}, gs) where {T
 end
 
 const _GAPSTART = 1.0
+
+_narrow(::Type{T}) where {T} = eps(T) > eps(Float64)
 
 function _cd_plain!(x, m, g, st::_CDState{T}, s::CDSolver, gs) where {T}
   tol, scaled, tolmin = _tolerances(m, x, s, T, st, gs)

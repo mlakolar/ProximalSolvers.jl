@@ -119,7 +119,7 @@ function _dualscale(g::GroupNormL2, z::AbstractVector{T}) where {T}
 end
 
 # the same over the groups ks only
-function _groupscale(g::GroupNormL2, z::AbstractVector{T}, ks) where {T}
+function _groupscale(g::GroupNormL2, z::AbstractVector{T}, ks, wide::Bool = false) where {T}
   t = one(T)
   for k in ks
     G = g.groups[k]
@@ -127,7 +127,7 @@ function _groupscale(g::GroupNormL2, z::AbstractVector{T}, ks) where {T}
     @inbounds for i in G
       a += z[i] * z[i]
     end
-    a, c = sqrt(a), T(g.λ0 * g.w[k])
+    a, c = sqrt(a), wide ? T(g.λ0) * T(g.w[k]) : T(g.λ0 * g.w[k])
     a > c || continue
     iszero(c) && return nothing
     t = min(t, c / a)
@@ -259,6 +259,130 @@ function _gap_at(z::AbstractVector{T}, m::LSModel{T}, g, x, cand) where {T}
   P, -t * m.s * v - _conjugate_penalty_on(g, z, t, x, cand), t
 end
 
+# Narrow least-squares certificates use fresh residuals and widen every
+# factor of the loss and penalty. The native gap remains the one used by
+# gap-safe screening, together with its native dual centre.
+_widecertificate(m::CDModel) = false
+_widecertificate(m::LSModel{T}) where {T} = _narrow(T)
+
+function _wide_gap(m::LSModel, g, x, cand)
+  r = _wide_residuals(m, x)
+  d = similar(r)
+  s, v, wr, W = Float64(m.s), 0.0, 0.0, 0.0
+  @inbounds for i in eachindex(r)
+    wi = Float64(_obsweight(m.w, i, Float64))
+    iszero(wi) && continue
+    v += wi * r[i]^2
+    wr += wi * r[i]
+    W += wi
+  end
+  # Proximal Newton also centres its quadratic model in place.
+  centered = m.intercept || !iszero(m.ybar) || any(!iszero, m.xbar)
+  μ = centered ? wr / W : 0.0
+  @inbounds for i in eachindex(r)
+    wi = Float64(_obsweight(m.w, i, Float64))
+    d[i] = iszero(wi) ? 0.0 : wi * (r[i] - μ)
+  end
+  z = zeros(Float64, length(x))
+  if cand === nothing
+    for j in eachindex(z)
+      z[j] = -s * _wide_coldot(m.X, d, j)
+    end
+  else
+    for k in cand, j in _coordentries(x, k)
+      z[j] = -s * _wide_coldot(m.X, d, j)
+    end
+  end
+  t = _wide_dualscale_on(g, z, x, cand)
+  t === nothing && return nothing
+  P = s * v / 2 + _wide_penalty_value(g, x)
+  v = 0.0
+  @inbounds for i in eachindex(r)
+    wi = Float64(_obsweight(m.w, i, Float64))
+    iszero(wi) && continue
+    u = t * (r[i] - μ)
+    y = Float64(m.y[i]) - (m.offset === nothing ? 0.0 : Float64(m.offset[i]))
+    v += wi * u * (y - u / 2)
+  end
+  P, s * v - _conjugate_penalty_on(g, z, t, x, cand), t
+end
+
+_wide_dualscale_on(g, z, x, cand) = _dualscale_on(g, z, x, cand)
+function _wide_dualscale_on(g::Union{GroupNormL2, SparseGroupNormL2, Scaled{<:SparseGroupNormL2}}, z, x, cand)
+  f = g isa Scaled ? g.f : g
+  if cand === nothing
+    for j in eachindex(z)
+      (j > length(f.group_of) || iszero(f.group_of[j])) && !iszero(z[j]) && return nothing
+    end
+  end
+  ks = cand === nothing ? eachindex(f.groups) : cand
+  g isa GroupNormL2 ? _groupscale(g, z, ks, true) : _sglscale(g, z, ks, true)
+end
+
+function _wide_coldot(X::AbstractMatrix, d, k::Int)
+  v = 0.0
+  @inbounds for i in eachindex(d)
+    v += Float64(X[i, k]) * d[i]
+  end
+  v
+end
+
+function _wide_coldot(X::SparseMatrixCSC, d, k::Int)
+  rows, vals = rowvals(X), nonzeros(X)
+  v = 0.0
+  @inbounds for j in nzrange(X, k)
+    v += Float64(vals[j]) * d[rows[j]]
+  end
+  v
+end
+
+function _wide_l1(λ, w, x)
+  v = 0.0
+  for j in _certificate_entries(x)
+    v += Float64(λ) * Float64(_entryweight(w, j, Float64)) * abs(Float64(x[j]))
+  end
+  v
+end
+
+_wide_penalty_value(g::NormL1, x) = _wide_l1(g.λ0, g.w, x)
+_wide_penalty_value(g::NormL1Nonneg, x) =
+  any(j -> x[j] < 0, _certificate_entries(x)) ? Inf : _wide_l1(g.λ0, g.w, x)
+function _wide_penalty_value(g::ElasticNet, x)
+  v = 0.0
+  for j in _certificate_entries(x)
+    v += Float64(x[j])^2
+  end
+  _wide_l1(g.λ1, g.w, x) + Float64(g.λ2) * v / 2
+end
+
+function _wide_penalty_value(g::GroupNormL2, x)
+  v = 0.0
+  for (k, G) in enumerate(g.groups)
+    a = 0.0
+    for j in G
+      a += Float64(x[j])^2
+    end
+    v += Float64(g.λ0) * Float64(g.w[k]) * sqrt(a)
+  end
+  v
+end
+
+function _wide_penalty_value(g::Union{SparseGroupNormL2, Scaled{<:SparseGroupNormL2}}, x)
+  f = g isa SparseGroupNormL2 ? g : g.f
+  v = 0.0
+  for (k, G) in enumerate(f.groups)
+    a, b = 0.0, 0.0
+    for j in G
+      u = Float64(x[j])
+      a += abs(u)
+      b += u * u
+    end
+    c1, c2 = _sglthresholds(g, k, Float64, true)
+    v += c1 * a + c2 * sqrt(b)
+  end
+  v
+end
+
 function _gap_at(z::AbstractVector{T}, m::GLMModel{T}, g, x, cand) where {T}
   t = _dualscale_on(g, z, x, cand)
   t === nothing && return nothing
@@ -307,12 +431,13 @@ function _gapstart!(st::_CDState{T}, m, g, x, s::CDSolver) where {T}
 end
 
 # The decision after a pass: (stop, converged, tol, ok), where converged says
-# whether the changes were below tol (so the next pass is a full one) and ok
+# whether the next pass should be a full one and ok
 # whether the stopping rule was met. Without a gap, the run stops after a full
 # pass with changes below tol. With gaptol, the gap is computed where that rule
 # would stop, a full pass with changes below tol: the run stops if the gap is
 # at most gaptol, and tol is tightened otherwise, by the factor that the gap
-# asks for (the gap shrinks about as the square of the changes). The gap is that
+# asks for. Below the rounding floor, narrow types also check the gap after a
+# plateau in the changes and stop when the gap stagnates. The gap is that
 # of the problem restricted to the candidates of the run (all coordinates
 # without screening), which costs one pass over them; screening checks the
 # other coordinates afterwards (_screened!). It is not computed after the other
@@ -327,14 +452,28 @@ end
 
 function _afterpass!(gs::_GapState{T}, x, m, g, st::_CDState{T}, s::CDSolver, full::Bool, maxh::T, tol::T,
                      tolmin::T) where {T}
-  converged = maxh < tol
-  (full && (converged || s.gapsafe)) || return false, converged, tol, true
-  available, certified, moved = _gapcheck!(gs, x, m, g, st, s)
+  belowfloor = _narrow(T) && st.gapmode && tol <= tolmin
+  converged = maxh < tol || (belowfloor && maxh >= st.previouschange)
+  st.previouschange = maxh
+  (full && (converged || s.gapsafe || belowfloor)) || return false, converged, tol, true
+  available, certified, moved = _gapcheck!(gs, x, m, g, st, s, belowfloor)
   if certified
     st.gapmode = true
     return true, converged, tol, true
   end
   moved && return false, false, tol, true        # screening changed x: pass again
+  if belowfloor && s.gaptol > 0 && available
+    progress = st.relgap < _GAPPROGRESS * st.bestgap
+    st.gapstalls = progress ? 0 : st.gapstalls + 1
+    st.bestgap = min(st.bestgap, st.relgap)
+    backstop = tolmin * (eps(T) / 8)
+    (st.gapstalls >= _GAPSTALLS || tol <= backstop) && return true, converged, tol, false
+    # A plateau asks for a certificate, not a smaller tolerance than the changes.
+    if maxh < tol && progress
+      tol = max(T(tol * _tighten(st.relgap, s.gaptol)), backstop)
+    end
+    return false, maxh < tol, tol, true
+  end
   converged || return false, converged, tol, true
   if !(s.gaptol > 0 && available)
     st.gapmode = false
@@ -351,6 +490,8 @@ end
 # gaptol: the gap is about proportional to the changes
 _tighten(relgap, gaptol) = clamp(_TIGHTEN * gaptol / relgap, 0.01, 0.5)
 const _TIGHTEN = 0.5
+const _GAPPROGRESS = 0.9
+const _GAPSTALLS = 12
 
 # the relative duality gap at x, recorded in st, and the gap-safe screening;
 # returns (available, certified, moved): whether the gap could be computed,
@@ -359,7 +500,7 @@ const _TIGHTEN = 0.5
 # zero, so the gap is taken as at least 4 eps |P|, for the certificate and for
 # screening, where a sphere of radius zero would remove the coordinates whose
 # dual constraint is tight up to rounding, the nonzero ones among them.
-function _gapcheck!(gs::_GapState{T}, x, m, g, st::_CDState{T}, s::CDSolver) where {T}
+function _gapcheck!(gs::_GapState{T}, x, m, g, st::_CDState{T}, s::CDSolver, belowfloor::Bool = false) where {T}
   res = _restricted_gap!(gs.z, m, g, x, gs.base)
   if res === nothing
     st.relgap = T(NaN)
@@ -369,6 +510,16 @@ function _gapcheck!(gs::_GapState{T}, x, m, g, st::_CDState{T}, s::CDSolver) whe
   gap = _certificate_gap(P, D)
   st.relgap = gap / max(abs(P), floatmin(T))
   certified = s.gaptol > 0 && st.relgap <= s.gaptol
+  if _widecertificate(m) && s.gaptol > 0 && (certified || belowfloor)
+    wide = _wide_gap(m, g, x, gs.base)
+    if wide === nothing
+      st.relgap = T(NaN)
+      return false, false, false
+    end
+    relgap = _relative_gap(wide[1], wide[2])
+    st.relgap = T(relgap)
+    certified = relgap <= s.gaptol
+  end
   moved = s.gapsafe && !certified && isfinite(gap) && _gapscreen!(gs, m, g, x, st, t, gap)
   true, certified, moved
 end
@@ -376,9 +527,21 @@ end
 # the relative gap of the whole problem at x from the full gradient grad, which
 # the checks of screening compute, recorded in st; NaN without a gap at x
 function _fullgap!(st::_CDState{T}, m, g, x, grad::AbstractVector) where {T}
+  if _widecertificate(m)
+    res = _wide_gap(m, g, x, nothing)
+    relgap = res === nothing ? NaN : _relative_gap(res[1], res[2])
+    st.relgap = T(relgap)
+    return relgap
+  end
   res = _gap_at(grad, m, g, x, nothing)
   st.relgap = res === nothing ? T(NaN) :
               _relative_gap(res[1], res[2])
+end
+
+# A pass limit can leave the last gap at an earlier point.
+function _lastgap!(st::_CDState{T}, gs, m, g, x) where {T}
+  res = _widecertificate(m) ? _wide_gap(m, g, x, gs.base) : _restricted_gap!(gs.z, m, g, x, gs.base)
+  st.relgap = res === nothing ? T(NaN) : T(_relative_gap(res[1], res[2]))
 end
 
 # Gap-safe screening (Fercoq, Gramfort and Salmon, 2015; Ndiaye, Fercoq,
@@ -541,6 +704,10 @@ _addproduct!(v::AbstractVector{T}, X::AbstractMatrix, x::AbstractVector, α::T) 
 # (P(x), D) at x; D is -Inf when the dual point is not feasible
 function _evalgap!(ev::_LSGap, g, x)
   m = ev.m
+  if _widecertificate(m)
+    res = _wide_gap(m, g, x, nothing)
+    return res === nothing ? nothing : (res[1], res[2])
+  end
   r = m.r
   m.offset === nothing ? (r .= m.y) : (r .= m.y .- m.offset)     # no intercept: ȳ = 0, x̄ = 0
   _addproduct!(r, m.X, x, -one(eltype(r)))
@@ -656,6 +823,11 @@ Available for:
 
 An `ArgumentError` is thrown for other functions; see [`kkt_residual`](@ref)
 for an optimality measure that needs no conjugate.
+Least-squares models and losses with `Float32` or narrower data form fresh
+residuals and evaluate the objectives in `Float64`, also for penalty weights
+and offsets. The gap is subtracted before the returned fields are rounded
+to their public result types.
+GLM certificates other than squared loss keep their native precision.
 """
 function duality_gap(f::AbstractFunction, g::AbstractFunction, x)
   ev = _gapevaluator(f, g, x)
@@ -663,16 +835,26 @@ function duality_gap(f::AbstractFunction, g::AbstractFunction, x)
   res = _evalgap!(ev, f, g, x)
   res === nothing && throw(ArgumentError("the dual point is not feasible: a coordinate without penalty has a nonzero gradient."))
   P, D = res
+  if ev isa _LSGap && _widecertificate(ev.m)
+    return _rounded_gap(ev.m, g, x, P, D)
+  end
   (gap = P - D, primal = P, dual = D)
 end
 
 function duality_gap(m::CDModel{T}, g::AbstractFunction, x) where {T}
   _hasgap(m, g) || throw(ArgumentError("no duality gap is known for $(nameof(typeof(m))) with $(nameof(typeof(g))); use kkt_residual."))
   initialize!(m, x)
-  res = _gap!(Vector{T}(undef, length(x)), m, g, x)
+  res = _widecertificate(m) ? _wide_gap(m, g, x, nothing) : _gap!(Vector{T}(undef, length(x)), m, g, x)
   res === nothing && throw(ArgumentError("the dual point is not feasible: a coordinate without penalty has a nonzero gradient."))
   P, D, _ = res
+  _widecertificate(m) && return _rounded_gap(m, g, x, P, D)
   (gap = P - D, primal = P, dual = D)
+end
+
+# Preserve the primal's promotion by the penalty and the native dual type.
+function _rounded_gap(m::LSModel{T}, g, x, P, D) where {T}
+  V = typeof(zero(T) + g(x))
+  (gap = V(P - D), primal = V(P), dual = T(D))
 end
 
 """

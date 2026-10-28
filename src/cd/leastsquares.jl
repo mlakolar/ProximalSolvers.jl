@@ -23,6 +23,7 @@ mutable struct LSModel{T<:AbstractFloat, MX<:AbstractMatrix{T}, VY<:AbstractVect
   w::W
   offset::O
   s::T
+  intercept::Bool
   r::Vector{T}
   a::Vector{T}          # ∑ᵢ wᵢ (Xᵢₖ - x̄ₖ)², NaN until computed
   xbar::Vector{T}       # (weighted) column means with an intercept, otherwise zeros
@@ -48,7 +49,7 @@ function LSModel(y::AbstractVector, X::AbstractMatrix, w, offset, s::Real; inter
     throw(ArgumentError("an intercept needs weights with a positive sum"))
   xbar = intercept ? _column_means(Xt, wt) : zeros(T, p)
   ybar = intercept ? _mean_response(yt, ot, wt) : zero(T)
-  LSModel{T, typeof(Xt), typeof(yt), typeof(wt), typeof(ot)}(Xt, yt, wt, ot, T(s), zeros(T, n), fill(T(NaN), p),
+  LSModel{T, typeof(Xt), typeof(yt), typeof(wt), typeof(ot)}(Xt, yt, wt, ot, T(s), intercept, zeros(T, n), fill(T(NaN), p),
                                                              xbar, ybar, T[], wt === nothing ? T[] : zeros(T, n),
                                                              _GroupEig{T}(), zero(T), T[],
                                                              wt === nothing ? T(n) : T(sum(wt)), T[])
@@ -78,6 +79,39 @@ multi-response model of a matrix `Y`, the vector of the intercepts of the
 responses.
 """
 intercept(m::LSModel, x::AbstractArray) = m.ybar - dot(m.xbar, x)
+
+# Fresh residuals at the returned intercept and coefficients, without moving
+# the residual cache or the separate shift of a sparse design.
+function _wide_residuals(m::LSModel, x)
+  b = Float64(intercept(m, x))
+  r = Vector{Float64}(undef, length(m.y))
+  @inbounds for i in eachindex(r)
+    r[i] = Float64(m.y[i]) - (m.offset === nothing ? 0.0 : Float64(m.offset[i])) - b
+  end
+  for k in _certificate_entries(x)
+    v = Float64(x[k])
+    iszero(v) || _wide_residual_axpy!(r, m.X, k, v)
+  end
+  r
+end
+
+_certificate_entries(x::AbstractVector) = eachindex(x)
+_certificate_entries(x::Union{SparseIterate, AtomIterate}) = _activeentries(x)
+
+function _wide_residual_axpy!(r, X::AbstractMatrix, k::Int, v::Float64)
+  @inbounds for i in eachindex(r)
+    r[i] -= Float64(X[i, k]) * v
+  end
+  r
+end
+
+function _wide_residual_axpy!(r, X::SparseMatrixCSC, k::Int, v::Float64)
+  rows, vals = rowvals(X), nonzeros(X)
+  @inbounds for j in nzrange(X, k)
+    r[rows[j]] -= Float64(vals[j]) * v
+  end
+  r
+end
 
 """
     residuals(m::CDModel)

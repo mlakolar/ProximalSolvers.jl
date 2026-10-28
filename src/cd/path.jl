@@ -162,7 +162,10 @@ function _screened!(x, m::CDModel{T}, g, λprev, grad::AbstractArray, st::_CDSta
     violated && continue
     st.gapmode || break
     _fullgap!(st, m, g, x, grad) <= s.gaptol && break
-    (st.converged && retries < _GAPRETRIES) || break
+    if !(st.converged && retries < _GAPRETRIES)
+      st.converged = false
+      break
+    end
     retries += 1
     sk = _with(sk; gaptol = sk.gaptol / 10)
   end
@@ -180,12 +183,17 @@ The default target of the relative duality gap at each level of
 [`solve_path`](@ref) and at the last level of continuation; see
 [`solve_path`](@ref). This controls objective error when a feasible dual certificate is available.
 Coefficient error requires additional curvature or identifiability assumptions.
+The target is also `1e-4` for `Float32`. Least-squares certificates use fresh
+residuals and `Float64` accumulation at the returned point. Narrow types can
+tighten below their change-tolerance floor; stagnation without a certificate
+reports `converged = false` and the gap reached. GLM certificates remain in
+the model's element type, including the outer certificate of `ProxNewton`.
 `gaptol = 1e-3` is the documented faster setting, for cross-validation and
 prediction, and `gaptol = 0` gives back the rule on the changes.
 """
 const PATH_GAPTOL = 1e-4
 
-# PATH_GAPTOL, but at least 64 roundings: the gap is computed to about eps |P|
+# PATH_GAPTOL, but at least 64 roundings for native certificates such as GLMs.
 _default_gaptol(::Type{T}) where {T} = max(PATH_GAPTOL, 64 * Float64(eps(T)))
 
 # The solver of the levels of a path or of the last level of continuation, with
