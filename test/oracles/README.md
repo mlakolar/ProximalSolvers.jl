@@ -59,6 +59,17 @@ dual points, and a conic bracket of width at most
 `1e-7 * max(1, abs(P_conic))`. Its primal and dual objectives supply the
 bracket used in all coordinate-descent certificate checks.
 
+If both attempts lack optimal termination with feasible primal and dual
+points, the reference is unavailable. The optimal-status condition is recorded
+as a broken test, and each loss prints `HYPATIA_UNAVAILABLE name=... loss=...`.
+Only the conic bracket and certificate comparisons are skipped; both CD runs,
+independent objective evaluation, and finite nonnegative objective and gap
+checks still run. With Hypatia 0.11.0, `noiseless_seed11102_fraction0.2` was
+unavailable at both tolerances (`SLOW_PROGRESS` with unknown solution statuses),
+possibly because an exact-fit optimum at the cone apex is degenerate for the
+interior-point method. This affects both loss comparisons. If either attempt
+produces a usable optimum, all conic assertions run as usual.
+
 The cases cover exact fits from optimal and trapped starts, dependent columns,
 the cyclic audit trap, an incomplete witness, six seeded underdetermined
 noiseless fits, and twelve seeded ordinary fits. The ordinary fits include
@@ -84,3 +95,4 @@ Nonnegative slack means the reported gap bounds suboptimality after allowing
 the conic bracket width and the stated rounding allowance. The script prints
 solver versions and ends with `SQRT_HYPATIA_ORACLE_PASSED` only after all
 assertions pass. These are numerical references, not symbolic certificates.
+Unavailable references remain visible as broken tests in the test summary.
