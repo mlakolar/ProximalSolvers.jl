@@ -82,15 +82,21 @@ intercept(m::LSModel, x::AbstractArray) = m.ybar - dot(m.xbar, x)
 
 # Fresh residuals at the returned intercept and coefficients, without moving
 # the residual cache or the separate shift of a sparse design.
+# Float32/Float16 products are exact in Float64. Compensated additions retain
+# residual-sized accuracy when the larger data and fitted values cancel.
 function _wide_residuals(m::LSModel, x)
   b = Float64(intercept(m, x))
-  r = Vector{Float64}(undef, length(m.y))
+  r, c = Vector{Float64}(m.y), zeros(Float64, length(m.y))
   @inbounds for i in eachindex(r)
-    r[i] = Float64(m.y[i]) - (m.offset === nothing ? 0.0 : Float64(m.offset[i])) - b
+    m.offset === nothing || _wide_residual_add!(r, c, i, -Float64(m.offset[i]))
+    _wide_residual_add!(r, c, i, -b)
   end
   for k in _certificate_entries(x)
     v = Float64(x[k])
-    iszero(v) || _wide_residual_axpy!(r, m.X, k, v)
+    iszero(v) || _wide_residual_axpy!(r, c, m.X, k, v)
+  end
+  @inbounds for i in eachindex(r)
+    r[i] += c[i]
   end
   r
 end
@@ -98,17 +104,24 @@ end
 _certificate_entries(x::AbstractVector) = eachindex(x)
 _certificate_entries(x::Union{SparseIterate, AtomIterate}) = _activeentries(x)
 
-function _wide_residual_axpy!(r, X::AbstractMatrix, k::Int, v::Float64)
+@inline function _wide_residual_add!(r, c, i, v)
+  a = r[i]
+  s = a + v
+  c[i] += abs(a) >= abs(v) ? (a - s) + v : (v - s) + a
+  r[i] = s
+end
+
+function _wide_residual_axpy!(r, c, X::AbstractMatrix, k::Int, v::Float64)
   @inbounds for i in eachindex(r)
-    r[i] -= Float64(X[i, k]) * v
+    _wide_residual_add!(r, c, i, -Float64(X[i, k]) * v)
   end
   r
 end
 
-function _wide_residual_axpy!(r, X::SparseMatrixCSC, k::Int, v::Float64)
+function _wide_residual_axpy!(r, c, X::SparseMatrixCSC, k::Int, v::Float64)
   rows, vals = rowvals(X), nonzeros(X)
   @inbounds for j in nzrange(X, k)
-    r[rows[j]] -= Float64(vals[j]) * v
+    _wide_residual_add!(r, c, rows[j], -Float64(vals[j]) * v)
   end
   r
 end

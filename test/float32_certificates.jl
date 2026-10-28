@@ -299,9 +299,23 @@ end
   @test isfinite(dg.gap) && isapprox(dg.gap, expected; rtol = 2eps(Float32))
 end
 
+@testset "Compensated residuals retain small terms between large columns" begin
+  for sparseX in (false, true)
+    X = Float32[1 1 1; 1 0 -1]
+    X = sparseX ? sparse(X) : X
+    m = cdmodel(GLMLoss(ProximalBase.Squared(), Float32[0, 2e16], X;
+                       offset = Float32[0.125, 0.125]), nothing; intercept = true)
+    fill!(m.xbar, 0)
+    m.ybar = 0.25f0
+    for x in (Float32[1e16, 1, -1e16], SparseIterate(Float32[1e16, 1, -1e16]))
+      @test PS._wide_residuals(m, x) == [-1.375, -0.375]
+    end
+  end
+end
+
 @testset "Large-response gaps avoid dual cancellation" begin
   X = reshape(Float32[1, 0, -1], 3, 1)
-  for weighted in (false, true), screening in (false, true)
+  for weighted in (false, true), sparseX in (false, true)
     if weighted
       XX = reshape(Float32[1, 0, -1, 2], 4, 1)
       y, o = Float32[1e16, 5, -1e16, 3], Float32[5e15, 1, -5e15, 3]
@@ -309,19 +323,42 @@ end
     else
       f = LeastSquaresLoss(Float32[1e16, 1, -1e16], X)
     end
-    m = cdmodel(f, nothing; intercept = true)
-    x = SparseIterate(Float32, 1)
-    r = @test_logs (:warn, r"relative duality gap .* does not certify") solve_path(m, NormL1(1f0), Float32[1e-22],
-                     CDSolver(; order = :cyclic, momentum = false); x, screening)
-    g = NormL1(r.λ[1])
-    oracle = gapbig(m, g, x)
-    @test !r.converged[1] && r.gap[1] > PS.PATH_GAPTOL
-    @test oracle > 0.1
-    @test isapprox(r.gap[1], oracle; atol = 2e-8, rtol = 0)
-    P, D, _ = PS._wide_gap(m, g, x, nothing)
-    @test isapprox((P - D) / P, oracle; atol = 1e-12, rtol = 0)
-    dg = duality_gap(m, g, x)
-    @test isapprox(dg.gap / dg.primal, oracle; atol = 3e-8, rtol = 0)
+    base = cdmodel(f, nothing; intercept = true)
+    design = sparseX ? sparse(base.X) : base.X
+    g = NormL1(1f-22)
+    for b0 in (0.125f0, weighted ? 0.8f0 : Float32(1 / 3)), screening in (false, true)
+      m = PS.LSModel(base.y, design, base.w, base.offset, base.s; intercept = true)
+      # Fix the returned intercept instead of relying on native mean rounding.
+      fill!(m.xbar, 0)
+      m.ybar = b0
+      b = Float32[weighted ? 5e15 : 1e16]
+      x = SparseIterate(b)
+      rb = BigFloat.(m.y) .- (m.offset === nothing ? 0 : BigFloat.(m.offset)) .-
+           BigFloat(b0) .- BigFloat.(m.X) * BigFloat.(Vector(x))
+      @test PS._wide_residuals(m, x) == Float64.(rb)
+      oracle = gapbig(m, g, x)
+      @test b0 == 0.125f0 ? oracle > 0.1 : oracle < PS.PATH_GAPTOL
+      # These residuals are exactly recovered. Allow Float64 accumulation
+      # error internally and two Float32 roundings in the public ratios.
+      P, D, _ = PS._wide_gap(m, g, x, nothing)
+      @test isapprox((P - D) / P, oracle; atol = 32eps(Float64), rtol = 0)
+      dg = duality_gap(m, g, x)
+      @test isapprox(dg.gap / dg.primal, oracle; atol = 32eps(Float64), rtol = 2eps(Float32))
+      r = @test_logs (:warn, r"did not converge in maxpasses") solve_path(m, NormL1(1f0), [g.λ0],
+                       CDSolver(; maxpasses = 0, order = :cyclic, momentum = false); x, screening)
+      @test r.solutions[1] == Vector(x) == b && r.passes[1] == 0
+      @test isapprox(r.gap[1], oracle; atol = 32eps(Float64), rtol = eps(Float32))
+    end
+    for screening in (false, true)
+      m = PS.LSModel(base.y, design, base.w, base.offset, base.s; intercept = true)
+      x = SparseIterate(Float32, 1)
+      # The native solve may reach either point on different platforms.
+      r = @test_logs min_level = Base.CoreLogging.Error solve_path(m, NormL1(1f0), [g.λ0],
+                       CDSolver(; order = :cyclic, momentum = false); x, screening)
+      oracle = gapbig(m, g, x)
+      @test !r.converged[1] || oracle <= PS.PATH_GAPTOL
+      @test isapprox(r.gap[1], oracle; atol = 32eps(Float64), rtol = eps(Float32))
+    end
   end
 end
 
