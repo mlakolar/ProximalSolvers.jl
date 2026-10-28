@@ -439,6 +439,7 @@ end
 # others keep stale means, which the step must not read (see _centered_columns).
 function _center!(ws::_NewtonWorkspace{T}, cols::Union{Nothing, Vector{Int}}) where {T}
   model, v, X = ws.model, ws.v, ws.model.X
+  model.intercept = true
   sv = sum(v)
   if cols === nothing
     mul!(model.xbar, transpose(X), v)

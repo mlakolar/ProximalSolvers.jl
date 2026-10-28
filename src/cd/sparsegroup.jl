@@ -131,8 +131,10 @@ _kktviolated(g::_ScaledSGL, grad::AbstractArray, x::AtomIterate, k::Int, λ) =
 _hasdual(::Union{_SGL, _ScaledSGL}) = true
 
 # the thresholds (c1, c2) of group k in g(x) = Σₖ c1‖x_Gₖ‖₁ + c2‖x_Gₖ‖₂
-_sglthresholds(g::_SGL, k::Int, ::Type{T}) where {T} = (T(g.λ1), T(g.λ0 * g.w[k]))
-_sglthresholds(g::_ScaledSGL, k::Int, ::Type{T}) where {T} = (T(g.α * g.f.λ1), T(g.α * g.f.λ0 * g.f.w[k]))
+_sglthresholds(g::_SGL, k::Int, ::Type{T}, wide::Bool = false) where {T} =
+  (T(g.λ1), wide ? T(g.λ0) * T(g.w[k]) : T(g.λ0 * g.w[k]))
+_sglthresholds(g::_ScaledSGL, k::Int, ::Type{T}, wide::Bool = false) where {T} =
+  wide ? (T(g.α) * T(g.f.λ1), T(g.α) * T(g.f.λ0) * T(g.f.w[k])) : (T(g.α * g.f.λ1), T(g.α * g.f.λ0 * g.f.w[k]))
 
 # The largest t ∈ (0, 1] for which -t z is in the domain of g*: for each group,
 # ‖soft(t z_G, c1)‖₂ ≤ c2, that is 1/t at least the root of z_G with (c1, c2). So
@@ -151,12 +153,12 @@ end
 # the same over the groups ks only, as for the problem restricted to them
 _dualscale_on(g::Union{_SGL, _ScaledSGL}, z::AbstractVector, x::AtomIterate, cand::Vector{Int}) = _sglscale(g, z, cand)
 
-function _sglscale(g::Union{_SGL, _ScaledSGL}, z::AbstractVector{T}, ks) where {T}
+function _sglscale(g::Union{_SGL, _ScaledSGL}, z::AbstractVector{T}, ks, wide::Bool = false) where {T}
   f = g isa _SGL ? g : g.f
   t = one(T)
   for k in ks
     G = f.groups[k]
-    c1, c2 = _sglthresholds(g, k, T)
+    c1, c2 = _sglthresholds(g, k, T, wide)
     _softnorm(z, G, c1) > c2 || continue
     ρ = _sgl_root(z, G, c1, c2)
     isfinite(ρ) || return nothing

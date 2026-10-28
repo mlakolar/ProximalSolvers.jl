@@ -349,8 +349,10 @@ end
     @test solve!(x, m, NormL1(0f0), solver()).converged
     @test x[1] === 0f0
     @test kkt_residual(m, NormL1(0f0), x) == 0f0
-    # A working model may set its centering means after construction.
+    # A working model centred after construction, as proximal Newton's is,
+    # records its intercept along with the means.
     m = cdmodel(f, x)
+    m.intercept = true
     m.xbar[1] = X[1, 1]
     @test PS._flat_column(m, 1)
   end
