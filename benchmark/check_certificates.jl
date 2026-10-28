@@ -421,3 +421,93 @@ if Base.find_package("ProximalSolvers") !== nothing
 else
   @info "Package agreement checks skipped: ProximalSolvers is not in this environment"
 end
+
+@testset "Normalized weighted square-root lasso" begin
+  X, y, λ, w = reshape([1.0, 1.0], 2, 1), [2.0, 0.0], 0.2, [1.5]
+  level = λ * w[1]
+  β = [1 - level / sqrt(1 - level^2)]
+  cert = weighted_sqrt_lasso_certificate(X, y, λ, w, β)
+  @test cert.status == :ok && cert.value < 1e-14
+  @test cert.primal ≈ norm(y - X * β) / sqrt(2) + λ * dot(w, abs.(β))
+  θ = weighted_sqrt_dual_point(X, y, λ, w, β)
+  @test norm(θ) <= 1 / sqrt(2) + 1e-14
+  @test abs(only(X' * θ)) <= λ * w[1] + 1e-14
+  @test weighted_sqrt_lasso_certificate(X, y, λ, w, [0.0]).value > 0.05
+  @test weighted_sqrt_lasso_certificate(X, y, λ / sqrt(2), w, β).value > 1e-4
+  @test weighted_sqrt_lasso_certificate(ones(1, 1), [1.0], λ, [1.0], [1.0]).status == :uncertifiable
+  for bad in ([0.0], [-1.0], [NaN], [Inf])
+    @test weighted_sqrt_lasso_certificate(X, y, λ, bad, β).status == :uncertifiable
+  end
+end
+
+@testset "Feasible-lasso residual-loadings fixed point" begin
+  X, y, λ = reshape([1.0, 1.0], 2, 1), [2.0, 0.0], 0.2
+  β = [1 - λ / sqrt(1 - λ^2)]
+  @test feasible_lasso_loadings(X, y) ≈ [sqrt(2)]
+  @test feasible_lasso_loadings(X, y - X * β) ≈ [inv(sqrt(1 - λ^2))]
+  cert = feasible_lasso_self_consistency(X, y, λ, β)
+  @test cert.certificate.measure == :self_consistency && cert.certificate.status == :ok
+  @test cert.certificate.value < 1e-14 && cert.loadings_change < 1e-14 && cert.refit_converged
+  nonoptimal = feasible_lasso_self_consistency(X, y, λ, [0.0])
+  @test nonoptimal.certificate.value > 0.1 && nonoptimal.loadings_change > 0.1
+  bounded = feasible_lasso_self_consistency(X, y, λ, [0.0]; maxpasses = 1)
+  gap = lasso_certificate(X, y, 1 / size(X, 1), λ, feasible_lasso_loadings(X, y), [0.0])
+  @test bounded.certificate.status == :ok && bounded.certificate.measure == :self_consistency
+  @test bounded.certificate.value == gap.value == nonoptimal.certificate.value
+  @test bounded.certificate.primal == gap.primal && bounded.certificate.dual == gap.dual
+  @test isnan(bounded.loadings_change) && !bounded.refit_converged
+  @test occursin("secondary loadings change unavailable", bounded.certificate.detail)
+  @test feasible_lasso_self_consistency(X, y, λ, [NaN]).certificate.status == :uncertifiable
+  @test feasible_lasso_self_consistency(X, y, λ, β; maxpasses = 0).certificate.status == :uncertifiable
+  @test feasible_lasso_self_consistency(zeros(2, 1), y, λ, [0.0]).certificate.status == :uncertifiable
+end
+
+@testset "Feasible-lasso interpolation guard" begin
+  X = Matrix{Float64}(I, 2, 2)
+  y, λ = [2.0, -1.0], 0.2
+  detail = "interpolating fit: residual at rounding level; residual-loading gap not numerically meaningful"
+  for β in (copy(y), (1 - 0.5e-8) .* y)
+    result = feasible_lasso_self_consistency(X, y, λ, β)
+    @test result.certificate.status == :uncertifiable
+    @test result.certificate.measure == :self_consistency && result.certificate.detail == detail
+    @test isnan(result.certificate.value) && isnan(result.loadings_change) && !result.refit_converged
+  end
+  outside = feasible_lasso_self_consistency(X, y, λ, (1 - 2e-8) .* y)
+  @test outside.certificate.status == :ok
+  X = reshape([1.0, 1.0], 2, 1)
+  y, β = [2.0, 0.0], [1 - λ / sqrt(1 - λ^2)]
+  result = feasible_lasso_self_consistency(X, y, λ, β)
+  gap = lasso_certificate(X, y, 0.5, λ, feasible_lasso_loadings(X, y - X * β), β)
+  @test result.certificate.status == :ok && result.certificate.value == gap.value
+  @test result.certificate.value < 1e-14 && result.loadings_change < 1e-14 && result.refit_converged
+end
+
+@testset "Bitwise coefficient certificate reuse" begin
+  cache, calls = coefficient_certificate_cache(), Ref(0)
+  compute() = (calls[] += 1; (; certificate = :control, loadings_change = NaN,
+    refit_converged = false))
+  β = [0.0, 1.0]
+  first = coefficient_certificate!(compute, cache, (; β))
+  again = coefficient_certificate!(compute, cache, (; β = copy(β), info = :different))
+  @test calls[] == 1 && again === first
+  @test isnan(again.loadings_change) && !again.refit_converged
+  β[1] = -0.0
+  coefficient_certificate!(compute, cache, (; β))
+  @test calls[] == 2
+  coefficient_certificate!(compute, cache, (; β = [0.0, 1.0]))
+  @test calls[] == 2
+  for bits in (0x7ff8000000000001, 0x7ff8000000000002)
+    coefficient_certificate!(compute, cache, (; β = [reinterpret(Float64, bits)]))
+  end
+  @test calls[] == 4
+  path = (; βs = [[0.0, 1.0], [2.0, 3.0]], λs = [0.2, 0.1])
+  coefficient_certificate!(compute, cache, path)
+  coefficient_certificate!(compute, cache, deepcopy(path))
+  @test calls[] == 5
+  path.βs[2][1] += 1.0
+  coefficient_certificate!(compute, cache, path)
+  @test calls[] == 6
+  path.λs[2] /= 2
+  coefficient_certificate!(compute, cache, path)
+  @test calls[] == 7
+end

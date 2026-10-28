@@ -75,6 +75,7 @@ makedocs(
         ],
         "Background" => [
             "Related packages and benchmarks" => "related_packages.md",
+            "CoordinateDescent comparison" => "performance.md",
             "References" => "references.md",
         ],
     ],
