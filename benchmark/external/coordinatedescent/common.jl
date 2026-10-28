@@ -144,6 +144,7 @@ Base.showerror(io::IO, err::IncompleteExternalPath) = print(io, err.detail)
 function certify_case(case, data, output)
   a, kind = data, case["estimator"]
   loading_change = NaN
+  refit_converged = nothing
   if kind == "path"
     output.λs == a.λs && length(output.βs) == 50 ||
       throw(IncompleteExternalPath("returned path differs from the explicit 50-level grid"))
@@ -156,12 +157,13 @@ function certify_case(case, data, output)
   elseif kind == "feasible_lasso"
     result = feasible_lasso_self_consistency(a.X, a.y, a.λ, output.β)
     cert, loading_change = result.certificate, result.loadings_change
+    refit_converged = result.refit_converged
   else
     # The quadratic omits y'y/(2n); this least-squares certificate restores it.
     weights = kind == "weighted_lasso" ? a.Γ : a.w
     cert = lasso_certificate(a.X, a.y, 1 / a.n, a.λ, weights, output.β)
   end
-  (; certificate = cert, loadings_change = loading_change)
+  (; certificate = cert, loadings_change = loading_change, refit_converged)
 end
 
 function external_fingerprint(root, files)

@@ -17,7 +17,10 @@ relative duality gap, restoring y'y/(2n) to the quadratic objective for
 A=X'X/n and b=-X'y/n. Its matched targets remain relative gaps.
 Feasible lasso recomputes w_j=sqrt(sum_i X_ij^2*r_i^2/n) and uses the
 weighted-L1 gap at those loadings (self-consistency, not a convex certificate
-for the entire outer iteration). Returned penalty objects are never used.
+for the entire outer iteration). When ||r|| <= 1e-8*||y|| it is uncertifiable:
+the residual-loading gap is not numerically meaningful at rounding level.
+This check precedes residual loading computation. Returned penalty objects are
+never used.
 
 Each solve forms its residual without a Gram matrix, then makes one pass over
 columns for correlations and, when needed, residual loadings. Raw arrays use
@@ -247,6 +250,8 @@ def certificate(x, y, beta, n, p, estimator, lam, weights=None, groups=None, gro
     if len(beta) != p or not all(math.isfinite(v) for v in beta):
         return math.nan
     r = residual(x, y, beta, n)
+    if estimator == "feasible_lasso" and math.hypot(*r) <= 1e-8 * math.hypot(*y):
+        return math.nan
     z, recomputed = column_statistics(x, r, n, p, estimator == "feasible_lasso")
     if estimator == "group_lasso":
         return group_certificate(r, y, z, beta, lam, groups, group_weights, n)

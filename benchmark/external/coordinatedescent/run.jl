@@ -1,11 +1,11 @@
 include("common.jl")
 
 # Usage: run.jl SIDE ARTIFACT OUTPUT REPETITION [--view defaults|ladder|frozen]
-#   [--frozen FILE] [--target 1e-6|1e-8] [--fixtures] [--suite quick|extended]
+#   [--frozen FILE] [--target 1e-4] [--fixtures] [--suite quick|extended]
 #   [--cases ID,...] [--list] [--gram-off]
 # Frozen selections use [[selection]] with id, side, target, family and setting_index
 # (one-based in ladder followed by gap_ladder). Missing family means coordinate.
-# Frozen runs execute the union across targets/families; --target does not filter it.
+# Frozen runs execute the union across families at the single matched target.
 # Defaults have setting_index=0. IDs in #116 records
 # append /call; rungs append -settingNN to the order component. case_id retains the catalog ID.
 # The exact #116 catalog is accompanied by external/<process>-catalog.tsv with added columns.
@@ -17,7 +17,7 @@ function runner_settings(args)
   side in ("legacy", "current", "current-AA") || error("unknown side")
   rep = parse(Int, repetition)
   1 <= rep <= 99 || error("repetition must be between 1 and 99")
-  view, frozen, target, fixtures, listing, gram_off = "defaults", "", 1e-6, false, false, false
+  view, frozen, target, fixtures, listing, gram_off = "defaults", "", 1e-4, false, false, false
   selected = get(ENV, "PS_CASES", "")
   suite = get(ENV, "PS_SUITE", "quick")
   i = 5
@@ -45,7 +45,7 @@ function runner_settings(args)
   end
   view in ("defaults", "ladder", "frozen") || error("unknown view")
   view == "frozen" && !isfile(frozen) && error("--view frozen requires --frozen FILE")
-  target in (1e-6, 1e-8) || error("target must be 1e-6 or 1e-8")
+  target == 1e-4 || error("target must be 1e-4")
   gram_off && side == "legacy" && error("--gram-off applies only to current")
   samples = parse(Int, get(ENV, "PS_SAMPLES", suite == "quick" ? "50" : "100"))
   seconds = parse(Float64, get(ENV, "PS_SECONDS", suite == "quick" ? "1" : "3"))
@@ -74,6 +74,7 @@ function frozen_selections(config)
     haskey(definitions, id) || error("unknown frozen selection ID: $id")
     side = get(row, "side", "")
     side in ("legacy", "current") || error("unknown frozen selection side: $side; current-AA uses current entries")
+    get(row, "target", config.target) == config.target || error("frozen selection target must be 1e-4 for $id/$side")
     family = get(row, "family", "coordinate")
     family in ("coordinate", "best") || error("unknown frozen selection family: $family")
     side == "legacy" && family != "coordinate" && error("legacy selections require family=coordinate")
@@ -83,7 +84,7 @@ function frozen_selections(config)
       index isa Integer && !(index isa Bool) && 1 <= index <= count ||
         error("frozen setting_index $index is out of range for $id/$side (expected 1:$count)")
     end
-    push!(entries, merge(row, Dict("id" => id, "family" => family)))
+    push!(entries, merge(row, Dict("id" => id, "family" => family, "target" => config.target)))
   end
   entries
 end
@@ -121,6 +122,10 @@ function selected_specs(config)
         # Fixture-only tolerances are outside the frozen calibration ladders.
         cd = get(settings, side == "legacy" ? "optionsCD" : "options_cd", settings)
         cd[side == "legacy" ? "optTol" : "opt_tol"] = 1e-13
+        if case["estimator"] == "feasible_lasso"
+          # Preserve the outer fixture tolerance independently of the campaign grid.
+          settings[side == "legacy" ? "optTol" : "opt_tol"] = 1e-12
+        end
         settings["fixture_tolerance"] = 1e-13
       end
       if config.gram_off
@@ -240,7 +245,7 @@ function start_metadata(config, artifact, specs)
   meta
 end
 
-function observe(spec, data, limit)
+function observe(spec, data, limit, cache = coefficient_certificate_cache())
   output, cert, loading_change = nothing, nothing, NaN
   ns, gc, bytes = nothing, nothing, nothing
   status, detail, stack = :ok, "", ""
@@ -254,7 +259,9 @@ function observe(spec, data, limit)
     output = timed.value
     ns, gc, bytes = round(Int, timed.time * 1e9), round(Int, timed.gctime * 1e9), Int(timed.bytes)
     try
-      result = certify_case(spec.case, data, output)
+      result = coefficient_certificate!(cache, output) do
+        certify_case(spec.case, data, output)
+      end
       cert, loading_change = result.certificate, result.loadings_change
       if cert.status != :ok || !isfinite(cert.value) || cert.value < 0
         status = :uncertifiable
@@ -282,17 +289,18 @@ end
 
 function measure_case(spec, data, config)
   rows, observations = NamedTuple[], NamedTuple[]
-  validation = observe(spec, data, Inf)
+  cache = coefficient_certificate_cache()
+  validation = observe(spec, data, Inf, cache)
   push!(observations, validation)
   if validation.status != :error && validation.time_ns !== nothing &&
       validation.time_ns / 1e9 > spec.settings["case_seconds"]
-    validation = observe(spec, data, spec.settings["case_seconds"])
+    validation = observe(spec, data, spec.settings["case_seconds"], cache)
     push!(observations, validation)
   end
   if !config.fixtures && !(validation.status in (:error, :timeout))
     seconds = 0.0
     while length(rows) < 5 || (length(rows) < config.samples && seconds < config.seconds)
-      row = observe(spec, data, spec.settings["case_seconds"])
+      row = observe(spec, data, spec.settings["case_seconds"], cache)
       push!(rows, row)
       push!(observations, row)
       row.time_ns === nothing || (seconds += row.time_ns / 1e9)

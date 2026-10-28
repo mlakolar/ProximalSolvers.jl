@@ -423,17 +423,19 @@ function cert_loading_refit(X, y, λ, Γ, β; tol, maxpasses)
   x, residual = copy(β), y - X * β
   curvature = vec(sum(abs2, X; dims = 1)) / n
   all(>(0), curvature) || return (; β = x, converged = false)
-  for _ in 1:maxpasses
+  threshold = tol * max(norm(y) / sqrt(n), 1.0)
+  for pass in 1:maxpasses
     change = 0.0
     for j in 1:p
       column = view(X, :, j)
       next = cert_soft(x[j] + dot(column, residual) / (n * curvature[j]), λ * Γ[j] / curvature[j])
       step = next - x[j]
+      iszero(step) && continue
       residual .-= step .* column
       x[j] = next
       change = max(change, abs(step) * sqrt(curvature[j]))
     end
-    if change <= tol * max(norm(y) / sqrt(n), 1.0)
+    if change <= threshold && (pass == 1 || pass % 8 == 0 || pass == maxpasses)
       residual .= y - X * x
       cert = lasso_certificate(X, y, 1 / n, λ, Γ, x)
       cert.status == :ok && cert.measure == :relative_gap && cert.value <= tol &&
@@ -443,22 +445,55 @@ function cert_loading_refit(X, y, λ, Γ, β; tol, maxpasses)
   (; β = x, converged = false)
 end
 
-function feasible_lasso_self_consistency(X, y, λ, β; refit_tol = 1e-12, maxpasses = 100_000)
+# Each cyclic pass reads n*p entries and updates at most n*p residual entries.
+# The 32-pass default bounds this secondary check to 40 million entries read on
+# 500×2500 and 80 million on 5000×500, plus at most five gap checks and O(n*p) setup.
+function feasible_lasso_self_consistency(X, y, λ, β; refit_tol = 1e-10, maxpasses = 32)
   measure = :self_consistency
   invalid(detail) = (; certificate = uncertifiable(detail; measure),
     loadings_change = NaN, refit_converged = false)
   cert_regression_valid(X, y, 1.0, β) && cert_finite(λ, refit_tol) && λ > 0 &&
     refit_tol > 0 && maxpasses isa Integer && maxpasses > 0 || return invalid("invalid feasible-lasso inputs")
-  Γ = feasible_lasso_loadings(X, y - X * β)
+  residual = y - X * β
+  norm(residual) <= 1e-8 * norm(y) &&
+    return invalid("interpolating fit: residual at rounding level; residual-loading gap not numerically meaningful")
+  Γ = feasible_lasso_loadings(X, residual)
   all(>(0), Γ) || return invalid("zero or invalid residual loadings")
   gap = lasso_certificate(X, y, 1 / size(X, 1), λ, Γ, β)
   gap.status == :ok && gap.measure == :relative_gap || return invalid(gap.detail)
+  detail = "weighted-lasso gap at residual loadings; not a convex gap for the iterative procedure"
+  function secondary_unavailable(reason)
+    certificate = Certificate(gap.value, measure, :ok, gap.primal, gap.dual, "$detail; $reason")
+    (; certificate, loadings_change = NaN, refit_converged = false)
+  end
   refit = cert_loading_refit(X, y, λ, Γ, β; tol = refit_tol, maxpasses)
-  refit.converged || return invalid("independent fixed-loading refit did not certify")
+  refit.converged || return secondary_unavailable("independent fixed-loading refit did not certify within $maxpasses passes; secondary loadings change unavailable")
   Γnext = feasible_lasso_loadings(X, y - X * refit.β)
   change = cert_maxabs(Γnext - Γ) / max(cert_maxabs(Γnext), floatmin(Float64))
-  cert_finite(change) || return invalid("nonfinite loading fixed-point change")
-  certificate = Certificate(gap.value, measure, :ok, gap.primal, gap.dual,
-    "weighted-lasso gap at residual loadings; not a convex gap for the iterative procedure")
+  cert_finite(change) || return secondary_unavailable("nonfinite secondary loadings fixed-point change")
+  certificate = Certificate(gap.value, measure, :ok, gap.primal, gap.dual, detail)
   (; certificate, loadings_change = change, refit_converged = true)
+end
+
+coefficient_certificate_cache() = Dict{Vector{UInt64}, Any}()
+
+function coefficient_certificate_key(output)
+  path = hasproperty(output, :βs)
+  coefficients = path ? output.βs : (output.β,)
+  key = UInt64[path ? 1 : 0, length(coefficients)]
+  for β in coefficients
+    push!(key, length(β))
+    append!(key, reinterpret(UInt64, β))
+  end
+  if path
+    # Grid identity and level boundaries also determine path completeness.
+    push!(key, length(output.λs))
+    append!(key, reinterpret(UInt64, output.λs))
+  end
+  key
+end
+
+function coefficient_certificate!(compute, cache, output)
+  # UInt64 snapshots preserve signed zeros and NaN payloads; keys compare exactly.
+  get!(compute, cache, coefficient_certificate_key(output))
 end

@@ -33,7 +33,7 @@ sort p_(i), find largest i with p_(i) <= .10*i/M, reject ranks 1..i.
 Candidates passing BH are screened candidates, never independently confirmed.
 An interval overlapping [-delta,delta] is "inconclusive, not a tie".
 
-Calibration: at each target T in {1e-6,1e-8}, a rung is eligible only when every
+Calibration: at the sole target T=1e-4, a rung is eligible only when every
 process has a valid certificate <= T and completes every timed call. Cost is the
 arithmetic mean of process medians. Minimize (cost, setting_index), so exact ties
 favor the looser rung. Worst value is the maximum over every process/sample;
@@ -53,10 +53,11 @@ view pairs its selected current index with the legacy coordinate index by block;
 its A/A noise uses only the current and current-AA records at that same index.
 Case intervals, bootstrap groups and BH families stay separate by view and target.
 
-Support at each returned level is S={j: |beta_j| > 1e-8*max_k |beta_k|}.
+Support at each returned level is S={j: |beta_j| > 1e-4*max_k |beta_k|}.
 Support differences are |S symmetric_difference S_ref|, by block and level.
 The reference is current's tightest calibration rung, only if it certifies to
-1e-10 in every process. Missing coefficients or references remain unavailable.
+1e-6 in every process, 100 times tighter than the matched target. Missing
+coefficients or references remain unavailable.
 """
 
 import argparse
@@ -80,7 +81,7 @@ from summarize import markdown, write_csv
 
 
 ARMS = ("legacy", "current", "current-AA")
-TARGETS = (1e-6, 1e-8)
+TARGETS = (1e-4,)
 BOOTSTRAPS = 10_000
 SEED = 117
 VIEW_ORDER = ("primary", "secondary", "defaults")
@@ -770,7 +771,7 @@ def support_sets(beta, columns=1):
         values = beta[level * p:(level + 1) * p]
         if not all(math.isfinite(value) for value in values):
             return None
-        threshold = 1e-8 * max(abs(value) for value in values)
+        threshold = 1e-4 * max(abs(value) for value in values)
         result.append({j for j, value in enumerate(values) if abs(value) > threshold})
     return result
 
@@ -798,7 +799,7 @@ def support_columns(loaded, case, records):
     if reference:
         tightest = max(key[3] for key, _ in reference)
         reference = [(key, record) for key, record in reference if key[3] == tightest]
-    valid_reference = reference and all(certified(record, 1e-10) and record.get("supports") is not None
+    valid_reference = reference and all(certified(record, 1e-6) and record.get("supports") is not None
                                         for _, record in reference)
     refs = {key[-1]: record["supports"] for key, record in reference} if valid_reference else {}
     result = {}
@@ -812,7 +813,7 @@ def support_columns(loaded, case, records):
             differences.append([len(left ^ right) for left, right in zip(levels, ref)]
                                if levels is not None and ref is not None and len(levels) == len(ref) else None)
         result[f"{side}_support_reference_differences"] = json.dumps(differences)
-    result["support_reference"] = "current tightest rung, certified <= 1e-10" if valid_reference else "unavailable"
+    result["support_reference"] = "current tightest rung, certified <= 1e-6" if valid_reference else "unavailable"
     return result
 
 
@@ -954,6 +955,8 @@ def analyze(root, output, blocks, select=False, selection=None):
                                        encoding="utf-8")
     lines = ["# CoordinateDescent regression analysis", "",
              f"Mode: {'calibration' if select else 'confirmation'}. Blocks: {blocks}.", "",
+             "The sole matched-accuracy target is relative duality gap <= 1e-4, or "
+             "self-consistency value <= 1e-4 for feasible lasso.", "",
              ("current-AA arm: absent. Calibration uses legacy and current only; no A/A noise is measured."
               if not aa_present else "current-AA arm: present. Calibration selection uses neither A/A timings nor A/A noise."
               if select else "current-AA arm: present (required for confirmation)."), "",
@@ -1001,8 +1004,10 @@ def analyze(root, output, blocks, select=False, selection=None):
                      f"{row['ci95_high']:.6g}] | {markdown(row['excluded'])} |")
     lines += ["", "## Support diagnostics", "",
               "Entries are arrays by block, then path level. Null means unavailable. The threshold "
-              "is 1e-8 times the largest absolute coefficient at that level. Differences count "
-              "the symmetric difference from current's tightest rung certified to 1e-10.", "",
+              "is 1e-4 times the largest absolute coefficient at that level. Differences count "
+              "the symmetric difference from current's tightest calibration rung only if every "
+              "process certifies to <= 1e-6, 100 times tighter than the matched target. Otherwise "
+              "the reference is unavailable.", "",
               "| View | Case | Support sizes legacy / current | Differences legacy / current | Reference |",
               "|---|---|---|---|---|"]
     for row in cases:

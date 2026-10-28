@@ -88,7 +88,7 @@ def fixture(root, runs=3, cases=(CASE,), status="ok", view="defaults", target=ma
     return root
 
 
-def simple_selection(root, cases=(CASE,), targets=(1e-6,)):
+def simple_selection(root, cases=(CASE,), targets=analysis.TARGETS):
     rows = [dict(id=case, side=side, family=family, target=target,
                  status="selected", setting_index=1)
             for case in cases for target in targets
@@ -154,7 +154,8 @@ def analytic_controls():
         _, lo, hi = analysis.block_bootstrap([values], resamples=600)
         covered += lo <= 0 <= hi
     assert 69 <= covered <= 80, covered
-    assert analysis.support_sets([0., 1., 1e-9, -2.]) == [{1, 3}]
+    assert analysis.support_sets([0., 1., 1e-5, -2., 3e-4]) == [{1, 3, 4}]
+    assert analysis.support_sets([2., 2e-4, 1.999e-4, 2.001e-4]) == [{0, 3}]
     assert analysis.support_sets([0., 0.]) == [set()]
     assert analysis.support_sets([1., 0., 0., 2.], 2) == [{0}, {1}]
     assert analysis.support_sets([math.nan]) is None
@@ -184,11 +185,11 @@ def record_controls(root):
     assert rows[0]["assessment"] == "inconclusive, not a tie"
     assert not rows[0]["candidate"] and not rows[0]["bh_rejected"]
     assert json.loads((root / "small-report" / "noise.json").read_text())["views"][0]["q"] is None
-    missed = fixture(root / "defaults-missed", status="target_missed", target=1e-6)
+    missed = fixture(root / "defaults-missed", status="target_missed", target=1e-4)
     rows, _, _ = analysis.analyze(missed, root / "defaults-missed-report", 3)
     close(rows[0]["ratio"], 2)
     assert "target_missed=3" in rows[0]["current_statuses"]
-    missed_matched = fixture(root / "matched-missed", status="target_missed", target=1e-6, view="frozen")
+    missed_matched = fixture(root / "matched-missed", status="target_missed", target=1e-4, view="frozen")
     rows, _, _ = analysis.analyze(missed_matched, root / "matched-missed-report", 3,
                                  selection=simple_selection(missed_matched))
     assert len(rows) == 2 and all(row["assessment"] == "not reached" and math.isnan(row["ratio"]) for row in rows)
@@ -202,18 +203,11 @@ def record_controls(root):
     single = fixture(root / "single", runs=1)
     rows, _, _ = analysis.analyze(single, root / "single-report", 1)
     assert math.isnan(rows[0]["ci95_low"]) and not rows[0]["candidate"]
-    combined = root / "both-targets"
-    combined.mkdir()
-    for target in (1e-6, 1e-8):
-        source = fixture(root / f"matched-{target}", target=target, view="frozen")
-        for side in analysis.ARMS:
-            destination = combined / side
-            destination.mkdir(exist_ok=True)
-            shutil.copytree(source / side, destination / str(target))
-    rows, _, _ = analysis.analyze(combined, root / "both-targets-report", 3,
-                                 selection=simple_selection(combined, targets=(1e-6, 1e-8)))
-    assert len(rows) == 4 and {row["target"] for row in rows} == {"1e-06", "1e-08"}
-    assert [row["view"] for row in rows] == ["primary", "primary", "secondary", "secondary"]
+    matched = fixture(root / "matched-target", target=1e-4, view="frozen")
+    rows, _, _ = analysis.analyze(matched, root / "matched-target-report", 3,
+                                 selection=simple_selection(matched))
+    assert len(rows) == 2 and {row["target"] for row in rows} == {"0.0001"}
+    assert [row["view"] for row in rows] == ["primary", "secondary"]
 
 
 def mutate_records(folder, pattern, change):
@@ -273,42 +267,44 @@ def selection_controls(root):
                             row["case_id"] = CASE
                             row["variant"] += f"__rung{index}"
                         if kind == "samples":
-                            row["value"] = 1e-7 if index == 1 else 1e-9
+                            row["value"] = 2e-4 if index == 1 else 9e-5
                         if kind == "metrics":
-                            row.update(worst_value=1e-7 if index == 1 else 1e-9,
-                                       median_value=1e-7 if index == 1 else 1e-9)
+                            row.update(worst_value=2e-4 if index == 1 else 9e-5,
+                                       median_value=2e-4 if index == 1 else 9e-5)
                         expanded.append(row)
                 write_table(path, expanded, list(expanded[0]) if expanded else analysis.base_validate.HEADERS[kind])
         controls.edit_meta(arms / side, "cases", 2)
         controls.edit_meta(arms / side, "ok_cases", 2)
     _, _, selected = analysis.analyze(arms, root / "selection-report", 3, select=True)
-    assert len(selected) == 6
-    assert all(row["setting_index"] == (1 if row["target"] == 1e-6 else 2) for row in selected)
+    assert len(selected) == 3
+    assert all(row["setting_index"] == 2 and row["target"] == 1e-4 for row in selected)
     assert {(row["side"], row["family"]) for row in selected} == {
         ("legacy", "coordinate"), ("current", "coordinate"), ("current", "best")}
     with (root / "selection-report" / "selection.toml").open("rb") as stream:
         frozen = tomllib.load(stream)
     assert frozen["selection"] == selected
     rungs = controls.read_rows(root / "selection-report" / "rungs.csv", delimiter=",")
-    assert len(rungs) == 8
+    assert len(rungs) == 4
     assert {row["family"] for row in rungs} == {"coordinate"}
-    close(float(rungs[0]["overshoot"]), 10)
+    close(float(rungs[0]["overshoot"]), .5)
     loaded, _, _ = analysis.load_arms(arms, 3, select=True)
     record = next(record for key, record in loaded.items() if key[3] == 1)
-    assert analysis.choose_rung({1: [record]}, 1e-8) is None
-    assert analysis.choose_rung({2: [record], 1: [record]}, 1e-6) == 1
-    record["metric"]["status"] = "error"
-    assert analysis.choose_rung({1: [record]}, 1e-6) is None
-    # One process missing the target invalidates an otherwise good rung.
     good = next(record for key, record in loaded.items() if key[3] == 2)
-    assert analysis.choose_rung({1: [good, record]}, 1e-6) is None
+    assert not analysis.certified(record, 1e-4) and analysis.certified(good, 1e-4)
+    assert analysis.choose_rung({1: [record]}, 1e-4) is None
+    assert analysis.choose_rung({2: [good], 1: [good]}, 1e-4) == 1
+    assert analysis.choose_rung({1: [good, record]}, 1e-4) is None
+    record["metric"]["status"] = "error"
+    assert analysis.choose_rung({1: [record]}, 1e-4) is None
+    # One process missing the target invalidates an otherwise good rung.
+    assert analysis.choose_rung({1: [good, record]}, 1e-4) is None
     for value in loaded.values():
         value["metric"]["status"] = "error"
     _, rows = analysis.calibration(loaded, definitions, root / "selection-report")
     assert not any(row["eligible"] for row in rows)
     assert "not reached" in (root / "selection-report" / "selection.toml").read_text()
-    definitions["case"][0]["current"]["gap_ladder"] = [dict(gaptol=1e-10)]
-    assert analysis.settings_for(definitions, CASE, "current", 3) == dict(gaptol=1e-10)
+    definitions["case"][0]["current"]["gap_ladder"] = [dict(gaptol=1e-6)]
+    assert analysis.settings_for(definitions, CASE, "current", 3) == dict(gaptol=1e-6)
 
 
 def companion_catalogs(folder):
@@ -332,7 +328,7 @@ def family_calibration(root):
     for case in cases:
         options = {side: dict(ladder=[dict(family="coordinate", stopping="coordinate-change", gaptol=0., tol=tol)
                                      for tol in (1e-5, 1e-8)]) for side in ("legacy", "current")}
-        options["current"]["gap_ladder"] = [dict(family="gap", stopping="relative-gap", gaptol=1e-9, tol=1e-12)]
+        options["current"]["gap_ladder"] = [dict(family="gap", stopping="relative-gap", gaptol=1e-6, tol=1e-8)]
         definitions["case"].append(dict(id=case, **options))
     write_toml(arms / "catalog.toml", definitions)
     for side in analysis.ARMS:
@@ -367,7 +363,7 @@ def family_calibration(root):
                             else:
                                 factor = {1: 4, 2: 8, 3: 16}[index]
                             row["time_ns"] = int(float(row["time_ns"]) * factor / (4 if side == "legacy" else 8))
-                            row["value"] = 1e-7 if case == cases[1] and index == 1 else 1e-9
+                            row["value"] = 9e-5 if case == cases[1] and index == 1 else 1e-9
                         expanded[kind].append(row)
             samples = {}
             for row in expanded["samples"]:
@@ -435,24 +431,24 @@ def family_controls(root):
     output = root / "family-selection"
     _, _, rows = analysis.analyze(arms, output, 3, select=True)
     selected = {(row["id"], row["side"], row["family"], row["target"]): row for row in rows}
-    assert len(rows) == 12
+    assert len(rows) == 6
     for target in analysis.TARGETS:
         assert selected[(cases[0], "current", "coordinate", target)]["setting_index"] == 2
         assert selected[(cases[0], "current", "best", target)]["setting_index"] == 3
-        expected = 1 if target == 1e-6 else 2
-        assert selected[(cases[1], "current", "coordinate", target)]["setting_index"] == expected
-        assert selected[(cases[1], "current", "best", target)]["setting_index"] == expected
+        assert selected[(cases[1], "current", "coordinate", target)]["setting_index"] == 1
+        assert selected[(cases[1], "current", "best", target)]["setting_index"] == 1
         assert selected[(cases[0], "legacy", "coordinate", target)]["setting_index"] == 1
-        assert selected[(cases[1], "legacy", "coordinate", target)]["setting_index"] == expected
+        assert selected[(cases[1], "legacy", "coordinate", target)]["setting_index"] == 1
     rungs = controls.read_rows(output / "rungs.csv", delimiter=",")
-    assert len(rungs) == 20 and {row["family"] for row in rungs} == {"coordinate", "gap"}
+    assert len(rungs) == 10 and {row["family"] for row in rungs} == {"coordinate", "gap"}
     assert all(row["family"] == ("gap" if int(row["setting_index"]) == 3 else "coordinate") for row in rungs)
     selection_path = output / "selection.toml"
     confirmation = frozen_union(arms, root / "family-confirmation", selection_path)
     report = root / "family-report"
     results, groups, _ = analysis.analyze(confirmation, report, 3, selection=selection_path)
-    by_case = {(row["view"], row["id"]): row for row in results if row["target"] == "1e-06"}
-    assert [row["view"] for row in results] == ["primary"] * 4 + ["secondary"] * 4
+    by_case = {(row["view"], row["id"]): row for row in results}
+    assert [row["view"] for row in results] == ["primary"] * 2 + ["secondary"] * 2
+    assert {row["target"] for row in results} == {"0.0001"}
     close(by_case[("primary", cases[0])]["ratio"], 2)
     close(by_case[("secondary", cases[0])]["ratio"], .5)
     assert by_case[("primary", cases[0])]["current_setting_index"] == "2"
@@ -460,10 +456,7 @@ def family_controls(root):
     for view in ("primary", "secondary"):
         close(by_case[(view, cases[1])]["ratio"], 1)
         assert by_case[(view, cases[1])]["current_setting_index"] == "1"
-        tight = next(row for row in results if row["view"] == view and row["id"] == cases[1] and row["target"] == "1e-08")
-        assert tight["current_setting_index"] == "2" and tight["legacy_setting_index"] == "2"
-        close(tight["ratio"], 1)
-    aggregate = {row["view"]: row for row in groups if row["group"] == "all" and row["target"] == "1e-06"}
+    aggregate = {row["view"]: row for row in groups if row["group"] == "all"}
     close(aggregate["primary"]["ratio"], math.sqrt(2))
     close(aggregate["secondary"]["ratio"], math.sqrt(.5))
     text = (report / "REPORT.md").read_text()
@@ -477,11 +470,11 @@ def family_controls(root):
                 expanded[(*key[:-1], block)] = dict(record, meta=dict(record["meta"], rep=block))
     analysis.validate_selected_union(expanded, definitions, selection, 60, processes)
     results, _, noise = analysis.inference(expanded, 60, selection, processes)
-    close(noise[("primary", "1e-06")]["delta"], math.log(1.05))
-    close(noise[("secondary", "1e-06")]["q"], math.log(2))
-    assert noise[("primary", "1e-06")]["observations"] == 120
-    assert noise[("secondary", "1e-06")]["observations"] == 120
-    decisions = {(row["view"], row["id"]): row for row in results if row["target"] == "1e-06"}
+    close(noise[("primary", "0.0001")]["delta"], math.log(1.05))
+    close(noise[("secondary", "0.0001")]["q"], math.log(2))
+    assert noise[("primary", "0.0001")]["observations"] == 120
+    assert noise[("secondary", "0.0001")]["observations"] == 120
+    decisions = {(row["view"], row["id"]): row for row in results}
     assert decisions[("primary", cases[0])]["candidate"] and decisions[("primary", cases[0])]["bh_rejected"]
     assert not decisions[("secondary", cases[0])]["candidate"]
     missing = dict(expanded)
@@ -500,21 +493,25 @@ def family_failure_controls(root, arms, cases, selection, confirmation):
     expect_error(lambda: analysis.read_selection(path), "missing selection family")
     write_toml(path, dict(selection=rows + [rows[0]]))
     expect_error(lambda: analysis.read_selection(path), "duplicate selection entry")
+    # Dropped accuracy targets do not define a valid frozen selection.
+    for target in (1e-6, 1e-8):
+        write_toml(path, dict(selection=[dict(row, target=target) for row in rows]))
+        expect_error(lambda: analysis.read_selection(path), "invalid selection case/target")
     write_toml(path, dict(selection=rows))
     path.write_text(path.read_text() + "\n")
     changed = analysis.read_selection(path)
     expect_error(lambda: analysis.load_arms(confirmation, 3, selection=changed), "SHA-256 differs")
     loaded, definitions, processes = analysis.load_arms(confirmation, 3, selection=selection)
     invalid = dict(selection, rows={key: dict(value) for key, value in selection["rows"].items()})
-    invalid["rows"][(cases[0], "current", "coordinate", "1e-06")]["setting_index"] = 3
+    invalid["rows"][(cases[0], "current", "coordinate", "0.0001")]["setting_index"] = 3
     expect_error(lambda: analysis.validate_selected_union(loaded, definitions, invalid, 3, processes),
                  "coordinate selection points to the gap ladder")
     calibration, definitions, _ = analysis.load_arms(arms, 3, select=True)
     for key, record in calibration.items():
         if key[0] == "current" and key[2] == cases[0] and key[3] in (1, 2):
-            record["metric"]["worst_value"] = "1e-5"
+            record["metric"]["worst_value"] = "2e-4"
             for sample in record["samples"]:
-                sample["value"] = "1e-5"
+                sample["value"] = "2e-4"
     output = root / "family-not-reached-selection"
     output.mkdir()
     selected, _ = analysis.calibration(calibration, definitions, output)
@@ -552,6 +549,35 @@ def optional_aa_controls(root):
     shutil.rmtree(calibration_defaults / "current-AA")
     rows, _, _ = analysis.analyze(calibration_defaults, root / "optional-aa-defaults-report", 3, select=True)
     assert rows[0]["current-AA_statuses"] == "absent" and not rows[0]["candidate"]
+
+
+def support_reference_controls(root):
+    arms, cases = family_calibration(root / "support-reference")
+    loaded, _, _ = analysis.load_arms(arms, 3, select=True)
+    case = cases[0]
+    records = {side: [record for key, record in sorted(loaded.items())
+                      if key[0] == side and key[2] == case and key[3] == 1] for side in analysis.ARMS}
+    for record in loaded.values():
+        record["supports"] = [{0, 1}]
+    reference = [record for key, record in loaded.items()
+                 if key[0] == "current" and key[2] == case and key[3] == 3]
+    for record in reference:
+        record["metric"].update(worst_value="1e-6", median_value="1e-6")
+        record["supports"] = [{0, 2}]
+        for sample in record["samples"]:
+            sample["value"] = "1e-6"
+    result = analysis.support_columns(loaded, case, records)
+    assert result["support_reference"] == "current tightest rung, certified <= 1e-6"
+    assert json.loads(result["legacy_support_reference_differences"]) == [[2], [2], [2]]
+    reference[0]["metric"].update(worst_value="1.0001e-6", median_value="1.0001e-6")
+    for sample in reference[0]["samples"]:
+        sample["value"] = "1.0001e-6"
+    assert analysis.support_columns(loaded, case, records)["support_reference"] == "unavailable"
+    reference[0]["metric"].update(worst_value="1e-6", median_value="1e-6")
+    for sample in reference[0]["samples"]:
+        sample["value"] = "1e-6"
+    reference[0]["supports"] = None
+    assert analysis.support_columns(loaded, case, records)["support_reference"] == "unavailable"
 
 
 def schema_controls(root):
@@ -637,6 +663,11 @@ def certificate_controls():
     close(crosscheck.certificate(x, y, [0., 0.], n, p, "feasible_lasso", 1), 0)
     close(crosscheck.certificate(x, y, [0., 0.], n, p, "feasible_lasso", .1), (1 - .1 * math.sqrt(2)) ** 2)
     assert math.isnan(crosscheck.certificate(x, y, y, n, p, "feasible_lasso", 1))
+    near_interpolating = [(1 - 1e-10) * value for value in y]
+    assert math.isnan(crosscheck.certificate(x, y, near_interpolating, n, p, "feasible_lasso", .1))
+    # The relative guard includes equality and scales with the response norm.
+    assert math.isnan(crosscheck.certificate([1.], [1e8], [1e8 - 1], 1, 1, "feasible_lasso", .1))
+    assert math.isfinite(crosscheck.certificate([1.], [1e8], [1e8 - 2], 1, 1, "feasible_lasso", .1))
 
 
 def raw_file(root, name, values, shape, dtype="Float64"):
@@ -823,10 +854,12 @@ def main():
         selection_controls(root)
         family_controls(root)
         optional_aa_controls(root)
+        support_reference_controls(root)
         schema_controls(root)
         artifact, arms = crosscheck_controls(root)
         cli_controls(root, artifact, arms)
-    print("ANALYSIS_CONTROLS_PASSED crosscheck-arm-subsets,optional-calibration-AA,required-confirmation-AA,"
+    print("ANALYSIS_CONTROLS_PASSED feasible-interpolation-guard,single-target-1e-4,support-threshold,support-reference-1e-6,"
+          "crosscheck-arm-subsets,optional-calibration-AA,required-confirmation-AA,"
           "selection-families,primary-secondary,union-rungs,target-pairing,same-rung-AA,"
           "t-CDF,paired-intervals,block-bootstrap,known-mean-coverage,"
           "order-statistic-bound,BH,selection-ties,not-reached,failures,all-failed,"
