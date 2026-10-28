@@ -49,9 +49,15 @@ algorithms. A historical run passed these 62 additional assertions on Julia
 
 Run `julia --project=test/oracles test/oracles/sqrt_hypatia.jl` after instantiating
 this environment. Hypatia solves an independent second-order cone formulation
-with `1e-12` optimality and feasibility tolerances. The script records its
-termination status, primal objective and dual objective, and requires a conic
-bracket of width at most `1e-7 * max(1, abs(P_conic))`.
+initially with `1e-12` optimality and feasibility tolerances. If termination is
+not optimal or either solution status is not feasible, it solves the same
+model again with a fresh Hypatia optimizer at `1e-9` tolerances. Each
+`HYPATIA_STATUS` line records both attempts' tolerances and statuses
+(`attempt_2=nothing` when no retry was needed), and identifies the tolerance
+used. The selected result must have optimal termination, feasible primal and
+dual points, and a conic bracket of width at most
+`1e-7 * max(1, abs(P_conic))`. Its primal and dual objectives supply the
+bracket used in all coordinate-descent certificate checks.
 
 The cases cover exact fits from optimal and trapped starts, dependent columns,
 the cyclic audit trap, an incomplete witness, six seeded underdetermined

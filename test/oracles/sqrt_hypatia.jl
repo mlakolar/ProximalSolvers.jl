@@ -44,7 +44,22 @@ function hypatia_solution(X, y, loadings; weights = nothing, intercept = false,
   @objective(model, Min, t + sum(λ[j] * a[k] for (k, j) in enumerate(penalized)))
   optimize!(model)
   status, primal, dual = termination_status(model), primal_status(model), dual_status(model)
-  println("HYPATIA_STATUS termination=", status, " primal=", primal, " dual=", dual)
+  strict = (; tol = 1e-12, termination = status, primal, dual)
+  fallback = nothing
+  used_tol = 1e-12
+  if status != MOI.OPTIMAL || primal != MOI.FEASIBLE_POINT || dual != MOI.FEASIBLE_POINT
+    # Some exact-fit problems stall at the stricter tolerances. Keep the
+    # same JuMP model, but use a fresh optimizer for the less stringent solve.
+    set_optimizer(model, () -> Hypatia.Optimizer(; verbose = false, tol_rel_opt = 1e-9,
+                                                  tol_abs_opt = 1e-9, tol_feas = 1e-9))
+    optimize!(model)
+    status, primal, dual = termination_status(model), primal_status(model), dual_status(model)
+    fallback = (; tol = 1e-9, termination = status, primal, dual)
+    used_tol = 1e-9
+  end
+  println("HYPATIA_STATUS attempt_1=", strict, " attempt_2=", fallback,
+          " used_tol=", used_tol, " termination=", status, " primal=", primal, " dual=", dual)
+  # Assertions and objective queries refer only to the attempt actually used.
   @test status == MOI.OPTIMAL
   @test primal == MOI.FEASIBLE_POINT
   @test dual == MOI.FEASIBLE_POINT
