@@ -124,10 +124,17 @@ function _groupscale(g::GroupNormL2, z::AbstractVector{T}, ks, wide::Bool = fals
   for k in ks
     G = g.groups[k]
     a = zero(T)
-    @inbounds for i in G
-      a += z[i] * z[i]
+    if wide
+      @inbounds for i in G
+        a = hypot(a, z[i])
+      end
+    else
+      @inbounds for i in G
+        a += z[i] * z[i]
+      end
+      a = sqrt(a)
     end
-    a, c = sqrt(a), wide ? T(g.λ0) * T(g.w[k]) : T(g.λ0 * g.w[k])
+    c = wide ? T(g.λ0) * T(g.w[k]) : T(g.λ0 * g.w[k])
     a > c || continue
     iszero(c) && return nothing
     t = min(t, c / a)
@@ -326,6 +333,7 @@ end
 
 function _wide_penalty_gap(g::ElasticNet, x, z, t, cand)
   v, λ2 = 0.0, Float64(g.λ2)
+  sqrtλ2 = sqrt(λ2)
   for j in (cand === nothing ? eachindex(x) : cand)
     b, ζ = Float64(x[j]), -t * z[j]
     c = Float64(g.λ1) * Float64(_entryweight(g.w, j, Float64))
@@ -333,9 +341,9 @@ function _wide_penalty_gap(g::ElasticNet, x, z, t, cand)
       v += _wide_l1_gap(c, b, ζ)
     else
       # Write ζ = a + q with a clipped to [-c, c] and q = soft(ζ, c).
-      # The scalar gap is λ2(b - q/λ2)^2/2 + c|b| - ab.
+      # The scalar gap is (√λ2 b - q/√λ2)^2/2 + c|b| - ab.
       q = sign(ζ) * max(abs(ζ) - c, 0.0)
-      v += λ2 * (b - q / λ2)^2 / 2 + _wide_l1_gap(c, b, clamp(ζ, -c, c))
+      v += (sqrtλ2 * b - q / sqrtλ2)^2 / 2 + _wide_l1_gap(c, b, clamp(ζ, -c, c))
     end
   end
   v
@@ -347,10 +355,9 @@ end
 function _wide_group_gap(x, z, t, G, c, c1 = 0.0)
   B, Q = 0.0, 0.0
   for j in G
-    B += Float64(x[j])^2
-    Q += max(abs(t * z[j]) - c1, 0.0)^2
+    B = hypot(B, Float64(x[j]))
+    Q = hypot(Q, max(abs(t * z[j]) - c1, 0.0))
   end
-  B, Q = sqrt(B), sqrt(Q)
   iszero(B) && return 0.0
   v = B * max(c - Q, 0.0)
   iszero(Q) && return v
@@ -397,7 +404,37 @@ function _wide_dualscale_on(g::Union{GroupNormL2, SparseGroupNormL2, Scaled{<:Sp
     end
   end
   ks = cand === nothing ? eachindex(f.groups) : cand
-  g isa GroupNormL2 ? _groupscale(g, z, ks, true) : _sglscale(g, z, ks, true)
+  g isa GroupNormL2 ? _groupscale(g, z, ks, true) : _sglscale(g, z, ks, Val(:wide))
+end
+
+# Scale the sparse-group root as well as its norm test, so its internal
+# squares retain a small gradient. Native screening keeps its own arithmetic.
+function _sglscale(g::Union{SparseGroupNormL2, Scaled{<:SparseGroupNormL2}}, z::AbstractVector{T}, ks,
+                   ::Val{:wide}) where {T}
+  f = g isa SparseGroupNormL2 ? g : g.f
+  t = one(T)
+  for k in ks
+    G = f.groups[k]
+    c1, c2 = _sglthresholds(g, k, T, true)
+    a = zero(T)
+    for j in G
+      a = hypot(a, max(abs(z[j]) - c1, zero(T)))
+    end
+    a > c2 || continue
+    if iszero(c1)
+      iszero(c2) && return nothing
+      t = min(t, c2 / a)
+    elseif iszero(c2)
+      t = min(t, c1 / _absmax(z, G))
+    else
+      scale = max(_absmax(z, G), c1, c2)
+      v = T[z[j] / scale for j in G]
+      ρ = _sgl_root(v, eachindex(v), c1 / scale, c2 / scale)
+      isfinite(ρ) || return nothing
+      t = min(t, inv(ρ))
+    end
+  end
+  t
 end
 
 function _wide_coldot(X::AbstractMatrix, d, k::Int)

@@ -249,6 +249,56 @@ end
   @test actual == expected
 end
 
+@testset "Wide group norms retain tiny gradients" begin
+  a = 1f-35
+  groups = [[1]]
+  f = a * GLMLoss(ProximalBase.Squared(), Float32[0], reshape([a], 1, 1); weights = [a])
+  x = AtomIterate([a], groups)
+  m = cdmodel(f, nothing)
+  PS.initialize!(m, x)
+  sg = SparseGroupNormL2(1e-200, 1e-200, groups, [1.0])
+  penalties = ((GroupNormL2(1e-200, groups, [1.0]), 1e-200),
+               (SparseGroupNormL2(0.0, 1e-200, groups, [1.0]), 1e-200),
+               (sg, 2e-200), (Scaled(sg, 0.5), 1e-200))
+  for (g, c) in penalties, cand in (nothing, [1])
+    P, D, t = PS._wide_gap(m, g, x, cand)
+    expected = Float64(BigFloat(c) / BigFloat(a)^5)
+    @test isfinite(P) && P > 0
+    @test isapprox(t, expected; rtol = 8eps(Float64))
+    @test isapprox((P - D) / P, 1; rtol = 8eps(Float64))
+  end
+  r = @test_logs (:warn, r"relative duality gap .* does not certify") solve!(x, f, first(penalties)[1],
+                   CDSolver(; gaptol = 1e-4, order = :cyclic, momentum = false))
+  @test !r.converged && isapprox(r.gap, 1; rtol = eps(Float32))
+  @test Vector(x) == [a]
+
+  # The directional term also needs the tiny dual norm after scaling.
+  b, z, c = Float32[3e-35, 4e-35], Float64[3e-175, 4e-175], 5e-175
+  g = GroupNormL2(c, [[1, 2]], [1.0])
+  expected = Float64(BigFloat(c) * norm(BigFloat.(b)) + dot(BigFloat.(z), BigFloat.(b)))
+  gap = PS._wide_penalty_gap(g, b, z, 1.0, nothing)
+  @test isapprox(gap, expected; rtol = 8eps(Float64))
+  @test isapprox(PS._groupscale(GroupNormL2(1e-200, [[1, 2]], [1.0]), z, [1], true),
+                 1e-200 / 5e-175; rtol = 8eps(Float64))
+end
+
+@testset "Wide elastic-net gaps with a tiny ridge stay finite" begin
+  a = 1f-35
+  f = a * GLMLoss(ProximalBase.Squared(), Float32[1e-35, 1e18], reshape(Float32[1e-35, 0], 2, 1);
+                 weights = Float32[1e-35, 1])
+  g = ElasticNet(0.0, 1e-300)
+  x = SparseIterate(Float32[0])
+  m = cdmodel(f, nothing)
+  PS.initialize!(m, x)
+  # At zero the residual dual point has unit scale and ζ = a^4.
+  expected = Float64(BigFloat(a)^8 / (2BigFloat(g.λ2)))
+  P, D, t = PS._wide_gap(m, g, x, nothing)
+  @test t == 1
+  @test isfinite(P - D) && isapprox(P - D, expected; rtol = 8eps(Float64))
+  dg = duality_gap(f, g, Float32[0])
+  @test isfinite(dg.gap) && isapprox(dg.gap, expected; rtol = 2eps(Float32))
+end
+
 @testset "Large-response gaps avoid dual cancellation" begin
   X = reshape(Float32[1, 0, -1], 3, 1)
   for weighted in (false, true), screening in (false, true)
