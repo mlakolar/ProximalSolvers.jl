@@ -104,20 +104,61 @@ The iterate fixes what a coordinate is.
   ``r \ge c``, of the lower triangle of a symmetric matrix ``\Theta``. A step on
   an off-diagonal coordinate moves ``\Theta_{rc}`` and ``\Theta_{cr}``
   together, along ``D = E_{rc} + E_{cr}``. Let ``G`` be the derivative of the
-  loss along ``D`` and ``a`` its curvature along ``D``. A penalty on the
-  matrix counts the entry twice, once in each triangle, so along the coordinate
-  it is ``\mu\, g_{rc}(t)`` with ``\mu = 2`` (``\mu = 1`` on the diagonal),
-  and
+  loss along ``D`` and ``a`` its curvature along ``D``. A separable penalty
+  on the full matrix contributes ``h_{rc}(t) = g_{rc}(t) + g_{cr}(t)`` along
+  an off-diagonal coordinate, and ``h_{rr}(t) = g_{rr}(t)`` on the diagonal.
+  The step is
 
   ```math
-  t^+ = \operatorname*{argmin}_t \; G\,(t - t_0) + \frac{a}{2}(t - t_0)^2 + \mu\, g_{rc}(t)
-      = \operatorname{prox}_{\mu g_{rc}/a}\Big(t_0 - \frac{G}{a}\Big).
+  t^+ = \operatorname*{argmin}_t \; G\,(t - t_0) + \frac{a}{2}(t - t_0)^2 + h_{rc}(t)
+      = \operatorname{prox}_{h_{rc}/a}\Big(t_0 - \frac{G}{a}\Big).
   ```
 
-  The weights of a weighted ℓ1 norm are indexed like the full matrix and must
-  be symmetric, including through `Scaled` and `Tilt` wrappers. A `Tilt`
-  must also have a symmetric linear coefficient array; otherwise the solver
-  rejects it before changing the iterate.
+  Per-entry parameters are indexed like the full matrix, as a matrix or a
+  vector in column-major order. Solvers average transposed parameters that
+  enter the penalty linearly: the weights of `NormL1`, `NormL1Nonneg`,
+  `ElasticNet` (L1 term), `CappedL1`, `LogPenalty`, `NormLq`, `Berhu`,
+  `CheckLoss`, `EpsInsensitiveLoss` and `HingeLoss`, and the coefficients
+  `c` of `Tilt` and `LinearFunction`. The constants `d` are kept. This leaves
+  ``g(X)`` unchanged for every symmetric ``X``, up to floating-point rounding.
+  With the prepared penalty ``\bar g``, the pair contributes
+  ``h_{rc}(t) = 2\bar g_{rc}(t)``.
+
+  Other per-entry parameters must already be symmetric: the bounds `l` and
+  `u` of `IndBox`, including the box of `Constrained(g, IndBox)`, the pattern
+  `P` of `IndPattern`, the center `y` of `SqrNormL2`, the center `c` of
+  `Regularize`, the translation `b` of `Translate`, the labels `y` of
+  `HingeLoss` and the reference `q` of `KLDivergence`. An asymmetric one
+  raises an `ArgumentError` before mutation.
+
+  Normalization recurses through `Scaled`, `Tilt`, `Translate`, `Regularize`,
+  `Constrained(·, IndBox)` and scalar `Precompose`, subject to those symmetry
+  requirements. Inside `MoreauEnvelope`, `Conjugate` and linear constraints,
+  these parameters must already be symmetric; no averaging is done there.
+  The coefficient `a` of a linear constraint must also be symmetric.
+  These rules do not extend the penalty families supported by a solver or
+  wrapper.
+
+  Symmetric or absent parameters keep the supplied penalty object itself;
+  supplied arrays are never changed. Unknown penalty types pass unchanged
+  and must have symmetric per-entry parameters. The low-level
+  [`coordinate_step!`](@ref ProximalSolvers.coordinate_step!) and
+  `prox_coordinate!` kernels also require parameters that are already
+  symmetric.
+
+  The same rule applies to [`lambda_max`](@ref), screening, continuation,
+  [`solve_path`](@ref), [`kkt_residual`](@ref) and [`SolverWorkspace`](@ref).
+  A workspace keeps the supplied `workspace.g` and prepares the penalty again
+  at each solve. [`LLA`](@ref) prepares it before forming stage weights, so
+  `ReweightResults.penalty` and `next` hold averaged stage weights. With
+  [`reweight!`](@ref), `update` receives the supplied penalty, which is also
+  kept in the results; each solve prepares it separately. The reported
+  minimum uses the supplied objective.
+
+  The pair mean avoids overflow for finite weights. A pair whose sum is below
+  twice the smallest subnormal may have a mean that rounds to zero. Infinite
+  weights are kept, but some non-L1 families of ProximalBase do not handle
+  them in their proximal operators.
 - On an `AtomIterate`, a coordinate is a group of entries, for the group
   lasso; see the next section.
 

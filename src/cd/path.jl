@@ -49,8 +49,12 @@ For an unpenalized coordinate with nonzero gradient, this routine returns
 only the threshold over penalized coordinates; it is not a certificate that
 the whole coefficient vector can be zero. For nonconvex penalties the slope
 threshold describes stationarity at zero, not global optimality.
+
+On a `SymmetricSparseIterate`, the penalty is prepared by the same parameter
+normalization as [`solve!`](@ref).
 """
 function lambda_max(f::Union{AbstractFunction, CDModel}, g::AbstractFunction, x)
+  g = _symmetric_penalty(g, x)
   g isa _BoxConstrained && _check_zero_in_box(g.box)
   m = f isa CDModel ? f : cdmodel(f, x)
   x0 = _zero_like(x)
@@ -222,6 +226,8 @@ minimized from zero directly, and so it is for a penalty without a level
 (`ZeroFunction`, `IndBox`, …), which has no path. As for [`solve_path`](@ref),
 MCP, SCAD and their group versions need convex coordinate steps along the
 levels, and an `ArgumentError` says so when they are not.
+The symmetric-iterate parameter rule of the single [`solve!`](@ref) also
+applies to continuation.
 """
 function solve!(x::Union{SparseIterate, SymmetricSparseIterate, AtomIterate}, f::Union{AbstractFunction, CDModel},
                 g::AbstractFunction, method::CDSolver; continuation::Integer,
@@ -237,6 +243,8 @@ end
 function _continuation!(x, f, g, method::CDSolver, continuation::Integer, screening::Bool, tolk, gaptol = nothing)
   continuation >= 0 || throw(ArgumentError("continuation must be nonnegative, but it is $continuation."))
   continuation == 0 && return solve!(x, f, g, gaptol === nothing ? method : _with(method; gaptol = Float64(gaptol)))
+  supplied = g
+  g = _symmetric_penalty(g, x)
   m = f isa CDModel ? f : cdmodel(f, x)
   _check_iterate(g, x)
   check_penalty(m, g)
@@ -246,12 +254,12 @@ function _continuation!(x, f, g, method::CDSolver, continuation::Integer, screen
   initialize!(m, x)
   _check_convex_steps(m, g, x)
   st = _CDState(T, x, method)
-  _haslevel(g) || return _continuation_direct!(x, m, g, st, method)
+  _haslevel(g) || return _continuation_direct!(x, m, g, st, method, supplied)
   grad = _gradient_buffer(x)
   gradient!(grad, m, x)
   λmax = _lambda_max(x, grad, g)
   λ = _level(g)::Real
-  zero(λmax) < λ < λmax || return _continuation_direct!(x, m, g, st, method)
+  zero(λmax) < λ < λmax || return _continuation_direct!(x, m, g, st, method, supplied)
   passes, checks = 0, 0
   l1, l2 = log(λmax), log(λ)
   inS = falses(ncoordinates(x))
@@ -268,14 +276,14 @@ function _continuation!(x, f, g, method::CDSolver, continuation::Integer, screen
     λprev = _level(gk)
   end
   _warn_not_converged(st, method)
-  CDResults(x, loss_value(m, x) + g(x), passes, st.converged, st.maxchange, st.tolerance, checks, st.relgap)
+  CDResults(x, loss_value(m, x) + supplied(x), passes, st.converged, st.maxchange, st.tolerance, checks, st.relgap)
 end
 
 # The no-path branch has no gradient or previous penalty level.
-function _continuation_direct!(x, m, g, st, method)
+function _continuation_direct!(x, m, g, st, method, supplied = g)
   _cd!(x, m, g, st, method)
   _warn_not_converged(st, method)
-  CDResults(x, loss_value(m, x) + g(x), st.passes, st.converged, st.maxchange, st.tolerance, 0, st.relgap)
+  CDResults(x, loss_value(m, x) + supplied(x), st.passes, st.converged, st.maxchange, st.tolerance, 0, st.relgap)
 end
 
 # the solver for the levels before the target, which only give warm starts:
@@ -379,6 +387,9 @@ sparse group lasso path of R's SGL and sparsegl,
 must otherwise be given) is the starting point and holds the last solution on
 return.
 
+On a `SymmetricSparseIterate`, the parameter rule of [`solve!`](@ref) prepares
+the penalty before the path and its screening tests.
+
 With `screening`, each level is solved first over the coordinates kept by the
 sequential strong rule of Tibshirani et al. (2012), and the optimality
 conditions of the others are checked afterwards; violators are added and the
@@ -422,6 +433,7 @@ function solve_path(f::Union{AbstractFunction, CDModel}, g::AbstractFunction, λ
                     maxnnz::Real = Inf, callback = nothing, gaptol::Union{Nothing, Real} = nothing)
   all(λ -> isfinite(λ) && λ >= 0, λs) || throw(ArgumentError("The penalty levels must be finite and nonnegative."))
   issorted(λs; rev = true) || throw(ArgumentError("The penalty levels must be decreasing."))
+  g = _symmetric_penalty(g, x)
   m = f isa CDModel ? f : cdmodel(f, x)
   T = eltype(m)
   _check_iterate(g, x)

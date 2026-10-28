@@ -316,7 +316,8 @@ descent minimizes that model plus `g`, and an Armijo line search rejects
 nonfinite trials. Dense vectors, `SparseIterate`s, `SymmetricSparseIterate`s
 and dense symmetric matrices are accepted. Vector penalties must be
 separable; the generic symmetric-matrix path supports `NormL1` and
-`ZeroFunction`, averaging transposed entry weights for `NormL1`.
+`ZeroFunction`, following the symmetric-iterate parameter rule of
+[`solve!`](@ref), as does QUIC.
 
 For this generic path, the unit-step proximal fixed-point residual of the
 original objective must be at most `tol * max(1, norm(x, Inf))` for

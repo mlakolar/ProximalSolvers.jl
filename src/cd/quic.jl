@@ -156,7 +156,7 @@ function solve!(X::SymmetricSparseIterate{T}, f::LogDetLoss{T}, g::NormL1, metho
   S, w, p = f.S, f.w, X.p
   size(S, 1) == p || throw(DimensionMismatch("X is $p × $p and S is $(size(S, 1)) × $(size(S, 1))"))
   ProximalBase._checkparams(g, X)
-  g = _newton_penalty(g, X)
+  g = _symmetric_penalty(g, X)
   w > 0 || throw(ArgumentError("the weight of the LogDetLoss must be positive."))
   comps = _glasso_components(S, g, w)
   Xs = [_block_start(X, S, g, w, C) for C in comps]
@@ -173,7 +173,7 @@ function solve!(X::SymmetricSparseIterate{T}, f::LogDetLoss{T}, g::NormL1, metho
         _, Fi = _glasso_scalar(S[i, i], T(g.λ0) * T(_entryweight(g.w, (i - 1) * p + i, T)), w)
         F += Fi; Dual += Fi; Fabs += abs(Fi)
       else
-        gc = g.w === nothing ? g : NormL1(g.λ0, g.w[C, C])
+        gc = g.w === nothing ? g : NormL1(g.λ0, reshape(g.w, p, p)[C, C])
         Fc, Dc, pc, cc = _quic!(Xc, S[C, C], w, gc, method, tol)
         F += Fc; Dual += Dc; Fabs += abs(Fc); passes_round += pc
         converged &= cc

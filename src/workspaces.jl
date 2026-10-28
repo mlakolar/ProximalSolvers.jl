@@ -34,6 +34,8 @@ intercept. The workspace shares `x` with the caller.
 uses a new penalty of the same concrete type; group partitions must stay the
 same. This does not change the default penalty `workspace.g` supplied at
 construction. [`reinit!`](@ref) copies a new starting point into the existing storage.
+On symmetric iterates, the parameter rule of [`solve!`](@ref) is applied at
+construction and again for each solve, keeping the supplied `workspace.g`.
 Each call resets iteration history, counters and stopping tests. ADMM resets
 its dual variable and penalty parameter too, unless `warm_start = true` is
 passed to `solve!`, which keeps both from the previous solve.
@@ -71,8 +73,9 @@ function SolverWorkspace(x::Union{AbstractArray, _Blocks}, f::AbstractFunction,
   issmooth(f) || throw(ArgumentError("$(summary(method)) needs a smooth loss."))
   isproximable(g) || throw(ArgumentError("$(summary(method)) needs a proximable penalty."))
   _workspace_noalias(x)
-  state = initial_state(method, options, f, g, x)
-  gap = options.gaptol > 0 ? _gapevaluator(f, g, x) : nothing
+  prepared = _symmetric_penalty(g, x)
+  state = initial_state(method, options, f, prepared, x)
+  gap = options.gaptol > 0 ? _gapevaluator(f, prepared, x) : nothing
   SolverWorkspace(x, f, g, method, options, _GradientBuffers(state, gap), _size(x))
 end
 
@@ -93,10 +96,11 @@ _workspace_iterate(x::Vector{T}, g) where {T<:AbstractFloat} =
 
 function SolverWorkspace(x, f::Union{AbstractFunction, CDModel}, g::AbstractFunction, method::CDSolver)
   xs = _workspace_iterate(x, g)
+  prepared = _symmetric_penalty(g, xs)
   m = f isa CDModel ? f : cdmodel(f, xs)
   eltype(m) === eltype(xs) || throw(ArgumentError("the iterate and model must have the same element type."))
-  _check_iterate(g, xs)
-  check_penalty(m, g)
+  _check_iterate(prepared, xs)
+  check_penalty(m, prepared)
   initialize!(m, xs)
   buffers = _CDBuffers(xs, m, _CDState(eltype(xs), xs, method))
   SolverWorkspace(x, f, g, method, nothing, buffers, _size(x))
@@ -209,6 +213,7 @@ end
 
 function solve!(ws::SolverWorkspace{X, F, G, M}, g = ws.g) where {X, F, G, M<:_GradientSolver}
   g = _workspace_penalty(ws, g)
+  g = _symmetric_penalty(g, ws.x)
   t0 = time()
   reinitialize_state!(ws.buffers.state, ws.f, g, ws.method)
   _solve_gradient!(ws.buffers.state, ws.f, g, ws.method, ws.options, ws.buffers.gap, t0)
@@ -228,9 +233,10 @@ function solve!(ws::SolverWorkspace{X, F, G, M}, g = ws.g;
 end
 
 function solve!(ws::SolverWorkspace{X, F, G, M}, g = ws.g) where {X, F, G, M<:CDSolver}
-  g = _workspace_penalty(ws, g)
+  supplied = _workspace_penalty(ws, g)
   b = ws.buffers
   xs, m, st = b.iterate, b.model, b.state
+  g = _symmetric_penalty(supplied, xs)
   _check_iterate(g, xs)
   check_penalty(m, g)
   if xs !== ws.x
@@ -244,5 +250,5 @@ function solve!(ws::SolverWorkspace{X, F, G, M}, g = ws.g) where {X, F, G, M<:CD
   _cd!(xs, m, g, st, ws.method)
   _warn_not_converged(st, ws.method)
   xs === ws.x || _copy_dense!(ws.x, xs)
-  CDResults(ws.x, loss_value(m, xs) + g(xs), st.passes, st.converged, st.maxchange, st.tolerance, 0, st.relgap)
+  CDResults(ws.x, loss_value(m, xs) + supplied(xs), st.passes, st.converged, st.maxchange, st.tolerance, 0, st.relgap)
 end

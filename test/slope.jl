@@ -68,4 +68,26 @@ using Test, Random, LinearAlgebra, SparseArrays, ProximalBase, ProximalSolvers
   @test_throws ArgumentError solve!(zeros(4),QuadraticFunction(X,y),g,method)
   @test_throws ArgumentError solve!(zeros(4),LeastSquaresLoss(hcat(y,y),X),g,method)
 end
+
+@testset "SLOPE screening fallback to the full working set" begin
+  X=[10. 0.;0. 0.];y=[1.,1e8];f=LeastSquaresLoss(y,X);g=SLOPE([.2,.1])
+  method=SLOPEAPG(;maxiter=100,tol=1e-11);x=zeros(2)
+  target=method.tol*max(1,norm(X'y,Inf))
+  # The zero row adds 5e15 to the loss, rounding away objective decreases,
+  # so each inner APG solve stops after one step. Backtracking uses L=115.2
+  # for curvature 100: the first two KKT residuals exceed 1 and .1, respectively.
+  # The excluded zero column has trial value zero, so the first check fills
+  # the working set and the next check continues with the full set.
+  r=solve!(x,f,g,method;candidates=[1])
+  full=solve!(zeros(2),f,g,method;candidates=eachindex(x))
+  @test r.converged && full.converged
+  @test r.kkt_residual<=target && full.kkt_residual<=target
+  @test r.kkt_repairs==1 && r.working_size==length(x)
+  @test r.iterations>2
+  @test x≈full.minimizer atol=1e-12
+  @test x≈[.098,0.] atol=1e-12
+  trial=similar(x);prox!(trial,g,x-X'*(X*x-y),1.)
+  @test norm(x-trial,Inf)<=target
+  @test r.kkt_residual≈norm(x-trial,Inf) atol=eps(Float64)
+end
 end

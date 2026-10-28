@@ -124,6 +124,28 @@ end
                                                   AtomIterate(Vector(s), groups))))
 end
 
+@testset "Float32 paths stop on the gap" begin
+  # the tolerance on the changes, tightened by the gap rule, stays a Float32
+  # (#124); the gap of each Float32 solution, recomputed in Float64, is within
+  # the target up to the rounding of the solution
+  X, y, _ = data(; p = 120, seed = 6)
+  n, p = size(X)
+  groups = [collect(i:i+3) for i in 1:4:p]
+  wg = sqrt.(length.(groups))
+  f, f32 = (1 / n) * LeastSquaresLoss(y, X), (1f0 / n) * LeastSquaresLoss(Float32.(y), Float32.(X))
+  cases = ((GroupNormL2(1f0, groups, Float32.(wg)), () -> AtomIterate(Float32, p, groups),
+            (λ, s) -> duality_gap(f, GroupNormL2(Float64(λ), groups, wg), AtomIterate(Float64.(Vector(s)), groups))),
+           (NormL1(1f0), () -> SparseIterate(Float32, p),
+            (λ, s) -> duality_gap(f, NormL1(Float64(λ)), SparseIterate(Float64.(Vector(s))))))
+  for (g, x0, gapof) in cases
+    λs = lambda_max(f32, g, x0()) .* 10f0 .^ range(0f0, -1.5f0; length = 20)
+    r = solve_path(f32, g, λs, CDSolver(; rng = Xoshiro(1)); x = x0())
+    @test all(r.converged) && all(<=(PS.PATH_GAPTOL), r.gap)
+    @test all(s -> eltype(s) == Float32, r.solutions) && eltype(r.gap) == Float32
+    @test all(k -> relgap(gapof(λs[k], r.solutions[k])) <= 2 * PS.PATH_GAPTOL, eachindex(λs))
+  end
+end
+
 @testset "logistic paths: coordinate descent and proximal Newton" begin
   X, _, yb = data(; seed = 7)
   n, p = size(X)

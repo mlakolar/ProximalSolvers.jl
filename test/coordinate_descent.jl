@@ -1205,6 +1205,23 @@ end
     PS.initialize!(m, x)
     @test isnan(m.L[2])
   end
+  # near-identity Gram matrices, on which some LAPACK builds fail to find the
+  # largest eigenvalue alone (#122): the curvature then comes from all the
+  # eigenvalues, so it equals their maximum whether or not eigmax throws here
+  q = 5
+  xq = AtomIterate(Float64, q, [1:q])
+  function curvature(f)
+    m = cdmodel(f, xq)
+    PS.initialize!(m, xq)
+    PS._groupcurvature!(m, xq, 1)
+  end
+  near = [(E = randn(Xoshiro(k), q, q); Matrix(1.0I, q, q) + 1e-15 * (E + E') / 2) for k in 1:2000]
+  @test all(A -> isapprox(curvature(QuadraticFunction(A, zeros(q))), maximum(eigvals(Symmetric(A))); rtol = 10 * eps()), near)
+  # the same blocks of a sparse quadratic, whose fallback block is densified
+  @test all(A -> isapprox(curvature(QuadraticFunction(sparse(A), zeros(q))), maximum(eigvals(Symmetric(A))); rtol = 10 * eps()), near)
+  # a least-squares loss whose group columns are orthonormal up to rounding
+  Xs = [(E = randn(Xoshiro(k), q, q); vcat(Matrix(1.0I, q, q) + 0.5e-15 * E, zeros(45, q))) for k in 1:2000]
+  @test all(X -> isapprox(curvature(LeastSquaresLoss(zeros(50), X)), maximum(eigvals(Symmetric(X' * X))); rtol = 10 * eps()), Xs)
 end
 
 end

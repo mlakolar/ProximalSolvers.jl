@@ -1,12 +1,50 @@
 # Migrating to this release
 
-This page lists the changes from the previous development version (the
-`master` branch before this release). Version 0.1.0 in the General registry
-predates this API; start from [Getting started](@ref) instead.
+## From 0.2.0 to 0.3.0
+
+Version 0.3.0 needs registered ProximalBase 0.5.3 or later within the 0.5 series.
+
+- **Symmetric matrices.** Coordinate descent on a `SymmetricSparseIterate`
+  now averages transposed parameters that enter the penalty linearly; see
+  [Coordinates of the iterates](@ref). It accepts asymmetric weights of
+  `NormL1`, `NormL1Nonneg` and `ElasticNet` and asymmetric `Tilt` coefficients,
+  directly or through `Scaled` and `Tilt`, which 0.2.0 rejected.
+
+  Version 0.2.0 accepted other asymmetric parameters but used only one triangle
+  in the coordinate steps. The weights of `CappedL1`, `LogPenalty`, `NormLq`,
+  `Berhu`, `CheckLoss`, `EpsInsensitiveLoss` and `HingeLoss`, the coefficients
+  of `LinearFunction`, and L1 weights inside `Translate`, `Regularize`,
+  `Constrained(·, IndBox)` and scalar `Precompose` are now averaged. Bounds
+  (`IndBox`, including constrained penalties), patterns (`IndPattern`),
+  centers (`SqrNormL2`, `Regularize`), translations (`Translate`), labels
+  (`HingeLoss`) and references (`KLDivergence`) must now be symmetric or an
+  `ArgumentError` is raised before mutation. Inside `MoreauEnvelope`,
+  `Conjugate` and linear constraints, these per-entry parameters must already
+  be symmetric, including the linear constraint's coefficient `a`.
+
+  [`lambda_max`](@ref) and the gradient solvers on symmetric storage also used
+  only one triangle in 0.2.0 and now follow the same averaging and rejection
+  rule. The graphical lasso and generic symmetric proximal Newton continue
+  to average transposed L1 weights. Averaging preserves the supplied objective
+  on symmetric matrices, up to floating-point rounding.
+- **Float32 and the gap rule.** Coordinate descent on Float32 data with the
+  duality-gap stopping rule, the default of paths, raised a `MethodError` once
+  the rule tightened its tolerance. It now keeps the tolerance in the element
+  type.
+- **Group curvatures.** When LAPACK fails to find the largest eigenvalue of a
+  group's Gram matrix alone, as some builds do on near-identity matrices such
+  as orthonormalized groups, block coordinate descent takes the largest of all
+  its eigenvalues. It used to raise a `LAPACKException`.
+
+## From the development version to 0.2.0
+
+These are the changes from the previous development version (the `master`
+branch before 0.2.0). Version 0.1.0 in the General registry predates this API;
+start from [Getting started](@ref) instead.
 
 Version 0.2.0 needs registered ProximalBase 0.5.3 or later within the 0.5 series.
 
-## Renamed and removed
+### Renamed and removed
 
 | Before | Now |
 |---|---|
@@ -16,7 +54,7 @@ Version 0.2.0 needs registered ProximalBase 0.5.3 or later within the 0.5 series
 | invalid settings of `ProximalOptions`, `ADMMSolver` and the proximal gradient solvers raised `ErrorException` | `ArgumentError` |
 | infinite or `NaN` tolerances, `ρ` and penalty levels | `ArgumentError` |
 
-## Changed results
+### Changed results
 
 - **Flat coordinates.** Coordinate descent with a zero curvature along a
   coordinate used to send it to the minimizer of the penalty and ignore the

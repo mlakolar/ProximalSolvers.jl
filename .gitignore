@@ -18,3 +18,6 @@
 /Manifest-v*.toml
 /benchmark/external/**/results/
 /benchmark/external/**/artifacts/
+
+# Local run material of the codex orchestrator (journals, prompts, logs, depots)
+/.codex-orchestrator/
