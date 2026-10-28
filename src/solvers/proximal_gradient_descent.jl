@@ -106,7 +106,7 @@ function initial_state(
     model === nothing || _image!(z_x, model, x0)
     f_x = _value_and_gradient!(grad_f_x, f, x0, model, z_x, dz)
     _check_start(f_x)
-    g_x = g(x0)
+    g_x = T(g(x0))
     method.debias > 0 && _check_debias(f, x0)
 
     ProximalGradientDescentState(
@@ -183,7 +183,7 @@ function _normalized_step!(f, state::ProximalGradientDescentState{T}) where T
     τ = one(T) / state.L
     dd = _restricted_step!(w, x, grad, τ, whole)
     iszero(dd) && return state
-    f_w = f(w)
+    f_w = convert(_eltype(w), f(w))
     state.f_calls += 1
     curvature = 2 * (f_w - state.f_x_previous + τ * dd) / τ^2
     (isfinite(curvature) && curvature > 0) && (state.L = curvature / dd)
@@ -214,7 +214,7 @@ function _debias!(f, g, state::ProximalGradientDescentState{T}, method::Proximal
     (state.stable >= method.debias && !state.refitted) || return state
     state.refitted = true
     xs = refit!(_refit_copy(state.x), f)
-    f_s, g_s = f(xs), g(xs)
+    f_s, g_s = convert(_eltype(xs), f(xs)), convert(_eltype(xs), g(xs))
     state.f_calls += 1
     f_s + g_s < state.f_x + state.g_x || return state
     copyto!(state.x, xs)
