@@ -85,7 +85,6 @@ end
     for failures in (0, 1)
       L, _ = _curvature(f, Float16, 2; failures)
       @test L === Float16(4.0e4)
-      @test isfinite(L)
     end
   end
 
@@ -152,11 +151,7 @@ end
                     CDSolver(; order = :cyclic, tol = 1e-3, maxpasses = 100))
     @test result.minimizer isa AtomIterate{Float16}
     @test all(isfinite, result.minimizer)
-    if result.converged
-      @test result.converged
-    else
-      @info "Float16 group lasso returned without convergence" passes = result.passes
-    end
+    @test result.converged
   end
   @test PS._group_eig_failure[][1] == 0
 end
