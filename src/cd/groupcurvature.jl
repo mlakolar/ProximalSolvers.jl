@@ -19,7 +19,7 @@ mutable struct _GroupEig{T}
   w::Vector{T}              # the eigenvalue, with room for a failed rescale of W(1:3)
   isuppz::Vector{BlasInt}
   work::Vector{T}
-  iwork::Vector{BlasInt}     # IWORK starts at 2, leaving a spare entry for IWORK(0)
+  iwork::Vector{BlasInt}    # IWORK starts at 2, leaving a spare entry for IWORK(0)
   m::Base.RefValue{BlasInt}
   info::Base.RefValue{BlasInt}
 end
@@ -100,6 +100,7 @@ function _eigmax_generic(C)
   try
     info = _group_eig_failure!()
     info === nothing || throw(LAPACKException(info))
+    # use eigmax(Symmetric(C))'s computation type so the protected call agrees bitwise
     T = LinearAlgebra.eigtype(eltype(C))
     if T <: Union{Float32, Float64}
       n = LinearAlgebra.checksquare(C)
