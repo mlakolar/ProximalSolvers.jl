@@ -70,7 +70,7 @@ end
       y = T[1, 1, -1]
       g = NormL1(one(T), T[0.3, τ / 1024, τ / 1024, 0.2])
       better = T[0, -inv(τ), inv(τ), 1]
-      @test X * better == y
+      @test big.(X) * big.(better) == big.(y)
       bettervalue = g(better)
       for design in (X, sparse(X))
         r = quiet(() -> solve!(SparseIterate(T[1, 0, 0, 0]), SqrtLeastSquaresLoss(y, design), g,
@@ -85,7 +85,7 @@ end
     for T in (Float64, Float32)
       M = T === Float64 ? T(2)^26 : T(2)^11
       X, y = T[M M-1; 1 1], T[0, 1]
-      @test X * T[1-M, M] == y
+      @test big.(X) * big.(T[1-M, M]) == big.(y)
       for design in (X, sparse(X)), f in pair(y, design)
         r = quiet(() -> solve!(SparseIterate(T, 2), f, NormL1(zero(T)), CDSolver(order = :cyclic)))
         @test !r.converged && r.gap >= 1 - 16eps(T)
