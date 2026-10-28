@@ -145,8 +145,8 @@ cdmodel(f::AbstractFunction, x) =
     throw(ArgumentError("coordinate descent needs finite derivatives and nonnegative curvature"))
   if iszero(a)
     new = _flat_minimizer(g, old, T(G), i, μ)
-    new === nothing &&
-      throw(ArgumentError("coordinate $i has zero curvature and its linear term $G makes f + g unbounded below along it, or no minimizer is available for this penalty"))
+    (new === nothing || !isfinite(new - old)) &&
+      throw(ArgumentError("coordinate $i has zero curvature and its linear term $G makes f + g unbounded below along it, or no finite minimizer and displacement are available for this penalty"))
     return new
   end
   ainv = inv(a)
@@ -167,12 +167,111 @@ end
 # of the candidate, so that rounding cannot make a huge point look fixed.
 # Returns nothing when neither candidate is a minimizer.
 function _flat_minimizer(g, old::T, G::T, i, μ) where {T}
+  _flat_generic(g, old, G, i, μ)
+end
+
+function _flat_generic(g, old::T, G::T, i, μ) where {T}
   !iszero(G) && !ProximalBase.isconvex(g) && return nothing
-  c = prox_entry(g, zero(T), i, floatmax(T))
-  iszero(G) && return c
+  c = T(prox_entry(g, zero(T), i, floatmax(T)))
+  iszero(G) && return _flat_candidate(T, c)
   _flat_fixed(g, c, G, i, μ) && return c
-  c = prox_entry(g, -copysign(floatmax(T), G), i, μ)
+  c = T(prox_entry(g, -copysign(floatmax(T), G), i, μ))
   _flat_fixed(g, c, G, i, μ) ? c : nothing
+end
+
+# Check finiteness after conversion to the iterate's element type.
+function _flat_candidate(::Type{T}, v) where {T}
+  c = T(v)
+  isfinite(c) ? c : nothing
+end
+
+_flat_indomain(g, v, i) = true
+_flat_indomain(::ProximalBase.NegLog, v, i) = v > 0
+_flat_indomain(::Union{ProximalBase.NegEntropy, ProximalBase.KLDivergence}, v, i) = v >= 0
+_flat_indomain(g::Union{ProximalBase.Scaled, ProximalBase.Tilt, ProximalBase.Regularize}, v, i) =
+  _flat_indomain(g.f, v, i)
+_flat_indomain(g::ProximalBase.Translate, v, i) = _flat_indomain(g.f, v - g.b[i], i)
+_flat_indomain(g::ProximalBase.BoxConstrained, v, i) =
+  prox_entry(g.box, v, i, one(v)) == v && _flat_indomain(g.f, v, i)
+
+# Minimize Gx + μ(λ₁wᵢ|x| + λ₂x²/2) by thresholding G/μ, then dividing by λ₂.
+function _flat_minimizer(g::ElasticNet, old::T, G::T, i, μ) where {T}
+  iszero(g.λ2) && return _flat_generic(g, old, G, i, μ)
+  c = max(abs(G) / μ - g.λ1 * _weight(g, i), zero(T)) / g.λ2
+  iszero(c) ? zero(T) : _flat_candidate(T, -sign(G) * c)
+end
+
+# Minimize Gx + μλ(x - yᵢ)²/2 at yᵢ - (G/μ)/λ.
+function _flat_minimizer(g::ProximalBase.SqrNormL2, old::T, G::T, i, μ) where {T}
+  iszero(g.λ) && return iszero(G) ? _flat_generic(g, old, G, i, μ) : nothing
+  y = g.y === nothing ? zero(T) : g.y[i]
+  _flat_candidate(T, y - (G / μ) / g.λ)
+end
+
+# Minimize Gx + μ Berhuᵢ(x): zero below the threshold, -sign(G)M|G|/(μλwᵢ) above.
+function _flat_minimizer(g::ProximalBase.Berhu, old::T, G::T, i, μ) where {T}
+  c = g.λ * _entryweight(g.w, i, typeof(g.λ))
+  iszero(c) && return iszero(G) ? zero(T) : nothing
+  slope = abs(G) / μ
+  slope <= c && return zero(T)
+  _flat_candidate(T, -sign(G) * (g.M * (slope / c)))
+end
+
+# Minimize Gx - μλ log x at μλ/G for G > 0, without forming the product μλ.
+function _flat_minimizer(g::ProximalBase.NegLog, old::T, G::T, i, μ) where {T}
+  G > 0 || return nothing
+  a, b, c = promote(float(μ), float(g.λ), G)
+  am, ae = frexp(a)
+  bm, be = frexp(b)
+  cm, ce = frexp(c)
+  v = _flat_candidate(T, ldexp(am * bm / cm, ae + be - ce))
+  v !== nothing && v > 0 ? v : nothing
+end
+
+# Minimize Gx + μλ x log x at exp(-(G/μ)/λ - 1); zero is not a finite-slope optimum.
+function _flat_minimizer(g::ProximalBase.NegEntropy, old::T, G::T, i, μ) where {T}
+  c = _flat_candidate(T, exp(-(G / μ) / g.λ - one(T)))
+  c !== nothing && c > 0 ? c : nothing
+end
+
+# Minimize Gx + μ KLᵢ(x) at exp(log qᵢ - (G/μ)/λ), retaining small positive answers.
+function _flat_minimizer(g::ProximalBase.KLDivergence, old::T, G::T, i, μ) where {T}
+  q = g.q isa Real ? g.q : g.q[i]
+  c = _flat_candidate(T, exp(log(q) - (G / μ) / g.λ))
+  c !== nothing && c > 0 ? c : nothing
+end
+
+# Complete the square in Gx + μ(fᵢ(x) + ρ(x - cᵢ)²/2), then take prox_{fᵢ/ρ}.
+function _flat_minimizer(g::ProximalBase.Regularize, old::T, G::T, i, μ) where {T}
+  iszero(g.ρ) && return _flat_minimizer(g.f, old, G, i, μ)
+  ProximalBase.isconvex(g.f) || return iszero(G) ? _flat_generic(g, old, G, i, μ) : nothing
+  center = g.c === nothing ? zero(T) : g.c[i]
+  v, step = center - (G / μ) / g.ρ, inv(g.ρ)
+  isfinite(v) && isfinite(step) || return nothing
+  c = _flat_candidate(T, prox_entry(g.f, v, i, step))
+  c !== nothing && _flat_indomain(g.f, c, i) ? c : nothing
+end
+
+# Translating x = bᵢ + y leaves the slope unchanged; rounding must preserve the domain.
+function _flat_minimizer(g::ProximalBase.Translate, old::T, G::T, i, μ) where {T}
+  y = _flat_minimizer(g.f, old, G, i, μ)
+  y === nothing && return nothing
+  c = _flat_candidate(T, g.b[i] + y)
+  c !== nothing && _flat_indomain(g.f, c - g.b[i], i) ? c : nothing
+end
+
+# A convex affine subproblem on a box clamps its unconstrained minimizer.
+# Otherwise the generic fixed-point check finds a bound using the effective slope.
+function _flat_minimizer(g::ProximalBase.BoxConstrained, old::T, G::T, i, μ) where {T}
+  if ProximalBase.isconvex(g.f)
+    v = _flat_minimizer(g.f, old, G, i, μ)
+    if v !== nothing
+      c = _flat_candidate(T, prox_entry(g.box, v, i, one(T)))
+      return c !== nothing && _flat_indomain(g, c, i) ? c : nothing
+    end
+  end
+  c = _flat_generic(g, old, G, i, μ)
+  c !== nothing && _flat_indomain(g, c, i) ? c : nothing
 end
 
 # Project directly onto the minimizing end of a box. A finite endpoint near

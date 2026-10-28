@@ -32,18 +32,47 @@ so every separable penalty of ProximalBase works without code in this package:
 soft thresholding for the ℓ1 norm, ``\operatorname{shrink}(v, \gamma\lambda_1)/(1 + \gamma\lambda_2)``
 for the elastic net, firm thresholding for MCP, a clamp for bounds. For a
 quadratic loss the step minimizes ``F`` exactly over the coordinate; otherwise
-it minimizes a majorizer, and in both cases ``F`` does not increase. A
-coordinate with ``a_k = 0`` and derivative ``G`` goes to a minimizer of
-``G(x - \beta_k) + g_k(x)`` when one exists: the minimizer of ``g_k`` nearest
-zero, which for the ℓ1 norm is a minimizer while ``|G| \le \lambda_k``, or the
-far bound of a box. Along a flat coordinate where this is unbounded below,
-such as ``|G| > \lambda_k`` for the ℓ1 norm, ``F`` has no minimizer and the solver
-raises an `ArgumentError`. Nonconvex penalties with nonzero ``G`` are rejected: a local proximal
-fixed point does not solve an affine subproblem globally. Other unsupported
-flat subproblems, such as the elastic net with nonzero ``G``, also raise an
-error; give the coordinate positive curvature. Finite box endpoints are
-selected directly, and `Scaled` and `Tilt` wrappers reduce to the underlying
-penalty and its effective linear slope.
+it minimizes a majorizer, and in both cases ``F`` does not increase.
+
+A coordinate with ``a_k = 0`` and derivative ``G`` targets
+``\min_x G(x - \beta_k) + \mu g_i(x)``, where ``\mu`` counts the entries moved
+by the coordinate (two for a symmetric off-diagonal entry). Norms retain the
+minimizer nearest zero while their subgradient contains ``-G/\mu``, and boxes
+select their minimizing endpoint directly. The following penalties also have
+exact flat-coordinate steps. Write ``s = G/\mu`` and ``c = \lambda w_i``.
+
+| Penalty | Flat-coordinate minimizer |
+|:--|:--|
+| `ElasticNet(λ1, λ2, w)`, ``\lambda_2 > 0`` | ``-\operatorname{sign}(G)\max(\lvert s\rvert-\lambda_1w_i,0)/\lambda_2`` |
+| `SqrNormL2(λ, y)`, ``\lambda > 0`` | ``y_i-s/\lambda``, with ``y_i=0`` when omitted |
+| `Berhu(λ, M, w)`, ``c>0`` | Zero for ``\lvert s\rvert\le c``; otherwise ``-\operatorname{sign}(G)M\lvert s\rvert/c`` |
+| `NegLog(λ)` | ``\mu\lambda/G`` for ``G>0`` |
+| `NegEntropy(λ)` | ``\exp(-s/\lambda-1)`` |
+| `KLDivergence(q; λ)` | ``\exp(\log q_i-s/\lambda)`` |
+| `Regularize(f, ρ, c)`, convex `f` and ``\rho>0`` | ``\operatorname{prox}_{f_i/\rho}(c_i-s/\rho)``, with ``c_i=0`` when omitted |
+
+A zero ridge parameter reduces to the norm or underlying penalty. A Berhu
+entry with zero level or weight minimizes at zero when ``G=0`` and is
+unbounded for nonzero ``G``. `NegLog` is unbounded for ``G\le0``.
+`Scaled` and `Tilt` reduce to the underlying penalty and its effective slope.
+`Translate(f, b)` adds ``b_i`` to the inner minimizer. For a convex penalty,
+`BoxConstrained` clamps an available inner minimizer and otherwise uses the
+existing proximal fixed-point check to find a bound. A translated or clamped
+point must lie in the inner domain: strictly positive for `NegLog`, and
+nonnegative for `NegEntropy` and `KLDivergence`, including through wrappers.
+These rules also apply to least-squares columns that are zero, or constant
+with an intercept.
+
+An unbounded flat subproblem, an unsupported one, or a minimizer or displacement
+that cannot be represented in the iterate's element type raises an
+`ArgumentError`; [`kkt_residual`](@ref) reports `Inf` there. Entropy and KL
+minimizers that underflow to zero are numerically unavailable. Such a numerical
+rejection does not assert unboundedness. The attempted coordinate and its cache
+are unchanged; earlier coordinates of the pass may already have moved.
+Nonconvex penalties with a nonzero effective slope are rejected, including on
+a box: a local proximal fixed point does not establish a global minimizer.
+Other penalties keep the existing generic flat-candidate method; give an
+unsupported coordinate positive curvature.
 
 For a differentiable convex loss and a convex separable penalty, with suitable
 regularity and coordinate curvature conditions,

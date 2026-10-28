@@ -78,12 +78,27 @@ QUIC, generic symmetric Newton and the gradient solvers on symmetric storage:
 it averages parameters that enter linearly and rejects other asymmetric
 per-entry parameters, as described in [Coordinates of the iterates](@ref).
 
-A coordinate with zero curvature targets `min G(x - xₖ) + gₖ(x)`. Supported
-convex norm and box cases use the minimizer of the penalty nearest zero (for a norm,
-while `|G| ≤ λ`) or the minimizing bound of a box. Proximal fixed points certify convex
-subproblems only. A nonzero slope with a nonconvex penalty is rejected, as are
-unsupported flat subproblems. An unbounded direction raises an `ArgumentError`, and
-`kkt_residual` reports `Inf` there. The square-root losses check a relative
+A coordinate with zero curvature targets `min G(x - xₖ) + μgᵢ(x)`, with the
+coordinate's multiplicity `μ`. Norms and boxes retain their existing steps.
+Closed forms also minimize the elastic net, squared ℓ2 norm, Berhu, negative
+logarithm, negative entropy and KL divergence; `Regularize` of a convex penalty
+completes the square and takes one proximal step. `Scaled` changes `μ`, `Tilt`
+changes the effective slope, and `Translate` shifts the inner minimizer.
+`BoxConstrained` of a convex penalty clamps an available inner minimizer and
+otherwise retains the generic proximal fixed-point check. Translation and
+clamping must preserve the inner domain: positive for `NegLog`, nonnegative
+for `NegEntropy` and `KLDivergence`, also through wrappers. See the formulas in
+[The coordinate step](@ref). Least-squares zero columns and intercept-constant
+columns use the same flat minimizer.
+
+Proximal fixed points certify convex affine subproblems only. A nonzero
+effective slope with a nonconvex penalty is rejected, including on a box.
+Unbounded, unsupported and numerically unavailable flat steps raise an
+`ArgumentError`, and `kkt_residual` reports `Inf` there. Numerical rejection
+includes entropy or KL underflow to zero and does not assert unboundedness.
+The candidate and its displacement are checked in the iterate's element type
+before changing the attempted coordinate or its cache; earlier coordinates
+of the pass may already have moved. The square-root losses check a relative
 duality gap when dual scaling is available; unpenalized coordinates can require
 a fallback to the change rule. See [Losses for coordinate descent](@ref).
 
