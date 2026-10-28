@@ -343,7 +343,7 @@ function _afterpass!(gs::_GapState{T}, x, m, g, st::_CDState{T}, s::CDSolver, fu
     return false, maxh < tol, tol, true
   end
   tol <= tolmin && return true, converged, tol, false    # tol cannot be tightened further
-  tol = max(tol * _tighten(st.relgap, s.gaptol), tolmin)
+  tol = max(T(tol * _tighten(st.relgap, s.gaptol)), tolmin)   # gaptol is a Float64
   false, maxh < tol, tol, true
 end
 
