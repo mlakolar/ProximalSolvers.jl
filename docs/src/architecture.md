@@ -84,8 +84,10 @@ while `|G| ≤ λ`) or the minimizing bound of a box. Proximal fixed points cert
 subproblems only. A nonzero slope with a nonconvex penalty is rejected, as are
 unsupported flat subproblems. An unbounded direction raises an `ArgumentError`, and
 `kkt_residual` reports `Inf` there. The square-root losses check a relative
-duality gap when dual scaling is available; unpenalized coordinates can require
-a fallback to the change rule. See [Losses for coordinate descent](@ref).
+duality gap after every run, trying the residual direction and then a support
+and residual witness with the unpenalized and intercept equalities. If neither
+candidate is valid, the zero dual point supplies a conservative gap;
+coordinate changes alone never certify these losses. See [Losses for coordinate descent](@ref).
 
 ## Ownership and cache validity
 

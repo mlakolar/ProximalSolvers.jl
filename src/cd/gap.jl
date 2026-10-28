@@ -292,7 +292,7 @@ function _gapstart!(st::_CDState{T}, m, g, x, s::CDSolver) where {T}
   st.relgap = T(NaN)
   (s.gaptol > 0 || s.gapsafe) || return nothing
   if !_hasgap(m, g)
-    s.gaptol > 0 && @warn "there is no duality gap for $(nameof(typeof(m))) with $(nameof(typeof(g))); gaptol is ignored." maxlog = 1
+    s.gaptol > 0 && !(m isa Union{SqrtLSModel, SqrtQuadModel} && g isa NormL1) && @warn "there is no duality gap for $(nameof(typeof(m))) with $(nameof(typeof(g))); gaptol is ignored." maxlog = 1
     return nothing
   end
   gs = st.gap

@@ -23,6 +23,7 @@ tests = [
   "multiresponse",
   "low_rank",
   "coordinate_descent",
+  "sqrt_certificates",
   "symmetric_penalties",
   "symmetric_penalty_combinations",
   "structured_quadratics",
