@@ -68,8 +68,9 @@ function _eigmax!(ws::_GroupEig, n::Int)
   info == 0 ? ws.w[1] : nothing
 end
 
-# the largest eigenvalue of the symmetric matrix C from all of its eigenvalues,
-# where _eigmax! fails: computing all of them converges on those matrices
-_eigmax_all(C) = maximum(eigvals(Symmetric(C)))
+# the largest eigenvalue of the symmetric matrix C (dense or sparse) from all of
+# its eigenvalues, where _eigmax! fails: computing all of them converges on
+# those matrices
+_eigmax_all(C) = maximum(eigvals(Symmetric(Matrix(C))))
 
 _maxgroup(x::AtomIterate) = maximum(length, x.groups; init = 0)

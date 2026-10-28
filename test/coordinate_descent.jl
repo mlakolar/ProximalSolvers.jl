@@ -1217,6 +1217,8 @@ end
   end
   near = [(E = randn(Xoshiro(k), q, q); Matrix(1.0I, q, q) + 1e-15 * (E + E') / 2) for k in 1:2000]
   @test all(A -> isapprox(curvature(QuadraticFunction(A, zeros(q))), maximum(eigvals(Symmetric(A))); rtol = 10 * eps()), near)
+  # the same blocks of a sparse quadratic, whose fallback block is densified
+  @test all(A -> isapprox(curvature(QuadraticFunction(sparse(A), zeros(q))), maximum(eigvals(Symmetric(A))); rtol = 10 * eps()), near)
   # a least-squares loss whose group columns are orthonormal up to rounding
   Xs = [(E = randn(Xoshiro(k), q, q); vcat(Matrix(1.0I, q, q) + 0.5e-15 * E, zeros(45, q))) for k in 1:2000]
   @test all(X -> isapprox(curvature(LeastSquaresLoss(zeros(50), X)), maximum(eigvals(Symmetric(X' * X))); rtol = 10 * eps()), Xs)
