@@ -9,8 +9,9 @@ current/legacy time, so a ratio below 1 means current is faster. Over the 82
 of 88 cases that reach the target on both sides, the like-for-like ratio is
 0.977 [0.955, 1.00] (12 blocks, campaign of 2026-10-28). Current's best stopping
 rule gives 0.845, and the package defaults give 0.897.
-The path is faster only on design C (0.150), where current uses the Gram path;
-on designs A, B and E it is within 2% of legacy. The square-root, scaled and
+In the primary view, the large path speedup occurs on design C (0.150), where
+current uses the Gram path; the point estimates on designs A, B and E are within
+2% of legacy. The square-root, scaled and
 weighted lasso groups are 7–14% slower.
 
 No case is a candidate regression. The A/A noise floors are wide (0.516, 0.507
@@ -37,9 +38,15 @@ The matched target is a certified relative duality gap at most `1e-4`, or a
 feasible-lasso self-consistency value at most `1e-4`. The latter is the
 weighted-lasso gap at loadings recomputed from the returned coefficients'
 residuals, not a convex certificate for the whole iterative procedure.
-In the design A canary records at like-for-like settings, the largest
-coefficient error relative to the converged solution is 1–5 times the relative
-gap. This is an empirical observation on those records, not a general error bound.
+To read the target in terms of coefficients, the calibration records give a
+comparison. The comparison uses the 648 coordinate-ladder settings whose gap
+lies between `1e-6` and `1e-2`, feasible lasso excluded. For each of them, the
+largest absolute difference from the coefficients of the tightest setting of
+the same case and side, over all levels for paths, is a median 2.12 times the
+relative gap, and between 0.245 and 8.24 times for 90% of the settings. At
+`1e-4`, coefficients therefore typically agree with a much tighter fit to
+about `2e-4`. This is an empirical summary of these records, not an error
+bound. The calculation is `checks/coefficient_error.py` in the campaign archive.
 
 The inputs are designs A, B, C and E: independent Gaussian columns for A,
 AR(1) correlation for B and C, and equicorrelation for E. The extended design D
@@ -249,16 +256,21 @@ One-sided tests against `δ` undergo Benjamini–Hochberg screening at 10% acros
 estimable cases separately in each view. No case meets either screen here.
 An interval overlapping `[-δ, δ]` is inconclusive, not a tie.
 
-The A/A arm shows contention from other work on the shared machine in blocks
-3–5: their median `|log(current/current-AA)|` is about 0.10–0.25, compared
-with about 0.01–0.05 in the other blocks. Even without those blocks, calls
-of 1–5 ms drive the pooled upper tail and keep the noise floor wide.
+The A/A arm shows a timing disturbance in blocks 3–5, consistent with
+contention from other work on the shared machine. Their median
+`|log(current/current-AA)|` is about 0.10–0.25, compared with about 0.01–0.05
+in the other blocks. Even without those blocks, calls of 1–5 ms drive the pooled
+upper tail and keep the noise floor wide.
 
 ### Sensitivity check: nine blocks
 
-This check is not pre-registered. It excludes blocks 3–5 using only the A/A
-arm, not current/legacy comparison ratios; the full 12-block analysis above
-remains the headline result. The remaining 9 blocks give
+This check is a descriptive, post hoc sensitivity analysis that was not
+planned in advance. The full 12-block analysis above remains the headline
+result. It excludes blocks 3–5 by their A/A timings rather than by the
+current/legacy ratios. That rule is not fully independent of the comparison,
+because both quantities use current's timings. The excluded blocks also leave
+the arm orders unbalanced: three of the six orders appear once instead of
+twice. The remaining 9 blocks give
 `δ = 0.223` for primary and
 `δ = 0.235` for secondary, with
 0 candidates and 0 BH rejections in each.
@@ -320,6 +332,10 @@ The independent Python certificate cross-check matches
 1,990/1,990 calibration coefficient files and
 6,816/6,816 confirmation files, including every archived path
 level. The confirmation total includes the matched arms and the defaults arms.
-The independent raw-median recomputation reproduces the headline case ratios,
-noise floors and screening decisions; group bootstrap endpoints can differ
-slightly because that check uses fewer resamples.
+An independent recomputation from the raw process medians reproduces the
+headline case ratios, noise floors and screening decisions. Its group bootstrap
+endpoints can differ slightly because it uses fewer resamples. The same script
+computes the nine-block check. The archive's `checks/` folder holds it
+(`recompute.py`), its outputs, the coefficient-error calculation and the
+cross-check summaries; `COMMANDS.md` there lists how to rerun each from the
+downloaded assets.
