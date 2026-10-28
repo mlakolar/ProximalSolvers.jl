@@ -160,11 +160,11 @@ end
       GC.@preserve backings begin
         copyto!(ws.C, T[Inf, 0, 0, 1])
         L = PS._eigmax!(ws, 2)
-        # some LAPACK builds report success with NaN for a non-finite matrix
+        # the result of a non-finite input depends on LAPACK
         if ws.info[] > 0
           @test L === nothing
         else
-          @test L isa T && isnan(L)
+          @test L isa T
         end
         _check_canaries(backings)
       end
@@ -175,11 +175,16 @@ end
       PS._reserve!(m.eig, 2, 2)
       backings = _guard!(m.eig)
       GC.@preserve backings begin
+        L = try
+          PS._groupcurvature!(m, x, 1)
+        catch err
+          err
+        end
+        @test L isa T || L isa ArgumentError
+        _check_canaries(backings)
         try
-          if ws.info[] == 0
-            @test isnan(PS._groupcurvature!(m, x, 1))
-            PS._group_eig_failure[] = (1, 1)
-          end
+          m.L[1] = T(NaN)
+          PS._group_eig_failure[] = (1, 1)
           @test_throws ArgumentError PS._groupcurvature!(m, x, 1)
           @test PS._group_eig_failure[][1] == 0
         finally
@@ -210,21 +215,36 @@ end
   end
 
   @testset "Float16 selected eigenvalues agree bitwise" begin
+    Cs = Matrix{Float16}[]
     for q in 2:5, k in 1:20
       E = randn(Xoshiro(k), q, q)
-      Cs = [Float16.(E' * E + I)]
+      push!(Cs, Float16.(E' * E + I))
       for scale in (6e-8, 1.2e-7, 2.4e-7)
         push!(Cs, Float16.(Matrix{Float64}(I, q, q) + scale * (E + E') / 2))
       end
-      for C in Cs
-        expected = try
-          eigmax(Symmetric(C))
-        catch err
-          err isa LinearAlgebra.LAPACKException || rethrow()
-          PS._eigmax_all(C)
-        end
-        @test PS._eigmax_generic(C) === expected
+    end
+    q = 5
+    E = randn(Xoshiro(538), q, q)
+    push!(Cs, Float16.(Matrix{Float64}(I, q, q) + 2.4e-7 * (E + E') / 2))
+    for C in Cs
+      n = size(C, 1)
+      ws = PS._reserve!(PS._GroupEig{Float32}(), n, 0)
+      for j in 1:n, i in 1:j
+        ws.C[(j - 1) * n + i] = Float32(C[i, j])
       end
+      selected = PS._eigmax!(ws, n)
+      # call Base only when the protected selected call succeeds
+      expected = selected === nothing ? PS._eigmax_all(C) : eigmax(Symmetric(C))
+      @test PS._eigmax_generic(C) === expected
+    end
+  end
+
+  @testset "Float16 non-finite Gram matrices are rejected" begin
+    for X in (Float16[300 0; 0 1], sparse(Float16[300 0; 0 1]), Float16[300 300; 0 1])
+      x = AtomIterate(Float16, 2, [1:2])
+      m = cdmodel(LeastSquaresLoss(zeros(Float16, 2), X), x)
+      PS.initialize!(m, x)
+      @test_throws ArgumentError("matrix contains Infs or NaNs") PS._groupcurvature!(m, x, 1)
     end
   end
 

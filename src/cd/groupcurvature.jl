@@ -106,7 +106,9 @@ function _eigmax_generic(C)
       n = LinearAlgebra.checksquare(C)
       ws = _reserve!(_GroupEig{T}(), n, 0)
       for j in 1:n, i in 1:j
-        ws.C[(j - 1) * n + i] = C[i, j]
+        c = T(C[i, j])
+        isfinite(c) || throw(ArgumentError("matrix contains Infs or NaNs"))
+        ws.C[(j - 1) * n + i] = c
       end
       L = _eigmax!(ws, n)
       L === nothing || return L
