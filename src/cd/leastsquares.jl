@@ -496,7 +496,8 @@ function _gram_eigmax!(m::LSModel{T}, x::AtomIterate{T}, G) where {T<:Union{Floa
     end
   end
   BLAS.syrk!('U', 'T', one(T), B, zero(T), reshape(view(ws.C, 1:q^2), q, q))
-  _eigmax!(ws, q)
+  L = _eigmax!(ws, q)
+  L === nothing ? _eigmax_all(transpose(B) * B) : L
 end
 
 function _gram_eigmax!(m::LSModel{T}, x::AtomIterate{T}, G) where {T}
