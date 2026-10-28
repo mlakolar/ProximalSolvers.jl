@@ -44,3 +44,37 @@ objective/coefficient discrepancies for Condat–Vũ and the reference ADMM
 algorithms. A historical run passed these 62 additional assertions on Julia
 1.10.12 and 1.13.2. Historical timing records and recreation commands are in the
 [snapshot](https://github.com/mlakolar/ProximalSolvers.jl/tree/f7e3f28026a8e83e0fa18203b39839cf57a1c949/benchmark/composite_lessons).
+
+## Square-root lasso SOCP oracle
+
+Run `julia --project=test/oracles test/oracles/sqrt_hypatia.jl` after instantiating
+this environment. Hypatia solves an independent second-order cone formulation
+with `1e-12` optimality and feasibility tolerances. The script records its
+termination status, primal objective and dual objective, and requires a conic
+bracket of width at most `1e-7 * max(1, abs(P_conic))`.
+
+The cases cover exact fits from optimal and trapped starts, dependent columns,
+the cyclic audit trap, an incomplete witness, six seeded underdetermined
+noiseless fits, and twelve seeded ordinary fits. The ordinary fits include
+observation weights with zero-weight rows and an intercept, sparse designs
+with an intercept, an unpenalized correlated column, and an infinite penalty
+weight fixing a coefficient at zero. There is also an ill-conditioned
+unpenalized example and a Float32 fit; conic solves always use Float64 data.
+Nonfinite penalty loadings fix coefficients at zero in the conic model.
+
+Each case checks coordinate descent's reported relative gap against the conic
+bracket, including runs returning `converged = false`. Converged runs must also
+agree with the conic dual objective within the reported gap or the default
+`1e-4` threshold. Objectives are independently evaluated from the observations.
+The equivalent sufficient-statistics loss and penalty are divided by `sqrt(n)`;
+the relative gap needs no scaling. Weighted centering eliminates intercepts
+for those runs. The ill-conditioned example only uses the data loss because
+forming its Gram matrix loses a direction in Float64. Its conic model uses an
+invertible coefficient change with `X * B = I` to preserve the original problem.
+
+Each `ORACLE_CASE` line reports the case and loss, conic termination status,
+`P_CD`, `P_conic`, `D_conic`, relative `gap`, `converged`, and `bound_slack`.
+Nonnegative slack means the reported gap bounds suboptimality after allowing
+the conic bracket width and the stated rounding allowance. The script prints
+solver versions and ends with `SQRT_HYPATIA_ORACLE_PASSED` only after all
+assertions pass. These are numerical references, not symbolic certificates.
