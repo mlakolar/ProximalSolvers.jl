@@ -65,11 +65,18 @@ points, the reference is unavailable. The optimal-status condition is recorded
 as a broken test, and each loss prints `HYPATIA_UNAVAILABLE name=... loss=...`.
 Only that reference's conic bracket and certificate comparisons are skipped.
 CD runs, independent objective evaluation, and finite nonnegative objective
-and gap checks still run. With Hypatia 0.11.0, `noiseless_seed11102_fraction0.2` was
-unavailable at both tolerances (`SLOW_PROGRESS` with unknown solution statuses),
-possibly because an exact-fit optimum at the cone apex is degenerate for the
-interior-point method. This was observed with the former shared data reference;
-the stored-statistics reference is now solved separately. If either attempt
+and gap checks still run. The run at `bbf06e0` with Hypatia 0.11.0 reported
+488 passing assertions and eight broken references: the statistics references
+of `audit_trap` and all six `noiseless_*` cases (seeds 11101, 11102 and 11103,
+each at fractions 0.05 and 0.2), plus the data reference of
+`noiseless_seed11102_fraction0.2`. The seven statistics references were rejected
+before solving with `stored_augmented_matrix_not_psd`; the log does not record
+tolerance retries for them. Only the data reference returned `SLOW_PROGRESS`
+with unknown primal and dual statuses at both tolerances. An exact-fit optimum
+at the cone apex is a likely source of difficulty for that interior-point
+solve. Exact fits likewise reach the apex in a PSD stored-statistics
+formulation, but the recorded statistics exclusions are due to indefinite
+stored matrices, not demonstrated solver stagnation. If either attempt
 produces a usable optimum, all conic assertions run as usual.
 
 The cases cover exact fits from optimal and trapped starts, dependent columns,
