@@ -161,7 +161,11 @@ end
         copyto!(ws.C, T[Inf, 0, 0, 1])
         L = PS._eigmax!(ws, 2)
         # some LAPACK builds report success with NaN for a non-finite matrix
-        @test L === (ws.info[] > 0 ? nothing : T(NaN))
+        if ws.info[] > 0
+          @test L === nothing
+        else
+          @test L isa T && isnan(L)
+        end
         _check_canaries(backings)
       end
       X = T[floatmax(T) / 4 0; 0 1]
