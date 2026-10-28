@@ -159,7 +159,7 @@ function _slope_gradient(X,y,x,scale,w::_SLOPEWorkspace)
 end
 
 function _slope_kkt(X,y,x,lambda,scale,::Nothing)
-  grad = eltype(x).(_slope_gradient(X,y,x,scale))
+  grad = convert(Vector{eltype(x)}, _slope_gradient(X,y,x,scale))
   trial = similar(x)
   prox!(trial, SLOPE(lambda), x-grad, one(eltype(x)))
   norm(x-trial,Inf), grad, trial
