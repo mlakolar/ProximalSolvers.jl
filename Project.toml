@@ -1,6 +1,6 @@
 name = "ProximalSolvers"
 uuid = "fc4971f5-6616-4709-9bfc-89a819252f6b"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Mladen Kolar <mkolar@chicagobooth.edu>"]
 
 [deps]
