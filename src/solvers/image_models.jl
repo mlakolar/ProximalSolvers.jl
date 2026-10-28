@@ -96,12 +96,13 @@ function _image_value_and_gradient!(G, m::_GLMImage{F, A, T}, z, d) where {F, A,
 end
 
 # f(x), which with a model also computes the image z of x
-_value!(f, x, ::Nothing, z) = f(x)
-_value!(f, x, m, z) = (_image!(z, m, x); _image_value(m, z))
+# Narrow after evaluation so that the scale retains its range and precision.
+_value!(f, x, ::Nothing, z) = convert(_eltype(x), f(x))
+_value!(f, x, m, z) = (_image!(z, m, x); convert(_eltype(x), _image_value(m, z)))
 
 # f(x) and ∇f(x) into G, from the image z of x when f has a model; d is a buffer
-_value_and_gradient!(G, f, x, ::Nothing, z, d) = value_and_gradient!(G, f, x)
-_value_and_gradient!(G, f, x, m, z, d) = _image_value_and_gradient!(G, m, z, d)
+_value_and_gradient!(G, f, x, ::Nothing, z, d) = convert(_eltype(x), value_and_gradient!(G, f, x))
+_value_and_gradient!(G, f, x, m, z, d) = convert(_eltype(x), _image_value_and_gradient!(G, m, z, d))
 
 _majorization_ok(model, zu, zw, fu, fw, upper, L, stepnorm2) =
   isfinite(fw) && fw <= upper + 10 * eps(typeof(L)) * max(abs(fu), one(L))

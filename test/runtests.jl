@@ -11,6 +11,8 @@ tests = [
   "linesearch",
   "diagonal_preconditioner",
   "image_models",
+  "mixed_precision",
+  "mixed_precision_extended",
   "apg_numerical_failure",
   "call_limits",
   "admm",
