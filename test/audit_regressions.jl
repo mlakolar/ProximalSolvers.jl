@@ -187,6 +187,7 @@ end
     x = SparseIterate(start)
     r = @test_logs (:warn, r"coordinate descent") solve!(x, f, g, CDSolver(order = :cyclic))
     @test !r.converged
+    @test isfinite(r.gap) && r.gap >= 0.95 - 1e-12
     @test r.minimum > f(zeros(2)) + g(zeros(2))
   end
   # The same trap with a residual outside the column space, which never
@@ -197,7 +198,7 @@ end
     x = SparseIterate(start)
     r = @test_logs (:warn, r"coordinate descent") solve!(x, SqrtLeastSquaresLoss(y3, X3), g, CDSolver(order = :cyclic))
     @test !r.converged
-    @test r.gap > 0.5
+    @test isfinite(r.gap) && r.gap >= 0.95 - 1e-9
   end
   x = SparseIterate(2)
   @test solve!(x, SqrtLeastSquaresLoss(zeros(2), X), g, CDSolver()).converged

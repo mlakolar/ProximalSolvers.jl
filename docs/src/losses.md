@@ -165,13 +165,90 @@ the minimum. The solver therefore accepts a stop only with a duality gap. With
 largest ``t \le 1`` such that ``\|X^\top\theta\|_\infty \le \lambda`` (weighted
 by ``w_k``) is dual feasible, with dual value ``y^\top\theta = t(f(\beta) - \nabla f(\beta)^\top\beta)``.
 A run converges when the relative gap ``(P - D)/P`` is at most `gaptol`, or
-`1e-4` by default, and the results report it as `gap`. This dual point cannot
-certify an exact or nearly exact fit with a positive penalty, which is reported
-as not converged, with a warning; a zero objective is certified. A coordinate
-without penalty (zero weight) has a dual point only where its derivative
-vanishes; without one, the rule on the changes decides alone, as for the other
-losses, and exact fits are not detected. The same applies to
-`SqrtQuadraticFunction`.
+`1e-4` by default, and the results report it as `gap`. This check runs after
+every coordinate-descent run, including path and continuation levels, workspace
+reuse and an exhausted pass budget. A small gap does not override an exhausted
+budget. The residual direction is tried first, preserving ordinary fits that
+already certify.
+
+If that direction does not certify, let ``S`` contain the nonzero coordinates
+and every unpenalized coordinate (zero penalty weight or level). With centered
+design ``\widetilde X``, observation weights ``W`` and residual ``R``, set
+``K = \widetilde X_S^\top W\widetilde X_S``,
+``s = \widetilde X_S^\top WR`` and support targets
+``c_k = \lambda_k\operatorname{sign}(x_k)`` on nonzero penalized coordinates,
+zero on unpenalized coordinates. Let ``L`` contain the square roots of the
+diagonal of ``K`` and ``\widehat K=L^{-1}KL^{-1}``. A rank-revealing solve
+gives ``\alpha \approx L^{-1}\widehat K^+L^{-1}c`` and
+``\gamma \approx L^{-1}\widehat K^+L^{-1}s``. This equilibration prevents
+column units alone from discarding an independent direction. The joint witness is
+
+```math
+\theta = \widetilde X_S\alpha + \beta(R - \widetilde X_S\gamma),\qquad \beta\ge 0.
+```
+
+Its actual norm, including the cross term, determines ``\beta``. Scaling then
+enforces an upper bound on the norm and the penalized constraints. Each
+correlation uses its computed magnitude plus an error bound, including
+product and summation roundings. Compensated accumulation retains correlations
+hidden by cancellation. For least squares, products and the dual value use
+the original design and response in weighted observation space, including
+zero observation weights and sparse centering shifts. The largest
+validated lower bound is used. If neither candidate is valid, ``\theta=0``
+gives a gap of one for a positive objective; coordinate changes alone never
+accept a run. A zero objective is certified. The same construction applies to
+`SqrtQuadraticFunction`. These losses still do not support the public
+`duality_gap` interface or gap-safe screening.
+
+Certification recomputes each residual with error-free product remainders and
+compensated sums, before fitted terms can cancel. The remainder magnitudes
+bound the residual error, including weights and the intercept shift. The norm
+of this error vector is added to the residual norm to obtain an upper loss;
+this upper loss supplies the primal gap, the zero-objective check and ``P_0``.
+The cached objective reported in the results can still differ after severe
+cancellation, so the gap uses the larger of it and the recomputed upper objective.
+
+An approximate equality on an unrestricted coefficient does not give a lower
+bound. Let ``U`` collect the unpenalized columns, including the uncentered
+constant column when fitting an intercept. If ``P_0`` bounds the current
+objective and ``P_U`` projects onto their weighted span, penalized feasibility
+and Cauchy–Schwarz give
+
+```math
+P^*\ge t\theta^\top Wy-t\|P_U\theta\|_W B,\qquad
+B=\|y\|_W+P_0+\sum_{k:\,0<\lambda_k<\infty}\|X_k\|_W P_0/\lambda_k.
+```
+
+Here ``B`` bounds ``\|X_Ux_U^*\|_W`` because ``P^*\le P_0`` bounds the
+residual and every positively penalized coefficient. The projection norm
+comes from the unrestricted correlations, their error intervals and an
+equilibrated Gram matrix. Exact zero and duplicate directions can be removed.
+An eigenvector residual and orthogonality check bound its inverse. Exactly zero
+unrestricted correlation intervals need no inverse, even for a singular Gram
+matrix; otherwise unresolved rank falls back to the zero witness. Rounded means
+therefore do not supply an unchecked intercept equality. The sufficient-statistic model uses the
+same bound through its implicit design and response.
+
+The support has at most 2000 coordinates, including unpenalized ones, and
+does not need ``|S|\le n`` or full rank. Factorization buffers grow with the
+support and are retained for later runs. At an exact fit, satisfying the
+support equations makes the dual value equal to the penalty in exact
+arithmetic. Certification also needs the relevant equilibrated directions
+to survive the numerical rank decision, and the interval and unrestricted
+projection bounds to meet the requested tolerance. Subject to these checks,
+the support equations suffice when they determine the dual point or their
+least-norm point satisfies all remaining constraints. This construction
+can miss other feasible points. For example, with
+``X=[1\ 2;\ 0\ 1]``, ``y=(1,0)``, ``x=(1,0)`` and ``\lambda=0.1``,
+``\theta=(0.1,-0.1)`` certifies optimality, but the least-norm support point
+needs scaling and reports a gap of ``1/2`` and `converged = false`.
+Joint coordinate moves and refinement of this support point are not provided.
+
+An infinite or `NaN` penalty loading fixes the corresponding coordinate at
+zero in the coordinate steps and excludes it from the dual constraints. This
+includes a zero level times an infinite weight. The certificate follows that
+convention; it does not resolve the differing interpretation of ``0\cdot\infty``
+in the penalty's value function.
 
 Fix every coordinate but ``k``. With the partial residual
 ``r = y - X\beta + X_k\beta_k`` and ``x = X_k``, let ``a = \|x\|^2``,
@@ -212,7 +289,8 @@ code then sets the coordinate to zero.
 
 [`SqrtQuadraticFunction`](@ref)`(A, b, c)` is
 ``f(x) = \sqrt{q(x)}``, ``q(x) = x^\top A x + 2b^\top x + c``, for symmetric
-positive semidefinite ``A`` and ``q \ge 0``. With ``A = X^\top X/n``,
+positive semidefinite augmented matrix ``[A\ {-b};\ {-b}^\top\ c]``, so
+``q \ge 0``. With ``A = X^\top X/n``,
 ``b = -X^\top y/n`` and ``c = y^\top y/n`` it is ``\|y - Xx\|/\sqrt n``: the
 square-root lasso from sufficient statistics. With ``x_k = t`` and the other
 coordinates fixed,
@@ -224,7 +302,24 @@ q = q_0 - 2\sigma t + a t^2, \qquad a = A_{kk}, \qquad
 
 the form of the square-root lasso with ``\rho = q_0``, so the same closed form
 gives the step. The model caches ``u = Ax``, updated in ``O(p)``, and the value
-``q``. An infinite weight keeps a coordinate at zero. With ``A = S``,
+``q``. Certification recomputes both, independently of these caches. Its
+first-order rounding budget is
+``64m\operatorname{eps}(T)(|x|^\top|A||x|+2|b|^\top|x|+|c|)``, with
+``m=\max(1,\operatorname{nnz}(x))``. Products in the joint witness have
+corresponding budgets for their vector or matrix sums.
+Compensated accumulation tightens this bound, retaining exact binary fits and
+small residual products. The upper loss and dual norm bounds make the reported gap
+conservative up to rounding. The gap also covers a larger cached objective
+reported in the results. A quadratic negative beyond its budget violates the
+model's PSD assumption and cannot be certified. The support solve discards
+eigenvalues at most ``8|S|\operatorname{eps}(T)\|\widehat K\|_2`` of the
+equilibrated Gram matrix; the original products, norm and dual value still
+use the resulting coefficients and their cross terms. The previous gap
+arithmetic is retained only within ``512\operatorname{eps}(T)`` of the
+checked relative gap, and within one sixty-fourth of the target. This adds
+at most ``512\operatorname{eps}(T)P_0`` to the absolute suboptimality bound
+and does not grow as the residual vanishes.
+An infinite weight keeps a coordinate at zero. With ``A = S``,
 ``b = -S_{:j}`` and ``c = S_{jj}`` for a covariance matrix ``S``, and an
 infinite weight on coordinate ``j``, the loss is
 ``\|Z_j - Z x\|/\sqrt n`` for the data ``Z`` behind ``S``: the scaled lasso of

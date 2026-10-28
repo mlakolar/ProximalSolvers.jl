@@ -111,8 +111,13 @@ A box can still have a representable minimizer when its inner answer is unavaila
 The candidate and its displacement are checked in the iterate's element type
 before changing the attempted coordinate or its cache; earlier coordinates
 of the pass may already have moved. The square-root losses check a relative
-duality gap when dual scaling is available; unpenalized coordinates can require
-a fallback to the change rule. See [Losses for coordinate descent](@ref).
+duality gap after every run, trying the residual direction and then a support
+and residual witness, with correlation error bounds and a projection
+correction for unrestricted coefficients, including the intercept. Compensated
+residuals and their error bounds supply an upper primal loss. Exactly zero
+unrestricted correlation intervals need no inverse of their Gram matrix. If
+neither candidate is valid, the zero dual point supplies a conservative gap;
+coordinate changes alone never certify these losses. See [Losses for coordinate descent](@ref).
 
 ## Ownership and cache validity
 

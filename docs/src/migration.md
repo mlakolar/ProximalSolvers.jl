@@ -66,12 +66,18 @@ Version 0.2.0 needs registered ProximalBase 0.5.3 or later within the 0.5 series
   no finite supported coordinate minimizer is available.
 - **Square-root losses.** `SqrtLeastSquaresLoss` and `SqrtQuadraticFunction`
   runs converge only when the relative duality gap is at most `gaptol`, or
-  `1e-4` by default, and the results report the gap. Exact or nearly exact fits
-  with a positive penalty, common with `p ≥ n` and a small penalty, now return
-  `converged = false` with a warning; they used to report convergence at points
-  that can be far from the minimizer.
-  If an unpenalized coordinate prevents dual scaling, the coordinate-change
-  fallback remains; see [The square-root lasso](@ref).
+  `1e-4` by default, and the results report the gap. A joint support and residual
+  dual point can certify exact fits with a positive penalty and fits with
+  unpenalized coordinates. The residual direction is tried first for ordinary
+  fits. Coordinate changes alone no longer accept an unpenalized fit: if no
+  candidate is valid, the zero dual point gives a gap of one for a positive
+  objective. Some exact minimizers can still miss a certificate and return
+  `converged = false`. Correlation error bounds and a projection correction
+  protect the gap when cancellation hides a constraint or an unrestricted
+  direction is ill-conditioned. Compensated residuals and their error bounds
+  protect the primal objective from cancellation. Exactly zero unrestricted
+  correlation intervals certify without a Gram inverse. Rank decisions use an
+  equilibrated Gram matrix; see [The square-root lasso](@ref).
 - **Proximal Newton** without a duality gap stops only when the objective has
   stalled and the original problem is stationary; see [Proximal Newton](@ref).
   A run that cannot meet both returns `converged = false` after `maxiter`.
