@@ -420,14 +420,47 @@ function _sqnorm!(m::LSModel{T}, k::Int) where {T}
   a
 end
 
+# Check actual entries only when curvature is zero, including implicit sparse zeros.
+function _flat_column(m::LSModel{T}, k::Int) where {T}
+  X, w = m.X, m.w
+  sparse = X isa SparseMatrixCSC
+  rows = sparse ? rowvals(X) : nothing
+  vals = sparse ? nonzeros(X) : nothing
+  j = sparse ? first(nzrange(X, k)) : 1
+  stop = sparse ? last(nzrange(X, k)) : 0
+  reference, seen = zero(T), !m.intercept
+  for i in axes(X, 1)
+    v = if sparse
+      if j <= stop && rows[j] == i
+        value = vals[j]
+        j += 1
+        value
+      else
+        zero(T)
+      end
+    else
+      X[i, k]
+    end
+    w === nothing || w[i] > 0 || continue
+    if seen
+      v == reference || return false
+    else
+      reference, seen = v, true
+    end
+  end
+  true
+end
+
 # the coordinate goes to xₖ + b/a, with step 1/(s a) for the penalty; a column
 # that the loss does not depend on (a zero column, or a constant one with an
-# intercept) gets the minimizer of the penalty nearest zero
+# intercept) gets a minimizer of the penalty
 @inline function coordinate_step!(m::LSModel{T}, g, x::SparseIterate{T}, k::Int) where {T}
   a, b = _column_dot(m, k)
-  m.a[k] = a
+  iszero(a) && !_flat_column(m, k) &&
+    throw(ArgumentError("the coordinate curvature underflows; rescale the data or loss"))
   old = x[k]
-  new = iszero(a) ? prox_entry(g, zero(T), k, floatmax(T)) : prox_entry(g, old + b / a, k, inv(m.s * a))
+  new = iszero(a) ? _coordinate_minimizer(g, old, zero(T), zero(T), k) : prox_entry(g, old + b / a, k, inv(m.s * a))
+  m.a[k] = a
   h = new - old
   iszero(h) && return h      # x and the residuals do not change
   x[k] = new
@@ -438,6 +471,7 @@ end
 function coordinate_derivatives(m::LSModel{T}, x::SparseIterate{T}, k::Int) where {T}
   a, b = _column_dot(m, k)
   m.a[k] = a
+  iszero(a) && _flat_column(m, k) && return zero(T), zero(T)
   -m.s * b, m.s * a
 end
 

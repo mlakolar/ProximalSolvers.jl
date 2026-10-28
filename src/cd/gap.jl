@@ -985,8 +985,9 @@ curvature of `f` along coordinate `k` and the step is the proximal step from
 differentiable at `x`, it is zero exactly at a minimizer of `f + g`.
 The square-root models do not supply the coordinate derivatives required
 by this diagnostic; inspect the gap in [`CDSolver`](@ref)'s results for those
-losses. It is `Inf` along
-a coordinate with zero curvature where `f + g` is unbounded below. It is the
+losses. It is `Inf` along a coordinate with zero curvature where `f + g` is
+unbounded below, or the flat subproblem is unsupported or its minimizer or
+displacement is not numerically representable. It is the
 quantity that the stopping rule of
 `CDSolver` compares with `tol`: with `relative`, it is divided by the scale of
 the data ([`response_scale`](@ref)), as there. `x` is not changed.

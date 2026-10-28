@@ -145,8 +145,8 @@ cdmodel(f::AbstractFunction, x) =
     throw(ArgumentError("coordinate descent needs finite derivatives and nonnegative curvature"))
   if iszero(a)
     new = _flat_minimizer(g, old, T(G), i, μ)
-    new === nothing &&
-      throw(ArgumentError("coordinate $i has zero curvature and its linear term $G makes f + g unbounded below along it, or no minimizer is available for this penalty"))
+    (new === nothing || !isfinite(new) || !isfinite(new - old)) &&
+      throw(ArgumentError("coordinate $i has zero curvature and its linear term $G makes f + g unbounded below along it, or no finite minimizer and displacement are available for this penalty"))
     return new
   end
   ainv = inv(a)
@@ -167,29 +167,188 @@ end
 # of the candidate, so that rounding cannot make a huge point look fixed.
 # Returns nothing when neither candidate is a minimizer.
 function _flat_minimizer(g, old::T, G::T, i, μ) where {T}
+  _flat_exact(g) || return _flat_inexact(g, old, G, i, μ)
+  W = promote_type(T, Float64, _flat_type(g))
+  v = _flat_closed(g, W(old), W(G), i, W(μ))
+  v === nothing && return nothing
+  c = _flat_candidate(T, v)
+  c === nothing && return nothing
+  iszero(c) && !iszero(v) && return nothing
+  _flat_indomain(g, W(c), i) ? c : nothing
+end
+
+_flat_type(v) = Float64
+_flat_type(v::Real) = typeof(v)
+_flat_type(v::AbstractArray{T}) where {T} =
+  T <: Real && isconcretetype(T) ? T : mapreduce(_flat_type, promote_type, v; init = Float64)
+function _flat_type(g::AbstractFunction)
+  types = ntuple(i -> _flat_type(getfield(g, i)), fieldcount(typeof(g)))
+  promote_type(Float64, types...)
+end
+
+_flat_exact(g) = false
+_flat_exact(::Union{ElasticNet, ProximalBase.SqrNormL2, ProximalBase.Berhu,
+                   ProximalBase.NegLog, ProximalBase.NegEntropy, ProximalBase.KLDivergence}) = true
+_flat_exact(g::Union{ProximalBase.Scaled, ProximalBase.Tilt, ProximalBase.Translate,
+                     ProximalBase.BoxConstrained}) = _flat_exact(g.f)
+_flat_exact(g::ProximalBase.Regularize) =
+  iszero(g.ρ) ? _flat_exact(g.f) : ProximalBase.isconvex(g.f)
+
+_flat_inexact(g, old, G, i, μ) = _flat_generic(g, old, G, i, μ)
+
+# Balance a/(bc), with optional numerator and denominator factors, before scaling.
+function _flat_quotient(a, b, c, numerator = (), denominator = ())
+  a, b, c = promote(float(a), float(b), float(c))
+  m, e = frexp(a)
+  for v in numerator
+    vm, ve = frexp(oftype(a, v))
+    m *= vm
+    e += ve
+  end
+  for v in (b, c, denominator...)
+    vm, ve = frexp(oftype(a, v))
+    m /= vm
+    e -= ve
+  end
+  ldexp(m, e)
+end
+
+function _flat_generic(g, old::T, G::T, i, μ) where {T}
   !iszero(G) && !ProximalBase.isconvex(g) && return nothing
-  c = prox_entry(g, zero(T), i, floatmax(T))
-  iszero(G) && return c
+  c = T(prox_entry(g, zero(T), i, floatmax(T)))
+  iszero(G) && return _flat_candidate(T, c)
   _flat_fixed(g, c, G, i, μ) && return c
-  c = prox_entry(g, -copysign(floatmax(T), G), i, μ)
+  c = T(prox_entry(g, -copysign(floatmax(T), G), i, μ))
   _flat_fixed(g, c, G, i, μ) ? c : nothing
+end
+
+# Closed forms may retain an overflow direction until a surrounding box clamps it.
+function _flat_candidate(::Type{T}, v, extended::Bool = false) where {T}
+  c = T(v)
+  isfinite(c) || (extended && isinf(c)) ? c : nothing
+end
+
+_flat_indomain(g, v, i) = true
+_flat_indomain(::ProximalBase.NegLog, v, i) = v > 0
+_flat_indomain(::Union{ProximalBase.NegEntropy, ProximalBase.KLDivergence}, v, i) = v >= 0
+_flat_indomain(g::Union{ProximalBase.Scaled, ProximalBase.Tilt, ProximalBase.Regularize}, v, i) =
+  _flat_indomain(g.f, v, i)
+_flat_indomain(g::ProximalBase.Translate, v, i) = _flat_indomain(g.f, v - g.b[i], i)
+_flat_indomain(g::ProximalBase.BoxConstrained, v, i) =
+  prox_entry(g.box, v, i, one(v)) == v && _flat_indomain(g.f, v, i)
+
+# Minimize Gx + μ(λ₁wᵢ|x| + λ₂x²/2) by thresholding the slope and dividing by λ₂.
+function _flat_closed(g::ElasticNet, old::T, G::T, i, μ) where {T}
+  iszero(G) && return zero(T)
+  λ1, λ2, w = T(g.λ1), T(g.λ2), T(_weight(g, i))
+  _, e = frexp(abs(G))
+  scale = ldexp(one(T), e - 1)
+  threshold = _flat_quotient(λ1, scale, one(T), (μ, w))
+  excess = abs(G) / scale - threshold
+  excess <= 0 && return zero(T)
+  iszero(λ2) && return -copysign(T(Inf), G)
+  _flat_candidate(T, _flat_quotient(-sign(G) * excess, μ, λ2, (scale,)), true)
+end
+
+# Minimize Gx + μλ(x - yᵢ)²/2 at yᵢ - G/(μλ), retaining an unbounded direction.
+function _flat_closed(g::ProximalBase.SqrNormL2, old::T, G::T, i, μ) where {T}
+  iszero(g.λ) && return iszero(G) ? zero(T) : -copysign(T(Inf), G)
+  y = g.y === nothing ? zero(T) : T(g.y[i])
+  _flat_candidate(T, y - _flat_quotient(G, μ, T(g.λ)), true)
+end
+
+# Minimize Gx + μ Berhuᵢ(x): zero below the threshold, -GM/(μλwᵢ) above.
+function _flat_closed(g::ProximalBase.Berhu, old::T, G::T, i, μ) where {T}
+  iszero(G) && return zero(T)
+  λ, w = T(g.λ), T(_entryweight(g.w, i, typeof(g.λ)))
+  (iszero(λ) || iszero(w)) && return -copysign(T(Inf), G)
+  _flat_quotient(λ, abs(G), one(T), (μ, w)) >= 1 && return zero(T)
+  _flat_candidate(T, _flat_quotient(-G, μ, λ, (T(g.M),), (w,)), true)
+end
+
+# Minimize Gx - μλ log x at μλ/G for G > 0; otherwise it decreases toward +∞.
+function _flat_closed(g::ProximalBase.NegLog, old::T, G::T, i, μ) where {T}
+  G > 0 || return T(Inf)
+  c = _flat_candidate(T, _flat_quotient(μ, G, one(T), (T(g.λ),)), true)
+  c !== nothing && c > 0 ? c : nothing
+end
+
+# Minimize Gx + μλ x log x at exp(-G/(μλ) - 1); underflow gives no available point.
+function _flat_closed(g::ProximalBase.NegEntropy, old::T, G::T, i, μ) where {T}
+  c = _flat_candidate(T, exp(-_flat_quotient(G, μ, T(g.λ)) - one(T)), true)
+  c !== nothing && c > 0 ? c : nothing
+end
+
+# Minimize Gx + μ KLᵢ(x) at exp(log qᵢ - G/(μλ)), returning qᵢ directly at zero slope.
+function _flat_closed(g::ProximalBase.KLDivergence, old::T, G::T, i, μ) where {T}
+  q = T(g.q isa Real ? g.q : g.q[i])
+  iszero(G) && return _flat_candidate(T, q)
+  c = _flat_candidate(T, exp(log(q) - _flat_quotient(G, μ, T(g.λ))), true)
+  c !== nothing && c > 0 ? c : nothing
+end
+
+# Complete the square in Gx + μ(fᵢ(x) + ρ(x - cᵢ)²/2), then take prox_{fᵢ/ρ}.
+function _flat_closed(g::ProximalBase.Regularize, old::T, G::T, i, μ) where {T}
+  iszero(g.ρ) && return _flat_closed(g.f, old, G, i, μ)
+  center = g.c === nothing ? zero(T) : T(g.c[i])
+  ρ = T(g.ρ)
+  v, step = center - (G / μ) / ρ, inv(ρ)
+  isfinite(v) && isfinite(step) || return nothing
+  c = _flat_candidate(T, prox_entry(g.f, v, i, step))
+  c !== nothing && _flat_indomain(g.f, c, i) ? c : nothing
+end
+
+# Translating x = bᵢ + y leaves the slope unchanged; rounding must preserve the domain.
+function _flat_closed(g::ProximalBase.Translate, old::T, G::T, i, μ) where {T}
+  y = _flat_closed(g.f, old, G, i, μ)
+  y === nothing && return nothing
+  isfinite(y) || return y
+  c = _flat_candidate(T, T(g.b[i]) + y, true)
+  c !== nothing && _flat_indomain(g.f, c - T(g.b[i]), i) ? c : nothing
+end
+
+# Clamp an exact inner answer or its direction; verify a generic candidate if unavailable.
+function _flat_closed(g::ProximalBase.BoxConstrained, old::T, G::T, i, μ) where {T}
+  v = _flat_closed(g.f, old, G, i, μ)
+  c = if v === nothing
+    candidate = _flat_generic(g, old, G, i, μ)
+    candidate === nothing && return nothing
+    # A small proximal move must not disappear from underflow in the verification.
+    _flat_fixed(g, BigFloat(candidate), BigFloat(G), i, BigFloat(μ)) || return nothing
+    candidate
+  else
+    _flat_candidate(T, prox_entry(g.box, v, i, one(T)))
+  end
+  c !== nothing && _flat_indomain(g, c, i) ? c : nothing
+end
+
+function _flat_closed(g::ProximalBase.Scaled, old::T, G::T, i, μ) where {T}
+  scale = μ * g.α
+  isfinite(scale) && scale > 0 || return nothing
+  _flat_closed(g.f, old, G, i, scale)
+end
+
+function _flat_closed(g::ProximalBase.Tilt, old::T, G::T, i, μ) where {T}
+  slope = T(G + μ * g.c[i])
+  isfinite(slope) || return nothing
+  _flat_closed(g.f, old, slope, i, μ)
 end
 
 # Project directly onto the minimizing end of a box. A finite endpoint near
 # floatmax must not be rejected because the fixed-point trial overflows.
-function _flat_minimizer(g::ProximalBase.IndBox, old::T, G::T, i, μ) where {T}
+function _flat_inexact(g::ProximalBase.IndBox, old::T, G::T, i, μ) where {T}
   v = iszero(G) ? zero(T) : -copysign(T(Inf), G)
   c = T(prox_entry(g, v, i, one(T)))
   isfinite(c) ? c : nothing
 end
 
-function _flat_minimizer(g::ProximalBase.Scaled, old::T, G::T, i, μ) where {T}
+function _flat_inexact(g::ProximalBase.Scaled, old::T, G::T, i, μ) where {T}
   scale = μ * g.α
   isfinite(scale) && scale > 0 || return nothing
   _flat_minimizer(g.f, old, G, i, scale)
 end
 
-function _flat_minimizer(g::ProximalBase.Tilt, old::T, G::T, i, μ) where {T}
+function _flat_inexact(g::ProximalBase.Tilt, old::T, G::T, i, μ) where {T}
   slope = T(G + μ * g.c[i])
   isfinite(slope) || return nothing
   _flat_minimizer(g.f, old, slope, i, μ)
@@ -197,7 +356,7 @@ end
 
 function _flat_fixed(g, c::T, G::T, i, μ) where {T}
   isfinite(c) || return false
-  t = max(one(T), abs(c) / abs(G))
+  t = iszero(G) ? one(T) : max(one(T), abs(c) / abs(G))
   v = c - t * G
   step = t * μ
   isfinite(v) && isfinite(step) && prox_entry(g, v, i, step) == c
