@@ -476,6 +476,7 @@ function _groupcurvature!(m::LSModel{T}, x::AtomIterate{T}, k::Int) where {T}
   if isnan(L)
     G = x.groups[k]
     L = length(G) == 1 ? m.s * _sqnorm!(m, first(G)) : max(m.s * _gram_eigmax!(m, x, G), zero(T))
+    L = T(L)
     m.L[k] = L
   end
   L
@@ -501,9 +502,9 @@ function _gram_eigmax!(m::LSModel{T}, x::AtomIterate{T}, G) where {T<:Union{Floa
 end
 
 function _gram_eigmax!(m::LSModel{T}, x::AtomIterate{T}, G) where {T}
-  XG = m.X[:, G] .- transpose(m.xbar[G])
+  XG = Matrix(m.X[:, G] .- transpose(m.xbar[G]))
   m.w === nothing || (XG .*= sqrt.(m.w))
-  eigmax(Symmetric(XG' * XG))
+  _eigmax_generic(XG' * XG)
 end
 
 # group k of x ← the proximal operator of λ0 wₖ ‖⋅‖₂ with step 1/L at
