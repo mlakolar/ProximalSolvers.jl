@@ -203,3 +203,8 @@ function intercept(m::MLSModel{T}, x::AbstractArray) where {T}
 end
 
 residuals(m::MLSModel) = m.R
+
+# R = Y - 1ȳ' - (X - 1x̄')B is affine in B, with or without an intercept (x̄ and
+# ȳ are zero without one), so momentum (momentum = true; it is off by default on
+# an AtomIterate) moves it with the point instead of initializing the model there
+_cache(m::MLSModel) = m.R

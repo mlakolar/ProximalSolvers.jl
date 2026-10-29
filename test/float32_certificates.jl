@@ -171,7 +171,7 @@ end
       grouped = g isa Union{GroupNormL2, SparseGroupNormL2, Scaled}
       x = grouped ? AtomIterate(Float32, p, groups) : SparseIterate(Float32, p)
       m = cdmodel(f, nothing; intercept = icpt)
-      s = CDSolver(; gaptol = 1e-4, rng = Xoshiro(1), momentum = !grouped)
+      s = CDSolver(; gaptol = 1e-4, rng = Xoshiro(1), momentum = true)
       r = solve!(x, m, g, s)
       @test r.converged && r.gap <= s.gaptol
       oracle = gap64(m, g, x)

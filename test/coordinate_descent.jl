@@ -1060,10 +1060,15 @@ end
   solve!(xs0, fk, NormL1(λk), plain)
   @test solve!(xs1, fk, NormL1(λk), mom).converged
   @test Matrix(xs1) ≈ Matrix(xs0) atol = 1e-6
-  # not on the groups of an AtomIterate
+  # on the groups of an AtomIterate when asked for (see group_momentum.jl), and
+  # on no other iterate
   groups = [((k - 1) * 10 + 1):(k * 10) for k in 1:100]
   gg = GroupNormL2(λ, groups, ones(100))
-  @test_throws ArgumentError solve!(AtomIterate(Float64, p, groups), f, gg, mom)
+  xg0, xg1 = AtomIterate(Float64, p, groups), AtomIterate(Float64, p, groups)
+  solve!(xg0, f, gg, plain)
+  @test solve!(xg1, f, gg, mom).converged
+  @test Vector(xg1) ≈ Vector(xg0) atol = 1e-6
+  @test_throws ArgumentError PS._usemomentum(mom, zeros(p), cdmodel(f, SparseIterate(p)))
 
   # by default it is used with the random order, a SparseIterate and a
   # built-in model other than that of KronQuadratic, and not otherwise: the
@@ -1152,11 +1157,12 @@ end
     @test passes_bytes(SparseIterate(p), cdmodel(fs, SparseIterate(p); intercept = true), NormL1(0.5), s) == 0
   end
   # block coordinate descent: initialize! clears the group curvatures, which the
-  # second run computes again in the workspace that the first one allocated
+  # second run computes again in the workspace that the first one allocated;
+  # momentum keeps them when it computes a moved cache again
   groups = vcat([[k] for k in 1:5], [i:min(i + 6, p) for i in 6:7:p])
   g = GroupNormL2(0.05, groups, ones(length(groups)))
   w = rand(Xoshiro(17), n) .+ 0.5
-  for s in (CDSolver(; order = :cyclic), CDSolver(; order = :random))
+  for s in (CDSolver(; order = :cyclic), CDSolver(; order = :random), CDSolver(; momentum = true))
     x = AtomIterate(Float64, p, groups)
     @test passes_bytes(x, cdmodel(f, x), g, s) == 0
     @test passes_bytes(x, cdmodel(f, x; intercept = true), g, s) == 0
