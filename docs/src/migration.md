@@ -1,5 +1,34 @@
 # Migrating to this release
 
+## From 0.3.0 to 0.3.1
+
+Version 0.3.1 adds an opt-in feature and fixes; nothing that 0.3.0 accepted is
+rejected, and no default changes.
+
+- **Momentum on groups.** `CDSolver(; momentum = true)` now works on the groups
+  of an `AtomIterate` (it raised an `ArgumentError` in 0.3.0), with the
+  least-squares, quadratic and multi-response models; see [`CDSolver`](@ref).
+  It stays off there by default.
+- **Float32 coordinate descent and the gap rule.** Below the fixed floor of the
+  change tolerance, Float32 runs keep tightening it while the duality gap still
+  falls, certify from refreshed residuals accumulated in Float64, and otherwise
+  report `converged = false` with the gap reached, instead of stopping
+  uncertified. Float64 results and passes are unchanged.
+- **Float32 data with Float64 parameters.** The gradient solvers, ADMM and
+  `ActiveAccProxGradDescent` keep their values in the element type of the
+  iterate, so a Float64-scaled loss or a Float64 penalty parameter on Float32
+  data no longer raises a `MethodError`.
+- **Flat coordinates.** A coordinate with zero curvature takes the exact
+  minimizer of a bounded penalty beyond norms and boxes, such as `ElasticNet`
+  with a linear loss; unbounded nonconvex cases are still rejected.
+- **Square-root losses.** Exact fits with a positive penalty, and unpenalized
+  coordinates, are certified by a feasible dual point instead of falling back
+  on the rule on the changes.
+- **Group curvatures.** The largest eigenvalue of a group's Gram matrix falls
+  back on all eigenvalues for every element type, not only Float32 and
+  Float64, and LAPACK's out-of-range write of `syevr` stays inside the
+  workspace, which could crash a later garbage collection.
+
 ## From 0.2.0 to 0.3.0
 
 Version 0.3.0 needs registered ProximalBase 0.5.3 or later within the 0.5 series.
