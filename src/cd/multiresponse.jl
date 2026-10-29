@@ -57,7 +57,11 @@ function check_penalty(m::MLSModel, g)
   nothing
 end
 
-function initialize!(m::MLSModel{T}, x::AtomIterate{T}) where {T}
+initialize!(m::MLSModel{T}, x::AtomIterate{T}) where {T} = _initialize!(m, x, true)
+
+# the residuals at x and, with curvatures, the squared norms of the centered
+# columns, the curvatures of the rows, which their next use computes again
+function _initialize!(m::MLSModel{T}, x::AtomIterate{T}, curvatures::Bool) where {T}
   X, Y, R = m.X, m.Y, m.R
   p, q = size(X, 2), size(Y, 2)
   length(x) == p * q || throw(DimensionMismatch("x has length $(length(x)) and B is $p × $q"))
@@ -73,7 +77,7 @@ function initialize!(m::MLSModel{T}, x::AtomIterate{T}) where {T}
       iszero(v) || _residual_axpy!(R, c, X, k, m.xbar[k], v)
     end
   end
-  fill!(m.a, T(NaN))          # X may have changed in place
+  curvatures && fill!(m.a, T(NaN))          # X may have changed in place
   m
 end
 

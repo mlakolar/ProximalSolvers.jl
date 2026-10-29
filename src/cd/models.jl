@@ -50,9 +50,12 @@ Make the cache of the model `m` current for the iterate `x`.
 function initialize! end
 
 # initialize! that keeps the curvatures of the groups of an AtomIterate, which
-# depend only on the data, with curvatures = false: for the levels of a path,
-# where only the cache of x must be computed again. Models that cache no
-# curvatures, as those defined outside the package, compute everything again.
+# depend only on the data, with curvatures = false: for the levels of a path and
+# for the momentum's refresh of a moved cache, where only the cache of x must be
+# computed again. The least-squares and quadratic models keep their group
+# curvatures, the multi-response model the curvatures of its rows. Models that
+# cache no curvatures, as those defined outside the package, compute everything
+# again.
 _initialize!(m::CDModel, x, curvatures::Bool) = initialize!(m, x)
 
 """

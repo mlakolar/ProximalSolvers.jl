@@ -193,11 +193,12 @@ end
 # points against the momentum, (xₖ₊₁ - y)'(xₖ - xₖ₋₁) < 0. The history is
 # indexed by position among the active values (_values!): the stored values
 # x.nzval[1:m] of a SparseIterate or a SymmetricSparseIterate, the entries of
-# the active groups of an AtomIterate in the order the groups joined. A pass
-# over the active set adds no coordinate, and dropzeros! reorders them only
-# when it removes one, so the history starts again when the number of active
-# coordinates changes, and after every full pass. The buffers have room for
-# every entry, so that no pass allocates.
+# the active groups of an AtomIterate in the order of x.active. A pass over the
+# active set adds no coordinate, and dropzeros! reorders them only when it
+# removes one (it moves the last one into the place of each it removes), so the
+# history starts again when the number of active coordinates changes, and after
+# every full pass. The buffers have room for every entry, so that no pass
+# allocates.
 mutable struct _Momentum{T}
   xprev::Vector{T}      # the active values after the pass before the last
   xcur::Vector{T}       # the active values after the last pass

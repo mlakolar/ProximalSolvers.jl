@@ -245,35 +245,83 @@ end
 
   # a group extrapolated to exactly zero, 1 + (1 - 5)/4 = 0, stays active for
   # the pass, which keeps it at zero (its weight is large) and drops it; the
-  # change of the active set starts the history again
+  # change of the active set starts the history again, in the order of
+  # x.active. Group 2 joins last, or first: dropzeros! then moves the last
+  # active group into its place
   f = (1 / n) * LeastSquaresLoss(y, X)
   wts = ones(length(groups)); wts[2] = 1e6
   g = GroupNormL2(0.01, groups, wts)
-  x = AtomIterate(Float64, p, groups)
-  x[1], x[2] = 1.0, -0.5
-  for j in groups[2]
-    x[j] = 5.0
+  for (joined, after) in (([1, 2], [1]), ([2, 1, 4], [4, 1]))
+    x = AtomIterate(Float64, p, groups)
+    for k in joined
+      G = groups[k]
+      if k == 2
+        for j in G
+          x[j] = 5.0
+        end
+      else
+        x[G[1]], x[G[2]] = 1.0, -0.5
+      end
+    end
+    @test activecoordinates(x) == joined
+    m = cdmodel(f, x)
+    PS.initialize!(m, x)
+    st = PS._CDState(Float64, x, CDSolver(; rng = Xoshiro(7)))
+    mom = PS._momentum_start!(st.momentum, x, m)
+    PS._momentum_reset!(mom, x, m)
+    PS._momentum_step!(mom, x, m)                      # β = 0
+    for j in groups[2]
+      x[j] = 1.0                                       # as after a pass
+    end
+    PS.initialize!(m, x)
+    PS._momentum_update!(mom, x, m)
+    PS._momentum_step!(mom, x, m)                      # β = 1/4
+    @test all(iszero, x[groups[2]])
+    @test isactive(x, 2) && activecoordinates(x) == joined
+    @test residuals(m) ≈ y - X * Vector(x) atol = 1e-12
+    PS._pass!(x, m, g, st, false, false)
+    @test !isactive(x, 2) && activecoordinates(x) == after
+    PS._momentum_update!(mom, x, m)
+    @test mom.k == 1 && mom.na == length(after) && mom.n == 3 * length(after)
+    @test mom.xcur[1:mom.n] == reduce(vcat, x[groups[k]] for k in activecoordinates(x))
   end
-  m = cdmodel(f, x)
-  PS.initialize!(m, x)
-  st = PS._CDState(Float64, x, CDSolver(; rng = Xoshiro(7)))
-  mom = PS._momentum_start!(st.momentum, x, m)
-  PS._momentum_reset!(mom, x, m)
-  PS._momentum_step!(mom, x, m)                      # β = 0
-  for j in groups[2]
-    x[j] = 1.0                                       # as after a pass
+end
+
+@testset "a momentum refresh keeps the curvatures" begin
+  # the refresh computes the moved cache again, as the levels of a path do, and
+  # keeps the curvatures of the groups (of the rows for the multi-response
+  # model), which depend only on the data; initialize! clears them
+  X, y = groupdata(; seed = 158)
+  n, p = size(X)
+  groups = [i:i+2 for i in 1:3:p]
+  Xm, Y = mlsdata(; seed = 159)
+  pm, q = size(Xm, 2), size(Y, 2)
+  rows = [collect(k:pm:pm*q) for k in 1:pm]
+  for (f, x) in (((1 / n) * LeastSquaresLoss(y, X), AtomIterate(Float64, p, groups)),
+                 (QuadraticFunction(X' * X / n, -X' * y / n), AtomIterate(Float64, p, groups)),
+                 ((1 / n) * LeastSquaresLoss(Y, Xm), AtomIterate(Float64, pm * q, rows)))
+    x[1], x[2] = 0.5, -0.3
+    m = cdmodel(f, x)
+    PS.initialize!(m, x)
+    mom = PS._momentum_start!(PS._Momentum{Float64}(), x, m)
+    PS._momentum_reset!(mom, x, m)
+    mls = m isa PS.MLSModel
+    curvatures = mls ? m.a : m.L
+    for k in eachindex(curvatures)
+      mls ? PS._sqnorm!(m, k) : PS._groupcurvature!(m, x, k)
+    end
+    @test all(isfinite, curvatures)
+    cache = copy(PS._cache(m))
+    fill!(PS._cache(m), 0.0)                           # as if it had drifted
+    fill!(curvatures, 7.0)
+    mom.moved = true
+    PS._momentum_refresh!(mom, x, m)
+    @test !mom.moved
+    @test PS._cache(m) ≈ cache
+    @test all(==(7.0), curvatures)
+    PS.initialize!(m, x)
+    @test all(isnan, curvatures)
   end
-  PS.initialize!(m, x)
-  PS._momentum_update!(mom, x, m)
-  PS._momentum_step!(mom, x, m)                      # β = 1/4
-  @test all(iszero, x[groups[2]])
-  @test isactive(x, 2) && nactive(x) == 2
-  @test residuals(m) ≈ y - X * Vector(x) atol = 1e-12
-  PS._pass!(x, m, g, st, false, false)
-  @test !isactive(x, 2) && nactive(x) == 1
-  PS._momentum_update!(mom, x, m)
-  @test mom.k == 1 && mom.na == 1 && mom.n == length(groups[1])
-  @test mom.xcur[1:mom.n] == x[groups[1]]
 end
 
 @testset "momentum stays off by default on an AtomIterate" begin
