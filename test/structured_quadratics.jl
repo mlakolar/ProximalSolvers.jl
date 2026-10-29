@@ -145,8 +145,6 @@ model_bytes(f, x) = @allocated cdmodel(f, x)
     for s in (CDSolver(; order = :cyclic), CDSolver(; order = :random, rng = Xoshiro(1)),
               CDSolver(; order = :random, momentum = true, rng = Xoshiro(2)))
       @test passes_bytes(f, SparseIterate(T, 12), NormL1(T(0.1)), s) == 0
-      # Explicit momentum supports scalar sparse iterates, not AtomIterate.
-      s.momentum === true && continue
       for g in (GroupNormL2(T(0.1), groups), GroupNormLinf(T(0.1), groups))
         @test passes_bytes(f, AtomIterate(T, 12, groups), g, s) == 0
       end

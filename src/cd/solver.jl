@@ -50,9 +50,12 @@ loss is initialized at the extrapolated point. By default
 for `LeastSquaresLoss`, `GLMLoss`, `SqrtLeastSquaresLoss`,
 `QuadraticFunction` and [`SqrtQuadraticFunction`](@ref), and not otherwise. `momentum = true` asks for it with any
 model on a `SparseIterate` or a `SymmetricSparseIterate`, such as
-[`KronQuadratic`](@ref); `momentum = false` turns it off. With the cyclic order
-it can stall far from the minimizer, so `order = :cyclic` refuses
-`momentum = true`.
+[`KronQuadratic`](@ref), and on the groups of an `AtomIterate`, with any
+penalty its block steps take and the least-squares, quadratic and
+multi-response models: the entries of the active groups are extrapolated,
+and the curvatures of the groups are kept. `momentum = false` turns it off.
+With the cyclic order it can stall far from the minimizer, so
+`order = :cyclic` refuses `momentum = true`.
 
 The random order is drawn from `rng`, by default the task-local generator of
 `Random.default_rng()`, which draws exactly as the global generator does, so
@@ -188,10 +191,14 @@ end
 # cache of the model (_cache), exactly up to rounding; another model is
 # initialized at y. After the pass, k restarts at 1 when the step of the pass
 # points against the momentum, (xₖ₊₁ - y)'(xₖ - xₖ₋₁) < 0. The history is
-# indexed by position among the stored values, x.nzval[1:m], so it starts again
-# when the active set changes: after every full pass, and when dropzeros! has
-# compacted the stored values. The buffers have room for every coordinate, so
-# that no pass allocates.
+# indexed by position among the active values (_values!): the stored values
+# x.nzval[1:m] of a SparseIterate or a SymmetricSparseIterate, the entries of
+# the active groups of an AtomIterate in the order of x.active. A pass over the
+# active set adds no coordinate, and dropzeros! reorders them only when it
+# removes one (it moves the last one into the place of each it removes), so the
+# history starts again when the number of active coordinates changes, and after
+# every full pass. The buffers have room for every entry, so that no pass
+# allocates.
 mutable struct _Momentum{T}
   xprev::Vector{T}      # the active values after the pass before the last
   xcur::Vector{T}       # the active values after the last pass
@@ -199,11 +206,12 @@ mutable struct _Momentum{T}
   cprev::Vector{T}      # the cache of the model at xprev
   ccur::Vector{T}       # the cache of the model at xcur
   n::Int                # number of active values in the history
+  na::Int               # number of active coordinates (groups of an AtomIterate) they belong to
   k::Int
   moved::Bool           # whether the cache moved since it was last computed
 end
 
-_Momentum{T}() where {T} = _Momentum{T}(T[], T[], T[], T[], T[], 0, 1, false)
+_Momentum{T}() where {T} = _Momentum{T}(T[], T[], T[], T[], T[], 0, 0, 1, false)
 
 # the duality gap and the gap-safe screening of a run (see CDSolver's gaptol and
 # gapsafe, and src/cd/gap.jl), for a loss and a penalty that have a gap
@@ -398,12 +406,14 @@ function _cd_plain!(x, m, g, st::_CDState{T}, s::CDSolver, gs) where {T}
   x
 end
 
-# whether the passes use momentum; see CDSolver
+# whether the passes use momentum; see CDSolver. By default only on a
+# SparseIterate; momentum = true also on a SymmetricSparseIterate and on the
+# groups of an AtomIterate
 function _usemomentum(s::CDSolver, x, m)
   s.momentum === false && return false
   s.momentum === nothing && return s.random && x isa SparseIterate && _momentum_default(m)
-  x isa Union{SparseIterate, SymmetricSparseIterate} ||
-    throw(ArgumentError("momentum needs a SparseIterate or a SymmetricSparseIterate, not a $(typeof(x))."))
+  x isa Union{SparseIterate, SymmetricSparseIterate, AtomIterate} ||
+    throw(ArgumentError("momentum needs a SparseIterate, a SymmetricSparseIterate or an AtomIterate, not a $(typeof(x))."))
   true
 end
 
@@ -450,9 +460,9 @@ function _cd_momentum!(x, m, g, st::_CDState{T}, s::CDSolver, gs) where {T}
   x
 end
 
-# a new history for a run, with buffers for every coordinate and for the cache
+# a new history for a run, with buffers for every entry and for the cache
 function _momentum_start!(s::_Momentum, x, m)
-  n = ncoordinates(x)
+  n = _maxvalues(x)
   if length(s.xcur) < n
     resize!(s.xprev, n); resize!(s.xcur, n); resize!(s.y, n)
   end
@@ -460,15 +470,15 @@ function _momentum_start!(s::_Momentum, x, m)
   if c !== nothing && length(s.ccur) != length(c)
     resize!(s.ccur, length(c)); resize!(s.cprev, length(c))
   end
-  s.n, s.k, s.moved = 0, 1, false
+  s.n, s.na, s.k, s.moved = 0, 0, 1, false
   s
 end
 
 # starts the history at x, as after a full pass or when the active set shrank
 function _momentum_reset!(s::_Momentum, x, m)
-  n = nactive(x)
-  s.n, s.k = n, 1
-  copyto!(s.xcur, 1, x.nzval, 1, n)
+  n = _nvalues(x)
+  s.n, s.na, s.k = n, nactive(x), 1
+  _values!(s.xcur, x, n)
   copyto!(s.xprev, 1, s.xcur, 1, n)
   c = _cache(m)
   if c !== nothing
@@ -479,7 +489,8 @@ function _momentum_reset!(s::_Momentum, x, m)
 end
 
 # moves x and the cache of m to the point the next pass over the active set
-# starts from
+# starts from; a model without a cache that moves is initialized there, keeping
+# the curvatures of the groups, which depend only on the data
 function _momentum_step!(s::_Momentum{T}, x, m) where {T}
   n = s.n
   β = s.k > 1 ? T((s.k - 1) / (s.k + 2)) : zero(T)
@@ -487,10 +498,10 @@ function _momentum_step!(s::_Momentum{T}, x, m) where {T}
     s.y[j] = s.xcur[j] + β * (s.xcur[j] - s.xprev[j])
   end
   iszero(β) && return s
-  copyto!(x.nzval, 1, s.y, 1, n)
+  _setvalues!(x, s.y, n)
   c = _cache(m)
   if c === nothing
-    initialize!(m, x)
+    _initialize!(m, x, false)
   else
     @inbounds @simd for i in eachindex(c)
       c[i] = s.ccur[i] + β * (s.ccur[i] - s.cprev[i])
@@ -504,15 +515,12 @@ end
 # after a pass over the active set: restarts when its step points against the
 # momentum, and records the new point
 function _momentum_update!(s::_Momentum{T}, x, m) where {T}
-  nactive(x) == s.n || return _momentum_reset!(s, x, m)
+  nactive(x) == s.na || return _momentum_reset!(s, x, m)
   n = s.n
-  d = zero(T)
-  @inbounds for j in 1:n
-    d += (x.nzval[j] - s.y[j]) * (s.xcur[j] - s.xprev[j])
-  end
+  d = _restartdot(s, x, n)
   s.k = s.k > 1 && d < 0 ? 1 : s.k + 1
   s.xprev, s.xcur = s.xcur, s.xprev
-  copyto!(s.xcur, 1, x.nzval, 1, n)
+  _values!(s.xcur, x, n)
   c = _cache(m)
   if c !== nothing
     s.cprev, s.ccur = s.ccur, s.cprev
@@ -521,11 +529,76 @@ function _momentum_update!(s::_Momentum{T}, x, m) where {T}
   s
 end
 
-# computes the cache again where repeated moves may have let it drift
+# computes the cache again where repeated moves may have let it drift, keeping
+# the curvatures of the groups, as the levels of a path do
 function _momentum_refresh!(s::_Momentum, x, m)
-  s.moved && initialize!(m, x)
+  s.moved && _initialize!(m, x, false)
   s.moved = false
   s
+end
+
+# The active values of the history: the stored values x.nzval[1:n] of a
+# SparseIterate or a SymmetricSparseIterate, and the entries of the active
+# groups of an AtomIterate, group by group in the order of x.active. Only these
+# are read and written, so the zeros of the inactive groups stay zero; an entry
+# is written into the storage, which neither activates nor deactivates a group,
+# so a group moved to zero stays active until dropzeros! after the pass.
+const _StoredValues = Union{SparseIterate, SymmetricSparseIterate}
+
+# the number of active values, and room for all of them
+_nvalues(x::_StoredValues) = nactive(x)
+_maxvalues(x::_StoredValues) = ncoordinates(x)
+_maxvalues(x::AtomIterate) = length(x)
+
+function _nvalues(x::AtomIterate)
+  n = 0
+  @inbounds for a in 1:x.nactive
+    n += length(x.groups[x.active[a]])
+  end
+  n
+end
+
+# v[1:n] = the active values of x
+_values!(v::Vector, x::_StoredValues, n::Int) = copyto!(v, 1, x.nzval, 1, n)
+
+function _values!(v::Vector, x::AtomIterate, n::Int)
+  i = 0
+  @inbounds for a in 1:x.nactive, j in x.groups[x.active[a]]
+    i += 1
+    v[i] = x.storage[j]
+  end
+  v
+end
+
+# the active values of x = v[1:n]
+_setvalues!(x::_StoredValues, v::Vector, n::Int) = copyto!(x.nzval, 1, v, 1, n)
+
+function _setvalues!(x::AtomIterate, v::Vector, n::Int)
+  i = 0
+  @inbounds for a in 1:x.nactive, j in x.groups[x.active[a]]
+    i += 1
+    x.storage[j] = v[i]
+  end
+  x
+end
+
+# (x - y)'(xcur - xprev) over the active values, which is negative when the step
+# of the last pass points against the momentum
+function _restartdot(s::_Momentum{T}, x::_StoredValues, n::Int) where {T}
+  d = zero(T)
+  @inbounds for j in 1:n
+    d += (x.nzval[j] - s.y[j]) * (s.xcur[j] - s.xprev[j])
+  end
+  d
+end
+
+function _restartdot(s::_Momentum{T}, x::AtomIterate, n::Int) where {T}
+  d, i = zero(T), 0
+  @inbounds for a in 1:x.nactive, j in x.groups[x.active[a]]
+    i += 1
+    d += (x.storage[j] - s.y[i]) * (s.xcur[i] - s.xprev[i])
+  end
+  d
 end
 
 # the same passes with Anderson extrapolation on the active set

@@ -84,7 +84,7 @@ end
     fill!(x, 0.0); PS.initialize!(m, x)
     @allocated PS._cd!(x, m, g, st, s)
   end
-  for sv in (CDSolver(; order = :cyclic), CDSolver(; order = :random))
+  for sv in (CDSolver(; order = :cyclic), CDSolver(; order = :random), CDSolver(; momentum = true))
     xa = AtomIterate(Float64, p * q, groups)
     @test passes_bytes(xa, cdmodel(f, xa; intercept = true), GroupNormL2(λ, groups, w), sv) == 0
   end

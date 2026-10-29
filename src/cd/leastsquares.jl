@@ -480,13 +480,13 @@ update_cache!(m::LSModel{T}, x::SparseIterate{T}, k::Int, h::T) where {T} = (_re
 # the residuals are affine in β, also with the centering of an intercept; so are
 # r and δ = x̄'β for a sparse X: momentum moves r, and δ is computed at the point
 _cache(m::LSModel) = m.r
-_cache_moved!(m::LSModel{T, <:SparseMatrixCSC}, x::SparseIterate{T}) where {T<:AbstractFloat} =
+_cache_moved!(m::LSModel{T, <:SparseMatrixCSC}, x::Union{SparseIterate{T}, AtomIterate{T}}) where {T<:AbstractFloat} =
   (m.δ = _dot_active(m.xbar, x); m)
 
-# x̄'x over the stored entries of x
-function _dot_active(c::Vector{T}, x::SparseIterate{T}) where {T}
+# x̄'x over the active entries of x (_activeentries), the others being zero
+function _dot_active(c::Vector{T}, x::Union{SparseIterate{T}, AtomIterate{T}}) where {T}
   s = zero(T)
-  for k in activecoordinates(x)
+  for k in _activeentries(x)
     s += c[k] * x[k]
   end
   s

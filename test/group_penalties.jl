@@ -162,7 +162,8 @@ end
     @allocated PS._cd!(x, m, g, st, s)
   end
   for f in ((1 / n) * LeastSquaresLoss(y, X), QuadraticFunction(X' * X / n, -X' * y / n)),
-      g in (GroupNormLinf(0.05, groups), NormL1(0.05)), s in (CDSolver(; order = :cyclic), CDSolver(; order = :random))
+      g in (GroupNormLinf(0.05, groups), NormL1(0.05)),
+      s in (CDSolver(; order = :cyclic), CDSolver(; order = :random), CDSolver(; momentum = true))
     x = AtomIterate(Float64, p, groups)
     @test passes_bytes(x, cdmodel(f, x), g, s) == 0
   end
@@ -170,9 +171,10 @@ end
   Xw, yw = X[1:20, :], y[1:20]
   big = [1:15, 16:30, 31:45, 46:60]
   fw = GLMLoss(ProximalBase.Squared(), yw, Xw; weights = rand(Xoshiro(3), 20) .+ 0.5)
-  for g in (GroupNormL2(0.5, big), GroupNormLinf(0.5, big), SparseGroupNormL2(0.2, 0.5, big))
+  for g in (GroupNormL2(0.5, big), GroupNormLinf(0.5, big), SparseGroupNormL2(0.2, 0.5, big)),
+      s in (CDSolver(), CDSolver(; momentum = true))
     x = AtomIterate(Float64, p, big)
-    @test passes_bytes(x, cdmodel(fw, x), g, CDSolver()) == 0
+    @test passes_bytes(x, cdmodel(fw, x), g, s) == 0
   end
 end
 

@@ -381,12 +381,14 @@ z = x_j + \omega_j\,(x_j - x_{j-1}), \qquad \omega_j = \frac{j - 1}{j + 2},
 ```
 
 instead of ``x_j``: the first pass after a restart has no momentum, and the
-second has ``\omega_2 = 1/4``. The cache of a built-in model, such as the
-residuals of least squares, ``Ax`` of a quadratic or the linear predictor of a
-generalized linear loss, is affine in ``x``, so it moves to ``z`` exactly by
-the same combination of its two last values, at the cost of a few vector
-operations per pass; the square root of a quadratic recomputes its value,
-which is not affine. A model of another loss is initialized at ``z``.
+second has ``\omega_2 = 1/4``. On an `AtomIterate`, the active values are the
+entries of the active groups. The cache of a built-in model, such as the
+residuals of least squares, ``Ax`` of a quadratic, the linear predictor of a
+generalized linear loss or the residual matrix of the multi-response model, is
+affine in ``x``, so it moves to ``z`` exactly by the same combination of its
+two last values, at the cost of a few vector operations per pass; the square
+root of a quadratic recomputes its value, which is not affine. A model of
+another loss is initialized at ``z``.
 
 The momentum restarts (``j \leftarrow 1``) after every full pass, when the
 active set changes, and when the step of a pass points against it,
@@ -398,7 +400,11 @@ method stops on a plain full pass, and screening checks an exact gradient.
 By default (`momentum = nothing`), momentum is used with the random order on a
 `SparseIterate` for least squares, generalized linear losses, quadratics and
 the two square-root losses. `momentum = true` turns it on for any model on a
-`SparseIterate` or a `SymmetricSparseIterate`, such as the Kronecker quadratic.
+`SparseIterate` or a `SymmetricSparseIterate`, such as the Kronecker quadratic,
+and for the block steps on the groups of an `AtomIterate`, with any penalty
+they take and the least-squares, quadratic and multi-response models. A group
+extrapolated to zero stays active for the pass, and the curvatures ``L_k`` of
+the groups are kept when a moved cache is computed afresh, as along a path.
 Its effect on runtime depends on the problem and should be measured at matched
 accuracy. The cyclic order can stall with momentum, so it refuses
 `momentum = true`.

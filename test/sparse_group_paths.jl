@@ -254,7 +254,8 @@ end
     copyto!(m.L, L)
     @allocated PS._cd!(x, m, g, st, s)
   end
-  for s in (CDSolver(), CDSolver(; gaptol = 1e-9), CDSolver(; gapsafe = true), CDSolver(; gaptol = 1e-9, gapsafe = true))
+  for s in (CDSolver(), CDSolver(; gaptol = 1e-9), CDSolver(; gapsafe = true), CDSolver(; gaptol = 1e-9, gapsafe = true),
+            CDSolver(; momentum = true), CDSolver(; momentum = true, gaptol = 1e-9, gapsafe = true))
     x = AtomIterate(p, groups)
     @test passes_bytes(x, cdmodel(f, x), g, s) == 0
   end

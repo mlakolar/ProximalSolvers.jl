@@ -35,6 +35,7 @@ tests = [
   "sparse_x",
   "group_penalties",
   "sparse_group_paths",
+  "group_momentum",
   "box_paths",
   "refit_cache",
   "nonconvex_penalties",
