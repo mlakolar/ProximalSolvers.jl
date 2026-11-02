@@ -1,5 +1,16 @@
 # Migrating to this release
 
+## From 0.3.1 to 0.3.2
+
+Version 0.3.2 changes no result, default or public API. The start of continuation
+(`solve!(x, f, g, ::CDSolver; continuation)`) and the dense start of a
+coordinate-descent `SolverWorkspace` now empty the working set of a
+`SparseIterate` or `AtomIterate` explicitly, with `dropzeros!`, instead of
+relying on `fill!(x, 0)` to do it. Behavior with ProximalBase 0.5 is the same,
+including the order in which the nonzeros of a dense start become active; the
+release prepares for ProximalBase 0.6, where `fill!` no longer removes
+coordinates (#164).
+
 ## From 0.3.0 to 0.3.1
 
 Version 0.3.1 adds an opt-in feature and fixes; nothing that 0.3.0 accepted is
