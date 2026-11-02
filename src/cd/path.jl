@@ -9,6 +9,15 @@ _zero_like(x::SparseIterate{T}) where {T} = SparseIterate(T, size(x)...)
 _zero_like(x::SymmetricSparseIterate{T}) where {T} = SymmetricSparseIterate(T, x.p)
 _zero_like(x::AtomIterate{T}) where {T} = AtomIterate(T, length(x), x.groups)
 
+# The start of a solve from zero: the values of x are zero and, for the iterates
+# that hold a working set of their own, no coordinate is active. The zero write
+# is a value write, so the working set is emptied explicitly by dropzeros!
+# (ProximalBase 0.6 no longer lets fill! do it, and 0.5.x's fill! already did).
+# A SymmetricSparseIterate is an owner of its working set, and its start stays
+# as it is until the owner migration of ProximalBase#391.
+_clear_start!(x::Union{SparseIterate, AtomIterate}) = dropzeros!(fill!(x, zero(eltype(x))))
+_clear_start!(x::SymmetricSparseIterate) = fill!(x, zero(eltype(x)))
+
 # the smallest level of g with a zero solution, from the gradient grad at zero:
 # maxₖ ‖∇ₖ f(0)‖ / wₖ over the penalized coordinates; those with weight zero are
 # not zero at any level
@@ -258,7 +267,7 @@ function _continuation!(x, f, g, method::CDSolver, continuation::Integer, screen
   check_penalty(m, g)
   method = _path_solver(method, gaptol, m, g)
   T = eltype(m)
-  fill!(x, zero(T))
+  _clear_start!(x)
   initialize!(m, x)
   _check_convex_steps(m, g, x)
   st = _CDState(T, x, method)

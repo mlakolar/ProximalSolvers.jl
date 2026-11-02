@@ -248,4 +248,48 @@ end
   @test_throws ArgumentError SolverWorkspace(zeros(12), fq, g, ActiveAccProxGradDescent())
 end
 
+
+# FT26 (#164): the dense start of a workspace clears the working set of the iterate
+# built from it, and reloads the support in the slot order of 0.5.x's clear and scatter.
+@testset "dense start of a coordinate workspace reloads the support (#164)" begin
+  # the working sets of 0.5.x after the clear and the scatter
+  xs = SparseIterate(6)
+  xs[1] = 1.0; xs[4] = 2.0                               # a previous working set, [1, 4]
+  @test collect(activecoordinates(xs)) == [1, 4]
+  PS._load_dense!(xs, [0.0, 3.0, 0.0, -0.0, NaN, 1.0])
+  @test collect(activecoordinates(xs)) == [2, 5, 6] && nactive(xs) == 3
+  @test isequal(Vector(xs), [0.0, 3.0, 0.0, 0.0, NaN, 1.0])
+  PS._load_dense!(xs, zeros(6))
+  @test nactive(xs) == 0 && isempty(activecoordinates(xs))
+
+  xa = AtomIterate(4, [[2, 4], [1, 3]])
+  xa[1] = 5.0                                             # a previous working set, [2]
+  @test collect(activecoordinates(xa)) == [2]
+  PS._load_dense!(xa, [1.0, 0.0, 0.0, 2.0])
+  @test collect(activecoordinates(xa)) == [2, 1]          # not the constructor's [1, 2]
+  @test Vector(xa) == [1.0, 0.0, 0.0, 2.0]
+  PS._load_dense!(xa, [0.0, 0.0, 0.0, 2.0])               # an inactive group stays out
+  @test collect(activecoordinates(xa)) == [1] && Vector(xa) == [0.0, 0.0, 0.0, 2.0]
+
+  # a workspace solved twice, the caller's vector changed in between
+  rng = Xoshiro(164)
+  A, b = randn(rng, 40, 6), randn(rng, 40)
+  f = (1 / 40) * LeastSquaresLoss(b, A)
+  method = CDSolver(; order = :cyclic, tol = 1e-12)
+  for (g, ref) in ((NormL1(0.05), x -> SparseIterate(x)),
+                   (GroupNormL2(0.05, [[2, 4, 6], [1, 3, 5]]), x -> AtomIterate(x, [[2, 4, 6], [1, 3, 5]])))
+    x = zeros(6)
+    ws = SolverWorkspace(x, f, g, method)
+    @test solve!(ws).converged
+    for start in ([0.0, 0.4, 0.0, 0.0, -0.3, 0.0], [0.5, 0.0, 0.0, 0.2, 0.0, 0.0], zeros(6))
+      copyto!(x, start)                                   # the caller's vector is the start
+      result = solve!(ws)
+      rf = solve!(ref(copy(start)), f, g, method)
+      @test result.converged && result.minimizer === x
+      @test x ≈ Vector(rf.minimizer) atol = 1e-10
+      @test result.minimum ≈ rf.minimum atol = 1e-10
+    end
+  end
+end
+
 end
