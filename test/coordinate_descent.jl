@@ -1230,4 +1230,52 @@ end
   @test all(X -> isapprox(curvature(LeastSquaresLoss(zeros(50), X)), maximum(eigvals(Symmetric(X' * X))); rtol = 10 * eps()), Xs)
 end
 
+
+# FT26 (#164): the starts from zero clear the working set explicitly, so that they do
+# not depend on whether `fill!(x, 0)` removes coordinates (ProximalBase 0.5.x) or
+# only writes zeros (0.6, where `dropzeros!` alone removes them).
+@testset "start from zero clears the working set (#164)" begin
+  function dirty(::Type{SparseIterate})
+    x = SparseIterate(8)
+    x[2] = 0.7; x[5] = -0.4; x[7] = 1.0; x[7] = 0.0     # a stored (active) zero
+    x
+  end
+  function dirty(::Type{AtomIterate})
+    x = AtomIterate(8, [[1, 5], [2, 6], [3, 7], [4, 8]])
+    x[2] = 0.7; x[5] = -0.4; x[3] = 1.0; x[3] = 0.0
+    x
+  end
+  groups = [[1, 5], [2, 6], [3, 7], [4, 8]]
+  fresh(::Type{SparseIterate}) = SparseIterate(8)
+  fresh(::Type{AtomIterate}) = AtomIterate(8, groups)
+  penalty(::Type{SparseIterate}, λ) = NormL1(λ)
+  penalty(::Type{AtomIterate}, λ) = GroupNormL2(λ, groups)
+
+  for X in (SparseIterate, AtomIterate)
+    x = dirty(X)
+    @test nactive(x) > 0 && any(!iszero, Vector(x))
+    @test PS._clear_start!(x) === x
+    @test all(iszero, Vector(x))
+    @test isempty(activecoordinates(x)) && nactive(x) == 0
+  end
+
+  rng = Xoshiro(164)
+  A, b = randn(rng, 30, 8), randn(rng, 30)
+  f = (1 / 30) * LeastSquaresLoss(b, A)
+  method = CDSolver(; order = :cyclic, tol = 1e-12)
+  for X in (SparseIterate, AtomIterate), screening in (true, false)
+    λmax = lambda_max(f, penalty(X, 1.0), fresh(X))
+    g = penalty(X, 0.2λmax)
+    x = dirty(X)
+    r = solve!(x, f, g, method; continuation = 5, screening, gaptol = 0)
+    xf = fresh(X)
+    rf = solve!(xf, f, g, method; continuation = 5, screening, gaptol = 0)
+    @test r.converged && rf.converged
+    @test Vector(x) ≈ Vector(xf) atol = 1e-10
+    @test r.minimum ≈ rf.minimum atol = 1e-10
+    @test r.passes == rf.passes
+    @test activecoordinates(x) == activecoordinates(xf)
+  end
+end
+
 end

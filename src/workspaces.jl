@@ -232,6 +232,17 @@ function solve!(ws::SolverWorkspace{X, F, G, M}, g = ws.g;
   result
 end
 
+# The dense start of a workspace: the working set of xs becomes the nonzeros of
+# the caller's vector x, activated in increasing index order after the clear
+# (for groups, in the order of their first nonzero entry, not of the constructor).
+function _load_dense!(xs, x::AbstractVector)
+  _clear_start!(xs)
+  for i in eachindex(x)
+    iszero(x[i]) || (xs[i] = x[i])
+  end
+  xs
+end
+
 function solve!(ws::SolverWorkspace{X, F, G, M}, g = ws.g) where {X, F, G, M<:CDSolver}
   supplied = _workspace_penalty(ws, g)
   b = ws.buffers
@@ -239,12 +250,7 @@ function solve!(ws::SolverWorkspace{X, F, G, M}, g = ws.g) where {X, F, G, M<:CD
   g = _symmetric_penalty(supplied, xs)
   _check_iterate(g, xs)
   check_penalty(m, g)
-  if xs !== ws.x
-    fill!(xs, zero(eltype(xs)))
-    for i in eachindex(ws.x)
-      iszero(ws.x[i]) || (xs[i] = ws.x[i])
-    end
-  end
+  xs === ws.x || _load_dense!(xs, ws.x)
   initialize!(m, xs)
   st.candidates = nothing
   _cd!(xs, m, g, st, ws.method)
