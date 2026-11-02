@@ -37,7 +37,7 @@ runs the same suite with CI's options and passes its arguments to the runner:
 ```sh
 julia scripts/test.jl --jobs=4          # four workers; PTR_NUM_JOBS=4 does the same
 julia scripts/test.jl --jobs=1 admm     # one worker, only the files starting with admm
-julia scripts/test.jl --verbose         # per-file compile times
+julia scripts/test.jl --verbose         # per-file compile times (Julia 1.11+)
 julia scripts/test.jl --list            # the test files
 ```
 
@@ -45,7 +45,8 @@ Through `Pkg`, use `Pkg.test(; test_args=["--jobs=2"])`. Without `--jobs`, the
 runner picks the number of workers from the CPU threads and free memory. Each
 file starts from `Random.seed!(1)`, whatever ran before it on the same
 worker. A failing file is reported by name, the other files still run, and the
-run fails. Add a new test file to the list in `test/runtests.jl`: an unlisted
+run fails. A name that matches no file is an error rather than an empty
+passing run. Add a new test file to the list in `test/runtests.jl`: an unlisted
 or missing file stops the run before any test starts. `test/TESTING.md`
 records the inventory and the measurements behind CI's worker counts.
 

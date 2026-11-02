@@ -4,7 +4,7 @@ using ParallelTestRunner
 # Every regular test file. Each runs in a fresh module on one of several worker processes
 # (ParallelTestRunner), which seeds the global random generator with `Random.seed!(1)`
 # before each file. `--jobs=N` or `PTR_NUM_JOBS` sets the number of workers, `--verbose`
-# prints per-file compile times, and names after the options select files
+# prints per-file init and (Julia 1.11+) compile times, and names after the options select files
 # (`julia --project -e 'using Pkg; Pkg.test(; test_args=["--jobs=2", "admm"])'`).
 const TESTS = [
   "active_set", "admm", "apg_numerical_failure", "aqua", "audit_regressions", "box_paths",
@@ -34,6 +34,10 @@ isempty(missing_files) || error("listed test files not found: $(join(missing_fil
 foreach(name -> delete!(testsuite, name), HELPERS)
 
 args = parse_args(ARGS)
+# Names after the options select files; a selection that matches nothing is an error, not a
+# run of zero tests that passes.
+filter_tests!(testsuite, args)
+isempty(testsuite) && error("no test file matches the selection: $(join(ARGS, " "))")
 if args.list === nothing
   commit = haskey(ENV, "GITHUB_SHA") ? ", commit $(ENV["GITHUB_SHA"])" : ""
   cpu = "$(strip(first(Sys.cpu_info()).model)), $(Sys.CPU_THREADS) threads"
