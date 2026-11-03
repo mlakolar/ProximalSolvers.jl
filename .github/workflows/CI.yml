@@ -46,13 +46,19 @@ jobs:
           - ubuntu-latest
         arch:
           - x64
+        # ParallelTestRunner worker processes per job (PTR_NUM_JOBS; the default from free
+        # memory gives too few on macOS). Measured choices: test/TESTING.md.
+        ptr_jobs:
+          - '4'
         include:
           - version: '1'
             os: macos-latest
             arch: aarch64
+            ptr_jobs: '3'
           - version: '1'
             os: windows-latest
             arch: x64
+            ptr_jobs: '4'
     steps:
       - uses: actions/checkout@v7
       - uses: julia-actions/setup-julia@v3
@@ -66,7 +72,24 @@ jobs:
         run: julia --color=yes --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.status(; mode=Pkg.PKGMODE_MANIFEST)'
       - uses: julia-actions/julia-buildpkg@v1
       - name: Test against registered dependencies
-        run: julia --color=yes --project=. -e 'using Pkg; Pkg.test(; coverage=true)'
+        id: tests
+        shell: bash
+        run: |
+          start=$(date +%s)
+          status=0
+          julia --color=yes scripts/test.jl --verbose 2>&1 | tee "$RUNNER_TEMP/test-output.log" || status=$?
+          echo $(( $(date +%s) - start )) > "$RUNNER_TEMP/test-seconds"
+          exit $status
+        env:
+          JULIA_TEST_COVERAGE: 'true'
+          PTR_NUM_JOBS: ${{ matrix.ptr_jobs }}
+      - name: Timing summary
+        if: ${{ !cancelled() && steps.tests.outcome != 'skipped' }}
+        continue-on-error: true
+        shell: bash
+        run: julia --startup-file=no scripts/test_report.jl "$RUNNER_TEMP/test-output.log" "$(cat "$RUNNER_TEMP/test-seconds")" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          TEST_REPORT_TITLE: Julia ${{ matrix.version }}, ${{ matrix.os }}, ${{ matrix.ptr_jobs }} workers
       - uses: julia-actions/julia-processcoverage@v1
       - uses: codecov/codecov-action@v7
         with:
