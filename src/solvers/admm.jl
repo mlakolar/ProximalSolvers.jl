@@ -1,4 +1,5 @@
 # minimizes f(x) + g(x), where both f and g are proximable, using the
+# scenario: a localized solver change (scratch PR, not for merging)
 # over-relaxed scaled ADMM of sections 3.1.1, 3.3 and 3.4.3 of
 # Boyd et al. (2011), Distributed Optimization and Statistical Learning
 # via the Alternating Direction Method of Multipliers, with the residual
