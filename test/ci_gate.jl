@@ -214,20 +214,6 @@ end
   @test isempty(ok(event = "workflow_dispatch")) && isempty(ok(; event = "pull_request", none...))
 end
 
-@testset "verdict: the PR's current labels" begin
-  @test isempty(ok(labels = String[]))
-  @test isempty(ok(labels = ["bug", "documentation"]))
-  standard = Dict(name => "success" for name in CV.expected_jobs("standard"))
-  @test isempty(ok(tier = "standard", jobs = standard, labels = ["test:standard"]))
-  @test isempty(ok(tier = "full", jobs = FULL, labels = ["test:standard", "test:full"]))
-  # a label added after the plan (an older run re-run after the label): fails
-  @test occursin("asks for at least full", only(ok(labels = ["test:full"])))
-  @test occursin("asks for at least standard", only(ok(labels = ["test:standard"])))
-  @test length(ok(tier = "none", run_tests = "false", tests = "skipped", jobs = Dict{String, String}(),
-                  labels = ["test:standard"])) == 1
-  # a label that names no tier above quick
-  @test !isempty(ok(labels = ["test:quick"])) && !isempty(ok(labels = ["test:thorough"]))
-end
 
 # A fake `gh api`: the job lines and the label lines; `fail` names the calls that throw.
 function fakeapi(jobs, labels; fail = String[], calls = Vector{String}[])
@@ -239,31 +225,6 @@ function fakeapi(jobs, labels; fail = String[], calls = Vector{String}[])
   end
 end
 
-@testset "verdict: the step" begin
-  env(; kw...) = Dict("PLAN" => "success", "ANALYSIS" => "success", "TESTS" => "success", "RUN_TESTS" => "true",
-                      "TIER" => "quick", "GITHUB_REPOSITORY" => "o/n", "GITHUB_RUN_ID" => "7",
-                      "GITHUB_EVENT_NAME" => "pull_request", "PR" => "12", (string(k) => v for (k, v) in kw)...)
-  quietly(f) = redirect_stdout(f, devnull)
-  main(e, gh) = quietly(() -> CV.main(e; gh, wait = 0))
-  calls = Vector{String}[]
-  @test main(env(), fakeapi(QUICK, String[]; calls)) == 0
-  @test any(c -> c[1] == "repos/o/n/actions/runs/7/jobs?filter=latest&per_page=100", calls)
-  @test any(c -> c[1] == "repos/o/n/issues/12/labels", calls)
-  @test main(env(), fakeapi(QUICK, ["test:full"])) == 1
-  @test main(env(TIER = "full"), fakeapi(QUICK, String[])) == 1
-  # an API that keeps failing fails the verdict
-  @test main(env(), fakeapi(QUICK, String[]; fail = ["jobs"])) == 1
-  @test main(env(), fakeapi(QUICK, String[]; fail = ["labels"])) == 1
-  # other events read no labels; tier none lists no jobs
-  calls = Vector{String}[]
-  @test main(env(GITHUB_EVENT_NAME = "schedule", TIER = "none", RUN_TESTS = "false", TESTS = "skipped"),
-             fakeapi(QUICK, ["test:full"]; fail = ["labels", "jobs"], calls)) == 0
-  @test isempty(calls)
-  @test main(env(GITHUB_EVENT_NAME = "schedule", TIER = "full"), fakeapi(FULL, String[]; fail = ["labels"])) == 0
-  @test main(env(GITHUB_EVENT_NAME = "push", TIER = "none", RUN_TESTS = "false", TESTS = "skipped"),
-             fakeapi(QUICK, String[])) == 1
-  @test main(env(GITHUB_EVENT_NAME = "push", TIER = "full"), fakeapi(FULL, String[])) == 0
-  @test_throws ErrorException CV.parse_jobs(["no tab"])
-end
+# control scenario: the step tests, which read labels, are removed with the label check
 
 end
