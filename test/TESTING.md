@@ -320,17 +320,19 @@ edited; helpers the moved testsets use were copied:
 | `symmetric_penalties` (standard) | `symmetric_penalties_basics` | asymmetric L1 reproduction; independent optimality from the supplied weights; hand computed optima; linear constraints require symmetric parameters | 108 | 1839 of 1947 |
 | `audit_regressions` (standard) | `audit_regressions_basics` | active-set success needs a full residual; square-root losses converge only with a duality gap; invalid certificates cannot pass stopping; line-search failure preserves the accepted point | 35 | 148 of 183 |
 
-The source files keep a comment that points to the moved cases. Each file starts from
-`Random.seed!(1)` (the runner), so the moved testsets and those after them see a different part
-of the global random stream than before. The moved cases draw their data from their own seeded
-generators; only the random coordinate order of `CDSolver()` uses the global stream. Each of the
-eight files gave the same assertion count and passed when started from `Random.seed!(s)` for
-s = 1, …, 5 (Julia 1.13.3, M3 Pro).
+The source files keep a comment that points to the moved cases. Moving top-level testsets does
+not change the random numbers any testset draws: each file starts from `Random.seed!(1)` (the
+runner), and every `@testset` reseeds the global generator from that seed before its body and
+restores the state after it (Julia 1.10 and 1.13), so a testset draws the same stream whatever
+ran before it in the file. The moved cases also draw their data from their own seeded
+generators; only the random coordinate order of `CDSolver()` uses the global stream. As a
+check, each of the eight files gave the same assertion count and passed when started from
+`Random.seed!(s)` for s = 1, …, 5 (Julia 1.13.3, M3 Pro).
 
 ### Equivalence
 
-- **Assertions:** full counts 115863 on Julia 1.13 and 115852 on Julia 1.10: the 115830 and
-  115819 of the 48 files before, plus the 33 of the new `tier_selection.jl`. Each split file and
+- **Assertions:** full counts 115867 on Julia 1.13 and 115856 on Julia 1.10: the 115830 and
+  115819 of the 48 files before, plus the 37 of the new `tier_selection.jl`. Each split file and
   its `*_basics.jl` file add up to the original count (849, 1639, 1947, 183); the other 44 files
   are unchanged.
 - **Coverage:** full with coverage covers the same 6010 of 6142 instrumented lines of `src`,
@@ -341,8 +343,9 @@ s = 1, …, 5 (Julia 1.13.3, M3 Pro).
 ### Measurements
 
 GitHub-hosted Ubuntu runners, 4 workers, scratch branch `ci/test-tiers-measure` (this change
-with #173 merged, so no-coverage runs do not hit the two CPU-dependent checks; its counts are
-4 higher, 115867 and 115856 in full). Three rounds:
+at an earlier commit with 33 `tier_selection` assertions, and with #173 merged so that the
+no-coverage runs do not hit the two CPU-dependent checks; #173 adds 4 assertions, so the full
+counts there were also 115867 and 115856). Three rounds:
 [41571032834](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41571032834),
 [41572016738](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41572016738),
 [41573095244](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41573095244). Whole job

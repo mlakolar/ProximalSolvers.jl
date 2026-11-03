@@ -45,6 +45,10 @@ function parse_manifest(data::AbstractDict)
   end
   for t in TIERS
     files = get(tables, t, String[])
+    if !(files isa AbstractVector && all(f -> f isa AbstractString, files))
+      push!(problems, "tier `$t` must be a list of file names, not `$(repr(files))`")
+      continue
+    end
     isempty(files) && push!(problems, "tier `$t` lists no test files")
     for file in files
       if haskey(tier, file)

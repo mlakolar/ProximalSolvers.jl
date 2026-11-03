@@ -3,6 +3,7 @@ module TierSelectionTests
 # The tier manifest (test/tiers.toml) and its selection (test/tiers.jl).
 
 using Test
+using TOML
 using ParallelTestRunner: find_tests
 
 include(joinpath(@__DIR__, "tiers.jl"))
@@ -47,6 +48,8 @@ end
   @test mentions(problems(() -> manifest(replace(SMALL, "full = [\"d\"]" => "full = [\"a\"]"))), "`a` is listed in both `quick` and `full`")
   @test mentions(problems(() -> manifest(replace(SMALL, "standard = [\"c\"]" => "standard = []"))), "tier `standard` lists no test files")
   @test mentions(problems(() -> manifest(replace(SMALL, "helpers = [\"h\"]" => "helpers = [\"a\"]"))), "`a` is both a helper and in tier `quick`")
+  @test mentions(problems(() -> manifest(replace(SMALL, "standard = [\"c\"]" => "standard = \"c\""))), "tier `standard` must be a list of file names")
+  @test mentions(problems(() -> manifest(replace(SMALL, "standard = [\"c\"]" => "standard = [1]"))), "tier `standard` must be a list of file names")
   e = try
     manifest(replace(SMALL, "full = [\"d\"]" => "full = [\"a\"]"))
   catch err
@@ -74,8 +77,12 @@ end
   @test full == regular
   @test issubset(quick, standard) && issubset(standard, full)
   @test length(quick) < length(standard) < length(full)
-  # every regular file is in exactly one tier list
-  @test sort!(vcat((filter(n -> m.tier[n] == t, full) for t in TIERS)...)) == full
+  # every regular file is listed exactly once across the tier lists of the file itself
+  listed = vcat((TOML.parsefile(joinpath(@__DIR__, "tiers.toml"))["tiers"][t] for t in TIERS)...)
+  @test sort(listed) == full
+  # only these are not tests: a test file moved into either list would stop running
+  @test sort(m.helpers) == ["symmetric_penalty_helpers", "tiers"]
+  @test m.environments == ["oracles"]
   # the exhaustive companions stay deeper than their representative cases
   for (basics, rest) in (("coordinate_descent_basics", "coordinate_descent"),
                          ("float32_certificates_basics", "float32_certificates"),

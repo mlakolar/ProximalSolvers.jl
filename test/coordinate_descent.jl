@@ -1,5 +1,5 @@
-# Coordinate descent: correctness against closed forms and KKT conditions
-# computed from dense algebra, the behaviors carried over from
+# Coordinate descent: correctness against KKT conditions and dense algebra beyond the
+# representative cases of coordinate_descent_basics.jl, the behaviors carried over from
 # CoordinateDescent.jl, and allocations.
 
 module CDTests
