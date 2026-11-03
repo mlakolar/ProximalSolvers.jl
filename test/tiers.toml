@@ -43,6 +43,7 @@ quick = [
 
 # Every solver family in depth: losses, penalties, iterates, paths, precision and certificates.
 standard = [
+  "scenario_new",
   "active_set",
   "audit_regressions",
   "box_paths",
