@@ -15,3 +15,11 @@ using Test, LinearAlgebra, ProximalBase, ProximalSolvers
 end
 
 end
+
+# scenario (scratch PR, not for merging): fails on Julia 1 in the first run attempt only
+module NamingScenario
+using Test
+@testset "scenario: first attempt on Julia 1" begin
+  @test !(VERSION >= v"1.11" && get(ENV, "GITHUB_RUN_ATTEMPT", "1") == "1")
+end
+end
