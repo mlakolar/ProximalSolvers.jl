@@ -320,4 +320,47 @@ edited; helpers the moved testsets use were copied:
 | `symmetric_penalties` (standard) | `symmetric_penalties_basics` | asymmetric L1 reproduction; independent optimality from the supplied weights; hand computed optima; linear constraints require symmetric parameters | 108 | 1839 of 1947 |
 | `audit_regressions` (standard) | `audit_regressions_basics` | active-set success needs a full residual; square-root losses converge only with a duality gap; invalid certificates cannot pass stopping; line-search failure preserves the accepted point | 35 | 148 of 183 |
 
-TIERS_MEASUREMENTS
+The source files keep a comment that points to the moved cases. Each file starts from
+`Random.seed!(1)` (the runner), so the moved testsets and those after them see a different part
+of the global random stream than before. The moved cases draw their data from their own seeded
+generators; only the random coordinate order of `CDSolver()` uses the global stream. Each of the
+eight files gave the same assertion count and passed when started from `Random.seed!(s)` for
+s = 1, …, 5 (Julia 1.13.3, M3 Pro).
+
+### Equivalence
+
+- **Assertions:** full counts 115863 on Julia 1.13 and 115852 on Julia 1.10: the 115830 and
+  115819 of the 48 files before, plus the 33 of the new `tier_selection.jl`. Each split file and
+  its `*_basics.jl` file add up to the original count (849, 1639, 1947, 183); the other 44 files
+  are unchanged.
+- **Coverage:** full with coverage covers the same 6010 of 6142 instrumented lines of `src`,
+  line for line, as the sequential runner at `1f62540` (M3 Pro, Julia 1.13.3).
+- **`Pkg.test()`** without arguments runs full; CI still runs full on every job (the tier
+  selection of pull requests is #121's phase 3).
+
+### Measurements
+
+GitHub-hosted Ubuntu runners, 4 workers, scratch branch `ci/test-tiers-measure` (this change
+with #173 merged, so no-coverage runs do not hit the two CPU-dependent checks; its counts are
+4 higher, 115867 and 115856 in full). Three rounds:
+[41571032834](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41571032834),
+[41572016738](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41572016738),
+[41573095244](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41573095244). Whole job
+(checkout, Julia, cache, test environment, precompilation, tests), with the runner's CPU:
+
+| Tier, coverage | Julia 1 (default bounds) | Median | Julia 1.10 (bounds checks) | Median |
+|---|---|---:|---|---:|
+| quick, none | 162 (Xeon 8370C), 184 (EPYC 7763), 109 s (EPYC 9V74) | **2.7 min** | 256 (7763), 219 (7763), 225 s (Xeon 8573C) | **3.8 min** |
+| standard, none | 401 (7763), 235 (9V45), 368 s (7763) | **6.1 min** | 513 (7763), 384 (9V74), 305 s (9V45) | **6.4 min** |
+| full, none | 501 (7763), 449 (7763), 470 s (7763) | 7.8 min | 485 (9V45), 635 (7763), 633 s (7763) | 10.6 min |
+| full, coverage | 557 (7763), 305 (9V45), 483 s (7763) | 8.1 min | 483 (9V74), 635 (7763), 483 s (8573C) | 8.1 min |
+
+Worker time (summed over files) on EPYC 7763 runners: quick 370 s (Julia 1) and 399–411 s
+(Julia 1.10), standard 1189–1230 s and 1393 s, full 1564–1676 s and 1903–2006 s. Quick is
+about a quarter of full's work and standard about three quarters. About 1.5–2 minutes of each
+job is setup and precompilation, the same for every tier, so quick saves less wall time than
+work. Both targets hold: quick 2.7 / 3.8 minutes against 3–5, standard 6.1 / 6.4 against 6–10.
+The CPU of the runner still moves a job by up to a factor of two.
+
+Locally (M3 Pro, 4 workers, no coverage), quick, standard and full took 39, 109 and 155 s on
+Julia 1.13.3 and 52, 105 and 137 s on Julia 1.10.12, including setup.
