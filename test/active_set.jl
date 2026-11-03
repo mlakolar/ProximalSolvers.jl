@@ -217,14 +217,57 @@ opt = ProximalOptions(; ftol = 1e-12, xtol = 1e-12, gradtol = 1e-10, maxiter = 5
 
 end
 
+# A bound on the rounding error of one Float32 evaluation of f(x) + g(x), rounded to Float32,
+# for any order of its sums. The solver's minimum and the test's recomputation evaluate the same
+# objective at the same point by different paths: a sparse or a dense product Xβ, a pairwise
+# or a vectorized sum of squares, a sparse or a dense sum of the penalty's entries. Their
+# association order depends on the CPU's vector width and on whether the loops are vectorized
+# (bounds checks and coverage change that), so they can differ by more than one ulp (two on
+# Intel Xeon runners, #121) and by at most twice this bound. It uses the standard model
+# |fl(Σᵢ aᵢ) - Σᵢ aᵢ| ≤ γₘ Σᵢ |aᵢ| with γₘ = m u / (1 - m u) for m nonzero terms, in any order
+# (Higham, Accuracy and Stability of Numerical Algorithms, 2nd ed., §3.1); exact zeros add no
+# rounding, so m counts the nonzero coordinates. The bound is computed in Float64 from the
+# Float32 data.
+_γ32(m) = (u = Float64(eps(Float32)) / 2; m * u / (1 - m * u))
+
+# ½ xᵀAx + bᵀx + c: Ax and xᵀ(Ax) with at most 2k roundings on each term, then two additions
+function _value_error(f::QuadraticFunction, x)
+  a = abs.(Float64.(Vector(x)))
+  k = count(!iszero, a)
+  terms = dot(a, abs.(Float64.(f.A)) * a) / 2 + abs(Float64(f.c)) +
+          (f.b === nothing ? 0.0 : dot(abs.(Float64.(f.b)), a))
+  _γ32(2k + 3) * terms
+end
+
+# ‖Xβ - Y‖² / 2: each residual rᵢ has error eᵢ ≤ γₖ₊₁ (Σⱼ |Xᵢⱼ βⱼ| + |Yᵢ|), and the sum of
+# the n squares adds γₙ₊₁ of its terms
+function _value_error(f::LeastSquaresLoss, x)
+  β = Float64.(Vector(x))
+  X, Y = Float64.(f.X), Float64.(f.Y)
+  e = _γ32(count(!iszero, β) + 1) .* (abs.(X) * abs.(β) .+ abs.(Y))
+  r = abs.(X * β .- Y)
+  sum(@. r * e + e^2 / 2) + _γ32(length(Y) + 1) * sum(abs2, r .+ e) / 2
+end
+
+_value_error(f::ProximalBase.Scaled, x) =
+  abs(Float64(f.α)) * (_value_error(f.f, x) + _γ32(1) * abs(Float64(f.f(x))))
+
+# The penalties of these tests (NormL1, weighted NormL1, ElasticNet, MCP, GroupNormL2) are sums
+# of nonnegative terms, each rounded at most three times; then the sum f + g and its conversion.
+function _objective_error(f, g, x)
+  fx, gx = abs(Float64(f(x))), abs(Float64(g(x)))
+  _value_error(f, x) + _γ32(count(!iszero, Vector(x)) + 3) * gx + 2 * _γ32(1) * (fx + gx)
+end
+
 function _check_float32_result(res, f, g, reference; cutoff = false)
   @test typeof(res.minimum) == Float32
   @test typeof(res.max_violation) == Float32
   @test eltype(res.minimizer) == Float32
   @test res.converged == !cutoff
   @test reference.converged == !cutoff
+  # the minimum is f + g at the minimizer, up to the rounding of two evaluations
   objective = Float32(f(res.minimizer) + g(res.minimizer))
-  @test abs(res.minimum - objective) <= eps(abs(objective))
+  @test abs(res.minimum - objective) <= 2 * _objective_error(f, g, res.minimizer)
   @test res.minimum ≈ reference.minimum rtol = 1e-4 atol = 1e-6
 end
 
