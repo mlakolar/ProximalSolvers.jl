@@ -15,3 +15,13 @@ using Test, LinearAlgebra, ProximalBase, ProximalSolvers
 end
 
 end
+
+# scenario (scratch PR, not for merging): fails on Julia 1 in the first run attempt, and always
+# on Windows (which only full runs)
+module NamingScenario
+using Test
+@testset "scenario: stale re-run of a failed run" begin
+  @test !(VERSION >= v"1.11" && get(ENV, "GITHUB_RUN_ATTEMPT", "1") == "1")
+  @test !Sys.iswindows()
+end
+end
