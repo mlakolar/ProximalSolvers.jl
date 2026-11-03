@@ -63,6 +63,81 @@ error rather than an empty passing run. Add a new test file to one tier in
 before any test starts. `test/TESTING.md` records why each file sits in its
 tier and the measurements behind the tiers and CI's worker counts.
 
+## Continuous integration
+
+A pull request runs the tier its changes need, chosen by the rules in
+`.github/tier-rules.toml` (each changed path takes the first rule that matches
+it, and the PR gets the highest tier):
+
+- **quick**, with every changed test file beside it: test-only changes and the
+  examples;
+- **standard**, with the full-only test files that exercise the changed code
+  (the rule's focus files): a change to one solver, loss model or path driver;
+- **full**: shared solver architecture (solver types, the solve driver,
+  workspaces, line searches, the coordinate-descent passes), convergence and
+  certification code (stopping tests, duality gaps, screening, certificates,
+  paths), the test runner, CI, `Project.toml`, `test/tiers.toml`, and any path
+  no rule knows;
+- **no package tests** for documentation only.
+
+Quick and standard run Julia 1.10 and 1 on Ubuntu; full adds macOS and Windows,
+and its Julia 1 Ubuntu job collects coverage for Codecov. The plan, the naming
+check and the benchmark analysis controls run on every PR. To see what CI will
+choose before pushing:
+
+```sh
+julia scripts/ci_plan.jl                     # your working tree against origin/master
+julia scripts/ci_plan.jl --labels=test:full  # with a label
+```
+
+The labels **test:standard** and **test:full** raise a PR's tier and never
+lower it; removing one returns the PR to the tier of its paths. Add one when a
+change is riskier than its paths suggest, for example a change in a loss model
+that alters a certificate. To add a regression test without a full run, add a
+new test file and its line in `test/tiers.toml`: a change to the tier lists that
+only adds files new in the PR keeps the PR's tier, and the new file runs beside
+it. Any other edit of `test/tiers.toml` runs full.
+
+Two checks decide whether a PR may merge: **PR required jobs** and **PR merge
+gate**. PR required jobs runs after the plan, the tests and the benchmark
+analysis controls, and passes only if they all passed: every test job of the
+chosen tier must pass in its latest attempt, so a failed, cancelled, skipped or
+missing job fails it, as does a plan that found an unclassified test file. It
+also reads the PR's labels and fails if one asks for more than the run's plan
+chose. (GitHub counts the checks of the run created last, so re-running an
+older run does not replace a newer run's result; the label check makes that
+explicit.)
+The gate starts with the run, so a push or a label replaces the commit's earlier
+gate with a pending one within seconds; it waits for the run's PR required jobs
+and passes only if they passed. Pushes, the nightly run and manual runs name the
+checks **CI required jobs** and **CI result**, so a manual run on a PR branch
+cannot stand in for the PR's checks.
+
+To retry jobs of a PR run:
+
+- **Re-run failed jobs** re-runs the failed jobs, PR required jobs and, if it
+  failed, the gate; the PR stays blocked until the new results pass. If only
+  the gate failed (for example on a GitHub API outage), it re-runs only the
+  gate, which then takes the run's PR required jobs result.
+- **Re-run all jobs** starts the whole run again, with a pending gate and a
+  new plan that reads the PR's current labels.
+- **Re-run job** on one test job re-runs it and PR required jobs, but not the
+  gate. The PR is blocked while the job runs and stays blocked if it fails.
+  After a failed run, the gate keeps its failure even when the re-run passes;
+  then use **Re-run failed jobs**, which re-runs only the gate.
+
+Every push to master and every tag (release) runs full on all four platforms.
+A nightly run checks master again with full, unless a run that passed full on
+the same commit less than a day earlier tested the same Julia versions and
+dependency versions (`scripts/ci_environment.jl` records them). Manual runs
+(`gh workflow run CI.yml --ref <branch> -f tier=standard`) take a tier, full by
+default. **When a master, tag or nightly run fails**, the workflow opens (or
+comments on) the issue "CI failing on master": fix the regression or revert the
+PR that caused it promptly. A PR that merged after quick or standard is not at
+fault for passing its gate; the full run after the merge exists to catch what
+the smaller tiers leave out. Each test job's summary lists the selected files,
+the workers, the setup time and the worker time of every file.
+
 CI and documentation builds use registered dependency resolution. A required
 dependency version must be available from General before release validation
 can pass. For optional dependency-source development checks, use:
