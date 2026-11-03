@@ -51,8 +51,8 @@ Julia.
 
 A first version of this change passed `--check-bounds=yes` on every Julia. That made a check in
 `active_set.jl` fail on Intel Xeon runners (see below), and roughly tripled the compile time of
-the most expensive files. Forcing bounds checks on current Julia is a separate decision; it needs
-the two checks below fixed first.
+the most expensive files. Forcing bounds checks on current Julia is a separate decision; the two
+checks below, which blocked it, now pass in every mode (#173).
 
 ### Isolation review
 
@@ -161,7 +161,7 @@ The three earlier rounds also ran the Julia 1 jobs, but with bounds checks force
 version of this change); those Julia 1 numbers are superseded. Every job of all five rounds
 counted 115830 (Julia 1) or 115819 (Julia 1.10) assertions; all with coverage passed. A 4-worker
 Ubuntu job without coverage, run for #121's later coverage decision, failed `product_space.jl`
-in two of the five rounds (see below).
+in two of the five rounds (see below; made portable in #173).
 
 **PR #170's CI** at the chosen worker counts, run
 [41549696314](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41549696314)
@@ -225,9 +225,9 @@ The largest process RSS was 1.6 GB for the sequential runner and 0.9–2.0 GB pe
   ids and are merged by CoverageTools, as CI's `julia-processcoverage` does.
 - **Numerical checks:** unchanged; no tolerance, seed or test was edited.
 
-### Two checks that depend on the CPU and the compilation mode
+### Two checks that depended on the CPU and the compilation mode
 
-Two exact checks pass only in some configurations. Probe run
+Until #173, two exact checks passed only in some configurations. Probe run
 [41549785906](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41549785906)
 (scratch branch `ci/probe-product-space`, 25 Ubuntu and 25 Windows runners, Julia 1.13.3) ran
 each file in plain Julia processes (no ParallelTestRunner) with each combination of bounds
@@ -246,7 +246,21 @@ digits of `f_residual` (`8.628673554114886e-13` vs `8.627460980540671e-13`), whi
 iterates, minima and call counts agree. On the M3 Pro, two of the `active_set` cases sit
 exactly at the one-ulp limit with any BLAS thread count.
 
-Consequences: `Pkg.test()` without coverage on an Intel Xeon fails `active_set.jl`, with or
-without this change. Collecting coverage only on a designated job (#121, phase 3) or forcing
-bounds checks on current Julia would expose both checks in CI, so they need a fix (a test change,
-outside this PR) first.
+So `Pkg.test()` without coverage failed `active_set.jl` on Intel Xeons, with either runner.
+
+**Resolution (#173).** Both compare two evaluations of the same objective at the same point by
+differently associated sums: the solver's `value_and_gradient!` and the test's `f(x)` (a pairwise
+or a vectorized sum of squares, a sparse or a dense product), or the same component code
+compiled into the vector and the 1-tuple solves. Neither value is stale: the reported minimum is
+within 0.83 ulp of the Float64 objective at the same point. The checks now allow the standard
+worst-case rounding error of the two evaluations, computed from each case's data
+(`_objective_error` in both files): 6.6–89.5 ulps for the `active_set` cases (0 when the
+minimizer is 0) and `4.8e-14` for `f_residual` (observed: 2 ulps and `1.2e-16`). The
+quantities that are identical, such as minimizers, minima, iteration and call counts,
+`x_residual` and `g_residual`, are still compared exactly. Probe runs
+[41564183662](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41564183662) (42 runners,
+original and changed files in each bounds × coverage mode, then the whole suite with `Pkg.test()`
+without coverage) and
+[41568144831](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41568144831)
+(`product_space` on 60 runners) reproduced both failures (all 8 Intel Xeons; 10 AMD EPYC
+9V45/9V74 runners) and passed the changed checks, and the whole suite, everywhere.
