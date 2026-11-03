@@ -513,3 +513,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+raise SystemExit("scenario: the benchmark analysis control fails (scratch PR)")
