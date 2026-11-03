@@ -3,6 +3,7 @@
 #  Duality gaps, gap-safe screening and optimality residuals
 #
 ####################################
+# scenario: a change to certification code (scratch PR, not for merging)
 
 # For a loss of a linear map, f(x) = F(Ax) with F(η) = Σᵢ φᵢ(ηᵢ), and a convex
 # penalty g with a closed-form conjugate, the Fenchel dual of minimizing
