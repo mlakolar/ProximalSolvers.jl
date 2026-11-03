@@ -1,0 +1,155 @@
+# Which test tier CI runs for a pull request (adapted from ProximalBase.jl). Read by test/tiers.jl
+# for scripts/ci_plan.jl and checked by test/tier_selection.jl; the test files of each tier are
+# in test/tiers.toml. CONTRIBUTING.md explains the workflow and test/TESTING.md the choices.
+
+[timeouts]
+# Minutes per CI test job, well above each tier's measured time to allow for cold caches.
+quick = 20
+standard = 30
+full = 60
+
+# The minimum tier of a PR. Each changed path takes the first rule below that matches it
+# (`*` within a directory, `**` across directories); the PR gets the highest of these tiers
+# and of its test:standard or test:full labels. A path no rule matches gets full. "none": no
+# package tests (the plan, the naming check and the benchmark analysis controls still run).
+# Changed test files, and the `focus` files of the matched rules, run beside the tier.
+#
+# Standard runs every file but four (test/tiers.toml), so the focus files of a solver rule are
+# those of the four full-only files that exercise it: the ones that cover lines of that source
+# file that standard does not, or at least a quarter of the lines standard covers there
+# (per-file coverage in test/TESTING.md).
+
+[[risk]]
+why = "documentation; the Documentation workflow builds it"
+tier = "none"
+paths = ["docs/**", "**/*.md", "LICENSE", ".gitignore", "codecov.yml"]
+
+[[risk]]
+why = "not part of the package tests: their own jobs, the plan's naming check, or run by hand"
+tier = "none"
+paths = [
+  "benchmark/**",
+  "test/oracles/**",
+  "scripts/check_naming.py",
+  "scripts/instantiate.jl",
+  "scripts/master_dependencies.jl",
+  "scripts/test_master.jl",
+  ".github/dependabot.yml",
+  ".github/workflows/CompatHelper.yml",
+  ".github/workflows/Documentation.yml",
+  ".github/workflows/TagBot.yml",
+]
+
+[[risk]]
+why = "test runner, CI and dependencies: every tier and platform must still work"
+tier = "full"
+paths = [
+  ".github/tier-rules.toml",
+  ".github/workflows/CI.yml",
+  "Project.toml",
+  "scripts/ci_environment.jl",
+  "scripts/ci_gate.jl",
+  "scripts/ci_plan.jl",
+  "scripts/ci_verdict.jl",
+  "scripts/test.jl",
+  "scripts/test_report.jl",
+  "test/runtests.jl",
+  "test/tiers.jl",
+]
+
+[[risk]]
+why = "the tier lists decide what every tier runs: an edit other than adding new test files can move a test out of the PR tiers"
+tier = "full"
+paths = ["test/tiers.toml"]
+
+[[risk]]
+why = "shared solver architecture: the module, solver types and options, the solve driver, product-space blocks, line searches, workspaces, the coordinate-descent loss interface and passes, precompilation"
+tier = "full"
+paths = [
+  "src/ProximalSolvers.jl",
+  "src/types.jl",
+  "src/solve.jl",
+  "src/blocks.jl",
+  "src/line_searches.jl",
+  "src/workspaces.jl",
+  "src/precompile.jl",
+  "src/cd/models.jl",
+  "src/cd/solver.jl",
+]
+
+[[risk]]
+why = "convergence and certification semantics: stopping tests, duality gaps, gap-safe screening, square-root certificates, penalty paths"
+tier = "full"
+paths = ["src/utils.jl", "src/cd/gap.jl", "src/cd/sqrtdual.jl", "src/cd/path.jl"]
+
+[[risk]]
+why = "the shared helpers of the symmetric penalty tests"
+tier = "quick"
+focus = ["symmetric_penalties_basics", "symmetric_penalties", "symmetric_penalty_combinations"]
+paths = ["test/symmetric_penalty_helpers.jl"]
+
+[[risk]]
+why = "a test file: it runs beside the tier"
+tier = "quick"
+paths = ["test/**"]
+
+[[risk]]
+why = "the examples are tests"
+tier = "quick"
+focus = ["examples"]
+paths = ["examples/**"]
+
+# Localized solver code: standard, and the full-only files that exercise it.
+
+[[risk]]
+why = "proximal gradient and its accelerated form, the inner solvers of other methods"
+tier = "standard"
+focus = ["examples", "mixed_precision_extended", "symmetric_penalty_combinations"]
+paths = ["src/solvers/proximal_gradient_descent.jl", "src/solvers/accelerated_proximal_gradient_descent.jl"]
+
+[[risk]]
+why = "the active-set solver, losses of a linear image, reweighting and refitting"
+tier = "standard"
+focus = ["examples", "mixed_precision_extended"]
+paths = ["src/solvers/active_accelerated_proximal_gradient_descent.jl", "src/solvers/image_models.jl", "src/cd/drivers.jl"]
+
+[[risk]]
+why = "SLOPE solvers"
+tier = "standard"
+focus = ["mixed_precision_extended"]
+paths = ["src/solvers/slope.jl", "src/solvers/slope_hybrid.jl"]
+
+[[risk]]
+why = "ADMM, primal-dual splitting, LLA and square-root models, which the examples solve"
+tier = "standard"
+focus = ["examples"]
+paths = ["src/solvers/admm.jl", "src/solvers/primal_dual.jl", "src/cd/lla.jl", "src/cd/sqrtlasso.jl", "src/cd/sqrtquadratic.jl"]
+
+[[risk]]
+why = "coordinate-descent losses that are also certified in Float32"
+tier = "standard"
+focus = ["examples", "float32_certificates"]
+paths = ["src/cd/leastsquares.jl", "src/cd/glm.jl", "src/cd/groupcurvature.jl"]
+
+[[risk]]
+why = "group steps and the sparse group lasso, also certified in Float32"
+tier = "standard"
+focus = ["float32_certificates"]
+paths = ["src/cd/groups.jl", "src/cd/sparsegroup.jl"]
+
+[[risk]]
+why = "the Kronecker quadratic, which the examples and the symmetric penalty grid solve"
+tier = "standard"
+focus = ["examples", "symmetric_penalty_combinations"]
+paths = ["src/cd/kron.jl"]
+
+[[risk]]
+why = "QUIC, its Kronecker cache and the monotone accelerated solver, which the symmetric penalty grid runs"
+tier = "standard"
+focus = ["symmetric_penalty_combinations"]
+paths = ["src/cd/quic.jl", "src/cd/kronu.jl", "src/solvers/monotone_accelerated_proximal_gradient_descent.jl"]
+
+[[risk]]
+why = "package code that only standard's files exercise"
+tier = "standard"
+paths = ["src/**"]
