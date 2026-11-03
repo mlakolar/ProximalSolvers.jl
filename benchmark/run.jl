@@ -76,7 +76,33 @@ function runner_settings()
     expected = realpath(expected)
     root == expected || error("loaded ProximalSolvers from $root; expected $expected")
   end
-  (; suite, groups, rep, samples, seconds, case_seconds, profile_seconds, output, expected, root)
+  cases = strip(get(ENV, "PS_CASES", ""))
+  (; suite, groups, cases, rep, samples, seconds, case_seconds, profile_seconds, output,
+     expected, root)
+end
+
+"""
+    select_cases(catalog, filter)
+
+Keep the catalog entries matching a comma-separated `filter` of exact case IDs or
+patterns in which `*` matches any characters, including `/`. Every entry must match a
+case. Selection keeps catalog order and builds no data: `make` runs later with seeds
+keyed by scenario and repetition, so a case's inputs do not depend on the selection.
+"""
+function select_cases(catalog, filter::AbstractString)
+  patterns = [String(strip(p)) for p in split(filter, ',') if !isempty(strip(p))]
+  isempty(patterns) && throw(ArgumentError("empty case filter"))
+  literal(text) = replace(text, r"[\\^$.|?*+()\[\]{}]" => s"\\\0")
+  matchers = map(patterns) do pattern
+    occursin('*', pattern) || return ==(pattern)
+    regex = Regex("^" * join(literal.(split(pattern, '*')), ".*") * "\$")
+    id -> occursin(regex, id)
+  end
+  for (pattern, matcher) in zip(patterns, matchers)
+    any(spec -> matcher(spec.meta.id), catalog) ||
+      throw(ArgumentError("no case in the selected suite and groups matches \"$pattern\""))
+  end
+  [spec for spec in catalog if any(matcher -> matcher(spec.meta.id), matchers)]
 end
 
 function start_metadata(settings)
@@ -84,7 +110,7 @@ function start_metadata(settings)
   base_root = realpath(dirname(dirname(pathof(ProximalBase))))
   revision, dirty = git_identity(s.root)
   Dict{String,Any}("julia" => string(VERSION), "rep" => s.rep, "suite" => s.suite,
-    "groups" => join(s.groups, ','),
+    "groups" => join(s.groups, ','), "case_filter" => s.cases,
     "harness_hash" => fingerprint(@__DIR__, [joinpath(@__DIR__, name) for name in
       ("problems.jl", "certificates.jl", "cases.jl", "run.jl")]),
     "proximalsolvers_path" => s.root, "proximalsolvers_sha" => revision,
@@ -291,6 +317,7 @@ function main()
   try
     settings = runner_settings()
     catalog = build_catalog(settings.suite, settings.groups)
+    isempty(settings.cases) || (catalog = select_cases(catalog, settings.cases))
     if get(ENV, "PS_LIST", "false") == "true"
       for spec in catalog
         tsv_line(stdout, spec.meta.id, spec.meta.suite, spec.meta.issue)

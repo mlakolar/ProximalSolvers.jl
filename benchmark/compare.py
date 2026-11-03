@@ -8,7 +8,7 @@ import math
 import statistics
 
 from summarize import markdown, mean_interval, worst_value, write_csv
-from validate import MATCH_SETTINGS, fresh_output, load_series, number, validate
+from validate import MATCH_SETTINGS, fresh_output, load_series, number, setting, validate
 
 
 FIELDS = (
@@ -60,7 +60,7 @@ def compare(before_root, after_root, output, expected=1):
     if old_configs.keys() != new_configs.keys():
         raise ValueError("Julia version coverage differs; inspect coverage.json")
     differences = [(version, key) for version in sorted(old_configs) for key in MATCH_SETTINGS
-                   if old_configs[version][key] != new_configs[version][key]]
+                   if setting(old_configs[version], key) != setting(new_configs[version], key)]
     if differences:
         raise ValueError(f"Comparison series settings differ: {differences}")
     if coverage["before_only"] or coverage["after_only"]:
