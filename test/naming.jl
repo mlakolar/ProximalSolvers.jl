@@ -15,3 +15,11 @@ using Test, LinearAlgebra, ProximalBase, ProximalSolvers
 end
 
 end
+
+# scenario (scratch PR, not for merging): fails only on Windows, which only full runs
+module NamingScenario
+using Test
+@testset "scenario: not on Windows" begin
+  @test !Sys.iswindows()
+end
+end
