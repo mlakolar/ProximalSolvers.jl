@@ -45,11 +45,21 @@ struct BlockNorm end
 
 solvers = (ProximalGradientDescent(), AccProxGradDescent(), MonotoneAccProxGradDescent())
 
+# A bound on the rounding error of one Float64 evaluation of F(x) = ½ xᵀAx + bᵀx + λ‖x‖₁ at
+# any point with |x| ≤ a entrywise, for any order of its sums: the standard model
+# |fl(Σᵢ aᵢ) - Σᵢ aᵢ| ≤ γₘ Σᵢ |aᵢ| with γₘ = m u / (1 - m u) (Higham, Accuracy and Stability of
+# Numerical Algorithms, 2nd ed., §3.1). Ax and xᵀ(Ax) round each term at most 2p times, bᵀx and
+# λ‖x‖₁ at most p + 1 times, and the three sums add three roundings.
+_γ64(m) = (u = eps(Float64) / 2; m * u / (1 - m * u))
+_objective_error(A, b, λ, a) =
+  _γ64(2length(a) + 3) * (dot(a, abs.(A) * a) / 2 + dot(abs.(b), a) + λ * sum(a))
+
 @testset "a tuple of one array is the array $(summary(method))" for method in (solvers..., ProximalGradientDescent(; normalized = true))
   rng = Xoshiro(1)
   n, p = 60, 20
   X, y = randn(rng, n, p), randn(rng, n)
-  f, g = QuadraticFunction(X'X / n, -X'y / n), NormL1(0.05)
+  A, b, λ = X'X / n, -X'y / n, 0.05
+  f, g = QuadraticFunction(A, b), NormL1(λ)
   opt = ProximalOptions(; ftol = 1e-12, xtol = 1e-12, gradtol = 1e-10, maxiter = 2000)
   x = zeros(p)
   r1 = solve!(x, f, g, method, opt)
@@ -58,7 +68,15 @@ solvers = (ProximalGradientDescent(), AccProxGradDescent(), MonotoneAccProxGradD
   @test r2.minimizer === xt
   @test x == xt[1]
   @test (r1.iterations, r1.minimum, r1.f_calls, r1.prox_calls) == (r2.iterations, r2.minimum, r2.f_calls, r2.prox_calls)
-  @test (r1.x_residual, r1.f_residual, r1.g_residual) == (r2.x_residual, r2.f_residual, r2.g_residual)
+  @test (r1.x_residual, r1.g_residual) == (r2.x_residual, r2.g_residual)
+  # f_residual = |F(xₖ) - F(xₖ₋₁)| / (|F(xₖ)| + ftol) for F = f + g. The two solves take the
+  # same iterates, but evaluate F by differently compiled code, whose sums can be associated
+  # differently; on some AMD EPYC runners without coverage F(xₖ₋₁) differed by one ulp, so
+  # f_residual by 1.2e-16 (#121). F(xₖ) is the minimum, bitwise equal above, so only the two
+  # evaluations of F(xₖ₋₁) differ, each within the bound at a = |xₖ| + x_residual ≥ |xₖ₋₁|
+  # (x_residual = ‖xₖ - xₖ₋₁‖₂ here, without a preconditioner).
+  bound = 2 * _objective_error(A, b, λ, abs.(x) .+ r1.x_residual)
+  @test abs(r1.f_residual - r2.f_residual) <= bound / (abs(r1.minimum) + opt.ftol)
   @test occursin("Minimizer", sprint(show, r2))
 end
 
