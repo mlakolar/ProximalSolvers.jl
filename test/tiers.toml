@@ -38,11 +38,11 @@ quick = [
   # workspaces: initialization, reset and reuse (FT26); sparse designs and symmetric iterates
   "sparse_x",
   "symmetric_penalties_basics",
-  "workspaces",
 ]
 
 # Every solver family in depth: losses, penalties, iterates, paths, precision and certificates.
 standard = [
+  "workspaces",
   "active_set",
   "audit_regressions",
   "box_paths",
