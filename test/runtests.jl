@@ -42,7 +42,7 @@ if args.list === nothing
   commit = haskey(ENV, "GITHUB_SHA") ? ", commit $(ENV["GITHUB_SHA"])" : ""
   cpu = "$(strip(first(Sys.cpu_info()).model)), $(Sys.CPU_THREADS) threads"
   println("ProximalSolvers tests: Julia $VERSION on $(Sys.MACHINE) ($cpu)$commit, ",
-          "check-bounds $(Base.JLOptions().check_bounds)")
+          "check-bounds ", ("default", "yes", "no")[Base.JLOptions().check_bounds + 1])
 end
 
 runtests(ProximalSolvers, args; testsuite)
