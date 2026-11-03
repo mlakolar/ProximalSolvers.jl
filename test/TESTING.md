@@ -345,8 +345,9 @@ check, each of the eight files gave the same assertion count and passed when sta
 
 ### Equivalence
 
-- **Assertions:** full counts 115867 on Julia 1.13 and 115856 on Julia 1.10: the 115830 and
-  115819 of the 48 files before, plus the 37 of the new `tier_selection.jl`. Each split file and
+- **Assertions:** full counts 115871 on Julia 1.13 and 115860 on Julia 1.10: the 115834 and
+  115823 of the 48 files before (115830 and 115819, plus the 4 that #173 split out of
+  `product_space`), plus the 37 of the new `tier_selection.jl`. Each split file and
   its `*_basics.jl` file add up to the original count (849, 1639, 1947, 183); the other 44 files
   are unchanged.
 - **Coverage:** full with coverage covers the same 6010 of 6142 instrumented lines of `src`,
@@ -358,8 +359,8 @@ check, each of the eight files gave the same assertion count and passed when sta
 
 GitHub-hosted Ubuntu runners, 4 workers, scratch branch `ci/test-tiers-measure` (this change
 at an earlier commit with 33 `tier_selection` assertions, and with #173 merged so that the
-no-coverage runs do not hit the two CPU-dependent checks; #173 adds 4 assertions, so the full
-counts there were also 115867 and 115856). Three rounds:
+no-coverage runs do not hit the two CPU-dependent checks; the full counts there were 115867 and
+115856, 4 fewer than now). Three rounds:
 [41571032834](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41571032834),
 [41572016738](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41572016738),
 [41573095244](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41573095244). Whole job
