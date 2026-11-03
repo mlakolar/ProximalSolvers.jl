@@ -116,7 +116,7 @@ function main(env = ENV; gh = args -> readlines(`gh api $args`), wait = 15)
     lines === nothing ? push!(out, "Could not list the jobs of run $run_id.") : (jobs = parse_jobs(lines))
   end
   labels = nothing
-  if get("GITHUB_EVENT_NAME") == "pull_request"
+  if false # control scenario: the verdict does not read the labels (as in ProximalBase)
     labels = gh_retry(["repos/$repo/issues/$(get("PR"))/labels", "--paginate", "--jq", ".[].name"]; gh, wait)
     labels === nothing && (push!(out, "Could not read the labels of PR $(get("PR")).") ; labels = String[])
     println("Current labels: ", isempty(labels) ? "none" : join(labels, ", "))
