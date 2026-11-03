@@ -1,4 +1,5 @@
 module GLMTests
+# scenario: a test-only change (scratch PR, not for merging)
 
 using ProximalSolvers, ProximalBase, LinearAlgebra, Random, SparseArrays, Statistics, Test
 logistic(z) = 1 / (1 + exp(-z))
