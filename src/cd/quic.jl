@@ -3,6 +3,7 @@
 #  proximal Newton for the graphical lasso (QUIC)
 #
 ####################################
+# scenario: a localized solver change (scratch PR, not for merging)
 
 # ProxNewton on f = LogDetLoss(S, w) and g = NormL1(λ0, Λ):
 #
