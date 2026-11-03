@@ -1,16 +1,20 @@
 # Test suite: inventory, runner and measurements
 
-This file records what `Pkg.test()` runs, how the files are isolated from each other, and the
-measurements behind CI's worker counts (#121). [CONTRIBUTING.md](../CONTRIBUTING.md) has the
-commands.
+This file records what `Pkg.test()` runs, how the files are isolated from each other, which
+tier each file belongs to and why, and the measurements behind the tiers and CI's worker counts
+(#121). [CONTRIBUTING.md](../CONTRIBUTING.md) has the commands.
 
 ## Inventory
 
-- **48 regular test files** in `test/`, listed in `test/runtests.jl`. Each is a module of its
-  own (`module CDTests … end`). `Pkg.test()` runs all of them. An unlisted file, a listed file
-  that is missing, or a file filter that matches nothing stops the run before any test starts.
-- **Helper:** `symmetric_penalty_helpers.jl`, included by `symmetric_penalties.jl` and
-  `symmetric_penalty_combinations.jl`; never run on its own.
+- **53 regular test files** in `test/`, each listed once in `test/tiers.toml` under the lowest
+  of the cumulative tiers quick, standard and full (see Tiers). Each is a module of its own
+  (`module CDTests … end`). `Pkg.test()` runs all of them. An unclassified, missing or
+  duplicated file, or a file filter that matches nothing, stops the run before any test starts.
+  Until the tiers there were 48; the tiers moved representative testsets of four files into
+  four `*_basics.jl` files and added `tier_selection.jl`.
+- **Helpers:** `symmetric_penalty_helpers.jl`, included by `symmetric_penalties.jl`,
+  `symmetric_penalties_basics.jl` and `symmetric_penalty_combinations.jl`; `tiers.jl`, the tier
+  selection used by `runtests.jl` and `tier_selection.jl`. Neither runs on its own.
 - **Separate environment:** `test/oracles/` (Hypatia, JuMP, HiGHS; see its README) compares
   QUIC, square-root and primal–dual solutions with independent conic/LP/QP solvers. It is run by
   hand or on a cluster and is **not** part of `Pkg.test()`, before or after this change.
@@ -250,3 +254,70 @@ Consequences: `Pkg.test()` without coverage on an Intel Xeon fails `active_set.j
 without this change. Collecting coverage only on a designated job (#121, phase 3) or forcing
 bounds checks on current Julia would expose both checks in CI, so they need a fix (a test change,
 outside this PR) first.
+
+## Tiers
+
+Three cumulative tiers, **quick ⊂ standard ⊂ full** (`test/tiers.toml`, selected by
+`test/tiers.jl`): `--tier=quick` runs the quick files, `--tier=standard` adds the standard
+files, and `--tier=full` or no tier, as in `Pkg.test()`, runs every file. `--extra=a,b` adds
+files whatever their tier, for the test files a change touches. The targets on GitHub-hosted
+runners are 3–5 minutes for a quick job and 6–10 for a standard one. Full keeps every test.
+
+### Why each file sits where it does
+
+**Quick** holds the central solver contracts on representative problems, checked numerically
+(solutions against closed forms, KKT conditions, independent oracles or Float64 references, not
+only the absence of errors). It is meant to run on every pull request:
+
+| File | Why it is in quick |
+|---|---|
+| `aqua`, `naming` | package quality (ambiguities, piracy, stale dependencies) and the option names |
+| `tier_selection` | the tier manifest: every file classified once, tiers cumulative, problems rejected |
+| `prox_solvers` | proximal gradient, accelerated and monotone accelerated solvers: solutions, stopping on the gradient residual, callbacks, `SparseIterate` and Float32 iterates |
+| `linesearch` | the backtracking line search: solver reuse, the switch to gradients near convergence, trial points off the cone |
+| `call_limits` | the call counts the solvers report and the call limits that stop them (gradient solvers, ADMM) |
+| `apg_numerical_failure` | cancellation near a solution must not give a false success |
+| `product_space` | tuple (product-space) iterates: a one-block tuple is its array, two problems as one, the fused graphical lasso |
+| `admm`, `primal_dual` | ADMM and primal-dual splitting on problems with known solutions |
+| `coordinate_descent_basics` | coordinate descent: closed forms, the lasso and its variants against KKT, warm starts, the group lasso, starts from zero (FT26) |
+| `group_lasso`, `path_snapshots` | the group lasso against its optimality conditions; independent snapshots of solution paths |
+| `duality_gap` | weak duality and a zero gap at solutions, gap stopping in every solver, gap-safe screening, the KKT residual |
+| `float32_certificates_basics` | Float32 lasso and group-lasso certificates against a Float64 oracle; the final certificate sets the flag and the reported gap |
+| `audit_regressions_basics` | false-success guards: active set, square-root losses, invalid certificates, failed line searches |
+| `workspaces` | workspace initialization, reset and reuse for the gradient, coordinate and ADMM solvers, including FT26 |
+| `sparse_x` | sparse design matrices take the steps of dense ones (least squares, square-root, logistic, paths, refits, groups, Float32) |
+| `symmetric_penalties_basics` | symmetric iterates and penalties on hand-computed and independently checked optima |
+
+**Standard** adds every solver family in depth: `active_set`, `audit_regressions`,
+`box_paths`, `convolution_gap`, `coordinate_descent`, `diagonal_preconditioner`,
+`flat_coordinates`, `gap_stopping`, `generic_newton`, `glm`, `group_curvature`,
+`group_momentum`, `group_penalties`, `image_models`, `lla_paths`, `low_rank`, `mixed_precision`,
+`multiresponse`, `newton_nonconvex`, `nonconvex`, `nonconvex_blocks`, `nonconvex_penalties`,
+`quic`, `refit_cache`, `slope`, `slope_hybrid`, `sparse_group_paths`, `sqrt_certificates`,
+`structured_quadratics` and `symmetric_penalties`. Each tests one family (losses, penalties,
+iterate types, paths, preconditioning, precision or certificates) beyond its representative
+cases, and is what a change to that family should run before merging.
+
+**Full** adds four files that are exhaustive or end to end:
+
+| File | Why it is only in full |
+|---|---|
+| `symmetric_penalty_combinations` | the exhaustive grid of every symmetric penalty family × wrapper and every strict case × entry point; its representative companion `symmetric_penalties` is in standard and `symmetric_penalties_basics` in quick (the original #121 finding) |
+| `float32_certificates` | the remaining Float32 certificate cases: multitask, weighted and grouped, wide and large-response gaps, Newton models |
+| `mixed_precision_extended` | the extended mixed-precision grid; `mixed_precision` is in standard |
+| `examples` | every script in `examples/`, end to end; the slowest file after the grids |
+
+### Representative cases moved, not copied
+
+Four expensive files gave whole top-level testsets, unchanged, to new `*_basics.jl` files in
+quick; their other testsets stay where they were. No assertion was duplicated, removed or
+edited; helpers the moved testsets use were copied:
+
+| From | To | Testsets moved | Assertions moved | Left in the source |
+|---|---|---|---:|---:|
+| `coordinate_descent` (standard) | `coordinate_descent_basics` | closed forms; lasso and its variants; warm starts from nonzero iterates; group lasso; start from zero clears the working set (#164) | 121 | 728 of 849 |
+| `float32_certificates` (full) | `float32_certificates_basics` | Float32 lasso and group-lasso certificates; Float32 stagnation and a reachable tight target; final Float32 certificates control the flag and reported gap | 692 | 947 of 1639 |
+| `symmetric_penalties` (standard) | `symmetric_penalties_basics` | asymmetric L1 reproduction; independent optimality from the supplied weights; hand computed optima; linear constraints require symmetric parameters | 108 | 1839 of 1947 |
+| `audit_regressions` (standard) | `audit_regressions_basics` | active-set success needs a full residual; square-root losses converge only with a duality gap; invalid certificates cannot pass stopping; line-search failure preserves the accepted point | 35 | 148 of 183 |
+
+TIERS_MEASUREMENTS

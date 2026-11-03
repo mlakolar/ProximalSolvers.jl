@@ -1,0 +1,87 @@
+# The test tiers. Read by test/tiers.jl and test/runtests.jl; checked by test/tier_selection.jl.
+# test/TESTING.md records why each file sits where it does; CONTRIBUTING.md has the commands.
+#
+# [tiers]: each test file (its path under test/ without .jl) is listed once, under the lowest
+# tier that runs it. A tier runs its own files and those of the tiers before it, so full runs
+# every test file, and `Pkg.test()` without arguments runs full. A new test file must be added
+# here: an unlisted, missing or duplicated file stops every test run.
+
+[tiers]
+# The central solver contracts on representative problems, checked numerically: every pull
+# request.
+quick = [
+  # package quality and the tier manifest
+  "aqua",
+  "naming",
+  "tier_selection",
+  # proximal gradient, accelerated and monotone: solutions, line search, call counts and limits,
+  # cancellation without false success, product-space (tuple) iterates
+  "apg_numerical_failure",
+  "call_limits",
+  "linesearch",
+  "product_space",
+  "prox_solvers",
+  # ADMM and primal-dual splitting
+  "admm",
+  "primal_dual",
+  # coordinate descent and group coordinate descent: closed forms, KKT, warm starts, paths
+  "coordinate_descent_basics",
+  "group_lasso",
+  "path_snapshots",
+  # certificates: duality gaps, Float32 certificates and false-success guards
+  "audit_regressions_basics",
+  "duality_gap",
+  "float32_certificates_basics",
+  # workspaces: initialization, reset and reuse (FT26); sparse designs and symmetric iterates
+  "sparse_x",
+  "symmetric_penalties_basics",
+  "workspaces",
+]
+
+# Every solver family in depth: losses, penalties, iterates, paths, precision and certificates.
+standard = [
+  "active_set",
+  "audit_regressions",
+  "box_paths",
+  "convolution_gap",
+  "coordinate_descent",
+  "diagonal_preconditioner",
+  "flat_coordinates",
+  "gap_stopping",
+  "generic_newton",
+  "glm",
+  "group_curvature",
+  "group_momentum",
+  "group_penalties",
+  "image_models",
+  "lla_paths",
+  "low_rank",
+  "mixed_precision",
+  "multiresponse",
+  "newton_nonconvex",
+  "nonconvex",
+  "nonconvex_blocks",
+  "nonconvex_penalties",
+  "quic",
+  "refit_cache",
+  "slope",
+  "slope_hybrid",
+  "sparse_group_paths",
+  "sqrt_certificates",
+  "structured_quadratics",
+  "symmetric_penalties",
+]
+
+# Exhaustive grids and end-to-end scripts: after every merge and on request.
+full = [
+  "examples",
+  "float32_certificates",
+  "mixed_precision_extended",
+  "symmetric_penalty_combinations",
+]
+
+[not_tests]
+# included by test files, never run on their own
+helpers = ["symmetric_penalty_helpers", "tiers"]
+# directories with an environment of their own, run separately (test/oracles/README.md)
+environments = ["oracles"]
