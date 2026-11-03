@@ -535,6 +535,8 @@ the latter with the verdict's label check removed (`ci/gate-scenarios2-nolabelch
 #190). A temporary ruleset required `PR merge gate` and `PR required jobs` from GitHub Actions
 on those branches only, as branch protection should on master; master's protection was not changed, and the ruleset and branches
 were deleted afterwards. A watcher polled each PR's merge state and checks every 3–8 s (UTC).
+These first scenarios ran before the final review; the next section repeats those that its
+changes touch.
 
 | Scenario | PR (run) | Plan | Outcome | Merge state |
 |---|---|---|---|---|
@@ -574,16 +576,57 @@ representative ones. From the last test job to the gate's result took 22–48 s 
 batch, and 93 s once, in the queued full run of #175 (the verdict installs Julia, about 15 s,
 and the gate polls every 5 s once the verdict exists).
 
+### Scenarios on the final head
+
+The final review changed the verdict and the workflow, so the scenarios that depend on them ran
+again (#192–#202, closed unmerged) against `ci/gate-final` (at `36239b0`) and `ci/gate-final2`
+(at `4c09c7c`, the head; it differs from `36239b0` only in `test/ci_gate.jl`), with a temporary
+ruleset requiring both checks on those branches only; ruleset and branches were deleted.
+
+| Scenario | PR (run) | Plan | Outcome | Merge state |
+|---|---|---|---|---|
+| documentation only | #192 (41707757514) | none | both checks passed | CLEAN |
+| a test file changed (`test/glm.jl`) | #193 (41707762444) | quick and `glm` | passed | CLEAN |
+| label `test:full` added to that green commit | #193 | full | label request 20:10:55.4–57.7 | BLOCKED at 20:10:58.6, 0.9 s after the request returned |
+| a solver file (`src/solvers/admm.jl`) | #194 (41707771342) | standard and `examples` | passed | CLEAN |
+| certification code (`src/cd/gap.jl`) | #195 (41707779196), #201 (41715523687) | full, four jobs | #195: Windows failed in the new workflow test (CRLF, fixed in `4c09c7c`), BLOCKED; #201 at the head: passed | CLEAN |
+| a failing benchmark analysis control | #196 (41707782632) | none | PR required jobs: "Benchmark analysis controls: failure." | BLOCKED |
+| a PR retargeted from a docs-only diff to a risky one | #197 (41707790301, 41709921692) | none against `fin/retarget-base`; after `gh pr edit --base ci/gate-final` (20:09:15.6–18.4) a new run (created 20:09:20) planned full | the second run failed on the CRLF test | BLOCKED from the retarget on |
+| `tiers.toml` moves `workspaces` from quick to standard | #198 (41710125731), #202 (41715530071) | full: "`workspaces` moves from `quick` to `standard`" | #198 hit the CRLF test; #202 at the head passed, including the manifest-edit tests | CLEAN |
+| a test fails on Julia 1 in attempt 1 | #199 (41710134011, 1) | quick | PR required jobs and the gate failed | BLOCKED |
+| Re-run job on the failed job | #199 (2) | | request 20:21:40.0–41.4; the job and PR required jobs passed, the gate kept its failure | BLOCKED (20:25:04) |
+| then Re-run failed jobs | #199 (3) | | only the gate re-ran: "`PR required jobs` passed (attempt 3)" | CLEAN at 20:26:34 |
+| no Windows job (stub workflow) | #200 (41710144245) | full | PR required jobs: "Julia 1 - windows-latest - x64 - full: missing." | BLOCKED |
+
 ### Measurements
 
-End to end, from the run's creation to a passing gate, first batch (Ubuntu runners, warm
-caches): quick 3.7 and 5.2 min, documentation only 0.8 min, standard with one focus file 9.2
-min, full 10.5 min. Before this change every PR ran full with coverage on four jobs (8.1 min
-median per Ubuntu job, `ci/test-tiers` measurements above; the old end-to-end time was not
-measured), so a test-only PR now needs two test jobs instead of four, without coverage. Totals in the
-full runs at `8908d5f`: 116333 assertions on Julia 1 (Ubuntu, macOS, Windows) and 116322 on
-Julia 1.10; at `f634274` and `e568c5a` (the review fixes changed the CI tests) 116315 and
-116304 locally.
+Manual runs of each tier on the final head `4c09c7c`, three rounds (the three tiers of a round
+started together; one quick run of round 3 was started alone), from the run's creation to the
+gate's result:
+
+| Tier | Runs | End to end | Median | Test jobs (median) | Gate after the last test job |
+|---|---|---|---:|---|---|
+| quick | 41718249865, 41721488129, 41728762271 | 4.3, 4.2, 4.5 min | **4.3 min** | Julia 1 2.6, Julia 1.10 3.4 min | 23–31 s |
+| standard | 41718288918, 41721510225, 41725898799 | 9.2, 7.4, 9.5 min | **9.2 min** | Julia 1 6.2, Julia 1.10 8.3 min | 25–37 s |
+| full | 41718336146, 41721531808, 41725990213 | 19.9, 10.3, 11.5 min | **11.5 min** | Ubuntu 6.4, Julia 1.10 10.7, macOS 7.6, Windows 9.0 min | 26–36 s |
+
+The 19.9 min full run waited 4.0 min for a runner and its macOS job took 15.0 min; the other
+runs waited at most 6 s. Other repositories of the account ran CI at the same time, and GitHub
+runners differ in CPU (test/TESTING.md, Parallel runs), so single runs vary by up to a factor of
+two. Before this change every PR ran full with coverage on four jobs; the same measure for
+pull-request runs that did not queue gave 9.7 min (41576419157) and 10.4 min (41556070197), and
+15.8 and 20.3 min for two that queued. A test-only PR now finishes in about 4.3 minutes with two
+test jobs (about 6 runner minutes instead of about 32), and a localized solver change in about
+9 minutes with two; full keeps the earlier time and the four platforms. Both targets hold:
+quick 4.2–4.5 minutes against 3–5, standard 7.4–9.5 against 6–10, end to end.
+
+**Counts and coverage at the head `4c09c7c`.** Full runs 54 files and counts **116337**
+assertions on Julia 1.13.3 (Ubuntu, macOS aarch64, Windows) and **116326** on Julia 1.10.13
+(#191's run 41715378305; locally the same, 116337 and 116326 on Julia 1.13.3 and 1.10.12). That
+is #174's 115871 and 115860 plus 466 in `ci_gate.jl` and the extended `tier_selection.jl`; the
+other 52 files are unchanged. Full with coverage covers the same **6010 of 6142** `src` lines,
+line for line, as before the tiers (local, Julia 1.13.3). Earlier commits of this PR counted
+116333 / 116322 (`8908d5f`) and 116315 / 116304 (`f634274`, `e568c5a`) as the CI tests changed.
 
 ### What remains
 
@@ -592,8 +635,16 @@ Julia 1.10; at `f634274` and `e568c5a` (the review fixes changed the CI tests) 1
 - **Removing a label** starts a new run of the path tier, whose checks then count (#186): the
   labels raise the tier of a run, and the paths set the minimum that every PR must pass. The
   full run after the merge still runs everything.
-- **Branch protection.** Master is not protected today. After the merge, require `PR required
-  jobs` and `PR merge gate` from GitHub Actions; the test job names now end in the tier, so no
-  test job should be required by name.
+- **Branch protection (maintainer, after the merge).** Master is not protected today. Once
+  this workflow is on master and both checks have run there, add a branch ruleset (or classic
+  protection) for `master` with **Require status checks to pass**, listing exactly
+  `PR required jobs` and `PR merge gate`, each with GitHub Actions as its source
+  (integration id 15368), and leave "require branches to be up to date" off. Do not require the
+  test jobs: their names end in the tier (`Julia 1 - ubuntu-latest - x64 - quick`) and the
+  matrix depends on it, so a required job name would be missing on every PR of another tier,
+  and PR required jobs already checks every job the plan asked for. Also require a review, or
+  CODEOWNERS, for `.github/**` and `scripts/ci_*.jl`: a PR's own merge commit supplies the
+  planner, the verdict and the gate. Then open an ordinary PR with a failing assertion and
+  check that GitHub blocks its merge.
 - **Pushes and tags** run full and open the issue "CI failing on master" on failure; that path
   and the real schedule can be observed only on master.
