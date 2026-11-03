@@ -7,8 +7,8 @@ commands.
 ## Inventory
 
 - **48 regular test files** in `test/`, listed in `test/runtests.jl`. Each is a module of its
-  own (`module CDTests … end`). `Pkg.test()` runs all of them; an unlisted file or a listed
-  file that is missing stops the run before any test starts.
+  own (`module CDTests … end`). `Pkg.test()` runs all of them. An unlisted file, a listed file
+  that is missing, or a file filter that matches nothing stops the run before any test starts.
 - **Helper:** `symmetric_penalty_helpers.jl`, included by `symmetric_penalties.jl` and
   `symmetric_penalty_combinations.jl`; never run on its own.
 - **Separate environment:** `test/oracles/` (Hypatia, JuMP, HiGHS; see its README) compares
@@ -23,12 +23,13 @@ commands.
 [ParallelTestRunner](https://github.com/JuliaTesting/ParallelTestRunner.jl) (a test-only
 dependency, compat 2.9). Each file runs in a fresh module on one of `--jobs=N` (or
 `PTR_NUM_JOBS`) worker processes. The workers inherit the test process's flags
-(`--check-bounds=yes`, `--code-coverage`, `--depwarn`) and project, and run with
-`JULIA_NUM_THREADS=1` and `OPENBLAS_NUM_THREADS=1`, so N workers use N cores (checked on
-Julia 1.13 by printing `Base.JLOptions()`, `Threads.nthreads()` and `BLAS.get_num_threads()`
-inside a worker). The runner schedules the longest files first from a duration history kept in
-the Julia depot's scratch space; CI caches that directory, and without a history the order is
-random. Workers whose RSS exceeds a memory-based limit are replaced between files.
+(`--check-bounds`, `--code-coverage`, `--depwarn`) and project, and run with
+`JULIA_NUM_THREADS=1` and `OPENBLAS_NUM_THREADS=1`, so N workers use N cores. This was checked by
+printing `Base.JLOptions()`, `Threads.nthreads()` and `BLAS.get_num_threads()` inside a worker,
+and on Windows and Linux by the coverage files that workers write. The runner schedules the
+longest files first from a duration history in the Julia depot's scratch space
+(`julia-actions/cache` keeps that directory by default); without a history the order is random.
+Workers whose RSS exceeds a memory-based limit are replaced between files.
 
 A failed assertion, an error and a crashed worker are each attributed to their file; the other
 files still run, and the run fails. Run
@@ -37,6 +38,21 @@ scratch branch with a failing assertion in `naming.jl` and `ccall(:abort)` in `l
 shows it on all four CI jobs: `naming` 8 passed / 1 failed, `low_rank` "crashed" with the
 abort's source line, the other 46 files passed (115811 assertions), and every job failed. In
 the old sequential runner all files shared one process, which a crash ended.
+
+### Bounds checking
+
+`Pkg.test` runs the tests with `--check-bounds=yes` on **Julia 1.10**, but on Julia 1.11 and
+later with **the session's setting** (the default, unless Julia was started with
+`--check-bounds`). The previous CI command, `Pkg.test(; coverage=true)`, therefore ran the
+Julia 1.10 job with bounds checks forced on and the three current-Julia jobs without. This change
+keeps that: `scripts/test.jl` leaves the setting to `Pkg.test`, and the test banner names it
+(`check-bounds yes` / `default`). `julia --check-bounds=yes scripts/test.jl` forces it on any
+Julia.
+
+A first version of this change passed `--check-bounds=yes` on every Julia. That made a check in
+`active_set.jl` fail on Intel Xeon runners (see below), and roughly tripled the compile time of
+the most expensive files. Forcing bounds checks on current Julia is a separate decision; it needs
+the two checks below fixed first.
 
 ### Isolation review
 
@@ -86,116 +102,151 @@ Julia 1.10 counts 11 assertions fewer, by design: `coordinate_descent` (839 vs 8
 ### What the time is
 
 Compilation, not execution, dominates: ParallelTestRunner's `--verbose` column shows 85–100%
-compile time for almost every file (Julia 1.13), as in ProximalBase. Within one process, files
-reuse what earlier files compiled. On an Apple M3 Pro (Julia 1.13.3, no coverage),
-`symmetric_penalty_combinations` took 183 s alone in a fresh process, 131 s after
-`symmetric_penalties`, and 45 s at its place in the old sequential order;
-`flat_coordinates` took 35 s alone against 18 s in the sequence. Running a single file through
-the runner costs the same as including it in a fresh process (35.3 vs 35.5 s), so the
-runner itself adds little; the extra work comes from the workers each compiling the shared
-solver code. The summed per-file time therefore grows with the number of workers (below),
-and the wall time falls much less than the worker count rises.
+compile time for almost every file (Julia 1.13), as in ProximalBase. On an Apple M3 Pro
+(Julia 1.13.3, default bounds, no coverage):
+
+- Running a file through the runner costs the same as including it in a fresh process
+  (`flat_coordinates` 20.4 vs 20.2 s).
+- Files reuse some of what earlier files compiled in the same process:
+  `symmetric_penalty_combinations` took 57 s alone, 42 s after `symmetric_penalties`, and 45 s
+  at its place in the old sequential order; `flat_coordinates` 20 s alone and 18 s in the
+  sequence.
+- Forced bounds checks multiply the compile time: with `--check-bounds=yes` the same files took
+  183 s and 35 s alone. This is why the Julia 1.10 job, where `Pkg.test` forces bounds checks,
+  is now the slowest.
+
+With N workers the summed per-file time grows (locally 305 s with 1 worker, 414 s with 4;
+on GitHub's 4-vCPU Ubuntu runners about 610 s with 1 and 1000–1180 s with 4): the workers
+compete for cores and each compiles the shared solver code. The wall time therefore falls by
+less than the number of workers.
 
 ### GitHub-hosted runners
 
-Three rounds of a scratch matrix (branch `ci/parallel-tests-measure`, the CI test step with
-`PTR_NUM_JOBS` varied, coverage on as in CI, Julia 1.13.3 / 1.10.13, ProximalBase 0.5.4,
-ParallelTestRunner 2.10.0):
-runs [41527237662](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41527237662)
-(no duration history, random order),
-[41530541059](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41530541059) and
-[41530554871](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41530554871)
-(history from the first). Test step time (setup, precompilation and tests) for each round,
-summed per-file worker time, and the peak summed RSS of all Julia processes (sampled every
-2 s; not available on Windows):
+Scratch matrix (branch `ci/parallel-tests-measure`: the CI test step with `PTR_NUM_JOBS`
+varied, coverage on as in CI, ProximalBase 0.5.4, ParallelTestRunner 2.10.0, Julia 1.13.3 /
+1.10.13). Test step time (setup, precompilation and tests), summed per-file worker time, and
+the peak summed RSS of all Julia processes (sampled every 2 s; not available on Windows).
 
-| Job | Workers | Test step (3 rounds) | Median | Worker time | Peak RSS |
-|---|---:|---|---:|---|---:|
-| Julia 1, Ubuntu | 1 | 1059, 997, 1053 s | 1053 s | 966, 943, 993 s | 3.3 GB |
-| | 2 | 678, 368, 559 s | 559 s | 1182, 687, 1053 s | 3.7 GB |
-| | 3 | 616, 437, 562 s | 562 s | 1528, 1232, 1590 s | 4.4 GB |
-| | **4** | 616, 349, 342 s | **349 s** | 1778, 1306, 1281 s | 5.3 GB |
-| Julia 1.10, Ubuntu | 1 | 747, 637, 950 s | 747 s | 684, 587, 884 s | 3.8 GB |
-| | 2 | 624, 610, 434 s | 610 s | 1097, 1117, 785 s | 4.5 GB |
-| | 3 | 616, 607, 481 s | 607 s | 1622, 1669, 1314 s | 5.1 GB |
-| | **4** | 557, 577, 412 s | **557 s** | 1931, 2089, 1487 s | 5.9 GB |
-| Julia 1, macOS | 1 | 1003, 948, 775 s | 948 s | 887, 896, 736 s | 2.5 GB |
-| | 2 | 489, 641, 653 s | 641 s | 791, 1189, 1202 s | 3.0 GB |
-| | **3** | 503, 421, 363 s | **421 s** | 1147, 1143, 998 s | 3.1 GB |
-| Julia 1, Windows | 2 | 759, 481, 650 s | 650 s | 1249, 904, 1229 s | |
-| | 3 | 679, 628, 581 s | 628 s | 1662, 1767, 1648 s | |
-| | **4** | 393, 619, 623 s | **619 s** | 1337, 2161, 2163 s | |
+**Julia 1**, bounds left to `Pkg.test` (default), rounds
+[41549852193](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41549852193) and
+[41552960517](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41552960517):
 
-Every one of these 42 jobs counted 115830 assertions (Julia 1) or 115819 (Julia 1.10), the
-baseline totals; all passed. A 4-worker Ubuntu job without coverage (for #121's later coverage
-decision) ran 751, 457 and 647 s; one of its three rounds failed a bit-exact check in
-`product_space.jl` (see below).
+| Job | Workers | Test step | Worker time | Peak RSS |
+|---|---:|---|---|---:|
+| Ubuntu | 1 | 657, 668 s | 603, 616 s | 3.2 GB |
+| | 2 | 351, 481 s | 647, 890 s | 4.1 GB |
+| | 3 | 335, 375 s | 934, 1047 s | 4.6 GB |
+| | **4** | **320, 269 s** | 1176, 997 s | 5.3 GB |
+| macOS | 1 | 793, 559 s | 737, 524 s | 2.4 GB |
+| | 2 | 488, 410 s | 879, 756 s | 2.7 GB |
+| | **3** | **389, 363 s** | 1052, 987 s | 3.2 GB |
+| Windows | 2 | 432, 517 s | 794, 954 s | |
+| | 3 | 480, 516 s | 1326, 1444 s | |
+| | **4** | **473, 462 s** | 1733, 1715 s | |
 
-**The hardware varies more than the worker count.** Ubuntu jobs landed on AMD EPYC 7763,
-9V45 or 9V74 or Intel Xeon 8370C or 6975P-C runners, with up to twofold differences in the
-same configuration (Julia 1, 4 workers: 616 s on a 9V74, 349 and 342 s on 9V45s); Windows
-runners vary too (393 s on a 9V45, against 619 and 623 s). The medians
-above mix CPUs; the PR's own CI runs add further samples.
+**Julia 1.10** (`Pkg.test` forces bounds checks, before and after this change), the two rounds
+above and three earlier ones
+([41527237662](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41527237662),
+[41530541059](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41530541059),
+[41530554871](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41530554871)):
+
+| Workers | Test step | Median | Worker time | Peak RSS |
+|---:|---|---:|---|---:|
+| 1 | 747, 637, 950, 974, 950 s | 950 s | 587–909 s | 3.8 GB |
+| 2 | 624, 610, 434, 605, 363 s | 605 s | 656–1117 s | 4.7 GB |
+| 3 | 616, 607, 481, 579, 558 s | 579 s | 1314–1669 s | 5.4 GB |
+| **4** | 557, 577, 412, 537, 582 s | **557 s** | 1487–2097 s | 5.9 GB |
+
+The three earlier rounds also ran the Julia 1 jobs, but with bounds checks forced (the first
+version of this change); those Julia 1 numbers are superseded. Every job of all five rounds
+counted 115830 (Julia 1) or 115819 (Julia 1.10) assertions; all with coverage passed. A 4-worker
+Ubuntu job without coverage, run for #121's later coverage decision, failed `product_space.jl`
+in two of the five rounds (see below).
+
+**PR #170's CI** at the chosen worker counts, run
+[41549696314](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41549696314)
+(three attempts), against the sequential baseline above. Test step and whole job, with the
+runner's CPU:
+
+| Job | Test step (3 attempts) | Median | Baseline median | Job, median (baseline) |
+|---|---|---:|---:|---:|
+| Julia 1, Ubuntu, 4 workers | 404 (Xeon 8573C), 416 (Xeon 8370C), 426 s (EPYC 7763) | 416 s | 784 s | 487 s (867 s) |
+| Julia 1.10, Ubuntu, 4 workers | 544 (EPYC 7763), 490 (Xeon 8573C), 321 s (EPYC 9V45) | 490 s | 782 s | 579 s (886 s) |
+| Julia 1, macOS, 3 workers | 483, 270, 382 s | 382 s | 701 s | 446 s (798 s) |
+| Julia 1, Windows, 4 workers | 471, 494, 458 s (EPYC 7763) | 471 s | 847 s | 568 s (927 s) |
+
+All twelve jobs passed with the baseline assertion totals, including the Julia 1 jobs on Intel
+Xeon runners.
+
+**The hardware varies as much as the worker count.** Ubuntu and Windows jobs landed on AMD EPYC
+7763, 9V45 or 9V74 or Intel Xeon 8370C, 8573C, 6973P-C or 6975P-C runners; the same
+configuration can differ by a factor of 1.5–2 between them (Julia 1.10, 2 workers: 363 s on a
+9V45, 605 s on a 7763).
 
 **Chosen worker counts:** 4 on Ubuntu (both Julia versions) and Windows, 3 on macOS. They gave
-the lowest medians; the peak memory leaves room on every runner (16 GB on Ubuntu and Windows,
+the lowest times on comparable CPUs (Windows: 462–473 s with 4 workers against 480–516 s with 3,
+all on EPYC 7763s); the peak memory leaves room on every runner (16 GB on Ubuntu and Windows,
 7 GB on macOS). ParallelTestRunner's default would pick 1 worker on macOS, which reports about
 3.3 GiB of free memory against an assumed 2 GiB per worker, so CI sets `PTR_NUM_JOBS`
-explicitly. With CI's medians, the test step drops from 784 to 349 s (Julia 1, Ubuntu), 782 to
-557 s (Julia 1.10, Ubuntu), 701 to 421 s (macOS) and 847 to 619 s (Windows); the test job remains
-the slowest part of a run.
+explicitly.
 
-**Balance.** With a duration history (rounds 2 and 3), the workers of every multi-worker job
-finished within 16 s of each other, mostly within 5 s: the jobs are bound by total work, not
-by one long file. Without a history (round 1, random order) the spread reached 46%: with 4
-workers on Ubuntu, `symmetric_penalty_combinations` (193 s on its worker) started late and its
-worker finished at 556 s, the first one at 382 s. Splitting that file, or reducing its
-compilation, is left to the tier work of #121.
+**Balance.** With a duration history, the workers of every multi-worker job finished within
+16 s of each other, mostly within 5 s: the jobs are bound by total work, not by one long file.
+Without a history (the first round, random order) the spread reached 46%:
+`symmetric_penalty_combinations` started late on one worker. Splitting that file, or reducing
+its compilation, is left to the tier work of #121.
 
 ### Local runs
 
 Apple M3 Pro (12 cores, 18 GB), macOS, no coverage, `Pkg.test()` / `scripts/test.jl` wall time
-including setup and precompilation, one run each (the 3-worker Julia 1.13 run overlapped with a
-diagnostic run):
+including setup and precompilation, one run each. Julia 1.13.3 with default bounds, Julia
+1.10.12 with bounds checks (as `Pkg.test` runs them on each):
 
 | | Sequential | 1 worker | 2 workers | 3 workers | 4 workers |
 |---|---:|---:|---:|---:|---:|
-| Julia 1.13.3 | 326 s | 529 s | 318 s | 237 s | 226 s |
+| Julia 1.13.3 | 326 s | 333 s | 190 s | 146 s | 115 s |
+| Worker time, Julia 1.13.3 | 322 s | 305 s | 349 s | 397 s | 414 s |
 | Julia 1.10.12 | 380 s | 393 s | 229 s | 163 s | 190 s |
-| Worker time, Julia 1.13.3 | 322 s | 500 s | 601 s | 666 s | 657 s |
 
-The largest process RSS was 1.6 GB for the sequential runner and 0.9–1.9 GB per worker. One
-worker is slower than the sequential runner even though all files then share one process:
-the history order starts with the most expensive files on a cold process.
+The largest process RSS was 1.6 GB for the sequential runner and 0.9–2.0 GB per worker.
 
 ## Equivalence with the sequential runner
 
 - **Files:** the same 48 files (the list in `runtests.jl` was compared with the old one).
-- **Assertions:** identical totals on every passing job above and in the PR's CI.
+- **Assertions:** identical totals, and identical counts for every file, in every passing job
+  above, the local runs and the PR's CI.
 - **Order:** the files ran in random order (no history), in history order, and with 1–4
   workers; the per-file counts did not change.
-- **Bounds checks and threads:** checked inside a worker, see Runner.
+- **Bounds checks, threads, coverage flags:** as `Pkg.test` sets them, inherited by the workers
+  (see Runner).
 - **Coverage:** on the M3 Pro (Julia 1.13.3), the sequential runner at `1f62540` and the new
   runner with 4 workers, both with `coverage=true`, covered the same 6010 of 6142 instrumented
   lines of `src` (CoverageTools), line for line. The workers' `.cov` files carry their process
   ids and are merged by CoverageTools, as CI's `julia-processcoverage` does.
 - **Numerical checks:** unchanged; no tolerance, seed or test was edited.
 
-### A bit-exact check that depends on the CPU
+### Two checks that depend on the CPU and the compilation mode
 
-`product_space.jl:61` requires the plain-vector solve and the 1-tuple (`SeparableSum`) solve to
-return bitwise-equal residuals. Without coverage, on some AMD EPYC 9V45 and 9V74 runners, the
-`f_residual` values differ in the last digits (`8.628673554114886e-13` vs
-`8.627460980540671e-13`) while the iterates, minimum and call counts agree. This predates the
-runner and does not depend on it: probe run
-[41536083129](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41536083129)
-(scratch branch `ci/probe-product-space`) ran the file on 20 Ubuntu runners without coverage,
-both with a plain `include` in a fresh process and through the runner with one worker. The two
-failed together, with the same values, on 2 runners (a 9V45, znver5, and a 9V74, znver4) and
-passed together on the other 18, including two other 9V74s. It also failed once in the
-4-worker no-coverage measurement job above (a 9V74). It passed in all 42 coverage jobs of the
-measurement rounds (ten of them on 9V45 or 9V74 runners) and in the 4 jobs of the failure
-demonstration; coverage changes how package code is compiled, which is consistent with this
-but was not isolated. CI collects coverage on every job, before and
-after this change, so it does not see the failure; turning coverage off on routine jobs (a
-#121 goal) would expose it. Fixing the check is a test change outside this PR.
+Two exact checks pass only in some configurations. Probe run
+[41549785906](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41549785906)
+(scratch branch `ci/probe-product-space`, 25 Ubuntu and 25 Windows runners, Julia 1.13.3) ran
+each file in plain Julia processes (no ParallelTestRunner) with each combination of bounds
+checking (default, `yes`) and coverage (none, the package root):
+
+| Check | Fails on | Configurations that fail there |
+|---|---|---|
+| `active_set.jl:227`: Float32 `res.minimum` within one `eps` of `f(x) + g(x)` | every Intel Xeon runner (8573C, 8370C, 6973P-C, 6975P-C; 7 of 7, Linux and Windows) | every configuration except default bounds with coverage |
+| `product_space.jl:61`: bitwise-equal residuals of a vector and a 1-tuple solve | some AMD EPYC 9V45/9V74 runners (1 of 50 here; 2 of 20 in [41536083129](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/41536083129); 2 of 5 no-coverage measurement jobs) | no coverage, either bounds setting |
+
+Both fail the same way through ParallelTestRunner. Default bounds with coverage, CI's
+configuration on current Julia before and after this change, passed both checks on all 50
+runners, and through the runner on all 50 as well. The values are reproducible:
+`active_set` misses by two ulps (`1.1920929f-7 <= 5.9604645f-8`), `product_space` in the last
+digits of `f_residual` (`8.628673554114886e-13` vs `8.627460980540671e-13`), while the
+iterates, minima and call counts agree. On the M3 Pro, two of the `active_set` cases sit
+exactly at the one-ulp limit with any BLAS thread count.
+
+Consequences: `Pkg.test()` without coverage on an Intel Xeon fails `active_set.jl`, with or
+without this change. Collecting coverage only on a designated job (#121, phase 3) or forcing
+bounds checks on current Julia would expose both checks in CI, so they need a fix (a test change,
+outside this PR) first.
