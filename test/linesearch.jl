@@ -1,4 +1,5 @@
 module LineSearchTest
+# scenario: a run cancelled by hand (scratch PR, not for merging)
 
 using Test
 using Random
