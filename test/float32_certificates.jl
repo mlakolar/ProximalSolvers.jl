@@ -1,5 +1,8 @@
 module Float32CertificateTests
 
+# The representative cases (lasso and group-lasso certificates, stagnation, the final
+# certificate) are in float32_certificates_basics.jl, in the quick tier (#121).
+
 using Test, LinearAlgebra, Random, SparseArrays
 using ProximalBase
 using ProximalSolvers
@@ -131,28 +134,6 @@ end
   end
 end
 
-@testset "Float32 lasso and group-lasso certificates" begin
-  rng = Xoshiro(1)
-  n, p = 100, 60
-  X = randn(rng, n, p)
-  b = zeros(p); b[1:8] .= randn(rng, 8) .+ 1
-  y = Float32.(X * b .+ 0.1 .* randn(rng, n))
-  X = Float32.(X)
-  f = (1 / n) * LeastSquaresLoss(y, X)
-  groups = [collect(4k-3:4k) for k in 1:p÷4]
-  λmax = maximum(norm(X[:, G]' * y) for G in groups) / n
-  λs = Float32.(λmax .* exp10.(range(0, -3; length = 50)))
-  pathcheck(cdmodel(f, nothing), GroupNormL2(1f0, groups, ones(Float32, length(groups))), λs,
-            AtomIterate(Float32, p, groups))
-  λmax = norm(X' * y, Inf) / n
-  λs = Float32.(λmax .* exp10.(range(0, -3; length = 50)))
-  for icpt in (false, true)
-    pathcheck(cdmodel(f, nothing; intercept = icpt), NormL1(1f0), λs, SparseIterate(Float32, p))
-  end
-  pathcheck(cdmodel(f, nothing; intercept = true), NormL1(1f0), λs, SparseIterate(Float32, p);
-            solver = CDSolver(; rng = Xoshiro(1), gapsafe = true))
-end
-
 @testset "Float32 weighted and grouped certificates" begin
   rng = Xoshiro(128)
   n, p = 32, 8
@@ -198,25 +179,6 @@ end
   @test m.intercept && iszero(m.ybar) && all(iszero, m.xbar)
   dg = duality_gap(m, NormL1(0f0), SparseIterate(Float32[1e8]))
   @test isapprox(dg.gap / dg.primal, 1 / 3; atol = 1e-7, rtol = 0)
-end
-
-@testset "Float32 stagnation and a reachable tight target" begin
-  X = Matrix{Float32}(I, 2, 2)
-  f = 0.5f0 * LeastSquaresLoss(Float32[1, 2], X)
-  for options in ((; order = :cyclic), (; rng = Xoshiro(1), momentum = true), (; order = :cyclic, anderson = 2))
-    m = cdmodel(f, nothing)
-    x = SparseIterate(Float32, 2)
-    s = CDSolver(; maxpasses = 10_000, gaptol = 1e-10, options...)
-    r = @test_logs (:warn, r"relative duality gap .* does not certify") solve!(x, m, NormL1(0.1f0), s)
-    @test !r.converged && r.gap > s.gaptol
-    @test r.passes < 100
-    @test isapprox(r.gap, gap64(m, NormL1(0.1f0), x); atol = 1e-9, rtol = 0)
-    @test r.tolerance <= 8eps(Float32) * PS.response_scale(m, x)
-    xt = SparseIterate(Float32, 2)
-    rt = @test_logs solve!(xt, f, NormL1(0.125f0), CDSolver(; gaptol = 1e-7, options...))
-    @test rt.converged && rt.gap <= 1e-7
-    @test Vector(xt) == Float32[0.75, 1.75]
-  end
 end
 
 @testset "Wide Fenchel--Young gaps, full and restricted" begin
@@ -384,54 +346,6 @@ end
       @test r.converged && r.gap <= s.gaptol
     end
     @test isapprox(r.gap, gapbig(m, NormL1(0f0), x); atol = 2e-8, rtol = 0)
-  end
-end
-
-@testset "Final Float32 certificates control the flag and reported gap" begin
-  # The native gradient rounds the second constraint down to its threshold.
-  X = Float32[1 1; 0 eps(Float32)/4]
-  m = cdmodel(LeastSquaresLoss(Float32[1.25, 0.25], X), nothing)
-  x = SparseIterate(Float32[1, 0])
-  g = NormL1(0.25f0)
-  s = CDSolver(; gaptol = 1e-9, order = :cyclic)
-  st = PS._CDState(Float32, x, s)
-  PS.initialize!(m, x)
-  checks = PS._screened!(x, m, g, g.λ0, Float32[0.25, 0], st, s, falses(2))
-  @test checks == PS._GAPRETRIES + 1
-  @test !st.converged && st.relgap > s.gaptol
-  @test isapprox(st.relgap, gap64(m, g, x); atol = 1e-9, rtol = 0)
-
-  # Compare before rounding the certificate to the result's element type.
-  checked = false
-  for a in (eps(Float32) / 4, eps(Float32) / 2, 3eps(Float32) / 4, 1f-4)
-    m = cdmodel(LeastSquaresLoss(Float32[1.25, 0.25], Float32[1 1; 0 a]), nothing)
-    PS.initialize!(m, x)
-    P, D, _ = PS._wide_gap(m, g, x, nothing)
-    gap = PS._relative_gap(P, D)
-    rounded = Float64(Float32(gap))
-    rounded < gap || continue
-    s = CDSolver(; gaptol = (rounded + gap) / 2)
-    st = PS._CDState(Float32, x, s)
-    gs = PS._gapstart!(st, m, g, x, s)
-    available, certified, _ = PS._gapcheck!(gs, x, m, g, st, s, true)
-    @test available && !certified && st.relgap <= s.gaptol
-    @test PS._fullgap!(st, m, g, x, gs.z) > s.gaptol
-    checked = true
-    break
-  end
-  @test checked
-
-  rng = Xoshiro(8128)
-  X = randn(rng, Float32, 20, 6)
-  y = X * ones(Float32, 6) .+ randn(rng, Float32, 20) ./ 10
-  for T in (Float32, Float64), options in ((; order = :cyclic), (; momentum = true, rng = Xoshiro(1)),
-                                           (; order = :cyclic, anderson = 2)), maxpasses in (0, 1, 3)
-    m = cdmodel((1 / 20) * LeastSquaresLoss(T.(y), T.(X)), nothing)
-    x = SparseIterate(T, 6)
-    g = NormL1(T(0.01))
-    r = @test_logs (:warn, r"did not converge in maxpasses") solve!(x, m, g, CDSolver(; maxpasses, gaptol = 1e-12, options...))
-    @test !r.converged && isfinite(r.gap)
-    @test isapprox(r.gap, gap64(m, g, x); atol = 1e-7, rtol = 1e-5)
   end
 end
 
