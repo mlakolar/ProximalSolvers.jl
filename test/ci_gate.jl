@@ -177,7 +177,8 @@ ok(; plan = "success", analysis = "success", tests = "success", run_tests = "tru
 end
 
 @testset "workflow: properties the checks rely on" begin
-  workflow = read(joinpath(dirname(@__DIR__), ".github", "workflows", "CI.yml"), String)
+  # LF text: a Windows checkout has CRLF line endings
+  workflow = replace(read(joinpath(dirname(@__DIR__), ".github", "workflows", "CI.yml"), String), "\r\n" => "\n")
   # a new base branch starts a new run, so checks computed against another base never count
   @test occursin("types: [opened, synchronize, reopened, edited, labeled, unlabeled]", workflow)
   @test !occursin("paths-ignore", workflow) && !occursin("pull_request_target", workflow)
