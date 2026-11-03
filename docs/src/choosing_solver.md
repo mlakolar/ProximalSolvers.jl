@@ -64,3 +64,5 @@ listed with the options in [Calling the solvers](@ref).
 Finally, choose an accuracy measure appropriate to the problem.
 [Checking a solution](@ref) explains how a duality gap bounds objective error
 and how coordinate residuals measure optimality when no gap is available.
+
+<!-- scenario: documentation only (scratch PR) -->
