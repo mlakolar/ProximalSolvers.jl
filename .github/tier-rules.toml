@@ -13,7 +13,8 @@ full = 60
 # and of its test:standard or test:full labels. A path no rule matches gets full. "none": no
 # package tests (the plan, the naming check and the benchmark analysis controls still run).
 # Changed test files, and the `focus` files of the matched rules, run beside the tier. Every
-# source file is named explicitly, so a new one gets full until it has a rule.
+# source file is named explicitly, so a new one plans full, and test/tier_selection.jl fails
+# until a rule names it.
 #
 # Standard runs every file but four (test/tiers.toml), so the focus files of a solver rule are
 # those of the four full-only files that exercise it: the ones that cover lines of that source
@@ -79,9 +80,9 @@ paths = [
 ]
 
 [[risk]]
-why = "convergence and certification semantics: stopping tests, duality gaps, gap-safe screening, square-root certificates, penalty paths"
+why = "convergence and certification semantics: stopping tests, duality gaps (also the public primal-dual gap), gap-safe screening, square-root certificates, ProxNewton's certificate guard, penalty paths"
 tier = "full"
-paths = ["src/utils.jl", "src/cd/gap.jl", "src/cd/sqrtdual.jl", "src/cd/path.jl"]
+paths = ["src/utils.jl", "src/cd/gap.jl", "src/cd/sqrtdual.jl", "src/cd/path.jl", "src/solvers/primal_dual.jl", "src/cd/glm.jl"]
 
 [[risk]]
 why = "the shared helpers of the symmetric penalty tests"
@@ -92,7 +93,8 @@ paths = ["test/symmetric_penalty_helpers.jl"]
 [[risk]]
 why = "a test file: it runs beside the tier"
 tier = "quick"
-paths = ["test/**"]
+paths = ["test/**/*.jl"]
+# Other files under test/ (Project.toml, data, preferences) fall through to full.
 
 [[risk]]
 why = "the examples are tests"
@@ -121,16 +123,16 @@ focus = ["mixed_precision_extended"]
 paths = ["src/solvers/slope.jl", "src/solvers/slope_hybrid.jl"]
 
 [[risk]]
-why = "ADMM, primal-dual splitting, LLA and square-root models, which the examples solve"
+why = "ADMM, LLA and square-root models, which the examples solve"
 tier = "standard"
 focus = ["examples"]
-paths = ["src/solvers/admm.jl", "src/solvers/primal_dual.jl", "src/cd/lla.jl", "src/cd/sqrtlasso.jl", "src/cd/sqrtquadratic.jl"]
+paths = ["src/solvers/admm.jl", "src/cd/lla.jl", "src/cd/sqrtlasso.jl", "src/cd/sqrtquadratic.jl"]
 
 [[risk]]
 why = "coordinate-descent losses that are also certified in Float32"
 tier = "standard"
 focus = ["examples", "float32_certificates"]
-paths = ["src/cd/leastsquares.jl", "src/cd/glm.jl", "src/cd/groupcurvature.jl"]
+paths = ["src/cd/leastsquares.jl", "src/cd/groupcurvature.jl"]
 
 [[risk]]
 why = "group steps and the sparse group lasso, also certified in Float32"

@@ -51,9 +51,16 @@ function problems(; plan, analysis, tests, run_tests, tier, jobs, labels = nothi
   elseif tier in TIER_ORDER
     run_tests == "true" || push!(out, "Tier $tier without run_tests ($run_tests).")
     tests in ("cancelled", "skipped") && push!(out, "The test jobs are $tests.")
-    for name in expected_jobs(tier)
+    expected = expected_jobs(tier)
+    for name in expected
       c = get(jobs, name, "missing")
       c == "success" || push!(out, "$name: $(isempty(c) ? "not finished" : c).")
+    end
+    # a test job of this tier that the list above does not know (the matrix gained a job): it
+    # must pass too
+    for (name, c) in jobs
+      startswith(name, "Julia ") && endswith(name, " - $tier") && !(name in expected) && c != "success" &&
+        push!(out, "$name (not an expected job): $(isempty(c) ? "not finished" : c).")
     end
   else
     push!(out, "The plan gave no valid tier ('$tier').")
@@ -77,13 +84,14 @@ end
 # Output of `gh api .../jobs --jq` with JOBS_JQ: one tab-separated line per job.
 const JOBS_JQ = """.jobs[] | [.name, (.conclusion // "")] | @tsv"""
 
+# Two jobs of one name cannot be told apart: the name then counts as "duplicated", never success.
 function parse_jobs(lines)
   jobs = Dict{String, String}()
   for line in lines
     isempty(strip(line)) && continue
     f = split(line, '\t')
     length(f) == 2 || error("unexpected job line: $(repr(line))")
-    jobs[f[1]] = f[2]
+    jobs[f[1]] = haskey(jobs, f[1]) ? "duplicated" : f[2]
   end
   return jobs
 end

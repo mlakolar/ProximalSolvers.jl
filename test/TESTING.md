@@ -349,7 +349,8 @@ check, each of the eight files gave the same assertion count and passed when sta
 
 ### Equivalence
 
-- **Assertions:** full counts 115871 on Julia 1.13 and 115860 on Julia 1.10: the 115834 and
+- **Assertions:** at #174, full counted 115871 on Julia 1.13 and 115860 on Julia 1.10 (the
+  risk-based CI adds its own tests; see below): the 115834 and
   115823 of the 48 files before (115830 and 115819, plus the 4 that #173 split out of
   `product_space`), plus the 37 of the new `tier_selection.jl`. Each split file and
   its `*_basics.jl` file add up to the original count (849, 1639, 1947, 183); the other 44 files
@@ -395,7 +396,7 @@ for contributors. Adapted from ProximalBase.jl #430, with three tiers and the di
 
 | Event | Tier | Jobs | Coverage |
 |---|---|---|---|
-| pull request | quick, standard or full by the changed paths, raised by `test:standard` / `test:full`; none for documentation only | Julia 1.10 and 1, Ubuntu; full adds Julia 1 on macOS (aarch64) and Windows | full only, Julia 1 Ubuntu |
+| pull request | quick, standard or full by the changed paths, raised by `test:standard` / `test:full`; none when every path needs no package tests (documentation, benchmarks) | Julia 1.10 and 1, Ubuntu; full adds Julia 1 on macOS (aarch64) and Windows | full only, Julia 1 Ubuntu |
 | push to master, tag | full, always | all four | Julia 1 Ubuntu |
 | nightly (06:17 UTC) | full, or none after a verified full run (below) | all four | Julia 1 Ubuntu |
 | manual | the chosen tier, full by default | as for a pull request | full only |
@@ -420,16 +421,18 @@ Each changed path takes the first rule that matches it; the PR gets the highest 
   solver architecture (`ProximalSolvers.jl`, `types.jl`, `solve.jl`, `blocks.jl`,
   `line_searches.jl`, `workspaces.jl`, `precompile.jl`, `cd/models.jl`, `cd/solver.jl`);
   convergence and certification semantics (`utils.jl`, with the stopping tests,
-  `cd/gap.jl`, `cd/sqrtdual.jl`, `cd/path.jl`); and every path no rule names, including a new
-  source file.
+  `cd/gap.jl`, `cd/sqrtdual.jl`, `cd/path.jl`, `solvers/primal_dual.jl` with the public
+  primal-dual `duality_gap`, `cd/glm.jl` with ProxNewton's certificate guard); and every path no
+  rule names, including a new source file (which `tier_selection` then rejects until a rule
+  names it) and any file under `test/` that is not Julia code (the test environment, data).
 - **quick:** a test file (it runs beside the tier), the shared symmetric-penalty helpers (with
-  the three files that include them) and `examples/**` (with `examples`).
+  the three files that include them, checked by a test) and `examples/**` (with `examples`).
 - **standard:** every other source file, each named in a rule, with its focus files.
 
 Standard runs every file but the four full-only ones, so the focus files of a solver rule are
 chosen among those four: a full-only file is a focus file of a source file when it covers lines
 there that standard does not, or at least a quarter of the lines standard covers there. Per-file
-coverage of `src` (Julia 1.13.3, M3 Pro, branch at `78b4da5`): lines standard covers, and for
+coverage of `src` (Julia 1.13.3, M3 Pro, `src` as in master at `ba11f52`): lines standard covers, and for
 each full-only file the lines it covers (with those standard does not, after the slash) and
 their share of standard's.
 
@@ -459,7 +462,8 @@ their share of standard's.
 | `cd/sqrtquadratic` | 202 | 134 / 0, 66% | 0 | 0 | 0 |
 | `cd/generic_newton`, `cd/multiresponse`, `cd/quadratic`, `cd/refit_cache` | 117, 124, 137, 116 | 0 | 0 | 0 | 0 |
 
-Of the files that are full anyway, `float32_certificates` alone covers 76 lines of `cd/gap.jl`
+`solvers/primal_dual` and `cd/glm` became full in the final review (below); their rows show what
+the focus files would be. Of the files that are full anyway, `float32_certificates` alone covers 76 lines of `cd/gap.jl`
 that standard does not. The selection reads coverage, not behavior: a full-only file that runs
 the same lines with other types (Float32, mixed precision) is chosen through its share, and a
 change whose risk the paths do not show needs a label.
@@ -489,13 +493,47 @@ change whose risk the paths do not show needs a label.
 - No benchmark reference checks, conformance reports or `test:iterate-narrow` label, which
   ProximalSolvers does not have; the gate script is ProximalBase's, unchanged but for its header.
 
+### Final review (integration with master)
+
+Four independent reviews (tier selection; merge protection and security; the nightly skip;
+documentation and evidence) of the integrated head `e568c5a` found no way to get both checks
+green without the tests the paths or labels require. Changes made:
+
+- **A new base branch reruns CI** (`edited` in the pull request types). Required checks are keyed
+  to the head commit, so a PR retargeted from another branch kept checks computed against that
+  branch. A title or body edit now also restarts the run.
+- **The verdict** fails on two jobs of one name (they count as `duplicated`, never success) and
+  on any failed test job of the planned tier that its list of expected jobs does not name.
+- **No checkout keeps the token** in `.git/config` (`persist-credentials: false`), so PR code in
+  the test job cannot reuse the job's `actions: write` token through git.
+- **The gate's deadline** is 160 minutes, so its startup retries fit the 180-minute job timeout.
+- **The environment record** is taken before the job resolves the dependencies the tests use
+  (Pkg.test keeps that manifest), and the extras resolve with the package's `[compat]` bounds,
+  as in Pkg.test's sandbox. Before, a dependency released between resolution and the record, or
+  an extra with a release outside its compat bounds, could let a nightly run skip although its
+  tests would have used other versions. Only push, schedule and manual runs count as evidence.
+- **Rules:** `solvers/primal_dual.jl` (the public primal-dual `duality_gap` and CondatVu's gap
+  stop) and `cd/glm.jl` (ProxNewton's certificate guard) became full; files under `test/` that
+  are not Julia code (the test environment, data) fall through to full instead of quick; a test
+  checks the helper rule's focus files against the files that include the helper.
+- **Workflow tests** pin the properties the checks rely on: the event types, no
+  `paths-ignore` or `pull_request_target`, the record before the resolution, the upload only
+  after passing tests, a gate without `needs`, a verdict that always runs.
+
+Not changed: the test job keeps `actions: write` for `julia-actions/cache` (fork PRs get a
+read-only token, and authors of same-repository PRs already have write access); the planner,
+verdict and gate come from the PR's merge commit, so they are only as strong as required review
+of `.github/**` and `scripts/ci_*.jl` (CODEOWNERS or required review are recommended).
+
 ### Scenarios
 
 Checked on GitHub with scratch PRs (#175–#190, closed unmerged) against scratch copies of this
 branch, so that each diff held only the scenario's change: `ci/gate-scenarios` (at `8908d5f`)
-and, after the review fixes, `ci/gate-scenarios2` (at `f634274`). A temporary ruleset required
-`PR merge gate` and `PR required jobs` from GitHub Actions on those branches only, as branch
-protection will on master; master's protection was not changed, and the ruleset and branches
+and, after the review fixes, `ci/gate-scenarios2` (at `f634274`); the controls ran on copies of
+the latter with the verdict's label check removed (`ci/gate-scenarios2-nolabelcheck` for #187,
+`ci/gate-scenarios3-nolabelcheck`, which also drops the unit tests of that check, for #188 and
+#190). A temporary ruleset required `PR merge gate` and `PR required jobs` from GitHub Actions
+on those branches only, as branch protection should on master; master's protection was not changed, and the ruleset and branches
 were deleted afterwards. A watcher polled each PR's merge state and checks every 3–8 s (UTC).
 
 | Scenario | PR (run) | Plan | Outcome | Merge state |
@@ -532,22 +570,24 @@ check removed, `test/ci_gate.jl` fails, so the unit tests guard the check.
 
 The scenarios ran with up to 13 runs at a time, so later runs queued for runners (macOS
 especially); the end-to-end times of the first batch (#175–#180, started together) are the
-representative ones. From the last test job to the gate's result took 26–48 s (the verdict
-installs Julia, about 15 s, and the gate polls every 5 s once the verdict exists).
+representative ones. From the last test job to the gate's result took 22–48 s in the first
+batch, and 93 s once, in the queued full run of #175 (the verdict installs Julia, about 15 s,
+and the gate polls every 5 s once the verdict exists).
 
 ### Measurements
 
 End to end, from the run's creation to a passing gate, first batch (Ubuntu runners, warm
 caches): quick 3.7 and 5.2 min, documentation only 0.8 min, standard with one focus file 9.2
 min, full 10.5 min. Before this change every PR ran full with coverage on four jobs (8.1 min
-median per Ubuntu job, `ci/test-tiers` measurements above), so a test-only PR now finishes in
-about half the time with two test jobs instead of four, and without coverage. Totals in the
+median per Ubuntu job, `ci/test-tiers` measurements above; the old end-to-end time was not
+measured), so a test-only PR now needs two test jobs instead of four, without coverage. Totals in the
 full runs at `8908d5f`: 116333 assertions on Julia 1 (Ubuntu, macOS, Windows) and 116322 on
-Julia 1.10; at `f634274` (the review fixes changed the CI tests) 116315 and 116304 locally.
+Julia 1.10; at `f634274` and `e568c5a` (the review fixes changed the CI tests) 116315 and
+116304 locally.
 
 ### What remains
 
-- **Windows of seconds.** Between a label, push or re-run and GitHub creating the run or
+- **Window of seconds.** Between a label, push or re-run and GitHub creating the run or
   attempt, the earlier checks are still the newest (ProximalBase measured 2–6 s for labels).
 - **Removing a label** starts a new run of the path tier, whose checks then count (#186): the
   labels raise the tier of a run, and the paths set the minimum that every PR must pass. The

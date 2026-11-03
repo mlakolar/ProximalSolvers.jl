@@ -176,6 +176,25 @@ ok(; plan = "success", analysis = "success", tests = "success", run_tests = "tru
   @test occursin("\"version\": \"1\", \"os\": \"windows-latest\", \"arch\": \"x64\"", workflow)
 end
 
+@testset "workflow: properties the checks rely on" begin
+  workflow = read(joinpath(dirname(@__DIR__), ".github", "workflows", "CI.yml"), String)
+  # a new base branch starts a new run, so checks computed against another base never count
+  @test occursin("types: [opened, synchronize, reopened, edited, labeled, unlabeled]", workflow)
+  @test !occursin("paths-ignore", workflow) && !occursin("pull_request_target", workflow)
+  # no checkout leaves the token in .git/config for PR code
+  @test count("uses: actions/checkout@", workflow) == count("persist-credentials: false", workflow)
+  # the environment is recorded before the dependencies the tests use are resolved
+  @test findfirst("name: Record the resolved test environment", workflow).start <
+        findfirst("name: Resolve registered dependencies", workflow).start
+  # the record is uploaded only after passing tests
+  @test occursin("if: steps.environment.outcome == 'success' && steps.tests.outcome == 'success'", workflow)
+  # the gate has no `needs`, and the verdict always runs
+  gate = workflow[findfirst("\n  gate:\n", workflow).start:findfirst("\n  report:\n", workflow).start]
+  @test !occursin("needs:", gate) && occursin("--deadline=9600", gate)
+  verdict = workflow[findfirst("\n  verdict:\n", workflow).start:findfirst("\n  gate:\n", workflow).start]
+  @test occursin("if: always()", verdict) && occursin("needs: [plan, test, analysis]", verdict)
+end
+
 @testset "verdict: every planned job must pass" begin
   @test isempty(ok())
   @test isempty(ok(tier = "full", jobs = FULL))
@@ -199,6 +218,12 @@ end
   @test !isempty(ok(tier = "none", run_tests = "false", tests = "success"))
   @test !isempty(ok(tier = "", run_tests = "", plan = "failure"))
   @test !isempty(ok(tier = "thorough"))
+  # a test job of the tier that the expected list does not name must pass as well
+  extra = "Julia 1.11 - ubuntu-latest - x64 - quick"
+  @test occursin("not an expected job", only(ok(jobs = merge(QUICK, Dict(extra => "failure")))))
+  @test isempty(ok(jobs = merge(QUICK, Dict(extra => "success"))))
+  # leftovers of another tier from an earlier attempt do not count
+  @test isempty(ok(jobs = merge(QUICK, Dict("Julia 1 - windows-latest - x64 - full" => "failure"))))
 end
 
 @testset "verdict: the tier each event must run" begin
@@ -264,6 +289,13 @@ end
              fakeapi(QUICK, String[])) == 1
   @test main(env(GITHUB_EVENT_NAME = "push", TIER = "full"), fakeapi(FULL, String[])) == 0
   @test_throws ErrorException CV.parse_jobs(["no tab"])
+  # two jobs of one name never count as success, whatever the order
+  for order in (["X\tfailure", "X\tsuccess"], ["X\tsuccess", "X\tfailure"], ["X\tsuccess", "X\tsuccess"])
+    @test CV.parse_jobs(order)["X"] == "duplicated"
+  end
+  dup = ["Julia 1.10 - ubuntu-latest - x64 - quick\tfailure", "Julia 1.10 - ubuntu-latest - x64 - quick\tsuccess",
+         "Julia 1 - ubuntu-latest - x64 - quick\tsuccess"]
+  @test main(env(), fakeapi(Dict{String, String}(), String[]) |> f -> (args -> occursin("/labels", args[1]) ? String[] : dup)) == 1
 end
 
 end

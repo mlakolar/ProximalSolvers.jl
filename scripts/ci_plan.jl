@@ -100,7 +100,7 @@ function recent_full_run(repo, sha, environments; gh = gh_lines, at = time())
              "--jq", ".[] | [.databaseId, .event, (.createdAt | fromdateiso8601), .conclusion, .headSha] | @tsv"])
   for line in runs
     id, event, created, conclusion, head = tsv(line, 5, "gh run list")
-    event != "pull_request" && conclusion == "success" && head == sha || continue
+    event in ("push", "schedule", "workflow_dispatch") && conclusion == "success" && head == sha || continue
     at - 24 * 3600 <= parse(Float64, created) <= at || continue
     jobs = Dict{String, String}()
     for l in gh(["api", "repos/$repo/actions/runs/$id/jobs?filter=latest&per_page=100", "--paginate",

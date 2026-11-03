@@ -78,7 +78,9 @@ it, and the PR gets the highest tier):
   certification code (stopping tests, duality gaps, screening, certificates,
   paths), the test runner, CI, `Project.toml`, `test/tiers.toml`, and any path
   no rule knows;
-- **no package tests** for documentation only.
+- **no package tests** when every changed path needs none: documentation,
+  benchmarks (their analysis controls run anyway), `test/oracles/` and the
+  scripts and workflows that are not part of the package tests.
 
 Quick and standard run Julia 1.10 and 1 on Ubuntu; full adds macOS and Windows,
 and its Julia 1 Ubuntu job collects coverage for Codecov. The plan, the naming
@@ -98,8 +100,8 @@ new test file and its line in `test/tiers.toml`: a change to the tier lists that
 only adds files new in the PR keeps the PR's tier, and the new file runs beside
 it. Any other edit of `test/tiers.toml` runs full.
 
-Two checks decide whether a PR may merge: **PR required jobs** and **PR merge
-gate**. PR required jobs runs after the plan, the tests and the benchmark
+Once branch protection requires them (see `test/TESTING.md`), two checks
+decide whether a PR may merge: **PR required jobs** and **PR merge gate**. PR required jobs runs after the plan, the tests and the benchmark
 analysis controls, and passes only if they all passed: every test job of the
 chosen tier must pass in its latest attempt, so a failed, cancelled, skipped or
 missing job fails it, as does a plan that found an unclassified test file. It
@@ -124,7 +126,9 @@ To retry jobs of a PR run:
 - **Re-run job** on one test job re-runs it and PR required jobs, but not the
   gate. The PR is blocked while the job runs and stays blocked if it fails.
   After a failed run, the gate keeps its failure even when the re-run passes;
-  then use **Re-run failed jobs**, which re-runs only the gate.
+  then use **Re-run failed jobs**, which re-runs only the gate. (ProximalBase
+  #430 observed this, #468, and the gate-only re-run, #470; the scenarios here
+  covered the other cases.)
 
 Every push to master and every tag (release) runs full on all four platforms.
 A nightly run checks master again with full, unless a run that passed full on

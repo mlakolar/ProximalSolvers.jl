@@ -148,6 +148,15 @@ const STANDARD = TT.select(CI, "standard")
         ("quick", ["symmetric_penalties", "symmetric_penalties_basics", "symmetric_penalty_combinations"])
   @test classify("examples/01_lasso.jl") == ("quick", ["examples"])
   @test classify("examples/README.md") == ("none", String[])
+  # other files under test/ (the test environment, data, preferences) need full
+  for path in ("test/Project.toml", "test/Manifest.toml", "test/LocalPreferences.toml", "test/data/x.csv")
+    @test classify(path)[1] == "full"
+  end
+  # the focus files of the helper rule are the test files that include the helper
+  includers = sort([splitext(f)[1] for f in readdir(@__DIR__) if endswith(f, ".jl") &&
+                    occursin(r"include\([^)]*symmetric_penalty_helpers\.jl", read(joinpath(@__DIR__, f), String))])
+  helper_rule = only(r for r in CI.rules if "test/symmetric_penalty_helpers.jl" in r.patterns)
+  @test sort(helper_rule.focus) == includers
   # a deleted or renamed test file is no focus file; the runner rejects an unlisted one
   @test classify("test/removed_file.jl") == ("quick", String[])
   # localized solver code: standard and the full-only files that exercise it
@@ -159,7 +168,8 @@ const STANDARD = TT.select(CI, "standard")
   # shared architecture, convergence and certification semantics: full
   for path in ("src/ProximalSolvers.jl", "src/types.jl", "src/solve.jl", "src/blocks.jl", "src/line_searches.jl",
                "src/workspaces.jl", "src/precompile.jl", "src/cd/models.jl", "src/cd/solver.jl",
-               "src/utils.jl", "src/cd/gap.jl", "src/cd/sqrtdual.jl", "src/cd/path.jl")
+               "src/utils.jl", "src/cd/gap.jl", "src/cd/sqrtdual.jl", "src/cd/path.jl",
+               "src/solvers/primal_dual.jl", "src/cd/glm.jl")
     @test classify(path)[1] == "full"
   end
   # CI infrastructure, dependencies, the tier lists and paths no rule knows: full
@@ -170,10 +180,10 @@ const STANDARD = TT.select(CI, "standard")
     @test classify(path)[1] == "full"
   end
   # the highest tier of the changed paths decides
-  @test classify("docs/src/index.md", "test/glm.jl", "src/cd/glm.jl")[1] == "standard"
-  @test classify("test/glm.jl", "src/cd/glm.jl", "Project.toml")[1] == "full"
+  @test classify("docs/src/index.md", "test/glm.jl", "src/cd/leastsquares.jl")[1] == "standard"
+  @test classify("test/glm.jl", "src/cd/leastsquares.jl", "Project.toml")[1] == "full"
   # focus files leave out what the tier runs anyway
-  @test pr("src/cd/glm.jl", "test/glm.jl") == ("standard", ["examples", "float32_certificates"])
+  @test pr("src/cd/leastsquares.jl", "test/glm.jl") == ("standard", ["examples", "float32_certificates"])
   @test pr("test/examples.jl") == ("quick", ["examples"])
   @test pr("src/types.jl", "test/glm.jl") == ("full", String[])
   # no changed files: quick
@@ -265,7 +275,7 @@ end
     paths = ["test/solver_new.jl", "test/tiers.toml"]
     @test TT.pr_tier(m, paths, String[]; manifest_additions = ["solver_new"])[1:2] == ("quick", ["solver_new"])
     @test TT.pr_tier(m, paths, String[])[1:2] == ("full", String[])
-    @test TT.pr_tier(m, [paths; "src/cd/glm.jl"], String[]; manifest_additions = ["solver_new"])[1:2] ==
+    @test TT.pr_tier(m, [paths; "src/cd/leastsquares.jl"], String[]; manifest_additions = ["solver_new"])[1:2] ==
           ("standard", ["examples", "float32_certificates", "solver_new"])
     @test TT.pr_tier(m, [paths; "src/cd/gap.jl"], String[]; manifest_additions = ["solver_new"])[1] == "full"
     # an unlisted test file still stops the plan
@@ -362,6 +372,8 @@ single(id, event = "push"; jobs = PASSED, artifacts = ENVS, calls = Vector{Strin
     @test nightly_tier(single("51"; conclusion)) == "full"
   end
   @test nightly_tier(single("52", "pull_request")) == "full"
+  # only push, schedule and manual runs count (an allowlist, not "anything but a PR")
+  @test nightly_tier(single("53", "workflow_run")) == "full" && nightly_tier(single("54", "merge_group")) == "full"
   # the API fails or answers something else: full, and the plan says why
   result, lines = nightly(fakegh(String[]; fail = true))
   @test result.tier == "full" && any(occursin("could not check for an earlier full run", l) for l in lines)

@@ -16,7 +16,11 @@ const ROOT = dirname(@__DIR__)
 
 function resolved_lines()
   project = TOML.parsefile(joinpath(ROOT, "Project.toml"))
-  extras = [Pkg.PackageSpec(; name, uuid = Base.UUID(project["extras"][name])) for name in project["targets"]["test"]]
+  # The test extras with the package's [compat] bounds, as Pkg.test's sandbox applies them.
+  compat = get(project, "compat", Dict{String, Any}())
+  extras = [Pkg.PackageSpec(; name, uuid = Base.UUID(project["extras"][name]),
+                            version = haskey(compat, name) ? Pkg.Types.semver_spec(compat[name]) : Pkg.Types.VersionSpec())
+            for name in project["targets"]["test"]]
   withenv("JULIA_PKG_PRECOMPILE_AUTO" => "0") do
     Pkg.activate(; temp = true, io = devnull)
     Pkg.develop(Pkg.PackageSpec(; path = ROOT); io = devnull)

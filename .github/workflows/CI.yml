@@ -1,15 +1,16 @@
 name: CI
 # The plan job picks a test tier (test/tiers.toml, .github/tier-rules.toml, scripts/ci_plan.jl):
 # - pull requests: the minimum tier for the changed files, raised by the labels test:standard
-#   or test:full (the payload's labels and the PR's current ones); quick at least, plus the
-#   changed test files and the focus files of the matched rules; none for documentation only;
+#   or test:full (the payload's labels and the PR's current ones), plus the changed test files
+#   and the focus files of the matched rules; quick at least, unless every changed path needs no
+#   package tests (documentation, benchmarks; tier none);
 # - pushes to master and release tags: full;
 # - the nightly run: full, unless a run that passed full on the same commit with the same
 #   resolved Julia and package versions is less than a day old;
 # - manual runs: the chosen tier, full by default (`gh workflow run CI.yml --ref <branch>`).
 # Quick and standard run Julia 1.10 and 1 on Ubuntu without coverage; full adds macOS and
 # Windows, and its Julia 1 Ubuntu job collects coverage for Codecov.
-# Branch protection requires two checks of pull_request runs. "PR merge gate" starts with the
+# Branch protection should require two checks of pull_request runs (test/TESTING.md). "PR merge gate" starts with the
 # run, so a new run (a push or a label) at once replaces the commit's earlier gate with a pending
 # one, and it passes when this run's "PR required jobs" found that everything the plan asked for
 # passed. "PR required jobs" itself is required because GitHub re-runs it with any test job that
@@ -18,7 +19,9 @@ name: CI
 # test/TESTING.md the scenarios that checked it.
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    # edited: a new base branch changes what the PR's checks were computed against (a title or
+    # body edit also starts a new run, which only costs time)
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
   push:
     branches:
       - master
@@ -56,6 +59,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          persist-credentials: false
           # A PR checks out its merge commit, whose first parent is the base branch.
           fetch-depth: 2
       - name: Check naming conventions
@@ -152,20 +156,20 @@ jobs:
           {"version": "1", "os": "windows-latest", "arch": "x64", "ptr_jobs": "4"}]' || '[]') }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: julia-actions/setup-julia@v3
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v3
-      - name: Resolve registered dependencies
-        run: julia --color=yes --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.status(; mode=Pkg.PKGMODE_MANIFEST)'
-      - uses: julia-actions/julia-buildpkg@v1
       # A full run that is not for a pull request records the test environment of each Julia
-      # version before its tests, and uploads the record if they pass, so a nightly run on the
+      # version before it resolves the dependencies it tests (Pkg.test keeps the manifest that
+      # the next step writes), and uploads the record if the tests pass, so a nightly run on the
       # same commit can tell whether it would test anything new (scripts/ci_environment.jl,
-      # scripts/ci_plan.jl). A dependency released during the tests changes what a later
-      # resolution gives, so the nightly run then runs full. Best effort: without the record the
-      # nightly run runs full.
+      # scripts/ci_plan.jl). A dependency released after the record makes the tested versions
+      # newer than the recorded ones, so the nightly digest differs and the nightly run runs
+      # full. Best effort: without the record the nightly run runs full.
       - name: Record the resolved test environment
         id: environment
         if: env.FULL_TESTS == 'true' && github.event_name != 'pull_request' && matrix.os == 'ubuntu-latest'
@@ -174,6 +178,9 @@ jobs:
         run: julia --startup-file=no scripts/ci_environment.jl | tee "$RUNNER_TEMP/environment.txt"
         env:
           JULIA_CHANNEL: ${{ matrix.version }}
+      - name: Resolve registered dependencies
+        run: julia --color=yes --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.status(; mode=Pkg.PKGMODE_MANIFEST)'
+      - uses: julia-actions/julia-buildpkg@v1
       - name: Run package tests
         id: tests
         shell: bash
@@ -225,6 +232,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
@@ -234,8 +243,9 @@ jobs:
     # failed or was cancelled, and passes only if the plan and the benchmark controls passed and,
     # when the plan asked for tests, every test job of that tier passed in its latest attempt; on
     # a pull request, also only if no current test: label asks for more than the plan chose
-    # (scripts/ci_verdict.jl). Branch protection requires it beside the gate below, which waits
-    # for it: re-running a single test job re-runs this job too, but not the gate.
+    # (scripts/ci_verdict.jl). Branch protection should require it beside the gate below, which waits
+    # for it: re-running a single test job re-runs this job too, but not the gate. Branch
+    # protection should require it.
     name: ${{ github.event_name == 'pull_request' && 'PR required jobs' || 'CI required jobs' }}
     needs: [plan, test, analysis]
     if: always()
@@ -249,6 +259,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          persist-credentials: false
           sparse-checkout: scripts/ci_verdict.jl
           sparse-checkout-cone-mode: false
       - uses: julia-actions/setup-julia@v3
@@ -267,14 +278,15 @@ jobs:
           COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: julia --startup-file=no scripts/ci_verdict.jl
   gate:
-    # Required by branch protection with "PR required jobs". It has no `needs`, so GitHub creates
+    # To be required by branch protection with "PR required jobs". It has no `needs`, so GitHub creates
     # its check when the run starts: a new run on a commit (a push, or a label on the same commit)
     # shows a pending gate at once, not the green gate of an earlier run. It waits for this run's
     # verdict job and passes only if it passed (scripts/ci_gate.jl, test/ci_gate.jl).
     # It reads this run's jobs and runs no tests, so its token is read-only.
     name: ${{ github.event_name == 'pull_request' && 'PR merge gate' || 'CI result' }}
     runs-on: ubuntu-latest
-    # Above the full tier's queue and test time; the script gives up at 170 minutes.
+    # Above the full tier's queue and test time; the script gives up at 160 minutes (plus at most
+    # about 13 minutes of retries before it starts), within this timeout.
     timeout-minutes: 180
     permissions:
       actions: read # this run's jobs
@@ -282,6 +294,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          persist-credentials: false
           sparse-checkout: scripts/ci_gate.jl
           sparse-checkout-cone-mode: false
       - uses: julia-actions/setup-julia@v3
@@ -296,7 +309,7 @@ jobs:
         run: >-
           julia --startup-file=no scripts/ci_gate.jl "--repo=$GITHUB_REPOSITORY" "--run-id=$GITHUB_RUN_ID"
           "--attempt=$GITHUB_RUN_ATTEMPT" "--sha=$COMMIT" "--event=$GITHUB_EVENT_NAME" "--gate=$GATE"
-          "--verdict=$VERDICT"
+          "--verdict=$VERDICT" --deadline=9600
   report:
     # Only trusted runs (pushes to master and tags, and the nightly run) get write access to
     # issues; no pull request code runs here.
