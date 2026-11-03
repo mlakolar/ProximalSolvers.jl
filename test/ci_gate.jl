@@ -160,7 +160,7 @@ const CV = CIVerdict
 const QUICK = Dict(name => "success" for name in CV.expected_jobs("quick"))
 const FULL = Dict(name => "success" for name in CV.expected_jobs("full"))
 ok(; plan = "success", analysis = "success", tests = "success", run_tests = "true", tier = "quick", jobs = QUICK,
-   labels = nothing) = CV.problems(; plan, analysis, tests, run_tests, tier, jobs, labels)
+   labels = nothing, event = "pull_request") = CV.problems(; plan, analysis, tests, run_tests, tier, jobs, labels, event)
 
 @testset "verdict: the jobs a tier needs" begin
   @test CV.expected_jobs("none") == String[]
@@ -199,6 +199,19 @@ end
   @test !isempty(ok(tier = "none", run_tests = "false", tests = "success"))
   @test !isempty(ok(tier = "", run_tests = "", plan = "failure"))
   @test !isempty(ok(tier = "thorough"))
+end
+
+@testset "verdict: the tier each event must run" begin
+  none = (; tier = "none", run_tests = "false", tests = "skipped", jobs = Dict{String, String}())
+  # pushes to master and tags: full only
+  @test isempty(ok(event = "push", tier = "full", jobs = FULL))
+  @test only(ok(event = "push")) == "A push must run the full tier, not 'quick'."
+  @test !isempty(ok(; event = "push", none...))
+  # the nightly run: full, or none after a verified earlier full run
+  @test isempty(ok(event = "schedule", tier = "full", jobs = FULL)) && isempty(ok(; event = "schedule", none...))
+  @test !isempty(ok(event = "schedule")) && !isempty(ok(event = "schedule", tier = "standard"))
+  # manual runs and pull requests: the plan's tier
+  @test isempty(ok(event = "workflow_dispatch")) && isempty(ok(; event = "pull_request", none...))
 end
 
 @testset "verdict: the PR's current labels" begin
@@ -243,10 +256,13 @@ end
   @test main(env(), fakeapi(QUICK, String[]; fail = ["labels"])) == 1
   # other events read no labels; tier none lists no jobs
   calls = Vector{String}[]
-  @test main(env(GITHUB_EVENT_NAME = "push", TIER = "none", RUN_TESTS = "false", TESTS = "skipped"),
+  @test main(env(GITHUB_EVENT_NAME = "schedule", TIER = "none", RUN_TESTS = "false", TESTS = "skipped"),
              fakeapi(QUICK, ["test:full"]; fail = ["labels", "jobs"], calls)) == 0
   @test isempty(calls)
   @test main(env(GITHUB_EVENT_NAME = "schedule", TIER = "full"), fakeapi(FULL, String[]; fail = ["labels"])) == 0
+  @test main(env(GITHUB_EVENT_NAME = "push", TIER = "none", RUN_TESTS = "false", TESTS = "skipped"),
+             fakeapi(QUICK, String[])) == 1
+  @test main(env(GITHUB_EVENT_NAME = "push", TIER = "full"), fakeapi(FULL, String[])) == 0
   @test_throws ErrorException CV.parse_jobs(["no tab"])
 end
 

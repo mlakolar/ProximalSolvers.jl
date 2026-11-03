@@ -12,7 +12,8 @@ full = 60
 # (`*` within a directory, `**` across directories); the PR gets the highest of these tiers
 # and of its test:standard or test:full labels. A path no rule matches gets full. "none": no
 # package tests (the plan, the naming check and the benchmark analysis controls still run).
-# Changed test files, and the `focus` files of the matched rules, run beside the tier.
+# Changed test files, and the `focus` files of the matched rules, run beside the tier. Every
+# source file is named explicitly, so a new one gets full until it has a rule.
 #
 # Standard runs every file but four (test/tiers.toml), so the focus files of a solver rule are
 # those of the four full-only files that exercise it: the ones that cover lines of that source
@@ -150,6 +151,15 @@ focus = ["symmetric_penalty_combinations"]
 paths = ["src/cd/quic.jl", "src/cd/kronu.jl", "src/solvers/monotone_accelerated_proximal_gradient_descent.jl"]
 
 [[risk]]
-why = "package code that only standard's files exercise"
+why = "solver code that only standard's files exercise (no full-only file covers a quarter of it)"
 tier = "standard"
-paths = ["src/**"]
+paths = [
+  "src/cd/generic_newton.jl",
+  "src/cd/multiresponse.jl",
+  "src/cd/quadratic.jl",
+  "src/cd/refit_cache.jl",
+  "src/solvers/diagonal_metric.jl",
+]
+
+# A source file no rule names (a new file, a new directory or an extension) falls through to
+# full: it may be loaded from anywhere and nothing here says what tests it.

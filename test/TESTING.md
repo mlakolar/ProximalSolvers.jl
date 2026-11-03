@@ -6,20 +6,23 @@ tier each file belongs to and why, and the measurements behind the tiers and CI'
 
 ## Inventory
 
-- **53 regular test files** in `test/`, each listed once in `test/tiers.toml` under the lowest
+- **54 regular test files** in `test/`, each listed once in `test/tiers.toml` under the lowest
   of the cumulative tiers quick, standard and full (see Tiers). Each is a module of its own
   (`module CDTests … end`). `Pkg.test()` runs all of them. An unclassified, missing or
   duplicated file, or a file filter that matches nothing, stops the run before any test starts.
   Until the tiers there were 48; the tiers moved representative testsets of four files into
-  four `*_basics.jl` files and added `tier_selection.jl`.
+  four `*_basics.jl` files and added `tier_selection.jl`, and the risk-based CI added
+  `ci_gate.jl` (see Risk-based CI).
 - **Helpers:** `symmetric_penalty_helpers.jl`, included by `symmetric_penalties.jl`,
   `symmetric_penalties_basics.jl` and `symmetric_penalty_combinations.jl`; `tiers.jl`, the tier
-  selection used by `runtests.jl` and `tier_selection.jl`. Neither runs on its own.
+  selection and CI rules used by `runtests.jl`, `tier_selection.jl` and `scripts/ci_plan.jl`.
+  Neither runs on its own.
 - **Separate environment:** `test/oracles/` (Hypatia, JuMP, HiGHS; see its README) compares
   QUIC, square-root and primal–dual solutions with independent conic/LP/QP solvers. It is run by
   hand or on a cluster and is **not** part of `Pkg.test()`, before or after this change.
 - `examples.jl` runs every script in `examples/`; `aqua.jl` runs Aqua; `naming.jl` checks the
-  option names. CI's `scripts/check_naming.py` and the benchmark-analysis job are separate.
+  option names. CI's `scripts/check_naming.py` (in the plan job) and the benchmark-analysis job
+  are separate and run on every CI run.
 
 ## Runner
 
@@ -286,7 +289,8 @@ only the absence of errors). It is meant to run on every pull request:
 | File | Why it is in quick |
 |---|---|
 | `aqua`, `naming` | package quality (ambiguities, piracy, stale dependencies) and the option names |
-| `tier_selection` | the tier manifest: every file classified once, tiers cumulative, problems rejected |
+| `tier_selection` | the tier manifest: every file classified once, tiers cumulative, problems rejected; the CI risk rules, labels and the nightly plan |
+| `ci_gate` | the CI verdict and merge gate on job states: failed, cancelled, skipped, missing and re-run jobs, stale labels, API errors |
 | `prox_solvers` | proximal gradient, accelerated and monotone accelerated solvers: solutions, stopping on the gradient residual, callbacks, `SparseIterate` and Float32 iterates |
 | `linesearch` | the backtracking line search: solver reuse, the switch to gradients near convergence, trial points off the cone |
 | `call_limits` | the call counts the solvers report and the call limits that stop them (gradient solvers, ADMM) |
@@ -352,8 +356,8 @@ check, each of the eight files gave the same assertion count and passed when sta
   are unchanged.
 - **Coverage:** full with coverage covers the same 6010 of 6142 instrumented lines of `src`,
   line for line, as the sequential runner at `1f62540` (M3 Pro, Julia 1.13.3).
-- **`Pkg.test()`** without arguments runs full; CI still runs full on every job (the tier
-  selection of pull requests is #121's phase 3).
+- **`Pkg.test()`** without arguments runs full. Until the risk-based CI (below), CI ran full on
+  every job.
 
 ### Measurements
 

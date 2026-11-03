@@ -160,6 +160,20 @@ jobs:
       - name: Resolve registered dependencies
         run: julia --color=yes --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.status(; mode=Pkg.PKGMODE_MANIFEST)'
       - uses: julia-actions/julia-buildpkg@v1
+      # A full run that is not for a pull request records the test environment of each Julia
+      # version before its tests, and uploads the record if they pass, so a nightly run on the
+      # same commit can tell whether it would test anything new (scripts/ci_environment.jl,
+      # scripts/ci_plan.jl). A dependency released during the tests changes what a later
+      # resolution gives, so the nightly run then runs full. Best effort: without the record the
+      # nightly run runs full.
+      - name: Record the resolved test environment
+        id: environment
+        if: env.FULL_TESTS == 'true' && github.event_name != 'pull_request' && matrix.os == 'ubuntu-latest'
+        continue-on-error: true
+        shell: bash
+        run: julia --startup-file=no scripts/ci_environment.jl | tee "$RUNNER_TEMP/environment.txt"
+        env:
+          JULIA_CHANNEL: ${{ matrix.version }}
       - name: Run package tests
         id: tests
         shell: bash
@@ -184,20 +198,8 @@ jobs:
         run: julia --startup-file=no scripts/test_report.jl "$RUNNER_TEMP/test-output.log" "$(cat "$RUNNER_TEMP/test-seconds")" >> "$GITHUB_STEP_SUMMARY"
         env:
           TEST_REPORT_TITLE: Julia ${{ matrix.version }}, ${{ matrix.os }}, tier ${{ needs.plan.outputs.tier }}, ${{ matrix.ptr_jobs }} workers
-      # A passing full run that is not for a pull request records the test environment of each
-      # Julia version, so a nightly run on the same commit can tell whether it would test
-      # anything new (scripts/ci_environment.jl, scripts/ci_plan.jl). Best effort: without the
-      # record the nightly run runs full.
-      - name: Record the resolved test environment
-        id: environment
-        if: env.FULL_TESTS == 'true' && github.event_name != 'pull_request' && matrix.os == 'ubuntu-latest'
-        continue-on-error: true
-        shell: bash
-        run: julia --startup-file=no scripts/ci_environment.jl | tee "$RUNNER_TEMP/environment.txt"
-        env:
-          JULIA_CHANNEL: ${{ matrix.version }}
       - name: Upload the test environment record
-        if: steps.environment.outcome == 'success'
+        if: steps.environment.outcome == 'success' && steps.tests.outcome == 'success'
         continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
@@ -299,8 +301,8 @@ jobs:
     # Only trusted runs (pushes to master and tags, and the nightly run) get write access to
     # issues; no pull request code runs here.
     name: Report a failing master run
-    needs: verdict
-    if: always() && needs.verdict.result == 'failure' && github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
+    needs: [verdict, gate]
+    if: always() && contains(needs.*.result, 'failure') && github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -310,7 +312,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          title="CI failing on master"
+          title="CI failing on master" # also for a release tag or the nightly run; the body names the ref
           url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           body="The $GITHUB_EVENT_NAME run $url failed at $GITHUB_SHA ($GITHUB_REF). Fix or revert promptly; see CONTRIBUTING.md."
           number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')

@@ -187,13 +187,14 @@ end
     i = findfirst(r -> any(re -> occursin(re, pattern), r.regexes), CI.rules)
     @test CI.rules[i] === rule
   end
-  # every source file has a rule written for the package code, never the fallback for unknown paths
+  # every source file is named by a rule of its own (no glob), and a source file no rule names,
+  # such as a new one, gets full
   for (dir, _, files) in walkdir(joinpath(ROOT, "src")), file in files
     path = replace(relpath(joinpath(dir, file), ROOT), '\\' => '/')
-    t, = classify(path)
-    @test t in ("standard", "full")
-    @test TT.classify(CI, [path])[3][1][3] != "no rule matches this path"
+    @test any(rule -> path in rule.patterns && rule.tier in ("standard", "full"), CI.rules)
   end
+  @test classify("src/cd/new_model.jl") == ("full", String[])
+  @test classify("src/new_dir/file.jl", "test/glm.jl") == ("full", ["glm"])
   # the focus files of a solver rule are full-only files: standard runs the others anyway
   for rule in CI.rules, name in rule.focus
     rule.tier == "standard" && @test CI.tier[name] == "full"
@@ -230,20 +231,25 @@ end
   two = add(add(old, "full", "b_new"), "standard", "a_new")
   @test TT.manifest_additions(old, two, ["a_new", "b_new"]) == (["a_new", "b_new"], String[])
   # comments and order alone change nothing
-  @test TT.manifest_additions(old, replace(old, "# ADMM and primal-dual splitting" => "# ADMM, primal-dual"), String[]) ==
-        (String[], String[])
-  swapped = replace(old, "  \"aqua\",\n  \"ci_gate\",\n" => "  \"ci_gate\",\n  \"aqua\",\n")
+  commented = replace(old, "\n#" => "\n# edited:"; count = 1)
+  @test commented != old && TT.manifest_additions(old, commented, String[]) == (String[], String[])
+  # the names come from the manifest itself, so that a PR that moves a file still passes here
+  line(name) = "  \"$name\",\n"
+  adjacent = match(r"\n  \"([^\"]+)\",\n  \"([^\"]+)\",\n", old) # two consecutive entries of one list
+  q1, q2 = adjacent.captures
+  @test TT.parse_manifest(old).tier[q1] == "quick"
+  swapped = replace(old, line(q1) * line(q2) => line(q2) * line(q1))
   @test swapped != old && TT.manifest_additions(old, swapped, String[]) == (String[], String[])
   # anything else needs full
   a, p = TT.manifest_additions(old, add(old, "quick", "solver_new"), String[])
   @test a === nothing && occursin("not a new file of this change", only(p))
-  moved = add(replace(old, "  \"workspaces\",\n" => ""; count = 1), "standard", "workspaces")
+  moved = add(replace(old, line(q1) => ""; count = 1), "standard", q1)
   a, p = TT.manifest_additions(old, moved, String[])
-  @test a === nothing && only(p) == "`workspaces` moves from `quick` to `standard`"
-  a, p = TT.manifest_additions(old, replace(old, "  \"workspaces\",\n" => ""; count = 1), String[])
-  @test a === nothing && only(p) == "`workspaces` is removed from tier `quick`"
-  renamed = add(replace(old, "  \"workspaces\",\n" => ""; count = 1), "quick", "workspaces2")
-  @test TT.manifest_additions(old, renamed, ["workspaces2"])[2] == ["`workspaces` is removed from tier `quick`"]
+  @test a === nothing && only(p) == "`$q1` moves from `quick` to `standard`"
+  a, p = TT.manifest_additions(old, replace(old, line(q1) => ""; count = 1), String[])
+  @test a === nothing && only(p) == "`$q1` is removed from tier `quick`"
+  renamed = add(replace(old, line(q1) => ""; count = 1), "quick", q1 * "_renamed")
+  @test TT.manifest_additions(old, renamed, [q1 * "_renamed"])[2] == ["`$q1` is removed from tier `quick`"]
   a, p = TT.manifest_additions(old, replace(old, "\"symmetric_penalty_helpers\", \"tiers\"]" =>
                                                  "\"symmetric_penalty_helpers\", \"tiers\", \"glm\"]"), String[])
   @test a === nothing # a test file moved into the helpers stops running: problems either way

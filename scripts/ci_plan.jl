@@ -47,9 +47,10 @@ base_commit(base, head) = head === nothing ? readchomp(Cmd(`git merge-base $base
 function changed_files(base, head)
   # --no-renames lists both paths of a rename, so a removed path still counts.
   revs = head === nothing ? (base_commit(base, head),) : (base, head)
-  out = read(Cmd(`git diff --name-only --no-renames $revs`; dir = ROOT), String)
-  head === nothing && (out *= "\n" * read(Cmd(`git ls-files --others --exclude-standard`; dir = ROOT), String))
-  return sort!(unique(filter(!isempty, split(out, '\n'))))
+  # -z: paths as they are, not quoted (a quoted path would match no rule and plan full)
+  out = read(Cmd(`git diff -z --name-only --no-renames $revs`; dir = ROOT), String)
+  head === nothing && (out *= "\0" * read(Cmd(`git ls-files -z --others --exclude-standard`; dir = ROOT), String))
+  return sort!(unique(filter(!isempty, split(out, '\0'))))
 end
 
 # Whether a change to test/tiers.toml only adds test files that the change also adds: compares

@@ -31,15 +31,18 @@ end
 rank(tier) = something(findfirst(==(tier), TIER_ORDER), 0)
 
 """
-    problems(; plan, analysis, tests, run_tests, tier, jobs, labels) -> Vector{String}
+    problems(; plan, analysis, tests, run_tests, tier, jobs, labels, event) -> Vector{String}
 
 Why the run must not pass; empty when it passes. `plan`, `analysis` and `tests` are the results
 of those jobs (`needs.<job>.result`), `run_tests` and `tier` the plan's outputs, `jobs` the
-conclusion of each job of the run in its latest attempt (name => conclusion), and `labels` the
-PR's current labels (`nothing` for other events).
+conclusion of each job of the run in its latest attempt (name => conclusion), `labels` the
+PR's current labels (`nothing` for other events) and `event` the run's event: a push (master or
+a tag) must run full, and the nightly run full or, after a verified earlier full run, none.
 """
-function problems(; plan, analysis, tests, run_tests, tier, jobs, labels = nothing)
+function problems(; plan, analysis, tests, run_tests, tier, jobs, labels = nothing, event = "")
   out = String[]
+  event == "push" && tier != "full" && push!(out, "A push must run the full tier, not '$tier'.")
+  event == "schedule" && !(tier in ("full", "none")) && push!(out, "The nightly run must run full or none, not '$tier'.")
   plan == "success" || push!(out, "The test plan did not succeed ($plan).")
   analysis == "success" || push!(out, "Benchmark analysis controls: $analysis.")
   if tier == "none"
@@ -119,7 +122,7 @@ function main(env = ENV; gh = args -> readlines(`gh api $args`), wait = 15)
     println("Current labels: ", isempty(labels) ? "none" : join(labels, ", "))
   end
   append!(out, problems(; plan = get("PLAN"), analysis = get("ANALYSIS"), tests = get("TESTS"),
-                        run_tests = get("RUN_TESTS"), tier, jobs, labels))
+                        run_tests = get("RUN_TESTS"), tier, jobs, labels, event = get("GITHUB_EVENT_NAME")))
   foreach(p -> println("::error::", p), out)
   isempty(out) && println("Every required job passed.")
   return isempty(out) ? 0 : 1
