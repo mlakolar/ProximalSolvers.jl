@@ -532,8 +532,9 @@ are recommended).
   PR's code. The cache action now has `delete-old-caches: false`; restoring and saving go
   through the runner's cache service and need no token scope, and GitHub evicts caches unused
   for 7 days or beyond the repository's 10 GB. A workflow test fails if any permission of the
-  test job is `write` or deletion is turned back on. Checked on GitHub at the head below: every
-  test job restored a cache and saved one.
+  test job is `write` or deletion is turned back on. Checked on GitHub at `0ddcaac` (run
+  41746737170): each of the four test jobs reported `Actions: read`, `Contents: read`, restored the
+  cache of the previous run and saved its own ("Cache saved successfully").
 - **`src/cd/groupcurvature.jl` is full.** It calls LAPACK's `syevr` through `ccall`, and an
   out-of-bounds write there crashed Julia on macOS (#131, fixed in #146); standard's line
   coverage of the file does not test the other platforms. A test pins the rule, also against a
@@ -657,11 +658,11 @@ test jobs (about 6 runner minutes instead of about 32), and a localized solver c
 9 minutes with two; full keeps the earlier time and the four platforms. Both targets hold:
 quick 4.2–4.5 minutes against 3–5, standard 7.4–9.5 against 6–10, end to end.
 
-**Counts and coverage at the head `4c09c7c`.** Full runs 54 files and counts **116337**
-assertions on Julia 1.13.3 (Ubuntu, macOS aarch64, Windows) and **116326** on Julia 1.10.13
-(#191's run 41715378305; locally the same, 116337 and 116326 on Julia 1.13.3 and 1.10.12). That
-is #174's 115871 and 115860 plus 466 in `ci_gate.jl` and the extended `tier_selection.jl`; the
-other 52 files are unchanged. Full with coverage covers the same **6010 of 6142** `src` lines,
+**Counts and coverage at `0ddcaac`.** Full runs 54 files and counts **116341** assertions on
+Julia 1.13.3 (Ubuntu, macOS aarch64, Windows) and **116330** on Julia 1.10.13 (#191's run
+41746737170). That is #174's 115871 and 115860 plus 470 in `ci_gate.jl` and the extended
+`tier_selection.jl`; the other 52 files are unchanged. At `4c09c7c`, before the maintainer
+review's 4 policy assertions, the counts were 116337 and 116326 (run 41715378305, and locally). Full with coverage covers the same **6010 of 6142** `src` lines,
 line for line, as before the tiers (local, Julia 1.13.3). Earlier commits of this PR counted
 116333 / 116322 (`8908d5f`) and 116315 / 116304 (`f634274`, `e568c5a`) as the CI tests changed.
 
