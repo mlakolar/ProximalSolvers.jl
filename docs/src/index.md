@@ -58,3 +58,5 @@ and the [Solver reference](@ref).
 Finally, we describe the statistical software collection in
 [Related packages and benchmarks](@ref) and collect the general algorithmic
 [references](@ref general_references), with further citations on the method pages.
+
+See [`a_function_that_does_not_exist`](@ref).
