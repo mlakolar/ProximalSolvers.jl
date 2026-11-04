@@ -28,7 +28,10 @@ jobs:
       contents: read
     steps:
       - name: Report whether the environment's key is visible (never its value)
-        run: echo "DOCUMENTER_KEY present in the environment job: ${{ secrets.DOCUMENTER_KEY != '' }}"
+        env:
+          KEY_PRESENT: ${{ secrets.DOCUMENTER_KEY != '' }}
+        run: |
+          echo "DOCUMENTER_KEY present in the environment job - $KEY_PRESENT"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
