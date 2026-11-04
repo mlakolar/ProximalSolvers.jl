@@ -77,16 +77,16 @@ Quote patterns in the shell. For each case, a `CHECK` line gives the certificate
 first (validation) call as soon as it finishes. The report then gives the status, the
 first call (with compilation), the median and minimum of the timed samples (at most 25 by
 default, stopping after 0.5 timed seconds once three are taken, against five in `run.jl`;
-see `--help`), the allocation per call,
-the certificate against its target and solver work counters read after timing. A
-baseline adds the candidate/baseline median ratio, the absolute change per call and the
-ratio of minimum times. A ratio is withheld unless the case, data hash, harness, `local.jl`,
-active project and manifest, Julia version, CPU model and ProximalBase all match and both
-runs are `ok`. Saved times are positive integer nanoseconds; a saved median that is not
-gives no ratio, and such a minimum drops only the minimum ratio. Within about 10%, a
-ratio is typical run-to-run noise. Other processes inflate medians more than minima: when
-the two ratios differ by more than 10%, or the header warns that the load average exceeds
-half the CPU threads, rerun on a quieter machine. A case stops at its first non-`ok`
+see `--help`), the allocation per call, the certificate against its target and solver work
+counters read after timing. A baseline adds the candidate/baseline median ratio, the
+absolute change per call and the ratio of minimum times. A ratio is withheld unless the
+case, data hash, harness, `local.jl`, active project and manifest, Julia version, CPU model
+and ProximalBase all match and both runs are `ok`. Saved times must be positive integer
+nanoseconds. An invalid baseline median suppresses the ratio; an invalid minimum suppresses
+only the minimum-time ratio. Within about 10%, a ratio is typical run-to-run noise. Other
+processes inflate medians more than minima: when the two ratios differ by more than 10%,
+or the header warns that the load average exceeds half the CPU threads, rerun on a quieter
+machine. A case stops at its first non-`ok`
 certificate, in validation or in a timed sample, and reports the failure, its `CHECK`
 line and no timing (earlier `ok` samples are not a timing of a failed case); the exit
 status is 2, as in `run.jl`.
