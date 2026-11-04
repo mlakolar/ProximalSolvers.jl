@@ -1,0 +1,14 @@
+# Changes to CI, the test runner and selection, and the documentation build need a code owner's
+# review before they merge (ruleset "master: code-owner review"; the repository admin may bypass
+# it explicitly when merging). A pull request's own copy of these files runs its checks, so
+# reviewing them is what makes the required checks trustworthy (test/TESTING.md, Risk-based CI).
+/.github/                  @mlakolar
+/scripts/ci_*.jl           @mlakolar
+/scripts/test.jl           @mlakolar
+/scripts/test_report.jl    @mlakolar
+/test/runtests.jl          @mlakolar
+/test/tiers.jl             @mlakolar
+/test/tiers.toml           @mlakolar
+/test/ci_gate.jl           @mlakolar
+/test/tier_selection.jl    @mlakolar
+/docs/make.jl              @mlakolar
