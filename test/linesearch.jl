@@ -136,3 +136,11 @@ end
 end
 
 end
+
+# demonstration (disposable PR, not for merging): a deliberate failing assertion
+module LinesearchDemoFailure
+using Test
+@testset "demo: deliberate failure" begin
+  @test 1 + 1 == 3
+end
+end
