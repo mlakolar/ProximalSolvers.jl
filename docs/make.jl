@@ -1,3 +1,7 @@
+# scenario (disposable PR, not for merging): what a PR's docs/make.jl can see, then a failing build
+println("scenario: DOCUMENTER_KEY present: ", !isempty(get(ENV, "DOCUMENTER_KEY", "")),
+        "; GITHUB_TOKEN present: ", !isempty(get(ENV, "GITHUB_TOKEN", "")))
+error("scenario: a deliberately failing documentation build")
 using Documenter, DocumenterInterLinks, Literate, ProximalSolvers
 
 # Links to the functions of ProximalBase go to its documentation: `@extref` in
