@@ -22,9 +22,13 @@ jobs:
     name: Documentation
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    # scenario (disposable PR, not for merging): a PR tries to enter the protected environment
+    environment: deploy-key
     permissions:
       contents: read
     steps:
+      - name: Report whether the environment's key is visible (never its value)
+        run: echo "DOCUMENTER_KEY present in the environment job: ${{ secrets.DOCUMENTER_KEY != '' }}"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
