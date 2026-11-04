@@ -76,8 +76,9 @@ it, and the PR gets the highest tier):
 - **full**: shared solver architecture (solver types, the solve driver,
   workspaces, line searches, the coordinate-descent passes), convergence and
   certification code (stopping tests, duality gaps, screening, certificates,
-  paths), the test runner, CI, `Project.toml`, `test/tiers.toml`, and any path
-  no rule knows;
+  paths), native code (the direct LAPACK call in `src/cd/groupcurvature.jl`),
+  the test runner, CI, `Project.toml`, `test/tiers.toml`, and any path no rule
+  knows;
 - **no package tests** when every changed path needs none: documentation,
   benchmarks (their analysis controls run anyway), `test/oracles/` and the
   scripts and workflows that are not part of the package tests.

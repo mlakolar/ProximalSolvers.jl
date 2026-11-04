@@ -165,11 +165,15 @@ const STANDARD = TT.select(CI, "standard")
   @test classify("src/cd/quic.jl") == ("standard", ["symmetric_penalty_combinations"])
   @test classify("src/solvers/slope.jl") == ("standard", ["mixed_precision_extended"])
   @test classify("src/cd/multiresponse.jl") == ("standard", String[])
+  # a label cannot lower the native LAPACK call below full
+  @test pr("src/cd/groupcurvature.jl"; labels = ["test:standard"]) == ("full", String[])
   # shared architecture, convergence and certification semantics: full
   for path in ("src/ProximalSolvers.jl", "src/types.jl", "src/solve.jl", "src/blocks.jl", "src/line_searches.jl",
                "src/workspaces.jl", "src/precompile.jl", "src/cd/models.jl", "src/cd/solver.jl",
                "src/utils.jl", "src/cd/gap.jl", "src/cd/sqrtdual.jl", "src/cd/path.jl",
-               "src/solvers/primal_dual.jl", "src/cd/glm.jl")
+               "src/solvers/primal_dual.jl", "src/cd/glm.jl",
+               # native code: a direct LAPACK call (#131, #146)
+               "src/cd/groupcurvature.jl")
     @test classify(path)[1] == "full"
   end
   # CI infrastructure, dependencies, the tier lists and paths no rule knows: full

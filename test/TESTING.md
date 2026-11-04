@@ -422,7 +422,8 @@ Each changed path takes the first rule that matches it; the PR gets the highest 
   `line_searches.jl`, `workspaces.jl`, `precompile.jl`, `cd/models.jl`, `cd/solver.jl`);
   convergence and certification semantics (`utils.jl`, with the stopping tests,
   `cd/gap.jl`, `cd/sqrtdual.jl`, `cd/path.jl`, `solvers/primal_dual.jl` with the public
-  primal-dual `duality_gap`, `cd/glm.jl` with ProxNewton's certificate guard); and every path no
+  primal-dual `duality_gap`, `cd/glm.jl` with ProxNewton's certificate guard); native code
+  (`cd/groupcurvature.jl`, which calls LAPACK's `syevr` through `ccall`); and every path no
   rule names, including a new source file (which `tier_selection` then rejects until a rule
   names it) and any file under `test/` that is not Julia code (the test environment, data).
 - **quick:** a test file (it runs beside the tier), the shared symmetric-penalty helpers (with
@@ -462,7 +463,7 @@ their share of standard's.
 | `cd/sqrtquadratic` | 202 | 134 / 0, 66% | 0 | 0 | 0 |
 | `cd/generic_newton`, `cd/multiresponse`, `cd/quadratic`, `cd/refit_cache` | 117, 124, 137, 116 | 0 | 0 | 0 | 0 |
 
-`solvers/primal_dual` and `cd/glm` became full in the final review (below); their rows show what
+`solvers/primal_dual`, `cd/glm` and `cd/groupcurvature` became full in the reviews (below); their rows show what
 the focus files would be. Of the files that are full anyway, `float32_certificates` alone covers 76 lines of `cd/gap.jl`
 that standard does not. The selection reads coverage, not behavior: a full-only file that runs
 the same lines with other types (Float32, mixed precision) is chosen through its share, and a
@@ -505,7 +506,7 @@ green without the tests the paths or labels require. Changes made:
 - **The verdict** fails on two jobs of one name (they count as `duplicated`, never success) and
   on any failed test job of the planned tier that its list of expected jobs does not name.
 - **No checkout keeps the token** in `.git/config` (`persist-credentials: false`), so PR code in
-  the test job cannot reuse the job's `actions: write` token through git.
+  the test job cannot reuse its token through git (the token is now read-only as well, below).
 - **The gate's deadline** is 160 minutes, so its startup retries fit the 180-minute job timeout.
 - **The environment record** is taken before the job resolves the dependencies the tests use
   (Pkg.test keeps that manifest), and the extras resolve with the package's `[compat]` bounds,
@@ -520,10 +521,46 @@ green without the tests the paths or labels require. Changes made:
   `paths-ignore` or `pull_request_target`, the record before the resolution, the upload only
   after passing tests, a gate without `needs`, a verdict that always runs.
 
-Not changed: the test job keeps `actions: write` for `julia-actions/cache` (fork PRs get a
-read-only token, and authors of same-repository PRs already have write access); the planner,
-verdict and gate come from the PR's merge commit, so they are only as strong as required review
-of `.github/**` and `scripts/ci_*.jl` (CODEOWNERS or required review are recommended).
+Not changed: the planner, verdict and gate come from the PR's merge commit, so they are only as
+strong as required review of `.github/**` and `scripts/ci_*.jl` (CODEOWNERS or required review
+are recommended).
+
+### Maintainer review (#191, review 5761207188)
+
+- **The test job's token is read-only** (`actions: read`, `contents: read`). It had
+  `actions: write` only so that `julia-actions/cache` could delete older caches, and it runs the
+  PR's code. The cache action now has `delete-old-caches: false`; restoring and saving go
+  through the runner's cache service and need no token scope, and GitHub evicts caches unused
+  for 7 days or beyond the repository's 10 GB. A workflow test fails if any permission of the
+  test job is `write` or deletion is turned back on. Checked on GitHub at the head below: every
+  test job restored a cache and saved one.
+- **`src/cd/groupcurvature.jl` is full.** It calls LAPACK's `syevr` through `ccall`, and an
+  out-of-bounds write there crashed Julia on macOS (#131, fixed in #146); standard's line
+  coverage of the file does not test the other platforms. A test pins the rule, also against a
+  `test:standard` label.
+- **Codecov's comparison changes baseline.** Master's coverage is the union of four uploads (Julia
+  1.10 and 1 on Ubuntu, macOS, Windows): 39 files, 6204 of 6374 lines. A full run now uploads
+  only the Julia 1 Ubuntu job: 38 files, 6010 of 6142. The difference is the Julia 1.10 job,
+  whose coverage also instruments `src/ProximalSolvers.jl` and `src/precompile.jl` (module and
+  precompile code that Julia 1.13 does not report), not lost tests: the Julia 1.13 file set and
+  covered lines are unchanged, and the coverage parity here compares single Julia 1.13 runs (6010
+  of 6142 before and after). The first comparison after the merge, and Codecov's PR comments
+  until master has a single-job baseline, therefore show a spurious change of about half a
+  percentage point.
+- **Documentation is not one of the two checks.** A PR whose `Documentation` workflow fails still
+  gets a green `PR required jobs`, unless branch protection also requires `Documentation`. That
+  workflow runs on every pull request (no path filter), so it can be a third required check;
+  doing so is the maintainer's choice, and is better made after the hardening below.
+- **The Documentation workflow runs PR code with write access (existing, not changed here).**
+  `.github/workflows/Documentation.yml` runs `docs/make.jl` from the PR with `contents: write`,
+  `actions: write` and `statuses: write`, and passes `GITHUB_TOKEN` and `DOCUMENTER_KEY` to that
+  step. Fork PRs get a read-only token and no secrets, but a same-repository PR's branch can
+  change `docs/make.jl` (which the proposed review rule on `.github/**` does not cover) and use
+  them. Proposed follow-up, separate from this PR: build on pull requests with `contents: read`
+  only, no `DOCUMENTER_KEY` and no write token (Documenter can build without deploying); deploy
+  in a separate job that runs only on pushes to master and tags, with `contents: write` and the
+  key, and runs no PR code; keep `persist-credentials: false`; then consider requiring the PR
+  build as a third check.
 
 ### Scenarios
 

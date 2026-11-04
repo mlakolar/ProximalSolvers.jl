@@ -132,8 +132,12 @@ jobs:
     timeout-minutes: ${{ fromJSON(needs.plan.outputs.timeout) }}
     env:
       FULL_TESTS: ${{ needs.plan.outputs.tier == 'full' }}
-    permissions: # needed to allow julia-actions/cache to proactively delete old caches that it has created
-      actions: write
+    # This job runs the PR's code, so its token is read-only. julia-actions/cache restores and
+    # saves through the runner's cache service, which needs no token scope; only its deletion of
+    # older caches needs `actions: write`, so that is off, and GitHub evicts caches unused for 7
+    # days or beyond the repository's 10 GB.
+    permissions:
+      actions: read
       contents: read
     strategy:
       fail-fast: false
@@ -163,6 +167,8 @@ jobs:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v3
+        with:
+          delete-old-caches: false
       # A full run that is not for a pull request records the test environment of each Julia
       # version before it resolves the dependencies it tests (Pkg.test keeps the manifest that
       # the next step writes), and uploads the record if the tests pass, so a nightly run on the

@@ -187,7 +187,11 @@ end
   # the environment is recorded before the dependencies the tests use are resolved
   @test findfirst("name: Record the resolved test environment", workflow).start <
         findfirst("name: Resolve registered dependencies", workflow).start
-  # the record is uploaded only after passing tests
+  # the job that runs the PR's code has a read-only token, and the cache action deletes nothing
+  test = workflow[findfirst("\n  test:\n", workflow).start:findfirst("\n  analysis:\n", workflow).start]
+  @test !occursin(r"\n\s+[a-z-]+: write", test) && occursin("\n      actions: read", test)
+  @test occursin("uses: julia-actions/cache@v3\n        with:\n          delete-old-caches: false", test)
+    # the record is uploaded only after passing tests
   @test occursin("if: steps.environment.outcome == 'success' && steps.tests.outcome == 'success'", workflow)
   # the gate has no `needs`, and the verdict always runs
   gate = workflow[findfirst("\n  gate:\n", workflow).start:findfirst("\n  report:\n", workflow).start]

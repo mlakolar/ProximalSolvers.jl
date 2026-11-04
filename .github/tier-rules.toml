@@ -85,6 +85,11 @@ tier = "full"
 paths = ["src/utils.jl", "src/cd/gap.jl", "src/cd/sqrtdual.jl", "src/cd/path.jl", "src/solvers/primal_dual.jl", "src/cd/glm.jl"]
 
 [[risk]]
+why = "a direct LAPACK call (syevr through ccall), where a platform-specific out-of-bounds write once crashed Julia on macOS (#131, #146): every platform must run it"
+tier = "full"
+paths = ["src/cd/groupcurvature.jl"]
+
+[[risk]]
 why = "the shared helpers of the symmetric penalty tests"
 tier = "quick"
 focus = ["symmetric_penalties_basics", "symmetric_penalties", "symmetric_penalty_combinations"]
@@ -132,7 +137,7 @@ paths = ["src/solvers/admm.jl", "src/cd/lla.jl", "src/cd/sqrtlasso.jl", "src/cd/
 why = "coordinate-descent losses that are also certified in Float32"
 tier = "standard"
 focus = ["examples", "float32_certificates"]
-paths = ["src/cd/leastsquares.jl", "src/cd/groupcurvature.jl"]
+paths = ["src/cd/leastsquares.jl"]
 
 [[risk]]
 why = "group steps and the sparse group lasso, also certified in Float32"
