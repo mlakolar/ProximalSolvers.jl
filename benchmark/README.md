@@ -80,12 +80,15 @@ default, stopping after 0.5 timed seconds once three are taken, against five in 
 see `--help`), the allocation per call,
 the certificate against its target and solver work counters read after timing. A
 baseline adds the candidate/baseline median ratio, the absolute change per call and the
-ratio of minimum times. A ratio is withheld unless the case, data hash, harness, Julia
-version, CPU model and ProximalBase all match and both runs are `ok`. Within about 10%, a
+ratio of minimum times. A ratio is withheld unless the case, data hash, harness, `local.jl`,
+Julia version, CPU model and ProximalBase all match and both runs are `ok`, or when a
+saved median or minimum is not a finite positive number. Within about 10%, a
 ratio is typical run-to-run noise. Other processes inflate medians more than minima: when
 the two ratios differ by more than 10%, or the header warns that the load average exceeds
-half the CPU threads, rerun on a quieter machine. A non-`ok` status reports the failure and no timing; the exit status is
-2, as in `run.jl`.
+half the CPU threads, rerun on a quieter machine. A case stops at its first non-`ok`
+certificate, in validation or in a timed sample, and reports the failure, its `CHECK`
+line and no timing (earlier `ok` samples are not a timing of a failed case); the exit
+status is 2, as in `run.jl`.
 
 After an edit to `src/`, a new process recompiles ProximalSolvers before it runs. Two ways
 avoid most of that cost:
@@ -99,8 +102,8 @@ avoid most of that cost:
   on spaces, without quoting, so paths must not contain spaces:
 
   ```sh
-  touch commands.txt
-  tail -f commands.txt | julia --project=benchmark/results/env-local \
+  : > commands.txt                 # empty, so a restart does not replay old commands
+  tail -n 0 -f commands.txt | julia --project=benchmark/results/env-local \
     benchmark/local.jl --session > session.log 2>&1 &
   echo 'cd/lasso-dense/cd/B/* --save before.local.tsv' >> commands.txt
   # edit src/, then:
@@ -112,16 +115,29 @@ avoid most of that cost:
 
 Before each run, a session applies every source file whose content changed since the last
 run, without waiting for Revise's file events, and runs in the latest world. A changed
-file that Revise cannot apply (for example a struct redefinition), or any edit without
-Revise, stops the run with a request to restart. A harness edit also requires a restart.
-Each run rebuilds its inputs and solver state. Session timings are exploratory:
-compilation, garbage collection and memory state differ from a fresh process.
+file that Revise cannot apply (for example a struct redefinition), or any `src/` edit
+without Revise, stops the run with a request to restart. So does a change to `local.jl`,
+the harness, ProximalSolvers' `Project.toml`, ProximalBase's files, the active project or
+manifest, or the package paths the environment resolves. Without Revise, runs are allowed
+only when `local.jl` itself loaded ProximalSolvers (a fresh process, or a REPL that
+includes `local.jl` before `using ProximalSolvers`), because the methods of a package
+loaded earlier cannot be matched to its files; a path-developed ProximalBase must likewise
+be loaded by `local.jl`. Each run rebuilds its inputs and solver state.
+
+Session timings are exploratory: compilation, garbage collection and memory state differ
+from a fresh process. Ratios between a baseline saved in one mode (fresh process, session
+or REPL) and a candidate run in another are not like-for-like evidence; the report says
+so. Save the baseline in the mode you will compare against, typically in the same
+session before editing. Methods redefined by Revise can also run differently from
+precompiled ones: for #110, a no-op edit sometimes doubled the time of a 6 µs case (median
+and minimum ratios both about 2). Confirm an apparent change in a fresh process, and claim
+it only with `compare.py`.
 
 On one machine for #110 (Apple M3 Pro, Julia 1.13), an edit followed by one quick case took
 13–21 s with `PS_GROUPS` or a fresh `local.jl` process, about 7.5 s with
 `--compiled-modules=existing`, and 0.2–0.8 s in a session after a one-time start of about
-7.5 s. `benchmark/check_local.jl` checks selection, input independence, statuses, baselines
-and session commands.
+7.5 s. `benchmark/check_local.jl` checks selection, input independence, statuses, the
+stop after a failed certificate, freshness refusals, baselines and session commands.
 
 ## Certificates and phases
 

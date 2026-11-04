@@ -20,35 +20,97 @@ end
 
 module PSLocal
 
+using SHA
+
+# What this file loads, recorded before and after loading so that a run never times
+# code under a fingerprint of different files. The package fingerprint below is the one
+# in run.jl (Project.toml and src/ext .jl files), computed from one read of each file.
+function package_state(root)
+  files = [joinpath(root, "Project.toml")]
+  for directory in ("src", "ext")
+    path = joinpath(root, directory)
+    isdir(path) || continue
+    for (folder, _, names) in walkdir(path), name in names
+      endswith(name, ".jl") && push!(files, joinpath(folder, name))
+    end
+  end
+  io, sources = IOBuffer(), Dict{String,String}()
+  for file in sort(files)
+    name, content = relpath(file, root), read(file)
+    write(io, name, '\0', content, '\0')
+    name == "Project.toml" || (sources[name] = bytes2hex(sha1(content)))
+  end
+  (; fingerprint = bytes2hex(sha1(take!(io))), sources,
+     project = bytes2hex(sha1(read(joinpath(root, "Project.toml")))))
+end
+
+content_hash(paths) = bytes2hex(sha1(join([isfile(p) ? bytes2hex(sha1(read(p))) : "-" for p in paths], ' ')))
+const LOCAL_FILE = @__FILE__
+local_hash() = content_hash([LOCAL_FILE])
+# The active project and manifest decide which dependency versions are loaded.
+function environment_files()
+  project = Base.active_project()
+  project === nothing ? String[] : [project, something(Base.project_file_manifest_path(project), "")]
+end
+environment_hash() = content_hash(environment_files())
+
+# The package root the active environment resolves now, and the root actually loaded.
+function resolved_root(name)
+  id = Base.identify_package(name)
+  id === nothing && error("the active environment does not provide $name")
+  path = Base.locate_package(id)
+  path === nothing && error("cannot locate $name in the active environment")
+  id, realpath(dirname(dirname(path)))
+end
+function before_loading(name)
+  id, root = resolved_root(name)
+  preloaded = Base.root_module_exists(id)
+  preloaded && (root = realpath(dirname(dirname(pathof(Base.root_module(id))))))
+  (; id, root, preloaded, state = package_state(root))
+end
+in_depot(root) = any(d -> startswith(root, joinpath(realpath(joinpath(d, "packages")), "")),
+                     filter(d -> isdir(joinpath(d, "packages")), DEPOT_PATH))
+
+const HARNESS_FILES = ("problems.jl", "certificates.jl", "cases.jl", "run.jl")
+const PRE = (local_hash = local_hash(), environment = environment_hash(),
+             harness = content_hash([joinpath(@__DIR__, f) for f in HARNESS_FILES]),
+             solvers = before_loading("ProximalSolvers"), base = before_loading("ProximalBase"))
+
 include(joinpath(@__DIR__, "run.jl"))
 
 const LOCAL_FORMAT = "proximalsolvers-local-exploratory-v1"
 const LOCAL_HEADER = ("id", "phase", "status", "construct_s", "first_call_s", "samples",
   "median_ns", "min_ns", "max_ns", "median_bytes", "measure", "target", "worst_value",
   "diagnostics", "data_hash")
-const HARNESS_FILES = ("problems.jl", "certificates.jl", "cases.jl", "run.jl")
 # Unchanged code repeated within about ±7–9% per quick case on a shared node (#110).
 const NOISE_NOTE = 0.10
 
 harness_hash() = fingerprint(@__DIR__, [joinpath(@__DIR__, name) for name in HARNESS_FILES])
 package_root() = realpath(dirname(dirname(pathof(ProximalSolvers))))
+source_hashes(root = package_root()) = package_state(root).sources
 
-# Package sources (as in package_fingerprint) and their hashes when last known loaded.
-function source_hashes(root = package_root())
-  hashes = Dict{String,String}()
-  for directory in ("src", "ext")
-    path = joinpath(root, directory)
-    isdir(path) || continue
-    for (folder, _, names) in walkdir(path), name in names
-      endswith(name, ".jl") || continue
-      file = joinpath(folder, name)
-      hashes[relpath(file, root)] = bytes2hex(sha1(read(file)))
-    end
-  end
-  hashes
+# A package's loaded code is known to match `state` when this file loaded it from files
+# that did not change while it loaded, or, for ProximalBase, when it is a registered
+# (content-addressed, read-only) depot copy. A package loaded earlier in the session, or
+# an edit during loading, leaves the loaded code unknown: runs then need Revise (for
+# ProximalSolvers) or a restart.
+function after_loading(pre, mod)
+  root = realpath(dirname(dirname(pathof(mod))))
+  state = package_state(root)
+  loaded_here = !pre.preloaded && root == pre.root && state.fingerprint == pre.state.fingerprint
+  (; pre.id, root, state = loaded_here ? state : pre.state, preloaded = pre.preloaded,
+     trusted = loaded_here || (mod === ProximalBase && in_depot(root)))
 end
 
-const LOADED = (harness = harness_hash(), source = package_fingerprint(package_root()))
+const LOADED = let unchanged = PRE.local_hash == local_hash() && PRE.environment == environment_hash() &&
+    PRE.harness == content_hash([joinpath(@__DIR__, f) for f in HARNESS_FILES])
+  # A file changed while loading: keep values that the next check will reject.
+  (local_hash = unchanged ? PRE.local_hash : "changed while loading",
+   harness = unchanged ? harness_hash() : "changed while loading",
+   environment = PRE.environment, solvers = after_loading(PRE.solvers, ProximalSolvers),
+   base = after_loading(PRE.base, ProximalBase))
+end
+
 # Files changed after the loaded package cache was written may differ from the loaded
 # code (an edit saved between loading ProximalSolvers and including this file), so the
 # first run with Revise applies them. Without a cache, it applies every tracked file.
@@ -60,7 +122,10 @@ function loaded_hashes(root = package_root())
   filter(entry -> mtime(joinpath(root, first(entry))) < built, source_hashes(root))
 end
 
-const APPLIED = Ref(loaded_hashes())
+# Source versions applied to the loaded methods: exact when this file loaded the package.
+const APPLIED = Ref(LOADED.solvers.trusted ? LOADED.solvers.state.sources : loaded_hashes())
+# How this process runs cases; ratios across modes are not like for like.
+const EXECUTION = Ref("REPL")
 
 # Solver work counters read from a returned result after timing (never inside it).
 const COUNTERS = (:iterations, :passes, :outer_iterations, :inner_iterations, :stages,
@@ -78,35 +143,65 @@ function diagnostics(output)
   join(parts, ' ')
 end
 
-"""
-Refuse to time an implementation that may differ from the source on disk.
+function tracking_revise()
+  isdefined(Main, :Revise) || return nothing
+  revise = getfield(Main, :Revise)
+  isdefined(revise, :pkgdatas) && haskey(revise.pkgdatas, Base.PkgId(ProximalSolvers)) ?
+    revise : nothing
+end
 
-With Revise tracking ProximalSolvers, queued edits are applied, and then every tracked
-file whose content differs from the last applied version is revised directly: Revise
-learns of edits from asynchronous file events, which can arrive after a run that
-starts right after a save. A failed revision, or a changed file Revise does not track,
-requires a restart. Without Revise, any source change since loading requires a restart.
+const RESTART = "restart Julia (or the session)"
+
 """
-function check_current_source()
-  harness_hash() == LOADED.harness ||
-    error("benchmark harness files changed since local.jl was loaded; restart, or " *
-          "include local.jl again in a REPL")
-  revise = isdefined(Main, :Revise) ? getfield(Main, :Revise) : nothing
-  id = Base.PkgId(ProximalSolvers)
-  tracked = revise !== nothing && isdefined(revise, :pkgdatas) && haskey(revise.pkgdatas, id)
-  if !tracked
-    package_fingerprint(package_root()) == LOADED.source ||
-      error("ProximalSolvers source changed since it was loaded and Revise is not tracking " *
-            "it; restart Julia, or load Revise before ProximalSolvers")
-    return :static
+Refuse to time an implementation that may differ from the files on disk, and return the
+verified ProximalSolvers and ProximalBase fingerprints that label the run.
+
+local.jl, the harness, the active project and manifest, the resolved package paths,
+ProximalSolvers' Project.toml and ProximalBase's sources must be as loaded. Without
+Revise, ProximalSolvers must have been loaded by this file and be unchanged since. With
+Revise tracking ProximalSolvers, queued edits are applied, and then every tracked file
+whose content differs from the last applied version is revised directly: Revise learns
+of edits from asynchronous file events, which can arrive after a run that starts right
+after a save. A failed revision, or a changed file Revise does not track, requires a
+restart.
+"""
+function check_current_source(loaded = LOADED, revise = tracking_revise())
+  local_hash() == loaded.local_hash ||
+    error("benchmark/local.jl changed since it was loaded; $RESTART, or include local.jl again in a REPL")
+  harness_hash() == loaded.harness ||
+    error("benchmark harness files changed since local.jl was loaded; $RESTART, or include local.jl again in a REPL")
+  environment_hash() == loaded.environment ||
+    error("the active project or manifest changed since local.jl was loaded; $RESTART")
+  for pkg in (loaded.solvers, loaded.base)
+    last(resolved_root(pkg.id.name)) == pkg.root ||
+      error("the environment now resolves $(pkg.id.name) to a different path than the loaded one; $RESTART")
   end
-  isdefined(revise, :revise_file_now) && isdefined(revise, :srcfiles) ||
+  loaded.base.trusted || error("ProximalBase at $(loaded.base.root) was loaded before local.jl " *
+    "from a development path, so its loaded code cannot be matched to its files; $RESTART " *
+    "and include local.jl before loading ProximalBase")
+  base = package_state(loaded.base.root)
+  base.fingerprint == loaded.base.state.fingerprint ||
+    error("ProximalBase files changed since it was loaded; $RESTART")
+  solvers = loaded.solvers
+  state = package_state(solvers.root)
+  state.project == solvers.state.project ||
+    error("ProximalSolvers Project.toml changed since it was loaded; $RESTART")
+  if revise === nothing
+    solvers.trusted || error("ProximalSolvers was loaded before local.jl and Revise does not " *
+      "track it, so the loaded methods cannot be matched to its files; $RESTART and include " *
+      "local.jl before loading ProximalSolvers, or load Revise first")
+    state.fingerprint == solvers.state.fingerprint ||
+      error("ProximalSolvers source changed since it was loaded and Revise is not tracking " *
+            "it; $RESTART, or load Revise before ProximalSolvers")
+    return (; mode = "static", solvers = state.fingerprint, base = base.fingerprint)
+  end
+  isdefined(revise, :revise_file_now) && isdefined(revise, :srcfiles) &&
+    isdefined(revise, :queue_errors) ||
     error("this Revise version lacks revise_file_now; restart Julia after each edit")
-  root = package_root()
-  current = source_hashes(root)
+  root, current = solvers.root, state.sources
   try
     revise.revise(; throw = true)
-    data = revise.pkgdatas[id]
+    data = revise.pkgdatas[solvers.id]
     files = Dict((isabspath(f) ? relpath(f, root) : f) => f for f in revise.srcfiles(data))
     for (file, hash) in sort!(collect(current))
       get(APPLIED[], file, nothing) == hash && continue
@@ -122,8 +217,11 @@ function check_current_source()
   end
   isempty(revise.queue_errors) ||
     error("Revise reports unapplied edits; fix them or restart Julia")
-  APPLIED[] = current   # a file saved during this loop is applied by the next run
-  :revise
+  # A save while edits were applied could leave methods from either version.
+  package_state(root).fingerprint == state.fingerprint ||
+    error("ProximalSolvers files changed while edits were applied; run the command again")
+  APPLIED[] = current
+  (; mode = "revise", solvers = state.fingerprint, base = base.fingerprint)
 end
 
 function explore_case(spec, rep, samples, seconds, case_seconds, minimum_samples; io = stdout)
@@ -151,7 +249,9 @@ function explore_case(spec, rep, samples, seconds, case_seconds, minimum_samples
   observations = NamedTuple[]
   validation = observe!(probe, meta, Inf)
   push!(observations, validation)
-  if validation.status != :error && validation.time_ns !== nothing &&
+  # A failed certificate is final (aggregate_status cannot return to ok), so no further
+  # call is made after it; only an ok but slow validation is rechecked for a timeout.
+  if validation.status == :ok && validation.time_ns !== nothing &&
       validation.time_ns / 1e9 > case_seconds
     validation = observe!(probe, meta, case_seconds)
     push!(observations, validation)
@@ -162,7 +262,7 @@ function explore_case(spec, rep, samples, seconds, case_seconds, minimum_samples
   flush(io)
   first_diagnostics = outputs[1] === nothing ? "" : diagnostics(outputs[1])
   rows = NamedTuple[]
-  if !(validation.status in (:error, :timeout))
+  if validation.status == :ok
     timed = 0.0
     while length(rows) < min(minimum_samples, samples) ||
         (length(rows) < samples && timed < seconds)
@@ -170,14 +270,15 @@ function explore_case(spec, rep, samples, seconds, case_seconds, minimum_samples
       push!(rows, row)
       push!(observations, row)
       row.time_ns === nothing || (timed += row.time_ns / 1e9)
-      row.status in (:error, :timeout) && break
+      row.status == :ok || break
     end
   end
   status = aggregate_status([r.status for r in observations])
   failure = status == :ok ? nothing : first(r for r in observations if r.status == status)
   last_diagnostics = outputs[2] === nothing ? "" : diagnostics(outputs[2])
   values = [r.value for r in observations if isfinite(r.value)]
-  ok = [r for r in rows if r.status == :ok]
+  # A failed case reports no timing: the ok samples before a failure are not a timing of it.
+  ok = status == :ok ? rows : NamedTuple[]
   times = [Int(r.time_ns) for r in ok]
   (; id = meta.id, phase = meta.phase, status, construct_s = construct,
      first_call_s = observations[1].time_ns === nothing ? NaN : observations[1].time_ns / 1e9,
@@ -193,17 +294,20 @@ function explore_case(spec, rep, samples, seconds, case_seconds, minimum_samples
      failure = failure === nothing ? "" : failure.detail)
 end
 
-function environment()
-  root = package_root()
+# `verified` is what check_current_source established as loaded; the fingerprints come
+# from it, not from a later read of files that may have changed since.
+function environment(verified = check_current_source())
+  root = LOADED.solvers.root
   revision, dirty = git_identity(root)
-  base_root = realpath(dirname(dirname(pathof(ProximalBase))))
   Dict{String,Any}("format" => LOCAL_FORMAT, "julia" => string(VERSION),
     "cpu_model" => Sys.cpu_info()[1].model, "julia_threads" => Threads.nthreads(),
-    "blas_threads" => BLAS.get_num_threads(), "harness_hash" => harness_hash(),
+    "blas_threads" => BLAS.get_num_threads(), "harness_hash" => LOADED.harness,
+    "local_hash" => LOADED.local_hash, "environment_hash" => LOADED.environment,
+    "source_check" => verified.mode, "execution" => EXECUTION[],
     "proximalsolvers_path" => root, "proximalsolvers_sha" => revision,
-    "proximalsolvers_dirty" => dirty, "proximalsolvers_hash" => package_fingerprint(root),
+    "proximalsolvers_dirty" => dirty, "proximalsolvers_hash" => verified.solvers,
     "proximalbase_version" => string(pkgversion(ProximalBase)),
-    "proximalbase_hash" => package_fingerprint(base_root),
+    "proximalbase_hash" => verified.base,
     "load_average" => round(Sys.loadavg()[1]; digits = 2), "cpu_threads" => Sys.CPU_THREADS)
 end
 
@@ -268,20 +372,24 @@ function baseline_ratio(result, base_env, base_rows, env)
   row = get(base_rows, result.id, nothing)
   row === nothing && return (nothing, "no baseline for this case")
   for key in ("julia", "cpu_model", "julia_threads", "blas_threads", "harness_hash",
-              "proximalbase_hash")
+              "local_hash", "proximalbase_hash")
     get(base_env, key, "") == string(env[key]) || return (nothing, "baseline $key differs")
   end
   get(row, "data_hash", "") == result.data_hash || return (nothing, "baseline data_hash differs")
   get(row, "status", "") == "ok" || return (nothing, "baseline status $(get(row, "status", "?"))")
   result.status == :ok || return (nothing, "candidate status $(result.status)")
+  valid(x) = x isa Real && isfinite(x) && x > 0
   base = tryparse(Float64, get(row, "median_ns", ""))
-  (base === nothing || base <= 0) && return (nothing, "baseline median unavailable")
+  valid(base) || return (nothing, "baseline median invalid or unavailable")
+  valid(result.median_ns) || return (nothing, "candidate median unavailable")
   ratio = result.median_ns / base
   # Interference from other processes inflates medians more than minima.
   base_min = tryparse(Float64, get(row, "min_ns", ""))
-  low = base_min === nothing || base_min <= 0 || result.min_ns === nothing ? nothing :
-    result.min_ns / base_min
+  low = valid(base_min) && valid(result.min_ns) ? result.min_ns / base_min : nothing
   note = low === nothing ? "" : @sprintf("min ratio %.3f; ", low)
+  mode = get(base_env, "execution", "")
+  mode == env["execution"] ||
+    (note *= "baseline ran as $(isempty(mode) ? "unknown" : mode), candidate as $(env["execution"]): not like for like; ")
   note *= low !== nothing && abs(log(ratio / low)) >= NOISE_NOTE ?
     "median and minimum ratios disagree (interference?); rerun on a quieter machine" :
     abs(log(ratio)) < NOISE_NOTE ? "inside the ~10% spread of unchanged code; not evidence of a change" :
@@ -301,7 +409,8 @@ function report(io, env, results; baseline = nothing)
           env["proximalsolvers_dirty"] ? "+dirty" : "", " src=",
           first(env["proximalsolvers_hash"], 10), " at ", env["proximalsolvers_path"])
   println(io, "ProximalBase ", env["proximalbase_version"], " | harness ",
-          first(env["harness_hash"], 10))
+          first(env["harness_hash"], 10), " | local.jl ", first(env["local_hash"], 10),
+          " | source check ", env["source_check"], " | ", env["execution"])
   base = baseline === nothing ? nothing : baseline_data(baseline)
   if base !== nothing
     println(io, "baseline: ProximalSolvers ", first(get(base[1], "proximalsolvers_sha", "?"), 10),
@@ -362,19 +471,19 @@ function explore(patterns::AbstractString...; rep::Integer = 1, samples::Integer
   samples >= 1 && minimum_samples >= 1 && seconds > 0 && case_seconds > 0 ||
     throw(ArgumentError("samples, minimum_samples and time limits must be positive"))
   save === nothing || !ispath(save) || throw(ArgumentError("refusing to overwrite $save"))
-  check_current_source()
+  verified = check_current_source()
   # A revision defines methods in a newer world than this call's; run in the latest
   # world, or the timed code would be the implementation from before the edit.
   Base.invokelatest(explore_selected, patterns, rep, samples, seconds, case_seconds,
-                    minimum_samples, baseline, save, io)
+                    minimum_samples, baseline, save, io, verified)
 end
 
 function explore_selected(patterns, rep, samples, seconds, case_seconds, minimum_samples,
-                          baseline, save, io)
+                          baseline, save, io, verified)
   Threads.nthreads() == 1 || @warn "timings with $(Threads.nthreads()) Julia threads; the formal runner requires one"
   BLAS.set_num_threads(1)
   selected = select_cases(build_catalog("extended", collect(CASE_GROUPS)), join(patterns, ','))
-  env = environment()   # the source applied for these runs
+  env = environment(verified)   # the source applied for these runs
   results = [merge(explore_case(spec, rep, samples, seconds, case_seconds, minimum_samples; io),
                    (; environment = env)) for spec in selected]
   report(io, env, results; baseline)
@@ -410,10 +519,8 @@ Read commands from `input`, one per line, and run each as `cli` would, applying 
 edits with Revise between commands. Each command ends with a `LOCAL_DONE status=N` line.
 """
 function session(input::IO = stdin, io::IO = stdout)
-  revise = isdefined(Main, :Revise) && haskey(getfield(Main, :Revise).pkgdatas,
-                                               Base.PkgId(ProximalSolvers))
-  println(io, "LOCAL_SESSION ready; Revise ", revise ? "tracks ProximalSolvers" :
-          "is not tracking: edits need a restart")
+  println(io, "LOCAL_SESSION ready; Revise ", tracking_revise() === nothing ?
+          "is not tracking: edits need a restart" : "tracks ProximalSolvers")
   flush(io)
   for line in eachline(input)
     args = split(strip(line))
@@ -474,5 +581,6 @@ end # module PSLocal
 explore(args...; kwargs...) = PSLocal.explore(args...; kwargs...)
 
 if abspath(PROGRAM_FILE) == @__FILE__
+  PSLocal.EXECUTION[] = "--session" in ARGS ? "session" : "fresh process"
   exit(PSLocal.cli(ARGS))
 end

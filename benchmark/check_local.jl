@@ -52,11 +52,13 @@ quiet(f) = redirect_stdout(f, devnull)
 function explored(spec; samples = 4, case_seconds = 60.0)
   quiet(() -> L.explore_case(spec, 1, samples, 10.0, case_seconds, samples; io = devnull))
 end
-function variant(spec; call = identity, reset = true)
+function variant(spec; call = identity, reset = true, certify = nothing, calls = Ref(0))
   L.CaseSpec(spec.meta, rep -> begin
     state = spec.make(rep)
-    L.CaseState(reset ? state.reset! : () -> nothing, () -> call(state.call!()),
-                state.certify, state.problem_hash)
+    L.CaseState(reset ? state.reset! : () -> nothing,
+                () -> (calls[] += 1; call(state.call!())),
+                certify === nothing ? state.certify : out -> certify(state.certify, out),
+                state.problem_hash)
   end)
 end
 function perturbed(output, value)
@@ -94,6 +96,81 @@ end
   @test setup.status == :ok && setup.diagnostics == ""
 end
 
+@testset "No timed work after a failed certificate" begin
+  catalog = L.build_catalog("extended", collect(L.CASE_GROUPS))
+  base = only(L.select_cases(catalog, "cd/lasso-dense/cd/B/call"))
+  incomplete(certify, out) = throw(L.IncompletePath("deliberate"))
+  # (failing call number, kind) => (status, calls, timed samples)
+  for (at, kind, status) in ((1, :missed, :target_missed), (1, :nan, :uncertifiable),
+                             (1, :incomplete, :incomplete), (1, :throw, :error),
+                             (2, :missed, :target_missed), (3, :nan, :uncertifiable),
+                             (3, :incomplete, :incomplete), (3, :throw, :error))
+    calls = Ref(0)
+    bad() = calls[] == at
+    call = out -> !bad() ? out : kind == :missed ? perturbed(out, 10.0) :
+      kind == :nan ? perturbed(out, NaN) : kind == :throw ? error("deliberate failure") : out
+    certify = (c, out) -> kind == :incomplete && bad() ? incomplete(c, out) : c(out)
+    text = sprint(io -> quiet(() -> L.explore_case(variant(base; call, certify, calls),
+                                                   1, 25, 10.0, 60.0, 5; io)))
+    r = explored(variant(base; call, certify, calls = (calls[] = 0; calls)); samples = 25)
+    @test (r.status, calls[], r.samples) == (status, at, at - 1)
+    @test r.median_ns === nothing && r.min_ns === nothing && r.median_bytes === nothing
+    @test occursin("CHECK cd/lasso-dense/cd/B/call status=$(at == 1 ? status : :ok)", text)
+  end
+  # An ok but slow validation is rechecked once and times out; nothing is sampled.
+  calls = Ref(0)
+  slow = explored(variant(base; call = out -> (sleep(0.02); out), calls); case_seconds = 0.01)
+  @test (slow.status, calls[], slow.samples) == (:timeout, 2, 0)
+  # Ok samples before a failure are not a timing of the failed case.
+  calls = Ref(0)
+  late = explored(variant(base; call = out -> calls[] == 3 ? perturbed(out, 10.0) : out, calls))
+  @test late.status == :target_missed && late.samples == 2 && late.median_ns === nothing
+  env = L.environment()
+  good = explored(base)
+  text = sprint(io -> L.report(io, env, [late]; baseline = [merge(good, (; environment = env))]))
+  row = only(l for l in split(text, '\n') if startswith(l, late.id))
+  @test occursin(r"target_missed\s+\S+\s+-\s+-\s+2\s+-", row)
+  @test occursin("no timing reported", text) && occursin("no ratio (candidate status target_missed)", text)
+  @test L.baseline_ratio(late, Dict(k => string(v) for (k, v) in env),
+                         Dict(late.id => Dict("id" => late.id, "status" => "ok",
+                              "data_hash" => late.data_hash, "median_ns" => "1000")), env)[1] === nothing
+end
+
+@testset "Freshness of local.jl, harness, environment and packages" begin
+  for pkg in (L.ProximalSolvers, L.ProximalBase)
+    root = realpath(dirname(dirname(pathof(pkg))))
+    @test L.package_state(root).fingerprint == L.package_fingerprint(root)
+  end
+  loaded = L.LOADED
+  @test loaded.solvers.trusted && !loaded.solvers.preloaded   # this file loaded it
+  @test loaded.base.trusted
+  @test loaded.local_hash == L.local_hash() && loaded.harness == L.harness_hash()
+  ok = L.check_current_source(loaded, nothing)
+  @test ok.mode == "static" && ok.solvers == L.package_fingerprint(loaded.solvers.root) &&
+    ok.base == L.package_fingerprint(loaded.base.root)
+  with(pkg; kw...) = merge(pkg, (; kw...))
+  state(pkg; kw...) = with(pkg; state = merge(pkg.state, (; kw...)))
+  refused = (
+    "local.jl changed" => with(loaded; local_hash = "edited"),
+    "harness files changed" => with(loaded; harness = "edited"),
+    "project or manifest changed" => with(loaded; environment = "edited"),
+    "different path" => with(loaded; base = with(loaded.base; root = "/elsewhere")),
+    "cannot be matched" => with(loaded; base = with(loaded.base; trusted = false)),
+    "ProximalBase files changed" => with(loaded; base = state(loaded.base; fingerprint = "old")),
+    "Project.toml changed" => with(loaded; solvers = state(loaded.solvers; project = "old")),
+    "loaded before local.jl" => with(loaded; solvers = with(loaded.solvers; trusted = false)),
+    "source changed" => with(loaded; solvers = state(loaded.solvers; fingerprint = "old")))
+  for (message, stale) in refused
+    err = try L.check_current_source(stale, nothing); nothing catch e; e end
+    @test err isa ErrorException && occursin(message, err.msg)
+  end
+  # A revision cannot clear a changed Project.toml, ProximalBase or local.jl: these are
+  # refused before Revise is consulted.
+  for (message, stale) in refused[1:7]
+    @test_throws ErrorException L.check_current_source(stale, :not_consulted)
+  end
+end
+
 @testset "Baseline ratios and saved results" begin
   result = explored(only(L.select_cases(L.build_catalog("quick", ["cd"]),
                                         "cd/lasso-dense/cd/B/call")))
@@ -113,11 +190,22 @@ end
     changed = merge(row, Dict(key => value))
     @test L.baseline_ratio(result, base_env, Dict(result.id => changed), env)[1] === nothing
   end
-  for key in ("julia", "cpu_model", "harness_hash", "proximalbase_hash")
+  for key in ("julia", "cpu_model", "harness_hash", "local_hash", "proximalbase_hash")
     other = merge(base_env, Dict(key => "other"))
     @test L.baseline_ratio(result, other, Dict(result.id => row), env)[1] === nothing
   end
   @test L.baseline_ratio(result, base_env, Dict{String,Dict{String,String}}(), env)[1] === nothing
+  # Corrupt or nonpositive baseline values never give a ratio or an exception.
+  for bad in ("NaN", "Inf", "-Inf", "0", "-5", "abc", "")
+    ratio, note = L.baseline_ratio(result, base_env,
+      Dict(result.id => merge(row, Dict("median_ns" => bad, "min_ns" => string(result.min_ns)))), env)
+    @test ratio === nothing && occursin("baseline median invalid", note)
+    ratio, note = L.baseline_ratio(result, base_env, Dict(result.id => merge(row, Dict("min_ns" => bad))), env)
+    @test ratio ≈ 0.5 && !occursin("min ratio", note)
+  end
+  # Modes are reported when they differ (warm session vs fresh process).
+  other_mode = merge(base_env, Dict("execution" => "fresh process"))
+  @test occursin("not like for like", L.baseline_ratio(result, other_mode, Dict(result.id => row), env)[2])
   mktempdir() do dir
     path = joinpath(dir, "base.local.tsv")
     L.save_local(path, env, [result])
@@ -143,6 +231,10 @@ end
     text = sprint(io -> L.report(io, env, [result]; baseline = path))
     @test occursin("EXPLORATORY", text) && occursin("ratio 1.000", text)
     @test !occursin(r"significan|noninferior|no regression"i, text)
+    corrupt = joinpath(dir, "corrupt.local.tsv")
+    write(corrupt, replace(read(path, String), "\t$(result.median_ns)\t" => "\tNaN\t"))
+    text = sprint(io -> L.report(io, env, [result]; baseline = corrupt))
+    @test occursin("no ratio (baseline median invalid", text)
   end
 end
 
