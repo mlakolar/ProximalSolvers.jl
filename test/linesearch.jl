@@ -1,4 +1,5 @@
 module LineSearchTest
+# demonstration (disposable PR, not for merging): branch protection on master
 
 using Test
 using Random
