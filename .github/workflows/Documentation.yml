@@ -1,4 +1,10 @@
 name: Documentation
+# The "Documentation" job builds and checks the documentation on every pull request, push and
+# manual run, with a read-only token and no deployment credential: a pull request's own
+# docs/make.jl runs here. The "Deploy documentation" job runs only on pushes to master and
+# release tags (v*), after the build passed; it alone has write permissions, and it takes
+# DOCUMENTER_KEY from the deploy-key environment, whose deployment policy admits only master and
+# v* tags, so a run for a pull request cannot obtain the key even with a modified workflow.
 on:
   push:
     branches:
@@ -9,26 +15,54 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+permissions:
+  contents: read
 jobs:
   docs:
     name: Documentation
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
-      actions: write        # julia-actions/cache deletes its old caches
-      contents: write       # deploydocs pushes to gh-pages
-      pull-requests: read
-      statuses: write
+      contents: read
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: julia-actions/setup-julia@v3
         with:
           version: '1'
       - uses: julia-actions/cache@v3
+        with:
+          delete-old-caches: false # deletion needs actions: write
+      - name: Install the documentation environment
+        run: julia --color=yes --project=docs -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate(); Pkg.status(; mode=Pkg.PKGMODE_MANIFEST)'
+      - name: Build and check
+        run: julia --project=docs docs/make.jl
+  deploy:
+    name: Deploy documentation
+    needs: docs
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: deploy-key
+    permissions:
+      contents: write # Documenter pushes gh-pages (with the deploy key; the token is its fallback)
+      statuses: write # Documenter reports the deployment as a commit status
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1'
+      - uses: julia-actions/cache@v3
+        with:
+          delete-old-caches: false
       - name: Install the documentation environment
         run: julia --color=yes --project=docs -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate(); Pkg.status(; mode=Pkg.PKGMODE_MANIFEST)'
       - name: Build and deploy
         run: julia --project=docs docs/make.jl
         env:
+          DOCUMENTER_DEPLOY: 'true'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
