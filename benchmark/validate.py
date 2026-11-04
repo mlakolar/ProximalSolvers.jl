@@ -26,8 +26,10 @@ SERIES_SETTINGS = (
     "suite", "groups", "harness_hash", "proximalbase_version", "proximalbase_hash",
     "julia_threads", "blas_threads", "blas", "cpu_model", "samples_target",
     "seconds_limit", "case_seconds", "profile_seconds", "seed_scheme",
-    "proximalsolvers_hash",
+    "proximalsolvers_hash", "case_filter",
 )
+# Settings added after records already existed, with the value older records imply.
+OPTIONAL_SETTINGS = {"case_filter": ""}
 MATCH_SETTINGS = tuple(key for key in SERIES_SETTINGS if not key.startswith("proximalsolvers_"))
 START_KEYS = (
     "julia", "rep", "suite", "groups", "harness_hash", "proximalsolvers_path",
@@ -36,6 +38,12 @@ START_KEYS = (
     "julia_threads", "blas_threads", "blas", "cpu", "cpu_model", "samples_target",
     "seconds_limit", "case_seconds", "profile_seconds", "seed_scheme", "job_id",
 )
+
+
+def setting(meta, key):
+    return meta.get(key, OPTIONAL_SETTINGS[key]) if key in OPTIONAL_SETTINGS else meta[key]
+
+
 FINAL_KEYS = ("cases", "ok_cases", "nonok_cases", "elapsed_s", "maxrss_bytes", "finished")
 SUFFIXES = tuple(f"-{kind}.tsv" for kind in HEADERS) + (
     "-metadata-start.toml", "-metadata.toml", "-profiles.txt",
@@ -129,6 +137,8 @@ def check_metadata(meta, version, rep, final=True):
     for key in ("harness_hash", "proximalsolvers_hash", "proximalbase_hash", "proximalsolvers_sha"):
         if not isinstance(meta[key], str) or not re.fullmatch(r"[0-9a-fA-F]{40}", meta[key]):
             raise ValueError(f"malformed provenance hash: {key}")
+    if not isinstance(setting(meta, "case_filter"), str):
+        raise ValueError("case_filter must be a string")
     if not isinstance(meta["proximalsolvers_dirty"], bool):
         raise ValueError("proximalsolvers_dirty must be boolean")
     if meta["expected_package_root"] and (
@@ -307,9 +317,10 @@ def validate(root, expected=1, versions=None):
             check_metadata(meta, version, rep)
             initial = metadata(start)
             check_metadata(initial, version, rep, final=False)
-            if any(initial[key] != meta[key] for key in START_KEYS):
+            if any(setting(initial, key) != setting(meta, key)
+                   for key in START_KEYS + tuple(OPTIONAL_SETTINGS)):
                 raise ValueError("start and final metadata disagree")
-            config = tuple(meta[key] for key in SERIES_SETTINGS)
+            config = tuple(setting(meta, key) for key in SERIES_SETTINGS)
             if version in configurations and config != configurations[version]:
                 raise ValueError("series settings changed within a Julia version")
             configurations[version] = config

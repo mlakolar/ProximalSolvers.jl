@@ -22,6 +22,7 @@ or path. The default is one quick Float64 repetition: exploratory, with no betwe
 |---|---|---|
 | `PS_SUITE` | `quick` | `extended` includes quick cases, larger inputs and correlated designs. |
 | `PS_GROUPS` | All groups below | Comma-separated selection, before building data. |
+| `PS_CASES` | Unset | Comma-separated case IDs or patterns (`*` matches any characters) within the suite and groups. Every entry must match; data is built only for selected cases. |
 | `PS_REPETITION` | `1` | Process/input draw, numbered 1–10. |
 | `PS_OUTPUT` | `benchmark/results` | Directory for process records. |
 | `PS_SAMPLES` | `50` quick; `100` extended | Sample limit, subject to a minimum of five. |
@@ -49,6 +50,102 @@ For example, list the extended gradient cases without measuring them:
 PS_SUITE=extended PS_GROUPS=gradient PS_LIST=true \
   julia --project=benchmark/results/env-quick benchmark/run.jl
 ```
+
+Each case builds its inputs from a seed keyed by its scenario and repetition, so a case
+selected alone has the same inputs, data hash and certificate as in the full suite.
+`PS_CASES='cd/lasso-dense/cd/B/*'` measures two cases instead of the 20 of `cd`.
+
+## Local exploration
+
+`local.jl` is a development aid: it decides whether a change is worth pursuing, not whether
+it is faster. It runs selected cases through the same `make`/`reset!`/`call!`/`certify`
+closures, validation call, `observe!` timing and statuses as `run.jl`, but writes no
+records. Its output and optional TSV are labelled exploratory; `validate.py` and
+`compare.py` do not accept them. Claims of improvement or noninferiority need the formal
+comparison below.
+
+```sh
+julia benchmark/setup.jl "$PWD" benchmark/results/env-local 0.5.4    # once per checkout
+export JULIA_NUM_THREADS=1
+alias pslocal='julia --project=benchmark/results/env-local benchmark/local.jl'
+pslocal --list 'cd/*'                                     # case IDs, no measurement
+pslocal 'cd/lasso-dense/cd/B/*' --save before.local.tsv   # before editing src/
+pslocal 'cd/lasso-dense/cd/B/*' --baseline before.local.tsv
+```
+
+Quote patterns in the shell. For each case, a `CHECK` line gives the certificate of the
+first (validation) call as soon as it finishes. The report then gives the status, the
+first call (with compilation), the median and minimum of the timed samples (at most 25 by
+default, stopping after 0.5 timed seconds once three are taken, against five in `run.jl`;
+see `--help`), the allocation per call, the certificate against its target and solver work
+counters read after timing. A baseline adds the candidate/baseline median ratio, the
+absolute change per call and the ratio of minimum times. A ratio is withheld unless the
+case, data hash, harness, `local.jl`, active project and manifest, Julia version, CPU model
+and ProximalBase all match and both runs are `ok`. Saved times must be positive integer
+nanoseconds. An invalid baseline median suppresses the ratio; an invalid minimum suppresses
+only the minimum-time ratio. Within about 10%, a ratio is typical run-to-run noise. Other
+processes inflate medians more than minima: when the two ratios differ by more than 10%,
+or the header warns that the load average exceeds half the CPU threads, rerun on a quieter
+machine. A case stops at its first non-`ok`
+certificate, in validation or in a timed sample, and reports the failure, its `CHECK`
+line and no timing (earlier `ok` samples are not a timing of a failed case); the exit
+status is 2, as in `run.jl`.
+
+After an edit to `src/`, a new process recompiles ProximalSolvers before it runs. Two ways
+avoid most of that cost:
+
+- On Julia 1.11 or later, `julia --compiled-modules=existing --project=...
+  benchmark/local.jl ...` loads the edited package from source instead of precompiling it.
+- `--session` keeps one process running and applies edits with Revise, which must be
+  installed in the default environment (for example `julia -e 'using Pkg;
+  Pkg.add("Revise")'`). It reads one command per line, for example from a file that an
+  agent appends to, and ends each command with `LOCAL_DONE status=N`. Arguments are split
+  on spaces, without quoting, so paths must not contain spaces:
+
+  ```sh
+  : > commands.txt                 # empty, so a restart does not replay old commands
+  tail -n 0 -f commands.txt | julia --project=benchmark/results/env-local \
+    benchmark/local.jl --session > session.log 2>&1 &
+  echo 'cd/lasso-dense/cd/B/* --save before.local.tsv' >> commands.txt
+  # edit src/, then:
+  echo 'cd/lasso-dense/cd/B/* --baseline before.local.tsv' >> commands.txt
+  ```
+
+  In a REPL, run `using Revise` and then `include("benchmark/local.jl")` before loading
+  ProximalSolvers, then `explore("cd/lasso-dense/cd/B/*"; save = "before.local.tsv")`.
+
+Before each run, a session applies every source file whose content changed since the last
+run, without waiting for Revise's file events, and runs in the latest world. A changed
+file that Revise cannot apply (for example a struct redefinition), or any `src/` edit
+without Revise, stops the run with a request to restart. So does a change to `local.jl`,
+the harness, ProximalSolvers' `Project.toml`, ProximalBase's files, the active project or
+manifest, or the package paths the environment resolves. With Revise, deleting a `src/` or
+`ext/` file requires a restart even if the file is restored, because Revise removes its
+methods only later. Runs are allowed only when `local.jl` itself loaded ProximalSolvers (a fresh
+process, a session, or a REPL that includes `local.jl` before loading ProximalSolvers),
+with or without Revise: the methods of a package loaded earlier cannot be matched to its
+files. A path-developed ProximalBase must likewise be loaded by `local.jl`. Each run
+rebuilds its inputs and solver state. In a REPL, Revise also revises before every prompt,
+so a file deleted while other commands run, and restored before `explore`, may have lost
+its methods without `local.jl` seeing the deletion; restart after deleting a file there.
+A session calls Revise only from its own check, so this does not apply to it.
+
+Session timings are exploratory: compilation, garbage collection and memory state differ
+from a fresh process. Ratios between a baseline saved in one mode (fresh process, session
+or REPL) and a candidate run in another are not like-for-like evidence; the report says
+so. Save the baseline in the mode you will compare against, typically in the same
+session before editing. Methods redefined by Revise can also run differently from
+precompiled ones: for #110, a no-op edit sometimes doubled the time of a 6 µs case (median
+and minimum ratios both about 2). The same shift appeared between two fresh processes with
+identical source and environment (in one scenario, on Julia 1.10 and 1.13), so a single ratio near 2 for a microsecond case is
+not evidence on its own. Repeat an apparent change in fresh processes, and claim it only
+with `compare.py`.
+
+On one machine for #110 (Apple M3 Pro, Julia 1.13), an edit followed by one quick case took
+13–21 s with `PS_GROUPS` or a fresh `local.jl` process, about 7.5 s with
+`--compiled-modules=existing`, and 0.2–0.8 s in a session after a one-time start of about
+7.5 s. `benchmark/check_local.jl` checks selection, input independence, statuses, the
+stop after a failed certificate, freshness refusals, baselines and session commands.
 
 ## Certificates and phases
 
@@ -173,7 +270,8 @@ TSVs have headers, empty missing fields, integer nanoseconds/bytes and round-tri
 | `-profiles.txt` | Optional profiles when `PS_PROFILE_SECONDS > 0`. |
 | `-metadata-start.toml`, `-metadata.toml` | Start provenance and final completion metadata. |
 
-Metadata includes settings, Julia/BLAS/CPU identity, package root, revision and dirty status.
+Metadata includes settings (including `case_filter`; records without it used no case
+filter), Julia/BLAS/CPU identity, package root, revision and dirty status.
 SHA-1 hashes cover the four Julia harness files (`problems`, `certificates`, `cases`, `run`)
 and each package's `Project.toml`, `src/**/*.jl` and `ext/**/*.jl`. ProximalBase has its
 own version and source hash. SHA-256 data hashes match inputs per case/repetition. Final

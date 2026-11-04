@@ -431,7 +431,8 @@ def compatibility_controls(root):
         replacements = dict(suite="extended", groups="gradient,cd", harness_hash="e" * 40,
                             proximalbase_version="0.5.5", proximalbase_hash="e" * 40,
                             blas="other", cpu_model="other", samples_target=10,
-                            seconds_limit=2.0, case_seconds=30.0, profile_seconds=1.0, seed_scheme="other")
+                            seconds_limit=2.0, case_seconds=30.0, profile_seconds=1.0, seed_scheme="other",
+                            case_filter="gradient/*")
         edit_meta(folder, key, replacements[key])
         assert validate(folder, 3)["valid"]
         message = expect_error(lambda: compare(before, folder, root / f"reject-{key}", 3), "series settings differ")
@@ -466,6 +467,38 @@ def compatibility_controls(root):
     expect_error(lambda: compare(before, after, occupied, 3), "fresh output directory")
     assert {path.name for path in occupied.iterdir()} == {"keep.txt"}
     assert sentinel.read_text() == "preserve\n"
+
+
+def selection_controls(root):
+    # Records from before case selection lack case_filter; they mean no filter.
+    old, new = root / "selection-old", root / "selection-new"
+    fixture(old)
+    fixture(new)
+    edit_meta(new, "case_filter", "")
+    assert validate(new, 3)["valid"]
+    assert len(compare(old, new, root / "selection-compatible", 3)) == 1
+    selected = root / "selection-filter"
+    fixture(selected)
+    edit_meta(selected, "case_filter", DEFAULT_CASE)
+    assert validate(selected, 3)["valid"]
+    assert len(compare(selected, selected, root / "selection-same", 3)) == 1
+    invalid_mutation(selected, lambda: edit_meta(selected, "case_filter", 3),
+                     "case_filter must be a string")
+    def disagree():
+        start = selected / f"julia-{VERSION}-rep01-metadata-start.toml"
+        start.write_text(start.read_text().replace(f'"{DEFAULT_CASE}"', '"gradient/*"'))
+    invalid_mutation(selected, disagree, "start and final metadata disagree")
+    # Exploratory local output is never read as a formal record.
+    local = ("# Exploratory local results: not a formal benchmark record (#110 Stage 1).\n"
+             "# format=proximalsolvers-local-exploratory-v1\n"
+             f"id\tphase\tstatus\tmedian_ns\n{DEFAULT_CASE}\tworkspace\tok\t100\n")
+    only_local = root / "selection-local"
+    only_local.mkdir()
+    (only_local / "julia-1.10.0-rep01.local.tsv").write_text(local)
+    assert validate(only_local, 1)["valid"] is False
+    expect_error(lambda: compare(only_local, old, root / "reject-local", 1), "Invalid results")
+    (old / "candidate.local.tsv").write_text(local)
+    assert validate(old, 3)["counts"] == validate(new, 3)["counts"]
 
 
 def cli_controls(root):
@@ -505,10 +538,11 @@ def main():
         failure_controls(root)
         integrity_controls(root)
         compatibility_controls(root)
+        selection_controls(root)
         cli_controls(root)
     print("ANALYSIS_CONTROLS_PASSED repetitions=1,3,5,10; medians,t-intervals,paired-ratios,"
           "allocations,statuses,all-failed,interrupted,corruption,coverage,provenance,"
-          "series-settings,data-hashes,certificates,fresh-output,CLI")
+          "series-settings,case-selection,local-output,data-hashes,certificates,fresh-output,CLI")
 
 
 if __name__ == "__main__":
