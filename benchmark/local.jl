@@ -92,8 +92,8 @@ source_hashes(root = package_root()) = package_state(root).sources
 # A package's loaded code is known to match `state` when this file loaded it from files
 # that did not change while it loaded, or, for ProximalBase, when it is a registered
 # (content-addressed, read-only) depot copy. A package loaded earlier in the session, or
-# an edit during loading, leaves the loaded code unknown: runs then need Revise (for
-# ProximalSolvers) or a restart.
+# an edit during loading, leaves the loaded code unknown, so runs are refused until a
+# restart, even with Revise.
 function after_loading(pre, mod)
   root = realpath(dirname(dirname(pathof(mod))))
   state = package_state(root)
@@ -111,19 +111,13 @@ const LOADED = let unchanged = PRE.local_hash == local_hash() && PRE.environment
    base = after_loading(PRE.base, ProximalBase))
 end
 
-# Files changed after the loaded package cache was written may differ from the loaded
-# code (an edit saved between loading ProximalSolvers and including this file), so the
-# first run with Revise applies them. Without a cache, it applies every tracked file.
-function loaded_hashes(root = package_root())
-  origin = get(Base.pkgorigins, Base.PkgId(ProximalSolvers), nothing)
-  cache = origin === nothing ? nothing : origin.cachepath
-  (cache === nothing || !isfile(cache)) && return Dict{String,String}()
-  built = mtime(cache)
-  filter(entry -> mtime(joinpath(root, first(entry))) < built, source_hashes(root))
-end
-
-# Source versions applied to the loaded methods: exact when this file loaded the package.
-const APPLIED = Ref(LOADED.solvers.trusted ? LOADED.solvers.state.sources : loaded_hashes())
+# Source versions applied to the loaded methods. They are exact because runs require
+# that this file loaded ProximalSolvers (`trusted`).
+const APPLIED = Ref(LOADED.solvers.state.sources)
+# Set when a file of the loaded package disappears. Revise removes a missing file's
+# methods only later (after a grace period, and possibly after the file returns), so
+# the loaded methods stay unknown until a restart.
+const DELETED = Ref{Union{Nothing,String}}(nothing)
 # How this process runs cases; ratios across modes are not like for like.
 const EXECUTION = Ref("REPL")
 
@@ -157,15 +151,17 @@ Refuse to time an implementation that may differ from the files on disk, and ret
 verified ProximalSolvers and ProximalBase fingerprints that label the run.
 
 local.jl, the harness, the active project and manifest, the resolved package paths,
-ProximalSolvers' Project.toml and ProximalBase's sources must be as loaded. Without
-Revise, ProximalSolvers must have been loaded by this file and be unchanged since. With
+ProximalSolvers' Project.toml and ProximalBase's sources must be as loaded, and this file
+must have loaded ProximalSolvers. Without Revise, its files must be unchanged since. With
 Revise tracking ProximalSolvers, queued edits are applied, and then every tracked file
 whose content differs from the last applied version is revised directly: Revise learns
 of edits from asynchronous file events, which can arrive after a run that starts right
-after a save. A failed revision, or a changed file Revise does not track, requires a
-restart.
+after a save. A deleted file, a failed revision, or a changed file Revise does not track
+requires a restart.
 """
 function check_current_source(loaded = LOADED, revise = tracking_revise())
+  DELETED[] === nothing || error("$(DELETED[]) was deleted after ProximalSolvers was " *
+    "loaded, so the loaded methods are unknown even if it is restored; $RESTART")
   local_hash() == loaded.local_hash ||
     error("benchmark/local.jl changed since it was loaded; $RESTART, or include local.jl again in a REPL")
   harness_hash() == loaded.harness ||
@@ -186,14 +182,20 @@ function check_current_source(loaded = LOADED, revise = tracking_revise())
   state = package_state(solvers.root)
   state.project == solvers.state.project ||
     error("ProximalSolvers Project.toml changed since it was loaded; $RESTART")
+  solvers.trusted || error("ProximalSolvers was loaded before local.jl, so the loaded methods " *
+    "cannot be matched to its files, even with Revise; $RESTART and include local.jl before " *
+    "loading ProximalSolvers (load Revise first to apply edits)")
   if revise === nothing
-    solvers.trusted || error("ProximalSolvers was loaded before local.jl and Revise does not " *
-      "track it, so the loaded methods cannot be matched to its files; $RESTART and include " *
-      "local.jl before loading ProximalSolvers, or load Revise first")
     state.fingerprint == solvers.state.fingerprint ||
       error("ProximalSolvers source changed since it was loaded and Revise is not tracking " *
             "it; $RESTART, or load Revise before ProximalSolvers")
     return (; mode = "static", solvers = state.fingerprint, base = base.fingerprint)
+  end
+  gone = sort!(collect(setdiff(keys(APPLIED[]), keys(state.sources))))
+  if !isempty(gone)
+    DELETED[] = join(gone, ", ")
+    error("$(DELETED[]) was deleted after ProximalSolvers was loaded, and Revise may still " *
+          "run its methods; $RESTART")
   end
   isdefined(revise, :revise_file_now) && isdefined(revise, :srcfiles) &&
     isdefined(revise, :queue_errors) ||
@@ -365,27 +367,32 @@ function baseline_data(results::AbstractVector)
 end
 
 """
-Compare with a baseline from an earlier local run. A ratio is withheld when the
-workload, harness or machine differs; otherwise it is an exploratory observation.
+Compare with a baseline from an earlier local run and return `(ratio, note, baseline
+median ns)`. A ratio is withheld (`nothing`) when the workload, harness, local runner,
+environment or machine differs, or a saved time is not a positive integer number of
+nanoseconds; otherwise it is an exploratory observation.
 """
 function baseline_ratio(result, base_env, base_rows, env)
   row = get(base_rows, result.id, nothing)
-  row === nothing && return (nothing, "no baseline for this case")
+  withheld(why) = (nothing, why, nothing)
+  row === nothing && return withheld("no baseline for this case")
   for key in ("julia", "cpu_model", "julia_threads", "blas_threads", "harness_hash",
-              "local_hash", "proximalbase_hash")
-    get(base_env, key, "") == string(env[key]) || return (nothing, "baseline $key differs")
+              "local_hash", "environment_hash", "proximalbase_hash")
+    get(base_env, key, "") == string(env[key]) || return withheld("baseline $key differs")
   end
-  get(row, "data_hash", "") == result.data_hash || return (nothing, "baseline data_hash differs")
-  get(row, "status", "") == "ok" || return (nothing, "baseline status $(get(row, "status", "?"))")
-  result.status == :ok || return (nothing, "candidate status $(result.status)")
-  valid(x) = x isa Real && isfinite(x) && x > 0
-  base = tryparse(Float64, get(row, "median_ns", ""))
-  valid(base) || return (nothing, "baseline median invalid or unavailable")
-  valid(result.median_ns) || return (nothing, "candidate median unavailable")
-  ratio = result.median_ns / base
+  get(row, "data_hash", "") == result.data_hash || return withheld("baseline data_hash differs")
+  get(row, "status", "") == "ok" || return withheld("baseline status $(get(row, "status", "?"))")
+  result.status == :ok || return withheld("candidate status $(result.status)")
+  # Saved times are positive integer nanoseconds; any other value is corrupt.
+  nanoseconds(x) = (n = x isa Integer ? x : tryparse(Int, x); n !== nothing && n > 0 ? Int(n) : nothing)
+  base = nanoseconds(get(row, "median_ns", ""))
+  base === nothing && return withheld("baseline median invalid or unavailable")
+  candidate = something(result.median_ns, 0)
+  nanoseconds(candidate) === nothing && return withheld("candidate median unavailable")
+  ratio = candidate / base
   # Interference from other processes inflates medians more than minima.
-  base_min = tryparse(Float64, get(row, "min_ns", ""))
-  low = valid(base_min) && valid(result.min_ns) ? result.min_ns / base_min : nothing
+  base_min, candidate_min = nanoseconds(get(row, "min_ns", "")), nanoseconds(something(result.min_ns, 0))
+  low = base_min === nothing || candidate_min === nothing ? nothing : candidate_min / base_min
   note = low === nothing ? "" : @sprintf("min ratio %.3f; ", low)
   mode = get(base_env, "execution", "")
   mode == env["execution"] ||
@@ -395,7 +402,7 @@ function baseline_ratio(result, base_env, base_rows, env)
     abs(log(ratio)) < NOISE_NOTE ? "inside the ~10% spread of unchanged code; not evidence of a change" :
     ratio < 1 ? "apparent speedup; confirm with compare.py before claiming it" :
     "apparent slowdown; investigate"
-  (ratio, note)
+  (ratio, note, base)
 end
 
 function report(io, env, results; baseline = nothing)
@@ -440,14 +447,14 @@ function report(io, env, results; baseline = nothing)
               " above min")
     end
     if base !== nothing
-      ratio, note = baseline_ratio(r, base..., env)
+      ratio, note, base_ns = baseline_ratio(r, base..., env)
       if ratio === nothing
         println(io, "    vs baseline: no ratio (", note, ")")
       else
-        saved = (1 - ratio) * r.median_ns / ratio
+        saved = base_ns - r.median_ns   # both positive Int, so no overflow
         println(io, "    vs baseline: ratio ", @sprintf("%.3f", ratio), " (",
-                format_time(round(Int, r.median_ns / ratio)), " -> ", format_time(r.median_ns),
-                ", apparent ", saved >= 0 ? "saving " : "cost ", format_time(round(Int, abs(saved))),
+                format_time(base_ns), " -> ", format_time(r.median_ns),
+                ", apparent ", saved >= 0 ? "saving " : "cost ", format_time(abs(saved)),
                 " per call); ", note)
       end
     end

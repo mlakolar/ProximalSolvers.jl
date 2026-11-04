@@ -81,8 +81,9 @@ see `--help`), the allocation per call,
 the certificate against its target and solver work counters read after timing. A
 baseline adds the candidate/baseline median ratio, the absolute change per call and the
 ratio of minimum times. A ratio is withheld unless the case, data hash, harness, `local.jl`,
-Julia version, CPU model and ProximalBase all match and both runs are `ok`, or when a
-saved median or minimum is not a finite positive number. Within about 10%, a
+active project and manifest, Julia version, CPU model and ProximalBase all match and both
+runs are `ok`. Saved times are positive integer nanoseconds; a saved median that is not
+gives no ratio, and such a minimum drops only the minimum ratio. Within about 10%, a
 ratio is typical run-to-run noise. Other processes inflate medians more than minima: when
 the two ratios differ by more than 10%, or the header warns that the load average exceeds
 half the CPU threads, rerun on a quieter machine. A case stops at its first non-`ok`
@@ -110,19 +111,24 @@ avoid most of that cost:
   echo 'cd/lasso-dense/cd/B/* --baseline before.local.tsv' >> commands.txt
   ```
 
-  In a REPL, run `using Revise` before `include("benchmark/local.jl")`, then
-  `explore("cd/lasso-dense/cd/B/*"; save = "before.local.tsv")`.
+  In a REPL, run `using Revise` and then `include("benchmark/local.jl")` before loading
+  ProximalSolvers, then `explore("cd/lasso-dense/cd/B/*"; save = "before.local.tsv")`.
 
 Before each run, a session applies every source file whose content changed since the last
 run, without waiting for Revise's file events, and runs in the latest world. A changed
 file that Revise cannot apply (for example a struct redefinition), or any `src/` edit
 without Revise, stops the run with a request to restart. So does a change to `local.jl`,
 the harness, ProximalSolvers' `Project.toml`, ProximalBase's files, the active project or
-manifest, or the package paths the environment resolves. Without Revise, runs are allowed
-only when `local.jl` itself loaded ProximalSolvers (a fresh process, or a REPL that
-includes `local.jl` before `using ProximalSolvers`), because the methods of a package
-loaded earlier cannot be matched to its files; a path-developed ProximalBase must likewise
-be loaded by `local.jl`. Each run rebuilds its inputs and solver state.
+manifest, or the package paths the environment resolves. With Revise, deleting a `src/` or
+`ext/` file requires a restart even if the file is restored, because Revise removes its
+methods only later. Runs are allowed only when `local.jl` itself loaded ProximalSolvers (a fresh
+process, a session, or a REPL that includes `local.jl` before loading ProximalSolvers),
+with or without Revise: the methods of a package loaded earlier cannot be matched to its
+files. A path-developed ProximalBase must likewise be loaded by `local.jl`. Each run
+rebuilds its inputs and solver state. In a REPL, Revise also revises before every prompt,
+so a file deleted while other commands run, and restored before `explore`, may have lost
+its methods without `local.jl` seeing the deletion; restart after deleting a file there.
+A session calls Revise only from its own check, so this does not apply to it.
 
 Session timings are exploratory: compilation, garbage collection and memory state differ
 from a fresh process. Ratios between a baseline saved in one mode (fresh process, session
@@ -130,8 +136,10 @@ or REPL) and a candidate run in another are not like-for-like evidence; the repo
 so. Save the baseline in the mode you will compare against, typically in the same
 session before editing. Methods redefined by Revise can also run differently from
 precompiled ones: for #110, a no-op edit sometimes doubled the time of a 6 µs case (median
-and minimum ratios both about 2). Confirm an apparent change in a fresh process, and claim
-it only with `compare.py`.
+and minimum ratios both about 2). The same shift appeared between two fresh processes with
+identical source and environment (in one scenario, on Julia 1.10 and 1.13), so a single ratio near 2 for a microsecond case is
+not evidence on its own. Repeat an apparent change in fresh processes, and claim it only
+with `compare.py`.
 
 On one machine for #110 (Apple M3 Pro, Julia 1.13), an edit followed by one quick case took
 13–21 s with `PS_GROUPS` or a fresh `local.jl` process, about 7.5 s with

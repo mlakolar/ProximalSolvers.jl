@@ -164,11 +164,31 @@ end
     err = try L.check_current_source(stale, nothing); nothing catch e; e end
     @test err isa ErrorException && occursin(message, err.msg)
   end
-  # A revision cannot clear a changed Project.toml, ProximalBase or local.jl: these are
-  # refused before Revise is consulted.
-  for (message, stale) in refused[1:7]
-    @test_throws ErrorException L.check_current_source(stale, :not_consulted)
+  # A revision cannot clear a changed Project.toml, ProximalBase or local.jl, nor a
+  # ProximalSolvers loaded before local.jl: these are refused before Revise is consulted.
+  for (message, stale) in refused[1:8]
+    err = try L.check_current_source(stale, :not_consulted); nothing catch e; e end
+    @test err isa ErrorException && occursin(message, err.msg)
   end
+  # A file deleted after loading is refused before Revise is consulted, and stays refused
+  # (Revise may remove its methods later, even after the file returns) until a restart.
+  applied = L.APPLIED[]
+  try
+    L.APPLIED[] = merge(applied, Dict("src/deleted_after_loading.jl" => "0"))
+    err = try L.check_current_source(loaded, :not_consulted); nothing catch e; e end
+    @test err isa ErrorException && occursin("src/deleted_after_loading.jl was deleted", err.msg)
+    L.APPLIED[] = applied
+    for revise in (:not_consulted, nothing)
+      err = try L.check_current_source(loaded, revise); nothing catch e; e end
+      @test err isa ErrorException && occursin("restored", err.msg)
+    end
+    @test_throws ErrorException quiet(() -> L.explore("cd/lasso-dense/cd/B/call"; samples = 3,
+                                                      io = devnull))
+  finally
+    L.APPLIED[] = applied
+    L.DELETED[] = nothing
+  end
+  @test L.check_current_source(loaded, nothing).mode == "static"
 end
 
 @testset "Baseline ratios and saved results" begin
@@ -190,13 +210,16 @@ end
     changed = merge(row, Dict(key => value))
     @test L.baseline_ratio(result, base_env, Dict(result.id => changed), env)[1] === nothing
   end
-  for key in ("julia", "cpu_model", "harness_hash", "local_hash", "proximalbase_hash")
+  for key in ("julia", "cpu_model", "harness_hash", "local_hash", "environment_hash",
+              "proximalbase_hash")
     other = merge(base_env, Dict(key => "other"))
     @test L.baseline_ratio(result, other, Dict(result.id => row), env)[1] === nothing
   end
   @test L.baseline_ratio(result, base_env, Dict{String,Dict{String,String}}(), env)[1] === nothing
-  # Corrupt or nonpositive baseline values never give a ratio or an exception.
-  for bad in ("NaN", "Inf", "-Inf", "0", "-5", "abc", "")
+  # Saved times are positive integer nanoseconds: anything else, including finite values
+  # out of range or with a fraction, never gives a ratio or an exception.
+  for bad in ("NaN", "Inf", "-Inf", "0", "-5", "abc", "", "1e-300", "1e100", "1.5", "2.0e3",
+              "99999999999999999999")
     ratio, note = L.baseline_ratio(result, base_env,
       Dict(result.id => merge(row, Dict("median_ns" => bad, "min_ns" => string(result.min_ns)))), env)
     @test ratio === nothing && occursin("baseline median invalid", note)
@@ -235,6 +258,24 @@ end
     write(corrupt, replace(read(path, String), "\t$(result.median_ns)\t" => "\tNaN\t"))
     text = sprint(io -> L.report(io, env, [result]; baseline = corrupt))
     @test occursin("no ratio (baseline median invalid", text)
+    # Finite but out-of-range values in a saved file: no ratio, no InexactError. The
+    # largest Int is a valid (if absurd) time and must also report without an error.
+    for (median, min, expect) in (("1e-300", "1", "no ratio (baseline median invalid"),
+        ("1e100", "1", "no ratio (baseline median invalid"),
+        (string(typemax(Int)), "1e100", "ratio 0.000"),
+        (string(2 * result.median_ns), "1e-300", "ratio 0.500"))
+      corrupt = joinpath(dir, "corrupt-$(length(median))-$(length(min)).local.tsv")
+      write(corrupt, replace(read(path, String),
+        "\t$(result.median_ns)\t$(result.min_ns)\t" => "\t$median\t$min\t"))
+      text = sprint(io -> L.report(io, env, [result]; baseline = corrupt))
+      @test occursin(expect, text) && !occursin("min ratio", text)
+    end
+    # A baseline saved under a different benchmark Manifest gives no ratio.
+    other_env = joinpath(dir, "other-env.local.tsv")
+    write(other_env, replace(read(path, String), "# environment_hash=$(env["environment_hash"])" =>
+                                                 "# environment_hash=0"))
+    text = sprint(io -> L.report(io, env, [result]; baseline = other_env))
+    @test occursin("no ratio (baseline environment_hash differs)", text)
   end
 end
 
