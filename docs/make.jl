@@ -83,4 +83,9 @@ makedocs(
     plugins = [links, fallbacks],
 )
 
-deploydocs(repo = "github.com/mlakolar/ProximalSolvers.jl.git", devbranch = "master", push_preview = false)
+# Deploy only when the trusted deploy job of .github/workflows/Documentation.yml asks for it (a
+# push to master or a release tag, with the key from the deploy-key environment). Pull requests
+# and local builds build and check the documentation without deploying or needing credentials.
+if get(ENV, "DOCUMENTER_DEPLOY", "false") == "true"
+  deploydocs(repo = "github.com/mlakolar/ProximalSolvers.jl.git", devbranch = "master", push_preview = false)
+end

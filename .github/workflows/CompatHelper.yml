@@ -9,6 +9,9 @@ permissions:
 jobs:
   CompatHelper:
     runs-on: ubuntu-latest
+    # The SSH key (DOCUMENTER_KEY) comes from the deploy-key environment, which admits only master
+    # and v* tags, so pull-request runs cannot obtain it.
+    environment: deploy-key
     steps:
       - name: Check if Julia is already available in the PATH
         id: julia_in_path
