@@ -6,20 +6,23 @@ tier each file belongs to and why, and the measurements behind the tiers and CI'
 
 ## Inventory
 
-- **53 regular test files** in `test/`, each listed once in `test/tiers.toml` under the lowest
+- **54 regular test files** in `test/`, each listed once in `test/tiers.toml` under the lowest
   of the cumulative tiers quick, standard and full (see Tiers). Each is a module of its own
   (`module CDTests … end`). `Pkg.test()` runs all of them. An unclassified, missing or
   duplicated file, or a file filter that matches nothing, stops the run before any test starts.
   Until the tiers there were 48; the tiers moved representative testsets of four files into
-  four `*_basics.jl` files and added `tier_selection.jl`.
+  four `*_basics.jl` files and added `tier_selection.jl`, and the risk-based CI added
+  `ci_gate.jl` (see Risk-based CI).
 - **Helpers:** `symmetric_penalty_helpers.jl`, included by `symmetric_penalties.jl`,
   `symmetric_penalties_basics.jl` and `symmetric_penalty_combinations.jl`; `tiers.jl`, the tier
-  selection used by `runtests.jl` and `tier_selection.jl`. Neither runs on its own.
+  selection and CI rules used by `runtests.jl`, `tier_selection.jl` and `scripts/ci_plan.jl`.
+  Neither runs on its own.
 - **Separate environment:** `test/oracles/` (Hypatia, JuMP, HiGHS; see its README) compares
   QUIC, square-root and primal–dual solutions with independent conic/LP/QP solvers. It is run by
   hand or on a cluster and is **not** part of `Pkg.test()`, before or after this change.
 - `examples.jl` runs every script in `examples/`; `aqua.jl` runs Aqua; `naming.jl` checks the
-  option names. CI's `scripts/check_naming.py` and the benchmark-analysis job are separate.
+  option names. CI's `scripts/check_naming.py` (in the plan job) and the benchmark-analysis job
+  are separate and run on every CI run.
 
 ## Runner
 
@@ -286,7 +289,8 @@ only the absence of errors). It is meant to run on every pull request:
 | File | Why it is in quick |
 |---|---|
 | `aqua`, `naming` | package quality (ambiguities, piracy, stale dependencies) and the option names |
-| `tier_selection` | the tier manifest: every file classified once, tiers cumulative, problems rejected |
+| `tier_selection` | the tier manifest: every file classified once, tiers cumulative, problems rejected; the CI risk rules, labels and the nightly plan |
+| `ci_gate` | the CI verdict and merge gate on job states: failed, cancelled, skipped, missing and re-run jobs, stale labels, API errors |
 | `prox_solvers` | proximal gradient, accelerated and monotone accelerated solvers: solutions, stopping on the gradient residual, callbacks, `SparseIterate` and Float32 iterates |
 | `linesearch` | the backtracking line search: solver reuse, the switch to gradients near convergence, trial points off the cone |
 | `call_limits` | the call counts the solvers report and the call limits that stop them (gradient solvers, ADMM) |
@@ -345,15 +349,16 @@ check, each of the eight files gave the same assertion count and passed when sta
 
 ### Equivalence
 
-- **Assertions:** full counts 115871 on Julia 1.13 and 115860 on Julia 1.10: the 115834 and
+- **Assertions:** at #174, full counted 115871 on Julia 1.13 and 115860 on Julia 1.10 (the
+  risk-based CI adds its own tests; see below): the 115834 and
   115823 of the 48 files before (115830 and 115819, plus the 4 that #173 split out of
   `product_space`), plus the 37 of the new `tier_selection.jl`. Each split file and
   its `*_basics.jl` file add up to the original count (849, 1639, 1947, 183); the other 44 files
   are unchanged.
 - **Coverage:** full with coverage covers the same 6010 of 6142 instrumented lines of `src`,
   line for line, as the sequential runner at `1f62540` (M3 Pro, Julia 1.13.3).
-- **`Pkg.test()`** without arguments runs full; CI still runs full on every job (the tier
-  selection of pull requests is #121's phase 3).
+- **`Pkg.test()`** without arguments runs full. Until the risk-based CI (below), CI ran full on
+  every job.
 
 ### Measurements
 
@@ -382,3 +387,302 @@ The CPU of the runner still moves a job by up to a factor of two.
 
 Locally (M3 Pro, 4 workers, no coverage), quick, standard and full took 39, 109 and 155 s on
 Julia 1.13.3 and 52, 105 and 137 s on Julia 1.10.12, including setup.
+
+## Risk-based CI
+
+`.github/workflows/CI.yml` chooses a tier per run (`scripts/ci_plan.jl`, rules in
+`.github/tier-rules.toml`, read by `test/tiers.jl`); `CONTRIBUTING.md` describes the workflow
+for contributors. Adapted from ProximalBase.jl #430, with three tiers and the differences below.
+
+| Event | Tier | Jobs | Coverage |
+|---|---|---|---|
+| pull request | quick, standard or full by the changed paths, raised by `test:standard` / `test:full`; none when every path needs no package tests (documentation, benchmarks) | Julia 1.10 and 1, Ubuntu; full adds Julia 1 on macOS (aarch64) and Windows | full only, Julia 1 Ubuntu |
+| push to master, tag | full, always | all four | Julia 1 Ubuntu |
+| nightly (06:17 UTC) | full, or none after a verified full run (below) | all four | Julia 1 Ubuntu |
+| manual | the chosen tier, full by default | as for a pull request | full only |
+
+The plan, the naming check (`scripts/check_naming.py`, moved from the test jobs to the plan job,
+so it runs once per run, also for documentation) and the benchmark analysis controls run on
+every run. The test jobs keep the worker counts of the parallel runner (4 on Ubuntu and
+Windows, 3 on macOS). No sharding across runners was added: a full job takes 5–10 minutes and
+1.5–2 of them are setup that every shard would repeat.
+
+### Rules
+
+Each changed path takes the first rule that matches it; the PR gets the highest tier:
+
+- **none:** documentation (`docs/**`, `**/*.md`, `LICENSE`, `.gitignore`, `codecov.yml`), the
+  benchmarks (their analysis controls run anyway), `test/oracles/**`, the naming script, the
+  scripts for development sources, and the Documentation, TagBot and CompatHelper workflows and
+  Dependabot's configuration.
+- **full:** the runner and CI (`CI.yml`, `tier-rules.toml`, the four `scripts/ci_*.jl`,
+  `scripts/test.jl`, `scripts/test_report.jl`, `test/runtests.jl`, `test/tiers.jl`),
+  `Project.toml`, `test/tiers.toml` (unless the edit only adds files new in the PR); shared
+  solver architecture (`ProximalSolvers.jl`, `types.jl`, `solve.jl`, `blocks.jl`,
+  `line_searches.jl`, `workspaces.jl`, `precompile.jl`, `cd/models.jl`, `cd/solver.jl`);
+  convergence and certification semantics (`utils.jl`, with the stopping tests,
+  `cd/gap.jl`, `cd/sqrtdual.jl`, `cd/path.jl`, `solvers/primal_dual.jl` with the public
+  primal-dual `duality_gap`, `cd/glm.jl` with ProxNewton's certificate guard); native code
+  (`cd/groupcurvature.jl`, which calls LAPACK's `syevr` through `ccall`); and every path no
+  rule names, including a new source file (which `tier_selection` then rejects until a rule
+  names it) and any file under `test/` that is not Julia code (the test environment, data).
+- **quick:** a test file (it runs beside the tier), the shared symmetric-penalty helpers (with
+  the three files that include them, checked by a test) and `examples/**` (with `examples`).
+- **standard:** every other source file, each named in a rule, with its focus files.
+
+Standard runs every file but the four full-only ones, so the focus files of a solver rule are
+chosen among those four: a full-only file is a focus file of a source file when it covers lines
+there that standard does not, or at least a quarter of the lines standard covers there. Per-file
+coverage of `src` (Julia 1.13.3, M3 Pro, `src` as in master at `ba11f52`): lines standard covers, and for
+each full-only file the lines it covers (with those standard does not, after the slash) and
+their share of standard's.
+
+| Source file | Standard | `examples` | `float32_certificates` | `mixed_precision_extended` | `symmetric_penalty_combinations` |
+|---|---:|---:|---:|---:|---:|
+| `solvers/proximal_gradient_descent` | 80 | 42 / 0, 52% | 0 | 66 / 0, 82% | 42 / 0, 52% |
+| `solvers/accelerated_proximal_gradient_descent` | 70 | 64 / 0, 91% | 0 | 67 / 0, 96% | 60 / 0, 86% |
+| `solvers/active_accelerated_proximal_gradient_descent` | 129 | 114 / 0, 88% | 0 | 95 / 0, 74% | 0 |
+| `solvers/monotone_accelerated_proximal_gradient_descent` | 89 | 0 | 0 | 0 | 81 / 0, 91% |
+| `solvers/image_models` | 72 | 30 / 0, 42% | 0 | 33 / 0, 46% | 5 / 0, 7% |
+| `solvers/diagonal_metric` | 127 | 14 / 0, 11% | 0 | 14 / 0, 11% | 14 / 0, 11% |
+| `solvers/admm` | 102 | 69 / 0, 68% | 0 | 0 | 0 |
+| `solvers/primal_dual` | 175 | 144 / 0, 82% | 0 | 0 | 0 |
+| `solvers/slope` | 130 | 0 | 0 | 83 / 0, 64% | 0 |
+| `solvers/slope_hybrid` | 270 | 0 | 0 | 218 / 0, 81% | 0 |
+| `cd/drivers` | 96 | 70 / 0, 73% | 0 | 31 / 0, 32% | 0 |
+| `cd/leastsquares` | 358 | 178 / 0, 50% | 305 / **6**, 84% | 38 / 0, 11% | 0 |
+| `cd/glm` | 458 | 189 / 0, 41% | 299 / 0, 65% | 0 | 6 / 0, 1% |
+| `cd/groupcurvature` | 52 | 29 / 0, 56% | 29 / 0, 56% | 2 / 0, 4% | 0 |
+| `cd/groups` | 50 | 0 | 25 / 0, 50% | 0 | 0 |
+| `cd/sparsegroup` | 95 | 0 | 72 / 0, 76% | 0 | 0 |
+| `cd/kron` | 135 | 77 / 0, 57% | 0 | 0 | 51 / 0, 38% |
+| `cd/kronu` | 75 | 0 | 0 | 0 | 34 / 0, 45% |
+| `cd/quic` | 166 | 0 | 0 | 0 | 161 / 0, 97% |
+| `cd/lla` | 102 | 82 / 0, 80% | 0 | 0 | 0 |
+| `cd/sqrtlasso` | 286 | 132 / 0, 46% | 0 | 0 | 0 |
+| `cd/sqrtquadratic` | 202 | 134 / 0, 66% | 0 | 0 | 0 |
+| `cd/generic_newton`, `cd/multiresponse`, `cd/quadratic`, `cd/refit_cache` | 117, 124, 137, 116 | 0 | 0 | 0 | 0 |
+
+`solvers/primal_dual`, `cd/glm` and `cd/groupcurvature` became full in the reviews (below); their rows show what
+the focus files would be. Of the files that are full anyway, `float32_certificates` alone covers 76 lines of `cd/gap.jl`
+that standard does not. The selection reads coverage, not behavior: a full-only file that runs
+the same lines with other types (Float32, mixed precision) is chosen through its share, and a
+change whose risk the paths do not show needs a label.
+
+### Differences from ProximalBase
+
+- **Current labels.** The plan takes the labels of the event and the labels the PR has now, so
+  Re-run all jobs of an older run uses today's labels. The verdict reads the PR's labels again
+  and fails if one asks for more than the run's plan chose. The scenarios below show that GitHub
+  already counts, for each required check, the run created last, not the check that finished
+  last: re-running an older quick run, passing or failed, left a PR whose labeled full run had
+  failed blocked even without this check (controls #188 and #190). The check is defense in depth
+  for that undocumented behavior, and it names the cause when it fails.
+- **The verdict is a script** (`scripts/ci_verdict.jl`, tested in `test/ci_gate.jl`), and it
+  also requires full for a push and full or none for the nightly run.
+- **Every push runs full**, also for documentation, as #121 asks for every merge and release.
+- **The nightly skip** also requires the same dependencies. A full run that is not for a pull
+  request records, on its two Ubuntu jobs, the Julia version and every resolved package version
+  of a test environment (`scripts/ci_environment.jl`, a 16-hex digest) and uploads the record as
+  an artifact named `environment-<julia>-<digest>` if the tests pass. The nightly plan resolves
+  the same two environments and skips only if a run on the same commit, less than 24 hours old,
+  not for a pull request, concluded success, has `CI required jobs` and all four full jobs
+  successful in its latest attempt, and recorded both names. A new release of any dependency or
+  test dependency, or a new Julia patch release, therefore runs full. Runner images and the
+  macOS and Windows resolutions are not part of the record. An API failure or malformed answer
+  runs full.
+- No benchmark reference checks, conformance reports or `test:iterate-narrow` label, which
+  ProximalSolvers does not have; the gate script is ProximalBase's, unchanged but for its header.
+
+### Final review (integration with master)
+
+Four independent reviews (tier selection; merge protection and security; the nightly skip;
+documentation and evidence) of the integrated head `e568c5a` found no way to get both checks
+green without the tests the paths or labels require. Changes made:
+
+- **A new base branch reruns CI** (`edited` in the pull request types). Required checks are keyed
+  to the head commit, so a PR retargeted from another branch kept checks computed against that
+  branch. A title or body edit now also restarts the run.
+- **The verdict** fails on two jobs of one name (they count as `duplicated`, never success) and
+  on any failed test job of the planned tier that its list of expected jobs does not name.
+- **No checkout keeps the token** in `.git/config` (`persist-credentials: false`), so PR code in
+  the test job cannot reuse its token through git (the token is now read-only as well, below).
+- **The gate's deadline** is 160 minutes, so its startup retries fit the 180-minute job timeout.
+- **The environment record** is taken before the job resolves the dependencies the tests use
+  (Pkg.test keeps that manifest), and the extras resolve with the package's `[compat]` bounds,
+  as in Pkg.test's sandbox. Before, a dependency released between resolution and the record, or
+  an extra with a release outside its compat bounds, could let a nightly run skip although its
+  tests would have used other versions. Only push, schedule and manual runs count as evidence.
+- **Rules:** `solvers/primal_dual.jl` (the public primal-dual `duality_gap` and CondatVu's gap
+  stop) and `cd/glm.jl` (ProxNewton's certificate guard) became full; files under `test/` that
+  are not Julia code (the test environment, data) fall through to full instead of quick; a test
+  checks the helper rule's focus files against the files that include the helper.
+- **Workflow tests** pin the properties the checks rely on: the event types, no
+  `paths-ignore` or `pull_request_target`, the record before the resolution, the upload only
+  after passing tests, a gate without `needs`, a verdict that always runs.
+
+Not changed: the planner, verdict and gate come from the PR's merge commit, so they are only as
+strong as required review of `.github/**` and `scripts/ci_*.jl` (CODEOWNERS or required review
+are recommended).
+
+### Maintainer review (#191, review 5761207188)
+
+- **The test job's token is read-only** (`actions: read`, `contents: read`). It had
+  `actions: write` only so that `julia-actions/cache` could delete older caches, and it runs the
+  PR's code. The cache action now has `delete-old-caches: false`; restoring and saving go
+  through the runner's cache service and need no token scope, and GitHub evicts caches unused
+  for 7 days or beyond the repository's 10 GB. A workflow test fails if any permission of the
+  test job is `write` or deletion is turned back on. Checked on GitHub at `0ddcaac` (run
+  41746737170): each of the four test jobs reported `Actions: read`, `Contents: read`, restored the
+  cache of the previous run and saved its own ("Cache saved successfully").
+- **`src/cd/groupcurvature.jl` is full.** It calls LAPACK's `syevr` through `ccall`, and an
+  out-of-bounds write there crashed Julia on macOS (#131, fixed in #146); standard's line
+  coverage of the file does not test the other platforms. A test pins the rule, also against a
+  `test:standard` label.
+- **Codecov's comparison changes baseline.** Master's coverage is the union of four uploads (Julia
+  1.10 and 1 on Ubuntu, macOS, Windows): 39 files, 6204 of 6374 lines. A full run now uploads
+  only the Julia 1 Ubuntu job: 38 files, 6010 of 6142. The difference is the Julia 1.10 job,
+  whose coverage also instruments `src/ProximalSolvers.jl` and `src/precompile.jl` (module and
+  precompile code that Julia 1.13 does not report), not lost tests: the Julia 1.13 file set and
+  covered lines are unchanged, and the coverage parity here compares single Julia 1.13 runs (6010
+  of 6142 before and after). The first comparison after the merge, and Codecov's PR comments
+  until master has a single-job baseline, therefore show a spurious change of about half a
+  percentage point.
+- **Documentation is not one of the two checks.** A PR whose `Documentation` workflow fails still
+  gets a green `PR required jobs`, unless branch protection also requires `Documentation`. That
+  workflow runs on every pull request (no path filter), so it can be a third required check;
+  doing so is the maintainer's choice, and is better made after the hardening below.
+- **The Documentation workflow runs PR code with write access (existing, not changed here).**
+  `.github/workflows/Documentation.yml` runs `docs/make.jl` from the PR with `contents: write`,
+  `actions: write` and `statuses: write`, and passes `GITHUB_TOKEN` and `DOCUMENTER_KEY` to that
+  step. Fork PRs get a read-only token and no secrets, but a same-repository PR's branch can
+  change `docs/make.jl` (which the proposed review rule on `.github/**` does not cover) and use
+  them. Proposed follow-up, separate from this PR: build on pull requests with `contents: read`
+  only, no `DOCUMENTER_KEY` and no write token (Documenter can build without deploying); deploy
+  in a separate job that runs only on pushes to master and tags, with `contents: write` and the
+  key, and runs no PR code; keep `persist-credentials: false`; then consider requiring the PR
+  build as a third check.
+
+### Scenarios
+
+Checked on GitHub with scratch PRs (#175–#190, closed unmerged) against scratch copies of this
+branch, so that each diff held only the scenario's change: `ci/gate-scenarios` (at `8908d5f`)
+and, after the review fixes, `ci/gate-scenarios2` (at `f634274`); the controls ran on copies of
+the latter with the verdict's label check removed (`ci/gate-scenarios2-nolabelcheck` for #187,
+`ci/gate-scenarios3-nolabelcheck`, which also drops the unit tests of that check, for #188 and
+#190). A temporary ruleset required `PR merge gate` and `PR required jobs` from GitHub Actions
+on those branches only, as branch protection should on master; master's protection was not changed, and the ruleset and branches
+were deleted afterwards. A watcher polled each PR's merge state and checks every 3–8 s (UTC).
+These first scenarios ran before the final review; the next section repeats those that its
+changes touch.
+
+| Scenario | PR (run) | Plan | Outcome | Merge state |
+|---|---|---|---|---|
+| a test file changed (`test/glm.jl`) | #175 (41637851372) | quick and `glm` | passed, 3.7 min end to end | CLEAN 12:45:15 |
+| label `test:standard` added | #175 (41638428519) | standard | label request 12:45:37.5–40.0; new pending gate at the next poll; passed | BLOCKED 12:45:45 to 12:56:36, then CLEAN |
+| label `test:full` added | #175 (41640671387) | full, four jobs | passed (22 min, queued behind other scenarios) | BLOCKED until the gate passed |
+| documentation only | #176 (41637855636) | none | no test jobs; both checks passed in 0.8 min | mergeable |
+| a solver file (`src/cd/quic.jl`) | #177 (41637864018) | standard and `symmetric_penalty_combinations` | passed, 9.2 min | CLEAN |
+| certification code (`src/cd/gap.jl`) | #178 (41637872435) | full, four jobs, coverage on Julia 1 Ubuntu only | passed, 10.5 min | CLEAN |
+| a test file missing from `tiers.toml` | #179 (41637879340) | the plan failed | no test jobs; both checks failed | BLOCKED |
+| a new test file and its `tiers.toml` line | #180 (41638146833) | quick and `scenario_new` | passed, 5.2 min | CLEAN |
+| `tiers.toml` moves `workspaces` from quick to standard | #181 (41638154173) | full | `tier_selection` failed: its manifest-edit tests named `workspaces`; they now take their names from the manifest (`f634274`) | BLOCKED |
+| a test fails on Julia 1 in attempt 1 | #182 (41640684390, 1) | quick | PR required jobs: "Julia 1 - ubuntu-latest - x64 - quick: failure."; gate failed | BLOCKED |
+| Re-run failed jobs | #182 (2) | | request 13:17:28.9–30.4; only Julia 1, the verdict and the gate re-ran | BLOCKED until CLEAN 13:26:01 |
+| Re-run job on the passing Julia 1.10 job | #182 (3) | | request 13:26:25.3–26.5; PR required jobs absent until the job finished | BLOCKED 13:26:32 to 13:29:20, then CLEAN |
+| Re-run all jobs | #182 (4) | quick (new plan) | request 13:29:31.4–32.8; new pending gate | BLOCKED 13:29:34 to 13:34:36, then CLEAN |
+| the run cancelled by hand | #183 (41640697631) | quick | gate cancelled; PR required jobs: "The test jobs are cancelled." | BLOCKED |
+| no Windows job (stub workflow) | #184 (41640706119) | full | PR required jobs: "Julia 1 - windows-latest - x64 - full: missing." | BLOCKED |
+| the verdict renamed (stub workflow) | #185 (41640714101) | full | gate: "every job finished 92 s ago, but this run has no job `PR required jobs`" | BLOCKED |
+| stale checks: quick passes, `test:full` fails on Windows, then Re-run job on the older quick run | #186 (41644465071, 41645823697) | quick, then full | request 13:50:05.6–06.9; the re-run's PR required jobs: "Label `test:full` asks for at least full, but this run's plan chose quick" | BLOCKED throughout |
+| the same, control without the verdict's label check | #188 (41645817333, 41646840925) | quick, then full | request 14:09:57.9–14:10:05.8; the re-run's PR required jobs passed (14:23:41) | BLOCKED: GitHub kept the checks of the newer run |
+| stale checks: quick fails, `test:full` fails on Windows, then Re-run failed jobs on the older quick run | #189 (41653452805, 41655307633) | quick, then full | request 14:55:26.4–28.0; the re-run's PR required jobs: "Label `test:full` asks for at least full, but this run's plan chose quick"; gate failed | BLOCKED throughout |
+| the same, control without the verdict's label check | #190 (41653458810, 41655411867) | quick, then full | the re-run's PR required jobs and gate passed at 14:58:26 and 14:58:33, after the full run's failed checks (14:55:03, 14:55:08) | BLOCKED: GitHub kept the checks of the newer run |
+| `test:full` removed after the full run failed | #186 (41659290286) | quick | label request 15:00:05.3–07.9; a new quick run passed | BLOCKED, then CLEAN 15:05:01 |
+| manual quick run | 41637469134 | quick | checks named `CI result` and `CI required jobs` | — |
+| nightly path: a manual full run, then the scheduled path on the same commit | 41645877388, 41650828067 | full, then none | the full run recorded `environment-1.10-d933144b703c7470` and `environment-1-08074b6a7de2f8f9`; the second plan: "Run 41645877388 passed the full tier on this commit in the last 24 hours, with the same Julia and package versions" | — |
+
+The nightly path ran on `ci/scenario-nightly`, which maps a manual run of tier `nightly` to the
+scheduled path (the schedule fires only on master); pushes to master and tags can be observed
+only after the merge. The Julia 1 digest of the runners equals the one on an M3 Pro: the record
+does not depend on the platform. A first control (#187) failed its quick run: with the label
+check removed, `test/ci_gate.jl` fails, so the unit tests guard the check.
+
+The scenarios ran with up to 13 runs at a time, so later runs queued for runners (macOS
+especially); the end-to-end times of the first batch (#175–#180, started together) are the
+representative ones. From the last test job to the gate's result took 22–48 s in the first
+batch, and 93 s once, in the queued full run of #175 (the verdict installs Julia, about 15 s,
+and the gate polls every 5 s once the verdict exists).
+
+### Scenarios on the final head
+
+The final review changed the verdict and the workflow, so the scenarios that depend on them ran
+again (#192–#202, closed unmerged) against `ci/gate-final` (at `36239b0`) and `ci/gate-final2`
+(at `4c09c7c`, the head; it differs from `36239b0` only in `test/ci_gate.jl`), with a temporary
+ruleset requiring both checks on those branches only; ruleset and branches were deleted.
+
+| Scenario | PR (run) | Plan | Outcome | Merge state |
+|---|---|---|---|---|
+| documentation only | #192 (41707757514) | none | both checks passed | CLEAN |
+| a test file changed (`test/glm.jl`) | #193 (41707762444) | quick and `glm` | passed | CLEAN |
+| label `test:full` added to that green commit | #193 | full | label request 20:10:55.4–57.7 | BLOCKED at 20:10:58.6, 0.9 s after the request returned |
+| a solver file (`src/solvers/admm.jl`) | #194 (41707771342) | standard and `examples` | passed | CLEAN |
+| certification code (`src/cd/gap.jl`) | #195 (41707779196), #201 (41715523687) | full, four jobs | #195: Windows failed in the new workflow test (CRLF, fixed in `4c09c7c`), BLOCKED; #201 at the head: passed | CLEAN |
+| a failing benchmark analysis control | #196 (41707782632) | none | PR required jobs: "Benchmark analysis controls: failure." | BLOCKED |
+| a PR retargeted from a docs-only diff to a risky one | #197 (41707790301, 41709921692) | none against `fin/retarget-base`; after `gh pr edit --base ci/gate-final` (20:09:15.6–18.4) a new run (created 20:09:20) planned full | the second run failed on the CRLF test | BLOCKED from the retarget on |
+| `tiers.toml` moves `workspaces` from quick to standard | #198 (41710125731), #202 (41715530071) | full: "`workspaces` moves from `quick` to `standard`" | #198 hit the CRLF test; #202 at the head passed, including the manifest-edit tests | CLEAN |
+| a test fails on Julia 1 in attempt 1 | #199 (41710134011, 1) | quick | PR required jobs and the gate failed | BLOCKED |
+| Re-run job on the failed job | #199 (2) | | request 20:21:40.0–41.4; the job and PR required jobs passed, the gate kept its failure | BLOCKED (20:25:04) |
+| then Re-run failed jobs | #199 (3) | | only the gate re-ran: "`PR required jobs` passed (attempt 3)" | CLEAN at 20:26:34 |
+| no Windows job (stub workflow) | #200 (41710144245) | full | PR required jobs: "Julia 1 - windows-latest - x64 - full: missing." | BLOCKED |
+
+### Measurements
+
+Manual runs of each tier on the final head `4c09c7c`, three rounds (the three tiers of a round
+started together; one quick run of round 3 was started alone), from the run's creation to the
+gate's result:
+
+| Tier | Runs | End to end | Median | Test jobs (median) | Gate after the last test job |
+|---|---|---|---:|---|---|
+| quick | 41718249865, 41721488129, 41728762271 | 4.3, 4.2, 4.5 min | **4.3 min** | Julia 1 2.6, Julia 1.10 3.4 min | 23–31 s |
+| standard | 41718288918, 41721510225, 41725898799 | 9.2, 7.4, 9.5 min | **9.2 min** | Julia 1 6.2, Julia 1.10 8.3 min | 25–37 s |
+| full | 41718336146, 41721531808, 41725990213 | 19.9, 10.3, 11.5 min | **11.5 min** | Ubuntu 6.4, Julia 1.10 10.7, macOS 7.6, Windows 9.0 min | 26–36 s |
+
+The 19.9 min full run waited 4.0 min for a runner and its macOS job took 15.0 min; the other
+runs waited at most 6 s. Other repositories of the account ran CI at the same time, and GitHub
+runners differ in CPU (test/TESTING.md, Parallel runs), so single runs vary by up to a factor of
+two. Before this change every PR ran full with coverage on four jobs; the same measure for
+pull-request runs that did not queue gave 9.7 min (41576419157) and 10.4 min (41556070197), and
+15.8 and 20.3 min for two that queued. A test-only PR now finishes in about 4.3 minutes with two
+test jobs (about 6 runner minutes instead of about 32), and a localized solver change in about
+9 minutes with two; full keeps the earlier time and the four platforms. Both targets hold:
+quick 4.2–4.5 minutes against 3–5, standard 7.4–9.5 against 6–10, end to end.
+
+**Counts and coverage at `0ddcaac`.** Full runs 54 files and counts **116341** assertions on
+Julia 1.13.3 (Ubuntu, macOS aarch64, Windows) and **116330** on Julia 1.10.13 (#191's run
+41746737170). That is #174's 115871 and 115860 plus 470 in `ci_gate.jl` and the extended
+`tier_selection.jl`; the other 52 files are unchanged. At `4c09c7c`, before the maintainer
+review's 4 policy assertions, the counts were 116337 and 116326 (run 41715378305, and locally). Full with coverage covers the same **6010 of 6142** `src` lines,
+line for line, as before the tiers (local, Julia 1.13.3). Earlier commits of this PR counted
+116333 / 116322 (`8908d5f`) and 116315 / 116304 (`f634274`, `e568c5a`) as the CI tests changed.
+
+### What remains
+
+- **Window of seconds.** Between a label, push or re-run and GitHub creating the run or
+  attempt, the earlier checks are still the newest (ProximalBase measured 2–6 s for labels).
+- **Removing a label** starts a new run of the path tier, whose checks then count (#186): the
+  labels raise the tier of a run, and the paths set the minimum that every PR must pass. The
+  full run after the merge still runs everything.
+- **Branch protection (maintainer, after the merge).** Master is not protected today. Once
+  this workflow is on master and both checks have run there, add a branch ruleset (or classic
+  protection) for `master` with **Require status checks to pass**, listing exactly
+  `PR required jobs` and `PR merge gate`, each with GitHub Actions as its source
+  (integration id 15368), and leave "require branches to be up to date" off. Do not require the
+  test jobs: their names end in the tier (`Julia 1 - ubuntu-latest - x64 - quick`) and the
+  matrix depends on it, so a required job name would be missing on every PR of another tier,
+  and PR required jobs already checks every job the plan asked for. Also require a review, or
+  CODEOWNERS, for `.github/**` and `scripts/ci_*.jl`: a PR's own merge commit supplies the
+  planner, the verdict and the gate. Then open an ordinary PR with a failing assertion and
+  check that GitHub blocks its merge.
+- **Pushes and tags** run full and open the issue "CI failing on master" on failure; that path
+  and the real schedule can be observed only on master.

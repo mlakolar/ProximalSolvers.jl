@@ -1,4 +1,6 @@
-# The test tiers. Read by test/tiers.jl and test/runtests.jl; checked by test/tier_selection.jl.
+# The test tiers. Read by test/tiers.jl, test/runtests.jl and scripts/ci_plan.jl; checked by
+# test/tier_selection.jl. The CI rules that choose a pull request's tier are in
+# .github/tier-rules.toml.
 # test/TESTING.md records why each file sits where it does; CONTRIBUTING.md has the commands.
 #
 # [tiers]: each test file (its path under test/ without .jl) is listed once, under the lowest
@@ -10,8 +12,9 @@
 # The central solver contracts on representative problems, checked numerically: every pull
 # request.
 quick = [
-  # package quality and the tier manifest
+  # package quality, the tier manifest and the CI rules, plan, verdict and gate
   "aqua",
+  "ci_gate",
   "naming",
   "tier_selection",
   # proximal gradient, accelerated and monotone: solutions, line search, call counts and limits,

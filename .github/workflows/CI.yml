@@ -1,40 +1,143 @@
 name: CI
+# The plan job picks a test tier (test/tiers.toml, .github/tier-rules.toml, scripts/ci_plan.jl):
+# - pull requests: the minimum tier for the changed files, raised by the labels test:standard
+#   or test:full (the payload's labels and the PR's current ones), plus the changed test files
+#   and the focus files of the matched rules; quick at least, unless every changed path needs no
+#   package tests (documentation, benchmarks; tier none);
+# - pushes to master and release tags: full;
+# - the nightly run: full, unless a run that passed full on the same commit with the same
+#   resolved Julia and package versions is less than a day old;
+# - manual runs: the chosen tier, full by default (`gh workflow run CI.yml --ref <branch>`).
+# Quick and standard run Julia 1.10 and 1 on Ubuntu without coverage; full adds macOS and
+# Windows, and its Julia 1 Ubuntu job collects coverage for Codecov.
+# Branch protection should require two checks of pull_request runs (test/TESTING.md). "PR merge gate" starts with the
+# run, so a new run (a push or a label) at once replaces the commit's earlier gate with a pending
+# one, and it passes when this run's "PR required jobs" found that everything the plan asked for
+# passed. "PR required jobs" itself is required because GitHub re-runs it with any test job that
+# is re-run, but not the gate. Other events name them "CI result" and "CI required jobs", so a
+# manual run cannot stand in for a PR's checks. CONTRIBUTING.md describes the workflow and
+# test/TESTING.md the scenarios that checked it.
 on:
+  pull_request:
+    # edited: a new base branch changes what the PR's checks were computed against (a title or
+    # body edit also starts a new run, which only costs time)
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
   push:
     branches:
       - master
     tags: ['*']
-    paths-ignore:
-      - '**.md'
-      - 'LICENSE'
-      - '.gitignore'
-  pull_request:
-    paths-ignore:
-      - '**.md'
-      - 'LICENSE'
-      - '.gitignore'
+  schedule:
+    - cron: '17 6 * * *'
   workflow_dispatch:
+    inputs:
+      tier:
+        description: 'Test tier (full also runs macOS and Windows, and collects coverage)'
+        type: choice
+        options: [full, standard, quick]
+        default: full
 concurrency:
-  # Skip intermediate builds: always.
-  # Cancel intermediate builds: only if it is a pull request build.
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+  # A new commit or label on a PR cancels its older run. Every push to master or a tag runs to
+  # the end (its own group). Nightly and manual runs (per tier) queue, and a newer pending one
+  # replaces an older pending one.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ inputs.tier }}-${{ github.event_name == 'push' && github.sha || '' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
-  benchmark-analysis:
-    name: Benchmark analysis controls
+  plan:
+    name: Test plan
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read # nightly: find a full run that already passed on the same commit
+      contents: read
+      issues: read # the PR's current labels
+      pull-requests: read
+    outputs:
+      tier: ${{ steps.plan.outputs.tier }}
+      focus: ${{ steps.plan.outputs.focus }}
+      run_tests: ${{ steps.plan.outputs.run_tests }}
+      timeout: ${{ steps.plan.outputs.timeout }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
         with:
-          python-version: '3.12'
-      - run: python benchmark/check_analysis.py
+          persist-credentials: false
+          # A PR checks out its merge commit, whose first parent is the base branch.
+          fetch-depth: 2
+      - name: Check naming conventions
+        run: python3 scripts/check_naming.py
+      # The nightly run resolves the test environment of each Julia version, as full runs
+      # record it (scripts/ci_environment.jl); without both names it runs full.
+      - uses: julia-actions/setup-julia@v3
+        if: github.event_name == 'schedule'
+        with:
+          version: '1.10'
+      - name: Resolve the Julia 1.10 test environment
+        id: env110
+        if: github.event_name == 'schedule'
+        continue-on-error: true
+        run: julia --startup-file=no scripts/ci_environment.jl
+        env:
+          JULIA_CHANNEL: '1.10'
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1'
+      - name: Resolve the Julia 1 test environment
+        id: env1
+        if: github.event_name == 'schedule'
+        continue-on-error: true
+        run: julia --startup-file=no scripts/ci_environment.jl
+        env:
+          JULIA_CHANNEL: '1'
+      - name: Choose the tier
+        id: plan
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          PR: ${{ github.event.pull_request.number }}
+          DISPATCH_TIER: ${{ inputs.tier }}
+          ENVIRONMENTS: ${{ steps.env110.outputs.name && steps.env1.outputs.name && format('{0},{1}', steps.env110.outputs.name, steps.env1.outputs.name) || '' }}
+        run: |
+          labels="$LABELS"
+          if [ "$EVENT" = pull_request ]; then
+            # A re-run of an older run must see the labels the PR has now, not those of its event.
+            ok=0
+            for attempt in 1 2 3 4; do
+              if current=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/labels" --paginate --jq '.[].name'); then ok=1; break; fi
+              echo "::warning::Could not read the labels of the PR (attempt $attempt)."
+              sleep 15
+            done
+            [ "$ok" = 1 ] || { echo "::error::Could not read the labels of the PR."; exit 1; }
+            labels="$labels,$(printf '%s\n' "$current" | paste -sd, -)"
+          fi
+          case "$EVENT" in
+            pull_request) args=(--base=HEAD^1 --head=HEAD "--labels=$labels") ;;
+            push) args=() ;;
+            workflow_dispatch) args=("--tier=${DISPATCH_TIER:-full}") ;;
+            schedule) args=("--sha=$GITHUB_SHA" "--repo=$GITHUB_REPOSITORY" "--environments=$ENVIRONMENTS") ;;
+          esac
+          # ProximalBase saw the planner (2 s locally) hang once in about 20 runs; retry once
+          # rather than fail the gate for that.
+          for attempt in 1 2; do
+            timeout 120 julia --startup-file=no scripts/ci_plan.jl "--event=$EVENT" "${args[@]}" && exit 0
+            echo "::warning::The plan did not finish (attempt $attempt)."
+          done
+          exit 1
   test:
-    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
+    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ needs.plan.outputs.tier }}
+    needs: plan
+    if: needs.plan.outputs.run_tests == 'true'
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
-    permissions: # needed to allow julia-actions/cache to proactively delete old caches that it has created
-      actions: write
+    # Per tier in .github/tier-rules.toml, well above the measured times to allow for cold caches.
+    timeout-minutes: ${{ fromJSON(needs.plan.outputs.timeout) }}
+    env:
+      FULL_TESTS: ${{ needs.plan.outputs.tier == 'full' }}
+    # This job runs the PR's code, so its token is read-only. julia-actions/cache restores and
+    # saves through the runner's cache service, which needs no token scope; only its deletion of
+    # older caches needs `actions: write`, so that is off, and GitHub evicts caches unused for 7
+    # days or beyond the repository's 10 GB.
+    permissions:
+      actions: read
       contents: read
     strategy:
       fail-fast: false
@@ -50,38 +153,56 @@ jobs:
         # memory gives too few on macOS). Measured choices: test/TESTING.md.
         ptr_jobs:
           - '4'
-        include:
-          - version: '1'
-            os: macos-latest
-            arch: aarch64
-            ptr_jobs: '3'
-          - version: '1'
-            os: windows-latest
-            arch: x64
-            ptr_jobs: '4'
+        # The full tier adds these.
+        include: >-
+          ${{ fromJSON(needs.plan.outputs.tier == 'full' &&
+          '[{"version": "1", "os": "macos-latest", "arch": "aarch64", "ptr_jobs": "3"},
+          {"version": "1", "os": "windows-latest", "arch": "x64", "ptr_jobs": "4"}]' || '[]') }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: julia-actions/setup-julia@v3
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v3
-      - name: Check naming conventions
-        run: ${{ runner.os == 'Windows' && 'python' || 'python3' }} scripts/check_naming.py
+        with:
+          delete-old-caches: false
+      # A full run that is not for a pull request records the test environment of each Julia
+      # version before it resolves the dependencies it tests (Pkg.test keeps the manifest that
+      # the next step writes), and uploads the record if the tests pass, so a nightly run on the
+      # same commit can tell whether it would test anything new (scripts/ci_environment.jl,
+      # scripts/ci_plan.jl). A dependency released after the record makes the tested versions
+      # newer than the recorded ones, so the nightly digest differs and the nightly run runs
+      # full. Best effort: without the record the nightly run runs full.
+      - name: Record the resolved test environment
+        id: environment
+        if: env.FULL_TESTS == 'true' && github.event_name != 'pull_request' && matrix.os == 'ubuntu-latest'
+        continue-on-error: true
+        shell: bash
+        run: julia --startup-file=no scripts/ci_environment.jl | tee "$RUNNER_TEMP/environment.txt"
+        env:
+          JULIA_CHANNEL: ${{ matrix.version }}
       - name: Resolve registered dependencies
         run: julia --color=yes --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.status(; mode=Pkg.PKGMODE_MANIFEST)'
       - uses: julia-actions/julia-buildpkg@v1
-      - name: Test against registered dependencies
+      - name: Run package tests
         id: tests
         shell: bash
         run: |
+          echo "Tier $TIER${FOCUS:+ with $FOCUS} at $COMMIT (checked out $GITHUB_SHA), coverage: $JULIA_TEST_COVERAGE"
           start=$(date +%s)
           status=0
-          julia --color=yes scripts/test.jl --verbose 2>&1 | tee "$RUNNER_TEMP/test-output.log" || status=$?
+          julia --color=yes scripts/test.jl --verbose "--tier=$TIER" ${FOCUS:+"--extra=$FOCUS"} 2>&1 | tee "$RUNNER_TEMP/test-output.log" || status=$?
           echo $(( $(date +%s) - start )) > "$RUNNER_TEMP/test-seconds"
           exit $status
         env:
-          JULIA_TEST_COVERAGE: 'true'
+          TIER: ${{ needs.plan.outputs.tier }}
+          FOCUS: ${{ needs.plan.outputs.focus }}
+          COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          # Coverage roughly doubles compile time, so only the designated full job collects it.
+          JULIA_TEST_COVERAGE: "${{ env.FULL_TESTS == 'true' && matrix.version == '1' && matrix.os == 'ubuntu-latest' }}"
           PTR_NUM_JOBS: ${{ matrix.ptr_jobs }}
       - name: Timing summary
         if: ${{ !cancelled() && steps.tests.outcome != 'skipped' }}
@@ -89,12 +210,133 @@ jobs:
         shell: bash
         run: julia --startup-file=no scripts/test_report.jl "$RUNNER_TEMP/test-output.log" "$(cat "$RUNNER_TEMP/test-seconds")" >> "$GITHUB_STEP_SUMMARY"
         env:
-          TEST_REPORT_TITLE: Julia ${{ matrix.version }}, ${{ matrix.os }}, ${{ matrix.ptr_jobs }} workers
+          TEST_REPORT_TITLE: Julia ${{ matrix.version }}, ${{ matrix.os }}, tier ${{ needs.plan.outputs.tier }}, ${{ matrix.ptr_jobs }} workers
+      - name: Upload the test environment record
+        if: steps.environment.outcome == 'success' && steps.tests.outcome == 'success'
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.environment.outputs.name }}
+          path: ${{ runner.temp }}/environment.txt
+          if-no-files-found: error
+          retention-days: 3
       - uses: julia-actions/julia-processcoverage@v1
+        if: env.FULL_TESTS == 'true' && matrix.version == '1' && matrix.os == 'ubuntu-latest'
       - uses: codecov/codecov-action@v7
+        if: env.FULL_TESTS == 'true' && matrix.version == '1' && matrix.os == 'ubuntu-latest'
         with:
           # Codecov repository lookup requires its canonical lowercase slug.
           slug: mlakolar/proximalsolvers.jl
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
+  analysis:
+    name: Benchmark analysis controls
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python benchmark/check_analysis.py
+  verdict:
+    # Runs after the plan, the tests and the benchmark analysis controls, even when one of them
+    # failed or was cancelled, and passes only if the plan and the benchmark controls passed and,
+    # when the plan asked for tests, every test job of that tier passed in its latest attempt; on
+    # a pull request, also only if no current test: label asks for more than the plan chose
+    # (scripts/ci_verdict.jl). Branch protection should require it beside the gate below, which waits
+    # for it: re-running a single test job re-runs this job too, but not the gate. Branch
+    # protection should require it.
+    name: ${{ github.event_name == 'pull_request' && 'PR required jobs' || 'CI required jobs' }}
+    needs: [plan, test, analysis]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read # the conclusions of this run's test jobs
+      contents: read
+      issues: read # the PR's current labels
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/ci_verdict.jl
+          sparse-checkout-cone-mode: false
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1'
+      - name: Check the required jobs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLAN: ${{ needs.plan.result }}
+          TESTS: ${{ needs.test.result }}
+          ANALYSIS: ${{ needs.analysis.result }}
+          RUN_TESTS: ${{ needs.plan.outputs.run_tests }}
+          TIER: ${{ needs.plan.outputs.tier }}
+          FOCUS: ${{ needs.plan.outputs.focus }}
+          PR: ${{ github.event.pull_request.number }}
+          COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: julia --startup-file=no scripts/ci_verdict.jl
+  gate:
+    # To be required by branch protection with "PR required jobs". It has no `needs`, so GitHub creates
+    # its check when the run starts: a new run on a commit (a push, or a label on the same commit)
+    # shows a pending gate at once, not the green gate of an earlier run. It waits for this run's
+    # verdict job and passes only if it passed (scripts/ci_gate.jl, test/ci_gate.jl).
+    # It reads this run's jobs and runs no tests, so its token is read-only.
+    name: ${{ github.event_name == 'pull_request' && 'PR merge gate' || 'CI result' }}
+    runs-on: ubuntu-latest
+    # Above the full tier's queue and test time; the script gives up at 160 minutes (plus at most
+    # about 13 minutes of retries before it starts), within this timeout.
+    timeout-minutes: 180
+    permissions:
+      actions: read # this run's jobs
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/ci_gate.jl
+          sparse-checkout-cone-mode: false
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1'
+      - name: Wait for the required jobs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GATE: ${{ github.event_name == 'pull_request' && 'PR merge gate' || 'CI result' }}
+          VERDICT: ${{ github.event_name == 'pull_request' && 'PR required jobs' || 'CI required jobs' }}
+          COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: >-
+          julia --startup-file=no scripts/ci_gate.jl "--repo=$GITHUB_REPOSITORY" "--run-id=$GITHUB_RUN_ID"
+          "--attempt=$GITHUB_RUN_ATTEMPT" "--sha=$COMMIT" "--event=$GITHUB_EVENT_NAME" "--gate=$GATE"
+          "--verdict=$VERDICT" --deadline=9600
+  report:
+    # Only trusted runs (pushes to master and tags, and the nightly run) get write access to
+    # issues; no pull request code runs here.
+    name: Report a failing master run
+    needs: [verdict, gate]
+    if: always() && contains(needs.*.result, 'failure') && github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write # open or update the issue
+    steps:
+      - name: Open or update the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="CI failing on master" # also for a release tag or the nightly run; the body names the ref
+          url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          body="The $GITHUB_EVENT_NAME run $url failed at $GITHUB_SHA ($GITHUB_REF). Fix or revert promptly; see CONTRIBUTING.md."
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          fi
