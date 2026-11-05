@@ -55,7 +55,7 @@ The runner does **not** record the following. The wrapper or an inventory file m
 - `Project.toml` and `Manifest.toml` *bytes* plus SHA-256 for each Julia version, and installed package versions and git-tree hashes (`Pkg.dependencies()`). `run.jl` records no Manifest identity.
 - OS and kernel, logical and physical core counts, architecture, RAM, CPU affinity, governor and turbo state, and load.
 - Environment variables, command lines, exit codes and stdout/stderr.
-- First-call (compile) timing. The validation call is excluded from the sample statistics. Take this timing from the pilot, from `benchmark/local.jl`, or from `elapsed_s`.
+- First-call (compile) timing. The validation call is excluded from the sample statistics. If the metric is required, take it per selected case from the pilot or from a separately labelled `benchmark/local.jl` run, whose `first` column is the first certified call including compilation. `elapsed_s` covers the whole process and cannot substitute.
 - Reproducibility instructions for relocating path-based checkout environments; a copied Manifest pointing to an obsolete absolute path is not sufficient to claim portable reproduction.
 
 **No post-hoc relabeling.** Any change to pinned files or manifest creates a **new campaign identity**. Keep the original raw evidence untouched.
@@ -116,7 +116,7 @@ Reachability below is read from the code at `b0de3f7` and says which code a case
 |---|---|---|
 | Exact symmetry of `LogDetLoss` and `KronQuadratic` (#269) | P10, D02: `LogDetLoss(S)` built from an exactly symmetric `S` (`benchmark/problems.jl:180-188`, `benchmark/cases.jl:40`), passed as a `Matrix` start through `solve!(::Matrix, ::LogDetLoss, …)` (`src/cd/quic.jl:231`) into a `SymmetricSparseIterate` | The `Scaled{<:LogDetLoss}` rebuild (`quic.jl:238-241`); user-facing `KronQuadratic` and `kron.jl` (QUIC's inner model is the internal `KronUModel` in `kronu.jl`); asymmetric-input rejection |
 | Per-entry parameters of a `SymmetricSparseIterate` must be symmetric | P10, D02: `_symmetric_penalty` receives the symmetric `Λ` and returns it unchanged (`src/cd/models.jl:577`) | Averaging of asymmetric weights (`models.jl:561-578`), which #527 marks definite |
-| Owner stops being an `AbstractMatrix` (`x.p`, `nnz`, mutators; #391 Phase 1) | P10, D02: the `x.p` sites in `quic.jl` (lines 51, 62, 156, 194, 213) and, through QUIC's inner model, those of `kronu.jl` that `_cd!` executes; the owner `fill!` calls (`quic.jl:91,138,214`) | The `x.p` sites in `kron.jl`, `drivers.jl`, `generic_newton.jl` and `path.jl`; `_clear_start!(::SymmetricSparseIterate)` (`src/cd/path.jl:19`) |
+| Owner stops being an `AbstractMatrix` (`x.p`, `nnz`, mutators; #391 Phase 1) | P10, D02: the `x.p` sites in `quic.jl` (lines 51, 62, 156, 194, 213) and the owner `fill!` calls (`quic.jl:91,138,214`). In `kronu.jl`, `coordinate_step!` (line 70) runs through `_visit!` (`src/cd/models.jl:399-400`); the other five `kronu.jl` sites are not traced | The `x.p` sites in `kron.jl`, `drivers.jl:180`, `generic_newton.jl` and `path.jl`. The generic `coordinate_step!` of `models.jl:384,387`: QUIC's `KronUModel` has its own, more specific method (`kronu.jl:69`). `solver.jl:754` (`_copy_dense!`, for a workspace on a symmetric owner; no case builds one). `gap.jl:1031-1033` (`kkt_residual`, a diagnostic that no case calls). `quic.jl:203` (runs only when a component's start is not positive definite; the identity start is). `_clear_start!(::SymmetricSparseIterate)` (`src/cd/path.jl:19`) |
 | Zero-clearing and `fill!` semantics (#424) | P03, P06: each warm solve calls `_clear_start!` on a `SparseIterate` through `_load_dense!` (`src/workspaces.jl:238-239,253`) | The owner clear above. P14 never calls `_clear_start!`: `solve_path` starts from the given `x` (`src/cd/path.jl:448-`). Its reset is the harness's `fill!` (§7.2) |
 | Coordinate views, strong zeros, private iterate fields (`x.storage`, `x.nzval`, `x.nactive`, `x.active`) | Executed to the extent that the CD, group and path code of these cases runs them (P01–P06, P14) | `_same_support` in the `debias` option of `ProximalGradientDescent` (`src/solvers/proximal_gradient_descent.jl:200,209`; no case sets `debias`); the full set of private-field sites needs a source audit |
 | Nonseparable `MoreauEnvelope` restriction | D01 calls `restrict` and `kkt_violation` with a separable `NormL1` (`benchmark/cases.jl:56,65`) | The nonseparable `MoreauEnvelope` branch that #527 says now throws |
@@ -141,8 +141,8 @@ The checkout used here equals `b0de3f7` except for the two documentation files o
 
 - **Resolution.** `benchmark/setup.jl <checkout> <env> 0.5.4` resolves ProximalBase 0.5.4 on Julia 1.10.13 and 1.13.3, under the declared compat `0.5.3`.
 - **IDs.** All 19 IDs are present in `PS_SUITE=extended PS_LIST=true`, which lists 102 cases; the lists are identical on both Julia versions. 16 of the 19 are `quick`; D02, D03 and D05 are `extended`.
-- **Certificates.** Each of the 19 cases returned status `ok` in an exploratory run (Julia 1.13.3, one fresh process each, `benchmark/local.jl`).
-- **Timing scale.** The table gives the exploratory median of one unpinned process; it is a scale indicator, not a measurement. The primary medians are 3.3–106 µs. The longest of the 19 cases are D05 (1.93 ms), D02 (0.58 ms) and D04 (0.45 ms). Of the 50 timings in these runs (48 distinct cases, among them 32 extended-suite cases), the longest are `primal_dual/generalized-larger/condat-vu/tight/call` (3.47 ms) and D05 (1.93 ms).
+- **Certificates.** Each of the 19 cases returned status `ok` in an exploratory `benchmark/local.jl` run (Julia 1.13.3, one fresh process per invocation). Two invocations were made: one on the 18 IDs of the original selection, and one on 32 extended-suite cases that includes D02, D03 and D05. The table's medians come from these.
+- **Timing scale.** The table gives the exploratory median of one unpinned process; it is a scale indicator, not a measurement. The primary medians are 3.3–106 µs. The longest of the 19 cases are D05 (1.93 ms), D02 (0.58 ms) and D04 (0.45 ms). The two invocations together give 50 timings of 48 distinct cases (D02 and D03 are in both); the longest are `primal_dual/generalized-larger/condat-vu/tight/call` (3.47 ms) and D05 (1.93 ms).
 
 | ID | Suite | Inputs | Measure | Target | Median (µs) |
 |---|---|---|---|---|---:|
@@ -170,7 +170,7 @@ D03 measured 207.6 µs in a second unpinned process; see the hardware policy in 
 
 ## 3. Freeze gate: what must be signed off before measurement
 
-**Gate F0 — Proposal review: passed.** The maintainer approved decisions D1–D4 and answered D5 and D6 on the design PR ([record](https://github.com/mlakolar/ProximalSolvers.jl/pull/212#issuecomment-6650942186)). F0 covered the 19-case selection, the primary/diagnostic labels, the migration mapping, the pinned stack, the Julia versions, the hardware policy (the machine itself is chosen at F1), the five-repetition budget and the data archive location. The decisions are in §10. Later corrections are made openly in this PR or in a separate freeze PR.
+**Gate F0 — Proposal review: passed.** The maintainer approved the F0 decisions D1–D6 on the design PR ([record](https://github.com/mlakolar/ProximalSolvers.jl/pull/212#issuecomment-6650942186)). F0 covered the 19-case selection, the primary/diagnostic labels, the migration mapping, the pinned stack, the Julia versions, the hardware policy (the machine itself is chosen at F1), the five-repetition budget and the data archive location. The decisions are in §10. Later corrections are made openly in this PR or in a separate freeze PR.
 
 **Gate F1 — Immutable freeze.** In an implementation PR separate from this design PR, commit:
 
@@ -184,14 +184,14 @@ Record the approved campaign manifest's commit SHA and a timestamped freeze rece
 **Re-freeze conditions:** If an ID does not exist in the pinned checkout, a target is invalid, an environment cannot resolve cleanly, or a specified workload is unusably slow, propose a reasoned versioned amendment, obtain review, and create a new campaign ID. Keep old freeze artifacts and logs. Never rewrite a frozen case list to discard poor results.
 
 ## 4. Stage 2A environment setup and correctness pilot
-1. Clone/check out the exact approved ProximalSolvers commit **in a clean isolated directory**. Confirm `git status --porcelain` is empty and `git rev-parse HEAD` matches the frozen SHA. The freeze commit adds only campaign files; confirm that its `Project.toml`, `src/`, `ext/` and the four harness files (`benchmark/problems.jl`, `certificates.jl`, `cases.jl`, `run.jl`) equal those of `b0de3f7`, so that the package and harness fingerprints agree.
-1. Clone/check out the exact approved ProximalSolvers commit **in a clean isolated directory**. Confirm `git status --porcelain` is empty and `git rev-parse HEAD` matches the frozen SHA.
+
+1. Clone/check out the pinned ProximalSolvers commit `b0de3f7fc91767b97197ff4b458207e308998943` **in a clean isolated directory**. Confirm `git status --porcelain` is empty and `git rev-parse HEAD` equals the pinned SHA; `proximalsolvers_sha` in the run metadata will be this SHA. The freeze commit, checked out separately, holds `cases.txt` and adds only campaign files: confirm that its HEAD equals the freeze SHA recorded on #110, that its tree is clean, that `cases.txt` has the SHA-256 recorded in `campaign.toml`, and that its `Project.toml`, `src/`, `ext/` and the four harness files (`benchmark/problems.jl`, `certificates.jl`, `cases.jl`, `run.jl`) equal those of the pinned commit, so that the package and harness fingerprints agree.
 2. From that pinned checkout, use `benchmark/setup.jl` to create a **fresh distinct environment** per Julia version with registered `0.5.4`. No pre-existing `Project.toml` may be overwritten. Verify `Pkg.dependencies()`, loaded package paths, ProximalBase's Manifest `git-tree-sha1` and the manifests.
 3. Save an immutable copy of each environment's `Project.toml` and `Manifest.toml` *before* formal runs; compute SHA-256. Avoid writing these snapshots into the mutable solver checkout.
 4. Use one Julia thread and one BLAS thread; record the detected values from the formal metadata. Keep the formal `run.jl` harness untouched.
 5. Check exact case selection: sort the IDs printed by `PS_LIST=true` and compare them **exactly** with the sorted approved case file (no extras, duplicates or omissions). Inspect `measure`, `target` and `inputs` in `benchmark/cases.jl` or in the pilot's `-catalog.tsv`.
 6. Run `benchmark/check_analysis.py` and a small **correctness/setup pilot** in separate result directories. Ensure every case constructs, returns a valid independent certificate, and produces complete metadata. Flag non-`ok` cases for review; do not edit solver settings to suppress them.
-7. Estimate runtime from the pilot; record cold startup, compilation, per-case solve duration, and total expected cost for five fresh repetitions. The pilot is diagnostic and must not become an unregistered selection filter.
+7. Estimate runtime from the pilot; record cold startup, per-case first-call time (from `local.jl`), per-case solve duration, and total expected cost for five fresh repetitions. The pilot is diagnostic and must not become an unregistered selection filter.
 8. Confirm that a shared CPU does not have sustained workload interference that makes the campaign unusable. Apply the hardware policy of §5 (pinning on a hybrid CPU). A second machine is optional; choosing a quiet or exclusive machine is preferable to collecting extra noisy replications.
 
 ### Settings (approved at F0; frozen at F1)
@@ -200,7 +200,7 @@ Record the approved campaign manifest's commit SHA and a timestamped freeze rece
 |---|---|---|
 | `PS_SUITE` | `extended` | Makes diagnostic larger cases available |
 | `PS_GROUPS` | `cd,sgl,gradient,newton,admm,paths,primal_dual` | Explicitly bounds discovery; `PS_CASES` remains authoritative |
-| `PS_CASES` | comma-joined approved `cases.txt` | Exact ID pre-registration; stored as the `case_filter` match setting, so Stage 2B reuses the raw string byte for byte |
+| `PS_CASES` | comma-joined approved `cases.txt` | Exact ID pre-registration; stored as the `case_filter` match setting, so Stage 2B reuses the raw string byte for byte, and `PS_SUITE` and `PS_GROUPS` as well |
 | `PS_REPETITION` | integer `1..5` | Five **fresh processes**; inputs keyed by scenario and repetition. The runner accepts 1..10 (`benchmark/run.jl:64`); later contemporaneous reruns reuse 1..N in fresh output directories |
 | `PS_SAMPLES` | `100` | The extended default (`benchmark/run.jl:65`). Within-process timing samples; **not 100 independent replications** |
 | `PS_SECONDS` | `3` | The extended default (`benchmark/run.jl:66`). The longest case (about 2 ms) reaches 100 samples in well under a second, so the limit does not bind |
@@ -216,28 +216,48 @@ The settings are fixed at F1 and frozen with the campaign. The exact pinned Juli
 
 ### Illustrative command recipe (execute only after F1)
 
-All paths below are examples and must be resolved to the frozen checkout and approved archive root. Avoid executing against an active development tree. `julia +1.10` and `julia +1.13` assume juliaup channels of those names; `validate.py` needs Python 3.11 or later (`tomllib`). `FREEZE` is a checkout of the freeze commit, which holds `cases.txt`; `PINNED` is the clean `b0de3f7` checkout that is measured.
+All paths below are examples and must be resolved to the frozen checkout and approved archive root. Avoid executing against an active development tree. **The recipe is Linux-only** (`taskset`, `lscpu`, `sha256sum`, sysfs governor files). Choose the host platform at F1: on Linux, verify the performance-core logical CPU IDs before the campaign; on another platform, record an equivalent verified affinity control or label the archive observational (§5). Do not start a campaign with commands the host lacks. `julia +1.10` and `julia +1.13` assume juliaup channels of those names; `validate.py` needs Python 3.11 or later (`tomllib`). `FREEZE` is a checkout of the freeze commit, which holds `cases.txt`; `PINNED` is the clean `b0de3f7` checkout that is measured.
 
 ```bash
 set -euo pipefail
 PINNED=/absolute/path/to/clean-pinned-ProximalSolvers
 FREEZE=/absolute/path/to/clean-freeze-checkout
+FREEZE_SHA=FREEZE_COMMIT_SHA_RECORDED_ON_110
+CASES_SHA256=DIGEST_RECORDED_IN_CAMPAIGN_TOML
 OUT=/absolute/path/to/campaign-results/pre06-julia113
 ENV_DIR=/absolute/path/to/campaign-env/pre06-julia113
 LOG="$OUT-commands.log"
 CPU_LIST=PERFORMANCE_CORE_LOGICAL_CPU   # chosen at F1; same for every repetition and stack
 CASES="$FREEZE/benchmark/campaigns/pre06/cases.txt"
+JULIA=(julia +1.13 --startup-file=no)   # no user startup file (for example Revise) in formal runs
 
-test -s "$CASES"
+mkdir -p "$(dirname "$OUT")"
+command -v taskset lscpu sha256sum > /dev/null
+
+# logged NAME COMMAND...: record the command, keep its stdout and stderr, return its status
+logged() {
+  local name=$1 status=0; shift
+  printf '%s: %s\n' "$name" "$*" >> "$LOG"
+  "$@" > "$OUT-$name.out" 2> "$OUT-$name.err" || status=$?
+  printf '%s: exit=%s\n' "$name" "$status" >> "$LOG"
+  return "$status"
+}
+
+# the pinned checkout: exact commit, clean tree
 test "$(git -C "$PINNED" rev-parse HEAD)" = b0de3f7fc91767b97197ff4b458207e308998943
 test -z "$(git -C "$PINNED" status --porcelain)"
+# the freeze checkout: exact commit, clean tree, the digest recorded in campaign.toml
+test "$(git -C "$FREEZE" rev-parse HEAD)" = "$FREEZE_SHA"
+test -z "$(git -C "$FREEZE" status --porcelain)"
+test -s "$CASES"
+test "$(sha256sum "$CASES" | cut -d' ' -f1)" = "$CASES_SHA256"
 # the freeze commit must leave the measured package and harness files unchanged
 git -C "$FREEZE" diff --exit-code b0de3f7fc91767b97197ff4b458207e308998943 HEAD -- \
   Project.toml src ext benchmark/problems.jl benchmark/certificates.jl \
   benchmark/cases.jl benchmark/run.jl
 
 cd "$PINNED"
-julia +1.13 benchmark/setup.jl "$PINNED" "$ENV_DIR" 0.5.4
+logged setup "${JULIA[@]}" benchmark/setup.jl "$PINNED" "$ENV_DIR" 0.5.4
 
 export JULIA_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
@@ -250,32 +270,38 @@ export PS_CASE_SECONDS=60
 export PS_PROFILE_SECONDS=0
 export PS_EXPECTED_PACKAGE_ROOT="$PINNED"
 export PS_OUTPUT="$OUT"
+env | grep -E '^(PS_|JULIA|OPENBLAS)' | sort > "$OUT-environment.txt"
 
 # The runner selects every matching extended case when PS_CASES is empty, so check first.
 test -n "$PS_CASES"
-PS_LIST=true julia +1.13 --project="$ENV_DIR" benchmark/run.jl | cut -f1 | sort > "$OUT-ids.txt"
+logged list env PS_LIST=true "${JULIA[@]}" --project="$ENV_DIR" benchmark/run.jl
+cut -f1 "$OUT-list.out" | sort > "$OUT-ids.txt"
 sort "$CASES" | diff - "$OUT-ids.txt"
 
 # Use a fresh process for EACH repetition; log every command and exit code.
 for REP in 1 2 3 4 5; do
   export PS_REPETITION="$REP"
   lscpu -e > "$OUT-lscpu-rep$REP.txt"
-  set +e
-  taskset -c "$CPU_LIST" julia +1.13 --project="$ENV_DIR" benchmark/run.jl
-  STATUS=$?
-  set -e
-  printf 'rep=%s cpu=%s exit=%s\n' "$REP" "$CPU_LIST" "$STATUS" | tee -a "$LOG"
+  uptime >> "$LOG"
+  grep . "/sys/devices/system/cpu/cpu$CPU_LIST/cpufreq/scaling_governor" >> "$LOG" || true
+  STATUS=0
+  logged "rep$REP" taskset -c "$CPU_LIST" "${JULIA[@]}" --project="$ENV_DIR" benchmark/run.jl || STATUS=$?
+  taskset -c "$CPU_LIST" sh -c 'taskset -p $$' >> "$LOG"   # the affinity a pinned process gets
   # 0: all cases ok. 2: complete records with non-ok cases. Anything else
   # (a load or recording failure exits 1 or 3) stops the campaign.
   case "$STATUS" in 0|2) ;; *) echo "Stop; investigate. Do not overwrite." >&2; exit "$STATUS" ;; esac
 done
 
-python3 benchmark/validate.py "$OUT" "$OUT-validation.json" --expected-runs 5
-python3 benchmark/summarize.py "$OUT" "$OUT-summary" --expected-runs 5
-python3 benchmark/check_analysis.py
+# validate.py exits 2 on invalid records, and set -e then stops before summarize.py.
+# Keep that: invalid records block publication; do not drop set -e to obtain a summary.
+logged validate python3 benchmark/validate.py "$OUT" "$OUT-validation.json" --expected-runs 5
+logged summarize python3 benchmark/summarize.py "$OUT" "$OUT-summary" --expected-runs 5
+logged check_analysis python3 benchmark/check_analysis.py
 ```
 
-Do the corresponding Julia 1.10 run in its **own environment, result root and report**, not the same output directory. A wrapper that continues on exit code 2 must still fail the **numerical acceptance decision** and record every adverse case; exit code 0 from the wrapper is not proof of all-`ok` numerical results. Also record `taskset -p`, the governor and turbo state, and the load average around each repetition (§5).
+The `logged` files (`$OUT-*.out`, `$OUT-*.err`, `$OUT-commands.log`, `$OUT-environment.txt`) belong in the archive's `logs/` directory.
+
+Do the corresponding Julia 1.10 run in its **own environment, result root and report**, not the same output directory. A wrapper that continues on exit code 2 must still fail the **numerical acceptance decision** and record every adverse case; exit code 0 from the wrapper is not proof of all-`ok` numerical results. The recipe records the affinity, the governor and the load average of each repetition; add the turbo state where the host exposes it (§5).
 
 ## 5. Stage 2A measurement and retention rules
 
@@ -317,7 +343,7 @@ It does **not** check the following, which are explicit manual or wrapper steps 
 
 - the catalog IDs equal `cases.txt` (the recipe diffs the sorted `PS_LIST` output before running; repeat the check on `-catalog.tsv`);
 - fixed-input `data_hash` values agree across repetitions (only their format is checked);
-- the tree is clean (`proximalsolvers_dirty` is only type-checked, :142-143, and is not a series setting), and `proximalsolvers_sha` is the frozen SHA in every repetition (it is not a series setting either);
+- the tree is clean (`proximalsolvers_dirty` is only type-checked, :142-143, and is not a series setting), and `proximalsolvers_sha` is the pinned SHA `b0de3f7` in every repetition (it is not a series setting either);
 - the Manifest matches the archived copy (the runner records no Manifest identity).
 
 A non-`valid` result or a failed manual step blocks baseline publication.
@@ -351,6 +377,7 @@ pre06-stage2a-campaign-v1/
     environment-inventory.txt
     machine-inventory.txt
     commands-and-exit-codes.log
+    logs/                      # stdout/stderr of setup, PS_LIST, each repetition, validation; environment
     raw/
       julia-1.10.X-rep01-*.tsv / *-metadata*.toml
       ... through rep05
@@ -363,6 +390,7 @@ pre06-stage2a-campaign-v1/
     environment-inventory.txt
     machine-inventory.txt
     commands-and-exit-codes.log
+    logs/                      # stdout/stderr of setup, PS_LIST, each repetition, validation; environment
     raw/
       julia-1.13.X-rep01-*.tsv / *-metadata*.toml
       ... through rep05
@@ -421,7 +449,7 @@ The Stage 2A historical run and a future 0.6 run occur at different times and ma
 1. Prefer to run **both immutable A and B stacks again contemporaneously** on the same quiet/exclusive pinned hardware, with five fresh-process paired blocks as an initial pilot (or another prespecified budget supported by noise/cost).
 2. Counterbalance the execution order across blocks (A/B, B/A) and preserve exact hardware, Julia, BLAS/thread counts, sampling limits, data hashes, harness and accuracy contract.
 3. Distinguish a descriptive historical ratio from a fresh matched-block comparison; explicitly say when cross-stack strict equality checks are intentionally inapplicable.
-4. The ordinary `compare.py` requires the `MATCH_SETTINGS` of `benchmark/validate.py:33` to agree (ProximalBase version and source fingerprint, harness hash, CPU model, BLAS configuration, sampling settings and case filter), and the catalog definitions and data hashes to agree (`benchmark/compare.py:62-75`). It does not read Manifests, so the Manifests are archived and compared by hand. Keep that behavior unchanged. Develop a **separately named migration-only reader/report** *only if needed*, with a narrowly declared allowlist of dependency differences, strict case/input/certificate validation, and a prominent attribution warning.
+4. The ordinary `compare.py` requires the `MATCH_SETTINGS` of `benchmark/validate.py:33` (`benchmark/validate.py:25-33`) to agree, including `suite`, `groups`, `julia_threads`, `blas_threads`, `seed_scheme`, `profile_seconds`, ProximalBase version and source fingerprint, harness hash, CPU model, BLAS configuration, sampling settings and case filter, and the catalog definitions and data hashes to agree (`benchmark/compare.py:62-75`). It does not read Manifests, so the Manifests are archived and compared by hand. Keep that behavior unchanged. Develop a **separately named migration-only reader/report** *only if needed*, with a narrowly declared allowlist of dependency differences, strict case/input/certificate validation, and a prominent attribution warning.
 5. Report per-case ratios and absolute differences for `call`, `workspace` and `setup` individually, along with achieved certificate, allocations, and solver work. Mark noisy or ambiguous differences **inconclusive**.
 6. Stage 3 of #110 must calibrate formal one-sided noninferiority/improvement rules; Stage 2 may document practical investigation and maintainer decisions but must not invent a universal significance or 5% margin.
 
@@ -445,7 +473,7 @@ Stage 2B outputs: two precise stack receipts, frozen case mapping, full raw arch
 | Hidden ProximalBase 0.6 dependency in a “pre06” result | Registered 0.5.4 resolution, loaded source fingerprint, Manifest and ProximalBase `git-tree-sha1`; hard fail |
 | A `0.5.4` version string on a development commit mistaken for the release | Compare the Manifest `git-tree-sha1` with the tree of tag `v0.5.4`; the version string alone is never accepted |
 | Case cherry-picking after seeing results | Primary/diagnostic roles and settings frozen before formal campaign; every attempted series retained |
-| Fresh-process compilation mistaken for steady solve | The validation call is excluded from sample medians; the formal records hold no first-call timing, so take it from the pilot, `local.jl` or `elapsed_s` |
+| Fresh-process compilation mistaken for steady solve | The validation call is excluded from sample medians; the formal records hold no first-call timing; take it per case from the pilot or from a labelled `local.jl` run, never from `elapsed_s` (a whole-process total) |
 | Tiny cases yielding 2× variations, or a core-type mismatch on a hybrid CPU | Explicit noise limitations, longer diagnostic cases, independent repeated processes, pinning policy (§5); no statistical declaration |
 | A failed certificate omitted from performance summary | Two independent gates: record integrity **and** numerical acceptance; always list failures |
 | Path-dependent environment not reproducible | Archive source SHAs, Manifests, relocation instructions; verify in a second checkout |
