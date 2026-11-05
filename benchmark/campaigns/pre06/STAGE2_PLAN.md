@@ -55,7 +55,7 @@ The runner does **not** record the following. The wrapper or an inventory file m
 - `Project.toml` and `Manifest.toml` *bytes* plus SHA-256 for each Julia version, and installed package versions and git-tree hashes (`Pkg.dependencies()`). `run.jl` records no Manifest identity.
 - OS and kernel, logical and physical core counts, architecture, RAM, CPU affinity, governor and turbo state, and load.
 - Environment variables, command lines, exit codes and stdout/stderr.
-- First-call (compile) timing. The validation call is excluded from the sample statistics. If the metric is required, take it per selected case from the pilot or from a separately labelled `benchmark/local.jl` run, whose `first` column is the first certified call including compilation. `elapsed_s` covers the whole process and cannot substitute.
+- First-call (compile) timing. The validation call is excluded from the sample statistics. If the metric is required, take it per selected case from the pilot or from a separately labelled `benchmark/local.jl` run, whose `first_call_s` column (printed as `first`) is the first certified call including compilation. One `local.jl` invocation runs its cases in one process (`benchmark/local.jl:484`), so only the first case pays the shared compilation and later cases report less: use one process per case, or record the in-process order. `elapsed_s` covers the whole process and cannot substitute.
 - Reproducibility instructions for relocating path-based checkout environments; a copied Manifest pointing to an obsolete absolute path is not sufficient to claim portable reproduction.
 
 **No post-hoc relabeling.** Any change to pinned files or manifest creates a **new campaign identity**. Keep the original raw evidence untouched.
@@ -116,7 +116,7 @@ Reachability below is read from the code at `b0de3f7` and says which code a case
 |---|---|---|
 | Exact symmetry of `LogDetLoss` and `KronQuadratic` (#269) | P10, D02: `LogDetLoss(S)` built from an exactly symmetric `S` (`benchmark/problems.jl:180-188`, `benchmark/cases.jl:40`), passed as a `Matrix` start through `solve!(::Matrix, ::LogDetLoss, …)` (`src/cd/quic.jl:231`) into a `SymmetricSparseIterate` | The `Scaled{<:LogDetLoss}` rebuild (`quic.jl:238-241`); user-facing `KronQuadratic` and `kron.jl` (QUIC's inner model is the internal `KronUModel` in `kronu.jl`); asymmetric-input rejection |
 | Per-entry parameters of a `SymmetricSparseIterate` must be symmetric | P10, D02: `_symmetric_penalty` receives the symmetric `Λ` and returns it unchanged (`src/cd/models.jl:577`) | Averaging of asymmetric weights (`models.jl:561-578`), which #527 marks definite |
-| Owner stops being an `AbstractMatrix` (`x.p`, `nnz`, mutators; #391 Phase 1) | P10, D02: the `x.p` sites in `quic.jl` (lines 51, 62, 156, 194, 213) and the owner `fill!` calls (`quic.jl:91,138,214`). In `kronu.jl`, `coordinate_step!` (line 70) runs through `_visit!` (`src/cd/models.jl:399-400`); the other five `kronu.jl` sites are not traced | The `x.p` sites in `kron.jl`, `drivers.jl:180`, `generic_newton.jl` and `path.jl`. The generic `coordinate_step!` of `models.jl:384,387`: QUIC's `KronUModel` has its own, more specific method (`kronu.jl:69`). `solver.jl:754` (`_copy_dense!`, for a workspace on a symmetric owner; no case builds one). `gap.jl:1031-1033` (`kkt_residual`, a diagnostic that no case calls). `quic.jl:203` (runs only when a component's start is not positive definite; the identity start is). `_clear_start!(::SymmetricSparseIterate)` (`src/cd/path.jl:19`) |
+| Owner stops being an `AbstractMatrix` (`x.p`, `nnz`, mutators; #391 Phase 1) | P10, D02: the `x.p` sites in `quic.jl` (lines 51, 62, 156, 194, 213) and the owner `fill!` calls (`quic.jl:91,138,214`). In `kronu.jl`, `coordinate_step!` (line 70) runs through `_visit!` (`src/cd/models.jl:399-400`); the other five `kronu.jl` sites are not traced | The `x.p` sites in `src/cd/kron.jl`, `src/cd/drivers.jl:180`, `src/cd/generic_newton.jl` and `src/cd/path.jl`. The generic `coordinate_step!` of `src/cd/models.jl:384,387`: QUIC's `KronUModel` has its own, more specific method (`src/cd/kronu.jl:69`). `_gradnorm` and `_coordweight` on a symmetric owner (`src/cd/models.jl:426-427,433-434`): they serve screening and KKT checks, and QUIC's `KronUModel` has no duality gap (`src/cd/gap.jl:174`) while `_kktviolated` is called only from `src/cd/glm.jl:890` and `src/cd/path.jl:166`. `_copy_dense!` onto a `Matrix` (`src/cd/solver.jl:754`): its callers are the workspace solve (`src/workspaces.jl:258`) and `ProxNewton` on a `Matrix` with a loss other than `LogDetLoss` (`src/cd/generic_newton.jl:190`); P10 and D02 use `src/cd/quic.jl:231-234`, and no case builds a workspace on a symmetric owner. `_fixedpoint_residual` on a symmetric owner (`src/cd/gap.jl:1031-1033`): its only caller is `kkt_residual` (`src/cd/gap.jl:1016`), a diagnostic that no case calls. `src/cd/quic.jl:203` (runs only when a component's start is not positive definite; the identity start is). `_clear_start!(::SymmetricSparseIterate)` (`src/cd/path.jl:19`) |
 | Zero-clearing and `fill!` semantics (#424) | P03, P06: each warm solve calls `_clear_start!` on a `SparseIterate` through `_load_dense!` (`src/workspaces.jl:238-239,253`) | The owner clear above. P14 never calls `_clear_start!`: `solve_path` starts from the given `x` (`src/cd/path.jl:448-`). Its reset is the harness's `fill!` (§7.2) |
 | Coordinate views, strong zeros, private iterate fields (`x.storage`, `x.nzval`, `x.nactive`, `x.active`) | Executed to the extent that the CD, group and path code of these cases runs them (P01–P06, P14) | `_same_support` in the `debias` option of `ProximalGradientDescent` (`src/solvers/proximal_gradient_descent.jl:200,209`; no case sets `debias`); the full set of private-field sites needs a source audit |
 | Nonseparable `MoreauEnvelope` restriction | D01 calls `restrict` and `kkt_violation` with a separable `NormL1` (`benchmark/cases.jl:56,65`) | The nonseparable `MoreauEnvelope` branch that #527 says now throws |
@@ -210,7 +210,7 @@ Record the approved campaign manifest's commit SHA and a timestamped freeze rece
 | `PS_OUTPUT` | clean, unique location for each Julia version and campaign | Preserve completed/interrupted data |
 | `JULIA_NUM_THREADS` | `1` | Formal runner requirement |
 | BLAS threads | `1` verified in metadata | Required comparability; runner sets this |
-| CPU affinity | one performance-core logical CPU per process (hybrid CPU) | Same CPU list for every repetition and both stacks; see §5 |
+| CPU affinity | one performance-core logical CPU per process (hybrid CPU) | Same logical CPU for every repetition and both stacks; see §5 |
 
 The settings are fixed at F1 and frozen with the campaign. The exact pinned Julia patch versions must be recorded. If extended cases require more than the current timeout, explicitly revise the full campaign **before** official timing, rather than silently changing only a failing repetition.
 
@@ -227,16 +227,23 @@ CASES_SHA256=DIGEST_RECORDED_IN_CAMPAIGN_TOML
 OUT=/absolute/path/to/campaign-results/pre06-julia113
 ENV_DIR=/absolute/path/to/campaign-env/pre06-julia113
 LOG="$OUT-commands.log"
-CPU_LIST=PERFORMANCE_CORE_LOGICAL_CPU   # chosen at F1; same for every repetition and stack
+CPU_LIST=PERFORMANCE_CORE_LOGICAL_CPU   # ONE logical CPU ID, chosen at F1; same for every repetition and stack
 CASES="$FREEZE/benchmark/campaigns/pre06/cases.txt"
 JULIA=(julia +1.13 --startup-file=no)   # no user startup file (for example Revise) in formal runs
 
 mkdir -p "$(dirname "$OUT")"
-command -v taskset lscpu sha256sum > /dev/null
+test ! -e "$LOG"    # a rerun needs a fresh $OUT; never mix or truncate an earlier attempt's logs
+for tool in git julia python3 taskset lscpu sha256sum uptime; do
+  command -v "$tool" > /dev/null || { echo "missing: $tool" >&2; exit 1; }
+done
+case "$CPU_LIST" in ''|*[!0-9]*) echo "CPU_LIST must be one logical CPU ID" >&2; exit 1 ;; esac
 
 # logged NAME COMMAND...: record the command, keep its stdout and stderr, return its status
 logged() {
   local name=$1 status=0; shift
+  if [ -e "$OUT-$name.out" ] || [ -e "$OUT-$name.err" ]; then
+    echo "refusing to overwrite $OUT-$name.out/.err" >&2; return 1
+  fi
   printf '%s: %s\n' "$name" "$*" >> "$LOG"
   "$@" > "$OUT-$name.out" 2> "$OUT-$name.err" || status=$?
   printf '%s: exit=%s\n' "$name" "$status" >> "$LOG"
@@ -283,7 +290,8 @@ for REP in 1 2 3 4 5; do
   export PS_REPETITION="$REP"
   lscpu -e > "$OUT-lscpu-rep$REP.txt"
   uptime >> "$LOG"
-  grep . "/sys/devices/system/cpu/cpu$CPU_LIST/cpufreq/scaling_governor" >> "$LOG" || true
+  grep -H . "/sys/devices/system/cpu/cpu$CPU_LIST/cpufreq/scaling_governor" >> "$LOG" ||
+    echo "governor: unavailable for cpu$CPU_LIST" >> "$LOG"
   STATUS=0
   logged "rep$REP" taskset -c "$CPU_LIST" "${JULIA[@]}" --project="$ENV_DIR" benchmark/run.jl || STATUS=$?
   taskset -c "$CPU_LIST" sh -c 'taskset -p $$' >> "$LOG"   # the affinity a pinned process gets
@@ -301,7 +309,7 @@ logged check_analysis python3 benchmark/check_analysis.py
 
 The `logged` files (`$OUT-*.out`, `$OUT-*.err`, `$OUT-commands.log`, `$OUT-environment.txt`) belong in the archive's `logs/` directory.
 
-Do the corresponding Julia 1.10 run in its **own environment, result root and report**, not the same output directory. A wrapper that continues on exit code 2 must still fail the **numerical acceptance decision** and record every adverse case; exit code 0 from the wrapper is not proof of all-`ok` numerical results. The recipe records the affinity, the governor and the load average of each repetition; add the turbo state where the host exposes it (§5).
+Do the corresponding Julia 1.10 run in its **own environment, result root and report**, not the same output directory. A wrapper that continues on exit code 2 must still fail the **numerical acceptance decision** and record every adverse case; exit code 0 from the wrapper is not proof of all-`ok` numerical results. The recipe pins to one logical CPU and records the affinity, the governor (or that it is unavailable) and the load average of each repetition; add the turbo state where the host exposes it (§5).
 
 ## 5. Stage 2A measurement and retention rules
 
@@ -329,7 +337,7 @@ On a hybrid CPU (performance and efficiency cores) the core type changes the tim
 Unpinned processes gave mixed results: `cd/lasso-D/cd/tight/call` took 77.6 µs in one process and 207.6 µs in another. Core type, migration of a process between cores, SMT siblings and machine load all matter, and an unpinned observation does not say which applied.
 
 - On a hybrid CPU, pin each process to one performance-core logical CPU whose SMT sibling is idle or offline.
-- Use the same CPU list for every repetition and for both stacks.
+- Use the same logical CPU for every repetition and for both stacks.
 - Record `taskset -p`, `lscpu -e`, the governor and turbo state, and the load average around each repetition.
 - `cpu_model` in the metadata does not distinguish core types, so `validate.py` and `compare.py` cannot detect a core-type mismatch; the wrapper log must show the pinning.
 - Where pinning is unavailable, label the archive observational.
