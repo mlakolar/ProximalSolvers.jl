@@ -16,3 +16,4 @@ gradient/lasso/active/B/call
 newton/glasso-larger/quic/tight/call
 cd/lasso-D/cd/tight/call
 primal_dual/generalized-lasso/condat-vu/tight/call
+gradient/lasso-D/apg/tight/call
