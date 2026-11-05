@@ -128,6 +128,9 @@ no_turbo = "0"
 # affinity stops it.
 max_sibling_busy = 0.05
 max_load1 = 1.0
+# Before each repetition, wait up to this long for the load to fall to max_load1: the
+# campaign's own setup and precompilation raise it (pilot: 1.5-1.6 at the first start).
+settle_seconds = 300
 
 # D5: the durable home is a GitHub Release asset of this repository, uploaded by the
 # maintainer under a tag that is not a package release.

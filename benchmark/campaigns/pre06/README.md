@@ -87,7 +87,8 @@ Each `run` takes one Julia version through these steps and stops at the first fa
 7. Selection: `PS_LIST` must print exactly the IDs of `cases.txt` (order aside, no
    duplicate, missing or unknown ID), and run.jl's own catalog functions must give each
    case the frozen phase, suite, inputs, issue, measure and target.
-8. Repetitions 1–5, each a fresh `taskset -c 6 julia --startup-file=no --history-file=no
+8. Repetitions 1–5. Before each, the wrapper waits (at most 300 s) for the 1-minute
+   load to fall to 1.0. Each is a fresh `taskset -c 6 julia --startup-file=no --history-file=no
    --project=<env> benchmark/run.jl` with the exact environment of `campaign.toml`. While
    it runs, its allowed and observed CPUs are recorded; before and after, the load,
    governor, EPP, turbo, frequency, temperatures and the CPU 6/7 busy times. After it:
@@ -145,9 +146,11 @@ This needs only Python and a freeze checkout. For each `julia-<V>` it checks the
 checksums (no missing, changed or extra file), that the attempt completed, the root's
 `campaign.toml` and `cases.txt` against the freeze checkout, the Manifest snapshot against
 the lock and against its digest at setup, the Project snapshot, the loaded identities, the
-command of every repetition (taskset CPU, recorded affinity, `PS_REPETITION`, settings),
-every repetition's records as in step 8, fixed-input data hashes, and runs `validate.py`
-afresh and compares it with `validation.json`. Pilot evidence fails unless
+archived `PS_LIST` and catalog outputs, the command of every repetition (taskset CPU,
+recorded affinity, `PS_REPETITION`, settings), every repetition's records as in step 8,
+fixed-input data hashes; it runs `validate.py` afresh and compares it with
+`validation.json`, and recomputes the numerical and hardware results from the records,
+which must agree with the receipt. It prints the recorded freeze HEAD, to compare with #110. Pilot evidence fails unless
 `--allow-pilot` is given. `VERIFY PASS` concerns the records; the numerical and hardware
 results are printed beside it.
 

@@ -359,8 +359,24 @@ def machine_state(campaign):
                 smt_control=read("/sys/devices/system/cpu/smt/control"),
                 power_supply={path.parent.name: read(path) for path in
                               sorted(Path("/sys/class/power_supply").glob("*/online"))},
+                # RAPL package limits and energy; energy_uj is often readable only by root.
+                rapl={path.name: read(path) for path in
+                      sorted(Path("/sys/class/powercap/intel-rapl:0").glob("*"))
+                      if path.name in ("energy_uj", "constraint_0_power_limit_uw",
+                                       "constraint_1_power_limit_uw")},
                 thermal_millicelsius=temps,
                 times={str(c): cpu_times(c) for c in (cpu, sibling)})
+
+
+def settle(max_load1, limit):
+    """Wait up to `limit` seconds for the 1-minute load average to fall to `max_load1`
+    (the campaign's own setup and precompilation raise it); returns the seconds waited."""
+    started = time.monotonic()
+    while float(read("/proc/loadavg").split()[0]) > max_load1:
+        if time.monotonic() - started >= limit:
+            break
+        time.sleep(1.0)
+    return time.monotonic() - started
 
 
 def check_machine(campaign):
@@ -598,6 +614,7 @@ def run(args):
         sealed, metrics, hardware = {}, {}, []
         raw.mkdir()
         for rep in range(1, reps + 1):
+            waited = settle(machine["max_load1"], machine["settle_seconds"])
             before = machine_state(campaign)
             code, wall, monitor = receipt.command(
                 f"rep{rep:02d}", ["taskset", "-c", str(cpu), *flags, f"--project={environment}",
@@ -611,7 +628,7 @@ def run(args):
                      for c in (cpu, sibling)}
             busy = {c: (span[0] - span[1]) / span[0] if span[0] else None
                     for c, span in spans.items()}
-            record = dict(rep=rep, before=before, after=after, monitor=monitor,
+            record = dict(rep=rep, settle_s=waited, before=before, after=after, monitor=monitor,
                           cpu_busy=busy[cpu], sibling_busy=busy[sibling])
             record["issues"] = hardware_issues(campaign, record)
             hardware.append(record)
@@ -734,6 +751,15 @@ def verify_julia(julia_dir, campaign, ids, benchmark, quiet=True):
             if sha256(julia_dir / name) != digest:
                 fail(f"{name} snapshot differs from the one recorded at setup")
         commands = {e["name"]: e for e in log if e["event"] == "command"}
+        listed = [line.split("\t")[0] for line in
+                  (julia_dir / commands["list"]["stdout"]).read_text().splitlines()]
+        if sorted(listed) != sorted(ids) or commands["list"]["env"].get("PS_LIST") != "true":
+            fail("the archived PS_LIST output differs from cases.txt")
+        check_catalog_rows([dict(zip(CATALOG_FIELDS, line.split("\t"))) for line in
+                            (julia_dir / commands["catalog"]["stdout"]).read_text().splitlines()],
+                           campaign, "archived catalog")
+        if start["mode"] == "official" and start["freeze_head"] != start["freeze_sha_expected"]:
+            fail("official run without a matching --freeze-sha")
         raw = julia_dir / "raw"
         expected = expected_metadata(campaign, version, start["settings"], ids, pinned)
         metrics = {}
@@ -769,11 +795,22 @@ def verify_julia(julia_dir, campaign, ids, benchmark, quiet=True):
         fail(f"validate.py: {checked['issues']}")
     if checked != json.loads((julia_dir / "validation.json").read_text()):
         fail("validation.json differs from a fresh validation")
+    # Recompute the numerical and hardware results from the evidence; the receipt must agree.
     outcome = next(e for e in log if e["event"] == "result")
+    nonok = [dict(id=c, rep=r, status=s) for c, r, s in sorted(
+        {(case, rep, row["status"]) for rep, rows in metrics.items()
+         for case, row in rows.items() if row["status"] != "ok"})]
+    hardware = [e for e in log if e["event"] == "hardware"]
+    issues = sorted({issue for record in hardware for issue in hardware_issues(campaign, record)})
+    if [e["rep"] for e in hardware] != list(range(1, start["repetitions"] + 1)):
+        fail("hardware records do not cover every repetition")
+    if (nonok, issues) != (outcome["nonok"], outcome["hardware_issues"]):
+        fail("recorded numerical or hardware result differs from the evidence")
     report.update(record_integrity="valid" if not report["failures"] else "invalid",
-                  numerical=outcome["numerical"], nonok=outcome["nonok"],
-                  hardware=outcome["hardware"], hardware_issues=outcome["hardware_issues"],
-                  repetitions=start["repetitions"])
+                  numerical="all ok" if not nonok else "non-ok cases", nonok=nonok,
+                  hardware="controlled" if not issues else "observational",
+                  hardware_issues=issues, repetitions=start["repetitions"],
+                  freeze_head=start["freeze_head"])
     return finish(report, quiet)
 
 
