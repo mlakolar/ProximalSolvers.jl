@@ -8,13 +8,17 @@ stops at the first failed check. It changes nothing that is measured. Linux only
 
   campaign.py run --julia-version 1.13 --julia BIN --pinned DIR --work DIR --root DIR \
                   --freeze-sha SHA
-  campaign.py verify ROOT
+  campaign.py verify ROOT --freeze-sha SHA
   campaign.py ids
+
+Exit status: 0 valid records and every case ok; 2 valid records with a non-ok case (the
+numerical gate fails); 1 a stop or any integrity failure.
 
 See README.md in this directory; the governing design is STAGE2_PLAN.md.
 """
 
 import argparse
+from collections import Counter
 import csv
 import datetime
 import hashlib
@@ -200,6 +204,11 @@ def expected_metadata(campaign, version, settings, ids, pinned):
 # Checks shared by `run` (after each repetition) and `verify` (from archived evidence)
 
 
+def same(value, want):
+    """Equal in type and value: TOML `true` is not 1, and `0` is not `false`."""
+    return type(value) is type(want) and value == want
+
+
 def tsv(path):
     with Path(path).open(newline="", encoding="utf-8") as stream:
         return list(csv.DictReader(stream, delimiter="\t"))
@@ -215,13 +224,14 @@ def check_repetition(raw, version, rep, expected, campaign, exit_code):
     start = tomllib.loads((raw / f"{prefix}-metadata-start.toml").read_text())
     final = tomllib.loads((raw / f"{prefix}-metadata.toml").read_text())
     for label, meta in (("start", start), ("final", final)):
-        check(meta.get("rep") == rep, f"{prefix} {label} metadata: rep={meta.get('rep')}")
+        check(same(meta.get("rep"), rep), f"{prefix} {label} metadata: rep={meta.get('rep')}")
         for key, want in expected.items():
-            check(meta.get(key) == want, f"{prefix} {label} metadata: {key}={meta.get(key)!r}, "
+            check(same(meta.get(key), want), f"{prefix} {label} metadata: {key}={meta.get(key)!r}, "
                   f"expected {want!r}")
     check(final.get("finished") is True, f"{prefix}: not finished")
-    check(final.get("cases") == campaign["cases"]["count"], f"{prefix}: wrong case count")
+    check(same(final.get("cases"), campaign["cases"]["count"]), f"{prefix}: wrong case count")
     nonok = final.get("nonok_cases")
+    check(same(nonok, 0) or (type(nonok) is int and nonok > 0), f"{prefix}: nonok_cases={nonok!r}")
     check(exit_code in campaign["protocol"]["accepted_exit_codes"],
           f"{prefix}: exit code {exit_code} (startup, load or recording failure)")
     check((exit_code == 0) == (nonok == 0), f"{prefix}: exit code {exit_code} with "
@@ -259,7 +269,8 @@ def check_lock(manifest_path, campaign, version, pinned):
         item = items[0]
         check("repo-url" not in item and "repo-rev" not in item, f"{name} tracks a repository")
         if name == "ProximalSolvers":
-            check(Path(item.get("path", "")).resolve() == Path(pinned).resolve(),
+            check((Path(manifest_path).parent / item.get("path", "")).resolve()
+                  == Path(pinned).resolve(),
                   f"ProximalSolvers path {item.get('path')!r} is not the pinned checkout")
         else:
             check("path" not in item, f"{name} is a path dependency")
@@ -285,13 +296,20 @@ def check_project(project_path, pinned_checkout_project, pinned):
           "environment Project.toml deps/compat differ from benchmark/Project.toml")
     sources = project.get("sources", {})
     check(set(sources) <= {"ProximalSolvers"} and all(
-        Path(source.get("path", "")).resolve() == Path(pinned).resolve() and len(source) == 1
+        (Path(project_path).parent / source.get("path", "")).resolve() == Path(pinned).resolve()
+        and len(source) == 1
         for source in sources.values()), f"unexpected [sources] {sources}")
     check(set(project) <= {"deps", "compat", "sources"}, "unexpected Project.toml sections")
 
 
-def check_probe(probe, campaign, version, pinned):
+def check_probe(probe, campaign, version, pinned, environment, depot):
     entry = julia_entry(campaign, version)
+    check(Path(probe["active_project"]) == Path(environment) / "Project.toml",
+          f"active project {probe['active_project']} is not the campaign environment")
+    install = Path(probe["bindir"]).parent
+    check(Path(probe["depot_path"][0]) == Path(depot) and all(
+        install in Path(path).parents for path in probe["depot_path"][1:]),
+          f"depot path {probe['depot_path']} is not the campaign depot and Julia's own")
     base = campaign["proximalbase"]
     check(probe["julia"] == entry["version"] and probe["commit"] == entry["commit"],
           f"Julia {probe['julia']} ({probe['commit']}) is not the frozen build {entry['version']} "
@@ -313,9 +331,11 @@ def hardware_issues(campaign, record):
     machine = campaign["machine"]
     issues = []
     monitor = record["monitor"]
-    if monitor["observed_cpus"] and set(monitor["observed_cpus"]) != {machine["logical_cpu"]}:
+    if set(monitor["observed_cpus"]) != {machine["logical_cpu"]}:
         issues.append(f"observed on CPUs {monitor['observed_cpus']}")
-    if record["sibling_busy"] is None or record["sibling_busy"] > machine["max_sibling_busy"]:
+    offline = record["before"]["sibling_online"] == "0" == record["after"]["sibling_online"]
+    if not offline and (record["sibling_busy"] is None
+                        or record["sibling_busy"] > machine["max_sibling_busy"]):
         issues.append(f"SMT sibling busy {record['sibling_busy']}")
     load1 = float(record["before"]["loadavg"].split()[0])
     if load1 > machine["max_load1"]:
@@ -338,7 +358,7 @@ def cpu_times(cpu):
         if fields[0] == f"cpu{cpu}":
             values = [int(value) for value in fields[1:]]
             return sum(values), values[3] + values[4]   # total, idle + iowait
-    raise Stop(f"cpu{cpu} is not in /proc/stat")
+    return None   # offline
 
 
 def machine_state(campaign):
@@ -488,6 +508,47 @@ def file_hashes(root, paths):
     return {str(path.relative_to(root)): sha256(path) for path in sorted(paths)}
 
 
+def clean(repo):
+    return git(repo, "status", "--porcelain", "--untracked-files=all", "--ignored") == ""
+
+
+def check_freeze_checkout(campaign, freeze_sha=None):
+    """This file's checkout: clean, at `freeze_sha` if given, and leaving the measured
+    package, harness and tools identical to the pinned commit. Returns (path, HEAD)."""
+    freeze = Path(git(HERE, "rev-parse", "--show-toplevel"))
+    head = git(freeze, "rev-parse", "HEAD")
+    check(not freeze_sha or head == freeze_sha,
+          f"freeze checkout HEAD {head} is not --freeze-sha {freeze_sha}")
+    check(clean(freeze), "freeze checkout is not clean (tracked, untracked or ignored files)")
+    source = campaign["proximalsolvers"]
+    unchanged = subprocess.run(["git", "-C", str(freeze), "diff", "--quiet", source["commit"],
+                                "HEAD", "--", *source["unchanged_paths"]])
+    check(unchanged.returncode == 0, "the freeze commit changes pinned package or harness files")
+    return freeze, head
+
+
+def check_pinned_checkout(campaign, pinned):
+    source = campaign["proximalsolvers"]
+    check(Path(git(pinned, "rev-parse", "--show-toplevel")).resolve() == pinned,
+          f"{pinned} is not the top of a git checkout")
+    check(git(pinned, "rev-parse", "HEAD") == source["commit"],
+          f"pinned checkout is not at {source['commit']}")
+    check(git(pinned, "rev-parse", "HEAD^{tree}") == source["tree"], "pinned tree differs")
+    check(clean(pinned), "pinned checkout is not clean (tracked, untracked or ignored files)")
+
+
+def busy_fraction(before, after):
+    if before is None or after is None or after[0] == before[0]:
+        return None
+    return ((after[0] - before[0]) - (after[1] - before[1])) / (after[0] - before[0])
+
+
+def process_env(campaign, start, settings, ids):
+    """The environment of every Julia process after setup, except per-step variables."""
+    return dict(settings, PS_CASES=",".join(ids), PS_EXPECTED_PACKAGE_ROOT=start["pinned"],
+                JULIA_DEPOT_PATH=start["depot_path"], JULIA_PKG_OFFLINE="true")
+
+
 def run(args):
     campaign, ids = load_campaign()
     version = args.julia_version
@@ -514,30 +575,25 @@ def run(args):
 
     # Checkouts: the pinned one is measured; the freeze one (this file's) holds the campaign.
     pinned = Path(args.pinned).resolve()
-    source = campaign["proximalsolvers"]
-    check(git(pinned, "rev-parse", "HEAD") == source["commit"], "pinned checkout is not at "
-          f"{source['commit']}")
-    check(git(pinned, "rev-parse", "HEAD^{tree}") == source["tree"], "pinned tree differs")
-    check(git(pinned, "status", "--porcelain", "--untracked-files=all") == "",
-          "pinned checkout is not clean")
-    freeze = Path(git(HERE, "rev-parse", "--show-toplevel"))
-    freeze_head = git(freeze, "rev-parse", "HEAD")
-    check(not args.freeze_sha or freeze_head == args.freeze_sha,
-          f"freeze checkout HEAD {freeze_head} is not --freeze-sha {args.freeze_sha}")
-    check(git(freeze, "status", "--porcelain", "--untracked-files=all") == "",
-          "freeze checkout is not clean")
-    unchanged = subprocess.run(["git", "-C", str(freeze), "diff", "--quiet", source["commit"],
-                                "HEAD", "--", *source["unchanged_paths"]])
-    check(unchanged.returncode == 0, "the freeze commit changes pinned package or harness files")
-
+    check_pinned_checkout(campaign, pinned)
+    freeze, freeze_head = check_freeze_checkout(campaign, args.freeze_sha)
+    julia = Path(args.julia).resolve()
+    check(julia.is_file() and os.access(julia, os.X_OK), f"{julia} is not an executable")
     root, work = Path(args.root).resolve(), Path(args.work).resolve()
     for path in (root, work):
-        check(pinned not in path.parents and path != pinned and freeze not in path.parents,
-              f"{path} must be outside both checkouts")
+        for repo in (pinned, freeze):
+            check(path != repo and repo not in path.parents and path not in repo.parents,
+                  f"{path} must be outside {repo}")
+    check(root != work and root not in work.parents and work not in root.parents,
+          "--root and --work must be separate directories")
     julia_dir = root / f"julia-{version}"
     check(not julia_dir.exists(), f"{julia_dir} exists: never reuse an attempt; use a fresh root")
     environment = work / f"env-{version}"
     check(not environment.exists(), f"{environment} exists: use a fresh environment")
+    # The campaign depot, then Julia's own bundled depots; never the user's ~/.julia.
+    install = julia.parent.parent
+    depot_path = ":".join(str(path) for path in (work / "depot", install / "local/share/julia",
+                                                  install / "share/julia"))
     root.mkdir(parents=True, exist_ok=True)
     for name in ("campaign.toml", "cases.txt"):   # shared by both Julia versions of a root
         copy = root / name
@@ -545,6 +601,16 @@ def run(args):
             check(copy.read_bytes() == (HERE / name).read_bytes(), f"{copy} is another campaign's")
         else:
             shutil.copyfile(HERE / name, copy)
+    start = dict(mode="pilot" if args.pilot else "official",
+                 campaign_id=campaign["campaign_id"], julia_version=version,
+                 julia_binary=str(julia), julia_binary_sha256=sha256(julia),
+                 campaign_py_sha256=sha256(HERE / "campaign.py"),
+                 pinned=str(pinned), pinned_sha=campaign["proximalsolvers"]["commit"],
+                 freeze=str(freeze), freeze_head=freeze_head, freeze_sha_expected=args.freeze_sha,
+                 cases_sha256=campaign["cases"]["sha256"], repetitions=reps, settings=settings,
+                 no_exploratory=args.no_exploratory, case_filter=",".join(ids), root=str(root),
+                 work=str(work), environment=str(environment), depot_path=depot_path,
+                 argv=sys.argv, cwd=os.getcwd(), python=sys.version)
     raw = julia_dir / "raw"
     receipt = Receipt(julia_dir)
     status, reason = "stopped", None
@@ -552,24 +618,16 @@ def run(args):
         # Keep this process off the measured CPU and its sibling.
         os.sched_setaffinity(0, os.sched_getaffinity(0) - {machine["logical_cpu"],
                                                            machine["smt_sibling"]})
-        julia = Path(args.julia).resolve()
-        env = {key: os.environ[key] for key in PASS_THROUGH if key in os.environ}
-        env.update(settings, PS_CASES=",".join(ids), PS_EXPECTED_PACKAGE_ROOT=str(pinned),
-                   JULIA_DEPOT_PATH=f"{work / 'depot'}:")
+        receipt.event("start", **start)
+        passed = {key: os.environ[key] for key in PASS_THROUGH if key in os.environ}
+        setup_env = dict(passed, **settings, JULIA_DEPOT_PATH=depot_path)
+        run_env = dict(passed, **process_env(campaign, start, settings, ids))
         flags = [str(julia), *protocol["julia_flags"]]
-        receipt.event("start", mode="pilot" if args.pilot else "official",
-                      campaign_id=campaign["campaign_id"], julia_version=version,
-                      julia_binary=str(julia), julia_binary_sha256=sha256(julia),
-                      pinned=str(pinned), pinned_sha=source["commit"], freeze=str(freeze),
-                      freeze_head=freeze_head, freeze_sha_expected=args.freeze_sha,
-                      cases_sha256=campaign["cases"]["sha256"], repetitions=reps,
-                      settings=settings, case_filter=env["PS_CASES"], work=str(work),
-                      argv=sys.argv, cwd=os.getcwd(), python=sys.version)
         write_new(julia_dir / "machine-inventory.txt", inventory_text())
 
         # Environment: the approved setup.jl, then the frozen identities.
         receipt.command("setup", [*flags, "benchmark/setup.jl", str(pinned), str(environment),
-                                  protocol["proximalbase_spec"]], env, pinned)
+                                  protocol["proximalbase_spec"]], setup_env, pinned)
         project, manifest = environment / "Project.toml", environment / "Manifest.toml"
         check_project(project, pinned / "benchmark" / "Project.toml", pinned)
         check_lock(manifest, campaign, version, pinned)
@@ -579,33 +637,25 @@ def run(args):
         snapshot = {name: sha256(julia_dir / name) for name in ("Project.toml", "Manifest.toml")}
         registry = read(work / "depot" / "registries" / "General.toml")
         receipt.event("environment", snapshot_sha256=snapshot, registry=registry)
-        run_env = dict(env, JULIA_PKG_OFFLINE="true")   # no registry or package updates from here
+        # From here Pkg is offline: no registry or package updates.
         receipt.command("probe", [*flags, f"--project={environment}", "-e", PROBE], run_env, pinned)
         probe = tomllib.loads((receipt.logs / "probe.out").read_text())
-        check_probe(probe, campaign, version, pinned)
+        check_probe(probe, campaign, version, pinned, environment, work / "depot")
         shutil.copyfile(receipt.logs / "probe.out", julia_dir / "environment-inventory.toml")
 
         def unchanged_environment():
             check({name: sha256(environment / name) for name in snapshot} == snapshot,
                   "the environment's Project.toml or Manifest.toml changed after its snapshot")
-            check(git(pinned, "rev-parse", "HEAD") == source["commit"] and
-                  git(pinned, "status", "--porcelain", "--untracked-files=all") == "",
-                  "the pinned checkout changed")
+            check(git(pinned, "rev-parse", "HEAD") == campaign["proximalsolvers"]["commit"]
+                  and clean(pinned), "the pinned checkout changed")
 
         # Case selection, before any measurement.
         receipt.command("list", [*flags, f"--project={environment}", "benchmark/run.jl"],
                         dict(run_env, PS_LIST="true"), pinned)
-        listed = [line.split("\t")[0] for line in (receipt.logs / "list.out").read_text().splitlines()]
-        check(len(listed) == len(set(listed)), "PS_LIST printed duplicate IDs")
-        check(sorted(listed) == sorted(ids), "PS_LIST IDs differ from cases.txt: missing="
-              f"{sorted(set(ids) - set(listed))} extra={sorted(set(listed) - set(ids))}")
+        check_listing(receipt.logs / "list.out", ids)
         receipt.command("catalog", [*flags, f"--project={environment}", "-e", CATALOG],
                         run_env, pinned)
-        fields = [line.split("\t") for line in
-                  (receipt.logs / "catalog.out").read_text().splitlines()]
-        check(all(len(row) == len(CATALOG_FIELDS) for row in fields), "malformed catalog dump")
-        check_catalog_rows([dict(zip(CATALOG_FIELDS, row)) for row in fields], campaign,
-                           "catalog before measurement")
+        check_catalog_dump(receipt.logs / "catalog.out", campaign)
         unchanged_environment()
 
         # Repetitions: fresh pinned processes; checks after each one.
@@ -624,12 +674,11 @@ def run(args):
             after = machine_state(campaign)
             check(monitor["allowed"] == [str(cpu)] and monitor["samples"] > 0,
                   f"rep{rep:02d} ran with affinity {monitor['allowed']}, not cpu{cpu}")
-            spans = {c: [after["times"][str(c)][i] - before["times"][str(c)][i] for i in (0, 1)]
-                     for c in (cpu, sibling)}
-            busy = {c: (span[0] - span[1]) / span[0] if span[0] else None
-                    for c, span in spans.items()}
             record = dict(rep=rep, settle_s=waited, before=before, after=after, monitor=monitor,
-                          cpu_busy=busy[cpu], sibling_busy=busy[sibling])
+                          cpu_busy=busy_fraction(before["times"][str(cpu)],
+                                                 after["times"][str(cpu)]),
+                          sibling_busy=busy_fraction(before["times"][str(sibling)],
+                                                     after["times"][str(sibling)]))
             record["issues"] = hardware_issues(campaign, record)
             hardware.append(record)
             receipt.event("hardware", **record)
@@ -637,8 +686,7 @@ def run(args):
             for previous, digest in sealed.items():
                 check(sha256(raw / previous) == digest, f"{previous} changed after its repetition")
             names = {path.name for path in raw.iterdir()}
-            wanted = {f"julia-{entry['version']}-rep{r:02d}{s}"
-                      for r in range(1, rep + 1) for s in RAW_SUFFIXES}
+            wanted = raw_names(entry["version"], rep)
             check(names == wanted, f"unexpected raw files {sorted(names ^ wanted)}")
             new = {name: sha256(raw / name) for name in sorted(names - set(sealed))}
             sealed.update(new)
@@ -653,40 +701,28 @@ def run(args):
         versions = ["--versions", entry["version"]]
         receipt.command("validate", [*PYTHON, "benchmark/validate.py", str(raw),
                                      str(julia_dir / "validation.json"), "--expected-runs",
-                                     str(reps), *versions], env, pinned)
+                                     str(reps), *versions], passed, pinned)
         validation = json.loads((julia_dir / "validation.json").read_text())
         check(validation["valid"] and validation["counts"]["processes"] == reps,
               "validate.py did not find valid records")
         receipt.command("summarize", [*PYTHON, "benchmark/summarize.py", str(raw),
                                       str(julia_dir / "summary"), "--expected-runs", str(reps),
-                                      *versions], env, pinned)
-        receipt.command("check_analysis", [*PYTHON, "benchmark/check_analysis.py"], env, pinned)
+                                      *versions], passed, pinned)
+        receipt.command("check_analysis", [*PYTHON, "benchmark/check_analysis.py"], passed, pinned)
         unchanged_environment()
 
         # Untimed exploratory receipts (labelled; not formal records).
         if not args.no_exploratory:
             exploratory = julia_dir / "exploratory"
             (exploratory / "first-call").mkdir(parents=True)
-            local = ["taskset", "-c", str(cpu), *flags, f"--project={environment}",
-                     "benchmark/local.jl", "--rep", str(protocol["local_rep"])]
-            receipt.command("work-counters", [*local, "--save",
-                                              str(exploratory / "work-counters.local.tsv"), *ids],
-                            run_env, pinned, accept=(0, 2))
-            for number, case in enumerate(ids, 1):
-                receipt.command(f"first-call-{number:02d}", [
-                    *local, "--samples", str(protocol["local_first_call_samples"]), "--save",
-                    str(exploratory / "first-call" / f"{number:02d}.local.tsv"), case],
-                    run_env, pinned, accept=(0, 2))
+            for name, argv in local_commands(protocol, ids, flags, environment, cpu, exploratory):
+                receipt.command(name, argv, run_env, pinned, accept=(0, 2))
             unchanged_environment()
 
-        # Numerical gate (B) is separate from record integrity (A).
-        nonok = sorted({(case, rep, row["status"]) for rep, rows in metrics.items()
-                        for case, row in rows.items() if row["status"] != "ok"})
-        issues = sorted({issue for record in hardware for issue in record["issues"]})
+        nonok, issues = outcomes(campaign, metrics, hardware)
         status = "completed"
         receipt.event("result", record_integrity="valid",
-                      numerical="all ok" if not nonok else "non-ok cases",
-                      nonok=[dict(id=c, rep=r, status=s) for c, r, s in nonok],
+                      numerical="all ok" if not nonok else "non-ok cases", nonok=nonok,
                       hardware="controlled" if not issues else "observational",
                       hardware_issues=issues)
     except Exception as error:   # fail closed: any failure stops the attempt
@@ -699,8 +735,56 @@ def run(args):
         files = [path for path in julia_dir.rglob("*") if path.is_file()]
         write_new(julia_dir / "checksums.sha256", "".join(
             f"{digest}  {name}\n" for name, digest in file_hashes(julia_dir, files).items()))
-    report = verify_julia(julia_dir, campaign, ids, HERE.parent.parent, quiet=False)
-    return 0 if status == "completed" and report["status"] == "completed" else 1
+    report = verify_julia(julia_dir, campaign, ids, freeze_head)
+    print(json.dumps(report, indent=2))
+    return exit_status([report])
+
+
+def raw_names(full_version, reps):
+    return {f"julia-{full_version}-rep{r:02d}{suffix}"
+            for r in range(1, reps + 1) for suffix in RAW_SUFFIXES}
+
+
+def local_commands(protocol, ids, flags, environment, cpu, exploratory):
+    """The exploratory local.jl processes: work counters for all IDs, then one per case."""
+    local = ["taskset", "-c", str(cpu), *flags, f"--project={environment}",
+             "benchmark/local.jl", "--rep", str(protocol["local_rep"])]
+    yield "work-counters", [*local, "--save", str(exploratory / "work-counters.local.tsv"), *ids]
+    for number, case in enumerate(ids, 1):
+        yield f"first-call-{number:02d}", [
+            *local, "--samples", str(protocol["local_first_call_samples"]), "--save",
+            str(exploratory / "first-call" / f"{number:02d}.local.tsv"), case]
+
+
+def check_listing(path, ids):
+    listed = [line.split("\t")[0] for line in Path(path).read_text().splitlines()]
+    check(len(listed) == len(set(listed)), "PS_LIST printed duplicate IDs")
+    check(sorted(listed) == sorted(ids), "PS_LIST IDs differ from cases.txt: missing="
+          f"{sorted(set(ids) - set(listed))} extra={sorted(set(listed) - set(ids))}")
+
+
+def check_catalog_dump(path, campaign):
+    rows = [line.split("\t") for line in Path(path).read_text().splitlines()]
+    check(all(len(row) == len(CATALOG_FIELDS) for row in rows), "malformed catalog dump")
+    check_catalog_rows([dict(zip(CATALOG_FIELDS, row)) for row in rows], campaign,
+                       "catalog before measurement")
+
+
+def outcomes(campaign, metrics, hardware):
+    """Numerical (gate B) and hardware results, from the records alone."""
+    roles = {entry["id"]: entry["role"] for entry in campaign["case"]}
+    nonok = [dict(id=case, role=roles[case], rep=rep, status=status) for case, rep, status in
+             sorted({(case, rep, row["status"]) for rep, rows in metrics.items()
+                     for case, row in rows.items() if row["status"] != "ok"})]
+    issues = sorted({issue for record in hardware for issue in hardware_issues(campaign, record)})
+    return nonok, issues
+
+
+def exit_status(reports):
+    """1: a stop or an integrity failure; 2: valid records with a non-ok case; 0: all ok."""
+    if not reports or any(report["failures"] for report in reports):
+        return 1
+    return 2 if any(report.get("nonok") for report in reports) else 0
 
 
 # ---------------------------------------------------------------------------------------
@@ -711,119 +795,173 @@ def events(julia_dir):
     return [json.loads(line) for line in (julia_dir / "receipt.jsonl").read_text().splitlines()]
 
 
-def verify_julia(julia_dir, campaign, ids, benchmark, quiet=True):
-    """Re-check one Julia version's evidence without Julia; returns a short report."""
+def verify_julia(julia_dir, campaign, ids, freeze_head):
+    """Re-check one Julia version's evidence without Julia; returns a report whose
+    `failures` lists every integrity problem found."""
     report = dict(julia=julia_dir.name, failures=[])
+    try:
+        verify_evidence(julia_dir, campaign, ids, freeze_head, report)
+    except Exception as error:   # any unreadable or inconsistent evidence fails
+        report["failures"].append(f"{type(error).__name__}: {error}")
+    report["record_integrity"] = "invalid" if report["failures"] else "valid"
+    return report
 
-    def fail(message):
-        report["failures"].append(message)
 
-    listed = {}
-    lines = (julia_dir / "checksums.sha256").read_text().splitlines()
-    for line in lines:
-        digest, _, name = line.partition("  ")
-        listed[name] = digest
+def verify_evidence(julia_dir, campaign, ids, freeze_head, report):
+    fail = report["failures"].append
+    protocol, machine = campaign["protocol"], campaign["machine"]
+    listed = dict(reversed(line.split("  ", 1)) for line in
+                  (julia_dir / "checksums.sha256").read_text().splitlines())
     present = {str(p.relative_to(julia_dir)) for p in julia_dir.rglob("*") if p.is_file()}
     if present - {"checksums.sha256"} != set(listed):
-        fail(f"files differ from checksums.sha256: {sorted((present - {'checksums.sha256'}) ^ set(listed))}")
+        fail(f"files differ from checksums.sha256: "
+             f"{sorted((present - {'checksums.sha256'}) ^ set(listed))}")
     for name, digest in listed.items():
         if (julia_dir / name).is_file() and sha256(julia_dir / name) != digest:
             fail(f"checksum mismatch: {name}")
     result = json.loads((julia_dir / "result.json").read_text())
     log = events(julia_dir)
+    check(log and log[0]["event"] == "start", "the receipt has no start event")
     start = log[0]
-    report.update(status=result["status"], mode=start["mode"], reason=result["reason"])
-    if result["status"] != "completed":
-        fail(f"attempt stopped: {result['reason']}")
-        return finish(report, quiet)
+    report.update(status=result["status"], mode=start["mode"], reason=result["reason"],
+                  freeze_head=start["freeze_head"])
+    check(result["status"] == "completed", f"attempt stopped: {result['reason']}")
     version = julia_dir.name.removeprefix("julia-")
-    pinned = start["pinned"]
-    try:
-        entry = julia_entry(campaign, version)
-        if start["cases_sha256"] != campaign["cases"]["sha256"] or start["case_filter"] != ",".join(ids):
-            fail("the evidence was produced from another case list")
-        check_lock(julia_dir / "Manifest.toml", campaign, version, pinned)
-        check_project(julia_dir / "Project.toml", benchmark / "Project.toml", pinned)
-        check_probe(tomllib.loads((julia_dir / "environment-inventory.toml").read_text()),
-                    campaign, version, pinned)
-        snapshot = next(e for e in log if e["event"] == "environment")["snapshot_sha256"]
-        for name, digest in snapshot.items():
-            if sha256(julia_dir / name) != digest:
-                fail(f"{name} snapshot differs from the one recorded at setup")
-        commands = {e["name"]: e for e in log if e["event"] == "command"}
-        listed = [line.split("\t")[0] for line in
-                  (julia_dir / commands["list"]["stdout"]).read_text().splitlines()]
-        if sorted(listed) != sorted(ids) or commands["list"]["env"].get("PS_LIST") != "true":
-            fail("the archived PS_LIST output differs from cases.txt")
-        check_catalog_rows([dict(zip(CATALOG_FIELDS, line.split("\t"))) for line in
-                            (julia_dir / commands["catalog"]["stdout"]).read_text().splitlines()],
-                           campaign, "archived catalog")
-        if start["mode"] == "official" and start["freeze_head"] != start["freeze_sha_expected"]:
-            fail("official run without a matching --freeze-sha")
-        raw = julia_dir / "raw"
-        expected = expected_metadata(campaign, version, start["settings"], ids, pinned)
-        metrics = {}
-        for rep in range(1, start["repetitions"] + 1):
-            command = commands[f"rep{rep:02d}"]
-            argv = command["argv"]
-            if argv[:3] != ["taskset", "-c", str(campaign["machine"]["logical_cpu"])]:
-                fail(f"rep{rep:02d} was not pinned to the frozen CPU")
-            if command["monitor"]["allowed"] != [str(campaign["machine"]["logical_cpu"])]:
-                fail(f"rep{rep:02d} affinity {command['monitor']['allowed']}")
-            if command["env"].get("PS_REPETITION") != str(rep):
-                fail(f"rep{rep:02d} has PS_REPETITION={command['env'].get('PS_REPETITION')}")
-            for key, value in start["settings"].items():
-                if command["env"].get(key) != value:
-                    fail(f"rep{rep:02d} ran with {key}={command['env'].get(key)}")
-            metrics[rep] = check_repetition(raw, version, rep, expected, campaign, command["exit"])
-        wanted = {f"julia-{entry['version']}-rep{r:02d}{s}"
-                  for r in range(1, start["repetitions"] + 1) for s in RAW_SUFFIXES}
-        if {p.name for p in raw.iterdir()} != wanted:
-            fail("raw files differ from the expected repetitions")
-        check_fixed_inputs(campaign, metrics)
-    except (Stop, OSError, KeyError, ValueError, StopIteration) as error:
-        fail(f"{type(error).__name__}: {error}")
-        return finish(report, quiet)
-    sys.path.insert(0, str(benchmark))
+    entry = julia_entry(campaign, version)
+    check(start["julia_version"] == version, "receipt and directory name disagree on Julia")
+
+    # The run's identity and protocol come from the freeze, not from the receipt.
+    check(start["campaign_id"] == campaign["campaign_id"]
+          and start["cases_sha256"] == campaign["cases"]["sha256"]
+          and start["case_filter"] == ",".join(ids), "the evidence is of another campaign or case list")
+    check(start["pinned_sha"] == campaign["proximalsolvers"]["commit"], "another pinned commit")
+    check(start["freeze_head"] == freeze_head, f"the evidence was produced at freeze "
+          f"{start['freeze_head']}; this checkout is {freeze_head}")
+    check(start["campaign_py_sha256"] == sha256(HERE / "campaign.py"), "another campaign.py")
+    reps = start["repetitions"]
+    if start["mode"] == "official":
+        check(start["settings"] == campaign["settings"] and reps == protocol["repetitions"]
+              and not start["no_exploratory"] and start["freeze_sha_expected"] == freeze_head,
+              "official evidence with other settings, repetitions or freeze SHA")
+    else:
+        check(start["mode"] == "pilot", f"unknown mode {start['mode']}")
+    pinned, environment = start["pinned"], start["environment"]
+    check_lock(julia_dir / "Manifest.toml", campaign, version, pinned)
+    check_project(julia_dir / "Project.toml", HERE.parent.parent / "Project.toml", pinned)
+    check_probe(tomllib.loads((julia_dir / "environment-inventory.toml").read_text()),
+                campaign, version, pinned, environment, start["depot_path"].split(":")[0])
+    snapshot = next(e for e in log if e["event"] == "environment")["snapshot_sha256"]
+    for name, digest in snapshot.items():
+        if sha256(julia_dir / name) != digest:
+            fail(f"{name} snapshot differs from the one recorded at setup")
+
+    # Every command of the protocol, once, in order, with its exact argv, environment and exit.
+    commands = {}
+    for event in log:
+        if event["event"] == "command":
+            check(event["name"] not in commands, f"duplicate command {event['name']}")
+            commands[event["name"]] = event
+    exploratory = julia_dir / "exploratory"
+    local = [] if start["no_exploratory"] else list(local_commands(
+        protocol, ids, [start["julia_binary"], *protocol["julia_flags"]], environment,
+        machine["logical_cpu"], Path(start["root"]) / julia_dir.name / "exploratory"))
+    order = ["setup", "probe", "list", "catalog", *(f"rep{r:02d}" for r in range(1, reps + 1)),
+             "validate", "summarize", "check_analysis", *(name for name, _ in local)]
+    check(list(commands) == order, f"commands {list(commands)} differ from the protocol")
+    flags = [start["julia_binary"], *protocol["julia_flags"]]
+    run_env = process_env(campaign, start, start["settings"], ids)
+    raw_path = str(Path(start["root"]) / julia_dir.name / "raw")
+    want = {"setup": ([*flags, "benchmark/setup.jl", pinned, environment,
+                       protocol["proximalbase_spec"]],
+                      dict(start["settings"], JULIA_DEPOT_PATH=start["depot_path"]), (0,)),
+            "probe": ([*flags, f"--project={environment}", "-e", PROBE], run_env, (0,)),
+            "list": ([*flags, f"--project={environment}", "benchmark/run.jl"],
+                     dict(run_env, PS_LIST="true"), (0,)),
+            "catalog": ([*flags, f"--project={environment}", "-e", CATALOG], run_env, (0,))}
+    for rep in range(1, reps + 1):
+        want[f"rep{rep:02d}"] = (["taskset", "-c", str(machine["logical_cpu"]), *flags,
+                                  f"--project={environment}", "benchmark/run.jl"],
+                                 dict(run_env, PS_REPETITION=str(rep), PS_OUTPUT=raw_path),
+                                 tuple(protocol["accepted_exit_codes"]))
+    for name in ("validate", "summarize", "check_analysis"):
+        want[name] = (None, None, (0,))
+    for name, argv in local:
+        want[name] = (argv, run_env, (0, 2))
+    for name, (argv, env, exits) in want.items():
+        command = commands[name]
+        if argv is not None and command["argv"] != argv:
+            fail(f"{name} ran {command['argv']}")
+        if env is not None and {k: v for k, v in command["env"].items()
+                                if k not in PASS_THROUGH} != env:
+            fail(f"{name} ran with another environment")
+        if command["exit"] not in exits:
+            fail(f"{name} exited with {command['exit']}")
+        if command["cwd"] != pinned:
+            fail(f"{name} ran in {command['cwd']}")
+    check_listing(julia_dir / commands["list"]["stdout"], ids)
+    check_catalog_dump(julia_dir / commands["catalog"]["stdout"], campaign)
+    required = ["validation.json", "summary/summary.csv", "summary/SUMMARY.md",
+                "machine-inventory.txt", "environment-inventory.toml"]
+    if not start["no_exploratory"]:
+        required += ["exploratory/work-counters.local.tsv", *(
+            f"exploratory/first-call/{n:02d}.local.tsv" for n in range(1, len(ids) + 1))]
+    missing = [name for name in required if not (julia_dir / name).is_file()]
+    if missing:
+        fail(f"missing outputs {missing}")
+
+    # The records of every repetition, as after each repetition of the run.
+    raw = julia_dir / "raw"
+    expected = expected_metadata(campaign, version, start["settings"], ids, pinned)
+    hardware = [e for e in log if e["event"] == "hardware"]
+    check([e["rep"] for e in hardware] == list(range(1, reps + 1)),
+          "hardware records do not cover every repetition")
+    metrics = {}
+    for record in hardware:
+        monitor = commands[f"rep{record['rep']:02d}"]["monitor"]
+        if monitor != record["monitor"] or monitor["allowed"] != [str(machine["logical_cpu"])] \
+                or monitor["samples"] <= 0:
+            fail(f"rep{record['rep']:02d} affinity record {monitor}")
+    for rep in range(1, reps + 1):
+        metrics[rep] = check_repetition(raw, version, rep, expected, campaign,
+                                        commands[f"rep{rep:02d}"]["exit"])
+    if {path.name for path in raw.iterdir()} != raw_names(entry["version"], reps):
+        fail("raw files differ from the expected repetitions")
+    check_fixed_inputs(campaign, metrics)
+    sys.path.insert(0, str(HERE.parent.parent))
     sys.dont_write_bytecode = True
     try:
         import validate   # the freeze checkout's copy, identical to the pinned one
     finally:
         sys.path.pop(0)
-    checked = validate.validate(raw, start["repetitions"], [entry["version"]])
+    checked = validate.validate(raw, reps, [entry["version"]])
     if not checked["valid"]:
         fail(f"validate.py: {checked['issues']}")
     if checked != json.loads((julia_dir / "validation.json").read_text()):
         fail("validation.json differs from a fresh validation")
-    # Recompute the numerical and hardware results from the evidence; the receipt must agree.
+
+    # Numerical and hardware results, recomputed; the receipt must agree.
+    nonok, issues = outcomes(campaign, metrics, hardware)
     outcome = next(e for e in log if e["event"] == "result")
-    nonok = [dict(id=c, rep=r, status=s) for c, r, s in sorted(
-        {(case, rep, row["status"]) for rep, rows in metrics.items()
-         for case, row in rows.items() if row["status"] != "ok"})]
-    hardware = [e for e in log if e["event"] == "hardware"]
-    issues = sorted({issue for record in hardware for issue in hardware_issues(campaign, record)})
-    if [e["rep"] for e in hardware] != list(range(1, start["repetitions"] + 1)):
-        fail("hardware records do not cover every repetition")
     if (nonok, issues) != (outcome["nonok"], outcome["hardware_issues"]):
-        fail("recorded numerical or hardware result differs from the evidence")
-    report.update(record_integrity="valid" if not report["failures"] else "invalid",
-                  numerical="all ok" if not nonok else "non-ok cases", nonok=nonok,
+        fail("the recorded numerical or hardware result differs from the evidence")
+    report.update(numerical="all ok" if not nonok else "non-ok cases", nonok=nonok,
+                  nonok_primary=sorted({row["id"] for row in nonok if row["role"] == "primary"}),
                   hardware="controlled" if not issues else "observational",
-                  hardware_issues=issues, repetitions=start["repetitions"],
-                  freeze_head=start["freeze_head"])
-    return finish(report, quiet)
-
-
-def finish(report, quiet):
-    if not quiet:
-        print(json.dumps(report, indent=2))
-    return report
+                  hardware_issues=issues, repetitions=reps)
 
 
 def verify(args):
     campaign, ids = load_campaign()
-    root = Path(args.root)
+    _, freeze_head = check_freeze_checkout(campaign, args.freeze_sha)
+    root = Path(args.root).resolve()
     reports = []
+
+    def problem(label, message):
+        reports.append(dict(julia=label, failures=[message]))
+
+    for name in ("campaign.toml", "cases.txt"):
+        if not (root / name).is_file() or (root / name).read_bytes() != (HERE / name).read_bytes():
+            problem(name, f"{name} is missing or differs from the freeze checkout")
     sums = root / "checksums.sha256"
     if sums.exists():   # the archive-level list (README, "Archive"); excludes itself
         listed = dict(reversed(line.split("  ", 1)) for line in sums.read_text().splitlines())
@@ -831,21 +969,48 @@ def verify(args):
         bad = sorted(name for name in listed if not (root / name).is_file()
                      or sha256(root / name) != listed[name])
         if bad or files != set(listed):
-            reports.append(dict(julia="checksums.sha256", failures=[
-                f"archive checksums: mismatched={bad} unlisted={sorted(files - set(listed))}"]))
+            problem("checksums.sha256", f"archive checksums: mismatched={bad} "
+                    f"unlisted={sorted(files - set(listed))}")
     elif args.archive:
-        reports.append(dict(julia="checksums.sha256", failures=["archive has no checksums.sha256"]))
-    for name in ("campaign.toml", "cases.txt"):
-        if (root / name).read_bytes() != (HERE / name).read_bytes():
-            reports.append(dict(julia=name, failures=[f"{name} differs from the freeze checkout"]))
-    for julia_dir in sorted(root.glob("julia-*")):
-        reports.append(verify_julia(julia_dir, campaign, ids, HERE.parent.parent))
+        problem("checksums.sha256", "the archive has no checksums.sha256")
+    directories = sorted(root.glob("julia-*"))
+    for julia_dir in directories:
+        reports.append(verify_julia(julia_dir, campaign, ids, freeze_head))
+    modes = {report.get("mode") for report in reports if "mode" in report}
+    if "official" in modes or args.archive:
+        names = {path.name for path in directories}
+        wanted = {f"julia-{version}" for version in campaign["julia"]}
+        if names != wanted or modes != {"official"}:
+            problem("root", f"an official root holds exactly {sorted(wanted)}, all official; "
+                    f"found {sorted(names)} ({sorted(modes, key=str)})")
+        if root.name != campaign["archive"]["name"]:
+            problem("root", f"the official root must be named {campaign['archive']['name']}")
+    attempts = Counter()
+    for path in sorted((root / "attempts").glob("*")) if (root / "attempts").exists() else []:
+        match = re.fullmatch(r"julia-(.+)-attempt([0-9]+)", path.name)
+        try:
+            stopped = json.loads((path / "result.json").read_text())["status"] == "stopped"
+        except (OSError, ValueError, KeyError):
+            stopped = False
+        if not match or not stopped:
+            problem(f"attempts/{path.name}", "attempts/ may hold only stopped attempts, "
+                    "named julia-<V>-attempt<N>")
+        else:
+            attempts[match[1]] += 1
+    for version, count in attempts.items():
+        if count > campaign["protocol"]["max_complete_attempts"] - 1:
+            problem("attempts", f"{count} stopped attempts of Julia {version}")
+    if not (modes <= {"official"} or args.allow_pilot):
+        problem("root", "pilot evidence; pass --allow-pilot to check it")
     print(json.dumps(reports, indent=2))
-    official = all(r.get("mode") == "official" for r in reports if "mode" in r)
-    ok = reports and not any(r["failures"] for r in reports) and (official or args.allow_pilot)
-    print(f"VERIFY {'PASS' if ok else 'FAIL'}: {len(reports)} item(s); record integrity and "
-          "numerical results are reported separately above")
-    return 0 if ok else 1
+    code = exit_status(reports)
+    primary = sorted({case for report in reports for case in report.get("nonok_primary", [])})
+    print(f"RECORD INTEGRITY: {'FAIL' if code == 1 else 'PASS'}")
+    if code != 1:
+        print(f"NUMERICAL: {'FAIL' if code == 2 else 'PASS'} (non-ok primary cases: "
+              f"{primary or 'none'}); HARDWARE: " + ", ".join(
+                  f"{r['julia']} {r['hardware']}" for r in reports if "hardware" in r))
+    return code
 
 
 def main():
@@ -867,6 +1032,7 @@ def main():
                         help="pilot only: skip the local.jl receipts")
     verifier = commands.add_parser("verify", help="re-check an evidence root without Julia")
     verifier.add_argument("root")
+    verifier.add_argument("--freeze-sha", help="require this checkout to be the freeze commit")
     verifier.add_argument("--allow-pilot", action="store_true")
     verifier.add_argument("--archive", action="store_true",
                           help="require the archive-level checksums.sha256")

@@ -60,27 +60,37 @@ ROOT="$BASE/pre06-stage2a-campaign-v1"     # the official root must have this na
 for V in 1.10 1.13; do
   case $V in 1.10) J=~/.julia/juliaup/julia-1.10.13+0.x64.linux.gnu/bin/julia ;;
              1.13) J=~/.julia/juliaup/julia-1.13.3+0.x64.linux.gnu/bin/julia ;; esac
-  python3 "$CAMPAIGN" run --julia-version "$V" --julia "$J" --pinned "$BASE/pinned" \
-    --work "$BASE/work" --root "$ROOT" --freeze-sha "$FREEZE_SHA"
+  code=0
+  python3 -B "$CAMPAIGN" run --julia-version "$V" --julia "$J" --pinned "$BASE/pinned" \
+    --work "$BASE/work" --root "$ROOT" --freeze-sha "$FREEZE_SHA" || code=$?
+  # 2 = valid records with a non-ok case: continue, but the numerical gate has failed.
+  [ "$code" -eq 0 ] || [ "$code" -eq 2 ] || { echo "Julia $V stopped; see $ROOT/julia-$V" >&2; exit 1; }
 done
 ```
+
+Exit status of `run` and `verify`: **0** valid records and every case `ok`; **2** valid
+records with at least one non-`ok` case (the numerical gate fails; the run is complete
+and is never retried for this reason); **1** a stop or any integrity failure.
 
 Each `run` takes one Julia version through these steps and stops at the first failure:
 
 1. Machine: Linux; the frozen CPU model; logical CPU 6 online, listed in
    `/sys/devices/cpu_core/cpus` and paired only with sibling 7.
-2. Checkouts: the pinned checkout is at the pinned commit and tree and has no tracked or
-   untracked change; the freeze checkout is at `--freeze-sha`, is clean, and leaves every
-   path in `unchanged_paths` identical to the pinned commit.
+2. Checkouts: the pinned checkout is the top of a git checkout at the pinned commit and
+   tree with no tracked, untracked or ignored file beyond it; the freeze checkout is at
+   `--freeze-sha`, equally clean, and leaves every path in `unchanged_paths` identical to
+   the pinned commit. `--root` and `--work` are separate and outside both checkouts.
 3. Campaign files: `cases.txt` has the recorded SHA-256, exact IDs only (no glob, blank,
    comment or duplicate), the `[[case]]` order, 14 primary and 5 diagnostic cases.
 4. A fresh root (`julia-<V>` must not exist) and a fresh environment; both outside the checkouts.
-5. Environment: `benchmark/setup.jl <pinned> <env> 0.5.4` in a campaign depot. The
+5. Environment: `benchmark/setup.jl <pinned> <env> 0.5.4` with `JULIA_DEPOT_PATH` set to a
+   campaign depot followed by the Julia build's own bundled depots (never `~/.julia`). The
    Manifest must equal the frozen lock (every entry's UUID, version and tree; the only path
    entry is ProximalSolvers at the pinned checkout; no repository entry), and Project.toml
    must be `benchmark/Project.toml` plus the develop source. Read-only snapshots of both
    are kept with their SHA-256. From here on Pkg runs offline.
 6. Loaded identity (`environment-inventory.toml`): the Julia build commit, the CPU model,
+   the active project and depot path,
    ProximalBase 0.5.4 tracked from the registry, and the git tree hash of the loaded
    ProximalBase directory equal to the `v0.5.4` release tree; ProximalSolvers loaded from
    the pinned checkout.
@@ -105,7 +115,7 @@ Each `run` takes one Julia version through these steps and stops at the first fa
     all 19 IDs in one process (work counters), and one `local.jl` process per case for its
     first call including compilation.
 12. `result.json`, `checksums.sha256` over every file of `julia-<V>`, and a verification
-    of the evidence as in "Verify" below.
+    of the evidence as in "Verify" below, which decides the exit status.
 
 Every command, its environment, working directory, start and end time, wall time, exit
 code, stdout and stderr is in `receipt.jsonl`, `commands-and-exit-codes.log` and `logs/`.
@@ -139,18 +149,27 @@ the root, use a fresh `--work`, and run again. A second stop needs a versioned a
 ## Verify
 
 ```bash
-python3 "$CAMPAIGN" verify "$ROOT"
+python3 -B "$CAMPAIGN" verify "$ROOT" --freeze-sha "$FREEZE_SHA"
 ```
 
-This needs only Python and a freeze checkout. For each `julia-<V>` it checks the file
+This needs only Python and a clean checkout of the freeze commit, which must be the
+commit that produced the evidence (its HEAD and the digest of `campaign.py` are in the
+receipt). The receipt is not trusted for the protocol: official evidence must have the
+frozen settings and five repetitions, and an official root must hold exactly `julia-1.10`
+and `julia-1.13`, both official, plus at most one stopped attempt per version under
+`attempts/`. For each `julia-<V>` it checks the file
 checksums (no missing, changed or extra file), that the attempt completed, the root's
 `campaign.toml` and `cases.txt` against the freeze checkout, the Manifest snapshot against
 the lock and against its digest at setup, the Project snapshot, the loaded identities, the
-archived `PS_LIST` and catalog outputs, the command of every repetition (taskset CPU,
-recorded affinity, `PS_REPETITION`, settings), every repetition's records as in step 8,
+archived `PS_LIST` and catalog outputs, that every command of the protocol ran once, in
+order, with its exact arguments, environment, directory and an accepted exit code, the
+recorded affinity of every repetition, the required outputs (validation, summary,
+exploratory receipts), every repetition's records as in step 8,
 fixed-input data hashes; it runs `validate.py` afresh and compares it with
 `validation.json`, and recomputes the numerical and hardware results from the records,
-which must agree with the receipt. It prints the recorded freeze HEAD, to compare with #110. Pilot evidence fails unless
+which must agree with the receipt. It ends with `RECORD INTEGRITY`, `NUMERICAL` (with the
+non-`ok` primary cases, which block an unconditional "healthy reference" label, plan §5)
+and `HARDWARE` lines, and exits as `run` does. Pilot evidence fails unless
 `--allow-pilot` is given. `VERIFY PASS` concerns the records; the numerical and hardware
 results are printed beside it.
 
@@ -164,7 +183,7 @@ after review, `independent-review.md`. Then:
 cd "$ROOT"
 find . -type f ! -name checksums.sha256 -printf '%P\n' | LC_ALL=C sort |
   xargs -d '\n' sha256sum > checksums.sha256
-python3 "$CAMPAIGN" verify --archive "$ROOT"
+python3 -B "$CAMPAIGN" verify --archive "$ROOT" --freeze-sha "$FREEZE_SHA"
 cd .. && tar -czf pre06-stage2a-campaign-v1.tar.gz pre06-stage2a-campaign-v1
 sha256sum pre06-stage2a-campaign-v1.tar.gz
 gh release create bench-pre06-v1 pre06-stage2a-campaign-v1.tar.gz \
@@ -186,7 +205,8 @@ echo "<digest posted on #110>  pre06-stage2a-campaign-v1.tar.gz" | sha256sum -c 
 tar -xzf pre06-stage2a-campaign-v1.tar.gz
 git clone https://github.com/mlakolar/ProximalSolvers.jl.git freeze
 git -C freeze checkout --detach "$FREEZE_SHA"
-python3 -B freeze/benchmark/campaigns/pre06/campaign.py verify --archive pre06-stage2a-campaign-v1
+python3 -B freeze/benchmark/campaigns/pre06/campaign.py verify --archive \
+  pre06-stage2a-campaign-v1 --freeze-sha "$FREEZE_SHA"
 ```
 
 To reproduce the environment on another machine, run `campaign.py run` with a new pinned
