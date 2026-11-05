@@ -1,6 +1,6 @@
 # Stage 2 design: immutable pre-0.6 solver baseline and later 0.6 migration comparison
 
-**Status: DESIGN. The F0 decisions D1–D6 (§10) are approved by the maintainer ([record](https://github.com/mlakolar/ProximalSolvers.jl/pull/212#issuecomment-6650942186)). No cases, environments, or results are frozen by this document, and merging this PR is not the freeze (F1).**
+**Status: DESIGN. The F0 decisions D1–D6 (§10) are approved by the maintainer ([record](https://github.com/mlakolar/ProximalSolvers.jl/pull/212#issuecomment-6650942186)). No cases, environments, or results are frozen by this document, and merging this PR is not the freeze (F1).** The F1 files are `cases.txt`, `campaign.toml`, `campaign.py` and `README.md` in this directory; they freeze the campaign only when their commit is approved, merged and recorded on #110.
 **Tracking:** [ProximalSolvers #110](https://github.com/mlakolar/ProximalSolvers.jl/issues/110) (Stage 2); [ProximalBase #527](https://github.com/mlakolar/ProximalBase.jl/issues/527) (downstream 0.6 migration and release blockers); [Stage 1 PR #203](https://github.com/mlakolar/ProximalSolvers.jl/pull/203) (fast local exploratory workflow; the formal harness is [#116](https://github.com/mlakolar/ProximalSolvers.jl/issues/116), PR [#118](https://github.com/mlakolar/ProximalSolvers.jl/pull/118)).
 **Scope:** design and acceptance contract; no solver changes, numerical tolerance changes, benchmark runs, CI changes, or 0.6 dependency migration in this PR.
 
@@ -12,6 +12,8 @@ Split Stage 2 into two separately reviewable deliverables:
 
 1. **Stage 2A (now, P0):** pre-register a small representative case set, pin a 0.5-based software stack, collect fresh-process baseline observations, validate every record, and publish a durable immutable archive and concise baseline receipt. Stage 2A ends only when a different developer could reproduce the campaign.
 2. **Stage 2B (during the actual 0.6 downstream migration, P0):** freeze the 0.6 candidate stack; execute **the same meaningful workloads with the same independent certification contract**; compare the two declared stacks with a migration-specific report that explicitly records all dependency differences. Prefer a new contemporaneous, interleaved A/B confirmation run on controlled hardware if the intent is to assess performance change rather than merely describe two historical snapshots.
+
+**What Stage 2A can and cannot show.** Every primary case is sub-millisecond on the measured machine (exploratory medians 3.3–106 µs, §2.5). Stage 2A is a **historical correctness-and-timing snapshot** of one declared stack: it records which cases certify at their targets and how long they took under recorded conditions. It is **not** a statistical per-case noninferiority or no-regression certificate, and none of its per-case times or ratios is a stand-alone performance verdict (§5, gates B and C; §6).
 
 **Keep #110 open** while Stage 2B and the later statistical/PR evidence stages remain outstanding. The ProximalBase #527 integration and compatibility obligations are separate release blockers and cannot be satisfied by benchmark certificates alone.
 
@@ -55,7 +57,7 @@ The runner does **not** record the following. The wrapper or an inventory file m
 - `Project.toml` and `Manifest.toml` *bytes* plus SHA-256 for each Julia version, and installed package versions and git-tree hashes (`Pkg.dependencies()`). `run.jl` records no Manifest identity.
 - OS and kernel, logical and physical core counts, architecture, RAM, CPU affinity, governor and turbo state, and load.
 - Environment variables, command lines, exit codes and stdout/stderr.
-- First-call (compile) timing. The validation call is excluded from the sample statistics. If the metric is required, take it per selected case from the pilot or from a separately labelled `benchmark/local.jl` run, whose `first_call_s` column (printed as `first`) is the first certified call including compilation. One `local.jl` invocation runs its cases in one process (`benchmark/local.jl:484`), so only the first case pays the shared compilation and later cases report less: use one process per case, or record the in-process order. `elapsed_s` covers the whole process and cannot substitute.
+- First-call (compile) timing. The validation call is excluded from the sample statistics. If the metric is required, take it per selected case from the pilot or from a separately labelled `benchmark/local.jl` run, whose `first_call_s` column (printed as `first`) is the first certified call including compilation. One `local.jl` invocation runs its cases in one process (`benchmark/local.jl:484`), so only the first case pays the shared compilation and later cases report less: use one process per case, or record the in-process order. `elapsed_s` cannot substitute: it is the elapsed time of `run_records` (`benchmark/run.jl:267`, recorded at :305), which starts after Julia startup, package loading, the harness includes, the settings and catalog construction, and then covers every case's inputs, validation call and samples. It is neither the process's start-up or total time nor a per-case first-call time.
 - Reproducibility instructions for relocating path-based checkout environments; a copied Manifest pointing to an obsolete absolute path is not sufficient to claim portable reproduction.
 
 **No post-hoc relabeling.** Any change to pinned files or manifest creates a **new campaign identity**. Keep the original raw evidence untouched.
@@ -216,6 +218,8 @@ The settings are fixed at F1 and frozen with the campaign. The exact pinned Juli
 
 ### Illustrative command recipe (execute only after F1)
 
+The recipe is illustrative. The execution receipt is `campaign.py` in this directory ([`README.md`](README.md)), which carries the gates the surrounding text requires and the recipe below only partly shows: the loaded ProximalBase release-tree check (the Manifest `git-tree-sha1`, the registry tree and the git tree hash of the loaded package directory against the tree of tag `v0.5.4`), the frozen dependency lock, immutable Manifest and Project snapshots with SHA-256, the post-run check of the recorded SHA, dirty flag, catalog, case filter and fingerprints after every repetition, the governor, turbo, load, affinity and SMT-sibling inventory, and an independent verification of the archived evidence (`campaign.py verify`).
+
 All paths below are examples and must be resolved to the frozen checkout and approved archive root. Avoid executing against an active development tree. **The recipe is Linux-only** (`taskset`, `lscpu`, `sha256sum`, sysfs governor files). Choose the host platform at F1: on Linux, verify the performance-core logical CPU IDs before the campaign; on another platform, record an equivalent verified affinity control or label the archive observational (§5). Do not start a campaign with commands the host lacks. `julia +1.10` and `julia +1.13` assume juliaup channels of those names; `validate.py` needs Python 3.11 or later (`tomllib`). `FREEZE` is a checkout of the freeze commit, which holds `cases.txt`; `PINNED` is the clean `b0de3f7` checkout that is measured.
 
 ```bash
@@ -341,7 +345,7 @@ Unpinned processes gave mixed results: `cd/lasso-D/cd/tight/call` took 77.6 µs 
 - Record `taskset -p`, `lscpu -e`, the governor and turbo state, and the load average around each repetition.
 - `cpu_model` in the metadata does not distinguish core types, so `validate.py` and `compare.py` cannot detect a core-type mismatch; the wrapper log must show the pinning.
 - Where pinning is unavailable, label the archive observational.
-- The concrete machine is chosen at F1.
+- The concrete machine is chosen at F1: `[machine]` in `campaign.toml` (logical CPU 6 of an Intel Core i9-13900, a performance core with an idle SMT sibling 7).
 
 ### Integrity gate A (records)
 
@@ -481,7 +485,7 @@ Stage 2B outputs: two precise stack receipts, frozen case mapping, full raw arch
 | Hidden ProximalBase 0.6 dependency in a “pre06” result | Registered 0.5.4 resolution, loaded source fingerprint, Manifest and ProximalBase `git-tree-sha1`; hard fail |
 | A `0.5.4` version string on a development commit mistaken for the release | Compare the Manifest `git-tree-sha1` with the tree of tag `v0.5.4`; the version string alone is never accepted |
 | Case cherry-picking after seeing results | Primary/diagnostic roles and settings frozen before formal campaign; every attempted series retained |
-| Fresh-process compilation mistaken for steady solve | The validation call is excluded from sample medians; the formal records hold no first-call timing; take it per case from the pilot or from a labelled `local.jl` run, never from `elapsed_s` (a whole-process total) |
+| Fresh-process compilation mistaken for steady solve | The validation call is excluded from sample medians; the formal records hold no first-call timing; take it per case from the pilot or from a labelled `local.jl` run, never from `elapsed_s` (the time of `run_records` over all cases, which excludes startup and loading) |
 | Tiny cases yielding 2× variations, or a core-type mismatch on a hybrid CPU | Explicit noise limitations, longer diagnostic cases, independent repeated processes, pinning policy (§5); no statistical declaration |
 | A failed certificate omitted from performance summary | Two independent gates: record integrity **and** numerical acceptance; always list failures |
 | Path-dependent environment not reproducible | Archive source SHAs, Manifests, relocation instructions; verify in a second checkout |
