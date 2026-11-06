@@ -1,0 +1,1140 @@
+# Stage 2B workload-compatibility mapping of the 19 Stage 2A cases (#110).
+#
+# One [[case]] per case of benchmark/campaigns/pre06/cases.txt, in that order. Every field is
+# required and non-empty. `class` is provisional (A, B, C or D):
+#   A  equivalent, unchanged harness
+#   B  equivalent with a reviewed compatibility-only harness port
+#   C  semantically changed; needs a separate mapping
+#   D  not comparable or failed
+# Class A means the harness (reset, inputs, certificate, timed operation) needs no edit; the
+# remaining gap, if any, is solver migration and the pilot, stated in `verification_needed`.
+# No class C or D is assigned: there is no evidence for one yet. A `data_hash` match is never
+# the evidence for a class.
+#
+# Citations are `file:line` at ProximalSolvers 7b9b5295 (src/ is byte-identical to the measured
+# source b0de3f7) unless marked as a probe (benchmark/campaigns/stage2b/probes/results/).
+# Anything not verified is marked `unverified`. `sensitive_paths_06` lists the ProximalBase 0.6
+# changes (x.p of the symmetric owner, _symmetric_penalty, fill! as a clear, x.groups,
+# x.storage, LogDetLoss symmetry, coordinates(x) === x, _svd_cache!) that the case's solver call
+# path touches, or states that git grep found none.
+#
+# Provisional until a ProximalBase 0.6 candidate commit and a migrated ProximalSolvers commit
+# exist (STAGE2B_PLAN.md, gates G1-G8). Read by Python's tomllib (test_stage2b_files.py).
+
+schema = 1
+campaign_definition = "pre06-stage2a-v1"
+audited_commit = "7b9b5295302bd177046284b017a8304cf5a99341"
+measured_source = "b0de3f7fc91767b97197ff4b458207e308998943"
+status = "provisional: no candidate commit exists; no official measurement"
+
+[[case]]
+label = "P01"
+id = "cd/lasso-dense/cd/B/call"
+role = "primary"
+family = "coordinate descent, lasso, dense X, call phase"
+phase = "call"
+inputs = [
+  "fixed (campaign.toml): batched_problem(:cd), Xoshiro(90210), n = 120, p = 40, kind :lasso (benchmark/problems.jl:65-79; registered at benchmark/cases.jl:249-263 with inputs = \"fixed\", target = 1e-8)",
+]
+seed_key = [
+  "none: fixed input from Xoshiro(90210) (benchmark/problems.jl:66); the repetition ID does not change the input",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark/cases.jl:42; problems.jl:78)",
+]
+penalty = [
+  "NormL1(0.05): all weights are one, so the unweighted constructor is used (benchmark/cases.jl:56; problems.jl:78)",
+]
+initial_state = [
+  "zeros(40), a plain Vector{Float64} (benchmark/cases.jl:108); start = copy(x) (:116)",
+]
+working_set = [
+  "none held by the caller: the solver builds SparseIterate(x) inside the call (src/cd/solver.jl:731) and writes the result back (:740-747)",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:128; the CDSolver/ProxNewton RNG is reseeded with Random.seed!(method.rng, 9) at :93, a no-op for other solvers :89-98). The timed call is PS.solve!(x, f, g, method[, options]) (:129).",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, gaptol = 1e-8) (benchmark/cases.jl:69); maxpasses 100000, tol 1e-7, relative true, anderson 0, momentum nothing, rng default_rng() (src/cd/solver.jl:110-135); no ProximalOptions: own_options (cases.jl:120, :129)",
+]
+certificate = [
+  "benchmark/cases.jl:131-139 check: certify(a, Array(output.minimizer)) (:132), independent of the solver and of ProximalBase iterates (it reads plain arrays)",
+  "lasso_certificate, relative_gap, target 1e-8 (benchmark/certificates.jl:64-83, :358-360)",
+]
+measure = "relative_gap, target 1e-08 (benchmark/campaigns/pre06/campaign.toml [[case]] P01)"
+target = "1e-08"
+work_counters = [
+  "exploratory, repetition 1, Julia 1.10.13: passes=9 kkt_checks=0",
+  "exploratory, repetition 1, Julia 1.13.3: passes=9 kkt_checks=0",
+  "source: Stage 2A archive julia-1.10|1.13/exploratory/work-counters.local.tsv (benchmark/local.jl:124-137 reads them from the returned result after timing, never inside it); untimed and never a formal record",
+  "the formal record (benchmark/run.jl:10-13 METRICS_HEADER, :245-264 record_case!) stores no counter: only time, GC share, bytes, certificate value and data_hash",
+]
+sensitive_paths_06 = [
+  "src/cd/solver.jl:725-726 and :730-733: solve!(x::Vector) builds SparseIterate(x) inside the timed call (:731); src/cd/solver.jl:740-747 _copy_dense! reads _activeentries (src/cd/leastsquares.jl:191, activecoordinates(x))",
+  "src/cd/solver.jl:763-764: _symmetric_penalty(g, x) is the identity for a non-symmetric iterate (src/cd/models.jl:539) and _check_iterate (src/cd/models.jl:683-687, ProximalBase._checkparams at :686)",
+  "src/cd/solver.jl:276 dropzeros!(x) after every pass, and the iterate writes x[k] = v of the CD kernel (for example src/cd/leastsquares.jl:627, 205): they rely on the working-set rules of SparseIterate (ProximalBase #424 and #425, merged on master); their behaviour at the candidate is unverified",
+  "momentum and Anderson history (src/cd/solver.jl:540-602, x.nzval at :562,574,590) are NOT reached: order = :cyclic and anderson = 0 (benchmark/cases.jl:69-70; src/cd/solver.jl:345, :412-414)",
+  "git grep over src/ at 7b9b5295 (ext/ does not exist): the x.p, x.groups, x.storage, x.nzval, coordinates(x) and fill!-of-an-iterate sites that exist (listed in CASE_MAPPING.md, section \"Migration paths the 19 cases do not exercise\") are in code this case does not reach (symmetric-owner, AtomIterate, momentum and Anderson, refit and generic-Newton code); _svd_cache! does not occur in src/",
+]
+class = "A"
+class_reason = "Reset, inputs, certificate and timed operation need no edit: the reset is a copy into a plain Vector and the solver converts it to its own iterate. No unmigrated 0.6-sensitive site was found on the solver path."
+verification_needed = [
+  "pilot on the migrated stack (reset state, fixture fingerprint, certificate, counters); solver migration: none required by this path according to the grep, but the package-level migration (compat admitting the ProximalBase 0.6 candidate, full suite green) must be complete first",
+]
+equivalence_check = [
+  "both stacks, per repetition ID the pilot uses, outside any timed region: (1) problem fixture: the per-array SHA-256 of every problem field (not only the combined data_hash, which is never proof of identical semantics: benchmark/problems.jl:41-48) is written to the fixture-fingerprint file and must be equal; (2) reset state: after reset!() the iterate (values, and for sparse iterates the active IDs) equals start and equals the other stack's, and the solver RNG state is equal; (3) solver configuration: the printed fields of the solver and of ProximalOptions are equal between stacks (and equal to the table in this record); (4) certificate: the first and the last certified call have status ok and value at or below the target in both stacks, with the achieved value, the counters and the 'near target' flag recorded; (5) work counters (local.jl diagnostics) recorded for both stacks and reported, never required equal",
+]
+
+[[case]]
+label = "P02"
+id = "cd/lasso-csc/cd/B/call"
+role = "primary"
+family = "coordinate descent, lasso, sparse (CSC) X, call phase"
+phase = "call"
+inputs = [
+  "fixed (campaign.toml): batched_problem(:csc): the dense P01 matrix converted by sparse(X), same y, n = 120, p = 40 (benchmark/problems.jl:77; registered at benchmark/cases.jl:264-265)",
+]
+seed_key = [
+  "none: fixed input from Xoshiro(90210) (benchmark/problems.jl:66)",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X::SparseMatrixCSC) with s = 1/n (benchmark/cases.jl:42)",
+]
+penalty = [
+  "NormL1(0.05) (benchmark/cases.jl:56)",
+]
+initial_state = [
+  "zeros(40), a plain Vector{Float64} (benchmark/cases.jl:108)",
+]
+working_set = [
+  "none held by the caller; SparseIterate built inside the call (src/cd/solver.jl:731)",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:128; the CDSolver/ProxNewton RNG is reseeded with Random.seed!(method.rng, 9) at :93, a no-op for other solvers :89-98). The timed call is PS.solve!(x, f, g, method[, options]) (:129).",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, gaptol = 1e-8) (benchmark/cases.jl:69), as P01",
+]
+certificate = [
+  "benchmark/cases.jl:131-139 check: certify(a, Array(output.minimizer)) (:132), independent of the solver and of ProximalBase iterates (it reads plain arrays)",
+  "lasso_certificate with the CSC matrix, relative_gap, target 1e-8 (benchmark/certificates.jl:64-83); the data hash covers findnz of the matrix (benchmark/problems.jl:11-16)",
+]
+measure = "relative_gap, target 1e-08 (benchmark/campaigns/pre06/campaign.toml [[case]] P02)"
+target = "1e-08"
+work_counters = [
+  "exploratory, repetition 1, Julia 1.10.13: passes=9 kkt_checks=0",
+  "exploratory, repetition 1, Julia 1.13.3: passes=9 kkt_checks=0",
+  "source: Stage 2A archive julia-1.10|1.13/exploratory/work-counters.local.tsv (benchmark/local.jl:124-137 reads them from the returned result after timing, never inside it); untimed and never a formal record",
+  "the formal record (benchmark/run.jl:10-13 METRICS_HEADER, :245-264 record_case!) stores no counter: only time, GC share, bytes, certificate value and data_hash",
+]
+sensitive_paths_06 = [
+  "src/cd/solver.jl:725-726 and :730-733: solve!(x::Vector) builds SparseIterate(x) inside the timed call (:731); src/cd/solver.jl:740-747 _copy_dense! reads _activeentries (src/cd/leastsquares.jl:191, activecoordinates(x))",
+  "src/cd/solver.jl:763-764: _symmetric_penalty(g, x) is the identity for a non-symmetric iterate (src/cd/models.jl:539) and _check_iterate (src/cd/models.jl:683-687, ProximalBase._checkparams at :686)",
+  "src/cd/solver.jl:276 dropzeros!(x) after every pass, and the iterate writes x[k] = v of the CD kernel (for example src/cd/leastsquares.jl:627, 205): they rely on the working-set rules of SparseIterate (ProximalBase #424 and #425, merged on master); their behaviour at the candidate is unverified",
+  "momentum and Anderson history (src/cd/solver.jl:540-602, x.nzval at :562,574,590) are NOT reached: order = :cyclic and anderson = 0 (benchmark/cases.jl:69-70; src/cd/solver.jl:345, :412-414)",
+  "git grep over src/ at 7b9b5295 (ext/ does not exist): the x.p, x.groups, x.storage, x.nzval, coordinates(x) and fill!-of-an-iterate sites that exist (listed in CASE_MAPPING.md, section \"Migration paths the 19 cases do not exercise\") are in code this case does not reach (symmetric-owner, AtomIterate, momentum and Anderson, refit and generic-Newton code); _svd_cache! does not occur in src/",
+  "the CSC column kernels (src/cd/leastsquares.jl, _column_axpy! and friends) do not touch iterate internals: no further site found",
+]
+class = "A"
+class_reason = "As P01: no harness edit and no unmigrated 0.6-sensitive site found; only the matrix storage differs."
+verification_needed = [
+  "pilot on the migrated stack; fixture fingerprint must compare the sparsity pattern (findnz) as well as the values; no solver migration required by this path according to the grep",
+]
+equivalence_check = [
+  "both stacks, per repetition ID the pilot uses, outside any timed region: (1) problem fixture: the per-array SHA-256 of every problem field (not only the combined data_hash, which is never proof of identical semantics: benchmark/problems.jl:41-48) is written to the fixture-fingerprint file and must be equal; (2) reset state: after reset!() the iterate (values, and for sparse iterates the active IDs) equals start and equals the other stack's, and the solver RNG state is equal; (3) solver configuration: the printed fields of the solver and of ProximalOptions are equal between stacks (and equal to the table in this record); (4) certificate: the first and the last certified call have status ok and value at or below the target in both stacks, with the achieved value, the counters and the 'near target' flag recorded; (5) work counters (local.jl diagnostics) recorded for both stacks and reported, never required equal",
+  "plus: the CSC structure (rowval, colptr, nzval) is equal between stacks",
+]
+
+[[case]]
+label = "P03"
+id = "cd/lasso-dense/cd/B/workspace"
+role = "primary"
+family = "coordinate descent, lasso, dense X, workspace phase"
+phase = "workspace"
+inputs = [
+  "fixed (campaign.toml): the P01 problem (batched_problem(:cd), benchmark/problems.jl:65-79); same data_hash as P01",
+]
+seed_key = [
+  "none: fixed input from Xoshiro(90210)",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark/cases.jl:42)",
+]
+penalty = [
+  "NormL1(0.05) (benchmark/cases.jl:56)",
+]
+initial_state = [
+  "zeros(40) Vector; the workspace keeps an internal SparseIterate (src/workspaces.jl:94-95)",
+]
+working_set = [
+  "internal SparseIterate of the workspace, cleared at each solve by _clear_start! = dropzeros!(fill!(x, 0)) (src/workspaces.jl:239, src/cd/path.jl:18); the caller's Vector has no working set",
+]
+reset = [
+  "PS.reinit!(workspace, start); reset_solver_rng!(method)  (benchmark/cases.jl:124); reinit! at src/workspaces.jl:140-149 copies start into the existing storage. The timed call is PS.solve!(workspace) (cases.jl:125); construction and reset are outside the timed region (benchmark/run.jl:143-147).",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, gaptol = 1e-8) (benchmark/cases.jl:69); SolverWorkspace(x, f, g, method) (cases.jl:122, own_options)",
+]
+certificate = [
+  "benchmark/cases.jl:131-139 check: certify(a, Array(output.minimizer)) (:132), independent of the solver and of ProximalBase iterates (it reads plain arrays)",
+  "lasso_certificate, relative_gap, target 1e-8 (benchmark/certificates.jl:64-83)",
+]
+measure = "relative_gap, target 1e-08 (benchmark/campaigns/pre06/campaign.toml [[case]] P03)"
+target = "1e-08"
+work_counters = [
+  "exploratory, repetition 1, Julia 1.10.13: passes=9 kkt_checks=0",
+  "exploratory, repetition 1, Julia 1.13.3: passes=9 kkt_checks=0",
+  "source: Stage 2A archive julia-1.10|1.13/exploratory/work-counters.local.tsv (benchmark/local.jl:124-137 reads them from the returned result after timing, never inside it); untimed and never a formal record",
+  "the formal record (benchmark/run.jl:10-13 METRICS_HEADER, :245-264 record_case!) stores no counter: only time, GC share, bytes, certificate value and data_hash",
+]
+sensitive_paths_06 = [
+  "src/workspaces.jl:93-107: SolverWorkspace for CDSolver builds SparseIterate(x) from the Vector (:94-95), _symmetric_penalty (:99, identity), _check_iterate (:102), initialize! (:104)",
+  "src/workspaces.jl:238-244 _load_dense! and :246-260 solve!(ws): the internal iterate is cleared by _clear_start! (src/cd/path.jl:18: dropzeros!(fill!(x, 0)) for SparseIterate and AtomIterate; the source comment at path.jl:12-15 already states the ProximalBase 0.6 semantics) and copied back by _copy_dense! (:258, src/cd/solver.jl:740-747)",
+  "src/cd/solver.jl:276 dropzeros!(x) and the CD kernel writes: as for the call cases, working-set rules of SparseIterate (#424/#425) unverified at the candidate",
+  "git grep over src/ at 7b9b5295 (ext/ does not exist): the x.p, x.groups, x.storage, x.nzval, coordinates(x) and fill!-of-an-iterate sites that exist (listed in CASE_MAPPING.md, section \"Migration paths the 19 cases do not exercise\") are in code this case does not reach (symmetric-owner, AtomIterate, momentum and Anderson, refit and generic-Newton code); _svd_cache! does not occur in src/ (the only fill! in the workspace path is the already-ported _clear_start!)",
+]
+class = "A"
+class_reason = "Reset and inputs need no edit; the solver already clears its own iterate with dropzeros!(fill!(...)). No unmigrated 0.6-sensitive site found."
+verification_needed = [
+  "pilot on the migrated stack; confirm that the internal iterate has an empty working set at the start of every timed solve (checked through the counters and the certificate, since the internal iterate is not exposed); no solver migration required by this path according to the grep",
+]
+equivalence_check = [
+  "both stacks, per repetition ID the pilot uses, outside any timed region: (1) problem fixture: the per-array SHA-256 of every problem field (not only the combined data_hash, which is never proof of identical semantics: benchmark/problems.jl:41-48) is written to the fixture-fingerprint file and must be equal; (2) reset state: after reset!() the iterate (values, and for sparse iterates the active IDs) equals start and equals the other stack's, and the solver RNG state is equal; (3) solver configuration: the printed fields of the solver and of ProximalOptions are equal between stacks (and equal to the table in this record); (4) certificate: the first and the last certified call have status ok and value at or below the target in both stacks, with the achieved value, the counters and the 'near target' flag recorded; (5) work counters (local.jl diagnostics) recorded for both stacks and reported, never required equal",
+  "plus: after reinit!, the workspace Vector equals start, and the first solve!(workspace) counters (passes) equal the call case P01 counters on the same stack",
+]
+
+[[case]]
+label = "P04"
+id = "cd/group-lasso/cd/tight/call"
+role = "primary"
+family = "coordinate descent, group lasso (GroupNormL2), call phase"
+phase = "call"
+inputs = [
+  "draw (campaign.toml): grouped_problem(rep, \"cd/group-lasso\"): n = 120, p = 32, eight groups of four [collect(j:min(j+3,p)) for j in 1:4:p], w_group = sqrt(group size) = 2 (benchmark/problems.jl:161-166 on regression_problem :128-149)",
+  "registered at benchmark/cases.jl:283-284 (the call phase is in the 19)",
+]
+seed_key = [
+  "cd/group-lasso; scenario_rng(rep, key): FNV-1a 64-bit of the key xor the repetition ID, Xoshiro (benchmark/problems.jl:3-9); the measurement order inside a process is shuffled by scenario_rng(rep, \"measurement_order\") (benchmark/run.jl:281)",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark/cases.jl:42)",
+]
+penalty = [
+  "GroupNormL2(λ, groups, w_group) with λ = 0.15 * lambda_max(X, y; s) (benchmark/cases.jl:44; problems.jl:147)",
+]
+initial_state = [
+  "ProximalBase.AtomIterate(32, groups): all groups inactive, all values zero (benchmark/cases.jl:103-104); start = copy(x) (:116)",
+]
+working_set = [
+  "AtomIterate active groups: empty at the cold start (probe: atom.cold_start.start.nactive = 0, both ProximalBase versions); the solve adds groups, the reset must remove them again",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:128; the CDSolver/ProxNewton RNG is reseeded with Random.seed!(method.rng, 9) at :93, a no-op for other solvers :89-98). The timed call is PS.solve!(x, f, g, method[, options]) (:129).",
+  "probe evidence: copyto!(x, start) restores the values and the active-group layout from a cold start and from two warm starts, and a second reset is idempotent, on ProximalBase 0.5.4 and on master 233c11cc (Julia 1.10.12 and 1.13.3; benchmark/campaigns/stage2b/probes/results/)",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-11, gaptol = 1e-10, rng = Xoshiro(9)) (benchmark/cases.jl:70, gap = true because the kind is not quadratic or sqrt-lasso :114); no ProximalOptions",
+]
+certificate = [
+  "benchmark/cases.jl:131-139 check: certify(a, Array(output.minimizer)) (:132), independent of the solver and of ProximalBase iterates (it reads plain arrays)",
+  "group_certificate, relative_gap, target 1e-6 (benchmark/certificates.jl:110-119, :361)",
+]
+measure = "relative_gap, target 1e-06 (benchmark/campaigns/pre06/campaign.toml [[case]] P04)"
+target = "1e-06"
+work_counters = [
+  "exploratory, repetition 1, Julia 1.10.13: passes=23 kkt_checks=0",
+  "exploratory, repetition 1, Julia 1.13.3: passes=25 kkt_checks=0",
+  "source: Stage 2A archive julia-1.10|1.13/exploratory/work-counters.local.tsv (benchmark/local.jl:124-137 reads them from the returned result after timing, never inside it); untimed and never a formal record",
+  "the formal record (benchmark/run.jl:10-13 METRICS_HEADER, :245-264 record_case!) stores no counter: only time, GC share, bytes, certificate value and data_hash",
+]
+sensitive_paths_06 = [
+  "src/cd/leastsquares.jl:597-632 _groupstep! for GroupNormL2 reads x.groups[k] (:598) and the curvature cache (:555-564 x.groups[k] at :558); src/cd/leastsquares.jl:192 _activeentries(x::AtomIterate) flattens x.groups[k]",
+  "src/cd/models.jl:689-693 _check_iterate compares x.groups with g.groups (:691-692)",
+  "src/cd/gap.jl:200 _coordentries(x::AtomIterate, k) = x.groups[k] (used by the duality gap, gaptol = 1e-10 enables it); gap.jl:719 x.groups[k]; reach of gap.jl:719 unverified",
+  "src/cd/solver.jl:276 dropzeros!(x) after every pass and the writes x[j] = new (leastsquares.jl:627): AtomIterate working-set rules, unverified at the candidate",
+  "x.storage and prox_coordinate! are NOT used here (src/cd/groups.jl is the generic group step, reached only for penalties without a specialized _groupstep!); the Anderson/momentum history that reads x.active, x.nactive, x.storage (src/cd/solver.jl:553-602) is not reached (cyclic, anderson 0)",
+  "migration issue: #165 (replace private iterate fields by accessors); ledger #527 row \"Private iterate fields (FF-1)\" names x.storage, x.nzval, x.nactive, x.active and x.groups in src/cd/groups.jl, src/cd/solver.jl and others; src/ has 58 non-comment .groups sites (iterate and penalty fields together), of which the sites above are on this path",
+]
+class = "A"
+class_reason = "The reset is equivalent on ProximalBase 0.5.4 and master (probe); the harness needs no edit. The solver path reads x.groups directly and is not yet migrated (#165), so a migrated solver and a pilot are required before any official measurement."
+verification_needed = [
+  "solver migration (#165 private iterate fields; AtomIterate working-set rules) and pilot: reset state, active-group layout after reset, group certificate, counters (passes)",
+]
+equivalence_check = [
+  "both stacks, per repetition ID the pilot uses, outside any timed region: (1) problem fixture: the per-array SHA-256 of every problem field (not only the combined data_hash, which is never proof of identical semantics: benchmark/problems.jl:41-48) is written to the fixture-fingerprint file and must be equal; (2) reset state: after reset!() the iterate (values, and for sparse iterates the active IDs) equals start and equals the other stack's, and the solver RNG state is equal; (3) solver configuration: the printed fields of the solver and of ProximalOptions are equal between stacks (and equal to the table in this record); (4) certificate: the first and the last certified call have status ok and value at or below the target in both stacks, with the achieved value, the counters and the 'near target' flag recorded; (5) work counters (local.jl diagnostics) recorded for both stacks and reported, never required equal",
+  "plus: after reset!(), x.groups equals the groups of the penalty and the active-group list is empty on both stacks; the group partition (groups, w_group) is in the fixture fingerprint",
+]
+
+[[case]]
+label = "P05"
+id = "sgl/sparse-group/cd/tight/call"
+role = "primary"
+family = "coordinate descent, sparse group lasso, call phase"
+phase = "call"
+inputs = [
+  "draw (campaign.toml): grouped_problem(rep, \"sgl/cd\"; sparse_group = true): n = 120, p = 32, eight groups of four, α = 0.5 (benchmark/problems.jl:161-166); registered at benchmark/cases.jl:307-310",
+]
+seed_key = [
+  "sgl/cd; scenario_rng(rep, key): FNV-1a 64-bit of the key xor the repetition ID, Xoshiro (benchmark/problems.jl:3-9); the measurement order inside a process is shuffled by scenario_rng(rep, \"measurement_order\") (benchmark/run.jl:281)",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark/cases.jl:42)",
+]
+penalty = [
+  "SparseGroupNormL2(λ α, λ (1 - α), groups, w_group), λ = 0.15 * lambda_max(X, y; s) (benchmark/cases.jl:46; problems.jl:147,165)",
+]
+initial_state = [
+  "ProximalBase.AtomIterate(32, groups): all groups inactive, values zero (benchmark/cases.jl:103-104)",
+]
+working_set = [
+  "AtomIterate active groups: empty at the cold start (probe atom.cold_start, both ProximalBase versions)",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:128; the CDSolver/ProxNewton RNG is reseeded with Random.seed!(method.rng, 9) at :93, a no-op for other solvers :89-98). The timed call is PS.solve!(x, f, g, method[, options]) (:129).",
+  "probe evidence as P04: copyto!(x, start) of an AtomIterate is equivalent on 0.5.4 and master (cold start, two warm starts, idempotent)",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-11, gaptol = 1e-10, rng = Xoshiro(9)) (benchmark/cases.jl:70); no ProximalOptions",
+]
+certificate = [
+  "benchmark/cases.jl:131-139 check: certify(a, Array(output.minimizer)) (:132), independent of the solver and of ProximalBase iterates (it reads plain arrays)",
+  "sparse_group_certificate, relative_gap, target 1e-6 (benchmark/certificates.jl:144-155, :362-363)",
+]
+measure = "relative_gap, target 1e-06 (benchmark/campaigns/pre06/campaign.toml [[case]] P05)"
+target = "1e-06"
+work_counters = [
+  "exploratory, repetition 1, Julia 1.10.13: passes=20 kkt_checks=0",
+  "exploratory, repetition 1, Julia 1.13.3: passes=26 kkt_checks=0",
+  "source: Stage 2A archive julia-1.10|1.13/exploratory/work-counters.local.tsv (benchmark/local.jl:124-137 reads them from the returned result after timing, never inside it); untimed and never a formal record",
+  "the formal record (benchmark/run.jl:10-13 METRICS_HEADER, :245-264 record_case!) stores no counter: only time, GC share, bytes, certificate value and data_hash",
+]
+sensitive_paths_06 = [
+  "src/cd/groups.jl:19-48 generic _groupstep! (no specialized method for the sparse group penalty: src/cd/leastsquares.jl:597 is GroupNormL2 only): x.groups[k] (:20), x.storage (:32, :34, :36, :42) written directly, and prox_coordinate!(x, g, k, step) (:38)",
+  "src/cd/leastsquares.jl:555-564 _groupcurvature! (x.groups[k] at :558), :192 _activeentries; src/cd/models.jl:689-693 _check_iterate (x.groups at :691-692); src/cd/gap.jl:200 _coordentries",
+  "src/cd/sparsegroup.jl:150-160 sparse-group gap scale reads f.groups; the screening functions (sparsegroup.jl:108,118,125,181 x.groups[k]) belong to the path and gap-safe code and are not reached by a single cyclic solve! with gapsafe = false; reach of sparsegroup.jl:150-160 unverified",
+  "migration issues: #163 (take the block step prox_coordinate!(x, g, k, u, γ) instead of writing x.storage) and #165 (private iterate fields); this is the one case of the 19 that writes x.storage",
+  "src/cd/solver.jl:276 dropzeros!(x): AtomIterate working-set rules unverified at the candidate",
+]
+class = "A"
+class_reason = "The reset is equivalent (probe) and the harness needs no edit. This case writes x.storage and calls prox_coordinate! with the 0.5 signature (src/cd/groups.jl:32-42): it cannot run on the 0.6 candidate before #163 and #165, so the gap is solver migration, not harness."
+verification_needed = [
+  "solver migration (#163 block step, #165 private iterate fields) and pilot: reset state, active-group layout after reset, sparse-group certificate, counters (passes)",
+]
+equivalence_check = [
+  "both stacks, per repetition ID the pilot uses, outside any timed region: (1) problem fixture: the per-array SHA-256 of every problem field (not only the combined data_hash, which is never proof of identical semantics: benchmark/problems.jl:41-48) is written to the fixture-fingerprint file and must be equal; (2) reset state: after reset!() the iterate (values, and for sparse iterates the active IDs) equals start and equals the other stack's, and the solver RNG state is equal; (3) solver configuration: the printed fields of the solver and of ProximalOptions are equal between stacks (and equal to the table in this record); (4) certificate: the first and the last certified call have status ok and value at or below the target in both stacks, with the achieved value, the counters and the 'near target' flag recorded; (5) work counters (local.jl diagnostics) recorded for both stacks and reported, never required equal",
+  "plus: active groups empty after reset!() on both stacks; the proximal block step of the migrated solver gives the same solution on a fixed small problem as the 0.5.4 step (checked in the migration PR's tests, not by the benchmark)",
+]
+
+[[case]]
+label = "P06"
+id = "cd/weighted-lasso/cd/tight/workspace"
+role = "primary"
+family = "coordinate descent, weighted lasso, workspace phase"
+phase = "workspace"
+inputs = [
+  "draw (campaign.toml): regression_problem(rep, \"cd/weighted-lasso\") with w = range(0.5, 1.5; length = p) merged afterwards (benchmark/cases.jl:273-277); n = 100, p = 32. λ is computed with unit weights before w is merged (problems.jl:147), so the weighted problem is not at its own λmax fraction",
+]
+seed_key = [
+  "cd/weighted-lasso; scenario_rng(rep, key): FNV-1a 64-bit of the key xor the repetition ID, Xoshiro (benchmark/problems.jl:3-9); the measurement order inside a process is shuffled by scenario_rng(rep, \"measurement_order\") (benchmark/run.jl:281)",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark/cases.jl:42)",
+]
+penalty = [
+  "NormL1(λ, w) with non-unit weights (benchmark/cases.jl:56)",
+]
+initial_state = [
+  "zeros(32) Vector; the workspace keeps an internal SparseIterate (src/workspaces.jl:94-95)",
+]
+working_set = [
+  "internal SparseIterate cleared at each solve by _clear_start! (src/workspaces.jl:239, src/cd/path.jl:18)",
+]
+reset = [
+  "PS.reinit!(workspace, start); reset_solver_rng!(method)  (benchmark/cases.jl:124); reinit! at src/workspaces.jl:140-149 copies start into the existing storage. The timed call is PS.solve!(workspace) (cases.jl:125); construction and reset are outside the timed region (benchmark/run.jl:143-147).",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-11, gaptol = 1e-10, rng = Xoshiro(9)) (benchmark/cases.jl:70); SolverWorkspace(x, f, g, method) (cases.jl:122)",
+]
+certificate = [
+  "benchmark/cases.jl:131-139 check: certify(a, Array(output.minimizer)) (:132), independent of the solver and of ProximalBase iterates (it reads plain arrays)",
+  "lasso_certificate with weights, relative_gap, target 1e-6 (benchmark/certificates.jl:64-83)",
+]
+measure = "relative_gap, target 1e-06 (benchmark/campaigns/pre06/campaign.toml [[case]] P06)"
+target = "1e-06"
+work_counters = [
+  "exploratory, repetition 1, Julia 1.10.13: passes=12 kkt_checks=0",
+  "exploratory, repetition 1, Julia 1.13.3: passes=12 kkt_checks=0",
+  "source: Stage 2A archive julia-1.10|1.13/exploratory/work-counters.local.tsv (benchmark/local.jl:124-137 reads them from the returned result after timing, never inside it); untimed and never a formal record",
+  "the formal record (benchmark/run.jl:10-13 METRICS_HEADER, :245-264 record_case!) stores no counter: only time, GC share, bytes, certificate value and data_hash",
+]
+sensitive_paths_06 = [
+  "src/workspaces.jl:93-107: SolverWorkspace for CDSolver builds SparseIterate(x) from the Vector (:94-95), _symmetric_penalty (:99, identity), _check_iterate (:102), initialize! (:104)",
+  "src/workspaces.jl:238-244 _load_dense! and :246-260 solve!(ws): the internal iterate is cleared by _clear_start! (src/cd/path.jl:18: dropzeros!(fill!(x, 0)) for SparseIterate and AtomIterate; the source comment at path.jl:12-15 already states the ProximalBase 0.6 semantics) and copied back by _copy_dense! (:258, src/cd/solver.jl:740-747)",
+  "src/cd/solver.jl:276 dropzeros!(x) and the CD kernel writes: as for the call cases, working-set rules of SparseIterate (#424/#425) unverified at the candidate",
+  "git grep over src/ at 7b9b5295 (ext/ does not exist): the x.p, x.groups, x.storage, x.nzval, coordinates(x) and fill!-of-an-iterate sites that exist (listed in CASE_MAPPING.md, section \"Migration paths the 19 cases do not exercise\") are in code this case does not reach (symmetric-owner, AtomIterate, momentum and Anderson, refit and generic-Newton code); _svd_cache! does not occur in src/ (the only fill! in the workspace path is the already-ported _clear_start!)",
+  "weighted L1 on a plain SparseIterate: the penalty weights are read per coordinate (src/cd/models.jl:433-434 is the symmetric variant; not this path); ProximalBase #608 (scaled weighted exact-zero recovery, measured by ProximalSolvers #213) may matter for Scaled loss with weighted L1: relevance to this case unverified",
+]
+class = "A"
+class_reason = "No harness edit. No unmigrated 0.6-sensitive solver site found; the possible numerical-contract effect of ProximalBase #608 on a scaled loss with weighted L1 is not assessed here."
+verification_needed = [
+  "pilot on the migrated stack; compare counters (passes) between stacks and record any difference as a possible numerical-contract effect (#213) before attributing time differences; no solver migration required by this path according to the grep",
+]
+equivalence_check = [
+  "both stacks, per repetition ID the pilot uses, outside any timed region: (1) problem fixture: the per-array SHA-256 of every problem field (not only the combined data_hash, which is never proof of identical semantics: benchmark/problems.jl:41-48) is written to the fixture-fingerprint file and must be equal; (2) reset state: after reset!() the iterate (values, and for sparse iterates the active IDs) equals start and equals the other stack's, and the solver RNG state is equal; (3) solver configuration: the printed fields of the solver and of ProximalOptions are equal between stacks (and equal to the table in this record); (4) certificate: the first and the last certified call have status ok and value at or below the target in both stacks, with the achieved value, the counters and the 'near target' flag recorded; (5) work counters (local.jl diagnostics) recorded for both stacks and reported, never required equal",
+  "plus: the weight vector w is in the fixture fingerprint",
+]
+
+[[case]]
+label = "P07"
+id = "gradient/lasso/apg/tight/call"
+role = "primary"
+family = "accelerated proximal gradient (AccProxGradDescent), lasso, call phase"
+phase = "call"
+inputs = [
+  "draw (campaign.toml): regression_problem(rep, \"gradient/lasso/apg\"), n = 100, p = 32, design :A, λ = 0.15 λmax (benchmark/cases.jl:266-269; problems.jl:128-149)",
+]
+seed_key = [
+  "gradient/lasso/apg; scenario_rng(rep, key): FNV-1a 64-bit of the key xor the repetition ID, Xoshiro (benchmark/problems.jl:3-9); the measurement order inside a process is shuffled by scenario_rng(rep, \"measurement_order\") (benchmark/run.jl:281)",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark/cases.jl:42)",
+]
+penalty = [
+  "NormL1(λ) (unit weights, benchmark/cases.jl:56)",
+]
+initial_state = [
+  "zeros(32), a plain Vector (benchmark/cases.jl:108)",
+]
+working_set = [
+  "none: plain Vector, no sparse iterate",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:128; the CDSolver/ProxNewton RNG is reseeded with Random.seed!(method.rng, 9) at :93, a no-op for other solvers :89-98). The timed call is PS.solve!(x, f, g, method[, options]) (:129).",
+]
+solver_options = [
+  "AccProxGradDescent() (benchmark/cases.jl:63); ProximalOptions(maxiter = 10000, ftol = 1e-15, xtol = 1e-14, gradtol = 1e-11, gaptol = 1e-10, gapevery = 10) from benchmark_options(historical = false) (cases.jl:22-27, :118-119); call PS.solve!(x, f, g, method, options) (:129)",
+]
+certificate = [
+  "benchmark/cases.jl:131-139 check: certify(a, Array(output.minimizer)) (:132), independent of the solver and of ProximalBase iterates (it reads plain arrays)",
+  "lasso_certificate, relative_gap, target 1e-6 (benchmark/certificates.jl:64-83)",
+]
+measure = "relative_gap, target 1e-06 (benchmark/campaigns/pre06/campaign.toml [[case]] P07)"
+target = "1e-06"
+work_counters = [
+  "exploratory, repetition 1, Julia 1.10.13: iterations=30 f_calls=79 grad_calls=37 prox_calls=41 backtrack_steps=41",
+  "exploratory, repetition 1, Julia 1.13.3: iterations=20 f_calls=52 grad_calls=24 prox_calls=27 backtrack_steps=27",
+  "source: Stage 2A archive julia-1.10|1.13/exploratory/work-counters.local.tsv (benchmark/local.jl:124-137 reads them from the returned result after timing, never inside it); untimed and never a formal record",
+  "the formal record (benchmark/run.jl:10-13 METRICS_HEADER, :245-264 record_case!) stores no counter: only time, GC share, bytes, certificate value and data_hash",
+]
+sensitive_paths_06 = [
+  "src/solve.jl:65-81: solve! for the gradient solvers: _symmetric_penalty (:75) is the identity for a Vector, _workspace_noalias (:76), initial_state (:78), _gapevaluator (:79, src/cd/gap.jl)",
+  "no iterate type is involved: x is a plain Vector, _drop! is the identity for an AbstractArray (src/solve.jl:4)",
+  "git grep over src/ at 7b9b5295 (ext/ does not exist): the x.p, x.groups, x.storage, x.nzval, coordinates(x) and fill!-of-an-iterate sites that exist (listed in CASE_MAPPING.md, section \"Migration paths the 19 cases do not exercise\") are in code this case does not reach (symmetric-owner, AtomIterate, momentum and Anderson, refit and generic-Newton code); _svd_cache! does not occur in src/",
+]
+class = "A"
+class_reason = "Plain-Vector gradient solver: no iterate type, no harness edit, no sensitive site found."
+verification_needed = [
+  "pilot on the migrated stack; solver migration: none required by this path according to the grep (the contract of f and g evaluation in ProximalBase is covered by the package suite, T07 in the readiness gates)",
+]
+equivalence_check = [
+  "both stacks, per repetition ID the pilot uses, outside any timed region: (1) problem fixture: the per-array SHA-256 of every problem field (not only the combined data_hash, which is never proof of identical semantics: benchmark/problems.jl:41-48) is written to the fixture-fingerprint file and must be equal; (2) reset state: after reset!() the iterate (values, and for sparse iterates the active IDs) equals start and equals the other stack's, and the solver RNG state is equal; (3) solver configuration: the printed fields of the solver and of ProximalOptions are equal between stacks (and equal to the table in this record); (4) certificate: the first and the last certified call have status ok and value at or below the target in both stacks, with the achieved value, the counters and the 'near target' flag recorded; (5) work counters (local.jl diagnostics) recorded for both stacks and reported, never required equal",
+]
+
+[[case]]
+label = "P08"
+id = "gradient/lasso/apg/tight/workspace"
+role = "primary"
+family = "accelerated proximal gradient, lasso, workspace phase"
+phase = "workspace"
+inputs = [
+  "draw (campaign.toml): same problem as P07 (key \"gradient/lasso/apg\", same data_hash as P07 for a repetition)",
+]
+seed_key = [
+  "gradient/lasso/apg; scenario_rng(rep, key): FNV-1a 64-bit of the key xor the repetition ID, Xoshiro (benchmark/problems.jl:3-9); the measurement order inside a process is shuffled by scenario_rng(rep, \"measurement_order\") (benchmark/run.jl:281)",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark/cases.jl:42)",
+]
+penalty = [
+  "NormL1(λ) (benchmark/cases.jl:56)",
+]
+initial_state = [
+  "zeros(32) Vector",
+]
+working_set = [
+  "none: plain Vector",
+]
+reset = [
+  "PS.reinit!(workspace, start); reset_solver_rng!(method)  (benchmark/cases.jl:124); reinit! at src/workspaces.jl:140-149 copies start into the existing storage. The timed call is PS.solve!(workspace) (cases.jl:125); construction and reset are outside the timed region (benchmark/run.jl:143-147).",
+]
+solver_options = [
+  "as P07 options; SolverWorkspace(x, f, g, method, options) (benchmark/cases.jl:123)",
+]
+certificate = [
+  "benchmark/cases.jl:131-139 check: certify(a, Array(output.minimizer)) (:132), independent of the solver and of ProximalBase iterates (it reads plain arrays)",
+  "lasso_certificate, relative_gap, target 1e-6",
+]
+measure = "relative_gap, target 1e-06 (benchmark/campaigns/pre06/campaign.toml [[case]] P08)"
+target = "1e-06"
+work_counters = [
+  "exploratory, repetition 1, Julia 1.10.13: iterations=30 f_calls=79 grad_calls=37 prox_calls=41 backtrack_steps=41",
+  "exploratory, repetition 1, Julia 1.13.3: iterations=20 f_calls=52 grad_calls=24 prox_calls=27 backtrack_steps=27",
+  "source: Stage 2A archive julia-1.10|1.13/exploratory/work-counters.local.tsv (benchmark/local.jl:124-137 reads them from the returned result after timing, never inside it); untimed and never a formal record",
+  "the formal record (benchmark/run.jl:10-13 METRICS_HEADER, :245-264 record_case!) stores no counter: only time, GC share, bytes, certificate value and data_hash",
+]
+sensitive_paths_06 = [
+  "src/workspaces.jl:70-80 (SolverWorkspace for the gradient solvers: _symmetric_penalty :76 identity), :140-149 reinit!, :214-220 solve!(ws) (_symmetric_penalty :216 identity)",
+  "no iterate type is involved: x is a plain Vector",
+  "git grep over src/ at 7b9b5295 (ext/ does not exist): the x.p, x.groups, x.storage, x.nzval, coordinates(x) and fill!-of-an-iterate sites that exist (listed in CASE_MAPPING.md, section \"Migration paths the 19 cases do not exercise\") are in code this case does not reach (symmetric-owner, AtomIterate, momentum and Anderson, refit and generic-Newton code); _svd_cache! does not occur in src/",
+]
+class = "A"
+class_reason = "Plain-Vector workspace: no iterate type, no harness edit, no sensitive site found."
+verification_needed = [
+  "pilot on the migrated stack; solver migration: none required by this path according to the grep",
+]
+equivalence_check = [
+  "both stacks, per repetition ID the pilot uses, outside any timed region: (1) problem fixture: the per-array SHA-256 of every problem field (not only the combined data_hash, which is never proof of identical semantics: benchmark/problems.jl:41-48) is written to the fixture-fingerprint file and must be equal; (2) reset state: after reset!() the iterate (values, and for sparse iterates the active IDs) equals start and equals the other stack's, and the solver RNG state is equal; (3) solver configuration: the printed fields of the solver and of ProximalOptions are equal between stacks (and equal to the table in this record); (4) certificate: the first and the last certified call have status ok and value at or below the target in both stacks, with the achieved value, the counters and the 'near target' flag recorded; (5) work counters (local.jl diagnostics) recorded for both stacks and reported, never required equal",
+  "plus: counters equal those of P07 for the same repetition on the same stack (same solver, same problem)",
+]
+
+[[case]]
+label = "P09"
+id = "newton/logistic-weighted-offset/prox-newton/tight/call"
+role = "primary"
+family = "proximal Newton (specialized GLM IRLS), weighted logistic regression with offset, call phase"
+phase = "call"
+inputs = [
+  "draw (campaign.toml): logistic_problem(rep, \"newton/logistic-weighted-offset\"; weighted = true): n = 120, p = 24, offset 0.2 randn, w_obs = 0.5 + rand, Bernoulli y (benchmark/problems.jl:151-159; cases.jl:290-291)",
+]
+seed_key = [
+  "newton/logistic-weighted-offset; scenario_rng(rep, key): FNV-1a 64-bit of the key xor the repetition ID, Xoshiro (benchmark/problems.jl:3-9); the measurement order inside a process is shuffled by scenario_rng(rep, \"measurement_order\") (benchmark/run.jl:281)",
+]
+objective = [
+  "s * LogisticLoss(y, X; weights = w_obs, offset) with s = 1/n; weights are not all one, so the weighted constructor is used (benchmark/cases.jl:31-34)",
+]
+penalty = [
+  "NormL1(0.04) (benchmark/cases.jl:34)",
+]
+initial_state = [
+  "zeros(24), a plain Vector: variant is \"tight\", and the SparseIterate start needs variant \"B\" (benchmark/cases.jl:105-108)",
+]
+working_set = [
+  "none held by the caller; SparseIterate built inside the call (src/cd/generic_newton.jl:178-179)",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:128; the CDSolver/ProxNewton RNG is reseeded with Random.seed!(method.rng, 9) at :93, a no-op for other solvers :89-98). The timed call is PS.solve!(x, f, g, method[, options]) (:129).",
+]
+solver_options = [
+  "ProxNewton(tol = 1e-12, inner = CDSolver(tol = 1e-10, order = :cyclic)) (benchmark/cases.jl:75); own_options, no ProximalOptions",
+]
+certificate = [
+  "benchmark/cases.jl:131-139 check: certify(a, Array(output.minimizer)) (:132), independent of the solver and of ProximalBase iterates (it reads plain arrays)",
+  "logistic_certificate, relative_gap, target 1e-6 (benchmark/certificates.jl:187-205, :365)",
+]
+measure = "relative_gap, target 1e-06 (benchmark/campaigns/pre06/campaign.toml [[case]] P09)"
+target = "1e-06"
+work_counters = [
+  "exploratory, repetition 1, Julia 1.10.13: passes=38 kkt_checks=0",
+  "exploratory, repetition 1, Julia 1.13.3: passes=37 kkt_checks=0",
+  "source: Stage 2A archive julia-1.10|1.13/exploratory/work-counters.local.tsv (benchmark/local.jl:124-137 reads them from the returned result after timing, never inside it); untimed and never a formal record",
+  "the formal record (benchmark/run.jl:10-13 METRICS_HEADER, :245-264 record_case!) stores no counter: only time, GC share, bytes, certificate value and data_hash",
+]
+sensitive_paths_06 = [
+  "src/cd/generic_newton.jl:178-183: solve!(x::Vector, ...) builds SparseIterate(x) (:179), calls the specialized GLM method and copies back with _copy_dense! (:181, src/cd/solver.jl:740-747)",
+  "src/cd/glm.jl:770-784 _solve_newton!: _check_iterate (:778), _predictor! (:779, glm.jl:95-98 activecoordinates), _NewtonWorkspace (:781, glm.jl:419-428 SparseIterate{T,1} type parameter), _interpolate! (glm.jl:397-403 activecoordinates, isactive), dropzeros! (glm.jl:582)",
+  "the SparseIterate{T, 1} type parameter in signatures (glm.jl:419-420) is a type-level dependency; its stability under the 0.6 iterate design is unverified",
+  "ProximalSolvers #211 (align the specialized GLM IRLS coefficients and responses with the ProximalBase numerical contract) is open and targets this path: if it lands before the migration, the P09 solver changes numerically and needs a separate mapping (a class C candidate)",
+  "git grep over src/ at 7b9b5295 (ext/ does not exist): the x.p, x.groups, x.storage, x.nzval, coordinates(x) and fill!-of-an-iterate sites that exist (listed in CASE_MAPPING.md, section \"Migration paths the 19 cases do not exercise\") are in code this case does not reach (symmetric-owner, AtomIterate, momentum and Anderson, refit and generic-Newton code); _svd_cache! does not occur in src/ (the accessor sites above are the only iterate uses)",
+]
+class = "A"
+class_reason = "No harness edit (the start is a plain Vector). No unmigrated owner-sensitive site found; the path depends on the SparseIterate working-set rules and on the open numerical-contract issue #211."
+verification_needed = [
+  "pilot on the migrated stack; check #211 status at the candidate and record the Newton counters (passes) of both stacks; solver migration (#211 if merged first, otherwise none required by the grep)",
+]
+equivalence_check = [
+  "both stacks, per repetition ID the pilot uses, outside any timed region: (1) problem fixture: the per-array SHA-256 of every problem field (not only the combined data_hash, which is never proof of identical semantics: benchmark/problems.jl:41-48) is written to the fixture-fingerprint file and must be equal; (2) reset state: after reset!() the iterate (values, and for sparse iterates the active IDs) equals start and equals the other stack's, and the solver RNG state is equal; (3) solver configuration: the printed fields of the solver and of ProximalOptions are equal between stacks (and equal to the table in this record); (4) certificate: the first and the last certified call have status ok and value at or below the target in both stacks, with the achieved value, the counters and the 'near target' flag recorded; (5) work counters (local.jl diagnostics) recorded for both stacks and reported, never required equal",
+  "plus: w_obs and offset are in the fixture fingerprint; the logistic certificate is computed from the plain arrays of the problem",
+]
+
+[[case]]
+label = "P10"
+id = "newton/glasso/quic/tight/call"
+role = "primary"
+family = "proximal Newton QUIC, graphical lasso, call phase"
+phase = "call"
+inputs = [
+  "draw (campaign.toml): glasso_problem(rep, \"newton/glasso\"), n = 100, p = 12: S = Matrix(Symmetric(X'X/n + 0.2 I)), Λ = fill(0.08, p, p) with a zero diagonal (benchmark/problems.jl:180-189; cases.jl:292-293)",
+]
+seed_key = [
+  "newton/glasso; scenario_rng(rep, key): FNV-1a 64-bit of the key xor the repetition ID, Xoshiro (benchmark/problems.jl:3-9); the measurement order inside a process is shuffled by scenario_rng(rep, \"measurement_order\") (benchmark/run.jl:281)",
+]
+objective = [
+  "LogDetLoss(S) (weight one, not scaled; benchmark/cases.jl:40)",
+]
+penalty = [
+  "NormL1(1.0, Λ) with a symmetric matrix Λ (benchmark/cases.jl:40; problems.jl:184-187)",
+]
+initial_state = [
+  "dense Matrix{Float64}(I, p, p) (benchmark/cases.jl:101-102): a plain matrix, not an owner",
+]
+working_set = [
+  "none held by the caller; the solver builds and discards its own SymmetricSparseIterate objects inside the call (src/cd/quic.jl:77, :195, :232)",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:128; the CDSolver/ProxNewton RNG is reseeded with Random.seed!(method.rng, 9) at :93, a no-op for other solvers :89-98). The timed call is PS.solve!(x, f, g, method[, options]) (:129).",
+  "reset operation: copyto! of a dense matrix; no sparse iterate is reset by the harness (the owner is created inside the timed call)",
+]
+solver_options = [
+  "ProxNewton(tol = 1e-11, inner = CDSolver(tol = 1e-11, order = :cyclic)) (benchmark/cases.jl:76-77); own_options",
+]
+certificate = [
+  "benchmark/cases.jl:131-139 check: certify(a, Array(output.minimizer)) (:132), independent of the solver and of ProximalBase iterates (it reads plain arrays)",
+  "glasso_certificate, relative_gap, target 1e-6 (benchmark/certificates.jl:244-261, :367): requires issymmetric(Θ) (:247) and a Cholesky factor (:251). At 7b9b5295 the minimizer is the caller's dense Matrix (src/cd/quic.jl:231-235); under 0.6 the minimizer type (dense matrix or a symmetric owner) is an OPEN ITEM until a migrated solver exists: Array(output.minimizer) must then yield an exactly symmetric dense matrix",
+]
+measure = "relative_gap, target 1e-06 (benchmark/campaigns/pre06/campaign.toml [[case]] P10)"
+target = "1e-06"
+work_counters = [
+  "exploratory, repetition 1, Julia 1.10.13: passes=16 kkt_checks=0",
+  "exploratory, repetition 1, Julia 1.13.3: passes=16 kkt_checks=0",
+  "source: Stage 2A archive julia-1.10|1.13/exploratory/work-counters.local.tsv (benchmark/local.jl:124-137 reads them from the returned result after timing, never inside it); untimed and never a formal record",
+  "the formal record (benchmark/run.jl:10-13 METRICS_HEADER, :245-264 record_case!) stores no counter: only time, GC share, bytes, certificate value and data_hash",
+]
+sensitive_paths_06 = [
+  "src/cd/quic.jl:231-236 solve!(X::Matrix, f::LogDetLoss, g::NormL1, method::ProxNewton): wraps X in SymmetricSparseIterate(Symmetric(X)) (:232), copies back with Matrix(Xs) (:234)",
+  "x.p of the symmetric owner: src/cd/quic.jl:51, :62, :156, :194, :213 (5 sites) and src/cd/kronu.jl:51, :70, :86, :91, :100, :120 (6 sites, KronUModel used by the inner CD, quic.jl:74)",
+  "_symmetric_penalty: src/cd/quic.jl:159 (the only call of the 14 outside models.jl that gets a real symmetric owner in the 19 cases) -> src/cd/models.jl:540, :592-597 (NormL1 weights: symmetric kept, otherwise averaged; ProximalSolvers #162 changes this to a throw); the harness Λ is exactly symmetric (problems.jl:184-187), so no averaging happens",
+  "ProximalBase._checkparams(g, X): src/cd/quic.jl:158 (private ProximalBase function)",
+  "fill! used as a clear: src/cd/quic.jl:47, :91, :138, :203, :214 (fill! of a dense matrix D at :47 and of owners D, X, Xc at :91, :138, :203, :214); probe on master: an owner with one stored entry has nactive 0 after fill!(owner, 0.0) (owner.fill0.nactive = 0), but the owner is still the old design (owner.supertype = AbstractMatrix, owner.has_p_field = true), so the redesign (#391 Phase 1) is where this changes",
+  "coordinates(x) on the owner: src/cd/quic.jl:48, :103, :220 and src/cd/kronu.jl:47, :74, :118 (coordinates(x) === x is a 0.5 property; under #425 coordinates(x) is a view: unverified at the candidate)",
+  "X[i, j] element reads of the owner (src/cd/quic.jl:198) rely on SymmetricSparseIterate <: AbstractMatrix (probe: owner.is_abstractmatrix = true on master, redesign #391 Phase 1 not merged); Matrix(Xc) at quic.jl:201 and Matrix(Xs) at quic.jl:234",
+  "LogDetLoss symmetry: LogDetLoss(S) of an asymmetric S throws ArgumentError on master (0.5.4 accepted it); the harness S = Matrix(Symmetric(X'X/n + 0.2I)) (benchmark/problems.jl:183) is exactly symmetric and is accepted on both (probe quic.logdet.*)",
+  "src/cd/gap.jl:800-860 _gapevaluator(f::LogDetLoss, ...) is the gap of the gradient solvers and ADMM, not reached by QUIC",
+  "ledger mlakolar/ProximalBase.jl#527 (every row unchecked): row \"#391 Phase 1: the owner stops being an AbstractMatrix\" lists, for ProximalSolvers, x.p sites, _clear_start! of the owner (src/cd/path.jl:19) and src/cd/quic.jl:47,91,138,203,214; row \"Exact symmetry of LogDetLoss(S)\" lists src/cd/quic.jl:239,241 (the Scaled method, NOT reached here: the harness loss is unscaled, benchmark/cases.jl:40)",
+]
+class = "A"
+class_reason = "Reset, inputs (an exactly symmetric S and Λ), certificate and timed operation need no edit, provided the minimizer converts to a symmetric dense matrix. The solver path is the one most exposed to the owner redesign (#391) and to #162/#165 and is not yet migrated."
+verification_needed = [
+  "solver migration (#162 symmetric penalty validation, #165 private fields x.p, the owner redesign of ProximalBase #391 Phase 1, and the clear/fill! semantics) and pilot: the minimizer type and exact symmetry after Array(output.minimizer), the glasso certificate, counters (passes), fixture fingerprint including issymmetric(S) and issymmetric(Λ)",
+]
+equivalence_check = [
+  "both stacks, per repetition ID the pilot uses, outside any timed region: (1) problem fixture: the per-array SHA-256 of every problem field (not only the combined data_hash, which is never proof of identical semantics: benchmark/problems.jl:41-48) is written to the fixture-fingerprint file and must be equal; (2) reset state: after reset!() the iterate (values, and for sparse iterates the active IDs) equals start and equals the other stack's, and the solver RNG state is equal; (3) solver configuration: the printed fields of the solver and of ProximalOptions are equal between stacks (and equal to the table in this record); (4) certificate: the first and the last certified call have status ok and value at or below the target in both stacks, with the achieved value, the counters and the 'near target' flag recorded; (5) work counters (local.jl diagnostics) recorded for both stacks and reported, never required equal",
+  "plus: issymmetric(S) and issymmetric(Λ) exactly true in both stacks; LogDetLoss(S) and NormL1(1.0, Λ) construct without error; typeof(output.minimizer), issymmetric(Array(output.minimizer)) and the certificate recorded for both stacks; a documented decision if the type differs",
+]
+
+[[case]]
+label = "P11"
+id = "admm/lasso/admm/B/call"
+role = "primary"
+family = "ADMM, lasso, call phase"
+phase = "call"
+inputs = [
+  "fixed (campaign.toml): batched_problem(:admm), Xoshiro(90210), n = 120, p = 40 (benchmark/problems.jl:65-79; registered at benchmark/cases.jl:249-263, history entry #109, variant B, target 1e-8)",
+]
+seed_key = [
+  "none: fixed input from Xoshiro(90210)",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark/cases.jl:42)",
+]
+penalty = [
+  "NormL1(0.05) (benchmark/cases.jl:56)",
+]
+initial_state = [
+  "zeros(40), a plain Vector (benchmark/cases.jl:108)",
+]
+working_set = [
+  "none: plain Vector",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:128; the CDSolver/ProxNewton RNG is reseeded with Random.seed!(method.rng, 9) at :93, a no-op for other solvers :89-98). The timed call is PS.solve!(x, f, g, method[, options]) (:129).",
+]
+solver_options = [
+  "ADMMSolver(abstol = 1e-10, reltol = 1e-9) (benchmark/cases.jl:80); ProximalOptions(maxiter = 5000, ftol = 1e-14, xtol = 1e-14, gradtol = 1e-9, gaptol = 1e-8, gapevery = 10) from benchmark_options(historical = true) because variant B is historical (cases.jl:22-27, :117-119); call PS.solve!(x, f, g, method, options) (:129)",
+]
+certificate = [
+  "benchmark/cases.jl:131-139 check: certify(a, Array(output.minimizer)) (:132), independent of the solver and of ProximalBase iterates (it reads plain arrays)",
+  "lasso_certificate, relative_gap, target 1e-8 (benchmark/certificates.jl:64-83)",
+]
+measure = "relative_gap, target 1e-08 (benchmark/campaigns/pre06/campaign.toml [[case]] P11)"
+target = "1e-08"
+work_counters = [
+  "exploratory, repetition 1, Julia 1.10.13: iterations=50 f_calls=1 grad_calls=0 prox_calls=100",
+  "exploratory, repetition 1, Julia 1.13.3: iterations=50 f_calls=1 grad_calls=0 prox_calls=100",
+  "source: Stage 2A archive julia-1.10|1.13/exploratory/work-counters.local.tsv (benchmark/local.jl:124-137 reads them from the returned result after timing, never inside it); untimed and never a formal record",
+  "the formal record (benchmark/run.jl:10-13 METRICS_HEADER, :245-264 record_case!) stores no counter: only time, GC share, bytes, certificate value and data_hash",
+]
+sensitive_paths_06 = [
+  "src/solvers/admm.jl:164-275 solve! and _solve_admm!: prox!(xk, f, tmp, γ) (:217) and prox!(z, g, tmp, γ) (:222) call ProximalBase; the least-squares prox of f uses ProximalBase's private SVD cache (ProximalBase._svd_cache!, the same function that P13 times). git grep _svd_cache over src/: 0 sites, so the dependency is entirely inside ProximalBase; its behaviour at the 0.6 candidate for a Scaled loss is unverified (probe: _svd_cache!, V, s2, sUtY exist on master)",
+  "no iterate type, x.p, x.groups, x.storage or coordinates(x) site on this path (git grep over src/solvers/admm.jl: none)",
+]
+class = "A"
+class_reason = "Plain-Vector solver, no harness edit; the only 0.6 exposure is inside ProximalBase's least-squares prox (SVD cache), which the solver does not name."
+verification_needed = [
+  "pilot on the migrated stack (certificate and counters iterations/prox_calls); verify the ProximalBase SVD-cache behaviour at the candidate (P13 does so in isolation); no solver migration required by this path according to the grep",
+]
+equivalence_check = [
+  "both stacks, per repetition ID the pilot uses, outside any timed region: (1) problem fixture: the per-array SHA-256 of every problem field (not only the combined data_hash, which is never proof of identical semantics: benchmark/problems.jl:41-48) is written to the fixture-fingerprint file and must be equal; (2) reset state: after reset!() the iterate (values, and for sparse iterates the active IDs) equals start and equals the other stack's, and the solver RNG state is equal; (3) solver configuration: the printed fields of the solver and of ProximalOptions are equal between stacks (and equal to the table in this record); (4) certificate: the first and the last certified call have status ok and value at or below the target in both stacks, with the achieved value, the counters and the 'near target' flag recorded; (5) work counters (local.jl diagnostics) recorded for both stacks and reported, never required equal",
+]
+
+[[case]]
+label = "P12"
+id = "admm/lasso/admm/B/workspace"
+role = "primary"
+family = "ADMM, lasso, workspace phase"
+phase = "workspace"
+inputs = [
+  "fixed (campaign.toml): the P11 problem (same data_hash as P11)",
+]
+seed_key = [
+  "none: fixed input from Xoshiro(90210)",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark/cases.jl:42)",
+]
+penalty = [
+  "NormL1(0.05) (benchmark/cases.jl:56)",
+]
+initial_state = [
+  "zeros(40) Vector",
+]
+working_set = [
+  "none: plain Vector",
+]
+reset = [
+  "PS.reinit!(workspace, start); reset_solver_rng!(method)  (benchmark/cases.jl:124); reinit! at src/workspaces.jl:140-149 copies start into the existing storage. The timed call is PS.solve!(workspace) (cases.jl:125); construction and reset are outside the timed region (benchmark/run.jl:143-147).",
+  "reinit! also clears the ADMM dual and the penalty parameter (src/workspaces.jl:174-181: _workspace_zero! is fill! of a plain array, not of an iterate)",
+]
+solver_options = [
+  "as P11; SolverWorkspace(x, f, g, method, options) for ADMM (src/workspaces.jl:82-91; benchmark/cases.jl:123)",
+]
+certificate = [
+  "benchmark/cases.jl:131-139 check: certify(a, Array(output.minimizer)) (:132), independent of the solver and of ProximalBase iterates (it reads plain arrays)",
+  "lasso_certificate, relative_gap, target 1e-8",
+]
+measure = "relative_gap, target 1e-08 (benchmark/campaigns/pre06/campaign.toml [[case]] P12)"
+target = "1e-08"
+work_counters = [
+  "exploratory, repetition 1, Julia 1.10.13: iterations=50 f_calls=1 grad_calls=0 prox_calls=100",
+  "exploratory, repetition 1, Julia 1.13.3: iterations=50 f_calls=1 grad_calls=0 prox_calls=100",
+  "source: Stage 2A archive julia-1.10|1.13/exploratory/work-counters.local.tsv (benchmark/local.jl:124-137 reads them from the returned result after timing, never inside it); untimed and never a formal record",
+  "the formal record (benchmark/run.jl:10-13 METRICS_HEADER, :245-264 record_case!) stores no counter: only time, GC share, bytes, certificate value and data_hash",
+]
+sensitive_paths_06 = [
+  "src/solvers/admm.jl:164-275 solve! and _solve_admm!: prox!(xk, f, tmp, γ) (:217) and prox!(z, g, tmp, γ) (:222) call ProximalBase; the least-squares prox of f uses ProximalBase's private SVD cache (ProximalBase._svd_cache!, the same function that P13 times). git grep _svd_cache over src/: 0 sites, so the dependency is entirely inside ProximalBase; its behaviour at the 0.6 candidate for a Scaled loss is unverified (probe: _svd_cache!, V, s2, sUtY exist on master)",
+  "no iterate type, x.p, x.groups, x.storage or coordinates(x) site on this path (git grep over src/solvers/admm.jl: none)",
+  "src/workspaces.jl:82-91, :174-181, :222-233: workspace buffers are plain arrays",
+]
+class = "A"
+class_reason = "As P11 for the workspace phase; fill! acts on plain arrays only."
+verification_needed = [
+  "pilot on the migrated stack; counters equal those of P11 on the same stack; no solver migration required by this path according to the grep",
+]
+equivalence_check = [
+  "both stacks, per repetition ID the pilot uses, outside any timed region: (1) problem fixture: the per-array SHA-256 of every problem field (not only the combined data_hash, which is never proof of identical semantics: benchmark/problems.jl:41-48) is written to the fixture-fingerprint file and must be equal; (2) reset state: after reset!() the iterate (values, and for sparse iterates the active IDs) equals start and equals the other stack's, and the solver RNG state is equal; (3) solver configuration: the printed fields of the solver and of ProximalOptions are equal between stacks (and equal to the table in this record); (4) certificate: the first and the last certified call have status ok and value at or below the target in both stacks, with the achieved value, the counters and the 'near target' flag recorded; (5) work counters (local.jl diagnostics) recorded for both stacks and reported, never required equal",
+  "plus: the ADMM dual buffer is zero after reinit! on both stacks (observable through the first-iteration counters)",
+]
+
+[[case]]
+label = "P13"
+id = "admm/lasso/admm/construction/setup"
+role = "primary"
+family = "setup: ProximalBase least-squares SVD cache construction (no solver), setup phase"
+phase = "setup"
+inputs = [
+  "draw (campaign.toml): regression_problem(rep, \"setup/admm\"), n = 100, p = 32 (benchmark/cases.jl:313-316; problems.jl:128-149)",
+]
+seed_key = [
+  "setup/admm; scenario_rng(rep, key): FNV-1a 64-bit of the key xor the repetition ID, Xoshiro (benchmark/problems.jl:3-9); the measurement order inside a process is shuffled by scenario_rng(rep, \"measurement_order\") (benchmark/run.jl:281)",
+]
+objective = [
+  "LeastSquaresLoss(y, X), unscaled, constructed inside the timed call (benchmark/cases.jl:197)",
+]
+penalty = [
+  "none",
+]
+initial_state = [
+  "none: the case has no iterate",
+]
+working_set = [
+  "none",
+]
+reset = [
+  "() -> nothing (benchmark/cases.jl:221); nothing to reset: every call constructs a new loss",
+]
+solver_options = [
+  "none: no solver. The timed operation is PB._svd_cache!(loss) after the LeastSquaresLoss construction (benchmark/cases.jl:196-200)",
+]
+certificate = [
+  "benchmark/cases.jl:201-207: self-consistency of the cached factorization from loss.V, loss.s2, loss.sUtY: max(|V diag(s2) V' - X'X|_inf, |V sUtY - X'y|_inf) with the stated scaling; residual_certificate(value, 0.0; measure = :self_consistency) (benchmark/certificates.jl:39-43); target 1e-12. Reads private fields of a ProximalBase object",
+]
+measure = "self_consistency, target 1e-12 (benchmark/campaigns/pre06/campaign.toml [[case]] P13)"
+target = "1e-12"
+work_counters = [
+  "none recorded: the setup case has no solver and no counters (benchmark/local.jl:129-137 diagnostics is empty)",
+  "the formal record (benchmark/run.jl:10-13 METRICS_HEADER, :245-264 record_case!) stores no counter: only time, GC share, bytes, certificate value and data_hash",
+]
+sensitive_paths_06 = [
+  "benchmark/cases.jl:199 PB._svd_cache!(loss) and :202-203 loss.V, loss.s2, loss.sUtY: private ProximalBase function and fields; probe on master 233c11cc: setup.has_svd_cache_fn, setup.svd_cache_call, setup.field.V/s2/sUtY all true, setup.self_consistency 8.69e-16 (target 1e-12); to be re-verified at the candidate",
+  "git grep _svd_cache over src/: 0 sites: ProximalSolvers itself never names the cache",
+]
+class = "A"
+class_reason = "The harness needs no edit on the probed master (the private names still exist and the certificate holds), but the case depends only on private ProximalBase names: a candidate that renames them makes it class B or D."
+verification_needed = [
+  "re-verify at the candidate: _svd_cache!, V, s2, sUtY exist and the self-consistency stays below 1e-12; no solver migration (the case has no solver); pilot",
+]
+equivalence_check = [
+  "both stacks: construct the loss, call the cache, and record the presence of the three fields, the self-consistency value and its target; the fixture fingerprint (X, y) must be equal; plus the checks (1) and (4) of the general list (no reset or solver configuration exists for this case)",
+]
+
+[[case]]
+label = "P14"
+id = "paths/lasso/cd/grid8/call"
+role = "primary"
+family = "coordinate descent path with screening, lasso, call phase"
+phase = "call"
+inputs = [
+  "draw (campaign.toml): regression_problem(rep, \"paths/lasso\"), n = 100, p = 32; grid = lambda_grid(lambda_max(X, y; s, w), 0.1, 8): eight levels from λmax down to 0.1 λmax (benchmark/cases.jl:311-312, :167; problems.jl:109-126); the data hash includes the grid (cases.jl:174)",
+]
+seed_key = [
+  "paths/lasso; scenario_rng(rep, key): FNV-1a 64-bit of the key xor the repetition ID, Xoshiro (benchmark/problems.jl:3-9); the measurement order inside a process is shuffled by scenario_rng(rep, \"measurement_order\") (benchmark/run.jl:281)",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark/cases.jl:42)",
+]
+penalty = [
+  "NormL1 (unit weights) at each grid level (benchmark/cases.jl:56, :147 merge of λ)",
+]
+initial_state = [
+  "x = ProximalBase.SparseIterate(32) (benchmark/cases.jl:168), reused across calls and the warm start of the next call",
+]
+working_set = [
+  "SparseIterate working set. solve_path does not clear x (src/cd/path.jl:448-486 and its documentation at :403-405: x is the starting point); only the harness reset clears it. After a used solve, fill!(x, 0.0) leaves the used coordinates active on ProximalBase master (probe sparse.fill0: 4 active, 3,17,42,150) and empties them on 0.5.4; dropzeros!(fill!(x, 0.0)) leaves the empty working set on both (sparse.fill0_dropzeros: nactive 0)",
+]
+reset = [
+  "historical line, verbatim (benchmark/cases.jl:171 at 7b9b5295 and b0de3f7): reset!() = (fill!(x, 0.0); reset_solver_rng!(method); nothing)",
+  "reviewed compatibility-only port, verbatim (proposed; requires its own narrow PR and maintainer approval): reset!() = (dropzeros!(fill!(x, 0.0)); reset_solver_rng!(method); nothing)",
+  "the port is identical on ProximalBase 0.5.4 (probe: sparse.fill0_dropzeros.matches_fresh_workingset = true on 0.5.4 and on master, Julia 1.10.12 and 1.13.3)",
+  "the formal harness_hash (SHA-1 over problems.jl, certificates.jl, cases.jl, run.jl: benchmark/run.jl:112-115) will change with the port: Stack A keeps the historical harness hash b7bf3d95, Stack B records its own; both true hashes are preserved, never forced equal, and the declared difference is the approved mapping record",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-11, gaptol = 1e-10, rng = Xoshiro(9)) from benchmark_method(solver, \"tight\") (benchmark/cases.jl:170, :70); PS.solve_path(f, g, grid, method; x, screening = true) (:172)",
+]
+certificate = [
+  "benchmark/cases.jl:143-154 checked_path: every returned level is certified by lasso_certificate on Array(β) of the solution (:146-149), the returned λ must equal the grid and the number of solutions its length (:151-152, IncompletePath otherwise); path_certificate takes the worst level (benchmark/certificates.jl:350-356); relative_gap, target 1e-6",
+]
+measure = "relative_gap, target 1e-06 (benchmark/campaigns/pre06/campaign.toml [[case]] P14)"
+target = "1e-06"
+work_counters = [
+  "exploratory, repetition 1, Julia 1.10.13: passes=76 stages=8 kkt_checks=8",
+  "exploratory, repetition 1, Julia 1.13.3: passes=88 stages=8 kkt_checks=8",
+  "source: Stage 2A archive julia-1.10|1.13/exploratory/work-counters.local.tsv (benchmark/local.jl:124-137 reads them from the returned result after timing, never inside it); untimed and never a formal record",
+  "the formal record (benchmark/run.jl:10-13 METRICS_HEADER, :245-264 record_case!) stores no counter: only time, GC share, bytes, certificate value and data_hash",
+]
+sensitive_paths_06 = [
+  "benchmark/cases.jl:171 fill!(x, 0.0) as a clear of a SparseIterate: the only harness site; src/cd/path.jl:18 shows that the solver itself already uses dropzeros!(fill!(...)) for SparseIterate and AtomIterate (called by _continuation! :270 and the workspace :239, not by solve_path)",
+  "src/cd/path.jl:448-486 solve_path: _symmetric_penalty (:453, identity), _check_iterate (:456), initialize! (:460), _initialize!(m, x, false) (:469), _screened! (:470, src/cd/gap.jl, dropzeros! at gap.jl:685), _snapshot(x) (:477, path.jl:337 _sparsevec), nactive (:481)",
+  "src/cd/solver.jl:276 dropzeros!(x) after every pass; working-set rules of SparseIterate (#424, #425) unverified at the candidate",
+  "ledger #527 row \"#424 (FD-2): value writes never remove coordinates\": ProximalSolvers was migrated for SparseIterate and AtomIterate in ProximalSolvers #164, released in v0.3.2 (so the measured source already clears with dropzeros!(fill!(...)) inside the solver); the harness reset of this case was not part of that migration",
+  "git grep over src/: the owner and AtomIterate field sites are not on this path; the only clear of an iterate on it is the harness fill! above; _svd_cache! does not occur in src/",
+]
+class = "B"
+class_reason = "Equivalent only with a reviewed compatibility-only harness port: on ProximalBase master the historical reset leaves the previous solve's active coordinates active, so the warm start differs from the 0.5.4 cold start. The port dropzeros!(fill!(x, 0.0)) gives the identical empty working set on both versions (probe)."
+verification_needed = [
+  "reviewed port in its own narrow PR (maintainer approval of the P14 port); then pilot: nactive(x) == 0 and all values zero after every reset!() on both stacks, the eight-level path complete (returned grid equals the requested grid), per-level certificates, counters (passes, stages, kkt_checks)",
+]
+equivalence_check = [
+  "both stacks, per repetition ID the pilot uses, outside any timed region: (1) problem fixture: the per-array SHA-256 of every problem field (not only the combined data_hash, which is never proof of identical semantics: benchmark/problems.jl:41-48) is written to the fixture-fingerprint file and must be equal; (2) reset state: after reset!() the iterate (values, and for sparse iterates the active IDs) equals start and equals the other stack's, and the solver RNG state is equal; (3) solver configuration: the printed fields of the solver and of ProximalOptions are equal between stacks (and equal to the table in this record); (4) certificate: the first and the last certified call have status ok and value at or below the target in both stacks, with the achieved value, the counters and the 'near target' flag recorded; (5) work counters (local.jl diagnostics) recorded for both stacks and reported, never required equal",
+  "plus: after reset!() both stacks have nactive(x) == 0 and zero values, tested after a used solve (the case that exposed the difference); the returned λ equals the requested grid and every level certificate is ok; the grid bytes are in the fixture fingerprint; Stack A is run with the historical line, Stack B with the port, and the pilot records that the reset states are equal",
+]
+
+[[case]]
+label = "D01"
+id = "gradient/lasso/active/B/call"
+role = "diagnostic"
+family = "active-set accelerated proximal gradient (ActiveAccProxGradDescent), lasso, call phase (diagnostic)"
+phase = "call"
+inputs = [
+  "fixed (campaign.toml): batched_problem(:active), Xoshiro(90210), n = 120, p = 40 (benchmark/problems.jl:65-79; registered at benchmark/cases.jl:249-263, history entry #107, variant B)",
+]
+seed_key = [
+  "none: fixed input from Xoshiro(90210)",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark/cases.jl:42)",
+]
+penalty = [
+  "NormL1(0.05) (benchmark/cases.jl:56)",
+]
+initial_state = [
+  "zeros(40), a plain Vector (benchmark/cases.jl:108)",
+]
+working_set = [
+  "none held by the caller; the solver builds SparseIterate(x) inside the call (src/solvers/active_accelerated_proximal_gradient_descent.jl:240-255) and copies back with copyto!(x, xs) (:250)",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:128; the CDSolver/ProxNewton RNG is reseeded with Random.seed!(method.rng, 9) at :93, a no-op for other solvers :89-98). The timed call is PS.solve!(x, f, g, method[, options]) (:129).",
+]
+solver_options = [
+  "ActiveAccProxGradDescent() (benchmark/cases.jl:65); ProximalOptions from benchmark_options(historical = true): maxiter 5000, ftol 1e-14, xtol 1e-14, gradtol 1e-9, gaptol 1e-8, gapevery 10 (cases.jl:22-27); call PS.solve!(x, f, g, method, options)",
+]
+certificate = [
+  "benchmark/cases.jl:131-139 check: certify(a, Array(output.minimizer)) (:132), independent of the solver and of ProximalBase iterates (it reads plain arrays)",
+  "lasso_certificate, relative_gap, target 1e-8",
+]
+measure = "relative_gap, target 1e-08 (benchmark/campaigns/pre06/campaign.toml [[case]] D01)"
+target = "1e-08"
+work_counters = [
+  "exploratory, repetition 1, Julia 1.10.13: outer_iterations=1 inner_iterations=30",
+  "exploratory, repetition 1, Julia 1.13.3: outer_iterations=1 inner_iterations=30",
+  "source: Stage 2A archive julia-1.10|1.13/exploratory/work-counters.local.tsv (benchmark/local.jl:124-137 reads them from the returned result after timing, never inside it); untimed and never a formal record",
+  "the formal record (benchmark/run.jl:10-13 METRICS_HEADER, :245-264 record_case!) stores no counter: only time, GC share, bytes, certificate value and data_hash",
+]
+sensitive_paths_06 = [
+  "src/solvers/active_accelerated_proximal_gradient_descent.jl:240-253: solve!(x::Vector) builds the iterate (:255) and copyto!(x, xs) (:250) writes a SparseIterate into a Vector through the generic AbstractVector interface; its behaviour under the 0.6 iterate design is unverified",
+  "same file: dropzeros!(x) (:150), activecoordinates (:277), isactive and ncoordinates (:294-295), SparseIterate{T, 1} in the signature (:126)",
+  "same file :296 kkt_violation(g, grad, x, k): ledger row #271 (a nonseparable MoreauEnvelope throws in restrict, prox_entry and kkt_violation) does not apply, the penalty is NormL1 (separable)",
+  "git grep over src/ at 7b9b5295 (ext/ does not exist): the x.p, x.groups, x.storage, x.nzval, coordinates(x) and fill!-of-an-iterate sites that exist (listed in CASE_MAPPING.md, section \"Migration paths the 19 cases do not exercise\") are in code this case does not reach (symmetric-owner, AtomIterate, momentum and Anderson, refit and generic-Newton code); _svd_cache! does not occur in src/ (the generic copyto! above is the only iterate-to-Vector copy outside _copy_dense!)",
+]
+class = "A"
+class_reason = "No harness edit; the plain-Vector reset is a copy. The solver reads the sparse iterate only through the accessors listed; the generic copyto! out of the iterate is the one site to verify."
+verification_needed = [
+  "pilot on the migrated stack (certificate, counters outer/inner iterations); verify the copyto!(x, xs) site at the candidate; no solver migration required by this path according to the grep",
+]
+equivalence_check = [
+  "both stacks, per repetition ID the pilot uses, outside any timed region: (1) problem fixture: the per-array SHA-256 of every problem field (not only the combined data_hash, which is never proof of identical semantics: benchmark/problems.jl:41-48) is written to the fixture-fingerprint file and must be equal; (2) reset state: after reset!() the iterate (values, and for sparse iterates the active IDs) equals start and equals the other stack's, and the solver RNG state is equal; (3) solver configuration: the printed fields of the solver and of ProximalOptions are equal between stacks (and equal to the table in this record); (4) certificate: the first and the last certified call have status ok and value at or below the target in both stacks, with the achieved value, the counters and the 'near target' flag recorded; (5) work counters (local.jl diagnostics) recorded for both stacks and reported, never required equal",
+  "plus: the returned x equals the Vector copy of the active set element by element (compared to the other stack)",
+]
+
+[[case]]
+label = "D02"
+id = "newton/glasso-larger/quic/tight/call"
+role = "diagnostic"
+family = "proximal Newton QUIC, graphical lasso, larger problem, call phase (diagnostic)"
+phase = "call"
+inputs = [
+  "draw (campaign.toml, suite extended): glasso_problem(rep, \"extended/glasso\"; n = 400, p = 40) (benchmark/cases.jl:330-331; problems.jl:180-189)",
+]
+seed_key = [
+  "extended/glasso; scenario_rng(rep, key): FNV-1a 64-bit of the key xor the repetition ID, Xoshiro (benchmark/problems.jl:3-9); the measurement order inside a process is shuffled by scenario_rng(rep, \"measurement_order\") (benchmark/run.jl:281)",
+]
+objective = [
+  "LogDetLoss(S) (benchmark/cases.jl:40), S = Matrix(Symmetric(X'X/n + 0.2 I)) exactly symmetric (benchmark/problems.jl:183)",
+]
+penalty = [
+  "NormL1(1.0, Λ), Λ = fill(0.08, p, p) with a zero diagonal (benchmark/problems.jl:184-187)",
+]
+initial_state = [
+  "dense Matrix{Float64}(I, 40, 40) (benchmark/cases.jl:101-102)",
+]
+working_set = [
+  "none held by the caller; owners are created inside the timed call (src/cd/quic.jl:77, :195, :232)",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:128; the CDSolver/ProxNewton RNG is reseeded with Random.seed!(method.rng, 9) at :93, a no-op for other solvers :89-98). The timed call is PS.solve!(x, f, g, method[, options]) (:129).",
+  "reset operation: copyto! of a dense matrix; no sparse iterate is reset by the harness",
+]
+solver_options = [
+  "ProxNewton(tol = 1e-11, inner = CDSolver(tol = 1e-11, order = :cyclic)) (benchmark/cases.jl:76-77)",
+]
+certificate = [
+  "benchmark/cases.jl:131-139 check: certify(a, Array(output.minimizer)) (:132), independent of the solver and of ProximalBase iterates (it reads plain arrays)",
+  "glasso_certificate, relative_gap, target 1e-6 (benchmark/certificates.jl:244-261); the minimizer type under 0.6 is an open item as for P10",
+]
+measure = "relative_gap, target 1e-06 (benchmark/campaigns/pre06/campaign.toml [[case]] D02)"
+target = "1e-06"
+work_counters = [
+  "exploratory, repetition 1, Julia 1.10.13: passes=16 kkt_checks=0",
+  "exploratory, repetition 1, Julia 1.13.3: passes=16 kkt_checks=0",
+  "source: Stage 2A archive julia-1.10|1.13/exploratory/work-counters.local.tsv (benchmark/local.jl:124-137 reads them from the returned result after timing, never inside it); untimed and never a formal record",
+  "the formal record (benchmark/run.jl:10-13 METRICS_HEADER, :245-264 record_case!) stores no counter: only time, GC share, bytes, certificate value and data_hash",
+]
+sensitive_paths_06 = [
+  "src/cd/quic.jl:231-236 solve!(X::Matrix, f::LogDetLoss, g::NormL1, method::ProxNewton): wraps X in SymmetricSparseIterate(Symmetric(X)) (:232), copies back with Matrix(Xs) (:234)",
+  "x.p of the symmetric owner: src/cd/quic.jl:51, :62, :156, :194, :213 (5 sites) and src/cd/kronu.jl:51, :70, :86, :91, :100, :120 (6 sites, KronUModel used by the inner CD, quic.jl:74)",
+  "_symmetric_penalty: src/cd/quic.jl:159 (the only call of the 14 outside models.jl that gets a real symmetric owner in the 19 cases) -> src/cd/models.jl:540, :592-597 (NormL1 weights: symmetric kept, otherwise averaged; ProximalSolvers #162 changes this to a throw); the harness Λ is exactly symmetric (problems.jl:184-187), so no averaging happens",
+  "ProximalBase._checkparams(g, X): src/cd/quic.jl:158 (private ProximalBase function)",
+  "fill! used as a clear: src/cd/quic.jl:47, :91, :138, :203, :214 (fill! of a dense matrix D at :47 and of owners D, X, Xc at :91, :138, :203, :214); probe on master: an owner with one stored entry has nactive 0 after fill!(owner, 0.0) (owner.fill0.nactive = 0), but the owner is still the old design (owner.supertype = AbstractMatrix, owner.has_p_field = true), so the redesign (#391 Phase 1) is where this changes",
+  "coordinates(x) on the owner: src/cd/quic.jl:48, :103, :220 and src/cd/kronu.jl:47, :74, :118 (coordinates(x) === x is a 0.5 property; under #425 coordinates(x) is a view: unverified at the candidate)",
+  "X[i, j] element reads of the owner (src/cd/quic.jl:198) rely on SymmetricSparseIterate <: AbstractMatrix (probe: owner.is_abstractmatrix = true on master, redesign #391 Phase 1 not merged); Matrix(Xc) at quic.jl:201 and Matrix(Xs) at quic.jl:234",
+  "LogDetLoss symmetry: LogDetLoss(S) of an asymmetric S throws ArgumentError on master (0.5.4 accepted it); the harness S = Matrix(Symmetric(X'X/n + 0.2I)) (benchmark/problems.jl:183) is exactly symmetric and is accepted on both (probe quic.logdet.*)",
+  "src/cd/gap.jl:800-860 _gapevaluator(f::LogDetLoss, ...) is the gap of the gradient solvers and ADMM, not reached by QUIC",
+  "ledger mlakolar/ProximalBase.jl#527 (every row unchecked): row \"#391 Phase 1: the owner stops being an AbstractMatrix\" lists, for ProximalSolvers, x.p sites, _clear_start! of the owner (src/cd/path.jl:19) and src/cd/quic.jl:47,91,138,203,214; row \"Exact symmetry of LogDetLoss(S)\" lists src/cd/quic.jl:239,241 (the Scaled method, NOT reached here: the harness loss is unscaled, benchmark/cases.jl:40)",
+]
+class = "A"
+class_reason = "As P10: no harness edit provided the minimizer converts to a symmetric dense matrix; the solver path is not yet migrated."
+verification_needed = [
+  "as P10: solver migration (#162, #165, owner redesign #391, clear semantics) and pilot, including the minimizer type and exact symmetry",
+]
+equivalence_check = [
+  "both stacks, per repetition ID the pilot uses, outside any timed region: (1) problem fixture: the per-array SHA-256 of every problem field (not only the combined data_hash, which is never proof of identical semantics: benchmark/problems.jl:41-48) is written to the fixture-fingerprint file and must be equal; (2) reset state: after reset!() the iterate (values, and for sparse iterates the active IDs) equals start and equals the other stack's, and the solver RNG state is equal; (3) solver configuration: the printed fields of the solver and of ProximalOptions are equal between stacks (and equal to the table in this record); (4) certificate: the first and the last certified call have status ok and value at or below the target in both stacks, with the achieved value, the counters and the 'near target' flag recorded; (5) work counters (local.jl diagnostics) recorded for both stacks and reported, never required equal",
+  "plus: as P10 (exact symmetry of S and Λ, minimizer type and symmetry, certificate)",
+]
+
+[[case]]
+label = "D03"
+id = "cd/lasso-D/cd/tight/call"
+role = "diagnostic"
+family = "coordinate descent, lasso, wide design D (n = 180, p = 600), call phase (diagnostic)"
+phase = "call"
+inputs = [
+  "draw (campaign.toml, suite extended): regression_problem(rep, \"extended/design-D\"; n = 180, p = 600, design = :D) (benchmark/cases.jl:318-324); same problem and data_hash as D05",
+]
+seed_key = [
+  "extended/design-D; scenario_rng(rep, key): FNV-1a 64-bit of the key xor the repetition ID, Xoshiro (benchmark/problems.jl:3-9); the measurement order inside a process is shuffled by scenario_rng(rep, \"measurement_order\") (benchmark/run.jl:281)",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark/cases.jl:42)",
+]
+penalty = [
+  "NormL1(λ) (benchmark/cases.jl:56), λ = 0.15 λmax",
+]
+initial_state = [
+  "zeros(600), a plain Vector (benchmark/cases.jl:108)",
+]
+working_set = [
+  "none held by the caller; SparseIterate built inside the call (src/cd/solver.jl:731)",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:128; the CDSolver/ProxNewton RNG is reseeded with Random.seed!(method.rng, 9) at :93, a no-op for other solvers :89-98). The timed call is PS.solve!(x, f, g, method[, options]) (:129).",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-11, gaptol = 1e-10, rng = Xoshiro(9)) (benchmark/cases.jl:70)",
+]
+certificate = [
+  "benchmark/cases.jl:131-139 check: certify(a, Array(output.minimizer)) (:132), independent of the solver and of ProximalBase iterates (it reads plain arrays)",
+  "lasso_certificate, relative_gap, target 1e-6",
+]
+measure = "relative_gap, target 1e-06 (benchmark/campaigns/pre06/campaign.toml [[case]] D03)"
+target = "1e-06"
+work_counters = [
+  "exploratory, repetition 1, Julia 1.10.13: passes=10 kkt_checks=0",
+  "exploratory, repetition 1, Julia 1.13.3: passes=11 kkt_checks=0",
+  "source: Stage 2A archive julia-1.10|1.13/exploratory/work-counters.local.tsv (benchmark/local.jl:124-137 reads them from the returned result after timing, never inside it); untimed and never a formal record",
+  "the formal record (benchmark/run.jl:10-13 METRICS_HEADER, :245-264 record_case!) stores no counter: only time, GC share, bytes, certificate value and data_hash",
+]
+sensitive_paths_06 = [
+  "src/cd/solver.jl:725-726 and :730-733: solve!(x::Vector) builds SparseIterate(x) inside the timed call (:731); src/cd/solver.jl:740-747 _copy_dense! reads _activeentries (src/cd/leastsquares.jl:191, activecoordinates(x))",
+  "src/cd/solver.jl:763-764: _symmetric_penalty(g, x) is the identity for a non-symmetric iterate (src/cd/models.jl:539) and _check_iterate (src/cd/models.jl:683-687, ProximalBase._checkparams at :686)",
+  "src/cd/solver.jl:276 dropzeros!(x) after every pass, and the iterate writes x[k] = v of the CD kernel (for example src/cd/leastsquares.jl:627, 205): they rely on the working-set rules of SparseIterate (ProximalBase #424 and #425, merged on master); their behaviour at the candidate is unverified",
+  "momentum and Anderson history (src/cd/solver.jl:540-602, x.nzval at :562,574,590) are NOT reached: order = :cyclic and anderson = 0 (benchmark/cases.jl:69-70; src/cd/solver.jl:345, :412-414)",
+  "git grep over src/ at 7b9b5295 (ext/ does not exist): the x.p, x.groups, x.storage, x.nzval, coordinates(x) and fill!-of-an-iterate sites that exist (listed in CASE_MAPPING.md, section \"Migration paths the 19 cases do not exercise\") are in code this case does not reach (symmetric-owner, AtomIterate, momentum and Anderson, refit and generic-Newton code); _svd_cache! does not occur in src/",
+]
+class = "A"
+class_reason = "As P01 on a wider design."
+verification_needed = [
+  "pilot on the migrated stack; no solver migration required by this path according to the grep",
+]
+equivalence_check = [
+  "both stacks, per repetition ID the pilot uses, outside any timed region: (1) problem fixture: the per-array SHA-256 of every problem field (not only the combined data_hash, which is never proof of identical semantics: benchmark/problems.jl:41-48) is written to the fixture-fingerprint file and must be equal; (2) reset state: after reset!() the iterate (values, and for sparse iterates the active IDs) equals start and equals the other stack's, and the solver RNG state is equal; (3) solver configuration: the printed fields of the solver and of ProximalOptions are equal between stacks (and equal to the table in this record); (4) certificate: the first and the last certified call have status ok and value at or below the target in both stacks, with the achieved value, the counters and the 'near target' flag recorded; (5) work counters (local.jl diagnostics) recorded for both stacks and reported, never required equal",
+]
+
+[[case]]
+label = "D04"
+id = "primal_dual/generalized-lasso/condat-vu/tight/call"
+role = "diagnostic"
+family = "primal-dual (Condat-Vu), generalized lasso, call phase (diagnostic)"
+phase = "call"
+inputs = [
+  "draw (campaign.toml): generalized_problem(rep, \"primal_dual/generalized\"): n = 80, p = 32, first-difference matrix D = spdiagm(p - 1, p, ...), μ = 0.5, λ1 = 0.05, λ2 = 0.12 (benchmark/problems.jl:191-196; cases.jl:294-295)",
+]
+seed_key = [
+  "primal_dual/generalized; scenario_rng(rep, key): FNV-1a 64-bit of the key xor the repetition ID, Xoshiro (benchmark/problems.jl:3-9); the measurement order inside a process is shuffled by scenario_rng(rep, \"measurement_order\") (benchmark/run.jl:281)",
+]
+objective = [
+  "Sum(s * LeastSquaresLoss(y, X), SqrNormL2(μ)) (benchmark/cases.jl:179)",
+]
+penalty = [
+  "g = NormL1(λ1), h = NormL1(λ2) composed with D (benchmark/cases.jl:180)",
+]
+initial_state = [
+  "x = zeros(p) and y = zeros(p - 1), plain vectors (benchmark/cases.jl:185)",
+]
+working_set = [
+  "none: plain vectors",
+]
+reset = [
+  "fill!(x, 0.0); fill!(y, 0.0) on plain vectors (benchmark/cases.jl:187); no solver RNG is involved. The case does not call reset_solver_rng!",
+]
+solver_options = [
+  "CondatVu(; L, norm_d, abstol = 1e-10, reltol = 1e-9) with L = s opnorm(X)^2 + μ and norm_d = sqrt(opnorm(D, 1) opnorm(D, Inf)) (benchmark/cases.jl:181-183); ProximalOptions from benchmark_options() with gaptol 1e-10 (cases.jl:184); the timed call is PS.solve!(x, f, g, h, D, method, options; y, gap) (:188)",
+]
+certificate = [
+  "benchmark/cases.jl:189 certify(a, (; x = output.minimizer, y = output.y)) -> generalized_lasso_certificate (benchmark/certificates.jl:278-284, :371-372), relative_gap, target 1e-6. NOTE: the same certificate function is also the solver's stopping rule: gap(x, y) = certify(a, (; x, y)).value (cases.jl:186) is called inside the timed solve! (src/solvers/primal_dual.jl:301, :323, every gapevery = 10 iterations and at return), so benchmark/certificates.jl is part of this case's timed region",
+]
+measure = "relative_gap, target 1e-06 (benchmark/campaigns/pre06/campaign.toml [[case]] D04)"
+target = "1e-06"
+work_counters = [
+  "exploratory, repetition 1, Julia 1.10.13: iterations=110 f_calls=1 grad_calls=120 prox_calls=228",
+  "exploratory, repetition 1, Julia 1.13.3: iterations=180 f_calls=1 grad_calls=196 prox_calls=374",
+  "source: Stage 2A archive julia-1.10|1.13/exploratory/work-counters.local.tsv (benchmark/local.jl:124-137 reads them from the returned result after timing, never inside it); untimed and never a formal record",
+  "the formal record (benchmark/run.jl:10-13 METRICS_HEADER, :245-264 record_case!) stores no counter: only time, GC share, bytes, certificate value and data_hash",
+]
+sensitive_paths_06 = [
+  "src/solvers/primal_dual.jl:215-327 solve!(x::AbstractVector, f, g, h, D, ...): prox! of g and h (:163, :167) and the user gap callback; no iterate type, x.p, x.groups, x.storage or coordinates(x) site (git grep over src/solvers/primal_dual.jl)",
+  "the harness gap callback runs the independent certificate inside the timed region: any change to benchmark/certificates.jl changes the timed operation of this case (the harness hash would change as well)",
+]
+class = "A"
+class_reason = "Plain vectors, no harness edit, no sensitive site found. Because the certificate is part of the timed region, the certificate file must be byte-identical in both stacks for this case to be like for like."
+verification_needed = [
+  "pilot on the migrated stack (certificate and counters iterations/grad_calls/prox_calls); confirm that benchmark/certificates.jl is identical in both stacks; no solver migration required by this path according to the grep",
+]
+equivalence_check = [
+  "both stacks, per repetition ID the pilot uses, outside any timed region: (1) problem fixture: the per-array SHA-256 of every problem field (not only the combined data_hash, which is never proof of identical semantics: benchmark/problems.jl:41-48) is written to the fixture-fingerprint file and must be equal; (2) reset state: after reset!() the iterate (values, and for sparse iterates the active IDs) equals start and equals the other stack's, and the solver RNG state is equal; (3) solver configuration: the printed fields of the solver and of ProximalOptions are equal between stacks (and equal to the table in this record); (4) certificate: the first and the last certified call have status ok and value at or below the target in both stacks, with the achieved value, the counters and the 'near target' flag recorded; (5) work counters (local.jl diagnostics) recorded for both stacks and reported, never required equal",
+  "plus: SHA-256 of benchmark/certificates.jl equal in both stacks (it executes inside the timed call); D and the first-difference structure in the fixture fingerprint",
+]
+
+[[case]]
+label = "D05"
+id = "gradient/lasso-D/apg/tight/call"
+role = "diagnostic"
+family = "accelerated proximal gradient, lasso, wide design D (n = 180, p = 600), call phase (diagnostic)"
+phase = "call"
+inputs = [
+  "draw (campaign.toml, suite extended): regression_problem(rep, \"extended/design-D\"; n = 180, p = 600, design = :D) (benchmark/cases.jl:318-324); same problem and data_hash as D03",
+]
+seed_key = [
+  "extended/design-D; scenario_rng(rep, key): FNV-1a 64-bit of the key xor the repetition ID, Xoshiro (benchmark/problems.jl:3-9); the measurement order inside a process is shuffled by scenario_rng(rep, \"measurement_order\") (benchmark/run.jl:281)",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark/cases.jl:42)",
+]
+penalty = [
+  "NormL1(λ) (benchmark/cases.jl:56)",
+]
+initial_state = [
+  "zeros(600), a plain Vector (benchmark/cases.jl:108)",
+]
+working_set = [
+  "none: plain Vector",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:128; the CDSolver/ProxNewton RNG is reseeded with Random.seed!(method.rng, 9) at :93, a no-op for other solvers :89-98). The timed call is PS.solve!(x, f, g, method[, options]) (:129).",
+]
+solver_options = [
+  "AccProxGradDescent() (benchmark/cases.jl:63); ProximalOptions(maxiter 10000, ftol 1e-15, xtol 1e-14, gradtol 1e-11, gaptol 1e-10, gapevery 10) (cases.jl:22-27)",
+]
+certificate = [
+  "benchmark/cases.jl:131-139 check: certify(a, Array(output.minimizer)) (:132), independent of the solver and of ProximalBase iterates (it reads plain arrays)",
+  "lasso_certificate, relative_gap, target 1e-6",
+]
+measure = "relative_gap, target 1e-06 (benchmark/campaigns/pre06/campaign.toml [[case]] D05)"
+target = "1e-06"
+work_counters = [
+  "exploratory, repetition 1, Julia 1.10.13: iterations=20 f_calls=52 grad_calls=24 prox_calls=27 backtrack_steps=27",
+  "exploratory, repetition 1, Julia 1.13.3: iterations=30 f_calls=82 grad_calls=38 prox_calls=43 backtrack_steps=43",
+  "source: Stage 2A archive julia-1.10|1.13/exploratory/work-counters.local.tsv (benchmark/local.jl:124-137 reads them from the returned result after timing, never inside it); untimed and never a formal record",
+  "the formal record (benchmark/run.jl:10-13 METRICS_HEADER, :245-264 record_case!) stores no counter: only time, GC share, bytes, certificate value and data_hash",
+]
+sensitive_paths_06 = [
+  "src/solve.jl:65-81: solve! for the gradient solvers: _symmetric_penalty (:75) is the identity for a Vector, _workspace_noalias (:76), initial_state (:78), _gapevaluator (:79, src/cd/gap.jl)",
+  "no iterate type is involved: x is a plain Vector, _drop! is the identity for an AbstractArray (src/solve.jl:4)",
+  "git grep over src/ at 7b9b5295 (ext/ does not exist): the x.p, x.groups, x.storage, x.nzval, coordinates(x) and fill!-of-an-iterate sites that exist (listed in CASE_MAPPING.md, section \"Migration paths the 19 cases do not exercise\") are in code this case does not reach (symmetric-owner, AtomIterate, momentum and Anderson, refit and generic-Newton code); _svd_cache! does not occur in src/",
+]
+class = "A"
+class_reason = "As P07 on a wider design."
+verification_needed = [
+  "pilot on the migrated stack; no solver migration required by this path according to the grep",
+]
+equivalence_check = [
+  "both stacks, per repetition ID the pilot uses, outside any timed region: (1) problem fixture: the per-array SHA-256 of every problem field (not only the combined data_hash, which is never proof of identical semantics: benchmark/problems.jl:41-48) is written to the fixture-fingerprint file and must be equal; (2) reset state: after reset!() the iterate (values, and for sparse iterates the active IDs) equals start and equals the other stack's, and the solver RNG state is equal; (3) solver configuration: the printed fields of the solver and of ProximalOptions are equal between stacks (and equal to the table in this record); (4) certificate: the first and the last certified call have status ok and value at or below the target in both stacks, with the achieved value, the counters and the 'near target' flag recorded; (5) work counters (local.jl diagnostics) recorded for both stacks and reported, never required equal",
+]
