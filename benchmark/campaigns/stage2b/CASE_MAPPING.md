@@ -139,8 +139,8 @@ and not a candidate): after a used `SparseIterate` of the harness size (probe at
 The port is therefore the identical operation on 0.5.4 and restores the cold start on master. The
 formal `harness_hash` (SHA-1 over `problems.jl`, `certificates.jl`, `cases.jl` and `run.jl`,
 `benchmark/run.jl:112-115`) changes with the port. Stack A keeps its true historical hash
-`b7bf3d953ec6e9f9720e74d7895b5cf95a629fd4`; Stack B records its own true hash, recorded at the port commit
-(`new_harness_hash` of the mapping row); the two are never forced equal. The difference is declared in the comparison's approved-differences file, together
+`b7bf3d953ec6e9f9720e74d7895b5cf95a629fd4`; Stack B records its own true hash, `0fd2b44dfea0b1f77c2c67228bf149207982ab8b`, computed at the port commit
+(`new_harness_hash` of the mapping row, recomputed by a test); the two are never forced equal. The difference is declared in the comparison's approved-differences file, together
 with this mapping record (`MIGRATION_COMPARE_SPEC.md`).
 
 ## Cases singled out

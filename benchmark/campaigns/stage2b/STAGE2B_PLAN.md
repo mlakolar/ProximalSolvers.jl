@@ -169,7 +169,7 @@ Performed before any pilot, recorded in `case-mapping.toml`, reviewed by the mai
    `Vector` of the two SLOPE paths keeps `fill!(x, 0.0)`. The approval is conditional: the equivalence is
    re-validated on the pinned candidate before official measurement.
 4. **Both true harness hashes are preserved.** The port changes the formal harness hash. Stack A keeps
-   `b7bf3d95...`, Stack B records its own, taken at the port commit and never written in advance; they are
+   `b7bf3d95...`, Stack B records its own, `0fd2b44dfea0b1f77c2c67228bf149207982ab8b`, taken at the port commit; they are
    never forced equal. The difference is declared in the approved-differences file together with the mapping
    record (`approved`, `approval_url`, `approval_scope`).
 5. **Equivalence check, outside every timed region**, per case and per repetition ID used by the pilot:

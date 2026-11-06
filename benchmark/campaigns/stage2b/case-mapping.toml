@@ -22,8 +22,8 @@
 # pre-candidate audit for implementation and testing of PR B (18 class A, P14 class B, no C or D); it is not a
 # finding that any case works on a 0.6 candidate, and candidate-specific revalidation and sign-off are required
 # before any official measurement. Every row has `approved`; a class B row also has `approval_url`,
-# `approval_scope`, `port_text` and `new_harness_hash` (the true hash is recorded at the port commit, never
-# written here). The comparison tool (MIGRATION_COMPARE_SPEC.md) requires `approved = true` and a non-empty
+# `approval_scope`, `port_text` and `new_harness_hash` (the true hash of the harness files at the port commit; a test
+# recomputes it, so it can never drift from the files). The comparison tool (MIGRATION_COMPARE_SPEC.md) requires `approved = true` and a non-empty
 # `approval_url` for class B only; any other class is refused unless a separate approved mapping is present.
 #
 # Provisional until a ProximalBase 0.6 candidate commit and a migrated ProximalSolvers commit
@@ -867,7 +867,7 @@ port_text = [
   "fill!(x, 0.0) kept for the dense Vector of the two SLOPE paths (paths/slope/slope-apg/grid8/call, paths/slope/slope-hybrid/grid8/call): dropzeros! has no method for a plain Vector",
   "the rest of the reset line, reset_solver_rng!(method); nothing, is unchanged",
 ]
-new_harness_hash = "recorded at the port commit"
+new_harness_hash = "0fd2b44dfea0b1f77c2c67228bf149207982ab8b"   # SHA-1 over problems.jl, certificates.jl, cases.jl, run.jl at the port commit fb9b1692069dec4778f24a6732a325ab1c05f1b7; test_stage2b_files.py recomputes it from the files
 class_reason = "Equivalent only with a reviewed compatibility-only harness port: on ProximalBase master the historical reset leaves the previous solve's active coordinates active, so the warm start differs from the 0.5.4 cold start. The port dropzeros!(fill!(x, 0.0)) gives the identical empty working set on both versions (probe)."
 verification_needed = [
   "the approved port (maintainer decision on #110) in PR B, with its own test; then, on the pinned candidate, the pilot: nactive(x) == 0 and all values zero after every reset!() on both stacks, the eight-level path complete (returned grid equals the requested grid), per-level certificates, counters (passes, stages, kkt_checks)",

@@ -20,6 +20,17 @@ import tomllib
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+BENCH = os.path.abspath(os.path.join(HERE, "..", ".."))
+
+
+def harness_hash():
+    """The harness fingerprint exactly as benchmark/run.jl computes it: SHA-1 over, for the four harness
+    files in sorted order, the path relative to benchmark/, a NUL, the bytes and a NUL."""
+    digest = hashlib.sha1()
+    for name in sorted(("problems.jl", "certificates.jl", "cases.jl", "run.jl")):
+        with open(os.path.join(BENCH, name), "rb") as handle:
+            digest.update(name.encode() + b"\0" + handle.read() + b"\0")
+    return digest.hexdigest()
 PRE06 = os.path.join(HERE, "..", "pre06")
 BENCH = os.path.join(HERE, "..", "..")
 
@@ -434,8 +445,9 @@ class MappingApprovalTests(unittest.TestCase):
             port = "\n".join(strings(case["port_text"]))
             self.assertIn("dropzeros!(fill!(x, 0.0)) for the SparseIterate of the lasso path", port)
             self.assertIn("fill!(x, 0.0) kept for the dense Vector of the two SLOPE paths", port)
-            # the true new harness hash is recorded at the port commit, never written here
-            self.assertEqual(case["new_harness_hash"], "recorded at the port commit")
+            # the true new harness hash is the hash of the harness files of this tree, as run.jl computes it
+            self.assertEqual(case["new_harness_hash"], harness_hash())
+            self.assertNotEqual(case["new_harness_hash"], "b7bf3d953ec6e9f9720e74d7895b5cf95a629fd4")
 
     def test_class_a_rows_say_there_is_nothing_to_approve(self):
         rows = [c for c in self.cases if c["class"] == "A"]
