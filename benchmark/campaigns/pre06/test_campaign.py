@@ -70,6 +70,17 @@ def report(name, mode="official", nonok=False):
                 record_integrity="valid")
 
 
+def evidence(out):
+    """The EVIDENCE line of verify's output."""
+    lines = [line for line in out.splitlines() if line.startswith("EVIDENCE: ")]
+    assert len(lines) == 1, out
+    return lines[0]
+
+
+NOT_VALID = "EVIDENCE: NOT VALID (integrity failure; never Stage 2A baseline evidence)"
+PILOT = "EVIDENCE: PILOT / NON-OFFICIAL (never Stage 2A baseline evidence)"
+
+
 def verify(root, reports=None, freeze_sha=SHA, allow_pilot=False, archive=True):
     """campaign.verify() on `root` with fake per-version reports; (exit code, stdout)."""
     reports = reports or {}
@@ -161,6 +172,15 @@ class VerifyModes(Scratch):
         code, out = verify(root, nonok)
         self.assertEqual(code, 2)
         self.assertIn("NUMERICAL: FAIL", out)
+        self.assertEqual(evidence(out), "EVIDENCE: OFFICIAL")
+        failing = {"julia-1.13": dict(report("julia-1.13"), failures=["checksum mismatch: x"])}
+        for label, reports, kwargs in (("failing version", failing, {}),
+                                       ("no freeze SHA", {}, dict(freeze_sha=None)),
+                                       ("mixed", {"julia-1.13": report("julia-1.13", "pilot")},
+                                        dict(allow_pilot=True))):
+            with self.subTest(label):
+                code, out = verify(root, reports, **kwargs)
+                self.assertEqual((code, evidence(out)), (1, NOT_VALID))
         # official evidence keeps the official gate even with --allow-pilot
         self.assertEqual(verify(root, allow_pilot=True)[0], 0)
         self.assertEqual(verify(root, allow_pilot=True, freeze_sha=None)[0], 1)
@@ -170,20 +190,25 @@ class VerifyModes(Scratch):
         root = self.root("pre06-pilot-archive")
         code, out = verify(root, pilot, allow_pilot=True)
         self.assertEqual(code, 0)
-        self.assertIn("EVIDENCE: PILOT / NON-OFFICIAL", out)
-        self.assertNotIn("EVIDENCE: OFFICIAL", out)
+        self.assertEqual(evidence(out), PILOT)
         self.assertEqual(verify(root, pilot, allow_pilot=True, freeze_sha=None)[0], 0)
         self.assertEqual(verify(root, pilot)[0], 1)                       # official gate
         self.assertEqual(verify(root, pilot, archive=False)[0], 1)        # no --allow-pilot
         self.assertEqual(verify(root, pilot, archive=False, allow_pilot=True)[0], 0)
         code, out = verify(root, dict(pilot, **{"julia-1.10": report("julia-1.10", "pilot",
                                                                       True)}), allow_pilot=True)
-        self.assertEqual(code, 2)
-        self.assertIn("EVIDENCE: PILOT / NON-OFFICIAL", out)
+        self.assertEqual((code, evidence(out)), (2, PILOT))
         mixed = dict(pilot, **{"julia-1.13": report("julia-1.13")})
-        self.assertEqual(verify(root, mixed, allow_pilot=True)[0], 1)
         unknown = dict(pilot, **{"julia-1.13": report("julia-1.13", "rehearsal")})
-        self.assertEqual(verify(root, unknown, allow_pilot=True)[0], 1)
+        failing = dict(pilot, **{"julia-1.13": dict(report("julia-1.13", "pilot"),
+                                                    failures=["x"])})
+        for label, reports, kwargs in (("mixed", mixed, dict(allow_pilot=True)),
+                                       ("unknown", unknown, dict(allow_pilot=True)),
+                                       ("failing", failing, dict(allow_pilot=True)),
+                                       ("official gate", pilot, {})):
+            with self.subTest(label):
+                code, out = verify(root, reports, **kwargs)
+                self.assertEqual((code, evidence(out)), (1, NOT_VALID))
 
     def test_pilot_rehearsal_root_and_versions(self):
         pilot = {f"julia-{v}": report(f"julia-{v}", "pilot") for v in VERSIONS}
@@ -196,29 +221,73 @@ class VerifyModes(Scratch):
         self.assertEqual(verify(one, pilot, allow_pilot=True)[0], 1)
         self.assertEqual(verify(self.root(versions=["1.10"]))[0], 1)
 
-    def test_pilot_receipt_claiming_official_fails_evidence_checks(self):
+    def receipt(self, change, start=None):
+        """verify_julia on a julia-1.13 holding only a start event (changed by `change`)."""
         julia = self.tmp / "julia-1.13"
-        julia.mkdir()
-        start = dict(event="start", mode="official", campaign_id=CAMPAIGN["campaign_id"],
-                     julia_version="1.13", cases_sha256=CAMPAIGN["cases"]["sha256"],
-                     case_filter=",".join(IDS), pinned_sha=CAMPAIGN["proximalsolvers"]["commit"],
-                     freeze_head=SHA, campaign_py_sha256=C.sha256(HERE / "campaign.py"),
-                     repetitions=CAMPAIGN["protocol"]["repetitions"],
-                     settings=dict(CAMPAIGN["settings"]), no_exploratory=False,
-                     freeze_sha_expected=SHA)
+        julia.mkdir(exist_ok=True)
+        (julia / "receipt.jsonl").write_text(json.dumps(dict(start or self.START, **change))
+                                             + "\n")
+        (julia / "result.json").write_text('{"status": "completed", "reason": null}')
+        (julia / "checksums.sha256").write_text("".join(
+            f"{C.sha256(julia / n)}  {n}\n" for n in ("receipt.jsonl", "result.json")))
+        found = C.verify_julia(julia, CAMPAIGN, IDS, SHA)
+        self.assertEqual(found["record_integrity"], "invalid")   # no Manifest etc.
+        return "".join(found["failures"])
+
+    START = dict(event="start", mode="official", campaign_id=CAMPAIGN["campaign_id"],
+                 julia_version="1.13", cases_sha256=CAMPAIGN["cases"]["sha256"],
+                 case_filter=",".join(IDS), pinned_sha=CAMPAIGN["proximalsolvers"]["commit"],
+                 freeze_head=SHA, campaign_py_sha256=C.sha256(HERE / "campaign.py"),
+                 repetitions=CAMPAIGN["protocol"]["repetitions"],
+                 settings=dict(CAMPAIGN["settings"]), no_exploratory=False,
+                 freeze_sha_expected=SHA, root=f"/evidence/{OFFICIAL}",
+                 argv=["campaign.py", "run", "--julia-version", "1.13", "--root",
+                       f"/evidence/{OFFICIAL}", "--freeze-sha", SHA])
+
+    def test_pilot_receipt_claiming_official_fails_evidence_checks(self):
         claims = {"pilot settings": dict(settings=dict(CAMPAIGN["settings"], PS_SAMPLES="5")),
                   "pilot repetitions": dict(repetitions=1),
                   "no freeze SHA": dict(freeze_sha_expected=None),
                   "no exploratory": dict(no_exploratory=True)}
         for label, change in claims.items():
             with self.subTest(label):
-                (julia / "receipt.jsonl").write_text(json.dumps(dict(start, **change)) + "\n")
-                (julia / "result.json").write_text('{"status": "completed", "reason": null}')
-                (julia / "checksums.sha256").write_text("".join(
-                    f"{C.sha256(julia / n)}  {n}\n" for n in ("receipt.jsonl", "result.json")))
-                found = C.verify_julia(julia, CAMPAIGN, IDS, SHA)
-                self.assertEqual(found["record_integrity"], "invalid")
-                self.assertIn("official evidence with other settings", "".join(found["failures"]))
+                self.assertIn("official evidence with other settings", self.receipt(change))
+
+    def test_receipt_root_and_argv_agree_with_mode(self):
+        official = "official evidence with another root name or a --pilot command line"
+        pilot = "pilot evidence without a pilot root name and a --pilot command line"
+        self.assertNotIn(official, self.receipt({}))   # a genuine official start
+        self.assertIn(official, self.receipt(dict(root="/evidence/pre06-pilot-root")))
+        self.assertIn(official, self.receipt(dict(argv=self.START["argv"] + ["--pilot"])))
+        genuine = dict(mode="pilot", root="/evidence/pre06-pilot-root",
+                       argv=["campaign.py", "run", "--pilot", "--root", "/evidence/pre06-pilot-root"])
+        self.assertNotIn(pilot, self.receipt(genuine))
+        self.assertIn(pilot, self.receipt(dict(genuine, root=f"/evidence/{OFFICIAL}")))
+        self.assertIn(pilot, self.receipt(dict(genuine, argv=self.START["argv"])))
+
+    def test_unreadable_checksum_lists_fail_closed(self):
+        root = self.root()
+        nested = root / "julia-1.10" / "checksums.sha256"
+        nested.write_bytes(b"\xff\xfe not utf-8\n")
+        with self.assertRaises(C.Stop):
+            C.read_checksums(nested)
+        (root / "checksums.sha256").write_bytes(b"\xff\xfe not utf-8\n")
+        code, out = verify(root)
+        self.assertEqual((code, evidence(out)), (1, NOT_VALID))
+        self.assertIn("unreadable: UnicodeDecodeError", out)
+        julia = self.tmp / "julia-1.13"
+        self.receipt({})
+        (julia / "checksums.sha256").write_bytes(b"\xff\n")
+        found = C.verify_julia(julia, CAMPAIGN, IDS, SHA)
+        self.assertIn("unreadable: UnicodeDecodeError", "".join(found["failures"]))
+
+    def test_usage_errors_exit_1(self):
+        for argv in (["verify"], ["verify", "x", "--bogus"], ["nope"], []):
+            with self.subTest(argv):
+                result = subprocess.run([sys.executable, "-B", str(HERE / "campaign.py"), *argv],
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn("error:", result.stderr)
 
     def test_attempts_limit(self):
         root = self.root()
@@ -333,14 +402,19 @@ import os, signal, sys
 with open(os.environ["MOCK_LOG"], "a") as log:
     log.write("campaign " + " ".join(sys.argv[1:]) + "\n")
 rc = int(os.environ.get("STUB_RC", "0"))
-pilot = "--allow-pilot" in sys.argv
-print("RECORD INTEGRITY: " + ("PASS" if rc in (0, 2) else "FAIL"))
-if rc in (0, 2):
-    print("NUMERICAL: " + ("FAIL (non-ok primary cases: ['x'])" if rc == 2
-                           else "PASS (non-ok primary cases: none)"))
-    print("HARDWARE: julia-1.10 controlled, julia-1.13 controlled")
-print("EVIDENCE: " + ("OFFICIAL" if rc in (0, 2) and not pilot
-                      else "PILOT / NON-OFFICIAL (never Stage 2A baseline evidence)"))
+ok, pilot = rc in (0, 2), "--allow-pilot" in sys.argv
+lines = {"RECORD INTEGRITY": "PASS" if ok else "FAIL"}
+if ok:
+    lines["NUMERICAL"] = ("FAIL (non-ok primary cases: ['x'])" if rc == 2
+                          else "PASS (non-ok primary cases: none)")
+    lines["HARDWARE"] = "julia-1.10 controlled, julia-1.13 controlled"
+lines["EVIDENCE"] = ("NOT VALID (integrity failure; never Stage 2A baseline evidence)" if not ok
+                     else "PILOT / NON-OFFICIAL (never Stage 2A baseline evidence)" if pilot
+                     else "OFFICIAL")
+for key, value in lines.items():   # STUB_RECORD_INTEGRITY, STUB_NUMERICAL, ... override
+    value = os.environ.get("STUB_" + key.replace(" ", "_"), value)
+    if not os.environ.get("STUB_SILENT"):
+        print(f"{key}: {value}")
 sys.stdout.flush()
 if os.environ.get("STUB_SIGNAL"):
     os.kill(os.getpid(), signal.SIGTERM)
@@ -350,7 +424,7 @@ sys.exit(rc)
 GH = r'''#!/usr/bin/env bash
 echo "gh $*" >> "$MOCK_LOG"
 case "$*" in
-  "api repos/"*/commits/*) echo "${2##*/}" ;;
+  "api repos/"*/commits/*) echo "${GH_COMMIT:-${2##*/}}" ;;
   "api repos/"*/compare/*) echo "${GH_COMPARE:-behind}" ;;
   "issue view 110 "*) echo "Freeze commit: ${GH_ISSUE_SHA:-}" ;;
   "api repos/"*/git/ref/tags/*)
@@ -359,7 +433,12 @@ case "$*" in
       error) echo 'gh: Bad Gateway (HTTP 502)' >&2; exit 1 ;;
       *) echo '{"ref": "refs/tags/x"}' ;;
     esac ;;
-  "release view "*) [ -n "${GH_RELEASE_EXISTS:-}" ] || { echo 'release not found' >&2; exit 1; } ;;
+  "release view "*)
+    case ${GH_RELEASE:-absent} in
+      absent) echo 'release not found' >&2; exit 1 ;;
+      error) echo 'error connecting to api.github.com' >&2; exit 1 ;;
+      *) echo 'title: x' ;;
+    esac ;;
   "release create "*) [ -z "${GH_CREATE_FAIL:-}" ] || { echo 'HTTP 500' >&2; exit 1; } ;;
   *) echo "unexpected: gh $*" >&2; exit 99 ;;
 esac
@@ -370,25 +449,29 @@ echo "tar $*" >> "$MOCK_LOG"
 [ -z "${TAR_FAIL:-}" ] || exit 1
 exec "$REAL_TAR" "$@"
 '''
+NOT_VALID_LINE = NOT_VALID.removeprefix("EVIDENCE: ")
+PILOT_LINE = PILOT.removeprefix("EVIDENCE: ")
+ISSUE_URL = "https://github.com/mlakolar/ProximalSolvers.jl/issues/110#issuecomment-"
 
 
 class ArchiveScript(Scratch):
     def setUp(self):
         super().setUp()
-        stub, bin_ = self.tmp / "stub", self.tmp / "bin"
-        stub.mkdir()
+        self.stub, bin_ = self.tmp / "stub", self.tmp / "bin"
+        self.stub.mkdir()
         bin_.mkdir()
-        (stub / "campaign.py").write_text(STUB)
-        shutil.copyfile(HERE / "campaign.toml", stub / "campaign.toml")
+        (self.stub / "campaign.py").write_text(STUB)
+        shutil.copyfile(HERE / "campaign.toml", self.stub / "campaign.toml")
         for name, text in (("gh", GH), ("tar", TAR)):
             (bin_ / name).write_text(text)
             (bin_ / name).chmod(0o755)
         self.log = self.tmp / "mock.log"
         self.env = dict(os.environ, PATH=f"{bin_}:{os.environ['PATH']}",
-                        CAMPAIGN=str(stub / "campaign.py"), MOCK_LOG=str(self.log),
+                        CAMPAIGN=str(self.stub / "campaign.py"), MOCK_LOG=str(self.log),
                         REAL_TAR=shutil.which("tar"), GH_ISSUE_SHA=SHA)
         self.evidence = self.tmp / "evidence"
         self.evidence.mkdir()
+        self.notes = self.evidence / f"{OFFICIAL}.release-notes.md"
 
     def run_sh(self, *args, **env):
         self.log.write_text("")
@@ -400,10 +483,18 @@ class ArchiveScript(Scratch):
         result, log = self.run_sh("pack", root, SHA, *flags, STUB_RC=str(rc), **env)
         return root, Path(f"{root}.tar.gz"), result, log
 
+    def assert_refused(self, result, log, message=None):
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertNotIn("release create", log)
+        if message:
+            self.assertIn(message, result.stderr)
+
     def test_syntax(self):
         self.assertEqual(subprocess.run(["bash", "-n", str(ARCHIVE)]).returncode, 0)
-        if shutil.which("shellcheck"):
-            self.assertEqual(subprocess.run(["shellcheck", str(ARCHIVE)]).returncode, 0)
+
+    @unittest.skipUnless(shutil.which("shellcheck"), "shellcheck is not installed")
+    def test_shellcheck(self):
+        self.assertEqual(subprocess.run(["shellcheck", str(ARCHIVE)]).returncode, 0)
 
     def test_pack_ok(self):
         root, tarball, result, log = self.pack(0)
@@ -429,14 +520,50 @@ class ArchiveScript(Scratch):
         self.assertEqual(Path(f"{tarball}.sha256").read_text(), f"{digest}  {tarball.name}\n")
 
     def test_pack_blocked(self):
-        for label, rc, env in (("integrity", 1, {}), ("other code", 3, {}),
-                               ("signal", 0, dict(STUB_SIGNAL="1"))):
+        rehearsal = ("--pilot-rehearsal",)
+        cases = {  # label: (verify exit code, pack flags, stub environment)
+            "integrity": (1, (), {}), "other code": (3, (), {}),
+            "signal": (0, (), dict(STUB_SIGNAL="1")),
+            "rc 2 without result lines": (2, (), dict(STUB_SILENT="1")),
+            "rc 0 integrity FAIL": (0, (), dict(STUB_RECORD_INTEGRITY="FAIL")),
+            "rc 0 numerical FAIL": (0, (), dict(STUB_NUMERICAL="FAIL (x)")),
+            "rc 2 numerical PASS": (2, (), dict(STUB_NUMERICAL="PASS (x)")),
+            "official labelled pilot": (0, (), dict(STUB_EVIDENCE=PILOT_LINE)),
+            "official labelled not valid": (2, (), dict(STUB_EVIDENCE=NOT_VALID_LINE)),
+            "pilot labelled official": (0, rehearsal, dict(STUB_EVIDENCE="OFFICIAL")),
+            "pilot labelled not valid": (0, rehearsal, dict(STUB_EVIDENCE=NOT_VALID_LINE)),
+        }
+        for number, (label, (rc, flags, env)) in enumerate(cases.items()):
             with self.subTest(label):
-                root, tarball, result, log = self.pack(rc, f"{OFFICIAL}-{rc}-{label[0]}", **env)
-                self.assertEqual(result.returncode, 1)
-                self.assertIn("not packed", result.stderr)
+                root, tarball, result, log = self.pack(rc, f"pilot-{number}", *flags, **env)
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn("campaign verify", log)
+                if label in ("integrity", "other code", "signal"):   # blocked by the code
+                    self.assertIn(f"verify exited with {143 if label == 'signal' else rc}",
+                                  result.stderr)
                 self.assertNotIn("tar ", log)
                 self.assertFalse(tarball.exists() or Path(f"{tarball}.status").exists())
+        result, log = self.run_sh("pack", root, SHA)   # the verify.out of a blocked pack
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("never overwritten", result.stderr)
+        self.assertNotIn("campaign verify", log)
+
+    def test_pack_refuses_unlistable_names(self):
+        for label, name, file in (("hash in archive path", "pre06#x", None),
+                                  ("backslash", "pre06-bs", "a\\b"),
+                                  ("newline", "pre06-nl", "a\nb")):
+            with self.subTest(label):
+                root = make_root(self.evidence, name)
+                if file:
+                    (root / "julia-1.13" / file).write_text("x\n")
+                result, log = self.run_sh("pack", root, SHA)
+                self.assertEqual(result.returncode, 1)
+                self.assertNotIn("campaign verify", log)
+                if file is None:   # refused before anything is written
+                    self.assertEqual((root / "checksums.sha256").read_text(), "stale\n")
+                else:
+                    self.assertFalse((root / "checksums.sha256").exists())
+                self.assertIn("'#'" if file is None else "backslash or newline", result.stderr)
 
     def test_pack_rc2_and_release_disposition(self):
         root, tarball, result, log = self.pack(2)
@@ -445,57 +572,87 @@ class ArchiveScript(Scratch):
         self.assertTrue(tarball.is_file())
         self.assertIn("numerical_status: NUMERICAL FAILURE: valid archived evidence, "
                       "not a healthy reference", Path(f"{tarball}.status").read_text())
-        result, log = self.run_sh("release", root, SHA, "--tag", TAG, STUB_RC="2")
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("--disposition", result.stderr)
-        self.assertNotIn("release create", log)
+        release = ("release", root, SHA, "--tag", TAG)
+        result, log = self.run_sh(*release, STUB_RC="2")
+        self.assert_refused(result, log, "--disposition")
         self.assertTrue(tarball.is_file())
-        url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/110#issuecomment-1"
-        result, log = self.run_sh("release", root, SHA, "--tag", TAG, "--disposition", url,
-                                  STUB_RC="2")
+        result, log = self.run_sh(*release, "--disposition", ISSUE_URL + "1", STUB_RC="0")
+        self.assert_refused(result, log, "exits 0; packed with 2")
+        for label, disposition, rc in (
+                ("URL of another issue", ISSUE_URL.replace("/110#", "/111#") + "1", "2"),
+                ("URL of another repository", "https://github.com/x/y/issues/110#issuecomment-1",
+                 "2"),
+                ("URL without comment id", ISSUE_URL, "2"),
+                ("two lines", "decided\nreleased", "2")):
+            with self.subTest(label):
+                result, log = self.run_sh(*release, "--disposition", disposition, STUB_RC=rc)
+                self.assert_refused(result, log)
+        text = "Maintainer decision 2026-11-05: archive as a failed baseline"
+        result, log = self.run_sh(*release, "--disposition", text, STUB_RC="2")
         self.assertEqual(result.returncode, 0, result.stderr)
         create = [line for line in log.splitlines() if line.startswith("gh release create")]
         self.assertEqual(len(create), 1)
         self.assertIn(f"--target {SHA}", create[0])
         self.assertNotIn("--clobber", log)
-        notes = Path(f"{self.evidence}/{OFFICIAL}.release-notes.md").read_text()
+        notes = self.notes.read_text()
         self.assertIn("NUMERICAL FAILURE", notes)
-        self.assertIn(url, notes)
+        self.assertIn(text, notes)
         self.assertIn("not a Julia package release", notes)
+        self.notes.unlink()
+        result, log = self.run_sh(*release, "--disposition", ISSUE_URL + "123", STUB_RC="2")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(ISSUE_URL + "123", self.notes.read_text())
 
     def test_release_ok_and_refusals(self):
         root, tarball, result, _ = self.pack(0)
         self.assertEqual(result.returncode, 0, result.stderr)
         release = ("release", root, SHA, "--tag", TAG)
         refusals = {"tag exists": dict(GH_TAG="exists"), "tag lookup error": dict(GH_TAG="error"),
-                    "release exists": dict(GH_RELEASE_EXISTS="1"),
-                    "not on master": dict(GH_COMPARE="diverged"),
+                    "release exists": dict(GH_RELEASE="exists"),
+                    "release lookup error": dict(GH_RELEASE="error"),
+                    "GitHub resolves another commit": dict(GH_COMMIT="b" * 40),
+                    "diverged from master": dict(GH_COMPARE="diverged"),
+                    "ahead of master": dict(GH_COMPARE="ahead"),
                     "not on #110": dict(GH_ISSUE_SHA="b" * 40),
-                    "verify now fails": dict(STUB_RC="1"), "verify now 2": dict(STUB_RC="2")}
+                    "verify now fails": dict(STUB_RC="1"), "verify now 2": dict(STUB_RC="2"),
+                    "verify now labelled pilot": dict(STUB_EVIDENCE=PILOT_LINE),
+                    "verify now other hardware": dict(STUB_HARDWARE="julia-1.10 observational"),
+                    "verify now other numerical line": dict(STUB_NUMERICAL="PASS (other)")}
         for label, env in refusals.items():
             with self.subTest(label):
-                result, log = self.run_sh(*release, **env)
-                self.assertEqual(result.returncode, 1)
-                self.assertNotIn("release create", log)
+                self.assert_refused(*self.run_sh(*release, **env))
+        with self.subTest("packed 0, verify now 2, with a disposition"):
+            self.assert_refused(*self.run_sh(*release, "--disposition", ISSUE_URL + "1",
+                                             STUB_RC="2"), "exits 2; packed with 0")
         for label, args in {"wrong tag": ("--tag", "bench-pre06-v2"),
                             "short sha": ("--tag", TAG)}.items():
             with self.subTest(label):
                 sha = SHA[:12] if label == "short sha" else SHA
-                result, log = self.run_sh("release", root, sha, *args)
-                self.assertEqual(result.returncode, 1)
-                self.assertNotIn("release create", log)
+                self.assert_refused(*self.run_sh("release", root, sha, *args))
+        status = Path(f"{tarball}.status")
+        original = status.read_text()
+        for label, old, new in (("campaign_id", "campaign_id: pre06-stage2a-v1",
+                                 "campaign_id: pre06-stage2a-v0"),
+                                ("freeze_sha", f"freeze_sha: {SHA}", f"freeze_sha: {'b' * 40}")):
+            with self.subTest(f"status {label}"):
+                status.write_text(original.replace(old, new))
+                self.assert_refused(*self.run_sh(*release), "is of another" if label ==
+                                    "campaign_id" else "packed at another freeze")
+        status.write_text(original)
         result, log = self.run_sh(*release, GH_CREATE_FAIL="1")
         self.assertEqual(result.returncode, 1)
         self.assertIn("gh release create failed", result.stderr)
+        self.assert_refused(*self.run_sh(*release), "never overwritten")   # notes kept
+        self.notes.unlink()
         result, log = self.run_sh(*release)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(f"--target {SHA}", log)
         verified = [line for line in log.splitlines() if line.startswith("campaign verify")]
         self.assertEqual(len(verified), 1)   # the extracted archive, officially
-        self.assertIn(f"/.release-check.", verified[0])
+        self.assertIn("/.release-check.", verified[0])
         self.assertTrue(verified[0].endswith(f"/{OFFICIAL} --archive --freeze-sha {SHA}"))
         self.assertNotIn("--clobber", log)
-        notes = Path(f"{self.evidence}/{OFFICIAL}.release-notes.md").read_text()
+        notes = self.notes.read_text()
         for text in (CAMPAIGN["campaign_id"], SHA, CAMPAIGN["proximalsolvers"]["commit"],
                      CAMPAIGN["proximalbase"]["tree"], "1.10.13 and 1.13.3", "Evidence: OFFICIAL",
                      "RECORD INTEGRITY: PASS", hashlib.sha256(tarball.read_bytes()).hexdigest(),
@@ -503,11 +660,24 @@ class ArchiveScript(Scratch):
             self.assertIn(text, notes)
         self.assertNotIn("NUMERICAL FAILURE", notes)
         self.assertFalse(list(self.evidence.glob(".release-check.*")))
+        self.notes.unlink()
         with tarball.open("ab") as stream:   # an archive changed after packing
             stream.write(b"\0")
-        result, log = self.run_sh(*release)
-        self.assertEqual(result.returncode, 1)
-        self.assertNotIn("release create", log)
+        self.assert_refused(*self.run_sh(*release), "does not match its .sha256")
+
+    def test_release_names(self):
+        root, tarball, result, _ = self.pack(0, "pre06-stage2a-campaign-v1-copy")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        result, log = self.run_sh("release", root, SHA, "--tag", TAG)
+        self.assert_refused(result, log, "is not the official archive")
+        self.assertNotIn("gh ", log)
+        root, tarball, result, _ = self.pack(0)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        toml = self.stub / "campaign.toml"
+        toml.write_text(toml.read_text().replace(f'asset = "{OFFICIAL}.tar.gz"',
+                                                 'asset = "other.tar.gz"'))
+        result, log = self.run_sh("release", root, SHA, "--tag", TAG)
+        self.assert_refused(result, log, "campaign.toml: asset")
 
     def test_pilot_rehearsal_never_released(self):
         root, tarball, result, log = self.pack(0, "pre06-pilot-archive", "--pilot-rehearsal")

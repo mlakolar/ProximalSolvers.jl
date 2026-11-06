@@ -48,6 +48,9 @@ The full values are in `campaign.toml`; `campaign.py` checks them, not this tabl
 
 ## Run (after the freeze is recorded on #110)
 
+Run each shell snippet in this file as a script (`bash file.sh`) or in a subshell
+(`( ... )`): they use `set -euo pipefail` and `exit`, which would close an interactive shell.
+
 ```bash
 set -euo pipefail
 FREEZE_SHA=...            # the freeze commit recorded on #110
@@ -72,7 +75,10 @@ done
 
 Exit status of `run` and `verify`: **0** valid records and every case `ok`; **2** valid
 records with at least one non-`ok` case (the numerical gate fails; the run is complete
-and is never retried for this reason); **1** a stop or any integrity failure.
+and is never retried for this reason); **1** a stop, any integrity failure or a usage
+error. Python itself also exits 2 when it cannot open the script, so a caller accepts 0
+or 2 from `verify` only together with its result lines (`RECORD INTEGRITY: PASS` and
+`NUMERICAL: PASS` or `FAIL`), as `archive.sh` and the retrieval snippet below do.
 
 Each `run` takes one Julia version through these steps and stops at the first failure:
 
@@ -171,8 +177,9 @@ fixed-input data hashes; it runs `validate.py` afresh and compares it with
 `validation.json`, and recomputes the numerical and hardware results from the records,
 which must agree with the receipt. It ends with `RECORD INTEGRITY`, `NUMERICAL` (with the
 non-`ok` primary cases, which block an unconditional "healthy reference" label, plan §5),
-`HARDWARE` and `EVIDENCE` (`OFFICIAL` or `PILOT / NON-OFFICIAL`) lines, and exits as `run`
-does. Pilot evidence fails unless
+`HARDWARE` lines and an `EVIDENCE` line (`OFFICIAL` for valid official evidence,
+`PILOT / NON-OFFICIAL` for valid pilot evidence, `NOT VALID` on any integrity failure), and
+exits as `run` does. Pilot evidence fails unless
 `--allow-pilot` is given. `VERIFY PASS` concerns the records; the numerical and hardware
 results are printed beside it.
 
@@ -214,14 +221,17 @@ with paths relative to the root in C-locale order; any failure removes the parti
   needs an explicit maintainer disposition (`--disposition`, e.g. the URL of the #110
   comment that records the decision).
 - **1 or anything else** (another code, a signal): blocked before `tar`; nothing is
-  packed or published. `pack` never overwrites an existing tarball or sidecar.
+  packed or published. `pack` never overwrites an existing tarball, sidecar or
+  `.verify.out`, and refuses an archive path containing `#` (which `gh` reads as a label).
 
 `archive.sh release ROOT FREEZE_SHA --tag TAG [--disposition REF]` publishes only an
 official archive; a pilot rehearsal archive is never released. It stops, creating
 nothing, unless: the tarball matches its `.sha256` and `.status`; the status is
 `official`, of this campaign and freeze; the extracted tarball passes an official
 `verify --archive --freeze-sha` (no `--allow-pilot`) with the packed exit code, labelled
-`EVIDENCE: OFFICIAL` (exit 2 also needs `--disposition`); the root, asset and tag are the
+`EVIDENCE: OFFICIAL` (exit 2 also needs `--disposition`: one line of free text recorded
+verbatim, or exactly a `https://github.com/mlakolar/ProximalSolvers.jl/issues/110#issuecomment-<N>`
+URL); the root, asset and tag are the
 `[archive]` names of `campaign.toml`; `FREEZE_SHA` is a full SHA that exists on GitHub, is
 reachable from `master` and appears in a comment on #110; and neither the tag nor a
 release of it exists (only a definite "not found" counts). Then `gh release create TAG
@@ -231,7 +241,8 @@ freeze SHA, ProximalSolvers pin, ProximalBase 0.5.4 release tree, both Julia ver
 the record-integrity, numerical and hardware lines, the disposition after a numerical
 failure, the archive SHA-256 and #110. A tag or asset is never overwritten, moved or
 deleted (no `--clobber`); a correction is a new campaign identity, tag and asset. Every
-failed check or `gh` call exits nonzero. This PR creates no GitHub Release.
+failed check or `gh` call exits nonzero; an existing `<root>.release-notes.md` is never
+overwritten. This PR creates no GitHub Release.
 
 Post on #110 the asset URL, its SHA-256, that the asset is kept permanently and replaced
 never (a correction is a new tag), and the retrieval commands below. The environment
@@ -249,10 +260,18 @@ tar -xzf pre06-stage2a-campaign-v1.tar.gz
 git clone https://github.com/mlakolar/ProximalSolvers.jl.git freeze
 git -C freeze checkout --detach "$FREEZE_SHA"
 code=0
-python3 -B freeze/benchmark/campaigns/pre06/campaign.py verify \
-  pre06-stage2a-campaign-v1 --archive --freeze-sha "$FREEZE_SHA" || code=$?
+out=$(python3 -B freeze/benchmark/campaigns/pre06/campaign.py verify \
+  pre06-stage2a-campaign-v1 --archive --freeze-sha "$FREEZE_SHA") || code=$?
+printf '%s\n' "$out"
+has() { grep -qx -- "$1" <<< "$out"; }
 # 0: valid, every case ok. 2: valid records, NUMERICAL FAILURE (not a healthy reference).
-[ "$code" -eq 0 ] || [ "$code" -eq 2 ] || { echo "archive does not verify ($code)" >&2; exit 1; }
+# Any other code, or result lines that disagree with the code (a usage error or a missing
+# script can also exit 2), means the archive does not verify.
+case $code in
+  0) has 'RECORD INTEGRITY: PASS' && grep -q '^NUMERICAL: PASS' <<< "$out" && has 'EVIDENCE: OFFICIAL' ;;
+  2) has 'RECORD INTEGRITY: PASS' && grep -q '^NUMERICAL: FAIL' <<< "$out" && has 'EVIDENCE: OFFICIAL' ;;
+  *) false ;;
+esac || { echo "archive does not verify ($code)" >&2; exit 1; }
 ```
 
 To reproduce the environment on another machine, run `campaign.py run` with a new pinned
@@ -272,9 +291,10 @@ official repetition (STAGE2_PLAN.md §3).
 `julia-<V>`, all official, in a root named `pre06-stage2a-campaign-v1`. **Pilot archive
 rehearsal:** `verify ROOT --archive --allow-pilot [--freeze-sha SHA]` needs both
 `julia-<V>`, all pilot, in a root whose name contains `pilot` and is not the official
-name; it applies the same archive checksums and record checks. Its last line is always
-`EVIDENCE: PILOT / NON-OFFICIAL (never Stage 2A baseline evidence)`, whatever the
-numerical result; only valid official evidence prints `EVIDENCE: OFFICIAL`. A two-version
+name; it applies the same archive checksums and record checks. When the records are
+valid its last line is `EVIDENCE: PILOT / NON-OFFICIAL (never Stage 2A baseline evidence)`,
+whatever the numerical result (`EVIDENCE: NOT VALID ...` otherwise); only valid official
+evidence prints `EVIDENCE: OFFICIAL`. A two-version
 pilot root can be rehearsed end to end with `archive.sh pack ROOT FREEZE_SHA
 --pilot-rehearsal` (its status file says `mode: pilot-rehearsal`); `archive.sh release`
 refuses it.

@@ -14,9 +14,10 @@ stops at the first failed check. It changes nothing that is measured. Linux only
   campaign.py ids
 
 Exit status: 0 valid records and every case ok; 2 valid records with a non-ok case (the
-numerical gate fails); 1 a stop or any integrity failure. `verify` ends with RECORD
-INTEGRITY, NUMERICAL, HARDWARE and EVIDENCE lines; EVIDENCE is OFFICIAL only for valid
-official evidence, and pilot evidence is always PILOT / NON-OFFICIAL.
+numerical gate fails); 1 a stop, any integrity failure or a usage error. `verify` ends
+with RECORD INTEGRITY, NUMERICAL and HARDWARE lines and an EVIDENCE line: OFFICIAL only
+for valid official evidence, PILOT / NON-OFFICIAL for valid pilot evidence, NOT VALID on
+any integrity failure. Accept exit 0 or 2 only together with these lines.
 
 See README.md in this directory; the governing design is STAGE2_PLAN.md.
 """
@@ -127,7 +128,10 @@ CHECKSUM_LINE = re.compile(r"([0-9a-f]{64})  (.+)")
 def read_checksums(path):
     """A `sha256sum` list as {relative path: digest}; a Stop on a malformed line, an
     absolute or non-normalized path, or a path listed twice."""
-    text = Path(path).read_text(encoding="utf-8")
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        raise Stop(f"{path}: unreadable: {type(error).__name__}: {error}") from None
     check(text.endswith("\n"), f"{path}: empty or not newline-terminated")
     listed = {}
     for number, line in enumerate(text[:-1].split("\n"), 1):
@@ -875,8 +879,13 @@ def verify_evidence(julia_dir, campaign, ids, freeze_head, report):
         check(start["settings"] == campaign["settings"] and reps == protocol["repetitions"]
               and not start["no_exploratory"] and start["freeze_sha_expected"] == freeze_head,
               "official evidence with other settings, repetitions or freeze SHA")
+        check(Path(start["root"]).name == campaign["archive"]["name"]
+              and "--pilot" not in start["argv"],
+              "official evidence with another root name or a --pilot command line")
     else:
         check(start["mode"] == "pilot", f"unknown mode {start['mode']}")
+        check("pilot" in Path(start["root"]).name and "--pilot" in start["argv"],
+              "pilot evidence without a pilot root name and a --pilot command line")
     pinned, environment = start["pinned"], start["environment"]
     check_lock(julia_dir / "Manifest.toml", campaign, version, pinned)
     check_project(julia_dir / "Project.toml", HERE.parent.parent / "Project.toml", pinned)
@@ -1061,15 +1070,25 @@ def verify(args):
               f"{primary or 'none'})")
         print("HARDWARE: " + ", ".join(
             f"{r['julia']} {r['hardware']}" for r in reports if "hardware" in r))
-    if official and modes == {"official"} and code != 1:
+    if code == 1:
+        print("EVIDENCE: NOT VALID (integrity failure; never Stage 2A baseline evidence)")
+    elif official and modes == {"official"}:
         print("EVIDENCE: OFFICIAL")
     else:
         print("EVIDENCE: PILOT / NON-OFFICIAL (never Stage 2A baseline evidence)")
     return code
 
 
+class Parser(argparse.ArgumentParser):
+    """Usage errors exit 1: exit status 2 means valid records with a non-ok case."""
+
+    def error(self, message):
+        self.print_usage(sys.stderr)
+        self.exit(1, f"{self.prog}: error: {message}\n")
+
+
 def main():
-    parser = argparse.ArgumentParser(description=__doc__,
+    parser = Parser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     commands = parser.add_subparsers(dest="command", required=True)
     runner = commands.add_parser("run", help="run one Julia version of the campaign")

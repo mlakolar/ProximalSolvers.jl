@@ -9,7 +9,8 @@
 #       (with --allow-pilot for a rehearsal), then, unless verify blocks, beside ROOT:
 #       ROOT.tar.gz, ROOT.tar.gz.sha256, ROOT.tar.gz.status and ROOT.verify.out.
 #       verify 0: packed, exit 0. verify 2: packed (valid evidence, NUMERICAL FAILURE,
-#       never a healthy reference), exit 2. Anything else: nothing packed, exit 1.
+#       never a healthy reference), exit 2. Anything else, or result lines that disagree
+#       with the exit code: nothing packed, exit 1. Never overwrites an existing file.
 #   archive.sh release ROOT FREEZE_SHA --tag TAG [--disposition REF]
 #       official archives only: re-checks the packed archive and the freeze on GitHub,
 #       then `gh release create TAG ROOT.tar.gz --target FREEZE_SHA`. Verify 2 needs
@@ -42,6 +43,10 @@ checksums() {
   local root tmp
   root=$(cd "$1" && pwd -P) || die "no directory $1"
   rm -f "$root/checksums.sha256"
+  local odd   # sha256sum escapes these names, and the verifier rejects escaped lines
+  odd=$(cd "$root" && find . -type f \( -path '*\\*' -o -path "*"$'\n'"*" \) -printf '%P\n') \
+    || die "cannot list $root"
+  [ -z "$odd" ] || die "file names with a backslash or newline cannot be listed: $odd"
   tmp=$(mktemp "$(dirname "$root")/.checksums.XXXXXX")   # outside ROOT: never listed
   if ( cd "$root" && find . -type f ! -path ./checksums.sha256 -printf '%P\0' |
          LC_ALL=C sort -z | xargs -0 -r sha256sum ) > "$tmp"; then
@@ -73,15 +78,16 @@ pack() {
   root=$(cd "$1" && pwd -P) || die "no directory $1"
   parent=$(dirname "$root") base=$(basename "$root")
   tarball=$parent/$base.tar.gz out=$parent/$base.verify.out
-  for f in "$tarball" "$tarball.sha256" "$tarball.status"; do
-    [ ! -e "$f" ] || die "$f exists; never overwrite an archive"
+  [[ $tarball != *'#'* ]] || die "the archive path $tarball contains '#' (gh reads it as a label)"
+  for f in "$tarball" "$tarball.sha256" "$tarball.status" "$out"; do
+    [ ! -e "$f" ] || die "$f exists; never overwritten (move it away after reading it)"
   done
   local id pins_line
   pins_line=$(pins) || die "cannot read campaign.toml beside $CAMPAIGN"
   id=${pins_line%%$'\t'*}
 
   checksums "$root"
-  run_verify "$root" "$out" --freeze-sha "$sha" "${extra[@]}"
+  run_verify "$root" "$out" --freeze-sha "$sha" ${extra[@]+"${extra[@]}"}
   local numerical evidence_want=OFFICIAL
   case $verify_rc in
     0) numerical="all cases certified ok" ;;
@@ -145,7 +151,18 @@ release() {
   pins_line=$(pins) || die "cannot read campaign.toml beside $CAMPAIGN"
   IFS=$'\t' read -r id name asset release_tag repo ps_commit pb_version pb_tree julias <<< "$pins_line"
   [ "$base" = "$name" ] || die "root $base is not the official archive $name"
-  [ "$base.tar.gz" = "$asset" ] || die "asset $base.tar.gz is not $asset"
+  [ "$asset" = "$name.tar.gz" ] || die "campaign.toml: asset $asset is not $name.tar.gz"
+  [[ $tarball != *'#'* ]] || die "the archive path $tarball contains '#' (gh reads it as a label)"
+  if [ -n "$disposition" ]; then
+    [[ $disposition != *$'\n'* ]] || die "--disposition must be a single line"
+    local issue_url="https://github.com/$repo/issues/$ISSUE#issuecomment-"
+    if [[ $disposition == *://* || $disposition == *github.com* ]]; then
+      [[ $disposition == "$issue_url"* && ${disposition#"$issue_url"} =~ ^[0-9]+$ ]] \
+        || die "--disposition URL must be $issue_url<digits>"
+    fi
+  fi
+  local notes=$parent/$base.release-notes.md
+  [ ! -e "$notes" ] || die "$notes exists; never overwritten (move it away after reading it)"
   [ "$tag" = "$release_tag" ] || die "tag $tag is not the campaign's release tag $release_tag"
 
   # The packed archive: present, its digest recomputed, its status official and acceptable.
@@ -204,13 +221,13 @@ release() {
   fi
   grep -qi 'release not found' <<< "$out" || die "gh: cannot tell whether release $tag exists: $out"
 
-  local notes=$parent/$base.release-notes.md failure=""
+  local failure=""
   if [ "$verify_rc" -eq 2 ]; then
     failure="> **NUMERICAL FAILURE: valid archived evidence with non-ok cases; NOT a healthy
 > baseline or reference.** Maintainer disposition: $disposition
 "
   fi
-  cat > "$notes" <<EOF
+  (set -o noclobber; cat > "$notes") <<EOF
 Benchmark evidence archive for #$ISSUE; **not a Julia package release** of ProximalSolvers.jl.
 
 ${failure}
