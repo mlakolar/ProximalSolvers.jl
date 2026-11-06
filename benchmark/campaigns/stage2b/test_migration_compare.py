@@ -12,12 +12,16 @@ standard error, the entry of `refusals.json` and that `refusals.json` is the onl
 Test counts (methods; table-driven methods run one sub-test per row):
 
     positive        PositiveTests         16
-    refusal         RefusalTests          22   (one named method per class of section 4, plus six that
-                                               check equally incomplete roots, the A/A installations, that
-                                               several coinciding defects are all listed, the declared package
-                                               tables, unrelated classes together and a mixed root)
-    classification  ClassificationTests   22
-    output          OutputTests           19
+    refusal         RefusalTests          38   (one named method per class of section 4, plus methods for
+                                               equally incomplete roots, the A/A installations, coinciding
+                                               defects, the declared package tables, unrelated classes together,
+                                               a mixed root, the binding to the campaign and session, alias
+                                               paths, the receipt rules one at a time, collect-all, none
+                                               fingerprints, the inventory cpu_name, malformed metadata values and
+                                               the identity, stack, undeclared and mapping rules one at a time)
+    classification  ClassificationTests   24
+    output          OutputTests           26   (including paths in outputs, the internal error, the phase boundary
+                                               and the screen boundaries)
     immutability    ImmutabilityTests      5
 
 The run time is dominated by the validation of the roughly two hundred record files that each call of the tool
@@ -25,6 +29,8 @@ reads; the sets are built once per variant, copied by links per test and kept sm
 """
 
 import atexit
+import contextlib
+import datetime
 import hashlib
 import json
 import math
@@ -33,6 +39,7 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import stage2b_fixtures as F
 from stage2b_fixtures import (
@@ -152,6 +159,37 @@ def floats(cell):
 
 def banned_outside_sentence(text):
     return [word for word in F.BANNED_WORDS if word in text.replace(SCREEN_SENTENCE, "").lower()]
+
+
+def machine_of_all(c, predicate=None, **changes):
+    """Give every process event of the receipt (or those with `predicate`) the same machine values."""
+    jsonl_edit(c.receipt, lambda e: e["event"] == "process" and (predicate is None or predicate(e)),
+               lambda e: e["machine"].update(changes))
+
+
+def retime_block(c, arm, jkey, rep, gap):
+    """Start the later process of a block `gap` seconds after the earlier one ended (negative: they overlap)."""
+    events = jsonl_read(c.receipt)
+    pair = sorted((e for e in events if process_event(None, arm, c.version(jkey), rep)(e)),
+                  key=lambda e: e["start_utc"])
+    first, second = pair
+    start = datetime.datetime.fromisoformat(first["end_utc"]) + datetime.timedelta(seconds=gap)
+    second["start_utc"] = F._utc(start)
+    second["end_utc"] = F._utc(start + datetime.timedelta(seconds=30))
+    jsonl_write(c.receipt, events)
+
+
+def second_campaign_event(c, **changes):
+    first = jsonl_read(c.receipt)[0]
+    jsonl_append(c.receipt, dict(first, **changes))
+
+
+def stray_strings(c, *extra):
+    """Strings that would show a path of the test machine in an output."""
+    work = Path(c.work)
+    found = {str(work), str(work.resolve()), str(c.base), str(Path(c.base).resolve()), str(Path.home()),
+             work.name, "stage2b-test-"}
+    return sorted(s for s in found | set(extra) if s)
 
 
 class MigrationCase(unittest.TestCase):
@@ -1099,6 +1137,372 @@ class RefusalTests(MigrationCase):
         self.assertGreaterEqual(result.refusals_document["count"], 6)
 
 
+    # ---- the binding of the roots to the campaign and the session of the receipt ------------------------------
+
+    def test_order_roots_are_bound_to_the_campaign_and_session_of_the_receipt(self):
+        def receipt_session(c):
+            jsonl_edit(c.receipt, lambda e: e["event"] == "campaign", lambda e: e.update(session_id="session-0002"))
+
+        def identity(label, key, value=None, delete=False):
+            return lambda c: edit_identity(c, label, (key,), value, delete)
+
+        def no_campaign_and_other_session(c):
+            jsonl_drop(c.receipt, lambda e: e["event"] == "campaign")
+            edit_identity(c, "b", ("session_id",), "session-0002")
+
+        self.table([
+            ("receipt session differs from every root", receipt_session, "ORDER",
+             [("ORDER", "a:session"), ("ORDER", "b:session")]),
+            ("session of root b", identity("b", "session_id", "session-0002"), "ORDER", [("ORDER", "b:session")]),
+            ("campaign of root b", identity("b", "campaign_id", "another-campaign"), "ORDER",
+             [("ORDER", "b:campaign")]),
+            ("campaign of the Stack A root", identity("a", "campaign_id", "another-campaign"), "ORDER",
+             [("ORDER", "a:campaign")]),
+            ("session of the Stack A root", identity("a", "session_id", "session-0002"), "ORDER",
+             [("ORDER", "a:session")]),
+            ("no campaign event: roots are compared with root a", no_campaign_and_other_session, ("SCHEMA", "ORDER"),
+             [("SCHEMA", "receipt:schema"), ("ORDER", "b:session")]),
+            ("campaign_id missing", identity("b", "campaign_id", delete=True), "IDENTITY", [("IDENTITY", "b:identity")]),
+            ("session_id missing", identity("b", "session_id", delete=True), "IDENTITY", [("IDENTITY", "b:identity")]),
+            ("campaign_id of the wrong type", identity("b", "campaign_id", 5), "SCHEMA", [("SCHEMA", "b:files")]),
+            ("session_id empty", identity("b", "session_id", ""), "SCHEMA", [("SCHEMA", "b:files")]),
+        ])
+        c = self.fresh(aa=True)
+        edit_identity(c, "aa_b", ("campaign_id",), "another-campaign")
+        self.refused(c.run(aa=True), "ORDER", fields=[("ORDER", "aa_b:campaign")])
+
+    # ---- the A/A pair: every distinctness check alone, and paths in other spellings ----------------------------
+
+    def test_order_aa_distinctness_checks_one_at_a_time_and_with_alias_paths(self):
+        def installation_id(c):
+            edit_identity(c, "aa_b", ("installation",), c.stack("aa_a")["installation"])
+
+        def alias(source, suffix):
+            def mutate(c):
+                first = c.stack("aa_a")
+                for jkey in c.jkeys:
+                    inventory = c.stratum("aa_b", jkey) / "environment-inventory.toml"
+                    if source == "inventory proximalsolvers_dir":
+                        toml_set(inventory, ("proximalsolvers_dir",), first["checkout"] + suffix)
+                    elif source == "first depot entry":
+                        toml_set(inventory, ("depot_path", 0), first["depot"] + suffix)
+                if source == "metadata proximalsolvers_path":
+                    c.set_meta("aa_b", "proximalsolvers_path", first["checkout"] + suffix)
+                elif source == "metadata expected_package_root":
+                    c.set_meta("aa_b", "expected_package_root", first["checkout"] + suffix)
+            return mutate
+
+        rows = [("equal installation id, nothing else", installation_id, "ORDER", [("ORDER", "aa:installation")])]
+        for source in ("metadata proximalsolvers_path", "metadata expected_package_root",
+                       "inventory proximalsolvers_dir", "first depot entry"):
+            for suffix in ("/.", "/./"):
+                rows.append((f"{source} spelled with the suffix {suffix!r}", alias(source, suffix), "ORDER",
+                             [("ORDER", "aa:installation")]))
+        self.table(rows, aa=True)
+
+    # ---- the receipt: each rule alone, and collect-all ---------------------------------------------------------
+
+    def test_order_receipt_rules_one_at_a_time(self):
+        def partly_overlapping(c):
+            retime_block(c, "AB", J10, 4, -5)
+
+        def touching(c):
+            retime_block(c, "AB", J10, 4, 0)
+
+        def campaign_event_twice_with(**changes):
+            return lambda c: second_campaign_event(c, **changes)
+
+        def schedule_id(c):
+            jsonl_edit(c.receipt, lambda e: e["event"] == "campaign", lambda e: e.update(schedule_id="another"))
+
+        self.table([
+            ("processes of a block overlap in part", partly_overlapping, "ORDER", [("ORDER", "receipt:block")]),
+            ("the second process starts when the first ends", touching, "ORDER", [("ORDER", "receipt:block")]),
+            ("a second campaign event with another campaign_id", campaign_event_twice_with(campaign_id="another"),
+             "ORDER", [("ORDER", "receipt:campaign")]),
+            ("a second campaign event with another session_id", campaign_event_twice_with(session_id="session-0002"),
+             "ORDER", [("ORDER", "receipt:campaign")]),
+            ("a second campaign event with another schedule_id", campaign_event_twice_with(schedule_id="another"),
+             "ORDER", [("ORDER", "receipt:campaign")]),
+            ("schedule_id differs from the schedule", schedule_id, "ORDER", [("ORDER", "receipt:campaign")]),
+            ("elapsed_s just above the receipt interval", lambda c: c.write_process("b", J13, 3, elapsed_s=30.5),
+             "ORDER", [("ORDER", "receipt:elapsed")]),
+        ])
+        c = self.fresh()
+        c.write_process("b", J13, 3, elapsed_s=30.0)          # exactly the receipt interval: at most is accepted
+        self.accepted(c.run())
+
+    def test_schema_receipt_rules_one_at_a_time(self):
+        def campaign_twice(c):
+            jsonl_append(c.receipt, jsonl_read(c.receipt)[0])
+
+        def edit(**changes):
+            return lambda c: jsonl_edit(c.receipt, process_event("A", "AB", V13, 3), lambda e: e.update(changes))
+
+        def ends_before_it_starts(c):
+            jsonl_edit(c.receipt, process_event("A", "AB", V13, 3),
+                       lambda e: e.update(end_utc=e["start_utc"].replace("T09:", "T08:")))
+
+        def ends_when_it_starts(c):
+            jsonl_edit(c.receipt, process_event("A", "AB", V13, 3), lambda e: e.update(end_utc=e["start_utc"]))
+
+        self.table([
+            ("the same campaign event twice", campaign_twice, "SCHEMA", [("SCHEMA", "receipt:schema")]),
+            ("block different from rep", edit(block=4), "SCHEMA", [("SCHEMA", "receipt:schema")]),
+            ("end_utc before start_utc", ends_before_it_starts, "SCHEMA", [("SCHEMA", "receipt:schema")]),
+            ("end_utc equal to start_utc", ends_when_it_starts, "SCHEMA", [("SCHEMA", "receipt:schema")]),
+            ("time without a UTC offset", edit(start_utc="2026-12-01T09:00:00"), "SCHEMA",
+             [("SCHEMA", "receipt:schema")]),
+        ])
+
+    def test_schema_and_other_receipt_defects_are_all_listed(self):
+        def note(c):
+            jsonl_append(c.receipt, {"event": "note", "text": "synthetic"})
+
+        def garbage(c):
+            with c.receipt.open("a", encoding="utf-8") as stream:
+                stream.write("this is not json\n")
+
+        def edit(role, rep, **changes):
+            return lambda c: jsonl_edit(c.receipt, process_event(role, "AB", V13, rep), lambda e: e.update(changes))
+
+        def both(first, second):
+            def mutate(c):
+                first(c)
+                second(c)
+            return mutate
+
+        self.table([
+            ("unknown event and a reversed block", both(note, lambda c: swap_block(c, "AB", J13, 2)),
+             ("SCHEMA", "ORDER"), [("SCHEMA", "receipt:schema"), ("ORDER", "receipt:block")]),
+            ("garbage line and an exit status of 1", both(edit("B", 3, exit=1), garbage),
+             ("SCHEMA", "STACK"), [("SCHEMA", "receipt:schema"), ("STACK", "receipt:process")]),
+            ("unknown event and an incomplete process", both(note, edit("B", 4, complete=False)),
+             ("SCHEMA", "STACK"), [("SCHEMA", "receipt:schema"), ("STACK", "receipt:process")]),
+            ("garbage line and a wrong installation", both(edit("A", 5, installation="inst-elsewhere"), garbage),
+             ("SCHEMA", "ORDER"), [("SCHEMA", "receipt:schema"), ("ORDER", "receipt:installation")]),
+        ])
+        # an unusable line hides only the checks that need it: no block is reported missing for it
+        c = self.fresh()
+        jsonl_drop(c.receipt, process_event("A", "AB", V13, 3))
+        garbage(c)
+        result = self.refused(c.run(), "SCHEMA", only=True)
+        self.assertFalse(result.has("ORDER", "receipt:missing"))
+        c = self.fresh()
+        edit("A", 3, start_utc="not a time")(c)
+        result = self.refused(c.run(), "SCHEMA", only=True)
+
+    # ---- the machine, with every process carrying the same wrong value ------------------------------------------
+
+    def test_machine_refused_when_every_process_carries_the_same_wrong_value(self):
+        self.table([
+            ("logical CPU of every receipt process", lambda c: machine_of_all(c, logical_cpu=5), "MACHINE",
+             [("MACHINE", "receipt:machine")]),
+            ("cpu_model of every receipt process", lambda c: machine_of_all(c, cpu_model="Another CPU"), "MACHINE",
+             [("MACHINE", "receipt:machine")]),
+            ("cpu of every receipt process of one stratum",
+             lambda c: machine_of_all(c, lambda e: e["julia"] == V10, cpu="raptorlake"), "MACHINE",
+             [("MACHINE", "receipt:machine")]),
+        ])
+
+    def test_machine_inventory_cpu_name_is_compared_with_the_stratum_cpu(self):
+        def cpu_name(c):
+            toml_set(c.stratum("b", J10) / "environment-inventory.toml", ("cpu_name",), "skylake")
+
+        def key_missing(c):
+            toml_del(c.stratum("b", J13) / "environment-inventory.toml", ("cpu_name",))
+
+        self.table([
+            ("inventory cpu_name differs from [machine].cpu", cpu_name, "MACHINE", [("MACHINE", "b:cpu")]),
+            ("inventory without cpu_name", key_missing, "SCHEMA", [("SCHEMA", "b:files")]),
+        ])
+
+    # ---- the mapping: class C or D with valid approval but without the separate mapping ------------------------------
+
+    def test_mapping_class_c_or_d_needs_the_separate_mapping_even_when_approved(self):
+        def approved_without_separate_mapping(klass):
+            def mutate(c):
+                set_mapping(c, P01, "class", klass)
+                set_mapping(c, P01, "approved", True)
+                set_mapping(c, P01, "approval_url", "https://example.org/approval")
+            return mutate
+
+        self.table([
+            ("class C, approved, with a URL, no separate_mapping", approved_without_separate_mapping("C"), "MAPPING",
+             [("MAPPING", "mapping:class")]),
+            ("class D, approved, with a URL, no separate_mapping", approved_without_separate_mapping("D"), "MAPPING",
+             [("MAPPING", "mapping:class")]),
+            ("class B, approved flag but an empty approval_url", lambda c: set_mapping(c, P14, "approval_url", ""),
+             "MAPPING", [("MAPPING", "mapping:approval")]),
+            ("deviation, approved flag but no approval_url",
+             lambda c: (set_mapping(c, P02, "deviation", "synthetic"), set_mapping(c, P02, "approved", True)),
+             "MAPPING", [("MAPPING", "mapping:approval")]),
+        ])
+
+    # ---- UNDECLARED: each rule of the declared file alone ------------------------------------------------------
+
+    def test_undeclared_harness_and_project_rules_one_at_a_time(self):
+        def harness(key, value):
+            return lambda c: toml_set(c.declared, ("harness", key), value)
+
+        def another_hash(c, side):
+            toml_set(c.declared, ("harness", f"{side}_hash"), "5" * 40)
+
+        def project_dep(name, uuid_value):
+            return lambda c: toml_set(c.stratum("b", J13) / "Project.toml", ("deps", name), uuid_value)
+
+        def a_value_differs_inside_the_table(c):
+            toml_set(c.declared, ("proximalbase", "b_version"), "0.9.9")
+
+        self.table([
+            ("no approved class B case while the harness hash differs",
+             lambda c: set_mapping(c, P14, "approved", False), "UNDECLARED", [("UNDECLARED", "ab:harness_hash")]),
+            ("harness cases empty", harness("cases", []), "UNDECLARED", [("UNDECLARED", "declared:harness")]),
+            ("harness approval_url differs from the mapping", harness("approval_url", "https://example.org/other"),
+             "UNDECLARED", [("UNDECLARED", "declared:harness")]),
+            ("harness changed_lines empty", harness("changed_lines", []), "UNDECLARED",
+             [("UNDECLARED", "declared:harness")]),
+            ("harness b_hash declared wrong", lambda c: another_hash(c, "b"), "UNDECLARED",
+             [("UNDECLARED", "declared:harness")]),
+            ("harness a_hash declared wrong", lambda c: another_hash(c, "a"), "UNDECLARED",
+             [("UNDECLARED", "declared:harness")]),
+            ("Project [deps] entry added and not declared",
+             project_dep("Extra", "11111111-2222-3333-4444-555555555555"), "UNDECLARED",
+             [("UNDECLARED", "declared:compat")]),
+            ("Project [deps] UUID of a package declared as changed", project_dep(
+                "ProximalBase", "11111111-2222-3333-4444-555555555555"), "UNDECLARED",
+             [("UNDECLARED", "declared:compat")]),
+            ("ProximalBase version declared wrong", a_value_differs_inside_the_table, "UNDECLARED",
+             [("UNDECLARED", "declared:proximalbase")]),
+            ("ProximalBase a_version declared wrong",
+             lambda c: toml_set(c.declared, ("proximalbase", "a_version"), "0.4.0"), "UNDECLARED",
+             [("UNDECLARED", "declared:proximalbase")]),
+        ])
+
+    def test_undeclared_a_difference_inside_a_table_is_caught_by_the_table_rule_alone(self):
+        # the trees are equal in both stacks and declared equal: only "each a_* differs from its b_*" can refuse
+        c = self.fresh()
+        c.stack("b")["ps"]["tree"] = c.stack("a")["ps"]["tree"]
+        c.rebuild_root("b")
+        c.write_declared()
+        self.assertEqual(toml_load(c.declared)["proximalsolvers"]["a_tree"],
+                         toml_load(c.declared)["proximalsolvers"]["b_tree"])
+        result = self.refused(c.run(), "UNDECLARED", fields=[("UNDECLARED", "declared:proximalsolvers")], only=True)
+        self.assertEqual(result.fields("UNDECLARED"), ["declared:proximalsolvers"])
+
+    # ---- STACK and IDENTITY: each comparison against the identity file alone -------------------------------------
+
+    def test_stack_checks_against_the_identity_file_one_at_a_time(self):
+        def inventory(key, value, jkey=J13):
+            return lambda c: toml_set(c.stratum("b", jkey) / "environment-inventory.toml", (key,), value)
+
+        def manifest(keys, value):
+            return lambda c: toml_set(c.stratum("b", J10) / "Manifest.toml", keys, value)
+
+        self.table([
+            ("expected_package_root empty", lambda c: c.set_meta("b", "expected_package_root", ""), "STACK",
+             [("STACK", "b:loaded_tree")]),
+            ("proximalsolvers_path against the inventory proximalsolvers_dir",
+             inventory("proximalsolvers_dir", "/opt/synthetic/elsewhere/ProximalSolvers.jl"), "STACK",
+             [("STACK", "b:loaded_tree")]),
+            ("inventory proximalbase_version against the identity", inventory("proximalbase_version", "0.6.1"),
+             "STACK", [("STACK", "b:loaded_tree")]),
+            ("inventory loaded tree against the identity", inventory("proximalbase_loaded_tree", "5" * 40), "STACK",
+             [("STACK", "b:loaded_tree")]),
+            ("Manifest ProximalBase git-tree-sha1 against the identity tree",
+             manifest(("deps", "ProximalBase", 0, "git-tree-sha1"), "6" * 40), "STACK", [("STACK", "b:loaded_tree")]),
+            ("Manifest ProximalBase version against the identity",
+             manifest(("deps", "ProximalBase", 0, "version"), "0.6.1"), "STACK", [("STACK", "b:loaded_tree")]),
+            ("Manifest ProximalSolvers version against the identity",
+             manifest(("deps", "ProximalSolvers", 0, "version"), "0.3.9"), "STACK", [("STACK", "b:loaded_tree")]),
+            ("metadata proximalbase_version against the identity",
+             lambda c: c.set_meta("b", "proximalbase_version", "0.6.1"), ("STACK", "UNDECLARED"),
+             [("STACK", "b:loaded_tree"), ("UNDECLARED", "declared:proximalbase")]),
+            ("metadata proximalsolvers_sha against the identity",
+             lambda c: c.set_meta("b", "proximalsolvers_sha", "7" * 40), ("STACK", "UNDECLARED"),
+             [("STACK", "b:loaded_tree"), ("UNDECLARED", "declared:proximalsolvers")]),
+        ])
+
+    def test_stack_mixed_root_is_found_even_when_the_other_process_fails_its_schema(self):
+        c = self.c
+        c.set_meta("b", "proximalbase_hash", F.sha1_text("another"), jkeys=[J13], reps=[3])
+        tsv_rename_column(c.record("b", J13, 3, "catalog"), "issue", "note")
+        self.refused(c.run(), "SCHEMA", "STACK", fields=[("STACK", "b:mixed")])
+
+    def test_identity_checks_one_at_a_time(self):
+        def identity(label, keys, value=None, delete=False):
+            return lambda c: edit_identity(c, label, keys, value, delete)
+
+        def tag_without_commit(c):
+            edit_identity(c, "b", ("proximalbase", "tag"), "v0.6.0")
+            edit_identity(c, "b", ("proximalbase", "commit"), delete=True)
+
+        self.table([
+            ("Stack A harness_hash differs from [stack_a]", lambda c: c.set_meta("a", "harness_hash", "4" * 40),
+             "IDENTITY", [("IDENTITY", "a:stack_a")]),
+            ("Stack A ProximalSolvers tree differs from [stack_a]", identity("a", ("proximalsolvers", "tree"), "4" * 40),
+             "IDENTITY", [("IDENTITY", "a:stack_a")]),
+            ("Stack A tag with another commit", identity("a", ("proximalbase", "commit"), "4" * 40), "IDENTITY",
+             [("IDENTITY", "a:stack_a"), ("IDENTITY", "a:tag")]),
+            ("Stack A tag with another tree", identity("a", ("proximalbase", "tree"), "4" * 40), "IDENTITY",
+             [("IDENTITY", "a:tag")]),
+            ("tag without its commit", tag_without_commit, "IDENTITY", [("IDENTITY", "b:tag")]),
+            ("registered release without a tag", identity("b", ("proximalbase", "release"), "registered"),
+             "IDENTITY", [("IDENTITY", "b:tag")]),
+            ("installation with a character outside the set", identity("b", ("installation",), "inst b1!"), "SCHEMA",
+             [("SCHEMA", "b:files")]),
+            ("installation empty", identity("b", ("installation",), ""), "SCHEMA", [("SCHEMA", "b:files")]),
+        ])
+
+    def test_julia_and_schema_items_one_at_a_time(self):
+        def stray_file(c):
+            F.write_file(c.raw("b", J13) / "notes.txt", "stray\n")
+
+        def duplicate_fingerprint_row(c):
+            tsv_append(c.fingerprints("b"), [V13, P05, 3, "config", "solver", "a" * 64])
+
+        self.table([
+            ("inventory julia", lambda c: toml_set(c.stratum("b", J13) / "environment-inventory.toml", ("julia",),
+                                                   "1.13.4"), "JULIA", [("JULIA", "b:julia")]),
+            ("metadata julia of one record differs from the schedule",
+             lambda c: c.set_meta("b", "julia", "1.13.4", jkeys=[J13], reps=[3]), ("JULIA", "SCHEMA"),
+             [("JULIA", "b:julia")]),
+            ("a file in raw/ that is not a record file", stray_file, "SCHEMA", [("SCHEMA", "b:files")]),
+            ("duplicate fingerprint row", duplicate_fingerprint_row, "SCHEMA", [("SCHEMA", "fingerprints_b:schema")]),
+        ])
+
+    def test_schema_fingerprint_none_values_follow_the_phase(self):
+        c = self.fresh()
+        for label in ("a", "b"):
+            set_fingerprint(c, label, J13, P01, 3, "reset", "values", "none")
+        result = self.refused(c.run(), "SCHEMA", fields=[("SCHEMA", "fingerprints_a:schema"),
+                                                         ("SCHEMA", "fingerprints_b:schema")])
+        c = self.fresh()
+        for label in ("a", "b"):                                   # none for reset/active_ids is accepted
+            set_fingerprint(c, label, J13, P01, 3, "reset", "active_ids", "none")
+        self.accepted(c.run())
+        c = self.fresh()                                           # none for both reset rows of a setup case
+        for label in ("a", "b"):
+            self.assertEqual(
+                [row[5] for row in tsv_read(c.fingerprints(label))[1] if row[1] == P13 and row[3] == "reset"],
+                ["none", "none"] * 16)
+        self.accepted(c.run())
+
+    def test_schema_malformed_metadata_values_are_refused_never_an_internal_error(self):
+        keys = ("proximalbase_version", "proximalsolvers_hash", "harness_hash", "julia", "suite", "cpu", "blas",
+                "rep", "samples_target", "julia_threads", "seconds_limit", "elapsed_s", "proximalsolvers_dirty",
+                "finished")
+        for key in keys:
+            for value in ([], {}):
+                with self.subTest(key=key, value=value):
+                    c = self.fresh()
+                    c.set_meta("b", key, value, jkeys=[J13], reps=[3])
+                    result = c.run()
+                    self.assertEqual(result.code, 2, result.stderr)
+                    self.assertNotIn("INTERNAL ERROR", result.stderr)
+                    self.assertEqual(result.files, ["refusals.json"])
+
+
 # --------------------------------------------------------------------------------------------------------------
 # 3. Per-case classification
 # --------------------------------------------------------------------------------------------------------------
@@ -1406,6 +1810,28 @@ class ClassificationTests(MigrationCase):
         self.assertIn("fingerprint mismatch: config/options rep 8", reason)
 
 
+    def test_failed_precedes_a_missing_fingerprint_file(self):
+        c = self.c
+        c.set_status("b", J13, P05, "target_missed", reps=[3])
+        c.fingerprints("b").unlink()
+        result = c.run()
+        self.assertEqual(result.code, 1, result.stderr)
+        self.assertEqual(result.row(P05, J13)["class"], "FAILED")
+        self.assertEqual(result.row(P01, J13)["class"], "NOT COMPARABLE")
+
+    def test_report_masks_the_banned_words_of_free_text(self):
+        c = self.c
+        text = "a significant change, not equivalent, non-inferior, noninferior, no-regression"
+        set_mapping(c, P02, "deviation", text)
+        set_mapping(c, P02, "approved", True)
+        set_mapping(c, P02, "approval_url", "https://example.org/approval")
+        result = c.run()
+        self.assertEqual(result.code, 1, result.stderr)
+        self.assertEqual(banned_outside_sentence(result.report), [])
+        self.assertIn("[term]", result.report)
+        self.assertIn(text, result.lists["semantic_deviations"][0]["text"], "lists.json keeps the text unmasked")
+
+
 # --------------------------------------------------------------------------------------------------------------
 # 4. Output
 # --------------------------------------------------------------------------------------------------------------
@@ -1678,6 +2104,19 @@ class OutputTests(MigrationCase):
             self.assertNotIn("/opt/synthetic", text)
             self.assertNotIn(str(Path.home()), text)
         self.assertEqual(first.stdout, second.stdout)
+        # a refused run is just as deterministic and shows no path of the test machine either
+        c = self.fresh()
+        c.record("b", J13, 3, "samples").unlink()
+        refused_first, refused_second = c.run(), c.run()
+        self.assertEqual(refused_first.code, 2)
+        self.assertEqual(F.tree_snapshot(refused_first.out), F.tree_snapshot(refused_second.out))
+        self.assertEqual(refused_first.stderr, refused_second.stderr)
+        for result in (first, second, refused_first, refused_second):
+            texts = [result.stdout, result.stderr] + [
+                path.read_text(encoding="utf-8") for path in result.out.iterdir()]
+            for stray in stray_strings(c):
+                for text in texts:
+                    self.assertNotIn(stray, text)
 
     def test_refusal_text_names_the_stratum_case_and_values(self):
         c = self.c
@@ -1695,6 +2134,91 @@ class OutputTests(MigrationCase):
         row = self.screen_row(a=[1000] * 8, b=[1100] * 8, aa_a=[1500] * 8, aa_b=[1000] * 8)
         self.assertAlmostEqual(float(row["aa_ratio_max"]), 1000 / 1500)
         self.assertEqual(row["screen"], "screened slowdown")
+
+
+    def test_screen_inequalities_are_strict_and_compare_with_the_right_extreme(self):
+        flat = [1000] * 8
+        # a speedup is measured against the smallest A/A ratio: 0.9 is below the largest (1.0) but not below 0.8
+        self.assertEqual(self.screen_row(flat, [900] * 8, flat, [800] + [1000] * 7)["screen"], "inconclusive")
+        # a slowdown is measured against the largest A/A ratio: 1.1 is above the smallest (1.0) but not above 1.2
+        self.assertEqual(self.screen_row(flat, [1100] * 8, flat, [1200] + [1000] * 7)["screen"], "inconclusive")
+        # the geometric mean equals the extreme of the A/A ratios (2.0 and 0.5 are exact): not above, not below
+        self.assertEqual(self.screen_row(flat, [2000] * 8, flat, [2000] * 8)["screen"], "inconclusive")
+        self.assertEqual(self.screen_row(flat, [500] * 8, flat, [500] * 8)["screen"], "inconclusive")
+        self.assertEqual(self.screen_row(flat, [2000] * 8, flat, [1999] * 8)["screen"], "screened slowdown")
+        self.assertEqual(self.screen_row(flat, [500] * 8, flat, [501] * 8)["screen"], "screened speedup")
+
+    def test_screen_needs_both_execution_orders_among_the_blocks(self):
+        with tempfile.TemporaryDirectory(prefix="stage2b-orders-") as work:
+            def one_order(schedule):
+                schedule["schedule"]["orders"] = {str(rep): "AB" for rep in range(1, 9)}
+            c = F.build_campaign(work, "migration", schedule_edit=one_order)
+            c.set_medians(P01, J13, a=[1000] * 8, b=[1100] * 8, aa_a=[1000] * 8, aa_b=[1000] * 8)
+            result = self.accepted(c.run(aa=True))
+            self.assertEqual(result.row(P01, J13)["screen"], "inconclusive")
+            self.assertGreater(float(result.row(P01, J13)["geomean_ratio"]), float(result.row(P01, J13)["aa_ratio_max"]))
+
+    def test_no_absolute_path_in_refusals_json_or_on_standard_error(self):
+        c = self.c
+        c.record("b", J13, 3, "samples").unlink()
+        result = self.refused(c.run())
+        text = result.stderr + (result.out / "refusals.json").read_text(encoding="utf-8")
+        for stray in stray_strings(c):
+            self.assertNotIn(stray, text)
+        self.assertNotRegex(text, r"(?<![\\w<>.-])/(?:private|var|tmp|Users|opt|home)/")
+        self.assertIn("<b>", text, "a path given on the command line is replaced by its label")
+
+    def test_usage_errors_do_not_show_the_paths_of_the_command_line(self):
+        c = self.c
+        for kwargs in ({"mapping": c.work / "nowhere" / "absent.toml"}, {"receipt": c.work / "nowhere.jsonl"}):
+            result = c.run(**kwargs)
+            self.assertEqual(result.code, 3)
+            for stray in stray_strings(c):
+                self.assertNotIn(stray, result.stderr)
+
+    def test_internal_error_exits_3_names_the_exception_and_writes_nothing(self):
+        tool = F.load_tool()
+        for name in ("read_root", "check_receipt", "read_fingerprints"):
+            with self.subTest(name):
+                c = self.fresh()
+                with mock.patch.object(tool, name, side_effect=RuntimeError(f"secret {c.work}/inner/file")):
+                    result = c.run()
+                self.assertEqual(result.code, 3)
+                self.assertEqual(result.stderr.strip(), "INTERNAL ERROR: RuntimeError")
+                self.assertEqual(result.files, [])
+                self.assertFalse(result.out.exists() and any(result.out.iterdir()))
+                for stray in stray_strings(c):
+                    self.assertNotIn(stray, result.stderr + result.stdout)
+
+    def test_the_comparison_phase_is_not_entered_after_a_refusal(self):
+        tool = F.load_tool()
+        names = ("comparison_phase", "classify", "screen_of", "build_lists", "render_report", "read_historical")
+        c = self.c
+        set_mapping(c, P01, "role", "diagnostic")
+        with contextlib.ExitStack() as stack:
+            mocks = {name: stack.enter_context(mock.patch.object(tool, name, side_effect=AssertionError(name)))
+                     for name in names}
+            result = self.refused(c.run(), "MAPPING")
+        self.assertNotIn("INTERNAL ERROR", result.stderr)
+        for name, patched in mocks.items():
+            patched.assert_not_called()
+
+    def test_the_comparison_phase_is_entered_by_an_accepted_run(self):
+        tool = F.load_tool()
+        c = self.c
+        with mock.patch.object(tool, "comparison_phase", wraps=tool.comparison_phase) as phase, \
+                mock.patch.object(tool, "classify", wraps=tool.classify) as classify, \
+                mock.patch.object(tool, "screen_of", wraps=tool.screen_of) as screen, \
+                mock.patch.object(tool, "build_lists", wraps=tool.build_lists) as lists, \
+                mock.patch.object(tool, "render_report", wraps=tool.render_report) as report, \
+                mock.patch.object(tool, "read_historical", wraps=tool.read_historical) as historical:
+            self.accepted(c.run())
+        phase.assert_called_once()
+        self.assertEqual(classify.call_count, 38)
+        self.assertEqual(screen.call_count, 38)
+        lists.assert_called_once()
+        report.assert_called_once()
+        historical.assert_called_once()
 
 
 # --------------------------------------------------------------------------------------------------------------

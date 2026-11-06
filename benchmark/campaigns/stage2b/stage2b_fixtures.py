@@ -59,6 +59,7 @@ import validate  # noqa: E402  (benchmark/validate.py, imported without modifica
 LABELS = ("a", "b", "aa_a", "aa_b")
 ROLE_LABELS = {"AB": {"A": "a", "B": "b"}, "AA": {"A": "aa_a", "B": "aa_b"}}
 RECORD_KINDS = ("catalog", "errors", "metrics", "samples", "metadata", "metadata-start")
+SESSION_ID = "session-0001"
 PB_UUID = "0a755509-c5b1-5d6f-9b24-59bcda3c37a3"
 PS_UUID = "fc4971f5-6616-4709-9bfc-89a819252f6b"
 PS_A_PACKAGE_HASH = "f37fc61f300ad597a33c7ab5f448d38c865db854"
@@ -425,10 +426,12 @@ def project_dict(stack, jkey):
     return {"name": "ProximalSolversBenchmark", "deps": deps, "compat": compat}
 
 
-def identity_dict(stack):
+def identity_dict(stack, campaign_id, session_id=SESSION_ID):
+    """stack-identity.toml: the root is bound to the campaign and the session of the receipt."""
     pb = {key: value for key, value in stack["pb"].items() if key != "hash"}
     ps = {key: value for key, value in stack["ps"].items() if key != "hash"}
-    return {"schema": 1, "installation": stack["installation"], "proximalsolvers": ps, "proximalbase": pb}
+    return {"schema": 1, "installation": stack["installation"], "campaign_id": campaign_id,
+            "session_id": session_id, "proximalsolvers": ps, "proximalbase": pb}
 
 
 def fixture_names(case):
@@ -878,7 +881,7 @@ class Campaign:
         if root.exists():
             shutil.rmtree(root)
         root.mkdir(parents=True)
-        toml_write(root / "stack-identity.toml", identity_dict(self.stack(label)))
+        toml_write(root / "stack-identity.toml", identity_dict(self.stack(label), self.sched["schedule"]["campaign_id"]))
         for jkey in self.jkeys:
             self.write_records(label, [jkey])
             self.write_environment(label, jkey)
@@ -964,7 +967,7 @@ def receipt_events(camp):
     """The receipt of one campaign: the A/A arm, then the A/B arm; per arm and stratum eight blocks in the
     order of the schedule, the second process of a block starting after the first has ended."""
     sched, machine = camp.sched, camp.sched["machine"]
-    events = [{"event": "campaign", "campaign_id": sched["schedule"]["campaign_id"], "session_id": "session-0001",
+    events = [{"event": "campaign", "campaign_id": sched["schedule"]["campaign_id"], "session_id": SESSION_ID,
                "schedule_id": sched["schedule"]["id"], "utc": "2026-12-01T08:00:00.000+00:00"}]
     moment = datetime.datetime(2026, 12, 1, 9, 0, 0, tzinfo=datetime.timezone.utc)
     step = datetime.timedelta
