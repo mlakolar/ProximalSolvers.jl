@@ -18,6 +18,14 @@
 # x.storage, LogDetLoss symmetry, coordinates(x) === x, _svd_cache!) that the case's solver call
 # path touches, or states that git grep found none.
 #
+# Approval record (maintainer decision on #110, comment 6694764350): the classification below is approved as the
+# pre-candidate audit for implementation and testing of PR B (18 class A, P14 class B, no C or D); it is not a
+# finding that any case works on a 0.6 candidate, and candidate-specific revalidation and sign-off are required
+# before any official measurement. Every row has `approved`; a class B row also has `approval_url`,
+# `approval_scope`, `port_text` and `new_harness_hash` (the true hash is recorded at the port commit, never
+# written here). The comparison tool (MIGRATION_COMPARE_SPEC.md) requires `approved = true` and a non-empty
+# `approval_url` for class B only; any other class is refused unless a separate approved mapping is present.
+#
 # Provisional until a ProximalBase 0.6 candidate commit and a migrated ProximalSolvers commit
 # exist (STAGE2B_PLAN.md, gates G1-G8). Read by Python's tomllib (test_stage2b_files.py).
 
@@ -77,6 +85,7 @@ sensitive_paths_06 = [
   "git grep over src/ at 7b9b5295 (ext/ does not exist): the x.p, x.groups, x.storage, x.nzval, coordinates(x) and fill!-of-an-iterate sites that exist (listed in CASE_MAPPING.md, section \"Migration paths the 19 cases do not exercise\") are in code this case does not reach (symmetric-owner, AtomIterate, momentum and Anderson, refit and generic-Newton code); _svd_cache! does not occur in src/",
 ]
 class = "A"
+approved = false
 class_reason = "Reset, inputs, certificate and timed operation need no edit: the reset is a copy into a plain Vector and the solver converts it to its own iterate. No unmigrated 0.6-sensitive site was found on the solver path."
 verification_needed = [
   "pilot on the migrated stack (reset state, fixture fingerprint, certificate, counters); solver migration: none required by this path according to the grep, but the package-level migration (compat admitting the ProximalBase 0.6 candidate, full suite green) must be complete first",
@@ -136,6 +145,7 @@ sensitive_paths_06 = [
   "the CSC column kernels (src/cd/leastsquares.jl, _column_axpy! and friends) do not touch iterate internals: no further site found",
 ]
 class = "A"
+approved = false
 class_reason = "As P01: no harness edit and no unmigrated 0.6-sensitive site found; only the matrix storage differs."
 verification_needed = [
   "pilot on the migrated stack; fixture fingerprint must compare the sparsity pattern (findnz) as well as the values; no solver migration required by this path according to the grep",
@@ -194,6 +204,7 @@ sensitive_paths_06 = [
   "git grep over src/ at 7b9b5295 (ext/ does not exist): the x.p, x.groups, x.storage, x.nzval, coordinates(x) and fill!-of-an-iterate sites that exist (listed in CASE_MAPPING.md, section \"Migration paths the 19 cases do not exercise\") are in code this case does not reach (symmetric-owner, AtomIterate, momentum and Anderson, refit and generic-Newton code); _svd_cache! does not occur in src/ (the only fill! in the workspace path is the already-ported _clear_start!)",
 ]
 class = "A"
+approved = false
 class_reason = "Reset and inputs need no edit; the solver already clears its own iterate with dropzeros!(fill!(...)). No unmigrated 0.6-sensitive site found."
 verification_needed = [
   "pilot on the migrated stack; confirm that the internal iterate has an empty working set at the start of every timed solve (checked through the counters and the certificate, since the internal iterate is not exposed); no solver migration required by this path according to the grep",
@@ -256,6 +267,7 @@ sensitive_paths_06 = [
   "migration issue: #165 (replace private iterate fields by accessors); ledger #527 row \"Private iterate fields (FF-1)\" names x.storage, x.nzval, x.nactive, x.active and x.groups in src/cd/groups.jl, src/cd/solver.jl and others; src/ has 58 non-comment .groups sites (iterate and penalty fields together), of which the sites above are on this path",
 ]
 class = "A"
+approved = false
 class_reason = "The reset is equivalent on ProximalBase 0.5.4 and master (probe); the harness needs no edit. The solver path reads x.groups directly and is not yet migrated (#165), so a migrated solver and a pilot are required before any official measurement."
 verification_needed = [
   "solver migration (#165 private iterate fields; AtomIterate working-set rules) and pilot: reset state, active-group layout after reset, group certificate, counters (passes)",
@@ -316,6 +328,7 @@ sensitive_paths_06 = [
   "src/cd/solver.jl:276 dropzeros!(x): AtomIterate working-set rules unverified at the candidate",
 ]
 class = "A"
+approved = false
 class_reason = "The reset is equivalent (probe) and the harness needs no edit. This case writes x.storage and calls prox_coordinate! with the 0.5 signature (src/cd/groups.jl:32-42): it cannot run on the 0.6 candidate before #163 and #165, so the gap is solver migration, not harness."
 verification_needed = [
   "solver migration (#163 block step, #165 private iterate fields) and pilot: reset state, active-group layout after reset, sparse-group certificate, counters (passes)",
@@ -375,6 +388,7 @@ sensitive_paths_06 = [
   "weighted L1 on a plain SparseIterate: the penalty weights are read per coordinate (src/cd/models.jl:433-434 is the symmetric variant; not this path); ProximalBase #608 (scaled weighted exact-zero recovery, measured by ProximalSolvers #213) may matter for Scaled loss with weighted L1: relevance to this case unverified",
 ]
 class = "A"
+approved = false
 class_reason = "No harness edit. No unmigrated 0.6-sensitive solver site found; the possible numerical-contract effect of ProximalBase #608 on a scaled loss with weighted L1 is not assessed here."
 verification_needed = [
   "pilot on the migrated stack; compare counters (passes) between stacks and record any difference as a possible numerical-contract effect (#213) before attributing time differences; no solver migration required by this path according to the grep",
@@ -432,6 +446,7 @@ sensitive_paths_06 = [
   "git grep over src/ at 7b9b5295 (ext/ does not exist): the x.p, x.groups, x.storage, x.nzval, coordinates(x) and fill!-of-an-iterate sites that exist (listed in CASE_MAPPING.md, section \"Migration paths the 19 cases do not exercise\") are in code this case does not reach (symmetric-owner, AtomIterate, momentum and Anderson, refit and generic-Newton code); _svd_cache! does not occur in src/",
 ]
 class = "A"
+approved = false
 class_reason = "Plain-Vector gradient solver: no iterate type, no harness edit, no sensitive site found."
 verification_needed = [
   "pilot on the migrated stack; solver migration: none required by this path according to the grep (the contract of f and g evaluation in ProximalBase is covered by the package suite, T07 in the readiness gates)",
@@ -488,6 +503,7 @@ sensitive_paths_06 = [
   "git grep over src/ at 7b9b5295 (ext/ does not exist): the x.p, x.groups, x.storage, x.nzval, coordinates(x) and fill!-of-an-iterate sites that exist (listed in CASE_MAPPING.md, section \"Migration paths the 19 cases do not exercise\") are in code this case does not reach (symmetric-owner, AtomIterate, momentum and Anderson, refit and generic-Newton code); _svd_cache! does not occur in src/",
 ]
 class = "A"
+approved = false
 class_reason = "Plain-Vector workspace: no iterate type, no harness edit, no sensitive site found."
 verification_needed = [
   "pilot on the migrated stack; solver migration: none required by this path according to the grep",
@@ -547,6 +563,7 @@ sensitive_paths_06 = [
   "git grep over src/ at 7b9b5295 (ext/ does not exist): the x.p, x.groups, x.storage, x.nzval, coordinates(x) and fill!-of-an-iterate sites that exist (listed in CASE_MAPPING.md, section \"Migration paths the 19 cases do not exercise\") are in code this case does not reach (symmetric-owner, AtomIterate, momentum and Anderson, refit and generic-Newton code); _svd_cache! does not occur in src/ (the accessor sites above are the only iterate uses)",
 ]
 class = "A"
+approved = false
 class_reason = "No harness edit (the start is a plain Vector). No unmigrated owner-sensitive site found; the path depends on the SparseIterate working-set rules and on the open numerical-contract issue #211."
 verification_needed = [
   "pilot on the migrated stack; check #211 status at the candidate and record the Newton counters (passes) of both stacks; solver migration (#211 if merged first, otherwise none required by the grep)",
@@ -612,6 +629,7 @@ sensitive_paths_06 = [
   "ledger mlakolar/ProximalBase.jl#527 (every row unchecked): row \"#391 Phase 1: the owner stops being an AbstractMatrix\" lists, for ProximalSolvers, x.p sites, _clear_start! of the owner (src/cd/path.jl:19) and src/cd/quic.jl:47,91,138,203,214 (of these P10 and D02 reach 91, 138 and 214 only: :47 is a dense-matrix fill and :203 is not reached); row \"Exact symmetry of LogDetLoss(S)\" lists src/cd/quic.jl:239,241 (the Scaled method, NOT reached here: the harness loss is unscaled, benchmark/cases.jl:40)",
 ]
 class = "A"
+approved = false
 class_reason = "Reset, inputs (an exactly symmetric S and Λ), certificate and timed operation need no edit, provided the minimizer converts to a symmetric dense matrix. The solver path is the one most exposed to the owner redesign (#391) and to #162/#165 and is not yet migrated."
 verification_needed = [
   "solver migration (#162 symmetric penalty validation, #165 private fields x.p, the owner redesign of ProximalBase #391 Phase 1, and the clear/fill! semantics) and pilot: the minimizer type and exact symmetry after Array(output.minimizer), the glasso certificate, counters (passes), fixture fingerprint including issymmetric(S) and issymmetric(Λ)",
@@ -668,6 +686,7 @@ sensitive_paths_06 = [
   "no iterate type, x.p, x.groups, x.storage or coordinates(x) site on this path (git grep over src/solvers/admm.jl: none)",
 ]
 class = "A"
+approved = false
 class_reason = "Plain-Vector solver, no harness edit; the only 0.6 exposure is inside ProximalBase's least-squares prox (SVD cache), which the solver does not name."
 verification_needed = [
   "pilot on the migrated stack (certificate and counters iterations/prox_calls); verify the ProximalBase SVD-cache behaviour at the candidate (P13 does so in isolation); no solver migration required by this path according to the grep",
@@ -725,6 +744,7 @@ sensitive_paths_06 = [
   "src/workspaces.jl:82-91, :174-181, :222-233: workspace buffers are plain arrays",
 ]
 class = "A"
+approved = false
 class_reason = "As P11 for the workspace phase; fill! acts on plain arrays only."
 verification_needed = [
   "pilot on the migrated stack; counters equal those of P11 on the same stack; no solver migration required by this path according to the grep",
@@ -778,6 +798,7 @@ sensitive_paths_06 = [
   "git grep _svd_cache over src/: 0 sites: ProximalSolvers itself never names the cache",
 ]
 class = "A"
+approved = false
 class_reason = "The harness needs no edit on the probed master (the private names still exist and the certificate holds), but the case depends only on private ProximalBase names: a candidate that renames them makes it class B or D."
 verification_needed = [
   "re-verify at the candidate: _svd_cache!, V, s2, sUtY exist and the self-consistency stays below 1e-12; no solver migration (the case has no solver); pilot",
@@ -812,7 +833,7 @@ working_set = [
 ]
 reset = [
   "historical line, verbatim (benchmark/cases.jl:171 at 7b9b5295 and b0de3f7): reset!() = (fill!(x, 0.0); reset_solver_rng!(method); nothing)",
-  "reviewed compatibility-only port, verbatim (proposed; requires its own narrow PR and maintainer approval): reset!() = (dropzeros!(fill!(x, 0.0)); reset_solver_rng!(method); nothing)",
+  "approved compatibility-only port (maintainer decision, #110 comment 6694764350; candidate-specific revalidation required before official measurement): the iterate is cleared by dropzeros!(fill!(x, 0.0)) for the SparseIterate of the lasso path and by fill!(x, 0.0), kept, for the dense Vector of the two SLOPE paths; reset_solver_rng!(method); nothing is unchanged",
   "the port is identical on ProximalBase 0.5.4 (probe: sparse.fill0_dropzeros.matches_fresh_workingset = true on 0.5.4 and on master, Julia 1.10.12 and 1.13.3)",
   "the formal harness_hash (SHA-1 over problems.jl, certificates.jl, cases.jl, run.jl: benchmark/run.jl:112-115) will change with the port: Stack A keeps the historical harness hash b7bf3d95, Stack B records its own; both true hashes are preserved, never forced equal, and the declared difference is the approved mapping record",
 ]
@@ -838,9 +859,18 @@ sensitive_paths_06 = [
   "git grep over src/: the owner and AtomIterate field sites are not on this path; the only clear of an iterate on it is the harness fill! above; _svd_cache! does not occur in src/",
 ]
 class = "B"
+approved = true
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/110#issuecomment-6694764350"
+approval_scope = "pre-candidate audit and implementation; revalidation against the pinned 0.6 candidate is required before official measurement"
+port_text = [
+  "dropzeros!(fill!(x, 0.0)) for the SparseIterate of the lasso path (this case)",
+  "fill!(x, 0.0) kept for the dense Vector of the two SLOPE paths (paths/slope/slope-apg/grid8/call, paths/slope/slope-hybrid/grid8/call): dropzeros! has no method for a plain Vector",
+  "the rest of the reset line, reset_solver_rng!(method); nothing, is unchanged",
+]
+new_harness_hash = "recorded at the port commit"
 class_reason = "Equivalent only with a reviewed compatibility-only harness port: on ProximalBase master the historical reset leaves the previous solve's active coordinates active, so the warm start differs from the 0.5.4 cold start. The port dropzeros!(fill!(x, 0.0)) gives the identical empty working set on both versions (probe)."
 verification_needed = [
-  "reviewed port in its own narrow PR (maintainer approval of the P14 port); then pilot: nactive(x) == 0 and all values zero after every reset!() on both stacks, the eight-level path complete (returned grid equals the requested grid), per-level certificates, counters (passes, stages, kkt_checks)",
+  "the approved port (maintainer decision on #110) in PR B, with its own test; then, on the pinned candidate, the pilot: nactive(x) == 0 and all values zero after every reset!() on both stacks, the eight-level path complete (returned grid equals the requested grid), per-level certificates, counters (passes, stages, kkt_checks)",
 ]
 equivalence_check = [
   "both stacks, per repetition ID the pilot uses, outside any timed region: (1) problem fixture: the per-array SHA-256 of every problem field (not only the combined data_hash, which is never proof of identical semantics: benchmark/problems.jl:41-48) is written to the fixture-fingerprint file and must be equal; (2) reset state: after reset!() the iterate (values, and for sparse iterates the active IDs) equals start and equals the other stack's, and the solver RNG state is equal; (3) solver configuration: the printed fields of the solver and of ProximalOptions are equal between stacks (and equal to the table in this record); (4) certificate: the first and the last certified call have status ok and value at or below the target in both stacks, with the achieved value, the counters and the 'near target' flag recorded; (5) work counters (local.jl diagnostics) recorded for both stacks and reported, never required equal",
@@ -896,6 +926,7 @@ sensitive_paths_06 = [
   "git grep over src/ at 7b9b5295 (ext/ does not exist): the x.p, x.groups, x.storage, x.nzval, coordinates(x) and fill!-of-an-iterate sites that exist (listed in CASE_MAPPING.md, section \"Migration paths the 19 cases do not exercise\") are in code this case does not reach (symmetric-owner, AtomIterate, momentum and Anderson, refit and generic-Newton code); _svd_cache! does not occur in src/ (the generic copyto! above is the only iterate-to-Vector copy outside _copy_dense!)",
 ]
 class = "A"
+approved = false
 class_reason = "No harness edit; the plain-Vector reset is a copy. The solver reads the sparse iterate only through the accessors listed; the generic copyto! out of the iterate is the one site to verify."
 verification_needed = [
   "pilot on the migrated stack (certificate, counters outer/inner iterations); verify the copyto!(x, xs) site at the candidate; no solver migration required by this path according to the grep",
@@ -961,6 +992,7 @@ sensitive_paths_06 = [
   "ledger mlakolar/ProximalBase.jl#527 (every row unchecked): row \"#391 Phase 1: the owner stops being an AbstractMatrix\" lists, for ProximalSolvers, x.p sites, _clear_start! of the owner (src/cd/path.jl:19) and src/cd/quic.jl:47,91,138,203,214 (of these P10 and D02 reach 91, 138 and 214 only: :47 is a dense-matrix fill and :203 is not reached); row \"Exact symmetry of LogDetLoss(S)\" lists src/cd/quic.jl:239,241 (the Scaled method, NOT reached here: the harness loss is unscaled, benchmark/cases.jl:40)",
 ]
 class = "A"
+approved = false
 class_reason = "As P10: no harness edit provided the minimizer converts to a symmetric dense matrix; the solver path is not yet migrated."
 verification_needed = [
   "as P10: solver migration (#162, #165, owner redesign #391, clear semantics) and pilot, including the minimizer type and exact symmetry",
@@ -1020,6 +1052,7 @@ sensitive_paths_06 = [
   "git grep over src/ at 7b9b5295 (ext/ does not exist): the x.p, x.groups, x.storage, x.nzval, coordinates(x) and fill!-of-an-iterate sites that exist (listed in CASE_MAPPING.md, section \"Migration paths the 19 cases do not exercise\") are in code this case does not reach (symmetric-owner, AtomIterate, momentum and Anderson, refit and generic-Newton code); _svd_cache! does not occur in src/",
 ]
 class = "A"
+approved = false
 class_reason = "As P01 on a wider design."
 verification_needed = [
   "pilot on the migrated stack; no solver migration required by this path according to the grep",
@@ -1074,6 +1107,7 @@ sensitive_paths_06 = [
   "the harness gap callback runs the independent certificate inside the timed region: any change to benchmark/certificates.jl changes the timed operation of this case (the harness hash would change as well)",
 ]
 class = "A"
+approved = false
 class_reason = "Plain vectors, no harness edit, no sensitive site found. Because the certificate is part of the timed region, the certificate file must be byte-identical in both stacks for this case to be like for like."
 verification_needed = [
   "pilot on the migrated stack (certificate and counters iterations/grad_calls/prox_calls); confirm that benchmark/certificates.jl is identical in both stacks; no solver migration required by this path according to the grep",
@@ -1131,6 +1165,7 @@ sensitive_paths_06 = [
   "git grep over src/ at 7b9b5295 (ext/ does not exist): the x.p, x.groups, x.storage, x.nzval, coordinates(x) and fill!-of-an-iterate sites that exist (listed in CASE_MAPPING.md, section \"Migration paths the 19 cases do not exercise\") are in code this case does not reach (symmetric-owner, AtomIterate, momentum and Anderson, refit and generic-Newton code); _svd_cache! does not occur in src/",
 ]
 class = "A"
+approved = false
 class_reason = "As P07 on a wider design."
 verification_needed = [
   "pilot on the migrated stack; no solver migration required by this path according to the grep",
