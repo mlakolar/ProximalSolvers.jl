@@ -294,8 +294,13 @@ Threat model: the root's parent directory and the staging directories in it are 
 not to be modified concurrently by untrusted local processes. Integrity does not rely on
 directory permissions but on the checksums, the verify of the extracted tarball, the
 re-hash of the staged copy before the upload and the re-read of the tag at `FREEZE_SHA`.
-A hostile concurrent writer in the same directory can still race a check and the `ln` or
-`rm` that follows it (out of scope); that never leads to publishing unverified bytes.
+`checksums` works inside the root pinned by inode (one subshell whose working directory is
+the root, relative paths only), so a rename or link swap of the root's name cannot redirect
+it; `pack` then addresses the root by name for `verify` and `tar`, and a swap there yields
+an archive that fails the member check or the verify of its extracted copy, or that is
+itself verified. A hostile concurrent writer in the same directory can still race a check
+and the `ln` or `rm` that follows it (out of scope); that never leads to publishing
+unverified bytes.
 
 Retries: everything before the tag creation can be rerun after fixing its cause (move
 the kept `<root>.release-notes.md` away first). Once the tag exists, `release` refuses to

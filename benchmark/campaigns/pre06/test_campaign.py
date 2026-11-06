@@ -12,6 +12,7 @@ import io
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
@@ -484,6 +485,8 @@ case "$*" in
       *) echo 'title: x' ;;
     esac ;;
   "release create "*)
+    [ -z "${GH_SWAP_STAGE:-}" ] || for d in "$GH_SWAP_STAGE"/.archive-stage.*; do
+      mv "$d" "$d.real"; ln -s "$GH_VICTIM" "$d"; done
     for a in "$@"; do case $a in *.tar.gz) echo "uploaded $(sha256sum "$a")" >> "$MOCK_LOG" ;; esac; done
     [ -z "${GH_CREATE_FAIL:-}" ] || { echo 'HTTP 500' >&2; exit 1; }
     case " $* " in *" --verify-tag "*) ;; *) echo 'tag would be created by gh' >&2; exit 1 ;; esac
@@ -1179,6 +1182,87 @@ class ArchiveScript(Scratch):
                 self.assertEqual(result.returncode, rc, result.stderr)
                 self.assertTrue(Path(f"{root}.tar.gz").is_file())
 
+    def swap_mock(self, tool):
+        """`tool` that, once, renames SWAP_ROOT and links that name to SWAP_TO: on its
+        first call with an argument ending in checksums.sha256 (rm) or naming SWAP_ROOT
+        (realpath, right after printing the resolution)."""
+        bin_ = self.tmp / f"{tool}-swap"
+        if bin_.exists():
+            return f"{bin_}:{self.env['PATH']}"
+        bin_.mkdir()
+        real = shutil.which(tool)
+        swap = ('if [ ! -e "$MOCK_LOG.swapped" ]; then touch "$MOCK_LOG.swapped"; '
+                'mv "$SWAP_ROOT" "$SWAP_ROOT.moved"; ln -s "$SWAP_TO" "$SWAP_ROOT"; fi')
+        if tool == "rm":
+            body = (f'for a in "$@"; do case $a in *checksums.sha256) {swap} ;; esac; done\n'
+                    f'exec {real} "$@"\n')
+        else:
+            body = (f'{real} "$@" || exit\n'
+                    f'for a in "$@"; do [ "$a" != "$SWAP_ROOT" ] || {{ {swap}; }}; done\n')
+        (bin_ / tool).write_text("#!/usr/bin/env bash\n" + body)
+        (bin_ / tool).chmod(0o755)
+        return f"{bin_}:{self.env['PATH']}"
+
+    def test_checksums_is_pinned_to_the_root(self):
+        other = self.tmp / "other"   # another directory with its own list
+        other.mkdir()
+        (other / "checksums.sha256").write_text("maintainer's list\n")
+        for number, (tool, command) in enumerate(
+                (t, c) for t in ("rm", "realpath") for c in ("checksums", "pack")):
+            with self.subTest(tool=tool, command=command):
+                root = make_root(self.evidence, f"pilot-s{number}")
+                Path(f"{self.log}.swapped").unlink(missing_ok=True)
+                args = ("checksums", root) if command == "checksums" else ("pack", root, SHA)
+                result, log = self.run_sh(*args, PATH=self.swap_mock(tool),
+                                          SWAP_ROOT=str(root), SWAP_TO=str(other))
+                self.assertTrue(Path(f"{self.log}.swapped").exists())   # the swap happened
+                self.assertEqual((other / "checksums.sha256").read_text(), "maintainer's list\n")
+                self.assertEqual(sorted(p.name for p in other.iterdir()), ["checksums.sha256"])
+                moved = Path(f"{root}.moved")
+                if tool == "rm" and command == "checksums":   # acted inside the original only
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    names = [line.split("  ", 1)[1] for line in
+                             (moved / "checksums.sha256").read_text().splitlines()]
+                    self.assertIn("julia-1.13/raw/julia-1.13-rep01-metrics.tsv", names)
+                else:
+                    self.assertEqual(result.returncode, 1, result.stderr)
+                if tool == "rm" and command == "checksums":   # the scan is pinned too
+                    shutil.rmtree(moved)
+                    root = make_root(self.evidence, f"pilot-s{number}-link")
+                    os.symlink(other, root / "julia-1.13" / "link")
+                    Path(f"{self.log}.swapped").unlink()
+                    result, log = self.run_sh("checksums", root, PATH=self.swap_mock(tool),
+                                              SWAP_ROOT=str(root), SWAP_TO=str(other))
+                    self.assertTrue(Path(f"{self.log}.swapped").exists())
+                    self.assertEqual(result.returncode, 1)
+                    self.assertIn("not regular files or directories", result.stderr)
+                    self.assertEqual((other / "checksums.sha256").read_text(),
+                                     "maintainer's list\n")
+                    moved = Path(f"{root}.moved")
+                if tool == "realpath":   # swapped between resolution and use: refused
+                    self.assertRegex(result.stderr, "changed after its resolution|is a "
+                                     "symbolic link")
+                    if command == "checksums":
+                        self.assertIn("changed after its resolution", result.stderr)
+                    self.assertEqual((moved / "checksums.sha256").read_text(), "stale\n")
+
+    def test_cleanup_never_follows_a_swapped_stage(self):
+        victim = self.tmp / "victim"
+        (victim / "sub").mkdir(parents=True)
+        (victim / "secret").write_text("x")
+        (victim / "secret").chmod(0o400)
+        (victim / "sub").chmod(0o500)
+        self.addCleanup((victim / "sub").chmod, 0o700)
+        root, tarball, result, _ = self.pack(0)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        result, log = self.run_sh("release", root, SHA, "--tag", TAG,
+                                  GH_SWAP_STAGE=str(self.evidence), GH_VICTIM=str(victim))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("is now a symbolic link; left in place", result.stderr)
+        self.assertEqual(stat.S_IMODE((victim / "secret").stat().st_mode), 0o400)
+        self.assertEqual(stat.S_IMODE((victim / "sub").stat().st_mode), 0o500)
+        self.assertEqual(sorted(p.name for p in victim.iterdir()), ["secret", "sub"])
+
     def test_empty_and_dot_roots_are_refused(self):
         work = self.tmp / "work" / "cwd"
         work.mkdir(parents=True)
@@ -1186,7 +1270,9 @@ class ArchiveScript(Scratch):
         (work / "f").write_text("x\n")
         (work / "sub").mkdir()
         for root in ("", "/", "//", ".", "./", "..", "../", "./.", "././", "sub/..",
-                     "./sub/../", "sub/../..", "../.", "/./", "/../"):
+                     "./sub/../", "sub/../..", "../.", "/./", "/../", "//./", "//../", "///",
+                     "/" + str(work), "//" + str(work) + "/", "/" + str(work.parent),
+                     "//" + str(work) + "/sub/.."):
             for command in (("checksums", root), ("pack", root, SHA),
                             ("release", root, SHA, "--tag", TAG)):
                 with self.subTest(root=root, command=command[0]):

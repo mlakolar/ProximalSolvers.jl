@@ -34,6 +34,8 @@
 # re-hash of the staged copy before the upload and the re-read of the tag at FREEZE_SHA. A
 # hostile concurrent writer in the same directory can still race a check and the `ln` or
 # `rm` that follows it (out of scope); that never leads to publishing unverified bytes.
+# `checksums` is pinned to the root's inode; `pack` addresses the root by name for verify
+# and tar, where a swap is caught by the member check and the extracted-tarball verify.
 set -euo pipefail
 unset CDPATH
 
@@ -52,8 +54,15 @@ tar_() { env -u TAR_OPTIONS -u GZIP tar "$@"; }
 # Removing the staging directory never changes the exit status (it may hold read-only
 # directories of the evidence, and gh release create may already have succeeded).
 cleanup() {
-  [ -n "$stage" ] && [ -d "$stage" ] || return 0
-  chmod -R u+rwX -- "$stage"   # runs under set +e (the EXIT trap); rm decides
+  [ -n "$stage" ] || return 0
+  if [ -L "$stage" ]; then   # swapped for a link: never follow it (chmod would)
+    warn "$stage is now a symbolic link; left in place"
+    return 0
+  fi
+  [ -d "$stage" ] || return 0
+  # Make its directories removable without following links (find does not follow them);
+  # runs under set +e (the EXIT trap); rm decides.
+  find "$stage" -type d -exec chmod u+rwx -- {} +
   if ! rm -rf -- "$stage"; then
     warn "could not remove $stage"
   fi
@@ -99,9 +108,10 @@ real_dir() {
   logical=$(cd -L -- "$1" && pwd -L) || die "no directory $1"
   [ ! -L "$logical" ] || die "$1 is a symbolic link; the root must be a real directory"
   local physical here
-  physical=$(cd -P -- "$logical" && pwd -P) || die "no directory $1"
-  here=$(pwd -P) || die "cannot resolve the current directory"
-  # `/`, the current directory or one of its ancestors, however spelled (./., sub/.., /./)
+  # Canonical physical paths: realpath also collapses the leading // that bash keeps.
+  physical=$(realpath -e -- "$logical") || die "no directory $1"
+  here=$(realpath -e -- .) || die "cannot resolve the current directory"
+  # `/`, the current directory or one of its ancestors, however spelled (./., sub/.., //./)
   [[ $here/ != "${physical%/}/"* ]] \
     || die "ROOT '$1' is $physical: /, the current directory or one of its ancestors"
   echo "$physical"
@@ -149,29 +159,32 @@ extract() {   # tarball $1 into the new directory $2; links were refused by chec
 }
 
 checksums() {
-  local root tmp odd
+  local root tmp
   root=$(real_dir "$1")
-  rm -f "$root/checksums.sha256"
   [ -n "$stage" ] || make_stage "$(dirname "$root")"   # pack's stage, or its own
-  odd=$(cd "$root" && find . ! -type f ! -type d -printf '%P\n') || die "cannot list $root"
-  [ -z "$odd" ] || die "not regular files or directories (links, FIFOs, sockets, devices): $odd"
-  # sha256sum escapes these names, and the verifier rejects escaped lines
-  odd=$(cd "$root" && find . -type f \( -path '*\\*' -o -path "*"$'\n'"*" -o -path "*"$'\r'"*" \) \
-        -printf '%P\n') || die "cannot list $root"
-  [ -z "$odd" ] || die "file names with a backslash, newline or carriage return cannot be listed: $odd"
   tmp=$stage/checksums.sha256   # outside ROOT: never listed; removed with the stage
-  if ( cd "$root" && find . -type f ! -path ./checksums.sha256 -printf '%P\0' |
-         LC_ALL=C sort -z | xargs -0 -r sha256sum ) > "$tmp"; then
-    if grep -q '^\\' "$tmp"; then   # any escaped name: the verifier would reject the list
-      rm -f "$tmp"
-      die "sha256sum escaped a file name under $root; no checksums.sha256 written"
-    fi
+  # Pinned to the root's inode: one subshell whose working directory is the root (checked
+  # after `cd -P`), using relative paths only, so a rename or link swap of the root's
+  # name after its resolution cannot redirect the removal, the scan or the install.
+  (
+    cd -P -- "$root" || die "no directory $root"
+    [ "$(pwd -P)" = "$root" ] || die "$root changed after its resolution; nothing written"
+    rm -f ./checksums.sha256
+    odd=$(find . ! -type f ! -type d -printf '%P\n') || die "cannot list $root"
+    [ -z "$odd" ] || die "not regular files or directories (links, FIFOs, sockets, devices): $odd"
+    # sha256sum escapes these names, and the verifier rejects escaped lines
+    odd=$(find . -type f \( -path '*\\*' -o -path "*"$'\n'"*" -o -path "*"$'\r'"*" \) \
+          -printf '%P\n') || die "cannot list $root"
+    [ -z "$odd" ] || die "file names with a backslash, newline or carriage return cannot be listed: $odd"
+    find . -type f ! -path ./checksums.sha256 -printf '%P\0' | LC_ALL=C sort -z \
+      | xargs -0 -r sha256sum > "$tmp" \
+      || die "checksum generation failed under $root; no checksums.sha256 written"
+    # any escaped name: the verifier would reject the list
+    ! grep -q '^\\' "$tmp" || die "sha256sum escaped a file name under $root; no checksums.sha256 written"
     chmod 0644 "$tmp"
-    install_new "$tmp" "$root/checksums.sha256"
-  else
-    rm -f "$tmp"
-    die "checksum generation failed under $root; no checksums.sha256 written"
-  fi
+    install_new "$tmp" ./checksums.sha256
+    [ ./checksums.sha256 -ef "$tmp" ] || die "$root/checksums.sha256 is not the list installed"
+  )
 }
 
 # Run verify on ROOT; sets verify_rc and writes its stdout to $2.
