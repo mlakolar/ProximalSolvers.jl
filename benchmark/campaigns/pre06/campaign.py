@@ -146,6 +146,22 @@ def read_checksums(path):
     return listed
 
 
+def foreign_objects(root):
+    """Paths under `root`, walked without following links, that are not regular files or
+    directories (symbolic links, FIFOs, sockets, devices). Evidence holds none."""
+    found = []
+
+    def walk(directory):
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                if entry.is_dir(follow_symlinks=False):
+                    walk(entry.path)
+                elif entry.is_symlink() or not entry.is_file(follow_symlinks=False):
+                    found.append(os.path.relpath(entry.path, root))
+    walk(root)
+    return sorted(found)
+
+
 def write_new(path, text):
     with Path(path).open("x", encoding="utf-8") as stream:   # never overwrite a record
         stream.write(text)
@@ -847,6 +863,10 @@ def verify_julia(julia_dir, campaign, ids, freeze_head):
 def verify_evidence(julia_dir, campaign, ids, freeze_head, report):
     fail = report["failures"].append
     protocol, machine = campaign["protocol"], campaign["machine"]
+    check(not julia_dir.is_symlink() and julia_dir.is_dir(),
+          f"{julia_dir.name} is not a directory (a symbolic link or another object)")
+    odd = foreign_objects(julia_dir)
+    check(not odd, f"not regular files or directories (links, FIFOs, ...): {odd}")
     listed = read_checksums(julia_dir / "checksums.sha256")
     present = {str(p.relative_to(julia_dir)) for p in julia_dir.rglob("*") if p.is_file()}
     if present - {"checksums.sha256"} != set(listed):
@@ -999,6 +1019,12 @@ def verify(args):
 
     def problem(label, message):
         reports.append(dict(julia=label, failures=[message]))
+
+    # A self-contained tree of regular files and directories, in every mode.
+    if Path(args.root).is_symlink() or not root.is_dir():
+        problem("root", f"{args.root} is not a directory (or is a symbolic link)")
+    elif odd := foreign_objects(root):
+        problem("root", f"not regular files or directories (links, FIFOs, ...): {odd}")
 
     for name in ("campaign.toml", "cases.txt"):
         if not (root / name).is_file() or (root / name).read_bytes() != (HERE / name).read_bytes():

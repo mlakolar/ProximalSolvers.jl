@@ -39,11 +39,45 @@ print("\t".join([c["campaign_id"], a["name"], a["asset"], a["release_tag"], a["r
 ' "$(dirname "$CAMPAIGN")/campaign.toml"
 }
 
+# The physical path of directory $1, which must not itself be a symbolic link.
+real_dir() {
+  local dir=${1%/}
+  [ -n "$dir" ] || dir=/
+  [ ! -L "$dir" ] || die "$1 is a symbolic link; the root must be a real directory"
+  (cd "$dir" && pwd -P) || die "no directory $1"
+}
+
+# Every member of tarball $1 is a regular file or directory under $2/ (no absolute
+# path, no empty, '.' or '..' component, no duplicate). Listed by tar itself; returns 1.
+check_members() {
+  local tarball=$1 name=$2 types names line dups
+  types=$(tar -tvzf "$tarball") && names=$(tar -tzf "$tarball") \
+    || { echo "archive.sh: cannot list $tarball" >&2; return 1; }
+  while IFS= read -r line; do
+    case $line in -*|d*) ;;
+      *) echo "archive.sh: $tarball: not a regular file or directory: '$line'" >&2; return 1 ;;
+    esac
+  done <<< "$types"
+  while IFS= read -r line; do
+    if [[ ! ( $line == "$name" || $line == "$name/"* ) || /${line%/}/ == *//* \
+          || /${line%/}/ == */./* || /${line%/}/ == */../* ]]; then
+      echo "archive.sh: $tarball: member path outside $name/: '$line'" >&2; return 1
+    fi
+  done <<< "$names"
+  [ "$(wc -l <<< "$types")" = "$(wc -l <<< "$names")" ] \
+    || { echo "archive.sh: $tarball: inconsistent listings" >&2; return 1; }
+  dups=$(LC_ALL=C sort <<< "$names" | uniq -d)
+  [ -z "$dups" ] || { echo "archive.sh: $tarball: duplicate members: $dups" >&2; return 1; }
+}
+
 checksums() {
   local root tmp
-  root=$(cd "$1" && pwd -P) || die "no directory $1"
+  root=$(real_dir "$1")
   rm -f "$root/checksums.sha256"
-  local odd   # sha256sum escapes these names, and the verifier rejects escaped lines
+  local odd
+  odd=$(cd "$root" && find . ! -type f ! -type d -printf '%P\n') || die "cannot list $root"
+  [ -z "$odd" ] || die "not regular files or directories (links, FIFOs, sockets, devices): $odd"
+  # sha256sum escapes these names, and the verifier rejects escaped lines
   odd=$(cd "$root" && find . -type f \( -path '*\\*' -o -path "*"$'\n'"*" \) -printf '%P\n') \
     || die "cannot list $root"
   [ -z "$odd" ] || die "file names with a backslash or newline cannot be listed: $odd"
@@ -75,7 +109,7 @@ pack() {
   [ $# -eq 2 ] || [ "$3" = --pilot-rehearsal ] || die "unknown option $3"
   [ $# -eq 2 ] || { mode=pilot-rehearsal; extra=(--allow-pilot); }
   [[ $sha =~ ^[0-9a-f]{40}$ ]] || die "FREEZE_SHA must be a full 40-hex commit"
-  root=$(cd "$1" && pwd -P) || die "no directory $1"
+  root=$(real_dir "$1")
   parent=$(dirname "$root") base=$(basename "$root")
   tarball=$parent/$base.tar.gz out=$parent/$base.verify.out
   [[ $tarball != *'#'* ]] || die "the archive path $tarball contains '#' (gh reads it as a label)"
@@ -106,7 +140,11 @@ pack() {
   case $evidence in "EVIDENCE: $evidence_want"*) ;;
     *) die "a $mode pack but verify says '$evidence'" ;; esac
 
-  tar -C "$parent" -czf "$tarball.partial" "$base" || { rm -f "$tarball.partial"; die "tar failed"; }
+  # Never -h: links are refused above; hard links are stored as file contents.
+  tar -C "$parent" --hard-dereference -czf "$tarball.partial" "$base" \
+    || { rm -f "$tarball.partial"; die "tar failed"; }
+  check_members "$tarball.partial" "$base" \
+    || { rm -f "$tarball.partial"; die "the tarball holds more than regular files and directories; not packed"; }
   mv "$tarball.partial" "$tarball"
   local digest
   digest=$(sha256sum "$tarball") || die "cannot hash $tarball"
@@ -133,7 +171,7 @@ status_value() {   # the value of key $1 in the status file $2
 release() {
   [ $# -ge 2 ] || die "usage: release ROOT FREEZE_SHA --tag TAG [--disposition REF]"
   local root parent base sha=$2 tag="" disposition="" tarball status
-  root=$(cd "$1" && pwd -P) || die "no directory $1"
+  root=$(real_dir "$1")
   shift 2
   while [ $# -gt 0 ]; do
     case $1 in
@@ -183,7 +221,8 @@ release() {
   # Verify the archive's own content (extracted), officially: no --allow-pilot.
   scratch=$(mktemp -d "$parent/.release-check.XXXXXX")   # global: the EXIT trap uses it
   trap 'rm -rf -- "$scratch"' EXIT
-  tar -C "$scratch" -xzf "$tarball" || die "cannot extract $tarball"
+  check_members "$tarball" "$base" || die "$tarball holds more than $base/ files and directories; not extracted"
+  tar -C "$scratch" --keep-old-files --no-same-owner -xzf "$tarball" || die "cannot extract $tarball"
   run_verify "$scratch/$base" "$scratch/verify.out" --freeze-sha "$sha"
   [ "$verify_rc" = "$packed_rc" ] || die "verify of the archive exits $verify_rc; packed with $packed_rc"
   case $verify_rc in

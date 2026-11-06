@@ -205,13 +205,18 @@ case $code in
 esac
 ```
 
-`archive.sh checksums ROOT` writes `ROOT/checksums.sha256` over every regular file of
+Evidence is a self-contained tree of regular files and directories: `verify` (every mode,
+and each `julia-<V>`) and `archive.sh` refuse a root that is a symbolic link and any
+symbolic link, FIFO, socket or device inside it, so no evidence can live outside the
+archive. `archive.sh checksums ROOT` writes `ROOT/checksums.sha256` over every regular file of
 the root except that file itself (so both `julia-<V>/checksums.sha256` are listed, once),
 with paths relative to the root in C-locale order; any failure removes the partial list.
 `archive.sh pack ROOT FREEZE_SHA` runs `checksums`, then
 `campaign.py verify ROOT --archive --freeze-sha FREEZE_SHA`, and decides by its exit code:
 
-- **0**: packs. Beside the root: `<root>.tar.gz`, its digest `<root>.tar.gz.sha256`, a
+- **0**: packs (`tar --hard-dereference`, never `-h`; the tarball is refused unless
+  every member, as `tar -tvzf` lists it, is a regular file or directory under the root's
+  name, with no absolute, `.` or `..` path and no duplicate). Beside the root: `<root>.tar.gz`, its digest `<root>.tar.gz.sha256`, a
   status file `<root>.tar.gz.status` (verify exit code, numerical status, the `RECORD
   INTEGRITY`, `NUMERICAL`, `HARDWARE` and `EVIDENCE` lines, archive SHA-256) and the full
   `<root>.verify.out`. Exit 0; publication allowed.
@@ -226,7 +231,8 @@ with paths relative to the root in C-locale order; any failure removes the parti
 
 `archive.sh release ROOT FREEZE_SHA --tag TAG [--disposition REF]` publishes only an
 official archive; a pilot rehearsal archive is never released. It stops, creating
-nothing, unless: the tarball matches its `.sha256` and `.status`; the status is
+nothing, unless: the tarball matches its `.sha256` and `.status`; its members pass the
+same check before anything is extracted (then `tar --keep-old-files --no-same-owner`); the status is
 `official`, of this campaign and freeze; the extracted tarball passes an official
 `verify --archive --freeze-sha` (no `--allow-pilot`) with the packed exit code, labelled
 `EVIDENCE: OFFICIAL` (exit 2 also needs `--disposition`: one line of free text recorded
@@ -251,12 +257,18 @@ contain the absolute path of the pinned checkout, which is machine specific.
 
 ## Retrieve and re-verify (independent check)
 
+`fresh` must not exist yet; the snippet stops if it does.
+
 ```bash
 set -euo pipefail
-mkdir fresh && cd fresh
+mkdir fresh                # fails, and stops the script, if fresh exists
+cd fresh
 gh release download bench-pre06-v1 --repo mlakolar/ProximalSolvers.jl
 echo "<digest posted on #110>  pre06-stage2a-campaign-v1.tar.gz" | sha256sum -c -
-tar -xzf pre06-stage2a-campaign-v1.tar.gz
+if tar -tvzf pre06-stage2a-campaign-v1.tar.gz | grep -v '^[-d]'; then
+  echo "the archive holds links or special files" >&2; exit 1
+fi
+tar --no-same-owner -xzf pre06-stage2a-campaign-v1.tar.gz
 git clone https://github.com/mlakolar/ProximalSolvers.jl.git freeze
 git -C freeze checkout --detach "$FREEZE_SHA"
 code=0

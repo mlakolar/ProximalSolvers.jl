@@ -14,6 +14,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
@@ -447,8 +448,126 @@ esac
 TAR = r'''#!/usr/bin/env bash
 echo "tar $*" >> "$MOCK_LOG"
 [ -z "${TAR_FAIL:-}" ] || exit 1
+if [ -n "${TAR_CREATE_FROM:-}" ]; then   # -czf OUT: write the given (crafted) archive
+  for ((i = 1; i < $#; i++)); do
+    if [ "${!i}" = -czf ]; then j=$((i + 1)); cp "$TAR_CREATE_FROM" "${!j}"; exit 0; fi
+  done
+fi
 exec "$REAL_TAR" "$@"
 '''
+
+
+def link_evidence(parent, kind):
+    """A synthetic root (official name) whose evidence is partly not regular files or
+    directories; returns the path to pass as ROOT."""
+    root = make_root(parent / "evidence")
+    outside = parent / "outside"
+    outside.mkdir()
+    if kind == "linked julia-<V>":
+        shutil.move(root / "julia-1.10", outside / "julia-1.10")
+        os.symlink(outside / "julia-1.10", root / "julia-1.10")
+    elif kind == "linked raw":
+        shutil.move(root / "julia-1.13" / "raw", outside / "raw")
+        os.symlink(outside / "raw", root / "julia-1.13" / "raw")
+    elif kind == "linked file":
+        shutil.move(root / "julia-1.13" / "receipt.jsonl", outside / "receipt.jsonl")
+        os.symlink(outside / "receipt.jsonl", root / "julia-1.13" / "receipt.jsonl")
+    elif kind == "fifo":
+        os.mkfifo(root / "julia-1.10" / "logs" / "pipe")
+    elif kind == "root is a link":
+        shutil.move(root, outside / root.name)
+        (parent / "links").mkdir()
+        root = parent / "links" / OFFICIAL
+        os.symlink(outside / OFFICIAL, root)
+    return root
+
+
+LINK_KINDS = ("linked julia-<V>", "linked raw", "linked file", "fifo", "root is a link")
+
+
+def plain_checksums(root):
+    """The archive list an attacker would write: regular files only, links not followed."""
+    lines = []
+    for directory, _, files in os.walk(root):
+        for name in files:
+            path = Path(directory) / name
+            if path.is_file() and not path.is_symlink() and path != root / "checksums.sha256":
+                lines.append(f"{C.sha256(path)}  {path.relative_to(root)}\n")
+    (root / "checksums.sha256").write_text("".join(sorted(lines, key=lambda l: l[66:])))
+
+
+class Links(Scratch):
+    def test_checksums_verify_and_pack_refuse_links_and_special_files(self):
+        for kind in LINK_KINDS:
+            with self.subTest(kind):
+                base = self.tmp / kind.replace(" ", "_").replace("<V>", "V")
+                base.mkdir()
+                root = link_evidence(base, kind)
+                result = archive_sh("checksums", root)
+                self.assertEqual(result.returncode, 1)
+                self.assertIn("symbolic link" if kind == "root is a link"
+                              else "not regular files or directories", result.stderr)
+                if kind != "root is a link":
+                    self.assertFalse((root / "checksums.sha256").exists())
+                plain_checksums(root.resolve())
+                code, out = verify(root)
+                self.assertEqual((code, evidence(out)), (1, NOT_VALID))
+                self.assertIn("symbolic link" if kind == "root is a link"
+                              else "not regular files or directories", out)
+
+    def test_per_version_verification_refuses_links(self):
+        for kind in ("linked julia-<V>", "linked raw", "linked file", "fifo"):
+            with self.subTest(kind):
+                base = self.tmp / kind.replace(" ", "_").replace("<V>", "V")
+                base.mkdir()
+                root = link_evidence(base, kind)
+                julia = root / ("julia-1.10" if kind in ("linked julia-<V>", "fifo")
+                                else "julia-1.13")
+                found = C.verify_julia(julia, CAMPAIGN, IDS, SHA)
+                self.assertEqual(found["record_integrity"], "invalid")
+                self.assertIn("is not a directory" if kind == "linked julia-<V>"
+                              else "not regular files or directories", found["failures"][0])
+
+    def test_pack_refuses_links(self):
+        script = ArchiveScript("test_syntax")
+        script.setUp()
+        self.addCleanup(script.doCleanups)
+        for kind in LINK_KINDS:
+            with self.subTest(kind):
+                base = self.tmp / kind.replace(" ", "_").replace("<V>", "V")
+                base.mkdir()
+                root = link_evidence(base, kind)
+                result, log = script.run_sh("pack", root, SHA)
+                self.assertEqual(result.returncode, 1)
+                self.assertNotIn("campaign verify", log)
+                self.assertNotIn("tar ", log)
+                self.assertFalse(list(base.rglob("*.tar.gz*")))
+
+
+def crafted_tarball(path, root, kind):
+    """`root` packed as tar.gz plus one member of the given kind."""
+    with tarfile.open(path, "w:gz") as tar:
+        tar.add(root, arcname=root.name)
+        name = f"{root.name}/julia-1.10/extra"
+        info = tarfile.TarInfo({"absolute path": "/tmp/" + name, "dot-dot": f"{root.name}/../x",
+                                "other root": "other/x", "dot": f"{root.name}/./x",
+                                "empty component": f"{root.name}//x",
+                                "duplicate": f"{root.name}/README.md"}.get(kind, name))
+        info.type = {"symlink": tarfile.SYMTYPE, "hard link": tarfile.LNKTYPE,
+                     "fifo": tarfile.FIFOTYPE, "device": tarfile.CHRTYPE}.get(kind, tarfile.REGTYPE)
+        info.linkname = {"symlink": "/etc/passwd", "hard link": f"{root.name}/README.md"}.get(kind, "")
+        data = b"x\n" if info.type == tarfile.REGTYPE else b""
+        info.size = len(data)
+        tar.addfile(info, io.BytesIO(data) if data else None)
+
+
+TARBALL_KINDS = {  # kind: the guard of check_members that refuses it
+    "symlink": "not a regular file or directory", "hard link": "not a regular file or directory",
+    "fifo": "not a regular file or directory", "device": "not a regular file or directory",
+    "absolute path": "member path outside", "dot-dot": "member path outside",
+    "other root": "member path outside", "dot": "member path outside",
+    "empty component": "member path outside",
+    "duplicate": "duplicate members"}
 NOT_VALID_LINE = NOT_VALID.removeprefix("EVIDENCE: ")
 PILOT_LINE = PILOT.removeprefix("EVIDENCE: ")
 ISSUE_URL = "https://github.com/mlakolar/ProximalSolvers.jl/issues/110#issuecomment-"
@@ -664,6 +783,49 @@ class ArchiveScript(Scratch):
         with tarball.open("ab") as stream:   # an archive changed after packing
             stream.write(b"\0")
         self.assert_refused(*self.run_sh(*release), "does not match its .sha256")
+
+    def test_release_refuses_crafted_tarballs_before_extracting(self):
+        root, tarball, result, _ = self.pack(0)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        status = Path(f"{tarball}.status")
+        packed = status.read_text()
+        for kind, guard in TARBALL_KINDS.items():
+            with self.subTest(kind):
+                tarball.unlink()
+                crafted_tarball(tarball, root, kind)
+                digest = hashlib.sha256(tarball.read_bytes()).hexdigest()
+                Path(f"{tarball}.sha256").write_text(f"{digest}  {tarball.name}\n")
+                status.write_text("".join(f"archive_sha256: {digest}\n" if line.startswith(
+                    "archive_sha256: ") else line for line in packed.splitlines(True)))
+                result, log = self.run_sh("release", root, SHA, "--tag", TAG)
+                self.assert_refused(result, log, "not extracted")
+                self.assertIn(guard, result.stderr)
+                self.assertNotIn("-xzf", log)
+                self.assertNotIn("campaign verify", log)
+                self.assertNotIn("gh ", log)
+                self.assertFalse(list(self.evidence.glob(".release-check.*")))
+
+    def test_pack_refuses_a_tarball_with_links(self):
+        for number, (kind, guard) in enumerate(TARBALL_KINDS.items()):
+            with self.subTest(kind):
+                name = f"pilot-{kind.replace(' ', '-')}"   # the crafted root has the same name
+                crafted = self.tmp / f"crafted-{number}.tar.gz"
+                crafted_tarball(crafted, make_root(self.tmp / f"source-{number}", name), kind)
+                root, tarball, result, log = self.pack(0, name, TAR_CREATE_FROM=str(crafted))
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn("not packed", result.stderr)
+                self.assertIn(guard, result.stderr)
+                self.assertFalse(tarball.exists() or Path(f"{tarball}.partial").exists()
+                                 or Path(f"{tarball}.status").exists())
+
+    def test_pack_stores_hard_links_as_files(self):
+        root = make_root(self.evidence)
+        os.link(root / "README.md", root / "julia-1.10" / "README-copy.md")
+        result, log = self.run_sh("pack", root, SHA)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        listing = subprocess.run(["tar", "-tvzf", f"{root}.tar.gz"], capture_output=True,
+                                 text=True).stdout.splitlines()
+        self.assertTrue(listing and all(line[0] in "-d" for line in listing))
 
     def test_release_names(self):
         root, tarball, result, _ = self.pack(0, "pre06-stage2a-campaign-v1-copy")
