@@ -292,10 +292,12 @@ statistic):
 * the geometric mean of the per-block ratios and the descriptive range (minimum and maximum), per Julia
   version;
 * the achieved certificate value and target with the near-target flag of section 8 (the continuous
-  `accuracy_fraction` and the band), and the work counters (iterations, passes, calls) of both stacks;
+  `accuracy_fraction` and the band); the work counters (iterations, passes, calls) are not in the formal
+  records, so the comparison tool does not report them (they remain exploratory receipts);
 * Julia allocations (bytes per call) and, separately, process RSS, each interpreted on its own (heap
   bytes and RSS mean different things);
-* the hardware status of each block (section 10) and **every** failed or invalid block;
+* the hardware label of the campaign (the `hardware` column: controlled, or observational with the policy
+  values the receipt carries; section 10) and **every** failed or invalid block;
 * the descriptive Stage 2A means, in a **separate** table labelled historical (section 1, item 2).
 
 **Categories.** Each case is assigned to one of six categories, following the decision matrix of

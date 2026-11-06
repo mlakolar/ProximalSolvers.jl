@@ -19,6 +19,7 @@ from datetime import datetime
 import json
 import math
 from pathlib import Path
+import posixpath
 import re
 import statistics
 import sys
@@ -44,6 +45,14 @@ MIXED_KEYS = ("proximalsolvers_sha", "proximalsolvers_hash", "proximalbase_versi
               "harness_hash")
 META_START = tuple(validate.START_KEYS) + ("case_filter",)
 META_FINAL = META_START + tuple(validate.FINAL_KEYS)
+# The type of every metadata value the checks read: s string, b boolean, i integer, n number.
+META_TYPES = {**dict.fromkeys(
+    "julia suite groups case_filter harness_hash proximalsolvers_path proximalsolvers_sha proximalsolvers_hash "
+    "proximalbase_version proximalbase_hash expected_package_root blas cpu cpu_model seed_scheme job_id".split(), "s"),
+    **dict.fromkeys("proximalsolvers_dirty finished".split(), "b"),
+    **dict.fromkeys("rep julia_threads blas_threads samples_target cases ok_cases nonok_cases "
+                    "maxrss_bytes".split(), "i"),
+    **dict.fromkeys("seconds_limit case_seconds profile_seconds elapsed_s".split(), "n")}
 CATALOG_COLUMNS = ("problem", "solver", "variant", "suite", "inputs")
 REQUIRED_ROWS = (("reset", "values"), ("reset", "active_ids"), ("config", "solver"), ("config", "options"),
                  ("file", "certificates.jl"))
@@ -269,12 +278,12 @@ def parse_project(data):
 
 def parse_inventory(data):
     """Section 10: the keys the tool uses; other Stage 2A keys are allowed and ignored."""
-    required = ("julia", "commit", "cpu_model", "blas", "depot_path", "proximalbase_version",
+    required = ("julia", "commit", "cpu_model", "cpu_name", "blas", "depot_path", "proximalbase_version",
                 "proximalbase_loaded_tree", "proximalsolvers_dir", "threads")
     problems = [f"missing key {key!r}" for key in required if key not in data]
     if problems:
         return None, problems
-    for key in required[:4] + required[5:8]:
+    for key in required[:5] + required[6:9]:
         if not isinstance(data[key], str):
             problems.append(f"{key} must be a string")
     depot = data["depot_path"]
@@ -287,14 +296,18 @@ def parse_inventory(data):
     return (None, problems) if problems else (data, [])
 
 
-def records_problem(meta, tables):
-    """What the checks below read of a process that validate.py may have stopped on before it got there."""
-    for key in ("proximalsolvers_path", "expected_package_root", "proximalsolvers_sha", "proximalsolvers_hash",
-                "proximalbase_version", "proximalbase_hash", "harness_hash", "blas", "cpu", "cpu_model"):
-        if not isinstance(meta[key], str):
-            return f"metadata {key} is not a string"
-    if not (is_num(meta["elapsed_s"]) and is_int(meta["nonok_cases"]) and is_int(meta["maxrss_bytes"])):
-        return "metadata elapsed_s, nonok_cases or maxrss_bytes has the wrong type"
+def typed_meta(meta):
+    """The metadata values of known keys that have the type the checks read, and the keys that do not.
+
+    Only these values are kept anywhere (no list or table is ever hashed or compared); a value of the wrong type
+    is a SCHEMA refusal and is absent from every later check, which skips what it needs."""
+    check = dict(s=lambda v: isinstance(v, str), b=lambda v: isinstance(v, bool), i=is_int, n=is_num)
+    clean = {k: v for k, v in meta.items() if k in META_TYPES and check[META_TYPES[k]](v)}
+    return clean, sorted(k for k in meta if k in META_TYPES and k not in clean)
+
+
+def tables_problem(tables):
+    """What the checks read of the tables of a process that validate.py may have stopped on before it got there."""
     for kind, rows in tables.items():
         if len({row["id"] for row in rows}) != len(rows):
             return f"duplicate id in the {kind} table"
@@ -364,12 +377,17 @@ def read_stratum(root, mm, info, sched, ref):
             start = validate.metadata(raw / f"{prefix}-metadata-start.toml")
         except (OSError, ValueError):
             continue
+        final_raw = final
+        final, wrong = typed_meta(final_raw)
+        for key in wrong:
+            refuse(ref, "SCHEMA", f"{name}:records", f"{name} {where} rep {rep}: metadata {key} has a value of "
+                   "the wrong type")
         st["metas"][rep] = final
-        for meta in (final, start):
+        for meta in (final_raw, start):
             if "julia" in meta and meta["julia"] != version:
                 refuse(ref, "JULIA", f"{name}:julia", f"{name} {where} rep {rep}: julia {meta['julia']!r}, "
                        f"expected {version!r}")
-        for label, meta, keys in (("final", final, META_FINAL), ("start", start, META_START)):
+        for label, meta, keys in (("final", final_raw, META_FINAL), ("start", start, META_START)):
             if set(meta) != set(keys):
                 refuse(ref, "SCHEMA", f"{name}:metadata_keys",
                        f"{name} {where} rep {rep}: {label} metadata missing {sorted(set(keys) - set(meta))} "
@@ -379,10 +397,10 @@ def read_stratum(root, mm, info, sched, ref):
         try:
             tables = {kind: validate.records(raw / f"{prefix}-{kind}.tsv", kind)
                       for kind in ("catalog", "metrics", "errors")}
-            problem = records_problem(final, tables)
+            problem = tables_problem(tables)
             if problem:
                 raise ValueError(problem)
-        except (OSError, ValueError) as error:
+        except (OSError, ValueError, KeyError) as error:
             refuse(ref, "SCHEMA", f"{name}:records", f"{name} {where} rep {rep}: {error}")
             continue
         st["procs"][rep] = dict(meta=final, **{kind: {r["id"]: r for r in rows} for kind, rows in tables.items()})
@@ -402,7 +420,8 @@ def read_identity(root, ref):
         refuse(ref, "SCHEMA", f"{name}:files", f"stack-identity.toml {error}")
         return None
     schema, ident, tag = [], [], []
-    found = key_problems(data, ("schema", "installation", "proximalsolvers", "proximalbase"))
+    found = key_problems(data, ("schema", "installation", "campaign_id", "session_id", "proximalsolvers",
+                                "proximalbase"))
     schema += [p for p in found if "unknown" in p]
     ident += [p for p in found if "missing" in p]
     if "schema" in data and not (is_int(data["schema"]) and data["schema"] == 1):
@@ -410,6 +429,9 @@ def read_identity(root, ref):
     if "installation" in data and not (isinstance(data["installation"], str)
                                        and re.fullmatch(r"[A-Za-z0-9._-]+", data["installation"])):
         schema.append("installation must be a non-empty string of letters, digits, '.', '_' and '-'")
+    for key in ("campaign_id", "session_id"):
+        if key in data and not is_str(data[key]):
+            schema.append(f"{key} must be a non-empty string")
     for table, keys, optional in (("proximalsolvers", ("commit", "tree", "version"), ()),
                                   ("proximalbase", ("commit", "tree", "version", "release"), ("tag",))):
         value = data.get(table)
@@ -445,6 +467,11 @@ def read_identity(root, ref):
 
 # ------------------------------------------------------------------------- root: record-level checks (sec 3)
 
+def norm(path):
+    """An archived path in normal form: no trailing slash, '.' or '..' segments (compared as text)."""
+    return posixpath.normpath(path) if path else path
+
+
 def procs(st):
     return sorted(st["procs"].items())
 
@@ -462,7 +489,7 @@ def check_records(root, st, sched, ref):
         meta, where = proc["meta"], f"{name} julia {ver} rep {rep}"
 
         def diff(cls, field, key, expected):
-            if not same(meta[key], expected):
+            if key in meta and not same(meta[key], expected):
                 refuse(ref, cls, field, f"{where}: {key} {meta[key]!r}, expected {expected!r}")
         for key in SETTING_KEYS:
             diff("SETTINGS", f"{name}:{key}", key, settings[key])
@@ -472,13 +499,15 @@ def check_records(root, st, sched, ref):
             diff("THREADS", f"{name}:{key}", key, settings[key])
         diff("MACHINE", f"{name}:cpu_model", "cpu_model", machine["cpu_model"])
         diff("MACHINE", f"{name}:cpu", "cpu", machine["cpu"][st["mm"]])
-        if meta["proximalsolvers_dirty"] is not False:
+        if meta.get("proximalsolvers_dirty") is True:
             refuse(ref, "STACK", f"{name}:dirty", f"{where}: proximalsolvers_dirty is true")
-        if not meta["expected_package_root"]:
+        if meta.get("expected_package_root") == "":
             refuse(ref, "STACK", f"{name}:loaded_tree", f"{where}: expected_package_root is empty")
-    if st["inv"] and st["inv"]["cpu_model"] != machine["cpu_model"]:
-        refuse(ref, "MACHINE", f"{name}:cpu_model", f"{name} julia {ver}: inventory cpu_model "
-               f"{st['inv']['cpu_model']!r}, expected {machine['cpu_model']!r}")
+    for key, field, expected in (("cpu_model", "cpu_model", machine["cpu_model"]),
+                                 ("cpu_name", "cpu", machine["cpu"][st["mm"]])):
+        if st["inv"] and st["inv"][key] != expected:
+            refuse(ref, "MACHINE", f"{name}:{field}", f"{name} julia {ver}: inventory {key} "
+                   f"{st['inv'][key]!r}, expected {expected!r}")
 
 
 def check_stack(root, st, ref):
@@ -508,21 +537,25 @@ def check_stack(root, st, ref):
                       f"({want['version']!r}, {want['tree']!r})")
     for rep, proc in procs(st):
         meta, at = proc["meta"], f"{where} rep {rep}"
-        if ident and meta["proximalsolvers_sha"] != ident["proximalsolvers"]["commit"]:
+        if ident and meta.get("proximalsolvers_sha", ident["proximalsolvers"]["commit"]) \
+                != ident["proximalsolvers"]["commit"]:
             stack("loaded_tree", f"{at}: proximalsolvers_sha {meta['proximalsolvers_sha']!r}, identity "
                   f"{ident['proximalsolvers']['commit']!r}")
-        if ident and meta["proximalbase_version"] != ident["proximalbase"]["version"]:
+        if ident and meta.get("proximalbase_version", ident["proximalbase"]["version"]) \
+                != ident["proximalbase"]["version"]:
             stack("loaded_tree", f"{at}: proximalbase_version {meta['proximalbase_version']!r}, identity "
                   f"{ident['proximalbase']['version']!r}")
-        if inv and Path(meta["proximalsolvers_path"]).resolve() != Path(inv["proximalsolvers_dir"]).resolve():
+        if inv and "proximalsolvers_path" in meta and norm(meta["proximalsolvers_path"]) != norm(
+                inv["proximalsolvers_dir"]):
             stack("loaded_tree", f"{at}: proximalsolvers_path {meta['proximalsolvers_path']!r} differs from "
                   f"inventory proximalsolvers_dir {inv['proximalsolvers_dir']!r}")
 
 
 def meta_values(root, key, usable=True):
     """The values of a metadata key over the processes of a root (all readable ones with usable=False)."""
-    return {(p["meta"] if usable else p)[key] for st in root["strata"].values()
-            for p in (st["procs"] if usable else st["metas"]).values() if usable or key in p}
+    return {meta[key] for st in root["strata"].values()
+            for meta in ([p["meta"] for p in st["procs"].values()] if usable else st["metas"].values())
+            if key in meta}
 
 
 def check_mixed(root, ref):
@@ -592,8 +625,8 @@ def check_pair(scope, left, right, sched, ref):
             continue
         ver = info["version"]
         if sl["procs"] and sr["procs"]:
-            blas_l = {p["meta"]["blas"] for _, p in procs(sl)}
-            blas_r = {p["meta"]["blas"] for _, p in procs(sr)}
+            blas_l = {p["meta"]["blas"] for _, p in procs(sl) if "blas" in p["meta"]}
+            blas_r = {p["meta"]["blas"] for _, p in procs(sr) if "blas" in p["meta"]}
             if blas_l != blas_r:
                 refuse(ref, "THREADS", f"{scope}:blas", f"julia {ver}: {names}: blas {sorted(blas_l)} against "
                        f"{sorted(blas_r)}")
@@ -911,8 +944,11 @@ def check_harness(harness, left, right, mapping, ref):
 
 # ---------------------------------------------------------------------------------------- fingerprint files
 
-def read_fingerprints(path, who, sched, ref):
-    """Section 14: ('missing' | 'bad' | 'ok', {(julia, id, rep): {(kind, name): value}})."""
+def read_fingerprints(path, who, sched, phases, ref):
+    """Section 14: ('missing' | 'bad' | 'ok', {(julia, id, rep): {(kind, name): value}}).
+
+    `phases` maps (julia, id) to the catalog phase of root A; `none` is allowed for reset/active_ids always and for
+    reset/values only in a setup case (a case whose phase is unknown is not judged)."""
     if not Path(path).exists():
         return "missing", {}
     text = read_text(path, "fingerprint file")
@@ -935,7 +971,8 @@ def read_fingerprints(path, who, sched, ref):
             problems.append(f"line {number}: undeclared Julia version, case or repetition")
             continue
         allowed = (kind, name) in FP_ALLOWED or (kind == "fixture" and name != "")
-        if not allowed or not (HEX64.fullmatch(value) or (value == "none" and kind == "reset")):
+        none_ok = kind == "reset" and (name == "active_ids" or phases.get((julia, cid), "setup") == "setup")
+        if not allowed or not (HEX64.fullmatch(value) or (value == "none" and none_ok)):
             problems.append(f"line {number}: invalid kind, name or value")
             continue
         key, triple = (kind, name), (julia, cid, int(rep))
@@ -1007,29 +1044,42 @@ def process_problem(event, versions):
 
 
 def read_receipt(text, sched, ref):
-    """Section 12: parse the JSON lines; returns the campaign events and the valid process events."""
+    """Section 12: parse the JSON lines; every unusable line is a SCHEMA refusal and only it is set aside.
+
+    Returns the usable campaign and process events, the (arm, role, julia, rep) keys of process events that are
+    identifiable but unusable, and how many lines may have been a process event that cannot be identified."""
     lines = text.split("\n")
     if lines and lines[-1] == "":
         lines.pop()
     versions = {info["version"] for info in sched["strata"].values()}
-    campaigns, processes, schema = [], [], []
+    campaigns, processes, schema, unusable, unidentified = [], [], [], set(), 0
     for number, line in enumerate(lines, 1):
         try:
             event = json.loads(line)
         except ValueError:
             schema.append(f"line {number}: not valid JSON")
+            unidentified += 1
             continue
         kind = event.get("event") if isinstance(event, dict) else None
         if not isinstance(event, dict):
             schema.append(f"line {number}: not a JSON object")
+            unidentified += 1
         elif kind not in ("campaign", "process"):
             schema.append(f"line {number}: unknown event {kind!r}")
+            unidentified += not isinstance(kind, str)
         else:
             problems = campaign_problem(event) if kind == "campaign" else process_problem(event, versions)
             if problems:
                 schema.append(f"line {number}: {problems[0]}")
             else:
                 (campaigns if kind == "campaign" else processes).append(event)
+            if problems and kind == "process":
+                key = tuple(event.get(k) for k in ("arm", "role", "julia", "rep"))
+                if (key[0] in ("AB", "AA") and key[1] in ("A", "B") and isinstance(key[2], str)
+                        and key[2] in versions and is_int(key[3])):
+                    unusable.add(key)
+                else:
+                    unidentified += 1
     distinct = {(c["campaign_id"], c["session_id"], c["schedule_id"]) for c in campaigns}
     if not campaigns:
         schema.append("no campaign event")
@@ -1037,7 +1087,7 @@ def read_receipt(text, sched, ref):
         schema.append("the campaign event occurs more than once")
     for problem in schema:
         refuse(ref, "SCHEMA", "receipt:schema", problem)
-    return dict(campaigns=campaigns, procs=processes, schema_ok=not schema)
+    return dict(campaigns=campaigns, procs=processes, unusable=unusable, unidentified=unidentified)
 
 
 def check_receipt(receipt, roots, sched, with_aa, ref):
@@ -1052,6 +1102,13 @@ def check_receipt(receipt, roots, sched, with_aa, ref):
         if c["campaign_id"] != sched["campaign_id"] or c["schedule_id"] != sched["id"]:
             refuse(ref, "ORDER", "receipt:campaign", f"campaign {c['campaign_id']!r} schedule "
                    f"{c['schedule_id']!r}, schedule.toml has {sched['campaign_id']!r} {sched['id']!r}")
+    expected = campaigns[0] if campaigns else (roots["a"]["ident"] or {})
+    for root in roots.values():
+        ident = root["ident"]
+        for key, field in (("campaign_id", "campaign"), ("session_id", "session")):
+            if ident and key in expected and ident[key] != expected[key] and (campaigns or root["name"] != "a"):
+                refuse(ref, "ORDER", f"{root['name']}:{field}", f"{key} {ident[key]!r} of the root differs from "
+                       f"{'the receipt' if campaigns else 'root a'}: {expected[key]!r}")
     for key in ("cpu_model", "logical_cpu", "governor", "epp", "no_turbo", "smt_control"):
         values = {p["machine"][key] for p in procs_}
         if len(values) > 1:
@@ -1076,8 +1133,6 @@ def check_receipt(receipt, roots, sched, with_aa, ref):
                    f"rep {key[3]}: {n} process events")
     for p in procs_:
         by_key.setdefault((p["arm"], p["role"], p["julia"], p["rep"]), p)
-    if not receipt["schema_ok"]:
-        return                                                   # the block checks would guess
     arms = ("AB", "AA") if with_aa else ("AB",)
     roots_of = {("AB", "A"): "a", ("AB", "B"): "b", ("AA", "A"): "aa_a", ("AA", "B"): "aa_b"}
     for arm in arms:
@@ -1086,7 +1141,7 @@ def check_receipt(receipt, roots, sched, with_aa, ref):
             for rep in reps:
                 pair = [by_key.get((arm, role, ver, rep)) for role in "AB"]
                 for role, p in zip("AB", pair):
-                    if p is None:
+                    if p is None and not receipt["unidentified"] and (arm, role, ver, rep) not in receipt["unusable"]:
                         refuse(ref, "ORDER", "receipt:missing", f"arm {arm} role {role} julia {ver} rep {rep}: "
                                "no process event")
                 if None in pair:
@@ -1114,34 +1169,40 @@ def check_receipt(receipt, roots, sched, with_aa, ref):
             refuse(ref, "ORDER", "receipt:installation", f"{at}: receipt installation {p['installation']!r}, "
                    f"root {root['ident']['installation']!r}")
         record = ((root or {}).get("strata", {}).get(mm_of[ver]) or {"procs": {}})["procs"].get(rep)
+        meta = record["meta"] if record else {}
         if p["complete"] is not True or p["exit"] not in (0, 2):
             refuse(ref, "STACK", "receipt:process", f"{at}: complete {p['complete']}, exit {p['exit']}")
-        if record:
-            nonok = record["meta"]["nonok_cases"]
-            if (p["exit"] == 0 and nonok > 0) or (p["exit"] == 2 and nonok == 0):
-                refuse(ref, "STACK", "receipt:process", f"{at}: exit {p['exit']} with nonok_cases {nonok}")
-            seconds = (p["end"] - p["start"]).total_seconds()
-            if record["meta"]["elapsed_s"] > seconds:
-                refuse(ref, "ORDER", "receipt:elapsed", f"{at}: elapsed_s {record['meta']['elapsed_s']} exceeds "
-                       f"the receipt interval of {seconds} s")
+        nonok = meta.get("nonok_cases")
+        if nonok is not None and ((p["exit"] == 0 and nonok > 0) or (p["exit"] == 2 and nonok == 0)):
+            refuse(ref, "STACK", "receipt:process", f"{at}: exit {p['exit']} with nonok_cases {nonok}")
+        seconds = (p["end"] - p["start"]).total_seconds()
+        if meta.get("elapsed_s", 0) > seconds:
+            refuse(ref, "ORDER", "receipt:elapsed", f"{at}: elapsed_s {meta['elapsed_s']} exceeds "
+                   f"the receipt interval of {seconds} s")
 
 
 def check_aa(roots, sched, ref):
-    """Section 12, A/A pair: independent installations of an identical Stack A."""
+    """Section 12, A/A pair: independent installations of an identical Stack A (paths in normal form)."""
     one, two, base = roots["aa_a"], roots["aa_b"], roots["a"]
     if one["ident"] and two["ident"] and one["ident"]["installation"] == two["ident"]["installation"]:
         refuse(ref, "ORDER", "aa:installation", f"both roots have installation {one['ident']['installation']!r}")
+
+    def paths(st):
+        found = {norm(p["meta"][key]) for _, p in procs(st) for key in ("proximalsolvers_path",
+                                                                       "expected_package_root")
+                 if p["meta"].get(key)}
+        return found | ({norm(st["inv"]["proximalsolvers_dir"])} if st["inv"] else set())
     for mm, info in sched["strata"].items():
         s1, s2 = one["strata"].get(mm), two["strata"].get(mm)
         if not s1 or not s2:
             continue
-        paths = {p["meta"]["proximalsolvers_path"] for _, p in procs(s1)} & \
-                {p["meta"]["proximalsolvers_path"] for _, p in procs(s2)}
-        if paths:
-            refuse(ref, "ORDER", "aa:installation", f"julia {info['version']}: both roots loaded {sorted(paths)}")
-        if s1["inv"] and s2["inv"] and s1["inv"]["depot_path"][0] == s2["inv"]["depot_path"][0]:
+        shared = paths(s1) & paths(s2)
+        if shared:
+            refuse(ref, "ORDER", "aa:installation", f"julia {info['version']}: both roots name the checkout "
+                   f"{sorted(shared)}")
+        if s1["inv"] and s2["inv"] and norm(s1["inv"]["depot_path"][0]) == norm(s2["inv"]["depot_path"][0]):
             refuse(ref, "ORDER", "aa:installation", f"julia {info['version']}: first depot entry "
-                   f"{s1['inv']['depot_path'][0]!r} is shared")
+                   f"{norm(s1['inv']['depot_path'][0])!r} is shared")
         for root in (one, two):
             st = root["strata"].get(mm)
             sb = base["strata"].get(mm)
@@ -1149,9 +1210,10 @@ def check_aa(roots, sched, ref):
                     manifest_diff(st["manifest"]["entries"], sb["manifest"]["entries"]):
                 refuse(ref, "ORDER", "aa:identity", f"julia {info['version']}: Manifest of {root['name']} "
                        f"differs from Stack A")
+    own = ("installation", "campaign_id", "session_id")
     for root in (one, two):
-        if root["ident"] and base["ident"] and {k: v for k, v in root["ident"].items() if k != "installation"} \
-                != {k: v for k, v in base["ident"].items() if k != "installation"}:
+        if root["ident"] and base["ident"] and {k: v for k, v in root["ident"].items() if k not in own} \
+                != {k: v for k, v in base["ident"].items() if k not in own}:
             refuse(ref, "ORDER", "aa:identity", f"identity of {root['name']} differs from Stack A")
 
 
@@ -1407,9 +1469,50 @@ def write_json(path, value):
     path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
 
 
-def main(argv=None):
+def make_scrub(paths):
+    """A function that removes absolute paths from a message: known paths become labels, others their basename."""
+    known = []
+    for label, path in paths.items():
+        for variant in {str(path), str(Path(path).resolve())} if path else ():
+            if "/" in variant:
+                known.append((variant.rstrip("/"), label))
+    known.sort(key=lambda item: -len(item[0]))
+
+    def scrub(text):
+        text = str(text)
+        for variant, label in known:
+            text = re.sub(re.escape(variant) + r"(?![\w.-])", lambda _: f"<{label}>", text)
+        return re.sub(r"(?<![\w.<>:/-])/(?:[^/\s'\"]+/)+([^/\s'\"]*)", r"\1", text)
+    return scrub
+
+
+def comparison_phase(W):
+    """Sections 5, 15, 16: everything that uses a timing value of a comparison.
+
+    The ratios, geometric means, screens, class table, lists and report live here and nowhere else. It is called
+    only after every refusal has been evaluated and none was found; a refused input never reaches it."""
+    scrub, sched = W["scrub"], W["sched"]
+    results = [classify(W, mm, cid) for mm in sched["strata"] for cid in sched["cases"]]
+    for result in results:
+        result["reason"] = scrub(result["reason"])
+    lists = build_lists(W, results)
+    for items in lists.values():
+        for item in items:
+            for key in ("detail", "text", "reason"):
+                if key in item:
+                    item[key] = scrub(item[key])
+    rows = [{**{k: r.get(k, "") for k in COLUMNS if k != "class"}, "class": r["class_"]} for r in results]
+    return results, rows, lists, render_report(W, results, lists)
+
+
+def run(argv):
+    scrub = make_scrub({})
     try:
         args = parse_args(sys.argv[1:] if argv is None else argv)
+        scrub = make_scrub(dict(a=args.a, b=args.b, **dict(zip(("aa_a", "aa_b"), args.aa or ())),
+                                receipt=args.receipt, mapping=args.mapping, declared=args.declared_differences,
+                                fingerprints_a=args.fingerprints_a or "", fingerprints_b=args.fingerprints_b or "",
+                                schedule=args.schedule, out=args.out))
         out = Path(args.out)
         if out.exists() and (not out.is_dir() or any(out.iterdir())):
             raise Usage(f"--out {out} is not a fresh directory")
@@ -1422,9 +1525,8 @@ def main(argv=None):
         for path in fp_paths.values():
             if Path(path).exists():
                 read_text(path, "fingerprint file")
-        hist = read_historical()
     except Usage as error:
-        print(f"usage error: {error}", file=sys.stderr)
+        print(f"usage error: {scrub(error)}", file=sys.stderr)
         return 3
     except SystemExit as stop:
         return stop.code or 0
@@ -1443,15 +1545,17 @@ def main(argv=None):
     declared = read_declared(declared_data, sched, ref)
     if declared:
         check_declared(declared, roots["a"], roots["b"], mapping_rows, sched, ref)
-    fps = {side: read_fingerprints(fp_paths[side], side, sched, ref) for side in "AB"}
+    phases = {(st["version"], cid): row["phase"] for st in roots["a"]["strata"].values()
+              for cid, row in (st["cat"] or {}).items()}
+    fps = {side: read_fingerprints(fp_paths[side], side, sched, phases, ref) for side in "AB"}
     check_fingerprints(fps, sched, ref)
     receipt = read_receipt(receipt_text, sched, ref)
     check_receipt(receipt, roots, sched, bool(args.aa), ref)
     if args.aa:
         check_aa(roots, sched, ref)
 
-    if ref:
-        entries = sorted(set(ref))
+    if ref:                                                       # the refusal decision
+        entries = sorted(set((n, c, f, scrub(d)) for n, c, f, d in ref))
         for _, cls, field, detail in entries:
             print(f"REFUSED:{cls} {field}: {detail}", file=sys.stderr)
         try:
@@ -1459,27 +1563,39 @@ def main(argv=None):
             write_json(out / "refusals.json", dict(schema=1, count=len(entries), refusals=[
                 dict(**{"class": cls}, field=field, detail=detail) for _, cls, field, detail in entries]))
         except (OSError, ValueError) as error:
-            print(f"usage error: cannot write {out}: {error}", file=sys.stderr)
+            print(f"usage error: cannot write the output directory: {scrub(error)}", file=sys.stderr)
             return 3
         return 2
 
+    try:
+        hist = read_historical()                                  # only a written report needs it
+    except Usage as error:
+        print(f"usage error: {scrub(error)}", file=sys.stderr)
+        return 3
     W = dict(sched=sched, roots=roots, mapping={r["id"]: r for r in mapping_rows}, fps=fps, receipt=receipt,
-             aa=bool(args.aa), hist=hist, hardware=hardware_label(receipt, sched))
-    results = [classify(W, mm, cid) for mm in sched["strata"] for cid in sched["cases"]]
-    lists = build_lists(W, results)
-    rows = [{**{k: r.get(k, "") for k in COLUMNS if k != "class"}, "class": r["class_"]} for r in results]
+             aa=bool(args.aa), hist=hist, hardware=hardware_label(receipt, sched), scrub=scrub)
+    results, rows, lists, report = comparison_phase(W)
     try:
         validate.fresh_output(out)
         summarize.write_csv(out / "migration-comparison.csv", COLUMNS, rows)
         write_json(out / "lists.json", lists)
-        (out / "report.md").write_text(render_report(W, results, lists), encoding="utf-8")
+        (out / "report.md").write_text(report, encoding="utf-8")
     except (OSError, ValueError) as error:
-        print(f"usage error: cannot write {out}: {error}", file=sys.stderr)
+        print(f"usage error: cannot write the output directory: {scrub(error)}", file=sys.stderr)
         return 3
     counts = Counter(r["class_"] for r in results)
     print(f"migration comparison written: {counts['COMPARABLE']} COMPARABLE, {counts['NOT COMPARABLE']} "
           f"NOT COMPARABLE, {counts['FAILED']} FAILED")
     return 0 if counts["COMPARABLE"] == len(results) else 1
+
+
+def main(argv=None):
+    """Exit status: 0 or 1 a report was written, 2 refused, 3 usage error, unreadable input or internal error."""
+    try:
+        return run(argv)
+    except Exception as error:                  # never the interpreter's default status 1
+        print(f"INTERNAL ERROR: {type(error).__name__}", file=sys.stderr)
+        return 3
 
 
 if __name__ == "__main__":

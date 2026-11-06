@@ -23,7 +23,10 @@ declared, and which refuses everything else.
 
 It reads records only. It runs no Julia, needs no network, uses only the Python standard library (3.11 or
 later, `tomllib`) and writes only to a fresh output directory. Its output is deterministic: it contains no clock
-time of the run, no host name and no absolute path.
+time of the run, no host name and no absolute path; the text of a refusal and of a usage error is cleaned the same
+way: a path given on the command line is replaced by its label (`<a>`, `<b>`, `<aa_a>`, `<aa_b>`, `<receipt>`,
+`<mapping>`, `<declared>`, `<fingerprints_a>`, `<fingerprints_b>`, `<schedule>`, `<out>`) and the directory part of
+any other absolute path is dropped.
 
 ## 2. Inputs
 
@@ -66,8 +69,11 @@ record. The strata are the keys of `[julia.*]` in `schedule.toml`.
 `diagnostic` role). The declared repetition IDs are `reps` of `schedule.toml` (1 to 8). Both come from the
 frozen schedule, never from the roots.
 
-**Exit status.** 0: a report was written and every case of every stratum is COMPARABLE. 1: a report was written
-and at least one case is NOT COMPARABLE or FAILED. 2: refused (section 4). 3: a usage error; an argument file
+**Exit status.** 0: a comparison run wrote a report and every case of every stratum is COMPARABLE (`--help` also
+exits 0, without a report). 1: a report was written
+and at least one case is NOT COMPARABLE or FAILED. 2: refused (section 4). 3: a usage error, unreadable input or an
+internal error of the tool (an uncaught exception is reported as `INTERNAL ERROR: <exception type>` on standard
+error and nothing further is written, so that the status is never the interpreter's default 1); a usage error: an argument file
 that exists but cannot be read or decoded as UTF-8 text, or an absent `--mapping`, `--declared-differences`,
 `--receipt` or `--schedule` file, or a TOML argument file (`--mapping`, `--declared-differences`, `--schedule`)
 that is not valid TOML; or `--out` not fresh; nothing is written. A file whose syntax is valid but whose content
@@ -140,10 +146,13 @@ comparison, and exits with status 2. Usage errors and unreadable inputs exit wit
 | 13 | Sampling settings and selection | `suite`, `groups`, `case_filter`, `samples_target`, `seconds_limit`, `case_seconds`, `profile_seconds` | `SETTINGS` |
 | 14 | Unclean or unverified stack | `proximalsolvers_dirty`, a loaded-tree mismatch (`proximalsolvers_path` against the expected root, tree hashes and versions against the recorded ones), a mixed stack, an unfinished process | `STACK` |
 | 15 | Unfrozen identity | the ProximalSolvers and the ProximalBase identity of each stack must each be a full 40-hex commit SHA with a recorded git tree hash. A branch name, a short SHA or a tag-only identity is refused. The historical Stack A tag `v0.5.4` is accepted only as the tag commit SHA (`9c5a43bf0b7e3f51f0a401b785c332200ffa5d7e`) together with the release tree (`1226119eb2cc6144f7345c727f0e7682632f7826`) | `IDENTITY` |
-| 16 | Wrong block order or mixed campaigns | from the campaign receipt (the metadata has no start time stamp): each block's order, in the A/B arm and in the A/A arm, must equal `orders[rep]` of `schedule.toml` (AB, BA, BA, AB, BA, AB, AB, BA for repetition IDs 1 to 8); A and B must belong to one contemporaneous campaign identity and session; a Stack A root taken from another campaign or session, or a block whose processes the receipt does not place in the declared order, is refused; the two A/A roles must be distinct installations | `ORDER` |
+| 16 | Wrong block order or mixed campaigns | from the campaign receipt (the metadata has no start time stamp): each block's order, in the A/B arm and in the A/A arm, must equal `orders[rep]` of `schedule.toml` (AB, BA, BA, AB, BA, AB, AB, BA for repetition IDs 1 to 8); A and B must belong to one contemporaneous campaign identity and session, and every root must carry the `campaign_id` and `session_id` of the receipt in its `stack-identity.toml`; a Stack A root taken from another campaign or session, or a block whose processes the receipt does not place in the declared order, is refused; the two A/A roles must be distinct installations | `ORDER` |
 
-A comparison that is refused is invalid **even when every timing number is finite**: no case timing is read before
-the refusals are evaluated.
+A comparison that is refused is invalid **even when every timing number is finite**: no timing value is used in any
+comparison, ratio, geometric mean, screen or output before every refusal has been evaluated and none was found.
+The record validation of `validate.py` and the type check of the tool parse the timing and sample columns only to
+validate them (finite, positive, statistics of the samples) and decide no cross-stack question. The tool keeps the
+code that uses timing values in one phase function that is entered only after the refusal decision.
 
 ### 4.1 Evaluation, fields and messages
 
@@ -153,8 +162,13 @@ The `field` of a refusal is `<scope>:<name>`. The scopes are `a`, `b`, `aa_a`, `
 the observed and the expected value. `<root>` below stands for `a`, `b`, `aa_a` or `aa_b`. Refusals are listed
 in `refusals.json` and on standard error sorted by the row number of the class, then by `field`, then by
 `detail`. A check whose input is unavailable because the same root or stratum already has a `SCHEMA`, `JULIA`
-or `IDENTITY` refusal is skipped, not guessed; so a refused run may show fewer classes than a repaired input
-would, never more.
+or `IDENTITY` refusal is skipped, not guessed, and the skip is as narrow as the missing input: a process whose
+records or metadata cannot be read or have a value of the wrong type is left out of the record comparisons, a
+file that failed its schema is left out of the checks that read it, and no other check is skipped because of an
+unrelated refusal class (one `SCHEMA` item in the receipt hides only the checks that need that item). So a refused
+run may show fewer classes than a repaired input would, never more. `validate.py` stops at the first error of a
+process, so a second refusal class in the same process may be listed only after the first is fixed (the tests put
+different classes in different processes or strata).
 
 | Class | `field` values (exact) | Rule |
 |:--|:--|:--|
@@ -165,15 +179,15 @@ would, never more.
 | `PHASE` | `ab:phase`, `<root>:phase` | `phase` differing between A and B (catalog or metrics) or not one of `call`, `workspace`, `setup` |
 | `OPERATION` | `ab:catalog`, `ab:certificates` | a catalog column among `problem`, `solver`, `variant`, `suite`, `inputs` differing between A and B for a case (`detail` names the column; `issue` is a descriptive label and is not compared); the `file/certificates.jl` value differing for a (Julia, case, repetition) triple |
 | `THREADS` | `<root>:julia_threads`, `<root>:blas_threads`, `ab:blas`, `aa:blas` | a value other than 1; `blas` differing within a pair |
-| `MACHINE` | `receipt:machine`, `<root>:cpu_model`, `<root>:cpu` | receipt processes disagreeing on a `machine` value (`cpu` is compared within a stratum), or on `cpu_model`, `cpu` or `logical_cpu` against `[machine]` of the schedule; metadata or inventory `cpu_model` or `cpu` differing from the schedule. The policy values `governor`, `epp`, `no_turbo`, `smt_control` that agree among all processes but differ from the schedule are **not** refused: section 5 labels the hardware observational |
+| `MACHINE` | `receipt:machine`, `<root>:cpu_model`, `<root>:cpu` | receipt processes disagreeing on a `machine` value (`cpu` is compared within a stratum), or on `cpu_model`, `cpu` or `logical_cpu` against `[machine]` of the schedule; metadata `cpu_model` or `cpu` or inventory `cpu_model` differing from the schedule, or the inventory `cpu_name` differing from `[machine].cpu` of the stratum (`<root>:cpu`). The policy values `governor`, `epp`, `no_turbo`, `smt_control` that agree among all processes but differ from the schedule are **not** refused: section 5 labels the hardware observational |
 | `REPETITIONS` | `<root>:repetitions`, `receipt:repetitions` | the `process coverage` issue of `validate.py` (missing and extra IDs per stratum, rule R1); a `rep` of the receipt outside `reps`; two process events of the receipt with the same (arm, role, Julia, `rep`) |
 | `MAPPING` | `mapping:case`, `mapping:role`, `mapping:phase`, `mapping:class`, `mapping:approval` | the mapping must hold exactly the declared IDs once each, in the declared order; `role` must be `primary` for the first 14 and `diagnostic` for the last 5; `phase` must equal the catalog phase of A; `class` must be A or B; class B needs `approved = true` and a non-empty `approval_url`; class C or D needs, as a separate approved mapping, `approved = true`, a non-empty `approval_url` and a non-empty `separate_mapping`, and gives a NOT COMPARABLE case; a `deviation` key needs `approved = true` and a non-empty `approval_url` |
-| `SCHEMA` | `<root>:records`, `<root>:metadata_keys`, `<root>:files`, `receipt:schema`, `declared:schema`, `mapping:schema`, `fingerprints_a:schema`, `fingerprints_b:schema` | any other issue of `validate.py` (headers, missing keys, malformed values); a metadata key set other than the allowed one; a required file of section 10 missing or not parseable inside a root (`raw/`, `Manifest.toml`, `Project.toml`, `environment-inventory.toml`); a file whose `schema` is not 1, has an unknown key, a missing key or a value of the wrong type |
+| `SCHEMA` | `<root>:records`, `<root>:metadata_keys`, `<root>:files`, `receipt:schema`, `declared:schema`, `mapping:schema`, `fingerprints_a:schema`, `fingerprints_b:schema` | any other issue of `validate.py` (headers, missing keys, malformed values); a metadata key set other than the allowed one, or a metadata value of a type other than the one the checks read (string, boolean, integer or number as the key requires); a required file of section 10 missing or not parseable inside a root (`raw/`, `Manifest.toml`, `Project.toml`, `environment-inventory.toml`) or lacking a required inventory key (`cpu_name` among them); a fingerprint `none` value outside its allowed rows (section 14); a file whose `schema` is not 1, has an unknown key, a missing key or a value of the wrong type |
 | `UNDECLARED` | `declared:proximalsolvers`, `declared:proximalbase`, `declared:manifest`, `declared:compat`, `declared:harness`, `ab:harness_hash` | the observed differences of section 3 and the declared set not equal (section 13): an undeclared one, or a declared one that is absent |
 | `SETTINGS` | `<root>:<key>` for `<key>` in `suite`, `groups`, `case_filter`, `samples_target`, `seconds_limit`, `case_seconds`, `profile_seconds`; `<root>:records` | the metadata value differing from `[settings]` of the schedule; the `series settings changed within a Julia version` issue of `validate.py` (rule R1) |
-| `STACK` | `<root>:dirty`, `<root>:loaded_tree`, `<root>:mixed`, `<root>:unfinished`, `receipt:process` | `proximalsolvers_dirty` true; `proximalsolvers_sha`, inventory `proximalbase_loaded_tree`, inventory and metadata `proximalbase_version`, the Manifest entries of ProximalSolvers and ProximalBase, or `proximalsolvers_path` differing from `stack-identity.toml`, the inventory or `expected_package_root`; values of section 3 differing between repetitions or strata of one root; the unfinished process messages of `validate.py` (rule R1); a receipt process with `complete` false, or `exit` not in {0, 2}, or `exit` 0 with `nonok_cases` of the record above 0, or `exit` 2 with `nonok_cases` equal to 0 |
-| `IDENTITY` | `<root>:identity`, `<root>:stack_a`, `<root>:tag` | section 11: a missing key, a value that is not 40 lowercase hex (a branch name, a short SHA), a `registered` release without `tag`, a `tag` without its commit; a Stack A root (`a`, `aa_a`, `aa_b`) whose ProximalSolvers or ProximalBase identity or `harness_hash` differs from `[stack_a]` of the schedule |
-| `ORDER` | `receipt:campaign`, `receipt:missing`, `receipt:block`, `receipt:installation`, `receipt:elapsed`, `aa:installation`, `aa:identity` | section 12 |
+| `STACK` | `<root>:dirty`, `<root>:loaded_tree`, `<root>:mixed`, `<root>:unfinished`, `receipt:process` | `proximalsolvers_dirty` true; `proximalsolvers_sha`, inventory `proximalbase_loaded_tree`, inventory and metadata `proximalbase_version`, the Manifest entries of ProximalSolvers and ProximalBase, or `proximalsolvers_path` differing from `stack-identity.toml`, the inventory or `expected_package_root` (every archived path is compared in normal form, `posixpath.normpath`); values of section 3 differing between repetitions or strata of one root; the unfinished process messages of `validate.py` (rule R1); a receipt process with `complete` false, or `exit` not in {0, 2}, or `exit` 0 with `nonok_cases` of the record above 0, or `exit` 2 with `nonok_cases` equal to 0 |
+| `IDENTITY` | `<root>:identity`, `<root>:stack_a`, `<root>:tag` | section 11: a missing key (`campaign_id` and `session_id` included), a value that is not 40 lowercase hex (a branch name, a short SHA), a `registered` release without `tag`, a `tag` without its commit; a Stack A root (`a`, `aa_a`, `aa_b`) whose ProximalSolvers or ProximalBase identity or `harness_hash` differs from `[stack_a]` of the schedule |
+| `ORDER` | `receipt:campaign`, `receipt:missing`, `receipt:block`, `receipt:installation`, `receipt:elapsed`, `<root>:campaign`, `<root>:session`, `aa:installation`, `aa:identity` | section 12 |
 
 **R1. Mapping of `validate.py` issues to classes.** For each stratum the tool calls
 `validate.validate(<root>/julia-<MAJOR.MINOR>/raw, expected=8, versions=[<full version>])` (`expected` is the
@@ -192,7 +206,7 @@ by the first matching rule on the message, with `field` `<root>:records` unless 
 | `metric phase differs from catalog`, `unknown phase` | `PHASE` (`<root>:phase`) |
 | anything else | `SCHEMA` (`<root>:records`) |
 
-An empty `issues` list is the only acceptable result; `valid` is not otherwise interpreted. Before the call the
+An empty `issues` list is the only acceptable result; `valid` is not otherwise interpreted. `validate.py` parses the sample and timing columns to validate them; the tool uses no timing value before the refusal decision (section 4). Before the call the
 tool lists the file names of `raw/`: a `julia-<version>-repNN` prefix whose version is not the full version of the
 stratum is a `JULIA` refusal (`<root>:julia`) and that file is left out of `versions`.
 
@@ -365,7 +379,7 @@ Each of `ROOT_A`, `ROOT_B`, `ROOT_AA_A` and `ROOT_AA_B`:
 
 ```
 <root>/
-  stack-identity.toml                   section 11
+  stack-identity.toml                   section 11 (carries the campaign and session of the receipt)
   fingerprints.tsv                      section 14 (A and B roots only; default location)
   julia-1.10/                           one directory julia-<MAJOR.MINOR> per stratum
     raw/                                the flat record files of validate.py (below)
@@ -383,10 +397,10 @@ Each of `ROOT_A`, `ROOT_B`, `ROOT_AA_A` and `ROOT_AA_B`:
 * `Manifest.toml` and `Project.toml`: the archived resolved Manifest and the environment `Project.toml` of the
   stratum (Julia Manifest format 2.0 or 2.1: `julia_version`, `manifest_format` and one `[[deps.NAME]]` per
   entry with `uuid` and optional `version`, `git-tree-sha1`, `path`).
-* `environment-inventory.toml`: the Stage 2A format. Keys `julia`, `commit`, `cpu_model`, `blas`, `depot_path`
-  (an array of strings), `proximalbase_version`, `proximalbase_loaded_tree`, `proximalsolvers_dir`, `threads`
-  (other Stage 2A keys such as `active_project`, `bindir`, `cpu_name`, `load_path`, `proximalbase_dir` are
-  allowed and ignored) and one `[deps.NAME]` table per dependency (`path`, `registry`, `repo`, `source`,
+* `environment-inventory.toml`: the Stage 2A format. Required keys `julia`, `commit`, `cpu_model`, `cpu_name`
+  (`Sys.CPU_NAME`, compared with `[machine].cpu` of the stratum), `blas`, `depot_path` (an array of strings),
+  `proximalbase_version`, `proximalbase_loaded_tree`, `proximalsolvers_dir`, `threads` (other Stage 2A keys such
+  as `active_project`, `bindir`, `load_path`, `proximalbase_dir` are allowed and ignored) and one `[deps.NAME]` table per dependency (`path`, `registry`, `repo`, `source`,
   `tree`, `uuid`, `version`).
 
 A stratum directory present in one root and not in the other, or present and not in the schedule, is a `JULIA`
@@ -399,6 +413,7 @@ Example (the first lines of an inventory):
 julia = "1.13.3"
 commit = "67ac47b9cd855e02134d41d5428ac9f2a73f2694"
 cpu_model = "13th Gen Intel(R) Core(TM) i9-13900"
+cpu_name = "raptorlake"
 blas = "LBTConfig([ILP64] libopenblas64_.so)"
 depot_path = ["<depot>", "<julia depot>"]
 proximalbase_version = "0.5.4"
@@ -417,6 +432,8 @@ version = "0.5.4"
 ```toml
 schema = 1
 installation = "inst-a1"            # a non-empty string of letters, digits, '.', '_' and '-'
+campaign_id = "pb06-migration-stage2b-v1"   # the campaign_id and session_id of the receipt
+session_id = "session-0001"
 
 [proximalsolvers]
 commit = "b0de3f7fc91767b97197ff4b458207e308998943"
@@ -431,6 +448,9 @@ tag = "v0.5.4"                      # optional
 release = "registered"              # "registered" or "development"
 ```
 
+`campaign_id` and `session_id` are required non-empty strings (a missing key is `IDENTITY`, a value of the wrong
+type `SCHEMA`); every root of the comparison must carry the `campaign_id` and `session_id` of the `campaign` event
+of the receipt (section 12), which binds a root to the campaign and the session that produced it.
 `commit` and `tree` are 40 lowercase hexadecimal characters. `schema` other than 1 or an unknown key is a
 `SCHEMA` refusal (`<root>:files`). `IDENTITY` refusals (`<root>:identity`, and `<root>:tag` for the tag): a
 missing key; a `commit` or `tree` that is not 40 lowercase hex (a branch name, a short SHA, upper case); a
@@ -468,7 +488,9 @@ JSON lines, one object per line, one file for the A/B arm and the A/A arm of one
   `--aa` the A/A arm needs them too (process events of the A/A arm without `--aa` are checked for schema and
   for `MACHINE`, and otherwise ignored). A missing block is `ORDER` (`receipt:missing`).
 * Roles and roots: arm AB role A is `ROOT_A`, role B is `ROOT_B`; arm AA role A is `ROOT_AA_A`, role B is
-  `ROOT_AA_B`. The `installation` of a process equals the `installation` of its root (`receipt:installation`).
+  `ROOT_AA_B`. The `installation` of a process equals the `installation` of its root (`receipt:installation`), and
+  the `campaign_id` and `session_id` of every root equal those of the `campaign` event (`ORDER`: `<root>:campaign`,
+  `<root>:session`; with no usable `campaign` event the roots are compared with `ROOT_A`).
 * **Block order** is the order of the two `start_utc` of a block: the role with the earlier start is first, and
   "AB" means that role A started first. Each process must end before the other starts: a block whose two
   processes overlap, or start together, is `ORDER` (`receipt:block`). The block order must equal
@@ -482,14 +504,18 @@ JSON lines, one object per line, one file for the A/B arm and the A/A arm of one
   `nonok_cases` of the record above 0; `exit` 2 with `nonok_cases` equal to 0. `run.jl` exits 2 when its records
   are complete and at least one case is not ok: that is a FAILED case, not a refusal.
 * **A/A pair:** the two roles of the A/A arm must be distinct installations: distinct `installation` ids, distinct
-  `proximalsolvers_path` in the metadata, and distinct first `depot_path` entries in the inventories; their stack
+  `proximalsolvers_path` (also `expected_package_root` and the inventory `proximalsolvers_dir`) in the metadata, and distinct first `depot_path` entries in the inventories, all compared in normal form (`posixpath.normpath`: two spellings of one directory are one installation); their stack
   identities (`stack-identity.toml` commits, trees, versions, and the Manifest content of each stratum) must be
   identical to each other and to `ROOT_A`'s. Otherwise `ORDER`: `aa:installation` for the distinctness (same
   installation masquerading as two) and `aa:identity` for the identity and Manifest.
 * **Machine** (`MACHINE`, `receipt:machine`): every process of the receipt carries the same `machine` values
   (`cpu` may differ between strata only, and equals `[machine].cpu` of the stratum), and `cpu_model`, `cpu` and
-  `logical_cpu` equal `[machine]` of the schedule and, for `cpu_model` and `cpu`, the metadata and inventory of
-  the root. The policy values are labelled by the hardware rule of section 5.
+  `logical_cpu` equal `[machine]` of the schedule and, for `cpu_model` and `cpu`, the root (metadata `cpu_model`
+  and `cpu`, inventory `cpu_model` and `cpu_name`).
+* **Collect-all.** Each unusable receipt line gives its own `SCHEMA` refusal and only the checks that need it are
+  skipped: an unknown or malformed event never hides the block order, installation, elapsed and exit checks of the
+  other processes. A block that has an unusable process event, or a line that may have been a process event and
+  cannot be identified, is not reported as missing. The policy values are labelled by the hardware rule of section 5.
 
 ## 13. `declared-differences.toml` (schema 4d)
 
@@ -551,7 +577,9 @@ approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/110#issuec
   `stack-identity.toml`) differs between the roots. If they differ, the table (`[proximalsolvers]`,
   `[proximalbase]`) must be present; if they are all equal, it must be absent. If it is present, every `a_*` and
   `b_*` equals the observed value and each `a_*` differs from its `b_*` (a declared difference that does not exist
-  is refused). Violations are `UNDECLARED` (`declared:proximalsolvers`, `declared:proximalbase`).
+  is refused). Violations are `UNDECLARED` (`declared:proximalsolvers`, `declared:proximalbase`). A pair whose
+  commits differ but whose trees or package hashes are equal cannot be declared (each pair must differ), so it
+  fails closed.
 * **Manifest.** Per stratum the entries of the two `Manifest.toml` are keyed by (`name`, `uuid`) and compared by
   `version` and `git-tree-sha1` (an absent value is the empty string; the `path` of a path entry is not
   compared). An entry on one side only is `added` (B only, `a_*` empty) or `removed` (A only, `b_*` empty); an
@@ -601,8 +629,10 @@ julia	id	rep	kind	name	value
   `certificates.jl` (SHA-256 of the file; it executes inside the timed call of D04). Any other pair is
   `SCHEMA`.
 * `value` is 64 lowercase hex characters (SHA-256) or the literal `none`. `none` is allowed only for the two
-  `reset` rows: `active_ids` of an iterate that has no working set (a plain `Vector`), and both `reset` rows of a
-  case that has no iterate (setup cases). Anything else is `SCHEMA` (`fingerprints_a:schema`,
+  `reset` rows: `reset/active_ids` (of an iterate that has no working set, a plain `Vector`; the records cannot
+  tell which cases have one, so `none` is accepted for every case) and `reset/values` only for a setup case (a
+  case that has no iterate, by the catalog phase of root A). `reset/values = none` for a case of another phase
+  is `SCHEMA`. Anything else is `SCHEMA` (`fingerprints_a:schema`,
   `fingerprints_b:schema`), as are a duplicate (`julia`, `id`, `rep`, `kind`, `name`), a row of an undeclared
   stratum, case or repetition, a wrong header and a row with another field count.
 * Required for every (`julia`, `id`, `rep`) of the declared sets: `reset/values`, `reset/active_ids`,
