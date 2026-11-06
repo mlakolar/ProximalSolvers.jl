@@ -12,9 +12,10 @@ standard error, the entry of `refusals.json` and that `refusals.json` is the onl
 Test counts (methods; table-driven methods run one sub-test per row):
 
     positive        PositiveTests         16
-    refusal         RefusalTests          19   (one named method per class of section 4, plus three that
-                                               check equally incomplete roots, the A/A installations and that
-                                               several coinciding defects are all listed)
+    refusal         RefusalTests          22   (one named method per class of section 4, plus six that
+                                               check equally incomplete roots, the A/A installations, that
+                                               several coinciding defects are all listed, the declared package
+                                               tables, unrelated classes together and a mixed root)
     classification  ClassificationTests   22
     output          OutputTests           19
     immutability    ImmutabilityTests      5
@@ -832,8 +833,8 @@ class RefusalTests(MigrationCase):
              [("UNDECLARED", "declared:harness")]),
             ("compat change not declared", compat_not_declared, "UNDECLARED"),
             ("compat declaration dropped", compat_declaration_dropped, "UNDECLARED"),
-            # the specification does not say whether the table may be left out: either refusal is accepted
-            ("ProximalSolvers change not declared", proximalsolvers_not_declared, "UNDECLARED|SCHEMA"),
+            ("ProximalSolvers change not declared", proximalsolvers_not_declared, "UNDECLARED",
+             [("UNDECLARED", "declared:proximalsolvers")]),
             ("ProximalSolvers declared value wrong", proximalsolvers_declared_value_wrong, "UNDECLARED"),
         ])
         c = self.fresh()
@@ -843,6 +844,74 @@ class RefusalTests(MigrationCase):
         c = self.fresh("manifest")
         toml_del(c.declared, ("manifest", 1))
         self.refused(c.run(), "UNDECLARED", fields=[("UNDECLARED", "declared:manifest")])
+
+    def test_declared_package_tables_must_match_the_observed_differences(self):
+        def package_table(c, key):
+            a, b = c.stack("a")[key], c.stack("a")[key]
+            table = dict(a_commit=a["commit"], b_commit=b["commit"], a_tree=a["tree"], b_tree=b["tree"],
+                         a_package_hash=a["hash"], b_package_hash=b["hash"])
+            if key == "pb":
+                table.update(a_version=a["version"], b_version=b["version"])
+            return table
+
+        def equal_inside_table(c):
+            toml_set(c.declared, ("proximalsolvers", "b_tree"), toml_load(c.declared)["proximalsolvers"]["a_tree"])
+
+        self.table([
+            ("[proximalsolvers] deleted from the migration pair", lambda c: toml_del(c.declared, ("proximalsolvers",)),
+             "UNDECLARED", [("UNDECLARED", "declared:proximalsolvers")]),
+            ("[proximalbase] deleted from the migration pair", lambda c: toml_del(c.declared, ("proximalbase",)),
+             "UNDECLARED", [("UNDECLARED", "declared:proximalbase")]),
+            ("a_tree equal to b_tree inside a present table", equal_inside_table, "UNDECLARED",
+             [("UNDECLARED", "declared:proximalsolvers")]),
+        ])
+        for key, table in (("ps", "proximalsolvers"), ("pb", "proximalbase")):
+            with self.subTest(f"[{table}] present while the observed values are equal"):
+                c = self.fresh("identical")
+                toml_set(c.declared, (table,), package_table(c, key))
+                self.refused(c.run(), "UNDECLARED", fields=[("UNDECLARED", f"declared:{table}")])
+
+    def test_unrelated_refusal_classes_do_not_hide_each_other(self):
+        def threads(c):
+            c.set_meta("b", "julia_threads", 2, jkeys=[J13])
+
+        def hash_changed(c):
+            c.write_process("b", J13, 3, data_hash={P05: "f" * 64})
+
+        def settings(c):
+            c.set_meta("b", "samples_target", 50, jkeys=[J13])
+
+        def unfinished(c):
+            c.write_process("b", J13, 5, final_meta={"finished": False})
+
+        def blas(c):
+            c.set_meta("b", "blas", "LBTConfig([LP64] libmkl_rt.so)", jkeys=[J13])
+
+        def fixture(c):
+            set_fingerprint(c, "b", J13, P05, 3, "fixture", "X", "e" * 64)
+
+        def target_and_suite(c):
+            c.write_records("b", [J13], catalog={P01: {"target": 1e-07}, P02: {"suite": "extended"}})
+
+        rows = [
+            ("julia_threads and data_hash in one stratum", (hash_changed, threads), ("THREADS", "INPUTS")),
+            ("series setting and data_hash in one stratum", (hash_changed, settings), ("SETTINGS", "INPUTS")),
+            ("unfinished process and data_hash in one stratum", (hash_changed, unfinished), ("STACK", "INPUTS")),
+            ("blas and a fixture mismatch", (fixture, blas), ("THREADS", "INPUTS")),
+            ("threads, target and catalog suite", (target_and_suite, threads), ("THREADS", "TARGET", "OPERATION")),
+        ]
+        for name, mutations, classes in rows:
+            with self.subTest(name):
+                c = self.fresh()
+                for mutate in mutations:
+                    mutate(c)
+                self.refused(c.run(), *classes)
+
+    def test_mixed_root_lists_stack_and_undeclared(self):
+        c = self.c
+        c.set_meta("b", "proximalbase_hash", F.sha1_text("another"), jkeys=[J13], reps=[3])
+        result = self.refused(c.run(), "STACK", "UNDECLARED", fields=[("STACK", "b:mixed")])
+        self.assertIn("UNDECLARED", result.classes)
 
     def test_settings_refused(self):
         def with_value(key, value):
