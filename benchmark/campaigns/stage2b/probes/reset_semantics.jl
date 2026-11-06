@@ -9,7 +9,8 @@
 #   julia --project=<env with ProximalBase> reset_semantics.jl > out.tsv
 #
 # Output: one `key<TAB>value` line per observation. A reset operation that throws is
-# recorded as `ERROR <type>`, never skipped.
+# recorded as `ERROR <type>`, never skipped: every reset invocation prints a `.status` line, and
+# a comparison with an erroring operand prints `ERROR`, not `true`.
 
 using ProximalBase
 using LinearAlgebra, SparseArrays
@@ -17,6 +18,12 @@ using LinearAlgebra, SparseArrays
 const PB = ProximalBase
 
 observe(key, value) = println(key, '\t', value)
+
+# Equality of two guarded observations; an `ERROR` operand makes the result `ERROR`, never `true`.
+function same(a, b)
+  (startswith(string(a), "ERROR") || startswith(string(b), "ERROR")) && return "ERROR operand"
+  return a == b
+end
 
 function guarded(f)
   try
@@ -37,9 +44,9 @@ observe("probe.julia", string(VERSION))
 # ---- P14 (paths/lasso/cd/grid8/call): reset! = fill!(x, 0.0) on a SparseIterate -------
 # The harness builds x = SparseIterate(p) once and, between timed samples, resets it with
 # fill!(x, 0.0) after solve_path has left a working set behind.
-p = 160
+p = 32   # the size of the harness's regression and grouped problems (benchmark/problems.jl)
 used = PB.SparseIterate(p)
-for (i, v) in ((3, 1.5), (17, -2.0), (42, 0.25), (150, 4.0))
+for (i, v) in ((3, 1.5), (17, -2.0), (22, 0.25), (30, 4.0))   # a synthetic used working set
   used[i] = v
 end
 observe("sparse.used.nactive_before_reset", nactive_of(used))
@@ -60,13 +67,14 @@ observe("sparse.fill0_dropzeros.active", active_of(by_clear))
 fresh = PB.SparseIterate(p)
 observe("sparse.fresh.nactive", nactive_of(fresh))
 observe("sparse.fresh.active", active_of(fresh))
-observe("sparse.fill0.matches_fresh_workingset", guarded(() -> active_of(by_fill) == active_of(fresh)))
+observe("sparse.fill0.matches_fresh_workingset", same(active_of(by_fill), active_of(fresh)))
 observe("sparse.fill0_dropzeros.matches_fresh_workingset",
-        guarded(() -> active_of(by_clear) == active_of(fresh)))
+        same(active_of(by_clear), active_of(fresh)))
 
 # ---- P04/P05 (cd/group-lasso, sgl/sparse-group, call): copyto!(x, start) -------------
 # x = AtomIterate(p, groups); start = copy(x); the solver writes x; the reset is
-# copyto!(x, start). The groups are those of benchmark/problems.jl.
+# copyto!(x, start). The groups are those of benchmark/problems.jl at p = 32 (8 groups of 4);
+# the used working sets here are synthetic (set by writes, not by a solver call).
 groups = [collect(j:min(j + 3, p)) for j in 1:4:p]
 
 function atom_reset_case(label, warm_groups, used_groups)
@@ -89,19 +97,19 @@ function atom_reset_case(label, warm_groups, used_groups)
   observe("atom.$label.after.active", active_of(x))
   observe("atom.$label.after.values_hash", values_hash(x))
   observe("atom.$label.after.matches_start_values", guarded(() -> collect(x) == collect(start)))
-  observe("atom.$label.after.matches_start_active", guarded(() -> active_of(x) == active_of(start)))
+  observe("atom.$label.after.matches_start_active", same(active_of(x), active_of(start)))
   # The harness repeats the reset between samples: a second reset must be idempotent.
   for k in used_groups, j in groups[k]
     x[j] = 7.0
   end
   observe("atom.$label.repeat.status", guarded(() -> (copyto!(x, start); "ok")))
-  observe("atom.$label.repeat.matches_start_active", guarded(() -> active_of(x) == active_of(start)))
+  observe("atom.$label.repeat.matches_start_active", same(active_of(x), active_of(start)))
   observe("atom.$label.repeat.matches_start_values", guarded(() -> collect(x) == collect(start)))
 end
 
-atom_reset_case("cold_start", Int[], [2, 5, 9])      # the harness case: start has no active group
-atom_reset_case("warm_start", [3, 7], [2, 5, 9])     # start with a working set, other groups used
-atom_reset_case("warm_overlap", [3, 7], [7, 11])     # used groups overlap the start's
+atom_reset_case("cold_start", Int[], [2, 5, 8])      # the harness case: start has no active group
+atom_reset_case("warm_start", [3, 7], [2, 5, 8])     # start with a working set, other groups used
+atom_reset_case("warm_overlap", [3, 7], [7, 8])      # used groups overlap the start's
 
 # ---- P13 (admm/lasso/admm/construction/setup): the private SVD cache -----------------
 # The setup certificate reads loss.V, loss.s2 and loss.sUtY after PB._svd_cache!(loss).

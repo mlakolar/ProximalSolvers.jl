@@ -1,11 +1,11 @@
 probe.proximalbase_version	0.6.0-DEV
 probe.julia	1.10.12
 sparse.used.nactive_before_reset	4
-sparse.used.active_before_reset	3,17,42,150
+sparse.used.active_before_reset	3,17,22,30
 sparse.fill0.status	ok
 sparse.fill0.all_values_zero	true
 sparse.fill0.nactive	4
-sparse.fill0.active	3,17,42,150
+sparse.fill0.active	3,17,22,30
 sparse.fill0_dropzeros.status	ok
 sparse.fill0_dropzeros.all_values_zero	true
 sparse.fill0_dropzeros.nactive	0
@@ -16,13 +16,13 @@ sparse.fill0.matches_fresh_workingset	false
 sparse.fill0_dropzeros.matches_fresh_workingset	true
 atom.cold_start.start.nactive	0
 atom.cold_start.start.active	
-atom.cold_start.start.values_hash	11663781204985622323
+atom.cold_start.start.values_hash	13041985577428221365
 atom.cold_start.used.nactive	3
-atom.cold_start.used.active	2,5,9
+atom.cold_start.used.active	2,5,8
 atom.cold_start.copyto.status	ok
 atom.cold_start.after.nactive	0
 atom.cold_start.after.active	
-atom.cold_start.after.values_hash	11663781204985622323
+atom.cold_start.after.values_hash	13041985577428221365
 atom.cold_start.after.matches_start_values	true
 atom.cold_start.after.matches_start_active	true
 atom.cold_start.repeat.status	ok
@@ -30,13 +30,13 @@ atom.cold_start.repeat.matches_start_active	true
 atom.cold_start.repeat.matches_start_values	true
 atom.warm_start.start.nactive	2
 atom.warm_start.start.active	3,7
-atom.warm_start.start.values_hash	14939542576539002857
+atom.warm_start.start.values_hash	10635748628247902827
 atom.warm_start.used.nactive	5
-atom.warm_start.used.active	3,7,2,5,9
+atom.warm_start.used.active	3,7,2,5,8
 atom.warm_start.copyto.status	ok
 atom.warm_start.after.nactive	2
 atom.warm_start.after.active	3,7
-atom.warm_start.after.values_hash	14939542576539002857
+atom.warm_start.after.values_hash	10635748628247902827
 atom.warm_start.after.matches_start_values	true
 atom.warm_start.after.matches_start_active	true
 atom.warm_start.repeat.status	ok
@@ -44,13 +44,13 @@ atom.warm_start.repeat.matches_start_active	true
 atom.warm_start.repeat.matches_start_values	true
 atom.warm_overlap.start.nactive	2
 atom.warm_overlap.start.active	3,7
-atom.warm_overlap.start.values_hash	14939542576539002857
+atom.warm_overlap.start.values_hash	10635748628247902827
 atom.warm_overlap.used.nactive	3
-atom.warm_overlap.used.active	3,7,11
+atom.warm_overlap.used.active	3,7,8
 atom.warm_overlap.copyto.status	ok
 atom.warm_overlap.after.nactive	2
 atom.warm_overlap.after.active	3,7
-atom.warm_overlap.after.values_hash	14939542576539002857
+atom.warm_overlap.after.values_hash	10635748628247902827
 atom.warm_overlap.after.matches_start_values	true
 atom.warm_overlap.after.matches_start_active	true
 atom.warm_overlap.repeat.status	ok

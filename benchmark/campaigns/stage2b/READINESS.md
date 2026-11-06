@@ -48,11 +48,11 @@ and the integration tests T07 and FT25-FT28, not the benchmark, are the gate for
 
 ## Readiness probe results
 
-Both probes are exploratory, ran on a cluster (Slurm), and are not measurements.
+Both probes are exploratory, ran on a cluster, and are not measurements.
 
 **Reset probe** (`probes/reset_semantics.jl`, outputs in `probes/results/`, verdict by
 `probes/check_reset_probes.py`): ProximalBase v0.5.4 (`9c5a43bf0b7e3f51f0a401b785c332200ffa5d7e`) against master
-`233c11cc284284fbd29df487308b4ee962f875a1`, Julia 1.10.12 and 1.13.3, identical results on both Julia versions.
+`233c11cc284284fbd29df487308b4ee962f875a1`, Julia 1.10.12 and 1.13.3, with the same conclusions on both (the array value hashes are specific to a Julia version, so the checker compares probes of one Julia version only). The probe uses the harness's problem size, `p = 32` (8 groups of 4); its used working sets are synthetic, set by writes and not by a solver call.
 The checker prints `RESET PROBE: PASS` on the pair for each version.
 
 * P14: `fill!(x, 0.0)` keeps 4 active coordinates on master (0 on 0.5.4); `dropzeros!(fill!(x, 0.0))` gives the
@@ -96,6 +96,6 @@ benchmark.
 | G5 | T07 and FT25-FT28 integration tests green. | **Unmet** (cannot run before the migration) |
 | G6 | Invalid-input and contract-failure tests independent of the benchmark inputs. | **Unmet** |
 | G7 | #527 and #391 rows ticked or dispositioned. | **Unmet** (every row open) |
-| G8 | Maintainer approval of the case mapping and the P14 port. | **Pending** (requested after this PR) |
+| G8 | Maintainer approval of the case mapping and the P14 port. | **Pending** (to be requested when PR A is ready for review; not yet given) |
 
-Stage 2B cannot proceed to pilots or to any official measurement until G1-G7 hold.
+No official measurement may start until G1-G8 all hold. Pilots may be prepared earlier only as non-official work (`STAGE2B_PLAN.md` sections 6 and 8), and the pilots that need a migrated Stack B cannot start before G1-G3.

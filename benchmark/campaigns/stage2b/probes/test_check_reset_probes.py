@@ -153,6 +153,16 @@ class SyntheticDefects(unittest.TestCase):
         bad = replace_value(self.b, "atom.warm_overlap.after.values_hash", "123")
         self.refused(self.a, bad, "differs from the start")
 
+    def test_the_same_stack_given_as_a_and_b(self):
+        self.refused(self.b, self.b, "not a cross-version comparison")
+
+    def test_a_is_not_the_historical_stack(self):
+        self.refused(self.b, None, "A must be ProximalBase 0.5.4")
+
+    def test_error_operand_in_a_matches_line(self):
+        bad = replace_value(self.b, "atom.cold_start.after.matches_start_active", "ERROR operand")
+        self.refused(self.a, bad, "atom.cold_start.after.matches_start_active")
+
     def test_duplicate_key_is_a_format_error(self):
         code, _, err = run(self.a + "probe.julia\t1.13.3\n")
         self.assertEqual(code, 2)

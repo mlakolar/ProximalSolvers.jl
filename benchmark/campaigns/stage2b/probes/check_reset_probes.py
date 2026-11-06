@@ -146,6 +146,9 @@ def compare(a, b):
             failures.append(f"cannot compare {key}: missing on A or on B")
         elif a[key] != b[key]:
             failures.append(f"{key} differs: A={a[key]!r} B={b[key]!r}")
+    if a.get("probe.proximalbase_version") == b.get("probe.proximalbase_version"):
+        failures.append("A and B ran the same ProximalBase version "
+                        f"({a.get('probe.proximalbase_version')}): not a cross-version comparison")
     # A comparison across Julia versions would pool different inputs: refuse it.
     if a.get("probe.julia") != b.get("probe.julia"):
         failures.append(
@@ -170,6 +173,9 @@ def main(argv=None):
         print(f"usage or format error: {err}", file=sys.stderr)
         return 2
     failures = []
+    if sides["A"].get("probe.proximalbase_version") != "0.5.4":
+        failures.append("A must be ProximalBase 0.5.4, the historical stack; got "
+                        f"{sides['A'].get('probe.proximalbase_version')!r}")
     for label, obs in sides.items():
         problems, facts = check_one(obs, f"{label} ({obs.get('probe.proximalbase_version')})")
         failures += problems
