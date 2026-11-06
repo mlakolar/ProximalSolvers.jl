@@ -23,7 +23,7 @@ It reads records only. It runs no Julia, needs no network and writes only to a f
 
 ```
 migration_compare.py --a ROOT_A --b ROOT_B --mapping case-mapping.toml
-                     --declared-differences FILE [--aa ROOT_AA_A ROOT_AA_B]
+                     --declared-differences FILE --receipt FILE [--aa ROOT_AA_A ROOT_AA_B]
                      [--fingerprints-a FILE] [--fingerprints-b FILE] --out DIR
 ```
 
@@ -32,14 +32,19 @@ migration_compare.py --a ROOT_A --b ROOT_B --mapping case-mapping.toml
   the hardware records). A root holds one stack. Each root is first validated with the **unmodified**
   record checks of `validate.py` for everything that does not concern the accepted differences of
   section 3 (file set, headers, statuses, statistics, finished metadata).
+* `--receipt`: the campaign receipt of the Stage 2B campaign, a JSON-lines file in the style of the
+  Stage 2A `receipt.jsonl` (one event per line with a UTC time stamp). It records the campaign identity
+  and, for every process, its stack, Julia version, block, repetition ID and its start and finish times.
+  The block order is taken from it: the `run.jl` metadata records no start time stamp (it has `elapsed_s`
+  and the finish flag only), so the record files alone cannot say which stack ran first.
 * `--mapping`: `case-mapping.toml`, including the class and the approval record of every case.
 * `--declared-differences`: a TOML file with the dependency and Manifest differences and the approved
   compatibility-only harness change (section 3, items 3 and 4).
 * `--fingerprints-a`, `--fingerprints-b`: the fixture and state fingerprint files of each stack
   (section 6). Defaults: `fingerprints.tsv` in each root.
-* `--aa ROOT_AA_A ROOT_AA_B`: optionally the roots of the A/A control (the same Stack A twice), used
+* `--aa ROOT_AA_A ROOT_AA_B`: optionally the roots of the A/A control (two independent installations of the same Stack A, each built the way Stack A and Stack B are built), used
   only for the descriptive screens of `STAGE2B_PLAN.md` section 12. The A/A pair is checked with the same
-  rules, and must have identical stack identity on both sides.
+  rules, and must have identical stack identity (source commit and tree, ProximalBase commit and tree, Manifest) on both sides, with installation roots, environments and depots that are distinct.
 * The tool is told the Julia strata present in each root and compares **each stratum separately**: a
   Julia 1.10 record is never compared with a Julia 1.13 record (section 4, item 1).
 
@@ -86,6 +91,8 @@ status 2. Usage errors and unreadable inputs exit with status 3. The classes:
 | 12 | Undeclared source or dependency difference | any difference not in section 3 (`harness_hash` without an approval, a Manifest entry not declared, a changed compat entry not declared) | `UNDECLARED` |
 | 13 | Sampling settings and selection | `suite`, `groups`, `case_filter`, `samples_target`, `seconds_limit`, `case_seconds`, `profile_seconds` | `SETTINGS` |
 | 14 | Unclean or unverified stack | `proximalsolvers_dirty`, a loaded-tree mismatch (`proximalsolvers_path` against the expected root, tree hashes against the recorded ones), an unfinished process | `STACK` |
+| 15 | Unfrozen identity | the ProximalSolvers and the ProximalBase identity of each stack must each be a full 40-hex commit SHA with a recorded git tree hash. A branch name, a short SHA or a tag-only identity is refused. The historical Stack A tag `v0.5.4` is accepted only as the tag commit SHA (`9c5a43bf0b7e3f51f0a401b785c332200ffa5d7e`) together with the release tree (`1226119eb2cc6144f7345c727f0e7682632f7826`) | `IDENTITY` |
+| 16 | Wrong block order or mixed campaigns | from the campaign receipt (the metadata has no start time stamp): each A/B block's order must equal the frozen schedule AB, BA, AB, BA, AB, and each A/A block's order AB, BA, AB, BA, AB, BA; A and B must belong to one contemporaneous campaign identity and session; a Stack A root taken from another campaign or session, or a block whose processes the receipt does not place in the declared order, is refused | `ORDER` |
 
 A comparison that is refused is invalid **even when every timing number is finite**: no timing is read
 before the refusals are evaluated.
@@ -167,14 +174,17 @@ Offline, Python standard library only, on small synthetic roots built by the tes
 exit status and the message class, and uses records in which **all timing numbers are finite**, so that a
 pass of the timing alone would wrongly accept.
 
-* One test per refused difference of section 4 (14 tests): Julia version or build; `data_hash` or
+* One test per refused difference of section 4 (16 tests): Julia version or build; `data_hash` or
   generated inputs; target or measure; case ID or role; phase; timed operation (catalog and
   configuration fingerprint); BLAS or thread settings; machine identity; repetition index set (a missing
   ID, a duplicate ID, an extra ID); approved case mapping (missing, unapproved class B, class C without a
   separate mapping, mismatched role); record schema (header, metadata key, declared-file schema);
   undeclared source or dependency difference (an undeclared Manifest entry, a declared entry that is
   absent, a `harness_hash` change without approval); sampling and selection settings; unclean or unverified
-  stack.
+  stack; unfrozen identity, class `IDENTITY` (a branch name, a short SHA, a tag name without its commit SHA, a missing tree
+  hash; the tag commit SHA plus tree of `v0.5.4` is accepted); wrong block order or mixed campaigns, class `ORDER` (a
+  block run B then A in an A-then-B slot, a block missing from the receipt, A and B from different
+  campaign identities, a Stack A root from another session).
 * Accepted differences: a stack with a different ProximalSolvers SHA and package hash, ProximalBase
   version, SHA and hash, a declared dependency difference and an approved class B harness hash change
   is accepted, and the same pair without the declaration is refused.
@@ -182,7 +192,8 @@ pass of the timing alone would wrongly accept.
   with no ratio in the output. A missing fingerprint file: NOT COMPARABLE.
 * Per-case classes: a case with `target_missed` in B: FAILED, listed, no ratio; an incomplete path;
   a missing repetition; an invalid certificate; an approved semantic deviation.
-* A/A mode: identical stack identities accepted, unequal ones refused.
+* A/A mode: identical stack identities on two independent installations accepted, unequal ones refused, two
+  processes of one installation refused.
 * The visible lists contain every non-ok case, missing and extra case, and every other item of section
   5, and the report starts with the whole-stack statement.
 * No Julia versions are pooled: the output of a root with both strata has one set of rows per stratum

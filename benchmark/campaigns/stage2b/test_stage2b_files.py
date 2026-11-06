@@ -184,7 +184,7 @@ class HistoricalReferenceTests(unittest.TestCase):
 
 class TextHygieneTests(unittest.TestCase):
     # Pieces are concatenated so that this file does not trip over its own patterns.
-    INFRASTRUCTURE = ("/scr" + "atch", "sr" + "un", "sb" + "atch", "SLU" + "RM_")
+    INFRASTRUCTURE = ("/scr" + "atch", "sr" + "un", "sb" + "atch", "slu" + "rm_")
     CLOSING = re.compile(
         r"\b(?:close[sd]?|closing|fix(?:e[sd]|ing)?|resolve[sd]?|resolving)\b"
         r"(?:[ \t:,(]+[\w./-]+){0,3}?[ \t:,(]*[\w.-]*/?[\w.-]*#(?:110|527)\b", re.IGNORECASE)
@@ -239,6 +239,30 @@ class TextHygieneTests(unittest.TestCase):
             self.assertNotRegex(text, r"(?i)co-authored-by|generated with|round \d+|reviewer found",
                                 f"{path}: attribution or review history")
 
+    # The identities table of the plan (section 2) and the identity keys of case-mapping.toml.
+    @staticmethod
+    def identity_table(plan):
+        start = plan.index("## 2. Identities")
+        end = plan.index("\n## ", start + 5)
+        return plan[start:end]
+
+    @staticmethod
+    def identity_problems(table):
+        """Problems of an identities table: a moving name, a short SHA, or a tag without its commit."""
+        problems = []
+        for line in table.splitlines():
+            if not line.startswith("|") or line.startswith("|:") or line.startswith("| Role"):
+                continue
+            if re.search(r"\b(?:master|main|HEAD|develop|branch)\b", line, re.IGNORECASE):
+                problems.append(f"moving name: {line[:60]}")
+            for token in re.findall(r"`([0-9a-f]{7,64})`", line):
+                if len(token) not in (40, 64):
+                    problems.append(f"short or odd hash {token}")
+            for tag in re.findall(r"`(v\d+\.\d+\.\d+)`", line):
+                if not re.search(r"`[0-9a-f]{40}`", line):
+                    problems.append(f"tag {tag} without its commit SHA")
+        return problems
+
     def test_the_directory_names_no_moving_branch_as_an_identity(self):
         plan = read(os.path.join(HERE, "STAGE2B_PLAN.md"))
         self.assertIn("233c11cc284284fbd29df487308b4ee962f875a1", plan)
@@ -248,6 +272,26 @@ class TextHygieneTests(unittest.TestCase):
                     "1226119eb2cc6144f7345c727f0e7682632f7826",
                     ARCHIVE_SHA256):
             self.assertIn(key, plan)
+        table = self.identity_table(plan)
+        self.assertEqual(self.identity_problems(table), [])
+        # the identity rows of ProximalSolvers and ProximalBase exist and carry full SHAs
+        rows = [l for l in table.splitlines() if l.startswith("|")]
+        for needle in ("Historical measured ProximalSolvers", "Historical ProximalBase",
+                       "Future migrated ProximalSolvers", "Future ProximalBase"):
+            self.assertTrue(any(needle in r for r in rows), needle)
+        mapping = load_toml(os.path.join(HERE, "case-mapping.toml"))
+        for key in ("audited_commit", "measured_source"):
+            self.assertRegex(mapping[key], r"^[0-9a-f]{40}$", key)
+
+    def test_the_identity_check_detects_a_moving_or_abbreviated_identity(self):
+        good = ("| Role | Identity |\n|:--|:--|\n"
+                "| Historical ProximalBase | tag `v0.5.4` at commit `" + "a" * 40 + "`, tree `" + "b" * 40 + "` |\n")
+        self.assertEqual(self.identity_problems(good), [])
+        for bad in ("| Future ProximalBase | master |\n",
+                    "| Future ProximalBase | the main branch at `" + "a" * 40 + "` |\n",
+                    "| Historical ProximalSolvers | commit `b0de3f7` |\n",
+                    "| Historical ProximalBase | tag `v0.5.4` |\n"):
+            self.assertTrue(self.identity_problems(bad), bad)
 
     def test_the_documents_keep_the_statistical_rules(self):
         plan = read(os.path.join(HERE, "STAGE2B_PLAN.md"))
@@ -266,6 +310,43 @@ class TextHygieneTests(unittest.TestCase):
         self.assertIn("233c11cc284284fbd29df487308b4ee962f875a1", text)
         for gate in ("G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8"):
             self.assertIn(f"| {gate} |", text)
+
+
+class SpecTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.spec = read(os.path.join(HERE, "MIGRATION_COMPARE_SPEC.md"))
+        start = cls.spec.index("## 4. Refused differences")
+        cls.section4 = cls.spec[start:cls.spec.index("\n## ", start + 5)]
+        start = cls.spec.index("## 8. Required synthetic tests")
+        cls.tests_section = cls.spec[start:cls.spec.index("\n## ", start + 5)]
+
+    def test_section_4_lists_every_refusal_class_once_with_status_2(self):
+        classes = re.findall(r"\|\s*`([A-Z_]+)`\s*\|\s*$", self.section4, re.MULTILINE)
+        self.assertEqual(len(classes), len(set(classes)))
+        for name in ("JULIA", "INPUTS", "TARGET", "CASE", "PHASE", "OPERATION", "THREADS", "MACHINE",
+                     "REPETITIONS", "MAPPING", "SCHEMA", "UNDECLARED", "SETTINGS", "STACK",
+                     "IDENTITY", "ORDER"):
+            self.assertIn(name, classes)
+        self.assertEqual(len(classes), 16)
+        self.assertIn("status 2", self.section4)
+
+    def test_identity_and_order_refusals_say_what_they_check(self):
+        identity = next(l for l in self.section4.splitlines() if l.rstrip().endswith("`IDENTITY` |"))
+        for needle in ("40-hex", "tree", "branch name", "short SHA", "tag-only",
+                       "9c5a43bf0b7e3f51f0a401b785c332200ffa5d7e", "1226119eb2cc6144f7345c727f0e7682632f7826"):
+            self.assertIn(needle, identity)
+        order = next(l for l in self.section4.splitlines() if l.rstrip().endswith("`ORDER` |"))
+        for needle in ("AB, BA, AB, BA, AB, BA", "campaign receipt", "contemporaneous", "another campaign"):
+            self.assertIn(needle, order)
+        self.assertIn("no start time stamp", self.spec)
+
+    def test_required_tests_cover_every_refusal_class(self):
+        self.assertIn("(16 tests)", self.tests_section)
+        self.assertIn("class `IDENTITY`", self.tests_section)
+        self.assertIn("class `ORDER`", self.tests_section)
+        for needle in ("unfrozen identity", "wrong block order"):
+            self.assertIn(needle, self.tests_section)
 
 
 class SelfContainedTests(unittest.TestCase):
@@ -364,6 +445,20 @@ def build_archive(root, mutate=None):
                   ",".join(str(row[k]) for k in SUMMARY_HEADER) + "\n" for row in summary))
 
 
+def write_checksums(root):
+    """root/checksums.sha256 in the archive's format: every regular file but itself, relative paths."""
+    lines = []
+    for folder, _, names in os.walk(root):
+        for name in names:
+            path = os.path.join(folder, name)
+            relative = os.path.relpath(path, root).replace(os.sep, "/")
+            if relative != "checksums.sha256":
+                with open(path, "rb") as handle:
+                    lines.append((relative, hashlib.sha256(handle.read()).hexdigest()))
+    write(os.path.join(root, "checksums.sha256"), "".join(
+        f"{digest}  {relative}\n" for relative, digest in sorted(lines)))
+
+
 def json_value(value):
     if isinstance(value, bool):
         return "true" if value else "false"
@@ -379,8 +474,9 @@ class HistoricalReferenceScriptTests(unittest.TestCase):
 
     def run_main(self, *argv):
         out, err = io.StringIO(), io.StringIO()
+        extra = ["--frozen-dir", self.frozen] if "--frozen-dir" not in argv else []
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            status = self.module.main(list(argv))
+            status = self.module.main(list(argv) + extra)
         return status, out.getvalue(), err.getvalue()
 
     def archive(self, mutate=None):
@@ -388,6 +484,11 @@ class HistoricalReferenceScriptTests(unittest.TestCase):
         self.addCleanup(directory.cleanup)
         root = os.path.join(directory.name, "pre06-stage2a-campaign-v1")
         build_archive(root, mutate)
+        write_checksums(root)
+        # the "frozen" files of this synthetic world are the archive's own campaign.toml and cases.txt
+        self.frozen = os.path.join(directory.name, "frozen")
+        for name in ("campaign.toml", "cases.txt"):
+            write(os.path.join(self.frozen, name), read(os.path.join(root, name)))
         return root, directory.name
 
     def test_generation_and_check_round_trip(self):
@@ -398,6 +499,60 @@ class HistoricalReferenceScriptTests(unittest.TestCase):
         write(committed, text)
         self.assertEqual(self.run_main(root, "--check", committed)[0], 0)
         self.assertEqual(sum(1 for l in text.splitlines() if l and not l.startswith("#")), 1 + 38)
+
+    def test_success_line_prints_the_sha256_of_the_committed_file(self):
+        root, scratch = self.archive()
+        committed = os.path.join(scratch, "reference.tsv")
+        write(committed, self.run_main(root)[1])
+        status, out, _ = self.run_main(root, "--check", committed)
+        self.assertEqual(status, 0)
+        self.assertIn(hashlib.sha256(read(committed).encode()).hexdigest(), out)
+
+    def test_an_altered_archive_file_is_refused_with_status_1(self):
+        root, _ = self.archive()
+        path = os.path.join(root, "julia-1.10", "raw", "julia-1.10.13-rep02-metrics.tsv")
+        write(path, read(path).replace("ok\t", "ok\t", 1) + "\n")
+        status, _, err = self.run_main(root)
+        self.assertEqual(status, 1)
+        self.assertIn("checksum", err)
+
+    def test_an_unlisted_or_missing_file_is_refused_with_status_1(self):
+        root, _ = self.archive()
+        write(os.path.join(root, "julia-1.10", "extra.txt"), "x\n")
+        status, _, err = self.run_main(root)
+        self.assertEqual((status, "not listed" in err), (1, True))
+        os.remove(os.path.join(root, "julia-1.10", "extra.txt"))
+        os.remove(os.path.join(root, "julia-1.13", "raw", "julia-1.13.3-rep01-metadata.toml"))
+        status, _, err = self.run_main(root)
+        self.assertEqual((status, "missing" in err), (1, True))
+
+    def test_a_missing_or_malformed_checksum_file_is_refused_with_status_1(self):
+        root, _ = self.archive()
+        write(os.path.join(root, "checksums.sha256"), "not a checksum line\n")
+        self.assertEqual(self.run_main(root)[0], 1)
+        os.remove(os.path.join(root, "checksums.sha256"))
+        self.assertEqual(self.run_main(root)[0], 1)
+
+    def test_a_symbolic_link_in_the_root_is_refused_with_status_1(self):
+        root, _ = self.archive()
+        os.symlink(os.path.join(root, "cases.txt"), os.path.join(root, "link.txt"))
+        status, _, err = self.run_main(root)
+        self.assertEqual((status, "symbolic link" in err), (1, True))
+
+    def test_a_campaign_toml_that_differs_from_the_frozen_one_is_refused_with_status_1(self):
+        root, _ = self.archive()
+        path = os.path.join(root, "campaign.toml")
+        write(path, read(path) + "# altered\n")
+        self.assertEqual(self.run_main(root)[0], 1)      # the checksum no longer matches
+        write_checksums(root)                            # a consistent listing does not help
+        status, _, err = self.run_main(root)
+        self.assertEqual((status, "frozen" in err), (1, True))
+
+    def test_a_cases_txt_that_differs_from_the_frozen_one_is_refused_with_status_1(self):
+        root, _ = self.archive()
+        write(os.path.join(root, "cases.txt"), read(os.path.join(root, "cases.txt")) + "\n")
+        write_checksums(root)
+        self.assertEqual(self.run_main(root)[0], 1)
 
     def test_check_fails_with_status_1_on_a_changed_tsv(self):
         root, scratch = self.archive()
@@ -439,6 +594,8 @@ class HistoricalReferenceScriptTests(unittest.TestCase):
     def test_a_missing_repetition_aborts(self):
         root, _ = self.archive()
         os.remove(os.path.join(root, "julia-1.10", "raw", "julia-1.10.13-rep05-metrics.tsv"))
+        self.assertEqual(self.run_main(root)[0], 1)      # listed but missing: the binding fails first
+        write_checksums(root)                            # a consistent listing: the content check aborts
         self.assertEqual(self.run_main(root)[0], 2)
 
     def test_a_fixed_input_case_with_two_hashes_aborts(self):

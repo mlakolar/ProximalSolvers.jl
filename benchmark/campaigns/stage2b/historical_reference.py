@@ -14,7 +14,15 @@ declared stack (ProximalSolvers b0de3f7, ProximalBase 0.5.4) at Stage 2A and are
 never a baseline for a ratio. Julia 1.10 and Julia 1.13 rows are separate strata and
 are never pooled or paired.
 
-The script verifies, and aborts (exit 2) when any check fails, never skipping:
+The extracted root is first **bound to the archive** (a failure exits 1, `BINDING FAILED`):
+  * the root's own `checksums.sha256` (lines `SHA-256<two spaces>path`, paths relative to the root, every
+    regular file under the root except that file itself): every listed file must exist and match, and no
+    regular file under the root may be unlisted; a symbolic link or other non-regular entry is refused;
+  * the archive's `campaign.toml` and `cases.txt` must be byte-identical to the frozen
+    `../pre06/campaign.toml` and `../pre06/cases.txt` (found from this script's location, or given with
+    `--frozen-dir`).
+
+Then the script verifies, and aborts (exit 2) when any check fails, never skipping:
   * the campaign identity and the case list of campaign.toml / cases.txt;
   * for each Julia version, 5 repetitions of 19 cases, every case status `ok`,
     samples = ok_samples = 100 per repetition;
@@ -24,7 +32,8 @@ The script verifies, and aborts (exit 2) when any check fails, never skipping:
   * `worst_value` and `median_bytes` of summary.csv against the repetition rows;
   * one input hash per case when campaign.toml says `fixed`, five when `draw`.
 
-With --check FILE the committed TSV must equal the regenerated one (exit 1 if not).
+With --check FILE the committed TSV must equal the regenerated one (exit 1 if not); the success line
+prints the SHA-256 of that file so that other records can cite it.
 Standard library only; Python 3.11 or later (tomllib).
 """
 
@@ -33,6 +42,8 @@ import csv
 import io
 import math
 import os
+import hashlib
+import re
 import statistics
 import sys
 import tomllib
@@ -64,8 +75,16 @@ HEADER = (
 )
 
 
+FROZEN_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "pre06")
+CHECKSUM_LINE = re.compile(r"([0-9a-f]{64})  (.+)")
+
+
 class Abort(Exception):
     pass
+
+
+class Binding(Exception):
+    """The extracted root is not the archive: a checksum, a listing or a frozen file differs."""
 
 
 def need(condition, message):
@@ -89,6 +108,60 @@ def read_csv(path):
     need(os.path.isfile(path), f"missing file {path}")
     with open(path, newline="", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
+
+
+def sha256_of(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for block in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def verify_binding(root, frozen_dir):
+    """Bind the extracted root to the archive's own checksum file and to the frozen campaign files."""
+    listing = os.path.join(root, "checksums.sha256")
+    if not os.path.isfile(listing):
+        raise Binding("checksums.sha256 is missing from the archive root")
+    listed = {}
+    with open(listing, encoding="utf-8", newline="") as handle:
+        for number, line in enumerate(handle.read().split("\n"), 1):
+            if not line:
+                continue
+            match = CHECKSUM_LINE.fullmatch(line)
+            if match is None:
+                raise Binding(f"checksums.sha256 line {number} is malformed")
+            digest, name = match.groups()
+            if name in listed:
+                raise Binding(f"checksums.sha256 lists {name} twice")
+            listed[name] = digest
+    present = set()
+    for folder, dirs, names in os.walk(root):
+        for entry in dirs + names:
+            if os.path.islink(os.path.join(folder, entry)):
+                raise Binding(f"{os.path.relpath(os.path.join(folder, entry), root)} is a symbolic link")
+        for name in names:
+            path = os.path.join(folder, name)
+            if not os.path.isfile(path):
+                raise Binding(f"{os.path.relpath(path, root)} is not a regular file")
+            present.add(os.path.relpath(path, root).replace(os.sep, "/"))
+    present.discard("checksums.sha256")
+    missing, extra = sorted(set(listed) - present), sorted(present - set(listed))
+    if missing:
+        raise Binding(f"listed but missing: {missing[:3]} ({len(missing)} in all)")
+    if extra:
+        raise Binding(f"present but not listed: {extra[:3]} ({len(extra)} in all)")
+    for name in sorted(listed):
+        if sha256_of(os.path.join(root, *name.split("/"))) != listed[name]:
+            raise Binding(f"{name} does not match its checksum")
+    for name in ("campaign.toml", "cases.txt"):
+        frozen = os.path.join(frozen_dir, name)
+        if not os.path.isfile(frozen):
+            raise Binding(f"frozen file {frozen} is missing")
+        with open(frozen, "rb") as a, open(os.path.join(root, name), "rb") as b:
+            if a.read() != b.read():
+                raise Binding(f"{name} of the archive differs from the frozen pre06/{name}")
+    return len(listed)
 
 
 def decimal_text(value):
@@ -203,6 +276,8 @@ def render(rows):
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("archive_root", help="extracted directory pre06-stage2a-campaign-v1/")
+    parser.add_argument("--frozen-dir", metavar="DIR", default=FROZEN_DIR,
+                        help="directory with the frozen campaign.toml and cases.txt (default: ../pre06)")
     parser.add_argument("--check", metavar="FILE",
                         help="exit 1 unless FILE equals the regenerated TSV (# lines included)")
     args = parser.parse_args(argv)
@@ -211,7 +286,11 @@ def main(argv):
               file=sys.stderr)
         return 2
     try:
+        verify_binding(args.archive_root, args.frozen_dir)
         text = render(build_rows(args.archive_root))
+    except Binding as err:
+        print(f"BINDING FAILED: {err}", file=sys.stderr)
+        return 1
     except Abort as err:
         print(f"ABORT: {err}", file=sys.stderr)
         return 2
@@ -229,7 +308,7 @@ def main(argv):
         return 1
     if committed == text:
         print(f"CHECK OK: {args.check} equals the regenerated reference "
-              f"({len(text.splitlines())} lines)")
+              f"({len(text.splitlines())} lines), sha256 {sha256_of(args.check)}")
         return 0
     old, new = committed.splitlines(), text.splitlines()
     for number, (a, b) in enumerate(zip(old, new), 1):

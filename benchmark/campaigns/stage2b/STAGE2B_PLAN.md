@@ -58,7 +58,7 @@ Identities are kept distinct everywhere in this directory. A moving branch is ne
 | Frozen Stage 2A campaign definition | commit `7b9b5295302bd177046284b017a8304cf5a99341`, campaign `pre06-stage2a-v1`; harness hash `b7bf3d953ec6e9f9720e74d7895b5cf95a629fd4` |
 | Historical ProximalBase | registered 0.5.4, release tree `1226119eb2cc6144f7345c727f0e7682632f7826`, tag `v0.5.4` at commit `9c5a43bf0b7e3f51f0a401b785c332200ffa5d7e` |
 | Historical archive | release `bench-pre06-v1` (read-only), asset `pre06-stage2a-campaign-v1.tar.gz`, 250,886 bytes, SHA-256 `1edd64330606d739acf1d7b4ba0643a4fb6a1366bad4c82393e2ba1ffdcc723e`; receipt [#110 comment 6691882408](https://github.com/mlakolar/ProximalSolvers.jl/issues/110#issuecomment-6691882408) |
-| Julia builds | 1.10.13 (`e184dd51...`) and 1.13.3 (`67ac47b9...`), separate strata |
+| Julia builds | 1.10.13 (commit `e184dd512e35c5a6e036c9aab5e4de5a3345f62d`) and 1.13.3 (commit `67ac47b9cd855e02134d41d5428ac9f2a73f2694`), separate strata |
 | Future migrated ProximalSolvers source | a **new explicit commit**; does not exist yet |
 | Future ProximalBase 0.6 candidate | a **new explicit commit** (and, once released, its tag); does not exist yet |
 | Stage 2B campaign (proposed, needs maintainer approval) | campaign `pb06-migration-stage2b-v1`; see section 14 |
@@ -91,7 +91,8 @@ How they are pinned and verified:
    (`pkgversion`), and the source fingerprints `proximalsolvers_hash` and `proximalbase_hash`
    (`benchmark/run.jl:117-119`). A mismatch rejects the process; the record is kept and not used.
 5. **Same machine contract.** Julia flags, one Julia thread and one BLAS thread
-   (`JULIA_NUM_THREADS=1`, `OPENBLAS_NUM_THREADS=1`; `benchmark/run.jl:327-328`), the sampling settings
+   (`JULIA_NUM_THREADS=1` and `OPENBLAS_NUM_THREADS=1` come from `campaign.toml`, `[settings]`, lines 81-82;
+   `benchmark/run.jl:327` requires one Julia thread and `:328` calls `BLAS.set_num_threads(1)` itself), the sampling settings
    (`PS_SAMPLES=100`, `PS_SECONDS=3`, `PS_CASE_SECONDS=60`) and the case filter of Stage 2A
    (`campaign.toml`, `[settings]`) are identical in both stacks.
 
@@ -108,7 +109,8 @@ pilot repeats them on the exact builds).
 
 ## 5. Readiness gates G1-G8
 
-An official campaign may start only when **every** gate is met. Status from the Phase 0 reading of
+An official campaign may start only when **every** gate G1-G8 is met; pilots and probes may run while gates are
+unmet, only as non-official work (section 6). Status from the Phase 0 reading of
 GitHub on 2026-11-06 (also in [`READINESS.md`](READINESS.md)):
 
 | Gate | Requirement | Status |
@@ -120,7 +122,7 @@ GitHub on 2026-11-06 (also in [`READINESS.md`](READINESS.md)):
 | G5 | Integration tests T07 and FT25-FT28 pass against the commit that will be released | **Unmet.** They are release requirements of the ledger; they depend on the owner redesign (#391 Phase 1, not merged). |
 | G6 | Invalid-input and contract-failure tests, independent of the benchmark inputs, cover the paths the 19 cases do not exercise | **Unmet.** No such set is identified for the candidate; `CASE_MAPPING.md` lists the paths that the benchmark cannot gate. |
 | G7 | The rows of ledger #527 and of ProximalBase #391 that apply are ticked or explicitly dispositioned by the maintainer | **Unmet.** Every row of #527 is unchecked. |
-| G8 | The maintainer approves the case mapping and the P14 port | **Unmet.** The mapping is provisional; approval has not been requested. |
+| G8 | The maintainer approves the case mapping and the P14 port | **Pending.** The mapping is provisional; approval is requested after PR A merges and has not been requested yet. |
 
 Merged on ProximalBase `master` as of the same reading (context, not gates): the matrix and values
 views of Phase 0 (`matrixview`, `activevalues`), the working-set rule for writes (#424, PR #633), the
@@ -130,9 +132,11 @@ many numerical-contract PRs. **Not merged:** the `SymmetricSparseIterate` redesi
 
 ## 6. Stop rule
 
-If any of G1-G8 is unmet when a campaign would start, **no official measurement is taken**. The unmet
-gates are listed in `READINESS.md` and on #110. Probes, pilots and exploratory runs may go on, but they
-are labelled exploratory, are never counted as official, and are never described as results.
+An official campaign needs all of G1-G8. If any gate is unmet when a campaign would start, **no official
+measurement is taken**. The unmet or pending gates are listed in `READINESS.md` and on #110. Probes, pilots
+and exploratory runs may go on while gates are unmet, only as non-official work: they are labelled
+exploratory, are never counted as official, and are never described as results (the pilots that need a
+migrated Stack B cannot start before G1-G3).
 
 During an official campaign, a new non-ok outcome (`target_missed`, `uncertifiable`, `incomplete`,
 `timeout`, `error`) in any case, or an invalid block, stops the interpretation of speed for that case:
@@ -197,15 +201,21 @@ are never counted as official and their timings are never reported as results.
 
 ## 9. A/A control
 
-Purpose: describe the observed per-case noise floor of the paired design itself, before the A/B
-campaign. Nothing else is read from it.
+Purpose: describe the observed per-case spread of the paired design before the A/B campaign: the
+variation between two **independent installations built the same way**, run in the same blocks, with the
+same inputs and the same hardware policy. Nothing else is read from it.
 
-* **What runs.** Identical Stack A against itself: two fresh processes of the same checkout and
-  environment, labelled with the roles "A" and "B" of the design, each with its own output directory (the
-  harness refuses to overwrite records, `benchmark/run.jl:270-271`).
+* **What runs.** Two **independent installations of Stack A**, each built exactly the way Stack A and Stack
+  B are built (section 3): its own checkout, its own environment, its own depot and its own precompile
+  caches. They are labelled with the roles "A" and "B" of the design and each writes to its own output
+  directory (the harness refuses to overwrite records, `benchmark/run.jl:270-271`). Two processes of one
+  installation are **not** an A/A control: installation-level effects (package images, code layout, depot
+  paths, the precompile state) would then be absent from the A/A range yet present, with one sign, in
+  all five A/B blocks, and would be read as a difference between the stacks. The two installations must
+  have identical identity: source commit and tree, ProximalBase commit and tree, Manifest.
 * **Blocks.** Six fresh-process blocks per Julia version, in the balanced order AB, BA, AB, BA, AB, BA.
   Block `i` uses repetition ID `i` for both processes; IDs 1-5 therefore coincide with the inputs of the
-  five A/B blocks, and ID 6 is extra (`PS_REPETITION` accepts 1 to 10, `benchmark/run.jl:64`).
+  five A/B blocks, and ID 6 is extra (`PS_REPETITION` accepts 1 to 10, `benchmark/run.jl:63-64`).
 * **Hardware policy.** Identical to section 10.
 * **When.** Before the A/B campaign, on the same machine state policy, and recorded the same way.
 * **Use.** The six per-block time ratios of each case (role B over role A) give the observed A/A range
@@ -217,8 +227,9 @@ campaign. Nothing else is read from it.
 * **Blocks.** Five paired blocks per Julia version. Block `i` runs Stack A and Stack B on repetition ID
   `i`, so both stacks see the same generated inputs and, because the case order inside a process is
   `shuffle!(scenario_rng(rep, "measurement_order"))` (`benchmark/run.jl:281`), the same case order.
-* **Order.** A then B, B then A, A then B, B then A, A then B. Five blocks cannot be balanced; the
-  balanced A/A control (six blocks) is what describes an order effect.
+* **Order.** A then B, B then A, A then B, B then A, A then B. Five blocks cannot be balanced. The
+  six-block A/A control is balanced in order, but order stays aliased with the parity of the repetition
+  ID (section 12), so neither series separates an order effect from an input effect.
 * **Processes.** A fresh Julia process per stack and per block. One Julia thread and one BLAS thread.
 * **Hardware.** The pinned CPU policy of Stage 2A is used for continuity only if it is still quiet and
   topologically unchanged: performance-core logical CPU 6 of the i9-13900, with its SMT sibling
@@ -239,6 +250,13 @@ campaign identity and archive entry. The extension extends every case equally, o
 before the extension starts. It never extends only the favourable cases, and its results never replace
 or relabel the five-block series. The preregistration states the number of blocks, the order scheme and
 the reporting rules, and is posted on #110 before any extension timing is taken.
+
+`PS_REPETITION` is capped at 10 (`benchmark/run.jl:63-64`), and the repetition ID selects the generated
+inputs and the case order. Blocks beyond ten therefore either **reuse repetition IDs**, with identical
+inputs and identical case order, so that those blocks are not independent draws of the inputs; or they are
+impossible without editing `run.jl`, which would change the harness hash of both stacks and is not allowed
+inside this campaign. The extension preregistration must say which of the two applies, and, if IDs are
+reused, how the repeated IDs are assigned to the blocks.
 
 ## 12. Reporting
 
@@ -264,10 +282,17 @@ tests**, and carry no significance level or error rate.
 |:--|:--|:--|
 | 1 | Failed or invalid | Any non-ok status, target missed, uncertifiable, incomplete path, timeout or error, a changed fixture, or an invalid block, in either stack. Reported first; no timing is interpreted for the case. |
 | 2 | Not comparable | Class C or D in `case-mapping.toml`, or any refused difference of `MIGRATION_COMPARE_SPEC.md` (changed ID, role, phase, target, measure, inputs, fingerprint, timed operation). Needs an explicit remapping. |
-| 3 | Reproducible slowdown at matched certified accuracy | Slower in all five blocks and in both orders, and the geometric mean of the five ratios lies above the largest A/A ratio of that case (screen label: "outside the A/A range, slower"). Triggers the diagnosis of section 13 and a maintainer disposition. |
-| 4 | Inconclusive | Everything else: within the observed A/A range, mixed signs, or one block driving the result. A reproducible speedup that lies outside the A/A range is reported as such and is never offset against slowdowns. |
+| 3 | Screened slowdown at matched certified accuracy | Slower in all five blocks and in both orders, and the geometric mean of the five ratios lies above the largest A/A ratio of that case (screen label: "outside the A/A range, slower"). It is a screen result, not a reproduced effect. Triggers the diagnosis of section 13 and a maintainer disposition. |
+| 4 | Inconclusive | Everything else: within the observed A/A range, mixed signs, or one block driving the result. The mirror of category 3, a **screened speedup** (faster in all five blocks and in both orders, and the geometric mean of the five ratios below the smallest A/A ratio of that case), is reported as such, labelled a screen result, and is never offset against slowdowns. |
 | 5 | Allocation or RSS change without timing evidence | A difference in allocated bytes per call or in process RSS with the timing category 4 or better. Investigated independently. |
 | 6 | Sign-off candidate | No case of category 1, 2 or 3 among the 14 primary cases and no unexplained major loss among the diagnostics. Stage 2B can then be proposed for sign-off; the ledger gates still apply and the sign-off is the maintainer's. This category is no noninferiority or no-regression claim: absence of a screen result in five blocks says nothing about a difference smaller than the observed noise. |
+
+Properties of the screens, stated so that they are not over-read: 19 cases in 2 Julia strata give **38
+screens**, and some flags are expected by chance alone; the screen compares a five-block geometric mean
+with the extreme of six A/A ratios, which is conservative for a real difference near the noise and says
+nothing about one smaller than it; and block order is aliased with the parity of the repetition ID in both
+the A/A and the A/B series (odd IDs run A first, even IDs B first), so an order effect cannot be separated
+from an input effect by these data.
 
 Presentation rules: intervals, where shown, are descriptive; none is presented as a noninferiority test;
 a ratio of cases that mix `call`, `workspace` and `setup` phases is not formed; and nothing is averaged
@@ -345,7 +370,8 @@ This section is an **estimate** made from the Stage 2A wall times in the archive
   receipts): 3 min 27 s; on Julia 1.13.3: 17:36:46 to 17:40:44 UTC, 3 min 58 s.
 * One repetition process: about 13.0 s on 1.10.13 and about 16.5 s on 1.13.3 (differences of the
   `rep0N` command timestamps in the same receipts). Stack A's setup took 21.7 s on 1.10.13 and 15.1 s on
-  1.13.3.
+  1.13.3. The work-counter process took 14.0 s on 1.10.13 and 17.2 s on 1.13.3, and the 19 first-call
+  processes 4.4-6.0 s each on 1.10.13 (101.5 s together) and 5.0-7.1 s each on 1.13.3 (117.1 s together).
 
 | Item | Processes | Estimated process time |
 |:--|:--|:--|
@@ -353,18 +379,20 @@ This section is an **estimate** made from the Stage 2A wall times in the archive
 | A/B, 5 blocks x 2 processes, per Julia version | 10 + 10 | 10 x 13.0 s + 10 x 16.5 s = 295 s (about 5 min) |
 | Total of the two campaigns | 44 | about 11 min of measured process time |
 
-Not included, and to be added by the operator: Stack B's own setup and precompilation of the candidate
-on each Julia version (not known; the Stage 2A figures are a lower bound), loaded-tree and fixture
+Not included, and to be added by the operator: **the second, independent Stack A installation of the A/A
+control** (section 9) on each Julia version, built like Stack A and Stack B (at least the Stage 2A setup
+figures above, 21.7 s and 15.1 s, as a lower bound, plus its first precompile), Stack B's own setup and
+precompilation of the candidate on each Julia version (not known; the Stage 2A figures are a lower bound), loaded-tree and fixture
 verification, the hardware checks between blocks, a quiet-machine wait before each process (up to 300 s
 per repetition in the Stage 2A policy; in Stage 2A the repetitions ran back to back), the pilots, and
-the exploratory work-counter and first-call receipts (14 s for the counters and 19 short processes of
-5-7 s each, per Julia version, in Stage 2A). A planning allowance of one to two hours of exclusive machine time for both
+the exploratory work-counter and first-call receipts (in Stage 2A: counters 14.0 s on 1.10.13 and 17.2 s on
+1.13.3; 19 first-call processes of 4.4-6.0 s on 1.10.13 and 5.0-7.1 s on 1.13.3). A planning allowance of one to two hours of exclusive machine time for both
 campaigns, excluding the larger-diagnostic tier, is reasonable; it is an allowance, not a promise.
 
 ## 18. Maintainer decisions needed
 
 1. Approval of the evidence archive identity (section 15).
-2. Approval of the case mapping and of the P14 port (G8), once the candidate exists.
+2. Approval of the case mapping and of the P14 port (G8): requested after PR A merges, and confirmed once the candidate exists.
 3. The hardware policy for the official campaign: continue on logical CPU 6, or an equivalent exclusive
    core, if the machine has changed.
 4. The definition of the "near target" flag of the pilots (section 8, item 4) and of the screens of

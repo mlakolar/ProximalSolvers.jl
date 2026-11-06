@@ -40,7 +40,9 @@ python3 -B -m unittest test_check_reset_probes -v
 ```
 
 To regenerate and check the historical reference against an extracted copy of the verified archive (the
-script only reads it; the directory is `pre06-stage2a-campaign-v1/`):
+script only reads it, binds it to the archive's own `checksums.sha256` and to the frozen `../pre06/campaign.toml` and
+`cases.txt` (exit 1 if it does not match), and prints the SHA-256 of the checked TSV; the directory is
+`pre06-stage2a-campaign-v1/`):
 
 ```
 python3 -I -B historical_reference.py PATH/TO/pre06-stage2a-campaign-v1 --check historical-reference.tsv
