@@ -9,10 +9,14 @@ stops at the first failed check. It changes nothing that is measured. Linux only
   campaign.py run --julia-version 1.13 --julia BIN --pinned DIR --work DIR --root DIR \
                   --freeze-sha SHA
   campaign.py verify ROOT --freeze-sha SHA
+  campaign.py verify ROOT --archive --freeze-sha SHA                 (official archive)
+  campaign.py verify ROOT --archive --allow-pilot [--freeze-sha SHA]  (pilot rehearsal)
   campaign.py ids
 
 Exit status: 0 valid records and every case ok; 2 valid records with a non-ok case (the
-numerical gate fails); 1 a stop or any integrity failure.
+numerical gate fails); 1 a stop or any integrity failure. `verify` ends with RECORD
+INTEGRITY, NUMERICAL, HARDWARE and EVIDENCE lines; EVIDENCE is OFFICIAL only for valid
+official evidence, and pilot evidence is always PILOT / NON-OFFICIAL.
 
 See README.md in this directory; the governing design is STAGE2_PLAN.md.
 """
@@ -115,6 +119,27 @@ def git(repo, *args):
     result = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True)
     check(result.returncode == 0, f"git {' '.join(args)} failed in {repo}: {result.stderr.strip()}")
     return result.stdout.strip()
+
+
+CHECKSUM_LINE = re.compile(r"([0-9a-f]{64})  (.+)")
+
+
+def read_checksums(path):
+    """A `sha256sum` list as {relative path: digest}; a Stop on a malformed line, an
+    absolute or non-normalized path, or a path listed twice."""
+    text = Path(path).read_text(encoding="utf-8")
+    check(text.endswith("\n"), f"{path}: empty or not newline-terminated")
+    listed = {}
+    for number, line in enumerate(text[:-1].split("\n"), 1):
+        match = CHECKSUM_LINE.fullmatch(line)
+        check(match, f"{path}: malformed line {number}: {line!r}")
+        name = match[2]
+        parts = name.split("/")
+        check(not name.startswith("/") and "" not in parts and "." not in parts
+              and ".." not in parts, f"{path}: not a normalized relative path: {name!r}")
+        check(name not in listed, f"{path}: {name} is listed twice")
+        listed[name] = match[1]
+    return listed
 
 
 def write_new(path, text):
@@ -683,13 +708,7 @@ def run(args):
             hardware.append(record)
             receipt.event("hardware", **record)
             metrics[rep] = check_repetition(raw, version, rep, expected, campaign, code)
-            for previous, digest in sealed.items():
-                check(sha256(raw / previous) == digest, f"{previous} changed after its repetition")
-            names = {path.name for path in raw.iterdir()}
-            wanted = raw_names(entry["version"], rep)
-            check(names == wanted, f"unexpected raw files {sorted(names ^ wanted)}")
-            new = {name: sha256(raw / name) for name in sorted(names - set(sealed))}
-            sealed.update(new)
+            new = seal_repetition(raw, entry["version"], rep, sealed)
             elapsed = tomllib.loads((raw / f"julia-{entry['version']}-rep{rep:02d}"
                                      "-metadata.toml").read_text())["elapsed_s"]
             receipt.event("repetition", rep=rep, exit=code, wall_s=wall, run_records_s=elapsed,
@@ -743,6 +762,20 @@ def run(args):
 def raw_names(full_version, reps):
     return {f"julia-{full_version}-rep{r:02d}{suffix}"
             for r in range(1, reps + 1) for suffix in RAW_SUFFIXES}
+
+
+def seal_repetition(raw, full_version, rep, sealed):
+    """After repetition `rep`: earlier repetitions' files unchanged and exactly the record
+    files of repetitions 1..rep present. Adds the new files' SHA-256 to `sealed` and
+    returns them."""
+    for previous, digest in sealed.items():
+        check(sha256(raw / previous) == digest, f"{previous} changed after its repetition")
+    names = {path.name for path in raw.iterdir()}
+    wanted = raw_names(full_version, rep)
+    check(names == wanted, f"unexpected raw files {sorted(names ^ wanted)}")
+    new = {name: sha256(raw / name) for name in sorted(names - set(sealed))}
+    sealed.update(new)
+    return new
 
 
 def local_commands(protocol, ids, flags, environment, cpu, exploratory):
@@ -810,8 +843,7 @@ def verify_julia(julia_dir, campaign, ids, freeze_head):
 def verify_evidence(julia_dir, campaign, ids, freeze_head, report):
     fail = report["failures"].append
     protocol, machine = campaign["protocol"], campaign["machine"]
-    listed = dict(reversed(line.split("  ", 1)) for line in
-                  (julia_dir / "checksums.sha256").read_text().splitlines())
+    listed = read_checksums(julia_dir / "checksums.sha256")
     present = {str(p.relative_to(julia_dir)) for p in julia_dir.rglob("*") if p.is_file()}
     if present - {"checksums.sha256"} != set(listed):
         fail(f"files differ from checksums.sha256: "
@@ -963,28 +995,46 @@ def verify(args):
         if not (root / name).is_file() or (root / name).read_bytes() != (HERE / name).read_bytes():
             problem(name, f"{name} is missing or differs from the freeze checkout")
     sums = root / "checksums.sha256"
-    if sums.exists():   # the archive-level list (README, "Archive"); excludes itself
-        listed = dict(reversed(line.split("  ", 1)) for line in sums.read_text().splitlines())
-        files = {str(p.relative_to(root)) for p in root.rglob("*") if p.is_file()} - {sums.name}
-        bad = sorted(name for name in listed if not (root / name).is_file()
-                     or sha256(root / name) != listed[name])
-        if bad or files != set(listed):
-            problem("checksums.sha256", f"archive checksums: mismatched={bad} "
-                    f"unlisted={sorted(files - set(listed))}")
+    if sums.exists():   # the archive-level list (archive.sh checksums); excludes only itself
+        try:
+            listed = read_checksums(sums)
+        except Stop as error:
+            listed = None
+            problem("checksums.sha256", f"archive checksums: {error}")
+        if listed is not None:
+            files = {str(p.relative_to(root)) for p in root.rglob("*") if p.is_file()}
+            files -= {sums.name}
+            bad = sorted(name for name in listed if not (root / name).is_file()
+                         or sha256(root / name) != listed[name])
+            if bad or files != set(listed):
+                problem("checksums.sha256", f"archive checksums: mismatched={bad} "
+                        f"unlisted={sorted(files - set(listed))}")
     elif args.archive:
         problem("checksums.sha256", "the archive has no checksums.sha256")
     directories = sorted(root.glob("julia-*"))
     for julia_dir in directories:
         reports.append(verify_julia(julia_dir, campaign, ids, freeze_head))
     modes = {report.get("mode") for report in reports if "mode" in report}
-    if "official" in modes or args.archive:
-        names = {path.name for path in directories}
-        wanted = {f"julia-{version}" for version in campaign["julia"]}
+    names = {path.name for path in directories}
+    wanted = {f"julia-{version}" for version in campaign["julia"]}
+    # Official: any official evidence, or an archive without --allow-pilot. Otherwise
+    # `--archive --allow-pilot` is a pilot archive rehearsal, never official evidence.
+    official = "official" in modes or (args.archive and not args.allow_pilot)
+    if official:
         if names != wanted or modes != {"official"}:
             problem("root", f"an official root holds exactly {sorted(wanted)}, all official; "
                     f"found {sorted(names)} ({sorted(modes, key=str)})")
         if root.name != campaign["archive"]["name"]:
             problem("root", f"the official root must be named {campaign['archive']['name']}")
+        if not args.freeze_sha:
+            problem("root", "official evidence needs --freeze-sha (the freeze commit on #110)")
+    elif args.archive:
+        if names != wanted or modes != {"pilot"}:
+            problem("root", f"a pilot archive rehearsal holds exactly {sorted(wanted)}, all "
+                    f"pilot; found {sorted(names)} ({sorted(modes, key=str)})")
+        if "pilot" not in root.name or root.name == campaign["archive"]["name"]:
+            problem("root", "a pilot archive's name must contain 'pilot' and differ from "
+                    f"{campaign['archive']['name']}")
     attempts = Counter()
     for path in sorted((root / "attempts").glob("*")) if (root / "attempts").exists() else []:
         match = re.fullmatch(r"julia-(.+)-attempt([0-9]+)", path.name)
@@ -1008,8 +1058,13 @@ def verify(args):
     print(f"RECORD INTEGRITY: {'FAIL' if code == 1 else 'PASS'}")
     if code != 1:
         print(f"NUMERICAL: {'FAIL' if code == 2 else 'PASS'} (non-ok primary cases: "
-              f"{primary or 'none'}); HARDWARE: " + ", ".join(
-                  f"{r['julia']} {r['hardware']}" for r in reports if "hardware" in r))
+              f"{primary or 'none'})")
+        print("HARDWARE: " + ", ".join(
+            f"{r['julia']} {r['hardware']}" for r in reports if "hardware" in r))
+    if official and modes == {"official"} and code != 1:
+        print("EVIDENCE: OFFICIAL")
+    else:
+        print("EVIDENCE: PILOT / NON-OFFICIAL (never Stage 2A baseline evidence)")
     return code
 
 
@@ -1032,10 +1087,14 @@ def main():
                         help="pilot only: skip the local.jl receipts")
     verifier = commands.add_parser("verify", help="re-check an evidence root without Julia")
     verifier.add_argument("root")
-    verifier.add_argument("--freeze-sha", help="require this checkout to be the freeze commit")
-    verifier.add_argument("--allow-pilot", action="store_true")
+    verifier.add_argument("--freeze-sha", help="require this checkout to be the freeze commit "
+                          "(required for official evidence)")
+    verifier.add_argument("--allow-pilot", action="store_true",
+                          help="accept pilot evidence (always labelled PILOT / NON-OFFICIAL); "
+                          "with --archive: a pilot archive rehearsal")
     verifier.add_argument("--archive", action="store_true",
-                          help="require the archive-level checksums.sha256")
+                          help="require the archive-level checksums.sha256 and a complete "
+                          "root (official unless --allow-pilot)")
     commands.add_parser("ids", help="print PS_CASES (cases.txt joined by commas)")
     args = parser.parse_args()
     try:

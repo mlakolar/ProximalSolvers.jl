@@ -16,6 +16,8 @@ until then nothing here is frozen and no official measurement may be taken.
 | `cases.txt` | The 19 exact case IDs in the approved order: 14 primary, then 5 diagnostic. SHA-256 `20b79478b085ca6bab43d3c5fe536477f639af62f5524c02e7304079188e1037`. |
 | `campaign.toml` | Campaign ID, case roles and catalog fields, pinned source and dependency identities, Julia builds and dependency locks, settings, repetitions, machine and affinity policy, exit-code and retry policy, archive destination. |
 | `campaign.py` | The execution receipt (Python 3.11+, standard library only, Linux only). It wraps the pinned checkout's `setup.jl`, `run.jl`, `local.jl`, `validate.py` and `summarize.py`, and changes nothing they measure. |
+| `archive.sh` | Archive checksums, packing and the GitHub Release (bash, Linux); see "Archive". |
+| `test_campaign.py` | Offline tests of `verify`, the record checks and `archive.sh` (`python3 -B -m unittest -v` in this directory; no Julia, network or `gh`). |
 | `STAGE2_PLAN.md` | The governing design. `cases-proposed.txt` is the F0 selection that `cases.txt` copies byte for byte. |
 
 ## Pins
@@ -168,28 +170,68 @@ exploratory receipts), every repetition's records as in step 8,
 fixed-input data hashes; it runs `validate.py` afresh and compares it with
 `validation.json`, and recomputes the numerical and hardware results from the records,
 which must agree with the receipt. It ends with `RECORD INTEGRITY`, `NUMERICAL` (with the
-non-`ok` primary cases, which block an unconditional "healthy reference" label, plan §5)
-and `HARDWARE` lines, and exits as `run` does. Pilot evidence fails unless
+non-`ok` primary cases, which block an unconditional "healthy reference" label, plan §5),
+`HARDWARE` and `EVIDENCE` (`OFFICIAL` or `PILOT / NON-OFFICIAL`) lines, and exits as `run`
+does. Pilot evidence fails unless
 `--allow-pilot` is given. `VERIFY PASS` concerns the records; the numerical and hardware
 results are printed beside it.
 
 ## Archive (maintainer)
 
-The layout follows STAGE2_PLAN.md §6. In the root, add `README.md` (purpose, links,
-hardware, the commands above), `FREEZE.md` (freeze SHA, approval, dates, deviations) and,
-after review, `independent-review.md`. Then:
+`archive.sh` (beside `campaign.py`; bash, Linux, GNU tools) is the only archive and
+publication recipe; the commands below call it and nothing else. The layout follows
+STAGE2_PLAN.md §6. In the root, add `README.md` (purpose, links, hardware, the commands
+above), `FREEZE.md` (freeze SHA, approval, dates, deviations) and, after review,
+`independent-review.md`. Then:
 
 ```bash
-cd "$ROOT"
-find . -type f ! -name checksums.sha256 -printf '%P\n' | LC_ALL=C sort |
-  xargs -d '\n' sha256sum > checksums.sha256
-python3 -B "$CAMPAIGN" verify --archive "$ROOT" --freeze-sha "$FREEZE_SHA"
-cd .. && tar -czf pre06-stage2a-campaign-v1.tar.gz pre06-stage2a-campaign-v1
-sha256sum pre06-stage2a-campaign-v1.tar.gz
-gh release create bench-pre06-v1 pre06-stage2a-campaign-v1.tar.gz \
-  --repo mlakolar/ProximalSolvers.jl --title "Stage 2A pre-0.6 baseline (benchmark evidence, not a package release)" \
-  --notes "Campaign pre06-stage2a-v1 (#110). SHA-256: <digest>."
+ARCHIVE="$BASE/freeze/benchmark/campaigns/pre06/archive.sh"
+code=0
+"$ARCHIVE" pack "$ROOT" "$FREEZE_SHA" || code=$?
+case $code in
+  0) "$ARCHIVE" release "$ROOT" "$FREEZE_SHA" --tag bench-pre06-v1 ;;
+  2) echo "NUMERICAL FAILURE: archived, never a healthy reference" >&2
+     # Release only after the maintainer records a disposition on #110:
+     # "$ARCHIVE" release "$ROOT" "$FREEZE_SHA" --tag bench-pre06-v1 --disposition "<URL>"
+     ;;
+  *) echo "blocked: nothing archived" >&2; exit 1 ;;
+esac
 ```
+
+`archive.sh checksums ROOT` writes `ROOT/checksums.sha256` over every regular file of
+the root except that file itself (so both `julia-<V>/checksums.sha256` are listed, once),
+with paths relative to the root in C-locale order; any failure removes the partial list.
+`archive.sh pack ROOT FREEZE_SHA` runs `checksums`, then
+`campaign.py verify ROOT --archive --freeze-sha FREEZE_SHA`, and decides by its exit code:
+
+- **0**: packs. Beside the root: `<root>.tar.gz`, its digest `<root>.tar.gz.sha256`, a
+  status file `<root>.tar.gz.status` (verify exit code, numerical status, the `RECORD
+  INTEGRITY`, `NUMERICAL`, `HARDWARE` and `EVIDENCE` lines, archive SHA-256) and the full
+  `<root>.verify.out`. Exit 0; publication allowed.
+- **2**: valid records with a non-`ok` case. Packs as above, the status file says
+  `NUMERICAL FAILURE: valid archived evidence, not a healthy reference`, and `pack` exits
+  2. The archive is kept; it is never described as a healthy baseline, and `release`
+  needs an explicit maintainer disposition (`--disposition`, e.g. the URL of the #110
+  comment that records the decision).
+- **1 or anything else** (another code, a signal): blocked before `tar`; nothing is
+  packed or published. `pack` never overwrites an existing tarball or sidecar.
+
+`archive.sh release ROOT FREEZE_SHA --tag TAG [--disposition REF]` publishes only an
+official archive; a pilot rehearsal archive is never released. It stops, creating
+nothing, unless: the tarball matches its `.sha256` and `.status`; the status is
+`official`, of this campaign and freeze; the extracted tarball passes an official
+`verify --archive --freeze-sha` (no `--allow-pilot`) with the packed exit code, labelled
+`EVIDENCE: OFFICIAL` (exit 2 also needs `--disposition`); the root, asset and tag are the
+`[archive]` names of `campaign.toml`; `FREEZE_SHA` is a full SHA that exists on GitHub, is
+reachable from `master` and appears in a comment on #110; and neither the tag nor a
+release of it exists (only a definite "not found" counts). Then `gh release create TAG
+<asset> --target FREEZE_SHA --latest=false` creates the tag at the freeze commit, with
+notes saying that this is benchmark evidence and not a package release, the campaign ID,
+freeze SHA, ProximalSolvers pin, ProximalBase 0.5.4 release tree, both Julia versions,
+the record-integrity, numerical and hardware lines, the disposition after a numerical
+failure, the archive SHA-256 and #110. A tag or asset is never overwritten, moved or
+deleted (no `--clobber`); a correction is a new campaign identity, tag and asset. Every
+failed check or `gh` call exits nonzero. This PR creates no GitHub Release.
 
 Post on #110 the asset URL, its SHA-256, that the asset is kept permanently and replaced
 never (a correction is a new tag), and the retrieval commands below. The environment
@@ -199,14 +241,18 @@ contain the absolute path of the pinned checkout, which is machine specific.
 ## Retrieve and re-verify (independent check)
 
 ```bash
+set -euo pipefail
 mkdir fresh && cd fresh
 gh release download bench-pre06-v1 --repo mlakolar/ProximalSolvers.jl
 echo "<digest posted on #110>  pre06-stage2a-campaign-v1.tar.gz" | sha256sum -c -
 tar -xzf pre06-stage2a-campaign-v1.tar.gz
 git clone https://github.com/mlakolar/ProximalSolvers.jl.git freeze
 git -C freeze checkout --detach "$FREEZE_SHA"
-python3 -B freeze/benchmark/campaigns/pre06/campaign.py verify --archive \
-  pre06-stage2a-campaign-v1 --freeze-sha "$FREEZE_SHA"
+code=0
+python3 -B freeze/benchmark/campaigns/pre06/campaign.py verify \
+  pre06-stage2a-campaign-v1 --archive --freeze-sha "$FREEZE_SHA" || code=$?
+# 0: valid, every case ok. 2: valid records, NUMERICAL FAILURE (not a healthy reference).
+[ "$code" -eq 0 ] || [ "$code" -eq 2 ] || { echo "archive does not verify ($code)" >&2; exit 1; }
 ```
 
 To reproduce the environment on another machine, run `campaign.py run` with a new pinned
@@ -220,3 +266,15 @@ machine, so a run elsewhere is a new campaign or an observational, labelled repl
 `PS_CASE_SECONDS`; it does not need `--freeze-sha`. Pilot evidence is labelled `pilot`
 throughout, `verify` rejects it without `--allow-pilot`, and it never counts as an
 official repetition (STAGE2_PLAN.md §3).
+
+`verify` has two archive modes. **Official:** `verify ROOT --archive --freeze-sha SHA`
+(no `--allow-pilot`; `--freeze-sha` is required for official evidence) needs both
+`julia-<V>`, all official, in a root named `pre06-stage2a-campaign-v1`. **Pilot archive
+rehearsal:** `verify ROOT --archive --allow-pilot [--freeze-sha SHA]` needs both
+`julia-<V>`, all pilot, in a root whose name contains `pilot` and is not the official
+name; it applies the same archive checksums and record checks. Its last line is always
+`EVIDENCE: PILOT / NON-OFFICIAL (never Stage 2A baseline evidence)`, whatever the
+numerical result; only valid official evidence prints `EVIDENCE: OFFICIAL`. A two-version
+pilot root can be rehearsed end to end with `archive.sh pack ROOT FREEZE_SHA
+--pilot-rehearsal` (its status file says `mode: pilot-rehearsal`); `archive.sh release`
+refuses it.
