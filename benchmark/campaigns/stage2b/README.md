@@ -40,8 +40,9 @@ python3 -B -m unittest test_check_reset_probes -v
 ```
 
 To regenerate and check the historical reference against an extracted copy of the verified archive (the
-script only reads it, binds it to the archive's own `checksums.sha256` and to the frozen `../pre06/campaign.toml` and
-`cases.txt` (exit 1 if it does not match), and prints the SHA-256 of the checked TSV; the directory is
+script only reads it, binds it to the archive: the SHA-256 of the root `checksums.sha256` listing is pinned in the script
+(`LISTING_SHA256`; the tarball digest is provenance only and not checked), every file must match that listing,
+and `campaign.toml` and `cases.txt` must equal the frozen `../pre06/` files (exit 1 if anything differs), and prints the SHA-256 of the checked TSV; the directory is
 `pre06-stage2a-campaign-v1/`):
 
 ```

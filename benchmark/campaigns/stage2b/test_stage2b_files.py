@@ -354,7 +354,7 @@ class SpecRepetitionTests(unittest.TestCase):
         spec = read(os.path.join(HERE, "MIGRATION_COMPARE_SPEC.md"))
         row = next(l for l in spec.splitlines() if l.rstrip().endswith("`REPETITIONS` |"))
         self.assertIn("frozen campaign", row)
-        self.assertIn("both roots lack the same declared ID", row)
+        self.assertIn("both lack the same declared ID", row)
         self.assertIn("equal-but-incomplete pair is a refusal, never a per-case FAILED", spec)
         failed = spec[spec.index("* **FAILED**"):spec.index("**Visible lists**")]
         self.assertNotIn("both roots", failed)
