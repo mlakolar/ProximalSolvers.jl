@@ -184,8 +184,7 @@ class HistoricalReferenceTests(unittest.TestCase):
 
 class TextHygieneTests(unittest.TestCase):
     # Pieces are concatenated so that this file does not trip over its own patterns.
-    INFRASTRUCTURE = ("/scr" + "atch", "mkolar_" + "1314", "dis" + "covery", "ti" + "tan",
-                      "sr" + "un", "sb" + "atch")
+    INFRASTRUCTURE = ("/scr" + "atch", "sr" + "un", "sb" + "atch", "SLU" + "RM_")
     CLOSING = re.compile(
         r"\b(?:close[sd]?|closing|fix(?:e[sd]|ing)?|resolve[sd]?|resolving)\b"
         r"(?:[ \t:,(]+[\w./-]+){0,3}?[ \t:,(]*[\w.-]*/?[\w.-]*#(?:110|527)\b", re.IGNORECASE)
@@ -259,11 +258,14 @@ class TextHygieneTests(unittest.TestCase):
         for number in ("G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8"):
             self.assertIn(f"| {number} |", plan)
 
-    def test_readiness_stub_has_the_headed_sections(self):
+    def test_readiness_record_is_complete_and_names_the_probed_commit(self):
         text = read(os.path.join(HERE, "READINESS.md"))
         for heading in ("Audit of ProximalSolvers against #527 rows", "Readiness probe results", "Gates"):
-            self.assertRegex(text, rf"(?m)^## {re.escape(heading)}\s*\n\s*\nTO BE COMPLETED")
+            self.assertRegex(text, rf"(?m)^## {re.escape(heading)}\s*$")
+        self.assertNotIn("TO BE COMPLETED", text)
         self.assertIn("233c11cc284284fbd29df487308b4ee962f875a1", text)
+        for gate in ("G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8"):
+            self.assertIn(f"| {gate} |", text)
 
 
 class SelfContainedTests(unittest.TestCase):

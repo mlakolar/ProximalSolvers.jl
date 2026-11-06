@@ -267,7 +267,7 @@ tests**, and carry no significance level or error rate.
 | 3 | Reproducible slowdown at matched certified accuracy | Slower in all five blocks and in both orders, and the geometric mean of the five ratios lies above the largest A/A ratio of that case (screen label: "outside the A/A range, slower"). Triggers the diagnosis of section 13 and a maintainer disposition. |
 | 4 | Inconclusive | Everything else: within the observed A/A range, mixed signs, or one block driving the result. A reproducible speedup that lies outside the A/A range is reported as such and is never offset against slowdowns. |
 | 5 | Allocation or RSS change without timing evidence | A difference in allocated bytes per call or in process RSS with the timing category 4 or better. Investigated independently. |
-| 6 | Sign-off candidate | No case of category 1, 2 or 3 among the 14 primary cases and no unexplained major loss among the diagnostics. Stage 2B can then be proposed for sign-off; the ledger gates still apply and the sign-off is the maintainer's. |
+| 6 | Sign-off candidate | No case of category 1, 2 or 3 among the 14 primary cases and no unexplained major loss among the diagnostics. Stage 2B can then be proposed for sign-off; the ledger gates still apply and the sign-off is the maintainer's. This category is no noninferiority or no-regression claim: absence of a screen result in five blocks says nothing about a difference smaller than the observed noise. |
 
 Presentation rules: intervals, where shown, are descriptive; none is presented as a noninferiority test;
 a ratio of cases that mix `call`, `workspace` and `setup` phases is not formed; and nothing is averaged
