@@ -6,6 +6,10 @@
 # (benchmark/Project.toml) and Test:
 #   JULIA_NUM_THREADS=1 julia --project=ENV benchmark/campaigns/stage2b/test_p14_reset.jl
 #
+# Group 3 reads the iterate that the real `reset!` closure of each path state captured and asserts
+# what that closure leaves behind: a test of the helper alone would still pass if the closure
+# were rewired to the historical `fill!(x, 0.0)`, and a repeat of the call would pass with it too.
+#
 # Nothing here is timed and no check depends on a duration. The script exits non-zero when a
 # check fails and prints `P14 RESET TEST: PASS` or `P14 RESET TEST: FAIL` as its last line.
 
@@ -103,6 +107,8 @@ end
 # ---- 3. The real cases through the harness catalog ------------------------------------------
 case_ids = ("paths/lasso/cd/grid8/call", "paths/slope/slope-apg/grid8/call",
             "paths/slope/slope-hybrid/grid8/call")
+# The extended lasso paths share the state builder; one repetition, a call and a certificate.
+extended_ids = ["paths/lasso-$design/cd/grid16/call" for design in "ABCDE"]
 
 # A path output as plain data, copied before the next call can change anything it aliases.
 function snapshot(output, slope)
@@ -121,14 +127,47 @@ function certified(spec, state, output)
      value = cert.value, target = spec.meta.target)
 end
 
-cases_ok = run_group("real path cases: reset then call repeats the first call") do
-  catalog = H.build_catalog("quick", ["paths"])
+# The iterate that the state's reset! closure captured (a closure variable assigned in more
+# than one place is boxed). A different lowering is reported, never skipped.
+function captured_iterate(state)
+  names = fieldnames(typeof(state.reset!))
+  :x in names || error("the reset! closure has no captured field x; its fields are $(names)")
+  v = getfield(state.reset!, :x)
+  v isa Core.Box ? v.contents : v
+end
+
+# Call after state.call!(): the captured iterate has been used by solve_path. Then run the
+# real state.reset!() and assert what it leaves.
+function check_closure_reset(id, state, dense)
+  x = captured_iterate(state)
+  if dense
+    @test x isa Vector{Float64}
+    @test any(!iszero, x)
+  else
+    @test x isa PB.SparseIterate
+    PB.nactive(x) > 0 ||
+      println("P14 INFO ", id, ": the used iterate has no active coordinate on this stack")
+  end
+  state.reset!()
+  @test captured_iterate(state) === x
+  @test all(iszero, collect(Float64, x))
+  if !dense
+    fresh = PB.SparseIterate(length(x))
+    @test PB.nactive(x) == 0
+    @test isempty(PB.activecoordinates(x))
+    @test values_of(x) == values_of(fresh) && working_set(x) == working_set(fresh)
+  end
+end
+
+cases_ok = run_group("real path cases: the reset closure and repeated calls") do
+  catalog = H.build_catalog("extended", ["paths"])
   by_id = Dict(spec.meta.id => spec for spec in catalog)
-  for id in case_ids
+  plan = vcat([(id, (1, 2), true) for id in case_ids], [(id, (1,), false) for id in extended_ids])
+  for (id, reps, repeats) in plan
     haskey(by_id, id) || (@test haskey(by_id, id); continue)
     spec = by_id[id]
     slope = startswith(id, "paths/slope/")
-    for rep in (1, 2)
+    for rep in reps
       @testset "$id rep $rep" begin
         state = spec.make(rep)
         hash = state.problem_hash
@@ -137,13 +176,17 @@ cases_ok = run_group("real path cases: reset then call repeats the first call") 
         c1 = certified(spec, state, first_out)
         @test c1.status == :ok && c1.cert_status == :ok && c1.value <= c1.target
         @test !isempty(first.solutions)
-        for _ in 1:2   # the second and third call, each after a reset
-          state.reset!()
-          out = state.call!()
-          again = snapshot(out, slope)
-          @test same_path(first, again)
-          c = certified(spec, state, out)
-          @test c.status == :ok && c.cert_status == :ok && c.value <= c.target
+        check_closure_reset(id, state, slope)
+        if repeats
+          for _ in 1:2   # the second and third call, each after a reset
+            state.reset!()
+            out = state.call!()
+            again = snapshot(out, slope)
+            @test same_path(first, again)
+            c = certified(spec, state, out)
+            @test c.status == :ok && c.cert_status == :ok && c.value <= c.target
+          end
+          check_closure_reset(id, state, slope)   # also after the last repeated call
         end
         @test state.problem_hash == hash
         @test spec.make(rep).problem_hash == hash
