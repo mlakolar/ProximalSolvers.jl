@@ -1106,7 +1106,12 @@ def verify(args):
 
 
 class Parser(argparse.ArgumentParser):
-    """Usage errors exit 1: exit status 2 means valid records with a non-ok case."""
+    """Usage errors exit 1: exit status 2 means valid records with a non-ok case. No
+    abbreviated options: the receipt check needs the literal --pilot in the argv."""
+
+    def __init__(self, *args, **kwargs):   # also every subparser (parser_class=Parser)
+        kwargs.setdefault("allow_abbrev", False)
+        super().__init__(*args, **kwargs)
 
     def error(self, message):
         self.print_usage(sys.stderr)

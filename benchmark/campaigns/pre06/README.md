@@ -48,19 +48,28 @@ The full values are in `campaign.toml`; `campaign.py` checks them, not this tabl
 
 ## Run (after the freeze is recorded on #110)
 
-Run each shell snippet in this file as a script (`bash file.sh`) or in a subshell
-(`( ... )`): they use `set -euo pipefail` and `exit`, which would close an interactive shell.
+Every shell snippet in this file is a script: save it and run it with `bash FILE`, never
+paste it into an interactive shell (`set -e` and `exit` would close it). The maintainer's
+scripts (Run, Verify, Archive) share their variables through one file, `pre06-env.sh`,
+which each sources first; run them from the directory that holds it.
 
 ```bash
-set -euo pipefail
+# pre06-env.sh: sourced by the Run, Verify and Archive scripts
 FREEZE_SHA=...            # the freeze commit recorded on #110
 BASE=/absolute/path/outside/any/checkout
+CAMPAIGN="$BASE/freeze/benchmark/campaigns/pre06/campaign.py"
+ARCHIVE="$BASE/freeze/benchmark/campaigns/pre06/archive.sh"
+ROOT="$BASE/pre06-stage2a-campaign-v1"     # the official root must have this name
+```
+
+```bash
+# run.sh
+set -euo pipefail
+. ./pre06-env.sh
 git clone https://github.com/mlakolar/ProximalSolvers.jl.git "$BASE/pinned"
 git -C "$BASE/pinned" checkout --detach b0de3f7fc91767b97197ff4b458207e308998943
 git clone https://github.com/mlakolar/ProximalSolvers.jl.git "$BASE/freeze"
 git -C "$BASE/freeze" checkout --detach "$FREEZE_SHA"
-CAMPAIGN="$BASE/freeze/benchmark/campaigns/pre06/campaign.py"
-ROOT="$BASE/pre06-stage2a-campaign-v1"     # the official root must have this name
 
 for V in 1.10 1.13; do
   case $V in 1.10) J=~/.julia/juliaup/julia-1.10.13+0.x64.linux.gnu/bin/julia ;;
@@ -157,6 +166,9 @@ the root, use a fresh `--work`, and run again. A second stop needs a versioned a
 ## Verify
 
 ```bash
+# verify.sh (exits with verify's status)
+set -euo pipefail
+. ./pre06-env.sh
 python3 -B "$CAMPAIGN" verify "$ROOT" --freeze-sha "$FREEZE_SHA"
 ```
 
@@ -192,7 +204,9 @@ above), `FREEZE.md` (freeze SHA, approval, dates, deviations) and, after review,
 `independent-review.md`. Then:
 
 ```bash
-ARCHIVE="$BASE/freeze/benchmark/campaigns/pre06/archive.sh"
+# pack-and-release.sh
+set -euo pipefail
+. ./pre06-env.sh
 code=0
 "$ARCHIVE" pack "$ROOT" "$FREEZE_SHA" || code=$?
 case $code in
@@ -211,32 +225,43 @@ symbolic link, FIFO, socket or device inside it, so no evidence can live outside
 archive. `archive.sh checksums ROOT` writes `ROOT/checksums.sha256` over every regular file of
 the root except that file itself (so both `julia-<V>/checksums.sha256` are listed, once),
 with paths relative to the root in C-locale order; any failure removes the partial list.
-`archive.sh pack ROOT FREEZE_SHA` runs `checksums`, then
-`campaign.py verify ROOT --archive --freeze-sha FREEZE_SHA`, and decides by its exit code:
+Names with a backslash, newline or carriage return are refused (`sha256sum` would escape
+them). `archive.sh pack ROOT FREEZE_SHA` runs `checksums`, then
+`campaign.py verify ROOT --archive --freeze-sha FREEZE_SHA` (its output is always kept as
+`<root>.verify.out`), and decides by its exit code:
 
-- **0**: packs (`tar --hard-dereference`, never `-h`; the tarball is refused unless
-  every member, as `tar -tvzf` lists it, is a regular file or directory under the root's
-  name, with no absolute, `.` or `..` path and no duplicate). Beside the root: `<root>.tar.gz`, its digest `<root>.tar.gz.sha256`, a
-  status file `<root>.tar.gz.status` (verify exit code, numerical status, the `RECORD
-  INTEGRITY`, `NUMERICAL`, `HARDWARE` and `EVIDENCE` lines, archive SHA-256) and the full
-  `<root>.verify.out`. Exit 0; publication allowed.
+- **0**: packs. The tarball is built in a private staging directory beside the root
+  (`tar --hard-dereference`, never `-h`, without `TAR_OPTIONS` or `GZIP` from the
+  environment) and refused unless every member, as `tar -tvzf` lists it, is a regular
+  file or directory under the root's name, with no absolute, `.` or `..` path and no
+  duplicate, and unless the same `verify` on its extracted copy gives the same exit code
+  and result lines (so the tarball reproduces the verified tree). Then, beside the root,
+  each installed without overwriting or following anything that exists (`ln`): its
+  digest `<root>.tar.gz.sha256`, a status file `<root>.tar.gz.status` (verify exit code,
+  numerical status, the `RECORD INTEGRITY`, `NUMERICAL`, `HARDWARE` and `EVIDENCE` lines,
+  archive SHA-256), and last `<root>.tar.gz`. Exit 0; publication allowed.
 - **2**: valid records with a non-`ok` case. Packs as above, the status file says
   `NUMERICAL FAILURE: valid archived evidence, not a healthy reference`, and `pack` exits
   2. The archive is kept; it is never described as a healthy baseline, and `release`
   needs an explicit maintainer disposition (`--disposition`, e.g. the URL of the #110
   comment that records the decision).
 - **1 or anything else** (another code, a signal): blocked before `tar`; nothing is
-  packed or published. `pack` never overwrites an existing tarball, sidecar or
-  `.verify.out`, and refuses an archive path containing `#` (which `gh` reads as a label).
+  packed or published. `pack` refuses to start if the tarball, a sidecar or
+  `.verify.out` exists (also as a symbolic link), and refuses an archive path containing
+  `#` (which `gh` reads as a label).
 
 `archive.sh release ROOT FREEZE_SHA --tag TAG [--disposition REF]` publishes only an
-official archive; a pilot rehearsal archive is never released. It stops, creating
-nothing, unless: the tarball matches its `.sha256` and `.status`; its members pass the
-same check before anything is extracted (then `tar --keep-old-files --no-same-owner`); the status is
+official archive; a pilot rehearsal archive is never released. It copies the tarball and
+its sidecars once into a private staging directory and uses only that copy from then on
+(digest, members, extraction, verify, and the upload, re-hashed just before it), so the
+bytes verified are the bytes uploaded. It runs the `campaign.py` beside `archive.sh`
+whatever `CAMPAIGN` says. It stops, creating nothing, unless: the tarball matches its
+`.sha256` and `.status`; its members pass the same check before anything is extracted
+(then `tar --keep-old-files --no-same-owner`); the status is
 `official`, of this campaign and freeze; the extracted tarball passes an official
 `verify --archive --freeze-sha` (no `--allow-pilot`) with the packed exit code, labelled
-`EVIDENCE: OFFICIAL` (exit 2 also needs `--disposition`: one line of free text recorded
-verbatim, or exactly a `https://github.com/mlakolar/ProximalSolvers.jl/issues/110#issuecomment-<N>`
+`EVIDENCE: OFFICIAL` (exit 2 also needs `--disposition`: one non-blank line of free text
+recorded verbatim, or exactly a `https://github.com/mlakolar/ProximalSolvers.jl/issues/110#issuecomment-<N>`
 URL); the root, asset and tag are the
 `[archive]` names of `campaign.toml`; `FREEZE_SHA` is a full SHA that exists on GitHub, is
 reachable from `master` and appears in a comment on #110; and neither the tag nor a
@@ -247,8 +272,10 @@ freeze SHA, ProximalSolvers pin, ProximalBase 0.5.4 release tree, both Julia ver
 the record-integrity, numerical and hardware lines, the disposition after a numerical
 failure, the archive SHA-256 and #110. A tag or asset is never overwritten, moved or
 deleted (no `--clobber`); a correction is a new campaign identity, tag and asset. Every
-failed check or `gh` call exits nonzero; an existing `<root>.release-notes.md` is never
-overwritten. This PR creates no GitHub Release.
+failed check or `gh` call before the upload exits nonzero; after a successful upload
+nothing changes the exit status (a staging directory that cannot be removed is only
+reported). An existing `<root>.release-notes.md` is never overwritten. This PR creates no
+GitHub Release.
 
 Post on #110 the asset URL, its SHA-256, that the asset is kept permanently and replaced
 never (a correction is a new tag), and the retrieval commands below. The environment
@@ -257,18 +284,24 @@ contain the absolute path of the pinned checkout, which is machine specific.
 
 ## Retrieve and re-verify (independent check)
 
-`fresh` must not exist yet; the snippet stops if it does.
+A self-contained script for anyone; `fresh` must not exist yet (the script stops if it does).
 
 ```bash
+# retrieve.sh
 set -euo pipefail
-mkdir fresh                # fails, and stops the script, if fresh exists
+FREEZE_SHA=...                       # the freeze commit posted on #110
+DIGEST=...                           # the archive SHA-256 posted on #110
+ASSET=pre06-stage2a-campaign-v1.tar.gz
+mkdir fresh                          # fails, and stops the script, if fresh exists
 cd fresh
-gh release download bench-pre06-v1 --repo mlakolar/ProximalSolvers.jl
-echo "<digest posted on #110>  pre06-stage2a-campaign-v1.tar.gz" | sha256sum -c -
-if tar -tvzf pre06-stage2a-campaign-v1.tar.gz | grep -v '^[-d]'; then
-  echo "the archive holds links or special files" >&2; exit 1
-fi
-tar --no-same-owner -xzf pre06-stage2a-campaign-v1.tar.gz
+gh release download bench-pre06-v1 --repo mlakolar/ProximalSolvers.jl --pattern "$ASSET"
+echo "$DIGEST  $ASSET" | sha256sum -c -
+# Only regular files and directories, listed (fail closed) before anything is extracted.
+listing=$(env -u TAR_OPTIONS -u GZIP tar -tvzf "$ASSET") || { echo "cannot list $ASSET" >&2; exit 1; }
+while IFS= read -r line; do
+  case $line in -*|d*) ;; *) echo "not a regular file or directory: $line" >&2; exit 1 ;; esac
+done <<< "$listing"
+env -u TAR_OPTIONS -u GZIP tar --no-same-owner -xzf "$ASSET"
 git clone https://github.com/mlakolar/ProximalSolvers.jl.git freeze
 git -C freeze checkout --detach "$FREEZE_SHA"
 code=0

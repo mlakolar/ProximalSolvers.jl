@@ -6,26 +6,52 @@
 #       julia-<V>/checksums.sha256 included), paths relative to ROOT, in C-locale order.
 #   archive.sh pack ROOT FREEZE_SHA [--pilot-rehearsal]
 #       checksums, then `campaign.py verify ROOT --archive --freeze-sha FREEZE_SHA`
-#       (with --allow-pilot for a rehearsal), then, unless verify blocks, beside ROOT:
-#       ROOT.tar.gz, ROOT.tar.gz.sha256, ROOT.tar.gz.status and ROOT.verify.out.
-#       verify 0: packed, exit 0. verify 2: packed (valid evidence, NUMERICAL FAILURE,
-#       never a healthy reference), exit 2. Anything else, or result lines that disagree
-#       with the exit code: nothing packed, exit 1. Never overwrites an existing file.
+#       (with --allow-pilot for a rehearsal); unless verify blocks, the tarball is built
+#       in a private staging directory, its members checked, and the same verify run on
+#       its extracted copy. Then, beside ROOT: ROOT.tar.gz, ROOT.tar.gz.sha256 and
+#       ROOT.tar.gz.status (ROOT.verify.out in every case). verify 0: exit 0. verify 2:
+#       packed (valid evidence, NUMERICAL FAILURE, never a healthy reference), exit 2.
+#       Anything else, or result lines that disagree with the exit code: nothing packed,
+#       exit 1. Never overwrites or writes through an existing file or link.
 #   archive.sh release ROOT FREEZE_SHA --tag TAG [--disposition REF]
-#       official archives only: re-checks the packed archive and the freeze on GitHub,
-#       then `gh release create TAG ROOT.tar.gz --target FREEZE_SHA`. Verify 2 needs
-#       --disposition (the maintainer's recorded decision, e.g. an #110 comment URL).
-#       Never overwrites, moves or deletes a tag, release or asset.
+#       official archives only: copies the tarball once into a private staging directory
+#       and works only on that copy (digest, members, extracted verify, upload); checks
+#       the freeze on GitHub; then `gh release create TAG <copy> --target FREEZE_SHA`.
+#       Verify 2 needs --disposition (the maintainer's recorded decision, e.g. an #110
+#       comment URL). Never overwrites, moves or deletes a tag, release or asset.
 #
-# CAMPAIGN (environment) is the campaign.py to run; default: the one beside this script.
-# Its campaign.toml (same directory) gives the campaign id, pins and archive names.
+# CAMPAIGN (environment) is the campaign.py that pack runs; default: the one beside this
+# script, whose campaign.toml gives the campaign id, pins and archive names. `release`
+# ignores a CAMPAIGN override (a stub verify must never approve a real release) unless
+# ARCHIVE_SH_ALLOW_STUB=1, which only the offline tests (test_campaign.py) set.
+# Every tar runs without TAR_OPTIONS and GZIP from the environment.
 set -euo pipefail
+unset CDPATH
 
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
-CAMPAIGN=${CAMPAIGN:-$HERE/campaign.py}
+DEFAULT_CAMPAIGN=$HERE/campaign.py
+CAMPAIGN=${CAMPAIGN:-$DEFAULT_CAMPAIGN}
 ISSUE=110
+stage=""   # the private staging directory of pack or release; removed on exit
 
 die() { echo "archive.sh: $*" >&2; exit 1; }
+warn() { echo "archive.sh: warning: $*" >&2; }
+tar_() { env -u TAR_OPTIONS -u GZIP tar "$@"; }
+
+# Removing the staging directory never changes the exit status (it may hold read-only
+# directories of the evidence, and gh release create may already have succeeded).
+cleanup() {
+  [ -n "$stage" ] && [ -d "$stage" ] || return 0
+  chmod -R u+rwX -- "$stage"   # runs under set +e (the EXIT trap); rm decides
+  if ! rm -rf -- "$stage"; then
+    warn "could not remove $stage"
+  fi
+}
+trap 'rc=$?; set +e; cleanup; exit "$rc"' EXIT
+
+make_stage() {   # a private (0700) directory beside the root, outside it
+  stage=$(mktemp -d "$1/.archive-stage.XXXXXX") || die "cannot create a staging directory in $1"
+}
 
 # The campaign.toml values used here, tab-separated, from the freeze checkout's copy.
 pins() {
@@ -39,19 +65,31 @@ print("\t".join([c["campaign_id"], a["name"], a["asset"], a["release_tag"], a["r
 ' "$(dirname "$CAMPAIGN")/campaign.toml"
 }
 
-# The physical path of directory $1, which must not itself be a symbolic link.
+# The physical path of directory $1, which must not itself be a symbolic link, however
+# it is spelled (LINK, LINK/, LINK//, LINK/.).
 real_dir() {
-  local dir=${1%/}
-  [ -n "$dir" ] || dir=/
-  [ ! -L "$dir" ] || die "$1 is a symbolic link; the root must be a real directory"
-  (cd "$dir" && pwd -P) || die "no directory $1"
+  local logical
+  logical=$(cd -L -- "$1" && pwd -L) || die "no directory $1"
+  [ ! -L "$logical" ] || die "$1 is a symbolic link; the root must be a real directory"
+  (cd -P -- "$logical" && pwd -P) || die "no directory $1"
+}
+
+absent() {   # refuse an existing destination, also a dangling symbolic link
+  local f
+  for f in "$@"; do
+    [ ! -e "$f" ] && [ ! -L "$f" ] || die "$f exists; never overwritten (move it away after reading it)"
+  done
+}
+
+install_new() {   # hard-link staged $1 to $2; fails if $2 exists in any form (no clobber)
+  ln -- "$1" "$2" || die "cannot install $2 (it must not exist)"
 }
 
 # Every member of tarball $1 is a regular file or directory under $2/ (no absolute
 # path, no empty, '.' or '..' component, no duplicate). Listed by tar itself; returns 1.
 check_members() {
   local tarball=$1 name=$2 types names line dups
-  types=$(tar -tvzf "$tarball") && names=$(tar -tzf "$tarball") \
+  types=$(tar_ -tvzf "$tarball") && names=$(tar_ -tzf "$tarball") \
     || { echo "archive.sh: cannot list $tarball" >&2; return 1; }
   while IFS= read -r line; do
     case $line in -*|d*) ;;
@@ -70,20 +108,27 @@ check_members() {
   [ -z "$dups" ] || { echo "archive.sh: $tarball: duplicate members: $dups" >&2; return 1; }
 }
 
+extract() {   # tarball $1 into the new directory $2; links were refused by check_members
+  mkdir -- "$2" && tar_ -C "$2" --keep-old-files --no-same-owner -xzf "$1"
+}
+
 checksums() {
-  local root tmp
+  local root tmp odd
   root=$(real_dir "$1")
   rm -f "$root/checksums.sha256"
-  local odd
   odd=$(cd "$root" && find . ! -type f ! -type d -printf '%P\n') || die "cannot list $root"
   [ -z "$odd" ] || die "not regular files or directories (links, FIFOs, sockets, devices): $odd"
   # sha256sum escapes these names, and the verifier rejects escaped lines
-  odd=$(cd "$root" && find . -type f \( -path '*\\*' -o -path "*"$'\n'"*" \) -printf '%P\n') \
-    || die "cannot list $root"
-  [ -z "$odd" ] || die "file names with a backslash or newline cannot be listed: $odd"
+  odd=$(cd "$root" && find . -type f \( -path '*\\*' -o -path "*"$'\n'"*" -o -path "*"$'\r'"*" \) \
+        -printf '%P\n') || die "cannot list $root"
+  [ -z "$odd" ] || die "file names with a backslash, newline or carriage return cannot be listed: $odd"
   tmp=$(mktemp "$(dirname "$root")/.checksums.XXXXXX")   # outside ROOT: never listed
   if ( cd "$root" && find . -type f ! -path ./checksums.sha256 -printf '%P\0' |
          LC_ALL=C sort -z | xargs -0 -r sha256sum ) > "$tmp"; then
+    if grep -q '^\\' "$tmp"; then   # any escaped name: the verifier would reject the list
+      rm -f "$tmp"
+      die "sha256sum escaped a file name under $root; no checksums.sha256 written"
+    fi
     chmod 0644 "$tmp"
     mv "$tmp" "$root/checksums.sha256"
   else
@@ -113,15 +158,15 @@ pack() {
   parent=$(dirname "$root") base=$(basename "$root")
   tarball=$parent/$base.tar.gz out=$parent/$base.verify.out
   [[ $tarball != *'#'* ]] || die "the archive path $tarball contains '#' (gh reads it as a label)"
-  for f in "$tarball" "$tarball.sha256" "$tarball.status" "$out"; do
-    [ ! -e "$f" ] || die "$f exists; never overwritten (move it away after reading it)"
-  done
+  absent "$tarball" "$tarball.sha256" "$tarball.status" "$out"
   local id pins_line
   pins_line=$(pins) || die "cannot read campaign.toml beside $CAMPAIGN"
   id=${pins_line%%$'\t'*}
 
   checksums "$root"
-  run_verify "$root" "$out" --freeze-sha "$sha" ${extra[@]+"${extra[@]}"}
+  make_stage "$parent"
+  run_verify "$root" "$stage/verify.out" --freeze-sha "$sha" ${extra[@]+"${extra[@]}"}
+  install_new "$stage/verify.out" "$out"
   local numerical evidence_want=OFFICIAL
   case $verify_rc in
     0) numerical="all cases certified ok" ;;
@@ -140,19 +185,35 @@ pack() {
   case $evidence in "EVIDENCE: $evidence_want"*) ;;
     *) die "a $mode pack but verify says '$evidence'" ;; esac
 
-  # Never -h: links are refused above; hard links are stored as file contents.
-  tar -C "$parent" --hard-dereference -czf "$tarball.partial" "$base" \
-    || { rm -f "$tarball.partial"; die "tar failed"; }
-  check_members "$tarball.partial" "$base" \
-    || { rm -f "$tarball.partial"; die "the tarball holds more than regular files and directories; not packed"; }
-  mv "$tarball.partial" "$tarball"
+  # Build and check the tarball in the staging directory. Never -h: links are refused
+  # above; hard links are stored as file contents.
+  local staged=$stage/$base.tar.gz label
+  tar_ -C "$parent" --hard-dereference -czf "$staged" -- "$base" || die "tar failed; not packed"
+  check_members "$staged" "$base" \
+    || die "the tarball holds more than regular files and directories; not packed"
+  # The tarball must reproduce the verified tree: the same verify on its extracted copy.
+  extract "$staged" "$stage/extracted" || die "cannot extract the new tarball; not packed"
+  local first_rc=$verify_rc
+  run_verify "$stage/extracted/$base" "$stage/verify-archive.out" --freeze-sha "$sha" \
+    ${extra[@]+"${extra[@]}"}
+  [ "$verify_rc" = "$first_rc" ] \
+    || die "verify of the tarball exits $verify_rc, of the root $first_rc; not packed"
+  for label in "RECORD INTEGRITY" NUMERICAL HARDWARE EVIDENCE; do
+    [ "$(result_line "$label" "$stage/verify-archive.out")" = "$(result_line "$label" "$out")" ] \
+      || die "verify of the tarball and of the root disagree on $label; not packed"
+  done
+
   local digest
-  digest=$(sha256sum "$tarball") || die "cannot hash $tarball"
+  digest=$(sha256sum "$staged") || die "cannot hash $staged"
   digest=${digest%% *}
-  echo "$digest  $base.tar.gz" > "$tarball.sha256"
+  echo "$digest  $base.tar.gz" > "$stage/sha256"
   printf '%s\n' "campaign_id: $id" "mode: $mode" "freeze_sha: $sha" "verify_rc: $verify_rc" \
     "numerical_status: $numerical" "$integrity" "$numline" "$hardware" "$evidence" \
-    "archive_sha256: $digest" > "$tarball.status"
+    "archive_sha256: $digest" > "$stage/status"
+  # Sidecars first, the tarball last: a tarball beside the root always has its sidecars.
+  install_new "$stage/sha256" "$tarball.sha256"
+  install_new "$stage/status" "$tarball.status"
+  install_new "$staged" "$tarball"
   echo "archive: $tarball"
   echo "sha256:  $digest"
   cat "$tarball.status"
@@ -170,20 +231,25 @@ status_value() {   # the value of key $1 in the status file $2
 
 release() {
   [ $# -ge 2 ] || die "usage: release ROOT FREEZE_SHA --tag TAG [--disposition REF]"
-  local root parent base sha=$2 tag="" disposition="" tarball status
+  local root parent base sha=$2 tag="" disposition="" given_disposition=no tarball
   root=$(real_dir "$1")
   shift 2
   while [ $# -gt 0 ]; do
     case $1 in
       --tag) [ $# -ge 2 ] || die "--tag needs a value"; tag=$2; shift 2 ;;
-      --disposition) [ $# -ge 2 ] || die "--disposition needs a value"; disposition=$2; shift 2 ;;
+      --disposition) [ $# -ge 2 ] || die "--disposition needs a value"
+                     disposition=$2 given_disposition=yes; shift 2 ;;
       *) die "unknown argument $1" ;;
     esac
   done
   [ -n "$tag" ] || die "release needs --tag"
   [[ $sha =~ ^[0-9a-f]{40}$ ]] || die "FREEZE_SHA must be a full 40-hex commit"
+  if [ "$CAMPAIGN" != "$DEFAULT_CAMPAIGN" ] && [ "${ARCHIVE_SH_ALLOW_STUB:-}" != 1 ]; then
+    warn "release ignores CAMPAIGN=$CAMPAIGN and runs $DEFAULT_CAMPAIGN"
+    CAMPAIGN=$DEFAULT_CAMPAIGN
+  fi
   parent=$(dirname "$root") base=$(basename "$root")
-  tarball=$parent/$base.tar.gz status=$tarball.status
+  tarball=$parent/$base.tar.gz
 
   local pins_line id name asset release_tag repo ps_commit pb_version pb_tree julias
   pins_line=$(pins) || die "cannot read campaign.toml beside $CAMPAIGN"
@@ -191,7 +257,8 @@ release() {
   [ "$base" = "$name" ] || die "root $base is not the official archive $name"
   [ "$asset" = "$name.tar.gz" ] || die "campaign.toml: asset $asset is not $name.tar.gz"
   [[ $tarball != *'#'* ]] || die "the archive path $tarball contains '#' (gh reads it as a label)"
-  if [ -n "$disposition" ]; then
+  if [ "$given_disposition" = yes ]; then
+    [[ $disposition =~ [^[:space:]] ]] || die "--disposition must not be empty or blank"
     [[ $disposition != *$'\n'* ]] || die "--disposition must be a single line"
     local issue_url="https://github.com/$repo/issues/$ISSUE#issuecomment-"
     if [[ $disposition == *://* || $disposition == *github.com* ]]; then
@@ -200,45 +267,50 @@ release() {
     fi
   fi
   local notes=$parent/$base.release-notes.md
-  [ ! -e "$notes" ] || die "$notes exists; never overwritten (move it away after reading it)"
+  absent "$notes"
   [ "$tag" = "$release_tag" ] || die "tag $tag is not the campaign's release tag $release_tag"
 
-  # The packed archive: present, its digest recomputed, its status official and acceptable.
-  [ -f "$tarball" ] && [ -f "$tarball.sha256" ] && [ -f "$status" ] \
-    || die "pack first: $tarball, .sha256 and .status are required"
+  # The packed archive, copied once into the staging directory; everything below uses
+  # only that copy, so the bytes verified are the bytes uploaded.
+  local f
+  for f in "$tarball" "$tarball.sha256" "$tarball.status"; do
+    [ -f "$f" ] && [ ! -L "$f" ] || die "pack first: $f must be a regular file"
+  done
+  make_stage "$parent"
+  local staged=$stage/$asset status=$stage/status
+  cp -- "$tarball" "$staged" && cp -- "$tarball.sha256" "$stage/sha256" \
+    && cp -- "$tarball.status" "$status" || die "cannot copy the archive into $stage"
   local digest
-  digest=$(sha256sum "$tarball") || die "cannot hash $tarball"
+  digest=$(sha256sum "$staged") || die "cannot hash $staged"
   digest=${digest%% *}
-  [ "$(cat "$tarball.sha256")" = "$digest  $asset" ] || die "$tarball does not match its .sha256"
-  [ "$(status_value archive_sha256 "$status")" = "$digest" ] || die "$status names another archive"
+  [ "$(cat "$stage/sha256")" = "$digest  $asset" ] || die "$tarball does not match its .sha256"
+  [ "$(status_value archive_sha256 "$status")" = "$digest" ] || die "$tarball.status names another archive"
   [ "$(status_value mode "$status")" = official ] \
-    || die "$status is not an official archive (a pilot rehearsal is never released)"
-  [ "$(status_value campaign_id "$status")" = "$id" ] || die "$status is of another campaign"
-  [ "$(status_value freeze_sha "$status")" = "$sha" ] || die "$status was packed at another freeze"
+    || die "$tarball.status is not an official archive (a pilot rehearsal is never released)"
+  [ "$(status_value campaign_id "$status")" = "$id" ] || die "$tarball.status is of another campaign"
+  [ "$(status_value freeze_sha "$status")" = "$sha" ] || die "$tarball.status was packed at another freeze"
   local packed_rc
   packed_rc=$(status_value verify_rc "$status")
 
   # Verify the archive's own content (extracted), officially: no --allow-pilot.
-  scratch=$(mktemp -d "$parent/.release-check.XXXXXX")   # global: the EXIT trap uses it
-  trap 'rm -rf -- "$scratch"' EXIT
-  check_members "$tarball" "$base" || die "$tarball holds more than $base/ files and directories; not extracted"
-  tar -C "$scratch" --keep-old-files --no-same-owner -xzf "$tarball" || die "cannot extract $tarball"
-  run_verify "$scratch/$base" "$scratch/verify.out" --freeze-sha "$sha"
+  check_members "$staged" "$base" || die "$tarball holds more than $base/ files and directories; not extracted"
+  extract "$staged" "$stage/extracted" || die "cannot extract $tarball"
+  run_verify "$stage/extracted/$base" "$stage/verify.out" --freeze-sha "$sha"
   [ "$verify_rc" = "$packed_rc" ] || die "verify of the archive exits $verify_rc; packed with $packed_rc"
   case $verify_rc in
     0) ;;
     2) [ -n "$disposition" ] || die "NUMERICAL FAILURE archive: release needs --disposition REF (the maintainer's recorded decision); archive kept, nothing released" ;;
     *) die "verify of the archive exited with $verify_rc; not released" ;;
   esac
-  [ "$(result_line EVIDENCE "$scratch/verify.out")" = "EVIDENCE: OFFICIAL" ] \
+  [ "$(result_line EVIDENCE "$stage/verify.out")" = "EVIDENCE: OFFICIAL" ] \
     || die "verify does not label the archive OFFICIAL; not released"
   local integrity numline hardware label
   integrity=$(result_line "RECORD INTEGRITY" "$status")
   numline=$(result_line NUMERICAL "$status")
   hardware=$(result_line HARDWARE "$status")
   for label in "RECORD INTEGRITY" NUMERICAL HARDWARE; do
-    [ "$(result_line "$label" "$scratch/verify.out")" = "$(result_line "$label" "$status")" ] \
-      || die "verify of the archive and $status disagree on $label"
+    [ "$(result_line "$label" "$stage/verify.out")" = "$(result_line "$label" "$status")" ] \
+      || die "verify of the archive and $tarball.status disagree on $label"
   done
 
   # The freeze commit on GitHub: exists, reachable from master, recorded on #110.
@@ -266,7 +338,7 @@ release() {
 > baseline or reference.** Maintainer disposition: $disposition
 "
   fi
-  (set -o noclobber; cat > "$notes") <<EOF
+  cat > "$stage/notes.md" <<EOF
 Benchmark evidence archive for #$ISSUE; **not a Julia package release** of ProximalSolvers.jl.
 
 ${failure}
@@ -284,10 +356,17 @@ ${failure}
 
 Re-verify: README.md of benchmark/campaigns/pre06 at the freeze commit, "Retrieve and re-verify".
 EOF
-  gh release create "$tag" "$tarball" --repo "$repo" --target "$sha" --latest=false \
-    --title "Stage 2A $id (benchmark evidence, not a package release)" --notes-file "$notes" \
+  install_new "$stage/notes.md" "$notes"
+  # The staged copy, unchanged since it was verified, is what gh uploads.
+  local final
+  final=$(sha256sum "$staged") || die "cannot hash $staged"
+  [ "${final%% *}" = "$digest" ] || die "the staged archive changed after verification; not released"
+  gh release create "$tag" "$staged" --repo "$repo" --target "$sha" --latest=false \
+    --title "Stage 2A $id (benchmark evidence, not a package release)" --notes-file "$stage/notes.md" \
     || die "gh release create failed; check $repo for a partial release before anything else"
+  set +e   # released: nothing after this may change the exit status
   echo "released $tag: $asset sha256 $digest"
+  exit 0
 }
 
 [ $# -ge 1 ] || die "usage: archive.sh checksums|pack|release ..."

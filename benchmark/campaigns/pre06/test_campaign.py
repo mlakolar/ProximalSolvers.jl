@@ -283,7 +283,10 @@ class VerifyModes(Scratch):
         self.assertIn("unreadable: UnicodeDecodeError", "".join(found["failures"]))
 
     def test_usage_errors_exit_1(self):
-        for argv in (["verify"], ["verify", "x", "--bogus"], ["nope"], []):
+        for argv in (["verify"], ["verify", "x", "--bogus"], ["nope"], [],
+                     ["verify", "x", "--allow-pilo"], ["verify", "x", "--archiv"],
+                     ["run", "--pilo", "--julia-version", "1.13", "--julia", "j", "--pinned",
+                      "p", "--work", "w", "--root", "r"]):
             with self.subTest(argv):
                 result = subprocess.run([sys.executable, "-B", str(HERE / "campaign.py"), *argv],
                                         capture_output=True, text=True)
@@ -399,10 +402,25 @@ class Records(Scratch):
 
 
 STUB = r'''
-import os, signal, sys
+import hashlib, os, signal, sys
+from pathlib import Path
 with open(os.environ["MOCK_LOG"], "a") as log:
     log.write("campaign " + " ".join(sys.argv[1:]) + "\n")
 rc = int(os.environ.get("STUB_RC", "0"))
+root = Path(sys.argv[2])   # verify ROOT ...: its archive list must match its files
+listed = dict(reversed(line.split("  ", 1)) for line in
+              (root / "checksums.sha256").read_text().splitlines())
+files = {str(p.relative_to(root)) for p in root.rglob("*") if p.is_file()}
+if files - {"checksums.sha256"} != set(listed) or any(
+        hashlib.sha256((root / name).read_bytes()).hexdigest() != digest
+        for name, digest in listed.items()):
+    rc = 1
+mutate = os.environ.get("STUB_MUTATE")   # a change after the first verify (before tar)
+mark = os.environ["MOCK_LOG"] + ".mutated"   # outside the root
+if mutate and not os.path.exists(mark):
+    open(mark, "w").close()
+    with open(mutate, "a") as stream:
+        stream.write("changed after verify\n")
 ok, pilot = rc in (0, 2), "--allow-pilot" in sys.argv
 lines = {"RECORD INTEGRITY": "PASS" if ok else "FAIL"}
 if ok:
@@ -412,6 +430,8 @@ if ok:
 lines["EVIDENCE"] = ("NOT VALID (integrity failure; never Stage 2A baseline evidence)" if not ok
                      else "PILOT / NON-OFFICIAL (never Stage 2A baseline evidence)" if pilot
                      else "OFFICIAL")
+if "extracted" in sys.argv[2] and os.environ.get("STUB_EXTRACTED_HARDWARE"):
+    lines["HARDWARE"] = os.environ["STUB_EXTRACTED_HARDWARE"]   # pack's tarball verify only
 for key, value in lines.items():   # STUB_RECORD_INTEGRITY, STUB_NUMERICAL, ... override
     value = os.environ.get("STUB_" + key.replace(" ", "_"), value)
     if not os.environ.get("STUB_SILENT"):
@@ -427,7 +447,11 @@ echo "gh $*" >> "$MOCK_LOG"
 case "$*" in
   "api repos/"*/commits/*) echo "${GH_COMMIT:-${2##*/}}" ;;
   "api repos/"*/compare/*) echo "${GH_COMPARE:-behind}" ;;
-  "issue view 110 "*) echo "Freeze commit: ${GH_ISSUE_SHA:-}" ;;
+  "issue view 110 "*)
+    [ -z "${GH_SWAP:-}" ] || printf 'swapped bytes\n' > "$GH_SWAP"
+    [ -z "${GH_SWAP_STAGED:-}" ] || for f in "$GH_SWAP_STAGED"/.archive-stage.*/*.tar.gz; do
+      printf 'x' >> "$f"; done
+    echo "Freeze commit: ${GH_ISSUE_SHA:-}" ;;
   "api repos/"*/git/ref/tags/*)
     case ${GH_TAG:-absent} in
       absent) echo 'gh: Not Found (HTTP 404)' >&2; exit 1 ;;
@@ -440,7 +464,10 @@ case "$*" in
       error) echo 'error connecting to api.github.com' >&2; exit 1 ;;
       *) echo 'title: x' ;;
     esac ;;
-  "release create "*) [ -z "${GH_CREATE_FAIL:-}" ] || { echo 'HTTP 500' >&2; exit 1; } ;;
+  "release create "*)
+    for a in "$@"; do case $a in *.tar.gz) echo "uploaded $(sha256sum "$a")" >> "$MOCK_LOG" ;; esac; done
+    [ -z "${GH_CREATE_FAIL:-}" ] || { echo 'HTTP 500' >&2; exit 1; }
+    [ -z "${GH_LOCK_PARENT:-}" ] || chmod 0555 "$GH_LOCK_PARENT" ;;
   *) echo "unexpected: gh $*" >&2; exit 99 ;;
 esac
 '''
@@ -544,6 +571,91 @@ class Links(Scratch):
                 self.assertFalse(list(base.rglob("*.tar.gz*")))
 
 
+class LinkedRootSpellings(Scratch):
+    def test_every_spelling_of_a_linked_root_is_refused(self):
+        real = make_root(self.tmp / "real")
+        link = self.tmp / "link"
+        os.symlink(real, link)
+        script = ArchiveScript("test_syntax")
+        script.setUp()
+        self.addCleanup(script.doCleanups)
+        for form in (str(link), f"{link}/", f"{link}//", f"{link}/.", f"{link}/./"):
+            with self.subTest(form):
+                result = archive_sh("checksums", form)
+                self.assertEqual(result.returncode, 1)
+                self.assertIn("symbolic link", result.stderr)
+                result, log = script.run_sh("pack", form, SHA)
+                self.assertEqual(result.returncode, 1)
+                self.assertNotIn("campaign verify", log)
+        self.assertEqual(archive_sh("checksums", f"{real}/../{real.name}/").returncode, 0)
+
+
+README = HERE / "README.md"
+
+
+def readme_lines(first, last):
+    """The README lines from the one starting with `first` to the next containing `last`."""
+    lines = README.read_text().splitlines()
+    start = next(k for k, line in enumerate(lines) if line.startswith(first))
+    end = next(k for k in range(start, len(lines)) if last in lines[k])
+    return "\n".join(lines[start:end + 1]) + "\n"
+
+
+class ReadmeRetrieval(Scratch):
+    def snippet(self, text, cwd, **env):
+        return subprocess.run(["bash", "-c", "set -euo pipefail\n" + text], cwd=cwd,
+                              capture_output=True, text=True, env=dict(os.environ, **env))
+
+    def test_lists_before_extracting(self):
+        text = readme_lines("listing=$(", "--no-same-owner -xzf")
+        source = make_root(self.tmp / "source")
+        archives = self.tmp / "archives"
+        archives.mkdir()
+        crafted_tarball(archives / "symlink.tar.gz", source, "symlink")
+        with tarfile.open(archives / "full.tar.gz", "w:gz") as tar:   # a link, then bulk
+            info = tarfile.TarInfo(f"{OFFICIAL}/evil")
+            info.type, info.linkname = tarfile.SYMTYPE, "/etc"
+            tar.addfile(info)
+            data = os.urandom(300_000)
+            info = tarfile.TarInfo(f"{OFFICIAL}/big")
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+        full = (archives / "full.tar.gz").read_bytes()
+        (archives / "truncated.tar.gz").write_bytes(full[:len(full) // 2])
+        with tarfile.open(archives / "plain.tar.gz", "w:gz") as tar:   # regular files only
+            info = tarfile.TarInfo(f"{OFFICIAL}/big")
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+        plain = (archives / "plain.tar.gz").read_bytes()
+        (archives / "truncated-plain.tar.gz").write_bytes(plain[:len(plain) // 2])
+        with tarfile.open(archives / "good.tar.gz", "w:gz") as tar:
+            tar.add(source, arcname=OFFICIAL)
+        for name, env, ok in (("truncated", {}, False), ("truncated-plain", {}, False),
+                              ("symlink", {}, False),
+                              ("good", {}, True), ("good", dict(TAR_OPTIONS="--exclude=raw"), True)):
+            with self.subTest(name, **env):
+                work = Path(tempfile.mkdtemp(dir=self.tmp))
+                shutil.copyfile(archives / f"{name}.tar.gz", work / "x.tar.gz")
+                result = self.snippet(text, work, ASSET="x.tar.gz", **env)
+                self.assertEqual(result.returncode == 0, ok, result.stderr)
+                self.assertEqual((work / OFFICIAL).exists(), ok)   # nothing extracted if refused
+                if ok:
+                    self.assertTrue((work / OFFICIAL / "julia-1.13" / "raw").is_dir())
+
+    def test_verify_gate(self):
+        text = readme_lines("has() {", "esac || {")
+        passing = "RECORD INTEGRITY: PASS\nNUMERICAL: PASS (x)\nHARDWARE: h\nEVIDENCE: OFFICIAL"
+        failing = "RECORD INTEGRITY: PASS\nNUMERICAL: FAIL (x)\nHARDWARE: h\nEVIDENCE: OFFICIAL"
+        for code, out, ok in ((0, passing, True), (2, failing, True), (2, "usage: x", False),
+                              (2, "", False), (0, failing, False), (2, passing, False),
+                              (0, passing.replace("OFFICIAL", "PILOT / NON-OFFICIAL"), False),
+                              (1, "RECORD INTEGRITY: FAIL", False), (3, passing, False)):
+            with self.subTest(code=code, out=out):
+                result = self.snippet(f'code={code}\nout=$(printf "%b" "$OUT")\n{text}',
+                                      self.tmp, OUT=out)
+                self.assertEqual(result.returncode == 0, ok, result.stderr)
+
+
 def crafted_tarball(path, root, kind):
     """`root` packed as tar.gz plus one member of the given kind."""
     with tarfile.open(path, "w:gz") as tar:
@@ -587,14 +699,21 @@ class ArchiveScript(Scratch):
         self.log = self.tmp / "mock.log"
         self.env = dict(os.environ, PATH=f"{bin_}:{os.environ['PATH']}",
                         CAMPAIGN=str(self.stub / "campaign.py"), MOCK_LOG=str(self.log),
-                        REAL_TAR=shutil.which("tar"), GH_ISSUE_SHA=SHA)
+                        REAL_TAR=shutil.which("tar"), GH_ISSUE_SHA=SHA,
+                        ARCHIVE_SH_ALLOW_STUB="1")
         self.evidence = self.tmp / "evidence"
         self.evidence.mkdir()
         self.notes = self.evidence / f"{OFFICIAL}.release-notes.md"
 
-    def run_sh(self, *args, **env):
+    def run_sh(self, *args, stdout_full=False, **env):
         self.log.write_text("")
-        result = archive_sh(*args, env=dict(self.env, **env))
+        if stdout_full:   # every write to stdout fails (ENOSPC)
+            with open("/dev/full", "w") as full:
+                result = subprocess.run(["bash", str(ARCHIVE), *map(str, args)], stdout=full,
+                                        stderr=subprocess.PIPE, text=True,
+                                        env=dict(self.env, **env))
+        else:
+            result = archive_sh(*args, env=dict(self.env, **env))
         return result, self.log.read_text()
 
     def pack(self, rc=0, name=OFFICIAL, *flags, **env):
@@ -670,7 +789,8 @@ class ArchiveScript(Scratch):
     def test_pack_refuses_unlistable_names(self):
         for label, name, file in (("hash in archive path", "pre06#x", None),
                                   ("backslash", "pre06-bs", "a\\b"),
-                                  ("newline", "pre06-nl", "a\nb")):
+                                  ("newline", "pre06-nl", "a\nb"),
+                                  ("carriage return", "pre06-cr", "a\rb")):
             with self.subTest(label):
                 root = make_root(self.evidence, name)
                 if file:
@@ -682,7 +802,7 @@ class ArchiveScript(Scratch):
                     self.assertEqual((root / "checksums.sha256").read_text(), "stale\n")
                 else:
                     self.assertFalse((root / "checksums.sha256").exists())
-                self.assertIn("'#'" if file is None else "backslash or newline", result.stderr)
+                self.assertIn("'#'" if file is None else "cannot be listed", result.stderr)
 
     def test_pack_rc2_and_release_disposition(self):
         root, tarball, result, log = self.pack(2)
@@ -702,7 +822,8 @@ class ArchiveScript(Scratch):
                 ("URL of another repository", "https://github.com/x/y/issues/110#issuecomment-1",
                  "2"),
                 ("URL without comment id", ISSUE_URL, "2"),
-                ("two lines", "decided\nreleased", "2")):
+                ("two lines", "decided\nreleased", "2"), ("blank", " \t ", "2"),
+                ("empty", "", "2")):
             with self.subTest(label):
                 result, log = self.run_sh(*release, "--disposition", disposition, STUB_RC=rc)
                 self.assert_refused(result, log)
@@ -768,7 +889,7 @@ class ArchiveScript(Scratch):
         self.assertIn(f"--target {SHA}", log)
         verified = [line for line in log.splitlines() if line.startswith("campaign verify")]
         self.assertEqual(len(verified), 1)   # the extracted archive, officially
-        self.assertIn("/.release-check.", verified[0])
+        self.assertIn("/.archive-stage.", verified[0])
         self.assertTrue(verified[0].endswith(f"/{OFFICIAL} --archive --freeze-sha {SHA}"))
         self.assertNotIn("--clobber", log)
         notes = self.notes.read_text()
@@ -778,7 +899,7 @@ class ArchiveScript(Scratch):
                      "issues/110", "not a Julia package release"):
             self.assertIn(text, notes)
         self.assertNotIn("NUMERICAL FAILURE", notes)
-        self.assertFalse(list(self.evidence.glob(".release-check.*")))
+        self.assertFalse(list(self.evidence.glob(".archive-stage.*")))
         self.notes.unlink()
         with tarball.open("ab") as stream:   # an archive changed after packing
             stream.write(b"\0")
@@ -803,7 +924,7 @@ class ArchiveScript(Scratch):
                 self.assertNotIn("-xzf", log)
                 self.assertNotIn("campaign verify", log)
                 self.assertNotIn("gh ", log)
-                self.assertFalse(list(self.evidence.glob(".release-check.*")))
+                self.assertFalse(list(self.evidence.glob(".archive-stage.*")))
 
     def test_pack_refuses_a_tarball_with_links(self):
         for number, (kind, guard) in enumerate(TARBALL_KINDS.items()):
@@ -815,8 +936,8 @@ class ArchiveScript(Scratch):
                 self.assertEqual(result.returncode, 1, result.stderr)
                 self.assertIn("not packed", result.stderr)
                 self.assertIn(guard, result.stderr)
-                self.assertFalse(tarball.exists() or Path(f"{tarball}.partial").exists()
-                                 or Path(f"{tarball}.status").exists())
+                self.assertFalse(tarball.exists() or Path(f"{tarball}.status").exists())
+                self.assertFalse(list(self.evidence.glob(".archive-stage.*")))
 
     def test_pack_stores_hard_links_as_files(self):
         root = make_root(self.evidence)
@@ -826,6 +947,145 @@ class ArchiveScript(Scratch):
         listing = subprocess.run(["tar", "-tvzf", f"{root}.tar.gz"], capture_output=True,
                                  text=True).stdout.splitlines()
         self.assertTrue(listing and all(line[0] in "-d" for line in listing))
+
+    def test_release_uploads_the_verified_copy(self):
+        root, tarball, result, _ = self.pack(0)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        packed = tarball.read_bytes()
+        verified = hashlib.sha256(packed).hexdigest()
+        result, log = self.run_sh("release", root, SHA, "--tag", TAG, GH_SWAP=str(tarball))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(tarball.read_bytes(), b"swapped bytes\n")   # swapped during a lookup
+        uploaded = [line.split() for line in log.splitlines() if line.startswith("uploaded ")]
+        self.assertEqual(len(uploaded), 1)
+        self.assertEqual(uploaded[0][1], verified)   # the verified bytes, from the staged copy
+        self.assertIn("/.archive-stage.", uploaded[0][2])
+        self.assertTrue(uploaded[0][2].endswith("/" + tarball.name))
+        self.assertIn(verified, self.notes.read_text())
+        self.notes.unlink()
+        tarball.write_bytes(packed)
+        result, log = self.run_sh("release", root, SHA, "--tag", TAG,
+                                  GH_SWAP_STAGED=str(self.evidence))
+        self.assert_refused(result, log, "changed after verification")
+
+    def test_pack_never_writes_through_planted_files(self):
+        victim = self.tmp / "victim.txt"
+        victim.write_text("precious\n")
+        def plant(kind, path):
+            if kind == "symlink":
+                os.symlink(victim, path)
+            elif kind == "dangling symlink":
+                os.symlink(self.tmp / "missing", path)
+            elif kind == "hard link":
+                os.link(victim, path)
+            else:
+                path.write_text("planted\n")
+        number = 0
+        for kind in ("regular file", "symlink", "hard link"):   # the old .partial name
+            with self.subTest(f".partial {kind}"):
+                number += 1
+                root = make_root(self.evidence, f"pilot-b{number}")
+                plant(kind, Path(f"{root}.tar.gz.partial"))
+                result, log = self.run_sh("pack", root, SHA)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(victim.read_text(), "precious\n")
+        for suffix in (".tar.gz", ".tar.gz.sha256", ".tar.gz.status", ".verify.out"):
+            for kind in ("symlink", "dangling symlink", "hard link", "regular file"):
+                with self.subTest(f"{suffix} {kind}"):
+                    number += 1
+                    root = make_root(self.evidence, f"pilot-b{number}")
+                    plant(kind, Path(f"{root}{suffix}"))
+                    result, log = self.run_sh("pack", root, SHA)
+                    self.assertEqual(result.returncode, 1)
+                    self.assertIn("never overwritten", result.stderr)
+                    self.assertNotIn("campaign verify", log)
+                    self.assertEqual(victim.read_text(), "precious\n")
+                    self.assertFalse((self.tmp / "missing").exists())
+
+    def test_pack_installs_without_clobbering(self):
+        # a destination that appears after the start (here: beside a slow verify) is kept
+        root = make_root(self.evidence)
+        status = Path(f"{root}.tar.gz.status")
+        stub = self.stub / "campaign.py"
+        stub.write_text(stub.read_text().replace(   # the second verify creates the status
+            "sys.stdout.flush()", "sys.stdout.flush()\nif 'extracted' in sys.argv[2]:\n"
+            f"    open({str(status)!r}, 'x').write('theirs')"))
+        result, log = self.run_sh("pack", root, SHA)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("cannot install", result.stderr)
+        self.assertEqual(status.read_text(), "theirs")
+        self.assertFalse(Path(f"{root}.tar.gz").exists())
+
+    def test_pack_archive_reproduces_the_verified_tree(self):
+        root, tarball, result, log = self.pack(0, TAR_OPTIONS="--exclude=raw")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        members = subprocess.run(["tar", "-tzf", str(tarball)], capture_output=True,
+                                 text=True).stdout.split()
+        self.assertIn(f"{OFFICIAL}/julia-1.13/raw/julia-1.13-rep01-metrics.tsv", members)
+        self.assertEqual(sum(line.startswith("campaign verify") for line in log.splitlines()), 2)
+        name = "pilot-changed"
+        changed = self.evidence / name / "julia-1.13" / "raw" / "julia-1.13-rep01-metrics.tsv"
+        root, tarball, result, log = self.pack(0, name, STUB_MUTATE=str(changed))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("verify of the tarball exits 1, of the root 0", result.stderr)
+        self.assertFalse(tarball.exists() or Path(f"{tarball}.status").exists())
+        self.assertFalse(list(self.evidence.glob(".archive-stage.*")))
+
+    def test_pack_result_lines_of_the_tarball_must_agree(self):
+        root, tarball, result, log = self.pack(0, STUB_EXTRACTED_HARDWARE="julia-1.10 observational")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("disagree on HARDWARE", result.stderr)
+        self.assertFalse(tarball.exists())
+
+    def test_root_named_like_an_option(self):
+        root, tarball, result, log = self.pack(0, "--exclude=raw")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        members = subprocess.run(["tar", "-tzf", str(tarball)], capture_output=True,
+                                 text=True).stdout.split()
+        self.assertIn("--exclude=raw/julia-1.13/raw/julia-1.13-rep01-metrics.tsv", members)
+
+    def test_read_only_directories_and_failing_stdout(self):
+        root = make_root(self.evidence)
+        raw = root / "julia-1.10" / "raw"
+        raw.chmod(0o555)
+        self.addCleanup(raw.chmod, 0o755)
+        result, log = self.run_sh("pack", root, SHA)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(list(self.evidence.glob(".archive-stage.*")))
+        result, log = self.run_sh("release", root, SHA, "--tag", TAG, stdout_full=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("release create", log)
+        self.assertFalse(list(self.evidence.glob(".archive-stage.*")))
+
+    def test_unremovable_stage_after_upload_only_warns(self):
+        root, tarball, result, _ = self.pack(0)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.addCleanup(self.evidence.chmod, 0o755)
+        result, log = self.run_sh("release", root, SHA, "--tag", TAG,
+                                  GH_LOCK_PARENT=str(self.evidence))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("release create", log)
+        self.assertIn("warning: could not remove", result.stderr)
+
+    def test_release_ignores_a_campaign_override(self):
+        root, tarball, result, _ = self.pack(0)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        result, log = self.run_sh("release", root, SHA, "--tag", TAG, ARCHIVE_SH_ALLOW_STUB="")
+        self.assert_refused(result, log, "release ignores CAMPAIGN")
+        self.assertNotIn("campaign verify", log)   # the real campaign.py ran, and refused
+
+    def test_checksums_refuses_escaped_lines(self):
+        bin_ = self.tmp / "escaping"
+        bin_.mkdir()
+        (bin_ / "sha256sum").write_text(f"#!/usr/bin/env bash\n{shutil.which('sha256sum')} "
+                                        f"\"$@\" | sed '1s/^/\\\\/'\n")
+        (bin_ / "sha256sum").chmod(0o755)
+        root = make_root(self.evidence)
+        result, log = self.run_sh("checksums", root, PATH=f"{bin_}:{self.env['PATH']}")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("escaped a file name", result.stderr)
+        self.assertFalse((root / "checksums.sha256").exists())
+        self.assertFalse(list(self.evidence.glob(".checksums.*")))
 
     def test_release_names(self):
         root, tarball, result, _ = self.pack(0, "pre06-stage2a-campaign-v1-copy")
@@ -865,8 +1125,8 @@ class ArchiveScript(Scratch):
         root, tarball, result, log = self.pack(0, TAR_FAIL="1")
         self.assertEqual(result.returncode, 1)
         self.assertIn("tar failed", result.stderr)
-        self.assertFalse(tarball.exists() or Path(f"{tarball}.partial").exists())
-        self.assertFalse(Path(f"{tarball}.status").exists())
+        self.assertFalse(tarball.exists() or Path(f"{tarball}.status").exists())
+        self.assertFalse(list(self.evidence.glob(".archive-stage.*")))
         if os.geteuid() == 0:
             self.skipTest("root reads unreadable files")
         root = make_root(self.evidence, "unreadable")
