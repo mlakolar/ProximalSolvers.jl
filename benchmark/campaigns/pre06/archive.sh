@@ -16,9 +16,11 @@
 #   archive.sh release ROOT FREEZE_SHA --tag TAG [--disposition REF]
 #       official archives only: copies the tarball once into a private staging directory
 #       and works only on that copy (digest, members, extracted verify, upload); checks
-#       the freeze on GitHub; then `gh release create TAG <copy> --target FREEZE_SHA`.
+#       the freeze on GitHub; creates the tag ref at FREEZE_SHA through the API (fails if
+#       it exists), re-reads it, then `gh release create TAG <copy> --verify-tag`.
 #       Verify 2 needs --disposition (the maintainer's recorded decision, e.g. an #110
-#       comment URL). Never overwrites, moves or deletes a tag, release or asset.
+#       comment URL). Never overwrites, moves or deletes a tag, release or asset: a tag
+#       left by a failed `gh release create` is reported and left to the maintainer.
 #
 # CAMPAIGN (environment) is the campaign.py that pack runs; default: the one beside this
 # script, whose campaign.toml gives the campaign id, pins and archive names. `release`
@@ -33,6 +35,8 @@ DEFAULT_CAMPAIGN=$HERE/campaign.py
 CAMPAIGN=${CAMPAIGN:-$DEFAULT_CAMPAIGN}
 ISSUE=110
 stage=""   # the private staging directory of pack or release; removed on exit
+installed=()     # pack: "destination<TAB>staged source" of each sidecar or tarball installed
+committed=no     # pack: yes once the tarball is installed (then nothing is rolled back)
 
 die() { echo "archive.sh: $*" >&2; exit 1; }
 warn() { echo "archive.sh: warning: $*" >&2; }
@@ -47,7 +51,19 @@ cleanup() {
     warn "could not remove $stage"
   fi
 }
-trap 'rc=$?; set +e; cleanup; exit "$rc"' EXIT
+# An unfinished pack removes the files it installed, and only while they are still its
+# own (the same inode as the staged file); nothing else is ever removed.
+rollback() {
+  [ "$committed" = no ] || return 0
+  local entry dest source
+  for entry in ${installed[@]+"${installed[@]}"}; do
+    dest=${entry%%$'\t'*} source=${entry#*$'\t'}
+    if [ "$dest" -ef "$source" ] && [ ! -L "$dest" ]; then
+      rm -f -- "$dest"
+    fi
+  done
+}
+trap 'rc=$?; set +e; rollback; cleanup; exit "$rc"' EXIT
 
 make_stage() {   # a private (0700) directory beside the root, outside it
   stage=$(mktemp -d "$1/.archive-stage.XXXXXX") || die "cannot create a staging directory in $1"
@@ -68,7 +84,9 @@ print("\t".join([c["campaign_id"], a["name"], a["asset"], a["release_tag"], a["r
 # The physical path of directory $1, which must not itself be a symbolic link, however
 # it is spelled (LINK, LINK/, LINK//, LINK/.).
 real_dir() {
-  local logical
+  local logical trimmed=$1
+  while [[ $trimmed == */ ]]; do trimmed=${trimmed%/}; done
+  case $trimmed in ""|.|..) die "ROOT '$1' must name an evidence directory (not empty, /, . or ..)" ;; esac
   logical=$(cd -L -- "$1" && pwd -L) || die "no directory $1"
   [ ! -L "$logical" ] || die "$1 is a symbolic link; the root must be a real directory"
   (cd -P -- "$logical" && pwd -P) || die "no directory $1"
@@ -81,8 +99,11 @@ absent() {   # refuse an existing destination, also a dangling symbolic link
   done
 }
 
-install_new() {   # hard-link staged $1 to $2; fails if $2 exists in any form (no clobber)
-  ln -- "$1" "$2" || die "cannot install $2 (it must not exist)"
+# Hard-link staged $1 to $2: fails if $2 exists in any form (-T: never into a directory
+# or through a link to one), then checks that $2 is that very file.
+install_new() {
+  ln -T -- "$1" "$2" || die "cannot install $2 (it must not exist)"
+  [ -f "$2" ] && [ ! -L "$2" ] && [ "$2" -ef "$1" ] || die "$2 is not the file installed"
 }
 
 # Every member of tarball $1 is a regular file or directory under $2/ (no absolute
@@ -210,10 +231,15 @@ pack() {
   printf '%s\n' "campaign_id: $id" "mode: $mode" "freeze_sha: $sha" "verify_rc: $verify_rc" \
     "numerical_status: $numerical" "$integrity" "$numline" "$hardware" "$evidence" \
     "archive_sha256: $digest" > "$stage/status"
-  # Sidecars first, the tarball last: a tarball beside the root always has its sidecars.
+  # Sidecars first, the tarball last: a tarball beside the root always has its sidecars,
+  # and if any install fails, the files this run installed are removed (rollback).
+  installed+=("$tarball.sha256"$'\t'"$stage/sha256")
   install_new "$stage/sha256" "$tarball.sha256"
+  installed+=("$tarball.status"$'\t'"$stage/status")
   install_new "$stage/status" "$tarball.status"
+  installed+=("$tarball"$'\t'"$staged")
   install_new "$staged" "$tarball"
+  committed=yes
   echo "archive: $tarball"
   echo "sha256:  $digest"
   cat "$tarball.status"
@@ -361,11 +387,25 @@ EOF
   local final
   final=$(sha256sum "$staged") || die "cannot hash $staged"
   [ "${final%% *}" = "$digest" ] || die "the staged archive changed after verification; not released"
-  gh release create "$tag" "$staged" --repo "$repo" --target "$sha" --latest=false \
+  # The tag, created atomically at the freeze commit (the API refuses an existing ref),
+  # then re-read; `--verify-tag` makes gh use that tag and never create one elsewhere.
+  gh api -X POST "repos/$repo/git/refs" -f "ref=refs/tags/$tag" -f "sha=$sha" > /dev/null \
+    || die "gh: cannot create tag $tag at $sha (it may exist already); nothing released"
+  local left="tag $tag now exists on $repo (created by this run at $sha); it is never moved or
+  deleted automatically: inspect it, then publish its release by hand or remove it by hand"
+  out=$(gh api "repos/$repo/git/ref/tags/$tag" --jq '.object.type + " " + .object.sha') \
+    || die "gh: cannot re-read tag $tag; nothing released; $left"
+  [ "$out" = "commit $sha" ] || die "tag $tag is '$out', not commit $sha; nothing released; $left"
+  gh release create "$tag" "$staged" --repo "$repo" --verify-tag --latest=false \
     --title "Stage 2A $id (benchmark evidence, not a package release)" --notes-file "$stage/notes.md" \
-    || die "gh release create failed; check $repo for a partial release before anything else"
-  set +e   # released: nothing after this may change the exit status
-  echo "released $tag: $asset sha256 $digest"
+    > "$stage/created.out" || die "gh release create failed; check $repo for a partial release; $left"
+  # Released: irreversible. Nothing after this may change the exit status, not even a
+  # closed or full stdout, so the message is best effort.
+  trap '' PIPE
+  set +e
+  # Messages after an irreversible success: `|| true` keeps a closed stdout from failing it.
+  cat -- "$stage/created.out" || true
+  echo "released $tag: $asset sha256 $digest" || true
   exit 0
 }
 

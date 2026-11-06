@@ -66,6 +66,7 @@ ROOT="$BASE/pre06-stage2a-campaign-v1"     # the official root must have this na
 # run.sh
 set -euo pipefail
 . ./pre06-env.sh
+: "${FREEZE_SHA:?}" "${BASE:?}" "${CAMPAIGN:?}" "${ARCHIVE:?}" "${ROOT:?}"   # all set, none empty
 git clone https://github.com/mlakolar/ProximalSolvers.jl.git "$BASE/pinned"
 git -C "$BASE/pinned" checkout --detach b0de3f7fc91767b97197ff4b458207e308998943
 git clone https://github.com/mlakolar/ProximalSolvers.jl.git "$BASE/freeze"
@@ -169,6 +170,7 @@ the root, use a fresh `--work`, and run again. A second stop needs a versioned a
 # verify.sh (exits with verify's status)
 set -euo pipefail
 . ./pre06-env.sh
+: "${FREEZE_SHA:?}" "${BASE:?}" "${CAMPAIGN:?}" "${ARCHIVE:?}" "${ROOT:?}"   # all set, none empty
 python3 -B "$CAMPAIGN" verify "$ROOT" --freeze-sha "$FREEZE_SHA"
 ```
 
@@ -207,6 +209,7 @@ above), `FREEZE.md` (freeze SHA, approval, dates, deviations) and, after review,
 # pack-and-release.sh
 set -euo pipefail
 . ./pre06-env.sh
+: "${FREEZE_SHA:?}" "${BASE:?}" "${CAMPAIGN:?}" "${ARCHIVE:?}" "${ROOT:?}"   # all set, none empty
 code=0
 "$ARCHIVE" pack "$ROOT" "$FREEZE_SHA" || code=$?
 case $code in
@@ -236,10 +239,12 @@ them). `archive.sh pack ROOT FREEZE_SHA` runs `checksums`, then
   file or directory under the root's name, with no absolute, `.` or `..` path and no
   duplicate, and unless the same `verify` on its extracted copy gives the same exit code
   and result lines (so the tarball reproduces the verified tree). Then, beside the root,
-  each installed without overwriting or following anything that exists (`ln`): its
-  digest `<root>.tar.gz.sha256`, a status file `<root>.tar.gz.status` (verify exit code,
-  numerical status, the `RECORD INTEGRITY`, `NUMERICAL`, `HARDWARE` and `EVIDENCE` lines,
-  archive SHA-256), and last `<root>.tar.gz`. Exit 0; publication allowed.
+  each installed as a new file that never overwrites, follows or enters anything that
+  exists (`ln -T`, then checked to be that file): its digest `<root>.tar.gz.sha256`, a
+  status file `<root>.tar.gz.status` (verify exit code, numerical status, the `RECORD
+  INTEGRITY`, `NUMERICAL`, `HARDWARE` and `EVIDENCE` lines, archive SHA-256), and last
+  `<root>.tar.gz`. If any of them cannot be installed, the ones this run installed are
+  removed again (only while they are still its own files). Exit 0; publication allowed.
 - **2**: valid records with a non-`ok` case. Packs as above, the status file says
   `NUMERICAL FAILURE: valid archived evidence, not a healthy reference`, and `pack` exits
   2. The archive is kept; it is never described as a healthy baseline, and `release`
@@ -248,7 +253,8 @@ them). `archive.sh pack ROOT FREEZE_SHA` runs `checksums`, then
 - **1 or anything else** (another code, a signal): blocked before `tar`; nothing is
   packed or published. `pack` refuses to start if the tarball, a sidecar or
   `.verify.out` exists (also as a symbolic link), and refuses an archive path containing
-  `#` (which `gh` reads as a label).
+  `#` (which `gh` reads as a label). `checksums`, `pack` and `release` refuse an empty
+  ROOT and one that is only `/`, `.` or `..` before touching any file.
 
 `archive.sh release ROOT FREEZE_SHA --tag TAG [--disposition REF]` publishes only an
 official archive; a pilot rehearsal archive is never released. It copies the tarball and
@@ -265,17 +271,28 @@ recorded verbatim, or exactly a `https://github.com/mlakolar/ProximalSolvers.jl/
 URL); the root, asset and tag are the
 `[archive]` names of `campaign.toml`; `FREEZE_SHA` is a full SHA that exists on GitHub, is
 reachable from `master` and appears in a comment on #110; and neither the tag nor a
-release of it exists (only a definite "not found" counts). Then `gh release create TAG
-<asset> --target FREEZE_SHA --latest=false` creates the tag at the freeze commit, with
-notes saying that this is benchmark evidence and not a package release, the campaign ID,
+release of it exists (only a definite "not found" counts). Then it creates the tag ref
+at the freeze commit through the API (`gh api -X POST repos/…/git/refs`, which fails if
+the tag exists, for instance created meanwhile by someone else), re-reads it (it must be
+a lightweight tag of commit `FREEZE_SHA`), and runs `gh release create TAG <asset>
+--verify-tag --latest=false` (`--verify-tag`: use that tag, never create one; `--target`
+would only apply to a tag that gh creates itself, so it is not used), with notes saying that this is benchmark evidence and not a package release, the campaign ID,
 freeze SHA, ProximalSolvers pin, ProximalBase 0.5.4 release tree, both Julia versions,
 the record-integrity, numerical and hardware lines, the disposition after a numerical
 failure, the archive SHA-256 and #110. A tag or asset is never overwritten, moved or
 deleted (no `--clobber`); a correction is a new campaign identity, tag and asset. Every
 failed check or `gh` call before the upload exits nonzero; after a successful upload
-nothing changes the exit status (a staging directory that cannot be removed is only
-reported). An existing `<root>.release-notes.md` is never overwritten. This PR creates no
-GitHub Release.
+nothing changes the exit status, not even a closed or full stdout (`archive.sh release …
+| head` is safe), and a staging directory that cannot be removed is only reported. An
+existing `<root>.release-notes.md` is never overwritten.
+
+Retries: everything before the tag creation can be rerun after fixing its cause (move
+the kept `<root>.release-notes.md` away first). Once the tag exists, `release` refuses to
+run again. If the tag re-read or `gh release create` fails after the tag was created, the
+message says so: the tag stays at `FREEZE_SHA` and is never moved or deleted
+automatically; the maintainer inspects it and either publishes its release by hand (the
+same asset, digest and notes) or removes the tag by hand and reruns `release`. This PR
+creates no GitHub Release.
 
 Post on #110 the asset URL, its SHA-256, that the asset is kept permanently and replaced
 never (a correction is a new tag), and the retrieval commands below. The environment

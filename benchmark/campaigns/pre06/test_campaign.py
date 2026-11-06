@@ -430,6 +430,10 @@ if ok:
 lines["EVIDENCE"] = ("NOT VALID (integrity failure; never Stage 2A baseline evidence)" if not ok
                      else "PILOT / NON-OFFICIAL (never Stage 2A baseline evidence)" if pilot
                      else "OFFICIAL")
+plant = os.environ.get("STUB_PLANT_" + ("SECOND" if "extracted" in sys.argv[2] else "FIRST"))
+if plant:   # "dir|PATH" or "link|PATH|TARGET"
+    kind, path, *target = plant.split("|")
+    os.mkdir(path) if kind == "dir" else os.symlink(target[0], path)
 if "extracted" in sys.argv[2] and os.environ.get("STUB_EXTRACTED_HARDWARE"):
     lines["HARDWARE"] = os.environ["STUB_EXTRACTED_HARDWARE"]   # pack's tarball verify only
 for key, value in lines.items():   # STUB_RECORD_INTEGRITY, STUB_NUMERICAL, ... override
@@ -444,17 +448,32 @@ sys.exit(rc)
 
 GH = r'''#!/usr/bin/env bash
 echo "gh $*" >> "$MOCK_LOG"
+state="$MOCK_LOG.tag"   # the remote tag: the commit it points to
 case "$*" in
+  "api -X POST repos/"*/git/refs*)
+    [ -z "${GH_POST_FAIL:-}" ] || { echo 'gh: Server Error (HTTP 500)' >&2; exit 1; }
+    [ -z "${GH_RACE:-}" ] || echo "${GH_RACE}" > "$state"   # created by someone else first
+    [ ! -e "$state" ] || { echo 'gh: Reference already exists (HTTP 422)' >&2; exit 1; }
+    for a in "$@"; do case $a in sha=*) echo "${a#sha=}" > "$state" ;; esac; done
+    [ -z "${GH_MOVE_AFTER_POST:-}" ] || echo "$GH_MOVE_AFTER_POST" > "$state"
+    echo '{"ref": "refs/tags/x"}' ;;
   "api repos/"*/commits/*) echo "${GH_COMMIT:-${2##*/}}" ;;
   "api repos/"*/compare/*) echo "${GH_COMPARE:-behind}" ;;
   "issue view 110 "*)
     [ -z "${GH_SWAP:-}" ] || printf 'swapped bytes\n' > "$GH_SWAP"
+    [ -z "${GH_MKDIR_AT:-}" ] || mkdir "$GH_MKDIR_AT"
+    [ -z "${GH_LINK_AT:-}" ] || ln -s "$GH_LINK_TO" "$GH_LINK_AT"
     [ -z "${GH_SWAP_STAGED:-}" ] || for f in "$GH_SWAP_STAGED"/.archive-stage.*/*.tar.gz; do
       printf 'x' >> "$f"; done
     echo "Freeze commit: ${GH_ISSUE_SHA:-}" ;;
+  "api repos/"*/git/ref/tags/*--jq*)   # the re-read after the POST
+    [ -z "${GH_REREAD_FAIL:-}" ] || { echo 'gh: Bad Gateway (HTTP 502)' >&2; exit 1; }
+    [ -e "$state" ] || { echo 'gh: Not Found (HTTP 404)' >&2; exit 1; }
+    echo "commit $(cat "$state")" ;;
   "api repos/"*/git/ref/tags/*)
     case ${GH_TAG:-absent} in
-      absent) echo 'gh: Not Found (HTTP 404)' >&2; exit 1 ;;
+      absent) [ -e "$state" ] || { echo 'gh: Not Found (HTTP 404)' >&2; exit 1; }
+              echo '{"ref": "refs/tags/x"}' ;;
       error) echo 'gh: Bad Gateway (HTTP 502)' >&2; exit 1 ;;
       *) echo '{"ref": "refs/tags/x"}' ;;
     esac ;;
@@ -467,7 +486,10 @@ case "$*" in
   "release create "*)
     for a in "$@"; do case $a in *.tar.gz) echo "uploaded $(sha256sum "$a")" >> "$MOCK_LOG" ;; esac; done
     [ -z "${GH_CREATE_FAIL:-}" ] || { echo 'HTTP 500' >&2; exit 1; }
-    [ -z "${GH_LOCK_PARENT:-}" ] || chmod 0555 "$GH_LOCK_PARENT" ;;
+    case " $* " in *" --verify-tag "*) ;; *) echo 'tag would be created by gh' >&2; exit 1 ;; esac
+    [ -e "$state" ] || { echo "tag doesn't exist" >&2; exit 1; }
+    [ -z "${GH_LOCK_PARENT:-}" ] || chmod 0555 "$GH_LOCK_PARENT"
+    echo "https://github.com/mlakolar/ProximalSolvers.jl/releases/tag/x" ;;   # like gh
   *) echo "unexpected: gh $*" >&2; exit 99 ;;
 esac
 '''
@@ -680,6 +702,15 @@ TARBALL_KINDS = {  # kind: the guard of check_members that refuses it
     "other root": "member path outside", "dot": "member path outside",
     "empty component": "member path outside",
     "duplicate": "duplicate members"}
+LN = r'''#!/usr/bin/env bash
+dest=${!#}
+case ${LN_MODE:-}:$dest in
+  swap:*.tar.gz)   # before the tarball install: another process replaces the .sha256
+    rm -f "$dest.sha256"; echo theirs > "$dest.sha256"; echo theirs > "$dest" ;;
+  fake:*.sha256) echo other > "$dest"; exit 0 ;;   # "succeeds" without installing the file
+esac
+exec "$REAL_LN" "$@"
+'''
 NOT_VALID_LINE = NOT_VALID.removeprefix("EVIDENCE: ")
 PILOT_LINE = PILOT.removeprefix("EVIDENCE: ")
 ISSUE_URL = "https://github.com/mlakolar/ProximalSolvers.jl/issues/110#issuecomment-"
@@ -704,6 +735,12 @@ class ArchiveScript(Scratch):
         self.evidence = self.tmp / "evidence"
         self.evidence.mkdir()
         self.notes = self.evidence / f"{OFFICIAL}.release-notes.md"
+        self.remote_tag = Path(f"{self.log}.tag")
+
+    def reset_remote(self):
+        """The maintainer removed the tag by hand (and moved the kept notes away)."""
+        self.remote_tag.unlink(missing_ok=True)
+        self.notes.unlink(missing_ok=True)
 
     def run_sh(self, *args, stdout_full=False, **env):
         self.log.write_text("")
@@ -832,13 +869,13 @@ class ArchiveScript(Scratch):
         self.assertEqual(result.returncode, 0, result.stderr)
         create = [line for line in log.splitlines() if line.startswith("gh release create")]
         self.assertEqual(len(create), 1)
-        self.assertIn(f"--target {SHA}", create[0])
+        self.assertIn("--verify-tag", create[0])
         self.assertNotIn("--clobber", log)
         notes = self.notes.read_text()
         self.assertIn("NUMERICAL FAILURE", notes)
         self.assertIn(text, notes)
         self.assertIn("not a Julia package release", notes)
-        self.notes.unlink()
+        self.reset_remote()
         result, log = self.run_sh(*release, "--disposition", ISSUE_URL + "123", STUB_RC="2")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(ISSUE_URL + "123", self.notes.read_text())
@@ -882,11 +919,15 @@ class ArchiveScript(Scratch):
         result, log = self.run_sh(*release, GH_CREATE_FAIL="1")
         self.assertEqual(result.returncode, 1)
         self.assertIn("gh release create failed", result.stderr)
+        self.assertIn(f"tag {TAG} now exists", result.stderr)   # left to the maintainer
+        self.assertEqual(self.remote_tag.read_text().strip(), SHA)
         self.assert_refused(*self.run_sh(*release), "never overwritten")   # notes kept
         self.notes.unlink()
+        self.assert_refused(*self.run_sh(*release), "already exists")   # the tag: no resume
+        self.reset_remote()
         result, log = self.run_sh(*release)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn(f"--target {SHA}", log)
+        self.assertIn("--verify-tag", log)
         verified = [line for line in log.splitlines() if line.startswith("campaign verify")]
         self.assertEqual(len(verified), 1)   # the extracted archive, officially
         self.assertIn("/.archive-stage.", verified[0])
@@ -962,11 +1003,148 @@ class ArchiveScript(Scratch):
         self.assertIn("/.archive-stage.", uploaded[0][2])
         self.assertTrue(uploaded[0][2].endswith("/" + tarball.name))
         self.assertIn(verified, self.notes.read_text())
-        self.notes.unlink()
+        self.reset_remote()
         tarball.write_bytes(packed)
         result, log = self.run_sh("release", root, SHA, "--tag", TAG,
                                   GH_SWAP_STAGED=str(self.evidence))
         self.assert_refused(result, log, "changed after verification")
+
+    def test_tag_is_created_at_the_freeze_then_used(self):
+        root, tarball, result, _ = self.pack(0)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        release = ("release", root, SHA, "--tag", TAG)
+        result, log = self.run_sh(*release)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        lines = log.splitlines()
+        post = [n for n, line in enumerate(lines) if line.startswith("gh api -X POST")]
+        reread = [n for n, line in enumerate(lines) if "/git/ref/tags/" in line and "--jq" in line]
+        create = [n for n, line in enumerate(lines) if line.startswith("gh release create")]
+        self.assertEqual((len(post), len(reread), len(create)), (1, 1, 1))
+        self.assertLess(post[0], reread[0])
+        self.assertLess(reread[0], create[0])
+        self.assertIn(f"ref=refs/tags/{TAG} -f sha={SHA}", lines[post[0]])
+        self.assertIn("--verify-tag", lines[create[0]])
+        self.assertNotIn("--target", lines[create[0]])
+        self.assertIn(f"/.archive-stage.", lines[create[0]])
+        self.assertIn(f"/{tarball.name} ", lines[create[0]])
+        self.assertIn("releases/tag/x", result.stdout)   # gh's own output, printed after
+        for label, env, message, tag_left in (
+                ("created meanwhile at another commit", dict(GH_RACE="b" * 40),
+                 "cannot create tag", "b" * 40),
+                ("POST fails", dict(GH_POST_FAIL="1"), "cannot create tag", None),
+                ("moved after the POST", dict(GH_MOVE_AFTER_POST="c" * 40),
+                 f"is 'commit {'c' * 40}'", "c" * 40),
+                ("re-read fails", dict(GH_REREAD_FAIL="1"), "cannot re-read", SHA),
+                ("create fails", dict(GH_CREATE_FAIL="1"), "gh release create failed", SHA)):
+            with self.subTest(label):
+                self.reset_remote()
+                result, log = self.run_sh(*release, **env)
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn(message, result.stderr)
+                self.assertEqual(sum(line.startswith("gh release create") for line in
+                                     log.splitlines()), 1 if label == "create fails" else 0)
+                if tag_left == SHA:   # created by this run: reported, never removed
+                    self.assertIn(f"tag {TAG} now exists", result.stderr)
+                self.assertEqual(self.remote_tag.read_text().strip() if tag_left else None,
+                                 tag_left)
+
+    def test_closed_stdout_after_the_upload(self):
+        root, tarball, result, _ = self.pack(0)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.log.write_text("")
+        piped = subprocess.run(
+            ["bash", "-c", 'bash "$0" release "$1" "$2" --tag "$3" | true; '
+             'echo "${PIPESTATUS[0]}"', str(ARCHIVE), str(root), SHA, TAG],
+            capture_output=True, text=True, env=self.env)
+        self.assertEqual(piped.stdout.strip(), "0", piped.stderr)
+        self.assertIn("release create", self.log.read_text())
+
+    def test_destinations_that_become_directories_or_links(self):
+        for number, (dest, when, kind) in enumerate(
+                (d, w, k) for d, w in ((".verify.out", "FIRST"), (".tar.gz.sha256", "SECOND"),
+                                       (".tar.gz.status", "SECOND"), (".tar.gz", "SECOND"))
+                for k in ("dir", "link")):
+            with self.subTest(dest=dest, kind=kind):
+                root = make_root(self.evidence, f"pilot-d{number}")
+                inside = root / "julia-1.13"
+                before = sorted(p.name for p in inside.iterdir())
+                path = f"{root}{dest}"
+                plant = f"dir|{path}" if kind == "dir" else f"link|{path}|{inside}"
+                result, log = self.run_sh("pack", root, SHA, **{f"STUB_PLANT_{when}": plant})
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn("cannot install", result.stderr)
+                self.assertEqual(sorted(p.name for p in inside.iterdir()), before)
+                if kind == "dir":
+                    self.assertEqual(list(Path(path).iterdir()), [])
+                for suffix in (".tar.gz", ".tar.gz.sha256", ".tar.gz.status"):
+                    target = Path(f"{root}{suffix}")
+                    self.assertTrue(not target.exists() or suffix == dest, suffix)
+        root, tarball, result, _ = self.pack(0)   # release: the notes destination
+        self.assertEqual(result.returncode, 0, result.stderr)
+        inside = root / "julia-1.13"
+        before = sorted(p.name for p in inside.iterdir())
+        for kind, env in (("dir", dict(GH_MKDIR_AT=str(self.notes))),
+                          ("link", dict(GH_LINK_AT=str(self.notes), GH_LINK_TO=str(inside)))):
+            with self.subTest(notes=kind):
+                result, log = self.run_sh("release", root, SHA, "--tag", TAG, **env)
+                self.assert_refused(result, log, "cannot install")
+                self.assertNotIn("POST", log)   # no tag created
+                self.assertEqual(sorted(p.name for p in inside.iterdir()), before)
+                if kind == "dir":
+                    self.assertEqual(list(self.notes.iterdir()), [])
+                    self.notes.rmdir()
+                else:
+                    self.notes.unlink()
+
+    def test_rollback_removes_only_this_runs_files(self):
+        root = make_root(self.evidence)   # the reviewer's scenario: a foreign tarball
+        tarball = Path(f"{root}.tar.gz")
+        stub = self.stub / "campaign.py"
+        original = stub.read_text()
+        stub.write_text(original.replace("sys.stdout.flush()", "sys.stdout.flush()\n"
+                        "if 'extracted' in sys.argv[2]:\n"
+                        f"    open({str(tarball)!r}, 'x').write('foreign')"))
+        result, log = self.run_sh("pack", root, SHA)
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(tarball.read_text(), "foreign")
+        self.assertFalse(Path(f"{tarball}.sha256").exists() or Path(f"{tarball}.status").exists())
+        stub.write_text(original)
+        Path(f"{root}.verify.out").unlink()
+        tarball.unlink()
+        bin_ = self.tmp / "lnmock"   # a sidecar replaced by someone else before the rollback
+        bin_.mkdir()
+        (bin_ / "ln").write_text(LN)
+        (bin_ / "ln").chmod(0o755)
+        env = dict(PATH=f"{bin_}:{self.env['PATH']}", REAL_LN=shutil.which("ln"))
+        result, log = self.run_sh("pack", root, SHA, LN_MODE="swap", **env)
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(Path(f"{tarball}.sha256").read_text(), "theirs\n")   # kept: not ours
+        self.assertFalse(Path(f"{tarball}.status").exists())                 # ours: removed
+        self.assertEqual(tarball.read_text(), "theirs\n")
+        for path in (tarball, Path(f"{tarball}.sha256"), Path(f"{root}.verify.out")):
+            path.unlink()
+        result, log = self.run_sh("pack", root, SHA, LN_MODE="fake", **env)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("is not the file installed", result.stderr)
+        self.assertFalse(tarball.exists())
+
+    def test_empty_and_dot_roots_are_refused(self):
+        work = self.tmp / "work" / "cwd"
+        work.mkdir(parents=True)
+        (work / "checksums.sha256").write_text("user data\n")
+        (work / "f").write_text("x\n")
+        for root in ("", "/", "//", ".", "./", "..", "../"):
+            for command in (("checksums", root), ("pack", root, SHA),
+                            ("release", root, SHA, "--tag", TAG)):
+                with self.subTest(root=root, command=command[0]):
+                    result = subprocess.run(["bash", str(ARCHIVE), *command], cwd=work,
+                                            capture_output=True, text=True, env=self.env)
+                    self.assertEqual(result.returncode, 1)
+                    self.assertIn("must name an evidence directory", result.stderr)
+                    self.assertEqual((work / "checksums.sha256").read_text(), "user data\n")
+                    self.assertEqual(sorted(p.name for p in work.parent.iterdir()), ["cwd"])
+                    self.assertEqual(sorted(p.name for p in work.iterdir()),
+                                     ["checksums.sha256", "f"])
 
     def test_pack_never_writes_through_planted_files(self):
         victim = self.tmp / "victim.txt"
