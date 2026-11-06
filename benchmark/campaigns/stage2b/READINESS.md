@@ -96,6 +96,6 @@ benchmark.
 | G5 | T07 and FT25-FT28 integration tests green. | **Unmet** (cannot run before the migration) |
 | G6 | Invalid-input and contract-failure tests independent of the benchmark inputs. | **Unmet** |
 | G7 | #527 and #391 rows ticked or dispositioned. | **Unmet** (every row open) |
-| G8 | Maintainer approval of the case mapping and the P14 port. | **Pending** (to be requested when PR A is ready for review; not yet given) |
+| G8 | Maintainer approval of the case mapping and the P14 port. | **Pending** (to be requested on #110 after PR A merges, with the PR B proposal; not yet requested) |
 
 No official measurement may start until G1-G8 all hold. Pilots may be prepared earlier only as non-official work (`STAGE2B_PLAN.md` sections 6 and 8), and the pilots that need a migrated Stack B cannot start before G1-G3.
