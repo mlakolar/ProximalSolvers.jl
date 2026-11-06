@@ -609,7 +609,7 @@ class LinkedRootSpellings(Scratch):
             with self.subTest(form):
                 result = archive_sh("checksums", form)
                 self.assertEqual(result.returncode, 1)
-                self.assertIn("symbolic link", result.stderr)
+                self.assertRegex(result.stderr, "symbolic link|must name an evidence directory")
                 result, log = script.run_sh("pack", form, SHA)
                 self.assertEqual(result.returncode, 1)
                 self.assertNotIn("campaign verify", log)
@@ -1314,6 +1314,103 @@ class ArchiveScript(Scratch):
                 result, _ = self.run_sh("checksums", root, PATH=stat_path)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertNotEqual((root / "checksums.sha256").read_text(), "stale\n")
+
+    def test_trusted_ancestry(self):
+        stat_path = self.tool_mock("stat", 'out=$("$REAL" "$@") || exit\n'
+                                   'case ${!#} in ${STAT_OTHER:-/nonexistent}) echo "4242 ${out#* }" ;;'
+                                   ' ${STAT_ROOT:-/nonexistent}) echo "0 ${out#* }" ;;'
+                                   ' *) echo "$out" ;; esac\n')
+        refused = {  # label: (grandparent mode, environment, message)
+            "grandparent 0775": (0o775, {}, "writable by group or others and not sticky"),
+            "grandparent 0777": (0o777, {}, "writable by group or others and not sticky"),
+            "grandparent 0757": (0o757, {}, "writable by group or others and not sticky"),
+            "grandparent of another uid": (0o755, dict(STAT_OTHER="*/grand-3"),
+                                           "neither root nor you"),
+            "sticky grandparent of another uid": (0o1777, dict(STAT_OTHER="*/grand-4"),
+                                                  "neither root nor you"),
+        }
+        for number, (label, (mode, env, message)) in enumerate(refused.items()):
+            for command in ("checksums", "pack", "release"):
+                with self.subTest(label, command=command):
+                    grand = self.tmp / f"grand-{number}"
+                    parent = grand / f"parent-{command}"
+                    root = make_root(parent)
+                    grand.chmod(mode)
+                    self.addCleanup(grand.chmod, 0o755)
+                    args = ("checksums", root) if command == "checksums" else (
+                        (command, root, SHA) if command == "pack" else
+                        (command, root, SHA, "--tag", TAG))
+                    result, log = self.run_sh(*args, PATH=stat_path, **env)
+                    self.assertEqual(result.returncode, 1, result.stderr)
+                    self.assertIn(message, result.stderr)
+                    self.assertIn(str(grand), result.stderr)   # names the ancestor
+                    self.assertEqual((root / "checksums.sha256").read_text(), "stale\n")
+                    self.assertEqual(sorted(p.name for p in parent.iterdir()), [OFFICIAL])
+                    self.assertNotIn("campaign verify", log)
+        accepted = {"sticky grandparent 1777": (0o1777, {}),
+                    "sticky group-writable grandparent 1775": (0o1775, {}),
+                    "root-owned grandparent 0755": (0o755, dict(STAT_ROOT="*/grand-r2")),
+                    "grandparent 0700": (0o700, {})}
+        for number, (label, (mode, env)) in enumerate(accepted.items()):
+            with self.subTest(label):
+                grand = self.tmp / f"grand-r{number}"
+                root = make_root(grand / "parent")
+                grand.chmod(mode)
+                result, _ = self.run_sh("checksums", root, PATH=stat_path, **env)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertNotEqual((root / "checksums.sha256").read_text(), "stale\n")
+
+    def test_parent_is_proven_before_root_is_resolved(self):
+        grand = self.tmp / "grand"
+        parent = grand / "parent"
+        root = make_root(parent)
+        logged = self.tool_mock("realpath", 'echo "realpath $*" >> "$MOCK_LOG"\n'
+                                'exec "$REAL" "$@"\n')
+        grand.chmod(0o775)   # a replaceable ancestor: refused before ROOT is looked at
+        result, log = self.run_sh("checksums", root, PATH=logged)
+        grand.chmod(0o755)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("not sticky", result.stderr)
+        resolved = [line for line in log.splitlines() if line.startswith("realpath ")]
+        self.assertEqual(resolved, [f"realpath -e -- {parent}"])
+        other = self.tmp / "other"   # ROOT swapped for a link right after the parent check
+        other.mkdir()
+        make_root(other)
+        bin_ = self.tmp / "realpath-parent-swap"
+        bin_.mkdir()
+        (bin_ / "realpath").write_text(
+            f"#!/usr/bin/env bash\n{shutil.which('realpath')} \"$@\" || exit\n"
+            'if [ "${!#}" = "$SWAP_PARENT" ] && [ ! -e "$MOCK_LOG.swapped" ]; then\n'
+            '  touch "$MOCK_LOG.swapped"; mv "$SWAP_ROOT" "$SWAP_ROOT.moved"\n'
+            '  ln -s "$SWAP_TO" "$SWAP_ROOT"; fi\n')
+        (bin_ / "realpath").chmod(0o755)
+        for command in ("checksums", "pack"):
+            with self.subTest(command=command):
+                Path(f"{self.log}.swapped").unlink(missing_ok=True)
+                shutil.rmtree(Path(f"{root}.moved"), ignore_errors=True)
+                if root.is_symlink():
+                    root.unlink()
+                root = make_root(parent) if not root.exists() else root
+                args = ("checksums", root) if command == "checksums" else ("pack", root, SHA)
+                result, log = self.run_sh(*args, PATH=f"{bin_}:{self.env['PATH']}",
+                                          SWAP_PARENT=str(parent), SWAP_ROOT=str(root),
+                                          SWAP_TO=str(other / OFFICIAL))
+                self.assertTrue(Path(f"{self.log}.swapped").exists())
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn("is a symbolic link", result.stderr)
+                self.assertEqual((other / OFFICIAL / "checksums.sha256").read_text(), "stale\n")
+                self.assertNotIn("campaign verify", log)
+
+    def test_setgid_parent_is_accepted(self):
+        parent = self.tmp / "setgid"
+        root = make_root(parent)
+        parent.chmod(0o2755)
+        result, _ = self.run_sh("checksums", root)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        result, log = self.run_sh("pack", root, SHA)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(Path(f"{root}.tar.gz").is_file())
+        self.assertFalse(list(parent.glob(".archive-stage.*")))
 
     def test_the_stage_must_be_private(self):
         mktemp_path = self.tool_mock("mktemp", 'out=$("$REAL" "$@") || exit\n'

@@ -38,9 +38,12 @@ The full values are in `campaign.toml`; `campaign.py` checks them, not this tabl
 - The frozen machine (`[machine]` in `campaign.toml`), quiet: no other heavy work, and
   nothing on logical CPUs 6 and 7. Linux with `git`, `taskset` and `lscpu`.
 - Python 3.11 or later.
-- A private directory for `BASE` (for example under `$HOME`, mode 755 or 700): `archive.sh`
-  refuses an evidence root or a parent of it that is not owned by you or that group or
-  others can write. A shared sticky directory such as `/tmp` is not supported.
+- A private directory for `BASE`, for example `mkdir -m 755 ~/pre06-base` directly under
+  `$HOME`. `archive.sh` refuses unless no other user can replace any component of the path
+  from `/` to the evidence root: the root and its parent owned by you and not writable by
+  group or others; every higher directory owned by root or you and not group- or
+  other-writable, unless it is sticky like `/tmp`. A group-writable project or lab tree
+  (with umask 002, directories are 775) is refused, and so is a root directly in `/tmp`.
 - The exact Julia builds. With juliaup: `juliaup add 1.10.13` and `juliaup add 1.13.3`;
   pass the build's own executable, for example
   `~/.julia/juliaup/julia-1.13.3+0.x64.linux.gnu/bin/julia`, not the juliaup launcher.
@@ -295,11 +298,14 @@ nothing changes the exit status, not even a closed or full stdout (`archive.sh r
 | head` is safe), and a staging directory that cannot be removed is only reported. An
 existing `<root>.release-notes.md` is never overwritten.
 
-Threat model, enforced before any write: `checksums`, `pack` and `release` refuse unless
-ROOT and its parent directory (physical paths) are owned by you and writable by no one
-else (no group or other write bit; a shared sticky directory such as `/tmp` is refused),
-and each staging directory they create is yours with mode 0700. So no other user can
-rename, replace or link entries in the archive directory or the root; processes of the
+Threat model, enforced before any write: `checksums`, `pack` and `release` first resolve
+the directory that holds ROOT and check its whole physical path from `/` (StrictModes
+style), then ROOT itself without following it. ROOT and its parent must be owned by you
+and writable by no one else (no group or other write bit; a parent such as `/tmp` is
+refused); every higher ancestor must be owned by root or you and not group- or
+other-writable unless it is sticky; each staging directory they create is yours with mode
+0700 (an inherited setgid bit is ignored). So no other user can rename, replace or link
+entries anywhere on the path, in the archive directory or in the root; processes of the
 same user, and root, are out of scope (they could replace anything anyway). The
 per-call pinning (`checksums` inside the root's inode, links refused, `ln -T`) stays as
 defence in depth. What is published rests on the checksums, the verify of the extracted

@@ -28,12 +28,14 @@
 # ARCHIVE_SH_ALLOW_STUB=1, which only the offline tests (test_campaign.py) set.
 # Every tar runs without TAR_OPTIONS and GZIP from the environment.
 #
-# Threat model, enforced before any write: ROOT and its parent directory must be owned by
-# the effective uid and writable by no one else (no group or other write bit; a shared
-# sticky directory such as /tmp is not supported: use a private directory), and each
-# staging directory must be the caller's with mode 0700. Then no other user can rename,
-# replace or link entries there; processes of the same user and root are out of scope
-# (they could replace anything anyway). The per-call pinning below (checksums inside the
+# Threat model, enforced before any write: no other user may be able to replace any
+# component of the path from / to ROOT. ROOT and its parent must be owned by the effective
+# uid with no group or other write bit; every higher ancestor must be owned by root or the
+# effective uid and not writable by group or others unless it is sticky (like /tmp); each
+# staging directory must be the caller's with mode 0700 (a setgid bit is ignored). So a
+# group-writable project or lab tree is refused: use a private BASE under $HOME. Then no
+# other user can rename, replace or link entries there; processes of the same user and
+# root are out of scope (they could replace anything anyway). The per-call pinning below (checksums inside the
 # root's inode, links refused, ln -T) stays as defence in depth. What is published rests
 # on the checksums, the verify of the extracted tarball, the re-hash of the staged copy
 # before the upload and the re-read of the tag at FREEZE_SHA.
@@ -86,23 +88,52 @@ trap 'rc=$?; set +e; rollback; cleanup; exit "$rc"' EXIT
 
 make_stage() {   # a private (0700) directory beside the root, outside it
   stage=$(mktemp -d "$1/.archive-stage.XXXXXX") || die "cannot create a staging directory in $1"
+  local om owner mode
+  om=$(owner_mode "$stage") || exit 1
+  owner=${om% *} mode=${om#* }
+  # yours, mode 700; a setgid bit inherited from the parent (2700) is ignored
+  [ "$owner" -eq "$EUID" ] && (( (8#$mode & 8#1777) == 8#700 )) \
+    || die "the staging directory $stage is uid $owner mode $mode, not yours with mode 700"
+}
+
+# "OWNER MODE" of $1 from `stat -c '%u %a'` (not following a link), validated as integers.
+# Every caller checks its status explicitly: `set -e` does not apply inside $( ).
+owner_mode() {
   local out
-  out=$(stat -c '%u %a' -- "$stage") || die "cannot stat $stage"
-  [ "$out" = "$EUID 700" ] \
-    || die "the staging directory $stage is '$out' (uid mode), not '$EUID 700'"
+  out=$(stat -c '%u %a' -- "$1") || die "cannot stat $1"
+  [[ $out =~ ^[0-9]+\ [0-7]{1,4}$ ]] || die "unexpected stat output for $1: '$out'"
+  echo "$out"
 }
 
 # The threat-model precondition for physical directory $1 (described by $2): owned by the
 # effective uid, and no group or other write bit (so no shared sticky directory).
 private_dir() {
-  local out owner mode
-  out=$(stat -c '%u %a' -- "$1") || die "cannot stat $2 $1"
-  owner=${out%% *} mode=${out#* }
-  [[ $owner =~ ^[0-9]+$ && $mode =~ ^[0-7]{1,4}$ ]] || die "unexpected stat output for $1: '$out'"
+  local om owner mode
+  om=$(owner_mode "$1") || exit 1
+  owner=${om% *} mode=${om#* }
   [ "$owner" -eq "$EUID" ] \
     || die "$2 $1 is owned by uid $owner, not by you (uid $EUID); use a private directory"
   (( (8#$mode & 8#022) == 0 )) \
     || die "$2 $1 has mode $mode: group or others can write it; use a private directory (chmod go-w)"
+}
+
+# StrictModes-style: no other user can replace any component of the physical path from /
+# to the directory $1 that holds ROOT. $1 itself must be private (private_dir); every
+# higher ancestor must be owned by root or you and not writable by group or others,
+# except when it is sticky (like /tmp: then only the owner of an entry, or of the
+# directory, may rename it, and the entry below, owned by root or you, is checked too).
+trusted_ancestry() {
+  private_dir "$1" "the parent directory of ROOT"
+  local dir=$1 om owner mode
+  while [ "$dir" != / ]; do
+    dir=$(dirname -- "$dir")
+    om=$(owner_mode "$dir") || exit 1
+    owner=${om% *} mode=${om#* }
+    [ "$owner" -eq 0 ] || [ "$owner" -eq "$EUID" ] \
+      || die "ancestor $dir of ROOT is owned by uid $owner (mode $mode), neither root nor you; use a private directory under \$HOME"
+    (( (8#$mode & 8#022) == 0 || (8#$mode & 8#1000) != 0 )) \
+      || die "ancestor $dir of ROOT (uid $owner, mode $mode) is writable by group or others and not sticky; use a private directory under \$HOME"
+  done
 }
 
 # The campaign.toml values used here, tab-separated, from the freeze checkout's copy.
@@ -120,20 +151,24 @@ print("\t".join([c["campaign_id"], a["name"], a["asset"], a["release_tag"], a["r
 # The physical path of directory $1, which must not itself be a symbolic link, however
 # it is spelled (LINK, LINK/, LINK//, LINK/.).
 real_dir() {
-  local logical trimmed=$1
+  local trimmed=$1 parent base physical here
   while [[ $trimmed == */ ]]; do trimmed=${trimmed%/}; done
-  case $trimmed in ""|.|..) die "ROOT '$1' must name an evidence directory (not empty, /, . or ..)" ;; esac
-  logical=$(cd -L -- "$1" && pwd -L) || die "no directory $1"
-  [ ! -L "$logical" ] || die "$1 is a symbolic link; the root must be a real directory"
-  local physical here
-  # Canonical physical paths: realpath also collapses the leading // that bash keeps.
-  physical=$(realpath -e -- "$logical") || die "no directory $1"
+  base=$(basename -- "$trimmed")
+  case $trimmed:$base in :*|*:.|*:..) die "ROOT '$1' must name an evidence directory (not empty, /, . or ..)" ;; esac
+  # Parent first: resolve the directory that holds ROOT (realpath: canonical physical path,
+  # also collapsing the leading // that bash keeps) and prove that no other user can
+  # replace anything on its path; only then look at ROOT itself, without following it.
+  parent=$(realpath -e -- "$(dirname -- "$trimmed")") || die "no directory $(dirname -- "$trimmed")"
+  trusted_ancestry "$parent" || exit 1
+  physical=${parent%/}/$base
+  [ ! -L "$physical" ] || die "$1 is a symbolic link; the root must be a real directory"
+  [ -d "$physical" ] || die "no directory $1"
+  [ "$(realpath -e -- "$physical")" = "$physical" ] || die "ROOT '$1' does not resolve to $physical"
   here=$(realpath -e -- .) || die "cannot resolve the current directory"
   # `/`, the current directory or one of its ancestors, however spelled (./., sub/.., //./)
   [[ $here/ != "${physical%/}/"* ]] \
     || die "ROOT '$1' is $physical: /, the current directory or one of its ancestors"
-  private_dir "$(dirname -- "$physical")" "the parent directory of ROOT"
-  private_dir "$physical" "ROOT"
+  private_dir "$physical" "ROOT" || exit 1
   echo "$physical"
 }
 
