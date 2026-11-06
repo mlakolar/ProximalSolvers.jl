@@ -287,6 +287,25 @@ def parse_inventory(data):
     return (None, problems) if problems else (data, [])
 
 
+def records_problem(meta, tables):
+    """What the checks below read of a process that validate.py may have stopped on before it got there."""
+    for key in ("proximalsolvers_path", "expected_package_root", "proximalsolvers_sha", "proximalsolvers_hash",
+                "proximalbase_version", "proximalbase_hash", "harness_hash", "blas", "cpu", "cpu_model"):
+        if not isinstance(meta[key], str):
+            return f"metadata {key} is not a string"
+    if not (is_num(meta["elapsed_s"]) and is_int(meta["nonok_cases"]) and is_int(meta["maxrss_bytes"])):
+        return "metadata elapsed_s, nonok_cases or maxrss_bytes has the wrong type"
+    for kind, rows in tables.items():
+        if len({row["id"] for row in rows}) != len(rows):
+            return f"duplicate id in the {kind} table"
+    for row in tables["catalog"]:
+        validate.number(row["target"])
+    for row in tables["metrics"]:
+        for key in validate.TIME_FIELDS + ("target", "worst_value"):
+            validate.number(row[key])
+    return None
+
+
 def read_stratum(root, mm, info, sched, ref):
     """Read one stratum of one root; every unreadable item is a refusal, never a guess."""
     name, version, base = root["name"], info["version"], Path(root["path"]) / f"julia-{mm}"
@@ -329,11 +348,11 @@ def read_stratum(root, mm, info, sched, ref):
             refuse(ref, "JULIA", f"{name}:julia", f"{where}: record file {path.name} is for Julia {match[1]}")
         found.add(prefix)
     issues = validate.validate(raw, expected=len(sched["reps"]), versions=[version])["issues"]
-    bad = set()
+    blocked = set()                  # processes whose records validate.py found schema-invalid
     for issue in issues:
-        if (match := re.match(r"(julia-.+-rep[0-9]{2}): ", issue)):
-            bad.add(match[1])
         cls, field = next(((c, f) for text, c, f in R1 if text in issue), ("SCHEMA", "<root>:records"))
+        if cls == "SCHEMA" and (match := re.match(r"(julia-.+-rep[0-9]{2}): ", issue)):
+            blocked.add(match[1])
         scope = "aa" if name.startswith("aa") else "ab"
         refuse(ref, cls, field.replace("<root>", name).replace("<pair>", scope), f"{name} {where}: {issue}")
     for rep in sched["reps"]:
@@ -355,11 +374,14 @@ def read_stratum(root, mm, info, sched, ref):
                 refuse(ref, "SCHEMA", f"{name}:metadata_keys",
                        f"{name} {where} rep {rep}: {label} metadata missing {sorted(set(keys) - set(meta))} "
                        f"unknown {sorted(set(meta) - set(keys))}")
-        if prefix in bad:
+        if prefix in blocked:
             continue
         try:
             tables = {kind: validate.records(raw / f"{prefix}-{kind}.tsv", kind)
                       for kind in ("catalog", "metrics", "errors")}
+            problem = records_problem(final, tables)
+            if problem:
+                raise ValueError(problem)
         except (OSError, ValueError) as error:
             refuse(ref, "SCHEMA", f"{name}:records", f"{name} {where} rep {rep}: {error}")
             continue
@@ -708,8 +730,8 @@ def read_declared(data, sched, ref):
     problems, strata = [], list(sched["strata"])
     if not isinstance(data, dict) or not is_int(data.get("schema")) or data.get("schema") != 1:
         problems.append("schema is not 1")
-    problems += key_problems(data, ("schema", "proximalsolvers", "proximalbase"),
-                             ("manifest", "compat", "harness"), "declared file")
+    problems += key_problems(data, ("schema",), ("proximalsolvers", "proximalbase", "manifest", "compat",
+                                                 "harness"), "declared file")
     for table, extra in (("proximalsolvers", ()), ("proximalbase", ("a_version", "b_version"))):
         value = data.get(table)
         if value is None:
@@ -768,7 +790,7 @@ def read_declared(data, sched, ref):
         refuse(ref, "SCHEMA", "declared:schema", problem)
     if problems:
         return None
-    return dict(proximalsolvers=data["proximalsolvers"], proximalbase=data["proximalbase"],
+    return dict(proximalsolvers=data.get("proximalsolvers"), proximalbase=data.get("proximalbase"),
                 manifest=entries["manifest"], compat=entries["compat"], harness=harness)
 
 
@@ -793,27 +815,37 @@ def compare_sets(ref, field, label, observed, declared):
 
 def check_declared(declared, left, right, mapping, sched, ref):
     """Section 13: the observed differences of section 3 must equal the declared set exactly."""
-    for table, key, extra in (("proximalsolvers", "proximalsolvers", ()), ("proximalbase", "proximalbase",
-                                                                             ("version",))):
+    for table, extra in (("proximalsolvers", ()), ("proximalbase", ("version",))):
         want, observed = declared[table], {}
         for side, root in (("a", left), ("b", right)):
             ident = trusted(root)
-            sources = {"commit": [("identity commit", ident[key]["commit"] if ident else None)],
-                       "tree": [("identity tree", ident[key]["tree"] if ident else None)],
-                       "package_hash": [("metadata hash", meta_values(root, f"{key}_hash"))],
-                       "version": [("identity version", ident[key]["version"] if ident else None),
+            sources = {"commit": [("identity commit", ident[table]["commit"] if ident else None)],
+                       "tree": [("identity tree", ident[table]["tree"] if ident else None)],
+                       "package_hash": [("metadata hash", meta_values(root, f"{table}_hash"))],
+                       "version": [("identity version", ident[table]["version"] if ident else None),
                                    ("metadata version", meta_values(root, "proximalbase_version"))]}
-            if key == "proximalsolvers":
+            if table == "proximalsolvers":
                 sources["commit"].append(("metadata sha", meta_values(root, "proximalsolvers_sha")))
-            observed[side] = sources
-        for field in ("commit", "tree", "package_hash") + extra:
+            observed[side] = {k: [(label, [] if v is None else sorted(v) if isinstance(v, set) else [v])
+                                  for label, v in items] for k, items in sources.items()}
+        fields = ("commit", "tree", "package_hash") + extra
+        pairs = [(x, y) for f in fields for (_, xs), (_, ys) in zip(observed["a"][f], observed["b"][f])
+                 for x in xs for y in ys]
+        if pairs and any(x != y for x, y in pairs) and want is None:
+            refuse(ref, "UNDECLARED", f"declared:{table}", "the observed values differ between the roots and "
+                   f"[{table}] is not declared")
+        if want is None:
+            continue
+        if pairs and all(x == y for x, y in pairs):
+            refuse(ref, "UNDECLARED", f"declared:{table}", f"[{table}] is declared but the observed values are "
+                   "equal in both roots")
+        for field in fields:
             for side in ("a", "b"):
-                for label, value in observed[side][field]:
-                    if isinstance(value, set):
-                        value = next(iter(value)) if len(value) == 1 else None    # mixed: STACK refuses it
-                    if value is not None and value != want[f"{side}_{field}"]:
-                        refuse(ref, "UNDECLARED", f"declared:{table}", f"{side}_{field} declared "
-                               f"{want[f'{side}_{field}']!r}, {side.upper()} {label} is {value!r}")
+                for label, values in observed[side][field]:
+                    for value in values:
+                        if value != want[f"{side}_{field}"]:
+                            refuse(ref, "UNDECLARED", f"declared:{table}", f"{side}_{field} declared "
+                                   f"{want[f'{side}_{field}']!r}, {side.upper()} {label} is {value!r}")
             if want[f"a_{field}"] == want[f"b_{field}"]:
                 refuse(ref, "UNDECLARED", f"declared:{table}", f"{field}: declared difference does not exist "
                        f"({want[f'a_{field}']!r} on both sides)")

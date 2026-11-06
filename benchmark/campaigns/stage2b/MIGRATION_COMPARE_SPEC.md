@@ -496,7 +496,7 @@ JSON lines, one object per line, one file for the A/B arm and the A/A arm of one
 ```toml
 schema = 1
 
-[proximalsolvers]
+[proximalsolvers]                   # optional: present exactly when the observed values differ
 a_commit = "b0de3f7fc91767b97197ff4b458207e308998943"
 b_commit = "<40-hex>"
 a_tree = "a836d532008782e75f2b2a7e4666fa1df24b34dc"
@@ -504,7 +504,7 @@ b_tree = "<40-hex>"
 a_package_hash = "f37fc61f300ad597a33c7ab5f448d38c865db854"
 b_package_hash = "<40-hex>"
 
-[proximalbase]
+[proximalbase]                      # optional: present exactly when the observed values differ
 a_version = "0.5.4"
 b_version = "0.6.0"
 a_commit = "9c5a43bf0b7e3f51f0a401b785c332200ffa5d7e"
@@ -541,12 +541,17 @@ approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/110#issuec
 ```
 
 * `schema` other than 1, a missing key, an unknown key (top level, table or entry) or a value of the wrong type
-  is `SCHEMA` (`declared:schema`). Hashes, commits and trees are 40 lowercase hex.
-* **Exact correspondence.** Observed values: the A value comes from `ROOT_A` and the B value from `ROOT_B`. For
-  `[proximalsolvers]` and `[proximalbase]` every `a_*` and `b_*` equals the observed value (the metadata
-  `proximalsolvers_sha`, `proximalsolvers_hash`, `proximalbase_version`, `proximalbase_hash`, the commit,
-  tree and version of `stack-identity.toml`), and each `a_*` differs from its `b_*` (a declared difference that
-  does not exist is refused). Violations are `UNDECLARED` (`declared:proximalsolvers`, `declared:proximalbase`).
+  is `SCHEMA` (`declared:schema`). Hashes, commits and trees are 40 lowercase hex. Only `schema` is required at
+  the top level: `[proximalsolvers]`, `[proximalbase]`, `[[manifest]]`, `[[compat]]` and `[harness]` are optional
+  and each is present exactly when the corresponding observed difference exists (an identical pair is declared by
+  a file that holds only `schema = 1`). Within a table that is present every key is required.
+* **Exact correspondence.** Observed values: the A value comes from `ROOT_A` and the B value from `ROOT_B`. The
+  observed values of a package differ when any of them (the metadata `proximalsolvers_sha`,
+  `proximalsolvers_hash`, `proximalbase_version`, `proximalbase_hash`, the commit, tree and version of
+  `stack-identity.toml`) differs between the roots. If they differ, the table (`[proximalsolvers]`,
+  `[proximalbase]`) must be present; if they are all equal, it must be absent. If it is present, every `a_*` and
+  `b_*` equals the observed value and each `a_*` differs from its `b_*` (a declared difference that does not exist
+  is refused). Violations are `UNDECLARED` (`declared:proximalsolvers`, `declared:proximalbase`).
 * **Manifest.** Per stratum the entries of the two `Manifest.toml` are keyed by (`name`, `uuid`) and compared by
   `version` and `git-tree-sha1` (an absent value is the empty string; the `path` of a path entry is not
   compared). An entry on one side only is `added` (B only, `a_*` empty) or `removed` (A only, `b_*` empty); an
