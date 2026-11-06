@@ -38,6 +38,9 @@ The full values are in `campaign.toml`; `campaign.py` checks them, not this tabl
 - The frozen machine (`[machine]` in `campaign.toml`), quiet: no other heavy work, and
   nothing on logical CPUs 6 and 7. Linux with `git`, `taskset` and `lscpu`.
 - Python 3.11 or later.
+- A private directory for `BASE` (for example under `$HOME`, mode 755 or 700): `archive.sh`
+  refuses an evidence root or a parent of it that is not owned by you or that group or
+  others can write. A shared sticky directory such as `/tmp` is not supported.
 - The exact Julia builds. With juliaup: `juliaup add 1.10.13` and `juliaup add 1.13.3`;
   pass the build's own executable, for example
   `~/.julia/juliaup/julia-1.13.3+0.x64.linux.gnu/bin/julia`, not the juliaup launcher.
@@ -56,7 +59,7 @@ which each sources first; run them from the directory that holds it.
 ```bash
 # pre06-env.sh: sourced by the Run, Verify and Archive scripts
 FREEZE_SHA=...            # the freeze commit recorded on #110
-BASE=/absolute/path/outside/any/checkout
+BASE=/absolute/path/outside/any/checkout   # private: yours, not group/other-writable
 CAMPAIGN="$BASE/freeze/benchmark/campaigns/pre06/campaign.py"
 ARCHIVE="$BASE/freeze/benchmark/campaigns/pre06/archive.sh"
 ROOT="$BASE/pre06-stage2a-campaign-v1"     # the official root must have this name
@@ -65,6 +68,7 @@ ROOT="$BASE/pre06-stage2a-campaign-v1"     # the official root must have this na
 ```bash
 # run.sh
 set -euo pipefail
+umask 022                 # the root and its files: writable by you only
 . ./pre06-env.sh
 : "${FREEZE_SHA:?}" "${BASE:?}" "${CAMPAIGN:?}" "${ARCHIVE:?}" "${ROOT:?}"   # all set, none empty
 git clone https://github.com/mlakolar/ProximalSolvers.jl.git "$BASE/pinned"
@@ -208,6 +212,7 @@ above), `FREEZE.md` (freeze SHA, approval, dates, deviations) and, after review,
 ```bash
 # pack-and-release.sh
 set -euo pipefail
+umask 022
 . ./pre06-env.sh
 : "${FREEZE_SHA:?}" "${BASE:?}" "${CAMPAIGN:?}" "${ARCHIVE:?}" "${ROOT:?}"   # all set, none empty
 code=0
@@ -290,17 +295,16 @@ nothing changes the exit status, not even a closed or full stdout (`archive.sh r
 | head` is safe), and a staging directory that cannot be removed is only reported. An
 existing `<root>.release-notes.md` is never overwritten.
 
-Threat model: the root's parent directory and the staging directories in it are assumed
-not to be modified concurrently by untrusted local processes. Integrity does not rely on
-directory permissions but on the checksums, the verify of the extracted tarball, the
-re-hash of the staged copy before the upload and the re-read of the tag at `FREEZE_SHA`.
-`checksums` works inside the root pinned by inode (one subshell whose working directory is
-the root, relative paths only), so a rename or link swap of the root's name cannot redirect
-it; `pack` then addresses the root by name for `verify` and `tar`, and a swap there yields
-an archive that fails the member check or the verify of its extracted copy, or that is
-itself verified. A hostile concurrent writer in the same directory can still race a check
-and the `ln` or `rm` that follows it (out of scope); that never leads to publishing
-unverified bytes.
+Threat model, enforced before any write: `checksums`, `pack` and `release` refuse unless
+ROOT and its parent directory (physical paths) are owned by you and writable by no one
+else (no group or other write bit; a shared sticky directory such as `/tmp` is refused),
+and each staging directory they create is yours with mode 0700. So no other user can
+rename, replace or link entries in the archive directory or the root; processes of the
+same user, and root, are out of scope (they could replace anything anyway). The
+per-call pinning (`checksums` inside the root's inode, links refused, `ln -T`) stays as
+defence in depth. What is published rests on the checksums, the verify of the extracted
+tarball, the re-hash of the staged copy before the upload and the re-read of the tag at
+`FREEZE_SHA`.
 
 Retries: everything before the tag creation can be rerun after fixing its cause (move
 the kept `<root>.release-notes.md` away first). Once the tag exists, `release` refuses to

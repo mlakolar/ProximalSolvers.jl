@@ -22,6 +22,7 @@ from pathlib import Path
 from unittest import mock
 
 sys.dont_write_bytecode = True
+os.umask(0o022)   # archive.sh refuses group- or other-writable roots and parents
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import campaign as C   # noqa: E402
@@ -1239,11 +1240,10 @@ class ArchiveScript(Scratch):
                     self.assertEqual((other / "checksums.sha256").read_text(),
                                      "maintainer's list\n")
                     moved = Path(f"{root}.moved")
-                if tool == "realpath":   # swapped between resolution and use: refused
+                if tool == "realpath":   # swapped between resolution and use: refused (the
+                    # precondition's stat sees the swapped-in link itself, mode 777)
                     self.assertRegex(result.stderr, "changed after its resolution|is a "
-                                     "symbolic link")
-                    if command == "checksums":
-                        self.assertIn("changed after its resolution", result.stderr)
+                                     "symbolic link|group or others can write")
                     self.assertEqual((moved / "checksums.sha256").read_text(), "stale\n")
 
     def test_cleanup_never_follows_a_swapped_stage(self):
@@ -1262,6 +1262,78 @@ class ArchiveScript(Scratch):
         self.assertEqual(stat.S_IMODE((victim / "secret").stat().st_mode), 0o400)
         self.assertEqual(stat.S_IMODE((victim / "sub").stat().st_mode), 0o500)
         self.assertEqual(sorted(p.name for p in victim.iterdir()), ["secret", "sub"])
+
+    def tool_mock(self, tool, body):
+        bin_ = self.tmp / f"{tool}-mock"
+        bin_.mkdir(exist_ok=True)
+        (bin_ / tool).write_text(f"#!/usr/bin/env bash\nREAL={shutil.which(tool)}\n{body}")
+        (bin_ / tool).chmod(0o755)
+        return f"{bin_}:{self.env['PATH']}"
+
+    def test_private_directories_are_required(self):
+        # stat reports uid 4242 for paths matching STAT_OTHER, or STAT_RAW verbatim
+        stat_path = self.tool_mock("stat", 'out=$("$REAL" "$@") || exit\n'
+                                   '[ -z "${STAT_RAW:-}" ] || { echo "$STAT_RAW"; exit 0; }\n'
+                                   'case ${!#} in ${STAT_OTHER:-/nonexistent}) echo "4242 ${out#* }" ;;'
+                                   ' *) echo "$out" ;; esac\n')
+        cases = {  # label: (parent mode, root mode, extra environment, message)
+            "parent 0775": (0o775, 0o755, {}, "group or others can write"),
+            "parent 0757": (0o757, 0o755, {}, "group or others can write"),
+            "parent 0777": (0o777, 0o755, {}, "group or others can write"),
+            "parent 1777 (sticky, like /tmp)": (0o1777, 0o755, {}, "group or others can write"),
+            "parent of another uid": (0o755, 0o755, dict(STAT_OTHER="*/parent-*"),
+                                      "is owned by uid 4242"),
+            "root 0775": (0o755, 0o775, {}, "group or others can write"),
+            "root 0777": (0o755, 0o777, {}, "group or others can write"),
+            "root of another uid": (0o755, 0o755, dict(STAT_OTHER=f"*/{OFFICIAL}"),
+                                    "is owned by uid 4242"),
+            "unparseable stat": (0o755, 0o755, dict(STAT_RAW="x y"), "unexpected stat output"),
+        }
+        for number, (label, (parent_mode, root_mode, env, message)) in enumerate(cases.items()):
+            for command in ("checksums", "pack", "release"):
+                with self.subTest(label, command=command):
+                    parent = self.tmp / f"parent-{number}-{command}"
+                    root = make_root(parent)   # its list: "stale"
+                    parent.chmod(parent_mode)
+                    root.chmod(root_mode)
+                    args = (command, root) if command == "checksums" else (
+                        (command, root, SHA) if command == "pack" else
+                        (command, root, SHA, "--tag", TAG))
+                    result, log = self.run_sh(*args, PATH=stat_path, **env)
+                    self.assertEqual(result.returncode, 1, result.stderr)
+                    self.assertIn(message, result.stderr)
+                    self.assertEqual((root / "checksums.sha256").read_text(), "stale\n")
+                    self.assertEqual(sorted(p.name for p in parent.iterdir()), [OFFICIAL])
+                    self.assertNotIn("campaign verify", log)
+        for number, (parent_mode, root_mode) in enumerate(((0o700, 0o755), (0o755, 0o700))):
+            with self.subTest(accepted=(oct(parent_mode), oct(root_mode))):
+                parent = self.tmp / f"private-{number}"
+                root = make_root(parent)
+                parent.chmod(parent_mode)
+                root.chmod(root_mode)
+                result, _ = self.run_sh("checksums", root, PATH=stat_path)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertNotEqual((root / "checksums.sha256").read_text(), "stale\n")
+
+    def test_the_stage_must_be_private(self):
+        mktemp_path = self.tool_mock("mktemp", 'out=$("$REAL" "$@") || exit\n'
+                                     '[ -z "${LOOSE:-}" ] || chmod 0755 "$out"\necho "$out"\n')
+        stat_path = self.tool_mock("stat", 'out=$("$REAL" "$@") || exit\n'
+                                   'case ${!#} in ${STAT_OTHER:-/nonexistent}) echo "4242 ${out#* }" ;;'
+                                   ' *) echo "$out" ;; esac\n')
+        for number, (label, env) in enumerate((
+                ("mode 0755", dict(PATH=mktemp_path, LOOSE="1")),
+                ("another uid", dict(PATH=stat_path, STAT_OTHER="*/.archive-stage.*")))):
+            for command in ("checksums", "pack"):
+                with self.subTest(label, command=command):
+                    root = make_root(self.evidence, f"pilot-t{number}-{command}")
+                    args = ("checksums", root) if command == "checksums" else ("pack", root, SHA)
+                    result, log = self.run_sh(*args, **env)
+                    self.assertEqual(result.returncode, 1, result.stderr)
+                    self.assertIn("the staging directory", result.stderr)
+                    self.assertEqual((root / "checksums.sha256").read_text(), "stale\n")
+                    self.assertNotIn("campaign verify", log)
+                    self.assertFalse(list(self.evidence.glob(".archive-stage.*")))
 
     def test_empty_and_dot_roots_are_refused(self):
         work = self.tmp / "work" / "cwd"

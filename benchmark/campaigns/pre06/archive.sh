@@ -28,14 +28,15 @@
 # ARCHIVE_SH_ALLOW_STUB=1, which only the offline tests (test_campaign.py) set.
 # Every tar runs without TAR_OPTIONS and GZIP from the environment.
 #
-# Threat model: the root's parent directory and the staging directories in it are assumed
-# not to be modified concurrently by untrusted local processes. Integrity does not rely on
-# directory permissions but on the checksums, the verify of the extracted tarball, the
-# re-hash of the staged copy before the upload and the re-read of the tag at FREEZE_SHA. A
-# hostile concurrent writer in the same directory can still race a check and the `ln` or
-# `rm` that follows it (out of scope); that never leads to publishing unverified bytes.
-# `checksums` is pinned to the root's inode; `pack` addresses the root by name for verify
-# and tar, where a swap is caught by the member check and the extracted-tarball verify.
+# Threat model, enforced before any write: ROOT and its parent directory must be owned by
+# the effective uid and writable by no one else (no group or other write bit; a shared
+# sticky directory such as /tmp is not supported: use a private directory), and each
+# staging directory must be the caller's with mode 0700. Then no other user can rename,
+# replace or link entries there; processes of the same user and root are out of scope
+# (they could replace anything anyway). The per-call pinning below (checksums inside the
+# root's inode, links refused, ln -T) stays as defence in depth. What is published rests
+# on the checksums, the verify of the extracted tarball, the re-hash of the staged copy
+# before the upload and the re-read of the tag at FREEZE_SHA.
 set -euo pipefail
 unset CDPATH
 
@@ -85,6 +86,23 @@ trap 'rc=$?; set +e; rollback; cleanup; exit "$rc"' EXIT
 
 make_stage() {   # a private (0700) directory beside the root, outside it
   stage=$(mktemp -d "$1/.archive-stage.XXXXXX") || die "cannot create a staging directory in $1"
+  local out
+  out=$(stat -c '%u %a' -- "$stage") || die "cannot stat $stage"
+  [ "$out" = "$EUID 700" ] \
+    || die "the staging directory $stage is '$out' (uid mode), not '$EUID 700'"
+}
+
+# The threat-model precondition for physical directory $1 (described by $2): owned by the
+# effective uid, and no group or other write bit (so no shared sticky directory).
+private_dir() {
+  local out owner mode
+  out=$(stat -c '%u %a' -- "$1") || die "cannot stat $2 $1"
+  owner=${out%% *} mode=${out#* }
+  [[ $owner =~ ^[0-9]+$ && $mode =~ ^[0-7]{1,4}$ ]] || die "unexpected stat output for $1: '$out'"
+  [ "$owner" -eq "$EUID" ] \
+    || die "$2 $1 is owned by uid $owner, not by you (uid $EUID); use a private directory"
+  (( (8#$mode & 8#022) == 0 )) \
+    || die "$2 $1 has mode $mode: group or others can write it; use a private directory (chmod go-w)"
 }
 
 # The campaign.toml values used here, tab-separated, from the freeze checkout's copy.
@@ -114,6 +132,8 @@ real_dir() {
   # `/`, the current directory or one of its ancestors, however spelled (./., sub/.., //./)
   [[ $here/ != "${physical%/}/"* ]] \
     || die "ROOT '$1' is $physical: /, the current directory or one of its ancestors"
+  private_dir "$(dirname -- "$physical")" "the parent directory of ROOT"
+  private_dir "$physical" "ROOT"
   echo "$physical"
 }
 
