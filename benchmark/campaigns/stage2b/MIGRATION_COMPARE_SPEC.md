@@ -95,15 +95,25 @@ before the refusals are evaluated.
 All outputs go to a fresh `--out` directory (the tool refuses a non-empty one, as `fresh_output` of
 `validate.py` does).
 
-**Per-case class**, per Julia version, in `comparison.csv`:
+**Precedence.** Section 4 is evaluated first and always wins: a refusal is a property of the pair of roots
+and no per-case class is written. In particular a `data_hash` that differs for any (Julia, case,
+repetition) pair is the global refusal `INPUTS`, and two roots whose repetition-ID sets differ are the
+global refusal `REPETITIONS`. The per-case classes below apply only to what remains after every refusal
+has been ruled out, and to conditions that concern one case: its records, its mapping class, its
+fingerprints. A repetition that both roots lack is a FAILED condition of every case of that repetition and
+is listed as missing; a repetition that only one root lacks is the `REPETITIONS` refusal.
+
+**Per-case class**, per Julia version, in `migration-comparison.csv`:
 
 * **COMPARABLE**: both stacks have ok records for every repetition in the set; the fingerprints match
   (section 6); the mapping class is A, or B with an approved record; no failed check.
-* **NOT COMPARABLE**: the workload is not the same: a fingerprint missing or mismatched, a mapping class
-  C or D, an approved semantic deviation recorded in the mapping, a changed input, or an incomplete
-  path in one stack only.
-* **FAILED**: a case that is not ok in either stack (`target_missed`, `uncertifiable`, `incomplete`,
-  `timeout`, `error`), a missing case or repetition, an invalid certificate.
+* **NOT COMPARABLE**: the workload is not the same although the records are structurally comparable: a
+  fixture, reset-state or solver-configuration fingerprint missing or mismatched while the `data_hash`
+  matches (a `data_hash` match is never accepted as proof of identical semantics), a mapping class C or D,
+  or an approved semantic deviation recorded in the mapping.
+* **FAILED**: a case that is not ok in either stack (`target_missed`, `uncertifiable`, `incomplete` (an
+  incomplete path in either stack), `timeout`, `error`), a case missing from both roots, a repetition both
+  roots lack, an invalid certificate.
 
 **Visible lists**, repeated at the top of `report.md` and in `lists.json`, never hidden in a table and
 never summarized away: cases that are not ok, with the status and detail; missing and extra cases and
@@ -148,8 +158,8 @@ written by the pilots and the campaign outside any timed region (`STAGE2B_PLAN.m
 * `migration_compare.py` may import record readers from `validate.py` and `summarize.py`, but it never
   monkeypatches or reconfigures their settings sets, and it does not write into the ordinary tools'
   output formats.
-* Its output names differ from those of `compare.py` (`comparison.csv` here has the class column and
-  the screens), so that a report cannot be mistaken for an ordinary comparison.
+* Its output names differ from those of `compare.py` (`migration-comparison.csv` here has the class column
+  and the screens), so that a report cannot be mistaken for an ordinary comparison.
 
 ## 8. Required synthetic tests (PR B)
 

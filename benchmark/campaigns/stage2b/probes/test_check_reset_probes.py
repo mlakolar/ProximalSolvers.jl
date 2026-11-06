@@ -119,6 +119,40 @@ class SyntheticDefects(unittest.TestCase):
         bad = replace_value(self.a, "sparse.fill0_dropzeros.all_values_zero", "false")
         self.refused(bad, None, "sparse.fill0_dropzeros.all_values_zero")
 
+    def test_missing_reset_status(self):
+        self.refused(self.a, drop_key(self.b, "atom.warm_start.copyto.status"), "missing observation atom.warm_start.copyto.status")
+
+    def test_reset_status_error(self):
+        bad = replace_value(self.b, "atom.warm_start.copyto.status", "ERROR MethodError")
+        self.refused(self.a, bad, "atom.warm_start.copyto.status")
+
+    def test_status_of_the_ported_reset_error_with_state_flags_true(self):
+        bad = replace_value(self.b, "sparse.fill0_dropzeros.status", "ERROR DomainError")
+        self.refused(self.a, bad, "sparse.fill0_dropzeros.status")
+
+    def test_status_of_the_repeated_reset_error(self):
+        bad = replace_value(self.b, "atom.cold_start.repeat.status", "ERROR BoundsError")
+        self.refused(self.a, bad, "atom.cold_start.repeat.status")
+
+    def test_equal_error_values_for_the_state_on_both_sides(self):
+        a = replace_value(self.a, "sparse.fresh.active", "ERROR MethodError")
+        b = replace_value(self.b, "sparse.fresh.active", "ERROR MethodError")
+        a = replace_value(a, "sparse.fill0_dropzeros.active", "ERROR MethodError")
+        b = replace_value(b, "sparse.fill0_dropzeros.active", "ERROR MethodError")
+        self.refused(a, b, "sparse.fresh.active raised")
+
+    def test_error_state_is_refused_without_a_second_stack(self):
+        self.refused(replace_value(self.a, "sparse.fresh.active", "ERROR MethodError"), None, "raised")
+
+    def test_different_values_restored_on_the_two_stacks(self):
+        bad = replace_value(self.b, "atom.warm_start.start.values_hash", "123")
+        bad = replace_value(bad, "atom.warm_start.after.values_hash", "123")
+        self.refused(self.a, bad, "atom.warm_start.start.values_hash differs")
+
+    def test_reset_restores_other_values_than_the_start_within_a_stack(self):
+        bad = replace_value(self.b, "atom.warm_overlap.after.values_hash", "123")
+        self.refused(self.a, bad, "differs from the start")
+
     def test_duplicate_key_is_a_format_error(self):
         code, _, err = run(self.a + "probe.julia\t1.13.3\n")
         self.assertEqual(code, 2)

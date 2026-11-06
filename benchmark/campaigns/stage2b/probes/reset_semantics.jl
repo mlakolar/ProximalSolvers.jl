@@ -46,13 +46,13 @@ observe("sparse.used.nactive_before_reset", nactive_of(used))
 observe("sparse.used.active_before_reset", active_of(used))
 
 by_fill = copy(used)
-guarded(() -> fill!(by_fill, 0.0))
+observe("sparse.fill0.status", guarded(() -> (fill!(by_fill, 0.0); "ok")))
 observe("sparse.fill0.all_values_zero", allzero(by_fill))
 observe("sparse.fill0.nactive", nactive_of(by_fill))
 observe("sparse.fill0.active", active_of(by_fill))
 
 by_clear = copy(used)
-guarded(() -> dropzeros!(fill!(by_clear, 0.0)))
+observe("sparse.fill0_dropzeros.status", guarded(() -> (dropzeros!(fill!(by_clear, 0.0)); "ok")))
 observe("sparse.fill0_dropzeros.all_values_zero", allzero(by_clear))
 observe("sparse.fill0_dropzeros.nactive", nactive_of(by_clear))
 observe("sparse.fill0_dropzeros.active", active_of(by_clear))
@@ -94,7 +94,7 @@ function atom_reset_case(label, warm_groups, used_groups)
   for k in used_groups, j in groups[k]
     x[j] = 7.0
   end
-  guarded(() -> copyto!(x, start))
+  observe("atom.$label.repeat.status", guarded(() -> (copyto!(x, start); "ok")))
   observe("atom.$label.repeat.matches_start_active", guarded(() -> active_of(x) == active_of(start)))
   observe("atom.$label.repeat.matches_start_values", guarded(() -> collect(x) == collect(start)))
 end

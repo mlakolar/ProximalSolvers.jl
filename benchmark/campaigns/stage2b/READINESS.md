@@ -22,7 +22,7 @@ are listed here and on #110.
 
 ## Audit of ProximalSolvers against #527 rows
 
-Site counts are from `git grep -P` over `src/` and `ext/` at `7b9b5295302bd177046284b017a8304cf5a99341` (its
+File and line counts are from `git grep -nP` over `src/` and `ext/` at `7b9b5295302bd177046284b017a8304cf5a99341` (its
 `src/` equals the measured `b0de3f7`), comment lines excluded. A count is a pointer for the migration PRs, not a
 proof that a site is affected: a name such as `.groups` is also a penalty field, which the contract leaves alone.
 The ledger counts 36 `x.p` sites because it includes a test file.
@@ -30,11 +30,12 @@ The ledger counts 36 `x.p` sites because it includes a test file.
 | #527 row | ProximalSolvers sites (audited commit) | Status |
 |:--|:--|:--|
 | Exact symmetry of `LogDetLoss` and `KronQuadratic` (#269) | `LogDetLoss(` constructed in `cd/quic.jl`, `cd/glm.jl`, `precompile.jl`; `KronQuadratic(` in `precompile.jl`; tests in several files. Probe: master throws `ArgumentError` for an asymmetric matrix. The suite run below fails `test/coordinate_descent.jl:53` (KronQuadratic with a nonsymmetric `C`). | Open (review `quic.jl` rebuild; test fix) |
-| `SymmetricSparseIterate` owner redesign, no `AbstractMatrix`, no `x.p` (#391 Phase 1) | `.p`: 33 sites in `cd/drivers.jl`, `gap.jl`, `generic_newton.jl`, `kron.jl`, `kronu.jl`, `models.jl`, `path.jl`, `quic.jl`, `solver.jl` (28 with receiver `x`); `SymmetricSparseIterate`: 105 lines in 12 files. The redesign is not merged, so none of this breaks yet. | Open, blocked on ProximalBase |
+| `SymmetricSparseIterate` owner redesign, no `AbstractMatrix`, no `x.p` (#391 Phase 1) | `.p`: 33 sites in `cd/drivers.jl`, `gap.jl`, `generic_newton.jl`, `kron.jl`, `kronu.jl`, `models.jl`, `path.jl`, `quic.jl`, `solver.jl` (28 with receiver `x`); `SymmetricSparseIterate`: 105 lines in 17 files. The redesign is not merged, so none of this breaks yet. | Open, blocked on ProximalBase |
 | Symmetric penalty parameter validation (#162, ProximalBase #142, T17) | `_symmetric_penalty`: 44 lines in `cd/gap.jl`, `generic_newton.jl`, `lla.jl`, `models.jl`, `path.jl`, `quic.jl`, `solver.jl`, `solve.jl`, `workspaces.jl`; it averages asymmetric weights today. All 109 suite errors below are this exact-symmetry rule meeting a test that passes an asymmetric array (`symmetric_penalty_combinations`, `symmetric_penalties`, `symmetric_penalties_basics`, `flat_coordinates`, `audit_regressions`, and the KronQuadratic `C` of `coordinate_descent`). | Open (#162) |
-| Owner clearing and `fill!` semantics (#424) | `fill!(` 36 lines in 11 files. `_clear_start!` (`cd/path.jl:18-19`) already uses `dropzeros!(fill!(x, 0))` for `SparseIterate` and `AtomIterate` (ProximalSolvers #164, v0.3.2); the owner's clear (`path.jl:19`) and the QUIC clears wait for the owner redesign. The harness's own P14 reset is a separate site (class B). | Partly done; owner open |
+| Owner clearing and `fill!` semantics (#424) | `fill!(` 36 lines in 17 files. `_clear_start!` (`cd/path.jl:18-19`) already uses `dropzeros!(fill!(x, 0))` for `SparseIterate` and `AtomIterate` (ProximalSolvers #164, v0.3.2); the owner's clear (`path.jl:19`) and the QUIC clears wait for the owner redesign. The harness's own P14 reset is a separate site (class B). | Partly done; owner open |
 | `SparseIterate` and `AtomIterate` value-write semantics (#424, #364) | Probe: harness resets behave as stated in `CASE_MAPPING.md` (P14 differs, P04/P05 equal). Solver writes `x[k] = v` and `dropzeros!(x)` after each pass were not probed. | Partly verified |
-| Coordinate views and active-set identity (#425) | `coordinates(` 64 lines in 11 files; the ledger says about 20 index by ID (fine); identity or shape use was not checked site by site. The suite passes against master for these files. | Unverified by site; suite green |
+| Coordinate views and active-set identity (#425) | `coordinates(` 64 lines in 17 files; the ledger says about 20 index by ID (fine); identity or shape use was not checked site by site. The suite passes against master for these files. | Unverified by site; suite green |
+| `rmul!`, `lmul!`, `rdiv!`, `ldiv!` of a `SparseIterate` by a non-finite scalar or a zero divisor write every entry (#427, FN-9, PR #526) | The ledger finds no affected site. Independently checked here: `git grep -P` for the four calls over `src/` and `ext/` at the audited commit returns 0 lines (broadcast scaling forms were not searched). | No site found; verified for the four named calls |
 | Strong zeros in products (#428) | Not searched in depth (ledger: no sites found). The suite passes against master. | Unverified by site; suite green |
 | Private iterate fields to accessors (#163, #165, FT25-FT28) | `.groups` 70 lines in 16 files (includes penalty fields), `.storage` 5, `.nzval` 3, `.nactive` 4, `.active` 4, `.group_of` 4, in `cd/solver.jl`, `cd/groups.jl`, `cd/gap.jl`, `cd/sparsegroup.jl`, `solvers/diagonal_metric.jl` and others; the `atomindices` and `samegroups` replacements exist on master but ProximalSolvers #165 is not implemented. | Open (#165, #163) |
 | Nonseparable `MoreauEnvelope` throws in `restrict`, `prox_entry`, `kkt_violation` (#271) | `MoreauEnvelope`: 2 lines (`cd/models.jl`, `cd/solver.jl`). No benchmark case reaches it. | Open, covered by the suite only |
@@ -71,6 +72,8 @@ detached checkout of master `233c11cc`, `Pkg.test` full tier, 8 workers.
 |:--|--:|--:|--:|--:|
 | 1.10.12 | 114108 | 109 | 114217 | 5 min 00 s |
 | 1.13.3 | 114119 | 109 | 114228 | 5 min 13 s |
+
+The summary of the two runs is kept in `probes/results/suite-probe-summary.md`; the raw logs stay in the run record and are not committed.
 
 Both runs exit with status 1. The 109 errors are identical in count and location on the two versions, in 6 of
 55 test files: `symmetric_penalty_combinations` 79, `symmetric_penalties` 20, `symmetric_penalties_basics` 4,

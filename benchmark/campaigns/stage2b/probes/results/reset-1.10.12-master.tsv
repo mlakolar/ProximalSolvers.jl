@@ -2,9 +2,11 @@ probe.proximalbase_version	0.6.0-DEV
 probe.julia	1.10.12
 sparse.used.nactive_before_reset	4
 sparse.used.active_before_reset	3,17,42,150
+sparse.fill0.status	ok
 sparse.fill0.all_values_zero	true
 sparse.fill0.nactive	4
 sparse.fill0.active	3,17,42,150
+sparse.fill0_dropzeros.status	ok
 sparse.fill0_dropzeros.all_values_zero	true
 sparse.fill0_dropzeros.nactive	0
 sparse.fill0_dropzeros.active	
@@ -23,6 +25,7 @@ atom.cold_start.after.active
 atom.cold_start.after.values_hash	11663781204985622323
 atom.cold_start.after.matches_start_values	true
 atom.cold_start.after.matches_start_active	true
+atom.cold_start.repeat.status	ok
 atom.cold_start.repeat.matches_start_active	true
 atom.cold_start.repeat.matches_start_values	true
 atom.warm_start.start.nactive	2
@@ -36,6 +39,7 @@ atom.warm_start.after.active	3,7
 atom.warm_start.after.values_hash	14939542576539002857
 atom.warm_start.after.matches_start_values	true
 atom.warm_start.after.matches_start_active	true
+atom.warm_start.repeat.status	ok
 atom.warm_start.repeat.matches_start_active	true
 atom.warm_start.repeat.matches_start_values	true
 atom.warm_overlap.start.nactive	2
@@ -49,6 +53,7 @@ atom.warm_overlap.after.active	3,7
 atom.warm_overlap.after.values_hash	14939542576539002857
 atom.warm_overlap.after.matches_start_values	true
 atom.warm_overlap.after.matches_start_active	true
+atom.warm_overlap.repeat.status	ok
 atom.warm_overlap.repeat.matches_start_active	true
 atom.warm_overlap.repeat.matches_start_values	true
 setup.has_svd_cache_fn	true

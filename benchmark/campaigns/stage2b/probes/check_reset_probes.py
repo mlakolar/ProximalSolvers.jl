@@ -14,6 +14,9 @@ Every probe file is checked on its own (`--a`, and `--b` when given), then compa
   the active-group layout, twice in a row, from a cold start and from warm starts;
 * the historical P14 reset (`fill!(x, 0.0)`) is reported, not required: when it keeps
   active coordinates the case needs the reviewed port (class B);
+* every reset invocation must report `ok` (a reset that throws after changing state fails),
+  and the observed state (active IDs, value hashes) must be present, not an `ERROR`, equal
+  to the start's within a stack, and equal across A and B;
 * an `ERROR` value in a required observation, a missing key or a malformed line is a
   failure, never skipped.
 
@@ -40,6 +43,17 @@ ATOM_REQUIRED_TRUE = tuple(
         "repeat.matches_start_values",
     )
 )
+# Every reset invocation emits a status; a reset that throws after changing state must not pass.
+STATUS_KEYS = ("sparse.fill0.status", "sparse.fill0_dropzeros.status") + tuple(
+    f"atom.{c}.{what}.status" for c in ATOM_CASES for what in ("copyto", "repeat"))
+# Observations of the state itself: present and not an ERROR value, whatever their content.
+STATE_KEYS = (
+    "sparse.fill0.nactive", "sparse.fill0.active",
+    "sparse.fill0_dropzeros.nactive", "sparse.fill0_dropzeros.active",
+    "sparse.fresh.nactive", "sparse.fresh.active",
+) + tuple(
+    f"atom.{c}.{who}.{what}"
+    for c in ATOM_CASES for who in ("start", "after") for what in ("nactive", "active", "values_hash"))
 SETUP_KEYS = ("setup.has_svd_cache_fn", "setup.svd_cache_call", "setup.field.V",
               "setup.field.s2", "setup.field.sUtY")
 # Observations that must be equal on A and on B after the ported reset.
@@ -48,9 +62,9 @@ SAME_ON_A_AND_B = (
     "sparse.fill0_dropzeros.active",
     "sparse.fresh.nactive",
     "sparse.fresh.active",
-) + tuple(f"atom.{c}.after.active" for c in ATOM_CASES) + tuple(
-    f"atom.{c}.after.nactive" for c in ATOM_CASES
-)
+) + tuple(
+    f"atom.{c}.{who}.{what}"
+    for c in ATOM_CASES for who in ("start", "after") for what in ("nactive", "active", "values_hash"))
 
 
 class ProbeError(Exception):
@@ -93,10 +107,21 @@ def check_one(obs, name):
         value = need(key)
         if value is not None and value != "true":
             failures.append(f"{name}: {key} is {value!r}, required 'true'")
-    for key in ("sparse.fill0_dropzeros.nactive", "sparse.fresh.nactive"):
+    for key in STATUS_KEYS:
         value = need(key)
-        if key.endswith("fill0_dropzeros.nactive") and value not in (None, "0"):
-            failures.append(f"{name}: the ported reset leaves {value} active coordinates")
+        if value is not None and value != "ok":
+            failures.append(f"{name}: {key} is {value!r}, required 'ok'")
+    for key in STATE_KEYS:
+        need(key)
+    value = obs.get("sparse.fill0_dropzeros.nactive")
+    if value not in (None, "0") and not value.startswith("ERROR"):
+        failures.append(f"{name}: the ported reset leaves {value} active coordinates")
+    # Within one stack, the reset must restore what the start held: values and active IDs.
+    for c in ATOM_CASES:
+        for what in ("values_hash", "active", "nactive"):
+            s, a = obs.get(f"atom.{c}.start.{what}"), obs.get(f"atom.{c}.after.{what}")
+            if s is not None and a is not None and not s.startswith("ERROR") and s != a:
+                failures.append(f"{name}: atom.{c} {what} after the reset ({a!r}) differs from the start ({s!r})")
 
     historical = obs.get("sparse.fill0.matches_fresh_workingset")
     facts["P14 historical reset fill!(x, 0.0) reproduces the empty working set"] = historical
