@@ -85,7 +85,7 @@ status 2. Usage errors and unreadable inputs exit with status 3. The classes:
 | 6 | Timed operation | the catalog fields `problem`, `solver`, `variant`, `suite`, `inputs`; the solver-configuration fingerprints; the identity of the certificate file where the certificate runs inside the timed region (D04) | `OPERATION` |
 | 7 | BLAS or thread settings | `julia_threads`, `blas_threads`, `blas`; other than one and one | `THREADS` |
 | 8 | Machine identity | `cpu_model`, `cpu`, the logical CPU and the frequency policy recorded in the hardware records, the machine inventory | `MACHINE` |
-| 9 | Repetition index set | the set of repetition IDs per Julia version must be identical in both roots (A/B: 1-5; A/A: 1-6) and each ID must appear once per stack | `REPETITIONS` |
+| 9 | Repetition index set | the set of repetition IDs per Julia version in **each** root must equal the declared set of the frozen campaign (A/B: 1-5; A/A: 1-6), with each ID once per stack. A root whose set differs from the declared set is refused, whether the other root differs from it in the same way or not: two roots that both lack the same declared ID are a `REPETITIONS` refusal, not a per-case FAILED | `REPETITIONS` |
 | 10 | Approved case mapping | a case missing from `case-mapping.toml`, a class other than A or B without a separate approved mapping, a class B case without its approval record, a case whose mapping `id`, `role` or `phase` differs from the records | `MAPPING` |
 | 11 | Record schema | the headers of the catalog, metrics, samples and errors files, the metadata keys, the schema version of the declared-differences file | `SCHEMA` |
 | 12 | Undeclared source or dependency difference | any difference not in section 3 (`harness_hash` without an approval, a Manifest entry not declared, a changed compat entry not declared) | `UNDECLARED` |
@@ -105,10 +105,12 @@ All outputs go to a fresh `--out` directory (the tool refuses a non-empty one, a
 **Precedence.** Section 4 is evaluated first and always wins: a refusal is a property of the pair of roots
 and no per-case class is written. In particular a `data_hash` that differs for any (Julia, case,
 repetition) pair is the global refusal `INPUTS`, and two roots whose repetition-ID sets differ are the
-global refusal `REPETITIONS`. The per-case classes below apply only to what remains after every refusal
-has been ruled out, and to conditions that concern one case: its records, its mapping class, its
-fingerprints. A repetition that both roots lack is a FAILED condition of every case of that repetition and
-is listed as missing; a repetition that only one root lacks is the `REPETITIONS` refusal.
+global refusal `REPETITIONS`. The declared repetition set (A/B 1-5, A/A 1-6) and the declared case set
+(the 19 IDs of `cases.txt`) come from the frozen campaign, not from the roots, so a root that lacks a
+declared repetition or a declared case is refused (`REPETITIONS`, `CASE`) even when both roots lack the
+same one: an equal-but-incomplete pair is a refusal, never a per-case FAILED. The per-case classes below
+apply only to what remains after every refusal has been ruled out, and to conditions that concern one
+case: its records, its mapping class, its fingerprints.
 
 **Per-case class**, per Julia version, in `migration-comparison.csv`:
 
@@ -119,8 +121,8 @@ is listed as missing; a repetition that only one root lacks is the `REPETITIONS`
   matches (a `data_hash` match is never accepted as proof of identical semantics), a mapping class C or D,
   or an approved semantic deviation recorded in the mapping.
 * **FAILED**: a case that is not ok in either stack (`target_missed`, `uncertifiable`, `incomplete` (an
-  incomplete path in either stack), `timeout`, `error`), a case missing from both roots, a repetition both
-  roots lack, an invalid certificate.
+  incomplete path in either stack), `timeout`, `error`), an invalid certificate. A missing case or repetition is not a FAILED
+  condition: it is a global refusal (see the precedence paragraph).
 
 **Visible lists**, repeated at the top of `report.md` and in `lists.json`, never hidden in a table and
 never summarized away: cases that are not ok, with the status and detail; missing and extra cases and
@@ -177,7 +179,7 @@ pass of the timing alone would wrongly accept.
 * One test per refused difference of section 4 (16 tests): Julia version or build; `data_hash` or
   generated inputs; target or measure; case ID or role; phase; timed operation (catalog and
   configuration fingerprint); BLAS or thread settings; machine identity; repetition index set (a missing
-  ID, a duplicate ID, an extra ID); approved case mapping (missing, unapproved class B, class C without a
+  ID in one root, the same missing ID in both roots, a duplicate ID, an extra ID); approved case mapping (missing, unapproved class B, class C without a
   separate mapping, mismatched role); record schema (header, metadata key, declared-file schema);
   undeclared source or dependency difference (an undeclared Manifest entry, a declared entry that is
   absent, a `harness_hash` change without approval); sampling and selection settings; unclean or unverified
@@ -191,7 +193,8 @@ pass of the timing alone would wrongly accept.
 * `data_hash` equal but a fixture, reset-state or configuration fingerprint different: NOT COMPARABLE,
   with no ratio in the output. A missing fingerprint file: NOT COMPARABLE.
 * Per-case classes: a case with `target_missed` in B: FAILED, listed, no ratio; an incomplete path;
-  a missing repetition; an invalid certificate; an approved semantic deviation.
+  an invalid certificate; an approved semantic deviation. A repetition missing from both roots is a
+  `REPETITIONS` refusal (exit status 2), not a FAILED case, and so is a case missing from both roots (`CASE`).
 * A/A mode: identical stack identities on two independent installations accepted, unequal ones refused, two
   processes of one installation refused.
 * The visible lists contain every non-ok case, missing and extra case, and every other item of section

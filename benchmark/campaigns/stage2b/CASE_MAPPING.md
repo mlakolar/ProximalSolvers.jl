@@ -136,9 +136,9 @@ with this mapping record (`MIGRATION_COMPARE_SPEC.md`).
 * Start: `ProximalBase.AtomIterate(32, groups)` with eight groups of four (`benchmark/cases.jl:103-104`,
   `problems.jl:163`); reset `copyto!(x, start)` (`cases.jl:128`).
 * Probe evidence (`atom.*` keys, `probes/results/`; probe at `p = 32`, the harness size, eight groups of four; the used working sets are synthetic: set by writes, not by a solver call): `copyto!(x, start)` restores the values and the
-  active-group layout from a cold start (start: 0 active; used: groups 2, 5, 9), from a warm start
-  (start: groups 3, 7; used: 3, 7, 2, 5, 9) and from an overlapping warm start (used: 3, 7, 11), and a
-  second reset in a row leaves the same state, on 0.5.4 and on master. The reset operation is
+  active-group layout from a cold start (start: 0 active; used groups 2, 5, 8), from a warm start
+  (start groups 3, 7; used groups 2, 5, 8) and from an overlapping warm start (start groups 3, 7; used
+  groups 7, 8), and a second reset in a row leaves the same state, on 0.5.4 and on master. The reset operation is
   therefore equivalent. The checker compares the values and the active groups of `start` and `after` within each probe run.
 * Solver path (not equivalent until migrated): P04 reads `x.groups[k]`
   (`src/cd/leastsquares.jl:192`, `:558`, `:598`; `src/cd/models.jl:691-692`; `src/cd/gap.jl:200`). P05 has
@@ -157,11 +157,11 @@ with this mapping record (`MIGRATION_COMPARE_SPEC.md`).
   was accepted on 0.5.4; the exactly symmetric harness matrix is accepted on both. The harness is
   therefore not affected by the new validation.
 * Solver path: the dense start is wrapped in a `SymmetricSparseIterate` inside the timed call
-  (`src/cd/quic.jl:232`). The path reads `x.p` at five sites in `quic.jl` (`:51`, `:62`, `:156`, `:194`, `:213`) and at three in `kronu.jl` (`:51`, `:70`, `:100`; the other three, `:86`, `:91` and `:120`, are not reached: the generic `coordinate_step!` that calls `coordinate_derivatives` and `update_cache!` is replaced by `kronu.jl:69`, and `loss_value` is not called by `_cd!`),
+  (`src/cd/quic.jl:232`). The path reads `x.p` at five sites in `quic.jl` (`:51`, `:62`, `:156`, `:194`, `:213`) and at `kronu.jl:70` (executed on every coordinate step). `kronu.jl:51` is an unexercised site in a reached method: `initialize!` is called, but `quic.jl:91` has just done `fill!(D, zero(T))` and `kronu.jl:50` skips every zero entry (`iszero(v) && continue`) before the `x.p` expression at `:51`, and the plain cyclic inner `_cd!` never reinitializes the model with a nonzero direction. `kronu.jl:100` executes only if the scaled stopping change is used and a step is nonzero (not traced). The sites `kronu.jl:86`, `:91` and `:120` are not reached: the generic `coordinate_step!` that calls `coordinate_derivatives` and `update_cache!` is replaced by `kronu.jl:69`, and `loss_value` is not called by `_cd!`),
   calls `_symmetric_penalty` once for real (`quic.jl:159`, the `NormL1` method at `models.jl:592-597`,
   which today averages asymmetric weights; ProximalSolvers #162 changes it to a throw), uses
   `fill!` as a clear on owners (`quic.jl:91`, `:138`, `:214`; `quic.jl:47` fills a dense `Matrix` and `:203` runs only when a
-  component start is not positive definite, which the identity start is not), reads `X[i, j]` of the owner
+  component start is not positive definite; the identity start is positive definite, so `:203` does not run), reads `X[i, j]` of the owner
   (`quic.jl:198`) and `Matrix(...)` conversions (`quic.jl:201`, `:234`). The owner is still an
   `AbstractMatrix` with the field `p` on master (probe `owner.supertype`, `owner.has_p_field`): the
   redesign (ProximalBase #391 Phase 1) is not merged, so none of this can be verified at a candidate
@@ -206,7 +206,7 @@ are. Counts are from `git grep -n` over `src/` at `7b9b5295`, comment lines excl
 | `MoreauEnvelope` and `Conjugate` `restrict`, `prox_entry`, `kkt_violation` (ledger #271) | 8 mentions of `MoreauEnvelope`, `Conjugate` or `LinearConstrained`; `kkt_violation` at `src/solvers/active_accelerated_proximal_gradient_descent.jl:296`; `prox_entry` at `leastsquares.jl:462`, `models.jl:157`, `glm.jl:644,679` | D01 calls `kkt_violation` with `NormL1` (separable, not affected). No case uses a `MoreauEnvelope`. |
 | `x.groups` of `AtomIterate` (ProximalSolvers #165) | 70 non-comment `.groups` sites (iterate and penalty fields together) in 16 files | P04 and P05 only, and only the sites listed in their `sensitive_paths_06`. Not reached: group paths and screening (`path.jl`, `sparsegroup.jl:108,118,125,181`), gap-safe screening (`gap.jl:719`), `lla.jl`, `multiresponse.jl`, `quadratic.jl`, `diagonal_metric.jl`, the active-set group variant, `workspaces.jl:153` partition check (reinit! of an `AtomIterate` workspace). |
 | `x.storage`, `x.nzval`, `x.nactive`, `x.active` (ProximalSolvers #163, #165) | `x.storage`: 5 sites (`groups.jl:32,64`, `solver.jl:568,580,599`); `x.nzval`: 3 (`solver.jl:562,574,590`); `x.nactive`: 4 and `x.active`: 4 (`solver.jl:555-556,566,578,597`) | `groups.jl:32,34,36,42` (P05) only. The other `x.storage` site (`groups.jl:64`, the quadratic model), and all of the momentum and Anderson history code, are not reached. |
-| `x.p` of the symmetric owner (ledger "#391 Phase 1") | 33 non-comment lines (the ledger counts 36 `x.p` sites including one test file): `drivers.jl` 1, `gap.jl` 2, `generic_newton.jl` 2, `kron.jl` 6, `kronu.jl` 6, `models.jl` 8, `path.jl` 2, `quic.jl` 5, `solver.jl` 1 | `quic.jl` (5) and `kronu.jl` (3: `:51`, `:70`, `:100`) by P10 and D02. Not reached: `kron.jl` (`KronQuadratic`), `kronu.jl:86,91,120`, `generic_newton.jl`, `drivers.jl` (`refit!`, Hessians), `gap.jl:1031,1033`, `models.jl` symmetric screening and weights (`:384-387`, `:426-434`, `:577-578`), `path.jl:9,114`, `solver.jl:754` (symmetric `_copy_dense!`). |
+| `x.p` of the symmetric owner (ledger "#391 Phase 1") | 33 non-comment lines (the ledger counts 36 `x.p` sites including one test file): `drivers.jl` 1, `gap.jl` 2, `generic_newton.jl` 2, `kron.jl` 6, `kronu.jl` 6, `models.jl` 8, `path.jl` 2, `quic.jl` 5, `solver.jl` 1 | `quic.jl` (5 executed expressions) and `kronu.jl:70` (executed) by P10 and D02; `kronu.jl:51` is an unexercised site in a reached method (`initialize!` skips the zero direction before it) and `kronu.jl:100` executes only under the scaled stopping change (not traced). Not reached: `kron.jl` (`KronQuadratic`), `kronu.jl:86,91,120`, `generic_newton.jl`, `drivers.jl` (`refit!`, Hessians), `gap.jl:1031,1033`, `models.jl` symmetric screening and weights (`:384-387`, `:426-434`, `:577-578`), `path.jl:9,114`, `solver.jl:754` (symmetric `_copy_dense!`). |
 | `coordinates(x)` is a view, `coordinates(x) === x` no longer holds (ledger "#425") | 19 non-comment uses of `coordinates(` (plus 29 of `activecoordinates(`, 17 of `ncoordinates(`) | The uses are on the symmetric owner or in the Anderson history; those on case paths are `quic.jl:48,103,220` and `kronu.jl:47,74` (`kronu.jl:118` is in `loss_value`, not reached). Every use indexes by ID (`cx[k]`); none tests identity. `activecoordinates(x)` is used by all sparse-iterate cases (`leastsquares.jl:191`, `glm.jl:98`, `active_accelerated...:277`). |
 | `LogDetLoss(S)` exact symmetry (ledger "#269") | 20 mentions of `LogDetLoss`; the rebuilds at `quic.jl:239,241` (`Scaled` method) and `precompile.jl:56` | P10 and D02 construct `LogDetLoss(S)` of an exactly symmetric `S`. The `Scaled` methods are not reached. |
 | Working-set rule for writes (ledger "#424") and coordinates view (#425), strong zeros (#428) | `dropzeros!`: 16 lines in 9 files, of which 9 are code (`gap.jl:685`, `generic_newton.jl:142,168`, `glm.jl:582`, `path.jl:18`, `solver.jl:276`, `solve.jl:5`, `drivers.jl:110`, `active_accelerated...:150`), 5 are comments (`glm.jl:487`, `path.jl:14`, `solver.jl:197,317,545`), 1 is the import (`ProximalSolvers.jl:26`) and 1 a docstring line (`active_accelerated...:15`); `fill!`: 36 non-comment lines, of which 6 act on iterates (`path.jl:18-19`, `quic.jl:91,138,203,214`) and the rest on plain arrays and model caches | `solver.jl:276` (all CD cases), `gap.jl:685`, `glm.jl:582`, `active_accelerated...:150`. The owner `fill!` sites are `quic.jl` (P10, D02). |
@@ -220,8 +220,8 @@ are. Counts are from `git grep -n` over `src/` at `7b9b5295`, comment lines excl
 1. Whether `src/cd/gap.jl:719` and `src/cd/sparsegroup.jl:150-160` are reached by P04 and P05 (the
    duality-gap path is enabled by `gaptol = 1e-10`; the line-level reach was not traced).
 2. Which lines of `src/cd/models.jl` and `src/cd/gap.jl` the QUIC inner coordinate descent reaches
-   beyond those named; `kronu.jl:100` (`coordinate_scale`) is reached only when the scaled stopping change
-   is used, which `relative = true` selects, and was not traced further.
+   beyond those named; `kronu.jl:100` (`coordinate_scale`) executes only when the scaled stopping change
+   is used (`relative = true` and `response_scale(m, x) > 0`) and a step is nonzero, and was not traced further.
 3. The behaviour of the SparseIterate working-set rules (#424, #425) on the solver's own writes
    `x[k] = v` and `dropzeros!(x)` after every pass, at a candidate: only the reset operations were
    probed, not the solves.

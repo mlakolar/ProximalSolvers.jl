@@ -349,6 +349,46 @@ class SpecTests(unittest.TestCase):
             self.assertIn(needle, self.tests_section)
 
 
+class SpecRepetitionTests(unittest.TestCase):
+    def test_an_equal_but_incomplete_repetition_set_is_a_refusal_not_a_failed_case(self):
+        spec = read(os.path.join(HERE, "MIGRATION_COMPARE_SPEC.md"))
+        row = next(l for l in spec.splitlines() if l.rstrip().endswith("`REPETITIONS` |"))
+        self.assertIn("frozen campaign", row)
+        self.assertIn("both roots lack the same declared ID", row)
+        self.assertIn("equal-but-incomplete pair is a refusal, never a per-case FAILED", spec)
+        failed = spec[spec.index("* **FAILED**"):spec.index("**Visible lists**")]
+        self.assertNotIn("both roots", failed)
+        self.assertNotRegex(failed, r"(?i)a repetition both")
+
+
+class CaseMappingProseTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.md = read(os.path.join(HERE, "CASE_MAPPING.md"))
+        cls.toml = read(os.path.join(HERE, "case-mapping.toml"))
+
+    def test_probe_groups_in_the_prose_are_those_of_the_saved_results(self):
+        with open(os.path.join(HERE, "probes", "results", "reset-1.13.3-master.tsv"), encoding="utf-8") as h:
+            rows = dict(line.rstrip("\n").split("\t", 1) for line in h if "\t" in line)
+        self.assertEqual(rows["atom.cold_start.used.active"], "2,5,8")
+        self.assertEqual(rows["atom.warm_start.start.active"], "3,7")
+        self.assertEqual(rows["atom.warm_overlap.used.active"], "3,7,8")
+        self.assertIn("used groups 2, 5, 8", self.md)
+        self.assertIn("used\n  groups 7, 8", self.md)
+        for stale in ("2, 5, 9", "3, 7, 11", "3, 7, 2, 5, 9", "3,17,42,150", "p = 160"):
+            self.assertNotIn(stale, self.md + self.toml)
+
+    def test_the_kronu_x_p_read_is_described_as_an_unexercised_site_in_a_reached_method(self):
+        self.assertEqual(self.toml.count("UNEXERCISED SITE IN A REACHED METHOD"), 2)   # P10 and D02
+        self.assertIn("unexercised site in a reached method", self.md)
+        self.assertNotIn("three in `kronu.jl`", self.md)
+        self.assertNotIn("`kronu.jl` (3:", self.md)
+
+    def test_the_block_start_sentence_has_no_double_negative(self):
+        self.assertIn("the identity start is positive definite, so `:203` does not run", self.md)
+        self.assertNotIn("which the identity start is not", self.md)
+
+
 class SelfContainedTests(unittest.TestCase):
     def test_this_file_needs_no_git_network_or_julia(self):
         tree = ast.parse(read(os.path.abspath(__file__)))
@@ -479,12 +519,23 @@ class HistoricalReferenceScriptTests(unittest.TestCase):
             status = self.module.main(list(argv) + extra)
         return status, out.getvalue(), err.getvalue()
 
+    def pin(self, root):
+        """Pin the synthetic archive's own listing (the real constant belongs to the real archive)."""
+        self.module.LISTING_SHA256 = hashlib.sha256(
+            read(os.path.join(root, "checksums.sha256")).encode()).hexdigest()
+
+    def rechecksum(self, root):
+        write_checksums(root)
+        self.pin(root)
+
     def archive(self, mutate=None):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         root = os.path.join(directory.name, "pre06-stage2a-campaign-v1")
         build_archive(root, mutate)
-        write_checksums(root)
+        original = self.module.LISTING_SHA256
+        self.addCleanup(setattr, self.module, "LISTING_SHA256", original)
+        self.rechecksum(root)
         # the "frozen" files of this synthetic world are the archive's own campaign.toml and cases.txt
         self.frozen = os.path.join(directory.name, "frozen")
         for name in ("campaign.toml", "cases.txt"):
@@ -526,6 +577,22 @@ class HistoricalReferenceScriptTests(unittest.TestCase):
         status, _, err = self.run_main(root)
         self.assertEqual((status, "missing" in err), (1, True))
 
+    def test_a_listing_other_than_the_pinned_one_is_refused_with_status_1(self):
+        root, _ = self.archive()
+        # a consistent, internally valid listing of the same files that is not the pinned one
+        write_checksums(root)
+        path = os.path.join(root, "checksums.sha256")
+        write(path, read(path) + "\n")                   # same entries, different bytes
+        status, _, err = self.run_main(root)
+        self.assertEqual((status, "pinned listing" in err), (1, True))
+
+    def test_the_script_pins_the_real_archive_listing(self):
+        self.assertEqual(self.module.LISTING_SHA256,
+                         "a054ab2c5938a1a898a2fb800f2deb1b969dbf0cd1fa0beab4ef4b5adbdd931d")
+        source = read(os.path.join(HERE, "historical_reference.py"))
+        self.assertIn("pinned", source)
+        self.assertIn("provenance only", source)
+
     def test_a_missing_or_malformed_checksum_file_is_refused_with_status_1(self):
         root, _ = self.archive()
         write(os.path.join(root, "checksums.sha256"), "not a checksum line\n")
@@ -544,14 +611,14 @@ class HistoricalReferenceScriptTests(unittest.TestCase):
         path = os.path.join(root, "campaign.toml")
         write(path, read(path) + "# altered\n")
         self.assertEqual(self.run_main(root)[0], 1)      # the checksum no longer matches
-        write_checksums(root)                            # a consistent listing does not help
+        self.rechecksum(root)                            # a consistent listing does not help
         status, _, err = self.run_main(root)
         self.assertEqual((status, "frozen" in err), (1, True))
 
     def test_a_cases_txt_that_differs_from_the_frozen_one_is_refused_with_status_1(self):
         root, _ = self.archive()
         write(os.path.join(root, "cases.txt"), read(os.path.join(root, "cases.txt")) + "\n")
-        write_checksums(root)
+        self.rechecksum(root)
         self.assertEqual(self.run_main(root)[0], 1)
 
     def test_check_fails_with_status_1_on_a_changed_tsv(self):
@@ -595,7 +662,7 @@ class HistoricalReferenceScriptTests(unittest.TestCase):
         root, _ = self.archive()
         os.remove(os.path.join(root, "julia-1.10", "raw", "julia-1.10.13-rep05-metrics.tsv"))
         self.assertEqual(self.run_main(root)[0], 1)      # listed but missing: the binding fails first
-        write_checksums(root)                            # a consistent listing: the content check aborts
+        self.rechecksum(root)                            # a consistent listing: the content check aborts
         self.assertEqual(self.run_main(root)[0], 2)
 
     def test_a_fixed_input_case_with_two_hashes_aborts(self):

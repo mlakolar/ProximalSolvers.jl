@@ -15,6 +15,11 @@ never a baseline for a ratio. Julia 1.10 and Julia 1.13 rows are separate strata
 are never pooled or paired.
 
 The extracted root is first **bound to the archive** (a failure exits 1, `BINDING FAILED`):
+  * what is pinned in this script: the SHA-256 of the archive's root `checksums.sha256` listing
+    (`LISTING_SHA256`, computed from the verified extracted archive). A different listing is refused. The
+    listing in turn carries the SHA-256 of every other file of the archive, `campaign.toml`, `cases.txt` and
+    the records included. The SHA-256 of the tarball (`ARCHIVE_SHA256`) is provenance only: it is written
+    into the TSV header and is not checked here, because the script reads an extracted directory;
   * the root's own `checksums.sha256` (lines `SHA-256<two spaces>path`, paths relative to the root, every
     regular file under the root except that file itself): every listed file must exist and match, and no
     regular file under the root may be unlisted; a symbolic link or other non-regular entry is refused;
@@ -49,7 +54,9 @@ import sys
 import tomllib
 from decimal import Decimal
 
-ARCHIVE_SHA256 = "1edd64330606d739acf1d7b4ba0643a4fb6a1366bad4c82393e2ba1ffdcc723e"
+ARCHIVE_SHA256 = "1edd64330606d739acf1d7b4ba0643a4fb6a1366bad4c82393e2ba1ffdcc723e"   # tarball: provenance only
+# SHA-256 of the extracted archive's root checksums.sha256 (the listing of every other file's SHA-256).
+LISTING_SHA256 = "a054ab2c5938a1a898a2fb800f2deb1b969dbf0cd1fa0beab4ef4b5adbdd931d"
 ARCHIVE_ASSET = "pre06-stage2a-campaign-v1.tar.gz"
 CAMPAIGN_ID = "pre06-stage2a-v1"
 REPETITIONS = 5
@@ -123,6 +130,9 @@ def verify_binding(root, frozen_dir):
     listing = os.path.join(root, "checksums.sha256")
     if not os.path.isfile(listing):
         raise Binding("checksums.sha256 is missing from the archive root")
+    if sha256_of(listing) != LISTING_SHA256:
+        raise Binding("checksums.sha256 is not the pinned listing of the archive "
+                      f"(sha256 {sha256_of(listing)}, pinned {LISTING_SHA256})")
     listed = {}
     with open(listing, encoding="utf-8", newline="") as handle:
         for number, line in enumerate(handle.read().split("\n"), 1):
