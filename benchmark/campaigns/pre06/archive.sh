@@ -27,6 +27,13 @@
 # ignores a CAMPAIGN override (a stub verify must never approve a real release) unless
 # ARCHIVE_SH_ALLOW_STUB=1, which only the offline tests (test_campaign.py) set.
 # Every tar runs without TAR_OPTIONS and GZIP from the environment.
+#
+# Threat model: the root's parent directory and the staging directories in it are assumed
+# not to be modified concurrently by untrusted local processes. Integrity does not rely on
+# directory permissions but on the checksums, the verify of the extracted tarball, the
+# re-hash of the staged copy before the upload and the re-read of the tag at FREEZE_SHA. A
+# hostile concurrent writer in the same directory can still race a check and the `ln` or
+# `rm` that follows it (out of scope); that never leads to publishing unverified bytes.
 set -euo pipefail
 unset CDPATH
 
@@ -51,8 +58,10 @@ cleanup() {
     warn "could not remove $stage"
   fi
 }
-# An unfinished pack removes the files it installed, and only while they are still its
-# own (the same inode as the staged file); nothing else is ever removed.
+# An unfinished pack removes the files it installed, in one pass, each only if it is still
+# its own (the same inode as the staged file, not a link), checked immediately before its
+# `rm`; nothing else is ever removed. The window between that check and the `rm` is the
+# residual race of the threat model above.
 rollback() {
   [ "$committed" = no ] || return 0
   local entry dest source
@@ -89,7 +98,13 @@ real_dir() {
   case $trimmed in ""|.|..) die "ROOT '$1' must name an evidence directory (not empty, /, . or ..)" ;; esac
   logical=$(cd -L -- "$1" && pwd -L) || die "no directory $1"
   [ ! -L "$logical" ] || die "$1 is a symbolic link; the root must be a real directory"
-  (cd -P -- "$logical" && pwd -P) || die "no directory $1"
+  local physical here
+  physical=$(cd -P -- "$logical" && pwd -P) || die "no directory $1"
+  here=$(pwd -P) || die "cannot resolve the current directory"
+  # `/`, the current directory or one of its ancestors, however spelled (./., sub/.., /./)
+  [[ $here/ != "${physical%/}/"* ]] \
+    || die "ROOT '$1' is $physical: /, the current directory or one of its ancestors"
+  echo "$physical"
 }
 
 absent() {   # refuse an existing destination, also a dangling symbolic link
@@ -137,13 +152,14 @@ checksums() {
   local root tmp odd
   root=$(real_dir "$1")
   rm -f "$root/checksums.sha256"
+  [ -n "$stage" ] || make_stage "$(dirname "$root")"   # pack's stage, or its own
   odd=$(cd "$root" && find . ! -type f ! -type d -printf '%P\n') || die "cannot list $root"
   [ -z "$odd" ] || die "not regular files or directories (links, FIFOs, sockets, devices): $odd"
   # sha256sum escapes these names, and the verifier rejects escaped lines
   odd=$(cd "$root" && find . -type f \( -path '*\\*' -o -path "*"$'\n'"*" -o -path "*"$'\r'"*" \) \
         -printf '%P\n') || die "cannot list $root"
   [ -z "$odd" ] || die "file names with a backslash, newline or carriage return cannot be listed: $odd"
-  tmp=$(mktemp "$(dirname "$root")/.checksums.XXXXXX")   # outside ROOT: never listed
+  tmp=$stage/checksums.sha256   # outside ROOT: never listed; removed with the stage
   if ( cd "$root" && find . -type f ! -path ./checksums.sha256 -printf '%P\0' |
          LC_ALL=C sort -z | xargs -0 -r sha256sum ) > "$tmp"; then
     if grep -q '^\\' "$tmp"; then   # any escaped name: the verifier would reject the list
@@ -151,7 +167,7 @@ checksums() {
       die "sha256sum escaped a file name under $root; no checksums.sha256 written"
     fi
     chmod 0644 "$tmp"
-    mv "$tmp" "$root/checksums.sha256"
+    install_new "$tmp" "$root/checksums.sha256"
   else
     rm -f "$tmp"
     die "checksum generation failed under $root; no checksums.sha256 written"
@@ -184,8 +200,8 @@ pack() {
   pins_line=$(pins) || die "cannot read campaign.toml beside $CAMPAIGN"
   id=${pins_line%%$'\t'*}
 
-  checksums "$root"
   make_stage "$parent"
+  checksums "$root"
   run_verify "$root" "$stage/verify.out" --freeze-sha "$sha" ${extra[@]+"${extra[@]}"}
   install_new "$stage/verify.out" "$out"
   local numerical evidence_want=OFFICIAL
@@ -240,13 +256,16 @@ pack() {
   installed+=("$tarball"$'\t'"$staged")
   install_new "$staged" "$tarball"
   committed=yes
-  echo "archive: $tarball"
-  echo "sha256:  $digest"
-  cat "$tarball.status"
+  # Packed. The summary is best effort (`|| true`: a closed or full stdout must not turn a
+  # complete archive into a failure); the exit code is verify's, 0 or 2.
+  trap '' PIPE
+  set +e
+  { echo "archive: $tarball"; echo "sha256:  $digest"; cat -- "$tarball.status"; } || true
   if [ "$verify_rc" -eq 2 ]; then
-    echo "*** $numerical ***" >&2
+    echo "*** $numerical ***" >&2 || true
     exit 2
   fi
+  exit 0
 }
 
 status_value() {   # the value of key $1 in the status file $2
@@ -390,7 +409,7 @@ EOF
   # The tag, created atomically at the freeze commit (the API refuses an existing ref),
   # then re-read; `--verify-tag` makes gh use that tag and never create one elsewhere.
   gh api -X POST "repos/$repo/git/refs" -f "ref=refs/tags/$tag" -f "sha=$sha" > /dev/null \
-    || die "gh: cannot create tag $tag at $sha (it may exist already); nothing released"
+    || die "gh: cannot create tag $tag at $sha; nothing released. Check whether tag $tag exists on $repo and at which commit; tags are never moved or deleted automatically"
   local left="tag $tag now exists on $repo (created by this run at $sha); it is never moved or
   deleted automatically: inspect it, then publish its release by hand or remove it by hand"
   out=$(gh api "repos/$repo/git/ref/tags/$tag" --jq '.object.type + " " + .object.sha') \

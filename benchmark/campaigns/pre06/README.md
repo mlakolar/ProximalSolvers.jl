@@ -227,7 +227,8 @@ and each `julia-<V>`) and `archive.sh` refuse a root that is a symbolic link and
 symbolic link, FIFO, socket or device inside it, so no evidence can live outside the
 archive. `archive.sh checksums ROOT` writes `ROOT/checksums.sha256` over every regular file of
 the root except that file itself (so both `julia-<V>/checksums.sha256` are listed, once),
-with paths relative to the root in C-locale order; any failure removes the partial list.
+with paths relative to the root in C-locale order; the list is built in a private staging
+directory and installed like the files below (`ln -T`), and any failure leaves no list.
 Names with a backslash, newline or carriage return are refused (`sha256sum` would escape
 them). `archive.sh pack ROOT FREEZE_SHA` runs `checksums`, then
 `campaign.py verify ROOT --archive --freeze-sha FREEZE_SHA` (its output is always kept as
@@ -244,7 +245,9 @@ them). `archive.sh pack ROOT FREEZE_SHA` runs `checksums`, then
   status file `<root>.tar.gz.status` (verify exit code, numerical status, the `RECORD
   INTEGRITY`, `NUMERICAL`, `HARDWARE` and `EVIDENCE` lines, archive SHA-256), and last
   `<root>.tar.gz`. If any of them cannot be installed, the ones this run installed are
-  removed again (only while they are still its own files). Exit 0; publication allowed.
+  removed again (only while they are still its own files). The summary printed after
+  that is best effort: a closed or full stdout does not change the exit code (0 here, 2
+  below). Exit 0; publication allowed.
 - **2**: valid records with a non-`ok` case. Packs as above, the status file says
   `NUMERICAL FAILURE: valid archived evidence, not a healthy reference`, and `pack` exits
   2. The archive is kept; it is never described as a healthy baseline, and `release`
@@ -253,8 +256,9 @@ them). `archive.sh pack ROOT FREEZE_SHA` runs `checksums`, then
 - **1 or anything else** (another code, a signal): blocked before `tar`; nothing is
   packed or published. `pack` refuses to start if the tarball, a sidecar or
   `.verify.out` exists (also as a symbolic link), and refuses an archive path containing
-  `#` (which `gh` reads as a label). `checksums`, `pack` and `release` refuse an empty
-  ROOT and one that is only `/`, `.` or `..` before touching any file.
+  `#` (which `gh` reads as a label). `checksums`, `pack` and `release` refuse, before
+  touching any file, an empty ROOT and one that is physically `/`, the current directory
+  or one of its ancestors, however spelled (`.`, `./.`, `sub/..`, `/./`, `..`, ...).
 
 `archive.sh release ROOT FREEZE_SHA --tag TAG [--disposition REF]` publishes only an
 official archive; a pilot rehearsal archive is never released. It copies the tarball and
@@ -285,6 +289,13 @@ failed check or `gh` call before the upload exits nonzero; after a successful up
 nothing changes the exit status, not even a closed or full stdout (`archive.sh release …
 | head` is safe), and a staging directory that cannot be removed is only reported. An
 existing `<root>.release-notes.md` is never overwritten.
+
+Threat model: the root's parent directory and the staging directories in it are assumed
+not to be modified concurrently by untrusted local processes. Integrity does not rely on
+directory permissions but on the checksums, the verify of the extracted tarball, the
+re-hash of the staged copy before the upload and the re-read of the tag at `FREEZE_SHA`.
+A hostile concurrent writer in the same directory can still race a check and the `ln` or
+`rm` that follows it (out of scope); that never leads to publishing unverified bytes.
 
 Retries: everything before the tag creation can be rerun after fixing its cause (move
 the kept `<root>.release-notes.md` away first). Once the tag exists, `release` refuses to

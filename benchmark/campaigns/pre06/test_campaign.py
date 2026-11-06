@@ -786,6 +786,7 @@ class ArchiveScript(Scratch):
             self.assertIn("\n" + line, "\n" + status)
         self.assertTrue((self.evidence / f"{OFFICIAL}.verify.out").is_file())
         self.assertFalse(list(root.rglob("*verify.out")))
+        self.assertFalse(list(self.evidence.glob(".archive-stage.*")))   # one stage, removed
         members = subprocess.run(["tar", "-tzf", str(tarball)], capture_output=True,
                                  text=True).stdout.split()
         self.assertIn(f"{OFFICIAL}/julia-1.10/checksums.sha256", members)
@@ -1043,6 +1044,9 @@ class ArchiveScript(Scratch):
                 self.assertIn(message, result.stderr)
                 self.assertEqual(sum(line.startswith("gh release create") for line in
                                      log.splitlines()), 1 if label == "create fails" else 0)
+                if label in ("created meanwhile at another commit", "POST fails"):
+                    self.assertIn(f"Check whether tag {TAG} exists", result.stderr)
+                    self.assertIn("tags are never moved or deleted automatically", result.stderr)
                 if tag_left == SHA:   # created by this run: reported, never removed
                     self.assertIn(f"tag {TAG} now exists", result.stderr)
                 self.assertEqual(self.remote_tag.read_text().strip() if tag_left else None,
@@ -1128,23 +1132,74 @@ class ArchiveScript(Scratch):
         self.assertIn("is not the file installed", result.stderr)
         self.assertFalse(tarball.exists())
 
+    def test_checksums_destination_becomes_dir_or_link(self):
+        bin_ = self.tmp / "hashmock"   # sha256sum plants something at ROOT/checksums.sha256
+        bin_.mkdir()
+        (bin_ / "sha256sum").write_text(
+            '#!/usr/bin/env bash\n'
+            'if [ ! -e "$PLANT" ] && [ ! -L "$PLANT" ]; then\n'
+            '  if [ -n "${PLANT_TO:-}" ]; then ln -s "$PLANT_TO" "$PLANT"; else mkdir "$PLANT"; fi\n'
+            f'fi\nexec {shutil.which("sha256sum")} "$@"\n')
+        (bin_ / "sha256sum").chmod(0o755)
+        for number, (command, kind) in enumerate((c, k) for c in ("checksums", "pack")
+                                                 for k in ("dir", "link")):
+            with self.subTest(command=command, kind=kind):
+                root = make_root(self.evidence, f"pilot-c{number}")
+                inside = root / "julia-1.13"
+                before = sorted(p.name for p in inside.iterdir())
+                plant = root / "checksums.sha256"
+                env = dict(PATH=f"{bin_}:{self.env['PATH']}", PLANT=str(plant))
+                if kind == "link":
+                    env["PLANT_TO"] = str(inside)
+                args = ("checksums", root) if command == "checksums" else ("pack", root, SHA)
+                result, log = self.run_sh(*args, **env)
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn("cannot install", result.stderr)
+                self.assertNotIn("campaign verify", log)
+                self.assertEqual(sorted(p.name for p in inside.iterdir()), before)
+                if kind == "dir":
+                    self.assertEqual(list(plant.iterdir()), [])
+                self.assertFalse(list(self.evidence.glob(".archive-stage.*")))
+                self.assertFalse(Path(f"{root}.tar.gz").exists())
+
+    def test_pack_summary_never_changes_the_exit_code(self):
+        for number, rc in enumerate((0, 2)):
+            with self.subTest(rc=rc, stdout="closed pipe"):
+                root = make_root(self.evidence, f"pilot-p{number}")
+                piped = subprocess.run(
+                    ["bash", "-c", 'bash "$0" pack "$1" "$2" | true; echo "${PIPESTATUS[0]}"',
+                     str(ARCHIVE), str(root), SHA], capture_output=True, text=True,
+                    env=dict(self.env, STUB_RC=str(rc)))
+                self.assertEqual(piped.stdout.strip(), str(rc), piped.stderr)
+                self.assertTrue(Path(f"{root}.tar.gz").is_file())
+                self.assertTrue(Path(f"{root}.tar.gz.status").is_file())
+            with self.subTest(rc=rc, stdout="/dev/full"):
+                root = make_root(self.evidence, f"pilot-f{number}")
+                result, _ = self.run_sh("pack", root, SHA, stdout_full=True, STUB_RC=str(rc))
+                self.assertEqual(result.returncode, rc, result.stderr)
+                self.assertTrue(Path(f"{root}.tar.gz").is_file())
+
     def test_empty_and_dot_roots_are_refused(self):
         work = self.tmp / "work" / "cwd"
         work.mkdir(parents=True)
         (work / "checksums.sha256").write_text("user data\n")
         (work / "f").write_text("x\n")
-        for root in ("", "/", "//", ".", "./", "..", "../"):
+        (work / "sub").mkdir()
+        for root in ("", "/", "//", ".", "./", "..", "../", "./.", "././", "sub/..",
+                     "./sub/../", "sub/../..", "../.", "/./", "/../"):
             for command in (("checksums", root), ("pack", root, SHA),
                             ("release", root, SHA, "--tag", TAG)):
                 with self.subTest(root=root, command=command[0]):
                     result = subprocess.run(["bash", str(ARCHIVE), *command], cwd=work,
                                             capture_output=True, text=True, env=self.env)
                     self.assertEqual(result.returncode, 1)
-                    self.assertIn("must name an evidence directory", result.stderr)
+                    self.assertRegex(result.stderr, "must name an evidence directory|the "
+                                     "current directory or one of its ancestors")
                     self.assertEqual((work / "checksums.sha256").read_text(), "user data\n")
                     self.assertEqual(sorted(p.name for p in work.parent.iterdir()), ["cwd"])
                     self.assertEqual(sorted(p.name for p in work.iterdir()),
-                                     ["checksums.sha256", "f"])
+                                     ["checksums.sha256", "f", "sub"])
+                    self.assertEqual(list((work / "sub").iterdir()), [])
 
     def test_pack_never_writes_through_planted_files(self):
         victim = self.tmp / "victim.txt"
@@ -1264,6 +1319,7 @@ class ArchiveScript(Scratch):
         self.assertIn("escaped a file name", result.stderr)
         self.assertFalse((root / "checksums.sha256").exists())
         self.assertFalse(list(self.evidence.glob(".checksums.*")))
+        self.assertFalse(list(self.evidence.glob(".archive-stage.*")))
 
     def test_release_names(self):
         root, tarball, result, _ = self.pack(0, "pre06-stage2a-campaign-v1-copy")
