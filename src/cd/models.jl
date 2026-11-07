@@ -686,9 +686,10 @@ end
 # groups; a scaled penalty goes with the iterates of the penalty it scales
 _check_iterate(g::Scaled, x) = _check_iterate(g.f, x)
 function _check_iterate(g::AbstractFunction, x)
-  # validated again here: an entry point can reach this check without having
-  # validated the penalty, and the penalty of a LLA stage is formed after the
-  # entry point's own validation
+  # A second scan of the parameters, O(p²) and small next to a coordinate pass: it
+  # guards the entry points. Every owner caller validates the penalty it is given
+  # before this check, except that LLA forms the penalty of its first stage after
+  # validating the supplied one, and this scan validates the stage weights.
   x isa SymmetricSparseIterate && _symmetric_penalty(g, x)
   if isseparable(g)
     ProximalBase._checkparams(g, x)
