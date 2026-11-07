@@ -546,12 +546,23 @@ function _symmetric_penalty(g, x::SymmetricSparseIterate)
   _validate_symmetric_parameters(g, x)
   g
 end
-# a tuple of iterates goes with a SeparableSum, possibly scaled (Scaled is the
-# wrapper of a block penalty that the solvers evaluate on a tuple); other
-# penalties on a tuple, which couple the blocks, pass as they are
-function _symmetric_penalty(g::Union{SeparableSum, Scaled}, x::Tuple)
-  _validate_symmetric_parameters(g, x)
-  g
+# On a tuple of iterates (a point of a product space) the check is made on the
+# penalty as supplied. With ProximalBase 0.6 every penalty goes through
+# ProximalBase's public checker, which validates what ProximalBase's own
+# declarations of per-entry parameters cover (see the definition below); it does
+# not validate user-defined wrappers or types that declare nothing. Earlier
+# versions are covered for a SeparableSum and Scaled around one, also nested;
+# other penalties on a tuple pass unchanged.
+@static if isdefined(ProximalBase, :check_symmetric_parameters)
+  function _symmetric_penalty(g, x::Tuple)
+    _validate_symmetric_parameters(g, x)
+    g
+  end
+else
+  function _symmetric_penalty(g::Union{SeparableSum, Scaled}, x::Tuple)
+    _validate_symmetric_parameters(g, x)
+    g
+  end
 end
 
 # one pair is symmetric when its entries are equal, also as NaN and NaN or

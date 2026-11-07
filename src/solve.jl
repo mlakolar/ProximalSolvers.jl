@@ -51,10 +51,14 @@ rule as coordinate descent: the per-entry parameters of `g` must be exactly
 symmetric, or symmetric by type as `Symmetric(W, :L)`, otherwise an
 `ArgumentError` is thrown before anything is written (see the
 [`CDSolver`](@ref) method of `solve!`). The penalty is used as supplied. The
-smooth function `f` is not checked. For tuples, the rule applies block by
-block to a `SeparableSum` and to `Scaled` around one (also nested); no other
-wrapper of a block penalty is checked, and penalties that couple blocks pass
-unchanged: their symmetric-storage compatibility is the caller's responsibility.
+smooth function `f` is not checked. For a tuple of iterates, with
+ProximalBase 0.6 or later every penalty goes through ProximalBase's public
+`check_symmetric_parameters`, which validates what ProximalBase's declarations
+of per-entry parameters cover, and not user-defined wrappers or types that
+declare nothing; with earlier versions the rule covers a `SeparableSum` and
+`Scaled` around one (also nested), and other penalties on a tuple pass
+unchanged. Their symmetric-storage compatibility is then the caller's
+responsibility.
 
 # Example
 ```julia

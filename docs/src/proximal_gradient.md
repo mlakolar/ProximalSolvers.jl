@@ -206,9 +206,12 @@ the per-entry parameters of ``g`` must be exactly symmetric, or symmetric by
 type as `Symmetric(W, :L)`, and otherwise an `ArgumentError` is thrown before
 anything is written. The penalty is used as supplied; for the symmetric part
 of asymmetric weights, pass ``(W + W')/2``, which is a different penalty. For
-a tuple, the rule applies block by block to a `SeparableSum` and to `Scaled`
-around one (also nested); no other wrapper of a block penalty is checked.
-Penalties that couple blocks pass unchanged; their compatibility with
+a tuple of iterates, with ProximalBase 0.6 or later every penalty goes through
+ProximalBase's public `check_symmetric_parameters`, which validates what
+ProximalBase's declarations of per-entry parameters cover, and not user-defined
+wrappers or types that declare nothing. With earlier versions the rule covers
+a `SeparableSum` and `Scaled` around one (also nested), and other penalties on
+a tuple pass unchanged; their compatibility with
 symmetric storage is the caller's responsibility. The smooth loss ``f`` is
 not checked.
 
