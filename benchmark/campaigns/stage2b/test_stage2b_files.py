@@ -567,6 +567,11 @@ class ScheduleTests(unittest.TestCase):
         self.assertEqual(base["tree"], "1226119eb2cc6144f7345c727f0e7682632f7826")
         self.assertEqual(base["tree"], frozen["proximalbase"]["tree"])
         self.assertEqual((base["version"], base["release"]), ("0.5.4", "registered"))
+        # the package hashes the metadata records of a Stack A root must carry (migration_compare.py checks them)
+        self.assertEqual(solvers["package_hash"], "f37fc61f300ad597a33c7ab5f448d38c865db854")
+        self.assertEqual(solvers["package_hash"], frozen["proximalsolvers"]["package_hash"])
+        self.assertEqual(base["package_hash"], "d4747f2ab51212b20d9adcf70e21c2200b090b2a")
+        self.assertEqual(base["package_hash"], frozen["proximalbase"]["package_hash"])
 
     def test_the_file_says_it_is_a_pre_freeze_draft(self):
         self.assertIn("PRE-FREEZE DRAFT", self.text)

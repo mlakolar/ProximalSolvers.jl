@@ -238,11 +238,12 @@ def load_schedule(path):
          and all(is_str(value) for value in machine["cpu"].values()), "[machine].cpu must map every stratum")
     stack = tables(top["stack_a"], ("harness_hash", "proximalsolvers", "proximalbase"), where="[stack_a]")
     need(hex40(stack["harness_hash"]), "[stack_a].harness_hash must be 40 lowercase hex")
-    for table, keys in (("proximalsolvers", ("commit", "tree", "version")),
-                        ("proximalbase", ("tag", "commit", "tree", "version", "release"))):
+    for table, keys in (("proximalsolvers", ("commit", "tree", "version", "package_hash")),
+                        ("proximalbase", ("tag", "commit", "tree", "version", "release", "package_hash"))):
         tables(stack[table], keys, where=f"[stack_a.{table}]")
         need(all(is_str(stack[table][k]) for k in keys) and hex40(stack[table]["commit"])
-             and hex40(stack[table]["tree"]), f"[stack_a.{table}] has an invalid value")
+             and hex40(stack[table]["tree"]) and hex40(stack[table]["package_hash"]),
+             f"[stack_a.{table}] has an invalid value")
     return dict(id=sch["id"], campaign_id=sch["campaign_id"], reps=list(reps),
                 orders={int(k): v for k, v in orders.items()}, settings=settings, machine=machine,
                 strata=dict(julia), stack_a=stack, cases=cases)
@@ -288,13 +289,19 @@ def parse_project(data):
 def parse_inventory(data):
     """Section 10: the keys the tool uses; other Stage 2A keys are allowed and ignored."""
     required = ("julia", "commit", "cpu_model", "cpu_name", "blas", "depot_path", "proximalbase_version",
-                "proximalbase_loaded_tree", "proximalsolvers_dir", "threads")
+                "proximalbase_loaded_tree", "proximalsolvers_dir", "threads", "active_project", "depot_realpath",
+                "active_project_realpath")
     problems = [f"missing key {key!r}" for key in required if key not in data]
     if problems:
         return None, problems
     for key in required[:5] + required[6:9]:
         if not isinstance(data[key], str):
             problems.append(f"{key} must be a string")
+    if not is_str(data["active_project"]):
+        problems.append("active_project must be a non-empty string")
+    for key in ("depot_realpath", "active_project_realpath"):
+        if not (is_str(data[key]) and data[key].startswith("/") and norm(data[key]) == data[key]):
+            problems.append(f"{key} must be an absolute path in normal form")
     depot = data["depot_path"]
     if not (isinstance(depot, list) and depot and all(isinstance(d, str) for d in depot)):
         problems.append("depot_path must be a non-empty string array")
@@ -518,6 +525,15 @@ def check_records(root, st, sched, ref):
         if st["inv"] and st["inv"][key] != expected:
             refuse(ref, "MACHINE", f"{name}:{field}", f"{name} julia {ver}: inventory {key} "
                    f"{st['inv'][key]!r}, expected {expected!r}")
+    inv = st["inv"]
+    if inv and inv["threads"] != 1:
+        refuse(ref, "THREADS", f"{name}:julia_threads", f"{name} julia {ver}: inventory threads "
+               f"{inv['threads']!r}, expected 1")
+    if inv:
+        for rep, proc in procs(st):
+            if "blas" in proc["meta"] and proc["meta"]["blas"] != inv["blas"]:
+                refuse(ref, "THREADS", f"{name}:blas", f"{name} julia {ver} rep {rep}: metadata blas "
+                       f"{proc['meta']['blas']!r}, inventory blas {inv['blas']!r}")
 
 
 def check_stack(root, st, ref):
@@ -527,6 +543,16 @@ def check_stack(root, st, ref):
 
     def stack(field, detail):
         refuse(ref, "STACK", f"{name}:{field}", f"{where}: {detail}")
+    if inv:
+        table = inv.get("deps", {}).get("ProximalBase")
+        if not (isinstance(table, dict) and isinstance(table.get("tree"), str)
+                and isinstance(table.get("version"), str)):
+            stack("loaded_tree", "inventory [deps.ProximalBase] is missing or has no string tree and version")
+        elif ident:
+            for key in ("tree", "version"):
+                if table[key] != ident["proximalbase"][key]:
+                    stack("loaded_tree", f"inventory [deps.ProximalBase] {key} {table[key]!r}, identity "
+                          f"{key} {ident['proximalbase'][key]!r}")
     if ident and inv:
         base = ident["proximalbase"]
         if inv["proximalbase_loaded_tree"] != base["tree"]:
@@ -583,11 +609,16 @@ def check_stack_a(root, sched, ref):
         if value != want["harness_hash"]:
             refuse(ref, "IDENTITY", f"{name}:stack_a", f"harness_hash {value!r}, [stack_a] has "
                    f"{want['harness_hash']!r}")
+    for table, key in (("proximalsolvers", "proximalsolvers_hash"), ("proximalbase", "proximalbase_hash")):
+        for value in sorted(meta_values(root, key)):
+            if value != want[table]["package_hash"]:
+                refuse(ref, "IDENTITY", f"{name}:stack_a", f"{key} {value!r}, [stack_a.{table}] has "
+                       f"{want[table]['package_hash']!r}")
     if ident is None:
         return
     for table in ("proximalsolvers", "proximalbase"):
         for key, expected in want[table].items():
-            if ident[table].get(key) != expected:
+            if key != "package_hash" and ident[table].get(key) != expected:
                 refuse(ref, "IDENTITY", f"{name}:stack_a", f"{table}.{key} {ident[table].get(key)!r}, "
                        f"[stack_a] has {expected!r}")
     base = ident["proximalbase"]
@@ -1191,28 +1222,60 @@ def check_receipt(receipt, roots, sched, with_aa, ref):
                    f"the receipt interval of {seconds} s")
 
 
-def check_aa(roots, sched, ref):
-    """Section 12, A/A pair: independent installations of an identical Stack A (paths in normal form)."""
-    one, two, base = roots["aa_a"], roots["aa_b"], roots["a"]
-    if one["ident"] and two["ident"] and one["ident"]["installation"] == two["ident"]["installation"]:
-        refuse(ref, "ORDER", "aa:installation", f"both roots have installation {one['ident']['installation']!r}")
+def checkout_paths(st):
+    """The checkout paths a stratum names (metadata and inventory), in normal form."""
+    found = {norm(p["meta"][key]) for _, p in procs(st) for key in ("proximalsolvers_path", "expected_package_root")
+             if p["meta"].get(key)}
+    return found | ({norm(st["inv"]["proximalsolvers_dir"])} if st["inv"] else set())
 
-    def paths(st):
-        found = {norm(p["meta"][key]) for _, p in procs(st) for key in ("proximalsolvers_path",
-                                                                       "expected_package_root")
-                 if p["meta"].get(key)}
-        return found | ({norm(st["inv"]["proximalsolvers_dir"])} if st["inv"] else set())
+
+def check_independent(scope, one, two, sched, ref):
+    """Section 12: two roots of one pair (scope ab or aa) come from independent installations.
+
+    Installation id, checkout, first depot entry (as recorded and as Julia resolved it) and the Julia environment
+    of each stratum all differ. Only recorded values are compared (normal form, no filesystem access); a check
+    whose inputs were refused earlier is skipped."""
+    field = f"{scope}:installation"
+    if one["ident"] and two["ident"] and one["ident"]["installation"] == two["ident"]["installation"]:
+        refuse(ref, "ORDER", field, f"both roots have installation {one['ident']['installation']!r}")
     for mm, info in sched["strata"].items():
         s1, s2 = one["strata"].get(mm), two["strata"].get(mm)
         if not s1 or not s2:
             continue
-        shared = paths(s1) & paths(s2)
+        at = f"julia {info['version']}"
+        shared = checkout_paths(s1) & checkout_paths(s2)
         if shared:
-            refuse(ref, "ORDER", "aa:installation", f"julia {info['version']}: both roots name the checkout "
-                   f"{sorted(shared)}")
-        if s1["inv"] and s2["inv"] and norm(s1["inv"]["depot_path"][0]) == norm(s2["inv"]["depot_path"][0]):
-            refuse(ref, "ORDER", "aa:installation", f"julia {info['version']}: first depot entry "
-                   f"{norm(s1['inv']['depot_path'][0])!r} is shared")
+            refuse(ref, "ORDER", field, f"{at}: both roots name the checkout {sorted(shared)}")
+        i1, i2 = s1["inv"], s2["inv"]
+        if not (i1 and i2):
+            continue
+        if norm(i1["depot_path"][0]) == norm(i2["depot_path"][0]):
+            refuse(ref, "ORDER", field, f"{at}: first depot entry {norm(i1['depot_path'][0])!r} is shared")
+        if i1["depot_realpath"] == i2["depot_realpath"]:
+            refuse(ref, "ORDER", field, f"{at}: first depot entry resolves to the same directory "
+                   f"{i1['depot_realpath']!r}")
+        for key, label in (("active_project", "recorded"), ("active_project_realpath", "resolved")):
+            env1, env2 = (posixpath.dirname(norm(i[key])) for i in (i1, i2))
+            if env1 == env2:
+                refuse(ref, "ORDER", field, f"{at}: both roots use the environment {env1!r} ({label})")
+
+
+def check_evidence_roots(given, ref):
+    """Section 12: the evidence roots named on the command line are distinct directories (resolved paths); a root
+    is named by its label. `given` is a list of (label, argument) in the order a, b, aa_a, aa_b."""
+    resolved = [(label, Path(arg).resolve()) for label, arg in given]
+    for index, (first, path) in enumerate(resolved):
+        for second, other in resolved[index + 1:]:
+            if path == other:
+                scope = "ab" if (first, second) == ("a", "b") else "aa"
+                refuse(ref, "ORDER", f"{scope}:installation", f"the evidence roots {first} and {second} are the "
+                       "same directory")
+
+
+def check_aa(roots, sched, ref):
+    """Section 12, A/A pair: the Manifest and identity of an A/A root are those of Stack A."""
+    one, two, base = roots["aa_a"], roots["aa_b"], roots["a"]
+    for mm, info in sched["strata"].items():
         for root in (one, two):
             st = root["strata"].get(mm)
             sb = base["strata"].get(mm)
@@ -1604,8 +1667,11 @@ def run(argv, state):
     check_fingerprints(fps, sched, ref)
     receipt = read_receipt(receipt_text, sched, ref)
     check_receipt(receipt, roots, sched, bool(args.aa), ref)
+    check_independent("ab", roots["a"], roots["b"], sched, ref)
     if args.aa:
+        check_independent("aa", roots["aa_a"], roots["aa_b"], sched, ref)
         check_aa(roots, sched, ref)
+    check_evidence_roots(names, ref)
 
     if ref:                                                       # the refusal decision
         entries = sorted({(n, c, f, scrub(d)) for n, c, f, d in sorted(set(ref))})   # tags in a fixed order

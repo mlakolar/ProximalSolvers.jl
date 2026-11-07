@@ -60,9 +60,9 @@ verbatim, host name and path included, and so is any argument path or other path
 is not a token and is kept; (c) a path whose directory names contain white space, a comma, a semicolon, a pipe, a
 quote or a bracket is cut at that character, and the rest is processed under the same token rules (a `/` right after
 the cut that starts a new token is cleaned again, anything else stays as a fragment); (d) two spellings of one
-directory that differ only by `.` or `..` segments print different tags (the STACK and ORDER checks compare their paths in
-normal form and print the paths they compare as recorded tokens, but arbitrary free text of the records can contain
-both spellings); (e) the tag is an unsalted prefix of a hash of the path text, so a reader
+directory that differ only by `.` or `..` segments print different tags (the STACK checks compare paths in
+normal form and print them as recorded, the ORDER checks print the normal form they compared, but arbitrary free text
+of the records can contain both spellings); (e) the tag is an unsalted prefix of a hash of the path text, so a reader
 can confirm a guessed path by hashing it: it tells two paths apart, it does not hide a guessable one. The text of the
 records of a campaign is campaign data that is already in the archive; the cleaning protects the paths of the
 machine that runs the tool and keeps the output deterministic.
@@ -148,15 +148,16 @@ Exactly these may differ between the roots, and each must be declared (section 1
 | `julia` | equal to `schedule.toml` `[julia.*].version` of the stratum | `JULIA` |
 | `suite`, `groups`, `case_filter`, `samples_target`, `seconds_limit`, `case_seconds`, `profile_seconds` | equal to `[settings]` of the schedule (numbers compared as numbers) | `SETTINGS` |
 | `seed_scheme` | equal to `[settings]` of the schedule | `INPUTS` |
-| `julia_threads`, `blas_threads` | equal to 1 and to `[settings]` | `THREADS` |
-| `blas` | equal between the roots of a pair | `THREADS` |
+| `julia_threads`, `blas_threads` | equal to 1 and to `[settings]`; the inventory `threads` equal to 1 | `THREADS` |
+| `blas` | equal between the roots of a pair, and equal to the inventory `blas` of the stratum | `THREADS` |
 | `cpu_model`, `cpu` | equal to `[machine]` of the schedule (`cpu` of the stratum) | `MACHINE` |
 | `harness_hash` | equal between A and B unless declared (section 13); Stack A equal to `[stack_a].harness_hash` | `UNDECLARED`; `IDENTITY` |
+| `proximalsolvers_hash`, `proximalbase_hash` of a Stack A root | equal to `package_hash` of `[stack_a.proximalsolvers]` and `[stack_a.proximalbase]` of the schedule (the values of the Stage 2A records); Stack B's hashes are checked only through the declared pair | `IDENTITY` |
 | `proximalsolvers_sha`, `proximalsolvers_hash`, `proximalbase_version`, `proximalbase_hash` | the A value and the B value equal the declared pair | `UNDECLARED` |
 | `proximalsolvers_sha`, `proximalbase_version` | also equal to `stack-identity.toml` | `STACK` |
 | `proximalsolvers_dirty` | `false` | `STACK` |
 | `proximalsolvers_path`, `expected_package_root` | `validate.py` checks them against each other; the tool additionally requires `expected_package_root` non-empty and `proximalsolvers_path` equal to `proximalsolvers_dir` of the inventory | `STACK` |
-| `rep`, `finished`, `cases`, `ok_cases`, `nonok_cases`, `elapsed_s`, `maxrss_bytes`, `job_id` | per process; not compared between roots (`rep`, `finished`, the counts and `elapsed_s` are used as stated in sections 5 and 12) | |
+| `rep`, `finished`, `cases`, `ok_cases`, `nonok_cases`, `elapsed_s`, `maxrss_bytes`, `job_id` | per process; not compared between roots and not a provenance check (equal `job_id` values in A and B, and both processes of a block in one allocation, are accepted; `rep`, `finished`, the counts and `elapsed_s` are used as stated in sections 5 and 12) | |
 
 Everything not named above must be equal. The values of the keys that are checked against the declared set or
 against `stack-identity.toml` must be the same in every repetition and in both strata of one root; otherwise the
@@ -176,16 +177,16 @@ comparison, and exits with status 2. Usage errors and unreadable inputs exit wit
 | 4 | Case ID | A declared case missing from either root, including a case absent from both. A case present in a root that is not declared (extra). | `CASE` |
 | 5 | Phase | `phase` of every case (call, workspace, setup), in the catalog and the metrics of both roots | `PHASE` |
 | 6 | Timed operation | the catalog fields `problem`, `solver`, `variant`, `suite`, `inputs`; the identity of the certificate file (the `file/certificates.jl` fingerprint) | `OPERATION` |
-| 7 | BLAS or thread settings | `julia_threads`, `blas_threads`, `blas`; other than one and one | `THREADS` |
+| 7 | BLAS or thread settings | `julia_threads`, `blas_threads`, `blas`; other than one and one; the inventory `threads` other than 1; the inventory `blas` differing from the metadata `blas` | `THREADS` |
 | 8 | Machine identity | `cpu_model`, `cpu`, the logical CPU in the receipt, the metadata and the inventory; processes of the receipt that disagree on any machine value (a policy value that all processes share but that differs from the schedule is labelled, not refused: section 5) | `MACHINE` |
 | 9 | Repetition index set | the set of repetition IDs per Julia version in **each** root must equal the declared set of the frozen campaign (`reps` of the schedule, 1-8, for the A/B pair and for the A/A pair), with each ID once per stack. A root whose set differs from the declared set is refused, whether the other root differs from it in the same way or not: two roots that both lack the same declared ID are a `REPETITIONS` refusal, not a per-case FAILED | `REPETITIONS` |
 | 10 | Approved case mapping | a case missing from `case-mapping.toml`, a class other than A or B without a separate approved mapping, a class B case without its approval record, a case whose mapping `id`, `role` or `phase` differs from the declared set or the records | `MAPPING` |
 | 11 | Record schema | the headers of the catalog, metrics, samples and errors files, the metadata keys, the schema version of the declared-differences, mapping and stack-identity files, the receipt, the fingerprint files | `SCHEMA` |
 | 12 | Undeclared source or dependency difference | any difference not in section 3 (`harness_hash` without an approval, a Manifest entry not declared, a changed compat entry not declared) and any declared difference that does not exist | `UNDECLARED` |
 | 13 | Sampling settings and selection | `suite`, `groups`, `case_filter`, `samples_target`, `seconds_limit`, `case_seconds`, `profile_seconds` | `SETTINGS` |
-| 14 | Unclean or unverified stack | `proximalsolvers_dirty`, a loaded-tree mismatch (`proximalsolvers_path` against the expected root, tree hashes and versions against the recorded ones), a mixed stack, an unfinished process | `STACK` |
-| 15 | Unfrozen identity | the ProximalSolvers and the ProximalBase identity of each stack must each be a full 40-hex commit SHA with a recorded git tree hash. A branch name, a short SHA or a tag-only identity is refused. The historical Stack A tag `v0.5.4` is accepted only as the tag commit SHA (`9c5a43bf0b7e3f51f0a401b785c332200ffa5d7e`) together with the release tree (`1226119eb2cc6144f7345c727f0e7682632f7826`) | `IDENTITY` |
-| 16 | Wrong block order or mixed campaigns | from the campaign receipt (the metadata has no start time stamp): each block's order, in the A/B arm and in the A/A arm, must equal `orders[rep]` of `schedule.toml` (AB, BA, BA, AB, BA, AB, AB, BA for repetition IDs 1 to 8); A and B must belong to one contemporaneous campaign identity and session, and every root must carry the `campaign_id` and `session_id` of the receipt in its `stack-identity.toml`; a Stack A root taken from another campaign or session, or a block whose processes the receipt does not place in the declared order, is refused; the two A/A roles must be distinct installations | `ORDER` |
+| 14 | Unclean or unverified stack | `proximalsolvers_dirty`, a loaded-tree mismatch (`proximalsolvers_path` against the expected root, tree hashes and versions against the recorded ones), a mixed stack, an unfinished process; the inventory `[deps.ProximalBase]` table missing, or its `tree` or `version` differing from the stack identity | `STACK` |
+| 15 | Unfrozen identity | the ProximalSolvers and the ProximalBase identity of each stack must each be a full 40-hex commit SHA with a recorded git tree hash. A branch name, a short SHA or a tag-only identity is refused. The historical Stack A tag `v0.5.4` is accepted only as the tag commit SHA (`9c5a43bf0b7e3f51f0a401b785c332200ffa5d7e`) together with the release tree (`1226119eb2cc6144f7345c727f0e7682632f7826`). The package hashes of a Stack A root must equal the pins of `[stack_a]` | `IDENTITY` |
+| 16 | Wrong block order or mixed campaigns | from the campaign receipt (the metadata has no start time stamp): each block's order, in the A/B arm and in the A/A arm, must equal `orders[rep]` of `schedule.toml` (AB, BA, BA, AB, BA, AB, AB, BA for repetition IDs 1 to 8); A and B must belong to one contemporaneous campaign identity and session, and every root must carry the `campaign_id` and `session_id` of the receipt in its `stack-identity.toml`; a Stack A root taken from another campaign or session, or a block whose processes the receipt does not place in the declared order, is refused; the two roots of the A/B pair, and the two roots of the A/A pair, must be independent installations (installation id, checkout, first depot, Julia environment), and the four evidence roots given on the command line must be distinct directories | `ORDER` |
 
 A comparison that is refused is invalid **even when every timing number is finite**: no timing value is used in any
 comparison, ratio, geometric mean, screen or output before every refusal has been evaluated and none was found.
@@ -218,16 +219,16 @@ different classes in different processes or strata).
 | `CASE` | `<root>:case` | one refusal per (root, Julia version, case ID) that is declared and has no catalog row (the tool lists an ID absent from both roots once for each root), or has a catalog row and is not declared |
 | `PHASE` | `ab:phase`, `<root>:phase` | `phase` differing between A and B (catalog or metrics) or not one of `call`, `workspace`, `setup` |
 | `OPERATION` | `ab:catalog`, `ab:certificates` | a catalog column among `problem`, `solver`, `variant`, `suite`, `inputs` differing between A and B for a case (`detail` names the column; `issue` is a descriptive label and is not compared); the `file/certificates.jl` value differing for a (Julia, case, repetition) triple |
-| `THREADS` | `<root>:julia_threads`, `<root>:blas_threads`, `ab:blas`, `aa:blas` | a value other than 1; `blas` differing within a pair |
+| `THREADS` | `<root>:julia_threads`, `<root>:blas_threads`, `<root>:blas`, `ab:blas`, `aa:blas` | a metadata value other than 1; the inventory `threads` other than 1 (`<root>:julia_threads`); `blas` differing within a pair (`ab:blas`, `aa:blas`); the inventory `blas` of a stratum differing from a metadata `blas` of that stratum (`<root>:blas`) |
 | `MACHINE` | `receipt:machine`, `<root>:cpu_model`, `<root>:cpu` | receipt processes disagreeing on a `machine` value (`cpu` is compared within a stratum), or on `cpu_model`, `cpu` or `logical_cpu` against `[machine]` of the schedule; metadata `cpu_model` or `cpu` or inventory `cpu_model` differing from the schedule, or the inventory `cpu_name` differing from `[machine].cpu` of the stratum (`<root>:cpu`). The policy values `governor`, `epp`, `no_turbo`, `smt_control` that agree among all processes but differ from the schedule are **not** refused: section 5 labels the hardware observational |
 | `REPETITIONS` | `<root>:repetitions`, `receipt:repetitions` | the `process coverage` issue of `validate.py` (missing and extra IDs per stratum, rule R1); a `rep` of the receipt outside `reps`; two process events of the receipt with the same (arm, role, Julia, `rep`) |
 | `MAPPING` | `mapping:case`, `mapping:role`, `mapping:phase`, `mapping:class`, `mapping:approval` | the mapping must hold exactly the declared IDs once each, in the declared order; `role` must be `primary` for the first 14 and `diagnostic` for the last 5; `phase` must equal the catalog phase of A; `class` must be A or B; class B needs `approved = true` and a non-empty `approval_url`; class C or D needs, as a separate approved mapping, `approved = true`, a non-empty `approval_url` and a non-empty `separate_mapping`, and gives a NOT COMPARABLE case; a `deviation` key needs `approved = true` and a non-empty `approval_url` |
-| `SCHEMA` | `<root>:records`, `<root>:metadata_keys`, `<root>:files`, `receipt:schema`, `declared:schema`, `mapping:schema`, `fingerprints_a:schema`, `fingerprints_b:schema` | any other issue of `validate.py` (headers, missing keys, malformed values); a metadata key set other than the allowed one, or a metadata value of a type other than the one the checks read (string, boolean, integer or number as the key requires); a required file of section 10 missing or not parseable inside a root (`raw/`, `Manifest.toml`, `Project.toml`, `environment-inventory.toml`) or lacking a required inventory key (`cpu_name` among them); a fingerprint `none` value outside its allowed rows (section 14); a file whose `schema` is not 1, has an unknown key, a missing key or a value of the wrong type |
+| `SCHEMA` | `<root>:records`, `<root>:metadata_keys`, `<root>:files`, `receipt:schema`, `declared:schema`, `mapping:schema`, `fingerprints_a:schema`, `fingerprints_b:schema` | any other issue of `validate.py` (headers, missing keys, malformed values); a metadata key set other than the allowed one, or a metadata value of a type other than the one the checks read (string, boolean, integer or number as the key requires); a required file of section 10 missing or not parseable inside a root (`raw/`, `Manifest.toml`, `Project.toml`, `environment-inventory.toml`) or lacking a required inventory key (`cpu_name`, `active_project`, `depot_realpath` and `active_project_realpath` among them) or having one of the wrong type or, for the two realpaths, not an absolute path in normal form (section 10); a fingerprint `none` value outside its allowed rows (section 14); a file whose `schema` is not 1, has an unknown key, a missing key or a value of the wrong type |
 | `UNDECLARED` | `declared:proximalsolvers`, `declared:proximalbase`, `declared:manifest`, `declared:compat`, `declared:harness`, `ab:harness_hash` | the observed differences of section 3 and the declared set not equal (section 13): an undeclared one, or a declared one that is absent |
 | `SETTINGS` | `<root>:<key>` for `<key>` in `suite`, `groups`, `case_filter`, `samples_target`, `seconds_limit`, `case_seconds`, `profile_seconds`; `<root>:records` | the metadata value differing from `[settings]` of the schedule; the `series settings changed within a Julia version` issue of `validate.py` (rule R1) |
-| `STACK` | `<root>:dirty`, `<root>:loaded_tree`, `<root>:mixed`, `<root>:unfinished`, `receipt:process` | `proximalsolvers_dirty` true; `proximalsolvers_sha`, inventory `proximalbase_loaded_tree`, inventory and metadata `proximalbase_version`, the Manifest entries of ProximalSolvers and ProximalBase, or `proximalsolvers_path` differing from `stack-identity.toml`, the inventory or `expected_package_root` (every archived path is compared in normal form, see section 12); values of section 3 differing between repetitions or strata of one root; the unfinished process messages of `validate.py` (rule R1); a receipt process with `complete` false, or `exit` not in {0, 2}, or `exit` 0 with `nonok_cases` of the record above 0, or `exit` 2 with `nonok_cases` equal to 0 |
-| `IDENTITY` | `<root>:identity`, `<root>:stack_a`, `<root>:tag` | section 11: a missing key (`campaign_id` and `session_id` included), a value that is not 40 lowercase hex (a branch name, a short SHA), a `registered` release without `tag`, a `tag` without its commit; a Stack A root (`a`, `aa_a`, `aa_b`) whose ProximalSolvers or ProximalBase identity or `harness_hash` differs from `[stack_a]` of the schedule |
-| `ORDER` | `receipt:campaign`, `receipt:missing`, `receipt:block`, `receipt:installation`, `receipt:elapsed`, `<root>:campaign`, `<root>:session`, `aa:installation`, `aa:identity` | section 12 |
+| `STACK` | `<root>:dirty`, `<root>:loaded_tree`, `<root>:mixed`, `<root>:unfinished`, `receipt:process` | `proximalsolvers_dirty` true; `proximalsolvers_sha`, inventory `proximalbase_loaded_tree`, inventory and metadata `proximalbase_version`, the Manifest entries of ProximalSolvers and ProximalBase, or `proximalsolvers_path` differing from `stack-identity.toml`, the inventory or `expected_package_root` (every archived path is compared in normal form, see section 12); the inventory `[deps.ProximalBase]` table missing or without a string `tree` and `version`, or its `tree` or `version` differing from `stack-identity.toml` (a missing table or key is a `STACK` refusal, not `SCHEMA`, so that the other inventory checks still run); values of section 3 differing between repetitions or strata of one root; the unfinished process messages of `validate.py` (rule R1); a receipt process with `complete` false, or `exit` not in {0, 2}, or `exit` 0 with `nonok_cases` of the record above 0, or `exit` 2 with `nonok_cases` equal to 0 |
+| `IDENTITY` | `<root>:identity`, `<root>:stack_a`, `<root>:tag` | section 11: a missing key (`campaign_id` and `session_id` included), a value that is not 40 lowercase hex (a branch name, a short SHA), a `registered` release without `tag`, a `tag` without its commit; a Stack A root (`a`, `aa_a`, `aa_b`) whose ProximalSolvers or ProximalBase identity or `harness_hash` differs from `[stack_a]` of the schedule, or whose metadata `proximalsolvers_hash` or `proximalbase_hash` differs from the `package_hash` of `[stack_a.proximalsolvers]` or `[stack_a.proximalbase]` (a root with such a refusal is not used by the identity-based `STACK` checks, section 4.1 skip rule) |
+| `ORDER` | `receipt:campaign`, `receipt:missing`, `receipt:block`, `receipt:installation`, `receipt:elapsed`, `<root>:campaign`, `<root>:session`, `ab:installation`, `aa:installation`, `aa:identity` | section 12 |
 
 **R1. Mapping of `validate.py` issues to classes.** For each stratum the tool calls
 `validate.validate(<root>/julia-<MAJOR.MINOR>/raw, expected=8, versions=[<full version>])` (`expected` is the
@@ -255,6 +256,27 @@ stratum is a `JULIA` refusal (`<root>:julia`) and that file is left out of `vers
 ignored, except `approval_url`, `approval_scope`, `separate_mapping`, `deviation` as used above. The class of a
 row is its `class`. A row with `class = "A"` and `approved = false` needs nothing further: there is nothing to
 approve.
+
+### 4.2 What the checks do not establish
+
+* **Consistent forgery.** The comparator reads records. A set of roots whose identity files, inventories, metadata,
+  Manifests and receipt all agree with each other but misdescribe the machine (invented paths, an invented
+  installation id, a copied tree) passes every check; detecting that is outside the comparator. The independence
+  of two installations is the independence of the values their records state.
+* **Recorded paths are never looked up.** The comparator calls no filesystem function on a path taken from a
+  record (no `realpath`, `exists`, `samefile`). The only live paths it resolves are the roots on the command line
+  (to find two arguments that name one directory). `validate.py` itself resolves the two metadata paths it compares
+  (`proximalsolvers_path` and `expected_package_root`), which is unchanged. The producer of the records must
+  resolve symbolic links itself, while the paths exist: the checkout paths and the inventory `depot_realpath` and
+  `active_project_realpath` are values observed by Julia.
+* **`release = "development"`** of `stack-identity.toml` means a ProximalBase commit that is recorded as a full
+  40-hex SHA with its tree and is tracked by a repository (a pinned commit, not a branch); it does not say that the
+  commit is reachable from any branch or that it is a published release.
+* **Work counters** (iterations, passes, calls) are not an input of the comparator; they are exploratory
+  receipts (`STAGE2B_PLAN.md`).
+* **First error of `validate.py`.** `validate.py` stops at the first error of a process, so a second defect of the
+  same process is listed only after the first is repaired; the checks of this tool that read the process anyway
+  are not affected.
 
 ## 5. Outputs
 
@@ -346,7 +368,11 @@ campaign outside any timed region (`STAGE2B_PLAN.md` section 7).
 * `compare.py` and `validate.py` stay unchanged and strict. A test of PR B records the SHA-256 of both files at
   the freeze commit (the files have not changed since `b0de3f7`) and fails if either changes:
   `compare.py` `41568ea9b22d9b36f1aa6ba4e478b380284ee66c338f98dfeed40af104ebf6ab` and `validate.py`
-  `0b761e77ae4b88d339d7df3351e5ea0ff732c8cd32f68fbb89d95d4a26f2fc4b`.
+  `0b761e77ae4b88d339d7df3351e5ea0ff732c8cd32f68fbb89d95d4a26f2fc4b`. The same test records the SHA-256 of
+  `summarize.py` (`d50b471f3898c90c7b1aa880553f12de0a8eb809475e4abcd0859bb57ed703f1`) and of the harness files
+  `run.jl` (`d613c06fa368b2588ec7418d8dd0ef9f70b0c09cbc682105f1f9713b5230c8c6`), `problems.jl`
+  (`b047b47275907a31e0f3ed1de7629ed3f965534dd2d1fcafd03c52dd0092fa51`) and `certificates.jl`
+  (`ce09cbcbcaa1091f6ca362e0689340c1a367b3968542fd1d3c7ca9465f5770e1`).
 * `migration_compare.py` may import record readers from `validate.py` and `summarize.py`, but it never
   monkeypatches or reconfigures their settings sets, and it does not write into the ordinary tools'
   output formats.
@@ -390,6 +416,23 @@ numbers are finite**, so that a pass of the timing alone would wrongly accept.
 * A/A mode: identical stack identities on two independent installations accepted, unequal ones refused
   (`ORDER`, `aa:identity`), two processes of one installation refused (`ORDER`, `aa:installation`: equal
   installation id, equal `proximalsolvers_path`, equal first depot path).
+* Provenance (`ProvenanceTests`; each mutation asserts exit status 2, the exact set of `(class, field)` pairs, that
+  only `refusals.json` is written and that every timing is finite). Positive controls: an independent A/B pair
+  and an independent A/A pair; an A/A root that shares Stack A's installation but has its own evidence root; equal
+  `job_id` in A and B; both processes of every block in one allocation; different realpaths below a symlinked
+  parent; no filesystem lookup of a recorded path. Negatives, A/B pair without `--aa` and A/A pair with it (`ORDER`,
+  `ab:installation`, `aa:installation`): equal installation id; different ids with the same checkout (also spelled
+  with `.` and `..` components and an extra leading slash); different literal depots with the same
+  `depot_realpath`; the same environment (literal, resolved, in one stratum only, another file name in the same
+  directory); the same evidence root given twice (also through a symlinked directory and a dotted spelling), an A/A
+  root that is root A or root B; the inventory checkout against the metadata path. Inventory facts: the
+  `[deps.ProximalBase]` tree and version against the identity and a missing table or key (`STACK`), `threads` other
+  than 1 and `blas` against the metadata (`THREADS`), also when both roots carry the same wrong value. Stack A
+  package hashes (`IDENTITY`, `<root>:stack_a`), a root refused for them being left out of the identity-based
+  checks. A missing or malformed `depot_realpath`, `active_project_realpath` or `active_project` (`SCHEMA`). Skips
+  that are as narrow as the missing input. Regression rows: a wrong Manifest entry, an undeclared Manifest change, a
+  declared difference that does not exist, a dirty checkout, one repetition from another source commit, an
+  inventory checkout that differs from the metadata path.
 * Screens: all eight `rho_i` above 1 with the geometric mean above the largest A/A ratio is a screened slowdown,
   one `rho_i` equal to or below 1 is inconclusive, the mirror cases, a geometric mean inside the A/A range, and
   no `--aa` (screen not evaluated).
@@ -439,9 +482,16 @@ Each of `ROOT_A`, `ROOT_B`, `ROOT_AA_A` and `ROOT_AA_B`:
   entry with `uuid` and optional `version`, `git-tree-sha1`, `path`).
 * `environment-inventory.toml`: the Stage 2A format. Required keys `julia`, `commit`, `cpu_model`, `cpu_name`
   (`Sys.CPU_NAME`, compared with `[machine].cpu` of the stratum), `blas`, `depot_path` (an array of strings),
-  `proximalbase_version`, `proximalbase_loaded_tree`, `proximalsolvers_dir`, `threads` (other Stage 2A keys such
-  as `active_project`, `bindir`, `load_path`, `proximalbase_dir` are allowed and ignored) and one `[deps.NAME]` table per dependency (`path`, `registry`, `repo`, `source`,
-  `tree`, `uuid`, `version`).
+  `proximalbase_version`, `proximalbase_loaded_tree`, `proximalsolvers_dir`, `threads`, `active_project` (the
+  active project file as recorded, a non-empty string) and the two Julia-observed realpaths `depot_realpath` (the
+  realpath of the first `depot_path` entry) and `active_project_realpath` (the realpath of the active project
+  file), both absolute strings in normal form (one leading `/`, no `.` or `..` segment, no trailing `/`); other
+  Stage 2A keys such as `bindir`, `load_path`, `proximalbase_dir` are allowed and ignored. One `[deps.NAME]` table
+  per dependency (`path`, `registry`, `repo`, `source`, `tree`, `uuid`, `version`); the table `[deps.ProximalBase]`
+  with a string `tree` and `version` is required of every inventory, and a missing one is a `STACK` refusal
+  (section 11). The Julia environment is one per Julia version (`env-<version>/Project.toml`), the depot one per
+  stack. The producer resolves the two realpaths with Julia's `realpath` while the paths exist; the comparator
+  never resolves a recorded path (section 4.2).
 
 A stratum directory present in one root and not in the other, or present and not in the schedule, is a `JULIA`
 refusal. A missing `stack-identity.toml` is an `IDENTITY` refusal (`<root>:identity`); a missing or unparseable
@@ -456,6 +506,9 @@ cpu_model = "13th Gen Intel(R) Core(TM) i9-13900"
 cpu_name = "raptorlake"
 blas = "LBTConfig([ILP64] libopenblas64_.so)"
 depot_path = ["<depot>", "<julia depot>"]
+depot_realpath = "<realpath of depot>"
+active_project = "<environment>/Project.toml"
+active_project_realpath = "<realpath of the project file>"
 proximalbase_version = "0.5.4"
 proximalbase_loaded_tree = "1226119eb2cc6144f7345c727f0e7682632f7826"
 proximalsolvers_dir = "<checkout>"
@@ -499,8 +552,12 @@ not 40-hex (a tag is never an identity by itself). Stack A's ProximalBase is acc
 identity of `schedule.toml` (`<root>:stack_a`). **Cross-checks** (class `STACK`, `<root>:loaded_tree`): the metadata
 `proximalsolvers_sha` equals `[proximalsolvers].commit`; `proximalsolvers_dirty` is false; the inventory
 `proximalbase_loaded_tree` equals `[proximalbase].tree`; the inventory and metadata `proximalbase_version`
-equal `[proximalbase].version`; the Manifest entries of ProximalBase and ProximalSolvers have the versions of
-`stack-identity.toml` and, for ProximalBase, `git-tree-sha1` equal to the tree. `installation` is the id that the
+equal `[proximalbase].version`; the inventory table `[deps.ProximalBase]` exists and its `tree` and `version`
+equal `[proximalbase].tree` and `[proximalbase].version` (a missing table or key is itself this refusal); the
+Manifest entries of ProximalBase and ProximalSolvers have the versions of `stack-identity.toml` and, for
+ProximalBase, `git-tree-sha1` equal to the tree. `release = "development"` means a repository-tracked pinned
+commit (section 4.2). The identity file carries no package hash: the package hashes are metadata values, checked
+for a Stack A root against `package_hash` of `[stack_a]` and for Stack B only through the declared pair. `installation` is the id that the
 receipt uses (section 12).
 
 ## 12. The receipt (schema 4c)
@@ -543,11 +600,28 @@ JSON lines, one object per line, one file for the A/B arm and the A/A arm of one
 * **Unfinished processes** (`STACK`, `receipt:process`): `complete` false; `exit` other than 0 or 2; `exit` 0 with
   `nonok_cases` of the record above 0; `exit` 2 with `nonok_cases` equal to 0. `run.jl` exits 2 when its records
   are complete and at least one case is not ok: that is a FAILED case, not a refusal.
-* **A/A pair:** the two roles of the A/A arm must be distinct installations: distinct `installation` ids, distinct
-  `proximalsolvers_path` (also `expected_package_root` and the inventory `proximalsolvers_dir`) in the metadata, and distinct first `depot_path` entries in the inventories, all compared in normal form (a run of leading `/` collapses to one, `.` and `..` segments and trailing `/` are removed, symlinks are not followed: two spellings of one directory are one installation); their stack
-  identities (`stack-identity.toml` commits, trees, versions, and the Manifest content of each stratum) must be
-  identical to each other and to `ROOT_A`'s. Otherwise `ORDER`: `aa:installation` for the distinctness (same
-  installation masquerading as two) and `aa:identity` for the identity and Manifest.
+* **Independent installations.** The two roots of the A/B pair (always) and the two roots of the A/A pair (with
+  `--aa`) must be independent installations; a pair that fails is `ORDER`, field `ab:installation` or
+  `aa:installation`. The pair differs in: the `installation` id of `stack-identity.toml`; the checkout, that is
+  distinct `proximalsolvers_path` and `expected_package_root` in the metadata and distinct `proximalsolvers_dir` in
+  the inventory (no value common to the two roots of a stratum); the first `depot_path` entry as recorded (normal form) and
+  the inventory `depot_realpath` (either one equal is a refusal); and, in each stratum, the Julia environment, that
+  is the directory of `active_project` (normal form) and of `active_project_realpath`. All paths are compared as
+  recorded, in normal form (a run of leading `/` collapses to one, `.` and `..` segments and trailing `/` are
+  removed); no recorded path is looked up in the filesystem, so two spellings of one directory are one
+  installation and a symbolic link is seen only through the realpaths that Julia recorded. The installation id
+  is the one of the root's identity file even when the root has another refusal. A check whose inputs were refused
+  (section 4.1) is skipped for that stratum only.
+* **Evidence roots.** The four roots given on the command line (`--a`, `--b`, `--aa`) must be distinct
+  directories after resolving the command-line paths (the only live paths the tool resolves); two that name one
+  directory, through a symbolic link or a dotted spelling, are `ORDER` in the field of the pair (`ab:installation`
+  for A and B, `aa:installation` for the two A/A roots and for an A/A root against root A or root B). The
+  detail names the roots by label. An A/A root may share the installation of Stack A with the A/B arm (the
+  approved methodology uses a second independent installation of Stack A and Stack A itself); only its evidence root
+  must differ.
+* **A/A identity:** the stack identities of the two A/A roots (`stack-identity.toml` commits, trees, versions, and the
+  Manifest content of each stratum) must be identical to each other and to `ROOT_A`'s, otherwise `ORDER`,
+  `aa:identity`.
 * **Machine** (`MACHINE`, `receipt:machine`): every process of the receipt carries the same `machine` values
   (`cpu` may differ between strata only, and equals `[machine].cpu` of the stratum), and `cpu_model`, `cpu` and
   `logical_cpu` equal `[machine]` of the schedule and, for `cpu_model` and `cpu`, the root (metadata `cpu_model`
@@ -759,7 +833,8 @@ metadata keys `suite`, `groups`, `case_filter`, `samples_target`, `seconds_limit
 `profile_seconds`, `julia_threads`, `blas_threads`, `seed_scheme`); `[machine]` (`cpu_model`, `cpu` as a table
 from stratum to `Sys.CPU_NAME`, `logical_cpu`, `smt_sibling`, `governor`, `epp`, `no_turbo`, `smt_control`);
 `[julia."<MAJOR.MINOR>"]` (`version`, `commit`); `[stack_a]` (`harness_hash`, and the tables `proximalsolvers`
-and `proximalbase` with the keys of section 11, `tag` and `release` included). The eight repetition IDs and the
+and `proximalbase` with the keys of section 11, `tag` and `release` included, and in each of them `package_hash`, the
+40-hex value of `proximalsolvers_hash` or `proximalbase_hash` that the Stage 2A records carry). The eight repetition IDs and the
 orders are:
 
 | Repetition ID | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |

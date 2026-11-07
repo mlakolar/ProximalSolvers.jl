@@ -61,7 +61,8 @@ version = "1.13.3"
 commit = "67ac47b9cd855e02134d41d5428ac9f2a73f2694"
 
 # The historical Stack A identity: ProximalSolvers b0de3f7 and ProximalBase 0.5.4 (the tag v0.5.4 is accepted
-# only as its tag commit with the release tree), and the harness hash of that campaign.
+# only as its tag commit with the release tree), the harness hash of that campaign, and the package hashes the
+# Stage 2A metadata records carry (`package_hash`: proximalsolvers_hash and proximalbase_hash of a Stack A root).
 [stack_a]
 harness_hash = "b7bf3d953ec6e9f9720e74d7895b5cf95a629fd4"
 
@@ -69,6 +70,7 @@ harness_hash = "b7bf3d953ec6e9f9720e74d7895b5cf95a629fd4"
 commit = "b0de3f7fc91767b97197ff4b458207e308998943"
 tree = "a836d532008782e75f2b2a7e4666fa1df24b34dc"
 version = "0.3.2"
+package_hash = "f37fc61f300ad597a33c7ab5f448d38c865db854"
 
 [stack_a.proximalbase]
 tag = "v0.5.4"
@@ -76,3 +78,4 @@ commit = "9c5a43bf0b7e3f51f0a401b785c332200ffa5d7e"
 tree = "1226119eb2cc6144f7345c727f0e7682632f7826"
 version = "0.5.4"
 release = "registered"
+package_hash = "d4747f2ab51212b20d9adcf70e21c2200b090b2a"

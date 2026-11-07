@@ -19,12 +19,17 @@ Test counts (methods; table-driven methods run one sub-test per row):
                                                paths, the receipt rules one at a time, collect-all, none
                                                fingerprints, the inventory cpu_name, malformed metadata values and
                                                the identity, stack, undeclared and mapping rules one at a time)
+    provenance      ProvenanceTests       21   (installation independence of the A/B pair and the A/A pair, the
+                                               evidence roots, the inventory threads, blas and ProximalBase table,
+                                               the Stack A package hashes, the realpath keys, narrow skips and the
+                                               positive controls; every mutation asserts the exact set of
+                                               (class, field) pairs, only refusals.json and finite timings)
     classification  ClassificationTests   24
     output          OutputTests           49   (including the paths in every output channel and at every site that
                                                cleans a string, the internal error, the phase boundary and the
                                                screen boundaries, the tags of paths that collide and the
                                                URLs next to paths)
-    immutability    ImmutabilityTests      5
+    immutability    ImmutabilityTests      6
 
 The run time is dominated by the validation of the roughly two hundred record files that each call of the tool
 reads; the sets are built once per variant, copied by links per test and kept small (five samples per case).
@@ -36,8 +41,11 @@ import datetime
 import hashlib
 import json
 import math
+import os
+import posixpath
 import re
 import shutil
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -53,6 +61,9 @@ from stage2b_fixtures import (
 COMPARE_SHA256 = "41568ea9b22d9b36f1aa6ba4e478b380284ee66c338f98dfeed40af104ebf6ab"
 VALIDATE_SHA256 = "0b761e77ae4b88d339d7df3351e5ea0ff732c8cd32f68fbb89d95d4a26f2fc4b"
 SUMMARIZE_SHA256 = "d50b471f3898c90c7b1aa880553f12de0a8eb809475e4abcd0859bb57ed703f1"
+RUN_JL_SHA256 = "d613c06fa368b2588ec7418d8dd0ef9f70b0c09cbc682105f1f9713b5230c8c6"
+PROBLEMS_JL_SHA256 = "b047b47275907a31e0f3ed1de7629ed3f965534dd2d1fcafd03c52dd0092fa51"
+CERTIFICATES_JL_SHA256 = "ce09cbcbcaa1091f6ca362e0689340c1a367b3968542fd1d3c7ca9465f5770e1"
 EXPECTED_MATCH_SETTINGS = (
     "suite", "groups", "harness_hash", "proximalbase_version", "proximalbase_hash", "julia_threads",
     "blas_threads", "blas", "cpu_model", "samples_target", "seconds_limit", "case_seconds", "profile_seconds",
@@ -1539,6 +1550,487 @@ class RefusalTests(MigrationCase):
 
 
 # --------------------------------------------------------------------------------------------------------------
+# 2b. Provenance: installation independence, inventory facts and the Stack A package hashes
+# --------------------------------------------------------------------------------------------------------------
+
+def set_stack(c, label, **changes):
+    """Change the model of a stack and rewrite its root (and the receipt, which names the installation)."""
+    c.stack(label).update(changes)
+    c.rebuild_root(label)
+    c.write_receipt()
+
+
+def share_installation(c, label, other):
+    """`label` is installed where `other` is (every recorded location and the installation id)."""
+    source = c.stack(other)
+    set_stack(c, label, **{key: source[key] for key in ("installation", "checkout", "depot", "depot_real", "env",
+                                                         "env_real")})
+
+
+def inventory_file(c, label, jkey):
+    return c.stratum(label, jkey) / "environment-inventory.toml"
+
+
+def edit_inventory(label, key, value, jkeys=(J10, J13)):
+    """Mutation: set `key` (a tuple of keys) in the inventory of the given strata of a root."""
+    def mutate(c):
+        for jkey in jkeys:
+            toml_set(inventory_file(c, label, jkey), key, value)
+    return mutate
+
+
+def delete_inventory(label, key, jkeys=(J10, J13)):
+    def mutate(c):
+        for jkey in jkeys:
+            toml_del(inventory_file(c, label, jkey), key)
+    return mutate
+
+
+def receipt_installation(c, arm, role, value):
+    jsonl_edit(c.receipt, process_event(role, arm), lambda event: event.update(installation=value))
+
+
+def finite_timings(test, c):
+    """Every timing value of every record of every root of the set is finite: no refusal comes from a timing."""
+    for label in F.LABELS:
+        if not c.root(label).exists():
+            continue
+        for jkey in c.jkeys:
+            for rep in c.reps:
+                header, rows = tsv_read(c.record(label, jkey, rep, "metrics"))
+                for row in rows:
+                    for key in F.validate.TIME_FIELDS:
+                        if row[header.index(key)] != "":
+                            test.assertTrue(math.isfinite(float(row[header.index(key)])), (label, jkey, rep, key))
+
+
+AB, AA = ("ORDER", "ab:installation"), ("ORDER", "aa:installation")
+
+
+class ProvenanceTests(MigrationCase):
+    """Sections 4, 4.1, 10, 11 and 12 as hardened: each check has a mutation that only it refuses."""
+
+    def exact(self, rows, aa=False, variant="migration"):
+        """rows: (name, mutation(c) -> optional keyword arguments of the run, set of (class, field)[, text]).
+        Each row runs on a fresh copy and must refuse with exactly that set of (class, field) pairs, write only
+        refusals.json and leave every timing finite."""
+        for name, mutate, expected, *rest in rows:
+            with self.subTest(name):
+                c = self.fresh(variant=variant, aa=aa)
+                kwargs = mutate(c) or {}
+                finite_timings(self, c)
+                result = self.refused(c.run(**{"aa": aa, **kwargs}))
+                self.assertEqual({(i["class"], i["field"]) for i in result.refusals}, set(expected), result.stderr)
+                self.assertEqual(result.files, ["refusals.json"])
+                for text in rest:
+                    self.assertTrue(any(text in i["detail"] for i in result.refusals), (text, result.stderr))
+
+    # ---- positive controls --------------------------------------------------------------------------------
+
+    def test_independent_ab_roots_are_accepted(self):
+        c = self.c
+        a, b = c.stack("a"), c.stack("b")
+        for key in ("installation", "checkout", "depot", "depot_real", "env", "env_real"):
+            self.assertNotEqual(a[key], b[key], key)
+        self.accepted(c.run())
+
+    def test_independent_aa_roots_are_accepted(self):
+        c = self.fresh(aa=True)
+        a, b = c.stack("aa_a"), c.stack("aa_b")
+        for key in ("installation", "checkout", "depot", "depot_real", "env", "env_real"):
+            self.assertNotEqual(a[key], b[key], key)
+        self.accepted(c.run(aa=True))
+
+    def test_aa_root_may_share_the_installation_of_stack_a_with_its_own_evidence_root(self):
+        c = self.fresh(aa=True)
+        share_installation(c, "aa_a", "a")
+        self.assertEqual(toml_load(c.root("aa_a") / "stack-identity.toml")["installation"], c.stack("a")["installation"])
+        self.assertNotEqual(c.root("aa_a"), c.root("a"))
+        self.accepted(c.run(aa=True))
+
+    def test_equal_job_id_in_a_and_b_is_not_a_refusal(self):
+        c = self.c
+        c.set_meta("a", "job_id", "4711")
+        c.set_meta("b", "job_id", "4711")
+        self.accepted(c.run())
+
+    def test_both_processes_of_every_block_may_run_in_one_allocation(self):
+        c = self.fresh(aa=True)
+        for rep in c.reps:
+            for label in F.LABELS:
+                c.set_meta(label, "job_id", f"allocation-{rep}", reps=[rep])
+        self.accepted(c.run(aa=True))
+
+    def test_different_realpaths_below_a_symlinked_parent_are_accepted(self):
+        c = self.c
+        for label in ("a", "b"):
+            c.stack(label).update(depot=f"/synthroot/linked/depot-{label}", depot_real=f"/synthroot/real-{label}/depot",
+                                  env=f"/synthroot/linked/envs-{label}/env-{{version}}/Project.toml",
+                                  env_real=f"/synthroot/real-{label}/envs/env-{{version}}/Project.toml")
+            c.rebuild_root(label)
+        self.accepted(c.run())
+
+    def test_the_comparator_looks_up_no_recorded_path_in_the_filesystem(self):
+        # validate.py (unmodified) resolves two recorded metadata paths itself; the comparator's own code never
+        # looks up an archived value, so calls made on behalf of validate.py are set aside
+        c = self.c
+        seen, other = [], []
+
+        def spy(original):
+            def call(*args, **kwargs):
+                names = {frame.f_code.co_filename for frame in iter_frames(sys._getframe(1))}
+                bucket = other if any(name.endswith("validate.py") for name in names) else seen
+                bucket.extend(str(arg) for arg in args if isinstance(arg, (str, bytes, Path)))
+                return original(*args, **kwargs)
+            return call
+
+        def iter_frames(frame):
+            while frame is not None:
+                yield frame
+                frame = frame.f_back
+        with contextlib.ExitStack() as stack:
+            for target, original in (("os.stat", os.stat), ("os.lstat", os.lstat), ("os.readlink", os.readlink),
+                                     ("os.path.realpath", os.path.realpath), ("os.path.samefile", os.path.samefile),
+                                     ("os.path.exists", os.path.exists), ("os.path.lexists", os.path.lexists),
+                                     ("os.path.isdir", os.path.isdir), ("os.path.isfile", os.path.isfile)):
+                stack.enter_context(mock.patch(target, spy(original)))
+            self.accepted(c.run())
+        self.assertTrue(seen, "the spy sees the command-line paths")
+        self.assertEqual([item for item in seen if "synthroot" in item], [])
+
+    # ---- the A/B pair and the A/A pair must be independent installations ----------------------------------
+
+    def test_ab_installation_independence_one_check_at_a_time(self):
+        a = lambda c: c.stack("a")  # noqa: E731
+
+        def same_id(c):
+            set_stack(c, "b", installation=a(c)["installation"])
+
+        def same_checkout(c):
+            set_stack(c, "b", checkout=a(c)["checkout"])
+
+        def spelled(suffix, prefix=""):
+            def mutate(c):
+                set_stack(c, "b", checkout=prefix + a(c)["checkout"] + suffix)
+            return mutate
+
+        def checkout_dotdot(c):
+            set_stack(c, "b", checkout=a(c)["checkout"].replace("/ProximalSolvers.jl", "/other/../ProximalSolvers.jl"))
+
+        def depot_literal(c):
+            set_stack(c, "b", depot=a(c)["depot"])
+
+        def depot_realpath(c):
+            set_stack(c, "b", depot_real=a(c)["depot_real"])
+
+        def depot_realpath_one_stratum(c):
+            toml_set(inventory_file(c, "b", J13), ("depot_realpath",), a(c)["depot_real"])
+
+        def environment_literal(c):
+            set_stack(c, "b", env=a(c)["env"])
+
+        def environment_realpath(c):
+            set_stack(c, "b", env_real=a(c)["env_real"])
+
+        def environment_one_stratum(c):
+            toml_set(inventory_file(c, "b", J10), ("active_project",), toml_load(inventory_file(c, "a", J10))["active_project"])
+
+        def environment_realpath_one_stratum(c):
+            toml_set(inventory_file(c, "b", J13), ("active_project_realpath",),
+                     toml_load(inventory_file(c, "a", J13))["active_project_realpath"])
+
+        def project_file_name(c):
+            # another file name in the same directory is the same environment
+            toml_set(inventory_file(c, "b", J10), ("active_project",),
+                     posixpath.dirname(toml_load(inventory_file(c, "a", J10))["active_project"]) + "/JuliaProject.toml")
+
+        self.exact([
+            ("equal installation id, nothing else", same_id, {AB}, "both roots have installation"),
+            ("equal checkout under different installation ids", same_checkout, {AB}, "name the checkout"),
+            ("checkout spelled with a trailing '/.'", spelled("/."), {AB}, "name the checkout"),
+            ("checkout spelled with a trailing '/./'", spelled("/./"), {AB}, "name the checkout"),
+            ("checkout spelled with an extra leading slash", spelled("", "/"), {AB}, "name the checkout"),
+            ("checkout spelled with a '..' component", checkout_dotdot, {AB}, "name the checkout"),
+            ("equal first depot entry as recorded", depot_literal, {AB}, "first depot entry"),
+            ("different first depot entries, equal depot_realpath", depot_realpath, {AB}, "resolves to the same"),
+            ("equal depot_realpath in one stratum", depot_realpath_one_stratum, {AB}, "julia 1.13.3"),
+            ("equal environment as recorded", environment_literal, {AB}, "environment"),
+            ("equal environment as resolved", environment_realpath, {AB}, "(resolved)"),
+            ("equal environment in one stratum", environment_one_stratum, {AB}, "julia 1.10.13"),
+            ("equal resolved environment in one stratum", environment_realpath_one_stratum, {AB}, "julia 1.13.3"),
+            ("equal environment directory, another file name", project_file_name, {AB}, "environment"),
+        ])
+
+    def test_aa_installation_independence_new_checks_one_at_a_time(self):
+        a = lambda c: c.stack("aa_a")  # noqa: E731
+
+        def depot_realpath(c):
+            set_stack(c, "aa_b", depot_real=a(c)["depot_real"])
+
+        def environment_literal(c):
+            set_stack(c, "aa_b", env=a(c)["env"])
+
+        def environment_realpath(c):
+            set_stack(c, "aa_b", env_real=a(c)["env_real"])
+
+        def same_id_through_the_pair_of_a_b(c):
+            set_stack(c, "b", installation=c.stack("a")["installation"])
+
+        self.exact([
+            ("A/A: different depots, equal depot_realpath", depot_realpath, {AA}, "resolves to the same"),
+            ("A/A: equal environment as recorded", environment_literal, {AA}, "environment"),
+            ("A/A: equal environment as resolved", environment_realpath, {AA}, "(resolved)"),
+            ("A/B equal installation id is refused while an A/A pair is given", same_id_through_the_pair_of_a_b,
+             {AB}, "both roots have installation"),
+        ], aa=True)
+
+    def test_installation_independence_is_checked_for_ab_without_the_aa_option(self):
+        c = self.c
+        set_stack(c, "b", installation=c.stack("a")["installation"])
+        result = self.refused(c.run(), fields=[AB])
+        self.assertEqual({(i["class"], i["field"]) for i in result.refusals}, {AB})
+
+    def test_stack_a_refusal_does_not_hide_an_aliased_installation(self):
+        c = self.c
+        set_stack(c, "b", installation=c.stack("a")["installation"])
+        c.set_meta("a", "proximalsolvers_hash", "1" * 40)
+        toml_set(c.declared, ("proximalsolvers", "a_package_hash"), "1" * 40)
+        result = self.refused(c.run())
+        self.assertEqual({(i["class"], i["field"]) for i in result.refusals}, {("IDENTITY", "a:stack_a"), AB})
+
+    # ---- the evidence roots are distinct directories -------------------------------------------------------
+
+    def test_the_four_evidence_roots_are_distinct_directories(self):
+        def a_twice(c):
+            receipt_installation(c, "AB", "B", c.stack("a")["installation"])
+            return dict(b=c.root("a"))
+
+        def a_twice_through_a_symlink(c):
+            receipt_installation(c, "AB", "B", c.stack("a")["installation"])
+            link = Path(c.work) / "link-to-a"
+            link.symlink_to(c.root("a"), target_is_directory=True)
+            return dict(b=link)
+
+        def a_twice_with_a_dotted_spelling(c):
+            receipt_installation(c, "AB", "B", c.stack("a")["installation"])
+            return dict(b=str(c.root("a")) + "/./")
+
+        def aa_twice(c):
+            receipt_installation(c, "AA", "B", c.stack("aa_a")["installation"])
+            return dict(aa=[c.root("aa_a"), c.root("aa_a")])
+
+        def aa_twice_through_a_symlink(c):
+            receipt_installation(c, "AA", "B", c.stack("aa_a")["installation"])
+            link = Path(c.work) / "link-to-aa"
+            link.symlink_to(c.root("aa_a"), target_is_directory=True)
+            return dict(aa=[c.root("aa_a"), link])
+
+        def aa_root_is_root_a(c):
+            receipt_installation(c, "AA", "A", c.stack("a")["installation"])
+            return dict(aa=[c.root("a"), c.root("aa_b")])
+
+        def aa_root_is_root_b(c):
+            receipt_installation(c, "AA", "B", c.stack("b")["installation"])
+            return dict(aa=[c.root("aa_a"), c.root("b")])
+
+        same = "same directory"
+        self.exact([
+            ("a given twice", a_twice, {AB}, "the evidence roots a and b are the same directory"),
+            ("a given twice through a symlinked directory", a_twice_through_a_symlink, {AB}, same),
+            ("a given twice with a dotted spelling", a_twice_with_a_dotted_spelling, {AB}, same),
+        ], variant="identical")
+        self.exact([
+            ("aa_a given twice", aa_twice, {AA}, "the evidence roots aa_a and aa_b are the same directory"),
+            ("aa_a given twice through a symlinked directory", aa_twice_through_a_symlink, {AA}, same),
+            ("an A/A root is root a", aa_root_is_root_a, {AA}, "the evidence roots a and aa_a are the same"),
+            ("an A/A root is root b", aa_root_is_root_b, {AA}, "the evidence roots b and aa_b are the same"),
+        ], aa=True, variant="identical")
+
+    def test_a_refusal_names_the_evidence_roots_by_label_and_never_by_path(self):
+        c = self.fresh(variant="identical")
+        receipt_installation(c, "AB", "B", c.stack("a")["installation"])
+        result = self.refused(c.run(b=c.root("a")), fields=[AB])
+        for item in result.refusals:
+            self.assertEqual(leaks(item["detail"]), [], item["detail"])
+            for stray in stray_strings(c):
+                self.assertNotIn(stray, item["detail"])
+
+    # ---- the inventory facts --------------------------------------------------------------------------------
+
+    def test_inventory_loaded_tree_table_and_threads_and_blas(self):
+        pb = ("deps", "ProximalBase")
+        wrong = "5" * 40
+        loaded = ("STACK", "b:loaded_tree")
+        self.exact([
+            ("inventory ProximalBase tree against the identity", edit_inventory("b", pb + ("tree",), wrong, [J13]),
+             {loaded}, "[deps.ProximalBase] tree"),
+            ("inventory ProximalBase version against the identity", edit_inventory("b", pb + ("version",), "0.6.1"),
+             {loaded}, "[deps.ProximalBase] version"),
+            ("inventory [deps.ProximalBase] missing", delete_inventory("b", pb, [J10]), {loaded}, "missing"),
+            ("inventory [deps.ProximalBase] without tree", delete_inventory("b", pb + ("tree",), [J13]), {loaded},
+             "missing"),
+            ("inventory [deps.ProximalBase] without version", delete_inventory("b", pb + ("version",), [J10]),
+             {loaded}, "missing"),
+            ("inventory [deps.ProximalBase] tree of another type", edit_inventory("b", pb + ("tree",), 5, [J10]),
+             {loaded}, "missing"),
+            ("inventory ProximalBase tree of Stack A", edit_inventory("a", pb + ("tree",), wrong, [J10]),
+             {("STACK", "a:loaded_tree")}),
+            ("inventory threads is 2", edit_inventory("b", ("threads",), 2, [J13]), {("THREADS", "b:julia_threads")},
+             "inventory threads"),
+            ("inventory threads is 0 in Stack A", edit_inventory("a", ("threads",), 0, [J10]),
+             {("THREADS", "a:julia_threads")}),
+            ("inventory blas differs from the metadata", edit_inventory("b", ("blas",), "LBTConfig([LP64] libx.so)", [J10]),
+             {("THREADS", "b:blas")}, "inventory blas"),
+            ("inventory blas differs in Stack A", edit_inventory("a", ("blas",), "LBTConfig([LP64] libx.so)", [J13]),
+             {("THREADS", "a:blas")}),
+        ])
+
+    def test_inventory_threads_and_blas_are_not_only_a_pair_comparison(self):
+        # both roots carry the same wrong inventory value: the pair comparison alone would accept it
+        c = self.c
+        for label in ("a", "b"):
+            edit_inventory(label, ("threads",), 4)(c)
+            edit_inventory(label, ("blas",), "LBTConfig([LP64] libx.so)")(c)
+        result = self.refused(c.run())
+        self.assertEqual({(i["class"], i["field"]) for i in result.refusals},
+                         {("THREADS", "a:julia_threads"), ("THREADS", "b:julia_threads"), ("THREADS", "a:blas"),
+                          ("THREADS", "b:blas")})
+
+    # ---- the Stack A package hashes ---------------------------------------------------------------------------
+
+    def test_stack_a_package_hashes_equal_the_schedule_pins(self):
+        wrong = "1" * 40
+
+        def metadata_hash(label, key, jkeys=None, reps=None):
+            return lambda c: c.set_meta(label, key, wrong, jkeys=jkeys, reps=reps)
+
+        def with_declared(label, key, table):
+            def mutate(c):
+                c.set_meta(label, key, wrong)
+                toml_set(c.declared, (table, "a_package_hash"), wrong)
+            return mutate
+
+        stack = ("IDENTITY", "a:stack_a")
+        self.exact([
+            ("ProximalSolvers package hash of Stack A, declared consistently", with_declared("a", "proximalsolvers_hash",
+                                                                                           "proximalsolvers"),
+             {stack}, "[stack_a.proximalsolvers]"),
+            ("ProximalBase package hash of Stack A, declared consistently", with_declared("a", "proximalbase_hash",
+                                                                                         "proximalbase"),
+             {stack}, "[stack_a.proximalbase]"),
+        ])
+        # the declared table alone cannot make a wrong hash acceptable: it also refuses the pair
+        self.exact([
+            ("ProximalSolvers package hash of Stack A only", metadata_hash("a", "proximalsolvers_hash"),
+             {stack, ("UNDECLARED", "declared:proximalsolvers")}),
+            ("ProximalBase package hash of Stack A in one repetition", metadata_hash("a", "proximalbase_hash", [J13], [4]),
+             {stack, ("STACK", "a:mixed"), ("UNDECLARED", "declared:proximalbase"), ("SETTINGS", "a:records")}),
+        ])
+        self.exact([
+            ("A/A root with another ProximalSolvers package hash", metadata_hash("aa_a", "proximalsolvers_hash"),
+             {("IDENTITY", "aa_a:stack_a")}),
+            ("A/A root with another ProximalBase package hash", metadata_hash("aa_b", "proximalbase_hash"),
+             {("IDENTITY", "aa_b:stack_a")}),
+        ], aa=True)
+
+    def test_a_refused_stack_a_hash_suppresses_only_the_identity_based_stack_checks_of_that_root(self):
+        # the root is not trusted afterwards, so a wrong loaded tree of that root is not also listed
+        c = self.c
+        c.set_meta("a", "proximalsolvers_hash", "1" * 40)
+        toml_set(c.declared, ("proximalsolvers", "a_package_hash"), "1" * 40)
+        toml_set(inventory_file(c, "a", J10), ("proximalbase_loaded_tree",), "5" * 40)
+        result = self.refused(c.run())
+        self.assertEqual({(i["class"], i["field"]) for i in result.refusals}, {("IDENTITY", "a:stack_a")})
+
+    # ---- regression: the rest of the provenance rows, exact sets ----------------------------------------------
+
+    def test_other_provenance_defects_are_refused_with_their_own_fields(self):
+        sha = "7" * 40
+        manifest_b = lambda c: c.stratum("b", J10) / "Manifest.toml"  # noqa: E731
+
+        def wrong_manifest_entry(c):
+            toml_set(manifest_b(c), ("deps", "ProximalBase", 0, "git-tree-sha1"), "6" * 40)
+
+        def undeclared_manifest_change(c):
+            toml_set(c.stratum("a", J10) / "Manifest.toml", ("deps", "StatsBase", 0, "version"), "9.9.9")
+
+        def declared_but_absent(c):
+            toml_set(c.declared, ("manifest",), [dict(name="Ghost", uuid="0" * 8 + "-0000-0000-0000-" + "0" * 12,
+                                                        kind="added", a_version="", b_version="1.0.0", a_tree="",
+                                                        b_tree="", reason="synthetic")])
+
+        def dirty(c):
+            c.set_meta("b", "proximalsolvers_dirty", True)
+
+        def mixed_sha(c):
+            c.set_meta("b", "proximalsolvers_sha", sha, jkeys=[J10], reps=[3])
+
+        def metadata_path_against_inventory_dir(c):
+            toml_set(inventory_file(c, "b", J10), ("proximalsolvers_dir",), c.stack("a")["checkout"])
+
+        def metadata_path_of_a_in_b_inventory(c):
+            c.set_meta("b", "proximalsolvers_path", c.stack("a")["checkout"], jkeys=[J13])
+
+        stack_b = ("STACK", "b:loaded_tree")
+        self.exact([
+            ("a wrong Manifest entry", wrong_manifest_entry, {stack_b, ("UNDECLARED", "declared:manifest")}),
+            ("a Manifest change nobody declared", undeclared_manifest_change, {("UNDECLARED", "declared:manifest")}),
+            ("a declared difference that does not exist", declared_but_absent, {("UNDECLARED", "declared:manifest")}),
+            ("a dirty checkout", dirty, {("STACK", "b:dirty")}),
+            ("one repetition from another source commit", mixed_sha, {("STACK", "b:mixed"), stack_b,
+                                                                       ("UNDECLARED", "declared:proximalsolvers")}),
+            ("inventory checkout of b is the checkout of a", metadata_path_against_inventory_dir, {stack_b, AB},
+             "name the checkout"),
+            ("metadata checkout of b is the checkout of a", metadata_path_of_a_in_b_inventory, {stack_b, AB},
+             "name the checkout"),
+        ], variant="identical")
+
+    def test_schema_missing_or_malformed_realpath_keys(self):
+        files = ("SCHEMA", "b:files")
+
+        def bad(key, value):
+            return edit_inventory("b", (key,), value)
+        self.exact([
+            ("depot_realpath missing", delete_inventory("b", ("depot_realpath",)), {files}, "depot_realpath"),
+            ("active_project_realpath missing", delete_inventory("b", ("active_project_realpath",)), {files},
+             "active_project_realpath"),
+            ("active_project missing", delete_inventory("b", ("active_project",)), {files}, "active_project"),
+            ("depot_realpath relative", bad("depot_realpath", "depot"), {files}, "depot_realpath"),
+            ("depot_realpath not in normal form", bad("depot_realpath", "/synthroot/x/../depot"), {files}, "normal form"),
+            ("depot_realpath with a trailing slash", bad("depot_realpath", "/synthroot/x/depot/"), {files}, "normal form"),
+            ("active_project_realpath not a string", bad("active_project_realpath", 5), {files}, "active_project_realpath"),
+            ("active_project empty", bad("active_project", ""), {files}, "active_project"),
+        ])
+
+    def test_a_refused_input_skips_only_the_checks_that_need_it(self):
+        def same_environment_and_missing_realpath_elsewhere(c):
+            toml_set(inventory_file(c, "b", J10), ("active_project",), toml_load(inventory_file(c, "a", J10))["active_project"])
+            toml_del(inventory_file(c, "b", J13), ("depot_realpath",))
+
+        def same_checkout_without_identity(c):
+            set_stack(c, "b", checkout=c.stack("a")["checkout"])
+            (c.root("b") / "stack-identity.toml").unlink()
+
+        self.exact([
+            ("stratum 1.10 is checked although 1.13 lacks a key", same_environment_and_missing_realpath_elsewhere,
+             {("SCHEMA", "b:files"), AB}, "julia 1.10.13"),
+            ("the checkout is compared although the identity is missing", same_checkout_without_identity,
+             {("IDENTITY", "b:identity"), AB}, "name the checkout"),
+        ])
+
+    def test_every_new_refusal_is_listed_together_with_the_others(self):
+        c = self.c
+        set_stack(c, "b", installation=c.stack("a")["installation"], depot_real=c.stack("a")["depot_real"])
+        edit_inventory("b", ("threads",), 2)(c)
+        toml_set(inventory_file(c, "b", J13), ("deps", "ProximalBase", "version"), "0.0.1")
+        c.set_meta("a", "proximalbase_hash", "1" * 40)
+        result = self.refused(c.run())
+        for pair in (AB, ("THREADS", "b:julia_threads"), ("STACK", "b:loaded_tree"), ("IDENTITY", "a:stack_a")):
+            self.assertTrue(result.has(*pair), (pair, result.stderr))
+        self.assertGreaterEqual(len([i for i in result.refusals if i["field"] == "ab:installation"]), 2)
+
+
+# --------------------------------------------------------------------------------------------------------------
 # 3. Per-case classification
 # --------------------------------------------------------------------------------------------------------------
 
@@ -2593,6 +3085,11 @@ class ImmutabilityTests(MigrationCase):
 
     def test_summarize_py_is_unchanged(self):
         self.assertEqual(digest(F.BENCH / "summarize.py"), SUMMARIZE_SHA256)
+
+    def test_harness_files_are_unchanged(self):
+        for name, expected in (("run.jl", RUN_JL_SHA256), ("problems.jl", PROBLEMS_JL_SHA256),
+                               ("certificates.jl", CERTIFICATES_JL_SHA256)):
+            self.assertEqual(digest(F.BENCH / name), expected, name)
 
     def test_validate_settings_are_unchanged_after_in_process_runs(self):
         import validate
