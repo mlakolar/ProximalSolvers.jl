@@ -69,6 +69,8 @@ DISCLAIMER = ("The screens are descriptive investigation screens, not tests: the
               "confidence bounds.")
 BANNED = re.compile(r"non-?inferior|no-regression|significant|equivalent", re.IGNORECASE)
 HISTORICAL_TITLE = "Historical Stage 2A reference (descriptive; not part of any ratio)"
+# An absolute path: a '/' that does not continue a word, a label or another path, then its components.
+ABSOLUTE_PATH = re.compile(r"(?<![\w.\-/>])/+(?:[\w.\-+@%]+/)*[\w.\-+@%]+")
 COLUMNS = ("julia id role phase class reason repetitions a_ns b_ns ratio abs_diff_ns geomean_ratio ratio_min "
            "ratio_max measure target a_value b_value a_accuracy_fraction b_accuracy_fraction a_accuracy_band "
            "b_accuracy_band a_median_bytes b_median_bytes hardware aa_ratio_min aa_ratio_max screen "
@@ -468,8 +470,9 @@ def read_identity(root, ref):
 # ------------------------------------------------------------------------- root: record-level checks (sec 3)
 
 def norm(path):
-    """An archived path in normal form: no trailing slash, '.' or '..' segments (compared as text)."""
-    return posixpath.normpath(path) if path else path
+    """An archived path in normal form (compared as text): one leading '/', no '.' or '..' segment and no
+    trailing '/'; posixpath.normpath alone keeps exactly two leading slashes. Symlinks are not followed."""
+    return posixpath.normpath(re.sub(r"^/+", "/", path)) if path else path
 
 
 def procs(st):
@@ -1482,7 +1485,9 @@ def make_scrub(paths):
         text = str(text)
         for variant, label in known:
             text = re.sub(re.escape(variant) + r"(?![\w.-])", lambda _: f"<{label}>", text)
-        return re.sub(r"(?<![\w.<>:/-])/(?:[^/\s'\"]+/)+([^/\s'\"]*)", r"\1", text)
+        text = text.replace("://", "\x00URL\x00")                       # a URL keeps its path
+        text = ABSOLUTE_PATH.sub(lambda match: match[0].rsplit("/", 1)[-1], text)
+        return text.replace("\x00URL\x00", "://")
     return scrub
 
 
@@ -1498,11 +1503,12 @@ def comparison_phase(W):
     lists = build_lists(W, results)
     for items in lists.values():
         for item in items:
-            for key in ("detail", "text", "reason"):
-                if key in item:
-                    item[key] = scrub(item[key])
-    rows = [{**{k: r.get(k, "") for k in COLUMNS if k != "class"}, "class": r["class_"]} for r in results]
-    return results, rows, lists, render_report(W, results, lists)
+            for key, value in item.items():
+                if isinstance(value, str):
+                    item[key] = scrub(value)
+    rows = [{k: scrub(v) for k, v in {**{k: r.get(k, "") for k in COLUMNS if k != "class"},
+                                      "class": r["class_"]}.items()} for r in results]
+    return results, rows, lists, scrub(render_report(W, results, lists))
 
 
 def run(argv):

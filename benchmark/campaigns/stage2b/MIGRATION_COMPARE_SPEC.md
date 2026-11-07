@@ -25,8 +25,11 @@ It reads records only. It runs no Julia, needs no network, uses only the Python 
 later, `tomllib`) and writes only to a fresh output directory. Its output is deterministic: it contains no clock
 time of the run, no host name and no absolute path; the text of a refusal and of a usage error is cleaned the same
 way: a path given on the command line is replaced by its label (`<a>`, `<b>`, `<aa_a>`, `<aa_b>`, `<receipt>`,
-`<mapping>`, `<declared>`, `<fingerprints_a>`, `<fingerprints_b>`, `<schedule>`, `<out>`) and the directory part of
-any other absolute path is dropped.
+`<mapping>`, `<declared>`, `<fingerprints_a>`, `<fingerprints_b>`, `<schedule>`, `<out>`) first, then every other
+absolute path (a `/` that does not continue a word, a label or another path, followed by one or more components,
+alone or after a colon, a quote or a bracket, with any number of leading `/`) is reduced to its last component;
+a URL (`://`) is kept as it is. The same cleaning is applied to every string the tool writes: refusals, standard
+error, lists, the table and the report.
 
 ## 2. Inputs
 
@@ -185,7 +188,7 @@ different classes in different processes or strata).
 | `SCHEMA` | `<root>:records`, `<root>:metadata_keys`, `<root>:files`, `receipt:schema`, `declared:schema`, `mapping:schema`, `fingerprints_a:schema`, `fingerprints_b:schema` | any other issue of `validate.py` (headers, missing keys, malformed values); a metadata key set other than the allowed one, or a metadata value of a type other than the one the checks read (string, boolean, integer or number as the key requires); a required file of section 10 missing or not parseable inside a root (`raw/`, `Manifest.toml`, `Project.toml`, `environment-inventory.toml`) or lacking a required inventory key (`cpu_name` among them); a fingerprint `none` value outside its allowed rows (section 14); a file whose `schema` is not 1, has an unknown key, a missing key or a value of the wrong type |
 | `UNDECLARED` | `declared:proximalsolvers`, `declared:proximalbase`, `declared:manifest`, `declared:compat`, `declared:harness`, `ab:harness_hash` | the observed differences of section 3 and the declared set not equal (section 13): an undeclared one, or a declared one that is absent |
 | `SETTINGS` | `<root>:<key>` for `<key>` in `suite`, `groups`, `case_filter`, `samples_target`, `seconds_limit`, `case_seconds`, `profile_seconds`; `<root>:records` | the metadata value differing from `[settings]` of the schedule; the `series settings changed within a Julia version` issue of `validate.py` (rule R1) |
-| `STACK` | `<root>:dirty`, `<root>:loaded_tree`, `<root>:mixed`, `<root>:unfinished`, `receipt:process` | `proximalsolvers_dirty` true; `proximalsolvers_sha`, inventory `proximalbase_loaded_tree`, inventory and metadata `proximalbase_version`, the Manifest entries of ProximalSolvers and ProximalBase, or `proximalsolvers_path` differing from `stack-identity.toml`, the inventory or `expected_package_root` (every archived path is compared in normal form, `posixpath.normpath`); values of section 3 differing between repetitions or strata of one root; the unfinished process messages of `validate.py` (rule R1); a receipt process with `complete` false, or `exit` not in {0, 2}, or `exit` 0 with `nonok_cases` of the record above 0, or `exit` 2 with `nonok_cases` equal to 0 |
+| `STACK` | `<root>:dirty`, `<root>:loaded_tree`, `<root>:mixed`, `<root>:unfinished`, `receipt:process` | `proximalsolvers_dirty` true; `proximalsolvers_sha`, inventory `proximalbase_loaded_tree`, inventory and metadata `proximalbase_version`, the Manifest entries of ProximalSolvers and ProximalBase, or `proximalsolvers_path` differing from `stack-identity.toml`, the inventory or `expected_package_root` (every archived path is compared in normal form, see section 12); values of section 3 differing between repetitions or strata of one root; the unfinished process messages of `validate.py` (rule R1); a receipt process with `complete` false, or `exit` not in {0, 2}, or `exit` 0 with `nonok_cases` of the record above 0, or `exit` 2 with `nonok_cases` equal to 0 |
 | `IDENTITY` | `<root>:identity`, `<root>:stack_a`, `<root>:tag` | section 11: a missing key (`campaign_id` and `session_id` included), a value that is not 40 lowercase hex (a branch name, a short SHA), a `registered` release without `tag`, a `tag` without its commit; a Stack A root (`a`, `aa_a`, `aa_b`) whose ProximalSolvers or ProximalBase identity or `harness_hash` differs from `[stack_a]` of the schedule |
 | `ORDER` | `receipt:campaign`, `receipt:missing`, `receipt:block`, `receipt:installation`, `receipt:elapsed`, `<root>:campaign`, `<root>:session`, `aa:installation`, `aa:identity` | section 12 |
 
@@ -504,7 +507,7 @@ JSON lines, one object per line, one file for the A/B arm and the A/A arm of one
   `nonok_cases` of the record above 0; `exit` 2 with `nonok_cases` equal to 0. `run.jl` exits 2 when its records
   are complete and at least one case is not ok: that is a FAILED case, not a refusal.
 * **A/A pair:** the two roles of the A/A arm must be distinct installations: distinct `installation` ids, distinct
-  `proximalsolvers_path` (also `expected_package_root` and the inventory `proximalsolvers_dir`) in the metadata, and distinct first `depot_path` entries in the inventories, all compared in normal form (`posixpath.normpath`: two spellings of one directory are one installation); their stack
+  `proximalsolvers_path` (also `expected_package_root` and the inventory `proximalsolvers_dir`) in the metadata, and distinct first `depot_path` entries in the inventories, all compared in normal form (a run of leading `/` collapses to one, `.` and `..` segments and trailing `/` are removed, symlinks are not followed: two spellings of one directory are one installation); their stack
   identities (`stack-identity.toml` commits, trees, versions, and the Manifest content of each stratum) must be
   identical to each other and to `ROOT_A`'s. Otherwise `ORDER`: `aa:installation` for the distinctness (same
   installation masquerading as two) and `aa:identity` for the identity and Manifest.
