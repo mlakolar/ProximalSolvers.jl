@@ -305,6 +305,8 @@ def parse_inventory(data):
     depot = data["depot_path"]
     if not (isinstance(depot, list) and depot and all(isinstance(d, str) for d in depot)):
         problems.append("depot_path must be a non-empty string array")
+    elif not depot[0].startswith("/"):
+        problems.append("depot_path[0] must be an absolute path")
     if not is_int(data["threads"]):
         problems.append("threads must be an integer")
     if not isinstance(data.get("deps", {}), dict):
@@ -1229,15 +1231,19 @@ def checkout_paths(st):
     return found | ({norm(st["inv"]["proximalsolvers_dir"])} if st["inv"] else set())
 
 
-def check_independent(scope, one, two, sched, ref):
+def check_independent(scope, one, two, sched, ref, named=False):
     """Section 12: two roots of one pair (scope ab or aa) come from independent installations.
 
     Installation id, checkout, first depot entry (as recorded and as Julia resolved it) and the Julia environment
     of each stratum all differ. Only recorded values are compared (normal form, no filesystem access); a check
     whose inputs were refused earlier is skipped."""
     field = f"{scope}:installation"
+    prefix = f"roots {one['name']} and {two['name']}: " if named else ""   # which two roots, when not the scope's pair
+
+    def emit(detail):
+        refuse(ref, "ORDER", field, prefix + detail)
     if one["ident"] and two["ident"] and one["ident"]["installation"] == two["ident"]["installation"]:
-        refuse(ref, "ORDER", field, f"both roots have installation {one['ident']['installation']!r}")
+        emit(f"both roots have installation {one['ident']['installation']!r}")
     for mm, info in sched["strata"].items():
         s1, s2 = one["strata"].get(mm), two["strata"].get(mm)
         if not s1 or not s2:
@@ -1245,19 +1251,23 @@ def check_independent(scope, one, two, sched, ref):
         at = f"julia {info['version']}"
         shared = checkout_paths(s1) & checkout_paths(s2)
         if shared:
-            refuse(ref, "ORDER", field, f"{at}: both roots name the checkout {sorted(shared)}")
+            emit(f"{at}: both roots name the checkout {sorted(shared)}")
         i1, i2 = s1["inv"], s2["inv"]
         if not (i1 and i2):
             continue
         if norm(i1["depot_path"][0]) == norm(i2["depot_path"][0]):
-            refuse(ref, "ORDER", field, f"{at}: first depot entry {norm(i1['depot_path'][0])!r} is shared")
+            emit(f"{at}: first depot entry {norm(i1['depot_path'][0])!r} is shared")
         if i1["depot_realpath"] == i2["depot_realpath"]:
-            refuse(ref, "ORDER", field, f"{at}: first depot entry resolves to the same directory "
-                   f"{i1['depot_realpath']!r}")
+            emit(f"{at}: first depot entry resolves to the same directory {i1['depot_realpath']!r}")
+        for x, y, who in ((i1, i2, "first root"), (i2, i1, "second root")):
+            for index, entry in enumerate(x["depot_path"]):
+                if (index and norm(entry) == norm(y["depot_path"][0])) or norm(entry) == y["depot_realpath"]:
+                    emit(f"{at}: depot entry {index} of the {who}, {norm(entry)!r}, is the first depot "
+                         "(or its realpath) of the other root")
         for key, label in (("active_project", "recorded"), ("active_project_realpath", "resolved")):
             env1, env2 = (posixpath.dirname(norm(i[key])) for i in (i1, i2))
             if env1 == env2:
-                refuse(ref, "ORDER", field, f"{at}: both roots use the environment {env1!r} ({label})")
+                emit(f"{at}: both roots use the environment {env1!r} ({label})")
 
 
 def check_evidence_roots(given, ref):
@@ -1670,6 +1680,8 @@ def run(argv, state):
     check_independent("ab", roots["a"], roots["b"], sched, ref)
     if args.aa:
         check_independent("aa", roots["aa_a"], roots["aa_b"], sched, ref)
+        for label in ("aa_a", "aa_b"):
+            check_independent("aa", roots["b"], roots[label], sched, ref, named=True)
         check_aa(roots, sched, ref)
     check_evidence_roots(names, ref)
 

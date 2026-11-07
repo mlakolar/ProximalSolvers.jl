@@ -19,7 +19,7 @@ Test counts (methods; table-driven methods run one sub-test per row):
                                                paths, the receipt rules one at a time, collect-all, none
                                                fingerprints, the inventory cpu_name, malformed metadata values and
                                                the identity, stack, undeclared and mapping rules one at a time)
-    provenance      ProvenanceTests       21   (installation independence of the A/B pair and the A/A pair, the
+    provenance      ProvenanceTests       24   (installation independence of the A/B pair and the A/A pair, the
                                                evidence roots, the inventory threads, blas and ProximalBase table,
                                                the Stack A package hashes, the realpath keys, narrow skips and the
                                                positive controls; every mutation asserts the exact set of
@@ -1833,17 +1833,46 @@ class ProvenanceTests(MigrationCase):
             receipt_installation(c, "AA", "B", c.stack("b")["installation"])
             return dict(aa=[c.root("aa_a"), c.root("b")])
 
-        same = "same directory"
+        def aa_as(label, slot, how):
+            """An A/A root (slot 0: aa_a, 1: aa_b) names the root `label` through a symlink or a '..' spelling."""
+            def mutate(c):
+                arm_role = "A" if slot == 0 else "B"
+                receipt_installation(c, "AA", arm_role, c.stack(label)["installation"])
+                if how == "symlink":
+                    target = Path(c.work) / f"link-to-{label}"
+                    target.symlink_to(c.root(label), target_is_directory=True)
+                else:
+                    (c.root(label).parent / "x").mkdir()
+                    target = f"{c.root(label).parent}/x/../{label}"
+                own = c.root("aa_b" if slot == 0 else "aa_a")
+                return dict(aa=[target, own] if slot == 0 else [own, target])
+            return mutate
+
         self.exact([
             ("a given twice", a_twice, {AB}, "the evidence roots a and b are the same directory"),
-            ("a given twice through a symlinked directory", a_twice_through_a_symlink, {AB}, same),
-            ("a given twice with a dotted spelling", a_twice_with_a_dotted_spelling, {AB}, same),
+            ("a given twice through a symlinked directory", a_twice_through_a_symlink, {AB},
+             "the evidence roots a and b"),
+            ("a given twice with a dotted spelling", a_twice_with_a_dotted_spelling, {AB},
+             "the evidence roots a and b"),
         ], variant="identical")
         self.exact([
             ("aa_a given twice", aa_twice, {AA}, "the evidence roots aa_a and aa_b are the same directory"),
-            ("aa_a given twice through a symlinked directory", aa_twice_through_a_symlink, {AA}, same),
+            ("aa_a given twice through a symlinked directory", aa_twice_through_a_symlink, {AA},
+             "the evidence roots aa_a and aa_b"),
             ("an A/A root is root a", aa_root_is_root_a, {AA}, "the evidence roots a and aa_a are the same"),
             ("an A/A root is root b", aa_root_is_root_b, {AA}, "the evidence roots b and aa_b are the same"),
+            ("aa_a is root a through a symlinked directory", aa_as("a", 0, "symlink"), {AA},
+             "the evidence roots a and aa_a are the same directory"),
+            ("aa_a is root a through a '..' spelling", aa_as("a", 0, "dotdot"), {AA},
+             "the evidence roots a and aa_a are the same directory"),
+            ("aa_b is root a through a symlinked directory", aa_as("a", 1, "symlink"), {AA},
+             "the evidence roots a and aa_b are the same directory"),
+            ("aa_b is root b through a symlinked directory", aa_as("b", 1, "symlink"), {AA},
+             "the evidence roots b and aa_b are the same directory"),
+            ("aa_b is root b through a '..' spelling", aa_as("b", 1, "dotdot"), {AA},
+             "the evidence roots b and aa_b are the same directory"),
+            ("aa_a is root b through a symlinked directory", aa_as("b", 0, "symlink"), {AA},
+             "the evidence roots b and aa_a are the same directory"),
         ], aa=True, variant="identical")
 
     def test_a_refusal_names_the_evidence_roots_by_label_and_never_by_path(self):
@@ -1854,6 +1883,69 @@ class ProvenanceTests(MigrationCase):
             self.assertEqual(leaks(item["detail"]), [], item["detail"])
             for stray in stray_strings(c):
                 self.assertNotIn(stray, item["detail"])
+
+    def test_stack_b_is_not_an_installation_of_the_aa_control(self):
+        def b_as(label):
+            def mutate(c):
+                source = c.stack(label)
+                set_stack(c, "b", **{key: source[key] for key in ("installation", "checkout", "depot", "depot_real",
+                                                                   "env", "env_real")})
+            return mutate
+        self.exact([
+            ("B carries the installation of aa_b", b_as("aa_b"), {AA}, "roots b and aa_b"),
+            ("B carries the installation of aa_a", b_as("aa_a"), {AA}, "roots b and aa_a"),
+        ], aa=True)
+        # without --aa the A/A installations are not given, so nothing is compared
+        c = self.fresh(aa=True)
+        b_as("aa_b")(c)
+        self.accepted(c.run())
+
+    def test_every_depot_entry_is_checked_against_the_first_depot_of_the_other_root(self):
+        def inventory_entry(label, index, value):
+            return edit_inventory(label, ("depot_path", index), value)
+
+        def a_literal_differs_from_its_realpath(c):
+            set_stack(c, "a", depot="/synthroot/inst-a1/depot-link")
+            edit_inventory("b", ("depot_path", 0), c.stack("a")["depot_real"])(c)
+
+        self.exact([
+            ("a later depot entry of b is the first depot of a", lambda c: inventory_entry("b", 1, c.stack("a")["depot"])(c),
+             {AB}, "depot entry 1 of the second root"),
+            ("a later depot entry of a is the first depot of b", lambda c: inventory_entry("a", 1, c.stack("b")["depot"])(c),
+             {AB}, "depot entry 1 of the first root"),
+            ("a depot entry of b is the depot_realpath of a", lambda c: inventory_entry("b", 1, c.stack("a")["depot_real"])(c),
+             {AB}, "depot entry 1 of the second root"),
+            ("the first depot of b is the depot_realpath of a, spelled otherwise",
+             a_literal_differs_from_its_realpath, {AB}, "depot entry 0 of the second root"),
+            ("a later depot entry spelled with a '..' component",
+             lambda c: inventory_entry("b", 1, c.stack("a")["depot"] + "/x/..")(c), {AB}, "depot entry 1"),
+        ])
+        # bundled depots are shared by every installation and never first: the default set has one
+        c = self.fresh()
+        self.assertEqual(toml_load(inventory_file(c, "a", J10))["depot_path"][1],
+                         toml_load(inventory_file(c, "b", J10))["depot_path"][1])
+        self.accepted(c.run())
+
+    def test_the_schedule_pins_are_required_hex_and_followed(self):
+        for table in ("proximalsolvers", "proximalbase"):
+            for name, value in (("missing", None), ("not hex", "g" * 40), ("short", "1" * 39), ("upper case", "A" * 40),
+                                ("not a string", 5)):
+                with self.subTest(f"{table} package_hash {name}"):
+                    c = self.fresh()
+                    if value is None:
+                        toml_del(c.schedule, ("stack_a", table, "package_hash"))
+                    else:
+                        toml_set(c.schedule, ("stack_a", table, "package_hash"), value)
+                    result = c.run()
+                    self.assertEqual(result.code, 3, result.stderr)
+                    self.assertTrue(not result.out.exists() or not any(result.out.iterdir()), "nothing is written")
+        # a schedule copy with another pin is followed: the Stack A root no longer matches it
+        for table in ("proximalsolvers", "proximalbase"):
+            with self.subTest(f"{table} another pin"):
+                c = self.fresh()
+                toml_set(c.schedule, ("stack_a", table, "package_hash"), "2" * 40)
+                result = self.refused(c.run())
+                self.assertEqual({(i["class"], i["field"]) for i in result.refusals}, {("IDENTITY", "a:stack_a")})
 
     # ---- the inventory facts --------------------------------------------------------------------------------
 
@@ -1996,6 +2088,7 @@ class ProvenanceTests(MigrationCase):
              "active_project_realpath"),
             ("active_project missing", delete_inventory("b", ("active_project",)), {files}, "active_project"),
             ("depot_realpath relative", bad("depot_realpath", "depot"), {files}, "depot_realpath"),
+            ("first depot entry relative", edit_inventory("b", ("depot_path", 0), "depot"), {files}, "depot_path[0]"),
             ("depot_realpath not in normal form", bad("depot_realpath", "/synthroot/x/../depot"), {files}, "normal form"),
             ("depot_realpath with a trailing slash", bad("depot_realpath", "/synthroot/x/depot/"), {files}, "normal form"),
             ("active_project_realpath not a string", bad("active_project_realpath", 5), {files}, "active_project_realpath"),

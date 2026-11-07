@@ -269,6 +269,9 @@ approve.
   (`proximalsolvers_path` and `expected_package_root`), which is unchanged. The producer of the records must
   resolve symbolic links itself, while the paths exist: the checkout paths and the inventory `depot_realpath` and
   `active_project_realpath` are values observed by Julia.
+* **A copy of root A.** A byte copy of root A given as an A/A root cannot be told from a second process on Stack
+  A's installation by its records, which the approved methodology allows; the receipt is the only evidence that the
+  A/A processes ran separately.
 * **`release = "development"`** of `stack-identity.toml` means a ProximalBase commit that is recorded as a full
   40-hex SHA with its tree and is tracked by a repository (a pinned commit, not a branch); it does not say that the
   commit is reachable from any branch or that it is a published release.
@@ -432,7 +435,10 @@ numbers are finite**, so that a pass of the timing alone would wrongly accept.
   checks. A missing or malformed `depot_realpath`, `active_project_realpath` or `active_project` (`SCHEMA`). Skips
   that are as narrow as the missing input. Regression rows: a wrong Manifest entry, an undeclared Manifest change, a
   declared difference that does not exist, a dirty checkout, one repetition from another source commit, an
-  inventory checkout that differs from the metadata path.
+  inventory checkout that differs from the metadata path. Also: any depot entry equal to the other root's first depot
+  or its realpath, a relative first depot entry (`SCHEMA`), Stack B carrying the installation of an A/A root, an A/A
+  root named through a symlinked directory or a `..` spelling, and the schedule pins (a missing or non-hex
+  `package_hash` is exit status 3; a copy with another pin is followed).
 * Screens: all eight `rho_i` above 1 with the geometric mean above the largest A/A ratio is a screened slowdown,
   one `rho_i` equal to or below 1 is inconclusive, the mirror cases, a geometric mean inside the A/A range, and
   no `--aa` (screen not evaluated).
@@ -481,11 +487,12 @@ Each of `ROOT_A`, `ROOT_B`, `ROOT_AA_A` and `ROOT_AA_B`:
   stratum (Julia Manifest format 2.0 or 2.1: `julia_version`, `manifest_format` and one `[[deps.NAME]]` per
   entry with `uuid` and optional `version`, `git-tree-sha1`, `path`).
 * `environment-inventory.toml`: the Stage 2A format. Required keys `julia`, `commit`, `cpu_model`, `cpu_name`
-  (`Sys.CPU_NAME`, compared with `[machine].cpu` of the stratum), `blas`, `depot_path` (an array of strings),
+  (`Sys.CPU_NAME`, compared with `[machine].cpu` of the stratum), `blas`, `depot_path` (an array of strings; the first entry is an absolute path),
   `proximalbase_version`, `proximalbase_loaded_tree`, `proximalsolvers_dir`, `threads`, `active_project` (the
   active project file as recorded, a non-empty string) and the two Julia-observed realpaths `depot_realpath` (the
-  realpath of the first `depot_path` entry) and `active_project_realpath` (the realpath of the active project
-  file), both absolute strings in normal form (one leading `/`, no `.` or `..` segment, no trailing `/`); other
+  realpath of the first `depot_path` entry) and `active_project_realpath` (the realpath of the directory containing
+  the active project file, joined with the project file's name; the file itself is not resolved, so Project.toml
+  files that are links to a shared template do not make two environments one), both absolute strings in normal form (one leading `/`, no `.` or `..` segment, no trailing `/`); other
   Stage 2A keys such as `bindir`, `load_path`, `proximalbase_dir` are allowed and ignored. One `[deps.NAME]` table
   per dependency (`path`, `registry`, `repo`, `source`, `tree`, `uuid`, `version`); the table `[deps.ProximalBase]`
   with a string `tree` and `version` is required of every inventory, and a missing one is a `STACK` refusal
@@ -606,12 +613,19 @@ JSON lines, one object per line, one file for the A/B arm and the A/A arm of one
   distinct `proximalsolvers_path` and `expected_package_root` in the metadata and distinct `proximalsolvers_dir` in
   the inventory (no value common to the two roots of a stratum); the first `depot_path` entry as recorded (normal form) and
   the inventory `depot_realpath` (either one equal is a refusal); and, in each stratum, the Julia environment, that
-  is the directory of `active_project` (normal form) and of `active_project_realpath`. All paths are compared as
+  is the directory of `active_project` (normal form) and of `active_project_realpath` (the `dirname` of each; the
+  project file's own name does not matter). All paths are compared as
   recorded, in normal form (a run of leading `/` collapses to one, `.` and `..` segments and trailing `/` are
   removed); no recorded path is looked up in the filesystem, so two spellings of one directory are one
   installation and a symbolic link is seen only through the realpaths that Julia recorded. The installation id
-  is the one of the root's identity file even when the root has another refusal. A check whose inputs were refused
-  (section 4.1) is skipped for that stratum only.
+  is read from the root's identity file: a Stack A refusal of the root (`<root>:stack_a`) does not hide an alias,
+  but a refusal of the identity file itself (sections 11 and 4.1: `IDENTITY` or `SCHEMA` on `stack-identity.toml`)
+  leaves the id unavailable and skips the id comparison of that root. A check whose inputs were refused
+  (section 4.1) is skipped for that stratum only. Every entry of the `depot_path` of one root (normal form) must also
+  differ from the first entry and the `depot_realpath` of the other root, because Julia reads packages and precompile
+  caches from every depot entry (a bundled depot is never first, so valid pairs are unaffected). With `--aa`, Stack
+  B's root is also checked against each A/A root (`aa:installation`, the detail names the two roots): B must not be
+  an in-place switch of an A/A installation. The A/A roots may still share Stack A's installation.
 * **Evidence roots.** The four roots given on the command line (`--a`, `--b`, `--aa`) must be distinct
   directories after resolving the command-line paths (the only live paths the tool resolves); two that name one
   directory, through a symbolic link or a dotted spelling, are `ORDER` in the field of the pair (`ab:installation`
