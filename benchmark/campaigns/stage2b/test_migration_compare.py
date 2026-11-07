@@ -20,8 +20,8 @@ Test counts (methods; table-driven methods run one sub-test per row):
                                                fingerprints, the inventory cpu_name, malformed metadata values and
                                                the identity, stack, undeclared and mapping rules one at a time)
     classification  ClassificationTests   24
-    output          OutputTests           26   (including paths in outputs, the internal error, the phase boundary
-                                               and the screen boundaries)
+    output          OutputTests           27   (including paths in every output channel, the internal error, the
+                                               phase boundary and the screen boundaries)
     immutability    ImmutabilityTests      5
 
 The run time is dominated by the validation of the roughly two hundred record files that each call of the tool
@@ -1177,19 +1177,21 @@ class RefusalTests(MigrationCase):
         def installation_id(c):
             edit_identity(c, "aa_b", ("installation",), c.stack("aa_a")["installation"])
 
-        def alias(source, suffix):
+        def alias(source, suffix="", prefix=""):
+            """AA_B names the checkout (or depot) of AA_A as `prefix` + value + `suffix`; source "all": every one."""
             def mutate(c):
                 first = c.stack("aa_a")
+                everything = source == "all"
                 for jkey in c.jkeys:
                     inventory = c.stratum("aa_b", jkey) / "environment-inventory.toml"
-                    if source == "inventory proximalsolvers_dir":
-                        toml_set(inventory, ("proximalsolvers_dir",), first["checkout"] + suffix)
-                    elif source == "first depot entry":
-                        toml_set(inventory, ("depot_path", 0), first["depot"] + suffix)
-                if source == "metadata proximalsolvers_path":
-                    c.set_meta("aa_b", "proximalsolvers_path", first["checkout"] + suffix)
-                elif source == "metadata expected_package_root":
-                    c.set_meta("aa_b", "expected_package_root", first["checkout"] + suffix)
+                    if everything or source == "inventory proximalsolvers_dir":
+                        toml_set(inventory, ("proximalsolvers_dir",), prefix + first["checkout"] + suffix)
+                    if everything or source == "first depot entry":
+                        toml_set(inventory, ("depot_path", 0), prefix + first["depot"] + suffix)
+                if everything or source == "metadata proximalsolvers_path":
+                    c.set_meta("aa_b", "proximalsolvers_path", prefix + first["checkout"] + suffix)
+                if everything or source == "metadata expected_package_root":
+                    c.set_meta("aa_b", "expected_package_root", prefix + first["checkout"] + suffix)
             return mutate
 
         rows = [("equal installation id, nothing else", installation_id, "ORDER", [("ORDER", "aa:installation")])]
@@ -1198,6 +1200,15 @@ class RefusalTests(MigrationCase):
             for suffix in ("/.", "/./"):
                 rows.append((f"{source} spelled with the suffix {suffix!r}", alias(source, suffix), "ORDER",
                              [("ORDER", "aa:installation")]))
+        # one extra leading slash (two in all), every field alone and all together; three slashes for one field
+        for source in ("metadata proximalsolvers_path", "metadata expected_package_root",
+                       "inventory proximalsolvers_dir", "first depot entry", "all"):
+            rows.append((f"{source} with one extra leading slash", alias(source, prefix="/"), "ORDER",
+                         [("ORDER", "aa:installation")]))
+        rows.append(("first depot entry with two extra leading slashes", alias("first depot entry", prefix="//"),
+                     "ORDER", [("ORDER", "aa:installation")]))
+        rows.append(("every field with an extra leading slash and a trailing '/.'", alias("all", "/.", "/"),
+                     "ORDER", [("ORDER", "aa:installation")]))
         self.table(rows, aa=True)
 
     # ---- the receipt: each rule alone, and collect-all ---------------------------------------------------------
@@ -2227,6 +2238,91 @@ class OutputTests(MigrationCase):
         lists.assert_called_once()
         report.assert_called_once()
         historical.assert_called_once()
+
+
+    def test_absolute_paths_are_scrubbed_in_every_output_channel_and_other_slashes_kept(self):
+        url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/110#issuecomment-1"
+        strings = (("open:/synthroot/private/input.bin", "open:input.bin"), ("open /private", "open private"),
+                   (" //synthroot/x/y z", None))
+        controls = "ratio 1/2 and/or missed/invalid / done cd/lasso-dense/cd/B/call"
+
+        def absolute_paths(text):
+            """Written independently of the tool: a '/' after a start, a space, a quote, a bracket, a colon or
+            '=' that is followed by a path component, once URLs are removed."""
+            text = re.sub(r"[A-Za-z][A-Za-z0-9+.-]*://\S+", "", text)
+            return re.findall(r"(?:^|[\s'\"(\[:=,;|`])(/+[\w.\-+@%]+(?:/[\w.\-+@%]*)*)", text, re.M)
+
+        def outputs(result):
+            texts = {"stderr": result.stderr, "stdout": result.stdout}
+            texts.update({path.name: path.read_text(encoding="utf-8") for path in result.out.iterdir()})
+            return texts
+
+        def nothing_absolute(result, what):
+            for name, text in outputs(result).items():
+                self.assertEqual(absolute_paths(text), [], f"{what}: {name}")
+                self.assertNotIn("synthroot", text, f"{what}: {name}")
+                self.assertNotIn("//", text.replace("://", ""), f"{what}: {name}")
+
+        # (a) through a refusal: the inventory cpu_name of root B is part of the message
+        for text, expected in strings:
+            with self.subTest(channel="refusal", text=text):
+                c = self.fresh()
+                toml_set(c.stratum("b", J10) / "environment-inventory.toml", ("cpu_name",), text)
+                result = self.refused(c.run(), "MACHINE", fields=[("MACHINE", "b:cpu")])
+                detail = next(i["detail"] for i in result.refusals if i["field"] == "b:cpu")
+                if expected:
+                    self.assertIn(f"'{expected}'", detail)
+                nothing_absolute(result, "refusal")
+                for name, output in outputs(result).items():
+                    self.assertNotIn("/private", output, name)
+
+        # (b) through the deviation text of an approved case: reason, lists.json, the CSV row and the report
+        def deviation(text):
+            c = self.fresh()
+            set_mapping(c, P02, "deviation", text)
+            set_mapping(c, P02, "approved", True)
+            set_mapping(c, P02, "approval_url", "https://example.org/approval")
+            result = c.run()
+            self.assertEqual(result.code, 1, result.stderr)
+            return result
+
+        for text, expected in strings:
+            with self.subTest(channel="deviation", text=text):
+                result = deviation(f"changed {text} end")
+                nothing_absolute(result, "deviation")
+                reason = result.row(P02, J13)["reason"]
+                self.assertIn("semantic deviation: changed ", reason)
+                if expected:
+                    for where in (reason, result.lists["not_comparable"][0]["reason"],
+                                  result.lists["semantic_deviations"][0]["text"], result.report):
+                        self.assertIn(f"changed {expected} end", where)
+        with self.subTest(channel="deviation", text="URL"):
+            result = deviation(f"see {url} and /synthroot/a/b.txt")
+            nothing_absolute(result, "deviation with a URL")
+            for where in (result.row(P02, J13)["reason"], result.lists["semantic_deviations"][0]["text"],
+                          result.lists["not_comparable"][0]["reason"], result.csv_text, result.report):
+                self.assertIn(f"see {url} and b.txt", where)
+        with self.subTest(channel="deviation", text="controls"):
+            result = deviation(controls)
+            nothing_absolute(result, "controls")
+            for where in (result.row(P02, J13)["reason"], result.lists["semantic_deviations"][0]["text"],
+                          result.lists["not_comparable"][0]["reason"], result.csv_text, result.report):
+                self.assertIn(controls, where)
+            for case_id in ("cd/lasso-dense/cd/B/call", "paths/lasso/cd/grid8/call"):
+                self.assertIn(case_id, result.csv_text)
+                self.assertIn(case_id, result.report)
+
+        # (c) through the machine policy value of the receipt: the hardware label of the table and the report
+        for text, expected in strings + ((controls, controls),):
+            with self.subTest(channel="governor", text=text):
+                c = self.fresh()
+                machine_of_all(c, governor=text)
+                result = c.run()
+                self.assertEqual(result.code, 0, result.stderr)
+                nothing_absolute(result, "governor")
+                if expected:
+                    self.assertTrue(result.rows[0]["hardware"].startswith(f"observational: governor={expected},"))
+                    self.assertIn(f"governor={expected},", result.report)
 
 
 # --------------------------------------------------------------------------------------------------------------
