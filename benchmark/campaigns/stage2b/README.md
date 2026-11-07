@@ -31,8 +31,8 @@ paired experiment.
 | [`migration_compare.py`](migration_compare.py) | The whole-stack comparison tool, written to the specification. Reads records only; runs no Julia; never changes `compare.py` or `validate.py`. |
 | [`stage2b_fixtures.py`](stage2b_fixtures.py) | Builds the complete synthetic input sets (roots, receipt, mapping, declared differences, fingerprints) that the tests of the tool mutate one item at a time. |
 | [`test_migration_compare.py`](test_migration_compare.py) | Offline tests of the tool: one per refusal class, the accepted differences, the per-case classes, the screens and the outputs. |
-| [`stage2b_campaign.py`](stage2b_campaign.py) | The campaign driver core (standard library only): TOML writer, campaign lock, official gate, preflight checks, source fingerprints, identity and receipt writers, sealing, the engine behind `run` and `pilot`, declared differences, and `verify`. Julia and the host are injected through `Hooks`; the real Julia hooks and `prepare` are not part of it yet. It launches `benchmark/run.jl` and measures nothing. |
-| [`test_stage2b_campaign.py`](test_stage2b_campaign.py) | Offline tests of the driver with mocked hooks: the gate and pilot refusals (a stub runner that fails if invoked), every preflight defect, sealing, the stop state, and a full-shape run (two strata, 19 cases, 8 repetitions, four roots) that is verified, copied and mutated. |
+| [`stage2b_campaign.py`](stage2b_campaign.py) | The campaign driver (standard library only): TOML writer, campaign lock, official gate, preflight checks, source fingerprints, identity and receipt writers, sealing, the engine behind `run` and `pilot`, declared differences, `verify`, the real hooks (subprocess runner, untimed environment probe, depot-cache digest, data-hash check) and `prepare` (`fetch` and `finalize`). It launches `benchmark/run.jl` and measures nothing. |
+| [`test_stage2b_campaign.py`](test_stage2b_campaign.py) | Offline tests of the driver (no Julia, no network): the gate and pilot refusals (a stub runner that fails if invoked), every preflight defect, sealing, the stop state, a full-shape run (two strata, 19 cases, 8 repetitions, four roots) that is verified, copied and mutated, and `prepare`, the probe conversion, the depot digest and the pilot-schedule derivation over mocked subprocess layers. |
 | [`export_fingerprints.jl`](export_fingerprints.jl) | The untimed fingerprint exporter (needs Julia and the benchmark environment): loads the real harness of a stack, runs `reset!`, one untimed `call!` and `reset!` on each case state and writes `fingerprints.tsv` rows (section 14 of the specification) in the canonical encoding `ps-stage2b-fp-v1`, with a data-hash sidecar and a summary; fails closed (exit 2) on any missing or unexpected closure field. |
 | [`environment_probe.jl`](environment_probe.jl) | Prints the environment inventory of the running Julia process as TOML (the Stage 2A format plus the realpath keys of section 10); run in the environment of a stack. |
 | [`test_export_fingerprints.jl`](test_export_fingerprints.jl) | The Julia test of the exporter: the encoder (differing pairs, unsupported types, known answers), the real cases through the harness, the command line; `PS_FP_FULL=true` adds the full scheduled export. |
@@ -44,10 +44,10 @@ paired experiment.
 ## Driver (`stage2b_campaign.py`)
 
 ```
-python3 -B stage2b_campaign.py preflight --config FILE --base BASE [--official --freeze-sha SHA] [--arms AB,AA]
-python3 -B stage2b_campaign.py prepare   --config FILE --base BASE --step fetch|finalize
-python3 -B stage2b_campaign.py run       --config LOCK --base BASE --official --freeze-sha SHA
-python3 -B stage2b_campaign.py pilot     --config PILOT --base BASE [--arms AB]
+python3 -B stage2b_campaign.py preflight --config FILE --base BASE [--official --freeze-sha SHA] [--arms AB,AA] [--julia MM=PATH ...]
+python3 -B stage2b_campaign.py prepare   --config FILE --base BASE --step fetch|finalize [--julia MM=PATH ...] [--archive FILE]
+python3 -B stage2b_campaign.py run       --config LOCK --base BASE --official --freeze-sha SHA [--julia MM=PATH ...]
+python3 -B stage2b_campaign.py pilot     --config PILOT --base BASE [--arms AB] [--julia MM=PATH ...]
 python3 -B stage2b_campaign.py verify    --base BASE --out FILE [--config PILOT_CONFIG]
 ```
 
@@ -93,9 +93,127 @@ The anchors are outside the archive: the Release asset SHA-256 published on #110
 retrieval) and the clean verifier checkout at the F1-B freeze commit (the specification).
 
 Exit status: 0 success; 1 completed with non-ok cases (a process exit 2 or comparator exit 1); 2 refused or stopped
-(gate, preflight, infrastructure stop, comparator refusal, failed verification); 3 usage or internal error. The real
-Julia hooks, `prepare` and the real pilot flow are added later: those subcommands validate their arguments and exit
-with status 3, launching nothing.
+(gate, preflight, infrastructure stop, comparator refusal, failed verification); 3 usage or internal error. The
+operator workflow, from setup to the verification of a copy, is in the next section.
+
+## Operator workflow
+
+**Setup.** Python 3.11 or later and `git` on `PATH`; one Julia binary per stratum, exactly the builds of
+`schedule.toml` (`[julia."1.10"]`, `[julia."1.13"]`), given as `--julia MAJOR.MINOR=ABSOLUTE_PATH` or, for a pilot,
+in `[julia]` of the pilot configuration; a Linux host that lets `taskset` pin a process; at least three allowed CPUs
+(the measured one, and the driver keeps itself off it); the verified Stage 2A archive (`--archive`, or `[archive] path`
+of a pilot configuration). `prepare --step fetch` needs the network (the package server and the source
+repositories); everything after it runs offline. The measurement node must be the one that ran `finalize`.
+
+**Source and dependency locks.** Stack A is the historical identity of `schedule.toml` (`[stack_a]`): ProximalSolvers
+`b0de3f7` and ProximalBase 0.5.4 (tag `v0.5.4`, commit and tree pinned). Its environment is the archived Stage 2A
+`Project.toml` and `Manifest.toml` of each stratum (the archive's SHA-256 is checked before anything is read, only those
+members are extracted, nothing from it is executed), with only the ProximalSolvers `path` line of the Manifest and, on
+Julia 1.13, the ProximalSolvers line of `[sources]` rewritten to the role's checkout. Julia 1.13 then reports that the
+Manifest is out of sync with the Project, because the Project text changed; `Pkg.resolve()` then changes nothing but
+`project_hash`. `prepare` accepts that only if every (name, uuid, version, git-tree-sha1) entry stays identical to the
+archived Manifest and to the lock of the Stage 2A campaign definition and no Manifest line other than `path` and
+`project_hash` differs; anything else stops (no fresh resolution, no new historical baseline); the diff is kept in
+`logs/`. Stack B is described by the campaign lock (TOML, schema 1, committed inside the freeze commit): ProximalSolvers
+and ProximalBase commits, trees, package fingerprints and source locators, the frozen `Project.toml` and `Manifest.toml`
+of each stratum with their SHA-256, the declared differences with the maintainer's reasons and approval URLs, the harness
+port and the approvals. No candidate lock exists yet. A host-specific value (a Julia path, the archive) never goes into
+the lock: it is a command-line option.
+
+**The four roles.** `ab-a` and `ab-b` are the two sides of the A/B arm (stack A and stack B); `aa-a` and `aa-b` are two
+independent installations of stack A for the A/A arm. Each role has its own clone (`git clone --no-hardlinks`, checked
+out detached at the pinned commit, verified clean including untracked and ignored files), its own depot and its own
+environment per stratum; two roles never share any of them.
+
+**Official versus pilot.** `run --official --freeze-sha SHA` is the only official route (campaign
+`pb06-migration-stage2b-v1`). `pilot` is an engineering smoke: its campaign and schedule ids contain `-pilot`, its base
+directory name contains `pilot`, it runs the A/B arm with two independent installations of stack A, with one
+repetition and reduced sampling (`[pilot]` of its configuration), and `verify` reports it as `PILOT / NON-OFFICIAL`. A
+pilot result is never read as a measurement of anything.
+
+**What `finalize` writes.** On the measurement node, offline, with exactly the formal Julia flags and environment
+(`--startup-file=no --history-file=no`, one Julia thread, `JULIA_LOAD_PATH=@:@stdlib`, a private depot first): per role and
+stratum `Pkg.precompile()`, two untimed warm-up runs of the role's `run.jl` with `PS_LIST=true` (the second must not
+precompile), the exporter (roles `ab-a` and `ab-b`), and the environment probe (`environment-inventory.toml`). Then the
+identity files, the two fingerprint files per A/B root (`fingerprints.tsv` and the data-hash sidecar, strata in schedule
+order, one header), the depot baselines (`logs/depot-baselines.json`) and the checks of `preflight` on what was observed.
+For a pilot it also writes the pilot `schedule.toml`: the committed schedule with only the schedule ids, one repetition
+in the order AB, the reduced sampling values and the `[machine]` values of this node changed (`cpu_model`, the
+`Sys.CPU_NAME` of each stratum, the measured CPU, `smt_sibling = -1`, and `governor`, `epp`, `no_turbo`, `smt_control` as
+sampled, `"unavailable"` where the host has no such file); `logs/pilot-overrides.json` lists every changed key with both
+values and the digests. `finalize` refuses to run twice on one base and refuses when fewer than two CPUs are allowed.
+
+**Candidate-specific freeze (official only).** The campaign needs the F1-B freeze: the lock is committed inside the
+freeze commit, whose SHA is posted on #110 with the specification, the mapping, the schedule and the rest of the frozen
+files; readiness gates G1 to G8 of `READINESS.md` all hold (G1 a ProximalBase 0.6 candidate commit, G2 the migration PRs
+merged, G3 explicit compat, G4 the full suite on both Julia versions, G5 the integration tests, G6 the contract-failure
+tests, G7 the ledger rows, G8 the mapping re-validated on the pinned candidate and signed off). `run --official` verifies
+what a program can: `HEAD` is the freeze SHA, the checkout is clean, the lock is tracked there, every B field is a full SHA
+equal to the fetched checkout, the Manifest digests equal the lock's, every mapping row is approved, and G1 to G8 and the
+mapping approvals are non-empty maintainer comment URLs of this repository. What remains the maintainer's: that those
+comments say what the gates require, the F1-B freeze comment on #110, and the judgment that the candidate is ready. The
+driver never reads an approval flag and no environment variable changes the mode.
+
+**Canonical commands.** From this directory, with `BASE` a fresh directory (pilot: its name contains `pilot`):
+
+```
+python3 -B stage2b_campaign.py prepare   --config CONFIG --base BASE --step fetch    [--julia ...] [--archive FILE]
+python3 -B stage2b_campaign.py prepare   --config CONFIG --base BASE --step finalize [--julia ...]
+python3 -B stage2b_campaign.py preflight --config CONFIG --base BASE [--official --freeze-sha SHA] [--julia ...]
+python3 -B stage2b_campaign.py pilot     --config CONFIG --base BASE [--julia ...]
+python3 -B stage2b_campaign.py run       --config LOCK   --base BASE --official --freeze-sha SHA [--julia ...]
+python3 -B stage2b_campaign.py verify    --base BASE --out FILE [--config CONFIG]
+```
+
+Exit status of every command: 0 success, 1 completed with non-ok cases, 2 refused or stopped, 3 usage or internal error;
+`preflight` prints every problem it finds and exits 0 only when there is none. A pilot configuration is a TOML file
+(strict keys): `schema = 1`, `[campaign]` (`id`, `session_id`), `[schedule]` (`id`), `[pilot]` (`arms`, `samples_target`,
+`seconds_limit`, `case_seconds`), `[julia]`, `[source]` (`repository`, optional `proximalbase`), `[archive]` (`path`) and
+`[resources]` (`min_cpus`). The same file goes to `prepare`, `pilot` and `verify`; `session_id` is required so that the
+identity files and the engine agree.
+
+**Fingerprints.** `finalize` runs `export_fingerprints.jl` of the driver's checkout once per role and stratum, untimed,
+against that role's own harness, and concatenates the per-stratum files; the exporter's summary (with the cold snapshot
+hashes) stays in `logs/`. After each process its `metrics.tsv` must agree
+with the sidecar row for row, else the attempt stops (the A/A roots are compared with the `ab-a` sidecar).
+
+**Receipts and seals.** The engine appends one `process` event to `receipt.jsonl` for every launched process, also for a
+failed one, with the real start and end times; after each process it seals the six record files (SHA-256 in
+`logs/seals.jsonl`, mode 0444) and checks every earlier seal again. The digest of every depot's `compiled/` directory is
+recorded before and after each process and compared with the previous one of the same installation and with the baseline
+that `finalize` wrote: any change stops the attempt. Only a sealed `logs/completion.json` is a success record.
+
+**Interrupted or stopped runs.** A stopped run is preserved and never resumed or retried: `logs/STATE.json` says why,
+every record stays, the receipt has an event for every launched process, and the base refuses to launch again. Start a
+new base (a new `fetch`) for another attempt; the stopped one is kept as evidence of the stop.
+
+**Verification and copies.** `verify` is read-only and needs no Julia. Run it on the base, copy the tree with `cp -a`
+(or `tar`, which keeps modes) and run it again on the copy with its own `--out`; the two classifications must agree. A
+pilot needs `--config`, the same file as the one given to `pilot`. The comparator's replay uses the tree's own copies of
+the schedule, mapping, declared differences and receipt.
+
+**Failed cases.** A process that exits with 2 completed with at least one non-ok case: its `metrics.tsv` rows with a
+status other than `ok` and its `errors.tsv` say which, `logs/STATE.json` and the command output name the process and the
+cases, and the comparison reports them under `not_ok` and `failed`. Nothing is retried; a case failure is data.
+
+**Comparing the roots.** `comparison/` holds the output of `migration_compare.py` at run time (`migration-comparison.csv`,
+the lists and `refusals.json`); to compare two roots by hand run `migration_compare.py` with the roots, the mapping, the
+declared differences, the receipt and `--schedule`, as in the replay of `verify`.
+
+**The descriptive A/A screens.** The A/A arm shows how far two independent installations of the same stack differ in
+this environment; the screens that flag a ratio outside the A/A range are descriptive. They label a case, they never
+declare a regression or an improvement, and with sub-millisecond cases a noninferiority claim is not supported.
+
+**Re-verifying a copied tree.** Copy the whole base, not only `roots/`, run `verify` on the copy, compare the printed
+classification with the original's, and check the SHA-256 of the archived asset against the value posted on #110 before
+anything is reported.
+
+**The historical Stage 2A release.** The release `bench-pre06-v1` and its asset are read-only inputs: the archive is
+only read (its checksum verified, two files per stratum extracted into a private directory) and is never modified,
+replaced or re-uploaded; Stage 2B work never changes `../pre06/`.
+
+**What Stage 2B measures.** The whole stack: a difference between stack A and stack B is a difference of ProximalSolvers,
+ProximalBase and their dependencies together (and of the harness port) and cannot be attributed to ProximalBase alone.
 
 ## Run the tests
 

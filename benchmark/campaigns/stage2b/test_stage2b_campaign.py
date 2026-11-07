@@ -27,6 +27,7 @@ import io
 import json
 import math
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -632,14 +633,33 @@ class GateTests(unittest.TestCase):
         self.assertIn("--official", err)
         self.assertFalse((directory / "b").exists())
 
-    def test_a_passing_gate_without_the_real_hooks_is_not_implemented_here(self):
+    def test_a_passing_gate_builds_the_real_hooks_and_stops_before_any_process_without_the_lock_copy(self):
         directory = fresh("gate-ok")
         C.write_toml(directory / "lock.toml", self.lock)
-        code, _, err = call_main(["run", "--config", str(directory / "lock.toml"), "--base", str(directory / "b"),
-                                  "--official", "--freeze-sha", FREEZE], facts=lambda *a: self.facts)
-        self.assertEqual(code, 3)
-        self.assertIn("not implemented in this task", err)
+        calls = []
+        with unittest.mock.patch.object(C.subprocess, "run", lambda *a, **k: calls.append(a)):
+            code, _, err = call_main(["run", "--config", str(directory / "lock.toml"), "--base",
+                                      str(directory / "b"), "--official", "--freeze-sha", FREEZE,
+                                      "--julia", "1.10=/opt/julia-1.10.13/bin/julia",
+                                      "--julia", "1.13=/opt/julia-1.13.3/bin/julia"], facts=lambda *a: self.facts)
+        self.assertEqual(code, 2, err)
+        self.assertIn("lock.toml of the base", err)
+        self.assertEqual(calls, [])
         self.assertFalse((directory / "b").exists())
+
+    def test_the_official_gate_stops_the_real_hooks_before_the_runner(self):
+        directory = fresh("gate-real")
+        lock = copy.deepcopy(self.lock)
+        lock["approvals"]["G3"] = ""
+        C.write_toml(directory / "lock.toml", lock)
+        calls = []
+        with unittest.mock.patch.object(C.subprocess, "run", lambda *a, **k: calls.append(a)):
+            code, _, err = call_main(["run", "--config", str(directory / "lock.toml"), "--base",
+                                      str(directory / "b"), "--official", "--freeze-sha", FREEZE,
+                                      "--julia", "1.10=/opt/julia-1.10.13/bin/julia",
+                                      "--julia", "1.13=/opt/julia-1.13.3/bin/julia"], facts=lambda *a: self.facts)
+        self.assertEqual((code, calls), (2, []))
+        self.assertIn("APPROVAL_G3", err)
 
     def test_the_real_collector_reads_git_and_the_base(self):
         repo = fresh("repo")
@@ -757,12 +777,30 @@ class PilotTests(unittest.TestCase):
             self.assertEqual(code, 2, (name, err))
             self.assertFalse(base.exists())
 
-    def test_a_valid_pilot_without_the_real_hooks_is_not_implemented_here(self):
+    def test_a_valid_pilot_without_hooks_builds_the_real_ones_and_probes_first(self):
+        base = assemble_base(self.camp, fresh("pilot-real") / "x-pilot", aa=False)
         directory = fresh("pilot-ok")
         C.write_toml(directory / "p.toml", pilot_config())
-        code, _, err = call_main(["pilot", "--config", str(directory / "p.toml"), "--base", str(directory / "x-pilot")])
-        self.assertEqual(code, 3)
-        self.assertIn("not implemented in this task", err)
+        calls = []
+
+        def scripted(argv, **kwargs):
+            calls.append((list(argv), kwargs))
+            return subprocess.CompletedProcess(argv, 1, b"", b"no julia here")
+        with unittest.mock.patch.object(C.subprocess, "run", scripted), unittest.mock.patch(
+                "os.sched_getaffinity", return_value={1, 2, 6}), unittest.mock.patch("os.sched_setaffinity") as setter:
+            code, _, err = call_main(["pilot", "--config", str(directory / "p.toml"), "--base", str(base),
+                                      "--julia", "1.10=/opt/julia-1.10.13/bin/julia",
+                                      "--julia", "1.13=/opt/julia-1.13.3/bin/julia"])
+        self.assertEqual(code, 2, err)
+        self.assertIn("environment probe", err)
+        argv, kwargs = calls[0]
+        self.assertEqual(argv[:4], ["taskset", "-c", "6", "/opt/julia-1.10.13/bin/julia"])
+        self.assertEqual(argv[4:6], list(C.JULIA_FLAGS))
+        self.assertTrue(argv[-1].endswith("environment_probe.jl"))
+        self.assertIs(kwargs["shell"], False)
+        setter.assert_called_once_with(0, {1, 2})
+        self.assertEqual(len(calls), 1, "nothing is launched after a failed probe")
+        self.assertFalse((base / "receipt.jsonl").exists())
 
     def test_the_environment_never_changes_the_mode(self):
         directory = fresh("pilot-env")
@@ -2914,8 +2952,8 @@ class CliTests(unittest.TestCase):
         for step in ("fetch", "finalize"):
             code, _, err = call_main(["prepare", "--config", str(directory / "lock.toml"), "--base",
                                       str(directory / "base"), "--step", step], hooks=hooks_that_never_run())
-            self.assertEqual(code, 3)
-            self.assertIn("not implemented in this task", err)
+            self.assertEqual(code, 2, err)
+            self.assertFalse((directory / "base").exists(), "a refusal creates nothing")
         C.write_toml(directory / "bad.toml", {"schema": 2, "campaign": {"id": "x"}})
         code, _, err = call_main(["prepare", "--config", str(directory / "bad.toml"), "--base",
                                   str(directory / "base"), "--step", "fetch"], hooks=hooks_that_never_run())
@@ -2961,10 +2999,1374 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, 2, "a finished base is never reused")
 
 
+# ----------------------------------------------------------------------------- real hooks, prepare, finalize
+
+import argparse
+import gzip
+import hashlib
+import itertools
+import tarfile
+
+REAL_RUN = subprocess.run
+
+GIT_ENV = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.org", "GIT_COMMITTER_NAME": "t",
+           "GIT_COMMITTER_EMAIL": "t@example.org", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
+HARNESS_FILES = ("problems.jl", "certificates.jl", "cases.jl", "run.jl")
+
+
+def git_run(repo, *args):
+    env = dict(os.environ, **GIT_ENV)
+    return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, check=True,
+                          env=env).stdout.strip()
+
+
+def make_source(dest, tag=None):
+    """A tiny repository standing in for ProximalSolvers: Project.toml, src/, the four harness files. Returns
+    (path, pins) with the pins computed by the driver's own fingerprint functions."""
+    dest = Path(dest)
+    (dest / "src").mkdir(parents=True)
+    (dest / "benchmark").mkdir()
+    (dest / "Project.toml").write_text('name = "ProximalSolvers"\nversion = "0.3.2"\n')
+    (dest / "src" / "ProximalSolvers.jl").write_text("module ProximalSolvers end\n")
+    for name in HARNESS_FILES:
+        (dest / "benchmark" / name).write_text(f"# {name}\n")
+    git_run(dest, "init", "-q", "-b", "main")
+    git_run(dest, "add", "-A")
+    git_run(dest, "commit", "-q", "-m", "synthetic")
+    if tag:
+        git_run(dest, "tag", "-a", tag, "-m", tag)
+    return dest, {"commit": git_run(dest, "rev-parse", "HEAD"), "tree": git_run(dest, "rev-parse", "HEAD^{tree}"),
+                  "package_hash": C.package_fingerprint(dest), "harness_hash": C.harness_hash(dest / "benchmark")}
+
+
+def lock_tuples(mm):
+    return C.lock_entries(C.stage2a_campaign(), mm)
+
+
+def synthetic_manifest(mm, path="/old/pinned", project_hash="a" * 40):
+    """A Manifest whose entries are exactly the Stage 2A lock of the stratum (so that the comparison with the
+    campaign definition passes) and whose ProximalSolvers entry carries a `path` line."""
+    lines = [f'julia_version = "{mm}.0"', 'manifest_format = "2.1"', f'project_hash = "{project_hash}"', ""]
+    for name, uuid, version, tree in lock_tuples(mm):
+        lines += [f"[[deps.{name}]]", f'uuid = "{uuid}"']
+        if version:
+            lines.append(f'version = "{version}"')
+        if tree:
+            lines.append(f'git-tree-sha1 = "{tree}"')
+        if name == "ProximalSolvers":
+            lines.append(f'path = "{path}"')
+        lines.append("")
+    return "\n".join(lines)
+
+
+def synthetic_project(mm, path="/old/pinned"):
+    text = 'name = "Bench"\n\n[deps]\nProximalSolvers = "00000000-0000-0000-0000-000000000001"\n'
+    if mm == "1.13":
+        text += f'\n[sources]\nProximalSolvers = {{path = "{path}"}}\n'
+    return text
+
+
+def make_archive(dest, strata=("1.10", "1.13"), extra=(), name="pre06-stage2a-campaign-v1", skip=()):
+    """A gzip tarball with the Project and Manifest of every stratum (plus `extra` (name, data) members)."""
+    root = C.stage2a_campaign()["archive"]["name"]
+    path = Path(dest) / f"{name}.tar.gz"
+    with tarfile.open(path, "w:gz") as tar:
+        def add(member_name, data, kind=tarfile.REGTYPE, link=""):
+            info = tarfile.TarInfo(member_name)
+            info.type, info.size, info.linkname = kind, len(data), link
+            tar.addfile(info, io.BytesIO(data))
+        for mm in strata:
+            for file_name, text in (("Project.toml", synthetic_project(mm)), ("Manifest.toml", synthetic_manifest(mm))):
+                if (mm, file_name) not in skip:
+                    add(f"{root}/julia-{mm}/{file_name}", text.encode())
+        for member_name, data in extra:
+            add(member_name, data)
+    return path
+
+
+def registry_tarball(depot, uuid, version, tree):
+    """General.tar.gz of a depot's registry copy listing one package version."""
+    directory = Path(depot) / "registries"
+    directory.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(directory / "General.tar.gz", "w:gz") as tar:
+        for name, text in (("Registry.toml", f'[packages]\n{uuid} = {{ name = "ProximalBase", path = "P/ProximalBase" }}\n'),
+                           ("P/ProximalBase/Versions.toml", f'["{version}"]\ngit-tree-sha1 = "{tree}"\n')):
+            info = tarfile.TarInfo(name)
+            info.size = len(text.encode())
+            tar.addfile(info, io.BytesIO(text.encode()))
+
+
+class Scripted:
+    """A stand-in for subprocess.run: git runs for real; a Julia command is answered by `julia(argv, env)`;
+    every call is recorded as (argv, kwargs)."""
+
+    def __init__(self, julia=None, other=None):
+        self.calls, self.julia, self.other = [], julia, other
+
+    def __call__(self, argv, **kwargs):
+        self.calls.append((list(argv), kwargs))
+        if argv[0] == "git":
+            return REAL_RUN(argv, **dict(kwargs, env=dict(os.environ, **GIT_ENV)))
+        if self.other is not None:
+            answer = self.other(argv, kwargs)
+            if answer is not None:
+                return answer
+        if "julia" in Path(argv[0]).name or (argv[0] == "taskset" and "julia" in Path(argv[3]).name):
+            return self.julia(argv, kwargs)
+        raise AssertionError(f"unexpected command {argv}")
+
+    def julia_calls(self):
+        return [(a, k) for a, k in self.calls if a[0] != "git"]
+
+
+def completed(argv, code=0, out=b"", err=b""):
+    return subprocess.CompletedProcess(argv, code, out, err)
+
+
+def project_of(argv):
+    return Path(next(a for a in argv if a.startswith("--project=")).partition("=")[2])
+
+
+def stale_julia(stale=True, resolve_edit=None, registry=None, fail_first=0):
+    """The Pkg behaviour of the two strata: Julia 1.13 warns that the Manifest is out of sync with the Project
+    and `Pkg.resolve()` then rewrites project_hash (what the real Julia did); 1.10 is silent."""
+    state = {"failures": fail_first}
+
+    def julia(argv, kwargs):
+        env_dir = project_of(argv)
+        code = argv[-1]
+        depot = kwargs["env"]["JULIA_DEPOT_PATH"].split(":")[0]
+        if registry:
+            registry_tarball(depot, *registry)
+        if state["failures"]:
+            state["failures"] -= 1
+            return completed(argv, 1, b"", b"ERROR: could not spawn (EAGAIN)")
+        is_new = "1.13" in str(env_dir) and stale
+        if "Pkg.instantiate()" in code:
+            return completed(argv, 0, b"", (b"Warning: the project dependencies or compat requirements have changed "
+                                            b"since the manifest was last resolved.\n") if is_new else b"")
+        if "Pkg.resolve()" in code:
+            manifest = env_dir / "Manifest.toml"
+            text = manifest.read_text()
+            manifest.write_text(resolve_edit(text) if resolve_edit else re.sub(
+                r'project_hash = "[0-9a-f]+"', 'project_hash = "' + "b" * 40 + '"', text))
+            return completed(argv, 0)
+        raise AssertionError(argv)
+    return julia
+
+
+def fetch_world(name="fetch"):
+    """A Prepare over a synthetic source, archive and Julia: returns (Prepare, source pins, directory)."""
+    directory = fresh(name)
+    source, pins = make_source(directory / "source")
+    archive = make_archive(directory)
+    official = mc.load_schedule(HERE / "schedule.toml")
+    official["stack_a"]["proximalsolvers"].update(commit=pins["commit"], tree=pins["tree"],
+                                                  package_hash=pins["package_hash"])
+    official["stack_a"]["harness_hash"] = pins["harness_hash"]
+    pb = official["stack_a"]["proximalbase"]
+    uuid = C.stage2a_campaign()["proximalbase"]["uuid"]
+    config = full_pilot_config()
+    C.write_toml(directory / "pilot.toml", config)
+    args = argparse.Namespace(config=str(directory / "pilot.toml"), step="fetch", julia=None, archive=str(archive))
+    st = C.prepare_settings(args, "pilot", config, directory / "bases" / "x-pilot", official, ENVIRON, dict(JULIA_BINS))
+    st.source = str(source)
+    st.pb_source = None
+    return st, pins, directory, (uuid, pb["version"], pb["tree"]), archive
+
+
+def full_pilot_config(session=SESSION, **overrides):
+    config = pilot_config(session)
+    config["pilot"].update(samples_target=5, seconds_limit=0.2, case_seconds=10.0)
+    config["julia"] = dict(JULIA_BINS)
+    config["source"] = {"repository": "/not/used"}
+    config["archive"] = {"path": "/not/used.tar.gz"}
+    config["resources"] = {"min_cpus": 3}
+    config.update(overrides)
+    return config
+
+
+class PilotConfigurationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.official = mc.load_schedule(HERE / "schedule.toml")
+
+    def refused(self, edit, field):
+        config = full_pilot_config()
+        edit(config)
+        with self.assertRaises(C.LockRefusal) as caught:
+            C.parse_pilot(config, self.official)
+        self.assertEqual(caught.exception.field, field)
+
+    def test_the_extended_configuration_is_valid_and_the_old_minimum_still_is(self):
+        self.assertEqual(C.parse_pilot(full_pilot_config(), self.official)["pilot"]["samples_target"], 5)
+        self.assertIn("campaign", C.parse_pilot(pilot_config(), self.official))
+
+    def test_every_new_key_is_strict(self):
+        for name, edit, field in (
+                ("unknown top key", lambda c: c.update(extra={}), "pilot.extra"),
+                ("unknown pilot key", lambda c: c["pilot"].update(extra=1), "pilot.extra"),
+                ("sampling not a number", lambda c: c["pilot"].update(seconds_limit="x"), "pilot.seconds_limit"),
+                ("samples zero", lambda c: c["pilot"].update(samples_target=0), "pilot.samples_target"),
+                ("samples float", lambda c: c["pilot"].update(samples_target=2.5), "pilot.samples_target"),
+                ("negative case seconds", lambda c: c["pilot"].update(case_seconds=-1.0), "pilot.case_seconds"),
+                ("julia key", lambda c: c["julia"].update({"x": "/a"}), "julia.x"),
+                ("julia relative", lambda c: c["julia"].update({"1.10": "julia"}), "julia.1.10"),
+                ("julia empty", lambda c: c.update(julia={}), "julia"),
+                ("source unknown key", lambda c: c["source"].update(extra="x"), "source.extra"),
+                ("source missing", lambda c: c["source"].pop("repository"), "source.repository"),
+                ("source white space", lambda c: c["source"].update(repository="a b"), "source.repository"),
+                ("archive unknown key", lambda c: c["archive"].update(extra="x"), "archive.extra"),
+                ("archive empty", lambda c: c["archive"].update(path=""), "archive.path"),
+                ("one CPU", lambda c: c["resources"].update(min_cpus=1), "resources.min_cpus"),
+                ("resources unknown", lambda c: c["resources"].update(max_cpus=9), "resources.max_cpus")):
+            with self.subTest(name):
+                self.refused(edit, field)
+
+    def test_a_stack_b_table_is_still_refused(self):
+        self.refused(lambda c: c.update(stack_b={}), "stack_b")
+
+
+class PathRewriteTests(unittest.TestCase):
+    def test_the_manifest_path_line_is_rewritten_line_exactly(self):
+        text = synthetic_manifest("1.10")
+        new = C.rewrite_manifest_path(text, "/new/checkout")
+        old_lines, new_lines = text.split("\n"), new.split("\n")
+        self.assertEqual(len(old_lines), len(new_lines))
+        changed = [(a, b) for a, b in zip(old_lines, new_lines) if a != b]
+        self.assertEqual(changed, [('path = "/old/pinned"', 'path = "/new/checkout"')])
+
+    def test_the_manifest_refuses_a_missing_or_doubled_pattern(self):
+        text = synthetic_manifest("1.10")
+        cases = {"no path line": text.replace('path = "/old/pinned"\n', ""),
+                 "two path lines": text.replace('path = "/old/pinned"\n', 'path = "/old/pinned"\npath = "/x"\n'),
+                 "no entry": text.replace("[[deps.ProximalSolvers]]", "[[deps.Other]]"),
+                 "two entries": text + "\n[[deps.ProximalSolvers]]\nuuid = \"u\"\n",
+                 "carriage return": text.replace('/old/pinned"', '/old/pinned"\r')}
+        for name, broken in cases.items():
+            with self.subTest(name), self.assertRaises(C.Refused):
+                C.rewrite_manifest_path(broken, "/new/checkout")
+        for bad in ("relative", '/with"quote', "/with\\slash", "/with\nnewline"):
+            with self.subTest(bad), self.assertRaises(C.Refused):
+                C.rewrite_manifest_path(text, bad)
+
+    def test_another_entrys_path_line_is_not_touched(self):
+        text = synthetic_manifest("1.10").replace("[[deps.Dates]]", '[[deps.Dates]]\npath = "/keep"')
+        new = C.rewrite_manifest_path(text, "/new/checkout")
+        self.assertIn('path = "/keep"', new)
+        self.assertIn('path = "/new/checkout"', new)
+
+    def test_the_project_sources_line_follows_the_same_rule(self):
+        text = synthetic_project("1.13")
+        new, rewritten = C.rewrite_project_sources(text, "/new/checkout")
+        self.assertTrue(rewritten)
+        self.assertEqual([b for a, b in zip(text.split("\n"), new.split("\n")) if a != b],
+                         ['ProximalSolvers = {path = "/new/checkout"}'])
+        plain = synthetic_project("1.10")
+        self.assertEqual(C.rewrite_project_sources(plain, "/new/checkout"), (plain, False))
+        for name, broken in {"twice": text + 'ProximalSolvers = {path = "/y"}\n',
+                             "header only": text.replace('ProximalSolvers = {path = "/old/pinned"}\n', ""),
+                             "outside sources": 'ProximalSolvers = {path = "/old/pinned"}\n[sources]\n',
+                             "line without header": text.replace("[sources]\n", "")}.items():
+            with self.subTest(name), self.assertRaises(C.Refused):
+                C.rewrite_project_sources(broken, "/new/checkout")
+
+    def test_entries_and_foreign_line_detection(self):
+        old = synthetic_manifest("1.13")
+        new = old.replace('project_hash = "' + "a" * 40, 'project_hash = "' + "c" * 40).replace("/old/pinned", "/n")
+        self.assertEqual(C.manifest_entries(old), C.manifest_entries(new))
+        self.assertEqual(C.foreign_changes(old, new), [])
+        self.assertTrue(C.foreign_changes(old, new.replace('manifest_format = "2.1"', 'manifest_format = "2.0"')))
+        self.assertEqual(C.manifest_entries(old), lock_tuples("1.13"))
+
+
+class ArchiveTests(unittest.TestCase):
+    def extract(self, archive, destination=None, expected=None):
+        destination = destination or fresh("arc") / "out"
+        root = C.stage2a_campaign()["archive"]["name"]
+        digest = expected or C.sha256_file(archive)
+        return C.extract_archive(archive, destination, ["1.10", "1.13"], root, expected=digest)
+
+    def test_only_the_needed_members_are_extracted_into_a_fresh_directory(self):
+        archive = make_archive(fresh("arc"), extra=[("pre06-stage2a-campaign-v1/julia-1.10/summary.csv", b"x")])
+        out = self.extract(archive)
+        self.assertEqual(sorted(p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file()),
+                         ["julia-1.10/Manifest.toml", "julia-1.10/Project.toml", "julia-1.13/Manifest.toml",
+                          "julia-1.13/Project.toml"])
+        with self.assertRaises(FileExistsError):                   # an existing directory is never reused
+            self.extract(archive, out)
+
+    def test_a_wrong_checksum_is_refused_before_anything_is_written(self):
+        archive = make_archive(fresh("arc"))
+        destination = fresh("arc") / "out"
+        with self.assertRaises(C.Refused) as caught:
+            C.extract_archive(archive, destination, ["1.10"], "r", expected="0" * 64)
+        self.assertIn("SHA-256", str(caught.exception))
+        self.assertFalse(destination.exists())
+        with self.assertRaises(C.Refused):
+            C.check_archive_digest(archive)                       # not the Stage 2A digest
+
+    def test_the_real_digest_is_the_published_one(self):
+        self.assertEqual(C.STAGE2A_ARCHIVE_SHA256, "1edd64330606d739acf1d7b4ba0643a4fb6a1366bad4c82393e2ba1ffdcc723e")
+
+    def test_unsafe_missing_duplicate_and_non_regular_members_are_refused(self):
+        root = C.stage2a_campaign()["archive"]["name"]
+        for name, archive in {
+                "parent component": make_archive(fresh("arc"), extra=[("../evil", b"x")]),
+                "absolute": make_archive(fresh("arc"), extra=[("/etc/evil", b"x")]),
+                "nested parent": make_archive(fresh("arc"), extra=[(f"{root}/../../evil", b"x")]),
+                "missing member": make_archive(fresh("arc"), skip=[("1.13", "Manifest.toml")]),
+                "duplicate": make_archive(fresh("arc"), extra=[(f"{root}/julia-1.10/Project.toml", b"x")])}.items():
+            with self.subTest(name), self.assertRaises(C.Refused):
+                self.extract(archive)
+        link = fresh("arc") / "link.tar.gz"
+        with tarfile.open(link, "w:gz") as tar:
+            info = tarfile.TarInfo(f"{root}/julia-1.10/Project.toml")
+            info.type, info.linkname = tarfile.SYMTYPE, "/etc/passwd"
+            tar.addfile(info)
+        with self.assertRaises(C.Refused):
+            self.extract(link)
+        self.assertFalse(Path("/etc/evil").exists())
+        garbage = fresh("arc") / "garbage.tar.gz"
+        garbage.write_bytes(gzip.compress(b"not a tar file"))
+        with self.assertRaises(C.Refused):
+            self.extract(garbage)
+
+
+class CheckoutTests(unittest.TestCase):
+    def test_a_clone_is_independent_detached_and_verified(self):
+        directory = fresh("co")
+        source, pins = make_source(directory / "source")
+        run = Scripted()
+        target = directory / "clone"
+        C.clone_checkout(source, target, pins["commit"], run)
+        clone_argv = run.calls[0][0]
+        self.assertEqual(clone_argv[:8], ["git", "-c", "pack.threads=1", "-c", "index.threads=1", "clone", "--quiet",
+                                         "--no-hardlinks"])
+        self.assertEqual(clone_argv[-3:], ["--", str(source), str(target)])
+        self.assertEqual(run.calls[1][0], ["git", "-C", str(target), "checkout", "--quiet", "--detach",
+                                           pins["commit"]])
+        self.assertEqual(git_run(target, "rev-parse", "--abbrev-ref", "HEAD"), "HEAD")
+        objects = target / ".git" / "objects"
+        self.assertTrue(all(os.stat(p).st_nlink == 1 for p in objects.rglob("*") if p.is_file()))
+        facts = C.verify_checkout(target, pins, pins["harness_hash"], None)
+        self.assertEqual(facts["package_hash"], pins["package_hash"])
+
+    def test_every_cleanliness_and_identity_failure_is_refused(self):
+        directory = fresh("co")
+        source, pins = make_source(directory / "source")
+        target = directory / "clone"
+        C.clone_checkout(source, target, pins["commit"], None)
+        (target / ".gitignore").write_text("*.cache\n")                 # an untracked file ...
+        with self.assertRaises(C.Refused) as caught:
+            C.verify_checkout(target, pins, pins["harness_hash"], None)
+        self.assertIn("not clean", str(caught.exception))
+        (target / ".gitignore").unlink()
+        (target / "x.cache").write_text("x")
+        git_run(target, "config", "core.excludesFile", "/dev/null")
+        (target / ".git" / "info" / "exclude").write_text("*.cache\n")  # ... an ignored file ...
+        with self.assertRaises(C.Refused) as caught:
+            C.verify_checkout(target, pins, pins["harness_hash"], None)
+        self.assertIn("not clean", str(caught.exception))
+        (target / "x.cache").unlink()
+        C.verify_checkout(target, pins, pins["harness_hash"], None)
+        (target / "src" / "ProximalSolvers.jl").write_text("changed\n")  # ... a tracked change ...
+        with self.assertRaises(C.Refused) as caught:
+            C.verify_checkout(target, pins, pins["harness_hash"], None)
+        self.assertIn("not clean", str(caught.exception))
+        self.assertIn("package fingerprint", str(caught.exception))
+        git_run(target, "checkout", "--", ".")
+        for name, change in (("commit", dict(commit="1" * 40)), ("tree", dict(tree="2" * 40)),
+                             ("package", dict(package_hash="3" * 40))):
+            with self.subTest(name), self.assertRaises(C.Refused):
+                C.verify_checkout(target, dict(pins, **change), pins["harness_hash"], None)
+        with self.assertRaises(C.Refused):
+            C.verify_checkout(target, pins, "4" * 40, None)
+
+
+class FetchTests(unittest.TestCase):
+    def fetch(self, julia=None, registry=True, name="fetch"):
+        st, pins, directory, tree, archive = fetch_world(name)
+        run = Scripted(julia or stale_julia(registry=tree if registry else None))
+        st.run = run
+        with unittest.mock.patch.object(C, "STAGE2A_ARCHIVE_SHA256", C.sha256_file(archive)), \
+                unittest.mock.patch.object(C.time, "sleep"), contextlib.redirect_stdout(io.StringIO()):
+            return st, run, directory, pins, C.prepare_fetch(st)
+
+    def test_fetch_builds_every_role_and_records_what_it_did(self):
+        st, run, directory, pins, status = self.fetch()
+        self.assertEqual(status, 0)
+        base = st.base
+        for role in ("ab-a", "ab-b"):
+            checkout = base / "installations" / role / "ProximalSolvers.jl"
+            self.assertEqual(git_run(checkout, "rev-parse", "HEAD"), pins["commit"])
+            self.assertTrue((base / "depots" / role).is_dir())
+            for mm in ("1.10", "1.13"):
+                env = base / "environments" / role / f"env-{mm}"
+                manifest = (env / "Manifest.toml").read_text()
+                self.assertIn(f'path = "{os.path.realpath(checkout)}"', manifest)
+                self.assertNotIn("/old/pinned", manifest)
+                project = (env / "Project.toml").read_text()
+                self.assertEqual("/old/pinned" in project, False)
+                self.assertEqual(os.path.realpath(checkout) in project, mm == "1.13")
+                root = base / "roots" / role / f"julia-{mm}"
+                for name in ("Project.toml", "Manifest.toml"):
+                    self.assertEqual((root / name).read_bytes(), (env / name).read_bytes())
+                    self.assertEqual(stat.S_IMODE((root / name).stat().st_mode), 0o444)
+        self.assertEqual({p.name for p in (base / "roots").iterdir()}, {"ab-a", "ab-b"})
+        self.assertEqual((base / "schedule.toml").read_bytes(), (HERE / "schedule.toml").read_bytes())
+        self.assertEqual((base / "pilot-config.toml").read_bytes(), Path(st.config_path).read_bytes())
+        summary = json.loads((base / "logs" / "prepare-fetch.json").read_text())
+        self.assertTrue(summary["roles"]["ab-a"]["environments"]["1.13"]["stale_warning"])
+        self.assertTrue(summary["roles"]["ab-a"]["environments"]["1.13"]["resolved"])
+        self.assertFalse(summary["roles"]["ab-a"]["environments"]["1.10"]["stale_warning"])
+        self.assertEqual(summary["proximalbase_tag"]["registry_tree"], st.sched["stack_a"]["proximalbase"]["tree"])
+        diff = (base / "logs" / "prepare-ab-a-1.13-manifest.diff").read_text()
+        self.assertIn("-project_hash", diff)
+        self.assertIn("+path =", diff)
+        self.assertEqual((base / "logs" / "prepare-ab-a-1.10-project.diff").read_text(), "")
+
+    def test_the_commands_have_the_documented_argv_and_a_whitelisted_environment(self):
+        st, run, directory, pins, _ = self.fetch()
+        julia = run.julia_calls()
+        self.assertEqual(len(julia), 2 * 2 + 2, "an instantiate per role and stratum, a resolve where stale")
+        allowed = set(C.ENV_PASSTHROUGH) | {"JULIA_NUM_THREADS", "OPENBLAS_NUM_THREADS", "JULIA_LOAD_PATH",
+                                            "JULIA_DEPOT_PATH", "JULIA_PKG_PRECOMPILE_AUTO"}
+        for argv, kwargs in julia:
+            self.assertEqual(argv[:3], [JULIA_BINS["1.10" if "env-1.10" in argv[3] else "1.13"],
+                                        "--startup-file=no", "--history-file=no"])
+            self.assertEqual(argv[4], "-e")
+            self.assertIn(argv[5], ("using Pkg; Pkg.instantiate()", "using Pkg; Pkg.resolve()"))
+            env = kwargs["env"]
+            self.assertLessEqual(set(env), allowed)
+            self.assertNotIn("JULIA_PKG_OFFLINE", env)
+            self.assertEqual(env["JULIA_PKG_PRECOMPILE_AUTO"], "0")
+            self.assertEqual(env["JULIA_LOAD_PATH"], "@:@stdlib")
+            self.assertTrue(env["JULIA_DEPOT_PATH"].startswith(str(st.base / "depots")))
+            self.assertNotIn("SSH_AUTH_SOCK", env)
+            self.assertNotIn("AWS_SECRET_ACCESS_KEY", env)
+            self.assertIs(kwargs["shell"], False)
+
+    def test_an_existing_role_directory_is_refused_and_nothing_is_deleted(self):
+        st, pins, directory, registry, archive = fetch_world()
+        keep = st.base / "environments" / "ab-b"
+        keep.mkdir(parents=True)
+        (keep / "sentinel").write_text("keep")
+        st.run = Scripted()
+        with self.assertRaises(C.Refused) as caught:
+            C.prepare_fetch(st)
+        self.assertIn("environments/ab-b", str(caught.exception))
+        self.assertEqual((keep / "sentinel").read_text(), "keep")
+        self.assertEqual(st.run.calls, [])
+        self.assertFalse((st.base / "installations").exists())
+
+    def test_a_second_fetch_on_one_base_is_refused(self):
+        st, run, directory, pins, _ = self.fetch()
+        before = len(run.calls)
+        with self.assertRaises(C.Refused):
+            C.prepare_fetch(st)
+        self.assertEqual(len(run.calls), before)
+
+    def test_the_archive_checksum_stops_fetch_before_any_command(self):
+        st, pins, directory, registry, archive = fetch_world()
+        st.run = Scripted()
+        with self.assertRaises(C.Refused) as caught:            # the real digest is not that of the synthetic archive
+            C.prepare_fetch(st)
+        self.assertIn("SHA-256", str(caught.exception))
+        self.assertEqual(st.run.calls, [])
+        self.assertFalse((st.base / "installations").exists())
+        st.archive = None
+        with self.assertRaises(C.Refused):
+            C.prepare_fetch(st)
+
+    def test_the_resolve_step_may_change_only_the_path_and_project_hash(self):
+        def edit_version(text):
+            return re.sub(r'project_hash = "[0-9a-f]+"', 'project_hash = "' + "b" * 40 + '"', text).replace(
+                'version = "1.11.5"', 'version = "1.11.6"')
+        with self.assertRaises(C.Refused) as caught:
+            self.fetch(julia=stale_julia(resolve_edit=edit_version))
+        self.assertIn("entries differ from the archived Manifest", str(caught.exception))
+        self.assertIn("no fresh resolution", str(caught.exception))
+
+        def edit_other_line(text):
+            return text.replace('manifest_format = "2.1"', 'manifest_format = "2.0"')
+        with self.assertRaises(C.Refused) as caught:
+            self.fetch(julia=stale_julia(resolve_edit=edit_other_line))
+        self.assertIn("other than the path and project_hash", str(caught.exception))
+
+        def edit_added_entry(text):
+            return text + '\n[[deps.Extra]]\nuuid = "e0e0e0e0-0000-0000-0000-000000000000"\nversion = "1.0.0"\n'
+        with self.assertRaises(C.Refused):
+            self.fetch(julia=stale_julia(resolve_edit=edit_added_entry))
+
+    def test_entries_must_also_equal_the_campaign_definitions_lock(self):
+        campaign = C.stage2a_campaign()
+        wrong = copy.deepcopy(campaign)
+        wrong["julia"]["1.10"]["lock"][0]["version"] = "9.9.9"
+        st2, _, directory2, registry2, archive2 = fetch_world("fetch-lock")
+        st2.run = Scripted(stale_julia(registry=registry2))
+        with unittest.mock.patch.object(C, "STAGE2A_ARCHIVE_SHA256", C.sha256_file(archive2)), \
+                unittest.mock.patch.object(C, "stage2a_campaign", lambda: wrong):
+            with self.assertRaises(C.Refused) as caught:
+                C.prepare_fetch(st2)
+        self.assertIn("lock of the Stage 2A campaign definition", str(caught.exception))
+
+    def test_a_failing_pkg_step_is_retried_and_then_refused_with_every_attempt_logged(self):
+        st, run, directory, pins, _ = self.fetch(julia=stale_julia(fail_first=2))
+        names = sorted(p.name for p in (st.base / "logs").glob("prepare-ab-a-1.10-instantiate*.err"))
+        self.assertEqual(names, ["prepare-ab-a-1.10-instantiate-attempt2.err", "prepare-ab-a-1.10-instantiate-attempt3.err",
+                                 "prepare-ab-a-1.10-instantiate.err"])
+        with self.assertRaises(C.Refused) as caught:
+            self.fetch(julia=stale_julia(fail_first=99), name="fetch-fail")
+        self.assertIn("3 attempts", str(caught.exception))
+
+    def test_a_missing_registry_is_recorded_and_a_wrong_registry_tree_is_refused(self):
+        st, run, directory, pins, _ = self.fetch(registry=False, name="fetch-noreg")
+        self.assertIsNone(json.loads((st.base / "logs" / "prepare-fetch.json").read_text())[
+                              "proximalbase_tag"]["registry_tree"])
+        world = fetch_world("fetch-reg")
+        st2, _, _, registry, archive = world
+        st2.run = Scripted(stale_julia(registry=(registry[0], registry[1], "f" * 40)))
+        with unittest.mock.patch.object(C, "STAGE2A_ARCHIVE_SHA256", C.sha256_file(archive)):
+            with self.assertRaises(C.Refused) as caught:
+                C.prepare_fetch(st2)
+        self.assertIn("registry lists ProximalBase", str(caught.exception))
+
+    def test_the_tag_is_checked_against_a_clone_when_a_locator_is_configured(self):
+        directory = fresh("tag")
+        source, pins = make_source(directory / "pb", tag="v0.5.4")
+        st, *_ = fetch_world("tag-world")
+        pb = st.sched["stack_a"]["proximalbase"]
+        pb.update(commit=pins["commit"], tree=pins["tree"])
+        st.pb_source, st.run = str(source), Scripted()
+        depot = fresh("tag-depot")
+        uuid = C.stage2a_campaign()["proximalbase"]["uuid"]
+        registry_tarball(depot, uuid, pb["version"], pins["tree"])
+        record = C.check_pb_tag(st, depot)
+        self.assertEqual((record["clone_commit"], record["clone_tree"], record["registry_tree"]),
+                         (pins["commit"], pins["tree"], pins["tree"]))
+        pb["commit"] = "9" * 40
+        with self.assertRaises(C.Refused) as caught:
+            C.check_pb_tag(st, depot)
+        self.assertIn("commit", str(caught.exception))
+        pb.update(commit=pins["commit"], tree="8" * 40)
+        with self.assertRaises(C.Refused):
+            C.check_pb_tag(st, depot)
+
+    def test_the_registry_reader_handles_tarballs_and_directories(self):
+        depot, uuid = fresh("reg"), "0a755509-c5b1-5d6f-9b24-59bcda3c37a3"
+        self.assertIsNone(C.registry_tree(depot, uuid, "0.5.4"))
+        registry_tarball(depot, uuid, "0.5.4", "a" * 40)
+        self.assertEqual(C.registry_tree(depot, uuid, "0.5.4"), "a" * 40)
+        self.assertIsNone(C.registry_tree(depot, uuid, "0.5.5"))
+        self.assertIsNone(C.registry_tree(depot, "other", "0.5.4"))
+        plain = fresh("reg")
+        (plain / "registries" / "General" / "P" / "ProximalBase").mkdir(parents=True)
+        (plain / "registries" / "General" / "Registry.toml").write_text(
+            f'[packages]\n{uuid} = {{ name = "ProximalBase", path = "P/ProximalBase" }}\n')
+        (plain / "registries" / "General" / "P" / "ProximalBase" / "Versions.toml").write_text(
+            '["0.5.4"]\ngit-tree-sha1 = "' + "b" * 40 + '"\n')
+        self.assertEqual(C.registry_tree(plain, uuid, "0.5.4"), "b" * 40)
+
+
+class OfficialFetchTests(unittest.TestCase):
+    """Stack B of an official run: the lock's frozen files, with a synthetic lock only (no candidate exists)."""
+
+    def world(self, stale=False, tamper=None):
+        st, pins, directory, registry, archive = fetch_world("official")
+        camp = F.build_campaign(fresh("official-camp"), "migration")
+        lock = make_lock(camp)
+        repo = directory / "repo"
+        for mm in ("1.10", "1.13"):
+            (repo / "locks" / mm).mkdir(parents=True)
+            for name in ("Project.toml", "Manifest.toml"):
+                (repo / "locks" / mm / name).write_text(f"# frozen {mm} {name}\n")
+                key = name.split(".")[0].lower()
+                lock["stack_b"]["environments"][mm][key + "_sha256"] = C.sha256_file(repo / "locks" / mm / name)
+        b = lock["stack_b"]
+        b["proximalsolvers"].update(commit=pins["commit"], tree=pins["tree"], package_hash=pins["package_hash"])
+        b["harness_hash"] = pins["harness_hash"]
+        b["proximalbase"].update(release="registered", tag="v0.6.0")
+        if tamper:
+            tamper(lock, repo)
+        official = copy.deepcopy(st.sched)
+        args = argparse.Namespace(config=str(directory / "lock.toml"), step="fetch", julia=None,
+                                  archive=str(archive))
+        C.write_toml(directory / "lock.toml", lock)
+        st2 = C.prepare_settings(args, "official", lock, directory / "bases" / "official", official, ENVIRON,
+                                 dict(JULIA_BINS))
+        st2.repo, st2.source = repo, str(Path(st.source))
+        julia = stale_julia(stale=stale, registry=registry)
+        st2.run = Scripted(julia)
+        return st2, archive, lock
+
+    def test_the_four_roles_stack_b_comes_from_the_lock_and_the_others_from_the_archive(self):
+        st, archive, lock = self.world()
+        self.assertEqual(st.roles(), ["ab-a", "ab-b", "aa-a", "aa-b"])
+        self.assertEqual([st.stack_of(r) for r in st.roles()], ["A", "B", "A", "A"])
+        # the synthetic clone source serves stack A at the historical pins of the (patched) schedule
+        with unittest.mock.patch.object(C, "STAGE2A_ARCHIVE_SHA256", C.sha256_file(archive)), \
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(C.prepare_fetch(st), 0)
+        base = st.base
+        for mm in ("1.10", "1.13"):
+            env = base / "environments" / "ab-b" / f"env-{mm}"
+            for name in ("Project.toml", "Manifest.toml"):
+                self.assertEqual((env / name).read_text(), f"# frozen {mm} {name}\n")
+        self.assertEqual((base / "lock.toml").read_bytes(), Path(st.config_path).read_bytes())
+        self.assertEqual(len({p.name for p in (base / "roots").iterdir()}), 4)
+
+    def test_a_frozen_file_that_differs_from_the_lock_is_refused(self):
+        def tamper(lock, repo):
+            (repo / "locks" / "1.10" / "Manifest.toml").write_text("changed\n")
+        st, archive, lock = self.world(tamper=tamper)
+        with unittest.mock.patch.object(C, "STAGE2A_ARCHIVE_SHA256", C.sha256_file(archive)):
+            with self.assertRaises(C.Refused) as caught:
+                C.prepare_fetch(st)
+        self.assertIn("SHA-256 of the lock", str(caught.exception))
+
+    def test_a_path_outside_the_repository_and_a_stale_frozen_manifest_are_refused(self):
+        def outside(lock, repo):
+            lock["stack_b"]["environments"]["1.10"]["manifest"] = "../elsewhere/Manifest.toml"
+        st, archive, lock = self.world(tamper=outside)
+        with unittest.mock.patch.object(C, "STAGE2A_ARCHIVE_SHA256", C.sha256_file(archive)):
+            with self.assertRaises(C.Refused):
+                C.prepare_fetch(st)
+        st, archive, lock = self.world(stale=True)
+        (st.base / "depots" / "ab-b").mkdir(parents=True)
+        (st.base / "logs").mkdir(parents=True)
+        with self.assertRaises(C.Refused) as caught:
+            C.prepare_environment_b(st, "ab-b", "1.13")
+        self.assertIn("out of sync", str(caught.exception))
+
+    def test_a_pilot_cannot_prepare_without_pilot_in_the_base_name_and_a_lock_needs_a_candidate(self):
+        st, *_ = fetch_world()
+        args = argparse.Namespace(config="x", step="fetch", julia=None, archive=None)
+        official = mc.load_schedule(HERE / "schedule.toml")
+        with self.assertRaises(C.LockRefusal):
+            C.prepare_settings(args, "pilot", full_pilot_config(), Path("/tmp/not-a-p-i-l-o-t"), official, ENVIRON,
+                               dict(JULIA_BINS))
+        with self.assertRaises(C.Refused):
+            C.prepare_settings(args, "official", {"schema": 1, "campaign": {"id": "x"}}, Path("/tmp/b"), official,
+                               ENVIRON, dict(JULIA_BINS))
+        with self.assertRaises(C.UsageError):
+            C.julia_binaries(["1.10=relative"], None, ["1.10"])
+        with self.assertRaises(C.Refused):
+            C.julia_binaries(["1.10=/a/julia"], None, ["1.10", "1.13"])
+        self.assertEqual(C.julia_binaries(["1.10=/b/julia"], {"julia": {"1.10": "/a/julia", "1.13": "/c/julia"}},
+                                          ["1.10", "1.13"]), {"1.10": "/b/julia", "1.13": "/c/julia"})
+
+
+# --------------------------------------------------------------------------------------------- real hooks
+
+def affinity_world(allowed=(1, 2, 6)):
+    seen = []
+    return (lambda _: set(allowed)), (lambda pid, cpus: seen.append((pid, set(cpus)))), seen
+
+
+class HostHelperTests(unittest.TestCase):
+    def test_the_depot_digest_follows_the_compiled_directories_only(self):
+        depot = fresh("depot")
+        (depot / "compiled" / "v1.10" / "Pkg").mkdir(parents=True)
+        (depot / "packages" / "P" / "x").mkdir(parents=True)
+        image = depot / "compiled" / "v1.10" / "Pkg" / "image.so"
+        index = depot / "compiled" / "v1.10" / "Pkg" / "image.ji"
+        image.write_bytes(b"image")
+        index.write_bytes(b"index")
+        (depot / "packages" / "P" / "x" / "a.jl").write_text("a")
+        before = C.depot_digest(depot)
+        self.assertEqual(before, C.depot_digest(depot))
+        (depot / "packages" / "P" / "x" / "a.jl").write_text("changed")
+        (depot / "logs").mkdir()
+        (depot / "logs" / "log").write_text("x")
+        self.assertEqual(before, C.depot_digest(depot), "files outside compiled/ do not count")
+        os.utime(index, ns=(1, 1))
+        self.assertEqual(before, C.depot_digest(depot), "Julia touches a .ji file at every load: not a change")
+        for change in ("touch", "size", "new", "index", "delete"):
+            with self.subTest(change):
+                if change == "touch":
+                    os.utime(image, ns=(1, 1))
+                elif change == "size":
+                    image.write_bytes(b"a rebuilt image")
+                elif change == "new":
+                    (depot / "compiled" / "v1.10" / "Pkg" / "second.so").write_bytes(b"x")
+                elif change == "index":
+                    index.write_bytes(b"INDEX")             # same size, other content
+                else:
+                    image.unlink()
+                after = C.depot_digest(depot)
+                self.assertNotEqual(before, after)
+                before = after
+
+    def test_bundled_depots_and_cpu_lists(self):
+        self.assertEqual(C.bundled_depots({"1.10": "/opt/j/bin/julia"}),
+                         {"1.10": "/opt/j/local/share/julia:/opt/j/share/julia"})
+        self.assertEqual(C.parse_cpu_list("0-2,5\n"), [0, 1, 2, 5])
+        self.assertEqual(C.parse_cpu_list("6"), [6])
+        with self.assertRaises(ValueError):
+            C.parse_cpu_list("a")
+
+    def test_keeping_the_driver_off_the_measured_cpu(self):
+        get, put, seen = affinity_world((1, 2, 6))
+        self.assertEqual(C.keep_off_cpu(6, get, put), [1, 2])
+        self.assertEqual(seen, [(0, {1, 2})])
+        for allowed, cpu in (((6,), 6), ((1, 2), 6)):
+            get, put, seen = affinity_world(allowed)
+            with self.assertRaises(C.Refused):
+                C.keep_off_cpu(cpu, get, put)
+            self.assertEqual(seen, [])
+
+    def test_datahash_matches_row_for_row(self):
+        camp = pilot_world()
+        base = assemble_base(camp, fresh("dh") / "x-pilot", aa=False, with_raw=True)
+        sched = mc.load_schedule(base / "schedule.toml")
+        self.assertTrue(C.datahash_matches(base, sched, "ab-a", "1.10", 1))
+        self.assertTrue(C.datahash_matches(base, sched, "ab-b", "1.13", 1))
+        sidecar = base / "roots" / "ab-a" / C.DATAHASH_NAME
+        original = sidecar.read_text()
+        lines = original.split("\n")
+        edits = {"a wrong hash": [lines[0], lines[1].rsplit("\t", 1)[0] + "\t" + "0" * 64] + lines[2:],
+                 "a missing row": [lines[0]] + lines[2:],
+                 "a duplicate row": lines[:2] + [lines[1]] + lines[2:],
+                 "header only": [lines[0], ""]}
+        for name, new in edits.items():
+            with self.subTest(name):
+                sidecar.write_text("\n".join(new))
+                self.assertFalse(C.datahash_matches(base, sched, "ab-a", "1.10", 1))
+        sidecar.write_text(original)
+        self.assertTrue(C.datahash_matches(base, sched, "ab-a", "1.10", 1))
+        metrics = base / "roots" / "ab-a" / "julia-1.10" / "raw" / "julia-1.10.13-rep01-metrics.tsv"
+        metrics_text = metrics.read_text()
+        header, *rows = metrics_text.split("\n")
+        column = header.split("\t").index("data_hash")
+        cells = rows[0].split("\t")
+        cells[column] = "0" * 64
+        metrics.write_text("\n".join([header, "\t".join(cells)] + rows[1:]))
+        self.assertFalse(C.datahash_matches(base, sched, "ab-a", "1.10", 1))
+        self.assertFalse(C.datahash_matches(base, sched, "ab-a", "1.10", 2), "no records of this repetition")
+        self.assertFalse(C.datahash_matches(base, sched, "ab-a", "1.13", 7))
+
+
+def probe_text(checkout, pb_dir, depot, env, threads=1, model="Test CPU", name="znver2"):
+    data = {"julia": "1.10.13", "commit": "e184dd512e35c5a6e036c9aab5e4de5a3345f62d", "bindir": "/opt/j/bin",
+            "cpu_name": name, "cpu_model": model, "threads": threads, "blas": "libopenblas",
+            "load_path": ["@", "@stdlib"], "depot_path": [str(depot)], "active_project": f"{env}/Project.toml",
+            "active_project_realpath": f"{os.path.realpath(env)}/Project.toml", "depot_realpath": os.path.realpath(depot),
+            "proximalbase_dir": str(pb_dir), "proximalbase_version": "0.5.4", "proximalbase_loaded_tree": "1" * 40,
+            "proximalsolvers_dir": os.path.realpath(checkout), "proximalsolvers_loaded_tree": "2" * 40,
+            "deps": {"ProximalBase": {"uuid": "u", "version": "0.5.4", "tree": "1" * 40, "path": False,
+                                      "repo": False, "registry": True, "source": ""}}}
+    return C.toml_dumps(data)
+
+
+class RealHooksTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.camp = pilot_world()
+
+    def world(self, probe=None, affinity=b"Cpus_allowed_list:\t6\n", **kwargs):
+        base = assemble_base(self.camp, fresh("rh") / "x-pilot", aa=False)
+        plan = C.plan_from_pilot(pilot_config(), base, JULIA_BINS, ENVIRON)
+        spec = plan.roles["ab-a"]
+        # the role's checkout: a real repository with the four harness files
+        source, pins = make_source(base / "installations" / "ab-a" / "ProximalSolvers.jl")
+        pb = fresh("rh-pb")
+        (pb / "src").mkdir()
+        (pb / "Project.toml").write_text('name = "ProximalBase"\nversion = "0.5.4"\n')
+        (pb / "src" / "ProximalBase.jl").write_text("module ProximalBase end\n")
+        for mm in plan.sched["strata"]:
+            spec.environments[mm].mkdir(parents=True)
+            (spec.environments[mm] / "Project.toml").write_text("project\n")
+            (spec.environments[mm] / "Manifest.toml").write_text("manifest\n")
+        text = probe or probe_text(spec.checkout, pb, spec.depot, spec.environments["1.10"], **kwargs)
+
+        def other(argv, kw):
+            if argv[0] == "taskset" and "grep" in argv:
+                return completed(argv, 0, affinity)
+            if argv[-1].endswith("environment_probe.jl"):
+                return completed(argv, 0, text.encode())
+
+        run = Scripted(other=other)
+        get, put, seen = affinity_world((2, 3, 6))
+        hooks = C.RealHooks(JULIA_BINS, ENVIRON, run=run, getaffinity=get, setaffinity=put)
+        hooks.bind(plan)
+        return hooks, plan, spec, run, pins, pb, seen
+
+    def test_the_hooks_keep_the_driver_off_the_measured_cpu_and_know_the_plan(self):
+        hooks, plan, spec, run, pins, pb, seen = self.world()
+        self.assertEqual(seen, [(0, {2, 3})])
+        self.assertEqual(hooks.julia_bins, JULIA_BINS)
+        self.assertEqual(hooks.bundled_depot["1.10"], "/opt/julia-1.10.13/local/share/julia:/opt/julia-1.10.13/share/julia")
+        self.assertEqual(hooks.sampler(), C.sample_machine(plan.cpu))
+        self.assertEqual(hooks.depot_digest(spec), C.depot_digest(spec.depot))
+        self.assertEqual(hooks.clock().tzinfo, datetime.timezone.utc)
+
+    def test_the_runner_passes_argv_environment_and_directory_without_a_shell(self):
+        hooks, plan, spec, run, *_ = self.world()
+        calls = []
+
+        def fake(argv, **kwargs):
+            calls.append((argv, kwargs))
+            return completed(argv, -9, b"out", b"err")
+        hooks.run = fake
+        result = hooks.runner(["taskset", "-c", "6", "x"], {"A": "1"}, "/work", 6)
+        self.assertEqual((result.exit, result.stdout, result.stderr), (-9, b"out", b"err"))
+        self.assertEqual(calls, [(["taskset", "-c", "6", "x"], {"env": {"A": "1"}, "cwd": "/work",
+                                                                  "capture_output": True, "shell": False})])
+        def boom(argv, **kwargs):
+            raise OSError("no such file")
+        hooks.run = boom
+        with self.assertRaises(OSError):
+            hooks.runner(["x"], {}, "/work", 6)
+
+    def test_the_probe_observation_is_built_from_the_real_system(self):
+        hooks, plan, spec, run, pins, pb, seen = self.world()
+        observation, text = hooks.probe_raw(spec, "1.10")
+        self.assertEqual(C.validate_observation(observation, "x"), [])
+        self.assertEqual(observation["ps"]["commit"], pins["commit"])
+        self.assertEqual(observation["ps"]["tree"], pins["tree"])
+        self.assertEqual(observation["ps"]["dirty"], False)
+        self.assertEqual(observation["ps"]["version"], "0.3.2")
+        self.assertEqual(observation["ps"]["package_hash"], pins["package_hash"])
+        self.assertEqual(observation["ps"]["loaded_realpath"], os.path.realpath(spec.checkout))
+        self.assertEqual(observation["pb"]["package_hash"], C.package_fingerprint(pb))
+        self.assertEqual(observation["pb"]["loaded_tree"], "1" * 40)
+        self.assertEqual(observation["pb"]["manifest_tree"], "1" * 40)
+        self.assertEqual(observation["harness_hash"], pins["harness_hash"])
+        self.assertEqual(observation["affinity_cpus"], [6])
+        self.assertEqual(observation["machine"], {"cpu_model": "Test CPU", "cpu": "znver2", "logical_cpu": 6})
+        env = spec.environments["1.10"]
+        self.assertEqual(observation["manifest_sha256"], C.sha256_file(env / "Manifest.toml"))
+        self.assertEqual(observation["project_sha256"], C.sha256_file(env / "Project.toml"))
+        self.assertEqual(observation["environment"], {"dir": str(env), "realpath": os.path.realpath(env),
+                                                      "project_exists": True, "manifest_exists": True})
+        self.assertEqual(observation["julia"], {"version": "1.10.13", "commit": "e184dd512e35c5a6e036c9aab5e4de5a3345f62d",
+                                                "cpu_name": "znver2"})
+        self.assertEqual(hooks.probe(spec, "1.10"), observation)
+        self.assertIn("proximalsolvers_dir", text)
+
+    def test_the_probe_command_is_the_formal_one_run_on_the_measured_cpu(self):
+        hooks, plan, spec, run, *_ = self.world()
+        hooks.probe_raw(spec, "1.10")
+        argv, kwargs = next((a, k) for a, k in run.calls if a[-1].endswith("environment_probe.jl"))
+        self.assertEqual(argv, ["taskset", "-c", "6", JULIA_BINS["1.10"], *C.JULIA_FLAGS,
+                                f"--project={spec.environments['1.10']}", str(HERE / "environment_probe.jl")])
+        self.assertEqual(argv[:-1], C.launch_argv(plan, spec, "1.10")[:-1])
+        self.assertEqual(kwargs["env"], C.launch_env(plan, spec, "1.10", 1))
+        self.assertEqual(kwargs["cwd"], str(spec.checkout))
+        self.assertEqual(kwargs["env"]["JULIA_PKG_OFFLINE"], "true")
+        self.assertNotIn("SSH_AUTH_SOCK", kwargs["env"])
+        affinity = next(a for a, _ in run.calls if "grep" in a)
+        self.assertEqual(affinity[:4], ["taskset", "-c", "6", "grep"])
+
+    def test_dirty_checkouts_are_observed_untracked_ignored_and_tracked(self):
+        hooks, plan, spec, run, pins, pb, seen = self.world()
+        checkout = spec.checkout
+        for name, change in (("untracked", lambda: (checkout / "new.txt").write_text("x")),
+                             ("ignored", lambda: ((checkout / ".git" / "info" / "exclude").write_text("*.cache\n"),
+                                                  (checkout / "x.cache").write_text("x"))),
+                             ("tracked", lambda: (checkout / "src" / "ProximalSolvers.jl").write_text("y\n"))):
+            with self.subTest(name):
+                git_run(checkout, "checkout", "--", ".")
+                git_run(checkout, "clean", "-fdxq")
+                self.assertFalse(hooks.probe(spec, "1.10")["ps"]["dirty"])
+                change()
+                self.assertTrue(hooks.probe(spec, "1.10")["ps"]["dirty"])
+
+    def test_unusable_probe_results_are_refusals(self):
+        for name, kwargs in (("several threads", dict(threads=4)),):
+            with self.subTest(name):
+                hooks, plan, spec, *_ = self.world(**kwargs)
+                with self.assertRaises(C.Refused) as caught:
+                    hooks.probe(spec, "1.10")
+                self.assertIn("threads", str(caught.exception))
+        hooks, plan, spec, *_ = self.world(probe="this is = not toml [")
+        with self.assertRaises(C.Refused):
+            hooks.probe(spec, "1.10")
+        hooks, plan, spec, *_ = self.world(probe='julia = "1.10.13"\n')
+        with self.assertRaises(C.Refused):
+            hooks.probe(spec, "1.10")
+        hooks, plan, spec, run, *_ = self.world()
+        hooks.run = lambda argv, **kw: completed(argv, 1, b"", b"Pkg error")
+        with self.assertRaises(C.Refused) as caught:
+            hooks.probe(spec, "1.10")
+        self.assertIn("exited with 1", str(caught.exception))
+
+    def test_the_affinity_is_empty_when_the_pinned_command_fails(self):
+        hooks, plan, spec, *_ = self.world(affinity=b"")
+        self.assertEqual(hooks.probe(spec, "1.10")["affinity_cpus"], [])
+        hooks, plan, spec, *_ = self.world(affinity=b"Cpus_allowed_list:\t0-3\n")
+        observation = hooks.probe(spec, "1.10")
+        self.assertEqual((observation["affinity_cpus"], observation["machine"]["logical_cpu"]), ([0, 1, 2, 3], -1))
+
+    def test_the_prepare_steps_are_the_formal_command_lines_and_keep_their_logs(self):
+        hooks, plan, spec, run, *_ = self.world()
+        (plan.base / "logs").mkdir(exist_ok=True)
+        answers = []
+
+        def fake(argv, **kwargs):
+            answers.append((argv, kwargs))
+            return completed(argv, 0, b"listing", b"")
+        hooks.run = fake
+        hooks.precompile(spec, "1.10")
+        hooks.warmup(spec, "1.10", 1)
+        hooks.export(spec, "1.10", [1, 2], plan.base / "logs" / "fp.tsv")
+        precompile, warmup, export = answers
+        self.assertEqual(precompile[0], [JULIA_BINS["1.10"], *C.JULIA_FLAGS, f"--project={spec.environments['1.10']}",
+                                         "-e", "using Pkg; Pkg.precompile()"])
+        self.assertEqual(precompile[1]["env"], C.launch_env(plan, spec, "1.10", 1))
+        self.assertEqual(warmup[0], C.launch_argv(plan, spec, "1.10"))
+        self.assertEqual(warmup[1]["env"], dict(C.launch_env(plan, spec, "1.10", 1), PS_LIST="true"))
+        self.assertEqual(export[0][:7], ["taskset", "-c", "6", JULIA_BINS["1.10"], *C.JULIA_FLAGS,
+                                         f"--project={spec.environments['1.10']}"])
+        tail_ = export[0][export[0].index(str(HERE / "export_fingerprints.jl")):]
+        self.assertEqual(tail_, [str(HERE / "export_fingerprints.jl"), "--harness", f"{spec.checkout}/benchmark",
+                                 "--expected-package-root", str(spec.checkout), "--schedule", str(HERE / "schedule.toml"),
+                                 "--reps", "1,2", "--expected-harness-hash", spec.expected["harness_hash"], "--out",
+                                 str(plan.base / "logs" / "fp.tsv")])
+        for name in ("precompile", "warmup1", "export"):
+            self.assertTrue((plan.base / "logs" / f"finalize-ab-a-1.10-{name}.out").is_file(), name)
+        commands = C.read_jsonl(plan.base / "logs" / "prepare-commands.jsonl")
+        self.assertEqual([c["step"] for c in commands], ["finalize-ab-a-1.10-precompile",
+                                                         "finalize-ab-a-1.10-warmup1", "finalize-ab-a-1.10-export"])
+        with self.assertRaises(FileExistsError):                  # a log is never overwritten
+            hooks.precompile(spec, "1.10")
+
+
+# ----------------------------------------------------------------------------------------------- finalize
+
+class FakeFinalize:
+    """The hooks of `prepare --step finalize` without Julia: every step succeeds with synthetic output."""
+
+    def __init__(self, model="Test CPU @ 3.0GHz", names=None):
+        self.julia_bins, self.bundled_depot, self.plan, self.keep_off = dict(JULIA_BINS), "", None, None
+        self.model, self.names = model, names or {"1.10": "znver2", "1.13": "znver3"}
+        self.calls, self.digest, self.warm_extra, self.exit_of = [], {}, "", {}
+        self.digest_sequence = None
+        self.edits, self.sample = [], {"cpu_model": model, "governor": "unavailable", "epp": "unavailable",
+                                       "no_turbo": "unavailable", "smt_control": "forceoff"}
+
+    def bind(self, plan, keep_off=True):
+        self.plan, self.keep_off = plan, keep_off
+
+    def sampler(self):
+        return dict(self.sample)
+
+    def depot_digest(self, spec):
+        return next(self.digest_sequence) if self.digest_sequence else self.digest.get(spec.name, "digest")
+
+    def result(self, step, spec, mm, out=b"", err=b""):
+        self.calls.append((step, spec.name, mm))
+        return C.RunResult(self.exit_of.get(step, 0), out, err)
+
+    def precompile(self, spec, mm):
+        return self.result("precompile", spec, mm, b"", b"Precompiling packages...")
+
+    def warmup(self, spec, mm, number):
+        listing = "".join(f"{case}\textended\t\n" for case in self.plan.sched["settings"]["case_filter"].split(","))
+        return self.result(f"warmup{number}", spec, mm, (listing + self.warm_extra).encode())
+
+    def export(self, spec, mm, reps, out):
+        self.calls.append(("export", spec.name, mm))
+        version = self.plan.sched["strata"][mm]["version"]
+        rows, hashes = [mc.FP_HEADER], [C.DATAHASH_HEADER]
+        for case in self.plan.sched["settings"]["case_filter"].split(","):
+            for rep in reps:
+                digest = lambda *parts: hashlib.sha256("/".join(map(str, parts)).encode()).hexdigest()
+                rows.append("\t".join([version, case, str(rep), "fixture", "a", digest(spec.name, mm, case, rep)]))
+                rows += ["\t".join([version, case, str(rep), kind, name, digest(spec.name, case, rep, kind, name)])
+                         for kind, name in C.REQUIRED_FP_ROWS]
+                hashes.append("\t".join([version, case, str(rep), digest("data", case, rep, mm)]))
+        for suffix, lines in (("", rows), (".datahash.tsv", hashes), (".summary.toml", ["schema = 1"])):
+            Path(f"{out}{suffix}").write_text("\n".join(lines) + "\n")
+        return C.RunResult(self.exit_of.get("export", 0), b"", b"")
+
+    def probe_raw(self, spec, mm):
+        self.calls.append(("probe", spec.name, mm))
+        sched = copy.deepcopy(self.plan.sched)
+        sched["machine"].update(cpu_model=self.model, cpu=dict(self.names), logical_cpu=self.plan.cpu)
+        observation = good_obs(spec, mm, sched, self.plan.base)
+        for edit in self.edits:
+            edit(spec.name, mm, observation)
+        return observation, f"# probe of {spec.name} {mm}\n"
+
+
+def prepared_base(kind="pilot", config=None, name="fin"):
+    """A base in the state `prepare --step fetch` leaves it (no Julia): directories, snapshots, copies."""
+    directory = fresh(name)
+    base = directory / "bases" / ("x-pilot" if kind == "pilot" else "official")
+    config = config or full_pilot_config()
+    path = directory / "config.toml"
+    C.write_toml(path, config)
+    official = mc.load_schedule(HERE / "schedule.toml")
+    args = argparse.Namespace(config=str(path), step="finalize", julia=None, archive=None)
+    st = C.prepare_settings(args, "pilot", config, base, official, ENVIRON, dict(JULIA_BINS))
+    C.write_base_files(st)
+    for role in st.roles():
+        (base / "installations" / role / "ProximalSolvers.jl").mkdir(parents=True)
+        (base / "depots" / role).mkdir(parents=True)
+        for mm in official["strata"]:
+            env = base / "environments" / role / f"env-{mm}"
+            env.mkdir(parents=True)
+            root = base / "roots" / role / f"julia-{mm}"
+            root.mkdir(parents=True)
+            for file_name in ("Project.toml", "Manifest.toml"):
+                (env / file_name).write_text(f"# {role} {mm} {file_name}\n")
+                shutil.copyfile(env / file_name, root / file_name)
+    return st
+
+
+class FinalizeTests(unittest.TestCase):
+    def finalize(self, hooks=None, allowed=(2, 3, 5), st=None, **kwargs):
+        st = st or prepared_base()
+        hooks = hooks or FakeFinalize()
+        get, put, seen = affinity_world(allowed)
+        said = []
+        with contextlib.redirect_stderr(io.StringIO()):
+            status = C.prepare_finalize(st, hooks, get, put, said.append, **kwargs)
+        return st, hooks, seen, said, status
+
+    def test_a_pilot_finalize_writes_everything_the_engine_needs(self):
+        st, hooks, seen, said, status = self.finalize()
+        base = st.base
+        self.assertEqual(status, 0)
+        self.assertEqual(seen, [(0, {2, 3})], "the driver keeps off the measured CPU 5")
+        self.assertFalse(hooks.keep_off, "the hooks do not restrict the driver a second time")
+        steps = [c for c in hooks.calls if c[2] == "1.10" and c[1] == "ab-a"]
+        self.assertEqual([c[0] for c in steps], ["precompile", "warmup1", "warmup2", "export", "probe"])
+        self.assertEqual([c[2] for c in hooks.calls if c[0] == "export"], ["1.10", "1.10", "1.13", "1.13"])
+        for role in ("ab-a", "ab-b"):
+            ident = tomllib.loads((base / "roots" / role / "stack-identity.toml").read_text())
+            self.assertEqual(ident["installation"], C.mint_installation(
+                role, base / "installations" / role / "ProximalSolvers.jl", base / "depots" / role))
+            self.assertEqual((ident["campaign_id"], ident["session_id"]), ("pb06-migration-stage2b-pilot-v1", SESSION))
+            self.assertEqual(ident["proximalbase"]["tag"], "v0.5.4")
+            for mm in ("1.10", "1.13"):
+                self.assertEqual((base / "roots" / role / f"julia-{mm}" / "environment-inventory.toml").read_text(),
+                                 f"# probe of {role} {mm}\n")
+            lines = (base / "roots" / role / C.FP_NAME).read_text().split("\n")
+            self.assertEqual(sum(1 for l in lines if l.startswith("julia\t")), 1, "one header")
+            self.assertEqual([l.split("\t")[0] for l in lines[1:-1]][0], "1.10.13")
+            self.assertEqual(lines[-2].split("\t")[0], "1.13.3", "strata in schedule order")
+            self.assertTrue((base / "logs" / f"fingerprints-{role}-1.10.tsv.summary.toml").is_file())
+        self.assertEqual(len((base / "roots" / "ab-a" / C.DATAHASH_NAME).read_text().split("\n")), 2 * 19 + 2)
+        baselines = json.loads((base / "logs" / "depot-baselines.json").read_text())
+        self.assertEqual(baselines, {"ab-a": "digest", "ab-b": "digest"})
+        marker = json.loads((base / "logs" / "finalize.json").read_text())
+        self.assertEqual((marker["state"], marker["cpu"], marker["problems"]), ("finalized", 5, []))
+        self.assertTrue(any("finalize: 2 roles, 2 strata, measured CPU 5, 0 problems" in line for line in said))
+        # the engine can run on it: plan, identity files and preflight of the fake observations agree
+        plan = C.plan_from_pilot(st.config, base, JULIA_BINS, ENVIRON)
+        self.assertEqual(plan.cpu, 5)
+
+    def test_the_pilot_schedule_changes_only_the_whitelisted_keys(self):
+        st, hooks, *_ = self.finalize()
+        base = st.base
+        official = tomllib.loads((HERE / "schedule.toml").read_text())
+        pilot = tomllib.loads((base / "schedule.toml").read_text())
+        before, after = C.flatten(official), C.flatten(pilot)
+        changed = {k for k in before.keys() | after.keys() if before.get(k) != after.get(k)}
+        self.assertTrue(changed)
+        self.assertTrue(all(any(k == a or k.startswith(a + ".") for a in C.PILOT_SCHEDULE_CHANGES) for k in changed),
+                        sorted(changed))
+        sched = mc.load_schedule(base / "schedule.toml")
+        self.assertEqual((sched["id"], sched["campaign_id"]), ("stage2b-pilot-v1", "pb06-migration-stage2b-pilot-v1"))
+        self.assertIn("-pilot", sched["id"])
+        self.assertEqual((sched["reps"], sched["orders"]), ([1], {1: "AB"}))
+        self.assertEqual(tomllib.loads((base / "schedule.toml").read_text())["schedule"]["arms"], ["AB"])
+        s = sched["settings"]
+        self.assertEqual((s["samples_target"], s["seconds_limit"], s["case_seconds"]), (5, 0.2, 10.0))
+        self.assertEqual(s["case_filter"], official["settings"]["case_filter"], "the 19-case filter is kept")
+        self.assertEqual((s["suite"], s["groups"], s["profile_seconds"]), (official["settings"]["suite"],
+                                                                         official["settings"]["groups"], 0.0))
+        m = sched["machine"]
+        self.assertEqual((m["cpu_model"], m["cpu"], m["logical_cpu"], m["smt_sibling"]),
+                         ("Test CPU @ 3.0GHz", {"1.10": "znver2", "1.13": "znver3"}, 5, -1))
+        self.assertEqual((m["governor"], m["epp"], m["no_turbo"], m["smt_control"]),
+                         ("unavailable", "unavailable", "unavailable", "forceoff"))
+        self.assertEqual(sched["stack_a"], mc.load_schedule(HERE / "schedule.toml")["stack_a"])
+        overrides = json.loads((base / "logs" / "pilot-overrides.json").read_text())
+        official_digest = C.sha256_file(HERE / "schedule.toml")
+        self.assertEqual((overrides["official_schedule_sha256"], overrides["provisional_sha256"]),
+                         (official_digest, official_digest))
+        self.assertEqual(overrides["final_sha256"], C.sha256_file(base / "schedule.toml"))
+        self.assertEqual(overrides["pilot_config_sha256"], C.sha256_file(base / "pilot-config.toml"))
+        self.assertEqual(set(overrides["changes"]), changed)
+        self.assertFalse((base / "schedule.toml.new").exists(), "no provisional file survives")
+
+    def test_derivation_refuses_any_key_outside_the_whitelist(self):
+        official = tomllib.loads((HERE / "schedule.toml").read_text())
+        config = full_pilot_config()
+        machine = {"cpu_model": "m", "cpu": {"1.10": "a", "1.13": "b"}, "logical_cpu": 3, "smt_sibling": -1,
+                   "governor": "g", "epp": "e", "no_turbo": "n", "smt_control": "s"}
+        new, changes = C.derive_pilot_schedule(official, config, machine, ("AB",))
+        self.assertEqual(new["schedule"]["reps"], [1])
+        sneaky = dict(machine, extra="x")                            # an unknown machine key
+        with self.assertRaises(C.Refused):
+            C.derive_pilot_schedule(official, config, sneaky, ("AB",))
+        tampered = copy.deepcopy(official)
+        with unittest.mock.patch.object(C, "PILOT_SCHEDULE_CHANGES",
+                                        tuple(k for k in C.PILOT_SCHEDULE_CHANGES if k != "machine.smt_sibling")):
+            with self.assertRaises(C.Refused) as caught:
+                C.derive_pilot_schedule(tampered, config, machine, ("AB",))
+        self.assertIn("machine.smt_sibling", str(caught.exception))
+        self.assertEqual(official, tomllib.loads((HERE / "schedule.toml").read_text()), "the input is not mutated")
+        with self.assertRaises(C.Refused):
+            C.derive_pilot_schedule(official, pilot_config(), machine, ("AB",))
+
+    def test_finalize_refuses_to_run_twice_on_one_base(self):
+        st, hooks, *_ = self.finalize()
+        digest = C.sha256_file(st.base / "schedule.toml")
+        calls = len(hooks.calls)
+        with self.assertRaises(C.Refused) as caught:
+            self.finalize(hooks, st=st)
+        self.assertIn("already", str(caught.exception))
+        self.assertEqual(len(hooks.calls), calls)
+        self.assertEqual(C.sha256_file(st.base / "schedule.toml"), digest, "the schedule is never changed again")
+        (st.base / "logs" / "finalize.json").unlink()                 # even without the marker the identity files refuse
+        with self.assertRaises(C.Refused):
+            self.finalize(hooks, st=st)
+
+    def test_a_failed_finalize_is_not_retried_on_the_same_base(self):
+        hooks = FakeFinalize()
+        hooks.exit_of["precompile"] = 1
+        with self.assertRaises(C.Refused):
+            st, *_ = self.finalize(hooks)
+        st = prepared_base()
+        hooks.exit_of["precompile"] = 1
+        with self.assertRaises(C.Refused):
+            self.finalize(hooks, st=st)
+        hooks.exit_of.clear()
+        with self.assertRaises(C.Refused) as caught:
+            self.finalize(hooks, st=st)
+        self.assertIn("already", str(caught.exception))
+
+    def test_one_allowed_cpu_refuses_before_anything_is_written(self):
+        st = prepared_base()
+        hooks = FakeFinalize()
+        for allowed in ((3,), (3, 4)):                                # fewer than min_cpus = 3
+            with self.assertRaises(C.Refused) as caught:
+                self.finalize(hooks, allowed=allowed, st=st)
+            self.assertIn("CPUs are allowed", str(caught.exception))
+        self.assertEqual(hooks.calls, [])
+        self.assertFalse((st.base / "logs" / "finalize.json").exists())
+        self.assertFalse((st.base / "roots" / "ab-a" / "stack-identity.toml").exists())
+        self.finalize(hooks, allowed=(3, 4, 7), st=st)               # the same base then finalizes
+
+    def test_a_base_that_was_not_fetched_is_refused(self):
+        st = prepared_base()
+        (st.base / "roots" / "ab-b" / "julia-1.13" / "Manifest.toml").chmod(0o644)
+        (st.base / "roots" / "ab-b" / "julia-1.13" / "Manifest.toml").unlink()
+        with self.assertRaises(C.Refused) as caught:
+            self.finalize(st=st)
+        self.assertIn("fetch", str(caught.exception))
+
+    def test_each_defect_of_a_step_stops_finalize(self):
+        cases = {
+            "an export that fails": lambda h: h.exit_of.update(export=1),
+            "a warm-up that fails": lambda h: h.exit_of.update(warmup2=3),
+            "a warm-up that precompiles again": lambda h: setattr(h, "warm_extra", "Precompiling X\n"),
+            "a warm-up that lists too many cases": lambda h: setattr(h, "warm_extra", "extra/case\textended\t\n"),
+            "a depot that changes after the first warm-up": lambda h: setattr(
+                h, "digest_sequence", itertools.cycle(["one", "two"])),
+        }
+        for name, setup in cases.items():
+            with self.subTest(name):
+                hooks = FakeFinalize()
+                setup(hooks)
+                with self.assertRaises(C.Refused):
+                    self.finalize(hooks)
+
+    def test_probe_defects_are_reported_after_the_files_are_written(self):
+        hooks = FakeFinalize()
+        hooks.edits.append(lambda role, mm, obs: obs["ps"].update(dirty=True) if role == "ab-b" else None)
+        with self.assertRaises(C.Refused) as caught:
+            st, *_ = self.finalize(hooks)
+        self.assertIn("DIRTY", str(caught.exception))
+        self.assertTrue(any("DIRTY: ab-b" in p for p in caught.exception.problems))
+
+    def test_the_cpu_model_must_agree_between_julia_and_the_host(self):
+        hooks = FakeFinalize()
+        hooks.sample["cpu_model"] = "Another CPU"
+        with self.assertRaises(C.Refused) as caught:
+            self.finalize(hooks)
+        self.assertIn("CPU model", str(caught.exception))
+        hooks = FakeFinalize()
+        hooks.edits.append(lambda role, mm, obs: obs["machine"].update(cpu="other") if role == "ab-b" and mm == "1.10"
+                           else None)
+        with self.assertRaises(C.Refused) as caught:
+            self.finalize(hooks)
+        self.assertIn("Sys.CPU_NAME", str(caught.exception))
+
+    def test_a_pilot_without_the_reduced_sampling_values_or_a_session_is_refused(self):
+        config = full_pilot_config()
+        del config["pilot"]["case_seconds"]
+        st = prepared_base(config=config)
+        with self.assertRaises(C.Refused) as caught:
+            self.finalize(st=st)
+        self.assertIn("case_seconds", str(caught.exception))
+        self.assertFalse((st.base / "logs" / "finalize.json").exists())
+        config = full_pilot_config()
+        del config["campaign"]["session_id"]
+        st = prepared_base(config=config)
+        with self.assertRaises(C.Refused) as caught:
+            self.finalize(st=st)
+        self.assertIn("session_id", str(caught.exception))
+
+    def test_the_real_cli_path_prepares_and_finalizes_with_given_hooks(self):
+        st = prepared_base()
+        hooks = FakeFinalize()
+        with unittest.mock.patch("os.sched_getaffinity", return_value={1, 2, 3}), \
+                unittest.mock.patch("os.sched_setaffinity") as setter:
+            code, out, err = call_main(["prepare", "--config", str(st.config_path), "--base", str(st.base), "--step",
+                                        "finalize"], hooks=hooks)
+        self.assertEqual(code, 0, err)
+        self.assertIn("finalize: 2 roles", out)
+        setter.assert_called_once_with(0, {1, 2})
+        with unittest.mock.patch("os.sched_getaffinity", return_value={1, 2, 3}):
+            code, _, err = call_main(["prepare", "--config", str(st.config_path), "--base", str(st.base), "--step",
+                                      "finalize"], hooks=hooks)
+        self.assertEqual(code, 2)
+        self.assertIn("already", err)
+
+
+class DispatchTests(unittest.TestCase):
+    def test_prepare_fetch_through_the_command_line_uses_subprocess_for_git_and_julia(self):
+        st, pins, directory, registry, archive = fetch_world("cli-fetch")
+        config = full_pilot_config()
+        config["source"] = {"repository": str(st.source)}
+        config["archive"] = {"path": str(archive)}
+        C.write_toml(directory / "cli.toml", config)
+        run = Scripted(stale_julia(registry=registry))
+        official = mc.load_schedule(HERE / "schedule.toml")
+        with unittest.mock.patch.object(C.subprocess, "run", run), unittest.mock.patch.object(
+                C, "STAGE2A_ARCHIVE_SHA256", C.sha256_file(archive)), unittest.mock.patch.object(C.time, "sleep"), \
+                unittest.mock.patch.object(C, "mc", mc):
+            # the synthetic pins replace the historical ones only inside this test
+            original = mc.load_schedule
+
+            def patched(path):
+                loaded = original(path)
+                if Path(path) == HERE / "schedule.toml":
+                    loaded["stack_a"] = st.sched["stack_a"]
+                return loaded
+            with unittest.mock.patch.object(mc, "load_schedule", patched):
+                code, out, err = call_main(["prepare", "--config", str(directory / "cli.toml"), "--base",
+                                            str(directory / "b" / "x-pilot"), "--step", "fetch"], environ=ENVIRON)
+        self.assertEqual(code, 0, err)
+        self.assertIn("prepare fetch: 2 roles in x-pilot", out)
+        self.assertTrue((directory / "b" / "x-pilot" / "logs" / "prepare-fetch.json").is_file())
+
+    def test_prepare_with_an_invalid_or_absent_configuration_is_a_refusal_that_creates_nothing(self):
+        directory = fresh("cli-bad")
+        for name, content in (("a pilot without session", pilot_config()),):
+            config = copy.deepcopy(content)
+            config["julia"] = dict(JULIA_BINS)
+            del config["campaign"]["session_id"]
+            C.write_toml(directory / "p.toml", config)
+            code, _, err = call_main(["prepare", "--config", str(directory / "p.toml"), "--base",
+                                      str(directory / "x-pilot"), "--step", "fetch"], hooks=hooks_that_never_run())
+            self.assertEqual(code, 2, err)
+            self.assertFalse((directory / "x-pilot").exists())
+        code, _, err = call_main(["prepare", "--config", str(directory / "p.toml"), "--base",
+                                  str(directory / "no-name"), "--step", "fetch"], hooks=hooks_that_never_run())
+        self.assertEqual(code, 2)
+        self.assertIn("pilot", err)
+
+    def test_the_julia_option_is_validated(self):
+        directory = fresh("cli-julia")
+        C.write_toml(directory / "p.toml", pilot_config())
+        for options in (["--julia", "1.10"], ["--julia", "x=/a"], ["--julia", "1.10=julia"]):
+            code, _, err = call_main(["pilot", "--config", str(directory / "p.toml"), "--base", str(directory / "x-pilot"),
+                                      *options])
+            self.assertEqual(code, 3, (options, err))
+        code, _, err = call_main(["pilot", "--config", str(directory / "p.toml"), "--base", str(directory / "x-pilot")])
+        self.assertEqual(code, 2, "no binary for any stratum is a refusal")
+
+    def test_preflight_with_real_hooks_prints_every_problem_and_exits_two(self):
+        camp = pilot_world()
+        base = assemble_base(camp, fresh("pf-real") / "x-pilot", aa=False)
+        directory = fresh("pf-real-cfg")
+        C.write_toml(directory / "p.toml", pilot_config())
+        calls = []
+
+        def scripted(argv, **kwargs):
+            calls.append(argv)
+            return completed(argv, 1, b"", b"Julia failed")
+        with unittest.mock.patch.object(C.subprocess, "run", scripted), unittest.mock.patch(
+                "os.sched_getaffinity", return_value={1, 2, 6}), unittest.mock.patch("os.sched_setaffinity"):
+            code, out, err = call_main(["preflight", "--config", str(directory / "p.toml"), "--base", str(base),
+                                        "--julia", "1.10=/opt/julia-1.10.13/bin/julia",
+                                        "--julia", "1.13=/opt/julia-1.13.3/bin/julia"])
+        self.assertEqual(code, 2)
+        self.assertIn("environment probe", err)
+        self.assertFalse((base / "logs").exists(), "preflight writes nothing")
+        self.assertEqual(len(calls), 1)
+
+
+class RealEngineTests(unittest.TestCase):
+    """The engine over the real hooks with a scripted subprocess layer: the records come from the fixture, the
+    probe and the machine sampler are the mocks of the other tests, everything else is real (command
+    construction, the pinned launch, depot digests, the data_hash check, sealing)."""
+
+    def test_a_pilot_runs_through_real_hooks_and_a_scripted_process_layer(self):
+        camp = pilot_world("real-engine")
+        base = assemble_base(camp, fresh("re") / "x-pilot", aa=False)
+        bundled = C.bundled_depots(JULIA_BINS)
+        plan = C.plan_from_pilot(pilot_config(), base, JULIA_BINS, ENVIRON, None, bundled)
+        add_pilot_config(base)
+        host = Host(camp, plan.sched, base)
+        runs = []
+
+        def other(argv, kwargs):
+            if argv[-1].endswith("run.jl"):
+                runs.append(argv)
+                result = host.runner(argv, kwargs["env"], kwargs["cwd"], 6)
+                return completed(argv, result.exit, result.stdout, result.stderr)
+        hooks = C.RealHooks(JULIA_BINS, ENVIRON, run=Scripted(other=other), getaffinity=lambda _: {1, 2, 6},
+                            setaffinity=lambda *a: None)
+        hooks.probe, hooks.sampler, hooks.clock = host.probe, host.sampler, host.clock
+        hooks.bind(plan)
+        outcome = C.execute(plan, hooks)
+        self.assertEqual((outcome.exit_code, outcome.state, outcome.processes), (0, "completed", 4))
+        self.assertEqual(len(runs), 4)
+        for argv in runs:
+            self.assertEqual(argv[:3], ["taskset", "-c", "6"])
+        lines = [json.loads(l) for l in (base / "logs" / "commands.jsonl").read_text().splitlines()]
+        self.assertEqual(len({l["depot_digest_before"] for l in lines}), 1)
+        self.assertEqual(lines[0]["env"]["JULIA_DEPOT_PATH"].count(":"), 2,
+                         "the private depot and the two bundled entries of the Julia installation")
+
+
+class OfficialGateStubTests(unittest.TestCase):
+    def test_with_a_synthetic_lock_the_gate_stops_the_real_hooks_before_the_runner(self):
+        camp = F.build_campaign(fresh("gate-stub"), "migration")
+        lock = make_lock(camp)
+        base = assemble_base(camp, fresh("gate-stub-base") / "official")
+        facts = facts_for(base, lock)
+        facts["clean"] = False
+        directory = fresh("gate-stub-cfg")
+        C.write_toml(directory / "lock.toml", lock)
+        calls = []
+        with unittest.mock.patch.object(C.subprocess, "run", lambda *a, **k: calls.append(a)):
+            code, _, err = call_main(["run", "--config", str(directory / "lock.toml"), "--base", str(base), "--official",
+                                      "--freeze-sha", FREEZE, "--julia", "1.10=/opt/j10/bin/julia",
+                                      "--julia", "1.13=/opt/j13/bin/julia"], facts=lambda *a: facts)
+        self.assertEqual((code, calls), (2, []))
+        self.assertIn("CLEAN", err)
+        for forbidden in ("--ignore-gate", "--no-gate"):
+            code, _, _ = call_main(["run", "--config", str(directory / "lock.toml"), "--base", str(base),
+                                    "--official", "--freeze-sha", FREEZE, forbidden])
+            self.assertEqual(code, 3)
+
+
+
 class LayoutTests(unittest.TestCase):
     def test_the_module_stays_standard_library_only_and_does_not_import_pre06(self):
         text = (HERE / "stage2b_campaign.py").read_text(encoding="utf-8")
-        self.assertNotIn("pre06", text.replace("benchmark/campaigns/pre06/campaign.py", ""))
+        # the Stage 2A campaign definition is data (TOML): `prepare` compares the Manifest entries with its lock
+        self.assertNotIn("pre06", text.replace("benchmark/campaigns/pre06/campaign.py", "").replace(
+            'BENCH / "campaigns" / "pre06" / "campaign.toml"', ""))
         imports = {line.split()[1].split(".")[0] for line in text.splitlines() if line.startswith("import ")}
         self.assertTrue(imports <= set(sys.stdlib_module_names), imports - set(sys.stdlib_module_names))
         self.assertNotIn("os.environ", text.replace("os.environ if environ is None else environ", ""))

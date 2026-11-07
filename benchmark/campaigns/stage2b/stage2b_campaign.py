@@ -2,20 +2,25 @@
 """Stage 2B campaign driver (#110, #218): the Python core.
 
     python3 -B stage2b_campaign.py preflight --config FILE --base BASE [--official --freeze-sha SHA] [--arms AB,AA]
-    python3 -B stage2b_campaign.py prepare   --config FILE --base BASE --step fetch|finalize
-    python3 -B stage2b_campaign.py run       --config LOCK --base BASE --official --freeze-sha SHA
-    python3 -B stage2b_campaign.py pilot     --config PILOT --base BASE [--arms AB]
+                                             [--julia MM=PATH ...]
+    python3 -B stage2b_campaign.py prepare   --config FILE --base BASE --step fetch|finalize [--julia MM=PATH ...]
+                                             [--archive FILE]
+    python3 -B stage2b_campaign.py run       --config LOCK --base BASE --official --freeze-sha SHA [--julia MM=PATH ...]
+    python3 -B stage2b_campaign.py pilot     --config PILOT --base BASE [--arms AB] [--julia MM=PATH ...]
     python3 -B stage2b_campaign.py verify    --base BASE --out FILE
 
 Standard library only (Python 3.11 or later). The driver launches `benchmark/run.jl` of each role's checkout and
 never measures anything itself. Everything that depends on Julia or on the host is injected: the pure functions
-take observation dictionaries, and `execute` receives a `Hooks` object (probe, command runner, clock, machine
-sampler, data-hash check). The real Julia hooks, `prepare` and the real pilot flow are not part of this module
-yet: the subcommands that need them exit with status 3 and launch nothing.
+take observation dictionaries, and `execute` receives a hooks object (probe, command runner, clock, machine
+sampler, depot-cache digest, data-hash check). `RealHooks` is the real implementation (subprocess runner, the
+untimed environment probe, the depot digest, the data-hash check); `main(..., hooks=None)` builds it from the
+configuration, tests pass mocks. `prepare --step fetch` clones, builds the environments and verifies the pinned
+identities (network allowed); `prepare --step finalize` runs on the measurement node, offline, with the formal Julia
+flags and environment.
 
 Exit status: 0 success; 1 completed with non-ok cases (a process exit 2 or comparator exit 1; reported and
 retained); 2 refused or stopped (official gate, preflight problem, infrastructure stop, comparator refusal,
-failed verification); 3 usage or internal error (also "not implemented here").
+failed verification); 3 usage or internal error.
 
 BASE layout (one directory per campaign attempt; `installations`, `environments` and `depots` are private working
 directories and are not evidence; everything else is evidence and is covered by `checksums.sha256`):
@@ -58,6 +63,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 import tomllib
 from pathlib import Path
 
@@ -143,10 +149,6 @@ class Stopped(DriverError):
 
 class UsageError(Exception):
     """A usage error or an internal error: exit status 3."""
-
-
-class NotImplementedHere(UsageError):
-    """The subcommand needs the real Julia hooks, which a later task provides."""
 
 
 # ------------------------------------------------------------------------------------------------- helpers
@@ -619,21 +621,35 @@ def collect_repo_facts(repo, lock_path, base, schedule_path, mapping_path, run=s
 # --------------------------------------------------------------------------------- pilot configuration
 
 PILOT_TOP = ("schema", "campaign", "schedule", "pilot")
+PILOT_OPTIONAL_TOP = ("julia", "source", "archive", "resources")
+PILOT_SAMPLING = ("samples_target", "seconds_limit", "case_seconds")
+STRATUM_KEY = re.compile(r"[0-9]+\.[0-9]+")
+
+
+def _number(table, key, where, integer=False):
+    value = table[key]
+    ok = isinstance(value, int) if integer else isinstance(value, (int, float))
+    if not ok or isinstance(value, bool) or not math.isfinite(value) or value <= 0:
+        raise LockRefusal(f"{where}.{key}", f"must be a positive {'integer' if integer else 'number'}")
 
 
 def parse_pilot(data, official_sched):
     """Validate a pilot configuration against the official schedule; any refusal is a Refused.
 
     The pilot has its own campaign and schedule ids (both contain `-pilot` and differ from the official ones)
-    and no [stack_b] table: its stack B is a second independent installation of stack A."""
+    and no [stack_b] table: its stack B is a second independent installation of stack A. Besides the identities
+    and the arms (`[pilot]`), the configuration may carry what `prepare` and the real hooks need, with strict keys:
+    the reduced sampling values (`samples_target`, `seconds_limit`, `case_seconds` of `[pilot]`), `[julia]` (one
+    binary per stratum), `[source]` (`repository` of ProximalSolvers, optional `proximalbase`), `[archive]`
+    (`path` of the Stage 2A archive) and `[resources]` (`min_cpus`)."""
     if isinstance(data, dict) and "stack_b" in data:
         raise LockRefusal("stack_b", "a pilot has no [stack_b] table")
-    _table(data, PILOT_TOP, (), "pilot")
+    _table(data, PILOT_TOP, PILOT_OPTIONAL_TOP, "pilot")
     if data["schema"] != 1 or isinstance(data["schema"], bool):
         raise LockRefusal("schema", "must be 1")
     campaign = _table(data["campaign"], ("id",), ("session_id",), "campaign")
     schedule = _table(data["schedule"], ("id",), (), "schedule")
-    pilot = _table(data["pilot"], ("arms",), (), "pilot")
+    pilot = _table(data["pilot"], ("arms",), PILOT_SAMPLING, "pilot")
     for table, key, official, where in ((campaign, "id", official_sched["campaign_id"], "campaign.id"),
                                         (schedule, "id", official_sched["id"], "schedule.id")):
         _text(table, key, where.split(".")[0])
@@ -646,6 +662,33 @@ def parse_pilot(data, official_sched):
     arms = pilot["arms"]
     if not (isinstance(arms, list) and arms and all(a in ARMS for a in arms) and len(set(arms)) == len(arms)):
         raise LockRefusal("pilot.arms", "must be a non-empty list of AB and AA")
+    for key in PILOT_SAMPLING:
+        if key in pilot:
+            _number(pilot, key, "pilot", integer=key == "samples_target")
+    if "julia" in data:
+        julia = data["julia"]
+        if not isinstance(julia, dict) or not julia:
+            raise LockRefusal("julia", "must map strata to Julia binaries")
+        for mm, path in julia.items():
+            if not STRATUM_KEY.fullmatch(mm):
+                raise LockRefusal(f"julia.{mm}", "the key is not a MAJOR.MINOR stratum")
+            if not (is_text(path) and path.startswith("/")):
+                raise LockRefusal(f"julia.{mm}", "must be an absolute path")
+    if "source" in data:
+        source = _table(data["source"], ("repository",), ("proximalbase",), "source")
+        for key in source:
+            _text(source, key, "source")
+            if re.search(r"\s", source[key]):
+                raise LockRefusal(f"source.{key}", "must be one locator without white space")
+    if "archive" in data:
+        _text(_table(data["archive"], ("path",), (), "archive"), "path", "archive")
+    if "resources" in data:
+        resources = _table(data["resources"], (), ("min_cpus",), "resources")
+        if "min_cpus" in resources:
+            _number(resources, "min_cpus", "resources", integer=True)
+            if resources["min_cpus"] < 2:
+                raise LockRefusal("resources.min_cpus", "the driver needs at least two CPUs: the measured one and "
+                                  "one for itself")
     return data
 
 
@@ -678,7 +721,8 @@ class RoleSpec:
     depot: Path
     environments: dict          # stratum -> environment directory
     julia: dict                 # stratum -> julia binary
-    bundled_depot: str          # the Julia installation's own depot, appended after the private one ("" = none)
+    bundled_depot: object       # the Julia installation's own depots, appended after the private one: "" (none), a
+                                # string for every stratum, or {stratum: string} (one installation per stratum)
     expected: dict              # see expected_identity()
 
     @property
@@ -842,12 +886,19 @@ def process_order(plan):
     return keys
 
 
+def bundled_of(spec, mm):
+    """The bundled depot entries of the Julia installation of stratum `mm`."""
+    bundled = spec.bundled_depot
+    return bundled.get(mm, "") if isinstance(bundled, dict) else bundled
+
+
 def launch_env(plan, spec, mm, rep):
     """The measurement environment: a whitelist, never the parent environment."""
     env = {name: plan.parent_env[name] for name in ENV_PASSTHROUGH if name in plan.parent_env}
     env.update({name: plan.parent_env[name] for name in JOB_ID_VARIABLES if name in plan.parent_env})
     s = plan.sched["settings"]
-    depots = str(spec.depot) + (f":{spec.bundled_depot}" if spec.bundled_depot else "")
+    bundled = bundled_of(spec, mm)
+    depots = str(spec.depot) + (f":{bundled}" if bundled else "")
     env.update({
         "JULIA_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "JULIA_LOAD_PATH": "@:@stdlib",
         "JULIA_DEPOT_PATH": depots, "JULIA_PKG_OFFLINE": "true",
@@ -998,8 +1049,8 @@ def pseudo_root(spec, observation):
                               "proximalsolvers_dir": norm(checkout)},
                       "procs": {0: {"meta": {"proximalsolvers_path": str(spec.checkout),
                                              "expected_package_root": str(spec.checkout)}}}}
-        if spec.bundled_depot:
-            strata[mm]["inv"]["depot_path"].append(spec.bundled_depot)
+        if bundled_of(spec, mm):
+            strata[mm]["inv"]["depot_path"].append(bundled_of(spec, mm))
     return {"name": ROLE_LABEL[spec.name], "ident": {"installation": spec.installation}, "strata": strata}
 
 
@@ -2470,6 +2521,949 @@ def verify(base, out, replay=True, config=None, run=subprocess.run):
     return document, status
 
 
+# ------------------------------------------------------------------------------ real hooks: host and Julia
+
+STAGE2A_ARCHIVE_SHA256 = "1edd64330606d739acf1d7b4ba0643a4fb6a1366bad4c82393e2ba1ffdcc723e"
+STAGE2A_CAMPAIGN = BENCH / "campaigns" / "pre06" / "campaign.toml"
+JULIA_FLAGS = ("--startup-file=no", "--history-file=no")
+STALE_MANIFEST = "since the manifest was last resolved"
+GIT_THREADS = ("-c", "pack.threads=1", "-c", "index.threads=1")
+MAX_MEMBER_BYTES = 16 << 20
+PILOT_SCHEDULE_CHANGES = (
+    "schedule.id", "schedule.campaign_id", "schedule.reps", "schedule.orders", "schedule.arms",
+    "settings.samples_target", "settings.seconds_limit", "settings.case_seconds",
+    "machine.cpu_model", "machine.cpu", "machine.logical_cpu", "machine.smt_sibling", "machine.governor",
+    "machine.epp", "machine.no_turbo", "machine.smt_control")
+
+
+def run_process(run, argv, env=None, cwd=None):
+    """One command without a shell: a RunResult (a negative exit means killed by a signal)."""
+    result = (run or subprocess.run)(list(argv), env=env, cwd=None if cwd is None else str(cwd),
+                                     capture_output=True, shell=False)
+    return RunResult(result.returncode, result.stdout or b"", result.stderr or b"")
+
+
+def tail(data, size=600):
+    text = data.decode("utf-8", "replace") if isinstance(data, bytes) else str(data)
+    return text[-size:].strip()
+
+
+def run_git(run, *args):
+    """`git args` outside any repository (clone, ls-remote); a failure raises Refused."""
+    result = (run or subprocess.run)(["git", *args], capture_output=True, text=True)
+    if result.returncode != 0:
+        raise Refused(f"git {args[0] if args[0] != '-c' else 'clone'} failed: {tail(result.stderr)}")
+    return result.stdout.strip()
+
+
+def parse_cpu_list(text):
+    """`Cpus_allowed_list` text such as `0-2,5` as a sorted list of integers."""
+    cpus = []
+    for part in text.strip().split(","):
+        low, _, high = part.partition("-")
+        cpus += range(int(low), int(high or low) + 1)
+    return sorted(set(cpus))
+
+
+def depot_digest(depot):
+    """SHA-256 over the sorted listing of every file inside every `compiled/` directory of a depot: (relative
+    path, size, mtime_ns), except for a `.ji` file, which is listed with its content digest instead of its mtime
+    because Julia touches a `.ji` file each time it loads the package. A rebuilt package image changes the digest
+    (its `.so` file is new and its `.ji` content differs); an unchanged cache does not, however often it is loaded."""
+    depot, entries = Path(depot), []
+    for folder, _, names in os.walk(depot):
+        relative = Path(folder).relative_to(depot)
+        if "compiled" not in relative.parts:
+            continue
+        for name in names:
+            path = Path(folder) / name
+            info = os.lstat(path)
+            stamp = sha256_file(path) if name.endswith(".ji") else str(info.st_mtime_ns)
+            entries.append((relative.joinpath(name).as_posix(), info.st_size, stamp))
+    digest = hashlib.sha256()
+    for path, size, stamp in sorted(entries):
+        digest.update(f"{path}\0{size}\0{stamp}\n".encode())
+    return digest.hexdigest()
+
+
+def bundled_depots(julia_bins):
+    """{stratum: the two depot entries that belong to the Julia installation of that stratum}."""
+    return {mm: f"{Path(binary).parent.parent}/local/share/julia:{Path(binary).parent.parent}/share/julia"
+            for mm, binary in julia_bins.items()}
+
+
+def keep_off_cpu(cpu, getaffinity=None, setaffinity=None):
+    """Restrict the driver to the allowed CPUs except the measured one. Refuses when the measured CPU is not
+    allowed or no other CPU remains."""
+    allowed = set((getaffinity or os.sched_getaffinity)(0))
+    if cpu not in allowed:
+        raise Refused(f"the measured CPU {cpu} is not among the allowed CPUs {sorted(allowed)}")
+    rest = allowed - {cpu}
+    if not rest:
+        raise Refused(f"only CPU {cpu} is allowed: the driver needs a second CPU to stay off the measured one")
+    (setaffinity or os.sched_setaffinity)(0, rest)
+    return sorted(rest)
+
+
+def julia_command(plan, spec, mm, tail_argv, pinned=True):
+    """The formal Julia command line (`launch_argv` is its run.jl instance) with other arguments after the flags."""
+    head = ["taskset", "-c", str(plan.cpu)] if pinned else []
+    return head + [str(spec.julia[mm]), *JULIA_FLAGS, f"--project={spec.environments[mm]}", *tail_argv]
+
+
+def datahash_matches(base, sched, role, mm, rep):
+    """The exporter's data_hash rows of (julia, rep) equal the data_hash column of the process's metrics.tsv, row
+    for row. The A/A roots have no sidecar: their data are those of the stack A root ab-a."""
+    base = Path(base)
+    source = role if role in ("ab-a", "ab-b") else "ab-a"
+    version = sched["strata"][mm]["version"]
+    stem = f"julia-{version}-rep{rep:02d}"
+    try:
+        _, rows = read_tsv(base / "roots" / source / DATAHASH_NAME)
+        header, body = read_tsv(base / "roots" / role / f"julia-{mm}" / "raw" / f"{stem}-metrics.tsv")
+        ids, hashes = header.index("id"), header.index("data_hash")
+    except (OSError, ValueError, UnicodeDecodeError):
+        return False
+    sidecar, listed = {}, [r for r in rows if len(r) == 4 and r[0] == version and r[2] == str(rep)]
+    for _, case, _, value in listed:
+        sidecar[case] = value
+    metrics = {r[ids]: r[hashes] for r in body if len(r) == len(header)}
+    return bool(metrics) and len(listed) == len(sidecar) and len(body) == len(metrics) and sidecar == metrics
+
+
+def build_observation(data, facts):
+    """The observation dictionary of one (role, stratum) from the probe's TOML (`data`) and the facts the driver
+    read itself (`facts`): see `preflight_checks` for the keys."""
+    deps = data.get("deps") or {}
+    return {
+        "julia": {"version": data["julia"], "commit": data["commit"], "cpu_name": data["cpu_name"]},
+        "ps": {"commit": facts["ps_commit"], "tree": facts["ps_tree"], "version": facts["ps_version"],
+               "dirty": facts["dirty"], "loaded_realpath": data["proximalsolvers_dir"],
+               "package_hash": facts["ps_package_hash"]},
+        "pb": {"loaded_tree": data["proximalbase_loaded_tree"],
+               "manifest_tree": (deps.get("ProximalBase") or {}).get("tree", ""),
+               "version": data["proximalbase_version"], "package_hash": facts["pb_package_hash"]},
+        "checkout_realpath": facts["checkout_realpath"], "depot_realpath": data["depot_realpath"],
+        "environment": {"dir": facts["environment_dir"], "realpath": facts["environment_realpath"],
+                        "project_exists": facts["project_exists"], "manifest_exists": facts["manifest_exists"]},
+        "manifest_sha256": facts["manifest_sha256"], "project_sha256": facts["project_sha256"],
+        "harness_hash": facts["harness_hash"], "affinity_cpus": facts["affinity_cpus"],
+        "machine": {"cpu_model": data["cpu_model"], "cpu": data["cpu_name"], "logical_cpu": facts["logical_cpu"]}}
+
+
+def python_facts(spec, mm, data, affinity, run=None):
+    """What the driver reads without Julia: git facts of the checkout, the Python replicas of the two source
+    fingerprints of the loaded roots and of the harness, the digests of the environment files."""
+    run = run or subprocess.run
+    checkout, env = spec.checkout, spec.environments[mm]
+    ps_dir, pb_dir = Path(data["proximalsolvers_dir"]), Path(data["proximalbase_dir"])
+    version = tomllib.loads((ps_dir / "Project.toml").read_text(encoding="utf-8")).get("version", "")
+    files = {name: env / name for name in ("Project.toml", "Manifest.toml")}
+    return {
+        "ps_commit": git(checkout, "rev-parse", "HEAD", run=run), "ps_tree": git(checkout, "rev-parse", "HEAD^{tree}",
+                                                                              run=run),
+        "dirty": not git_clean(checkout, run=run), "ps_version": version,
+        "ps_package_hash": package_fingerprint(ps_dir), "pb_package_hash": package_fingerprint(pb_dir),
+        "harness_hash": harness_hash(checkout / "benchmark"),
+        "checkout_realpath": os.path.realpath(checkout), "environment_dir": str(env),
+        "environment_realpath": os.path.realpath(env),
+        "project_exists": files["Project.toml"].is_file(), "manifest_exists": files["Manifest.toml"].is_file(),
+        "project_sha256": sha256_file(files["Project.toml"]) if files["Project.toml"].is_file() else "",
+        "manifest_sha256": sha256_file(files["Manifest.toml"]) if files["Manifest.toml"].is_file() else "",
+        "affinity_cpus": affinity,
+        "logical_cpu": affinity[0] if len(affinity) == 1 else -1}
+
+
+class RealHooks:
+    """The real hooks of the engine and of `prepare --step finalize`: commands run through `subprocess` (no shell),
+    the probe is the untimed `environment_probe.jl` in the role's environment under the formal Julia flags and
+    environment. `bind(plan)` supplies the plan (schedule, measured CPU) and keeps the driver off the measured CPU."""
+
+    def __init__(self, julia_bins, parent_env, run=None, getaffinity=None, setaffinity=None):
+        self.julia_bins = {mm: str(path) for mm, path in julia_bins.items()}
+        self.bundled_depot = bundled_depots(self.julia_bins)
+        self.parent_env, self.run, self.plan = dict(parent_env), run, None
+        self.getaffinity, self.setaffinity = getaffinity, setaffinity
+
+    def bind(self, plan, keep_off=True):
+        self.plan = plan
+        if keep_off:
+            keep_off_cpu(plan.cpu, self.getaffinity, self.setaffinity)
+
+    def clock(self):
+        return utc_now()
+
+    def sampler(self):
+        return sample_machine(self.plan.cpu)
+
+    def depot_digest(self, spec):
+        return depot_digest(spec.depot)
+
+    def datahash_ok(self, role, mm, rep):
+        return datahash_matches(self.plan.base, self.plan.sched, role, mm, rep)
+
+    def runner(self, argv, env, cwd, cpu):
+        return run_process(self.run, argv, env, cwd)
+
+    def _step(self, name, spec, mm, argv, env):
+        """A prepare step with its output kept in logs/ (names are unique: a log is never overwritten)."""
+        result = run_process(self.run, argv, env, spec.checkout)
+        logs = self.plan.base / "logs"
+        create_exclusive(logs / f"{name}.out", result.stdout.decode("utf-8", "replace"))
+        create_exclusive(logs / f"{name}.err", result.stderr.decode("utf-8", "replace"))
+        (logs / "prepare-commands.jsonl").touch()
+        append_jsonl(logs / "prepare-commands.jsonl", {"step": name, "argv": argv, "cwd": str(spec.checkout),
+                                                       "env": env, "exit": result.exit})
+        return result
+
+    def precompile(self, spec, mm):
+        argv = julia_command(self.plan, spec, mm, ["-e", "using Pkg; Pkg.precompile()"], pinned=False)
+        return self._step(f"finalize-{spec.name}-{mm}-precompile", spec, mm, argv,
+                          launch_env(self.plan, spec, mm, 1))
+
+    def warmup(self, spec, mm, number):
+        """An untimed PS_LIST=true run of the role's run.jl: it imports everything and writes nothing."""
+        env = dict(launch_env(self.plan, spec, mm, 1), PS_LIST="true")
+        return self._step(f"finalize-{spec.name}-{mm}-warmup{number}", spec, mm, launch_argv(self.plan, spec, mm),
+                          env)
+
+    def export(self, spec, mm, reps, out):
+        argv = julia_command(self.plan, spec, mm, [
+            str(HERE / "export_fingerprints.jl"), "--harness", f"{spec.checkout}/benchmark",
+            "--expected-package-root", str(spec.checkout), "--schedule", str(HERE / "schedule.toml"),
+            "--reps", ",".join(str(r) for r in reps), "--expected-harness-hash", spec.expected["harness_hash"],
+            "--out", str(out)])
+        return self._step(f"finalize-{spec.name}-{mm}-export", spec, mm, argv, launch_env(self.plan, spec, mm, 1))
+
+    def affinity(self, spec, mm):
+        """The CPUs a pinned launch is allowed on, observed by a tiny command under the same `taskset` argv."""
+        argv = ["taskset", "-c", str(self.plan.cpu), "grep", "Cpus_allowed_list:", "/proc/self/status"]
+        result = run_process(self.run, argv, launch_env(self.plan, spec, mm, 1), spec.checkout)
+        try:
+            return parse_cpu_list(result.stdout.decode().partition(":")[2]) if result.exit == 0 else []
+        except ValueError:
+            return []
+
+    def probe_raw(self, spec, mm):
+        """(observation, the probe's TOML text) of one role and stratum; the probe is untimed."""
+        argv = julia_command(self.plan, spec, mm, [str(HERE / "environment_probe.jl")])
+        result = run_process(self.run, argv, launch_env(self.plan, spec, mm, 1), spec.checkout)
+        where = f"{spec.name} julia {mm}"
+        if result.exit != 0:
+            raise Refused(f"the environment probe of {where} exited with {result.exit}: {tail(result.stderr)}")
+        text = result.stdout.decode("utf-8", "replace")
+        try:
+            data = tomllib.loads(text)
+            if data["threads"] != 1:
+                raise Refused(f"the environment probe of {where} reports {data['threads']} Julia threads")
+            facts = python_facts(spec, mm, data, self.affinity(spec, mm), self.run)
+            return build_observation(data, facts), text
+        except (KeyError, TypeError, OSError, ValueError) as error:       # includes tomllib.TOMLDecodeError
+            raise Refused(f"the environment probe of {where} is unusable: {type(error).__name__}: {error}") from error
+
+    def probe(self, spec, mm):
+        return self.probe_raw(spec, mm)[0]
+
+
+# ------------------------------------------------------------------------------------ prepare: documents
+
+def rewrite_manifest_path(text, checkout):
+    """The `path` line of the ProximalSolvers entry of a Manifest, rewritten to `checkout` (text level, line
+    exact, nothing else touched); not found exactly once is a refusal."""
+    check_toml_path(checkout)
+    lines = text.split("\n")
+    starts = [i for i, line in enumerate(lines) if line == "[[deps.ProximalSolvers]]"]
+    if len(starts) != 1:
+        raise Refused(f"the Manifest has {len(starts)} [[deps.ProximalSolvers]] tables, expected exactly one")
+    end = next((j for j in range(starts[0] + 1, len(lines)) if lines[j].startswith("[")), len(lines))
+    hits = [j for j in range(starts[0] + 1, end) if re.fullmatch(r'path = "[^"]*"', lines[j])]
+    if len(hits) != 1:
+        raise Refused(f"the ProximalSolvers entry of the Manifest has {len(hits)} path lines, expected exactly one")
+    lines[hits[0]] = f'path = "{checkout}"'
+    return "\n".join(lines)
+
+
+SOURCES_LINE = re.compile(r'ProximalSolvers = \{path = "[^"]*"\}')
+
+
+def rewrite_project_sources(text, checkout):
+    """(text, rewritten): the ProximalSolvers line of `[sources]` (Julia 1.13) rewritten to `checkout`. A Project
+    without `[sources]` and without such a line is returned unchanged; any other count is a refusal."""
+    check_toml_path(checkout)
+    lines = text.split("\n")
+    hits = [i for i, line in enumerate(lines) if SOURCES_LINE.fullmatch(line)]
+    headers = [i for i, line in enumerate(lines) if line == "[sources]"]
+    if not hits and not headers:
+        return text, False
+    if len(hits) != 1 or len(headers) != 1 or hits[0] < headers[0] or any(
+            line.startswith("[") for line in lines[headers[0] + 1:hits[0]]):
+        raise Refused(f"the Project has {len(hits)} ProximalSolvers path lines in {len(headers)} [sources] tables, "
+                      "expected exactly one in exactly one")
+    lines[hits[0]] = f'ProximalSolvers = {{path = "{checkout}"}}'
+    return "\n".join(lines), True
+
+
+def check_toml_path(path):
+    if not (isinstance(path, str) and path.startswith("/")) or any(c in path for c in '"\\\n\r\t'):
+        raise Refused(f"the path {path!r} cannot be written into a TOML line")
+
+
+def manifest_entries(text):
+    """Sorted (name, uuid, version, git-tree-sha1) of every dependency entry of a Manifest ("" when absent)."""
+    data = tomllib.loads(text)
+    return sorted((name, item["uuid"], item.get("version", ""), item.get("git-tree-sha1", ""))
+                  for name, items in (data.get("deps") or {}).items() for item in items)
+
+
+def lock_entries(campaign, mm):
+    """The same tuples from the `lock` array of `[julia."MM"]` of the Stage 2A campaign definition."""
+    entry = ((campaign.get("julia") or {}).get(mm) or {}).get("lock")
+    if not isinstance(entry, list):
+        raise Refused(f"the Stage 2A campaign definition has no lock for julia {mm}")
+    return sorted((item["name"], item["uuid"], item["version"], item["tree"]) for item in entry)
+
+
+def unified(old, new, old_name, new_name):
+    import difflib
+    return "".join(difflib.unified_diff(old.splitlines(keepends=True), new.splitlines(keepends=True), old_name,
+                                        new_name, n=0))
+
+
+def foreign_changes(old, new):
+    """The changed lines (with their sign) that are neither a `path = ` nor a `project_hash = ` line."""
+    import difflib
+    changed = [line for line in difflib.unified_diff(old.splitlines(), new.splitlines(), lineterm="", n=0)
+               if line[:1] in "+-" and not line.startswith(("+++", "---"))]
+    return [line for line in changed if not re.match(r'[+-](path|project_hash) = "', line)]
+
+
+def check_archive_digest(archive, expected=None):
+    expected = expected or STAGE2A_ARCHIVE_SHA256
+    try:
+        digest = sha256_file(archive)
+    except OSError as error:
+        raise Refused(f"cannot read the Stage 2A archive: {error}") from error
+    if digest != expected:
+        raise Refused(f"the Stage 2A archive has SHA-256 {digest}, expected {expected}")
+
+
+def extract_archive(archive, destination, strata, root, expected=None):
+    """Verify the archive's SHA-256 and extract only `julia-MM/{Project,Manifest}.toml` into a fresh directory.
+
+    `root` is the archive's top directory (`[archive] name` of the Stage 2A campaign definition). The extractor never executes or unpacks anything else: a member with an absolute name, a `..` component or a
+    backslash anywhere in the archive refuses it; a wanted member must be a regular file, found exactly once, and
+    is read with a size limit and written under a fixed name. Returns the directory."""
+    import tarfile
+    archive, destination = Path(archive), Path(destination)
+    check_archive_digest(archive, expected)
+    wanted = {f"{root}/julia-{mm}/{name}": f"julia-{mm}/{name}" for mm in strata
+              for name in ("Project.toml", "Manifest.toml")}
+    found = {}
+    try:
+        with tarfile.open(archive, "r:gz") as tar:
+            for member in tar:
+                parts = member.name.split("/")
+                if member.name.startswith("/") or ".." in parts or "\\" in member.name:
+                    raise Refused(f"the archive has an unsafe member {member.name!r}")
+                if member.name in wanted:
+                    if not member.isreg() or member.size > MAX_MEMBER_BYTES or member.name in found:
+                        raise Refused(f"the archive member {member.name!r} is not a single regular file of "
+                                      "acceptable size")
+                    found[member.name] = tar.extractfile(member).read()
+    except (tarfile.TarError, OSError, EOFError) as error:
+        raise Refused(f"cannot read the Stage 2A archive: {error}") from error
+    missing = sorted(set(wanted) - set(found))
+    if missing:
+        raise Refused(f"the archive lacks {missing}")
+    destination.mkdir(parents=True, exist_ok=False)
+    for name, relative in wanted.items():
+        (destination / relative).parent.mkdir(exist_ok=True)
+        (destination / relative).write_bytes(found[name])
+    return destination
+
+
+def registry_tree(depot, uuid, version):
+    """git-tree-sha1 of a package version in the registry copy of a depot (a directory or a tarball); None if
+    the depot has no registry that lists it."""
+    import tarfile
+    registries = Path(depot) / "registries"
+    if not registries.is_dir():
+        return None
+    for entry in sorted(registries.iterdir()):
+        try:
+            if entry.is_dir():
+                def read(name, entry=entry):
+                    return (entry / name).read_text(encoding="utf-8")
+            elif entry.name.endswith((".tar.gz", ".tar")):
+                tar = tarfile.open(entry, "r:*")
+
+                def read(name, tar=tar):
+                    for candidate in (name, "./" + name):
+                        with contextlib.suppress(KeyError):
+                            return tar.extractfile(candidate).read().decode("utf-8")
+                    raise KeyError(name)
+            else:
+                continue
+            info = tomllib.loads(read("Registry.toml"))["packages"].get(uuid)
+            if info is not None:
+                return tomllib.loads(read(f"{info['path']}/Versions.toml"))[version]["git-tree-sha1"]
+        except (KeyError, OSError, tarfile.TarError, tomllib.TOMLDecodeError, UnicodeDecodeError):
+            continue
+    return None
+
+
+# ------------------------------------------------------------------------------------------ prepare: fetch
+
+@dataclasses.dataclass
+class Prepare:
+    """What `prepare` works on: the configuration (a pilot configuration or an official lock), the committed
+    official schedule, the Julia binaries and the host-specific source locators."""
+    kind: str                       # "pilot" or "official"
+    config: dict
+    config_path: Path
+    base: Path
+    sched: dict                     # the committed official schedule (strata, stack_a, machine, ...)
+    arms: tuple
+    julia_bins: dict
+    parent_env: dict
+    source: str = None              # repository of ProximalSolvers (stack A and stack B)
+    pb_source: str = None           # optional repository of ProximalBase (tag check; stack B development)
+    archive: str = None             # the Stage 2A archive
+    lock: dict = None
+    min_cpus: int = 2
+    repo: Path = None               # the driver checkout (the lock's frozen files are read from it)
+    run: object = None
+
+    def roles(self):
+        return [ARM_ROLES[arm][letter] for arm in self.arms for letter in "AB"]
+
+    def stack_of(self, role):
+        return "B" if (self.kind == "official" and role == "ab-b") else "A"
+
+    def campaign_id(self):
+        return self.config["campaign"]["id"]
+
+    def session_id(self):
+        session = self.config["campaign"].get("session_id")
+        if not session:
+            raise Refused("prepare needs campaign.session_id in the configuration: the identity files and the "
+                          "engine must agree on one session", field="campaign.session_id")
+        return session
+
+    def expected(self, role):
+        return expected_identity(self.sched, self.stack_of(role), self.lock)
+
+
+def prepare_settings(args, kind, config, base, official_sched, environ, bins=None):
+    """The Prepare of a `prepare` command; refusals before anything is created."""
+    base = Path(base)
+    strata = list(official_sched["strata"])
+    if kind == "pilot":
+        if "pilot" not in base.name:
+            raise LockRefusal("base", f"the base directory name {base.name!r} lacks pilot")
+        source = (config.get("source") or {})
+        arms = tuple(a for a in ARMS if a in config["pilot"]["arms"])
+        repository, pb_source = source.get("repository"), source.get("proximalbase")
+        archive = getattr(args, "archive", None) or (config.get("archive") or {}).get("path")
+        min_cpus = (config.get("resources") or {}).get("min_cpus", 2)
+        lock = None
+    else:
+        if "stack_b" not in config:
+            raise Refused("the lock has no [stack_b] candidate", field="stack_b")
+        arms = schedule_arms(HERE)
+        repository = config["stack_b"]["proximalsolvers"]["source"]
+        pb_source = config["stack_b"]["proximalbase"]["source"]
+        archive, min_cpus, lock = getattr(args, "archive", None), 2, config
+    if bins is None:
+        bins = julia_binaries(getattr(args, "julia", None), config, strata)
+    if args.step == "fetch" and not repository:
+        raise Refused("prepare --step fetch needs the ProximalSolvers repository locator ([source] repository of "
+                      "the pilot configuration)", field="source.repository")
+    return Prepare(kind=kind, config=config, config_path=Path(args.config), base=base, sched=official_sched,
+                   arms=arms, julia_bins=bins, parent_env=dict(environ), source=repository, pb_source=pb_source,
+                   archive=archive, lock=lock, min_cpus=min_cpus, repo=HERE.parents[2])
+
+
+def julia_binaries(options, config, strata):
+    """{stratum: absolute path of the Julia binary} from `[julia]` of a pilot configuration and `--julia MM=PATH`
+    options (the options win); every stratum of the schedule needs one."""
+    bins = dict((config or {}).get("julia") or {})
+    for item in options or []:
+        mm, separator, path = item.partition("=")
+        if not (separator and STRATUM_KEY.fullmatch(mm) and path.startswith("/")):
+            raise UsageError(f"--julia expects MAJOR.MINOR=ABSOLUTE_PATH, not {item!r}")
+        bins[mm] = path
+    missing, extra = [mm for mm in strata if mm not in bins], sorted(set(bins) - set(strata))
+    if missing or extra:
+        raise Refused(f"the Julia binaries {sorted(bins)} are not the strata {list(strata)} of the schedule "
+                      "(use [julia] of the pilot configuration or --julia MAJOR.MINOR=PATH)", field="julia")
+    return {mm: bins[mm] for mm in strata}
+
+
+def fetch_env(parent_env, depot, bundled):
+    """The environment of a network step (instantiate, resolve): the whitelist, a private depot, no offline flag."""
+    env = {name: parent_env[name] for name in ENV_PASSTHROUGH if name in parent_env}
+    env.update({"JULIA_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "JULIA_LOAD_PATH": "@:@stdlib",
+                "JULIA_DEPOT_PATH": f"{depot}:{bundled}" if bundled else str(depot),
+                "JULIA_PKG_PRECOMPILE_AUTO": "0"})
+    return env
+
+
+def clone_checkout(source, destination, commit, run):
+    """An independent clone (no shared objects) checked out detached at the pinned commit."""
+    run_git(run, *GIT_THREADS, "clone", "--quiet", "--no-hardlinks", "--", str(source), str(destination))
+    git(destination, "checkout", "--quiet", "--detach", commit, run=run or subprocess.run)
+
+
+def verify_checkout(checkout, pinned, harness, run):
+    """Facts of a fresh checkout; Refused unless it is the pinned commit and tree, clean (untracked and ignored
+    files included), with the Python fingerprints of the package (and of the harness) equal to the pins."""
+    run = run or subprocess.run
+    problems = []
+    seen = {"commit": git(checkout, "rev-parse", "HEAD", run=run), "tree": git(checkout, "rev-parse", "HEAD^{tree}",
+                                                                             run=run)}
+    for key in ("commit", "tree"):
+        if seen[key] != pinned[key]:
+            problems.append(f"{key} {seen[key]} is not the pinned {pinned[key]}")
+    if not git_clean(checkout, run=run):
+        problems.append("the checkout is not clean (tracked, untracked or ignored files)")
+    seen["package_hash"] = package_fingerprint(checkout)
+    if seen["package_hash"] != pinned["package_hash"]:
+        problems.append(f"the package fingerprint {seen['package_hash']} is not the pinned {pinned['package_hash']}")
+    if harness is not None:
+        try:
+            seen["harness_hash"] = harness_hash(Path(checkout) / "benchmark")
+        except OSError as error:
+            seen["harness_hash"] = None
+            problems.append(f"the harness cannot be read: {error}")
+        if seen["harness_hash"] != harness:
+            problems.append(f"the harness fingerprint {seen['harness_hash']} is not the pinned {harness}")
+    if problems:
+        raise Refused(f"{Path(checkout).parent.name}: " + "; ".join(problems), problems=problems)
+    return seen
+
+
+PKG_ATTEMPTS = 3
+
+
+def julia_step(st, role, mm, name, code, env_dir, pause=5.0):
+    """One Julia step of prepare in the role's environment: output kept in logs/ (one log pair per attempt), a
+    failing step is retried (a network step is idempotent; at most PKG_ATTEMPTS attempts) and then refused.
+    Returns whether Pkg warned that the Manifest is out of sync with the Project."""
+    bundled = bundled_depots(st.julia_bins)[mm]
+    argv = [str(st.julia_bins[mm]), *JULIA_FLAGS, f"--project={env_dir}", "-e", code]
+    env = fetch_env(st.parent_env, st.base / "depots" / role, bundled)
+    logs = st.base / "logs"
+    for attempt in range(1, PKG_ATTEMPTS + 1):
+        label = name if attempt == 1 else f"{name}-attempt{attempt}"
+        result = run_process(st.run, argv, env, env_dir)
+        create_exclusive(logs / f"prepare-{role}-{mm}-{label}.out", result.stdout.decode("utf-8", "replace"))
+        create_exclusive(logs / f"prepare-{role}-{mm}-{label}.err", result.stderr.decode("utf-8", "replace"))
+        (logs / "prepare-commands.jsonl").touch()
+        append_jsonl(logs / "prepare-commands.jsonl", {"step": f"{role}-{mm}-{label}", "argv": argv, "env": env,
+                                                       "cwd": str(env_dir), "exit": result.exit})
+        if result.exit == 0:
+            return STALE_MANIFEST in (result.stdout + result.stderr).decode("utf-8", "replace")
+        if attempt < PKG_ATTEMPTS and pause:
+            time.sleep(pause)
+    raise Refused(f"{role} julia {mm}: Pkg step {name} exited with {result.exit} in {PKG_ATTEMPTS} attempts: "
+                  f"{tail(result.stderr)}")
+
+
+def prepare_environment_a(st, role, mm, archive_dir, checkout_real, campaign):
+    """The Stage 2A environment of one role and stratum: the archived Project and Manifest with only the
+    ProximalSolvers path lines rewritten to the role's checkout, instantiated; the entries must stay identical."""
+    env = st.base / "environments" / role / f"env-{mm}"
+    env.mkdir(parents=True)
+    old_manifest = (archive_dir / f"julia-{mm}" / "Manifest.toml").read_bytes().decode("utf-8")
+    old_project = (archive_dir / f"julia-{mm}" / "Project.toml").read_bytes().decode("utf-8")
+    manifest = rewrite_manifest_path(old_manifest, checkout_real)
+    project, _ = rewrite_project_sources(old_project, checkout_real)
+    create_exclusive(env / "Manifest.toml", manifest)
+    create_exclusive(env / "Project.toml", project)
+    record = {"stale_warning": julia_step(st, role, mm, "instantiate", "using Pkg; Pkg.instantiate()", env)}
+    record["resolved"] = record["stale_warning"]
+    if record["stale_warning"]:
+        julia_step(st, role, mm, "resolve", "using Pkg; Pkg.resolve()", env)
+    new_manifest = (env / "Manifest.toml").read_bytes().decode("utf-8")
+    new_project = (env / "Project.toml").read_bytes().decode("utf-8")
+    logs = st.base / "logs"
+    create_exclusive(logs / f"prepare-{role}-{mm}-manifest.diff", unified(
+        old_manifest, new_manifest, "archive/Manifest.toml", f"{role}/env-{mm}/Manifest.toml"))
+    create_exclusive(logs / f"prepare-{role}-{mm}-project.diff", unified(
+        old_project, new_project, "archive/Project.toml", f"{role}/env-{mm}/Project.toml"))
+    problems = []
+    if new_project != project:
+        problems.append("Project.toml changed during instantiate or resolve")
+    if manifest_entries(new_manifest) != manifest_entries(old_manifest):
+        problems.append("the (name, uuid, version, git-tree-sha1) entries differ from the archived Manifest")
+    if manifest_entries(new_manifest) != lock_entries(campaign, mm):
+        problems.append("the entries differ from the lock of the Stage 2A campaign definition")
+    foreign = foreign_changes(old_manifest, new_manifest)
+    if foreign:
+        problems.append(f"Manifest lines other than the path and project_hash changed: {foreign[:4]}")
+    if problems:
+        raise Refused(f"{role} julia {mm}: no fresh resolution and no new historical baseline: " + "; ".join(problems),
+                      problems=problems)
+    return env, record
+
+
+def prepare_environment_b(st, role, mm):
+    """The frozen Project and Manifest of the lock (SHA-256 checked), instantiated; they must stay unchanged."""
+    spec = st.lock["stack_b"]["environments"][mm]
+    env = st.base / "environments" / role / f"env-{mm}"
+    env.mkdir(parents=True)
+    repo = os.path.realpath(st.repo)
+    for key, name in (("project", "Project.toml"), ("manifest", "Manifest.toml")):
+        source = os.path.realpath(Path(st.repo) / spec[key])
+        if not source.startswith(repo + os.sep) or not os.path.isfile(source):
+            raise Refused(f"stack B julia {mm}: {spec[key]} is not a file of the driver repository")
+        if sha256_file(source) != spec[f"{key}_sha256"]:
+            raise Refused(f"stack B julia {mm}: {spec[key]} differs from the SHA-256 of the lock")
+        shutil.copyfile(source, env / name)
+    stale = julia_step(st, role, mm, "instantiate", "using Pkg; Pkg.instantiate()", env)
+    if stale:
+        raise Refused(f"stack B julia {mm}: Pkg reports that the frozen Manifest is out of sync with the Project")
+    for key, name in (("project", "Project.toml"), ("manifest", "Manifest.toml")):
+        if sha256_file(env / name) != spec[f"{key}_sha256"]:
+            raise Refused(f"stack B julia {mm}: {name} changed during instantiate")
+    return env, {"stale_warning": False, "resolved": False}
+
+
+def snapshot_environment(st, role, mm, env):
+    target = st.base / "roots" / role / f"julia-{mm}"
+    target.mkdir(parents=True)
+    for name in ("Project.toml", "Manifest.toml"):
+        shutil.copyfile(env / name, target / name)
+        (target / name).chmod(0o444)
+
+
+def check_pb_tag(st, depot):
+    """The ProximalBase tag of stack A resolves to the pinned commit and tree: the tree from the registry copy
+    of an instantiated depot, the commit (and the tree again) from a clone when a locator is configured."""
+    pb = st.sched["stack_a"]["proximalbase"]
+    uuid = stage2a_campaign()["proximalbase"]["uuid"]
+    record = {"tag": pb["tag"], "registry_tree": registry_tree(depot, uuid, pb["version"])}
+    if record["registry_tree"] not in (None, pb["tree"]):
+        raise Refused(f"the registry lists ProximalBase {pb['version']} with tree {record['registry_tree']}, "
+                      f"expected {pb['tree']}")
+    if st.pb_source:
+        scratch = Path(tempfile.mkdtemp(prefix="stage2b-pb-"))
+        try:
+            run_git(st.run, *GIT_THREADS, "clone", "--quiet", "--bare", "--no-hardlinks", "--", st.pb_source,
+                    str(scratch / "pb.git"))
+            run = st.run or subprocess.run
+            for key, spec in (("commit", f"refs/tags/{pb['tag']}^{{commit}}"), ("tree", f"refs/tags/{pb['tag']}^{{tree}}")):
+                record[f"clone_{key}"] = git(scratch / "pb.git", "rev-parse", spec, run=run)
+                if record[f"clone_{key}"] != pb[key]:
+                    raise Refused(f"the tag {pb['tag']} of the ProximalBase clone has {key} "
+                                  f"{record[f'clone_{key}']}, expected {pb[key]}")
+        finally:
+            shutil.rmtree(scratch, ignore_errors=True)
+    return record
+
+
+def stage2a_campaign():
+    try:
+        return tomllib.loads(STAGE2A_CAMPAIGN.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+        raise Refused(f"cannot read the Stage 2A campaign definition: {error}") from error
+
+
+def write_base_files(st):
+    """The copies the campaign uses: schedule.toml (for a pilot the committed one, provisional until finalize
+    replaces it), case-mapping.toml and the configuration."""
+    st.base.mkdir(parents=True, exist_ok=True)
+    configuration = "pilot-config.toml" if st.kind == "pilot" else "lock.toml"
+    for name, source in (("schedule.toml", HERE / "schedule.toml"), ("case-mapping.toml", HERE / "case-mapping.toml"),
+                         (configuration, st.config_path)):
+        target = st.base / name
+        if target.exists():
+            if target.read_bytes() != Path(source).read_bytes():
+                raise Refused(f"{name} of the base differs from the file this command is given", field=name)
+        else:
+            shutil.copyfile(source, target)
+
+
+def prepare_fetch(st):
+    """prepare --step fetch (network allowed, any host): per role an independent clone at the pinned commit, the
+    private depot and the environments, the pinned identities verified. Nothing existing is reused or deleted."""
+    roles, strata = st.roles(), list(st.sched["strata"])
+    for role in roles:
+        for directory in ("installations", "environments", "depots", "roots"):
+            if (st.base / directory / role).exists():
+                raise Refused(f"{directory}/{role} already exists in {st.base.name}: nothing is reused or deleted",
+                              field=f"{directory}/{role}")
+    needs_archive = any(st.stack_of(role) == "A" for role in roles)
+    if needs_archive and not st.archive:
+        raise Refused("the Stage 2A archive is needed for stack A (--archive or [archive] path)", field="archive")
+    if needs_archive:
+        check_archive_digest(st.archive)
+    campaign, archive_dir, summary = stage2a_campaign(), None, {"schema": 1, "roles": {}}
+    write_base_files(st)
+    (st.base / "logs").mkdir(exist_ok=True)
+    if needs_archive:
+        archive_dir = extract_archive(st.archive, st.base / "environments" / "_archive", strata,
+                                      campaign["archive"]["name"])
+    first_a = None
+    for role in roles:
+        stack, pinned = st.stack_of(role), st.expected(role)
+        checkout = st.base / "installations" / role / "ProximalSolvers.jl"
+        clone_checkout(st.source, checkout, pinned["ps"]["commit"], st.run)
+        facts = verify_checkout(checkout, pinned["ps"], pinned["harness_hash"], st.run)
+        info = {"stack": stack, "checkout": facts, "environments": {}}
+        if stack == "B" and st.lock["stack_b"]["proximalbase"]["release"] == "development":
+            pb_checkout = st.base / "installations" / role / "ProximalBase.jl"
+            clone_checkout(st.pb_source, pb_checkout, pinned["pb"]["commit"], st.run)
+            info["proximalbase"] = verify_checkout(pb_checkout, pinned["pb"], None, st.run)
+        (st.base / "depots" / role).mkdir(parents=True)
+        real = os.path.realpath(checkout)
+        for mm in strata:
+            if stack == "A":
+                env, record = prepare_environment_a(st, role, mm, archive_dir, real, campaign)
+            else:
+                env, record = prepare_environment_b(st, role, mm)
+            snapshot_environment(st, role, mm, env)
+            info["environments"][mm] = dict(record, manifest_sha256=sha256_file(env / "Manifest.toml"),
+                                            project_sha256=sha256_file(env / "Project.toml"))
+        summary["roles"][role] = info
+        first_a = first_a or (role if stack == "A" else None)
+    if first_a is not None:
+        summary["proximalbase_tag"] = check_pb_tag(st, st.base / "depots" / first_a)
+    create_exclusive(st.base / "logs" / "prepare-fetch.json", json.dumps(summary, indent=2) + "\n")
+    print(f"prepare fetch: {len(roles)} roles in {st.base.name}: " + ", ".join(
+        f"{role} {summary['roles'][role]['checkout']['commit'][:12]}" for role in roles))
+    return 0
+
+
+# ---------------------------------------------------------------------------------------- prepare: finalize
+
+def flatten(table, prefix=""):
+    items = {}
+    for key, value in table.items():
+        path = f"{prefix}{key}"
+        if isinstance(value, dict):
+            items.update(flatten(value, path + "."))
+        else:
+            items[path] = value
+    return items
+
+
+def pilot_sampling(config):
+    """The reduced sampling values of a pilot configuration (all three are required for finalize)."""
+    pilot = config["pilot"]
+    missing = [key for key in PILOT_SAMPLING if key not in pilot]
+    if missing:
+        raise Refused(f"the pilot configuration lacks the reduced sampling values {missing}", field="pilot")
+    return {"samples_target": int(pilot["samples_target"]), "seconds_limit": float(pilot["seconds_limit"]),
+            "case_seconds": float(pilot["case_seconds"])}
+
+
+def derive_pilot_schedule(official, config, machine, arms):
+    """The pilot schedule: the committed official schedule (parsed) with ONLY the keys of
+    PILOT_SCHEDULE_CHANGES changed. Returns (schedule, {key: [old, new]}); any other change is an error."""
+    new = copy.deepcopy(official)
+    new["schedule"].update({"id": config["schedule"]["id"], "campaign_id": config["campaign"]["id"], "reps": [1],
+                            "orders": {"1": "AB"}, "arms": list(arms)})
+    new["settings"].update(pilot_sampling(config))
+    new["machine"].update(machine)
+    before, after = flatten(official), flatten(new)
+    changes = {key: [before.get(key), after.get(key)] for key in sorted(before.keys() | after.keys())
+               if before.get(key) != after.get(key)}
+    stray = [key for key in changes if not any(key == allowed or key.startswith(allowed + ".")
+                                                for allowed in PILOT_SCHEDULE_CHANGES)]
+    if stray:
+        raise Refused(f"the pilot schedule would change keys outside the whitelist: {stray}")
+    return new, changes
+
+
+def pilot_machine(observations, strata, roles, sample, cpu):
+    """The [machine] values of a pilot schedule from what this node reported."""
+    models = {obs["machine"]["cpu_model"] for obs in observations.values()}
+    if len(models) != 1 or sample["cpu_model"] not in models:
+        raise Refused(f"the CPU model differs between Julia {sorted(models)} and the host {sample['cpu_model']!r}")
+    names = {}
+    for mm in strata:
+        found = {observations[(role, mm)]["machine"]["cpu"] for role in roles}
+        if len(found) != 1:
+            raise Refused(f"julia {mm}: the roles report different Sys.CPU_NAME values {sorted(found)}")
+        names[mm] = next(iter(found))
+    return {"cpu_model": next(iter(models)), "cpu": names, "logical_cpu": cpu, "smt_sibling": -1,
+            "governor": sample["governor"], "epp": sample["epp"], "no_turbo": sample["no_turbo"],
+            "smt_control": sample["smt_control"]}
+
+
+def write_pilot_schedule(st, machine):
+    """Replace the provisional schedule.toml of a pilot base by the derived one (once) and record both digests."""
+    base = st.base
+    official_text = (HERE / "schedule.toml").read_bytes()
+    current = base / "schedule.toml"
+    if current.read_bytes() != official_text:
+        raise Refused("schedule.toml of the base is not the provisional copy of the committed schedule")
+    new, changes = derive_pilot_schedule(tomllib.loads(official_text.decode("utf-8")), st.config, machine, st.arms)
+    text = toml_dumps(new)
+    if tomllib.loads(text) != new:
+        raise Refused("the pilot schedule does not round-trip as TOML")
+    temporary = base / "schedule.toml.new"
+    create_exclusive(temporary, text)
+    try:
+        derived = mc.load_schedule(temporary)
+    except mc.Usage as error:
+        temporary.unlink()
+        raise Refused(f"the pilot schedule is not accepted by the comparator's loader: {error}") from error
+    os.replace(temporary, current)
+    create_exclusive(base / "logs" / "pilot-overrides.json", json.dumps({
+        "schema": 1, "official_schedule_sha256": sha256_bytes(official_text),
+        "provisional_sha256": sha256_bytes(official_text), "final_sha256": sha256_bytes(text.encode("utf-8")),
+        "pilot_config_sha256": sha256_file(st.config_path), "changes": changes}, indent=2) + "\n")
+    return derived
+
+
+def mint_installation(role, checkout, depot):
+    """An installation id minted from the role name and bound to the realpaths of its checkout and depot."""
+    digest = sha256_bytes(f"{role}\0{os.path.realpath(checkout)}\0{os.path.realpath(depot)}".encode())[:12]
+    return f"{role}-{digest}"
+
+
+def identity_parts(st, role):
+    pinned = st.expected(role)
+    ps = {k: pinned["ps"][k] for k in ("commit", "tree", "version")}
+    pb = {k: pinned["pb"][k] for k in ("commit", "tree", "version")}
+    if st.stack_of(role) == "A":
+        a = st.sched["stack_a"]["proximalbase"]
+        pb.update(release=a["release"], tag=a["tag"])
+    else:
+        b = st.lock["stack_b"]["proximalbase"]
+        pb["release"] = b["release"]
+        if "tag" in b:
+            pb["tag"] = b["tag"]
+    return ps, pb
+
+
+def concatenate_fingerprints(st, role, strata):
+    """roots/<role>/fingerprints.tsv and fingerprints.datahash.tsv from the per-stratum exporter files, in
+    stratum order, with one header each."""
+    for suffix, name, header in (("", FP_NAME, mc.FP_HEADER), (".datahash.tsv", DATAHASH_NAME, DATAHASH_HEADER)):
+        lines = [header]
+        for mm in strata:
+            path = st.base / "logs" / f"fingerprints-{role}-{mm}.tsv{suffix}"
+            text = path.read_text(encoding="utf-8").split("\n")
+            if text[-1] == "":
+                text.pop()
+            if not text or text[0] != header:
+                raise Refused(f"{path.name} has a wrong header")
+            lines += text[1:]
+        create_exclusive(st.base / "roots" / role / name, "\n".join(lines) + "\n")
+
+
+def prepare_finalize(st, hooks, getaffinity=None, setaffinity=None, say=None):
+    """prepare --step finalize: on the measurement node, offline, with the formal Julia flags and environment.
+
+    Per role and stratum: Pkg.precompile(), two untimed PS_LIST=true warm-up runs of the role's run.jl (the second
+    must not precompile), the exporter (roles ab-a and ab-b: one fresh process per role and stratum), the probe
+    (written as roots/<role>/julia-MM/environment-inventory.toml). Then the identity files, the fingerprint files,
+    for a pilot the pilot schedule, the depot baselines; finally the checks of `preflight` on what was observed.
+    It refuses to run twice on one base: the marker logs/finalize.json is created before anything else."""
+    say = say or (lambda message: print(message, flush=True))
+    base, roles, strata = st.base, st.roles(), list(st.sched["strata"])
+    for role in roles:
+        for mm in strata:
+            for name in ("Project.toml", "Manifest.toml"):
+                if not (base / "roots" / role / f"julia-{mm}" / name).is_file():
+                    raise Refused(f"{role} julia {mm}: {name} is not in the base; run prepare --step fetch first")
+        if (base / "roots" / role / "stack-identity.toml").exists():
+            raise Refused(f"{role} has an identity file: finalize ran on this base already")
+    sampling = pilot_sampling(st.config) if st.kind == "pilot" else None
+    campaign_id, session_id = st.campaign_id(), st.session_id()
+    marker = base / "logs" / "finalize.json"
+    if marker.exists():
+        raise Refused("finalize ran on this base already: a base is finalized once", field="finalize")
+    allowed = sorted((getaffinity or os.sched_getaffinity)(0))
+    if len(allowed) < max(2, st.min_cpus):
+        raise Refused(f"{len(allowed)} CPUs are allowed ({allowed}); finalize needs at least {max(2, st.min_cpus)}: "
+                      "one for the measured process and the others for the driver")
+    cpu = st.sched["machine"]["logical_cpu"] if st.kind == "official" else max(allowed)
+    if cpu not in allowed:
+        raise Refused(f"the measured CPU {cpu} is not among the allowed CPUs {allowed}")
+    marker.parent.mkdir(exist_ok=True)
+    create_exclusive(marker, json.dumps({"schema": 1, "state": "started"}) + "\n")
+    keep_off_cpu(cpu, lambda _: set(allowed), setaffinity)
+    for role in roles:
+        ps, pb = identity_parts(st, role)
+        checkout, depot = base / "installations" / role / "ProximalSolvers.jl", base / "depots" / role
+        write_identity(base, role, mint_installation(role, checkout, depot), campaign_id, session_id, ps, pb)
+    bundled = getattr(hooks, "bundled_depot", "")
+    if st.kind == "official":
+        plan = plan_from_lock(st.lock, base, st.julia_bins, st.parent_env, None, bundled)
+    else:
+        draft = copy.deepcopy(st.sched)
+        draft["settings"].update(sampling)
+        draft["machine"]["logical_cpu"] = cpu
+        roles_ = build_roles(draft, base, st.arms, False, None, st.julia_bins, bundled)
+        plan = Plan(base=base, sched=draft, official=False, campaign_id=campaign_id, session_id=session_id,
+                    arms=st.arms, roles=roles_, cpu=cpu, case_filter=draft["settings"]["case_filter"],
+                    parent_env=dict(st.parent_env))
+    hooks.bind(plan, keep_off=False)
+    cases = sorted(plan.sched["settings"]["case_filter"].split(","))
+    reps = list(plan.sched["reps"]) if st.kind == "official" else [1]
+    observations = {}
+    for mm in strata:
+        for role in roles:
+            spec = plan.roles[role]
+            where = f"{role} julia {mm}"
+
+            def step(name, result):
+                if result.exit != 0:
+                    raise Refused(f"{where}: {name} exited with {result.exit}: {tail(result.stderr)}")
+                say(f"finalize {where}: {name} ok")
+                return result
+            step("precompile", hooks.precompile(spec, mm))
+            step("warm-up 1", hooks.warmup(spec, mm, 1))
+            warm = hooks.depot_digest(spec)
+            second = step("warm-up 2", hooks.warmup(spec, mm, 2))
+            output = (second.stdout + second.stderr).decode("utf-8", "replace")
+            if "precompiling" in output.lower():
+                raise Refused(f"{where}: the second warm-up precompiled again")
+            listed = sorted(line.split("\t")[0] for line in second.stdout.decode("utf-8", "replace").splitlines()
+                            if line.strip())
+            if listed != cases:
+                raise Refused(f"{where}: the warm-up listed {len(listed)} cases, not the schedule's {len(cases)}")
+            if plan.raw(role, mm).exists() and any(plan.raw(role, mm).iterdir()):
+                raise Refused(f"{where}: the warm-up wrote records")
+            if role in ("ab-a", "ab-b"):
+                step("export", hooks.export(spec, mm, reps, base / "logs" / f"fingerprints-{role}-{mm}.tsv"))
+            observation, text = hooks.probe_raw(spec, mm)
+            create_exclusive(base / "roots" / role / f"julia-{mm}" / "environment-inventory.toml", text)
+            observations[(role, mm)] = observation
+            if hooks.depot_digest(spec) != warm:
+                raise Refused(f"{where}: the compiled-cache digest of the depot changed after the first warm-up")
+            for name in ("Project.toml", "Manifest.toml"):
+                if sha256_file(spec.environments[mm] / name) != sha256_file(base / "roots" / role / f"julia-{mm}" / name):
+                    raise Refused(f"{where}: {name} of the environment differs from the snapshot in the root")
+    for role in roles:
+        if role in ("ab-a", "ab-b"):
+            concatenate_fingerprints(st, role, strata)
+    if st.kind == "pilot":
+        write_pilot_schedule(st, pilot_machine(observations, strata, roles, hooks.sampler(), cpu))
+        final = plan_from_pilot(st.config, base, st.julia_bins, st.parent_env, None, bundled)
+    else:
+        final = plan
+    problems = preflight_checks(final, observations)
+    for role in roles:
+        if role in ("ab-a", "ab-b"):
+            check_fingerprints(base / "roots" / role, final.sched, role, problems)
+    baselines = {role: str(hooks.depot_digest(final.roles[role])) for role in roles}
+    create_exclusive(base / "logs" / "depot-baselines.json", json.dumps(baselines, indent=2) + "\n")
+    replace_file(marker, json.dumps({"schema": 1, "state": "finalized", "cpu": cpu, "problems": problems}, indent=2)
+                 + "\n")
+    for problem in problems:
+        report(problem)
+    say(f"finalize: {len(roles)} roles, {len(strata)} strata, measured CPU {cpu}, {len(problems)} problems")
+    if problems:
+        raise Refused("finalize found problems: " + "; ".join(problems[:5]), problems=problems)
+    return 0
+
+
 # ----------------------------------------------------------------------------------------------- CLI
 
 class Parser(argparse.ArgumentParser):
@@ -2489,8 +3483,12 @@ def build_parser():
             sub.add_argument("--freeze-sha")
         if name in ("preflight", "pilot"):
             sub.add_argument("--arms")
+        sub.add_argument("--julia", action="append", metavar="MM=PATH",
+                         help="the Julia binary of a stratum (repeatable; wins over [julia] of a pilot configuration)")
         if name == "prepare":
             sub.add_argument("--step", required=True, choices=("fetch", "finalize"))
+            sub.add_argument("--archive", help="the Stage 2A archive (default: [archive] path of a pilot "
+                                               "configuration)")
     verify_parser = commands.add_parser("verify", allow_abbrev=False)
     verify_parser.add_argument("--base", required=True)
     verify_parser.add_argument("--out", required=True)
@@ -2542,17 +3540,23 @@ def dispatch(args, hooks, facts, environ):
             report(f"  {problem}")
         return status
     official_sched = mc.load_schedule(HERE / "schedule.toml")
+    strata = list(official_sched["strata"])
     if args.command == "run" and not args.official:
         raise UsageError("run needs --official (a campaign that is not official is a pilot)")
+    if args.command == "prepare":
+        kind, config = load_config(args.config, official_sched)
+        settings = prepare_settings(args, kind, config, base, official_sched, environ,
+                                    hooks.julia_bins if hooks is not None else None)
+        if args.step == "fetch":
+            return prepare_fetch(settings)
+        return prepare_finalize(settings, hooks or RealHooks(settings.julia_bins, environ))
     if args.command == "pilot" or (args.command == "preflight" and not args.official):
         arms = parse_arms(args.arms) if args.arms else None
         config = load_pilot(args.config, official_sched)
         if args.command == "pilot" and "pilot" not in base.name:
             raise LockRefusal("base", f"the base directory name {base.name!r} lacks pilot")
-        if hooks is None:
-            raise NotImplementedHere("not implemented in this task: the pilot needs the Julia hooks; the "
-                                     "configuration is valid and nothing was launched")
-        plan = plan_from_pilot(config, base, hooks.julia_bins, environ, arms)
+        hooks = hooks or RealHooks(julia_binaries(args.julia, config, strata), environ)
+        plan = plan_from_pilot(config, base, hooks.julia_bins, environ, arms, getattr(hooks, "bundled_depot", ""))
         if args.command == "pilot":                  # the configuration this attempt used, kept as evidence
             copy_path = base / "pilot-config.toml"
             if copy_path.exists() and copy_path.read_bytes() != Path(args.config).read_bytes():
@@ -2561,25 +3565,22 @@ def dispatch(args, hooks, facts, environ):
             if not copy_path.exists():
                 shutil.copyfile(args.config, copy_path)
         return run_plan(plan, hooks, args.command == "preflight")
-    if args.command == "prepare":
-        load_config(args.config, official_sched)
-        raise NotImplementedHere(f"not implemented in this task: prepare --step {args.step} needs Julia; "
-                                 "nothing was launched")
-    lock = load_lock(args.config, strata=list(official_sched["strata"]))
+    lock = load_lock(args.config, strata=strata)
     observed = facts(HERE.parents[2], args.config, base, HERE / "schedule.toml", HERE / "case-mapping.toml")
     unmet = official_gate(lock, observed, args.freeze_sha)
     if unmet:
         raise Refused("the official gate is not met: " + "; ".join(unmet[:5]), field="gate", problems=unmet)
-    if hooks is None:
-        raise NotImplementedHere("not implemented in this task: the official run needs the Julia hooks; the gate "
-                                 "is met and nothing was launched")
+    hooks = hooks or RealHooks(julia_binaries(args.julia, None, strata), environ)
     if not (base / "lock.toml").is_file() or sha256_file(base / "lock.toml") != sha256_file(args.config):
         raise Refused("lock.toml of the base is not the lock given with --config", field="lock.toml")
-    plan = plan_from_lock(lock, base, hooks.julia_bins, environ, args.freeze_sha)
+    plan = plan_from_lock(lock, base, hooks.julia_bins, environ, args.freeze_sha, getattr(hooks, "bundled_depot", ""))
     return run_plan(plan, hooks, args.command == "preflight")
 
 
 def run_plan(plan, hooks, only_preflight):
+    bind = getattr(hooks, "bind", None)
+    if bind is not None:                             # the real hooks learn the plan and keep the driver off the CPU
+        bind(plan)
     if only_preflight:
         observations = {(r, mm): hooks.probe(plan.roles[r], mm) for r in plan.role_names()
                         for mm in plan.sched["strata"]}
