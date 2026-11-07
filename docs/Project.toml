@@ -11,6 +11,7 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [sources]
+ProximalBase = {rev = "e8a45a8a6ffe2a6f92d83c4c77d62a9b7631e291", url = "https://github.com/mlakolar/ProximalBase.jl"}
 ProximalSolvers = {path = ".."}
 
 [compat]

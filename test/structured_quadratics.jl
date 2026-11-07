@@ -161,4 +161,45 @@ model_bytes(f, x) = @allocated cdmodel(f, x)
   end
 end
 
+# FT28 (#165): the group steps of a QuadModel with zero curvature, and with a structured Hessian. The trial point is
+# built in the model's buffer and stored by the penalty's step, so a group whose block is zero goes to the minimizer
+# of the penalty when its linear term is zero, and is rejected, before anything is written, when it is not.
+@testset "group steps of a QuadModel: zero curvature and structured Hessians" begin
+  p = 12
+  groups = [1:3, 4:6, 7:9, 10:12]
+  for T in (Float64, Float32), kind in (:dense, :sparse, :diagonal)
+    d = collect(range(T(1.5), T(2.5); length = p))
+    A0 = kind == :diagonal ? Matrix(Diagonal(d)) : Matrix(Diagonal(d)) + T(0.2) * (ones(T, p, p) - Matrix(Diagonal(ones(T, p))))
+    A0[4:6, :] .= 0; A0[:, 4:6] .= 0           # group 2 has zero curvature
+    A = kind == :sparse ? sparse(A0) : kind == :diagonal ? Diagonal(diag(A0)) : A0
+    b = T.(sin.(1:p)); b[4:6] .= 0
+    f = QuadraticFunction(A, b)
+    for g in (GroupNormLinf(T(0.05), groups), SparseGroupNormL2(T(0.02), T(0.02), groups), NormL1(T(0.05)), GroupNormL2(T(0.05), groups))
+      x = AtomIterate(T, p, groups)
+      x[groups[1]] .= T[0.5, -0.25, 0.75]
+      x[groups[2]] .= T[0.3, 0.0, -0.2]
+      m = cdmodel(f, x); PS.initialize!(m, x)
+      # zero curvature and a zero linear term: the group goes to the minimizer of the penalty (zero here)
+      h = PS._groupstep!(m, g, x, 2, false)
+      @test all(iszero, x[groups[2]]) && isactive(x, 2) && h == T(0.3)
+      @test m.u ≈ A * Vector(x)
+      @test m.u[4:6] == zeros(T, 3)
+      @test nactive(x) == 2
+      # a step on another group is that of the dense Hessian
+      PS._groupstep!(m, g, x, 3, false)
+      @test m.u ≈ A * Vector(x) rtol = (T === Float32 ? 1e-5 : 1e-12) atol = 1e-6
+    end
+    # a nonzero linear term at zero curvature: an ArgumentError, and nothing is written
+    g = GroupNormLinf(T(0.05), groups)
+    b2 = copy(b); b2[5] = T(0.4)
+    x = AtomIterate(T, p, groups); x[groups[1]] .= T[0.5, -0.25, 0.75]
+    m = cdmodel(QuadraticFunction(A, b2), x); PS.initialize!(m, x)
+    before, act, u0 = Vector(x), collect(activecoordinates(x)), copy(m.u)
+    err = try; PS._groupstep!(m, g, x, 2, false); nothing; catch e; e; end
+    @test err isa ArgumentError
+    @test err.msg == "group 2 has zero curvature and a nonzero linear term; coordinate descent supports this only for GroupNormL2"
+    @test Vector(x) == before && collect(activecoordinates(x)) == act && m.u == u0
+  end
+end
+
 end

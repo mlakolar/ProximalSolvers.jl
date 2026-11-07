@@ -121,4 +121,10 @@ function _eigmax_generic(C)
   _eigmax_all(C)
 end
 
-_maxgroup(x::AtomIterate) = maximum(length, x.groups; init = 0)
+function _maxgroup(x::AtomIterate)
+  m = 0
+  for k in 1:ncoordinates(x)
+    m = max(m, length(atomindices(x, k)))
+  end
+  m
+end

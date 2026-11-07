@@ -150,7 +150,7 @@ end
 
 _workspace_partition(x, y) = nothing
 _workspace_partition(x::AtomIterate, y::AtomIterate) =
-  x.groups == y.groups || throw(ArgumentError("the starting point must have the workspace's groups."))
+  ProximalBase.samegroups(x, y) || throw(ArgumentError("the starting point must have the workspace's groups."))
 _workspace_partition(x::Tuple, y::Tuple) = foreach(_workspace_partition, x, y)
 
 _workspace_noalias(x) = nothing

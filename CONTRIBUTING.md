@@ -145,7 +145,24 @@ the workers, the setup time and the worker time of every file.
 
 CI and documentation builds use registered dependency resolution. A required
 dependency version must be available from General before release validation
-can pass. For optional dependency-source development checks, use:
+can pass.
+
+**ProximalBase 0.6 (development).** The package requires ProximalBase 0.6, which is not
+registered yet, so `Project.toml` and `docs/Project.toml` pin the development commit
+through `[sources]` (read by Julia 1.11 and later) and `Manifest-v1.10.toml` pins the same
+commit for Julia 1.10, which ignores `[sources]` and reads versioned manifests only from
+1.10.8, so the minimum Julia version is 1.10.8 meanwhile. CI and the documentation build then
+resolve exactly that commit. When ProximalBase 0.6.0 is registered, remove both
+`[sources]` entries, `Manifest-v1.10.toml`, its `.gitignore` exception and the raised Julia
+minimum (`julia = "1.10"`); until then the
+package cannot be released from `master`.
+
+The package reads iterates only through the public interface of ProximalBase 0.6
+(`atomindices`, `activecoordinates`, `activevalues`, `nactive`, `ProximalBase.samegroups`,
+and the five-argument `prox_coordinate!(x, g, k, u, γ)` for a block step at a trial point).
+The fields of `SparseIterate` and `AtomIterate` are private and may change in any release;
+`test/audit_regressions_basics.jl` scans `src/` for them. This is the preparation for
+ProximalBase 0.6, not a promise of compatibility with ProximalBase 0.5. For optional dependency-source development checks, use:
 
 ```sh
 julia scripts/test_master.jl

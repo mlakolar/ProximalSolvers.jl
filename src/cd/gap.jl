@@ -197,7 +197,7 @@ end
 
 # the entries of coordinate k of x
 @inline _coordentries(::SparseIterate, k::Int) = k:k
-@inline _coordentries(x::AtomIterate, k::Int) = x.groups[k]
+@inline _coordentries(x::AtomIterate, k::Int) = atomindices(x, k)
 
 # ∇f(x) on the entries of the coordinates in cand: for least squares
 # -s (X[:, j] - x̄ⱼ)' W r, as the coordinate steps compute it
@@ -716,7 +716,7 @@ end
 function _zerocoordinate!(m::LSModel{T}, x::AtomIterate{T}, k::Int) where {T}
   isactive(x, k) || return false
   moved = false
-  for j in x.groups[k]
+  for j in atomindices(x, k)
     v = x[j]
     iszero(v) && continue
     x[j] = zero(T)

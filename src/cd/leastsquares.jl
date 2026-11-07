@@ -189,7 +189,7 @@ end
 # the entries of the active coordinates of x: the stored entries of a
 # SparseIterate, the entries of the active groups of an AtomIterate
 _activeentries(x::SparseIterate) = activecoordinates(x)
-_activeentries(x::AtomIterate) = Iterators.flatten(x.groups[k] for k in activecoordinates(x))
+_activeentries(x::AtomIterate) = Iterators.flatten(atomindices(x, k) for k in activecoordinates(x))
 
 initialize!(m::LSModel{T}, x::Union{SparseIterate{T}, AtomIterate{T}}) where {T} = _initialize!(m, x, true)
 
@@ -555,7 +555,7 @@ end
 function _groupcurvature!(m::LSModel{T}, x::AtomIterate{T}, k::Int) where {T}
   L = m.L[k]
   if isnan(L)
-    G = x.groups[k]
+    G = atomindices(x, k)
     L = length(G) == 1 ? m.s * _sqnorm!(m, first(G)) : max(m.s * _gram_eigmax!(m, x, G), zero(T))
     L = T(L)
     m.L[k] = L
@@ -595,7 +595,7 @@ end
 # ‖∇_G f(x)‖ ≤ λ0 wₖ, whatever L, which is then not needed. Returns the largest
 # change of an entry, scaled with `scaled`; u is a buffer of at least |G| entries.
 function _groupstep!(m::LSModel{T}, g::GroupNormL2, x::AtomIterate{T}, k::Int, scaled::Bool) where {T}
-  G = x.groups[k]
+  G = atomindices(x, k)
   c = T(g.λ0 * g.w[k])
   u = _groupbuffer!(m, length(G))
 

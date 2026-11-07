@@ -191,9 +191,9 @@ end
 # cache of the model (_cache), exactly up to rounding; another model is
 # initialized at y. After the pass, k restarts at 1 when the step of the pass
 # points against the momentum, (xₖ₊₁ - y)'(xₖ - xₖ₋₁) < 0. The history is
-# indexed by position among the active values (_values!): the stored values
-# x.nzval[1:m] of a SparseIterate or a SymmetricSparseIterate, the entries of
-# the active groups of an AtomIterate in the order of x.active. A pass over the
+# indexed by position among the active values (_values!): the active values
+# of a SparseIterate or a SymmetricSparseIterate (activevalues), the entries of
+# the active groups of an AtomIterate in the order of activecoordinates. A pass over the
 # active set adds no coordinate, and dropzeros! reorders them only when it
 # removes one (it moves the last one into the place of each it removes), so the
 # history starts again when the number of active coordinates changes, and after
@@ -537,12 +537,13 @@ function _momentum_refresh!(s::_Momentum, x, m)
   s
 end
 
-# The active values of the history: the stored values x.nzval[1:n] of a
+# The active values of the history: the first n entries of activevalues(x) for a
 # SparseIterate or a SymmetricSparseIterate, and the entries of the active
-# groups of an AtomIterate, group by group in the order of x.active. Only these
-# are read and written, so the zeros of the inactive groups stay zero; an entry
-# is written into the storage, which neither activates nor deactivates a group,
-# so a group moved to zero stays active until dropzeros! after the pass.
+# groups of an AtomIterate, group by group in the order of activecoordinates(x).
+# Only these are read and written, so the zeros of the inactive groups stay
+# zero; an entry of an active group is written through x[j], which neither
+# activates nor deactivates a group, so a group moved to zero stays active until
+# dropzeros! after the pass.
 const _StoredValues = Union{SparseIterate, SymmetricSparseIterate}
 
 # the number of active values, and room for all of them
@@ -552,32 +553,32 @@ _maxvalues(x::AtomIterate) = length(x)
 
 function _nvalues(x::AtomIterate)
   n = 0
-  @inbounds for a in 1:x.nactive
-    n += length(x.groups[x.active[a]])
+  for k in activecoordinates(x)
+    n += length(atomindices(x, k))
   end
   n
 end
 
 # v[1:n] = the active values of x
-_values!(v::Vector, x::_StoredValues, n::Int) = copyto!(v, 1, x.nzval, 1, n)
+_values!(v::Vector, x::_StoredValues, n::Int) = copyto!(v, 1, activevalues(x), 1, n)
 
 function _values!(v::Vector, x::AtomIterate, n::Int)
   i = 0
-  @inbounds for a in 1:x.nactive, j in x.groups[x.active[a]]
+  @inbounds for k in activecoordinates(x), j in atomindices(x, k)
     i += 1
-    v[i] = x.storage[j]
+    v[i] = x[j]
   end
   v
 end
 
 # the active values of x = v[1:n]
-_setvalues!(x::_StoredValues, v::Vector, n::Int) = copyto!(x.nzval, 1, v, 1, n)
+_setvalues!(x::_StoredValues, v::Vector, n::Int) = copyto!(activevalues(x), 1, v, 1, n)
 
 function _setvalues!(x::AtomIterate, v::Vector, n::Int)
   i = 0
-  @inbounds for a in 1:x.nactive, j in x.groups[x.active[a]]
+  @inbounds for k in activecoordinates(x), j in atomindices(x, k)
     i += 1
-    x.storage[j] = v[i]
+    x[j] = v[i]          # the group is active, so this never changes the working set
   end
   x
 end
@@ -585,18 +586,18 @@ end
 # (x - y)'(xcur - xprev) over the active values, which is negative when the step
 # of the last pass points against the momentum
 function _restartdot(s::_Momentum{T}, x::_StoredValues, n::Int) where {T}
-  d = zero(T)
+  av, d = activevalues(x), zero(T)
   @inbounds for j in 1:n
-    d += (x.nzval[j] - s.y[j]) * (s.xcur[j] - s.xprev[j])
+    d += (av[j] - s.y[j]) * (s.xcur[j] - s.xprev[j])
   end
   d
 end
 
 function _restartdot(s::_Momentum{T}, x::AtomIterate, n::Int) where {T}
   d, i = zero(T), 0
-  @inbounds for a in 1:x.nactive, j in x.groups[x.active[a]]
+  @inbounds for k in activecoordinates(x), j in atomindices(x, k)
     i += 1
-    d += (x.storage[j] - s.y[i]) * (s.xcur[i] - s.xprev[i])
+    d += (x[j] - s.y[i]) * (s.xcur[i] - s.xprev[i])
   end
   d
 end
