@@ -500,6 +500,7 @@ struct CaseResult
   data_hash::String
   cold_differences::Vector{String}
   note::String
+  cold::Vector{Tuple{String, String, String}}   # kind, name, value of the cold snapshot (no fixture rows)
 end
 
 """
@@ -543,7 +544,8 @@ function export_case(H, meta, make, rep::Integer, certificates::AbstractString)
                          if kind != "fixture" && cold[(kind, name)] != warm[(kind, name)]]
     rows = [(kind, name, warm[(kind, name)]) for (kind, name) in row_keys(warm)]
     note = "cold: $note_cold; warm: $note_warm"
-    CaseResult(id, Int(rep), parts.family, rows, hash, differences, note)
+    cold_rows = [(kind, name, cold[(kind, name)]) for (kind, name) in row_keys(cold) if kind != "fixture"]
+    CaseResult(id, Int(rep), parts.family, rows, hash, differences, note, cold_rows)
   catch err
     err isa EncodeError && throw(VerifyError("$id rep $rep: $(err.msg)"))
     rethrow()
@@ -656,9 +658,22 @@ function summary_table(cfg, sched, results, harness_hash_value, certificates, ce
     "cold_differences" => count(r -> !isempty(r.cold_differences), results),
     "note_p03_p06" => "the hidden coordinate-descent working set inside workspace.buffers is cleared inside the " *
       "timed solve and is not visible to the spec rows; the per-case note records a diagnostic that is never compared",
-    "case" => [Dict{String, Any}("id" => r.id, "rep" => r.rep, "family" => String(r.family),
-                                 "cold_equals_warm" => isempty(r.cold_differences),
-                                 "cold_differences" => r.cold_differences, "note" => r.note) for r in results])
+    "case" => [case_table(r) for r in results])
+end
+
+"""One summary entry: the cold snapshot hashes next to the warm ones (the warm rows are the TSV)."""
+function case_table(r::CaseResult)
+  entry = Dict{String, Any}("id" => r.id, "rep" => r.rep, "family" => String(r.family),
+                            "cold_equals_warm" => isempty(r.cold_differences),
+                            "cold_differences" => r.cold_differences, "note" => r.note)
+  warm = Dict((k, n) => v for (k, n, v) in r.rows)
+  for (kind, name, value) in r.cold
+    label = kind * "_" * replace(name, "." => "_")
+    entry["cold_" * label] = value
+    entry["warm_" * label] = warm[(kind, name)]
+    entry["equal_" * label] = value == warm[(kind, name)]
+  end
+  entry
 end
 
 function create_exclusive(path, bytes)
@@ -675,6 +690,51 @@ function create_exclusive(path, bytes)
   end
 end
 
+const PUBLISH_HOOK = Ref{Any}(nothing)   # test hook of export_all's publication
+exists_or_link(path) = islink(path) || ispath(path)
+
+"""
+    publish!(items; before = nothing)
+
+Publish `items`, a vector of (path, content), all or nothing. Every content is first written to a temporary
+file in its target directory; each final name is then created by `link`, which cannot overwrite anything (an
+existing file, or a symlink even if dangling, is never followed or replaced). On any failure only the final
+names created by this call are removed, and every temporary file is removed; pre-existing files are untouched.
+`before(i)` is a test hook called before the i-th publication.
+"""
+function publish!(items; before = nothing)
+  temporaries, published = String[], String[]
+  try
+    for (i, (path, bytes)) in enumerate(items)
+      dir = dirname(abspath(path))
+      temporary = joinpath(dir, ".fp-" * basename(path) * "." * string(rand(UInt32); base = 16) * ".tmp")
+      create_exclusive(temporary, bytes)
+      push!(temporaries, temporary)
+    end
+    for (i, (path, _)) in enumerate(items)
+      before === nothing || before(i)
+      try
+        Base.Filesystem.hardlink(temporaries[i], path)
+      catch err
+        throw(VerifyError("cannot publish $path without overwriting: $(sprint(showerror, err))"))
+      end
+      push!(published, path)
+    end
+  catch
+    for path in reverse(published)
+      rm(path; force = true)
+    end
+    for path in temporaries
+      rm(path; force = true)
+    end
+    rethrow()
+  end
+  for path in temporaries
+    rm(path; force = true)
+  end
+  nothing
+end
+
 """Everything after the harness is loaded; call through `Base.invokelatest`."""
 function export_all(H, cfg, sched, certificates, certify_methods, harness_hash_value)
   specs = select_specs(H, sched)
@@ -689,16 +749,15 @@ function export_all(H, cfg, sched, certificates, certify_methods, harness_hash_v
   summary = IOBuffer()
   TOML.print(summary, summary_table(cfg, sched, results, harness_hash_value, certificates, certify_methods);
              sorted = true)
-  create_exclusive(cfg.out, main_bytes)
-  create_exclusive(cfg.out * ".datahash.tsv", sidecar_bytes)
-  create_exclusive(cfg.out * ".summary.toml", take!(summary))
+  publish!([(cfg.out, main_bytes), (cfg.out * ".datahash.tsv", sidecar_bytes),
+            (cfg.out * ".summary.toml", take!(summary))]; before = PUBLISH_HOOK[])
   (; results, bytes = main_bytes)
 end
 
 function run(args)
   cfg = parse_args(args)
   for path in (cfg.out, cfg.out * ".datahash.tsv", cfg.out * ".summary.toml")
-    ispath(path) && throw(VerifyError("refusing to overwrite $path"))
+    exists_or_link(path) && throw(VerifyError("refusing to overwrite $path"))
   end
   Threads.nthreads() == 1 || throw(VerifyError("run with JULIA_NUM_THREADS=1"))
   BLAS.set_num_threads(1)

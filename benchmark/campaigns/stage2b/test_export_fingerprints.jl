@@ -12,7 +12,7 @@
 # Groups: 1 the encoder (pairs that must differ, unsupported types, known answers); 2 the real cases through
 # the harness: identity checks, data_hash against problem_hash, the reset semantics of P14, P04, P13 and D04, the
 # certificate file identity, fail-closed adapters; 3 the command line: determinism and refusals; 4 (optional)
-# the full scheduled export. The script exits non-zero when a check fails and prints
+# the full scheduled export (with an atomic-publication group before it). The script exits non-zero when a check fails and prints
 # `FINGERPRINT EXPORTER TEST: PASS` or `FINGERPRINT EXPORTER TEST: FAIL` as its last line.
 
 using Test, Random, LinearAlgebra, SparseArrays, TOML
@@ -423,6 +423,90 @@ cli_ok = run_group("command line") do
     @test redirect_stderr(() -> E.main(String[]), devnull) == 1
     @test redirect_stderr(() -> E.main(["--bogus", "1"]), devnull) == 1
     @test E.parse_reps("1-3,5") == [1, 2, 3, 5]
+    # The cold snapshot hashes are persisted next to the warm ones.
+    for entry in summary["case"]
+      for label in ("reset_values", "reset_active_ids", "config_solver", "config_options", "file_certificates_jl")
+        @test hex64(entry["cold_" * label]) || entry["cold_" * label] == "none"
+        @test entry["equal_" * label] == (entry["cold_" * label] == entry["warm_" * label])
+      end
+      @test entry["cold_equals_warm"] == all(entry["equal_" * l] for l in ("reset_values", "reset_active_ids", "config_solver", "config_options"))
+      warm = [r[6] for r in rows if r[2] == entry["id"] && r[3] == string(entry["rep"]) && r[4] == "reset" && r[5] == "values"]
+      @test entry["warm_reset_values"] == only(warm)
+    end
+    by = Dict((e["id"], e["rep"]) => e for e in summary["case"])
+    @test by[(IDS.P02, 1)]["cold_equals_warm"] && by[(IDS.P02, 1)]["cold_reset_values"] == by[(IDS.P02, 1)]["warm_reset_values"]
+    # Every recorded difference carries two different hashes, and the cold hash is the encoding of the cold state.
+    for entry in summary["case"]
+      entry["cold_equals_warm"] && continue
+      @test entry["cold_reset_values"] != entry["warm_reset_values"]
+    end
+    p04 = by[(IDS.P04, 1)]
+    if !p04["cold_equals_warm"]
+      zeros_cold = E.fingerprint("reset", "values", (; iterate = (; type = "AtomIterate", values = zeros(32)), rng = nothing))
+      @test p04["cold_reset_values"] == zeros_cold && p04["warm_reset_values"] != zeros_cold
+    end
+  end
+end
+
+publish_ok = run_group("atomic publication") do
+  listing(dir) = sort(readdir(dir; join = false))
+  mktempdir() do dir
+    a, b, c = joinpath(dir, "o.tsv"), joinpath(dir, "o.tsv.datahash.tsv"), joinpath(dir, "o.tsv.summary.toml")
+    items = [(a, b"A"), (b, b"B"), (c, b"C")]
+    @test E.publish!(items) === nothing
+    @test listing(dir) == sort(basename.([a, b, c])) && read(a) == b"A" && read(c) == b"C"
+    rm.([a, b, c])
+    # a regular file appears at the second final name after the checks
+    before_state = listing(dir)
+    err = try
+      E.publish!(items; before = n -> n == 2 && write(b, "mine"))
+      nothing
+    catch e
+      e
+    end
+    @test err isa E.VerifyError
+    @test listing(dir) == sort([basename(b)]) && read(b, String) == "mine"
+    rm(b)
+    # a dangling symlink appears at the third final name: never followed, never deleted
+    ghost = joinpath(dir, "ghost")
+    err = try
+      E.publish!(items; before = n -> n == 3 && symlink(ghost, c))
+      nothing
+    catch e
+      e
+    end
+    @test err isa E.VerifyError
+    @test listing(dir) == [basename(c)] && islink(c) && !ispath(ghost) && readlink(c) == ghost
+    rm(c)
+    @test listing(dir) == before_state
+    # pre-existing files are kept when the first publication fails
+    write(a, "old")
+    err = try
+      E.publish!(items)
+      nothing
+    catch e
+      e
+    end
+    @test err isa E.VerifyError && read(a, String) == "old" && listing(dir) == [basename(a)]
+  end
+  # through the command line: a sidecar appearing between the existence check and the publication
+  mktempdir() do dir
+    schedule = joinpath(dir, "schedule.toml")
+    write_schedule(schedule, [IDS.P02]; reps = [1])
+    out = joinpath(dir, "z.tsv")
+    for (n, target) in ((2, out * ".datahash.tsv"), (3, out * ".summary.toml"))
+      E.PUBLISH_HOOK[] = i -> i == n && symlink(joinpath(dir, "nowhere"), target)
+      code, _ = try
+        cli(dir, "z.tsv", schedule; reps = "1")
+      finally
+        E.PUBLISH_HOOK[] = nothing
+      end
+      @test code == 2
+      @test listing(dir) == sort(["schedule.toml", basename(target)]) && islink(target)
+      rm(target)
+    end
+    code, _ = cli(dir, "z.tsv", schedule; reps = "1")
+    @test code == 0 && length(listing(dir)) == 4
   end
 end
 
@@ -455,6 +539,6 @@ full_ok = !FULL || run_group("full scheduled export, repetitions 1-2") do
   end
 end
 
-passed = encoder_ok & harness_ok & cli_ok & full_ok
+passed = encoder_ok & harness_ok & cli_ok & publish_ok & full_ok
 println("FINGERPRINT EXPORTER TEST: ", passed ? "PASS" : "FAIL")
 exit(passed ? 0 : 1)
