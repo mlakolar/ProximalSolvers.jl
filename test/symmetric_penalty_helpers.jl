@@ -54,10 +54,10 @@ function rejects_symmetry(action, x)
 end
 
 # the same for a workspace: its penalty and its iterate stay as they were
-function rejects_in_workspace(action, ws)
+function rejects_in_workspace(action, ws, x = ws.x)
   @nospecialize action
   g = ws.g
-  rejects_symmetry(action, ws.x)
+  rejects_symmetry(action, x)
   @test ws.g === g
 end
 

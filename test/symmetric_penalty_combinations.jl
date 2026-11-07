@@ -175,7 +175,7 @@ end
         SolverWorkspace(initialw, loss, raw, method, gradient_options())
       end
       wsw = SolverWorkspace(initialw, loss, penalty, method, gradient_options())
-      rejects_in_workspace(wsw) do
+      rejects_in_workspace(wsw, xw) do
         solve!(wsw, rawnext)
       end
       result = solve!(initial, loss, penalty, method, gradient_options())
