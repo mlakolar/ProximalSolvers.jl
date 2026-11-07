@@ -376,9 +376,12 @@ def stack_a(schedule, label, installation):
     return dict(
         label=label, installation=installation, dirty=False, blas=BLAS,
         checkout=f"/synthroot/{installation}/ProximalSolvers.jl", depot=f"/synthroot/{installation}/depot",
+        depot_real=f"/synthroot/{installation}/depot",
+        env=f"/synthroot/{installation}/envs/env-{{version}}/Project.toml",
+        env_real=f"/synthroot/{installation}/envs/env-{{version}}/Project.toml",
         ps=dict(commit=ident["proximalsolvers"]["commit"], tree=ident["proximalsolvers"]["tree"],
                 version=ident["proximalsolvers"]["version"], hash=PS_A_PACKAGE_HASH),
-        pb=dict(dict(ident["proximalbase"]), hash=PB_A_PACKAGE_HASH),
+        pb=dict({k: v for k, v in ident["proximalbase"].items() if k != "package_hash"}, hash=PB_A_PACKAGE_HASH),
         harness=ident["harness_hash"], pb_compat="0.5", loaded_tree=None,
         deps={"StatsBase": _dep("StatsBase", "1.9.0", "1"), "OldDep": _dep("OldDep", "0.2.0", "0.2")})
 
@@ -848,8 +851,9 @@ class Campaign:
             "proximalbase_version": stack["pb"]["version"],
             "proximalbase_loaded_tree": stack["loaded_tree"] or stack["pb"]["tree"],
             "proximalsolvers_dir": stack["checkout"], "threads": 1,
-            "active_project": f"/synthroot/{stack['installation']}/benchmark", "cpu_name":
-            self.sched["machine"]["cpu"][jkey]}
+            "active_project": stack["env"].format(version=self.version(jkey)),
+            "depot_realpath": stack["depot_real"], "cpu_name": self.sched["machine"]["cpu"][jkey]}
+        inventory["active_project_realpath"] = stack["env_real"].format(version=self.version(jkey))
         inventory["deps"] = {name: {"tree": entry["tree"], "uuid": entry["uuid"], "version": entry["version"]}
                              for name, entry in manifest_entries(stack, jkey).items() if entry["tree"]}
         return inventory
