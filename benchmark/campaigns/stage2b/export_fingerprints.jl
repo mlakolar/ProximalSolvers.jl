@@ -683,12 +683,26 @@ function create_exclusive(path, bytes)
   catch err
     throw(VerifyError("cannot create $path exclusively: $(sprint(showerror, err))"))
   end
+  # Ownership begins here: the exclusive open succeeded, so this call created the file and removes it if the
+  # write or close fails (a name is never removed before the exclusive open has succeeded).
   try
-    write(file, bytes)
-  finally
-    close(file)
+    try
+      STAGE_HOOK[] === nothing || STAGE_HOOK[](path)
+      write(file, bytes)
+    finally
+      close(file)
+    end
+  catch
+    rm(path; force = true)
+    rethrow()
   end
 end
+
+const STAGE_HOOK = Ref{Any}(nothing)   # test hook: called with the path after the exclusive create, before the write
+
+"""A temporary name beside `path`; it draws from the system entropy device, never from the default RNG."""
+temporary_name(path) = joinpath(dirname(abspath(path)),
+  ".fp-" * basename(path) * "." * string(rand(Random.RandomDevice(), UInt64); base = 16) * ".tmp")
 
 const PUBLISH_HOOK = Ref{Any}(nothing)   # test hook of export_all's publication
 exists_or_link(path) = islink(path) || ispath(path)
@@ -706,8 +720,7 @@ function publish!(items; before = nothing)
   temporaries, published = String[], String[]
   try
     for (i, (path, bytes)) in enumerate(items)
-      dir = dirname(abspath(path))
-      temporary = joinpath(dir, ".fp-" * basename(path) * "." * string(rand(UInt32); base = 16) * ".tmp")
+      temporary = temporary_name(path)
       create_exclusive(temporary, bytes)
       push!(temporaries, temporary)
     end

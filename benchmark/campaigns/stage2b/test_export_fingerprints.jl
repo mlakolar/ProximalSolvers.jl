@@ -489,6 +489,49 @@ publish_ok = run_group("atomic publication") do
     end
     @test err isa E.VerifyError && read(a, String) == "old" && listing(dir) == [basename(a)]
   end
+  # staging write failure after the second temporary was exclusively created: nothing is left behind
+  mktempdir() do dir
+    a, b, c = joinpath(dir, "o.tsv"), joinpath(dir, "o.tsv.datahash.tsv"), joinpath(dir, "o.tsv.summary.toml")
+    items = [(a, b"A"), (b, b"B"), (c, b"C")]
+    write(joinpath(dir, "keep"), "x")
+    count = Ref(0)
+    E.STAGE_HOOK[] = path -> (count[] += 1; count[] == 2 && error("injected write failure"))
+    err = try
+      E.publish!(items)
+      nothing
+    catch e
+      e
+    finally
+      E.STAGE_HOOK[] = nothing
+    end
+    @test err !== nothing && count[] == 2
+    @test sort(readdir(dir)) == ["keep"]
+    # the same failure through the command line
+    schedule = joinpath(dir, "schedule.toml")
+    write_schedule(schedule, [IDS.P02]; reps = [1])
+    count[] = 0
+    E.STAGE_HOOK[] = path -> (count[] += 1; count[] == 2 && error("injected write failure"))
+    code, _ = try
+      cli(dir, "w.tsv", schedule; reps = "1")
+    finally
+      E.STAGE_HOOK[] = nothing
+    end
+    @test code != 0 && sort(readdir(dir)) == ["keep", "schedule.toml"]
+  end
+  # temporary names: not drawn from the default RNG, different even after the RNG is re-seeded
+  mktempdir() do dir
+    path = joinpath(dir, "o.tsv")
+    Random.seed!(7)
+    n1 = E.temporary_name(path)
+    Random.seed!(7)
+    n2 = E.temporary_name(path)
+    @test n1 != n2 && dirname(n1) == dir && startswith(basename(n1), ".fp-o.tsv.")
+    Random.seed!(11)
+    state = copy(Random.default_rng())
+    E.publish!([(path, b"A")])
+    @test copy(Random.default_rng()) == state
+    @test readdir(dir) == ["o.tsv"]
+  end
   # through the command line: a sidecar appearing between the existence check and the publication
   mktempdir() do dir
     schedule = joinpath(dir, "schedule.toml")
