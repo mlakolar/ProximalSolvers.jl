@@ -1378,61 +1378,60 @@ def declared_differences(base, lock):
             if entry["kind"] == kind and entry["name"] == name and (kind == "compat" or (
                     entry["uuid"] == uuid and entry["change"] == change)):
                 yield index, entry
-    manifest_rows, groups = [], {}
+    def associate(label, observed, find, make_row):
+        """Match the lock's declarations with the observed differences PER STRATUM. A declaration's `julia` scope
+        selects the strata it covers (unscoped: all). Every observed (key, stratum) needs exactly one covering
+        declaration; a declaration for a stratum where the key is not observed is a refusal. A declaration whose
+        scope spans strata with different observed values becomes one row per value group."""
+        rows = []
+        for key in sorted({k for per in observed.values() for k in per}):
+            covering = {mm: [] for mm in strata}
+            for index, entry in find(key):
+                used.add(index)
+                by_value = {}
+                for mm in entry.get("julia", strata):
+                    value = observed[mm].get(key)
+                    if value is None:
+                        problems.append(f"{label} {key[0]}: declared for julia {mm}, where it is not observed")
+                        continue
+                    covering[mm].append(index)
+                    by_value.setdefault(value, []).append(mm)
+                for value, scope in sorted(by_value.items()):
+                    rows.append((key, value, make_row(key, value, entry, scope)))
+            for mm in strata:
+                if key in observed[mm] and not covering[mm]:
+                    problems.append(f"{label} {key[0]} julia {mm}: observed, but the lock has no reason for it")
+                if len(covering[mm]) > 1:
+                    problems.append(f"{label} {key[0]} julia {mm}: declared twice for julia {mm}")
+        return [row for _, _, row in sorted(rows, key=lambda r: (r[0], r[1], r[2].get("julia", [])))]
+
+    def scoped(row, scope):
+        if sorted(scope) != sorted(strata):
+            row["julia"] = list(scope)
+        return row
+    observed_manifest, observed_compat, exempt = {}, {}, {}
     for mm in strata:
         sa, sb = roots["a"]["strata"][mm], roots["b"]["strata"][mm]
-        for item in sorted(mc.manifest_diff(sa["manifest"]["entries"], sb["manifest"]["entries"])):
-            groups.setdefault(item, []).append(mm)
-    for item, applied in sorted(groups.items()):
-        name, uuid, kind, a_version, b_version, a_tree, b_tree = item
-        covered = set()
-        for index, entry in match("manifest", name, uuid, kind):
-            julia = list(entry.get("julia", strata))
-            used.add(index)
-            if set(julia) - set(applied):
-                problems.append(f"manifest {name} {kind}: declared for julia {sorted(set(julia) - set(applied))}, "
-                                f"where it is not observed")
-            if covered & set(julia):
-                problems.append(f"manifest {name} {kind}: declared twice for julia {sorted(covered & set(julia))}")
-            covered |= set(julia)
-            row = {"name": name, "uuid": uuid, "kind": kind, "a_version": a_version, "b_version": b_version,
-                   "a_tree": a_tree, "b_tree": b_tree, "reason": entry["reason"]}
-            if sorted(julia) != sorted(strata):
-                row["julia"] = julia
-            manifest_rows.append(row)
-        for mm in applied:
-            if mm not in covered:
-                problems.append(f"manifest {name} {kind} julia {mm}: observed, but the lock has no reason for it")
-    compat_rows, compat_groups = [], {}
-    for mm in strata:
-        pa, pb_ = roots["a"]["strata"][mm]["project"], roots["b"]["strata"][mm]["project"]
+        diff = mc.manifest_diff(sa["manifest"]["entries"], sb["manifest"]["entries"])
+        observed_manifest[mm] = {(n, u, k): (av, bv, at, bt) for n, u, k, av, bv, at, bt in diff}
+        exempt[mm] = {n for n, _, k, *_ in diff if k in ("added", "removed")}
+        pa, pb_ = sa["project"], sb["project"]
         ca, cb = pa["compat"], pb_["compat"]
-        for name in sorted(ca.keys() | cb.keys()):
-            if ca.get(name) != cb.get(name):
-                compat_groups.setdefault((name, ca.get(name, ""), cb.get(name, "")), []).append(mm)
-        exempt = {t[0] for t in groups if t[2] in ("added", "removed")}
+        observed_compat[mm] = {(n,): (ca.get(n, ""), cb.get(n, "")) for n in ca.keys() | cb.keys()
+                               if ca.get(n) != cb.get(n)}
         da, db = pa["deps"], pb_["deps"]
-        for name in sorted(n for n in da.keys() | db.keys() if da.get(n) != db.get(n) and n not in exempt):
+        for name in sorted(n for n in da.keys() | db.keys() if da.get(n) != db.get(n) and n not in exempt[mm]):
             problems.append(f"Project.toml [deps] {name} differs in julia {mm} without an added or removed "
                             "Manifest difference")
-    for (name, a, b), applied in sorted(compat_groups.items()):
-        covered = set()
-        for index, entry in match("compat", name):
-            julia = list(entry.get("julia", strata))
-            used.add(index)
-            if set(julia) - set(applied):
-                problems.append(f"compat {name}: declared for julia {sorted(set(julia) - set(applied))}, where it "
-                                f"is not observed")
-            if covered & set(julia):
-                problems.append(f"compat {name}: declared twice for julia {sorted(covered & set(julia))}")
-            covered |= set(julia)
-            row = {"name": name, "a": a, "b": b, "reason": entry["reason"]}
-            if sorted(julia) != sorted(strata):
-                row["julia"] = julia
-            compat_rows.append(row)
-        for mm in applied:
-            if mm not in covered:
-                problems.append(f"compat {name} julia {mm}: observed, but the lock has no reason for it")
+    manifest_rows = associate(
+        "manifest", observed_manifest, lambda key: match("manifest", key[0], key[1], key[2]),
+        lambda key, value, entry, scope: scoped(
+            {"name": key[0], "uuid": key[1], "kind": key[2], "a_version": value[0], "b_version": value[1],
+             "a_tree": value[2], "b_tree": value[3], "reason": entry["reason"]}, scope))
+    compat_rows = associate(
+        "compat", observed_compat, lambda key: match("compat", key[0]),
+        lambda key, value, entry, scope: scoped(
+            {"name": key[0], "a": value[0], "b": value[1], "reason": entry["reason"]}, scope))
     for index, entry in enumerate(lock_entries):
         if index not in used:
             problems.append(f"declared {entry['kind']} {entry['name']}: declared in the lock but not observed")
@@ -1599,6 +1598,10 @@ class Attempt:
 
     def __init__(self, plan, hooks):
         self.plan, self.hooks, self.finished = plan, hooks, False
+        # The last depot-cache digest read per installation (role); prepare may record a baseline per role in
+        # logs/depot-baselines.json, which then also binds the first launch of that role.
+        baselines = read_json_file(plan.base / "logs" / "depot-baselines.json") or {}
+        self.depot_last = {role: str(value) for role, value in baselines.items()}
         logs = plan.base / "logs"
         logs.mkdir(parents=True, exist_ok=True)
         create_exclusive(logs / "STATE.json", state_text("running", campaign_id=plan.campaign_id,
@@ -1686,6 +1689,12 @@ def run_one(plan, hooks, attempt, key, observations, first, nonok):
     if prefix_files(raw, stem):
         attempt.stop(f"raw/ already holds records of {stem}", key)
     digest_before = str(hooks.depot_digest(spec))
+    expected_digest = attempt.depot_last.get(key.role)
+    if expected_digest is not None and digest_before != expected_digest:
+        append_jsonl(logs / "commands.jsonl", {
+            "process": key.name, "launched": False, "depot_digest_expected": expected_digest,
+            "depot_digest_before": digest_before, "depot_digest_continuous": False})
+        attempt.stop("the compiled-cache digest of the depot changed between processes", key)
     before = hooks.sampler()
     if sample_differences(first, before):
         append_jsonl(logs / "hardware.jsonl", {"process": key.name, "moment": "before", "sample": before,
@@ -1732,7 +1741,9 @@ def run_one(plan, hooks, attempt, key, observations, first, nonok):
             "process": key.name, "argv": argv, "cwd": str(spec.checkout), "env": env,
             "start_utc": utc_text(launched["start"]), "end_utc": utc_text(end), "exit": result.exit,
             "stdout": f"logs/{key.name}.stdout", "stderr": f"logs/{key.name}.stderr", "machine_before": before,
-            "machine_after": after, "depot_digest_before": digest_before, "depot_digest_after": digest_after})
+            "machine_after": after, "depot_digest_before": digest_before, "depot_digest_after": digest_after,
+            "depot_digest_expected": expected_digest, "depot_digest_continuous": True})
+        attempt.depot_last[key.role] = digest_after
         append_jsonl(logs / "hardware.jsonl", {"process": key.name, "moment": "after", "sample": after,
                                                "disagrees": sample_differences(first, after)})
         if seal_error is not None:

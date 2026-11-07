@@ -2477,6 +2477,132 @@ class DeclaredScopeTests(unittest.TestCase):
             C.declared_differences(base, lock)
 
 
+# ------------------------------------------------------------------------------------ revision 2
+
+class DepotContinuityTests(EngineBase):
+    """The depot caches stay frozen between processes of one installation, not only during them."""
+
+    @staticmethod
+    def per_role(values):
+        """A depot_digest hook: the read number n (per installation) returns values[n // 2]."""
+        reads = {}
+
+        def hook(spec):
+            n = reads.get(spec.name, 0)
+            reads[spec.name] = n + 1
+            return values[min(n // 2, len(values) - 1)]
+        return hook
+
+    def test_a_change_between_two_processes_of_a_role_stops_the_run(self):
+        base, plan, host = self.make()
+        with self.assertRaises(C.Stopped) as caught:
+            C.execute(plan, host.hooks(depot_digest=self.per_role(["cache-0", "cache-1"])))
+        self.assertIn("between processes", str(caught.exception))
+        self.assertEqual(len(host.calls), 2, "the order is A,B,A,B: ab-a's second process is not launched")
+        events = self.receipt(base)[1:]
+        self.assertEqual(len(events), 2)
+        self.assertEqual(self.state(base)["state"], "stopped")
+        self.assertIn("between processes", self.state(base)["reason"])
+        commands = C.read_jsonl(base / "logs" / "commands.jsonl")
+        self.assertEqual(commands[-1]["launched"], False)
+        self.assertEqual((commands[-1]["depot_digest_expected"], commands[-1]["depot_digest_before"]),
+                         ("cache-0", "cache-1"))
+        self.assertTrue(all(e["complete"] for e in events), "the processes that ran were honest and complete")
+        self.assertFalse((base / "logs" / "completion.json").exists())
+
+    def test_an_unchanged_cache_is_recorded_as_continuous(self):
+        base, plan, host = self.make()
+        C.execute(plan, host.hooks())
+        commands = C.read_jsonl(base / "logs" / "commands.jsonl")
+        self.assertEqual([c["depot_digest_continuous"] for c in commands], [True] * 4)
+        by_role = {}
+        for command in commands:
+            role = "ab-a" if "-A-" in command["process"] else "ab-b"
+            self.assertEqual(command["depot_digest_expected"], by_role.get(role), command["process"])
+            by_role[role] = command["depot_digest_after"]
+
+    def test_a_prepared_baseline_binds_the_first_launch_of_a_role(self):
+        base, plan, host = self.make()
+        (base / "logs").mkdir()
+        (base / "logs" / "depot-baselines.json").write_text(json.dumps({"ab-b": "prepared"}))
+        with self.assertRaises(C.Stopped):
+            C.execute(plan, host.hooks())
+        self.assertEqual(len(host.calls), 1, "ab-a ran, ab-b's first launch was refused by its baseline")
+        base, plan, host = self.make()
+        (base / "logs").mkdir()
+        (base / "logs" / "depot-baselines.json").write_text(json.dumps({"ab-a": "digest-of-the-depot-cache"}))
+        self.assertEqual(C.execute(plan, host.hooks()).exit_code, 0)
+
+
+def two_stratum_camp(name):
+    """A full set in which StatsBase changes 1.9.0 -> 2.0.0 in Julia 1.10 and 1.9.0 -> 3.0.0 in Julia 1.13, and its
+    compat entry 1 -> 2 and 1 -> 3, with a lock that declares each change in its own stratum."""
+    camp = F.build_campaign(fresh(name), "migration")
+    for jkey, version in (("1.10", "2.0.0"), ("1.13", "3.0.0")):
+        directory = camp.stratum("b", jkey)
+        edit_text(directory / "Manifest.toml", lambda t, v=version: t.replace('version = "1.9.0"', f'version = "{v}"'))
+        edit_text(directory / "Project.toml", lambda t, v=version[0]: t.replace('StatsBase = "1"', f'StatsBase = "{v}"'))
+    lock = make_lock(camp)
+    uuid = tomllib.loads((camp.stratum("b", "1.10") / "Manifest.toml").read_text())["deps"]["StatsBase"][0]["uuid"]
+    for jkey in ("1.10", "1.13"):
+        lock["declared"].append({"kind": "manifest", "name": "StatsBase", "uuid": uuid, "change": "changed",
+                                 "reason": f"StatsBase in {jkey}", "approval_url": URL, "julia": [jkey]})
+        lock["declared"].append({"kind": "compat", "name": "StatsBase", "reason": f"compat in {jkey}",
+                                 "approval_url": URL, "julia": [jkey]})
+    return camp, lock
+
+
+class DisjointStratumTests(unittest.TestCase):
+    """A dependency that changes to different values in different strata is declared per stratum."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.camp, cls.lock = two_stratum_camp("disjoint")
+        cls.base = assemble_base(cls.camp, fresh("disjoint-base") / "base", session="session-0001", with_raw=True)
+        shutil.copyfile(cls.camp.receipt, cls.base / "receipt.jsonl")
+
+    def test_the_driver_accepts_it_and_the_comparator_agrees(self):
+        declared = C.write_declared_differences(self.base, self.lock)
+        rows = [r for r in declared["manifest"] if r["name"] == "StatsBase"]
+        self.assertEqual([(r["julia"], r["a_version"], r["b_version"], r["reason"]) for r in rows],
+                         [(["1.10"], "1.9.0", "2.0.0", "StatsBase in 1.10"),
+                          (["1.13"], "1.9.0", "3.0.0", "StatsBase in 1.13")])
+        compat = [r for r in declared["compat"] if r["name"] == "StatsBase"]
+        self.assertEqual([(r["julia"], r["a"], r["b"], r["reason"]) for r in compat],
+                         [(["1.10"], "1", "2", "compat in 1.10"), (["1.13"], "1", "3", "compat in 1.13")])
+        code, stderr = C.run_comparator(self.base, fresh("disjoint-out") / "out")
+        self.assertEqual(code, 0, stderr)
+        self.assertNotIn("UNDECLARED", stderr)
+
+    def test_every_refusal_still_applies(self):
+        def lock_with(function):
+            lock = copy.deepcopy(self.lock)
+            function(lock)
+            return lock
+
+        def refused(lock, text):
+            with self.assertRaises(C.Refused) as caught:
+                C.declared_differences(self.base, lock)
+            self.assertIn(text, " ".join(caught.exception.problems) + str(caught.exception))
+        for kind in ("manifest", "compat"):
+            indexes = [i for i, e in enumerate(self.lock["declared"]) if e["kind"] == kind and e["name"] == "StatsBase"]
+            refused(lock_with(lambda l: l["declared"].pop(indexes[1])), "observed, but the lock has no reason")
+            refused(lock_with(lambda l: l["declared"][indexes[0]].update(julia=["1.10", "1.13"])), "declared twice")
+            refused(lock_with(lambda l: l["declared"][indexes[0]].update(julia=["9.99"])), "9.99")
+            refused(lock_with(lambda l: l["declared"].append(dict(l["declared"][indexes[0]]))), "declared twice")
+        manifest = next(i for i, e in enumerate(self.lock["declared"]) if e["kind"] == "manifest" and e["name"] == "ProximalBase")
+        refused(lock_with(lambda l: l["declared"][manifest].update(julia=["1.10"])), "observed, but the lock has no reason")
+
+    def test_an_unscoped_declaration_over_different_values_is_split_into_value_groups(self):
+        lock = copy.deepcopy(self.lock)
+        lock["declared"] = [e for e in lock["declared"] if not (e["name"] == "StatsBase" and e["kind"] == "manifest")]
+        uuid = next(e for e in self.lock["declared"] if e["name"] == "StatsBase" and e["kind"] == "manifest")["uuid"]
+        lock["declared"].append({"kind": "manifest", "name": "StatsBase", "uuid": uuid, "change": "changed",
+                                 "reason": "all", "approval_url": URL})
+        rows = [r for r in C.declared_differences(self.base, lock)["manifest"] if r["name"] == "StatsBase"]
+        self.assertEqual([(r["julia"], r["b_version"]) for r in rows], [(["1.10"], "2.0.0"), (["1.13"], "3.0.0")])
+
+
 # ------------------------------------------------------------------------------------------------- CLI
 
 class CliTests(unittest.TestCase):
