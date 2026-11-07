@@ -16,6 +16,7 @@ import argparse
 from collections import Counter, defaultdict
 import csv
 from datetime import datetime
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -69,8 +70,13 @@ DISCLAIMER = ("The screens are descriptive investigation screens, not tests: the
               "confidence bounds.")
 BANNED = re.compile(r"non-?inferior|no-regression|significant|equivalent", re.IGNORECASE)
 HISTORICAL_TITLE = "Historical Stage 2A reference (descriptive; not part of any ratio)"
-# An absolute path: a '/' that does not continue a word, a label or another path, then its components.
-ABSOLUTE_PATH = re.compile(r"(?<![\w.\-/>])/+(?:[\w.\-+@%]+/)*[\w.\-+@%]+")
+# What ends a path or URL token in a message: white space, quotes and brackets (and, for a path, , ; |).
+STOP = r"\s'\"`<>()\[\]{},;|"
+# An absolute path token: a '/' (or a run of them) that does not continue a word, '.', '-' or another '/', then
+# any characters but white space and the stop set; a lone '/' is not a path.
+ABSOLUTE_PATH = re.compile(rf"(?<![\w.\-/])/+[^{STOP}/][^{STOP}]*")
+# A complete URL (any scheme but file, which names a local path and is cleaned like one).
+URL_TOKEN = re.compile(r"(?<![A-Za-z0-9+.\-])(?!file:)[A-Za-z][A-Za-z0-9+.\-]*://[^\s'\"`<>()\[\]{}]*", re.IGNORECASE)
 COLUMNS = ("julia id role phase class reason repetitions a_ns b_ns ratio abs_diff_ns geomean_ratio ratio_min "
            "ratio_max measure target a_value b_value a_accuracy_fraction b_accuracy_fraction a_accuracy_band "
            "b_accuracy_band a_median_bytes b_median_bytes hardware aa_ratio_min aa_ratio_max screen "
@@ -1472,8 +1478,20 @@ def write_json(path, value):
     path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
 
 
+def path_tag(match):
+    """`basename#tag` of a path token: the tag is the first 8 hex digits of the SHA-256 of the token text (one
+    leading '/', no trailing '/'), taken before the directory is dropped."""
+    path = re.sub(r"^/+", "/", match[0]).rstrip("/")
+    return f"{path.rsplit('/', 1)[-1]}#{hashlib.sha256(path.encode()).hexdigest()[:8]}"
+
+
 def make_scrub(paths):
-    """A function that removes absolute paths from a message: known paths become labels, others their basename."""
+    """A function that removes absolute paths from a message (POSIX paths only; applied once per output string).
+
+    1. A complete URL token (any scheme but file) is kept verbatim.
+    2. A path given on the command line becomes its label, followed by the rest of its token.
+    3. Every other path token (ABSOLUTE_PATH) becomes `basename#tag`: equal paths print equal tags, different
+       paths different ones, and no directory is printed."""
     known = []
     for label, path in paths.items():
         for variant in {str(path), str(Path(path).resolve())} if path else ():
@@ -1482,40 +1500,52 @@ def make_scrub(paths):
     known.sort(key=lambda item: -len(item[0]))
 
     def scrub(text):
-        text = str(text)
+        holes = []
+
+        def keep(value):
+            holes.append(value)
+            return f"\x00{len(holes) - 1}\x00"
+        text = URL_TOKEN.sub(lambda match: keep(match[0]), str(text).replace("\x00", ""))
         for variant, label in known:
-            text = re.sub(re.escape(variant) + r"(?![\w.-])", lambda _: f"<{label}>", text)
-        text = text.replace("://", "\x00URL\x00")                       # a URL keeps its path
-        text = ABSOLUTE_PATH.sub(lambda match: match[0].rsplit("/", 1)[-1], text)
-        return text.replace("\x00URL\x00", "://")
+            text = re.sub(r"(?<![\w.\-/])" + re.escape(variant) + rf"(?![\w.\-])([^{STOP}]*)",
+                          lambda match: keep(f"<{label}>" + match[1][:1] + ABSOLUTE_PATH.sub(path_tag, match[1][1:])),
+                          text)
+        text = ABSOLUTE_PATH.sub(path_tag, text)
+        while "\x00" in text:
+            text = re.sub(r"\x00([0-9]+)\x00", lambda match: holes[int(match[1])], text)
+        return text
     return scrub
+
+
+def scrub_deep(scrub, value):
+    """The same cleaning for every string of a nested list or dictionary."""
+    if isinstance(value, str):
+        return scrub(value)
+    if isinstance(value, list):
+        return [scrub_deep(scrub, item) for item in value]
+    if isinstance(value, dict):
+        return {key: scrub_deep(scrub, item) for key, item in value.items()}
+    return value
 
 
 def comparison_phase(W):
     """Sections 5, 15, 16: everything that uses a timing value of a comparison.
 
     The ratios, geometric means, screens, class table, lists and report live here and nowhere else. It is called
-    only after every refusal has been evaluated and none was found; a refused input never reaches it."""
-    scrub, sched = W["scrub"], W["sched"]
+    only after every refusal has been evaluated and none was found; a refused input never reaches it. It returns
+    the raw strings; the caller cleans each output string once."""
+    sched = W["sched"]
     results = [classify(W, mm, cid) for mm in sched["strata"] for cid in sched["cases"]]
-    for result in results:
-        result["reason"] = scrub(result["reason"])
     lists = build_lists(W, results)
-    for items in lists.values():
-        for item in items:
-            for key, value in item.items():
-                if isinstance(value, str):
-                    item[key] = scrub(value)
-    rows = [{k: scrub(v) for k, v in {**{k: r.get(k, "") for k in COLUMNS if k != "class"},
-                                      "class": r["class_"]}.items()} for r in results]
-    return results, rows, lists, scrub(render_report(W, results, lists))
+    rows = [{**{k: r.get(k, "") for k in COLUMNS if k != "class"}, "class": r["class_"]} for r in results]
+    return results, rows, lists, render_report(W, results, lists)
 
 
-def run(argv):
-    scrub = make_scrub({})
+def run(argv, state):
+    scrub = state["scrub"] = make_scrub({})
     try:
         args = parse_args(sys.argv[1:] if argv is None else argv)
-        scrub = make_scrub(dict(a=args.a, b=args.b, **dict(zip(("aa_a", "aa_b"), args.aa or ())),
+        scrub = state["scrub"] = make_scrub(dict(a=args.a, b=args.b, **dict(zip(("aa_a", "aa_b"), args.aa or ())),
                                 receipt=args.receipt, mapping=args.mapping, declared=args.declared_differences,
                                 fingerprints_a=args.fingerprints_a or "", fingerprints_b=args.fingerprints_b or "",
                                 schedule=args.schedule, out=args.out))
@@ -1581,6 +1611,7 @@ def run(argv):
     W = dict(sched=sched, roots=roots, mapping={r["id"]: r for r in mapping_rows}, fps=fps, receipt=receipt,
              aa=bool(args.aa), hist=hist, hardware=hardware_label(receipt, sched), scrub=scrub)
     results, rows, lists, report = comparison_phase(W)
+    rows, lists, report = scrub_deep(scrub, rows), scrub_deep(scrub, lists), scrub(report)
     try:
         validate.fresh_output(out)
         summarize.write_csv(out / "migration-comparison.csv", COLUMNS, rows)
@@ -1597,10 +1628,12 @@ def run(argv):
 
 def main(argv=None):
     """Exit status: 0 or 1 a report was written, 2 refused, 3 usage error, unreadable input or internal error."""
+    state = {"scrub": make_scrub({})}
     try:
-        return run(argv)
+        return run(argv, state)
     except Exception as error:                  # never the interpreter's default status 1
-        print(f"INTERNAL ERROR: {type(error).__name__}", file=sys.stderr)
+        message = " ".join(state["scrub"](error).split())[:200]
+        print(f"INTERNAL ERROR: {type(error).__name__}" + (f": {message}" if message else ""), file=sys.stderr)
         return 3
 
 
