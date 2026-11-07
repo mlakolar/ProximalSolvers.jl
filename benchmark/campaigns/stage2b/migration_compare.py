@@ -76,7 +76,8 @@ STOP = r"\s'\"`<>()\[\]{},;|"
 # any characters but white space and the stop set; a lone '/' is not a path.
 ABSOLUTE_PATH = re.compile(rf"(?<![\w.\-/])/+[^{STOP}/][^{STOP}]*")
 # A complete URL (any scheme but file, which names a local path and is cleaned like one).
-URL_TOKEN = re.compile(r"(?<![A-Za-z0-9+.\-])(?!file:)[A-Za-z][A-Za-z0-9+.\-]*://[^\s'\"`<>()\[\]{}]*", re.IGNORECASE)
+URL_TOKEN = re.compile(r"((?<![A-Za-z0-9+.\-])(?!file:)[A-Za-z][A-Za-z0-9+.\-]*://[^\s'\"`<>()\[\]{}]*)",
+                       re.IGNORECASE)
 COLUMNS = ("julia id role phase class reason repetitions a_ns b_ns ratio abs_diff_ns geomean_ratio ratio_min "
            "ratio_max measure target a_value b_value a_accuracy_fraction b_accuracy_fraction a_accuracy_band "
            "b_accuracy_band a_median_bytes b_median_bytes hardware aa_ratio_min aa_ratio_max screen "
@@ -1482,42 +1483,53 @@ def write_json(path, value):
     path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
 
 
-def path_tag(match):
-    """`basename#tag` of a path token: the tag is the first 8 hex digits of the SHA-256 of the token text (one
-    leading '/', no trailing '/'), taken before the directory is dropped."""
-    path = re.sub(r"^/+", "/", match[0]).rstrip("/")
-    return f"{path.rsplit('/', 1)[-1]}#{hashlib.sha256(path.encode()).hexdigest()[:8]}"
-
-
 def make_scrub(paths):
     """A function that removes absolute paths from a message (POSIX paths only; applied once per output string).
 
-    1. A complete URL token (any scheme but file) is kept verbatim.
-    2. A path given on the command line becomes its label, followed by the rest of its token.
-    3. Every other path token (ABSOLUTE_PATH) becomes `basename#tag`: equal paths print equal tags, different
-       paths different ones, and no directory is printed."""
-    known = []
+    The text is cut at its complete URL tokens (any scheme but file), which are kept verbatim; the segments between
+    them are cleaned, so that a URL is a boundary and never part of a path. In a segment, a path given on the
+    command line becomes its label followed by the rest of its token; every other path token (ABSOLUTE_PATH)
+    becomes `basename#tag`. The tag of a token is the shortest prefix of the SHA-256 of the token text (one leading
+    '/', no trailing '/') that has 8 hex digits, or 12, 16, ... when a different token of this run already has the
+    shorter one. Each instance remembers its tags, so within one run equal paths print equal tags in every
+    channel and different paths always print different ones. The tags depend only on the order of the first call
+    that meets each token (the order of the calls of the run is deterministic)."""
+    labels = {}
     for label, path in paths.items():
         for variant in {str(path), str(Path(path).resolve())} if path else ():
             if "/" in variant:
-                known.append((variant.rstrip("/"), label))
-    known.sort(key=lambda item: -len(item[0]))
+                labels.setdefault(variant.rstrip("/"), label)
+    known = sorted(labels, key=lambda variant: -len(variant))
+    pattern = "(?<![\\w.\\-/])(?:" + "".join(
+        f"(?P<k{i}>{re.escape(variant)})(?![\\w.\\-])(?P<t{i}>[^{STOP}]*)|" for i, variant in enumerate(known)
+    ) + f"(?P<path>/+[^{STOP}/][^{STOP}]*))"
+    segment_pattern = re.compile(pattern)
+    tags, owners = {}, {}
+
+    def tag(token):
+        path = re.sub(r"^/+", "/", token).rstrip("/")
+        if path not in tags:
+            digest = hashlib.sha256(path.encode()).hexdigest()
+            length = next(n for n in range(8, 65, 4) if owners.get(digest[:n], path) == path)
+            tags[path], owners[digest[:length]] = digest[:length], path
+        return f"{path.rsplit('/', 1)[-1]}#{tags[path]}"
+
+    def clean(match):
+        for i, variant in enumerate(known):
+            if match[f"k{i}"] is not None:
+                rest = match[f"t{i}"]
+                return f"<{labels[variant]}>" + rest[:1] + ABSOLUTE_PATH.sub(lambda m: tag(m[0]), rest[1:])
+        return tag(match["path"])
 
     def scrub(text):
-        holes = []
-
-        def keep(value):
-            holes.append(value)
-            return f"\x00{len(holes) - 1}\x00"
-        text = URL_TOKEN.sub(lambda match: keep(match[0]), str(text).replace("\x00", ""))
-        for variant, label in known:
-            text = re.sub(r"(?<![\w.\-/])" + re.escape(variant) + rf"(?![\w.\-])([^{STOP}]*)",
-                          lambda match: keep(f"<{label}>" + match[1][:1] + ABSOLUTE_PATH.sub(path_tag, match[1][1:])),
-                          text)
-        text = ABSOLUTE_PATH.sub(path_tag, text)
-        while "\x00" in text:
-            text = re.sub(r"\x00([0-9]+)\x00", lambda match: holes[int(match[1])], text)
-        return text
+        segments = URL_TOKEN.split(str(text))               # even items: text, odd items: URL tokens
+        out = []
+        for index, part in enumerate(segments):
+            cleaned = part if index % 2 else segment_pattern.sub(clean, part)
+            if index % 2 == 0 and index + 1 < len(segments) and part.endswith("/") and not cleaned.endswith("/"):
+                cleaned += "/"                              # the '/' between a path and a URL that follows it
+            out.append(cleaned)
+        return "".join(out)
     return scrub
 
 
@@ -1596,7 +1608,7 @@ def run(argv, state):
         check_aa(roots, sched, ref)
 
     if ref:                                                       # the refusal decision
-        entries = sorted(set((n, c, f, scrub(d)) for n, c, f, d in ref))
+        entries = sorted({(n, c, f, scrub(d)) for n, c, f, d in sorted(set(ref))})   # tags in a fixed order
         for _, cls, field, detail in entries:
             print(f"REFUSED:{cls} {field}: {detail}", file=sys.stderr)
         try:

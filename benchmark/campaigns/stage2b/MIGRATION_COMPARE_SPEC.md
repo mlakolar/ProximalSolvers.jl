@@ -24,7 +24,9 @@ declared, and which refuses everything else.
 It reads records only. It runs no Julia, needs no network, uses only the Python standard library (3.11 or
 later, `tomllib`) and writes only to a fresh output directory. Its output is deterministic: it contains no clock
 time of the run, no host name and no absolute path. Every string the tool writes (refusals, standard error, the
-lists, the table and the report) is cleaned once, by these rules, in this order:
+lists, the table and the report) is cleaned once, by these rules, in this order. The text is cut at its URL tokens
+(rule 1); only the pieces between them are cleaned (rules 2 and 3), so a URL is a boundary and never part of a path:
+a path directly before or after a URL token is a token of its own, and its tag is taken from its own text.
 
 1. A complete URL token is kept verbatim: `<scheme>://` (any scheme except `file`) followed by characters other
    than white space, quotes (`'`, `"`, the backquote) and the brackets `< > ( ) [ ] { }`, so that a query or a fragment stays inside it. A `file://` URL
@@ -32,13 +34,19 @@ lists, the table and the report) is cleaned once, by these rules, in this order:
 2. A path given on the command line is replaced by its label (`<a>`, `<b>`, `<aa_a>`, `<aa_b>`, `<receipt>`,
    `<mapping>`, `<declared>`, `<fingerprints_a>`, `<fingerprints_b>`, `<schedule>`, `<out>`); the rest of its
    token is kept after the label.
-3. Every other absolute path token is shown as `basename#tag`. A path token starts at a `/` (or a run of `/`) that is
+3. Every other absolute path token is shown as `basename#tag` (when a URL token follows the token directly, the `/` between them is kept). A path token starts at a `/` (or a run of `/`) that is
    not preceded by a word character, `.`, `-` or `/` (so it may follow `=`, `:`, a quote, a bracket, `|` or a
    comma) and extends over every character up to white space, a quote, a bracket of the set above, or one of `,`, `;`, `|` (so `$`, `~`,
    `#`, `=`, `&`, `?`, `:`, `*` and `!` belong to the token); a lone `/` is not a path. The `basename` is the last
-   `/`-component, the `tag` the first 8 lowercase hexadecimal digits of the SHA-256 of the token text with the
-   leading run of `/` collapsed to one and the trailing `/` removed, for example `ProximalSolvers.jl#3fa9c1d2`.
-   Equal paths print equal tags, different paths different ones, and no directory is printed.
+   `/`-component and the `tag` is taken from the SHA-256 of the token text with the leading run of `/` collapsed to
+   one and the trailing `/` removed: the first 8 lowercase hexadecimal digits, or, if a different token of the same
+   run already has those 8 digits, the shortest longer prefix (12, 16, ... 64 digits) that no different token has,
+   for example `ProximalSolvers.jl#3fa9c1d2`. A token keeps the tag it was first given, in every channel of the
+   run (one cleaning function serves the whole run), so within one run equal paths print equal tags and different
+   paths always print different ones; the tag is 8 digits long unless a collision forces more. Tags are
+   deterministic for a given input: they depend on the order of the first cleaning call that meets each token, and
+   the tool makes its calls in a fixed order (refusals in sorted order, otherwise the report, the table and the
+   lists). No directory is printed.
 
 A case ID, a fraction such as `1/2`, `and/or` and a lone `/` are not paths. Only POSIX absolute paths are cleaned
 (Windows drive letters, backslashes and `~user` forms are outside the scope: the campaign host is Linux).
@@ -175,7 +183,7 @@ The `field` of a refusal is `<scope>:<name>`. The scopes are `a`, `b`, `aa_a`, `
 (the A/B pair and the A/A pair), `receipt`, `mapping`, `declared`, `fingerprints_a` and `fingerprints_b`. The
 `detail` is free text but always names the Julia version, the case ID and the repetition when they apply, and
 the observed and the expected value (a path is shown as `basename#tag`, section 1, so that two different
-paths never print alike). `<root>` below stands for `a`, `b`, `aa_a` or `aa_b`. Refusals are listed
+paths of one run never print alike). `<root>` below stands for `a`, `b`, `aa_a` or `aa_b`. Refusals are listed
 in `refusals.json` and on standard error sorted by the row number of the class, then by `field`, then by
 `detail`. A check whose input is unavailable because the same root or stratum already has a `SCHEMA`, `JULIA`
 or `IDENTITY` refusal is skipped, not guessed, and the skip is as narrow as the missing input: a process whose

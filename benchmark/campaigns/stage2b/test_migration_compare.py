@@ -20,10 +20,10 @@ Test counts (methods; table-driven methods run one sub-test per row):
                                                fingerprints, the inventory cpu_name, malformed metadata values and
                                                the identity, stack, undeclared and mapping rules one at a time)
     classification  ClassificationTests   24
-    output          OutputTests           46   (including the paths in every output channel and at every site that
+    output          OutputTests           49   (including the paths in every output channel and at every site that
                                                cleans a string, the internal error, the phase boundary and the
-                                               screen boundaries; one is an expected failure that records a
-                                               known report behaviour)
+                                               screen boundaries, the tags of paths that collide and the
+                                               URLs next to paths)
     immutability    ImmutabilityTests      5
 
 The run time is dominated by the validation of the roughly two hundred record files that each call of the tool
@@ -2391,9 +2391,9 @@ class OutputTests(MigrationCase):
         self.assertEqual(result.lists["semantic_deviations"][0]["text"], f"dev <b>/x={shown('/y/z')} end")
 
     def test_scrub_report_pipe_after_a_path_keeps_the_tag_of_the_other_channels(self):
-        # Known tool behaviour, reported to the maintainer: the report escapes '|' as '\\|' before the text is
-        # cleaned, so the backslash joins the path token and the report prints `t\#<other tag>` where the lists and
-        # the table print `t#<tag>` for the same path.
+        # The report cleans a string first, then masks the banned words, then escapes the Markdown characters, so a
+        # '|' after a path is escaped after the path became `t#<tag>`: the report prints the same tag as the lists
+        # and the table, followed by `\\|`.
         result = self.deviation_run(f"dev {self.PIPE_AFTER_PATH}")
         self.assertEqual(result.lists["semantic_deviations"][0]["text"], f"dev {shown('/s/t')}|u")
         self.assertIn(f"dev {shown('/s/t')}\\|u", result.report)
@@ -2431,6 +2431,52 @@ class OutputTests(MigrationCase):
         reason = result.row(P02, J13)["reason"]
         self.assertEqual(reason.count(shown("/a/b")), 2)
         self.assertNotEqual(shown("/a/b"), shown("/c/b"), "the same name in another directory has another tag")
+
+    COLLIDING = ("/synthroot/inst-57250/ProximalSolvers.jl", "/synthroot/inst-87949/ProximalSolvers.jl")
+
+    def test_scrub_colliding_eight_digit_tags_are_made_distinct_and_the_first_keeps_its_tag(self):
+        first, second = self.COLLIDING
+        digest = [hashlib.sha256(path.encode()).hexdigest() for path in self.COLLIDING]
+        self.assertEqual(digest[0][:8], digest[1][:8], "the two paths collide in their first 8 digits")
+        scrub = F.load_tool().make_scrub({})
+        one, two = scrub(first), scrub(second)
+        self.assertEqual(one, f"ProximalSolvers.jl#{digest[0][:8]}")
+        self.assertNotEqual(one, two)
+        self.assertTrue(two.startswith(f"ProximalSolvers.jl#{digest[1][:12]}") and len(two.split("#")[1]) >= 12, two)
+        self.assertEqual((scrub(first), scrub(second)), (one, two), "a token keeps its tag")
+        self.assertEqual(scrub(f"'{second}' vs '{first}'"), f"'{two}' vs '{one}'")
+        self.assertEqual(leaks(scrub(f"{first} {second}")), [])
+
+    def test_scrub_colliding_paths_print_distinct_tags_in_every_channel_of_one_run(self):
+        first, second = self.COLLIDING
+        result = self.deviation_run(f"dev {first} and {second} end")
+        reason = result.row(P02, J13)["reason"]
+        text = result.lists["semantic_deviations"][0]["text"]
+        tags = re.findall(r"ProximalSolvers\.jl#([0-9a-f]+)", reason)
+        self.assertEqual(len(tags), 2)
+        self.assertNotEqual(tags[0], tags[1])
+        self.assertEqual(len(tags[0]), 8)
+        self.assertTrue(text.endswith(reason.removeprefix("semantic deviation: ")), (text, reason))
+        for tag in tags:
+            self.assertIn(f"ProximalSolvers.jl#{tag}", result.report)
+
+    def test_scrub_urls_are_boundaries_between_paths_and_never_part_of_one(self):
+        scrub = F.load_tool().make_scrub({})
+        out = scrub("/p/http://h/a and /p/http://h/a")
+        self.assertEqual(out, f"{shown('/p')}/http://h/a and {shown('/p')}/http://h/a")
+        self.assertEqual(scrub(out), out)
+        # repeated and overlapping fragments: every path token keeps its own tag, every URL stays intact
+        out = scrub("/p/http://h/a/http://k/b")
+        self.assertEqual(out, f"{shown('/p')}/http://h/a/http://k/b")
+        # a URL followed at once by a path (a quote ends the URL), a path before a URL without a space
+        self.assertEqual(scrub("http://h/a'/x/y'"), f"http://h/a'{shown('/x/y')}'")
+        self.assertEqual(scrub("/s/t/http://h/a"), f"{shown('/s/t')}/http://h/a")
+        self.assertEqual(scrub("/s/t/HTTPS://H/A?x=/q/r end /s/t"), f"{shown('/s/t')}/HTTPS://H/A?x=/q/r end {shown('/s/t')}")
+        # a scheme in capitals is a URL, a file URL is not
+        self.assertEqual(scrub("HTTP://H/A?p=/synthroot/private"), "HTTP://H/A?p=/synthroot/private")
+        self.assertEqual(scrub("FILE:///x/y"), f"FILE:{shown('///x/y')}")
+        # the tag is taken from the text of the path alone, never from a placeholder
+        self.assertEqual(scrub("/p/http://h/a").split("/")[0], shown("/p"))
 
     def test_scrub_detector_agrees_with_the_tool_on_random_texts(self):
         import random
