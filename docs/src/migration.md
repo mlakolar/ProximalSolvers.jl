@@ -1,5 +1,18 @@
 # Migrating to this release
 
+## Unreleased
+
+- **Symmetric matrices.** On a `SymmetricSparseIterate`, per-entry penalty
+  parameters (weights, coefficients, bounds, ...) that are not exactly
+  symmetric are rejected with an `ArgumentError` before anything is written,
+  instead of being averaged; the penalty that goes on is the supplied one. To
+  solve the symmetric problem, pass `Symmetric(W, :L)` (the lower triangle of
+  `W`) or `(W + W')/2` (the explicit mean); in general these are different
+  penalties, and neither is chosen for you. The dense `Matrix` methods of
+  `ProxNewton` (the graphical lasso and the generic path) still replace
+  asymmetric `NormL1` weights by the means of their pairs. See
+  [Coordinates of the iterates](@ref).
+
 ## From 0.3.1 to 0.3.2
 
 Version 0.3.2 changes no result, default or public API. The start of continuation
@@ -45,7 +58,8 @@ rejected, and no default changes.
 Version 0.3.0 needs registered ProximalBase 0.5.3 or later within the 0.5 series.
 
 - **Symmetric matrices.** Coordinate descent on a `SymmetricSparseIterate`
-  now averages transposed parameters that enter the penalty linearly; see
+  now averages transposed parameters that enter the penalty linearly
+  (superseded, see Unreleased); see
   [Coordinates of the iterates](@ref). It accepts asymmetric weights of
   `NormL1`, `NormL1Nonneg` and `ElasticNet` and asymmetric `Tilt` coefficients,
   directly or through `Scaled` and `Tilt`, which 0.2.0 rejected.

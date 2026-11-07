@@ -509,24 +509,34 @@ end
   end
 end
 
-# Scaled is the wrapper of a block penalty that is checked on a tuple of iterates, also nested
+# A penalty on a tuple of iterates is checked as supplied: with ProximalBase 0.6 by its public
+# checker for every wrapper it declares, with earlier versions for a SeparableSum and Scaled
+# around one. The rows are the supplied penalty, the closed form of the pair z at the
+# explicit symmetric problem (the loss gives z² - 6z), and whether the row needs ProximalBase 0.6.
 @testset "wrapped block penalties" begin
   A = Matrix(1.0I, 2, 2)
   f = SeparableSum(KronQuadratic(A, A, [0.0 -3.0; -3.0 0.0]))
   W = [0.0 1.0; 3.0 0.0]
   Wbar = (W .+ W') ./ 2
   saved = copy(W)
-  # on a pair, z² - 6z plus the scale times 0.1 (w12 + w21)|z| = 0.4|z|
-  rows = (("bare", identity, 1.0), ("Scaled", g -> Scaled(g, 2.0), 2.0),
-          ("Scaled nested", g -> Scaled(Scaled(g, 2.0), 3.0), 6.0))
-  for (name, wrap, scale) in rows
+  explicit_scaled(g, a, b) = (s = Scaled{typeof(g), typeof(a)}(g, a); Scaled{typeof(s), typeof(b)}(s, b))
+  # on a pair the penalty is the scale times 0.1 (w12 + w21)|z| = 0.4|z|
+  rows = (("bare", identity, (6 - 0.4) / 2, false),
+          ("Scaled", g -> Scaled(g, 2.0), (6 - 0.8) / 2, false),
+          ("Scaled nested (public constructor)", g -> Scaled(Scaled(g, 2.0), 3.0), (6 - 2.4) / 2, false),
+          ("Scaled nested (explicit type)", g -> explicit_scaled(g, 2.0, 3.0), (6 - 2.4) / 2, false),
+          ("Conjugate", g -> Conjugate(g), 0.2, true),
+          ("Scaled(Conjugate)", g -> Scaled(Conjugate(g), 2.0), 0.2, true),
+          ("Conjugate(Scaled)", g -> Conjugate(Scaled(g, 2.0)), 0.4, true))
+  for (name, wrap, z, needs_pb06) in rows
+    needs_pb06 && !pb_checks_symmetry() && continue
     @testset "$name" begin
       bad, good = wrap(SeparableSum(NormL1(0.1, W))), wrap(SeparableSum(NormL1(0.1, Wbar)))
+      @test typeof(bad) === typeof(good)
       xw = warm_start()
-      xs = (xw,)
-      @test PS._symmetric_penalty(good, xs) === good
-      rejects_symmetry(xs) do
-        PS._symmetric_penalty(bad, xs)
+      @test PS._symmetric_penalty(good, (xw,)) === good
+      rejects_symmetry((xw,)) do
+        PS._symmetric_penalty(bad, (xw,))
       end
       for method in (ProximalGradientDescent(), AccProxGradDescent())
         xw = warm_start()
@@ -539,25 +549,47 @@ end
         end
         ws = SolverWorkspace(xs, f, good, method, gradient_options())
         @test ws.g === good
+        xw[2, 1] = 0.05
         rejects_in_workspace(ws, xs) do
           solve!(ws, bad)
         end
-        @test solve!(ws).converged
-        z = (6 - scale * 0.4) / 2
+        # the workspace is still usable: its solution is the one of a fresh workspace
+        xf = warm_start()
+        xf[2, 1] = 0.05
+        fresh = SolverWorkspace((xf,), f, good, method, gradient_options())
+        @test solve!(ws).converged && solve!(fresh).converged
+        @test Matrix(xw) ≈ Matrix(xf) atol = 1e-12
         @test Matrix(xw) ≈ [0.0 z; z 0.0] atol = 1e-6
       end
       @test isequal(W, saved)
     end
   end
-  # a block with no owner has no pairs; a penalty that couples the blocks passes unchanged
+  # controls: ordinary tuples, and an owner beside ordinary blocks
+  kron = KronQuadratic(A, A, [0.0 -3.0; -3.0 0.0])
   xw = warm_start()
-  mixed = Scaled(SeparableSum(NormL1(0.1, W), NormL1(0.1, W)), 2.0)
-  @test PS._symmetric_penalty(mixed, (zeros(2, 2), zeros(2, 2))) === mixed
-  rejects_symmetry((xw, zeros(2, 2))) do
-    PS._symmetric_penalty(mixed, (xw, zeros(2, 2)))
+  ordinary = (zeros(3), zeros(2, 2))
+  for wrap in (identity, g -> Scaled(g, 2.0))
+    g = wrap(SeparableSum(NormL1(0.1, [0.0 0.0 0.0; 1.0 0.0 0.0; 3.0 0.0 0.0]), NormL1(0.2, W)))
+    @test PS._symmetric_penalty(g, ordinary) === g
+    @test PS._symmetric_penalty(g, (SparseIterate(3, 3), SparseIterate(2, 2))) === g
   end
+  # the asymmetric weights of an ordinary block beside a symmetric owner block are accepted
+  g = SeparableSum(NormL1(0.1, Wbar), NormL1(0.2, W))
+  @test PS._symmetric_penalty(g, (xw, zeros(2, 2))) === g
+  f2 = SeparableSum(kron, SqrNormL2(1.0, ones(2, 2)))
+  @test solve!((xw, zeros(2, 2)), f2, g, ProximalGradientDescent(), gradient_options()).converged
+  # an asymmetric owner block is rejected in either position
+  xw = warm_start()
+  rejects_symmetry((xw, zeros(2, 2))) do
+    PS._symmetric_penalty(SeparableSum(NormL1(0.1, W), NormL1(0.2, Wbar)), (xw, zeros(2, 2)))
+  end
+  rejects_symmetry((zeros(2, 2), xw)) do
+    PS._symmetric_penalty(SeparableSum(NormL1(0.2, Wbar), NormL1(0.1, W)), (zeros(2, 2), xw))
+  end
+  # a penalty that couples the blocks is not inspected beyond what its declarations cover
   coupling = Scaled(NormL1(0.1, W), 2.0)
   @test PS._symmetric_penalty(coupling, (xw, zeros(2, 2))) === coupling
+  @test isequal(W, saved)
 end
 
 # ProximalBase 0.6 checks more penalties than the transitional check of ProximalBase 0.5

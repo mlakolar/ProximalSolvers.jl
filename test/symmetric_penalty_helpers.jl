@@ -60,12 +60,23 @@ function rejects_symmetry(action, x)
   @test isequal(snapshot(x), before)
 end
 
-# the same for a workspace: its penalty and its iterate stay as they were
+# a copy of a value held by the state of a workspace (iterates, gradients, values, counters)
+state_value(a::SymmetricSparseIterate) = snapshot(a)
+state_value(a::AbstractArray) = copy(a)
+state_value(a::Tuple) = map(state_value, a)
+state_value(a) = a
+state_snapshot(ws) = hasproperty(ws.buffers, :state) ?
+  map(n -> state_value(getfield(ws.buffers.state, n)), fieldnames(typeof(ws.buffers.state))) : nothing
+
+# the same for a workspace: its penalty, its iterate and the buffers of its state (the caches of
+# the loss and the gradient among them) stay as they were
 function rejects_in_workspace(action, ws, x = ws.x)
   @nospecialize action
   g = ws.g
+  state = state_snapshot(ws)
   rejects_symmetry(action, x)
   @test ws.g === g
+  @test isequal(state_snapshot(ws), state)
 end
 
 # whether the objective obj of a symmetric matrix does not decrease along the
