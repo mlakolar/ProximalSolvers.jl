@@ -94,8 +94,8 @@ end
 # field) triple is a read of a penalty, a solver, a result or a workspace, which the allowlist names; the
 # receiver is the identifier before the dot, or the first argument of getfield-like calls.
 const _PRIVATE_FIELDS = "nzval2ind|ind2nzval|nzval|nnz|storage|groups|group_of|layout_cache|active|position|nactive|ids"
-const _FIELD_ACCESS = Regex("([A-Za-z_][A-Za-z0-9_!]*|\\)|\\])\\s*\\.\\s*(" * _PRIVATE_FIELDS * ")\\b")
-const _FIELD_CALL = r"\b(getfield|setfield!|getproperty|setproperty!|propertynames|fieldnames|hasfield)\(\s*([A-Za-z_][A-Za-z0-9_!]*)?"
+const _FIELD_ACCESS = Regex("([\\p{L}_][\\p{L}\\p{M}\\p{N}_!]*|\\)|\\])\\s*\\.\\s*(" * _PRIVATE_FIELDS * ")\\b")
+const _FIELD_CALL = r"\b(getfield|setfield!|getproperty|setproperty!|propertynames|fieldnames|hasfield)\(\s*([\p{L}_][\p{L}\p{M}\p{N}_!]*)?"
 const _OTHER_CALL = r"\b(parentindices)\("
 const _FIELD_ALLOWLIST = Set([
   ("workspaces.jl", "g", "groups"),
@@ -224,15 +224,21 @@ end
   v(x) = parentindices(x)
   w(x) = x.group_of
   y = [1.0 2.0]'; z = y.active
+  t(β) = β.storage
+  r(x̂, k) = x̂.groups[k]
   """
   bad = _field_violations("planted.jl", planted, allowed)
-  @test length(bad) == 6
+  @test length(bad) == 8
   @test any(contains("planted.jl:1:"), bad) && any(contains("planted.jl:2:"), bad)
   @test any(contains("planted.jl:9:"), bad) && any(contains("planted.jl:10:"), bad)
   @test any(contains("planted.jl:11:"), bad) && any(contains("planted.jl:12:"), bad)
+  @test any(contains("planted.jl:13: `β.storage`"), bad) && any(contains("planted.jl:14: `x̂.groups`"), bad)
   @test !any(contains("planted.jl:3:"), bad) && !any(contains("planted.jl:4:"), bad)
   @test !any(contains("planted.jl:6:"), bad) && !any(contains("planted.jl:7:"), bad) && !any(contains("planted.jl:8:"), bad)
   @test isempty(_field_violations("planted.jl", "q(g) = g.groups[1]  # allowlisted penalty read\n", allowed))
+  # the allowlist is per file: the same receiver and field in another file is a finding
+  other = _field_violations("other.jl", "q(g) = g.groups[1]\n", allowed)
+  @test length(other) == 1 && contains(only(other), "other.jl:1: `g.groups`")
 
   srcdir = joinpath(pkgdir(ProximalSolvers), "src")
   files = sort!([relpath(joinpath(root, f), srcdir) for (root, _, fs) in walkdir(srcdir) for f in fs if endswith(f, ".jl")])
