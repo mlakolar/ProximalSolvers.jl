@@ -47,18 +47,19 @@ penalty that couples the blocks. Norms and inner products are taken over all
 the blocks, and a tuple of one array computes exactly what the array does.
 
 On a `SymmetricSparseIterate`, the gradient solvers apply the same parameter
-rule as coordinate descent: the per-entry parameters of `g` must be exactly
-symmetric, or symmetric by type as `Symmetric(W, :L)`, otherwise an
-`ArgumentError` is thrown before anything is written (see the
-[`CDSolver`](@ref) method of `solve!`). The penalty is used as supplied. The
-smooth function `f` is not checked. For a tuple of iterates, with
-ProximalBase 0.6 or later every penalty goes through ProximalBase's public
-`check_symmetric_parameters`, which validates what ProximalBase's declarations
-of per-entry parameters cover, and not user-defined wrappers or types that
-declare nothing; with earlier versions the rule covers a `SeparableSum` and
-`Scaled` around one (also nested), and other penalties on a tuple pass
-unchanged. Their symmetric-storage compatibility is then the caller's
-responsibility.
+rule as coordinate descent: the per-entry parameters of `g` that the check
+covers must be exactly symmetric, or symmetric by type as `Symmetric(W, :L)`,
+otherwise an `ArgumentError` is thrown before anything is written (see the
+[`CDSolver`](@ref) method of `solve!` for what the check covers with each
+version of ProximalBase). The penalty is used as supplied. The smooth function
+`f` is not checked. For a tuple of iterates, with ProximalBase 0.6 or later
+the penalty goes through ProximalBase's public `check_symmetric_parameters`,
+which validates what ProximalBase's declarations of per-entry parameters
+cover, and not user-defined wrappers or types that declare nothing; with
+earlier versions the rule covers a `SeparableSum` and `Scaled` around one
+(also nested), and other penalties on a tuple pass unchanged. A custom penalty
+or wrapper is responsible for the symmetric-storage compatibility of its own
+parameters.
 
 # Example
 ```julia

@@ -160,13 +160,14 @@ The iterate fixes what a coordinate is.
   ```
 
   Per-entry parameters are indexed like the full matrix, as a matrix or a
-  vector in column-major order. They must be exactly symmetric: entries
+  vector in column-major order. Those that the check covers (below) must be
+  exactly symmetric: entries
   ``(r, c)`` and ``(c, r)`` are one variable, and a penalty with different
   values for them is a different penalty from the one on the pair. A pair is
   symmetric when its two entries are equal, also as `NaN` and `NaN` or `0.0`
   and `-0.0`. A parameter that is symmetric by type, as `Symmetric(W, :L)`,
   passes and uses the lower triangle of `W`. Otherwise an `ArgumentError` is
-  thrown before the iterate, the active set or any array is changed. To use
+  thrown before the iterate, the active set or the caller's arrays are changed. To use
   the symmetric part of asymmetric weights, pass ``(W + W')/2``; it is a
   different penalty, and is not applied for you.
 
@@ -181,14 +182,19 @@ The iterate fixes what a coordinate is.
   `Scaled`, `Tilt`, `Translate`, `Regularize`, `Constrained(·, IndBox)`,
   scalar `Precompose`, `MoreauEnvelope`, `Conjugate` and linear constraints.
   With ProximalBase 0.6 or later the check is
-  `ProximalBase.check_symmetric_parameters`, which covers more penalties and
-  rejects a penalty that does not declare its per-entry parameters; with
-  earlier versions, penalty types not listed here pass unchanged and must have
-  symmetric per-entry parameters. These rules do not extend the penalty
-  families supported by a solver or wrapper.
+  `ProximalBase.check_symmetric_parameters`. It traverses the per-entry
+  parameters that ProximalBase declares for its own penalties and wrappers, and
+  those that a user type declares with `ProximalBase.entry_parameters`; a user
+  `SeparableFunction` subtype that declares nothing is rejected on an owner,
+  and a user `AbstractFunction` or wrapper that declares nothing is not
+  traversed and passes the check unchanged. With earlier versions the check
+  covers the types listed here, and other types pass unchanged. A custom
+  penalty or wrapper is responsible for the symmetric-storage compatibility of
+  its own parameters (extending the check to user types is #120). These rules
+  do not extend the penalty families supported by a solver or wrapper.
 
   An exactly symmetric penalty is used as supplied, the same object, and the
-  supplied arrays are never changed. The pair contributes
+  supplied arrays are not changed. The pair contributes
   ``h_{rc}(t) = 2 g_{rc}(t)``. The reported minimum uses the supplied
   objective. The low-level [`coordinate_step!`](@ref ProximalSolvers.coordinate_step!)
   and `prox_coordinate!` kernels do not check, and need symmetric parameters.

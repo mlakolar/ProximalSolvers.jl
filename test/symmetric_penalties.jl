@@ -509,6 +509,30 @@ end
   end
 end
 
+# User types that declare nothing: the boundary passes a wrapper unchanged; a SeparableFunction
+# subtype is rejected on an owner with ProximalBase 0.6, whose checker requires its declaration
+struct UndeclaredSeparable{W} <: ProximalBase.SeparableFunction
+  w::W
+end
+struct UndeclaredWrapper{F} <: ProximalBase.AbstractFunction
+  f::F
+end
+
+@testset "user types that declare nothing" begin
+  W = [0.0 1.0; 3.0 0.0]
+  x = warm_start()
+  wrapper = UndeclaredWrapper(NormL1(0.1, W))
+  @test PS._symmetric_penalty(wrapper, x) === wrapper
+  separable = UndeclaredSeparable(W)
+  if pb_checks_symmetry()
+    rejects_symmetry(x) do
+      PS._symmetric_penalty(separable, x)
+    end
+  else
+    @test PS._symmetric_penalty(separable, x) === separable
+  end
+end
+
 # A penalty on a tuple of iterates is checked as supplied: with ProximalBase 0.6 by its public
 # checker for every wrapper it declares, with earlier versions for a SeparableSum and Scaled
 # around one. The rows are the supplied penalty, the closed form of the pair z at the

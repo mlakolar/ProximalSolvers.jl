@@ -39,8 +39,8 @@ the lasso, and from an initial estimate one stage is the one-step estimator of
 Zou and Li (2008).
 
 On a `SymmetricSparseIterate`, the symmetry rule of the per-entry parameters of
-[`solve!`](@ref) is applied to the penalty before stage weights are formed, and
-to the penalty of each stage.
+[`solve!`](@ref), with the coverage described there, is applied to the penalty
+before stage weights are formed, and to the penalty of each stage.
 """
 struct LLA
   inner::CDSolver

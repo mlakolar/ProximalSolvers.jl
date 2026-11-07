@@ -536,18 +536,20 @@ end
 
 # On a symmetric matrix each off-diagonal pair (r, c), (c, r) is one variable,
 # so the caller's per-entry parameters (weights, bounds, labels, centers, ...)
-# must be exactly symmetric, or symmetric by type as Symmetric(W, :L). A
-# penalty with asymmetric parameters is rejected with an ArgumentError before
-# anything is written; the symmetric part of such parameters, (W + W')/2, is a
+# must be exactly symmetric, or symmetric by type as Symmetric(W, :L), for the
+# penalty types and parameters that the check below covers. A penalty with
+# asymmetric parameters is rejected with an ArgumentError before anything is
+# written; the symmetric part of such parameters, (W + W')/2, is a
 # different penalty that the caller passes explicitly. The penalty that goes
-# on is the caller's own object.
+# on is the caller's own object. A user type or wrapper that the check does not
+# traverse passes unchanged and is responsible for its own parameters.
 _symmetric_penalty(g, x) = g
 function _symmetric_penalty(g, x::SymmetricSparseIterate)
   _validate_symmetric_parameters(g, x)
   g
 end
 # On a tuple of iterates (a point of a product space) the check is made on the
-# penalty as supplied. With ProximalBase 0.6 every penalty goes through
+# penalty as supplied. With ProximalBase 0.6 the penalty goes through
 # ProximalBase's public checker, which validates what ProximalBase's own
 # declarations of per-entry parameters cover (see the definition below); it does
 # not validate user-defined wrappers or types that declare nothing. Earlier
@@ -675,10 +677,10 @@ end
   isfinite(s) ? s / 2 : a / 2 + b / 2
 end
 
-# The only averaging that remains is for a dense matrix: the ProxNewton methods
-# for a Matrix solve through an owner built inside, and accept asymmetric NormL1
-# weights as they always did, by solving the problem with the weights replaced
-# by the means of their pairs. An owner supplied by the caller never goes through here.
+# The averaging that remains is for a dense matrix: the ProxNewton methods for a
+# Matrix solve through an owner built inside, and accept asymmetric NormL1
+# weights as before, by solving the problem with the weights replaced by the
+# means of their pairs. An owner supplied by the caller does not go through here.
 function _symmetric_average(a::AbstractArray, p::Int)
   w = similar(a, float(eltype(a)))
   @inbounds for c in 1:p
@@ -704,8 +706,8 @@ end
 _check_iterate(g::Scaled, x) = _check_iterate(g.f, x)
 function _check_iterate(g::AbstractFunction, x)
   # A second scan of the parameters, O(p²) and small next to a coordinate pass: it
-  # guards the entry points. Every owner caller validates the penalty it is given
-  # before this check, except that LLA forms the penalty of its first stage after
+  # guards the entry points. The owner entry points validate the penalty they are
+  # given before this check, except that LLA forms the penalty of its first stage after
   # validating the supplied one, and this scan validates the stage weights.
   x isa SymmetricSparseIterate && _symmetric_penalty(g, x)
   if isseparable(g)

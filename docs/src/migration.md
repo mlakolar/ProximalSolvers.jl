@@ -5,7 +5,11 @@
 - **Symmetric matrices.** On a `SymmetricSparseIterate`, per-entry penalty
   parameters (weights, coefficients, bounds, ...) that are not exactly
   symmetric are rejected with an `ArgumentError` before anything is written,
-  instead of being averaged; the penalty that goes on is the supplied one. To
+  instead of being averaged, for the penalty types and parameters that the
+  check of the ProximalBase version covers (a user wrapper or type that
+  declares nothing may not be covered; see the coverage paragraph in
+  [Coordinates of the iterates](@ref)); the penalty that goes on is the
+  supplied one. To
   solve the symmetric problem, pass `Symmetric(W, :L)` (the lower triangle of
   `W`) or `(W + W')/2` (the explicit mean); in general these are different
   penalties, and neither is chosen for you. The dense `Matrix` methods of

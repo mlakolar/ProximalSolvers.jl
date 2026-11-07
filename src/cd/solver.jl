@@ -696,7 +696,8 @@ overwritten with the solution. Returns a [`CDResults`](@ref). See
 [`CDSolver`](@ref).
 
 On a `SymmetricSparseIterate`, transposed entries are one variable, so the
-per-entry parameters of the penalty must be exactly symmetric: the weights
+per-entry parameters of the penalty that the check covers (below) must be
+exactly symmetric: the weights
 of `NormL1`, `NormL1Nonneg`, `ElasticNet` (L1 term), `CappedL1`, `LogPenalty`,
 `NormLq`, `Berhu`, `CheckLoss`, `EpsInsensitiveLoss` and `HingeLoss`, the
 coefficients `c` of `Tilt` and `LinearFunction`, the bounds of `IndBox`, the
@@ -709,15 +710,21 @@ constraint's coefficient `a`). A pair of entries is symmetric when the two are
 equal, also as `NaN` and `NaN` or `0.0` and `-0.0`; a parameter that is
 symmetric by type, as `Symmetric(W, :L)` (which takes the lower triangle),
 passes. Otherwise an `ArgumentError` is thrown before the iterate, the active
-set or any array is changed. The penalty is never rebuilt: the
+set or the caller's arrays are changed. The penalty is not rebuilt: the
 solver uses the supplied one, and the objective it minimizes and reports is the
 supplied objective. The symmetric part `(W + W') / 2` of asymmetric weights is
 a different penalty, which the caller passes explicitly.
 
-With ProximalBase 0.6 or later the check is `ProximalBase.check_symmetric_parameters`,
-which covers more penalties and rejects a penalty that does not declare its
-per-entry parameters. With earlier versions, penalty types not listed above
-pass unchanged and their per-entry parameters must be symmetric. Infinite
+With ProximalBase 0.6 or later the check is `ProximalBase.check_symmetric_parameters`.
+It traverses the per-entry parameters that ProximalBase declares for its own
+penalties and wrappers, and those that a user type declares with
+`ProximalBase.entry_parameters`; a user `SeparableFunction` subtype that
+declares nothing is rejected on an owner, and a user `AbstractFunction` or
+wrapper that declares nothing is not traversed and passes the check unchanged.
+With earlier versions the check covers the types listed above, and other types
+pass unchanged. A custom penalty or wrapper is responsible for the
+symmetric-storage compatibility of its own parameters (extending the check to
+user types is #120). Infinite
 weights are preserved; their proximal behavior remains that of ProximalBase,
 which some non-L1 families do not support.
 """

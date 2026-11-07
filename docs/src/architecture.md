@@ -75,8 +75,10 @@ bound. Group updates use a bound on the full block Hessian, not its diagonal.
 For symmetric storage an off-diagonal coordinate moves both entries and counts
 both penalty terms. A single helper checks the penalty for coordinate descent,
 QUIC, generic symmetric Newton and the gradient solvers on symmetric storage:
-it rejects asymmetric per-entry parameters before anything is written and
-returns the supplied penalty, as described in [Coordinates of the iterates](@ref).
+it rejects asymmetric per-entry parameters, of the penalty types and parameters
+that the check of the ProximalBase version covers, before anything is written
+and returns the supplied penalty, as described in
+[Coordinates of the iterates](@ref).
 
 A coordinate with zero curvature targets `min G(x - xₖ) + μgᵢ(x)`, with the
 coordinate's multiplicity `μ`. Norms and boxes retain their existing steps.
