@@ -186,7 +186,7 @@ function solve!(x::Matrix{T}, f::AbstractFunction, g::AbstractFunction, method::
   T <: AbstractFloat || throw(ArgumentError("ProxNewton needs a floating-point iterate."))
   issymmetric(x) || throw(ArgumentError("the matrix iterate of ProxNewton must be symmetric."))
   xs = SymmetricSparseIterate(x)
-  r = solve!(xs, f, g, method)
+  r = solve!(xs, f, _dense_symmetric_weights(g, size(x, 1)), method)
   _copy_dense!(x, xs)
   CDResults(x, r.minimum, r.passes, r.converged, r.maxchange, r.tolerance, r.kkt_checks, r.gap)
 end

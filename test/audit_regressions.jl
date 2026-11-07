@@ -5,6 +5,8 @@ module AuditRegressions
 using Test, LinearAlgebra, Random, SparseArrays, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
 
+include("symmetric_penalty_helpers.jl")
+
 @testset "flat curvature retains the linear term" begin
   # min -x + 0.1|x| is unbounded below: no point may be returned as a solution
   f = QuadraticFunction(zeros(1, 1), [-1.0])
@@ -87,33 +89,66 @@ end
 
 @testset "symmetric coordinate penalties and QUIC use both weights" begin
   S = [1.0 0.5; 0.5 1.0]
-  g = NormL1(0.1, [0.0 1.0; 3.0 0.0])
-  a, b = SymmetricSparseIterate(2), SymmetricSparseIterate(2)
-  solve!(a, KronQuadratic(S, S, S), g, CDSolver(; order = :cyclic, tol = 1e-13))
-  solve!(b, KronQuadratic(S, S, S), NormL1(0.1, [0.0 2.0; 2.0 0.0]),
-         CDSolver(; order = :cyclic, tol = 1e-13))
-  @test Matrix(a) ≈ Matrix(b) atol = 1e-12
+  W = [0.0 1.0; 3.0 0.0]
+  Wbar = [0.0 2.0; 2.0 0.0]
+  g = NormL1(0.1, W)
+  saved = copy(W)
+  # on an owner the two weights of a pair are one penalty (1 + 3)|z|, which a single weight
+  # does not show: asymmetric weights are rejected, the weights of the pair given as is accepted
+  a = SymmetricSparseIterate(2)
+  a[2, 1] = 0.3
+  before = Matrix(a)
+  @test_throws ArgumentError solve!(a, KronQuadratic(S, S, S), g, CDSolver(; order = :cyclic, tol = 1e-13))
+  @test_throws ArgumentError solve!(a, LogDetLoss(S), g, ProxNewton(inner = CDSolver(rng = Xoshiro(1))))
+  @test_throws ArgumentError duality_gap(LogDetLoss(S), g, a)
+  @test Matrix(a) == before
+  b = SymmetricSparseIterate(2)
+  solve!(b, KronQuadratic(S, S, S), NormL1(0.1, Wbar), CDSolver(; order = :cyclic, tol = 1e-13))
+  Xb = Matrix(b)
+  @test symmetric_l1_violation(S * Xb * S + S, Xb, 0.1, Wbar) <= 1e-9
+  # a dense matrix keeps the weights as the means of their pairs, as before the owner rule
   x, reference = Matrix(1.0I, 2, 2), Matrix(1.0I, 2, 2)
   solve!(x, LogDetLoss(S), g, ProxNewton(inner = CDSolver(rng = Xoshiro(1))))
-  solve!(reference, LogDetLoss(S), NormL1(0.1, [0.0 2.0; 2.0 0.0]), ProxNewton(inner = CDSolver(rng = Xoshiro(1))))
+  solve!(reference, LogDetLoss(S), NormL1(0.1, Wbar), ProxNewton(inner = CDSolver(rng = Xoshiro(1))))
   @test x ≈ reference
   @test isposdef(Symmetric(x))
   @test duality_gap(LogDetLoss(S), g, x).gap < 1e-7
+  tight = Matrix(1.0I, 2, 2)
+  solve!(tight, LogDetLoss(S), g, ProxNewton(; tol = 1e-11, inner = cdsolver()))
+  @test tight ≈ x atol = 1e-4
+  @test symmetric_l1_violation(S - inv(tight), tight, 0.1, Wbar) <= 1e-4
+  # an owner with the weights of the pair given as is takes the same solution
+  o = SymmetricSparseIterate(Matrix(1.0I, 2, 2))
+  solve!(o, LogDetLoss(S), NormL1(0.1, Wbar), ProxNewton(inner = CDSolver(rng = Xoshiro(1))))
+  @test Matrix(o) ≈ x
+  @test duality_gap(LogDetLoss(S), NormL1(0.1, Wbar), o).gap < 1e-7
+  @test isequal(W, saved)
 end
 
-@testset "tilts and wrapped weights are averaged on symmetric iterates" begin
+@testset "tilts and wrapped weights are not averaged on symmetric iterates" begin
   A = Matrix(1.0I, 2, 2)
   f = KronQuadratic(A, A, [0.0 -0.25; -0.25 0.0])
-  asym = NormL1(0.1, [0.0 1.0; 3.0 0.0])
+  W = [0.0 1.0; 3.0 0.0]
+  Wbar = (W .+ W') ./ 2
+  asym = NormL1(0.1, W)
   # the loss is z² - 0.5z. The pair penalty 0.4|z| gives z = 0.05;
-  # scaling by two gives 0.8|z| and z = 0. The antisymmetric tilt cancels,
+  # scaling by two gives 0.8|z| and z = 0. The antisymmetric tilt has the symmetric part zero,
   # leaving 0.2|z| and z = 0.15. The diagonal entries minimize at zero.
-  g = Tilt(asym, zeros(2,2))
-  @test f([0.0 0.05; 0.05 0.0]) + g([0.0 0.05; 0.05 0.0]) < 0
   start = [1.0 0.2; 0.2 1.0]
-  for (penalty, z) in ((g, 0.05), (Scaled(g, 2.0), 0.0),
-                       (Tilt(Scaled(asym, 2.0), zeros(2,2)), 0.0),
-                       (Tilt(NormL1(0.1), [0.0 0.5; -0.5 0.0]), 0.15))
+  raw = (Tilt(asym, zeros(2,2)), Scaled(Tilt(asym, zeros(2,2)), 2.0),
+         Tilt(Scaled(asym, 2.0), zeros(2,2)), Tilt(NormL1(0.1), [0.0 0.5; -0.5 0.0]))
+  for penalty in raw
+    x = SymmetricSparseIterate(start)
+    @test_throws ArgumentError solve!(x, f, penalty, CDSolver(; order = :cyclic, tol = 1e-13))
+    @test Matrix(x) == start
+  end
+  gbar = Tilt(NormL1(0.1, Wbar), zeros(2,2))
+  @test f([0.0 0.05; 0.05 0.0]) + gbar([0.0 0.05; 0.05 0.0]) < 0
+  # the dense value of the raw penalty is the pair value, a reference only
+  @test Tilt(asym, zeros(2,2))([0.0 0.05; 0.05 0.0]) ≈ gbar([0.0 0.05; 0.05 0.0])
+  for (penalty, z) in ((gbar, 0.05), (Scaled(gbar, 2.0), 0.0),
+                       (Tilt(Scaled(NormL1(0.1, Wbar), 2.0), zeros(2,2)), 0.0),
+                       (Tilt(NormL1(0.1), zeros(2, 2)), 0.15))
     x = SymmetricSparseIterate(start)
     r = solve!(x, f, penalty, CDSolver(; order = :cyclic, tol = 1e-13))
     @test r.converged

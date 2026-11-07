@@ -534,145 +534,151 @@ end
 @inline _kktviolated(g, grad::AbstractArray, x, k::Int, λ) = _screengrad(g, grad, x, k) > λ * _coordweight(g, x, k)
 
 
-# on symmetric matrices each off-diagonal pair is one variable: parameters
-# that enter linearly can be averaged without changing the objective
+# On a symmetric matrix each off-diagonal pair (r, c), (c, r) is one variable,
+# so the caller's per-entry parameters (weights, bounds, labels, centers, ...)
+# must be exactly symmetric, or symmetric by type as Symmetric(W, :L). A
+# penalty with asymmetric parameters is rejected with an ArgumentError before
+# anything is written; the symmetric part of such parameters, (W + W')/2, is a
+# different penalty that the caller passes explicitly. The penalty that goes
+# on is the caller's own object.
 _symmetric_penalty(g, x) = g
-_symmetric_penalty(g, x::SymmetricSparseIterate) = _symmetric_penalty(g, x, true)
-_symmetric_penalty(g, x::SymmetricSparseIterate, average::Bool) = g
-
-function _symmetric_penalty(g::SeparableSum, x::Tuple)
-  ProximalBase._checkblocks(g, x)
-  fs = map(_symmetric_penalty, g.fs, x)
-  fs === g.fs ? g : SeparableSum(fs...)
+function _symmetric_penalty(g, x::SymmetricSparseIterate)
+  _validate_symmetric_parameters(g, x)
+  g
 end
+function _symmetric_penalty(g::SeparableSum, x::Tuple)
+  _validate_symmetric_parameters(g, x)
+  g
+end
+
+# one pair is symmetric when its entries are equal, also as NaN and NaN or
+# +0.0 and -0.0, but not as NaN and 1.0 or Inf and -Inf (ProximalBase's rule:
+# isequal(a, b) || (a == b) === true, with the cheaper test first)
+@inline _symmetric_pair(a, b) = (a == b) === true || isequal(a, b)
 
 function _symmetric_array(a::AbstractArray, p::Int)
   @inbounds for c in 1:p, r in c+1:p
-    a[_entry(p, r, c)] == a[_entry(p, c, r)] || return false
+    _symmetric_pair(a[_entry(p, r, c)], a[_entry(p, c, r)]) || return false
   end
   true
 end
 
+@static if isdefined(ProximalBase, :check_symmetric_parameters)
+  # ProximalBase decides which parameters of which penalty must be symmetric,
+  # and checks the blocks of a SeparableSum on a tuple of iterates
+  _validate_symmetric_parameters(g, x) = (ProximalBase.check_symmetric_parameters(g, x); nothing)
+else
+  # Transitional check for ProximalBase without check_symmetric_parameters:
+  # delete when ProximalSolvers requires ProximalBase 0.6. A penalty type that
+  # is not listed here passes, as it does when the iterate is not an owner.
+  _validate_symmetric_parameters(g, x) = nothing
+
+  function _validate_symmetric_parameters(g::SeparableSum, x::Tuple)
+    ProximalBase._checkblocks(g, x)
+    map(_validate_symmetric_parameters, g.fs, x)
+    nothing
+  end
+
+  _symmetric_parameter(a::Union{Nothing, Real}, x, g, name) = nothing
+  function _symmetric_parameter(a::AbstractArray, x, g, name)
+    ProximalBase._checkparam(a, x)
+    _symmetric_array(a, x.p) ||
+      throw(ArgumentError("$(nameof(typeof(g))) needs symmetric $name on a SymmetricSparseIterate: entries (r, c) and (c, r) are one variable. Pass exactly symmetric parameters, or Symmetric(W, :L) to use the lower triangle."))
+    nothing
+  end
+
+  function _validate_symmetric_parameters(g::Union{NormL1, NormL1Nonneg, ElasticNet, CappedL1, LogPenalty,
+                                                   NormLq, Berhu, CheckLoss, EpsInsensitiveLoss},
+                                          x::SymmetricSparseIterate)
+    _symmetric_parameter(g.w, x, g, "weights w")
+  end
+
+  function _validate_symmetric_parameters(g::HingeLoss, x::SymmetricSparseIterate)
+    _symmetric_parameter(g.y, x, g, "labels y")
+    _symmetric_parameter(g.w, x, g, "weights w")
+  end
+
+  _validate_symmetric_parameters(g::LinearFunction, x::SymmetricSparseIterate) =
+    _symmetric_parameter(g.c, x, g, "coefficient c")
+
+  function _validate_symmetric_parameters(g::IndBox, x::SymmetricSparseIterate)
+    _symmetric_parameter(g.l, x, g, "bounds l")
+    _symmetric_parameter(g.u, x, g, "bounds u")
+  end
+
+  _validate_symmetric_parameters(g::IndPattern, x::SymmetricSparseIterate) =
+    _symmetric_parameter(g.P, x, g, "pattern P")
+
+  _validate_symmetric_parameters(g::SqrNormL2, x::SymmetricSparseIterate) =
+    _symmetric_parameter(g.y, x, g, "center y")
+
+  _validate_symmetric_parameters(g::KLDivergence, x::SymmetricSparseIterate) =
+    _symmetric_parameter(g.q, x, g, "reference q")
+
+  _validate_symmetric_parameters(g::Scaled, x::SymmetricSparseIterate) =
+    _validate_symmetric_parameters(g.f, x)
+
+  function _validate_symmetric_parameters(g::ProximalBase.Tilt, x::SymmetricSparseIterate)
+    _symmetric_parameter(g.c, x, g, "coefficient c")
+    _validate_symmetric_parameters(g.f, x)
+  end
+
+  function _validate_symmetric_parameters(g::Translate, x::SymmetricSparseIterate)
+    _symmetric_parameter(g.b, x, g, "translation b")
+    _validate_symmetric_parameters(g.f, x)
+  end
+
+  function _validate_symmetric_parameters(g::Regularize, x::SymmetricSparseIterate)
+    _symmetric_parameter(g.c, x, g, "center c")
+    _validate_symmetric_parameters(g.f, x)
+  end
+
+  function _validate_symmetric_parameters(g::_BoxConstrained, x::SymmetricSparseIterate)
+    _validate_symmetric_parameters(g.box, x)
+    _validate_symmetric_parameters(g.f, x)
+  end
+
+  _validate_symmetric_parameters(g::Precompose{<:AbstractFunction, <:Real}, x::SymmetricSparseIterate) =
+    _validate_symmetric_parameters(g.f, x)
+
+  _validate_symmetric_parameters(g::Union{MoreauEnvelope, Conjugate}, x::SymmetricSparseIterate) =
+    _validate_symmetric_parameters(g.f, x)
+
+  function _validate_symmetric_parameters(g::ProximalBase.LinearConstrained, x::SymmetricSparseIterate)
+    _symmetric_parameter(g.set.a, x, g.set, "coefficient a")
+    _validate_symmetric_parameters(g.f, x)
+  end
+end
+
+# the mean of a pair of parameters; a sum below twice the smallest subnormal
+# can have a mean that rounds to zero. On an owner the parameters of a pair
+# are equal after validation and the mean is the parameter itself; on a dense
+# matrix it gives the exact bound of the symmetrized problem.
 @inline function _symmetric_pair_mean(a, b)
   s = a + b
   isfinite(s) ? s / 2 : a / 2 + b / 2
 end
 
+# The only averaging that remains is for a dense matrix: the ProxNewton methods
+# for a Matrix solve through an owner built inside, and accept asymmetric NormL1
+# weights as they always did, by solving the problem with the weights replaced
+# by the means of their pairs. An owner supplied by the caller never goes through here.
 function _symmetric_average(a::AbstractArray, p::Int)
   w = similar(a, float(eltype(a)))
   @inbounds for c in 1:p
     w[_entry(p, c, c)] = a[_entry(p, c, c)]
     for r in c+1:p
       i, j = _entry(p, r, c), _entry(p, c, r)
-      # a sum below twice the smallest subnormal can have a mean that rounds to zero
       w[i] = w[j] = _symmetric_pair_mean(float(a[i]), float(a[j]))
     end
   end
   w
 end
 
-_symmetric_parameter(a::Union{Nothing, Real}, x, g, name, average::Bool = false) = a
-function _symmetric_parameter(a::AbstractArray, x, g, name, average::Bool = false)
-  ProximalBase._checkparam(a, x)
-  _symmetric_array(a, x.p) && return a
-  average && return _symmetric_average(a, x.p)
-  throw(ArgumentError("$(nameof(typeof(g))) needs symmetric $name on a SymmetricSparseIterate: entries (r, c) and (c, r) are one variable."))
-end
-
-_with_weights(g::NormL1, w) = NormL1(g.λ0, w)
-_with_weights(g::NormL1Nonneg, w) = NormL1Nonneg(g.λ0, w)
-_with_weights(g::ElasticNet, w) = ElasticNet(g.λ1, g.λ2, w)
-_with_weights(g::CappedL1, w) = CappedL1(g.λ, g.a, w)
-_with_weights(g::LogPenalty, w) = LogPenalty(g.λ, g.ε, w)
-_with_weights(g::NormLq, w) = NormLq(g.λ, g.q, w)
-_with_weights(g::Berhu, w) = Berhu(g.λ, g.M, w)
-_with_weights(g::CheckLoss, w) = CheckLoss(g.τ, w)
-_with_weights(g::EpsInsensitiveLoss, w) = EpsInsensitiveLoss(g.ε, w)
-
-function _symmetric_penalty(g::Union{NormL1, NormL1Nonneg, ElasticNet, CappedL1, LogPenalty,
-                                    NormLq, Berhu, CheckLoss, EpsInsensitiveLoss},
-                            x::SymmetricSparseIterate, average::Bool)
-  w = _symmetric_parameter(g.w, x, g, "weights w", average)
-  w === g.w ? g : _with_weights(g, w)
-end
-
-function _symmetric_penalty(g::HingeLoss, x::SymmetricSparseIterate, average::Bool)
-  _symmetric_parameter(g.y, x, g, "labels y")
-  w = _symmetric_parameter(g.w, x, g, "weights w", average)
-  w === g.w ? g : HingeLoss(g.y, w)
-end
-
-function _symmetric_penalty(g::LinearFunction, x::SymmetricSparseIterate, average::Bool)
-  c = _symmetric_parameter(g.c, x, g, "coefficient c", average)
-  c === g.c ? g : LinearFunction(c, g.d)
-end
-
-function _symmetric_penalty(g::IndBox, x::SymmetricSparseIterate, average::Bool)
-  _symmetric_parameter(g.l, x, g, "bounds l")
-  _symmetric_parameter(g.u, x, g, "bounds u")
-  g
-end
-
-function _symmetric_penalty(g::IndPattern, x::SymmetricSparseIterate, average::Bool)
-  _symmetric_parameter(g.P, x, g, "pattern P")
-  g
-end
-
-function _symmetric_penalty(g::SqrNormL2, x::SymmetricSparseIterate, average::Bool)
-  _symmetric_parameter(g.y, x, g, "center y")
-  g
-end
-
-function _symmetric_penalty(g::KLDivergence, x::SymmetricSparseIterate, average::Bool)
-  _symmetric_parameter(g.q, x, g, "reference q")
-  g
-end
-
-function _symmetric_penalty(g::Scaled, x::SymmetricSparseIterate, average::Bool)
-  f = _symmetric_penalty(g.f, x, average)
-  f === g.f ? g : Scaled(f, g.α)
-end
-
-function _symmetric_penalty(g::ProximalBase.Tilt, x::SymmetricSparseIterate, average::Bool)
-  c = _symmetric_parameter(g.c, x, g, "coefficient c", average)
-  f = _symmetric_penalty(g.f, x, average)
-  f === g.f && c === g.c ? g : ProximalBase.Tilt(f, c, g.d)
-end
-
-function _symmetric_penalty(g::Translate, x::SymmetricSparseIterate, average::Bool)
-  _symmetric_parameter(g.b, x, g, "translation b")
-  f = _symmetric_penalty(g.f, x, average)
-  f === g.f ? g : Translate(f, g.b)
-end
-
-function _symmetric_penalty(g::Regularize, x::SymmetricSparseIterate, average::Bool)
-  _symmetric_parameter(g.c, x, g, "center c")
-  f = _symmetric_penalty(g.f, x, average)
-  f === g.f ? g : Regularize(f, g.ρ, g.c)
-end
-
-function _symmetric_penalty(g::_BoxConstrained, x::SymmetricSparseIterate, average::Bool)
-  _symmetric_penalty(g.box, x, false)
-  f = _symmetric_penalty(g.f, x, average)
-  f === g.f ? g : _BoxConstrained(f, g.box)
-end
-
-function _symmetric_penalty(g::Precompose{<:AbstractFunction, <:Real},
-                            x::SymmetricSparseIterate, average::Bool)
-  f = _symmetric_penalty(g.f, x, average)
-  f === g.f ? g : Precompose(f, g.A)
-end
-
-# averaging inside an envelope, conjugate or linear constraint changes its function
-function _symmetric_penalty(g::Union{MoreauEnvelope, Conjugate}, x::SymmetricSparseIterate, average::Bool)
-  _symmetric_penalty(g.f, x, false)
-  g
-end
-
-function _symmetric_penalty(g::ProximalBase.LinearConstrained, x::SymmetricSparseIterate, average::Bool)
-  _symmetric_parameter(g.set.a, x, g.set, "coefficient a")
-  _symmetric_penalty(g.f, x, false)
-  g
+_dense_symmetric_weights(g, p::Int) = g
+function _dense_symmetric_weights(g::NormL1{<:Any, <:AbstractArray}, p::Int)
+  length(g.w) == p * p || return g
+  _symmetric_array(g.w, p) ? g : NormL1(g.λ0, _symmetric_average(g.w, p))
 end
 
 # the penalty g goes with iterates like x: it is separable, with a weight or
@@ -681,7 +687,11 @@ end
 # groups; a scaled penalty goes with the iterates of the penalty it scales
 _check_iterate(g::Scaled, x) = _check_iterate(g.f, x)
 function _check_iterate(g::AbstractFunction, x)
-  x isa SymmetricSparseIterate && _symmetric_penalty(g, x, false)
+  # A second scan of the parameters, O(p²) and small next to a coordinate pass: it
+  # guards the entry points. Every owner caller validates the penalty it is given
+  # before this check, except that LLA forms the penalty of its first stage after
+  # validating the supplied one, and this scan validates the stage weights.
+  x isa SymmetricSparseIterate && _symmetric_penalty(g, x)
   if isseparable(g)
     ProximalBase._checkparams(g, x)
     return nothing

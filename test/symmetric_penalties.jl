@@ -1,44 +1,12 @@
 module SymmetricPenaltyTests
 
-# The representative cases (asymmetric L1, independent and hand-computed optima, linear
-# constraints) are in symmetric_penalties_basics.jl, in the quick tier (#121).
+# The representative cases (asymmetric weights on an owner, independent and hand-computed
+# optima, linear constraints) are in symmetric_penalties_basics.jl, in the quick tier (#121).
 
 using Test, LinearAlgebra, Random, SparseArrays, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
 
 include("symmetric_penalty_helpers.jl")
-
-# keep the assertion code shared while each public solve specializes on its penalty
-@noinline function check_exactness(f, g, gbar, arrays, points, starts)
-  @nospecialize g gbar
-  model = cdmodel(f, SymmetricSparseIterate(2))
-  before = map(copy, arrays)
-  for X in points
-    # both triangles share Xrc, so wrc φ(Xrc) + wcr φ(Xrc) = 2w̄rc φ(Xrc)
-    @test isfinite(g(X)) && isfinite(gbar(X))
-    @test g(X) ≈ gbar(X) rtol = 1e-12
-    check_parameters(arrays, before)
-  end
-  @test PS._symmetric_penalty(gbar, SymmetricSparseIterate(2)) === gbar
-  check_parameters(arrays, before)
-  for start in starts
-    x, y = SymmetricSparseIterate(start), SymmetricSparseIterate(start)
-    # solve the explicitly averaged problem first to verify support
-    @test solve!(y, model, gbar, cdsolver()).converged
-    check_parameters(arrays, before)
-    r = solve!(x, model, g, cdsolver())
-    @test r.converged
-    @test Matrix(x) ≈ Matrix(y) atol = 1e-12
-    @test r.minimum ≈ f(Matrix(x)) + g(Matrix(x)) rtol = 1e-12 atol = 1e-14
-    check_parameters(arrays, before)
-  end
-end
-
-function check_parameters(arrays, before)
-  for (a, b) in zip(arrays, before)
-    @test isequal(a, b)
-  end
-end
 
 @testset "representative families and wrappers" begin
   families, wrappers, parameters = exactness_table()
@@ -166,25 +134,39 @@ end
   W = [0.0 1.0; 3.0 0.0]
   Wbar = (W .+ W') ./ 2
   g, gbar = NormL1(0.1, W), NormL1(0.1, Wbar)
+  # the pair has the penalty λ (w12 + w21)|z| = 4λ|z| on the loss z² - 0.5z
+  closed(λ) = max(0.5 - 4λ, 0.0) / 2
   preserves_parameters((W, Wbar)) do
-    @test lambda_max(f, g, SymmetricSparseIterate(2)) ≈ 0.125
+    @test lambda_max(f, gbar, SymmetricSparseIterate(2)) ≈ 0.125
+    x = warm_start()
+    rejects_symmetry(x) do
+      lambda_max(f, g, x)
+    end
   end
   for screening in (false, true)
     preserves_parameters((W, Wbar)) do
-      x, y = warm_start(), warm_start()
-      ra = solve!(x, f, g, cdsolver(); continuation = 3, continuation_tol = 1e-13, screening, gaptol = 0)
-      rb = solve!(y, f, gbar, cdsolver(); continuation = 3, continuation_tol = 1e-13, screening, gaptol = 0)
-      @test ra.converged && rb.converged
-      @test Matrix(x) ≈ Matrix(y) atol = 1e-10
+      x = warm_start()
+      rejects_symmetry(x) do
+        solve!(x, f, g, cdsolver(); continuation = 3, continuation_tol = 1e-13, screening, gaptol = 0)
+      end
       levels = [0.15, 0.1, 0.05]
-      pa = solve_path(f, g, levels, cdsolver(); x = warm_start(), screening, gaptol = 0)
+      rejects_symmetry(x) do
+        solve_path(f, g, levels, cdsolver(); x, screening, gaptol = 0)
+      end
+      y = warm_start()
+      rb = solve!(y, f, gbar, cdsolver(); continuation = 3, continuation_tol = 1e-13, screening, gaptol = 0)
+      @test rb.converged
+      @test Matrix(y) ≈ [0.0 closed(0.1); closed(0.1) 0.0] atol = 1e-10
       pb = solve_path(f, gbar, levels, cdsolver(); x = warm_start(), screening, gaptol = 0)
-      @test pa.λ == pb.λ == levels
-      @test all(pa.converged) && all(pb.converged)
+      @test pb.λ == levels
+      @test all(pb.converged)
       for k in eachindex(levels)
-        X = Matrix(pa.solutions[k])
-        @test X ≈ Matrix(pb.solutions[k]) atol = 1e-10
-        @test pa.values[k] ≈ f(X) + NormL1(levels[k], W)(X) rtol = 1e-12
+        X = Matrix(pb.solutions[k])
+        z = closed(levels[k])
+        @test X ≈ [0.0 z; z 0.0] atol = 1e-10
+        @test pb.values[k] ≈ f(X) + NormL1(levels[k], Wbar)(X) rtol = 1e-12
+        # the raw weights give the same dense value: only an owner has pairs of variables
+        @test pb.values[k] ≈ f(X) + NormL1(levels[k], W)(X) rtol = 1e-12
       end
     end
   end
@@ -197,38 +179,58 @@ end
   fk, fg = KronQuadratic(S, S, S), LogDetLoss(S)
   reference = SymmetricSparseIterate(3)
   solve!(reference, fk, NormL1(0.1, Wbar), cdsolver())
+  @test symmetric_l1_violation(S * Matrix(reference) * S + S, Matrix(reference), 0.1, Wbar) <= 1e-8
   qref = zeros(3, 3)
   method = ProxNewton(; tol = 1e-11, inner = cdsolver())
   solve!(qref, fg, NormL1(0.1, Wbar), method)
   @test !iszero(qref[1, 2])
-  # CD's matrix API uses SymmetricSparseIterate; QUIC also takes dense matrices.
+  @test symmetric_l1_violation(S - inv(qref), qref, 0.1, Wbar) <= 1e-4
+  # CD takes an owner. QUIC takes an owner, with the weights checked, and a dense
+  # matrix, whose asymmetric NormL1 weights are replaced by the means of their pairs.
   for weights in (W, Wbar, Int.(W), Int.(Wbar)), vector_weights in (false, true)
     # integer matrices cover integer acceptance; integer vectors stay in the full grid
     eltype(weights) <: Integer && vector_weights && continue
     w = vector_weights ? vec(copy(weights)) : copy(weights)
-    preserves_parameters((w,)) do
-      prepared = PS._symmetric_penalty(NormL1(0.1, w), SymmetricSparseIterate(3))
-      @test size(prepared.w) == size(w)
-      @test reshape(prepared.w, 3, 3) == Wbar
-      if !issymmetric(reshape(w, 3, 3))
-        @test eltype(prepared.w) <: AbstractFloat
-      end
-    end
+    g = NormL1(0.1, w)
+    symmetric = issymmetric(reshape(w, 3, 3))
     preserves_parameters((w, W, Wbar)) do
-      x = SymmetricSparseIterate(3)
-      solve!(x, fk, NormL1(0.1, w), cdsolver())
-      @test Matrix(x) ≈ Matrix(reference) atol = 1e-12
+      if symmetric
+        @test PS._symmetric_penalty(g, SymmetricSparseIterate(3)) === g
+        x = SymmetricSparseIterate(3)
+        solve!(x, fk, g, cdsolver())
+        @test Matrix(x) ≈ Matrix(reference) atol = 1e-12
+        @test symmetric_l1_violation(S * Matrix(x) * S + S, Matrix(x), 0.1, Wbar) <= 1e-8
+      else
+        x = SymmetricSparseIterate(3)
+        x[2, 1] = 0.3
+        rejects_symmetry(x) do
+          PS._symmetric_penalty(g, x)
+        end
+        rejects_symmetry(x) do
+          solve!(x, fk, g, cdsolver())
+        end
+      end
     end
     # integer weights are checked by CD here and by QUIC in the full grid
     eltype(w) <: Integer && continue
-    # pair matrix weights with dense storage and vector weights with sparse storage
-    for x in (vector_weights ? SymmetricSparseIterate(3) : zeros(3, 3),)
+    # a dense matrix takes any weights; an owner only symmetric ones
+    for x in (zeros(3, 3), SymmetricSparseIterate(3))
       preserves_parameters((w, W, Wbar)) do
-        r = solve!(x, fg, NormL1(0.1, w), method)
-        @test r.converged
-        @test Matrix(x) ≈ qref atol = 1e-10
-        @test Matrix(x) == Matrix(x)'
-        @test duality_gap(fg, NormL1(0.1, w), x).gap <= 1e-8
+        if x isa SymmetricSparseIterate && !symmetric
+          x[3, 1] = 0.1
+          rejects_symmetry(x) do
+            solve!(x, fg, g, method)
+          end
+          rejects_symmetry(x) do
+            duality_gap(fg, g, x)
+          end
+        else
+          r = solve!(x, fg, g, method)
+          @test r.converged
+          @test Matrix(x) ≈ qref atol = 1e-10
+          @test Matrix(x) == Matrix(x)'
+          @test duality_gap(fg, g, x).gap <= 1e-8
+        end
       end
     end
   end
@@ -236,28 +238,33 @@ end
 
 @testset "infinite zero and large finite weights" begin
   f = probe()
-  for W in ([0.0 Inf; 1.0 0.0], [0.0 0.0; 4.0 0.0])
-    preserves_parameters((W,)) do
-      x = SymmetricSparseIterate(2)
-      r = solve!(x, f, NormL1(0.1, W), cdsolver())
-      @test r.converged && isfinite(r.minimum)
-      @test isfinite(f(Matrix(x)) + NormL1(0.1, W)(Matrix(x)))
-      z = isinf(W[1, 2]) ? 0.0 : 0.05
-      @test Matrix(x) ≈ [0.0 z; z 0.0] atol = 1e-12
-      if isfinite(W[1, 2])
-        y = SymmetricSparseIterate(2)
-        solve!(y, f, NormL1(0.1, [0.0 2.0; 2.0 0.0]), cdsolver())
-        @test Matrix(x) ≈ Matrix(y) atol = 1e-12
+  # asymmetric weights, rejected; their symmetric parts are explicit weights
+  for (W, Wbar, z) in (([0.0 Inf; 1.0 0.0], [0.0 Inf; Inf 0.0], 0.0),
+                       ([0.0 0.0; 4.0 0.0], [0.0 2.0; 2.0 0.0], 0.05))
+    preserves_parameters((W, Wbar)) do
+      x = warm_start()
+      rejects_symmetry(x) do
+        solve!(x, f, NormL1(0.1, W), cdsolver())
       end
+      x = SymmetricSparseIterate(2)
+      r = solve!(x, f, NormL1(0.1, Wbar), cdsolver())
+      @test r.converged && isfinite(r.minimum)
+      @test isfinite(f(Matrix(x)) + NormL1(0.1, Wbar)(Matrix(x)))
+      @test Matrix(x) ≈ [0.0 z; z 0.0] atol = 1e-12
     end
   end
   M = floatmax(Float64)
   W = [M M; M / 2 M]
   preserves_parameters((W,)) do
-    normalized = PS._symmetric_penalty(NormL1(0.1, W), SymmetricSparseIterate(2))
-    @test isfinite(normalized.w[1, 2])
-    @test normalized.w[1, 2] == normalized.w[2, 1] == 0.75M
-    @test normalized.w[1, 1] == normalized.w[2, 2] == M
+    x = warm_start()
+    rejects_symmetry(x) do
+      PS._symmetric_penalty(NormL1(0.1, W), x)
+    end
+    # the dense boundary replaces asymmetric NormL1 weights by the means of the pairs
+    mean = PS._dense_symmetric_weights(NormL1(0.1, W), 2)
+    @test isfinite(mean.w[1, 2])
+    @test mean.w[1, 2] == mean.w[2, 1] == 0.75M
+    @test mean.w[1, 1] == mean.w[2, 2] == M
   end
   S = [1.0 0.5; 0.5 1.0]
   W = [0.0 1e308; 1e308 0.0]
@@ -271,79 +278,252 @@ end
   end
 end
 
+# closed forms of the probe problem z² - 0.5z with the pair penalty λ (w12 + w21)|z|
+probe_pair(λ, wsum) = max(0.5 - λ * wsum, 0.0) / 2
+
 @testset "workspace supplied penalties and reweighting" begin
   f = probe()
-  for W in ([0.0 1.0; 3.0 0.0], [0 1; 3 0])
-    Wbar = oftype(W, [0 2; 2 0])
-    Wother = oftype(W, [0 2; 4 0])
+  for W in ([0.0 2.0; 2.0 0.0], [0 2; 2 0])
+    Wsame = oftype(W, [0 3; 3 0])
+    Wraw = oftype(W, [0 2; 4 0])
     g = NormL1(0.1, W)
     x = SymmetricSparseIterate(2)
     ws = SolverWorkspace(x, f, g, cdsolver())
     @test ws.g === g
-    for (k, penalty) in enumerate((g, NormL1(0.1, Wbar), NormL1(0.1, Wother)))
-      preserves_parameters((W, Wbar, Wother)) do
+    # a replacement with asymmetric weights is rejected, the workspace stays usable
+    xw = warm_start()
+    wsw = SolverWorkspace(xw, f, g, cdsolver())
+    rejects_in_workspace(wsw) do
+      solve!(wsw, NormL1(0.1, Wraw))
+    end
+    rejects_symmetry(xw) do
+      SolverWorkspace(xw, f, NormL1(0.1, Wraw), cdsolver())
+    end
+    fresh = SymmetricSparseIterate(Matrix(xw))
+    @test solve!(wsw).converged && solve!(fresh, f, g, cdsolver()).converged
+    @test Matrix(xw) ≈ Matrix(fresh) atol = 1e-12
+    for (k, penalty) in enumerate((g, NormL1(0.1, Wsame)))
+      preserves_parameters((W, Wsame, Wraw)) do
         fresh = SymmetricSparseIterate(Matrix(x))
         reference = solve!(fresh, f, penalty, cdsolver())
         result = k == 1 ? solve!(ws) : solve!(ws, penalty)
         @test result.converged && reference.converged
         @test Matrix(x) ≈ Matrix(fresh) atol = 1e-12
+        z = probe_pair(0.1, penalty.w[1, 2] + penalty.w[2, 1])
+        @test Matrix(x) ≈ [0.0 z; z 0.0] atol = 1e-12
         @test result.minimum ≈ reference.minimum atol = 1e-14
         @test ws.g === g
       end
     end
   end
-  W = [0.0 1.0; 3.0 0.0]
-  Wnext = [0.0 0.0; 2.0 0.0]
-  g, next = NormL1(0.1, W), NormL1(0.1, Wnext)
+  Wsym = [0.0 2.0; 2.0 0.0]
+  Wnext = [0.0 1.0; 1.0 0.0]
+  Wraw = [0.0 0.0; 2.0 0.0]
+  g, next = NormL1(0.1, Wsym), NormL1(0.1, Wnext)
   seen = Ref(0)
   update = function (supplied, x, model)
     seen[] += 1
     @test supplied === (seen[] == 1 ? g : next)
     (next, seen[] == 1 ? 1.0 : 0.0)
   end
-  preserves_parameters((W, Wnext)) do
+  preserves_parameters((Wsym, Wnext, Wraw)) do
     result = reweight!(SymmetricSparseIterate(2), f, g, update, cdsolver(); maxiter = 2)
     @test seen[] == 2 && result.iterations == 2
     @test result.penalty === next && result.next === next
     @test result.cd_converged
     @test Matrix(result.minimizer) ≈ [0.0 0.15; 0.15 0.0] atol = 1e-12
+    # a stage with asymmetric weights is rejected when it is solved; an earlier stage has written
+    @test_throws ArgumentError reweight!(SymmetricSparseIterate(2), f, g,
+      (supplied, x, model) -> (NormL1(0.1, Wraw), 1.0), cdsolver(); maxiter = 2)
+    # a first stage with asymmetric weights is rejected before anything is written
+    x = warm_start()
+    rejects_symmetry(x) do
+      reweight!(x, f, NormL1(0.1, Wraw), update, cdsolver(); maxiter = 2)
+    end
   end
+  W = [0.0 1.0; 3.0 0.0]
   Wbar = (W .+ W') ./ 2
   preserves_parameters((W, Wbar)) do
-    a = solve!(SymmetricSparseIterate(2), f, CappedL1(0.1, 1.0, W), LLA(cdsolver()))
+    x = warm_start()
+    rejects_symmetry(x) do
+      solve!(x, f, CappedL1(0.1, 1.0, W), LLA(cdsolver()))
+    end
+    rejects_symmetry(x) do
+      solve_path(f, CappedL1(0.1, 1.0, W), [0.2, 0.1], LLA(cdsolver()); x)
+    end
     b = solve!(SymmetricSparseIterate(2), f, CappedL1(0.1, 1.0, Wbar), LLA(cdsolver()))
-    @test a.cd_converged && b.cd_converged
-    @test Matrix(a.minimizer) ≈ Matrix(b.minimizer) atol = 1e-12
-    @test issymmetric(reshape(a.penalty.w, 2, 2))
-    @test issymmetric(reshape(a.next.w, 2, 2))
-    @test reshape(a.penalty.w, 2, 2) == Wbar
+    @test b.cd_converged
+    @test Matrix(b.minimizer) ≈ [0.0 0.05; 0.05 0.0] atol = 1e-12
+    @test issymmetric(reshape(b.penalty.w, 2, 2))
+    @test issymmetric(reshape(b.next.w, 2, 2))
+    @test reshape(b.penalty.w, 2, 2) == Wbar
   end
 end
 
 @testset "gradient solvers and block workspaces" begin
   f = probe()
-  W, Wnext = [0.0 1.0; 3.0 0.0], [0.0 0.0; 2.0 0.0]
+  W, Wnext = [0.0 2.0; 2.0 0.0], [0.0 1.0; 1.0 0.0]
+  Wraw, Wnextraw = [0.0 1.0; 3.0 0.0], [0.0 0.0; 2.0 0.0]
   for method in gradient_methods(), blocks in (false, true)
     x = SymmetricSparseIterate(2)
     initial = blocks ? (x,) : x
     loss = blocks ? SeparableSum(f) : f
     penalty = blocks ? SeparableSum(NormL1(0.1, W)) : NormL1(0.1, W)
     replacement = blocks ? SeparableSum(NormL1(0.1, Wnext)) : NormL1(0.1, Wnext)
-    preserves_parameters((W, Wnext)) do
+    raw = blocks ? SeparableSum(NormL1(0.1, Wraw)) : NormL1(0.1, Wraw)
+    rawnext = blocks ? SeparableSum(NormL1(0.1, Wnextraw)) : NormL1(0.1, Wnextraw)
+    xw = warm_start()
+    initialw = blocks ? (xw,) : xw
+    preserves_parameters((W, Wnext, Wraw, Wnextraw)) do
       result = solve!(initial, loss, penalty, method, gradient_options())
       @test result.converged
       @test Matrix(x) ≈ [0.0 0.05; 0.05 0.0] atol = 1e-6
+      # raw asymmetric weights are rejected before the iterate, the workspace or the arrays change
+      rejects_symmetry(xw) do
+        solve!(initialw, loss, raw, method, gradient_options())
+      end
+      rejects_symmetry(xw) do
+        SolverWorkspace(initialw, loss, raw, method, gradient_options())
+      end
     end
     # one positive reuse case complements the full strict workspace checks
     method isa ProximalGradientDescent && !blocks || continue
-    preserves_parameters((W, Wnext)) do
+    preserves_parameters((W, Wnext, Wraw, Wnextraw)) do
       ws = SolverWorkspace(initial, loss, penalty, method, gradient_options())
       @test ws.g === penalty
       @test solve!(ws).converged
       @test Matrix(x) ≈ [0.0 0.05; 0.05 0.0] atol = 1e-6
+      before = Matrix(x)
+      rejects_in_workspace(ws) do
+        solve!(ws, rawnext)
+      end
+      @test Matrix(x) == before
       @test solve!(ws, replacement).converged
       @test Matrix(x) ≈ [0.0 0.15; 0.15 0.0] atol = 1e-6
       @test ws.g === penalty
+    end
+  end
+  # a SeparableSum over a tuple is checked block by block: only a block with an owner has pairs
+  xw = warm_start()
+  g = SeparableSum(NormL1(0.1, Wraw), NormL1(0.2, [0.0 1.0; 3.0 0.0]))
+  rejects_symmetry(xw) do
+    PS._symmetric_penalty(g, (xw, zeros(2, 2)))
+  end
+  ok = SeparableSum(NormL1(0.1, W), NormL1(0.2, [0.0 1.0; 3.0 0.0]))
+  @test PS._symmetric_penalty(ok, (xw, zeros(2, 2))) === ok
+  @test PS._symmetric_penalty(ok, (xw, SparseIterate(2, 2))) === ok
+end
+
+# A pair is symmetric when its entries are equal (isequal, or == that is true), checked here by
+# LinearFunction and SqrNormL2, whose constructors admit every value: the symmetry check, apart
+# from any parameter domain of a penalty, which a symmetric pair does not satisfy by being symmetric.
+@testset "boundary pairs of the symmetry check" begin
+  pairs = ((1.0, 1.0, true), (1.0, 2.0, false), (0.0, -0.0, true), (-0.0, 0.0, true),
+           (NaN, NaN, true), (NaN, 1.0, false), (1.0, NaN, false), (Inf, Inf, true),
+           (Inf, -Inf, false), (-Inf, -Inf, true), (floatmin(Float64) / 2, 0.0, false))
+  for (a, b, symmetric) in pairs
+    W = [0.0 a; b 0.0]
+    saved = copy(W)
+    for g in (LinearFunction(W), SqrNormL2(0.5, W), Scaled(LinearFunction(W), 2.0),
+              Translate(NormL1(0.1), W))
+      x = warm_start()
+      if symmetric
+        @test PS._symmetric_penalty(g, x) === g
+      else
+        rejects_symmetry(x) do
+          PS._symmetric_penalty(g, x)
+        end
+      end
+    end
+    @test isequal(W, saved)
+  end
+  # integer entries and a vector in column-major order
+  x = warm_start()
+  g = LinearFunction([0, 2, 2, 0])
+  @test PS._symmetric_penalty(g, x) === g
+  rejects_symmetry(x) do
+    PS._symmetric_penalty(LinearFunction([0, 2, 3, 0]), x)
+  end
+end
+
+@testset "symmetric by type" begin
+  W = [0.5 1.0; 3.0 0.75]
+  for uplo in (:L, :U)
+    S = Symmetric(W, uplo)
+    for g in (NormL1(0.1, S), LinearFunction(S), SqrNormL2(0.5, S), Tilt(NormL1(0.1), S, 0.25))
+      @test PS._symmetric_penalty(g, warm_start()) === g
+    end
+  end
+  # the lower triangle: the pair weight is 3 + 3, the upper triangle's is 1 + 1
+  f = probe()
+  lower, upper = [0.0 3.0; 3.0 0.0], [0.0 1.0; 1.0 0.0]
+  for (uplo, Wsym) in ((:L, lower), (:U, upper))
+    x, y = SymmetricSparseIterate(2), SymmetricSparseIterate(2)
+    @test solve!(x, f, NormL1(0.1, Symmetric(W, uplo)), cdsolver()).converged
+    @test solve!(y, f, NormL1(0.1, Wsym), cdsolver()).converged
+    z = probe_pair(0.1, 2Wsym[1, 2])
+    @test Matrix(x) ≈ [0.0 z; z 0.0] atol = 1e-12
+    @test Matrix(x) ≈ Matrix(y) atol = 1e-12
+  end
+end
+
+# a construction, a replacement penalty, a direct solve and a path that are rejected leave the
+# workspace usable: a valid solve then equals the one of a workspace that never saw them
+@testset "workspace integrity after a rejection" begin
+  f = probe()
+  W, Wbad = [0.0 2.0; 2.0 0.0], [0.0 1.0; 3.0 0.0]
+  g, bad = NormL1(0.1, W), NormL1(0.1, Wbad)
+  for method in (cdsolver(), ProximalGradientDescent())
+    options = method isa CDSolver ? () : (gradient_options(),)
+    x, xref = warm_start(), warm_start()
+    ws = SolverWorkspace(x, f, g, method, options...)
+    ref = SolverWorkspace(xref, f, g, method, options...)
+    preserves_parameters((W, Wbad)) do
+      rejects_in_workspace(ws) do
+        solve!(ws, bad)
+      end
+      rejects_symmetry(x) do
+        SolverWorkspace(x, f, bad, method, options...)
+      end
+      rejects_symmetry(x) do
+        solve!(x, f, bad, method, options...)
+      end
+      if method isa CDSolver
+        rejects_symmetry(x) do
+          solve!(x, f, bad, method; continuation = 2)
+        end
+        rejects_symmetry(x) do
+          solve_path(f, bad, [0.2, 0.1], method; x, gaptol = 0)
+        end
+        rejects_symmetry(x) do
+          kkt_residual(f, bad, x)
+        end
+      end
+      r, rr = solve!(ws), solve!(ref)
+      @test r.converged && rr.converged
+      @test Matrix(x) ≈ Matrix(xref) atol = 1e-12
+      @test collect(activecoordinates(x)) == collect(activecoordinates(xref))
+      @test r.minimum ≈ rr.minimum atol = 1e-14
+      @test ws.g === g
+    end
+  end
+end
+
+# ProximalBase 0.6 checks more penalties than the transitional check of ProximalBase 0.5
+pb_checks_symmetry() && @testset "penalties checked by ProximalBase 0.6" begin
+  W = [0.0 1.0; 3.0 0.0]
+  Y = [1.0 1.0; -1.0 1.0]
+  a = [1.0 1.0; 0.0 1.0]
+  rows = (("SqrHingeLoss w", SqrHingeLoss(Y, W)),
+          ("Sum", Sum(NormL1(0.1, W), NormL1(0.1))),
+          ("PointwiseMinimum", PointwiseMinimum(NormL1(0.1, W), NormL1(0.1))),
+          ("IndHyperplane a", Constrained(NormL1(0.1), IndHyperplane(a, 0.0))))
+  for (name, g) in rows
+    @testset "$name" begin
+      x = warm_start()
+      rejects_symmetry(x) do
+        PS._symmetric_penalty(g, x)
+      end
     end
   end
 end
