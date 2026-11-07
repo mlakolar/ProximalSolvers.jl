@@ -509,11 +509,13 @@ function ft27_run(T, f, g, x0, tol, maxpasses)
   x, m, st, PS.loss_value(m, x) + g(x)
 end
 
-# Float64: element-wise, relative 1e-12. Float32: norm-wise, because Float32 sums round differently with the SIMD
-# width and fused multiply-adds of the CPU, so that iterates differ by a few ulps at the scale of the solve
+# Float64: element-wise, relative 1e-12. Float32: norm-wise. Float32 iterates recorded on one CPU differ from a run
+# with another SIMD width or fused multiply-add by at most about 4e-7 absolute (3.2e-7 relative to the solve scale,
+# measured with the native and the generic CPU target). The budget 1e-5 relative to max(‖b‖∞, 1) leaves a factor of
+# about 30; the floor of 1 on the scale is the order of the recorded values (the response scale of these problems is O(1)).
 ft27_close(a, b, ::Type{Float64}) = length(a) == length(b) &&
   all(isapprox(a[i], b[i]; rtol = 1e-12, atol = 1e-14) for i in eachindex(a))
-ft27_close(a, b, ::Type) = length(a) == length(b) && norm(a .- b, Inf) <= 1e-4 * max(norm(b, Inf), 1)
+ft27_close(a, b, ::Type) = length(a) == length(b) && norm(a .- b, Inf) <= 1e-5 * max(norm(b, Inf), 1)
 ft27_scalar_close(a, b, ::Type{Float64}) = isapprox(a, b; rtol = 1e-12)
 ft27_scalar_close(a, b, ::Type) = abs(a - b) <= 1e-5 * max(abs(b), 1)
 
