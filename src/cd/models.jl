@@ -546,7 +546,10 @@ function _symmetric_penalty(g, x::SymmetricSparseIterate)
   _validate_symmetric_parameters(g, x)
   g
 end
-function _symmetric_penalty(g::SeparableSum, x::Tuple)
+# a tuple of iterates goes with a SeparableSum, possibly scaled (Scaled is the
+# wrapper of a block penalty that the solvers evaluate on a tuple); other
+# penalties on a tuple, which couple the blocks, pass as they are
+function _symmetric_penalty(g::Union{SeparableSum, Scaled}, x::Tuple)
   _validate_symmetric_parameters(g, x)
   g
 end
@@ -578,6 +581,8 @@ else
     map(_validate_symmetric_parameters, g.fs, x)
     nothing
   end
+
+  _validate_symmetric_parameters(g::Scaled, x::Tuple) = _validate_symmetric_parameters(g.f, x)
 
   _symmetric_parameter(a::Union{Nothing, Real}, x, g, name) = nothing
   function _symmetric_parameter(a::AbstractArray, x, g, name)

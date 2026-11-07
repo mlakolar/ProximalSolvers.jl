@@ -51,9 +51,10 @@ rule as coordinate descent: the per-entry parameters of `g` must be exactly
 symmetric, or symmetric by type as `Symmetric(W, :L)`, otherwise an
 `ArgumentError` is thrown before anything is written (see the
 [`CDSolver`](@ref) method of `solve!`). The penalty is used as supplied. The
-smooth function `f` is not checked. For tuples with a `SeparableSum` penalty,
-the rule applies block by block; penalties that couple blocks pass unchanged
-and their symmetric-storage compatibility is the caller's responsibility.
+smooth function `f` is not checked. For tuples, the rule applies block by
+block to a `SeparableSum` and to `Scaled` around one (also nested); no other
+wrapper of a block penalty is checked, and penalties that couple blocks pass
+unchanged: their symmetric-storage compatibility is the caller's responsibility.
 
 # Example
 ```julia
