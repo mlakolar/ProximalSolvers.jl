@@ -180,11 +180,14 @@ objective's residual remains the convergence check for the outer solve.
 
 Dense vectors and `SparseIterate`s are supported. Matrix models can use a
 `SymmetricSparseIterate` or a dense symmetric matrix with `NormL1` or
-`ZeroFunction`. QUIC and this generic symmetric path follow the same penalty
-parameter rule as [coordinate descent](@ref "Coordinates of the iterates"):
-transposed `NormL1` weights are averaged, since their sum determines the
-penalty on a symmetric pair. Weights can be a matrix or a vector in
-column-major order. Penalties on vector iterates must be separable.
+`ZeroFunction`. On a `SymmetricSparseIterate`, QUIC and this generic symmetric
+path follow the same penalty parameter rule as
+[coordinate descent](@ref "Coordinates of the iterates"): the `NormL1` weights
+must be exactly symmetric, or symmetric by type, and otherwise an
+`ArgumentError` is thrown before anything is written. On a dense symmetric
+`Matrix`, asymmetric `NormL1` weights are accepted and replaced by the means of
+their pairs, since their sum determines the penalty on a symmetric pair.
+Weights can be a matrix or a vector in column-major order. Penalties on vector iterates must be separable.
 The quadratic models must have positive
 semidefinite Hessians for the inner coordinate-descent solves to have their
 usual interpretation. This generic path does not fit an extra intercept or

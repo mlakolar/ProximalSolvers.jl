@@ -695,24 +695,38 @@ is converted to a `SparseIterate` (an `AtomIterate` for a group penalty) and
 overwritten with the solution. Returns a [`CDResults`](@ref). See
 [`CDSolver`](@ref).
 
-On a `SymmetricSparseIterate`, transposed entries are one variable. Solvers
-average asymmetric parameters that enter the penalty linearly: the weights
+On a `SymmetricSparseIterate`, transposed entries are one variable, so the
+per-entry parameters of the penalty that the check covers (below) must be
+exactly symmetric: the weights
 of `NormL1`, `NormL1Nonneg`, `ElasticNet` (L1 term), `CappedL1`, `LogPenalty`,
-`NormLq`, `Berhu`, `CheckLoss`, `EpsInsensitiveLoss` and `HingeLoss`, and the
-coefficients `c` of `Tilt` and `LinearFunction`. Bounds of `IndBox`, patterns
-of `IndPattern`, centers `y` of `SqrNormL2`, centers `c` of `Regularize`,
-translations `b` of `Translate`, labels `y` of `HingeLoss` and references `q`
-of `KLDivergence` must be symmetric; otherwise an `ArgumentError` precedes
-any mutation. Normalization recurses through scaling, tilting, translation,
-regularization, box constraints and scalar `Precompose`. Inside
-`MoreauEnvelope`, `Conjugate` and linear constraints, every parameter must
-already be symmetric, including the constraint's coefficient `a`.
+`NormLq`, `Berhu`, `CheckLoss`, `EpsInsensitiveLoss` and `HingeLoss`, the
+coefficients `c` of `Tilt` and `LinearFunction`, the bounds of `IndBox`, the
+patterns of `IndPattern`, the centers `y` of `SqrNormL2`, the centers `c` of
+`Regularize`, the translations `b` of `Translate`, the labels `y` of
+`HingeLoss` and the references `q` of `KLDivergence`, also inside scaling,
+tilting, translation, regularization, box constraints, scalar `Precompose`,
+`MoreauEnvelope`, `Conjugate` and linear constraints (including the
+constraint's coefficient `a`). A pair of entries is symmetric when the two are
+equal, also as `NaN` and `NaN` or `0.0` and `-0.0`; a parameter that is
+symmetric by type, as `Symmetric(W, :L)` (which takes the lower triangle),
+passes. Otherwise an `ArgumentError` is thrown before the iterate, the active
+set or the caller's arrays are changed. The penalty is not rebuilt: the
+solver uses the supplied one, and the objective it minimizes and reports is the
+supplied objective. The symmetric part `(W + W') / 2` of asymmetric weights is
+a different penalty, which the caller passes explicitly.
 
-Symmetric or absent parameters keep the supplied penalty itself, and supplied
-arrays are never changed. The reported minimum uses the supplied objective.
-Unknown penalty types pass unchanged and must have symmetric per-entry
-parameters. Infinite weights are preserved; their proximal behavior remains
-that of ProximalBase, which some non-L1 families do not support.
+With ProximalBase 0.6 or later the check is `ProximalBase.check_symmetric_parameters`.
+It traverses the per-entry parameters that ProximalBase declares for its own
+penalties and wrappers, and those that a user type declares with
+`ProximalBase.entry_parameters`; a user `SeparableFunction` subtype that
+declares nothing is rejected on an owner, and a user `AbstractFunction` or
+wrapper that declares nothing is not traversed and passes the check unchanged.
+With earlier versions the check covers the types listed above, and other types
+pass unchanged. A custom penalty or wrapper is responsible for the
+symmetric-storage compatibility of its own parameters (extending the check to
+user types is #120). Infinite
+weights are preserved; their proximal behavior remains that of ProximalBase,
+which some non-L1 families do not support.
 """
 function solve!(x::Union{SparseIterate, SymmetricSparseIterate, AtomIterate}, f::AbstractFunction,
                 g::AbstractFunction, method::CDSolver)

@@ -38,8 +38,9 @@ LLA())` one level, with the first weights at `x`: from zero the first stage is
 the lasso, and from an initial estimate one stage is the one-step estimator of
 Zou and Li (2008).
 
-On a `SymmetricSparseIterate`, the parameter rule of [`solve!`](@ref) is
-applied before forming stage weights.
+On a `SymmetricSparseIterate`, the symmetry rule of the per-entry parameters of
+[`solve!`](@ref), with the coverage described there, is applied to the penalty
+before stage weights are formed, and to the penalty of each stage.
 """
 struct LLA
   inner::CDSolver
@@ -126,7 +127,7 @@ unpenalized fit, `LLA(stages = 1)` is the one-step estimator of Zou and Li
 return. Returns [`ReweightResults`](@ref): `iterations` is the number of stages,
 `converged` whether the weights stopped changing, `penalty` the weighted lasso
 of the last stage and `next` that of the stage after it. On a
-`SymmetricSparseIterate`, both hold the averaged stage weights.
+`SymmetricSparseIterate`, both hold the stage weights as symmetric arrays.
 """
 function solve!(x::Union{SparseIterate, SymmetricSparseIterate, AtomIterate}, f::Union{AbstractFunction, CDModel},
                 g::AbstractFunction, method::LLA)

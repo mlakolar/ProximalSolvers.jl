@@ -156,15 +156,42 @@ end
   f = KronQuadratic(Matrix{Float64}(I, 2, 2), Matrix{Float64}(I, 2, 2),
                     [0.0 -2.0; -2.0 0.0])
   weights = [0.0 2.0; 0.0 0.0]
+  mean_weights = [0.0 1.0; 1.0 0.0]
   # On X12 = X21 = t, the objective is t² - 4t + 2|t|.
   expected = [0.0 1.0; 1.0 0.0]
   method = ProxNewton(; tol = 1e-10, inner = CDSolver(; order = :cyclic, tol = 1e-12))
-  for w in (weights, vec(weights)), x in (zeros(2, 2), SymmetricSparseIterate(2))
+  for w in (weights, vec(weights))
     g = NormL1(1.0, w)
+    saved = copy(w)
+    # a dense matrix takes asymmetric weights and solves with the means of their pairs
+    x = zeros(2, 2)
     r = solve!(x, f, g, method)
     @test r.converged && r.minimizer === x
     @test Matrix(x) ≈ expected atol = 1e-12
     @test r.minimum ≈ f(expected) + g(expected) atol = 1e-12
+    @test r.maxchange <= r.tolerance
+    # an owner has the pair as one variable: asymmetric weights are rejected, nothing is written
+    xs = SymmetricSparseIterate(2)
+    xs[2, 1] = 0.25
+    before = Matrix(xs)
+    err = try
+      solve!(xs, f, g, method)
+      nothing
+    catch e
+      e
+    end
+    @test err isa ArgumentError
+    @test err isa ArgumentError && occursin("symmetric", lowercase(sprint(showerror, err)))
+    @test Matrix(xs) == before
+    @test isequal(w, saved)
+    # the weights of the pair given as is take the same solution
+    wbar = w isa Vector ? vec(mean_weights) : mean_weights
+    gbar = NormL1(1.0, wbar)
+    xs = SymmetricSparseIterate(2)
+    r = solve!(xs, f, gbar, method)
+    @test r.converged && r.minimizer === xs
+    @test Matrix(xs) ≈ expected atol = 1e-12
+    @test r.minimum ≈ f(expected) + gbar(expected) atol = 1e-12
     @test r.maxchange <= r.tolerance
   end
 end
