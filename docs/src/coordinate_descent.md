@@ -160,50 +160,56 @@ The iterate fixes what a coordinate is.
   ```
 
   Per-entry parameters are indexed like the full matrix, as a matrix or a
-  vector in column-major order. Solvers average transposed parameters that
-  enter the penalty linearly: the weights of `NormL1`, `NormL1Nonneg`,
+  vector in column-major order. They must be exactly symmetric: entries
+  ``(r, c)`` and ``(c, r)`` are one variable, and a penalty with different
+  values for them is a different penalty from the one on the pair. A pair is
+  symmetric when its two entries are equal, also as `NaN` and `NaN` or `0.0`
+  and `-0.0`. A parameter that is symmetric by type, as `Symmetric(W, :L)`,
+  passes and uses the lower triangle of `W`. Otherwise an `ArgumentError` is
+  thrown before the iterate, the active set or any array is changed. To use
+  the symmetric part of asymmetric weights, pass ``(W + W')/2``; it is a
+  different penalty, and is not applied for you.
+
+  The parameters that are checked are the weights of `NormL1`, `NormL1Nonneg`,
   `ElasticNet` (L1 term), `CappedL1`, `LogPenalty`, `NormLq`, `Berhu`,
-  `CheckLoss`, `EpsInsensitiveLoss` and `HingeLoss`, and the coefficients
-  `c` of `Tilt` and `LinearFunction`. The constants `d` are kept. This leaves
-  ``g(X)`` unchanged for every symmetric ``X``, up to floating-point rounding.
-  With the prepared penalty ``\bar g``, the pair contributes
-  ``h_{rc}(t) = 2\bar g_{rc}(t)``.
+  `CheckLoss`, `EpsInsensitiveLoss` and `HingeLoss`, the coefficients `c` of
+  `Tilt` and `LinearFunction`, the bounds `l` and `u` of `IndBox`, including
+  the box of `Constrained(g, IndBox)`, the pattern `P` of `IndPattern`, the
+  center `y` of `SqrNormL2`, the center `c` of `Regularize`, the translation
+  `b` of `Translate`, the labels `y` of `HingeLoss` and the reference `q` of
+  `KLDivergence`, and the coefficient `a` of a linear constraint, through
+  `Scaled`, `Tilt`, `Translate`, `Regularize`, `Constrained(·, IndBox)`,
+  scalar `Precompose`, `MoreauEnvelope`, `Conjugate` and linear constraints.
+  With ProximalBase 0.6 or later the check is
+  `ProximalBase.check_symmetric_parameters`, which covers more penalties and
+  rejects a penalty that does not declare its per-entry parameters; with
+  earlier versions, penalty types not listed here pass unchanged and must have
+  symmetric per-entry parameters. These rules do not extend the penalty
+  families supported by a solver or wrapper.
 
-  Other per-entry parameters must already be symmetric: the bounds `l` and
-  `u` of `IndBox`, including the box of `Constrained(g, IndBox)`, the pattern
-  `P` of `IndPattern`, the center `y` of `SqrNormL2`, the center `c` of
-  `Regularize`, the translation `b` of `Translate`, the labels `y` of
-  `HingeLoss` and the reference `q` of `KLDivergence`. An asymmetric one
-  raises an `ArgumentError` before mutation.
-
-  Normalization recurses through `Scaled`, `Tilt`, `Translate`, `Regularize`,
-  `Constrained(·, IndBox)` and scalar `Precompose`, subject to those symmetry
-  requirements. Inside `MoreauEnvelope`, `Conjugate` and linear constraints,
-  these parameters must already be symmetric; no averaging is done there.
-  The coefficient `a` of a linear constraint must also be symmetric.
-  These rules do not extend the penalty families supported by a solver or
-  wrapper.
-
-  Symmetric or absent parameters keep the supplied penalty object itself;
-  supplied arrays are never changed. Unknown penalty types pass unchanged
-  and must have symmetric per-entry parameters. The low-level
-  [`coordinate_step!`](@ref ProximalSolvers.coordinate_step!) and
-  `prox_coordinate!` kernels also require parameters that are already
-  symmetric.
+  An exactly symmetric penalty is used as supplied, the same object, and the
+  supplied arrays are never changed. The pair contributes
+  ``h_{rc}(t) = 2 g_{rc}(t)``. The reported minimum uses the supplied
+  objective. The low-level [`coordinate_step!`](@ref ProximalSolvers.coordinate_step!)
+  and `prox_coordinate!` kernels do not check, and need symmetric parameters.
+  The loss arrays, such as the matrix `C` of a `KronQuadratic`, are not
+  checked by ProximalSolvers.
 
   The same rule applies to [`lambda_max`](@ref), screening, continuation,
-  [`solve_path`](@ref), [`kkt_residual`](@ref) and [`SolverWorkspace`](@ref).
-  A workspace keeps the supplied `workspace.g` and prepares the penalty again
-  at each solve. [`LLA`](@ref) prepares it before forming stage weights, so
-  `ReweightResults.penalty` and `next` hold averaged stage weights. With
-  [`reweight!`](@ref), `update` receives the supplied penalty, which is also
-  kept in the results; each solve prepares it separately. The reported
-  minimum uses the supplied objective.
+  [`solve_path`](@ref), [`kkt_residual`](@ref), `duality_gap` of a
+  graphical lasso on a `SymmetricSparseIterate`, and
+  [`SolverWorkspace`](@ref), at construction and at each solve, including
+  `solve!(workspace, g)`. [`LLA`](@ref) checks the penalty before forming stage
+  weights and the penalty of each stage, so `ReweightResults.penalty` and `next`
+  hold weights that are symmetric. With [`reweight!`](@ref), `update` receives
+  the supplied penalty, which is also kept in the results; each solve checks
+  the penalty it is given, so a stage with asymmetric parameters formed by
+  `update` is rejected when it is solved, after the earlier stages have written
+  to `x`.
 
-  The pair mean avoids overflow for finite weights. A pair whose sum is below
-  twice the smallest subnormal may have a mean that rounds to zero. Infinite
-  weights are kept, but some non-L1 families of ProximalBase do not handle
-  them in their proximal operators.
+  On a dense symmetric `Matrix`, the graphical lasso and generic proximal
+  Newton accept asymmetric `NormL1` weights and replace them by the means of
+  their pairs, as described in [Proximal Newton](@ref).
 - On an `AtomIterate`, a coordinate is a group of entries, for the group
   lasso; see the next section.
 
