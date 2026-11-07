@@ -170,6 +170,10 @@ def sha256_file(path):
     return digest.hexdigest()
 
 
+def sha256_bytes(data):
+    return hashlib.sha256(data).hexdigest()
+
+
 def is_hex40(value):
     return isinstance(value, str) and bool(HEX40.fullmatch(value))
 
@@ -1616,8 +1620,9 @@ class Attempt:
             "schedule_id": plan.sched["id"], "official": plan.official, "freeze_sha": plan.freeze_sha,
             "arms": list(plan.arms), "started_utc": utc_text(start),
             "schedule_sha256": sha256_file(plan.base / "schedule.toml"),
-            "lock_sha256": sha256_file(plan.base / "lock.toml") if (plan.base / "lock.toml").is_file() else None},
-            indent=2) + "\n")
+            "lock_sha256": sha256_file(plan.base / "lock.toml") if (plan.base / "lock.toml").is_file() else None,
+            "pilot_config_sha256": (sha256_file(plan.base / "pilot-config.toml")
+                                    if (plan.base / "pilot-config.toml").is_file() else None)}, indent=2) + "\n")
 
     def finish(self, state, **info):
         """STATE.json, then the checksums of the whole evidence (best effort: the attempt is over either way)."""
@@ -1787,7 +1792,11 @@ def finalize(plan, hooks, attempt, count, nonok):
         "schema": 1, "campaign_id": plan.campaign_id, "session_id": plan.session_id,
         "schedule_id": plan.sched["id"], "processes": count, "receipt_sha256": sha256_file(base / "receipt.jsonl"),
         "comparator_exit": code, "outcome": "comparable" if code == 0 and not nonok else "non_ok",
-        "nonok_processes": nonok}, indent=2) + "\n")
+        "nonok_processes": nonok, "schedule_sha256": sha256_file(base / "schedule.toml"),
+        "campaign_sha256": sha256_file(base / "logs" / "campaign.json"),
+        **({"lock_sha256": sha256_file(base / "lock.toml")} if plan.official else
+           {"pilot_config_sha256": (sha256_file(base / "pilot-config.toml")
+                                    if (base / "pilot-config.toml").is_file() else None)})}, indent=2) + "\n")
     seal_file(base, "logs/completion.json", "completion")
     problems = verify_seals(base)
     if problems:
@@ -2144,25 +2153,108 @@ def check_identifiers(base, sched, arms, state, completion, problems):
     return campaign
 
 
+def classify_mode(verifier, pairs):
+    """('official' | 'pilot' | None, problems) from the recorded (campaign id, schedule id) pairs and the
+    VERIFIER's own official identity. Official iff an id equals the official one; pilot iff both ids contain
+    `-pilot` and differ from the official ones; anything else, or a mix, is a problem."""
+    modes, problems = set(), []
+    for campaign_id, schedule_id in pairs:
+        official = campaign_id == verifier["campaign_id"] or schedule_id == verifier["id"]
+        pilot_names = all(isinstance(i, str) and "-pilot" in i for i in (campaign_id, schedule_id))
+        if official and any(isinstance(i, str) and "-pilot" in i for i in (campaign_id, schedule_id)):
+            problems.append(f"identity {campaign_id!r}/{schedule_id!r} mixes the official and the pilot names")
+            modes.add(None)
+        elif official:
+            modes.add("official")
+        elif pilot_names:
+            modes.add("pilot")
+        else:
+            problems.append(f"identity {campaign_id!r}/{schedule_id!r} is neither official nor a pilot")
+            modes.add(None)
+    if len(modes) != 1 or None in modes:
+        if len(modes) > 1 and None not in modes:
+            problems.append("the recorded identities disagree on the mode")
+        return None, problems
+    return next(iter(modes)), problems
+
+
+def verifier_schedule_problems(run=subprocess.run):
+    """The verifier's schedule.toml is the development reference: it must be tracked and unmodified in its
+    repository (a clean checkout at a recorded freeze commit is required for official use, not claimed here)."""
+    repo = HERE.parents[2]
+    relative = (HERE / "schedule.toml").relative_to(repo).as_posix()
+    problems = []
+    for argv, text in ((["ls-files", "--error-unmatch", "--", relative], "is not tracked"),
+                       (["diff", "--quiet", "HEAD", "--", relative], "is modified")):
+        try:
+            result = run(["git", "-C", str(repo), *argv], capture_output=True, text=True)
+            failed = result.returncode != 0
+        except OSError:
+            failed = True
+        if failed:
+            problems.append(f"the verifier's schedule.toml {text} (or git cannot say)")
+    return problems
+
+
+def check_pilot_binding(base, sched, campaign, config_path, problems):
+    """A pilot is bound to the configuration the verifier holds (--config): the archived pilot-config.toml is
+    byte-equal to it, valid, and the archived schedule and the recorded ids agree with it."""
+    base = Path(base)
+    archived = base / "pilot-config.toml"
+    if not archived.is_file():
+        problems.append("pilot-config.toml is missing from the tree of a pilot attempt")
+        return
+    if config_path is None:
+        problems.append("a pilot needs --config: the pilot configuration the verifier holds")
+        return
+    try:
+        held = Path(config_path).read_bytes()
+    except OSError as error:
+        problems.append(f"--config cannot be read: {error}")
+        return
+    if archived.read_bytes() != held:
+        problems.append("pilot-config.toml differs from the configuration supplied with --config")
+    try:
+        config = parse_pilot(tomllib.loads(held.decode("utf-8")), mc.load_schedule(HERE / "schedule.toml"))
+    except (Refused, tomllib.TOMLDecodeError, UnicodeDecodeError, mc.Usage) as error:
+        problems.append(f"pilot configuration: {error}")
+        return
+    if config["campaign"]["id"] != campaign.get("campaign_id") or config["schedule"]["id"] != sched["id"] \
+            or sched["campaign_id"] != campaign.get("campaign_id"):
+        problems.append("pilot configuration: the ids differ from the attempt and its schedule")
+    if "session_id" in config["campaign"] and config["campaign"]["session_id"] != campaign.get("session_id"):
+        problems.append("pilot configuration: the session id differs from the attempt")
+    if tuple(config["pilot"]["arms"]) != schedule_arms(base) and set(config["pilot"]["arms"]) != set(
+            schedule_arms(base)):
+        problems.append("pilot configuration: the arms differ from the archived schedule's")
+    if campaign.get("pilot_config_sha256") != sha256_file(archived):
+        problems.append("pilot-config.toml differs from the digest recorded in logs/campaign.json")
+
+
+def check_completion_binding(base, mode, campaign, completion, problems):
+    """completion.json carries the SHA-256 of schedule.toml, logs/campaign.json and the lock (official) or the
+    pilot configuration (pilot); each must be the digest of the file in the tree. An internal consistency control,
+    not an authenticity signature."""
+    base = Path(base)
+    wanted = {"schedule_sha256": base / "schedule.toml", "campaign_sha256": base / "logs" / "campaign.json"}
+    wanted["lock_sha256" if mode == "official" else "pilot_config_sha256"] = (
+        base / ("lock.toml" if mode == "official" else "pilot-config.toml"))
+    other = "pilot_config_sha256" if mode == "official" else "lock_sha256"
+    if other in completion:
+        problems.append(f"logs/completion.json: {other} does not apply to this attempt")
+    for key, path in wanted.items():
+        if not path.is_file() or completion.get(key) != sha256_file(path):
+            problems.append(f"logs/completion.json: {key} is not the digest of {path.relative_to(base).as_posix()}")
+    if campaign.get("schedule_sha256") != completion.get("schedule_sha256"):
+        problems.append("logs/completion.json and logs/campaign.json record different schedule digests")
+
+
 def check_lock_binding(base, sched, campaign, problems):
     """An official attempt is bound to its lock: the lock validates, and the archived stack B (identity,
-    metadata, Manifest and Project digests) is the one the lock names. A pilot is checked against its stored
-    configuration."""
+    metadata, Manifest and Project digests) is the one the lock names."""
     base = Path(base)
-    if campaign.get("official") is not True:
-        path = base / "pilot-config.toml"
-        if path.is_file():
-            try:
-                config = parse_pilot(tomllib.loads(path.read_text(encoding="utf-8")),
-                                     mc.load_schedule(HERE / "schedule.toml"))
-            except (Refused, tomllib.TOMLDecodeError, UnicodeDecodeError, mc.Usage) as error:
-                problems.append(f"pilot-config.toml: {error}")
-                return
-            if config["campaign"]["id"] != campaign.get("campaign_id") or config["schedule"]["id"] != sched["id"]:
-                problems.append("pilot-config.toml: the ids differ from the attempt")
-            if "session_id" in config["campaign"] and config["campaign"]["session_id"] != campaign.get("session_id"):
-                problems.append("pilot-config.toml: the session id differs from the attempt")
-        return
+    if (base / "pilot-config.toml").exists():
+        problems.append("pilot-config.toml exists in the tree of an official attempt")
     path = base / "lock.toml"
     if not path.is_file():
         problems.append("lock.toml is missing from the tree of an official attempt")
@@ -2217,7 +2309,7 @@ def check_lock_binding(base, sched, campaign, problems):
                     problems.append(f"ab-b julia {mm} rep {rep}: metadata {field} differs from the lock")
 
 
-def verify(base, out, replay=True):
+def verify(base, out, replay=True, config=None, run=subprocess.run):
     """Read-only check of a BASE (no Julia, no original paths, works on a copied tree) and the verification
     record `out`, a fresh path outside BASE. Returns (document, exit status).
 
@@ -2232,12 +2324,41 @@ def verify(base, out, replay=True):
         raise UsageError("the verification record must not be written into the evidence")
     problems = []
     document = {"schema": 1, "problems": problems}
-    sched, arms = None, ("AB",)
+    sched, arms, reference = None, ("AB",), base
+    verifier = mc.load_schedule(HERE / "schedule.toml")
+    campaign = read_json_file(base / "logs" / "campaign.json") or {}
+    pairs = [(campaign.get("campaign_id"), campaign.get("schedule_id"))]
     try:
-        sched = mc.load_schedule(base / "schedule.toml")
-        arms = schedule_arms(base)
+        archived = tomllib.loads((base / "schedule.toml").read_text(encoding="utf-8"))["schedule"]
+        pairs.append((archived.get("campaign_id"), archived.get("id")))
+    except (OSError, KeyError, tomllib.TOMLDecodeError, UnicodeDecodeError):
+        problems.append("schedule.toml is missing or unreadable")
+    mode, mode_problems = classify_mode(verifier, pairs)
+    problems += mode_problems
+    document["mode"] = {"official": "OFFICIAL", "pilot": "PILOT / NON-OFFICIAL", None: None}[mode]
+    if mode is not None and campaign.get("official") is not (mode == "official"):
+        problems.append(f"logs/campaign.json: official is {campaign.get('official')!r}, but the identity is "
+                        f"{'official' if mode == 'official' else 'a pilot'}")
+    if mode == "official":
+        # The reference for an official attempt is the verifier's own tracked, unmodified schedule.toml, never
+        # the archive: arms, roots, blocks and counts derive from it.
+        reference = HERE
+        problems += verifier_schedule_problems(run)
+        trusted = (HERE / "schedule.toml").read_bytes()
+        if not (base / "schedule.toml").is_file() or (base / "schedule.toml").read_bytes() != trusted:
+            problems.append("schedule.toml of the archive differs from the verifier's schedule.toml")
+        if campaign.get("schedule_sha256") != sha256_bytes(trusted):
+            problems.append("logs/campaign.json: schedule_sha256 is not the digest of the verifier's schedule.toml")
+        sched = verifier
+    try:
+        if sched is None:
+            sched = mc.load_schedule(base / "schedule.toml")
+        arms = schedule_arms(reference)
     except (mc.Usage, OSError, KeyError, ValueError) as error:
         problems.append(f"schedule.toml: {error}")
+    if mode == "pilot" and sched is not None:
+        if campaign.get("schedule_sha256") != sha256_file(base / "schedule.toml"):
+            problems.append("logs/campaign.json: schedule_sha256 is not the digest of the archived schedule.toml")
     if "AB" not in arms:
         problems.append("the schedule does not list the AB arm")
     aa = "AA" in arms
@@ -2278,13 +2399,18 @@ def verify(base, out, replay=True):
     if sched is not None:
         receipt = check_receipt_text(base, sched, aa, problems, complete=kind != "stopped")
         campaign = check_identifiers(base, sched, arms, state, completion, problems)
+        if completion is not None and kind == "completed" and mode is not None:
+            check_completion_binding(base, mode, campaign, completion, problems)
         if kind in ("completed", "refused"):
             check_roots(base, sched, receipt, arms, problems)
         expected = check_seal_coverage(base, sched, arms, receipt, kind, problems)
         for relative in sorted(expected):
             if relative not in listed and (base / relative).is_file():
                 problems.append(f"checksums: the mandatory file {relative} is not in the inventory")
-        check_lock_binding(base, sched, campaign, problems)
+        if mode == "official":
+            check_lock_binding(base, sched, campaign, problems)
+        elif mode == "pilot":
+            check_pilot_binding(base, sched, campaign, config, problems)
     expected_count = 0 if sched is None else len(sched["strata"]) * len(sched["reps"]) * 2 * len(arms)
     document["campaign_outcome"] = None
     if kind == "completed":
@@ -2330,7 +2456,8 @@ def verify(base, out, replay=True):
         document["state"], status = "failed", 2
     elif kind == "completed" and completion is not None:
         success = document["campaign_outcome"] == "comparable" and document["comparator_exit"] in (0, None)
-        document["state"], status = ("verified", 0) if success else ("verified_non_ok", 1)
+        label = "verified" if mode == "official" else "pilot_verified"
+        document["state"], status = (label, 0) if success else (label + "_non_ok", 1)
     elif kind == "refused":
         document["state"], status = "refused", 2
     elif kind == "stopped":
@@ -2367,6 +2494,8 @@ def build_parser():
     verify_parser = commands.add_parser("verify", allow_abbrev=False)
     verify_parser.add_argument("--base", required=True)
     verify_parser.add_argument("--out", required=True)
+    verify_parser.add_argument("--config", help="the pilot configuration the verifier holds (a pilot needs it; "
+                                                "ignored for an official attempt)")
     return parser
 
 
@@ -2406,8 +2535,9 @@ def main(argv=None, hooks=None, facts=collect_repo_facts, environ=None):
 def dispatch(args, hooks, facts, environ):
     base = Path(args.base)
     if args.command == "verify":
-        document, status = verify(base, args.out)
-        print(f"verification: {document['state']} ({len(document['problems'])} problems); record {args.out}")
+        document, status = verify(base, args.out, config=args.config)
+        print(f"verification: {document.get('mode') or 'UNKNOWN MODE'}: {document['state']} "
+              f"({len(document['problems'])} problems); record {args.out}")
         for problem in document["problems"][:20]:
             report(f"  {problem}")
         return status

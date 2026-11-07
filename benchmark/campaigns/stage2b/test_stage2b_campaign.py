@@ -291,6 +291,17 @@ def pilot_config(session=SESSION, arms=("AB",)):
             "schedule": {"id": "stage2b-pilot-v1"}, "pilot": {"arms": list(arms)}}
 
 
+C.write_toml(TMP / "held-pilot-config.toml", pilot_config())
+
+
+PILOT_FILE = TMP / "held-pilot-config.toml"
+
+
+def add_pilot_config(base, source=None):
+    """The configuration copy that `pilot` stores in a base (tests that call `execute` directly add it)."""
+    shutil.copyfile(source or PILOT_FILE, Path(base) / "pilot-config.toml")
+
+
 def call_main(argv, hooks=None, facts=None, environ=None):
     out, err = io.StringIO(), io.StringIO()
     kwargs = {"environ": ENVIRON if environ is None else environ}
@@ -1124,6 +1135,7 @@ class EngineBase(unittest.TestCase):
     def make(self, session=SESSION):
         base = assemble_base(self.camp, fresh("engine") / "run-pilot", session=session, aa=False)
         plan = C.plan_from_pilot(pilot_config(session), base, JULIA_BINS, ENVIRON)
+        add_pilot_config(base)
         return base, plan, Host(self.camp, plan.sched, base)
 
     def state(self, base):
@@ -1274,8 +1286,9 @@ class EngineTests(EngineBase):
                          (4, 0, "comparable"))
         self.assertEqual(C.verify_seals(base), [])
         self.assertEqual(tomllib.loads((base / "declared-differences.toml").read_text()), {"schema": 1})
-        document, status = C.verify(base, fresh("v") / "verification.json")
-        self.assertEqual((status, document["state"], document["problems"]), (0, "verified", []))
+        document, status = C.verify(base, fresh("v") / "verification.json", config=PILOT_FILE)
+        self.assertEqual((status, document["state"], document["problems"]), (0, "pilot_verified", []))
+        self.assertEqual(document["mode"], "PILOT / NON-OFFICIAL")
         for command in commands:
             self.assertLess(C._parse_time(command["start_utc"]), C._parse_time(command["end_utc"]))
 
@@ -1336,7 +1349,7 @@ class EngineTests(EngineBase):
         self.assertEqual(state["process"], "AB-B-1.10-rep01")
         self.assertFalse((base / "logs" / "completion.json").exists())
         self.assertTrue(C.prefix_files(plan.raw("ab-b", "1.10"), plan.stem("1.10", 1)), "partial files are kept")
-        document, status = C.verify(base, fresh("v") / "v.json")
+        document, status = C.verify(base, fresh("v") / "v.json", config=PILOT_FILE)
         self.assertEqual((status, document["state"]), (2, "stopped"))
         self.assertTrue((base / "checksums.sha256").is_file())
 
@@ -1373,6 +1386,7 @@ class EngineTests(EngineBase):
             camp.set_status(label, "1.10", case_id, "target_missed", receipt=False)
         base = assemble_base(camp, fresh("nonok-base") / "x-pilot", aa=False)
         plan = C.plan_from_pilot(pilot_config(), base, JULIA_BINS, ENVIRON)
+        add_pilot_config(base)
         host = Host(camp, plan.sched, base)
         outcome = C.execute(plan, host.hooks())
         self.assertEqual(outcome.exit_code, 1)
@@ -1381,10 +1395,12 @@ class EngineTests(EngineBase):
         self.assertEqual(self.state(base)["state"], "completed")
         self.assertEqual(json.loads((base / "logs" / "completion.json").read_text())["outcome"], "non_ok")
         self.assertEqual({e["exit"] for e in self.receipt(base)[1:3]}, {2})
-        document, status = C.verify(base, fresh("v") / "v.json")
-        self.assertEqual((status, document["state"], document["problems"]), (1, "verified_non_ok", []))
-        code, _, err = call_main(["verify", "--base", str(base), "--out", str(fresh("v") / "v.json")])
+        document, status = C.verify(base, fresh("v") / "v.json", config=PILOT_FILE)
+        self.assertEqual((status, document["state"], document["problems"]), (1, "pilot_verified_non_ok", []))
+        code, out, err = call_main(["verify", "--base", str(base), "--out", str(fresh("v") / "v.json"),
+                                    "--config", str(PILOT_FILE)])
         self.assertEqual(code, 1)
+        self.assertIn("PILOT / NON-OFFICIAL", out)
 
     def test_a_stopped_state_refuses_every_further_launch(self):
         base, plan, host = self.make()
@@ -1521,7 +1537,7 @@ class EngineTests(EngineBase):
         self.assertEqual((outcome.exit_code, outcome.state, outcome.comparator_exit), (2, "refused", 2))
         self.assertFalse((base / "logs" / "completion.json").exists())
         self.assertEqual(self.state(base)["state"], "refused")
-        document, status = C.verify(base, fresh("v") / "v.json")
+        document, status = C.verify(base, fresh("v") / "v.json", config=PILOT_FILE)
         self.assertEqual((status, document["state"], document["problems"]), (2, "refused", []))
         refusals = json.loads((base / "comparison" / "refusals.json").read_text())["refusals"]
         self.assertIn(("ORDER", "ab:installation"), {(r["class"], r["field"]) for r in refusals})
@@ -1631,7 +1647,7 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(json.loads((self.base / "logs" / "campaign.json").read_text())["freeze_sha"], FREEZE)
         self.assertEqual(json.loads(self.record.read_text()), self.document)
         self.assertEqual(self.record.parent.name.startswith("good-verify"), True)
-        self.assertEqual(set(self.document), {"schema", "problems", "campaign_state", "campaign_outcome",
+        self.assertEqual(set(self.document), {"schema", "problems", "mode", "campaign_state", "campaign_outcome",
                                               "comparator_exit", "classification", "state"})
 
     def test_the_driver_order_is_ab_then_aa_per_stratum_and_the_declared_file_is_the_locks(self):
@@ -2174,7 +2190,7 @@ class LifecycleTests(EngineBase):
                 C.execute(plan, host.hooks())
             self.assertOneEvent(base, -1)
             self.assertEqual(len(host.calls), 1)
-            document, status = C.verify(base, fresh("v") / "v.json")
+            document, status = C.verify(base, fresh("v") / "v.json", config=PILOT_FILE)
             self.assertEqual((status, document["state"]), (2, "stopped"))
 
     def test_an_error_while_the_output_is_written_or_the_digest_is_read(self):
@@ -2244,7 +2260,7 @@ class RevisionVerifyTests(unittest.TestCase):
     def test_a_schedule_edited_to_drop_the_arm_disagrees_with_the_recorded_campaign(self):
         def edit(b):
             edit_text(b / "schedule.toml", lambda t: t.replace('arms = ["AB", "AA"]', 'arms = ["AB"]'))
-        self.failed(self.mutated(edit), "logs/campaign.json: arms", replay=False)
+        self.failed(self.mutated(edit), "schedule.toml of the archive differs from the verifier's", replay=False)
 
     # -- 6: lock and metadata
     def test_a_deleted_lock(self):
@@ -2426,12 +2442,12 @@ class PilotConfigCopyTests(unittest.TestCase):
                                  hooks=host.hooks())
         self.assertEqual(code, 0, err)
         self.assertEqual((base / "pilot-config.toml").read_bytes(), (directory / "p.toml").read_bytes())
-        document, status = C.verify(base, fresh("v") / "v.json")
+        document, status = C.verify(base, fresh("v") / "v.json", config=directory / "p.toml")
         self.assertEqual((status, document["problems"]), (0, []))
         bad = clone(base)
         edit_text(bad / "pilot-config.toml", lambda t: t.replace("stage2b-pilot-v1", "stage2b-pilot-v2"))
         refresh_all(bad)
-        document, status = C.verify(bad, fresh("v") / "v.json", replay=False)
+        document, status = C.verify(bad, fresh("v") / "v.json", replay=False, config=directory / "p.toml")
         self.assertEqual(status, 2)
         self.assertTrue(any("pilot-config.toml" in p for p in document["problems"]))
 
@@ -2603,6 +2619,282 @@ class DisjointStratumTests(unittest.TestCase):
         self.assertEqual([(r["julia"], r["b_version"]) for r in rows], [(["1.10"], "2.0.0"), (["1.13"], "3.0.0")])
 
 
+# ------------------------------------------------------------------------------------ revision 3: the ruling
+
+_PILOT = {}
+
+
+def shared_pilot():
+    """A reduced pilot (one repetition, AB only) run through `main pilot`, with its configuration."""
+    if not _PILOT:
+        camp = F.build_campaign(fresh("sp"), "identical", reps=1, schedule_edit=pilot_edit)
+        base = assemble_base(camp, fresh("sp-base") / "x-pilot", aa=False)
+        host = Host(camp, mc.load_schedule(base / "schedule.toml"), base)
+        code, out, err = call_main(["pilot", "--config", str(PILOT_FILE), "--base", str(base)], hooks=host.hooks())
+        assert code == 0, err
+        _PILOT["base"] = base
+    return _PILOT["base"]
+
+
+def read_json(path):
+    return json.loads(Path(path).read_text())
+
+
+def write_json(path, data):
+    writable(path).write_text(json.dumps(data, indent=2) + "\n")
+
+
+def rebind(base, **campaign_changes):
+    """Edit logs/campaign.json (None deletes a key) and regenerate every digest that refers to it, the completion
+    record, the seals and the checksums, so that only the guard under test can object."""
+    base = Path(base)
+    campaign = read_json(base / "logs" / "campaign.json")
+    for key, value in campaign_changes.items():
+        if value is None:
+            campaign.pop(key, None)
+        else:
+            campaign[key] = value
+    write_json(base / "logs" / "campaign.json", campaign)
+    completion = read_json(base / "logs" / "completion.json")
+    completion["campaign_sha256"] = C.sha256_file(base / "logs" / "campaign.json")
+    completion["schedule_sha256"] = C.sha256_file(base / "schedule.toml")
+    for key, name in (("lock_sha256", "lock.toml"), ("pilot_config_sha256", "pilot-config.toml")):
+        if key in completion and (base / name).is_file():
+            completion[key] = C.sha256_file(base / name)
+    write_json(base / "logs" / "completion.json", completion)
+    refresh_all(base)
+
+
+class ModeTests(unittest.TestCase):
+    """The ruling: mode comes from the identity, the schedule from the verifier, the files are bound."""
+
+    @classmethod
+    def setUpClass(cls):
+        for key, value in shared_full().items():
+            setattr(cls, key, value)
+        cls.pilot = shared_pilot()
+
+    def mutated(self, function, *, base=None):
+        copy_ = clone(base or self.base)
+        function(copy_)
+        return copy_
+
+    def failed(self, base, texts, config=None, replay=False, state="failed"):
+        record = fresh("v") / "verification.json"
+        document, status = C.verify(base, record, replay=replay, config=config)
+        self.assertEqual((document["state"], status), (state, 2), document["problems"][:6])
+        self.assertEqual(json.loads(record.read_text())["problems"], document["problems"])
+        for text in ([texts] if isinstance(texts, str) else texts):
+            self.assertTrue(any(text in p for p in document["problems"]), (text, document["problems"][:8]))
+        self.assertNotIn(document["state"], ("verified", "pilot_verified"))
+        return document
+
+    # -- downgrades of an official attempt
+    def test_downgrade_official_false_and_no_lock(self):
+        base = self.mutated(lambda b: ((b / "lock.toml").unlink(), rebind(b, official=False)))
+        self.failed(base, ["logs/campaign.json: official is False", "lock.toml is missing from the tree"])
+
+    def test_downgrade_missing_official_field_and_no_lock(self):
+        base = self.mutated(lambda b: ((b / "lock.toml").unlink(), rebind(b, official=None)))
+        self.failed(base, ["logs/campaign.json: official is None", "lock.toml is missing from the tree"])
+
+    def test_downgrade_malformed_mode_and_a_pilot_config_in_place_of_the_lock(self):
+        base = self.mutated(lambda b: ((b / "lock.toml").unlink(), rebind(b, official="false")))
+        self.failed(base, ["official is 'false'", "lock.toml is missing"])
+        base = self.mutated(lambda b: ((b / "lock.toml").unlink(), add_pilot_config(b), rebind(b)))
+        self.failed(base, ["pilot-config.toml exists in the tree of an official attempt",
+                           "lock.toml is missing"])
+        base = self.mutated(lambda b: rebind(b, official=1))
+        self.failed(base, "official is 1")
+
+    def test_a_contradictory_or_unknown_identity_is_a_problem(self):
+        official = mc.load_schedule(HERE / "schedule.toml")
+        self.assertEqual(C.classify_mode(official, [(official["campaign_id"], official["id"])]), ("official", []))
+        self.assertEqual(C.classify_mode(official, [("x-pilot-v1", "y-pilot-v1")])[0], "pilot")
+        for pairs, text in (([(official["campaign_id"], "z-pilot")], "mixes"),
+                            ([("a-pilot", official["id"])], "mixes"),
+                            ([("plain", "other")], "neither official nor a pilot"),
+                            ([("a-pilot", "plain")], "neither official nor a pilot"),
+                            ([(official["campaign_id"], official["id"]), ("a-pilot", "b-pilot")], "disagree"),
+                            ([(None, None)], "neither")):
+            mode, problems = C.classify_mode(official, pairs)
+            self.assertIsNone(mode, pairs)
+            self.assertTrue(any(text in p for p in problems), (pairs, problems))
+
+        def mixed(b):
+            edit_text(b / "schedule.toml", lambda t: t.replace('campaign_id = "pb06-migration-stage2b-v1"',
+                                                               'campaign_id = "pb06-migration-stage2b-pilot-v1"'))
+        document = self.failed(self.mutated(mixed), "mixes the official and the pilot names")
+        self.assertIsNone(document["mode"])
+
+    # -- schedule reference
+    def test_an_altered_archived_schedule_with_the_recorded_digest_kept(self):
+        def edit(b):
+            edit_text(b / "schedule.toml", lambda t: t + "\n# edited\n")
+            refresh_all(b)
+        self.failed(self.mutated(edit), ["schedule.toml of the archive differs from the verifier's schedule.toml",
+                                         "logs/completion.json: schedule_sha256 is not the digest of schedule.toml"])
+
+    def test_a_recorded_schedule_digest_that_is_not_the_verifiers(self):
+        self.failed(self.mutated(lambda b: rebind(b, schedule_sha256="0" * 64)),
+                    "schedule_sha256 is not the digest of the verifier's schedule.toml")
+
+    def test_the_verifiers_schedule_must_be_tracked_and_unmodified(self):
+        for failing in (["ls-files"], ["diff"]):
+            def run(argv, **kw):
+                if failing[0] in argv:
+                    return subprocess.CompletedProcess(argv, 1, "", "")
+                return subprocess.run(argv, **kw)
+            document, status = C.verify(clone(self.base), fresh("v") / "v.json", replay=False, run=run)
+            self.assertEqual((document["state"], status), ("failed", 2))
+            self.assertTrue(any("verifier's schedule.toml" in p for p in document["problems"]), document["problems"])
+        self.assertEqual(C.verifier_schedule_problems(), [], "the repository's schedule.toml is tracked and clean")
+
+        def broken(argv, **kw):
+            raise OSError("no git")
+        self.assertTrue(C.verifier_schedule_problems(broken))
+
+    def test_the_coordinated_schedule_downgrade_fails_against_the_trusted_schedule(self):
+        def downgrade(b):
+            shutil.rmtree(b / "roots" / "aa-a")
+            shutil.rmtree(b / "roots" / "aa-b")
+            writable(b / "receipt.jsonl").write_text("".join(
+                json.dumps(e) + "\n" for e in C.read_jsonl(b / "receipt.jsonl") if e.get("arm") != "AA"))
+            seals = writable(b / "logs" / "seals.jsonl")
+            seals.write_text("".join(l + "\n" for l in seals.read_text().split("\n") if l and "roots/aa-" not in l))
+            edit_text(b / "schedule.toml", lambda t: t.replace('arms = ["AB", "AA"]', 'arms = ["AB"]'))
+            completion = read_json(b / "logs" / "completion.json")
+            completion.update(processes=32, receipt_sha256=C.sha256_file(b / "receipt.jsonl"))
+            write_json(b / "logs" / "completion.json", completion)
+            rebind(b, arms=["AB"], schedule_sha256=C.sha256_file(b / "schedule.toml"))
+        base = self.mutated(downgrade)
+        document = self.failed(base, ["schedule.toml of the archive differs from the verifier's schedule.toml",
+                                      "schedule_sha256 is not the digest of the verifier's schedule.toml",
+                                      "the root is missing"])
+        self.assertTrue(any("counts 32 processes, expected 64" in p for p in document["problems"]))
+        # with the archive's own schedule the same tree is internally consistent: only the reference catches it
+        self.assertEqual(sorted(C.schedule_arms(base)), ["AB"])
+
+    # -- configuration digests
+    def test_a_changed_lock_or_campaign_record_without_a_valid_completion_binding(self):
+        def lock(b):
+            edit_text(b / "lock.toml", lambda t: t + "\n# changed\n")
+            refresh_all(b)
+        self.failed(self.mutated(lock), ["logs/completion.json: lock_sha256 is not the digest of lock.toml",
+                                        "lock.toml differs from the digest recorded in logs/campaign.json"])
+
+        def campaign(b):
+            write_json(b / "logs" / "campaign.json", dict(read_json(b / "logs" / "campaign.json"), note="x"))
+            refresh_all(b)
+        self.failed(self.mutated(campaign), "logs/completion.json: campaign_sha256 is not the digest of "
+                                            "logs/campaign.json")
+
+        def completion(b):
+            record = read_json(b / "logs" / "completion.json")
+            record["pilot_config_sha256"] = "0" * 64
+            write_json(b / "logs" / "completion.json", record)
+            refresh_all(b)
+        self.failed(self.mutated(completion), "pilot_config_sha256 does not apply to this attempt")
+
+    def test_a_changed_pilot_configuration_without_a_valid_completion_binding(self):
+        def edit(b):
+            edit_text(b / "pilot-config.toml", lambda t: t + "\n# changed\n")
+            refresh_all(b)
+        self.failed(self.mutated(edit, base=self.pilot), ["logs/completion.json: pilot_config_sha256 is not the "
+                                                          "digest of pilot-config.toml",
+                                                          "pilot-config.toml differs from the digest recorded"],
+                    config=PILOT_FILE)
+
+    # -- pilots
+    def test_a_clean_pilot_verifies_only_as_a_pilot(self):
+        record = fresh("v") / "v.json"
+        document, status = C.verify(self.pilot, record, config=PILOT_FILE)
+        self.assertEqual((status, document["state"], document["mode"], document["problems"]),
+                         (0, "pilot_verified", "PILOT / NON-OFFICIAL", []))
+        self.assertEqual(read_json(record)["mode"], "PILOT / NON-OFFICIAL")
+        self.assertEqual(read_json(self.pilot / "logs" / "campaign.json")["official"], False)
+        document, _ = C.verify(self.base, fresh("v") / "v.json", config=PILOT_FILE)
+        self.assertEqual((document["state"], document["mode"]), ("verified", "OFFICIAL"),
+                         "a supplied configuration is ignored for an official attempt")
+
+    def test_pilot_completeness(self):
+        pilot = self.pilot
+        self.failed(self.mutated(lambda b: ((b / "pilot-config.toml").unlink(), refresh_all(b)), base=pilot),
+                    "pilot-config.toml is missing from the tree of a pilot attempt", config=PILOT_FILE)
+        self.failed(self.mutated(lambda b: (writable(b / "pilot-config.toml").write_text("not toml ["),
+                                            rebind(b)), base=pilot),
+                    ["pilot-config.toml differs from the configuration supplied"], config=PILOT_FILE)
+        garbage = fresh("garbage") / "p.toml"
+        garbage.write_text("not toml [")
+        self.failed(self.mutated(lambda b: (shutil.copyfile(garbage, writable(b / "pilot-config.toml")), rebind(b)),
+                                 base=pilot), "pilot configuration:", config=garbage)
+        for change in (dict(official=True), dict(official=None), dict(official="false")):
+            self.failed(self.mutated(lambda b, c=change: rebind(b, **c), base=pilot),
+                        "logs/campaign.json: official is", config=PILOT_FILE)
+        other = fresh("other") / "p.toml"
+        C.write_toml(other, dict(pilot_config(), pilot={"arms": ["AB"]}, campaign={
+            "id": "pb06-migration-stage2b-pilot-v1", "session_id": "session-20261201T080000Z-ffff"}))
+        self.failed(clone(pilot), "differs from the configuration supplied with --config", config=other)
+        self.failed(clone(pilot), "a pilot needs --config")
+        code, out, err = call_main(["verify", "--base", str(pilot), "--out", str(fresh("v") / "v.json")])
+        self.assertEqual(code, 2)
+        self.assertIn("PILOT / NON-OFFICIAL", out)
+
+    def test_a_pilot_schedule_must_match_its_configuration(self):
+        def edit(b):
+            edit_text(b / "schedule.toml", lambda t: t.replace("stage2b-pilot-v1", "stage2b-pilot-v9"))
+            rebind(b, schedule_id="stage2b-pilot-v9")
+        self.failed(self.mutated(edit, base=self.pilot), "pilot configuration: the ids differ", config=PILOT_FILE)
+        self.failed(self.mutated(lambda b: rebind(b, schedule_sha256="1" * 64), base=self.pilot),
+                    "schedule_sha256 is not the digest of the archived schedule.toml", config=PILOT_FILE)
+
+    def test_a_pilot_never_satisfies_the_official_gate(self):
+        directory = fresh("pilot-gate")
+        code, out, err = call_main(["run", "--config", str(PILOT_FILE), "--base", str(directory / "base"),
+                                    "--official", "--freeze-sha", FREEZE], hooks=hooks_that_never_run(),
+                                   facts=lambda *a: self.fail("the gate must not be reached"))
+        self.assertEqual((code, out), (2, ""))
+        self.assertIn("REFUSED", err)
+        self.assertFalse((directory / "base").exists())
+        with self.assertRaises(C.LockRefusal):
+            C.load_lock(PILOT_FILE)
+        lock = make_lock(self.camp)
+        lock["campaign"]["id"] = "pb06-migration-stage2b-pilot-v1"
+        with self.assertRaises(C.Refused):                       # a pilot-named campaign cannot become a plan
+            C.plan_from_lock(lock, assemble_base(self.camp, fresh("pg") / "base"), JULIA_BINS, ENVIRON, FREEZE)
+
+    # -- portable retrieval
+    def test_a_portable_copy_verifies_without_installations_or_depots(self):
+        target = fresh("portable")
+        subprocess.run(["cp", "-a", str(self.base), str(target / "extracted")], check=True)
+        self.assertFalse([p for p in (target / "extracted").iterdir() if p.name in C.PRIVATE_DIRECTORIES])
+        document, status = C.verify(target / "extracted", fresh("v") / "v.json")
+        self.assertEqual((status, document["state"], document["problems"]), (0, "verified", []))
+        import tarfile
+        archive = fresh("tar") / "attempt.tar"
+        with tarfile.open(archive, "w") as handle:
+            handle.add(self.base, arcname="attempt")
+        where = fresh("tar-out")
+        with tarfile.open(archive) as handle:
+            handle.extractall(where, filter="tar")
+        document, status = C.verify(where / "attempt", fresh("v") / "v.json")
+        self.assertEqual((status, document["state"], document["problems"]), (0, "verified", []))
+        pilot_copy = fresh("pilot-portable") / "x-pilot"
+        subprocess.run(["cp", "-a", str(self.pilot), str(pilot_copy)], check=True)
+        document, status = C.verify(pilot_copy, fresh("v") / "v.json", config=PILOT_FILE)
+        self.assertEqual((status, document["state"]), (0, "pilot_verified"))
+
+    def test_the_official_state_and_mode_of_the_full_shape_tree(self):
+        self.assertEqual((self.document["state"], self.document["mode"]), ("verified", "OFFICIAL"))
+        completion = read_json(self.base / "logs" / "completion.json")
+        campaign = read_json(self.base / "logs" / "campaign.json")
+        self.assertIs(campaign["official"], True)
+        self.assertEqual(completion["schedule_sha256"], C.sha256_file(HERE / "schedule.toml"))
+        self.assertEqual(completion["campaign_sha256"], C.sha256_file(self.base / "logs" / "campaign.json"))
+        self.assertEqual(completion["lock_sha256"], C.sha256_file(self.base / "lock.toml"))
+        self.assertNotIn("pilot_config_sha256", completion)
+
+
 # ------------------------------------------------------------------------------------------------- CLI
 
 class CliTests(unittest.TestCase):
@@ -2658,8 +2950,12 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertIn("campaign completed", out)
         self.assertEqual(len(host.calls), 4)
-        code, _, _ = call_main(["verify", "--base", str(base), "--out", str(fresh("pe-v") / "v.json")])
+        code, out, _ = call_main(["verify", "--base", str(base), "--out", str(fresh("pe-v") / "v.json"),
+                                  "--config", str(directory / "p.toml")])
         self.assertEqual(code, 0)
+        self.assertIn("PILOT / NON-OFFICIAL", out)
+        code, _, _ = call_main(["verify", "--base", str(base), "--out", str(fresh("pe-v") / "v.json")])
+        self.assertEqual(code, 2, "a pilot cannot be verified without the configuration the verifier holds")
         code, _, err = call_main(["pilot", "--config", str(directory / "p.toml"), "--base", str(base)],
                                  hooks=hooks_that_never_run())
         self.assertEqual(code, 2, "a finished base is never reused")

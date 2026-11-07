@@ -48,7 +48,7 @@ python3 -B stage2b_campaign.py preflight --config FILE --base BASE [--official -
 python3 -B stage2b_campaign.py prepare   --config FILE --base BASE --step fetch|finalize
 python3 -B stage2b_campaign.py run       --config LOCK --base BASE --official --freeze-sha SHA
 python3 -B stage2b_campaign.py pilot     --config PILOT --base BASE [--arms AB]
-python3 -B stage2b_campaign.py verify    --base BASE --out FILE
+python3 -B stage2b_campaign.py verify    --base BASE --out FILE [--config PILOT_CONFIG]
 ```
 
 `run` and `pilot` share one engine. `run` is the only official route: it needs `--official`, the campaign lock and a
@@ -75,6 +75,22 @@ required arms, roots and seals from the archived `schedule.toml`, binds the tree
 and to the campaign ids, rejects symbolic links, recomputes the checksums, the seals (exactly one per record file,
 mode 0444), the sidecar and fingerprint coverage and the receipt, then replays `migration_compare.py` on the tree's own copies and compares the outcome
 (`--out` is a fresh path outside the evidence).
+
+**What `verify` trusts.** The mode of an attempt follows from its recorded campaign and schedule identity, never from an
+archived flag: an official identity always needs `lock.toml`, a valid `official: true` and its B identity, Manifest,
+approval and harness checks; a pilot identity needs `-pilot` names, `official: false`, an archived `pilot-config.toml`
+and, supplied independently with `--config`, the same configuration (byte-equal); a pilot reports `PILOT /
+NON-OFFICIAL`, verifies only as a pilot and never satisfies the official gate. For an official attempt the archived
+`schedule.toml` must equal the verifier's own `schedule.toml`, which must be tracked and unmodified in its repository,
+and the recorded `schedule_sha256` must be its digest; arms, roots, blocks and counts derive from it, so the A/A arm
+cannot be removed by editing the archive. In this pre-freeze state that file is a development reference, not an F1-B
+freeze: official use later requires a recorded pinned freeze commit and a clean verifier checkout at that commit.
+`logs/completion.json` carries the SHA-256 of `schedule.toml`, `logs/campaign.json` and the lock (official) or the
+pilot configuration (pilot); `verify` recomputes them. These cross-digests, `checksums.sha256` and the seals are an
+internal consistency control, not an authenticity signature: someone who rewrites the whole tree can regenerate all of
+them. `verify` detects accidental or partial corruption and inconsistent edits, not a deliberate consistent forgery.
+The anchors are outside the archive: the Release asset SHA-256 published on #110 (what the consumer checks after
+retrieval) and the clean verifier checkout at the F1-B freeze commit (the specification).
 
 Exit status: 0 success; 1 completed with non-ok cases (a process exit 2 or comparator exit 1); 2 refused or stopped
 (gate, preflight, infrastructure stop, comparator refusal, failed verification); 3 usage or internal error. The real
