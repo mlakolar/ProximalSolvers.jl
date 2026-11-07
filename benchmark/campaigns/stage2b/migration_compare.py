@@ -1235,7 +1235,8 @@ def check_independent(scope, one, two, sched, ref, named=False):
     """Section 12: two roots of one pair (scope ab or aa) come from independent installations.
 
     Installation id, checkout, first depot entry (as recorded and as Julia resolved it) and the Julia environment
-    of each stratum all differ. Only recorded values are compared (normal form, no filesystem access); a check
+    of each stratum all differ, and no depot entry of one root is the first depot entry or the depot realpath of the
+    other. It runs for the A/B pair, the A/A pair and, with `--aa`, for Stack B against each A/A root (`named`). Only recorded values are compared (normal form, no filesystem access); a check
     whose inputs were refused earlier is skipped."""
     field = f"{scope}:installation"
     prefix = f"roots {one['name']} and {two['name']}: " if named else ""   # which two roots, when not the scope's pair
