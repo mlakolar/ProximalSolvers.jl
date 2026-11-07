@@ -31,10 +31,48 @@ paired experiment.
 | [`migration_compare.py`](migration_compare.py) | The whole-stack comparison tool, written to the specification. Reads records only; runs no Julia; never changes `compare.py` or `validate.py`. |
 | [`stage2b_fixtures.py`](stage2b_fixtures.py) | Builds the complete synthetic input sets (roots, receipt, mapping, declared differences, fingerprints) that the tests of the tool mutate one item at a time. |
 | [`test_migration_compare.py`](test_migration_compare.py) | Offline tests of the tool: one per refusal class, the accepted differences, the per-case classes, the screens and the outputs. |
+| [`stage2b_campaign.py`](stage2b_campaign.py) | The campaign driver core (standard library only): TOML writer, campaign lock, official gate, preflight checks, source fingerprints, identity and receipt writers, sealing, the engine behind `run` and `pilot`, declared differences, and `verify`. Julia and the host are injected through `Hooks`; the real Julia hooks and `prepare` are not part of it yet. It launches `benchmark/run.jl` and measures nothing. |
+| [`test_stage2b_campaign.py`](test_stage2b_campaign.py) | Offline tests of the driver with mocked hooks: the gate and pilot refusals (a stub runner that fails if invoked), every preflight defect, sealing, the stop state, and a full-shape run (two strata, 19 cases, 8 repetitions, four roots) that is verified, copied and mutated. |
 | [`test_p14_reset.jl`](test_p14_reset.jl) | The Julia test of the P14 reset port (needs Julia and the benchmark environment; not part of the Python tests). |
 | [`historical_reference.py`](historical_reference.py), [`historical-reference.tsv`](historical-reference.tsv) | Read-only reference extracted from the verified Stage 2A archive (release `bench-pre06-v1`, asset `pre06-stage2a-campaign-v1.tar.gz`, SHA-256 `1edd64330606d739acf1d7b4ba0643a4fb6a1366bad4c82393e2ba1ffdcc723e`). One row per Julia version and case. Descriptive only. |
 | [`test_stage2b_files.py`](test_stage2b_files.py) | Offline tests of the documents, the mapping, the schedule and the historical reference. |
 | [`probes/`](probes/) | `reset_semantics.jl` (the probe, run on ProximalBase 0.5.4 and on a probe-only commit of master), `check_reset_probes.py` (its checker), `test_check_reset_probes.py` (offline tests of the checker) and `results/` (the recorded probe outputs). |
+
+## Driver (`stage2b_campaign.py`)
+
+```
+python3 -B stage2b_campaign.py preflight --config FILE --base BASE [--official --freeze-sha SHA] [--arms AB,AA]
+python3 -B stage2b_campaign.py prepare   --config FILE --base BASE --step fetch|finalize
+python3 -B stage2b_campaign.py run       --config LOCK --base BASE --official --freeze-sha SHA
+python3 -B stage2b_campaign.py pilot     --config PILOT --base BASE [--arms AB]
+python3 -B stage2b_campaign.py verify    --base BASE --out FILE
+```
+
+`run` and `pilot` share one engine. `run` is the only official route: it needs `--official`, the campaign lock and a
+freeze SHA, and proceeds only when `official_gate` lists no unmet gate (HEAD equals the freeze SHA, the checkout is
+clean including untracked and ignored files, the lock is tracked at that commit, the migrated commits and trees are
+full SHAs equal to the fetched checkouts, the Manifest digests equal the lock's, every class B, C and D mapping row is
+approved, and G1 to G8 and the mapping approvals are maintainer comment URLs of this repository). Nothing is read
+from the environment. `pilot` is never official: its campaign and schedule ids contain `-pilot` and differ from the
+official ones, its base directory name contains `pilot`, and it has no `[stack_b]` table.
+
+`BASE` holds `roots/{ab-a,ab-b,aa-a,aa-b}` (the roots of `migration_compare.py`; arm AB runs ab-a and ab-b, arm AA runs
+aa-a and aa-b), the private `installations/`, `environments/` and `depots/` (not evidence), the copies of
+`schedule.toml`, `case-mapping.toml` and `lock.toml`, `receipt.jsonl`, `declared-differences.toml`, `logs/` (seals,
+commands, hardware samples, per-process output, `STATE.json`, `completion.json`), `comparison/` and
+`checksums.sha256`. Processes run strictly one after another, per stratum, arm and repetition in the order of the
+schedule, each pinned with `taskset`, in a whitelisted environment. After every process the six record files are
+sealed (SHA-256, mode 0444) and all earlier seals are checked again. An exit of 2 (non-ok cases) is kept and reported;
+any other outcome stops the attempt: `STATE.json` says why, everything is kept, a receipt event is written for every
+launched process, and the base never launches again. Only a sealed `logs/completion.json` is a success record.
+`verify` is read-only, needs no Julia and works on a copied tree: it recomputes the checksums, the seals, the
+coverage and the receipt, then replays `migration_compare.py` on the tree's own copies and compares the outcome
+(`--out` is a fresh path outside the evidence).
+
+Exit status: 0 success; 1 completed with non-ok cases (a process exit 2 or comparator exit 1); 2 refused or stopped
+(gate, preflight, infrastructure stop, comparator refusal, failed verification); 3 usage or internal error. The real
+Julia hooks, `prepare` and the real pilot flow are added later: those subcommands validate their arguments and exit
+with status 3, launching nothing.
 
 ## Run the tests
 
