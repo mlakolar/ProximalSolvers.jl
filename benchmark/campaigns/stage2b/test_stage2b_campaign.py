@@ -1808,9 +1808,18 @@ class IntegrationTests(unittest.TestCase):
 
     # ---- the completion record and the state ----
     def test_success_without_a_completion_record_never_verifies(self):
-        base = self.mutated(lambda b: (b / "logs" / "completion.json").unlink(), reseal=True)
+        def drop_completion(b):                     # also its seal line, so that only the record itself is missing
+            (b / "logs" / "completion.json").unlink()
+            seals = writable(b / "logs" / "seals.jsonl")
+            lines = [l for l in seals.read_text().split("\n") if l and '"logs/completion.json"' not in l]
+            seals.write_text("\n".join(lines) + "\n")
+        base = self.mutated(drop_completion, reseal=True)
         document, status = self.verify(base)
         self.assertNotEqual(document["state"], "verified")
+        self.assertEqual((status, document["state"]), (2, "failed"))
+        self.assertEqual(document["problems"], ["the state is completed but logs/completion.json is missing"])
+        base = self.mutated(lambda b: (b / "logs" / "completion.json").unlink(), reseal=True)
+        document, status = self.verify(base)
         self.assertEqual(status, 2)
         self.assertTrue(any("completion.json" in p for p in document["problems"]), document["problems"])
 
