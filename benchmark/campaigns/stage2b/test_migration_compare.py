@@ -1477,6 +1477,12 @@ class RefusalTests(MigrationCase):
             set_fingerprint(c, label, J13, P01, 3, "reset", "values", "none")
         result = self.refused(c.run(), "SCHEMA", fields=[("SCHEMA", "fingerprints_a:schema"),
                                                          ("SCHEMA", "fingerprints_b:schema")])
+        for kind, name, case_id in (("config", "solver", P13), ("config", "options", P01), ("file", "certificates.jl", P01)):
+            with self.subTest(f"none for {kind}/{name}"):
+                c = self.fresh()
+                for label in ("a", "b"):
+                    set_fingerprint(c, label, J13, case_id, 3, kind, name, "none")
+                self.refused(c.run(), "SCHEMA", fields=[("SCHEMA", "fingerprints_a:schema")])
         c = self.fresh()
         for label in ("a", "b"):                                   # none for reset/active_ids is accepted
             set_fingerprint(c, label, J13, P01, 3, "reset", "active_ids", "none")
@@ -1811,13 +1817,15 @@ class ClassificationTests(MigrationCase):
 
 
     def test_failed_precedes_a_missing_fingerprint_file(self):
-        c = self.c
-        c.set_status("b", J13, P05, "target_missed", reps=[3])
-        c.fingerprints("b").unlink()
-        result = c.run()
-        self.assertEqual(result.code, 1, result.stderr)
-        self.assertEqual(result.row(P05, J13)["class"], "FAILED")
-        self.assertEqual(result.row(P01, J13)["class"], "NOT COMPARABLE")
+        for label in ("a", "b"):
+            with self.subTest(f"fingerprint file of {label.upper()} missing"):
+                c = self.fresh()
+                c.set_status("b", J13, P05, "target_missed", reps=[3])
+                c.fingerprints(label).unlink()
+                result = c.run()
+                self.assertEqual(result.code, 1, result.stderr)
+                self.assertEqual(result.row(P05, J13)["class"], "FAILED")
+                self.assertEqual(result.row(P01, J13)["class"], "NOT COMPARABLE")
 
     def test_report_masks_the_banned_words_of_free_text(self):
         c = self.c
