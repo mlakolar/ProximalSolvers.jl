@@ -723,7 +723,10 @@ allocations; a table labelled "Historical Stage 2A reference (descriptive; not p
 descriptive investigation screens, not tests: there is no significance level, no noninferiority claim and no
 no-regression claim, and A/A ranges are not calibrated confidence bounds.` Outside that sentence the report
 contains none of the words `noninferior`, `non-inferior`, `no-regression`, `significant`, `equivalent`
-(case-insensitive); "screen not evaluated" is shown when there is no A/A evidence for a case.
+(case-insensitive); "screen not evaluated" is shown when there is no A/A evidence for a case. Free text of the report (record
+and mapping text, identifiers) is cleaned of absolute paths first (section 1), then the five words are masked as `[term]`, and
+only then are the Markdown characters (`|`, line breaks) escaped, so that a path shows the same `basename#tag` in
+the report as in the lists and the table; escaped text is never cleaned.
 
 ## 16. Schedule, screens and the near-target flag
 

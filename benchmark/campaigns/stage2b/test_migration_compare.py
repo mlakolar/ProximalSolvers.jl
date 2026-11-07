@@ -2390,7 +2390,6 @@ class OutputTests(MigrationCase):
         self.assertEqual(result.row(P02, J13)["reason"], f"semantic deviation: dev <b>/x={shown('/y/z')} end")
         self.assertEqual(result.lists["semantic_deviations"][0]["text"], f"dev <b>/x={shown('/y/z')} end")
 
-    @unittest.expectedFailure
     def test_scrub_report_pipe_after_a_path_keeps_the_tag_of_the_other_channels(self):
         # Known tool behaviour, reported to the maintainer: the report escapes '|' as '\\|' before the text is
         # cleaned, so the backslash joins the path token and the report prints `t\#<other tag>` where the lists and

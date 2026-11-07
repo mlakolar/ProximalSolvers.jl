@@ -1378,9 +1378,10 @@ def build_lists(W, results):
 
 # -------------------------------------------------------------------------------------------------- report
 
-def safe(value):
-    """Free text from records and mappings, with the words the report must not use masked."""
-    return summarize.markdown(BANNED.sub("[term]", str(value)))
+def safe(value, scrub):
+    """Free text of the report: first cleaned of absolute paths (once), then the words the report must not use are
+    masked, then the Markdown characters are escaped. Escaped text is never cleaned."""
+    return summarize.markdown(BANNED.sub("[term]", scrub(value)))
 
 
 def hardware_label(receipt, sched):
@@ -1394,10 +1395,13 @@ def hardware_label(receipt, sched):
 
 def render_report(W, results, lists):
     sched, receipt = W["sched"], W["receipt"]
+
+    def esc(value):
+        return safe(value, W["scrub"])
     campaign = receipt["campaigns"][0]
     lines = [FIRST_LINE, "",
-             f"Campaign `{safe(campaign['campaign_id'])}`, schedule `{safe(campaign['schedule_id'])}`, session "
-             f"`{safe(campaign['session_id'])}`.", "", f"Hardware: {safe(W['hardware'])}."]
+             f"Campaign `{esc(campaign['campaign_id'])}`, schedule `{esc(campaign['schedule_id'])}`, session "
+             f"`{esc(campaign['session_id'])}`.", "", f"Hardware: {esc(W['hardware'])}."]
     if W["hardware"] != "controlled":
         lines += ["", "This campaign is observational: the machine policy differs from the frozen policy of "
                   "`schedule.toml`, which does not change the exit status."]
@@ -1409,7 +1413,7 @@ def render_report(W, results, lists):
               "not_comparable": "Cases that are NOT COMPARABLE", "failed": "Cases that FAILED"}
     for key, title in titles.items():
         lines += [f"### {title} ({len(lists[key])})", ""]
-        lines += ["- " + "; ".join(f"{k} {safe('null' if v is None else v)}" for k, v in item.items())
+        lines += ["- " + "; ".join(f"{k} {esc('null' if v is None else v)}" for k, v in item.items())
                   for item in lists[key]] or ["none"]
         lines.append("")
     lines += ["## Screens and ratios", "", DISCLAIMER, "",
@@ -1420,7 +1424,7 @@ def render_report(W, results, lists):
         lines += [f"### Julia {ver}", "", "| id | role | class | screen | geomean_ratio | ratio_min | ratio_max | "
                   "aa_ratio_min | aa_ratio_max | mapping_class |", "|---|---|---|---|---|---|---|---|---|---|"]
         for r in (r for r in results if r["julia"] == ver):
-            lines.append("| " + " | ".join(safe(r.get(k, "")) for k in (
+            lines.append("| " + " | ".join(esc(r.get(k, "")) for k in (
                 "id", "role", "class_", "screen", "geomean_ratio", "ratio_min", "ratio_max", "aa_ratio_min",
                 "aa_ratio_max", "mapping_class")) + " |")
         lines += ["", f"Process RSS of Julia {ver} (`maxrss_bytes` of the metadata, one value per process; heap "
@@ -1437,7 +1441,7 @@ def render_report(W, results, lists):
         for cid in sched["cases"]:
             row = W["hist"].get((info["version"], cid))
             if row:
-                lines.append("| " + " | ".join(safe(row[k]) for k in (
+                lines.append("| " + " | ".join(esc(row[k]) for k in (
                     "julia", "id", "mean_of_medians_ns", "median_bytes", "worst_value_max", "status")) + " |")
     return "\n".join(lines) + "\n"
 
@@ -1533,7 +1537,8 @@ def comparison_phase(W):
 
     The ratios, geometric means, screens, class table, lists and report live here and nowhere else. It is called
     only after every refusal has been evaluated and none was found; a refused input never reaches it. It returns
-    the raw strings; the caller cleans each output string once."""
+    the raw strings; each output string is cleaned once: the rows and lists by the caller, the text of the report
+    inside render_report before it is escaped for Markdown."""
     sched = W["sched"]
     results = [classify(W, mm, cid) for mm in sched["strata"] for cid in sched["cases"]]
     lists = build_lists(W, results)
@@ -1611,7 +1616,7 @@ def run(argv, state):
     W = dict(sched=sched, roots=roots, mapping={r["id"]: r for r in mapping_rows}, fps=fps, receipt=receipt,
              aa=bool(args.aa), hist=hist, hardware=hardware_label(receipt, sched), scrub=scrub)
     results, rows, lists, report = comparison_phase(W)
-    rows, lists, report = scrub_deep(scrub, rows), scrub_deep(scrub, lists), scrub(report)
+    rows, lists = scrub_deep(scrub, rows), scrub_deep(scrub, lists)    # the report cleans its own text
     try:
         validate.fresh_output(out)
         summarize.write_csv(out / "migration-comparison.csv", COLUMNS, rows)
