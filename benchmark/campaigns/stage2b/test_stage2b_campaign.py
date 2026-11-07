@@ -71,7 +71,8 @@ def never(*args, **kwargs):
 
 
 def hooks_that_never_run():
-    return C.Hooks(probe=never, runner=never, clock=never, sampler=never, julia_bins=dict(JULIA_BINS))
+    return C.Hooks(probe=never, runner=never, clock=never, sampler=never, julia_bins=dict(JULIA_BINS),
+                   depot_digest=never, datahash_ok=never)
 
 
 def writable(path):
@@ -180,7 +181,10 @@ def good_obs(spec, mm, sched, base):
         "checkout_realpath": f"{real}/ProximalSolvers.jl", "depot_realpath": f"{real}/depot",
         "environment": {"dir": str(spec.environments[mm]), "realpath": f"{real}/env-{mm}", "project_exists": True,
                         "manifest_exists": True},
-        "manifest_sha256": manifest, "harness_hash": want["harness_hash"], "affinity_cpus": [machine["logical_cpu"]],
+        "manifest_sha256": manifest,
+        "project_sha256": want["project_sha256"].get(mm) or C.sha256_file(base / "roots" / spec.name /
+                                                                            f"julia-{mm}" / "Project.toml"),
+        "harness_hash": want["harness_hash"], "affinity_cpus": [machine["logical_cpu"]],
         "machine": {"cpu_model": machine["cpu_model"], "cpu": machine["cpu"][mm],
                     "logical_cpu": machine["logical_cpu"]}}
 
@@ -243,6 +247,8 @@ class Host:
                 shutil.copyfile(source, output / source.name)
         if "mutate" in effects:
             effects["mutate"](output, stem)
+        if effects.get("interrupt"):
+            raise effects["interrupt"]
         if "extra" in effects:
             (output / effects["extra"]).write_text("x")
         return C.RunResult(effects.get("exit", 2 if nonok else 0), b"stdout", b"stderr")
@@ -252,7 +258,8 @@ class Host:
 
     def hooks(self, **overrides):
         values = dict(probe=self.probe, runner=self.runner, clock=self.clock, sampler=self.sampler,
-                      julia_bins=dict(JULIA_BINS), datahash_ok=self.datahash_ok)
+                      julia_bins=dict(JULIA_BINS), datahash_ok=self.datahash_ok,
+                      depot_digest=lambda spec: "digest-of-the-depot-cache")
         values.update(overrides)
         return C.Hooks(**values)
 
@@ -1057,9 +1064,8 @@ class DeclaredDifferencesTests(unittest.TestCase):
         lock["declared"][0]["julia"] = ["1.10"]
         lock["declared"].append(dict(lock["declared"][0], julia=["1.13"]))
         C.declared_differences(self.base, lock)                    # a split per stratum is fine
-        lock["declared"][0].update(julia=["1.10"])
         lock["declared"].append(dict(lock["declared"][0], julia=["1.10"]))
-        C.declared_differences(self.base, lock)
+        self.assertIn("declared twice", self.refusal(lock))
 
     def test_the_harness_declaration_must_match_the_mapping_and_the_observation(self):
         lock = copy.deepcopy(self.lock)
@@ -1091,7 +1097,9 @@ class DeclaredDifferencesTests(unittest.TestCase):
         declared = C.declared_differences(base, lock)
         kinds = {(r["name"], r["kind"], tuple(r.get("julia", ()))) for r in declared["manifest"]}
         self.assertIn(("NewDep", "added", ("1.13",)), kinds)
-        self.assertEqual(declared["manifest"], F.declared_differences(camp)["manifest"] and declared["manifest"])
+        strip = lambda rows: [{k: v for k, v in r.items() if k != "reason"} for r in rows]
+        self.assertEqual(strip(declared["manifest"]), strip(F.declared_differences(camp)["manifest"]),
+                         "the observed rows equal the fixture's independent derivation")
         for row in declared["manifest"]:
             self.assertEqual(row["reason"], "synthetic reason")
 
@@ -1281,14 +1289,18 @@ class EngineTests(EngineBase):
         self.assertEqual(len(roles), 16)
 
     def test_both_arms_run_ab_then_aa_per_stratum(self):
-        camp = F.build_campaign(fresh("arms"), "identical", reps=1, schedule_edit=pilot_edit)
+        def both(schedule):
+            pilot_edit(schedule)
+            schedule["schedule"]["arms"] = ["AB", "AA"]
+        camp = F.build_campaign(fresh("arms"), "identical", reps=1, schedule_edit=both)
         base = assemble_base(camp, fresh("arms-base") / "x-pilot")
         config = pilot_config(arms=("AB", "AA"))
         plan = C.plan_from_pilot(config, base, JULIA_BINS, ENVIRON)
         self.assertEqual([(k.arm, k.mm) for k in C.process_order(plan)][::2],
                          [("AB", "1.10"), ("AA", "1.10"), ("AB", "1.13"), ("AA", "1.13")])
-        plan = C.plan_from_pilot(config, base, JULIA_BINS, ENVIRON, arms=("AB",))
-        self.assertEqual(plan.arms, ("AB",))
+        with self.assertRaises(C.LockRefusal) as caught:          # the arms must be those of the schedule copy
+            C.plan_from_pilot(config, base, JULIA_BINS, ENVIRON, arms=("AB",))
+        self.assertEqual(caught.exception.field, "pilot.arms")
         with self.assertRaises(C.LockRefusal):
             C.plan_from_pilot(pilot_config(), base, JULIA_BINS, ENVIRON, arms=("AA",))
 
@@ -1537,19 +1549,47 @@ def run_full(camp, lock=None, tweak=None, rules=(), name="full"):
     return base, host, code, out, err
 
 
+_FULL = {}
+
+
+def shared_full():
+    """The full-shape tree, built, run and verified once for every class that mutates copies of it."""
+    if not _FULL:
+        started = time.monotonic()
+        camp = F.build_campaign(fresh("full"), "migration")
+        base, host, code, out, err = run_full(camp)
+        run_seconds = time.monotonic() - started
+        started = time.monotonic()
+        record = fresh("good-verify") / "verification.json"
+        document, status = C.verify(base, record)
+        _FULL.update(camp=camp, base=base, host=host, code=code, out=out, err=err, run_seconds=run_seconds,
+                     record=record, document=document, status=status, verify_seconds=time.monotonic() - started)
+    return _FULL
+
+
+def refresh_seals(base):
+    """Rewrite the digest of every sealed file that still exists (so a test isolates one guard)."""
+    lines = []
+    for seal in C.read_seals(base):
+        path = Path(base) / seal["file"]
+        if path.is_file():
+            seal["sha256"], seal["size"] = C.sha256_file(path), path.stat().st_size
+        lines.append(json.dumps(seal))
+    writable(Path(base) / "logs" / "seals.jsonl").write_text("\n".join(lines) + "\n")
+
+
+def refresh_all(base):
+    refresh_seals(base)
+    C.write_checksums(base)
+
+
 class IntegrationTests(unittest.TestCase):
     """The authoritative full-shape test: built once, verified, copied and mutated."""
 
     @classmethod
     def setUpClass(cls):
-        started = time.monotonic()
-        cls.camp = F.build_campaign(fresh("full"), "migration")
-        cls.base, cls.host, cls.code, cls.out, cls.err = run_full(cls.camp)
-        cls.run_seconds = time.monotonic() - started
-        started = time.monotonic()
-        cls.record = fresh("good-verify") / "verification.json"
-        cls.document, cls.status = C.verify(cls.base, cls.record)
-        cls.verify_seconds = time.monotonic() - started
+        for key, value in shared_full().items():
+            setattr(cls, key, value)
 
     @classmethod
     def tearDownClass(cls):
@@ -1631,7 +1671,9 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(argv[argv.index("--schedule") + 1], str(self.base / "schedule.toml"))
         self.assertEqual(argv[argv.index("--aa") + 1:argv.index("--aa") + 3],
                          [str(self.base / "roots" / "aa-a"), str(self.base / "roots" / "aa-b")])
-        self.assertNotIn("--aa", C.comparator_argv(fresh("no-aa"), fresh() / "o"), "no A/A roots, no --aa")
+        pilot = F.build_campaign(fresh("no-aa"), "identical", reps=1, schedule_edit=pilot_edit)
+        no_aa = assemble_base(pilot, fresh("no-aa-base") / "x-pilot", aa=False)
+        self.assertNotIn("--aa", C.comparator_argv(no_aa, fresh() / "o"), "the schedule has no AA arm")
 
     def test_the_records_in_the_full_set_are_finite_and_complete(self):
         for role in C.ROLES:
@@ -1817,7 +1859,8 @@ class IntegrationTests(unittest.TestCase):
         document, status = self.verify(base)
         self.assertNotEqual(document["state"], "verified")
         self.assertEqual((status, document["state"]), (2, "failed"))
-        self.assertEqual(document["problems"], ["the state is completed but logs/completion.json is missing"])
+        self.assertTrue(all("completion.json" in p for p in document["problems"]), document["problems"])
+        self.assertIn("the state is completed but logs/completion.json is missing", document["problems"])
         base = self.mutated(lambda b: (b / "logs" / "completion.json").unlink(), reseal=True)
         document, status = self.verify(base)
         self.assertEqual(status, 2)
@@ -1922,6 +1965,516 @@ class IntegrationTests(unittest.TestCase):
         document, status = C.verify(base, fresh("v") / "v.json")
         self.assertEqual((status, document["state"]), (2, "stopped"))
         self.assertFalse((base / "logs" / "completion.json").exists())
+
+
+# ----------------------------------------------------------------------------- revision 1: the findings
+
+def historical_lock(camp):
+    """A lock whose stack B is the historical stack A (a candidate that must never be official)."""
+    lock = make_lock(camp)
+    a = mc.load_schedule(HERE / "schedule.toml")["stack_a"]
+    b = lock["stack_b"]
+    for key in ("proximalsolvers", "proximalbase"):
+        for field in ("commit", "tree", "version", "package_hash"):
+            b[key][field] = a[key][field]
+    b["proximalbase"].update(release="registered", tag=a["proximalbase"]["tag"])
+    b["harness_hash"] = a["harness_hash"]
+    return lock
+
+
+class GateHistoricalTests(unittest.TestCase):
+    """Finding 1: the historical stack is not an official B candidate."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.camp = F.build_campaign(fresh("hist"), "migration")
+        cls.base = assemble_base(cls.camp, fresh("hist-base") / "base")
+
+    def codes(self, lock):
+        return {e.split(":")[0] for e in C.official_gate(lock, facts_for(self.base, lock), FREEZE)}
+
+    def test_the_historical_stack_is_refused_through_the_command(self):
+        lock = historical_lock(self.camp)
+        facts = facts_for(self.base, lock)
+        self.assertEqual(C.parse_lock(lock), lock, "the lock itself is well formed")
+        directory = fresh("hist-cli")
+        C.write_toml(directory / "lock.toml", lock)
+        code, out, err = call_main(["run", "--config", str(directory / "lock.toml"), "--base",
+                                    str(directory / "base"), "--official", "--freeze-sha", FREEZE],
+                                   hooks=hooks_that_never_run(), facts=lambda *a: facts)
+        self.assertEqual((code, out), (2, ""))
+        self.assertIn("REFUSED", err)
+        self.assertFalse((directory / "base").exists(), "nothing was started")
+        self.assertTrue({"PB_B_VERSION", "HISTORICAL_PROXIMALSOLVERS_COMMIT", "HISTORICAL_PROXIMALBASE_TREE",
+                         "HISTORICAL_HARNESS_HASH"} <= self.codes(lock))
+
+    def test_each_historical_field_and_the_version_rule(self):
+        for key, field in (("proximalsolvers", "commit"), ("proximalsolvers", "tree"), ("proximalbase", "commit"),
+                           ("proximalbase", "tree"), ("proximalbase", "package_hash")):
+            lock = make_lock(self.camp)
+            lock["stack_b"][key][field] = mc.load_schedule(HERE / "schedule.toml")["stack_a"][key][field]
+            self.assertIn(f"HISTORICAL_{key.upper()}_{field.upper()}", self.codes(lock), (key, field))
+        lock = make_lock(self.camp)
+        lock["stack_b"]["harness_hash"] = mc.load_schedule(HERE / "schedule.toml")["stack_a"]["harness_hash"]
+        self.assertIn("HISTORICAL_HARNESS_HASH", self.codes(lock))
+        for version, accepted in (("0.6.0", True), ("0.6.0-rc1", True), ("0.6", False), ("0.5.4", False),
+                                  ("0.7.0", False), ("1.0.0", False), ("v0.6.0", False)):
+            lock = make_lock(self.camp)
+            lock["stack_b"]["proximalbase"]["version"] = version
+            self.assertEqual("PB_B_VERSION" not in self.codes(lock), accepted, version)
+        self.assertEqual(self.codes(make_lock(self.camp)), set())
+
+
+class ObservationTests(unittest.TestCase):
+    """Finding 2: the complete observation set is validated; independence is never skipped."""
+
+    @classmethod
+    def setUpClass(cls):
+        PreflightTests.setUpClass.__func__(cls)
+
+    observations = PreflightTests.observations
+    problems = PreflightTests.problems
+
+    def test_a_missing_depot_realpath_and_shared_environments_are_problems_and_no_launch(self):
+        def edit(obs):
+            del obs[("ab-b", "1.10")]["depot_realpath"]
+            obs[("ab-b", "1.10")]["environment"]["dir"] = obs[("ab-a", "1.10")]["environment"]["dir"]
+            obs[("ab-b", "1.10")]["environment"]["realpath"] = obs[("ab-a", "1.10")]["environment"]["realpath"]
+        problems = self.problems(edit)
+        codes = {p.split(":")[0] for p in problems}
+        self.assertEqual(codes, {"OBSERVATION", "SHARED"}, problems)
+        self.assertTrue(any("depot_realpath is missing" in p for p in problems))
+        self.assertTrue(any("environment" in p for p in problems if p.startswith("SHARED")))
+        base = assemble_base(self.camp, fresh("obs-base") / "base")
+        plan = official_plan(base, self.lock)
+        host = Host(self.camp, plan.sched, base)
+        host.obs_edits.append(lambda role, mm, obs: obs.pop("depot_realpath")
+                              if (role, mm) == ("ab-b", "1.10") else None)
+        host.obs_edits.append(lambda role, mm, obs: obs["environment"].update(
+            dir=str(plan.roles["ab-a"].environments[mm])) if role == "ab-b" else None)
+        with self.assertRaises(C.Refused):
+            C.execute(plan, host.hooks())
+        self.assertEqual(host.calls, [])
+        self.assertFalse((base / "receipt.jsonl").exists())
+
+    def test_every_key_is_required_and_typed(self):
+        paths = ["julia.version", "julia.commit", "julia.cpu_name", "ps.commit", "ps.tree", "ps.version", "ps.dirty",
+                 "ps.loaded_realpath", "ps.package_hash", "pb.loaded_tree", "pb.manifest_tree", "pb.version",
+                 "pb.package_hash", "checkout_realpath", "depot_realpath", "environment.dir",
+                 "environment.realpath", "environment.project_exists", "environment.manifest_exists",
+                 "manifest_sha256", "project_sha256", "harness_hash", "affinity_cpus", "machine.cpu_model",
+                 "machine.cpu", "machine.logical_cpu"]
+        for path in paths:
+            def remove(obs, path=path):
+                target = obs[("ab-a", "1.13")]
+                *parents, last = path.split(".")
+                for part in parents:
+                    target = target[part]
+                del target[last]
+            problems = self.problems(remove)
+            self.assertTrue(any(p.startswith("OBSERVATION") and path in p for p in problems), (path, problems[:3]))
+
+    def test_wrong_types_relative_paths_and_bad_digests(self):
+        cases = [("manifest_sha256", "abc"), ("project_sha256", 5), ("depot_realpath", "relative/path"),
+                 ("affinity_cpus", [6, "7"]), ("ps", {"dirty": "no"}), ("machine", {"logical_cpu": True})]
+        for key, value in cases:
+            def edit(obs, key=key, value=value):
+                if isinstance(value, dict):
+                    obs[("ab-a", "1.10")][key] = dict(obs[("ab-a", "1.10")][key], **value)
+                else:
+                    obs[("ab-a", "1.10")][key] = value
+            self.assertTrue(any(p.startswith("OBSERVATION") for p in self.problems(edit)), key)
+
+    def test_a_missing_or_unknown_role_or_stratum_is_a_problem(self):
+        def drop(obs):
+            del obs[("aa-b", "1.13")]
+        self.assertTrue(any("no observation" in p for p in self.problems(drop)))
+
+        def extra(obs):
+            obs[("zz", "1.10")] = obs[("ab-a", "1.10")]
+        self.assertTrue(any("not a role or stratum" in p for p in self.problems(extra)))
+        self.assertTrue(any(p.startswith("OBSERVATION") for p in C.preflight_checks(self.plan, {})))
+
+    def test_the_project_digest_of_stack_b_is_the_locks(self):
+        def edit(obs):
+            obs[("ab-b", "1.10")]["project_sha256"] = "0" * 64
+        self.assertIn("PROJECT_SHA256", {p.split(":")[0] for p in self.problems(edit)})
+
+
+class MandatoryHookTests(EngineBase):
+    """Finding 3: depot_digest and datahash_ok are required and recorded."""
+
+    def test_omitted_callbacks_are_refusals_before_any_launch(self):
+        for name in ("depot_digest", "datahash_ok", "sampler"):
+            base, plan, host = self.make()
+            with self.assertRaises(C.Refused) as caught:
+                C.execute(plan, host.hooks(**{name: None}))
+            self.assertEqual(caught.exception.field, "hooks")
+            self.assertIn(name, str(caught.exception))
+            self.assertEqual(host.calls, [])
+            self.assertFalse((base / "logs").exists())
+            self.assertFalse((base / "receipt.jsonl").exists())
+        base, plan, host = self.make()
+        hooks = C.Hooks(probe=host.probe, runner=host.runner, clock=host.clock, sampler=host.sampler,
+                        julia_bins=dict(JULIA_BINS))
+        with self.assertRaises(C.Refused):
+            C.execute(plan, hooks)
+
+    def test_the_digest_is_recorded_before_and_after_every_process(self):
+        base, plan, host = self.make()
+        C.execute(plan, host.hooks())
+        for command in C.read_jsonl(base / "logs" / "commands.jsonl"):
+            self.assertEqual(command["depot_digest_before"], "digest-of-the-depot-cache")
+            self.assertEqual(command["depot_digest_after"], "digest-of-the-depot-cache")
+
+    def test_a_changed_digest_and_a_corrupted_data_hash_stop_the_run(self):
+        base, plan, host = self.make()
+        digests = iter(range(100))
+        with self.assertRaises(C.Stopped):
+            C.execute(plan, host.hooks(depot_digest=lambda spec: next(digests)))
+        self.assertEqual(self.state(base)["state"], "stopped")
+        record = C.read_jsonl(base / "logs" / "commands.jsonl")[0]
+        self.assertNotEqual(record["depot_digest_before"], record["depot_digest_after"])
+        base, plan, host = self.make()
+        host.datahash = False
+        with self.assertRaises(C.Stopped):
+            C.execute(plan, host.hooks())
+        self.assertEqual(len(self.receipt(base)) - 1, 1)
+        self.assertIn("data_hash", self.state(base)["reason"])
+
+
+class LifecycleTests(EngineBase):
+    """Finding 4: once the runner was called, one process event exists whatever follows."""
+
+    def assertOneEvent(self, base, exit_code, complete=False):
+        events = self.receipt(base)[1:]
+        self.assertEqual(len(events), 1)
+        self.assertEqual((events[0]["exit"], events[0]["complete"]), (exit_code, complete))
+        self.assertEqual(self.state(base)["state"], "stopped")
+        self.assertTrue((base / "checksums.sha256").is_file())
+        self.assertEqual(C.read_checksums(base / "checksums.sha256").keys(), set(C.evidence_paths(base)))
+
+    def test_an_error_of_the_machine_sampler_after_the_launch(self):
+        base, plan, host = self.make()
+
+        def failing(sample):
+            raise OSError("sysfs vanished")
+        host.sample_edits.append((3, failing))               # the third read: after the first process
+        with self.assertRaises(OSError):
+            C.execute(plan, host.hooks())
+        self.assertOneEvent(base, 0)
+        self.assertIn("OSError", self.state(base)["reason"])
+        self.assertEqual(self.state(base)["process"], "AB-A-1.10-rep01")
+
+    def test_an_interrupt_from_the_runner_after_the_launch(self):
+        for interrupt in (KeyboardInterrupt(), SystemExit(1)):
+            base, plan, host = self.make()
+            host.rule(role="ab-a", mm="1.10", interrupt=interrupt)
+            with self.assertRaises(type(interrupt)):
+                C.execute(plan, host.hooks())
+            self.assertOneEvent(base, -1)
+            self.assertEqual(len(host.calls), 1)
+            document, status = C.verify(base, fresh("v") / "v.json")
+            self.assertEqual((status, document["state"]), (2, "stopped"))
+
+    def test_an_error_while_the_output_is_written_or_the_digest_is_read(self):
+        base, plan, host = self.make()
+        calls = []
+
+        def digest(spec):
+            calls.append(1)
+            if len(calls) == 2:                               # the digest after the first process
+                raise RuntimeError("cache unreadable")
+            return "d"
+        with self.assertRaises(RuntimeError):
+            C.execute(plan, host.hooks(depot_digest=digest))
+        self.assertOneEvent(base, 0)
+
+    def test_a_runner_that_raised_is_still_one_failed_event(self):
+        base, plan, host = self.make()
+        host.rule(role="ab-a", mm="1.10", fail_start=True)
+        with self.assertRaises(C.Stopped):
+            C.execute(plan, host.hooks())
+        self.assertOneEvent(base, -1)
+
+
+class RevisionVerifyTests(unittest.TestCase):
+    """Findings 5 to 9 and 11: verify derives what it requires from the archive and never from what exists."""
+
+    @classmethod
+    def setUpClass(cls):
+        for key, value in shared_full().items():
+            setattr(cls, key, value)
+
+    def mutated(self, function, refresh=True):
+        base = clone(self.base)
+        function(base)
+        if refresh:
+            refresh_all(base)
+        return base
+
+    def failed(self, base, text, replay=True):
+        record = fresh("v") / "verification.json"
+        document, status = C.verify(base, record, replay=replay)
+        self.assertEqual((document["state"], status), ("failed", 2), document["problems"][:5])
+        self.assertTrue(record.is_file())
+        self.assertTrue(any(text in p for p in document["problems"]), (text, document["problems"][:10]))
+        return document
+
+    # -- 5: required arms
+    def test_removing_the_aa_arm_everywhere_still_fails(self):
+        def drop(b):
+            shutil.rmtree(b / "roots" / "aa-a")
+            shutil.rmtree(b / "roots" / "aa-b")
+            events = [e for e in C.read_jsonl(b / "receipt.jsonl") if e.get("arm") != "AA"]
+            writable(b / "receipt.jsonl").write_text("".join(json.dumps(e) + "\n" for e in events))
+            seals = writable(b / "logs" / "seals.jsonl")
+            seals.write_text("".join(l + "\n" for l in seals.read_text().split("\n") if l and "roots/aa-" not in l))
+            for name in ("comparator.json", "completion.json"):
+                pass
+            path = writable(b / "logs" / "completion.json")
+            record = json.loads(path.read_text())
+            record.update(processes=32, receipt_sha256=C.sha256_file(b / "receipt.jsonl"))
+            path.write_text(json.dumps(record))
+        base = self.mutated(drop)
+        document = self.failed(base, "the root is missing", replay=False)
+        self.assertTrue(any("arm AA" in p and "is missing" in p for p in document["problems"]))
+        self.assertTrue(any("counts 32 processes, expected 64" in p for p in document["problems"]))
+
+    def test_a_schedule_edited_to_drop_the_arm_disagrees_with_the_recorded_campaign(self):
+        def edit(b):
+            edit_text(b / "schedule.toml", lambda t: t.replace('arms = ["AB", "AA"]', 'arms = ["AB"]'))
+        self.failed(self.mutated(edit), "logs/campaign.json: arms", replay=False)
+
+    # -- 6: lock and metadata
+    def test_a_deleted_lock(self):
+        base = self.mutated(lambda b: (b / "lock.toml").unlink())
+        self.failed(base, "lock.toml is missing from the tree of an official attempt", replay=False)
+
+    def test_a_changed_b_identity_with_a_cleared_approval(self):
+        def edit(b):
+            edit_text(b / "lock.toml", lambda t: t.replace(f'G8 = "{URL}"', 'G8 = ""'))
+            edit_text(b / "roots/ab-b/stack-identity.toml", lambda t: t.replace(
+                self.camp.stack("b")["ps"]["commit"], "7" * 40))
+            for rep in (1, 2):
+                path = b / f"roots/ab-b/julia-1.10/raw/julia-1.10.13-rep{rep:02d}-metadata.toml"
+                edit_text(path, lambda t: t.replace(self.camp.stack("b")["ps"]["hash"], "8" * 40))
+        base = self.mutated(edit)
+        document = self.failed(base, "APPROVAL_G8", replay=False)
+        for text in ("stack-identity.toml: proximalsolvers.commit differs from the lock",
+                     "metadata proximalsolvers_hash differs from the lock",
+                     "lock.toml differs from the digest recorded"):
+            self.assertTrue(any(text in p for p in document["problems"]), (text, document["problems"][:6]))
+
+    def test_a_changed_manifest_or_project_digest_of_stack_b(self):
+        def edit(b):
+            edit_text(b / "roots/ab-b/julia-1.13/Project.toml", lambda t: t + "\n# changed\n")
+        self.failed(self.mutated(edit), "differs from the lock's SHA-256", replay=False)
+
+    def test_a_completion_record_with_unrelated_ids_and_an_unknown_schema(self):
+        def edit(b):
+            path = writable(b / "logs" / "completion.json")
+            record = json.loads(path.read_text())
+            record.update(schema=99, campaign_id="other", session_id="session-x", schedule_id="elsewhere")
+            path.write_text(json.dumps(record))
+        document = self.failed(self.mutated(edit), "logs/completion.json: schema is not 1", replay=False)
+        for key in ("campaign_id", "session_id", "schedule_id"):
+            self.assertTrue(any(f"logs/completion.json: {key}" in p for p in document["problems"]), key)
+
+    def test_ids_across_the_archive_must_agree(self):
+        def edit(b):
+            edit_text(b / "roots/ab-a/stack-identity.toml", lambda t: t.replace(SESSION, "session-0"))
+            edit_text(b / "logs/STATE.json", lambda t: t.replace('"schema": 1', '"schema": 2'))
+            events = C.read_jsonl(b / "receipt.jsonl")
+            events[0]["session_id"] = "session-1"
+            writable(b / "receipt.jsonl").write_text("".join(json.dumps(e) + "\n" for e in events))
+        document = self.failed(self.mutated(edit), "stack-identity.toml: session_id differs", replay=False)
+        for text in ("logs/STATE.json: schema is not 1", "receipt.jsonl: session_id of the campaign event"):
+            self.assertTrue(any(text in p for p in document["problems"]), text)
+
+    # -- 7: seal coverage and mode
+    def test_only_the_completion_seal_and_writable_records(self):
+        def edit(b):
+            seals = writable(b / "logs" / "seals.jsonl")
+            seals.write_text("".join(l + "\n" for l in seals.read_text().split("\n") if '"logs/completion.json"' in l))
+            for path in (b / "roots").glob("*/julia-*/raw/*"):
+                path.chmod(0o644)
+        document = self.failed(self.mutated(edit), "seal coverage", replay=False)
+        self.assertTrue(any("has no seal" in p for p in document["problems"]))
+        self.assertTrue(any("not mode 0444" in p for p in document["problems"]))
+
+    def test_removed_duplicate_extra_and_misbound_seals(self):
+        def lines(b):
+            return [l for l in (b / "logs" / "seals.jsonl").read_text().split("\n") if l]
+
+        def write(b, items):
+            writable(b / "logs" / "seals.jsonl").write_text("".join(l + "\n" for l in items))
+        self.failed(self.mutated(lambda b: write(b, lines(b)[5:])), "has no seal", replay=False)
+        self.failed(self.mutated(lambda b: write(b, lines(b) + lines(b)[:1])), "has 2 seals", replay=False)
+
+        def extra(b):
+            C.create_exclusive(b / "logs" / "stray.txt", "x")
+            write(b, lines(b) + [json.dumps({"file": "logs/stray.txt", "sha256": C.sha256_file(b / "logs/stray.txt"),
+                                             "size": 1, "process": "x"})])
+        self.failed(self.mutated(extra), "sealed but not a required file", replay=False)
+
+        def misbound(b):
+            first = json.loads(lines(b)[0])
+            first["process"] = "AB-B-1.13-rep08"
+            write(b, [json.dumps(first)] + lines(b)[1:])
+        self.failed(self.mutated(misbound), "is sealed for", replay=False)
+
+    # -- 8: sidecar and fingerprint coverage
+    def test_header_only_sidecars_and_fingerprint_files(self):
+        for name, header in ((C.DATAHASH_NAME, C.DATAHASH_HEADER), (C.FP_NAME, mc.FP_HEADER)):
+            for role in ("ab-a", "ab-b"):
+                def edit(b, name=name, header=header, role=role):
+                    writable(b / "roots" / role / name).write_text(header + "\n")
+                document = self.failed(self.mutated(edit), f"{role}: {name}", replay=False)
+                self.assertGreater(len(document["problems"]), 100, "every expected key is reported")
+
+    def test_malformed_duplicate_extra_rows_and_headers(self):
+        def sidecar(change):
+            def edit(b):
+                path = b / "roots/ab-a" / C.DATAHASH_NAME
+                lines = path.read_text().split("\n")
+                writable(path).write_text("\n".join(change(lines)))
+            return edit
+        self.failed(self.mutated(sidecar(lambda l: l + [l[1]])), "duplicate row", replay=False)
+        self.failed(self.mutated(sidecar(lambda l: l[:-1] + ["9.9.9\tx\t1\tabc", ""])), "not a declared", replay=False)
+        self.failed(self.mutated(sidecar(lambda l: l[:-2] + ["one\ttwo", ""])), "fields", replay=False)
+        self.failed(self.mutated(sidecar(lambda l: ["julia\tid\trep\tdatahash"] + l[1:])), "wrong header",
+                    replay=False)
+
+        def fingerprints(change):
+            def edit(b):
+                path = b / "roots/ab-b" / C.FP_NAME
+                lines = path.read_text().split("\n")
+                writable(path).write_text("\n".join(change(lines)))
+            return edit
+        self.failed(self.mutated(fingerprints(lambda l: l[:-1] + [l[1], ""])), "duplicate row", replay=False)
+        self.failed(self.mutated(fingerprints(lambda l: l[:-1] + ["9.9.9\tx\t1\tfixture\tX\t" + "0" * 64, ""])),
+                    "not a declared", replay=False)
+        self.failed(self.mutated(fingerprints(lambda l: l[:-1] + [
+            l[1].rsplit("\t", 1)[0] + "\tnot-a-hash", ""])), "neither 64 hex nor none", replay=False)
+        self.failed(self.mutated(fingerprints(lambda l: ["julia\tid\trep\tkind\tname"] + l[1:])), "wrong header",
+                    replay=False)
+
+    # -- 9: symlinks
+    def test_a_symlinked_raw_directory(self):
+        def edit(b):
+            raw = b / "roots/ab-a/julia-1.10/raw"
+            outside = fresh("outside") / "raw"
+            shutil.copytree(raw, outside)
+            shutil.rmtree(raw)
+            os.symlink(outside, raw)
+        base = self.mutated(edit)
+        document = self.failed(base, "roots/ab-a/julia-1.10/raw is a symbolic link", replay=False)
+        self.assertTrue(any("seal coverage" in p or "checksums" in p for p in document["problems"]),
+                        "the files behind the link are not in the inventory")
+
+    def test_a_symlinked_base_or_ancestor_directory(self):
+        link = fresh("linked") / "base-link"
+        os.symlink(self.base, link)
+        document, status = C.verify(link, fresh("v") / "v.json", replay=False)
+        self.assertEqual(status, 2)
+        self.assertTrue(any("the base directory is a symbolic link" in p for p in document["problems"]))
+        self.failed(self.mutated(lambda b: os.symlink(b / "logs", b / "comparison" / "logs-link")),
+                    "comparison/logs-link is a symbolic link", replay=False)
+
+    def test_a_mandatory_file_missing_from_the_inventory(self):
+        def edit(b):
+            path = writable(b / "checksums.sha256")
+            path.write_text("".join(l + "\n" for l in path.read_text().split("\n") if l and "logs/hardware" not in l))
+        base = clone(self.base)
+        edit(base)
+        document, status = C.verify(base, fresh("v") / "v.json", replay=False)
+        self.assertEqual(status, 2)
+        self.assertTrue(any("mandatory file logs/hardware.jsonl is not in the inventory" in p
+                            for p in document["problems"]))
+
+    # -- 11: replay triples
+    def test_the_replay_compares_refusal_details_on_a_copy(self):
+        camp = F.build_campaign(fresh("triples"), "migration")
+        camp.stack("b")["checkout"] = camp.stack("a")["checkout"]
+        camp.rebuild_root("b")
+        base, _, code, _, _ = run_full(camp, name="triples-run")
+        self.assertEqual(code, 2)
+        stored = C.comparison_summary(base / "comparison")
+        self.assertTrue(stored["triples"] and all(len(t) == 3 for t in stored["triples"]))
+        self.assertFalse(any("<a>" in t[2] or "<b>" in t[2] for t in stored["triples"]), "labels are normalised")
+        copy_ = clone(base)
+        document, status = C.verify(copy_, fresh("v") / "v.json")
+        self.assertEqual((status, document["state"], document["problems"]), (2, "refused", []))
+        edit_text(copy_ / "comparison" / "refusals.json", lambda t: t.replace("checkout", "checkoutX", 1))
+        C.write_checksums(copy_)
+        refresh_seals(copy_)
+        document, _ = C.verify(copy_, fresh("v") / "v.json")
+        self.assertTrue(any("refusals of the replay differ" in p for p in document["problems"]))
+
+
+class PilotConfigCopyTests(unittest.TestCase):
+    """Finding 6, pilot: the stored configuration is bound to the attempt."""
+
+    def test_the_pilot_config_copy_is_kept_and_checked(self):
+        camp = F.build_campaign(fresh("pc"), "identical", reps=1, schedule_edit=pilot_edit)
+        base = assemble_base(camp, fresh("pc-base") / "x-pilot", aa=False)
+        directory = fresh("pc-cfg")
+        C.write_toml(directory / "p.toml", pilot_config())
+        host = Host(camp, mc.load_schedule(base / "schedule.toml"), base)
+        code, _, err = call_main(["pilot", "--config", str(directory / "p.toml"), "--base", str(base)],
+                                 hooks=host.hooks())
+        self.assertEqual(code, 0, err)
+        self.assertEqual((base / "pilot-config.toml").read_bytes(), (directory / "p.toml").read_bytes())
+        document, status = C.verify(base, fresh("v") / "v.json")
+        self.assertEqual((status, document["problems"]), (0, []))
+        bad = clone(base)
+        edit_text(bad / "pilot-config.toml", lambda t: t.replace("stage2b-pilot-v1", "stage2b-pilot-v2"))
+        refresh_all(bad)
+        document, status = C.verify(bad, fresh("v") / "v.json", replay=False)
+        self.assertEqual(status, 2)
+        self.assertTrue(any("pilot-config.toml" in p for p in document["problems"]))
+
+
+class DeclaredScopeTests(unittest.TestCase):
+    """Finding 10: scopes are validated against the schedule, never pruned."""
+
+    @classmethod
+    def setUpClass(cls):
+        DeclaredDifferencesTests.setUpClass.__func__(cls)
+
+    def test_an_unknown_stratum_is_refused_and_never_pruned(self):
+        lock = copy.deepcopy(self.lock)
+        lock["declared"][0]["julia"] = ["1.10", "9.99"]
+        with self.assertRaises(C.LockRefusal) as caught:
+            C.declared_differences(self.base, lock)
+        self.assertEqual(caught.exception.field, "declared[1].julia")
+        self.assertIn("9.99", str(caught.exception))
+        with self.assertRaises(C.LockRefusal):
+            C.parse_lock(lock, strata=["1.10", "1.13"])
+        lock["declared"][0]["julia"] = ["1.10", "1.10"]
+        with self.assertRaises(C.LockRefusal):
+            C.parse_lock(lock, strata=["1.10", "1.13"])
+        compat = next(i for i, e in enumerate(self.lock["declared"]) if e["kind"] == "compat")
+        lock = copy.deepcopy(self.lock)
+        lock["declared"][compat]["julia"] = ["9.99"]
+        with self.assertRaises(C.LockRefusal) as caught:
+            C.declared_differences(self.base, lock)
+        self.assertEqual(caught.exception.field, f"declared[{compat + 1}].julia")
+
+    def test_a_scope_in_a_stratum_where_the_difference_is_absent_is_refused(self):
+        camp = F.build_campaign(fresh("scope"), "manifest")
+        lock = make_lock(camp)
+        base = assemble_base(camp, fresh("scope-base") / "base", with_raw=True)
+        added = next(e for e in lock["declared"] if e["kind"] == "manifest" and e["name"] == "NewDep")
+        self.assertEqual(added["julia"], ["1.13"])
+        added["julia"] = ["1.10", "1.13"]
+        with self.assertRaises(C.DeclaredRefusal) as caught:
+            C.declared_differences(base, lock)
+        self.assertIn("where it is not observed", " ".join(caught.exception.problems))
+        del added["julia"]
+        with self.assertRaises(C.DeclaredRefusal):
+            C.declared_differences(base, lock)
 
 
 # ------------------------------------------------------------------------------------------------- CLI

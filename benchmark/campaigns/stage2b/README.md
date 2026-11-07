@@ -68,8 +68,12 @@ schedule, each pinned with `taskset`, in a whitelisted environment. After every 
 sealed (SHA-256, mode 0444) and all earlier seals are checked again. An exit of 2 (non-ok cases) is kept and reported;
 any other outcome stops the attempt: `STATE.json` says why, everything is kept, a receipt event is written for every
 launched process, and the base never launches again. Only a sealed `logs/completion.json` is a success record.
-`verify` is read-only, needs no Julia and works on a copied tree: it recomputes the checksums, the seals, the
-coverage and the receipt, then replays `migration_compare.py` on the tree's own copies and compares the outcome
+The official gate also refuses the historical stack as a candidate (ProximalBase 0.6 only, and no value equal to
+the `[stack_a]` identity). The engine needs the depot-cache digest and the data-hash check hooks and records the digest
+before and after every process. `verify` is read-only, needs no Julia and works on a copied tree: it derives the
+required arms, roots and seals from the archived `schedule.toml`, binds the tree to its lock (or pilot configuration)
+and to the campaign ids, rejects symbolic links, recomputes the checksums, the seals (exactly one per record file,
+mode 0444), the sidecar and fingerprint coverage and the receipt, then replays `migration_compare.py` on the tree's own copies and compares the outcome
 (`--out` is a fresh path outside the evidence).
 
 Exit status: 0 success; 1 completed with non-ok cases (a process exit 2 or comparator exit 1); 2 refused or stopped

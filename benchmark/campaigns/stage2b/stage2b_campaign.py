@@ -457,6 +457,12 @@ def parse_lock(data, strata=None):
         if "julia" in entry and not (isinstance(entry["julia"], list) and entry["julia"]
                                      and all(is_text(j) for j in entry["julia"])):
             raise LockRefusal(f"{where}.julia", "must be a non-empty list of strata")
+        if "julia" in entry:
+            if len(set(entry["julia"])) != len(entry["julia"]):
+                raise LockRefusal(f"{where}.julia", "names a stratum twice")
+            if strata is not None and not set(entry["julia"]) <= set(strata):
+                raise LockRefusal(f"{where}.julia", f"{sorted(set(entry['julia']) - set(strata))} are not strata "
+                                  f"of the schedule {sorted(strata)}")
     if "harness" in data:
         harness = _table(data["harness"], ("port_commit", "changed_lines", "approval_url"), (), "harness")
         _hex40(harness, "port_commit", "harness")
@@ -532,25 +538,47 @@ def official_gate(lock, repo_facts, freeze_sha):
             need(isinstance(env, dict) and HEX64.fullmatch(str(env.get("manifest_sha256", "")))
                  and env.get("manifest_sha256") == wanted, "MANIFEST_SHA256",
                  f"julia {mm}: Manifest SHA-256 {wanted!r} differs from the lock")
+    if isinstance(stack, dict):
+        historical = mc.load_schedule(HERE / "schedule.toml")["stack_a"]
+        table = stack.get("proximalbase") or {}
+        need(isinstance(table.get("version"), str) and re.match(r"0\.6\.", table["version"]), "PB_B_VERSION",
+             f"ProximalBase version {table.get('version')!r} is not a 0.6 candidate")
+        for key, fields in (("proximalsolvers", ("commit", "tree")), ("proximalbase", ("commit", "tree",
+                                                                                      "package_hash"))):
+            for field in fields:
+                need((stack.get(key) or {}).get(field) != historical[key][field],
+                     f"HISTORICAL_{key.upper()}_{field.upper()}",
+                     f"stack_b {key}.{field} equals the historical stack A value")
+        need(stack.get("harness_hash") != historical["harness_hash"], "HISTORICAL_HARNESS_HASH",
+             "stack_b harness_hash equals the historical stack A value")
     rows = facts.get("mapping_rows") or []
     need(bool(rows), "MAPPING", "no case-mapping rows were observed")
     for row in rows:
         if row.get("class") in ("B", "C", "D"):
             need(row.get("approved") is True, "MAPPING", f"case {row.get('id')}: class {row.get('class')} "
                  "is not approved")
-    approvals = (lock or {}).get("approvals")
+    for entry in approval_problems(lock or {}):
+        unmet.append(entry)
+    return unmet
+
+
+def approval_problems(lock):
+    """`<CODE>: <detail>` for each of G1..G8 and the case-mapping approvals that is not a maintainer comment URL
+    of this repository."""
+    approvals = lock.get("approvals")
     if not isinstance(approvals, dict):
-        need(False, "APPROVALS", "the lock has no [approvals] table")
-        return unmet
+        return ["APPROVALS: the lock has no [approvals] table"]
+    found = []
     for gate in GATES:
         value = approvals.get(gate)
-        need(isinstance(value, str) and APPROVAL_URL.fullmatch(value), f"APPROVAL_{gate}",
-             f"{gate} needs a maintainer comment URL of this repository, not {value!r}")
+        if not (isinstance(value, str) and APPROVAL_URL.fullmatch(value)):
+            found.append(f"APPROVAL_{gate}: {gate} needs a maintainer comment URL of this repository, "
+                         f"not {value!r}")
     urls = approvals.get("case_mapping")
-    need(isinstance(urls, list) and bool(urls) and all(isinstance(u, str) and APPROVAL_URL.fullmatch(u)
-                                                         for u in urls),
-         "APPROVAL_CASE_MAPPING", "the case-mapping approvals need maintainer comment URLs of this repository")
-    return unmet
+    if not (isinstance(urls, list) and urls and all(isinstance(u, str) and APPROVAL_URL.fullmatch(u) for u in urls)):
+        found.append("APPROVAL_CASE_MAPPING: the case-mapping approvals need maintainer comment URLs of this "
+                     "repository")
+    return found
 
 
 def collect_repo_facts(repo, lock_path, base, schedule_path, mapping_path, run=subprocess.run):
@@ -704,12 +732,13 @@ def expected_identity(sched, stack, lock=None):
         a = sched["stack_a"]
         return {"ps": {k: a["proximalsolvers"][k] for k in ("commit", "tree", "version", "package_hash")},
                 "pb": {k: a["proximalbase"][k] for k in ("commit", "tree", "version", "package_hash")},
-                "harness_hash": a["harness_hash"], "manifest_sha256": {}}
+                "harness_hash": a["harness_hash"], "manifest_sha256": {}, "project_sha256": {}}
     b = lock["stack_b"]
     return {"ps": {k: b["proximalsolvers"][k] for k in ("commit", "tree", "version", "package_hash")},
             "pb": {k: b["proximalbase"][k] for k in ("commit", "tree", "version", "package_hash")},
             "harness_hash": b["harness_hash"],
-            "manifest_sha256": {mm: env["manifest_sha256"] for mm, env in b["environments"].items()}}
+            "manifest_sha256": {mm: env["manifest_sha256"] for mm, env in b["environments"].items()},
+            "project_sha256": {mm: env["project_sha256"] for mm, env in b["environments"].items()}}
 
 
 def read_identity_file(base, role):
@@ -718,6 +747,12 @@ def read_identity_file(base, role):
         return tomllib.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
         raise Refused(f"cannot read the identity of {role}: {error}") from error
+
+
+def schedule_arms(base):
+    """The arms of the archived schedule copy (the comparator's loader does not return them)."""
+    declared = tomllib.loads((Path(base) / "schedule.toml").read_text(encoding="utf-8"))["schedule"]["arms"]
+    return tuple(arm for arm in ARMS if arm in declared)
 
 
 def build_roles(sched, base, arms, stack_b, lock, julia_bins, bundled_depot=""):
@@ -755,8 +790,7 @@ def plan_from_lock(lock, base, julia_bins, parent_env, freeze_sha, bundled_depot
     if lock["campaign"]["id"] != sched["campaign_id"]:
         raise Refused(f"lock campaign {lock['campaign']['id']!r} is not the schedule's {sched['campaign_id']!r}",
                       field="campaign.id")
-    declared_arms = tomllib.loads((base / "schedule.toml").read_text(encoding="utf-8"))["schedule"]["arms"]
-    arms = tuple(arm for arm in ARMS if arm in declared_arms)
+    arms = schedule_arms(base)
     session = lock["campaign"].get("session_id") or mint_session_id()
     roles = build_roles(sched, base, arms, True, lock, julia_bins, bundled_depot)
     return Plan(base=base, sched=sched, official=True, campaign_id=sched["campaign_id"], session_id=session,
@@ -782,6 +816,9 @@ def plan_from_pilot(config, base, julia_bins, parent_env, arms=None, bundled_dep
     chosen = tuple(a for a in ARMS if a in (arms or config["pilot"]["arms"]))
     if not chosen or not set(chosen) <= set(config["pilot"]["arms"]):
         raise LockRefusal("pilot.arms", f"arms {chosen} are not among the configured {config['pilot']['arms']}")
+    if chosen != schedule_arms(base):
+        raise LockRefusal("pilot.arms", f"arms {chosen} differ from the arms {schedule_arms(base)} of the "
+                          "schedule copy")
     session = config["campaign"].get("session_id") or mint_session_id()
     roles = build_roles(sched, base, chosen, False, None, julia_bins, bundled_depot)
     return Plan(base=base, sched=sched, official=False, campaign_id=sched["campaign_id"], session_id=session,
@@ -899,15 +936,58 @@ def _dig(observation, path):
     return value
 
 
+OBSERVATION_SCHEMA = {
+    "julia": {"version": str, "commit": str, "cpu_name": str},
+    "ps": {"commit": str, "tree": str, "version": str, "dirty": bool, "loaded_realpath": str, "package_hash": str},
+    "pb": {"loaded_tree": str, "manifest_tree": str, "version": str, "package_hash": str},
+    "checkout_realpath": str, "depot_realpath": str,
+    "environment": {"dir": str, "realpath": str, "project_exists": bool, "manifest_exists": bool},
+    "manifest_sha256": str, "project_sha256": str, "harness_hash": str, "affinity_cpus": list,
+    "machine": {"cpu_model": str, "cpu": str, "logical_cpu": int}}
+ABSOLUTE_KEYS = ("ps.loaded_realpath", "checkout_realpath", "depot_realpath", "environment.dir",
+                 "environment.realpath")
+
+
+def validate_observation(observation, where):
+    """Problems of one observation against OBSERVATION_SCHEMA: every key required and typed, paths absolute and
+    non-empty, the two digests 64 lowercase hex, the affinity a list of integers."""
+    problems = []
+
+    def walk(schema, value, prefix):
+        for key, kind in schema.items():
+            path = f"{prefix}{key}"
+            if not isinstance(value, dict) or key not in value:
+                problems.append(f"OBSERVATION: {where}: {path} is missing")
+            elif isinstance(kind, dict):
+                walk(kind, value[key], path + ".")
+            elif not isinstance(value[key], kind) or (kind is int and isinstance(value[key], bool)) or (
+                    kind is str and value[key] == ""):
+                problems.append(f"OBSERVATION: {where}: {path} has the wrong type or is empty")
+    walk(OBSERVATION_SCHEMA, observation, "")
+    for path in ABSOLUTE_KEYS:
+        value = _dig(observation, path)
+        if isinstance(value, str) and not value.startswith("/"):
+            problems.append(f"OBSERVATION: {where}: {path} is not an absolute path")
+    for path in ("manifest_sha256", "project_sha256"):
+        value = _dig(observation, path)
+        if isinstance(value, str) and not HEX64.fullmatch(value):
+            problems.append(f"OBSERVATION: {where}: {path} is not 64 lowercase hex")
+    cpus = _dig(observation, "affinity_cpus")
+    if isinstance(cpus, list) and not all(isinstance(c, int) and not isinstance(c, bool) for c in cpus):
+        problems.append(f"OBSERVATION: {where}: affinity_cpus must be a list of integers")
+    return problems
+
+
 def pseudo_root(spec, observation):
     """A root dictionary of the shape `migration_compare.check_independent` reads, built from an observation."""
     strata, inv, procs = {}, {}, {}
     for mm, obs in observation.items():
-        env = _dig(obs, "environment.dir")
-        checkout, depot = _dig(obs, "checkout_realpath"), _dig(obs, "depot_realpath")
-        env_real = _dig(obs, "environment.realpath")
-        if None in (env, checkout, depot, env_real):
-            continue
+        def text(path, fallback):               # an absent field never skips the comparison: the plan's value stands in
+            value = _dig(obs, path)
+            return value if isinstance(value, str) and value.startswith("/") else str(fallback)
+        env = text("environment.dir", spec.environments[mm])
+        checkout, depot = text("checkout_realpath", spec.checkout), text("depot_realpath", spec.depot)
+        env_real = text("environment.realpath", env)
         strata[mm] = {"inv": {"depot_path": [str(spec.depot)], "depot_realpath": norm(depot),
                               "active_project": f"{env}/Project.toml",
                               "active_project_realpath": f"{norm(env_real)}/Project.toml",
@@ -929,7 +1009,7 @@ def preflight_checks(plan, observations):
         pb              {loaded_tree, manifest_tree, version, package_hash}
         checkout_realpath, depot_realpath                  realpaths of the role's checkout and first depot
         environment     {dir, realpath, project_exists, manifest_exists}
-        manifest_sha256, harness_hash
+        manifest_sha256, project_sha256, harness_hash     (both digests: 64 lowercase hex, required)
         affinity_cpus   the CPUs the pinned launch is restricted to (a list of integers)
         machine         {cpu_model, cpu, logical_cpu}
 
@@ -938,6 +1018,14 @@ def preflight_checks(plan, observations):
     HARNESS_HASH, PACKAGE_HASH, MACHINE, SHARED and OBSERVATION (a key that is absent or of the wrong type).
     The policy values (governor, epp, no_turbo, smt_control) are labelled, not refused."""
     problems, sched = [], plan.sched
+    wanted = {(role, mm) for role in plan.role_names() for mm in sched["strata"]}
+    for role, mm in sorted(wanted - set(observations)):
+        problems.append(f"OBSERVATION: {role} {mm}: no observation")
+    for role, mm in sorted(set(observations) - wanted):
+        problems.append(f"OBSERVATION: {role} {mm}: not a role or stratum of the plan")
+    observations = {k: v for k, v in observations.items() if k in wanted}
+    for (role, mm), obs in sorted(observations.items()):
+        problems += validate_observation(obs, f"{role} {mm}")
     if plan.case_filter != sched["settings"]["case_filter"]:
         problems.append("CASE_FILTER: the case filter of the plan is not the schedule's case_filter byte for byte")
     for (role, mm), obs in sorted(observations.items()):
@@ -968,6 +1056,8 @@ def preflight_checks(plan, observations):
             need("PS_PATH", "ps.loaded_realpath", checkout, "loaded ProximalSolvers realpath")
         if mm in want["manifest_sha256"]:
             need("MANIFEST_SHA256", "manifest_sha256", want["manifest_sha256"][mm])
+        if mm in want["project_sha256"]:
+            need("PROJECT_SHA256", "project_sha256", want["project_sha256"][mm])
         need("HARNESS_HASH", "harness_hash", want["harness_hash"])
         need("PACKAGE_HASH", "ps.package_hash", want["ps"]["package_hash"], "ProximalSolvers package hash")
         need("PACKAGE_HASH", "pb.package_hash", want["pb"]["package_hash"], "ProximalBase package hash")
@@ -992,7 +1082,7 @@ def preflight_checks(plan, observations):
             mc.check_independent("ab", one, two, sched, ref, named=True)
             for _, _, _, detail in sorted(set(ref)):
                 problems.append(f"SHARED: {first} and {second}: {detail}")
-    return problems
+    return list(dict.fromkeys(problems))
 
 
 # ------------------------------------------------------------------------------------- identity writer
@@ -1280,6 +1370,7 @@ def declared_differences(base, lock):
         declared[table] = {k: sides[k[0]][k[2:]] for k in keys}
     strata = list(sched["strata"])
     lock_entries = lock.get("declared", [])
+    parse_lock({"schema": 1, "campaign": {"id": "scope-check"}, "declared": lock_entries}, strata=strata)
     used = set()
 
     def match(kind, name, uuid=None, change=None):
@@ -1296,10 +1387,13 @@ def declared_differences(base, lock):
         name, uuid, kind, a_version, b_version, a_tree, b_tree = item
         covered = set()
         for index, entry in match("manifest", name, uuid, kind):
-            julia = [mm for mm in entry.get("julia", strata) if mm in applied]
-            if not julia:
-                continue
+            julia = list(entry.get("julia", strata))
             used.add(index)
+            if set(julia) - set(applied):
+                problems.append(f"manifest {name} {kind}: declared for julia {sorted(set(julia) - set(applied))}, "
+                                f"where it is not observed")
+            if covered & set(julia):
+                problems.append(f"manifest {name} {kind}: declared twice for julia {sorted(covered & set(julia))}")
             covered |= set(julia)
             row = {"name": name, "uuid": uuid, "kind": kind, "a_version": a_version, "b_version": b_version,
                    "a_tree": a_tree, "b_tree": b_tree, "reason": entry["reason"]}
@@ -1324,10 +1418,13 @@ def declared_differences(base, lock):
     for (name, a, b), applied in sorted(compat_groups.items()):
         covered = set()
         for index, entry in match("compat", name):
-            julia = [mm for mm in entry.get("julia", strata) if mm in applied]
-            if not julia:
-                continue
+            julia = list(entry.get("julia", strata))
             used.add(index)
+            if set(julia) - set(applied):
+                problems.append(f"compat {name}: declared for julia {sorted(set(julia) - set(applied))}, where it "
+                                f"is not observed")
+            if covered & set(julia):
+                problems.append(f"compat {name}: declared twice for julia {sorted(covered & set(julia))}")
             covered |= set(julia)
             row = {"name": name, "a": a, "b": b, "reason": entry["reason"]}
             if sorted(julia) != sorted(strata):
@@ -1386,7 +1483,7 @@ def comparator_argv(base, out):
             "--mapping", str(base / "case-mapping.toml"),
             "--declared-differences", str(base / "declared-differences.toml"),
             "--receipt", str(base / "receipt.jsonl"), "--schedule", str(base / "schedule.toml")]
-    if (base / "roots" / "aa-a").is_dir() and (base / "roots" / "aa-b").is_dir():
+    if "AA" in schedule_arms(base):
         argv += ["--aa", str(base / "roots" / "aa-a"), str(base / "roots" / "aa-b")]
     return argv + ["--out", str(out)]
 
@@ -1415,10 +1512,12 @@ def comparison_summary(out):
     """What two runs of the comparator must agree on: the refusal (class, field) pairs and the CSV rows with
     the path labels removed (the scrub prints a root path as `<a>` or as `basename#tag`)."""
     out = Path(out)
-    summary = {"refusals": None, "rows": None, "counts": None}
+    summary = {"refusals": None, "triples": None, "rows": None, "counts": None}
     if (out / "refusals.json").is_file():
         document = json.loads((out / "refusals.json").read_text(encoding="utf-8"))
         summary["refusals"] = sorted((r["class"], r["field"]) for r in document["refusals"])
+        summary["triples"] = sorted((r["class"], r["field"], _strip_paths(r["detail"]))
+                                    for r in document["refusals"])
     if (out / "migration-comparison.csv").is_file():
         table = list(csv.reader(io.StringIO((out / "migration-comparison.csv").read_text(encoding="utf-8"))))
         summary["rows"] = [[_strip_paths(cell) for cell in row] for row in table]
@@ -1499,7 +1598,7 @@ class Attempt:
     """The records of one attempt: STATE, receipt, sidecar logs. Created exclusively at the start."""
 
     def __init__(self, plan, hooks):
-        self.plan, self.hooks = plan, hooks
+        self.plan, self.hooks, self.finished = plan, hooks, False
         logs = plan.base / "logs"
         logs.mkdir(parents=True, exist_ok=True)
         create_exclusive(logs / "STATE.json", state_text("running", campaign_id=plan.campaign_id,
@@ -1513,14 +1612,18 @@ class Attempt:
             "schema": 1, "campaign_id": plan.campaign_id, "session_id": plan.session_id,
             "schedule_id": plan.sched["id"], "official": plan.official, "freeze_sha": plan.freeze_sha,
             "arms": list(plan.arms), "started_utc": utc_text(start),
-            "schedule_sha256": sha256_file(plan.base / "schedule.toml")}, indent=2) + "\n")
+            "schedule_sha256": sha256_file(plan.base / "schedule.toml"),
+            "lock_sha256": sha256_file(plan.base / "lock.toml") if (plan.base / "lock.toml").is_file() else None},
+            indent=2) + "\n")
 
     def finish(self, state, **info):
         """STATE.json, then the checksums of the whole evidence (best effort: the attempt is over either way)."""
         logs = self.plan.base / "logs"
         replace_file(logs / "STATE.json", state_text(state, campaign_id=self.plan.campaign_id,
-                                                      session_id=self.plan.session_id, **info))
+                                                      session_id=self.plan.session_id,
+                                                      schedule_id=self.plan.sched["id"], **info))
         write_checksums(self.plan.base)
+        self.finished = True
 
     def stop(self, reason, key=None, **info):
         self.finish("stopped", reason=reason, process=key.name if key else None, **info)
@@ -1534,8 +1637,10 @@ def execute(plan, hooks):
     Stopped after an infrastructure failure (evidence kept, STATE.json says why, nothing resumed). Returns an
     Outcome when every process ran; exit_code is 0, 1 (a process exit 2 or comparator exit 1) or 2 (the comparator
     refused)."""
-    if hooks.sampler is None:
-        raise UsageError("the engine needs a machine sampler")
+    missing = [name for name in ("sampler", "depot_digest", "datahash_ok") if getattr(hooks, name, None) is None]
+    if missing:
+        raise Refused(f"the hooks {missing} are mandatory: an official or pilot run needs the depot-cache digest "
+                      "and the data_hash check", field="hooks")
     check_fresh(plan)
     check_identity_files(plan)
     order = process_order(plan)
@@ -1556,9 +1661,10 @@ def execute(plan, hooks):
         return finalize(plan, hooks, attempt, len(order), nonok)
     except (Stopped, Refused):
         raise
-    except Exception as error:                      # a bug or an unforeseen failure still keeps the evidence
-        with contextlib.suppress(Exception):
-            attempt.finish("stopped", reason=f"internal error: {type(error).__name__}: {error}")
+    except BaseException as error:                  # a bug, an interrupt: the evidence is still kept
+        if not attempt.finished:
+            with contextlib.suppress(Exception):
+                attempt.finish("stopped", reason=f"internal error: {type(error).__name__}: {error}")
         raise
 
 
@@ -1579,7 +1685,7 @@ def run_one(plan, hooks, attempt, key, observations, first, nonok):
         attempt.stop("sealed files changed: " + "; ".join(problems[:5]), key, problems=problems)
     if prefix_files(raw, stem):
         attempt.stop(f"raw/ already holds records of {stem}", key)
-    digest_before = hooks.depot_digest(spec) if hooks.depot_digest else None
+    digest_before = str(hooks.depot_digest(spec))
     before = hooks.sampler()
     if sample_differences(first, before):
         append_jsonl(logs / "hardware.jsonl", {"process": key.name, "moment": "before", "sample": before,
@@ -1587,40 +1693,66 @@ def run_one(plan, hooks, attempt, key, observations, first, nonok):
         attempt.stop("the machine values differ from the first sample", key)
     raw.mkdir(parents=True, exist_ok=True)
     argv, env = launch_argv(plan, spec, key.mm), launch_env(plan, spec, key.mm, key.rep)
-    start = hooks.clock()
-    try:
-        result = hooks.runner(argv, env, str(spec.checkout), plan.cpu)
-    except Exception as error:                      # a launch that failed is still one honest process event
-        result = RunResult(-1, b"", f"runner failed: {type(error).__name__}: {error}".encode())
-    end = hooks.clock()
-    after = hooks.sampler()
-    for suffix, data in (("stdout", result.stdout), ("stderr", result.stderr)):
-        (logs / f"{key.name}.{suffix}").write_bytes(data or b"")
-    seconds = (end - start).total_seconds()
-    seal_error, failed = None, []
-    try:
-        failed = seal_process(plan, key, result.exit, seconds)
-    except SealProblem as error:
-        seal_error = error
     machine = machine_record(before, _dig(obs, "julia.cpu_name"), plan.cpu)
-    attempt.receipt.process(key.arm, key.letter, plan.sched["strata"][key.mm]["version"], key.rep,
-                            spec.installation, start, end, result.exit, seal_error is None, machine)
-    append_jsonl(logs / "commands.jsonl", {
-        "process": key.name, "argv": argv, "cwd": str(spec.checkout), "env": env, "start_utc": utc_text(start),
-        "end_utc": utc_text(end), "exit": result.exit, "stdout": f"logs/{key.name}.stdout",
-        "stderr": f"logs/{key.name}.stderr", "machine_before": before, "machine_after": after})
-    append_jsonl(logs / "hardware.jsonl", {"process": key.name, "moment": "after", "sample": after,
-                                           "disagrees": sample_differences(first, after)})
-    if seal_error is not None:
-        attempt.stop(str(seal_error), key)
-    if result.exit == 2:
-        nonok.append({"process": key.name, "failed_cases": failed})
-    if sample_differences(first, after):
-        attempt.stop("the machine values changed during the process", key)
-    if hooks.depot_digest and hooks.depot_digest(spec) != digest_before:
-        attempt.stop("the compiled-cache digest of the depot changed during the process", key)
-    if hooks.datahash_ok is not None and not hooks.datahash_ok(key.role, key.mm, key.rep):
-        attempt.stop("the data_hash sidecar differs from metrics.tsv", key)
+    version = plan.sched["strata"][key.mm]["version"]
+    launched = {"start": hooks.clock(), "end": None, "result": None, "event": False}
+
+    def record(complete):
+        """The one process event of this launch: the real exit when known, else -1; never twice."""
+        if launched["event"]:
+            return
+        end = launched["end"]
+        if end is None:
+            try:
+                end = hooks.clock()
+            except Exception:
+                end = utc_now()
+        code = launched["result"].exit if launched["result"] is not None else -1
+        attempt.receipt.process(key.arm, key.letter, version, key.rep, spec.installation, launched["start"], end,
+                                code, complete, machine)
+        launched["event"] = True
+    try:
+        try:
+            launched["result"] = hooks.runner(argv, env, str(spec.checkout), plan.cpu)
+        except Exception as error:                  # a launch that failed is still one honest process event
+            launched["result"] = RunResult(-1, b"", f"runner failed: {type(error).__name__}: {error}".encode())
+        result = launched["result"]
+        launched["end"] = end = hooks.clock()
+        after = hooks.sampler()
+        for suffix, data in (("stdout", result.stdout), ("stderr", result.stderr)):
+            (logs / f"{key.name}.{suffix}").write_bytes(data or b"")
+        digest_after = str(hooks.depot_digest(spec))
+        seal_error, failed = None, []
+        try:
+            failed = seal_process(plan, key, result.exit, (end - launched["start"]).total_seconds())
+        except SealProblem as error:
+            seal_error = error
+        record(seal_error is None)
+        append_jsonl(logs / "commands.jsonl", {
+            "process": key.name, "argv": argv, "cwd": str(spec.checkout), "env": env,
+            "start_utc": utc_text(launched["start"]), "end_utc": utc_text(end), "exit": result.exit,
+            "stdout": f"logs/{key.name}.stdout", "stderr": f"logs/{key.name}.stderr", "machine_before": before,
+            "machine_after": after, "depot_digest_before": digest_before, "depot_digest_after": digest_after})
+        append_jsonl(logs / "hardware.jsonl", {"process": key.name, "moment": "after", "sample": after,
+                                               "disagrees": sample_differences(first, after)})
+        if seal_error is not None:
+            attempt.stop(str(seal_error), key)
+        if result.exit == 2:
+            nonok.append({"process": key.name, "failed_cases": failed})
+        if sample_differences(first, after):
+            attempt.stop("the machine values changed during the process", key)
+        if digest_after != digest_before:
+            attempt.stop("the compiled-cache digest of the depot changed during the process", key)
+        if not hooks.datahash_ok(key.role, key.mm, key.rep):
+            attempt.stop("the data_hash sidecar differs from metrics.tsv", key)
+    except Stopped:
+        raise
+    except BaseException as error:                  # after the launch an event exists whatever happens
+        with contextlib.suppress(Exception):
+            record(False)
+        with contextlib.suppress(Exception):
+            attempt.finish("stopped", reason=f"{type(error).__name__}: {error}", process=key.name)
+        raise
 
 
 def finalize(plan, hooks, attempt, count, nonok):
@@ -1737,14 +1869,34 @@ def check_receipt_text(base, sched, aa, problems, complete=True):
     return seen
 
 
-def check_roots(base, sched, receipt, aa, problems):
-    """Per root and stratum: the six files of every repetition, coverage of every case, the identity file, the
-    receipt facts, and for the A/B roots the fingerprint files and the data_hash sidecars."""
-    roles = ("ab-a", "ab-b") + (("aa-a", "aa-b") if aa else ())
+def role_names_of(arms):
+    return [ARM_ROLES[arm][letter] for arm in arms for letter in "AB"]
+
+
+def required_keys(sched, arms):
+    """Every (arm, role letter, stratum, repetition) the schedule requires, in run order."""
+    return [(arm, letter, mm, rep) for mm in sched["strata"] for arm in arms for rep in sched["reps"]
+            for letter in "AB"]
+
+
+def raw_relative(role, mm, name):
+    return f"roots/{role}/julia-{mm}/raw/{name}"
+
+
+def process_name(arm, letter, mm, rep):
+    return f"{arm}-{letter}-{mm}-rep{rep:02d}"
+
+
+def check_roots(base, sched, receipt, arms, problems):
+    """Per required root and stratum: the six files of every repetition, coverage of every case, the identity
+    file, the receipt facts, and for the A/B roots the fingerprint files and the data_hash sidecars."""
     cases = sched["settings"]["case_filter"].split(",")
-    arm_of = {"ab-a": ("AB", "A"), "ab-b": ("AB", "B"), "aa-a": ("AA", "A"), "aa-b": ("AA", "B")}
-    for role in roles:
+    arm_of = {role: (arm, letter) for arm in ARMS for letter, role in ARM_ROLES[arm].items()}
+    for role in role_names_of(arms):
         root = Path(base) / "roots" / role
+        if not root.is_dir():
+            problems.append(f"{role}: the root is missing")
+            continue
         try:
             ident = tomllib.loads((root / "stack-identity.toml").read_text(encoding="utf-8"))
         except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError):
@@ -1781,7 +1933,10 @@ def check_roots(base, sched, receipt, aa, problems):
                                         f"{process['complete']}")
                     meta_path = raw / f"{stem}-metadata.toml"
                     if meta_path.is_file():
-                        meta = tomllib.loads(meta_path.read_text(encoding="utf-8"))
+                        try:
+                            meta = tomllib.loads(meta_path.read_text(encoding="utf-8"))
+                        except (tomllib.TOMLDecodeError, UnicodeDecodeError):
+                            meta = {}
                         nonok = meta.get("nonok_cases")
                         if isinstance(nonok, int) and ((process["exit"] == 0 and nonok > 0)
                                                        or (process["exit"] == 2 and nonok == 0)):
@@ -1795,61 +1950,270 @@ def check_roots(base, sched, receipt, aa, problems):
             check_fingerprints(root, sched, role, problems)
 
 
-def check_fingerprints(root, sched, role, problems):
-    path, sidecar = root / FP_NAME, root / DATAHASH_NAME
-    cases = sched["settings"]["case_filter"].split(",")
-    rows = {}
+def parse_strict_tsv(path, header, width, what, problems):
+    """(rows) of a TSV with the exact header; every malformed line is a problem."""
     if not path.is_file():
-        problems.append(f"{role}: {FP_NAME} is missing")
-    else:
-        header, body = read_tsv(path)
-        if header != ["julia", "id", "rep", "kind", "name", "value"]:
-            problems.append(f"{role}: {FP_NAME} has a wrong header")
+        problems.append(f"{what} is missing")
+        return None
+    lines = path.read_text(encoding="utf-8").split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    if not lines or lines[0] != header:
+        problems.append(f"{what} has a wrong header")
+        return None
+    rows = []
+    for number, line in enumerate(lines[1:], 2):
+        cells = line.split("\t")
+        if len(cells) != width:
+            problems.append(f"{what} line {number} has {len(cells)} fields")
         else:
-            for row in body:
-                if len(row) == 6:
-                    rows.setdefault((row[0], row[1], row[2]), set()).add((row[3], row[4]))
+            rows.append(cells)
+    return rows
+
+
+def check_fingerprints(root, sched, role, problems):
+    """Unconditional coverage: every expected (julia, id, rep) must be present, also when the file is empty; a
+    malformed, duplicate or extra row is a problem."""
+    cases = sched["settings"]["case_filter"].split(",")
+    expected = {(info["version"], case, str(rep)) for info in sched["strata"].values() for case in cases
+                for rep in sched["reps"]}
+    what = f"{role}: {FP_NAME}"
+    rows = parse_strict_tsv(root / FP_NAME, mc.FP_HEADER, 6, what, problems)
+    if rows is not None:
+        present, seen = {}, set()
+        for julia, case, rep, kind, name, value in rows:
+            key = (julia, case, rep)
+            if key not in expected:
+                problems.append(f"{what}: row for {key} is not a declared (julia, id, rep)")
+                continue
+            if (kind, name) not in mc.FP_ALLOWED and not (kind == "fixture" and name):
+                problems.append(f"{what}: {kind}/{name} is not an allowed row")
+            if value != "none" and not HEX64.fullmatch(value):
+                problems.append(f"{what}: the value of {key} {kind}/{name} is neither 64 hex nor none")
+            if (key, kind, name) in seen:
+                problems.append(f"{what}: duplicate row {key} {kind}/{name}")
+            seen.add((key, kind, name))
+            present.setdefault(key, set()).add((kind, name))
+        for key in sorted(expected):
+            have = present.get(key, set())
+            missing = [f"{k}/{n}" for k, n in REQUIRED_FP_ROWS if (k, n) not in have]
+            if not any(k == "fixture" for k, _ in have):
+                missing.append("fixture")
+            if missing:
+                problems.append(f"{what} lacks {missing} for {key}")
+    what = f"{role}: {DATAHASH_NAME}"
+    rows = parse_strict_tsv(root / DATAHASH_NAME, DATAHASH_HEADER, 4, what, problems)
+    if rows is None:
+        return
     hashes = {}
-    if not sidecar.is_file():
-        problems.append(f"{role}: {DATAHASH_NAME} is missing")
+    for julia, case, rep, value in rows:
+        key = (julia, case, rep)
+        if key not in expected:
+            problems.append(f"{what}: row for {key} is not a declared (julia, id, rep)")
+        elif key in hashes:
+            problems.append(f"{what}: duplicate row {key}")
+        hashes[key] = value
+    versions = {info["version"]: mm for mm, info in sched["strata"].items()}
+    for key in sorted(expected):
+        if key not in hashes:
+            problems.append(f"{what} has no row for {key}")
+            continue
+        julia, case, rep = key
+        metrics = root / f"julia-{versions[julia]}" / "raw" / f"julia-{julia}-rep{int(rep):02d}-metrics.tsv"
+        if metrics.is_file():
+            header, body = read_tsv(metrics)
+            if "id" in header and "data_hash" in header:
+                found = {r[header.index("id")]: r[header.index("data_hash")] for r in body if len(r) == len(header)}
+                if case in found and found[case] != hashes[key]:
+                    problems.append(f"{role}: data_hash sidecar differs from metrics.tsv for {key}")
+
+
+def symlink_problems(base):
+    """A symbolic link anywhere in the tree (files, directories at any depth, and BASE itself)."""
+    base = str(base)
+    problems = []
+    if os.path.islink(base):
+        problems.append("the base directory is a symbolic link")
+    for folder, directories, names in os.walk(base):
+        for name in directories + names:
+            path = os.path.join(folder, name)
+            if os.path.islink(path):
+                problems.append(f"{os.path.relpath(path, base)} is a symbolic link")
+    return problems
+
+
+def check_seal_coverage(base, sched, arms, receipt, state, problems):
+    """Exactly one valid seal per required raw file, bound to its process, mode 0444 on disk, plus the completion
+    seal when the attempt completed; extra or duplicate seals are problems."""
+    finished = state in ("completed", "refused")
+    if finished:
+        keys = required_keys(sched, arms)
     else:
-        header, body = read_tsv(sidecar)
-        if "\t".join(header) != DATAHASH_HEADER:
-            problems.append(f"{role}: {DATAHASH_NAME} has a wrong header")
+        keys = [k for k, e in (receipt or {}).items() if e["complete"] is True and e["exit"] in (0, 2)]
+    mm_of = {info["version"]: mm for mm, info in sched["strata"].items()}
+    expected = {}
+    for arm, letter, mm_or_version, rep in keys:
+        mm = mm_of.get(mm_or_version, mm_or_version)
+        version = sched["strata"][mm]["version"]
+        role, stem = ARM_ROLES[arm][letter], f"julia-{version}-rep{rep:02d}"
+        names = set(stem_files(stem))
+        if (Path(base) / raw_relative(role, mm, f"{stem}{PROFILES}")).is_file():
+            names.add(f"{stem}{PROFILES}")
+        for name in names:
+            expected[raw_relative(role, mm, name)] = process_name(arm, letter, mm, rep)
+    if finished and state == "completed":
+        expected["logs/completion.json"] = "completion"
+    seals = read_seals(base)
+    counts = {}
+    for seal in seals:
+        counts.setdefault(seal.get("file"), []).append(seal)
+    for relative, process in sorted(expected.items()):
+        found = counts.get(relative, [])
+        if not found:
+            problems.append(f"seal coverage: {relative} has no seal")
         else:
-            hashes = {(r[0], r[1], r[2]): r[3] for r in body if len(r) == 4}
+            if len(found) > 1:
+                problems.append(f"seal coverage: {relative} has {len(found)} seals")
+            if found[0].get("process") != process:
+                problems.append(f"seal coverage: {relative} is sealed for {found[0].get('process')!r}, "
+                                f"not {process!r}")
+        path = Path(base) / relative
+        if path.is_file() and not path.is_symlink() and stat.S_IMODE(os.lstat(path).st_mode) != 0o444:
+            problems.append(f"seal coverage: {relative} is not mode 0444")
+    for relative in sorted(set(counts) - set(expected)):
+        problems.append(f"seal coverage: {relative} is sealed but not a required file")
+    return expected
+
+
+def read_json_file(path):
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def check_identifiers(base, sched, arms, state, completion, problems):
+    """schema, campaign id, session id and schedule id agree across campaign.json, STATE.json, the receipt's
+    campaign event, the roots' stack-identity.toml and completion.json."""
+    campaign = read_json_file(Path(base) / "logs" / "campaign.json") or {}
+    if campaign.get("schema") != 1:
+        problems.append("logs/campaign.json: schema is not 1")
+    ids = {k: campaign.get(k) for k in ("campaign_id", "session_id", "schedule_id")}
+    if ids["campaign_id"] != sched["campaign_id"] or ids["schedule_id"] != sched["id"]:
+        problems.append("logs/campaign.json: the campaign or schedule id differs from schedule.toml")
+    if not is_text(ids["session_id"]):
+        problems.append("logs/campaign.json: no session id")
+    if campaign.get("arms") != list(arms):
+        problems.append(f"logs/campaign.json: arms {campaign.get('arms')!r} differ from the schedule's {list(arms)}")
+    others = {"logs/STATE.json": state, "logs/completion.json": completion}
+    for name, document in others.items():
+        if document is None:
+            continue
+        if document.get("schema") != 1:
+            problems.append(f"{name}: schema is not 1")
+        for key, value in ids.items():
+            if document.get(key) != value:
+                problems.append(f"{name}: {key} {document.get(key)!r} differs from logs/campaign.json")
+    try:
+        first = read_jsonl(Path(base) / "receipt.jsonl")[0]
+    except (OSError, ValueError, IndexError):
+        first = {}
+    for key, value in ids.items():
+        if first.get(key) != value:
+            problems.append(f"receipt.jsonl: {key} of the campaign event differs from logs/campaign.json")
+    for role in role_names_of(arms):
+        try:
+            ident = tomllib.loads((Path(base) / "roots" / role / "stack-identity.toml").read_text(encoding="utf-8"))
+        except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError):
+            continue
+        for key in ("campaign_id", "session_id"):
+            if ident.get(key) != ids[key]:
+                problems.append(f"roots/{role}/stack-identity.toml: {key} differs from logs/campaign.json")
+    return campaign
+
+
+def check_lock_binding(base, sched, campaign, problems):
+    """An official attempt is bound to its lock: the lock validates, and the archived stack B (identity,
+    metadata, Manifest and Project digests) is the one the lock names. A pilot is checked against its stored
+    configuration."""
+    base = Path(base)
+    if campaign.get("official") is not True:
+        path = base / "pilot-config.toml"
+        if path.is_file():
+            try:
+                config = parse_pilot(tomllib.loads(path.read_text(encoding="utf-8")),
+                                     mc.load_schedule(HERE / "schedule.toml"))
+            except (Refused, tomllib.TOMLDecodeError, UnicodeDecodeError, mc.Usage) as error:
+                problems.append(f"pilot-config.toml: {error}")
+                return
+            if config["campaign"]["id"] != campaign.get("campaign_id") or config["schedule"]["id"] != sched["id"]:
+                problems.append("pilot-config.toml: the ids differ from the attempt")
+            if "session_id" in config["campaign"] and config["campaign"]["session_id"] != campaign.get("session_id"):
+                problems.append("pilot-config.toml: the session id differs from the attempt")
+        return
+    path = base / "lock.toml"
+    if not path.is_file():
+        problems.append("lock.toml is missing from the tree of an official attempt")
+        return
+    try:
+        lock = load_lock(path, strata=list(sched["strata"]))
+    except Refused as error:
+        problems.append(f"lock.toml: {error}")
+        return
+    if "stack_b" not in lock:
+        problems.append("lock.toml has no [stack_b]")
+        return
+    if campaign.get("lock_sha256") != sha256_file(path):
+        problems.append("lock.toml differs from the digest recorded in logs/campaign.json")
+    if (base / "logs" / "lock.toml").is_file() and (base / "logs" / "lock.toml").read_bytes() != path.read_bytes():
+        problems.append("logs/lock.toml differs from lock.toml")
+    if lock["campaign"]["id"] != campaign.get("campaign_id"):
+        problems.append("lock.toml: the campaign id differs from the attempt")
+    if "session_id" in lock["campaign"] and lock["campaign"]["session_id"] != campaign.get("session_id"):
+        problems.append("lock.toml: the session id differs from the attempt")
+    problems += [f"lock.toml: {p}" for p in approval_problems(lock)]
+    b = lock["stack_b"]
+    try:
+        ident = tomllib.loads((base / "roots" / "ab-b" / "stack-identity.toml").read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError):
+        ident = {}
+    for table, key in (("proximalsolvers", "proximalsolvers"), ("proximalbase", "proximalbase")):
+        for field in ("commit", "tree", "version"):
+            if (ident.get(table) or {}).get(field) != b[key][field]:
+                problems.append(f"roots/ab-b/stack-identity.toml: {table}.{field} differs from the lock")
+    pb_ident = ident.get("proximalbase") or {}
+    if pb_ident.get("release") != b["proximalbase"]["release"] or pb_ident.get("tag") != b["proximalbase"].get("tag"):
+        problems.append("roots/ab-b/stack-identity.toml: the ProximalBase release or tag differs from the lock")
+    wanted = {"proximalsolvers_sha": b["proximalsolvers"]["commit"],
+              "proximalsolvers_hash": b["proximalsolvers"]["package_hash"],
+              "proximalbase_version": b["proximalbase"]["version"],
+              "proximalbase_hash": b["proximalbase"]["package_hash"], "harness_hash": b["harness_hash"]}
     for mm, info in sched["strata"].items():
+        env = b["environments"][mm]
+        for name, digest in (("Manifest.toml", env["manifest_sha256"]), ("Project.toml", env["project_sha256"])):
+            target = base / "roots" / "ab-b" / f"julia-{mm}" / name
+            if not target.is_file() or sha256_file(target) != digest:
+                problems.append(f"roots/ab-b/julia-{mm}/{name} differs from the lock's SHA-256")
         for rep in sched["reps"]:
-            stem = f"julia-{info['version']}-rep{rep:02d}"
-            metrics = root / f"julia-{mm}" / "raw" / f"{stem}-metrics.tsv"
-            data = {}
-            if metrics.is_file():
-                header, body = read_tsv(metrics)
-                if "id" in header and "data_hash" in header:
-                    data = {r[header.index("id")]: r[header.index("data_hash")] for r in body}
-            for case in cases:
-                key = (info["version"], case, str(rep))
-                if path.is_file() and rows:
-                    present = rows.get(key, set())
-                    missing = [f"{k}/{n}" for k, n in REQUIRED_FP_ROWS if (k, n) not in present]
-                    if not any(k == "fixture" for k, _ in present):
-                        missing.append("fixture")
-                    if missing:
-                        problems.append(f"{role}: {FP_NAME} lacks {missing} for {key}")
-                if sidecar.is_file() and hashes:
-                    if key not in hashes:
-                        problems.append(f"{role}: {DATAHASH_NAME} has no row for {key}")
-                    elif case in data and hashes[key] != data[case]:
-                        problems.append(f"{role}: data_hash sidecar differs from metrics.tsv for {key}")
+            meta_path = base / raw_relative("ab-b", mm, f"julia-{info['version']}-rep{rep:02d}-metadata.toml")
+            try:
+                meta = tomllib.loads(meta_path.read_text(encoding="utf-8"))
+            except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError):
+                continue
+            for field, value in wanted.items():
+                if meta.get(field) != value:
+                    problems.append(f"ab-b julia {mm} rep {rep}: metadata {field} differs from the lock")
 
 
 def verify(base, out, replay=True):
     """Read-only check of a BASE (no Julia, no original paths, works on a copied tree) and the verification
     record `out`, a fresh path outside BASE. Returns (document, exit status).
 
-    The campaign state decides what success means: only a sealed logs/completion.json that is consistent with
-    everything else verifies as a success. A stopped attempt, a missing completion record or a reproduced
-    comparator refusal never does; a reproduced refusal is `refused` ("verified: refused")."""
+    What is required (arms, roots, processes, seals) comes from the archived schedule.toml and
+    logs/campaign.json, never from which files happen to exist. Only a sealed logs/completion.json that is
+    consistent with everything else verifies as a success. A stopped attempt, a missing completion record or a
+    reproduced comparator refusal never does; a reproduced refusal is `refused` ("verified: refused")."""
     base, out = Path(base), Path(out)
     if out.exists():
         raise UsageError(f"{out} exists: the verification record is written to a fresh path")
@@ -1857,23 +2221,26 @@ def verify(base, out, replay=True):
         raise UsageError("the verification record must not be written into the evidence")
     problems = []
     document = {"schema": 1, "problems": problems}
-    sched = None
+    sched, arms = None, ("AB",)
     try:
         sched = mc.load_schedule(base / "schedule.toml")
-    except (mc.Usage, OSError) as error:
+        arms = schedule_arms(base)
+    except (mc.Usage, OSError, KeyError, ValueError) as error:
         problems.append(f"schedule.toml: {error}")
-    try:
-        state = json.loads((base / "logs" / "STATE.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        state = {}
-    required = ["case-mapping.toml", "receipt.jsonl", "logs/seals.jsonl", "logs/commands.jsonl",
-                "logs/hardware.jsonl", "logs/STATE.json", "logs/campaign.json", "checksums.sha256"]
-    if state.get("state") == "completed":
-        required.append("declared-differences.toml")
-    for relative in required:
+    if "AB" not in arms:
+        problems.append("the schedule does not list the AB arm")
+    aa = "AA" in arms
+    state = read_json_file(base / "logs" / "STATE.json") or {}
+    kind = state.get("state")
+    required = ["schedule.toml", "case-mapping.toml", "receipt.jsonl", "logs/seals.jsonl", "logs/commands.jsonl",
+                "logs/hardware.jsonl", "logs/STATE.json", "logs/campaign.json"]
+    if kind == "completed":
+        required += ["declared-differences.toml", "logs/comparator.json", "logs/completion.json"]
+    for relative in required + ["checksums.sha256"]:
         if not (base / relative).is_file():
             problems.append(f"{relative} is missing")
-    # checksums: the file set and every digest
+    problems += symlink_problems(base)
+    listed = {}
     try:
         listed = read_checksums(base / "checksums.sha256")
         actual = evidence_paths(base)
@@ -1886,29 +2253,30 @@ def verify(base, out, replay=True):
                 problems.append(f"checksums: {relative} differs from its digest")
     except (OSError, ValueError) as error:
         problems.append(f"checksums.sha256: {error}")
-    for folder, _, names in os.walk(base):
-        for name in names:
-            if (Path(folder) / name).is_symlink():
-                problems.append(f"{(Path(folder) / name).relative_to(base).as_posix()} is a symbolic link")
+    for relative in required:
+        if (base / relative).is_file() and relative not in listed:
+            problems.append(f"checksums: the mandatory file {relative} is not in the inventory")
     problems += verify_seals(base) if (base / "logs" / "seals.jsonl").is_file() else []
-    document["campaign_state"] = state.get("state")
+    document["campaign_state"] = kind
     completion = None
     if (base / "logs" / "completion.json").is_file():
-        try:
-            completion = json.loads((base / "logs" / "completion.json").read_text(encoding="utf-8"))
-        except ValueError:
-            problems.append("logs/completion.json is not valid JSON")
-    aa = (base / "roots" / "aa-a").is_dir() or (base / "roots" / "aa-b").is_dir()
-    if aa and not ((base / "roots" / "aa-a").is_dir() and (base / "roots" / "aa-b").is_dir()):
-        problems.append("only one A/A root exists")
-    receipt = {}
+        completion = read_json_file(base / "logs" / "completion.json")
+        if completion is None:
+            problems.append("logs/completion.json is not a valid JSON object")
+    receipt, campaign = {}, {}
     if sched is not None:
-        receipt = check_receipt_text(base, sched, aa, problems, complete=state.get("state") != "stopped")
-        if state.get("state") in ("completed", "refused"):
-            check_roots(base, sched, receipt, aa, problems)
-    expected_count = 0 if sched is None else len(sched["strata"]) * len(sched["reps"]) * 2 * (2 if aa else 1)
+        receipt = check_receipt_text(base, sched, aa, problems, complete=kind != "stopped")
+        campaign = check_identifiers(base, sched, arms, state, completion, problems)
+        if kind in ("completed", "refused"):
+            check_roots(base, sched, receipt, arms, problems)
+        expected = check_seal_coverage(base, sched, arms, receipt, kind, problems)
+        for relative in sorted(expected):
+            if relative not in listed and (base / relative).is_file():
+                problems.append(f"checksums: the mandatory file {relative} is not in the inventory")
+        check_lock_binding(base, sched, campaign, problems)
+    expected_count = 0 if sched is None else len(sched["strata"]) * len(sched["reps"]) * 2 * len(arms)
     document["campaign_outcome"] = None
-    if state.get("state") == "completed":
+    if kind == "completed":
         if completion is None:
             problems.append("the state is completed but logs/completion.json is missing")
         else:
@@ -1919,21 +2287,17 @@ def verify(base, out, replay=True):
                     base / "receipt.jsonl"):
                 problems.append("completion.json: the receipt digest differs")
             document["campaign_outcome"] = completion.get("outcome")
-            if "logs/completion.json" not in {s["file"] for s in read_seals(base)}:
-                problems.append("logs/completion.json is not sealed")
     elif completion is not None:
         problems.append("logs/completion.json exists but the state is not completed")
-    stored_exit = None
-    try:
-        stored_exit = json.loads((base / "logs" / "comparator.json").read_text(encoding="utf-8"))["exit"]
-    except (OSError, ValueError, KeyError):
-        if state.get("state") in ("completed",):
-            problems.append("logs/comparator.json is missing")
+    comparator = read_json_file(base / "logs" / "comparator.json") or {}
+    stored_exit = comparator.get("exit")
+    if kind == "completed" and stored_exit is None:
+        problems.append("logs/comparator.json is missing")
     if completion is not None and stored_exit is not None and completion.get("comparator_exit") != stored_exit:
         problems.append("completion.json and logs/comparator.json disagree on the comparator exit")
     document["comparator_exit"] = None
     document["classification"] = None
-    if replay and sched is not None and (base / "comparison").is_dir() and state.get("state") != "stopped":
+    if replay and sched is not None and (base / "comparison").is_dir() and kind != "stopped":
         scratch = Path(tempfile.mkdtemp(prefix="stage2b-verify-"))
         try:
             code, _ = run_comparator(base, scratch / "replay")
@@ -1943,22 +2307,22 @@ def verify(base, out, replay=True):
                 list(pair) for pair in again["refusals"] or []]
             if stored_exit is not None and code != stored_exit:
                 problems.append(f"the replay exits with {code}, the campaign recorded {stored_exit}")
-            if again["refusals"] != stored["refusals"]:
+            if again["refusals"] != stored["refusals"] or again["triples"] != stored["triples"]:
                 problems.append("the refusals of the replay differ from the stored comparison")
             if again["rows"] != stored["rows"]:
                 problems.append("the comparison rows of the replay differ from the stored comparison")
         finally:
             shutil.rmtree(scratch, ignore_errors=True)
-    elif state.get("state") == "completed" and not (base / "comparison").is_dir():
+    elif kind == "completed" and not (base / "comparison").is_dir():
         problems.append("comparison/ is missing")
     if problems:
         document["state"], status = "failed", 2
-    elif state.get("state") == "completed" and completion is not None:
+    elif kind == "completed" and completion is not None:
         success = document["campaign_outcome"] == "comparable" and document["comparator_exit"] in (0, None)
         document["state"], status = ("verified", 0) if success else ("verified_non_ok", 1)
-    elif state.get("state") == "refused":
+    elif kind == "refused":
         document["state"], status = "refused", 2
-    elif state.get("state") == "stopped":
+    elif kind == "stopped":
         document["state"], status = "stopped", 2
     else:
         document["state"], status = "no_success_record", 2
@@ -2048,6 +2412,13 @@ def dispatch(args, hooks, facts, environ):
             raise NotImplementedHere("not implemented in this task: the pilot needs the Julia hooks; the "
                                      "configuration is valid and nothing was launched")
         plan = plan_from_pilot(config, base, hooks.julia_bins, environ, arms)
+        if args.command == "pilot":                  # the configuration this attempt used, kept as evidence
+            copy_path = base / "pilot-config.toml"
+            if copy_path.exists() and copy_path.read_bytes() != Path(args.config).read_bytes():
+                raise Refused("pilot-config.toml of the base is not the configuration given with --config",
+                              field="pilot-config.toml")
+            if not copy_path.exists():
+                shutil.copyfile(args.config, copy_path)
         return run_plan(plan, hooks, args.command == "preflight")
     if args.command == "prepare":
         load_config(args.config, official_sched)
