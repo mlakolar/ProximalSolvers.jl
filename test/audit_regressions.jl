@@ -5,7 +5,20 @@ module AuditRegressions
 using Test, LinearAlgebra, Random, SparseArrays, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
 
-include("symmetric_penalty_helpers.jl")
+# the largest violation of the optimality conditions of an L1 problem on a symmetric matrix X with
+# the gradient G of the loss and the supplied weights W: a pair moves two entries (derivative 2G,
+# threshold λ (W[r,c] + W[c,r])), a diagonal entry has G and λ W[r,r]
+function audit_pair_l1_violation(G, X, λ, W)
+  v = 0.0
+  for c in axes(X, 2), r in c:size(X, 1)
+    z = X[r, c]
+    h = r == c ? G[r, c] : 2G[r, c]
+    t = λ * (r == c ? W[r, c] : W[r, c] + W[c, r])
+    v = max(v, iszero(z) ? max(abs(h) - t, 0.0) : abs(h + t * sign(z)))
+  end
+  v
+end
+audit_cdsolver() = CDSolver(; order = :cyclic, tol = 1e-13, relative = false)
 
 @testset "flat curvature retains the linear term" begin
   # min -x + 0.1|x| is unbounded below: no point may be returned as a solution
@@ -105,7 +118,7 @@ end
   b = SymmetricSparseIterate(2)
   solve!(b, KronQuadratic(S, S, S), NormL1(0.1, Wbar), CDSolver(; order = :cyclic, tol = 1e-13))
   Xb = Matrix(b)
-  @test symmetric_l1_violation(S * Xb * S + S, Xb, 0.1, Wbar) <= 1e-9
+  @test audit_pair_l1_violation(S * Xb * S + S, Xb, 0.1, Wbar) <= 1e-9
   # a dense matrix keeps the weights as the means of their pairs, as before the owner rule
   x, reference = Matrix(1.0I, 2, 2), Matrix(1.0I, 2, 2)
   solve!(x, LogDetLoss(S), g, ProxNewton(inner = CDSolver(rng = Xoshiro(1))))
@@ -114,9 +127,9 @@ end
   @test isposdef(Symmetric(x))
   @test duality_gap(LogDetLoss(S), g, x).gap < 1e-7
   tight = Matrix(1.0I, 2, 2)
-  solve!(tight, LogDetLoss(S), g, ProxNewton(; tol = 1e-11, inner = cdsolver()))
+  solve!(tight, LogDetLoss(S), g, ProxNewton(; tol = 1e-11, inner = audit_cdsolver()))
   @test tight ≈ x atol = 1e-4
-  @test symmetric_l1_violation(S - inv(tight), tight, 0.1, Wbar) <= 1e-4
+  @test audit_pair_l1_violation(S - inv(tight), tight, 0.1, Wbar) <= 1e-4
   # an owner with the weights of the pair given as is takes the same solution
   o = SymmetricSparseIterate(Matrix(1.0I, 2, 2))
   solve!(o, LogDetLoss(S), NormL1(0.1, Wbar), ProxNewton(inner = CDSolver(rng = Xoshiro(1))))

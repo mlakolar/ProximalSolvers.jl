@@ -45,11 +45,12 @@ include("symmetric_penalty_helpers.jl")
   rejects_symmetry(x) do
     solve!(x, f, g, AccProxGradDescent(), gradient_options())
   end
-  ws = SolverWorkspace(x, f, glower, cdsolver())
+  # the workspace has symmetric Matrix weights, the type of the bad replacement
+  ws = SolverWorkspace(x, f, gbar, cdsolver())
   rejects_in_workspace(ws) do
     solve!(ws, g)
   end
-  wg = SolverWorkspace(x, f, glower, ProximalGradientDescent(), gradient_options())
+  wg = SolverWorkspace(x, f, gbar, ProximalGradientDescent(), gradient_options())
   rejects_in_workspace(wg) do
     solve!(wg, g)
   end
