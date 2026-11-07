@@ -23,9 +23,10 @@ declared, and which refuses everything else.
 
 It reads records only. It runs no Julia, needs no network, uses only the Python standard library (3.11 or
 later, `tomllib`) and writes only to a fresh output directory. Its output is deterministic: it contains no clock
-time of the run, no host name of the machine that runs it and no absolute path of the machine that runs it or of
-any argument path; absolute paths that occur in the free text of the records are cleaned by the rules below, with the
-limits listed after them. Every string the tool writes (refusals, standard error, the
+time of the run, no host name of the machine that runs it and no path of that machine added as metadata. The text
+that the tool copies from the records, the argument files or the exceptions it meets (free text, including a
+file path given on the command line when it occurs inside that text) is cleaned of absolute paths by the rules
+below, with the limits listed after them; the guarantee is the one of those rules and nothing stronger. Every string the tool writes (refusals, standard error, the
 lists, the table and the report) is cleaned once, by these rules, in this order. The text is cut at its URL tokens
 (rule 1); only the pieces between them are cleaned (rules 2 and 3), so a URL is a boundary and never part of a path:
 a path directly before or after a URL token is a token of its own, and its tag is taken from its own text.
@@ -55,11 +56,13 @@ A case ID, a fraction such as `1/2`, `and/or` and a lone `/` are not paths. Only
 
 **Limits of the cleaning of free text from the records** (they follow from the token rules above and are not
 defects of the comparison): (a) a URL of any scheme except `file`, for example `ssh://user@host/path`, is kept
-verbatim, host name and path included; (b) a path glued to a word character, `.` or `-` (for example `-L/dir/lib`)
+verbatim, host name and path included, and so is any argument path or other path that occurs inside such a URL; (b) a path glued to a word character, `.` or `-` (for example `-L/dir/lib`)
 is not a token and is kept; (c) a path whose directory names contain white space, a comma, a semicolon, a pipe, a
-quote or a bracket is cut at that character, and the rest remains as a relative fragment; (d) two spellings of one
-directory that differ only by `.` or `..` segments print different tags (the STACK and ORDER checks compare them in
-normal form, but no message prints both); (e) the tag is an unsalted prefix of a hash of the path text, so a reader
+quote or a bracket is cut at that character, and the rest is processed under the same token rules (a `/` right after
+the cut that starts a new token is cleaned again, anything else stays as a fragment); (d) two spellings of one
+directory that differ only by `.` or `..` segments print different tags (the STACK and ORDER checks compare their paths in
+normal form and print the paths they compare as recorded tokens, but arbitrary free text of the records can contain
+both spellings); (e) the tag is an unsalted prefix of a hash of the path text, so a reader
 can confirm a guessed path by hashing it: it tells two paths apart, it does not hide a guessable one. The text of the
 records of a campaign is campaign data that is already in the archive; the cleaning protects the paths of the
 machine that runs the tool and keeps the output deterministic.
