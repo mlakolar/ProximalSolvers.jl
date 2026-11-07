@@ -20,8 +20,10 @@ Test counts (methods; table-driven methods run one sub-test per row):
                                                fingerprints, the inventory cpu_name, malformed metadata values and
                                                the identity, stack, undeclared and mapping rules one at a time)
     classification  ClassificationTests   24
-    output          OutputTests           27   (including paths in every output channel, the internal error, the
-                                               phase boundary and the screen boundaries)
+    output          OutputTests           46   (including the paths in every output channel and at every site that
+                                               cleans a string, the internal error, the phase boundary and the
+                                               screen boundaries; one is an expected failure that records a
+                                               known report behaviour)
     immutability    ImmutabilityTests      5
 
 The run time is dominated by the validation of the roughly two hundred record files that each call of the tool
@@ -190,6 +192,22 @@ def stray_strings(c, *extra):
     found = {str(work), str(work.resolve()), str(c.base), str(Path(c.base).resolve()), str(Path.home()),
              work.name, "stage2b-test-"}
     return sorted(s for s in found | set(extra) if s)
+
+
+def shown(token):
+    """How the tool prints an absolute path that is not on the command line: `name#tag`, the tag being the first
+    8 hex digits of the SHA-256 of the token with its leading run of '/' collapsed to one and no trailing '/'.
+    Written here independently of the tool."""
+    path = re.sub(r"^/+", "/", token).rstrip("/")
+    return f"{path.rsplit('/', 1)[-1]}#{hashlib.sha256(path.encode()).hexdigest()[:8]}"
+
+
+def leaks(text):
+    """The '/' runs of `text` that start an absolute path, once URL tokens are removed: a '/' not preceded by a word
+    character, '.', '-' or '/' and followed by something other than white space or '/'. It does not use the tool's
+    alphabet of stop characters."""
+    text = re.sub(r"[A-Za-z][A-Za-z0-9+.\-]*://[^\s'\"`<>()\[\]{}]*", "", text)
+    return [match.group(0) for match in re.finditer(r"(?<![A-Za-z0-9_.\-/])/+[^\s/]", text)]
 
 
 class MigrationCase(unittest.TestCase):
@@ -2200,14 +2218,31 @@ class OutputTests(MigrationCase):
         for name in ("read_root", "check_receipt", "read_fingerprints"):
             with self.subTest(name):
                 c = self.fresh()
-                with mock.patch.object(tool, name, side_effect=RuntimeError(f"secret {c.work}/inner/file")):
+                secret = f"{c.work}/inner/file"
+                with mock.patch.object(tool, name, side_effect=RuntimeError(f"secret {secret} end")):
                     result = c.run()
                 self.assertEqual(result.code, 3)
-                self.assertEqual(result.stderr.strip(), "INTERNAL ERROR: RuntimeError")
+                self.assertEqual(result.stderr, f"INTERNAL ERROR: RuntimeError: secret {shown(secret)} end\n")
                 self.assertEqual(result.files, [])
                 self.assertFalse(result.out.exists() and any(result.out.iterdir()))
                 for stray in stray_strings(c):
                     self.assertNotIn(stray, result.stderr + result.stdout)
+
+    def test_internal_error_message_is_one_line_cut_to_200_characters_or_absent(self):
+        tool = F.load_tool()
+        for error, expected in (
+                (RuntimeError("line one\nline two  " + "x" * 300), ("line one line two " + "x" * 300)[:200]),
+                (RuntimeError(), None), (KeyError("k"), "'k'"),
+                (ValueError(f"open {Path.home()}/a/b.txt https://h/p?q=/a/b"),
+                 f"open {shown(str(Path.home()) + '/a/b.txt')} https://h/p?q=/a/b")):
+            with self.subTest(error=repr(error)):
+                c = self.fresh()
+                with mock.patch.object(tool, "read_root", side_effect=error):
+                    result = c.run()
+                self.assertEqual(result.code, 3)
+                head = f"INTERNAL ERROR: {type(error).__name__}"
+                self.assertEqual(result.stderr, head + (f": {expected}" if expected else "") + "\n")
+                self.assertEqual(result.files, [])
 
     def test_the_comparison_phase_is_not_entered_after_a_refusal(self):
         tool = F.load_tool()
@@ -2240,89 +2275,259 @@ class OutputTests(MigrationCase):
         historical.assert_called_once()
 
 
-    def test_absolute_paths_are_scrubbed_in_every_output_channel_and_other_slashes_kept(self):
-        url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/110#issuecomment-1"
-        strings = (("open:/synthroot/private/input.bin", "open:input.bin"), ("open /private", "open private"),
-                   (" //synthroot/x/y z", None))
-        controls = "ratio 1/2 and/or missed/invalid / done cd/lasso-dense/cd/B/call"
+    # ---- paths in every output channel -------------------------------------------------------------------------
 
-        def absolute_paths(text):
-            """Written independently of the tool: a '/' after a start, a space, a quote, a bracket, a colon or
-            '=' that is followed by a path component, once URLs are removed."""
-            text = re.sub(r"[A-Za-z][A-Za-z0-9+.-]*://\S+", "", text)
-            return re.findall(r"(?:^|[\s'\"(\[:=,;|`])(/+[\w.\-+@%]+(?:/[\w.\-+@%]*)*)", text, re.M)
+    URL_QUERY = "https://example.org/search?path=/synthroot/private/input.bin#frag"
+    URL_BRACKET = "see (https://h/p?q=/a/b)"
+    PIPE_AFTER_PATH = "/s/t|u"
+    CONTROLS = "ratio 1/2 and/or A/A reset/values / done cd/lasso-dense/cd/B/call missed/invalid"
 
-        def outputs(result):
-            texts = {"stderr": result.stderr, "stdout": result.stdout}
-            texts.update({path.name: path.read_text(encoding="utf-8") for path in result.out.iterdir()})
-            return texts
+    @staticmethod
+    def scrub_cases():
+        """(text put into a channel, the text that must come out): `shown` is written in this test."""
+        return [
+            ("/$vault/private/input.bin", shown("/$vault/private/input.bin")),
+            ('"/~private/run/input.bin"', '"' + shown("/~private/run/input.bin") + '"'),
+            ("x=/#private/run/input.bin", "x=" + shown("/#private/run/input.bin")),
+            ("a|/s/t u", "a|" + shown("/s/t") + " u"),
+            ("'/$a,b'", "'" + shown("/$a") + ",b'"),
+            ("open:/s/r/input.bin", "open:" + shown("/s/r/input.bin")),
+            ("file:///x/y", "file:" + shown("///x/y")),
+            ("open:/synthroot/private/input.bin", "open:" + shown("/synthroot/private/input.bin")),
+            ("open /private", "open " + shown("/private")),
+            (" //synthroot/x/y z", " " + shown("//synthroot/x/y") + " z"),
+            ("//a/b/ and /a/b", shown("/a/b") + " and " + shown("/a/b")),
+            ("k;/s/t", "k;" + shown("/s/t")),
+            ("(/s/t)", "(" + shown("/s/t") + ")"),
+            ("[/s/t]", "[" + shown("/s/t") + "]"),
+            ("{/s/t}", "{" + shown("/s/t") + "}"),
+            ("`/s/t`", "`" + shown("/s/t") + "`"),
+            ("</s/t>", "<" + shown("/s/t") + ">"),
+            ("/s/t|u", shown("/s/t") + "|u"),
+            ("/s/t;u", shown("/s/t") + ";u"),
+            ("(https://h/p)/s/t", "(https://h/p)" + shown("/s/t")),
+            (OutputTests.CONTROLS, OutputTests.CONTROLS),
+            (OutputTests.URL_QUERY, OutputTests.URL_QUERY),
+            (OutputTests.URL_BRACKET, OutputTests.URL_BRACKET),
+        ]
 
-        def nothing_absolute(result, what):
-            for name, text in outputs(result).items():
-                self.assertEqual(absolute_paths(text), [], f"{what}: {name}")
-                self.assertNotIn("synthroot", text, f"{what}: {name}")
-                self.assertNotIn("//", text.replace("://", ""), f"{what}: {name}")
+    def assert_clean(self, result, what):
+        """No leak of an absolute path in stderr, stdout, refusals.json, lists.json, the CSV or the report."""
+        texts = {"stderr": result.stderr, "stdout": result.stdout}
+        texts.update({path.name: path.read_text(encoding="utf-8") for path in result.out.iterdir()})
+        for name, text in texts.items():
+            self.assertEqual(leaks(text), [], f"{what}: {name}")
+            for stray in stray_strings(self.c):
+                self.assertNotIn(stray, text, f"{what}: {name}")
 
-        # (a) through a refusal: the inventory cpu_name of root B is part of the message
-        for text, expected in strings:
-            with self.subTest(channel="refusal", text=text):
+    def deviation_run(self, text):
+        c = self.fresh()
+        set_mapping(c, P02, "deviation", text)
+        set_mapping(c, P02, "approved", True)
+        set_mapping(c, P02, "approval_url", "https://example.org/approval")
+        result = c.run()
+        self.assertEqual(result.code, 1, result.stderr)
+        return result
+
+    def test_scrub_through_a_refusal_the_inventory_cpu_name(self):
+        for raw, expected in self.scrub_cases():
+            with self.subTest(raw=raw):
                 c = self.fresh()
-                toml_set(c.stratum("b", J10) / "environment-inventory.toml", ("cpu_name",), text)
+                toml_set(c.stratum("b", J10) / "environment-inventory.toml", ("cpu_name",), raw)
                 result = self.refused(c.run(), "MACHINE", fields=[("MACHINE", "b:cpu")])
                 detail = next(i["detail"] for i in result.refusals if i["field"] == "b:cpu")
-                if expected:
-                    self.assertIn(f"'{expected}'", detail)
-                nothing_absolute(result, "refusal")
-                for name, output in outputs(result).items():
-                    self.assertNotIn("/private", output, name)
+                self.assertIn(repr(expected), detail)
+                self.assertIn(repr(expected), result.stderr)
+                self.assert_clean(result, "refusal")
+                if raw not in (self.CONTROLS, self.URL_QUERY, self.URL_BRACKET):
+                    self.assertNotIn("/private", detail)
 
-        # (b) through the deviation text of an approved case: reason, lists.json, the CSV row and the report
-        def deviation(text):
-            c = self.fresh()
-            set_mapping(c, P02, "deviation", text)
-            set_mapping(c, P02, "approved", True)
-            set_mapping(c, P02, "approval_url", "https://example.org/approval")
-            result = c.run()
-            self.assertEqual(result.code, 1, result.stderr)
-            return result
-
-        for text, expected in strings:
-            with self.subTest(channel="deviation", text=text):
-                result = deviation(f"changed {text} end")
-                nothing_absolute(result, "deviation")
-                reason = result.row(P02, J13)["reason"]
-                self.assertIn("semantic deviation: changed ", reason)
-                if expected:
-                    for where in (reason, result.lists["not_comparable"][0]["reason"],
-                                  result.lists["semantic_deviations"][0]["text"], result.report):
-                        self.assertIn(f"changed {expected} end", where)
-        with self.subTest(channel="deviation", text="URL"):
-            result = deviation(f"see {url} and /synthroot/a/b.txt")
-            nothing_absolute(result, "deviation with a URL")
-            for where in (result.row(P02, J13)["reason"], result.lists["semantic_deviations"][0]["text"],
-                          result.lists["not_comparable"][0]["reason"], result.csv_text, result.report):
-                self.assertIn(f"see {url} and b.txt", where)
-        with self.subTest(channel="deviation", text="controls"):
-            result = deviation(controls)
-            nothing_absolute(result, "controls")
-            for where in (result.row(P02, J13)["reason"], result.lists["semantic_deviations"][0]["text"],
-                          result.lists["not_comparable"][0]["reason"], result.csv_text, result.report):
-                self.assertIn(controls, where)
-            for case_id in ("cd/lasso-dense/cd/B/call", "paths/lasso/cd/grid8/call"):
-                self.assertIn(case_id, result.csv_text)
-                self.assertIn(case_id, result.report)
-
-        # (c) through the machine policy value of the receipt: the hardware label of the table and the report
-        for text, expected in strings + ((controls, controls),):
-            with self.subTest(channel="governor", text=text):
+    def test_scrub_through_the_exception_column_of_an_errors_file(self):
+        for raw, expected in self.scrub_cases():
+            with self.subTest(raw=raw):
                 c = self.fresh()
-                machine_of_all(c, governor=text)
+                c.set_status("b", J13, P01, "error", reps=[2], error_text={P01: f"failed with {raw}"})
+                result = c.run()
+                self.assertEqual(result.code, 1, result.stderr)
+                detail = result.lists["errors_and_timeouts"][0]["detail"]
+                self.assertEqual(detail, f"failed with {expected}")
+                self.assertEqual(result.lists["not_ok"][0]["detail"], detail)
+                if raw != self.PIPE_AFTER_PATH:                    # see test_scrub_report_pipe_after_a_path...
+                    self.assertIn(f"detail failed with {expected.replace('|', chr(92) + '|')}", result.report)
+                self.assert_clean(result, "error column")
+
+    def test_scrub_through_a_mapping_deviation_in_lists_table_and_report(self):
+        for raw, expected in self.scrub_cases():
+            with self.subTest(raw=raw):
+                result = self.deviation_run(f"dev {raw}")
+                escaped = expected.replace("|", "\\|")
+                self.assertEqual(result.row(P02, J13)["reason"], f"semantic deviation: dev {expected}")
+                self.assertEqual(result.lists["not_comparable"][0]["reason"], f"semantic deviation: dev {expected}")
+                self.assertEqual(result.lists["semantic_deviations"][0]["text"], f"dev {expected}")
+                if raw != f"{self.PIPE_AFTER_PATH}":
+                    self.assertIn(f"dev {escaped}", result.report)
+                self.assert_clean(result, "deviation")
+
+    def test_scrub_through_the_receipt_governor_in_the_hardware_label(self):
+        for raw, expected in self.scrub_cases():
+            with self.subTest(raw=raw):
+                c = self.fresh()
+                machine_of_all(c, governor=raw)
                 result = c.run()
                 self.assertEqual(result.code, 0, result.stderr)
-                nothing_absolute(result, "governor")
-                if expected:
-                    self.assertTrue(result.rows[0]["hardware"].startswith(f"observational: governor={expected},"))
-                    self.assertIn(f"governor={expected},", result.report)
+                self.assertTrue(result.rows[0]["hardware"].startswith(f"observational: governor={expected}, epp="),
+                                result.rows[0]["hardware"])
+                if raw != self.PIPE_AFTER_PATH:
+                    self.assertIn(f"governor={expected.replace('|', chr(92) + '|')}, epp=", result.report)
+                self.assert_clean(result, "governor")
+
+    def test_scrub_command_line_path_keeps_the_rest_of_its_token_and_cleans_inside_it(self):
+        c = self.fresh()
+        set_mapping(c, P02, "deviation", f"dev {c.root('b')}/x=/y/z end")
+        set_mapping(c, P02, "approved", True)
+        set_mapping(c, P02, "approval_url", "https://example.org/approval")
+        result = c.run()
+        self.assertEqual(result.row(P02, J13)["reason"], f"semantic deviation: dev <b>/x={shown('/y/z')} end")
+        self.assertEqual(result.lists["semantic_deviations"][0]["text"], f"dev <b>/x={shown('/y/z')} end")
+
+    @unittest.expectedFailure
+    def test_scrub_report_pipe_after_a_path_keeps_the_tag_of_the_other_channels(self):
+        # Known tool behaviour, reported to the maintainer: the report escapes '|' as '\\|' before the text is
+        # cleaned, so the backslash joins the path token and the report prints `t\#<other tag>` where the lists and
+        # the table print `t#<tag>` for the same path.
+        result = self.deviation_run(f"dev {self.PIPE_AFTER_PATH}")
+        self.assertEqual(result.lists["semantic_deviations"][0]["text"], f"dev {shown('/s/t')}|u")
+        self.assertIn(f"dev {shown('/s/t')}\\|u", result.report)
+
+    def test_scrub_file_urls_are_cleaned_and_other_urls_are_kept(self):
+        result = self.deviation_run("a file:///x/y b https://h/x/y?z=/p c ftp://h/q d")
+        reason = result.row(P02, J13)["reason"]
+        self.assertEqual(reason, f"semantic deviation: a file:{shown('///x/y')} b https://h/x/y?z=/p c ftp://h/q d")
+        self.assertNotIn("file://", result.report)
+
+    def test_scrub_different_paths_print_different_tags_and_one_directory_one_tag(self):
+        c = self.fresh()
+        toml_set(c.stratum("b", J13) / "environment-inventory.toml", ("proximalsolvers_dir",),
+                 "/synthroot/inst-b9/ProximalSolvers.jl")
+        result = self.refused(c.run(), "STACK", fields=[("STACK", "b:loaded_tree")])
+        detail = next(i["detail"] for i in result.refusals if "proximalsolvers_dir" in i["detail"])
+        first, second = shown("/synthroot/inst-b1/ProximalSolvers.jl"), shown("/synthroot/inst-b9/ProximalSolvers.jl")
+        self.assertNotEqual(first, second)
+        self.assertEqual(sorted(re.findall(r"ProximalSolvers\.jl#[0-9a-f]{8}", detail)), sorted([first, second]))
+        # two spellings of one directory: one tag, here in the A/A message of a shared checkout
+        c = self.fresh(aa=True)
+        first = c.stack("aa_a")
+        c.set_meta("aa_b", "proximalsolvers_path", "/" + first["checkout"] + "/.")
+        result = self.refused(c.run(aa=True), "ORDER", fields=[("ORDER", "aa:installation")])
+        text = " ".join(i["detail"] for i in result.refusals if i["field"] == "aa:installation")
+        self.assertIn(shown(first["checkout"]), text)
+        self.assertEqual(set(re.findall(r"ProximalSolvers\.jl#[0-9a-f]{8}", text)), {shown(first["checkout"])})
+        c = self.fresh(aa=True)
+        toml_set(c.stratum("aa_b", J10) / "environment-inventory.toml", ("depot_path", 0),
+                 "//" + c.stack("aa_a")["depot"][1:] + "/")
+        result = self.refused(c.run(aa=True), "ORDER", fields=[("ORDER", "aa:installation")])
+        self.assertIn(shown(c.stack("aa_a")["depot"]), " ".join(i["detail"] for i in result.refusals))
+        # the same directory spelled two ways prints the same tag
+        result = self.deviation_run("//a/b/ and /a/b and /a/b/c")
+        reason = result.row(P02, J13)["reason"]
+        self.assertEqual(reason.count(shown("/a/b")), 2)
+        self.assertNotEqual(shown("/a/b"), shown("/c/b"), "the same name in another directory has another tag")
+
+    def test_scrub_detector_agrees_with_the_tool_on_random_texts(self):
+        import random
+        scrub = F.load_tool().make_scrub({})
+        rng = random.Random(20260101)
+        pieces = ["a", "bc", "x1", "q.r", "-", "_", " ", " ", "  ", "=", ":", "$v", "~u", "#h", "&", "?", "*", "!",
+                  '"', "'", "(", ")", "[", "]", "{", "}", ",", ";", "|", "1/2", "and/or", "A/A", "https://h/p?q=/a/b",
+                  "http://e.org/x#f", "ftp://s/f", "file:///x/y", "<a>"]
+        paths = ["/p/q", "/$d/e.f", "//g/h/", "/~i/j k", "/#k/l", "/m"]
+        for index in range(300):
+            parts, has_path = [], False
+            for _ in range(rng.randint(1, 12)):
+                if rng.random() < 0.25:
+                    parts.append(rng.choice(paths) if rng.random() < 0.8 else "/ ")
+                    has_path |= parts[-1] != "/ "
+                else:
+                    parts.append(rng.choice(pieces))
+                parts.append(rng.choice(["", " ", " "]))
+            text = "".join(parts)
+            out = scrub(text)
+            self.assertEqual(leaks(out), [], f"case {index}: {text!r} became {out!r}")
+            self.assertEqual(scrub(out), out, f"case {index}: not idempotent: {text!r}")
+        for raw in ("/p/q", "x=/p/q", "a|/p", "'//p/q'", "open:/p/q", "(/p/q)"):
+            self.assertNotEqual(leaks(raw), [], raw)
+        for raw in ("1/2", "and/or", "A/A", "reset/values", "/", "a / b", "https://h/p?q=/a/b", "cd/lasso-dense/cd/B/call"):
+            self.assertEqual(leaks(raw), [], raw)
+
+    # one test per site that cleans a string: a path placed there must not come out
+
+    def test_scrub_site_refusal_in_refusals_json(self):
+        c = self.fresh()
+        toml_set(c.stratum("b", J10) / "environment-inventory.toml", ("cpu_name",), "/synthroot/r/input.bin")
+        result = self.refused(c.run(), "MACHINE")
+        text = (result.out / "refusals.json").read_text(encoding="utf-8")
+        self.assertIn(shown("/synthroot/r/input.bin"), text)
+        self.assertEqual(leaks(text), [])
+
+    def test_scrub_site_refusal_on_standard_error(self):
+        c = self.fresh()
+        toml_set(c.stratum("b", J10) / "environment-inventory.toml", ("cpu_name",), "/synthroot/r/input.bin")
+        result = self.refused(c.run(), "MACHINE")
+        self.assertIn(shown("/synthroot/r/input.bin"), result.stderr)
+        self.assertEqual(leaks(result.stderr), [])
+
+    def test_scrub_site_csv_reason(self):
+        result = self.deviation_run("moved /synthroot/r/input.bin")
+        self.assertIn(shown("/synthroot/r/input.bin"), result.csv_text)
+        self.assertEqual(leaks(result.csv_text), [])
+
+    def test_scrub_site_csv_hardware(self):
+        c = self.fresh()
+        machine_of_all(c, governor="/synthroot/r/input.bin")
+        result = c.run()
+        self.assertIn(shown("/synthroot/r/input.bin"), result.csv_text)
+        self.assertEqual(leaks(result.csv_text), [])
+
+    def test_scrub_site_lists_not_ok_detail(self):
+        c = self.fresh()
+        c.set_status("a", J10, P03, "error", reps=[1], error_text={P03: "read /synthroot/r/input.bin"})
+        result = c.run()
+        self.assertEqual(result.lists["not_ok"][0]["detail"], f"read {shown('/synthroot/r/input.bin')}")
+        self.assertEqual(leaks(json.dumps(result.lists)), [])
+
+    def test_scrub_site_lists_not_comparable_and_semantic_deviation_text(self):
+        result = self.deviation_run("moved /synthroot/r/input.bin")
+        self.assertEqual(result.lists["not_comparable"][0]["reason"],
+                         f"semantic deviation: moved {shown('/synthroot/r/input.bin')}")
+        self.assertEqual(result.lists["semantic_deviations"][0]["text"], f"moved {shown('/synthroot/r/input.bin')}")
+
+    def test_scrub_site_lists_failed_reason_and_missing_diagnostics(self):
+        c = self.fresh()
+        c.set_status("b", J13, P05, "error", reps=[3], error_text={P05: "x"})
+        c.fingerprints("b").unlink()
+        result = c.run()
+        self.assertEqual(leaks(json.dumps(result.lists)), [])
+        self.assertEqual(result.lists["failed"][0]["reason"], "status: B rep3 error")
+
+    def test_scrub_site_report(self):
+        result = self.deviation_run("moved /synthroot/r/input.bin")
+        self.assertIn(shown("/synthroot/r/input.bin"), result.report)
+        self.assertEqual(leaks(result.report), [])
+
+    def test_scrub_site_report_hardware(self):
+        c = self.fresh()
+        machine_of_all(c, governor="/synthroot/r/input.bin")
+        result = c.run()
+        self.assertIn(f"Hardware: observational: governor={shown('/synthroot/r/input.bin')},", result.report)
+
+    def test_scrub_site_usage_error_labels_the_command_line_paths(self):
+        c = self.fresh()
+        result = c.run(mapping=c.work / "nowhere" / "absent.toml")
+        self.assertEqual(result.code, 3)
+        self.assertIn("<mapping>", result.stderr)
+        self.assertEqual(leaks(result.stderr), [])
+        for stray in stray_strings(c):
+            self.assertNotIn(stray, result.stderr)
 
 
 # --------------------------------------------------------------------------------------------------------------

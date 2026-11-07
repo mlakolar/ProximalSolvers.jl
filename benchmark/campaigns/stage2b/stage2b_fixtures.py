@@ -730,7 +730,7 @@ class Campaign:
                             repr(sorted(finite)[len(finite) // 2]) if finite else "", data])
             if status != "ok":
                 nonok += 1
-                errors.append([case["id"], rep, status, ERROR_TEXT[status], ""])
+                errors.append([case["id"], rep, status, ov.get("error_text", {}).get(orig, ERROR_TEXT[status]), ""])
         return catalog, metrics, samples, errors, nonok
 
     def metadata(self, label, jkey, rep, ov, cases, nonok):
