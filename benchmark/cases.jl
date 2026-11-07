@@ -153,6 +153,20 @@ function checked_path(a, output, grid; slope = false)
   path_certificate(certs)
 end
 
+# Return a path iterate to the empty start. A SparseIterate must also lose its working
+# set: ProximalBase 0.5 empties it in fill!, while 0.6 only writes the values (#110).
+# The dense iterate of the SLOPE paths has no working set.
+function clear_path_iterate!(x)
+  if x isa ProximalBase.SparseIterate
+    SparseArrays.dropzeros!(fill!(x, 0.0))
+  elseif x isa AbstractVector
+    fill!(x, 0.0)
+  else
+    throw(ArgumentError("no reset for a path iterate of type $(typeof(x))"))
+  end
+  x
+end
+
 function path_case_state(a, solver; levels = 8)
   PS = ProximalSolvers
   f, g = benchmark_model(a)
@@ -168,7 +182,7 @@ function path_case_state(a, solver; levels = 8)
     x = ProximalBase.SparseIterate(size(a.X, 2))
   end
   method = benchmark_method(solver, "tight")
-  reset!() = (fill!(x, 0.0); reset_solver_rng!(method); nothing)
+  reset!() = (clear_path_iterate!(x); reset_solver_rng!(method); nothing)
   call!() = PS.solve_path(f, g, grid, method; x, screening = true)
   check(output) = checked_path(a, output, grid; slope)
   CaseState(reset!, call!, check, data_hash(merge(a, (; grid))))

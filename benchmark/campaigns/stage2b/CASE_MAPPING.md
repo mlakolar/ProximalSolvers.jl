@@ -30,6 +30,14 @@ arrays and nothing about reset state, working sets, solver configuration or the 
 | C | Semantically changed; requires a separate mapping. |
 | D | Not comparable or failed. |
 
+The maintainer approved this provisional classification (18 class A, P14 class B, no C or D) as the
+pre-candidate audit. The approval is not a finding that any case works or stays equivalent on a 0.6
+candidate: all 19 equivalence checks are re-run, and the mapping is signed off, on the pinned candidate.
+`case-mapping.toml` records it: class B rows have `approved = true`, the `approval_url`, the
+`approval_scope` and the port text, and class A rows have `approved = false` (there is nothing to approve).
+The comparison tool requires `approved = true` and a non-empty `approval_url` for class B only
+(`MIGRATION_COMPARE_SPEC.md`, section 4.1).
+
 No case is assigned C or D: there is no evidence for either. Class A is a statement about the
 harness and about the evidence available today; it is not a statement that the case runs on the
 candidate. Every class is revisited at the candidate commit.
@@ -105,12 +113,18 @@ Historical line, verbatim (`benchmark/cases.jl:171` at `7b9b5295` and `b0de3f7`)
 reset!() = (fill!(x, 0.0); reset_solver_rng!(method); nothing)
 ```
 
-Proposed compatibility-only port, verbatim (its own narrow PR; the maintainer approves it before any
-use):
+Approved compatibility-only port (maintainer decision on #110, comment 6694764350, for implementation and
+testing of PR B; candidate-specific re-validation against the pinned 0.6 candidate is required before any
+official measurement). The reset of the iterate becomes
 
 ```julia
-reset!() = (dropzeros!(fill!(x, 0.0)); reset_solver_rng!(method); nothing)
+dropzeros!(fill!(x, 0.0))   # the SparseIterate of the lasso path (this case)
+fill!(x, 0.0)               # kept: the dense Vector of the two SLOPE paths
 ```
+
+inside the same reset line (`reset_solver_rng!(method); nothing` is unchanged). The port is the same operation
+on both iterate types in ProximalBase 0.5.4, and `dropzeros!` has no method for a plain `Vector`, so the dense
+SLOPE iterate keeps `fill!`.
 
 Evidence (probe `probes/reset_semantics.jl`, outputs in `probes/results/`, Julia 1.10.12 and 1.13.3
 give the same result; `pb054.sha` is the v0.5.4 tag commit `9c5a43bf0b7e3f51f0a401b785c332200ffa5d7e`,
@@ -125,8 +139,8 @@ and not a candidate): after a used `SparseIterate` of the harness size (probe at
 The port is therefore the identical operation on 0.5.4 and restores the cold start on master. The
 formal `harness_hash` (SHA-1 over `problems.jl`, `certificates.jl`, `cases.jl` and `run.jl`,
 `benchmark/run.jl:112-115`) changes with the port. Stack A keeps its true historical hash
-`b7bf3d953ec6e9f9720e74d7895b5cf95a629fd4`; Stack B records its own true hash; the two are never
-forced equal. The difference is declared in the comparison's approved-differences file, together
+`b7bf3d953ec6e9f9720e74d7895b5cf95a629fd4`; Stack B records its own true hash, `0fd2b44dfea0b1f77c2c67228bf149207982ab8b`, computed at the port commit
+(`new_harness_hash` of the mapping row, recomputed by a test); the two are never forced equal. The difference is declared in the comparison's approved-differences file, together
 with this mapping record (`MIGRATION_COMPARE_SPEC.md`).
 
 ## Cases singled out
