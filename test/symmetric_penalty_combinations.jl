@@ -18,31 +18,7 @@ include("symmetric_penalty_helpers.jl")
     # allows convex functions and MCP/SCAD/NormL0, not these three families.
     wrapper == "Constrained" && !box_supported && continue
     @testset "$family / $wrapper" begin
-      g, gbar = wrap(make(W)), wrap(make(Wbar))
-      arrays = (W, Wbar, parameters...)
-      for X in points
-        # both triangles share Xrc, so wrc φ(Xrc) + wcr φ(Xrc) = 2w̄rc φ(Xrc)
-        preserves_parameters(arrays) do
-          @test isfinite(g(X)) && isfinite(gbar(X))
-          @test g(X) ≈ gbar(X) rtol = 1e-12
-        end
-      end
-      preserves_parameters(arrays) do
-        @test PS._symmetric_penalty(gbar, SymmetricSparseIterate(2)) === gbar
-      end
-      for start in starts
-        x, y = SymmetricSparseIterate(start), SymmetricSparseIterate(start)
-        # solve the explicitly averaged problem first to verify support
-        preserves_parameters(arrays) do
-          @test solve!(y, f, gbar, cdsolver()).converged
-        end
-        preserves_parameters(arrays) do
-          r = solve!(x, f, g, cdsolver())
-          @test r.converged
-          @test Matrix(x) ≈ Matrix(y) atol = 1e-12
-          @test r.minimum ≈ f(Matrix(x)) + g(Matrix(x)) rtol = 1e-12 atol = 1e-14
-        end
-      end
+      check_exactness(f, wrap(make(W)), wrap(make(Wbar)), (W, Wbar, parameters...), points, starts)
     end
   end
 end
@@ -147,15 +123,30 @@ end
   reference = zeros(3, 3)
   solve!(reference, f, NormL1(0.1, Wbar), method)
   @test !iszero(reference[1, 2])
+  @test symmetric_l1_violation(S - inv(reference), reference, 0.1, Wbar) <= 1e-7
   for weights in (W, Wbar, Int.(W), Int.(Wbar)), vector_weights in (false, true)
     w = vector_weights ? vec(copy(weights)) : copy(weights)
+    g = NormL1(0.1, w)
+    symmetric = issymmetric(reshape(w, 3, 3))
     for x in (zeros(3, 3), SymmetricSparseIterate(3))
       preserves_parameters((w, W, Wbar)) do
-        r = solve!(x, f, NormL1(0.1, w), method)
-        @test r.converged
-        @test Matrix(x) ≈ reference atol = 1e-10
-        @test Matrix(x) == Matrix(x)'
-        @test duality_gap(f, NormL1(0.1, w), x).gap <= 1e-8
+        if x isa SymmetricSparseIterate && !symmetric
+          # an owner has the pair as one variable: asymmetric weights are rejected
+          x[2, 1] = 0.1
+          rejects_symmetry(x) do
+            solve!(x, f, g, method)
+          end
+          rejects_symmetry(x) do
+            duality_gap(f, g, x)
+          end
+        else
+          # a dense matrix takes asymmetric weights as the means of their pairs
+          r = solve!(x, f, g, method)
+          @test r.converged
+          @test Matrix(x) ≈ reference atol = 1e-10
+          @test Matrix(x) == Matrix(x)'
+          @test duality_gap(f, g, x).gap <= 1e-8
+        end
       end
     end
   end
@@ -163,14 +154,30 @@ end
 
 @testset "gradient solver workspace combinations" begin
   f = probe()
-  W, Wnext = [0.0 1.0; 3.0 0.0], [0.0 0.0; 2.0 0.0]
+  W, Wnext = [0.0 2.0; 2.0 0.0], [0.0 1.0; 1.0 0.0]
+  Wraw, Wnextraw = [0.0 1.0; 3.0 0.0], [0.0 0.0; 2.0 0.0]
   for method in gradient_methods(), blocks in (false, true)
     x = SymmetricSparseIterate(2)
     initial = blocks ? (x,) : x
     loss = blocks ? SeparableSum(f) : f
     penalty = blocks ? SeparableSum(NormL1(0.1, W)) : NormL1(0.1, W)
     replacement = blocks ? SeparableSum(NormL1(0.1, Wnext)) : NormL1(0.1, Wnext)
-    preserves_parameters((W, Wnext)) do
+    raw = blocks ? SeparableSum(NormL1(0.1, Wraw)) : NormL1(0.1, Wraw)
+    rawnext = blocks ? SeparableSum(NormL1(0.1, Wnextraw)) : NormL1(0.1, Wnextraw)
+    xw = warm_start()
+    initialw = blocks ? (xw,) : xw
+    preserves_parameters((W, Wnext, Wraw, Wnextraw)) do
+      # the raw asymmetric weights: rejected, with the iterate, the workspace and the arrays unchanged
+      rejects_symmetry(xw) do
+        solve!(initialw, loss, raw, method, gradient_options())
+      end
+      rejects_symmetry(xw) do
+        SolverWorkspace(initialw, loss, raw, method, gradient_options())
+      end
+      wsw = SolverWorkspace(initialw, loss, penalty, method, gradient_options())
+      rejects_in_workspace(wsw) do
+        solve!(wsw, rawnext)
+      end
       result = solve!(initial, loss, penalty, method, gradient_options())
       @test result.converged
       @test Matrix(x) ≈ [0.0 0.05; 0.05 0.0] atol = 1e-6
@@ -204,12 +211,23 @@ end
   f = KronQuadratic(S, S, S)
   reference = SymmetricSparseIterate(3)
   solve!(reference, f, NormL1(0.1, Wbar), cdsolver())
-  for weights in (W, Int.(Wbar))
-    w = vec(copy(weights))
+  @test symmetric_l1_violation(S * Matrix(reference) * S + S, Matrix(reference), 0.1, Wbar) <= 1e-8
+  # the raw integer weights are asymmetric; the weights of their symmetric part are integers here
+  preserves_parameters((W, Wbar)) do
+    x = SymmetricSparseIterate(3)
+    x[3, 2] = 0.2
+    rejects_symmetry(x) do
+      solve!(x, f, NormL1(0.1, vec(copy(W))), cdsolver())
+    end
+  end
+  for w in (vec(Int.(Wbar)), Int.(Wbar))
+    g = NormL1(0.1, w)
     preserves_parameters((w, W, Wbar)) do
+      @test PS._symmetric_penalty(g, SymmetricSparseIterate(3)) === g
       x = SymmetricSparseIterate(3)
-      solve!(x, f, NormL1(0.1, w), cdsolver())
+      solve!(x, f, g, cdsolver())
       @test Matrix(x) ≈ Matrix(reference) atol = 1e-12
+      @test symmetric_l1_violation(S * Matrix(x) * S + S, Matrix(x), 0.1, Wbar) <= 1e-8
     end
   end
 end
