@@ -292,4 +292,60 @@ end
   end
 end
 
+# the groups of 1:12 in layouts that are equal as group arrays but separately allocated (range-backed,
+# vector-backed, Int32 indices), and layouts that are not equal to them
+_layouts() = (
+  ranges = [1:3, 4:6, 7:9, 10:12],
+  vectors = [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]],
+  int32 = [Int32.(1:3), Int32.(4:6), Int32.(7:9), Int32.(10:12)],
+  strided = [1:4:12, 2:4:12, 3:4:12, 4:4:12],
+)
+_other_layouts() = (
+  group_order = [4:6, 1:3, 7:9, 10:12],
+  within_group = [[2, 1, 3], 4:6, 7:9, 10:12],
+  fewer_groups = [1:6, 7:9, 10:12],
+  more_groups = [1:3, 4:6, 7:9, 10:11, 12:12],
+)
+
+accepts(f, args...) = (f(args...); true)
+
+@testset "workspace partition: equal group arrays of separate allocation are accepted, others rejected" begin
+  L, O = _layouts(), _other_layouts()
+  for name in keys(L)
+    x = AtomIterate(Float64, 12, L[name])
+    # the same layout built again, and the equal layouts of the other backings
+    for other in (name == :strided ? (:strided,) : (:ranges, :vectors, :int32))
+      y = AtomIterate(Float64, 12, L[other])
+      @test accepts(PS._workspace_partition, x, y)
+      @test accepts(PS._workspace_partition, y, x)
+      # asking again, and with the layout remembered by the first call
+      @test accepts(PS._workspace_partition, x, y)
+    end
+    for bad in keys(O)
+      y = AtomIterate(Float64, 12, O[bad])
+      @test_throws ArgumentError PS._workspace_partition(x, y)
+      @test_throws ArgumentError PS._workspace_partition(y, x)
+    end
+  end
+  @test_throws ArgumentError PS._workspace_partition(AtomIterate(Float64, 12, L.ranges), AtomIterate(Float64, 12, L.strided))
+  @test PS._workspace_partition(zeros(3), zeros(3)) === nothing
+  # a tuple of blocks, each compared with its own layout
+  xs = (AtomIterate(Float64, 12, L.ranges), AtomIterate(Float64, 12, L.strided))
+  @test accepts(PS._workspace_partition, xs, (AtomIterate(Float64, 12, L.vectors), AtomIterate(Float64, 12, L.strided)))
+  @test_throws ArgumentError PS._workspace_partition(xs, (AtomIterate(Float64, 12, L.vectors), AtomIterate(Float64, 12, L.ranges)))
+  # a workspace accepts an equal layout of the same type, built apart, and rejects another
+  X, y = randn(Xoshiro(3), 20, 12), randn(Xoshiro(4), 20)
+  f = (1 / 20) * LeastSquaresLoss(y, X)
+  for (groups, bads) in ((L.ranges, ([4:6, 1:3, 7:9, 10:12], [1:6, 7:9, 10:12], [1:3, 4:6, 7:9, 10:11, 12:12])),
+                         (L.vectors, ([[2, 1, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]], [[4, 5, 6], [1, 2, 3], [7, 8, 9], [10, 11, 12]],
+                                      [[1, 2, 3, 4, 5, 6], [7, 8, 9], [10, 11, 12]], [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11], [12]])),
+                         (L.int32, ([Int32.(4:6), Int32.(1:3), Int32.(7:9), Int32.(10:12)],)))
+    ws = SolverWorkspace(AtomIterate(Float64, 12, groups), f, GroupNormL2(0.05, groups), AccProxGradDescent(), ProximalOptions(; maxiter = 50))
+    @test reinit!(ws, AtomIterate(Float64, 12, deepcopy(groups))) === ws
+    for bad in bads
+      @test_throws ArgumentError reinit!(ws, AtomIterate(Float64, 12, bad))
+    end
+  end
+end
+
 end
