@@ -230,7 +230,7 @@ end
 
 function solve!(X::Matrix{T}, f::LogDetLoss{T}, g::NormL1, method::ProxNewton) where {T}
   Xs = SymmetricSparseIterate(Symmetric(X))
-  r = solve!(Xs, f, g, method)
+  r = solve!(Xs, f, _dense_symmetric_weights(g, size(X, 1)), method)
   copyto!(X, Matrix(Xs))
   CDResults(X, r.minimum, r.passes, r.converged, r.maxchange, r.tolerance, r.kkt_checks, r.gap)
 end

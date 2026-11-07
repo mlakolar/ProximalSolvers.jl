@@ -46,13 +46,14 @@ blocks such as ProximalBase's `SeparableSum(f1, …, fK)` (`fₖ` on block `k`) 
 penalty that couples the blocks. Norms and inner products are taken over all
 the blocks, and a tuple of one array computes exactly what the array does.
 
-On a `SymmetricSparseIterate`, the gradient solvers prepare `g` by the same
-parameter rule as coordinate descent: average parameters that enter linearly,
-and require the other per-entry parameters to be symmetric (see the
-[`CDSolver`](@ref) method of `solve!`). The smooth function `f` is unchanged.
-For tuples with a `SeparableSum` penalty, the rule applies block by block;
-penalties that couple blocks pass unchanged and their symmetric-storage
-compatibility is the caller's responsibility.
+On a `SymmetricSparseIterate`, the gradient solvers apply the same parameter
+rule as coordinate descent: the per-entry parameters of `g` must be exactly
+symmetric, or symmetric by type as `Symmetric(W, :L)`, otherwise an
+`ArgumentError` is thrown before anything is written (see the
+[`CDSolver`](@ref) method of `solve!`). The penalty is used as supplied. The
+smooth function `f` is not checked. For tuples with a `SeparableSum` penalty,
+the rule applies block by block; penalties that couple blocks pass unchanged
+and their symmetric-storage compatibility is the caller's responsibility.
 
 # Example
 ```julia
