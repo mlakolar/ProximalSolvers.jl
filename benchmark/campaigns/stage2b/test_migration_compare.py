@@ -1403,7 +1403,7 @@ class RefusalTests(MigrationCase):
             ("expected_package_root empty", lambda c: c.set_meta("b", "expected_package_root", ""), "STACK",
              [("STACK", "b:loaded_tree")]),
             ("proximalsolvers_path against the inventory proximalsolvers_dir",
-             inventory("proximalsolvers_dir", "/opt/synthetic/elsewhere/ProximalSolvers.jl"), "STACK",
+             inventory("proximalsolvers_dir", "/synthroot/elsewhere/ProximalSolvers.jl"), "STACK",
              [("STACK", "b:loaded_tree")]),
             ("inventory proximalbase_version against the identity", inventory("proximalbase_version", "0.6.1"),
              "STACK", [("STACK", "b:loaded_tree")]),
@@ -2109,7 +2109,7 @@ class OutputTests(MigrationCase):
         for name in ("migration-comparison.csv", "report.md", "lists.json"):
             text = (first.out / name).read_text(encoding="utf-8")
             self.assertNotIn(str(c.work), text)
-            self.assertNotIn("/opt/synthetic", text)
+            self.assertNotIn("/synthroot", text)
             self.assertNotIn(str(Path.home()), text)
         self.assertEqual(first.stdout, second.stdout)
         # a refused run is just as deterministic and shows no path of the test machine either
