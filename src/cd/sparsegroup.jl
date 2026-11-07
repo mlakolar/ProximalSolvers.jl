@@ -105,7 +105,7 @@ end
 _coordweight(g::_ScaledSGL, ::AtomIterate, k::Int) =
   (f = g.f; T = typeof(f.λ1); iszero(f.λ1) && iszero(f.λ0 * f.w[k]) ? zero(T) : one(T))
 _screengrad(g::_ScaledSGL, grad::AbstractArray, x::AtomIterate, k::Int) =
-  _sgl_root(grad, x.groups[k], g.f.λ1, g.f.λ0 * g.f.w[k])
+  _sgl_root(grad, atomindices(x, k), g.f.λ1, g.f.λ0 * g.f.w[k])
 
 # The strong rule keeps group k at μ = 2λₖ - λₖ₋₁ when its root is at least μ,
 # that is when ‖soft(∇_G f, αμ)‖₂ ≥ (1 - α)μwₖ (the sequential strong rule of
@@ -115,14 +115,14 @@ _screengrad(g::_ScaledSGL, grad::AbstractArray, x::AtomIterate, k::Int) =
 # group, without the root.
 function _strongkeep(g::_ScaledSGL, grad::AbstractArray, x::AtomIterate, k::Int, μ, w)
   μ > 0 || return true
-  G = x.groups[k]
+  G = atomindices(x, k)
   a, c = g.f.λ1, g.f.λ0 * g.f.w[k]
   iszero(c) && return _absmax(grad, G) >= a * μ
   _softnorm(grad, G, a * μ) >= c * μ
 end
 
 _kktviolated(g::_ScaledSGL, grad::AbstractArray, x::AtomIterate, k::Int, λ) =
-  _softnorm(grad, x.groups[k], g.f.λ1 * λ) > g.f.λ0 * g.f.w[k] * λ
+  _softnorm(grad, atomindices(x, k), g.f.λ1 * λ) > g.f.λ0 * g.f.w[k] * λ
 
 ####################################
 #  the dual norm, the gap and gap-safe screening
@@ -178,7 +178,7 @@ end
 function _safezero(g::Union{_SGL, _ScaledSGL}, m, z::AbstractVector, x::AtomIterate, k::Int, t::T, gap::T) where {T}
   c1, c2 = _sglthresholds(g, k, T)
   (c1 > 0 || c2 > 0) || return false
-  G = x.groups[k]
+  G = atomindices(x, k)
   umax = t * _absmax(z, G)
   if umax > c1
     s = _softnorm(z, G, c1, t)

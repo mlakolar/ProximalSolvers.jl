@@ -145,7 +145,7 @@ gradient!(G::AbstractVector{T}, m::QuadModel{T}, x) where {T} =
 function _groupcurvature!(m::QuadModel{T}, x::AtomIterate{T}, k::Int) where {T}
   L = m.L[k]
   if isnan(L)
-    G = x.groups[k]
+    G = atomindices(x, k)
     L = length(G) == 1 ? m.A[first(G), first(G)] : _gram_eigmax!(m, x, G)
     L = T(max(m.s * L, zero(T)))
     m.L[k] = L
@@ -172,7 +172,7 @@ _gram_eigmax!(m::QuadModel{T}, x::AtomIterate{T}, G) where {T} = _eigmax_generic
 # x[G] - ∇_G f(x) / L, as for least squares
 function _groupstep!(m::QuadModel{T}, g::GroupNormL2, x::AtomIterate{T}, k::Int, scaled::Bool) where {T}
   A, u = m.A, m.u
-  G = x.groups[k]
+  G = atomindices(x, k)
   c = T(g.λ0 * g.w[k])
   v = _groupbuffer!(m, length(G))
 
