@@ -70,27 +70,39 @@ any other outcome stops the attempt: `STATE.json` says why, everything is kept, 
 launched process, and the base never launches again. Only a sealed `logs/completion.json` is a success record.
 The official gate also refuses the historical stack as a candidate (ProximalBase 0.6 only, and no value equal to
 the `[stack_a]` identity). The engine needs the depot-cache digest and the data-hash check hooks and records the digest
-before and after every process. `verify` is read-only, needs no Julia and works on a copied tree: it derives the
-required arms, roots and seals from the archived `schedule.toml`, binds the tree to its lock (or pilot configuration)
-and to the campaign ids, rejects symbolic links, recomputes the checksums, the seals (exactly one per record file,
-mode 0444), the sidecar and fingerprint coverage and the receipt, then replays `migration_compare.py` on the tree's own copies and compares the outcome
-(`--out` is a fresh path outside the evidence).
+before and after every process. `verify` is read-only, needs no Julia and works on a copied tree. It recomputes the
+checksums, the seals (exactly one per record file, mode 0444), the sidecar and fingerprint coverage and the receipt,
+rejects symbolic links, binds the tree to its configuration and campaign ids, and replays `migration_compare.py` on the
+tree's own copies, comparing the exit status, refusals, CSV rows, `report.md` and `lists.json` (`--out` is a fresh path
+outside the evidence).
 
 **What `verify` trusts.** The mode of an attempt follows from its recorded campaign and schedule identity, never from an
-archived flag: an official identity always needs `lock.toml`, a valid `official: true` and its B identity, Manifest,
-approval and harness checks; a pilot identity needs `-pilot` names, `official: false`, an archived `pilot-config.toml`
-and, supplied independently with `--config`, the same configuration (byte-equal); a pilot reports `PILOT /
-NON-OFFICIAL`, verifies only as a pilot and never satisfies the official gate. For an official attempt the archived
-`schedule.toml` must equal the verifier's own `schedule.toml`, which must be tracked and unmodified in its repository,
-and the recorded `schedule_sha256` must be its digest; arms, roots, blocks and counts derive from it, so the A/A arm
-cannot be removed by editing the archive. In this pre-freeze state that file is a development reference, not an F1-B
-freeze: official use later requires a recorded pinned freeze commit and a clean verifier checkout at that commit.
-`logs/completion.json` carries the SHA-256 of `schedule.toml`, `logs/campaign.json` and the lock (official) or the
-pilot configuration (pilot); `verify` recomputes them. These cross-digests, `checksums.sha256` and the seals are an
-internal consistency control, not an authenticity signature: someone who rewrites the whole tree can regenerate all of
-them. `verify` detects accidental or partial corruption and inconsistent edits, not a deliberate consistent forgery.
-The anchors are outside the archive: the Release asset SHA-256 published on #110 (what the consumer checks after
-retrieval) and the clean verifier checkout at the F1-B freeze commit (the specification).
+archived flag, and it selects a closed policy-file inventory. Official: `official: true`, a valid `lock.toml`
+(required), no `pilot-config.toml`. Pilot (`-pilot` names, `official: false`): the archived `pilot-config.toml` must be
+byte-equal to the configuration the verifier holds (`--config`); no `lock.toml`. Only the documented top-level entries
+are accepted (`roots`, `logs`, `comparison`, `schedule.toml`, `case-mapping.toml`, `receipt.jsonl`,
+`declared-differences.toml`, `checksums.sha256`, the private `installations`, `environments`, `depots`, and the one
+configuration file of the mode). A pilot reports `PILOT / NON-OFFICIAL`, verifies only as a pilot and never satisfies
+the official gate.
+
+The trusted policy set is the verifier's own `schedule.toml` and `case-mapping.toml`, each tracked and unmodified in
+its repository. For an official attempt the archived `schedule.toml` must equal the verifier's, so the required arms,
+roots, blocks and counts derive from the trusted schedule, not from the archive (for a pilot they derive from the
+archived schedule, which must agree with the held configuration). The archived `case-mapping.toml` must equal the
+verifier's (for a pilot too); `campaign.json` records `schedule_sha256` and `case_mapping_sha256` and
+`logs/completion.json` binds them together with the digest of `logs/campaign.json` and of the lock (official) or the
+pilot configuration. For an official attempt `declared-differences.toml` is recomputed from the archived roots and the
+validated lock and must be equal (a pilot's is the minimal `schema = 1`), and the lock is checked again for a 0.6
+ProximalBase, a stack B different from `[stack_a]` and a 40-hex `freeze_sha` in `campaign.json`. These are
+verification-consistency checks: they do not replace the `run --official` gate or the F1-B approval. In this pre-freeze
+state the repository files are a development reference, not an F1-B freeze: official use later requires the verifier
+to be an independently selected clean checkout at the approved freeze commit.
+
+**Guarantee.** `verify` enforces the internal consistency of the evidence against the trusted policy files and catches
+partial or contradictory edits. It is not a signing system: `checksums.sha256`, the seals and the cross-digests can all
+be regenerated by someone who rewrites the whole tree, so it cannot authenticate a fully coordinated forged archive.
+The anchors are outside the archive: the Release asset SHA-256 published on #110 (checked by the consumer after
+retrieval) and the clean checkout at the F1-B freeze commit.
 
 Exit status: 0 success; 1 completed with non-ok cases (a process exit 2 or comparator exit 1); 2 refused or stopped
 (gate, preflight, infrastructure stop, comparator refusal, failed verification); 3 usage or internal error. The

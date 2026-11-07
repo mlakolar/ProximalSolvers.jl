@@ -288,8 +288,10 @@ def pilot_edit(schedule):
 
 
 def pilot_config(session=SESSION, arms=("AB",)):
-    return {"schema": 1, "campaign": {"id": "pb06-migration-stage2b-pilot-v1", "session_id": session},
-            "schedule": {"id": "stage2b-pilot-v1"}, "pilot": {"arms": list(arms)}}
+    campaign = {"id": "pb06-migration-stage2b-pilot-v1"}
+    if session is not None:
+        campaign["session_id"] = session
+    return {"schema": 1, "campaign": campaign, "schedule": {"id": "stage2b-pilot-v1"}, "pilot": {"arms": list(arms)}}
 
 
 C.write_toml(TMP / "held-pilot-config.toml", pilot_config())
@@ -1307,7 +1309,10 @@ class EngineTests(EngineBase):
         commands = C.read_jsonl(base / "logs" / "commands.jsonl")
         self.assertEqual(len(commands), 4)
         self.assertNotIn("AWS_SECRET_ACCESS_KEY", json.dumps(commands))
-        self.assertEqual(commands[0]["env"], env)
+        redacted = {k: ("<redacted>" if k in ("HOME", "USER", "LOGNAME", "TMPDIR") else v) for k, v in env.items()}
+        self.assertEqual(commands[0]["env"], redacted)
+        self.assertEqual(commands[0]["env"]["HOME"], "<redacted>")
+        self.assertEqual(env["HOME"], ENVIRON["HOME"], "the process itself gets the real value")
         self.assertEqual(commands[0]["cwd"], str(spec.checkout))
         self.assertEqual(set(commands[0]["machine_before"]), set(C.SAMPLE_KEYS))
         events = self.receipt(base)
@@ -1945,7 +1950,7 @@ class IntegrationTests(unittest.TestCase):
                 path = b / "logs" / "completion.json"
                 data = json.loads(path.read_text())
                 data.update(change)
-                writable(path).write_text(json.dumps(data))
+                write_json(path, data)
             return edit
         for change, text in ((dict(processes=63), "counts 63 processes"), (dict(receipt_sha256="0" * 64),
                                                                               "the receipt digest differs"),
@@ -2284,12 +2289,10 @@ class RevisionVerifyTests(unittest.TestCase):
             writable(b / "receipt.jsonl").write_text("".join(json.dumps(e) + "\n" for e in events))
             seals = writable(b / "logs" / "seals.jsonl")
             seals.write_text("".join(l + "\n" for l in seals.read_text().split("\n") if l and "roots/aa-" not in l))
-            for name in ("comparator.json", "completion.json"):
-                pass
-            path = writable(b / "logs" / "completion.json")
+            path = b / "logs" / "completion.json"
             record = json.loads(path.read_text())
             record.update(processes=32, receipt_sha256=C.sha256_file(b / "receipt.jsonl"))
-            path.write_text(json.dumps(record))
+            write_json(path, record)
         base = self.mutated(drop)
         document = self.failed(base, "the root is missing", replay=False)
         self.assertTrue(any("arm AA" in p and "is missing" in p for p in document["problems"]))
@@ -2327,10 +2330,10 @@ class RevisionVerifyTests(unittest.TestCase):
 
     def test_a_completion_record_with_unrelated_ids_and_an_unknown_schema(self):
         def edit(b):
-            path = writable(b / "logs" / "completion.json")
+            path = b / "logs" / "completion.json"
             record = json.loads(path.read_text())
             record.update(schema=99, campaign_id="other", session_id="session-x", schedule_id="elsewhere")
-            path.write_text(json.dumps(record))
+            write_json(path, record)
         document = self.failed(self.mutated(edit), "logs/completion.json: schema is not 1", replay=False)
         for key in ("campaign_id", "session_id", "schedule_id"):
             self.assertTrue(any(f"logs/completion.json: {key}" in p for p in document["problems"]), key)
@@ -2680,6 +2683,8 @@ def read_json(path):
 
 def write_json(path, data):
     writable(path).write_text(json.dumps(data, indent=2) + "\n")
+    if Path(path).name == "completion.json":                  # a sealed record stays read-only: one guard per control
+        os.chmod(path, 0o444)
 
 
 def rebind(base, **campaign_changes):
@@ -2696,6 +2701,7 @@ def rebind(base, **campaign_changes):
     completion = read_json(base / "logs" / "completion.json")
     completion["campaign_sha256"] = C.sha256_file(base / "logs" / "campaign.json")
     completion["schedule_sha256"] = C.sha256_file(base / "schedule.toml")
+    completion["case_mapping_sha256"] = C.sha256_file(base / "case-mapping.toml")
     for key, name in (("lock_sha256", "lock.toml"), ("pilot_config_sha256", "pilot-config.toml")):
         if key in completion and (base / name).is_file():
             completion[key] = C.sha256_file(base / name)
@@ -2931,6 +2937,337 @@ class ModeTests(unittest.TestCase):
         self.assertEqual(completion["campaign_sha256"], C.sha256_file(self.base / "logs" / "campaign.json"))
         self.assertEqual(completion["lock_sha256"], C.sha256_file(self.base / "lock.toml"))
         self.assertNotIn("pilot_config_sha256", completion)
+
+
+# ------------------------------------------------------------------------------------ revision 4: A2 and the rest
+
+def regenerate_comparison(base):
+    """Re-run the comparator on the archive and replace comparison/, comparator.json and the completion's exit,
+    as someone rewriting the evidence consistently would (the internal checksums and seals are refreshed after)."""
+    scratch = fresh("regen") / "out"
+    code, _ = C.run_comparator(base, scratch)
+    shutil.rmtree(Path(base) / "comparison")
+    shutil.copytree(scratch, Path(base) / "comparison")
+    write_json(Path(base) / "logs" / "comparator.json", {"schema": 1, "exit": code, "stderr": ""})
+    completion = read_json(Path(base) / "logs" / "completion.json")
+    completion["comparator_exit"] = code
+    write_json(Path(base) / "logs" / "completion.json", completion)
+    return code
+
+
+class PolicyTests(unittest.TestCase):
+    """Ruling A2: the trusted policy set (schedule, case mapping, held pilot configuration), a closed inventory of
+    policy files, and replayed outputs. All through the real `verify`."""
+
+    @classmethod
+    def setUpClass(cls):
+        for key, value in shared_full().items():
+            setattr(cls, key, value)
+        cls.pilot = shared_pilot()
+
+    def mutated(self, function, base=None):
+        copy_ = clone(base or self.base)
+        function(copy_)
+        return copy_
+
+    def failed(self, base, texts, config=None, replay=True):
+        record = fresh("v") / "verification.json"
+        document, status = C.verify(base, record, replay=replay, config=config)
+        self.assertEqual((document["state"], status), ("failed", 2), document["problems"][:6])
+        self.assertEqual(json.loads(record.read_text())["problems"], document["problems"])
+        self.assertNotIn(document["state"], ("verified", "pilot_verified", "verified_non_ok"))
+        for text in ([texts] if isinstance(texts, str) else texts):
+            self.assertTrue(any(text in p for p in document["problems"]), (text, document["problems"][:8]))
+        return document
+
+    # -- 1: the mapping is a trusted policy input
+    def test_a_harmless_mapping_edit_with_regenerated_checksums(self):
+        def edit(b):
+            edit_text(b / "case-mapping.toml", lambda t: t + "\n# harmless\n")
+            rebind(b, case_mapping_sha256=C.sha256_file(b / "case-mapping.toml"))
+        self.failed(self.mutated(edit), "case-mapping.toml of the archive differs from the verifier's", replay=False)
+
+    def test_a_semantic_mapping_change_with_everything_regenerated(self):
+        def deviation(b):
+            text = (b / "case-mapping.toml").read_text()
+            first = text.index("[[case]]")
+            edit_text(b / "case-mapping.toml", lambda t: t.replace(
+                "approved = false", f'approved = true\napproval_url = "{URL}"\ndeviation = "synthetic"', 1))
+            assert first >= 0
+            regenerate_comparison(b)
+            rebind(b, case_mapping_sha256=C.sha256_file(b / "case-mapping.toml"))
+        base = self.mutated(deviation)
+        stored = C.comparison_summary(base / "comparison")
+        self.assertIn("NOT COMPARABLE", " ".join(" ".join(r) for r in stored["rows"]), "the forged outcome differs")
+        document = self.failed(base, "case-mapping.toml of the archive differs from the verifier's")
+        self.assertNotIn("the replay exits", " ".join(document["problems"]),
+                         "the forged archive is internally consistent: only the trusted mapping catches it")
+
+        def class_d(b):
+            edit_text(b / "case-mapping.toml", lambda t: t.replace('class = "A"', 'class = "D"', 1))
+            regenerate_comparison(b)
+            rebind(b, case_mapping_sha256=C.sha256_file(b / "case-mapping.toml"))
+        self.failed(self.mutated(class_d), "case-mapping.toml of the archive differs from the verifier's")
+
+    def test_the_mapping_digests_are_recorded_and_bound(self):
+        self.failed(self.mutated(lambda b: rebind(b, case_mapping_sha256="0" * 64)),
+                    ["case_mapping_sha256 is missing or not the digest",
+                     "record different case_mapping_sha256 values"], replay=False)
+        self.failed(self.mutated(lambda b: rebind(b, case_mapping_sha256=None)),
+                    "case_mapping_sha256 is missing or not the digest", replay=False)
+
+        def completion(b):
+            record = read_json(b / "logs" / "completion.json")
+            record["case_mapping_sha256"] = "1" * 64
+            write_json(b / "logs" / "completion.json", record)
+            refresh_all(b)
+        self.failed(self.mutated(completion), "logs/completion.json: case_mapping_sha256 is not the digest of "
+                                              "case-mapping.toml", replay=False)
+
+        def omitted(b):
+            record = read_json(b / "logs" / "completion.json")
+            del record["case_mapping_sha256"]
+            write_json(b / "logs" / "completion.json", record)
+            refresh_all(b)
+        self.failed(self.mutated(omitted), "logs/completion.json: case_mapping_sha256 is not the digest",
+                    replay=False)
+
+    def test_a_pilot_uses_the_committed_mapping_and_the_verifiers_mapping_is_tracked(self):
+        def edit(b):
+            edit_text(b / "case-mapping.toml", lambda t: t + "\n# pilot edit\n")
+            rebind(b, case_mapping_sha256=C.sha256_file(b / "case-mapping.toml"))
+        self.failed(self.mutated(edit, base=self.pilot), "case-mapping.toml of the archive differs from the "
+                    "verifier's", config=PILOT_FILE, replay=False)
+
+        def run(argv, **kw):
+            if "ls-files" in argv and any(a.endswith("case-mapping.toml") for a in argv):
+                return subprocess.CompletedProcess(argv, 1, "", "")
+            return subprocess.run(argv, **kw)
+        document, status = C.verify(clone(self.base), fresh("v") / "v.json", replay=False, run=run)
+        self.assertEqual((document["state"], status), ("failed", 2))
+        self.assertTrue(any("the verifier's case-mapping.toml is not tracked" in p for p in document["problems"]))
+        base = assemble_base(self.camp, fresh("pm") / "x-pilot", aa=False)
+        edit_text(base / "case-mapping.toml", lambda t: t + "\n# edit\n")
+        with self.assertRaises(C.Refused):
+            C.plan_from_pilot(pilot_config(), base, JULIA_BINS, ENVIRON)
+
+    # -- 2: the closed, mode-specific policy-file inventory
+    def test_the_other_modes_configuration_is_forbidden(self):
+        def lock_in_pilot(b):
+            shutil.copyfile(self.base / "lock.toml", b / "lock.toml")
+            refresh_all(b)
+        self.failed(self.mutated(lock_in_pilot, base=self.pilot), "lock.toml is forbidden in a pilot attempt",
+                    config=PILOT_FILE, replay=False)
+
+        def logs_lock_in_pilot(b):
+            shutil.copyfile(self.base / "lock.toml", b / "logs" / "lock.toml")
+            refresh_all(b)
+        self.failed(self.mutated(logs_lock_in_pilot, base=self.pilot), "logs/lock.toml is forbidden in a pilot",
+                    config=PILOT_FILE, replay=False)
+
+        def config_in_official(b):
+            add_pilot_config(b)
+            refresh_all(b)
+        self.failed(self.mutated(config_in_official), "pilot-config.toml is forbidden in an official attempt",
+                    replay=False)
+
+        def logs_config_in_official(b):
+            shutil.copyfile(PILOT_FILE, b / "logs" / "pilot-config.toml")
+            refresh_all(b)
+        self.failed(self.mutated(logs_config_in_official), "logs/pilot-config.toml is forbidden in an official",
+                    replay=False)
+
+    def test_a_foreign_top_level_entry_is_refused_and_private_directories_are_not(self):
+        for base, config in ((self.base, None), (self.pilot, PILOT_FILE)):
+            def foreign(b):
+                (b / "notes.txt").write_text("x")
+                refresh_all(b)
+            self.failed(self.mutated(foreign, base=base), "notes.txt is not an entry of the documented layout",
+                        config=config, replay=False)
+            copy_ = clone(base)
+            for name in C.PRIVATE_DIRECTORIES:
+                (copy_ / name / "role").mkdir(parents=True)
+                (copy_ / name / "role" / "big.bin").write_text("private")
+            document, status = C.verify(copy_, fresh("v") / "v.json", config=config)
+            self.assertEqual((status, document["problems"]), (0, []), "private directories are allowed")
+
+    def test_the_official_state_requires_its_lock_and_a_pilot_its_configuration(self):
+        base = self.mutated(lambda b: ((b / "lock.toml").unlink(), rebind(b, official=False)))
+        self.failed(base, ["official is False", "lock.toml is missing"], replay=False)
+        base = self.mutated(lambda b: ((b / "pilot-config.toml").unlink(), refresh_all(b)), base=self.pilot)
+        self.failed(base, "pilot-config.toml is missing", config=PILOT_FILE, replay=False)
+
+    # -- 3: replayed outputs
+    def test_report_lists_and_declared_reasons_are_replayed_or_recomputed(self):
+        def report(b):
+            edit_text(b / "comparison" / "report.md", lambda t: t.replace("COMPARABLE", "COMPARABLE!", 1))
+            refresh_all(b)
+        self.failed(self.mutated(report), "report.md of the replay differs from the stored comparison")
+
+        def lists(b):
+            data = read_json(b / "comparison" / "lists.json")
+            data["not_ok"].append({"julia": "x", "id": "y"})
+            write_json(b / "comparison" / "lists.json", data)
+            refresh_all(b)
+        self.failed(self.mutated(lists), "lists.json of the replay differs from the stored comparison")
+
+        def missing(b):
+            (b / "comparison" / "report.md").unlink()
+            refresh_all(b)
+        self.failed(self.mutated(missing), ["comparison/ lacks report.md or lists.json",
+                                            "report.md of the replay differs"])
+
+        def reason(b):
+            edit_text(b / "declared-differences.toml", lambda t: t.replace("synthetic reason", "a better reason"))
+            refresh_all(b)
+        document = self.failed(self.mutated(reason), "declared-differences.toml differs from the declaration "
+                                                     "recomputed")
+        self.assertEqual(document["comparator_exit"], 0, "the comparator itself does not read reasons")
+
+        def pilot_declared(b):
+            with writable(b / "declared-differences.toml").open("a") as stream:
+                stream.write('\n[[compat]]\nname = "X"\na = "1"\nb = "2"\nreason = "r"\n')
+            refresh_all(b)
+        self.failed(self.mutated(pilot_declared, base=self.pilot), "not the minimal `schema = 1`", config=PILOT_FILE,
+                    replay=False)
+
+    def test_the_static_candidate_checks_and_the_freeze_sha_are_reapplied(self):
+        def old_version(b):
+            edit_text(b / "lock.toml", lambda t: t.replace('version = "0.6.0"', 'version = "0.5.4"'))
+            rebind(b, lock_sha256=C.sha256_file(b / "lock.toml"))
+        self.failed(self.mutated(old_version), "lock.toml: PB_B_VERSION", replay=False)
+
+        def historical(b):
+            a = mc.load_schedule(HERE / "schedule.toml")["stack_a"]
+            edit_text(b / "lock.toml", lambda t: t.replace(self.camp.stack("b")["ps"]["commit"],
+                                                           a["proximalsolvers"]["commit"]))
+            rebind(b, lock_sha256=C.sha256_file(b / "lock.toml"))
+        self.failed(self.mutated(historical), "HISTORICAL_PROXIMALSOLVERS_COMMIT", replay=False)
+        for value in (None, "abc123", "g" * 40):
+            self.failed(self.mutated(lambda b, v=value: rebind(b, freeze_sha=v)),
+                        "logs/campaign.json: freeze_sha is not a full 40-hex SHA", replay=False)
+
+    def test_the_positive_controls_carry_their_mode(self):
+        document, status = C.verify(self.base, fresh("v") / "v.json")
+        self.assertEqual((status, document["state"], document["mode"], document["problems"]),
+                         (0, "verified", "OFFICIAL", []))
+        document, status = C.verify(self.pilot, fresh("v") / "v.json", config=PILOT_FILE)
+        self.assertEqual((status, document["state"], document["mode"], document["problems"]),
+                         (0, "pilot_verified", "PILOT / NON-OFFICIAL", []))
+
+
+class AttemptHardeningTests(EngineBase):
+    """The attempt lifecycle: invalid samples, failures after the attempt began, stray configuration, redaction, session."""
+
+    def stopped_without_a_launch(self, base, host, plan):
+        self.assertEqual(host.calls, [])
+        self.assertEqual(self.state(base)["state"], "stopped")
+        self.assertEqual(self.receipt(base)[1:], [], "no process event: nothing was launched")
+        self.assertTrue((base / "checksums.sha256").is_file())
+
+    def test_an_invalid_machine_sample_stops_before_the_launch(self):
+        for when, edit in ((1, lambda s: s.update(no_turbo=0)), (2, lambda s: s.update(governor=None)),
+                           (2, lambda s: s.pop("epp"))):
+            base, plan, host = self.make()
+            host.sample_edits.append((when, edit))
+            with self.assertRaises(C.Stopped) as caught:
+                C.execute(plan, host.hooks())
+            self.assertIn("machine", str(caught.exception))
+            self.stopped_without_a_launch(base, host, plan)
+        with self.assertRaises(ValueError):
+            C.machine_record({"cpu_model": "m", "governor": "g", "epp": "e", "no_turbo": 0, "smt_control": "on"},
+                             "c", 6)
+        with self.assertRaises(ValueError):
+            C.machine_record({"cpu_model": "m", "governor": "g", "epp": "e", "no_turbo": "0", "smt_control": "on"},
+                             "c", True)
+
+    def test_every_failure_after_the_attempt_began_finishes_it(self):
+        base, plan, host = self.make()
+
+        def failing(sample):
+            raise OSError("sysfs vanished")
+        host.sample_edits.append((1, failing))                  # the first sample, outside any process
+        with self.assertRaises(OSError):
+            C.execute(plan, host.hooks())
+        self.stopped_without_a_launch(base, host, plan)
+        self.assertIn("OSError", self.state(base)["reason"])
+        base, plan, host = self.make()
+        original = C.write_declared_differences
+
+        def refuse(base_, lock):
+            raise C.Refused("finalize refused something else")
+        C.write_declared_differences = refuse
+        try:
+            with self.assertRaises(C.Refused):
+                C.execute(plan, host.hooks())
+        finally:
+            C.write_declared_differences = original
+        self.assertEqual(self.state(base)["state"], "stopped")
+        self.assertIn("finalize refused something else", self.state(base)["reason"])
+        self.assertTrue((base / "checksums.sha256").is_file())
+
+    def test_stray_configuration_is_refused_before_any_file_is_written(self):
+        base, plan, host = self.make()
+        shutil.copyfile(PILOT_FILE, base / "lock.toml")
+        with self.assertRaises(C.Refused) as caught:
+            C.execute(plan, host.hooks())
+        self.assertEqual(caught.exception.field, "lock.toml")
+        self.assertFalse((base / "logs").exists())
+        base, plan, host = self.make()
+        (base / "logs").mkdir()
+        shutil.copyfile(PILOT_FILE, base / "logs" / "lock.toml")
+        with self.assertRaises(C.Refused):
+            C.execute(plan, host.hooks())
+        self.assertEqual(host.calls, [])
+        camp = F.build_campaign(fresh("stray"), "migration")
+        lock = make_lock(camp)
+        official = assemble_base(camp, fresh("stray-base") / "base")
+        add_pilot_config(official)
+        plan = official_plan(official, lock)
+        with self.assertRaises(C.Refused) as caught:
+            C.execute(plan, Host(camp, plan.sched, official).hooks())
+        self.assertEqual(caught.exception.field, "pilot-config.toml")
+        self.assertFalse((official / "logs").exists())
+        self.assertFalse((official / "receipt.jsonl").exists())
+
+    def test_the_session_comes_from_the_identity_files_when_the_configuration_has_none(self):
+        base = assemble_base(self.camp, fresh("session") / "x-pilot", session="session-20270101T000000Z-abcd",
+                             aa=False)
+        plan = C.plan_from_pilot(pilot_config(session=None), base, JULIA_BINS, ENVIRON)
+        self.assertEqual(plan.session_id, "session-20270101T000000Z-abcd")
+        add_pilot_config(base)
+        host = Host(self.camp, plan.sched, base)
+        outcome = C.execute(plan, host.hooks())
+        self.assertEqual(outcome.exit_code, 0)
+        self.assertEqual(self.receipt(base)[0]["session_id"], "session-20270101T000000Z-abcd")
+        disagree = assemble_base(self.camp, fresh("session2") / "x-pilot", aa=False)
+        edit_text(disagree / "roots" / "ab-b" / "stack-identity.toml", lambda t: t.replace(SESSION, "session-0"))
+        with self.assertRaises(C.Refused) as caught:
+            C.plan_from_pilot(pilot_config(session=None), disagree, JULIA_BINS, ENVIRON)
+        self.assertEqual(caught.exception.field, "session_id")
+        camp = F.build_campaign(fresh("sessionlock"), "migration")
+        lock = make_lock(camp)
+        del lock["campaign"]["session_id"]
+        official = assemble_base(camp, fresh("sessionlock-base") / "base")
+        self.assertEqual(official_plan(official, lock).session_id, SESSION)
+        self.assertRegex(C.mint_session_id(), r"session-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{4}")
+
+    def test_personal_values_are_redacted_in_the_evidence_only(self):
+        base, plan, host = self.make()
+        environ = dict(ENVIRON, USER="alice", LOGNAME="alice", TMPDIR="/private/tmp/alice")
+        plan.parent_env = environ
+        C.execute(plan, host.hooks())
+        for argv, env, cwd, cpu in host.calls:
+            self.assertEqual((env["HOME"], env["USER"], env["LOGNAME"], env["TMPDIR"]),
+                             (environ["HOME"], "alice", "alice", "/private/tmp/alice"))
+        text = (base / "logs" / "commands.jsonl").read_text()
+        for personal in (environ["HOME"], "alice", "/private/tmp/alice"):
+            self.assertNotIn(personal, text)
+        command = C.read_jsonl(base / "logs" / "commands.jsonl")[0]
+        self.assertEqual({k: command["env"][k] for k in ("HOME", "USER", "LOGNAME", "TMPDIR")},
+                         dict.fromkeys(("HOME", "USER", "LOGNAME", "TMPDIR"), "<redacted>"))
+        self.assertEqual(command["env"][C.JOB_ID_VARIABLES[0]], "4242")
+        self.assertEqual(command["env"]["PS_REPETITION"], "1")
 
 
 # ------------------------------------------------------------------------------------------------- CLI

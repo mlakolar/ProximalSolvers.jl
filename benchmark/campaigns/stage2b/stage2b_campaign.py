@@ -7,7 +7,7 @@
                                              [--archive FILE]
     python3 -B stage2b_campaign.py run       --config LOCK --base BASE --official --freeze-sha SHA [--julia MM=PATH ...]
     python3 -B stage2b_campaign.py pilot     --config PILOT --base BASE [--arms AB] [--julia MM=PATH ...]
-    python3 -B stage2b_campaign.py verify    --base BASE --out FILE
+    python3 -B stage2b_campaign.py verify    --base BASE --out FILE [--config PILOT_CONFIG]
 
 Standard library only (Python 3.11 or later). The driver launches `benchmark/run.jl` of each role's checkout and
 never measures anything itself. Everything that depends on Julia or on the host is injected: the pure functions
@@ -31,10 +31,14 @@ directories and are not evidence; everything else is evidence and is covered by 
     installations/<role>/ProximalSolvers.jl   the role's checkout (ProximalBase.jl next to it for stack B)
     environments/<role>/env-MM          the role's Julia environment per stratum
     depots/<role>                       the role's private depot (first JULIA_DEPOT_PATH entry)
-    schedule.toml  case-mapping.toml  lock.toml     the copies this campaign used (lock.toml: official only)
+    schedule.toml  case-mapping.toml    the copies this campaign used
+    lock.toml | pilot-config.toml       the configuration of the mode: lock.toml official only, pilot-config.toml
+                                        pilot only (the other one is forbidden)
     receipt.jsonl  declared-differences.toml
-    logs/                               seals.jsonl commands.jsonl hardware.jsonl campaign.json comparator.json,
-                                        per-process stdout and stderr, STATE.json, completion.json
+    logs/                               seals.jsonl commands.jsonl (personal environment values redacted)
+                                        hardware.jsonl campaign.json comparator.json, per-process stdout and
+                                        stderr, STATE.json, completion.json; from prepare: prepare-commands.jsonl,
+                                        depot-baselines.json, finalize.json, pilot-overrides.json
     comparison/                         the output of migration_compare.py at run time
     checksums.sha256  verification.json (verification.json is written elsewhere, never into the evidence)
 
@@ -545,18 +549,8 @@ def official_gate(lock, repo_facts, freeze_sha):
                  and env.get("manifest_sha256") == wanted, "MANIFEST_SHA256",
                  f"julia {mm}: Manifest SHA-256 {wanted!r} differs from the lock")
     if isinstance(stack, dict):
-        historical = mc.load_schedule(HERE / "schedule.toml")["stack_a"]
-        table = stack.get("proximalbase") or {}
-        need(isinstance(table.get("version"), str) and re.match(r"0\.6\.", table["version"]), "PB_B_VERSION",
-             f"ProximalBase version {table.get('version')!r} is not a 0.6 candidate")
-        for key, fields in (("proximalsolvers", ("commit", "tree")), ("proximalbase", ("commit", "tree",
-                                                                                      "package_hash"))):
-            for field in fields:
-                need((stack.get(key) or {}).get(field) != historical[key][field],
-                     f"HISTORICAL_{key.upper()}_{field.upper()}",
-                     f"stack_b {key}.{field} equals the historical stack A value")
-        need(stack.get("harness_hash") != historical["harness_hash"], "HISTORICAL_HARNESS_HASH",
-             "stack_b harness_hash equals the historical stack A value")
+        for code, detail in static_candidate_problems(stack):
+            need(False, code, detail)
     rows = facts.get("mapping_rows") or []
     need(bool(rows), "MAPPING", "no case-mapping rows were observed")
     for row in rows:
@@ -566,6 +560,25 @@ def official_gate(lock, repo_facts, freeze_sha):
     for entry in approval_problems(lock or {}):
         unmet.append(entry)
     return unmet
+
+
+def static_candidate_problems(stack):
+    """(code, detail) of the static checks of a stack B candidate: ProximalBase is a 0.6 release and nothing
+    equals the historical stack A. Used by the gate and again where `verify` reads an archived lock (a
+    verification-consistency check only: it does not replace the gate or the external F1-B approval)."""
+    historical = mc.load_schedule(HERE / "schedule.toml")["stack_a"]
+    found = []
+    table = stack.get("proximalbase") or {}
+    if not (isinstance(table.get("version"), str) and re.match(r"0\.6\.", table["version"])):
+        found.append(("PB_B_VERSION", f"ProximalBase version {table.get('version')!r} is not a 0.6 candidate"))
+    for key, fields in (("proximalsolvers", ("commit", "tree")), ("proximalbase", ("commit", "tree", "package_hash"))):
+        for field in fields:
+            if (stack.get(key) or {}).get(field) == historical[key][field]:
+                found.append((f"HISTORICAL_{key.upper()}_{field.upper()}",
+                              f"stack_b {key}.{field} equals the historical stack A value"))
+    if stack.get("harness_hash") == historical["harness_hash"]:
+        found.append(("HISTORICAL_HARNESS_HASH", "stack_b harness_hash equals the historical stack A value"))
+    return found
 
 
 def approval_problems(lock):
@@ -803,6 +816,21 @@ def schedule_arms(base):
     return tuple(arm for arm in ARMS if arm in declared)
 
 
+def session_from_base(base, roles):
+    """The session of an attempt whose configuration names none: the one the identity files of the roles carry
+    (written by prepare; they must agree). A session is minted only where no identity file exists, and then the
+    identity check of the engine still binds the files to it."""
+    sessions = set()
+    for role in roles:
+        path = Path(base) / "roots" / role / "stack-identity.toml"
+        if path.is_file():
+            sessions.add(read_identity_file(base, role).get("session_id"))
+    if len(sessions) > 1 or None in sessions:
+        raise Refused(f"the identity files of the roles carry different or no session ids: {sorted(map(str, sessions))}",
+                      field="session_id")
+    return next(iter(sessions)) if sessions else mint_session_id()
+
+
 def build_roles(sched, base, arms, stack_b, lock, julia_bins, bundled_depot=""):
     """The RoleSpecs of the roles in use; the installation id of each is the one of its stack-identity.toml."""
     roles = {}
@@ -839,8 +867,8 @@ def plan_from_lock(lock, base, julia_bins, parent_env, freeze_sha, bundled_depot
         raise Refused(f"lock campaign {lock['campaign']['id']!r} is not the schedule's {sched['campaign_id']!r}",
                       field="campaign.id")
     arms = schedule_arms(base)
-    session = lock["campaign"].get("session_id") or mint_session_id()
     roles = build_roles(sched, base, arms, True, lock, julia_bins, bundled_depot)
+    session = lock["campaign"].get("session_id") or session_from_base(base, roles)
     return Plan(base=base, sched=sched, official=True, campaign_id=sched["campaign_id"], session_id=session,
                 arms=arms, roles=roles, cpu=sched["machine"]["logical_cpu"],
                 case_filter=sched["settings"]["case_filter"], parent_env=dict(parent_env), lock=lock,
@@ -852,6 +880,9 @@ def plan_from_pilot(config, base, julia_bins, parent_env, arms=None, bundled_dep
     base = Path(base)
     if "pilot" not in base.name:
         raise LockRefusal("base", f"the base directory name {base.name!r} lacks pilot")
+    if not (base / "case-mapping.toml").is_file() or sha256_file(base / "case-mapping.toml") != sha256_file(
+            HERE / "case-mapping.toml"):
+        raise Refused("case-mapping.toml of the base is not the committed file", field="case-mapping.toml")
     sched = mc.load_schedule(base / "schedule.toml")
     official = mc.load_schedule(HERE / "schedule.toml")
     config = parse_pilot(copy.deepcopy(config), official)
@@ -867,8 +898,8 @@ def plan_from_pilot(config, base, julia_bins, parent_env, arms=None, bundled_dep
     if chosen != schedule_arms(base):
         raise LockRefusal("pilot.arms", f"arms {chosen} differ from the arms {schedule_arms(base)} of the "
                           "schedule copy")
-    session = config["campaign"].get("session_id") or mint_session_id()
     roles = build_roles(sched, base, chosen, False, None, julia_bins, bundled_depot)
+    session = config["campaign"].get("session_id") or session_from_base(base, roles)
     return Plan(base=base, sched=sched, official=False, campaign_id=sched["campaign_id"], session_id=session,
                 arms=chosen, roles=roles, cpu=sched["machine"]["logical_cpu"],
                 case_filter=sched["settings"]["case_filter"], parent_env=dict(parent_env))
@@ -908,6 +939,14 @@ def launch_env(plan, spec, mm, rep):
         "PS_REPETITION": str(rep), "PS_OUTPUT": str(plan.raw(spec.name, mm)),
         "PS_EXPECTED_PACKAGE_ROOT": str(spec.checkout)})
     return env
+
+
+REDACTED_ENV = ("HOME", "USER", "LOGNAME", "TMPDIR")
+
+
+def redacted_env(env):
+    """The environment as the evidence records it: personal values are replaced, the process gets the real ones."""
+    return {k: ("<redacted>" if k in REDACTED_ENV else v) for k, v in env.items()}
 
 
 def launch_argv(plan, spec, mm):
@@ -970,14 +1009,26 @@ def sample_machine(cpu, root="/"):
             "smt_control": read("sys/devices/system/cpu/smt/control")}
 
 
+def check_machine_object(machine):
+    """The checks the receipt applies to a process event's `machine` object; ValueError when they fail."""
+    if not (isinstance(machine, dict) and tuple(machine) == MACHINE_KEYS
+            and isinstance(machine["logical_cpu"], int) and not isinstance(machine["logical_cpu"], bool)
+            and all(isinstance(machine[k], str) for k in MACHINE_KEYS if k != "logical_cpu")):
+        raise ValueError(f"machine must have exactly the keys {MACHINE_KEYS}, strings except logical_cpu "
+                         f"(an integer): {machine!r}")
+
+
 def machine_record(sample, cpu_name, logical_cpu):
-    """The `machine` object of a receipt process event (cpu is Sys.CPU_NAME from the probe)."""
+    """The `machine` object of a receipt process event (cpu is Sys.CPU_NAME from the probe). The same checks as
+    the receipt's run here, so that an invalid sample is found before a process is launched."""
     missing = [k for k in SAMPLE_KEYS if k not in sample]
     if missing:
         raise ValueError(f"the machine sample lacks {missing}")
-    return {"cpu_model": sample["cpu_model"], "cpu": cpu_name, "logical_cpu": logical_cpu,
-            "governor": sample["governor"], "epp": sample["epp"], "no_turbo": sample["no_turbo"],
-            "smt_control": sample["smt_control"]}
+    record = {"cpu_model": sample["cpu_model"], "cpu": cpu_name, "logical_cpu": logical_cpu,
+              "governor": sample["governor"], "epp": sample["epp"], "no_turbo": sample["no_turbo"],
+              "smt_control": sample["smt_control"]}
+    check_machine_object(record)
+    return record
 
 
 # --------------------------------------------------------------------------------------- preflight
@@ -1213,10 +1264,7 @@ class Receipt:
                 and isinstance(rep, int) and not isinstance(rep, bool) and is_text(julia)
                 and is_text(installation)):
             raise ValueError("a process event has wrong types")
-        if not (isinstance(machine, dict) and tuple(machine) == MACHINE_KEYS
-                and isinstance(machine["logical_cpu"], int)
-                and all(isinstance(machine[k], str) for k in MACHINE_KEYS if k != "logical_cpu")):
-            raise ValueError(f"machine must have exactly the keys {MACHINE_KEYS}")
+        check_machine_object(machine)
         append_jsonl(self.path, {"event": "process", "arm": arm, "role": role, "julia": julia, "rep": rep,
                                  "block": rep, "installation": installation, "start_utc": utc_text(start),
                                  "end_utc": utc_text(end), "exit": exit, "complete": complete,
@@ -1562,16 +1610,31 @@ def _strip_paths(text):
     return TAG_TOKEN.sub("<path>", LABEL_TOKEN.sub("<path>", text))
 
 
+def _normalised(value):
+    """A JSON value with the path labels removed from every string."""
+    if isinstance(value, str):
+        return _strip_paths(value)
+    if isinstance(value, list):
+        return [_normalised(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _normalised(v) for k, v in value.items()}
+    return value
+
+
 def comparison_summary(out):
     """What two runs of the comparator must agree on: the refusal (class, field) pairs and the CSV rows with
     the path labels removed (the scrub prints a root path as `<a>` or as `basename#tag`)."""
     out = Path(out)
-    summary = {"refusals": None, "triples": None, "rows": None, "counts": None}
+    summary = {"refusals": None, "triples": None, "rows": None, "counts": None, "report": None, "lists": None}
     if (out / "refusals.json").is_file():
         document = json.loads((out / "refusals.json").read_text(encoding="utf-8"))
         summary["refusals"] = sorted((r["class"], r["field"]) for r in document["refusals"])
         summary["triples"] = sorted((r["class"], r["field"], _strip_paths(r["detail"]))
                                     for r in document["refusals"])
+    if (out / "report.md").is_file():
+        summary["report"] = _strip_paths((out / "report.md").read_text(encoding="utf-8"))
+    if (out / "lists.json").is_file():
+        summary["lists"] = _normalised(json.loads((out / "lists.json").read_text(encoding="utf-8")))
     if (out / "migration-comparison.csv").is_file():
         table = list(csv.reader(io.StringIO((out / "migration-comparison.csv").read_text(encoding="utf-8"))))
         summary["rows"] = [[_strip_paths(cell) for cell in row] for row in table]
@@ -1610,6 +1673,11 @@ def check_fresh(plan):
             previous = "unreadable"
         raise Refused(f"{base.name} already holds a campaign state ({previous}); a BASE is used for one attempt "
                       "and a stopped one is never resumed", field="state")
+    stray = ("pilot-config.toml", "logs/pilot-config.toml") if plan.official else ("lock.toml", "logs/lock.toml")
+    for relative in stray:
+        if (base / relative).exists():
+            raise Refused(f"{relative} exists in {'an official' if plan.official else 'a pilot'} base: the "
+                          "configuration of the other mode must not be present", field=relative)
     for relative in ("receipt.jsonl", "declared-differences.toml", "comparison", "checksums.sha256",
                      "logs/seals.jsonl", "logs/commands.jsonl", "logs/hardware.jsonl", "logs/campaign.json",
                      "logs/completion.json", "logs/comparator.json"):
@@ -1671,6 +1739,7 @@ class Attempt:
             "schedule_id": plan.sched["id"], "official": plan.official, "freeze_sha": plan.freeze_sha,
             "arms": list(plan.arms), "started_utc": utc_text(start),
             "schedule_sha256": sha256_file(plan.base / "schedule.toml"),
+            "case_mapping_sha256": sha256_file(plan.base / "case-mapping.toml"),
             "lock_sha256": sha256_file(plan.base / "lock.toml") if (plan.base / "lock.toml").is_file() else None,
             "pilot_config_sha256": (sha256_file(plan.base / "pilot-config.toml")
                                     if (plan.base / "pilot-config.toml").is_file() else None)}, indent=2) + "\n")
@@ -1712,13 +1781,22 @@ def execute(plan, hooks):
         raise Refused("preflight found problems: " + "; ".join(problems[:5]), field="preflight",
                       problems=problems)
     attempt = Attempt(plan, hooks)
-    first = hooks.sampler()
     nonok = []
     try:
+        first = hooks.sampler()
+        try:
+            machine_record(first, "first-sample", plan.cpu)
+        except ValueError as error:
+            attempt.stop(f"the first machine sample is invalid: {error}")
         for key in order:
             run_one(plan, hooks, attempt, key, observations, first, nonok)
         return finalize(plan, hooks, attempt, len(order), nonok)
-    except (Stopped, Refused):
+    except Stopped:
+        raise
+    except Refused as error:                        # a refusal after the attempt began still ends it cleanly
+        if not attempt.finished:
+            with contextlib.suppress(Exception):
+                attempt.finish("stopped", reason=f"refused: {error}")
         raise
     except BaseException as error:                  # a bug, an interrupt: the evidence is still kept
         if not attempt.finished:
@@ -1756,9 +1834,12 @@ def run_one(plan, hooks, attempt, key, observations, first, nonok):
         append_jsonl(logs / "hardware.jsonl", {"process": key.name, "moment": "before", "sample": before,
                                                "disagrees": sample_differences(first, before)})
         attempt.stop("the machine values differ from the first sample", key)
+    try:
+        machine = machine_record(before, _dig(obs, "julia.cpu_name"), plan.cpu)
+    except ValueError as error:                     # found before the launch, not after it
+        attempt.stop(f"the machine record is invalid: {error}", key)
     raw.mkdir(parents=True, exist_ok=True)
     argv, env = launch_argv(plan, spec, key.mm), launch_env(plan, spec, key.mm, key.rep)
-    machine = machine_record(before, _dig(obs, "julia.cpu_name"), plan.cpu)
     version = plan.sched["strata"][key.mm]["version"]
     launched = {"start": hooks.clock(), "end": None, "result": None, "event": False}
 
@@ -1794,7 +1875,7 @@ def run_one(plan, hooks, attempt, key, observations, first, nonok):
             seal_error = error
         record(seal_error is None)
         append_jsonl(logs / "commands.jsonl", {
-            "process": key.name, "argv": argv, "cwd": str(spec.checkout), "env": env,
+            "process": key.name, "argv": argv, "cwd": str(spec.checkout), "env": redacted_env(env),
             "start_utc": utc_text(launched["start"]), "end_utc": utc_text(end), "exit": result.exit,
             "stdout": f"logs/{key.name}.stdout", "stderr": f"logs/{key.name}.stderr", "machine_before": before,
             "machine_after": after, "depot_digest_before": digest_before, "depot_digest_after": digest_after,
@@ -1844,6 +1925,7 @@ def finalize(plan, hooks, attempt, count, nonok):
         "schedule_id": plan.sched["id"], "processes": count, "receipt_sha256": sha256_file(base / "receipt.jsonl"),
         "comparator_exit": code, "outcome": "comparable" if code == 0 and not nonok else "non_ok",
         "nonok_processes": nonok, "schedule_sha256": sha256_file(base / "schedule.toml"),
+        "case_mapping_sha256": sha256_file(base / "case-mapping.toml"),
         "campaign_sha256": sha256_file(base / "logs" / "campaign.json"),
         **({"lock_sha256": sha256_file(base / "lock.toml")} if plan.official else
            {"pilot_config_sha256": (sha256_file(base / "pilot-config.toml")
@@ -2229,21 +2311,57 @@ def classify_mode(verifier, pairs):
     return next(iter(modes)), problems
 
 
+POLICY_FILES = ("schedule.toml", "case-mapping.toml")
+
+
 def verifier_schedule_problems(run=subprocess.run):
-    """The verifier's schedule.toml is the development reference: it must be tracked and unmodified in its
-    repository (a clean checkout at a recorded freeze commit is required for official use, not claimed here)."""
+    """The verifier's trusted policy inputs, schedule.toml and case-mapping.toml, are the development reference:
+    each must be tracked and unmodified in its repository (a clean checkout at a recorded freeze commit is required
+    for official use, not claimed here)."""
     repo = HERE.parents[2]
-    relative = (HERE / "schedule.toml").relative_to(repo).as_posix()
     problems = []
-    for argv, text in ((["ls-files", "--error-unmatch", "--", relative], "is not tracked"),
-                       (["diff", "--quiet", "HEAD", "--", relative], "is modified")):
-        try:
-            result = run(["git", "-C", str(repo), *argv], capture_output=True, text=True)
-            failed = result.returncode != 0
-        except OSError:
-            failed = True
-        if failed:
-            problems.append(f"the verifier's schedule.toml {text} (or git cannot say)")
+    for name in POLICY_FILES:
+        relative = (HERE / name).relative_to(repo).as_posix()
+        for argv, text in ((["ls-files", "--error-unmatch", "--", relative], "is not tracked"),
+                           (["diff", "--quiet", "HEAD", "--", relative], "is modified")):
+            try:
+                result = run(["git", "-C", str(repo), *argv], capture_output=True, text=True)
+                failed = result.returncode != 0
+            except OSError:
+                failed = True
+            if failed:
+                problems.append(f"the verifier's {name} {text} (or git cannot say)")
+    return problems
+
+
+def check_policy_copy(base, campaign, problems):
+    """The archived case-mapping.toml equals the verifier's and campaign.json records its digest (checked before
+    anything is derived from the mapping)."""
+    trusted = (HERE / "case-mapping.toml").read_bytes()
+    path = Path(base) / "case-mapping.toml"
+    if not path.is_file() or path.read_bytes() != trusted:
+        problems.append("case-mapping.toml of the archive differs from the verifier's case-mapping.toml")
+    if campaign.get("case_mapping_sha256") != sha256_bytes(trusted):
+        problems.append("logs/campaign.json: case_mapping_sha256 is missing or not the digest of the verifier's "
+                        "case-mapping.toml")
+
+
+def top_level_problems(base, mode):
+    """The top-level entries of the archive against the documented producer layout, with the mode-specific
+    configuration file: lock.toml for an official attempt only, pilot-config.toml for a pilot only."""
+    allowed = {"roots", "logs", "comparison", "schedule.toml", "case-mapping.toml", "receipt.jsonl",
+               "declared-differences.toml", "checksums.sha256", *PRIVATE_DIRECTORIES,
+               "lock.toml" if mode == "official" else "pilot-config.toml"}
+    forbidden = "pilot-config.toml" if mode == "official" else "lock.toml"
+    problems = []
+    for entry in sorted(p.name for p in Path(base).iterdir()):
+        if entry == forbidden:
+            problems.append(f"{entry} is forbidden in {'an official' if mode == 'official' else 'a pilot'} attempt")
+        elif entry not in allowed:
+            problems.append(f"{entry} is not an entry of the documented layout")
+    for entry in ("logs/pilot-config.toml",) if mode == "official" else ("logs/lock.toml",):
+        if (Path(base) / entry).exists():
+            problems.append(f"{entry} is forbidden in {'an official' if mode == 'official' else 'a pilot'} attempt")
     return problems
 
 
@@ -2280,6 +2398,14 @@ def check_pilot_binding(base, sched, campaign, config_path, problems):
         problems.append("pilot configuration: the arms differ from the archived schedule's")
     if campaign.get("pilot_config_sha256") != sha256_file(archived):
         problems.append("pilot-config.toml differs from the digest recorded in logs/campaign.json")
+    declared_path = base / "declared-differences.toml"
+    if declared_path.is_file():
+        try:
+            declared = tomllib.loads(declared_path.read_text(encoding="utf-8"))
+        except (tomllib.TOMLDecodeError, UnicodeDecodeError):
+            declared = None
+        if declared != {"schema": 1}:
+            problems.append("declared-differences.toml of a pilot is not the minimal `schema = 1`")
 
 
 def check_completion_binding(base, mode, campaign, completion, problems):
@@ -2287,7 +2413,8 @@ def check_completion_binding(base, mode, campaign, completion, problems):
     pilot configuration (pilot); each must be the digest of the file in the tree. An internal consistency control,
     not an authenticity signature."""
     base = Path(base)
-    wanted = {"schedule_sha256": base / "schedule.toml", "campaign_sha256": base / "logs" / "campaign.json"}
+    wanted = {"schedule_sha256": base / "schedule.toml", "case_mapping_sha256": base / "case-mapping.toml",
+              "campaign_sha256": base / "logs" / "campaign.json"}
     wanted["lock_sha256" if mode == "official" else "pilot_config_sha256"] = (
         base / ("lock.toml" if mode == "official" else "pilot-config.toml"))
     other = "pilot_config_sha256" if mode == "official" else "lock_sha256"
@@ -2296,11 +2423,12 @@ def check_completion_binding(base, mode, campaign, completion, problems):
     for key, path in wanted.items():
         if not path.is_file() or completion.get(key) != sha256_file(path):
             problems.append(f"logs/completion.json: {key} is not the digest of {path.relative_to(base).as_posix()}")
-    if campaign.get("schedule_sha256") != completion.get("schedule_sha256"):
-        problems.append("logs/completion.json and logs/campaign.json record different schedule digests")
+    for key in ("schedule_sha256", "case_mapping_sha256"):
+        if campaign.get(key) is None or campaign.get(key) != completion.get(key):
+            problems.append(f"logs/completion.json and logs/campaign.json record different {key} values")
 
 
-def check_lock_binding(base, sched, campaign, problems):
+def check_lock_binding(base, sched, campaign, problems, deep=True):
     """An official attempt is bound to its lock: the lock validates, and the archived stack B (identity,
     metadata, Manifest and Project digests) is the one the lock names."""
     base = Path(base)
@@ -2327,6 +2455,25 @@ def check_lock_binding(base, sched, campaign, problems):
     if "session_id" in lock["campaign"] and lock["campaign"]["session_id"] != campaign.get("session_id"):
         problems.append("lock.toml: the session id differs from the attempt")
     problems += [f"lock.toml: {p}" for p in approval_problems(lock)]
+    problems += [f"lock.toml: {code}: {detail}" for code, detail in static_candidate_problems(lock["stack_b"])]
+    # The freeze SHA recorded by the run is a record, not an authentication anchor: the anchor is the independently
+    # chosen verifier checkout. It must still be a full SHA.
+    if not is_hex40(campaign.get("freeze_sha")):
+        problems.append("logs/campaign.json: freeze_sha is not a full 40-hex SHA")
+    declared_path = base / "declared-differences.toml"
+    if deep and declared_path.is_file():
+        try:
+            expected = declared_differences(base, lock)
+        except Refused as error:
+            problems.append(f"declared-differences.toml cannot be recomputed from the roots and the lock: {error}")
+        else:
+            try:
+                archived = tomllib.loads(declared_path.read_text(encoding="utf-8"))
+            except (tomllib.TOMLDecodeError, UnicodeDecodeError):
+                archived = None
+            if archived != expected:
+                problems.append("declared-differences.toml differs from the declaration recomputed from the "
+                                "archived roots and the lock (reasons and approvals included)")
     b = lock["stack_b"]
     try:
         ident = tomllib.loads((base / "roots" / "ab-b" / "stack-identity.toml").read_text(encoding="utf-8"))
@@ -2401,6 +2548,9 @@ def verify(base, out, replay=True, config=None, run=subprocess.run):
         if campaign.get("schedule_sha256") != sha256_bytes(trusted):
             problems.append("logs/campaign.json: schedule_sha256 is not the digest of the verifier's schedule.toml")
         sched = verifier
+    if mode is not None:
+        check_policy_copy(base, campaign, problems)
+        problems += top_level_problems(base, mode)
     try:
         if sched is None:
             sched = mc.load_schedule(base / "schedule.toml")
@@ -2459,7 +2609,7 @@ def verify(base, out, replay=True, config=None, run=subprocess.run):
             if relative not in listed and (base / relative).is_file():
                 problems.append(f"checksums: the mandatory file {relative} is not in the inventory")
         if mode == "official":
-            check_lock_binding(base, sched, campaign, problems)
+            check_lock_binding(base, sched, campaign, problems, deep=replay)
         elif mode == "pilot":
             check_pilot_binding(base, sched, campaign, config, problems)
     expected_count = 0 if sched is None else len(sched["strata"]) * len(sched["reps"]) * 2 * len(arms)
@@ -2499,6 +2649,12 @@ def verify(base, out, replay=True, config=None, run=subprocess.run):
                 problems.append("the refusals of the replay differ from the stored comparison")
             if again["rows"] != stored["rows"]:
                 problems.append("the comparison rows of the replay differ from the stored comparison")
+            if stored["refusals"] is None and (stored["report"] is None or stored["lists"] is None):
+                problems.append("comparison/ lacks report.md or lists.json")
+            if again["report"] != stored["report"]:
+                problems.append("report.md of the replay differs from the stored comparison")
+            if again["lists"] != stored["lists"]:
+                problems.append("lists.json of the replay differs from the stored comparison")
         finally:
             shutil.rmtree(scratch, ignore_errors=True)
     elif kind == "completed" and not (base / "comparison").is_dir():
