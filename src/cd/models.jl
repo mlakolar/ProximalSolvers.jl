@@ -552,8 +552,9 @@ function _symmetric_penalty(g::SeparableSum, x::Tuple)
 end
 
 # one pair is symmetric when its entries are equal, also as NaN and NaN or
-# +0.0 and -0.0, but not as NaN and 1.0 or Inf and -Inf
-@inline _symmetric_pair(a, b) = isequal(a, b) || (a == b) === true
+# +0.0 and -0.0, but not as NaN and 1.0 or Inf and -Inf (ProximalBase's rule:
+# isequal(a, b) || (a == b) === true, with the cheaper test first)
+@inline _symmetric_pair(a, b) = (a == b) === true || isequal(a, b)
 
 function _symmetric_array(a::AbstractArray, p::Int)
   @inbounds for c in 1:p, r in c+1:p
