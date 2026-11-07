@@ -23,7 +23,9 @@ declared, and which refuses everything else.
 
 It reads records only. It runs no Julia, needs no network, uses only the Python standard library (3.11 or
 later, `tomllib`) and writes only to a fresh output directory. Its output is deterministic: it contains no clock
-time of the run, no host name and no absolute path. Every string the tool writes (refusals, standard error, the
+time of the run, no host name of the machine that runs it and no absolute path of the machine that runs it or of
+any argument path; absolute paths that occur in the free text of the records are cleaned by the rules below, with the
+limits listed after them. Every string the tool writes (refusals, standard error, the
 lists, the table and the report) is cleaned once, by these rules, in this order. The text is cut at its URL tokens
 (rule 1); only the pieces between them are cleaned (rules 2 and 3), so a URL is a boundary and never part of a path:
 a path directly before or after a URL token is a token of its own, and its tag is taken from its own text.
@@ -46,10 +48,21 @@ a path directly before or after a URL token is a token of its own, and its tag i
    paths always print different ones; the tag is 8 digits long unless a collision forces more. Tags are
    deterministic for a given input: they depend on the order of the first cleaning call that meets each token, and
    the tool makes its calls in a fixed order (refusals in sorted order, otherwise the report, the table and the
-   lists). No directory is printed.
+   lists). The directory part of a token is not printed.
 
 A case ID, a fraction such as `1/2`, `and/or` and a lone `/` are not paths. Only POSIX absolute paths are cleaned
 (Windows drive letters, backslashes and `~user` forms are outside the scope: the campaign host is Linux).
+
+**Limits of the cleaning of free text from the records** (they follow from the token rules above and are not
+defects of the comparison): (a) a URL of any scheme except `file`, for example `ssh://user@host/path`, is kept
+verbatim, host name and path included; (b) a path glued to a word character, `.` or `-` (for example `-L/dir/lib`)
+is not a token and is kept; (c) a path whose directory names contain white space, a comma, a semicolon, a pipe, a
+quote or a bracket is cut at that character, and the rest remains as a relative fragment; (d) two spellings of one
+directory that differ only by `.` or `..` segments print different tags (the STACK and ORDER checks compare them in
+normal form, but no message prints both); (e) the tag is an unsalted prefix of a hash of the path text, so a reader
+can confirm a guessed path by hashing it: it tells two paths apart, it does not hide a guessable one. The text of the
+records of a campaign is campaign data that is already in the archive; the cleaning protects the paths of the
+machine that runs the tool and keeps the output deterministic.
 
 ## 2. Inputs
 
