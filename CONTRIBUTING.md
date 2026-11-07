@@ -150,9 +150,11 @@ can pass.
 **ProximalBase 0.6 (development).** The package requires ProximalBase 0.6, which is not
 registered yet, so `Project.toml` and `docs/Project.toml` pin the development commit
 through `[sources]` (read by Julia 1.11 and later) and `Manifest-v1.10.toml` pins the same
-commit for Julia 1.10, which ignores `[sources]`. CI and the documentation build then
+commit for Julia 1.10, which ignores `[sources]` and reads versioned manifests only from
+1.10.8, so the minimum Julia version is 1.10.8 meanwhile. CI and the documentation build then
 resolve exactly that commit. When ProximalBase 0.6.0 is registered, remove both
-`[sources]` entries, `Manifest-v1.10.toml` and its `.gitignore` exception; until then the
+`[sources]` entries, `Manifest-v1.10.toml`, its `.gitignore` exception and the raised Julia
+minimum (`julia = "1.10"`); until then the
 package cannot be released from `master`.
 
 The package reads iterates only through the public interface of ProximalBase 0.6
