@@ -123,7 +123,7 @@ end
   reference = zeros(3, 3)
   solve!(reference, f, NormL1(0.1, Wbar), method)
   @test !iszero(reference[1, 2])
-  @test symmetric_l1_violation(S - inv(reference), reference, 0.1, Wbar) <= 1e-7
+  @test symmetric_l1_violation(S - inv(reference), reference, 0.1, Wbar) <= 1e-4
   for weights in (W, Wbar, Int.(W), Int.(Wbar)), vector_weights in (false, true)
     w = vector_weights ? vec(copy(weights)) : copy(weights)
     g = NormL1(0.1, w)

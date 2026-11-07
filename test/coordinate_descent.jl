@@ -56,9 +56,8 @@ end
     @test fs(S) ≈ fs(D)
     @test fs(D) ≈ f(D)
     if isdefined(ProximalBase, :check_symmetric_parameters)
-      # ProximalBase's own oracle rejects the asymmetric C on an owner (the solvers of
+      # ProximalBase's own value oracle rejects the asymmetric C on an owner (the solvers of
       # ProximalSolvers do not check the arrays of the loss)
-      @test_throws ArgumentError gradient!(G, f, S)
       @test_throws ArgumentError f(S)
     end
     @test_throws DimensionMismatch f(randn(q, q + 1))

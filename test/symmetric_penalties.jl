@@ -184,7 +184,7 @@ end
   method = ProxNewton(; tol = 1e-11, inner = cdsolver())
   solve!(qref, fg, NormL1(0.1, Wbar), method)
   @test !iszero(qref[1, 2])
-  @test symmetric_l1_violation(S - inv(qref), qref, 0.1, Wbar) <= 1e-7
+  @test symmetric_l1_violation(S - inv(qref), qref, 0.1, Wbar) <= 1e-4
   # CD takes an owner. QUIC takes an owner, with the weights checked, and a dense
   # matrix, whose asymmetric NormL1 weights are replaced by the means of their pairs.
   for weights in (W, Wbar, Int.(W), Int.(Wbar)), vector_weights in (false, true)

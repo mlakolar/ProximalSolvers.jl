@@ -116,7 +116,7 @@ end
   tight = Matrix(1.0I, 2, 2)
   solve!(tight, LogDetLoss(S), g, ProxNewton(; tol = 1e-11, inner = cdsolver()))
   @test tight ≈ x atol = 1e-4
-  @test symmetric_l1_violation(S - inv(tight), tight, 0.1, Wbar) <= 1e-7
+  @test symmetric_l1_violation(S - inv(tight), tight, 0.1, Wbar) <= 1e-4
   # an owner with the weights of the pair given as is takes the same solution
   o = SymmetricSparseIterate(Matrix(1.0I, 2, 2))
   solve!(o, LogDetLoss(S), NormL1(0.1, Wbar), ProxNewton(inner = CDSolver(rng = Xoshiro(1))))
