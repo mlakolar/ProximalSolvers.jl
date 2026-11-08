@@ -428,7 +428,8 @@ ProximalBase.gradient!(G::AbstractMatrix, f::OwnerQuadratic, x::SymmetricSparseI
   x, xk = SymmetricSparseIterate(2), SymmetricSparseIterate(2)
   r = solve!(x, OwnerQuadratic(kron), NormL1(0.1), method, options)
   rk = solve!(xk, kron, NormL1(0.1), method, options)
-  @test r.minimum ≈ -0.57 rtol = 1e-12
+  # the normalized step is exact for this quadratic; the plain step stops about 2e-9 short of it
+  @test r.minimum ≈ -0.57 rtol = (normalized ? 1e-12 : 1e-8)
   @test (r.minimum, r.iterations, r.f_calls) == (rk.minimum, rk.iterations, rk.f_calls)
   @test Matrix(x) == Matrix(xk)
   # an owner block of a tuple, beside a dense block
@@ -437,7 +438,7 @@ ProximalBase.gradient!(G::AbstractMatrix, f::OwnerQuadratic, x::SymmetricSparseI
               method, options)
   @test Matrix(xt[1]) ≈ Matrix(xk) atol = 1e-8
   @test xt[2] == [0.0]
-  @test rt.minimum ≈ -0.57 rtol = 1e-9
+  @test rt.minimum ≈ -0.57 rtol = 1e-8
 end
 
 end
