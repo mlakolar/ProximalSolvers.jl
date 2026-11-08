@@ -153,10 +153,16 @@ _workspace_partition(x::AtomIterate, y::AtomIterate) =
   ProximalBase.samegroups(x, y) || throw(ArgumentError("the starting point must have the workspace's groups."))
 _workspace_partition(x::Tuple, y::Tuple) = foreach(_workspace_partition, x, y)
 
+# whether a and b can share storage; two SymmetricSparseIterates do when they
+# are one object or share an array
+_mightalias(a, b) = Base.mightalias(a, b)
+_mightalias(a::SymmetricSparseIterate, b::SymmetricSparseIterate) =
+  a === b || !isdisjoint(Base.dataids(a), Base.dataids(b))
+
 _workspace_noalias(x) = nothing
 function _workspace_noalias(x::Tuple)
   for i in eachindex(x), j in eachindex(x)
-    i < j && Base.mightalias(x[i], x[j]) &&
+    i < j && _mightalias(x[i], x[j]) &&
       throw(ArgumentError("workspace tuple blocks must have separate storage."))
   end
   nothing
@@ -165,7 +171,7 @@ end
 _workspace_copyable(dest, src) = nothing
 function _workspace_copyable(dest::Tuple, src::Tuple)
   for i in eachindex(dest), j in eachindex(src)
-    i != j && Base.mightalias(dest[i], src[j]) &&
+    i != j && _mightalias(dest[i], src[j]) &&
       throw(ArgumentError("a starting block must not alias a different workspace block."))
   end
   nothing
