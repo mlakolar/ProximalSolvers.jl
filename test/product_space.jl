@@ -260,6 +260,88 @@ end
   @test b40 == b20
 end
 
+# Tuples with a SymmetricSparseIterate (owner) block: the blocks keep their types, and the
+# solution of two separate problems is that of the pair
+owner_state(x) = (Matrix(x), collect(activecoordinates(x)), collect(activevalues(x)))
+function owner_problem(p, seed)
+  rng = Xoshiro(seed)
+  R = randn(rng, p, p)
+  S = R'R / p + I
+  C = randn(rng, p, p)
+  KronQuadratic(S, S, (C + C') / 2)
+end
+
+@testset "a pair of an owner and a dense array $(summary(method))" for method in solvers
+  f1, g1 = owner_problem(4, 11), NormL1(0.2)
+  rng = Xoshiro(12)
+  X2, y2 = randn(rng, 50, 6), randn(rng, 50)
+  f2, g2 = (1 / 50) * LeastSquaresLoss(y2, X2), NormL1(0.05)
+  opt = ProximalOptions(; ftol = 1e-15, xtol = 1e-15, gradtol = 1e-13, maxiter = 20_000)
+  x1, x2 = SymmetricSparseIterate(4), zeros(6)
+  solve!(x1, f1, g1, method, opt)
+  solve!(x2, f2, g2, method, opt)
+  xt = (SymmetricSparseIterate(4), zeros(6))
+  r = solve!(xt, SeparableSum(f1, f2), SeparableSum(g1, g2), method, opt)
+  @test r.minimizer === xt
+  @test xt[1] isa SymmetricSparseIterate{Float64}
+  @test Matrix(xt[1]) ≈ Matrix(x1) atol = 1e-6
+  @test xt[2] ≈ x2 atol = 1e-6
+  @test r.minimum ≈ f1(x1) + g1(x1) + f2(x2) + g2(x2) rtol = 1e-9
+  @test 0 < nactive(xt[1]) < ncoordinates(xt[1])
+  @test occursin("2 blocks of sizes 4×4, 6", sprint(show, r))
+end
+
+@testset "a pair of owners $(summary(method))" for method in solvers
+  f1, f2 = owner_problem(3, 21), owner_problem(5, 22)
+  g1, g2 = NormL1(0.2), NormL1(0.3)
+  opt = ProximalOptions(; ftol = 1e-15, xtol = 1e-15, gradtol = 1e-13, maxiter = 20_000,
+                        store_trace = true, extended_trace = true)
+  x1, x2 = SymmetricSparseIterate(3), SymmetricSparseIterate(5)
+  solve!(x1, f1, g1, method, opt)
+  solve!(x2, f2, g2, method, opt)
+  xt = (SymmetricSparseIterate(3), SymmetricSparseIterate(5))
+  r = solve!(xt, SeparableSum(f1, f2), SeparableSum(g1, g2), method, opt)
+  @test Matrix(xt[1]) ≈ Matrix(x1) atol = 1e-6
+  @test Matrix(xt[2]) ≈ Matrix(x2) atol = 1e-6
+  @test r.minimum ≈ f1(x1) + g1(x1) + f2(x2) + g2(x2) rtol = 1e-9
+  # the traced iterates are copies of both owners
+  traced = r.trace[end].metadata["x"]
+  @test traced isa Tuple{SymmetricSparseIterate{Float64}, SymmetricSparseIterate{Float64}}
+  @test traced[1] !== xt[1] && Matrix(traced[1]) == Matrix(xt[1])
+end
+
+# one owner as both blocks, or a starting block that is another block of the workspace, is
+# refused before anything is written
+@testset "a tuple whose blocks share an owner" begin
+  f = SeparableSum(owner_problem(2, 31), owner_problem(2, 32))
+  g = SeparableSum(NormL1(0.1), NormL1(0.1))
+  x = SymmetricSparseIterate(2)
+  x[2, 1], x[1, 1] = 0.25, 0.5
+  activate!(x, tril_index(2, 2, 2))
+  before = owner_state(x)
+  for call in (() -> solve!((x, x), f, g, ProximalGradientDescent()),
+               () -> SolverWorkspace((x, x), f, g, AccProxGradDescent()))
+    err = try
+      call()
+      nothing
+    catch e
+      e
+    end
+    @test err isa ArgumentError
+    @test err isa ArgumentError && occursin("separate storage", sprint(showerror, err))
+    @test isequal(owner_state(x), before)
+  end
+  a, b = SymmetricSparseIterate(2), SymmetricSparseIterate(2)
+  ws = SolverWorkspace((a, b), f, g, MonotoneAccProxGradDescent())
+  solve!(ws)
+  saved = map(owner_state, (a, b))
+  @test_throws ArgumentError reinit!(ws, (copy(b), a))
+  @test isequal(map(owner_state, (a, b)), saved)
+  # a dense block that is a view of the owner block shares its storage
+  @test ProximalSolvers._mightalias(x, matrixview(x)) && ProximalSolvers._mightalias(x, coordinates(x))
+  @test !ProximalSolvers._mightalias(x, copy(x)) && !ProximalSolvers._mightalias(x, zeros(2, 2))
+end
+
 @testset "errors" begin
   f = SeparableSum(SqrNormL2(), SqrNormL2())
   g = SeparableSum(NormL1(0.1), NormL1(0.1))

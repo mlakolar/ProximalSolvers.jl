@@ -108,6 +108,44 @@ end
   @test isequal(W, saved)
 end
 
+# T17, proximal-gradient half: the real ProximalGradientDescent workspace on the same problem.
+# Raw W is rejected by the constructor before the owner is touched, by the symmetry rule for the
+# pair (2, 1), (1, 2) of W; Symmetric(W, :L) and the mean are different penalties, with the
+# solutions 2.7 and 2.8.
+@testset "asymmetric weights at the gradient workspace (T17, proximal gradient)" begin
+  B = [0.0 3.0; 3.0 0.0]
+  A = Matrix(1.0I, 2, 2)
+  f = KronQuadratic(A, A, -B)
+  W = [0.0 1.0; 3.0 0.0]
+  saved = copy(W)
+  x = warm_start()
+  before = snapshot(x)
+  err = try
+    SolverWorkspace(x, f, NormL1(0.1, W), ProximalGradientDescent(), gradient_options())
+    nothing
+  catch e
+    e
+  end
+  @test err isa ArgumentError
+  msg = err === nothing ? "" : sprint(showerror, err)
+  @test occursin("must be symmetric on a SymmetricSparseIterate", msg)
+  @test occursin("entry (2, 1) is 3.0 and entry (1, 2) is 1.0", msg)
+  @test isequal(snapshot(x), before)
+  @test isequal(W, saved)
+  solutions = Dict{Float64, Matrix{Float64}}()
+  for (penalty, expected) in ((NormL1(0.1, Symmetric(W, :L)), 2.7), (NormL1(0.1, (W .+ W') ./ 2), 2.8))
+    y = SymmetricSparseIterate(2)
+    ws = SolverWorkspace(y, f, penalty, ProximalGradientDescent(), gradient_options())
+    r = solve!(ws)
+    @test r.converged && r.minimizer === y
+    @test Matrix(y) ≈ [0.0 expected; expected 0.0] atol = 1e-6
+    @test r.minimum ≈ f(Matrix(y)) + penalty(Matrix(y)) atol = 1e-12
+    solutions[expected] = Matrix(y)
+  end
+  @test norm(solutions[2.7] - solutions[2.8]) > 0.1
+  @test isequal(W, saved)
+end
+
 @testset "independent optimality from the supplied weights" begin
   rng = Xoshiro(113)
   p = 5
