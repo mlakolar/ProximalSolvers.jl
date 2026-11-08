@@ -12,10 +12,18 @@ _zero_like(x::AtomIterate) = similar(x)
 # The start of a solve from zero: the values of x are zero and no coordinate is
 # active. fill! writes the zeros into the stored coordinates, which stay
 # stored, so dropzeros! empties the working set. A SymmetricSparseIterate takes
-# the zeros through coordinates(x), its lower triangle.
+# the zeros through coordinates(x), its lower triangle, at its active
+# coordinates: a zero written to a stored coordinate keeps it stored, so the
+# active set does not change during the loop, and the coordinates that are not
+# stored are zero already. The cost is O(nactive(x)); fill!(coordinates(x), 0)
+# loops over all p(p + 1)/2 coordinates with the ProximalBase of the committed
+# pin (6 to 16 times slower at p = 150 with 50% to 5% active).
 _clear_start!(x::Union{SparseIterate, AtomIterate}) = dropzeros!(fill!(x, zero(eltype(x))))
 function _clear_start!(x::SymmetricSparseIterate)
-  fill!(coordinates(x), zero(eltype(x)))
+  cx = coordinates(x)
+  for k in activecoordinates(x)
+    cx[k] = zero(eltype(x))
+  end
   dropzeros!(x)
 end
 
