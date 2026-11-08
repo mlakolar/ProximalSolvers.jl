@@ -946,7 +946,9 @@ Available for:
 - the graphical lasso: `f` a `LogDetLoss`, `g` a `NormL1` (with a matrix of
   weights, for example a zero diagonal) and `x` a symmetric matrix or a
   `SymmetricSparseIterate`. The dual point is `W - S` clipped to the penalty,
-  with `W = x⁻¹`, at the cost of two Cholesky factorizations. On a
+  with `W = x⁻¹`. The primal value `f(x)` factors `x` once (in ProximalBase's
+  `LogDetLoss`); when it is finite, the dual point factors `x` again and,
+  when that succeeds, `S + U`: up to three Cholesky factorizations. On a
   `SymmetricSparseIterate` the weights follow the symmetry rule of
   [`solve!`](@ref), checked before the gap is computed, and the gap is
   computed from its matrix.

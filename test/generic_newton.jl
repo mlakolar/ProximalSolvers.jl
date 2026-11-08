@@ -218,9 +218,9 @@ end
   @test r.maxchange <= r.tolerance
 end
 
-# ProxNewton on LogDetLoss with no penalty takes the generic path, whose quadratic model of the
-# log-likelihood is ProximalBase's model at the matrix of the iterate: the maximum likelihood
-# estimate S⁻¹, from an owner and from a dense start
+# ProxNewton on LogDetLoss, the negative log-likelihood w (tr(SX) - log det X), with no penalty
+# takes the generic path, whose quadratic model is ProximalBase's model at the matrix of the
+# iterate: the minimizer, the maximum likelihood estimate S⁻¹, from an owner and from a dense start
 @testset "generic ProxNewton on LogDetLoss and a SymmetricSparseIterate" begin
   rng = Xoshiro(23)
   p = 5
