@@ -8,7 +8,7 @@ module Blocks
 # that a tuple of one array computes exactly what the array does.
 
 using LinearAlgebra
-using ProximalBase: norm_diff
+using ProximalBase: norm_diff, SymmetricSparseIterate
 
 export _Blocks, _copy, _similar, _zero, _dense_similar, _copyto!, _copy!, _sub!, _step!, _extrapolate_point!,
        _relax!, _rdiv!, _norm, _norm_diff, _norm_inf, _dot, _dot_diff, _sumabs2, _length, _size,
@@ -35,6 +35,8 @@ _dense_similar(x::Tuple) = map(_dense_similar, x)
 
 _copyto!(y::AbstractArray, x::AbstractArray) = copyto!(y, x)
 _copyto!(y::Tuple, x::Tuple) = (foreach(_copyto!, y, x); y)
+# a SymmetricSparseIterate takes the coordinates of another one of its order
+_copyto!(y::SymmetricSparseIterate, x::SymmetricSparseIterate) = copyto!(y, x)
 
 _copy!(y::AbstractArray, x::AbstractArray) = copy!(y, x)
 _copy!(y::Tuple, x::Tuple) = (foreach(_copy!, y, x); y)
@@ -106,6 +108,7 @@ _length(x::AbstractArray) = length(x)
 _length(x::Tuple) = sum(map(length, x))
 
 _size(x::AbstractArray) = size(x)
+_size(x::SymmetricSparseIterate) = size(x)
 _size(x::Tuple) = map(size, x)
 
 # ∑ᵢ (aᵢ - bᵢ) cᵢ, accumulated in the type T
