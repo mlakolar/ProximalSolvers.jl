@@ -125,16 +125,15 @@ end
 
 # Whether the step of x with the penalty g takes the dense route: an owner whose
 # penalty is one of the three families above (_owner_prox), or a tuple whose
-# penalty is a SeparableSum with one penalty per block, also inside Scaled, and
-# inside Translate and Tilt with a tuple parameter of one block per block of x,
-# in which some block takes the dense route. Any other pair keeps the step of
-# ProximalBase on x.
+# penalty is a SeparableSum with one penalty per block, also inside Scaled at any
+# depth, in which some block takes the dense route. Any other pair keeps the
+# step of ProximalBase on x. (ProximalBase refuses Translate and Tilt around a
+# tuple with an owner block, with an ArgumentError, when the solver evaluates the
+# penalty at the start point, before it writes anything.)
 _dense_route(x, g) = false
 _dense_route(x::SymmetricSparseIterate, g) = !_owner_prox(g)
 _dense_route(x::Tuple, g::SeparableSum) = length(g.fs) == length(x) && any(map(_dense_route, x, g.fs))
 _dense_route(x::Tuple, g::Scaled) = _dense_route(x, g.f)
-_dense_route(x::Tuple, g::Translate) = g.b isa Tuple && length(g.b) == length(x) && _dense_route(x, g.f)
-_dense_route(x::Tuple, g::ProximalBase.Tilt) = g.c isa Tuple && length(g.c) == length(x) && _dense_route(x, g.f)
 
 # On the dense route a tuple x takes the proximal step of ProximalBase for the
 # whole penalty g at once, into the blocks of w: a dense matrix for each owner

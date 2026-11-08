@@ -387,19 +387,12 @@ end
   @test isequal(map(owner_state, x), before)
 end
 
-# The dense route of a tuple: a SeparableSum, also inside Scaled, Translate and Tilt (with one
-# parameter block per iterate block), with an owner block whose penalty is a linear constraint, an
-# intersection or a pointwise minimum. ProximalBase takes the step of the whole penalty into dense
-# buffers; the solution is the one of the same problem with dense matrices in place of the owners.
+# The dense route of a tuple: a SeparableSum, also inside Scaled (nested too), with an owner block
+# whose penalty is a linear constraint, an intersection or a pointwise minimum, scaled or not.
+# ProximalBase takes the step of the whole penalty into dense buffers; the solution is the one of
+# the same problem with dense matrices in place of the owners.
 const PSR = ProximalSolvers
-route_wrappers() = (
-  ("bare", g -> g),
-  ("Scaled", g -> Scaled(g, 0.7)),
-  ("Translate", g -> Translate(g, ([0.1 0.05; 0.05 -0.1], [0.2]))),
-  ("Tilt", g -> Tilt(g, ([0.1 -0.2; -0.2 0.05], [0.3]), 0.25)),
-  ("Scaled(Translate)", g -> Scaled(Translate(g, ([0.1 0.05; 0.05 -0.1], [0.2])), 0.7)),
-  ("Translate(Scaled)", g -> Translate(Scaled(g, 0.7), ([0.1 0.05; 0.05 -0.1], [0.2]))),
-  ("Tilt(Scaled)", g -> Tilt(Scaled(g, 0.7), ([0.1 -0.2; -0.2 0.05], [0.3]), 0.0)))
+route_wrappers() = (("bare", g -> g), ("Scaled", g -> Scaled(g, 0.7)), ("Scaled(Scaled)", g -> Scaled(Scaled(g, 0.7), 1.3)))
 @testset "the dense route, $wlabel sum with a $label $(summary(method))" for (wlabel, wrap) in route_wrappers(),
     (label, make) in constraint_penalties(), method in solvers
   A = Matrix(1.0I, 2, 2)
@@ -448,33 +441,23 @@ end
 end
 
 # An analytic solution: ½‖Θ - B‖² on the owner with the constraint Σᵢⱼ Θᵢⱼ = 0 (and an L1 weight
-# of zero) is the projection Θ = B - mean(B), and ½‖u‖² - ⟨u0, u⟩ with no penalty gives u = u0.
-# Translate by (B0, b2) moves the constraint to Σᵢⱼ Θᵢⱼ = Σᵢⱼ (B0)ᵢⱼ; Tilt by (C0, c2) adds
-# ⟨C0, Θ⟩ + ⟨c2, u⟩, which gives Θ = (B - C0) - mean(B - C0) and u = u0 - c2.
-@testset "the dense route against the closed form, $wlabel $(summary(method))" for wlabel in ("bare", "Scaled", "Translate", "Tilt"),
+# of zero) is the projection Θ = B - mean(B), and ½‖u‖² - ⟨u0, u⟩ with no penalty gives u = u0;
+# a scale of the sum leaves both unchanged.
+@testset "the dense route against the closed form, $wlabel $(summary(method))" for wlabel in ("bare", "Scaled"),
     method in solvers
   p = 3
   B = [1.0 0.4 -0.2; 0.4 2.0 0.3; -0.2 0.3 -0.5]
-  B0 = [0.2 0.1 0.0; 0.1 -0.3 0.05; 0.0 0.05 0.4]
-  C0 = [0.3 -0.1 0.2; -0.1 0.0 0.1; 0.2 0.1 -0.2]
-  u0, b2, c2 = [0.7, -1.2], [5.0, 1.0], [0.25, -0.5]
+  u0 = [0.7, -1.2]
   f = SeparableSum(KronQuadratic(Matrix(1.0I, p, p), Matrix(1.0I, p, p), -B), QuadraticFunction(Matrix(1.0I, 2, 2), -u0))
   g0 = SeparableSum(Constrained(NormL1(0.0), IndHyperplane(1.0, 0.0)), ZeroFunction())
-  g, Θ, u = if wlabel == "bare"
-    g0, B .- sum(B) / p^2, u0
-  elseif wlabel == "Scaled"
-    Scaled(g0, 0.7), B .- sum(B) / p^2, u0
-  elseif wlabel == "Translate"
-    Translate(g0, (B0, b2)), B .- (sum(B) - sum(B0)) / p^2, u0
-  else
-    Tilt(g0, (C0, c2), 0.0), (B - C0) .- sum(B - C0) / p^2, u0 - c2
-  end
+  g = wlabel == "bare" ? g0 : Scaled(g0, 0.7)
+  Θ, u = B .- sum(B) / p^2, u0
   x = (SymmetricSparseIterate(p), zeros(2))
   @test PSR._dense_route(x, g)
   r = solve!(x, f, g, method, ProximalOptions(; maxiter = 2000, ftol = 1e-15, xtol = 1e-15, gradtol = 1e-13))
   @test Matrix(x[1]) ≈ Θ atol = 1e-7
   @test x[2] ≈ u atol = 1e-7
-  @test abs(sum(Matrix(x[1])) - (wlabel == "Translate" ? sum(B0) : 0.0)) <= 1e-9
+  @test abs(sum(Matrix(x[1]))) <= 1e-9
   @test r.minimum ≈ f((Θ, u)) + g((Θ, u)) rtol = 1e-9 atol = 1e-12
 end
 
@@ -505,6 +488,51 @@ end
     y = SymmetricSparseIterate(2)
     solve!(y, fo, Scaled(NormL1(0.1), 0.7), method)
     @test Matrix(x[1]) ≈ Matrix(y) atol = 1e-5
+  end
+end
+
+# Translate and Tilt inside the blocks: around the constraint of the owner block and around the
+# penalty of a dense block
+@testset "the dense route with Translate and Tilt inside the blocks $(summary(method))" for method in solvers
+  A = Matrix(1.0I, 2, 2)
+  fo = KronQuadratic(A, A, [-1.0 -0.5; -0.5 0.2])
+  lc = Constrained(NormL1(0.1), IndHyperplane(1.0, 0.0))
+  opt = ProximalOptions(; maxiter = 2000, ftol = 1e-14, xtol = 1e-14, gradtol = 1e-12)
+  for g in (SeparableSum(Translate(lc, [0.1 0.05; 0.05 -0.1]), Translate(NormL1(0.1), [0.2])),
+            SeparableSum(Tilt(lc, [0.1 -0.2; -0.2 0.05]), Tilt(NormL1(0.1), [0.3])),
+            Scaled(SeparableSum(Translate(lc, [0.1 0.05; 0.05 -0.1]), Tilt(NormL1(0.1), [0.3])), 0.7))
+    x = (SymmetricSparseIterate(2), zeros(1))
+    @test PSR._dense_route(x, g)
+    r = solve!(x, SeparableSum(fo, SqrNormL2()), g, method, opt)
+    xd = (zeros(2, 2), zeros(1))
+    rd = solve!(xd, SeparableSum(fo, SqrNormL2()), g, method, opt)
+    @test Matrix(x[1]) ≈ xd[1] atol = 1e-6
+    @test x[2] ≈ xd[2] atol = 1e-6
+    @test r.minimum ≈ rd.minimum rtol = 1e-8 atol = 1e-10
+  end
+end
+
+# ProximalBase refuses Translate and Tilt around a whole tuple that has an owner block, when the
+# solver evaluates the penalty at the start point: the iterate is unchanged
+@testset "ProximalBase refuses Translate and Tilt around a tuple with an owner $(summary(method))" for method in solvers
+  A = Matrix(1.0I, 2, 2)
+  f = SeparableSum(KronQuadratic(A, A, [-1.0 -0.5; -0.5 0.2]), SqrNormL2())
+  sum0 = SeparableSum(Constrained(NormL1(0.1), IndHyperplane(1.0, 0.0)), NormL1(0.1))
+  b, c = ([0.1 0.05; 0.05 -0.1], [0.2]), ([0.1 -0.2; -0.2 0.05], [0.3])
+  for g in (Translate(sum0, b), Tilt(sum0, c, 0.25), Scaled(Translate(sum0, b), 0.7), Translate(Scaled(sum0, 0.7), b),
+            Tilt(Scaled(sum0, 0.7), c, 0.0))
+    x = (SymmetricSparseIterate(2), [0.4])
+    x[1][2, 1], x[1][1, 1] = 0.25, 0.5
+    before = (owner_state(x[1]), copy(x[2]))
+    err = try
+      solve!(x, f, g, method)
+      nothing
+    catch e
+      e
+    end
+    @test err isa ArgumentError
+    @test err isa ArgumentError && occursin("do not support a SymmetricSparseIterate as a block", sprint(showerror, err))
+    @test isequal((owner_state(x[1]), copy(x[2])), before)
   end
 end
 

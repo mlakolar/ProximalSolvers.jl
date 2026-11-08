@@ -240,13 +240,16 @@ a zero is not in it. For `LinearConstrained`, `IndIntersection` and
 proximal step of a `SymmetricSparseIterate` is taken over matrices into a dense
 buffer and copied into the iterate, which throws an `ArgumentError` when that
 matrix is not exactly symmetric. A tuple whose penalty is a `SeparableSum` (also
-inside `Scaled`, and inside `Translate` and `Tilt` with one parameter block per
-iterate block) in which a `SymmetricSparseIterate` block has such a penalty
+inside `Scaled`) in which a `SymmetricSparseIterate` block has such a penalty
 takes the proximal step of ProximalBase for the whole penalty into dense
 buffers for its `SymmetricSparseIterate` blocks and buffers of the block type
 for the others; the result is copied into the iterate after every
 `SymmetricSparseIterate` block of it is checked to be exactly symmetric, and an
-`ArgumentError` is thrown before any block is written when one is not. The diagonal preconditioner, [`ActiveAccProxGradDescent`](@ref) and
+`ArgumentError` is thrown before any block is written when one is not.
+ProximalBase refuses `Translate` and `Tilt` around a tuple with a
+`SymmetricSparseIterate` block with an `ArgumentError`, which the solvers raise
+when they evaluate the penalty at the start point, before anything is written.
+The diagonal preconditioner, [`ActiveAccProxGradDescent`](@ref) and
 [`ADMMSolver`](@ref) throw an `ArgumentError` before anything is written when
 the iterate is a `SymmetricSparseIterate`.
 
