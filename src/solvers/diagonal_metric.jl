@@ -101,17 +101,21 @@ end
 
 _metric_prox!(x, g, z, L, m) = convert(_eltype(x), value_and_prox!(x, g, z, _metric_steps!(m, L)))
 
-# ProximalBase has no proximal operator into a SymmetricSparseIterate for these
-# penalties (and the wrappers that forward to them); their step goes into a
-# dense matrix, which copyto! moves into the owner after checking that it is
-# symmetric. At a symmetric z the proximal point of such a penalty over
-# matrices is symmetric, and it is the proximal point over symmetric matrices.
+# The step of the gradient solvers, with w a dense buffer of the shape of z that
+# the solver does not read until it writes it again (delta_x); w serves an owner x.
+_metric_prox!(x, g, z, L, m, w) = _metric_prox!(x, g, z, L, m)
+# ProximalBase has no proximal operator into a SymmetricSparseIterate for the
+# penalties below, nor for Scaled, Translate and Tilt around them. For those, the
+# proximal point over matrices goes into w, and the checked copyto! of
+# ProximalBase moves it into x, or throws an ArgumentError when w is not exactly
+# symmetric. When z is symmetric and g(X') = g(X) (symmetric parameters, which
+# _symmetric_penalty requires), a unique proximal point over matrices is
+# symmetric, and it is then the proximal point over symmetric matrices.
 _owner_prox(g) = true
 _owner_prox(::Union{ProximalBase.PointwiseMinimum, ProximalBase.IndIntersection, ProximalBase.LinearConstrained}) = false
 _owner_prox(g::Union{Scaled, Translate, ProximalBase.Tilt}) = _owner_prox(g.f)
-function _metric_prox!(x::SymmetricSparseIterate, g, z::AbstractMatrix, L, ::Nothing)
+function _metric_prox!(x::SymmetricSparseIterate, g, z::AbstractMatrix, L, ::Nothing, w::AbstractMatrix)
   _owner_prox(g) && return convert(_eltype(x), value_and_prox!(x, g, z, one(L) / L))
-  w = similar(z)
   v = value_and_prox!(w, g, z, one(L) / L)
   copyto!(x, w)
   convert(_eltype(x), v)

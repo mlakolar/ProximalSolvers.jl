@@ -157,7 +157,7 @@ function update_state!(
     while true
       # find next point
       _metric_step!(state.xhat, state.x_previous, state.grad_f_x_previous, state.L, state.metric)
-      state.g_x = _metric_prox!(state.x, g, state.xhat, state.L, state.metric)
+      state.g_x = _metric_prox!(state.x, g, state.xhat, state.L, state.metric, state.delta_x)
       _drop!(state.x)
       state.f_x = _value!(f, state.x, state.model, state.z_x)
       state.prox_calls += 1
@@ -201,11 +201,18 @@ function _check_debias(f, x0)
 end
 
 _same_support(x, y) = all(i -> iszero(x[i]) == iszero(y[i]), eachindex(x, y))
-# on SymmetricSparseIterates, over the coordinates of the lower triangle; a
-# stored zero counts as zero
+# On owners, the support is the set of coordinates whose value is not zero; an
+# active coordinate that holds a zero is outside it. The supports are equal when
+# the nonzero active coordinates of x are nonzero in y and the two counts agree.
 function _same_support(x::SymmetricSparseIterate, y::SymmetricSparseIterate)
   cx, cy = coordinates(x), coordinates(y)
-  all(k -> iszero(cx[k]) == iszero(cy[k]), 1:ncoordinates(x))
+  n = 0
+  for k in activecoordinates(x)
+    iszero(cx[k]) && continue
+    iszero(cy[k]) && return false
+    n += 1
+  end
+  n == count(!iszero, activevalues(y))
 end
 
 _refit_copy(x::Union{SparseIterate, SymmetricSparseIterate}) = copy(x)

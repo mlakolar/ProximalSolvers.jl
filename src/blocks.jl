@@ -7,13 +7,17 @@ module Blocks
 # it; for a tuple it applies that block by block and combines the results, so
 # that a tuple of one array computes exactly what the array does.
 #
-# A SymmetricSparseIterate is an iterate of its own: the points where f is
-# evaluated keep its type, and its matrix enters the operations that read it
-# through matrixview, both triangles. The trial points and the differences of
-# iterates of an owner are dense matrices (_trial_similar).
+# A SymmetricSparseIterate (an owner) is an iterate of its own: the points
+# where f is evaluated keep its type, and the operations read its matrix, both
+# triangles, so that norms are Frobenius norms of the matrix. The trial points
+# and the differences of iterates of an owner are dense matrices
+# (_trial_similar). The operations between owners read the active coordinates
+# of their operands, and the dense results are written at both positions of
+# each coordinate.
 
 using LinearAlgebra
-using ProximalBase: norm_diff, SymmetricSparseIterate, coordinates, activevalues, matrixview
+using ProximalBase: norm_diff, SymmetricSparseIterate, coordinates, activecoordinates, activevalues,
+                    matrixview, tril_cartesian
 
 export _Blocks, _Iterate, _trial_similar, _copy, _similar, _zero, _dense_similar, _copyto!, _copy!, _sub!, _step!, _extrapolate_point!,
        _relax!, _rdiv!, _norm, _norm_diff, _norm_inf, _dot, _dot_diff, _sumabs2, _length, _size,
@@ -65,28 +69,63 @@ _copy!(y::SymmetricSparseIterate, x::SymmetricSparseIterate) = copyto!(y, x)
 # y = a - b
 _sub!(y::AbstractArray, a, b) = (y .= _mat(a) .- _mat(b); y)
 _sub!(y::Tuple, a::Tuple, b::Tuple) = (foreach(_sub!, y, a, b); y)
+# for owners a and b: the entries of y that are zero in both stay zero(T), which
+# is what 0 - 0 gives; the others take a[r, c] - b[r, c] at (r, c) and (c, r)
+function _sub!(y::Matrix, a::SymmetricSparseIterate, b::SymmetricSparseIterate)
+  size(y) == size(a) == size(b) || throw(DimensionMismatch("the difference of owners of sizes $(size(a)), $(size(b)) into $(size(y))"))
+  fill!(y, zero(eltype(y)))
+  p, ca, cb = size(a, 1), coordinates(a), coordinates(b)
+  for s in (a, b), k in activecoordinates(s)
+    r, c = tril_cartesian(p, k)
+    @inbounds y[r, c] = y[c, r] = ca[k] - cb[k]
+  end
+  y
+end
 
 # y = x - g / L
 _step!(y::AbstractArray, x, g, L) = (y .= _mat(x) .- g ./ L; y)
 _step!(y::Tuple, x::Tuple, g::Tuple, L) = (foreach((yk, xk, gk) -> _step!(yk, xk, gk, L), y, x, g); y)
+# for an owner x, entry by entry the operations of the broadcast above: 0 - g / L
+# where x is zero, and x[r, c] - g[r, c] / L at the two positions of each active
+# coordinate. y is exactly symmetric when g is.
+function _step!(y::Matrix, x::SymmetricSparseIterate, g::AbstractMatrix, L)
+  size(y) == size(x) == size(g) || throw(DimensionMismatch("a step from an owner of size $(size(x)) with a gradient of size $(size(g)) into $(size(y))"))
+  y .= zero(eltype(y)) .- g ./ L
+  p, cx = size(x, 1), coordinates(x)
+  for k in activecoordinates(x)
+    v = cx[k]
+    r, c = tril_cartesian(p, k)
+    @inbounds y[r, c] = v - g[r, c] / L
+    @inbounds y[c, r] = v - g[c, r] / L
+  end
+  y
+end
 
 # y = x + ω (x - xp)
 _extrapolate_point!(y::AbstractArray, x, xp, ω) = (@. y = x + ω * (x - xp); y)
-# on a SymmetricSparseIterate y, through the coordinates; a coordinate that is
-# not active and gets zero stays inactive
+# On owners, the coordinates active in x or xp take the value of the formula,
+# after the active values of y are set to zero; at the other coordinates the
+# formula gives zero for a finite ω. The callers drop the zeros of y.
 function _extrapolate_point!(y::SymmetricSparseIterate, x::SymmetricSparseIterate, xp::SymmetricSparseIterate, ω)
   cy, cx, cp = coordinates(y), coordinates(x), coordinates(xp)
-  @. cy = cx + ω * (cx - cp)
+  fill!(activevalues(y), zero(eltype(y)))
+  for s in (x, xp), k in activecoordinates(s)
+    cy[k] = cx[k] + ω * (cx[k] - cp[k])
+  end
   y
 end
 _extrapolate_point!(y::Tuple, x::Tuple, xp::Tuple, ω) = (foreach((yk, xk, pk) -> _extrapolate_point!(yk, xk, pk, ω), y, x, xp); y)
 
 # y = x + a (z - x) + b (x - xp), the extrapolation of monotone APG
 _extrapolate_point!(y::AbstractArray, x, z, xp, a, b) = (@. y = x + a * (z - x) + b * (x - xp); y)
+# on owners, as the method with three points: the coordinates active in x, z or xp
 function _extrapolate_point!(y::SymmetricSparseIterate, x::SymmetricSparseIterate, z::SymmetricSparseIterate,
                              xp::SymmetricSparseIterate, a, b)
   cy, cx, cz, cp = coordinates(y), coordinates(x), coordinates(z), coordinates(xp)
-  @. cy = cx + a * (cz - cx) + b * (cx - cp)
+  fill!(activevalues(y), zero(eltype(y)))
+  for s in (x, z, xp), k in activecoordinates(s)
+    cy[k] = cx[k] + a * (cz[k] - cx[k]) + b * (cx[k] - cp[k])
+  end
   y
 end
 _extrapolate_point!(y::Tuple, x::Tuple, z::Tuple, xp::Tuple, a, b) =
@@ -167,7 +206,16 @@ function _maxabs_diff(x::AbstractArray{T}, y::AbstractArray) where {T}
   end
   m
 end
-_maxabs_diff(x::SymmetricSparseIterate, y::SymmetricSparseIterate) = _maxabs_diff(matrixview(x), matrixview(y))
+# for owners, over the coordinates active in x or y, where the two can differ:
+# an entry and its transpose give the same difference
+function _maxabs_diff(x::SymmetricSparseIterate{T}, y::SymmetricSparseIterate) where {T}
+  cx, cy = coordinates(x), coordinates(y)
+  m = zero(T)
+  for s in (x, y), k in activecoordinates(s)
+    m = max(m, abs(cx[k] - cy[k]))
+  end
+  m
+end
 _maxabs_diff(x::Tuple, y::Tuple) = maximum(map(_maxabs_diff, x, y))
 
 # maxᵢ |L dᵢ + gᵢ|

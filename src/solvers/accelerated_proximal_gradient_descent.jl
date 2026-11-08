@@ -182,7 +182,7 @@ function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, method::AccPr
     end
     while true
       _metric_step!(state.xhat, state.y, state.grad_f_y, state.L, state.metric)
-      state.g_x = _metric_prox!(state.x, g, state.xhat, state.L, state.metric)
+      state.g_x = _metric_prox!(state.x, g, state.xhat, state.L, state.metric, state.delta_x)
       _drop!(state.x)
       state.f_x = _value!(f, state.x, state.model, state.z_x)
       state.prox_calls += 1

@@ -106,6 +106,11 @@ function SolverWorkspace(x, f::Union{AbstractFunction, CDModel}, g::AbstractFunc
   SolverWorkspace(x, f, g, method, nothing, buffers, _size(x))
 end
 
+# ADMM and the active-set solver on an owner: the refusal of their solve!
+SolverWorkspace(x::SymmetricSparseIterate, f::AbstractFunction, g::AbstractFunction,
+                method::Union{ActiveAccProxGradDescent, ADMMSolver}, options::ProximalOptions = ProximalOptions()) =
+  _refuse_owner(method)
+
 function SolverWorkspace(x, f, g, method::ProximalSolver, options::ProximalOptions = ProximalOptions())
   throw(ArgumentError("SolverWorkspace supports gradient solvers, CDSolver and ADMMSolver; got $(typeof(method))."))
 end
@@ -153,11 +158,12 @@ _workspace_partition(x::AtomIterate, y::AtomIterate) =
   ProximalBase.samegroups(x, y) || throw(ArgumentError("the starting point must have the workspace's groups."))
 _workspace_partition(x::Tuple, y::Tuple) = foreach(_workspace_partition, x, y)
 
-# whether a and b can share storage; two SymmetricSparseIterates do when they
-# are one object or share an array
-_mightalias(a, b) = Base.mightalias(a, b)
-_mightalias(a::SymmetricSparseIterate, b::SymmetricSparseIterate) =
-  a === b || !isdisjoint(Base.dataids(a), Base.dataids(b))
+# whether a and b can share storage, by Base.mightalias; an owner enters as the
+# vector of its coordinates, which reports the storage arrays of the owner, so
+# that an owner is seen to share storage with itself and with its views
+_alias_operand(x) = x
+_alias_operand(x::SymmetricSparseIterate) = coordinates(x)
+_mightalias(a, b) = Base.mightalias(_alias_operand(a), _alias_operand(b))
 
 _workspace_noalias(x) = nothing
 function _workspace_noalias(x::Tuple)
