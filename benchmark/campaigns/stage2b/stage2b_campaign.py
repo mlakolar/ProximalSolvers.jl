@@ -705,6 +705,43 @@ def parse_pilot(data, official_sched):
     return data
 
 
+def pilot_schedule_problems(config, schedule, official, arms=None):
+    """The one check of a pilot schedule against the held configuration and the committed official schedule,
+    used before launch (`plan_from_pilot`, on the schedule the processes will use) and by `verify` (on the archived
+    schedule). `schedule` and `official` are loaded schedules (`mc.load_schedule`), `arms` the arms of the
+    schedule file.
+
+    samples_target, seconds_limit and case_seconds must equal the value of `[pilot]` of the configuration when it
+    names one and the OFFICIAL value otherwise (numbers compared as numbers, no booleans); every other [settings]
+    value must equal the official one byte for byte; the repetition IDs must be a non-empty prefix of the official
+    ones with the official AB/BA order; the arms must be those of the configuration."""
+    problems = []
+    if schedule["id"] != config["schedule"]["id"] or schedule["campaign_id"] != config["campaign"]["id"]:
+        problems.append("the schedule ids differ from the pilot configuration's")
+    pilot, settings, wanted = config["pilot"], schedule["settings"], official["settings"]
+    for key in PILOT_SAMPLING:
+        effective = pilot.get(key, wanted[key])
+        value = settings.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+            problems.append(f"settings.{key} is {value!r}, not a positive number")
+        elif float(value) != float(effective):
+            origin = "the pilot configuration" if key in pilot else "the official schedule"
+            problems.append(f"settings.{key} is {value!r}, {origin} has {effective!r}")
+    for key in sorted((settings.keys() | wanted.keys()) - set(PILOT_SAMPLING)):
+        if key not in settings or key not in wanted or not mc.same(settings[key], wanted[key]):
+            problems.append(f"settings.{key} is {settings.get(key)!r}, the official schedule has {wanted.get(key)!r}")
+    reps, official_reps = list(schedule["reps"]), list(official["reps"])
+    if not reps or reps != official_reps[:len(reps)]:
+        problems.append(f"reps {reps} are not a non-empty prefix of the official {official_reps}")
+    for rep in reps:
+        if schedule["orders"].get(rep) != official["orders"].get(rep):
+            problems.append(f"the order of repetition {rep} is {schedule['orders'].get(rep)!r}, the official one is "
+                            f"{official['orders'].get(rep)!r}")
+    if arms is not None and tuple(a for a in ARMS if a in arms) != tuple(a for a in ARMS if a in pilot["arms"]):
+        problems.append(f"the arms {list(arms)} are not the configuration's {pilot['arms']}")
+    return problems
+
+
 def load_pilot(path, official_sched):
     try:
         data = tomllib.loads(Path(path).read_bytes().decode("utf-8"))
@@ -898,6 +935,10 @@ def plan_from_pilot(config, base, julia_bins, parent_env, arms=None, bundled_dep
     if chosen != schedule_arms(base):
         raise LockRefusal("pilot.arms", f"arms {chosen} differ from the arms {schedule_arms(base)} of the "
                           "schedule copy")
+    problems = pilot_schedule_problems(config, sched, official, schedule_arms(base))
+    if problems:
+        raise Refused("the pilot schedule does not match the pilot configuration: " + "; ".join(problems),
+                      field="pilot.schedule", problems=problems)
     roles = build_roles(sched, base, chosen, False, None, julia_bins, bundled_depot)
     session = config["campaign"].get("session_id") or session_from_base(base, roles)
     return Plan(base=base, sched=sched, official=False, campaign_id=sched["campaign_id"], session_id=session,
@@ -1662,6 +1703,22 @@ def state_text(state, **info):
     return json.dumps({"schema": 1, "state": state, **info}, indent=2) + "\n"
 
 
+def check_prepared(plan):
+    """No formal process without a finished `prepare --step finalize`: logs/finalize.json says `finalized` with no
+    problems, and logs/depot-baselines.json holds a digest for every role of the plan."""
+    logs = plan.base / "logs"
+    marker = read_json_file(logs / "finalize.json")
+    if marker is None or marker.get("state") != "finalized" or marker.get("problems") != []:
+        state = None if marker is None else (marker.get("state"), marker.get("problems"))
+        raise Refused(f"{plan.base.name} is not prepared: logs/finalize.json must say finalized with no problems "
+                      f"(found {state!r}); run prepare --step finalize", field="prepare")
+    baselines = read_json_file(logs / "depot-baselines.json")
+    missing = [r for r in plan.role_names() if not isinstance((baselines or {}).get(r), str) or not baselines[r]]
+    if baselines is None or missing:
+        raise Refused(f"logs/depot-baselines.json must hold a digest for every role (missing {missing or 'file'})",
+                      field="prepare")
+
+
 def check_fresh(plan):
     """No STATE, receipt, evidence log or raw record may exist: a root, a prefix or a stopped state is refused."""
     base = plan.base
@@ -1769,6 +1826,7 @@ def execute(plan, hooks):
     if missing:
         raise Refused(f"the hooks {missing} are mandatory: an official or pilot run needs the depot-cache digest "
                       "and the data_hash check", field="hooks")
+    check_prepared(plan)
     check_fresh(plan)
     check_identity_files(plan)
     order = process_order(plan)
@@ -2182,12 +2240,18 @@ def check_fingerprints(root, sched, role, problems):
 
 
 def symlink_problems(base):
-    """A symbolic link anywhere in the tree (files, directories at any depth, and BASE itself)."""
+    """A symbolic link anywhere in the evidence (files, directories at any depth, BASE itself and the private
+    top-level entries themselves); the content of installations, environments and depots is not evidence."""
     base = str(base)
     problems = []
     if os.path.islink(base):
         problems.append("the base directory is a symbolic link")
+    for name in PRIVATE_DIRECTORIES:                 # the entry itself must not be a link; its content is not evidence
+        if os.path.islink(os.path.join(base, name)):
+            problems.append(f"{name} is a symbolic link")
     for folder, directories, names in os.walk(base):
+        if os.path.abspath(folder) == os.path.abspath(base):
+            directories[:] = [d for d in directories if d not in PRIVATE_DIRECTORIES]
         for name in directories + names:
             path = os.path.join(folder, name)
             if os.path.islink(path):
@@ -2388,14 +2452,12 @@ def check_pilot_binding(base, sched, campaign, config_path, problems):
     except (Refused, tomllib.TOMLDecodeError, UnicodeDecodeError, mc.Usage) as error:
         problems.append(f"pilot configuration: {error}")
         return
-    if config["campaign"]["id"] != campaign.get("campaign_id") or config["schedule"]["id"] != sched["id"] \
-            or sched["campaign_id"] != campaign.get("campaign_id"):
+    if config["campaign"]["id"] != campaign.get("campaign_id") or sched["campaign_id"] != campaign.get("campaign_id"):
         problems.append("pilot configuration: the ids differ from the attempt and its schedule")
     if "session_id" in config["campaign"] and config["campaign"]["session_id"] != campaign.get("session_id"):
         problems.append("pilot configuration: the session id differs from the attempt")
-    if tuple(config["pilot"]["arms"]) != schedule_arms(base) and set(config["pilot"]["arms"]) != set(
-            schedule_arms(base)):
-        problems.append("pilot configuration: the arms differ from the archived schedule's")
+    problems += [f"pilot configuration: {p}" for p in pilot_schedule_problems(
+        config, sched, mc.load_schedule(HERE / "schedule.toml"), schedule_arms(base))]
     if campaign.get("pilot_config_sha256") != sha256_file(archived):
         problems.append("pilot-config.toml differs from the digest recorded in logs/campaign.json")
     declared_path = base / "declared-differences.toml"
@@ -2537,6 +2599,11 @@ def verify(base, out, replay=True, config=None, run=subprocess.run):
     if mode is not None and campaign.get("official") is not (mode == "official"):
         problems.append(f"logs/campaign.json: official is {campaign.get('official')!r}, but the identity is "
                         f"{'official' if mode == 'official' else 'a pilot'}")
+    if mode is not None:
+        other = "pilot_config_sha256" if mode == "official" else "lock_sha256"
+        if campaign.get(other) is not None:
+            problems.append(f"logs/campaign.json: {other} is set in {'an official' if mode == 'official' else 'a pilot'} "
+                            "attempt")
     if mode == "official":
         # The reference for an official attempt is the verifier's own tracked, unmodified schedule.toml, never
         # the archive: arms, roots, blocks and counts derive from it.
@@ -2742,6 +2809,23 @@ def depot_digest(depot):
     return digest.hexdigest()
 
 
+def depot_entries(spec):
+    """Every effective JULIA_DEPOT_PATH entry of a role: its private depot and the bundled depots of every stratum
+    it runs (the same entries `launch_env` puts into JULIA_DEPOT_PATH), each once, in a fixed order."""
+    entries = [str(spec.depot)]
+    for mm in spec.environments:
+        entries += [e for e in bundled_of(spec, mm).split(":") if e]
+    return list(dict.fromkeys(entries))
+
+
+def effective_depot_digest(spec):
+    """One digest over `depot_digest` of every effective depot entry of the role (also the bundled Julia depots)."""
+    digest = hashlib.sha256()
+    for entry in depot_entries(spec):
+        digest.update(f"{entry}\0{depot_digest(entry)}\n".encode())
+    return digest.hexdigest()
+
+
 def bundled_depots(julia_bins):
     """{stratum: the two depot entries that belong to the Julia installation of that stratum}."""
     return {mm: f"{Path(binary).parent.parent}/local/share/julia:{Path(binary).parent.parent}/share/julia"
@@ -2853,7 +2937,7 @@ class RealHooks:
         return sample_machine(self.plan.cpu)
 
     def depot_digest(self, spec):
-        return depot_digest(spec.depot)
+        return effective_depot_digest(spec)
 
     def datahash_ok(self, role, mm, rep):
         return datahash_matches(self.plan.base, self.plan.sched, role, mm, rep)
@@ -2869,7 +2953,7 @@ class RealHooks:
         create_exclusive(logs / f"{name}.err", result.stderr.decode("utf-8", "replace"))
         (logs / "prepare-commands.jsonl").touch()
         append_jsonl(logs / "prepare-commands.jsonl", {"step": name, "argv": argv, "cwd": str(spec.checkout),
-                                                       "env": env, "exit": result.exit})
+                                                       "env": redacted_env(env), "exit": result.exit})
         return result
 
     def precompile(self, spec, mm):
@@ -3216,7 +3300,8 @@ def julia_step(st, role, mm, name, code, env_dir, pause=5.0):
         create_exclusive(logs / f"prepare-{role}-{mm}-{label}.out", result.stdout.decode("utf-8", "replace"))
         create_exclusive(logs / f"prepare-{role}-{mm}-{label}.err", result.stderr.decode("utf-8", "replace"))
         (logs / "prepare-commands.jsonl").touch()
-        append_jsonl(logs / "prepare-commands.jsonl", {"step": f"{role}-{mm}-{label}", "argv": argv, "env": env,
+        append_jsonl(logs / "prepare-commands.jsonl", {"step": f"{role}-{mm}-{label}", "argv": argv,
+                                                       "env": redacted_env(env),
                                                        "cwd": str(env_dir), "exit": result.exit})
         if result.exit == 0:
             return STALE_MANIFEST in (result.stdout + result.stderr).decode("utf-8", "replace")
@@ -3294,28 +3379,36 @@ def snapshot_environment(st, role, mm, env):
         (target / name).chmod(0o444)
 
 
+DEFAULT_PB_SOURCE = "https://github.com/mlakolar/ProximalBase.jl"
+
+
 def check_pb_tag(st, depot):
-    """The ProximalBase tag of stack A resolves to the pinned commit and tree: the tree from the registry copy
-    of an instantiated depot, the commit (and the tree again) from a clone when a locator is configured."""
+    """The ProximalBase tag of stack A resolves to the pinned commit AND tree. It is always checked, never
+    skipped: from the configured locator (`[source] proximalbase` of the pilot configuration, the lock's source) or,
+    when none is configured, from DEFAULT_PB_SOURCE. A failing clone or git, another commit or another tree is a
+    refusal. A registry copy of the instantiated depot is a second witness for the tree only: its absence is
+    acceptable (the tag check is what must succeed), a different tree is a refusal, and a matching registry tree
+    alone proves nothing."""
     pb = st.sched["stack_a"]["proximalbase"]
     uuid = stage2a_campaign()["proximalbase"]["uuid"]
-    record = {"tag": pb["tag"], "registry_tree": registry_tree(depot, uuid, pb["version"])}
+    source = st.pb_source or DEFAULT_PB_SOURCE
+    record = {"tag": pb["tag"], "registry_tree": registry_tree(depot, uuid, pb["version"]),
+              "source": source, "source_kind": "configured locator" if st.pb_source else "default repository"}
     if record["registry_tree"] not in (None, pb["tree"]):
         raise Refused(f"the registry lists ProximalBase {pb['version']} with tree {record['registry_tree']}, "
                       f"expected {pb['tree']}")
-    if st.pb_source:
-        scratch = Path(tempfile.mkdtemp(prefix="stage2b-pb-"))
-        try:
-            run_git(st.run, *GIT_THREADS, "clone", "--quiet", "--bare", "--no-hardlinks", "--", st.pb_source,
-                    str(scratch / "pb.git"))
-            run = st.run or subprocess.run
-            for key, spec in (("commit", f"refs/tags/{pb['tag']}^{{commit}}"), ("tree", f"refs/tags/{pb['tag']}^{{tree}}")):
-                record[f"clone_{key}"] = git(scratch / "pb.git", "rev-parse", spec, run=run)
-                if record[f"clone_{key}"] != pb[key]:
-                    raise Refused(f"the tag {pb['tag']} of the ProximalBase clone has {key} "
-                                  f"{record[f'clone_{key}']}, expected {pb[key]}")
-        finally:
-            shutil.rmtree(scratch, ignore_errors=True)
+    scratch = Path(tempfile.mkdtemp(prefix="stage2b-pb-"))
+    try:
+        run_git(st.run, *GIT_THREADS, "clone", "--quiet", "--bare", "--no-hardlinks", "--", source,
+                str(scratch / "pb.git"))
+        run = st.run or subprocess.run
+        for key, spec in (("commit", f"refs/tags/{pb['tag']}^{{commit}}"), ("tree", f"refs/tags/{pb['tag']}^{{tree}}")):
+            record[f"clone_{key}"] = git(scratch / "pb.git", "rev-parse", spec, run=run)
+            if record[f"clone_{key}"] != pb[key]:
+                raise Refused(f"the tag {pb['tag']} of the ProximalBase clone has {key} "
+                              f"{record[f'clone_{key}']}, expected {pb[key]}")
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
     return record
 
 
@@ -3368,9 +3461,9 @@ def prepare_fetch(st):
         clone_checkout(st.source, checkout, pinned["ps"]["commit"], st.run)
         facts = verify_checkout(checkout, pinned["ps"], pinned["harness_hash"], st.run)
         info = {"stack": stack, "checkout": facts, "environments": {}}
-        if stack == "B" and st.lock["stack_b"]["proximalbase"]["release"] == "development":
+        if stack == "B":                              # registered and development alike: the pinned identity checkout
             pb_checkout = st.base / "installations" / role / "ProximalBase.jl"
-            clone_checkout(st.pb_source, pb_checkout, pinned["pb"]["commit"], st.run)
+            clone_checkout(st.pb_source or DEFAULT_PB_SOURCE, pb_checkout, pinned["pb"]["commit"], st.run)
             info["proximalbase"] = verify_checkout(pb_checkout, pinned["pb"], None, st.run)
         (st.base / "depots" / role).mkdir(parents=True)
         real = os.path.realpath(checkout)
@@ -3384,8 +3477,12 @@ def prepare_fetch(st):
                                             project_sha256=sha256_file(env / "Project.toml"))
         summary["roles"][role] = info
         first_a = first_a or (role if stack == "A" else None)
+    provenance = {"schema": 1, "pb_tag_check": "not applicable: no stack A role"}
     if first_a is not None:
         summary["proximalbase_tag"] = check_pb_tag(st, st.base / "depots" / first_a)
+        provenance = {"schema": 1, "pb_tag_check": f"verified: {summary['proximalbase_tag']['source_kind']}",
+                      "record": summary["proximalbase_tag"]}
+    create_exclusive(st.base / "logs" / "provenance.json", json.dumps(provenance, indent=2) + "\n")
     create_exclusive(st.base / "logs" / "prepare-fetch.json", json.dumps(summary, indent=2) + "\n")
     print(f"prepare fetch: {len(roles)} roles in {st.base.name}: " + ", ".join(
         f"{role} {summary['roles'][role]['checkout']['commit'][:12]}" for role in roles))
@@ -3608,15 +3705,17 @@ def prepare_finalize(st, hooks, getaffinity=None, setaffinity=None, say=None):
     for role in roles:
         if role in ("ab-a", "ab-b"):
             check_fingerprints(base / "roots" / role, final.sched, role, problems)
-    baselines = {role: str(hooks.depot_digest(final.roles[role])) for role in roles}
-    create_exclusive(base / "logs" / "depot-baselines.json", json.dumps(baselines, indent=2) + "\n")
-    replace_file(marker, json.dumps({"schema": 1, "state": "finalized", "cpu": cpu, "problems": problems}, indent=2)
-                 + "\n")
     for problem in problems:
         report(problem)
     say(f"finalize: {len(roles)} roles, {len(strata)} strata, measured CPU {cpu}, {len(problems)} problems")
-    if problems:
+    if problems:                                     # a failed finalize leaves its problems and no baseline
+        replace_file(marker, json.dumps({"schema": 1, "state": "failed", "cpu": cpu, "problems": problems},
+                                        indent=2) + "\n")
         raise Refused("finalize found problems: " + "; ".join(problems[:5]), problems=problems)
+    baselines = {role: str(hooks.depot_digest(final.roles[role])) for role in roles}
+    create_exclusive(base / "logs" / "depot-baselines.json", json.dumps(baselines, indent=2) + "\n")
+    replace_file(marker, json.dumps({"schema": 1, "state": "finalized", "cpu": cpu, "problems": []}, indent=2)
+                 + "\n")
     return 0
 
 

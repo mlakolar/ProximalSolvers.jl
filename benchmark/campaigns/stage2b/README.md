@@ -112,8 +112,8 @@ operator workflow, from setup to the verification of a copy, is in the next sect
 
 **Setup.** Python 3.11 or later and `git` on `PATH`; one Julia binary per stratum, exactly the builds of
 `schedule.toml` (`[julia."1.10"]`, `[julia."1.13"]`), given as `--julia MAJOR.MINOR=ABSOLUTE_PATH` or, for a pilot,
-in `[julia]` of the pilot configuration; a Linux host that lets `taskset` pin a process; at least three allowed CPUs
-(the measured one, and the driver keeps itself off it); the verified Stage 2A archive (`--archive`, or `[archive] path`
+in `[julia]` of the pilot configuration; a Linux host that lets `taskset` pin a process; at least `max(2, min_cpus)` allowed CPUs
+(`[resources] min_cpus` of the pilot configuration; the measured one, and the driver keeps itself off it); the verified Stage 2A archive (`--archive`, or `[archive] path`
 of a pilot configuration). `prepare --step fetch` needs the network (the package server and the source
 repositories); everything after it runs offline. The measurement node must be the one that ran `finalize`.
 
@@ -153,7 +153,7 @@ For a pilot it also writes the pilot `schedule.toml`: the committed schedule wit
 in the order AB, the reduced sampling values and the `[machine]` values of this node changed (`cpu_model`, the
 `Sys.CPU_NAME` of each stratum, the measured CPU, `smt_sibling = -1`, and `governor`, `epp`, `no_turbo`, `smt_control` as
 sampled, `"unavailable"` where the host has no such file); `logs/pilot-overrides.json` lists every changed key with both
-values and the digests. `finalize` refuses to run twice on one base and refuses when fewer than two CPUs are allowed.
+values and the digests. `finalize` refuses to run twice on one base and refuses when fewer than `max(2, min_cpus)` CPUs are allowed. It writes the depot baselines only after its own final checks passed: a failed finalize leaves `logs/finalize.json` with state `failed` and its problems, and no baseline. `run --official` and `pilot` refuse to start unless `logs/finalize.json` says `finalized` with no problems and `logs/depot-baselines.json` names every role.
 
 **Candidate-specific freeze (official only).** The campaign needs the F1-B freeze: the lock is committed inside the
 freeze commit, whose SHA is posted on #110 with the specification, the mapping, the schedule and the rest of the frozen
@@ -182,7 +182,7 @@ Exit status of every command: 0 success, 1 completed with non-ok cases, 2 refuse
 (strict keys): `schema = 1`, `[campaign]` (`id`, `session_id`), `[schedule]` (`id`), `[pilot]` (`arms`, `samples_target`,
 `seconds_limit`, `case_seconds`), `[julia]`, `[source]` (`repository`, optional `proximalbase`), `[archive]` (`path`) and
 `[resources]` (`min_cpus`). The same file goes to `prepare`, `pilot` and `verify`; `session_id` is required so that the
-identity files and the engine agree.
+identity files and the engine agree. The pilot schedule must carry the held configuration's `samples_target`, `seconds_limit` and `case_seconds` (the official values when the configuration names none), the official values for every other setting, a prefix of the official repetitions with their official orders, and the configuration's arms: `pilot` refuses to launch otherwise and `verify --config` records the mismatch.
 
 **Fingerprints.** `finalize` runs `export_fingerprints.jl` of the driver's checkout once per role and stratum, untimed,
 against that role's own harness, and concatenates the per-stratum files; the exporter's summary (with the cold snapshot
@@ -258,6 +258,22 @@ and `campaign.toml` and `cases.txt` must equal the frozen `../pre06/` files (exi
 ```
 python3 -I -B historical_reference.py PATH/TO/pre06-stage2a-campaign-v1 --check historical-reference.tsv
 ```
+
+**Cache and provenance.** The compiled-cache digest covers every effective `JULIA_DEPOT_PATH` entry of a role (its private
+depot and the bundled Julia depots of every stratum it runs): it is the baseline of `finalize` and it is compared before
+and after every process and between processes. `prepare --step fetch` always resolves the stack A tag `v0.5.4` to the
+pinned commit and tree from `[source] proximalbase` of the configuration or, when none is given, from the default
+repository `https://github.com/mlakolar/ProximalBase.jl` (`DEFAULT_PB_SOURCE`); it fails unless that check succeeds, and
+records it in `logs/provenance.json` (`pb_tag_check`). A registry copy only confirms the tree. For stack B it creates the
+pinned ProximalBase identity checkout (`installations/ab-b/ProximalBase.jl`) for registered and development releases
+alike. Preparation logs redact `HOME`, `USER`, `LOGNAME` and `TMPDIR` like `commands.jsonl`.
+
+**Known limits.** The per-launch probe processes run pinned on the measured CPU between formal processes and are not
+recorded as receipt events. A session id fixed in a lock is shared by every attempt from one freeze, so attempts are
+separated by their installation ids and the base name (a fresh session per base is a follow-up). Stack B environments
+need project and Manifest references that are valid in every base (relative paths); this is untested with a real
+candidate (the candidate-lock task). Paths of the producer machine appear in `commands.jsonl` (argv and cwd) and in the
+raw `run.jl` metadata by design: evidence is not scrubbed of them, only the environment values above are redacted.
 
 ## Stop rule
 
