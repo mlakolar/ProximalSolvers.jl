@@ -13,10 +13,13 @@ _zero_like(x::AtomIterate) = similar(x)
 # that hold a working set of their own, no coordinate is active. The zero write
 # is a value write, so the working set is emptied explicitly by dropzeros!
 # (ProximalBase 0.6 no longer lets fill! do it, and 0.5.x's fill! already did).
-# A SymmetricSparseIterate is an owner of its working set, and its start stays
-# as it is until the owner migration of ProximalBase#391.
+# A SymmetricSparseIterate is written through its coordinates, which hold the
+# lower triangle, and its working set is emptied in the same way.
 _clear_start!(x::Union{SparseIterate, AtomIterate}) = dropzeros!(fill!(x, zero(eltype(x))))
-_clear_start!(x::SymmetricSparseIterate) = fill!(x, zero(eltype(x)))
+function _clear_start!(x::SymmetricSparseIterate)
+  fill!(coordinates(x), zero(eltype(x)))
+  dropzeros!(x)
+end
 
 # the smallest level of g with a zero solution, from the gradient grad at zero:
 # maxₖ ‖∇ₖ f(0)‖ / wₖ over the penalized coordinates; those with weight zero are
@@ -337,7 +340,7 @@ end
 # a compact copy of the solution
 _snapshot(x::SparseIterate{T, 1}) where {T} = _sparsevec(x)
 _snapshot(x::AtomIterate) = _snapshot_dense(x) ? sparsevec(Vector(x)) : _sparsevec(x)
-_snapshot(x::SymmetricSparseIterate) = _snapshot_dense(x) ? sparse(Matrix(x)) : sparse(x)
+_snapshot(x::SymmetricSparseIterate) = _snapshot_dense(x) ? sparse(Matrix(x)) : sparse(matrixview(x))
 
 # Triplet construction saves a dense copy for sparse solutions, but its index
 # arrays and SparseArrays' workspace can cost more at higher densities. Keep

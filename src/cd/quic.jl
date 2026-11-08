@@ -88,7 +88,7 @@ function _quic!(X::SymmetricSparseIterate{T}, S::Matrix{T}, w::T, g::NormL1, met
       (!iszero(Xd[r, c]) || abs(Cm[r, c]) > _glasso_bound(g, p, r, c, w)) && push!(free, tril_index(p, r, c))
     end
     # the Newton direction, from Δ = 0, with more passes as the steps get closer
-    fill!(D, zero(T))
+    _clear_start!(D)
     initialize!(model, D)
     st.candidates = free
     inner = CDSolver(; maxpasses = min(method.inner.maxpasses, 2 * (1 + it ÷ 3)), tol = method.inner.tol,
@@ -135,7 +135,7 @@ function _quic!(X::SymmetricSparseIterate{T}, S::Matrix{T}, w::T, g::NormL1, met
     Dual = _glasso_dual!(M, S, Wd, g, w)
     converged = _relative_gap(F, Dual) <= tol
   end
-  fill!(X, zero(T))
+  _clear_start!(X)
   for c in 1:p, r in c:p
     v = Xd[r, c]
     iszero(v) || (X[r, c] = v)
@@ -200,7 +200,7 @@ function _block_start(X::SymmetricSparseIterate{T}, S, g::NormL1, w::T, C::Vecto
   end
   ok = nactive(Xc) > 0 && isposdef(Symmetric(Matrix(Xc)))
   if !ok
-    fill!(Xc, zero(T))
+    _clear_start!(Xc)
     for (a, i) in enumerate(C)
       Xc[a, a] = first(_glasso_scalar(S[i, i], T(g.λ0) * T(_entryweight(g.w, (i - 1) * p + i, T)), w))
     end
@@ -211,7 +211,7 @@ end
 # X ← the block-diagonal matrix of the solutions on the components
 function _assemble!(X::SymmetricSparseIterate{T}, comps, Xs, S, g::NormL1, w::T) where {T}
   p = size(X, 1)
-  fill!(X, zero(T))
+  _clear_start!(X)
   for (C, Xc) in zip(comps, Xs)
     if length(C) == 1
       i = C[1]
