@@ -197,7 +197,9 @@ The iterate fixes what a coordinate is.
   supplied arrays are not changed. The pair contributes
   ``h_{rc}(t) = 2 g_{rc}(t)``. The reported minimum uses the supplied
   objective. The low-level [`coordinate_step!`](@ref ProximalSolvers.coordinate_step!)
-  and `prox_coordinate!` kernels do not check, and need symmetric parameters.
+  kernel does not check, and needs symmetric parameters. Whether
+  `prox_coordinate!` checks the pair it updates depends on the ProximalBase
+  version (version 0.6 does); either way the parameters must be symmetric.
   The loss arrays, such as the matrix `C` of a `KronQuadratic`, are not
   checked by ProximalSolvers.
 
