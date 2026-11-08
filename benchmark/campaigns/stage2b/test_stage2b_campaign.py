@@ -3472,6 +3472,113 @@ class PilotScheduleTests(unittest.TestCase):
             self.assertEqual((status, document["state"]), (2, "failed"), name)
             self.assertTrue(any(text in p for p in document["problems"]), (name, document["problems"][:4]))
 
+    # -- exact comparison, strata, Stack A, repetition selection and block order at the real entry points
+    BIG = 9007199254740993                                      # 2**53 + 1: not representable as a float
+
+    @staticmethod
+    def change(function):
+        """A schedule.toml editor from a function of the parsed schedule."""
+        def edit(path):
+            data = tomllib.loads(Path(path).read_text())
+            function(data)
+            writable(path).write_text(C.toml_dumps(data))
+        return edit
+
+    def launch_with(self, config, edit, camp=None):
+        """`main pilot` over a base whose schedule was edited: returns (exit status, stderr, runner launches)."""
+        base = assemble_base(camp or self.camp_default, fresh("edge") / "x-pilot", aa=False)
+        edit(base / "schedule.toml")
+        directory = fresh("edge-cfg")
+        C.write_toml(directory / "p.toml", config)
+        host = Host(camp or self.camp_default, mc.load_schedule(base / "schedule.toml"), base)
+        code, out, err = call_main(["pilot", "--config", str(directory / "p.toml"), "--base", str(base)],
+                                   hooks=host.hooks())
+        self.assertEqual(out, "")
+        self.assertFalse((base / "receipt.jsonl").exists())
+        return code, err, len(host.calls)
+
+    def verify_with(self, config, edit):
+        """`verify --config HELD` over the shared pilot with the held configuration archived and the schedule edited
+        (digests rebound): returns the verification document and the exit status."""
+        held = fresh("edge-held") / "held.toml"
+        C.write_toml(held, config)
+        copy_ = clone(self.pilot)
+        edit(copy_ / "schedule.toml")
+        writable(copy_ / "pilot-config.toml").write_bytes(held.read_bytes())
+        rebind(copy_, pilot_config_sha256=C.sha256_file(copy_ / "pilot-config.toml"),
+               schedule_sha256=C.sha256_file(copy_ / "schedule.toml"))
+        record = fresh("v") / "v.json"
+        document, status = C.verify(copy_, record, replay=False, config=held)
+        self.assertEqual(json.loads(record.read_text())["problems"], document["problems"])
+        return document, status
+
+    def test_integers_beyond_two_to_the_53_are_refused_at_launch(self):
+        for held, archived in ((self.BIG, self.BIG - 1), (self.BIG - 1, self.BIG)):
+            edit = self.change(lambda d, v=archived: d["settings"].update(samples_target=v))
+            code, err, launches = self.launch_with(reduced_config(samples_target=held), edit)
+            self.assertEqual((code, launches), (2, 0), err)
+            self.assertIn(f"settings.samples_target is {archived}, the pilot configuration has {held}", err)
+        self.assertEqual(self.problems(reduced_config(samples_target=self.BIG), samples_target=self.BIG), [])
+
+    def test_integers_beyond_two_to_the_53_are_refused_by_verify(self):
+        for held, archived in ((self.BIG, self.BIG - 1), (self.BIG - 1, self.BIG)):
+            edit = self.change(lambda d, v=archived: d["settings"].update(samples_target=v))
+            document, status = self.verify_with(reduced_config(samples_target=held), edit)
+            self.assertEqual((status, document["state"]), (2, "failed"))
+            self.assertIn(f"pilot configuration: settings.samples_target is {archived}, the pilot configuration has "
+                          f"{held}", document["problems"])
+
+    def test_equal_durations_of_either_type_and_the_valid_reduced_pilot_still_pass(self):
+        for held, archived in ((3, 3.0), (3.0, 3), (60, 60.0), (0.2, 0.2)):
+            key = "seconds_limit" if held in (3, 3.0, 0.2) else "case_seconds"
+            self.assertEqual(self.problems(reduced_config(**{key: held}), **{key: archived}), [], (held, archived))
+        self.assertEqual(self.problems(reduced_config(**REDUCED), **REDUCED), [])
+
+    def test_a_changed_strata_or_stack_a_is_refused_at_launch_and_in_verify(self):
+        julia_commit = self.official["strata"]["1.10"]["commit"]
+        stack_commit = self.official["stack_a"]["proximalsolvers"]["commit"]
+        cases = (
+            ("julia commit", self.change(lambda d: d["julia"]["1.10"].update(commit="1" * 40)), "Julia strata"),
+            ("julia version", self.change(lambda d: d["julia"]["1.10"].update(version="1.10.99")), "Julia strata"),
+            ("stack A commit", self.change(lambda d: d["stack_a"]["proximalsolvers"].update(commit="2" * 40)),
+             "[stack_a]"),
+            ("stack A harness", self.change(lambda d: d["stack_a"].update(harness_hash="3" * 40)), "[stack_a]"))
+        self.assertNotIn("1" * 40, (julia_commit, stack_commit))
+        for name, edit, text in cases:
+            code, err, launches = self.launch_with(pilot_config(), edit)
+            self.assertEqual((code, launches), (2, 0), name)
+            self.assertIn(text, err)
+            document, status = self.verify_with(pilot_config(), edit)
+            self.assertEqual((status, document["state"]), (2, "failed"), name)
+            self.assertTrue(any(text in p for p in document["problems"]), (name, document["problems"][:4]))
+
+    def test_a_non_prefix_repetition_selection_and_a_changed_order_at_the_real_entry_points(self):
+        official = self.official
+
+        def ninth(d):
+            d["schedule"]["reps"] = list(range(1, 10))
+            d["schedule"]["orders"] = {str(r): official["orders"].get(r, "AB") for r in range(1, 10)}
+        code, err, launches = self.launch_with(pilot_config(), self.change(ninth))
+        self.assertEqual((code, launches), (2, 0), err)
+        self.assertIn("not a non-empty prefix of the official", err)
+        document, status = self.verify_with(pilot_config(), self.change(ninth))
+        self.assertEqual((status, document["state"]), (2, "failed"))
+        self.assertTrue(any("not a non-empty prefix of the official" in p for p in document["problems"]))
+        camp = F.build_campaign(fresh("edge-orders"), "identical", reps=3, schedule_edit=pilot_edit)
+
+        def flip(d):
+            d["schedule"]["orders"]["3"] = "AB"                  # the official order of repetition 3 is BA
+        code, err, launches = self.launch_with(pilot_config(), self.change(flip), camp)
+        self.assertEqual((code, launches), (2, 0), err)
+        self.assertIn("the order of repetition 3 is 'AB', the official one is 'BA'", err)
+
+        def first(d):
+            d["schedule"]["orders"]["1"] = "BA"
+        document, status = self.verify_with(pilot_config(), self.change(first))
+        self.assertEqual((status, document["state"]), (2, "failed"))
+        self.assertTrue(any("the order of repetition 1 is 'BA', the official one is 'AB'" in p
+                            for p in document["problems"]), document["problems"][:4])
+
     def test_the_official_attempt_and_gate_are_unaffected(self):
         full = shared_full()
         document, status = C.verify(full["base"], fresh("v") / "v.json", replay=False)

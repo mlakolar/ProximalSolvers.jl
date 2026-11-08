@@ -724,12 +724,16 @@ def pilot_schedule_problems(config, schedule, official, arms=None):
         value = settings.get(key)
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
             problems.append(f"settings.{key} is {value!r}, not a positive number")
-        elif float(value) != float(effective):
+        elif not mc.same(value, effective):                  # exact: no float coercion (integers beyond 2**53)
             origin = "the pilot configuration" if key in pilot else "the official schedule"
             problems.append(f"settings.{key} is {value!r}, {origin} has {effective!r}")
     for key in sorted((settings.keys() | wanted.keys()) - set(PILOT_SAMPLING)):
         if key not in settings or key not in wanted or not mc.same(settings[key], wanted[key]):
             problems.append(f"settings.{key} is {settings.get(key)!r}, the official schedule has {wanted.get(key)!r}")
+    if schedule["strata"] != official["strata"]:
+        problems.append("the Julia strata (versions and commits) differ from the official schedule's")
+    if schedule["stack_a"] != official["stack_a"]:
+        problems.append("[stack_a] differs from the official schedule's")
     reps, official_reps = list(schedule["reps"]), list(official["reps"])
     if not reps or reps != official_reps[:len(reps)]:
         problems.append(f"reps {reps} are not a non-empty prefix of the official {official_reps}")
