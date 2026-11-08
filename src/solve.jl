@@ -62,9 +62,9 @@ the symmetric-storage compatibility of its own parameters.
 On a `SymmetricSparseIterate` `x`, the iterates and the points where the
 gradient of `f` is evaluated are `SymmetricSparseIterate`s, while the trial
 point `x - ∇f(x)/L` before the proximal step, the step `x - x'` and the
-gradients are dense matrices. With a gradient that is exactly symmetric, as
-ProximalBase computes it at a `SymmetricSparseIterate`, the trial point is
-exactly symmetric. Norms, inner products and the reported residuals are those
+gradients are dense matrices. At a `SymmetricSparseIterate`, ProximalBase
+returns the gradient over symmetric matrices, the symmetric part of the matrix
+gradient; when that gradient is exactly symmetric, so is the trial point. Norms, inner products and the reported residuals are those
 of the matrix, both triangles: the step norm is the Frobenius norm of the
 matrix `x - x'`, which counts an off-diagonal change twice. With `debias`, the
 support is the set of coordinates whose value is not zero, so an active
