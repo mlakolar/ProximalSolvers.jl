@@ -48,19 +48,30 @@ penalty that couples the blocks. Norms and inner products are taken over all
 the blocks, and a tuple of one array computes exactly what the array does.
 
 On a `SymmetricSparseIterate`, the gradient solvers apply the same parameter
-rule as coordinate descent: the per-entry parameters of `g` that the check
-covers must be exactly symmetric, or symmetric by type as `Symmetric(W, :L)`,
-otherwise an `ArgumentError` is thrown before anything is written (see the
-[`CDSolver`](@ref) method of `solve!` for what the check covers with each
-version of ProximalBase). The penalty is used as supplied. The smooth function
-`f` is not checked. For a tuple of iterates, with ProximalBase 0.6 or later
-the penalty goes through ProximalBase's public `check_symmetric_parameters`,
-which validates what ProximalBase's declarations of per-entry parameters
-cover, and not user-defined wrappers or types that declare nothing; with
-earlier versions the rule covers a `SeparableSum` and `Scaled` around one
-(also nested), and other penalties on a tuple pass unchanged. A custom penalty
-or wrapper is responsible for the symmetric-storage compatibility of its own
-parameters.
+rule as coordinate descent: the per-entry parameters of `g` that
+`ProximalBase.check_symmetric_parameters` covers must be exactly symmetric, or
+symmetric by type as `Symmetric(W, :L)`, otherwise an `ArgumentError` is
+thrown before anything is written (see the [`CDSolver`](@ref) method of
+`solve!` for what the check covers). The penalty is used as supplied. The
+smooth function `f` is not checked. On a tuple of iterates the penalty goes
+through the same check, which covers the blocks of a `SeparableSum` and the
+per-entry parameters that ProximalBase declares, and not user-defined wrappers
+or types that declare nothing. A custom penalty or wrapper is responsible for
+the symmetric-storage compatibility of its own parameters.
+
+On a `SymmetricSparseIterate` `x`, the iterates and the points where the
+gradient of `f` is evaluated are `SymmetricSparseIterate`s, while the trial
+point `x - ∇f(x)/L` before the proximal step, the step `x - x'` and the
+gradients are dense matrices. With a gradient that is exactly symmetric, as
+ProximalBase computes it at a `SymmetricSparseIterate`, the trial point is
+exactly symmetric. Norms, inner products and the reported residuals are those
+of the matrix, both triangles: the step norm is the Frobenius norm of the
+matrix `x - x'`, which counts an off-diagonal change twice. With `debias`, the
+support is the set of coordinates whose value is not zero, so an active
+coordinate that holds a zero is not in it. `ActiveAccProxGradDescent`,
+`ADMMSolver` and `preconditioner = :diagonal` do not take a
+`SymmetricSparseIterate`, and throw an `ArgumentError` before anything is
+written.
 
 # Example
 ```julia

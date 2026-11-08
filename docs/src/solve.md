@@ -18,7 +18,7 @@ for some of their oracles, and for an iterate of a certain kind:
 |:-------|:------|:------|:----|
 | [`CDSolver`](@ref) | a loss with a coordinate descent model, see [Losses for coordinate descent](@ref) | separable, or a group penalty (`GroupNormL2`, `GroupNormLinf`, ...) | a `SparseIterate`, a `SymmetricSparseIterate`, an `AtomIterate` for a group penalty, or a vector |
 | [`ProxNewton`](@ref) | a `GLMLoss`, a `LogDetLoss`, or a smooth loss with a supported quadratic model | separable for vectors; `NormL1` for `LogDetLoss`; see [Other smooth losses](@ref) for generic matrix models | a `SparseIterate` or dense vector; for supported matrix models, a `SymmetricSparseIterate` or symmetric `Matrix` |
-| [`ProximalGradientDescent`](@ref), [`AccProxGradDescent`](@ref) | smooth: `issmooth(f)` | proximable: `isproximable(g)` | any array that `f` and `g` take, a `SparseIterate`, or an `AtomIterate` with the groups of a `GroupNormL2` |
+| [`ProximalGradientDescent`](@ref), [`AccProxGradDescent`](@ref) | smooth: `issmooth(f)` | proximable: `isproximable(g)` | any array that `f` and `g` take, a `SparseIterate`, a `SymmetricSparseIterate`, or an `AtomIterate` with the groups of a `GroupNormL2` |
 | [`MonotoneAccProxGradDescent`](@ref) | smooth | proximable | any array that `f` and `g` take, a `SparseIterate` or a `SymmetricSparseIterate` |
 | [`ActiveAccProxGradDescent`](@ref) | smooth, with `restrict` | separable or `GroupNormL2`, with `restrict` and `kkt_violation` | a vector, a `SparseIterate` or an `AtomIterate` |
 | [`ADMMSolver`](@ref) | proximable | proximable | an `Array` |

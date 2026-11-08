@@ -36,6 +36,17 @@ groups, a group at zero satisfies its condition when
 ``\nabla_{G_k}f(x)+\lambda w_k x_{G_k}/\|x_{G_k}\|_2=0``. These are the block
 counterparts of the lasso conditions above.
 
+On a `SymmetricSparseIterate` ``\Theta``, the variables are the entries of the
+lower triangle, and ``G`` is the gradient over symmetric matrices, the
+symmetric part of the matrix gradient. For ``g(\Theta)=\lambda\sum_{ij}W_{ij}|\Theta_{ij}|``
+with a symmetric ``W``, an off-diagonal coordinate moves the two entries
+``(r,c)`` and ``(c,r)``: its derivative is ``2G_{rc}`` and its threshold
+``2\lambda W_{rc}``, so the conditions above hold entry by entry for the matrix,
+with ``c = G``. The gradient solvers measure the matrix: their gradient
+residual `g_residual` is a largest entry of a residual matrix, and their step
+`x_residual` is the Frobenius norm of the change of the matrix, which counts an
+off-diagonal change twice.
+
 ## Coordinate residuals
 
 For a separable penalty and a supported coordinate model with positive
