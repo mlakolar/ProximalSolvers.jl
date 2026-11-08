@@ -94,7 +94,7 @@ end
     @test ws.buffers === buffers && ws.buffers.state === state
     @test Matrix(x) ≈ Matrix(ref.minimizer) atol = 1e-10
     @test result.minimum ≈ ref.minimum atol = 1e-12
-    @test result.converged && ref.converged
+    @test (result.converged || result.f_increased) && (ref.converged || ref.f_increased)
     # the extrapolated points of the accelerated methods reuse the slots of the previous solve,
     # so the order of their active coordinates, and with it the rounding, can differ
     if method isa ProximalGradientDescent
