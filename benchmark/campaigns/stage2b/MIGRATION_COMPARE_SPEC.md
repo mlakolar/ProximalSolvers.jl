@@ -770,6 +770,8 @@ julia	id	rep	kind	name	value
   (`ab:certificates`), a `reset` or `config` mismatch (a value, or `none` against a hash), a required row missing
   in either file, or a missing file, is per-case NOT COMPARABLE.
 
+The SHA-256 of a `fixture`, `reset` or `config` row ("SHA-256 of the printed solver and option fields" above included) is read as the versioned canonical encoding `ps-stage2b-fp-v1` of `export_fingerprints.jl` (SHA-256 of the prefix `ps-stage2b-fp-v1`, the kind, the name and a tagged, length-prefixed, little-endian encoding of the actual values, documented in that file's header), never of printed text or `Base.hash`.
+
 ## 15. Outputs (schema 4f)
 
 **`migration-comparison.csv`**: UTF-8, `\n` line ends, header on the first line, one row per (`julia`, case)
