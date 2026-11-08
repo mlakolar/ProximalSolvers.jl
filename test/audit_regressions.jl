@@ -111,9 +111,19 @@ end
   a = SymmetricSparseIterate(2)
   a[2, 1] = 0.3
   before = Matrix(a)
-  @test_throws ArgumentError solve!(a, KronQuadratic(S, S, S), g, CDSolver(; order = :cyclic, tol = 1e-13))
-  @test_throws ArgumentError solve!(a, LogDetLoss(S), g, ProxNewton(inner = CDSolver(rng = Xoshiro(1))))
-  @test_throws ArgumentError duality_gap(LogDetLoss(S), g, a)
+  # the rejection is the symmetry rule of the parameter check, not another ArgumentError
+  function symmetry_rejection(action)
+    err = try
+      action()
+      nothing
+    catch e
+      e
+    end
+    err isa ArgumentError && occursin("must be symmetric on a SymmetricSparseIterate", sprint(showerror, err))
+  end
+  @test symmetry_rejection(() -> solve!(a, KronQuadratic(S, S, S), g, CDSolver(; order = :cyclic, tol = 1e-13)))
+  @test symmetry_rejection(() -> solve!(a, LogDetLoss(S), g, ProxNewton(inner = CDSolver(rng = Xoshiro(1)))))
+  @test symmetry_rejection(() -> duality_gap(LogDetLoss(S), g, a))
   @test Matrix(a) == before
   b = SymmetricSparseIterate(2)
   solve!(b, KronQuadratic(S, S, S), NormL1(0.1, Wbar), CDSolver(; order = :cyclic, tol = 1e-13))

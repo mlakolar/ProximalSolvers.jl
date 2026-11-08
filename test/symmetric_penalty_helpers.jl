@@ -29,19 +29,21 @@ function warm_start()
   x
 end
 
-# ProximalBase 0.6 has the public checker; earlier versions are covered by the
-# transitional check of ProximalSolvers
+# ProximalBase 0.6 has the public checker, which ProximalSolvers calls; under the compat
+# bound ProximalBase = "0.6" this is true, and the branches for false are not reached
 pb_checks_symmetry() = isdefined(ProximalBase, :check_symmetric_parameters)
 
 # everything a rejected call must leave alone in an owner
-snapshot(x) = (Matrix(x), collect(coordinates(x)), collect(activecoordinates(x)), nnz(x), nactive(x),
+snapshot(x) = (Matrix(x), collect(coordinates(x)), collect(activecoordinates(x)), nactive(x),
                isdefined(ProximalBase, :activevalues) ? collect(ProximalBase.activevalues(x)) : nothing)
 
 # a tuple of block iterates: the snapshot of each block
 snapshot(x::Tuple) = map(snapshot, x)
 snapshot(x::Array) = copy(x)
 
-function rejects_symmetry(action, x)
+# reason: the part of the message of ProximalBase's parameter check that names the
+# rejection, by default its symmetry rule
+function rejects_symmetry(action, x; reason = "must be symmetric on a SymmetricSparseIterate")
   @nospecialize action
   before = snapshot(x)
   err = try
@@ -53,7 +55,7 @@ function rejects_symmetry(action, x)
   @test err isa ArgumentError
   if err isa ArgumentError
     msg = sprint(showerror, err)
-    @test occursin("symmetric", lowercase(msg))
+    @test occursin(reason, msg)
     # the reason is the symmetry rule, not the type of the replacement penalty of a workspace
     @test !occursin("a workspace needs a penalty of type", msg)
   end

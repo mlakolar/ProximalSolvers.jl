@@ -6,17 +6,22 @@
 
 # a zero iterate of the type and size of x
 _zero_like(x::SparseIterate{T}) where {T} = SparseIterate(T, size(x)...)
-_zero_like(x::SymmetricSparseIterate{T}) where {T} = SymmetricSparseIterate(T, x.p)
+_zero_like(x::SymmetricSparseIterate{T}) where {T} = SymmetricSparseIterate(T, size(x, 1))
 _zero_like(x::AtomIterate) = similar(x)
 
-# The start of a solve from zero: the values of x are zero and, for the iterates
-# that hold a working set of their own, no coordinate is active. The zero write
-# is a value write, so the working set is emptied explicitly by dropzeros!
-# (ProximalBase 0.6 no longer lets fill! do it, and 0.5.x's fill! already did).
-# A SymmetricSparseIterate is an owner of its working set, and its start stays
-# as it is until the owner migration of ProximalBase#391.
+# The start of a solve from zero: the values of x are zero and no coordinate is
+# active. fill! writes zeros into the stored coordinates and leaves them
+# stored; dropzeros! then removes them. A SymmetricSparseIterate takes the
+# zeros through activevalues(x), a view of the values of its active
+# coordinates; the coordinates that are not stored are zero, and the active set
+# stays as it is until dropzeros!. The cost is O(nactive(x)). In one
+# measurement with the committed ProximalBase pin, at p = 150, a call took
+# about 1.6 µs with 5% of the coordinates active and 14 µs with 50%.
 _clear_start!(x::Union{SparseIterate, AtomIterate}) = dropzeros!(fill!(x, zero(eltype(x))))
-_clear_start!(x::SymmetricSparseIterate) = fill!(x, zero(eltype(x)))
+function _clear_start!(x::SymmetricSparseIterate)
+  fill!(activevalues(x), zero(eltype(x)))
+  dropzeros!(x)
+end
 
 # the smallest level of g with a zero solution, from the gradient grad at zero:
 # maxₖ ‖∇ₖ f(0)‖ / wₖ over the penalized coordinates; those with weight zero are
@@ -112,7 +117,7 @@ _stepcurvature(m::CDModel, x::SparseIterate, k::Int) = coordinate_derivatives(m,
 _stepcurvature(m::LSModel, x::SparseIterate, k::Int) = m.s * _sqnorm!(m, k)
 _stepcurvature(m::GLMModel, x::SparseIterate, k::Int) = _curvaturebound!(m, k)
 function _stepcurvature(m::CDModel{T}, x::SymmetricSparseIterate, k::Int) where {T}
-  r, c = tril_cartesian(x.p, k)
+  r, c = tril_cartesian(size(x, 1), k)
   coordinate_derivatives(m, x, k)[2] / _multiplicity(T, r, c)
 end
 _stepcurvature(m::CDModel, x::AtomIterate, k::Int) = _groupcurvature!(m, x, k)
@@ -337,7 +342,7 @@ end
 # a compact copy of the solution
 _snapshot(x::SparseIterate{T, 1}) where {T} = _sparsevec(x)
 _snapshot(x::AtomIterate) = _snapshot_dense(x) ? sparsevec(Vector(x)) : _sparsevec(x)
-_snapshot(x::SymmetricSparseIterate) = _snapshot_dense(x) ? sparse(Matrix(x)) : sparse(x)
+_snapshot(x::SymmetricSparseIterate) = _snapshot_dense(x) ? sparse(Matrix(x)) : sparse(matrixview(x))
 
 # Triplet construction saves a dense copy for sparse solutions, but its index
 # arrays and SparseArrays' workspace can cost more at higher densities. Keep

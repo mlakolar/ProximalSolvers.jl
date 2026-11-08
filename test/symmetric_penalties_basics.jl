@@ -70,6 +70,44 @@ include("symmetric_penalty_helpers.jl")
   @test isequal(W, saved)
 end
 
+# T17, coordinate-descent half, with no gradient solver: the CD workspace. Raw W is rejected by the
+# constructor before the owner is touched, and is not replaced by its mean; Symmetric(W, :L)
+# (pair weight 3 + 3) and the mean (2 + 2) are different penalties, with the solutions 2.7 and 2.8
+# of z² - 6z + 0.1 (w12 + w21)|z| on Θ12 = Θ21 = z.
+@testset "asymmetric weights at the CD workspace (T17, coordinate descent)" begin
+  B = [0.0 3.0; 3.0 0.0]
+  A = Matrix(1.0I, 2, 2)
+  f = KronQuadratic(A, A, -B)              # ½‖Θ - B‖² up to a constant
+  W = [0.0 1.0; 3.0 0.0]
+  saved = copy(W)
+  x = warm_start()
+  rejects_symmetry(x) do
+    SolverWorkspace(x, f, NormL1(0.1, W), CDSolver())
+  end
+  @test isequal(W, saved)
+  solutions = Dict{Float64, Matrix{Float64}}()
+  for (penalty, expected) in ((NormL1(0.1, Symmetric(W, :L)), 2.7), (NormL1(0.1, (W .+ W') ./ 2), 2.8))
+    y = SymmetricSparseIterate(2)
+    ws = SolverWorkspace(y, f, penalty, cdsolver())
+    r = solve!(ws)
+    @test r.converged && r.minimizer === y
+    @test Matrix(y) ≈ [0.0 expected; expected 0.0] atol = 1e-6
+    @test r.minimum ≈ f(Matrix(y)) + penalty(Matrix(y)) atol = 1e-12
+    solutions[expected] = Matrix(y)
+  end
+  @test norm(solutions[2.7] - solutions[2.8]) > 0.1
+  # a workspace with the mean weights rejects the raw weights as a replacement penalty before its
+  # state or its iterate changes
+  y = SymmetricSparseIterate(2)
+  ws = SolverWorkspace(y, f, NormL1(0.1, (W .+ W') ./ 2), cdsolver())
+  solve!(ws)
+  rejects_in_workspace(ws) do
+    solve!(ws, NormL1(0.1, W))
+  end
+  @test Matrix(y) ≈ [0.0 2.8; 2.8 0.0] atol = 1e-6
+  @test isequal(W, saved)
+end
+
 @testset "independent optimality from the supplied weights" begin
   rng = Xoshiro(113)
   p = 5

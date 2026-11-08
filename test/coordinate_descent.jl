@@ -520,7 +520,7 @@ mutable struct SymmetricDistance <: CDModel{Float64}
 end
 PS.initialize!(m::SymmetricDistance, x) = m
 function PS.coordinate_derivatives(m::SymmetricDistance, x::SymmetricSparseIterate, k::Int)
-  r, c = ProximalBase.tril_cartesian(x.p, k)
+  r, c = ProximalBase.tril_cartesian(size(x, 1), k)
   mult = r == c ? 1.0 : 2.0
   (mult * (coordinates(x)[k] - m.T[r, c]), mult)
 end
@@ -841,7 +841,8 @@ end
     PS.initialize!(m, x)
     st = PS._CDState(Float64, x, s)
     PS._cd!(x, m, g, st, s)
-    fill!(x, 0.0); PS.initialize!(m, x)
+    x isa SymmetricSparseIterate ? fill!(coordinates(x), 0.0) : fill!(x, 0.0)
+    PS.initialize!(m, x)
     @allocated PS._cd!(x, m, g, st, s)
   end
   for s in (CDSolver(; order = :cyclic), CDSolver(; order = :random), CDSolver(; momentum = true),

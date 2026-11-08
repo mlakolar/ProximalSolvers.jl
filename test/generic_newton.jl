@@ -181,7 +181,7 @@ end
       e
     end
     @test err isa ArgumentError
-    @test err isa ArgumentError && occursin("symmetric", lowercase(sprint(showerror, err)))
+    @test err isa ArgumentError && occursin("must be symmetric on a SymmetricSparseIterate", sprint(showerror, err))
     @test Matrix(xs) == before
     @test isequal(w, saved)
     # the weights of the pair given as is take the same solution
@@ -194,6 +194,49 @@ end
     @test r.minimum ≈ f(expected) + gbar(expected) atol = 1e-12
     @test r.maxchange <= r.tolerance
   end
+end
+
+# The first-order decrease of a Newton step counts an off-diagonal coordinate for both of its
+# entries. On X12 = X21 = t, ½‖X - B‖² + 2‖X‖₁ with B12 = B21 = 3 is t² - 6t + 4|t| up to a
+# constant, minimized at t = 1. From zero the step to t = 1 has the decrease
+# g(1) - g(0) + ⟨∇f(0), D⟩ = 4 - 6 = -2 for D = E12 + E21; with the gradient entry counted once it
+# would be 4 - 3 = 1 > 0, and the solver would stop without taking the step.
+@testset "the Newton decrease counts both entries of an off-diagonal coordinate" begin
+  B = [0.0 3.0; 3.0 0.0]
+  f = KronQuadratic(Matrix(1.0I, 2, 2), Matrix(1.0I, 2, 2), -B)
+  g = NormL1(2.0)
+  Xstar = [0.0 1.0; 1.0 0.0]
+  grad = -B                                         # ∇f(0)
+  trial, x0 = SymmetricSparseIterate(Xstar), SymmetricSparseIterate(2)
+  @test ProximalSolvers._newton_slope(grad, trial, x0) == dot(grad, Xstar) == -6.0
+  method = ProxNewton(; tol = 1e-10, inner = CDSolver(; order = :cyclic, tol = 1e-12))
+  x = SymmetricSparseIterate(2)
+  r = solve!(x, f, g, method)
+  @test r.converged && r.minimizer === x
+  @test Matrix(x) ≈ Xstar atol = 1e-12
+  @test r.minimum ≈ f(Xstar) + g(Xstar) atol = 1e-12
+  @test r.maxchange <= r.tolerance
+end
+
+# ProxNewton on LogDetLoss, the negative log-likelihood w (tr(SX) - log det X), with no penalty
+# takes the generic path, whose quadratic model is ProximalBase's model at the matrix of the
+# iterate: the minimizer, the maximum likelihood estimate S⁻¹, from an owner and from a dense start
+@testset "generic ProxNewton on LogDetLoss and a SymmetricSparseIterate" begin
+  rng = Xoshiro(23)
+  p = 5
+  A = randn(rng, 60, p)
+  S = A'A / 60
+  Ω = Matrix(Symmetric(inv(S)))
+  method = ProxNewton(; tol = 1e-10, inner = CDSolver(; order = :cyclic, tol = 1e-12))
+  x = SymmetricSparseIterate(Matrix(1.0I, p, p))
+  r = solve!(x, LogDetLoss(S), ZeroFunction(), method)
+  @test r.converged && r.minimizer === x
+  @test Matrix(x) ≈ Ω rtol = 1e-8
+  @test r.minimum ≈ LogDetLoss(S)(Ω) rtol = 1e-10
+  xd = Matrix(1.0I, p, p)
+  rd = solve!(xd, LogDetLoss(S), ZeroFunction(), method)
+  @test rd.converged && rd.minimizer === xd
+  @test xd ≈ Ω rtol = 1e-8
 end
 
 @testset "Inf trials are rejected without taking their gradient" begin

@@ -797,7 +797,7 @@ function _gapevaluator(f::Union{GLMLoss, Scaled{<:GLMLoss}}, g, x::AbstractVecto
   _GLMGap(glm.loss, glm.X, glm.y, glm.weights, glm.offset, T(α), zeros(T, n), zeros(T, n), zeros(T, p))
 end
 
-function _gapevaluator(f::LogDetLoss{T}, g::NormL1, x::AbstractMatrix) where {T}
+function _gapevaluator(f::LogDetLoss{T}, g::NormL1, x::Union{AbstractMatrix, SymmetricSparseIterate}) where {T}
   # on a dense matrix the bound uses the means of the pairs of weights; on an
   # owner the weights are validated as in solve!
   x isa SymmetricSparseIterate && _symmetric_penalty(g, x)
@@ -855,15 +855,20 @@ end
 # max w (log det(S + U) + p) over symmetric U with |Uᵢⱼ| ≤ (λᵢⱼ + λⱼᵢ)/(2w); the
 # dual point is U = W - S with W = X⁻¹, clipped to these bounds, so that
 # S + U = W at the solution.
-function _evalgap!(ev::_LogDetGap{T}, f::LogDetLoss{T}, g::NormL1, X::AbstractMatrix) where {T}
+function _evalgap!(ev::_LogDetGap{T}, f::LogDetLoss{T}, g::NormL1,
+                   X::Union{AbstractMatrix, SymmetricSparseIterate}) where {T}
   P = f(X) + g(X)
   isfinite(P) || return P, T(-Inf)
   C, M = ev.C, ev.M
-  copyto!(C, X)
+  _dense_copy!(C, X)
   _logdet_chol!(C) === nothing && return P, T(-Inf)
   _inverse_from_chol!(M, C)
   P, _glasso_dual!(C, f.S, M, g, f.w)
 end
+
+# C ← the matrix X, also when X is a SymmetricSparseIterate (both triangles)
+_dense_copy!(C::Matrix, X::AbstractMatrix) = copyto!(C, X)
+_dense_copy!(C::Matrix, X::SymmetricSparseIterate) = _dense!(C, X)
 
 # the bound on the dual variable of entry (r, c) over symmetric matrices, the
 # mean of the penalties of (r, c) and (c, r), divided by w; on an owner the two
@@ -939,9 +944,14 @@ Available for:
 - `f` a [`CDModel`](@ref) of such a loss, as from [`cdmodel`](@ref), for
   instance with an intercept; `duality_gap` initializes it at `x`.
 - the graphical lasso: `f` a `LogDetLoss`, `g` a `NormL1` (with a matrix of
-  weights, for example a zero diagonal) and `x` a symmetric matrix. The dual
-  point is `W - S` clipped to the penalty, with `W = x⁻¹`, at the cost of two
-  Cholesky factorizations.
+  weights, for example a zero diagonal) and `x` a symmetric matrix or a
+  `SymmetricSparseIterate`. The dual point is `W - S` clipped to the penalty,
+  with `W = x⁻¹`. The primal value `f(x)` factors a finite symmetric `x` once
+  (in ProximalBase's `LogDetLoss`); when the value is finite, the dual point factors `x` again and,
+  when that succeeds, `S + U`: up to three Cholesky factorizations. On a
+  `SymmetricSparseIterate` the weights follow the symmetry rule of
+  [`solve!`](@ref), checked before the gap is computed, and the gap is
+  computed from its matrix.
 
 An `ArgumentError` is thrown for other functions; see [`kkt_residual`](@ref)
 for an optimality measure that needs no conjugate.
@@ -1032,9 +1042,9 @@ end
 
 function _fixedpoint_residual(m::CDModel{T}, g, x::SymmetricSparseIterate{T}, k::Int) where {T}
   G, a = coordinate_derivatives(m, x, k)
-  r, c = tril_cartesian(x.p, k)
+  r, c = tril_cartesian(size(x, 1), k)
   old = coordinates(x)[k]
-  _fixedpoint_change(g, old, G, a, _entry(x.p, r, c), _multiplicity(T, r, c))
+  _fixedpoint_change(g, old, G, a, _entry(size(x, 1), r, c), _multiplicity(T, r, c))
 end
 
 # A flat coordinate along which f + g is unbounded has no stationary point: Inf.

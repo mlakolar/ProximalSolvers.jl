@@ -177,7 +177,7 @@ end
 # along the symmetric directions d = e_r e_c' + e_c e_r' (e_r e_r' on the
 # diagonal), the Hessian entry of coordinates (r, c) and (u, v) is ⟨d₁, A d₂ B⟩
 function _hessian(m::KronModel{T}, x::SymmetricSparseIterate{T}, S::Vector{Int}) where {T}
-  A, B, p = m.A, m.B, x.p
+  A, B, p = m.A, m.B, size(x, 1)
   rc = [tril_cartesian(p, k) for k in S]
   n = length(S)
   H = zeros(T, n, n)

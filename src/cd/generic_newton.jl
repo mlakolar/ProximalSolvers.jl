@@ -37,10 +37,10 @@ function _newton_residual(x::SymmetricSparseIterate{T}, g, grad::AbstractMatrix{
   res = zero(T)
   cx = coordinates(x)
   for k in 1:ncoordinates(x)
-    r, c = tril_cartesian(x.p, k)
+    r, c = tril_cartesian(size(x, 1), k)
     d = r == c ? grad[r, r] : grad[r, c] + grad[c, r]
     μ = r == c ? one(T) : T(2)
-    v = prox_entry(g, cx[k] - d, _entry(x.p, r, c), μ)
+    v = prox_entry(g, cx[k] - d, _entry(size(x, 1), r, c), μ)
     isfinite(v) || return T(Inf)
     res = max(res, abs(v - cx[k]))
   end
@@ -57,6 +57,33 @@ function _newton_interpolate!(x::SymmetricSparseIterate{T}, x0::SymmetricSparseI
 end
 _newton_interpolate!(x::SparseIterate, x0::SparseIterate, x1::SparseIterate, t) =
   _interpolate!(x, x0, x1, t)
+
+# ⟨grad, trial - x0⟩ over the entries of the matrix: on a SymmetricSparseIterate
+# coordinate (r, c) with r > c stands for two entries
+function _newton_slope(grad::AbstractArray{T}, trial::SparseIterate, x0::SparseIterate) where {T}
+  δ = zero(T)
+  for i in eachindex(x0, trial, grad)
+    δ += grad[i] * (trial[i] - x0[i])
+  end
+  δ
+end
+function _newton_slope(grad::AbstractMatrix{T}, trial::SymmetricSparseIterate, x0::SymmetricSparseIterate) where {T}
+  δ = zero(T)
+  ct, c0 = coordinates(trial), coordinates(x0)
+  for k in 1:ncoordinates(x0)
+    r, c = tril_cartesian(size(x0, 1), k)
+    d = r == c ? grad[r, r] : grad[r, c] + grad[c, r]
+    δ += d * (ct[k] - c0[k])
+  end
+  δ
+end
+
+# The quadratic model of f at x. ProximalBase gives the model of a LogDetLoss at
+# a matrix, and an owner passes its matrix view there.
+_newton_model(f, x) = ProximalBase.quadratic_model(f, x)
+_newton_model(f::LogDetLoss, x::SymmetricSparseIterate) = ProximalBase.quadratic_model(f, matrixview(x))
+_newton_model!(q, f, x) = ProximalBase.quadratic_model!(q, f, x)
+_newton_model!(q, f::LogDetLoss, x::SymmetricSparseIterate) = ProximalBase.quadratic_model!(q, f, matrixview(x))
 
 function _newton_cdmodel(q, x, g)
   m = cdmodel(q, x)
@@ -88,7 +115,7 @@ function _solve_generic_newton!(x::_GenericNewtonIterate{T}, f::AbstractFunction
   F = T(f(x) + g(x))
   isfinite(F) || throw(ArgumentError("ProxNewton needs a starting point with a finite objective."))
 
-  q = ProximalBase.quadratic_model(f, x)
+  q = _newton_model(f, x)
   grad = _gradient_buffer(x)
   modelgrad = similar(grad)
   x0, trial = copy(x), copy(x)
@@ -102,7 +129,7 @@ function _solve_generic_newton!(x::_GenericNewtonIterate{T}, f::AbstractFunction
   # The final visit checks stationarity after the last permitted Newton step;
   # it does not perform another inner solve.
   for it in 0:method.maxiter
-    it == 0 || (q = ProximalBase.quadratic_model!(q, f, x))
+    it == 0 || (q = _newton_model!(q, f, x))
     # Reuse q's buffers, but rebuild its CD cache: cdmodel may copy a Diagonal
     # or Symmetric Hessian to a dense matrix, and keeps scalar scale/constants.
     # Reinitializing such a cache alone would retain stale model parameters.
@@ -143,10 +170,7 @@ function _solve_generic_newton!(x::_GenericNewtonIterate{T}, f::AbstractFunction
     # The first-order decrease of the composite objective, evaluated with the
     # actual gradient. An insufficient inner solve can produce no direction,
     # or an inaccurate oracle an ascent direction; neither is convergence.
-    δ = T(g(trial) - g(x0))
-    for i in eachindex(x0, trial, grad)
-      δ += grad[i] * (trial[i] - x0[i])
-    end
+    δ = T(g(trial) - g(x0)) + _newton_slope(grad, trial, x0)
     isfinite(δ) && δ < 0 || break
 
     t, accepted = one(T), false

@@ -367,6 +367,57 @@ end
   @test relgap(duality_gap(fw, NormL1(0.1), r.minimizer)) <= 1e-9 * (1 + 1e-6)
 end
 
+# the graphical-lasso gap on a SymmetricSparseIterate equals, within rounding, the gap of its
+# matrix (both triangles, stored zeros as zeros), and asymmetric weights are rejected with the
+# iterate unchanged
+@testset "graphical-lasso gap on a SymmetricSparseIterate" begin
+  rng = Xoshiro(17)
+  q = 6
+  A = randn(rng, 150, q)
+  S = A'A / 150
+  W = fill(1.0, q, q); W[diagind(W)] .= 0
+  f, g = LogDetLoss(S), NormL1(0.1, W)
+  same(a, b) = isapprox(a.primal, b.primal; rtol = 1e-12) && isapprox(a.dual, b.dual; rtol = 1e-12) &&
+               isapprox(a.gap, b.gap; rtol = 1e-10, atol = 1e-12)
+  # a positive definite point away from the solution, with an explicit stored zero
+  X = SymmetricSparseIterate(Matrix(SymTridiagonal(fill(1.0, q), fill(0.2, q - 1))))
+  X[q, 1] = 0.1; X[q, 1] = 0.0
+  d = duality_gap(f, g, X)
+  @test isfinite(d.gap) && d.gap > 1e-3
+  @test same(d, duality_gap(f, g, matrixview(X)))
+  @test same(d, duality_gap(f, g, Matrix(X)))
+  @test PS._gapevaluator(f, g, X) !== nothing
+  # a Float32 iterate with a Float64 likelihood: the gap of its Float32 matrix
+  X32 = SymmetricSparseIterate(Float32.(Matrix(X)))
+  @test same(duality_gap(f, g, X32), duality_gap(f, g, Matrix(X32)))
+  # off the cone: no dual value
+  N = SymmetricSparseIterate(-Matrix(1.0I, q, q))
+  @test duality_gap(f, g, N).gap == Inf
+  @test duality_gap(f, g, matrixview(N)).gap == Inf
+  # asymmetric weights: rejected by the symmetry rule, the iterate unchanged
+  Wa = copy(W); Wa[2, 1] = 3.0
+  before = (Matrix(X), collect(coordinates(X)), collect(activecoordinates(X)), nactive(X))
+  err = try
+    duality_gap(f, NormL1(0.1, Wa), X)
+    nothing
+  catch e
+    e
+  end
+  @test err isa ArgumentError && occursin("must be symmetric on a SymmetricSparseIterate", sprint(showerror, err))
+  @test (Matrix(X), collect(coordinates(X)), collect(activecoordinates(X)), nactive(X)) == before
+  # at the QUIC solution the gap is finite and small, from QUIC and from the evaluator
+  Xq = SymmetricSparseIterate(q)
+  r = solve!(Xq, f, g, ProxNewton(; tol = 1e-9))
+  @test r.converged && isfinite(r.gap) && r.gap <= 1e-9
+  dq = duality_gap(f, g, Xq)
+  @test isfinite(dq.gap) && relgap(dq) <= 1e-8
+  @test same(dq, duality_gap(f, g, Matrix(Xq)))
+  ev = PS._gapevaluator(f, g, Xq)
+  @test ev !== nothing
+  rg = PS._relgap!(ev, f, g, Xq)
+  @test isfinite(rg) && rg <= 1e-8
+end
+
 @testset "kkt_residual" begin
   X, y, _ = lassodata()
   n, p = size(X)

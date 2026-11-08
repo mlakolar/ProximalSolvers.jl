@@ -106,9 +106,13 @@ compares it with the built-in model on a dense copy of ``X``.
 - **Iterates.** The functions receive the iterate, a `SparseIterate` or a
   `SymmetricSparseIterate`; a model may support either. On a
   `SymmetricSparseIterate`, coordinate ``k`` is the lower-triangle entry
-  ``(r, c)`` = `tril_cartesian(x.p, k)`, and `coordinate_derivatives` returns
-  the derivative and the curvature along ``E_{rc} + E_{cr}``, as for the
-  [Kronecker quadratic](@ref "Kronecker quadratics"). Group penalties work
+  ``(r, c)`` = `tril_cartesian(size(x, 1), k)`, with the value
+  `coordinates(x)[k]`, and `coordinate_derivatives` returns
+  the derivative and the curvature along ``E_{rc} + E_{cr}`` off the diagonal
+  (``r \ne c``) and along ``E_{rr}`` on it, as for the
+  [Kronecker quadratic](@ref "Kronecker quadratics"). There `gradient!`
+  receives a dense `Matrix` `G` of `size(x)` for the gradient over the
+  entries of the matrix. Group penalties work
   with the built-in models only.
 - **Momentum.** Momentum is off by default for a model of your own. With
   `CDSolver(; momentum = true)`, coordinate descent calls `initialize!` at

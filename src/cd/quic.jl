@@ -42,13 +42,13 @@ function _glasso_components(S::AbstractMatrix{T}, g::NormL1, w::T) where {T}
   sort!(collect(values(comps)); by = first)
 end
 
-# the dense symmetric matrix of x
-function _dense!(D::Matrix{T}, x::SymmetricSparseIterate{T}) where {T}
+# the dense symmetric matrix of x, converted to the element type of D
+function _dense!(D::Matrix{T}, x::SymmetricSparseIterate) where {T}
   fill!(D, zero(T))
   cx = coordinates(x)
   for k in activecoordinates(x)
     v = cx[k]
-    r, c = tril_cartesian(x.p, k)
+    r, c = tril_cartesian(size(x, 1), k)
     D[r, c] = v
     D[c, r] = v
   end
@@ -59,7 +59,7 @@ end
 # positive definite start and the solution on return. Returns (F, D, passes,
 # converged): the objective and the dual value at the solution.
 function _quic!(X::SymmetricSparseIterate{T}, S::Matrix{T}, w::T, g::NormL1, method::ProxNewton, tol::Float64) where {T}
-  p = X.p
+  p = size(X, 1)
   Xd, Wd, Xt, M = _dense!(zeros(T, p, p), X), zeros(T, p, p), zeros(T, p, p), zeros(T, p, p)
   copyto!(M, Xd)
   ld = _logdet_chol!(M)
@@ -88,7 +88,7 @@ function _quic!(X::SymmetricSparseIterate{T}, S::Matrix{T}, w::T, g::NormL1, met
       (!iszero(Xd[r, c]) || abs(Cm[r, c]) > _glasso_bound(g, p, r, c, w)) && push!(free, tril_index(p, r, c))
     end
     # the Newton direction, from Δ = 0, with more passes as the steps get closer
-    fill!(D, zero(T))
+    _clear_start!(D)
     initialize!(model, D)
     st.candidates = free
     inner = CDSolver(; maxpasses = min(method.inner.maxpasses, 2 * (1 + it ÷ 3)), tol = method.inner.tol,
@@ -135,7 +135,7 @@ function _quic!(X::SymmetricSparseIterate{T}, S::Matrix{T}, w::T, g::NormL1, met
     Dual = _glasso_dual!(M, S, Wd, g, w)
     converged = _relative_gap(F, Dual) <= tol
   end
-  fill!(X, zero(T))
+  _clear_start!(X)
   for c in 1:p, r in c:p
     v = Xd[r, c]
     iszero(v) || (X[r, c] = v)
@@ -153,7 +153,7 @@ function _glasso_scalar(s::T, λ::T, w::T) where {T}
 end
 
 function solve!(X::SymmetricSparseIterate{T}, f::LogDetLoss{T}, g::NormL1, method::ProxNewton) where {T}
-  S, w, p = f.S, f.w, X.p
+  S, w, p = f.S, f.w, size(X, 1)
   size(S, 1) == p || throw(DimensionMismatch("X is $p × $p and S is $(size(S, 1)) × $(size(S, 1))"))
   ProximalBase._checkparams(g, X)
   g = _symmetric_penalty(g, X)
@@ -191,7 +191,7 @@ end
 # the start on component C: the values of X there when positive definite,
 # otherwise the diagonal solution 1/(Sᵢᵢ + λᵢᵢ/w)
 function _block_start(X::SymmetricSparseIterate{T}, S, g::NormL1, w::T, C::Vector{Int}) where {T}
-  p, q = X.p, length(C)
+  p, q = size(X, 1), length(C)
   Xc = SymmetricSparseIterate(T, q)
   for (b, j) in enumerate(C), (a, i) in enumerate(C)
     a >= b || continue
@@ -200,7 +200,7 @@ function _block_start(X::SymmetricSparseIterate{T}, S, g::NormL1, w::T, C::Vecto
   end
   ok = nactive(Xc) > 0 && isposdef(Symmetric(Matrix(Xc)))
   if !ok
-    fill!(Xc, zero(T))
+    _clear_start!(Xc)
     for (a, i) in enumerate(C)
       Xc[a, a] = first(_glasso_scalar(S[i, i], T(g.λ0) * T(_entryweight(g.w, (i - 1) * p + i, T)), w))
     end
@@ -210,8 +210,8 @@ end
 
 # X ← the block-diagonal matrix of the solutions on the components
 function _assemble!(X::SymmetricSparseIterate{T}, comps, Xs, S, g::NormL1, w::T) where {T}
-  p = X.p
-  fill!(X, zero(T))
+  p = size(X, 1)
+  _clear_start!(X)
   for (C, Xc) in zip(comps, Xs)
     if length(C) == 1
       i = C[1]

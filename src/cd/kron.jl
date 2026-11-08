@@ -69,7 +69,7 @@ function initialize!(m::KronModel{T}, x::SymmetricSparseIterate{T}) where {T}
   for k in activecoordinates(x)
     v = cx[k]
     iszero(v) && continue
-    r, c = tril_cartesian(x.p, k)
+    r, c = tril_cartesian(size(x, 1), k)
     r == c ? _rank1!(m.M, m.A, m.B, r, r, v) : _rank2!(m.M, m.A, m.B, r, c, v)
   end
   m
@@ -93,7 +93,8 @@ end
 end
 
 # the curvature along the lower-triangle coordinate (r, c) of a symmetric Θ,
-# which moves Θ[r, c] and Θ[c, r] together
+# which moves Θ[r, c] and Θ[c, r] together when r ≠ c and Θ[r, r] alone when
+# r == c
 @inline _symcurvature(A, B, r::Int, c::Int) =
   @inbounds r == c ? A[r, r] * B[r, r] : (A[r, r] * B[c, c] + A[c, c] * B[r, r]) + 2 * A[r, c] * B[r, c]
 
@@ -103,7 +104,7 @@ end
 
 @inline function coordinate_step!(m::KronModel{T}, g, x::SymmetricSparseIterate{T}, k::Int) where {T}
   A, B, M = m.A, m.B, m.M
-  p = x.p
+  p = size(x, 1)
   r, c = tril_cartesian(p, k)
   a = m.s * _symcurvature(A, B, r, c)
   G = m.s * _symderivative(M, m.C, r, c, T)
@@ -131,12 +132,12 @@ end
 end
 
 @inline function coordinate_derivatives(m::KronModel{T}, x::SymmetricSparseIterate{T}, k::Int) where {T}
-  r, c = tril_cartesian(x.p, k)
+  r, c = tril_cartesian(size(x, 1), k)
   m.s * _symderivative(m.M, m.C, r, c, T), m.s * _symcurvature(m.A, m.B, r, c)
 end
 
 @inline function update_cache!(m::KronModel{T}, x::SymmetricSparseIterate{T}, k::Int, h::T) where {T}
-  r, c = tril_cartesian(x.p, k)
+  r, c = tril_cartesian(size(x, 1), k)
   r == c ? _rank1!(m.M, m.A, m.B, r, r, h) : _rank2!(m.M, m.A, m.B, r, c, h)
   m
 end
@@ -154,7 +155,7 @@ function coordinate_scale(m::KronModel, x::SparseIterate, k::Int)
   sqrt(m.s * m.A[r, r] * m.B[c, c])
 end
 function coordinate_scale(m::KronModel, x::SymmetricSparseIterate, k::Int)
-  r, c = tril_cartesian(x.p, k)
+  r, c = tril_cartesian(size(x, 1), k)
   sqrt(m.s * _symcurvature(m.A, m.B, r, c))
 end
 
@@ -194,7 +195,7 @@ function loss_value(m::KronModel{T}, x::SymmetricSparseIterate) where {T}
   v = zero(T)
   cx = coordinates(x)
   for k in activecoordinates(x)
-    r, c = tril_cartesian(x.p, k)
+    r, c = tril_cartesian(size(x, 1), k)
     v += cx[k] * (r == c ? m.M[r, r] / 2 + _C(m.C, r, r, T) : (m.M[r, c] + m.M[c, r]) / 2 + _C(m.C, r, c, T) + _C(m.C, c, r, T))
   end
   m.s * v

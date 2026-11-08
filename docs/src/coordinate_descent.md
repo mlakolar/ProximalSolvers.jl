@@ -148,7 +148,8 @@ The iterate fixes what a coordinate is.
 - On a `SymmetricSparseIterate`, the coordinates are the entries ``(r, c)``,
   ``r \ge c``, of the lower triangle of a symmetric matrix ``\Theta``. A step on
   an off-diagonal coordinate moves ``\Theta_{rc}`` and ``\Theta_{cr}``
-  together, along ``D = E_{rc} + E_{cr}``. Let ``G`` be the derivative of the
+  together, along ``D = E_{rc} + E_{cr}``, and a step on a diagonal coordinate
+  moves ``\Theta_{rr}`` alone, along ``D = E_{rr}``. Let ``G`` be the derivative of the
   loss along ``D`` and ``a`` its curvature along ``D``. A separable penalty
   on the full matrix contributes ``h_{rc}(t) = g_{rc}(t) + g_{cr}(t)`` along
   an off-diagonal coordinate, and ``h_{rr}(t) = g_{rr}(t)`` on the diagonal.
@@ -181,15 +182,14 @@ The iterate fixes what a coordinate is.
   `KLDivergence`, and the coefficient `a` of a linear constraint, through
   `Scaled`, `Tilt`, `Translate`, `Regularize`, `Constrained(·, IndBox)`,
   scalar `Precompose`, `MoreauEnvelope`, `Conjugate` and linear constraints.
-  With ProximalBase 0.6 or later the check is
-  `ProximalBase.check_symmetric_parameters`. It traverses the per-entry
-  parameters that ProximalBase declares for its own penalties and wrappers, and
-  those that a user type declares with `ProximalBase.entry_parameters`; a user
-  `SeparableFunction` subtype that declares nothing is rejected on an owner,
-  and a user `AbstractFunction` or wrapper that declares nothing is not
-  traversed and passes the check unchanged. With earlier versions the check
-  covers the types listed here, and other types pass unchanged. A custom
-  penalty or wrapper is responsible for the symmetric-storage compatibility of
+  The check is `ProximalBase.check_symmetric_parameters`. It traverses the
+  per-entry parameters that ProximalBase declares for its own penalties and
+  wrappers, and those that a user type declares with
+  `ProximalBase.entry_parameters`; a user `SeparableFunction` subtype that
+  declares nothing is rejected on an owner, and a user `AbstractFunction` or
+  wrapper that declares nothing passes the check unchanged. The check does not
+  itself recurse into the inner function of a user wrapper: an array of that
+  inner function is checked when the wrapper's declaration exposes it. A custom penalty or wrapper is responsible for the symmetric-storage compatibility of
   its own parameters (extending the check to user types is #120). These rules
   do not extend the penalty families supported by a solver or wrapper.
 
@@ -197,9 +197,8 @@ The iterate fixes what a coordinate is.
   supplied arrays are not changed. The pair contributes
   ``h_{rc}(t) = 2 g_{rc}(t)``. The reported minimum uses the supplied
   objective. The low-level [`coordinate_step!`](@ref ProximalSolvers.coordinate_step!)
-  kernel does not check, and needs symmetric parameters. Whether
-  `prox_coordinate!` checks the pair it updates depends on the ProximalBase
-  version (version 0.6 does); either way the parameters must be symmetric.
+  kernel does not check, and needs symmetric parameters. ProximalBase's
+  `prox_coordinate!` checks the pair it updates.
   The loss arrays, such as the matrix `C` of a `KronQuadratic`, are not
   checked by ProximalSolvers.
 

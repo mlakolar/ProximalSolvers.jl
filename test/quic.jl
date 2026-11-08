@@ -150,7 +150,7 @@ end
     PS.initialize!(m, x)
     st = PS._CDState(Float64, x, s.random)
     PS._cd!(x, m, g, st, s)
-    fill!(x, 0.0); PS.initialize!(m, x)
+    fill!(coordinates(x), 0.0); PS.initialize!(m, x)
     @allocated PS._cd!(x, m, g, st, s)
   end
   for s in (CDSolver(), CDSolver(; order = :cyclic), CDSolver(; momentum = true))
