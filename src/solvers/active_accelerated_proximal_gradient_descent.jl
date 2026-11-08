@@ -262,14 +262,14 @@ _active_set_iterate(x::Vector, g::GroupNormL2) =
 # kkt_violation for GroupNormL2 on an AtomIterate takes group k of x as group k of g
 _check_groups(x, g) = nothing
 _check_groups(x::AtomIterate, g::GroupNormL2) =
-  x.groups === g.groups || x.groups == g.groups ||
+  ProximalBase.samegroups(x, g) ||
     throw(ArgumentError("The groups of x must be the groups of g, as in AtomIterate(x, g.groups)."))
 
 _saturated_product(a::Int, b::Int) = b > 0 && a > typemax(Int) ÷ b ? typemax(Int) : a * b
 
 # the number of entries of coordinate k of x, and of the coordinates in ks
 _num_entries(::SparseIterate, k::Int) = 1
-_num_entries(x::AtomIterate, k::Int) = length(x.groups[k])
+_num_entries(x::AtomIterate, k::Int) = length(atomindices(x, k))
 _num_entries(x, ks::AbstractVector{Int}) = sum(k -> _num_entries(x, k), ks; init = 0)
 
 # the entries of the active coordinates of x
@@ -280,7 +280,7 @@ end
 function _active_entries!(S, x::AtomIterate)
   empty!(S)
   for k in activecoordinates(x)
-    append!(S, x.groups[k])
+    append!(S, atomindices(x, k))
   end
   S
 end

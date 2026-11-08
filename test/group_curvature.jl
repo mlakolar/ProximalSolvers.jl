@@ -367,4 +367,74 @@ end
   @test PS._group_eig_failure[][1] == 0
 end
 
+# the groups of 1:12 in layouts that are equal as group arrays but separately allocated (range-backed,
+# vector-backed, Int32 indices), and layouts that are not equal to them
+_layouts() = (
+  ranges = [1:3, 4:6, 7:9, 10:12],
+  vectors = [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]],
+  int32 = [Int32.(1:3), Int32.(4:6), Int32.(7:9), Int32.(10:12)],
+  strided = [1:4:12, 2:4:12, 3:4:12, 4:4:12],
+)
+_other_layouts() = (
+  group_order = [4:6, 1:3, 7:9, 10:12],
+  within_group = [[2, 1, 3], 4:6, 7:9, 10:12],
+  fewer_groups = [1:6, 7:9, 10:12],
+  more_groups = [1:3, 4:6, 7:9, 10:11, 12:12],
+)
+
+accepts(f, args...) = (f(args...); true)
+
+@testset "layout checks of the solvers and _maxgroup, _zero_like" begin
+  L, O = _layouts(), _other_layouts()
+  for name in (:ranges, :vectors, :int32, :strided)
+    x = AtomIterate(Float64, 12, L[name])
+    # a penalty with the same groups, built apart from the iterate, goes with it; one with other groups does not
+    for other in (name == :strided ? (:strided,) : (:ranges, :vectors, :int32))
+      g = GroupNormL2(0.1, L[other])
+      @test PS._check_iterate(g, x) === nothing
+      @test accepts(PS._check_groups, x, g)
+      @test PS._check_iterate(GroupNormLinf(0.1, L[other]), x) === nothing
+    end
+    for bad in keys(O)
+      @test_throws ArgumentError PS._check_iterate(GroupNormL2(0.1, O[bad]), x)
+      @test_throws ArgumentError PS._check_groups(x, GroupNormL2(0.1, O[bad]))
+      @test_throws ArgumentError PS._check_iterate(GroupNormLinf(0.1, O[bad]), x)
+    end
+    @test_throws ArgumentError PS._check_iterate(GroupNormL2(0.1, L[name]), SparseIterate(Float64, 12))
+  end
+  err = try; PS._check_iterate(GroupNormL2(0.1, [4:6, 1:3, 7:9, 10:12]), AtomIterate(Float64, 12, L.ranges)); catch e; e; end
+  @test err isa ArgumentError && err.msg == "The groups of x must be the groups of g, as in AtomIterate(p, g.groups)."
+  err = try; PS._check_groups(AtomIterate(Float64, 12, L.ranges), GroupNormL2(0.1, [4:6, 1:3, 7:9, 10:12])); catch e; e; end
+  @test err isa ArgumentError && err.msg == "The groups of x must be the groups of g, as in AtomIterate(x, g.groups)."
+
+  # the size of the largest group: contiguous, strided, vector-backed, uneven, one group, and none
+  @test PS._maxgroup(AtomIterate(Float64, 12, L.ranges)) == 3
+  @test PS._maxgroup(AtomIterate(Float64, 12, L.strided)) == 3
+  @test PS._maxgroup(AtomIterate(Float64, 12, L.vectors)) == 3
+  @test PS._maxgroup(AtomIterate(Float64, 12, L.int32)) == 3
+  @test PS._maxgroup(AtomIterate(Float64, 12, [[5, 1], [2, 3, 4, 6, 7, 8, 9, 10], [11, 12]])) == 8
+  @test PS._maxgroup(AtomIterate(Float64, 12, [1:12])) == 12
+  @test PS._maxgroup(AtomIterate(Float32, 12, [[k] for k in 12:-1:1])) == 1
+  @test PS._maxgroup(AtomIterate(Float64, 0, UnitRange{Int}[])) == 0
+  x = AtomIterate(Float64, 12, L.vectors)
+  PS._maxgroup(x)
+  @test (@allocated PS._maxgroup(x)) == 0
+
+  # a zero iterate with the type, size and layout of x, no active group, and zero values
+  for T in (Float64, Float32), name in (:ranges, :vectors, :int32, :strided)
+    x = AtomIterate(T, 12, L[name])
+    x[L[name][2]] .= T[1, -2, 3]
+    z = PS._zero_like(x)
+    @test typeof(z) === typeof(x) && size(z) == size(x) && z !== x
+    @test ProximalBase.samegroups(x, z) && ncoordinates(z) == ncoordinates(x)
+    @test all(k -> atomindices(z, k) == atomindices(x, k), 1:ncoordinates(x))
+    @test nactive(z) == 0 && isempty(activecoordinates(z))
+    @test all(iszero, Vector(z))
+    @test nactive(x) == 1 && x[L[name][2]] == T[1, -2, 3]      # x is as it was
+    z[L[name][4]] .= T[1, 1, 1]
+    @test nactive(z) == 1 && nactive(x) == 1 && all(iszero, x[L[name][4]])
+  end
+  @test PS._zero_like(SparseIterate(Float32, 5)) isa SparseIterate{Float32}
+end
+
 end

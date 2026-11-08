@@ -7,7 +7,7 @@
 # a zero iterate of the type and size of x
 _zero_like(x::SparseIterate{T}) where {T} = SparseIterate(T, size(x)...)
 _zero_like(x::SymmetricSparseIterate{T}) where {T} = SymmetricSparseIterate(T, x.p)
-_zero_like(x::AtomIterate{T}) where {T} = AtomIterate(T, length(x), x.groups)
+_zero_like(x::AtomIterate) = similar(x)
 
 # The start of a solve from zero: the values of x are zero and, for the iterates
 # that hold a working set of their own, no coordinate is active. The zero write
@@ -349,7 +349,7 @@ function _snapshot_dense(x::AtomIterate)
   n = 0
   limit = length(x) ÷ 16
   for k in activecoordinates(x)
-    n += length(x.groups[k])
+    n += length(atomindices(x, k))
     n > limit && return true
   end
   false

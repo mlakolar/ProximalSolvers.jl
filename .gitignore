@@ -16,6 +16,8 @@
 
 # Local Julia-minor environments are regenerated from master checkouts
 /Manifest-v*.toml
+# The Julia 1.10 manifest pins the ProximalBase development commit until 0.6.0 is registered
+!/Manifest-v1.10.toml
 /benchmark/external/**/results/
 /benchmark/external/**/artifacts/
 

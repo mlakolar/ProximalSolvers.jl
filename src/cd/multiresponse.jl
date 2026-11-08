@@ -72,7 +72,7 @@ function _initialize!(m::MLSModel{T}, x::AtomIterate{T}, curvatures::Bool) where
     end
   end
   for k in activecoordinates(x)
-    for (c, j) in enumerate(x.groups[k])
+    for (c, j) in enumerate(atomindices(x, k))
       v = x[j]
       iszero(v) || _residual_axpy!(R, c, X, k, m.xbar[k], v)
     end
@@ -116,7 +116,7 @@ end
 # an entry, scaled with `scaled`.
 function _groupstep!(m::MLSModel{T}, g::GroupNormL2, x::AtomIterate{T}, k::Int, scaled::Bool) where {T}
   X, R, u = m.X, m.R, m.u
-  G = x.groups[k]
+  G = atomindices(x, k)
   c = T(g.λ0 * g.w[k])
   xb = m.xbar[k]
 

@@ -426,7 +426,7 @@ function _gradnorm(grad::AbstractArray, x::SymmetricSparseIterate, k::Int)
   r, c = tril_cartesian(x.p, k)
   abs(grad[_entry(x.p, r, c)])
 end
-_gradnorm(grad::AbstractArray, x::AtomIterate, k::Int) = norm(view(grad, x.groups[k]))
+_gradnorm(grad::AbstractArray, x::AtomIterate, k::Int) = norm(view(grad, atomindices(x, k)))
 
 _coordweight(g, ::SparseIterate, k::Int) = _weight(g, k)
 function _coordweight(g, x::SymmetricSparseIterate, k::Int)
@@ -716,7 +716,7 @@ function _check_iterate(g::AbstractFunction, x)
   end
   if g isa ProximalBase.AbstractGroupNorm
     x isa AtomIterate || throw(ArgumentError("$(nameof(typeof(g))) needs an AtomIterate with its groups, as in AtomIterate(p, g.groups)."))
-    x.groups === g.groups || x.groups == g.groups ||
+    ProximalBase.samegroups(x, g) ||
       throw(ArgumentError("The groups of x must be the groups of g, as in AtomIterate(p, g.groups)."))
     return nothing
   end
