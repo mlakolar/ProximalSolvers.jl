@@ -342,6 +342,51 @@ end
   @test !ProximalSolvers._mightalias(x, copy(x)) && !ProximalSolvers._mightalias(x, zeros(2, 2))
 end
 
+# An owner block whose penalty ProximalBase may have no proximal operator into an owner for
+# (a linear constraint, an intersection, a pointwise minimum) is stepped through a dense matrix
+# inside a tuple as it is alone: the pair solution is that of the separate problems
+constraint_penalties() = (("linear constraint", () -> Constrained(NormL1(0.1), IndHyperplane(1.0, 0.0))),
+                          ("intersection", () -> IndIntersection(IndBox(-1.0, 1.0), IndHyperplane(1.0, 0.0))),
+                          ("pointwise minimum", () -> PointwiseMinimum(NormL1(0.1), NormL1(0.2))),
+                          ("scaled linear constraint", () -> Scaled(Constrained(NormL1(0.1), IndHyperplane(1.0, 0.0)), 0.7)))
+@testset "an owner block with a $label $(summary(method))" for (label, make) in constraint_penalties(), method in solvers
+  A = Matrix(1.0I, 2, 2)
+  fo, go = KronQuadratic(A, A, [-1.0 -0.5; -0.5 0.2]), make()
+  opt = ProximalOptions(; maxiter = 2000, ftol = 1e-14, xtol = 1e-14, gradtol = 1e-12)
+  xo, xd = SymmetricSparseIterate(2), zeros(1)
+  ro = solve!(xo, fo, go, method, opt)
+  rd = solve!(xd, SqrNormL2(), NormL1(0.1), method, opt)
+  for (x, f, g) in (((SymmetricSparseIterate(2), zeros(1)), SeparableSum(fo, SqrNormL2()), SeparableSum(go, NormL1(0.1))),
+                    ((SymmetricSparseIterate(2), SymmetricSparseIterate(2)), SeparableSum(fo, fo), SeparableSum(go, NormL1(0.1))))
+    r = solve!(x, f, g, method, opt)
+    @test isfinite(r.minimum)
+    @test Matrix(x[1]) ≈ Matrix(xo) atol = 1e-6
+    x[2] isa SymmetricSparseIterate || @test x[2] ≈ xd atol = 1e-8
+    x[2] isa SymmetricSparseIterate && @test x[2][1, 1] ≈ 0.9 atol = 1e-6
+  end
+end
+
+# the dense proximal points of such owner blocks are checked before any block is written: an
+# asymmetric trial point for the second block leaves the first block unchanged
+@testset "a tuple step checks the dense owner blocks before writing" begin
+  g = SeparableSum(NormL1(0.1), Constrained(NormL1(0.1), IndHyperplane(1.0, 0.0)))
+  z = ([0.5 0.2; 0.2 0.1], [1.0 0.3; 0.8 -0.4])
+  w = zeros(2, 2)
+  value_and_prox!(w, g.fs[2], z[2], 1.0)
+  @test w != w'
+  x = (SymmetricSparseIterate(2), SymmetricSparseIterate(2))
+  x[1][2, 1] = 0.7
+  before = map(owner_state, x)
+  err = try
+    ProximalSolvers._metric_prox!(x, g, z, 1.0, nothing, (zeros(2, 2), zeros(2, 2)))
+    nothing
+  catch e
+    e
+  end
+  @test err isa ArgumentError && occursin("symmetric", sprint(showerror, err))
+  @test isequal(map(owner_state, x), before)
+end
+
 @testset "errors" begin
   f = SeparableSum(SqrNormL2(), SqrNormL2())
   g = SeparableSum(NormL1(0.1), NormL1(0.1))

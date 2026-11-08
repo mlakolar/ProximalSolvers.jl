@@ -104,11 +104,14 @@ _metric_prox!(x, g, z, L, m) = convert(_eltype(x), value_and_prox!(x, g, z, _met
 # The step of the gradient solvers, with w a dense buffer of the shape of z that
 # the solver does not read until it writes it again (delta_x); w serves an owner x.
 _metric_prox!(x, g, z, L, m, w) = _metric_prox!(x, g, z, L, m)
-# ProximalBase has no proximal operator into a SymmetricSparseIterate for the
-# penalties below, nor for Scaled, Translate and Tilt around them. For those, the
-# proximal point over matrices goes into w, and the checked copyto! of
-# ProximalBase moves it into x, or throws an ArgumentError when w is not exactly
-# symmetric. When z is symmetric and g(X') = g(X) (symmetric parameters, which
+# For the penalties below, and Scaled, Translate and Tilt around them, an owner x
+# takes the proximal point over matrices: it goes into w, and the checked
+# copyto! of ProximalBase moves it into x, or throws an ArgumentError before
+# writing x when w is not exactly symmetric. (A ProximalBase in which the owner
+# is not an AbstractArray has no proximal operator into an owner for them; where
+# the owner is an AbstractArray, as at the ProximalBase commit of Project.toml,
+# they have one through the methods for arrays, and this route is taken anyway.)
+# When z is symmetric and g(X') = g(X) (symmetric parameters, which
 # _symmetric_penalty requires), a unique proximal point over matrices is
 # symmetric, and it is then the proximal point over symmetric matrices.
 _owner_prox(g) = true
@@ -119,6 +122,28 @@ function _metric_prox!(x::SymmetricSparseIterate, g, z::AbstractMatrix, L, ::Not
   v = value_and_prox!(w, g, z, one(L) / L)
   copyto!(x, w)
   convert(_eltype(x), v)
+end
+# A tuple x with a SeparableSum g in which an owner block has a penalty of the
+# dense route: the blocks are stepped one by one. The dense proximal points of
+# those owner blocks go into their buffers in w first, and each is checked to be
+# exactly symmetric (the copyto! of a matrix that is not throws before writing),
+# before any block of x is written; then the other blocks take the proximal step
+# of ProximalBase, and the dense points are copied into their owners. Other
+# tuples, and penalties that couple the blocks, take the proximal step of
+# ProximalBase on the whole tuple.
+_dense_block(x, g) = false
+_dense_block(x::SymmetricSparseIterate, g) = !_owner_prox(g)
+_exactly_symmetric(w::AbstractMatrix) = all(_symmetric_pair(w[r, c], w[c, r]) for c in axes(w, 2) for r in c+1:size(w, 1))
+function _metric_prox!(x::Tuple, g::SeparableSum, z::Tuple, L, m::Nothing, w::Tuple)
+  length(g.fs) == length(x) == length(z) == length(w) || return _metric_prox!(x, g, z, L, m)
+  dense = map(_dense_block, x, g.fs)
+  any(dense) || return _metric_prox!(x, g, z, L, m)
+  γ = one(L) / L
+  vdense = map((d, gk, zk, wk) -> d ? value_and_prox!(wk, gk, zk, γ) : nothing, dense, g.fs, z, w)
+  foreach((d, xk, wk) -> (d && !_exactly_symmetric(wk) && copyto!(xk, wk); nothing), dense, x, w)
+  vrest = map((d, xk, gk, zk) -> d ? nothing : value_and_prox!(xk, gk, zk, γ), dense, x, g.fs, z)
+  foreach((d, xk, wk) -> (d && copyto!(xk, wk); nothing), dense, x, w)
+  convert(_eltype(x), sum(map((d, a, b) -> d ? a : b, dense, vdense, vrest)))
 end
 # The identity prox is independent of the metric. ZeroFunction only has a
 # scalar-step method in ProximalBase.
