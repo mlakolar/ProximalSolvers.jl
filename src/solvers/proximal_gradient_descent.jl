@@ -201,6 +201,12 @@ function _check_debias(f, x0)
 end
 
 _same_support(x, y) = all(i -> iszero(x[i]) == iszero(y[i]), eachindex(x, y))
+# on SymmetricSparseIterates, over the coordinates of the lower triangle; a
+# stored zero counts as zero
+function _same_support(x::SymmetricSparseIterate, y::SymmetricSparseIterate)
+  cx, cy = coordinates(x), coordinates(y)
+  all(k -> iszero(cx[k]) == iszero(cy[k]), 1:ncoordinates(x))
+end
 
 _refit_copy(x::Union{SparseIterate, SymmetricSparseIterate}) = copy(x)
 _refit_copy(x::AbstractVector) = SparseIterate(Vector(x))
@@ -227,7 +233,7 @@ function _debias!(f, g, state::ProximalGradientDescentState{T}, method::Proximal
     state.g_x = g_s
     state.f_calls += 1
     state.grad_calls += 1
-    @. state.delta_x = state.x - state.x_previous
+    _sub!(state.delta_x, state.x, state.x_previous)
     state
 end
 
