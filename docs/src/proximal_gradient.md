@@ -215,25 +215,35 @@ the symmetric-storage compatibility of its own parameters. The smooth loss
 
 A `SymmetricSparseIterate` is a point of the space of symmetric matrices with
 the Frobenius inner product. The iterates ``x``, ``x'``, the extrapolated
-points ``y`` and the candidates of the monotone method keep its type, and the
-gradient of ``f`` is evaluated at them: ProximalBase returns there the gradient
-over symmetric matrices, the symmetric part of the matrix gradient, which for
-`KronQuadratic(A, B, C)` with ``A \ne B`` differs from the gradient at a dense
-matrix. The trial point ``y - \nabla f(y)/L`` before the proximal step, the
-step ``x - x'`` and the gradients are dense matrices; with a gradient that is
-exactly symmetric, the trial point is exactly symmetric. Step norms, inner
+points ``y`` and the candidates of the monotone method keep its type, and ``f``
+and its gradient are evaluated at them; the normalized step evaluates ``f`` at
+a `SymmetricSparseIterate` that holds its trial point. The solvers do not
+symmetrize the gradient that ``f`` returns. `KronQuadratic(A, B, C)` returns at
+a `SymmetricSparseIterate` the gradient over symmetric matrices, the symmetric
+part of the matrix gradient, which is exactly symmetric and, for ``A \ne B``,
+differs from its gradient at a dense matrix. A loss used at a
+`SymmetricSparseIterate` must return a symmetric gradient for the trial point
+to be symmetric. The trial point ``y - \nabla f(y)/L`` before the proximal
+step, the step ``x - x'`` and the gradients are dense matrices; with a
+gradient that is exactly symmetric, the trial point is exactly symmetric. With
+a gradient that is not, the proximal step of ProximalBase into a
+`SymmetricSparseIterate` reads the symmetric part of the trial point, the
+stopping rules use the gradient as returned, and the dense proximal step below
+and the normalized step throw an `ArgumentError` when the matrix they copy into
+a `SymmetricSparseIterate` is not exactly symmetric. Step norms, inner
 products and residuals are those of the matrix, both triangles, so an
 off-diagonal change counts twice: a change of ``0.1`` in one off-diagonal
 coordinate is a step of norm ``0.1\sqrt{2}``. With `debias`, the support is the
 set of coordinates whose value is not zero, and an active coordinate that holds
 a zero is not in it. For `LinearConstrained`, `IndIntersection` and
-`PointwiseMinimum` penalties, also inside `Scaled`, `Translate` and `Tilt`, the
-proximal step is taken over matrices into a dense buffer and copied into the
-iterate, which throws an `ArgumentError` when that matrix is not exactly
-symmetric. The diagonal
-preconditioner, [`ActiveAccProxGradDescent`](@ref) and [`ADMMSolver`](@ref)
-do not take a `SymmetricSparseIterate` and throw an `ArgumentError` before
-anything is written.
+`PointwiseMinimum` penalties, also inside `Scaled`, `Translate` and `Tilt` and
+as the penalty of a block of a `SeparableSum`, the proximal step of a
+`SymmetricSparseIterate` is taken over matrices into a dense buffer and copied
+into the iterate, which throws an `ArgumentError` when that matrix is not
+exactly symmetric; in a tuple, these matrices are checked before any block is
+written. The diagonal preconditioner, [`ActiveAccProxGradDescent`](@ref) and
+[`ADMMSolver`](@ref) throw an `ArgumentError` before anything is written when
+the iterate is a `SymmetricSparseIterate`.
 
 For a latent graphical model, write `Θ = S + U * U'` and supply a smooth
 loss with

@@ -59,19 +59,27 @@ per-entry parameters that ProximalBase declares, and not user-defined wrappers
 or types that declare nothing. A custom penalty or wrapper is responsible for
 the symmetric-storage compatibility of its own parameters.
 
-On a `SymmetricSparseIterate` `x`, the iterates and the points where the
-gradient of `f` is evaluated are `SymmetricSparseIterate`s, while the trial
+When `x` is a `SymmetricSparseIterate`, the iterates and the points where `f`
+and its gradient are evaluated are `SymmetricSparseIterate`s, while the trial
 point `x - ∇f(x)/L` before the proximal step, the step `x - x'` and the
-gradients are dense matrices. At a `SymmetricSparseIterate`, ProximalBase
-returns the gradient over symmetric matrices, the symmetric part of the matrix
-gradient; when that gradient is exactly symmetric, so is the trial point. Norms, inner products and the reported residuals are those
-of the matrix, both triangles: the step norm is the Frobenius norm of the
-matrix `x - x'`, which counts an off-diagonal change twice. With `debias`, the
-support is the set of coordinates whose value is not zero, so an active
-coordinate that holds a zero is not in it. `ActiveAccProxGradDescent`,
-`ADMMSolver` and `preconditioner = :diagonal` do not take a
-`SymmetricSparseIterate`, and throw an `ArgumentError` before anything is
-written.
+gradients are dense matrices. The solvers do not symmetrize the gradient that
+`f` returns. `KronQuadratic` returns at a `SymmetricSparseIterate` the gradient
+over symmetric matrices, the symmetric part of the matrix gradient, which is
+exactly symmetric; a loss used at a `SymmetricSparseIterate` must return a
+symmetric gradient for the trial point to be symmetric. When the gradient is
+exactly symmetric, so is the trial point. When it is not, the proximal step of
+ProximalBase into a `SymmetricSparseIterate` reads the symmetric part of the
+trial point, the stopping rules use the gradient as returned, and the dense
+proximal step of the penalties described in [Proximal gradient methods](@ref)
+and the normalized step throw an `ArgumentError` when the matrix they copy into
+a `SymmetricSparseIterate` is not exactly symmetric. Norms, inner products and the
+reported residuals are those of the matrix, both triangles: the step norm is
+the Frobenius norm of the matrix `x - x'`, which counts an off-diagonal change
+twice. With `debias`, the support is the set of coordinates whose value is not
+zero, so an active coordinate that holds a zero is not in it.
+`ActiveAccProxGradDescent`, `ADMMSolver` and `preconditioner = :diagonal`
+throw an `ArgumentError` before anything is written when `x` is a
+`SymmetricSparseIterate`.
 
 # Example
 ```julia

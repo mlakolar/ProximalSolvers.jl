@@ -12,9 +12,10 @@ module Blocks
 # the normalized step through _at_trial), and the operations read its matrix, both
 # triangles, so that norms are Frobenius norms of the matrix. The trial points
 # and the differences of iterates of an owner are dense matrices
-# (_trial_similar). The operations between owners read the active coordinates
-# of their operands, and the dense results are written at both positions of
-# each coordinate.
+# (_trial_similar). The differences, steps, extrapolations and largest
+# differences of owners read the active coordinates of their operands, and the
+# dense results are written at both positions of each coordinate; the restricted
+# step and _maxabs_stepdiff read the matrix of an owner through matrixview.
 
 using LinearAlgebra
 using ProximalBase: norm_diff, SymmetricSparseIterate, coordinates, activecoordinates, activevalues,
