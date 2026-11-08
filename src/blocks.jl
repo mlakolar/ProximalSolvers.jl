@@ -8,7 +8,8 @@ module Blocks
 # that a tuple of one array computes exactly what the array does.
 #
 # A SymmetricSparseIterate (an owner) is an iterate of its own: the points
-# where f is evaluated keep its type, and the operations read its matrix, both
+# where the solvers evaluate f and its gradient are owners (the dense trial of
+# the normalized step through _at_trial), and the operations read its matrix, both
 # triangles, so that norms are Frobenius norms of the matrix. The trial points
 # and the differences of iterates of an owner are dense matrices
 # (_trial_similar). The operations between owners read the active coordinates
@@ -19,7 +20,7 @@ using LinearAlgebra
 using ProximalBase: norm_diff, SymmetricSparseIterate, coordinates, activecoordinates, activevalues,
                     matrixview, tril_cartesian
 
-export _Blocks, _Iterate, _trial_similar, _copy, _similar, _zero, _dense_similar, _copyto!, _copy!, _sub!, _step!, _extrapolate_point!,
+export _Blocks, _Iterate, _trial_similar, _owner_trial, _at_trial, _copy, _similar, _zero, _dense_similar, _copyto!, _copy!, _sub!, _step!, _extrapolate_point!,
        _relax!, _rdiv!, _norm, _norm_diff, _norm_inf, _dot, _dot_diff, _sumabs2, _length, _size,
        _maxabs_diff, _maxabs_axpy, _maxabs_stepdiff, _maxabs_residual, _allzero, _restricted_step!, _eltype
 
@@ -47,6 +48,22 @@ _similar(x::Tuple) = map(_similar, x)
 _trial_similar(x::AbstractArray) = similar(x)
 _trial_similar(x::SymmetricSparseIterate{T}) where {T} = Matrix{T}(undef, size(x))
 _trial_similar(x::Tuple) = map(_trial_similar, x)
+
+# The point at which f is evaluated for a dense trial w of an iterate like x:
+# _owner_trial(x) holds an empty owner for each owner of x (nothing for the
+# other blocks, and nothing when x has no owner), and _at_trial(w, s) copies each
+# dense block of w into its owner, with the checked copyto! of ProximalBase,
+# which throws an ArgumentError when that block is not exactly symmetric. The
+# other blocks are evaluated at w.
+_owner_trial(x::AbstractArray) = nothing
+_owner_trial(x::SymmetricSparseIterate) = similar(x)
+function _owner_trial(x::Tuple)
+  s = map(_owner_trial, x)
+  all(isnothing, s) ? nothing : s
+end
+_at_trial(w, ::Nothing) = w
+_at_trial(w::AbstractMatrix, s::SymmetricSparseIterate) = copyto!(s, w)
+_at_trial(w::Tuple, s::Tuple) = map(_at_trial, w, s)
 
 _zero(x::AbstractArray) = zero(x)
 _zero(x::Tuple) = map(_zero, x)

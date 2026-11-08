@@ -410,4 +410,34 @@ end
   end
 end
 
+# A smooth loss with a value and a gradient at an owner only, as a user type may have: the
+# normalized step evaluates it at an owner that holds its dense trial point, alone and as an owner
+# block of a tuple, with the values and iterations of the KronQuadratic it delegates to
+struct OwnerQuadratic{F} <: AbstractFunction
+  f::F
+end
+ProximalBase.issmooth(::Type{<:OwnerQuadratic}) = true
+ProximalBase.isconvex(::Type{<:OwnerQuadratic}) = true
+(f::OwnerQuadratic)(x::SymmetricSparseIterate) = f.f(x)
+ProximalBase.value_and_gradient!(G::AbstractMatrix, f::OwnerQuadratic, x::SymmetricSparseIterate) = value_and_gradient!(G, f.f, x)
+ProximalBase.gradient!(G::AbstractMatrix, f::OwnerQuadratic, x::SymmetricSparseIterate) = gradient!(G, f.f, x)
+
+@testset "owner-only loss $(normalized ? "normalized " : "")Proximal Gradient Descent" for normalized in (false, true)
+  kron = KronQuadratic(Matrix(1.0I, 2, 2), Matrix(1.0I, 2, 2), [-1.0 -0.5; -0.5 0.2])
+  method, options = ProximalGradientDescent(; normalized), ProximalOptions(; maxiter = 300)
+  x, xk = SymmetricSparseIterate(2), SymmetricSparseIterate(2)
+  r = solve!(x, OwnerQuadratic(kron), NormL1(0.1), method, options)
+  rk = solve!(xk, kron, NormL1(0.1), method, options)
+  @test r.minimum ≈ -0.57 rtol = 1e-12
+  @test (r.minimum, r.iterations, r.f_calls) == (rk.minimum, rk.iterations, rk.f_calls)
+  @test Matrix(x) == Matrix(xk)
+  # an owner block of a tuple, beside a dense block
+  xt = (SymmetricSparseIterate(2), zeros(1))
+  rt = solve!(xt, SeparableSum(OwnerQuadratic(kron), SqrNormL2()), SeparableSum(NormL1(0.1), NormL1(0.1)),
+              method, options)
+  @test Matrix(xt[1]) ≈ Matrix(xk) atol = 1e-8
+  @test xt[2] == [0.0]
+  @test rt.minimum ≈ -0.57 rtol = 1e-9
+end
+
 end

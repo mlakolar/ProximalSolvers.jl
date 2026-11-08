@@ -65,9 +65,11 @@ end
 # the state keeps the image of x (see image_models.jl); otherwise model and the
 # image are nothing
 # xhat and delta_x have the type of _trial_similar(x0): a dense matrix for a
-# SymmetricSparseIterate block, the type of the block otherwise.
+# SymmetricSparseIterate block, the type of the block otherwise. With
+# normalized = true and an owner in x0, trial holds the owners (_owner_trial) at
+# which f is evaluated for the dense restricted step; it is nothing otherwise.
 mutable struct ProximalGradientDescentState{T, X<:Union{_Iterate{T}, _Blocks{T}}, G<:Union{AbstractArray{T}, _Blocks{T}}, M, Z, P,
-                                            D<:Union{AbstractArray{T}, _Blocks{T}}}
+                                            D<:Union{AbstractArray{T}, _Blocks{T}}, V}
     x::X
     f_x::T
     g_x::T
@@ -91,6 +93,7 @@ mutable struct ProximalGradientDescentState{T, X<:Union{_Iterate{T}, _Blocks{T}}
     stable::Int             # iterations with the same support, for debias
     refitted::Bool          # whether the current support was refitted
     metric::P
+    trial::V
 end
 
 
@@ -135,7 +138,8 @@ function initial_state(
                          dz,
                          0,           # stable
                          false,       # refitted
-                         metric
+                         metric,
+                         method.normalized ? _owner_trial(x0) : nothing
                          )
 end
 
@@ -186,7 +190,8 @@ function _normalized_step!(f, state::ProximalGradientDescentState{T}) where T
     τ = one(T) / state.L
     dd = _restricted_step!(w, x, grad, τ, whole)
     iszero(dd) && return state
-    f_w = convert(_eltype(w), f(w))
+    # f at the owners that hold the dense w (state.trial), at w itself without owners
+    f_w = convert(_eltype(w), f(_at_trial(w, state.trial)))
     state.f_calls += 1
     curvature = 2 * (f_w - state.f_x_previous + τ * dd) / τ^2
     (isfinite(curvature) && curvature > 0) && (state.L = curvature / dd)
