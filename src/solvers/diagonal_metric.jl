@@ -108,11 +108,10 @@ _metric_prox!(x, g, z, L, m, w) = _metric_prox!(x, g, z, L, m)
 # takes the proximal point over matrices: it goes into w, and the checked
 # copyto! of ProximalBase moves it into x, or throws an ArgumentError before
 # writing x when w is not exactly symmetric. (A ProximalBase in which the owner
-# is not an AbstractArray has no proximal operator into an owner for them; where
-# the owner is an AbstractArray, as at the ProximalBase commit of Project.toml,
-# they have one through the methods for arrays, and this route is taken anyway.)
-# When z is symmetric and g(X') = g(X) (symmetric parameters, which
-# _symmetric_penalty requires), a unique proximal point over matrices is
+# is not an AbstractArray, such as ProximalBase #737, has no proximal operator
+# into an owner for these three families; the route is taken with every
+# ProximalBase.) When z is symmetric and g(X') = g(X) (symmetric parameters,
+# which _symmetric_penalty requires), a unique proximal point over matrices is
 # symmetric, and it is then the proximal point over symmetric matrices.
 _owner_prox(g) = true
 _owner_prox(::Union{ProximalBase.PointwiseMinimum, ProximalBase.IndIntersection, ProximalBase.LinearConstrained}) = false
@@ -123,27 +122,51 @@ function _metric_prox!(x::SymmetricSparseIterate, g, z::AbstractMatrix, L, ::Not
   copyto!(x, w)
   convert(_eltype(x), v)
 end
-# A tuple x with a SeparableSum g in which an owner block has a penalty of the
-# dense route: the blocks are stepped one by one. The dense proximal points of
-# those owner blocks go into their buffers in w first, and each is checked to be
-# exactly symmetric (the copyto! of a matrix that is not throws before writing),
-# before any block of x is written; then the other blocks take the proximal step
-# of ProximalBase, and the dense points are copied into their owners. Other
-# tuples, and penalties that couple the blocks, take the proximal step of
-# ProximalBase on the whole tuple.
-_dense_block(x, g) = false
-_dense_block(x::SymmetricSparseIterate, g) = !_owner_prox(g)
+
+# Whether the step of x with the penalty g takes the dense route: an owner whose
+# penalty is one of the three families above (_owner_prox), or a tuple whose
+# penalty is a SeparableSum with one penalty per block, also inside Scaled, and
+# inside Translate and Tilt with a tuple parameter of one block per block of x,
+# in which some block takes the dense route. Any other pair keeps the step of
+# ProximalBase on x.
+_dense_route(x, g) = false
+_dense_route(x::SymmetricSparseIterate, g) = !_owner_prox(g)
+_dense_route(x::Tuple, g::SeparableSum) = length(g.fs) == length(x) && any(map(_dense_route, x, g.fs))
+_dense_route(x::Tuple, g::Scaled) = _dense_route(x, g.f)
+_dense_route(x::Tuple, g::Translate) = g.b isa Tuple && length(g.b) == length(x) && _dense_route(x, g.f)
+_dense_route(x::Tuple, g::ProximalBase.Tilt) = g.c isa Tuple && length(g.c) == length(x) && _dense_route(x, g.f)
+
+# On the dense route a tuple x takes the proximal step of ProximalBase for the
+# whole penalty g at once, into the blocks of w: a dense matrix for each owner
+# and a block of the type of x for the others (_trial_similar). Then the blocks
+# of w are committed into x: owners through the checked copyto!, the others with
+# _copyto!. Refused before any block of x is written, with an ArgumentError:
+# blocks of w that do not match x in number, shape or element type, or that share
+# storage with each other, with a block of x or with z (checked before the
+# proximal step), and an owner block of w that is not exactly symmetric (checked
+# after it, by the copyto! of that block, which throws before writing). An
+# exception during the commit itself, such as an interrupt or running out of
+# memory, can leave earlier blocks written.
 _exactly_symmetric(w::AbstractMatrix) = all(_symmetric_pair(w[r, c], w[c, r]) for c in axes(w, 2) for r in c+1:size(w, 1))
-function _metric_prox!(x::Tuple, g::SeparableSum, z::Tuple, L, m::Nothing, w::Tuple)
-  length(g.fs) == length(x) == length(z) == length(w) || return _metric_prox!(x, g, z, L, m)
-  dense = map(_dense_block, x, g.fs)
-  any(dense) || return _metric_prox!(x, g, z, L, m)
-  γ = one(L) / L
-  vdense = map((d, gk, zk, wk) -> d ? value_and_prox!(wk, gk, zk, γ) : nothing, dense, g.fs, z, w)
-  foreach((d, xk, wk) -> (d && !_exactly_symmetric(wk) && copyto!(xk, wk); nothing), dense, x, w)
-  vrest = map((d, xk, gk, zk) -> d ? nothing : value_and_prox!(xk, gk, zk, γ), dense, x, g.fs, z)
-  foreach((d, xk, wk) -> (d && copyto!(xk, wk); nothing), dense, x, w)
-  convert(_eltype(x), sum(map((d, a, b) -> d ? a : b, dense, vdense, vrest)))
+_route_block_ok(xk, wk) = typeof(wk) === typeof(xk) && _size(wk) == _size(xk)
+_route_block_ok(xk::SymmetricSparseIterate, wk) = wk isa Matrix{eltype(xk)} && size(wk) == size(xk)
+function _route_preflight(x::Tuple, z::Tuple, w::Tuple)
+  length(w) == length(x) == length(z) && all(map(_route_block_ok, x, w)) ||
+    throw(ArgumentError("the scratch blocks of the proximal step must match the iterate blocks in number, shape and element type."))
+  for j in eachindex(w)
+    any(k -> _mightalias(w[j], x[k]) || _mightalias(w[j], z[k]) || (k != j && _mightalias(w[j], w[k])), eachindex(x)) &&
+      throw(ArgumentError("the scratch blocks of the proximal step must have storage of their own."))
+  end
+  nothing
+end
+_commit_block!(xk, wk) = _copyto!(xk, wk)
+function _metric_prox!(x::Tuple, g, z::Tuple, L, m::Nothing, w::Tuple)
+  _dense_route(x, g) || return _metric_prox!(x, g, z, L, m)
+  _route_preflight(x, z, w)
+  v = value_and_prox!(w, g, z, one(L) / L)
+  foreach((xk, wk) -> (xk isa SymmetricSparseIterate && !_exactly_symmetric(wk) && copyto!(xk, wk); nothing), x, w)
+  foreach(_commit_block!, x, w)
+  convert(_eltype(x), v)
 end
 # The identity prox is independent of the metric. ZeroFunction only has a
 # scalar-step method in ProximalBase.

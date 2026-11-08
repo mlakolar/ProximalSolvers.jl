@@ -236,12 +236,17 @@ off-diagonal change counts twice: a change of ``0.1`` in one off-diagonal
 coordinate is a step of norm ``0.1\sqrt{2}``. With `debias`, the support is the
 set of coordinates whose value is not zero, and an active coordinate that holds
 a zero is not in it. For `LinearConstrained`, `IndIntersection` and
-`PointwiseMinimum` penalties, also inside `Scaled`, `Translate` and `Tilt` and
-as the penalty of a block of a `SeparableSum`, the proximal step of a
-`SymmetricSparseIterate` is taken over matrices into a dense buffer and copied
-into the iterate, which throws an `ArgumentError` when that matrix is not
-exactly symmetric; in a tuple, these matrices are checked before any block is
-written. The diagonal preconditioner, [`ActiveAccProxGradDescent`](@ref) and
+`PointwiseMinimum` penalties, also inside `Scaled`, `Translate` and `Tilt`, the
+proximal step of a `SymmetricSparseIterate` is taken over matrices into a dense
+buffer and copied into the iterate, which throws an `ArgumentError` when that
+matrix is not exactly symmetric. A tuple whose penalty is a `SeparableSum` (also
+inside `Scaled`, and inside `Translate` and `Tilt` with one parameter block per
+iterate block) in which a `SymmetricSparseIterate` block has such a penalty
+takes the proximal step of ProximalBase for the whole penalty into dense
+buffers for its `SymmetricSparseIterate` blocks and buffers of the block type
+for the others; the result is copied into the iterate after every
+`SymmetricSparseIterate` block of it is checked to be exactly symmetric, and an
+`ArgumentError` is thrown before any block is written when one is not. The diagonal preconditioner, [`ActiveAccProxGradDescent`](@ref) and
 [`ADMMSolver`](@ref) throw an `ArgumentError` before anything is written when
 the iterate is a `SymmetricSparseIterate`.
 
