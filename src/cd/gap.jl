@@ -866,9 +866,9 @@ function _evalgap!(ev::_LogDetGap{T}, f::LogDetLoss{T}, g::NormL1,
   P, _glasso_dual!(C, f.S, M, g, f.w)
 end
 
-# C ← the matrix X, also when X is a SymmetricSparseIterate
+# C ← the matrix X, also when X is a SymmetricSparseIterate (both triangles)
 _dense_copy!(C::Matrix, X::AbstractMatrix) = copyto!(C, X)
-_dense_copy!(C::Matrix{T}, X::SymmetricSparseIterate{T}) where {T} = _dense!(C, X)
+_dense_copy!(C::Matrix, X::SymmetricSparseIterate) = _dense!(C, X)
 
 # the bound on the dual variable of entry (r, c) over symmetric matrices, the
 # mean of the penalties of (r, c) and (c, r), divided by w; on an owner the two
@@ -944,9 +944,12 @@ Available for:
 - `f` a [`CDModel`](@ref) of such a loss, as from [`cdmodel`](@ref), for
   instance with an intercept; `duality_gap` initializes it at `x`.
 - the graphical lasso: `f` a `LogDetLoss`, `g` a `NormL1` (with a matrix of
-  weights, for example a zero diagonal) and `x` a symmetric matrix. The dual
-  point is `W - S` clipped to the penalty, with `W = x⁻¹`, at the cost of two
-  Cholesky factorizations.
+  weights, for example a zero diagonal) and `x` a symmetric matrix or a
+  `SymmetricSparseIterate`. The dual point is `W - S` clipped to the penalty,
+  with `W = x⁻¹`, at the cost of two Cholesky factorizations. On a
+  `SymmetricSparseIterate` the weights follow the symmetry rule of
+  [`solve!`](@ref), checked before anything is computed, and the gap is that
+  of its matrix.
 
 An `ArgumentError` is thrown for other functions; see [`kkt_residual`](@ref)
 for an optimality measure that needs no conjugate.

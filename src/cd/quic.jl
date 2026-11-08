@@ -42,8 +42,8 @@ function _glasso_components(S::AbstractMatrix{T}, g::NormL1, w::T) where {T}
   sort!(collect(values(comps)); by = first)
 end
 
-# the dense symmetric matrix of x
-function _dense!(D::Matrix{T}, x::SymmetricSparseIterate{T}) where {T}
+# the dense symmetric matrix of x, converted to the element type of D
+function _dense!(D::Matrix{T}, x::SymmetricSparseIterate) where {T}
   fill!(D, zero(T))
   cx = coordinates(x)
   for k in activecoordinates(x)

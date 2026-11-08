@@ -9,12 +9,10 @@ _zero_like(x::SparseIterate{T}) where {T} = SparseIterate(T, size(x)...)
 _zero_like(x::SymmetricSparseIterate{T}) where {T} = SymmetricSparseIterate(T, size(x, 1))
 _zero_like(x::AtomIterate) = similar(x)
 
-# The start of a solve from zero: the values of x are zero and, for the iterates
-# that hold a working set of their own, no coordinate is active. The zero write
-# is a value write, so the working set is emptied explicitly by dropzeros!
-# (ProximalBase 0.6 no longer lets fill! do it, and 0.5.x's fill! already did).
-# A SymmetricSparseIterate is written through its coordinates, which hold the
-# lower triangle, and its working set is emptied in the same way.
+# The start of a solve from zero: the values of x are zero and no coordinate is
+# active. fill! writes the zeros into the stored coordinates, which stay
+# stored, so dropzeros! empties the working set. A SymmetricSparseIterate takes
+# the zeros through coordinates(x), its lower triangle.
 _clear_start!(x::Union{SparseIterate, AtomIterate}) = dropzeros!(fill!(x, zero(eltype(x))))
 function _clear_start!(x::SymmetricSparseIterate)
   fill!(coordinates(x), zero(eltype(x)))

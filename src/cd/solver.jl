@@ -716,14 +716,13 @@ solver uses the supplied one, and the objective it minimizes and reports is the
 supplied objective. The symmetric part `(W + W') / 2` of asymmetric weights is
 a different penalty, which the caller passes explicitly.
 
-With ProximalBase 0.6 or later the check is `ProximalBase.check_symmetric_parameters`.
+The check is `ProximalBase.check_symmetric_parameters`.
 It traverses the per-entry parameters that ProximalBase declares for its own
 penalties and wrappers, and those that a user type declares with
 `ProximalBase.entry_parameters`; a user `SeparableFunction` subtype that
 declares nothing is rejected on an owner, and a user `AbstractFunction` or
 wrapper that declares nothing is not traversed and passes the check unchanged.
-With earlier versions the check covers the types listed above, and other types
-pass unchanged. A custom penalty or wrapper is responsible for the
+A custom penalty or wrapper is responsible for the
 symmetric-storage compatibility of its own parameters (extending the check to
 user types is #120). Infinite
 weights are preserved; their proximal behavior remains that of ProximalBase,
