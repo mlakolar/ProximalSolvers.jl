@@ -112,4 +112,45 @@ end
   end
 end
 
+# The paths of coordinate descent and of LLA on a SymmetricSparseIterate: one snapshot per level,
+# in the order of the levels, each equal to the matrix of the iterate when its level ends (both
+# triangles, without stored zeros), through the sparse and the dense routes, and independent of
+# the later levels; the last is the final iterate, which a cold solve at the last level reaches.
+@testset "path snapshots of a SymmetricSparseIterate" begin
+  q = 20
+  Sx = [i == j ? 2.0 : 0.3^abs(i - j) for i in 1:q, j in 1:q]
+  C = [sin(i + 2j) + sin(j + 2i) for i in 1:q, j in 1:q]
+  f = KronQuadratic(Sx, Sx, C)
+  λmax = lambda_max(f, NormL1(1.0), SymmetricSparseIterate(q))
+  λs = λmax .* 10 .^ range(0, -1.5; length = 10)
+  method = CDSolver(; order = :cyclic, tol = 1e-12)
+  matrices, dense = Matrix{Float64}[], Bool[]
+  record(x) = (push!(matrices, Matrix(x)); push!(dense, PS._snapshot_dense(x)); false)
+  runs = ((true, (x, cb) -> solve_path(f, NormL1(1.0), λs, method; x, screening = true, gaptol = 0, callback = cb)),
+          (true, (x, cb) -> solve_path(f, NormL1(1.0), λs, method; x, screening = false, gaptol = 0, callback = cb)),
+          (false, (x, cb) -> solve_path(f, MCP(1.0, 3.0), λs, LLA(method); x, callback = cb)))
+  for (lasso, run) in runs
+    empty!(matrices); empty!(dense)
+    x = SymmetricSparseIterate(q)
+    path = run(x, (k, λ, x, m) -> record(x))
+    @test path.λ == λs
+    @test length(path.solutions) == length(matrices) == length(λs)
+    @test any(dense) && !all(dense)                       # both routes of _snapshot
+    for k in eachindex(λs)
+      snapshot = path.solutions[k]
+      @test snapshot isa SparseMatrixCSC{Float64, Int} && size(snapshot) == (q, q)
+      @test Matrix(snapshot) == matrices[k]
+      @test snapshot == permutedims(snapshot)
+      @test all(!iszero, nonzeros(snapshot))
+    end
+    @test Matrix(path.solutions[end]) == Matrix(x)
+    @test count(!iszero, Matrix(path.solutions[end])) > count(!iszero, Matrix(path.solutions[2]))
+    lasso || continue
+    @test path.values ≈ [f(X) + λ * sum(abs, X) for (λ, X) in zip(λs, matrices)] rtol = 1e-10
+    xc = SymmetricSparseIterate(q)
+    solve!(xc, f, NormL1(λs[end]), method)
+    @test Matrix(xc) ≈ Matrix(x) atol = 1e-8
+  end
+end
+
 end

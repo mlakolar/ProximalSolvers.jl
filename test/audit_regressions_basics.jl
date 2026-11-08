@@ -226,9 +226,11 @@ end
   y = [1.0 2.0]'; z = y.active
   t(β) = β.storage
   r(x̂, k) = x̂.groups[k]
+  o(x) = tril_cartesian(x.p, 1)
   """
   bad = _field_violations("planted.jl", planted, allowed)
-  @test length(bad) == 8
+  @test length(bad) == 9
+  @test any(contains("planted.jl:15: `x.p`"), bad)
   @test any(contains("planted.jl:1:"), bad) && any(contains("planted.jl:2:"), bad)
   @test any(contains("planted.jl:9:"), bad) && any(contains("planted.jl:10:"), bad)
   @test any(contains("planted.jl:11:"), bad) && any(contains("planted.jl:12:"), bad)

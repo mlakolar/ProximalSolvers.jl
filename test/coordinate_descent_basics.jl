@@ -383,4 +383,195 @@ end
   end
 end
 
+# ½‖Θ - B‖² on a SymmetricSparseIterate through the generic model interface. It records the
+# number of active coordinates and the matrix of the iterate at each initialize!, which a start
+# from zero calls before its first update.
+struct RecordingDistance <: CDModel{Float64}
+  B::Matrix{Float64}
+  seen::Vector{Tuple{Int, Matrix{Float64}}}
+end
+RecordingDistance(B) = RecordingDistance(B, Tuple{Int, Matrix{Float64}}[])
+PS.initialize!(m::RecordingDistance, x::SymmetricSparseIterate) = (push!(m.seen, (nactive(x), Matrix(x))); m)
+function PS.coordinate_derivatives(m::RecordingDistance, x::SymmetricSparseIterate, k::Int)
+  ri, ci = tril_cartesian(size(x, 1), k)
+  μ = ri == ci ? 1.0 : 2.0
+  (μ * (coordinates(x)[k] - m.B[ri, ci]), μ)
+end
+PS.update_cache!(m::RecordingDistance, x, k::Int, h) = m
+PS.loss_value(m::RecordingDistance, x::SymmetricSparseIterate) = sum(abs2, Matrix(x) - m.B) / 2
+ProximalBase.gradient!(G, m::RecordingDistance, x::SymmetricSparseIterate) = (G .= Matrix(x) .- m.B; G)
+
+# an owner with nonzero coordinates and an explicit stored zero
+function dirty_owner()
+  x = SymmetricSparseIterate(3)
+  x[2, 1] = 0.7; x[3, 3] = -0.4; x[3, 2] = 1.0; x[3, 2] = 0.0
+  x
+end
+
+soft(v, t) = sign(v) * max(abs(v) - t, zero(v))
+
+# FT26 on a SymmetricSparseIterate: a start from zero empties the working set, stored zeros
+# included, before the first update; so do the restarts of QUIC.
+@testset "start from zero clears a SymmetricSparseIterate (#164, #230)" begin
+  x = dirty_owner()
+  @test nactive(x) == 3 && any(!iszero, Matrix(x))
+  @test PS._clear_start!(x) === x
+  @test Matrix(x) == zeros(3, 3) && all(iszero, coordinates(x))
+  @test nactive(x) == 0 && isempty(activecoordinates(x))
+  coordinates(x)[2] = 1.5                   # a write after the clear activates its coordinate alone
+  @test collect(activecoordinates(x)) == [2] && nactive(x) == 1
+
+  # the zero of λmax and of the LLA path is a new iterate; the start is left as it is
+  x = dirty_owner()
+  before = (Matrix(x), collect(activecoordinates(x)))
+  z = PS._zero_like(x)
+  @test z isa SymmetricSparseIterate{Float64} && z !== x && size(z) == size(x)
+  @test nactive(z) == 0 && Matrix(z) == zeros(3, 3)
+  @test (Matrix(x), collect(activecoordinates(x))) == before
+  B = [1.0 0.8 -0.2; 0.8 -1.5 0.6; -0.2 0.6 0.4]
+  m = RecordingDistance(B)
+  @test lambda_max(m, NormL1(1.0), x) == 1.5
+  @test first(m.seen) == (0, zeros(3, 3))
+
+  # continuation from a dirty start: its first initialization sees the cleared start, and the
+  # run is that of a fresh start
+  method = CDSolver(; order = :cyclic, tol = 1e-12)
+  for screening in (true, false)
+    m, mf = RecordingDistance(B), RecordingDistance(B)
+    x, xf = dirty_owner(), SymmetricSparseIterate(3)
+    res = solve!(x, m, NormL1(0.3), method; continuation = 4, screening, gaptol = 0)
+    resf = solve!(xf, mf, NormL1(0.3), method; continuation = 4, screening, gaptol = 0)
+    @test first(m.seen) == (0, zeros(3, 3))
+    @test res.converged && resf.converged
+    @test Matrix(x) == Matrix(xf)
+    @test Matrix(x) ≈ soft.(B, 0.3) atol = 1e-12
+    @test res.passes == resf.passes
+    @test collect(activecoordinates(x)) == collect(activecoordinates(xf))
+  end
+
+  # QUIC: a start that is not positive definite on the component {1, 2} restarts there from the
+  # diagonal solution, the Newton directions restart from zero, and the solution is assembled
+  # into a cleared X, so that the coordinates of the start outside the solution are not stored.
+  S = [1.0 0.6 0.0 0.0; 0.6 1.0 0.0 0.0; 0.0 0.0 1.0 -0.5; 0.0 0.0 -0.5 1.0]
+  g = NormL1(1.0, [i == j ? 0.0 : 0.1 for i in 1:4, j in 1:4])
+  newton = ProxNewton(; tol = 1e-10, inner = CDSolver(; order = :cyclic, tol = 1e-10))
+  X = SymmetricSparseIterate(4)
+  X[1, 1] = -1.0                            # not positive definite on {1, 2}
+  X[3, 1] = 0.5                             # across the components
+  X[4, 2] = 0.3; X[4, 2] = 0.0              # a stored zero across the components
+  X[3, 3] = 2.0; X[4, 4] = 2.0              # a positive definite start on {3, 4}
+  Xf = SymmetricSparseIterate(4)
+  Xf[3, 3] = 2.0; Xf[4, 4] = 2.0
+  res = solve!(X, LogDetLoss(S), g, newton)
+  resf = solve!(Xf, LogDetLoss(S), g, newton)
+  @test res.converged && resf.converged
+  @test Matrix(X) == Matrix(Xf)
+  @test res.passes == resf.passes
+  @test collect(activecoordinates(X)) == collect(activecoordinates(Xf))
+  D = Matrix(X)
+  @test nactive(X) == count(!iszero, D[i, j] for j in 1:4 for i in j:4)
+  @test all(k -> !iszero(coordinates(X)[k]), activecoordinates(X))
+  @test D[3, 1] == 0 && D[4, 2] == 0 && D[2, 1] != 0 && D[4, 3] != 0
+end
+
+# T07, coordinate-descent half (ProximalBase's acceptance plan for its 0.6 SymmetricSparseIterate):
+# cyclic coordinate descent on a SymmetricSparseIterate. (1) The separable ½‖Θ - B‖² + λ‖Θ‖₁, where
+# each coordinate takes its closed form at its visit. (2) The coupled ½tr(ΘSΘS) + ⟨C, Θ⟩ + λ‖Θ‖₁
+# from zero, whose solution is [1 -1; -1 0], against an independent proximal gradient in
+# orthonormal coordinates and a dense cyclic coordinate descent written here.
+@testset "cyclic coordinate descent on a SymmetricSparseIterate (T07)" begin
+  # (1) the separable problem: KronQuadratic(I, I, -B) is ½‖Θ - B‖² up to a constant
+  p, λ = 4, 0.3
+  B = [1.0 0.2 -0.7 0.0; 0.2 -0.25 0.5 1.4; -0.7 0.5 0.1 -0.31; 0.0 1.4 -0.31 2.0]
+  f = KronQuadratic(Matrix(1.0I, p, p), Matrix(1.0I, p, p), -B)
+  g = NormL1(λ)
+  expected = soft.(B, λ)
+  x = SymmetricSparseIterate(p)
+  m = cdmodel(f, x)
+  PS.initialize!(m, x)
+  q = ncoordinates(x)
+  for k in 1:q
+    PS.coordinate_step!(m, g, x, k)
+    # after visit k: the visited coordinates have their closed forms, the others are zero
+    @test all(1:q) do j
+      ri, ci = tril_cartesian(p, j)
+      isapprox(coordinates(x)[j], j <= k ? expected[ri, ci] : 0.0; atol = 1e-14)
+    end
+  end
+  for maxpasses in (1, 100)
+    x = SymmetricSparseIterate(p)
+    res = solve!(x, f, g, CDSolver(; order = :cyclic, maxpasses, tol = 1e-12))
+    @test Matrix(x) ≈ expected atol = 1e-14
+    @test res.minimum ≈ f(expected) + g(expected) rtol = 1e-12
+  end
+
+  # (2) the coupled problem; its gradient at Xstar cancels the subgradient
+  S = [2.0 1.0; 1.0 2.0]
+  C = [-0.5 3.5; 3.5 3.0]
+  λ = 0.5
+  f = KronQuadratic(S, S, C)
+  g = NormL1(λ)
+  Xstar = [1.0 -1.0; -1.0 0.0]
+  @test S * Xstar * S + C ≈ [-0.5 0.5; 0.5 0.0] atol = 1e-15
+  # the coordinates (1, 1), (2, 1), (2, 2), the number of entries each sets, and their matrix
+  rcs, mult = ((1, 1), (2, 1), (2, 2)), [1.0, 2.0, 1.0]
+  Θ(θ) = [θ[1] θ[2]; θ[2] θ[3]]
+  # independent reference: proximal gradient on u = √m θ, orthonormal coordinates of the
+  # symmetric matrices, where the penalty λ Σᵢⱼ |Θᵢⱼ| is λ Σₖ √mₖ |uₖ| and the Hessian is at
+  # most ‖S ⊗ S‖ = 9
+  u, γ = zeros(3), 1 / 9
+  for _ in 1:10_000
+    Gu = S * Θ(u ./ sqrt.(mult)) * S + C
+    unew = soft.(u .- γ .* sqrt.(mult) .* [Gu[rc...] for rc in rcs], γ * λ .* sqrt.(mult))
+    done = maximum(abs, unew - u) <= 1e-16
+    u = unew
+    done && break
+  end
+  θref = u ./ sqrt.(mult)
+  @test Θ(θref) ≈ Xstar atol = 1e-12
+  # a dense cyclic sweep: along E_rc + E_cr, the derivative ⟨SΘS + C, E_rc + E_cr⟩, the
+  # curvature ⟨E_rc + E_cr, S (E_rc + E_cr) S⟩ and the penalty mλ|t|
+  function dense_sweep!(θ)
+    for (k, (ri, ci)) in enumerate(rcs)
+      E = zeros(2, 2); E[ri, ci] = 1; E[ci, ri] = 1
+      a = dot(E, S * E * S)
+      θ[k] = soft(θ[k] - dot(S * Θ(θ) * S + C, E) / a, mult[k] * λ / a)
+    end
+    θ
+  end
+  # cyclic sweeps of the solver from zero, with the cache of the model kept from sweep to sweep
+  x = SymmetricSparseIterate(2)
+  m = cdmodel(f, x)
+  PS.initialize!(m, x)
+  s = CDSolver(; order = :cyclic, maxpasses = 1, tol = 0.0, relative = false)
+  st = PS._CDState(Float64, x, s)
+  θ = zeros(3)
+  cache_error, trajectory_error = 0.0, 0.0
+  for sweep in 1:100
+    PS._cd!(x, m, g, st, s)
+    dense_sweep!(θ)
+    if sweep == 1                           # the sweep from zero moves the point and the cache
+      @test any(!iszero, Matrix(x)) && any(!iszero, PS._cache(m))
+    end
+    cache_error = max(cache_error, maximum(abs, PS._cache(m) - S * Matrix(x) * S))
+    trajectory_error = max(trajectory_error, maximum(abs, collect(coordinates(x)) - θ))
+  end
+  @test cache_error <= 1e-10
+  @test trajectory_error <= 1e-12
+  @test Matrix(x) ≈ Xstar atol = 1e-12
+  # the solver from zero: the optimum, the objective and the stationarity of each entry, with the
+  # gradient G = SXS + C of the matrix, so that the off-diagonal coordinate counts for both entries
+  x = SymmetricSparseIterate(2)
+  res = solve!(x, f, g, CDSolver(; order = :cyclic, tol = 1e-13, relative = false))
+  X = Matrix(x)
+  @test res.converged
+  @test X ≈ Xstar atol = 1e-10
+  @test X ≈ Θ(θref) atol = 1e-10
+  @test res.minimum ≈ f(Xstar) + g(Xstar) rtol = 1e-9
+  G = S * X * S + C
+  residual = maximum(iszero(X[i, j]) ? max(abs(G[i, j]) - λ, 0.0) : abs(G[i, j] + λ * sign(X[i, j]))
+                     for i in 1:2, j in 1:2)
+  @test residual <= 1e-8
+end
+
 end
