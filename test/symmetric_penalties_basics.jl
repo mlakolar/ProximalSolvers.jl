@@ -96,8 +96,8 @@ end
     solutions[expected] = Matrix(y)
   end
   @test norm(solutions[2.7] - solutions[2.8]) > 0.1
-  # a workspace with the mean weights takes the raw weights as a replacement penalty only to
-  # reject them, before its state or its iterate changes
+  # a workspace with the mean weights rejects the raw weights as a replacement penalty before its
+  # state or its iterate changes
   y = SymmetricSparseIterate(2)
   ws = SolverWorkspace(y, f, NormL1(0.1, (W .+ W') ./ 2), cdsolver())
   solve!(ws)
