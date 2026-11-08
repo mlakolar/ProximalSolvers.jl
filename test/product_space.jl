@@ -387,6 +387,172 @@ end
   @test isequal(map(owner_state, x), before)
 end
 
+# The dense route of a tuple: a SeparableSum, also inside Scaled, Translate and Tilt (with one
+# parameter block per iterate block), with an owner block whose penalty is a linear constraint, an
+# intersection or a pointwise minimum. ProximalBase takes the step of the whole penalty into dense
+# buffers; the solution is the one of the same problem with dense matrices in place of the owners.
+const PSR = ProximalSolvers
+route_wrappers() = (
+  ("bare", g -> g),
+  ("Scaled", g -> Scaled(g, 0.7)),
+  ("Translate", g -> Translate(g, ([0.1 0.05; 0.05 -0.1], [0.2]))),
+  ("Tilt", g -> Tilt(g, ([0.1 -0.2; -0.2 0.05], [0.3]), 0.25)),
+  ("Scaled(Translate)", g -> Scaled(Translate(g, ([0.1 0.05; 0.05 -0.1], [0.2])), 0.7)),
+  ("Translate(Scaled)", g -> Translate(Scaled(g, 0.7), ([0.1 0.05; 0.05 -0.1], [0.2]))),
+  ("Tilt(Scaled)", g -> Tilt(Scaled(g, 0.7), ([0.1 -0.2; -0.2 0.05], [0.3]), 0.0)))
+@testset "the dense route, $wlabel sum with a $label $(summary(method))" for (wlabel, wrap) in route_wrappers(),
+    (label, make) in constraint_penalties(), method in solvers
+  A = Matrix(1.0I, 2, 2)
+  fo = KronQuadratic(A, A, [-1.0 -0.5; -0.5 0.2])
+  f, g = SeparableSum(fo, SqrNormL2()), wrap(SeparableSum(make(), NormL1(0.1)))
+  opt = ProximalOptions(; maxiter = 2000, ftol = 1e-14, xtol = 1e-14, gradtol = 1e-12)
+  x = (SymmetricSparseIterate(2), zeros(1))
+  @test PSR._dense_route(x, g)
+  r = solve!(x, f, g, method, opt)
+  xd = (zeros(2, 2), zeros(1))
+  rd = solve!(xd, f, g, method, opt)
+  @test x[1] isa SymmetricSparseIterate{Float64}
+  @test Matrix(x[1]) ≈ xd[1] atol = 1e-6
+  @test x[2] ≈ xd[2] atol = 1e-6
+  @test r.minimum ≈ rd.minimum rtol = 1e-8 atol = 1e-10
+  @test Matrix(x[1]) == Matrix(x[1])'
+end
+
+# the owner in each position of three blocks, and two owners, with the sum scaled as a whole
+@testset "the dense route with the owner in position $k $(summary(method))" for k in 1:3, method in solvers
+  A = Matrix(1.0I, 2, 2)
+  fo = KronQuadratic(A, A, [-1.0 -0.5; -0.5 0.2])
+  fs = ntuple(j -> j == k ? fo : SqrNormL2(1.0, [0.5, -0.3]), 3)
+  gs = ntuple(j -> j == k ? Constrained(NormL1(0.1), IndHyperplane(1.0, 0.0)) : NormL1(0.1), 3)
+  f, g = SeparableSum(fs...), Scaled(SeparableSum(gs...), 0.7)
+  opt = ProximalOptions(; maxiter = 2000, ftol = 1e-14, xtol = 1e-14, gradtol = 1e-12)
+  x = ntuple(j -> j == k ? SymmetricSparseIterate(2) : zeros(2), 3)
+  xd = ntuple(j -> j == k ? zeros(2, 2) : zeros(2), 3)
+  @test PSR._dense_route(x, g)
+  r, rd = solve!(x, f, g, method, opt), solve!(xd, f, g, method, opt)
+  for j in 1:3
+    @test (j == k ? Matrix(x[j]) : x[j]) ≈ xd[j] atol = 1e-6
+  end
+  @test r.minimum ≈ rd.minimum rtol = 1e-8
+  # two owners, both taking the dense route, and one owner beside it with an L1 penalty
+  for g2 in (Constrained(NormL1(0.1), IndHyperplane(1.0, 0.0)), NormL1(0.1))
+    y = (SymmetricSparseIterate(2), SymmetricSparseIterate(2))
+    yd = (zeros(2, 2), zeros(2, 2))
+    gy = Scaled(SeparableSum(PointwiseMinimum(NormL1(0.1), NormL1(0.2)), g2), 0.7)
+    @test PSR._dense_route(y, gy)
+    ry, ryd = solve!(y, SeparableSum(fo, fo), gy, method, opt), solve!(yd, SeparableSum(fo, fo), gy, method, opt)
+    @test Matrix(y[1]) ≈ yd[1] atol = 1e-6
+    @test Matrix(y[2]) ≈ yd[2] atol = 1e-6
+    @test ry.minimum ≈ ryd.minimum rtol = 1e-8
+  end
+end
+
+# An analytic solution: ½‖Θ - B‖² on the owner with the constraint Σᵢⱼ Θᵢⱼ = 0 (and an L1 weight
+# of zero) is the projection Θ = B - mean(B), and ½‖u‖² - ⟨u0, u⟩ with no penalty gives u = u0.
+# Translate by (B0, b2) moves the constraint to Σᵢⱼ Θᵢⱼ = Σᵢⱼ (B0)ᵢⱼ; Tilt by (C0, c2) adds
+# ⟨C0, Θ⟩ + ⟨c2, u⟩, which gives Θ = (B - C0) - mean(B - C0) and u = u0 - c2.
+@testset "the dense route against the closed form, $wlabel $(summary(method))" for wlabel in ("bare", "Scaled", "Translate", "Tilt"),
+    method in solvers
+  p = 3
+  B = [1.0 0.4 -0.2; 0.4 2.0 0.3; -0.2 0.3 -0.5]
+  B0 = [0.2 0.1 0.0; 0.1 -0.3 0.05; 0.0 0.05 0.4]
+  C0 = [0.3 -0.1 0.2; -0.1 0.0 0.1; 0.2 0.1 -0.2]
+  u0, b2, c2 = [0.7, -1.2], [5.0, 1.0], [0.25, -0.5]
+  f = SeparableSum(KronQuadratic(Matrix(1.0I, p, p), Matrix(1.0I, p, p), -B), QuadraticFunction(Matrix(1.0I, 2, 2), -u0))
+  g0 = SeparableSum(Constrained(NormL1(0.0), IndHyperplane(1.0, 0.0)), ZeroFunction())
+  g, Θ, u = if wlabel == "bare"
+    g0, B .- sum(B) / p^2, u0
+  elseif wlabel == "Scaled"
+    Scaled(g0, 0.7), B .- sum(B) / p^2, u0
+  elseif wlabel == "Translate"
+    Translate(g0, (B0, b2)), B .- (sum(B) - sum(B0)) / p^2, u0
+  else
+    Tilt(g0, (C0, c2), 0.0), (B - C0) .- sum(B - C0) / p^2, u0 - c2
+  end
+  x = (SymmetricSparseIterate(p), zeros(2))
+  @test PSR._dense_route(x, g)
+  r = solve!(x, f, g, method, ProximalOptions(; maxiter = 2000, ftol = 1e-15, xtol = 1e-15, gradtol = 1e-13))
+  @test Matrix(x[1]) ≈ Θ atol = 1e-7
+  @test x[2] ≈ u atol = 1e-7
+  @test abs(sum(Matrix(x[1])) - (wlabel == "Translate" ? sum(B0) : 0.0)) <= 1e-9
+  @test r.minimum ≈ f((Θ, u)) + g((Θ, u)) rtol = 1e-9 atol = 1e-12
+end
+
+# Pairs that keep the step of ProximalBase on the whole tuple: no owner, owners whose penalties
+# ProximalBase takes, sums with a penalty count that differs from the block count, coupled tuple
+# penalties, and wrappers around a sum whose blocks do not take the dense route
+@testset "pairs outside the dense route" begin
+  lc = Constrained(NormL1(0.1), IndHyperplane(1.0, 0.0))
+  o = SymmetricSparseIterate(2)
+  @test !PSR._dense_route((zeros(2, 2), zeros(1)), SeparableSum(lc, NormL1(0.1)))
+  @test !PSR._dense_route((o, zeros(1)), SeparableSum(NormL1(0.1), lc))
+  @test !PSR._dense_route((o, zeros(1)), Scaled(SeparableSum(NormL1(0.1), NormL1(0.1)), 0.7))
+  @test !PSR._dense_route((o, zeros(1)), SeparableSum(lc))
+  @test !PSR._dense_route((o, o), PairFused(0.05, 0.05))
+  @test !PSR._dense_route((o, zeros(1)), Translate(SeparableSum(NormL1(0.1), NormL1(0.1)), ([0.1 0.0; 0.0 0.1], [0.2])))
+  @test PSR._dense_route(o, Scaled(lc, 0.5)) && !PSR._dense_route(o, Scaled(NormL1(0.1), 0.5))
+  # a dense tuple with a constraint block, and an owner with an L1 block, solve as before
+  A = Matrix(1.0I, 2, 2)
+  fo = KronQuadratic(A, A, [-1.0 -0.5; -0.5 0.2])
+  for method in solvers
+    xd = (zeros(2, 2), zeros(1))
+    rd = solve!(xd, SeparableSum(fo, SqrNormL2()), SeparableSum(lc, NormL1(0.1)), method)
+    xo = SymmetricSparseIterate(2)
+    solve!(xo, fo, lc, method)
+    @test xd[1] ≈ Matrix(xo) atol = 1e-5
+    x = (SymmetricSparseIterate(2), zeros(1))
+    solve!(x, SeparableSum(fo, SqrNormL2()), Scaled(SeparableSum(NormL1(0.1), NormL1(0.1)), 0.7), method)
+    y = SymmetricSparseIterate(2)
+    solve!(y, fo, Scaled(NormL1(0.1), 0.7), method)
+    @test Matrix(x[1]) ≈ Matrix(y) atol = 1e-5
+  end
+end
+
+# The refusals of the dense route, before any block of the iterate is written: a later owner block
+# whose dense proximal point is not symmetric (asymmetric weights on the second of three owners),
+# and scratch blocks of the wrong shape, element type or with shared storage
+@testset "the dense route refuses before writing ($T)" for T in (Float32, Float64)
+  lc = Constrained(NormL1(T(0.1)), IndHyperplane(T(1), T(0)))
+  g = SeparableSum(NormL1(T(0.1)), NormL1(T(0.1), T[0 1; 3 0]), lc)
+  zs = ntuple(_ -> T[0.5 0.4; 0.4 0.2], 3)
+  function owners()
+    x = ntuple(_ -> SymmetricSparseIterate(T, 2), 3)
+    for (k, xk) in enumerate(x)
+      xk[1, 1], xk[2, 1] = T(k), T(-k) / 2
+    end
+    x
+  end
+  refused(call, x, needle) = begin
+    before = map(owner_state, x)
+    err = try
+      call()
+      nothing
+    catch e
+      e
+    end
+    @test err isa ArgumentError
+    @test err isa ArgumentError && occursin(needle, sprint(showerror, err))
+    @test isequal(map(owner_state, x), before)
+  end
+  x = owners()
+  @test PSR._dense_route(x, g)
+  refused(() -> PSR._metric_prox!(x, g, zs, T(1), nothing, ntuple(_ -> zeros(T, 2, 2), 3)), x, "must be symmetric")
+  x = owners()
+  refused(() -> PSR._metric_prox!(x, g, zs, T(1), nothing, (zeros(T, 2, 2), zeros(T, 3, 3), zeros(T, 2, 2))), x,
+          "must match the iterate blocks")
+  x = owners()
+  S = T === Float64 ? Float32 : Float64
+  refused(() -> PSR._metric_prox!(x, g, zs, T(1), nothing, (zeros(T, 2, 2), zeros(S, 2, 2), zeros(T, 2, 2))), x,
+          "must match the iterate blocks")
+  x = owners()
+  shared = zeros(T, 2, 2)
+  refused(() -> PSR._metric_prox!(x, g, zs, T(1), nothing, (shared, zeros(T, 2, 2), shared)), x, "storage of their own")
+  x = owners()
+  zcopy = map(copy, zs)
+  refused(() -> PSR._metric_prox!(x, g, zcopy, T(1), nothing, (zeros(T, 2, 2), zcopy[2], zeros(T, 2, 2))), x,
+          "storage of their own")
+end
+
 @testset "errors" begin
   f = SeparableSum(SqrNormL2(), SqrNormL2())
   g = SeparableSum(NormL1(0.1), NormL1(0.1))
