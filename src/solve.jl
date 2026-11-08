@@ -9,6 +9,7 @@ _drop!(x::Tuple) = (foreach(_drop!, x); x)
 # points, rejecting the trial points off the domain of f
 # the parameter N of OptimizationResults: the dimension of an array, 1 for a tuple
 _resultdims(x::AbstractArray) = ndims(x)
+_resultdims(::SymmetricSparseIterate) = 2
 _resultdims(::Tuple) = 1
 
 _check_start(f_x) = isfinite(f_x) ||
@@ -70,7 +71,7 @@ res = solve!(x, QuadraticFunction(A, b), NormL1(0.1), AccProxGradDescent())
 ```
 """
 function solve!(
-    initial_x::Union{AbstractArray, _Blocks},
+    initial_x::Union{_Iterate, _Blocks},
     f::AbstractFunction,
     g::AbstractFunction,
     method::ProximalSolver,

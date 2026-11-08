@@ -67,7 +67,7 @@ struct SolverWorkspace{X, F, G, M, O, B, D}
   shape::D
 end
 
-function SolverWorkspace(x::Union{AbstractArray, _Blocks}, f::AbstractFunction,
+function SolverWorkspace(x::Union{_Iterate, _Blocks}, f::AbstractFunction,
                          g::AbstractFunction, method::_GradientSolver,
                          options::ProximalOptions = ProximalOptions())
   issmooth(f) || throw(ArgumentError("$(summary(method)) needs a smooth loss."))

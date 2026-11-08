@@ -49,7 +49,10 @@ end
 # After each iteration y and grad_f_y hold the point the kept step was taken
 # from and the gradient there, for the stopping rules. The images of both
 # candidates are retained: the next extrapolation uses z even when x kept v.
-mutable struct MonotoneAccProxGradDescentState{T, X<:Union{AbstractArray{T}, _Blocks{T}}, G<:Union{AbstractArray{T}, _Blocks{T}}, M, Z}
+# xhat and delta_x have the type of _trial_similar(x0): a dense matrix for a
+# SymmetricSparseIterate block, the type of the block otherwise.
+mutable struct MonotoneAccProxGradDescentState{T, X<:Union{_Iterate{T}, _Blocks{T}}, G<:Union{AbstractArray{T}, _Blocks{T}}, M, Z,
+                                               D<:Union{AbstractArray{T}, _Blocks{T}}}
     x::X
     f_x::T
     g_x::T
@@ -65,8 +68,8 @@ mutable struct MonotoneAccProxGradDescentState{T, X<:Union{AbstractArray{T}, _Bl
     f_v::T
     g_v::T
     grad_f_x::G
-    xhat::X
-    delta_x::X
+    xhat::D
+    delta_x::D
     L::T
     t::T
     t_previous::T
@@ -86,7 +89,7 @@ mutable struct MonotoneAccProxGradDescentState{T, X<:Union{AbstractArray{T}, _Bl
 end
 
 function initial_state(method::MonotoneAccProxGradDescent, options, f, g,
-                       x0::Union{AbstractArray{T}, _Blocks{T}}) where T
+                       x0::Union{_Iterate{T}, _Blocks{T}}) where T
     model = _image_model(f)
     z_x = model === nothing ? nothing : _image_buffer(model)
     f_x = _value!(f, x0, model, z_x)
@@ -99,7 +102,7 @@ function initial_state(method::MonotoneAccProxGradDescent, options, f, g,
         _copy(x0), T(NaN), T(NaN),        # z = x0
         _similar(x0), T(NaN), T(NaN),
         _dense_similar(x0),
-        _similar(x0), _similar(x0),
+        _trial_similar(x0), _trial_similar(x0),
         one(T),                           # L
         one(T), zero(T),                  # t₁ = 1, t₀ = 0
         T(-Inf),                          # max_residual

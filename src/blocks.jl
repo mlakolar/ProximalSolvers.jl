@@ -6,55 +6,89 @@ module Blocks
 # array each operation is the broadcast or the loop that the solvers apply to
 # it; for a tuple it applies that block by block and combines the results, so
 # that a tuple of one array computes exactly what the array does.
+#
+# A SymmetricSparseIterate is an iterate of its own: the points where f is
+# evaluated keep its type, and its matrix enters the operations that read it
+# through matrixview, both triangles. The trial points and the differences of
+# iterates of an owner are dense matrices (_trial_similar).
 
 using LinearAlgebra
-using ProximalBase: norm_diff, SymmetricSparseIterate
+using ProximalBase: norm_diff, SymmetricSparseIterate, coordinates, activevalues, matrixview
 
-export _Blocks, _copy, _similar, _zero, _dense_similar, _copyto!, _copy!, _sub!, _step!, _extrapolate_point!,
+export _Blocks, _Iterate, _trial_similar, _copy, _similar, _zero, _dense_similar, _copyto!, _copy!, _sub!, _step!, _extrapolate_point!,
        _relax!, _rdiv!, _norm, _norm_diff, _norm_inf, _dot, _dot_diff, _sumabs2, _length, _size,
        _maxabs_diff, _maxabs_axpy, _maxabs_stepdiff, _maxabs_residual, _allzero, _restricted_step!, _eltype
 
-# the iterates of a product space: a tuple of arrays with one element type
-const _Blocks{T} = Tuple{AbstractArray{T}, Vararg{AbstractArray{T}}}
+# an iterate of the gradient solvers: an array or a SymmetricSparseIterate
+const _Iterate{T} = Union{AbstractArray{T}, SymmetricSparseIterate{T}}
 
-_eltype(x::AbstractArray) = eltype(x)
+# the iterates of a product space: a tuple of iterates with one element type
+const _Blocks{T} = Tuple{_Iterate{T}, Vararg{_Iterate{T}}}
+
+# the matrix that x stands for, for reading
+_mat(x) = x
+_mat(x::SymmetricSparseIterate) = matrixview(x)
+
+_eltype(x::_Iterate) = eltype(x)
 _eltype(::_Blocks{T}) where {T} = T
 
-_copy(x::AbstractArray) = copy(x)
+_copy(x::_Iterate) = copy(x)
 _copy(x::Tuple) = map(_copy, x)
 
-_similar(x::AbstractArray) = similar(x)
+_similar(x::_Iterate) = similar(x)
 _similar(x::Tuple) = map(_similar, x)
+
+# a buffer for trial points and differences of iterates like x: of the type of
+# x, and a dense matrix for a SymmetricSparseIterate
+_trial_similar(x::AbstractArray) = similar(x)
+_trial_similar(x::SymmetricSparseIterate{T}) where {T} = Matrix{T}(undef, size(x))
+_trial_similar(x::Tuple) = map(_trial_similar, x)
 
 _zero(x::AbstractArray) = zero(x)
 _zero(x::Tuple) = map(_zero, x)
 
 # a dense array of the shape of x, for gradients
-_dense_similar(x::AbstractArray{T}) where {T} = Array{T}(undef, size(x))
+_dense_similar(x::_Iterate{T}) where {T} = Array{T}(undef, size(x))
 _dense_similar(x::Tuple) = map(_dense_similar, x)
 
 _copyto!(y::AbstractArray, x::AbstractArray) = copyto!(y, x)
 _copyto!(y::Tuple, x::Tuple) = (foreach(_copyto!, y, x); y)
 # a SymmetricSparseIterate takes the coordinates of another one of its order
 _copyto!(y::SymmetricSparseIterate, x::SymmetricSparseIterate) = copyto!(y, x)
+# and the matrix x, which must be symmetric (the checked copyto! of ProximalBase)
+_copyto!(y::SymmetricSparseIterate, x::AbstractArray) = copyto!(y, x)
 
 _copy!(y::AbstractArray, x::AbstractArray) = copy!(y, x)
 _copy!(y::Tuple, x::Tuple) = (foreach(_copy!, y, x); y)
+_copy!(y::SymmetricSparseIterate, x::SymmetricSparseIterate) = copyto!(y, x)
 
 # y = a - b
-_sub!(y::AbstractArray, a, b) = (@. y = a - b; y)
+_sub!(y::AbstractArray, a, b) = (y .= _mat(a) .- _mat(b); y)
 _sub!(y::Tuple, a::Tuple, b::Tuple) = (foreach(_sub!, y, a, b); y)
 
 # y = x - g / L
-_step!(y::AbstractArray, x, g, L) = (@. y = x - g / L; y)
+_step!(y::AbstractArray, x, g, L) = (y .= _mat(x) .- g ./ L; y)
 _step!(y::Tuple, x::Tuple, g::Tuple, L) = (foreach((yk, xk, gk) -> _step!(yk, xk, gk, L), y, x, g); y)
 
 # y = x + ω (x - xp)
 _extrapolate_point!(y::AbstractArray, x, xp, ω) = (@. y = x + ω * (x - xp); y)
+# on a SymmetricSparseIterate y, through the coordinates; a coordinate that is
+# not active and gets zero stays inactive
+function _extrapolate_point!(y::SymmetricSparseIterate, x::SymmetricSparseIterate, xp::SymmetricSparseIterate, ω)
+  cy, cx, cp = coordinates(y), coordinates(x), coordinates(xp)
+  @. cy = cx + ω * (cx - cp)
+  y
+end
 _extrapolate_point!(y::Tuple, x::Tuple, xp::Tuple, ω) = (foreach((yk, xk, pk) -> _extrapolate_point!(yk, xk, pk, ω), y, x, xp); y)
 
 # y = x + a (z - x) + b (x - xp), the extrapolation of monotone APG
 _extrapolate_point!(y::AbstractArray, x, z, xp, a, b) = (@. y = x + a * (z - x) + b * (x - xp); y)
+function _extrapolate_point!(y::SymmetricSparseIterate, x::SymmetricSparseIterate, z::SymmetricSparseIterate,
+                             xp::SymmetricSparseIterate, a, b)
+  cy, cx, cz, cp = coordinates(y), coordinates(x), coordinates(z), coordinates(xp)
+  @. cy = cx + a * (cz - cx) + b * (cx - cp)
+  y
+end
 _extrapolate_point!(y::Tuple, x::Tuple, z::Tuple, xp::Tuple, a, b) =
   (foreach((yk, xk, zk, pk) -> _extrapolate_point!(yk, xk, zk, pk, a, b), y, x, z, xp); y)
 
@@ -62,6 +96,7 @@ _extrapolate_point!(y::Tuple, x::Tuple, z::Tuple, xp::Tuple, a, b) =
 # Decide whether the WHOLE iterate is zero before constructing any block trial:
 # a zero block in a nonzero tuple must not use its unrestricted gradient.
 _allzero(x::AbstractArray) = all(iszero, x)
+_allzero(x::SymmetricSparseIterate) = all(iszero, activevalues(x))
 _allzero(x::Tuple) = all(_allzero, x)
 
 # w = x - τ d, where d is the gradient on the support of x, or the whole
@@ -75,6 +110,9 @@ function _restricted_step!(w::AbstractArray, x::AbstractArray{T}, grad::Abstract
   end
   dd
 end
+# on a SymmetricSparseIterate x, over the entries of its matrix
+_restricted_step!(w::AbstractArray, x::SymmetricSparseIterate, grad::AbstractArray, τ, whole::Bool) =
+  _restricted_step!(w, matrixview(x), grad, τ, whole)
 _restricted_step!(w::Tuple, x::Tuple, grad::Tuple, τ, whole::Bool) =
   sum(map((wk, xk, gk) -> _restricted_step!(wk, xk, gk, τ, whole), w, x, grad))
 
@@ -87,15 +125,15 @@ _rdiv!(u::AbstractArray, c) = (u ./= c; u)
 _rdiv!(u::Tuple, c) = (foreach(uk -> _rdiv!(uk, c), u); u)
 
 # the Euclidean norm over all the blocks
-_norm(x::AbstractArray) = norm(x)
+_norm(x::_Iterate) = norm(x)
 _norm(x::Tuple{Any}) = _norm(x[1])
 _norm(x::Tuple) = norm(map(_norm, x))
 
-_norm_diff(x::AbstractArray, y::AbstractArray, p::Real = 2) = norm_diff(x, y, p)
+_norm_diff(x::_Iterate, y::_Iterate, p::Real = 2) = norm_diff(x, y, p)
 _norm_diff(x::Tuple{Any}, y::Tuple{Any}, p::Real = 2) = _norm_diff(x[1], y[1], p)
 _norm_diff(x::Tuple, y::Tuple, p::Real = 2) = norm(map((xk, yk) -> _norm_diff(xk, yk, p), x, y), p)
 
-_norm_inf(x::AbstractArray) = norm(x, Inf)
+_norm_inf(x::_Iterate) = norm(x, Inf)
 _norm_inf(x::Tuple) = maximum(map(_norm_inf, x))
 
 _dot(x::AbstractArray, y::AbstractArray) = dot(x, y)
@@ -129,6 +167,7 @@ function _maxabs_diff(x::AbstractArray{T}, y::AbstractArray) where {T}
   end
   m
 end
+_maxabs_diff(x::SymmetricSparseIterate, y::SymmetricSparseIterate) = _maxabs_diff(matrixview(x), matrixview(y))
 _maxabs_diff(x::Tuple, y::Tuple) = maximum(map(_maxabs_diff, x, y))
 
 # maxᵢ |L dᵢ + gᵢ|
@@ -149,6 +188,8 @@ function _maxabs_stepdiff(L::T, y::AbstractArray, x::AbstractArray, g::AbstractA
   end
   m
 end
+_maxabs_stepdiff(L, y::SymmetricSparseIterate, x::SymmetricSparseIterate, g::AbstractArray) =
+  _maxabs_stepdiff(L, matrixview(y), matrixview(x), g)
 _maxabs_stepdiff(L, y::Tuple, x::Tuple, g::Tuple) = maximum(map((yk, xk, gk) -> _maxabs_stepdiff(L, yk, xk, gk), y, x, g))
 
 # maxᵢ |aᵢ - bᵢ - L dᵢ|

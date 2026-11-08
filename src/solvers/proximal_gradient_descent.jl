@@ -64,7 +64,10 @@ end
 # arrays; the gradients are dense. For a loss of a linear image, f(x) = F(Ax),
 # the state keeps the image of x (see image_models.jl); otherwise model and the
 # image are nothing
-mutable struct ProximalGradientDescentState{T, X<:Union{AbstractArray{T}, _Blocks{T}}, G<:Union{AbstractArray{T}, _Blocks{T}}, M, Z, P}
+# xhat and delta_x have the type of _trial_similar(x0): a dense matrix for a
+# SymmetricSparseIterate block, the type of the block otherwise.
+mutable struct ProximalGradientDescentState{T, X<:Union{_Iterate{T}, _Blocks{T}}, G<:Union{AbstractArray{T}, _Blocks{T}}, M, Z, P,
+                                            D<:Union{AbstractArray{T}, _Blocks{T}}}
     x::X
     f_x::T
     g_x::T
@@ -73,8 +76,8 @@ mutable struct ProximalGradientDescentState{T, X<:Union{AbstractArray{T}, _Block
     f_x_previous::T
     g_x_previous::T
     grad_f_x_previous::G
-    xhat::X
-    delta_x::X
+    xhat::D
+    delta_x::D
     L::T
     max_residual::T
     backtrack_simple::Bool  # line search uses function values, not gradients
@@ -96,7 +99,7 @@ function initial_state(
           options,
           f,
           g,
-          x0::Union{AbstractArray{T}, _Blocks{T}}) where T
+          x0::Union{_Iterate{T}, _Blocks{T}}) where T
 
     metric = _diagonal_metric(method.preconditioner, f, x0)
     grad_f_x = _dense_similar(x0)
@@ -118,8 +121,8 @@ function initial_state(
                          T(NaN),      # Store previous f in state.f_x_previous
                          T(NaN),      # Store previous g in state.g_x_previous
                          _similar(grad_f_x), # Maintain previous gradient of f in state.grad_f_x_previous for convergence check
-                         _similar(x0), # Temporary storage
-                         _similar(x0), # Temporary storage for x1 - x0
+                         _trial_similar(x0), # Temporary storage
+                         _trial_similar(x0), # Temporary storage for x1 - x0
                          one(T),      # L
                          T(-Inf),     # max_residual
                          true,        # backtrack_simple
