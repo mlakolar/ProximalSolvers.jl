@@ -179,7 +179,7 @@ function _prox_grad_step!(w, grad, f, g, u, state::MonotoneAccProxGradDescentSta
     isfinite(f_u) || return T(Inf), T(Inf)
     while true
       _step!(state.xhat, u, grad, state.L)
-      g_w = T(value_and_prox!(w, g, state.xhat, one(T) / state.L))
+      g_w = T(_metric_prox!(w, g, state.xhat, state.L, nothing))
       _drop!(w)
       f_w = _value!(f, w, state.model, image_w)
       state.prox_calls += 1

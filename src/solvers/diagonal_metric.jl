@@ -100,6 +100,22 @@ function _metric_dualnorm(m::_DiagonalMetric, g)
 end
 
 _metric_prox!(x, g, z, L, m) = convert(_eltype(x), value_and_prox!(x, g, z, _metric_steps!(m, L)))
+
+# ProximalBase has no proximal operator into a SymmetricSparseIterate for these
+# penalties (and the wrappers that forward to them); their step goes into a
+# dense matrix, which copyto! moves into the owner after checking that it is
+# symmetric. At a symmetric z the proximal point of such a penalty over
+# matrices is symmetric, and it is the proximal point over symmetric matrices.
+_owner_prox(g) = true
+_owner_prox(::Union{ProximalBase.PointwiseMinimum, ProximalBase.IndIntersection, ProximalBase.LinearConstrained}) = false
+_owner_prox(g::Union{Scaled, Translate, ProximalBase.Tilt}) = _owner_prox(g.f)
+function _metric_prox!(x::SymmetricSparseIterate, g, z::AbstractMatrix, L, ::Nothing)
+  _owner_prox(g) && return convert(_eltype(x), value_and_prox!(x, g, z, one(L) / L))
+  w = similar(z)
+  v = value_and_prox!(w, g, z, one(L) / L)
+  copyto!(x, w)
+  convert(_eltype(x), v)
+end
 # The identity prox is independent of the metric. ZeroFunction only has a
 # scalar-step method in ProximalBase.
 function _metric_prox!(x, ::ZeroFunction, z, L, m::_DiagonalMetric)
