@@ -399,8 +399,12 @@ def extract_commit(commit, dest):
 
 class FingerprintTests(unittest.TestCase):
     def test_known_values_of_the_working_tree(self):
-        self.assertEqual(C.harness_hash(REPO / "benchmark"), "0fd2b44dfea0b1f77c2c67228bf149207982ab8b")
-        self.assertEqual(C.package_fingerprint(REPO), "f37fc61f300ad597a33c7ab5f448d38c865db854")
+        # The known values are pinned only at fixed commits (the next two tests): the live src/ and benchmark/
+        # change with every commit to the repository, so here the functions are only checked for form and determinism.
+        for value in (C.harness_hash(REPO / "benchmark"), C.package_fingerprint(REPO)):
+            self.assertRegex(value, r"[0-9a-f]{40}")
+        self.assertEqual(C.harness_hash(REPO / "benchmark"), C.harness_hash(REPO / "benchmark"))
+        self.assertEqual(C.package_fingerprint(REPO), C.package_fingerprint(REPO))
 
     @unittest.skipUnless(git_available(BASE_COMMIT), "the base commit is not in this clone")
     def test_known_values_at_the_base_commit(self):
