@@ -440,6 +440,8 @@ _isnonzero(x::SymmetricSparseIterate, k::Int) = !iszero(coordinates(x)[k])
 _isnonzero(x::AtomIterate, k::Int) = isactive(x, k) && any(!iszero, atom(x, k))
 
 _gradient_buffer(x::AbstractArray{T}) where {T} = similar(Array{T}, axes(x))
+# a SymmetricSparseIterate takes the gradient over the entries of its matrix
+_gradient_buffer(x::SymmetricSparseIterate{T}) where {T} = Matrix{T}(undef, size(x))
 
 ####################################
 #  penalties

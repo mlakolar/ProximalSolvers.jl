@@ -80,8 +80,7 @@ _lla_isgroup(g) = g isa Union{GroupNormL2, GroupMCP, GroupSCAD}
 _lla_stage(g, λ, w) = _lla_isgroup(g) ? GroupNormL2(λ, g.groups, w) : NormL1(λ, w)
 
 # a buffer for the weights: one per entry of x, or one per group
-_lla_buffer(g, x::AbstractArray{T}) where {T} =
-  _lla_isgroup(g) ? Vector{T}(undef, length(g.groups)) : _gradient_buffer(x)
+_lla_buffer(g, x) = _lla_isgroup(g) ? Vector{eltype(x)}(undef, length(g.groups)) : _gradient_buffer(x)
 
 # w ← the LLA weights of gλ at x, relative to the level λ (zero at λ = 0, where
 # the stage has no penalty)
