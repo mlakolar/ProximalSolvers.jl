@@ -543,18 +543,24 @@ end
 # asymmetric parameters is rejected with an ArgumentError before anything is
 # written; the symmetric part of such parameters, (W + W')/2, is a
 # different penalty that the caller passes explicitly. The penalty that goes
-# on is the caller's own object. A user type or wrapper that the check does not
-# traverse passes unchanged and is responsible for its own parameters.
+# on is the caller's own object. The check is ProximalBase's
+# check_symmetric_parameters (see _validate_symmetric_parameters below). On a
+# user type it checks the per-entry arrays that the type declares with
+# ProximalBase.entry_parameters; it does not look into the inner function of a
+# user wrapper, so an asymmetric array there passes unchanged; and it rejects a
+# user SeparableFunction subtype that declares nothing, with an ArgumentError
+# that names the missing declaration.
 _symmetric_penalty(g, x) = g
 function _symmetric_penalty(g, x::SymmetricSparseIterate)
   _validate_symmetric_parameters(g, x)
   g
 end
 # On a tuple of iterates (a point of a product space) the check is made on the
-# penalty as supplied: it goes through ProximalBase's public checker, which
-# validates what ProximalBase's own declarations of per-entry parameters cover
-# (see the definition below); it does not validate user-defined wrappers or
-# types that declare nothing.
+# penalty as supplied, by the same checker: it checks the blocks of a
+# SeparableSum whose iterate is a SymmetricSparseIterate, with the same rules
+# for user types as above. A penalty that couples the blocks, such as
+# Scaled(NormL1(λ, W), α) on the whole tuple, passes unchanged in
+# test/symmetric_penalties.jl.
 function _symmetric_penalty(g, x::Tuple)
   _validate_symmetric_parameters(g, x)
   g

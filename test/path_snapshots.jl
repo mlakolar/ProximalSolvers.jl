@@ -3,8 +3,9 @@ module PathSnapshotTests
 using Test, SparseArrays, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
 
-# coordinate k of an iterate: a lower-triangle coordinate of a SymmetricSparseIterate,
-# which has no one-index access, and the linear entry k of the other iterates
+# coordinate k of an iterate: the lower-triangle coordinate k of a SymmetricSparseIterate,
+# through coordinates(x) on both owner implementations, and the linear entry k of the
+# other iterates
 coord(x) = x
 coord(x::SymmetricSparseIterate) = coordinates(x)
 

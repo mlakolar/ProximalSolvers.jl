@@ -56,7 +56,8 @@ function initialize!(m::KronUModel{T}, x::SymmetricSparseIterate{T}) where {T}
 end
 
 # the derivative along the lower-triangle coordinate (r, c), which moves Θ[r, c]
-# and Θ[c, r] together, as KronModel's _symderivative
+# and Θ[c, r] together when r ≠ c and Θ[r, r] alone when r == c, as KronModel's
+# _symderivative
 @inline _symderivative(m::KronUModel{T}, r::Int, c::Int) where {T} =
   r == c ? _AUB(m, r, r) + _C(m.C, r, r, T) : (_AUB(m, r, c) + _AUB(m, c, r)) + (_C(m.C, r, c, T) + _C(m.C, c, r, T))
 

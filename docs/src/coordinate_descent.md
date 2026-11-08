@@ -148,7 +148,8 @@ The iterate fixes what a coordinate is.
 - On a `SymmetricSparseIterate`, the coordinates are the entries ``(r, c)``,
   ``r \ge c``, of the lower triangle of a symmetric matrix ``\Theta``. A step on
   an off-diagonal coordinate moves ``\Theta_{rc}`` and ``\Theta_{cr}``
-  together, along ``D = E_{rc} + E_{cr}``. Let ``G`` be the derivative of the
+  together, along ``D = E_{rc} + E_{cr}``, and a step on a diagonal coordinate
+  moves ``\Theta_{rr}`` alone, along ``D = E_{rr}``. Let ``G`` be the derivative of the
   loss along ``D`` and ``a`` its curvature along ``D``. A separable penalty
   on the full matrix contributes ``h_{rc}(t) = g_{rc}(t) + g_{cr}(t)`` along
   an off-diagonal coordinate, and ``h_{rr}(t) = g_{rr}(t)`` on the diagonal.
