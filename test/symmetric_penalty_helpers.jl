@@ -29,8 +29,8 @@ function warm_start()
   x
 end
 
-# ProximalBase 0.6 has the public checker; earlier versions are covered by the
-# transitional check of ProximalSolvers
+# ProximalBase 0.6 has the public checker, which ProximalSolvers calls; under the compat
+# bound ProximalBase = "0.6" this is true, and the branches for false are not reached
 pb_checks_symmetry() = isdefined(ProximalBase, :check_symmetric_parameters)
 
 # everything a rejected call must leave alone in an owner
