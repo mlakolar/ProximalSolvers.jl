@@ -451,7 +451,8 @@ soft(v, t) = sign(v) * max(abs(v) - t, zero(v))
 
   # QUIC: a start that is not positive definite on the component {1, 2} restarts there from the
   # diagonal solution, the Newton directions restart from zero, and the solution is assembled
-  # into a cleared X, so that the coordinates of the start outside the solution are not stored.
+  # into a cleared X; the test checks that the coordinates of the start outside the solution
+  # are not stored.
   S = [1.0 0.6 0.0 0.0; 0.6 1.0 0.0 0.0; 0.0 0.0 1.0 -0.5; 0.0 0.0 -0.5 1.0]
   g = NormL1(1.0, [i == j ? 0.0 : 0.1 for i in 1:4, j in 1:4])
   newton = ProxNewton(; tol = 1e-10, inner = CDSolver(; order = :cyclic, tol = 1e-10))
@@ -529,8 +530,8 @@ end
   end
   θref = u ./ sqrt.(mult)
   @test Θ(θref) ≈ Xstar atol = 1e-12
-  # a dense cyclic sweep: along E_rc + E_cr, the derivative ⟨SΘS + C, E_rc + E_cr⟩, the
-  # curvature ⟨E_rc + E_cr, S (E_rc + E_cr) S⟩ and the penalty mλ|t|
+  # a dense cyclic sweep: along E = E_rc + E_cr (E = E_rr on the diagonal), the derivative
+  # ⟨SΘS + C, E⟩, the curvature ⟨E, SES⟩ and the penalty mλ|t|
   function dense_sweep!(θ)
     for (k, (ri, ci)) in enumerate(rcs)
       E = zeros(2, 2); E[ri, ci] = 1; E[ci, ri] = 1

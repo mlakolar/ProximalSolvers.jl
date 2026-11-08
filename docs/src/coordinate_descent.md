@@ -148,7 +148,8 @@ The iterate fixes what a coordinate is.
 - On a `SymmetricSparseIterate`, the coordinates are the entries ``(r, c)``,
   ``r \ge c``, of the lower triangle of a symmetric matrix ``\Theta``. A step on
   an off-diagonal coordinate moves ``\Theta_{rc}`` and ``\Theta_{cr}``
-  together, along ``D = E_{rc} + E_{cr}``. Let ``G`` be the derivative of the
+  together, along ``D = E_{rc} + E_{cr}``, and a step on a diagonal coordinate
+  moves ``\Theta_{rr}`` alone, along ``D = E_{rr}``. Let ``G`` be the derivative of the
   loss along ``D`` and ``a`` its curvature along ``D``. A separable penalty
   on the full matrix contributes ``h_{rc}(t) = g_{rc}(t) + g_{cr}(t)`` along
   an off-diagonal coordinate, and ``h_{rr}(t) = g_{rr}(t)`` on the diagonal.
@@ -186,8 +187,9 @@ The iterate fixes what a coordinate is.
   wrappers, and those that a user type declares with
   `ProximalBase.entry_parameters`; a user `SeparableFunction` subtype that
   declares nothing is rejected on an owner, and a user `AbstractFunction` or
-  wrapper that declares nothing is not traversed and passes the check
-  unchanged. A custom penalty or wrapper is responsible for the symmetric-storage compatibility of
+  wrapper that declares nothing passes the check unchanged. The check does not
+  itself recurse into the inner function of a user wrapper: an array of that
+  inner function is checked when the wrapper's declaration exposes it. A custom penalty or wrapper is responsible for the symmetric-storage compatibility of
   its own parameters (extending the check to user types is #120). These rules
   do not extend the penalty families supported by a solver or wrapper.
 

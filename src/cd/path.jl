@@ -10,21 +10,16 @@ _zero_like(x::SymmetricSparseIterate{T}) where {T} = SymmetricSparseIterate(T, s
 _zero_like(x::AtomIterate) = similar(x)
 
 # The start of a solve from zero: the values of x are zero and no coordinate is
-# active. fill! writes the zeros into the stored coordinates, which stay
-# stored, so dropzeros! empties the working set. A SymmetricSparseIterate takes
-# the zeros through coordinates(x), its lower triangle, at its active
-# coordinates: a zero written to a stored coordinate keeps it stored, so the
-# active set does not change during the loop, and the coordinates that are not
-# stored are zero already. The cost is O(nactive(x)). With the ProximalBase of
-# the committed pin, fill!(coordinates(x), 0) loops over all p(p + 1)/2
-# coordinates: at p = 150 with 5% active it took 5.6 µs and this loop 2.1 µs;
-# with 50% active both took about 18.5 µs, most of it in dropzeros!.
+# active. fill! writes zeros into the stored coordinates and leaves them
+# stored; dropzeros! then removes them. A SymmetricSparseIterate takes the
+# zeros through activevalues(x), a view of the values of its active
+# coordinates; the coordinates that are not stored are zero, and the active set
+# stays as it is until dropzeros!. The cost is O(nactive(x)). In one
+# measurement with the committed ProximalBase pin, at p = 150, a call took
+# about 1.6 µs with 5% of the coordinates active and 14 µs with 50%.
 _clear_start!(x::Union{SparseIterate, AtomIterate}) = dropzeros!(fill!(x, zero(eltype(x))))
 function _clear_start!(x::SymmetricSparseIterate)
-  cx = coordinates(x)
-  for k in activecoordinates(x)
-    cx[k] = zero(eltype(x))
-  end
+  fill!(activevalues(x), zero(eltype(x)))
   dropzeros!(x)
 end
 

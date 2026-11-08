@@ -57,7 +57,7 @@ _dense_similar(x::Tuple) = map(_dense_similar, x)
 
 _copyto!(y::AbstractArray, x::AbstractArray) = copyto!(y, x)
 _copyto!(y::Tuple, x::Tuple) = (foreach(_copyto!, y, x); y)
-# a SymmetricSparseIterate takes the coordinates of another one of its order
+# between two SymmetricSparseIterates, ProximalBase's copyto!
 _copyto!(y::SymmetricSparseIterate, x::SymmetricSparseIterate) = copyto!(y, x)
 # and the matrix x, which must be symmetric (the checked copyto! of ProximalBase)
 _copyto!(y::SymmetricSparseIterate, x::AbstractArray) = copyto!(y, x)

@@ -367,8 +367,9 @@ end
   @test relgap(duality_gap(fw, NormL1(0.1), r.minimizer)) <= 1e-9 * (1 + 1e-6)
 end
 
-# the graphical-lasso gap on a SymmetricSparseIterate is the gap of its matrix (both triangles,
-# stored zeros as zeros), and asymmetric weights are rejected before anything is computed
+# the graphical-lasso gap on a SymmetricSparseIterate equals, within rounding, the gap of its
+# matrix (both triangles, stored zeros as zeros), and asymmetric weights are rejected with the
+# iterate unchanged
 @testset "graphical-lasso gap on a SymmetricSparseIterate" begin
   rng = Xoshiro(17)
   q = 6

@@ -200,7 +200,7 @@ end
 # entries. On X12 = X21 = t, ½‖X - B‖² + 2‖X‖₁ with B12 = B21 = 3 is t² - 6t + 4|t| up to a
 # constant, minimized at t = 1. From zero the step to t = 1 has the decrease
 # g(1) - g(0) + ⟨∇f(0), D⟩ = 4 - 6 = -2 for D = E12 + E21; with the gradient entry counted once it
-# would be 4 - 3 = 1 > 0, and the step would be refused as an ascent direction.
+# would be 4 - 3 = 1 > 0, and the solver would stop without taking the step.
 @testset "the Newton decrease counts both entries of an off-diagonal coordinate" begin
   B = [0.0 3.0; 3.0 0.0]
   f = KronQuadratic(Matrix(1.0I, 2, 2), Matrix(1.0I, 2, 2), -B)
@@ -218,9 +218,9 @@ end
   @test r.maxchange <= r.tolerance
 end
 
-# ProxNewton on LogDetLoss with no penalty takes the generic path, whose quadratic model of the
-# log-likelihood is ProximalBase's model at the matrix of the iterate: the maximum likelihood
-# estimate S⁻¹, from an owner and from a dense start
+# ProxNewton on LogDetLoss, the negative log-likelihood w (tr(SX) - log det X), with no penalty
+# takes the generic path, whose quadratic model is ProximalBase's model at the matrix of the
+# iterate: the minimizer, the maximum likelihood estimate S⁻¹, from an owner and from a dense start
 @testset "generic ProxNewton on LogDetLoss and a SymmetricSparseIterate" begin
   rng = Xoshiro(23)
   p = 5

@@ -93,7 +93,8 @@ end
 end
 
 # the curvature along the lower-triangle coordinate (r, c) of a symmetric Θ,
-# which moves Θ[r, c] and Θ[c, r] together
+# which moves Θ[r, c] and Θ[c, r] together when r ≠ c and Θ[r, r] alone when
+# r == c
 @inline _symcurvature(A, B, r::Int, c::Int) =
   @inbounds r == c ? A[r, r] * B[r, r] : (A[r, r] * B[c, c] + A[c, c] * B[r, r]) + 2 * A[r, c] * B[r, c]
 
