@@ -187,8 +187,9 @@ The iterate fixes what a coordinate is.
   wrappers, and those that a user type declares with
   `ProximalBase.entry_parameters`; a user `SeparableFunction` subtype that
   declares nothing is rejected on an owner, and a user `AbstractFunction` or
-  wrapper that declares nothing is not traversed and passes the check
-  unchanged. A custom penalty or wrapper is responsible for the symmetric-storage compatibility of
+  wrapper that declares nothing passes the check unchanged. The check does not
+  itself recurse into the inner function of a user wrapper: an array of that
+  inner function is checked when the wrapper's declaration exposes it. A custom penalty or wrapper is responsible for the symmetric-storage compatibility of
   its own parameters (extending the check to user types is #120). These rules
   do not extend the penalty families supported by a solver or wrapper.
 

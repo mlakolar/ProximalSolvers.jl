@@ -948,8 +948,8 @@ Available for:
   `SymmetricSparseIterate`. The dual point is `W - S` clipped to the penalty,
   with `W = x⁻¹`, at the cost of two Cholesky factorizations. On a
   `SymmetricSparseIterate` the weights follow the symmetry rule of
-  [`solve!`](@ref), checked before anything is computed, and the gap is that
-  of its matrix.
+  [`solve!`](@ref), checked before the gap is computed, and the gap is
+  computed from its matrix.
 
 An `ArgumentError` is thrown for other functions; see [`kkt_residual`](@ref)
 for an optimality measure that needs no conjugate.

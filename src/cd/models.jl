@@ -440,7 +440,8 @@ _isnonzero(x::SymmetricSparseIterate, k::Int) = !iszero(coordinates(x)[k])
 _isnonzero(x::AtomIterate, k::Int) = isactive(x, k) && any(!iszero, atom(x, k))
 
 _gradient_buffer(x::AbstractArray{T}) where {T} = similar(Array{T}, axes(x))
-# a SymmetricSparseIterate takes the gradient over the entries of its matrix
+# on a SymmetricSparseIterate, a dense matrix of size(x) for the gradient over
+# the entries of its matrix
 _gradient_buffer(x::SymmetricSparseIterate{T}) where {T} = Matrix{T}(undef, size(x))
 
 ####################################
@@ -536,31 +537,27 @@ end
 @inline _kktviolated(g, grad::AbstractArray, x, k::Int, λ) = _screengrad(g, grad, x, k) > λ * _coordweight(g, x, k)
 
 
-# On a symmetric matrix each off-diagonal pair (r, c), (c, r) is one variable,
-# so the caller's per-entry parameters (weights, bounds, labels, centers, ...)
-# must be exactly symmetric, or symmetric by type as Symmetric(W, :L), for the
-# penalty types and parameters that the check below covers. A penalty with
-# asymmetric parameters is rejected with an ArgumentError before anything is
-# written; the symmetric part of such parameters, (W + W')/2, is a
-# different penalty that the caller passes explicitly. The penalty that goes
-# on is the caller's own object. The check is ProximalBase's
-# check_symmetric_parameters (see _validate_symmetric_parameters below). On a
-# user type it checks the per-entry arrays that the type declares with
-# ProximalBase.entry_parameters; it does not look into the inner function of a
-# user wrapper, so an asymmetric array there passes unchanged; and it rejects a
-# user SeparableFunction subtype that declares nothing, with an ArgumentError
-# that names the missing declaration.
+# On a symmetric matrix each off-diagonal pair (r, c), (c, r) is one variable.
+# _symmetric_penalty(g, x) passes g to ProximalBase's check_symmetric_parameters
+# (see _validate_symmetric_parameters below) and returns g itself. The checker
+# throws an ArgumentError when, in a per-entry array that it checks, the entries
+# (r, c) and (c, r) of a pair differ (by isequal and by ==); Symmetric(W, :L)
+# passes, as it is symmetric by type. solve!, the paths, LLA,
+# lambda_max, kkt_residual, duality_gap and SolverWorkspace call it before they
+# write to the iterate. The symmetric part (W + W')/2 of asymmetric parameters
+# is a different penalty, which the caller passes. The checker checks the
+# per-entry arrays that a type declares through ProximalBase.entry_parameters,
+# and rejects a user SeparableFunction subtype that declares nothing. It does
+# not itself recurse into the inner function of a user wrapper: an array of
+# that inner function is checked when the wrapper's declaration exposes it.
 _symmetric_penalty(g, x) = g
 function _symmetric_penalty(g, x::SymmetricSparseIterate)
   _validate_symmetric_parameters(g, x)
   g
 end
-# On a tuple of iterates (a point of a product space) the check is made on the
-# penalty as supplied, by the same checker: it checks the blocks of a
-# SeparableSum whose iterate is a SymmetricSparseIterate, with the same rules
-# for user types as above. A penalty that couples the blocks, such as
-# Scaled(NormL1(λ, W), α) on the whole tuple, passes unchanged in
-# test/symmetric_penalties.jl.
+# On a tuple of iterates (a point of a product space) the penalty as supplied
+# goes to the same checker, which checks the blocks of a SeparableSum whose
+# iterate is a SymmetricSparseIterate by the rules above.
 function _symmetric_penalty(g, x::Tuple)
   _validate_symmetric_parameters(g, x)
   g
@@ -578,8 +575,7 @@ function _symmetric_array(a::AbstractArray, p::Int)
   true
 end
 
-# ProximalBase decides which parameters of which penalty must be symmetric,
-# and checks the blocks of a SeparableSum on a tuple of iterates
+# the check of ProximalBase described above, for an owner and for a tuple
 _validate_symmetric_parameters(g, x) = (ProximalBase.check_symmetric_parameters(g, x); nothing)
 
 # the mean of a pair of parameters; a sum below twice the smallest subnormal
