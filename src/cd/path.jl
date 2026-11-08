@@ -59,8 +59,9 @@ only the threshold over penalized coordinates; it is not a certificate that
 the whole coefficient vector can be zero. For nonconvex penalties the slope
 threshold describes stationarity at zero, not global optimality.
 
-On a `SymmetricSparseIterate`, the penalty is prepared by the same parameter
-normalization as [`solve!`](@ref).
+On a `SymmetricSparseIterate`, the per-entry parameters of the penalty that the
+check covers must satisfy the same symmetry rule as in [`solve!`](@ref), or an
+`ArgumentError` is thrown.
 """
 function lambda_max(f::Union{AbstractFunction, CDModel}, g::AbstractFunction, x)
   g = _symmetric_penalty(g, x)

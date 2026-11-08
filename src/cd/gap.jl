@@ -798,6 +798,9 @@ function _gapevaluator(f::Union{GLMLoss, Scaled{<:GLMLoss}}, g, x::AbstractVecto
 end
 
 function _gapevaluator(f::LogDetLoss{T}, g::NormL1, x::AbstractMatrix) where {T}
+  # on a dense matrix the bound uses the means of the pairs of weights; on an
+  # owner the weights are validated as in solve!
+  x isa SymmetricSparseIterate && _symmetric_penalty(g, x)
   p = size(f.S, 1)
   _LogDetGap(zeros(T, p, p), zeros(T, p, p))
 end
@@ -863,7 +866,8 @@ function _evalgap!(ev::_LogDetGap{T}, f::LogDetLoss{T}, g::NormL1, X::AbstractMa
 end
 
 # the bound on the dual variable of entry (r, c) over symmetric matrices, the
-# mean of the penalties of (r, c) and (c, r), divided by w
+# mean of the penalties of (r, c) and (c, r), divided by w; on an owner the two
+# are equal after validation
 @inline _glasso_bound(g::NormL1, p::Int, r::Int, c::Int, w::T) where {T} =
   T(g.λ0) * _symmetric_pair_mean(T(_entryweight(g.w, (c - 1) * p + r, T)),
                                 T(_entryweight(g.w, (r - 1) * p + c, T))) / w

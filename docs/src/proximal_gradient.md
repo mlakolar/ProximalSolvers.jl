@@ -200,13 +200,20 @@ a `SymmetricSparseIterate` for a sparse symmetric matrix `S` and a dense
 rectangular factor `U`, for example. They use one backtracked step size for
 the whole pair and the Euclidean norm across both blocks.
 
-On a `SymmetricSparseIterate`, the three gradient solvers prepare ``g`` by
-the same parameter rule as [coordinate descent](@ref "Coordinates of the iterates"):
-they average parameters that enter linearly and require the other per-entry
-parameters to be symmetric. For a tuple with a `SeparableSum` penalty, the
-rule applies block by block. Penalties that couple blocks pass unchanged;
-their compatibility with symmetric storage is the caller's responsibility.
-The smooth loss ``f`` is unchanged.
+On a `SymmetricSparseIterate`, the three gradient solvers apply the same
+parameter rule as [coordinate descent](@ref "Coordinates of the iterates"):
+the per-entry parameters of ``g`` that the check covers must be exactly
+symmetric, or symmetric by type as `Symmetric(W, :L)`, and otherwise an
+`ArgumentError` is thrown before anything is written. The penalty is used as supplied; for the symmetric part
+of asymmetric weights, pass ``(W + W')/2``, which is a different penalty. For
+a tuple of iterates, with ProximalBase 0.6 or later the penalty goes through
+ProximalBase's public `check_symmetric_parameters`, which validates what
+ProximalBase's declarations of per-entry parameters cover, and not user-defined
+wrappers or types that declare nothing. With earlier versions the rule covers
+a `SeparableSum` and `Scaled` around one (also nested), and other penalties on
+a tuple pass unchanged. A custom penalty or wrapper is responsible for the
+symmetric-storage compatibility of its own parameters. The smooth loss ``f`` is
+not checked.
 
 For a latent graphical model, write `Θ = S + U * U'` and supply a smooth
 loss with

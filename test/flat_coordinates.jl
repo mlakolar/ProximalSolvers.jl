@@ -378,22 +378,33 @@ end
 end
 
 @testset "symmetric multiplicities and original pair objective" begin
+  # the weights and the tilt are asymmetric, rejected on an owner; their pair sums, w₂₁ + w₁₂ = 4
+  # and c₂₁ + c₁₂ = 0.4, are those of the symmetric parts, which are passed explicitly
   W = [1.0 1.0; 3.0 1.0]
   C = [0.0 0.1; 0.3 0.0]
+  Wbar, Cbar = (W .+ W') ./ 2, (C .+ C') ./ 2
   A = zeros(2, 2)
   f = KronQuadratic(A, Matrix(1.0I, 2, 2), [0.0 -1.0; -1.0 0.0])
   before = (copy(W), copy(C))
-  base = ElasticNet(0.1, 1.0, W)
+  raw = ElasticNet(0.1, 1.0, W)
+  base = ElasticNet(0.1, 1.0, Wbar)
+  rawcases = (raw, Scaled(Tilt(raw, C), 2.0), Tilt(Scaled(raw, 2.0), C))
+  for g in rawcases
+    x = SymmetricSparseIterate([0.0 0.7; 0.7 0.0])
+    @test_throws ArgumentError solve!(x, f, g, solver())
+    @test_throws ArgumentError kkt_residual(f, g, x)
+    @test Matrix(x) == [0.0 0.7; 0.7 0.0]
+  end
   cases = ((base, 0.8, 1.0, 0.0),
-           (Scaled(Tilt(base, C), 2.0), 0.1, 2.0, 0.8),
-           (Tilt(Scaled(base, 2.0), C), 0.2, 2.0, 0.4))
+           (Scaled(Tilt(base, Cbar), 2.0), 0.1, 2.0, 0.8),
+           (Tilt(Scaled(base, 2.0), Cbar), 0.2, 2.0, 0.4))
   for (g, expected, scale, tilt) in cases
     x = SymmetricSparseIterate([0.0 0.7; 0.7 0.0])
     @test solve!(x, f, g, solver()).converged
     z = x[2, 1]
     @test z ≈ expected atol = 1e-12
-    # The original entries contribute λ₁(w₂₁ + w₁₂)|z| + λ₂z².
-    objective(v) = -2v + scale * (0.1 * (W[2, 1] + W[1, 2]) * abs(v) + v^2) + tilt * v
+    # The entries of the pair contribute λ₁(w₂₁ + w₁₂)|z| + λ₂z², with the weights as supplied.
+    objective(v) = -2v + scale * (0.1 * (Wbar[2, 1] + Wbar[1, 2]) * abs(v) + v^2) + tilt * v
     @test abs(-2 + scale * (0.4 + 2z) + tilt) <= 1e-12
     @test f(Matrix(x)) + g(Matrix(x)) ≈ objective(z) atol = 1e-12
     for δ in (0.001, 0.1, 1.0), s in (-1, 1)
@@ -402,12 +413,20 @@ end
     @test kkt_residual(f, g, x; relative = false) <= 1e-12
     @test isequal((W, C), before)
   end
+  # the raw penalty has the same dense values: only an owner has pairs of variables
+  @test f([0.0 0.5; 0.5 0.0]) + Scaled(Tilt(raw, C), 2.0)([0.0 0.5; 0.5 0.0]) ≈
+        f([0.0 0.5; 0.5 0.0]) + Scaled(Tilt(base, Cbar), 2.0)([0.0 0.5; 0.5 0.0])
   center = [0.0 1.0; 2.0 0.0]
   saved = copy(center)
   x = SymmetricSparseIterate([0.0 0.7; 0.7 0.0])
   @test_throws ArgumentError solve!(x, f, SqrNormL2(1.0, center), solver())
   @test x[2, 1] == 0.7
   @test isequal(center, saved)
+  # symmetric center: accepted, with the same multiplicity-two pair
+  symmetric_center = [0.0 1.0; 1.0 0.0]
+  y = SymmetricSparseIterate([0.0 0.7; 0.7 0.0])
+  @test solve!(y, f, SqrNormL2(1.0, symmetric_center), solver()).converged
+  @test kkt_residual(f, SqrNormL2(1.0, symmetric_center), y; relative = false) <= 1e-10
 end
 
 @testset "previously supported values" begin

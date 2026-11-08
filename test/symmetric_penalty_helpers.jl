@@ -29,9 +29,21 @@ function warm_start()
   x
 end
 
+# ProximalBase 0.6 has the public checker; earlier versions are covered by the
+# transitional check of ProximalSolvers
+pb_checks_symmetry() = isdefined(ProximalBase, :check_symmetric_parameters)
+
+# everything a rejected call must leave alone in an owner
+snapshot(x) = (Matrix(x), collect(coordinates(x)), collect(activecoordinates(x)), nnz(x), nactive(x),
+               isdefined(ProximalBase, :activevalues) ? collect(ProximalBase.activevalues(x)) : nothing)
+
+# a tuple of block iterates: the snapshot of each block
+snapshot(x::Tuple) = map(snapshot, x)
+snapshot(x::Array) = copy(x)
+
 function rejects_symmetry(action, x)
   @nospecialize action
-  before = (Matrix(x), collect(coordinates(x)), collect(activecoordinates(x)), nnz(x), nactive(x))
+  before = snapshot(x)
   err = try
     action()
     nothing
@@ -40,13 +52,118 @@ function rejects_symmetry(action, x)
   end
   @test err isa ArgumentError
   if err isa ArgumentError
-    @test occursin("symmetric", lowercase(sprint(showerror, err)))
+    msg = sprint(showerror, err)
+    @test occursin("symmetric", lowercase(msg))
+    # the reason is the symmetry rule, not the type of the replacement penalty of a workspace
+    @test !occursin("a workspace needs a penalty of type", msg)
   end
-  @test Matrix(x) == before[1]
-  @test collect(coordinates(x)) == before[2]
-  @test collect(activecoordinates(x)) == before[3]
-  @test nnz(x) == before[4]
-  @test nactive(x) == before[5]
+  @test isequal(snapshot(x), before)
+end
+
+# a copy of a value held by the state of a workspace (iterates, gradients, values, counters)
+state_value(a::SymmetricSparseIterate) = snapshot(a)
+state_value(a::AbstractArray) = copy(a)
+state_value(a::Tuple) = map(state_value, a)
+state_value(a) = a
+state_snapshot(ws) = hasproperty(ws.buffers, :state) ?
+  map(n -> state_value(getfield(ws.buffers.state, n)), fieldnames(typeof(ws.buffers.state))) : nothing
+
+# the same for a workspace: its penalty, its iterate and the buffers of its state (the caches of
+# the loss and the gradient among them) stay as they were
+function rejects_in_workspace(action, ws, x = ws.x)
+  @nospecialize action
+  g = ws.g
+  state = state_snapshot(ws)
+  rejects_symmetry(action, x)
+  @test ws.g === g
+  @test isequal(state_snapshot(ws), state)
+end
+
+# whether the objective obj of a symmetric matrix does not decrease along the
+# coordinates of the owner (an entry, or a pair of transposed entries) on both
+# sides of X: a check by the dense objective alone, with no solver
+function coordinatewise_minimum(obj, X; steps = (1e-4, 1e-2), slack = 1e-10)
+  @nospecialize obj
+  base = obj(X)
+  ok = isfinite(base)
+  for c in axes(X, 2), r in c:size(X, 1), t in steps, s in (-1, 1)
+    Y = copy(X)
+    Y[r, c] += s * t
+    r == c || (Y[c, r] += s * t)
+    ok &= !(obj(Y) < base - slack)
+  end
+  ok
+end
+
+# the largest violation of the optimality conditions of an L1 problem on a
+# symmetric matrix X with the gradient G of the loss on the full matrix and the
+# supplied weights W: a pair (r, c) moves two entries, with the derivative 2G
+# and the threshold λ (W[r,c] + W[c,r]), a diagonal entry has G and λ W[r,r]
+function symmetric_l1_violation(G, X, λ, W)
+  v = 0.0
+  for c in axes(X, 2), r in c:size(X, 1)
+    z = X[r, c]
+    h = r == c ? G[r, c] : 2G[r, c]
+    t = λ * (r == c ? W[r, c] : W[r, c] + W[c, r])
+    v = max(v, iszero(z) ? max(abs(h) - t, 0.0) : abs(h + t * sign(z)))
+  end
+  v
+end
+
+function check_parameters(arrays, before)
+  for (a, b) in zip(arrays, before)
+    @test isequal(a, b)
+  end
+end
+
+# one row of an exactness table: the raw penalty g, with asymmetric parameters, is
+# rejected on an owner before anything is written, at every entry point checked
+# here; the explicitly symmetric penalty gbar goes on as the same object, and its
+# solution is checked by the dense objective, never by another solve
+@noinline function check_exactness(f, g, gbar, arrays, points, starts)
+  @nospecialize g gbar
+  model = cdmodel(f, SymmetricSparseIterate(2))
+  before = map(copy, arrays)
+  for X in points
+    # both triangles share Xrc, so wrc φ(Xrc) + wcr φ(Xrc) = 2w̄rc φ(Xrc): a dense
+    # identity, a reference only; the raw penalty is never evaluated on an owner
+    @test isfinite(g(X)) && isfinite(gbar(X))
+    @test g(X) ≈ gbar(X) rtol = 1e-12
+  end
+  @test PS._symmetric_penalty(gbar, SymmetricSparseIterate(2)) === gbar
+  xw = warm_start()
+  rejects_symmetry(xw) do
+    PS._symmetric_penalty(g, xw)
+  end
+  rejects_symmetry(xw) do
+    solve!(xw, model, g, cdsolver())
+  end
+  rejects_symmetry(xw) do
+    SolverWorkspace(xw, f, g, cdsolver())
+  end
+  if ProximalBase.isproximable(g)
+    rejects_symmetry(xw) do
+      solve!(xw, f, g, ProximalGradientDescent(), gradient_options())
+    end
+    rejects_symmetry(xw) do
+      SolverWorkspace(xw, f, g, ProximalGradientDescent(), gradient_options())
+    end
+  end
+  ws = SolverWorkspace(xw, f, gbar, cdsolver())
+  rejects_in_workspace(ws) do
+    solve!(ws, g)
+  end
+  check_parameters(arrays, before)
+  obj(X) = f(X) + gbar(X)
+  for start in starts
+    y = SymmetricSparseIterate(start)
+    r = solve!(y, model, gbar, cdsolver())
+    @test r.converged
+    Y = Matrix(y)
+    @test r.minimum ≈ obj(Y) rtol = 1e-12 atol = 1e-14
+    @test coordinatewise_minimum(obj, Y)
+    check_parameters(arrays, before)
+  end
 end
 
 # each row lists the wrappers whose symmetric-parameter CD problem is supported

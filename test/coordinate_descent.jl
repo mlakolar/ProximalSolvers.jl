@@ -46,11 +46,20 @@ end
     G = similar(Θ)
     @test ProximalBase.value_and_gradient!(G, f, Θ) ≈ f(Θ)
     @test vec(G) ≈ K * vec(Θ) + vec(C)
+    # on an owner the loss is symmetric: the symmetric part of C, with the same objective there
     S = SymmetricSparseIterate(Matrix(Symmetric(Θ)))
-    gradient!(G, f, S)
+    Cs = (C + C') / 2
+    fs = KronQuadratic(Sx, Sy, Cs)
+    gradient!(G, fs, S)
     D = Matrix(S)
-    @test G ≈ (Sx * D * Sy + Sy * D * Sx) / 2 + (C + C') / 2
-    @test f(S) ≈ f(D)
+    @test G ≈ (Sx * D * Sy + Sy * D * Sx) / 2 + Cs
+    @test fs(S) ≈ fs(D)
+    @test fs(D) ≈ f(D)
+    if isdefined(ProximalBase, :check_symmetric_parameters)
+      # ProximalBase's own value oracle rejects the asymmetric C on an owner (the solvers of
+      # ProximalSolvers do not check the arrays of the loss)
+      @test_throws ArgumentError f(S)
+    end
     @test_throws DimensionMismatch f(randn(q, q + 1))
     @test_throws ArgumentError KronQuadratic(randn(3, 3), Sy)
   end
