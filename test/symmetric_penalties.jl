@@ -525,7 +525,7 @@ end
   @test PS._symmetric_penalty(wrapper, x) === wrapper
   separable = UndeclaredSeparable(W)
   if pb_checks_symmetry()
-    rejects_symmetry(x) do
+    rejects_symmetry(x; reason = "does not declare its per-entry parameters") do
       PS._symmetric_penalty(separable, x)
     end
   else

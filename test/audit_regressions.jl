@@ -113,7 +113,13 @@ end
   before = Matrix(a)
   @test_throws ArgumentError solve!(a, KronQuadratic(S, S, S), g, CDSolver(; order = :cyclic, tol = 1e-13))
   @test_throws ArgumentError solve!(a, LogDetLoss(S), g, ProxNewton(inner = CDSolver(rng = Xoshiro(1))))
-  @test_throws ArgumentError duality_gap(LogDetLoss(S), g, a)
+  err = try
+    duality_gap(LogDetLoss(S), g, a)
+    nothing
+  catch e
+    e
+  end
+  @test err isa ArgumentError && occursin("must be symmetric on a SymmetricSparseIterate", sprint(showerror, err))
   @test Matrix(a) == before
   b = SymmetricSparseIterate(2)
   solve!(b, KronQuadratic(S, S, S), NormL1(0.1, Wbar), CDSolver(; order = :cyclic, tol = 1e-13))

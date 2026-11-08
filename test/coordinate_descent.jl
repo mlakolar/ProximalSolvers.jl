@@ -841,7 +841,8 @@ end
     PS.initialize!(m, x)
     st = PS._CDState(Float64, x, s)
     PS._cd!(x, m, g, st, s)
-    fill!(x, 0.0); PS.initialize!(m, x)
+    x isa SymmetricSparseIterate ? fill!(coordinates(x), 0.0) : fill!(x, 0.0)
+    PS.initialize!(m, x)
     @allocated PS._cd!(x, m, g, st, s)
   end
   for s in (CDSolver(; order = :cyclic), CDSolver(; order = :random), CDSolver(; momentum = true),

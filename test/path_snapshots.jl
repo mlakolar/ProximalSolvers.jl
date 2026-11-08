@@ -3,6 +3,11 @@ module PathSnapshotTests
 using Test, SparseArrays, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
 
+# coordinate k of an iterate: a lower-triangle coordinate of a SymmetricSparseIterate,
+# which has no one-index access, and the linear entry k of the other iterates
+coord(x) = x
+coord(x::SymmetricSparseIterate) = coordinates(x)
+
 @testset "compact independent path snapshots" begin
   for T in (Float32, Float64)
     vector = SparseIterate(T, 12)
@@ -13,20 +18,21 @@ const PS = ProximalSolvers
     # Insert out of order, leave explicit zeros stored, and include an active
     # group that becomes all zero. Snapshots must keep only nonzero entries.
     for x in (vector, matrix, symmetric, atoms)
-      x[10] = T(2)
-      x[2] = T(-3)
-      x[4] = T(1)
-      x[4] = zero(T)
+      c = coord(x)
+      c[10] = T(2)
+      c[2] = T(-3)
+      c[4] = T(1)
+      c[4] = zero(T)
       expected = Array(x)
       snapshot = PS._snapshot(x)
-      @test snapshot isa (ndims(x) == 1 ? SparseVector{T, Int} : SparseMatrixCSC{T, Int})
+      @test snapshot isa (length(size(x)) == 1 ? SparseVector{T, Int} : SparseMatrixCSC{T, Int})
       @test size(snapshot) == size(x)
       @test Array(snapshot) == expected
       @test all(!iszero, nonzeros(snapshot))
-      x[2] = T(7)
+      c[2] = T(7)
       @test Array(snapshot) == expected
       snapshot[2] = T(5)
-      @test x[2] == T(7)
+      @test c[2] == T(7)
     end
     for x in (SparseIterate(T, 0), SparseIterate(T, 0, 3),
               SparseIterate(T, 3, 0), SymmetricSparseIterate(T, 0),
@@ -46,15 +52,16 @@ end
   groups = vcat([[101, 3, 1], [95, 2], [4]], [[i] for i in 1:1024 if !(i in special)])
   for T in (Float32, Float64)
     for x in (SparseIterate(T, 32, 32), SymmetricSparseIterate(T, 32), AtomIterate(T, 1024, groups))
-      x[101] = T(2)
-      x[1] = T(-3)
-      x[2] = T(4)
-      x[4] = one(T)
-      x[4] = zero(T)
+      c = coord(x)
+      c[101] = T(2)
+      c[1] = T(-3)
+      c[2] = T(4)
+      c[4] = one(T)
+      c[4] = zero(T)
       @test !PS._snapshot_dense(x)
       @test Array(PS._snapshot(x)) == Array(x)
       @test all(!iszero, nonzeros(PS._snapshot(x)))
-      fill!(x, one(T))
+      fill!(c, one(T))
       @test PS._snapshot_dense(x)
       @test Array(PS._snapshot(x)) == Array(x)
     end
@@ -74,10 +81,11 @@ copyback_bytes(dest, src) = @allocated PS._copy_dense!(dest, src)
   for T in (Float32, Float64)
     for src in (SparseIterate(T, 12), SparseIterate(T, 3, 4),
                 SymmetricSparseIterate(T, 4), AtomIterate(T, 12, [[3, 1], [6, 2, 5], [4], 7:12]))
-      src[10] = T(2)
-      src[2] = T(-3)
-      src[4] = one(T)
-      src[4] = zero(T)
+      c = coord(src)
+      c[10] = T(2)
+      c[2] = T(-3)
+      c[4] = one(T)
+      c[4] = zero(T)
       expected = Array(src)
       dest = fill(T(9), size(src))
       @test PS._copy_dense!(dest, src) === dest
@@ -97,8 +105,8 @@ end
   xs = (SparseIterate(600, 800), SymmetricSparseIterate(600),
         AtomIterate(100_000, [k:k+9 for k in 1:10:100_000]))
   for x in xs
-    x[10] = 1.0
-    x[2] = -2.0
+    coord(x)[10] = 1.0
+    coord(x)[2] = -2.0
     snapshot_bytes(x)
     @test snapshot_bytes(x) < 100_000
   end
