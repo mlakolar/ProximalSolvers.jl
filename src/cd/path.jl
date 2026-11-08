@@ -6,7 +6,7 @@
 
 # a zero iterate of the type and size of x
 _zero_like(x::SparseIterate{T}) where {T} = SparseIterate(T, size(x)...)
-_zero_like(x::SymmetricSparseIterate{T}) where {T} = SymmetricSparseIterate(T, x.p)
+_zero_like(x::SymmetricSparseIterate{T}) where {T} = SymmetricSparseIterate(T, size(x, 1))
 _zero_like(x::AtomIterate) = similar(x)
 
 # The start of a solve from zero: the values of x are zero and, for the iterates
@@ -112,7 +112,7 @@ _stepcurvature(m::CDModel, x::SparseIterate, k::Int) = coordinate_derivatives(m,
 _stepcurvature(m::LSModel, x::SparseIterate, k::Int) = m.s * _sqnorm!(m, k)
 _stepcurvature(m::GLMModel, x::SparseIterate, k::Int) = _curvaturebound!(m, k)
 function _stepcurvature(m::CDModel{T}, x::SymmetricSparseIterate, k::Int) where {T}
-  r, c = tril_cartesian(x.p, k)
+  r, c = tril_cartesian(size(x, 1), k)
   coordinate_derivatives(m, x, k)[2] / _multiplicity(T, r, c)
 end
 _stepcurvature(m::CDModel, x::AtomIterate, k::Int) = _groupcurvature!(m, x, k)

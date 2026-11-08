@@ -1032,9 +1032,9 @@ end
 
 function _fixedpoint_residual(m::CDModel{T}, g, x::SymmetricSparseIterate{T}, k::Int) where {T}
   G, a = coordinate_derivatives(m, x, k)
-  r, c = tril_cartesian(x.p, k)
+  r, c = tril_cartesian(size(x, 1), k)
   old = coordinates(x)[k]
-  _fixedpoint_change(g, old, G, a, _entry(x.p, r, c), _multiplicity(T, r, c))
+  _fixedpoint_change(g, old, G, a, _entry(size(x, 1), r, c), _multiplicity(T, r, c))
 end
 
 # A flat coordinate along which f + g is unbounded has no stationary point: Inf.

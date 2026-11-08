@@ -48,7 +48,7 @@ function initialize!(m::KronUModel{T}, x::SymmetricSparseIterate{T}) where {T}
   for k in activecoordinates(x)
     v = cx[k]
     iszero(v) && continue
-    r, c = tril_cartesian(x.p, k)
+    r, c = tril_cartesian(size(x, 1), k)
     _rowaxpy!(m.U, m.B, r, c, v)
     r == c || _rowaxpy!(m.U, m.B, c, r, v)
   end
@@ -67,7 +67,7 @@ end
 end
 
 @inline function coordinate_step!(m::KronUModel{T}, g, x::SymmetricSparseIterate{T}, k::Int) where {T}
-  p = x.p
+  p = size(x, 1)
   r, c = tril_cartesian(p, k)
   a = m.s * _symcurvature(m.A, m.B, r, c)
   G = m.s * _symderivative(m, r, c)
@@ -83,12 +83,12 @@ end
 end
 
 @inline function coordinate_derivatives(m::KronUModel{T}, x::SymmetricSparseIterate{T}, k::Int) where {T}
-  r, c = tril_cartesian(x.p, k)
+  r, c = tril_cartesian(size(x, 1), k)
   m.s * _symderivative(m, r, c), m.s * _symcurvature(m.A, m.B, r, c)
 end
 
 @inline function update_cache!(m::KronUModel{T}, x::SymmetricSparseIterate{T}, k::Int, h::T) where {T}
-  r, c = tril_cartesian(x.p, k)
+  r, c = tril_cartesian(size(x, 1), k)
   _move!(m, r, c, h)
 end
 
@@ -97,7 +97,7 @@ _cache(m::KronUModel) = m.U
 _momentum_default(::KronUModel) = false
 
 function coordinate_scale(m::KronUModel, x::SymmetricSparseIterate, k::Int)
-  r, c = tril_cartesian(x.p, k)
+  r, c = tril_cartesian(size(x, 1), k)
   sqrt(m.s * _symcurvature(m.A, m.B, r, c))
 end
 
@@ -117,7 +117,7 @@ function loss_value(m::KronUModel{T}, x::SymmetricSparseIterate) where {T}
   v = zero(T)
   cx = coordinates(x)
   for k in activecoordinates(x)
-    r, c = tril_cartesian(x.p, k)
+    r, c = tril_cartesian(size(x, 1), k)
     v += cx[k] * (r == c ? _AUB(m, r, r) / 2 + _C(m.C, r, r, T) :
                            (_AUB(m, r, c) + _AUB(m, c, r)) / 2 + _C(m.C, r, c, T) + _C(m.C, c, r, T))
   end

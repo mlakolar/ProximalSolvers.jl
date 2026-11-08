@@ -48,7 +48,7 @@ function _dense!(D::Matrix{T}, x::SymmetricSparseIterate{T}) where {T}
   cx = coordinates(x)
   for k in activecoordinates(x)
     v = cx[k]
-    r, c = tril_cartesian(x.p, k)
+    r, c = tril_cartesian(size(x, 1), k)
     D[r, c] = v
     D[c, r] = v
   end
@@ -59,7 +59,7 @@ end
 # positive definite start and the solution on return. Returns (F, D, passes,
 # converged): the objective and the dual value at the solution.
 function _quic!(X::SymmetricSparseIterate{T}, S::Matrix{T}, w::T, g::NormL1, method::ProxNewton, tol::Float64) where {T}
-  p = X.p
+  p = size(X, 1)
   Xd, Wd, Xt, M = _dense!(zeros(T, p, p), X), zeros(T, p, p), zeros(T, p, p), zeros(T, p, p)
   copyto!(M, Xd)
   ld = _logdet_chol!(M)
@@ -153,7 +153,7 @@ function _glasso_scalar(s::T, λ::T, w::T) where {T}
 end
 
 function solve!(X::SymmetricSparseIterate{T}, f::LogDetLoss{T}, g::NormL1, method::ProxNewton) where {T}
-  S, w, p = f.S, f.w, X.p
+  S, w, p = f.S, f.w, size(X, 1)
   size(S, 1) == p || throw(DimensionMismatch("X is $p × $p and S is $(size(S, 1)) × $(size(S, 1))"))
   ProximalBase._checkparams(g, X)
   g = _symmetric_penalty(g, X)
@@ -191,7 +191,7 @@ end
 # the start on component C: the values of X there when positive definite,
 # otherwise the diagonal solution 1/(Sᵢᵢ + λᵢᵢ/w)
 function _block_start(X::SymmetricSparseIterate{T}, S, g::NormL1, w::T, C::Vector{Int}) where {T}
-  p, q = X.p, length(C)
+  p, q = size(X, 1), length(C)
   Xc = SymmetricSparseIterate(T, q)
   for (b, j) in enumerate(C), (a, i) in enumerate(C)
     a >= b || continue
@@ -210,7 +210,7 @@ end
 
 # X ← the block-diagonal matrix of the solutions on the components
 function _assemble!(X::SymmetricSparseIterate{T}, comps, Xs, S, g::NormL1, w::T) where {T}
-  p = X.p
+  p = size(X, 1)
   fill!(X, zero(T))
   for (C, Xc) in zip(comps, Xs)
     if length(C) == 1

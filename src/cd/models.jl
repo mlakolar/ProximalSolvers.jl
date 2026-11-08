@@ -381,10 +381,10 @@ end
 
 @inline function coordinate_step!(m::CDModel{T}, g, x::SymmetricSparseIterate{T}, k::Int) where {T}
   G, a = coordinate_derivatives(m, x, k)
-  r, c = tril_cartesian(x.p, k)
+  r, c = tril_cartesian(size(x, 1), k)
   cx = coordinates(x)
   old = cx[k]
-  i = _entry(x.p, r, c)
+  i = _entry(size(x, 1), r, c)
   new = _coordinate_minimizer(g, old, G, a, i, _multiplicity(T, r, c))
   h = new - old
   iszero(h) && return h
@@ -423,15 +423,15 @@ end
 # it, for screening and for λmax
 _gradnorm(grad::AbstractArray, ::SparseIterate, k::Int) = abs(grad[k])
 function _gradnorm(grad::AbstractArray, x::SymmetricSparseIterate, k::Int)
-  r, c = tril_cartesian(x.p, k)
-  abs(grad[_entry(x.p, r, c)])
+  r, c = tril_cartesian(size(x, 1), k)
+  abs(grad[_entry(size(x, 1), r, c)])
 end
 _gradnorm(grad::AbstractArray, x::AtomIterate, k::Int) = norm(view(grad, atomindices(x, k)))
 
 _coordweight(g, ::SparseIterate, k::Int) = _weight(g, k)
 function _coordweight(g, x::SymmetricSparseIterate, k::Int)
-  r, c = tril_cartesian(x.p, k)
-  _weight(g, _entry(x.p, r, c))
+  r, c = tril_cartesian(size(x, 1), k)
+  _weight(g, _entry(size(x, 1), r, c))
 end
 _coordweight(g::Union{GroupNormL2, GroupMCP, GroupSCAD}, ::AtomIterate, k::Int) = g.w[k]
 
@@ -549,22 +549,13 @@ function _symmetric_penalty(g, x::SymmetricSparseIterate)
   g
 end
 # On a tuple of iterates (a point of a product space) the check is made on the
-# penalty as supplied. With ProximalBase 0.6 the penalty goes through
-# ProximalBase's public checker, which validates what ProximalBase's own
-# declarations of per-entry parameters cover (see the definition below); it does
-# not validate user-defined wrappers or types that declare nothing. Earlier
-# versions are covered for a SeparableSum and Scaled around one, also nested;
-# other penalties on a tuple pass unchanged.
-@static if isdefined(ProximalBase, :check_symmetric_parameters)
-  function _symmetric_penalty(g, x::Tuple)
-    _validate_symmetric_parameters(g, x)
-    g
-  end
-else
-  function _symmetric_penalty(g::Union{SeparableSum, Scaled}, x::Tuple)
-    _validate_symmetric_parameters(g, x)
-    g
-  end
+# penalty as supplied: it goes through ProximalBase's public checker, which
+# validates what ProximalBase's own declarations of per-entry parameters cover
+# (see the definition below); it does not validate user-defined wrappers or
+# types that declare nothing.
+function _symmetric_penalty(g, x::Tuple)
+  _validate_symmetric_parameters(g, x)
+  g
 end
 
 # one pair is symmetric when its entries are equal, also as NaN and NaN or
@@ -579,94 +570,9 @@ function _symmetric_array(a::AbstractArray, p::Int)
   true
 end
 
-@static if isdefined(ProximalBase, :check_symmetric_parameters)
-  # ProximalBase decides which parameters of which penalty must be symmetric,
-  # and checks the blocks of a SeparableSum on a tuple of iterates
-  _validate_symmetric_parameters(g, x) = (ProximalBase.check_symmetric_parameters(g, x); nothing)
-else
-  # Transitional check for ProximalBase without check_symmetric_parameters:
-  # delete when ProximalSolvers requires ProximalBase 0.6. A penalty type that
-  # is not listed here passes, as it does when the iterate is not an owner.
-  _validate_symmetric_parameters(g, x) = nothing
-
-  function _validate_symmetric_parameters(g::SeparableSum, x::Tuple)
-    ProximalBase._checkblocks(g, x)
-    map(_validate_symmetric_parameters, g.fs, x)
-    nothing
-  end
-
-  _validate_symmetric_parameters(g::Scaled, x::Tuple) = _validate_symmetric_parameters(g.f, x)
-
-  _symmetric_parameter(a::Union{Nothing, Real}, x, g, name) = nothing
-  function _symmetric_parameter(a::AbstractArray, x, g, name)
-    ProximalBase._checkparam(a, x)
-    _symmetric_array(a, x.p) ||
-      throw(ArgumentError("$(nameof(typeof(g))) needs symmetric $name on a SymmetricSparseIterate: entries (r, c) and (c, r) are one variable. Pass exactly symmetric parameters, or Symmetric(W, :L) to use the lower triangle."))
-    nothing
-  end
-
-  function _validate_symmetric_parameters(g::Union{NormL1, NormL1Nonneg, ElasticNet, CappedL1, LogPenalty,
-                                                   NormLq, Berhu, CheckLoss, EpsInsensitiveLoss},
-                                          x::SymmetricSparseIterate)
-    _symmetric_parameter(g.w, x, g, "weights w")
-  end
-
-  function _validate_symmetric_parameters(g::HingeLoss, x::SymmetricSparseIterate)
-    _symmetric_parameter(g.y, x, g, "labels y")
-    _symmetric_parameter(g.w, x, g, "weights w")
-  end
-
-  _validate_symmetric_parameters(g::LinearFunction, x::SymmetricSparseIterate) =
-    _symmetric_parameter(g.c, x, g, "coefficient c")
-
-  function _validate_symmetric_parameters(g::IndBox, x::SymmetricSparseIterate)
-    _symmetric_parameter(g.l, x, g, "bounds l")
-    _symmetric_parameter(g.u, x, g, "bounds u")
-  end
-
-  _validate_symmetric_parameters(g::IndPattern, x::SymmetricSparseIterate) =
-    _symmetric_parameter(g.P, x, g, "pattern P")
-
-  _validate_symmetric_parameters(g::SqrNormL2, x::SymmetricSparseIterate) =
-    _symmetric_parameter(g.y, x, g, "center y")
-
-  _validate_symmetric_parameters(g::KLDivergence, x::SymmetricSparseIterate) =
-    _symmetric_parameter(g.q, x, g, "reference q")
-
-  _validate_symmetric_parameters(g::Scaled, x::SymmetricSparseIterate) =
-    _validate_symmetric_parameters(g.f, x)
-
-  function _validate_symmetric_parameters(g::ProximalBase.Tilt, x::SymmetricSparseIterate)
-    _symmetric_parameter(g.c, x, g, "coefficient c")
-    _validate_symmetric_parameters(g.f, x)
-  end
-
-  function _validate_symmetric_parameters(g::Translate, x::SymmetricSparseIterate)
-    _symmetric_parameter(g.b, x, g, "translation b")
-    _validate_symmetric_parameters(g.f, x)
-  end
-
-  function _validate_symmetric_parameters(g::Regularize, x::SymmetricSparseIterate)
-    _symmetric_parameter(g.c, x, g, "center c")
-    _validate_symmetric_parameters(g.f, x)
-  end
-
-  function _validate_symmetric_parameters(g::_BoxConstrained, x::SymmetricSparseIterate)
-    _validate_symmetric_parameters(g.box, x)
-    _validate_symmetric_parameters(g.f, x)
-  end
-
-  _validate_symmetric_parameters(g::Precompose{<:AbstractFunction, <:Real}, x::SymmetricSparseIterate) =
-    _validate_symmetric_parameters(g.f, x)
-
-  _validate_symmetric_parameters(g::Union{MoreauEnvelope, Conjugate}, x::SymmetricSparseIterate) =
-    _validate_symmetric_parameters(g.f, x)
-
-  function _validate_symmetric_parameters(g::ProximalBase.LinearConstrained, x::SymmetricSparseIterate)
-    _symmetric_parameter(g.set.a, x, g.set, "coefficient a")
-    _validate_symmetric_parameters(g.f, x)
-  end
-end
+# ProximalBase decides which parameters of which penalty must be symmetric,
+# and checks the blocks of a SeparableSum on a tuple of iterates
+_validate_symmetric_parameters(g, x) = (ProximalBase.check_symmetric_parameters(g, x); nothing)
 
 # the mean of a pair of parameters; a sum below twice the smallest subnormal
 # can have a mean that rounds to zero. On an owner the parameters of a pair

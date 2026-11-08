@@ -106,7 +106,7 @@ compares it with the built-in model on a dense copy of ``X``.
 - **Iterates.** The functions receive the iterate, a `SparseIterate` or a
   `SymmetricSparseIterate`; a model may support either. On a
   `SymmetricSparseIterate`, coordinate ``k`` is the lower-triangle entry
-  ``(r, c)`` = `tril_cartesian(x.p, k)`, and `coordinate_derivatives` returns
+  ``(r, c)`` = `tril_cartesian(size(x, 1), k)`, and `coordinate_derivatives` returns
   the derivative and the curvature along ``E_{rc} + E_{cr}``, as for the
   [Kronecker quadratic](@ref "Kronecker quadratics"). Group penalties work
   with the built-in models only.

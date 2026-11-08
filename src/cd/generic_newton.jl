@@ -37,10 +37,10 @@ function _newton_residual(x::SymmetricSparseIterate{T}, g, grad::AbstractMatrix{
   res = zero(T)
   cx = coordinates(x)
   for k in 1:ncoordinates(x)
-    r, c = tril_cartesian(x.p, k)
+    r, c = tril_cartesian(size(x, 1), k)
     d = r == c ? grad[r, r] : grad[r, c] + grad[c, r]
     μ = r == c ? one(T) : T(2)
-    v = prox_entry(g, cx[k] - d, _entry(x.p, r, c), μ)
+    v = prox_entry(g, cx[k] - d, _entry(size(x, 1), r, c), μ)
     isfinite(v) || return T(Inf)
     res = max(res, abs(v - cx[k]))
   end

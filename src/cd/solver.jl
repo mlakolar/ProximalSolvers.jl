@@ -766,7 +766,7 @@ function _copy_dense!(dest::Matrix{T}, src::SymmetricSparseIterate{T}) where {T}
   fill!(dest, zero(T))
   cx = coordinates(src)
   @inbounds for k in activecoordinates(src)
-    r, c = tril_cartesian(src.p, k)
+    r, c = tril_cartesian(size(src, 1), k)
     dest[r, c] = dest[c, r] = cx[k]
   end
   dest

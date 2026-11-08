@@ -93,7 +93,7 @@ end
 # string literals are removed first. A field name after a receiver is a finding unless the (file, receiver,
 # field) triple is a read of a penalty, a solver, a result or a workspace, which the allowlist names; the
 # receiver is the identifier before the dot, or the first argument of getfield-like calls.
-const _PRIVATE_FIELDS = "nzval2ind|ind2nzval|nzval|nnz|storage|groups|group_of|layout_cache|active|position|nactive|ids"
+const _PRIVATE_FIELDS = "nzval2ind|ind2nzval|nzval|nnz|p|storage|groups|group_of|layout_cache|active|position|nactive|ids"
 const _FIELD_ACCESS = Regex("([\\p{L}_][\\p{L}\\p{M}\\p{N}_!]*|\\)|\\])\\s*\\.\\s*(" * _PRIVATE_FIELDS * ")\\b")
 const _FIELD_CALL = r"\b(getfield|setfield!|getproperty|setproperty!|propertynames|fieldnames|hasfield)\(\s*([\p{L}_][\p{L}\p{M}\p{N}_!]*)?"
 const _OTHER_CALL = r"\b(parentindices)\("
