@@ -797,7 +797,7 @@ function _gapevaluator(f::Union{GLMLoss, Scaled{<:GLMLoss}}, g, x::AbstractVecto
   _GLMGap(glm.loss, glm.X, glm.y, glm.weights, glm.offset, T(α), zeros(T, n), zeros(T, n), zeros(T, p))
 end
 
-function _gapevaluator(f::LogDetLoss{T}, g::NormL1, x::AbstractMatrix) where {T}
+function _gapevaluator(f::LogDetLoss{T}, g::NormL1, x::Union{AbstractMatrix, SymmetricSparseIterate}) where {T}
   # on a dense matrix the bound uses the means of the pairs of weights; on an
   # owner the weights are validated as in solve!
   x isa SymmetricSparseIterate && _symmetric_penalty(g, x)
@@ -855,15 +855,20 @@ end
 # max w (log det(S + U) + p) over symmetric U with |Uᵢⱼ| ≤ (λᵢⱼ + λⱼᵢ)/(2w); the
 # dual point is U = W - S with W = X⁻¹, clipped to these bounds, so that
 # S + U = W at the solution.
-function _evalgap!(ev::_LogDetGap{T}, f::LogDetLoss{T}, g::NormL1, X::AbstractMatrix) where {T}
+function _evalgap!(ev::_LogDetGap{T}, f::LogDetLoss{T}, g::NormL1,
+                   X::Union{AbstractMatrix, SymmetricSparseIterate}) where {T}
   P = f(X) + g(X)
   isfinite(P) || return P, T(-Inf)
   C, M = ev.C, ev.M
-  copyto!(C, X)
+  _dense_copy!(C, X)
   _logdet_chol!(C) === nothing && return P, T(-Inf)
   _inverse_from_chol!(M, C)
   P, _glasso_dual!(C, f.S, M, g, f.w)
 end
+
+# C ← the matrix X, also when X is a SymmetricSparseIterate
+_dense_copy!(C::Matrix, X::AbstractMatrix) = copyto!(C, X)
+_dense_copy!(C::Matrix{T}, X::SymmetricSparseIterate{T}) where {T} = _dense!(C, X)
 
 # the bound on the dual variable of entry (r, c) over symmetric matrices, the
 # mean of the penalties of (r, c) and (c, r), divided by w; on an owner the two
