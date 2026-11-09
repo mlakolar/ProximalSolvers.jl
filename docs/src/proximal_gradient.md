@@ -228,10 +228,10 @@ step, the step ``x - x'`` and the gradients are dense matrices; with a
 gradient that is exactly symmetric, the trial point is exactly symmetric. With
 a gradient that is not, the proximal step of ProximalBase into a
 `SymmetricSparseIterate` reads the symmetric part of the trial point, the
-stopping rules use the gradient as returned, and the dense proximal step below,
-the normalized step and the trial point of a `SymmetricSparseIterate` block of
-a tuple on that route throw an `ArgumentError` when the matrix they copy into a
-`SymmetricSparseIterate` is not exactly symmetric. Step norms, inner
+stopping rules use the gradient as returned, and the dense proximal step below
+and the normalized step throw an `ArgumentError` when the matrix they copy into
+a `SymmetricSparseIterate` is not exactly symmetric, as does the tuple route
+below when the trial point of a `SymmetricSparseIterate` block is not. Step norms, inner
 products and residuals are those of the matrix, both triangles, so an
 off-diagonal change counts twice: a change of ``0.1`` in one off-diagonal
 coordinate is a step of norm ``0.1\sqrt{2}``. With `debias`, the support is the
@@ -247,13 +247,18 @@ blocks: a dense matrix for a `SymmetricSparseIterate` block whose penalty is one
 of those three or `IndBallL1`, `IndBallL2`, `IndSimplex` or `IndSphereL2` (also
 inside `Scaled` with a positive scale), an emptied `SymmetricSparseIterate` for
 any other `SymmetricSparseIterate` block, and a buffer allocated with `similar`
-for the other blocks. Such another `SymmetricSparseIterate` block also takes its
-trial point as a `SymmetricSparseIterate`, copied from the dense trial point
-(which throws an `ArgumentError` before anything is written when that is not
-exactly symmetric): some penalties read the type of their argument, as
-`IndBallL0` at the ProximalBase commit of `Project.toml`, which counts a
-mirrored pair once in a `SymmetricSparseIterate` argument and twice in a matrix.
-The result is copied into the iterate after every dense
+for the other blocks. Each `SymmetricSparseIterate` block must have an exactly
+symmetric trial point (an `ArgumentError` before anything is written
+otherwise). A `SymmetricSparseIterate` block whose penalty contains `IndBallL0`
+takes its trial point as a `SymmetricSparseIterate`, the other blocks as a
+dense matrix: at the ProximalBase commit of `Project.toml`, `IndBallL0` counts
+a mirrored pair once in a `SymmetricSparseIterate` argument and twice in a
+matrix. A trial block of `IndBallL1`, `IndBallL2`, `IndSimplex` or
+`IndSphereL2` with exactly one infinite mirrored off-diagonal pair, no other
+infinite entry (for `IndSimplex`, no other `+Inf`) and no NaN is refused with an
+`ArgumentError` before anything is written: the dense step gives NaN there,
+where ProximalBase gives a finite limiting projection into a
+`SymmetricSparseIterate`. The result is copied into the iterate after every dense
 matrix of a `SymmetricSparseIterate` block is checked to be exactly symmetric,
 and an `ArgumentError` is thrown before any block is written when one is not.
 The four set families take a dense matrix because the tuple proximal step of
@@ -264,7 +269,7 @@ symmetric matrices at a symmetric argument. When the loaded ProximalBase has no
 such output for `IndBallL0` (the solvers test this once), a tuple on this route
 with a `SymmetricSparseIterate` block whose penalty is `IndBallL0` is refused
 with an `ArgumentError` before anything is written: a dense matrix would change
-the meaning of its cardinality. Both are temporary, until
+the meaning of its cardinality. These roles and refusals are temporary, until
 ProximalBase provides these outputs. An exception during the final copy itself,
 such as an interrupt, can leave earlier blocks written. ProximalBase refuses
 `Translate` and `Tilt` around a tuple with a `SymmetricSparseIterate` block, and

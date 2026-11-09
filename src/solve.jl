@@ -71,10 +71,9 @@ exactly symmetric, so is the trial point. When it is not, the proximal step of
 ProximalBase into a `SymmetricSparseIterate` reads the symmetric part of the
 trial point, the stopping rules use the gradient as returned, and the dense
 proximal step of the penalties described in [Proximal gradient methods](@ref)
-the normalized step and, on that route of a tuple, the trial point of a
-`SymmetricSparseIterate` block with another penalty throw an `ArgumentError`
-when the matrix they copy into a `SymmetricSparseIterate` is not exactly
-symmetric. Norms, inner products and the
+and the normalized step throw an `ArgumentError` when the matrix they copy
+into a `SymmetricSparseIterate` is not exactly symmetric, as does that route of
+a tuple when the trial point of a `SymmetricSparseIterate` block is not. Norms, inner products and the
 reported residuals are those of the matrix, both triangles: the step norm is
 the Frobenius norm of the matrix `x - x'`, which counts an off-diagonal change
 twice. With `debias`, the support is the set of coordinates whose value is not

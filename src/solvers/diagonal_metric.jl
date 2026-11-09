@@ -155,14 +155,23 @@ _matrix_role(g) = !_owner_prox(g)
 _matrix_role(::Union{IndBallL1, IndBallL2, IndSimplex, IndSphereL2}) = true
 _matrix_role(g::Scaled) = !_owner_prox(g) || (g.α > 0 && _matrix_role(g.f))
 
+# The input role of an owner block of a tuple on the dense route, separate from
+# its scratch role: an owner trial point for a block whose penalty contains
+# IndBallL0 (_has_l0: inside Scaled, Translate or Tilt), a dense trial point for
+# any other block. At the ProximalBase commit of Project.toml, IndBallL0 into an
+# owner counts a mirrored pair once from an owner input and twice from a matrix
+# input; the other penalties measured there give the same step from a dense
+# input, and some of them (NuclearNorm, IndBallRank) have no step from an owner
+# input inside a tuple at ProximalBase #737 and a later master. Like the scratch
+# roles, this is temporary compatibility to revisit with ProximalBase.
+_owner_input(g) = _has_l0(g)
+
 # The scratch of an owner block without the dense-matrix role: the owner w that
-# receives its proximal point, and the owner z that holds its trial point as the
-# input of the step. Some penalties read the type of their input: at the
-# ProximalBase commit of Project.toml, IndBallL0 into an owner counts a pair once
-# from an owner input and twice from a matrix input.
-struct _OwnerScratch{S<:SymmetricSparseIterate}
+# receives its proximal point, and, for an owner input, the owner z that holds
+# its trial point (nothing otherwise).
+struct _OwnerScratch{S<:SymmetricSparseIterate, Z<:Union{Nothing, S}}
   w::S
-  z::S
+  z::Z
 end
 # the owner scratch of a tuple x with the penalty g: an _OwnerScratch of empty
 # owners for each owner block without the dense-matrix role, when x takes the
@@ -170,7 +179,8 @@ end
 _owner_scratch(x, g) = nothing
 function _owner_scratch(x::Tuple, g)
   _dense_route(x, g) || return nothing
-  s = map((xk, gk) -> xk isa SymmetricSparseIterate && !_matrix_role(gk) ? _OwnerScratch(similar(xk), similar(xk)) : nothing,
+  s = map((xk, gk) -> xk isa SymmetricSparseIterate && !_matrix_role(gk) ?
+                      _OwnerScratch(similar(xk), _owner_input(gk) ? similar(xk) : nothing) : nothing,
           x, _route_blocks(g))
   all(isnothing, s) ? nothing : s
 end
@@ -219,31 +229,33 @@ end
 
 # On the dense route a tuple x takes the proximal step of ProximalBase for the
 # whole penalty g at once, from the trial point z into the scratch blocks w: for
-# an owner block with the dense-matrix role (_matrix_role), the dense trial block
-# into a dense matrix; for another owner block, an owner holding the trial block
-# (filled by the checked copyto! of ProximalBase into the emptied z owner of its
-# _OwnerScratch) into the emptied w owner, so that the active coordinates after
-# the step are those of a new owner; for another block, the trial block into a
-# buffer that the solvers allocate with similar. Then the blocks of w are
-# committed into x: an owner from a matrix through the checked copyto!, an owner
-# from an owner by copyto! (a copy of the state), the others with _copyto!.
-# Refused before any block of x is written, with an ArgumentError: an IndBallL0
-# owner block whose operation the ProximalBase lacks (_check_route); blocks of w
-# that do not match x in number, role, shape or element type, or that share
-# storage with each other, with a block of x or with z (checked before the
-# proximal step); a trial block of an owner-scratch block that is not exactly
-# symmetric (the copyto! into its z owner); and an owner block whose matrix
-# scratch is not exactly symmetric (checked after the step, by the copyto! of
-# that block, which throws before writing). An exception during the commit
-# itself, such as an interrupt or running out of memory, can leave earlier
-# blocks written.
+# an owner block with the dense-matrix role (_matrix_role), into a dense matrix;
+# for another owner block, into the emptied w owner of its _OwnerScratch, so that
+# the active coordinates after the step are those of a new owner, from an owner
+# input (filled from the trial block by the checked copyto! into the emptied z
+# owner) when _owner_input holds and from the dense trial block otherwise; for
+# another block, into a buffer that the solvers allocate with similar. Then the
+# blocks of w are committed into x: an owner from a matrix through the checked
+# copyto!, an owner from an owner by copyto! (a copy of the state), the others
+# with _copyto!. Refused before any block of x is written, with an
+# ArgumentError: an IndBallL0 owner block whose operation the ProximalBase lacks
+# (_check_route); blocks of w that do not match x in number, role, shape or
+# element type, or that share storage with each other, with a block of x or with
+# z; a trial block of an owner block that is not exactly symmetric
+# (_check_trial); a trial block of a direct set that the dense step would not
+# project as the owner step does (_check_nonfinite), all checked before the
+# proximal step; and an owner block whose matrix scratch is not exactly
+# symmetric after the step (the copyto! of that block, which throws before
+# writing). An exception during the commit itself, such as an interrupt or
+# running out of memory, can leave earlier blocks written.
 _exactly_symmetric(w::AbstractMatrix) = all(_symmetric_pair(w[r, c], w[c, r]) for c in axes(w, 2) for r in c+1:size(w, 1))
 _route_block_ok(xk, gk, wk) = typeof(wk) === typeof(xk) && _size(wk) == _size(xk)
 _route_block_ok(xk::SymmetricSparseIterate, gk, wk) = _matrix_role(gk) ?
   (wk isa Matrix{eltype(xk)} && size(wk) == size(xk)) :
-  (wk isa _OwnerScratch{SymmetricSparseIterate{eltype(xk)}} && size(wk.w) == size(xk) && size(wk.z) == size(xk))
+  (wk isa _OwnerScratch && wk.w isa SymmetricSparseIterate{eltype(xk)} && size(wk.w) == size(xk) &&
+   (_owner_input(gk) ? wk.z isa SymmetricSparseIterate{eltype(xk)} && size(wk.z) == size(xk) : wk.z === nothing))
 _scratch_parts(wk) = (wk,)
-_scratch_parts(wk::_OwnerScratch) = (wk.w, wk.z)
+_scratch_parts(wk::_OwnerScratch) = wk.z === nothing ? (wk.w,) : (wk.w, wk.z)
 function _route_preflight(x::Tuple, g, z::Tuple, w::Tuple)
   length(w) == length(x) == length(z) && all(map(_route_block_ok, x, _route_blocks(g), w)) ||
     throw(ArgumentError("the scratch blocks of the proximal step must match the iterate blocks in number, role, shape and element type."))
@@ -259,12 +271,50 @@ _reset_scratch!(wk::SymmetricSparseIterate) = (fill!(activevalues(wk), zero(elty
 _route_output(wk) = wk
 _route_output(wk::_OwnerScratch) = wk.w
 _route_input(zk, wk) = zk
+_route_input(zk, wk::_OwnerScratch{<:Any, Nothing}) = zk
 _route_input(zk, wk::_OwnerScratch) = (_reset_scratch!(wk.z); copyto!(wk.z, zk))
+# The trial block of an owner block must be exactly symmetric, as when the
+# solvers wrote it into an owner: checked before the step, for both roles
+_check_trial(xk, zk) = nothing
+_check_trial(xk::SymmetricSparseIterate, zk::AbstractMatrix) = _exactly_symmetric(zk) ||
+  throw(ArgumentError("the trial point of a SymmetricSparseIterate block of a tuple must be symmetric, and this one is " *
+                      "not exactly symmetric; the gradient of the loss at a SymmetricSparseIterate block must be symmetric."))
+
+# The four direct sets of the dense-matrix role (inside Scaled with a positive
+# scale): nothing for any other penalty
+_direct_set(g) = nothing
+_direct_set(g::Union{IndBallL1, IndBallL2, IndSimplex, IndSphereL2}) = g
+_direct_set(g::Scaled) = g.α > 0 ? _direct_set(g.f) : nothing
+# The dense step of such a set counts a mirrored off-diagonal pair as two entries,
+# the step into an owner as one coordinate. They differ at a symmetric trial block
+# without NaN that has exactly one infinite off-diagonal pair and no other
+# infinite entry (for IndSimplex, counting +Inf only, since -Inf entries project
+# to zero): ProximalBase gives a finite limiting projection into an owner, the
+# dense step NaN. That case is refused before the step; this is a temporary
+# limitation of the dense route, to revisit with ProximalBase. Any other trial
+# block, NaN and the other infinite patterns included, goes to the step.
+_check_nonfinite(xk, gk, zk) = nothing
+function _check_nonfinite(xk::SymmetricSparseIterate, gk, zk::AbstractMatrix)
+  set = _direct_set(gk)
+  (set === nothing || all(isfinite, zk) || any(isnan, zk)) && return nothing
+  infinite(v) = set isa IndSimplex ? v == Inf : isinf(v)
+  pairs, others = 0, 0
+  for c in axes(zk, 2), r in c:size(zk, 1)
+    infinite(zk[r, c]) && (r == c ? (others += 1) : (pairs += 1))
+  end
+  pairs == 1 && others == 0 &&
+    throw(ArgumentError("the dense step of $(nameof(typeof(set))) for a SymmetricSparseIterate block of a tuple does not " *
+                        "reproduce the finite limiting projection that ProximalBase gives for one infinite mirrored " *
+                        "off-diagonal entry; this trial point is refused."))
+  nothing
+end
 _commit_block!(xk, wk) = _copyto!(xk, wk)
 function _metric_prox!(x::Tuple, g, z::Tuple, L, m::Nothing, w::Tuple)
   _dense_route(x, g) || return _metric_prox!(x, g, z, L, m)
   _check_route(x, g)
   _route_preflight(x, g, z, w)
+  foreach(_check_trial, x, z)
+  foreach(_check_nonfinite, x, _route_blocks(g), z)
   out = map(_route_output, w)
   input = map(_route_input, z, w)
   foreach(_reset_scratch!, out)
