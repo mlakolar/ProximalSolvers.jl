@@ -247,7 +247,10 @@ blocks: a dense matrix for a `SymmetricSparseIterate` block whose penalty is one
 of those three or `IndBallL1`, `IndBallL2`, `IndSimplex` or `IndSphereL2` (also
 inside `Scaled` with a positive scale), an emptied `SymmetricSparseIterate` for
 any other `SymmetricSparseIterate` block, and a buffer allocated with `similar`
-for the other blocks. Each `SymmetricSparseIterate` block must have an exactly
+for the other blocks. A `SymmetricSparseIterate` block then has the active
+coordinates of a freshly filled `SymmetricSparseIterate`, in its order of
+activation, which can differ from the order of a proximal step written into the
+iterate itself. Each `SymmetricSparseIterate` block must have an exactly
 symmetric trial point (an `ArgumentError` before anything is written
 otherwise). A `SymmetricSparseIterate` block whose penalty contains `IndBallL0`
 takes its trial point as a `SymmetricSparseIterate`, the other blocks as a

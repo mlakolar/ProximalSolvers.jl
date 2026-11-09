@@ -237,7 +237,11 @@ end
 # another block, into a buffer that the solvers allocate with similar. Then the
 # blocks of w are committed into x: an owner from a matrix through the checked
 # copyto!, an owner from an owner by copyto! (a copy of the state), the others
-# with _copyto!. Refused before any block of x is written, with an
+# with _copyto!. The active coordinates of a committed owner, and their order,
+# are those of a freshly filled owner; the order can differ from that of a
+# proximal step written straight into the iterate (which keeps the activation
+# order the iterate had), with the same matrix, active set and stored zeros.
+# Refused before any block of x is written, with an
 # ArgumentError: an IndBallL0 owner block whose operation the ProximalBase lacks
 # (_check_route); blocks of w that do not match x in number, role, shape or
 # element type, or that share storage with each other, with a block of x or with

@@ -895,7 +895,9 @@ end
 end
 
 # The owner scratch, reused across steps, gives its block the matrix, the active coordinates in
-# their order and the values that a new owner scratch gives: after a step with nonzero results,
+# their order and the values that a new owner scratch gives (the order of a committed owner is that
+# of a freshly filled owner, which can differ from a proximal step written straight into the
+# iterate; against the base solver only the active set, the values and the stored zeros compare): after a step with nonzero results,
 # after one with zeros where there were nonzeros, after a refused step (an asymmetric trial point of
 # the constrained block), and after the next step. The constrained block, whose proximal point the
 # reference computes with a second call on the same penalty object, is compared to rounding.
