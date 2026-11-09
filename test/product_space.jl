@@ -626,8 +626,6 @@ role_wrappers() = (("bare", g -> g, h -> h), ("Scaled", g -> Scaled(g, 0.7), h -
   f = k == 1 ? SeparableSum(fs, fo) : SeparableSum(fo, fs)
   g = wrap(k == 1 ? SeparableSum(inner(make()), lc) : SeparableSum(lc, inner(make())))
   x = (SymmetricSparseIterate(2), SymmetricSparseIterate(2))
-  @test PSR._dense_route(x, g)
-  @test PSR._owner_scratch(x, g) === nothing
   # some ProximalBase revisions have no value of these sets at an owner, which every solve needs
   # (at the start point), with or without a tuple: that MethodError is asserted, and the solve is
   # not run, there; the proximal step of the route is tested at points below on every revision
@@ -645,6 +643,8 @@ role_wrappers() = (("bare", g -> g, h -> h), ("Scaled", g -> Scaled(g, 0.7), h -
     @test Matrix(x[3 - k]) ≈ xd[3 - k] atol = 1e-6
     @test r.minimum ≈ rd.minimum rtol = 1e-8 atol = 1e-10
   end
+  @test PSR._dense_route(x, g)
+  @test PSR._owner_scratch(x, g) === nothing
 end
 
 # The same step at chosen points, directly: a point outside, inside and on the set, mirrored
@@ -708,6 +708,15 @@ end
 # Owner-scratch blocks beside a constrained owner: a penalty with an owner-only proximal operator,
 # and IndBallL0, whose cardinality counts a mirrored pair once on an owner. The owner-only penalty
 # solves as the same problem with dense matrices and NormL1.
+# whether ProximalBase steps IndBallL0 into an owner block of a tuple (decided as the solvers do)
+l0_tuple_owner() = try
+  value_and_prox!((SymmetricSparseIterate(2), zeros(1)), SeparableSum(IndBallL0(1; diagonal = false), NormL1(0.1)),
+                  ([1.0 0.5; 0.5 1.0], [1.0]), 1.0)
+  true
+catch e
+  e isa MethodError || rethrow()
+  false
+end
 struct OwnerOnlyL1 <: AbstractFunction
   λ::Float64
 end
@@ -723,8 +732,6 @@ ProximalBase.value_and_prox!(y::SymmetricSparseIterate, g::OwnerOnlyL1, x::Abstr
   g = wrap(k == 1 ? SeparableSum(OwnerOnlyL1(0.1), lc) : SeparableSum(lc, OwnerOnlyL1(0.1)))
   gd = wrap(k == 1 ? SeparableSum(NormL1(0.1), lc) : SeparableSum(lc, NormL1(0.1)))
   x = (SymmetricSparseIterate(2), SymmetricSparseIterate(2))
-  s = PSR._owner_scratch(x, g)
-  @test s isa Tuple && s[k] isa SymmetricSparseIterate && s[3 - k] === nothing
   opt = ProximalOptions(; maxiter = 2000, ftol = 1e-14, xtol = 1e-14, gradtol = 1e-12)
   r = solve!(x, SeparableSum(fo, fo), g, method, opt)
   xd = (zeros(2, 2), zeros(2, 2))
@@ -733,6 +740,8 @@ ProximalBase.value_and_prox!(y::SymmetricSparseIterate, g::OwnerOnlyL1, x::Abstr
   @test Matrix(x[2]) ≈ xd[2] atol = 1e-6
   @test r.minimum ≈ rd.minimum rtol = 1e-8
   wlabel == "bare" && @test Matrix(x[k]) ≈ [0.9 0.4; 0.4 -0.1] atol = 1e-6
+  s = PSR._owner_scratch(x, g)
+  @test s isa Tuple && s[k] isa SymmetricSparseIterate && s[3 - k] === nothing
 end
 
 # IndBallL0(budget; diagonal = false) on an owner block beside a constrained owner, with the target
@@ -755,9 +764,7 @@ end
   newx() = k == 1 ? (SymmetricSparseIterate(p), SymmetricSparseIterate(2)) : (SymmetricSparseIterate(2), SymmetricSparseIterate(p))
   x = newx()
   opt = ProximalOptions(; maxiter = 1000, ftol = 1e-13, xtol = 1e-13, gradtol = 1e-11)
-  @test PSR._dense_route(x, g)
-  @test PSR._owner_scratch(x, g)[k] isa SymmetricSparseIterate
-  if PSR._l0_tuple_owner()
+  if l0_tuple_owner()
     r = solve!(x, f, g, method, opt)
     expected = p == 2 ? zeros(2, 2) : [0.0 3.0 0.0; 3.0 0.0 0.0; 0.0 0.0 0.0]
     @test Matrix(x[k]) ≈ expected atol = 1e-6
@@ -786,6 +793,9 @@ end
     @test Matrix(x[2]) ≈ xd[2] atol = 1e-6
     @test r.minimum ≈ rd.minimum rtol = 1e-8
   end
+  @test PSR._dense_route(x, g)
+  @test PSR._owner_scratch(x, g)[k] isa SymmetricSparseIterate
+  @test PSR._l0_tuple_owner() == l0_tuple_owner()
 end
 
 # The owner scratch, reused across steps, gives its block the matrix, the active coordinates in
