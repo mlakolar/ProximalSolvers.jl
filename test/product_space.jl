@@ -836,7 +836,7 @@ ProximalBase.value_and_prox!(y::SymmetricSparseIterate, g::OwnerOnlyL1, x::Union
   @test r.minimum ≈ rd.minimum rtol = 1e-8
   wlabel == "bare" && @test Matrix(x[k]) ≈ [0.9 0.4; 0.4 -0.1] atol = 1e-6
   s = PSR._owner_scratch(x, g)
-  @test s isa Tuple && s[k] isa SymmetricSparseIterate && s[3 - k] === nothing
+  @test s isa Tuple && s[k] isa PSR._OwnerScratch && s[k].z === nothing && s[3 - k] === nothing
 end
 
 # IndBallL0(budget; diagonal = false) on an owner block beside a constrained owner, with the target
@@ -890,7 +890,7 @@ end
     @test r.minimum ≈ rd.minimum rtol = 1e-8
   end
   @test PSR._dense_route(x, g)
-  @test PSR._owner_scratch(x, g)[k] isa SymmetricSparseIterate
+  @test PSR._owner_scratch(x, g)[k] isa PSR._OwnerScratch && PSR._owner_scratch(x, g)[k].z isa SymmetricSparseIterate
   @test PSR._l0_tuple_owner() == l0_tuple_owner()
 end
 
