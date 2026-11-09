@@ -271,8 +271,7 @@ _reset_scratch!(wk::SymmetricSparseIterate) = (fill!(activevalues(wk), zero(elty
 _route_output(wk) = wk
 _route_output(wk::_OwnerScratch) = wk.w
 _route_input(zk, wk) = zk
-_route_input(zk, wk::_OwnerScratch{<:Any, Nothing}) = zk
-_route_input(zk, wk::_OwnerScratch) = (_reset_scratch!(wk.z); copyto!(wk.z, zk))
+_route_input(zk, wk::_OwnerScratch) = wk.z === nothing ? zk : (_reset_scratch!(wk.z); copyto!(wk.z, zk))
 # The trial block of an owner block must be exactly symmetric, as when the
 # solvers wrote it into an owner: checked before the step, for both roles
 _check_trial(xk, zk) = nothing
