@@ -51,8 +51,10 @@ end
 # candidates are retained: the next extrapolation uses z even when x kept v.
 # xhat and delta_x have the type of _trial_similar(x0): a dense matrix for a
 # SymmetricSparseIterate block, the type of the block otherwise.
+# owner_scratch holds the owner scratch blocks of the proximal step of a tuple on
+# the dense route (_owner_scratch); it is nothing otherwise.
 mutable struct MonotoneAccProxGradDescentState{T, X<:Union{_Iterate{T}, _Blocks{T}}, G<:Union{AbstractArray{T}, _Blocks{T}}, M, Z,
-                                               D<:Union{AbstractArray{T}, _Blocks{T}}}
+                                               D<:Union{AbstractArray{T}, _Blocks{T}}, S}
     x::X
     f_x::T
     g_x::T
@@ -86,6 +88,7 @@ mutable struct MonotoneAccProxGradDescentState{T, X<:Union{_Iterate{T}, _Blocks{
     z_z::Z            # A z, the extrapolated candidate
     z_v::Z            # A v, the plain candidate
     dz::Z             # F' at the point of the gradient evaluation
+    owner_scratch::S
 end
 
 function initial_state(method::MonotoneAccProxGradDescent, options, f, g,
@@ -112,7 +115,8 @@ function initial_state(method::MonotoneAccProxGradDescent, options, f, g,
         z_x === nothing ? nothing : similar(z_x),
         z_x === nothing ? nothing : copy(z_x),
         z_x === nothing ? nothing : similar(z_x),
-        z_x === nothing ? nothing : similar(z_x))
+        z_x === nothing ? nothing : similar(z_x),
+        _owner_scratch(x0, g))
 end
 
 function update_state!(f, g, state::MonotoneAccProxGradDescentState{T}, method::MonotoneAccProxGradDescent) where T
@@ -179,7 +183,7 @@ function _prox_grad_step!(w, grad, f, g, u, state::MonotoneAccProxGradDescentSta
     isfinite(f_u) || return T(Inf), T(Inf)
     while true
       _step!(state.xhat, u, grad, state.L)
-      g_w = T(_metric_prox!(w, g, state.xhat, state.L, nothing, state.delta_x))
+      g_w = T(_metric_prox!(w, g, state.xhat, state.L, nothing, _prox_scratch(state.delta_x, state.owner_scratch)))
       _drop!(w)
       f_w = _value!(f, w, state.model, image_w)
       state.prox_calls += 1

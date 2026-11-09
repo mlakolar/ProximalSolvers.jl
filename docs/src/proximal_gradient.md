@@ -241,14 +241,30 @@ proximal step of a `SymmetricSparseIterate` is taken over matrices into a dense
 buffer and copied into the iterate, which throws an `ArgumentError` when that
 matrix is not exactly symmetric. A tuple whose penalty is a `SeparableSum` (also
 inside `Scaled`) in which a `SymmetricSparseIterate` block has such a penalty
-takes the proximal step of ProximalBase for the whole penalty into dense
-buffers for its `SymmetricSparseIterate` blocks and buffers of the block type
-for the others; the result is copied into the iterate after every
-`SymmetricSparseIterate` block of it is checked to be exactly symmetric, and an
-`ArgumentError` is thrown before any block is written when one is not.
-ProximalBase refuses `Translate` and `Tilt` around a tuple with a
-`SymmetricSparseIterate` block with an `ArgumentError`, which the solvers raise
-when they evaluate the penalty at the start point, before anything is written.
+takes one proximal step of ProximalBase for the whole penalty into scratch
+blocks: a dense matrix for a `SymmetricSparseIterate` block whose penalty is one
+of those three or `IndBallL1`, `IndBallL2`, `IndSimplex` or `IndSphereL2` (also
+inside `Scaled` with a positive scale), an emptied `SymmetricSparseIterate` for
+any other `SymmetricSparseIterate` block, and a buffer allocated with `similar`
+for the other blocks. The result is copied into the iterate after every dense
+matrix of a `SymmetricSparseIterate` block is checked to be exactly symmetric,
+and an `ArgumentError` is thrown before any block is written when one is not.
+The four set families take a dense matrix because the tuple proximal step of
+the tested ProximalBase revisions in which `SymmetricSparseIterate` is not an
+`AbstractArray` (#737 and a later master) has no `SymmetricSparseIterate`
+output for them; their proximal points over matrices agree with those over
+symmetric matrices at a symmetric argument. When the loaded ProximalBase has no
+such output for `IndBallL0` (the solvers test this once), a tuple on this route
+with a `SymmetricSparseIterate` block whose penalty is `IndBallL0` is refused
+with an `ArgumentError` before anything is written: a dense matrix would change
+the meaning of its cardinality. Both are temporary, until
+ProximalBase provides these outputs. An exception during the final copy itself,
+such as an interrupt, can leave earlier blocks written. ProximalBase refuses
+`Translate` and `Tilt` around a tuple with a `SymmetricSparseIterate` block, and
+whose parameters are tuples with one block per iterate block, with an
+`ArgumentError` that the solvers raise when they evaluate the penalty at the
+start point, before anything is written; with an array parameter, ProximalBase
+throws a `DimensionMismatch` instead.
 The diagonal preconditioner, [`ActiveAccProxGradDescent`](@ref) and
 [`ADMMSolver`](@ref) throw an `ArgumentError` before anything is written when
 the iterate is a `SymmetricSparseIterate`.

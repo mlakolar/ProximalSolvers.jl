@@ -44,8 +44,9 @@ _copy(x::Tuple) = map(_copy, x)
 _similar(x::_Iterate) = similar(x)
 _similar(x::Tuple) = map(_similar, x)
 
-# a buffer for trial points and differences of iterates like x: of the type of
-# x, and a dense matrix for a SymmetricSparseIterate
+# a buffer for trial points and differences of iterates like x: similar(x) for an
+# array (which need not keep the type of x, as for a view), and a dense matrix
+# for a SymmetricSparseIterate
 _trial_similar(x::AbstractArray) = similar(x)
 _trial_similar(x::SymmetricSparseIterate{T}) where {T} = Matrix{T}(undef, size(x))
 _trial_similar(x::Tuple) = map(_trial_similar, x)

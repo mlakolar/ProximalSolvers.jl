@@ -68,8 +68,10 @@ end
 # SymmetricSparseIterate block, the type of the block otherwise. With
 # normalized = true and an owner in x0, trial holds the owners (_owner_trial) at
 # which f is evaluated for the dense restricted step; it is nothing otherwise.
+# owner_scratch holds the owner scratch blocks of the proximal step of a tuple on
+# the dense route (_owner_scratch); it is nothing otherwise.
 mutable struct ProximalGradientDescentState{T, X<:Union{_Iterate{T}, _Blocks{T}}, G<:Union{AbstractArray{T}, _Blocks{T}}, M, Z, P,
-                                            D<:Union{AbstractArray{T}, _Blocks{T}}, V}
+                                            D<:Union{AbstractArray{T}, _Blocks{T}}, V, S}
     x::X
     f_x::T
     g_x::T
@@ -94,6 +96,7 @@ mutable struct ProximalGradientDescentState{T, X<:Union{_Iterate{T}, _Blocks{T}}
     refitted::Bool          # whether the current support was refitted
     metric::P
     trial::V
+    owner_scratch::S
 end
 
 
@@ -139,7 +142,8 @@ function initial_state(
                          0,           # stable
                          false,       # refitted
                          metric,
-                         method.normalized ? _owner_trial(x0) : nothing
+                         method.normalized ? _owner_trial(x0) : nothing,
+                         _owner_scratch(x0, g)
                          )
 end
 
@@ -161,7 +165,7 @@ function update_state!(
     while true
       # find next point
       _metric_step!(state.xhat, state.x_previous, state.grad_f_x_previous, state.L, state.metric)
-      state.g_x = _metric_prox!(state.x, g, state.xhat, state.L, state.metric, state.delta_x)
+      state.g_x = _metric_prox!(state.x, g, state.xhat, state.L, state.metric, _prox_scratch(state.delta_x, state.owner_scratch))
       _drop!(state.x)
       state.f_x = _value!(f, state.x, state.model, state.z_x)
       state.prox_calls += 1

@@ -57,8 +57,10 @@ end
 # model and the images are nothing
 # xhat and delta_x have the type of _trial_similar(x0): a dense matrix for a
 # SymmetricSparseIterate block, the type of the block otherwise.
+# owner_scratch holds the owner scratch blocks of the proximal step of a tuple on
+# the dense route (_owner_scratch); it is nothing otherwise.
 mutable struct AccProxGradDescentState{T, X<:Union{_Iterate{T}, _Blocks{T}}, G<:Union{AbstractArray{T}, _Blocks{T}}, M, Z, P,
-                                       D<:Union{AbstractArray{T}, _Blocks{T}}}
+                                       D<:Union{AbstractArray{T}, _Blocks{T}}, S}
     x::X
     f_x::T
     g_x::T
@@ -84,6 +86,7 @@ mutable struct AccProxGradDescentState{T, X<:Union{_Iterate{T}, _Blocks{T}}, G<:
     z_y::Z            # A y
     dz::Z             # F' at A y
     metric::P
+    owner_scratch::S
 end
 
 
@@ -124,7 +127,8 @@ function initial_state(
                          z_x === nothing ? nothing : copy(z_x),     # A x_previous
                          z_x === nothing ? nothing : similar(z_x),  # A y
                          z_x === nothing ? nothing : similar(z_x),  # F' at A y
-                         metric
+                         metric,
+                         _owner_scratch(x0, g)
                          )
 end
 
@@ -182,7 +186,7 @@ function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, method::AccPr
     end
     while true
       _metric_step!(state.xhat, state.y, state.grad_f_y, state.L, state.metric)
-      state.g_x = _metric_prox!(state.x, g, state.xhat, state.L, state.metric, state.delta_x)
+      state.g_x = _metric_prox!(state.x, g, state.xhat, state.L, state.metric, _prox_scratch(state.delta_x, state.owner_scratch))
       _drop!(state.x)
       state.f_x = _value!(f, state.x, state.model, state.z_x)
       state.prox_calls += 1

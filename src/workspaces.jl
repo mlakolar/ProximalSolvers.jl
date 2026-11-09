@@ -74,6 +74,7 @@ function SolverWorkspace(x::Union{_Iterate, _Blocks}, f::AbstractFunction,
   isproximable(g) || throw(ArgumentError("$(summary(method)) needs a proximable penalty."))
   _workspace_noalias(x)
   prepared = _symmetric_penalty(g, x)
+  _check_route(x, prepared)
   state = initial_state(method, options, f, prepared, x)
   gap = options.gaptol > 0 ? _gapevaluator(f, prepared, x) : nothing
   SolverWorkspace(x, f, g, method, options, _GradientBuffers(state, gap), _size(x))
@@ -226,6 +227,7 @@ end
 function solve!(ws::SolverWorkspace{X, F, G, M}, g = ws.g) where {X, F, G, M<:_GradientSolver}
   g = _workspace_penalty(ws, g)
   g = _symmetric_penalty(g, ws.x)
+  _check_route(ws.x, g)
   t0 = time()
   reinitialize_state!(ws.buffers.state, ws.f, g, ws.method)
   _solve_gradient!(ws.buffers.state, ws.f, g, ws.method, ws.options, ws.buffers.gap, t0)

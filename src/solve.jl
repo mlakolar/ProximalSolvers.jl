@@ -101,6 +101,7 @@ function solve!(
   isproximable(g) || throw(ArgumentError("$(summary(method)) needs a proximable g (isproximable(g)), but g is a $(typeof(g))."))
   g = _symmetric_penalty(g, initial_x)
   _workspace_noalias(initial_x)
+  _check_route(initial_x, g)
   t0 = time()
   state = initial_state(method, options, f, g, initial_x)
   gapev = options.gaptol > 0 ? _gapevaluator(f, g, initial_x) : nothing
