@@ -706,7 +706,7 @@ end
 end
 
 # Owner-scratch blocks beside a constrained owner: a penalty with an owner-only proximal operator,
-# and IndBallL0, whose cardinality counts a mirrored pair once on an owner. The owner-only penalty
+# and IndBallL0, for which a dense-matrix scratch can change the meaning of the budget. The owner-only penalty
 # solves as the same problem with dense matrices and NormL1.
 # whether ProximalBase steps IndBallL0 into an owner block of a tuple (decided as the solvers do)
 l0_tuple_owner() = try
