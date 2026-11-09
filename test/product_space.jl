@@ -788,10 +788,10 @@ end
   end
 end
 
-# The owner scratch, reused across steps, gives the iterate the matrix, the active coordinates in
-# their order and the values that a new scratch gives: after a step with nonzero results, after one
-# with zeros where there were nonzeros, after a refused step (an asymmetric trial point of the
-# constrained block), and after the next step
+# The scratch, reused across steps, gives the iterate the matrix, the active coordinates in their
+# order and the values that a new owner scratch and a dense scratch holding NaN give: after a step
+# with nonzero results, after one with zeros where there were nonzeros, after a refused step (an
+# asymmetric trial point of the constrained block), and after the next step
 @testset "a reused owner scratch acts as a new one" begin
   lc = Constrained(NormL1(0.1), IndHyperplane(1.0, 0.0))
   g = SeparableSum(lc, NormL1(0.3))
@@ -815,12 +815,8 @@ end
       continue
     end
     @test err === nothing
-    PSR._metric_prox!(fresh, g, z, 1.0, nothing, (zeros(2, 2), SymmetricSparseIterate(2)))
-    # the owner-scratch block exactly; the constrained block, stepped into a reused dense matrix by
-    # the proximal operator of ProximalBase, to rounding, with the same active coordinates
-    @test isequal(owner_state(x[2]), owner_state(fresh[2]))
-    @test Matrix(x[1]) ≈ Matrix(fresh[1]) atol = 1e-14
-    @test collect(activecoordinates(x[1])) == collect(activecoordinates(fresh[1]))
+    PSR._metric_prox!(fresh, g, z, 1.0, nothing, (fill(NaN, 2, 2), SymmetricSparseIterate(2)))
+    @test isequal(map(owner_state, x), map(owner_state, fresh))
   end
   @test nactive(x[2]) < ncoordinates(x[2])     # the second step set coordinates of the L1 block to zero
 end

@@ -210,8 +210,11 @@ end
 # whole penalty g at once, into the scratch blocks w: a dense matrix for an owner
 # block with the dense-matrix role (_matrix_role), an owner for another owner
 # block, and for another block a buffer that the solvers allocate with similar.
-# The owner scratch blocks are emptied first, so that their active coordinates
-# after the step are those of a new owner. Then the blocks of w are committed into
+# The owner scratch blocks are emptied, and the scratch blocks that are Arrays
+# set to zero, first, so that the step does not depend on what the scratch held
+# (a proximal operator of ProximalBase can start from its destination) and the
+# active coordinates of an owner scratch after the step are those of a new
+# owner. Then the blocks of w are committed into
 # x: an owner from a matrix through the checked copyto!, an owner from an owner
 # by copyto! (a copy of the state), the others with _copyto!. Refused before any
 # block of x is written, with an ArgumentError: an IndBallL0 owner block whose
@@ -236,6 +239,7 @@ function _route_preflight(x::Tuple, g, z::Tuple, w::Tuple)
   nothing
 end
 _reset_scratch!(wk) = nothing
+_reset_scratch!(wk::Array) = (fill!(wk, zero(eltype(wk))); nothing)
 _reset_scratch!(wk::SymmetricSparseIterate) = (fill!(activevalues(wk), zero(eltype(wk))); dropzeros!(wk); nothing)
 _commit_block!(xk, wk) = _copyto!(xk, wk)
 function _metric_prox!(x::Tuple, g, z::Tuple, L, m::Nothing, w::Tuple)
