@@ -228,9 +228,10 @@ step, the step ``x - x'`` and the gradients are dense matrices; with a
 gradient that is exactly symmetric, the trial point is exactly symmetric. With
 a gradient that is not, the proximal step of ProximalBase into a
 `SymmetricSparseIterate` reads the symmetric part of the trial point, the
-stopping rules use the gradient as returned, and the dense proximal step below
-and the normalized step throw an `ArgumentError` when the matrix they copy into
-a `SymmetricSparseIterate` is not exactly symmetric. Step norms, inner
+stopping rules use the gradient as returned, and the dense proximal step below,
+the normalized step and the trial point of a `SymmetricSparseIterate` block of
+a tuple on that route throw an `ArgumentError` when the matrix they copy into a
+`SymmetricSparseIterate` is not exactly symmetric. Step norms, inner
 products and residuals are those of the matrix, both triangles, so an
 off-diagonal change counts twice: a change of ``0.1`` in one off-diagonal
 coordinate is a step of norm ``0.1\sqrt{2}``. With `debias`, the support is the
@@ -246,7 +247,13 @@ blocks: a dense matrix for a `SymmetricSparseIterate` block whose penalty is one
 of those three or `IndBallL1`, `IndBallL2`, `IndSimplex` or `IndSphereL2` (also
 inside `Scaled` with a positive scale), an emptied `SymmetricSparseIterate` for
 any other `SymmetricSparseIterate` block, and a buffer allocated with `similar`
-for the other blocks. The result is copied into the iterate after every dense
+for the other blocks. Such another `SymmetricSparseIterate` block also takes its
+trial point as a `SymmetricSparseIterate`, copied from the dense trial point
+(which throws an `ArgumentError` before anything is written when that is not
+exactly symmetric): some penalties read the type of their argument, as
+`IndBallL0` at the ProximalBase commit of `Project.toml`, which counts a
+mirrored pair once in a `SymmetricSparseIterate` argument and twice in a matrix.
+The result is copied into the iterate after every dense
 matrix of a `SymmetricSparseIterate` block is checked to be exactly symmetric,
 and an `ArgumentError` is thrown before any block is written when one is not.
 The four set families take a dense matrix because the tuple proximal step of

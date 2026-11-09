@@ -366,6 +366,9 @@ constraint_penalties() = (("linear constraint", () -> Constrained(NormL1(0.1), I
   end
 end
 
+# the scratch of an owner block without the dense-matrix role: an owner output and an owner input
+osc(p, T = Float64) = ProximalSolvers._OwnerScratch(SymmetricSparseIterate(T, p), SymmetricSparseIterate(T, p))
+
 # the dense proximal points of such owner blocks are checked before any block is written: an
 # asymmetric trial point for the second block leaves the first block unchanged
 @testset "a tuple step checks the dense owner blocks before writing" begin
@@ -378,7 +381,7 @@ end
   x[1][2, 1] = 0.7
   before = map(owner_state, x)
   err = try
-    ProximalSolvers._metric_prox!(x, g, z, 1.0, nothing, (SymmetricSparseIterate(2), zeros(2, 2)))
+    ProximalSolvers._metric_prox!(x, g, z, 1.0, nothing, (osc(2), zeros(2, 2)))
     nothing
   catch e
     e
@@ -538,9 +541,10 @@ end
 
 # The refusals of the dense route, before any block of the iterate is written: a later owner block
 # with asymmetric weights on the second of three owners (refused by ProximalBase in its step into
-# the owner scratch), a later dense-matrix owner block whose proximal point is not symmetric, and
-# scratch blocks of the wrong role, shape or element type or with shared storage. The first two
-# blocks take owner scratch (L1 penalties), the third a dense matrix (a linear constraint).
+# the owner scratch), a later owner-scratch block whose trial point is not symmetric, a later
+# dense-matrix owner block whose proximal point is not symmetric, and scratch blocks of the wrong
+# role, shape or element type or with shared storage. The first two blocks take owner scratch (L1
+# penalties), the third a dense matrix (a linear constraint).
 @testset "the dense route refuses before writing ($T)" for T in (Float32, Float64)
   lc = Constrained(NormL1(T(0.1)), IndHyperplane(T(1), T(0)))
   g = SeparableSum(NormL1(T(0.1)), NormL1(T(0.1), T[0 1; 3 0]), lc)
@@ -564,31 +568,41 @@ end
     @test err isa ArgumentError && occursin(needle, sprint(showerror, err))
     @test isequal(map(owner_state, x), before)
   end
-  scratch() = (SymmetricSparseIterate(T, 2), SymmetricSparseIterate(T, 2), zeros(T, 2, 2))
+  scratch() = (osc(2, T), osc(2, T), zeros(T, 2, 2))
   x = owners()
   @test PSR._dense_route(x, g)
   refused(() -> PSR._metric_prox!(x, g, zs, T(1), nothing, scratch()), x, "must be symmetric")
   x = owners()
+  g2 = SeparableSum(NormL1(T(0.1)), NormL1(T(0.1)), lc)
+  refused(() -> PSR._metric_prox!(x, g2, (zs[1], T[1 0.3; 0.8 -0.4], zs[3]), T(1), nothing, scratch()), x, "must be symmetric")
+  x = owners()
   g3 = SeparableSum(NormL1(T(0.1)), lc, lc)
   refused(() -> PSR._metric_prox!(x, g3, (zs[1], zs[2], T[1 0.3; 0.8 -0.4]), T(1), nothing,
-                                   (SymmetricSparseIterate(T, 2), zeros(T, 2, 2), zeros(T, 2, 2))), x, "must be symmetric")
+                                   (osc(2, T), zeros(T, 2, 2), zeros(T, 2, 2))), x, "must be symmetric")
   x = owners()
-  refused(() -> PSR._metric_prox!(x, g, zs, T(1), nothing, (zeros(T, 2, 2), SymmetricSparseIterate(T, 2), zeros(T, 2, 2))), x,
+  refused(() -> PSR._metric_prox!(x, g, zs, T(1), nothing, (zeros(T, 2, 2), osc(2, T), zeros(T, 2, 2))), x,
           "must match the iterate blocks")
   x = owners()
-  refused(() -> PSR._metric_prox!(x, g, zs, T(1), nothing, (SymmetricSparseIterate(T, 2), SymmetricSparseIterate(T, 3), zeros(T, 2, 2))), x,
+  refused(() -> PSR._metric_prox!(x, g, zs, T(1), nothing, (osc(2, T), SymmetricSparseIterate(T, 2), zeros(T, 2, 2))), x,
+          "must match the iterate blocks")
+  x = owners()
+  refused(() -> PSR._metric_prox!(x, g, zs, T(1), nothing, (osc(2, T), osc(3, T), zeros(T, 2, 2))), x,
           "must match the iterate blocks")
   x = owners()
   S = T === Float64 ? Float32 : Float64
-  refused(() -> PSR._metric_prox!(x, g, zs, T(1), nothing, (SymmetricSparseIterate(T, 2), SymmetricSparseIterate(S, 2), zeros(T, 2, 2))), x,
+  refused(() -> PSR._metric_prox!(x, g, zs, T(1), nothing, (osc(2, T), osc(2, S), zeros(T, 2, 2))), x,
           "must match the iterate blocks")
   x = owners()
   shared = SymmetricSparseIterate(T, 2)
-  refused(() -> PSR._metric_prox!(x, g, zs, T(1), nothing, (shared, shared, zeros(T, 2, 2))), x, "storage of their own")
+  refused(() -> PSR._metric_prox!(x, g, zs, T(1), nothing,
+                                   (PSR._OwnerScratch(shared, SymmetricSparseIterate(T, 2)), PSR._OwnerScratch(shared, SymmetricSparseIterate(T, 2)),
+                                    zeros(T, 2, 2))), x, "storage of their own")
+  x = owners()
+  refused(() -> PSR._metric_prox!(x, g, zs, T(1), nothing, (PSR._OwnerScratch(shared, shared), osc(2, T), zeros(T, 2, 2))), x,
+          "storage of their own")
   x = owners()
   zcopy = map(copy, zs)
-  refused(() -> PSR._metric_prox!(x, g, zcopy, T(1), nothing, (SymmetricSparseIterate(T, 2), SymmetricSparseIterate(T, 2), zcopy[3])), x,
-          "storage of their own")
+  refused(() -> PSR._metric_prox!(x, g, zcopy, T(1), nothing, (osc(2, T), osc(2, T), zcopy[3])), x, "storage of their own")
 end
 
 # Scratch roles of the owner blocks of a tuple on the dense route, beside a constrained owner.
@@ -627,11 +641,9 @@ role_wrappers() = (("bare", g -> g, h -> h), ("Scaled", g -> Scaled(g, 0.7), h -
   g = wrap(k == 1 ? SeparableSum(inner(make()), lc) : SeparableSum(lc, inner(make())))
   x = (SymmetricSparseIterate(2), SymmetricSparseIterate(2))
   # some ProximalBase revisions have no value of these sets at an owner, which every solve needs
-  # (at the start point), with or without a tuple: that MethodError is asserted, and the solve is
-  # not run, there; the proximal step of the route is tested at points below on every revision
-  if !has_owner_value(make())
-    @test_throws MethodError make()(SymmetricSparseIterate(2))
-  else
+  # (at the start point), with or without a tuple: the solve is run only where the value exists;
+  # the proximal step of the route is tested at points below on every revision
+  if has_owner_value(make())
     opt = ProximalOptions(; maxiter = 2000, ftol = 1e-15, xtol = 1e-15, gradtol = 1e-13)
     r = solve!(x, f, g, method, opt)
     xd = (zeros(2, 2), zeros(2, 2))
@@ -711,7 +723,7 @@ end
 # whether ProximalBase steps IndBallL0 into an owner block of a tuple (decided as the solvers do)
 l0_tuple_owner() = try
   value_and_prox!((SymmetricSparseIterate(2), zeros(1)), SeparableSum(IndBallL0(1; diagonal = false), NormL1(0.1)),
-                  ([1.0 0.5; 0.5 1.0], [1.0]), 1.0)
+                  (SymmetricSparseIterate([1.0 0.5; 0.5 1.0]), [1.0]), 1.0)
   true
 catch e
   e isa MethodError || rethrow()
@@ -723,7 +735,8 @@ end
 ProximalBase.isproximable(::Type{OwnerOnlyL1}) = true
 ProximalBase.isconvex(::Type{OwnerOnlyL1}) = true
 (g::OwnerOnlyL1)(x::SymmetricSparseIterate) = NormL1(g.λ)(x)
-ProximalBase.value_and_prox!(y::SymmetricSparseIterate, g::OwnerOnlyL1, x::AbstractMatrix, t::Real) = value_and_prox!(y, NormL1(g.λ), x, t)
+ProximalBase.value_and_prox!(y::SymmetricSparseIterate, g::OwnerOnlyL1, x::Union{AbstractMatrix, SymmetricSparseIterate}, t::Real) =
+  value_and_prox!(y, NormL1(g.λ), x, t)
 @testset "an owner block with an owner-only penalty, $wlabel, block $k $(summary(method))" for (wlabel, wrap) in route_wrappers(),
     k in (1, 2), method in solvers
   A = Matrix(1.0I, 2, 2)
@@ -746,11 +759,12 @@ end
 
 # IndBallL0(budget; diagonal = false) on an owner block beside a constrained owner, with the target
 # T of ½‖Θ - T‖², from zero. Where ProximalBase provides the IndBallL0 step into an owner block of a
-# tuple (the ProximalBase commit of Project.toml), the budget counts the off-diagonal entries of the
-# dense trial point the solvers pass, as with 619c7d6 there: p = 3, budget 2 keeps Θ12 = Θ21 = 3
-# (value -9), p = 2, budget 1 keeps nothing (value 0); the objective is that value plus the solution
-# of the constrained block alone (-9.25 and -0.25 unscaled). Where ProximalBase does not provide it,
-# the solvers refuse before writing anything, and the same tuple with an L1 block then solves.
+# tuple (the ProximalBase commit of Project.toml), the block takes its trial point as an owner and
+# the budget counts mirrored pairs once, as the solvers on master do there: p = 3, budget 2 keeps
+# Θ12 = 3 and Θ13 = 2 (value -13), p = 2, budget 1 keeps Θ12 = 2 (value -4); the objective is that
+# value plus the solution of the constrained block alone (-13.25 and -4.25 unscaled). Where
+# ProximalBase does not provide it, the solvers refuse before writing anything, and the same tuple
+# with an L1 block then solves.
 @testset "an IndBallL0 owner block, p = $p, $wlabel, block $k $(summary(method))" for p in (2, 3),
     (wlabel, wrap) in route_wrappers(), k in (1, 2), method in solvers
   A = Matrix(1.0I, 2, 2)
@@ -766,13 +780,13 @@ end
   opt = ProximalOptions(; maxiter = 1000, ftol = 1e-13, xtol = 1e-13, gradtol = 1e-11)
   if l0_tuple_owner()
     r = solve!(x, f, g, method, opt)
-    expected = p == 2 ? zeros(2, 2) : [0.0 3.0 0.0; 3.0 0.0 0.0; 0.0 0.0 0.0]
+    expected = p == 2 ? [0.0 2.0; 2.0 0.0] : [0.0 3.0 2.0; 3.0 0.0 0.0; 2.0 0.0 0.0]
     @test Matrix(x[k]) ≈ expected atol = 1e-6
-    @test count(!iszero, Matrix(x[k])[i, j] for j in 1:p for i in 1:p if i != j) <= (p == 2 ? 1 : 2)
+    @test count(!iszero, Matrix(x[k])[i, j] for j in 1:p for i in j+1:p) <= (p == 2 ? 1 : 2)
     xs = SymmetricSparseIterate(2)
     rs = solve!(xs, fo, wlabel == "bare" ? lc : wlabel == "Scaled" ? Scaled(lc, 0.7) : Scaled(Scaled(lc, 0.7), 1.3), method, opt)
-    @test r.minimum ≈ (p == 2 ? 0.0 : -9.0) + rs.minimum atol = 1e-8
-    wlabel == "bare" && @test r.minimum ≈ (p == 2 ? -0.25 : -9.25) atol = 1e-8
+    @test r.minimum ≈ (p == 2 ? -4.0 : -13.0) + rs.minimum atol = 1e-8
+    wlabel == "bare" && @test r.minimum ≈ (p == 2 ? -4.25 : -13.25) atol = 1e-8
     @test Matrix(x[3 - k]) ≈ Matrix(xs) atol = 1e-6
   else
     x[k][2, 1] = 0.5
@@ -807,7 +821,7 @@ end
   lc = Constrained(NormL1(0.1), IndHyperplane(1.0, 0.0))
   g = SeparableSum(lc, NormL1(0.3))
   x = (SymmetricSparseIterate(2), SymmetricSparseIterate(2))
-  s = SymmetricSparseIterate(2)
+  s = osc(2)
   w = (zeros(2, 2), s)
   zs = (([0.5 0.4; 0.4 0.2], [1.0 -0.8; -0.8 0.6]), ([0.3 0.1; 0.1 0.4], [0.1 0.9; 0.9 -0.2]),
         ([1.0 0.3; 0.8 -0.4], [0.5 0.5; 0.5 0.5]), ([0.2 0.0; 0.0 0.1], [-0.7 0.0; 0.0 0.9]))
@@ -826,7 +840,7 @@ end
       continue
     end
     @test err === nothing
-    PSR._metric_prox!(fresh, g, z, 1.0, nothing, (zeros(2, 2), SymmetricSparseIterate(2)))
+    PSR._metric_prox!(fresh, g, z, 1.0, nothing, (zeros(2, 2), osc(2)))
     @test isequal(owner_state(x[2]), owner_state(fresh[2]))
     @test Matrix(x[1]) ≈ Matrix(fresh[1]) atol = 1e-14
   end

@@ -155,13 +155,23 @@ _matrix_role(g) = !_owner_prox(g)
 _matrix_role(::Union{IndBallL1, IndBallL2, IndSimplex, IndSphereL2}) = true
 _matrix_role(g::Scaled) = !_owner_prox(g) || (g.α > 0 && _matrix_role(g.f))
 
-# the owner scratch of a tuple x with the penalty g: an empty owner for each owner
-# block without the dense-matrix role, when x takes the dense route; nothing
-# otherwise. The solvers keep it in their state.
+# The scratch of an owner block without the dense-matrix role: the owner w that
+# receives its proximal point, and the owner z that holds its trial point as the
+# input of the step. Some penalties read the type of their input: at the
+# ProximalBase commit of Project.toml, IndBallL0 into an owner counts a pair once
+# from an owner input and twice from a matrix input.
+struct _OwnerScratch{S<:SymmetricSparseIterate}
+  w::S
+  z::S
+end
+# the owner scratch of a tuple x with the penalty g: an _OwnerScratch of empty
+# owners for each owner block without the dense-matrix role, when x takes the
+# dense route; nothing otherwise. The solvers keep it in their state.
 _owner_scratch(x, g) = nothing
 function _owner_scratch(x::Tuple, g)
   _dense_route(x, g) || return nothing
-  s = map((xk, gk) -> xk isa SymmetricSparseIterate && !_matrix_role(gk) ? similar(xk) : nothing, x, _route_blocks(g))
+  s = map((xk, gk) -> xk isa SymmetricSparseIterate && !_matrix_role(gk) ? _OwnerScratch(similar(xk), similar(xk)) : nothing,
+          x, _route_blocks(g))
   all(isnothing, s) ? nothing : s
 end
 # the scratch blocks of a step: the owner scratch where there is one, the dense
@@ -172,7 +182,8 @@ _prox_scratch(w::Tuple, s::Tuple) = map((wk, sk) -> sk === nothing ? wk : sk, w,
 # An owner block with an IndBallL0 penalty (Scaled, Translate or Tilt around it)
 # and the owner role needs the proximal operator of IndBallL0 into an owner block
 # of a ProximalBase tuple. Whether the loaded ProximalBase provides it is decided
-# once, by that operation on a 2 x 2 tuple of ProximalBase types only: a
+# once, by that operation (owner output and owner input, as the route calls it)
+# on a 2 x 2 tuple of ProximalBase types only: a
 # MethodError there means the operation is missing; any other exception is
 # rethrown.
 _has_l0(g) = false
@@ -183,7 +194,7 @@ function _l0_tuple_owner()
   if _L0_TUPLE_OWNER[] == 0
     provided = try
       value_and_prox!((SymmetricSparseIterate(2), zeros(1)), SeparableSum(IndBallL0(1; diagonal = false), NormL1(0.1)),
-                      ([1.0 0.5; 0.5 1.0], [1.0]), 1.0)
+                      (SymmetricSparseIterate([1.0 0.5; 0.5 1.0]), [1.0]), 1.0)
       true
     catch e
       e isa MethodError || rethrow()
@@ -207,45 +218,59 @@ function _check_route(x::Tuple, g)
 end
 
 # On the dense route a tuple x takes the proximal step of ProximalBase for the
-# whole penalty g at once, into the scratch blocks w: a dense matrix for an owner
-# block with the dense-matrix role (_matrix_role), an owner for another owner
-# block, and for another block a buffer that the solvers allocate with similar.
-# The owner scratch blocks are emptied first, so that their active coordinates
-# after the step are those of a new owner. Then the blocks of w are committed into
-# x: an owner from a matrix through the checked copyto!, an owner from an owner
-# by copyto! (a copy of the state), the others with _copyto!. Refused before any
-# block of x is written, with an ArgumentError: an IndBallL0 owner block whose
-# operation the ProximalBase lacks (_check_route); blocks of w that do not match x
-# in number, role, shape or element type, or that share storage with each other,
-# with a block of x or with z (checked before the proximal step); and an owner
-# block whose matrix scratch is not exactly symmetric (checked after the step, by
-# the copyto! of that block, which throws before writing). An exception during
-# the commit itself, such as an interrupt or running out of memory, can leave
-# earlier blocks written.
+# whole penalty g at once, from the trial point z into the scratch blocks w: for
+# an owner block with the dense-matrix role (_matrix_role), the dense trial block
+# into a dense matrix; for another owner block, an owner holding the trial block
+# (filled by the checked copyto! of ProximalBase into the emptied z owner of its
+# _OwnerScratch) into the emptied w owner, so that the active coordinates after
+# the step are those of a new owner; for another block, the trial block into a
+# buffer that the solvers allocate with similar. Then the blocks of w are
+# committed into x: an owner from a matrix through the checked copyto!, an owner
+# from an owner by copyto! (a copy of the state), the others with _copyto!.
+# Refused before any block of x is written, with an ArgumentError: an IndBallL0
+# owner block whose operation the ProximalBase lacks (_check_route); blocks of w
+# that do not match x in number, role, shape or element type, or that share
+# storage with each other, with a block of x or with z (checked before the
+# proximal step); a trial block of an owner-scratch block that is not exactly
+# symmetric (the copyto! into its z owner); and an owner block whose matrix
+# scratch is not exactly symmetric (checked after the step, by the copyto! of
+# that block, which throws before writing). An exception during the commit
+# itself, such as an interrupt or running out of memory, can leave earlier
+# blocks written.
 _exactly_symmetric(w::AbstractMatrix) = all(_symmetric_pair(w[r, c], w[c, r]) for c in axes(w, 2) for r in c+1:size(w, 1))
 _route_block_ok(xk, gk, wk) = typeof(wk) === typeof(xk) && _size(wk) == _size(xk)
-_route_block_ok(xk::SymmetricSparseIterate, gk, wk) = size(wk) == size(xk) &&
-  (_matrix_role(gk) ? wk isa Matrix{eltype(xk)} : wk isa SymmetricSparseIterate{eltype(xk)})
+_route_block_ok(xk::SymmetricSparseIterate, gk, wk) = _matrix_role(gk) ?
+  (wk isa Matrix{eltype(xk)} && size(wk) == size(xk)) :
+  (wk isa _OwnerScratch{SymmetricSparseIterate{eltype(xk)}} && size(wk.w) == size(xk) && size(wk.z) == size(xk))
+_scratch_parts(wk) = (wk,)
+_scratch_parts(wk::_OwnerScratch) = (wk.w, wk.z)
 function _route_preflight(x::Tuple, g, z::Tuple, w::Tuple)
   length(w) == length(x) == length(z) && all(map(_route_block_ok, x, _route_blocks(g), w)) ||
     throw(ArgumentError("the scratch blocks of the proximal step must match the iterate blocks in number, role, shape and element type."))
-  for j in eachindex(w)
-    any(k -> _mightalias(w[j], x[k]) || _mightalias(w[j], z[k]) || (k != j && _mightalias(w[j], w[k])), eachindex(x)) &&
+  for j in eachindex(w), (i, a) in enumerate(_scratch_parts(w[j])), k in eachindex(x)
+    (_mightalias(a, x[k]) || _mightalias(a, z[k]) ||
+     any(((l, b),) -> (k, l) != (j, i) && _mightalias(a, b), enumerate(_scratch_parts(w[k])))) &&
       throw(ArgumentError("the scratch blocks of the proximal step must have storage of their own."))
   end
   nothing
 end
 _reset_scratch!(wk) = nothing
 _reset_scratch!(wk::SymmetricSparseIterate) = (fill!(activevalues(wk), zero(eltype(wk))); dropzeros!(wk); nothing)
+_route_output(wk) = wk
+_route_output(wk::_OwnerScratch) = wk.w
+_route_input(zk, wk) = zk
+_route_input(zk, wk::_OwnerScratch) = (_reset_scratch!(wk.z); copyto!(wk.z, zk))
 _commit_block!(xk, wk) = _copyto!(xk, wk)
 function _metric_prox!(x::Tuple, g, z::Tuple, L, m::Nothing, w::Tuple)
   _dense_route(x, g) || return _metric_prox!(x, g, z, L, m)
   _check_route(x, g)
   _route_preflight(x, g, z, w)
-  foreach(_reset_scratch!, w)
-  v = value_and_prox!(w, g, z, one(L) / L)
-  foreach((xk, wk) -> (xk isa SymmetricSparseIterate && !(wk isa SymmetricSparseIterate) && !_exactly_symmetric(wk) && copyto!(xk, wk); nothing), x, w)
-  foreach(_commit_block!, x, w)
+  out = map(_route_output, w)
+  input = map(_route_input, z, w)
+  foreach(_reset_scratch!, out)
+  v = value_and_prox!(out, g, input, one(L) / L)
+  foreach((xk, wk) -> (xk isa SymmetricSparseIterate && !(wk isa SymmetricSparseIterate) && !_exactly_symmetric(wk) && copyto!(xk, wk); nothing), x, out)
+  foreach(_commit_block!, x, out)
   convert(_eltype(x), v)
 end
 # The identity prox is independent of the metric. ZeroFunction only has a
