@@ -8,7 +8,7 @@ name: CI
 # - the nightly run: full, unless a run that passed full on the same commit with the same
 #   resolved Julia and package versions is less than a day old;
 # - manual runs: the chosen tier, full by default (`gh workflow run CI.yml --ref <branch>`).
-# Quick and standard run Julia 1.10 and 1 on Ubuntu without coverage; full adds macOS and
+# Quick and standard run Julia 1 (current stable) on Ubuntu without coverage; full adds macOS and
 # Windows, and its Julia 1 Ubuntu job collects coverage for Codecov.
 # Branch protection should require two checks of pull_request runs (test/TESTING.md). "PR merge gate" starts with the
 # run, so a new run (a push or a label) at once replaces the commit's earlier gate with a pending
@@ -64,19 +64,8 @@ jobs:
           fetch-depth: 2
       - name: Check naming conventions
         run: python3 scripts/check_naming.py
-      # The nightly run resolves the test environment of each Julia version, as full runs
-      # record it (scripts/ci_environment.jl); without both names it runs full.
-      - uses: julia-actions/setup-julia@v3
-        if: github.event_name == 'schedule'
-        with:
-          version: '1.10'
-      - name: Resolve the Julia 1.10 test environment
-        id: env110
-        if: github.event_name == 'schedule'
-        continue-on-error: true
-        run: julia --startup-file=no scripts/ci_environment.jl
-        env:
-          JULIA_CHANNEL: '1.10'
+      # The nightly run resolves the current stable Julia test environment, as full runs
+      # record it (scripts/ci_environment.jl); without that record it runs full.
       - uses: julia-actions/setup-julia@v3
         with:
           version: '1'
@@ -96,7 +85,7 @@ jobs:
           LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
           PR: ${{ github.event.pull_request.number }}
           DISPATCH_TIER: ${{ inputs.tier }}
-          ENVIRONMENTS: ${{ steps.env110.outputs.name && steps.env1.outputs.name && format('{0},{1}', steps.env110.outputs.name, steps.env1.outputs.name) || '' }}
+          ENVIRONMENTS: ${{ steps.env1.outputs.name || '' }}
         run: |
           labels="$LABELS"
           if [ "$EVENT" = pull_request ]; then
@@ -143,7 +132,6 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.10'
           - '1'
         os:
           - ubuntu-latest

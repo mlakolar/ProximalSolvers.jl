@@ -23,7 +23,7 @@ The test jobs a tier runs, as the CI workflow names them; `none` runs none.
 function expected_jobs(tier::AbstractString)
   tier == "none" && return String[]
   tier in TIER_ORDER || throw(ArgumentError("unknown tier `$tier`"))
-  jobs = ["Julia 1.10 - ubuntu-latest - x64", "Julia 1 - ubuntu-latest - x64"]
+  jobs = ["Julia 1 - ubuntu-latest - x64"]
   tier == "full" && append!(jobs, ["Julia 1 - macos-latest - aarch64", "Julia 1 - windows-latest - x64"])
   return ["$j - $tier" for j in jobs]
 end
