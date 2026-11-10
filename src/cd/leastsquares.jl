@@ -459,7 +459,7 @@ end
   iszero(a) && !_flat_column(m, k) &&
     throw(ArgumentError("the coordinate curvature underflows; rescale the data or loss"))
   old = x[k]
-  new = iszero(a) ? _coordinate_minimizer(g, old, zero(T), zero(T), k) : prox_entry(g, old + b / a, k, inv(m.s * a))
+  new = iszero(a) ? _coordinate_minimizer(g, old, zero(T), zero(T), k) : prox_block(g, old + b / a, k, inv(m.s * a))
   m.a[k] = a
   h = new - old
   iszero(h) && return h      # x and the residuals do not change
@@ -611,17 +611,20 @@ function _groupstep!(m::LSModel{T}, g::GroupNormL2, x::AtomIterate{T}, k::Int, s
 
   # u = x[G] - ∇_G f(x) / L
   L = _groupcurvature!(m, x, k)
-  t = zero(T)
   for (i, j) in enumerate(G)
     v = iszero(L) ? x[j] : x[j] + m.s * u[i] / L
     u[i] = v
-    t += v * v
   end
 
-  shrink = _groupshrink(sqrt(t), c, L)
+  trial = view(u, 1:length(G))
+  if iszero(L)
+    iszero(c) || fill!(trial, zero(T))
+  else
+    prox_block!(trial, g, trial, k, inv(L))
+  end
   maxh = zero(T)
   for (i, j) in enumerate(G)
-    new = shrink * u[i]
+    new = u[i]
     h = new - x[j]
     iszero(h) && continue
     x[j] = new

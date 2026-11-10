@@ -4,7 +4,7 @@ using Documenter, DocumenterInterLinks, Literate, ProximalSolvers
 # these pages, and the fallbacks for the `@ref`s of the docstrings.
 const links = InterLinks("ProximalBase" => "https://mlakolar.github.io/ProximalBase.jl/dev/")
 const fallbacks = ExternalFallbacks("KronQuadratic" => "@extref ProximalBase.KronQuadratic",
-                                    "prox_entry" => "@extref ProximalBase.prox_entry")
+                                    "prox_block" => "@extref ProximalBase.prox_block")
 
 # The examples become pages, run when the documentation is built. Each gets a
 # title, and a section marker "# --- title ---" becomes a heading.

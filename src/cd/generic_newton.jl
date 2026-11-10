@@ -26,7 +26,7 @@ _newton_penalty(g, ::SymmetricSparseIterate) =
 function _newton_residual(x::SparseIterate{T}, g, grad::AbstractArray{T}) where {T}
   res = zero(T)
   @inbounds for i in eachindex(x)
-    v = prox_entry(g, x[i] - grad[i], i, one(T))
+    v = prox_block(g, x[i] - grad[i], i, one(T))
     isfinite(v) || return T(Inf)
     res = max(res, abs(v - x[i]))
   end
@@ -40,7 +40,7 @@ function _newton_residual(x::SymmetricSparseIterate{T}, g, grad::AbstractMatrix{
     r, c = tril_cartesian(size(x, 1), k)
     d = r == c ? grad[r, r] : grad[r, c] + grad[c, r]
     μ = r == c ? one(T) : T(2)
-    v = prox_entry(g, cx[k] - d, _entry(size(x, 1), r, c), μ)
+    v = prox_block(g, cx[k] - d, _entry(size(x, 1), r, c), μ)
     isfinite(v) || return T(Inf)
     res = max(res, abs(v - cx[k]))
   end

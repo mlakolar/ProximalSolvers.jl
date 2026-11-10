@@ -159,7 +159,8 @@ package cannot be released from `master`.
 
 The package reads iterates only through the public interface of ProximalBase 0.6
 (`atomindices`, `activecoordinates`, `activevalues`, `nactive`, `ProximalBase.samegroups`,
-and the five-argument `prox_coordinate!(x, g, k, u, γ)` for a block step at a trial point).
+and `atom(x,k)` for group writes). Block math uses `prox_block(g,u,k,γ)` or
+`prox_block!(out,g,u,k,γ)` in compact buffers before the solver writes its iterate.
 The fields of `SparseIterate` and `AtomIterate` are private and may change in any release;
 `test/audit_regressions_basics.jl` scans `src/` for them. This is the preparation for
 ProximalBase 0.6, not a promise of compatibility with ProximalBase 0.5. For optional dependency-source development checks, use:

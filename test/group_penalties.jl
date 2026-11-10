@@ -228,7 +228,7 @@ end
 end
 
 # FT28 (#165): block trials without private writes. The group step builds its trial point in the model's buffer
-# and the penalty's five-argument prox_coordinate! stores the result, so only that call writes the iterate.
+# the pure block oracle computes the result, and the solver writes through the public group view.
 #
 # Recorded steps, from the base commit 412063d8ac24b84a10ccde09cf072bb396109ffd (the audited behaviour, which
 # staged the trial point in the entries of the iterate) on ProximalBase 0.5.4, Julia 1.13.3, Float64, with the data
@@ -1115,6 +1115,18 @@ end
     end
     @test results[1] == results[2] == results[3]
   end
+end
+
+@testset "shared group prox retains finite extreme shrinkage" begin
+  groups = [1:2]
+  g = GroupNormL2(1e155, groups, [1.])
+  x = AtomIterate(2, groups)
+  f = QuadraticFunction(Matrix(2.0I, 2, 2), [-2e155,0.])
+  m = cdmodel(f, x)
+  PS.initialize!(m, x)
+  h = PS._groupstep!(m, g, x, 1, false)
+  @test Vector(x) ≈ [5e154,0.]
+  @test h ≈ 5e154
 end
 
 end

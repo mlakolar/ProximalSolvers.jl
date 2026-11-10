@@ -4,21 +4,29 @@
 #
 ####################################
 
-# Group k of x ← the proximal operator of g with step 1/L at x[G] - ∇_G f(x) / L,
-# where L is the curvature of f over G, so that the quadratic with curvature L
-# majorizes f over the group (groupwise majorization descent, as for
-# GroupNormL2, which has its own method with a closed form). The trial point
-# x[G] - ∇_G f(x) / L is built in the model's buffer, and the penalty's own step
-# on the group, the five-argument prox_coordinate!, takes its proximal operator at
-# that point and stores the result in x: a group penalty of ProximalBase on the
-# groups of x (GroupNormLinf, a sparse group lasso, ...) or a separable one, entry
-# by entry. It is the only write to x, and it validates before it writes. With
-# L = 0, f does not depend on the group, which goes to the minimizer of the
-# penalty: zero, unless the penalty is zero there. Returns the largest change of
-# an entry, scaled with `scaled`. The buffer holds the gradient, then the trial
-# point, in 1:|G| and the previous entries in |G|+1:2|G|.
+# The solver constructs the trial block, calls the mathematical oracle, writes
+# the result through the public group view, and updates its own residual cache.
+# The second half of buf retains the old block for the cache difference.
+_check_group_step_layout(g::Scaled, x) = _check_group_step_layout(g.f, x)
+function _check_group_step_layout(g, x)
+  isseparable(g) && return ProximalBase._checkparams(g, x)
+  ProximalBase.samegroups(x, g) || throw(DimensionMismatch("f and x must have the same groups."))
+  nothing
+end
+
+function _prox_group_trial!(u, g, G, k, γ)
+  if isseparable(g)
+    for (i, j) in enumerate(G)
+      u[i] = prox_block(g, u[i], j, γ)
+    end
+  else
+    prox_block!(u, g, u, k, γ)
+  end
+  u
+end
 
 function _groupstep!(m::LSModel{T}, g::AbstractFunction, x::AtomIterate{T}, k::Int, scaled::Bool) where {T}
+  _check_group_step_layout(g, x)
   G = atomindices(x, k)
   n = length(G)
   buf = _groupbuffer!(m, 2n)
@@ -36,7 +44,9 @@ function _groupstep!(m::LSModel{T}, g::AbstractFunction, x::AtomIterate{T}, k::I
     buf[n + i] = old
     buf[i] = iszero(L) ? old : old + m.s * buf[i] / L
   end
-  prox_coordinate!(x, g, k, view(buf, 1:n), iszero(L) ? floatmax(T) : inv(L))
+  trial = view(buf, 1:n)
+  _prox_group_trial!(trial, g, G, k, iszero(L) ? floatmax(T) : inv(L))
+  copyto!(atom(x, k), trial)
 
   maxh = zero(T)
   for (i, j) in enumerate(G)
@@ -49,6 +59,7 @@ function _groupstep!(m::LSModel{T}, g::AbstractFunction, x::AtomIterate{T}, k::I
 end
 
 function _groupstep!(m::QuadModel{T}, g::AbstractFunction, x::AtomIterate{T}, k::Int, scaled::Bool) where {T}
+  _check_group_step_layout(g, x)
   A, u = m.A, m.u
   G = atomindices(x, k)
   n = length(G)
@@ -67,7 +78,9 @@ function _groupstep!(m::QuadModel{T}, g::AbstractFunction, x::AtomIterate{T}, k:
     buf[n + i] = old
     buf[i] = iszero(L) ? old : old - buf[i] / L
   end
-  prox_coordinate!(x, g, k, view(buf, 1:n), iszero(L) ? floatmax(T) : inv(L))
+  trial = view(buf, 1:n)
+  _prox_group_trial!(trial, g, G, k, iszero(L) ? floatmax(T) : inv(L))
+  copyto!(atom(x, k), trial)
 
   maxh = zero(T)
   for (i, j) in enumerate(G)

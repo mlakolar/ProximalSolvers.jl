@@ -201,17 +201,16 @@ function _groupstep!(m::QuadModel{T}, g::GroupNormL2, x::AtomIterate{T}, k::Int,
     end
     return maxh
   end
-  t = zero(T)
   for (i, j) in enumerate(G)
     d = x[j] - v[i] / L
     v[i] = d
-    t += d * d
   end
 
-  shrink = _groupshrink(sqrt(t), c, L)
+  trial = view(v, 1:length(G))
+  prox_block!(trial, g, trial, k, inv(L))
   maxh = zero(T)
   for (i, j) in enumerate(G)
-    new = shrink * v[i]
+    new = v[i]
     h = new - x[j]
     iszero(h) && continue
     x[j] = new

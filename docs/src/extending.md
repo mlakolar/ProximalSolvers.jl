@@ -27,7 +27,7 @@ From `coordinate_derivatives` and `update_cache!`, the default step takes
 x_k^+ = \operatorname{prox}_{\mu g_i / a}\Big(x_k - \frac{G}{a}\Big)
 ```
 
-with [`prox_entry`](@extref ProximalBase.prox_entry), where ``i`` is the entry
+with [`prox_block`](@extref ProximalBase.prox_block), where ``i`` is the entry
 of the coordinate and ``\mu`` the number of entries it sets (2 off the
 diagonal of a `SymmetricSparseIterate`), and writes the change only when the
 coordinate moves; see [The coordinate step](@ref). A coordinate with zero

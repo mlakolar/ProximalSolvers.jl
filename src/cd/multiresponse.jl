@@ -134,17 +134,20 @@ function _groupstep!(m::MLSModel{T}, g::GroupNormL2, x::AtomIterate{T}, k::Int, 
 
   # u = B[k, :] - ∇_k f / L
   L = m.s * _sqnorm!(m, k)
-  t = zero(T)
   @inbounds for (ci, j) in enumerate(G)
     v = iszero(L) ? x[j] : x[j] + m.s * u[ci] / L
     u[ci] = v
-    t += v * v
   end
 
-  shrink = _groupshrink(sqrt(t), c, L)
+  trial = view(u, 1:length(G))
+  if iszero(L)
+    iszero(c) || fill!(trial, zero(T))
+  else
+    prox_block!(trial, g, trial, k, inv(L))
+  end
   maxh = zero(T)
   for (ci, j) in enumerate(G)
-    new = shrink * u[ci]
+    new = u[ci]
     h = new - x[j]
     iszero(h) && continue
     x[j] = new
