@@ -7,7 +7,7 @@ HighDimensionalModels on ProximalSolvers (current) take to reach the same
 certified accuracy, a relative duality gap of at most `1e-4`. Ratios are
 current/legacy time, so a ratio below 1 means current is faster. Over the 82
 of 88 cases that reach the target on both sides, the like-for-like ratio is
-0.977 [0.955, 1.00] (12 blocks, campaign of 2026-10-28). Current's best stopping
+0.977 \[0.955, 1.00\] (12 blocks, campaign of 2026-10-28). Current's best stopping
 rule gives 0.845, and the package defaults give 0.897.
 In the primary view, the large path speedup occurs on design C (0.150), where
 current uses the Gram path; the point estimates on designs A, B and E are within

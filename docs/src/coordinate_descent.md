@@ -27,7 +27,7 @@ x_k^+ = \operatorname*{argmin}_t \; G\,(t - x_k) + \frac{a_k}{2}(t - x_k)^2 + g_
 ```
 
 The scalar proximal operator is
-[`prox_block`](@extref ProximalBase.prox_block)`(g, v, i, γ)` of ProximalBase,
+[`prox_block`](@ref ProximalBase.prox_block)`(g, v, i, γ)` of ProximalBase,
 so every separable penalty of ProximalBase works without code in this package:
 soft thresholding for the ℓ1 norm, ``\operatorname{shrink}(v, \gamma\lambda_1)/(1 + \gamma\lambda_2)``
 for the elastic net, firm thresholding for MCP, a clamp for bounds. For a

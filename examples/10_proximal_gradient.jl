@@ -82,7 +82,7 @@ f32 = LeastSquaresLoss(Float32.(b), Float32.(A))
 r32 = solve!(β32, f32, NormL1(Float32(γ)), AccProxGradDescent(), ProximalOptions(; maxiter = 5000, ftol = 1e-6))
 βs = SparseIterate(p)
 rs = solve!(βs, f, g, AccProxGradDescent(), options)
-(float32_error = norm(β32 - β2, Inf), sparse_iterate_error = norm(Vector(βs) - β2, Inf), stored = nnz(βs))
+(float32_error = norm(β32 - β2, Inf), sparse_iterate_error = norm(Vector(βs) - β2, Inf), stored = nactive(βs))
 
 # --- Checks ---
 #

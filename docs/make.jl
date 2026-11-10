@@ -1,10 +1,15 @@
-using Documenter, DocumenterInterLinks, Literate, ProximalSolvers
+using Documenter, DocumenterInterLinks, Literate, ProximalBase, ProximalSolvers
 
 # Links to the functions of ProximalBase go to its documentation: `@extref` in
 # these pages, and the fallbacks for the `@ref`s of the docstrings.
 const links = InterLinks("ProximalBase" => "https://mlakolar.github.io/ProximalBase.jl/dev/")
-const fallbacks = ExternalFallbacks("KronQuadratic" => "@extref ProximalBase.KronQuadratic",
-                                    "prox_block" => "@extref ProximalBase.prox_block")
+const fallbacks = ExternalFallbacks(
+    "KronQuadratic" => "@extref ProximalBase.KronQuadratic",
+    "ProximalBase.check_symmetric_parameters" => "@extref ProximalBase.check_symmetric_parameters",
+    "SeparableFunction" => "@extref ProximalBase.SeparableFunction",
+    "value_entry" => "@extref ProximalBase.value_entry",
+    "Symmetric-parameters" => "@extref ProximalBase `Symmetric-parameters`",
+)
 
 # The examples become pages, run when the documentation is built. Each gets a
 # title, and a section marker "# --- title ---" becomes a heading.
@@ -34,7 +39,8 @@ makedocs(
     sitename = "ProximalSolvers.jl",
     authors = "Mladen Kolar",
     repo = Documenter.Remotes.GitHub("mlakolar", "ProximalSolvers.jl"),
-    modules = [ProximalSolvers],
+    modules = [ProximalSolvers, ProximalBase],
+    checkdocs_ignored_modules = [ProximalBase], # Only the two pinned block docstrings are rendered here.
     format = Documenter.HTML(
         prettyurls = get(ENV, "CI", "false") == "true",
         canonical = "https://mlakolar.github.io/ProximalSolvers.jl/stable/",
