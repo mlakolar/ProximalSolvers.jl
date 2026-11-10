@@ -289,7 +289,7 @@ end
 
 # The planner (scripts/ci_plan.jl) with a fake GitHub CLI. Pushes run full. The nightly run skips
 # the full tier only after a successful non-PR full run on the same commit in the last 24 hours
-# whose verdict and four full test jobs passed and which recorded the same resolved test
+# whose verdict and three full test jobs passed and which recorded the same resolved test
 # environments; an API failure, a malformed answer or an unknown environment runs full.
 module CIPlan
 include(joinpath(dirname(@__DIR__), "scripts", "ci_plan.jl"))
@@ -297,7 +297,7 @@ end
 
 const SHA = "a" ^ 40
 const NOW = 1_800_000_000.0 # Unix time
-const ENVS = ["environment-1.10-0123456789abcdef", "environment-1-fedcba9876543210"]
+const ENVS = ["environment-1-fedcba9876543210"]
 const PASSED = Dict(name => "success" for name in [CIPlan.VERDICT; CIPlan.FULL_JOBS; "Test plan"; "CI result"])
 # A line of `gh run list` as recent_full_run asks for it: id, event, created (Unix time), conclusion, commit.
 runline(id, event; hours = 2, conclusion = "success", sha = SHA) =
@@ -346,7 +346,7 @@ single(id, event = "push"; jobs = PASSED, artifacts = ENVS, calls = Vector{Strin
   runs = [runline("12", "pull_request"), runline("13", "schedule"; conclusion = "failure"), runline("14", "push")]
   @test nightly_tier(fakegh(runs, Dict("14" => PASSED), Dict("14" => ENVS))) == "none"
   # a run of a smaller tier, or one whose full job is missing, failed, cancelled or re-run and failed
-  quick = Dict(name => "success" for name in [CIPlan.VERDICT; "Julia 1.10 - ubuntu-latest - x64 - quick"])
+  quick = Dict(name => "success" for name in [CIPlan.VERDICT; "Julia 1 - ubuntu-latest - x64 - quick"])
   @test nightly_tier(single("21"; jobs = quick)) == "full"
   for name in CIPlan.FULL_JOBS, c in ("failure", "cancelled", "skipped", "")
     @test nightly_tier(single("22"; jobs = merge(PASSED, Dict(name => c)))) == "full"
@@ -357,9 +357,9 @@ single(id, event = "push"; jobs = PASSED, artifacts = ENVS, calls = Vector{Strin
   @test nightly_tier(single("25"; jobs = merge(delete!(copy(PASSED), CIPlan.VERDICT), Dict("PR required jobs" => "success")))) == "full"
   # other dependencies: no record, a record of one version only, or other digests
   @test nightly_tier(single("31"; artifacts = String[])) == "full"
-  @test nightly_tier(single("32"; artifacts = ENVS[1:1])) == "full"
-  @test nightly_tier(single("33"; artifacts = ["environment-1.10-0000000000000000", ENVS[2]])) == "full"
-  result, lines = nightly(single("34"; artifacts = ENVS[2:2]))
+  @test nightly_tier(single("32"; artifacts = ["environment-1-1111111111111111"])) == "full"
+  @test nightly_tier(single("33"; artifacts = ["environment-1.10-0123456789abcdef"])) == "full"
+  result, lines = nightly(single("34"; artifacts = ["environment-1-0000000000000000"]))
   @test result.tier == "full" && any(occursin("run 34 tested other dependencies", l) for l in lines)
   # the nightly run could not resolve its own environments: full, and nothing is asked
   calls = Vector{String}[]
