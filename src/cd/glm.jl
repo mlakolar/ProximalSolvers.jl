@@ -641,7 +641,7 @@ function _newton_stationary!(ws::_NewtonWorkspace{T}, m::GLMModel{T}, g, x, cand
   for j in (candidates === nothing ? eachindex(x) : candidates)
     a = m.s * _weighted_sqnorm(m.X, v, j)
     iszero(a) && continue                  # a column that no observation sees
-    r = sqrt(a) * abs(prox_entry(g, x[j] - grad[j] / a, j, inv(a)) - x[j])
+    r = sqrt(a) * abs(prox_block(g, x[j] - grad[j] / a, j, inv(a)) - x[j])
     isfinite(r) && r <= threshold || return false
   end
   if m.intercept && a0 > 0
@@ -676,7 +676,7 @@ function _newton_raw_ok(m::GLMModel{T, <:ProximalBase.ConvolutionCheck}, g::Norm
     _partial_gradient!(grad, m, x, candidates)
   end
   inds = candidates === nothing ? eachindex(x) : candidates
-  stationarity = maximum((abs(x[j] - prox_entry(g, x[j] - grad[j], j, one(T))) for j in inds); init=zero(T))
+  stationarity = maximum((abs(x[j] - prox_block(g, x[j] - grad[j], j, one(T))) for j in inds); init=zero(T))
   stationarity <= tol || return false
   if m.intercept
     c = m.s * sum(_obsweight(m.w, i, T) * T(ProximalBase.deriv(m.loss, m.η[i], m.y[i])) for i in eachindex(m.η))

@@ -27,7 +27,7 @@ x_k^+ = \operatorname*{argmin}_t \; G\,(t - x_k) + \frac{a_k}{2}(t - x_k)^2 + g_
 ```
 
 The scalar proximal operator is
-[`prox_entry`](@extref ProximalBase.prox_entry)`(g, v, i, γ)` of ProximalBase,
+[`prox_block`](@ref ProximalBase.prox_block)`(g, v, i, γ)` of ProximalBase,
 so every separable penalty of ProximalBase works without code in this package:
 soft thresholding for the ℓ1 norm, ``\operatorname{shrink}(v, \gamma\lambda_1)/(1 + \gamma\lambda_2)``
 for the elastic net, firm thresholding for MCP, a clamp for bounds. For a
@@ -198,7 +198,8 @@ The iterate fixes what a coordinate is.
   ``h_{rc}(t) = 2 g_{rc}(t)``. The reported minimum uses the supplied
   objective. The low-level [`coordinate_step!`](@ref ProximalSolvers.coordinate_step!)
   kernel does not check, and needs symmetric parameters. ProximalBase's
-  `prox_coordinate!` checks the pair it updates.
+  `prox_block` uses a linear penalty entry index and has no owner; the solver
+  validates symmetric parameters before using it.
   The loss arrays, such as the matrix `C` of a `KronQuadratic`, are not
   checked by ProximalSolvers.
 
@@ -241,7 +242,8 @@ checked first: ``L_k`` is never computed for a group that does not move.
 
 Any other group penalty of ProximalBase on the groups of the `AtomIterate`,
 such as `GroupNormLinf` or a sparse group lasso, takes the same majorized
-step through its own proximal operator on the group, `prox_coordinate!`, and a
+step through `prox_block!(out,g,trial,k,γ)` on compact numerical buffers.
+The solver writes the result through `atom(x,k)` and updates its residual cache; a
 separable penalty takes it entry by entry. When ``L_k = 0`` the loss does not
 depend on the group, which goes to the minimizer of the penalty. These steps
 work with the least-squares and quadratic models.

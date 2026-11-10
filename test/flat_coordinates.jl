@@ -441,7 +441,7 @@ end
   for (g, G, expected) in cases
     @test PS._coordinate_minimizer(g, 0.7, G, 0.0, 1) === expected
     # Positive curvature keeps the same proximal expression, bit for bit.
-    @test PS._coordinate_minimizer(g, 0.7, G, 2.0, 1) === prox_entry(g, 0.7 - G * inv(2.0), 1, inv(2.0))
+    @test PS._coordinate_minimizer(g, 0.7, G, 2.0, 1) === prox_block(g, 0.7 - G * inv(2.0), 1, inv(2.0))
   end
 end
 

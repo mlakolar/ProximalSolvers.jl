@@ -64,7 +64,7 @@ _initialize!(m::CDModel, x, curvatures::Bool) = initialize!(m, x)
 The derivative `G` of the loss along coordinate `k` of `x` and its curvature
 `a`, exact for a quadratic and otherwise an upper bound, from the cache of `m`.
 The default [`coordinate_step!`](@ref) moves the coordinate to
-[`prox_entry`](@ref)`(g, xₖ - G/a, i, μ/a)`, where `i` is the index of the
+[`prox_block`](@ref)`(g, xₖ - G/a, i, μ/a)`, where `i` is the index of the
 entry in `x` and `μ` the number of entries the coordinate sets (2 for an
 off-diagonal coordinate of a `SymmetricSparseIterate`). The step is exact for a
 quadratic loss, and a majorization step when `a` bounds the curvature.
@@ -154,7 +154,7 @@ cdmodel(f::AbstractFunction, x) =
   end
   ainv = inv(a)
   isfinite(ainv) || throw(ArgumentError("the inverse coordinate curvature overflows; rescale the problem"))
-  new = prox_entry(g, old - G * ainv, i, μ * ainv)
+  new = prox_block(g, old - G * ainv, i, μ * ainv)
   isfinite(new) || throw(ArgumentError("the coordinate step is not finite; rescale the problem or check the model and penalty"))
   new
 end
@@ -218,10 +218,10 @@ end
 
 function _flat_generic(g, old::T, G::T, i, μ) where {T}
   !iszero(G) && !ProximalBase.isconvex(g) && return nothing
-  c = T(prox_entry(g, zero(T), i, floatmax(T)))
+  c = T(prox_block(g, zero(T), i, floatmax(T)))
   iszero(G) && return _flat_candidate(T, c)
   _flat_fixed(g, c, G, i, μ) && return c
-  c = T(prox_entry(g, -copysign(floatmax(T), G), i, μ))
+  c = T(prox_block(g, -copysign(floatmax(T), G), i, μ))
   _flat_fixed(g, c, G, i, μ) ? c : nothing
 end
 
@@ -238,7 +238,7 @@ _flat_indomain(g::Union{ProximalBase.Scaled, ProximalBase.Tilt, ProximalBase.Reg
   _flat_indomain(g.f, v, i)
 _flat_indomain(g::ProximalBase.Translate, v, i) = _flat_indomain(g.f, v - g.b[i], i)
 _flat_indomain(g::ProximalBase.BoxConstrained, v, i) =
-  prox_entry(g.box, v, i, one(v)) == v && _flat_indomain(g.f, v, i)
+  prox_block(g.box, v, i, one(v)) == v && _flat_indomain(g.f, v, i)
 
 # Minimize Gx + μ(λ₁wᵢ|x| + λ₂x²/2) by thresholding the slope and dividing by λ₂.
 function _flat_closed(g::ElasticNet, old::T, G::T, i, μ) where {T}
@@ -297,7 +297,7 @@ function _flat_closed(g::ProximalBase.Regularize, old::T, G::T, i, μ) where {T}
   ρ = T(g.ρ)
   v, step = center - (G / μ) / ρ, inv(ρ)
   isfinite(v) && isfinite(step) || return nothing
-  c = _flat_candidate(T, prox_entry(g.f, v, i, step))
+  c = _flat_candidate(T, prox_block(g.f, v, i, step))
   c !== nothing && _flat_indomain(g.f, c, i) ? c : nothing
 end
 
@@ -320,7 +320,7 @@ function _flat_closed(g::ProximalBase.BoxConstrained, old::T, G::T, i, μ) where
     _flat_fixed(g, BigFloat(candidate), BigFloat(G), i, BigFloat(μ)) || return nothing
     candidate
   else
-    _flat_candidate(T, prox_entry(g.box, v, i, one(T)))
+    _flat_candidate(T, prox_block(g.box, v, i, one(T)))
   end
   c !== nothing && _flat_indomain(g, c, i) ? c : nothing
 end
@@ -341,7 +341,7 @@ end
 # floatmax must not be rejected because the fixed-point trial overflows.
 function _flat_inexact(g::ProximalBase.IndBox, old::T, G::T, i, μ) where {T}
   v = iszero(G) ? zero(T) : -copysign(T(Inf), G)
-  c = T(prox_entry(g, v, i, one(T)))
+  c = T(prox_block(g, v, i, one(T)))
   isfinite(c) ? c : nothing
 end
 
@@ -362,7 +362,7 @@ function _flat_fixed(g, c::T, G::T, i, μ) where {T}
   t = iszero(G) ? one(T) : max(one(T), abs(c) / abs(G))
   v = c - t * G
   step = t * μ
-  isfinite(v) && isfinite(step) && prox_entry(g, v, i, step) == c
+  isfinite(v) && isfinite(step) && prox_block(g, v, i, step) == c
 end
 
 # the coordinate step from coordinate_derivatives and update_cache!, for models
@@ -631,15 +631,6 @@ function _check_iterate(g::AbstractFunction, x)
     return nothing
   end
   throw(ArgumentError("coordinate descent needs a separable penalty (isseparable(g)) or a group penalty (GroupNormL2, GroupNormLinf, ...), but g is a $(typeof(g))."))
-end
-
-# the factor max(1 - c / (L ‖u‖), 0) by which the proximal operator of c‖⋅‖₂
-# with step 1/L shrinks a vector u, given nu = ‖u‖. With L = 0 the loss does not
-# depend on the group, which then goes to zero if it is penalized and keeps its
-# values otherwise
-function _groupshrink(nu::T, c::T, L::T) where {T<:AbstractFloat}
-  iszero(L) && return iszero(c) ? one(T) : zero(T)
-  nu > c / L ? one(T) - c / (L * nu) : zero(T)
 end
 
 # the change of an entry in the stopping rule, scaled as in _visit!

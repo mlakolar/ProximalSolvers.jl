@@ -23,7 +23,7 @@ function coordinate_residual(X, y, g, b)
   grad = X' * (X * b - y) / n
   maximum(eachindex(b)) do k
     a = sum(abs2, view(X, :, k)) / n
-    abs(prox_entry(g, b[k] - grad[k] / a, k, 1 / a) - b[k])
+    abs(prox_block(g, b[k] - grad[k] / a, k, 1 / a) - b[k])
   end
 end
 

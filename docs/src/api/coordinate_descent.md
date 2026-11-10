@@ -1,5 +1,16 @@
 # Coordinate descent reference
 
+## Pinned ProximalBase block interface
+
+These docstrings come from the exact ProximalBase dependency used by this
+build. Rendering them here keeps links valid while the breaking block API
+awaits publication in ProximalBase's development documentation.
+
+```@docs
+ProximalBase.prox_block
+ProximalBase.prox_block!
+```
+
 ## Square-root losses
 
 ```@docs
