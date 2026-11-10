@@ -4,6 +4,9 @@ This file records what `Pkg.test()` runs, how the files are isolated from each o
 tier each file belongs to and why, and the measurements behind the tiers and CI's worker counts
 (#121). [CONTRIBUTING.md](../CONTRIBUTING.md) has the commands.
 
+**Current CI policy (2026-11-10):** automated CI runs Julia `1` (current stable)
+only. Historical Julia 1.10 timings and before/after comparisons remain below.
+
 ## Inventory
 
 - **54 regular test files** in `test/`, each listed once in `test/tiers.toml` under the lowest
@@ -396,9 +399,9 @@ for contributors. Adapted from ProximalBase.jl #430, with three tiers and the di
 
 | Event | Tier | Jobs | Coverage |
 |---|---|---|---|
-| pull request | quick, standard or full by the changed paths, raised by `test:standard` / `test:full`; none when every path needs no package tests (documentation, benchmarks) | Julia 1.10 and 1, Ubuntu; full adds Julia 1 on macOS (aarch64) and Windows | full only, Julia 1 Ubuntu |
-| push to master, tag | full, always | all four | Julia 1 Ubuntu |
-| nightly (06:17 UTC) | full, or none after a verified full run (below) | all four | Julia 1 Ubuntu |
+| pull request | quick, standard or full by the changed paths, raised by `test:standard` / `test:full`; none when every path needs no package tests (documentation, benchmarks) | Julia 1 Ubuntu; full adds Julia 1 on macOS (aarch64) and Windows | full only, Julia 1 Ubuntu |
+| push to master, tag | full, always | three stable-Julia platforms | Julia 1 Ubuntu |
+| nightly (06:17 UTC) | full, or none after a verified full run (below) | three stable-Julia platforms | Julia 1 Ubuntu |
 | manual | the chosen tier, full by default | as for a pull request | full only |
 
 The plan, the naming check (`scripts/check_naming.py`, moved from the test jobs to the plan job,
@@ -655,7 +658,7 @@ two. Before this change every PR ran full with coverage on four jobs; the same m
 pull-request runs that did not queue gave 9.7 min (41576419157) and 10.4 min (41556070197), and
 15.8 and 20.3 min for two that queued. A test-only PR now finishes in about 4.3 minutes with two
 test jobs (about 6 runner minutes instead of about 32), and a localized solver change in about
-9 minutes with two; full keeps the earlier time and the four platforms. Both targets hold:
+9 minutes with two; current full CI retains three stable-Julia platforms. Historical targets hold:
 quick 4.2–4.5 minutes against 3–5, standard 7.4–9.5 against 6–10, end to end.
 
 **Counts and coverage at `0ddcaac`.** Full runs 54 files and counts **116341** assertions on
