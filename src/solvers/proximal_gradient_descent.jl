@@ -64,7 +64,14 @@ end
 # arrays; the gradients are dense. For a loss of a linear image, f(x) = F(Ax),
 # the state keeps the image of x (see image_models.jl); otherwise model and the
 # image are nothing
-mutable struct ProximalGradientDescentState{T, X<:Union{AbstractArray{T}, _Blocks{T}}, G<:Union{AbstractArray{T}, _Blocks{T}}, M, Z, P}
+# xhat and delta_x have the type of _trial_similar(x0): a dense matrix for a
+# SymmetricSparseIterate block, the type of the block otherwise. With
+# normalized = true and an owner in x0, trial holds the owners (_owner_trial) at
+# which f is evaluated for the dense restricted step; it is nothing otherwise.
+# owner_scratch holds the owner scratch blocks of the proximal step of a tuple on
+# the dense route (_owner_scratch); it is nothing otherwise.
+mutable struct ProximalGradientDescentState{T, X<:Union{_Iterate{T}, _Blocks{T}}, G<:Union{AbstractArray{T}, _Blocks{T}}, M, Z, P,
+                                            D<:Union{AbstractArray{T}, _Blocks{T}}, V, S}
     x::X
     f_x::T
     g_x::T
@@ -73,8 +80,8 @@ mutable struct ProximalGradientDescentState{T, X<:Union{AbstractArray{T}, _Block
     f_x_previous::T
     g_x_previous::T
     grad_f_x_previous::G
-    xhat::X
-    delta_x::X
+    xhat::D
+    delta_x::D
     L::T
     max_residual::T
     backtrack_simple::Bool  # line search uses function values, not gradients
@@ -88,6 +95,8 @@ mutable struct ProximalGradientDescentState{T, X<:Union{AbstractArray{T}, _Block
     stable::Int             # iterations with the same support, for debias
     refitted::Bool          # whether the current support was refitted
     metric::P
+    trial::V
+    owner_scratch::S
 end
 
 
@@ -96,7 +105,7 @@ function initial_state(
           options,
           f,
           g,
-          x0::Union{AbstractArray{T}, _Blocks{T}}) where T
+          x0::Union{_Iterate{T}, _Blocks{T}}) where T
 
     metric = _diagonal_metric(method.preconditioner, f, x0)
     grad_f_x = _dense_similar(x0)
@@ -118,8 +127,8 @@ function initial_state(
                          T(NaN),      # Store previous f in state.f_x_previous
                          T(NaN),      # Store previous g in state.g_x_previous
                          _similar(grad_f_x), # Maintain previous gradient of f in state.grad_f_x_previous for convergence check
-                         _similar(x0), # Temporary storage
-                         _similar(x0), # Temporary storage for x1 - x0
+                         _trial_similar(x0), # Temporary storage
+                         _trial_similar(x0), # Temporary storage for x1 - x0
                          one(T),      # L
                          T(-Inf),     # max_residual
                          true,        # backtrack_simple
@@ -132,7 +141,9 @@ function initial_state(
                          dz,
                          0,           # stable
                          false,       # refitted
-                         metric
+                         metric,
+                         method.normalized ? _owner_trial(x0) : nothing,
+                         _owner_scratch(x0, g)
                          )
 end
 
@@ -154,7 +165,7 @@ function update_state!(
     while true
       # find next point
       _metric_step!(state.xhat, state.x_previous, state.grad_f_x_previous, state.L, state.metric)
-      state.g_x = _metric_prox!(state.x, g, state.xhat, state.L, state.metric)
+      state.g_x = _metric_prox!(state.x, g, state.xhat, state.L, state.metric, _prox_scratch(state.delta_x, state.owner_scratch))
       _drop!(state.x)
       state.f_x = _value!(f, state.x, state.model, state.z_x)
       state.prox_calls += 1
@@ -183,7 +194,8 @@ function _normalized_step!(f, state::ProximalGradientDescentState{T}) where T
     τ = one(T) / state.L
     dd = _restricted_step!(w, x, grad, τ, whole)
     iszero(dd) && return state
-    f_w = convert(_eltype(w), f(w))
+    # f at the owners that hold the dense w (state.trial), at w itself without owners
+    f_w = convert(_eltype(w), f(_at_trial(w, state.trial)))
     state.f_calls += 1
     curvature = 2 * (f_w - state.f_x_previous + τ * dd) / τ^2
     (isfinite(curvature) && curvature > 0) && (state.L = curvature / dd)
@@ -198,6 +210,19 @@ function _check_debias(f, x0)
 end
 
 _same_support(x, y) = all(i -> iszero(x[i]) == iszero(y[i]), eachindex(x, y))
+# On owners, the support is the set of coordinates whose value is not zero; an
+# active coordinate that holds a zero is outside it. The supports are equal when
+# the nonzero active coordinates of x are nonzero in y and the two counts agree.
+function _same_support(x::SymmetricSparseIterate, y::SymmetricSparseIterate)
+  cx, cy = coordinates(x), coordinates(y)
+  n = 0
+  for k in activecoordinates(x)
+    iszero(cx[k]) && continue
+    iszero(cy[k]) && return false
+    n += 1
+  end
+  n == count(!iszero, activevalues(y))
+end
 
 _refit_copy(x::Union{SparseIterate, SymmetricSparseIterate}) = copy(x)
 _refit_copy(x::AbstractVector) = SparseIterate(Vector(x))
@@ -224,7 +249,7 @@ function _debias!(f, g, state::ProximalGradientDescentState{T}, method::Proximal
     state.g_x = g_s
     state.f_calls += 1
     state.grad_calls += 1
-    @. state.delta_x = state.x - state.x_previous
+    _sub!(state.delta_x, state.x, state.x_previous)
     state
 end
 

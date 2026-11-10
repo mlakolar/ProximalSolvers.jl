@@ -55,7 +55,12 @@ end
 # arrays; the gradient is dense. For a loss of a linear image, f(x) = F(Ax), the
 # state keeps the images of x, x_previous and y (see image_models.jl); otherwise
 # model and the images are nothing
-mutable struct AccProxGradDescentState{T, X<:Union{AbstractArray{T}, _Blocks{T}}, G<:Union{AbstractArray{T}, _Blocks{T}}, M, Z, P}
+# xhat and delta_x have the type of _trial_similar(x0): a dense matrix for a
+# SymmetricSparseIterate block, the type of the block otherwise.
+# owner_scratch holds the owner scratch blocks of the proximal step of a tuple on
+# the dense route (_owner_scratch); it is nothing otherwise.
+mutable struct AccProxGradDescentState{T, X<:Union{_Iterate{T}, _Blocks{T}}, G<:Union{AbstractArray{T}, _Blocks{T}}, M, Z, P,
+                                       D<:Union{AbstractArray{T}, _Blocks{T}}, S}
     x::X
     f_x::T
     g_x::T
@@ -65,8 +70,8 @@ mutable struct AccProxGradDescentState{T, X<:Union{AbstractArray{T}, _Blocks{T}}
     y::X
     f_y::T
     grad_f_y::G
-    xhat::X
-    delta_x::X
+    xhat::D
+    delta_x::D
     L::T
     max_residual::T
     k::Int            # iterations since the last restart
@@ -81,6 +86,7 @@ mutable struct AccProxGradDescentState{T, X<:Union{AbstractArray{T}, _Blocks{T}}
     z_y::Z            # A y
     dz::Z             # F' at A y
     metric::P
+    owner_scratch::S
 end
 
 
@@ -89,7 +95,7 @@ function initial_state(
           options,
           f,
           g,
-          x0::Union{AbstractArray{T}, _Blocks{T}}) where T
+          x0::Union{_Iterate{T}, _Blocks{T}}) where T
 
     metric = _diagonal_metric(method.preconditioner, f, x0)
     model = _image_model(f)
@@ -106,8 +112,8 @@ function initial_state(
                          _similar(x0), # extrapolated point y
                          T(NaN),      # f(y)
                          _dense_similar(x0), # gradient of f at y
-                         _similar(x0), # Temporary storage
-                         _similar(x0), # Temporary storage for x1 - x0
+                         _trial_similar(x0), # Temporary storage
+                         _trial_similar(x0), # Temporary storage for x1 - x0
                          one(T),      # L
                          T(-Inf),     # max_residual
                          0,
@@ -121,7 +127,8 @@ function initial_state(
                          z_x === nothing ? nothing : copy(z_x),     # A x_previous
                          z_x === nothing ? nothing : similar(z_x),  # A y
                          z_x === nothing ? nothing : similar(z_x),  # F' at A y
-                         metric
+                         metric,
+                         _owner_scratch(x0, g)
                          )
 end
 
@@ -179,7 +186,7 @@ function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, method::AccPr
     end
     while true
       _metric_step!(state.xhat, state.y, state.grad_f_y, state.L, state.metric)
-      state.g_x = _metric_prox!(state.x, g, state.xhat, state.L, state.metric)
+      state.g_x = _metric_prox!(state.x, g, state.xhat, state.L, state.metric, _prox_scratch(state.delta_x, state.owner_scratch))
       _drop!(state.x)
       state.f_x = _value!(f, state.x, state.model, state.z_x)
       state.prox_calls += 1

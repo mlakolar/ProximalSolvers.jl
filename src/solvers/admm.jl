@@ -273,3 +273,12 @@ end
 
 _admm_alias(x::AbstractArray, u::AbstractArray) = Base.mightalias(x, u)
 _admm_alias(x::Tuple, u::Tuple) = any(Base.mightalias(a, b) for a in x for b in u)
+
+# The active-set solver and ADMM have no method for a SymmetricSparseIterate:
+# solve! and SolverWorkspace throw this ArgumentError before anything is written.
+_refuse_owner(method) =
+  throw(ArgumentError("$(summary(method)) does not support a SymmetricSparseIterate; use ProximalGradientDescent, " *
+                      "AccProxGradDescent, MonotoneAccProxGradDescent or CDSolver."))
+solve!(x::SymmetricSparseIterate, f::AbstractFunction, g::AbstractFunction,
+       method::Union{ActiveAccProxGradDescent, ADMMSolver}, options::ProximalOptions = ProximalOptions(); kwargs...) =
+  _refuse_owner(method)

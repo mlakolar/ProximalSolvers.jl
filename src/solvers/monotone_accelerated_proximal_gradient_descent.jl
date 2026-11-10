@@ -49,7 +49,12 @@ end
 # After each iteration y and grad_f_y hold the point the kept step was taken
 # from and the gradient there, for the stopping rules. The images of both
 # candidates are retained: the next extrapolation uses z even when x kept v.
-mutable struct MonotoneAccProxGradDescentState{T, X<:Union{AbstractArray{T}, _Blocks{T}}, G<:Union{AbstractArray{T}, _Blocks{T}}, M, Z}
+# xhat and delta_x have the type of _trial_similar(x0): a dense matrix for a
+# SymmetricSparseIterate block, the type of the block otherwise.
+# owner_scratch holds the owner scratch blocks of the proximal step of a tuple on
+# the dense route (_owner_scratch); it is nothing otherwise.
+mutable struct MonotoneAccProxGradDescentState{T, X<:Union{_Iterate{T}, _Blocks{T}}, G<:Union{AbstractArray{T}, _Blocks{T}}, M, Z,
+                                               D<:Union{AbstractArray{T}, _Blocks{T}}, S}
     x::X
     f_x::T
     g_x::T
@@ -65,8 +70,8 @@ mutable struct MonotoneAccProxGradDescentState{T, X<:Union{AbstractArray{T}, _Bl
     f_v::T
     g_v::T
     grad_f_x::G
-    xhat::X
-    delta_x::X
+    xhat::D
+    delta_x::D
     L::T
     t::T
     t_previous::T
@@ -83,10 +88,11 @@ mutable struct MonotoneAccProxGradDescentState{T, X<:Union{AbstractArray{T}, _Bl
     z_z::Z            # A z, the extrapolated candidate
     z_v::Z            # A v, the plain candidate
     dz::Z             # F' at the point of the gradient evaluation
+    owner_scratch::S
 end
 
 function initial_state(method::MonotoneAccProxGradDescent, options, f, g,
-                       x0::Union{AbstractArray{T}, _Blocks{T}}) where T
+                       x0::Union{_Iterate{T}, _Blocks{T}}) where T
     model = _image_model(f)
     z_x = model === nothing ? nothing : _image_buffer(model)
     f_x = _value!(f, x0, model, z_x)
@@ -99,7 +105,7 @@ function initial_state(method::MonotoneAccProxGradDescent, options, f, g,
         _copy(x0), T(NaN), T(NaN),        # z = x0
         _similar(x0), T(NaN), T(NaN),
         _dense_similar(x0),
-        _similar(x0), _similar(x0),
+        _trial_similar(x0), _trial_similar(x0),
         one(T),                           # L
         one(T), zero(T),                  # t₁ = 1, t₀ = 0
         T(-Inf),                          # max_residual
@@ -109,7 +115,8 @@ function initial_state(method::MonotoneAccProxGradDescent, options, f, g,
         z_x === nothing ? nothing : similar(z_x),
         z_x === nothing ? nothing : copy(z_x),
         z_x === nothing ? nothing : similar(z_x),
-        z_x === nothing ? nothing : similar(z_x))
+        z_x === nothing ? nothing : similar(z_x),
+        _owner_scratch(x0, g))
 end
 
 function update_state!(f, g, state::MonotoneAccProxGradDescentState{T}, method::MonotoneAccProxGradDescent) where T
@@ -176,7 +183,7 @@ function _prox_grad_step!(w, grad, f, g, u, state::MonotoneAccProxGradDescentSta
     isfinite(f_u) || return T(Inf), T(Inf)
     while true
       _step!(state.xhat, u, grad, state.L)
-      g_w = T(value_and_prox!(w, g, state.xhat, one(T) / state.L))
+      g_w = T(_metric_prox!(w, g, state.xhat, state.L, nothing, _prox_scratch(state.delta_x, state.owner_scratch)))
       _drop!(w)
       f_w = _value!(f, w, state.model, image_w)
       state.prox_calls += 1

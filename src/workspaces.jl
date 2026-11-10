@@ -67,13 +67,14 @@ struct SolverWorkspace{X, F, G, M, O, B, D}
   shape::D
 end
 
-function SolverWorkspace(x::Union{AbstractArray, _Blocks}, f::AbstractFunction,
+function SolverWorkspace(x::Union{_Iterate, _Blocks}, f::AbstractFunction,
                          g::AbstractFunction, method::_GradientSolver,
                          options::ProximalOptions = ProximalOptions())
   issmooth(f) || throw(ArgumentError("$(summary(method)) needs a smooth loss."))
   isproximable(g) || throw(ArgumentError("$(summary(method)) needs a proximable penalty."))
   _workspace_noalias(x)
   prepared = _symmetric_penalty(g, x)
+  _check_route(x, prepared)
   state = initial_state(method, options, f, prepared, x)
   gap = options.gaptol > 0 ? _gapevaluator(f, prepared, x) : nothing
   SolverWorkspace(x, f, g, method, options, _GradientBuffers(state, gap), _size(x))
@@ -105,6 +106,11 @@ function SolverWorkspace(x, f::Union{AbstractFunction, CDModel}, g::AbstractFunc
   buffers = _CDBuffers(xs, m, _CDState(eltype(xs), xs, method))
   SolverWorkspace(x, f, g, method, nothing, buffers, _size(x))
 end
+
+# ADMM and the active-set solver on an owner: the refusal of their solve!
+SolverWorkspace(x::SymmetricSparseIterate, f::AbstractFunction, g::AbstractFunction,
+                method::Union{ActiveAccProxGradDescent, ADMMSolver}, options::ProximalOptions = ProximalOptions()) =
+  _refuse_owner(method)
 
 function SolverWorkspace(x, f, g, method::ProximalSolver, options::ProximalOptions = ProximalOptions())
   throw(ArgumentError("SolverWorkspace supports gradient solvers, CDSolver and ADMMSolver; got $(typeof(method))."))
@@ -153,10 +159,17 @@ _workspace_partition(x::AtomIterate, y::AtomIterate) =
   ProximalBase.samegroups(x, y) || throw(ArgumentError("the starting point must have the workspace's groups."))
 _workspace_partition(x::Tuple, y::Tuple) = foreach(_workspace_partition, x, y)
 
+# whether a and b can share storage, by Base.mightalias; an owner enters as the
+# vector of its coordinates, which reports the storage arrays of the owner, so
+# that an owner is seen to share storage with itself and with its views
+_alias_operand(x) = x
+_alias_operand(x::SymmetricSparseIterate) = coordinates(x)
+_mightalias(a, b) = Base.mightalias(_alias_operand(a), _alias_operand(b))
+
 _workspace_noalias(x) = nothing
 function _workspace_noalias(x::Tuple)
   for i in eachindex(x), j in eachindex(x)
-    i < j && Base.mightalias(x[i], x[j]) &&
+    i < j && _mightalias(x[i], x[j]) &&
       throw(ArgumentError("workspace tuple blocks must have separate storage."))
   end
   nothing
@@ -165,7 +178,7 @@ end
 _workspace_copyable(dest, src) = nothing
 function _workspace_copyable(dest::Tuple, src::Tuple)
   for i in eachindex(dest), j in eachindex(src)
-    i != j && Base.mightalias(dest[i], src[j]) &&
+    i != j && _mightalias(dest[i], src[j]) &&
       throw(ArgumentError("a starting block must not alias a different workspace block."))
   end
   nothing
@@ -214,6 +227,7 @@ end
 function solve!(ws::SolverWorkspace{X, F, G, M}, g = ws.g) where {X, F, G, M<:_GradientSolver}
   g = _workspace_penalty(ws, g)
   g = _symmetric_penalty(g, ws.x)
+  _check_route(ws.x, g)
   t0 = time()
   reinitialize_state!(ws.buffers.state, ws.f, g, ws.method)
   _solve_gradient!(ws.buffers.state, ws.f, g, ws.method, ws.options, ws.buffers.gap, t0)

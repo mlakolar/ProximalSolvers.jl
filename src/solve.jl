@@ -9,6 +9,7 @@ _drop!(x::Tuple) = (foreach(_drop!, x); x)
 # points, rejecting the trial points off the domain of f
 # the parameter N of OptimizationResults: the dimension of an array, 1 for a tuple
 _resultdims(x::AbstractArray) = ndims(x)
+_resultdims(::SymmetricSparseIterate) = 2
 _resultdims(::Tuple) = 1
 
 _check_start(f_x) = isfinite(f_x) ||
@@ -47,19 +48,39 @@ penalty that couples the blocks. Norms and inner products are taken over all
 the blocks, and a tuple of one array computes exactly what the array does.
 
 On a `SymmetricSparseIterate`, the gradient solvers apply the same parameter
-rule as coordinate descent: the per-entry parameters of `g` that the check
-covers must be exactly symmetric, or symmetric by type as `Symmetric(W, :L)`,
-otherwise an `ArgumentError` is thrown before anything is written (see the
-[`CDSolver`](@ref) method of `solve!` for what the check covers with each
-version of ProximalBase). The penalty is used as supplied. The smooth function
-`f` is not checked. For a tuple of iterates, with ProximalBase 0.6 or later
-the penalty goes through ProximalBase's public `check_symmetric_parameters`,
-which validates what ProximalBase's declarations of per-entry parameters
-cover, and not user-defined wrappers or types that declare nothing; with
-earlier versions the rule covers a `SeparableSum` and `Scaled` around one
-(also nested), and other penalties on a tuple pass unchanged. A custom penalty
-or wrapper is responsible for the symmetric-storage compatibility of its own
-parameters.
+rule as coordinate descent: the per-entry parameters of `g` that
+`ProximalBase.check_symmetric_parameters` covers must be exactly symmetric, or
+symmetric by type as `Symmetric(W, :L)`, otherwise an `ArgumentError` is
+thrown before anything is written (see the [`CDSolver`](@ref) method of
+`solve!` for what the check covers). The penalty is used as supplied. The
+smooth function `f` is not checked. On a tuple of iterates the penalty goes
+through the same check, which covers the blocks of a `SeparableSum` and the
+per-entry parameters that ProximalBase declares, and not user-defined wrappers
+or types that declare nothing. A custom penalty or wrapper is responsible for
+the symmetric-storage compatibility of its own parameters.
+
+When `x` is a `SymmetricSparseIterate`, the iterates and the points where `f`
+and its gradient are evaluated are `SymmetricSparseIterate`s, while the trial
+point `x - ∇f(x)/L` before the proximal step, the step `x - x'` and the
+gradients are dense matrices. The solvers do not symmetrize the gradient that
+`f` returns. `KronQuadratic` returns at a `SymmetricSparseIterate` the gradient
+over symmetric matrices, the symmetric part of the matrix gradient, which is
+exactly symmetric; a loss used at a `SymmetricSparseIterate` must return a
+symmetric gradient for the trial point to be symmetric. When the gradient is
+exactly symmetric, so is the trial point. When it is not, the proximal step of
+ProximalBase into a `SymmetricSparseIterate` reads the symmetric part of the
+trial point, the stopping rules use the gradient as returned, and the dense
+proximal step of the penalties described in [Proximal gradient methods](@ref)
+and the normalized step throw an `ArgumentError` when the matrix they copy
+into a `SymmetricSparseIterate` is not exactly symmetric, as does that route of
+a tuple when the trial point of a `SymmetricSparseIterate` block is not. Norms, inner products and the
+reported residuals are those of the matrix, both triangles: the step norm is
+the Frobenius norm of the matrix `x - x'`, which counts an off-diagonal change
+twice. With `debias`, the support is the set of coordinates whose value is not
+zero, so an active coordinate that holds a zero is not in it.
+`ActiveAccProxGradDescent`, `ADMMSolver` and `preconditioner = :diagonal`
+throw an `ArgumentError` before anything is written when `x` is a
+`SymmetricSparseIterate`.
 
 # Example
 ```julia
@@ -70,7 +91,7 @@ res = solve!(x, QuadraticFunction(A, b), NormL1(0.1), AccProxGradDescent())
 ```
 """
 function solve!(
-    initial_x::Union{AbstractArray, _Blocks},
+    initial_x::Union{_Iterate, _Blocks},
     f::AbstractFunction,
     g::AbstractFunction,
     method::ProximalSolver,
@@ -81,6 +102,7 @@ function solve!(
   isproximable(g) || throw(ArgumentError("$(summary(method)) needs a proximable g (isproximable(g)), but g is a $(typeof(g))."))
   g = _symmetric_penalty(g, initial_x)
   _workspace_noalias(initial_x)
+  _check_route(initial_x, g)
   t0 = time()
   state = initial_state(method, options, f, g, initial_x)
   gapev = options.gaptol > 0 ? _gapevaluator(f, g, initial_x) : nothing

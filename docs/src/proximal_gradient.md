@@ -202,18 +202,87 @@ the whole pair and the Euclidean norm across both blocks.
 
 On a `SymmetricSparseIterate`, the three gradient solvers apply the same
 parameter rule as [coordinate descent](@ref "Coordinates of the iterates"):
-the per-entry parameters of ``g`` that the check covers must be exactly
-symmetric, or symmetric by type as `Symmetric(W, :L)`, and otherwise an
-`ArgumentError` is thrown before anything is written. The penalty is used as supplied; for the symmetric part
-of asymmetric weights, pass ``(W + W')/2``, which is a different penalty. For
-a tuple of iterates, with ProximalBase 0.6 or later the penalty goes through
-ProximalBase's public `check_symmetric_parameters`, which validates what
-ProximalBase's declarations of per-entry parameters cover, and not user-defined
-wrappers or types that declare nothing. With earlier versions the rule covers
-a `SeparableSum` and `Scaled` around one (also nested), and other penalties on
-a tuple pass unchanged. A custom penalty or wrapper is responsible for the
-symmetric-storage compatibility of its own parameters. The smooth loss ``f`` is
-not checked.
+the per-entry parameters of ``g`` that `ProximalBase.check_symmetric_parameters`
+covers must be exactly symmetric, or symmetric by type as `Symmetric(W, :L)`,
+and otherwise an `ArgumentError` is thrown before anything is written. The
+penalty is used as supplied; for the symmetric part of asymmetric weights, pass
+``(W + W')/2``, which is a different penalty. On a tuple of iterates the penalty
+goes through the same check, which covers the blocks of a `SeparableSum` and the
+per-entry parameters that ProximalBase declares, and not user-defined wrappers
+or types that declare nothing. A custom penalty or wrapper is responsible for
+the symmetric-storage compatibility of its own parameters. The smooth loss
+``f`` is not checked.
+
+A `SymmetricSparseIterate` is a point of the space of symmetric matrices with
+the Frobenius inner product. The iterates ``x``, ``x'``, the extrapolated
+points ``y`` and the candidates of the monotone method keep its type, and ``f``
+and its gradient are evaluated at them; the normalized step evaluates ``f`` at
+a `SymmetricSparseIterate` that holds its trial point. The solvers do not
+symmetrize the gradient that ``f`` returns. `KronQuadratic(A, B, C)` returns at
+a `SymmetricSparseIterate` the gradient over symmetric matrices, the symmetric
+part of the matrix gradient, which is exactly symmetric and, for ``A \ne B``,
+differs from its gradient at a dense matrix. A loss used at a
+`SymmetricSparseIterate` must return a symmetric gradient for the trial point
+to be symmetric. The trial point ``y - \nabla f(y)/L`` before the proximal
+step, the step ``x - x'`` and the gradients are dense matrices; with a
+gradient that is exactly symmetric, the trial point is exactly symmetric. With
+a gradient that is not, the proximal step of ProximalBase into a
+`SymmetricSparseIterate` reads the symmetric part of the trial point, the
+stopping rules use the gradient as returned, and the dense proximal step below
+and the normalized step throw an `ArgumentError` when the matrix they copy into
+a `SymmetricSparseIterate` is not exactly symmetric, as does the tuple route
+below when the trial point of a `SymmetricSparseIterate` block is not. Step norms, inner
+products and residuals are those of the matrix, both triangles, so an
+off-diagonal change counts twice: a change of ``0.1`` in one off-diagonal
+coordinate is a step of norm ``0.1\sqrt{2}``. With `debias`, the support is the
+set of coordinates whose value is not zero, and an active coordinate that holds
+a zero is not in it. For `LinearConstrained`, `IndIntersection` and
+`PointwiseMinimum` penalties, also inside `Scaled`, `Translate` and `Tilt`, the
+proximal step of a `SymmetricSparseIterate` is taken over matrices into a dense
+buffer and copied into the iterate, which throws an `ArgumentError` when that
+matrix is not exactly symmetric. A tuple whose penalty is a `SeparableSum` (also
+inside `Scaled`) in which a `SymmetricSparseIterate` block has such a penalty
+takes one proximal step of ProximalBase for the whole penalty into scratch
+blocks: a dense matrix for a `SymmetricSparseIterate` block whose penalty is one
+of those three or `IndBallL1`, `IndBallL2`, `IndSimplex` or `IndSphereL2` (also
+inside `Scaled` with a positive scale), an emptied `SymmetricSparseIterate` for
+any other `SymmetricSparseIterate` block, and a buffer allocated with `similar`
+for the other blocks. A `SymmetricSparseIterate` block then has the active
+coordinates of a freshly filled `SymmetricSparseIterate`, in its order of
+activation, which can differ from the order of a proximal step written into the
+iterate itself. Each `SymmetricSparseIterate` block must have an exactly
+symmetric trial point (an `ArgumentError` before anything is written
+otherwise). A `SymmetricSparseIterate` block whose penalty contains `IndBallL0`
+takes its trial point as a `SymmetricSparseIterate`, the other blocks as a
+dense matrix: at the ProximalBase commit of `Project.toml`, `IndBallL0` counts
+a mirrored pair once in a `SymmetricSparseIterate` argument and twice in a
+matrix. A trial block of `IndBallL1`, `IndBallL2`, `IndSimplex` or
+`IndSphereL2` with exactly one infinite mirrored off-diagonal pair, no other
+infinite entry (for `IndSimplex`, no other `+Inf`) and no NaN is refused with an
+`ArgumentError` before anything is written: the dense step gives NaN there,
+where ProximalBase gives a finite limiting projection into a
+`SymmetricSparseIterate`. The result is copied into the iterate after every dense
+matrix of a `SymmetricSparseIterate` block is checked to be exactly symmetric,
+and an `ArgumentError` is thrown before any block is written when one is not.
+The four set families take a dense matrix because the tuple proximal step of
+the tested ProximalBase revisions in which `SymmetricSparseIterate` is not an
+`AbstractArray` (#737 and a later master) has no `SymmetricSparseIterate`
+output for them; their proximal points over matrices agree with those over
+symmetric matrices at a symmetric argument. When the loaded ProximalBase has no
+such output for `IndBallL0` (the solvers test this once), a tuple on this route
+with a `SymmetricSparseIterate` block whose penalty is `IndBallL0` is refused
+with an `ArgumentError` before anything is written: a dense matrix would change
+the meaning of its cardinality. These roles and refusals are temporary, until
+ProximalBase provides these outputs. An exception during the final copy itself,
+such as an interrupt, can leave earlier blocks written. ProximalBase refuses
+`Translate` and `Tilt` around a tuple with a `SymmetricSparseIterate` block, and
+whose parameters are tuples with one block per iterate block, with an
+`ArgumentError` that the solvers raise when they evaluate the penalty at the
+start point, before anything is written; with an array parameter, ProximalBase
+throws a `DimensionMismatch` instead.
+The diagonal preconditioner, [`ActiveAccProxGradDescent`](@ref) and
+[`ADMMSolver`](@ref) throw an `ArgumentError` before anything is written when
+the iterate is a `SymmetricSparseIterate`.
 
 For a latent graphical model, write `Θ = S + U * U'` and supply a smooth
 loss with

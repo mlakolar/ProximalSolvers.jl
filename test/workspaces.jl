@@ -64,6 +64,48 @@ end
   end
 end
 
+# A SymmetricSparseIterate (owner) workspace: the state keeps owners for the iterates and dense
+# matrices for the trial buffers, reinit! takes a new owner start into the same storage, and each
+# solve gives what a fresh solve from the same start gives
+@testset "owner gradient workspaces reset and reuse buffers $(summary(method))" for method in (
+    ProximalGradientDescent(), ProximalGradientDescent(; normalized = true), AccProxGradDescent(),
+    MonotoneAccProxGradDescent())
+  rng = Xoshiro(7)
+  p = 5
+  R = randn(rng, p, p)
+  S = R'R / p + I
+  C = randn(rng, p, p)
+  f = KronQuadratic(S, S, (C + C') / 2)
+  options = ProximalOptions(; maxiter = 5000, ftol = 1e-13, xtol = 1e-13, gradtol = 1e-11)
+  x = SymmetricSparseIterate(p)
+  ws = SolverWorkspace(x, f, NormL1(0.1), method, options)
+  buffers, state = ws.buffers, ws.buffers.state
+  @test state.x === x && state.x_previous isa SymmetricSparseIterate{Float64}
+  @test state.xhat isa Matrix{Float64} && state.delta_x isa Matrix{Float64}
+  for level in (0.1, 0.03, 0.2)
+    start = SymmetricSparseIterate(p)
+    start[2, 1], start[3, 3] = 0.4, -0.1
+    activate!(start, tril_index(p, 4, 2))             # an active zero
+    reinit!(ws, start)
+    @test Matrix(x) == Matrix(start) && nactive(x) == nactive(start)
+    ref = solve!(copy(start), f, NormL1(level), method, options)
+    result = solve!(ws, NormL1(level))
+    @test result.minimizer === x
+    @test ws.buffers === buffers && ws.buffers.state === state
+    @test Matrix(x) ≈ Matrix(ref.minimizer) atol = 1e-10
+    @test result.minimum ≈ ref.minimum atol = 1e-12
+    @test (result.converged || result.f_increased) && (ref.converged || ref.f_increased)
+    # the extrapolated points of the accelerated methods reuse the slots of the previous solve,
+    # so the order of their active coordinates, and with it the rounding, can differ
+    if method isa ProximalGradientDescent
+      @test (result.iterations, result.f_calls, result.grad_calls, result.prox_calls, result.backtrack_steps) ==
+            (ref.iterations, ref.f_calls, ref.grad_calls, ref.prox_calls, ref.backtrack_steps)
+    end
+  end
+  @test_throws ArgumentError reinit!(ws, zeros(p, p))
+  @test_throws DimensionMismatch reinit!(ws, SymmetricSparseIterate(p + 1))
+end
+
 @testset "tuple source aliases are rejected before mutation" begin
   x = (zeros(3), ones(3))
   f = SeparableSum(SqrNormL2(), SqrNormL2())

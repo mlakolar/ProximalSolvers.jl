@@ -204,10 +204,10 @@ minimizer when `gaptol > 0`, `NaN` otherwise. With a computable gap and
 `gaptol > 0`, `converged` reports whether that gap meets `gaptol`; the
 diagnostic flags still report the individual residual tests. Without a
 computable gap, those tests determine `converged`. The minimizer is the `x` passed
-to `solve!`: an `Array`, a `SparseIterate`, an `AtomIterate`, or a tuple of
-arrays (`N` is 1 for a tuple).
+to `solve!`: an `Array`, a `SparseIterate`, an `AtomIterate`, a
+`SymmetricSparseIterate` (`N` is 2), or a tuple of these (`N` is 1 for a tuple).
 """
-mutable struct OptimizationResults{O<:ProximalSolver,T,N,M,X<:Union{AbstractArray{T,N}, _Blocks{T}}}
+mutable struct OptimizationResults{O<:ProximalSolver,T,N,M,X<:Union{AbstractArray{T,N}, SymmetricSparseIterate{T}, _Blocks{T}}}
     method::O
     minimizer::X
     minimum::T
@@ -264,6 +264,7 @@ call_limit_reached(r::OptimizationResults) = r.call_limit_reached
 function _show_minimizer(io::IO, x::AbstractArray)
     @printf io " * Minimizer: [%s%s]\n" join(Iterators.take(x, 2), ",") (length(x) > 2 ? ", ..." : "")
 end
+_show_minimizer(io::IO, x::SymmetricSparseIterate) = _show_minimizer(io, matrixview(x))
 _show_minimizer(io::IO, x::Tuple) =
     @printf io " * Minimizer: %d blocks of sizes %s\n" length(x) join(map(b -> join(size(b), "×"), x), ", ")
 
