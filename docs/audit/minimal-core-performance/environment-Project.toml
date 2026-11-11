@@ -1,0 +1,11 @@
+[deps]
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+ProximalBase = "0a755509-c5b1-5d6f-9b24-59bcda3c37a3"
+
+[sources]
+ProximalBase = {path = "/home/mkolar/projects/juliaPkg/ProximalSolvers.jl/stage2c-perf-recovery/pb-A-upstream"}
+
+[compat]
+PrecompileTools = "=1.4.0"
+ProximalBase = "0.6"
+julia = "1.13"

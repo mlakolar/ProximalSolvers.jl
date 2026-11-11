@@ -57,4 +57,5 @@ and the deferred macOS C0 failure are preserved in the audit record.
 
 [Examples](examples/README.md) · [Contributing](CONTRIBUTING.md) ·
 [Test provenance](docs/audit/minimal-core-test-provenance.md) ·
+[Extraction evidence](docs/audit/minimal-core-reduction.md) ·
 [Transition issue #234](https://github.com/mlakolar/ProximalSolvers.jl/issues/234)
