@@ -43,7 +43,7 @@ paths = [
 ]
 
 [[risk]]
-why = "test runner, CI and dependencies: every tier and platform must still work"
+why = "test runner, CI and dependencies: every tier and the required Linux job must still work"
 tier = "full"
 paths = [
   ".github/tier-rules.toml",
@@ -85,7 +85,7 @@ tier = "full"
 paths = ["src/utils.jl", "src/cd/gap.jl", "src/cd/sqrtdual.jl", "src/cd/path.jl", "src/solvers/primal_dual.jl", "src/cd/glm.jl"]
 
 [[risk]]
-why = "a direct LAPACK call (syevr through ccall), where a platform-specific out-of-bounds write once crashed Julia on macOS (#131, #146): every platform must run it"
+why = "a direct LAPACK call (syevr through ccall), with a historical macOS out-of-bounds write (#131, #146): retain full testing on the active Linux platform"
 tier = "full"
 paths = ["src/cd/groupcurvature.jl"]
 

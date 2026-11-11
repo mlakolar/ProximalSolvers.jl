@@ -10,7 +10,7 @@
 # applies them. Writes `tier`, `focus`, `run_tests` and `timeout` to $GITHUB_OUTPUT and a
 # decision table to $GITHUB_STEP_SUMMARY when those are set, and prints both. Pushes (master
 # and release tags) always run full. A scheduled run is full unless a run that passed the full
-# tier on the same commit, with the same resolved dependencies, is less than a day old (see
+# tier on the same commit, with the same resolved dependencies and CI policy, is less than a day old (see
 # `recent_full_run`). No packages are needed.
 
 include(joinpath(dirname(@__DIR__), "test", "tiers.jl"))
@@ -87,8 +87,9 @@ A run of this workflow on `sha` that makes a scheduled full run redundant: not f
 request, created in the 24 hours before `at` (Unix time), concluded `success`; in its latest
 attempt `CI required jobs` and every test job of the full tier (`FULL_JOBS`) succeeded; and it
 recorded the resolved test environments `environments` (artifact names
-`environment-<julia>-<digest>` written by scripts/ci_environment.jl), so the same Julia
-versions and package versions were tested. `reasons` says why each candidate was rejected.
+`environment-<julia>-<policy>-<digest>` written by scripts/ci_environment.jl), so the same Julia,
+package versions and CI policy were tested. Re-running an old checkout still records its old
+policy and cannot qualify for a changed policy. `reasons` says why each candidate was rejected.
 `gh` runs the GitHub CLI and returns its output lines (tests pass a fake). Malformed output
 throws, so the caller runs the full tier rather than skip it.
 """
@@ -102,13 +103,12 @@ function recent_full_run(repo, sha, environments; gh = gh_lines, at = time())
     id, event, created, conclusion, head = tsv(line, 5, "gh run list")
     event in ("push", "schedule", "workflow_dispatch") && conclusion == "success" && head == sha || continue
     at - 24 * 3600 <= parse(Float64, created) <= at || continue
-    jobs = Dict{String, String}()
-    for l in gh(["api", "repos/$repo/actions/runs/$id/jobs?filter=latest&per_page=100", "--paginate",
-                 "--jq", ".jobs[] | [.name, (.conclusion // \"\")] | @tsv"])
-      name, c = tsv(l, 2, "the jobs of run $id")
-      jobs[name] = c
-    end
+    jobs = CIVerdict.parse_jobs(gh(["api", "repos/$repo/actions/runs/$id/jobs?filter=latest&per_page=100", "--paginate",
+                                  "--jq", CIVerdict.JOBS_JQ]))
     failed = [name for name in [VERDICT; FULL_JOBS] if get(jobs, name, "missing") != "success"]
+    # Keep fail-closed behavior when inspecting runs from an older/larger matrix.
+    append!(failed, [name for (name, c) in jobs if startswith(name, "Julia ") &&
+                    endswith(name, " - full") && !(name in FULL_JOBS) && c != "success"])
     if !isempty(failed)
       push!(reasons, "run $id: " * join(("$name: $(get(jobs, name, "missing"))" for name in failed), ", "))
       continue
@@ -117,7 +117,7 @@ function recent_full_run(repo, sha, environments; gh = gh_lines, at = time())
                         "--jq", ".artifacts[] | select(.expired | not) | .name"]))
     missing = setdiff(environments, artifacts)
     if !isempty(missing)
-      push!(reasons, "run $id tested other dependencies (it has no $(join(missing, ", ")))")
+      push!(reasons, "run $id tested other dependencies or CI policy (it has no $(join(missing, ", ")))")
       continue
     end
     return String(id), reasons
@@ -169,7 +169,7 @@ function plan(opts; gh = gh_lines, at = time())
       else
         tier = "none"
         push!(lines, "", "Run $id passed the full tier on this commit in the last 24 hours, with the same " *
-                         "Julia and package versions ($(join(environments, ", "))); nothing to repeat.")
+                         "Julia/package versions and CI policy ($(join(environments, ", "))); nothing to repeat.")
       end
     end
   elseif event == "push"

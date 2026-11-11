@@ -289,15 +289,48 @@ end
 
 # The planner (scripts/ci_plan.jl) with a fake GitHub CLI. Pushes run full. The nightly run skips
 # the full tier only after a successful non-PR full run on the same commit in the last 24 hours
-# whose verdict and three full test jobs passed and which recorded the same resolved test
-# environments; an API failure, a malformed answer or an unknown environment runs full.
+# whose verdict and Linux full test job passed and which recorded the same resolved test
+# environment and CI policy; an API failure, malformed answer or unknown record runs full.
 module CIPlan
 include(joinpath(dirname(@__DIR__), "scripts", "ci_plan.jl"))
 end
 
 const SHA = "a" ^ 40
 const NOW = 1_800_000_000.0 # Unix time
-const ENVS = ["environment-1-fedcba9876543210"]
+# Run environment-record checks in a standard-library-only process: Pkg and SHA belong
+# to the CI script, not to the package's runtime or test dependency declarations.
+const POLICY_SCRIPT = raw"""
+using Test
+include(ARGS[1])
+const CE = CIEnvironment
+lines = ["julia 1.13.3", "ProximalBase uuid 0.6.0-DEV"]
+mktempdir() do root
+  for path in CE.POLICY_FILES
+    target = joinpath(root, path)
+    mkpath(dirname(target))
+    cp(joinpath(CE.ROOT, path), target)
+  end
+  original = CE.environment_name(lines; channel="1", root)
+  @test original == CE.environment_name(reverse(lines); channel="1", root)
+  @test original != CE.environment_name([lines; "new dependency"]; channel="1", root)
+  @test original != CE.environment_name(lines; channel="other", root)
+  for path in CE.POLICY_FILES
+    target = joinpath(root, path)
+    content = read(target, String)
+    write(target, content * "\n# changed policy\n")
+    @test original != CE.environment_name(lines; channel="1", root)
+    write(target, replace(content, "\n" => "\r\n"))
+    @test original == CE.environment_name(lines; channel="1", root)
+    write(target, content)
+  end
+  rm(joinpath(root, first(CE.POLICY_FILES)))
+  @test_throws SystemError CE.environment_name(lines; channel="1", root)
+end
+print(CE.policy_digest())
+"""
+const POLICY = readchomp(addenv(`$(Base.julia_cmd()) --startup-file=no --project=@stdlib -e $POLICY_SCRIPT $(joinpath(dirname(@__DIR__), "scripts", "ci_environment.jl"))`,
+                               "JULIA_LOAD_PATH" => "@stdlib"))
+const ENVS = ["environment-1-$POLICY-fedcba9876543210"]
 const PASSED = Dict(name => "success" for name in [CIPlan.VERDICT; CIPlan.FULL_JOBS; "Test plan"; "CI result"])
 # A line of `gh run list` as recent_full_run asks for it: id, event, created (Unix time), conclusion, commit.
 runline(id, event; hours = 2, conclusion = "success", sha = SHA) =
@@ -351,7 +384,8 @@ single(id, event = "push"; jobs = PASSED, artifacts = ENVS, calls = Vector{Strin
   for name in CIPlan.FULL_JOBS, c in ("failure", "cancelled", "skipped", "")
     @test nightly_tier(single("22"; jobs = merge(PASSED, Dict(name => c)))) == "full"
   end
-  @test nightly_tier(single("23"; jobs = delete!(copy(PASSED), "Julia 1 - windows-latest - x64 - full"))) == "full"
+  @test CIPlan.FULL_JOBS == ["Julia 1 - ubuntu-latest - x64 - full"]
+  @test nightly_tier(single("23"; jobs = delete!(copy(PASSED), only(CIPlan.FULL_JOBS)))) == "full"
   @test nightly_tier(single("24"; jobs = merge(PASSED, Dict(CIPlan.VERDICT => "failure")))) == "full"
   # the verdict of a pull request run has another name and does not count
   @test nightly_tier(single("25"; jobs = merge(delete!(copy(PASSED), CIPlan.VERDICT), Dict("PR required jobs" => "success")))) == "full"
@@ -359,6 +393,16 @@ single(id, event = "push"; jobs = PASSED, artifacts = ENVS, calls = Vector{Strin
   @test nightly_tier(single("31"; artifacts = String[])) == "full"
   @test nightly_tier(single("32"; artifacts = ["environment-1-1111111111111111"])) == "full"
   @test nightly_tier(single("33"; artifacts = ["environment-1.10-0123456789abcdef"])) == "full"
+  # An older workflow (including a re-run of its checkout) has a different policy
+  # artifact even if its dependency versions, commit and all latest jobs match.
+  @test nightly_tier(single("36"; artifacts = ["environment-1-fedcba9876543210"])) == "full"
+  @test nightly_tier(single("37"; artifacts = ["environment-1-oldpolicy-fedcba9876543210"])) == "full"
+  @test nightly_tier(single("38"; jobs = merge(PASSED, Dict("Julia 1 - macos-latest - aarch64 - full" => "failure")))) == "full"
+  duplicate = function (args)
+    occursin("/jobs?", args[2]) && return [["$k\t$v" for (k, v) in PASSED]; "$(only(CIPlan.FULL_JOBS))\tfailure"]
+    return single("39")(args)
+  end
+  @test nightly_tier(duplicate) == "full"
   result, lines = nightly(single("34"; artifacts = ["environment-1-0000000000000000"]))
   @test result.tier == "full" && any(occursin("run 34 tested other dependencies", l) for l in lines)
   # the nightly run could not resolve its own environments: full, and nothing is asked
