@@ -29,9 +29,8 @@ iteration starts from `L ← α L`, where `1/L` is the step size, and while the
 local Lipschitz estimate `L̂` of the step exceeds `L` it retries with
 `L ← min(Lexact, max(L̂, L / β))`. `L̂` comes from function values until they
 are too close to compare in floating point, and from gradients after that.
-A trial point where `f` is not finite, such as a matrix off the positive
-definite cone for `LogDetLoss`, is never accepted: it gives no estimate, and
-the search retries with `L ← L / β`.
+An LS trial whose image or value overflows is never accepted: it gives no
+estimate, and the search retries with `L ← L / β`.
 
 The object holds settings only and can be shared between solves; the
 bookkeeping lives in the solver state.
@@ -78,8 +77,8 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
       return true
     end
 
-    # off the domain of f (f = Inf, and a NaN gradient for LogDetLoss) neither
-    # estimate exists: shrink the step, past Lexact if need be, since such a point
+    # A nonfinite LS trial value supplies neither curvature estimate. Shrink
+    # the step, past Lexact if need be, since such a point
     # is never accepted. Taking L̂ = Inf would set L = Inf, and the next trial,
     # with step 0, would return x_previous as if converged.
     if !isfinite(state.f_x)

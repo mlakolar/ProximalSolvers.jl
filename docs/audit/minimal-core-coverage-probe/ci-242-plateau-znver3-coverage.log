@@ -1,0 +1,4 @@
+julia=1.13.3 host_cpu=raptorlake cpu_target=znver3 bounds=0 PB=/home/mkolar/projects/juliaPkg/ProximalSolvers.jl/stage2c-perf-recovery/pb-A-upstream/src/ProximalBase.jl
+historical=(x = Float32[0.6114212, -0.15817945], converged = true, passes = 9, maxchange = 0.0f0, tolerance = 6.78233f-10, minimum = 1.306973f-5)
+candidate=(x = Float32[0.6114212, -0.15817945], converged = true, passes = 9, maxchange = 0.0f0, tolerance = 6.78233f-10, minimum = 1.306973f-5)
+IDENTICAL=true

@@ -1,0 +1,8 @@
+┌ Warning: coordinate descent did not converge in maxpasses = 100000 passes (last change 9.1200003e-10, tolerance 6.78e-10).
+└ @ Main.Historical.ProximalSolvers ~/projects/juliaPkg/ProximalSolvers.jl/stage2c-perf-recovery/ps-9be1773/src/cd/solver.jl:683
+┌ Warning: coordinate descent did not converge in maxpasses = 100000 passes (last change 9.1200003e-10, tolerance 6.78e-10).
+└ @ Main.Candidate.ProximalSolvers ~/projects/juliaPkg/ProximalSolvers.jl/stage2c-perf-recovery/candidate-a457/src/cd/solver.jl:340
+julia=1.13.3 host_cpu=raptorlake cpu_target=native bounds=0 PB=/home/mkolar/projects/juliaPkg/ProximalSolvers.jl/stage2c-perf-recovery/pb-A-upstream/src/ProximalBase.jl
+historical=(x = Float32[0.61142135, -0.15817948], converged = false, passes = 100000, maxchange = 9.117757f-10, tolerance = 6.78233f-10, minimum = 1.3069732f-5)
+candidate=(x = Float32[0.61142135, -0.15817948], converged = false, passes = 100000, maxchange = 9.117757f-10, tolerance = 6.78233f-10, minimum = 1.3069732f-5)
+IDENTICAL=true
