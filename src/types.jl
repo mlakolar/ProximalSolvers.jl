@@ -1,64 +1,26 @@
 """
     ProximalSolver
 
-Abstract supertype of the solvers passed to [`solve!`](@ref):
-[`ProximalGradientDescent`](@ref), [`AccProxGradDescent`](@ref),
-[`MonotoneAccProxGradDescent`](@ref), [`ActiveAccProxGradDescent`](@ref) and
-[`ADMMSolver`](@ref) and [`CondatVu`](@ref).
+Abstract supertype of CDSolver and ProximalGradientDescent, passed to solve!.
 """
 abstract type ProximalSolver end
 
 
 """
-    ProximalOptions(; kwargs...)
+    ProximalOptions(; maxiter=200, ftol=1e-6, xtol=1e-8, gradtol=1e-5,
+      allow_f_increases=false, store_trace=false, show_trace=false,
+      extended_trace=false, print_every=1, callback=nothing, time_limit=Inf,
+      f_calls_limit=0, grad_calls_limit=0, prox_calls_limit=0, gaptol=0, gapevery=10)
 
-Options for [`solve!`](@ref). The solver stops at the first of: a convergence
-test passes, `maxiter` iterations, `time_limit` seconds, a limit on the number
-of calls, the objective increases (unless `allow_f_increases`), or `callback`
-returns `true`.
-
-# Keywords
-- `maxiter = 200`: maximum number of iterations.
-- `ftol = 1e-6`: stop when `|F(x) - F(x')| / (|F(x)| + ftol) < ftol`, where
-  `F = f + g` and `x'` is the previous iterate.
-- `xtol = 1e-8`: stop when `‖x - x'‖ < xtol * max(‖x‖, 1)`.
-- `gradtol = 1e-5`: stop when the relative or normalized optimality residual of
-  Goldstein, Studer and Baraniuk (FASTA) is below `gradtol`. Not used by
-  [`ADMMSolver`](@ref), which has its own tolerances.
-- `allow_f_increases = false`: keep iterating when the objective increases.
-- `store_trace = false`: record an [`OptimizationState`](@ref) per iteration in
-  the results.
-- `show_trace = false`: print the progress every `print_every` iterations.
-- `extended_trace = false`: also store the iterate and gradient in each state.
-- `print_every = 1`: how often to print and call `callback`; stored gradient traces include every iteration.
-- `callback = nothing`: a callable object called every `print_every` iterations with
-  the trace (if `store_trace`) or the current state; return `true` to stop.
-- `time_limit = Inf`: maximum run time in seconds.
-- `f_calls_limit = 0`, `grad_calls_limit = 0`, `prox_calls_limit = 0`: stop
-  once `f`, the gradient of `f`, or proximal operators (`prox!`) have been
-  evaluated this many times; `0` means no limit. The counts are checked after
-  each iteration, which always finishes, so a count can exceed its limit by
-  the evaluations of one iteration. [`ADMMSolver`](@ref) uses only
-  `prox_calls_limit`.
-- `gaptol = 0`: with `gaptol > 0`, stop when the relative duality gap
-  `(P - D) / |P|` at the iterate is at most `gaptol`, checked every `gapevery`
-  iterations, instead of on the `ftol`, `xtol`, `gradtol` tests and an
-  increasing objective (or ADMM's residuals): a certificate that `P = f + g` is within `gaptol ⋅ |P|` of its
-  minimum (see [`duality_gap`](@ref) for the functions that have a gap; for
-  others `gaptol` is ignored, with a warning). Used by
-  [`ProximalGradientDescent`](@ref), [`AccProxGradDescent`](@ref) and
-  [`ADMMSolver`](@ref); the results report the final relative gap as `gap`.
-- `gapevery = 10`: how often to compute the gap when `gaptol > 0`. Each
-  evaluation costs about two products with the design.
-
-[`CondatVu`](@ref) uses these limits, tracing and gap options for a linear
-composite problem, with its own KKT residual tolerances instead of `ftol`,
-`xtol` and `gradtol`. Unsupported composite conjugates raise an error when
-`gaptol > 0`; a valid relative gap callback can be supplied instead.
-
-The solvers work in the starting point's element type, including `Float32`
-and `Float64`. Tolerances below working precision can produce stagnation or
-rounded residuals; they do not imply correspondingly accurate coefficients.
+PGD retains objective-change, iterate-change OR FASTA residual stopping. This
+convergence flag is not a KKT certificate. Callback/display cadence is print_every;
+stored traces contain each iteration. A callback sees the trace when storing,
+otherwise the current state. Extended metadata copies x and its gradient.
+Call/time limits are checked after complete iterations, so counts may exceed
+limits by one iteration; zero call limits mean unlimited. Native Float32/64
+buffers retain their arithmetic; scalar diagnostics use Float64. Tolerances
+below working precision do not imply corresponding coefficient accuracy.
+Positive gaptol is deferred and refused. Positive gapevery stays inert at gaptol=0.
 """
 struct ProximalOptions{TCallback}
   maxiter::Int64
@@ -187,27 +149,13 @@ end
 """
     OptimizationResults
 
-Returned by [`solve!`](@ref) for [`ProximalGradientDescent`](@ref) and
-[`AccProxGradDescent`](@ref). Its fields include `minimizer`, `minimum`
-(`f + g` at the minimizer), `iterations`, `converged` (the selected
-convergence criterion passed), the diagnostic flags `x_converged`,
-`f_converged`, `grad_converged`, `f_increased` and `iteration_converged`
-(the iteration limit was reached), the final residuals `x_residual`,
-`f_residual` and `g_residual` with their tolerances, the `trace`,
-`backtrack_steps`, the number of trial steps checked by the backtracking line
-search over all iterations (accepted steps included), and the number of
-evaluations: `f_calls` of `f` (by `value` or `value_and_gradient!`),
-`grad_calls` of its gradient and `prox_calls` of the proximal operator of `g`.
-`call_limit_reached` is `true` when the solver stopped at one of the limits in
-[`ProximalOptions`](@ref), and `gap` is the relative duality gap at the
-minimizer when `gaptol > 0`, `NaN` otherwise. With a computable gap and
-`gaptol > 0`, `converged` reports whether that gap meets `gaptol`; the
-diagnostic flags still report the individual residual tests. Without a
-computable gap, those tests determine `converged`. The minimizer is the `x` passed
-to `solve!`: an `Array`, a `SparseIterate`, an `AtomIterate`, or a tuple of
-arrays (`N` is 1 for a tuple).
+Qualified PGD result. minimizer aliases x; minimum, iterations, convergence
+flags, residuals/tolerances, trace, call and backtracking counts retain their
+historical meanings. iteration_converged means an iteration limit, not success.
+backtrack_steps includes accepted nonzero trials. gap is a NaN sentinel, never
+a computed certificate.
 """
-mutable struct OptimizationResults{O<:ProximalSolver,T,N,M,X<:Union{AbstractArray{T,N}, _Blocks{T}}}
+mutable struct OptimizationResults{O<:ProximalSolver,T,N,M,X<:AbstractArray{T,N}}
     method::O
     minimizer::X
     minimum::T
@@ -232,8 +180,6 @@ mutable struct OptimizationResults{O<:ProximalSolver,T,N,M,X<:Union{AbstractArra
     call_limit_reached::Bool
     gap::Float64
 
-    # N appears only in the bound of X, which a tuple leaves free, so solve!
-    # gives all the parameters
     OptimizationResults{O,T,N,M,X}(fields...) where {O,T,N,M,X} = new{O,T,N,M,X}(fields...)
 end
 
@@ -264,8 +210,6 @@ call_limit_reached(r::OptimizationResults) = r.call_limit_reached
 function _show_minimizer(io::IO, x::AbstractArray)
     @printf io " * Minimizer: [%s%s]\n" join(Iterators.take(x, 2), ",") (length(x) > 2 ? ", ..." : "")
 end
-_show_minimizer(io::IO, x::Tuple) =
-    @printf io " * Minimizer: %d blocks of sizes %s\n" length(x) join(map(b -> join(size(b), "×"), x), ", ")
 
 function Base.show(io::IO, r::OptimizationResults)
     @printf io "Results of Optimization Algorithm\n"
