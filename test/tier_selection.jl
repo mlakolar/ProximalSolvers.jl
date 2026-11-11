@@ -237,7 +237,7 @@ end
   two = add(add(old, "full", "b_new"), "standard", "a_new")
   @test TT.manifest_additions(old, two, ["a_new", "b_new"]) == (["a_new", "b_new"], String[])
   # comments and order alone change nothing
-  commented = replace(old, "\n#" => "\n# edited:"; count = 1)
+  commented = replace(old, "# Cumulative" => "# Edited cumulative"; count = 1)
   @test commented != old && TT.manifest_additions(old, commented, String[]) == (String[], String[])
   # the names come from the manifest itself, so that a PR that moves a file still passes here
   line(name) = "  \"$name\",\n"
