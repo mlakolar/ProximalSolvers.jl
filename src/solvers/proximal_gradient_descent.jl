@@ -128,8 +128,8 @@ function update_state!(
 end
 
 
-LineSearches.value_and_gradient_at_x!(state::ProximalGradientDescentState,f) =
-  _value_and_gradient!(state.grad_f_x,f,state.x,state.model,state.z_x,state.dz)
+LineSearches.value_and_gradient_at_x!(state::ProximalGradientDescentState, f) =
+  _value_and_gradient!(state.grad_f_x, f, state.x, state.model, state.z_x, state.dz)
 
 function _check_method(m::ProximalGradientDescent)
   !m.normalized && iszero(m.debias) && m.preconditioner === nothing ||
@@ -164,4 +164,3 @@ function solve!(x, f, g, method::ProximalGradientDescent,
   state = initial_state(method, options, f, g, x)
   _solve_gradient!(state, f, g, method, options, nothing, t0)
 end
-

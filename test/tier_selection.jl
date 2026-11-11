@@ -84,17 +84,11 @@ end
   listed = vcat((TOML.parsefile(joinpath(@__DIR__, "tiers.toml"))["tiers"][t] for t in TIERS)...)
   @test sort(listed) == full
   # only these are not tests: a test file moved into either list would stop running
-  @test sort(m.helpers) == ["symmetric_penalty_helpers", "tiers"]
-  @test m.environments == ["oracles"]
-  # the exhaustive companions stay deeper than their representative cases
-  for (basics, rest) in (("coordinate_descent_basics", "coordinate_descent"),
-                         ("float32_certificates_basics", "float32_certificates"),
-                         ("symmetric_penalties_basics", "symmetric_penalties"),
-                         ("audit_regressions_basics", "audit_regressions"))
-    @test m.tier[basics] == "quick"
-    @test TT.rank(m.tier[rest]) > TT.rank("quick")
-  end
-  @test m.tier["symmetric_penalty_combinations"] == "full"
+  @test sort(m.helpers) == ["tiers"]
+  @test isempty(m.environments)
+  @test sort(quick)==sort(["aqua","ci_gate","naming","tier_selection","minimal_core_characterization","core_contracts"])
+  @test m.tier["core_regressions"]=="standard"
+  @test m.tier["examples"]=="full"
   @test "tier_selection" in quick
   @test all(name -> !startswith(name, "oracles/"), full)
 end
@@ -136,62 +130,60 @@ pr(paths...; labels = String[]) = TT.pr_tier(CI, collect(paths), labels)[1:2]
 const STANDARD = TT.select(CI, "standard")
 
 @testset "risk rules" begin
-  # documentation and what the package tests do not use: no package tests
-  @test classify("docs/src/index.md", "CONTRIBUTING.md", "README.md", "test/TESTING.md") == ("none", String[])
-  @test classify("docs/make.jl", "docs/Project.toml", "LICENSE", "codecov.yml") == ("none", String[])
-  @test classify("benchmark/run.jl", "benchmark/check_analysis.py", "test/oracles/runtests.jl") == ("none", String[])
-  @test classify("scripts/check_naming.py", ".github/workflows/Documentation.yml") == ("none", String[])
-  # a changed test file runs beside quick
-  @test classify("test/glm.jl") == ("quick", ["glm"])
-  @test classify("test/glm.jl", "test/prox_solvers.jl") == ("quick", ["glm", "prox_solvers"])
-  @test classify("test/symmetric_penalty_helpers.jl") ==
-        ("quick", ["symmetric_penalties", "symmetric_penalties_basics", "symmetric_penalty_combinations"])
-  @test classify("examples/01_lasso.jl") == ("quick", ["examples"])
-  @test classify("examples/README.md") == ("none", String[])
-  # other files under test/ (the test environment, data, preferences) need full
-  for path in ("test/Project.toml", "test/Manifest.toml", "test/LocalPreferences.toml", "test/data/x.csv")
-    @test classify(path)[1] == "full"
+  @test classify("docs/src/index.md","CONTRIBUTING.md","README.md","test/TESTING.md") == ("none",String[])
+  @test classify("docs/make.jl","docs/Project.toml","LICENSE","codecov.yml") == ("none",String[])
+  @test classify("benchmark/run.jl","benchmark/check_analysis.py") == ("none",String[])
+  @test classify("scripts/check_naming.py",".github/workflows/Documentation.yml") == ("none",String[])
+  @test classify("test/core_contracts.jl")==("quick",["core_contracts"])
+  @test classify("test/core_contracts.jl","test/minimal_core_characterization.jl")==("quick",["core_contracts","minimal_core_characterization"])
+  @test classify("examples/01_cd_lasso.jl")==("quick",["examples"])
+  @test classify("examples/README.md")==("none",String[])
+  @test classify("test/removed_file.jl")==("quick",String[])
+  for path in ("test/Project.toml","test/Manifest.toml","test/LocalPreferences.toml","test/data/x.csv",
+    ".github/workflows/CI.yml",".github/tier-rules.toml","Project.toml","scripts/ci_plan.jl",
+    "scripts/ci_gate.jl","scripts/ci_verdict.jl","scripts/ci_environment.jl","scripts/test.jl",
+    "scripts/test_report.jl","test/runtests.jl","test/tiers.jl","test/tiers.toml",
+    "Manifest.toml","a/new/file.txt",".github/workflows/New.yml","ext/SomeExt.jl")
+    @test classify(path)[1]=="full"
   end
-  # the focus files of the helper rule are the test files that include the helper
-  includers = sort([splitext(f)[1] for f in readdir(@__DIR__) if endswith(f, ".jl") &&
-                    occursin(r"include\([^)]*symmetric_penalty_helpers\.jl", read(joinpath(@__DIR__, f), String))])
-  helper_rule = only(r for r in CI.rules if "test/symmetric_penalty_helpers.jl" in r.patterns)
-  @test sort(helper_rule.focus) == includers
-  # a deleted or renamed test file is no focus file; the runner rejects an unlisted one
-  @test classify("test/removed_file.jl") == ("quick", String[])
-  # localized solver code: standard and the full-only files that exercise it
-  @test classify("src/solvers/admm.jl") == ("standard", ["examples"])
-  @test classify("src/cd/leastsquares.jl", "test/glm.jl") == ("standard", ["examples", "float32_certificates", "glm"])
-  @test classify("src/cd/quic.jl") == ("standard", ["symmetric_penalty_combinations"])
-  @test classify("src/solvers/slope.jl") == ("standard", ["mixed_precision_extended"])
-  @test classify("src/cd/multiresponse.jl") == ("standard", String[])
-  # a label cannot lower the native LAPACK call below full
-  @test pr("src/cd/groupcurvature.jl"; labels = ["test:standard"]) == ("full", String[])
-  # shared architecture, convergence and certification semantics: full
-  for path in ("src/ProximalSolvers.jl", "src/types.jl", "src/solve.jl", "src/blocks.jl", "src/line_searches.jl",
-               "src/workspaces.jl", "src/precompile.jl", "src/cd/models.jl", "src/cd/solver.jl",
-               "src/utils.jl", "src/cd/gap.jl", "src/cd/sqrtdual.jl", "src/cd/path.jl",
-               "src/solvers/primal_dual.jl", "src/cd/glm.jl",
-               # native code: a direct LAPACK call (#131, #146)
-               "src/cd/groupcurvature.jl")
-    @test classify(path)[1] == "full"
+  for path in ("src/ProximalSolvers.jl","src/types.jl","src/solve.jl","src/blocks.jl","src/line_searches.jl",
+    "src/precompile.jl","src/cd/models.jl","src/cd/solver.jl","src/cd/leastsquares.jl",
+    "src/utils.jl","src/solvers/image_models.jl","src/solvers/proximal_gradient_descent.jl")
+    @test classify(path)==("full",String[])
   end
-  # CI infrastructure, dependencies, the tier lists and paths no rule knows: full
-  for path in (".github/workflows/CI.yml", ".github/tier-rules.toml", "Project.toml", "scripts/ci_plan.jl",
-               "scripts/ci_gate.jl", "scripts/ci_verdict.jl", "scripts/ci_environment.jl", "scripts/test.jl",
-               "scripts/test_report.jl", "test/runtests.jl", "test/tiers.jl", "test/tiers.toml",
-               "Manifest.toml", "a/new/file.txt", ".github/workflows/New.yml", "ext/SomeExt.jl")
-    @test classify(path)[1] == "full"
-  end
-  # the highest tier of the changed paths decides
-  @test classify("docs/src/index.md", "test/glm.jl", "src/cd/leastsquares.jl")[1] == "standard"
-  @test classify("test/glm.jl", "src/cd/leastsquares.jl", "Project.toml")[1] == "full"
-  # focus files leave out what the tier runs anyway
-  @test pr("src/cd/leastsquares.jl", "test/glm.jl") == ("standard", ["examples", "float32_certificates"])
-  @test pr("test/examples.jl") == ("quick", ["examples"])
-  @test pr("src/types.jl", "test/glm.jl") == ("full", String[])
-  # no changed files: quick
-  @test pr() == ("quick", String[])
+  @test classify("docs/src/index.md","test/core_contracts.jl","src/cd/leastsquares.jl")[1]=="full"
+  @test pr("src/cd/leastsquares.jl","test/core_contracts.jl")==("full",String[])
+  @test pr("test/examples.jl")==("quick",["examples"])
+  @test pr()==("quick",String[])
+end
+
+@testset "synthetic localized risk and focus policy" begin
+  m=TT.parse_manifest(SMALL * """
+[[risk]]
+tier="quick"
+paths=["test/h.jl"]
+focus=["b","c","d"]
+[[risk]]
+tier="quick"
+paths=["test/**/*.jl"]
+[[risk]]
+tier="standard"
+paths=["src/local.jl"]
+focus=["d"]
+[[risk]]
+tier="full"
+paths=["src/shared.jl"]
+[[risk]]
+tier="none"
+paths=["docs/**"]
+""")
+  @test TT.classify(m,["test/h.jl"])[1:2]==("quick",["b","c","d"])
+  @test TT.classify(m,["src/local.jl","test/c.jl"])[1:2]==("standard",["c","d"])
+  @test TT.pr_tier(m,["src/local.jl","test/c.jl"],String[])[1:2]==("standard",["d"])
+  @test TT.pr_tier(m,["src/local.jl"],["test:full"])[1:2]==("full",String[])
+  @test TT.pr_tier(m,["src/shared.jl"],["test:standard"])[1:2]==("full",String[])
+  @test TT.pr_tier(m,["docs/x.md","test/a.jl"],String[])[1:2]==("quick",String[])
+  @test TT.classify(m,["src/new.jl"])[1]=="full"
 end
 
 @testset "every rule decides the paths it names, and they exist" begin
@@ -208,7 +200,7 @@ end
     @test any(rule -> path in rule.patterns && rule.tier in ("standard", "full"), CI.rules)
   end
   @test classify("src/cd/new_model.jl") == ("full", String[])
-  @test classify("src/new_dir/file.jl", "test/glm.jl") == ("full", ["glm"])
+  @test classify("src/new_dir/file.jl", "test/core_contracts.jl") == ("full", ["core_contracts"])
   # the focus files of a solver rule are full-only files: standard runs the others anyway
   for rule in CI.rules, name in rule.focus
     rule.tier == "standard" && @test CI.tier[name] == "full"
@@ -217,20 +209,20 @@ end
 end
 
 @testset "labels only raise the tier" begin
-  @test pr("test/glm.jl"; labels = ["test:standard"]) == ("standard", String[])
-  @test pr("test/glm.jl"; labels = ["test:full"]) == ("full", String[])
-  @test pr("test/glm.jl"; labels = ["test:standard", "test:full", "bug"]) == ("full", String[])
+  @test pr("test/core_contracts.jl"; labels = ["test:standard"]) == ("standard", String[])
+  @test pr("test/core_contracts.jl"; labels = ["test:full"]) == ("full", String[])
+  @test pr("test/core_contracts.jl"; labels = ["test:standard", "test:full", "bug"]) == ("full", String[])
   @test pr("docs/src/index.md"; labels = ["test:standard"]) == ("standard", String[])
   @test pr("docs/src/index.md"; labels = ["documentation"]) == ("none", String[])
   # a label below the path tier changes nothing
   @test pr("src/types.jl"; labels = ["test:standard"]) == ("full", String[])
-  @test pr("src/cd/quic.jl"; labels = ["test:standard"]) == ("standard", ["symmetric_penalty_combinations"])
+  @test pr("src/cd/solver.jl"; labels = ["test:standard"]) == ("full", String[])
   # the focus files of a raised tier leave out what it runs
-  @test pr("src/cd/quic.jl"; labels = ["test:full"]) == ("full", String[])
+  @test pr("src/cd/solver.jl"; labels = ["test:full"]) == ("full", String[])
   # a test: label that names no tier above quick stops the plan
-  @test_throws ArgumentError pr("test/glm.jl"; labels = ["test:quick"])
-  @test_throws ArgumentError pr("test/glm.jl"; labels = ["test:thorough"])
-  notes = TT.pr_tier(CI, ["test/glm.jl"], ["test:full"])[4]
+  @test_throws ArgumentError pr("test/core_contracts.jl"; labels = ["test:quick"])
+  @test_throws ArgumentError pr("test/core_contracts.jl"; labels = ["test:thorough"])
+  notes = TT.pr_tier(CI, ["test/core_contracts.jl"], ["test:full"])[4]
   @test only(notes) == "Label `test:full` asks for at least full."
 end
 
@@ -264,11 +256,14 @@ end
   @test a === nothing && only(p) == "`$q1` is removed from tier `quick`"
   renamed = add(replace(old, line(q1) => ""; count = 1), "quick", q1 * "_renamed")
   @test TT.manifest_additions(old, renamed, [q1 * "_renamed"])[2] == ["`$q1` is removed from tier `quick`"]
-  a, p = TT.manifest_additions(old, replace(old, "\"symmetric_penalty_helpers\", \"tiers\"]" =>
-                                                 "\"symmetric_penalty_helpers\", \"tiers\", \"glm\"]"), String[])
-  @test a === nothing # a test file moved into the helpers stops running: problems either way
-  a, p = TT.manifest_additions(old, replace(old, "environments = [\"oracles\"]" => "environments = []"), String[])
-  @test a === nothing && occursin("outside [tiers]", only(p))
+  changed_helpers=replace(old, """helpers = ["tiers"]""" => """helpers = ["tiers", "core_contracts"]""")
+  @test changed_helpers!=old
+  a,p=TT.manifest_additions(old,changed_helpers,String[])
+  @test a===nothing
+  changed_environments=replace(old,"environments = []"=>"""environments = ["new_env"]""")
+  @test changed_environments!=old
+  a,p=TT.manifest_additions(old,changed_environments,String[])
+  @test a===nothing && occursin("outside [tiers]",only(p))
   a, p = TT.manifest_additions(old, "not toml [", String[])
   @test a === nothing && occursin("could not be compared", only(p))
   # the plan: additions give quick and run the new file; otherwise the tier lists need full
@@ -280,7 +275,7 @@ end
     @test TT.pr_tier(m, paths, String[]; manifest_additions = ["solver_new"])[1:2] == ("quick", ["solver_new"])
     @test TT.pr_tier(m, paths, String[])[1:2] == ("full", String[])
     @test TT.pr_tier(m, [paths; "src/cd/leastsquares.jl"], String[]; manifest_additions = ["solver_new"])[1:2] ==
-          ("standard", ["examples", "float32_certificates", "solver_new"])
+          ("full", String[])
     @test TT.pr_tier(m, [paths; "src/cd/gap.jl"], String[]; manifest_additions = ["solver_new"])[1] == "full"
     # an unlisted test file still stops the plan
     @test_throws TT.ManifestError TT.check(m, [TT.discover(@__DIR__); "unlisted_new"])

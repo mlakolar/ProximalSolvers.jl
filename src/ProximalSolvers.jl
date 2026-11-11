@@ -9,9 +9,9 @@ using LinearAlgebra
 using Printf
 using Random: AbstractRNG, default_rng, rand
 using SparseArrays: dropzeros!
-using ProximalBase: AbstractFunction, LeastSquaresLoss, Scaled, NormL1, SparseIterate,
+using ProximalBase: LeastSquaresLoss, Scaled, NormL1, SparseIterate,
   ncoordinates, nactive, activecoordinates, activevalues, prox_entry,
-  value_and_prox!, value_and_gradient!
+  value_and_prox!
 include("blocks.jl")
 using .Blocks
 include("line_searches.jl")
@@ -19,7 +19,7 @@ using .LineSearches
 export CDSolver, ProximalGradientDescent, solve!, ProximalSolver, ProximalOptions,
        CDResults, OptimizationState, OptimizationTrace
 @static if VERSION >= v"1.11.0-DEV.469"
-  eval(Expr(:public,:OptimizationResults,:LineSearches))
+  eval(Expr(:public, :OptimizationResults, :LineSearches))
 end
 include("types.jl")
 include("solve.jl")

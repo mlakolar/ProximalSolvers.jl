@@ -1,3 +1,11 @@
+# Historical numerical benchmark assets
+
+The numerical drivers/data below describe the full package on legacy/full and
+protected archives, not supported entry points of the minimal core. Do not use
+old tables as measurements of the reduction. Python analysis validation and CI
+benchmark-analysis controls remain active and unchanged. Paired reduction
+measurements belong to its PR evidence.
+
 # Benchmarks
 
 This suite measures solver time and Julia heap allocation with accuracy checks independent

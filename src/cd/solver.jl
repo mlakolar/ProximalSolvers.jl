@@ -86,13 +86,13 @@ mutable struct _Momentum{T}
   cprev::Vector{T}      # the cache of the model at xprev
   ccur::Vector{T}       # the cache of the model at xcur
   n::Int                # number of active values in the history
-  na::Int               # number of active coordinates (groups of an AtomIterate) they belong to
+  na::Int               # number of active coordinates in the history
   k::Int
   moved::Bool           # whether the cache moved since it was last computed
 end
 
 _Momentum{T}() where {T} = _Momentum{T}(T[], T[], T[], T[], T[], 0, 0, 1, false)
-mutable struct _CDState{T,R<:AbstractRNG}
+mutable struct _CDState{T, R<:AbstractRNG}
   random::Bool
   rng::R
   order::Vector{Int}
@@ -103,9 +103,9 @@ mutable struct _CDState{T,R<:AbstractRNG}
   tolerance::T
   relgap::T
 end
-_CDState(::Type{T},x,s::CDSolver) where T =
-  _CDState{T,typeof(s.rng)}(s.random,s.rng,Vector{Int}(undef,s.random ? ncoordinates(x) : 0),
-                          _Momentum{T}(),0,false,T(NaN),T(NaN),T(NaN))
+_CDState(::Type{T}, x, s::CDSolver) where T =
+  _CDState{T, typeof(s.rng)}(s.random, s.rng, Vector{Int}(undef, s.random ? ncoordinates(x) : 0),
+                          _Momentum{T}(), 0, false, T(NaN), T(NaN), T(NaN))
 function _shuffle!(order::Vector{Int}, n::Int, rng::AbstractRNG)
   @inbounds for i in 1:n
     order[i] = i
@@ -164,26 +164,26 @@ function _activepass!(x, m, g, st::_CDState{T}, scaled::Bool) where {T}
   end
   maxh
 end
-function _cd!(x,m,g,st::_CDState{T},s::CDSolver) where T
-  st.relgap=T(NaN)
-  if _usemomentum(s,x,m)
-    _cd_momentum!(x,m,g,st,s,nothing)
+function _cd!(x, m, g, st::_CDState{T}, s::CDSolver) where T
+  st.relgap = T(NaN)
+  if _usemomentum(s, x, m)
+    _cd_momentum!(x, m, g, st, s, nothing)
   else
-    _cd_plain!(x,m,g,st,s,nothing)
+    _cd_plain!(x, m, g, st, s, nothing)
   end
   x
 end
-function _tolerances(m,x,s::CDSolver,::Type{T},st,gs) where T
-  sy=s.relative ? response_scale(m,x) : one(T)
-  scaled=s.relative && sy>0
-  u=scaled ? sy : one(T)
-  tol=T(s.tol)*u
-  tol,scaled,8*eps(T)*u
+function _tolerances(m, x, s::CDSolver, ::Type{T}, st, gs) where T
+  sy = s.relative ? response_scale(m, x) : one(T)
+  scaled = s.relative && sy>0
+  u = scaled ? sy : one(T)
+  tol = T(s.tol)*u
+  tol, scaled, 8*eps(T)*u
 end
 # Ordinary no-gap decision extracted from cd/gap.jl, with strict comparison.
-@inline function _afterpass!(::Nothing,x,m,g,st,s::CDSolver,full::Bool,maxh,tol,tolmin)
-  converged=maxh<tol
-  full && converged,converged,tol,true
+@inline function _afterpass!(::Nothing, x, m, g, st, s::CDSolver, full::Bool, maxh, tol, tolmin)
+  converged = maxh<tol
+  full && converged, converged, tol, true
 end
 function _cd_plain!(x, m, g, st::_CDState{T}, s::CDSolver, gs) where {T}
   tol, scaled, tolmin = _tolerances(m, x, s, T, st, gs)
@@ -215,7 +215,7 @@ end
 _cache(m::CDModel) = nothing
 
 # called after momentum moved the cache with the point, for a model that derives
-# from the cache what is not affine in x (as SqrtQuadModel its value)
+# from the cache what is not affine in x (such as a derived cache value)
 _cache_moved!(m::CDModel, x) = m
 
 # whether momentum is used by default, with a random order on a SparseIterate:
@@ -318,7 +318,7 @@ function _momentum_update!(s::_Momentum{T}, x, m) where {T}
 end
 
 # computes the cache again where repeated moves may have let it drift, keeping
-# the curvatures of the groups, as the levels of a path do
+# the curvatures of the groups, before full-pass stopping checks
 function _momentum_refresh!(s::_Momentum, x, m)
   s.moved && _initialize!(m, x, false)
   s.moved = false
@@ -335,21 +335,21 @@ function _restartdot(s::_Momentum{T}, x::SparseIterate, n::Int) where {T}
   end
   d
 end
-function _warn_not_converged(st::_CDState,s::CDSolver)
+function _warn_not_converged(st::_CDState, s::CDSolver)
   st.converged && return
   @warn "coordinate descent did not converge in maxpasses = $(s.maxpasses) passes (last change $(round(st.maxchange; sigdigits = 3)), tolerance $(round(st.tolerance; sigdigits = 3)))."
 end
-function _solve_dense!(x::Vector,f,g,method::CDSolver)
-  xs=SparseIterate(x)
-  m=cdmodel(f,xs)
-  initialize!(m,xs)
-  st=_CDState(eltype(x),xs,method)
-  _cd!(xs,m,g,st,method)
-  _warn_not_converged(st,method)
-  result_value=loss_value(m,xs)+g(xs)
+function _solve_dense!(x::Vector, f, g, method::CDSolver)
+  xs = SparseIterate(x)
+  m = cdmodel(f, xs)
+  initialize!(m, xs)
+  st = _CDState(eltype(x), xs, method)
+  _cd!(xs, m, g, st, method)
+  _warn_not_converged(st, method)
+  result_value = loss_value(m, xs)+g(xs)
   isfinite(result_value) || throw(ArgumentError("coordinate descent produced a nonfinite objective; rescale the problem"))
-  _copy_dense!(x,xs)
-  CDResults(x,result_value,st.passes,st.converged,st.maxchange,st.tolerance,0,st.relgap)
+  _copy_dense!(x, xs)
+  CDResults(x, result_value, st.passes, st.converged, st.maxchange, st.tolerance, 0, st.relgap)
 end
 function _copy_dense!(dest::Vector{T}, src::SparseIterate{T}) where {T}
   size(dest) == size(src) || throw(DimensionMismatch())

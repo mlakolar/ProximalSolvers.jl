@@ -1,65 +1,65 @@
 # Borrowed scalar unweighted LS data and native residual/curvature caches.
-mutable struct LSModel{T<:AbstractFloat,MX<:AbstractMatrix{T},VY<:AbstractVector{T}} <: CDModel{T}
+mutable struct LSModel{T<:AbstractFloat, MX<:AbstractMatrix{T}, VY<:AbstractVector{T}} <: CDModel{T}
   X::MX
   y::VY
   s::T
   r::Vector{T}
   a::Vector{T}
 end
-LSModel(y::AbstractVector{T},X::AbstractMatrix{T},s::Real) where T =
-  LSModel(X,y,T(s),zeros(T,length(y)),fill(T(NaN),size(X,2)))
-cdmodel(f::LeastSquaresLoss{T,<:AbstractVector},x) where T=LSModel(f.Y,f.X,one(T))
-cdmodel(f::Scaled{<:LeastSquaresLoss{T,<:AbstractVector}},x) where T=LSModel(f.f.Y,f.f.X,f.α)
-_activeentries(x::SparseIterate)=activecoordinates(x)
-initialize!(m::LSModel{T},x::SparseIterate{T}) where T=_initialize!(m,x,true)
-function _initialize!(m::LSModel{T},x::SparseIterate{T},fresh::Bool) where T
+LSModel(y::AbstractVector{T}, X::AbstractMatrix{T}, s::Real) where T =
+  LSModel(X, y, T(s), zeros(T, length(y)), fill(T(NaN), size(X, 2)))
+cdmodel(f::LeastSquaresLoss{T, <:AbstractVector}, x) where T = LSModel(f.Y, f.X, one(T))
+cdmodel(f::Scaled{<:LeastSquaresLoss{T, <:AbstractVector}}, x) where T = LSModel(f.f.Y, f.f.X, f.α)
+_activeentries(x::SparseIterate) = activecoordinates(x)
+initialize!(m::LSModel{T}, x::SparseIterate{T}) where T = _initialize!(m, x, true)
+function _initialize!(m::LSModel{T}, x::SparseIterate{T}, fresh::Bool) where T
   length(x)==size(m.X,2) || throw(DimensionMismatch("iterate length differs from X columns"))
   m.r .= m.y .- zero(T)
   for k in _activeentries(x)
-    v=x[k]
+    v = x[k]
     iszero(v) && continue
-    _residual_axpy!(m,k,v)
+    _residual_axpy!(m, k, v)
   end
-  fill!(m.a,T(NaN))
+  fill!(m.a, T(NaN))
   m
 end
-@inline function _column_dot(X::AbstractMatrix{T},r::AbstractVector{T},k::Int,a::T) where T
-  b=zero(T)
+@inline function _column_dot(X::AbstractMatrix{T}, r::AbstractVector{T}, k::Int, a::T) where T
+  b = zero(T)
   if isnan(a)
-    a=zero(T)
+    a = zero(T)
     @inbounds @simd for i in eachindex(r)
-      a += X[i,k]*X[i,k]
-      b += r[i]*X[i,k]
+      a += X[i, k]*X[i, k]
+      b += r[i]*X[i, k]
     end
   else
     @inbounds @simd for i in eachindex(r)
-      b += r[i]*X[i,k]
+      b += r[i]*X[i, k]
     end
   end
-  a,b
+  a, b
 end
-@inline _column_dot(m::LSModel,k::Int)=_column_dot(m.X,m.r,k,m.a[k])
-@inline function _residual_axpy!(m::LSModel{T},k::Int,h::T) where T
-  r,X=m.r,m.X
+@inline _column_dot(m::LSModel, k::Int) = _column_dot(m.X, m.r, k, m.a[k])
+@inline function _residual_axpy!(m::LSModel{T}, k::Int, h::T) where T
+  r, X = m.r, m.X
   @inbounds @simd for i in eachindex(r)
-    r[i] -= X[i,k]*h
+    r[i] -= X[i, k]*h
   end
   r
 end
-function _sqnorm!(m::LSModel{T},k::Int) where T
-  a=m.a[k]
+function _sqnorm!(m::LSModel{T}, k::Int) where T
+  a = m.a[k]
   if isnan(a)
-    a=zero(T)
-    @inbounds for i in axes(m.X,1)
-      a += (m.X[i,k]-zero(T))*(m.X[i,k]-zero(T))
+    a = zero(T)
+    @inbounds for i in axes(m.X, 1)
+      a += (m.X[i, k]-zero(T))*(m.X[i, k]-zero(T))
     end
-    m.a[k]=a
+    m.a[k] = a
   end
   a
 end
-function _flat_column(m::LSModel{T},k::Int) where T
-  for i in axes(m.X,1)
-    m.X[i,k]==zero(T) || return false
+function _flat_column(m::LSModel{T}, k::Int) where T
+  for i in axes(m.X, 1)
+    m.X[i, k] == zero(T) || return false
   end
   true
 end
@@ -86,18 +86,18 @@ end
 
 update_cache!(m::LSModel{T}, x::SparseIterate{T}, k::Int, h::T) where {T} = (_residual_axpy!(m, k, h); m)
 
-_cache(m::LSModel)=m.r
-coordinate_scale(m::LSModel,x,k::Int)=sqrt(m.s*_sqnorm!(m,k))
-function response_scale(m::LSModel{T},x) where T
-  s=zero(T)
+_cache(m::LSModel) = m.r
+coordinate_scale(m::LSModel, x, k::Int) = sqrt(m.s*_sqnorm!(m, k))
+function response_scale(m::LSModel{T}, x) where T
+  s = zero(T)
   @inbounds for i in eachindex(m.y)
-    d=m.y[i]-zero(T)
+    d = m.y[i]-zero(T)
     s += d*d
   end
   sqrt(m.s*s)
 end
-function loss_value(m::LSModel{T},x) where T
-  v=zero(T)
+function loss_value(m::LSModel{T}, x) where T
+  v = zero(T)
   @inbounds @simd for i in eachindex(m.r)
     v += m.r[i]*m.r[i]
   end

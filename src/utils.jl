@@ -57,8 +57,8 @@ end
 
 extended_trace!(dt, state::ProximalGradientDescentState) = dt["grad_f(x)"] = _copy(state.grad_f_x)
 
-f_residual(f_x,f_x_previous,f_tol) = abs(f_x-f_x_previous)/(abs(f_x)+f_tol)
-g_residual(state::ProximalGradientDescentState) = _maxabs_residual(state.grad_f_x,state.grad_f_x_previous,state.delta_x,state.L)
+f_residual(f_x, f_x_previous, f_tol) = abs(f_x-f_x_previous)/(abs(f_x)+f_tol)
+g_residual(state::ProximalGradientDescentState) = _maxabs_residual(state.grad_f_x, state.grad_f_x_previous, state.delta_x, state.L)
 function convergence_assessment(
   state::ProximalGradientDescentState,
   f, g, options::ProximalOptions
@@ -101,6 +101,6 @@ function gradient_converged!(state::ProximalGradientDescentState{T}, options::Pr
   residual / (state.max_residual + options.gradtol) < options.gradtol || n_residual < options.gradtol
 end
 
-_state_norm(s::ProximalGradientDescentState,x) = _norm(x)
-_state_normdiff(s::ProximalGradientDescentState) = _norm_diff(s.x,s.x_previous,2.)
-LineSearches.stepnorm2(s::ProximalGradientDescentState,d) = _norm(d)^2
+_state_norm(s::ProximalGradientDescentState, x) = _norm(x)
+_state_normdiff(s::ProximalGradientDescentState) = _norm_diff(s.x, s.x_previous, 2.)
+LineSearches.stepnorm2(s::ProximalGradientDescentState, d) = _norm(d)^2

@@ -41,22 +41,22 @@ struct ProximalOptions{TCallback}
   gapevery::Int
 end
 
-function ProximalOptions(;maxiter::Integer       = 200,
-                         ftol::Real              = 1.0e-6,
-                         xtol::Real              = 1.0e-8,
-                         gradtol::Real           = 1.0e-5,
-                         f_calls_limit::Int      = 0,
-                         grad_calls_limit::Int   = 0,
-                         prox_calls_limit::Int   = 0,
+function ProximalOptions(; maxiter::Integer = 200,
+                         ftol::Real = 1.0e-6,
+                         xtol::Real = 1.0e-8,
+                         gradtol::Real = 1.0e-5,
+                         f_calls_limit::Int = 0,
+                         grad_calls_limit::Int = 0,
+                         prox_calls_limit::Int = 0,
                          allow_f_increases::Bool = false,
-                         store_trace::Bool       = false,
-                         show_trace::Bool        = false,
-                         extended_trace::Bool    = false,
-                         print_every::Integer    = 1,
-                         callback                = nothing,
-                         time_limit              = Inf,
-                         gaptol::Real            = 0.0,
-                         gapevery::Integer       = 10)
+                         store_trace::Bool = false,
+                         show_trace::Bool = false,
+                         extended_trace::Bool = false,
+                         print_every::Integer = 1,
+                         callback = nothing,
+                         time_limit = Inf,
+                         gaptol::Real = 0.0,
+                         gapevery::Integer = 10)
 
   maxiter > 1 || throw(ArgumentError("maxiter must be an integer greater than 1."))
   isfinite(Float64(ftol)) && ftol > 0 || throw(ArgumentError("ftol must be finite and positive."))
@@ -155,7 +155,7 @@ historical meanings. iteration_converged means an iteration limit, not success.
 backtrack_steps includes accepted nonzero trials. gap is a NaN sentinel, never
 a computed certificate.
 """
-mutable struct OptimizationResults{O<:ProximalSolver,T,N,M,X<:AbstractArray{T,N}}
+mutable struct OptimizationResults{O<:ProximalSolver, T, N, M, X<:AbstractArray{T, N}}
     method::O
     minimizer::X
     minimum::T
@@ -180,7 +180,7 @@ mutable struct OptimizationResults{O<:ProximalSolver,T,N,M,X<:AbstractArray{T,N}
     call_limit_reached::Bool
     gap::Float64
 
-    OptimizationResults{O,T,N,M,X}(fields...) where {O,T,N,M,X} = new{O,T,N,M,X}(fields...)
+    OptimizationResults{O, T, N, M, X}(fields...) where {O, T, N, M, X} = new{O, T, N, M, X}(fields...)
 end
 
 Base.summary(r::OptimizationResults) = summary(r.method)
