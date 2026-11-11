@@ -45,9 +45,12 @@ preserved full-package working reference. Protected `archive/full-before-reset-2
 `9be1773e911a44ec21d49df28cb01fea37c4316e`. Restore features selectively with
 focused independent tests, never by merging legacy/full wholesale.
 
-The extraction pin stays ProximalBase
-`e8a45a8a6ffe2a6f92d83c4c77d62a9b7631e291`. Advancing it requires a separate
-exact-SHA integration PR. Existing release tags and preserved PRs are unchanged.
+The current ProximalBase pin is
+`eff21b6d7d33c622313122f46c6ee71693c101ee`. The extraction baseline remains
+`e8a45a8a6ffe2a6f92d83c4c77d62a9b7631e291`; every CI run independently probes
+both exact sources in isolated environments, including documentation-only and
+nightly test-reuse runs. See [paired integration](docs/audit/minimal-core-pb-integration.md).
+Existing release tags and preserved PRs are unchanged.
 
 Current rebuild CI is stable Julia (`1`) on **Linux x64 only** for quick,
 standard and full; nightly reuse is policy/provenance-aware and fail-closed.

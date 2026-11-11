@@ -227,6 +227,15 @@ jobs:
         with:
           python-version: '3.12'
       - run: python benchmark/check_analysis.py
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1'
+          arch: x64
+      - name: Exact-source paired-master diagnostics
+        run: julia --startup-file=no --project=@stdlib scripts/paired_master_diagnostics.jl
+        env:
+          JULIA_PKG_PRECOMPILE_AUTO: '0'
+          OPENBLAS_NUM_THREADS: '1'
   verdict:
     # Runs after the plan, the tests and the benchmark analysis controls, even when one of them
     # failed or was cancelled, and passes only if the plan and the benchmark controls passed and,

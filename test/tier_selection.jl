@@ -86,7 +86,7 @@ end
   # only these are not tests: a test file moved into either list would stop running
   @test sort(m.helpers) == ["tiers"]
   @test isempty(m.environments)
-  @test sort(quick)==sort(["aqua","ci_gate","naming","tier_selection","minimal_core_characterization","core_contracts"])
+  @test sort(quick)==sort(["aqua","ci_gate","naming","tier_selection","minimal_core_characterization","core_contracts","paired_master"])
   @test m.tier["core_regressions"]=="standard"
   @test m.tier["examples"]=="full"
   @test "tier_selection" in quick
