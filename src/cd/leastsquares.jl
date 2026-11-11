@@ -68,7 +68,7 @@ end
   iszero(a) && !_flat_column(m, k) &&
     throw(ArgumentError("the coordinate curvature underflows; rescale the data or loss"))
   old = x[k]
-  new = iszero(a) ? _coordinate_minimizer(g, old, zero(T), zero(T), k) : prox_entry(g, old + b / a, k, inv(m.s * a))
+  new = iszero(a) ? _coordinate_minimizer(g, old, zero(T), zero(T), k) : prox_block(g, old + b / a, k, inv(m.s * a))
   m.a[k] = a
   h = new - old
   iszero(h) && return h      # x and the residuals do not change
