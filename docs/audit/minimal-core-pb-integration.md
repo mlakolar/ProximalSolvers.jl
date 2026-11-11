@@ -17,7 +17,7 @@ No release/version change is authorized or included.
 - Final refreshed PB B: `2b373c546e247781d9514a7000ef3e010343ca4c`.
 - Final B Git tree: `d1e8fea6e2bcdffe45419e6c759e3b3da4276398`.
 
-PB B includes the scalar pure-block oracle rename. Unadapted PS A loaded with a
+The initial eff source includes the scalar pure-block oracle rename. Unadapted PS A loaded with a
 missing `prox_entry` import warning, then failed with `UndefVarError` in all four
 raw/scaled Float32/Float64 CD probes before scattering the caller's iterate.
 The corresponding PGD probes succeeded. This is a concrete scalar API break;
@@ -26,7 +26,7 @@ no private-owner incompatibility was observed.
 The runtime adaptation changes exactly three names: import `prox_block` and use
 it in the positive-curvature LS coordinate update and the flat-column helper.
 There is no compatibility alias or new dispatch layer. The scalar NormL1 body is
-unchanged between the two PB sources. No group solver, block workspace, symmetric
+unchanged between A and the initial eff source. No group solver, block workspace, symmetric
 owner, Newton code, or PR #237 history is imported.
 
 At the initial eff integration, PB's Project.toml was byte-identical to A, so
@@ -142,5 +142,31 @@ constructors in PS. A test-local callable shifted-loss composition and retained
 retained, including weighted NormL1 refusal. No runtime compatibility stub or
 new supported combination is introduced. C0 remains unchanged.
 
-Final exact-source paired/full-suite/docs/precompile outcomes are recorded after
-executing this refresh; the initial eff logs above remain initial-eff evidence.
+The final refresh was validated at PS
+`583891dbc3d0413f881e50486c8e92c5a8cba899` on Julia 1.13.3, OpenBLAS ILP64
+with one thread, and exact PB `2b373c546e247781d9514a7000ef3e010343ca4c`:
+
+- Always-run exact-source controller: **288/288** records match frozen PS A/PB A;
+  independent objective/KKT/reference checks all pass in both fresh processes.
+- Actual PB-2b `Pkg.test` sandbox, bounds checks, full tier, two workers:
+  **2053/2053**, nine files, 1m33.4s. Refusal/no-mutation coverage is retained;
+  unchanged C0, numerical regressions and paired-control policy tests pass.
+- Documentation build/export checks: passed, deployment disabled.
+- Ordinary `Pkg.precompile()` and compiled PB/PS load: passed; actual loaded PB
+  checkout Git HEAD printed as the exact selected 2b revision.
+- Naming and existing Python benchmark-analysis controls: passed.
+
+Final Project/src digests, using the same algorithm as the initial table:
+
+| Source | Digest |
+| --- | --- |
+| PS, final PB pin | `839793b05a95d4b69079b02830f46e4cd26c8361d26763c90639c49d24b3aebb` |
+| PB 2b373c | `902a65ff5c180f01105d7f543e99f8ade0293ec26369d1566d35509e92d7b71f` |
+
+Separate metadata verification confirms root/docs/floor pin agreement, exact PB
+Git tree, unchanged direct dependencies/UUID/version, absent weakdep/extension
+tables, a clean selected PB checkout, byte-identical C0 and unchanged PS runtime
+source relative to the initial eff C4 implementation. No Julia-1.10 run or new
+timing grid was performed. Initial eff logs and measured claims above remain
+initial-eff evidence; they are not relabeled as final-2b results. Final-head
+GitHub required checks and independent review remain required before merge.
