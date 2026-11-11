@@ -17,6 +17,7 @@ ProximalBase = {rev = "e8a45a8a6ffe2a6f92d83c4c77d62a9b7631e291", url = "https:/
 [compat]
 Aqua = "0.8"
 LinearAlgebra = "1"
+Logging = "1"
 ParallelTestRunner = "2.9"
 PrecompileTools = "1"
 Printf = "1"
@@ -29,9 +30,10 @@ julia = "1.10.8"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 ParallelTestRunner = "d3525ed8-44d0-4b2c-a655-542cee43accc"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Aqua", "ParallelTestRunner", "TOML", "Test"]
+test = ["Aqua", "Logging", "ParallelTestRunner", "TOML", "Test"]

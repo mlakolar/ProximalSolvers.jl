@@ -85,7 +85,9 @@ recovery and a new stopping/certificate engine are deferred.
 ## Validation and test provenance
 
 The actual Pkg.test sandbox passed **2,046/2,046** assertions on Linux x64,
-Julia 1.13.3, bounds checking enabled, one BLAS thread and two test workers:
+Julia 1.13.3, one BLAS thread and two test workers. After the independent
+review correction, the complete sandbox passed again both without coverage
+(bounds checking enabled) and with package-prefix coverage (default bounds):
 
 | Test file | Passed |
 | --- | ---: |
@@ -107,10 +109,13 @@ The [complete provenance map](minimal-core-test-provenance.md) accounts for
 every old test-tree file and identifies retained, extracted and deferred cases.
 
 Eight historical/candidate scaled-CD cases additionally matched exactly for
-coefficients, passes, change/tolerance, objective and widened KKT. One existing
-Float32 cyclic q=.01 case reaches 100,000 passes without meeting its strict
-change stop; the regression preserves that warning/status and checks accuracy
-independently. A new draft assertion that default tol=1e-7 implied Float64
+coefficients, passes, change/tolerance, objective and widened KKT. One Float32 cyclic q=.01 case has an existing instrumentation-dependent
+outcome: 100,000-pass stagnation without coverage and 9-pass convergence with
+coverage. Matched historical/core probes reproduce identical results under
+each policy. The corrected new regression checks strict stopping/no warning
+or bounded stagnation/exact warning, plus independent accuracy/scaling.
+[Matched source/compile-policy evidence](minimal-core-coverage-probe/README.md)
+records the independent review finding and its test-only correction. A new draft assertion that default tol=1e-7 implied Float64
 machine-epsilon KKT accuracy was corrected after exact historical reproduction;
 no C0 assertion or algorithm tolerance was changed.
 
@@ -126,7 +131,8 @@ julia --startup-file=no --project=/path/to/env -e 'using Pkg; Pkg.precompile(); 
 ```
 
 The runtime dependencies and PB pin are unchanged. Unused Statistics test extras
-and unused documentation dependencies were removed. Package identity/version
+and unused documentation dependencies were removed; test-only Logging supports
+public warning capture for the coverage-dependent regression. Package identity/version
 remain unchanged; this breaking support reduction is not a patch release.
 
 ## Controlled performance comparison
