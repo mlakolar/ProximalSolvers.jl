@@ -40,6 +40,10 @@ function reference(X, y, scale, lambda, nonunique)
     return [coefficient, 0.0, 0.0]
   end
   H, q = alpha .* (A' * A), alpha .* (A' * b)
+  if iszero(H[1, 2]) && iszero(H[2, 1])
+    # Analytic orthogonal-design solution, independently of support enumeration.
+    return sign.(q) .* max.(abs.(q) .- penalty, 0.0) ./ diag(H)
+  end
   best, best_value = zeros(2), Inf
   for s1 in -1:1, s2 in -1:1
     signs = [s1, s2]
@@ -128,11 +132,12 @@ end
 for T in (Float32, Float64)
   owner = PB.SparseIterate(T[0, 2, 0, -1])
   records["owner/$T/construct"] = owner_record(owner)
-  handle = PB.activecoordinates(owner)
   owner[1] = T(3)
-  # Existing handles retain their captured length; reacquire after activation.
-  length(handle) == 2 && PB.nactive(owner) == 3 || error("owner activation/handle contract changed")
-  records["owner/$T/activate"] = merge(owner_record(owner), Dict("previous_handle_length" => length(handle)))
+  # Active-set changes invalidate old handles; CD acquires a fresh one.
+  handle = PB.activecoordinates(owner)
+  length(handle) == PB.nactive(owner) == 3 && sort(collect(handle)) == [1, 2, 4] ||
+    error("fresh owner activation handle is inconsistent")
+  records["owner/$T/activate"] = owner_record(owner)
   owner[2] = zero(T)
   PB.nactive(owner) == 3 || error("zero update unexpectedly compacted owner")
   records["owner/$T/zero"] = owner_record(owner)
