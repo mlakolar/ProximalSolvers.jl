@@ -186,6 +186,28 @@ paths=["docs/**"]
   @test TT.classify(m,["src/new.jl"])[1]=="full"
 end
 
+function julia_source_paths(root)
+  paths = String[]
+  for (dir, _, files) in walkdir(root), file in files
+    endswith(file, ".jl") || continue
+    push!(paths, replace(relpath(joinpath(dir, file), root), '\\' => '/'))
+  end
+  sort!(paths)
+end
+
+@testset "source inventory excludes generated coverage artifacts" begin
+  mktempdir() do root
+    mkpath(joinpath(root, "cd"))
+    for file in ("solver.jl", "new_model.jl", "solver.jl.123.cov")
+      write(joinpath(root, "cd", file), "# inventory fixture\n")
+    end
+    @test julia_source_paths(root) == ["cd/new_model.jl", "cd/solver.jl"]
+    # A new Julia source remains visible and fails the explicit-rule requirement.
+    @test !any(rule -> "src/cd/new_model.jl" in rule.patterns &&
+                      rule.tier in ("standard", "full"), CI.rules)
+  end
+end
+
 @testset "every rule decides the paths it names, and they exist" begin
   for rule in CI.rules, pattern in rule.patterns
     occursin('*', pattern) && continue
@@ -195,8 +217,9 @@ end
   end
   # every source file is named by a rule of its own (no glob), and a source file no rule names,
   # such as a new one, gets full
-  for (dir, _, files) in walkdir(joinpath(ROOT, "src")), file in files
-    path = replace(relpath(joinpath(dir, file), ROOT), '\\' => '/')
+  # Finished coverage workers may already have written .cov files beside sources.
+  for file in julia_source_paths(joinpath(ROOT, "src"))
+    path = "src/" * file
     @test any(rule -> path in rule.patterns && rule.tier in ("standard", "full"), CI.rules)
   end
   @test classify("src/cd/new_model.jl") == ("full", String[])

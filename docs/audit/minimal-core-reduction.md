@@ -184,6 +184,14 @@ allow these conclusions to be inspected without another benchmark run.
 
 ## CI and deferred work
 
+The later CI-inventory review found generated `.jl.<pid>.cov` files being
+counted as source files when workers finished before the audit. The test now
+enumerates Julia source files, with a deterministic fixture proving coverage
+artifacts are excluded and a new unclassified `.jl` remains visible and fails
+the explicit-rule requirement. This adds two assertions (tier_selection 269;
+full inventory 2048). The workflow, coverage and generic runner are unchanged;
+the exact-head full-CI conclusion is recorded on the PR.
+
 Quick/standard/full remain cumulative coverage tiers on Julia `1`, Linux x64
 only. Required PR required jobs and PR merge gate, fail-closed discovery,
 nightly policy/environment evidence, master full validation, coverage and
