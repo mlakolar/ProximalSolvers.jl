@@ -347,6 +347,7 @@ function _solve_dense!(x::Vector,f,g,method::CDSolver)
   _cd!(xs,m,g,st,method)
   _warn_not_converged(st,method)
   result_value=loss_value(m,xs)+g(xs)
+  isfinite(result_value) || throw(ArgumentError("coordinate descent produced a nonfinite objective; rescale the problem"))
   _copy_dense!(x,xs)
   CDResults(x,result_value,st.passes,st.converged,st.maxchange,st.tolerance,0,st.relgap)
 end
