@@ -44,6 +44,8 @@ paths = [
   ".github/workflows/CI.yml",
   "Project.toml",
   "scripts/ci_environment.jl",
+  "scripts/paired_master_diagnostics.jl",
+  "scripts/paired_master_probe.jl",
   "scripts/ci_gate.jl",
   "scripts/ci_plan.jl",
   "scripts/ci_verdict.jl",

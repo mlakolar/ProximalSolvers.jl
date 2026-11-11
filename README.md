@@ -38,16 +38,19 @@ compositions, accelerated methods, Newton/ADMM/primal-dual/SLOPE/graphical model
 paths, screening, certificates, workspaces, refit and reweighting are deferred.
 No release/version/registry decision has been made or release authorized.
 
-Branch roles: master is the reviewed minimal core once the reduction merges;
-refactor/minimal-core is its atomic development branch; legacy/full is the
-preserved full-package working reference. Protected `archive/full-before-reset-2026-11-10` and
+Branch roles: master contains the reviewed minimal core; refactor/minimal-core
+records its atomic reduction, and compat/minimal-core-pb-master isolates the PB
+integration. legacy/full is the preserved full-package working reference. Protected `archive/full-before-reset-2026-11-10` and
 `archive/pre-rebuild-2026-11-10` preserve full snapshot
 `9be1773e911a44ec21d49df28cb01fea37c4316e`. Restore features selectively with
 focused independent tests, never by merging legacy/full wholesale.
 
-The extraction pin stays ProximalBase
-`e8a45a8a6ffe2a6f92d83c4c77d62a9b7631e291`. Advancing it requires a separate
-exact-SHA integration PR. Existing release tags and preserved PRs are unchanged.
+The current ProximalBase pin is
+`2b373c546e247781d9514a7000ef3e010343ca4c`. The extraction baseline remains
+`e8a45a8a6ffe2a6f92d83c4c77d62a9b7631e291`; every CI run independently probes
+both exact sources in isolated environments, including documentation-only and
+nightly test-reuse runs. See [paired integration](docs/audit/minimal-core-pb-integration.md).
+Existing release tags and preserved PRs are unchanged.
 
 Current rebuild CI is stable Julia (`1`) on **Linux x64 only** for quick,
 standard and full; nightly reuse is policy/provenance-aware and fail-closed.

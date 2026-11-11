@@ -10,7 +10,7 @@ using Printf
 using Random: AbstractRNG, default_rng, rand
 using SparseArrays: dropzeros!
 using ProximalBase: LeastSquaresLoss, Scaled, NormL1, SparseIterate,
-  ncoordinates, nactive, activecoordinates, activevalues, prox_entry,
+  ncoordinates, nactive, activecoordinates, activevalues, prox_block,
   value_and_prox!
 include("blocks.jl")
 using .Blocks

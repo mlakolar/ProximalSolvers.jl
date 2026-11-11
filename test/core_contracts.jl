@@ -1,6 +1,13 @@
 module CoreContracts
 using Test, LinearAlgebra, SparseArrays, Random, ProximalBase, ProximalSolvers
 
+# A real callable composition, independent of PB's deferred Translate wrapper.
+struct ShiftedLoss{F, V} <: ProximalBase.AbstractFunction
+  loss::F
+  shift::V
+end
+(f::ShiftedLoss)(x) = f.loss(x .+ f.shift)
+
 @testset "CD refuses nonfinite final objectives before scatter" begin
   x = Float32[.5]
   @test_throws r"nonfinite objective" solve!(x,
@@ -36,7 +43,7 @@ end
     refused(x, LeastSquaresLoss(y, view(X, :, :)), g, method)
     refused(x, LeastSquaresLoss(reshape(y, 2, 1), X), g, method)
     refused(x, QuadraticFunction(Matrix{T}(I, 2, 2), zeros(T, 2)), g, method)
-    refused(x, Translate(f, zeros(T, 2)), g, method)
+    refused(x, ShiftedLoss(f, ones(T, 2)), g, method)
     refused(x, Scaled(Scaled(f, 1e-200), 1e-200), g, method)
     refused(x, Scaled(f, 0.), g, method) # PB produces ZeroFunction, PS refuses it.
     opposite = T === Float32 ? Float64 : Float32
@@ -45,7 +52,7 @@ end
       @test_throws ArgumentError Scaled(f, badscale)
     end
     refused(x, f, NormL1(T(.1), ones(T, 2)), method)
-    refused(x, f, NormL2(T(.1)), method)
+    refused(x, f, SqrNormL2(T(.1)), method)
     for keyword in (:intercept, :offset, :continuation, :screening)
       refused(x, f, g, method; keyword => true)
     end

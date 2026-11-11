@@ -7,10 +7,15 @@ result types. CDModel and state hooks are private extraction/test seams, not
 promises of custom loss or workspace support. Generic block/metric/certificate/
 logging frameworks are deferred.
 
-Keep exact PB A pin e8a45a8a6ffe2a6f92d83c4c77d62a9b7631e291. Later paired-master
-integration needs a verified current SHA, isolated A/B evidence and initially
-always-run diagnostics. PR #237's different oracle contract is not automatic.
-C0 and the provenance audit describe retained mathematical/behavioral tests.
+The current exact PB pin is 2b373c546e247781d9514a7000ef3e010343ca4c. CD uses
+its scalar `prox_block` oracle; PGD retains fused `value_and_prox!`. The private PB
+SparseIterate contract remains unchanged. PR #237's group/workspace migration is
+not imported. The gated analysis job always runs isolated exact-source paired
+diagnostics against PB A e8a45a8a6ffe2a6f92d83c4c77d62a9b7631e291 and frozen
+PS 64930401cfc0451e886728d916263c4dab2baf36, including when package tests are
+not selected or reused. Loaded paths, clean Git HEADs and source digests are
+checked; version strings never skip probes. C0 and the provenance audit describe
+the independent full-suite mathematical/behavioral tests.
 
 Current CI is stable Julia1 Linux x64 only for every tier. Preserve required
 checks, full master validation, coverage, benchmark-analysis and conservative

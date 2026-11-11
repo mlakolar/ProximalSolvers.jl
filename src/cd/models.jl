@@ -13,7 +13,7 @@ cdmodel(f,x)=throw(ArgumentError("unsupported private coordinate-descent model")
 # Only zero slope/curvature is reachable for a genuine flat LS column.
 function _coordinate_minimizer(g::NormL1, old::T, G, a, i, μ = one(T)) where T
   iszero(a) && iszero(G) || throw(ArgumentError("unsupported flat coordinate"))
-  new = T(prox_entry(g, zero(T), i, floatmax(T)))
+  new = T(prox_block(g, zero(T), i, floatmax(T)))
   isfinite(new) && isfinite(new-old) || throw(ArgumentError("coordinate $i has no finite minimizer and displacement"))
   new
 end

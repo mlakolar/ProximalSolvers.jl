@@ -46,20 +46,11 @@ uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [[deps.ProximalBase]]
 deps = ["LinearAlgebra", "PrecompileTools", "SparseArrays"]
-git-tree-sha1 = "31b63f3c71939623076eac3080b390aafae6c9d9"
-repo-rev = "e8a45a8a6ffe2a6f92d83c4c77d62a9b7631e291"
+git-tree-sha1 = "d1e8fea6e2bcdffe45419e6c759e3b3da4276398"
+repo-rev = "2b373c546e247781d9514a7000ef3e010343ca4c"
 repo-url = "https://github.com/mlakolar/ProximalBase.jl"
 uuid = "0a755509-c5b1-5d6f-9b24-59bcda3c37a3"
 version = "0.6.0-DEV"
-
-    [deps.ProximalBase.extensions]
-    ProximalBaseGPUArraysCoreExt = ["Adapt", "GPUArraysCore"]
-    ProximalBaseTestExt = "Test"
-
-    [deps.ProximalBase.weakdeps]
-    Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
-    GPUArraysCore = "46192b85-c4d5-4398-a991-12ede77f4527"
-    Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [[deps.Random]]
 deps = ["SHA"]
