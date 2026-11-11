@@ -4,8 +4,16 @@ This file records what `Pkg.test()` runs, how the files are isolated from each o
 tier each file belongs to and why, and the measurements behind the tiers and CI's worker counts
 (#121). [CONTRIBUTING.md](../CONTRIBUTING.md) has the commands.
 
-**Current CI policy (2026-11-10):** automated CI runs Julia `1` (current stable)
-only. Historical Julia 1.10 timings and before/after comparisons remain below.
+**Current rebuild CI policy (2026-11-10):** every automated event and tier runs
+Julia `1` (current stable) on Ubuntu x64 only, with four workers. Full retains
+coverage; automatic macOS, Windows and LTS runs are deferred. Historical platform
+and Julia 1.10 measurements and scenario records remain below as historical evidence.
+
+Deferred cross-platform follow-up: [C0 run 42949840807](https://github.com/mlakolar/ProximalSolvers.jl/actions/runs/42949840807)
+passed on Linux and Windows, while macOS failed the `warm.converged` assertion in
+`test/minimal_core_characterization.jl:113`. That assertion and the solver code are
+unchanged by this CI policy change. The macOS result remains unresolved and deferred;
+Linux-only validation does not establish that it is fixed or identify an algorithm defect.
 
 ## Inventory
 
@@ -193,7 +201,7 @@ Xeon runners.
 configuration can differ by a factor of 1.5–2 between them (Julia 1.10, 2 workers: 363 s on a
 9V45, 605 s on a 7763).
 
-**Chosen worker counts:** 4 on Ubuntu (both Julia versions) and Windows, 3 on macOS. They gave
+**Historical chosen worker counts:** 4 on Ubuntu (both Julia versions) and Windows, 3 on macOS. They gave
 the lowest times on comparable CPUs (Windows: 462–473 s with 4 workers against 480–516 s with 3,
 all on EPYC 7763s); the peak memory leaves room on every runner (16 GB on Ubuntu and Windows,
 7 GB on macOS). ParallelTestRunner's default would pick 1 worker on macOS, which reports about
@@ -399,16 +407,16 @@ for contributors. Adapted from ProximalBase.jl #430, with three tiers and the di
 
 | Event | Tier | Jobs | Coverage |
 |---|---|---|---|
-| pull request | quick, standard or full by the changed paths, raised by `test:standard` / `test:full`; none when every path needs no package tests (documentation, benchmarks) | Julia 1 Ubuntu; full adds Julia 1 on macOS (aarch64) and Windows | full only, Julia 1 Ubuntu |
-| push to master, tag | full, always | three stable-Julia platforms | Julia 1 Ubuntu |
-| nightly (06:17 UTC) | full, or none after a verified full run (below) | three stable-Julia platforms | Julia 1 Ubuntu |
+| pull request | quick, standard or full by the changed paths, raised by `test:standard` / `test:full`; none when every path needs no package tests (documentation, benchmarks) | Julia 1 Ubuntu x64 | full only, Julia 1 Ubuntu |
+| push to master, tag | full, always | Julia 1 Ubuntu x64 | Julia 1 Ubuntu |
+| nightly (06:17 UTC) | full, or none after a verified full run (below) | Julia 1 Ubuntu x64 | Julia 1 Ubuntu |
 | manual | the chosen tier, full by default | as for a pull request | full only |
 
 The plan, the naming check (`scripts/check_naming.py`, moved from the test jobs to the plan job,
 so it runs once per run, also for documentation) and the benchmark analysis controls run on
-every run. The test jobs keep the worker counts of the parallel runner (4 on Ubuntu and
-Windows, 3 on macOS). No sharding across runners was added: a full job takes 5–10 minutes and
-1.5–2 of them are setup that every shard would repeat.
+every run. Every test tier uses four workers on Ubuntu x64; full changes test scope and
+coverage, without expanding the platform matrix. macOS, Windows and LTS are deferred
+during the rebuild. The timing measurements above describe the historical matrix.
 
 ### Rules
 
@@ -484,20 +492,22 @@ change whose risk the paths do not show needs a label.
 - **The verdict is a script** (`scripts/ci_verdict.jl`, tested in `test/ci_gate.jl`), and it
   also requires full for a push and full or none for the nightly run.
 - **Every push runs full**, also for documentation, as #121 asks for every merge and release.
-- **The nightly skip** also requires the same dependencies. A full run that is not for a pull
-  request records, on its two Ubuntu jobs, the Julia version and every resolved package version
-  of a test environment (`scripts/ci_environment.jl`, a 16-hex digest) and uploads the record as
-  an artifact named `environment-<julia>-<digest>` if the tests pass. The nightly plan resolves
-  the same two environments and skips only if a run on the same commit, less than 24 hours old,
-  not for a pull request, concluded success, has `CI required jobs` and all four full jobs
-  successful in its latest attempt, and recorded both names. A new release of any dependency or
-  test dependency, or a new Julia patch release, therefore runs full. Runner images and the
-  macOS and Windows resolutions are not part of the record. An API failure or malformed answer
-  runs full.
+- **The nightly skip** requires the same dependencies and CI policy. A non-PR full run
+  records its Julia version and resolved package versions on Ubuntu, and a separate digest of
+  `CI.yml` plus the planner, verdict, gate and environment scripts. It uploads
+  `environment-<julia>-<policy>-<digest>` only after its tests pass. The nightly plan resolves
+  the same environment and skips only if a successful non-PR run on the same commit in the
+  preceding 24 hours has `CI required jobs` and `Julia 1 - ubuntu-latest - x64 - full`
+  successful in its latest attempt, and the exact artifact name. Missing/duplicate/failed
+  jobs, an absent record, different Julia/package versions or different CI policy run full.
+  A re-run of an old checkout keeps that checkout's policy fingerprint; neither its old-format
+  nor its different-policy artifact qualifies for the current policy. Unknown additional
+  full test jobs must also have passed. Runner images are not fingerprinted. API errors or
+  malformed answers run full.
 - No benchmark reference checks, conformance reports or `test:iterate-narrow` label, which
   ProximalSolvers does not have; the gate script is ProximalBase's, unchanged but for its header.
 
-### Final review (integration with master)
+### Historical review (integration with master before the rebuild)
 
 Four independent reviews (tier selection; merge protection and security; the nightly skip;
 documentation and evidence) of the integrated head `e568c5a` found no way to get both checks
@@ -658,7 +668,7 @@ two. Before this change every PR ran full with coverage on four jobs; the same m
 pull-request runs that did not queue gave 9.7 min (41576419157) and 10.4 min (41556070197), and
 15.8 and 20.3 min for two that queued. A test-only PR now finishes in about 4.3 minutes with two
 test jobs (about 6 runner minutes instead of about 32), and a localized solver change in about
-9 minutes with two; current full CI retains three stable-Julia platforms. Historical targets hold:
+9 minutes with two; that historical full CI used multiple platforms. Historical targets hold:
 quick 4.2–4.5 minutes against 3–5, standard 7.4–9.5 against 6–10, end to end.
 
 **Counts and coverage at `0ddcaac`.** Full runs 54 files and counts **116341** assertions on

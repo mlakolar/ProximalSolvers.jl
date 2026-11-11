@@ -165,15 +165,22 @@ ok(; plan = "success", analysis = "success", tests = "success", run_tests = "tru
 @testset "verdict: the jobs a tier needs" begin
   @test CV.expected_jobs("none") == String[]
   @test CV.expected_jobs("quick") == ["Julia 1 - ubuntu-latest - x64 - quick"]
-  @test length(CV.expected_jobs("standard")) == 1
-  @test CV.expected_jobs("full") == ["Julia 1 - ubuntu-latest - x64 - full",
-                                     "Julia 1 - macos-latest - aarch64 - full", "Julia 1 - windows-latest - x64 - full"]
+  @test CV.expected_jobs("standard") == ["Julia 1 - ubuntu-latest - x64 - standard"]
+  @test CV.expected_jobs("full") == ["Julia 1 - ubuntu-latest - x64 - full"]
   @test_throws ArgumentError CV.expected_jobs("thorough")
   # the job names the workflow gives: "Julia <version> - <os> - <arch> - <tier>"
-  workflow = read(joinpath(dirname(@__DIR__), ".github", "workflows", "CI.yml"), String)
+  workflow = replace(read(joinpath(dirname(@__DIR__), ".github", "workflows", "CI.yml"), String), "\r\n" => "\n")
   @test occursin("name: Julia \${{ matrix.version }} - \${{ matrix.os }} - \${{ matrix.arch }} - \${{ needs.plan.outputs.tier }}", workflow)
-  @test occursin("\"version\": \"1\", \"os\": \"macos-latest\", \"arch\": \"aarch64\"", workflow)
-  @test occursin("\"version\": \"1\", \"os\": \"windows-latest\", \"arch\": \"x64\"", workflow)
+  # All events and tiers use the same one-element matrix; no conditional expansion.
+  matrix = split(split(workflow, "\n      matrix:\n"; limit = 2)[2], "\n    steps:\n"; limit = 2)[1]
+  @test occursin("version:\n          - '1'", matrix)
+  @test occursin("os:\n          - ubuntu-latest", matrix)
+  @test occursin("arch:\n          - x64", matrix)
+  @test occursin("ptr_jobs:\n          - '4'", matrix)
+  @test count(r"(?m)^          - ", matrix) == 4 # exactly one value for each axis
+  @test !occursin("\${{", matrix) # no event- or tier-dependent matrix expansion
+  @test !occursin("include:", matrix) && !occursin("exclude:", matrix)
+  @test !occursin("macos-latest", workflow) && !occursin("windows-latest", workflow)
   @test !occursin("version: '1.10'", workflow) && !occursin("env110", workflow)
 end
 
@@ -214,8 +221,14 @@ end
   end
   @test only(ok(jobs = Dict{String, String}())) ==
         "Julia 1 - ubuntu-latest - x64 - quick: missing."
-  @test length(ok(tier = "full", jobs = QUICK)) == 3 # the jobs of another tier do not count
-  @test !isempty(ok(tier = "full", jobs = delete!(copy(FULL), "Julia 1 - windows-latest - x64 - full")))
+  @test length(ok(tier = "full", jobs = QUICK)) == 1 # the jobs of another tier do not count
+  @test !isempty(ok(tier = "full", jobs = Dict{String, String}()))
+  for c in ("failure", "cancelled", "skipped", "timed_out", "")
+    @test !isempty(ok(tier = "full", jobs = Dict("Julia 1 - ubuntu-latest - x64 - full" => c)))
+  end
+  # Older workflows and their re-runs keep their old job set: unexpected full jobs
+  # cannot hide a failed platform behind the now-required Linux success.
+  @test !isempty(ok(tier = "full", jobs = merge(FULL, Dict("Julia 1 - macos-latest - aarch64 - full" => "failure"))))
   # the test jobs as a whole were cancelled or skipped, even if the listing shows successes
   @test !isempty(ok(tests = "cancelled")) && !isempty(ok(tests = "skipped"))
   # the plan's outputs disagree or are missing

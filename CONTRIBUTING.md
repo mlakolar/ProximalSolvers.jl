@@ -83,8 +83,9 @@ it, and the PR gets the highest tier):
   benchmarks (their analysis controls run anyway), `test/oracles/` and the
   scripts and workflows that are not part of the package tests.
 
-Quick and standard run Julia 1 (current stable) on Ubuntu; full adds macOS and Windows,
-and its Julia 1 Ubuntu job collects coverage for Codecov. The plan, the naming
+During the minimal-core rebuild, every tier runs only Julia 1 (current stable) on
+Ubuntu x64 with four workers. Full collects coverage for Codecov; quick and standard
+do not. Automatic macOS, Windows and Julia LTS testing is deferred. The plan, the naming
 check and the benchmark analysis controls run on every PR. To see what CI will
 choose before pushing:
 
@@ -131,10 +132,14 @@ To retry jobs of a PR run:
   #430 observed this, #468, and the gate-only re-run, #470; the scenarios here
   covered the other cases.)
 
-Every push to master and every tag (release) runs full on Julia 1 Linux, macOS and Windows.
+Every push to master and every tag (release) runs full on Julia 1 Ubuntu x64.
 A nightly run checks master again with full, unless a run that passed full on
 the same commit less than a day earlier tested the same Julia version and
-dependency versions (`scripts/ci_environment.jl` records them). Manual runs
+dependency versions and CI policy (`scripts/ci_environment.jl` records both). The policy
+fingerprint covers the workflow and its planner, verdict, gate and environment scripts.
+An older workflow's artifact, including one produced by re-running its old checkout,
+cannot suppress a full run under changed policy. Missing or invalid evidence runs full.
+Manual runs
 (`gh workflow run CI.yml --ref <branch> -f tier=standard`) take a tier, full by
 default. **When a master, tag or nightly run fails**, the workflow opens (or
 comments on) the issue "CI failing on master": fix the regression or revert the
