@@ -81,8 +81,44 @@ those defaults satisfy `gradtol` as an optimality bound.
 
 ## Validation evidence
 
-Local/CI test outcomes and final review links are recorded after executing the
-integration head. The focused policy tests exercise full-SHA refusal, dirty/wrong
-source detection, missing/changed records, and the unconditional gated workflow
-attachment. The full PB-B package suite, docs and ordinary precompile remain
-required before review and merge.
+Local validation used Julia 1.13.3, OpenBLAS ILP64 with one thread, exact PB B,
+and the unchanged C0 file. The final paired control ran at PS
+`67ebf1987f16f7aa5afc01750e71e2c5338ae4e9` and passed all 288 records in two
+fresh isolated processes. No divergent solver point, flag, counter or scalar
+oracle result was observed. All independent objective/KKT/reference checks
+passed, including the nonunique fitted-value comparisons.
+
+Project/src SHA256 identities printed by that control were:
+
+| Source | Digest |
+| --- | --- |
+| PS A | `e192d88fcc4dae0bd9d082245036d88db2ccd7eb8d94b8a367c49f2548d36fba` |
+| PS B | `7968aeae79950c191852801f4ea5c0257025d68ea5f2628691d8868fdf92ba8d` |
+| PB A | `0f09b9635dd36ed8ebd7fe3bf5a04e231d4285c579e579a0d549d8d88bcc53d1` |
+| PB B | `3df534d69c8f8002d0b9a40e020a5ae432df93adf05d7c754ae7a2729b5af5b4` |
+
+The digest hashes sorted relative filenames, NUL separators and exact bytes for
+Project.toml and all src/**/*.jl files. Git commit checks independently identify
+the complete checkouts; these digests differ from a src-only audit digest.
+
+- Actual `Pkg.test` sandbox, full tier with bounds checks and two workers:
+  **2053/2053**, nine test files, 1m46.9s.
+- Focused policy subprocess: **29/29** inner assertions, plus its package-test
+  wrapper. These cover full-SHA refusal, wrong/dirty source detection,
+  missing/changed records and the unconditional gated workflow attachment.
+- Documentation build/export coverage: passed, deployment disabled.
+- Ordinary `Pkg.precompile()` and normal `using ProximalBase, ProximalSolvers`:
+  passed; PB's actual loaded path resolves to the independently fetched B
+  checkout and its Git HEAD is the exact selected B SHA.
+- Naming and existing Python benchmark-analysis controls: passed.
+
+C0, the existing gate/verdict/planner scripts, Python benchmark controls and the
+Documentation workflow are unchanged from the reduced master. A separate
+read-only source audit also matched 1242 PB API/private-owner records and 256
+historical default-options solver records; its added direct objective/KKT/fitted
+checks produced 488 matching records per environment. Those default solver
+records are behavioral evidence, not a strict-KKT convergence certificate.
+
+No new C4 timing claim is made. The existing reduction and historical performance
+records remain intact. GitHub required CI and independent review of the final
+integration revision remain merge gates; local success does not replace them.

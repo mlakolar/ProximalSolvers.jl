@@ -38,9 +38,9 @@ compositions, accelerated methods, Newton/ADMM/primal-dual/SLOPE/graphical model
 paths, screening, certificates, workspaces, refit and reweighting are deferred.
 No release/version/registry decision has been made or release authorized.
 
-Branch roles: master is the reviewed minimal core once the reduction merges;
-refactor/minimal-core is its atomic development branch; legacy/full is the
-preserved full-package working reference. Protected `archive/full-before-reset-2026-11-10` and
+Branch roles: master contains the reviewed minimal core; refactor/minimal-core
+records its atomic reduction, and compat/minimal-core-pb-master isolates the PB
+integration. legacy/full is the preserved full-package working reference. Protected `archive/full-before-reset-2026-11-10` and
 `archive/pre-rebuild-2026-11-10` preserve full snapshot
 `9be1773e911a44ec21d49df28cb01fea37c4316e`. Restore features selectively with
 focused independent tests, never by merging legacy/full wholesale.
