@@ -6,7 +6,7 @@ ProximalBase = "0a755509-c5b1-5d6f-9b24-59bcda3c37a3"
 ProximalSolvers = "fc4971f5-6616-4709-9bfc-89a819252f6b"
 
 [sources]
-ProximalBase = {rev = "eff21b6d7d33c622313122f46c6ee71693c101ee", url = "https://github.com/mlakolar/ProximalBase.jl"}
+ProximalBase = {rev = "2b373c546e247781d9514a7000ef3e010343ca4c", url = "https://github.com/mlakolar/ProximalBase.jl"}
 ProximalSolvers = {path = ".."}
 
 [compat]

@@ -12,8 +12,10 @@ No release/version change is authorized or included.
 
 - PS A: `64930401cfc0451e886728d916263c4dab2baf36`.
 - PB A: `e8a45a8a6ffe2a6f92d83c4c77d62a9b7631e291`.
-- PB B, refreshed current master: `eff21b6d7d33c622313122f46c6ee71693c101ee`.
-- PB B Git tree: `c76123a0109c0a0f683cb75085371696dffe1c8c`.
+- Initial tested PB B: `eff21b6d7d33c622313122f46c6ee71693c101ee`.
+- Initial B Git tree: `c76123a0109c0a0f683cb75085371696dffe1c8c`.
+- Final refreshed PB B: `2b373c546e247781d9514a7000ef3e010343ca4c`.
+- Final B Git tree: `d1e8fea6e2bcdffe45419e6c759e3b3da4276398`.
 
 PB B includes the scalar pure-block oracle rename. Unadapted PS A loaded with a
 missing `prox_entry` import warning, then failed with `UndefVarError` in all four
@@ -27,11 +29,14 @@ There is no compatibility alias or new dispatch layer. The scalar NormL1 body is
 unchanged between the two PB sources. No group solver, block workspace, symmetric
 owner, Newton code, or PR #237 history is imported.
 
-Root/docs Project sources now pin PB B exactly. PB's Project.toml is byte-identical
-between A and B, including dependency/compat/extension metadata. Consequently the
-Julia-1.10 floor manifest changes only PB's revision and Git tree identity. This
-metadata update is not a claim of a new Julia-1.10 test run; active CI remains
-current stable Julia1 on Linux x64.
+At the initial eff integration, PB's Project.toml was byte-identical to A, so
+the floor manifest changed only PB's revision and Git tree. Before merge PB
+master advanced through its own minimal rebuild (#850). The final root/docs
+Project pins select 2b373c exactly. Direct runtime dependencies, UUID and version
+remain unchanged, while PB's weakdeps/extensions were removed and its test
+compat/extras narrowed. The floor manifest now also removes PB's obsolete
+weakdep/extension tables. This verified metadata update is not a new Julia-1.10
+test result; active CI remains current stable Julia1 on Linux x64.
 
 ## Always-run paired controls
 
@@ -79,7 +84,7 @@ The broader default-options source audit separately observed identical A/B
 records with PGD KKT residuals as large as approximately 1.75e-3; it does not claim
 those defaults satisfy `gradtol` as an optimality bound.
 
-## Validation evidence
+## Initial eff validation evidence (preserved)
 
 Local validation used Julia 1.13.3, OpenBLAS ILP64 with one thread, exact PB B,
 and the unchanged C0 file. The final paired control ran at PS
@@ -122,3 +127,20 @@ records are behavioral evidence, not a strict-KKT convergence certificate.
 No new C4 timing claim is made. The existing reduction and historical performance
 records remain intact. GitHub required CI and independent review of the final
 integration revision remain merge gates; local success does not replace them.
+
+## Final 2b373c refresh
+
+The upstream minimal rebuild retains every interface used by the supported PS
+core. A bounded read-only 48-case probe matched the initial eff results exactly
+for supported Float32/64 raw/scaled CD/PGD cases and private owner operations.
+PS's runtime delta remains the same three scalar oracle names; no further
+algorithm, dispatch or architecture adaptation is included.
+
+PB removed `Translate` and `NormL2`, which existed only as negative-input fixture
+constructors in PS. A test-local callable shifted-loss composition and retained
+`SqrNormL2` penalty replace them. Every unsupported-input/no-mutation assertion is
+retained, including weighted NormL1 refusal. No runtime compatibility stub or
+new supported combination is introduced. C0 remains unchanged.
+
+Final exact-source paired/full-suite/docs/precompile outcomes are recorded after
+executing this refresh; the initial eff logs above remain initial-eff evidence.

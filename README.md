@@ -46,7 +46,7 @@ integration. legacy/full is the preserved full-package working reference. Protec
 focused independent tests, never by merging legacy/full wholesale.
 
 The current ProximalBase pin is
-`eff21b6d7d33c622313122f46c6ee71693c101ee`. The extraction baseline remains
+`2b373c546e247781d9514a7000ef3e010343ca4c`. The extraction baseline remains
 `e8a45a8a6ffe2a6f92d83c4c77d62a9b7631e291`; every CI run independently probes
 both exact sources in isolated environments, including documentation-only and
 nightly test-reuse runs. See [paired integration](docs/audit/minimal-core-pb-integration.md).

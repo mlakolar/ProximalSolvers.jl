@@ -7,7 +7,7 @@ result types. CDModel and state hooks are private extraction/test seams, not
 promises of custom loss or workspace support. Generic block/metric/certificate/
 logging frameworks are deferred.
 
-The current exact PB pin is eff21b6d7d33c622313122f46c6ee71693c101ee. CD uses
+The current exact PB pin is 2b373c546e247781d9514a7000ef3e010343ca4c. CD uses
 its scalar `prox_block` oracle; PGD retains fused `value_and_prox!`. The private PB
 SparseIterate contract remains unchanged. PR #237's group/workspace migration is
 not imported. The gated analysis job always runs isolated exact-source paired
