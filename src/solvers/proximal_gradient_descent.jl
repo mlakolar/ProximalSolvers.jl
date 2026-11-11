@@ -130,3 +130,38 @@ end
 
 LineSearches.value_and_gradient_at_x!(state::ProximalGradientDescentState,f) =
   _value_and_gradient!(state.grad_f_x,f,state.x,state.model,state.z_x,state.dz)
+
+function _check_method(m::ProximalGradientDescent)
+  !m.normalized && iszero(m.debias) && m.preconditioner === nothing ||
+    throw(ArgumentError("normalized IHT, debiasing and preconditioning are deferred"))
+  m.ls isa LineSearches.BackTracking || throw(ArgumentError("only BackTracking is supported"))
+  0 < m.ls.α <= 1 && 0 < m.ls.β < 1 && m.ls.Lexact > 0 ||
+    throw(ArgumentError("invalid BackTracking settings"))
+  nothing
+end
+
+"""
+    solve!(x, f, g, CDSolver())
+    solve!(x, f, g, ProximalGradientDescent(), options=ProximalOptions())
+
+Overwrite dense Vector{T} x, T=Float32 or Float64, for same-type Matrix X/Vector
+y and unweighted finite nonnegative NormL1. Use `(one(T)/T(n))*LeastSquaresLoss`
+for normalized lasso; raw LS keeps its unnormalized meaning. One positive finite
+scalar LS wrapper is supported. Borrowed X/y must not alias mutable x or change
+during a solve. Results share x; copy it to retain earlier coefficients.
+Unsupported inputs/options fail before mutation. Convergence uses historical
+stopping tests, not a KKT certificate. Finite intermediate arithmetic is required.
+CD errors before scatter preserve input x; PGD step errors restore its last
+accepted x and rethrow, without a transaction guarantee for internal counters.
+"""
+function solve!(x, f, g, method::ProximalGradientDescent,
+                options::ProximalOptions = ProximalOptions(); kwargs...)
+  _check_keywords(kwargs)
+  _check_method(method)
+  _check_options(options)
+  _check_problem(x, f, g)
+  t0 = time()
+  state = initial_state(method, options, f, g, x)
+  _solve_gradient!(state, f, g, method, options, nothing, t0)
+end
+

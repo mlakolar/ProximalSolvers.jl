@@ -359,3 +359,21 @@ function _copy_dense!(dest::Vector{T}, src::SparseIterate{T}) where {T}
   end
   dest
 end
+
+function _check_method(m::CDSolver)
+  iszero(m.anderson) && iszero(m.gaptol) && !m.gapsafe ||
+    throw(ArgumentError("Anderson, screening and gap certificates are deferred"))
+  m.maxpasses >= 0 && isfinite(m.tol) && m.tol >= 0 ||
+    throw(ArgumentError("invalid coordinate descent limits/tolerance"))
+  !(m.momentum === true && !m.random) || throw(ArgumentError("momentum needs random order"))
+  nothing
+end
+
+function solve!(x, f, g, method::CDSolver; kwargs...)
+  _check_keywords(kwargs)
+  _check_method(method)
+  _check_problem(x, f, g)
+  _solve_dense!(x, f, g, method)
+end
+solve!(x, f, g, method::ProximalSolver, args...; kwargs...) =
+  throw(ArgumentError("unsupported solver/options combination"))

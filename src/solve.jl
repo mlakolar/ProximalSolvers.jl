@@ -1,3 +1,67 @@
+# Once-per-solve validation; no numeric solver arithmetic or conversion changes.
+function _allfinite(A::Array)
+  finite = true
+  @inbounds @simd for i in eachindex(A)
+    finite &= isfinite(A[i])
+  end
+  finite
+end
+
+function _scalar_parameter(v, ::Type{T}, name; positive = false) where T
+  v isa Real && isfinite(v) && (positive ? v > 0 : v >= 0) ||
+    throw(ArgumentError("$name must be finite and $(positive ? "positive" : "nonnegative")"))
+  native = try
+    T(v)
+  catch
+    throw(ArgumentError("$name is not representable in $T"))
+  end
+  isfinite(native) && (!iszero(v) ? native > 0 : iszero(native)) ||
+    throw(ArgumentError("$name is not representable without overflow or underflow in $T"))
+  nothing
+end
+
+function _check_problem(x, f, g)
+  x isa Vector && eltype(x) in (Float32, Float64) ||
+    throw(ArgumentError("x must be a dense Vector{Float32} or Vector{Float64}"))
+  T = eltype(x)
+  base = if f isa LeastSquaresLoss
+    f
+  elseif f isa Scaled && f.f isa LeastSquaresLoss
+    _scalar_parameter(f.α, T, "loss scale"; positive = true)
+    f.f
+  else
+    throw(ArgumentError("only LeastSquaresLoss or one positive Scaled(LeastSquaresLoss) is supported"))
+  end
+  base.X isa Matrix{T} && base.Y isa Vector{T} ||
+    throw(ArgumentError("X must be Matrix{$T} and y Vector{$T}; sparse designs, matrix responses and mixed array types are deferred"))
+  n, p = size(base.X)
+  n > 0 && p > 0 || throw(DimensionMismatch("X must have positive row and column counts"))
+  length(base.Y) == n && length(x) == p || throw(DimensionMismatch("x/y dimensions do not match X"))
+  g isa NormL1 && g.w === nothing || throw(ArgumentError("only unweighted NormL1 is supported"))
+  _scalar_parameter(g.λ0, T, "penalty lambda")
+  (Base.mightalias(x, base.X) || Base.mightalias(x, base.Y)) &&
+    throw(ArgumentError("mutable x must not alias borrowed X or y"))
+  _allfinite(x) && _allfinite(base.Y) && _allfinite(base.X) ||
+    throw(ArgumentError("x, X and y must contain only finite values"))
+  nothing
+end
+
+_check_keywords(kwargs) = isempty(kwargs) ||
+  throw(ArgumentError("unsupported solve! keywords: $(join(keys(kwargs), ", "))"))
+_check_method(method) = throw(ArgumentError("unsupported solver $(typeof(method))"))
+
+function _check_options(o::ProximalOptions)
+  o.maxiter>1 || throw(ArgumentError("maxiter must be greater than 1"))
+  isfinite(o.ftol) && o.ftol>0 || throw(ArgumentError("ftol must be finite and positive"))
+  isfinite(o.xtol) && o.xtol>0 || throw(ArgumentError("xtol must be finite and positive"))
+  isfinite(o.gradtol) && o.gradtol>=0 || throw(ArgumentError("gradtol must be finite and nonnegative"))
+  min(o.f_calls_limit,o.grad_calls_limit,o.prox_calls_limit)>=0 || throw(ArgumentError("call limits must be nonnegative"))
+  o.print_every>0 && o.gapevery>0 || throw(ArgumentError("print_every and gapevery must be positive"))
+  !isnan(o.time_limit) || throw(ArgumentError("time_limit must not be NaN"))
+  iszero(o.gaptol) || throw(ArgumentError("gap certificates are deferred"))
+  nothing
+end
+
 _drop!(x::AbstractArray) = x
 _resultdims(x::AbstractArray) = ndims(x)
 _check_start(f_x) = isfinite(f_x) || throw(ArgumentError("start from a point where f is finite"))
