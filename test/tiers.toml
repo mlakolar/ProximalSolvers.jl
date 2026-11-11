@@ -29,6 +29,7 @@ quick = [
   "primal_dual",
   # coordinate descent and group coordinate descent: closed forms, KKT, warm starts, paths
   "coordinate_descent_basics",
+  "minimal_core_characterization",
   "group_lasso",
   "path_snapshots",
   # certificates: duality gaps, Float32 certificates and false-success guards
