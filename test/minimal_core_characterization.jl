@@ -1,6 +1,6 @@
 module MinimalCoreCharacterization
 
-using Test, LinearAlgebra, Random, Logging
+using Test, LinearAlgebra, Random
 using ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
 
@@ -54,7 +54,7 @@ function correlated(::Type{T}) where T
   T[1 1 .2; 2 1 .3; -1 0 .5; .1 1 1; .4 .3 -.8; -.2 .8 .1; .6 -.1 .2],
   T[2, 1, -1, .4, -.5, .7, .9]
 end
-quiet(f) = with_logger(f, NullLogger())
+quiet(f) = (@test_logs (:warn, r"coordinate descent did not converge") f())
 strict_options(::Type{T}; kwargs...) where T = ProximalOptions(;
   maxiter = 10_000, ftol = 1e-20, xtol = T === Float64 ? 1e-12 : 1e-7,
   gradtol = T === Float64 ? 1e-10 : 1e-5, kwargs...)

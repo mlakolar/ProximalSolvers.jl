@@ -2,7 +2,8 @@
 
 C0 adds `test/minimal_core_characterization.jl` to the required quick tier. It
 changes no solver code, existing feature support, dependency pin, CI workflow or
-legacy test. The test file has its own module and independent reference helpers;
+legacy test. Expected CD-limit warnings are asserted with Test.@test_logs; no
+additional Logging dependency is required. The test file has its own module and independent reference helpers;
 there is no helper excluded from test discovery. Planned input/option refusals
 and the nonfinite CD result safeguard belong to the subsequent reduction PR.
 
@@ -84,3 +85,13 @@ current-stable platform gates. No LTS lane is added.
 All original tests remain active in C0. The later reduction must map each
 remaining old testset to a retained/extracted or explicitly deferred feature;
 this table is initial provenance, not authorization to drop applicable tests.
+
+Final packaging validation also used `Pkg.test("ProximalSolvers";
+ test_args=["--tier=quick", "--jobs=2", "minimal_core_characterization",
+ "tier_selection"], julia_args=["--compiled-modules=no", "--check-bounds=yes"],
+ allow_reresolve=false)` against the exact-A temporary environment. It passed
+1,295 assertions (918 characterization plus 377 tier contracts). This exercises
+the actual package test sandbox, which excludes undeclared direct test imports.
+The host disk filled during this work, so the final check ran from an isolated
+RAM-backed checkout/depot at `/dev/shm/ps-stage2c/ProximalSolvers.jl`; solver
+source and committed dependency pin remained unchanged.
