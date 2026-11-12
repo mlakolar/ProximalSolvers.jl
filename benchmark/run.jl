@@ -55,6 +55,60 @@ function git_identity(root)
   revision, dirty
 end
 
+# The ProximalBase entry of the active manifest and the directory ProximalBase was loaded
+# from. A git or registry entry identifies its source by a tree hash, and depot packages
+# live in a directory named from that hash, so the loaded directory is checked against it.
+function proximalbase_identity()
+  root = realpath(dirname(dirname(pathof(ProximalBase))))
+  project = Base.active_project()
+  manifest = project === nothing ? nothing : Base.project_file_manifest_path(project)
+  entry = Dict{String,Any}()
+  if manifest !== nothing && isfile(manifest)
+    parsed = TOML.parsefile(manifest)
+    entries = get(get(parsed, "deps", parsed), "ProximalBase", nothing)
+    entries isa AbstractVector && length(entries) == 1 && (entry = only(entries))
+  end
+  url, rev, tree = get(entry, "repo-url", ""), get(entry, "repo-rev", ""), get(entry, "git-tree-sha1", "")
+  source = isempty(entry) ? "unknown" : haskey(entry, "path") ? "path" :
+    !isempty(url) ? "git" : !isempty(tree) ? "registry" : "unknown"
+  slug_matches = occursin(r"^[0-9a-f]{40}$", tree) &&
+    basename(root) == Base.version_slug(Base.UUID(entry["uuid"]), Base.SHA1(tree))
+  (; root, source, url, rev, tree, manifest = something(manifest, ""), slug_matches)
+end
+
+# Refuse a ProximalBase that a formal record could not identify: a git source at a moving
+# revision (a branch name or a short hash), a git or registry source loaded from another
+# directory than its manifest tree, and, with PS_EXPECTED_PROXIMALBASE_REV, any source
+# other than a git entry at exactly that commit.
+function check_proximalbase(identity, expected)
+  b = identity
+  b.source == "git" && !occursin(r"^[0-9a-f]{40}$", b.rev) &&
+    error("ProximalBase tracks the moving revision \"$(b.rev)\"; pin a full commit")
+  b.source in ("git", "registry") && !b.slug_matches &&
+    error("loaded ProximalBase from $(b.root), not from its manifest tree $(b.tree)")
+  isempty(expected) && return nothing
+  occursin(r"^[0-9a-f]{40}$", expected) || error("PS_EXPECTED_PROXIMALBASE_REV must be a full commit")
+  b.source == "git" && b.rev == expected ||
+    error("loaded ProximalBase is $(b.source) $(b.rev); expected the git commit $expected")
+  nothing
+end
+
+# With PS_EXPECTED_PACKAGE_REVISION, the loaded checkout must be that commit, with no
+# tracked or untracked change in Project.toml, src or ext (the fingerprinted files).
+function check_package_revision(root, expected)
+  isempty(expected) && return nothing
+  occursin(r"^[0-9a-f]{40}$", expected) || error("PS_EXPECTED_PACKAGE_REVISION must be a full commit")
+  revision, _ = git_identity(root)
+  revision == expected || error("loaded ProximalSolvers at revision $revision; expected $expected")
+  changes = try
+    readchomp(pipeline(`git -C $root status --porcelain -- Project.toml src ext`; stderr = devnull))
+  catch
+    "unavailable"
+  end
+  isempty(changes) || error("ProximalSolvers checkout $root differs from $expected: $changes")
+  nothing
+end
+
 function runner_settings()
   suite = get(ENV, "PS_SUITE", "quick")
   suite in ("quick", "extended") || error("PS_SUITE must be quick or extended")
@@ -77,8 +131,13 @@ function runner_settings()
     root == expected || error("loaded ProximalSolvers from $root; expected $expected")
   end
   cases = strip(get(ENV, "PS_CASES", ""))
+  expected_revision = strip(get(ENV, "PS_EXPECTED_PACKAGE_REVISION", ""))
+  check_package_revision(root, expected_revision)
+  expected_base = strip(get(ENV, "PS_EXPECTED_PROXIMALBASE_REV", ""))
+  base = proximalbase_identity()
+  check_proximalbase(base, expected_base)
   (; suite, groups, cases, rep, samples, seconds, case_seconds, profile_seconds, output,
-     expected, root)
+     expected, root, expected_revision, expected_base, base)
 end
 
 """
@@ -123,7 +182,15 @@ function start_metadata(settings)
     "samples_target" => s.samples, "seconds_limit" => s.seconds,
     "case_seconds" => s.case_seconds, "profile_seconds" => s.profile_seconds,
     "seed_scheme" => "FNV1a64 keyed scenario xor repetition",
-    "job_id" => get(ENV, "SLURM_JOB_ID", "none"))
+    "job_id" => get(ENV, "SLURM_JOB_ID", "none"),
+    # Source identities checked at startup (#110); validate.py reads only the keys above.
+    "expected_package_revision" => s.expected_revision,
+    "expected_proximalbase_rev" => s.expected_base,
+    "proximalbase_source" => s.base.source, "proximalbase_url" => s.base.url,
+    "proximalbase_rev" => s.base.rev, "proximalbase_tree_sha1" => s.base.tree,
+    "proximalbase_path" => s.base.root, "active_manifest" => s.base.manifest,
+    "capabilities" => join(sort!(collect(CAPABILITIES)), ','),
+    "deferred_cases" => length(build_catalog(s.suite, s.groups; deferred = true)))
 end
 
 function write_metadata(path, metadata)
@@ -316,8 +383,21 @@ end
 function main()
   try
     settings = runner_settings()
+    if get(ENV, "PS_LIST", "false") == "deferred"
+      # Deferred cases and the capabilities of the loaded package they lack (cases.jl).
+      for spec in build_catalog(settings.suite, settings.groups; deferred = true)
+        tsv_line(stdout, spec.meta.id, spec.meta.suite, spec.meta.issue,
+                 join(missing_requirements(spec), "; "))
+      end
+      return 0
+    end
     catalog = build_catalog(settings.suite, settings.groups)
+    skipped = check_deferred_request(settings.cases, settings.suite, settings.groups)
+    isempty(skipped) || println(stderr, "NOTE PS_CASES also matches $(length(skipped)) deferred " *
+                                "case(s), not run: ", join(skipped, ", "))
     isempty(settings.cases) || (catalog = select_cases(catalog, settings.cases))
+    isempty(catalog) && error("no supported case in the selected suite and groups; " *
+                              "PS_LIST=deferred lists the deferred ones")
     if get(ENV, "PS_LIST", "false") == "true"
       for spec in catalog
         tsv_line(stdout, spec.meta.id, spec.meta.suite, spec.meta.issue)

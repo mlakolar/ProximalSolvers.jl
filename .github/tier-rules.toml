@@ -28,6 +28,15 @@ focus = ["benchmark_explore"]
 paths = ["benchmark/minimal/**"]
 
 [[risk]]
+why = "the formal benchmark harness's current-core cases, runner and setup have their own test"
+tier = "quick"
+focus = ["benchmark_formal"]
+paths = [
+  "benchmark/problems.jl", "benchmark/certificates.jl", "benchmark/cases.jl", "benchmark/run.jl",
+  "benchmark/setup.jl", "benchmark/local.jl", "benchmark/validate.py",
+]
+
+[[risk]]
 why = "not part of the package tests: their own jobs, the plan's naming check, or run by hand"
 tier = "none"
 paths = [

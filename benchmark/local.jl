@@ -489,6 +489,8 @@ function explore_selected(patterns, rep, samples, seconds, case_seconds, minimum
                           baseline, save, io, verified)
   Threads.nthreads() == 1 || @warn "timings with $(Threads.nthreads()) Julia threads; the formal runner requires one"
   BLAS.set_num_threads(1)
+  # A deferred case is refused with the capabilities it lacks (cases.jl), never run.
+  check_deferred_request(join(patterns, ','), "extended", collect(CASE_GROUPS))
   selected = select_cases(build_catalog("extended", collect(CASE_GROUPS)), join(patterns, ','))
   env = environment(verified)   # the source applied for these runs
   results = [merge(explore_case(spec, rep, samples, seconds, case_seconds, minimum_samples; io),
