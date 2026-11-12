@@ -288,9 +288,8 @@ function certified(T, X, x, xa, xb, ω, L, α; fresh_only = false)
   sd, sx = PS._sumsq2(d, x)
   D, normx = PS._se_norm_onepass(T, sd, d), PS._se_norm_onepass(T, sx, x)
   iszero(D.s) && return nothing, y
-  R = promote_type(T, typeof(float(α)))
   ok, fresh = PS._bound_certified!(zeros(T, n), m, zu, zw, d, D, T(L), Ey, normx,
-                                   PS._SE{T}(sqrt(R(α))), bc, fresh_only)
+                                   PS._root_scale(T, α), bc, fresh_only)
   (ok, fresh), y
 end
 
@@ -336,8 +335,8 @@ end
         rB[1] && @test exact_ratio(α, X, x, y2, T(L)) <= tol    # Option B is safe too
       end
       # liveness: a global curvature bound is accepted, for data in the normal range (with
-      # subnormal data the products underflow and carry no information, so the test is
-      # inconclusive and rejects)
+      # subnormal data the absolute underflow terms can dominate the bound, and the test may
+      # then be inconclusive and reject)
       Lg = 4 * BigFloat(α) * sum(abs2, big_(X))
       if sub == 0 && floatmin(T) <= Lg <= floatmax(T) / 4
         r, _ = certified(T, X, x, xa, xb, ω, Lg, α)
@@ -357,8 +356,8 @@ end
     call(k, L) = PS._bound_certified!(zeros(T, k), PS._image_model(LeastSquaresLoss(zeros(T, k), ones(T, k, 1))),
       zeros(T, k), fill(t, k), T[t], PS._se_norm(T, T[t]), T(L), PS._se_zero(T),
       PS._se_norm(T, T[t]), one_se, PS._bound_constants(T, ones(T, k, 1)), false)[1]
-    # Subnormal images carry absolute rounding error (underflow) comparable to their size,
-    # so a violated bound is rejected and acceptance needs a margin above the curvature.
+    # The underflow terms of the bounds are comparable to these subnormal images, so a
+    # violated bound is rejected and here acceptance needs a margin above the curvature.
     @test !call(2, 1) && !call(2, 1.9)       # exact ratio 2 and 2/1.9: rejected
     @test call(2, 20)
     @test !call(3, 1.5) && !call(3, 2.9) && call(3, 30)
@@ -433,6 +432,28 @@ end
   @test_throws r"cannot increase finitely" solve!(x, 0.5f0 * LeastSquaresLoss([1.0], Xf), NormL1(0.0),
                                                   AccProxGradDescent(α = 1.0, β = nextfloat(1 / floatmax(Float64))))
   @test x == [0.0]
+  # A BigFloat scale under a low active precision: √α is not computed at that precision.
+  # The references are evaluated after the scoped block, at the default precision.
+  prec = precision(BigFloat)
+  stlow = setprecision(BigFloat, 8) do
+    f8 = BigFloat(0.5) * LeastSquaresLoss([1.0], ones(1, 1))
+    st8 = PS.initial_state(AccProxGradDescent(α = 0.49995), TIGHT, f8, NormL1(0.0), [0.0])
+    PS.update_state!(f8, NormL1(0.0), st8, AccProxGradDescent(α = 0.49995))
+    st8
+  end
+  @test precision(BigFloat) == prec
+  @test BigFloat(1) / 2 <= (1 + 4eps())^2 * BigFloat(stlow.L)
+  x = [0.0]
+  @test_throws r"cannot increase finitely" setprecision(BigFloat, 8) do
+    solve!(x, BigFloat(0.5) * LeastSquaresLoss([1.0], Xf), NormL1(0.0),
+           AccProxGradDescent(α = 1.0, β = nextfloat(1 / floatmax(Float64))))
+  end
+  @test x == [0.0] && precision(BigFloat) == prec
+  for (T, α) in ((Float64, BigFloat(2)^-1074 * 3), (Float32, 1.49 * Float64(nextfloat(0f0))),
+                 (Float64, 0.5f0), (Float32, BigFloat(10)^30))
+    r = PS._root_scale(T, α)
+    @test abs(ldexp(BigFloat(r.s), r.e) / sqrt(BigFloat(α; precision = 256)) - 1) <= 2eps(T)
+  end
   # The fresh-product error bound covers the actual error of a long reduction.
   c = 0.7071977f0; v = Float32[1.4140569f0]
   Xb = fill(c, 1_000_000, 1); Xb[1] = 1

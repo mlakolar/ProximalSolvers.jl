@@ -91,7 +91,7 @@ mutable struct AccProxGradDescentState{T, X<:Vector{T}, M, Z}
     z_y::Z
     dz::Z             # residual A y - response (before the loss scale); buffer of the fresh A d
     bound::_BoundConstants{T}  # constants of the bound test (dimensions, ‖A‖_F)
-    rootα::_SE{T}     # √ of the loss scale, in at least the precision of T
+    rootα::_SE{T}     # √ of the loss scale as given (see _root_scale)
     image_error_y::_SE{T}  # bound on the error of z_y as an image of y
     normx::_SE{T}     # ‖x‖ of the accepted iterate
     normx_previous::_SE{T}  # ‖x_previous‖
@@ -111,9 +111,6 @@ function initial_state(
     f_x = _value!(f, x0, model, z_x)
     _check_start(f_x)
     normx0 = _se_norm(T, x0)          # x0 is finite (checked before)
-    # √α of the scale as given, evaluated in at least the precision of T: a wider scale
-    # is not rounded to T first, and a narrower one is converted exactly
-    R = promote_type(T, typeof(float(model.α)))
     AccProxGradDescentState(
                          x0,          # Maintain current state in state.x
                          f_x,
@@ -140,7 +137,7 @@ function initial_state(
                          similar(z_x), # A y
                          similar(z_x), # residual at A y
                          _bound_constants(T, model.X),
-                         _SE{T}(sqrt(R(model.α))),
+                         _root_scale(T, model.α),
                          _se_zero(T),
                          normx0,
                          normx0,

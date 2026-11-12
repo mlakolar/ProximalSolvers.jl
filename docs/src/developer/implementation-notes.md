@@ -182,8 +182,9 @@ extrapolation `fl(z_a + ω(z_a - z_b))` of fresh products of `x_a` and `x_b` wit
 `y = fl(x_a + ω(x_a - x_b))` and computed `0 < ω ≤ 1`; three roundings per combination (one
 an underflowing product) give `E_y = (2γ_p + 16u)‖X‖_F(‖x_a‖ + ‖x_b‖) + 8p√n η + 2√p ‖X‖_F η`,
 covering both images, the image error of the rounded `y` and both combinations. `‖X‖_F`
-enters as a proved upper bound (`_frobenius_upper`: exact maximum, scaled squares summed
-in Float64 with `γ_{np+2}` and underflow terms, rounding up the square root and the
+enters as a proved upper bound (`_frobenius_upper`: squares summed in Float64, exactly
+representable for Float32 data, in one pass when that is accurate and otherwise scaled by
+the exact maximum, with `γ_{np+3}` and underflow terms, rounding up the square root and the
 conversion), and each computed iterate norm is divided by `1 - γ_{p+4}`. The computed norms
 of `Δz = z_x - z_y` and `d̂ = fl(x - y)` are within `γ_{n+4}` and `γ_{p+4}` of the norms of the
 stored vectors (a one-pass sum is used only when finite and at least `4n floatmin(T)`; the
@@ -194,13 +195,16 @@ is at most `(1 + 4eps)/(1 + κ) √L ‖d̂‖/((1 + γ_{p+4})(1 + u))`; reject 
 bound `‖Δz‖/((1 + γ_{n+4})(1 + u)) - E_x - E_y` exceeds `(1 + 4eps)(1 + κ) √L ‖d̂‖/((1 - γ_{p+4})(1 - u))`.
 Otherwise form `w = fl(X d̂)` in the residual buffer, with
 `‖w - X d‖ ≤ (γ_p + 2u)‖X‖_F ‖d̂‖/((1 - γ_{p+4})(1 - u)) + 2p√n η`, accept when its upper bound passes,
-and reject otherwise. `√α` is evaluated in `promote_type(T, typeof(float(α)))`, never in a
-type narrower than `T`. `κ = 32u` covers the roundings of `√L`, of `√α`'s conversion to `T`
+and reject otherwise. `√α` is formed from `α`'s exact significand and exponent in its own
+type, the significand rounded once to Float64 before its root (`_root_scale`), so neither a
+type narrower than `T`, the active BigFloat precision, nor `α`'s range limits it.
+`κ = 32u` covers the roundings of `√L`, of `√α`'s conversion to `T`
 and of the fixed number of `_SE` products and sums on each side; the dimension-dependent
 errors enter through the factors above. These are conservative bounds: in Float32 the
-cheap path is often inconclusive late in a solve and the fresh product decides, and data
-deep in the subnormal range, whose products underflow, are rejected until `L` is far above
-the curvature, or the solve fails with rollback.
+cheap path is often inconclusive late in a solve and the fresh product decides, and for
+data deep in the subnormal range, where the underflow terms can dominate the bounds, a
+nonzero step may be rejected until `L` is far above the curvature, or the solve may fail
+with rollback.
 
 *Range.* The norms and the bound arithmetic are carried as a significand in `[1, 2)` of
 type `T` and an integer binary exponent (`_SE`), so no partial product or sum of the bound,

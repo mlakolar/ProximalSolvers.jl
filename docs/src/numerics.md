@@ -102,17 +102,19 @@ only on `converged`.
   dominated by rounding. It first uses the difference of the cached images `X x`
   and `X y`, whose error is bounded through `‖X‖_F` and the iterate norms; when
   that bound leaves the decision open it computes `X(x - y)` afresh, one extra
-  matrix-vector product whose error is proportional to the step, and rejects a
-  step that is still undecided. Norms and products are carried as significand and
-  binary exponent, so the decision does not depend on whether squares of the data,
-  the step or the loss scale would overflow or underflow in `T`. A curvature above
+  matrix-vector product whose error bound is a relative term proportional to the
+  step plus an absolute underflow term, and rejects a step that is still undecided.
+  The norms and the bound arithmetic are carried as significand and binary
+  exponent, so they do not overflow or round to subnormal values in `T`; the native
+  products and their underflow enter only through the bounds. A curvature above
   `floatmax(T)` is never certified, so backtracking then ends in its error with
   rollback. These bounds assume IEEE arithmetic with gradual underflow and a
   matrix-vector product evaluated as dot products; the native products and the
   extrapolation are computed in `T` and enter only through the bounds. The extra
   product is needed more often in Float32, where the bounds are wider relative to
-  small late steps, and data deep in the subnormal range, whose products
-  underflow, need `L` far above the curvature or fail with rollback. APG also
+  small late steps; for data deep in the subnormal range, where the underflow terms
+  can dominate the bounds, a step may need `L` far above the curvature, or the solve
+  may fail with rollback. APG also
   requires `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 2 < 1/(4 eps(Float64))`; larger
   problems are refused before `x` is modified.
 - Reaching a pass or iteration limit is not convergence. CD can return

@@ -134,20 +134,46 @@ end
 _unit(::Type{T}) where {T} = eps(T) / 2
 _gamma(::Type{T}, k) where {T} = (ku = k * _unit(T); ku / (1 - ku))
 
-# An upper bound on ‖X‖_F as an _SE: m = max|Xᵢⱼ| (exact), s = Σ(Xᵢⱼ/m)² accumulated in
-# Float64 (Float32 data convert exactly), so ŝ ≥ (1 - γ_{np+2}) s minus the underflow of at
-# most np squares (each < nextfloat(0.0)); the square root and the conversion to T are
-# rounded up by explicit factors.
+# An upper bound on ‖X‖_F as an _SE. Float32 data: the squares are exact in Float64 and
+# their sum cannot overflow there, so s = Σ Float64(Xᵢⱼ)² summed in one pass satisfies
+# s ≥ (1 - γ_N) ‖X‖_F² (N = n p). Float64 data: the same one-pass sum when it is finite and
+# at least 4N floatmin (underflowing squares then cost less than u relative), otherwise
+# m = max|Xᵢⱼ| (exact) and Σ(Xᵢⱼ ⋅ (1/m))² (γ_{N+3}), with N·nextfloat(0.0) for underflow.
+# The square root and the conversion to T are rounded up by explicit factors.
 function _frobenius_upper(::Type{T}, X) where {T}
-  m = Float64(maximum(abs, X))
-  iszero(m) && return _se_zero(T)
+  N = length(X)
   s = 0.0
   @inbounds @simd for i in eachindex(X)
-    s += abs2(Float64(X[i]) / m)
+    s += abs2(Float64(X[i]))
   end
-  s_upper = (s + length(X) * nextfloat(0.0)) / (1 - _gamma(Float64, length(X) + 2))
-  r = sqrt(s_upper) * (1 + eps(Float64))
-  _se_mul(_SE{T}(m), _SE{T}(r), _SE{T}(one(T) + 8 * _unit(T)))
+  iszero(s) && all(iszero, X) && return _se_zero(T)
+  m = 1.0
+  if !(isfinite(s) && (T === Float32 || s >= 4N * floatmin(Float64)))
+    m = Float64(maximum(abs, X))
+    r = inv(m)
+    s = 0.0
+    @inbounds @simd for i in eachindex(X)
+      s += abs2(Float64(X[i]) * r)
+    end
+  end
+  s_upper = (s + N * nextfloat(0.0)) / (1 - _gamma(Float64, N + 3))
+  _se_mul(_SE{T}(m), _SE{T}(sqrt(s_upper) * (1 + eps(Float64))), _SE{T}(one(T) + 8 * _unit(T)))
+end
+
+# √α as an _SE{T}, for the loss scale α as given: α = s·2^e with s ∈ [1, 2) and e taken
+# exactly in α's own floating-point type, s rounded once to Float64 (at least the precision
+# of T, whatever the active BigFloat precision) before its square root, and e made even, so
+# √α = √s′ · 2^(e′/2) without range or precision loss beyond Float64 roundoff.
+function _root_scale(::Type{T}, α) where {T}
+  a = float(α)
+  e = exponent(a)
+  s = Float64(significand(a))
+  if isodd(e)
+    s *= 2
+    e -= 1
+  end
+  r = _SE{T}(sqrt(s))
+  _SE{T}(r.s, r.e + e ÷ 2)
 end
 
 # Constants of the bound test that depend only on n, p, T and ‖X‖_F, formed once per solve.
