@@ -1,0 +1,13 @@
+[ Info: generating markdown page from `~/projects/juliaPkg/ProximalSolvers.jl/examples/01_cd_lasso.jl`
+[ Info: writing result to `~/projects/juliaPkg/ProximalSolvers.jl/docs/src/examples/01_cd_lasso.md`
+[ Info: generating markdown page from `~/projects/juliaPkg/ProximalSolvers.jl/examples/02_pgd_lasso.jl`
+[ Info: writing result to `~/projects/juliaPkg/ProximalSolvers.jl/docs/src/examples/02_pgd_lasso.md`
+[ Info: SetupBuildDirectory: setting up build directory.
+[ Info: Doctest: running doctests.
+[ Info: ExpandTemplates: expanding markdown templates.
+[ Info: CrossReferences: building cross-references.
+[ Info: CheckDocument: running document checks.
+[ Info: Populate: populating indices.
+[ Info: RenderDocument: rendering document.
+[ Info: HTMLWriter: rendering HTML pages.
+[ Info: Automatic `version="0.3.2"` for inventory from ../Project.toml

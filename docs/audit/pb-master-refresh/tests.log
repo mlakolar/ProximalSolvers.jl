@@ -1,0 +1,97 @@
+  Activating project at `~/projects/juliaPkg/ProximalSolvers.jl`
+     Testing ProximalSolvers
+      Status `/tmp/jl_uk0cxc/Project.toml`
+  [4c88cf16] Aqua v0.8.18
+  [d3525ed8] ParallelTestRunner v2.10.0
+  [aea7be01] PrecompileTools v1.4.0
+  [0a755509] ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#c123d56`
+  [fc4971f5] ProximalSolvers v0.3.2 `~/projects/juliaPkg/ProximalSolvers.jl`
+  [37e2e46d] LinearAlgebra v1.13.0
+  [56ddb016] Logging v1.11.0
+  [de0858da] Printf v1.11.0
+  [9a3f8284] Random v1.11.0
+  [2f01184e] SparseArrays v1.13.0
+  [fa267f1f] TOML v1.0.3
+  [8dfed614] Test v1.11.0
+      Status `/tmp/jl_uk0cxc/Manifest.toml`
+  [4c88cf16] Aqua v0.8.18
+  [34da2185] Compat v4.18.1
+  [b5f81e59] IOCapture v1.0.0
+  [36869731] Malt v1.5.0
+  [d3525ed8] ParallelTestRunner v2.10.0
+  [aea7be01] PrecompileTools v1.4.0
+  [21216c6a] Preferences v1.6.1
+  [0a755509] ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#c123d56`
+  [fc4971f5] ProximalSolvers v0.3.2 `~/projects/juliaPkg/ProximalSolvers.jl`
+  [05181044] RelocatableFolders v1.0.1
+  [6c6a2e73] Scratch v1.3.0
+  [10745b16] Statistics v1.11.5
+  [0dad84c5] ArgTools v1.1.2
+  [56f22d72] Artifacts v1.11.0
+  [2a0f44e3] Base64 v1.11.0
+  [ade2ca70] Dates v1.11.0
+  [8ba89e20] Distributed v1.11.0
+  [f43a241f] Downloads v1.7.0
+  [7b1f6079] FileWatching v1.11.0
+  [b77e0a4c] InteractiveUtils v1.11.0
+  [ac6e5ff7] JuliaSyntaxHighlighting v1.12.0
+  [b27032c2] LibCURL v1.0.0
+  [76f85450] LibGit2 v1.11.0
+  [8f399da3] Libdl v1.11.0
+  [37e2e46d] LinearAlgebra v1.13.0
+  [56ddb016] Logging v1.11.0
+  [d6f4376e] Markdown v1.11.0
+  [ca575930] NetworkOptions v1.3.0
+  [44cfe95a] Pkg v1.13.0
+  [de0858da] Printf v1.11.0
+  [9a3f8284] Random v1.11.0
+  [ea8e919c] SHA v1.0.0
+  [9e88b42a] Serialization v1.11.0
+  [6462fe0b] Sockets v1.11.0
+  [2f01184e] SparseArrays v1.13.0
+  [f489334b] StyledStrings v1.11.0
+  [fa267f1f] TOML v1.0.3
+  [a4e569a6] Tar v1.10.0
+  [8dfed614] Test v1.11.0
+  [cf7118a7] UUIDs v1.11.0
+  [4ec0a83e] Unicode v1.11.0
+  [e66e0078] CompilerSupportLibraries_jll v1.5.5+2
+  [deac9b47] LibCURL_jll v8.22.0+0
+  [e37daf67] LibGit2_jll v1.9.7+0
+  [29816b5a] LibSSH2_jll v1.11.104+0
+  [14a3606d] MozillaCACerts_jll v2026.10.20
+  [4536629a] OpenBLAS_jll v0.3.30+0
+  [458c3c95] OpenSSL_jll v3.5.8+0
+  [efcefdf7] PCRE2_jll v10.47.0+0
+  [bea87d4a] SuiteSparse_jll v7.10.1+0
+  [83775a58] Zlib_jll v1.3.2+0
+  [3161d3a3] Zstd_jll v1.5.7+1
+  [8e850b90] libblastrampoline_jll v5.15.0+0
+  [8e850ede] nghttp2_jll v1.70.0+0
+  [3f19e933] p7zip_jll v17.8.3+0
+     Testing Running tests...
+ProximalSolvers tests: tier full: 9 files; Julia 1.13.3 on x86_64-linux-gnu (13th Gen Intel(R) Core(TM) i5-13600K, 20 threads), check-bounds yes
+  aqua ci_gate core_contracts core_regressions examples minimal_core_characterization naming paired_master tier_selection
+Running 9 tests using 2 parallel jobs. To change the number of jobs, specify the `--jobs=N` argument to the tests, or set the `PTR_NUM_JOBS` environment variable.
+                                    │   Test   │ ──────────────── CPU ──────────────── │
+Test                       (Worker) │ time (s) │ GC (s) │ GC % │ Alloc (MB) │ RSS (MB) │
+tier_selection                  (2) │     5.17 │   0.08 │  1.6 │     549.07 │   490.41 │
+aqua                            (1) │     7.22 │   0.10 │  1.4 │     411.18 │   600.41 │
+paired_master                   (1) │     2.07 │   0.00 │  0.0 │       4.46 │   600.41 │
+core_contracts                  (1) │     5.27 │   0.08 │  1.5 │     578.70 │   600.41 │
+minimal_core_characterization   (2) │    10.83 │   0.20 │  1.8 │    1334.33 │   496.18 │
+ci_gate                         (2) │     1.55 │   0.01 │  0.9 │     231.30 │   503.15 │
+examples                        (2) │     0.43 │   0.00 │  0.0 │      86.27 │   503.15 │
+naming                          (2) │     0.02 │   0.00 │  0.0 │       1.43 │   503.30 │
+core_regressions                (1) │     4.55 │   0.07 │  1.6 │     708.95 │   600.41 │
+
+Output generated during execution of 'paired_master':
+┌ Test Summary:                                         | Pass  Total  Time
+│ paired controls: exact source and fail-closed records |   19     19  1.3s
+│ Test Summary:                               | Pass  Total  Time
+└ paired controls: always-run gated Linux job |   10     10  0.1s
+
+Test Summary: | Pass  Total   Time
+  Overall     | 2053   2053  22.7s
+    SUCCESS
+     Testing ProximalSolvers tests passed 

@@ -1,0 +1,57 @@
+  Activating new project at `/tmp/jl_RNMIF0/environment-A`
+   Resolving package versions...
+    Updating `/tmp/jl_RNMIF0/environment-A/Project.toml`
+  [0a755509] + ProximalBase v0.6.0-DEV `/tmp/jl_RNMIF0/pb-A`
+  [fc4971f5] + ProximalSolvers v0.3.2 `/tmp/jl_RNMIF0/ps-A`
+    Updating `/tmp/jl_RNMIF0/environment-A/Manifest.toml`
+  [aea7be01] + PrecompileTools v1.4.0
+  [21216c6a] + Preferences v1.6.1
+  [0a755509] + ProximalBase v0.6.0-DEV `/tmp/jl_RNMIF0/pb-A`
+  [fc4971f5] + ProximalSolvers v0.3.2 `/tmp/jl_RNMIF0/ps-A`
+  [56f22d72] + Artifacts v1.11.0
+  [ade2ca70] + Dates v1.11.0
+  [8f399da3] + Libdl v1.11.0
+  [37e2e46d] + LinearAlgebra v1.13.0
+  [de0858da] + Printf v1.11.0
+  [9a3f8284] + Random v1.11.0
+  [ea8e919c] + SHA v1.0.0
+  [9e88b42a] + Serialization v1.11.0
+  [2f01184e] + SparseArrays v1.13.0
+  [fa267f1f] + TOML v1.0.3
+  [4ec0a83e] + Unicode v1.11.0
+  [e66e0078] + CompilerSupportLibraries_jll v1.5.5+2
+  [4536629a] + OpenBLAS_jll v0.3.30+0
+  [bea87d4a] + SuiteSparse_jll v7.10.1+0
+  [8e850b90] + libblastrampoline_jll v5.15.0+0
+  Activating new project at `/tmp/jl_RNMIF0/environment-B`
+   Resolving package versions...
+    Updating `/tmp/jl_RNMIF0/environment-B/Project.toml`
+  [0a755509] + ProximalBase v0.6.0-DEV `/tmp/jl_RNMIF0/pb-B`
+  [fc4971f5] + ProximalSolvers v0.3.2 `~/projects/juliaPkg/ProximalSolvers.jl`
+    Updating `/tmp/jl_RNMIF0/environment-B/Manifest.toml`
+  [aea7be01] + PrecompileTools v1.4.0
+  [21216c6a] + Preferences v1.6.1
+  [0a755509] + ProximalBase v0.6.0-DEV `/tmp/jl_RNMIF0/pb-B`
+  [fc4971f5] + ProximalSolvers v0.3.2 `~/projects/juliaPkg/ProximalSolvers.jl`
+  [56f22d72] + Artifacts v1.11.0
+  [ade2ca70] + Dates v1.11.0
+  [8f399da3] + Libdl v1.11.0
+  [37e2e46d] + LinearAlgebra v1.13.0
+  [de0858da] + Printf v1.11.0
+  [9a3f8284] + Random v1.11.0
+  [ea8e919c] + SHA v1.0.0
+  [9e88b42a] + Serialization v1.11.0
+  [2f01184e] + SparseArrays v1.13.0
+  [fa267f1f] + TOML v1.0.3
+  [4ec0a83e] + Unicode v1.11.0
+  [e66e0078] + CompilerSupportLibraries_jll v1.5.5+2
+  [4536629a] + OpenBLAS_jll v0.3.30+0
+  [bea87d4a] + SuiteSparse_jll v7.10.1+0
+  [8e850b90] + libblastrampoline_jll v5.15.0+0
+A PS=64930401cfc0451e886728d916263c4dab2baf36 source=e192d88fcc4dae0bd9d082245036d88db2ccd7eb8d94b8a367c49f2548d36fba path=/tmp/jl_RNMIF0/ps-A
+A PB=e8a45a8a6ffe2a6f92d83c4c77d62a9b7631e291 source=0f09b9635dd36ed8ebd7fe3bf5a04e231d4285c579e579a0d549d8d88bcc53d1 path=/tmp/jl_RNMIF0/pb-A
+A Julia=1.13.3 BLAS=LBTConfig([ILP64] libopenblas64_.so)
+B PS=d2ce6245ebe24e773b4e35f25df92acfc9d9eab0 source=1018fa621d6016bf4af6077c510f99e50be329934b427b97b016e361a6d890a7 path=/home/mkolar/projects/juliaPkg/ProximalSolvers.jl
+B PB=c123d56ba1948e36a8fdbf183a9eea396a16e0d5 source=d5cfe6a35c4849ca2407f618eb1bf7359cf2eeadcc153e604a0866745b000364 path=/tmp/jl_RNMIF0/pb-B
+B Julia=1.13.3 BLAS=LBTConfig([ILP64] libopenblas64_.so)
+Paired exact-source diagnostics passed: 288 records; both fresh processes executed.
