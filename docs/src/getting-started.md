@@ -71,11 +71,25 @@ Because the columns are orthogonal, the normalized correlations are `2/3` and `-
 ~~~@example first_lasso
 beta_pgd = zeros(2)
 pgd_result = solve!(beta_pgd, f, penalty, ProximalGradientDescent())
-@assert isapprox(beta_pgd, [1.7, -0.925]; atol=1e-3)
-beta_pgd
+analytic_pgd = [1.7, -0.925]
+pgd_grad = (X' * (X * beta_pgd - y)) / n
+pgd_kkt = [iszero(beta_pgd[j]) ?
+           max(abs(pgd_grad[j]) - lambda, 0.0) :
+           abs(pgd_grad[j] + lambda * sign(beta_pgd[j]))
+           for j in eachindex(beta_pgd)]
+(; coefficients=beta_pgd, converged=pgd_result.converged,
+   max_coefficient_error=maximum(abs.(beta_pgd .- analytic_pgd)),
+   max_kkt_violation=maximum(pgd_kkt))
 ~~~
 
-The default options are a starting point, not a guaranteed accuracy level. See [Choosing a solver](choosing-solver.md) for stricter tolerances. Neither solver's `converged` flag is itself an optimality certificate.
+The defaults may report `converged=true` while the coefficients still differ
+from the analytic answer. On this tutorial problem, **default PGD typically
+gives about 3–4 correct digits**, not full Float64 accuracy; this is not a
+general guarantee. Tighten tolerances for results you plan to report and
+verify an independent KKT residual. See
+[Choosing a solver](choosing-solver.md) for tighter settings.
+The solver's `converged` flag is a stopping indicator, not an optimality
+certificate.
 
 ## Float32 data
 
