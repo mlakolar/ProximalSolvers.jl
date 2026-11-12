@@ -135,7 +135,7 @@ stop even with very small ftol. Check objective/KKT independently. Native
 Float32 may stagnate earlier. Finite inputs do not ensure finite intermediates;
 historical LS image exceptional-range limitations remain outside this extraction.
 
-Callbacks/display sample print_every; stored traces include each iteration. A
+Callbacks/display sample `print_every`; stored traces include each iteration. A
 callback receives the trace when storing, otherwise a state. Limits are checked
 after an iteration and counts may overshoot. iteration_converged means a limit,
 not success. Positive gaptol is refused; positive gapevery is inert at gaptol=0.
@@ -168,7 +168,7 @@ checks shared by both gates and an owner gate that inspects only public active
 values and tests aliasing against the original owner. PGD keeps the dense gate and
 refuses owners.
 
-The current exact PB pin is c123d56ba1948e36a8fdbf183a9eea396a16e0d5. CD uses
+The current exact PB pin is `c123d56ba1948e36a8fdbf183a9eea396a16e0d5`. CD uses
 its scalar `prox_block` oracle; PGD retains fused `value_and_prox!`. The private PB
 SparseIterate contract remains unchanged. PR #237's group/workspace migration is
 not imported. The gated analysis job always runs isolated exact-source paired
