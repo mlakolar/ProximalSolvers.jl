@@ -23,10 +23,20 @@ usual normalized convention.
 | Penalty | Unweighted `NormL1(lambda)` with nonnegative finite `lambda` |
 | Solvers | `CDSolver`, `ProximalGradientDescent` |
 
-The input arrays and penalty parameters must be representable in the
-working type, and the data must not be modified while a solve is running.
-The coefficient vector is mutated in place, so do not alias it to `X` or
-`y`. To retain a result, save `copy(beta)`.
+The three numerical arrays use one common `T` (`Float32` or
+`Float64`); mixed-element-type `X`, `y` and coefficient arrays
+are not supported. The finite loss scale and penalty level must be
+representable in `T` without overflow or rounding a nonzero scalar
+to zero. They may be supplied in a different scalar type, including
+a representable `Float64` literal in a `Float32` problem; this
+narrow convenience does not imply mixed-precision array support or
+a guarantee about every intermediate arithmetic type.
+
+The data must not be modified while a solve is running. The coefficient
+vector (or the supported CD `SparseIterate`) is mutated in place, so do
+not alias it to `X` or `y`. To retain a result, save `copy(beta)`.
+See [Numerical behavior](numerics.md) for numerical recovery limits,
+solver stopping and diagnostics.
 
 For an executable complete example, see [Getting started](getting-started.md).
 For using sparse **coefficients**, see the
