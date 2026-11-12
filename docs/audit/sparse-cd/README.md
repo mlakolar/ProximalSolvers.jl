@@ -13,7 +13,7 @@ The measured base is PS `4259a3852f10e90f59f30cb61b1d296e279fdfa8`; the
 implementation and harness are PS `01f7d1b67929ab23fbc159dee5a956121568d35b`.
 Both select PB `c123d56ba1948e36a8fdbf183a9eea396a16e0d5`.
 The metadata records full Project/src SHA256 identities and the executed harness
-digest. This report and its raw data add no solver or test changes.
+digest. This report adds no solver or test changes.
 
 Executed with Julia 1.13.3 on Linux x86_64 through Slurm:
 
@@ -115,7 +115,7 @@ exact observed counts. Setup and public-state verification are outside timing.
 At one million coordinates this private copy allocates 20,000,264 bytes for
 Float32 or 24,000,264 bytes for Float64. Copy time varies with allocation/cache
 conditions; for example, the Float32 low-occupancy copy's p10/p90 are about
-1.132/2.668 ms. The full raw records preserve that spread.
+1.132/2.668 ms. That spread limits the interpretation of the medians.
 
 Copy-back allocates zero bytes in all 30 measured copy-back cells. Low/low occupancy
 uses PB's active-state traversal; replacing a full entry state with a small
@@ -126,20 +126,24 @@ both sides of PB's strategy threshold. Each destination starts in the specified
 entry state for each measured copy-back. Both copies verify coordinate IDs,
 slot order and values through public storage APIs, including active signed zeros.
 
-## Artifacts and reproduction
+## Reproduction and evidence retention
 
-- [summary.json](summary.json): all paired ratio quantiles, allocations and copy medians.
-- [metadata.toml](metadata.toml): exact source identities, environment and harness digest.
-- [solve.tsv.gz](solve.tsv.gz): 2,160 solve rows in 36 complete groups.
-- [copy.tsv.gz](copy.tsv.gz): 1,800 copy rows in 60 complete groups.
-- [Harness and analyzer](../../../benchmark/sparse_cd/README.md): commands and semantics.
-
-Use clean base/head Git worktrees at the recorded commits and instantiate the
-root project, not the historical benchmark environment. The harness records its own hash and rejects wrong PB sources, dirty
-checkouts, changed source identities and numerical divergence. Its bounded canary is marked and rejected by full-case analysis.
-The analyzer requires the complete expected case sets and refuses missing
+The [harness and analyzer](../../../benchmark/sparse_cd/README.md) describe the
+commands and measurement semantics. Use clean base/head Git worktrees at the
+recorded commits and instantiate the root project. The harness records its own
+hash and rejects wrong PB sources, dirty checkouts, changed source identities
+and numerical divergence. Its bounded canary is marked and rejected by full-case
+analysis. The analyzer requires complete expected case sets and refuses missing
 groups, missing rows, changed diagnostics and nonfinite timing data.
-Independent recomputation matched the complete summary and source/harness hashes.
+
+The completed run contains 2,160 solve rows in 36 groups and 1,800 copy rows in
+60 groups. Raw records, metadata and checksums are retained outside Git with
+the run outputs, in accordance with repository hygiene policy. Independent
+recomputation matched the complete summary and source/harness hashes; the PR
+records the independent review and final CI. The measured Project/src SHA256
+is `f21d6ec5167995921cd03a4a873aeb2f1bcd933f591efca5a13f92fa44c0b79f`;
+the executed harness SHA256 is
+`cdff31da05c6b71de44386c162a9ef4932b3acf3847648a39d376fa1d7668cc7`.
 
 The Julia 1.13 run emitted source-loader binding/world-age warnings during
 module setup, outside the timed region. Verified identities and matching records
