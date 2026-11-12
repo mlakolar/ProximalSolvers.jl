@@ -8,9 +8,9 @@ checks an independent analytic solution; the third runs coordinate descent on a
 caller-owned `SparseIterate` and also checks that the result shares that owner. The
 fourth compares cyclic coordinate descent, random-order coordinate descent and dense
 proximal gradient descent on one seeded correlated lasso by the time each needs to
-reach the same independently measured objective gap and KKT violation. It has no
-analytic solution: its reference is a numerical one, cyclic coordinate descent at a
-very small tolerance, and its accuracy checks are computed from the data and the
+reach the same independently measured objective gap and KKT violation. It does not
+use an analytic solution: its reference is a numerical one, cyclic coordinate descent
+at a very small tolerance, and its accuracy checks are computed from the data and the
 returned coefficients. Its checks concern accuracy and none concerns time: the
 reference solution, the independent objective against the solver-reported one, and
 that each solver reaches the target at some swept setting. Run as a script it prints
