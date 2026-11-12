@@ -2,6 +2,42 @@
 
 This page preserves the detailed implementation contracts from before the beginner documentation rewrite. It is for contributors, not a prerequisite for solving a lasso. For the beginner-level description, see [Supported problems](../support.md) and [Numerical behavior](../numerics.md).
 
+## Working precision and numerical boundaries
+
+The supported solve contract is homogeneous `T = Float32` or
+`T = Float64` for the design matrix, response and coefficient iterate.
+The boundary checks in `src/solve.jl` enforce matching array element
+types, finite data and the solver-specific storage restrictions.
+`_scalar_parameter` validates a finite loss scale or penalty level
+by conversion to `T` and refuses overflow or nonzero-to-zero
+underflow. It does **not** globally convert the original function
+parameters or ensure that all private arithmetic is of type `T`.
+This accepted wider-scalar behavior is a narrow historical
+compatibility exception, not a generic mixed-precision guarantee.
+
+ProximalBase separately defines the mathematical oracle precision
+and exceptional-range behavior. Its selective recovery may avoid
+intermediate overflow/underflow for representable values, but the
+solver adds independent matrix products, state updates, stopping
+and numerical-finiteness checks. Do not infer end-to-end recovery
+from a successful ProximalBase oracle or promise a finite result for
+every finite input.
+
+The solver retains native `Float32`/`Float64` iterates and their
+working accuracy. Some option tolerances and reported scalar
+residuals are stored as `Float64`. They are diagnostic storage,
+not a promotion of solver iterates or an optimality certificate.
+`converged=true` retains its algorithm-specific historical meaning;
+use independent objective/KKT checks for accuracy, especially with
+`Float32`. BigFloat may be used for independent test references,
+not as a supported solver working type.
+
+This is a documentation alignment with the homogeneous numerical
+policy tracked in
+[ProximalBase PR #857](https://github.com/mlakolar/ProximalBase.jl/pull/857).
+No solver arithmetic, precision conversion, stopping, failure
+atomicity or scalar-acceptance behavior is changed.
+
 ## support.md (previous detailed notes)
 
 
