@@ -9,9 +9,12 @@
 #
 # ## Why time to equal accuracy
 #
-# Each solver stops by its own rule: coordinate descent when the coefficient change
-# between passes meets a threshold set by `tol`, proximal gradient descent when an
-# objective, iterate or gradient residual meets its tolerance. These
+# Each solver stops by its own rule. Coordinate descent stops after a full pass over
+# the coordinates in which the largest coordinate update is below a threshold; with
+# the default `relative=true` the updates are scaled and `tol` is multiplied by a
+# response scale, and with `relative=false` both are absolute. Proximal gradient
+# descent stops when the first of an objective-change test, an iterate-change test
+# and a gradient/proximal-residual test is met, each against its own tolerance. These
 # `converged` flags are stopping rules and not certificates of optimality, and the
 # tolerances of different solvers are not defined on a common scale. Timing each
 # solver up to its own `converged` flag compares the solvers at the accuracies that
@@ -48,8 +51,8 @@ g = NormL1(lambda);
 
 # ## Independent measures
 #
-# The two functions below compute from `X`, `y`, the coefficients and `lambda`; they
-# take no output of a solver. The
+# The two functions below use only `X`, `y`, the returned coefficients and `lambda`;
+# they use no solver diagnostics, cached quantities or reported values. The
 # objective is the lasso objective. The KKT violation applies the rule of the page
 # "Sparsity and an optimality check": for a zero coefficient it is the excess of the
 # gradient magnitude over `lambda`, and for a nonzero coefficient it is the distance
@@ -78,11 +81,11 @@ fstar = objective(reference)
 
 # ## Sweeps
 #
-# Each run of the sweeps starts from the zero vector. The wall time of a setting is the minimum
-# over five timed repetitions of the `solve!` call alone, after one warm-up call; the
-# solver object is built before the timer starts. Each random-order coordinate descent
-# run gets a new `Xoshiro` generator with the same seed. For each setting the sweep records the time, the number of passes
-# (coordinate descent) or iterations (proximal gradient descent), the `converged`
+# Each run of the sweeps starts from the zero vector. The wall time of a setting is
+# the minimum over five timed repetitions of the `solve!` call alone, after one
+# warm-up call; the solver object is built before the timer starts. Each random-order
+# coordinate descent run gets a new `Xoshiro` generator with the same seed. For each
+# setting the sweep records the time, the number of passes (coordinate descent) or iterations (proximal gradient descent), the `converged`
 # flag, the relative objective gap `(F - fstar) / abs(fstar)` and the KKT violation
 # divided by `lambda`. Coordinate descent is swept over `tol` and proximal gradient
 # descent over one scale used for `ftol`, `xtol` and `gradtol` together, with a large
@@ -123,8 +126,9 @@ randomorder = sweep(cdtols,
   result -> result.passes)
 
 pgd = sweep(pgdscales,
-  scale -> (options = ProximalOptions(maxiter=200_000, ftol=scale, xtol=scale, gradtol=scale);
-            beta -> solve!(beta, f, g, ProximalGradientDescent(), options)),
+  scale -> (method = ProximalGradientDescent();
+            options = ProximalOptions(maxiter=200_000, ftol=scale, xtol=scale, gradtol=scale);
+            beta -> solve!(beta, f, g, method, options)),
   result -> result.iterations);
 
 # ## Time to the target accuracy
@@ -199,10 +203,15 @@ end
 
 # ## What to take from this
 #
-# The times above are single measurements taken on the machine that builds the
-# documentation, which can be a shared continuous-integration runner. They illustrate
-# how to compare solvers at equal accuracy and are not benchmark evidence. The
-# random-order timings are for the one seed `cdseed`. The comparison covers this one
+# Each time above is the minimum of five timed repetitions after a warm-up call. The
+# times illustrate how to compare solvers at equal accuracy and are not benchmark
+# evidence.
+#
+#md # The times on this page come from the machine that built the documentation, which
+#md # can be a shared continuous-integration runner.
+#nb # The times in this notebook come from the machine that runs its cells.
+#
+# The random-order timings are for the one seed `cdseed`. The comparison covers this one
 # problem, with one correlation level, one `lambda` and one design. Dense proximal
 # gradient descent on a `SparseIterate` is not part of it. The last column of the
 # table counts, for this problem, the settings whose `converged` flag was set while the
