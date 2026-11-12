@@ -112,7 +112,57 @@ end
   refused([0.], f, g, ProximalGradientDescent(); options = ProximalOptions(gaptol = .1))
   refused([0.], f, g,
     ProximalGradientDescent(ProximalSolvers.LineSearches.BackTracking(), true, 0, nothing))
-  refused([0.], f, g, CDSolver(100, 1e-7, true, true, 1, nothing, Xoshiro(1), 0., false))
+end
+@testset "CDSolver has one validated constructor (#268)" begin
+  # anderson, gaptol and gapsafe are accepted at their defaults but not stored
+  @test fieldnames(CDSolver) == (:maxpasses, :tol, :random, :relative, :momentum, :rng)
+  plain = CDSolver(rng = Xoshiro(1))
+  noop = CDSolver(anderson = 0, gaptol = 0, gapsafe = false, rng = Xoshiro(1))
+  @test all(n -> isequal(getfield(plain, n), getfield(noop, n)), fieldnames(CDSolver))
+  for (keyword, value) in ((:anderson, -1), (:gaptol, -1.), (:gaptol, NaN), (:gaptol, Inf))
+    @test_throws ArgumentError CDSolver(; keyword => value)
+  end
+  # the refusal messages of single invalid keywords are unchanged
+  @test_throws ArgumentError("Anderson acceleration is deferred") CDSolver(anderson = 1)
+  @test_throws ArgumentError("gap certificates are deferred") CDSolver(gaptol = .1)
+  @test_throws ArgumentError("gap screening is deferred") CDSolver(gapsafe = true)
+  @test_throws ArgumentError("maxpasses must be nonnegative, but it is -1.") CDSolver(maxpasses = -1)
+  @test_throws ArgumentError("tol must be nonnegative, but it is NaN.") CDSolver(tol = NaN)
+  @test_throws ArgumentError("order must be :random or :cyclic, but it is :x.") CDSolver(order = :x)
+  @test_throws r"momentum needs order = :random" CDSolver(order = :cyclic, momentum = true)
+  # wider argument types convert as before; unrepresentable ones are refused
+  wide = CDSolver(Int32(7), big"1e-9", true, true, nothing, Xoshiro(1))
+  @test wide.maxpasses === 7 && wide.tol === 1e-9
+  @test CDSolver(maxpasses = big(7), tol = 1//10).tol === 0.1
+  @test_throws InexactError CDSolver(maxpasses = big(2)^70)
+  @test_throws InexactError CDSolver(big(2)^70, 1e-7, true, true, nothing, Xoshiro(1))
+  # the positional route is validated at construction, so an invalid solver cannot exist
+  @test_throws ArgumentError CDSolver(-1, 1e-7, true, true, nothing, Xoshiro(1))
+  for tol in (-1., NaN, Inf, big"1e400")
+    @test_throws ArgumentError CDSolver(100, tol, true, true, nothing, Xoshiro(1))
+  end
+  @test_throws ArgumentError CDSolver(100, 1e-7, false, true, true, Xoshiro(1))
+  @test_throws MethodError CDSolver{Xoshiro}(100, 1e-7, true, true, nothing, Xoshiro(1))
+  # the former 9-argument default constructor, with the deferred fields, is gone
+  @test_throws MethodError CDSolver(100, 1e-7, true, true, 1, nothing, Xoshiro(1), 0., false)
+  @test_throws MethodError CDSolver(100, 1e-7, true, true, 0, nothing, Xoshiro(1), 0., false)
+  # a valid positional solver is the keyword solver, and solves identically
+  X = [1. 0 2; 0 2 1; 1 1 0; 2 0 1]
+  f, g = (1 / 4) * LeastSquaresLoss([1., -1, .5, 2], X), NormL1(.05)
+  for (order, random, momentum) in ((:random, true, nothing), (:random, true, true),
+                                    (:random, true, false), (:cyclic, false, false))
+    kw = CDSolver(; maxpasses = 50, tol = 1e-9, order, relative = false, momentum, rng = Xoshiro(3))
+    pos = CDSolver(50, 1e-9, random, false, momentum, Xoshiro(3))
+    @test typeof(kw) === typeof(pos)
+    @test all(n -> isequal(getfield(kw, n), getfield(pos, n)), fieldnames(CDSolver))
+    for start in (zeros(3), SparseIterate(zeros(3)))
+      a, b = copy(start), copy(start)
+      ra, rb = solve!(a, f, g, kw), solve!(b, f, g, pos)
+      @test isequal(Vector(a), Vector(b)) && ra.passes == rb.passes && ra.converged == rb.converged
+      @test isequal(ra.minimum, rb.minimum) && isequal(ra.maxchange, rb.maxchange)
+      @test rand(kw.rng, UInt64) == rand(pos.rng, UInt64)
+    end
+  end
 end
 @testset "auto positional options are validated before mutation" begin
   f, g = LeastSquaresLoss([1.], ones(1, 1)), NormL1(.1)

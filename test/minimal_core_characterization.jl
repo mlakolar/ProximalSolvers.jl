@@ -134,7 +134,7 @@ end
 solver_line(::Type{T}, method, opts) where T = method isa CDSolver ?
   string("CDSolver (the loop constructs CDSolver(rng = Xoshiro(713))): maxpasses = ", method.maxpasses,
          ", tol = ", method.tol, ", random = ", method.random, ", relative = ", method.relative,
-         ", anderson = ", method.anderson, ", momentum = ", method.momentum,
+         ", momentum = ", method.momentum,
          ", rng type = ", typeof(method.rng)) :
   string("ProximalGradientDescent() with strict_options(", T, "): maxiter = ", opts.maxiter,
          ", ftol = ", opts.ftol, ", xtol = ", opts.xtol, ", gradtol = ", opts.gradtol,

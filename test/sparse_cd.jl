@@ -438,17 +438,18 @@ end
     refused(SparseIterate(T, 0), LeastSquaresLoss(y, zeros(T, 2, 0)), g; kind = DimensionMismatch)
     refused(x, LeastSquaresLoss(T[], zeros(T, 0, 2)), g; kind = DimensionMismatch)
 
-    # keywords and solver options (the deferred ones are only reachable by position)
+    # keywords and solver options (invalid positional settings are refused when the
+    # solver is constructed, the deferred keywords by the keyword constructor)
     for keyword in (:intercept, :offset, :continuation, :screening)
       refused(x, f, g; keyword => true)
     end
-    refused(x, f, g, rng -> CDSolver(100, 1e-7, true, true, 1, nothing, rng, 0., false))
-    refused(x, f, g, rng -> CDSolver(100, 1e-7, true, true, 0, nothing, rng, .1, false))
-    refused(x, f, g, rng -> CDSolver(100, 1e-7, true, true, 0, nothing, rng, 0., true))
-    refused(x, f, g, rng -> CDSolver(100, 1e-7, false, true, 0, true, rng, 0., false))
-    refused(x, f, g, rng -> CDSolver(-1, 1e-7, true, true, 0, nothing, rng, 0., false))
-    refused(x, f, g, rng -> CDSolver(100, NaN, true, true, 0, nothing, rng, 0., false))
-    refused(x, f, g, rng -> CDSolver(100, -1., true, true, 0, nothing, rng, 0., false))
+    refused(x, f, g, rng -> CDSolver(; anderson = 1, rng))
+    refused(x, f, g, rng -> CDSolver(; gaptol = .1, rng))
+    refused(x, f, g, rng -> CDSolver(; gapsafe = true, rng))
+    refused(x, f, g, rng -> CDSolver(100, 1e-7, false, true, true, rng))
+    refused(x, f, g, rng -> CDSolver(-1, 1e-7, true, true, nothing, rng))
+    refused(x, f, g, rng -> CDSolver(100, NaN, true, true, nothing, rng))
+    refused(x, f, g, rng -> CDSolver(100, -1., true, true, nothing, rng))
 
     # the refusals above left the caller's data unchanged
     @test X == T[1 0; 0 2] && y == T[1, -1]
