@@ -15,9 +15,10 @@
 # `converged` flags are stopping rules and not certificates of optimality, and the
 # tolerances of different solvers are not defined on a common scale. Timing each
 # solver up to its own `converged` flag compares the solvers at the accuracies that
-# their rules give in that run. Here each of the three solvers is run over a sweep of tolerances, each result is scored by an independent objective
-# gap and KKT violation, and the reported time is the time of the first setting in
-# the sweep that meets both thresholds `gaptarget` and `kkttarget` defined below.
+# their rules give in that run. Here each of the three solvers is run over a sweep of
+# tolerances, each result is scored by an independent objective gap and KKT violation,
+# and the reported time is the time of the first setting in the sweep that meets both
+# thresholds `gaptarget` and `kkttarget` defined below.
 #
 # ## The problem
 #
