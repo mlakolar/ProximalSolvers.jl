@@ -1,5 +1,7 @@
 # ProximalSolvers.jl — minimal dense-design lasso core
 
+**[Documentation and getting started](https://mlakolar.github.io/ProximalSolvers.jl/dev/)** · [Solver guide](docs/src/choosing-solver.md) · [Results and troubleshooting](docs/src/working-with-results.md)
+
 Solve ordinary least-squares lasso on dense designs with coordinate descent or
 proximal gradient descent, using ProximalBase's loss and proximal operators.
 
