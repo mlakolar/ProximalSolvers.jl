@@ -48,9 +48,17 @@ f = (1 / length(y)) * LeastSquaresLoss(y, X)
 penalty = NormL1(1.0)
 beta = zeros(2)
 result = solve!(beta, f, penalty, ProximalGradientDescent())
-@assert isapprox(beta, [0.0, -0.25]; atol=1e-4)
-beta
+@assert all(isfinite, beta) && isfinite(result.minimum)
+(; coefficients=beta, converged=result.converged,
+   max_error_to_analytic=maximum(abs.(beta .- [0.0, -0.25])))
 ~~~
+
+The default PGD stopping rules can accept a point before its coefficients are
+within `1e-4` of the analytic solution. The reported error above makes that
+difference visible instead of silently asserting a precision the defaults do
+not guarantee. For a stricter attempt, increase the iteration budget and
+decrease the stopping tolerances using `ProximalOptions`, then apply the
+[independent KKT check](sparsity-and-kkt.md).
 
 These are two algorithms for **the same optimization problem**. Neither is universally faster. Start with CD for lasso experiments or active-coordinate storage; consider PGD if you want full-vector gradient iterations or detailed traces.
 
