@@ -3,20 +3,31 @@
                momentum=nothing, rng=Random.default_rng(), anderson=0,
                gaptol=0, gapsafe=false)
 
-Least-squares lasso coordinate descent on a dense `Vector` or a one-dimensional
-`SparseIterate` of the same Float32 or Float64 element type. A full pass admits
-coordinates; active passes refine them until another full pass checks strict
-change stopping. Random LS uses historical momentum by default. Set
-momentum=false to disable it; cyclic order rejects momentum=true but accepts
-momentum=false. Use a seeded rng for repeatable random coordinate order. The
-borrowed RNG advances between solves. Anderson, gap certificates and screening
-are deferred and explicitly rejected.
+Coordinate descent for the least-squares lasso. Call
+`solve!(beta, f, g, CDSolver())` with matching `Float32` or `Float64`
+design/response data and coefficients. The coefficient storage can be
+a dense `Vector` or a one-dimensional ProximalBase `SparseIterate`.
 
-A `SparseIterate` is solved on a private copy that keeps its active zeros and
-slot order, so the working set starts as the caller gave it; the run needs
-O(p) extra storage for that copy. The final state, including the compaction of
-zero coordinates after each pass, replaces the caller's by a same-shape
-`copyto!` once the run has finished with a finite objective. See [`solve!`](@ref).
+`CDSolver()` uses random coordinate order and the algorithm's default
+momentum behavior, a reasonable exploratory choice. For deterministic
+tutorial examples use `CDSolver(order=:cyclic, momentum=false)`;
+for repeatable random order supply `rng=Xoshiro(seed)` from `Random`.
+The borrowed RNG advances when used. Cyclic order does not support
+`momentum=true`.
+
+`tol` (default `1e-7`) measures coefficient change, **not** independent
+optimality. With `relative=true`, the stopping threshold depends on the
+response scale. `relative=false` makes it an absolute change threshold;
+`maxpasses` limits the run. An end-of-pass convergence flag does not
+guarantee a small KKT residual. For reported fits, check optimality
+independently. Anderson acceleration, gap certificates and screening
+are not implemented and are rejected.
+
+A `SparseIterate` is solved on a private copy retaining its initial
+active zeros and coordinate order. After a completed finite run the caller
+receives the complete final state, including any zero-coordinate
+compaction. The copy needs `O(p)` extra storage. See [`solve!`](@ref)
+and the [solver guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/).
 """
 struct CDSolver{R<:AbstractRNG} <: ProximalSolver
   maxpasses::Int
