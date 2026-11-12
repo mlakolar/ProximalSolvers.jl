@@ -139,16 +139,20 @@ historical LS image exceptional-range limitations remain outside this extraction
 
 APG (`AccProxGradDescent`) is the historical accelerated method narrowed to the
 dense LS core: extrapolation `y = x + k/(k+3)(x - x_previous)`, `L ← αL` before each
-iteration, backtracking `L ← L/β` on the exact LS remainder `α_f‖X(x-y)‖² ≤ L‖x-y‖²`
-computed from the cached images (with the historical rounding slack in image units),
-and one restart from `y = x_previous` when an extrapolated step raises the computed
+iteration, backtracking `L ← L/β` until the LS remainder test
+`α_f‖X(x-y)‖² ≤ L‖x-y‖²` accepts the trial, with `X(x-y)` approximated by the
+difference of the cached images, both sides divided by `max|x-y|²`, a relative
+slack of `8 eps(T)` and the historical rounding allowance in image units (an image
+displacement inside the allowance passes with any `L`), and one restart from `y = x_previous` when an extrapolated step raises the computed
 objective. `X y` is formed from `X x` and `X x_previous` without a product; a restart
 copies `X x_previous`. Departures from `legacy/full`: no metric, tuple, owner or
 generic smooth-loss path; β and α are validated and used in `T` (`T(β) < 1` and
 `T(α) > 0` after rounding); the objective-scale bound that only guarded a nonfinite
 value is dropped, so a nonfinite trial raises `L` through `next_curvature` (which
-raises once `L/β` is not a finite increase) instead of failing at once; a step that
-rounds to zero (`x == y`) is accepted with a finite value, where legacy raised; a
+raises once `L/β` is not a finite increase) instead of failing at once; the test is
+scaled by `max|x-y|`, so a nonzero step whose `‖x-y‖²` underflows is still compared
+(legacy compared unscaled squares); a step with `x == y` entrywise is accepted with a
+finite value, where legacy raised; a
 nonfinite gradient at `y` is treated like a nonfinite value (restart, or failure
 without momentum). Each step writes `x_previous ← x` after forming `y` and before the
 first trial, so the shared engine's rollback restores the last accepted iterate.

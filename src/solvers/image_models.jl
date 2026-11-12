@@ -30,24 +30,31 @@ function _image_value_and_gradient!(G, m::_LSImage, z, d)
   m.α * v
 end
 
-# The accelerated method's backtracking test. For least squares the Taylor remainder at
-# w around u is exactly α‖A(w - u)‖²/2; comparing it with L‖w - u‖²/2 avoids
-# subtracting nearly equal objectives, and the image buffers zu = A u and zw = A w
-# supply A(w - u) without another product.
-function _majorization_ok(model::_LSImage, zu, zw, fw, L, stepnorm2)
+# The accelerated method's backtracking test for a trial w from u with displacement
+# d = w - u ≠ 0 and scale = max |dᵢ| > 0. For least squares the Taylor remainder at w
+# around u is exactly α‖A d‖²/2; comparing it with L‖d‖²/2 avoids subtracting nearly
+# equal objectives. zw - zu, the difference of the cached images, approximates A d
+# (each is a separately rounded product or extrapolation). Both sides are divided by
+# scale², so that their comparison does not depend on whether ‖d‖² underflows or
+# overflows in T.
+function _majorization_ok(model::_LSImage, zu, zw, fw, L, d, scale)
   isfinite(fw) || return false
-  image_step2 = zero(eltype(zw))
-  @inbounds @simd for i in eachindex(zu, zw)
-    image_step2 += abs2(zw[i] - zu[i])
-  end
   T = typeof(L)
   α = T(model.α)        # validated as representable in T
-  remainder, bound = α * image_step2, L * stepnorm2
+  step2, image2 = zero(T), zero(T)
+  @inbounds @simd for i in eachindex(d)
+    step2 += abs2(d[i] / scale)
+  end
+  @inbounds @simd for i in eachindex(zu, zw)
+    image2 += abs2((zw[i] - zu[i]) / scale)
+  end
+  remainder, bound = α * image2, L * step2
   isfinite(remainder) && isfinite(bound) || return false
   remainder <= bound + 8 * eps(T) * max(remainder, bound) && return true
-  # An extrapolated and a freshly multiplied image can differ by a few roundings even
-  # when the points coincide. Account for that error in image units, rather than with
-  # an objective-scale slack that would mask a curvature estimate that is too small.
-  rounding = 8 * eps(T) * sqrt(α) * max(norm(zu), norm(zw))
+  # A heuristic allowance for the rounding of the images: an extrapolated and a
+  # freshly multiplied image can differ by a few roundings even when the points
+  # coincide. It is measured in image units relative to the images' size, so an image
+  # displacement inside it passes with any L.
+  rounding = 8 * eps(T) * sqrt(α) * max(norm(zu), norm(zw)) / scale
   sqrt(remainder) <= sqrt(bound) + rounding
 end

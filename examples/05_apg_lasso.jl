@@ -29,9 +29,9 @@ pgd = solve!(beta_pgd, f, g, ProximalGradientDescent(), options)
 @assert apg.minimizer === beta_apg
 @assert kkt_violation(beta_apg) <= 1e-6 && kkt_violation(beta_pgd) <= 1e-6
 
-# Iterations and oracle calls of the two runs. The iteration count of the accelerated
-# method is often smaller on correlated designs, but compare solvers at the same
-# independently measured accuracy before choosing one for speed.
+# Iterations and oracle calls of the two runs with the same options. They describe this
+# design only; compare solvers at the same independently measured accuracy before
+# choosing one for speed.
 for (name, r, beta) in (("AccProxGradDescent", apg, beta_apg), ("ProximalGradientDescent", pgd, beta_pgd))
   println(rpad(name, 24), " iterations = ", r.iterations, ", gradient calls = ", r.grad_calls,
           ", prox calls = ", r.prox_calls, ", KKT violation = ", kkt_violation(beta),

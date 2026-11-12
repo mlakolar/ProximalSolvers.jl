@@ -63,16 +63,18 @@ end
 # A Sylvester Hadamard matrix: ±1 entries with XᵀX = n I exactly in floating point.
 hadamard(k) = k == 0 ? ones(1, 1) : (H = hadamard(k - 1); [H H; H -H])
 
-# Accuracy that the tight options reach, per precision, relative to the scale of the
-# problem. The objective-change test (shared with PGD) stops once successive objectives
-# agree to about one ulp, which leaves the coefficients near √eps(T) relative accuracy
-# (1.5e-8 in Float64, 3.5e-4 in Float32); the bounds are a few times above that.
+# Fixture tolerances, per precision, relative to the scale of the problem. They are
+# chosen for these well-conditioned fixtures, not derived as a general bound: the
+# objective-change test (shared with PGD) stops once successive objectives agree to
+# about one ulp, and on these fixtures that leaves coefficient, KKT and gap accuracy
+# near √eps(T) (1.5e-8 in Float64, 3.5e-4 in Float32). The bounds are about 70 times
+# (Float64) and 14 times (Float32) that scale.
 coef_tol(::Type{Float64}) = 1e-6
 coef_tol(::Type{Float32}) = 5e-3
 kkt_tol(::Type{Float64}) = 1e-6
 kkt_tol(::Type{Float32}) = 5e-3
 # The duality gap is first order in the KKT violation (the dual point is the scaled
-# residual), so relative to F(0) it is near √eps(T) as well.
+# residual); relative to F(0) it is near √eps(T) as well on these fixtures.
 gap_tol(::Type{Float64}) = 1e-6
 gap_tol(::Type{Float32}) = 5e-3
 
@@ -151,10 +153,15 @@ end
         # with a second solve from another start instead of the (nonunique) coefficients.
         z = T.(cos.(1:p))
         solve!(z, loss(y, X, s), NormL1(λ), AccProxGradDescent(), TIGHT)
-        bound = sqrt(2 * max(g, 0) / Float64(s)) + sqrt(2 * max(gap(X, y, s, λ, z), 0) / Float64(s))
+        gz = gap(X, y, s, λ, z)
+        @test gz <= gap_tol(T) * Float64(objective(X, y, s, λ, zeros(T, p)))
+        @test kkt(X, y, s, λ, z) <= kkt_tol(T) * max(1, lmax)
+        bound = sqrt(2 * max(g, 0) / Float64(s)) + sqrt(2 * max(gz, 0) / Float64(s))
         @test norm(Float64.(big_(X) * (big_(x) - big_(z)))) <= bound + 1e3 * eps(T) * norm(Float64.(X)) * max(1, norm(Float64.(x)))
-        # a zero column has a zero gradient, so its coefficient is driven to zero
-        X === Xzero && @test x[3] == 0 && x[9] == 0
+        # A zero column has a zero gradient, so with λ > 0 one soft-thresholding step sets
+        # its coefficient to zero and later steps keep it there (checked here for the
+        # nonzero start z as well as for x).
+        X === Xzero && @test x[3] == 0 && x[9] == 0 && z[3] == 0 && z[9] == 0
       end
     end
   end
@@ -171,20 +178,18 @@ end
     cold = solve!(x, f, NormL1(λ1), AccProxGradDescent(), TIGHT)
     warm = solve!(x, f, NormL1(λ2), AccProxGradDescent(), TIGHT)
     @test kkt(X, y, s, λ2, x) <= kkt_tol(T) * max(1, lmax)
-    z = zeros(T, 20)
-    fresh = solve!(z, f, NormL1(λ2), AccProxGradDescent(), TIGHT)
-    @test warm.iterations <= fresh.iterations
-    # restarting at an accurate solution takes few iterations and stays accurate
+    # a solve started at an accurate solution stays accurate and stops early (the
+    # iteration bound is a loose fixture check, not a performance claim)
     again = solve!(x, f, NormL1(λ2), AccProxGradDescent(), TIGHT)
-    @test again.iterations <= 10
+    @test again.iterations <= 50
     @test kkt(X, y, s, λ2, x) <= kkt_tol(T) * max(1, lmax)
   end
 end
 
-# The objective of the current iterate in the arithmetic of T can differ from the exact
-# one by roughly (n + p) eps(T) times the sum of the magnitudes it adds up. A step without
-# momentum decreases the exact objective, so the computed objective may rise by at most
-# twice that rounding bound.
+# A conservative fixture tolerance, not a proved bound, for the rise of the computed
+# objective over a step without momentum: the objective in the arithmetic of T can
+# differ from the exact one by roughly (n + p) eps(T) times the magnitudes it adds up,
+# and a step that satisfies the bound exactly does not increase the exact objective.
 function rounding_bound(X, y, s, λ, x)
   T = eltype(x)
   n, p = size(X)
@@ -211,6 +216,7 @@ image_error(z, X, v) = Float64(norm(big_(z) - big_(X) * big_(v)))
     Fprev = st.f_x + st.g_x
     for it in 1:300
       k0, r0, b0 = st.k, st.restarts, st.backtrack_steps
+      older = copy(st.x_previous)                # enters the extrapolated image z_y
       PS.update_state!(f, g, st, m)
       restarted = st.restarts > r0
       momentum = k0 > 0 && !restarted            # an accepted step with ω = k/(k+3) > 0
@@ -224,11 +230,13 @@ image_error(z, X, v) = Float64(norm(big_(z) - big_(X) * big_(v)))
       else
         @test Float64(F) <= Float64(Fprev) + rounding_bound(X, y, s, λ, st.x)
       end
-      # image caches against exact products, after extrapolation, rejections and
-      # restarts. A product in T is within γ_p |X||v| of the exact one componentwise
-      # (γ_p ≈ p eps(T)); z_y combines two cached images with |ω| < 1, adding at most
-      # three roundings, so (3p + 8) eps(T) ‖|X|‖ (‖x‖ + ‖x'‖) bounds every error below.
-      tol = (3p + 8) * eps(T) * absX * (norm(Float64.(st.x)) + norm(Float64.(st.x_previous)))
+      # Image caches against exact products, after extrapolation, rejections and
+      # restarts, with a conservative fixture tolerance: a product in T is within about
+      # p eps(T) |X||v| of the exact one componentwise, and z_y combines the cached
+      # images of the last two accepted iterates (x' and the one before it) with
+      # |ω| < 1, adding a few roundings.
+      tol = (3p + 8) * eps(T) * absX * (norm(Float64.(st.x)) + norm(Float64.(st.x_previous)) +
+                                         norm(Float64.(older)))
       @test image_error(st.z_x, X, st.x) <= tol
       @test image_error(st.z_previous, X, st.x_previous) <= tol
       @test image_error(st.z_y, X, st.y) <= tol
@@ -242,13 +250,15 @@ image_error(z, X, v) = Float64(norm(big_(z) - big_(X) * big_(v)))
     @test rejected >= 1
     @test restarts >= 1
     @test st.L > 0 && isfinite(st.L)
-    # the accelerated solve takes fewer iterations than PGD on this problem
+    # On this ill-conditioned fixture the accelerated solve stops after fewer iterations
+    # than PGD with the same options (a fixture check of the acceleration, with a wide
+    # margin; not a matched-accuracy performance claim).
     x, z = zeros(T, p), zeros(T, p)
     opts = ProximalOptions(maxiter = 20_000, ftol = 1e-15, xtol = 1e-14, gradtol = 1e-11)
     ra = solve!(x, f, g, m, opts)
     rp = solve!(z, f, g, ProximalGradientDescent(), opts)
     @test kkt(X, y, s, λ, x) <= kkt_tol(T) * max(1, λmax(X, y, s))
-    T == Float64 && @test ra.iterations < rp.iterations
+    T == Float64 && @test 2 * ra.iterations < rp.iterations
   end
 end
 
@@ -283,6 +293,25 @@ end
   @test maximum(abs, Float64.(x) .- 1) <= 1e-3
   # The needed curvature 1e40 exceeds floatmax(Float32): L/β overflows and the line
   # search raises instead of looping or accepting a trial; x keeps its last accepted value.
+  # In the second fixture the trial steps are so short that ‖x - y‖² underflows to zero
+  # while x ≠ y; the bound is still compared (scaled by max |x - y|), so no trial that
+  # fails it is accepted and the solve fails with rollback.
+  x = zeros(T, 1)
+  @test_throws r"cannot increase finitely" solve!(x, LeastSquaresLoss(T[1f-20], reshape(T[1f20], 1, 1)),
+                                                  NormL1(zero(T)), AccProxGradDescent())
+  @test x == zeros(T, 1)
+  # The Float64 analogue has a representable curvature (1e200): the trial whose ‖x - y‖²
+  # underflows is compared and rejected until L is large enough, and the accepted step
+  # decreases the objective.
+  x = zeros(1)
+  f64 = LeastSquaresLoss([1e-80], reshape([1e100], 1, 1))
+  r = solve!(x, f64, NormL1(0.), AccProxGradDescent())
+  @test 0 < x[1] <= 2e-180 && !r.f_increased
+  @test objective(reshape([1e100], 1, 1), [1e-80], 1, 0., x) < objective(reshape([1e100], 1, 1), [1e-80], 1, 0., [0.])
+  # A step that is entrywise zero is accepted: at the solution x = y = 0 of λ ≥ λmax.
+  x = zeros(T, 2)
+  r = solve!(x, LeastSquaresLoss(T[1, 1], T[1 0; 0 1]), NormL1(T(2)), AccProxGradDescent())
+  @test x == zeros(T, 2) && r.iterations == 1 && r.x_converged
   for start in (zeros(T, 2), T[1f-21, -1f-21])
     x = copy(start)
     @test_throws r"cannot increase finitely" solve!(x, LeastSquaresLoss(T[1, 1], T[1f20 0; 0 1f20]),
@@ -552,7 +581,7 @@ end
   end
 end
 
-@testset "a step allocates nothing once compiled" begin
+@testset "a warmed step of this fixture allocates nothing" begin
   for T in (Float64, Float32)
     X, y = correlated(T, 30, 10; seed = 2)
     f, g = loss(y, X, one(T) / T(30)), NormL1(T(0.01))

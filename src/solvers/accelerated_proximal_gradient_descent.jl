@@ -14,18 +14,22 @@ iterates and takes a proximal gradient step from `y`: a gradient step for the
 least-squares loss followed by soft thresholding. It is a FISTA-family method; its
 momentum sequence `k/(k+3)` is not the textbook FISTA recurrence.
 
-The step size `1/L` is found by backtracking on the exact least-squares bound
-`f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + L/2 ‖x - y‖²`: a rejected trial sets `L ← L/β`,
-`β ∈ (0, 1)`. Before each iteration `L ← α L`, `α ∈ (0, 1]`, so that the step can
-grow again where the curvature is smaller; `α = 1` keeps `L` from decreasing.
+The step size `1/L` is found by backtracking on the least-squares bound
+`f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + L/2 ‖x - y‖²`, tested in floating point through its
+exact form `α_f ‖X(x - y)‖² ≤ L ‖x - y‖²` with the image `X(x - y)` taken from cached
+products, both sides scaled by `max |x - y|`, and a rounding allowance; a trial
+with `x == y` is accepted when its value is finite. A rejected trial sets
+`L ← L/β`, `β ∈ (0, 1)`. Before each iteration `L ← α L`, `α ∈ (0, 1]`, so that the
+step can grow again where the curvature is smaller; `α = 1` keeps `L` from
+decreasing.
 
 When an extrapolated step would increase the computed objective, the momentum is
 restarted: the step is repeated from `y = x'` and `k` returns to zero, so the next
 iteration extrapolates with `1/4`. An accepted step that used momentum therefore
 never increases the computed objective. A step without momentum (the first
-iteration, and a step repeated after a restart) can increase it by rounding near a
-solution; as for [`ProximalGradientDescent`](@ref), that stops the solve unless
-`allow_f_increases = true` in [`ProximalOptions`](@ref).
+iteration, and a step repeated after a restart) can increase it, through rounding
+or the allowance of the bound test; as for [`ProximalGradientDescent`](@ref), that
+stops the solve unless `allow_f_increases = true` in [`ProximalOptions`](@ref).
 
 Backtracking raises an error when the next curvature estimate `L/β` is not a finite
 increase of `L`; `solve!` then restores the last accepted iterate and rethrows. A
@@ -81,7 +85,7 @@ mutable struct AccProxGradDescentState{T, X<:Vector{T}, M, Z}
     z_x::Z
     z_previous::Z
     z_y::Z
-    dz::Z             # F' at A y
+    dz::Z             # residual A y - response (before the loss scale)
 end
 
 function initial_state(
@@ -119,7 +123,7 @@ function initial_state(
                          z_x,
                          copy(z_x),   # A x_previous
                          similar(z_x), # A y
-                         similar(z_x)  # F' at A y
+                         similar(z_x)  # residual at A y
                          )
 end
 
@@ -147,9 +151,10 @@ function update_state!(
 
     while true
       _prox_grad_step!(f, g, state, T(method.β))
-      # The restart sets ω = 0, so it happens at most once per iteration. The repeated
-      # step from y = x_previous satisfies the bound, so in exact arithmetic it does not
-      # increase the objective; rounding can, which the engine's increase test sees.
+      # The restart sets ω = 0, so it happens at most once per iteration. A step from
+      # y = x_previous that satisfies the bound exactly does not increase the objective;
+      # rounding and the allowance of the bound test can, and the engine's increase
+      # test sees that.
       if ω > 0 && state.f_x + state.g_x > state.f_x_previous + state.g_x_previous
         ω = zero(T)
         state.k = 0
@@ -166,9 +171,10 @@ function update_state!(
     state
 end
 
-# x = prox_{g/L}(y - ∇f(y)/L), increasing L until
-# α_f ‖A(x - y)‖² ≤ L ‖x - y‖², the exact least-squares form of
-# f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + L/2 ‖x - y‖².
+# x = prox_{g/L}(y - ∇f(y)/L), increasing L until _majorization_ok accepts the trial
+# (the least-squares form α_f ‖A(x - y)‖² ≤ L ‖x - y‖² of
+# f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + L/2 ‖x - y‖², tested with a rounding allowance), or
+# until x == y.
 function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where T
     state.f_y = _value_and_gradient!(state.grad_f_y, f, state.y, state.model, state.z_y, state.dz)
     state.f_calls += 1
@@ -187,15 +193,21 @@ function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where 
       state.f_calls += 1
 
       _sub!(state.xhat, state.x, state.y)
-      stepnorm2 = _sumabs2(state.xhat)
+      scale = _norm_inf(state.xhat)
       state.backtrack_steps += 1
-      _majorization_ok(state.model, state.z_y, state.z_x, state.f_x, state.L, stepnorm2) && break
-      # x == y: y is a fixed point of the step, and a larger L cannot change that. The
-      # bound can still fail by the rounding difference between the extrapolated A y
-      # and the freshly multiplied A x, so the step is accepted, as PGD accepts a zero
-      # step. A nonfinite trial value, image remainder or bound falls through to a
-      # larger L, and next_curvature raises once L/β is not a finite increase.
-      iszero(stepnorm2) && isfinite(state.f_x) && break
+      if iszero(scale)
+        # x == y entrywise: the step from y with this L returns y, and a larger L does
+        # not move it either. The bound can then fail only by the rounding difference
+        # between the extrapolated A y and the freshly multiplied A x, so the step is
+        # accepted when its value is finite, as PGD accepts a zero step.
+        isfinite(state.f_x) && break
+      else
+        # Scaled by max |x - y|, so that a nonzero step whose squared norm would
+        # underflow (or overflow) is still compared.
+        _majorization_ok(state.model, state.z_y, state.z_x, state.f_x, state.L, state.xhat, scale) && break
+      end
+      # A rejected trial, including one with a nonfinite value, remainder or bound,
+      # raises L; next_curvature raises once L/β is not a finite increase.
       state.L = LineSearches.next_curvature(state.L, β)
     end
     state
@@ -243,7 +255,8 @@ Minimize the same least-squares lasso as [`ProximalGradientDescent`](@ref) with
 accelerated proximal gradient descent, overwriting `x`, a dense `Vector{T}` with
 `T = Float32` or `Float64`. The inputs, the options and their validation are those
 of `ProximalGradientDescent`, and `β` and `α` must also satisfy their bounds after
-conversion to `T`; every refusal happens before `x` is modified. A step error
+conversion to `T`; every refusal of an input, option or method setting happens
+before `x` is modified. A step error
 restores the last accepted `x` and rethrows, without a transaction guarantee for
 internal counters. The result shares `x`.
 """

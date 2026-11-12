@@ -129,10 +129,11 @@ condition directly instead of trusting `converged` alone.
 as PGD. Each step starts from the extrapolated point
 `y = x + k/(k+3) (x - x_previous)`, where `k` counts iterations since the start
 or the last restart, and the momentum is restarted when an extrapolated step
-would increase the objective. On ill-conditioned problems this often needs
-fewer iterations than PGD; each iteration evaluates the gradient at `y`, so the
-work per iteration is similar. Compare the two at the same independently
-measured accuracy, as in
+would increase the objective. On ill-conditioned problems this can need
+fewer iterations than PGD; on well-conditioned ones it can need more. An
+iteration evaluates the gradient at `y` and then backtracks; a restart adds a
+second gradient evaluation and line search in that iteration. Compare the two at
+the same independently measured accuracy, as in
 [the solver comparison](examples/04_lasso_solver_comparison.md), before
 choosing one for speed.
 

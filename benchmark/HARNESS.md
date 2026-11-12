@@ -131,9 +131,10 @@ default `β` and `α`) use `benchmark_options(residual = true)`.
 PGD stops once the objective changes by less than one rounding unit, about √eps in the
 coefficients (relative gaps near 1e-8 in Float64 and 1e-4 in Float32), so it misses these
 targets on several designs; those cases are recorded as `target_missed` and excluded from
-timing comparisons, with their accuracy kept. APG uses the same stopping tests and behaves
-the same way: on the current inputs both reach the Float64 target on `lasso` and `lasso-D`
-only, and neither reaches the Float32 target. Where PGD stops is sensitive to rounding: with
+timing comparisons, with their accuracy kept. APG uses the same stopping tests. In one
+observed run of repetition 1 at the PR that added APG, both reached the Float64 target on
+`lasso` and `lasso-D` only and neither reached the Float32 target; other repetitions,
+CPUs or BLAS builds can change where they stop. Where PGD stops is sensitive to rounding: with
 `--check-bounds=yes` the small Float64 case ends at a gap of 1.7e-8 instead of 1.0e-9.
 
 For example, list the extended gradient cases without measuring them:
@@ -413,7 +414,8 @@ When a solver feature returns to the package, its existing cases need no new def
    IDs, a target per precision chosen before measuring, and a requirement per feature.
 
 APG's current-core cases followed step 4 (they reuse the PGD inputs, options and targets);
-its historical `tight` cases still need `apg:gap` and `apg:workspace` and stay deferred.
+its historical `tight` cases stay deferred: the `call` phase needs `apg:gap`, the
+`workspace` phase also `apg:workspace`.
 
 Editing `cases.jl` changes the harness hash, so records before and after the change are not
 comparable, by design. Add the new IDs to `test/benchmark_formal.jl`.

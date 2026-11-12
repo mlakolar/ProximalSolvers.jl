@@ -94,9 +94,11 @@ only on `converged`.
   accepted iterate is restored, when the next curvature estimate `L/β` is not a
   finite increase; a trial whose objective is not finite is never accepted.
   An extrapolated point whose objective or gradient is not finite restarts the
-  momentum. Its line search compares the exact least-squares Taylor remainder,
-  computed from cached images `X y` and `X x`, with `L ‖x - y‖² / 2`, so it does
-  not subtract nearly equal objective values.
+  momentum when the step uses momentum; without momentum the step fails, with the
+  same rollback. Its line search compares the least-squares Taylor remainder,
+  approximated from the cached images `X y` and `X x`, with `L ‖x - y‖² / 2`
+  (scaled by `max |x - y|`, with a rounding allowance), so it does not subtract
+  nearly equal objective values.
 - Reaching a pass or iteration limit is not convergence. CD can return
   a finite nonconverged solution with a warning.
 
