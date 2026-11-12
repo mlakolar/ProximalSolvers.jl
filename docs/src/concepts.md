@@ -45,20 +45,30 @@ using ProximalBase, ProximalSolvers
 X = [1.0 0.0; 0.0 2.0; 0.0 0.0]
 y = [2.0, -2.0, 0.5]
 f = (1 / length(y)) * LeastSquaresLoss(y, X)
-penalty = NormL1(1.0)
+lambda = 1.0
+penalty = NormL1(lambda)
 beta = zeros(2)
 result = solve!(beta, f, penalty, ProximalGradientDescent())
 @assert all(isfinite, beta) && isfinite(result.minimum)
+analytic = [0.0, -0.25]
+grad = (X' * (X * beta - y)) / length(y)
+kkt = [iszero(beta[j]) ?
+       max(abs(grad[j]) - lambda, 0.0) :
+       abs(grad[j] + lambda * sign(beta[j]))
+       for j in eachindex(beta)]
 (; coefficients=beta, converged=result.converged,
-   max_error_to_analytic=maximum(abs.(beta .- [0.0, -0.25])))
+   max_coefficient_error=maximum(abs.(beta .- analytic)),
+   max_kkt_violation=maximum(kkt))
 ~~~
 
-The default PGD stopping rules can accept a point before its coefficients are
-within `1e-4` of the analytic solution. The reported error above makes that
-difference visible instead of silently asserting a precision the defaults do
-not guarantee. For a stricter attempt, increase the iteration budget and
-decrease the stopping tolerances using `ProximalOptions`, then apply the
-[independent KKT check](sparsity-and-kkt.md).
+The default PGD result can report `converged=true` despite a visibly
+nonzero coefficient error and KKT violation. In these tutorial problems,
+**defaults typically give roughly 3–4 correct digits; tighten the tolerances
+and check optimality before reporting numerical results.** This is an
+illustration, not an accuracy guarantee for other problems. Here the KKT
+violation uses the analytic lasso conditions, independently of the solver's
+stopping flag. See [Choosing a solver](choosing-solver.md) for a tighter PGD
+configuration and [the KKT tutorial](sparsity-and-kkt.md) for the formula.
 
 These are two algorithms for **the same optimization problem**. Neither is universally faster. Start with CD for lasso experiments or active-coordinate storage; consider PGD if you want full-vector gradient iterations or detailed traces.
 
