@@ -21,7 +21,8 @@ response scale. `relative=false` makes it an absolute change threshold;
 `maxpasses` limits the run. An end-of-pass convergence flag does not
 guarantee a small KKT residual. For reported fits, check optimality
 independently. Anderson acceleration, gap certificates and screening
-are not implemented and are rejected.
+are not implemented: `anderson`, `gaptol` and `gapsafe` are accepted only
+at their defaults, are not stored, and other values are rejected.
 
 A `SparseIterate` is solved on a private copy retaining its initial
 active zeros and coordinate order. After a completed finite run the caller
@@ -34,28 +35,31 @@ struct CDSolver{R<:AbstractRNG} <: ProximalSolver
   tol::Float64
   random::Bool
   relative::Bool
-  anderson::Int
   momentum::Union{Nothing, Bool}
   rng::R
-  gaptol::Float64
-  gapsafe::Bool
+  # The only constructor, so every route into a CDSolver is validated.
+  function CDSolver(maxpasses::Integer, tol::Real, random::Bool, relative::Bool,
+                    momentum::Union{Nothing, Bool}, rng::R) where {R<:AbstractRNG}
+    maxpasses >= 0 || throw(ArgumentError("maxpasses must be nonnegative, but it is $maxpasses."))
+    isfinite(Float64(tol)) && tol >= 0 || throw(ArgumentError("tol must be nonnegative, but it is $tol."))
+    momentum === true && !random &&
+      throw(ArgumentError("momentum needs order = :random; with the cyclic order it can stall far from the minimizer."))
+    new{R}(maxpasses, tol, random, relative, momentum, rng)
+  end
 end
 
+# anderson, gaptol and gapsafe are accepted at their defaults only and not stored.
 function CDSolver(; maxpasses::Integer = 100_000, tol::Real = 1e-7, order::Symbol = :random,
                   relative::Bool = true, anderson::Integer = 0, momentum::Union{Nothing, Bool} = nothing,
                   rng::AbstractRNG = default_rng(), gaptol::Real = 0.0, gapsafe::Bool = false)
-  maxpasses >= 0 || throw(ArgumentError("maxpasses must be nonnegative, but it is $maxpasses."))
-  isfinite(Float64(tol)) && tol >= 0 || throw(ArgumentError("tol must be nonnegative, but it is $tol."))
   order in (:random, :cyclic) || throw(ArgumentError("order must be :random or :cyclic, but it is :$order."))
+  solver = CDSolver(maxpasses, tol, order === :random, relative, momentum, rng)
   anderson >= 0 || throw(ArgumentError("anderson must be nonnegative, but it is $anderson."))
-  momentum === true && order === :cyclic &&
-    throw(ArgumentError("momentum needs order = :random; with the cyclic order it can stall far from the minimizer."))
   isfinite(Float64(gaptol)) && gaptol >= 0 || throw(ArgumentError("gaptol must be nonnegative, but it is $gaptol."))
   iszero(anderson) || throw(ArgumentError("Anderson acceleration is deferred"))
   iszero(gaptol) || throw(ArgumentError("gap certificates are deferred"))
   !gapsafe || throw(ArgumentError("gap screening is deferred"))
-  CDSolver(Int(maxpasses), Float64(tol), order === :random, relative, Int(anderson), momentum, rng,
-           Float64(gaptol), gapsafe)
+  solver
 end
 
 Base.summary(::CDSolver) = "Coordinate Descent"
@@ -388,18 +392,8 @@ function _copy_dense!(dest::Vector{T}, src::SparseIterate{T}) where {T}
   dest
 end
 
-function _check_method(m::CDSolver)
-  iszero(m.anderson) && iszero(m.gaptol) && !m.gapsafe ||
-    throw(ArgumentError("Anderson, screening and gap certificates are deferred"))
-  m.maxpasses >= 0 && isfinite(m.tol) && m.tol >= 0 ||
-    throw(ArgumentError("invalid coordinate descent limits/tolerance"))
-  !(m.momentum === true && !m.random) || throw(ArgumentError("momentum needs random order"))
-  nothing
-end
-
 function solve!(x, f, g, method::CDSolver; kwargs...)
   _check_keywords(kwargs)
-  _check_method(method)
   if x isa SparseIterate
     _check_owner_problem(x, f, g)
     return _solve_owner!(x, f, g, method)
