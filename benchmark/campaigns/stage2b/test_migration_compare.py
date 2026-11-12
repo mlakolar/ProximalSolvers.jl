@@ -29,7 +29,9 @@ Test counts (methods; table-driven methods run one sub-test per row):
                                                cleans a string, the internal error, the phase boundary and the
                                                screen boundaries, the tags of paths that collide and the
                                                URLs next to paths)
-    immutability    ImmutabilityTests      6
+    immutability    ImmutabilityTests      5   (the ordinary tools this tool imports or must leave strict; the
+                                               harness files are checked at their pinned commits by
+                                               test_stage2b_campaign.py, not in the working tree)
 
 The run time is dominated by the validation of the roughly two hundred record files that each call of the tool
 reads; the sets are built once per variant, copied by links per test and kept small (five samples per case).
@@ -57,13 +59,11 @@ from stage2b_fixtures import (
     toml_load, toml_set, tsv_append, tsv_drop, tsv_edit, tsv_read, tsv_rename_column, tsv_write,
 )
 
-# SHA-256 of the protected files at the base of the pull request (the freeze commit of Stage 2B).
+# SHA-256 of the ordinary tools at the base of the pull request (the freeze commit of Stage 2B). migration_compare.py
+# imports validate.py and summarize.py from benchmark/, so these pin the current tool's dependencies.
 COMPARE_SHA256 = "41568ea9b22d9b36f1aa6ba4e478b380284ee66c338f98dfeed40af104ebf6ab"
 VALIDATE_SHA256 = "0b761e77ae4b88d339d7df3351e5ea0ff732c8cd32f68fbb89d95d4a26f2fc4b"
 SUMMARIZE_SHA256 = "d50b471f3898c90c7b1aa880553f12de0a8eb809475e4abcd0859bb57ed703f1"
-RUN_JL_SHA256 = "d613c06fa368b2588ec7418d8dd0ef9f70b0c09cbc682105f1f9713b5230c8c6"
-PROBLEMS_JL_SHA256 = "b047b47275907a31e0f3ed1de7629ed3f965534dd2d1fcafd03c52dd0092fa51"
-CERTIFICATES_JL_SHA256 = "ce09cbcbcaa1091f6ca362e0689340c1a367b3968542fd1d3c7ca9465f5770e1"
 EXPECTED_MATCH_SETTINGS = (
     "suite", "groups", "harness_hash", "proximalbase_version", "proximalbase_hash", "julia_threads",
     "blas_threads", "blas", "cpu_model", "samples_target", "seconds_limit", "case_seconds", "profile_seconds",
@@ -3178,11 +3178,6 @@ class ImmutabilityTests(MigrationCase):
 
     def test_summarize_py_is_unchanged(self):
         self.assertEqual(digest(F.BENCH / "summarize.py"), SUMMARIZE_SHA256)
-
-    def test_harness_files_are_unchanged(self):
-        for name, expected in (("run.jl", RUN_JL_SHA256), ("problems.jl", PROBLEMS_JL_SHA256),
-                               ("certificates.jl", CERTIFICATES_JL_SHA256)):
-            self.assertEqual(digest(F.BENCH / name), expected, name)
 
     def test_validate_settings_are_unchanged_after_in_process_runs(self):
         import validate

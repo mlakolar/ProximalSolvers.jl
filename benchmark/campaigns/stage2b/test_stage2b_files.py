@@ -4,7 +4,10 @@
     python3 -B -m unittest test_stage2b_files -v        (from benchmark/campaigns/stage2b)
 
 Standard library only (tomllib, Python 3.11 or later). No git, no network, no Julia: the tests read the
-files of this directory and of ../pre06/ and build small synthetic archives in a temporary directory.
+files of this directory, of ../pre06/ and the ordinary tools compare.py and validate.py of ../../, and build small
+synthetic archives in a temporary directory. They do not read the harness files of the working tree
+(benchmark/problems.jl, certificates.jl, cases.jl, run.jl): the frozen harness identities are verified against
+the files of their pinned commits by HistoricalHarnessTests of test_stage2b_campaign.py, which uses git.
 """
 
 import ast
@@ -15,24 +18,18 @@ import importlib.util
 import io
 import os
 import re
+import sys
 import tempfile
 import tomllib
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-BENCH = os.path.abspath(os.path.join(HERE, "..", ".."))
-
-
-def harness_hash():
-    """The harness fingerprint exactly as benchmark/run.jl computes it: SHA-1 over, for the four harness
-    files in sorted order, the path relative to benchmark/, a NUL, the bytes and a NUL."""
-    digest = hashlib.sha1()
-    for name in sorted(("problems.jl", "certificates.jl", "cases.jl", "run.jl")):
-        with open(os.path.join(BENCH, name), "rb") as handle:
-            digest.update(name.encode() + b"\0" + handle.read() + b"\0")
-    return digest.hexdigest()
 PRE06 = os.path.join(HERE, "..", "pre06")
 BENCH = os.path.join(HERE, "..", "..")
+HARNESS_FILES = ("problems.jl", "certificates.jl", "cases.jl", "run.jl")
+# The approved Stage 2B harness hash (case-mapping.toml, P14). HistoricalHarnessTests of test_stage2b_campaign.py
+# recomputes it from the four files at the pinned commit 412063d8ac24b84a10ccde09cf072bb396109ffd.
+STAGE2B_HARNESS_HASH = "0fd2b44dfea0b1f77c2c67228bf149207982ab8b"
 
 REQUIRED_FIELDS = (
     "label", "id", "role", "family", "phase", "inputs", "seed_key", "objective", "penalty",
@@ -151,9 +148,8 @@ class CaseMappingTests(unittest.TestCase):
         self.assertIn(P14_HISTORICAL, reset)
         self.assertIn(P14_PORT_SPARSE, reset)
         self.assertIn("fill!(x, 0.0), kept, for the dense Vector", reset)
-        # The harness holds the historical line, or, after the approved port, the sparse clear.
-        harness = read(os.path.join(BENCH, "cases.jl"))
-        self.assertTrue(P14_HISTORICAL in harness or P14_PORT_SPARSE in harness)
+        # That the pinned harnesses hold these lines (the historical one at Stack A, the sparse clear at the port) is
+        # checked on the files of the pinned commits by test_stage2b_campaign.py, not on the working tree.
         self.assertEqual([c["label"] for c in self.cases if c["class"] == "B"], ["P14"])
 
     def test_no_class_a_row_has_an_empty_verification_needed(self):
@@ -445,8 +441,8 @@ class MappingApprovalTests(unittest.TestCase):
             port = "\n".join(strings(case["port_text"]))
             self.assertIn("dropzeros!(fill!(x, 0.0)) for the SparseIterate of the lasso path", port)
             self.assertIn("fill!(x, 0.0) kept for the dense Vector of the two SLOPE paths", port)
-            # the true new harness hash is the hash of the harness files of this tree, as run.jl computes it
-            self.assertEqual(case["new_harness_hash"], harness_hash())
+            # the approved hash; test_stage2b_campaign.py recomputes it from the files of the pinned commit
+            self.assertEqual(case["new_harness_hash"], STAGE2B_HARNESS_HASH)
             self.assertNotEqual(case["new_harness_hash"], "b7bf3d953ec6e9f9720e74d7895b5cf95a629fd4")
 
     def test_class_a_rows_say_there_is_nothing_to_approve(self):
@@ -878,6 +874,37 @@ class ReadmeTests(unittest.TestCase):
         walk(suite)
         self.assertIn("test_stage2b_files", modules)
         self.assertNotIn("test_check_reset_probes", modules)
+
+
+class HarnessIndependenceTests(unittest.TestCase):
+    def test_every_other_test_passes_against_a_rewritten_working_harness(self):
+        """A scratch benchmark/ directory holds the real ordinary tools unchanged and the four harness files
+        rewritten (no P14 line, different bytes, so a different harness hash); every other test of this file is run
+        against it in process and must still pass: no test here depends on the working-tree harness."""
+        module = sys.modules[__name__]
+        with tempfile.TemporaryDirectory() as scratch:
+            for name in sorted(os.listdir(BENCH)):
+                source = os.path.join(BENCH, name)
+                if os.path.isfile(source) and name not in HARNESS_FILES:
+                    with open(source, "rb") as src, open(os.path.join(scratch, name), "wb") as dst:
+                        dst.write(src.read())
+            for name in HARNESS_FILES:
+                write(os.path.join(scratch, name), f"# {name}, rewritten by a later commit to master\n")
+                self.assertNotEqual(read(os.path.join(scratch, name)), read(os.path.join(BENCH, name)))
+            suite = unittest.TestSuite(
+                test for case in unittest.TestLoader().loadTestsFromModule(module) for test in case
+                if not isinstance(test, HarnessIndependenceTests))
+            self.assertGreater(suite.countTestCases(), 50)
+            original = module.BENCH
+            module.BENCH = scratch
+            try:
+                result = unittest.TextTestRunner(stream=io.StringIO(), verbosity=0).run(suite)
+            finally:
+                module.BENCH = original
+        problems = [f"{test.id()}: {trace.splitlines()[-1]}" for test, trace in result.failures + result.errors]
+        self.assertEqual(problems, [])
+        self.assertEqual(result.skipped, [])
+        self.assertTrue(result.wasSuccessful())
 
 
 class SelfContainedTests(unittest.TestCase):

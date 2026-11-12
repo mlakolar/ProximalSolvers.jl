@@ -372,10 +372,13 @@ campaign outside any timed region (`STAGE2B_PLAN.md` section 7).
   the freeze commit (the files have not changed since `b0de3f7`) and fails if either changes:
   `compare.py` `41568ea9b22d9b36f1aa6ba4e478b380284ee66c338f98dfeed40af104ebf6ab` and `validate.py`
   `0b761e77ae4b88d339d7df3351e5ea0ff732c8cd32f68fbb89d95d4a26f2fc4b`. The same test records the SHA-256 of
-  `summarize.py` (`d50b471f3898c90c7b1aa880553f12de0a8eb809475e4abcd0859bb57ed703f1`) and of the harness files
-  `run.jl` (`d613c06fa368b2588ec7418d8dd0ef9f70b0c09cbc682105f1f9713b5230c8c6`), `problems.jl`
+  `summarize.py` (`d50b471f3898c90c7b1aa880553f12de0a8eb809475e4abcd0859bb57ed703f1`). The SHA-256 of the harness
+  files `run.jl` (`d613c06fa368b2588ec7418d8dd0ef9f70b0c09cbc682105f1f9713b5230c8c6`), `problems.jl`
   (`b047b47275907a31e0f3ed1de7629ed3f965534dd2d1fcafd03c52dd0092fa51`) and `certificates.jl`
-  (`ce09cbcbcaa1091f6ca362e0689340c1a367b3968542fd1d3c7ca9465f5770e1`).
+  (`ce09cbcbcaa1091f6ca362e0689340c1a367b3968542fd1d3c7ca9465f5770e1`) is checked on the files of the pinned
+  commits, read with git (`test_stage2b_campaign.py`: the Stage 2B harness at
+  `412063d8ac24b84a10ccde09cf072bb396109ffd`, Stack A at `b0de3f7fc91767b97197ff4b458207e308998943`), not on the
+  working tree.
 * `migration_compare.py` may import record readers from `validate.py` and `summarize.py`, but it never
   monkeypatches or reconfigures their settings sets, and it does not write into the ordinary tools'
   output formats.
