@@ -32,8 +32,9 @@ const CASE_GROUPS = ("cd", "paths", "gradient", "newton", "admm", "primal_dual",
 # adapting its constructor in `benchmark_method` if its API changed).
 const CAPABILITIES = Set([
   # CDSolver: dense Matrix least-squares lasso with unweighted NormL1, a dense Vector or a
-  # vector SparseIterate, Float32 or Float64; no gap stopping, workspaces or paths.
-  "cd", "cd:lasso", "cd:sparse_iterate", "cd:float32",
+  # vector SparseIterate, Float32 or Float64, cyclic ("cd") or random ("random-cd") order;
+  # no gap stopping, workspaces or paths.
+  "cd", "cd:lasso", "cd:sparse_iterate", "cd:float32", "random-cd", "random-cd:lasso",
   # ProximalGradientDescent: the same problem with a dense Vector, Float32 or Float64.
   "pg", "pg:lasso", "pg:float32",
 ])
