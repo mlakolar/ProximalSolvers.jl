@@ -59,6 +59,106 @@ strict_options(::Type{T}; kwargs...) where T = ProximalOptions(;
   maxiter = 10_000, ftol = 1e-20, xtol = T === Float64 ? 1e-12 : 1e-7,
   gradtol = T === Float64 ? 1e-10 : 1e-5, kwargs...)
 
+# Fixture-specific test bound for this file's correlated fixture; it is not a
+# solver tolerance or a general guarantee. With allow_f_increases = false, PGD
+# stops at the first iteration whose native-precision objective increases, and
+# reports converged = false unless the x, f or gradient test held at that
+# iteration. 64 eps(T) is approximately twice the first-order a-priori bound
+# (32.19 eps(T) at lambda = 0) on the relative difference between two
+# native-precision evaluations of this fixture's objective at its solution
+# with no true change; see #260.
+warm_pgd_accepted(r::PS.OptimizationResults, options::ProximalOptions, ::Type{T}) where T =
+  r.converged || (r.f_increased && !r.iteration_converged && r.iterations < options.maxiter &&
+                  !r.call_limit_reached && isfinite(r.f_residual) && 0 <= r.f_residual <= 64 * eps(T))
+
+# Diagnostic text for the warm-start check in "independent dense lasso
+# correctness". It reads its arguments and calls no solver.
+hexbits(v) = string(reinterpret(Unsigned, v), base = 16, pad = 2sizeof(v))
+coefficient_lines(label, z) = string(label, ": ", join(string.(z), ", "), "\n",
+  label, " (hex bits): ", join(hexbits.(z), " "), "\n")
+
+function result_lines(label, r::PS.OptimizationResults)
+  string(label, " result (ProximalGradientDescent): converged = ", r.converged,
+    ", iterations = ", r.iterations, ", iteration_converged = ", r.iteration_converged, "\n",
+    "  x_converged = ", r.x_converged, ", x_residual = ", r.x_residual, ", x_tol = ", r.x_tol, "\n",
+    "  f_converged = ", r.f_converged, ", f_residual = ", r.f_residual, ", f_tol = ", r.f_tol, "\n",
+    "  grad_converged = ", r.grad_converged, ", g_residual = ", r.g_residual, ", g_tol = ", r.g_tol, "\n",
+    "  f_increased = ", r.f_increased, ", backtrack_steps = ", r.backtrack_steps,
+    ", call_limit_reached = ", r.call_limit_reached, "\n",
+    "  f_calls = ", r.f_calls, ", grad_calls = ", r.grad_calls, ", prox_calls = ", r.prox_calls, "\n",
+    "  minimum = ", r.minimum, "\n")
+end
+function result_lines(label, r::CDResults)
+  string(label, " result (CDSolver): converged = ", r.converged, ", passes = ", r.passes, "\n",
+    "  maxchange = ", r.maxchange, ", tolerance = ", r.tolerance,
+    ", kkt_checks = ", r.kkt_checks, " (compatibility field; this solver path leaves it at 0)\n",
+    "  minimum = ", r.minimum, "\n")
+end
+
+# CPU, Julia and BLAS settings of the running process.
+function environment_lines()
+  function unavailable(f)
+    try
+      f()
+    catch
+      "unavailable"
+    end
+  end
+  lines = String[
+    "Julia version: $VERSION",
+    "CPU model: " * unavailable(() -> string(Sys.cpu_info()[1].model)),
+    "Sys.CPU_NAME: " * string(Sys.CPU_NAME),
+    "CPU features (jl_get_cpu_features): " *
+      unavailable(() -> ccall(:jl_get_cpu_features, Ref{String}, ()))]
+  if isfile("/proc/cpuinfo")
+    flags = unavailable() do
+      row = open("/proc/cpuinfo") do io
+        first(l for l in eachline(io) if startswith(l, "flags"))
+      end
+      join(filter(w -> any(p -> startswith(w, p), ("avx", "fma", "sse4", "f16c", "amx")),
+                  split(last(split(row, ':'; limit = 2)))), " ")
+    end
+    push!(lines, "/proc/cpuinfo vector flags: " * flags)
+  end
+  opts = Base.JLOptions()
+  push!(lines,
+    "code_coverage: $(opts.code_coverage)",
+    "check_bounds: $(opts.check_bounds)",
+    "cpu_target: " * (opts.cpu_target == C_NULL ? "default" : unavailable(() -> unsafe_string(opts.cpu_target))),
+    "Threads.nthreads(): $(Threads.nthreads())",
+    "BLAS.get_num_threads(): " * unavailable(() -> string(BLAS.get_num_threads())),
+    "BLAS.get_config(): " * unavailable(() -> string(BLAS.get_config())))
+  join(lines, "\n") * "\n"
+end
+
+function warm_report(::Type{T}, λ, scale, initial, method, opts, X, y, r, first_x, warm, x,
+                     oracle, optimum)::String where T
+  solver = method isa CDSolver ?
+    string("CDSolver (the loop constructs CDSolver(rng = Xoshiro(713))): maxpasses = ", method.maxpasses,
+           ", tol = ", method.tol, ", random = ", method.random, ", relative = ", method.relative,
+           ", anderson = ", method.anderson, ", momentum = ", method.momentum,
+           ", rng type = ", typeof(method.rng)) :
+    string("ProximalGradientDescent() with strict_options(", T, "): maxiter = ", opts.maxiter,
+           ", ftol = ", opts.ftol, ", xtol = ", opts.xtol, ", gradtol = ", opts.gradtol,
+           ", allow_f_increases = ", opts.allow_f_increases)
+  obj_first, obj_warm = objective(X, y, first_x, λ, scale), objective(X, y, x, λ, scale)
+  string("warm-start stopping check failed\n",
+    "case: element type = ", T, ", lambda = ", λ, ", scaled loss (scale = ", scale, ")",
+    ", initial point = ", initial, "\n",
+    "solver: ", solver, "\n",
+    result_lines("first", r), result_lines("warm", warm),
+    coefficient_lines("first coefficients", first_x),
+    coefficient_lines("warm coefficients", x),
+    "objective(first) = ", obj_first, ", kkt(first) = ", kkt(X, y, first_x, λ, scale), "\n",
+    "objective(warm) = ", obj_warm, ", kkt(warm) = ", kkt(X, y, x, λ, scale), "\n",
+    "objective(warm) - objective(first) = ", obj_warm - obj_first, "\n",
+    "objective(warm) - optimum = ", obj_warm - optimum, "\n",
+    "max |warm - first| = ", maximum(abs, Float64.(x) - Float64.(first_x)), "\n",
+    "max |first - oracle| = ", maximum(abs, Float64.(first_x) - oracle),
+    ", max |warm - oracle| = ", maximum(abs, Float64.(x) - oracle), "\n",
+    environment_lines())
+end
+
 @testset "independent dense lasso correctness" begin
   for T in (Float64, Float32), normalized in (false, true)
     X = T[1 0 0; 0 2 0; 0 0 3; 0 0 0; 0 0 0]
@@ -108,13 +208,76 @@ strict_options(::Type{T}; kwargs...) where T = ProximalOptions(;
         @test x ≈ oracle atol = T === Float64 ? 2e-6 : 4e-3
         @test objective(X, y, x, λ, scale) ≈ optimum atol = T === Float64 ? 1e-11 : 1e-5
         @test kkt(X, y, x, λ, scale) < (T === Float64 ? 3e-7 : 2e-3)
+        options = method isa CDSolver ? nothing : strict_options(T)
         warm = method isa CDSolver ? solve!(x, f, NormL1(λ), method) :
-               solve!(x, f, NormL1(λ), method, strict_options(T))
-        @test warm.minimizer === x && warm.converged
+               solve!(x, f, NormL1(λ), method, options)
+        @test warm.minimizer === x
+        stopped_ok = method isa CDSolver ? warm.converged : warm_pgd_accepted(warm, options, T)
+        @test stopped_ok
+        @test kkt(X, y, x, λ, scale) < (T === Float64 ? 3e-7 : 2e-3)
+        stopped_ok || println(warm_report(T, λ, scale, initial, method, options, X, y, r,
+                                          solutions[end], warm, x, oracle, optimum))
+        if T === Float64 && iszero(λ) && iszero(initial)
+          # Builds the report for this case, so report construction is
+          # exercised when the warm stopping check passes too.
+          report = warm_report(T, λ, scale, initial, method, options, X, y, r,
+                               solutions[end], warm, x, oracle, optimum)
+          markers = ("Float64", method isa CDSolver ? "CDSolver" : "ProximalGradientDescent",
+                     "converged", "first coefficients", "warm coefficients (hex bits)",
+                     "objective(warm) - optimum", "Julia version", "BLAS.get_config()")
+          @test all(m -> occursin(m, report), markers)
+        end
         @test objective(X, y, x, λ, scale) ≈ optimum atol = T === Float64 ? 1e-11 : 1e-5
       end
       @test solutions[1] ≈ solutions[2] atol = T === Float64 ? 2e-6 : 4e-3
     end
+  end
+end
+
+@testset "warm PGD acceptance predicate rejects non-converged material increases and exhausted budgets" begin
+  for T in (Float64, Float32)
+    X, y = correlated(T)
+    f = (one(T) / T(length(y))) * LeastSquaresLoss(y, X)
+    g = NormL1(zero(T))
+    initial = T[.3, -.7, .2]
+    options = strict_options(T)
+    base = solve!(copy(initial), f, g, ProximalGradientDescent(), options)
+    # Result of an objective-increase stop with a rounding-size residual; the
+    # keywords overwrite fields of a copy.
+    function variant(; kwargs...)
+      r = deepcopy(base)
+      r.converged, r.f_increased, r.iteration_converged = false, true, false
+      r.iterations, r.call_limit_reached, r.f_residual = 1, false, Float64(1.31 * eps(T))
+      for (name, value) in kwargs
+        setfield!(r, name, value)
+      end
+      r
+    end
+    accepted(r) = warm_pgd_accepted(r, options, T)
+    @test accepted(variant(converged = true))
+    @test accepted(variant(converged = true, f_increased = false, call_limit_reached = true,
+                           f_residual = NaN, iterations = options.maxiter))
+    @test accepted(variant())
+    @test accepted(variant(f_residual = 0.0))
+    @test accepted(variant(f_residual = Float64(64 * eps(T))))
+    @test !accepted(variant(f_residual = Float64(65 * eps(T))))
+    @test !accepted(variant(f_residual = NaN))
+    @test !accepted(variant(f_residual = Inf))
+    @test !accepted(variant(f_residual = -1.0))
+    @test !accepted(variant(iteration_converged = true))
+    @test !accepted(variant(iteration_converged = true, iterations = options.maxiter))
+    @test !accepted(variant(iterations = options.maxiter))
+    @test !accepted(variant(call_limit_reached = true))
+    @test !accepted(variant(f_increased = false))
+    # Real solves that stop on the iteration limit and on the call limit.
+    limited = strict_options(T; maxiter = 2)
+    r = solve!(copy(initial), f, g, ProximalGradientDescent(), limited)
+    @test !r.converged && r.iteration_converged
+    @test !warm_pgd_accepted(r, limited, T)
+    limited = strict_options(T; f_calls_limit = 1)
+    r = solve!(copy(initial), f, g, ProximalGradientDescent(), limited)
+    @test r.call_limit_reached && !r.converged
+    @test !warm_pgd_accepted(r, limited, T)
   end
 end
 
