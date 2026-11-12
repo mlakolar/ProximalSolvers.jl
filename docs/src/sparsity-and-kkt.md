@@ -67,18 +67,44 @@ f = (1 / n) * LeastSquaresLoss(y, X)
 penalty = NormL1(lambda)
 
 beta = zeros(p)
+# Deterministic order and a tighter absolute change threshold make this
+# support comparison and subsequent KKT calculation easier to reproduce.
+# These settings are not a general accuracy guarantee.
 solver = CDSolver(order=:cyclic, momentum=false,
                   relative=false, tol=1e-9)
 result = solve!(beta, f, penalty, solver)
 
-nonzeros = count(b -> !iszero(b), beta)
-@assert 0 < nonzeros < p
-(; lambda_max, lambda, nonzeros, converged=result.converged)
+nonzeros = count(!iszero, beta)
+selected_indices = findall(!iszero, beta)
+true_indices = findall(!iszero, true_beta)
+@assert true_indices == [2, 8, 15] && 0 < nonzeros < p
+(; lambda_max, lambda, nonzeros, converged=result.converged,
+   true_indices, selected_indices,
+   correctly_selected=intersect(selected_indices, true_indices))
 ~~~
 
-The number of fitted nonzeros need not equal the three truly nonzero
-coefficients. With noise and correlated predictors, selected variables
-also depend on the strength of the penalty.
+The output now shows **which predictors** were selected and how they
+overlap with the true predictors `[2, 8, 15]`, not just how many were
+nonzero. The selected set need not match the true set: noise, design
+correlations and the penalty strength can change selection.
+
+Try three penalty levels on the **same data**, using the same deterministic
+CD settings:
+
+~~~@example realistic_lasso
+penalty_counts = map((0.0, lambda, 1.01 * lambda_max)) do lambda_trial
+    trial_beta = zeros(p)
+    _ = solve!(trial_beta, f, NormL1(lambda_trial), solver)
+    (lambda=lambda_trial, nonzeros=count(!iszero, trial_beta))
+end
+@assert last(penalty_counts).nonzeros == 0
+penalty_counts
+~~~
+
+This example illustrates how increasing `lambda` can reduce the
+number of selected predictors. The final level exceeds `lambda_max`,
+where the all-zero fit is optimal. **A decreasing support size at
+every step is not guaranteed for every lasso design.**
 
 ## Check optimality independently
 
