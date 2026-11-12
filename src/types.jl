@@ -13,7 +13,9 @@ abstract type ProximalSolver end
       f_calls_limit=0, grad_calls_limit=0, prox_calls_limit=0, gaptol=0, gapevery=10)
 
 PGD retains objective-change, iterate-change OR FASTA residual stopping. This
-convergence flag is not a KKT certificate. Callback/display cadence is print_every;
+convergence flag is not a KKT certificate. The historical result display
+labels its internal gradient/proximal residual as |g(x)|; this does not mean
+the value of the user-supplied penalty g(x). Callback/display cadence is print_every;
 stored traces contain each iteration. A callback sees the trace when storing,
 otherwise the current state. Extended metadata copies x and its gradient.
 Call/time limits are checked after complete iterations, so counts may exceed

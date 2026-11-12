@@ -1,41 +1,30 @@
-# Architecture and validation
+# Developer architecture
 
-The twelve active files are module/types/blocks/line_searches/solve/utils/precompile,
-solvers/image_models and proximal_gradient_descent, and cd/models/solver/leastsquares.
-Small native helpers support two separately cached algorithms and existing
-result types. CDModel and state hooks are private extraction/test seams, not
-promises of custom loss or workspace support. Generic block/metric/certificate/
-logging frameworks are deferred.
+This page is for **contributors working on the implementation**, not a
+prerequisite for using the package. Begin with [Getting started](getting-started.md)
+and [Supported problems](support.md) if you are new.
 
-The dense and `SparseIterate` entry points of CD share one private run on a
-PB SparseIterate (model, state, passes, warning and finite-objective check). The
-dense wrapper builds that iterate from the vector and scatters the result back.
-The owner wrapper copies the caller's owner with `copy`, runs on the copy and
-commits with a same-shape `copyto!` through PB's public storage methods only,
-after the finite-objective check; it does not rebuild through a dense vector.
-Each copy preserves the state of its source: the initial copy keeps the entry
-state (active zeros and slot order), and the commit writes the final state of the
-working copy, after any compaction, which removes zeros and can reorder slots
-during the passes. Validation is split into data
-checks shared by both gates and an owner gate that inspects only public active
-values and tests aliasing against the original owner. PGD keeps the dense gate and
-refuses owners.
+## High-level organization
 
-The current exact PB pin is c123d56ba1948e36a8fdbf183a9eea396a16e0d5. CD uses
-its scalar `prox_block` oracle; PGD retains fused `value_and_prox!`. The private PB
-SparseIterate contract remains unchanged. PR #237's group/workspace migration is
-not imported. The gated analysis job always runs isolated exact-source paired
-diagnostics against PB A e8a45a8a6ffe2a6f92d83c4c77d62a9b7631e291 and frozen
-PS 64930401cfc0451e886728d916263c4dab2baf36, including when package tests are
-not selected or reused. Loaded paths, clean Git HEADs and source digests are
-checked; version strings never skip probes. C0 and the provenance audit describe
-the independent full-suite mathematical/behavioral tests.
+The development core intentionally keeps only two separate least-squares
+lasso engines:
 
-Current CI is stable Julia1 Linux x64 only for every tier. Preserve required
-checks, full master validation, coverage, benchmark-analysis and conservative
-policy-aware nightly reuse. Historical platform runs and the deferred macOS C0
-warm-convergence failure remain historical, not newly passing claims.
+- **Coordinate descent:** builds and updates a ProximalBase
+  `SparseIterate` internally, visiting full coordinate sets and then
+  active ones. Dense vectors are copied into the internal representation;
+  caller-supplied sparse coefficient storage is copied privately and
+  committed on a finite completed run.
+- **Proximal gradient descent:** maintains full dense iterate and gradient
+  buffers, using a least-squares image cache and backtracking line search.
 
-Historical measured performance tables remain in the repository's
-[full-package performance record](https://github.com/mlakolar/ProximalSolvers.jl/blob/master/docs/audit/historical-full-performance.md).
-They are not replaced by unmeasured minimal-core claims.
+Losses, L1 proximal operations and sparse coefficient storage live
+in ProximalBase. Solver orchestration and algorithm-specific results
+live here. The two solvers intentionally retain separate option and
+result types rather than introducing an untested shared engine.
+
+For exact source-level contracts, exceptional recovery, branch history,
+validation policy and deferred APIs, consult
+[Contributor implementation notes](developer/implementation-notes.md).
+For a beginner explanation of the algorithms, see
+[What problem, which algorithm?](concepts.md).
+

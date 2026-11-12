@@ -7,7 +7,8 @@ Least-squares lasso coordinate descent on a dense `Vector` or a one-dimensional
 `SparseIterate` of the same Float32 or Float64 element type. A full pass admits
 coordinates; active passes refine them until another full pass checks strict
 change stopping. Random LS uses historical momentum by default. Set
-momentum=false to disable it; cyclic order refuses explicit momentum. The
+momentum=false to disable it; cyclic order rejects momentum=true but accepts
+momentum=false. Use a seeded rng for repeatable random coordinate order. The
 borrowed RNG advances between solves. Anderson, gap certificates and screening
 are deferred and explicitly rejected.
 

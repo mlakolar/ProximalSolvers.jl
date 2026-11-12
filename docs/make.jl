@@ -14,9 +14,20 @@ end
 makedocs(sitename = "ProximalSolvers.jl", authors = "Mladen Kolar",
   repo = Documenter.Remotes.GitHub("mlakolar", "ProximalSolvers.jl"), modules = [ProximalSolvers],
   format = Documenter.HTML(prettyurls = get(ENV, "CI", "false") == "true", edit_link = "master"),
-  pages = ["Home" => "index.md", "Support and migration" => "support.md",
-    "Numerical contracts" => "numerics.md", "Architecture" => "internals.md",
-    "Examples" => example_pages, "API" => "api.md"], checkdocs = :exports)
+  pages = ["Home" => "index.md",
+    "Getting started" => "getting-started.md",
+    "What problem, which algorithm?" => "concepts.md",
+    "Sparsity and an optimality check" => "sparsity-and-kkt.md",
+    "Choosing a solver" => "choosing-solver.md",
+    "Results and troubleshooting" => "working-with-results.md",
+    "Examples" => example_pages,
+    "Supported problems" => "support.md",
+    "Numerical behavior" => "numerics.md",
+    "Glossary" => "glossary.md",
+    "API reference" => "api.md",
+    "For contributors" => [
+      "Developer architecture" => "internals.md",
+      "Implementation notes" => "developer/implementation-notes.md"]], checkdocs = :exports)
 if get(ENV, "DOCUMENTER_DEPLOY", "false") == "true"
   deploydocs(repo = "github.com/mlakolar/ProximalSolvers.jl.git", devbranch = "master", push_preview = false)
 end

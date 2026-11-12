@@ -1,58 +1,70 @@
-# Supported API, ownership and migration
+# Supported problems
 
-Vector y and Matrix X with the same Float32 or Float64 element type are
-supported, with positive consistent dimensions and finite entries. The iterate
-is a dense Vector of that type for both solvers, and additionally a
-one-dimensional `SparseIterate` of that type for [`CDSolver`](@ref) only;
-[`ProximalGradientDescent`](@ref) refuses every `SparseIterate`. Use raw PB LS or
-one positive finite scalar Scaled LS, and unweighted finite nonnegative NormL1.
-Parameters must be representable; positive values must not round to zero.
-Scaling is explicit: raw LS means sum(abs2,y-X*x)/2; divide by n explicitly for
-normalized lasso. Accepted wider scalars retain historical conversion sites.
+This page describes **the current GitHub development master branch**, not
+the wider feature set in historical releases.
 
-X/y are borrowed read-only during solves and must not alias mutable x; for a
-`SparseIterate` the check uses the owner's whole backing storage, so even an
-owner with no active entries is refused when `parent(activevalues(x))` or a
-reshape of it is passed as y or X. Results share x; extended traces copy
-x/gradient. Unsupported requests fail before mutation. A CD numerical exception
-preserves input x; PGD numerical step exceptions restore its last accepted point
-and rethrow. Counters/buffers are not generally transactional. Shape errors are
-DimensionMismatch; unsupported combinations/options are informative
-ArgumentError.
+## What works today?
 
-## CD on a `SparseIterate`
+The supported objective is a lasso:
 
-- Only the public active values are checked for finiteness. Every validation
-  failure (unsupported owner, element type, shape, active NaN/Inf, data, loss,
-  penalty, scalar, option, keyword or alias) happens before the owner is copied
-  and before any RNG draw, and leaves the owner untouched.
-- The run uses `work = copy(x)`, which keeps the active zeros and the slot order,
-  and nothing is rebuilt through a dense vector. Passes, momentum and stopping
-  are those of the dense wrapper; the extra storage is O(p).
-- A run that completes with a finite objective commits the complete final state
-  with a same-shape `copyto!(x, work)` and returns `x` itself as `minimizer`.
-  This covers a finite `maxpasses` limit (`converged = false`, with a warning)
-  and `maxpasses = 0`, which leaves exactly the entry state, including active
-  zeros, signed zeros and order. A normal pass compacts zero coordinates, and
-  they are not restored; the order is not sorted.
-- A numerical error, such as a nonfinite step, a curvature that underflows or a
-  nonfinite final objective, leaves the values, active set, signed zeros and
-  order of `x` unchanged. The borrowed RNG may already have advanced; no rollback
-  of the RNG is promised. Process termination, out-of-memory conditions and
-  concurrent mutation of x, X or y are not covered.
-- After a successful call take `activevalues(x)` and `activecoordinates(x)` again:
-  the active list may have been replaced or reordered.
+~~~math
+\min_\beta\quad \frac{s}{2}\|y-X\beta\|_2^2+\lambda\|\beta\|_1,
+~~~
 
-## Deferred
+where `s=1` for raw `LeastSquaresLoss` or `s=1/n` for the
+usual normalized convention.
 
-Sparse designs, sparse vectors and views as iterates, `SparseIterate` for proximal
-gradient descent, matrix-shaped, group and symmetric owners, weighted/group
-penalties, matrix responses, intercepts/offsets, generalized losses/compositions, acceleration, ADMM/Newton,
-primal-dual/SLOPE/graphical models, paths/screening/certificates/workspaces/refit
-and reweighting are deferred. Nondefault feature requests are refused. gap=NaN
-and CD kkt_checks=0 are compatibility sentinels, not computed diagnostics.
+| Input | Supported |
+| --- | --- |
+| Design matrix `X` | Nonempty, finite, dense `Matrix{Float32}` or `Matrix{Float64}` |
+| Response `y` | Finite vector with the same element type and `length(y) == size(X,1)` |
+| Coefficients `beta` | Same-type dense vector for CD or PGD; alternatively, one-dimensional ProximalBase `SparseIterate` for CD only |
+| Loss | `LeastSquaresLoss` or one finite positive scalar multiple of it |
+| Penalty | Unweighted `NormL1(lambda)` with nonnegative finite `lambda` |
+| Solvers | `CDSolver`, `ProximalGradientDescent` |
 
-This is a breaking support reduction. Version/registration and any public
-release remain a separate decision; existing releases are untouched. Protected
-archive refs preserve the complete snapshot; legacy/full remains the historical
-working branch. Restore capabilities selectively; do not merge it wholesale.
+The input arrays and penalty parameters must be representable in the
+working type, and the data must not be modified while a solve is running.
+The coefficient vector is mutated in place, so do not alias it to `X` or
+`y`. To retain a result, save `copy(beta)`.
+
+For an executable complete example, see [Getting started](getting-started.md).
+For using sparse **coefficients**, see the
+[sparsity tutorial](sparsity-and-kkt.md). The design matrix still must be
+dense, even when the coefficients use `SparseIterate`.
+
+## What is not supported yet?
+
+The current development core intentionally excludes the following:
+
+| Feature | Current status |
+| --- | --- |
+| Sparse design matrices; sparse or view-based dense coefficients | Deferred |
+| Generalized losses, matrix responses, intercepts/offsets | Deferred |
+| Weighted or group penalties, generalized penalty combinations | Deferred |
+| Penalty paths, screening and dual-gap certificates | Deferred |
+| ADMM, Newton, accelerated gradient, primal-dual, SLOPE, graphical models | Deferred |
+| Generic workspaces, refitting, reweighting | Deferred |
+| PGD with `SparseIterate` coefficients | Deferred |
+| CD `anderson>0`, `gaptol>0`, `gapsafe=true` | Rejected; not implemented |
+| PGD `normalized=true`, `debias>0`, `preconditioner != :none` | Rejected; not implemented |
+
+Some rejected keywords remain accepted by *constructors* only to
+provide informative errors and compatibility with historical signatures.
+Do not interpret their presence as available functionality.
+The reported `gap=NaN` and CD's `kkt_checks=0` are placeholders, not
+computed certificates.
+
+## About previous versions
+
+The registered package and historical `legacy/full` branch may expose
+features that this development branch intentionally does not. These
+are different development stages; this documentation **does not provide
+a migration procedure** for every historical algorithm. Consult
+[Getting started](getting-started.md) for source installation.
+
+See [Numerical behavior](numerics.md) for stopping and precision.
+Detailed implementation, failure transaction and internal algorithm
+contracts are preserved under
+[Contributor implementation notes](developer/implementation-notes.md).
+

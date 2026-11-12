@@ -1,7 +1,14 @@
 # ProximalSolvers.jl — minimal dense-design lasso core
 
-Solve ordinary least-squares lasso on dense designs with coordinate descent or
-proximal gradient descent, using ProximalBase's loss and proximal operators.
+**[Development documentation](https://mlakolar.github.io/ProximalSolvers.jl/dev/)** · [Getting started](docs/src/getting-started.md) · [Algorithms](docs/src/concepts.md) · [Sparsity and KKT](docs/src/sparsity-and-kkt.md) · [Solver guide](docs/src/choosing-solver.md)
+
+This GitHub **development master** implements ordinary least-squares lasso on
+dense designs with coordinate descent or proximal gradient descent, using
+ProximalBase's losses and proximal operators. It is intended for algorithm
+experimentation and development, rather than a full statistical modeling
+workflow with penalty paths and cross-validation. The published registry
+release may have a different feature set; follow the [source installation
+instructions](docs/src/getting-started.md) for this development API.
 
 ```julia
 using ProximalBase, ProximalSolvers
