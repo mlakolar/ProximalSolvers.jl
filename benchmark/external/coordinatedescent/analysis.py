@@ -440,7 +440,7 @@ def load_arms(root, blocks, select=False, selection=None):
             config_key = (side, meta["view"], process_targets)
             invariant_keys = base_validate.SERIES_SETTINGS + (
                 "julia", "artifact_sha256", "manifest_sha256", identity)
-            config = {key: meta[key] for key in invariant_keys}
+            config = {key: base_validate.setting(meta, key) for key in invariant_keys}
             config.update({key: meta[key] for key in ("catalog_sha256", "frozen_sha256", "gram_control",
                                                     "solver_package_hash", "accuracy_target", "accuracy_targets") if key in meta})
             if config_key in configurations and configurations[config_key] != config:

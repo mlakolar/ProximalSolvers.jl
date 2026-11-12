@@ -233,6 +233,7 @@ jobs:
           python-version: '3.12'
       - run: python benchmark/check_analysis.py
       - run: python -I benchmark/sparse_cd/check_analysis.py
+      - run: python -B benchmark/external/coordinatedescent/check_analysis.py
       - uses: julia-actions/setup-julia@v3
         with:
           version: '1'

@@ -1,11 +1,14 @@
 # CoordinateDescent comparison suite
 
-> **Status (November 2026): historical, deferred executable benchmark.** The code, frozen case
-> catalog, environment locks and analysis below are unchanged and kept for reuse. The `current`
+> **Status (November 2026): historical, deferred executable benchmark.** The runner, adapters, frozen
+> case catalog and environment locks below are unchanged and kept for reuse; the analysis has one
+> compatibility fix and is otherwise unchanged. The `current`
 > environment develops this repository, so it runs only against a full-package checkout with
-> ProximalBase 0.5.4 (such as `legacy/full`), not minimal master. `check_analysis.py` currently stops
-> with `KeyError: 'case_filter'` because of a pre-existing interface drift with `benchmark/validate.py`.
-> [benchmark/README.md](../README.md) describes both issues and the follow-up plan.
+> ProximalBase 0.5.4 (such as `legacy/full`), not minimal master. The analysis controls
+> (`check_analysis.py`) run in CI. `analysis.py` reads the optional `case_filter` setting through
+> `validate.setting`, a compatibility fix with `benchmark/validate.py` (PR #253; the earlier source is in
+> the protected archive `9be1773e911a44ec21d49df28cb01fea37c4316e`). See [benchmark/README.md](../README.md)
+> for the status and the follow-up plan.
 
 [coordinatedescent/](coordinatedescent/) is a regression monitor comparing
 CoordinateDescent 0.6.1 (`legacy`) with HighDimensionalModels on ProximalSolvers

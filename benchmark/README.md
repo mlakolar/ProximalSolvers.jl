@@ -20,7 +20,7 @@ and Float64 least-squares lasso. Parts of the infrastructure run against master 
 | Analysis controls of the above | `check_analysis.py` | Yes, in CI. |
 | Sparse-CD paired measurement and analysis | [`sparse_cd/`](sparse_cd/README.md) | Yes; analyzer controls in CI. |
 | Exploratory CD/PGD timing | [`minimal/explore.jl`](minimal/explore.jl) | Yes; tested by `test/benchmark_explore.jl`. |
-| External-solver comparison (CoordinateDescent 0.6.1) | [`external/`](external/README.md) | No (deferred): frozen environments of the #117 comparison. |
+| External-solver comparison (CoordinateDescent 0.6.1) | [`external/`](external/README.md) | Measurements: no (deferred), frozen environments of the #117 comparison. Analysis controls: yes, in CI. |
 | Stage 2A pre-0.6 baseline campaign | [`campaigns/pre06/`](campaigns/pre06/README.md) | Historical, frozen; its tests run offline. |
 | Stage 2B migration campaign | [`campaigns/stage2b/`](campaigns/stage2b/README.md) | Unfinished (#110, #220, #229); runs pinned checkouts; its tests run offline. |
 
@@ -47,6 +47,7 @@ The CI job `Benchmark analysis controls` runs these, with no Julia benchmark env
 ```sh
 python3 benchmark/check_analysis.py               # validate.py, summarize.py, compare.py on synthetic records
 python3 -I benchmark/sparse_cd/check_analysis.py  # sparse-CD analyzer refusal controls
+python3 -B benchmark/external/coordinatedescent/check_analysis.py  # external-comparison analysis controls
 julia --startup-file=no --project=@stdlib scripts/paired_master_diagnostics.jl
 ```
 
@@ -83,12 +84,17 @@ locks. It is kept unchanged as a reusable template for external comparisons. Its
 environment develops this repository, so it needs a full-package checkout. Adapting it to master
 means a new adapter and environment, with the catalog and analysis kept.
 
-Known issue (predates the minimal core): since `b0de3f7` (#110 Stage 1), `validate.SERIES_SETTINGS`
-includes the optional key `case_filter`, but `external/coordinatedescent/analysis.py` line 443 reads
-`meta[key]` instead of `base_validate.setting(meta, key)`. As a result,
-`python3 -B benchmark/external/coordinatedescent/check_analysis.py` stops with
-`KeyError: 'case_filter'`. That one-line change makes every control pass again; it is listed as
-follow-up 5 below and is not applied here.
+Its analysis controls (`python3 -B benchmark/external/coordinatedescent/check_analysis.py`, about
+4 s, fixed seeds, no Julia) run in CI. **Compatibility fix (PR #253).** Since `b0de3f7` (#110 Stage 1),
+`validate.SERIES_SETTINGS` has included the optional key `case_filter`, which `validate.setting` reads
+as `""` (no filter) when absent. `analysis.py` read it as `meta[key]` and stopped with
+`KeyError: 'case_filter'`, so it now reads `base_validate.setting(meta, key)`, as `validate.py` does.
+No other line of the analysis changed. The `optional-case-filter` control checks that a missing and an
+explicitly empty `case_filter` give identical results, also when mixed within an arm, and that a
+nonempty filter that differs between blocks of an arm is refused (`series settings changed`). As
+before, the comparison across arms checks a fixed list of settings that does not include `groups` or
+`case_filter`; matched case coverage is enforced through the catalog and block cells. The source
+before the fix is in the protected archive `9be1773e911a44ec21d49df28cb01fea37c4316e`.
 
 ## Enabling the formal harness on master
 
@@ -113,9 +119,9 @@ returns, without a second runner, a second record format or duplicate statistics
    dense `Vector` and vector `SparseIterate` starts, no `SolverWorkspace` phase until workspaces
    return, and Float32 cases for the supported precisions. `problems.jl` and `certificates.jl` should
    need no change: they use plain data and returned minimizers.
-5. **External suite.** Apply the one-line `setting()` fix in `external/coordinatedescent/analysis.py`
-   and add `python3 -B benchmark/external/coordinatedescent/check_analysis.py` to the CI analysis
-   job. Port `current.jl` to the master API when a comparison is wanted.
+5. **External suite.** Its analysis already works on current records and runs in CI. Port
+   `current.jl` (and the `current/` environment) to the master API when a comparison is wanted,
+   keeping the catalog and the analysis.
 6. **Retire duplicates.** When steps 3 and 4 are done, `local.jl` replaces `minimal/explore.jl`.
    `sparse_cd/` can become a harness phase or variant (dense vs `SparseIterate` input, copy costs)
    that uses `validate.py` and `compare.py`, so its separate analyzer can go.

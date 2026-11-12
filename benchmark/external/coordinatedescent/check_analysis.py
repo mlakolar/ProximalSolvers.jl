@@ -245,6 +245,32 @@ def integrity_controls(root):
     expect_error(lambda: analysis.load_arms(arms, 4), "missing blocks")
 
 
+def case_filter_controls(root):
+    # Records written before case selection (#110 Stage 1) lack case_filter; validate.setting reads it
+    # as "" (no filter). A missing and an explicitly empty case_filter are one series and give the same
+    # analysis, also when mixed within an arm; a nonempty filter in one block changes the series.
+    missing = fixture(root / "case-filter-missing")
+    baseline, _, _ = analysis.analyze(missing, root / "case-filter-missing-report", 3)
+    empty = fixture(root / "case-filter-empty")
+    for side in analysis.ARMS:
+        controls.edit_meta(empty / side, "case_filter", "")
+    mixed = fixture(root / "case-filter-mixed")
+    controls.edit_meta(mixed / "current", "case_filter", "", rep=2)
+    for name, arms in (("empty", empty), ("mixed", mixed)):
+        rows, _, _ = analysis.analyze(arms, root / f"case-filter-{name}-report", 3)
+        assert rows == baseline, name
+    consistent = fixture(root / "case-filter-consistent")
+    controls.edit_meta(consistent / "current", "case_filter", CASE)
+    assert len(analysis.load_arms(consistent, 3)) > 0
+    changed = fixture(root / "case-filter-changed")
+    controls.edit_meta(changed / "current", "case_filter", CASE, rep=2)
+    expect_error(lambda: analysis.load_arms(changed, 3), "series settings changed")
+    other = fixture(root / "case-filter-other")
+    controls.edit_meta(other / "current", "case_filter", CASE)
+    controls.edit_meta(other / "current", "case_filter", "gradient/*", rep=2)
+    expect_error(lambda: analysis.load_arms(other, 3), "series settings changed")
+
+
 def selection_controls(root):
     arms = fixture(root / "calibration", view="ladder")
     definitions = {"case": [dict(id=CASE, legacy=dict(ladder=[dict(tol=1e-4, stopping="loose"),
@@ -851,6 +877,7 @@ def main():
         root = Path(temporary)
         record_controls(root)
         integrity_controls(root)
+        case_filter_controls(root)
         selection_controls(root)
         family_controls(root)
         optional_aa_controls(root)
@@ -863,7 +890,7 @@ def main():
           "selection-families,primary-secondary,union-rungs,target-pairing,same-rung-AA,"
           "t-CDF,paired-intervals,block-bootstrap,known-mean-coverage,"
           "order-statistic-bound,BH,selection-ties,not-reached,failures,all-failed,"
-          "missing-arms,missing-blocks,artifact-hashes,independent-certificates,CLI")
+          "missing-arms,missing-blocks,artifact-hashes,optional-case-filter,independent-certificates,CLI")
 
 
 if __name__ == "__main__":
