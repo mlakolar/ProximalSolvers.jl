@@ -26,6 +26,61 @@ pages display that residual next to the default-PGD convergence flag.
 PGD's printed `|g(x)|` label is an internal stopping residual, **not**
 the value of the user's L1 penalty.
 
+### PGD stops when the computed objective increases
+
+With the default `allow_f_increases=false` in `ProximalOptions`, PGD has
+one more exit, which is not a convergence test: it stops at the first
+iteration whose computed objective `F = f(x) + g(x)`, evaluated in the
+working precision, is larger than the previous iteration's `F'`. Such a
+stop does **not** mean the solve converged.
+
+At the iteration where PGD stops, for whatever reason, the result's flags
+are evaluated as follows:
+
+| Field | Value at that iteration |
+| --- | --- |
+| `x_converged` | `norm(x - x') < xtol * max(norm(x), 1)` |
+| `f_converged` | `abs(F - F') / (abs(F) + ftol) < ftol`, **or** `abs(F - F') < eps(abs(F) + abs(F'))` (about two units in the last place of `F`) |
+| `grad_converged` | the gradient/proximal residual test with `gradtol` holds |
+| `converged` | at least one of `x_converged`, `f_converged` and `grad_converged` |
+| `f_increased` | `F > F'` |
+| `iteration_converged` | `iterations == maxiter` |
+
+So an objective-increase stop reports `f_increased=true` together with
+`converged=false`, unless one of the three tests also held at that
+iteration. Two other combinations are possible and not contradictory:
+
+- An increase smaller than about two units in the last place of `F`
+  passes the objective test, so the result reports `converged=true`
+  **and** `f_increased=true`.
+- A test that succeeds at the last allowed iteration reports
+  `converged=true` **and** `iteration_converged=true`. An
+  objective-increase stop at that iteration also has
+  `iteration_converged=true`.
+
+With `allow_f_increases=true` this exit is removed: the solve continues
+until a test holds or a limit is reached, and `f_increased` only reports
+the comparison at the last iteration.
+
+**Why rounding triggers it.** For the supported least-squares lasso, with
+the backtracking line search's default `Lexact = Inf`, an accepted step
+does not increase the objective in exact arithmetic. A computed increase
+comes from floating-point rounding. Near a minimizer, the true change in
+`F` per step becomes smaller than the rounding error of evaluating `F`
+in the working precision (which depends on the data; on a small test
+problem of this package, a first-order bound is about 16 `eps(T)`
+relative), so the sign of the computed change is decided by rounding.
+At strict tolerances, whether a solve that has reached the neighborhood
+of a minimizer ends with `converged=true` or with an objective-increase
+stop can therefore depend on the last bits of the trajectory rather than
+on the accuracy of the point. Those bits can change with the
+starting point, the CPU and its vector width, the BLAS kernel, and how the
+code is compiled (for example, with coverage instrumentation). It
+matters mainly for tolerances near or beyond the working precision, and
+the package's tests see it most often with `Float32`. In both directions, assess the returned point with the
+[independent KKT residual](sparsity-and-kkt.md), not with `converged`
+alone.
+
 ## Working precision: Float32 and Float64
 
 A supported solve uses a single floating-point working type

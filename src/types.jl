@@ -18,6 +18,28 @@ PGD stops when **any** of the iterate-change (`xtol`), objective-change
 (`ftol`), or gradient/proximal-residual (`gradtol`) criteria succeeds.
 `converged=true` is therefore **not** a KKT certificate.
 
+With `allow_f_increases=false` (the default), PGD also stops at the first
+iteration whose computed objective `F = f(x) + g(x)`, in the working
+precision, exceeds the previous iteration's `F'`. This stop is **not** a
+convergence test. At the iteration where any stop occurs, the result
+reports `f_increased = F > F'` and
+`converged = x_converged || f_converged || grad_converged`, so an
+objective-increase stop reports `converged=false` unless one of those
+tests also held. The objective test holds when
+`|F - F'| / (|F| + ftol) < ftol` or `|F - F'| < eps(|F| + |F'|)`, about two
+units in the last place of `F`; a smaller increase therefore reports both
+`converged=true` and `f_increased=true`. Near a minimizer the computed
+change in `F` is of the size of the rounding error of evaluating `F`, so
+whether a strict-tolerance solve ends with `converged=true` or with an
+objective-increase stop can depend on the last bits of its trajectory
+(CPU, BLAS kernel, compilation) rather than on the accuracy of the point.
+`allow_f_increases=true` removes this stop; `f_increased` then only reports
+the comparison at the last iteration. `iteration_converged` is
+`iterations == maxiter`, which also holds when a test succeeded at that
+last iteration. See the
+[numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/)
+page.
+
 `maxiter` caps iterations; `store_trace`, `show_trace` and
 `extended_trace` control reporting. `print_every` sets display/callback
 cadence; a callback receives the trace when it is stored, otherwise the

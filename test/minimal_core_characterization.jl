@@ -131,16 +131,18 @@ function environment_lines()
   join(lines, "\n") * "\n"
 end
 
+solver_line(::Type{T}, method, opts) where T = method isa CDSolver ?
+  string("CDSolver (the loop constructs CDSolver(rng = Xoshiro(713))): maxpasses = ", method.maxpasses,
+         ", tol = ", method.tol, ", random = ", method.random, ", relative = ", method.relative,
+         ", anderson = ", method.anderson, ", momentum = ", method.momentum,
+         ", rng type = ", typeof(method.rng)) :
+  string("ProximalGradientDescent() with strict_options(", T, "): maxiter = ", opts.maxiter,
+         ", ftol = ", opts.ftol, ", xtol = ", opts.xtol, ", gradtol = ", opts.gradtol,
+         ", allow_f_increases = ", opts.allow_f_increases)
+
 function warm_report(::Type{T}, λ, scale, initial, method, opts, X, y, r, first_x, warm, x,
                      oracle, optimum)::String where T
-  solver = method isa CDSolver ?
-    string("CDSolver (the loop constructs CDSolver(rng = Xoshiro(713))): maxpasses = ", method.maxpasses,
-           ", tol = ", method.tol, ", random = ", method.random, ", relative = ", method.relative,
-           ", anderson = ", method.anderson, ", momentum = ", method.momentum,
-           ", rng type = ", typeof(method.rng)) :
-    string("ProximalGradientDescent() with strict_options(", T, "): maxiter = ", opts.maxiter,
-           ", ftol = ", opts.ftol, ", xtol = ", opts.xtol, ", gradtol = ", opts.gradtol,
-           ", allow_f_increases = ", opts.allow_f_increases)
+  solver = solver_line(T, method, opts)
   obj_first, obj_warm = objective(X, y, first_x, λ, scale), objective(X, y, x, λ, scale)
   string("warm-start stopping check failed\n",
     "case: element type = ", T, ", lambda = ", λ, ", scaled loss (scale = ", scale, ")",
@@ -156,6 +158,39 @@ function warm_report(::Type{T}, λ, scale, initial, method, opts, X, y, r, first
     "max |warm - first| = ", maximum(abs, Float64.(x) - Float64.(first_x)), "\n",
     "max |first - oracle| = ", maximum(abs, Float64.(first_x) - oracle),
     ", max |warm - oracle| = ", maximum(abs, Float64.(x) - oracle), "\n",
+    environment_lines())
+end
+
+# The stopping flags a result reports (see "PGD stops when the computed
+# objective increases" in docs/src/numerics.md).
+function stop_reasons(r::PS.OptimizationResults)
+  set = [name for (name, flag) in (("x test", r.x_converged), ("objective test", r.f_converged),
+                                   ("gradient test", r.grad_converged),
+                                   ("objective increased", r.f_increased),
+                                   ("iteration limit", r.iteration_converged),
+                                   ("call limit", r.call_limit_reached)) if flag]
+  isempty(set) ? "none (time limit or callback)" : join(set, ", ")
+end
+stop_reasons(r::CDResults) = r.converged ? "pass change below tolerance" : "pass limit"
+
+first_options(method, ::Type{T}) where T = method isa CDSolver ? nothing : strict_options(T)
+
+# Diagnostic text for the first-solve `@test r.converged` checks in "independent
+# dense lasso correctness" (#263). It reads its arguments and calls no solver.
+function first_report(::Type{T}, λ, scale, initial, method, opts, X, y, r, x,
+                      oracle, optimum)::String where T
+  obj = objective(X, y, x, λ, scale)
+  string("first-solve convergence check failed\n",
+    "case: element type = ", T, ", lambda = ", λ, ", loss scale = ", scale,
+    ", data = ", size(X, 1), "x", size(X, 2), "\n",
+    coefficient_lines("initial point", initial),
+    "solver: ", solver_line(T, method, opts), "\n",
+    "stopping flags set: ", stop_reasons(r), "\n",
+    result_lines("first", r),
+    coefficient_lines("first coefficients", x),
+    "objective(first) = ", obj, ", kkt(first) = ", kkt(X, y, x, λ, scale), "\n",
+    "objective(first) - optimum = ", obj - optimum, "\n",
+    "max |first - oracle| = ", maximum(abs, Float64.(x) - oracle), "\n",
     environment_lines())
 end
 
@@ -182,6 +217,8 @@ end
         @test r.minimizer === x
         @test eltype(x) === T && typeof(r.minimum) === T
         @test r.converged
+        r.converged || println(first_report(T, λ, scale, initial, method, first_options(method, T),
+                                            X, y, r, x, oracle, optimum))
         @test x ≈ expected atol = T === Float64 ? 2e-7 : 2e-3
         @test objective(X, y, x, λ, scale) ≈ optimum atol = T === Float64 ? 1e-12 : 2e-5
         @test kkt(X, y, x, λ, scale) < (T === Float64 ? 2e-7 : 2e-3)
@@ -205,6 +242,20 @@ end
             solve!(x, f, NormL1(λ), method, strict_options(T))
         push!(solutions, copy(x))
         @test r.converged
+        r.converged || println(first_report(T, λ, scale, initial, method, first_options(method, T),
+                                            X, y, r, x, oracle, optimum))
+        if T === Float64 && iszero(λ) && iszero(initial)
+          # Exercises the first-solve report when the check passes too.
+          report = first_report(T, λ, scale, initial, method, first_options(method, T),
+                                X, y, r, x, oracle, optimum)
+          markers = ("first-solve convergence check failed", "Float64",
+                     method isa CDSolver ? "CDSolver" : "ProximalGradientDescent",
+                     "initial point (hex bits)", "stopping flags set: ",
+                     (method isa CDSolver ? ("passes = ", "maxchange = ") :
+                                            ("iterations = ", "g_residual = "))...,
+                     "objective(first) - optimum", "Julia version")
+          @test all(m -> occursin(m, report), markers)
+        end
         @test x ≈ oracle atol = T === Float64 ? 2e-6 : 4e-3
         @test objective(X, y, x, λ, scale) ≈ optimum atol = T === Float64 ? 1e-11 : 1e-5
         @test kkt(X, y, x, λ, scale) < (T === Float64 ? 3e-7 : 2e-3)
