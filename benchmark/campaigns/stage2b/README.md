@@ -32,7 +32,7 @@ paired experiment.
 | [`stage2b_fixtures.py`](stage2b_fixtures.py) | Builds the complete synthetic input sets (roots, receipt, mapping, declared differences, fingerprints) that the tests of the tool mutate one item at a time. |
 | [`test_migration_compare.py`](test_migration_compare.py) | Offline tests of the tool: one per refusal class, the accepted differences, the per-case classes, the screens and the outputs. |
 | [`stage2b_campaign.py`](stage2b_campaign.py) | The campaign driver (standard library only): TOML writer, campaign lock, official gate, preflight checks, source fingerprints, identity and receipt writers, sealing, the engine behind `run` and `pilot`, declared differences, `verify`, the real hooks (subprocess runner, untimed environment probe, depot-cache digest, data-hash check) and `prepare` (`fetch` and `finalize`). It launches `benchmark/run.jl` and measures nothing. |
-| [`test_stage2b_campaign.py`](test_stage2b_campaign.py) | Offline tests of the driver (no Julia, no network): the gate and pilot refusals (a stub runner that fails if invoked), every preflight defect, sealing, the stop state, a full-shape run (two strata, 19 cases, 8 repetitions, four roots) that is verified, copied and mutated, and `prepare`, the probe conversion, the depot digest and the pilot-schedule derivation over mocked subprocess layers. |
+| [`test_stage2b_campaign.py`](test_stage2b_campaign.py) | Offline tests of the driver (no Julia, no network): the gate and pilot refusals (a stub runner that fails if invoked), every preflight defect, sealing, the stop state, a full-shape run (two strata, 19 cases, 8 repetitions, four roots) that is verified, copied and mutated, `prepare`, the probe conversion, the depot digest and the pilot-schedule derivation over mocked subprocess layers, and the session per base, the probe records and the numeric range checks (#229). |
 | [`export_fingerprints.jl`](export_fingerprints.jl) | The untimed fingerprint exporter (needs Julia and the benchmark environment): loads the real harness of a stack, runs `reset!`, one untimed `call!` and `reset!` on each case state and writes `fingerprints.tsv` rows (section 14 of the specification) in the canonical encoding `ps-stage2b-fp-v1`, with a data-hash sidecar and a summary; fails closed (exit 2) on any missing or unexpected closure field. |
 | [`environment_probe.jl`](environment_probe.jl) | Prints the environment inventory of the running Julia process as TOML (the Stage 2A format plus the realpath keys of section 10); run in the environment of a stack. |
 | [`test_export_fingerprints.jl`](test_export_fingerprints.jl) | The Julia test of the exporter: the encoder (differing pairs, unsupported types, known answers), the real cases through the harness, the command line; `PS_FP_FULL=true` adds the full scheduled export. |
@@ -71,8 +71,8 @@ launched process, and the base never launches again. Only a sealed `logs/complet
 The official gate also refuses the historical stack as a candidate (ProximalBase 0.6 only, and no value equal to
 the `[stack_a]` identity). The engine needs the depot-cache digest and the data-hash check hooks and records the digest
 before and after every process. `verify` is read-only, needs no Julia and works on a copied tree. It recomputes the
-checksums, the seals (exactly one per record file, mode 0444), the sidecar and fingerprint coverage and the receipt,
-rejects symbolic links, binds the tree to its configuration and campaign ids, and replays `migration_compare.py` on the
+checksums, the seals (exactly one per record file, mode 0444), the sidecar and fingerprint coverage, the receipt, the
+probe records and the session record, rejects symbolic links, binds the tree to its configuration and campaign ids, and replays `migration_compare.py` on the
 tree's own copies, comparing the exit status, refusals, CSV rows, `report.md` and `lists.json` (`--out` is a fresh path
 outside the evidence).
 
@@ -179,10 +179,21 @@ python3 -B stage2b_campaign.py verify    --base BASE --out FILE [--config CONFIG
 
 Exit status of every command: 0 success, 1 completed with non-ok cases, 2 refused or stopped, 3 usage or internal error;
 `preflight` prints every problem it finds and exits 0 only when there is none. A pilot configuration is a TOML file
-(strict keys): `schema = 1`, `[campaign]` (`id`, `session_id`), `[schedule]` (`id`), `[pilot]` (`arms`, `samples_target`,
+(strict keys): `schema = 1`, `[campaign]` (`id`), `[schedule]` (`id`), `[pilot]` (`arms`, `samples_target`,
 `seconds_limit`, `case_seconds`), `[julia]`, `[source]` (`repository`, optional `proximalbase`), `[archive]` (`path`) and
-`[resources]` (`min_cpus`). The same file goes to `prepare`, `pilot` and `verify`; `session_id` is required so that the
-identity files and the engine agree. The pilot schedule must carry the held configuration's `samples_target`, `seconds_limit` and `case_seconds` (the official values when the configuration names none), the official values for every other setting, a prefix of the official repetitions with their official orders, and the configuration's arms: `pilot` refuses to launch otherwise and `verify --config` records the mismatch.
+`[resources]` (`min_cpus`). The same file goes to `prepare`, `pilot` and `verify`. Numeric values are positive numbers
+(`samples_target` and `min_cpus` integers); an integer beyond the float range (about 1e308), and an integer duration
+above 2**53 (which `float()` would round), is refused like any other invalid value (exit 2; `verify --config` records it),
+and `finalize` writes the durations into the pilot schedule as given, without coercion.
+
+**Sessions.** `prepare --step fetch` mints a fresh session id for every base (`session-<UTC compact>-<4 hex>`, the
+format of `mint_session_id`) and records it in `logs/session.json` with the campaign id and the SHA-256 of the base's
+configuration copy; `finalize` writes it into every `stack-identity.toml`, and the engine takes it from there into the
+receipt's `campaign` event, `campaign.json`, `STATE.json`, `completion.json` and every probe record. Two attempts from one
+frozen configuration therefore never share a session. A configuration (pilot configuration or lock) that names
+`campaign.session_id` is refused by `prepare` (and by the engine on a base with its own session), because every attempt
+prepared from it would share that session; `campaign.session_id` remains valid in the parser only so that evidence
+prepared before sessions were minted per base still verifies. The pilot schedule must carry the held configuration's `samples_target`, `seconds_limit` and `case_seconds` (the official values when the configuration names none), the official values for every other setting, a prefix of the official repetitions with their official orders, and the configuration's arms: `pilot` refuses to launch otherwise and `verify --config` records the mismatch.
 
 **Fingerprints.** `finalize` runs `export_fingerprints.jl` of the driver's checkout once per role and stratum, untimed,
 against that role's own harness, and concatenates the per-stratum files; the exporter's summary (with the cold snapshot
@@ -191,7 +202,20 @@ with the sidecar row for row, else the attempt stops (the A/A roots are compared
 
 **Receipts and seals.** The engine appends one `process` event to `receipt.jsonl` for every launched process, also for a
 failed one, with the real start and end times; after each process it seals the six record files (SHA-256 in
-`logs/seals.jsonl`, mode 0444) and checks every earlier seal again. The digest of every depot's `compiled/` directory is
+`logs/seals.jsonl`, mode 0444) and checks every earlier seal again.
+
+**Probe records.** Every untimed probe of an attempt (the `environment_probe.jl` process and the pinned affinity command;
+once per role and stratum before the attempt, phase `preflight`, and once before each formal process, phase `launch`) leaves
+one line in `logs/probes.jsonl`: `record = "probe"`, `timed = false`, the campaign, session and schedule ids, the process
+it precedes, arm, role, installation, Julia version, repetition, the measured CPU, the outcome (`ok`, or `failed` with the
+error) and the observed machine values, and each command's argv, exit status and start and completion times as the hook
+read them. A failed probe is recorded before the attempt stops. The probe records are never receipt events and are not
+read by the comparator; the engine reads no extra clock for them and the formal command lines are unchanged. A probe that
+fails before the attempt begins (phase `preflight`) leaves the base fresh, without a record, like any refusal before a
+launch. `verify` requires, for evidence whose `campaign.json` names the log, one valid preflight record per role and
+stratum before the campaign started and one launch record per process event that finished before its process started, no
+probe command inside any formal process, and ids, installations and the CPU that agree; only a stopped attempt may end
+with a record that has no process event (the probe that failed or whose checks stopped it). The digest of every depot's `compiled/` directory is
 recorded before and after each process and compared with the previous one of the same installation and with the baseline
 that `finalize` wrote: any change stops the attempt. Only a sealed `logs/completion.json` is a success record.
 
@@ -268,9 +292,11 @@ records it in `logs/provenance.json` (`pb_tag_check`). A registry copy only conf
 pinned ProximalBase identity checkout (`installations/ab-b/ProximalBase.jl`) for registered and development releases
 alike. Preparation logs redact `HOME`, `USER`, `LOGNAME` and `TMPDIR` like `commands.jsonl`.
 
-**Known limits.** The per-launch probe processes run pinned on the measured CPU between formal processes and are not
-recorded as receipt events. A session id fixed in a lock is shared by every attempt from one freeze, so attempts are
-separated by their installation ids and the base name (a fresh session per base is a follow-up). Stack B environments
+**Known limits.** The per-launch probe processes run pinned on the measured CPU between formal processes; they are
+recorded in `logs/probes.jsonl`, not as receipt events. Evidence made before the session record and the probe log existed
+(its `campaign.json` names neither) is verified as before: its session comes from the configuration and no probe record
+is required. Two bases prepared in the same second share a session id with probability 1/65536 (four random hex digits,
+the existing format); they still differ in their installation ids and base names. Stack B environments
 need project and Manifest references that are valid in every base (relative paths); this is untested with a real
 candidate (the candidate-lock task). Paths of the producer machine appear in `commands.jsonl` (argv and cwd) and in the
 raw `run.jl` metadata by design: evidence is not scrubbed of them, only the environment values above are redacted.

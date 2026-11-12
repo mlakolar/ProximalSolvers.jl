@@ -36,9 +36,11 @@ directories and are not evidence; everything else is evidence and is covered by 
                                         pilot only (the other one is forbidden)
     receipt.jsonl  declared-differences.toml
     logs/                               seals.jsonl commands.jsonl (personal environment values redacted)
-                                        hardware.jsonl campaign.json comparator.json, per-process stdout and
-                                        stderr, STATE.json, completion.json; from prepare: prepare-commands.jsonl,
-                                        depot-baselines.json, finalize.json, pilot-overrides.json
+                                        hardware.jsonl probes.jsonl (the untimed probes) campaign.json
+                                        comparator.json, per-process stdout and stderr, STATE.json, completion.json;
+                                        from prepare: session.json (the session minted by fetch),
+                                        prepare-commands.jsonl, depot-baselines.json, finalize.json,
+                                        pilot-overrides.json
     comparison/                         the output of migration_compare.py at run time
     checksums.sha256  verification.json (verification.json is written elsewhere, never into the evidence)
 
@@ -639,11 +641,26 @@ PILOT_SAMPLING = ("samples_target", "seconds_limit", "case_seconds")
 STRATUM_KEY = re.compile(r"[0-9]+\.[0-9]+")
 
 
-def _number(table, key, where, integer=False):
-    value = table[key]
-    ok = isinstance(value, int) if integer else isinstance(value, (int, float))
-    if not ok or isinstance(value, bool) or not math.isfinite(value) or value <= 0:
-        raise LockRefusal(f"{where}.{key}", f"must be a positive {'integer' if integer else 'number'}")
+EXACT_FLOAT_INTEGER = 2 ** 53          # every integer up to this converts to a float exactly
+
+
+def positive_number(value, integer=False, exact_float=False):
+    """A positive number: an int (also a float unless `integer`), never a bool, NaN or infinity. The range of an int
+    is checked before anything converts it: an int beyond the float range (about 1.8e308) is refused, never passed to
+    `math.isfinite` (which raises OverflowError for it); with `exact_float` (a value the driver later converts with
+    `float()`, the durations) an int must also be at most 2**53, so that the conversion never rounds it."""
+    if isinstance(value, bool) or not isinstance(value, int if integer else (int, float)):
+        return False
+    if isinstance(value, int):           # int and float compare exactly in Python, with no conversion
+        return 0 < value <= (EXACT_FLOAT_INTEGER if exact_float else sys.float_info.max)
+    return math.isfinite(value) and value > 0
+
+
+def _number(table, key, where, integer=False, exact_float=False):
+    if not positive_number(table[key], integer, exact_float):
+        limit = "at most 2**53" if exact_float else "within the float range"
+        raise LockRefusal(f"{where}.{key}", f"must be a positive {'integer' if integer else 'number'} (an integer "
+                          f"{limit})")
 
 
 def parse_pilot(data, official_sched):
@@ -677,7 +694,7 @@ def parse_pilot(data, official_sched):
         raise LockRefusal("pilot.arms", "must be a non-empty list of AB and AA")
     for key in PILOT_SAMPLING:
         if key in pilot:
-            _number(pilot, key, "pilot", integer=key == "samples_target")
+            _number(pilot, key, "pilot", integer=key == "samples_target", exact_float=key != "samples_target")
     if "julia" in data:
         julia = data["julia"]
         if not isinstance(julia, dict) or not julia:
@@ -722,8 +739,8 @@ def pilot_schedule_problems(config, schedule, official, arms=None):
     for key in PILOT_SAMPLING:
         effective = pilot.get(key, wanted[key])
         value = settings.get(key)
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
-            problems.append(f"settings.{key} is {value!r}, not a positive number")
+        if not positive_number(value, exact_float=key != "samples_target"):    # range first: no OverflowError
+            problems.append(f"settings.{key} is {value!r}, not a positive number in range")
         elif not mc.same(value, effective):                  # exact: no float coercion (integers beyond 2**53)
             origin = "the pilot configuration" if key in pilot else "the official schedule"
             problems.append(f"settings.{key} is {value!r}, {origin} has {effective!r}")
@@ -857,10 +874,58 @@ def schedule_arms(base):
     return tuple(arm for arm in ARMS if arm in declared)
 
 
-def session_from_base(base, roles):
-    """The session of an attempt whose configuration names none: the one the identity files of the roles carry
-    (written by prepare; they must agree). A session is minted only where no identity file exists, and then the
-    identity check of the engine still binds the files to it."""
+SESSION_RECORD = "logs/session.json"
+SESSION_RECORD_KEYS = ("schema", "session_id", "campaign_id", "minted_utc", "configuration", "configuration_sha256")
+
+
+def configuration_name(official):
+    return "lock.toml" if official else "pilot-config.toml"
+
+
+def write_session_record(base, campaign_id, official, moment=None):
+    """logs/session.json: the session of this base, minted once by `prepare --step fetch` (never one fixed in a
+    configuration, which every attempt from that configuration would share). Exclusive: a base has one session."""
+    base = Path(base)
+    name = configuration_name(official)
+    record = {"schema": 1, "session_id": mint_session_id(moment), "campaign_id": campaign_id,
+              "minted_utc": utc_text(moment or utc_now()), "configuration": name,
+              "configuration_sha256": sha256_file(base / name)}
+    try:
+        create_exclusive(base / SESSION_RECORD, json.dumps(record, indent=2) + "\n")
+    except FileExistsError:
+        raise Refused(f"{SESSION_RECORD} exists in {base.name}: prepare --step fetch ran on this base already, and a "
+                      "base has one session", field="session") from None
+    return record
+
+
+def session_record_problems(base, official, campaign_id):
+    """(record or None, problems) of logs/session.json against the base's configuration copy and campaign id."""
+    base = Path(base)
+    record = read_json_file(base / SESSION_RECORD)
+    if record is None:
+        return None, [f"{SESSION_RECORD} is missing or not a JSON object"]
+    problems = []
+    if tuple(sorted(record)) != tuple(sorted(SESSION_RECORD_KEYS)) or record.get("schema") != 1:
+        problems.append(f"{SESSION_RECORD}: the keys are not exactly {list(SESSION_RECORD_KEYS)} with schema 1")
+    if not (isinstance(record.get("session_id"), str) and SESSION.fullmatch(record["session_id"])):
+        problems.append(f"{SESSION_RECORD}: session_id {record.get('session_id')!r} does not look like "
+                        "session-<UTC compact>-<4 hex>")
+    if record.get("campaign_id") != campaign_id:
+        problems.append(f"{SESSION_RECORD}: campaign_id {record.get('campaign_id')!r} is not {campaign_id!r}")
+    name = configuration_name(official)
+    if record.get("configuration") != name:
+        problems.append(f"{SESSION_RECORD}: configuration {record.get('configuration')!r} is not {name!r}")
+    elif not (base / name).is_file() or record.get("configuration_sha256") != sha256_file(base / name):
+        problems.append(f"{SESSION_RECORD}: configuration_sha256 is not the digest of {name}")
+    return record, problems
+
+
+def session_from_base(base, roles, official=False, campaign_id=None):
+    """The session of an attempt whose configuration names none: the one `prepare --step fetch` minted for this base
+    (logs/session.json), which the identity files of the roles must carry (finalize writes it into them). A base
+    without the record (prepared before the session was minted per base) takes the session the identity files
+    agree on; a session is minted only where neither exists, and then the identity check of the engine still binds
+    the files to it."""
     sessions = set()
     for role in roles:
         path = Path(base) / "roots" / role / "stack-identity.toml"
@@ -869,7 +934,28 @@ def session_from_base(base, roles):
     if len(sessions) > 1 or None in sessions:
         raise Refused(f"the identity files of the roles carry different or no session ids: {sorted(map(str, sessions))}",
                       field="session_id")
+    if (Path(base) / SESSION_RECORD).exists():
+        record, problems = session_record_problems(base, official, campaign_id)
+        if problems:
+            raise Refused("the session record of the base is not valid: " + "; ".join(problems), field="session",
+                          problems=problems)
+        if sessions and sessions != {record["session_id"]}:
+            raise Refused(f"the identity files carry the session {sorted(sessions)}, {SESSION_RECORD} "
+                          f"{record['session_id']!r}", field="session_id")
+        return record["session_id"]
     return next(iter(sessions)) if sessions else mint_session_id()
+
+
+def plan_session(configured, base, roles, official, campaign_id):
+    """The one session of an attempt: a session_id of the configuration (an attempt prepared before sessions were
+    minted per base; such a base has no session record), else the base's own (`session_from_base`)."""
+    if configured:
+        if (Path(base) / SESSION_RECORD).exists():
+            raise Refused(f"the configuration names campaign.session_id {configured!r} but the base has its own "
+                          f"session in {SESSION_RECORD}: remove session_id from the configuration",
+                          field="campaign.session_id")
+        return configured
+    return session_from_base(base, roles, official, campaign_id)
 
 
 def build_roles(sched, base, arms, stack_b, lock, julia_bins, bundled_depot=""):
@@ -909,7 +995,7 @@ def plan_from_lock(lock, base, julia_bins, parent_env, freeze_sha, bundled_depot
                       field="campaign.id")
     arms = schedule_arms(base)
     roles = build_roles(sched, base, arms, True, lock, julia_bins, bundled_depot)
-    session = lock["campaign"].get("session_id") or session_from_base(base, roles)
+    session = plan_session(lock["campaign"].get("session_id"), base, roles, True, sched["campaign_id"])
     return Plan(base=base, sched=sched, official=True, campaign_id=sched["campaign_id"], session_id=session,
                 arms=arms, roles=roles, cpu=sched["machine"]["logical_cpu"],
                 case_filter=sched["settings"]["case_filter"], parent_env=dict(parent_env), lock=lock,
@@ -944,7 +1030,7 @@ def plan_from_pilot(config, base, julia_bins, parent_env, arms=None, bundled_dep
         raise Refused("the pilot schedule does not match the pilot configuration: " + "; ".join(problems),
                       field="pilot.schedule", problems=problems)
     roles = build_roles(sched, base, chosen, False, None, julia_bins, bundled_depot)
-    session = config["campaign"].get("session_id") or session_from_base(base, roles)
+    session = plan_session(config["campaign"].get("session_id"), base, roles, False, sched["campaign_id"])
     return Plan(base=base, sched=sched, official=False, campaign_id=sched["campaign_id"], session_id=session,
                 arms=chosen, roles=roles, cpu=sched["machine"]["logical_cpu"],
                 case_filter=sched["settings"]["case_filter"], parent_env=dict(parent_env))
@@ -1019,6 +1105,9 @@ class Hooks:
     julia_bins: {stratum: path of the exact Julia binary}
     datahash_ok(role, stratum, rep) -> bool: the exporter's data_hash sidecar equals the process's metrics.tsv
     depot_digest(spec) -> a digest of the depot's compiled/ directory; any change between processes stops the run
+    probe_log() -> the commands the probe ran since the last call, each {"kind", "argv", "exit", "start_utc",
+        "end_utc"} (PROBE_COMMAND_KEYS), and forgets them; the engine writes them into logs/probes.jsonl. Hooks
+        without it leave `commands` null in the record, which `verify` rejects.
     export: used by prepare (the fingerprint exporter), not by the engine"""
     probe: object
     runner: object
@@ -1027,6 +1116,7 @@ class Hooks:
     julia_bins: dict = dataclasses.field(default_factory=dict)
     datahash_ok: object = None
     depot_digest: object = None
+    probe_log: object = None
     export: object = None
 
 
@@ -1740,7 +1830,7 @@ def check_fresh(plan):
             raise Refused(f"{relative} exists in {'an official' if plan.official else 'a pilot'} base: the "
                           "configuration of the other mode must not be present", field=relative)
     for relative in ("receipt.jsonl", "declared-differences.toml", "comparison", "checksums.sha256",
-                     "logs/seals.jsonl", "logs/commands.jsonl", "logs/hardware.jsonl", "logs/campaign.json",
+                     "logs/seals.jsonl", "logs/commands.jsonl", "logs/hardware.jsonl", PROBE_LOG, "logs/campaign.json",
                      "logs/completion.json", "logs/comparator.json"):
         if (base / relative).exists():
             raise Refused(f"{relative} already exists in {base.name}", field=relative)
@@ -1773,6 +1863,54 @@ def check_identity_files(plan):
                           problems=problems)
 
 
+PROBE_LOG = "logs/probes.jsonl"
+PROBE_KEYS = ("record", "timed", "phase", "campaign_id", "session_id", "schedule_id", "process", "arm", "role",
+              "installation", "julia", "rep", "logical_cpu", "outcome", "error", "machine", "commands")
+PROBE_COMMAND_KEYS = ("kind", "argv", "exit", "start_utc", "end_utc")
+PROBE_MACHINE_KEYS = ("cpu_model", "cpu_name", "affinity_cpus")
+
+
+def probe_record(plan, hooks, spec, mm, phase, key=None, observation=None, error=None):
+    """The audit record of one untimed probe (an `environment_probe.jl` process and the pinned affinity command
+    before a formal process, or before the attempt in the preflight phase). It goes to logs/probes.jsonl, never to
+    the receipt: `record` is "probe" and `timed` is false, and nothing of it is a measurement. `commands` are the
+    hook's own readings of each command (argv, exit, times); the engine reads no clock for it, so the timing
+    boundaries of the formal processes do not move."""
+    take = getattr(hooks, "probe_log", None)
+    commands = None
+    if take is not None:
+        try:
+            commands = [{k: c.get(k) for k in PROBE_COMMAND_KEYS} for c in take()]
+        except Exception as problem:                # a broken journal is recorded as missing, not fatal here
+            error = error or f"probe journal: {type(problem).__name__}: {problem}"
+    arm, letter = next((arm, letter) for arm in ARMS for letter, role in ARM_ROLES[arm].items() if role == spec.name)
+    machine = None
+    if observation is not None:
+        machine = {"cpu_model": _dig(observation, "machine.cpu_model"), "cpu_name": _dig(observation, "julia.cpu_name"),
+                   "affinity_cpus": observation.get("affinity_cpus")}
+    return {"record": "probe", "timed": False, "phase": phase, "campaign_id": plan.campaign_id,
+            "session_id": plan.session_id, "schedule_id": plan.sched["id"], "process": key.name if key else None,
+            "arm": key.arm if key else arm, "role": key.letter if key else letter, "installation": spec.installation,
+            "julia": plan.sched["strata"][mm]["version"], "rep": key.rep if key else None, "logical_cpu": plan.cpu,
+            "outcome": "failed" if error is not None else "ok",
+            "error": None if error is None else f"{type(error).__name__}: {error}" if isinstance(error, BaseException)
+            else str(error), "machine": machine, "commands": commands}
+
+
+def run_probe(plan, hooks, spec, mm, phase, key=None, sink=None):
+    """hooks.probe(spec, mm) with its audit record handed to `sink`, also when the probe fails (then the error
+    propagates after the record is written)."""
+    try:
+        observation = hooks.probe(spec, mm)
+    except BaseException as error:
+        if sink is not None:
+            sink(probe_record(plan, hooks, spec, mm, phase, key, error=error))
+        raise
+    if sink is not None:
+        sink(probe_record(plan, hooks, spec, mm, phase, key, observation=observation))
+    return observation
+
+
 def sample_differences(first, other):
     return {k: [first.get(k), other.get(k)] for k in SAMPLE_KEYS if first.get(k) != other.get(k)}
 
@@ -1790,7 +1928,7 @@ class Attempt:
         logs.mkdir(parents=True, exist_ok=True)
         create_exclusive(logs / "STATE.json", state_text("running", campaign_id=plan.campaign_id,
                                                          session_id=plan.session_id))
-        for name in ("seals.jsonl", "commands.jsonl", "hardware.jsonl"):
+        for name in ("seals.jsonl", "commands.jsonl", "hardware.jsonl", Path(PROBE_LOG).name):
             create_exclusive(logs / name)
         self.receipt = Receipt(plan.base / "receipt.jsonl")
         start = hooks.clock()
@@ -1803,7 +1941,15 @@ class Attempt:
             "case_mapping_sha256": sha256_file(plan.base / "case-mapping.toml"),
             "lock_sha256": sha256_file(plan.base / "lock.toml") if (plan.base / "lock.toml").is_file() else None,
             "pilot_config_sha256": (sha256_file(plan.base / "pilot-config.toml")
-                                    if (plan.base / "pilot-config.toml").is_file() else None)}, indent=2) + "\n")
+                                    if (plan.base / "pilot-config.toml").is_file() else None),
+            # Where this attempt recorded its session and its untimed probes (absent in evidence made before these
+            # records existed; `verify` then requires neither).
+            "session_record": SESSION_RECORD if (plan.base / SESSION_RECORD).is_file() else None,
+            "probe_record": PROBE_LOG}, indent=2) + "\n")
+
+    def probe(self, record):
+        """One line of logs/probes.jsonl (an untimed probe; never a receipt event)."""
+        append_jsonl(self.plan.base / PROBE_LOG, record)
 
     def finish(self, state, **info):
         """STATE.json, then the checksums of the whole evidence (best effort: the attempt is over either way)."""
@@ -1834,10 +1980,11 @@ def execute(plan, hooks):
     check_fresh(plan)
     check_identity_files(plan)
     order = process_order(plan)
-    observations = {}
-    for role in plan.role_names():
+    observations, preflight_probes = {}, []
+    for role in plan.role_names():                 # a refusal here leaves the base fresh: no attempt, no record
         for mm in plan.sched["strata"]:
-            observations[(role, mm)] = hooks.probe(plan.roles[role], mm)
+            observations[(role, mm)] = run_probe(plan, hooks, plan.roles[role], mm, "preflight",
+                                                 sink=preflight_probes.append)
     problems = preflight_checks(plan, observations)
     if problems:
         raise Refused("preflight found problems: " + "; ".join(problems[:5]), field="preflight",
@@ -1845,6 +1992,8 @@ def execute(plan, hooks):
     attempt = Attempt(plan, hooks)
     nonok = []
     try:
+        for record in preflight_probes:
+            attempt.probe(record)
         first = hooks.sampler()
         try:
             machine_record(first, "first-sample", plan.cpu)
@@ -1872,7 +2021,7 @@ def run_one(plan, hooks, attempt, key, observations, first, nonok):
     logs, raw = plan.base / "logs", plan.raw(key.role, key.mm)
     stem = plan.stem(key.mm, key.rep)
     previous = observations.get((key.role, key.mm)) or {}
-    observations[(key.role, key.mm)] = obs = hooks.probe(spec, key.mm)
+    observations[(key.role, key.mm)] = obs = run_probe(plan, hooks, spec, key.mm, "launch", key, attempt.probe)
     problems = preflight_checks(plan, observations)
     for name in ("manifest_sha256", "project_sha256"):
         if name in previous and _dig(obs, name) != previous[name]:
@@ -2354,6 +2503,187 @@ def check_identifiers(base, sched, arms, state, completion, problems):
     return campaign
 
 
+def check_session_source(base, mode, campaign, problems):
+    """The session of an attempt has exactly one source. Current evidence (`session_record` in campaign.json) names
+    logs/session.json, the session `prepare --step fetch` minted for the base: it must be valid, bound to the
+    configuration copy, equal to the session of campaign.json (and through `check_identifiers` to the identity files,
+    the receipt, STATE.json and completion.json), and the configuration must not fix another one. With
+    `session_record` null the session came from the configuration (a base prepared before sessions were minted per
+    base). Evidence made before the key existed carries neither the key nor the record."""
+    base = Path(base)
+    exists = (base / SESSION_RECORD).exists()
+    try:
+        data = tomllib.loads((base / configuration_name(mode == "official")).read_text(encoding="utf-8"))
+        configured = (data.get("campaign") or {}).get("session_id")
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError, AttributeError):
+        configured = None                           # reported by the binding checks of the mode
+    if "session_record" not in campaign:
+        if exists:
+            problems.append(f"{SESSION_RECORD} exists but logs/campaign.json does not name it")
+        return
+    marker = campaign["session_record"]
+    if marker is None:
+        if exists:
+            problems.append(f"{SESSION_RECORD} exists but logs/campaign.json says the attempt has no session record")
+        if not configured:
+            problems.append("the attempt has no session source: neither a session record nor a session_id of the "
+                            "configuration")
+        return
+    if marker != SESSION_RECORD:
+        problems.append(f"logs/campaign.json: session_record {marker!r} is not {SESSION_RECORD!r}")
+        return
+    if configured:
+        problems.append(f"the configuration names campaign.session_id {configured!r} although the base has its own "
+                        f"session in {SESSION_RECORD}")
+    record, found = session_record_problems(base, mode == "official", campaign.get("campaign_id"))
+    problems += found
+    if record is not None and record.get("session_id") != campaign.get("session_id"):
+        problems.append(f"{SESSION_RECORD}: session_id {record.get('session_id')!r} differs from logs/campaign.json")
+
+
+def _probe_command_problem(command):
+    """Why one command of a probe record is malformed (None when it is well formed); also its (start, end)."""
+    if not isinstance(command, dict) or tuple(command) != PROBE_COMMAND_KEYS:
+        return f"a command does not have exactly the keys {list(PROBE_COMMAND_KEYS)}", None
+    argv, code = command["argv"], command["exit"]
+    if not (isinstance(argv, list) and argv and all(is_text(a) for a in argv)):
+        return "a command has no argv", None
+    if not is_text(command["kind"]) or not (isinstance(code, int) and not isinstance(code, bool)):
+        return "a command has no kind or no integer exit status", None
+    start, end = _parse_time(command["start_utc"]), _parse_time(command["end_utc"])
+    if start is None or end is None or end < start:
+        return "a command has no valid start and completion times", None
+    return None, (start, end)
+
+
+def check_probe_records(base, sched, arms, receipt, kind, campaign, problems):
+    """logs/probes.jsonl, the untimed probes of current evidence (`probe_record` in campaign.json): one valid record
+    per role and stratum in the preflight phase (before the campaign started) and one per launched process in the
+    launch phase, each finished before its process started and overlapping no formal process, bound to the attempt's
+    ids, the process's installation and the measured CPU. Only a stopped attempt may end with a record that has no
+    process event (the probe that failed, or whose checks stopped the attempt), and only there may a probe have
+    failed. Probe records are never receipt events (`check_receipt_text` rejects any other event)."""
+    base, path = Path(base), Path(base) / PROBE_LOG
+    if "probe_record" not in campaign:
+        if path.exists():
+            problems.append(f"{PROBE_LOG} exists but logs/campaign.json does not name it")
+        return
+    if campaign["probe_record"] != PROBE_LOG:
+        problems.append(f"logs/campaign.json: probe_record {campaign['probe_record']!r} is not {PROBE_LOG!r}")
+        return
+    try:
+        records = read_jsonl(path)
+    except (OSError, ValueError) as error:
+        problems.append(f"{PROBE_LOG}: missing or unreadable: {error}")
+        return
+    mm_of = {info["version"]: mm for mm, info in sched["strata"].items()}
+    started = _parse_time(campaign.get("started_utc"))
+    installation = {}
+    for role in role_names_of(arms):
+        try:
+            ident = tomllib.loads((base / "roots" / role / "stack-identity.toml").read_text(encoding="utf-8"))
+            installation[role] = ident.get("installation")
+        except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError):
+            installation[role] = None
+    preflight, launches, intervals, launch_seen = {}, {}, [], False
+    for number, record in enumerate(records, 1):
+        where = f"{PROBE_LOG} line {number}"
+        if not isinstance(record, dict) or tuple(record) != PROBE_KEYS:
+            problems.append(f"{where}: not a probe record with the exact keys")
+            continue
+        if record["record"] != "probe" or record["timed"] is not False:
+            problems.append(f"{where}: not an untimed probe record (record {record['record']!r}, timed "
+                            f"{record['timed']!r})")
+            continue
+        for name in ("campaign_id", "session_id", "schedule_id"):
+            if record[name] != campaign.get(name):
+                problems.append(f"{where}: {name} {record[name]!r} differs from logs/campaign.json")
+        if record["logical_cpu"] != sched["machine"]["logical_cpu"]:
+            problems.append(f"{where}: logical_cpu {record['logical_cpu']!r} is not the measured CPU")
+        arm, letter, version = record["arm"], record["role"], record["julia"]
+        if arm not in arms or letter not in ("A", "B") or version not in mm_of:
+            problems.append(f"{where}: arm {arm!r}, role {letter!r} or julia {version!r} is not of this attempt")
+            continue
+        role = ARM_ROLES[arm][letter]
+        spans = []
+        if not isinstance(record["commands"], list) or not record["commands"]:
+            problems.append(f"{where}: the probe's commands are not recorded")
+        else:
+            for command in record["commands"]:
+                problem, span = _probe_command_problem(command)
+                if problem:
+                    problems.append(f"{where}: {problem}")
+                else:
+                    spans.append(span)
+        intervals += spans
+        if record["outcome"] == "ok":
+            probes = [c for c in record["commands"] or [] if isinstance(c, dict) and c.get("kind") == "environment-probe"]
+            if record["error"] is not None or len(probes) != 1 or probes[0].get("exit") != 0:
+                problems.append(f"{where}: outcome ok without exactly one environment-probe command that exited 0")
+            if not (isinstance(record["machine"], dict) and tuple(record["machine"]) == PROBE_MACHINE_KEYS):
+                problems.append(f"{where}: outcome ok without the observed machine values")
+        elif record["outcome"] == "failed":
+            if not is_text(record["error"]):
+                problems.append(f"{where}: a failed probe without its error")
+            if kind != "stopped" or number != len(records):
+                problems.append(f"{where}: a failed probe that is not the last record of a stopped attempt")
+        else:
+            problems.append(f"{where}: outcome {record['outcome']!r} is neither ok nor failed")
+        if record["phase"] == "preflight":
+            if launch_seen:
+                problems.append(f"{where}: a preflight probe after a launch probe")
+            if record["process"] is not None or record["rep"] is not None:
+                problems.append(f"{where}: a preflight probe names a process or a repetition")
+            if record["installation"] != installation.get(role):
+                problems.append(f"{where}: installation {record['installation']!r} is not that of {role}")
+            if started is not None and any(end > started for _, end in spans):
+                problems.append(f"{where}: a preflight probe ends after the campaign started")
+            if (arm, letter, version) in preflight:
+                problems.append(f"{where}: a second preflight probe of {arm}/{letter}/{version}")
+            preflight[(arm, letter, version)] = record
+        elif record["phase"] == "launch":
+            launch_seen = True
+            rep = record["rep"]
+            if not (isinstance(rep, int) and not isinstance(rep, bool) and rep in sched["reps"]):
+                problems.append(f"{where}: repetition {rep!r} is not of the schedule")
+                continue
+            if record["process"] != process_name(arm, letter, mm_of[version], rep):
+                problems.append(f"{where}: process {record['process']!r} does not match its arm, role, julia and "
+                                "repetition")
+            key = (arm, letter, version, rep)
+            if key in launches:
+                problems.append(f"{where}: a second launch probe of {record['process']}")
+            launches[key] = (number, record, spans)
+        else:
+            problems.append(f"{where}: phase {record['phase']!r} is neither preflight nor launch")
+    for arm in arms:
+        for letter in "AB":
+            for version in mm_of:
+                if (arm, letter, version) not in preflight:
+                    problems.append(f"{PROBE_LOG}: no preflight probe of {arm}/{letter}/{version}")
+    for key, event in sorted((receipt or {}).items(), key=lambda item: item[1]["start"]):
+        name = process_name(key[0], key[1], mm_of.get(key[2], key[2]), key[3])
+        if key not in launches:
+            problems.append(f"{PROBE_LOG}: process {name} has no launch probe record")
+            continue
+        _, record, spans = launches[key]
+        if record["outcome"] != "ok":
+            problems.append(f"{PROBE_LOG}: the launch probe of {name} failed, yet the process ran")
+        if record["installation"] != event["installation"]:
+            problems.append(f"{PROBE_LOG}: the installation of the probe of {name} differs from the receipt")
+        if any(end > event["start"] for _, end in spans):
+            problems.append(f"{PROBE_LOG}: the probe of {name} did not finish before the process started")
+    for key, (number, record, _) in launches.items():
+        if key not in (receipt or {}) and not (kind == "stopped" and number == len(records)):
+            problems.append(f"{PROBE_LOG} line {number}: the probe of {record['process']} has no process event and "
+                            "is not the last record of a stopped attempt")
+    for start, end in intervals:
+        for event in (receipt or {}).values():
+            if start < event["end"] and end > event["start"]:
+                problems.append(f"{PROBE_LOG}: a probe command overlaps the formal process "
+                                f"{event['arm']}/{event['role']}/{event['julia']}/{event['rep']}")
+
+
 def classify_mode(verifier, pairs):
     """('official' | 'pilot' | None, problems) from the recorded (campaign id, schedule id) pairs and the
     VERIFIER's own official identity. Official iff an id equals the official one; pilot iff both ids contain
@@ -2638,6 +2968,10 @@ def verify(base, out, replay=True, config=None, run=subprocess.run):
     kind = state.get("state")
     required = ["schedule.toml", "case-mapping.toml", "receipt.jsonl", "logs/seals.jsonl", "logs/commands.jsonl",
                 "logs/hardware.jsonl", "logs/STATE.json", "logs/campaign.json"]
+    if campaign.get("probe_record") == PROBE_LOG:
+        required.append(PROBE_LOG)
+    if campaign.get("session_record") == SESSION_RECORD:
+        required.append(SESSION_RECORD)
     if kind == "completed":
         required += ["declared-differences.toml", "logs/comparator.json", "logs/completion.json"]
     for relative in required + ["checksums.sha256"]:
@@ -2679,6 +3013,9 @@ def verify(base, out, replay=True, config=None, run=subprocess.run):
         for relative in sorted(expected):
             if relative not in listed and (base / relative).is_file():
                 problems.append(f"checksums: the mandatory file {relative} is not in the inventory")
+        check_probe_records(base, sched, arms, receipt, kind, campaign, problems)
+        if mode is not None:
+            check_session_source(base, mode, campaign, problems)
         if mode == "official":
             check_lock_binding(base, sched, campaign, problems, deep=replay)
         elif mode == "pilot":
@@ -2928,6 +3265,25 @@ class RealHooks:
         self.bundled_depot = bundled_depots(self.julia_bins)
         self.parent_env, self.run, self.plan = dict(parent_env), run, None
         self.getaffinity, self.setaffinity = getaffinity, setaffinity
+        self.journal = []
+
+    def probe_log(self):
+        """The probe commands run since the last call (see Hooks.probe_log), forgotten once returned."""
+        taken, self.journal = self.journal, []
+        return taken
+
+    def _probe_command(self, kind, argv, env, cwd):
+        """run_process with the command's own record in the journal (also when it cannot start: exit -1)."""
+        entry = {"kind": kind, "argv": [str(a) for a in argv], "exit": None, "start_utc": utc_text(utc_now()),
+                 "end_utc": None}
+        self.journal.append(entry)
+        try:
+            result = run_process(self.run, argv, env, cwd)
+        except BaseException:
+            entry.update(exit=-1, end_utc=utc_text(utc_now()))
+            raise
+        entry.update(exit=result.exit, end_utc=utc_text(utc_now()))
+        return result
 
     def bind(self, plan, keep_off=True):
         self.plan = plan
@@ -2982,7 +3338,7 @@ class RealHooks:
     def affinity(self, spec, mm):
         """The CPUs a pinned launch is allowed on, observed by a tiny command under the same `taskset` argv."""
         argv = ["taskset", "-c", str(self.plan.cpu), "grep", "Cpus_allowed_list:", "/proc/self/status"]
-        result = run_process(self.run, argv, launch_env(self.plan, spec, mm, 1), spec.checkout)
+        result = self._probe_command("affinity", argv, launch_env(self.plan, spec, mm, 1), spec.checkout)
         try:
             return parse_cpu_list(result.stdout.decode().partition(":")[2]) if result.exit == 0 else []
         except ValueError:
@@ -2991,7 +3347,7 @@ class RealHooks:
     def probe_raw(self, spec, mm):
         """(observation, the probe's TOML text) of one role and stratum; the probe is untimed."""
         argv = julia_command(self.plan, spec, mm, [str(HERE / "environment_probe.jl")])
-        result = run_process(self.run, argv, launch_env(self.plan, spec, mm, 1), spec.checkout)
+        result = self._probe_command("environment-probe", argv, launch_env(self.plan, spec, mm, 1), spec.checkout)
         where = f"{spec.name} julia {mm}"
         if result.exit != 0:
             raise Refused(f"the environment probe of {where} exited with {result.exit}: {tail(result.stderr)}")
@@ -3187,12 +3543,22 @@ class Prepare:
     def campaign_id(self):
         return self.config["campaign"]["id"]
 
+    def refuse_fixed_session(self):
+        """A configuration that fixes campaign.session_id would give every attempt prepared from it one session."""
+        if "session_id" in self.config["campaign"]:
+            raise Refused("the configuration names campaign.session_id: prepare --step fetch mints a fresh session "
+                          "for every base, so that independent attempts never share one; remove session_id "
+                          "(it is accepted only when verifying evidence prepared before that)",
+                          field="campaign.session_id")
+
     def session_id(self):
-        session = self.config["campaign"].get("session_id")
-        if not session:
-            raise Refused("prepare needs campaign.session_id in the configuration: the identity files and the "
-                          "engine must agree on one session", field="campaign.session_id")
-        return session
+        """The session `prepare --step fetch` minted for this base (logs/session.json)."""
+        self.refuse_fixed_session()
+        record, problems = session_record_problems(self.base, self.kind == "official", self.campaign_id())
+        if problems:
+            raise Refused("the base has no valid session record (run prepare --step fetch first): " + "; ".join(
+                problems), field="session", problems=problems)
+        return record["session_id"]
 
     def expected(self, role):
         return expected_identity(self.sched, self.stack_of(role), self.lock)
@@ -3442,6 +3808,10 @@ def prepare_fetch(st):
     """prepare --step fetch (network allowed, any host): per role an independent clone at the pinned commit, the
     private depot and the environments, the pinned identities verified. Nothing existing is reused or deleted."""
     roles, strata = st.roles(), list(st.sched["strata"])
+    st.refuse_fixed_session()
+    if (st.base / SESSION_RECORD).exists():
+        raise Refused(f"{SESSION_RECORD} exists in {st.base.name}: prepare --step fetch ran on this base already",
+                      field="session")
     for role in roles:
         for directory in ("installations", "environments", "depots", "roots"):
             if (st.base / directory / role).exists():
@@ -3455,6 +3825,8 @@ def prepare_fetch(st):
     campaign, archive_dir, summary = stage2a_campaign(), None, {"schema": 1, "roles": {}}
     write_base_files(st)
     (st.base / "logs").mkdir(exist_ok=True)
+    session = write_session_record(st.base, st.campaign_id(), st.kind == "official")["session_id"]
+    summary["session_id"] = session
     if needs_archive:
         archive_dir = extract_archive(st.archive, st.base / "environments" / "_archive", strata,
                                       campaign["archive"]["name"])
@@ -3488,7 +3860,7 @@ def prepare_fetch(st):
                       "record": summary["proximalbase_tag"]}
     create_exclusive(st.base / "logs" / "provenance.json", json.dumps(provenance, indent=2) + "\n")
     create_exclusive(st.base / "logs" / "prepare-fetch.json", json.dumps(summary, indent=2) + "\n")
-    print(f"prepare fetch: {len(roles)} roles in {st.base.name}: " + ", ".join(
+    print(f"prepare fetch: {len(roles)} roles in {st.base.name}, {session}: " + ", ".join(
         f"{role} {summary['roles'][role]['checkout']['commit'][:12]}" for role in roles))
     return 0
 
@@ -3512,8 +3884,7 @@ def pilot_sampling(config):
     missing = [key for key in PILOT_SAMPLING if key not in pilot]
     if missing:
         raise Refused(f"the pilot configuration lacks the reduced sampling values {missing}", field="pilot")
-    return {"samples_target": int(pilot["samples_target"]), "seconds_limit": float(pilot["seconds_limit"]),
-            "case_seconds": float(pilot["case_seconds"])}
+    return {key: pilot[key] for key in PILOT_SAMPLING}  # as validated: no coercion, the checks compare exactly
 
 
 def derive_pilot_schedule(official, config, machine, arms):
