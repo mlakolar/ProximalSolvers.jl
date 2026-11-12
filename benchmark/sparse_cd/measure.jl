@@ -16,7 +16,7 @@ function digest(root)
   end
   bytes2hex(SHA.digest!(context))
 end
-function identity(root)
+function source_identity(root)
   isempty(readchomp(`git -C $root status --porcelain --untracked-files=no`)) || error("dirty source")
   pin=TOML.parsefile(joinpath(root,"Project.toml"))["sources"]["ProximalBase"]["rev"]
   pin==PB_REV || error("unexpected PB source pin")
@@ -136,7 +136,7 @@ function main()
   base,head,out=abspath.(ARGS)
   ispath(out) && error("output exists")
   mkpath(out)
-  ids=identity.((base,head))
+  ids=source_identity.((base,head))
   pbroot=dirname(dirname(pathof(ProximalBase)))
   digest(pbroot)==PB_DIGEST || error("loaded PB source mismatch")
   a,b,c=loadsource(:Baseline,base),loadsource(:Candidate,head),loadsource(:Control,head)
@@ -147,7 +147,7 @@ function main()
     "load_start"=>collect(Sys.loadavg()),"repetitions"=>30,"batches_per_round"=>3,
     "harness_sha256"=>bytes2hex(sha256(read(@__FILE__))))
   Base.invokelatest(runmeasurements,a,b,c,out)
-  identity.((base,head))==ids || error("source changed during measurement")
+  source_identity.((base,head))==ids || error("source changed during measurement")
   metadata["load_end"]=collect(Sys.loadavg())
   open(joinpath(out,"metadata.toml"),"w") do io; TOML.print(io,metadata);end
   println("MEASUREMENTS_COMPLETE")

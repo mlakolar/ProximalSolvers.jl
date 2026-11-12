@@ -1,6 +1,7 @@
 """Recompute paired timing/allocation summaries from the measured TSVs."""
 import csv
 import json
+import math
 from collections import defaultdict
 from pathlib import Path
 import statistics
@@ -11,7 +12,17 @@ root=Path(sys.argv[1])
 groups=defaultdict(list)
 with (root/'solve.tsv').open() as file:
     for row in csv.DictReader(file,delimiter='\t'):
+        if not math.isfinite(float(row['seconds'])) or float(row['seconds'])<=0:
+            raise ValueError('invalid solve time')
+        if not math.isfinite(float(row['bytes'])) or float(row['bytes'])<0:
+            raise ValueError('invalid solve allocation')
         groups[tuple(row[k] for k in ('comparison','type','n','p','occupancy'))].append(row)
+expected_solves={(comparison,t,str(n),str(p),occupancy)
+    for comparison in ("dense-base-head","dense-head-control","dense-owner")
+    for t in ("Float32","Float64") for n,p in ((128,32),(1024,256))
+    for occupancy in ("low","full")}
+if set(groups)!=expected_solves:
+    raise ValueError("missing or unexpected complete solve case")
 summaries=[]
 for key,rows in sorted(groups.items()):
     if len(rows)!=60:
@@ -33,7 +44,17 @@ for key,rows in sorted(groups.items()):
 copies=defaultdict(list)
 with (root/'copy.tsv').open() as file:
     for row in csv.DictReader(file,delimiter='\t'):
+        if not math.isfinite(float(row['seconds'])) or float(row['seconds'])<=0:
+            raise ValueError('invalid copy time')
+        if not math.isfinite(float(row['bytes'])) or float(row['bytes'])<0:
+            raise ValueError('invalid copy allocation')
         copies[tuple(row[k] for k in ('operation','type','p','old_active','new_active'))].append(row)
+expected_copies={(operation,t,str(p),str(old),str(new))
+    for operation in ("copy","copyto") for t in ("Float32","Float64")
+    for p in (1000,100000,1000000)
+    for old,new in ((10,10),(p,10),(p//8-1,p//8-1),(p//8,p//8),(p,p))}
+if set(copies)!=expected_copies:
+    raise ValueError("missing or unexpected complete copy case")
 copy_summaries=[]
 for key,rows in sorted(copies.items()):
     if len(rows)!=30 or sorted(int(row['round']) for row in rows)!=list(range(1,31)):
