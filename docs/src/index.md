@@ -1,70 +1,46 @@
 # ProximalSolvers.jl
 
-**Solve least-squares lasso problems in Julia using coordinate descent or
-proximal gradient descent.** Build your objective with
-[ProximalBase.jl](https://github.com/mlakolar/ProximalBase.jl), choose an
-algorithm, and call `solve!`.
+**Learn least-squares lasso with coordinate descent (CD) and proximal gradient descent (PGD) in Julia.** The [ProximalBase.jl documentation](https://mlakolar.github.io/ProximalBase.jl/dev/) covers the loss, penalty and iterate types; this package supplies algorithms to optimize them.
 
-!!! warning "Current development scope"
-    This is the **minimal development core**, not the historical full solver
-    collection. It currently supports dense Float32/Float64 least-squares
-    designs with an unweighted L1 penalty. Coordinate descent also accepts a
-    one-dimensional `SparseIterate` for coefficients; proximal gradient descent
-    requires a dense vector. The narrowed `master` has not been released as a
-    new package version.
+## Is this package for me?
+
+Use the current development version if you want to study lasso algorithms, control their updates, or experiment with ProximalBase. If you mainly want a ready-to-use statistical modeling workflow with regularization paths and cross-validation, also consider [GLMNet.jl](https://github.com/JuliaStats/GLMNet.jl) and [Lasso.jl](https://github.com/JuliaStats/Lasso.jl). We make no comparative speed or accuracy claim.
+
+!!! note "Current development version"
+    This site documents the GitHub `master` branch, **not necessarily** the registered `ProximalSolvers` release. Development master currently supports dense Float32/Float64 least-squares lasso with unweighted L1 penalty, with CD or PGD. Its previously broader feature set, including paths and ADMM, is not in this branch. See [installation](getting-started.md).
 
 ## Start here
 
-| I want to... | Read |
+| What do you want to learn? | Read |
 | --- | --- |
-| Install from source and solve my first lasso | **[Getting started](getting-started.md)** |
-| Decide between coordinate descent and proximal gradient | [Choosing a solver](choosing-solver.md) |
-| Interpret a result or troubleshoot an error | [Results and troubleshooting](working-with-results.md) |
-| Understand exactly what is and is not supported | [Supported API and migration](support.md) |
-| Look up types, options and function signatures | [API reference](api.md) |
+| Install into a Julia project and solve your first lasso | **[Getting started](getting-started.md)** |
+| Understand proximal operators, soft-thresholding, CD and PGD | [What problem, which algorithm?](concepts.md) |
+| See coefficients become zero and verify KKT conditions | [Sparsity and an optimality check](sparsity-and-kkt.md) |
+| Choose solver settings | [Choosing a solver](choosing-solver.md) |
+| Understand results and common errors | [Results and troubleshooting](working-with-results.md) |
+| Check what is supported | [Supported problems](support.md) |
 
-## A complete first example
+## Your first solution
 
-This fits a normalized least-squares lasso:
-
-~~~julia
+~~~@example home
 using ProximalBase, ProximalSolvers
-
 X = [1.0 0.0; 0.0 2.0; 0.0 0.0]
 y = [2.0, -2.0, 0.5]
-
 f = (1 / length(y)) * LeastSquaresLoss(y, X)
-g = NormL1(0.1)
-beta = zeros(size(X, 2))
-
-result = solve!(beta, f, g, CDSolver())
-@show beta, result.converged
-# beta is approximately [1.7, -0.925]
+penalty = NormL1(0.1)
+beta = zeros(2)
+result = solve!(beta, f, penalty, CDSolver(order=:cyclic, momentum=false))
+@assert isapprox(beta, [1.7, -0.925]; atol=1e-7)
+beta
 ~~~
 
-`LeastSquaresLoss` is half the **sum** of squared residuals, so multiplying
-it by `1 / length(y)` gives the familiar `1/(2n)` normalization.
-The solver mutates `beta`; the result's `minimizer` refers to that same array.
-`converged` is a stopping flag, not an optimality certificate.
+`LeastSquaresLoss` means **half the sum** of squared residuals, not their mean. Multiplication by `1/n` produces the conventional lasso objective. `solve!` modifies `beta` in place, and `result.minimizer === beta`.
 
-For runnable, checked versions of this example and its proximal-gradient and
-`SparseIterate` counterparts, open **Examples** in the sidebar. See
-[Getting started](getting-started.md) for installation instructions and a
-walkthrough of the model.
+Both solvers optimize the same objective; they differ in how they update coefficients. A larger L1 penalty can make coefficients **exactly zero**, as the [next tutorial](sparsity-and-kkt.md) shows.
 
-## Two algorithms, one optimization problem
+The **Examples** sidebar has runnable scripts. The introductory guide examples above and below also execute during the documentation CI build.
 
-- **Coordinate descent** (`CDSolver`): updates individual coefficients and
-  supports both dense vectors and one-dimensional `SparseIterate` coefficient
-  storage.
-- **Proximal gradient descent** (`ProximalGradientDescent`): makes full-vector
-  updates with backtracking; its coefficient destination must be dense.
-
-Both minimize **the exact loss and penalty you provide**. They do not
-automatically add an intercept, normalize the data, or tune the penalty.
-See [Choosing a solver](choosing-solver.md) before changing algorithms or options.
-
-## Package overview
+## Package API
 
 ~~~@docs
 ProximalSolvers
