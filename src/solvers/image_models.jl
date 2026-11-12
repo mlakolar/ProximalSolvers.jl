@@ -137,9 +137,12 @@ _gamma(::Type{T}, k) where {T} = (ku = k * _unit(T); ku / (1 - ku))
 # An upper bound on ‖X‖_F as an _SE. Float32 data: the squares are exact in Float64 and
 # their sum cannot overflow there, so s = Σ Float64(Xᵢⱼ)² summed in one pass satisfies
 # s ≥ (1 - γ_N) ‖X‖_F² (N = n p). Float64 data: the same one-pass sum when it is finite and
-# at least 4N floatmin (underflowing squares then cost less than u relative), otherwise
-# m = max|Xᵢⱼ| (exact) and Σ(Xᵢⱼ ⋅ (1/m))² (γ_{N+3}), with N·nextfloat(0.0) for underflow.
-# The square root and the conversion to T are rounded up by explicit factors.
+# at least 4N floatmin (underflowing squares then cost less than u relative); otherwise the
+# entries are scaled by the exact power of two 2^-e, e = exponent(max|Xᵢⱼ|), with ldexp
+# (exact except for underflow below N·nextfloat(0.0) in total), so that each scaled entry
+# is below 2 and the sum Σ(Xᵢⱼ 2^-e)² is finite (γ_{N+1}), and the result is multiplied by
+# 2^e as an _SE exponent. The square root and the conversion to T are rounded up by explicit
+# factors; γ_{N+3} covers every branch.
 function _frobenius_upper(::Type{T}, X) where {T}
   N = length(X)
   s = 0.0
@@ -147,27 +150,33 @@ function _frobenius_upper(::Type{T}, X) where {T}
     s += abs2(Float64(X[i]))
   end
   iszero(s) && all(iszero, X) && return _se_zero(T)
-  m = 1.0
+  e = 0
   if !(isfinite(s) && (T === Float32 || s >= 4N * floatmin(Float64)))
-    m = Float64(maximum(abs, X))
-    r = inv(m)
+    e = exponent(Float64(maximum(abs, X)))
     s = 0.0
-    @inbounds @simd for i in eachindex(X)
-      s += abs2(Float64(X[i]) * r)
+    @inbounds for i in eachindex(X)
+      s += abs2(ldexp(Float64(X[i]), -e))
     end
   end
   s_upper = (s + N * nextfloat(0.0)) / (1 - _gamma(Float64, N + 3))
-  _se_mul(_SE{T}(m), _SE{T}(sqrt(s_upper) * (1 + eps(Float64))), _SE{T}(one(T) + 8 * _unit(T)))
+  r = _se_mul(_SE{T}(sqrt(s_upper) * (1 + eps(Float64))), _SE{T}(one(T) + 8 * _unit(T)))
+  _SE{T}(r.s, r.e + e)
 end
 
-# √α as an _SE{T}, for the loss scale α as given: α = s·2^e with s ∈ [1, 2) and e taken
-# exactly in α's own floating-point type, s rounded once to Float64 (at least the precision
-# of T, whatever the active BigFloat precision) before its square root, and e made even, so
-# √α = √s′ · 2^(e′/2) without range or precision loss beyond Float64 roundoff.
+# √α as an _SE{T}, for the loss scale α as given: α = s·2^e with s ∈ [1, 2). For an IEEE
+# Float16/32/64 scale, s and e are exact in its own type. For any other real type (BigFloat
+# of any precision, integers, rationals, irrationals), α is rounded once to 256 bits and s
+# and e are taken there, inside a scoped BigFloat precision that is restored afterwards, so
+# the active precision plays no part. s is rounded once to Float64 (at least the precision
+# of T) before its square root, and e made even, so √α = √s′ · 2^(e′/2) without range loss.
+_significand_exponent(α::Union{Float16, Float32, Float64}) = (Float64(significand(α)), exponent(α))
+_significand_exponent(α::Real) = setprecision(BigFloat, 256) do
+  b = BigFloat(α)
+  (Float64(significand(b)), exponent(b))
+end
+
 function _root_scale(::Type{T}, α) where {T}
-  a = float(α)
-  e = exponent(a)
-  s = Float64(significand(a))
+  s, e = _significand_exponent(α)
   if isodd(e)
     s *= 2
     e -= 1

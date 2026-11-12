@@ -265,11 +265,11 @@ function _check_method(m::AccProxGradDescent, ::Type{T}) where T
 end
 
 # The error bounds of the bound test need k u < 1/8 for k = max(n, p) + 4 in T, and for
-# k = n p + 2 in Float64, where ‖X‖_F is accumulated.
+# k = n p + 3 in Float64, where ‖X‖_F is accumulated.
 function _check_bound_size(f, ::Type{T}) where T
   n, p = size(_image_model(f).X)
-  (max(n, p) + 4) * _unit(T) < 1 / 8 && (n * p + 2) * _unit(Float64) < 1 / 8 ||
-    throw(ArgumentError("AccProxGradDescent needs max(n, p) + 4 < 1/(4 eps($T)) and n p + 2 < 1/(4 eps(Float64)) for its rounding-error bounds"))
+  (max(n, p) + 4) * _unit(T) < 1 / 8 && (n * p + 3) * _unit(Float64) < 1 / 8 ||
+    throw(ArgumentError("AccProxGradDescent needs max(n, p) + 4 < 1/(4 eps($T)) and n p + 3 < 1/(4 eps(Float64)) for its rounding-error bounds"))
   nothing
 end
 
@@ -301,7 +301,7 @@ accelerated proximal gradient descent, overwriting `x`, a dense `Vector{T}` with
 `T = Float32` or `Float64`. The inputs, the options and their validation are those
 of `ProximalGradientDescent`; in addition `β` and `α` must satisfy their bounds after
 conversion to `T`, and the dimensions must satisfy `max(n, p) + 4 < 1/(4 eps(T))` and
-`n p + 2 < 1/(4 eps(Float64))` (for Float32, `max(n, p) < 2,097,148`), which the
+`n p + 3 < 1/(4 eps(Float64))` (for Float32, `max(n, p) < 2,097,148`), which the
 rounding-error bounds of the line search need. Every refusal of an input, option or
 method setting happens before `x` is modified. A step error
 restores the last accepted `x` and rethrows, without a transaction guarantee for

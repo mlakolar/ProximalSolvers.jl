@@ -115,7 +115,7 @@ only on `converged`.
   small late steps; for data deep in the subnormal range, where the underflow terms
   can dominate the bounds, a step may need `L` far above the curvature, or the solve
   may fail with rollback. APG also
-  requires `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 2 < 1/(4 eps(Float64))`; larger
+  requires `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 3 < 1/(4 eps(Float64))`; larger
   problems are refused before `x` is modified.
 - Reaching a pass or iteration limit is not convergence. CD can return
   a finite nonconverged solution with a warning.

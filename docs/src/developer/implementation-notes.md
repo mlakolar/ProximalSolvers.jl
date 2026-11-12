@@ -173,7 +173,7 @@ certifies the target; every other trial is rejected, so `L` grows.
 evaluates each entry as a dot product of `p` multiplications and additions (or fused
 multiply-adds) in some order. Then `|fl(X v) - X v| ≤ γ_p |X||v| + 2p η` componentwise,
 `γₖ = k u/(1 - k u)`, so `‖fl(X v) - X v‖ ≤ γ_p ‖X‖_F ‖v‖ + 2p √n η`. `k u < 1/8` is required
-for `k = max(n, p) + 4` in `T` and `k = n p + 2` in Float64 (`_check_bound_size`, before
+for `k = max(n, p) + 4` in `T` and `k = n p + 3` in Float64 (`_check_bound_size`, before
 mutation; for Float32 this refuses `max(n, p) ≥ 2,097,148`).
 
 *Error bounds.* The cached `z_x` of a trial is a fresh product (bound above with `v = x`).
@@ -183,9 +183,9 @@ extrapolation `fl(z_a + ω(z_a - z_b))` of fresh products of `x_a` and `x_b` wit
 an underflowing product) give `E_y = (2γ_p + 16u)‖X‖_F(‖x_a‖ + ‖x_b‖) + 8p√n η + 2√p ‖X‖_F η`,
 covering both images, the image error of the rounded `y` and both combinations. `‖X‖_F`
 enters as a proved upper bound (`_frobenius_upper`: squares summed in Float64, exactly
-representable for Float32 data, in one pass when that is accurate and otherwise scaled by
-the exact maximum, with `γ_{np+3}` and underflow terms, rounding up the square root and the
-conversion), and each computed iterate norm is divided by `1 - γ_{p+4}`. The computed norms
+representable for Float32 data, in one pass when that is accurate and otherwise after an
+exact scaling by the power of two `2^-e` of the maximum (`ldexp`), with `γ_{np+3}` and
+underflow terms, rounding up the square root and the conversion), and each computed iterate norm is divided by `1 - γ_{p+4}`. The computed norms
 of `Δz = z_x - z_y` and `d̂ = fl(x - y)` are within `γ_{n+4}` and `γ_{p+4}` of the norms of the
 stored vectors (a one-pass sum is used only when finite and at least `4n floatmin(T)`; the
 scaled two-pass form otherwise), and `‖d̂ - d‖ ≤ u ‖d‖`.
@@ -195,9 +195,11 @@ is at most `(1 + 4eps)/(1 + κ) √L ‖d̂‖/((1 + γ_{p+4})(1 + u))`; reject 
 bound `‖Δz‖/((1 + γ_{n+4})(1 + u)) - E_x - E_y` exceeds `(1 + 4eps)(1 + κ) √L ‖d̂‖/((1 - γ_{p+4})(1 - u))`.
 Otherwise form `w = fl(X d̂)` in the residual buffer, with
 `‖w - X d‖ ≤ (γ_p + 2u)‖X‖_F ‖d̂‖/((1 - γ_{p+4})(1 - u)) + 2p√n η`, accept when its upper bound passes,
-and reject otherwise. `√α` is formed from `α`'s exact significand and exponent in its own
-type, the significand rounded once to Float64 before its root (`_root_scale`), so neither a
-type narrower than `T`, the active BigFloat precision, nor `α`'s range limits it.
+and reject otherwise. `√α` (`_root_scale`) is formed from `α`'s significand and exponent:
+exact in its own type for an IEEE Float16/32/64 scale, and otherwise taken after rounding
+`α` once to 256 bits inside a scoped BigFloat precision (restored afterwards); the
+significand is rounded once to Float64 before its root. So neither a type narrower than `T`,
+the active BigFloat precision, nor `α`'s range limits it.
 `κ = 32u` covers the roundings of `√L`, of `√α`'s conversion to `T`
 and of the fixed number of `_SE` products and sums on each side; the dimension-dependent
 errors enter through the factors above. These are conservative bounds: in Float32 the

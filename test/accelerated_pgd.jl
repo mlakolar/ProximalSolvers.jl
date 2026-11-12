@@ -449,10 +449,32 @@ end
            AccProxGradDescent(α = 1.0, β = nextfloat(1 / floatmax(Float64))))
   end
   @test x == [0.0] && precision(BigFloat) == prec
+  # Scales whose value needs more bits than the active precision: a 256-bit BigFloat stored
+  # before entering the block, a BigInt and a Rational{BigInt} (the references are formed
+  # after the block, at 512 bits).
+  αhi = BigFloat("0.5012345678901234567"; precision = 256)
+  for (α, method_α) in ((αhi, 0.5005), (BigInt(257), 0.501), (BigInt(257) // BigInt(512), 0.5005))
+    st8 = setprecision(BigFloat, 8) do
+      f8 = α * LeastSquaresLoss([1.0], ones(1, 1))
+      s8 = PS.initial_state(AccProxGradDescent(α = method_α), TIGHT, f8, NormL1(0.0), [0.0])
+      PS.update_state!(f8, NormL1(0.0), s8, AccProxGradDescent(α = method_α))
+      s8
+    end
+    @test precision(BigFloat) == prec
+    @test BigFloat(α; precision = 512) <= (1 + 4eps())^2 * BigFloat(st8.L)
+  end
+  Xh = fill(sqrt(floatmax(Float64)) * sqrt(2.0) * (1 - 0.0005), 1, 1)
+  x = [0.0]
+  @test_throws r"cannot increase finitely" setprecision(BigFloat, 8) do
+    solve!(x, αhi * LeastSquaresLoss([1.0], Xh), NormL1(0.0),
+           AccProxGradDescent(α = 1.0, β = nextfloat(1 / floatmax(Float64))))
+  end
+  @test x == [0.0] && precision(BigFloat) == prec
   for (T, α) in ((Float64, BigFloat(2)^-1074 * 3), (Float32, 1.49 * Float64(nextfloat(0f0))),
-                 (Float64, 0.5f0), (Float32, BigFloat(10)^30))
+                 (Float64, 0.5f0), (Float32, BigFloat(10)^30), (Float64, αhi), (Float64, BigInt(257)),
+                 (Float64, 257 // 512), (Float64, true), (Float64, π), (Float32, Float16(0.3)))
     r = PS._root_scale(T, α)
-    @test abs(ldexp(BigFloat(r.s), r.e) / sqrt(BigFloat(α; precision = 256)) - 1) <= 2eps(T)
+    @test abs(ldexp(BigFloat(r.s), r.e) / sqrt(BigFloat(α; precision = 512)) - 1) <= 2eps(T)
   end
   # The fresh-product error bound covers the actual error of a long reduction.
   c = 0.7071977f0; v = Float32[1.4140569f0]
@@ -462,10 +484,23 @@ end
   E = PS._image_error_bound(bc, PS._se_norm(Float32, v), PS._se_norm(Float32, v), false)
   actual = sqrt(BigFloat(999_999)) * abs(BigFloat(z[2]) - BigFloat(c) * BigFloat(v[1]))
   @test actual <= ldexp(BigFloat(E.s), E.e)
-  # ‖X‖_F enters as an upper bound
+  # ‖X‖_F enters as an upper bound, in every branch of _frobenius_upper
   Xn = fill(0.7072f0, 1000, 1000); Xn[1] = 1
   nF = PS._frobenius_upper(Float32, Xn)
   @test ldexp(BigFloat(nF.s), nF.e) >= sqrt(1 + (length(Xn) - 1) * BigFloat(0.7072f0)^2)
+  frob(X) = sqrt(sum(abs2, big_(X)))
+  value(r) = ldexp(BigFloat(r.s), r.e)
+  for X in (fill(1e-310, 1, 1), fill(nextfloat(0.0), 3, 2), [1e-310 0.0; 0.0 nextfloat(0.0)],
+            fill(floatmin(Float64), 4, 4), [floatmax(Float64) 0.0; 1.0 -floatmax(Float64) / 3],
+            fill(prevfloat(floatmax(Float64)), 2, 1), [1e-300 1e300; 0.0 1.0])
+    r = PS._frobenius_upper(Float64, X)
+    @test value(r) >= frob(X) && value(r) <= frob(X) * (1 + 1e-12) + 1e-320
+  end
+  @test iszero(PS._frobenius_upper(Float64, zeros(2, 2)).s)
+  # a design with a tiny nonzero entry: the start is already the solution
+  x = [0.0]
+  r = solve!(x, LeastSquaresLoss([0.0], fill(1e-310, 1, 1)), NormL1(0.0), AccProxGradDescent())
+  @test x == [0.0] && r.iterations == 1
 end
 
 @testset "the fresh-product reference (Option B) on fixtures" begin
