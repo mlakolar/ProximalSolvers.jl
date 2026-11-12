@@ -134,62 +134,116 @@ end
 _unit(::Type{T}) where {T} = eps(T) / 2
 _gamma(::Type{T}, k) where {T} = (ku = k * _unit(T); ku / (1 - ku))
 
-# Whether the least-squares bound
-#     f(x) ≤ f(y) + ⟨∇f(y), d⟩ + L‖d‖²/2,  d = x - y ≠ 0,   ⟺   √α ‖X d‖ ≤ √L ‖d‖,
-# relaxed to √α ‖X d‖ ≤ (1 + 4eps) √L ‖d‖ (legacy's slack 8eps on L), is certified for the
-# stored x and y, D being the computed ‖d̂‖ as an _SE. Returns (accepted, used the fresh
-# product).
-#
-# Cheap path: Δz = zw - zu, the difference of the cached images zw ≈ X x and zu ≈ X y, with
-# ‖Δz - X d‖ ≤ E = γ_p ‖X‖_F ‖x‖ (zw = fl(X x)) + Ey (the bound on the error of zu, formed
-# by the caller). With the evaluation error of the computed norms (γ_{n+4}, γ_{p+4}, u),
-# the bound is accepted when it holds with ‖X d‖ replaced by an upper bound, and rejected
-# when it fails with a lower bound. Otherwise X d̂ is formed afresh in buf (d̂ = fl(x - y),
-# the stored d), whose error γ_p ‖X‖_F ‖d̂‖ plus u ‖X‖_F ‖d‖ is proportional to the step,
-# and the trial is accepted only when the bound holds with that upper bound; an ambiguous
-# trial is rejected. The margin κ = 32u covers the roundings of the square roots, of the
-# loss scale's significand and of the _SE products and sums. All quantities stay in _SE
-# form, so the decision is evaluated for any representable data, displacement, L and
-# loss scale (rootα is √α taken in the scale's own type).
-function _bound_certified!(buf, model::_LSImage, zu, zw, d, D::_SE{T}, L, Ey::_SE{T}, normX::_SE{T},
-                           normx::_SE{T}, rootα::_SE{T}, fresh_only::Bool) where {T}
-  !iszero(D.s) && L > 0 || return false, false
-  n, p = length(zu), length(d)
+# An upper bound on ‖X‖_F as an _SE: m = max|Xᵢⱼ| (exact), s = Σ(Xᵢⱼ/m)² accumulated in
+# Float64 (Float32 data convert exactly), so ŝ ≥ (1 - γ_{np+2}) s minus the underflow of at
+# most np squares (each < nextfloat(0.0)); the square root and the conversion to T are
+# rounded up by explicit factors.
+function _frobenius_upper(::Type{T}, X) where {T}
+  m = Float64(maximum(abs, X))
+  iszero(m) && return _se_zero(T)
+  s = 0.0
+  @inbounds @simd for i in eachindex(X)
+    s += abs2(Float64(X[i]) / m)
+  end
+  s_upper = (s + length(X) * nextfloat(0.0)) / (1 - _gamma(Float64, length(X) + 2))
+  r = sqrt(s_upper) * (1 + eps(Float64))
+  _se_mul(_SE{T}(m), _SE{T}(r), _SE{T}(one(T) + 8 * _unit(T)))
+end
+
+# Constants of the bound test that depend only on n, p, T and ‖X‖_F, formed once per solve.
+# η = nextfloat(zero(T)), at least twice the largest absolute error of an underflowing
+# product, models gradual underflow: fl(a ∘ b) = (a ∘ b)(1 + δ) + η', |δ| ≤ u, |η'| ≤ η/2.
+struct _BoundConstants{T}
+  upper_image::_SE{T}        # computed ‖Δz‖ → upper bound on ‖Δz‖ (stored differences)
+  lower_image::_SE{T}        # computed ‖Δz‖ → lower bound
+  lower_step::_SE{T}        # computed ‖d̂‖ → lower bound on ‖d‖
+  upper_step::_SE{T}        # computed ‖d̂‖ → upper bound on ‖d‖ and ‖d̂‖
+  upper_fresh::_SE{T}        # computed ‖fl(X d̂)‖ → upper bound
+  upper_x::_SE{T}        # computed iterate norm → upper bound
+  accept::_SE{T}         # (1 + 4eps)/(1 + κ)
+  reject::_SE{T}         # (1 + 4eps)(1 + κ)
+  product::_SE{T}        # γ_p ‖X‖_F: relative error of a fresh product, per ‖v‖
+  fresh::_SE{T}          # (γ_p + 2u) ‖X‖_F: error of fl(X d̂) against X d, per ‖d̂‖
+  extrapolation::_SE{T}  # (2γ_p + 16u) ‖X‖_F: extrapolated image, per ‖x_a‖ + ‖x_b‖
+  under_product::_SE{T}  # 2p √n η: absolute underflow of a fresh product
+  under_extrapolation::_SE{T}  # 8p √n η + 2√p ‖X‖_F η: of an extrapolated image and y
+end
+
+function _bound_constants(::Type{T}, X) where {T}
+  n, p = size(X)
   u = _unit(T)
   δn, δp, γp = _gamma(T, n + 4), _gamma(T, p + 4), _gamma(T, p)
   κ = 32u
-  Dlo = _se_mul(D, _SE{T}(inv((1 + δp) * (1 + u))))        # ≤ ‖d‖
-  Dup = _se_mul(D, _SE{T}(inv((1 - δp) * (1 - u))))        # ≥ ‖d‖ and ≥ ‖d̂‖
+  normX = _frobenius_upper(T, X)
+  η = _SE{T}(nextfloat(zero(T)))
+  rn, rp = _SE{T}(sqrt(T(n))), _SE{T}(sqrt(T(p)))
+  _BoundConstants{T}(_SE{T}(inv((1 - δn) * (1 - u))), _SE{T}(inv((1 + δn) * (1 + u))),
+    _SE{T}(inv((1 + δp) * (1 + u))), _SE{T}(inv((1 - δp) * (1 - u))), _SE{T}(inv(1 - δn)),
+    _SE{T}(inv(1 - δp)), _SE{T}((1 + 4eps(T)) / (1 + κ)), _SE{T}((1 + 4eps(T)) * (1 + κ)),
+    _se_mul(_SE{T}(γp), normX), _se_mul(_SE{T}(γp + 2u), normX),
+    _se_mul(_SE{T}(2γp + 16u), normX),
+    _se_mul(_SE{T}(T(2p)), rn, η),
+    _se_add(_se_mul(_SE{T}(T(8p)), rn, η), _se_mul(_SE{T}(T(2)), rp, normX, η)))
+end
+
+# Whether the least-squares bound
+#     f(x) ≤ f(y) + ⟨∇f(y), d⟩ + L‖d‖²/2,  d = x - y ≠ 0,   ⟺   √α ‖X d‖ ≤ √L ‖d‖,
+# relaxed to √α ‖X d‖ ≤ (1 + 4eps) √L ‖d‖ (legacy's slack 8eps on L), is certified for the
+# stored x and y, D being the computed ‖d̂‖ and normx the computed ‖x‖ as _SE. Returns
+# (accepted, used the fresh product).
+#
+# The bounds assume IEEE arithmetic with gradual underflow and a matrix-vector product that
+# evaluates each entry as a dot product in some order of p multiplications and additions
+# (or fused multiply-adds), so that |fl(X v) - X v| ≤ γ_p |X||v| + 2p η componentwise; then
+# ‖fl(X v) - X v‖ ≤ γ_p ‖X‖_F ‖v‖ + 2p √n η. Cheap path: Δz = zw - zu, the difference of the
+# cached images zw = fl(X x) and zu ≈ X y, with ‖Δz - X d‖ ≤ E = (that bound for x) + Ey
+# (the bound on the error of zu, see _image_error_bound). With the evaluation error of the
+# computed norms (γ_{n+4}, γ_{p+4}) and ‖d̂ - d‖ ≤ u‖d‖ (d̂ = fl(x - y); a subnormal
+# difference is exact), the bound is accepted when it holds with ‖X d‖ replaced by an upper
+# bound, and rejected when it fails with a lower bound. Otherwise X d̂ is formed afresh in
+# buf, with ‖fl(X d̂) - X d‖ ≤ (γ_p + 2u)‖X‖_F ‖d̂‖ + 2p √n η, and the trial is accepted only
+# when the bound holds with that upper bound; an ambiguous trial is rejected. ‖X‖_F and the
+# iterate norms enter as proved upper bounds. κ = 32u covers the roundings of √L, of √α's
+# conversion and of the fixed number of _SE products and sums on each side. The data norms
+# and products are carried as _SE, so their range does not limit the decision; the native
+# product, the extrapolation and the one-pass sums are outside _SE and enter through the
+# bounds above (a one-pass sum is used only when it is finite and at least 4n floatmin(T)).
+function _bound_certified!(buf, model::_LSImage, zu, zw, d, D::_SE{T}, L, Ey::_SE{T},
+                           normx::_SE{T}, rootα::_SE{T}, c::_BoundConstants{T},
+                           fresh_only::Bool) where {T}
+  !iszero(D.s) && L > 0 || return false, false
   rootL = _SE{T}(sqrt(L))
-  accept_rhs = _se_mul(_SE{T}((1 + 4eps(T)) / (1 + κ)), rootL, Dlo)
-  reject_rhs = _se_mul(_SE{T}((1 + 4eps(T)) * (1 + κ)), rootL, Dup)
+  accept_rhs = _se_mul(c.accept, rootL, c.lower_step, D)
   if !fresh_only
     N = _se_norm_diff_onepass(T, _sumsq_diff(zw, zu), zw, zu)
     if N !== nothing
-      E = _se_add(_se_mul(_SE{T}(γp), normX, normx), Ey)
-      upper = _se_add(_se_mul(N, _SE{T}(inv((1 - δn) * (1 - u)))), E)
+      E = _se_add(_se_add(_se_mul(c.product, c.upper_x, normx), c.under_product), Ey)
+      upper = _se_add(_se_mul(N, c.upper_image), E)
       _se_le(_se_mul(rootα, upper), accept_rhs) && return true, false
-      lower = _se_sub(_se_mul(N, _SE{T}(inv((1 + δn) * (1 + u)))), E)
-      _se_le(_se_mul(rootα, lower), reject_rhs) || return false, false
+      lower = _se_sub(_se_mul(N, c.lower_image), E)
+      _se_le(_se_mul(rootα, lower), _se_mul(c.reject, rootL, c.upper_step, D)) || return false, false
     end
   end
   mul!(buf, model.X, d)
   W = _se_norm_onepass(T, sum(abs2, buf), buf)
   W === nothing && return false, true
-  Ew = _se_mul(_SE{T}(γp + 2u), normX, Dup)
-  upper = _se_add(_se_mul(W, _SE{T}(inv(1 - δn))), Ew)
+  Ew = _se_add(_se_mul(c.fresh, c.upper_step, D), c.under_product)
+  upper = _se_add(_se_mul(W, c.upper_fresh), Ew)
   _se_le(_se_mul(rootα, upper), accept_rhs), true
 end
 
-# Error bound of the cached image zu ≈ X y of the current step: a fresh product of
-# x_a (first step and after a restart: y = x_a, zu = fl(X x_a)), or the extrapolation
+# Error bound of the cached image zu ≈ X y of the current step: a fresh product of x_a
+# (first step and after a restart: y = x_a, zu = fl(X x_a)), or the extrapolation
 # zu = fl(z_a + ω(z_a - z_b)) of the fresh products z_a = fl(X x_a), z_b = fl(X x_b) with
-# y = fl(x_a + ω(x_a - x_b)), 0 < ω < 1. With ‖z‖ ≤ (1 + γ_p)‖X‖_F ‖x‖ and three roundings
-# in each combination, (2γ_p + 16u) ‖X‖_F (‖x_a‖ + ‖x_b‖) bounds the error of zu, the
-# image error of the rounded y and the roundings of both combinations.
-function _image_error_bound(::Type{T}, n, p, normX::_SE{T}, normxa::_SE{T}, normxb::_SE{T},
+# y = fl(x_a + ω(x_a - x_b)), 0 < ω ≤ 1 (the computed ω can round to 1). With
+# ‖z‖ ≤ (1 + γ_p)‖X‖_F‖x‖ + 2p√n η and three roundings in each combination (one of them a
+# product that can underflow), (2γ_p + 16u)‖X‖_F(‖x_a‖ + ‖x_b‖) plus
+# 8p√n η + 2√p ‖X‖_F η bounds the errors of both images, the image error of the rounded y
+# and the roundings of both combinations. normxa, normxb are computed norms (made upper
+# bounds here).
+function _image_error_bound(c::_BoundConstants{T}, normxa::_SE{T}, normxb::_SE{T},
                             extrapolated::Bool) where {T}
-  γp = _gamma(T, p)
-  extrapolated || return _se_mul(_SE{T}(γp), normX, normxa)
-  _se_mul(_SE{T}(2γp + 16 * _unit(T)), normX, _se_add(normxa, normxb))
+  extrapolated ||
+    return _se_add(_se_mul(c.product, c.upper_x, normxa), c.under_product)
+  _se_add(_se_mul(c.extrapolation, c.upper_x, _se_add(normxa, normxb)), c.under_extrapolation)
 end

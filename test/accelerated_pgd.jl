@@ -262,9 +262,10 @@ image_error(z, X, v) = Float64(norm(big_(z) - big_(X) * big_(v)))
 end
 
 # The certified backtracking test (_bound_certified!) against BigFloat references computed
-# from X, x and y themselves (the exact X d), never from the cached images. Safety: an
-# accepted trial satisfies α‖X d‖² ≤ (1 + 4eps)² L‖d‖² for the stored x and y, with α the
-# loss scale as given. Liveness: L ≥ 4α‖X‖_F² (a global curvature bound) is accepted.
+# from X, x and y themselves (the exact X d), never from the cached images. Checked on the
+# sampled data below: an accepted trial satisfies α‖X d‖² ≤ (1 + 4eps)² L‖d‖² for the
+# stored x and y, with α the loss scale as given (safety), and L ≥ 4α‖X‖_F², a global
+# curvature bound, is accepted (liveness).
 exact_ratio(α, X, x, y, L) = (d = big_(x) - big_(y);
   BigFloat(α) * sum(abs2, big_(X) * d) / (BigFloat(L) * sum(abs2, d)))
 
@@ -280,12 +281,16 @@ function certified(T, X, x, xa, xb, ω, L, α; fresh_only = false)
   d = x .- y
   loss = LeastSquaresLoss(zeros(T, n), X)
   m = PS._image_model(isone(α) ? loss : α * loss)
-  normX = PS._se_norm(T, X)
-  Ey = PS._image_error_bound(T, n, p, normX, PS._se_norm(T, xa), PS._se_norm(T, xb), extrapolated)
-  D = PS._se_norm(T, d)
+  bc = PS._bound_constants(T, X)
+  # the iterate norms as the solver forms them (one pass when accurate)
+  Ey = PS._image_error_bound(bc, PS._se_norm_onepass(T, sum(abs2, xa), xa),
+                             PS._se_norm_onepass(T, sum(abs2, xb), xb), extrapolated)
+  sd, sx = PS._sumsq2(d, x)
+  D, normx = PS._se_norm_onepass(T, sd, d), PS._se_norm_onepass(T, sx, x)
   iszero(D.s) && return nothing, y
-  ok, fresh = PS._bound_certified!(zeros(T, n), m, zu, zw, d, D, T(L), Ey, normX,
-                                   PS._se_norm(T, x), PS._SE{T}(sqrt(float(α))), fresh_only)
+  R = promote_type(T, typeof(float(α)))
+  ok, fresh = PS._bound_certified!(zeros(T, n), m, zu, zw, d, D, T(L), Ey, normx,
+                                   PS._SE{T}(sqrt(R(α))), bc, fresh_only)
   (ok, fresh), y
 end
 
@@ -297,13 +302,17 @@ end
     accepted = rejected = fallbacks = live = 0
     for trial in 1:600
       n, p = rand(rng, 1:25), rand(rng, 1:25)
-      X = T.(randn(rng, n, p) .* 2.0^rand(rng, -E:E))
+      # occasionally data deep in the subnormal range of T
+      sub = rand(rng) < 0.15 ? (T == Float32 ? -140 : -1060) : 0
+      X = T.(randn(rng, n, p) .* 2.0^(sub == 0 ? rand(rng, -E:E) : rand(rng, -E:0)))
       # a large common offset (large images) with a small difference, or no offset
       c = rand(rng, Bool) ? 2.0^rand(rng, 0:E) : 0.0
-      xa = T.(c .+ randn(rng, p)); xb = T.(c .+ randn(rng, p))
-      x = T.(Float64.(xa) .+ randn(rng, p) .* 2.0^rand(rng, -E÷2:0))
-      ω = rand(rng, (zero(T), T(0.25), T(0.9)))
-      α = rand(rng, (1, T(2.0)^rand(rng, -E÷2:E÷2), 2.0^rand(rng, -E÷2:E÷2)))
+      xs = 2.0^sub
+      xa = T.((c .+ randn(rng, p)) .* xs); xb = T.((c .+ randn(rng, p)) .* xs)
+      x = T.(Float64.(xa) .+ randn(rng, p) .* 2.0^rand(rng, -E÷2:0) .* xs)
+      ω = rand(rng, (zero(T), T(0.25), T(0.9), prevfloat(one(T)), one(T)))
+      α = rand(rng, (1, T(2.0)^rand(rng, -E÷2:E÷2), 2.0^rand(rng, -E÷2:E÷2),
+                     Float32(1 + rand(rng)) * Float32(2.0)^rand(rng, -20:20)))
       T == Float32 && α isa Float64 && !isfinite(Float32(α)) && continue
       T == Float32 && α isa Float64 && iszero(Float32(α)) && continue
       all(isfinite, X) && all(isfinite, x) && all(isfinite, xa) && all(isfinite, xb) || continue
@@ -326,9 +335,11 @@ end
         rB, _ = certified(T, X, x, xa, xb, ω, L, α; fresh_only = true)
         rB[1] && @test exact_ratio(α, X, x, y2, T(L)) <= tol    # Option B is safe too
       end
-      # liveness: a global curvature bound is accepted
+      # liveness: a global curvature bound is accepted, for data in the normal range (with
+      # subnormal data the products underflow and carry no information, so the test is
+      # inconclusive and rejects)
       Lg = 4 * BigFloat(α) * sum(abs2, big_(X))
-      if floatmin(T) <= Lg <= floatmax(T) / 4
+      if sub == 0 && floatmin(T) <= Lg <= floatmax(T) / 4
         r, _ = certified(T, X, x, xa, xb, ω, Lg, α)
         r === nothing || (@test r[1]; live += 1)
       end
@@ -345,30 +356,32 @@ end
     # images [t, t] (or three entries) of d = [t] with X = ones: the exact curvature is 2 (3)
     call(k, L) = PS._bound_certified!(zeros(T, k), PS._image_model(LeastSquaresLoss(zeros(T, k), ones(T, k, 1))),
       zeros(T, k), fill(t, k), T[t], PS._se_norm(T, T[t]), T(L), PS._se_zero(T),
-      PS._se_norm(T, ones(T, k, 1)), PS._se_norm(T, T[t]), one_se, false)[1]
-    @test !call(2, 1)                 # exact ratio 2: rejected
-    @test call(2, 2.01)               # just above the curvature: accepted
-    @test !call(3, 1.5) && call(3, 3.01)
+      PS._se_norm(T, T[t]), one_se, PS._bound_constants(T, ones(T, k, 1)), false)[1]
+    # Subnormal images carry absolute rounding error (underflow) comparable to their size,
+    # so a violated bound is rejected and acceptance needs a margin above the curvature.
+    @test !call(2, 1) && !call(2, 1.9)       # exact ratio 2 and 2/1.9: rejected
+    @test call(2, 20)
+    @test !call(3, 1.5) && !call(3, 2.9) && call(3, 30)
     # a nonzero d whose ‖d‖² underflows is compared, not taken for zero
     tiny = T == Float32 ? 1f-30 : 1e-200
     @test iszero(sum(abs2, T[tiny]))
     @test call2 = PS._bound_certified!(zeros(T, 1), PS._image_model(LeastSquaresLoss(zeros(T, 1), ones(T, 1, 1))),
       zeros(T, 1), T[tiny], T[tiny], PS._se_norm(T, T[tiny]), T(1.01), PS._se_zero(T),
-      one_se, PS._se_norm(T, T[tiny]), one_se, false)[1]
+      PS._se_norm(T, T[tiny]), one_se, PS._bound_constants(T, ones(T, 1, 1)), false)[1]
     # A nonfinite cached image gives no cheap decision; the fresh product X d, which does
     # not use the cached images, decides (the solver calls the test only with a finite
     # trial value). Here X d = [1, 1], so L = 1.5 is rejected and L = 2.01 accepted.
     m1 = PS._image_model(LeastSquaresLoss(zeros(T, 2), ones(T, 2, 1)))
-    nX = PS._se_norm(T, ones(T, 2, 1))
+    bc1 = PS._bound_constants(T, ones(T, 2, 1))
     for zw in (T[NaN, 1], T[Inf, 1])
       r1 = PS._bound_certified!(zeros(T, 2), m1, zeros(T, 2), zw, T[1], PS._se_norm(T, T[1]), T(1.5),
-                                PS._se_zero(T), nX, PS._se_norm(T, T[1]), one_se, false)
+                                PS._se_zero(T), PS._se_norm(T, T[1]), one_se, bc1, false)
       r2 = PS._bound_certified!(zeros(T, 2), m1, zeros(T, 2), zw, T[1], PS._se_norm(T, T[1]), T(2.01),
-                                PS._se_zero(T), nX, PS._se_norm(T, T[1]), one_se, false)
+                                PS._se_zero(T), PS._se_norm(T, T[1]), one_se, bc1, false)
       @test r1 == (false, true) && r2 == (true, true)
     end
     @test !PS._bound_certified!(zeros(T, 2), m1, zeros(T, 2), T[1, 1], T[1], PS._se_norm(T, T[1]),
-                                zero(T), PS._se_zero(T), nX, PS._se_norm(T, T[1]), one_se, false)[1]
+                                zero(T), PS._se_zero(T), PS._se_norm(T, T[1]), one_se, bc1, false)[1]
   end
   # the loss scale is used as given: a Float64 scale near the smallest Float32 subnormal
   s = 1.49 * Float64(nextfloat(0f0))
@@ -386,6 +399,52 @@ end
   x = Float32[nextfloat(y[1] / X[1])]; x0 = copy(x)
   @test_throws r"cannot increase finitely" solve!(x, LeastSquaresLoss(y, X), NormL1(0f0), AccProxGradDescent())
   @test x == x0
+end
+
+@testset "underflow, narrower loss scales and norm budgets" begin
+  # A trial whose products underflow to zero: no uphill step is accepted (BigFloat objective).
+  t = nextfloat(0f0)
+  X = fill(0.25f0, 1, 1); Y = Float32[4t]; λ = 0.99 * Float64(t)
+  x = zeros(Float32, 1)
+  solve!(x, LeastSquaresLoss(Y, X), NormL1(λ), AccProxGradDescent(α = 0.01))
+  F(v) = big(0.5) * (big(X[1]) * big(v[1]) - big(Y[1]))^2 + big(λ) * abs(big(v[1]))
+  @test F(x) <= F(zeros(Float32, 1))
+  for T in (Float32, Float64)
+    tT = nextfloat(zero(T))
+    # products that round to zero, and an extrapolated image of a subnormal rounded y
+    r, y = certified(T, fill(T(0.25), 1, 1), T[tT], T[0], T[0], zero(T), T(0.01), 1)
+    @test r === nothing || !r[1] || exact_ratio(1, fill(T(0.25), 1, 1), T[tT], y, T(0.01)) <= (1 + 4eps(T))^2
+    Xe = fill(T(0.25) / floatmin(T), 1, 1)
+    α = tT
+    L = T(0.8 * BigFloat(α) * BigFloat(Xe[1])^2)
+    for fresh in (false, true)
+      r, y = certified(T, Xe, T[2tT], T[tT], T[0], T(0.25), L, α; fresh_only = fresh)
+      r === nothing || !r[1] || @test exact_ratio(α, Xe, T[2tT], y, L) <= (1 + 4eps(T))^2
+    end
+  end
+  # A Float32 loss scale on Float64 data: √α is not computed in Float32.
+  f = 0.5f0 * LeastSquaresLoss([1.0], ones(1, 1))
+  st = PS.initial_state(AccProxGradDescent(α = 0.49999999), TIGHT, f, NormL1(0.0), [0.0])
+  PS.update_state!(f, NormL1(0.0), st, AccProxGradDescent(α = 0.49999999))
+  @test BigFloat(0.5f0) <= (1 + 4eps())^2 * BigFloat(st.L)
+  # ... and a curvature just above floatmax(Float64) with such a scale fails with rollback.
+  Xf = fill(sqrt(floatmax(Float64)) * sqrt(2.0) * (1 + 5e-9), 1, 1)
+  x = [0.0]
+  @test_throws r"cannot increase finitely" solve!(x, 0.5f0 * LeastSquaresLoss([1.0], Xf), NormL1(0.0),
+                                                  AccProxGradDescent(α = 1.0, β = nextfloat(1 / floatmax(Float64))))
+  @test x == [0.0]
+  # The fresh-product error bound covers the actual error of a long reduction.
+  c = 0.7071977f0; v = Float32[1.4140569f0]
+  Xb = fill(c, 1_000_000, 1); Xb[1] = 1
+  z = Xb * v
+  bc = PS._bound_constants(Float32, Xb)
+  E = PS._image_error_bound(bc, PS._se_norm(Float32, v), PS._se_norm(Float32, v), false)
+  actual = sqrt(BigFloat(999_999)) * abs(BigFloat(z[2]) - BigFloat(c) * BigFloat(v[1]))
+  @test actual <= ldexp(BigFloat(E.s), E.e)
+  # ‖X‖_F enters as an upper bound
+  Xn = fill(0.7072f0, 1000, 1000); Xn[1] = 1
+  nF = PS._frobenius_upper(Float32, Xn)
+  @test ldexp(BigFloat(nF.s), nF.e) >= sqrt(1 + (length(Xn) - 1) * BigFloat(0.7072f0)^2)
 end
 
 @testset "the fresh-product reference (Option B) on fixtures" begin
@@ -438,6 +497,7 @@ end
   # f(x) and f(x') are finite, but y = x + ω (x - x') with ω ≈ 1 overflows f in Float32.
   st.x .= T[1.5f19, 0]; st.x_previous .= T[-1.5f19, 0]
   st.z_x .= X * st.x; st.z_previous .= X * st.x_previous
+  st.normx = PS._se_norm(T, st.x); st.normx_previous = PS._se_norm(T, st.x_previous)
   st.f_x = sum(abs2, st.x) / 2; st.g_x = 0
   st.k = 1000
   @test isfinite(st.f_x)

@@ -163,55 +163,68 @@ stopping quantity measured from `y`; it is not an independent KKT residual at `x
 
 For least squares, `f(x) ≤ f(y) + ⟨∇f(y), d⟩ + L‖d‖²/2` (`d = x - y`) holds iff
 `√α ‖X d‖ ≤ √L ‖d‖`. The target is that inequality relaxed by legacy's slack, `√α ‖X d‖
-≤ (1 + 4eps) √L ‖d‖`, for the stored `x` and `y`, with `α` the loss scale as given
-(`√α` is taken in the scale's own type). `_bound_certified!`
-(`src/solvers/image_models.jl`) accepts a trial with `d ≠ 0` only when the target is
-certified, and the caller rejects every other trial, so `L` grows.
+≤ (1 + 4eps) √L ‖d‖`, for the stored `x` and `y`, with `α` the loss scale as given. A
+trial with `d ≠ 0` is accepted only when `_bound_certified!` (`src/solvers/image_models.jl`)
+certifies the target; every other trial is rejected, so `L` grows.
 
-*Error bounds.* `u = eps(T)/2`, `γₖ = k u/(1 - k u)` (`k u < 1/8` is checked before a
-solve). A fresh product satisfies `‖fl(X v) - X v‖ ≤ γ_p ‖|X||v|‖ ≤ γ_p ‖X‖_F ‖v‖`; `‖X‖_F`
-is computed once per solve. The cached `z_x` of a trial is such a product
-(`E_x = γ_p ‖X‖_F ‖x‖`). The cached `z_y` is a copy of a fresh product of `x_a` (first
-step, restart: `E_y = γ_p ‖X‖_F ‖x_a‖`), or the extrapolation `fl(z_a + ω(z_a - z_b))` of
-fresh products of `x_a` and `x_b` with `y = fl(x_a + ω(x_a - x_b))`, `0 < ω < 1`; with
-`‖z‖ ≤ (1 + γ_p)‖X‖_F‖x‖` and three roundings per combination,
-`E_y = (2γ_p + 16u) ‖X‖_F (‖x_a‖ + ‖x_b‖)` bounds the image errors, the image error of the
-rounded `y` and both combinations. So `‖Δz - X d‖ ≤ E_x + E_y` for `Δz = z_x - z_y`. The
-computed norms of `Δz` and `d̂ = fl(x - y)` are within `γ_{n+4}` and `γ_{p+4}` (relative)
-of the norms of the stored vectors, and `‖d̂ - d‖ ≤ u ‖d‖`.
+*Assumptions.* IEEE arithmetic in `T` with gradual underflow, modelled as
+`fl(a ∘ b) = (a ∘ b)(1 + δ) + η'` with `|δ| ≤ u = eps(T)/2` and `|η'| ≤ η/2`,
+`η = nextfloat(zero(T))` (subnormal additions are exact); and a matrix-vector product that
+evaluates each entry as a dot product of `p` multiplications and additions (or fused
+multiply-adds) in some order. Then `|fl(X v) - X v| ≤ γ_p |X||v| + 2p η` componentwise,
+`γₖ = k u/(1 - k u)`, so `‖fl(X v) - X v‖ ≤ γ_p ‖X‖_F ‖v‖ + 2p √n η`. `k u < 1/8` is required
+for `k = max(n, p) + 4` in `T` and `k = n p + 2` in Float64 (`_check_bound_size`, before
+mutation; for Float32 this refuses `max(n, p) ≥ 2,097,148`).
 
-*Decision.* Cheap path: accept when `√α (‖Δz‖/((1 - γ_{n+4})(1 - u)) + E_x + E_y)` is at
-most `(1 + 4eps)/(1 + κ) √L ‖d̂‖/((1 + γ_{p+4})(1 + u))`; reject when
-`√α (‖Δz‖/((1 + γ_{n+4})(1 + u)) - E_x - E_y)` exceeds `(1 + 4eps)(1 + κ) √L ‖d̂‖/((1 - γ_{p+4})(1 - u))`.
-Otherwise form `w = fl(X d̂)` (in the residual buffer), with `‖w - X d‖ ≤
-(γ_p + 2u) ‖X‖_F ‖d̂‖/((1 - γ_{p+4})(1 - u))`, accept when the upper bound passes as above, and
-reject otherwise. `κ = 32u` covers the roundings of `√L`, `√α`'s significand, the
-constants and the products and sums of the bound arithmetic. This is a conservative
-bound, not a sharp one: on ordinary Float32 problems the cheap path is often
-inconclusive late in a solve, and the fresh product decides.
+*Error bounds.* The cached `z_x` of a trial is a fresh product (bound above with `v = x`).
+The cached `z_y` is a copy of a fresh product of `x_a` (first step, restart), or the
+extrapolation `fl(z_a + ω(z_a - z_b))` of fresh products of `x_a` and `x_b` with
+`y = fl(x_a + ω(x_a - x_b))` and computed `0 < ω ≤ 1`; three roundings per combination (one
+an underflowing product) give `E_y = (2γ_p + 16u)‖X‖_F(‖x_a‖ + ‖x_b‖) + 8p√n η + 2√p ‖X‖_F η`,
+covering both images, the image error of the rounded `y` and both combinations. `‖X‖_F`
+enters as a proved upper bound (`_frobenius_upper`: exact maximum, scaled squares summed
+in Float64 with `γ_{np+2}` and underflow terms, rounding up the square root and the
+conversion), and each computed iterate norm is divided by `1 - γ_{p+4}`. The computed norms
+of `Δz = z_x - z_y` and `d̂ = fl(x - y)` are within `γ_{n+4}` and `γ_{p+4}` of the norms of the
+stored vectors (a one-pass sum is used only when finite and at least `4n floatmin(T)`; the
+scaled two-pass form otherwise), and `‖d̂ - d‖ ≤ u ‖d‖`.
 
-*Range.* Every quantity is carried as a significand in `[1, 2)` of type `T` and an
-integer binary exponent (`_SE`); only significands are multiplied or added, so no
-partial product, sum, square of the data or ratio of scale factors leaves the range of
-`T`, and a subnormal norm is not rounded to a subnormal scalar. A norm is a one-pass
-`√Σvᵢ²` when that sum is finite and at least `4n floatmin(T)` (underflowing squares then
-cost less than `u` relative), and the scaled two-pass `m √Σ(vᵢ/m)²` otherwise. A
-curvature above `floatmax(T)` is never certified, so backtracking ends in
-`next_curvature`'s error and the engine's rollback.
+*Decision.* Cheap path: accept when `√α` times the upper bound `‖Δz‖/((1 - γ_{n+4})(1 - u)) + E_x + E_y`
+is at most `(1 + 4eps)/(1 + κ) √L ‖d̂‖/((1 + γ_{p+4})(1 + u))`; reject when `√α` times the lower
+bound `‖Δz‖/((1 + γ_{n+4})(1 + u)) - E_x - E_y` exceeds `(1 + 4eps)(1 + κ) √L ‖d̂‖/((1 - γ_{p+4})(1 - u))`.
+Otherwise form `w = fl(X d̂)` in the residual buffer, with
+`‖w - X d‖ ≤ (γ_p + 2u)‖X‖_F ‖d̂‖/((1 - γ_{p+4})(1 - u)) + 2p√n η`, accept when its upper bound passes,
+and reject otherwise. `√α` is evaluated in `promote_type(T, typeof(float(α)))`, never in a
+type narrower than `T`. `κ = 32u` covers the roundings of `√L`, of `√α`'s conversion to `T`
+and of the fixed number of `_SE` products and sums on each side; the dimension-dependent
+errors enter through the factors above. These are conservative bounds: in Float32 the
+cheap path is often inconclusive late in a solve and the fresh product decides, and data
+deep in the subnormal range, whose products underflow, are rejected until `L` is far above
+the curvature, or the solve fails with rollback.
 
-*Edge cases.* `d̂ = 0` entrywise: accepted with a finite value (a stopping policy). A
-trial with a nonfinite value or iterate norm is rejected before the test. A nonfinite
-`Δz` gives no cheap decision; the fresh product decides. `L = 0` is rejected. The 8eps
-image allowance and the zero-`Δz` shortcut of legacy are not used.
+*Range.* The norms and the bound arithmetic are carried as a significand in `[1, 2)` of
+type `T` and an integer binary exponent (`_SE`), so no partial product or sum of the bound,
+no ratio of scale factors, and no subnormal norm is rounded to a scalar of `T`. The native
+products, the extrapolation and the one-pass sums are evaluated in `T` and enter only
+through the bounds above. Under the assumptions, a curvature above `floatmax(T)` is never
+certified, so backtracking ends in `next_curvature`'s error and the engine's rollback.
 
-*Validation.* `test/accelerated_pgd.jl` checks that no accepted trial violates the target
-for the exact `X d` in BigFloat, over random data with exponent spans of ±40 (Float32)
-and ±300 (Float64), large common offsets, extrapolated images, wide loss scales
-(including Float64 scales on Float32 data) and subnormal norms; that a global curvature
-bound `4α‖X‖_F²` is accepted; and that the fresh-product-only decision (an internal
-switch) is safe as well. On the 576 ordinary solves of the PR record, 4.7% of trials
-needed the fresh product; 571 solves are bit-identical to `legacy/full`, and the 5 that
-differ (Float32) change the objective by at most 2e-7 relative.
+*Edge cases.* `d̂ = 0` entrywise: accepted with a finite value (a stopping policy). A trial
+with a nonfinite value or iterate norm is rejected before the test. A nonfinite `Δz` gives no
+cheap decision; the fresh product decides. `L = 0` is rejected. Legacy's 8eps image allowance
+and zero-`Δz` shortcut are not used.
+
+*Validation.* These checks are samples, not a proof. `test/accelerated_pgd.jl` checks
+against BigFloat references computed from `X`, `x` and `y` (the exact `X d`) that no accepted
+trial violates the target, over random data with exponent spans of ±40 (Float32) and ±300
+(Float64), subnormal-range data, large common offsets, extrapolated images with `ω` up to 1,
+loss scales wider and narrower than `T`; that a global curvature bound `4α‖X‖_F²` is accepted
+for normal-range data; that the fresh-product-only decision (an internal switch) is safe as
+well; the underflow, narrower-scale and long-reduction cases found in review; and that
+`_frobenius_upper` bounds `‖X‖_F`. On the 576 ordinary solves of the PR record 4.7% of trials
+needed the fresh product; every solve is bit-identical to the fresh-product-only decision,
+571 are bit-identical to `legacy/full`, and the 5 that differ (Float32) change the objective
+by at most 2e-7 relative.
 
 Callbacks/display sample `print_every`; stored traces include each iteration. A
 callback receives the trace when storing, otherwise a state. Limits are checked

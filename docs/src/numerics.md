@@ -107,8 +107,14 @@ only on `converged`.
   binary exponent, so the decision does not depend on whether squares of the data,
   the step or the loss scale would overflow or underflow in `T`. A curvature above
   `floatmax(T)` is never certified, so backtracking then ends in its error with
-  rollback. The extra product is needed more often in Float32, where the bounds
-  are wider relative to small late steps.
+  rollback. These bounds assume IEEE arithmetic with gradual underflow and a
+  matrix-vector product evaluated as dot products; the native products and the
+  extrapolation are computed in `T` and enter only through the bounds. The extra
+  product is needed more often in Float32, where the bounds are wider relative to
+  small late steps, and data deep in the subnormal range, whose products
+  underflow, need `L` far above the curvature or fail with rollback. APG also
+  requires `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 2 < 1/(4 eps(Float64))`; larger
+  problems are refused before `x` is modified.
 - Reaching a pass or iteration limit is not convergence. CD can return
   a finite nonconverged solution with a warning.
 

@@ -126,7 +126,8 @@ condition directly instead of trusting `converged` alone.
 ## Accelerated proximal gradient
 
 `AccProxGradDescent` takes the same inputs, `ProximalOptions` and result type
-as PGD. Each step starts from the extrapolated point
+as PGD, up to a dimension limit that its line search needs (for Float32,
+`max(n, p) < 2,097,148`; see [Numerical behavior](numerics.md)). Each step starts from the extrapolated point
 `y = x + k/(k+3) (x - x_previous)`, where `k` counts iterations since the start
 or the last restart, and the momentum is restarted when an extrapolated step
 would increase the objective. On ill-conditioned problems this can need

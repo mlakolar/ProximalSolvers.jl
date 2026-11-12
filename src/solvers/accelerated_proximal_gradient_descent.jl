@@ -18,8 +18,9 @@ The step size `1/L` is found by backtracking on the least-squares bound
 `f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + L/2 ‖x - y‖²`, which holds exactly when
 `√α_f ‖X(x - y)‖ ≤ √L ‖x - y‖`. A trial is accepted only when that inequality, with
 a relative slack of `4eps` on `√L`, is certified by conservative rounding-error
-bounds: first from the difference of cached products, and when that is inconclusive
-from a freshly computed `X(x - y)`; a trial that is still inconclusive is rejected.
+bounds (assuming IEEE arithmetic with gradual underflow): first from the difference
+of cached products, and when that is inconclusive from a freshly computed `X(x - y)`;
+a trial that is still inconclusive is rejected.
 See [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
 A trial with `x == y` entrywise is accepted when its value is finite. A rejected trial sets
 `L ← L/β`, `β ∈ (0, 1)`. Before each iteration `L ← α L`, `α ∈ (0, 1]`, so that the
@@ -89,8 +90,8 @@ mutable struct AccProxGradDescentState{T, X<:Vector{T}, M, Z}
     z_previous::Z
     z_y::Z
     dz::Z             # residual A y - response (before the loss scale); buffer of the fresh A d
-    norm_design::_SE{T}  # ‖A‖_F, for the error bounds of the bound test
-    rootα::_SE{T}     # √ of the loss scale, taken in the scale's own type
+    bound::_BoundConstants{T}  # constants of the bound test (dimensions, ‖A‖_F)
+    rootα::_SE{T}     # √ of the loss scale, in at least the precision of T
     image_error_y::_SE{T}  # bound on the error of z_y as an image of y
     normx::_SE{T}     # ‖x‖ of the accepted iterate
     normx_previous::_SE{T}  # ‖x_previous‖
@@ -109,7 +110,10 @@ function initial_state(
     z_x = _image_buffer(model)
     f_x = _value!(f, x0, model, z_x)
     _check_start(f_x)
-    normX = _se_norm(T, model.X)      # X is finite (checked before)
+    normx0 = _se_norm(T, x0)          # x0 is finite (checked before)
+    # √α of the scale as given, evaluated in at least the precision of T: a wider scale
+    # is not rounded to T first, and a narrower one is converted exactly
+    R = promote_type(T, typeof(float(model.α)))
     AccProxGradDescentState(
                          x0,          # Maintain current state in state.x
                          f_x,
@@ -135,11 +139,11 @@ function initial_state(
                          copy(z_x),   # A x_previous
                          similar(z_x), # A y
                          similar(z_x), # residual at A y
-                         normX,
-                         _SE{T}(sqrt(float(model.α))),
+                         _bound_constants(T, model.X),
+                         _SE{T}(sqrt(R(model.α))),
                          _se_zero(T),
-                         _se_norm(T, x0),
-                         _se_norm(T, x0),
+                         normx0,
+                         normx0,
                          false,
                          0
                          )
@@ -155,10 +159,9 @@ function update_state!(
     state.L *= T(method.α)
     # norms of the accepted x (x_a) and of the one before it (x_b), kept from the trials
     # that accepted them, for the error bound of the extrapolated image
-    n, p = length(state.z_x), length(state.x)
     normxa, normxb = state.normx, state.normx_previous
     state.normx_previous = normxa
-    state.image_error_y = _image_error_bound(T, n, p, state.norm_design, normxa, normxb, ω > 0)
+    state.image_error_y = _image_error_bound(state.bound, normxa, normxb, ω > 0)
     # y and its image are formed before x_previous is overwritten; they change no
     # caller-visible array, so x_previous holds the last accepted iterate whenever a
     # trial below can throw (the engine restores x from it).
@@ -186,7 +189,7 @@ function update_state!(
         state.restarts += 1
         _copyto!(state.y, state.x_previous)
         copyto!(state.z_y, state.z_previous)
-        state.image_error_y = _image_error_bound(T, n, p, state.norm_design, normxa, normxb, false)
+        state.image_error_y = _image_error_bound(state.bound, normxa, normxb, false)
       else
         break
       end
@@ -232,8 +235,8 @@ function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where 
             break
           end
           ok, fresh = _bound_certified!(state.dz, state.model, state.z_y, state.z_x, state.xhat,
-                                        D, state.L, state.image_error_y, state.norm_design, normx, state.rootα,
-                                        state.fresh_only)
+                                        D, state.L, state.image_error_y, normx, state.rootα,
+                                        state.bound, state.fresh_only)
           state.fallbacks += fresh
           if ok
             state.normx = normx
@@ -264,11 +267,12 @@ function _check_method(m::AccProxGradDescent, ::Type{T}) where T
   nothing
 end
 
-# The error bounds of the bound test need k u < 1/8 for k = max(n, p) + 4.
+# The error bounds of the bound test need k u < 1/8 for k = max(n, p) + 4 in T, and for
+# k = n p + 2 in Float64, where ‖X‖_F is accumulated.
 function _check_bound_size(f, ::Type{T}) where T
   n, p = size(_image_model(f).X)
-  (max(n, p) + 4) * _unit(T) < 1 / 8 ||
-    throw(ArgumentError("AccProxGradDescent needs max(n, p) + 4 < 1/(4 eps($T)) for its rounding-error bounds"))
+  (max(n, p) + 4) * _unit(T) < 1 / 8 && (n * p + 2) * _unit(Float64) < 1 / 8 ||
+    throw(ArgumentError("AccProxGradDescent needs max(n, p) + 4 < 1/(4 eps($T)) and n p + 2 < 1/(4 eps(Float64)) for its rounding-error bounds"))
   nothing
 end
 
@@ -298,9 +302,11 @@ _state_normdiff(s::AccProxGradDescentState) = _norm_diff(s.x, s.x_previous, 2.)
 Minimize the same least-squares lasso as [`ProximalGradientDescent`](@ref) with
 accelerated proximal gradient descent, overwriting `x`, a dense `Vector{T}` with
 `T = Float32` or `Float64`. The inputs, the options and their validation are those
-of `ProximalGradientDescent`, and `β` and `α` must also satisfy their bounds after
-conversion to `T`; every refusal of an input, option or method setting happens
-before `x` is modified. A step error
+of `ProximalGradientDescent`; in addition `β` and `α` must satisfy their bounds after
+conversion to `T`, and the dimensions must satisfy `max(n, p) + 4 < 1/(4 eps(T))` and
+`n p + 2 < 1/(4 eps(Float64))` (for Float32, `max(n, p) < 2,097,148`), which the
+rounding-error bounds of the line search need. Every refusal of an input, option or
+method setting happens before `x` is modified. A step error
 restores the last accepted `x` and rethrows, without a transaction guarantee for
 internal counters. The result shares `x`.
 """
