@@ -223,7 +223,9 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-          fetch-depth: 2
+          # Full history: the Stage 2B campaign-driver tests read pinned historical commits (git
+          # cat-file, git archive); the hygiene check below compares with HEAD^1.
+          fetch-depth: 0
       - name: Check repository hygiene (required through analysis verdict)
         run: |
           python3 scripts/test_repo_hygiene.py
@@ -234,6 +236,38 @@ jobs:
       - run: python benchmark/check_analysis.py
       - run: python -I benchmark/sparse_cd/check_analysis.py
       - run: python -B benchmark/external/coordinatedescent/check_analysis.py
+      # The offline Stage 2B suites (benchmark/campaigns/stage2b/README.md), one step each. A
+      # skipped test fails its step: the only conditional skips are the fingerprint tests at the
+      # pinned commits, which must run here.
+      - name: Pinned Stage 2B commits are in the checkout
+        shell: bash
+        run: |
+          commits=$(sed -nE 's/^(BASE|STACK_A)_COMMIT = "([0-9a-f]{40})"$/\2/p' benchmark/campaigns/stage2b/test_stage2b_campaign.py)
+          [ "$(wc -w <<< "$commits")" = 2 ] || { echo "::error::Expected BASE_COMMIT and STACK_A_COMMIT in test_stage2b_campaign.py, found: $commits"; exit 1; }
+          for commit in $commits; do
+            git cat-file -e "$commit^{commit}" || { echo "::error::Pinned commit $commit is not in the checkout."; exit 1; }
+            git log -1 --format="%H %cs %s" "$commit"
+          done
+      - name: Stage 2B migration comparator tests
+        shell: bash
+        run: |
+          python3 -B benchmark/campaigns/stage2b/test_migration_compare.py 2>&1 | tee "$RUNNER_TEMP/stage2b.log"
+          if grep -E '^(OK|FAILED) \(.*skipped=' "$RUNNER_TEMP/stage2b.log"; then echo "::error::Skipped tests are not accepted in CI."; exit 1; fi
+      - name: Stage 2B file and fixture tests
+        shell: bash
+        run: |
+          python3 -B benchmark/campaigns/stage2b/test_stage2b_files.py 2>&1 | tee "$RUNNER_TEMP/stage2b.log"
+          if grep -E '^(OK|FAILED) \(.*skipped=' "$RUNNER_TEMP/stage2b.log"; then echo "::error::Skipped tests are not accepted in CI."; exit 1; fi
+      - name: Stage 2B campaign-driver tests (including pinned-commit fingerprints)
+        shell: bash
+        run: |
+          python3 -B benchmark/campaigns/stage2b/test_stage2b_campaign.py 2>&1 | tee "$RUNNER_TEMP/stage2b.log"
+          if grep -E '^(OK|FAILED) \(.*skipped=' "$RUNNER_TEMP/stage2b.log"; then echo "::error::Skipped tests are not accepted in CI."; exit 1; fi
+      - name: Stage 2B reset-probe checker tests
+        shell: bash
+        run: |
+          python3 -B benchmark/campaigns/stage2b/probes/test_check_reset_probes.py 2>&1 | tee "$RUNNER_TEMP/stage2b.log"
+          if grep -E '^(OK|FAILED) \(.*skipped=' "$RUNNER_TEMP/stage2b.log"; then echo "::error::Skipped tests are not accepted in CI."; exit 1; fi
       - uses: julia-actions/setup-julia@v3
         with:
           version: '1'
