@@ -16,7 +16,13 @@ code.
   stop the algorithm, even if the others remain large.
 
 Neither `converged=true` is a certificate of mathematical optimality.
-For the convex lasso, compute the [independent KKT residual](sparsity-and-kkt.md).
+**On the small tutorial examples, default PGD typically produces only about
+3–4 correct digits even if it reports `converged=true`.** This is not
+a bound or expected accuracy on arbitrary problems. Tighten tolerances
+for results you intend to report, then compute the
+[independent KKT residual](sparsity-and-kkt.md). The
+[Concepts](concepts.md) and [Getting started](getting-started.md)
+pages display that residual next to the default-PGD convergence flag.
 PGD's printed `|g(x)|` label is an internal stopping residual, **not**
 the value of the user's L1 penalty.
 
