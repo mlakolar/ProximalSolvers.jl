@@ -59,6 +59,87 @@ strict_options(::Type{T}; kwargs...) where T = ProximalOptions(;
   maxiter = 10_000, ftol = 1e-20, xtol = T === Float64 ? 1e-12 : 1e-7,
   gradtol = T === Float64 ? 1e-10 : 1e-5, kwargs...)
 
+# Diagnostic text for the warm-start check in "independent dense lasso
+# correctness". It reads its arguments and calls no solver.
+hexbits(v) = string(reinterpret(Unsigned, v), base = 16, pad = 2sizeof(v))
+coefficient_lines(label, z) = string(label, ": ", join(string.(z), ", "), "\n",
+  label, " (hex bits): ", join(hexbits.(z), " "), "\n")
+
+function result_lines(label, r::PS.OptimizationResults)
+  string(label, " result (ProximalGradientDescent): converged = ", r.converged,
+    ", iterations = ", r.iterations, ", iteration_converged = ", r.iteration_converged, "\n",
+    "  x_converged = ", r.x_converged, ", x_residual = ", r.x_residual, ", x_tol = ", r.x_tol, "\n",
+    "  f_converged = ", r.f_converged, ", f_residual = ", r.f_residual, ", f_tol = ", r.f_tol, "\n",
+    "  grad_converged = ", r.grad_converged, ", g_residual = ", r.g_residual, ", g_tol = ", r.g_tol, "\n",
+    "  f_increased = ", r.f_increased, ", backtrack_steps = ", r.backtrack_steps,
+    ", call_limit_reached = ", r.call_limit_reached, "\n",
+    "  f_calls = ", r.f_calls, ", grad_calls = ", r.grad_calls, ", prox_calls = ", r.prox_calls, "\n",
+    "  minimum = ", r.minimum, "\n")
+end
+function result_lines(label, r::CDResults)
+  string(label, " result (CDSolver): converged = ", r.converged, ", passes = ", r.passes, "\n",
+    "  maxchange = ", r.maxchange, ", tolerance = ", r.tolerance, ", kkt_checks = ", r.kkt_checks, "\n",
+    "  minimum = ", r.minimum, "\n")
+end
+
+# CPU, Julia and BLAS settings of the running process.
+function environment_lines()
+  function unavailable(f)
+    try
+      f()
+    catch
+      "unavailable"
+    end
+  end
+  lines = String[
+    "Julia version: $VERSION",
+    "CPU model: " * unavailable(() -> string(Sys.cpu_info()[1].model)),
+    "Sys.CPU_NAME: " * string(Sys.CPU_NAME),
+    "CPU features (jl_get_cpu_features): " *
+      unavailable(() -> unsafe_string(ccall(:jl_get_cpu_features, Cstring, ())))]
+  if isfile("/proc/cpuinfo")
+    flags = unavailable() do
+      row = first(l for l in eachline("/proc/cpuinfo") if startswith(l, "flags"))
+      join(filter(w -> any(p -> startswith(w, p), ("avx", "fma", "sse4", "f16c", "amx")),
+                  split(last(split(row, ':'; limit = 2)))), " ")
+    end
+    push!(lines, "/proc/cpuinfo vector flags: " * flags)
+  end
+  opts = Base.JLOptions()
+  push!(lines,
+    "code_coverage: $(opts.code_coverage)",
+    "check_bounds: $(opts.check_bounds)",
+    "cpu_target: " * (opts.cpu_target == C_NULL ? "default" : unavailable(() -> unsafe_string(opts.cpu_target))),
+    "Threads.nthreads(): $(Threads.nthreads())",
+    "BLAS.get_num_threads(): " * unavailable(() -> string(BLAS.get_num_threads())),
+    "BLAS.get_config(): " * unavailable(() -> string(BLAS.get_config())))
+  join(lines, "\n") * "\n"
+end
+
+function warm_report(::Type{T}, λ, scale, initial, method, opts, X, y, r, first_x, warm, x,
+                     oracle, optimum)::String where T
+  solver = method isa CDSolver ? "CDSolver(rng = Xoshiro(713)) with default options" :
+    string("ProximalGradientDescent() with strict_options(", T, "): maxiter = ", opts.maxiter,
+           ", ftol = ", opts.ftol, ", xtol = ", opts.xtol, ", gradtol = ", opts.gradtol,
+           ", allow_f_increases = ", opts.allow_f_increases)
+  obj_first, obj_warm = objective(X, y, first_x, λ, scale), objective(X, y, x, λ, scale)
+  string("warm start did not report convergence\n",
+    "case: element type = ", T, ", lambda = ", λ, ", scaled loss (scale = ", scale, ")",
+    ", initial point = ", initial, "\n",
+    "solver: ", solver, "\n",
+    result_lines("first", r), result_lines("warm", warm),
+    coefficient_lines("first coefficients", first_x),
+    coefficient_lines("warm coefficients", x),
+    "objective(first) = ", obj_first, ", kkt(first) = ", kkt(X, y, first_x, λ, scale), "\n",
+    "objective(warm) = ", obj_warm, ", kkt(warm) = ", kkt(X, y, x, λ, scale), "\n",
+    "objective(warm) - objective(first) = ", obj_warm - obj_first, "\n",
+    "objective(warm) - optimum = ", obj_warm - optimum, "\n",
+    "max |warm - first| = ", maximum(abs, Float64.(x) - Float64.(first_x)), "\n",
+    "max |first - oracle| = ", maximum(abs, Float64.(first_x) - oracle),
+    ", max |warm - oracle| = ", maximum(abs, Float64.(x) - oracle), "\n",
+    environment_lines())
+end
+
 @testset "independent dense lasso correctness" begin
   for T in (Float64, Float32), normalized in (false, true)
     X = T[1 0 0; 0 2 0; 0 0 3; 0 0 0; 0 0 0]
@@ -108,9 +189,23 @@ strict_options(::Type{T}; kwargs...) where T = ProximalOptions(;
         @test x ≈ oracle atol = T === Float64 ? 2e-6 : 4e-3
         @test objective(X, y, x, λ, scale) ≈ optimum atol = T === Float64 ? 1e-11 : 1e-5
         @test kkt(X, y, x, λ, scale) < (T === Float64 ? 3e-7 : 2e-3)
+        options = method isa CDSolver ? nothing : strict_options(T)
         warm = method isa CDSolver ? solve!(x, f, NormL1(λ), method) :
                solve!(x, f, NormL1(λ), method, strict_options(T))
-        @test warm.minimizer === x && warm.converged
+        @test warm.minimizer === x
+        @test warm.converged
+        warm.converged || println(warm_report(T, λ, scale, initial, method, options, X, y, r,
+                                              solutions[end], warm, x, oracle, optimum))
+        if T === Float64 && iszero(λ) && iszero(initial)
+          # Builds the report for this case, so the printing path above is
+          # exercised when the warm solve reports convergence too.
+          report = warm_report(T, λ, scale, initial, method, options, X, y, r,
+                               solutions[end], warm, x, oracle, optimum)
+          markers = ("Float64", method isa CDSolver ? "CDSolver" : "ProximalGradientDescent",
+                     "converged", "first coefficients", "warm coefficients (hex bits)",
+                     "objective(warm) - optimum", "Julia version", "BLAS.get_config()")
+          @test all(m -> occursin(m, report), markers)
+        end
         @test objective(X, y, x, λ, scale) ≈ optimum atol = T === Float64 ? 1e-11 : 1e-5
       end
       @test solutions[1] ≈ solutions[2] atol = T === Float64 ? 2e-6 : 4e-3
