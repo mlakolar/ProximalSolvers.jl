@@ -67,18 +67,27 @@ coordinate order and no momentum, use
 
 ## Proximal gradient descent
 
-For a first experiment, **the defaults are a valid starting point**:
+Defaults are useful for an **exploratory first run**, not for claiming
+coefficient accuracy. Even on this two-coefficient problem they can stop with
+only around 3–4 correct digits, despite `converged=true`:
 
 ~~~@example choosing_pgd
 using ProximalBase, ProximalSolvers
 X = [1.0 0.0; 0.0 2.0; 0.0 0.0]
 y = [2.0, -2.0, 0.5]
 f = (1 / length(y)) * LeastSquaresLoss(y, X)
-penalty = NormL1(0.1)
+lambda = 0.1
+penalty = NormL1(lambda)
 beta = zeros(2)
 result = solve!(beta, f, penalty, ProximalGradientDescent())
-@assert isapprox(beta, [1.7, -0.925]; atol=1e-3)
-beta
+default_grad = (X' * (X * beta - y)) / length(y)
+default_kkt = maximum([
+    iszero(beta[j]) ? max(abs(default_grad[j]) - lambda, 0.0) :
+                      abs(default_grad[j] + lambda * sign(beta[j]))
+    for j in eachindex(beta)])
+(; coefficients=beta, converged=result.converged,
+   max_coefficient_error=maximum(abs.(beta .- [1.7, -0.925])),
+   max_kkt_violation=default_kkt)
 ~~~
 
 Use `ProximalOptions` when you want to change the iteration limit,
@@ -92,16 +101,27 @@ options = ProximalOptions(maxiter=2000, ftol=1e-14,
 stricter_result = solve!(beta_stricter, f, penalty,
                          ProximalGradientDescent(), options)
 @assert isapprox(beta_stricter, [1.7, -0.925]; atol=1e-6)
-(; coefficients=beta_stricter, iterations=stricter_result.iterations,
+strict_grad = (X' * (X * beta_stricter - y)) / length(y)
+strict_kkt = maximum([
+    iszero(beta_stricter[j]) ? max(abs(strict_grad[j]) - lambda, 0.0) :
+                               abs(strict_grad[j] + lambda * sign(beta_stricter[j]))
+    for j in eachindex(beta_stricter)])
+(; coefficients=beta_stricter, converged=stricter_result.converged,
+   max_coefficient_error=maximum(abs.(beta_stricter .- [1.7, -0.925])),
+   max_kkt_violation=strict_kkt, iterations=stricter_result.iterations,
    stored_steps=length(stricter_result.trace))
 ~~~
 
-The default `maxiter=200`, `ftol=1e-6`, `xtol=1e-8`,
-and `gradtol=1e-5` are not "bad"; they are general-purpose starting
-settings. Tighter tolerances might help on a particular problem, but
-small requested tolerances do not guarantee matching coefficient error.
-PGD's stopping tests combine by **OR**, so one criterion can stop the run.
-Use an independent [KKT check](sparsity-and-kkt.md) for numerical assurance.
+The default `maxiter=200`, `ftol=1e-6`, `xtol=1e-8`
+and `gradtol=1e-5` target convenience, **not a specified number of
+accurate digits**. Tighten them for results you intend to report, but do
+not assume smaller tolerances guarantee a correspondingly smaller error.
+PGD's stopping tests combine by **OR**, so a satisfied objective-change
+test can stop the run even when the KKT residual is not small.
+The two results above report both coefficient error (possible here because
+the analytic answer is known) and an independently computed
+[KKT violation](sparsity-and-kkt.md). On other problems, evaluate the KKT
+condition directly instead of trusting `converged` alone.
 
 ## What is supported now?
 

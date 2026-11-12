@@ -15,7 +15,14 @@ Pkg.add(url="https://github.com/mlakolar/ProximalSolvers.jl",
         rev="master")
 ~~~
 
-Add **both** packages: ProximalBase provides `LeastSquaresLoss`, `NormL1` and `SparseIterate`; ProximalSolvers provides `CDSolver`, `ProximalGradientDescent` and `solve!`. The long revision identifier specifies the ProximalBase source used by the development core. The `master` branch can change. Save `Project.toml` and `Manifest.toml` to reproduce your environment, or install ProximalSolvers at a fixed commit.
+Add **both** packages: ProximalBase provides `LeastSquaresLoss`, `NormL1` and `SparseIterate`; ProximalSolvers provides `CDSolver`, `ProximalGradientDescent` and `solve!`. The long revision identifier specifies the ProximalBase source used by
+the development core. The [ProximalBase `/dev/` manual](https://mlakolar.github.io/ProximalBase.jl/dev/)
+documents its **current `master`**, which can differ from the
+[pinned ProximalBase source](https://github.com/mlakolar/ProximalBase.jl/tree/c123d56ba1948e36a8fdbf183a9eea396a16e0d5)
+used by this solver. Check the pinned code for exact compatibility
+when those docs differ. The `master` branches of both repositories can
+change. Save `Project.toml` and `Manifest.toml` to reproduce your
+environment, or install ProximalSolvers at a fixed commit.
 
 !!! warning "Registry releases differ"
     This guide describes **development master**. A plain `pkg> add ProximalSolvers` can select a registered release with a different set of features and interfaces. Use the source-install commands for these examples.
@@ -71,15 +78,30 @@ Because the columns are orthogonal, the normalized correlations are `2/3` and `-
 ~~~@example first_lasso
 beta_pgd = zeros(2)
 pgd_result = solve!(beta_pgd, f, penalty, ProximalGradientDescent())
-@assert isapprox(beta_pgd, [1.7, -0.925]; atol=1e-3)
-beta_pgd
+analytic_pgd = [1.7, -0.925]
+pgd_grad = (X' * (X * beta_pgd - y)) / n
+pgd_kkt = [iszero(beta_pgd[j]) ?
+           max(abs(pgd_grad[j]) - lambda, 0.0) :
+           abs(pgd_grad[j] + lambda * sign(beta_pgd[j]))
+           for j in eachindex(beta_pgd)]
+(; coefficients=beta_pgd, converged=pgd_result.converged,
+   max_coefficient_error=maximum(abs.(beta_pgd .- analytic_pgd)),
+   max_kkt_violation=maximum(pgd_kkt))
 ~~~
 
-The default options are a starting point, not a guaranteed accuracy level. See [Choosing a solver](choosing-solver.md) for stricter tolerances. Neither solver's `converged` flag is itself an optimality certificate.
+The defaults may report `converged=true` while the coefficients still differ
+from the analytic answer. On this tutorial problem, **default PGD typically
+gives about 3–4 correct digits**, not full Float64 accuracy; this is not a
+general guarantee. Tighten tolerances for results you plan to report and
+verify an independent KKT residual. See
+[Choosing a solver](choosing-solver.md) for tighter settings.
+The solver's `converged` flag is a stopping indicator, not an optimality
+certificate.
 
 ## Float32 data
 
-Use Float32 arrays and **prefer** Float32 scales and penalty parameters:
+Use matching Float32 arrays for the design, response and coefficients,
+and **prefer** Float32 scales and penalty parameters:
 
 ~~~@example first_float32
 using ProximalBase, ProximalSolvers
@@ -94,6 +116,13 @@ result = solve!(beta, f, penalty, CDSolver(order=:cyclic, momentum=false))
 beta
 ~~~
 
-The shorthand `1/n` produces a Float64 scalar, which is allowed when representable in the working type. Using `one(T)/T(n)` avoids surprise scalar precision changes. The package does **not** silently convert mixed-type input arrays.
+The shorthand `1/n` produces a `Float64` scalar. The solver may accept
+that scalar when it is representable in the Float32 working type without
+overflow or losing a nonzero value to zero. This is a convenience for scalar
+parameters, **not** a mixed-precision solver mode; the arrays must all use
+the same `T`. Using `one(T)/T(n)` keeps the scale in the working type.
+`Float32` iterates still have `Float32` accuracy limits, even though
+some solver tolerances and reported diagnostics use `Float64`.
+See [Numerical behavior](numerics.md) for recovery and stopping limits.
 
 Next, try [a realistic sparse example with an independent KKT check](sparsity-and-kkt.md).
