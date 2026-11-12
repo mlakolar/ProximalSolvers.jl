@@ -9,6 +9,10 @@ JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 julia --startup-file=no --project=. b
 python3 -I benchmark/sparse_cd/analyze.py NEW_OUTPUT
 ```
 
+For a bounded startup canary, set `SPARSE_CD_CANARY=true`. This runs the
+small Float64 low-occupancy solve/control cells and a small copy cell; its
+metadata is marked as a canary, and it is not a complete performance report.
+
 BASE_TREE and HEAD_TREE are clean Git checkouts with the same exact tested PB
 pin. Both PS revisions, and a second copy of the head for a noise control, load
 from source into separate modules in one process. The harness verifies clean

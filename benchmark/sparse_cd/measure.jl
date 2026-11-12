@@ -116,10 +116,13 @@ function copycost!(io,::Type{T},p,old_s,new_s) where T
     println(io,join((operation,T,p,old_s,new_s,round,t.time,t.bytes),'\t'));flush(io)
   end
 end
-function runmeasurements(a,b,c,out)
+function runmeasurements(a,b,c,out,canary)
   open(joinpath(out,"solve.tsv"),"w") do io
     println(io,"comparison\ttype\tn\tp\toccupancy\tround\tside\tseconds\tbytes\tdiagnostics")
-    for T in (Float32,Float64), (n,p,inner) in ((128,32,20),(1024,256,5),(8,100000,1)), occ in ("low","full")
+    types=canary ? (Float64,) : (Float32,Float64)
+    sizes=canary ? ((128,32,20),) : ((128,32,20),(1024,256,5),(8,100000,1))
+    occupancies=canary ? ("low",) : ("low","full")
+    for T in types, (n,p,inner) in sizes, occ in occupancies
       problem=fixture(T,n,p,occ)
       solvepair!(io,"dense-base-head",a,b,problem,inner,false)
       solvepair!(io,"dense-head-control",b,c,problem,inner,false)
@@ -128,9 +131,13 @@ function runmeasurements(a,b,c,out)
   end
   open(joinpath(out,"copy.tsv"),"w") do io
     println(io,"operation\ttype\tp\told_active\tnew_active\tround\tseconds\tbytes")
-    for T in (Float32,Float64), p in (1000,100000,1000000), (old_s,new_s) in
-        ((10,10),(p,10),(p÷8-1,p÷8-1),(p÷8,p÷8),(p,p))
-      copycost!(io,T,p,old_s,new_s)
+    types=canary ? (Float64,) : (Float32,Float64)
+    dimensions=canary ? (1000,) : (1000,100000,1000000)
+    for T in types, p in dimensions
+      occupancies=canary ? ((10,10),) : ((10,10),(p,10),(p÷8-1,p÷8-1),(p÷8,p÷8),(p,p))
+      for (old_s,new_s) in occupancies
+        copycost!(io,T,p,old_s,new_s)
+      end
     end
   end
 end
@@ -143,13 +150,14 @@ function main()
   pbroot=dirname(dirname(pathof(ProximalBase)))
   digest(pbroot)==PB_DIGEST || error("loaded PB source mismatch")
   a,b,c=loadsource(:Baseline,base),loadsource(:Candidate,head),loadsource(:Control,head)
-  metadata=Dict("base_commit"=>ids[1][1],"head_commit"=>ids[2][1],
+  canary=get(ENV,"SPARSE_CD_CANARY","false")=="true"
+  metadata=Dict("canary"=>canary,"base_commit"=>ids[1][1],"head_commit"=>ids[2][1],
     "base_digest"=>ids[1][2],"head_digest"=>ids[2][2],"pb_commit"=>PB_REV,
     "pb_digest"=>digest(pbroot),"julia"=>string(VERSION),"cpu"=>Sys.CPU_NAME,
     "julia_threads"=>Threads.nthreads(),"blas_threads"=>BLAS.get_num_threads(),
     "load_start"=>collect(Sys.loadavg()),"repetitions"=>30,"batches_per_round"=>3,
     "harness_sha256"=>bytes2hex(sha256(read(@__FILE__))))
-  Base.invokelatest(runmeasurements,a,b,c,out)
+  Base.invokelatest(runmeasurements,a,b,c,out,canary)
   source_identity.((base,head))==ids || error("source changed during measurement")
   metadata["load_end"]=collect(Sys.loadavg())
   open(joinpath(out,"metadata.toml"),"w") do io; TOML.print(io,metadata);end
