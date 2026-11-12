@@ -1,34 +1,35 @@
 # This example compares three solver configurations on one seeded lasso by the
-# time each needs to reach the same accuracy. The accuracy is measured from the
-# data and the returned coefficients, not read from the solvers. Here the solvers
-# are cyclic coordinate descent without momentum, coordinate descent in random
-# order with its default momentum, and dense proximal gradient descent.
+# time each needs to reach the same accuracy. The script computes the accuracy from
+# the problem data and the returned coefficients and does not read it from the
+# solvers. The solvers are cyclic coordinate descent with `momentum=false`,
+# coordinate descent with `order=:random`, its default momentum setting and a seeded
+# generator for each run, and dense proximal gradient descent.
 #
 #md # [Download this example as a Jupyter notebook](@__NAME__.ipynb)
 #nb # The plotting cells of this notebook need the package Plots in the active environment.
 #
 # ## Why time to equal accuracy
 #
-# Each solver stops by its own rule. Coordinate descent stops after a full pass over
-# the coordinates in which the largest coordinate update is below a threshold; with
-# the default `relative=true` the updates are scaled and `tol` is multiplied by a
-# response scale, and with `relative=false` both are absolute. Proximal gradient
-# descent stops when the first of an objective-change test, an iterate-change test
-# and a gradient/proximal-residual test is met, each against its own tolerance. These
-# `converged` flags are stopping rules and not certificates of optimality, and the
-# tolerances of different solvers are not defined on a common scale. Timing each
-# solver up to its own `converged` flag compares the solvers at the accuracies that
-# their rules give in that run. Here each of the three solvers is run over a sweep of
-# tolerances, each result is scored by an independent objective gap and KKT violation,
-# and the reported time is the time of the first setting in the sweep that meets both
-# thresholds `gaptarget` and `kkttarget` defined below.
+# Each solver stops by its own rule, documented with `CDSolver` and `ProximalOptions`.
+# The rules measure different quantities: for coordinate descent a change of the
+# coefficients over a pass, for proximal gradient descent changes of the objective and
+# of the iterate and a gradient/proximal residual. The tolerances of different solvers
+# are not defined on a common scale. The `converged` flag reports that the solver's own
+# rule was met and is not a certificate of optimality. Timing each solver up to its
+# own `converged` flag compares the solvers at the accuracies that their rules give in
+# that run. Here each of the three solvers is run over a sweep of tolerances, each
+# result is scored by an independent objective gap and KKT violation, and the reported
+# time is the time of the first setting in the sweep that meets both thresholds
+# `gaptarget` and `kkttarget` defined below.
 #
 # ## The problem
 #
 # The design has `n = 1000` rows and `p = 200` columns that follow an AR(1) pattern
-# with correlation `rho` between neighbouring columns. Twenty coefficients are nonzero and the noise has unit
-# variance. The regularization is `lambda = lambda_max / 100`, where `lambda_max`
-# is the smallest `lambda` for which the lasso solution is zero.
+# with correlation `rho` between neighbouring columns. Twenty coefficients are
+# nonzero and the noise has unit variance. The regularization is
+# `lambda = lambda_max / 100`, where `lambda_max = maximum(abs, X' * y) / n` is the
+# smallest `lambda` at which the zero vector satisfies the KKT conditions of the lasso
+# objective below.
 using LinearAlgebra, Printf, Random, ProximalBase, ProximalSolvers
 
 rho = 0.9
@@ -51,8 +52,9 @@ g = NormL1(lambda);
 
 # ## Independent measures
 #
-# The two functions below use only `X`, `y`, the returned coefficients and `lambda`;
-# they use no solver diagnostics, cached quantities or reported values. The
+# The two functions below compute from the problem data `X`, `y`, `n` and `lambda` and
+# from the coefficient vector they are given; they use no solver diagnostics, cached
+# quantities or reported values. The
 # objective is the lasso objective. The KKT violation applies the rule of the page
 # "Sparsity and an optimality check": for a zero coefficient it is the excess of the
 # gradient magnitude over `lambda`, and for a nonzero coefficient it is the distance
@@ -68,7 +70,7 @@ end;
 # ## Reference solution
 #
 # The reference objective value `fstar` comes from cyclic coordinate descent run to
-# a very small tolerance with an absolute stopping rule, started from zero. The
+# a very small tolerance with `relative=false`, started from zero. The
 # assertions check that its independently measured KKT violation is small and that
 # the independent objective matches the objective the solver reports.
 reference = zeros(p)
@@ -85,9 +87,9 @@ fstar = objective(reference)
 # the minimum over five timed repetitions of the `solve!` call alone, after one
 # warm-up call; the solver object is built before the timer starts. Each random-order
 # coordinate descent run gets a new `Xoshiro` generator with the same seed. For each
-# setting the sweep records the time, the number of passes (coordinate descent) or iterations (proximal gradient descent), the `converged`
-# flag, the relative objective gap `(F - fstar) / abs(fstar)` and the KKT violation
-# divided by `lambda`. Coordinate descent is swept over `tol` and proximal gradient
+# setting the sweep records the time, the number of passes (coordinate descent) or
+# iterations (proximal gradient descent), the `converged` flag, the relative objective
+# gap `(F - fstar) / abs(fstar)` and the KKT violation divided by `lambda`. Coordinate descent is swept over `tol` and proximal gradient
 # descent over one scale used for `ftol`, `xtol` and `gradtol` together, with a large
 # `maxiter`.
 function measure(prepare; repetitions=5)
