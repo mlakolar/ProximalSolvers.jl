@@ -79,7 +79,8 @@ The default options are a starting point, not a guaranteed accuracy level. See [
 
 ## Float32 data
 
-Use Float32 arrays and **prefer** Float32 scales and penalty parameters:
+Use matching Float32 arrays for the design, response and coefficients,
+and **prefer** Float32 scales and penalty parameters:
 
 ~~~@example first_float32
 using ProximalBase, ProximalSolvers
@@ -94,6 +95,13 @@ result = solve!(beta, f, penalty, CDSolver(order=:cyclic, momentum=false))
 beta
 ~~~
 
-The shorthand `1/n` produces a Float64 scalar, which is allowed when representable in the working type. Using `one(T)/T(n)` avoids surprise scalar precision changes. The package does **not** silently convert mixed-type input arrays.
+The shorthand `1/n` produces a `Float64` scalar. The solver may accept
+that scalar when it is representable in the Float32 working type without
+overflow or losing a nonzero value to zero. This is a convenience for scalar
+parameters, **not** a mixed-precision solver mode; the arrays must all use
+the same `T`. Using `one(T)/T(n)` keeps the scale in the working type.
+`Float32` iterates still have `Float32` accuracy limits, even though
+some solver tolerances and reported diagnostics use `Float64`.
+See [Numerical behavior](numerics.md) for recovery and stopping limits.
 
 Next, try [a realistic sparse example with an independent KKT check](sparsity-and-kkt.md).
