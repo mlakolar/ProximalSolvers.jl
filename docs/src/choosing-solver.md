@@ -1,117 +1,122 @@
 # Choosing a solver
 
-`ProximalSolvers.jl` currently has **two** algorithms for the same
-least-squares lasso objective. Both call the losses and proximal operators
-provided by `ProximalBase.jl`. Neither is a general-purpose solver for
-arbitrary loss/penalty combinations in this development core.
+Both supported algorithms solve the **same dense least-squares lasso**.
+The difference is how they update coefficients, not what objective is minimized.
+For definitions of soft-thresholding, CD and PGD, see [What problem, which algorithm?](concepts.md).
 
 | | Coordinate descent (CD) | Proximal gradient descent (PGD) |
 | --- | --- | --- |
-| Constructor | `CDSolver()` | `ProximalGradientDescent()` |
-| Idea | Update coefficients by coordinate, with full and active passes | Update the full coefficient vector, with backtracking |
-| Iterate `x` | Dense `Vector` **or** 1D `SparseIterate` | Dense `Vector` only |
-| Configuration | Keywords to `CDSolver` | `ProximalOptions` passed to `solve!` |
-| Result type | `CDResults` | `OptimizationResults` |
-| Natural starting point | Ordinary lasso, especially if you want active-coordinate storage | Ordinary lasso with full-vector iterations and optional iteration traces |
+| Start | `CDSolver()` | `ProximalGradientDescent()` |
+| Steps | Update one coefficient at a time | Update the full vector |
+| Coefficient storage | Dense `Vector` or one-dimensional `SparseIterate` | Dense `Vector` only |
+| Tolerances | Constructor keywords | `ProximalOptions` passed to `solve!` |
+| Result | `CDResults` with `passes` | `OptimizationResults` with `iterations` |
 
-Neither method is universally faster. Compare them on your workload, using
-the **same** objective scaling, initial point, precision and stopping criteria.
+The APIs differ because they preserve the two historical algorithm implementations;
+the present minimal core does not yet provide a unified options/result wrapper.
+Neither approach is always faster. For a new lasso experiment, CD is a
+reasonable first choice.
 
 ## Coordinate descent
 
-~~~julia
+~~~@example choosing_cd
+using Random, ProximalBase, ProximalSolvers
+X = [1.0 0.0; 0.0 2.0; 0.0 0.0]
+y = [2.0, -2.0, 0.5]
+f = (1 / length(y)) * LeastSquaresLoss(y, X)
+penalty = NormL1(0.1)
+beta = zeros(2)
+solver = CDSolver(order=:cyclic, momentum=false, relative=false, tol=1e-7)
+result = solve!(beta, f, penalty, solver)
+@assert isapprox(beta, [1.7, -0.925]; atol=1e-7)
+beta
+~~~
+
+Useful settings are `maxpasses` (up to 100,000 by default), `tol`
+(default `1e-7`), `order=:random` or `:cyclic`,
+`momentum`, `relative`, and `rng`. For the exact current signatures, see
+the [API reference](api.md).
+
+**Relative tolerance:** With `relative=true` (the default), the change
+threshold is scaled by a response-dependent quantity. Thus
+`CDSolver(tol=1e-7)` can report an *effective* tolerance such as
+`1.66e-7`. Set `relative=false` to interpret the threshold in the
+coefficient-change units. This is a **step-change stopping test**, not
+an optimality certificate.
+
+**Randomness and momentum:** By default `order=:random`, and the
+historical CD algorithm can apply momentum to active passes and restart
+it when the active set changes. Momentum attempts to accelerate convergence
+using previous iterates, but may change the numerical trajectory.
+To reproduce a run, provide an explicit random generator:
+
+~~~@example choosing_cd
+x_repro = zeros(2)
+seeded = CDSolver(rng=Xoshiro(1), momentum=false)
+seeded_result = solve!(x_repro, f, penalty, seeded)
+@assert isapprox(x_repro, [1.7, -0.925]; atol=1e-5)
+x_repro
+~~~
+
+Construct a **fresh** seeded generator to repeat the sequence: an RNG
+is mutable and advances as the solver draws from it. For a deterministic
+coordinate order and no momentum, use
+`CDSolver(order=:cyclic, momentum=false)`. Cyclic order rejects
+`momentum=true`, **not** `momentum=false`.
+
+## Proximal gradient descent
+
+For a first experiment, **the defaults are a valid starting point**:
+
+~~~@example choosing_pgd
 using ProximalBase, ProximalSolvers
 X = [1.0 0.0; 0.0 2.0; 0.0 0.0]
 y = [2.0, -2.0, 0.5]
 f = (1 / length(y)) * LeastSquaresLoss(y, X)
-g = NormL1(0.1)
-
-x = zeros(2)
-cd = CDSolver(order=:cyclic, momentum=false, tol=1e-7)
-result = solve!(x, f, g, cd)
+penalty = NormL1(0.1)
+beta = zeros(2)
+result = solve!(beta, f, penalty, ProximalGradientDescent())
+@assert isapprox(beta, [1.7, -0.925]; atol=1e-3)
+beta
 ~~~
 
-Some useful keyword arguments:
+Use `ProximalOptions` when you want to change the iteration limit,
+stopping tolerances or trace storage:
 
-| Option | Meaning |
-| --- | --- |
-| `maxpasses` | Maximum number of coordinate passes (default `100_000`; zero is allowed) |
-| `tol` | Nonnegative strict change threshold (default `1e-7`) |
-| `order` | `:random` (default) or `:cyclic` |
-| `momentum` | `nothing` (default behavior) or `false`; explicit `true` requires random order |
-| `rng` | RNG to use with random order; the supplied RNG can advance |
-
-Randomized coordinate descent uses the historical momentum behavior by
-default. For reproducible experiments, supply an RNG of your own and do not
-reuse it across comparisons unless you intend its state to advance.
-Options for Anderson acceleration, gap-based stopping and screening are
-currently unsupported.
-
-### Coordinate descent with a SparseIterate
-
-CD also accepts a **one-dimensional ProximalBase SparseIterate** holding
-coefficients, even though the design matrix itself must still be dense:
-
-~~~julia
-x_sparse = SparseIterate(2)            # Float64 coefficients
-sparse_result = solve!(x_sparse, f, g, CDSolver())
-coefficients = Vector(x_sparse)
-@assert sparse_result.minimizer === x_sparse
-~~~
-
-CD runs on a private state-preserving copy and writes the final state back
-after finite completion. A numerical error does not partially overwrite
-the caller's `SparseIterate`. The active-coordinate order can change, so
-retrieve `activecoordinates(x_sparse)` and `activevalues(x_sparse)` again
-after the solve. The copy needs additional storage proportional to the
-number of coefficients; it does not make the dense design sparse.
-
-See [Supported API and migration](support.md) for the exact ownership rules.
-
-## Proximal gradient descent
-
-~~~julia
-x_pgd = zeros(2)
+~~~@example choosing_pgd
+beta_stricter = zeros(2)
 options = ProximalOptions(maxiter=2000, ftol=1e-14,
                           xtol=1e-12, gradtol=1e-10,
                           store_trace=true)
-pgd_result = solve!(x_pgd, f, g, ProximalGradientDescent(), options)
-@show pgd_result.iterations
-@show length(pgd_result.trace)
+stricter_result = solve!(beta_stricter, f, penalty,
+                         ProximalGradientDescent(), options)
+@assert isapprox(beta_stricter, [1.7, -0.925]; atol=1e-6)
+(; coefficients=beta_stricter, iterations=stricter_result.iterations,
+   stored_steps=length(stricter_result.trace))
 ~~~
 
-The default method uses the package's supported backtracking line search.
-The most useful `ProximalOptions` fields for a first experiment are:
+The default `maxiter=200`, `ftol=1e-6`, `xtol=1e-8`,
+and `gradtol=1e-5` are not "bad"; they are general-purpose starting
+settings. Tighter tolerances might help on a particular problem, but
+small requested tolerances do not guarantee matching coefficient error.
+PGD's stopping tests combine by **OR**, so one criterion can stop the run.
+Use an independent [KKT check](sparsity-and-kkt.md) for numerical assurance.
 
-| Option | Meaning |
-| --- | --- |
-| `maxiter` | Maximum number of PGD iterations (default `200`) |
-| `ftol` | Objective-change tolerance (default `1e-6`) |
-| `xtol` | Iterate-change tolerance (default `1e-8`) |
-| `gradtol` | Gradient-based stopping tolerance (default `1e-5`) |
-| `store_trace` | Keep a per-iteration trace in the result |
-| `show_trace` | Print iterations while running |
-| `time_limit` | Optional time limit; tested after an iteration |
+## What is supported now?
 
-PGD uses a combination of historical stopping tests; a small tolerance
-does **not** guarantee the same numerical accuracy. It refuses a
-`SparseIterate` coefficient destination. Use a dense vector.
+`X` must be a finite dense `Matrix{T}`, `y` a finite `Vector{T}`,
+and the coefficients the same type, with `T` equal to Float32 or Float64.
+The penalty is unweighted L1 and the loss is ordinary least squares
+(or a single positive finite scalar multiple of it).
 
-## Supported input checklist
+Coordinate descent can additionally store coefficients in a one-dimensional
+[ProximalBase SparseIterate](https://mlakolar.github.io/ProximalBase.jl/dev/).
+It tracks coordinates that are explicitly active, and can be helpful for
+a sparse result. It does **not** make the feature matrix sparse.
+In [Example 3](examples/03_sparse_cd_lasso.md), the first coefficient is
+exactly zero and the second is active.
 
-For either solver:
+Unsupported historical knobs are listed in one
+[deferred-features table](support.md). Do not use gap, screening,
+preconditioning or acceleration settings until implemented and tested.
 
-1. `X` must be a nonempty, finite, dense `Matrix{T}` and `y` a finite
-   `Vector{T}` of matching row count.
-2. `T` must be **Float32 or Float64**, consistently for `X`, `y` and `x`.
-   Mixed array types are not automatically converted.
-3. The loss must be `LeastSquaresLoss` or one positive finite scalar
-   multiple of it; the penalty must be finite, nonnegative,
-   **unweighted** `NormL1`.
-4. `x` has one entry per column of `X`, and does not alias `X` or `y`.
-5. The arrays and finite parameters must stay valid for the duration
-   of the solve.
-
-For additional limits and exact error behavior, see
-[Supported API and migration](support.md) and
-[Numerical behavior](numerics.md).
