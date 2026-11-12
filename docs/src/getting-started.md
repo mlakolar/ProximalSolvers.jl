@@ -35,10 +35,10 @@ The commands above are installation instructions, not CI tests that modify a pro
 
 For `n` observations and `p` predictors, the lasso minimizes
 
-\[
+~~~math
 \min_{\beta \in \mathbb{R}^p}
 \frac{1}{2n}\lVert y-X\beta\rVert_2^2+\lambda\lVert\beta\rVert_1.
-\]
+~~~
 
 The least-squares term fits the data; the L1 penalty encourages zero coefficients. For an explanation of [proximal operators and soft-thresholding](concepts.md), read the short algorithm guide.
 
