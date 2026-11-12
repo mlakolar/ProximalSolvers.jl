@@ -96,7 +96,7 @@ function environment_lines()
     "CPU model: " * unavailable(() -> string(Sys.cpu_info()[1].model)),
     "Sys.CPU_NAME: " * string(Sys.CPU_NAME),
     "CPU features (jl_get_cpu_features): " *
-      unavailable(() -> unsafe_string(ccall(:jl_get_cpu_features, Cstring, ())))]
+      unavailable(() -> ccall(:jl_get_cpu_features, Ref{String}, ()))]
   if isfile("/proc/cpuinfo")
     flags = unavailable() do
       row = first(l for l in eachline("/proc/cpuinfo") if startswith(l, "flags"))
