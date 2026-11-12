@@ -1,38 +1,58 @@
 # Numerical behavior
 
-CD runs on a PB SparseIterate that retains stored activation/compaction order: a
-private one for a dense vector, and a private copy of the caller's owner for a
-`SparseIterate`, which starts with that owner's active zeros and slot order and
-which the caller's owner receives, whole, only after a finite completed run. First
-full passes admit coordinates, active passes refine them, and only a full pass
-strictly below the change tolerance converges. Random LS uses historical
-momentum/restarts and refreshes moved residual caches before full checks; the
-borrowed RNG advances. Cyclic and explicit momentum=false remain supported.
-Zero columns choose the nearest-zero penalty minimizer, including lambda=0.
-Nonzero-column curvature underflow is an error. tol=0 stays strict; maxpasses=0
-returns unconverged with no updates, and an owner then keeps its exact entry state.
-After every pass zero coordinates leave the active set, so an owner that completed
-at least one pass has none and their order follows from compaction, which moves the
-last active coordinate into the place of a removed one. A nonfinite returned
-objective is refused before dense scatter or owner commit; this is not robust
-dynamic-range recovery. A nonconverged finite pass-limit return warns, then commits.
-A numerical error leaves a caller's owner unchanged but may advance the RNG.
-Dense and owner solves from the same canonical state (the owner built from the
-dense vector) run the same arithmetic and RNG schedule. A different slot order of
-the same active set can change the trajectory and the final point, and the change
-stopping rule gives no general bound on the distance to a minimizer or on the KKT
-violation: assess accuracy with an independent objective/KKT check.
+This page explains what a successful solve does **and does not** promise.
+You can start using the package without understanding its internal algorithm
+code.
 
-PGD retains native LS image/value/gradient order, scalar steps, fused PB prox,
-TFOCS objective-to-gradient checks, finite curvature-growth refusal and zero-step
-gradient refresh. Historical objective/iterate/FASTA convergence tests combine
-by OR. Converged does not guarantee KKT below gradtol; objective rounding can
-stop even with very small ftol. Check objective/KKT independently. Native
-Float32 may stagnate earlier. Finite inputs do not ensure finite intermediates;
-historical LS image exceptional-range limitations remain outside this extraction.
+## What does converged mean?
 
-Callbacks/display sample print_every; stored traces include each iteration. A
-callback receives the trace when storing, otherwise a state. Limits are checked
-after an iteration and counts may overshoot. iteration_converged means a limit,
-not success. Positive gaptol is refused; positive gapevery is inert at gaptol=0.
-The retained scalar APIs/results do not introduce a new stopping/logging engine.
+- **Coordinate descent (CD):** the change during a full pass has fallen
+  below the effective `tol`. With `relative=true` this threshold is
+  scaled by a response-dependent quantity; the reported effective
+  tolerance can differ from the value passed to the constructor.
+- **Proximal gradient descent (PGD):** the algorithm applies multiple
+  stopping tests for relative coefficient change, objective change and
+  a gradient/proximal residual. These combine by **OR**: passing one can
+  stop the algorithm, even if the others remain large.
+
+Neither `converged=true` is a certificate of mathematical optimality.
+For the convex lasso, compute the [independent KKT residual](sparsity-and-kkt.md).
+PGD's printed `|g(x)|` label is an internal stopping residual, **not**
+the value of the user's L1 penalty.
+
+## Float32 and Float64
+
+Use a consistent element type for `X`, `y` and the coefficients.
+We support Float32 and Float64; all entries must be finite, and
+intermediate arithmetic must remain finite. Float32 calculations have
+less precision; requesting a tolerance below that precision cannot
+guarantee the same coefficient accuracy.
+
+For Float32, prefer a native scale:
+`(one(Float32)/Float32(n))*LeastSquaresLoss(y,X)`
+and `NormL1(Float32(lambda))`. A representable Float64 scalar
+from `1/n` is allowed, but the arrays are not converted.
+
+## Results and failures
+
+- CD on dense coefficients calculates on private storage, avoiding a
+  partially written dense result if a numerical failure occurs.
+- CD on a `SparseIterate` uses a **private copy** and commits the final
+  set of active coordinates only after finite completion. This means
+  the original coefficient storage is unchanged if the numerical
+  solve fails. A pass can remove zeros from the active list and
+  change the order of stored coordinates. The RNG can still advance.
+- PGD uses in-place dense arrays, and restores the **last accepted**
+  iterate if a numerical step fails. Its counters and other internals
+  are not transactional.
+- Reaching a pass or iteration limit is not convergence. CD can return
+  a finite nonconverged solution with a warning.
+
+Gap certificates are not implemented: `gap=NaN` is a placeholder.
+For more precise treatment of exceptional arithmetic, compaction,
+momentum, callbacks and test provenance, consult the
+[technical contract notes](developer/implementation-notes.md).
+
+Continue with [Results and troubleshooting](working-with-results.md)
+or the [Glossary](glossary.md).
+
