@@ -122,6 +122,20 @@ end
   for (keyword, value) in ((:anderson, -1), (:gaptol, -1.), (:gaptol, NaN), (:gaptol, Inf))
     @test_throws ArgumentError CDSolver(; keyword => value)
   end
+  # the refusal messages of single invalid keywords are unchanged
+  @test_throws ArgumentError("Anderson acceleration is deferred") CDSolver(anderson = 1)
+  @test_throws ArgumentError("gap certificates are deferred") CDSolver(gaptol = .1)
+  @test_throws ArgumentError("gap screening is deferred") CDSolver(gapsafe = true)
+  @test_throws ArgumentError("maxpasses must be nonnegative, but it is -1.") CDSolver(maxpasses = -1)
+  @test_throws ArgumentError("tol must be nonnegative, but it is NaN.") CDSolver(tol = NaN)
+  @test_throws ArgumentError("order must be :random or :cyclic, but it is :x.") CDSolver(order = :x)
+  @test_throws r"momentum needs order = :random" CDSolver(order = :cyclic, momentum = true)
+  # wider argument types convert as before; unrepresentable ones are refused
+  wide = CDSolver(Int32(7), big"1e-9", true, true, nothing, Xoshiro(1))
+  @test wide.maxpasses === 7 && wide.tol === 1e-9
+  @test CDSolver(maxpasses = big(7), tol = 1//10).tol === 0.1
+  @test_throws InexactError CDSolver(maxpasses = big(2)^70)
+  @test_throws InexactError CDSolver(big(2)^70, 1e-7, true, true, nothing, Xoshiro(1))
   # the positional route is validated at construction, so an invalid solver cannot exist
   @test_throws ArgumentError CDSolver(-1, 1e-7, true, true, nothing, Xoshiro(1))
   for tol in (-1., NaN, Inf, big"1e400")
