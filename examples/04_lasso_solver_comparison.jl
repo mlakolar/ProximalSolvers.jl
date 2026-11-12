@@ -161,11 +161,11 @@ header = ["| Solver | Setting at target | Time to target (ms) | Work at target |
 table = join(vcat(header, [tablerow(name, runs, parameter, unit)
                            for (name, (runs, parameter, unit)) in sweeps]), "\n");
 
-# The table is printed here as plain Markdown text. The documentation page and the
-# notebook show it rendered.
-#jl println(table)
-#!jl using Markdown
-#!jl Markdown.parse(table)
+# The script and the notebook print the table as plain Markdown text. The documentation
+# page shows it rendered.
+println(table) #!md
+#md using Markdown
+#md Markdown.parse(table)
 
 # Each solver must reach the target at some setting of its sweep; this checks accuracy
 # and says nothing about time.
