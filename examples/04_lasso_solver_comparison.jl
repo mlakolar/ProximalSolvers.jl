@@ -14,8 +14,8 @@
 # objective, iterate or gradient residual meets its tolerance. These
 # `converged` flags are stopping rules and not certificates of optimality, and the
 # tolerances of different solvers are not defined on a common scale. Timing each
-# solver up to its own `converged` flag compares the solvers at whatever accuracy
-# their rules happen to give. Here every solver is run over a sweep of tolerances, each result is scored by an independent objective
+# solver up to its own `converged` flag compares the solvers at the accuracies that
+# their rules give in that run. Here each of the three solvers is run over a sweep of tolerances, each result is scored by an independent objective
 # gap and KKT violation, and the reported time is the time of the first setting in
 # the sweep that meets both thresholds `gaptarget` and `kkttarget` defined below.
 #
@@ -47,7 +47,8 @@ g = NormL1(lambda);
 
 # ## Independent measures
 #
-# The two functions below use only `X`, `y`, the coefficients and `lambda`. The
+# The two functions below compute from `X`, `y`, the coefficients and `lambda`; they
+# take no output of a solver. The
 # objective is the lasso objective. The KKT violation applies the rule of the page
 # "Sparsity and an optimality check": for a zero coefficient it is the excess of the
 # gradient magnitude over `lambda`, and for a nonzero coefficient it is the distance
@@ -76,7 +77,7 @@ fstar = objective(reference)
 
 # ## Sweeps
 #
-# Every run starts from the zero vector. The wall time of a setting is the minimum
+# Each run of the sweeps starts from the zero vector. The wall time of a setting is the minimum
 # over five timed repetitions of the `solve!` call alone, after one warm-up call; the
 # solver object is built before the timer starts. Each random-order coordinate descent
 # run gets a new `Xoshiro` generator with the same seed. For each setting the sweep records the time, the number of passes
