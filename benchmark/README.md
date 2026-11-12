@@ -74,8 +74,8 @@ provenance, exit codes and restoring a solver.
 **Current core.** `setup.jl CHECKOUT ENV pinned` builds an environment from the checkout's exact
 ProximalBase pin (URL and full commit of the root `Project.toml` `[sources]`) on Julia 1.10 and
 current stable; `benchmark/Project.toml` keeps ProximalBase 0.5 for the historical modes. `run.jl`
-refuses a ProximalBase at a moving revision or outside its manifest tree, records its manifest
-identity, and checks `PS_EXPECTED_PROXIMALBASE_REV` and `PS_EXPECTED_PACKAGE_REVISION` when set.
+refuses a ProximalBase other than the loaded checkout's pin (URL, commit and committed manifest
+tree), at a moving revision or outside its manifest tree, records its manifest identity, and checks `PS_EXPECTED_PROXIMALBASE_REV` and `PS_EXPECTED_PACKAGE_REVISION` when set.
 `cases.jl` declares the core's capabilities; the 30 current-core cases and 2 historical cases that
 run unchanged are supported, and the other 100 historical cases are deferred
 (`PS_LIST=deferred`). Requesting a deferred case stops the runner with what it lacks.

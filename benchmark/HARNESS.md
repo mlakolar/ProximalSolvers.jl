@@ -35,11 +35,16 @@ for the same commit.
 
 At startup `run.jl` reads the active manifest's ProximalBase entry and refuses a git source at
 a moving revision and a git or registry source loaded from another directory than its tree's
-depot directory (exit 3, no records). `PS_EXPECTED_PROXIMALBASE_REV` requires a git source at
-exactly that commit, and `PS_EXPECTED_PACKAGE_REVISION` requires the loaded checkout to be that
+depot directory (exit 3, no records). When the loaded checkout pins ProximalBase in its root
+`Project.toml`, the loaded ProximalBase must be a git entry at exactly that URL and commit,
+with the tree the checkout's committed manifests record; this needs no setting, so an
+environment changed after setup (for example by `Pkg.add` of another commit, which Julia 1.10
+allows because it ignores `[sources]`) is refused. Checkouts without a pin (historical
+full-package ones) keep the version and path modes. `PS_EXPECTED_PROXIMALBASE_REV` additionally
+requires a git source at exactly that commit, and `PS_EXPECTED_PACKAGE_REVISION` requires the loaded checkout to be that
 commit with no tracked or untracked change in `Project.toml`, `src` or `ext`. Start metadata
 records the manifest entry (`proximalbase_source`, `_url`, `_rev`, `_tree_sha1`, `_path`,
-`active_manifest`), the declared `capabilities` and the number of `deferred_cases`.
+`active_manifest`), the checkout's pin (`required_proximalbase_rev`), the declared `capabilities` and the number of `deferred_cases`.
 
 The historical modes are unchanged: a version (`0.5.4`) or a ProximalBase checkout path copy
 the compat of `benchmark/Project.toml`, for full-package checkouts such as Stack A `b0de3f7`.

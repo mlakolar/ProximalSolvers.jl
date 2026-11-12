@@ -76,18 +76,48 @@ function proximalbase_identity()
   (; root, source, url, rev, tree, manifest = something(manifest, ""), slug_matches)
 end
 
+# The ProximalBase source that a checkout pins in its root Project.toml `[sources]` (URL and
+# revision), with the tree its committed manifests record for that revision, or nothing for a
+# checkout without a pin (the historical full-package checkouts, run with a registered or path
+# ProximalBase).
+function checkout_base_pin(root)
+  project = TOML.parsefile(joinpath(root, "Project.toml"))
+  source = get(get(project, "sources", Dict()), "ProximalBase", nothing)
+  source isa AbstractDict && haskey(source, "rev") || return nothing
+  trees = String[]
+  for name in readdir(root)
+    occursin(r"^Manifest(-v\d+\.\d+)?\.toml$", name) || continue
+    parsed = TOML.parsefile(joinpath(root, name))
+    entries = get(get(parsed, "deps", parsed), "ProximalBase", nothing)
+    entries isa AbstractVector && length(entries) == 1 || continue
+    entry = only(entries)
+    get(entry, "repo-rev", "") == source["rev"] && push!(trees, get(entry, "git-tree-sha1", ""))
+  end
+  (; url = String(get(source, "url", "")), rev = String(source["rev"]), trees = unique(trees))
+end
+
 # Refuse a ProximalBase that a formal record could not identify: a git source at a moving
-# revision (a branch name or a short hash), a git or registry source loaded from another
-# directory than its manifest tree, and, with PS_EXPECTED_PROXIMALBASE_REV, any source
-# other than a git entry at exactly that commit.
-function check_proximalbase(identity, expected)
+# revision (a branch name or a short hash) and a git or registry source loaded from another
+# directory than its manifest tree. When the loaded checkout pins ProximalBase (`pin`), the
+# loaded one must be a git entry at exactly that URL and full commit, with the tree that the
+# checkout's committed manifests record, whatever the environment variables say; with
+# PS_EXPECTED_PROXIMALBASE_REV, it must also be a git entry at exactly that commit.
+function check_proximalbase(identity, expected, pin = nothing)
   b = identity
-  b.source == "git" && !occursin(r"^[0-9a-f]{40}$", b.rev) &&
+  sha(x) = occursin(r"^[0-9a-f]{40}$", x)
+  b.source == "git" && !sha(b.rev) &&
     error("ProximalBase tracks the moving revision \"$(b.rev)\"; pin a full commit")
   b.source in ("git", "registry") && !b.slug_matches &&
     error("loaded ProximalBase from $(b.root), not from its manifest tree $(b.tree)")
+  if pin !== nothing
+    sha(pin.rev) || error("the checkout pins ProximalBase to \"$(pin.rev)\", not a full commit")
+    b.source == "git" && b.url == pin.url && b.rev == pin.rev ||
+      error("loaded ProximalBase is $(b.source) $(b.url)#$(b.rev); the checkout pins $(pin.url)#$(pin.rev)")
+    isempty(pin.trees) || b.tree in pin.trees ||
+      error("loaded ProximalBase tree $(b.tree) differs from $(join(pin.trees, ", ")) in the checkout's manifests")
+  end
   isempty(expected) && return nothing
-  occursin(r"^[0-9a-f]{40}$", expected) || error("PS_EXPECTED_PROXIMALBASE_REV must be a full commit")
+  sha(expected) || error("PS_EXPECTED_PROXIMALBASE_REV must be a full commit")
   b.source == "git" && b.rev == expected ||
     error("loaded ProximalBase is $(b.source) $(b.rev); expected the git commit $expected")
   nothing
@@ -135,9 +165,10 @@ function runner_settings()
   check_package_revision(root, expected_revision)
   expected_base = strip(get(ENV, "PS_EXPECTED_PROXIMALBASE_REV", ""))
   base = proximalbase_identity()
-  check_proximalbase(base, expected_base)
+  pin = checkout_base_pin(root)
+  check_proximalbase(base, expected_base, pin)
   (; suite, groups, cases, rep, samples, seconds, case_seconds, profile_seconds, output,
-     expected, root, expected_revision, expected_base, base)
+     expected, root, expected_revision, expected_base, base, pin)
 end
 
 """
@@ -186,6 +217,7 @@ function start_metadata(settings)
     # Source identities checked at startup (#110); validate.py reads only the keys above.
     "expected_package_revision" => s.expected_revision,
     "expected_proximalbase_rev" => s.expected_base,
+    "required_proximalbase_rev" => s.pin === nothing ? "" : s.pin.rev,
     "proximalbase_source" => s.base.source, "proximalbase_url" => s.base.url,
     "proximalbase_rev" => s.base.rev, "proximalbase_tree_sha1" => s.base.tree,
     "proximalbase_path" => s.base.root, "active_manifest" => s.base.manifest,

@@ -118,6 +118,8 @@ end
   for s in catalog()
     state = call(s.make, 1)
     output, cert = call(observe, state)
+    # The minimizer aliases the case's iterate, which reset! overwrites: keep a snapshot.
+    solution = copy(Array(output.minimizer))
     @test cert.status == :ok && isfinite(cert.value)
     status = call(H.certificate_status, cert, s.meta)
     if s.meta.solver == "cd" || s.meta.variant == "R"
@@ -147,7 +149,7 @@ end
       @test sort(collect(ProximalBase.activecoordinates(x))) == findall(!iszero, start)
     end
     again, _ = call(observe, state)
-    @test Array(again.minimizer) == Array(output.minimizer)
+    @test Array(again.minimizer) == solution
   end
   # Certificates: the Float64 reference solution, its Float32 rounding, and a perturbation.
   a = call(H.regression_problem, 1, "core/lasso")
@@ -169,6 +171,22 @@ end
   @test_throws ErrorException call(H.check_proximalbase, merge(base, (; rev = "master")), "")
   @test_throws ErrorException call(H.check_proximalbase, merge(base, (; slug_matches = false)), "")
   @test_throws ErrorException call(H.check_package_revision, dirname(@__DIR__), "0"^40)
+  # The loaded checkout's own pin is enforced without PS_EXPECTED_PROXIMALBASE_REV: another
+  # full commit and tree (a valid, installed ProximalBase 0.6) is refused, as are path and
+  # registry sources and a tree other than the one the committed manifests record.
+  pin = call(H.checkout_base_pin, dirname(@__DIR__))
+  @test pin.rev == PB_REV && pin.url == "https://github.com/mlakolar/ProximalBase.jl"
+  @test pin.trees == ["c2e2ddde114a1e7800358595193ee0869830180d"] && base.tree in pin.trees
+  @test call(H.check_proximalbase, base, "", pin) === nothing
+  other = merge(base, (; rev = "eb74a914d779371a02e4a6637eaa724aeb66fdf5",
+                         tree = "d1da2065a3895cb90aa5d0dd1a008c482602bd00"))
+  @test call(H.check_proximalbase, other, "") === nothing          # no pin: historical modes
+  @test_throws ErrorException call(H.check_proximalbase, other, "", pin)
+  @test_throws ErrorException call(H.check_proximalbase, merge(base, (; url = "https://example.org/ProximalBase.jl")), "", pin)
+  @test_throws ErrorException call(H.check_proximalbase, merge(base, (; source = "path", rev = "", url = "")), "", pin)
+  @test_throws ErrorException call(H.check_proximalbase, merge(base, (; source = "registry", rev = "", url = "")), "", pin)
+  @test_throws ErrorException call(H.check_proximalbase, base, "", merge(pin, (; trees = ["0"^40])))
+  @test_throws ErrorException call(H.check_proximalbase, base, "", merge(pin, (; rev = "master")))
   # The historical environment template is unchanged (Stage 2A verification reads it).
   @test occursin("ProximalBase = \"0.5\"", read(joinpath(BENCHMARK, "Project.toml"), String))
 end
