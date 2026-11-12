@@ -4,7 +4,7 @@
 # are cyclic coordinate descent without momentum, coordinate descent in random
 # order with its default momentum, and dense proximal gradient descent.
 #
-#md # [Download this example as a Jupyter notebook](NOTEBOOK_URL)
+#md # [Download this example as a Jupyter notebook](@__NAME__.ipynb)
 #nb # The plotting cells of this notebook need the package Plots in the active environment.
 #
 # ## Why time to equal accuracy
