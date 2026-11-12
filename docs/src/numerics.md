@@ -1,14 +1,25 @@
 # Numerical behavior
 
-CD's private PB SparseIterate retains stored activation/compaction order. First
+CD runs on a PB SparseIterate that retains stored activation/compaction order: a
+private one for a dense vector, and a private copy of the caller's owner for a
+`SparseIterate`, which starts with that owner's active zeros and slot order and
+which the caller's owner receives, whole, only after a finite completed run. First
 full passes admit coordinates, active passes refine them, and only a full pass
 strictly below the change tolerance converges. Random LS uses historical
 momentum/restarts and refreshes moved residual caches before full checks; the
 borrowed RNG advances. Cyclic and explicit momentum=false remain supported.
 Zero columns choose the nearest-zero penalty minimizer, including lambda=0.
 Nonzero-column curvature underflow is an error. tol=0 stays strict; maxpasses=0
-returns unconverged with no updates. A nonfinite returned objective is refused
-before dense scatter; this is not robust dynamic-range recovery.
+returns unconverged with no updates, and an owner then keeps its exact entry state.
+After every pass zero coordinates leave the active set, so an owner that completed
+at least one pass has none and their order follows from compaction, which moves the
+last active coordinate into the place of a removed one. A nonfinite returned
+objective is refused before dense scatter or owner commit; this is not robust
+dynamic-range recovery. A nonconverged finite pass-limit return warns, then commits.
+A numerical error leaves a caller's owner unchanged but may advance the RNG.
+Dense and owner solves from the same canonical state (the owner built from the
+dense vector) run the same arithmetic and RNG schedule; other slot orders reach the
+optimum within the stopping tolerance, not bit-for-bit.
 
 PGD retains native LS image/value/gradient order, scalar steps, fused PB prox,
 TFOCS objective-to-gradient checks, finite curvature-growth refusal and zero-step

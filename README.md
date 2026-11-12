@@ -1,7 +1,7 @@
-# ProximalSolvers.jl — minimal dense lasso core
+# ProximalSolvers.jl — minimal dense-design lasso core
 
-Solve ordinary dense least-squares lasso with coordinate descent or proximal
-gradient descent, using ProximalBase's loss and proximal operators.
+Solve ordinary least-squares lasso on dense designs with coordinate descent or
+proximal gradient descent, using ProximalBase's loss and proximal operators.
 
 ```julia
 using ProximalBase, ProximalSolvers
@@ -16,15 +16,38 @@ z = zeros(T, size(X, 2))
 pg = solve!(z, f, g, ProximalGradientDescent(), ProximalOptions())
 ```
 
+Coordinate descent also takes a one-dimensional ProximalBase `SparseIterate` as
+the iterate, for example `SparseIterate(T, size(X, 2))`, with the same data and
+penalty. Proximal gradient descent does not (see below).
+
+```julia
+w = SparseIterate(T, size(X, 2))
+sp = solve!(w, f, g, CDSolver())    # sp.minimizer === w
+```
+
 Raw `LeastSquaresLoss(y,X)` is `||y-X*x||²/2`, without 1/n. The solvers minimize
 exactly the supplied objective; normalization is explicit. Supported arrays are
-same-type Float32/Float64 Vector x/y and Matrix X, with positive consistent
+same-type Float32/Float64 Vector y and Matrix X, with positive consistent
 dimensions, finite entries, one raw or valid positive Scaled LS wrapper, and
-unweighted finite nonnegative NormL1. Positive parameters must stay positive
-and finite in the working type. Arrays are not silently coerced. Detectable
-x/data aliases, unsupported combinations and unsupported options fail before
-caller mutation. X/y are borrowed read-only and must remain fixed during a solve.
-Results share x; copy it to retain coefficients across later calls.
+unweighted finite nonnegative NormL1. The iterate x is a dense Vector of that
+type, or, for coordinate descent only, a one-dimensional `SparseIterate` of that
+type. Positive parameters must stay positive and finite in the working type.
+Arrays are not silently coerced. Detectable x/data aliases, unsupported
+combinations and unsupported options fail before caller mutation. X/y are
+borrowed read-only and must remain fixed during a solve. Results share x; copy it
+to retain coefficients across later calls.
+
+A `SparseIterate` is solved on a private copy that keeps its active zeros and
+the order of its active coordinates, and receives the complete final state by a
+same-shape `copyto!` when the run completes with a finite objective. That
+includes a finite `maxpasses` outcome with `converged = false` (with its
+warning) and `maxpasses = 0`, which leaves the entry state exactly as it was. A
+numerical error leaves the values, active set, signed zeros and order unchanged.
+Validation failures do not advance the RNG; a numerical failure may have.
+Passes compact zero coordinates after each pass, so a completed run does not
+keep them, and the order is not sorted. Take `activevalues(x)` and
+`activecoordinates(x)` again after a solve. The private copy needs O(p)
+additional storage.
 
 Convergence is a historical stopping flag, not a KKT certificate. Native
 Float32 arithmetic limits accuracy; finite intermediate calculations are
@@ -32,9 +55,10 @@ required. CD refuses nonfinite returned objectives, without extreme-range
 recovery. Deferred diagnostic fields are explicit sentinels (`gap=NaN`, CD
 `kkt_checks=0`), not certificates.
 
-This is an intentionally **breaking support reduction**. Sparse inputs/designs,
-views, matrix responses, weights/intercepts/offsets, groups, general losses and
-compositions, accelerated methods, Newton/ADMM/primal-dual/SLOPE/graphical models,
+This is an intentionally **breaking support reduction**. Sparse designs, sparse
+vectors and views as iterates, `SparseIterate` for proximal gradient descent,
+matrix-shaped, group and symmetric owners, matrix responses,
+weights/intercepts/offsets, general losses and compositions, accelerated methods, Newton/ADMM/primal-dual/SLOPE/graphical models,
 paths, screening, certificates, workspaces, refit and reweighting are deferred.
 No release/version/registry decision has been made or release authorized.
 

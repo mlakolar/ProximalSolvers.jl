@@ -3,7 +3,9 @@
 Quick: Aqua, naming, unchanged required Linux CI/gate contracts, fail-closed
 inventory/selection, unchanged C0 independent numerical characterization and
 new public refusal contracts and exact-source paired-control policy tests. Standard adds ported scalar cache/scale/helper
-regressions. Full adds both runnable dense lasso examples. Tiers are cumulative;
+regressions and the vector `SparseIterate` coordinate-descent contracts
+(`sparse_cd`). Full adds every runnable lasso example under `examples/`, which
+`test/examples.jl` discovers by itself. Tiers are cumulative;
 Pkg.test defaults full. Every regular file is listed once, missing/duplicate/
 unlisted tests and empty selections fail; unknown source defaults full.
 

@@ -144,15 +144,42 @@ end
     solve!(x, f, g, CDSolver())
     solve!(x, f, g, ProximalGradientDescent(), options=ProximalOptions())
 
-Overwrite dense Vector{T} x, T=Float32 or Float64, for same-type Matrix X/Vector
-y and unweighted finite nonnegative NormL1. Use `(one(T)/T(n))*LeastSquaresLoss`
-for normalized lasso; raw LS keeps its unnormalized meaning. One positive finite
-scalar LS wrapper is supported. Borrowed X/y must not alias mutable x or change
-during a solve. Results share x; copy it to retain earlier coefficients.
-Unsupported inputs/options fail before mutation. Convergence uses historical
-stopping tests, not a KKT certificate. Finite intermediate arithmetic is required.
-CD errors before scatter preserve input x; PGD step errors restore its last
-accepted x and rethrow, without a transaction guarantee for internal counters.
+Minimize a least-squares lasso, overwriting `x`. `x` is a dense `Vector{T}`,
+T=Float32 or Float64; `CDSolver` also accepts a one-dimensional `SparseIterate{T}`
+(see below), while `ProximalGradientDescent` refuses it. The loss uses same-type
+`Matrix` X and `Vector` y, and the penalty is an unweighted finite nonnegative
+`NormL1`. Use `(one(T)/T(n))*LeastSquaresLoss` for normalized lasso; raw LS keeps
+its unnormalized meaning. One positive finite scalar LS wrapper is supported.
+Borrowed X/y must not alias mutable `x` or change during a solve. Results share
+`x`; copy it to retain earlier coefficients. Unsupported inputs/options fail
+before mutation. Convergence uses historical stopping tests, not a KKT
+certificate. Finite intermediate arithmetic is required. PGD step errors restore
+its last accepted `x` and rethrow, without a transaction guarantee for internal
+counters.
+
+**CD on a dense vector.** A numerical error, including a nonfinite final
+objective, leaves `x` unchanged.
+
+**CD on a `SparseIterate`.** All checks of inputs, options, shapes, finiteness of
+the active values, representable parameters and detectable aliases of `x` with X
+or y (through its backing storage, whether or not it has active entries) happen
+before the iterate is copied and before the RNG is used, so a refused call neither changes `x` nor
+advances the RNG. The solve then runs on `work = copy(x)`, which keeps the
+values, active zeros and the order of the active coordinates, with the same
+passes, activation, per-pass removal of zero coordinates, momentum and stopping
+as for a dense vector. It needs O(p) extra storage, and nothing is reconstructed
+through a dense vector.
+
+When the run completes, with a finite objective, `x` receives the whole final
+state of `work` by a same-shape `copyto!(x, work)`: this includes a finite
+`maxpasses` outcome with `converged = false` and its warning, and `maxpasses = 0`,
+which leaves exactly the entry state, including active zeros and slot order.
+Zeros that a pass removed from `work` are not restored, and the order is not
+sorted. The result's `minimizer` is `x` itself. A numerical error (such as a
+nonfinite step or objective) throws with the values, the active set, signed zeros
+and the order of `x` unchanged; the borrowed RNG may already have advanced.
+After a successful call, take `activevalues(x)` and `activecoordinates(x)` again:
+handles taken earlier may no longer describe the active set.
 """
 function solve!(x, f, g, method::ProximalGradientDescent,
                 options::ProximalOptions = ProximalOptions(); kwargs...)
