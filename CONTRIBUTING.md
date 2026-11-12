@@ -56,8 +56,9 @@ default random momentum/restarts/cache refresh. PGD keeps native LS image math,
 TFOCS modes, fused prox, FASTA/x/objective OR stopping, trace/callback/counts and
 last-accepted rollback. APG (`AccProxGradDescent`) reuses the LS image model, the
 gradient engine, the stopping rules and the result type, with its own k/(k+3)
-extrapolation, objective-increase restart and backtracking on the LS bound,
-tested as a comparison of norms (see the implementation notes); its
+extrapolation, objective-increase restart and backtracking that accepts a step only
+when the LS bound is certified by rounding-error bounds (see the implementation
+notes); its
 tests in `test/accelerated_pgd.jl` check accuracy against BigFloat references from
 the raw data, never only against CD or PGD. Retain C0 numerical fixtures unchanged. Test correctness
 independently using raw objective/KKT and analytic/finite-support references.

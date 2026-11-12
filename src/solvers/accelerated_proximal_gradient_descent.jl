@@ -16,10 +16,11 @@ momentum sequence `k/(k+3)` is not the textbook FISTA recurrence.
 
 The step size `1/L` is found by backtracking on the least-squares bound
 `f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + L/2 ‖x - y‖²`, which holds exactly when
-`√α_f ‖X(x - y)‖ ≤ √L ‖x - y‖`. The test compares these norms, not their squares,
-with `X(x - y)` approximated by the difference of cached products, a relative slack
-of `4eps`, and a rounding allowance; see
-[numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
+`√α_f ‖X(x - y)‖ ≤ √L ‖x - y‖`. A trial is accepted only when that inequality, with
+a relative slack of `4eps` on `√L`, is certified by conservative rounding-error
+bounds: first from the difference of cached products, and when that is inconclusive
+from a freshly computed `X(x - y)`; a trial that is still inconclusive is rejected.
+See [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
 A trial with `x == y` entrywise is accepted when its value is finite. A rejected trial sets
 `L ← L/β`, `β ∈ (0, 1)`. Before each iteration `L ← α L`, `α ∈ (0, 1]`, so that the
 step can grow again where the curvature is smaller; `α = 1` keeps `L` from
@@ -29,8 +30,8 @@ When an extrapolated step would increase the computed objective, the momentum is
 restarted: the step is repeated from `y = x'` and `k` returns to zero, so the next
 iteration extrapolates with `1/4`. An accepted step that used momentum therefore
 never increases the computed objective. A step without momentum (the first
-iteration, and a step repeated after a restart) can increase it, through rounding
-or the allowance of the bound test; as for [`ProximalGradientDescent`](@ref), that
+iteration, and a step repeated after a restart) can increase it through rounding of
+the step and of the objective; as for [`ProximalGradientDescent`](@ref), that
 stops the solve unless `allow_f_increases = true` in [`ProximalOptions`](@ref).
 
 Backtracking raises an error when the next curvature estimate `L/β` is not a finite
@@ -87,7 +88,14 @@ mutable struct AccProxGradDescentState{T, X<:Vector{T}, M, Z}
     z_x::Z
     z_previous::Z
     z_y::Z
-    dz::Z             # residual A y - response (before the loss scale)
+    dz::Z             # residual A y - response (before the loss scale); buffer of the fresh A d
+    norm_design::_SE{T}  # ‖A‖_F, for the error bounds of the bound test
+    rootα::_SE{T}     # √ of the loss scale, taken in the scale's own type
+    image_error_y::_SE{T}  # bound on the error of z_y as an image of y
+    normx::_SE{T}     # ‖x‖ of the accepted iterate
+    normx_previous::_SE{T}  # ‖x_previous‖
+    fresh_only::Bool  # internal validation switch: decide every trial with the fresh A d
+    fallbacks::Int    # trials decided with the fresh A d
 end
 
 function initial_state(
@@ -101,6 +109,7 @@ function initial_state(
     z_x = _image_buffer(model)
     f_x = _value!(f, x0, model, z_x)
     _check_start(f_x)
+    normX = _se_norm(T, model.X)      # X is finite (checked before)
     AccProxGradDescentState(
                          x0,          # Maintain current state in state.x
                          f_x,
@@ -125,7 +134,14 @@ function initial_state(
                          z_x,
                          copy(z_x),   # A x_previous
                          similar(z_x), # A y
-                         similar(z_x)  # residual at A y
+                         similar(z_x), # residual at A y
+                         normX,
+                         _SE{T}(sqrt(float(model.α))),
+                         _se_zero(T),
+                         _se_norm(T, x0),
+                         _se_norm(T, x0),
+                         false,
+                         0
                          )
 end
 
@@ -137,6 +153,12 @@ function update_state!(
 
     ω = T(state.k / (state.k + 3))
     state.L *= T(method.α)
+    # norms of the accepted x (x_a) and of the one before it (x_b), kept from the trials
+    # that accepted them, for the error bound of the extrapolated image
+    n, p = length(state.z_x), length(state.x)
+    normxa, normxb = state.normx, state.normx_previous
+    state.normx_previous = normxa
+    state.image_error_y = _image_error_bound(T, n, p, state.norm_design, normxa, normxb, ω > 0)
     # y and its image are formed before x_previous is overwritten; they change no
     # caller-visible array, so x_previous holds the last accepted iterate whenever a
     # trial below can throw (the engine restores x from it).
@@ -153,16 +175,18 @@ function update_state!(
 
     while true
       _prox_grad_step!(f, g, state, T(method.β))
-      # The restart sets ω = 0, so it happens at most once per iteration. A step from
-      # y = x_previous that satisfies the bound exactly does not increase the objective;
-      # rounding and the allowance of the bound test can, and the engine's increase
-      # test sees that.
+      # The restart sets ω = 0, so it happens at most once per iteration. An exact
+      # proximal step from y = x_previous that satisfies the certified bound (with its
+      # 4eps slack) does not increase the exact objective; rounding of the computed step
+      # and objective can raise the computed value, and the engine's increase test sees
+      # that.
       if ω > 0 && state.f_x + state.g_x > state.f_x_previous + state.g_x_previous
         ω = zero(T)
         state.k = 0
         state.restarts += 1
         _copyto!(state.y, state.x_previous)
         copyto!(state.z_y, state.z_previous)
+        state.image_error_y = _image_error_bound(T, n, p, state.norm_design, normxa, normxb, false)
       else
         break
       end
@@ -173,10 +197,9 @@ function update_state!(
     state
 end
 
-# x = prox_{g/L}(y - ∇f(y)/L), increasing L until _majorization_ok accepts the trial
-# (the least-squares form α_f ‖A(x - y)‖² ≤ L ‖x - y‖² of
-# f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + L/2 ‖x - y‖², tested with a rounding allowance), or
-# until x == y.
+# x = prox_{g/L}(y - ∇f(y)/L), increasing L until _bound_certified! certifies
+# f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + L/2 ‖x - y‖² (with legacy's slack 8eps on L), or until
+# x == y entrywise.
 function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where T
     state.f_y = _value_and_gradient!(state.grad_f_y, f, state.y, state.model, state.z_y, state.dz)
     state.f_calls += 1
@@ -195,21 +218,32 @@ function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where 
       state.f_calls += 1
 
       _sub!(state.xhat, state.x, state.y)
-      md = _maxabs(state.xhat)   # NaN when an entry is NaN
       state.backtrack_steps += 1
-      if iszero(md)
-        # x == y entrywise. The bound has no step to test, only the rounding difference
-        # between the extrapolated A y and the freshly multiplied A x, so the step is
-        # accepted when its value is finite, as PGD accepts a zero step; this is a
-        # stopping policy, not a claim that a larger L would also return y.
-        isfinite(state.f_x) && break
-      else
-        # Norms, not squares, with max |x - y| as the scale (see _majorization_ok), so a
-        # nonzero step whose squared norm would underflow is still compared.
-        _majorization_ok(state.model, state.z_y, state.z_x, state.f_x, state.L, state.xhat, md) && break
+      if isfinite(state.f_x)
+        sd, sx = _sumsq2(state.xhat, state.x)
+        normx = _se_norm_onepass(T, sx, state.x)
+        D = _se_norm_onepass(T, sd, state.xhat)
+        if normx !== nothing && D !== nothing
+          if iszero(D.s)
+            # x == y entrywise: there is no step to test. The step is accepted, as PGD
+            # accepts a zero step; this is a stopping policy, not a claim that a larger L
+            # would also return y.
+            state.normx = normx
+            break
+          end
+          ok, fresh = _bound_certified!(state.dz, state.model, state.z_y, state.z_x, state.xhat,
+                                        D, state.L, state.image_error_y, state.norm_design, normx, state.rootα,
+                                        state.fresh_only)
+          state.fallbacks += fresh
+          if ok
+            state.normx = normx
+            break
+          end
+        end
       end
-      # A rejected trial, including one with a nonfinite value, remainder or bound,
-      # raises L; next_curvature raises once L/β is not a finite increase.
+      # A trial that is not certified, including one with a nonfinite value or norm,
+      # raises L; next_curvature raises once L/β is not a finite increase, so a curvature
+      # beyond floatmax(T) ends in that error and the engine's rollback.
       state.L = LineSearches.next_curvature(state.L, β)
     end
     state
@@ -227,6 +261,14 @@ function _check_method(m::AccProxGradDescent, ::Type{T}) where T
   β, α = T(m.β), T(m.α)
   0 < β < 1 && 0 < α <= 1 ||
     throw(ArgumentError("AccProxGradDescent needs 0 < β < 1 and 0 < α <= 1 after conversion to $T"))
+  nothing
+end
+
+# The error bounds of the bound test need k u < 1/8 for k = max(n, p) + 4.
+function _check_bound_size(f, ::Type{T}) where T
+  n, p = size(_image_model(f).X)
+  (max(n, p) + 4) * _unit(T) < 1 / 8 ||
+    throw(ArgumentError("AccProxGradDescent needs max(n, p) + 4 < 1/(4 eps($T)) for its rounding-error bounds"))
   nothing
 end
 
@@ -269,6 +311,7 @@ function solve!(x, f, g, method::AccProxGradDescent,
   _check_options(options)
   _check_problem(x, f, g)
   _check_method(method, eltype(x))
+  _check_bound_size(f, eltype(x))
   t0 = time()
   state = initial_state(method, options, f, g, x)
   _solve_gradient!(state, f, g, method, options, t0)

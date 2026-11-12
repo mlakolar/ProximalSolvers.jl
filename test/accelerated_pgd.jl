@@ -261,77 +261,147 @@ image_error(z, X, v) = Float64(norm(big_(z) - big_(X) * big_(v)))
   end
 end
 
-# The backtracking test α‖Δz‖² ≤ L‖d‖² (Δz = zw - zu) against a BigFloat reference computed
-# from the same stored values. Outside a band of relative width δ around equality the
-# decision must match the reference; δ covers the evaluation error of the two scaled
-# norms (recursive sums of n and p terms), the relative slack 4eps on the norm ratio
-# and the image allowance 8eps max(‖zu‖, ‖zw‖), which with zu = 0 is 8eps ‖Δz‖.
-function reference_ratio(α, zu, zw, d, L)
-  BigFloat(α) * sum(abs2, big_(zw) - big_(zu)) / (BigFloat(L) * sum(abs2, big_(d)))
-end
-majorization(m, zu, zw, L, d) = PS._majorization_ok(m, zu, zw, zero(eltype(d)), L, d, maximum(abs, d))
+# The certified backtracking test (_bound_certified!) against BigFloat references computed
+# from X, x and y themselves (the exact X d), never from the cached images. Safety: an
+# accepted trial satisfies α‖X d‖² ≤ (1 + 4eps)² L‖d‖² for the stored x and y, with α the
+# loss scale as given. Liveness: L ≥ 4α‖X‖_F² (a global curvature bound) is accepted.
+exact_ratio(α, X, x, y, L) = (d = big_(x) - big_(y);
+  BigFloat(α) * sum(abs2, big_(X) * d) / (BigFloat(L) * sum(abs2, d)))
 
-@testset "backtracking test over the representable range (BigFloat reference)" begin
+# The images and error bound as the solver forms them: zu fresh (y = x_a), or extrapolated
+# from fresh images of x_a and x_b with ω.
+function certified(T, X, x, xa, xb, ω, L, α; fresh_only = false)
+  n, p = size(X)
+  extrapolated = ω > 0
+  y = extrapolated ? xa .+ ω .* (xa .- xb) : copy(xa)
+  za, zb = X * xa, X * xb
+  zu = extrapolated ? za .+ ω .* (za .- zb) : za
+  zw = X * x
+  d = x .- y
+  loss = LeastSquaresLoss(zeros(T, n), X)
+  m = PS._image_model(isone(α) ? loss : α * loss)
+  normX = PS._se_norm(T, X)
+  Ey = PS._image_error_bound(T, n, p, normX, PS._se_norm(T, xa), PS._se_norm(T, xb), extrapolated)
+  D = PS._se_norm(T, d)
+  iszero(D.s) && return nothing, y
+  ok, fresh = PS._bound_certified!(zeros(T, n), m, zu, zw, d, D, T(L), Ey, normX,
+                                   PS._se_norm(T, x), PS._SE{T}(sqrt(float(α))), fresh_only)
+  (ok, fresh), y
+end
+
+@testset "certified backtracking test against BigFloat references" begin
   rng = Xoshiro(265)
   for T in (Float32, Float64)
-    E = T == Float32 ? 120 : 1000          # exponent span of the scales
-    checked = 0
-    for trial in 1:400
-      n, p = rand(rng, 1:40), rand(rng, 1:40)
-      α = T(2.0)^rand(rng, -E÷2:E÷2)
-      d = T.(randn(rng, p) .* 2.0^rand(rng, -E:E))
-      dz = T.(randn(rng, n) .* 2.0^rand(rng, -E:E))
-      all(isfinite, d) && all(isfinite, dz) && any(!iszero, d) || continue
-      zu, zw = zeros(T, n), dz
-      m = PS._image_model(T(α) * LeastSquaresLoss(zeros(T, n), zeros(T, n, 1)))
-      δ = 8 * (n + p + 16) * eps(T)
-      ρ1 = reference_ratio(α, zu, zw, d, one(T))          # curvature along d, in units of L = 1
-      for factor in (big(1) - 2δ, big(1) + 2δ, big(1) / 4, big(4))
-        Lb = ρ1 * factor                                    # α‖Δz‖²/(L‖d‖²) = 1/factor
-        Lb > floatmax(T) && continue
-        L = T(Lb)
-        (iszero(L) || !isfinite(L) || issubnormal(L)) && continue
-        ratio = reference_ratio(α, zu, zw, d, L)
-        ok = majorization(m, zu, zw, L, d)
-        if ratio <= 1 - δ
-          @test ok
-        elseif ratio >= 1 + δ
-          @test !ok
+    E = T == Float32 ? 40 : 300            # exponent spans of scales and offsets
+    tol = (1 + 4eps(T))^2
+    accepted = rejected = fallbacks = live = 0
+    for trial in 1:600
+      n, p = rand(rng, 1:25), rand(rng, 1:25)
+      X = T.(randn(rng, n, p) .* 2.0^rand(rng, -E:E))
+      # a large common offset (large images) with a small difference, or no offset
+      c = rand(rng, Bool) ? 2.0^rand(rng, 0:E) : 0.0
+      xa = T.(c .+ randn(rng, p)); xb = T.(c .+ randn(rng, p))
+      x = T.(Float64.(xa) .+ randn(rng, p) .* 2.0^rand(rng, -E÷2:0))
+      ω = rand(rng, (zero(T), T(0.25), T(0.9)))
+      α = rand(rng, (1, T(2.0)^rand(rng, -E÷2:E÷2), 2.0^rand(rng, -E÷2:E÷2)))
+      T == Float32 && α isa Float64 && !isfinite(Float32(α)) && continue
+      T == Float32 && α isa Float64 && iszero(Float32(α)) && continue
+      all(isfinite, X) && all(isfinite, x) && all(isfinite, xa) && all(isfinite, xb) || continue
+      y = ω > 0 ? xa .+ ω .* (xa .- xb) : xa
+      all(isfinite, y) && any(!=(0), x .- y) || continue
+      curvature = exact_ratio(α, X, x, y, one(T))
+      for factor in (1 / 16, 1 / 2, 1, 2, 16)
+        L = curvature * factor
+        (L > floatmax(T) || L < floatmin(T)) && continue
+        r, y2 = certified(T, X, x, xa, xb, ω, L, α)
+        r === nothing && continue
+        ok, fresh = r
+        fallbacks += fresh
+        if ok
+          accepted += 1
+          @test exact_ratio(α, X, x, y2, T(L)) <= tol           # never accepts a violated bound
+        else
+          rejected += 1
         end
-        checked += 1
+        rB, _ = certified(T, X, x, xa, xb, ω, L, α; fresh_only = true)
+        rB[1] && @test exact_ratio(α, X, x, y2, T(L)) <= tol    # Option B is safe too
       end
-      # a curvature beyond floatmax(T) is rejected by every representable L
-      if ρ1 > big(floatmax(T))
-        @test !majorization(m, zu, zw, floatmax(T), d)
+      # liveness: a global curvature bound is accepted
+      Lg = 4 * BigFloat(α) * sum(abs2, big_(X))
+      if floatmin(T) <= Lg <= floatmax(T) / 4
+        r, _ = certified(T, X, x, xa, xb, ω, Lg, α)
+        r === nothing || (@test r[1]; live += 1)
       end
     end
-    @test checked >= 400
-    # rounding boundary: equality is accepted, a ratio 1 + δ is not
-    d = T[3, 4]; dz = T[6, 8]                              # ‖Δz‖ = 2‖d‖ exactly
-    m = PS._image_model(LeastSquaresLoss(zeros(T, 2), zeros(T, 2, 1)))
-    @test majorization(m, zeros(T, 2), dz, T(4), d)
-    @test !majorization(m, zeros(T, 2), dz, T(4) * (1 - 64eps(T)), d)
-    # ‖d‖² underflows to zero in T, but the comparison is evaluated
+    @test accepted >= 300 && rejected >= 300 && live >= 100 && fallbacks >= 1
+  end
+end
+
+@testset "certified test: subnormal norms, wide scales and nonfinite inputs" begin
+  for T in (Float32, Float64)
+    t = nextfloat(zero(T))
+    m = PS._image_model(LeastSquaresLoss(zeros(T, 3), ones(T, 3, 1)))
+    one_se = PS._SE{T}(one(T))
+    # images [t, t] (or three entries) of d = [t] with X = ones: the exact curvature is 2 (3)
+    call(k, L) = PS._bound_certified!(zeros(T, k), PS._image_model(LeastSquaresLoss(zeros(T, k), ones(T, k, 1))),
+      zeros(T, k), fill(t, k), T[t], PS._se_norm(T, T[t]), T(L), PS._se_zero(T),
+      PS._se_norm(T, ones(T, k, 1)), PS._se_norm(T, T[t]), one_se, false)[1]
+    @test !call(2, 1)                 # exact ratio 2: rejected
+    @test call(2, 2.01)               # just above the curvature: accepted
+    @test !call(3, 1.5) && call(3, 3.01)
+    # a nonzero d whose ‖d‖² underflows is compared, not taken for zero
     tiny = T == Float32 ? 1f-30 : 1e-200
     @test iszero(sum(abs2, T[tiny]))
-    @test majorization(m, zeros(T, 1), T[2tiny], T(4), T[tiny])
-    @test !majorization(m, zeros(T, 1), T[2tiny], T(3.9), T[tiny])
-    # squares that would overflow in T: ‖Δz‖ = 1e19‖d‖ (Float32), curvature 1e38
-    big_scale = T == Float32 ? 1f19 : 1e150
-    @test majorization(m, zeros(T, 4), fill(big_scale, 4), big_scale^2 * T(1.001), ones(T, 4))
-    @test !majorization(m, zeros(T, 4), fill(big_scale, 4), big_scale^2 * T(0.999), ones(T, 4))
-    # nonfinite or invalid inputs are never accepted
-    @test !majorization(m, zeros(T, 2), T[NaN, 1], T(1e3), T[1, 1])
-    @test !majorization(m, zeros(T, 2), T[1, 1], T(1e3), T[Inf, 1])
-    @test !majorization(m, zeros(T, 2), T[1, 1], T(1e3), T[NaN, 1])
-    @test !PS._majorization_ok(m, zeros(T, 2), T[1, 1], T(Inf), T(1e3), T[1, 1], one(T))
-    @test !PS._majorization_ok(m, zeros(T, 2), T[1, 1], T(NaN), T(1e3), T[1, 1], one(T))
-    @test !majorization(m, zeros(T, 2), T[1, 1], zero(T), T[1, 1])
-    # an image norm that overflows gives no allowance, so the test still decides
-    huge = floatmax(T) / 2
-    @test !majorization(m, T[huge, huge], T[huge, huge] .+ T[0, huge / 4], one(T), T[1, 0])
-    # the allowance: an image difference within 8 roundings of the image norm passes
-    @test majorization(m, T[1, 0], T[1 + 4eps(T), 0], T(1e-30), T[1e-10, 0])
+    @test call2 = PS._bound_certified!(zeros(T, 1), PS._image_model(LeastSquaresLoss(zeros(T, 1), ones(T, 1, 1))),
+      zeros(T, 1), T[tiny], T[tiny], PS._se_norm(T, T[tiny]), T(1.01), PS._se_zero(T),
+      one_se, PS._se_norm(T, T[tiny]), one_se, false)[1]
+    # A nonfinite cached image gives no cheap decision; the fresh product X d, which does
+    # not use the cached images, decides (the solver calls the test only with a finite
+    # trial value). Here X d = [1, 1], so L = 1.5 is rejected and L = 2.01 accepted.
+    m1 = PS._image_model(LeastSquaresLoss(zeros(T, 2), ones(T, 2, 1)))
+    nX = PS._se_norm(T, ones(T, 2, 1))
+    for zw in (T[NaN, 1], T[Inf, 1])
+      r1 = PS._bound_certified!(zeros(T, 2), m1, zeros(T, 2), zw, T[1], PS._se_norm(T, T[1]), T(1.5),
+                                PS._se_zero(T), nX, PS._se_norm(T, T[1]), one_se, false)
+      r2 = PS._bound_certified!(zeros(T, 2), m1, zeros(T, 2), zw, T[1], PS._se_norm(T, T[1]), T(2.01),
+                                PS._se_zero(T), nX, PS._se_norm(T, T[1]), one_se, false)
+      @test r1 == (false, true) && r2 == (true, true)
+    end
+    @test !PS._bound_certified!(zeros(T, 2), m1, zeros(T, 2), T[1, 1], T[1], PS._se_norm(T, T[1]),
+                                zero(T), PS._se_zero(T), nX, PS._se_norm(T, T[1]), one_se, false)[1]
+  end
+  # the loss scale is used as given: a Float64 scale near the smallest Float32 subnormal
+  s = 1.49 * Float64(nextfloat(0f0))
+  X = reshape(Float32[1f20], 1, 1)
+  f = s * LeastSquaresLoss(Float32[1], X)
+  st = PS.initial_state(AccProxGradDescent(α = 1.5f-5), TIGHT, f, NormL1(0f0), zeros(Float32, 1))
+  PS.update_state!(f, NormL1(0f0), st, AccProxGradDescent(α = 1.5f-5))
+  @test s * 1e40 <= (1 + 4eps(Float32))^2 * Float64(st.L)
+end
+
+@testset "curvature beyond floatmax with large common images fails with rollback" begin
+  # The step from x0 = nextfloat(y/X) has an image difference at the rounding level of
+  # the images; the curvature 4e38 exceeds floatmax(Float32), so no trial is certified.
+  X = reshape(Float32[2f19], 1, 1); y = Float32[1f10]
+  x = Float32[nextfloat(y[1] / X[1])]; x0 = copy(x)
+  @test_throws r"cannot increase finitely" solve!(x, LeastSquaresLoss(y, X), NormL1(0f0), AccProxGradDescent())
+  @test x == x0
+end
+
+@testset "the fresh-product reference (Option B) on fixtures" begin
+  for T in (Float64, Float32)
+    X, y = correlated(T, 50, 20; seed = 5, ρ = 0.95)
+    X .*= T(3)
+    s = one(T) / T(50)
+    f, g = loss(y, X, s), NormL1(T(0.01 * λmax(X, y, s)))
+    m = AccProxGradDescent()
+    for fresh in (false, true)
+      st = PS.initial_state(m, TIGHT, f, g, zeros(T, 20))
+      st.fresh_only = fresh
+      r = PS._solve_gradient!(st, f, g, m, TIGHT)
+      @test kkt(X, y, s, g.λ0, st.x) <= kkt_tol(T) * max(1, λmax(X, y, s))
+      fresh && @test st.fallbacks == r.prox_calls      # every trial used the fresh product
+    end
   end
 end
 

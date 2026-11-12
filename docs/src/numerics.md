@@ -95,17 +95,20 @@ only on `converged`.
   finite increase; a trial whose objective is not finite is never accepted.
   An extrapolated point whose objective or gradient is not finite restarts the
   momentum when the step uses momentum; without momentum the step fails, with the
-  same rollback. Its line search tests the least-squares bound in the form
-  `√α ‖X(x - y)‖ ≤ √L ‖x - y‖`, with `X(x - y)` approximated by the difference of
-  the cached images `X x` and `X y`, so it does not subtract nearly equal objective
-  values. Both norms are computed without forming squares that could overflow or
-  underflow, and the two sides are compared through their binary exponents, so the
-  test is evaluated whenever the curvature along the step is representable; a
-  curvature above `floatmax(T)` is rejected by every `L`, and the solve then fails
-  with rollback. A relative slack of `4eps` and an allowance of 8 roundings of the
-  image norm absorb rounding of the cached images; an accepted step can violate the
-  bound only by amounts of that size plus the rounding error of the images
-  themselves, which also limits the objective values computed from them.
+  same rollback. Its line search accepts a step only when the least-squares bound
+  `√α ‖X(x - y)‖ ≤ (1 + 4eps) √L ‖x - y‖` is certified by conservative
+  floating-point error bounds for the stored `x` and `y`, so it does not subtract
+  nearly equal objective values and does not accept a step whose bound check is
+  dominated by rounding. It first uses the difference of the cached images `X x`
+  and `X y`, whose error is bounded through `‖X‖_F` and the iterate norms; when
+  that bound leaves the decision open it computes `X(x - y)` afresh, one extra
+  matrix-vector product whose error is proportional to the step, and rejects a
+  step that is still undecided. Norms and products are carried as significand and
+  binary exponent, so the decision does not depend on whether squares of the data,
+  the step or the loss scale would overflow or underflow in `T`. A curvature above
+  `floatmax(T)` is never certified, so backtracking then ends in its error with
+  rollback. The extra product is needed more often in Float32, where the bounds
+  are wider relative to small late steps.
 - Reaching a pass or iteration limit is not convergence. CD can return
   a finite nonconverged solution with a warning.
 
