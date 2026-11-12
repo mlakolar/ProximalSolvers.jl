@@ -93,7 +93,7 @@ compare the middle sample with the arithmetic mean of its two brackets and
 are oriented candidate/baseline (second baseline/first baseline in controls).
 Reported ratios are medians of those 24 ratios.
 
-All eight cases have identical per-solve allocations, minimizer hashes,
+In the three warmed confirmation campaigns, all eight cases have identical per-solve allocations, minimizer hashes,
 objective bits, flags, counters, stopping residuals and independently calculated
 objective/KKT results in each campaign. The finite returned objective agrees
 with the direct Float64 calculation. PGD defaults retain their historical
@@ -121,6 +121,10 @@ retained in [compiled/summary.json](compiled/summary.json) and
 [exploratory/summary.json](exploratory/summary.json) and
 [exploratory/raw.tsv.gz](exploratory/raw.tsv.gz). Earlier exploratory harness
 versions had fewer controls; the final reproducible harness is supplied here.
+The exploratory run used 12 triplets and shorter batches, and its small
+Float64 CD allocation samples varied from 6201.6 to 6264.8 bytes/solve; it is
+not evidence of identical allocations. The three warmed confirmations use
+24 triplets and have the identical fixed allocations shown in the table.
 
 Float64 PGD at 1024×256 varied substantially across processes/campaigns:
 candidate/baseline ratios were 1.2138 (exploratory), 1.1135 (compiled), 0.8057
