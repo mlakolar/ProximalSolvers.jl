@@ -44,8 +44,9 @@ includes a finite `maxpasses` outcome with `converged = false` (with its
 warning) and `maxpasses = 0`, which leaves the entry state exactly as it was. A
 numerical error leaves the values, active set, signed zeros and order unchanged.
 Validation failures do not advance the RNG; a numerical failure may have.
-Passes compact zero coordinates after each pass, so a completed run does not
-keep them, and the order is not sorted. Take `activevalues(x)` and
+Every completed pass compacts zero coordinates, so a state returned after at
+least one completed pass has no active zeros (with `maxpasses = 0` no pass runs,
+and the entry state, zeros included, is returned), and the order is not sorted. Take `activevalues(x)` and
 `activecoordinates(x)` again after a solve. The private copy needs O(p)
 additional storage.
 

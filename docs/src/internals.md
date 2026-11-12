@@ -12,8 +12,11 @@ PB SparseIterate (model, state, passes, warning and finite-objective check). The
 dense wrapper builds that iterate from the vector and scatters the result back.
 The owner wrapper copies the caller's owner with `copy`, runs on the copy and
 commits with a same-shape `copyto!` through PB's public storage methods only,
-after the finite-objective check; it does not rebuild through a dense vector, so
-active zeros and slot order survive both ways. Validation is split into data
+after the finite-objective check; it does not rebuild through a dense vector.
+Each copy preserves the state of its source: the initial copy keeps the entry
+state (active zeros and slot order), and the commit writes the final state of the
+working copy, after any compaction, which removes zeros and can reorder slots
+during the passes. Validation is split into data
 checks shared by both gates and an owner gate that inspects only public active
 values and tests aliasing against the original owner. PGD keeps the dense gate and
 refuses owners.

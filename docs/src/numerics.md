@@ -18,8 +18,10 @@ objective is refused before dense scatter or owner commit; this is not robust
 dynamic-range recovery. A nonconverged finite pass-limit return warns, then commits.
 A numerical error leaves a caller's owner unchanged but may advance the RNG.
 Dense and owner solves from the same canonical state (the owner built from the
-dense vector) run the same arithmetic and RNG schedule; other slot orders reach the
-optimum within the stopping tolerance, not bit-for-bit.
+dense vector) run the same arithmetic and RNG schedule. A different slot order of
+the same active set can change the trajectory and the final point, and the change
+stopping rule gives no general bound on the distance to a minimizer or on the KKT
+violation: assess accuracy with an independent objective/KKT check.
 
 PGD retains native LS image/value/gradient order, scalar steps, fused PB prox,
 TFOCS objective-to-gradient checks, finite curvature-growth refusal and zero-step

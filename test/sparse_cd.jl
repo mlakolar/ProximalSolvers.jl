@@ -356,6 +356,27 @@ end
   @test nactive(e) == 0 && iszero(e[1])
 end
 
+@testset "a runtime failure may advance the RNG but preserves the owner" begin
+  for T in (Float64, Float32)
+    tiny = T === Float32 ? T(1e-30) : T(1e-200)
+    X = reshape(T[1, tiny], 1, 2)
+    f = LeastSquaresLoss(T[1], X)
+    g = NormL1(T(.1))
+    x = owner(T, 2, [2, 1], [-0.0, .25])
+    before = snapshot(x)
+    seed = 20241
+    rng, untouched, advanced = Xoshiro(seed), Xoshiro(seed), Xoshiro(seed)
+    # the first full pass shuffles two coordinates with exactly one draw, and the
+    # column with the underflowing curvature fails in either visiting order
+    rand(advanced, 1:2)
+    @test_throws r"curvature underflows" solve!(x, f, g, CDSolver(order = :random, rng = rng))
+    @test same_state(before, snapshot(x))
+    after = rand(rng, UInt64)
+    @test after == rand(advanced, UInt64)
+    @test after != rand(untouched, UInt64)
+  end
+end
+
 @testset "owner refusals happen before copying, mutation or RNG draws" begin
   for T in (Float64, Float32)
     X, y = T[1 0; 0 2], T[1, -1]
