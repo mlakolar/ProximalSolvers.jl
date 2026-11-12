@@ -15,6 +15,7 @@ standard = [
 ]
 full = [
   "examples",
+  "benchmark_explore",
 ]
 [not_tests]
 helpers = ["tiers"]

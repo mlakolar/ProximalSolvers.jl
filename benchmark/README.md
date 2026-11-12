@@ -1,87 +1,134 @@
 # Benchmarks
 
-Master supports coordinate descent (`CDSolver`, with a dense `Vector` or a vector
-`SparseIterate`) and proximal gradient descent (`ProximalGradientDescent`, with a dense `Vector`)
-on Float32 and Float64 least-squares lasso. This directory has three parts: benchmarks that run
-against master, a historical harness kept for the unfinished Stage 2B migration campaign, and the
-campaign definitions.
+This directory holds the benchmarking infrastructure of ProximalSolvers: reproducible runners and
+problem generators, accuracy certificates that are independent of solver stopping rules,
+matched-accuracy comparisons, statistical A/B comparisons with A/A noise controls, fresh-process
+timing and allocation records, an external-solver comparison suite and the historical and migration
+campaigns. All of it is kept and maintained, to be reused as solvers return to the package.
 
-## Current benchmarks (run against master)
+Master currently supports coordinate descent (`CDSolver`, with a dense `Vector` or a vector
+`SparseIterate`) and proximal gradient descent (`ProximalGradientDescent`, dense `Vector`) on Float32
+and Float64 least-squares lasso. Parts of the infrastructure run against master today; the rest is
+**deferred**: executable and maintained, but it needs historical package versions until the work in
+[Enabling the formal harness on master](#enabling-the-formal-harness-on-master) is done.
 
-| Path | Use |
-|---|---|
-| [`minimal/explore.jl`](minimal/explore.jl) | Exploratory timings of dense CD and dense PGD on Float32/Float64 lasso, with an optimality (KKT) residual computed from the problem data. One process, no baseline and no noise control: it can show that a change is worth a closer look, not that it is faster. Writes nothing. |
-| [`sparse_cd/`](sparse_cd/) | Paired, controlled CD measurements: dense base against head, head against head (noise control), and dense against `SparseIterate` input, plus `SparseIterate` copy costs. Includes the analyzer and its refusal controls. See [`sparse_cd/README.md`](sparse_cd/README.md) and the evidence in [`docs/audit/sparse-cd/`](../docs/audit/sparse-cd/README.md). |
+| Component | Path | Runs against master? |
+|---|---|---|
+| Formal harness: problems, certificates, cases, runner, local exploration | `problems.jl`, `certificates.jl`, `cases.jl`, `run.jl`, `setup.jl`, `local.jl`, `Project.toml` | No (deferred): needs ProximalBase 0.5 and the full package. Documented in [HARNESS.md](HARNESS.md). |
+| Harness self-checks | `check_certificates.jl`, `check_local.jl` | No (deferred), as above. |
+| Record validation, summaries, paired statistics | `validate.py`, `summarize.py`, `compare.py` | Yes. Python only; they read records and never load the package. |
+| Analysis controls of the above | `check_analysis.py` | Yes, in CI. |
+| Sparse-CD paired measurement and analysis | [`sparse_cd/`](sparse_cd/README.md) | Yes; analyzer controls in CI. |
+| Exploratory CD/PGD timing | [`minimal/explore.jl`](minimal/explore.jl) | Yes; tested by `test/benchmark_explore.jl`. |
+| External-solver comparison (CoordinateDescent 0.6.1) | [`external/`](external/README.md) | No (deferred): frozen environments of the #117 comparison. |
+| Stage 2A pre-0.6 baseline campaign | [`campaigns/pre06/`](campaigns/pre06/README.md) | Historical, frozen; its tests run offline. |
+| Stage 2B migration campaign | [`campaigns/stage2b/`](campaigns/stage2b/README.md) | Unfinished (#110, #220, #229); runs pinned checkouts; its tests run offline. |
 
-Both run under the root project. No extra package is needed.
+## What runs against master
 
 ```sh
+# Exploratory timings of dense CD and PGD (root project; prints a table, writes nothing)
 JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 julia --startup-file=no --project=. benchmark/minimal/explore.jl
+
+# Paired, controlled CD measurements between two clean checkouts, then the analysis
 JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 julia --startup-file=no --project=. \
   benchmark/sparse_cd/measure.jl BASE_TREE HEAD_TREE NEW_OUTPUT
 python3 -I benchmark/sparse_cd/analyze.py NEW_OUTPUT
 ```
 
-### CI analysis controls
+`minimal/explore.jl` is **not** the formal benchmark framework. It runs one process with no paired
+baseline, no A/A control and no record validation, and checks a KKT residual computed from the
+problem data. Its timings show whether a change deserves a closer look. They are not evidence of a
+speedup or of noninferiority. Such claims need a paired comparison: `sparse_cd/` for CD today, and
+the formal harness with `compare.py` once it is enabled on master.
 
-The `Benchmark analysis controls` job runs on every CI run. It needs no Julia benchmark
-environment and takes no timings:
+The CI job `Benchmark analysis controls` runs these, with no Julia benchmark environment and no timing:
 
 ```sh
-python3 benchmark/check_analysis.py              # compare.py, summarize.py, validate.py on synthetic records
-python3 -I benchmark/sparse_cd/check_analysis.py # the sparse-CD analyzer's refusal controls
+python3 benchmark/check_analysis.py               # validate.py, summarize.py, compare.py on synthetic records
+python3 -I benchmark/sparse_cd/check_analysis.py  # sparse-CD analyzer refusal controls
 julia --startup-file=no --project=@stdlib scripts/paired_master_diagnostics.jl
 ```
 
-## Historical harness kept for Stage 2B
+## The formal harness (deferred)
 
-The files below are the matched-accuracy harness of the full package (#110). **They do not run
-against master.** Their cases use solvers that the minimal core does not have (ADMM, proximal
-Newton, QUIC, Condat–Vũ, APG and others), and `Project.toml` requires ProximalBase 0.5 while master
-requires 0.6. They are kept, unedited, because unfinished work depends on these exact files:
+[HARNESS.md](HARNESS.md) documents the harness in full: setup and case selection, local exploration
+with `local.jl`, certificates and statuses, timed phases, the fixed workloads of #103–#109, revision
+comparisons with A/A controls, record formats, provenance and exit codes.
 
-| Files | Needed by |
-|---|---|
-| `problems.jl`, `certificates.jl`, `cases.jl`, `run.jl` | Stage 2B: `campaigns/stage2b/test_stage2b_files.py` requires their harness hash to equal `new_harness_hash` in `case-mapping.toml` (the approved P14 port); `test_migration_compare.py` pins the SHA-256 of `run.jl`, `problems.jl` and `certificates.jl`. `test_p14_reset.jl` and `export_fingerprints.jl` load them. |
-| `compare.py`, `validate.py`, `summarize.py` | The CI analysis controls; Stage 2B pins their SHA-256 and imports `validate.py`; Stage 2A verification (`campaigns/pre06/campaign.py`) imports `validate.py` and `summarize.py` from this directory. |
-| `Project.toml` | Stage 2A verification compares archived environments with it; the Stage 2B Julia tests run in an environment built from it. Its move to ProximalBase 0.6 is tracked by #225. |
-| `setup.jl`, `local.jl` | The runner interface the campaigns record; `STAGE2B_PLAN.md` reads work counters from `local.jl`. |
-| `check_certificates.jl`, `check_local.jl` | The self-checks of `certificates.jl` and `local.jl`. |
+**Current limitation.** `benchmark/Project.toml` requires ProximalBase 0.5, and `setup.jl` copies
+that compat into every environment it creates, while master requires ProximalBase 0.6. Resolving the
+benchmark environment against master fails (`Unsatisfiable requirements detected for package
+ProximalBase`). `cases.jl` also constructs solvers and APIs that the minimal core does not have yet
+(`ProxNewton`, `ADMMSolver`, `AccProxGradDescent`, `SolverWorkspace`, `reinit!`,
+`SqrtLeastSquaresLoss` and others). The harness therefore runs only against full-package checkouts
+with ProximalBase 0.5.4, such as Stack A `b0de3f7` of Stage 2B or `legacy/full`.
 
-Any byte change to the four harness files changes the harness identity of the Stage 2B campaign.
-The campaigns never execute the copies on master: each role runs `benchmark/run.jl` of its own
-pinned checkout. The documentation of the runner (settings, certificates, phases, records, the
-revision-comparison recipe and the fixed workloads of #103–#109) is the
-[benchmark README at the protected archive](https://github.com/mlakolar/ProximalSolvers.jl/blob/9be1773e911a44ec21d49df28cb01fea37c4316e/benchmark/README.md);
-use it with a full-package checkout such as `legacy/full`, not with master.
+**Frozen identities.** Do not edit these files on master until the plan below is approved:
 
-## Campaigns
+- `test_stage2b_files.py` requires the harness hash of `problems.jl`, `certificates.jl`, `cases.jl`
+  and `run.jl` to equal `new_harness_hash` in `campaigns/stage2b/case-mapping.toml`.
+- `test_migration_compare.py` pins the SHA-256 of `run.jl`, `problems.jl`, `certificates.jl`,
+  `compare.py`, `validate.py` and `summarize.py`.
+- `campaigns/pre06/campaign.py` verification compares archived environments with
+  `benchmark/Project.toml` and imports `validate.py` and `summarize.py` from this directory.
 
-| Path | Status |
-|---|---|
-| [`campaigns/pre06/`](campaigns/pre06/README.md) | Stage 2A pre-0.6 baseline (#110). Complete and frozen; the archive is the Release `bench-pre06-v1`. Stage 2B reads its definition. |
-| [`campaigns/stage2b/`](campaigns/stage2b/README.md) | Stage 2B migration comparison across ProximalBase 0.6 (#110, #220, #229). Tooling only; no official measurement yet. |
+## External-solver comparison (deferred)
 
-The offline Stage 2B Python tests run from the repository root:
+[`external/`](external/README.md) compares ProximalSolvers with CoordinateDescent 0.6.1 on frozen,
+certified cases (#117; findings in #137). It has the runner and adapters, input generation shared with
+`problems.jl`, an independent certificate cross-check, the matched-accuracy statistical analysis with
+calibration and A/A arms, synthetic analysis controls, the frozen case catalog and the environment
+locks. It is kept unchanged as a reusable template for external comparisons. Its `current/`
+environment develops this repository, so it needs a full-package checkout. Adapting it to master
+means a new adapter and environment, with the catalog and analysis kept.
 
-```sh
-python3 -B benchmark/campaigns/stage2b/test_migration_compare.py
-python3 -B benchmark/campaigns/stage2b/test_stage2b_files.py
-python3 -B benchmark/campaigns/stage2b/test_stage2b_campaign.py
-python3 -B benchmark/campaigns/stage2b/probes/test_check_reset_probes.py
-```
+Known issue (predates the minimal core): since `b0de3f7` (#110 Stage 1), `validate.SERIES_SETTINGS`
+includes the optional key `case_filter`, but `external/coordinatedescent/analysis.py` line 443 reads
+`meta[key]` instead of `base_validate.setting(meta, key)`. As a result,
+`python3 -B benchmark/external/coordinatedescent/check_analysis.py` stops with
+`KeyError: 'case_filter'`. That one-line change makes every control pass again; it is listed as
+follow-up 5 below and is not applied here.
 
-## Removed material
+## Enabling the formal harness on master
 
-Everything removed from this directory remains in Git history and in the protected annotated
-tag `archive/full-before-reset-2026-11-10` (commit `9be1773e911a44ec21d49df28cb01fea37c4316e`,
-also `legacy/full` at the time of removal):
+The aim is to use the one existing framework for the current CD/PGD cases and for each solver as it
+returns, without a second runner, a second record format or duplicate statistics. Minimum work, in order:
 
-- `external/`: the CoordinateDescent 0.6.1 comparison suite (#117; analysis cited by #137).
-  Retrieve it with
-  `git archive archive/full-before-reset-2026-11-10 benchmark/external | tar -x -C DIR`.
-- Studies for #18–#95, including comparisons with glmnet, Lasso.jl, R packages, SLOPE.jl/libslope and
-  ProximalAlgorithms: the
-  [pre-cleanup tree](https://github.com/mlakolar/ProximalSolvers.jl/tree/f7e3f28026a8e83e0fa18203b39839cf57a1c949/benchmark).
+1. **Sequencing with Stage 2B.** Any edit to the four harness files changes their harness hash. Either
+   finish (or freeze and archive) Stage 2B first, or change its two tests so that they read the
+   frozen harness from a pinned commit (`git show <commit>:benchmark/...`) instead of the working tree.
+   The second option touches frozen campaign tests and needs maintainer approval on #110.
+2. **Environment (#225).** Allow ProximalBase 0.6 in `benchmark/Project.toml`, and let `setup.jl` take
+   the exact source pin of the root `Project.toml` (a URL and revision) as well as a version or a
+   path. Keep the Stage 2A comparison valid by running it from its freeze checkout, as its README
+   already requires.
+3. **Capability-gated catalog.** In `cases.jl`, add each case only if its solver and phase exist in
+   the loaded package (for example a table from solver ID to a predicate such as
+   `isdefined(ProximalSolvers, :ADMMSolver)`), and list the excluded cases with the reason in the
+   start metadata, never silently. Drop the hard-coded `Union{PS.CDSolver, PS.ProxNewton, ...}` in
+   favour of a per-solver options rule. Restoring a solver then re-enables its existing cases with
+   no other change.
+4. **Current API.** Adapt the CD and PGD case constructors to the minimal core: `CDSolver` options,
+   dense `Vector` and vector `SparseIterate` starts, no `SolverWorkspace` phase until workspaces
+   return, and Float32 cases for the supported precisions. `problems.jl` and `certificates.jl` should
+   need no change: they use plain data and returned minimizers.
+5. **External suite.** Apply the one-line `setting()` fix in `external/coordinatedescent/analysis.py`
+   and add `python3 -B benchmark/external/coordinatedescent/check_analysis.py` to the CI analysis
+   job. Port `current.jl` to the master API when a comparison is wanted.
+6. **Retire duplicates.** When steps 3 and 4 are done, `local.jl` replaces `minimal/explore.jl`.
+   `sparse_cd/` can become a harness phase or variant (dense vs `SparseIterate` input, copy costs)
+   that uses `validate.py` and `compare.py`, so its separate analyzer can go.
 
+Records keep their format throughout, so `validate.py`, `summarize.py`, `compare.py` and
+`check_analysis.py` stay unchanged and continue to compare new records with historical ones where
+the catalog and data hashes match.
+
+## History
+
+Studies for #18–#95, including comparisons with glmnet, Lasso.jl, R packages, SLOPE.jl/libslope and
+ProximalAlgorithms, are in the
+[pre-cleanup tree](https://github.com/mlakolar/ProximalSolvers.jl/tree/f7e3f28026a8e83e0fa18203b39839cf57a1c949/benchmark).
+The full package, including this directory as of the minimal-core rebuild, is preserved at the
+protected tag `archive/full-before-reset-2026-11-10` (`9be1773e911a44ec21d49df28cb01fea37c4316e`).
 Generated results, environments, logs and archives are not committed.
