@@ -36,7 +36,17 @@ beta
 
 `LeastSquaresLoss` means **half the sum** of squared residuals, not their mean. Multiplication by `1/n` produces the conventional lasso objective. `solve!` modifies `beta` in place, and `result.minimizer === beta`.
 
-Both solvers optimize the same objective; they differ in how they update coefficients. A larger L1 penalty can make coefficients **exactly zero**, as the [next tutorial](sparsity-and-kkt.md) shows.
+Both solvers optimize the same objective; they differ in how they update
+coefficients. These examples choose `CDSolver(order=:cyclic,
+momentum=false)` for reproducible output. For routine exploratory
+lasso work, `CDSolver()` is a reasonable starting point (random order
+and its default momentum behavior); set a seeded `rng` for repeatability.
+Always check optimality independently before reporting fitted coefficients.
+See [Choosing a solver](choosing-solver.md) for the difference between
+the settings.
+
+A larger L1 penalty can make coefficients **exactly zero**, as the
+[next tutorial](sparsity-and-kkt.md) shows.
 
 The **Examples** sidebar has runnable scripts. The introductory guide examples above and below also execute during the documentation CI build.
 
