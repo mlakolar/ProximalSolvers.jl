@@ -103,4 +103,3 @@ end
 
 _state_norm(s::ProximalGradientDescentState, x) = _norm(x)
 _state_normdiff(s::ProximalGradientDescentState) = _norm_diff(s.x, s.x_previous, 2.)
-LineSearches.stepnorm2(s::ProximalGradientDescentState, d) = _norm(d)^2

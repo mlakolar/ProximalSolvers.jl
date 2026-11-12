@@ -343,7 +343,7 @@ end
   accepted = copy(state.x)
   @test accepted != zeros(3)
   state.L = 0.
-  @test_throws r"curvature estimate cannot increase finitely" PS._solve_gradient!(state, f, g, method, ProximalOptions(), nothing)
+  @test_throws r"curvature estimate cannot increase finitely" PS._solve_gradient!(state, f, g, method, ProximalOptions())
   @test state.x == accepted
 end
 

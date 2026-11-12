@@ -89,12 +89,6 @@ function ProximalOptions(; maxiter::Integer = 200,
 end
 
 
-function print_header(options::ProximalOptions)
-  if options.show_trace
-    @printf "Iter     Function value       |dx|/|x|       Step Size\n"
-  end
-end
-
 function print_header(method::ProximalSolver, options::ProximalOptions)
     @printf "Iter     Function value       |dx|/|x|       Step Size\n"
 end
@@ -214,11 +208,6 @@ end
 function Base.show(io::IO, r::OptimizationResults)
     @printf io "Results of Optimization Algorithm\n"
     @printf io " * Algorithm: %s\n" summary(r)
-    # if length(join(initial_state(r), ",")) < 40
-    #     @printf io " * Starting Point: [%s]\n" join(initial_state(r), ",")
-    # else
-    #     @printf io " * Starting Point: [%s, ...]\n" join(initial_state(r)[1:2], ",")
-    # end
     _show_minimizer(io, minimizer(r))
     @printf io " * Minimum: %e\n" minimum(r)
     @printf io " * Iterations: %d\n" iterations(r)

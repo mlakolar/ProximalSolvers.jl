@@ -174,7 +174,7 @@ end
     state=PS.initial_state(method,ProximalOptions(),f,g,[.3,-.7,.2]);history=NTuple{3,Int}[]
     callback=_ -> (push!(history,(state.f_calls,state.grad_calls,state.prox_calls));false)
     options=ProximalOptions(;maxiter=100,ftol=1e-30,xtol=1e-30,gradtol=0.,callback,keyword=>limit)
-    r=PS._solve_gradient!(state,f,g,method,options,nothing)
+    r=PS._solve_gradient!(state,f,g,method,options)
     @test history==[(4,2,2),(6,3,3),(8,4,4)]
     @test history[end-1][index]<limit<=history[end][index]
     @test r.call_limit_reached && !r.converged && r.iterations==3

@@ -81,11 +81,9 @@ function _check_options(o::ProximalOptions)
   nothing
 end
 
-_drop!(x::AbstractArray) = x
-_resultdims(x::AbstractArray) = ndims(x)
 _check_start(f_x) = isfinite(f_x) || throw(ArgumentError("start from a point where f is finite"))
 
-function _solve_gradient!(state, f, g, method, options, gapev::Nothing, t0 = time())
+function _solve_gradient!(state, f, g, method, options, t0 = time())
 
   tr = OptimizationTrace{typeof(method)}()
   tracing = options.store_trace || options.show_trace || options.extended_trace || options.callback !== nothing
@@ -95,8 +93,6 @@ function _solve_gradient!(state, f, g, method, options, gapev::Nothing, t0 = tim
 
   converged = false
   iteration = 0
-
-  relgap = NaN
 
   options.show_trace && print_header(method, options)
 
@@ -133,7 +129,7 @@ function _solve_gradient!(state, f, g, method, options, gapev::Nothing, t0 = tim
     end
   end # while
   # the residuals are stored as Float64, like the tolerances, whatever the element type
-  return OptimizationResults{typeof(method), typeof(state.f_x), _resultdims(state.x), typeof(method), typeof(state.x)}(
+  return OptimizationResults{typeof(method), typeof(state.f_x), ndims(state.x), typeof(method), typeof(state.x)}(
                 method,
                 state.x,
                 state.f_x + state.g_x,
@@ -156,6 +152,6 @@ function _solve_gradient!(state, f, g, method, options, gapev::Nothing, t0 = tim
                 state.grad_calls,
                 state.prox_calls,
                 f_limit_reached || grad_limit_reached || prox_limit_reached,
-                relgap)
+                NaN)           # gap sentinel, never computed
 
 end

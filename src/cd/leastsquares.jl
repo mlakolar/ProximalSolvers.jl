@@ -77,15 +77,6 @@ end
   h
 end
 
-function coordinate_derivatives(m::LSModel{T}, x::SparseIterate{T}, k::Int) where {T}
-  a, b = _column_dot(m, k)
-  m.a[k] = a
-  iszero(a) && _flat_column(m, k) && return zero(T), zero(T)
-  -m.s * b, m.s * a
-end
-
-update_cache!(m::LSModel{T}, x::SparseIterate{T}, k::Int, h::T) where {T} = (_residual_axpy!(m, k, h); m)
-
 _cache(m::LSModel) = m.r
 coordinate_scale(m::LSModel, x, k::Int) = sqrt(m.s*_sqnorm!(m, k))
 function response_scale(m::LSModel{T}, x) where T

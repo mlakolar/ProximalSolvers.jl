@@ -24,8 +24,7 @@ function ProximalGradientDescent(; ls = LineSearches.BackTracking(), normalized:
   iszero(debias) || throw(ArgumentError("debiasing is deferred"))
   preconditioner === :none || throw(ArgumentError("preconditioning is deferred"))
   ls isa LineSearches.BackTracking || throw(ArgumentError("only BackTracking is supported"))
-  p = nothing
-  ProximalGradientDescent(ls, normalized, Int(debias), p)
+  ProximalGradientDescent(ls, normalized, Int(debias), nothing)
 end
 
 # Native dense iterates/gradients with retained LS image buffers.
@@ -62,9 +61,9 @@ function initial_state(
 
     grad_f_x = _dense_similar(x0)
     model = _image_model(f)
-    z_x = model === nothing ? nothing : _image_buffer(model)
-    dz = model === nothing ? nothing : similar(z_x)
-    model === nothing || _image!(z_x, model, x0)
+    z_x = _image_buffer(model)
+    dz = similar(z_x)
+    _image!(z_x, model, x0)
     f_x = _value_and_gradient!(grad_f_x, f, x0, model, z_x, dz)
     _check_start(f_x)
     g_x = T(g(x0))
@@ -111,7 +110,6 @@ function update_state!(
       # find next point
       _step!(state.xhat, state.x_previous, state.grad_f_x_previous, state.L)
       state.g_x = convert(_eltype(state.x), value_and_prox!(state.x, g, state.xhat, one(state.L) / state.L))
-      _drop!(state.x)
       state.f_x = _value!(f, state.x, state.model, state.z_x)
       state.prox_calls += 1
       state.f_calls += 1
@@ -189,5 +187,5 @@ function solve!(x, f, g, method::ProximalGradientDescent,
   _check_problem(x, f, g)
   t0 = time()
   state = initial_state(method, options, f, g, x)
-  _solve_gradient!(state, f, g, method, options, nothing, t0)
+  _solve_gradient!(state, f, g, method, options, t0)
 end
