@@ -124,7 +124,8 @@ tolerance `1e-11` (Float64) or `1e-6` (Float32); PGD uses `benchmark_options(res
 PGD stops once the objective changes by less than one rounding unit, about √eps in the
 coefficients (relative gaps near 1e-8 in Float64 and 1e-4 in Float32), so it misses these
 targets on several designs; those cases are recorded as `target_missed` and excluded from
-timing comparisons, with their accuracy kept.
+timing comparisons, with their accuracy kept. Where PGD stops is sensitive to rounding: with
+`--check-bounds=yes` the small Float64 case ends at a gap of 1.7e-8 instead of 1.0e-9.
 
 For example, list the extended gradient cases without measuring them:
 
