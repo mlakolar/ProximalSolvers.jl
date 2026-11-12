@@ -65,7 +65,7 @@ is outside this campaign. Cases cover the lasso, fixed weighted lasso, full
 lasso paths, quadratic L1, group lasso, square-root lasso, scaled lasso and
 feasible lasso, with cyclic and random coordinate orders. There is no intercept
 or standardization in the API calls; input columns have fixed normalization.
-The [comparison suite README](https://github.com/mlakolar/ProximalSolvers.jl/blob/master/benchmark/external/README.md) specifies the inputs, objectives,
+The [comparison suite README](https://github.com/mlakolar/ProximalSolvers.jl/blob/9be1773e911a44ec21d49df28cb01fea37c4316e/benchmark/external/README.md) specifies the inputs, objectives,
 settings, certificates and execution commands.
 
 ## Results
@@ -334,7 +334,7 @@ and is not comparable with this suite. Those studies remain in the
 
 ## Reproducing
 
-The [suite README](https://github.com/mlakolar/ProximalSolvers.jl/blob/master/benchmark/external/README.md) contains the setup, artifact, fixture, calibration,
+The [suite README](https://github.com/mlakolar/ProximalSolvers.jl/blob/9be1773e911a44ec21d49df28cb01fea37c4316e/benchmark/external/README.md) contains the setup, artifact, fixture, calibration,
 confirmation, validation, analysis and cross-check commands. The
 [campaign pre-release](https://github.com/mlakolar/ProximalSolvers.jl/releases/tag/cd-comparison-20261028) holds the raw records, coefficients, input
 artifact, lockfiles, commands and analysis outputs, with a SHA-256 list.
