@@ -3,8 +3,6 @@ abstract type CDModel{T} end
 function initialize! end
 _initialize!(m::CDModel, x, fresh::Bool) = initialize!(m, x)
 function coordinate_step! end
-function coordinate_derivatives end
-function update_cache! end
 coordinate_scale(m::CDModel{T}, x, k::Int) where T = one(T)
 response_scale(m::CDModel{T}, x) where T = zero(T)
 loss_value(m::CDModel{T}, x) where T = T(NaN)

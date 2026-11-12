@@ -109,11 +109,10 @@ mutable struct _CDState{T, R<:AbstractRNG}
   converged::Bool
   maxchange::T
   tolerance::T
-  relgap::T
 end
 _CDState(::Type{T}, x, s::CDSolver) where T =
   _CDState{T, typeof(s.rng)}(s.random, s.rng, Vector{Int}(undef, s.random ? ncoordinates(x) : 0),
-                          _Momentum{T}(), 0, false, T(NaN), T(NaN), T(NaN))
+                          _Momentum{T}(), 0, false, T(NaN), T(NaN))
 function _shuffle!(order::Vector{Int}, n::Int, rng::AbstractRNG)
   @inbounds for i in 1:n
     order[i] = i
@@ -173,41 +172,35 @@ function _activepass!(x, m, g, st::_CDState{T}, scaled::Bool) where {T}
   maxh
 end
 function _cd!(x, m, g, st::_CDState{T}, s::CDSolver) where T
-  st.relgap = T(NaN)
   if _usemomentum(s, x, m)
-    _cd_momentum!(x, m, g, st, s, nothing)
+    _cd_momentum!(x, m, g, st, s)
   else
-    _cd_plain!(x, m, g, st, s, nothing)
+    _cd_plain!(x, m, g, st, s)
   end
   x
 end
-function _tolerances(m, x, s::CDSolver, ::Type{T}, st, gs) where T
+function _tolerances(m, x, s::CDSolver, ::Type{T}) where T
   sy = s.relative ? response_scale(m, x) : one(T)
   scaled = s.relative && sy>0
   u = scaled ? sy : one(T)
-  tol = T(s.tol)*u
-  tol, scaled, 8*eps(T)*u
+  T(s.tol)*u, scaled
 end
-# Ordinary no-gap decision extracted from cd/gap.jl, with strict comparison.
-@inline function _afterpass!(::Nothing, x, m, g, st, s::CDSolver, full::Bool, maxh, tol, tolmin)
-  converged = maxh<tol
-  full && converged, converged, tol, true
-end
-function _cd_plain!(x, m, g, st::_CDState{T}, s::CDSolver, gs) where {T}
-  tol, scaled, tolmin = _tolerances(m, x, s, T, st, gs)
+# After each pass, the strict change test `maxh < tol` selects the next pass:
+# full after a converged pass, active otherwise. Only a converged full pass stops.
+function _cd_plain!(x, m, g, st::_CDState{T}, s::CDSolver) where {T}
+  tol, scaled = _tolerances(m, x, s, T)
   st.passes, st.converged, st.maxchange, st.tolerance = 0, false, T(NaN), tol
   converged = true
   for pass in 1:s.maxpasses
     full = converged
     maxh = _pass!(x, m, g, st, full, scaled)
     st.passes, st.maxchange = pass, maxh
-    stop, converged, tol, ok = _afterpass!(gs, x, m, g, st, s, full, maxh, tol, tolmin)
-    if stop
-      st.converged = ok
+    converged = maxh<tol
+    if full && converged
+      st.converged = true
       break
     end
   end
-  st.tolerance = tol
   x
 end
 function _usemomentum(s::CDSolver, x, m)
@@ -229,8 +222,8 @@ _cache_moved!(m::CDModel, x) = m
 # whether momentum is used by default, with a random order on a SparseIterate:
 # for the models whose cache moves with the point, where it pays off
 _momentum_default(m::CDModel) = _cache(m) !== nothing
-function _cd_momentum!(x, m, g, st::_CDState{T}, s::CDSolver, gs) where {T}
-  tol, scaled, tolmin = _tolerances(m, x, s, T, st, gs)
+function _cd_momentum!(x, m, g, st::_CDState{T}, s::CDSolver) where {T}
+  tol, scaled = _tolerances(m, x, s, T)
   st.passes, st.converged, st.maxchange, st.tolerance = 0, false, T(NaN), tol
   mom = _momentum_start!(st.momentum, x, m)
   converged = true
@@ -239,9 +232,9 @@ function _cd_momentum!(x, m, g, st::_CDState{T}, s::CDSolver, gs) where {T}
     full || _momentum_step!(mom, x, m)
     maxh = _pass!(x, m, g, st, full, scaled)
     st.passes, st.maxchange = pass, maxh
-    stop, converged, tol, ok = _afterpass!(gs, x, m, g, st, s, full, maxh, tol, tolmin)
-    if stop
-      st.converged = ok
+    converged = maxh<tol
+    if full && converged
+      st.converged = true
       break
     end
     if full
@@ -252,7 +245,6 @@ function _cd_momentum!(x, m, g, st::_CDState{T}, s::CDSolver, gs) where {T}
       _momentum_update!(mom, x, m)
     end
   end
-  st.tolerance = tol
   x
 end
 
@@ -364,7 +356,7 @@ function _solve_dense!(x::Vector, f, g, method::CDSolver)
   xs = SparseIterate(x)
   st, result_value = _run_cd!(xs, f, g, method)
   _copy_dense!(x, xs)
-  CDResults(x, result_value, st.passes, st.converged, st.maxchange, st.tolerance, 0, st.relgap)
+  CDResults(x, result_value, st.passes, st.converged, st.maxchange, st.tolerance, 0)
 end
 # The run does not touch the caller's owner: it works on a state-preserving private
 # copy (values, active zeros and slot order), and the owner changes only at the final
@@ -373,7 +365,7 @@ function _solve_owner!(x::SparseIterate, f, g, method::CDSolver)
   work = copy(x)
   st, result_value = _run_cd!(work, f, g, method)
   copyto!(x, work)
-  CDResults(x, result_value, st.passes, st.converged, st.maxchange, st.tolerance, 0, st.relgap)
+  CDResults(x, result_value, st.passes, st.converged, st.maxchange, st.tolerance, 0)
 end
 function _copy_dense!(dest::Vector{T}, src::SparseIterate{T}) where {T}
   size(dest) == size(src) || throw(DimensionMismatch())

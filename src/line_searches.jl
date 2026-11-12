@@ -1,19 +1,10 @@
 module LineSearches
 
-using LinearAlgebra
-using ProximalBase
 using ..Blocks
 
 export
   backtrack!,has_updated_gradient,
   BackTracking
-
-
-#################################
-#
-# Static
-#
-#################################
 
 #################################
 #
@@ -53,10 +44,9 @@ function next_curvature(L, β)
     next
 end
 
-# f(x) and ∇f(x) at the trial point state.x, into state.grad_f_x; a solver
-# that keeps the image of its iterates under the linear map of f computes them
-# from the image (see image_models.jl)
-value_and_gradient_at_x!(state, f) = value_and_gradient!(state.grad_f_x, f, state.x)
+# f(x) and ∇f(x) at the trial point state.x, into state.grad_f_x; the PGD state
+# computes them from its LS image cache (see image_models.jl)
+function value_and_gradient_at_x! end
 
 stepnorm2(state, d) = _norm(d)^2
 
