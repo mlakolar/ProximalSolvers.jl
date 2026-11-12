@@ -38,11 +38,12 @@ Useful settings are `maxpasses` (up to 100,000 by default), `tol`
 the [API reference](api.md).
 
 **Relative tolerance:** With `relative=true` (the default), the change
-threshold is scaled by a response-dependent quantity. Thus
-`CDSolver(tol=1e-7)` can report an *effective* tolerance such as
-`1.66e-7`. Set `relative=false` to interpret the threshold in the
-coefficient-change units. This is a **step-change stopping test**, not
-an optimality certificate.
+threshold is multiplied by `sqrt(s * sum(abs2, y))`, where `s` is the
+least-squares scale (`1/n` for our normalized lasso). In the tiny example,
+this equals `sqrt(8.25 / 3) ≈ 1.658`, so a constructor tolerance of
+`1e-7` appears in the result as about `1.66e-7`. Set `relative=false`
+to use the unscaled coefficient-change threshold. This is a
+**step-change stopping test**, not an optimality certificate.
 
 **Randomness and momentum:** By default `order=:random`, and the
 historical CD algorithm can apply momentum to active passes and restart
