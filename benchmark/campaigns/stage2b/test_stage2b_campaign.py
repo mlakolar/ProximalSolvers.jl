@@ -110,8 +110,11 @@ def make_lock(camp, session=SESSION):
                for r in declared.get("manifest", [])]
     entries += [{"kind": "compat", "name": r["name"], "reason": "synthetic compat reason", "approval_url": URL,
                  **({"julia": r["julia"]} if "julia" in r else {})} for r in declared.get("compat", [])]
+    campaign = {"id": camp.sched["schedule"]["campaign_id"]}
+    if session is not None:
+        campaign["session_id"] = session
     return {
-        "schema": 1, "campaign": {"id": camp.sched["schedule"]["campaign_id"], "session_id": session},
+        "schema": 1, "campaign": campaign,
         "stack_b": {
             "proximalsolvers": {"commit": b["ps"]["commit"], "tree": b["ps"]["tree"], "version": b["ps"]["version"],
                                 "package_hash": b["ps"]["hash"],
@@ -172,6 +175,17 @@ def assemble_base(camp, base, session=SESSION, with_raw=False, aa=True, prepared
     return base
 
 
+def write_session(base, campaign_id, session=SESSION, official=False):
+    """logs/session.json as `prepare --step fetch` writes it, with a known session (the real one is random)."""
+    base = Path(base)
+    (base / "logs").mkdir(exist_ok=True)
+    name = "lock.toml" if official else "pilot-config.toml"
+    record = {"schema": 1, "session_id": session, "campaign_id": campaign_id, "minted_utc": "2026-12-01T08:00:00.000+00:00",
+              "configuration": name, "configuration_sha256": C.sha256_file(base / name)}
+    (base / C.SESSION_RECORD).write_text(json.dumps(record, indent=2) + "\n")
+    return record
+
+
 def write_prepared(base, state="finalized", problems=(), roles=None, digest=DEPOT_DIGEST):
     """logs/finalize.json and logs/depot-baselines.json as a finished finalize leaves them."""
     base = Path(base)
@@ -219,11 +233,13 @@ class Host:
         self.step, self.calls, self.rules, self.obs_edits, self.sample_edits = step, [], [], [], []
         self.reads = 0
         self.datahash = True
+        self.journal, self.probe_exit, self.probe_calls, self.clock_reads = [], {}, 0, 0
 
     def rule(self, role=None, mm=None, rep=None, **effects):
         self.rules.append(((role, mm, rep), effects))
 
     def clock(self):
+        self.clock_reads += 1
         self.now += datetime.timedelta(seconds=self.step)
         return self.now
 
@@ -238,10 +254,29 @@ class Host:
         return sample
 
     def probe(self, spec, mm):
+        """The observation, and the probe's two commands in the journal, timed between the last clock reading and
+        the next one (the probe reads no clock of the engine)."""
+        quarter = datetime.timedelta(seconds=self.step / 4)
+        self.probe_calls += 1
+        code = self.probe_exit.get(self.probe_calls, 0)                 # by call number (1 = the first probe)
+        self.journal.append({"kind": "environment-probe", "argv": ["taskset", "-c", "6", JULIA_BINS[mm],
+                                                                   "--startup-file=no", "environment_probe.jl"],
+                             "exit": code, "start_utc": C.utc_text(self.now + quarter),
+                             "end_utc": C.utc_text(self.now + 2 * quarter)})
+        if code != 0:
+            raise C.Refused(f"the environment probe of {spec.name} julia {mm} exited with {code}")
+        self.journal.append({"kind": "affinity", "argv": ["taskset", "-c", "6", "grep", "Cpus_allowed_list:",
+                                                          "/proc/self/status"], "exit": 0,
+                             "start_utc": C.utc_text(self.now + 2 * quarter),
+                             "end_utc": C.utc_text(self.now + 2 * quarter)})
         obs = good_obs(spec, mm, self.sched, self.base)
         for edit in self.obs_edits:
             edit(spec.name, mm, obs)
         return obs
+
+    def probe_log(self):
+        taken, self.journal = self.journal, []
+        return taken
 
     def match(self, role, mm, rep):
         found = {}
@@ -279,7 +314,7 @@ class Host:
     def hooks(self, **overrides):
         values = dict(probe=self.probe, runner=self.runner, clock=self.clock, sampler=self.sampler,
                       julia_bins=dict(JULIA_BINS), datahash_ok=self.datahash_ok,
-                      depot_digest=lambda spec: DEPOT_DIGEST)
+                      depot_digest=lambda spec: DEPOT_DIGEST, probe_log=self.probe_log)
         values.update(overrides)
         return C.Hooks(**values)
 
@@ -4210,7 +4245,7 @@ def fetch_world(name="fetch"):
     return st, pins, directory, (uuid, pb["version"], pb["tree"]), archive
 
 
-def full_pilot_config(session=SESSION, **overrides):
+def full_pilot_config(session=None, **overrides):
     config = pilot_config(session)
     config["pilot"].update(samples_target=5, seconds_limit=0.2, case_seconds=10.0)
     config["julia"] = dict(JULIA_BINS)
@@ -4610,7 +4645,7 @@ class OfficialFetchTests(unittest.TestCase):
     def world(self, stale=False, tamper=None, release="registered"):
         st, pins, directory, registry, archive = fetch_world("official")
         camp = F.build_campaign(fresh("official-camp"), "migration")
-        lock = make_lock(camp)
+        lock = make_lock(camp, session=None)
         repo = directory / "repo"
         for mm in ("1.10", "1.13"):
             (repo / "locks" / mm).mkdir(parents=True)
@@ -4799,6 +4834,10 @@ class RealHooksTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.camp = pilot_world()
+
+    def world_for(self, camp, **kwargs):
+        self.camp = camp
+        return self.world(**kwargs)
 
     def world(self, probe=None, affinity=b"Cpus_allowed_list:\t6\n", **kwargs):
         base = assemble_base(self.camp, fresh("rh") / "x-pilot", aa=False)
@@ -5049,6 +5088,8 @@ def prepared_base(kind="pilot", config=None, name="fin"):
             for file_name in ("Project.toml", "Manifest.toml"):
                 (env / file_name).write_text(f"# {role} {mm} {file_name}\n")
                 shutil.copyfile(env / file_name, root / file_name)
+    if "session_id" not in config["campaign"]:
+        write_session(base, config["campaign"]["id"])
     return st
 
 
@@ -5234,7 +5275,7 @@ class FinalizeTests(unittest.TestCase):
             self.finalize(hooks)
         self.assertIn("Sys.CPU_NAME", str(caught.exception))
 
-    def test_a_pilot_without_the_reduced_sampling_values_or_a_session_is_refused(self):
+    def test_a_pilot_without_the_reduced_sampling_values_or_the_base_session_is_refused(self):
         config = full_pilot_config()
         del config["pilot"]["case_seconds"]
         st = prepared_base(config=config)
@@ -5242,12 +5283,18 @@ class FinalizeTests(unittest.TestCase):
             self.finalize(st=st)
         self.assertIn("case_seconds", str(caught.exception))
         self.assertFalse((st.base / "logs" / "finalize.json").exists())
-        config = full_pilot_config()
-        del config["campaign"]["session_id"]
-        st = prepared_base(config=config)
+        st = prepared_base()                                          # fetch did not leave its session record
+        (st.base / C.SESSION_RECORD).unlink()
         with self.assertRaises(C.Refused) as caught:
             self.finalize(st=st)
-        self.assertIn("session_id", str(caught.exception))
+        self.assertEqual(caught.exception.field, "session")
+        self.assertFalse((st.base / "logs" / "finalize.json").exists())
+        self.assertFalse((st.base / "roots" / "ab-a" / "stack-identity.toml").exists())
+        st = prepared_base(config=full_pilot_config(session=SESSION))  # a configuration that fixes the session
+        with self.assertRaises(C.Refused) as caught:
+            self.finalize(st=st)
+        self.assertEqual(caught.exception.field, "campaign.session_id")
+        self.assertFalse((st.base / "logs" / "finalize.json").exists())
 
     def test_the_real_cli_path_prepares_and_finalizes_with_given_hooks(self):
         st = prepared_base()
@@ -5398,6 +5445,482 @@ class OfficialGateStubTests(unittest.TestCase):
                                     "--official", "--freeze-sha", FREEZE, forbidden])
             self.assertEqual(code, 3)
 
+
+
+# ------------------------------------------------------------------------- #229: session per base, probe records
+
+NO_SESSION_FILE = TMP / "held-pilot-config-no-session.toml"
+C.write_toml(NO_SESSION_FILE, pilot_config(session=None))
+PILOT_CAMPAIGN = "pb06-migration-stage2b-pilot-v1"
+
+
+def minted_base(camp, name="minted", session=None):
+    """A pilot base as the current `prepare` leaves it: a configuration without session_id, logs/session.json with
+    the session minted for this base, and identity files that carry it."""
+    session = session or C.mint_session_id()
+    base = assemble_base(camp, fresh(name) / "x-pilot", session=session, aa=False)
+    add_pilot_config(base, NO_SESSION_FILE)
+    write_session(base, PILOT_CAMPAIGN, session)
+    plan = C.plan_from_pilot(pilot_config(session=None), base, JULIA_BINS, ENVIRON)
+    return base, plan, Host(camp, plan.sched, base)
+
+
+def verify_problems(base, config=NO_SESSION_FILE, replay=False):
+    document, status = C.verify(base, fresh("v229") / "v.json", replay=replay, config=config)
+    return document, status
+
+
+def edit_jsonl(path, function):
+    """Rewrite a JSON-lines file through `function(list of objects) -> list of objects`."""
+    path = writable(path)
+    lines = function(C.read_jsonl(path))
+    path.write_text("".join(json.dumps(line) + "\n" for line in lines))
+
+
+class SessionPerBaseTests(unittest.TestCase):
+    """#229 item 1: `prepare --step fetch` mints a fresh session for each base; every record of the attempt carries
+    it; a configuration that fixes a session is refused for new bases and accepted only in historical evidence."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.camp = pilot_world("session229")
+
+    def test_two_independently_prepared_bases_get_different_sessions(self):
+        sessions = []
+        for name in ("fetch-one", "fetch-two"):
+            st, run, directory, pins, status = FetchTests().fetch(name=name)
+            self.assertEqual(status, 0)
+            record = json.loads((st.base / C.SESSION_RECORD).read_text())
+            self.assertEqual(set(record), set(C.SESSION_RECORD_KEYS))
+            self.assertRegex(record["session_id"], C.SESSION.pattern)
+            self.assertEqual((record["campaign_id"], record["configuration"]), (PILOT_CAMPAIGN, "pilot-config.toml"))
+            self.assertEqual(record["configuration_sha256"], C.sha256_file(st.base / "pilot-config.toml"))
+            self.assertEqual(json.loads((st.base / "logs" / "prepare-fetch.json").read_text())["session_id"],
+                             record["session_id"])
+            self.assertEqual(C.session_record_problems(st.base, False, PILOT_CAMPAIGN)[1], [])
+            sessions.append(record["session_id"])
+        self.assertNotEqual(sessions[0], sessions[1], "one frozen configuration, two attempts, two sessions")
+
+    def test_minting_follows_the_existing_format_and_a_base_is_minted_once(self):
+        base = fresh("mint") / "x-pilot"
+        base.mkdir()
+        shutil.copyfile(NO_SESSION_FILE, base / "pilot-config.toml")
+        (base / "logs").mkdir()
+        moment = datetime.datetime(2026, 12, 2, 7, 6, 5, tzinfo=datetime.timezone.utc)
+        record = C.write_session_record(base, PILOT_CAMPAIGN, False, moment)
+        self.assertRegex(record["session_id"], r"session-20261202T070605Z-[0-9a-f]{4}")
+        with self.assertRaises(C.Refused) as caught:
+            C.write_session_record(base, PILOT_CAMPAIGN, False, moment)
+        self.assertEqual(caught.exception.field, "session")
+        self.assertEqual(json.loads((base / C.SESSION_RECORD).read_text()), record, "never overwritten")
+
+    def test_fetch_refuses_a_configuration_that_fixes_the_session_before_anything_is_created(self):
+        st, pins, directory, registry, archive = fetch_world("fixed-session")
+        st.config = full_pilot_config(session=SESSION)
+        st.run = Scripted()
+        with self.assertRaises(C.Refused) as caught:
+            C.prepare_fetch(st)
+        self.assertEqual(caught.exception.field, "campaign.session_id")
+        self.assertEqual(st.run.calls, [])
+        self.assertFalse(st.base.exists())
+
+    def test_finalize_writes_the_minted_session_into_every_identity_file(self):
+        st = prepared_base(name="fin229")
+        writable(st.base / C.SESSION_RECORD).unlink()
+        record = C.write_session_record(st.base, PILOT_CAMPAIGN, False)
+        FinalizeTests().finalize(st=st)
+        for role in st.roles():
+            ident = tomllib.loads((st.base / "roots" / role / "stack-identity.toml").read_text())
+            self.assertEqual(ident["session_id"], record["session_id"])
+        self.assertEqual(C.plan_from_pilot(st.config, st.base, JULIA_BINS, ENVIRON).session_id, record["session_id"])
+
+    def test_every_record_of_an_attempt_carries_the_base_session_and_verifies(self):
+        base, plan, host = minted_base(self.camp)
+        session = json.loads((base / C.SESSION_RECORD).read_text())["session_id"]
+        self.assertEqual(plan.session_id, session)
+        self.assertEqual(C.execute(plan, host.hooks()).exit_code, 0)
+        campaign = json.loads((base / "logs" / "campaign.json").read_text())
+        self.assertEqual((campaign["session_id"], campaign["session_record"]), (session, C.SESSION_RECORD))
+        self.assertEqual(C.read_jsonl(base / "receipt.jsonl")[0]["session_id"], session)
+        for name in ("STATE.json", "completion.json"):
+            self.assertEqual(json.loads((base / "logs" / name).read_text())["session_id"], session)
+        self.assertEqual({r["session_id"] for r in C.read_jsonl(base / C.PROBE_LOG)}, {session})
+        document, status = verify_problems(base, replay=True)
+        self.assertEqual((status, document["state"], document["problems"]), (0, "pilot_verified", []))
+
+    def test_the_engine_refuses_a_base_whose_records_disagree_on_the_session(self):
+        base, plan, host = minted_base(self.camp, "disagree")
+        other, *_ = minted_base(self.camp, "other")                  # an independently prepared base
+        writable(base / "roots" / "ab-b" / "stack-identity.toml").write_bytes(
+            (other / "roots" / "ab-b" / "stack-identity.toml").read_bytes())
+        with self.assertRaises(C.Refused) as caught:
+            C.plan_from_pilot(pilot_config(session=None), base, JULIA_BINS, ENVIRON)
+        self.assertEqual(caught.exception.field, "session_id")
+        base, plan, host = minted_base(self.camp, "record-other")      # the record of the other base, all files agree
+        session = json.loads((other / C.SESSION_RECORD).read_text())["session_id"]
+        write_session(base, PILOT_CAMPAIGN, session)
+        with self.assertRaises(C.Refused) as caught:
+            C.plan_from_pilot(pilot_config(session=None), base, JULIA_BINS, ENVIRON)
+        self.assertEqual(caught.exception.field, "session_id")
+        base, plan, host = minted_base(self.camp, "record-tampered")
+        edit_text(base / C.SESSION_RECORD, lambda t: t.replace('"pilot-config.toml"', '"lock.toml"'))
+        with self.assertRaises(C.Refused) as caught:
+            C.plan_from_pilot(pilot_config(session=None), base, JULIA_BINS, ENVIRON)
+        self.assertEqual(caught.exception.field, "session")
+        base, plan, host = minted_base(self.camp, "both")              # a fixed session next to the base's own
+        with self.assertRaises(C.Refused) as caught:
+            C.plan_from_pilot(pilot_config(session=SESSION), base, JULIA_BINS, ENVIRON)
+        self.assertEqual(caught.exception.field, "campaign.session_id")
+        self.assertEqual(host.calls, [])
+
+    def test_verify_rejects_a_mismatched_missing_or_doubled_session(self):
+        base, plan, host = minted_base(self.camp, "verify-session")
+        C.execute(plan, host.hooks())
+        other = json.loads((minted_base(self.camp, "verify-other")[0] / C.SESSION_RECORD).read_text())
+
+        def mutated(edit, config=NO_SESSION_FILE):
+            tree = clone(base)
+            edit(tree)
+            refresh_all(tree)
+            return verify_problems(tree, config)
+
+        def swap_record(tree):
+            write_session(tree, PILOT_CAMPAIGN, other["session_id"])
+        document, status = mutated(swap_record)
+        self.assertEqual(status, 2)
+        self.assertIn(f"{C.SESSION_RECORD}: session_id {other['session_id']!r} differs from logs/campaign.json",
+                      document["problems"])
+
+        def drop_record(tree):
+            writable(tree / C.SESSION_RECORD).unlink()
+        document, status = mutated(drop_record)
+        self.assertEqual(status, 2)
+        self.assertIn(f"{C.SESSION_RECORD} is missing", document["problems"])
+
+        def fix_session(tree):                                        # the configuration also fixes the same session
+            config = pilot_config(session=json.loads((tree / C.SESSION_RECORD).read_text())["session_id"])
+            writable(tree / "pilot-config.toml").unlink()
+            C.write_toml(tree / "pilot-config.toml", config)
+            write_session(tree, PILOT_CAMPAIGN, config["campaign"]["session_id"])
+            rebind(tree, pilot_config_sha256=C.sha256_file(tree / "pilot-config.toml"))
+        held = fresh("held-fixed") / "held.toml"
+        tree = clone(base)
+        fix_session(tree)
+        held.write_bytes((tree / "pilot-config.toml").read_bytes())
+        document, status = verify_problems(tree, held)
+        self.assertEqual(status, 2)
+        self.assertTrue(any("names campaign.session_id" in p for p in document["problems"]), document["problems"])
+
+        tree = clone(base)                                            # a record next to an attempt that says none
+        rebind(tree, session_record=False)
+        document, status = verify_problems(tree)
+        self.assertEqual(status, 2)
+        self.assertTrue(any("session_record False" in p for p in document["problems"]), document["problems"])
+
+        def identity(tree):
+            edit_text(tree / "roots" / "ab-a" / "stack-identity.toml",
+                      lambda t: t.replace(plan.session_id, other["session_id"]))
+        document, status = mutated(identity)
+        self.assertIn("roots/ab-a/stack-identity.toml: session_id differs from logs/campaign.json", document["problems"])
+
+    def test_historical_evidence_with_a_configured_session_still_verifies(self):
+        # a pilot made before #229: session_id in the configuration, no session record, no probe log, and
+        # logs/campaign.json without the two keys; the run below is the legacy path of the engine
+        base = shared_pilot()
+        document, status = verify_problems(base, PILOT_FILE, replay=True)
+        self.assertEqual((status, document["problems"]), (0, []))
+        tree = clone(base)
+        writable(tree / C.PROBE_LOG).unlink()
+        rebind(tree, session_record=None, probe_record=None)
+        document, status = verify_problems(tree, PILOT_FILE)
+        self.assertEqual((status, document["state"], document["problems"]), (0, "pilot_verified", []))
+        rebind(tree)                                                  # the old shape with a record that nothing names
+        write_session(tree, PILOT_CAMPAIGN, SESSION)
+        refresh_all(tree)
+        document, status = verify_problems(tree, PILOT_FILE)
+        self.assertIn(f"{C.SESSION_RECORD} exists but logs/campaign.json does not name it", document["problems"])
+        tree = clone(base)                                            # a configuration without any session source
+        writable(tree / "pilot-config.toml").unlink()
+        shutil.copyfile(NO_SESSION_FILE, tree / "pilot-config.toml")
+        rebind(tree, pilot_config_sha256=C.sha256_file(tree / "pilot-config.toml"))
+        document, status = verify_problems(tree, NO_SESSION_FILE)
+        self.assertIn("the attempt has no session source: neither a session record nor a session_id of the "
+                      "configuration", document["problems"])
+
+
+class ProbeRecordTests(unittest.TestCase):
+    """#229 item 2: every untimed probe has an audit record in logs/probes.jsonl, never in the receipt."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.camp = pilot_world("probes229")
+        cls.base, cls.plan, cls.host = minted_base(cls.camp, "probes")
+        C.execute(cls.plan, cls.host.hooks())
+
+    def records(self, base=None):
+        return C.read_jsonl((base or self.base) / C.PROBE_LOG)
+
+    def mutated(self, function):
+        tree = clone(self.base)
+        edit_jsonl(tree / C.PROBE_LOG, function)
+        refresh_all(tree)
+        document, status = verify_problems(tree)
+        self.assertEqual((status, document["state"]), (2, "failed"))
+        return document["problems"]
+
+    def test_every_probe_has_one_untimed_record_with_its_command_and_context(self):
+        records = self.records()
+        receipt = C.read_jsonl(self.base / "receipt.jsonl")
+        processes = receipt[1:]
+        self.assertEqual([r["phase"] for r in records], ["preflight"] * 4 + ["launch"] * len(processes))
+        self.assertEqual(len(processes), 4)
+        for record in records:
+            self.assertEqual(tuple(record), C.PROBE_KEYS)
+            self.assertEqual((record["record"], record["timed"], record["outcome"], record["error"]),
+                             ("probe", False, "ok", None))
+            self.assertEqual((record["campaign_id"], record["session_id"], record["schedule_id"]),
+                             (self.plan.campaign_id, self.plan.session_id, self.plan.sched["id"]))
+            self.assertEqual(record["logical_cpu"], self.plan.cpu)
+            self.assertEqual([c["kind"] for c in record["commands"]], ["environment-probe", "affinity"])
+            self.assertEqual(record["commands"][0]["argv"][-1], "environment_probe.jl")
+            self.assertEqual(record["commands"][0]["exit"], 0)
+            self.assertEqual(set(record["machine"]), set(C.PROBE_MACHINE_KEYS))
+        for record in records[:4]:
+            self.assertEqual((record["process"], record["rep"]), (None, None))
+        for record, event in zip(records[4:], processes):
+            self.assertEqual((record["arm"], record["role"], record["julia"], record["rep"], record["installation"]),
+                             (event["arm"], event["role"], event["julia"], event["rep"], event["installation"]))
+            self.assertEqual(record["process"], C.process_name(event["arm"], event["role"],
+                                                               {"1.10.13": "1.10", "1.13.3": "1.13"}[event["julia"]],
+                                                               event["rep"]))
+            self.assertLessEqual(C._parse_time(record["commands"][-1]["end_utc"]), C._parse_time(event["start_utc"]))
+
+    def test_probe_records_cannot_be_confused_with_timed_measurements(self):
+        receipt = C.read_jsonl(self.base / "receipt.jsonl")
+        self.assertEqual({e["event"] for e in receipt}, {"campaign", "process"}, "no probe in the receipt")
+        self.assertNotIn(C.PROBE_LOG, [c.get("stdout") for c in C.read_jsonl(self.base / "logs" / "commands.jsonl")])
+        tree = clone(self.base)                                       # a probe record smuggled into the receipt
+        with writable(tree / "receipt.jsonl").open("a") as stream:
+            stream.write(json.dumps(self.records()[-1]) + "\n")
+        rebind(tree)
+        document, status = verify_problems(tree)
+        self.assertEqual(status, 2)
+        self.assertTrue(any("not a process event with the exact keys" in p for p in document["problems"]))
+        problems = self.mutated(lambda rs: [dict(r, timed=True) if i == 5 else r for i, r in enumerate(rs)])
+        self.assertTrue(any("not an untimed probe record" in p for p in problems), problems)
+        problems = self.mutated(lambda rs: [dict(r, record="process") if i == 5 else r for i, r in enumerate(rs)])
+        self.assertTrue(any("not an untimed probe record" in p for p in problems), problems)
+
+    def test_recording_does_not_move_the_workload_or_the_timing_boundaries(self):
+        base, plan, host = minted_base(self.camp, "boundaries")
+        C.execute(plan, host.hooks())
+        processes = len(C.process_order(plan))
+        self.assertEqual(host.clock_reads, 1 + 2 * processes, "the campaign start and two readings per process")
+        for (argv, env, cwd, cpu), key in zip(host.calls, C.process_order(plan)):
+            spec = plan.roles[key.role]
+            self.assertEqual(argv, C.launch_argv(plan, spec, key.mm))
+            self.assertEqual(env, C.launch_env(plan, spec, key.mm, key.rep))
+            self.assertFalse(any("probe" in str(v).lower() for v in env.values()))
+        receipt = C.read_jsonl(base / "receipt.jsonl")[1:]
+        starts = [C._parse_time(e["start_utc"]) for e in receipt]
+        ends = [C._parse_time(e["end_utc"]) for e in receipt]
+        self.assertEqual([round((b - a).total_seconds()) for a, b in zip(starts, ends)], [host.step] * processes)
+
+    def test_a_failed_launch_probe_is_recorded_and_stops_the_attempt(self):
+        base, plan, host = minted_base(self.camp, "failed-probe")
+        host.probe_exit[6] = 1                                        # 4 preflight probes, then the second launch
+        with self.assertRaises(C.Refused):
+            C.execute(plan, host.hooks())
+        self.assertEqual(json.loads((base / "logs" / "STATE.json").read_text())["state"], "stopped")
+        records = self.records(base)
+        self.assertEqual(len(records), 6)
+        failed = records[-1]
+        self.assertEqual((failed["phase"], failed["outcome"], failed["process"]),
+                         ("launch", "failed", C.process_order(plan)[1].name))
+        self.assertIn("exited with 1", failed["error"])
+        self.assertEqual([(c["kind"], c["exit"]) for c in failed["commands"]], [("environment-probe", 1)])
+        self.assertIsNone(failed["machine"])
+        self.assertEqual(len(C.read_jsonl(base / "receipt.jsonl")), 2, "the campaign and the first process only")
+        self.assertEqual(len(host.calls), 1)
+        document, status = verify_problems(base)
+        self.assertEqual((status, document["state"], document["problems"]), (2, "stopped", []))
+        tree = clone(base)                                            # a failed probe followed by another record
+        edit_jsonl(tree / C.PROBE_LOG, lambda rs: rs + [rs[4]])
+        C.write_checksums(tree)
+        document, _ = verify_problems(tree)
+        self.assertTrue(any("a failed probe that is not the last record" in p for p in document["problems"]),
+                        document["problems"])
+
+    def test_a_failed_preflight_probe_leaves_the_base_fresh(self):
+        base, plan, host = minted_base(self.camp, "failed-preflight")
+        host.probe_exit[2] = 1
+        with self.assertRaises(C.Refused):
+            C.execute(plan, host.hooks())
+        for relative in (C.PROBE_LOG, "receipt.jsonl", "logs/STATE.json"):
+            self.assertFalse((base / relative).exists(), relative)
+        host.probe_exit.clear()
+        self.assertEqual(C.execute(plan, host.hooks()).exit_code, 0, "the base was not used up")
+
+    def test_missing_records_are_rejected(self):
+        problems = self.mutated(lambda rs: rs[:5] + rs[6:])
+        self.assertTrue(any("has no launch probe record" in p for p in problems), problems)
+        problems = self.mutated(lambda rs: rs[1:])
+        self.assertTrue(any("no preflight probe of AB/A/1.10.13" in p for p in problems), problems)
+        problems = self.mutated(lambda rs: [dict(r, commands=None) if i == 4 else r for i, r in enumerate(rs)])
+        self.assertTrue(any("line 5: the probe's commands are not recorded" in p for p in problems), problems)
+        problems = self.mutated(lambda rs: [dict(r, commands=[{k: v for k, v in r["commands"][0].items() if k != "exit"}])
+                                            if i == 4 else r for i, r in enumerate(rs)])
+        self.assertTrue(any("line 5: a command does not have exactly the keys" in p for p in problems), problems)
+        tree = clone(self.base)
+        writable(tree / C.PROBE_LOG).unlink()
+        C.write_checksums(tree)
+        document, status = verify_problems(tree)
+        self.assertEqual(status, 2)
+        self.assertIn(f"{C.PROBE_LOG} is missing", document["problems"])
+
+    def test_inconsistent_records_are_rejected(self):
+        def at(index, **changes):
+            return lambda rs: [dict(r, **changes) if i == index else r for i, r in enumerate(rs)]
+
+        def late(rs):
+            record = copy.deepcopy(rs[5])
+            receipt = C.read_jsonl(self.base / "receipt.jsonl")
+            record["commands"][-1]["end_utc"] = receipt[2]["end_utc"]
+            return rs[:5] + [record] + rs[6:]
+        cases = {
+            "another session": (at(5, session_id="session-20261201T080000Z-0000"), "session_id"),
+            "another campaign": (at(5, campaign_id="elsewhere"), "campaign_id"),
+            "another installation": (at(6, installation="ab-a-000000000000"), "installation of the probe"),
+            "another CPU": (at(6, logical_cpu=99), "is not the measured CPU"),
+            "a wrong process name": (at(6, process="AB-A-1.10-rep09"), "does not match"),
+            "a failed probe before a process that ran": (at(6, outcome="failed", error="x"), "failed"),
+            "a probe that ends inside its process": (late, "did not finish before the process started"),
+            "a duplicate launch probe": (lambda rs: rs + [rs[5]], "a second launch probe"),
+            "a preflight probe with a repetition": (at(0, rep=1), "names a process or a repetition"),
+            "an unknown phase": (at(5, phase="warmup"), "neither preflight nor launch"),
+            "an outcome ok with a failed command": (
+                lambda rs: [dict(r, commands=[dict(r["commands"][0], exit=1)]) if i == 5 else r
+                            for i, r in enumerate(rs)], "exactly one environment-probe command that exited 0"),
+        }
+        for name, (function, text) in cases.items():
+            with self.subTest(name):
+                problems = self.mutated(function)
+                self.assertTrue(any(text in p for p in problems), problems)
+        tree = clone(self.base)                                      # a probe log that campaign.json does not name
+        rebind(tree, probe_record=None)
+        document, _ = verify_problems(tree)
+        self.assertIn(f"{C.PROBE_LOG} exists but logs/campaign.json does not name it", document["problems"])
+
+    def test_the_real_hooks_journal_every_probe_command_also_a_failed_one(self):
+        hooks, plan, spec, run, *_ = RealHooksTests().world_for(self.camp)
+        hooks.probe_raw(spec, "1.10")
+        journal = hooks.probe_log()
+        self.assertEqual(hooks.probe_log(), [], "taken once")
+        self.assertEqual([(c["kind"], c["exit"]) for c in journal], [("environment-probe", 0), ("affinity", 0)])
+        for command in journal:
+            self.assertEqual(tuple(command), C.PROBE_COMMAND_KEYS)
+            self.assertLessEqual(C._parse_time(command["start_utc"]), C._parse_time(command["end_utc"]))
+        self.assertEqual(journal[0]["argv"], C.julia_command(plan, spec, "1.10", [str(HERE / "environment_probe.jl")]))
+        hooks.run = lambda argv, **kw: completed(argv, 7, b"", b"broken")
+        with self.assertRaises(C.Refused):
+            hooks.probe_raw(spec, "1.10")
+        self.assertEqual([(c["kind"], c["exit"]) for c in hooks.probe_log()], [("environment-probe", 7)])
+
+        def cannot_start(argv, **kw):
+            raise OSError("no julia")
+        hooks.run = cannot_start
+        with self.assertRaises(OSError):
+            hooks.probe_raw(spec, "1.10")
+        entry, = hooks.probe_log()
+        self.assertEqual(entry["exit"], -1)
+        self.assertIsNotNone(entry["end_utc"])
+
+
+class HugeIntegerTests(unittest.TestCase):
+    """#229 item 4: an integer beyond the float range is a validation failure (exit 2), never an OverflowError;
+    durations are not coerced with float() and an integer duration must convert exactly."""
+
+    HUGE = 10 ** 400
+
+    @classmethod
+    def setUpClass(cls):
+        cls.official = mc.load_schedule(HERE / "schedule.toml")
+
+    def test_positive_number_checks_the_range_before_converting(self):
+        for value, integer, exact, ok in ((5, True, False, True), (2 ** 53 + 1, True, False, True),
+                                          (self.HUGE, True, False, False), (self.HUGE, False, False, False),
+                                          (-self.HUGE, False, False, False), (0, False, False, False),
+                                          (True, True, False, False), (2.5, True, False, False),
+                                          (2.5, False, True, True), (float("inf"), False, False, False),
+                                          (float("nan"), False, False, False), (2 ** 53, False, True, True),
+                                          (2 ** 53 + 1, False, True, False),
+                                          (int(sys.float_info.max), True, False, True)):
+            with self.subTest(value=str(value)[:20], integer=integer, exact=exact):
+                self.assertIs(C.positive_number(value, integer, exact), ok)
+
+    def test_parse_pilot_refuses_huge_values_with_the_field(self):
+        for key in ("samples_target", "seconds_limit", "case_seconds"):
+            config = full_pilot_config()
+            config["pilot"][key] = self.HUGE
+            with self.assertRaises(C.LockRefusal) as caught:
+                C.parse_pilot(config, self.official)
+            self.assertEqual(caught.exception.field, f"pilot.{key}")
+        config = full_pilot_config()
+        config["pilot"]["seconds_limit"] = 2 ** 53 + 1                # would round in float()
+        with self.assertRaises(C.LockRefusal):
+            C.parse_pilot(config, self.official)
+        config = full_pilot_config(resources={"min_cpus": self.HUGE})
+        with self.assertRaises(C.LockRefusal) as caught:
+            C.parse_pilot(config, self.official)
+        self.assertEqual(caught.exception.field, "resources.min_cpus")
+
+    def test_the_shared_schedule_check_reports_a_huge_value_as_a_problem(self):
+        sched = copy.deepcopy(self.official)
+        sched["id"], sched["campaign_id"] = "stage2b-pilot-v1", PILOT_CAMPAIGN
+        sched["reps"], sched["orders"] = [1], {1: "AB"}
+        for key in ("samples_target", "seconds_limit"):
+            edited = copy.deepcopy(sched)
+            edited["settings"][key] = self.HUGE
+            problems = C.pilot_schedule_problems(pilot_config(), edited, self.official, ("AB",))
+            self.assertTrue(any(f"settings.{key} is" in p and "not a positive number in range" in p
+                                for p in problems), problems)
+
+    def test_the_command_line_exits_two_with_a_record_not_three(self):
+        directory = fresh("huge")
+        text = C.toml_dumps(dict(full_pilot_config(), pilot=dict(full_pilot_config()["pilot"], samples_target=self.HUGE)))
+        (directory / "p.toml").write_text(text)
+        for argv in (["pilot", "--config", str(directory / "p.toml"), "--base", str(directory / "x-pilot")],
+                     ["prepare", "--config", str(directory / "p.toml"), "--base", str(directory / "y-pilot"),
+                      "--step", "fetch"]):
+            code, _, err = call_main(argv, hooks=hooks_that_never_run())
+            self.assertEqual(code, 2, err)
+            self.assertIn("pilot.samples_target", err)
+            self.assertNotIn("OverflowError", err)
+        base = shared_pilot()                                         # verify --config records the refusal
+        document, status = verify_problems(base, directory / "p.toml")
+        self.assertEqual(status, 2)
+        self.assertTrue(any("pilot configuration: lock pilot.samples_target" in p for p in document["problems"]),
+                        document["problems"])
+        tree = clone(base)                                            # an archived schedule with a huge value
+        edit_text(tree / "schedule.toml", lambda t: re.sub(r"samples_target = [0-9]+", f"samples_target = {self.HUGE}", t))
+        rebind(tree, schedule_sha256=C.sha256_file(tree / "schedule.toml"))
+        document, status = verify_problems(tree, PILOT_FILE)
+        self.assertEqual(status, 2)
+        self.assertTrue(any("not a positive number in range" in p for p in document["problems"]), document["problems"])
+
+    def test_finalize_keeps_the_configured_values_without_coercion(self):
+        config = full_pilot_config()
+        config["pilot"].update(samples_target=2 ** 53 + 1, seconds_limit=3, case_seconds=2 ** 53)
+        self.assertEqual(C.pilot_sampling(config), {"samples_target": 2 ** 53 + 1, "seconds_limit": 3,
+                                                    "case_seconds": 2 ** 53})
+        machine = {"cpu_model": "m", "cpu": {"1.10": "a", "1.13": "b"}, "logical_cpu": 3, "smt_sibling": -1,
+                   "governor": "g", "epp": "e", "no_turbo": "n", "smt_control": "s"}
+        official = tomllib.loads((HERE / "schedule.toml").read_text())
+        new, _ = C.derive_pilot_schedule(official, config, machine, ("AB",))
+        written = tomllib.loads(C.toml_dumps(new))["settings"]
+        self.assertEqual((written["samples_target"], written["seconds_limit"], written["case_seconds"]),
+                         (2 ** 53 + 1, 3, 2 ** 53))
+        self.assertIsInstance(written["seconds_limit"], int)
 
 
 class LayoutTests(unittest.TestCase):
