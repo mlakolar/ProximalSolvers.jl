@@ -20,18 +20,53 @@ For the convex lasso, compute the [independent KKT residual](sparsity-and-kkt.md
 PGD's printed `|g(x)|` label is an internal stopping residual, **not**
 the value of the user's L1 penalty.
 
-## Float32 and Float64
+## Working precision: Float32 and Float64
 
-Use a consistent element type for `X`, `y` and the coefficients.
-We support Float32 and Float64; all entries must be finite, and
-intermediate arithmetic must remain finite. Float32 calculations have
-less precision; requesting a tolerance below that precision cannot
-guarantee the same coefficient accuracy.
+A supported solve uses a single floating-point working type
+`T = Float32` or `T = Float64` for the design matrix `X`, response
+vector `y`, and coefficient iterate. `CDSolver` accepts either a
+dense `Vector{T}` or a one-dimensional `SparseIterate` of `T`;
+`ProximalGradientDescent` accepts only a dense `Vector{T}`.
+Mixed-precision arrays, such as `Float32` coefficients with a
+`Float64` design, are rejected. This is stricter than ProximalBase
+function dispatch, which may permit some heterogeneous calls without
+guaranteeing their numerical behavior.
 
-For Float32, prefer a native scale:
-`(one(Float32)/Float32(n))*LeastSquaresLoss(y,X)`
-and `NormL1(Float32(lambda))`. A representable Float64 scalar
-from `1/n` is allowed, but the arrays are not converted.
+**Scalar-parameter exception.** The loss scale in
+`Scaled(LeastSquaresLoss(...), s)` and the `NormL1` penalty level
+`lambda` may be finite real scalars of a different type, including
+a `Float64` literal for a `Float32` solve. The solver checks that
+they are representable in `T` without overflow or loss of a
+nonzero parameter to zero. This convenience does **not** enable a
+general mixed-precision model or guarantee that every intermediate
+operation uses `T`. Prefer explicit native scalars:
+
+```julia
+T = Float32
+s = one(T) / T(n)
+lambda = T(0.1)
+f = s * LeastSquaresLoss(y, X)
+g = NormL1(lambda)
+```
+
+All supplied `X`, `y` and coefficient entries must be finite.
+Finite inputs do not guarantee finite intermediate arithmetic. The
+ProximalBase mathematical kernels use selective overflow/underflow
+recovery for some representable results, but ProximalSolvers does not
+promise end-to-end recovery of every failed matrix product, curvature,
+step or objective. Unrecoverable numerical failures are handled as
+described below; a successful kernel recovery does not imply the
+solver can continue in every extreme-range case.
+
+`Float32` has less precision and may stagnate earlier than `Float64`.
+Some solver tolerances, residual reports and other scalar diagnostics
+are stored as `Float64` even when the iterate is `Float32`;
+this is bookkeeping, **not** higher-precision optimization or an
+accuracy certificate. In particular, a tolerance tighter than the
+working precision does not guarantee corresponding coefficient
+accuracy. Assess the returned result with an
+[independent KKT residual](sparsity-and-kkt.md), rather than relying
+only on `converged`.
 
 ## Results and failures
 
