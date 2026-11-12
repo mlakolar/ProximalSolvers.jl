@@ -60,9 +60,10 @@ strict_options(::Type{T}; kwargs...) where T = ProximalOptions(;
   gradtol = T === Float64 ? 1e-10 : 1e-5, kwargs...)
 
 # Fixture-specific test bound for this file's correlated fixture; it is not a
-# solver tolerance or a general guarantee. With allow_f_increases = false, the
-# historical PGD rule stops with converged = false when the native-precision
-# objective increases. 64 eps(T) is twice the first-order a-priori bound
+# solver tolerance or a general guarantee. With allow_f_increases = false, PGD
+# stops at the first iteration whose native-precision objective increases, and
+# reports converged = false unless the x, f or gradient test held at that
+# iteration. 64 eps(T) is twice the first-order a-priori bound
 # (32.19 eps(T) at lambda = 0) on the relative difference between two
 # native-precision evaluations of this fixture's objective at its solution
 # with no true change; see #260.
