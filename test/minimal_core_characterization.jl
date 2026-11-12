@@ -63,7 +63,7 @@ strict_options(::Type{T}; kwargs...) where T = ProximalOptions(;
 # solver tolerance or a general guarantee. With allow_f_increases = false, PGD
 # stops at the first iteration whose native-precision objective increases, and
 # reports converged = false unless the x, f or gradient test held at that
-# iteration. 64 eps(T) is twice the first-order a-priori bound
+# iteration. 64 eps(T) is approximately twice the first-order a-priori bound
 # (32.19 eps(T) at lambda = 0) on the relative difference between two
 # native-precision evaluations of this fixture's objective at its solution
 # with no true change; see #260.
@@ -234,7 +234,7 @@ end
   end
 end
 
-@testset "warm PGD acceptance predicate rejects material increases and exhausted budgets" begin
+@testset "warm PGD acceptance predicate rejects non-converged material increases and exhausted budgets" begin
   for T in (Float64, Float32)
     X, y = correlated(T)
     f = (one(T) / T(length(y))) * LeastSquaresLoss(y, X)
@@ -264,6 +264,7 @@ end
     @test !accepted(variant(f_residual = NaN))
     @test !accepted(variant(f_residual = Inf))
     @test !accepted(variant(f_residual = -1.0))
+    @test !accepted(variant(iteration_converged = true))
     @test !accepted(variant(iteration_converged = true, iterations = options.maxiter))
     @test !accepted(variant(iterations = options.maxiter))
     @test !accepted(variant(call_limit_reached = true))
