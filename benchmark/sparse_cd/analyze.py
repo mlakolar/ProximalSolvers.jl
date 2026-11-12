@@ -19,7 +19,7 @@ with (root/'solve.tsv').open() as file:
         groups[tuple(row[k] for k in ('comparison','type','n','p','occupancy'))].append(row)
 expected_solves={(comparison,t,str(n),str(p),occupancy)
     for comparison in ("dense-base-head","dense-head-control","dense-owner")
-    for t in ("Float32","Float64") for n,p in ((128,32),(1024,256))
+    for t in ("Float32","Float64") for n,p in ((128,32),(1024,256),(8,100000))
     for occupancy in ("low","full")}
 if set(groups)!=expected_solves:
     raise ValueError("missing or unexpected complete solve case")

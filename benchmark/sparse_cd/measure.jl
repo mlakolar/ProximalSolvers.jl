@@ -30,8 +30,11 @@ end
 function fixture(::Type{T},n,p,occupancy) where T
   rng=Xoshiro(0x1731+n+p)
   X=T.(randn(rng,n,p))
+  if p>=100000
+    fill!(X,zero(T))
+  end
   beta=zeros(T,p); beta[1:min(8,p)].=T.(range(1.,.2,length=min(8,p)))
-  y=X*beta+T(.05).*T.(randn(rng,n))
+  y=p>=100000 ? ones(T,n) : X*beta+T(.05).*T.(randn(rng,n))
   x=zeros(T,p)
   s=occupancy=="low" ? min(8,p) : p
   x[1:s].=T(.02)
@@ -116,7 +119,7 @@ end
 function runmeasurements(a,b,c,out)
   open(joinpath(out,"solve.tsv"),"w") do io
     println(io,"comparison\ttype\tn\tp\toccupancy\tround\tside\tseconds\tbytes\tdiagnostics")
-    for T in (Float32,Float64), (n,p,inner) in ((128,32,20),(1024,256,5)), occ in ("low","full")
+    for T in (Float32,Float64), (n,p,inner) in ((128,32,20),(1024,256,5),(8,100000,1)), occ in ("low","full")
       problem=fixture(T,n,p,occ)
       solvepair!(io,"dense-base-head",a,b,problem,inner,false)
       solvepair!(io,"dense-head-control",b,c,problem,inner,false)

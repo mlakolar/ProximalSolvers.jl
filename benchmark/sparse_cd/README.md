@@ -18,7 +18,10 @@ Use a fresh output directory and serialize measurements with other work from
 the same test run.
 
 For each Float32/Float64, small/moderate dense design and low/full initial
-occupancy, `solve.tsv` records 30 paired alternating rounds. Each side's round
+occupancy, `solve.tsv` records 30 paired alternating rounds. A storage-heavy
+8-row, 100,000-coordinate zero-design case also measures end-to-end costs with
+low/full entry occupancy; its known zero solution isolates storage overhead
+without ill-conditioned convergence dominating the comparison. Each side's round
 time is the minimum of three warmed batches. Fresh caller storage and seeded
 RNGs are prepared outside timing; solver validation, private storage, coordinate
 work and final commit are included. The 2,000-pass cap bounds a failed fixture;
@@ -40,6 +43,9 @@ The destination is prepared in its entry state outside timing for each commit
 sample. State checks use public coordinate IDs and values, including active
 signed zeros and unsorted order. Allocation/copy costs and final-state replacement
 are separate measurements. Setup and state verification are excluded from them.
+
+Run `python3 -I benchmark/sparse_cd/check_analysis.py` to exercise missing-case,
+missing-row, numerical-corruption and nonfinite-timing refusal controls.
 
 The analyzer recomputes medians, ratio spreads, exact allocation sets and
 numerical equality from raw records. A material repeatable regression outside

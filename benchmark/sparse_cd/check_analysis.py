@@ -10,7 +10,7 @@ with tempfile.TemporaryDirectory() as directory:
     solve_header=['comparison','type','n','p','occupancy','round','side','seconds','bytes','diagnostics']
     copy_header=['operation','type','p','old_active','new_active','round','seconds','bytes']
     solves=[]
-    for c,t,(n,p),o in itertools.product(('dense-base-head','dense-head-control','dense-owner'),('Float32','Float64'),((128,32),(1024,256)),('low','full')):
+    for c,t,(n,p),o in itertools.product(('dense-base-head','dense-head-control','dense-owner'),('Float32','Float64'),((128,32),(1024,256),(8,100000)),('low','full')):
         for r,side in itertools.product(range(1,31),(0,1)):
             solves.append([c,t,n,p,o,r,side,.001,100,'same'])
     copies=[]
