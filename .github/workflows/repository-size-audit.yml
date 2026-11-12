@@ -1,0 +1,36 @@
+name: Repository history size audit
+# Read-only audit. PR trigger runs the auditor when its implementation changes;
+# monthly/manual runs monitor historical-only blobs without blocking package CI.
+on:
+  pull_request:
+    paths:
+      - scripts/audit_repository_history.py
+      - .github/workflows/repository-size-audit.yml
+  schedule:
+    - cron: '19 7 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  history:
+    name: Read-only repository history inventory
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Inventory all reachable blobs
+        run: |
+          python3 scripts/audit_repository_history.py --output repository-size-audit.json | tee repository-size-audit.txt
+          cat repository-size-audit.txt >> "$GITHUB_STEP_SUMMARY"
+      - name: Archive JSON inventory outside git
+        uses: actions/upload-artifact@v7
+        with:
+          name: repository-size-audit
+          path: repository-size-audit.json
+          retention-days: 30
+          if-no-files-found: error
