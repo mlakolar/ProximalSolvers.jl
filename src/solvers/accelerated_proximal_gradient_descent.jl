@@ -15,10 +15,12 @@ least-squares loss followed by soft thresholding. It is a FISTA-family method; i
 momentum sequence `k/(k+3)` is not the textbook FISTA recurrence.
 
 The step size `1/L` is found by backtracking on the least-squares bound
-`f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + L/2 ‖x - y‖²`, tested in floating point through its
-exact form `α_f ‖X(x - y)‖² ≤ L ‖x - y‖²` with the image `X(x - y)` taken from cached
-products, both sides scaled by `max |x - y|`, and a rounding allowance; a trial
-with `x == y` is accepted when its value is finite. A rejected trial sets
+`f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + L/2 ‖x - y‖²`, which holds exactly when
+`√α_f ‖X(x - y)‖ ≤ √L ‖x - y‖`. The test compares these norms, not their squares,
+with `X(x - y)` approximated by the difference of cached products, a relative slack
+of `4eps`, and a rounding allowance; see
+[numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
+A trial with `x == y` entrywise is accepted when its value is finite. A rejected trial sets
 `L ← L/β`, `β ∈ (0, 1)`. Before each iteration `L ← α L`, `α ∈ (0, 1]`, so that the
 step can grow again where the curvature is smaller; `α = 1` keeps `L` from
 decreasing.
@@ -193,18 +195,18 @@ function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where 
       state.f_calls += 1
 
       _sub!(state.xhat, state.x, state.y)
-      scale = _norm_inf(state.xhat)
+      md = _maxabs(state.xhat)   # NaN when an entry is NaN
       state.backtrack_steps += 1
-      if iszero(scale)
-        # x == y entrywise: the step from y with this L returns y, and a larger L does
-        # not move it either. The bound can then fail only by the rounding difference
+      if iszero(md)
+        # x == y entrywise. The bound has no step to test, only the rounding difference
         # between the extrapolated A y and the freshly multiplied A x, so the step is
-        # accepted when its value is finite, as PGD accepts a zero step.
+        # accepted when its value is finite, as PGD accepts a zero step; this is a
+        # stopping policy, not a claim that a larger L would also return y.
         isfinite(state.f_x) && break
       else
-        # Scaled by max |x - y|, so that a nonzero step whose squared norm would
-        # underflow (or overflow) is still compared.
-        _majorization_ok(state.model, state.z_y, state.z_x, state.f_x, state.L, state.xhat, scale) && break
+        # Norms, not squares, with max |x - y| as the scale (see _majorization_ok), so a
+        # nonzero step whose squared norm would underflow is still compared.
+        _majorization_ok(state.model, state.z_y, state.z_x, state.f_x, state.L, state.xhat, md) && break
       end
       # A rejected trial, including one with a nonfinite value, remainder or bound,
       # raises L; next_curvature raises once L/β is not a finite increase.

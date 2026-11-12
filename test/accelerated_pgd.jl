@@ -64,7 +64,7 @@ end
 hadamard(k) = k == 0 ? ones(1, 1) : (H = hadamard(k - 1); [H H; H -H])
 
 # Fixture tolerances, per precision, relative to the scale of the problem. They are
-# chosen for these well-conditioned fixtures, not derived as a general bound: the
+# chosen for the fixtures of this file, not derived as a general bound: the
 # objective-change test (shared with PGD) stops once successive objectives agree to
 # about one ulp, and on these fixtures that leaves coefficient, KKT and gap accuracy
 # near √eps(T) (1.5e-8 in Float64, 3.5e-4 in Float32). The bounds are about 70 times
@@ -158,9 +158,8 @@ end
         @test kkt(X, y, s, λ, z) <= kkt_tol(T) * max(1, lmax)
         bound = sqrt(2 * max(g, 0) / Float64(s)) + sqrt(2 * max(gz, 0) / Float64(s))
         @test norm(Float64.(big_(X) * (big_(x) - big_(z)))) <= bound + 1e3 * eps(T) * norm(Float64.(X)) * max(1, norm(Float64.(x)))
-        # A zero column has a zero gradient, so with λ > 0 one soft-thresholding step sets
-        # its coefficient to zero and later steps keep it there (checked here for the
-        # nonzero start z as well as for x).
+        # A zero column has a zero gradient; the final coefficients of both fixture solves
+        # (from the zero start x and the nonzero start z) are checked to be zero there.
         X === Xzero && @test x[3] == 0 && x[9] == 0 && z[3] == 0 && z[9] == 0
       end
     end
@@ -259,6 +258,104 @@ image_error(z, X, v) = Float64(norm(big_(z) - big_(X) * big_(v)))
     rp = solve!(z, f, g, ProximalGradientDescent(), opts)
     @test kkt(X, y, s, λ, x) <= kkt_tol(T) * max(1, λmax(X, y, s))
     T == Float64 && @test 2 * ra.iterations < rp.iterations
+  end
+end
+
+# The backtracking test α‖Δz‖² ≤ L‖d‖² (Δz = zw - zu) against a BigFloat reference computed
+# from the same stored values. Outside a band of relative width δ around equality the
+# decision must match the reference; δ covers the evaluation error of the two scaled
+# norms (recursive sums of n and p terms), the relative slack 4eps on the norm ratio
+# and the image allowance 8eps max(‖zu‖, ‖zw‖), which with zu = 0 is 8eps ‖Δz‖.
+function reference_ratio(α, zu, zw, d, L)
+  BigFloat(α) * sum(abs2, big_(zw) - big_(zu)) / (BigFloat(L) * sum(abs2, big_(d)))
+end
+majorization(m, zu, zw, L, d) = PS._majorization_ok(m, zu, zw, zero(eltype(d)), L, d, maximum(abs, d))
+
+@testset "backtracking test over the representable range (BigFloat reference)" begin
+  rng = Xoshiro(265)
+  for T in (Float32, Float64)
+    E = T == Float32 ? 120 : 1000          # exponent span of the scales
+    checked = 0
+    for trial in 1:400
+      n, p = rand(rng, 1:40), rand(rng, 1:40)
+      α = T(2.0)^rand(rng, -E÷2:E÷2)
+      d = T.(randn(rng, p) .* 2.0^rand(rng, -E:E))
+      dz = T.(randn(rng, n) .* 2.0^rand(rng, -E:E))
+      all(isfinite, d) && all(isfinite, dz) && any(!iszero, d) || continue
+      zu, zw = zeros(T, n), dz
+      m = PS._image_model(T(α) * LeastSquaresLoss(zeros(T, n), zeros(T, n, 1)))
+      δ = 8 * (n + p + 16) * eps(T)
+      ρ1 = reference_ratio(α, zu, zw, d, one(T))          # curvature along d, in units of L = 1
+      for factor in (big(1) - 2δ, big(1) + 2δ, big(1) / 4, big(4))
+        Lb = ρ1 * factor                                    # α‖Δz‖²/(L‖d‖²) = 1/factor
+        Lb > floatmax(T) && continue
+        L = T(Lb)
+        (iszero(L) || !isfinite(L) || issubnormal(L)) && continue
+        ratio = reference_ratio(α, zu, zw, d, L)
+        ok = majorization(m, zu, zw, L, d)
+        if ratio <= 1 - δ
+          @test ok
+        elseif ratio >= 1 + δ
+          @test !ok
+        end
+        checked += 1
+      end
+      # a curvature beyond floatmax(T) is rejected by every representable L
+      if ρ1 > big(floatmax(T))
+        @test !majorization(m, zu, zw, floatmax(T), d)
+      end
+    end
+    @test checked >= 400
+    # rounding boundary: equality is accepted, a ratio 1 + δ is not
+    d = T[3, 4]; dz = T[6, 8]                              # ‖Δz‖ = 2‖d‖ exactly
+    m = PS._image_model(LeastSquaresLoss(zeros(T, 2), zeros(T, 2, 1)))
+    @test majorization(m, zeros(T, 2), dz, T(4), d)
+    @test !majorization(m, zeros(T, 2), dz, T(4) * (1 - 64eps(T)), d)
+    # ‖d‖² underflows to zero in T, but the comparison is evaluated
+    tiny = T == Float32 ? 1f-30 : 1e-200
+    @test iszero(sum(abs2, T[tiny]))
+    @test majorization(m, zeros(T, 1), T[2tiny], T(4), T[tiny])
+    @test !majorization(m, zeros(T, 1), T[2tiny], T(3.9), T[tiny])
+    # squares that would overflow in T: ‖Δz‖ = 1e19‖d‖ (Float32), curvature 1e38
+    big_scale = T == Float32 ? 1f19 : 1e150
+    @test majorization(m, zeros(T, 4), fill(big_scale, 4), big_scale^2 * T(1.001), ones(T, 4))
+    @test !majorization(m, zeros(T, 4), fill(big_scale, 4), big_scale^2 * T(0.999), ones(T, 4))
+    # nonfinite or invalid inputs are never accepted
+    @test !majorization(m, zeros(T, 2), T[NaN, 1], T(1e3), T[1, 1])
+    @test !majorization(m, zeros(T, 2), T[1, 1], T(1e3), T[Inf, 1])
+    @test !majorization(m, zeros(T, 2), T[1, 1], T(1e3), T[NaN, 1])
+    @test !PS._majorization_ok(m, zeros(T, 2), T[1, 1], T(Inf), T(1e3), T[1, 1], one(T))
+    @test !PS._majorization_ok(m, zeros(T, 2), T[1, 1], T(NaN), T(1e3), T[1, 1], one(T))
+    @test !majorization(m, zeros(T, 2), T[1, 1], zero(T), T[1, 1])
+    # an image norm that overflows gives no allowance, so the test still decides
+    huge = floatmax(T) / 2
+    @test !majorization(m, T[huge, huge], T[huge, huge] .+ T[0, huge / 4], one(T), T[1, 0])
+    # the allowance: an image difference within 8 roundings of the image norm passes
+    @test majorization(m, T[1, 0], T[1 + 4eps(T), 0], T(1e-30), T[1e-10, 0])
+  end
+end
+
+@testset "range counterexamples end to end (BigFloat objective)" begin
+  F(f, X, y, s, x) = BigFloat(s) * sum(abs2, big_(y) - big_(X) * big_(x)) / 2
+  # xtol is compared with max(‖x‖, 1) and ftol is added to |F| in the objective test, so
+  # solutions of size 1e-160 and objectives of size 1e-30 need both far below that
+  long = ProximalOptions(maxiter = 500, ftol = 1e-300, xtol = 1e-300, gradtol = 0)
+  # weighted curvature 1e-8 with a loss scale of 1e38: no uphill step, solution y/X = 1e13
+  X, y = reshape(Float32[1f-23], 1, 1), Float32[1f-10]
+  x = zeros(Float32, 1)
+  r = solve!(x, 1f38 * LeastSquaresLoss(y, X), NormL1(0f0), AccProxGradDescent(α = 1f-30))
+  @test !r.f_increased && F(nothing, X, y, 1f38, x) <= F(nothing, X, y, 1f38, zeros(Float32, 1))
+  @test abs(Float64(x[1]) - 1e13) <= 1e-3 * 1e13
+  # curvatures near floatmax: X = 1f20 with a Float64 scale 1e-20, X = 1e160 with 1e-20,
+  # raw X = 1f19·I: each reaches its solution y/X
+  for (T, Xv, yv, s, p) in ((Float32, 1f20, 1f0, 1e-20, 1), (Float64, 1e160, 1.0, 1e-20, 1),
+                            (Float32, 1f19, 1f0, 1, 4))
+    X = Matrix{T}(Xv * I, p, p); y = fill(T(yv), p)
+    f = s == 1 ? LeastSquaresLoss(y, X) : s * LeastSquaresLoss(y, X)
+    x = zeros(T, p)
+    r = solve!(x, f, NormL1(zero(T)), AccProxGradDescent(), long)
+    @test !r.f_increased && all(isfinite, x)
+    @test maximum(abs, Float64.(x) ./ (Float64(yv) / Float64(Xv)) .- 1) <= (T == Float32 ? 1e-5 : 1e-12)
   end
 end
 

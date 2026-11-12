@@ -3,7 +3,7 @@ module Blocks
 using LinearAlgebra
 using ProximalBase: norm_diff
 export _eltype, _copy, _similar, _dense_similar, _copyto!, _copy!, _sub!, _step!, _norm, _norm_diff, _norm_inf, _dot, _dot_diff, _maxabs_axpy, _maxabs_residual,
-       _extrapolate_point!, _maxabs_diff, _maxabs_stepdiff
+       _extrapolate_point!, _maxabs, _maxabs_diff, _maxabs_stepdiff
 _eltype(x::AbstractArray) = eltype(x)
 _copy(x::AbstractArray) = copy(x)
 _similar(x::AbstractArray) = similar(x)
@@ -13,6 +13,8 @@ _copy!(y::AbstractArray, x::AbstractArray) = copy!(y, x)
 _sub!(y::AbstractArray, a, b) = (@. y = a - b; y)
 _step!(y::AbstractArray, x, g, L) = (@. y = x - g / L; y)
 _extrapolate_point!(y::AbstractArray, x, xp, ω) = (@. y = x + ω * (x - xp); y)
+# maxᵢ |xᵢ|; NaN when an entry is NaN (max propagates NaN)
+_maxabs(x::AbstractArray) = maximum(abs, x)
 _norm(x::AbstractArray) = norm(x)
 _norm_diff(x::AbstractArray, y::AbstractArray, p::Real = 2) = norm_diff(x, y, p)
 _norm_inf(x::AbstractArray) = norm(x, Inf)

@@ -95,10 +95,17 @@ only on `converged`.
   finite increase; a trial whose objective is not finite is never accepted.
   An extrapolated point whose objective or gradient is not finite restarts the
   momentum when the step uses momentum; without momentum the step fails, with the
-  same rollback. Its line search compares the least-squares Taylor remainder,
-  approximated from the cached images `X y` and `X x`, with `L ‖x - y‖² / 2`
-  (scaled by `max |x - y|`, with a rounding allowance), so it does not subtract
-  nearly equal objective values.
+  same rollback. Its line search tests the least-squares bound in the form
+  `√α ‖X(x - y)‖ ≤ √L ‖x - y‖`, with `X(x - y)` approximated by the difference of
+  the cached images `X x` and `X y`, so it does not subtract nearly equal objective
+  values. Both norms are computed without forming squares that could overflow or
+  underflow, and the two sides are compared through their binary exponents, so the
+  test is evaluated whenever the curvature along the step is representable; a
+  curvature above `floatmax(T)` is rejected by every `L`, and the solve then fails
+  with rollback. A relative slack of `4eps` and an allowance of 8 roundings of the
+  image norm absorb rounding of the cached images; an accepted step can violate the
+  bound only by amounts of that size plus the rounding error of the images
+  themselves, which also limits the objective values computed from them.
 - Reaching a pass or iteration limit is not convergence. CD can return
   a finite nonconverged solution with a warning.
 

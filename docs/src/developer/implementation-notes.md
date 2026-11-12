@@ -139,19 +139,18 @@ historical LS image exceptional-range limitations remain outside this extraction
 
 APG (`AccProxGradDescent`) is the historical accelerated method narrowed to the
 dense LS core: extrapolation `y = x + k/(k+3)(x - x_previous)`, `L ← αL` before each
-iteration, backtracking `L ← L/β` until the LS remainder test
-`α_f‖X(x-y)‖² ≤ L‖x-y‖²` accepts the trial, with `X(x-y)` approximated by the
-difference of the cached images, both sides divided by `max|x-y|²`, a relative
-slack of `8 eps(T)` and the historical rounding allowance in image units (an image
-displacement inside the allowance passes with any `L`), and one restart from `y = x_previous` when an extrapolated step raises the computed
+iteration, backtracking `L ← L/β` until the LS bound test accepts the trial (see
+"The APG bound test" below), and one restart from `y = x_previous` when an extrapolated step raises the computed
 objective. `X y` is formed from `X x` and `X x_previous` without a product; a restart
 copies `X x_previous`. Departures from `legacy/full`: no metric, tuple, owner or
 generic smooth-loss path; β and α are validated and used in `T` (`T(β) < 1` and
 `T(α) > 0` after rounding); the objective-scale bound that only guarded a nonfinite
 value is dropped, so a nonfinite trial raises `L` through `next_curvature` (which
-raises once `L/β` is not a finite increase) instead of failing at once; the test is
-scaled by `max|x-y|`, so a nonzero step whose `‖x-y‖²` underflows is still compared
-(legacy compared unscaled squares); a step with `x == y` entrywise is accepted with a
+raises once `L/β` is not a finite increase) instead of failing at once; the bound is
+tested as a comparison of norms evaluated without range loss, where legacy compared
+squares that can underflow or overflow in `T` (on 576 ordinary solves, Float32 and
+Float64, raw and scaled, default and tight options, both give bit-identical iterates,
+counters and flags); a step with `x == y` entrywise is accepted with a
 finite value, where legacy raised; a
 nonfinite gradient at `y` is treated like a nonfinite value (restart, or failure
 without momentum). Each step writes `x_previous ← x` after forming `y` and before the
@@ -160,6 +159,48 @@ first trial, so the shared engine's rollback restores the last accepted iterate.
 `prox_calls`; `grad_calls` is the number of steps plus restarts and
 `f_calls = 1 + grad_calls + prox_calls`. Its gradient residual `L‖x - y‖∞` is a
 stopping quantity measured from `y`; it is not an independent KKT residual at `x`.
+
+### The APG bound test
+
+For least squares, `f(x) ≤ f(y) + ⟨∇f(y), d⟩ + L‖d‖²/2` (`d = x - y`) holds iff
+`√α_f ‖X d‖ ≤ √L ‖d‖`. `_majorization_ok` (`src/solvers/image_models.jl`) accepts a
+trial with `d ≠ 0` iff `√α (‖Δz‖ - a) ≤ (1 + 4eps) √L ‖d‖`, with `Δz = z_x - z_y` the
+difference of the cached images, approximating `X d`, and `a = 8eps max(‖z_x‖, ‖z_y‖)`;
+the allowance is tried only when the plain comparison (`a = 0`) fails, as in legacy,
+which gives the same decision.
+
+*Range.* `‖d‖` and `‖Δz‖` are computed as `m √s` with `m = max|vᵢ|` and
+`s = Σ(vᵢ/m)² ∈ [1, n]`: no square leaves the range of `T`, and terms that underflow
+contribute less than `n floatmin(T)` to `s ≥ 1`. A finite trial value implies
+`Σ(yᵢ - zᵢ)²` finite in `T`, so `|Δzᵢ| ≤ 2√floatmax(T)` and `‖Δz‖` does not
+overflow for any practical `n`. The two sides are products of finite positive factors
+(`√α`, `‖Δz‖ - a`; `1 + 4eps`, `√L`, `m_d`, `√s_d`) compared by `_product_le`, which
+accumulates significands in `[1, 2)` and binary exponents as integers: no partial
+product, and no ratio of the scale factors `m_z / m_d`, is formed, so the decision is
+evaluated whenever the curvature along `d` is representable. A curvature above
+`floatmax(T)` is rejected by every `L ≤ floatmax(T)`, and backtracking then ends in
+`next_curvature`'s error with rollback.
+
+*Error.* The computed norms carry relative errors of about `(n/2 + 1) eps` and
+`(p/2 + 1) eps` in the worst case (recursive sums; typically `√n eps`), plus a few
+roundings in the square roots and significand products. The slack `4eps` is legacy's
+`8eps` on the squared bound and is smaller than that worst case: within a band of
+relative width about `((n + p)/2 + 8) eps` around equality the decision is not
+determined by the exact inequality for the stored values. A rejection there costs one
+more trial; an acceptance violates the bound by at most that relative amount.
+
+*Allowance.* `Δz` differs from `X d` by the rounding errors `E` of the two cached
+images (a fresh product and an extrapolation). Any accepted trial satisfies
+`√α ‖X d‖ ≤ (1 + 4eps) √L ‖d‖ + √α (a + E)`: the allowance admits violations no larger
+than 8 roundings of the image norm, it is never divided by `‖d‖`, and a nonfinite
+allowance counts as none. When `E` itself is large (cancellation in `X x`), the test
+is limited by the images, as are the objective values computed from them; the engine's
+objective-increase test remains the backstop.
+
+*Edge cases.* `d = 0` entrywise: accepted with a finite value (caller). NaN or infinite
+displacement, image difference, image norm or trial value, or `L = 0` with
+`Δz ≠ 0`: rejected. `test/accelerated_pgd.jl` checks the decisions against BigFloat
+references across the exponent range of both precisions.
 
 Callbacks/display sample `print_every`; stored traces include each iteration. A
 callback receives the trace when storing, otherwise a state. Limits are checked
