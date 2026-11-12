@@ -241,7 +241,23 @@ python3 -B -m unittest test_check_reset_probes -v
 The first command lets `unittest` collect tests with its default pattern `test*.py` from this directory. It
 runs every `test*.py` module of the directory itself (`test_stage2b_files.py` and `test_migration_compare.py`)
 and does **not** pick up `probes/`: the collection descends only into directories that are Python packages, and
-`probes/` has no `__init__.py`. The probe checker's tests therefore run with the second command. The Julia test
+`probes/` has no `__init__.py`. The probe checker's tests therefore run with the second command.
+
+**In CI.** The required `Benchmark analysis controls` job (`.github/workflows/CI.yml`) runs all four offline Python
+suites from the repository root, one step each, with Python 3.12:
+
+```
+python3 -B benchmark/campaigns/stage2b/test_migration_compare.py
+python3 -B benchmark/campaigns/stage2b/test_stage2b_files.py
+python3 -B benchmark/campaigns/stage2b/test_stage2b_campaign.py
+python3 -B benchmark/campaigns/stage2b/probes/test_check_reset_probes.py
+```
+
+The job checks out the full history and first checks that the two commits pinned in `test_stage2b_campaign.py`
+(`BASE_COMMIT`, `STACK_A_COMMIT`) are present, so the fingerprint tests at those commits run instead of being
+skipped; a skipped test fails its step. A failing suite fails the job and therefore the PR merge gate.
+
+The Julia test
 of the P14 port runs separately, from the repository root, in an environment with ProximalBase, ProximalSolvers
 and the standard libraries it uses:
 

@@ -12,9 +12,17 @@ python3 scripts/check_naming.py
 python3 benchmark/check_analysis.py
 python3 -I benchmark/sparse_cd/check_analysis.py
 python3 -B benchmark/external/coordinatedescent/check_analysis.py
+python3 -B benchmark/campaigns/stage2b/test_migration_compare.py
+python3 -B benchmark/campaigns/stage2b/test_stage2b_files.py
+python3 -B benchmark/campaigns/stage2b/test_stage2b_campaign.py
+python3 -B benchmark/campaigns/stage2b/probes/test_check_reset_probes.py
 julia --project=docs -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
 julia --project=docs docs/make.jl
 ```
+
+The four Stage 2B suites also run, one step each, in the required `Benchmark analysis controls` job. Run
+`test_stage2b_campaign.py` in a full-history clone: its fingerprint tests read two pinned commits, are skipped
+without them, and CI fails on any skipped test.
 
 Every pull request builds and checks the documentation on Linux Julia 1 with a
 read-only token. Download the rendered HTML from the
