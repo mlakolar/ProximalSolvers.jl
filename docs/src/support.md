@@ -18,10 +18,10 @@ usual normalized convention.
 | --- | --- |
 | Design matrix `X` | Nonempty, finite, dense `Matrix{Float32}` or `Matrix{Float64}` |
 | Response `y` | Finite vector with the same element type and `length(y) == size(X,1)` |
-| Coefficients `beta` | Same-type dense vector for CD or PGD; alternatively, one-dimensional ProximalBase `SparseIterate` for CD only |
+| Coefficients `beta` | Same-type dense vector for CD, PGD or APG; alternatively, one-dimensional ProximalBase `SparseIterate` for CD only |
 | Loss | `LeastSquaresLoss` or one finite positive scalar multiple of it |
 | Penalty | Unweighted `NormL1(lambda)` with nonnegative finite `lambda` |
-| Solvers | `CDSolver`, `ProximalGradientDescent` |
+| Solvers | `CDSolver`, `ProximalGradientDescent`, `AccProxGradDescent` |
 
 The three numerical arrays use one common `T` (`Float32` or
 `Float64`); mixed-element-type `X`, `y` and coefficient arrays
@@ -53,11 +53,12 @@ The current development core intentionally excludes the following:
 | Generalized losses, matrix responses, intercepts/offsets | Deferred |
 | Weighted or group penalties, generalized penalty combinations | Deferred |
 | Penalty paths, screening and dual-gap certificates | Deferred |
-| ADMM, Newton, accelerated gradient, primal-dual, SLOPE, graphical models | Deferred |
+| ADMM, Newton, monotone or active-set accelerated gradient, primal-dual, SLOPE, graphical models | Deferred |
 | Generic workspaces, refitting, reweighting | Deferred |
-| PGD with `SparseIterate` coefficients | Deferred |
+| PGD or APG with `SparseIterate` coefficients | Deferred |
 | CD `anderson>0`, `gaptol>0`, `gapsafe=true` | Rejected; not implemented |
 | PGD `normalized=true`, `debias>0`, `preconditioner != :none` | Rejected; not implemented |
+| APG `preconditioner != :none` | Rejected; not implemented |
 
 Some rejected keywords remain accepted by *constructors* only to
 provide informative errors and compatibility with historical signatures.

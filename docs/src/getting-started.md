@@ -15,7 +15,7 @@ Pkg.add(url="https://github.com/mlakolar/ProximalSolvers.jl",
         rev="master")
 ~~~
 
-Add **both** packages: ProximalBase provides `LeastSquaresLoss`, `NormL1` and `SparseIterate`; ProximalSolvers provides `CDSolver`, `ProximalGradientDescent` and `solve!`. The long revision identifier specifies the ProximalBase source used by
+Add **both** packages: ProximalBase provides `LeastSquaresLoss`, `NormL1` and `SparseIterate`; ProximalSolvers provides `CDSolver`, `ProximalGradientDescent`, `AccProxGradDescent` and `solve!`. The long revision identifier specifies the ProximalBase source used by
 the development core. The [ProximalBase `/dev/` manual](https://mlakolar.github.io/ProximalBase.jl/dev/)
 documents its **current `master`**, which can differ from the
 [pinned ProximalBase source](https://github.com/mlakolar/ProximalBase.jl/tree/c123d56ba1948e36a8fdbf183a9eea396a16e0d5)

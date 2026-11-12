@@ -1,7 +1,8 @@
 """
     ProximalSolver
 
-Abstract supertype of CDSolver and ProximalGradientDescent, passed to solve!.
+Abstract supertype of CDSolver, ProximalGradientDescent and AccProxGradDescent,
+passed to solve!.
 """
 abstract type ProximalSolver end
 
@@ -152,7 +153,7 @@ end
 """
     OptimizationResults
 
-Result from proximal gradient descent. `minimizer` aliases the caller's
+Result from proximal gradient descent, plain or accelerated. `minimizer` aliases the caller's
 coefficient vector; `minimum` is the reported objective at that iterate.
 `iterations` counts steps and `converged` means **at least one** stopping
 criterion succeeded, not necessarily that the solution satisfies KKT
@@ -160,8 +161,9 @@ optimality. `iteration_converged` reports reaching the iteration limit,
 **not** successful convergence.
 
 The result also stores stopping flags, residuals and tolerances, optional
-`trace`, call counts and backtracking counts. `backtrack_steps`
-includes accepted nonzero line-search trials. `gap=NaN` means a dual
+`trace`, call counts and backtracking counts. For PGD, `backtrack_steps`
+includes accepted nonzero line-search trials; for APG it counts every trial,
+including the accepted one. `gap=NaN` means a dual
 gap was not calculated, not that the gap is zero.
 """
 mutable struct OptimizationResults{O<:ProximalSolver, T, N, M, X<:AbstractArray{T, N}}

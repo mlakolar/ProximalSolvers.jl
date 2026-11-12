@@ -6,8 +6,8 @@ and [Supported problems](support.md) if you are new.
 
 ## High-level organization
 
-The development core intentionally keeps only two separate least-squares
-lasso engines:
+The development core keeps two separate least-squares lasso engines, the
+second with an accelerated variant:
 
 - **Coordinate descent:** builds and updates a ProximalBase
   `SparseIterate` internally, visiting full coordinate sets and then
@@ -16,10 +16,13 @@ lasso engines:
   committed on a finite completed run.
 - **Proximal gradient descent:** maintains full dense iterate and gradient
   buffers, using a least-squares image cache and backtracking line search.
+  The accelerated variant (`AccProxGradDescent`) reuses the same image model,
+  iteration engine, stopping tests and result type, with its own state,
+  extrapolation, restart and line search.
 
 Losses, L1 proximal operations and sparse coefficient storage live
 in ProximalBase. Solver orchestration and algorithm-specific results
-live here. The two solvers intentionally retain separate option and
+live here. CD and the gradient solvers intentionally retain separate option and
 result types rather than introducing an untested shared engine.
 
 For exact source-level contracts, exceptional recovery, branch history,

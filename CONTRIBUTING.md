@@ -39,7 +39,7 @@ Pkg.test defaults to full. Test tiers are cumulative and fail-closed: every
 regular test appears exactly once; missing/duplicate/unlisted files and empty
 selections fail. Every source has an explicit risk rule; unknown source defaults
 full. Changed tests run alongside the chosen tier; labels only raise it. All
-12 shared source files currently require full. Generic discovery, runner,
+13 shared source files currently require full. Generic discovery, runner,
 verdict/gate and benchmark-analysis controls remain active.
 
 Separately approved PR #241 selects stable Julia1 Linux x64 only for every tier.
@@ -54,7 +54,11 @@ CD preserves private PB SparseIterate storage/compaction, full-active scheduling
 Fisher–Yates/RNG ownership, native residual/lazy curvature, scalar prox_block and
 default random momentum/restarts/cache refresh. PGD keeps native LS image math,
 TFOCS modes, fused prox, FASTA/x/objective OR stopping, trace/callback/counts and
-last-accepted rollback. Retain C0 numerical fixtures unchanged. Test correctness
+last-accepted rollback. APG (`AccProxGradDescent`) reuses the LS image model, the
+gradient engine, the stopping rules and the result type, with its own k/(k+3)
+extrapolation, objective-increase restart and exact LS-remainder backtracking; its
+tests in `test/accelerated_pgd.jl` check accuracy against BigFloat references from
+the raw data, never only against CD or PGD. Retain C0 numerical fixtures unchanged. Test correctness
 independently using raw objective/KKT and analytic/finite-support references.
 The nonfinite-CD-objective refusal is a separate bounded guard, not range recovery.
 

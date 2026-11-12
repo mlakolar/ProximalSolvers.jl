@@ -1,6 +1,6 @@
 # ProximalSolvers.jl
 
-**Coordinate descent and proximal gradient descent for least-squares lasso in Julia.**
+**Coordinate descent and (accelerated) proximal gradient descent for least-squares lasso in Julia.**
 
 [Documentation](https://mlakolar.github.io/ProximalSolvers.jl/dev/) ·
 [Getting started](https://mlakolar.github.io/ProximalSolvers.jl/dev/getting-started/) ·
@@ -35,6 +35,9 @@ beta_pgd = zeros(T, size(X, 2))
 options = ProximalOptions(maxiter=2000, ftol=1e-14,
                           xtol=1e-12, gradtol=1e-10)
 pgd = solve!(beta_pgd, f, g, ProximalGradientDescent(), options)
+
+beta_apg = zeros(T, size(X, 2))
+apg = solve!(beta_apg, f, g, AccProxGradDescent(), options)
 ```
 
 The examples use **cyclic CD without momentum for reproducible output**.
@@ -53,7 +56,8 @@ and [solver settings](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing
 The supported problem uses a finite dense `Matrix{T}`, finite `Vector{T}`
 response and matching coefficients, where `T` is `Float32` or `Float64`.
 CD additionally accepts one-dimensional ProximalBase `SparseIterate`
-coefficients; PGD accepts dense coefficients only. Generalized models,
+coefficients; PGD and accelerated PGD (`AccProxGradDescent`) accept dense
+coefficients only. Generalized models,
 sparse designs, penalty paths, ADMM and other algorithms are not part
 of this development branch; see
 [Supported problems](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/).

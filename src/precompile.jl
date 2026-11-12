@@ -8,6 +8,7 @@ using PrecompileTools: @setup_workload, @compile_workload
       g = NormL1(T(.1))
       solve!(zeros(T, 2), f, g, CDSolver())
       solve!(zeros(T, 2), f, g, ProximalGradientDescent())
+      solve!(zeros(T, 2), f, g, AccProxGradDescent())
     end
   end
 end

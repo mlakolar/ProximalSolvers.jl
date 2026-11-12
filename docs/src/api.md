@@ -15,6 +15,7 @@ it separately.
 ProximalSolver
 CDSolver
 ProximalGradientDescent
+AccProxGradDescent
 solve!
 ProximalOptions
 CDResults

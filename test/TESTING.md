@@ -3,8 +3,11 @@
 Quick: Aqua, naming, unchanged required Linux CI/gate contracts, fail-closed
 inventory/selection, unchanged C0 independent numerical characterization and
 new public refusal contracts and exact-source paired-control policy tests. Standard adds ported scalar cache/scale/helper
-regressions and the vector `SparseIterate` coordinate-descent contracts
-(`sparse_cd`). Full adds every runnable lasso example under `examples/`, which
+regressions, the vector `SparseIterate` coordinate-descent contracts
+(`sparse_cd`) and the accelerated proximal gradient contracts (`accelerated_pgd`:
+analytic, duality-gap, KKT and finite-support references from the raw data;
+momentum, rejected trials, restarts and image caches; refusals, nonfinite trials,
+curvature overflow and rollback; trace, callbacks, limits and counters). Full adds every runnable lasso example under `examples/`, which
 `test/examples.jl` discovers by itself, the exploratory benchmark script
 (`benchmark_explore`) and the formal benchmark harness on the current core
 (`benchmark_formal`: case selection and deferral, inputs, certificates, resets,

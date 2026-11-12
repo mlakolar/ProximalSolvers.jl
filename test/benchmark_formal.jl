@@ -32,22 +32,22 @@ const PB_REV = "c123d56ba1948e36a8fdbf183a9eea396a16e0d5"
 const QUICK = sort!(vcat(
   ["cd/$p/cd/$(w)$i-$t/call" for (p, ws) in (("lasso", ("",)), ("lasso-B", ("", "warm-")))
    for w in ws for i in ("dense", "sparse") for t in ("f32", "f64")],
-  ["gradient/$p/pg/$(w)dense-$t/call" for (p, ws) in (("lasso", ("",)), ("lasso-B", ("", "warm-")))
-   for w in ws for t in ("f32", "f64")],
+  ["gradient/$p/$solver/$(w)dense-$t/call" for solver in ("pg", "apg")
+   for (p, ws) in (("lasso", ("",)), ("lasso-B", ("", "warm-"))) for w in ws for t in ("f32", "f64")],
   ["cd/lasso-dense/cd/R/call", "gradient/lasso/pg/R/call"]))
 
 @testset "supported and deferred cases" begin
   quick, extended = catalog(), catalog("extended")
   @test [s.meta.id for s in quick] == QUICK
-  @test length(extended) == 32
+  @test length(extended) == 42
   @test issubset(Set(s.meta.id for s in quick), Set(s.meta.id for s in extended))
   deferred = catalog("extended"; deferred = true)
   @test length(deferred) == 100
   @test all(s -> call(H.case_available, s), extended)
   @test all(s -> !isempty(call(H.missing_requirements, s)), deferred)
-  # 102 historical IDs (2 supported, 100 deferred) and 30 current-core IDs, all distinct.
+  # 102 historical IDs (2 supported, 100 deferred) and 40 current-core IDs, all distinct.
   ids = [s.meta.id for s in vcat(extended, deferred)]
-  @test allunique(ids) && length(ids) == 132
+  @test allunique(ids) && length(ids) == 142
   for id in ("cd/lasso-dense/cd/B/call", "cd/lasso-dense/cd/R/workspace", "admm/lasso/admm/R/call",
              "gradient/lasso/apg/tight/call", "paths/lasso/cd/grid8/call", "cd/lasso-csc/cd/B/call")
     @test id in ids && !(id in [s.meta.id for s in extended])

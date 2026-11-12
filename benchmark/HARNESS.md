@@ -108,12 +108,12 @@ not in the core (FISTA variants, ProxNewton/QUIC, ADMM, Condat–Vũ, SLOPE), or
 stopping, `SolverWorkspace`, paths, setup phases, weighted or sparse designs, or other losses
 and penalties.
 
-The 30 current-core cases (`cd` and `gradient` groups) use one problem per design, shared by CD
-and PGD, cold and warm starts, dense and `SparseIterate` iterates:
+The 40 current-core cases (`cd` and `gradient` groups) use one problem per design, shared by CD,
+PGD and APG, cold and warm starts, dense and `SparseIterate` iterates:
 
 | Problem | Design | Suite | Variants |
 |---|---|---|---|
-| `lasso` | 100×32, independent columns (`regression_problem`, key `core/lasso`) | quick | CD `{dense,sparse}-{f64,f32}`; PGD `dense-{f64,f32}` |
+| `lasso` | 100×32, independent columns (`regression_problem`, key `core/lasso`) | quick | CD `{dense,sparse}-{f64,f32}`; PGD and APG `dense-{f64,f32}` |
 | `lasso-B` | 240×160, correlated ρ=0.8 (inputs of `*/lasso-B/*/tight`) | quick | as above, and `warm-` of each |
 | `lasso-C` | 800×120, correlated ρ=0.5 | extended | as `lasso` |
 | `lasso-D` | 180×600, p > n | extended | as `lasso` |
@@ -126,11 +126,14 @@ solver received, read back exactly in Float64 (`exact_problem`), from the return
 only. Targets are per precision for every solver: `1e-8` in Float64 (the threshold of the
 #103–#109 B cases) and `1e-5` in Float32, about 50–100 times the gap of the exact solution
 rounded to Float32 (5e-8 to 2e-7 on these designs). CD uses `order = :cyclic` and coefficient
-tolerance `1e-11` (Float64) or `1e-6` (Float32); PGD uses `benchmark_options(residual = true)`.
+tolerance `1e-11` (Float64) or `1e-6` (Float32); PGD and APG (`AccProxGradDescent()`, its
+default `β` and `α`) use `benchmark_options(residual = true)`.
 PGD stops once the objective changes by less than one rounding unit, about √eps in the
 coefficients (relative gaps near 1e-8 in Float64 and 1e-4 in Float32), so it misses these
 targets on several designs; those cases are recorded as `target_missed` and excluded from
-timing comparisons, with their accuracy kept. Where PGD stops is sensitive to rounding: with
+timing comparisons, with their accuracy kept. APG uses the same stopping tests and behaves
+the same way: on the current inputs both reach the Float64 target on `lasso` and `lasso-D`
+only, and neither reaches the Float32 target. Where PGD stops is sensitive to rounding: with
 `--check-bounds=yes` the small Float64 case ends at a gap of 1.7e-8 instead of 1.0e-9.
 
 For example, list the extended gradient cases without measuring them:
@@ -408,6 +411,9 @@ When a solver feature returns to the package, its existing cases need no new def
    in `certificates.jl` and a check in `check_certificates.jl` first.
 4. For new current-core variants (another iterate or precision), follow `add_core_cases!`: new
    IDs, a target per precision chosen before measuring, and a requirement per feature.
+
+APG's current-core cases followed step 4 (they reuse the PGD inputs, options and targets);
+its historical `tight` cases still need `apg:gap` and `apg:workspace` and stay deferred.
 
 Editing `cases.jl` changes the harness hash, so records before and after the change are not
 comparable, by design. Add the new IDs to `test/benchmark_formal.jl`.

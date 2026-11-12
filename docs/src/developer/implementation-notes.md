@@ -43,9 +43,10 @@ atomicity or scalar-acceptance behavior is changed.
 
 Vector y and Matrix X with the same Float32 or Float64 element type are
 supported, with positive consistent dimensions and finite entries. The iterate
-is a dense Vector of that type for both solvers, and additionally a
+is a dense Vector of that type for every solver, and additionally a
 one-dimensional `SparseIterate` of that type for [`CDSolver`](@ref) only;
-[`ProximalGradientDescent`](@ref) refuses every `SparseIterate`. Use raw PB LS or
+[`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref) refuse every
+`SparseIterate`. Use raw PB LS or
 one positive finite scalar Scaled LS, and unweighted finite nonnegative NormL1.
 Parameters must be representable; positive values must not round to zero.
 Scaling is explicit: raw LS means sum(abs2,y-X*x)/2; divide by n explicitly for
@@ -56,8 +57,8 @@ X/y are borrowed read-only during solves and must not alias mutable x; for a
 owner with no active entries is refused when `parent(activevalues(x))` or a
 reshape of it is passed as y or X. Results share x; extended traces copy
 x/gradient. Unsupported requests fail before mutation. A CD numerical exception
-preserves input x; PGD numerical step exceptions restore its last accepted point
-and rethrow. Counters/buffers are not generally transactional. Shape errors are
+preserves input x; PGD and APG numerical step exceptions restore their last
+accepted point and rethrow. Counters/buffers are not generally transactional. Shape errors are
 DimensionMismatch; unsupported combinations/options are informative
 ArgumentError.
 
@@ -87,8 +88,9 @@ ArgumentError.
 ## Deferred
 
 Sparse designs, sparse vectors and views as iterates, `SparseIterate` for proximal
-gradient descent, matrix-shaped, group and symmetric owners, weighted/group
-penalties, matrix responses, intercepts/offsets, generalized losses/compositions, acceleration, ADMM/Newton,
+gradient descent (plain or accelerated), matrix-shaped, group and symmetric owners, weighted/group
+penalties, matrix responses, intercepts/offsets, generalized losses/compositions,
+monotone/active-set acceleration and APG diagonal preconditioning, ADMM/Newton,
 primal-dual/SLOPE/graphical models, paths/screening/certificates/workspaces/refit
 and reweighting are deferred. Nondefault feature requests are refused. gap=NaN
 and CD kkt_checks=0 are compatibility sentinels, not computed diagnostics.
@@ -135,6 +137,26 @@ stop even with very small ftol. Check objective/KKT independently. Native
 Float32 may stagnate earlier. Finite inputs do not ensure finite intermediates;
 historical LS image exceptional-range limitations remain outside this extraction.
 
+APG (`AccProxGradDescent`) is the historical accelerated method narrowed to the
+dense LS core: extrapolation `y = x + k/(k+3)(x - x_previous)`, `L ← αL` before each
+iteration, backtracking `L ← L/β` on the exact LS remainder `α_f‖X(x-y)‖² ≤ L‖x-y‖²`
+computed from the cached images (with the historical rounding slack in image units),
+and one restart from `y = x_previous` when an extrapolated step raises the computed
+objective. `X y` is formed from `X x` and `X x_previous` without a product; a restart
+copies `X x_previous`. Departures from `legacy/full`: no metric, tuple, owner or
+generic smooth-loss path; β and α are validated and used in `T` (`T(β) < 1` and
+`T(α) > 0` after rounding); the objective-scale bound that only guarded a nonfinite
+value is dropped, so a nonfinite trial raises `L` through `next_curvature` (which
+raises once `L/β` is not a finite increase) instead of failing at once; a step that
+rounds to zero (`x == y`) is accepted with a finite value, where legacy raised; a
+nonfinite gradient at `y` is treated like a nonfinite value (restart, or failure
+without momentum). Each step writes `x_previous ← x` after forming `y` and before the
+first trial, so the shared engine's rollback restores the last accepted iterate.
+`backtrack_steps` counts every trial, including the accepted one, so it equals
+`prox_calls`; `grad_calls` is the number of steps plus restarts and
+`f_calls = 1 + grad_calls + prox_calls`. Its gradient residual `L‖x - y‖∞` is a
+stopping quantity measured from `y`; it is not an independent KKT residual at `x`.
+
 Callbacks/display sample `print_every`; stored traces include each iteration. A
 callback receives the trace when storing, otherwise a state. Limits are checked
 after an iteration and counts may overshoot. iteration_converged means a limit,
@@ -147,10 +169,11 @@ The retained scalar APIs/results do not introduce a new stopping/logging engine.
 ## internals.md (previous detailed notes)
 
 
-The twelve active files are module/types/blocks/line_searches/solve/utils/precompile,
-solvers/image_models and proximal_gradient_descent, and cd/models/solver/leastsquares.
-Small native helpers support two separately cached algorithms and existing
-result types. CDModel and state hooks are private extraction/test seams, not
+The thirteen active files are module/types/blocks/line_searches/solve/utils/precompile,
+solvers/image_models, proximal_gradient_descent and accelerated_proximal_gradient_descent,
+and cd/models/solver/leastsquares. Small native helpers support the separately cached
+algorithms and existing result types; PGD and APG share the LS image model, the
+gradient engine `_solve_gradient!`, the stopping rules and the result type. CDModel and state hooks are private extraction/test seams, not
 promises of custom loss or workspace support. Generic block/metric/certificate/
 logging frameworks are deferred.
 
@@ -173,7 +196,7 @@ its scalar `prox_block` oracle; PGD retains fused `value_and_prox!`. The private
 SparseIterate contract remains unchanged. PR #237's group/workspace migration is
 not imported. The gated analysis job always runs isolated exact-source paired
 diagnostics against PB A e8a45a8a6ffe2a6f92d83c4c77d62a9b7631e291 and frozen
-PS 64930401cfc0451e886728d916263c4dab2baf36, including when package tests are
+PS 64930401cfc0451e886728d916263c4dab2baf36 (CD and PGD only), including when package tests are
 not selected or reused. Loaded paths, clean Git HEADs and source digests are
 checked; version strings never skip probes. C0 and the provenance audit describe
 the independent full-suite mathematical/behavioral tests.

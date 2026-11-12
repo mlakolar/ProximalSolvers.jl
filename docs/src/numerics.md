@@ -14,6 +14,10 @@ code.
   stopping tests for relative coefficient change, objective change and
   a gradient/proximal residual. These combine by **OR**: passing one can
   stop the algorithm, even if the others remain large.
+- **Accelerated proximal gradient (APG):** the same three tests and the
+  same objective-increase stop as PGD. Its gradient/proximal residual is
+  `L ‖x - y‖∞`, measured from the extrapolated point `y` rather than from
+  the previous iterate, so it is a stopping quantity, not a KKT residual at `x`.
 
 Neither `converged=true` is a certificate of mathematical optimality.
 **On the small tutorial examples, default PGD typically produces only about
@@ -32,7 +36,7 @@ A supported solve uses a single floating-point working type
 `T = Float32` or `T = Float64` for the design matrix `X`, response
 vector `y`, and coefficient iterate. `CDSolver` accepts either a
 dense `Vector{T}` or a one-dimensional `SparseIterate` of `T`;
-`ProximalGradientDescent` accepts only a dense `Vector{T}`.
+`ProximalGradientDescent` and `AccProxGradDescent` accept only a dense `Vector{T}`.
 Mixed-precision arrays, such as `Float32` coefficients with a
 `Float64` design, are rejected. This is stricter than ProximalBase
 function dispatch, which may permit some heterogeneous calls without
@@ -86,6 +90,13 @@ only on `converged`.
 - PGD uses in-place dense arrays, and restores the **last accepted**
   iterate if a numerical step fails. Its counters and other internals
   are not transactional.
+- APG does the same. Its backtracking raises an error, after which the last
+  accepted iterate is restored, when the next curvature estimate `L/β` is not a
+  finite increase; a trial whose objective is not finite is never accepted.
+  An extrapolated point whose objective or gradient is not finite restarts the
+  momentum. Its line search compares the exact least-squares Taylor remainder,
+  computed from cached images `X y` and `X x`, with `L ‖x - y‖² / 2`, so it does
+  not subtract nearly equal objective values.
 - Reaching a pass or iteration limit is not convergence. CD can return
   a finite nonconverged solution with a warning.
 

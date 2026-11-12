@@ -83,6 +83,7 @@ paths = [
   "src/line_searches.jl", "src/precompile.jl", "src/utils.jl",
   "src/cd/models.jl", "src/cd/solver.jl", "src/cd/leastsquares.jl",
   "src/solvers/image_models.jl", "src/solvers/proximal_gradient_descent.jl",
+  "src/solvers/accelerated_proximal_gradient_descent.jl",
 ]
 [[risk]]
 why = "changed test files run beside the tier"
