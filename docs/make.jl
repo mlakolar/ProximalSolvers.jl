@@ -1,19 +1,33 @@
+ENV["GKSwstype"] = "100"
 using Documenter, Literate, ProximalSolvers
 
 const GENERATED = joinpath(@__DIR__, "src", "examples")
+const PRETTYURLS = get(ENV, "CI", "false") == "true"
 rm(GENERATED; force = true, recursive = true)
 mkpath(GENERATED)
 example_pages = Pair{String, String}[]
 for (file, title) in (("01_cd_lasso.jl", "Coordinate descent lasso"),
                       ("02_pgd_lasso.jl", "Proximal gradient lasso"),
-                      ("03_sparse_cd_lasso.jl", "Coordinate descent on a SparseIterate"))
-  Literate.markdown(joinpath(@__DIR__, "..", "examples", file), GENERATED;
-    documenter = true, credit = false, preprocess = s -> "# # $title\n#\n" * s)
+                      ("03_sparse_cd_lasso.jl", "Coordinate descent on a SparseIterate"),
+                      ("04_lasso_solver_comparison.jl", "Comparing lasso solvers at equal accuracy"))
+  source = joinpath(@__DIR__, "..", "examples", file)
+  titled = s -> "# # $title\n#\n" * s
+  if file == "04_lasso_solver_comparison.jl"
+    # The page is at examples/<name>/index.html with prettyurls and at examples/<name>.html
+    # without; the notebook is written next to the generated Markdown file.
+    notebook = replace(file, ".jl" => ".ipynb")
+    url = PRETTYURLS ? "../" * notebook : notebook
+    Literate.markdown(source, GENERATED; documenter = true, credit = false,
+      preprocess = titled, postprocess = s -> replace(s, "NOTEBOOK_URL" => url))
+    Literate.notebook(source, GENERATED; execute = false, credit = false, preprocess = titled)
+  else
+    Literate.markdown(source, GENERATED; documenter = true, credit = false, preprocess = titled)
+  end
   push!(example_pages, title => joinpath("examples", replace(file, ".jl" => ".md")))
 end
 makedocs(sitename = "ProximalSolvers.jl", authors = "Mladen Kolar",
   repo = Documenter.Remotes.GitHub("mlakolar", "ProximalSolvers.jl"), modules = [ProximalSolvers],
-  format = Documenter.HTML(prettyurls = get(ENV, "CI", "false") == "true", edit_link = "master"),
+  format = Documenter.HTML(prettyurls = PRETTYURLS, edit_link = "master"),
   pages = ["Home" => "index.md",
     "Getting started" => "getting-started.md",
     "What problem, which algorithm?" => "concepts.md",
