@@ -5,7 +5,11 @@ inventory/selection, unchanged C0 independent numerical characterization and
 new public refusal contracts and exact-source paired-control policy tests. Standard adds ported scalar cache/scale/helper
 regressions and the vector `SparseIterate` coordinate-descent contracts
 (`sparse_cd`). Full adds every runnable lasso example under `examples/`, which
-`test/examples.jl` discovers by itself. Tiers are cumulative;
+`test/examples.jl` discovers by itself, the exploratory benchmark script
+(`benchmark_explore`) and the formal benchmark harness on the current core
+(`benchmark_formal`: case selection and deferral, inputs, certificates, resets,
+source checks and records accepted by `benchmark/validate.py`, with no timing
+comparison); a PR that edits a harness file runs the latter. Tiers are cumulative;
 Pkg.test defaults full. Every regular file is listed once, missing/duplicate/
 unlisted tests and empty selections fail; unknown source defaults full.
 

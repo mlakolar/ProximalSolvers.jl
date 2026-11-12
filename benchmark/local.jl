@@ -479,6 +479,8 @@ function explore(patterns::AbstractString...; rep::Integer = 1, samples::Integer
     throw(ArgumentError("samples, minimum_samples and time limits must be positive"))
   save === nothing || !ispath(save) || throw(ArgumentError("refusing to overwrite $save"))
   verified = check_current_source()
+  # The loaded ProximalBase must be the checkout's pin, as in run.jl (exit 3 otherwise).
+  check_loaded_proximalbase(LOADED.solvers.root)
   # A revision defines methods in a newer world than this call's; run in the latest
   # world, or the timed code would be the implementation from before the edit.
   Base.invokelatest(explore_selected, patterns, rep, samples, seconds, case_seconds,
@@ -489,6 +491,8 @@ function explore_selected(patterns, rep, samples, seconds, case_seconds, minimum
                           baseline, save, io, verified)
   Threads.nthreads() == 1 || @warn "timings with $(Threads.nthreads()) Julia threads; the formal runner requires one"
   BLAS.set_num_threads(1)
+  # A deferred case is refused with the capabilities it lacks (cases.jl), never run.
+  check_deferred_request(join(patterns, ','), "extended", collect(CASE_GROUPS))
   selected = select_cases(build_catalog("extended", collect(CASE_GROUPS)), join(patterns, ','))
   env = environment(verified)   # the source applied for these runs
   results = [merge(explore_case(spec, rep, samples, seconds, case_seconds, minimum_samples; io),

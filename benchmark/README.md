@@ -8,14 +8,16 @@ campaigns. All of it is kept and maintained, to be reused as solvers return to t
 
 Master currently supports coordinate descent (`CDSolver`, with a dense `Vector` or a vector
 `SparseIterate`) and proximal gradient descent (`ProximalGradientDescent`, dense `Vector`) on Float32
-and Float64 least-squares lasso. Parts of the infrastructure run against master today; the rest is
-**deferred**: executable and maintained, but it needs historical package versions until the work in
-[Enabling the formal harness on master](#enabling-the-formal-harness-on-master) is done.
+and Float64 least-squares lasso. The formal harness runs these on master; its cases for other
+solvers and features are **deferred**: kept with their IDs and definitions, listed with what they
+lack, and enabled again by declaring the capability when the solver returns
+([HARNESS.md](HARNESS.md#restoring-a-solver)).
 
 | Component | Path | Runs against master? |
 |---|---|---|
-| Formal harness: problems, certificates, cases, runner, local exploration | `problems.jl`, `certificates.jl`, `cases.jl`, `run.jl`, `setup.jl`, `local.jl`, `Project.toml` | No (deferred): needs ProximalBase 0.5 and the full package. Documented in [HARNESS.md](HARNESS.md). |
-| Harness self-checks | `check_certificates.jl`, `check_local.jl` | No (deferred), as above. |
+| Formal harness: problems, certificates, cases, runner, local exploration | `problems.jl`, `certificates.jl`, `cases.jl`, `run.jl`, `setup.jl`, `local.jl` | Yes, for 32 current-core cases (dense and `SparseIterate` CD, dense PGD, Float32/Float64) with `setup.jl ... pinned`; 100 historical cases deferred. Documented in [HARNESS.md](HARNESS.md); `test/benchmark_formal.jl` tests it. |
+| Historical environment template | `Project.toml` | Kept with ProximalBase 0.5 for full-package checkouts and Stage 2A verification (#225). |
+| Harness self-checks | `check_certificates.jl`, `check_local.jl` | No (deferred): they exercise historical solvers. |
 | Record validation, summaries, paired statistics | `validate.py`, `summarize.py`, `compare.py` | Yes. Python only; they read records and never load the package. |
 | Analysis controls of the above | `check_analysis.py` | Yes, in CI. |
 | Sparse-CD paired measurement and analysis | [`sparse_cd/`](sparse_cd/README.md) | Yes; analyzer controls in CI. |
@@ -27,6 +29,15 @@ and Float64 least-squares lasso. Parts of the infrastructure run against master 
 ## What runs against master
 
 ```sh
+# Formal, independently certified records (HARNESS.md): environment, supported and deferred cases, a run
+julia benchmark/setup.jl "$PWD" benchmark/results/env pinned
+PS_LIST=true julia --project=benchmark/results/env benchmark/run.jl         # supported cases
+PS_LIST=deferred julia --project=benchmark/results/env benchmark/run.jl     # deferred, with what they lack
+JULIA_NUM_THREADS=1 PS_EXPECTED_PROXIMALBASE_REV=c123d56ba1948e36a8fdbf183a9eea396a16e0d5 \
+  julia --project=benchmark/results/env benchmark/run.jl
+python3 benchmark/validate.py benchmark/results benchmark/results/validation.json
+python3 benchmark/summarize.py benchmark/results benchmark/results/summary
+
 # Exploratory timings of dense CD and PGD (root project; prints a table, writes nothing)
 JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 julia --startup-file=no --project=. benchmark/minimal/explore.jl
 
@@ -36,11 +47,13 @@ JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 julia --startup-file=no --project=. \
 python3 -I benchmark/sparse_cd/analyze.py NEW_OUTPUT
 ```
 
-`minimal/explore.jl` is **not** the formal benchmark framework. It runs one process with no paired
-baseline, no A/A control and no record validation, and checks a KKT residual computed from the
-problem data. Its timings show whether a change deserves a closer look. They are not evidence of a
-speedup or of noninferiority. Such claims need a paired comparison: `sparse_cd/` for CD today, and
-the formal harness with `compare.py` once it is enabled on master.
+`minimal/explore.jl` and `local.jl` are **exploratory**: one process, no paired baseline, no A/A
+control and no record validation (`local.jl` does use the harness's cases and certificates). Their
+timings show whether a change deserves a closer look. They are not evidence of a speedup or of
+noninferiority. Such claims need a formal comparison: fresh processes of two clean, committed
+revisions run alternately by one fixed harness, with an A/A control on the same machine, then
+`compare.py` ([HARNESS.md](HARNESS.md#compare-revisions)); `sparse_cd/` remains a paired
+alternative for CD owner and copy costs.
 
 The CI job `Benchmark analysis controls` runs these, with no Julia benchmark environment and no timing:
 
@@ -51,19 +64,21 @@ python3 -B benchmark/external/coordinatedescent/check_analysis.py  # external-co
 julia --startup-file=no --project=@stdlib scripts/paired_master_diagnostics.jl
 ```
 
-## The formal harness (deferred)
+## The formal harness
 
-[HARNESS.md](HARNESS.md) documents the harness in full: setup and case selection, local exploration
-with `local.jl`, certificates and statuses, timed phases, the fixed workloads of #103–#109, revision
-comparisons with A/A controls, record formats, provenance and exit codes.
+[HARNESS.md](HARNESS.md) documents the harness in full: the current core, setup and case selection,
+supported and deferred cases, local exploration with `local.jl`, certificates and statuses, timed
+phases, the fixed workloads of #103–#109, revision comparisons with A/A controls, record formats,
+provenance, exit codes and restoring a solver.
 
-**Current limitation.** `benchmark/Project.toml` requires ProximalBase 0.5, and `setup.jl` copies
-that compat into every environment it creates, while master requires ProximalBase 0.6. Resolving the
-benchmark environment against master fails (`Unsatisfiable requirements detected for package
-ProximalBase`). `cases.jl` also constructs solvers and APIs that the minimal core does not have yet
-(`ProxNewton`, `ADMMSolver`, `AccProxGradDescent`, `SolverWorkspace`, `reinit!`,
-`SqrtLeastSquaresLoss` and others). The harness therefore runs only against full-package checkouts
-with ProximalBase 0.5.4, such as Stack A `b0de3f7` of Stage 2B or `legacy/full`.
+**Current core.** `setup.jl CHECKOUT ENV pinned` builds an environment from the checkout's exact
+ProximalBase pin (URL and full commit of the root `Project.toml` `[sources]`) on Julia 1.10 and
+current stable; `benchmark/Project.toml` keeps ProximalBase 0.5 for the historical modes. `run.jl`
+refuses a ProximalBase other than the loaded checkout's pin (URL, commit and committed manifest
+tree), at a moving revision or outside its manifest tree, records its manifest identity, and checks `PS_EXPECTED_PROXIMALBASE_REV` and `PS_EXPECTED_PACKAGE_REVISION` when set.
+`cases.jl` declares the core's capabilities; the 30 current-core cases and 2 historical cases that
+run unchanged are supported, and the other 100 historical cases are deferred
+(`PS_LIST=deferred`). Requesting a deferred case stops the runner with what it lacks.
 
 **Frozen identities.** The Stage 2B harness identities are verified against pinned historical
 commits, not against the working tree, so the four harness files (`problems.jl`, `certificates.jl`,
@@ -109,29 +124,29 @@ before the fix is in the protected archive `9be1773e911a44ec21d49df28cb01fea37c4
 The aim is to use the one existing framework for the current CD/PGD cases and for each solver as it
 returns, without a second runner, a second record format or duplicate statistics. Minimum work, in order:
 
+Status after #110 (the PR that restored the harness on master): steps 1, 3 and 4 are done, step 2
+is done without changing `benchmark/Project.toml`, and steps 5 and 6 remain.
+
 1. **Sequencing with Stage 2B.** Done: the Stage 2B tests read the frozen harness from its pinned
    commits instead of the working tree (see "Frozen identities" above), so editing the four harness
    files on master changes the working-tree harness hash but not the approved Stage 2B identities.
-2. **Environment (#225).** Allow ProximalBase 0.6 in `benchmark/Project.toml`, and let `setup.jl` take
-   the exact source pin of the root `Project.toml` (a URL and revision) as well as a version or a
-   path. Keep the Stage 2A comparison valid by running it from its freeze checkout, as its README
-   already requires.
-3. **Capability-gated catalog.** In `cases.jl`, add each case only if its solver and phase exist in
-   the loaded package (for example a table from solver ID to a predicate such as
-   `isdefined(ProximalSolvers, :ADMMSolver)`), and list the excluded cases with the reason in the
-   start metadata, never silently. Drop the hard-coded `Union{PS.CDSolver, PS.ProxNewton, ...}` in
-   favour of a per-solver options rule. Restoring a solver then re-enables its existing cases with
-   no other change.
-4. **Current API.** Adapt the CD and PGD case constructors to the minimal core: `CDSolver` options,
-   dense `Vector` and vector `SparseIterate` starts, no `SolverWorkspace` phase until workspaces
-   return, and Float32 cases for the supported precisions. `problems.jl` and `certificates.jl` should
-   need no change: they use plain data and returned minimizers.
+2. **Environment.** Done: `setup.jl ... pinned` takes the exact source pin and ProximalBase compat
+   of the checkout's root `Project.toml`; `benchmark/Project.toml` is unchanged (ProximalBase 0.5),
+   because Stage 2A verification reads it. Moving the template to a registered ProximalBase 0.6
+   release is #225.
+3. **Capability-gated catalog.** Done, with declared capabilities instead of `isdefined`
+   predicates (a solver type can exist without supporting a problem, iterate or phase): each case
+   lists its requirements, `CAPABILITIES` lists the core's, and the per-solver options rule replaces
+   the hard-coded `Union`. Start metadata records the capabilities and the deferred count.
+4. **Current API.** Done: 30 current-core cases (HARNESS.md, "Supported and deferred cases").
+   `problems.jl` and `certificates.jl` are unchanged; Float32 problems are certified in exact
+   Float64.
 5. **External suite.** Its analysis already works on current records and runs in CI. Port
    `current.jl` (and the `current/` environment) to the master API when a comparison is wanted,
    keeping the catalog and the analysis.
-6. **Retire duplicates.** When steps 3 and 4 are done, `local.jl` replaces `minimal/explore.jl`.
-   `sparse_cd/` can become a harness phase or variant (dense vs `SparseIterate` input, copy costs)
-   that uses `validate.py` and `compare.py`, so its separate analyzer can go.
+6. **Retire duplicates.** Not done, and a separate change: `minimal/explore.jl` and `sparse_cd/`
+   stay until the formal harness shows equivalent coverage, diagnostics and usability for them
+   (`sparse_cd/` measures owner and copy costs that are not harness phases yet).
 
 Records keep their format throughout, so `validate.py`, `summarize.py`, `compare.py` and
 `check_analysis.py` stay unchanged and continue to compare new records with historical ones where

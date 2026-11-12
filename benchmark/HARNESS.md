@@ -1,14 +1,6 @@
-<!-- The body below is the general harness documentation, unchanged from benchmark/README.md of
-     master 3c9241b (identical to the protected archive 9be1773e911a44ec21d49df28cb01fea37c4316e). -->
-
-> **Compatibility (November 2026).** This harness is preserved and maintained, but it does not
-> currently run against minimal master: `benchmark/Project.toml` (and therefore `setup.jl`) requires
-> ProximalBase 0.5 while master requires 0.6, and `cases.jl` calls solvers and APIs that the minimal
-> core does not yet provide. It runs today against full-package checkouts with ProximalBase 0.5.4
-> (for example Stack A `b0de3f7` of the Stage 2B campaign, or `legacy/full`). The statistical analysis
-> (`validate.py`, `summarize.py`, `compare.py`) needs no Julia and works on any records it produces;
-> CI exercises it with `benchmark/check_analysis.py`. See [README.md](README.md) for what runs on
-> master and for the plan to enable this harness there.
+<!-- The general harness documentation, from benchmark/README.md of master 3c9241b (identical to
+     the protected archive 9be1773e911a44ec21d49df28cb01fea37c4316e), with the current-core
+     sections of #110 added: "Current core", "Supported and deferred cases" and "Restoring a solver". -->
 
 # Benchmarks
 
@@ -17,18 +9,52 @@ of solver stopping rules. It does not measure native (non-Julia) allocations or 
 statistical quality of the estimates.
 Peak memory is recorded only as process-wide `maxrss_bytes`, not per case.
 
-## Setup and selections
+## Current core
 
+Master's core is `CDSolver` (dense `Vector` or vector `SparseIterate`) and
+`ProximalGradientDescent` (dense `Vector`) on Float32/Float64 least-squares lasso, with
+ProximalBase pinned to an exact development commit in the root `Project.toml` `[sources]`.
 From the package root, with Julia 1.10 or later and Python 3.11 or later:
 
 ```sh
-julia benchmark/setup.jl "$PWD" benchmark/results/env-quick 0.5.4
-JULIA_NUM_THREADS=1 julia --project=benchmark/results/env-quick benchmark/run.jl
+julia benchmark/setup.jl "$PWD" benchmark/results/env-quick pinned
+JULIA_NUM_THREADS=1 PS_EXPECTED_PROXIMALBASE_REV=c123d56ba1948e36a8fdbf183a9eea396a16e0d5 \
+  julia --project=benchmark/results/env-quick benchmark/run.jl
+python3 benchmark/validate.py benchmark/results benchmark/results/validation.json
 python3 benchmark/summarize.py benchmark/results benchmark/results/summary
 ```
 
-`setup.jl` instantiates a fresh environment with this checkout and a ProximalBase version
-or path. The default is one quick Float64 repetition: exploratory, with no between-run interval.
+`pinned` takes the checkout's exact ProximalBase source (URL and full commit; a branch name
+or short revision is refused) and its ProximalBase compat; the other dependencies come from
+`benchmark/Project.toml`, which keeps its ProximalBase 0.5 compat for the historical
+environments (Stage 2A verification reads it; the registered-release cleanup is #225). The
+pinned source is added before the checkout is developed, which Julia 1.10 needs because it
+ignores `[sources]`. Setup prints the ProximalBase source, git-tree-sha1 and loaded path, and
+refuses a manifest whose tree differs from the one the checkout's committed manifest records
+for the same commit.
+
+At startup `run.jl` reads the active manifest's ProximalBase entry and refuses a git source at
+a moving revision and a git or registry source loaded from another directory than its tree's
+depot directory (exit 3, no records). When the loaded checkout pins ProximalBase in its root
+`Project.toml`, the loaded ProximalBase must be a git entry at exactly that URL and commit,
+with the tree the checkout's committed manifests record; this needs no setting, so an
+environment changed after setup (for example by `Pkg.add` of another commit, which Julia 1.10
+allows because it ignores `[sources]`) is refused. Checkouts without a pin (historical
+full-package ones) keep the version and path modes. `local.jl` applies the same check
+before it builds any case. `PS_EXPECTED_PROXIMALBASE_REV` additionally
+requires a git source at exactly that commit, and `PS_EXPECTED_PACKAGE_REVISION` requires the loaded checkout to be that
+commit with no tracked or untracked change in `Project.toml`, `src` or `ext`. Start metadata
+records the manifest entry (`proximalbase_source`, `_url`, `_rev`, `_tree_sha1`, `_path`,
+`active_manifest`), the checkout's pin (`required_proximalbase_rev`), the declared `capabilities` and the number of `deferred_cases`.
+
+The historical modes are unchanged: a version (`0.5.4`) or a ProximalBase checkout path copy
+the compat of `benchmark/Project.toml`, for full-package checkouts such as Stack A `b0de3f7`.
+
+## Setup and selections
+
+`setup.jl` instantiates a fresh environment with a checkout and a ProximalBase spec (`pinned`,
+a version or a path). The default is one quick Float64 repetition: exploratory, with no
+between-run interval.
 
 | Setting | Default | Use |
 |---|---|---|
@@ -42,7 +68,9 @@ or path. The default is one quick Float64 repetition: exploratory, with no betwe
 | `PS_CASE_SECONDS` | `60` | Per-call limit for timed samples and compiled validation rechecks; the first validation call is exempt. |
 | `PS_PROFILE_SECONDS` | `0` | Positive values enable diagnostic profiles per successful case. |
 | `PS_EXPECTED_PACKAGE_ROOT` | Unset | Verify the loaded ProximalSolvers checkout before building cases. |
-| `PS_LIST` | `false` | `true` prints selected `id`, `suite`, `issue` without data or records. |
+| `PS_EXPECTED_PACKAGE_REVISION` | Unset | Require the loaded checkout at this full commit, with no change in `Project.toml`, `src` or `ext`. |
+| `PS_EXPECTED_PROXIMALBASE_REV` | Unset | Require ProximalBase from a git manifest entry at this full commit. |
+| `PS_LIST` | `false` | `true` prints selected `id`, `suite`, `issue` without data or records; `deferred` prints the deferred cases of the suite and groups with the capabilities they lack. |
 
 | Group | Cases |
 |---|---|
@@ -56,6 +84,55 @@ or path. The default is one quick Float64 repetition: exploratory, with no betwe
 | `slope` | SLOPEAPG and SLOPEHybrid solve sorted L1 problems. |
 | `sgl` | Coordinate descent and APG solve sparse group lasso. |
 
+## Supported and deferred cases
+
+Every case declares what it needs from the loaded package: its solver ID and, per feature,
+`solver:feature` (problem, `float32`, `sparse_iterate`, `gap` for duality-gap stopping,
+`workspace`, `path`, `setup`). `CAPABILITIES` in `cases.jl` declares what the current core
+provides; it is a short explicit list, not inferred from the names the package defines, since a
+solver type can exist without supporting a problem, an iterate or a phase. A case with a
+requirement missing from it is deferred:
+
+- default runs, `PS_GROUPS` and patterns select only supported cases, and deferred cases are
+  never constructed or run;
+- a `PS_CASES` entry that names a deferred case, or a pattern that matches only deferred
+  cases, stops the runner (exit 3) with the capabilities those cases lack; a pattern that also
+  matches supported cases runs those and names the deferred matches on stderr;
+- a suite and groups with no supported case stop the runner;
+- `PS_LIST=deferred` lists the deferred cases with their missing capabilities.
+
+The 102 historical cases keep their IDs, inputs, settings, measures and targets. Two run on the
+current core unchanged: `cd/lasso-dense/cd/R/call` and `gradient/lasso/pg/R/call` (default
+settings, accuracy recorded with target `NaN`). The other 100 are deferred: their solvers are
+not in the core (FISTA variants, ProxNewton/QUIC, ADMM, Condat–Vũ, SLOPE), or they need gap
+stopping, `SolverWorkspace`, paths, setup phases, weighted or sparse designs, or other losses
+and penalties.
+
+The 30 current-core cases (`cd` and `gradient` groups) use one problem per design, shared by CD
+and PGD, cold and warm starts, dense and `SparseIterate` iterates:
+
+| Problem | Design | Suite | Variants |
+|---|---|---|---|
+| `lasso` | 100×32, independent columns (`regression_problem`, key `core/lasso`) | quick | CD `{dense,sparse}-{f64,f32}`; PGD `dense-{f64,f32}` |
+| `lasso-B` | 240×160, correlated ρ=0.8 (inputs of `*/lasso-B/*/tight`) | quick | as above, and `warm-` of each |
+| `lasso-C` | 800×120, correlated ρ=0.5 | extended | as `lasso` |
+| `lasso-D` | 180×600, p > n | extended | as `lasso` |
+
+Float32 inputs are the Float64 draw rounded once; the data hash covers the rounded values and
+the start. A warm start is the solution at 1.25λ, computed in Float64 by the certificate
+module's own coordinate descent (`cert_loading_refit`), so it does not depend on the solver
+under test. The certificate is the least-squares lasso relative duality gap of the problem the
+solver received, read back exactly in Float64 (`exact_problem`), from the returned minimizer
+only. Targets are per precision for every solver: `1e-8` in Float64 (the threshold of the
+#103–#109 B cases) and `1e-5` in Float32, about 50–100 times the gap of the exact solution
+rounded to Float32 (5e-8 to 2e-7 on these designs). CD uses `order = :cyclic` and coefficient
+tolerance `1e-11` (Float64) or `1e-6` (Float32); PGD uses `benchmark_options(residual = true)`.
+PGD stops once the objective changes by less than one rounding unit, about √eps in the
+coefficients (relative gaps near 1e-8 in Float64 and 1e-4 in Float32), so it misses these
+targets on several designs; those cases are recorded as `target_missed` and excluded from
+timing comparisons, with their accuracy kept. Where PGD stops is sensitive to rounding: with
+`--check-bounds=yes` the small Float64 case ends at a gap of 1.7e-8 instead of 1.0e-9.
+
 For example, list the extended gradient cases without measuring them:
 
 ```sh
@@ -65,7 +142,7 @@ PS_SUITE=extended PS_GROUPS=gradient PS_LIST=true \
 
 Each case builds its inputs from a seed keyed by its scenario and repetition, so a case
 selected alone has the same inputs, data hash and certificate as in the full suite.
-`PS_CASES='cd/lasso-dense/cd/B/*'` measures two cases instead of the 20 of `cd`.
+`PS_CASES='cd/lasso-B/cd/*-f64/call'` measures four of the 13 supported quick `cd` cases.
 
 ## Local exploration
 
@@ -77,12 +154,12 @@ records. Its output and optional TSV are labelled exploratory; `validate.py` and
 comparison below.
 
 ```sh
-julia benchmark/setup.jl "$PWD" benchmark/results/env-local 0.5.4    # once per checkout
+julia benchmark/setup.jl "$PWD" benchmark/results/env-local pinned   # once per checkout
 export JULIA_NUM_THREADS=1
 alias pslocal='julia --project=benchmark/results/env-local benchmark/local.jl'
 pslocal --list 'cd/*'                                     # case IDs, no measurement
-pslocal 'cd/lasso-dense/cd/B/*' --save before.local.tsv   # before editing src/
-pslocal 'cd/lasso-dense/cd/B/*' --baseline before.local.tsv
+pslocal 'cd/lasso-B/cd/*-f64/call' --save before.local.tsv     # before editing src/
+pslocal 'cd/lasso-B/cd/*-f64/call' --baseline before.local.tsv
 ```
 
 Quote patterns in the shell. For each case, a `CHECK` line gives the certificate of the
@@ -118,13 +195,13 @@ avoid most of that cost:
   : > commands.txt                 # empty, so a restart does not replay old commands
   tail -n 0 -f commands.txt | julia --project=benchmark/results/env-local \
     benchmark/local.jl --session > session.log 2>&1 &
-  echo 'cd/lasso-dense/cd/B/* --save before.local.tsv' >> commands.txt
+  echo 'cd/lasso-B/cd/*-f64/call --save before.local.tsv' >> commands.txt
   # edit src/, then:
-  echo 'cd/lasso-dense/cd/B/* --baseline before.local.tsv' >> commands.txt
+  echo 'cd/lasso-B/cd/*-f64/call --baseline before.local.tsv' >> commands.txt
   ```
 
   In a REPL, run `using Revise` and then `include("benchmark/local.jl")` before loading
-  ProximalSolvers, then `explore("cd/lasso-dense/cd/B/*"; save = "before.local.tsv")`.
+  ProximalSolvers, then `explore("cd/lasso-B/cd/*-f64/call"; save = "before.local.tsv")`.
 
 Before each run, a session applies every source file whose content changed since the last
 run, without waiting for Revise's file events, and runs in the latest world. A changed
@@ -228,12 +305,17 @@ IDs and `*` to `call` and `workspace`.
 
 ## Compare revisions
 
-Use one fixed harness copy from the same root, with two fresh environments and the same ProximalBase spec:
+Use one fixed harness copy from the same root, with two fresh environments and the same ProximalBase spec.
+For the current core, use clean checkouts of committed revisions (for example `git worktree add
+--detach DIR COMMIT`), the harness of a committed checkout outside both, `base_spec=pinned`, and add
+`PS_EXPECTED_PACKAGE_REVISION="$(git -C "$checkout" rev-parse HEAD)"` and
+`PS_EXPECTED_PROXIMALBASE_REV=<the pinned commit>` to the run line below; both revisions must pin
+the same ProximalBase commit, or `compare.py` refuses the different `proximalbase_hash`.
 
 ```sh
 before=/absolute/path/to/before
 after=/absolute/path/to/after
-base_spec=0.5.4
+base_spec=0.5.4   # pinned for the current core
 julia benchmark/setup.jl "$before" benchmark/results/env-before "$base_spec"
 julia benchmark/setup.jl "$after" benchmark/results/env-after "$base_spec"
 runs=3
@@ -283,7 +365,9 @@ TSVs have headers, empty missing fields, integer nanoseconds/bytes and round-tri
 | `-metadata-start.toml`, `-metadata.toml` | Start provenance and final completion metadata. |
 
 Metadata includes settings (including `case_filter`; records without it used no case
-filter), Julia/BLAS/CPU identity, package root, revision and dirty status.
+filter), Julia/BLAS/CPU identity, package root, revision and dirty status, and in current
+records the ProximalBase manifest entry, the expected revisions, `capabilities` and
+`deferred_cases` (see "Current core"; `validate.py` checks only the keys it requires).
 SHA-1 hashes cover the four Julia harness files (`problems`, `certificates`, `cases`, `run`)
 and each package's `Project.toml`, `src/**/*.jl` and `ext/**/*.jl`. ProximalBase has its
 own version and source hash. SHA-256 data hashes match inputs per case/repetition. Final
@@ -309,6 +393,24 @@ and `summary.csv`, retaining status counts and using the mean of repetition medi
 `check_analysis.py` tests synthetic records, including failures and interruptions. Generated
 results, environments and profiles are ignored by Git. Put concise findings and limitations
 in the pull request. Never select the fastest run or discard adverse runs.
+
+## Restoring a solver
+
+When a solver feature returns to the package, its existing cases need no new definitions:
+
+1. Add its entries to `CAPABILITIES` in `cases.jl`, for example `"apg"` and `"apg:lasso"`, and
+   `"apg:gap"` once its duality-gap stopping is back. `PS_LIST=deferred` shows what each case
+   still lacks.
+2. If its constructor or options changed, adapt `benchmark_method` (or `benchmark_options`);
+   keep the historical settings where the API allows, since the settings define the case.
+3. Run `PS_LIST=true`, then the cases with `local.jl` or `run.jl`, and check their certificates.
+   A case whose solver runs but whose certificate needs a new problem kind needs a certificate
+   in `certificates.jl` and a check in `check_certificates.jl` first.
+4. For new current-core variants (another iterate or precision), follow `add_core_cases!`: new
+   IDs, a target per precision chosen before measuring, and a requirement per feature.
+
+Editing `cases.jl` changes the harness hash, so records before and after the change are not
+comparable, by design. Add the new IDs to `test/benchmark_formal.jl`.
 
 Historical studies for issues #18–#95 remain in the [pre-cleanup tree](https://github.com/mlakolar/ProximalSolvers.jl/tree/f7e3f28026a8e83e0fa18203b39839cf57a1c949/benchmark),
 including comparisons with CoordinateDescent, glmnet, Lasso.jl, R packages,

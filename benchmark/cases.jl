@@ -1,7 +1,11 @@
 struct CaseSpec
   meta::NamedTuple
   make::Function
+  # Capabilities of the loaded package that the case needs; see CAPABILITIES.
+  requires::Vector{String}
 end
+
+CaseSpec(meta::NamedTuple, make::Function) = CaseSpec(meta, make, String[])
 
 struct CaseState{R,C,V}
   reset!::R
@@ -18,6 +22,52 @@ Base.showerror(io::IO, err::IncompletePath) = print(io, err.detail)
 
 const CASE_GROUPS = ("cd", "paths", "gradient", "newton", "admm", "primal_dual",
                      "nonconvex", "slope", "sgl")
+
+# What the harness may run against the loaded ProximalSolvers (#110). A case requires its
+# solver ID and, per feature it uses, "solver:feature" (see `case_requirements`); a case
+# with a requirement missing here is deferred: kept in the catalog definitions, listed with
+# PS_LIST=deferred, and never constructed or run. The entries are declared, not inferred
+# from the names a package defines: a solver type can exist without supporting a problem,
+# an iterate or a phase. Restoring a solver feature means adding its entries here (and
+# adapting its constructor in `benchmark_method` if its API changed).
+const CAPABILITIES = Set([
+  # CDSolver: dense Matrix least-squares lasso with unweighted NormL1, a dense Vector or a
+  # vector SparseIterate, Float32 or Float64, cyclic ("cd") or random ("random-cd") order;
+  # no gap stopping, workspaces or paths.
+  "cd", "cd:lasso", "cd:sparse_iterate", "cd:float32", "random-cd", "random-cd:lasso",
+  # ProximalGradientDescent: the same problem with a dense Vector, Float32 or Float64.
+  "pg", "pg:lasso", "pg:float32",
+])
+
+const SOLVER_NAMES = Dict("cd" => "CDSolver", "random-cd" => "CDSolver(order = :random)",
+  "pg" => "ProximalGradientDescent", "apg" => "AccProxGradDescent",
+  "monotone" => "MonotoneAccProxGradDescent", "active" => "ActiveAccProxGradDescent",
+  "diagonal" => "ProximalGradientDescent(preconditioner = :diagonal)",
+  "prox-newton" => "ProxNewton", "quic" => "ProxNewton (QUIC)", "admm" => "ADMMSolver",
+  "condat-vu" => "CondatVu", "slope-apg" => "SLOPEAPG", "slope-hybrid" => "SLOPEHybrid")
+const FEATURE_NOTES = Dict(
+  "lasso" => "least-squares lasso, dense Matrix design, unweighted NormL1",
+  "float32" => "Float32 data and iterate", "sparse_iterate" => "vector SparseIterate iterate",
+  "gap" => "duality-gap stopping (gaptol > 0)",
+  "workspace" => "SolverWorkspace and reinit! (workspace phase)",
+  "path" => "solve_path with screening", "setup" => "cached setup of the setup phase",
+  "weighted_l1" => "weighted NormL1", "sparse_design" => "SparseMatrixCSC design",
+  "sqrt_lasso" => "SqrtLeastSquaresLoss", "quadratic" => "QuadraticFunction loss",
+  "group" => "GroupNormL2 on an AtomIterate", "sparse_group" => "SparseGroupNormL2 on an AtomIterate",
+  "slope" => "SLOPE penalty", "logistic" => "LogisticLoss with L1",
+  "glasso" => "LogDetLoss with entrywise L1", "generalized_lasso" => "generalized lasso (three-term)",
+  "mcp" => "MCP penalty", "scad" => "SCAD penalty", "iht" => "L0-ball constraint")
+
+case_requirements(solver, needs, phase) =
+  [solver; ["$solver:$need" for need in needs]; phase == "workspace" ? ["$solver:workspace"] : String[]]
+case_available(spec) = all(in(CAPABILITIES), spec.requires)
+
+function describe_requirement(requirement)
+  solver, feature = occursin(':', requirement) ? split(requirement, ':'; limit = 2) : (requirement, "")
+  isempty(feature) && return "solver $(get(SOLVER_NAMES, solver, solver))"
+  "$(get(SOLVER_NAMES, solver, solver)): $(get(FEATURE_NOTES, feature, feature))"
+end
+missing_requirements(spec) = [describe_requirement(r) for r in spec.requires if !(r in CAPABILITIES)]
 
 function benchmark_options(; historical = false, residual = false)
   ProximalSolvers.ProximalOptions(maxiter = historical ? 5000 : 10_000,
@@ -91,7 +141,7 @@ function reset_solver_rng!(method)
     # _CDState shares method.rng. Re-seeding it resets every random pass, for
     # both public calls and workspaces; each pass rebuilds its permutation.
     Random.seed!(method.rng, 9)
-  elseif method isa ProximalSolvers.ProxNewton
+  elseif isdefined(ProximalSolvers, :ProxNewton) && method isa ProximalSolvers.ProxNewton
     reset_solver_rng!(method.inner)
   end
   nothing
@@ -117,7 +167,8 @@ function solve_case_state(a, solver, variant, phase)
   historical = variant in ("R", "B")
   options = variant == "R" ? PS.ProximalOptions() :
     benchmark_options(; historical, residual = a.kind in (:quadratic, :mcp, :scad, :iht))
-  own_options = method isa Union{PS.CDSolver,PS.ProxNewton,PS.SLOPEAPG,PS.SLOPEHybrid}
+  # Solvers that carry their own options; the others take benchmark options.
+  own_options = solver in ("cd", "random-cd", "prox-newton", "quic", "slope-apg", "slope-hybrid")
   if phase == "workspace"
     workspace = own_options ? PS.SolverWorkspace(x, f, g, method) :
       PS.SolverWorkspace(x, f, g, method, options)
@@ -235,27 +286,112 @@ function setup_case_state(a, solver)
   CaseState(() -> nothing, call!, check, data_hash(a))
 end
 
+# Current-core cases (#110): CDSolver with a dense Vector or a vector SparseIterate and
+# ProximalGradientDescent with a dense Vector, Float32 or Float64. Targets are fixed per
+# precision for every solver: 1e-8 in Float64, the threshold of the #103-#109 B cases, and
+# 1e-5 in Float32, about 50-100 times the relative gap of the exact solution rounded to
+# Float32 (5e-8 to 2e-7 on these designs). A solver that stops short of them is a non-ok
+# observation, never a timing.
+const CORE_TARGETS = Dict(Float64 => 1e-8, Float32 => 1e-5)
+const CORE_PRECISIONS = ((Float64, "f64"), (Float32, "f32"))
+const CORE_ITERATES = Dict("cd" => (:dense, :sparse), "pg" => (:dense,))
+
+# The start of a warm case: the solution at 1.25λ, the previous level of a path with ratio
+# 0.8, computed in Float64 by the certificate module's own coordinate descent, so it does
+# not depend on the solver under test. It is part of the inputs and of their data hash.
+function warm_start(a)
+  a.s == 1 / size(a.X, 1) && all(isone, a.w) || error("warm starts need s = 1/n and unit weights")
+  refit = cert_loading_refit(a.X, a.y, 1.25a.λ, a.w, zeros(size(a.X, 2)); tol = 1e-12,
+                             maxpasses = 100_000)
+  refit.converged || error("the warm start did not certify")
+  refit.β
+end
+
+# The problem a current-core case gives its solver: the Float64 draw rounded once to T, with
+# its start. Certificates read the same values back exactly in Float64.
+function core_problem(a, ::Type{T}; warm = false) where T
+  start = warm ? warm_start(a) : zeros(size(a.X, 2))
+  merge(a, (; X = T.(a.X), y = T.(a.y), s = T(a.s), λ = T(a.λ), w = T.(a.w), start = T.(start)))
+end
+exact_problem(a) = merge(a, (; X = Float64.(a.X), y = Float64.(a.y), s = Float64(a.s),
+                             λ = Float64(a.λ), w = Float64.(a.w), start = Float64.(a.start)))
+
+function sparse_start(start::Vector{T}) where T
+  x = ProximalBase.SparseIterate(T, length(start))
+  for j in eachindex(start)
+    iszero(start[j]) || (x[j] = start[j])
+  end
+  x
+end
+
+function core_method(solver, ::Type{T}) where T
+  PS = ProximalSolvers
+  # Coefficient-change tolerances near the attainable precision; certificates decide accuracy.
+  solver == "cd" && return PS.CDSolver(order = :cyclic, tol = T == Float32 ? 1e-6 : 1e-11,
+                                       rng = Xoshiro(9))
+  solver == "pg" && return PS.ProximalGradientDescent()
+  error("no current-core method for $solver")
+end
+
+function core_case_state(a, solver, iterate)
+  PS = ProximalSolvers
+  T = eltype(a.X)
+  f, g = benchmark_model(a)
+  method = core_method(solver, T)
+  options = benchmark_options(; residual = true)   # PGD only; gaptol = 0
+  start = iterate == :sparse ? sparse_start(a.start) : copy(a.start)
+  x = copy(start)
+  # copyto! between SparseIterates of one size copies the state: values, active set, order.
+  reset! = () -> (copyto!(x, start); reset_solver_rng!(method); nothing)
+  call! = solver == "pg" ? (() -> PS.solve!(x, f, g, method, options)) :
+    (() -> PS.solve!(x, f, g, method))
+  exact = exact_problem(a)
+  check(output) = certify(exact, Float64.(Array(output.minimizer)))
+  CaseState(reset!, call!, check, data_hash(a))
+end
+
+function add_core_cases!(catalog, group, problem, solver, make_problem; warm = false,
+                         suite = "quick")
+  for (T, precision) in CORE_PRECISIONS, iterate in CORE_ITERATES[solver]
+    variant = (warm ? "warm-" : "") * "$(iterate)-$(precision)"
+    needs = ["lasso"; T == Float32 ? ["float32"] : String[];
+             iterate == :sparse ? ["sparse_iterate"] : String[]]
+    make = rep -> core_case_state(core_problem(make_problem(rep), T; warm), solver, iterate)
+    add_case!(catalog, group, problem, solver, variant, make; suite, target = CORE_TARGETS[T],
+              requires = case_requirements(solver, needs, "call"))
+  end
+end
+
 function add_case!(catalog, group, problem, solver, variant, make;
                    phase = "call", suite = "quick", inputs = "draw", issue = "",
-                   measure = "relative_gap", target = 1e-6)
+                   measure = "relative_gap", target = 1e-6, requires = String[])
   parts = (group, problem, solver, variant, phase)
   any(part -> occursin(r"[/\t\n\r]", part), parts) && error("invalid case identifier")
+  isempty(requires) && error("case $(join(parts, '/')) declares no requirements")
   id = join(parts, '/')
   meta = (; id, group, problem, solver, variant, phase, suite, inputs, issue, measure, target)
-  push!(catalog, CaseSpec(meta, make))
+  push!(catalog, CaseSpec(meta, make, requires))
 end
 
 function add_solve_cases!(catalog, group, problem, solver, variant, make_problem;
                           workspace = false, suite = "quick", inputs = "draw", issue = "",
-                          measure = "relative_gap", target = 1e-6)
+                          measure = "relative_gap", target = 1e-6, needs = ())
   for phase in (workspace ? ("call", "workspace") : ("call",))
     make = rep -> solve_case_state(make_problem(rep), solver, variant, phase)
     add_case!(catalog, group, problem, solver, variant, make;
-              phase, suite, inputs, issue, measure, target)
+              phase, suite, inputs, issue, measure, target,
+              requires = case_requirements(solver, needs, phase))
   end
 end
 
-function build_catalog(suite, groups)
+"""
+    build_catalog(suite, groups; deferred = false)
+
+The cases of `suite` and `groups` that the loaded package supports (`case_available`), in
+ID order, or with `deferred = true` the cases that need a capability missing from
+CAPABILITIES. Building the catalog constructs no solver and no data.
+"""
+function build_catalog(suite, groups; deferred = false)
   suite in ("quick", "extended") || throw(ArgumentError("PS_SUITE must be quick or extended"))
   all(in(CASE_GROUPS), groups) || throw(ArgumentError("unknown PS_GROUPS entry"))
   catalog = CaseSpec[]
@@ -267,104 +403,176 @@ function build_catalog(suite, groups)
              ("gradient", "lasso", "active", :active, "#107", false),
              ("cd", "lasso-dense", "cd", :cd, "#108", true),
              ("admm", "lasso", "admm", :admm, "#109", true))
+  problem_needs = Dict(:newton => "logistic", :sqrt => "sqrt_lasso")
   for (group, problem, solver, family, issue, workspace) in history
     for variant in (family == :sqrt ? ("R",) : ("R", "B"))
       make_problem = variant == "R" ? (rep -> release_problem(family)) :
         (rep -> batched_problem(family))
+      # B stops on the duality gap (gaptol = 1e-8), except ProxNewton, whose B variant
+      # starts from a SparseIterate instead.
+      needs = [get(problem_needs, family, "lasso");
+               variant == "B" ? [solver == "prox-newton" ? "sparse_iterate" : "gap"] : String[]]
       add_solve_cases!(catalog, group, problem, solver, variant, make_problem;
-        workspace, inputs = "fixed", issue, target = variant == "R" ? NaN : 1e-8)
+        workspace, inputs = "fixed", issue, target = variant == "R" ? NaN : 1e-8, needs)
     end
   end
   add_solve_cases!(catalog, "cd", "lasso-csc", "cd", "B", rep -> batched_problem(:csc);
-                   workspace = true, inputs = "fixed", issue = "#108", target = 1e-8)
+                   workspace = true, inputs = "fixed", issue = "#108", target = 1e-8,
+                   needs = ("sparse_design", "gap"))
   for solver in ("apg", "diagonal")
     key = "gradient/lasso/$(solver)"
     add_solve_cases!(catalog, "gradient", "lasso", solver, "tight",
-      rep -> regression_problem(rep, key); workspace = true)
+      rep -> regression_problem(rep, key); workspace = true, needs = ("lasso", "gap"))
   end
   add_solve_cases!(catalog, "cd", "lasso", "random-cd", "tight",
-    rep -> regression_problem(rep, "cd/lasso/random"); workspace = true)
+    rep -> regression_problem(rep, "cd/lasso/random"); workspace = true, needs = ("lasso", "gap"))
   add_solve_cases!(catalog, "cd", "weighted-lasso", "cd", "tight",
     rep -> begin
       a = regression_problem(rep, "cd/weighted-lasso")
       merge(a, (; w = collect(range(0.5, 1.5; length = size(a.X, 2)))))
-    end; workspace = true)
+    end; workspace = true, needs = ("weighted_l1", "gap"))
   add_solve_cases!(catalog, "cd", "quadratic", "cd", "tight",
-    rep -> quadratic_problem(rep, "cd/quadratic"); workspace = true, measure = "kkt_residual")
+    rep -> quadratic_problem(rep, "cd/quadratic"); workspace = true, measure = "kkt_residual",
+    needs = ("quadratic",))
   # The second variant records the least-squares gap of the same quadratic.
   add_solve_cases!(catalog, "cd", "quadratic", "cd", "dual-gap",
-    rep -> quadratic_problem(rep, "cd/quadratic"); workspace = true)
+    rep -> quadratic_problem(rep, "cd/quadratic"); workspace = true, needs = ("quadratic",))
   add_solve_cases!(catalog, "cd", "group-lasso", "cd", "tight",
-    rep -> grouped_problem(rep, "cd/group-lasso"); workspace = true)
+    rep -> grouped_problem(rep, "cd/group-lasso"); workspace = true, needs = ("group", "gap"))
   add_solve_cases!(catalog, "cd", "sqrt-lasso", "cd", "tight",
     rep -> begin
       a = regression_problem(rep, "cd/sqrt-lasso")
       merge(a, (; kind = :sqrt_lasso, λ = 0.5, fit_floor = 1e-12))
-    end; workspace = true)
+    end; workspace = true, needs = ("sqrt_lasso",))
   add_solve_cases!(catalog, "newton", "logistic-weighted-offset", "prox-newton", "tight",
-    rep -> logistic_problem(rep, "newton/logistic-weighted-offset"; weighted = true))
+    rep -> logistic_problem(rep, "newton/logistic-weighted-offset"; weighted = true),
+    needs = ("logistic",))
   add_solve_cases!(catalog, "newton", "glasso", "quic", "tight",
-    rep -> glasso_problem(rep, "newton/glasso"))
+    rep -> glasso_problem(rep, "newton/glasso"), needs = ("glasso",))
   add_case!(catalog, "primal_dual", "generalized-lasso", "condat-vu", "tight",
-    rep -> primal_dual_case_state(generalized_problem(rep, "primal_dual/generalized")))
+    rep -> primal_dual_case_state(generalized_problem(rep, "primal_dual/generalized"));
+    requires = case_requirements("condat-vu", ("generalized_lasso", "gap"), "call"))
   for kind in (:mcp, :scad, :iht)
     add_solve_cases!(catalog, "nonconvex", string(kind), "pg", "tight",
       rep -> nonconvex_problem(rep, "nonconvex/$(kind)", kind);
-      workspace = true, measure = "fixed_point_residual")
+      workspace = true, measure = "fixed_point_residual", needs = (string(kind),))
   end
   for solver in ("slope-apg", "slope-hybrid")
     add_solve_cases!(catalog, "slope", "slope", solver, "tight",
-      rep -> slope_problem(rep, "slope/$(solver)"))
+      rep -> slope_problem(rep, "slope/$(solver)"), needs = ("slope",))
     add_case!(catalog, "paths", "slope", solver, "grid8",
-      rep -> path_case_state(slope_problem(rep, "paths/$(solver)"), solver))
+      rep -> path_case_state(slope_problem(rep, "paths/$(solver)"), solver);
+      requires = case_requirements(solver, ("slope", "path"), "call"))
   end
   for solver in ("cd", "apg")
     add_solve_cases!(catalog, "sgl", "sparse-group", solver, "tight",
-      rep -> grouped_problem(rep, "sgl/$(solver)"; sparse_group = true); workspace = true)
+      rep -> grouped_problem(rep, "sgl/$(solver)"; sparse_group = true); workspace = true,
+      needs = ("sparse_group", "gap"))
   end
+  path_needs = ("lasso", "path", "sparse_iterate", "gap")
   add_case!(catalog, "paths", "lasso", "cd", "grid8",
-    rep -> path_case_state(regression_problem(rep, "paths/lasso"), "cd"))
+    rep -> path_case_state(regression_problem(rep, "paths/lasso"), "cd");
+    requires = case_requirements("cd", path_needs, "call"))
   for (group, solver, issue) in (("admm", "admm", "#109"), ("gradient", "diagonal", ""))
     add_case!(catalog, group, "lasso", solver, "construction",
       rep -> setup_case_state(regression_problem(rep, "setup/$(solver)"), solver);
-      phase = "setup", issue, measure = "self_consistency", target = 1e-12)
+      phase = "setup", issue, measure = "self_consistency", target = 1e-12,
+      requires = case_requirements(solver, ("setup",), "setup"))
   end
   for design in (:A, :B, :C, :D, :E)
     n, p = design == :C ? (800, 120) : design == :D ? (180, 600) : (240, 160)
     make_problem = rep -> regression_problem(rep, "extended/design-$(design)"; n, p, design)
     for solver in ("cd", "apg")
       add_solve_cases!(catalog, solver == "cd" ? "cd" : "gradient", "lasso-$(design)",
-        solver, "tight", make_problem; workspace = true, suite = "extended")
+        solver, "tight", make_problem; workspace = true, suite = "extended",
+        needs = ("lasso", "gap"))
     end
     add_case!(catalog, "paths", "lasso-$(design)", "cd", "grid16",
-      rep -> path_case_state(make_problem(rep), "cd"; levels = 16); suite = "extended")
+      rep -> path_case_state(make_problem(rep), "cd"; levels = 16); suite = "extended",
+      requires = case_requirements("cd", path_needs, "call"))
   end
   add_solve_cases!(catalog, "newton", "logistic-larger", "prox-newton", "tight",
-    rep -> logistic_problem(rep, "extended/logistic"; n = 800, p = 120); suite = "extended")
+    rep -> logistic_problem(rep, "extended/logistic"; n = 800, p = 120); suite = "extended",
+    needs = ("logistic",))
   add_solve_cases!(catalog, "newton", "glasso-larger", "quic", "tight",
-    rep -> glasso_problem(rep, "extended/glasso"; n = 400, p = 40); suite = "extended")
+    rep -> glasso_problem(rep, "extended/glasso"; n = 400, p = 40); suite = "extended",
+    needs = ("glasso",))
   add_solve_cases!(catalog, "admm", "lasso-larger", "admm", "tight",
     rep -> regression_problem(rep, "extended/admm"; n = 800, p = 160);
-    workspace = true, suite = "extended")
+    workspace = true, suite = "extended", needs = ("lasso", "gap"))
   add_case!(catalog, "primal_dual", "generalized-larger", "condat-vu", "tight",
     rep -> primal_dual_case_state(generalized_problem(rep, "extended/generalized"; n = 240, p = 100));
-    suite = "extended")
+    suite = "extended", requires = case_requirements("condat-vu", ("generalized_lasso", "gap"), "call"))
   for solver in ("slope-apg", "slope-hybrid")
     add_solve_cases!(catalog, "slope", "slope-larger", solver, "tight",
-      rep -> slope_problem(rep, "extended/slope/$(solver)"; n = 600, p = 160); suite = "extended")
+      rep -> slope_problem(rep, "extended/slope/$(solver)"; n = 600, p = 160); suite = "extended",
+      needs = ("slope",))
   end
   for solver in ("cd", "apg")
     add_solve_cases!(catalog, "sgl", "sparse-group-larger", solver, "tight",
       rep -> grouped_problem(rep, "extended/sgl/$(solver)"; n = 600, p = 160, sparse_group = true);
-      workspace = true, suite = "extended")
+      workspace = true, suite = "extended", needs = ("sparse_group", "gap"))
   end
   for kind in (:mcp, :scad, :iht)
     add_solve_cases!(catalog, "nonconvex", "$(kind)-larger", "pg", "tight",
       rep -> nonconvex_problem(rep, "extended/nonconvex/$(kind)", kind; n = 600, p = 160);
-      workspace = true, suite = "extended", measure = "fixed_point_residual")
+      workspace = true, suite = "extended", measure = "fixed_point_residual",
+      needs = (string(kind),))
   end
-  selected = filter(c -> c.meta.group in groups && (suite == "extended" || c.meta.suite == "quick"), catalog)
+  # Current core (#110): one small and one medium correlated design shared by CD and PGD
+  # (cold and warm starts), and two larger designs in the extended suite. The medium and
+  # larger designs reuse the inputs of the deferred extended cases of the same design.
+  core_designs = (("lasso", rep -> regression_problem(rep, "core/lasso"), (false,), "quick"),
+    ("lasso-B", rep -> regression_problem(rep, "extended/design-B"; n = 240, p = 160, design = :B),
+     (false, true), "quick"),
+    ("lasso-C", rep -> regression_problem(rep, "extended/design-C"; n = 800, p = 120, design = :C),
+     (false,), "extended"),
+    ("lasso-D", rep -> regression_problem(rep, "extended/design-D"; n = 180, p = 600, design = :D),
+     (false,), "extended"))
+  for (problem, make_problem, starts, suite) in core_designs, warm in starts
+    add_core_cases!(catalog, "cd", problem, "cd", make_problem; warm, suite)
+    add_core_cases!(catalog, "gradient", problem, "pg", make_problem; warm, suite)
+  end
+  # IDs are unique across supported and deferred cases, so restoring one never renames another.
+  length(unique(c.meta.id for c in catalog)) == length(catalog) || error("duplicate case id")
+  selected = filter(c -> c.meta.group in groups && (suite == "extended" || c.meta.suite == "quick") &&
+                    case_available(c) != deferred, catalog)
   sort!(selected; by = c -> c.meta.id)
-  length(unique(c.meta.id for c in selected)) == length(selected) || error("duplicate case id")
-  selected
+end
+
+"""
+    check_deferred_request(filter, suite, groups)
+
+Refuse a PS_CASES `filter` entry that names a deferred case, or a pattern that matches
+deferred cases but no supported one, with the capabilities those cases lack. A pattern
+that also matches supported cases selects only those (select_cases); the IDs of the
+deferred cases it also matches are returned, to be reported as not run.
+"""
+# The cases of `catalog` that one PS_CASES entry selects, with the matching of select_cases
+# (run.jl), which refuses an entry that matches nothing.
+function selected_by(catalog, pattern)
+  try
+    select_cases(catalog, pattern)
+  catch err
+    err isa ArgumentError || rethrow()
+    CaseSpec[]
+  end
+end
+
+function check_deferred_request(filter::AbstractString, suite, groups)
+  patterns = [String(strip(p)) for p in split(filter, ',') if !isempty(strip(p))]
+  isempty(patterns) && return String[]
+  active, deferred = build_catalog(suite, groups), build_catalog(suite, groups; deferred = true)
+  skipped = String[]
+  for pattern in patterns
+    hits = selected_by(deferred, pattern)
+    if isempty(selected_by(active, pattern)) && !isempty(hits)
+      reasons = unique(reduce(vcat, missing_requirements.(hits)))
+      throw(ArgumentError("case selection \"$pattern\" selects $(length(hits)) deferred case(s) " *
+        "that the loaded ProximalSolvers cannot run (missing: $(join(reasons, "; "))); " *
+        "PS_LIST=deferred lists deferred cases and their requirements"))
+    end
+    append!(skipped, spec.meta.id for spec in hits)
+  end
+  unique(skipped)
 end
