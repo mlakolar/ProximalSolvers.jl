@@ -2,9 +2,26 @@
     ProximalGradientDescent(; ls=LineSearches.BackTracking(), normalized=false,
                              debias=0, preconditioner=:none)
 
-Historical scalar-step dense LS lasso PGD, retaining its LS image cache, fused
-PB proximal call, TFOCS backtracking and FASTA/x/objective OR stopping.
-Normalized IHT, debiasing, preconditioning and custom searches are deferred.
+Proximal gradient descent (PGD) for least-squares lasso with a dense
+`Vector{Float32}` or `Vector{Float64}` coefficient iterate. Each iteration
+takes a gradient step for the smooth least-squares loss and applies the
+`NormL1` proximal operator (soft thresholding); backtracking adjusts
+the step size.
+
+`ProximalGradientDescent()` uses the supported
+`LineSearches.BackTracking()` line search. The options
+`normalized=true`, `debias>0`, `preconditioner!=:none` and custom
+line searches are not implemented and are rejected. These constructor
+keywords remain for compatibility with earlier versions.
+
+Pass `ProximalOptions(...)` as the fifth argument to `solve!` to
+configure stopping tolerances and iteration limits. **The defaults may
+stop after only 3–4 correct digits on the small tutorial examples.**
+`converged=true` means a stopping rule was satisfied, not that the
+result is an accurate minimizer. Tighten tolerances and check KKT conditions
+independently before reporting numerical results.
+See the [solver guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/)
+and [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
 """
 struct ProximalGradientDescent{L, P} <: ProximalSolver
   ls::L
