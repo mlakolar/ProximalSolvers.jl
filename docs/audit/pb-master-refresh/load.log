@@ -1,0 +1,54 @@
+  Installing known registries into `/tmp/ps-linux-ci-depot`
+       Added `General` registry to /tmp/ps-linux-ci-depot/registries
+    Updating git-repo `https://github.com/mlakolar/ProximalBase.jl`
+    Updating `~/projects/juliaPkg/ProximalSolvers.jl/Project.toml`
+  [aea7be01] + PrecompileTools v1.4.0
+  [0a755509] + ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#c123d56`
+  [37e2e46d] ~ LinearAlgebra ⇒ v1.13.0
+  [de0858da] ~ Printf ⇒ v1.11.0
+  [9a3f8284] ~ Random ⇒ v1.11.0
+  [2f01184e] ~ SparseArrays ⇒ v1.13.0
+    Updating `~/projects/juliaPkg/ProximalSolvers.jl/Manifest.toml`
+  [aea7be01] + PrecompileTools v1.4.0
+  [21216c6a] + Preferences v1.6.1
+  [0a755509] + ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#c123d56`
+  [56f22d72] + Artifacts v1.11.0
+  [ade2ca70] + Dates v1.11.0
+  [8f399da3] + Libdl v1.11.0
+  [37e2e46d] ~ LinearAlgebra ⇒ v1.13.0
+  [de0858da] ~ Printf ⇒ v1.11.0
+  [9a3f8284] ~ Random ⇒ v1.11.0
+  [ea8e919c] + SHA v1.0.0
+  [9e88b42a] + Serialization v1.11.0
+  [2f01184e] ~ SparseArrays ⇒ v1.13.0
+  [fa267f1f] + TOML v1.0.3
+  [4ec0a83e] + Unicode v1.11.0
+  [e66e0078] + CompilerSupportLibraries_jll v1.5.5+2
+  [4536629a] + OpenBLAS_jll v0.3.30+0
+  [bea87d4a] + SuiteSparse_jll v7.10.1+0
+  [8e850b90] + libblastrampoline_jll v5.15.0+0
+Precompiling packages...
+   4.6 s  ✓ ProximalBase
+   1.9 s  ✓ ProximalSolvers
+  2 dependencies successfully precompiled in 7 seconds. 10 already precompiled.
+PB_PATH=/tmp/ps-linux-ci-depot/packages/ProximalBase/WNPma/src/ProximalBase.jl
+Project ProximalSolvers v0.3.2
+Status `~/projects/juliaPkg/ProximalSolvers.jl/Manifest.toml`
+  [aea7be01] PrecompileTools v1.4.0
+  [21216c6a] Preferences v1.6.1
+  [0a755509] ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#c123d56`
+  [56f22d72] Artifacts v1.11.0
+  [ade2ca70] Dates v1.11.0
+  [8f399da3] Libdl v1.11.0
+  [37e2e46d] LinearAlgebra v1.13.0
+  [de0858da] Printf v1.11.0
+  [9a3f8284] Random v1.11.0
+  [ea8e919c] SHA v1.0.0
+  [9e88b42a] Serialization v1.11.0
+  [2f01184e] SparseArrays v1.13.0
+  [fa267f1f] TOML v1.0.3
+  [4ec0a83e] Unicode v1.11.0
+  [e66e0078] CompilerSupportLibraries_jll v1.5.5+2
+  [4536629a] OpenBLAS_jll v0.3.30+0
+  [bea87d4a] SuiteSparse_jll v7.10.1+0
+  [8e850b90] libblastrampoline_jll v5.15.0+0

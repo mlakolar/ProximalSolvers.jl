@@ -1,0 +1,397 @@
+{
+  "workers": [
+    {
+      "label": "A1",
+      "environment": "/tmp/ps-refresh-env-A",
+      "ready": "READY\t1.13.3\traptorlake\t1\t1\t/tmp/ps-pb-refresh-baseline/src/ProximalBase.jl\t/tmp/ps-refresh-baseline/src/ProximalSolvers.jl",
+      "project_sha256": "44e44e447d88009ec39a571b1474c9e8abc69c129420616ec6aa8f4a465a7f1b",
+      "manifest_sha256": "7f108c4d7612e42de91f9fab70a16a4f8d250a77b0726bcd9a8f911477f0bb84"
+    },
+    {
+      "label": "A2",
+      "environment": "/tmp/ps-refresh-env-A",
+      "ready": "READY\t1.13.3\traptorlake\t1\t1\t/tmp/ps-pb-refresh-baseline/src/ProximalBase.jl\t/tmp/ps-refresh-baseline/src/ProximalSolvers.jl",
+      "project_sha256": "44e44e447d88009ec39a571b1474c9e8abc69c129420616ec6aa8f4a465a7f1b",
+      "manifest_sha256": "7f108c4d7612e42de91f9fab70a16a4f8d250a77b0726bcd9a8f911477f0bb84"
+    },
+    {
+      "label": "B",
+      "environment": "/tmp/ps-refresh-env-B",
+      "ready": "READY\t1.13.3\traptorlake\t1\t1\t/tmp/ps-pb-refresh-upstream/src/ProximalBase.jl\t/home/mkolar/projects/juliaPkg/ProximalSolvers.jl/src/ProximalSolvers.jl",
+      "project_sha256": "aa16ecfbdbaf75bc9c32a4b7a9d31fe0c3fea92c523c64f48945f0bd5f6745e3",
+      "manifest_sha256": "c73f237eb176000104fa4b507adbecbcf07922c752c7f7667747627cd889bbc4"
+    }
+  ],
+  "sources": {
+    "/tmp/ps-pb-refresh-baseline": {
+      "commit": "2b373c546e247781d9514a7000ef3e010343ca4c",
+      "source_sha256": "902a65ff5c180f01105d7f543e99f8ade0293ec26369d1566d35509e92d7b71f"
+    },
+    "/tmp/ps-refresh-baseline": {
+      "commit": "11a0c543e724beb54989fd2bc02ac0472542c517",
+      "source_sha256": "839793b05a95d4b69079b02830f46e4cd26c8361d26763c90639c49d24b3aebb"
+    },
+    "/tmp/ps-pb-refresh-upstream": {
+      "commit": "c123d56ba1948e36a8fdbf183a9eea396a16e0d5",
+      "source_sha256": "d5cfe6a35c4849ca2407f618eb1bf7359cf2eeadcc153e604a0866745b000364"
+    },
+    "/home/mkolar/projects/juliaPkg/ProximalSolvers.jl": {
+      "commit": "d2ce6245ebe24e773b4e35f25df92acfc9d9eab0",
+      "source_sha256": "1018fa621d6016bf4af6077c510f99e50be329934b427b97b016e361a6d890a7"
+    }
+  },
+  "summaries": [
+    {
+      "campaign": "control",
+      "case": 1,
+      "median_B_over_A": 1.0099838888951802,
+      "min_ratio": 0.8940345601216582,
+      "max_ratio": 1.0465230901512463,
+      "median_seconds": [
+        7.977285000000001e-06,
+        8.06247e-06
+      ],
+      "allocation_bytes": [
+        [
+          6176.0
+        ],
+        [
+          6176.0
+        ]
+      ],
+      "objective64": 0.10221059466567303,
+      "kkt64": 9.242970788053695e-09,
+      "identical_numerics_and_stopping": true
+    },
+    {
+      "campaign": "control",
+      "case": 2,
+      "median_B_over_A": 1.0012819608062458,
+      "min_ratio": 0.9793215419761778,
+      "max_ratio": 1.0157780205498494,
+      "median_seconds": [
+        1.7094635e-05,
+        1.7134835e-05
+      ],
+      "allocation_bytes": [
+        [
+          4272.0
+        ],
+        [
+          4272.0
+        ]
+      ],
+      "objective64": 0.1022107078611015,
+      "kkt64": 0.00023112995391971064,
+      "identical_numerics_and_stopping": true
+    },
+    {
+      "campaign": "control",
+      "case": 3,
+      "median_B_over_A": 1.0148051713246198,
+      "min_ratio": 0.9482365252342745,
+      "max_ratio": 1.0648975873508233,
+      "median_seconds": [
+        0.000129203375,
+        0.000131384725
+      ],
+      "allocation_bytes": [
+        [
+          42008.0
+        ],
+        [
+          42008.0
+        ]
+      ],
+      "objective64": 0.1030462714060634,
+      "kkt64": 4.700445269123499e-09,
+      "identical_numerics_and_stopping": true
+    },
+    {
+      "campaign": "control",
+      "case": 4,
+      "median_B_over_A": 0.9542537729002737,
+      "min_ratio": 0.9460464624096985,
+      "max_ratio": 0.9642281506216086,
+      "median_seconds": [
+        0.001469927875,
+        0.001403168125
+      ],
+      "allocation_bytes": [
+        [
+          27560.0
+        ],
+        [
+          27560.0
+        ]
+      ],
+      "objective64": 0.10304627255577954,
+      "kkt64": 3.219098845250873e-05,
+      "identical_numerics_and_stopping": true
+    },
+    {
+      "campaign": "control",
+      "case": 5,
+      "median_B_over_A": 0.9947592209254323,
+      "min_ratio": 0.9260529950500843,
+      "max_ratio": 1.0674670541388094,
+      "median_seconds": [
+        5.676805e-06,
+        5.67165e-06
+      ],
+      "allocation_bytes": [
+        [
+          3888.0
+        ],
+        [
+          3888.0
+        ]
+      ],
+      "objective64": 0.10221059236747704,
+      "kkt64": 1.8077572216945725e-08,
+      "identical_numerics_and_stopping": true
+    },
+    {
+      "campaign": "control",
+      "case": 6,
+      "median_B_over_A": 0.9855578319453647,
+      "min_ratio": 0.9602036999324295,
+      "max_ratio": 1.0152929265782826,
+      "median_seconds": [
+        1.1519700000000001e-05,
+        1.1335969999999999e-05
+      ],
+      "allocation_bytes": [
+        [
+          2512.0
+        ],
+        [
+          2512.0
+        ]
+      ],
+      "objective64": 0.10221065307595459,
+      "kkt64": 0.00014764203261036918,
+      "identical_numerics_and_stopping": true
+    },
+    {
+      "campaign": "control",
+      "case": 7,
+      "median_B_over_A": 0.9820643234362807,
+      "min_ratio": 0.8573054101019351,
+      "max_ratio": 1.0696501109896877,
+      "median_seconds": [
+        6.7760575e-05,
+        6.658895e-05
+      ],
+      "allocation_bytes": [
+        [
+          24704.0
+        ],
+        [
+          24704.0
+        ]
+      ],
+      "objective64": 0.10304626945829731,
+      "kkt64": 4.485154985606199e-08,
+      "identical_numerics_and_stopping": true
+    },
+    {
+      "campaign": "control",
+      "case": 8,
+      "median_B_over_A": 0.9961339265365599,
+      "min_ratio": 0.9577300183843603,
+      "max_ratio": 1.0391716517821956,
+      "median_seconds": [
+        0.00051858495,
+        0.0005198436500000001
+      ],
+      "allocation_bytes": [
+        [
+          14336.0
+        ],
+        [
+          14336.0
+        ]
+      ],
+      "objective64": 0.10304627056972185,
+      "kkt64": 3.1645361697116986e-05,
+      "identical_numerics_and_stopping": true
+    },
+    {
+      "campaign": "paired",
+      "case": 1,
+      "median_B_over_A": 1.0136039868749926,
+      "min_ratio": 0.9576013383678253,
+      "max_ratio": 1.0716653025594158,
+      "median_seconds": [
+        7.961944999999999e-06,
+        8.06718e-06
+      ],
+      "allocation_bytes": [
+        [
+          6176.0
+        ],
+        [
+          6176.0
+        ]
+      ],
+      "objective64": 0.10221059466567303,
+      "kkt64": 9.242970788053695e-09,
+      "identical_numerics_and_stopping": true
+    },
+    {
+      "campaign": "paired",
+      "case": 2,
+      "median_B_over_A": 0.9971136666604132,
+      "min_ratio": 0.9791458328392982,
+      "max_ratio": 1.0176294775173238,
+      "median_seconds": [
+        1.7109075e-05,
+        1.7057609999999998e-05
+      ],
+      "allocation_bytes": [
+        [
+          4272.0
+        ],
+        [
+          4272.0
+        ]
+      ],
+      "objective64": 0.1022107078611015,
+      "kkt64": 0.00023112995391971064,
+      "identical_numerics_and_stopping": true
+    },
+    {
+      "campaign": "paired",
+      "case": 3,
+      "median_B_over_A": 1.0003602168883399,
+      "min_ratio": 0.9676906471738353,
+      "max_ratio": 1.0876970484002566,
+      "median_seconds": [
+        0.00012808525,
+        0.00012785277500000002
+      ],
+      "allocation_bytes": [
+        [
+          42008.0
+        ],
+        [
+          42008.0
+        ]
+      ],
+      "objective64": 0.1030462714060634,
+      "kkt64": 4.700445269123499e-09,
+      "identical_numerics_and_stopping": true
+    },
+    {
+      "campaign": "paired",
+      "case": 4,
+      "median_B_over_A": 1.113493094075373,
+      "min_ratio": 1.0852119488599183,
+      "max_ratio": 1.1323841957510719,
+      "median_seconds": [
+        0.001472124625,
+        0.001638968225
+      ],
+      "allocation_bytes": [
+        [
+          27560.0
+        ],
+        [
+          27560.0
+        ]
+      ],
+      "objective64": 0.10304627255577954,
+      "kkt64": 3.219098845250873e-05,
+      "identical_numerics_and_stopping": true
+    },
+    {
+      "campaign": "paired",
+      "case": 5,
+      "median_B_over_A": 1.0152931245224281,
+      "min_ratio": 0.9514703021182888,
+      "max_ratio": 1.0733223798966927,
+      "median_seconds": [
+        5.591189999999999e-06,
+        5.6622e-06
+      ],
+      "allocation_bytes": [
+        [
+          3888.0
+        ],
+        [
+          3888.0
+        ]
+      ],
+      "objective64": 0.10221059236747704,
+      "kkt64": 1.8077572216945725e-08,
+      "identical_numerics_and_stopping": true
+    },
+    {
+      "campaign": "paired",
+      "case": 6,
+      "median_B_over_A": 0.9879016339276132,
+      "min_ratio": 0.9663673011043148,
+      "max_ratio": 1.0103133189298992,
+      "median_seconds": [
+        1.145552e-05,
+        1.130609e-05
+      ],
+      "allocation_bytes": [
+        [
+          2512.0
+        ],
+        [
+          2512.0
+        ]
+      ],
+      "objective64": 0.10221065307595459,
+      "kkt64": 0.00014764203261036918,
+      "identical_numerics_and_stopping": true
+    },
+    {
+      "campaign": "paired",
+      "case": 7,
+      "median_B_over_A": 0.9816410294549731,
+      "min_ratio": 0.9540483210422994,
+      "max_ratio": 1.0644328951483504,
+      "median_seconds": [
+        6.6095975e-05,
+        6.499395e-05
+      ],
+      "allocation_bytes": [
+        [
+          24704.0
+        ],
+        [
+          24704.0
+        ]
+      ],
+      "objective64": 0.10304626945829731,
+      "kkt64": 4.485154985606199e-08,
+      "identical_numerics_and_stopping": true
+    },
+    {
+      "campaign": "paired",
+      "case": 8,
+      "median_B_over_A": 1.0116602086186792,
+      "min_ratio": 0.9513183808494601,
+      "max_ratio": 1.0290958304344542,
+      "median_seconds": [
+        0.0005273916,
+        0.000526558375
+      ],
+      "allocation_bytes": [
+        [
+          14336.0
+        ],
+        [
+          14336.0
+        ]
+      ],
+      "objective64": 0.10304627056972185,
+      "kkt64": 3.1645361697116986e-05,
+      "identical_numerics_and_stopping": true
+    }
+  ]
+}
