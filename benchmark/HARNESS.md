@@ -142,7 +142,7 @@ PS_SUITE=extended PS_GROUPS=gradient PS_LIST=true \
 
 Each case builds its inputs from a seed keyed by its scenario and repetition, so a case
 selected alone has the same inputs, data hash and certificate as in the full suite.
-`PS_CASES='cd/lasso-B/cd/*-f64'` measures four of the 13 supported quick `cd` cases.
+`PS_CASES='cd/lasso-B/cd/*-f64/call'` measures four of the 13 supported quick `cd` cases.
 
 ## Local exploration
 
@@ -158,8 +158,8 @@ julia benchmark/setup.jl "$PWD" benchmark/results/env-local pinned   # once per 
 export JULIA_NUM_THREADS=1
 alias pslocal='julia --project=benchmark/results/env-local benchmark/local.jl'
 pslocal --list 'cd/*'                                     # case IDs, no measurement
-pslocal 'cd/lasso-B/cd/*-f64' --save before.local.tsv     # before editing src/
-pslocal 'cd/lasso-B/cd/*-f64' --baseline before.local.tsv
+pslocal 'cd/lasso-B/cd/*-f64/call' --save before.local.tsv     # before editing src/
+pslocal 'cd/lasso-B/cd/*-f64/call' --baseline before.local.tsv
 ```
 
 Quote patterns in the shell. For each case, a `CHECK` line gives the certificate of the
@@ -195,13 +195,13 @@ avoid most of that cost:
   : > commands.txt                 # empty, so a restart does not replay old commands
   tail -n 0 -f commands.txt | julia --project=benchmark/results/env-local \
     benchmark/local.jl --session > session.log 2>&1 &
-  echo 'cd/lasso-B/cd/*-f64 --save before.local.tsv' >> commands.txt
+  echo 'cd/lasso-B/cd/*-f64/call --save before.local.tsv' >> commands.txt
   # edit src/, then:
-  echo 'cd/lasso-B/cd/*-f64 --baseline before.local.tsv' >> commands.txt
+  echo 'cd/lasso-B/cd/*-f64/call --baseline before.local.tsv' >> commands.txt
   ```
 
   In a REPL, run `using Revise` and then `include("benchmark/local.jl")` before loading
-  ProximalSolvers, then `explore("cd/lasso-B/cd/*-f64"; save = "before.local.tsv")`.
+  ProximalSolvers, then `explore("cd/lasso-B/cd/*-f64/call"; save = "before.local.tsv")`.
 
 Before each run, a session applies every source file whose content changed since the last
 run, without waiting for Revise's file events, and runs in the latest world. A changed
