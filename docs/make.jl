@@ -5,7 +5,8 @@ rm(GENERATED; force = true, recursive = true)
 mkpath(GENERATED)
 example_pages = Pair{String, String}[]
 for (file, title) in (("01_cd_lasso.jl", "Coordinate descent lasso"),
-                      ("02_pgd_lasso.jl", "Proximal gradient lasso"))
+                      ("02_pgd_lasso.jl", "Proximal gradient lasso"),
+                      ("03_sparse_cd_lasso.jl", "Coordinate descent on a SparseIterate"))
   Literate.markdown(joinpath(@__DIR__, "..", "examples", file), GENERATED;
     documenter = true, credit = false, preprocess = s -> "# # $title\n#\n" * s)
   push!(example_pages, title => joinpath("examples", replace(file, ".jl" => ".md")))

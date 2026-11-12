@@ -1,8 +1,10 @@
 """
     ProximalSolvers
 
-Dense least-squares lasso using CDSolver or ProximalGradientDescent through
-solve!. Losses, proximal operators and private coordinate storage belong to PB.
+Least-squares lasso with dense Matrix designs. [`CDSolver`](@ref) accepts a dense
+`Vector` or a one-dimensional `SparseIterate` as the iterate and
+[`ProximalGradientDescent`](@ref) a dense `Vector` only, both through
+[`solve!`](@ref). Losses, proximal operators and coordinate storage belong to PB.
 """
 module ProximalSolvers
 using LinearAlgebra

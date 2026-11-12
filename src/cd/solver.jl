@@ -3,11 +3,19 @@
                momentum=nothing, rng=Random.default_rng(), anderson=0,
                gaptol=0, gapsafe=false)
 
-Dense least-squares lasso coordinate descent. A full pass admits coordinates;
-active passes refine them until another full pass checks strict change stopping.
-Random LS uses historical momentum by default. Set momentum=false to disable it;
-cyclic order refuses explicit momentum. The borrowed RNG advances between solves.
-Anderson, gap certificates and screening are deferred and explicitly rejected.
+Least-squares lasso coordinate descent on a dense `Vector` or a one-dimensional
+`SparseIterate` of the same Float32 or Float64 element type. A full pass admits
+coordinates; active passes refine them until another full pass checks strict
+change stopping. Random LS uses historical momentum by default. Set
+momentum=false to disable it; cyclic order refuses explicit momentum. The
+borrowed RNG advances between solves. Anderson, gap certificates and screening
+are deferred and explicitly rejected.
+
+A `SparseIterate` is solved on a private copy that keeps its active zeros and
+slot order, so the working set starts as the caller gave it; the run needs
+O(p) extra storage for that copy. The final state, including the compaction of
+zero coordinates after each pass, replaces the caller's by a same-shape
+`copyto!` once the run has finished with a finite objective. See [`solve!`](@ref).
 """
 struct CDSolver{R<:AbstractRNG} <: ProximalSolver
   maxpasses::Int
@@ -42,9 +50,9 @@ Base.summary(::CDSolver) = "Coordinate Descent"
 """
     CDResults
 
-Result sharing the caller's vector as minimizer, with minimum, passes, converged,
-maxchange and tolerance. Compatibility fields kkt_checks=0 and gap=NaN are
-sentinels, never computed certificates.
+Result sharing the caller's vector or `SparseIterate` as minimizer, with minimum,
+passes, converged, maxchange and tolerance. Compatibility fields kkt_checks=0 and
+gap=NaN are sentinels, never computed certificates.
 """
 struct CDResults{X, T}
   minimizer::X
@@ -339,16 +347,32 @@ function _warn_not_converged(st::_CDState, s::CDSolver)
   st.converged && return
   @warn "coordinate descent did not converge in maxpasses = $(s.maxpasses) passes (last change $(round(st.maxchange; sigdigits = 3)), tolerance $(round(st.tolerance; sigdigits = 3)))."
 end
+# The run shared by the dense and owner wrappers, on a private SparseIterate: the
+# solve, the not-converged warning and the finite-objective check. It returns the
+# state and the final objective; the caller commits the point only afterwards.
+function _run_cd!(work::SparseIterate, f, g, method::CDSolver)
+  m = cdmodel(f, work)
+  initialize!(m, work)
+  st = _CDState(eltype(work), work, method)
+  _cd!(work, m, g, st, method)
+  _warn_not_converged(st, method)
+  result_value = loss_value(m, work)+g(work)
+  isfinite(result_value) || throw(ArgumentError("coordinate descent produced a nonfinite objective; rescale the problem"))
+  st, result_value
+end
 function _solve_dense!(x::Vector, f, g, method::CDSolver)
   xs = SparseIterate(x)
-  m = cdmodel(f, xs)
-  initialize!(m, xs)
-  st = _CDState(eltype(x), xs, method)
-  _cd!(xs, m, g, st, method)
-  _warn_not_converged(st, method)
-  result_value = loss_value(m, xs)+g(xs)
-  isfinite(result_value) || throw(ArgumentError("coordinate descent produced a nonfinite objective; rescale the problem"))
+  st, result_value = _run_cd!(xs, f, g, method)
   _copy_dense!(x, xs)
+  CDResults(x, result_value, st.passes, st.converged, st.maxchange, st.tolerance, 0, st.relgap)
+end
+# The run does not touch the caller's owner: it works on a state-preserving private
+# copy (values, active zeros and slot order), and the owner changes only at the final
+# same-shape owner-to-owner copy, which carries the compaction order with it.
+function _solve_owner!(x::SparseIterate, f, g, method::CDSolver)
+  work = copy(x)
+  st, result_value = _run_cd!(work, f, g, method)
+  copyto!(x, work)
   CDResults(x, result_value, st.passes, st.converged, st.maxchange, st.tolerance, 0, st.relgap)
 end
 function _copy_dense!(dest::Vector{T}, src::SparseIterate{T}) where {T}
@@ -372,6 +396,10 @@ end
 function solve!(x, f, g, method::CDSolver; kwargs...)
   _check_keywords(kwargs)
   _check_method(method)
+  if x isa SparseIterate
+    _check_owner_problem(x, f, g)
+    return _solve_owner!(x, f, g, method)
+  end
   _check_problem(x, f, g)
   _solve_dense!(x, f, g, method)
 end

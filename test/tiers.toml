@@ -11,6 +11,7 @@ quick = [
 ]
 standard = [
   "core_regressions",
+  "sparse_cd",
 ]
 full = [
   "examples",

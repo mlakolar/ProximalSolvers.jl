@@ -33,9 +33,11 @@ end
   for T in (Float64, Float32), method in (CDSolver(), ProximalGradientDescent())
     X, y, x = T[1 0; 0 2], T[1, -1], T[.3, -.2]
     f, g = LeastSquaresLoss(y, X), NormL1(T(.1))
-    for bad in (SparseIterate(x), sparse(x), reshape(copy(x), 1, 2), view(x, :))
+    for bad in (sparse(x), reshape(copy(x), 1, 2), view(x, :))
       refused(bad, f, g, method)
     end
+    # a vector SparseIterate is an owner for CD (test/sparse_cd.jl) but not for PGD
+    method isa ProximalGradientDescent && refused(SparseIterate(x), f, g, method)
     refused(Int[0, 0], f, g, method)
     refused(Float16[0, 0], f, g, method)
     refused(zeros(T === Float32 ? Float64 : Float32, 2), f, g, method)

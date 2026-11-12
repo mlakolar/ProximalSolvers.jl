@@ -20,10 +20,9 @@ function _scalar_parameter(v, ::Type{T}, name; positive = false) where T
   nothing
 end
 
-function _check_problem(x, f, g)
-  x isa Vector && eltype(x) in (Float32, Float64) ||
-    throw(ArgumentError("x must be a dense Vector{Float32} or Vector{Float64}"))
-  T = eltype(x)
+# Loss, data, shape, penalty and alias checks shared by the dense gate and the
+# CD owner gate; `x` is the caller's original array or owner, of length `length(x)`.
+function _check_data(x, f, g, ::Type{T}) where T
   base = if f isa LeastSquaresLoss
     f
   elseif f isa Scaled && f.f isa LeastSquaresLoss
@@ -41,7 +40,27 @@ function _check_problem(x, f, g)
   _scalar_parameter(g.λ0, T, "penalty lambda")
   (Base.mightalias(x, base.X) || Base.mightalias(x, base.Y)) &&
     throw(ArgumentError("mutable x must not alias borrowed X or y"))
+  base
+end
+
+function _check_problem(x, f, g)
+  x isa Vector && eltype(x) in (Float32, Float64) ||
+    throw(ArgumentError("x must be a dense Vector{Float32} or Vector{Float64}"))
+  base = _check_data(x, f, g, eltype(x))
   _allfinite(x) && _allfinite(base.Y) && _allfinite(base.X) ||
+    throw(ArgumentError("x, X and y must contain only finite values"))
+  nothing
+end
+
+# Coordinate descent also accepts a one-dimensional SparseIterate. Only its
+# public active values are inspected; the aliasing check uses the owner itself,
+# so an empty owner whose backing storage is shared with X or y is refused too.
+_is_cd_owner(x) = x isa SparseIterate{<:Any, 1} && eltype(x) in (Float32, Float64)
+function _check_owner_problem(x, f, g)
+  _is_cd_owner(x) ||
+    throw(ArgumentError("x must be a dense Vector or a one-dimensional SparseIterate of Float32 or Float64"))
+  base = _check_data(x, f, g, eltype(x))
+  all(isfinite, activevalues(x)) && _allfinite(base.Y) && _allfinite(base.X) ||
     throw(ArgumentError("x, X and y must contain only finite values"))
   nothing
 end
