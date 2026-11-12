@@ -14,6 +14,17 @@ julia --project=docs -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
 julia --project=docs docs/make.jl
 ```
 
+Every pull request builds and checks the documentation on Linux Julia 1 with a
+read-only token. Download the rendered HTML from the
+`documentation-linux-current-julia` Actions artifact. For same-repository,
+non-draft PRs, a separate publisher places the validated pages at
+`https://mlakolar.github.io/ProximalSolvers.jl/previews/PR<NUMBER>/`. The URL
+appears in the `Publish PR documentation preview` job summary after publishing.
+Fork PRs and draft PRs build docs but do not publish previews. The privileged
+publisher checks out `gh-pages`, never executes PR code, and has no
+`DOCUMENTER_KEY`; master and `v*` releases retain their existing protected
+deployment path.
+
 Pkg.test defaults to full. Test tiers are cumulative and fail-closed: every
 regular test appears exactly once; missing/duplicate/unlisted files and empty
 selections fail. Every source has an explicit risk rule; unknown source defaults

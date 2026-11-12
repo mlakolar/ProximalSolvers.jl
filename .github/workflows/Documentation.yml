@@ -1,10 +1,9 @@
 name: Documentation
-# The "Documentation" job builds and checks the documentation on every pull request, push and
-# manual run, with a read-only token and no deployment credential: a pull request's own
-# docs/make.jl runs here. The "Deploy documentation" job runs only on pushes to master and
-# release tags (v*), after the build passed; it alone has write permissions, and it takes
-# DOCUMENTER_KEY from the deploy-key environment, whose deployment policy admits only master and
-# v* tags, so a run for a pull request cannot obtain the key even with a modified workflow.
+# Every PR/push builds and checks docs in a read-only job, never with deploy credentials.
+# Same-repository non-draft PRs publish only validated HTML artifacts to gh-pages
+# previews/PR<N>/ in a separate writer job that never executes PR code.
+# Fork PRs and draft PRs retain the rendered artifact but are not published.
+# Master and v* deployments remain gated by the protected deploy-key environment.
 on:
   push:
     branches:
@@ -37,12 +36,90 @@ jobs:
       - name: Install the documentation environment
         run: julia --color=yes --project=docs -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate(); Pkg.status(; mode=Pkg.PKGMODE_MANIFEST)'
       - name: Build and check
-        run: julia --project=docs docs/make.jl
+        shell: bash
+        run: |
+          set -euo pipefail
+          julia --project=docs docs/make.jl 2>&1 | tee "$RUNNER_TEMP/ps-docs-build.log"
+      - name: Preserve rendered HTML
+        uses: actions/upload-artifact@v7
+        with:
+          name: documentation-linux-current-julia
+          path: docs/build
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve documentation build log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: documentation-build-log-linux-current-julia
+          path: ${{ runner.temp }}/ps-docs-build.log
+          if-no-files-found: ignore
+          retention-days: 14
+  preview:
+    name: Publish PR documentation preview
+    needs: docs
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: gh-pages-writes
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      # The only job allowed to publish checks out gh-pages, never the PR's code.
+      - name: Checkout published Pages
+        uses: actions/checkout@v7
+        with:
+          ref: gh-pages
+          persist-credentials: true
+      - name: Retrieve validated HTML artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: documentation-linux-current-julia
+          path: ${{ runner.temp }}/docs-preview
+      - name: Publish isolated PR preview
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HTML_DIR: ${{ runner.temp }}/docs-preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]
+          test -f "$HTML_DIR/index.html"
+          preview_dir="previews/PR${PR_NUMBER}"
+          mkdir -p "$preview_dir"
+          rsync -a --delete "$HTML_DIR/" "$preview_dir/"
+          git add -A -- "$preview_dir"
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' \
+                -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+                commit -m "docs: publish preview for PR ${PR_NUMBER}"
+            git push origin HEAD:gh-pages
+          fi
+      - name: Show PR preview link
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        shell: bash
+        run: |
+          {
+            echo "## Documentation preview"
+            echo ""
+            echo "Validated documentation for PR #${PR_NUMBER}:"
+            echo ""
+            echo "https://mlakolar.github.io/ProximalSolvers.jl/previews/PR${PR_NUMBER}/"
+          } >> "$GITHUB_STEP_SUMMARY"
   deploy:
     name: Deploy documentation
     needs: docs
     if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
+    concurrency:
+      group: gh-pages-writes
+      cancel-in-progress: false
     timeout-minutes: 60
     environment: deploy-key
     permissions:
