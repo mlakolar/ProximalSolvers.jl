@@ -1,17 +1,26 @@
 # Getting started
 
-This guide takes you from a fresh source checkout to a solved lasso problem.
-You need Julia **1.10.8 or newer** and basic familiarity with Julia arrays.
+Here is how to use the current development version in **your own Julia project**, followed by an example you can verify by hand. Julia **1.10.8 or newer** is required.
 
-!!! note "Development version"
-    The current `master` branch is a deliberately reduced solver core. It has
-    **not** been released as a new package version. The commands below use the
-    source checkout and its pinned ProximalBase dependency rather than assuming
-    that an existing registry release has the same API.
+## Install into your project
 
-## 1. Get the package
+Start Julia in your project directory:
 
-In a terminal:
+~~~julia
+using Pkg
+Pkg.activate(".")
+Pkg.add(url="https://github.com/mlakolar/ProximalBase.jl",
+        rev="c123d56ba1948e36a8fdbf183a9eea396a16e0d5")
+Pkg.add(url="https://github.com/mlakolar/ProximalSolvers.jl",
+        rev="master")
+~~~
+
+Add **both** packages: ProximalBase provides `LeastSquaresLoss`, `NormL1` and `SparseIterate`; ProximalSolvers provides `CDSolver`, `ProximalGradientDescent` and `solve!`. The long revision identifier specifies the ProximalBase source used by the development core. The `master` branch can change. Save `Project.toml` and `Manifest.toml` to reproduce your environment, or install ProximalSolvers at a fixed commit.
+
+!!! warning "Registry releases differ"
+    This guide describes **development master**. A plain `pkg> add ProximalSolvers` can select a registered release with a different set of features and interfaces. Use the source-install commands for these examples.
+
+If you are **contributing** to the repository instead, clone it and instantiate its configured environment:
 
 ~~~sh
 git clone https://github.com/mlakolar/ProximalSolvers.jl.git
@@ -20,89 +29,71 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 julia --project=. examples/01_cd_lasso.jl
 ~~~
 
-The last command runs the repository's tested coordinate-descent example.
-For an interactive session, start `julia --project=.` from the same directory.
-Both `ProximalSolvers` and its `ProximalBase` dependency are then available.
+The commands above are installation instructions, not CI tests that modify a project. The actual optimization examples below **execute during the documentation build**.
 
-## 2. The optimization problem
+## The optimization problem
 
-For a design matrix `X` with `n` rows and `p` columns, a response vector `y`
-of length `n`, and coefficients `β` of length `p`, we solve the lasso
+For `n` observations and `p` predictors, the lasso minimizes
 
 \[
-\underset{\beta \in \mathbb{R}^p}{\operatorname{minimize}}\quad
+\min_{\beta \in \mathbb{R}^p}
 \frac{1}{2n}\lVert y-X\beta\rVert_2^2+\lambda\lVert\beta\rVert_1.
 \]
 
-The squared-error loss encourages fit to the data. The L1 penalty encourages
-small coefficients and can set some coefficients to exactly zero. Increasing
-`λ` increases the strength of the penalty **for this fixed loss scaling**.
+The least-squares term fits the data; the L1 penalty encourages zero coefficients. For an explanation of [proximal operators and soft-thresholding](concepts.md), read the short algorithm guide.
 
 !!! important "Explicit loss normalization"
-    `LeastSquaresLoss(y, X)` represents **half the sum** of squared residuals,
-    not their mean. Multiply it by `1/n` to obtain the `1/(2n)` convention
-    shown above. The solvers never silently rescale your objective.
+    `LeastSquaresLoss(y, X)` means **half the sum of squared residuals**. Multiply by `1/n` to get the `1/(2n)` objective shown above.
 
-## 3. Solve a small example
+## Solve an example by hand
 
-Paste this into the Julia session started with `--project=.`:
-
-~~~julia
+~~~@example first_lasso
 using ProximalBase, ProximalSolvers
-
-X = [1.0 0.0; 0.0 2.0; 0.0 0.0] # 3 observations, 2 features
+X = [1.0 0.0; 0.0 2.0; 0.0 0.0]
 y = [2.0, -2.0, 0.5]
 n = length(y)
 lambda = 0.1
-
 f = (1 / n) * LeastSquaresLoss(y, X)
-g = NormL1(lambda)
-beta = zeros(size(X, 2))
-
-result = solve!(beta, f, g, CDSolver())
-
-@show beta                   # approximately [1.7, -0.925]
-@show result.converged
-@show result.minimum
+penalty = NormL1(lambda)
+beta = zeros(2)
+result = solve!(beta, f, penalty, CDSolver(order=:cyclic, momentum=false))
+@assert result.minimizer === beta
 @assert isapprox(beta, [1.7, -0.925]; atol=1e-7)
+beta
 ~~~
 
-The data are deliberately small: the columns of `X` are orthogonal, so we can
-check the answer independently. `solve!` **modifies `beta` in place**.
-`result.minimizer === beta`; use `copy(beta)` if you need to preserve this
-solution before solving another problem with the same array.
+Because the columns are orthogonal, the normalized correlations are `2/3` and `-4/3` and the normalized squared lengths are `1/3` and `4/3`. Soft-thresholding gives `[1.7, -0.925]`. The objective at this answer is approximately `0.3229`.
 
-The output field `converged` reports the solver's stopping condition, **not**
-a mathematical certificate of optimality. For an important application, check
-the objective and appropriate optimality conditions independently.
+`solve!` modifies `beta` in place. Save `copy(beta)` if you want to reuse the array later; `result.minimizer === beta`.
 
-## 4. Try the other solver
+## Try PGD using the defaults
 
-The same `f` and `g` work with proximal gradient descent:
-
-~~~julia
-beta_pgd = zeros(size(X, 2))
-options = ProximalOptions(maxiter=2000, ftol=1e-14,
-                          xtol=1e-12, gradtol=1e-10)
-pgd_result = solve!(beta_pgd, f, g, ProximalGradientDescent(), options)
-@assert isapprox(beta_pgd, [1.7, -0.925]; atol=1e-7)
+~~~@example first_lasso
+beta_pgd = zeros(2)
+pgd_result = solve!(beta_pgd, f, penalty, ProximalGradientDescent())
+@assert isapprox(beta_pgd, [1.7, -0.925]; atol=1e-3)
+beta_pgd
 ~~~
 
-This is not a different statistical model; only the optimization algorithm
-changes. See [Choosing a solver](choosing-solver.md) for when to use each one.
+The default options are a starting point, not a guaranteed accuracy level. See [Choosing a solver](choosing-solver.md) for stricter tolerances. Neither solver's `converged` flag is itself an optimality certificate.
 
-## 5. What to do next
+## Float32 data
 
-- [Choose a solver and its options](choosing-solver.md).
-- [Understand results, ownership and errors](working-with-results.md).
-- Browse the **Examples** menu for runnable coordinate-descent,
-  proximal-gradient and sparse-iterate examples.
-- Check [Supported API and migration](support.md) before attempting more
-  advanced models.
+Use Float32 arrays and **prefer** Float32 scales and penalty parameters:
 
-This development core currently accepts dense, finite
-`Matrix{Float32}`/`Vector{Float32}` **or**
-`Matrix{Float64}`/`Vector{Float64}` inputs with matching element types,
-an unweighted `NormL1` penalty and a least-squares loss. It does not yet
-support sparse design matrices, intercepts, other losses, group penalties,
-paths or the legacy package's wider solver catalog.
+~~~@example first_float32
+using ProximalBase, ProximalSolvers
+T = Float32
+X = T[1 0; 0 2; 0 0]
+y = T[2, -2, 0.5]
+f = (one(T) / T(length(y))) * LeastSquaresLoss(y, X)
+penalty = NormL1(T(0.1))
+beta = zeros(T, 2)
+result = solve!(beta, f, penalty, CDSolver(order=:cyclic, momentum=false))
+@assert isapprox(beta, T[1.7, -0.925]; atol=1e-3)
+beta
+~~~
+
+The shorthand `1/n` produces a Float64 scalar, which is allowed when representable in the working type. Using `one(T)/T(n)` avoids surprise scalar precision changes. The package does **not** silently convert mixed-type input arrays.
+
+Next, try [a realistic sparse example with an independent KKT check](sparsity-and-kkt.md).
