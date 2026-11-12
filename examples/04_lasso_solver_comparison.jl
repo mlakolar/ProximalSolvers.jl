@@ -191,17 +191,17 @@ end
 # the documentation page and the notebook and is not run by the plain script.
 #!jl using Plots
 #!jl plotfloor(v) = max(v, 1e-16)
-#!jl kktplot = plot(xscale=:log10, yscale=:log10, xlabel="wall time (s)", ylabel="KKT violation / lambda", legend=:bottomright)
-#!jl gapplot = plot(xscale=:log10, yscale=:log10, xlabel="wall time (s)", ylabel="relative objective gap")
+#!jl kktplot = plot(xscale=:log10, yscale=:log10, xlabel="wall time (s)", ylabel="KKT violation / lambda", legend=false)
+#!jl gapplot = plot(xscale=:log10, yscale=:log10, xlabel="wall time (s)", ylabel="relative objective gap", legend=:outerright)
 #!jl for (name, (runs, parameter, unit)) in sweeps
 #!jl   plot!(kktplot, [run.time for run in runs], [plotfloor(run.kkt) for run in runs];
 #!jl         marker=:circle, label=name)
 #!jl   plot!(gapplot, [run.time for run in runs], [plotfloor(run.gap) for run in runs];
-#!jl         marker=:circle, label=name, legend=false)
+#!jl         marker=:circle, label=name)
 #!jl end
 #!jl hline!(kktplot, [kkttarget]; color=:black, linestyle=:dash, label="target")
 #!jl hline!(gapplot, [gaptarget]; color=:black, linestyle=:dash, label="target")
-#!jl plot(kktplot, gapplot; layout=(1, 2), size=(950, 400), bottom_margin=5Plots.mm, left_margin=5Plots.mm)
+#!jl plot(kktplot, gapplot; layout=(1, 2), size=(1250, 400), bottom_margin=5Plots.mm, left_margin=5Plots.mm)
 
 # ## What to take from this
 #
