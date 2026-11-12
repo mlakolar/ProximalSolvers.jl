@@ -40,7 +40,8 @@ depot directory (exit 3, no records). When the loaded checkout pins ProximalBase
 with the tree the checkout's committed manifests record; this needs no setting, so an
 environment changed after setup (for example by `Pkg.add` of another commit, which Julia 1.10
 allows because it ignores `[sources]`) is refused. Checkouts without a pin (historical
-full-package ones) keep the version and path modes. `PS_EXPECTED_PROXIMALBASE_REV` additionally
+full-package ones) keep the version and path modes. `local.jl` applies the same check
+before it builds any case. `PS_EXPECTED_PROXIMALBASE_REV` additionally
 requires a git source at exactly that commit, and `PS_EXPECTED_PACKAGE_REVISION` requires the loaded checkout to be that
 commit with no tracked or untracked change in `Project.toml`, `src` or `ext`. Start metadata
 records the manifest entry (`proximalbase_source`, `_url`, `_rev`, `_tree_sha1`, `_path`,

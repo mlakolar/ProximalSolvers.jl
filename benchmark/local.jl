@@ -479,6 +479,8 @@ function explore(patterns::AbstractString...; rep::Integer = 1, samples::Integer
     throw(ArgumentError("samples, minimum_samples and time limits must be positive"))
   save === nothing || !ispath(save) || throw(ArgumentError("refusing to overwrite $save"))
   verified = check_current_source()
+  # The loaded ProximalBase must be the checkout's pin, as in run.jl (exit 3 otherwise).
+  check_loaded_proximalbase(LOADED.solvers.root)
   # A revision defines methods in a newer world than this call's; run in the latest
   # world, or the timed code would be the implementation from before the edit.
   Base.invokelatest(explore_selected, patterns, rep, samples, seconds, case_seconds,

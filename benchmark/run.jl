@@ -123,6 +123,16 @@ function check_proximalbase(identity, expected, pin = nothing)
   nothing
 end
 
+# The identity of the loaded ProximalBase, refused unless it is the pin of the ProximalSolvers
+# checkout at `root` (when it has one) and `expected` (when set); run.jl and local.jl both call
+# this before building any case.
+function check_loaded_proximalbase(root, expected = "")
+  base = proximalbase_identity()
+  pin = checkout_base_pin(root)
+  check_proximalbase(base, expected, pin)
+  base, pin
+end
+
 # With PS_EXPECTED_PACKAGE_REVISION, the loaded checkout must be that commit, with no
 # tracked or untracked change in Project.toml, src or ext (the fingerprinted files).
 function check_package_revision(root, expected)
@@ -164,9 +174,7 @@ function runner_settings()
   expected_revision = strip(get(ENV, "PS_EXPECTED_PACKAGE_REVISION", ""))
   check_package_revision(root, expected_revision)
   expected_base = strip(get(ENV, "PS_EXPECTED_PROXIMALBASE_REV", ""))
-  base = proximalbase_identity()
-  pin = checkout_base_pin(root)
-  check_proximalbase(base, expected_base, pin)
+  base, pin = check_loaded_proximalbase(root, expected_base)
   (; suite, groups, cases, rep, samples, seconds, case_seconds, profile_seconds, output,
      expected, root, expected_revision, expected_base, base, pin)
 end

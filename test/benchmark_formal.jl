@@ -191,6 +191,35 @@ end
   @test occursin("ProximalBase = \"0.5\"", read(joinpath(BENCHMARK, "Project.toml"), String))
 end
 
+@testset "entry points refuse an unpinned ProximalBase" begin
+  # The test environment with its ProximalBase entry switched to a moving branch: run.jl and
+  # local.jl (fresh processes, the real entry points) must both stop with exit 3 before any
+  # case runs. The loaded code is unchanged, only the manifest identity differs.
+  project = Base.active_project()
+  manifest = Base.project_file_manifest_path(project)
+  mktempdir() do dir
+    cp(project, joinpath(dir, "Project.toml"))
+    text = read(manifest, String)
+    @test occursin("repo-rev = \"$PB_REV\"", text)
+    write(joinpath(dir, basename(manifest)), replace(text, "repo-rev = \"$PB_REV\"" => "repo-rev = \"master\""))
+    for name in readdir(dirname(manifest))   # other manifests or preferences of the environment
+      name in (basename(manifest), "Project.toml") || cp(joinpath(dirname(manifest), name), joinpath(dir, name))
+    end
+    env = ("JULIA_LOAD_PATH" => "@:@stdlib", "JULIA_PROJECT" => dir, "JULIA_NUM_THREADS" => "1",
+           "PS_OUTPUT" => joinpath(dir, "records"))
+    julia = `$(Base.julia_cmd()) --startup-file=no`
+    for script in (`$(joinpath(BENCHMARK, "run.jl"))`,
+                   `$(joinpath(BENCHMARK, "local.jl")) cd/lasso/cd/dense-f64/call --samples 1 --min 1`)
+      out = IOBuffer()
+      process = run(pipeline(ignorestatus(addenv(`$julia $script`, env...)); stdout = out, stderr = out))
+      text = String(take!(out))
+      @test process.exitcode == 3
+      @test occursin("moving revision \"master\"", text)
+    end
+    @test !isdir(joinpath(dir, "records"))
+  end
+end
+
 function python311()
   for exe in ("python3", "python")
     path = Sys.which(exe)
