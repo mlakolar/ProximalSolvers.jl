@@ -23,7 +23,7 @@ function owner(::Type{T}, p, ids, vals) where T
   x
 end
 
-# The relative change tolerance. Float32 cannot resolve the default 1e-7 reliably in
+# The relative change tolerance. Float32 may not resolve the default 1e-7 reliably in
 # native arithmetic; the accuracy bounds below follow the tolerance that is used.
 tolerance(::Type{T}) where T = T === Float32 ? 1e-5 : 1e-7
 cdsolver(::Type{T}; kwargs...) where T = CDSolver(; tol = tolerance(T), kwargs...)
@@ -50,9 +50,11 @@ function kkt64(X, y, z, lambda, s)
   d = Float64(s) * (A' * (A * w - b))
   maximum(iszero(w[j]) ? max(abs(d[j]) - Float64(lambda), 0.0) : abs(d[j] + Float64(lambda) * sign(w[j])) for j in eachindex(w))
 end
-# After a full pass whose largest scaled change is below tol, every coordinate is within
-# its own step, and the steps of the p coordinates move the gradient of another one by at
-# most p * tol * max_j(s * norm(X_j)) * norm(y); the floor is native rounding.
+# A practical accuracy budget for these fixtures, not a certificate: the KKT violation of
+# a returned point is compared with (p + 1) times the larger of the relative change
+# tolerance and 100 eps of the working precision, scaled by the input magnitude
+# s * max_j norm(X_j) * norm(y). The converged flag is a stopping status only; the
+# independent Float64 KKT calculation below decides accuracy.
 function kkt_bound(::Type{T}, X, y, s) where T
   scale = Float64(s) * maximum(norm(Float64.(X[:, j])) for j in axes(X, 2)) * norm(Float64.(y))
   (size(X, 2) + 1) * max(tolerance(T), 100eps(T)) * scale
@@ -304,7 +306,9 @@ end
     # companion with a finite flat second column: the same call completes and moved coordinate 1
     flat = T[1 0; 0 0]
     r = solve!(x, LeastSquaresLoss(y, flat), g, solver)
-    @test r.converged && x[1] ≈ T(.9) atol = 4eps(T) && !isactive(x, 2)
+    @test r.converged
+    @test x[1] ≈ T(.9) atol = 4eps(T)
+    @test !isactive(x, 2)
   end
 end
 
@@ -323,11 +327,13 @@ end
     @test_throws r"not finite" solve!(x, f, g, solver)
     @test same_state(before, snapshot(x))
     work = private_run(x, f, g, solver)
-    @test work[1] ≈ T(.9) atol = 4eps(T) && x[1] == T(.25)
+    @test work[1] ≈ T(.9) atol = 4eps(T)
+    @test x[1] == T(.25)
     # companion: the same data with a moderate response completes, so the earlier
     # coordinate does move when nothing fails
     r = solve!(x, LeastSquaresLoss(T[1, 1], X), g, solver)
-    @test r.converged && x[1] ≈ T(.9) atol = 4eps(T)
+    @test r.converged
+    @test x[1] ≈ T(.9) atol = 4eps(T)
   end
 
   # Float32 residual overflow: coordinate 1 moves, then the loss is not finite
@@ -341,7 +347,9 @@ end
   @test same_state(before, snapshot(x))
   @test private_run(x, f, g, solver)[1] ≈ .9f0 atol = 4eps(Float32)
   r = solve!(x, LeastSquaresLoss(Float32[1, 1f10], X), g, solver)
-  @test r.converged && x[1] ≈ .9f0 atol = 4eps(Float32) && isfinite(r.minimum)
+  @test r.converged
+  @test x[1] ≈ .9f0 atol = 4eps(Float32)
+  @test isfinite(r.minimum)
   # and from the empty state
   e = owner(Float32, 1, Int[], Float32[])
   @test_throws r"nonfinite objective" solve!(e, f, g, CDSolver(order = :random, rng = Xoshiro(1)))
@@ -399,7 +407,12 @@ end
     end
 
     # shapes: DimensionMismatch
-    refused(x, LeastSquaresLoss(T[1], X), g; kind = DimensionMismatch)
+    # PB checks the row counts when the loss is built, so shrink the borrowed response
+    # afterwards: it is the caller's public vector.
+    short_y = copy(y)
+    short_loss = LeastSquaresLoss(short_y, X)
+    resize!(short_y, 1)
+    refused(x, short_loss, g; kind = DimensionMismatch)
     refused(owner(T, 3, [1], [.5]), f, g; kind = DimensionMismatch)
     refused(SparseIterate(T, 0), LeastSquaresLoss(y, zeros(T, 2, 0)), g; kind = DimensionMismatch)
     refused(x, LeastSquaresLoss(T[], zeros(T, 0, 2)), g; kind = DimensionMismatch)
@@ -416,7 +429,7 @@ end
     refused(x, f, g, rng -> CDSolver(100, NaN, true, true, 0, nothing, rng, 0., false))
     refused(x, f, g, rng -> CDSolver(100, -1., true, true, 0, nothing, rng, 0., false))
 
-    # the refusals above never touched the caller's data either
+    # the refusals above left the caller's data unchanged
     @test X == T[1 0; 0 2] && y == T[1, -1]
     @test same_state(snapshot(x), snapshot(owner(T, 2, [2, 1], [-.2, .3])))
 
@@ -445,24 +458,31 @@ end
   end
 end
 
-@testset "the caller's owner is the result and keeps its own storage" begin
+@testset "the result is the caller's owner, with an independent state" begin
   for T in (Float64, Float32)
     prob = problem(T, 12, 5)
     X0, y0 = copy(prob.X), copy(prob.y)
     x = owner(T, 5, [4, 2], [.1, 0.0])
-    backing = parent(activevalues(x))
     r = solve!(x, prob.f, prob.g, cdsolver(T; order = :cyclic))
     @test r.minimizer === x
-    @test parent(activevalues(x)) === backing
+    check_solution(T, prob, x, r)
     @test prob.X == X0 && prob.y == y0
     @test !Base.mightalias(x, prob.X) && !Base.mightalias(x, prob.y)
-    # the state is the caller's: later solves and writes see only this owner
-    before = Vector(x)
+    # handles are taken again after the state replacement and describe the whole state
+    ids, vals = collect(activecoordinates(x)), copy(activevalues(x))
+    z = Vector(x)
+    @test length(ids) == nactive(x) && all(!iszero, vals)
+    @test z[ids] == vals && count(!iszero, z) == length(ids)
+    # a copy is independent of the caller's owner in both directions
     other = copy(x)
     other[1] = 123
-    @test Vector(x) == before
+    @test Vector(x) == z && other[1] == T(123)
+    x[2] = T(-7)
+    @test r.minimizer[2] == T(-7) && other[2] == z[2]
+    # a later write by the caller is what a later solve starts from
     r2 = solve!(x, prob.f, prob.g, cdsolver(T; order = :cyclic))
-    @test r2.converged && r2.minimizer === x
+    @test r2.minimizer === x
+    check_solution(T, prob, x, r2)
   end
 end
 
