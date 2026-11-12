@@ -1,96 +1,68 @@
-# ProximalSolvers.jl — minimal dense-design lasso core
+# ProximalSolvers.jl
 
-**[Development documentation](https://mlakolar.github.io/ProximalSolvers.jl/dev/)** · [Getting started](docs/src/getting-started.md) · [Algorithms](docs/src/concepts.md) · [Sparsity and KKT](docs/src/sparsity-and-kkt.md) · [Solver guide](docs/src/choosing-solver.md)
+**Coordinate descent and proximal gradient descent for least-squares lasso in Julia.**
 
-This GitHub **development master** implements ordinary least-squares lasso on
-dense designs with coordinate descent or proximal gradient descent, using
-ProximalBase's losses and proximal operators. It is intended for algorithm
-experimentation and development, rather than a full statistical modeling
-workflow with penalty paths and cross-validation. The published registry
-release may have a different feature set; follow the [source installation
-instructions](docs/src/getting-started.md) for this development API.
+[Documentation](https://mlakolar.github.io/ProximalSolvers.jl/dev/) ·
+[Getting started](https://mlakolar.github.io/ProximalSolvers.jl/dev/getting-started/) ·
+[Choosing a solver](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/) ·
+[Sparsity and KKT checks](https://mlakolar.github.io/ProximalSolvers.jl/dev/sparsity-and-kkt/)
+
+The current GitHub **development** version solves
+
+```math
+\min_{\beta}\; \frac{1}{2n}\lVert y-X\beta\rVert_2^2
+ +\lambda\lVert\beta\rVert_1.
+```
+
+It uses [ProximalBase.jl](https://mlakolar.github.io/ProximalBase.jl/dev/)
+for losses, penalties and coefficient storage. The registered release may
+offer a different API; use the [development installation instructions](https://mlakolar.github.io/ProximalSolvers.jl/dev/getting-started/)
+for the version described here.
 
 ```julia
 using ProximalBase, ProximalSolvers
-T = Float64                         # Float32 is also supported
+
+T = Float64                       # Float32 is also supported
 X = T[1 0; 0 2; 0 0]
-y = T[2, -2, .5]
-f = (one(T)/T(length(y))) * LeastSquaresLoss(y, X)
-g = NormL1(T(.1))
-x = zeros(T, size(X, 2))
-cd = solve!(x, f, g, CDSolver())
-z = zeros(T, size(X, 2))
-pg = solve!(z, f, g, ProximalGradientDescent(), ProximalOptions())
+y = T[2, -2, 0.5]
+f = (one(T) / T(length(y))) * LeastSquaresLoss(y, X)
+g = NormL1(T(0.1))
+
+beta_cd = zeros(T, size(X, 2))
+cd = solve!(beta_cd, f, g, CDSolver(order=:cyclic, momentum=false))
+
+beta_pgd = zeros(T, size(X, 2))
+options = ProximalOptions(maxiter=2000, ftol=1e-14,
+                          xtol=1e-12, gradtol=1e-10)
+pgd = solve!(beta_pgd, f, g, ProximalGradientDescent(), options)
 ```
 
-Coordinate descent also takes a one-dimensional ProximalBase `SparseIterate` as
-the iterate, for example `SparseIterate(T, size(X, 2))`, with the same data and
-penalty. Proximal gradient descent does not (see below).
+The examples use **cyclic CD without momentum for reproducible output**.
+For an exploratory lasso solve, `CDSolver()` is a reasonable starting
+point; it uses random coordinate order, and its results can depend on
+the random number generator. Set an explicit `rng` if you want to
+reproduce that order.
 
-```julia
-w = SparseIterate(T, size(X, 2))
-sp = solve!(w, f, g, CDSolver())    # sp.minimizer === w
-```
+**PGD's default stopping rules can report `converged=true` with only
+about 3–4 correct digits on the tutorial examples.** Use tighter options
+and independently check optimality for results you plan to report.
+`converged` is not a KKT certificate. See the
+[numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/)
+and [solver settings](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/).
 
-Raw `LeastSquaresLoss(y,X)` is `||y-X*x||²/2`, without 1/n. The solvers minimize
-exactly the supplied objective; normalization is explicit. Supported arrays are
-same-type Float32/Float64 Vector y and Matrix X, with positive consistent
-dimensions, finite entries, one raw or valid positive Scaled LS wrapper, and
-unweighted finite nonnegative NormL1. The iterate x is a dense Vector of that
-type, or, for coordinate descent only, a one-dimensional `SparseIterate` of that
-type. Positive parameters must stay positive and finite in the working type.
-Arrays are not silently coerced. Detectable x/data aliases, unsupported
-combinations and unsupported options fail before caller mutation. X/y are
-borrowed read-only and must remain fixed during a solve. Results share x; copy it
-to retain coefficients across later calls.
+The supported problem uses a finite dense `Matrix{T}`, finite `Vector{T}`
+response and matching coefficients, where `T` is `Float32` or `Float64`.
+CD additionally accepts one-dimensional ProximalBase `SparseIterate`
+coefficients; PGD accepts dense coefficients only. Generalized models,
+sparse designs, penalty paths, ADMM and other algorithms are not part
+of this development branch; see
+[Supported problems](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/).
 
-A `SparseIterate` is solved on a private copy that keeps its active zeros and
-the order of its active coordinates, and receives the complete final state by a
-same-shape `copyto!` when the run completes with a finite objective. That
-includes a finite `maxpasses` outcome with `converged = false` (with its
-warning) and `maxpasses = 0`, which leaves the entry state exactly as it was. A
-numerical error leaves the values, active set, signed zeros and order unchanged.
-Validation failures do not advance the RNG; a numerical failure may have.
-Every completed pass compacts zero coordinates, so a state returned after at
-least one completed pass has no active zeros (with `maxpasses = 0` no pass runs,
-and the entry state, zeros included, is returned), and the order is not sorted. Take `activevalues(x)` and
-`activecoordinates(x)` again after a solve. The private copy needs O(p)
-additional storage.
+ProximalBase's linked `/dev/` documentation follows its evolving
+`master`, while ProximalSolvers uses a **fixed dependency commit**.
+Details can therefore differ; consult the
+[exact pinned source and installation guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/getting-started/)
+for compatibility.
 
-Convergence is a historical stopping flag, not a KKT certificate. Native
-Float32 arithmetic limits accuracy; finite intermediate calculations are
-required. CD refuses nonfinite returned objectives, without extreme-range
-recovery. Deferred diagnostic fields are explicit sentinels (`gap=NaN`, CD
-`kkt_checks=0`), not certificates.
-
-This is an intentionally **breaking support reduction**. Sparse designs, sparse
-vectors and views as iterates, `SparseIterate` for proximal gradient descent,
-matrix-shaped, group and symmetric owners, matrix responses,
-weights/intercepts/offsets, general losses and compositions, accelerated methods, Newton/ADMM/primal-dual/SLOPE/graphical models,
-paths, screening, certificates, workspaces, refit and reweighting are deferred.
-No release/version/registry decision has been made or release authorized.
-
-Branch roles: master contains the reviewed minimal core; refactor/minimal-core
-records its atomic reduction, and compat/minimal-core-pb-master isolates the PB
-integration. legacy/full is the preserved full-package working reference. Protected `archive/full-before-reset-2026-11-10` and
-`archive/pre-rebuild-2026-11-10` preserve full snapshot
-`9be1773e911a44ec21d49df28cb01fea37c4316e`. Restore features selectively with
-focused independent tests, never by merging legacy/full wholesale.
-
-The current ProximalBase pin is
-`c123d56ba1948e36a8fdbf183a9eea396a16e0d5`. The extraction baseline remains
-`e8a45a8a6ffe2a6f92d83c4c77d62a9b7631e291`; every CI run independently probes
-both exact sources in isolated environments, including documentation-only and
-nightly test-reuse runs. See [paired integration](docs/audit/minimal-core-pb-integration.md).
-Existing release tags and preserved PRs are unchanged.
-
-Current rebuild CI is stable Julia (`1`) on **Linux x64 only** for quick,
-standard and full; nightly reuse is policy/provenance-aware and fail-closed.
-macOS/Windows automatic jobs are temporarily disabled by separately approved
-CI PR #241. Their absence is not platform validation. Historical measurements
-and the deferred macOS C0 failure are preserved in the audit record.
-
-[Examples](examples/README.md) · [Contributing](CONTRIBUTING.md) ·
-[Test provenance](docs/audit/minimal-core-test-provenance.md) ·
-[Extraction evidence](docs/audit/minimal-core-reduction.md) ·
-[Transition issue #234](https://github.com/mlakolar/ProximalSolvers.jl/issues/234)
+For development, archival branches, exact dependency pins and CI policy,
+see [CONTRIBUTING.md](CONTRIBUTING.md).

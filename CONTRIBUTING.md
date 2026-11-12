@@ -65,3 +65,33 @@ A/B commits and the frozen reduced PS baseline, checks actual loaded paths, clea
 Git HEADs and source digests, then compares fresh child-process diagnostics.
 Version-only fingerprints or unverified sibling checkouts are insufficient. Old workspace helper scripts
 are historical conveniences, not proof a sibling directory is current master.
+
+## Rebuild provenance and repository maintenance
+
+The current `master` is a reviewed minimal solver core; `refactor/minimal-core`
+records its reduction, and `compat/minimal-core-pb-master` isolates the
+ProximalBase integration. `legacy/full` is a working reference, not a
+branch to merge wholesale. The protected
+`archive/full-before-reset-2026-11-10` and
+`archive/pre-rebuild-2026-11-10` refs preserve the complete
+snapshot `9be1773e911a44ec21d49df28cb01fea37c4316e`.
+Restore capabilities selectively with focused numerical checks.
+
+The ProximalBase source pin for this development branch is
+`c123d56ba1948e36a8fdbf183a9eea396a16e0d5`;
+the isolated historical comparison baseline is
+`e8a45a8a6ffe2a6f92d83c4c77d62a9b7631e291`.
+Every relevant CI run performs exact-source independent probes in
+isolated environments, including documentation-only runs. The
+[PB integration record](docs/audit/minimal-core-pb-integration.md),
+[test provenance](docs/audit/minimal-core-test-provenance.md) and
+[reduction evidence](docs/audit/minimal-core-reduction.md) record
+the reconstruction and coverage.
+
+Current rebuild CI uses stable Julia on Linux x64; macOS/Windows
+automatic jobs are temporarily disabled under separately approved
+PR #241. Their absence is not validation on those platforms.
+Historical measurements and the deferred macOS C0 warm-convergence
+case remain in the repository audits. No public release or
+registry version decision follows automatically from the rebuild.
+Existing release tags and preserved PR branches remain separate.

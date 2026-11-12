@@ -12,17 +12,24 @@ abstract type ProximalSolver end
       extended_trace=false, print_every=1, callback=nothing, time_limit=Inf,
       f_calls_limit=0, grad_calls_limit=0, prox_calls_limit=0, gaptol=0, gapevery=10)
 
-PGD retains objective-change, iterate-change OR FASTA residual stopping. This
-convergence flag is not a KKT certificate. The historical result display
-labels its internal gradient/proximal residual as |g(x)|; this does not mean
-the value of the user-supplied penalty g(x). Callback/display cadence is print_every;
-stored traces contain each iteration. A callback sees the trace when storing,
-otherwise the current state. Extended metadata copies x and its gradient.
-Call/time limits are checked after complete iterations, so counts may exceed
-limits by one iteration; zero call limits mean unlimited. Native Float32/64
-buffers retain their arithmetic; scalar diagnostics use Float64. Tolerances
-below working precision do not imply corresponding coefficient accuracy.
-Positive gaptol is deferred and refused. Positive gapevery stays inert at gaptol=0.
+Options for proximal gradient descent (PGD). The defaults prioritize an
+exploratory solve rather than a guaranteed number of accurate digits.
+PGD stops when **any** of the iterate-change (`xtol`), objective-change
+(`ftol`), or gradient/proximal-residual (`gradtol`) criteria succeeds.
+`converged=true` is therefore **not** a KKT certificate.
+
+`maxiter` caps iterations; `store_trace`, `show_trace` and
+`extended_trace` control reporting. `print_every` sets display/callback
+cadence; a callback receives the trace when it is stored, otherwise the
+current state. The result display labels an internal gradient/proximal
+residual as `|g(x)|`: it is **not** the value of the supplied penalty.
+
+Call/time limits are checked after complete iterations, so counts can exceed
+limits by one iteration. A zero call limit means unlimited. Float32/Float64
+iterate buffers retain native arithmetic; some scalar tolerances and diagnostics
+are held in Float64, without increasing coefficient accuracy.
+Positive `gaptol` is not supported; positive `gapevery` has no effect
+when `gaptol=0`.
 """
 struct ProximalOptions{TCallback}
   maxiter::Int64
@@ -145,11 +152,17 @@ end
 """
     OptimizationResults
 
-Qualified PGD result. minimizer aliases x; minimum, iterations, convergence
-flags, residuals/tolerances, trace, call and backtracking counts retain their
-historical meanings. iteration_converged means an iteration limit, not success.
-backtrack_steps includes accepted nonzero trials. gap is a NaN sentinel, never
-a computed certificate.
+Result from proximal gradient descent. `minimizer` aliases the caller's
+coefficient vector; `minimum` is the reported objective at that iterate.
+`iterations` counts steps and `converged` means **at least one** stopping
+criterion succeeded, not necessarily that the solution satisfies KKT
+optimality. `iteration_converged` reports reaching the iteration limit,
+**not** successful convergence.
+
+The result also stores stopping flags, residuals and tolerances, optional
+`trace`, call counts and backtracking counts. `backtrack_steps`
+includes accepted nonzero line-search trials. `gap=NaN` means a dual
+gap was not calculated, not that the gap is zero.
 """
 mutable struct OptimizationResults{O<:ProximalSolver, T, N, M, X<:AbstractArray{T, N}}
     method::O
