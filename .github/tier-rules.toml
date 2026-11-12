@@ -22,6 +22,12 @@ tier = "none"
 paths = ["docs/**", "**/*.md", "LICENSE", ".gitignore", "codecov.yml"]
 
 [[risk]]
+why = "the exploratory minimal-core benchmark has its own test"
+tier = "quick"
+focus = ["benchmark_explore"]
+paths = ["benchmark/minimal/**"]
+
+[[risk]]
 why = "not part of the package tests: their own jobs, the plan's naming check, or run by hand"
 tier = "none"
 paths = [

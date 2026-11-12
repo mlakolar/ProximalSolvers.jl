@@ -10,6 +10,8 @@ julia scripts/test.jl --tier=quick --jobs=2
 julia scripts/test.jl --tier=full --jobs=2
 python3 scripts/check_naming.py
 python3 benchmark/check_analysis.py
+python3 -I benchmark/sparse_cd/check_analysis.py
+python3 -B benchmark/external/coordinatedescent/check_analysis.py
 julia --project=docs -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
 julia --project=docs docs/make.jl
 ```

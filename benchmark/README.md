@@ -1,312 +1,140 @@
-# Historical numerical benchmark assets
-
-The numerical drivers/data below describe the full package on legacy/full and
-protected archives, not supported entry points of the minimal core. Do not use
-old tables as measurements of the reduction. Python analysis validation and CI
-benchmark-analysis controls remain active and unchanged. Paired reduction
-measurements belong to its PR evidence.
-
 # Benchmarks
 
-This suite measures solver time and Julia heap allocation with accuracy checks independent
-of solver stopping rules. It does not measure native (non-Julia) allocations or the
-statistical quality of the estimates.
-Peak memory is recorded only as process-wide `maxrss_bytes`, not per case.
+This directory holds the benchmarking infrastructure of ProximalSolvers: reproducible runners and
+problem generators, accuracy certificates that are independent of solver stopping rules,
+matched-accuracy comparisons, statistical A/B comparisons with A/A noise controls, fresh-process
+timing and allocation records, an external-solver comparison suite and the historical and migration
+campaigns. All of it is kept and maintained, to be reused as solvers return to the package.
 
-## Setup and selections
+Master currently supports coordinate descent (`CDSolver`, with a dense `Vector` or a vector
+`SparseIterate`) and proximal gradient descent (`ProximalGradientDescent`, dense `Vector`) on Float32
+and Float64 least-squares lasso. Parts of the infrastructure run against master today; the rest is
+**deferred**: executable and maintained, but it needs historical package versions until the work in
+[Enabling the formal harness on master](#enabling-the-formal-harness-on-master) is done.
 
-From the package root, with Julia 1.10 or later and Python 3.11 or later:
-
-```sh
-julia benchmark/setup.jl "$PWD" benchmark/results/env-quick 0.5.4
-JULIA_NUM_THREADS=1 julia --project=benchmark/results/env-quick benchmark/run.jl
-python3 benchmark/summarize.py benchmark/results benchmark/results/summary
-```
-
-`setup.jl` instantiates a fresh environment with this checkout and a ProximalBase version
-or path. The default is one quick Float64 repetition: exploratory, with no between-run interval.
-
-| Setting | Default | Use |
+| Component | Path | Runs against master? |
 |---|---|---|
-| `PS_SUITE` | `quick` | `extended` includes quick cases, larger inputs and correlated designs. |
-| `PS_GROUPS` | All groups below | Comma-separated selection, before building data. |
-| `PS_CASES` | Unset | Comma-separated case IDs or patterns (`*` matches any characters) within the suite and groups. Every entry must match; data is built only for selected cases. |
-| `PS_REPETITION` | `1` | Process/input draw, numbered 1–10. |
-| `PS_OUTPUT` | `benchmark/results` | Directory for process records. |
-| `PS_SAMPLES` | `50` quick; `100` extended | Sample limit, subject to a minimum of five. |
-| `PS_SECONDS` | `1` quick; `3` extended | Limit on accumulated timed seconds per case. |
-| `PS_CASE_SECONDS` | `60` | Per-call limit for timed samples and compiled validation rechecks; the first validation call is exempt. |
-| `PS_PROFILE_SECONDS` | `0` | Positive values enable diagnostic profiles per successful case. |
-| `PS_EXPECTED_PACKAGE_ROOT` | Unset | Verify the loaded ProximalSolvers checkout before building cases. |
-| `PS_LIST` | `false` | `true` prints selected `id`, `suite`, `issue` without data or records. |
+| Formal harness: problems, certificates, cases, runner, local exploration | `problems.jl`, `certificates.jl`, `cases.jl`, `run.jl`, `setup.jl`, `local.jl`, `Project.toml` | No (deferred): needs ProximalBase 0.5 and the full package. Documented in [HARNESS.md](HARNESS.md). |
+| Harness self-checks | `check_certificates.jl`, `check_local.jl` | No (deferred), as above. |
+| Record validation, summaries, paired statistics | `validate.py`, `summarize.py`, `compare.py` | Yes. Python only; they read records and never load the package. |
+| Analysis controls of the above | `check_analysis.py` | Yes, in CI. |
+| Sparse-CD paired measurement and analysis | [`sparse_cd/`](sparse_cd/README.md) | Yes; analyzer controls in CI. |
+| Exploratory CD/PGD timing | [`minimal/explore.jl`](minimal/explore.jl) | Yes; tested by `test/benchmark_explore.jl`. |
+| External-solver comparison (CoordinateDescent 0.6.1) | [`external/`](external/README.md) | Measurements: no (deferred), frozen environments of the #117 comparison. Analysis controls: yes, in CI. |
+| Stage 2A pre-0.6 baseline campaign | [`campaigns/pre06/`](campaigns/pre06/README.md) | Historical, frozen; its tests run offline. |
+| Stage 2B migration campaign | [`campaigns/stage2b/`](campaigns/stage2b/README.md) | Unfinished (#110, #220, #229); runs pinned checkouts; its tests run offline. |
 
-| Group | Cases |
-|---|---|
-| `cd` | Coordinate descent covers dense, sparse, weighted, quadratic, group and square-root lasso. |
-| `paths` | Lasso and SLOPE paths cover complete penalty grids. |
-| `gradient` | PG, APG, monotone, active-set and diagonal methods solve least-squares lasso. |
-| `newton` | ProxNewton solves logistic L1, including weights and offsets, and QUIC solves graphical lasso. |
-| `admm` | ADMM solves least-squares lasso and measures factorization setup separately. |
-| `primal_dual` | Condat–Vũ solves strongly convex generalized lasso. |
-| `nonconvex` | Proximal gradient covers MCP, SCAD and IHT. |
-| `slope` | SLOPEAPG and SLOPEHybrid solve sorted L1 problems. |
-| `sgl` | Coordinate descent and APG solve sparse group lasso. |
-
-For example, list the extended gradient cases without measuring them:
+## What runs against master
 
 ```sh
-PS_SUITE=extended PS_GROUPS=gradient PS_LIST=true \
-  julia --project=benchmark/results/env-quick benchmark/run.jl
+# Exploratory timings of dense CD and PGD (root project; prints a table, writes nothing)
+JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 julia --startup-file=no --project=. benchmark/minimal/explore.jl
+
+# Paired, controlled CD measurements between two clean checkouts, then the analysis
+JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 julia --startup-file=no --project=. \
+  benchmark/sparse_cd/measure.jl BASE_TREE HEAD_TREE NEW_OUTPUT
+python3 -I benchmark/sparse_cd/analyze.py NEW_OUTPUT
 ```
 
-Each case builds its inputs from a seed keyed by its scenario and repetition, so a case
-selected alone has the same inputs, data hash and certificate as in the full suite.
-`PS_CASES='cd/lasso-dense/cd/B/*'` measures two cases instead of the 20 of `cd`.
+`minimal/explore.jl` is **not** the formal benchmark framework. It runs one process with no paired
+baseline, no A/A control and no record validation, and checks a KKT residual computed from the
+problem data. Its timings show whether a change deserves a closer look. They are not evidence of a
+speedup or of noninferiority. Such claims need a paired comparison: `sparse_cd/` for CD today, and
+the formal harness with `compare.py` once it is enabled on master.
 
-## Local exploration
-
-`local.jl` is a development aid: it decides whether a change is worth pursuing, not whether
-it is faster. It runs selected cases through the same `make`/`reset!`/`call!`/`certify`
-closures, validation call, `observe!` timing and statuses as `run.jl`, but writes no
-records. Its output and optional TSV are labelled exploratory; `validate.py` and
-`compare.py` do not accept them. Claims of improvement or noninferiority need the formal
-comparison below.
+The CI job `Benchmark analysis controls` runs these, with no Julia benchmark environment and no timing:
 
 ```sh
-julia benchmark/setup.jl "$PWD" benchmark/results/env-local 0.5.4    # once per checkout
-export JULIA_NUM_THREADS=1
-alias pslocal='julia --project=benchmark/results/env-local benchmark/local.jl'
-pslocal --list 'cd/*'                                     # case IDs, no measurement
-pslocal 'cd/lasso-dense/cd/B/*' --save before.local.tsv   # before editing src/
-pslocal 'cd/lasso-dense/cd/B/*' --baseline before.local.tsv
+python3 benchmark/check_analysis.py               # validate.py, summarize.py, compare.py on synthetic records
+python3 -I benchmark/sparse_cd/check_analysis.py  # sparse-CD analyzer refusal controls
+python3 -B benchmark/external/coordinatedescent/check_analysis.py  # external-comparison analysis controls
+julia --startup-file=no --project=@stdlib scripts/paired_master_diagnostics.jl
 ```
 
-Quote patterns in the shell. For each case, a `CHECK` line gives the certificate of the
-first (validation) call as soon as it finishes. The report then gives the status, the
-first call (with compilation), the median and minimum of the timed samples (at most 25 by
-default, stopping after 0.5 timed seconds once three are taken, against five in `run.jl`;
-see `--help`), the allocation per call, the certificate against its target and solver work
-counters read after timing. A baseline adds the candidate/baseline median ratio, the
-absolute change per call and the ratio of minimum times. A ratio is withheld unless the
-case, data hash, harness, `local.jl`, active project and manifest, Julia version, CPU model
-and ProximalBase all match and both runs are `ok`. Saved times must be positive integer
-nanoseconds. An invalid baseline median suppresses the ratio; an invalid minimum suppresses
-only the minimum-time ratio. Within about 10%, a ratio is typical run-to-run noise. Other
-processes inflate medians more than minima: when the two ratios differ by more than 10%,
-or the header warns that the load average exceeds half the CPU threads, rerun on a quieter
-machine. A case stops at its first non-`ok`
-certificate, in validation or in a timed sample, and reports the failure, its `CHECK`
-line and no timing (earlier `ok` samples are not a timing of a failed case); the exit
-status is 2, as in `run.jl`.
+## The formal harness (deferred)
 
-After an edit to `src/`, a new process recompiles ProximalSolvers before it runs. Two ways
-avoid most of that cost:
+[HARNESS.md](HARNESS.md) documents the harness in full: setup and case selection, local exploration
+with `local.jl`, certificates and statuses, timed phases, the fixed workloads of #103–#109, revision
+comparisons with A/A controls, record formats, provenance and exit codes.
 
-- On Julia 1.11 or later, `julia --compiled-modules=existing --project=...
-  benchmark/local.jl ...` loads the edited package from source instead of precompiling it.
-- `--session` keeps one process running and applies edits with Revise, which must be
-  installed in the default environment (for example `julia -e 'using Pkg;
-  Pkg.add("Revise")'`). It reads one command per line, for example from a file that an
-  agent appends to, and ends each command with `LOCAL_DONE status=N`. Arguments are split
-  on spaces, without quoting, so paths must not contain spaces:
+**Current limitation.** `benchmark/Project.toml` requires ProximalBase 0.5, and `setup.jl` copies
+that compat into every environment it creates, while master requires ProximalBase 0.6. Resolving the
+benchmark environment against master fails (`Unsatisfiable requirements detected for package
+ProximalBase`). `cases.jl` also constructs solvers and APIs that the minimal core does not have yet
+(`ProxNewton`, `ADMMSolver`, `AccProxGradDescent`, `SolverWorkspace`, `reinit!`,
+`SqrtLeastSquaresLoss` and others). The harness therefore runs only against full-package checkouts
+with ProximalBase 0.5.4, such as Stack A `b0de3f7` of Stage 2B or `legacy/full`.
 
-  ```sh
-  : > commands.txt                 # empty, so a restart does not replay old commands
-  tail -n 0 -f commands.txt | julia --project=benchmark/results/env-local \
-    benchmark/local.jl --session > session.log 2>&1 &
-  echo 'cd/lasso-dense/cd/B/* --save before.local.tsv' >> commands.txt
-  # edit src/, then:
-  echo 'cd/lasso-dense/cd/B/* --baseline before.local.tsv' >> commands.txt
-  ```
+**Frozen identities.** Do not edit these files on master until the plan below is approved:
 
-  In a REPL, run `using Revise` and then `include("benchmark/local.jl")` before loading
-  ProximalSolvers, then `explore("cd/lasso-dense/cd/B/*"; save = "before.local.tsv")`.
+- `test_stage2b_files.py` requires the harness hash of `problems.jl`, `certificates.jl`, `cases.jl`
+  and `run.jl` to equal `new_harness_hash` in `campaigns/stage2b/case-mapping.toml`.
+- `test_migration_compare.py` pins the SHA-256 of `run.jl`, `problems.jl`, `certificates.jl`,
+  `compare.py`, `validate.py` and `summarize.py`.
+- `campaigns/pre06/campaign.py` verification compares archived environments with
+  `benchmark/Project.toml` and imports `validate.py` and `summarize.py` from this directory.
 
-Before each run, a session applies every source file whose content changed since the last
-run, without waiting for Revise's file events, and runs in the latest world. A changed
-file that Revise cannot apply (for example a struct redefinition), or any `src/` edit
-without Revise, stops the run with a request to restart. So does a change to `local.jl`,
-the harness, ProximalSolvers' `Project.toml`, ProximalBase's files, the active project or
-manifest, or the package paths the environment resolves. With Revise, deleting a `src/` or
-`ext/` file requires a restart even if the file is restored, because Revise removes its
-methods only later. Runs are allowed only when `local.jl` itself loaded ProximalSolvers (a fresh
-process, a session, or a REPL that includes `local.jl` before loading ProximalSolvers),
-with or without Revise: the methods of a package loaded earlier cannot be matched to its
-files. A path-developed ProximalBase must likewise be loaded by `local.jl`. Each run
-rebuilds its inputs and solver state. In a REPL, Revise also revises before every prompt,
-so a file deleted while other commands run, and restored before `explore`, may have lost
-its methods without `local.jl` seeing the deletion; restart after deleting a file there.
-A session calls Revise only from its own check, so this does not apply to it.
+## External-solver comparison (deferred)
 
-Session timings are exploratory: compilation, garbage collection and memory state differ
-from a fresh process. Ratios between a baseline saved in one mode (fresh process, session
-or REPL) and a candidate run in another are not like-for-like evidence; the report says
-so. Save the baseline in the mode you will compare against, typically in the same
-session before editing. Methods redefined by Revise can also run differently from
-precompiled ones: for #110, a no-op edit sometimes doubled the time of a 6 µs case (median
-and minimum ratios both about 2). The same shift appeared between two fresh processes with
-identical source and environment (in one scenario, on Julia 1.10 and 1.13), so a single ratio near 2 for a microsecond case is
-not evidence on its own. Repeat an apparent change in fresh processes, and claim it only
-with `compare.py`.
+[`external/`](external/README.md) compares ProximalSolvers with CoordinateDescent 0.6.1 on frozen,
+certified cases (#117; findings in #137). It has the runner and adapters, input generation shared with
+`problems.jl`, an independent certificate cross-check, the matched-accuracy statistical analysis with
+calibration and A/A arms, synthetic analysis controls, the frozen case catalog and the environment
+locks. It is kept unchanged as a reusable template for external comparisons. Its `current/`
+environment develops this repository, so it needs a full-package checkout. Adapting it to master
+means a new adapter and environment, with the catalog and analysis kept.
 
-On one machine for #110 (Apple M3 Pro, Julia 1.13), an edit followed by one quick case took
-13–21 s with `PS_GROUPS` or a fresh `local.jl` process, about 7.5 s with
-`--compiled-modules=existing`, and 0.2–0.8 s in a session after a one-time start of about
-7.5 s. `benchmark/check_local.jl` checks selection, input independence, statuses, the
-stop after a failed certificate, freshness refusals, baselines and session commands.
+Its analysis controls (`python3 -B benchmark/external/coordinatedescent/check_analysis.py`, about
+4 s, fixed seeds, no Julia) run in CI. **Compatibility fix (PR #253).** Since `b0de3f7` (#110 Stage 1),
+`validate.SERIES_SETTINGS` has included the optional key `case_filter`, which `validate.setting` reads
+as `""` (no filter) when absent. `analysis.py` read it as `meta[key]` and stopped with
+`KeyError: 'case_filter'`, so it now reads `base_validate.setting(meta, key)`, as `validate.py` does.
+No other line of the analysis changed. The `optional-case-filter` control checks that a missing and an
+explicitly empty `case_filter` give identical results, also when mixed within an arm, and that a
+nonempty filter that differs between blocks of an arm is refused (`series settings changed`). As
+before, the comparison across arms checks a fixed list of settings that does not include `groups` or
+`case_filter`; matched case coverage is enforced through the catalog and block cells. The source
+before the fix is in the protected archive `9be1773e911a44ec21d49df28cb01fea37c4316e`.
 
-## Certificates and phases
+## Enabling the formal harness on master
 
-`certificates.jl` uses plain problem data and returned solutions, without reading solver
-stopping diagnostics. Relative gaps use `max(P-D, 0)/max(abs(P), floatmin(Float64))`;
-weak-duality violations beyond a summation error bound scaled by the problem dimension
-and the magnitude of the summed terms, and nonfinite values, are uncertifiable.
+The aim is to use the one existing framework for the current CD/PGD cases and for each solver as it
+returns, without a second runner, a second record format or duplicate statistics. Minimum work, in order:
 
-| Problem | Certificate |
-|---|---|
-| Least squares + weighted L1, including ADMM | Relative duality gap; KKT residual for zero penalty weights or zero penalty. |
-| Group lasso, sparse group lasso, SLOPE | Relative duality gap using the corresponding polar constraints. |
-| Logistic L1, square-root lasso, graphical lasso | Relative duality gap with explicit domain checks. |
-| Generalized lasso | Relative gap from a strongly convex primal–dual lower bound. |
-| Quadratic L1 | Unit-step KKT residual; a separate `dual-gap` case records the least-squares gap. |
-| MCP, SCAD, IHT | Fixed-point residual with step `1/L`; IHT also checks sparsity feasibility. |
-| Setup | Self-consistency of cached factorization or coordinate curvature. |
+1. **Sequencing with Stage 2B.** Any edit to the four harness files changes their harness hash. Either
+   finish (or freeze and archive) Stage 2B first, or change its two tests so that they read the
+   frozen harness from a pinned commit (`git show <commit>:benchmark/...`) instead of the working tree.
+   The second option touches frozen campaign tests and needs maintainer approval on #110.
+2. **Environment (#225).** Allow ProximalBase 0.6 in `benchmark/Project.toml`, and let `setup.jl` take
+   the exact source pin of the root `Project.toml` (a URL and revision) as well as a version or a
+   path. Keep the Stage 2A comparison valid by running it from its freeze checkout, as its README
+   already requires.
+3. **Capability-gated catalog.** In `cases.jl`, add each case only if its solver and phase exist in
+   the loaded package (for example a table from solver ID to a predicate such as
+   `isdefined(ProximalSolvers, :ADMMSolver)`), and list the excluded cases with the reason in the
+   start metadata, never silently. Drop the hard-coded `Union{PS.CDSolver, PS.ProxNewton, ...}` in
+   favour of a per-solver options rule. Restoring a solver then re-enables its existing cases with
+   no other change.
+4. **Current API.** Adapt the CD and PGD case constructors to the minimal core: `CDSolver` options,
+   dense `Vector` and vector `SparseIterate` starts, no `SolverWorkspace` phase until workspaces
+   return, and Float32 cases for the supported precisions. `problems.jl` and `certificates.jl` should
+   need no change: they use plain data and returned minimizers.
+5. **External suite.** Its analysis already works on current records and runs in CI. Port
+   `current.jl` (and the `current/` environment) to the master API when a comparison is wanted,
+   keeping the catalog and the analysis.
+6. **Retire duplicates.** When steps 3 and 4 are done, `local.jl` replaces `minimal/explore.jl`.
+   `sparse_cd/` can become a harness phase or variant (dense vs `SparseIterate` input, copy costs)
+   that uses `validate.py` and `compare.py`, so its separate analyzer can go.
 
-Nonconvex residuals certify stationarity, not global optimality. Square-root residual
-norms at or below `fit_floor` are uncertifiable. Paths require the full requested grid
-and certify every returned level; their value is the worst level. A `record` target
-is `NaN`: accuracy is recorded without a threshold, but the certificate must be valid.
-Finite targets require `value <= target`. `check_certificates.jl` tests analytic and
-nonoptimal controls, domains, weak duality and dual feasibility; package agreement is secondary.
+Records keep their format throughout, so `validate.py`, `summarize.py`, `compare.py` and
+`check_analysis.py` stay unchanged and continue to compare new records with historical ones where
+the catalog and data hashes match.
 
-| Status | Meaning |
-|---|---|
-| `ok` | Certificate is valid and any finite target is met. |
-| `target_missed` | Valid certificate exceeds the finite target. |
-| `incomplete` | Returned path does not contain the complete requested grid. |
-| `uncertifiable` | Certificate is invalid, outside its domain or nonfinite. |
-| `error` | Construction, reset, solve or certification throws an exception. |
-| `timeout` | A timed sample or compiled validation recheck exceeds `PS_CASE_SECONDS` after returning; the first validation call cannot time out. |
+## History
 
-| Phase | Timed operation |
-|---|---|
-| `call` | Warm public `solve!` or path driver, including per-call setup and result construction; loss caches and ADMM factorizations are warm. |
-| `workspace` | Warm `solve!` reusing a `SolverWorkspace`; workspace construction and reset are excluded. |
-| `setup` | Fresh loss/cache, curvature or factorization construction from prepared inputs; no solve. |
-
-Input generation, compilation, state/workspace/RNG resets and certification are outside
-sample timing. One validation call precedes sampling. Each sample times one call with
-`@timed`, then certifies its output. Sampling stops at either limit, with at least five
-samples unless an error or timeout stops the case. Statistics use only `ok` samples; all
-sampled attempts are retained. Case status follows `error`, `timeout`, `incomplete`,
-`uncertifiable`, `target_missed`, including validation failures. The first validation call
-includes compilation and is exempt from the timeout limit. If it exceeds `PS_CASE_SECONDS`
-without error, one compiled recheck is observed against that limit. Timed samples use
-the same per-call limit. Profiles are diagnostic, not timings.
-
-## Fixed workloads for #103–#109
-
-R is [benchmark/release_candidate/reproduce.jl](https://github.com/mlakolar/ProximalSolvers.jl/blob/f7e3f28026a8e83e0fa18203b39839cf57a1c949/benchmark/release_candidate/reproduce.jl).
-B is [docs/audit/20261026/performance-batched.jl](https://github.com/mlakolar/ProximalSolvers.jl/blob/f7e3f28026a8e83e0fa18203b39839cf57a1c949/docs/audit/20261026/performance-batched.jl).
-R/B inputs are fixed across repetitions at this snapshot. R records default-setting
-accuracy (`target=NaN`); B uses a `1e-8` threshold. In the table, `{R,B}` expands to two
-IDs and `*` to `call` and `workspace`.
-
-| Issue | Case IDs | Source |
-|---|---|---|
-| #103 | `newton/logistic-l1/prox-newton/{R,B}/call` | R `newton`; B GLM-Newton. |
-| #104 | `cd/sqrt-lasso/cd/R/*` | R `sqrt`. |
-| #105 | `gradient/lasso/monotone/{R,B}/*` | R/B `monotone`. |
-| #106 | `gradient/lasso/pg/{R,B}/*` | R `pg`; B PG. |
-| #107 | `gradient/lasso/active/{R,B}/call` | R/B `active`. |
-| #108 | `cd/lasso-dense/cd/{R,B}/*`, `cd/lasso-csc/cd/B/*` | R `cd`; B CD and CSC-CD. |
-| #109 | `admm/lasso/admm/{R,B}/*`, `admm/lasso/admm/construction/setup` | R/B ADMM; separate factorization setup uses generated inputs. |
-
-## Compare revisions
-
-Use one fixed harness copy from the same root, with two fresh environments and the same ProximalBase spec:
-
-```sh
-before=/absolute/path/to/before
-after=/absolute/path/to/after
-base_spec=0.5.4
-julia benchmark/setup.jl "$before" benchmark/results/env-before "$base_spec"
-julia benchmark/setup.jl "$after" benchmark/results/env-after "$base_spec"
-runs=3
-for rep in $(seq 1 "$runs"); do
-  if [ "$((rep % 2))" -eq 1 ]; then set -- before after; else set -- after before; fi
-  for side in "$@"; do
-    code=0
-    case "$side" in before) checkout="$before" ;; after) checkout="$after" ;; esac
-    PS_EXPECTED_PACKAGE_ROOT="$checkout" PS_REPETITION="$rep" \
-      PS_OUTPUT="benchmark/results/$side" JULIA_NUM_THREADS=1 \
-      julia --project="benchmark/results/env-$side" benchmark/run.jl || code=$?
-    [ "$code" -eq 0 ] || [ "$code" -eq 2 ] || exit "$code"
-  done
-done
-python3 benchmark/compare.py benchmark/results/before benchmark/results/after \
-  benchmark/results/comparison --expected-runs "$runs"
-```
-
-Use `PS_REPETITION=1..N` in fresh processes, alternating which revision runs first;
-choose `runs` from 1–10. Match suite, groups, sample/time limits, CPU, Julia/BLAS
-versions and threads. The runner requires one Julia thread and sets one BLAS thread. Use
-separate environments for different Julia versions. For an A/A comparison, set `before`
-and `after` to the same revision and use two fresh environments and result directories;
-this shows the noise level on the machine.
-
-`compare.py` writes `REPORT.md`, `comparison.csv` and `coverage.json` to a fresh output
-directory. It reports after/before ratios of repetition medians, paired 95% Student-t
-intervals on log ratios, worst accuracy and median/maximum bytes. An interval containing
-one is inconclusive. Any non-`ok` repetition excludes that case from ratios, with
-reasons retained in the report and coverage JSON; even an all-failed comparison writes
-all three files. Invalid records, mismatched settings, catalogs or data hashes prevent
-comparison. Intervals include input variability and machine noise, without corrections
-for correlated noise or multiple comparisons.
-
-## Records and evidence
-
-Each process writes `julia-<VERSION>-rep<NN>` files under `PS_OUTPUT` (two-digit reps).
-TSVs have headers, empty missing fields, integer nanoseconds/bytes and round-trip floats:
-
-| Suffix | Columns or contents |
-|---|---|
-| `-catalog.tsv` | `id group problem solver variant phase suite inputs issue measure target` |
-| `-metrics.tsv` | `id group phase rep status samples ok_samples median_ns mean_ns sd_ns min_ns max_ns p95_ns gc_share median_bytes mean_bytes min_bytes max_bytes measure target worst_value median_value data_hash` |
-| `-samples.tsv` | `id rep sample time_ns gc_ns bytes value status` |
-| `-errors.tsv` | `id rep status exception stack`; one row per non-`ok` case. |
-| `-profiles.txt` | Optional profiles when `PS_PROFILE_SECONDS > 0`. |
-| `-metadata-start.toml`, `-metadata.toml` | Start provenance and final completion metadata. |
-
-Metadata includes settings (including `case_filter`; records without it used no case
-filter), Julia/BLAS/CPU identity, package root, revision and dirty status.
-SHA-1 hashes cover the four Julia harness files (`problems`, `certificates`, `cases`, `run`)
-and each package's `Project.toml`, `src/**/*.jl` and `ext/**/*.jl`. ProximalBase has its
-own version and source hash. SHA-256 data hashes match inputs per case/repetition. Final
-metadata adds `cases`, `ok_cases`, `nonok_cases`, `elapsed_s`, `maxrss_bytes`, `finished=true`.
-Preserve manifests and dirty sources with evidence. Existing process prefixes are never
-overwritten; setup also refuses an existing environment `Project.toml`. Start metadata
-without final metadata marks an interrupted process; retain it and restart in a fresh series.
-
-Runner exit codes are 0 for all cases `ok`, 2 for complete records with non-`ok` cases,
-and 3 for startup or record-writing failure. Validation checks integrity separately from
-numerical success, so consistent failed cases can still be valid.
-
-```sh
-python3 benchmark/validate.py benchmark/results benchmark/results/validation.json
-python3 benchmark/check_analysis.py
-julia --project=benchmark/results/env-quick benchmark/check_certificates.jl
-```
-
-Pass `--expected-runs N` to `validate.py`, `summarize.py` and `compare.py` for repeated
-series. Validation and summarization also accept `--versions VERSION ...`.
-`summarize.py` writes `SUMMARY.md`
-and `summary.csv`, retaining status counts and using the mean of repetition medians.
-`check_analysis.py` tests synthetic records, including failures and interruptions. Generated
-results, environments and profiles are ignored by Git. Put concise findings and limitations
-in the pull request. Never select the fastest run or discard adverse runs.
-
-Historical studies for issues #18–#95 remain in the [pre-cleanup tree](https://github.com/mlakolar/ProximalSolvers.jl/tree/f7e3f28026a8e83e0fa18203b39839cf57a1c949/benchmark),
-including comparisons with CoordinateDescent, glmnet, Lasso.jl, R packages,
-SLOPE.jl/libslope and ProximalAlgorithms. External baselines are planned as optional
-suites under `benchmark/external/` that reuse `problems.jl` and `certificates.jl` (#117).
+Studies for #18–#95, including comparisons with glmnet, Lasso.jl, R packages, SLOPE.jl/libslope and
+ProximalAlgorithms, are in the
+[pre-cleanup tree](https://github.com/mlakolar/ProximalSolvers.jl/tree/f7e3f28026a8e83e0fa18203b39839cf57a1c949/benchmark).
+The full package, including this directory as of the minimal-core rebuild, is preserved at the
+protected tag `archive/full-before-reset-2026-11-10` (`9be1773e911a44ec21d49df28cb01fea37c4316e`).
+Generated results, environments, logs and archives are not committed.
