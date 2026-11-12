@@ -191,7 +191,7 @@ end
 # the documentation page and the notebook and is not run by the plain script.
 #!jl using Plots
 #!jl plotfloor(v) = max(v, 1e-16)
-#!jl kktplot = plot(xscale=:log10, yscale=:log10, xlabel="wall time (s)", ylabel="KKT violation / lambda")
+#!jl kktplot = plot(xscale=:log10, yscale=:log10, xlabel="wall time (s)", ylabel="KKT violation / lambda", legend=:bottomright)
 #!jl gapplot = plot(xscale=:log10, yscale=:log10, xlabel="wall time (s)", ylabel="relative objective gap")
 #!jl for (name, (runs, parameter, unit)) in sweeps
 #!jl   plot!(kktplot, [run.time for run in runs], [plotfloor(run.kkt) for run in runs];
