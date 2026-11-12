@@ -32,7 +32,7 @@ paired experiment.
 | [`stage2b_fixtures.py`](stage2b_fixtures.py) | Builds the complete synthetic input sets (roots, receipt, mapping, declared differences, fingerprints) that the tests of the tool mutate one item at a time. |
 | [`test_migration_compare.py`](test_migration_compare.py) | Offline tests of the tool: one per refusal class, the accepted differences, the per-case classes, the screens and the outputs. |
 | [`stage2b_campaign.py`](stage2b_campaign.py) | The campaign driver (standard library only): TOML writer, campaign lock, official gate, preflight checks, source fingerprints, identity and receipt writers, sealing, the engine behind `run` and `pilot`, declared differences, `verify`, the real hooks (subprocess runner, untimed environment probe, depot-cache digest, data-hash check) and `prepare` (`fetch` and `finalize`). It launches `benchmark/run.jl` and measures nothing. |
-| [`test_stage2b_campaign.py`](test_stage2b_campaign.py) | Offline tests of the driver (no Julia, no network): the gate and pilot refusals (a stub runner that fails if invoked), every preflight defect, sealing, the stop state, a full-shape run (two strata, 19 cases, 8 repetitions, four roots) that is verified, copied and mutated, `prepare`, the probe conversion, the depot digest and the pilot-schedule derivation over mocked subprocess layers, and the session per base, the probe records and the numeric range checks (#229). |
+| [`test_stage2b_campaign.py`](test_stage2b_campaign.py) | Offline tests of the driver (no Julia, no network): the gate and pilot refusals (a stub runner that fails if invoked), every preflight defect, sealing, the stop state, a full-shape run (two strata, 19 cases, 8 repetitions, four roots) that is verified, copied and mutated, `prepare`, the probe conversion, the depot digest and the pilot-schedule derivation over mocked subprocess layers, and the session per base, the probe records and the numeric range checks (#229); and the frozen Stage 2B and Stack A harness identities, verified against the files of their pinned commits read with git. |
 | [`export_fingerprints.jl`](export_fingerprints.jl) | The untimed fingerprint exporter (needs Julia and the benchmark environment): loads the real harness of a stack, runs `reset!`, one untimed `call!` and `reset!` on each case state and writes `fingerprints.tsv` rows (section 14 of the specification) in the canonical encoding `ps-stage2b-fp-v1`, with a data-hash sidecar and a summary; fails closed (exit 2) on any missing or unexpected closure field. |
 | [`environment_probe.jl`](environment_probe.jl) | Prints the environment inventory of the running Julia process as TOML (the Stage 2A format plus the realpath keys of section 10); run in the environment of a stack. |
 | [`test_export_fingerprints.jl`](test_export_fingerprints.jl) | The Julia test of the exporter: the encoder (differing pairs, unsupported types, known answers), the real cases through the harness, the command line; `PS_FP_FULL=true` adds the full scheduled export. |
@@ -253,7 +253,8 @@ ProximalBase and their dependencies together (and of the harness port) and canno
 
 ## Run the tests
 
-Python 3.11 or later (`tomllib`), standard library only; no Julia, no network.
+Python 3.11 or later (`tomllib`), standard library only; no Julia, no network. `test_stage2b_campaign.py` also needs
+`git` and the full history of the repository (see below).
 
 ```
 cd benchmark/campaigns/stage2b
@@ -267,6 +268,28 @@ runs every `test*.py` module of the directory itself (`test_stage2b_files.py` an
 and does **not** pick up `probes/`: the collection descends only into directories that are Python packages, and
 `probes/` has no `__init__.py`. The probe checker's tests therefore run with the second command.
 
+**Historical harness identity.** The frozen harness identities are verified against immutable sources, not against
+the working tree. `HistoricalHarnessTests` and `FingerprintTests` of `test_stage2b_campaign.py` read
+`benchmark/problems.jl`, `certificates.jl`, `cases.jl` and `run.jl` as blobs from the git object store at the pinned
+commits, recompute the harness hash with the driver's `harness_hash` (the algorithm of `benchmark/run.jl`) and require:
+
+| Identity | Pinned commit | Harness hash | Required by |
+|:--|:--|:--|:--|
+| Stage 2B harness (approved P14 port) | `412063d8ac24b84a10ccde09cf072bb396109ffd` (`BASE_COMMIT`) | `0fd2b44dfea0b1f77c2c67228bf149207982ab8b` | `new_harness_hash` of P14 in `case-mapping.toml` |
+| Stack A | `b0de3f7fc91767b97197ff4b458207e308998943` (`STACK_A_COMMIT`) | `b7bf3d953ec6e9f9720e74d7895b5cf95a629fd4` | `[stack_a] harness_hash` of `schedule.toml` |
+
+`case-mapping.toml` records the Stage 2B hash as taken at the port commit `fb9b1692069dec4778f24a6732a325ab1c05f1b7`
+of #217. That commit is reachable only from the pull-request ref, not from a full clone of the branches; the squash
+merge of #217 (`f4f5b3e8e6a1898df1fee05476217a1237bee1cb`) and `BASE_COMMIT` (#219) hold the same four blobs, so the
+tests read `BASE_COMMIT`. A missing commit, a missing file, a commit that is not the pinned one or a single changed
+byte fails the tests; nothing is skipped. Master may therefore change the four harness files without touching these
+identities: `test_stage2b_files.py` and `test_migration_compare.py` no longer read them from the working tree, and a
+test of `test_stage2b_files.py` runs every other test of that file against a rewritten scratch harness. The
+approved hashes, the mapping and the schedule are unchanged. The tests of the current driver, comparator and
+ordinary tools still read the working tree (`compare.py`, `validate.py` and `summarize.py`, which
+`migration_compare.py` uses, stay pinned there). An official campaign does not use the working tree either: the
+driver clones and verifies its own pinned checkout per role.
+
 **In CI.** The required `Benchmark analysis controls` job (`.github/workflows/CI.yml`) runs all four offline Python
 suites from the repository root, one step each, with Python 3.12:
 
@@ -278,8 +301,8 @@ python3 -B benchmark/campaigns/stage2b/probes/test_check_reset_probes.py
 ```
 
 The job checks out the full history and first checks that the two commits pinned in `test_stage2b_campaign.py`
-(`BASE_COMMIT`, `STACK_A_COMMIT`) are present, so the fingerprint tests at those commits run instead of being
-skipped; a skipped test fails its step. A failing suite fails the job and therefore the PR merge gate.
+(`BASE_COMMIT`, `STACK_A_COMMIT`) are present. The tests at those commits fail, and are never skipped, when a commit
+is missing; a skipped test also fails its step. A failing suite fails the job and therefore the PR merge gate.
 
 The Julia test
 of the P14 port runs separately, from the repository root, in an environment with ProximalBase, ProximalSolvers

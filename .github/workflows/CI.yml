@@ -237,8 +237,8 @@ jobs:
       - run: python -I benchmark/sparse_cd/check_analysis.py
       - run: python -B benchmark/external/coordinatedescent/check_analysis.py
       # The offline Stage 2B suites (benchmark/campaigns/stage2b/README.md), one step each. A
-      # skipped test fails its step: the only conditional skips are the fingerprint tests at the
-      # pinned commits, which must run here.
+      # skipped test fails its step. The harness identities are read with git at the pinned commits
+      # (never from the working tree); a missing pinned commit fails those tests, it is not skipped.
       - name: Pinned Stage 2B commits are in the checkout
         shell: bash
         run: |

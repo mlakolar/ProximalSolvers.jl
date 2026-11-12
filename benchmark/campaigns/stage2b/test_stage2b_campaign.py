@@ -3,7 +3,8 @@
 
     python3 -B test_stage2b_campaign.py        (or python3 -B -m unittest test_stage2b_campaign -v)
 
-Standard library only (Python 3.11 or later). No Julia, no cluster, no network, no `gh`. The command runner, the
+Standard library only (Python 3.11 or later) and `git`, with the full history of this repository for the
+fingerprints at the pinned commits. No Julia, no cluster, no network, no `gh`. The command runner, the
 probe, the clock and the machine sampler are mocks; a stub runner that fails the test when it is invoked guards
 every refusal that must happen before any process starts. The synthetic roots come from `stage2b_fixtures.py`.
 
@@ -11,6 +12,9 @@ Test classes (the integration class builds the full-shape set once: two Julia st
 four roots, and runs the engine over it with mocked hooks; its tests copy the finished tree for every mutation):
 
     TomlTests, FingerprintTests   the TOML writer; the SHA-1 fingerprints against the known values
+    HistoricalHarnessTests        the frozen Stage 2B and Stack A harness identities, verified against the files of
+                                  their pinned commits (read with git, never from the working tree; a missing
+                                  commit or file fails, it is never skipped), with synthetic histories
     LockTests, GateTests          the campaign lock; the official gate and the pilot refusals (stub runner)
     PreflightTests                the observation checks, all problems at once
     WriterTests                   identity, receipt, machine sampler, evidence paths, declared differences
@@ -412,9 +416,75 @@ class TomlTests(unittest.TestCase):
 
 # ------------------------------------------------------------------------------------------- fingerprints
 
-def git_available(commit):
-    return subprocess.run(["git", "-C", str(REPO), "cat-file", "-e", f"{commit}^{{commit}}"],
-                          capture_output=True).returncode == 0
+def history_env():
+    """The environment of a git call that reads a pinned source: replace refs never substitute an object."""
+    return dict(os.environ, GIT_NO_REPLACE_OBJECTS="1")
+
+
+def git_available(commit, repo=REPO):
+    """True if `commit` names a commit object of `repo` (a tree, a blob or a missing object does not count)."""
+    result = subprocess.run(["git", "-C", str(repo), "cat-file", "-t", commit], capture_output=True, text=True,
+                            env=history_env())
+    return result.returncode == 0 and result.stdout.strip() == "commit"
+
+
+# The frozen harness identities. Each is verified against the files of its pinned commit, read from the git object
+# store, never against the working tree, so that master may change benchmark/{problems,certificates,cases,run}.jl
+# without touching them. The Stage 2B harness (the approved P14 port) is read at BASE_COMMIT (#219): case-mapping.toml
+# records its hash as taken at the port commit fb9b1692069dec4778f24a6732a325ab1c05f1b7 of #217, which is reachable
+# only from the pull-request ref and is absent from a full clone of the branches; the squash merge of #217,
+# f4f5b3e8e6a1898df1fee05476217a1237bee1cb, and BASE_COMMIT hold the same four blobs. Stack A is read at STACK_A_COMMIT.
+STAGE2B_HARNESS_COMMIT = BASE_COMMIT
+STAGE2B_HARNESS_HASH = "0fd2b44dfea0b1f77c2c67228bf149207982ab8b"
+STACK_A_HARNESS_HASH = "b7bf3d953ec6e9f9720e74d7895b5cf95a629fd4"
+# SHA-256 of the three harness files the P14 port left unchanged, equal at both pinned commits
+# (MIGRATION_COMPARE_SPEC.md, section 7).
+UNCHANGED_HARNESS_SHA256 = {
+    "run.jl": "d613c06fa368b2588ec7418d8dd0ef9f70b0c09cbc682105f1f9713b5230c8c6",
+    "problems.jl": "b047b47275907a31e0f3ed1de7629ed3f965534dd2d1fcafd03c52dd0092fa51",
+    "certificates.jl": "ce09cbcbcaa1091f6ca362e0689340c1a367b3968542fd1d3c7ca9465f5770e1"}
+P14_HISTORICAL = "reset!() = (fill!(x, 0.0); reset_solver_rng!(method); nothing)"      # as test_stage2b_files.py
+P14_PORT_SPARSE = "dropzeros!(fill!(x, 0.0))"
+
+
+class HistoricalSourceError(Exception):
+    """A pinned historical source is missing or is not the approved one."""
+
+
+def require_commit(commit, repo=REPO):
+    """`commit` if it is a full 40-hex SHA of a commit object present in `repo`; anything else raises. A branch, a
+    tag, a short SHA or a commit missing from the clone is never resolved, guessed or skipped."""
+    if not (isinstance(commit, str) and re.fullmatch(r"[0-9a-f]{40}", commit)):
+        raise HistoricalSourceError(f"{commit!r} is not a full 40-hex commit SHA")
+    if not git_available(commit, repo):
+        raise HistoricalSourceError(f"commit {commit} is not in {repo} (a full-history checkout is required)")
+    return commit
+
+
+def historical_harness(commit, repo=REPO):
+    """The four harness files of benchmark/ at `commit`, read byte for byte as blobs from the object store of `repo`
+    (never from its working tree or index) into a fresh directory, which is returned. A missing commit or file
+    raises HistoricalSourceError."""
+    require_commit(commit, repo)
+    where = fresh("history") / "benchmark"
+    where.mkdir()
+    for name in HARNESS_FILES:
+        result = subprocess.run(["git", "-C", str(repo), "cat-file", "blob", f"{commit}:benchmark/{name}"],
+                                capture_output=True, env=history_env())
+        if result.returncode != 0:
+            raise HistoricalSourceError(f"benchmark/{name} is not a file of commit {commit}")
+        (where / name).write_bytes(result.stdout)
+    return where
+
+
+def verify_historical_harness(commit, expected, repo=REPO):
+    """Recompute the harness hash of the files at `commit` with the driver's `harness_hash` (the algorithm of
+    benchmark/run.jl) and require `expected`; returns the directory of the retrieved files."""
+    where = historical_harness(commit, repo)
+    observed = C.harness_hash(where)
+    if observed != expected:
+        raise HistoricalSourceError(f"the harness at {commit} hashes to {observed}, not the approved {expected}")
+    return where
 
 
 def extract_commit(commit, dest):
@@ -441,15 +511,16 @@ class FingerprintTests(unittest.TestCase):
         self.assertEqual(C.harness_hash(REPO / "benchmark"), C.harness_hash(REPO / "benchmark"))
         self.assertEqual(C.package_fingerprint(REPO), C.package_fingerprint(REPO))
 
-    @unittest.skipUnless(git_available(BASE_COMMIT), "the base commit is not in this clone")
+    # A pinned commit missing from the clone fails these tests; it is never a skip.
     def test_known_values_at_the_base_commit(self):
+        require_commit(BASE_COMMIT)
         where = fresh("base-commit")
         extract_commit(BASE_COMMIT, where)
         self.assertEqual(C.harness_hash(where / "benchmark"), "0fd2b44dfea0b1f77c2c67228bf149207982ab8b")
         self.assertEqual(C.package_fingerprint(where), "f37fc61f300ad597a33c7ab5f448d38c865db854")
 
-    @unittest.skipUnless(git_available(STACK_A_COMMIT), "the Stack A commit is not in this clone")
     def test_known_values_at_the_stack_a_commit(self):
+        require_commit(STACK_A_COMMIT)
         where = fresh("stack-a")
         extract_commit(STACK_A_COMMIT, where)
         self.assertEqual(C.harness_hash(where / "benchmark"), "b7bf3d953ec6e9f9720e74d7895b5cf95a629fd4")
@@ -489,6 +560,123 @@ class FingerprintTests(unittest.TestCase):
             C.harness_hash(root)
         (root / "run.jl").write_text("run")
         self.assertEqual(len(C.harness_hash(root)), 40)
+
+
+def scratch_history(*snapshots):
+    """A fresh repository with one commit per snapshot, a dict from a benchmark/ file name to its bytes (None
+    removes the file); fixed identities and dates, so that the commits are deterministic. Returns (path, commits)."""
+    repo = fresh("scratch-history")
+    env = dict(os.environ, **GIT_ENV, GIT_AUTHOR_DATE="2026-01-01T00:00:00Z",
+               GIT_COMMITTER_DATE="2026-01-01T00:00:00Z")
+
+    def git(*args):
+        return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, check=True,
+                              env=env).stdout.strip()
+    git("init", "-q", "-b", "main")
+    (repo / "benchmark").mkdir()
+    commits = []
+    for number, snapshot in enumerate(snapshots, 1):
+        for name, content in snapshot.items():
+            path = repo / "benchmark" / name
+            if content is None:
+                path.unlink(missing_ok=True)
+            else:
+                path.write_bytes(content)
+        git("add", "-A")
+        git("commit", "-q", "--allow-empty", "-m", f"snapshot {number}")
+        commits.append(git("rev-parse", "HEAD"))
+    return repo, commits
+
+
+class HistoricalHarnessTests(unittest.TestCase):
+    """The frozen harness identities are verified against the files of their pinned commits, read from the git object
+    store, so that the working tree of master can change without invalidating them; a missing, wrong or altered
+    historical source fails (it is never skipped). The synthetic histories start from the real pinned blobs."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mapping = tomllib.loads((HERE / "case-mapping.toml").read_text(encoding="utf-8"))
+        cls.p14 = next(case for case in cls.mapping["case"] if case["label"] == "P14")
+        cls.stack_a = mc.load_schedule(HERE / "schedule.toml")["stack_a"]
+        where = historical_harness(STAGE2B_HARNESS_COMMIT)
+        cls.approved = {name: (where / name).read_bytes() for name in HARNESS_FILES}
+
+    def sha256(self, path):
+        return __import__("hashlib").sha256(Path(path).read_bytes()).hexdigest()
+
+    def test_the_approved_stage2b_harness_verifies_at_its_pinned_commit(self):
+        self.assertEqual(STAGE2B_HARNESS_COMMIT, "412063d8ac24b84a10ccde09cf072bb396109ffd")
+        self.assertEqual(self.p14["new_harness_hash"], STAGE2B_HARNESS_HASH)
+        where = verify_historical_harness(STAGE2B_HARNESS_COMMIT, self.p14["new_harness_hash"])
+        for name, digest in UNCHANGED_HARNESS_SHA256.items():
+            self.assertEqual(self.sha256(where / name), digest, name)
+        cases = (where / "cases.jl").read_text(encoding="utf-8")
+        self.assertIn(P14_PORT_SPARSE, cases)
+        self.assertNotIn(P14_HISTORICAL, cases)
+
+    def test_stack_a_verifies_against_its_distinct_historical_hash(self):
+        self.assertEqual(self.stack_a["harness_hash"], STACK_A_HARNESS_HASH)
+        self.assertEqual(self.stack_a["proximalsolvers"]["commit"], STACK_A_COMMIT)
+        self.assertNotEqual(STACK_A_HARNESS_HASH, STAGE2B_HARNESS_HASH)
+        where = verify_historical_harness(STACK_A_COMMIT, self.stack_a["harness_hash"])
+        for name, digest in UNCHANGED_HARNESS_SHA256.items():
+            self.assertEqual(self.sha256(where / name), digest, name)
+        cases = (where / "cases.jl").read_text(encoding="utf-8")
+        self.assertIn(P14_HISTORICAL, cases)
+        self.assertNotIn(P14_PORT_SPARSE, cases)
+
+    def test_an_incorrect_historical_commit_fails(self):
+        with self.assertRaisesRegex(HistoricalSourceError, "not the approved"):
+            verify_historical_harness(STACK_A_COMMIT, STAGE2B_HARNESS_HASH)
+        with self.assertRaisesRegex(HistoricalSourceError, "not the approved"):
+            verify_historical_harness(STAGE2B_HARNESS_COMMIT, STACK_A_HARNESS_HASH)
+        # a full SHA that names the tree of the pinned commit, not a commit
+        tree = subprocess.run(["git", "-C", str(REPO), "rev-parse", f"{STAGE2B_HARNESS_COMMIT}^{{tree}}"],
+                              capture_output=True, text=True, check=True).stdout.strip()
+        with self.assertRaisesRegex(HistoricalSourceError, "is not in"):
+            historical_harness(tree)
+
+    def test_a_missing_or_unpinned_commit_is_rejected(self):
+        _, (foreign,) = scratch_history(self.approved)       # a real commit, but of another repository
+        with self.assertRaisesRegex(HistoricalSourceError, "is not in"):
+            verify_historical_harness(foreign, STAGE2B_HARNESS_HASH)
+        for name in ("master", "HEAD", STAGE2B_HARNESS_COMMIT[:12], STAGE2B_HARNESS_COMMIT.upper(), "", None):
+            with self.assertRaisesRegex(HistoricalSourceError, "full 40-hex"):
+                verify_historical_harness(name, STAGE2B_HARNESS_HASH)
+
+    def test_a_missing_historical_file_is_rejected(self):
+        for name in HARNESS_FILES:
+            repo, (commit,) = scratch_history({**self.approved, name: None})
+            with self.assertRaisesRegex(HistoricalSourceError, f"benchmark/{re.escape(name)} is not a file"):
+                verify_historical_harness(commit, STAGE2B_HARNESS_HASH, repo)
+
+    def test_a_modified_historical_file_fails_the_hash_check(self):
+        snapshots = [self.approved] + [{**self.approved, name: self.approved[name] + b"# one more byte\n"}
+                                       for name in HARNESS_FILES]
+        repo, (original, *modified) = scratch_history(*snapshots)
+        verify_historical_harness(original, STAGE2B_HARNESS_HASH, repo)
+        for name, commit in zip(HARNESS_FILES, modified):
+            with self.assertRaisesRegex(HistoricalSourceError, "not the approved"):
+                verify_historical_harness(commit, STAGE2B_HARNESS_HASH, repo)
+
+    def test_an_edit_of_the_current_harness_leaves_the_historical_identity_intact(self):
+        # Master moves on in a scratch copy: a later commit edits cases.jl and run.jl, the index holds an edit of
+        # certificates.jl and the working tree an unstaged edit of problems.jl.
+        later = {"cases.jl": self.approved["cases.jl"].replace(P14_PORT_SPARSE.encode(), b"clear!(x)"),
+                 "run.jl": self.approved["run.jl"] + b"# a later change on master\n"}
+        repo, (pinned, head) = scratch_history(self.approved, later)
+        (repo / "benchmark" / "certificates.jl").write_bytes(self.approved["certificates.jl"] + b"# staged\n")
+        subprocess.run(["git", "-C", str(repo), "add", "benchmark/certificates.jl"], check=True, capture_output=True,
+                       env=dict(os.environ, **GIT_ENV))
+        (repo / "benchmark" / "problems.jl").write_bytes(self.approved["problems.jl"] + b"# unstaged\n")
+        # the current-tree fingerprint (what the driver computes for a checkout) sees every edit
+        self.assertNotEqual(C.harness_hash(repo / "benchmark"), STAGE2B_HARNESS_HASH)
+        # the historical identity is unchanged and its files are the pinned blobs byte for byte
+        where = verify_historical_harness(pinned, self.p14["new_harness_hash"], repo)
+        self.assertEqual({name: (where / name).read_bytes() for name in HARNESS_FILES}, self.approved)
+        # nothing is forced equal: the edited commit is not the approved harness
+        with self.assertRaisesRegex(HistoricalSourceError, "not the approved"):
+            verify_historical_harness(head, STAGE2B_HARNESS_HASH, repo)
 
 
 # --------------------------------------------------------------------------------------- lock and gate

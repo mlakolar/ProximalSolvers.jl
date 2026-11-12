@@ -65,12 +65,20 @@ ProximalBase`). `cases.jl` also constructs solvers and APIs that the minimal cor
 `SqrtLeastSquaresLoss` and others). The harness therefore runs only against full-package checkouts
 with ProximalBase 0.5.4, such as Stack A `b0de3f7` of Stage 2B or `legacy/full`.
 
-**Frozen identities.** Do not edit these files on master until the plan below is approved:
+**Frozen identities.** The Stage 2B harness identities are verified against pinned historical
+commits, not against the working tree, so the four harness files (`problems.jl`, `certificates.jl`,
+`cases.jl`, `run.jl`) can change on master without invalidating them:
 
-- `test_stage2b_files.py` requires the harness hash of `problems.jl`, `certificates.jl`, `cases.jl`
-  and `run.jl` to equal `new_harness_hash` in `campaigns/stage2b/case-mapping.toml`.
-- `test_migration_compare.py` pins the SHA-256 of `run.jl`, `problems.jl`, `certificates.jl`,
-  `compare.py`, `validate.py` and `summarize.py`.
+- `campaigns/stage2b/test_stage2b_campaign.py` reads the four files with git at
+  `412063d8ac24b84a10ccde09cf072bb396109ffd` (byte-identical to the P14 port commit of #217) and
+  requires the harness hash `0fd2b44dfea0b1f77c2c67228bf149207982ab8b`, the `new_harness_hash` in
+  `campaigns/stage2b/case-mapping.toml`; and at Stack A `b0de3f7fc91767b97197ff4b458207e308998943`
+  it requires `b7bf3d953ec6e9f9720e74d7895b5cf95a629fd4`, the `[stack_a] harness_hash` in
+  `schedule.toml`. A missing commit or file fails the test; it is never skipped. These approved
+  hashes are unchanged, and the official Stage 2B campaign still runs its own pinned checkouts.
+- `test_migration_compare.py` still pins the SHA-256 of `compare.py`, `validate.py` and
+  `summarize.py` in the working tree, because the current comparator imports `validate.py` and
+  `summarize.py`. Do not edit these three files on master until the plan below is approved.
 - `campaigns/pre06/campaign.py` verification compares archived environments with
   `benchmark/Project.toml` and imports `validate.py` and `summarize.py` from this directory.
 
@@ -101,10 +109,9 @@ before the fix is in the protected archive `9be1773e911a44ec21d49df28cb01fea37c4
 The aim is to use the one existing framework for the current CD/PGD cases and for each solver as it
 returns, without a second runner, a second record format or duplicate statistics. Minimum work, in order:
 
-1. **Sequencing with Stage 2B.** Any edit to the four harness files changes their harness hash. Either
-   finish (or freeze and archive) Stage 2B first, or change its two tests so that they read the
-   frozen harness from a pinned commit (`git show <commit>:benchmark/...`) instead of the working tree.
-   The second option touches frozen campaign tests and needs maintainer approval on #110.
+1. **Sequencing with Stage 2B.** Done: the Stage 2B tests read the frozen harness from its pinned
+   commits instead of the working tree (see "Frozen identities" above), so editing the four harness
+   files on master changes the working-tree harness hash but not the approved Stage 2B identities.
 2. **Environment (#225).** Allow ProximalBase 0.6 in `benchmark/Project.toml`, and let `setup.jl` take
    the exact source pin of the root `Project.toml` (a URL and revision) as well as a version or a
    path. Keep the Stage 2A comparison valid by running it from its freeze checkout, as its README
