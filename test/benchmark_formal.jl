@@ -205,7 +205,8 @@ end
     for name in readdir(dirname(manifest))   # other manifests or preferences of the environment
       name in (basename(manifest), "Project.toml") || cp(joinpath(dirname(manifest), name), joinpath(dir, name))
     end
-    env = ("JULIA_LOAD_PATH" => "@:@stdlib", "JULIA_PROJECT" => dir, "JULIA_NUM_THREADS" => "1",
+    load_path = join(["@", "@stdlib"], Sys.iswindows() ? ';' : ':')   # the separator of JULIA_LOAD_PATH
+    env = ("JULIA_LOAD_PATH" => load_path, "JULIA_PROJECT" => dir, "JULIA_NUM_THREADS" => "1",
            "PS_OUTPUT" => joinpath(dir, "records"))
     julia = `$(Base.julia_cmd()) --startup-file=no`
     for script in (`$(joinpath(BENCHMARK, "run.jl"))`,

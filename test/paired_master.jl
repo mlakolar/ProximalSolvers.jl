@@ -47,7 +47,7 @@ const PM = PairedMasterDiagnostics
   end
 end
 @testset "paired controls: always-run gated Linux job" begin
-  workflow = read(joinpath(PM.ROOT, ".github", "workflows", "CI.yml"), String)
+  workflow = replace(read(joinpath(PM.ROOT, ".github", "workflows", "CI.yml"), String), "\r\n" => "\n")
   analysis = split(split(workflow, "  analysis:\n"; limit = 2)[2], "  verdict:\n"; limit = 2)[1]
   @test occursin("name: Benchmark analysis controls", analysis)
   @test occursin("runs-on: ubuntu-latest", analysis)

@@ -45,15 +45,18 @@ verdict/gate and benchmark-analysis controls remain active.
 Separately approved PR #241 selects stable Julia1 Linux x64 only for every tier.
 Keep the exact `PR required jobs`, `PR merge gate` and Documentation semantics,
 required Linux full validation on master, coverage and policy/provenance-aware
-nightly behavior. macOS/Windows jobs are temporarily disabled; minimal Linux
-green neither validates those platforms nor proves legacy algorithms still work.
+nightly behavior. Required pull request CI stays on Linux; macOS and Windows run
+nightly (see below), not as required checks, so a green required run does not
+validate those platforms, and minimal Linux green does not prove legacy algorithms
+still work.
 Historical full-suite/platform measurements and the deferred macOS C0 warm
 convergence failure remain in docs/audit/historical-full-testing.md.
 
-A separate `Nightly` workflow runs the full suite on Linux with Julia 1.10, scheduled daily. It is
-not a required check. On scheduled and manual runs it attempts to open an issue, or comment on the
-open one, for a failing leg; pull request runs open none. See "Nightly compatibility runs" in
-`test/TESTING.md`. When you change the ProximalBase pin, change `[sources]` in `Project.toml` and
+A separate `Nightly` workflow runs the full suite, scheduled daily, as four legs with a job each: Linux
+with Julia 1.10, and Linux, macOS ARM and Windows with Julia 1. It is not a required check. On
+scheduled and manual runs it attempts to open an issue, or comment on the open one, for a failing
+leg; pull request runs open none. See "Nightly compatibility runs" in `test/TESTING.md`.
+When you change the ProximalBase pin, change `[sources]` in `Project.toml` and
 `Manifest-v1.10.toml` together, as the quick test in `test/aqua.jl` requires.
 
 CD preserves private PB SparseIterate storage/compaction, full-active scheduling,
@@ -108,9 +111,10 @@ isolated environments, including documentation-only runs. The
 [reduction evidence](docs/audit/minimal-core-reduction.md) record
 the reconstruction and coverage.
 
-Current rebuild CI uses stable Julia on Linux x64; macOS/Windows
-automatic jobs are temporarily disabled under separately approved
-PR #241. Their absence is not validation on those platforms.
+Current required rebuild CI uses stable Julia on Linux x64 (its macOS/Windows
+jobs were disabled under separately approved PR #241).
+macOS and Windows run nightly, outside the required checks; a green required
+run is not validation on those platforms.
 Historical measurements and the deferred macOS C0 warm-convergence
 case remain in the repository audits. No public release or
 registry version decision follows automatically from the rebuild.
