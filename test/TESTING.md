@@ -66,8 +66,8 @@ ProximalBase from `[sources]`. They are not required checks; a failure found on 
 already merged, and the report job attempts the per-leg issue above. A one-off verification run during a
 PR, for example on a cluster (Slurm) or locally on another Julia version, tests the SHA it was run
 on, in an environment that the person running it prepares. Its record is a comment on the PR, and it
-says nothing about later commits. On Julia 1.10, `Pkg.test` cannot use `[sources]`, and such runs
-have used a hand-prepared environment: one assertion in `benchmark_formal`
+says nothing about later commits. Julia 1.10 ignores `[sources]`, and such runs on 1.10 that did not use
+`Manifest-v1.10.toml` have used a hand-prepared environment: one assertion in `benchmark_formal`
 (the `benchmark/validate.py` acceptance check in the testset "formal records") failed in one on Julia
 1.10.12 and passes in the nightly's 1.10 leg; the cause there was not diagnosed
 ([#228 comment](https://github.com/mlakolar/ProximalSolvers.jl/issues/228#issuecomment-6846181312)).
