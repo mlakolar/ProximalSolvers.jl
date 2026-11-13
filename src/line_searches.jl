@@ -23,6 +23,35 @@ are too close to compare in floating point, and from gradients after that.
 An LS trial whose image or value overflows is never accepted: it gives no
 estimate, and the search retries with `L ← L / β`.
 
+For [`ProximalGradientDescent`](@ref ProximalSolvers.ProximalGradientDescent)
+on its supported least-squares model, a rejected trial with step `d̂ = x - x'`
+is decided again by the computed curvature of the step,
+`c = m α ‖fl(X d̂)‖²/‖d̂‖²`, from one product `X d̂`, with `m = 1` for
+function-value estimates and `m = 2` for gradient estimates (TFOCS's gradient
+test `2α ‖X d‖² ≤ L ‖d‖²`). When `L ≥ c` the trial is accepted and the estimate
+mode is unchanged; otherwise the retry uses `L ← min(Lexact, max(c, L / β))`
+when `c` is finite, and TFOCS's `L ← min(Lexact, max(L̂, L / β))` when it is
+not. `c` carries no rounding certificate: when `L` is within rounding of the
+curvature along `d̂`, the decision can go either way. For Float32 data the
+squared norms are accumulated in Float64, and two allowances are added to
+`‖fl(X d̂)‖` before squaring: `2√n p floatmin(Float32)` for underflow of the
+results, and `√n floatmin(Float32) ‖d̂‖₁` for subnormal entries of `X` that a
+thread flushing subnormals to zero (the calling thread or a BLAS thread) drops
+from the product. They assume that flushing affects only subnormal operands and
+results, and give no certificate. The curvature value compared with `L`, in
+Float64, is then positive when finite, so a product lost to underflow or
+flushing does not make it zero. The estimate used for a retry is that value
+rounded to Float32, which may round to Inf (when the conversion overflows).
+TFOCS's update is kept when the product overflowed, when the calling thread
+flushes subnormals to zero, and when `d̂` has a subnormal entry. For Float64 data, over- or underflow of `‖fl(X d̂)‖²` or
+`‖d̂‖²` can make `c` nonfinite (TFOCS's update is then kept) or spuriously zero
+(the trial is then accepted). A rejection is not
+checked, and keeps TFOCS's update, when its trial value is not finite, when the
+computed `‖d̂‖²` is zero (the zero-step exit, which includes a tiny nonzero step
+whose square underflows), when `L̂` is NaN, or when a gradient estimate comes
+from a gradient `∇f(x)` with a nonfinite entry. Accepted trials are not checked.
+See [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
+
 The object holds settings only and can be shared between solves; the
 bookkeeping lives in the solver state.
 """
@@ -55,6 +84,11 @@ end
 # computes them from its LS image cache (see image_models.jl)
 function value_and_gradient_at_x! end
 
+# check_rejection!(state, gradient_mode) returns (c ≤ L, c) for a rejected trial with d̂ ≠ 0,
+# with c the computed curvature of the step in the mode of its estimate (twice α‖X d̂‖²/‖d̂‖²
+# in gradient mode). The PGD state implements it with its LS model (proximal_gradient_descent.jl).
+function check_rejection! end
+
 function backtrack!(state, ls::BackTracking{T}, f, g) where T
 
     # Quick exit if no progress made
@@ -83,6 +117,7 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
     end
 
     local_l = Inf
+    gradient_mode = !state.backtrack_simple
     # Compute Lipschitz estimate
     if state.backtrack_simple
         q_x = state.f_x_previous + _dot( state.delta_x, state.grad_f_x_previous ) + 0.5 * state.L * xy_sq
@@ -107,6 +142,21 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
     # Exit if Lipschitz criterion satisfied, or if we hit Lexact
     state.backtrack_steps += 1;
     (local_l <= state.L || state.L >= ls.Lexact) && return true
+    # A rejection with a non-NaN estimate is decided again by the computed curvature c of the
+    # step in the mode in which the estimate was formed; in gradient mode, only when ∇f(x) is
+    # finite. With L ≥ c the trial is accepted and the mode is unchanged; for Float64 data
+    # this includes a c that over- or underflow of a sum of squares makes spuriously zero (see
+    # _step_curvature). Otherwise a finite c replaces the estimate; a nonfinite c (Inf or NaN,
+    # from overflow in the product, for Float32 data also from a calling thread that flushes
+    # subnormals or a subnormal entry of d̂, and for Float64 data from over- or underflow of a
+    # sum of squares) leaves TFOCS's estimate. A NaN estimate, or a gradient estimate from a
+    # nonfinite ∇f(x), is kept: the update and the error check below run on it as before. A
+    # NaN estimate raises the error; an infinite one raises it unless a finite Lexact caps L.
+    if !isnan(local_l) && (!gradient_mode || all(isfinite, state.grad_f_x))
+        accepted, c = check_rejection!(state, gradient_mode)
+        accepted && return true
+        isfinite(c) && (local_l = c)
+    end
     state.L = min( ls.Lexact, max( local_l, next_curvature(state.L, ls.β) ) )
     isfinite(state.L) || error("line search failed: nonfinite curvature estimate")
 

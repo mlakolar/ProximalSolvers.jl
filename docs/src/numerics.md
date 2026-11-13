@@ -136,11 +136,17 @@ input draws each, on Julia 1.10 and 1.13 and two CPU models) it met the
 independently computed targets of a relative duality gap of `1e-8` in Float64
 and `1e-5` in Float32. It is **not** a guarantee of accuracy on other problems,
 and `converged=true` is still not a certificate: check the returned point
-independently, for example with the bound below. Float32 PGD did not meet its
-target in every draw with this configuration. In those probes (with
-`maxiter = 2000`), all 100 Float32 PGD solves ran to `maxiter` with
-`converged=false`, and the iterate was unchanged in 309 to 1992 of their 2000
-iterations.
+independently, for example with the bound below. With this configuration
+Float32 PGD reached its floating-point fixed point and met the independent
+`1e-5` target on the benchmark cases (in these probes, with `maxiter = 10000`;
+10 input draws each, on Julia 1.10 and 1.13, one CPU model), but it ran to
+`maxiter` with `converged=false`. At an iteration whose accepted iterate is
+unchanged, the computed `x` and gradient tests can hold (the computed gradient
+residual can be exactly `0`), but under `ftol = 0` the exact-stall rule (see
+"An exact stall" below) does not count them; between such iterations the
+iterate can still move. Its run time therefore measures the iteration limit.
+The computed residual is not an accuracy measure: the `1e-5` target was
+checked with the independent duality gap.
 
 - **`allow_f_increases = true`.** With the objective test off, a computed
   increase of `F` still ends the solve under the default
@@ -277,7 +283,71 @@ only on `converged`.
 - PGD uses in-place dense arrays, and restores the **last accepted**
   iterate if a numerical step fails. Its counters and other internals
   are not transactional.
-- APG does the same. Its backtracking raises an error, after which the last
+  Its backtracking line search decides each trial with TFOCS's local
+  curvature estimate `L̂`, from function values and later from gradients
+  (see `LineSearches.BackTracking`). Near a minimizer, rounding of
+  `f(x) - q(x)` or of the difference of two gradients can inflate `L̂` by
+  orders of magnitude, which would shrink the step until `x` stops moving.
+  So a rejected trial with a step `d̂ = x - x'` is decided again by the
+  computed curvature of the step, `c = m α ‖fl(X d̂)‖²/‖d̂‖²`, from one
+  matrix-vector product `X d̂`, with `m = 1` while the search uses function
+  values and `m = 2` once it uses gradients (TFOCS's gradient test is
+  `2α ‖X d‖² ≤ L ‖d‖²`). The trial is accepted when `L ≥ c`, and the
+  search keeps its mode; otherwise it retries with
+  `L ← min(Lexact, max(c, L/β))` when `c` is finite, and with TFOCS's
+  `L ← min(Lexact, max(L̂, L/β))` when it is not. `c` is a computed value
+  with no rounding certificate: when `L` is within rounding of the curvature
+  along `d̂`, the decision can go either way, and a step nearly in the null
+  space of `X` can have a computed `c` with a large relative error. For
+  Float32 data the two squared norms are accumulated in Float64, where the
+  square of a finite Float32 is exact, and two allowances are added to
+  `‖fl(X d̂)‖` before squaring: `2√n p floatmin(Float32)` for underflow of
+  the results, and `√n floatmin(Float32) ‖d̂‖₁` for subnormal entries of `X`
+  that a thread flushing subnormals to zero (the calling thread or a BLAS
+  thread) drops from the product. They assume that flushing affects only
+  subnormal operands and results; they are not a bound on the total error of
+  the product, and give no certificate. The curvature value compared with
+  `L`, in Float64, is then positive when finite, so a product lost to
+  underflow or flushing does not make it zero; the estimate used for a retry
+  is that value rounded to Float32, which may round to Inf. TFOCS's update is
+  kept when an entry of `fl(X d̂)` overflowed, when the calling thread
+  flushes subnormals to zero (`set_zero_subnormals(true)`), and when `d̂` has
+  a subnormal entry, which a flushing thread could drop. At ordinary scales
+  the allowances are negligible: with round-to-nearest they leave the
+  computed norm `w = ‖fl(X d̂)‖` unchanged when their sum is below
+  `eps(w)/2`. For Float64 data, over- or
+  underflow of `‖fl(X d̂)‖²` or `‖d̂‖²` can make `c` infinite or NaN, which
+  keeps TFOCS's update, or spuriously zero, which accepts the trial: with
+  extreme scalings, `‖fl(X d̂)‖²` can underflow (or `‖d̂‖²` overflow), so `c`
+  can be zero although the true curvature is large. In the
+  package's probes (seeded Float32 and Float64 designs, including `p > n`,
+  near-duplicate columns, column scales over `10^±3`, residuals orthogonal
+  to the range of `X` and warm starts at the optimum), no accepted step
+  increased the objective by more than `64 eps(T) |F|`, evaluated in higher
+  precision; this is a measurement, not a guarantee. A rejection is not
+  checked, and keeps TFOCS's update, when the trial value is not finite,
+  when the computed `‖d̂‖²` is zero (the zero-step exit, which includes a
+  tiny nonzero step whose square underflows), when `L̂` is NaN, or when a
+  gradient estimate comes from a gradient with a nonfinite entry. Each
+  checked rejection costs one product `X d̂`. Accepted trials are not
+  checked: a trial that a rounding-decided `L̂` accepts below the curvature
+  stays accepted. The `Lexact` exit (a finite-valued trial at `L ≥ Lexact`
+  is accepted) and the zero-step exit are kept. A search that keeps
+  rejecting until `next_curvature` finds no finite increase of `L`, or until
+  TFOCS's update gives a nonfinite `L`, ends in an error with the last
+  accepted iterate restored; that can happen when the curvature along the
+  steps is above `floatmax(T)`, unless TFOCS's estimate, `Lexact` or a zero
+  step accepts a trial.
+  With `ftol > 0` and `allow_f_increases = false`, a solve whose inflated
+  `L` used to make the step round to zero, so that the coefficient test
+  reported `converged = true`, can instead reach the rounding regime of
+  the objective and end on an objective-increase stop
+  (`f_increased = true`); see "Why rounding triggers it" in
+  [PGD stops when the computed objective increases](@ref). Under `ftol = 0`
+  with the settings of [Strict accuracy](@ref), a Float32 solve can reach its
+  floating-point fixed point and, by the exact-stall rule there, run to
+  `maxiter` with `converged = false`.
+- APG handles a failed step in the same way. Its backtracking raises an error, after which the last
   accepted iterate is restored, when the next curvature estimate `L/β` is not a
   finite increase; a trial whose objective is not finite is never accepted.
   An extrapolated point whose objective or gradient is not finite restarts the

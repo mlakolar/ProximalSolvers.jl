@@ -9,7 +9,12 @@ takes a gradient step for the smooth least-squares loss and applies the
 the step size.
 
 `ProximalGradientDescent()` uses the supported
-`LineSearches.BackTracking()` line search. The options
+`LineSearches.BackTracking()` line search. A trial that it rejects is decided
+again, except in the cases that the `LineSearches.BackTracking` docstring
+lists, by the computed curvature `c` of the step from one product `X d`: it is
+accepted when `L ≥ c`, and otherwise the retry uses `c` in place of the
+estimate `L̂` when `c` is finite (see `LineSearches.BackTracking` and
+[numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/)). The options
 `normalized=true`, `debias>0`, `preconditioner!=:none` and custom
 line searches are not implemented and are rejected. These constructor
 keywords remain for compatibility with earlier versions; their default values
@@ -67,7 +72,8 @@ mutable struct ProximalGradientDescentState{T, X<:Vector{T}, G<:Vector{T}, M, Z}
     prox_calls::Int
     model::M
     z_x::Z            # A x
-    dz::Z             # F' at A x
+    dz::Z             # F' at A x; buffer of the product A d of a checked rejection
+    verifications::Int  # rejections checked by the computed curvature (one product A d each)
 end
 
 
@@ -107,7 +113,8 @@ function initial_state(
                          0,           # prox_calls
                          model,
                          z_x,
-                         dz
+                         dz,
+                         0
                          )
 end
 
@@ -147,6 +154,78 @@ end
 
 LineSearches.value_and_gradient_at_x!(state::ProximalGradientDescentState, f) =
   _value_and_gradient!(state.grad_f_x, state.x, state.model, state.z_x, state.dz)
+
+# The computed curvature c = m α ‖fl(X d̂)‖²/‖d̂‖² of the rejected step d̂ = state.delta_x, from
+# the product X d̂ formed in dz (scratch: _image_value_and_gradient! overwrites it before any
+# read), with m = 1 in function-value mode and m = 2 in gradient mode. Returns (accepted, c):
+# accepted is the comparison of the curvature value with L (in Float64 for Float32 data), and c,
+# of type T, is the estimate that the caller uses after a rejection.
+function LineSearches.check_rejection!(state::ProximalGradientDescentState, gradient_mode::Bool)
+    mul!(state.dz, state.model.X, state.delta_x)
+    state.verifications += 1
+    _step_curvature(state, gradient_mode ? 2 : 1)
+end
+
+# Float64 data: both sums of squares in Float64. Overflow or underflow of either sum can make c
+# nonfinite (Inf or NaN; the caller then keeps TFOCS's estimate) or spuriously zero (a finite
+# numerator over an overflowed denominator, or an underflowed numerator; the trial is then
+# accepted).
+function _step_curvature(state::ProximalGradientDescentState{T}, m) where T
+    c = m * (T(state.model.α) * (sum(abs2, state.dz) / sum(abs2, state.delta_x)))
+    c <= state.L, c
+end
+
+# Float32 data. The computed curvature is not used, and the result is (false, Inf32) so that the
+# caller keeps TFOCS's estimate, when the calling thread flushes subnormals to zero
+# (get_zero_subnormals(), one read of the floating-point control register) or when d̂ has a
+# subnormal entry, which a flushing thread could drop from the product. Otherwise the sums of
+# squares are accumulated in Float64, where the square of a finite Float32 is exact, so neither
+# sum overflows or underflows, and ‖d̂‖² > 0 for d̂ ≠ 0. An entry of fl(X d̂) that overflowed to
+# Inf or NaN makes the curvature nonfinite: the trial is not accepted and the caller keeps
+# TFOCS's estimate. Two allowances are added to ‖fl(X d̂)‖ before squaring, under the assumption
+# that flushing to zero, by the calling thread or by a BLAS thread, affects only subnormal
+# operands and results: τ = 2√n p floatmin(Float32) for underflow of the results, and
+# √n floatmin(Float32) ‖d̂‖₁ for subnormal entries of X dropped from the product, each of which
+# changes an entry of fl(X d̂) by at most floatmin(Float32) |d̂ⱼ|. They are not a bound on the
+# total error of the product, which also carries the rounding of its products and sums, and the
+# curvature carries no certificate. The comparison value
+# c64 = m α (‖fl(X d̂)‖ + τ + √n floatmin(Float32) ‖d̂‖₁)²/‖d̂‖², in Float64, is at least
+# m α τ²/‖d̂‖² > 0 when finite, so a product lost to underflow or flushing does not make it zero.
+# Acceptance is c64 ≤ L in Float64. The returned estimate Float32(c64) is used after a rejection
+# only, where c64 > L and L is a Float32, so Float32(c64) ≥ L under round-to-nearest; it can
+# round to 0 (after an acceptance, where it is unused) and may round to Inf (when the conversion
+# overflows).
+function _step_curvature(state::ProximalGradientDescentState{Float32}, m)
+    get_zero_subnormals() && return false, Inf32
+    den, l1, subnormal = _step_norms64(state.delta_x)
+    subnormal && return false, Inf32
+    n, p = size(state.model.X)
+    fm, rn = Float64(floatmin(Float32)), sqrt(Float64(n))
+    w = sqrt(_sumsq64(state.dz)) + 2 * rn * p * fm + rn * fm * l1
+    c = m * (Float64(state.model.α) * (w^2 / den))
+    c <= state.L, Float32(c)
+end
+
+# Σ vᵢ² of a Float32 vector, accumulated in Float64
+function _sumsq64(v)
+    s = 0.0
+    @inbounds @simd for i in eachindex(v)
+        s += abs2(Float64(v[i]))
+    end
+    s
+end
+
+# Σ vᵢ² and Σ |vᵢ| of a Float32 vector, accumulated in Float64, and whether an entry is subnormal
+function _step_norms64(v)
+    s2, s1, subnormal = 0.0, 0.0, false
+    @inbounds @simd for i in eachindex(v)
+        x = Float64(v[i])
+        s2 += abs2(x)
+        s1 += abs(x)
+        subnormal |= issubnormal(v[i])
+    end
+    s2, s1, subnormal
+end
 
 """
     solve!(x, f, g, CDSolver())
