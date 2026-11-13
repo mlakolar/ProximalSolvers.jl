@@ -51,8 +51,9 @@ Call/time limits are checked after complete iterations, so counts can exceed
 limits by one iteration. A zero call limit means unlimited. Float32/Float64
 iterate buffers retain native arithmetic; some scalar tolerances and diagnostics
 are held in Float64, without increasing coefficient accuracy.
-Positive `gaptol` is not supported; positive `gapevery` has no effect
-when `gaptol=0`.
+Gap certificates are not implemented: `gaptol` and `gapevery` are accepted
+for compatibility but not stored, a positive `gaptol` is refused when the
+options are constructed, and `gapevery` (which must be positive) has no effect.
 """
 struct ProximalOptions{TCallback}
   maxiter::Int64
@@ -69,10 +70,30 @@ struct ProximalOptions{TCallback}
   print_every::Int64
   callback::TCallback
   time_limit::Float64
-  gaptol::Float64
-  gapevery::Int
+  # The only constructor, so every route into ProximalOptions is validated.
+  function ProximalOptions(maxiter::Integer, ftol::Real, xtol::Real, gradtol::Real,
+                           f_calls_limit::Integer, grad_calls_limit::Integer,
+                           prox_calls_limit::Integer, allow_f_increases::Bool,
+                           store_trace::Bool, show_trace::Bool, extended_trace::Bool,
+                           print_every::Integer, callback::TCallback,
+                           time_limit) where TCallback
+    # tolerances are checked as given and as stored, so none underflows to zero
+    f, x, g = Float64(ftol), Float64(xtol), Float64(gradtol)
+    maxiter > 1 || throw(ArgumentError("maxiter must be an integer greater than 1."))
+    isfinite(f) && ftol > 0 && f > 0 || throw(ArgumentError("ftol must be finite and positive."))
+    isfinite(x) && xtol > 0 && x > 0 || throw(ArgumentError("xtol must be finite and positive."))
+    isfinite(g) && gradtol >= 0 && g >= 0 || throw(ArgumentError("gradtol must be finite and nonnegative."))
+    min(f_calls_limit, grad_calls_limit, prox_calls_limit) >= 0 || throw(ArgumentError("call limits must be nonnegative."))
+    isnan(time_limit) && throw(ArgumentError("time_limit must not be NaN."))
+    print_every > 0 || throw(ArgumentError("print_every must be positive."))
+    new{TCallback}(maxiter, f, x, g, f_calls_limit, grad_calls_limit,
+                   prox_calls_limit, allow_f_increases, store_trace, show_trace,
+                   extended_trace, print_every, callback, time_limit)
+  end
 end
 
+# gaptol and gapevery are accepted for compatibility and not stored: gap
+# certificates are not implemented, so only gaptol = 0 is accepted.
 function ProximalOptions(; maxiter::Integer = 200,
                          ftol::Real = 1.0e-6,
                          xtol::Real = 1.0e-8,
@@ -89,35 +110,13 @@ function ProximalOptions(; maxiter::Integer = 200,
                          time_limit = Inf,
                          gaptol::Real = 0.0,
                          gapevery::Integer = 10)
-
-  maxiter > 1 || throw(ArgumentError("maxiter must be an integer greater than 1."))
-  isfinite(Float64(ftol)) && ftol > 0 || throw(ArgumentError("ftol must be finite and positive."))
-  isfinite(Float64(xtol)) && xtol > 0 || throw(ArgumentError("xtol must be finite and positive."))
-  isfinite(Float64(gradtol)) && gradtol >= 0 || throw(ArgumentError("gradtol must be finite and nonnegative."))
+  options = ProximalOptions(maxiter, ftol, xtol, gradtol, f_calls_limit, grad_calls_limit,
+                            prox_calls_limit, allow_f_increases, store_trace, show_trace,
+                            extended_trace, print_every, callback, time_limit)
   isfinite(Float64(gaptol)) && gaptol >= 0 || throw(ArgumentError("gaptol must be finite and nonnegative."))
-  min(f_calls_limit, grad_calls_limit, prox_calls_limit) >= 0 || throw(ArgumentError("call limits must be nonnegative."))
-  isnan(time_limit) && throw(ArgumentError("time_limit must not be NaN."))
   gapevery > 0 || throw(ArgumentError("gapevery must be positive."))
-  print_every > 0 || throw(ArgumentError("print_every must be positive."))
-
-  ProximalOptions{typeof(callback)}(
-                  convert(Int64, maxiter),
-                  convert(Float64, ftol),
-                  convert(Float64, xtol),
-                  convert(Float64, gradtol),
-                  f_calls_limit,
-                  grad_calls_limit,
-                  prox_calls_limit,
-                  allow_f_increases,
-                  store_trace,
-                  show_trace,
-                  extended_trace,
-                  convert(Int64, print_every),
-                  callback,
-                  time_limit,
-                  convert(Float64, gaptol),
-                  convert(Int, gapevery)
-                  )
+  iszero(gaptol) || throw(ArgumentError("gap certificates are deferred"))
+  options
 end
 
 

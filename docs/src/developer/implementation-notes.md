@@ -235,7 +235,11 @@ by at most 2e-7 relative.
 Callbacks/display sample `print_every`; stored traces include each iteration. A
 callback receives the trace when storing, otherwise a state. Limits are checked
 after an iteration and counts may overshoot. iteration_converged means a limit,
-not success. Positive gaptol is refused; positive gapevery is inert at gaptol=0.
+not success. `ProximalOptions` refuses positive gaptol at construction and does
+not store gaptol or gapevery. Solvers, options and `BackTracking` each have one
+validating inner constructor (settings are checked as given and after conversion),
+so `solve!` does not re-check them; APG still checks β and α in the precision of
+the iterate before any state is created.
 The retained scalar APIs/results do not introduce a new stopping/logging engine.
 
 

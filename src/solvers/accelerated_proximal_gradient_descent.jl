@@ -46,21 +46,27 @@ conditions independently before reporting numerical results.
 See the [solver guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/)
 and [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
 """
-struct AccProxGradDescent{T<:AbstractFloat, P} <: ProximalSolver
+struct AccProxGradDescent{T<:AbstractFloat} <: ProximalSolver
   β::T          # factor by which the step size 1/L shrinks during backtracking
   α::T          # factor by which L shrinks before each iteration, so the step can grow
-  preconditioner::P
+  # The only constructor, so every route into an AccProxGradDescent is validated.
+  AccProxGradDescent(β::T, α::T) where {T<:AbstractFloat} = (_check_steps(β, α); new{T}(β, α))
 end
+
+_check_steps(β, α) = (0 < β < 1 || throw(ArgumentError("β must be in (0, 1)."));
+                      0 < α <= 1 || throw(ArgumentError("α must be in (0, 1]."));
+                      nothing)
 
 Base.summary(::AccProxGradDescent) = "Accelerated Proximal Gradient Descent"
 
-AccProxGradDescent(β::AbstractFloat, α::AbstractFloat) = AccProxGradDescent(; β, α)
+# checked as given and, by the inner constructor, after promotion
+AccProxGradDescent(β::AbstractFloat, α::AbstractFloat) = (_check_steps(β, α); AccProxGradDescent(promote(β, α)...))
 
+# preconditioner is accepted at its default only and not stored.
 function AccProxGradDescent(; β::AbstractFloat = 0.5, α::AbstractFloat = 0.9, preconditioner::Symbol = :none)
-  0 < β < 1 || throw(ArgumentError("β must be in (0, 1)."))
-  0 < α <= 1 || throw(ArgumentError("α must be in (0, 1]."))
+  method = AccProxGradDescent(β, α)
   preconditioner === :none || throw(ArgumentError("preconditioning is deferred"))
-  AccProxGradDescent(promote(β, α)..., nothing)
+  method
 end
 
 # Dense iterates and gradient with the LS image cache: z_x = A x (of the current
@@ -249,13 +255,6 @@ function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where 
     state
 end
 
-function _check_method(m::AccProxGradDescent)
-  m.preconditioner === nothing || throw(ArgumentError("preconditioning is deferred"))
-  0 < m.β < 1 && 0 < m.α <= 1 ||
-    throw(ArgumentError("AccProxGradDescent needs 0 < β < 1 and 0 < α <= 1"))
-  nothing
-end
-
 # β and α are used in the precision of the iterate.
 function _check_method(m::AccProxGradDescent, ::Type{T}) where T
   β, α = T(m.β), T(m.α)
@@ -310,8 +309,6 @@ internal counters. The result shares `x`.
 function solve!(x, f, g, method::AccProxGradDescent,
                 options::ProximalOptions = ProximalOptions(); kwargs...)
   _check_keywords(kwargs)
-  _check_method(method)
-  _check_options(options)
   _check_problem(x, f, g)
   _check_method(method, eltype(x))
   _check_bound_size(f, eltype(x))

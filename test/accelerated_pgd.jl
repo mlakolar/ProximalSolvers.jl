@@ -716,7 +716,9 @@ end
 
 @testset "constructor and method settings" begin
   m = AccProxGradDescent()
-  @test m.β == 0.5 && m.α == 0.9 && m.preconditioner === nothing
+  @test m.β == 0.5 && m.α == 0.9 && fieldnames(AccProxGradDescent) == (:β, :α)
+  @test AccProxGradDescent(preconditioner = :none) == m
+  @test AccProxGradDescent(0.25f0, 1.0) === AccProxGradDescent(0.25, 1.0)
   @test AccProxGradDescent(0.25, 1.0) == AccProxGradDescent(β = 0.25, α = 1.0)
   @test AccProxGradDescent(β = 0.5f0, α = 0.9) isa AccProxGradDescent{Float64}
   @test summary(m) == "Accelerated Proximal Gradient Descent"
@@ -728,12 +730,21 @@ end
   end
   @test_throws ArgumentError AccProxGradDescent(preconditioner = :diagonal)
   @test_throws TypeError AccProxGradDescent(β = 1 // 2)
-  # positional struct constructors bypass the keyword checks; solve! repeats them
-  f, g = LeastSquaresLoss([1.], ones(1, 1)), NormL1(.1)
-  for bad in (AccProxGradDescent(2.0, 0.9, nothing), AccProxGradDescent(0.5, 0.0, nothing),
-              AccProxGradDescent(0.5, 0.9, :diagonal), AccProxGradDescent(NaN, 0.9, nothing))
-    refused([0.], f, g, bad)
+  @test_throws ArgumentError("β must be in (0, 1).") AccProxGradDescent(β = 1.0)
+  @test_throws ArgumentError("α must be in (0, 1].") AccProxGradDescent(α = 0.0)
+  @test_throws ArgumentError("preconditioning is deferred") AccProxGradDescent(preconditioner = :diagonal)
+  # the positional route is validated at construction, and no other constructor exists
+  for (β, α) in ((2.0, 0.9), (0.5, 0.0), (NaN, 0.9), (0.5f0, 1.5))
+    @test_throws ArgumentError AccProxGradDescent(β, α)
   end
+  # settings are checked as given and after promotion (2-bit BigFloat rounds them)
+  setprecision(BigFloat, 2) do
+    @test_throws ArgumentError("α must be in (0, 1].") AccProxGradDescent(β = BigFloat(0.5), α = nextfloat(1.0))
+    @test_throws ArgumentError("β must be in (0, 1).") AccProxGradDescent(β = 0.99, α = BigFloat(0.5))
+    @test_throws ArgumentError("β must be in (0, 1).") AccProxGradDescent(0.99, BigFloat(0.5))
+  end
+  @test_throws MethodError AccProxGradDescent(0.5, 0.9, nothing)
+  @test_throws MethodError AccProxGradDescent{Float64}(0.5, 0.9)
   # β and α must keep their bounds in the precision of the iterate
   for T in (Float64, Float32)
     X, y = T[1 0; 0 2], T[1, -1]
@@ -783,14 +794,8 @@ end
     refused(alias_x, LeastSquaresLoss(T[1], reshape(alias_x, 1, 2)), g, method)
     @test_throws DimensionMismatch solve!(zeros(T, 3), f, g, method)
     T === Float32 && refused(x, f, NormL1(1e40), method)
-    refused(x, f, g, method; options = ProximalOptions(gaptol = .1))
-    valid = ProximalOptions()
-    for (field, bad) in ((:maxiter, 1), (:ftol, NaN), (:xtol, 0.), (:gradtol, -1.),
-                         (:f_calls_limit, -1), (:print_every, 0), (:time_limit, NaN))
-      values = Any[getfield(valid, n) for n in fieldnames(typeof(valid))]
-      values[findfirst(==(field), fieldnames(typeof(valid)))] = bad
-      refused(x, f, g, method; options = typeof(valid)(values...))
-    end
+    # invalid options cannot be constructed (test/core_contracts.jl), so none reach solve!
+    @test_throws ArgumentError ProximalOptions(gaptol = .1)
     @test x == T[.3, -.2] && X == T[1 0; 0 2] && y == T[1, -1]
   end
   # a start where f is not finite is refused before any step
