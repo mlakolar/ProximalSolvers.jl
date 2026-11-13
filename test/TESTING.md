@@ -58,6 +58,28 @@ ProximalBase UUID in `[deps]`, with a `git-tree-sha1` and no `path` or `repo-sub
 inside that entry, that test fails until `pin_problems` and its cases are changed to the new policy
 (`PIN_POLICY` only labels it).
 
+**Nightly CI and one-off cluster verification.** The `Nightly.yml` legs run the full suite on
+`master`, on schedule or when dispatched by hand, and as an advisory result on a PR that edits
+`Nightly.yml`, `Manifest-v1.10.toml` or `Project.toml`. Each run builds its environments the
+same way: Julia 1.10 resolves from `Manifest-v1.10.toml`, Julia `1` from `Project.toml` with
+ProximalBase from `[sources]`. They are not required checks; a failure found on a scheduled run is
+already merged, and the report job attempts the per-leg issue above. A one-off verification run during a
+PR, for example on a cluster (Slurm) or locally on another Julia version, tests the SHA it was run
+on, in an environment that the person running it prepares. Its record is a comment on the PR, and it
+says nothing about later commits. Julia 1.10 ignores `[sources]`, and such runs on 1.10 that did not use
+`Manifest-v1.10.toml` have used a hand-prepared environment: one assertion in `benchmark_formal`
+(the `benchmark/validate.py` acceptance check in the testset "formal records") failed in one on Julia
+1.10.12 and passes in the nightly's 1.10 leg; the cause there was not diagnosed
+([#228 comment](https://github.com/mlakolar/ProximalSolvers.jl/issues/228#issuecomment-6846181312)).
+In #272 / #276, a warmed accelerated proximal gradient step allocated 464 bytes on Julia 1.10;
+`test/accelerated_pgd.jl` failed there while the required Julia `1` checks passed. A one-off Julia
+1.10 run found it, and #276 fixed it with fixed-arity `_se_mul` methods. With the pre-#276 code
+restored, the nightly's 1.10 leg fails that test (`464 == 0`) and the required checks stay green, as
+shown on the throwaway PR #292. The Julia 1.10.12 and 1.13.3 results reported for #270 / #286 came from
+one-off cluster (Slurm) runs of four test files (`core_contracts`, `core_regressions`,
+`accelerated_pgd`, `minimal_core_characterization`) at the PR's SHA; the full tier ran in PR CI on
+Julia `1` alone. The nightly's 1.10 leg now runs the full suite on master each night.
+
 **Native code.** A test in `test/tier_selection.jl` (quick tier; a change to `src/` plans the full
 tier, which includes it) scans every line of the `.jl` files under `src/` (and `ext/`, if it exists)
 for text that names a native call or module: `ccall`, `@ccall`, `cglobal`, `llvmcall`;
