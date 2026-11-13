@@ -60,15 +60,15 @@ inside that entry, that test fails until `pin_problems` and its cases are change
 
 **Nightly CI and one-off cluster verification.** The `Nightly.yml` legs run the full suite on
 `master`, on schedule or when dispatched by hand, and as an advisory result on a PR that edits
-`Nightly.yml`, `Manifest-v1.10.toml` or `Project.toml`. Each night they build their environments the
+`Nightly.yml`, `Manifest-v1.10.toml` or `Project.toml`. Each run builds its environments the
 same way: Julia 1.10 resolves from `Manifest-v1.10.toml`, Julia `1` from `Project.toml` with
 ProximalBase from `[sources]`. They are not required checks; a failure found on a scheduled run is
-already merged and is reported through the per-leg issue above. A one-off verification run during a
+already merged, and the report job attempts the per-leg issue above. A one-off verification run during a
 PR, for example on a cluster (Slurm) or locally on another Julia version, tests the SHA it was run
 on, in an environment that the person running it prepares. Its record is a comment on the PR, and it
 says nothing about later commits. On Julia 1.10, `Pkg.test` cannot use `[sources]`, and such runs
 have used a hand-prepared environment: one assertion in `benchmark_formal`
-(`test/benchmark_formal.jl:260`, the `benchmark/validate.py` acceptance check) failed in one on Julia
+(the `benchmark/validate.py` acceptance check in the testset "formal records") failed in one on Julia
 1.10.12 and passes in the nightly's 1.10 leg; the cause there was not diagnosed
 ([#228 comment](https://github.com/mlakolar/ProximalSolvers.jl/issues/228#issuecomment-6846181312)).
 In #272 / #276, a warmed accelerated proximal gradient step allocated 464 bytes on Julia 1.10;
