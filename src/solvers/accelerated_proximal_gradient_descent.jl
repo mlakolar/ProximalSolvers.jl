@@ -114,7 +114,7 @@ function initial_state(
 
     model = _image_model(f)
     z_x = _image_buffer(model)
-    f_x = _value!(f, x0, model, z_x)
+    f_x = _value!(x0, model, z_x)
     _check_start(f_x)
     normx0 = _se_norm(T, x0)          # x0 is finite (checked before)
     AccProxGradDescentState(
@@ -207,7 +207,7 @@ end
 # f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + L/2 ‖x - y‖² (with legacy's slack 8eps on L), or until
 # x == y entrywise.
 function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where T
-    state.f_y = _value_and_gradient!(state.grad_f_y, f, state.y, state.model, state.z_y, state.dz)
+    state.f_y = _value_and_gradient!(state.grad_f_y, state.y, state.model, state.z_y, state.dz)
     state.f_calls += 1
     state.grad_calls += 1
     # An extrapolated y whose value or gradient overflows gives no step; f(x) = Inf
@@ -219,7 +219,7 @@ function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where 
     while true
       _step!(state.xhat, state.y, state.grad_f_y, state.L)
       state.g_x = convert(T, value_and_prox!(state.x, g, state.xhat, one(state.L) / state.L))
-      state.f_x = _value!(f, state.x, state.model, state.z_x)
+      state.f_x = _value!(state.x, state.model, state.z_x)
       state.prox_calls += 1
       state.f_calls += 1
 

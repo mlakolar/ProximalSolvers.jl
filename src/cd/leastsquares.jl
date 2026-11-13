@@ -14,7 +14,7 @@ _activeentries(x::SparseIterate) = activecoordinates(x)
 initialize!(m::LSModel{T}, x::SparseIterate{T}) where T = _initialize!(m, x, true)
 function _initialize!(m::LSModel{T}, x::SparseIterate{T}, fresh::Bool) where T
   length(x)==size(m.X,2) || throw(DimensionMismatch("iterate length differs from X columns"))
-  m.r .= m.y .- zero(T)
+  copyto!(m.r, m.y)
   for k in _activeentries(x)
     v = x[k]
     iszero(v) && continue
@@ -51,7 +51,7 @@ function _sqnorm!(m::LSModel{T}, k::Int) where T
   if isnan(a)
     a = zero(T)
     @inbounds for i in axes(m.X, 1)
-      a += (m.X[i, k]-zero(T))*(m.X[i, k]-zero(T))
+      a += m.X[i, k]*m.X[i, k]
     end
     m.a[k] = a
   end
@@ -68,7 +68,7 @@ end
   iszero(a) && !_flat_column(m, k) &&
     throw(ArgumentError("the coordinate curvature underflows; rescale the data or loss"))
   old = x[k]
-  new = iszero(a) ? _coordinate_minimizer(g, old, zero(T), zero(T), k) : prox_block(g, old + b / a, k, inv(m.s * a))
+  new = iszero(a) ? _coordinate_minimizer(g, old, k) : prox_block(g, old + b / a, k, inv(m.s * a))
   m.a[k] = a
   h = new - old
   iszero(h) && return h      # x and the residuals do not change
@@ -82,8 +82,7 @@ coordinate_scale(m::LSModel, x, k::Int) = sqrt(m.s*_sqnorm!(m, k))
 function response_scale(m::LSModel{T}, x) where T
   s = zero(T)
   @inbounds for i in eachindex(m.y)
-    d = m.y[i]-zero(T)
-    s += d*d
+    s += m.y[i]*m.y[i]
   end
   sqrt(m.s*s)
 end

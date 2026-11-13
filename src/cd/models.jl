@@ -8,9 +8,8 @@ response_scale(m::CDModel{T}, x) where T = zero(T)
 loss_value(m::CDModel{T}, x) where T = T(NaN)
 function cdmodel end
 cdmodel(f,x)=throw(ArgumentError("unsupported private coordinate-descent model"))
-# Only zero slope/curvature is reachable for a genuine flat LS column.
-function _coordinate_minimizer(g::NormL1, old::T, G, a, i, μ = one(T)) where T
-  iszero(a) && iszero(G) || throw(ArgumentError("unsupported flat coordinate"))
+# The minimizer along a flat LS column (zero slope and curvature): the penalty's.
+function _coordinate_minimizer(g::NormL1, old::T, i) where T
   new = T(prox_block(g, zero(T), i, floatmax(T)))
   isfinite(new) && isfinite(new-old) || throw(ArgumentError("coordinate $i has no finite minimizer and displacement"))
   new

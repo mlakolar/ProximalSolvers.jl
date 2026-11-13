@@ -384,7 +384,6 @@ function _solve_owner!(x::SparseIterate, f, g, method::CDSolver)
   CDResults(x, result_value, st.passes, st.converged, st.maxchange, st.tolerance, 0)
 end
 function _copy_dense!(dest::Vector{T}, src::SparseIterate{T}) where {T}
-  size(dest) == size(src) || throw(DimensionMismatch())
   fill!(dest, zero(T))
   @inbounds for k in _activeentries(src)
     dest[k] = src[k]

@@ -80,7 +80,7 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
   converged = false
   iteration = 0
 
-  options.show_trace && print_header(method, options)
+  options.show_trace && @printf "Iter     Function value       |dx|/|x|       Step Size\n"
 
   while !converged && !stopped && iteration < options.maxiter
     iteration += 1

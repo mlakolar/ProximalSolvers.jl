@@ -3,56 +3,19 @@
 # removed grad norm field
 #
 
-function update!(tr::OptimizationTrace{T},
-                 iteration::Int64,
-                 f_x::Real,
-                 g_x::Real,
-                 dxx::Real,   # |dx|/|x|
-                 L::Real,
-                 dt::Dict,
-                 store_trace::Bool,
-                 show_trace::Bool,
-                 print_every::Int64,
-                 callback) where T
-
-    os = OptimizationState{T}(iteration, f_x + g_x, dxx, L, dt)
-    if store_trace
-        push!(tr, os)
-    end
-    if show_trace && mod(iteration, print_every) == 0
-        show(os)
-    end
-
-    if callback !== nothing && (iteration % print_every == 0)
-        if store_trace
-            stopped = callback(tr)
-        else
-            stopped = callback(os)
-        end
-    else
-        stopped = false
-    end
-    stopped
-end
-
-
+# Records iteration `iteration` and calls the callback; returns whether it stopped the solve.
 function trace!(tr, f, g, state, iteration, method::ProximalSolver, options)
     dt = Dict()
     if options.extended_trace && iteration > 0
         dt["x"] = _copy(state.x)
         extended_trace!(dt, state)
     end
-    update!(tr,
-            iteration,
-            state.f_x,
-            state.g_x,
-            _state_normdiff(state) / _state_norm(state, state.x),
-            state.L,
-            dt,
-            options.store_trace,
-            options.show_trace,
-            options.print_every,
-            options.callback)
+    os = eltype(tr)(iteration, state.f_x + state.g_x,
+                    _state_normdiff(state) / _state_norm(state, state.x), state.L, dt)
+    options.store_trace && push!(tr, os)
+    options.show_trace && mod(iteration, options.print_every) == 0 && show(os)
+    options.callback !== nothing && iteration % options.print_every == 0 || return false
+    options.store_trace ? options.callback(tr) : options.callback(os)
 end
 
 extended_trace!(dt, state::ProximalGradientDescentState) = dt["grad_f(x)"] = _copy(state.grad_f_x)
