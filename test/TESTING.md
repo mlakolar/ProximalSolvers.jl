@@ -24,6 +24,33 @@ measurements and deferred macOS C0 failure run42949840807 are preserved in
 [the historical record](../docs/audit/historical-full-testing.md). See
 [complete test provenance](../docs/audit/minimal-core-test-provenance.md).
 
+**Nightly compatibility runs.** `.github/workflows/Nightly.yml` runs the full suite
+(`scripts/test.jl --tier=full`), scheduled daily, on Linux with Julia 1.10, which resolves from
+`Manifest-v1.10.toml`; its matrix lists one `include` entry per leg. It is not a required check
+and does not change the required Linux Julia 1 jobs of `CI.yml`. It has no skip or reuse logic: a
+run does not read the runs of `CI.yml` or earlier nights. A pull request that edits `Nightly.yml`,
+`Manifest-v1.10.toml` or `Project.toml` also starts its Julia 1.10 job, as an advisory result that
+opens no issue. On scheduled and manual runs the report job attempts an issue titled `Nightly
+failing: Julia <version> - <os>` (the branch name in parentheses when the ref is not `master`), or a
+comment on the open issue with that title, for each listed leg that did not succeed; a "Green again"
+comment on the open issue of a listed leg that succeeded; and a fallback issue when the leg list
+cannot be read or shows no failing leg although the test job did not succeed (the exact conditions
+are in `Nightly.yml`). A failed write turns the report job red. Issues are closed by hand. Each leg
+attempts to leave a record with its step outcomes and, when the test log contains them, the
+recognised final test table and, for a test step that did not succeed, a bounded excerpt of the
+failure lines; runner loss can leave no record. Rerun with
+`gh workflow run Nightly.yml --ref master`, or locally with
+`julia +1.10 scripts/test.jl --tier=full`. GitHub can delay scheduled runs, and in a public
+repository disables them after 60 days without repository activity. Julia 1.11 and later take
+ProximalBase from `[sources]` in `Project.toml` and Julia 1.10 ignores it, so the quick test in
+`test/aqua.jl` (`pin_problems`) compares the two: `[sources].ProximalBase` must have exactly `url`
+and a 40-character lowercase `rev`, and `Manifest-v1.10.toml` must have one ProximalBase entry whose
+`repo-url` and `repo-rev` equal the `[sources]` `url` and `rev` and whose `uuid` equals the
+ProximalBase UUID in `[deps]`, with a `git-tree-sha1` and no `path` or `repo-subdir`. When
+`[sources]` or its ProximalBase entry is removed, or a key other than `url` and `rev` is added
+inside that entry, that test fails until `pin_problems` and its cases are changed to the new policy
+(`PIN_POLICY` only labels it).
+
 The existing Benchmark analysis controls job has no tier or test-reuse condition, so it is
 independent of the main tier and nightly test reuse. It runs as three separate matrix
 legs (`comparator`, `campaign` and `controls`) that GitHub can run concurrently. The `controls`
