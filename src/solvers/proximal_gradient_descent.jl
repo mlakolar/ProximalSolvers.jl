@@ -157,15 +157,47 @@ LineSearches.value_and_gradient_at_x!(state::ProximalGradientDescentState, f) =
 
 # The computed curvature c = m α ‖fl(X d̂)‖²/‖d̂‖² of the rejected step d̂ = state.delta_x, from
 # the product X d̂ formed in dz (scratch: _image_value_and_gradient! overwrites it before any
-# read), with m = 1 in function-value mode and m = 2 in gradient mode. Returns (c ≤ L, c).
-# Overflow or underflow of either sum of squares can make c nonfinite (Inf or NaN; the caller
-# then keeps TFOCS's estimate) or spuriously zero (a finite numerator over an overflowed
-# denominator, or an underflowed numerator; the trial is then accepted).
-function LineSearches.check_rejection!(state::ProximalGradientDescentState{T}, gradient_mode::Bool) where T
+# read), with m = 1 in function-value mode and m = 2 in gradient mode. Returns (c ≤ L, c), c of
+# type T.
+function LineSearches.check_rejection!(state::ProximalGradientDescentState, gradient_mode::Bool)
     mul!(state.dz, state.model.X, state.delta_x)
     state.verifications += 1
-    c = (gradient_mode ? 2 : 1) * (T(state.model.α) * (sum(abs2, state.dz) / sum(abs2, state.delta_x)))
+    _step_curvature(state, gradient_mode ? 2 : 1)
+end
+
+# Float64 data: both sums of squares in Float64. Overflow or underflow of either sum can make c
+# nonfinite (Inf or NaN; the caller then keeps TFOCS's estimate) or spuriously zero (a finite
+# numerator over an overflowed denominator, or an underflowed numerator; the trial is then
+# accepted).
+function _step_curvature(state::ProximalGradientDescentState{T}, m) where T
+    c = m * (T(state.model.α) * (sum(abs2, state.dz) / sum(abs2, state.delta_x)))
     c <= state.L, c
+end
+
+# Float32 data: the sums of squares are accumulated in Float64, where the square of a Float32 is
+# exact, so neither sum overflows or underflows, and ‖d̂‖² > 0 for d̂ ≠ 0. An entry of fl(X d̂)
+# that overflowed to Inf or NaN makes c nonfinite: the trial is not accepted and the caller
+# keeps TFOCS's estimate. Underflow in the product changes each entry by about p nextfloat(0f0)
+# at most with gradual underflow, and by up to about 2p floatmin(Float32) in a kernel that
+# flushes to zero; the allowance τ = √n p floatmin(Float32) is added to ‖fl(X d̂)‖ before
+# squaring. So c ≥ m α τ²/‖d̂‖² > 0, and a product lost to gradual underflow gives a positive c
+# instead of a zero. c and the comparison with L are in Float64; c is returned as Float32,
+# which is Inf when c rounds above floatmax(Float32).
+function _step_curvature(state::ProximalGradientDescentState{Float32}, m)
+    n, p = size(state.model.X)
+    τ = sqrt(Float64(n)) * p * Float64(floatmin(Float32))
+    w = sqrt(_sumsq64(state.dz)) + τ
+    c = m * (Float64(state.model.α) * (w^2 / _sumsq64(state.delta_x)))
+    c <= state.L, Float32(c)
+end
+
+# Σ vᵢ² of a Float32 vector, accumulated in Float64
+function _sumsq64(v)
+    s = 0.0
+    @inbounds @simd for i in eachindex(v)
+        s += abs2(Float64(v[i]))
+    end
+    s
 end
 
 """

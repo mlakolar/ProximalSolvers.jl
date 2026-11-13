@@ -245,6 +245,20 @@ function pgd_trial(f, g, x0, L; gradient_mode = false, method = ProximalGradient
   st
 end
 
+# A trial at the given point x from xprev at curvature L, with the stored values as
+# update_state! leaves them before backtrack!
+function pgd_pair_trial(f, g, xprev, x, L; method = ProximalGradientDescent())
+  st = PS.initial_state(method, ProximalOptions(), f, g, copy(xprev))
+  PS._copyto!(st.x_previous, st.x)
+  st.f_x_previous, st.g_x_previous = st.f_x, st.g_x
+  PS._copyto!(st.grad_f_x_previous, st.grad_f_x)
+  st.L = L
+  copyto!(st.x, x)
+  st.g_x = convert(eltype(st.x), g(st.x))
+  st.f_x = PS._value!(st.x, st.model, st.z_x)
+  st
+end
+
 pgd_fixture() = ([1. 1 .2; 2 1 .3; -1 0 .5; .1 1 1; .4 .3 -.8; -.2 .8 .1; .6 -.1 .2],
                  [2., 1, -1, .4, -.5, .7, .9])
 
@@ -322,16 +336,17 @@ end
     @test st.verifications == 1 && st.backtrack_simple == !gradient_mode
     @test abs(st.L - c) <= 1e-12 * c
   end
-  # A nonfinite c keeps TFOCS's estimate. Float32: ‖X d̂‖² = (3e19)² overflows, while both values
-  # 0.5 (1.5e19)² are finite; L̂ = Inf (⟨d, ∇f(x')⟩ overflows) is capped by Lexact = 1e30,
-  # where a finite c would give the curvature 1e20.
+  # Float32: ‖X d̂‖² = (3e19)² overflows in Float32, while both values 0.5 (1.5e19)² are finite
+  # and L̂ = Inf (⟨d, ∇f(x')⟩ overflows). Accumulated in Float64, c = 1e20, the curvature,
+  # replaces L̂, below Lexact = 1e30.
   ls = PS.LineSearches.BackTracking(Lexact = 1e30)
   wide = ProximalGradientDescent(ls = ls)
   fb = LeastSquaresLoss(Float32[0], fill(1f10, 1, 1))
   st = pgd_trial(fb, NormL1(0f0), Float32[-1.5f9], 5f19; method = wide)
   @test isfinite(st.f_x) && !isfinite(sum(abs2, fill(1f10, 1, 1) * (st.x .- st.x_previous)))
   @test !PS.LineSearches.backtrack!(st, ls, fb, NormL1(0f0))
-  @test st.L == Float32(1e30) && st.verifications == 1
+  @test st.L ≈ 1f20 rtol = 1e-6
+  @test st.verifications == 1
   # Lexact: a trial at L ≥ Lexact is accepted unchecked; a rejection is capped by Lexact.
   ls = PS.LineSearches.BackTracking(Lexact = curvature / 1e4)
   capped = ProximalGradientDescent(ls = ls)
@@ -353,6 +368,56 @@ end
   st.f_x = Inf
   @test !PS.LineSearches.backtrack!(st, method.ls, f, g)
   @test st.L == curvature / 32 && st.verifications == 0
+end
+
+@testset "PGD Float32 computed curvature under over- and underflow" begin
+  method = ProximalGradientDescent()
+  g0 = NormL1(0f0)
+  # ‖d̂‖² overflows Float32 although norm(d̂)² does not: in Float32 c = finite/Inf = 0 would
+  # accept the trial at L = nextfloat(0f0); in Float64, c is the curvature, about 1.9e-40.
+  d = Float32[-1.008728f19, -1.5444388f19]
+  f = LeastSquaresLoss(Float32[0], reshape(Float32[-1f-20, -1f-20], 1, 2))
+  st = pgd_pair_trial(f, g0, -d / 2, d / 2, nextfloat(0f0))
+  @test isfinite(PS._norm(d)^2) && !isfinite(sum(abs2, d))
+  @test !PS.LineSearches.backtrack!(st, method.ls, f, g0)
+  @test st.verifications == 1
+  @test st.L ≈ pgd_exact_curvature(st, 1) rtol = 1e-4
+  # ‖fl(X d̂)‖² = (1e-28)² underflows Float32: with loss scale 1e38 the curvature is about 1e18,
+  # above L = 1e16, so the trial is rejected and L moves to about 1e18.
+  f = 1f38 * LeastSquaresLoss(Float32[0], fill(1f-10, 1, 1))
+  st = pgd_trial(f, g0, Float32[1f-20], 1f16)
+  @test !PS.LineSearches.backtrack!(st, method.ls, f, g0)
+  @test st.verifications == 1
+  @test st.L ≈ pgd_exact_curvature(st, 1) rtol = 1e-4
+  # fl(X d̂) underflows to 0 although X d̂ = 5e-46 ≠ 0: with the underflow allowance c is
+  # positive, at least the curvature 1e-22, and above L = 1e-30. TFOCS's rejection is forced by
+  # lowering f(x').
+  X = fill(1f-30, 1, 1)
+  f = 1f38 * LeastSquaresLoss(Float32[0], X)
+  st = pgd_pair_trial(f, g0, Float32[0], Float32[5f-16], 1f-30)
+  st.f_x_previous -= 1
+  @test X * Float32[5f-16] == Float32[0]
+  @test !PS.LineSearches.backtrack!(st, method.ls, f, g0)
+  @test st.verifications == 1 && st.L >= pgd_exact_curvature(st, 1)
+  # A zero-curvature direction at ordinary scales: X d̂ = 0 exactly, c is negligible, and the
+  # trial is accepted with the mode unchanged.
+  f = LeastSquaresLoss(Float32[1], Float32[1 1])
+  st = pgd_pair_trial(f, g0, Float32[.5, .5], Float32[.75, .25], 1f0)
+  st.f_x_previous -= 10
+  @test Float32[1 1] * (st.x .- st.x_previous) == Float32[0]
+  @test PS.LineSearches.backtrack!(st, method.ls, f, g0)
+  @test st.verifications == 1 && st.backtrack_simple && st.L == 1f0
+  # An entry of fl(X d̂) overflows (1e30 · 6e8): c is not finite, the trial is not accepted, and
+  # TFOCS's estimate L̂ sets L. ∇f(x') = 0, so L̂ = L + 2 max(f(x) - f(x') - L‖d̂‖²/2, 0)/‖d̂‖².
+  X = Float32[1f30 1f30]
+  f = LeastSquaresLoss(Float32[0], X)
+  st = pgd_pair_trial(f, g0, Float32[-3f8, 3f8], Float32[3f8, -3f8], 1f-20)
+  st.f_x_previous -= 1
+  @test isfinite(st.f_x) && !all(isfinite, X * (st.x .- st.x_previous))
+  xy_sq = PS._norm(st.x .- st.x_previous)^2
+  Lhat = st.L + 2. * max(st.f_x - (st.f_x_previous + 0.5 * st.L * xy_sq), 0f0) / xy_sq
+  @test !PS.LineSearches.backtrack!(st, method.ls, f, g0)
+  @test st.verifications == 1 && st.L == Float32(Lhat)
 end
 
 @testset "PGD checked rejection before an unrepresentable curvature restores the accepted point" begin
