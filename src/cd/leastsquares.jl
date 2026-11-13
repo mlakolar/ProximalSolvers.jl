@@ -1,13 +1,21 @@
-# Borrowed scalar unweighted LS data and native residual/curvature caches.
-mutable struct LSModel{T<:AbstractFloat, MX<:AbstractMatrix{T}, VY<:AbstractVector{T}} <: CDModel{T}
+# Borrowed scalar unweighted LS data and native residual/curvature caches. The loss scale `s`
+# has its own type `S`: the promotion of `T` and the type of the supplied scale where that is a
+# concrete `AbstractFloat` (an IEEE scale wider than `T` keeps its precision), else `T`. X, y,
+# the residual and the curvature cache are in `T`, and so are the loops over them (the column
+# sums, the residual update and the sums in `response_scale` and `loss_value`).
+mutable struct LSModel{T<:AbstractFloat, S<:AbstractFloat, MX<:AbstractMatrix{T}, VY<:AbstractVector{T}} <: CDModel{T}
   X::MX
   y::VY
-  s::T
+  s::S
   r::Vector{T}
   a::Vector{T}
 end
-LSModel(y::AbstractVector{T}, X::AbstractMatrix{T}, s::Real) where T =
-  LSModel(X, y, T(s), zeros(T, length(y)), fill(T(NaN), size(X, 2)))
+function _scale_type(::Type{T}, α) where T
+  S = promote_type(T, typeof(α))
+  isconcretetype(S) && S <: AbstractFloat ? S : T
+end
+LSModel(y::AbstractVector{T}, X::AbstractMatrix{T}, α::Real) where T =
+  LSModel(X, y, convert(_scale_type(T, α), α), zeros(T, length(y)), fill(T(NaN), size(X, 2)))
 cdmodel(f::LeastSquaresLoss{T, <:AbstractVector}, x) where T = LSModel(f.Y, f.X, one(T))
 cdmodel(f::Scaled{<:LeastSquaresLoss{T, <:AbstractVector}}, x) where T = LSModel(f.f.Y, f.f.X, f.α)
 _activeentries(x::SparseIterate) = activecoordinates(x)
@@ -78,18 +86,22 @@ end
 end
 
 _cache(m::LSModel) = m.r
-coordinate_scale(m::LSModel, x, k::Int) = sqrt(m.s*_sqnorm!(m, k))
+# The products of the loss scale with a sum of squares are formed in `S` and rounded to `T`
+# before the square root (for `S == T` this is the product in `T`). A product that rounds to 0
+# gives a scale of 0, which `_tolerances` reads as no response scale; rounding the root instead
+# could leave a subnormal scale whose product with the tolerance rounds to 0.
+coordinate_scale(m::LSModel{T}, x, k::Int) where T = sqrt(T(m.s*_sqnorm!(m, k)))
 function response_scale(m::LSModel{T}, x) where T
   s = zero(T)
   @inbounds for i in eachindex(m.y)
     s += m.y[i]*m.y[i]
   end
-  sqrt(m.s*s)
+  sqrt(T(m.s*s))
 end
 function loss_value(m::LSModel{T}, x) where T
   v = zero(T)
   @inbounds @simd for i in eachindex(m.r)
     v += m.r[i]*m.r[i]
   end
-  m.s*v/2
+  T(m.s*v/2)
 end

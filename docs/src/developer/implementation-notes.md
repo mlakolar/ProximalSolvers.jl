@@ -12,8 +12,21 @@ types, finite data and the solver-specific storage restrictions.
 by conversion to `T` and refuses overflow or nonzero-to-zero
 underflow. It does **not** globally convert the original function
 parameters or ensure that all private arithmetic is of type `T`.
-This accepted wider-scalar behavior is a narrow historical
-compatibility exception, not a generic mixed-precision guarantee.
+After that check CD, PGD and APG use the loss scale as supplied,
+combined with `T` by Julia's promotion. CD's `LSModel` stores it as
+`s::S` with `S = promote_type(T, typeof(α))` if that is a concrete
+`AbstractFloat` type and `S = T` otherwise. The coordinate step, the
+two stopping scales and the reported objective form their products
+with `s` in `S`: the two stopping scales and the objective round the
+product to `T` once, and the step passes its coefficient to the
+ProximalBase prox, which rounds the threshold to `T`. `X`, `y`, the
+residual, the curvature cache and the iterate stay in `T`. A scale of type `T`,
+`Int`, `Bool`, `Rational{Int}`, `Irrational` or `Float16`, or a
+`Float32` scale on `Float64` data, gives `S = T` and the arithmetic of
+`T`. A `BigFloat` or `BigInt` scale gives `S = BigFloat`, whose scalar
+arithmetic uses the precision current when the solve runs.
+This accepted wider-scalar behavior is a narrow compatibility
+exception, not a generic mixed-precision guarantee.
 
 ProximalBase separately defines the mathematical oracle precision
 and exceptional-range behavior. Its selective recovery may avoid
@@ -30,13 +43,16 @@ not a promotion of solver iterates or an optimality certificate.
 `converged=true` retains its algorithm-specific historical meaning;
 use independent objective/KKT checks for accuracy, especially with
 `Float32`. BigFloat may be used for independent test references,
-not as a supported solver working type.
+not as a supported solver working type; a `BigFloat` or `BigInt` loss
+scale is accepted by the representability check and makes CD's scalar
+step arithmetic BigFloat, which allocates and is not a fast path.
 
 This is a documentation alignment with the homogeneous numerical
 policy tracked in
 [ProximalBase PR #857](https://github.com/mlakolar/ProximalBase.jl/pull/857).
-No solver arithmetic, precision conversion, stopping, failure
-atomicity or scalar-acceptance behavior is changed.
+Failure atomicity and the scalar-acceptance check are as before. CD's
+arithmetic is as before where the loss scale promotes to `T`; for a
+loss scale wider than `T` it uses the scale as supplied (#295).
 
 ## support.md (previous detailed notes)
 
@@ -50,7 +66,9 @@ one-dimensional `SparseIterate` of that type for [`CDSolver`](@ref) only;
 one positive finite scalar Scaled LS, and unweighted finite nonnegative NormL1.
 Parameters must be representable; positive values must not round to zero.
 Scaling is explicit: raw LS means sum(abs2,y-X*x)/2; divide by n explicitly for
-normalized lasso. Accepted wider scalars retain historical conversion sites.
+normalized lasso. An accepted loss scale wider than `T` is used as supplied,
+combined with `T` by promotion; the penalty level keeps its historical
+conversion sites.
 
 X/y are borrowed read-only during solves and must not alias mutable x; for a
 `SparseIterate` the check uses the owner's whole backing storage, so even an

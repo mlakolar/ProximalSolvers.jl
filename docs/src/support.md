@@ -28,9 +28,15 @@ The three numerical arrays use one common `T` (`Float32` or
 are not supported. The finite loss scale and penalty level must be
 representable in `T` without overflow or rounding a nonzero scalar
 to zero. They may be supplied in a different scalar type, including
-a representable `Float64` literal in a `Float32` problem; this
-narrow convenience does not imply mixed-precision array support or
-a guarantee about every intermediate arithmetic type.
+a representable `Float64` literal in a `Float32` problem. After that
+check, CD, PGD and APG use the loss scale as supplied, combined with
+`T` by Julia's promotion: a `Float64` scale in a `Float32` problem
+keeps its `Float64` value, also where that value is subnormal in
+`Float32`. The arrays and the coefficients stay in `T`, so this does
+not imply mixed-precision array support or a guarantee about every
+intermediate arithmetic type. A `BigFloat` or `BigInt` loss scale makes
+the scalar step arithmetic of CD `BigFloat`, at the precision current
+when the solve runs; it allocates and is slow, and is not a fast path.
 
 The data must not be modified while a solve is running. The coefficient
 vector (or the supported CD `SparseIterate`) is mutated in place, so do
