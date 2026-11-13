@@ -133,7 +133,8 @@ PGD retains native LS image/value/gradient order, scalar steps, fused PB prox,
 TFOCS objective-to-gradient checks, finite curvature-growth refusal and zero-step
 gradient refresh. Historical objective/iterate/FASTA convergence tests combine
 by OR. Converged does not guarantee KKT below gradtol; objective rounding can
-stop even with very small ftol. Check objective/KKT independently. Native
+stop even with very small ftol; `ftol = 0` disables the objective test. Check
+objective/KKT independently. Native
 Float32 may stagnate earlier. Finite inputs do not ensure finite intermediates;
 historical LS image exceptional-range limitations remain outside this extraction.
 

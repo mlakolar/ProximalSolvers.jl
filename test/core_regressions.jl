@@ -181,4 +181,223 @@ end
     @test (r.f_calls,r.grad_calls,r.prox_calls)==history[end]
   end
 end
+# ---- ftol = 0 switches off objective-change stopping (#270) ----------------------------------
+# convergence_assessment of a constructed state: the solver's own initial_state, then the fields
+# that the assessment reads are set. F = f_x + g_x with g_x = 0; xtol = 1e-8, gradtol = 1e-11.
+function pgd_assessment(T, ftol; x, previous, F, F_previous, delta = x .- previous,
+                        grad = zeros(T, length(x)), grad_previous = grad, L = one(T))
+  f, g = LeastSquaresLoss(T[1, -1], T[1 0; 0 2]), NormL1(T(.1))
+  options = ProximalOptions(; ftol, xtol = 1e-8, gradtol = 1e-11)
+  state = PS.initial_state(ProximalGradientDescent(), options, f, g, T[.3, -.2])
+  state.x .= x
+  state.x_previous .= previous
+  state.delta_x .= delta
+  state.f_x, state.g_x = T(F), zero(T)
+  state.f_x_previous, state.g_x_previous = T(F_previous), zero(T)
+  state.grad_f_x .= grad
+  state.grad_f_x_previous .= grad_previous
+  state.L = L
+  (; flags = PS.convergence_assessment(state, f, g, options), state, f, g, options)
+end
+
+@testset "PGD: ftol = 0 switches off the objective test; ftol > 0 keeps its flags (#270)" begin
+  for T in (Float64, Float32)
+    x, F = T[1, 2], T(3) / 2
+    moved = x .+ T(.01)                      # an accepted step that changed x
+    zeros2, ones2 = zeros(T, 2), ones(T, 2)  # equal gradients, or gradients far apart
+    tiny = nextfloat(zero(T))
+    flat = (false, false, false, false, false)
+    # label, state, then the flags (x_converged, f_converged, grad_converged, converged,
+    # f_increased) for ftol = 1e-15, 1e-300 and 0
+    cases = [
+      ("F == F'", (previous = moved, F = F, F_previous = F, grad = ones2, grad_previous = zeros2),
+       (false, true, false, true, false), (false, true, false, true, false), flat),
+      ("F' = nextfloat(F): one ulp", (previous = moved, F = F, F_previous = nextfloat(F), grad = ones2, grad_previous = zeros2),
+       (false, true, false, true, false), (false, true, false, true, false), flat),
+      # 3 ulps: the relative test holds for 1e-15 in Float64 only, and 1e-300 leaves no test
+      ("F' = F + 3eps(F)", (previous = moved, F = F, F_previous = F + 3eps(F), grad = ones2, grad_previous = zeros2),
+       (false, T === Float64, false, T === Float64, false), flat, flat),
+      ("F = nextfloat(F'): an increase of one ulp", (previous = moved, F = F, F_previous = prevfloat(F), grad = ones2, grad_previous = zeros2),
+       (false, true, false, true, true), (false, true, false, true, true), (false, false, false, false, true)),
+      ("F = F' + 1/2: a large increase", (previous = moved, F = F, F_previous = F - T(1) / 2, grad = ones2, grad_previous = zeros2),
+       (false, false, false, false, true), (false, false, false, false, true), (false, false, false, false, true)),
+      ("x == x_previous, equal gradients", (previous = x, F = F, F_previous = F + 1, grad = zeros2),
+       (true, false, true, true, false), (true, false, true, true, false), flat),
+      ("x == x_previous with -0.0 against 0.0", (x = T[0, 2], previous = T[-0.0, 2], F = F, F_previous = F + 1, grad = zeros2),
+       (true, false, true, true, false), (true, false, true, true, false), flat),
+      ("x == x_previous, different gradients", (previous = x, F = F, F_previous = F + 1, grad = T[1, 1.5], grad_previous = T[.5, 1]),
+       (true, false, false, true, false), (true, false, false, true, false), flat),
+      # x != x_previous while the norm of delta_x is 0: not a stall, evaluated as with ftol > 0
+      ("x != x_previous, delta_x = 0", (previous = moved, delta = zeros2, F = F, F_previous = F + 1, grad = zeros2),
+       (true, false, true, true, false), (true, false, true, true, false), (true, false, true, true, false)),
+      # a subnormal difference (this row assumes IEEE gradual underflow in the comparison of the iterates):
+      # x != x_previous, so the flags are those of ftol > 0 whichever way the computed norm comes out
+      ("x != x_previous, a subnormal difference", (x = T[1, 0], previous = T[1, tiny], F = F, F_previous = F + 1, grad = zeros2),
+       (true, false, true, true, false), (true, false, true, true, false), (true, false, true, true, false)),
+    ]
+    for (label, state, e15, e300, e0) in cases, (ftol, expected) in ((1e-15, e15), (1e-300, e300), (0, e0))
+      a = pgd_assessment(T, ftol; merge((; x), state)...)
+      @test (label, T, ftol, a.flags) == (label, T, ftol, expected)
+    end
+    # gradient_converged! still runs on an unchanged iterate, so max_residual is updated as with ftol > 0
+    for ftol in (1e-15, 1e-300, 0)
+      a = pgd_assessment(T, ftol; x, previous = x, F, F_previous = F + 1, grad = T[1, 1.5], grad_previous = T[.5, 1])
+      @test a.state.max_residual == T(.5)
+    end
+  end
+end
+
+# the function barrier gives the call concrete argument types
+alloc_unchanged(a, b) = @allocated PS._unchanged(a, b)
+@testset "_unchanged is value equality and allocates nothing" begin
+  @test PS._unchanged([0.0, 1.0], [-0.0, 1.0])
+  @test PS._unchanged(Float32[], Float32[])
+  @test !PS._unchanged([0.0, 1.0], [0.0, nextfloat(1.0)])
+  @test !PS._unchanged([1.0, 0.0], [1.0, floatmin(Float64)])
+  for T in (Float64, Float32)
+    a, b = rand(T, 100), zeros(T, 100)
+    b .= a
+    alloc_unchanged(a, b)
+    @test alloc_unchanged(a, b) == 0
+    b[end] = nextfloat(b[end])
+    @test alloc_unchanged(a, b) == 0
+  end
+end
+
+alloc_assessment(a) = @allocated PS.convergence_assessment(a.state, a.f, a.g, a.options)
+@testset "PGD: a warmed assessment allocates nothing, with and without an unchanged iterate (#270)" begin
+  for T in (Float64, Float32), ftol in (1e-15, 0)
+    x = T[1, 2]
+    for previous in (x .+ T(.01), x)
+      a = pgd_assessment(T, ftol; x, previous, F = T(3) / 2, F_previous = T(5) / 2)
+      PS.convergence_assessment(a.state, a.f, a.g, a.options)
+      @test alloc_assessment(a) == 0
+    end
+  end
+end
+
+@testset "f_residual under ftol = 0 reports 0 for F = F' = 0, Inf for F = 0 != F' and |F - F'|/|F| otherwise (#270)" begin
+  for T in (Float64, Float32)
+    @test PS.f_residual(T(0), T(0), 0.0) === 0.0
+    @test PS.f_residual(T(0), T(1), 0.0) === Inf
+    @test PS.f_residual(T(1), T(0), 0.0) === 1.0
+    @test PS.f_residual(T(-3), T(-3), 0.0) === 0.0
+    @test PS.f_residual(T(2), T(1), 0.0) === 0.5
+    @test PS.f_residual(T(1), T(3) / 2, 0.0) === 0.5
+    # ftol > 0 keeps its formula
+    @test PS.f_residual(T(0), T(0), 1e-6) === 0.0
+    @test PS.f_residual(T(0), T(1), 1e-6) === 1 / 1e-6
+    @test PS.f_residual(T(1), T(3) / 2, 1e-6) === 0.5 / (1 + 1e-6)
+    # the result reports what the solve ended with: F = F' = 0, then F = 0 != F'
+    f = LeastSquaresLoss(T[0], T[1;;])
+    r = solve!(T[0], f, NormL1(T(100)), ProximalGradientDescent(), ProximalOptions(maxiter = 3, ftol = 0))
+    @test r.f_tol === 0.0 && r.f_residual === 0.0 && !r.f_converged && r.minimum == 0
+    x = T[1]
+    r = solve!(x, f, NormL1(T(100)), ProximalGradientDescent(), ProximalOptions(ftol = 0, callback = _ -> true))
+    @test r.iterations == 1 && x == T[0] && r.minimum == 0 && r.f_residual === Inf && !r.f_converged
+  end
+end
+
+# A planted lasso with an interior solution (the data of the FASTA-only test above).
+function fasta_fixture(T; fraction = .1)
+  rng = Xoshiro(90); X = randn(rng, 40, 12); y = X * vcat([1., -.5], zeros(10)) + .1randn(rng, 40)
+  scale = 1 / 40
+  λ = fraction * norm(scale * X'y, Inf)
+  X, y, scale, λ, T(scale) * LeastSquaresLoss(T.(y), T.(X)), NormL1(T(λ))
+end
+
+# F(b) and its Float64 duality gap relative to F(b), with the dual point s r scaled into the
+# box ‖Xᵀθ‖∞ ≤ λ (a numerical check in Float64, not a certificate).
+function relative_gap(X, y, scale, λ, b)
+  r = y - X * b
+  θ = scale * r
+  θ .*= min(1, λ / norm(X' * θ, Inf))
+  P = scale * sum(abs2, r) / 2 + λ * sum(abs, b)
+  (P - (dot(y, θ) - sum(abs2, θ) / (2scale))) / P
+end
+
+@testset "PGD: ftol = 0 with allow_f_increases and strict tolerances ends on the gradient test (#270)" begin
+  X, y, scale, λ, f, g = fasta_fixture(Float64)
+  # the control allows increases, so that it does not depend on an increase stop of the rounded trajectory
+  base = ProximalOptions(maxiter = 20_000, ftol = 1e-15, allow_f_increases = true, xtol = 1e-14, gradtol = 1e-11)
+  strict = ProximalOptions(maxiter = 20_000, ftol = 0, allow_f_increases = true, xtol = 1e-300, gradtol = 1e-11)
+  # at the base tolerances the objective test ends the solve
+  r = solve!(zeros(12), f, g, ProximalGradientDescent(), base)
+  @test r.f_converged
+  x = zeros(12)
+  r = solve!(x, f, g, ProximalGradientDescent(), strict)
+  @test !r.f_converged && r.grad_converged && r.converged && !r.iteration_converged
+  @test r.f_tol === 0.0 && r.g_residual < 1e-6
+  # the fixture's requirement is a KKT residual below 1e-4 (the FASTA-only test); tightened tenfold,
+  # and the independent relative duality gap against the target 1e-8
+  @test direct_kkt(X, y, x, λ, scale) < 1e-4 / 10
+  @test relative_gap(X, y, scale, λ, x) < 1e-8
+end
+
+@testset "PGD: an exactly unchanged iterate under ftol = 0 is no progress, not convergence (#270)" begin
+  # λ is twice the largest |∇f(0)|, so a step from x = 0 is soft thresholded to 0: the iterate
+  # stays x == x_previous. The point is the exact solution; the flags report no progress, not an error.
+  for T in (Float64, Float32)
+    _, _, _, _, f, g = fasta_fixture(T; fraction = 2)
+    # the settings of the base: an unchanged iterate passes the x test
+    r = solve!(zeros(T, 12), f, g, ProximalGradientDescent(),
+               ProximalOptions(maxiter = 50, ftol = 1e-15, xtol = 1e-14, gradtol = 1e-11))
+    @test r.converged && r.x_converged && !r.iteration_converged
+    # ftol = 0 stops on neither the x test nor the gradient test, and runs to maxiter.
+    # allow_f_increases = true keeps a rounding-level increase of the computed objective from ending it.
+    x = zeros(T, 12)
+    r = solve!(x, f, g, ProximalGradientDescent(),
+               ProximalOptions(maxiter = 5, ftol = 0, allow_f_increases = true, xtol = 1e-300, gradtol = 1e-11))
+    @test !r.converged && r.iteration_converged && r.iterations == 5
+    @test !r.x_converged && !r.f_converged && !r.grad_converged
+    @test all(iszero, x) && r.x_residual == 0 && r.g_residual == 0
+  end
+end
+
+@testset "PGD: ftol = 0, gradtol = 0 and a tiny xtol end at maxiter when the solve is far from its solution (#270)" begin
+  for T in (Float64, Float32)
+    _, _, _, _, f, g = fasta_fixture(T)
+    x = zeros(T, 12)
+    r = solve!(x, f, g, ProximalGradientDescent(),
+               ProximalOptions(maxiter = 3, ftol = 0, gradtol = 0, xtol = 1e-300))
+    @test !r.converged && r.iteration_converged && r.iterations == 3
+    @test !r.x_converged && !r.f_converged && !r.grad_converged && any(!iszero, x)
+  end
+end
+
+@testset "PGD: with ftol = 0 an increase or any other stop reports converged from the x and gradient tests only (#270)" begin
+  for T in (Float64, Float32), fraction in (.05, .3), allow in (false, true)
+    _, _, _, _, f, g = fasta_fixture(T; fraction)
+    r = solve!(zeros(T, 12), f, g, ProximalGradientDescent(),
+               ProximalOptions(maxiter = 2000, ftol = 0, allow_f_increases = allow, xtol = 1e-300, gradtol = 1e-11))
+    @test !r.f_converged
+    @test r.converged == (r.x_converged || r.grad_converged)
+    # an increase of the computed objective can end the solve only when allow is false; no test requires one
+    r.f_increased && !allow && @test r.converged == (r.x_converged || r.grad_converged)
+    # with ftol > 0 the objective test is part of converged
+    r = solve!(zeros(T, 12), f, g, ProximalGradientDescent(),
+               ProximalOptions(maxiter = 2000, ftol = 1e-15, allow_f_increases = allow, xtol = 1e-14, gradtol = 1e-11))
+    @test r.converged == (r.x_converged || r.f_converged || r.grad_converged)
+  end
+end
+
+@testset "PGD: the result display shows a disabled objective test and a true increase line (#270)" begin
+  _, _, _, _, f, g = fasta_fixture(Float64)
+  r = solve!(zeros(12), f, g, ProximalGradientDescent(), ProximalOptions(maxiter = 5, ftol = 0))
+  shown = sprint(show, r)
+  @test occursin("\n   * objective-change test: disabled (ftol = 0)\n     |f(x) - f(x')| / |f(x)| = ", shown)
+  @test !occursin("|f(x) - f(x')| / |f(x)| <", shown)
+  @test occursin("\n   * objective increased at the last iteration: $(r.f_increased)\n", shown)
+  @test !occursin("stopped by an increasing objective", shown)
+  # the line reports the comparison, which holds in both cases of allow_f_increases
+  r.f_increased = true
+  @test occursin("\n   * objective increased at the last iteration: true\n", sprint(show, r))
+  # the default options keep the objective test line, and show the same increase line
+  r = solve!(zeros(12), f, g, ProximalGradientDescent())
+  shown = sprint(show, r)
+  @test occursin("\n   * |f(x) - f(x')| / |f(x)| < 1.0e-06: $(r.f_converged)\n", shown)
+  @test occursin("\n   * objective increased at the last iteration: $(r.f_increased)\n", shown)
+  @test !occursin("disabled", shown) && !occursin("stopped by an increasing objective", shown)
+end
+
 end

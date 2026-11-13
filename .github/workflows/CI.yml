@@ -214,11 +214,17 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
   analysis:
-    name: Benchmark analysis controls
+    name: Benchmark analysis controls (${{ matrix.part }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [comparator, campaign, controls]
+    env:
+      PART: ${{ matrix.part }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -226,54 +232,143 @@ jobs:
           # Full history: the Stage 2B campaign-driver tests read pinned historical commits (git
           # cat-file, git archive); the hygiene check below compares with HEAD^1.
           fetch-depth: 0
-      - name: Check repository hygiene (required through analysis verdict)
+      - name: Log the runner CPU
         run: |
-          python3 scripts/test_repo_hygiene.py
-          python3 scripts/check_repo_hygiene.py --base 'HEAD^1'
+          grep -m1 'model name' /proc/cpuinfo
+          nproc
+      # The three legs (comparator, campaign, controls) are separate matrix jobs that GitHub can run
+      # concurrently; runner availability can delay one of them.
+      # In each step below that belongs to one leg, that leg runs the commands; the other two named
+      # legs print one line and succeed, and any other leg name fails the step. The verdict job
+      # reads needs.analysis.result, which is failure when a leg fails.
+      - name: Check repository hygiene (required through analysis verdict)
+        shell: bash
+        run: |
+          case "$PART" in
+            controls)
+              python3 scripts/test_repo_hygiene.py
+              python3 scripts/check_repo_hygiene.py --base 'HEAD^1'
+              ;;
+            comparator|campaign) echo "Not part of the $PART leg." ;;
+            *) echo "::error::Unknown analysis leg '$PART'."; exit 1 ;;
+          esac
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-      - run: python benchmark/check_analysis.py
-      - run: python -I benchmark/sparse_cd/check_analysis.py
-      - run: python -B benchmark/external/coordinatedescent/check_analysis.py
-      # The offline Stage 2B suites (benchmark/campaigns/stage2b/README.md), one step each. A
-      # skipped test fails its step. The harness identities are read with git at the pinned commits
-      # (never from the working tree); a missing pinned commit fails those tests, it is not skipped.
+      - name: Check the benchmark analysis
+        shell: bash
+        run: |
+          case "$PART" in
+            controls) python benchmark/check_analysis.py ;;
+            comparator|campaign) echo "Not part of the $PART leg." ;;
+            *) echo "::error::Unknown analysis leg '$PART'."; exit 1 ;;
+          esac
+      - name: Check the sparse coordinate descent analysis
+        shell: bash
+        run: |
+          case "$PART" in
+            controls) python -I benchmark/sparse_cd/check_analysis.py ;;
+            comparator|campaign) echo "Not part of the $PART leg." ;;
+            *) echo "::error::Unknown analysis leg '$PART'."; exit 1 ;;
+          esac
+      - name: Check the coordinatedescent comparison analysis
+        shell: bash
+        run: |
+          case "$PART" in
+            controls) python -B benchmark/external/coordinatedescent/check_analysis.py ;;
+            comparator|campaign) echo "Not part of the $PART leg." ;;
+            *) echo "::error::Unknown analysis leg '$PART'."; exit 1 ;;
+          esac
+      # The offline Stage 2B suites (benchmark/campaigns/stage2b/README.md) are split by leg:
+      # comparator runs the migration comparator suite; campaign runs the pinned-commit check and
+      # the campaign-driver suite; controls runs the file-and-fixture and reset-probe suites. A
+      # skipped test fails its step, and so does a unittest log without a "Ran N tests" line
+      # (N >= 1) or without a line OK. The harness identities are read with git at the pinned
+      # commits, not from the working tree; a missing pinned commit fails those tests, it is not
+      # skipped.
       - name: Pinned Stage 2B commits are in the checkout
         shell: bash
         run: |
-          commits=$(sed -nE 's/^(BASE|STACK_A)_COMMIT = "([0-9a-f]{40})"$/\2/p' benchmark/campaigns/stage2b/test_stage2b_campaign.py)
-          [ "$(wc -w <<< "$commits")" = 2 ] || { echo "::error::Expected BASE_COMMIT and STACK_A_COMMIT in test_stage2b_campaign.py, found: $commits"; exit 1; }
-          for commit in $commits; do
-            git cat-file -e "$commit^{commit}" || { echo "::error::Pinned commit $commit is not in the checkout."; exit 1; }
-            git log -1 --format="%H %cs %s" "$commit"
-          done
+          case "$PART" in
+            campaign)
+              commits=$(sed -nE 's/^(BASE|STACK_A)_COMMIT = "([0-9a-f]{40})"$/\2/p' benchmark/campaigns/stage2b/test_stage2b_campaign.py)
+              [ "$(wc -w <<< "$commits")" = 2 ] || { echo "::error::Expected BASE_COMMIT and STACK_A_COMMIT in test_stage2b_campaign.py, found: $commits"; exit 1; }
+              for commit in $commits; do
+                git cat-file -e "$commit^{commit}" || { echo "::error::Pinned commit $commit is not in the checkout."; exit 1; }
+                git log -1 --format="%H %cs %s" "$commit"
+              done
+              ;;
+            comparator|controls) echo "Not part of the $PART leg." ;;
+            *) echo "::error::Unknown analysis leg '$PART'."; exit 1 ;;
+          esac
       - name: Stage 2B migration comparator tests
         shell: bash
         run: |
-          python3 -B benchmark/campaigns/stage2b/test_migration_compare.py 2>&1 | tee "$RUNNER_TEMP/stage2b.log"
-          if grep -E '^(OK|FAILED) \(.*skipped=' "$RUNNER_TEMP/stage2b.log"; then echo "::error::Skipped tests are not accepted in CI."; exit 1; fi
+          case "$PART" in
+            comparator)
+              log="$RUNNER_TEMP/stage2b-comparator.log"
+              python3 -B benchmark/campaigns/stage2b/test_migration_compare.py 2>&1 | tee "$log"
+              if grep -E '^(OK|FAILED) \(.*skipped=' "$log"; then echo "::error::Skipped tests are not accepted in CI."; exit 1; fi
+              if ! grep -Eq '^Ran [1-9][0-9]* tests? in ' "$log"; then echo "::error::The unittest log has no 'Ran N tests' line with N >= 1."; exit 1; fi
+              if ! grep -qx 'OK' "$log"; then echo "::error::The unittest log has no 'OK' line."; exit 1; fi
+              ;;
+            campaign|controls) echo "Not part of the $PART leg." ;;
+            *) echo "::error::Unknown analysis leg '$PART'."; exit 1 ;;
+          esac
       - name: Stage 2B file and fixture tests
         shell: bash
         run: |
-          python3 -B benchmark/campaigns/stage2b/test_stage2b_files.py 2>&1 | tee "$RUNNER_TEMP/stage2b.log"
-          if grep -E '^(OK|FAILED) \(.*skipped=' "$RUNNER_TEMP/stage2b.log"; then echo "::error::Skipped tests are not accepted in CI."; exit 1; fi
+          case "$PART" in
+            controls)
+              log="$RUNNER_TEMP/stage2b-files.log"
+              python3 -B benchmark/campaigns/stage2b/test_stage2b_files.py 2>&1 | tee "$log"
+              if grep -E '^(OK|FAILED) \(.*skipped=' "$log"; then echo "::error::Skipped tests are not accepted in CI."; exit 1; fi
+              if ! grep -Eq '^Ran [1-9][0-9]* tests? in ' "$log"; then echo "::error::The unittest log has no 'Ran N tests' line with N >= 1."; exit 1; fi
+              if ! grep -qx 'OK' "$log"; then echo "::error::The unittest log has no 'OK' line."; exit 1; fi
+              ;;
+            comparator|campaign) echo "Not part of the $PART leg." ;;
+            *) echo "::error::Unknown analysis leg '$PART'."; exit 1 ;;
+          esac
       - name: Stage 2B campaign-driver tests (including pinned-commit fingerprints)
         shell: bash
         run: |
-          python3 -B benchmark/campaigns/stage2b/test_stage2b_campaign.py 2>&1 | tee "$RUNNER_TEMP/stage2b.log"
-          if grep -E '^(OK|FAILED) \(.*skipped=' "$RUNNER_TEMP/stage2b.log"; then echo "::error::Skipped tests are not accepted in CI."; exit 1; fi
+          case "$PART" in
+            campaign)
+              log="$RUNNER_TEMP/stage2b-campaign.log"
+              python3 -B benchmark/campaigns/stage2b/test_stage2b_campaign.py 2>&1 | tee "$log"
+              if grep -E '^(OK|FAILED) \(.*skipped=' "$log"; then echo "::error::Skipped tests are not accepted in CI."; exit 1; fi
+              if ! grep -Eq '^Ran [1-9][0-9]* tests? in ' "$log"; then echo "::error::The unittest log has no 'Ran N tests' line with N >= 1."; exit 1; fi
+              if ! grep -qx 'OK' "$log"; then echo "::error::The unittest log has no 'OK' line."; exit 1; fi
+              ;;
+            comparator|controls) echo "Not part of the $PART leg." ;;
+            *) echo "::error::Unknown analysis leg '$PART'."; exit 1 ;;
+          esac
       - name: Stage 2B reset-probe checker tests
         shell: bash
         run: |
-          python3 -B benchmark/campaigns/stage2b/probes/test_check_reset_probes.py 2>&1 | tee "$RUNNER_TEMP/stage2b.log"
-          if grep -E '^(OK|FAILED) \(.*skipped=' "$RUNNER_TEMP/stage2b.log"; then echo "::error::Skipped tests are not accepted in CI."; exit 1; fi
+          case "$PART" in
+            controls)
+              log="$RUNNER_TEMP/stage2b-reset-probes.log"
+              python3 -B benchmark/campaigns/stage2b/probes/test_check_reset_probes.py 2>&1 | tee "$log"
+              if grep -E '^(OK|FAILED) \(.*skipped=' "$log"; then echo "::error::Skipped tests are not accepted in CI."; exit 1; fi
+              if ! grep -Eq '^Ran [1-9][0-9]* tests? in ' "$log"; then echo "::error::The unittest log has no 'Ran N tests' line with N >= 1."; exit 1; fi
+              if ! grep -qx 'OK' "$log"; then echo "::error::The unittest log has no 'OK' line."; exit 1; fi
+              ;;
+            comparator|campaign) echo "Not part of the $PART leg." ;;
+            *) echo "::error::Unknown analysis leg '$PART'."; exit 1 ;;
+          esac
       - uses: julia-actions/setup-julia@v3
         with:
           version: '1'
           arch: x64
       - name: Exact-source paired-master diagnostics
-        run: julia --startup-file=no --project=@stdlib scripts/paired_master_diagnostics.jl
+        shell: bash
+        run: |
+          case "$PART" in
+            controls) julia --startup-file=no --project=@stdlib scripts/paired_master_diagnostics.jl ;;
+            comparator|campaign) echo "Not part of the $PART leg." ;;
+            *) echo "::error::Unknown analysis leg '$PART'."; exit 1 ;;
+          esac
         env:
           JULIA_PKG_PRECOMPILE_AUTO: '0'
           OPENBLAS_NUM_THREADS: '1'

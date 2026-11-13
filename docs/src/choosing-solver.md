@@ -117,7 +117,9 @@ and `gradtol=1e-5` target convenience, **not a specified number of
 accurate digits**. Tighten them for results you intend to report, but do
 not assume smaller tolerances guarantee a correspondingly smaller error.
 PGD's stopping tests combine by **OR**, so a satisfied objective-change
-test can stop the run even when the KKT residual is not small.
+test can stop the run even when the KKT residual is not small;
+`ftol = 0` switches that test off, as described under Strict accuracy in
+[Numerical behavior](numerics.md).
 The two results above report both coefficient error (possible here because
 the analytic answer is known) and an independently computed
 [KKT violation](sparsity-and-kkt.md). On other problems, evaluate the KKT
