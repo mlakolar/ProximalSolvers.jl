@@ -100,13 +100,14 @@ paths = ["examples/**"]
 # here, because no file under src/ makes such a call today. test/tier_selection.jl reads the table
 # (test/tiers.jl loads this file for scripts/ci_plan.jl but does not read it). The test scans the
 # .jl files under src/ (and ext/, if it exists) for the explicit native calls of NATIVE_PATTERNS
-# (a `ccall` or `@ccall`, a `LAPACK.` or `BLAS.` call, a `using` or `import` line that names
-# LAPACK, BLAS or Libdl, a `Libdl.` call), and a file with such a call fails the test unless an
+# (a `ccall` or `@ccall`, a `LAPACK.` or `BLAS.` call, a `using` or `import` statement that
+# names LAPACK, BLAS or Libdl, also when it continues on lines after a trailing `,` or `:`, and a
+# `Libdl.` call), and a file with such a call fails the test unless an
 # entry below lists it.
 # Generic linear algebra such as `mul!` or `dot` is not matched.
 #
 # An entry has exactly these keys:
-#   why         a string: what the native call is for
+#   why         a non-empty string: what the native call is for
 #   paths       a non-empty list of source files, each existing and containing an explicit native call
 #   checks      a non-empty list of test names from the tier lists: the tests that must run on the platforms
 #   platforms   a non-empty list drawn from "macos-latest" and "windows-latest"

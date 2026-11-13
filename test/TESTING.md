@@ -60,8 +60,9 @@ inside that entry, that test fails until `pin_problems` and its cases are change
 
 **Native code.** A test in `test/tier_selection.jl` (quick tier; a change to `src/` plans the full
 tier, which includes it) reads the `.jl` files under `src/` (and `ext/`, if it exists) for explicit
-native calls: `ccall`, `@ccall`, a `LAPACK.` or `BLAS.` call, a `using` or `import` line that names
-LAPACK, BLAS or Libdl, and a `Libdl.` call. `src/` has none today. The patterns match text, so a
+native calls: `ccall`, `@ccall`, a `LAPACK.` or `BLAS.` call, a `using` or `import` statement that
+names LAPACK, BLAS or Libdl (also when it continues on lines after a trailing `,` or `:`), and a
+`Libdl.` call. `src/` has none today. The patterns match text, so a
 call made in a way they do not name is not matched, and generic calls such as `mul!` or `dot`,
 which reach BLAS, are not matched either; the nightly legs run them on macOS and Windows.
 A file with a match fails the test unless a `[[native]]` entry in `.github/tier-rules.toml` lists

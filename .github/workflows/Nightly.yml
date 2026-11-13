@@ -258,7 +258,9 @@ jobs:
       actions: read
       issues: write # open or update the issues
     steps:
-      # A missing artifact (a job cancelled before it uploaded) must not stop the report.
+      # A missing artifact (a job cancelled before it uploaded) must not stop the report. With
+      # one matching artifact the action extracts it directly into `legs/`, and with several into
+      # one directory each, so the script below looks for the records at any depth.
       - uses: actions/download-artifact@v8
         continue-on-error: true
         with:
@@ -272,6 +274,10 @@ jobs:
           workdir="$RUNNER_TEMP/report"
           mkdir -p "$workdir"
           status=0
+
+          # the downloaded leg records (their name.txt files at any depth below legs/, if it exists)
+          records="$workdir/records.txt"
+          find legs -type f -name name.txt 2>/dev/null | sort > "$records" || true
 
           # the lowest number among the open issues (not pull requests) with exactly this title,
           # from the paginated issue list, which does not depend on the search index
@@ -332,15 +338,15 @@ jobs:
             failing=$((failing + 1))
             # the leg's own record, attached when its name, attempt and commit are this leg's
             record=""
-            for f in legs/*/name.txt; do
+            while IFS= read -r f; do
               d=$(dirname "$f")
-              if [ -f "$f" ] && [ "$(cat "$f")" = "$name" ] && [ -f "$d/leg.md" ] \
+              if [ "$(cat "$f")" = "$name" ] && [ -f "$d/leg.md" ] \
                 && [ "$(cat "$d/attempt.txt" 2>/dev/null)" = "$GITHUB_RUN_ATTEMPT" ] \
                 && [ "$(cat "$d/sha.txt" 2>/dev/null)" = "$GITHUB_SHA" ]; then
                 record="$d/leg.md"
                 break
               fi
-            done
+            done < "$records"
             version=${name#Julia }
             version=${version%% - *}
             ref=${GITHUB_REF_NAME}

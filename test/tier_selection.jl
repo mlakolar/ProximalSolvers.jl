@@ -238,14 +238,17 @@ end
 # Explicit native calls in the package source. A file under src/ (or ext/) that makes one must be
 # registered in a [[native]] entry of .github/tier-rules.toml, and an entry is accepted only when
 # its `enforcement` names a pre-merge platform mechanism that this repository implements. The
-# patterns match the text of a line that does not start with `#`; they do not parse Julia, so a
-# docstring or string literal that contains such text is also a match (the guard fails closed).
-# Generic linear algebra (`mul!`, `dot`) is not matched.
+# patterns match the text of a line that does not start with `#`; a `using` or `import` statement
+# that continues on the following lines (while its text ends with `,` or `:`) is matched as one
+# statement. They do not parse Julia, so a docstring or string literal that contains such text is
+# also a match, as is text inside a block comment `#= ... =#` (a line is skipped only when it starts
+# with `#` and not `#=`): these add matches and do not hide a call, so the guard fails closed. Generic linear algebra (`mul!`, `dot`) is not matched.
+const NATIVE_IMPORT = r"^\s*(?:using|import)\b.*\b(?:LAPACK|BLAS|Libdl)\b"
 const NATIVE_PATTERNS = [
   r"\bccall\s*\(",
   r"@ccall\b",
   r"\b(?:LAPACK|BLAS)\.\w",
-  r"^\s*(?:using|import)\b.*\b(?:LAPACK|BLAS|Libdl)\b",
+  NATIVE_IMPORT,
   r"\bLibdl\.\w",
 ]
 # the pre-merge platform enforcement mechanisms that this repository implements; empty until a
@@ -255,12 +258,30 @@ const IMPLEMENTED_NATIVE_ENFORCEMENT = String[]
 const NATIVE_KEYS = ["why", "paths", "checks", "platforms", "enforcement"]
 const NATIVE_PLATFORMS = ["macos-latest", "windows-latest"]
 
-# path => the line numbers (1-based) that match a pattern, for the files that have any
+# a line without its trailing comment and trailing blanks
+codeof(line) = rstrip(first(split(line, '#'; limit = 2)))
+continues(statement) = endswith(statement, ",") || endswith(statement, ":")
+
+# path => the line numbers (1-based) that match a pattern, for the files that have any; a
+# multi-line `using` or `import` statement is reported at its first line
 function native_hits(sources::AbstractDict{String, String})
   hits = Dict{String, Vector{Int}}()
-  for (path, text) in sources, (i, line) in enumerate(split(text, '\n'))
-    startswith(lstrip(line), "#") && continue
-    any(re -> occursin(re, line), NATIVE_PATTERNS) && push!(get!(hits, path, Int[]), i)
+  for (path, text) in sources
+    lines = split(text, '\n')
+    for (i, line) in enumerate(lines)
+      startswith(lstrip(line), "#") && !startswith(lstrip(line), "#=") && continue
+      hit = any(re -> occursin(re, line), NATIVE_PATTERNS)
+      if !hit && occursin(r"^\s*(?:using|import)\b", line)
+        statement = codeof(line)
+        j = i
+        while continues(statement) && j < length(lines)
+          j += 1
+          statement = rstrip(statement * " " * strip(codeof(lines[j])))
+        end
+        hit = occursin(NATIVE_IMPORT, statement)
+      end
+      hit && push!(get!(hits, path, Int[]), i)
+    end
   end
   return hits
 end
@@ -269,7 +290,7 @@ isstringlist(v) = v isa AbstractVector && !isempty(v) && all(x -> x isa Abstract
 
 # The problems of the sources and the [[native]] entries: a file with a native call that no entry
 # lists, and an entry whose keys, paths, checks, platforms or enforcement do not describe a
-# registration that is enforced (`why` is required but its text is not checked).
+# registration that is enforced.
 function native_problems(sources::AbstractDict{String, String}, entries::AbstractVector, tests, implemented)
   problems = String[]
   hits = native_hits(sources)
@@ -279,6 +300,9 @@ function native_problems(sources::AbstractDict{String, String}, entries::Abstrac
       push!(problems, "native entry $i is not a table")
       continue
     end
+    why = get(entry, "why", nothing)
+    haskey(entry, "why") && !(why isa AbstractString && !isempty(strip(why))) &&
+      push!(problems, "native entry $i: `why` must be a non-empty string")
     paths = get(entry, "paths", nothing)
     label = "native entry $i" * (isstringlist(paths) ? " ($(join(paths, ", ")))" : "")
     for key in NATIVE_KEYS
@@ -364,16 +388,24 @@ end
   for text in ("ccall(:f, Cvoid, ())", "x = 1\n  @ccall f()::Cvoid", "LAPACK.syevr!('V', 'U', A)",
                "y = BLAS.gemv!('N', 1.0, A, x, 0.0, y)", "using LinearAlgebra: LAPACK", "import LinearAlgebra.BLAS",
                "import LinearAlgebra: BLAS, mul!", "using Libdl", "h = Libdl.dlopen(\"x\")",
-               "LinearAlgebra.BLAS.scal!(2, 3.0, x, 1)", "ccall (:f, Cvoid, ())")
+               "LinearAlgebra.BLAS.scal!(2, 3.0, x, 1)", "ccall (:f, Cvoid, ())",
+               # an import statement that continues on the next lines
+               "#= note =# ccall(:f, Cvoid, ())", "using LinearAlgebra:\n    LAPACK", "import LinearAlgebra: dot,\n    BLAS",
+               "using LinearAlgebra: # the names\n\n    # a comment line\n    dot, # one\n    BLAS # two\nx = 1")
     @test mentions(unregistered(text), "`src/f.jl` makes an explicit native call")
   end
   # text that is not a native call
   for text in ("# uses BLAS.gemv", "    # ccall(:f, Cvoid, ())", "  #  using LinearAlgebra: LAPACK",
                "(CPU, BLAS kernel, compilation) rather than on the accuracy of the point.",
                "mul!(y, A, x)", "using LinearAlgebra", "import LinearAlgebra: mul!, dot", "x = myccall(1)",
-               "z = SBLAS.f(1)", "# Libdl.dlopen(\"x\")\nx = 1\n")
+               "z = SBLAS.f(1)", "# Libdl.dlopen(\"x\")\nx = 1\n",
+               # a multi-line statement that names neither, and a name on a line after the statement ended
+               "using LinearAlgebra:\n    dot,\n    mul!", "import LinearAlgebra: dot,\n    mul!\nx = 1",
+               "using LinearAlgebra: dot\nBLAS_threads = 2", "using LinearAlgebra:")
     @test unregistered(text) == String[]
   end
+  # a multi-line statement is reported at its first line
+  @test native_hits(source("x = 1\nusing LinearAlgebra:\n    dot,\n    BLAS\ny = 2\n")) == Dict("src/f.jl" => [2])
   # the line numbers of the matches (a comment line does not count)
   @test native_hits(source("a = 1\n# BLAS.gemv!(1)\nBLAS.gemv!(1)\n\nccall(:f, Cvoid, ())\n")) ==
         Dict("src/f.jl" => [3, 5])
@@ -410,6 +442,9 @@ end
     @test mentions(problems_of(without(key)), "$label is missing the key `$key`")
   end
   @test mentions(problems_of(with(extra = "x")), "has the unknown key `extra`")
+  @test mentions(problems_of(with(why = "")), "`why` must be a non-empty string")
+  @test mentions(problems_of(with(why = "  ")), "`why` must be a non-empty string")
+  @test mentions(problems_of(with(why = 3)), "`why` must be a non-empty string")
   @test mentions(native_problems(src, [3], ["a"], String[]), "native entry 1 is not a table")
   # a registered path covers its file only, and a registration for one file does not hide another
   both = merge(src, Dict("src/g.jl" => "BLAS.gemv!(1)\n"))
