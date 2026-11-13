@@ -30,17 +30,15 @@ measurements and deferred macOS C0 failure run42949840807 are preserved in
 and does not change the required Linux Julia 1 jobs of `CI.yml`. It has no skip or reuse logic: a
 run does not read the runs of `CI.yml` or earlier nights. A pull request that edits `Nightly.yml`,
 `Manifest-v1.10.toml` or `Project.toml` also starts its Julia 1.10 job, as an advisory result that
-opens no issue. On scheduled and manual runs, the report job attempts, for each leg that does not
-succeed, to open an issue titled `Nightly failing: Julia <version> - <os>` (the branch name in
-parentheses when the ref is not `master`) or to comment on the open issue with that title, and to
-comment "Green again" on the open issue of a leg that succeeds; a failed write turns the report job
-red. A listed failing leg takes its own issue whatever the aggregate result; an empty or unreadable
-job list, with an aggregate result other than `success`, takes `Nightly failing: report could not
-read the leg results`; and an aggregate result other than `success` with no listed failing leg takes
-`Nightly failing: inconsistent leg results`. Issues are closed by hand. Each leg attempts to leave a
-record with its step outcomes, the final test table when the tests ran and a failure excerpt when
-they failed; when the tests did not start, the record names the step that ended the job instead.
-Runner loss can leave no record. Rerun with `gh workflow run Nightly.yml --ref master`, or locally with
+opens no issue. On scheduled and manual runs the report job attempts an issue titled `Nightly
+failing: Julia <version> - <os>` (the branch name in parentheses when the ref is not `master`), or a
+comment on the open issue with that title, for each listed leg that did not succeed; a "Green again"
+comment on the open issue of a listed leg that succeeded; and a fallback issue when the leg list
+cannot be read or shows no failing leg although the test job did not succeed (the exact conditions
+are in `Nightly.yml`). A failed write turns the report job red. Issues are closed by hand. Each leg
+attempts to leave a record with its step outcomes and, when the test log contains them, the final
+test table and the failure lines; runner loss can leave no record. Rerun with `gh workflow run
+Nightly.yml --ref master`, or locally with
 `julia +1.10 scripts/test.jl --tier=full`. GitHub can delay scheduled runs, and in a public
 repository disables them after 60 days without repository activity. Julia 1.11 and later take
 ProximalBase from `[sources]` in `Project.toml` and Julia 1.10 ignores it, so the quick test in
