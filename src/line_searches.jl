@@ -136,7 +136,8 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
     # certified, the estimate was decided by rounding or lies within the slack (1 + 4eps)² on
     # L: the trial is accepted, and function-value mode ends as at a switch. Otherwise the
     # estimate is capped by the upper bound U. A NaN estimate, or a gradient estimate from a
-    # nonfinite ∇f(x), is kept, so it raises the error below as before.
+    # nonfinite ∇f(x), is kept: the update and the error check below run on it as before. A
+    # NaN estimate raises the error; an infinite one raises it unless a finite Lexact caps L.
     if !isnan(local_l) && (!gradient_mode || all(isfinite, state.grad_f_x))
         refuted, U = verify_rejection!(state, gradient_mode)
         if refuted

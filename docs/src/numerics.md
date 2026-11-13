@@ -118,11 +118,13 @@ input draws each, on Julia 1.10 and 1.13 and two CPU models) it met the
 independently computed targets of a relative duality gap of `1e-8` in Float64
 and `1e-5` in Float32. It is **not** a guarantee of accuracy on other problems,
 and `converged=true` is still not a certificate: check the returned point
-independently, for example with the bound below. Float32 PGD did not meet its
-target in every draw with this configuration. In those probes (with
-`maxiter = 2000`), all 100 Float32 PGD solves ran to `maxiter` with
-`converged=false`, and the iterate was unchanged in 309 to 1992 of their 2000
-iterations.
+independently, for example with the bound below. With this configuration
+Float32 PGD reaches its floating-point fixed point and met the independent
+`1e-5` target on the benchmark cases (10 input draws each, on Julia 1.10 and
+1.13, one CPU model), but it runs to `maxiter` with `converged=false`: at the
+fixed point `gradtol = 1e-11` is out of reach in Float32, and an unchanged
+iterate is not convergence under `ftol = 0` (see "An exact stall" below). Its
+run time therefore measures the iteration limit.
 
 - **`allow_f_increases = true`.** With the objective test off, a computed
   increase of `F` still ends the solve under the default
@@ -259,16 +261,23 @@ only on `converged`.
   `L ← min(Lexact, max(min(L̂, U), L/β))`, where `U` is a certified upper
   bound on the `L` that the bound needs for that step. Unless the rounding
   or underflow terms of the bounds dominate (a step nearly in the null space
-  of `X`, or deep-subnormal data), `U` is at most about 1.07 times
+  of `X`, or deep-subnormal data), `U` is at most about `1.07 ρ` times
   `m α ‖X d‖²/‖d‖²`, with `m = 1` for function values and `m = 2` for
-  gradients, so an `L̂` above `U` does not set `L`. Accepted trials
+  gradients, where `ρ = ((1 + γ_{n+4})(1 + γ_{p+4})/((1 - γ_{n+4})(1 - γ_{p+4})))²`
+  and `γ_k = k u/(1 - k u)`, `u = eps(T)/2`, are the norm-evaluation factors of
+  the bounds; `ρ` is close to 1 unless `max(n, p) eps(T)` is not small (for
+  Float32 with `n = 10⁶`, `ρ ≈ 1.29`). So an `L̂` above `U` does not set `L`. Accepted trials
   are not checked: a trial that a rounding-decided `L̂` accepts below the
-  curvature stays accepted. For a curvature above `floatmax(T)` the check
-  certifies no `L`, and a search whose trials TFOCS's estimate also rejects
-  ends in an error with the last accepted iterate restored; for data deep in
-  the subnormal range, where the underflow terms can dominate the bounds, a
-  step may need `L` far above the curvature, or the search may end in the
-  same error. Problems with `max(n, p) + 4 ≥ 1/(4 eps(T))` or
+  curvature stays accepted. The `Lexact` exit (a trial at `L ≥ Lexact` is
+  accepted) and the zero-step exit are kept. A search that keeps rejecting
+  until `next_curvature` finds no finite increase of `L`, or until TFOCS's
+  update gives a nonfinite `L`, ends in an error with the last accepted
+  iterate restored. That can happen when the curvature along the steps is
+  above `floatmax(T)`, where the check certifies no `L`, unless TFOCS's
+  estimate, `Lexact` or a zero step accepts a trial; for data deep in the
+  subnormal range, where the underflow terms can dominate the bounds, a step
+  may need `L` far above the curvature, or the search may end in the same
+  error. Problems with `max(n, p) + 4 ≥ 1/(4 eps(T))` or
   `n p + 3 ≥ 1/(4 eps(Float64))` are not refused (APG refuses them): their
   rejections are not checked, keep TFOCS's decision and do not get this
   protection.

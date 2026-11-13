@@ -327,8 +327,9 @@ pgd_fixture() = ([1. 1 .2; 2 1 .3; -1 0 .5; .1 1 1; .4 .3 -.8; -.2 .8 .1; .6 -.1
                  [2., 1, -1, .4, -.5, .7, .9])
 
 @testset "PGD Float32 function-value blowup is checked (n > p and p > n)" begin
-  # Rounding of f(x) - q(x) dominates TFOCS's function-value estimate once ‖d‖ is small: at
-  # 782b74c these designs reach L ≈ 4.2e6 and 1.4e6 and stall at gaps 2.6e-4 and 7.0e-4.
+  # Rounding of f(x) - q(x) dominates TFOCS's function-value estimate once ‖d‖ is small. Observed
+  # on one machine at 782b74c: these designs reach L ≈ 4.2e6 and 1.4e6 and stall at gaps 2.6e-4
+  # and 7.0e-4.
   # With the cap U, an accepted L stays below max(0.9, about 4.3 α‖X‖₂²) on such data.
   T = Float32
   for (seed, n, p) in ((33, 100, 32), (37, 180, 600))
@@ -344,7 +345,7 @@ end
 
 @testset "PGD gradient-mode blowup with a residual orthogonal to range(X) is checked" begin
   # The gradient estimate subtracts two gradients whose rounding scales with |X|ᵀ|r|; with
-  # gradient mode forced, 782b74c reaches L up to thousands of times α‖X‖₂².
+  # gradient mode forced, 782b74c reached L up to thousands of times α‖X‖₂² on one machine.
   for T in (Float32, Float64), off in (1e2, 1e4), (n, p) in ((40, 10), (200, 50))
     rng = Xoshiro(284)
     X = randn(rng, n, p)

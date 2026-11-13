@@ -330,10 +330,11 @@ function _curvature_cap(upper::_SE{T}, D::_SE{T}, rootscale::_SE{T}, c::_BoundCo
 end
 
 # The cap of a trial that _bound_certified!(buf, model, zu, zw, d, D, L, Ey, normx, rootscale,
-# c, false) did not accept, from the upper bound that its last comparison used: the fresh
+# c, false) did not accept, from the upper bound of its upper-bound acceptance comparison: the fresh
 # W = ‖fl(X d̂)‖ in buf when `fresh`, and otherwise N = ‖zw - zu‖, recomputed. Returns
 # (U, loose). loose is true when the cached path's error E exceeds N lower_image/64 or N is
-# not finite; U may then be far above s ‖X d‖²/‖d‖², and a fresh product gives a closer one.
+# not finite; U may then be far above s ‖X d‖²/‖d‖², and a fresh product can give a tighter
+# bound.
 function _curvature_upper(buf, zu, zw, D::_SE{T}, Ey::_SE{T}, normx::_SE{T}, rootscale::_SE{T},
                           c::_BoundConstants{T}, fresh::Bool) where {T}
   if fresh
