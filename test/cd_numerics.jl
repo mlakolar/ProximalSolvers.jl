@@ -7,8 +7,8 @@ module CDNumerics
 # The response scale `√α‖y‖` of the relative stopping rule is formed range-safely (#293): the cases
 # below fix it where `Σy²` or `α Σy²` overflows or underflows, and refuse a computed `√α‖y‖` that is
 # not a normal number of `T`. The coordinate scale `√(α a_k)` is formed from the two roots where the
-# product `α a_k` is not a normal number of `T`; the step reciprocal `1/(α a_k)` and infinite curvature
-# are not changed (#294).
+# product `α a_k` is zero or subnormal; an overflowing product keeps the infinite scale that CD refuses,
+# and the step reciprocal `1/(α a_k)` and infinite curvature are not changed (#294).
 using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
 using Logging: with_logger, Warn
 const PS = ProximalSolvers
@@ -576,8 +576,8 @@ end
 # below, so R3 underflow of the reported minimum remains possible for a fixture that passes (section
 # 14). For the columns, `coordinate` selects what is asserted about each nonzero α a_k (in BigFloat):
 #   :normal     α a_k lies in [floatmin(T), floatmax(T)/4);
-#   :range      the root √(α a_k) is a normal number of T and at least one α a_k lies outside
-#               [floatmin(T), floatmax(T)], so that the coordinate scale is formed from the two roots;
+#   :underflow  the root √(α a_k) is a normal number of T and at least one α a_k lies below floatmin(T),
+#               so that the coordinate scale is formed from the two roots;
 #   :subnormal  α a_k is a subnormal number of T with a finite reciprocal, so that the step coefficient
 #               1/(α a_k) is finite and the coordinate scale is formed from the two roots.
 function check_feasible(X, y, α, λ; coordinate = :normal)
@@ -593,9 +593,9 @@ function check_feasible(X, y, α, λ; coordinate = :normal)
       for (k, a) in enumerate(products)
         iszero(a) || @assert big(floatmin(T)) <= a < big(floatmax(T)) / 4 "α a_$k is outside [floatmin, floatmax/4)"
       end
-    elseif coordinate === :range
+    elseif coordinate === :underflow
       @assert all(a -> big(floatmin(T)) <= sqrt(a) <= big(floatmax(T)), nonzero) "a root √(α a_k) is not a normal number of T"
-      @assert any(a -> !(big(floatmin(T)) <= a <= big(floatmax(T))), nonzero) "no α a_k is outside [floatmin, floatmax]"
+      @assert any(a -> a < big(floatmin(T)), nonzero) "no α a_k is below floatmin"
     else
       @assert coordinate === :subnormal
       @assert all(a -> big(1) / big(floatmax(T)) < a < big(floatmin(T)), nonzero) "an α a_k is not subnormal with a finite reciprocal"
@@ -921,7 +921,7 @@ end
 end
 
 # ---------------------------------------------------------------------------
-# 15. A coordinate scale whose product α a_k is not a normal number of T (#293)
+# 15. A coordinate scale whose product α a_k underflows to 0 (#293)
 # ---------------------------------------------------------------------------
 # The coordinate scale √(α a_k) multiplies each coordinate change in the stopping test. Where the
 # rounded product α a_k is 0 (S == T), a scale formed as the root of the rounded product is 0, and a
@@ -932,16 +932,16 @@ end
 # response scale was 0 and the absolute test applied. Each now runs from a cold and a warm start, in the
 # three orders, on a dense vector and on an owner: 84 solves, each converged after more than one pass
 # with the KKT violation within the bound. The coordinate scale is formed from the two roots,
-# √α √a_k, in S (= T here), and is a normal number in these fixtures (`check_feasible` with :range
+# √α √a_k, in S (= T here), and is a normal number in these fixtures (`check_feasible` with :underflow
 # asserts it).
 function coordinate_underflow_cases()
-  [d1_case("Float64, α = 1e-300, X·1e-16, ‖y‖ = 1e-13", Float64, 1e-13, 1e-300; xscale = 1e-16, fractions = (0.0,), coordinate = :range),
-   d1_case("Float64, α = 1e-310, X·1e-8, ‖y‖ = 1e-8", Float64, 1e-8, 1e-310; xscale = 1e-8, fractions = (0.0,), coordinate = :range),
-   d1_case("Float64, α = 1e-300, X·1e-14, ‖y‖ = 1e-13", Float64, 1e-13, 1e-300; xscale = 1e-14, fractions = (0.0,), coordinate = :range),
-   d1_case("Float64, α = nextfloat(0.0), ‖X_k‖² ≈ 0.25, ‖y‖ = 0.3", Float64, 0.3, nextfloat(0.0); xscale = sqrt(0.25 / 30), fractions = (0.0,), coordinate = :range),
-   d1_case("Float64, α = 1e-200, X·1e-63, ‖y‖ = 1e-62", Float64, 1e-62, 1e-200; xscale = 1e-63, fractions = (0.0,), coordinate = :range),
-   d1_case("Float32, α = 1f-30, X·1e-9, ‖y‖ = 1e-9", Float32, 1e-9, 1f-30; xscale = 1e-9, fractions = (0.0,), coordinate = :range),
-   d1_case("Float32, α = 1f-20, X·1e-14, ‖y‖ = 1e-14", Float32, 1e-14, 1f-20; xscale = 1e-14, fractions = (0.0,), coordinate = :range)]
+  [d1_case("Float64, α = 1e-300, X·1e-16, ‖y‖ = 1e-13", Float64, 1e-13, 1e-300; xscale = 1e-16, fractions = (0.0,), coordinate = :underflow),
+   d1_case("Float64, α = 1e-310, X·1e-8, ‖y‖ = 1e-8", Float64, 1e-8, 1e-310; xscale = 1e-8, fractions = (0.0,), coordinate = :underflow),
+   d1_case("Float64, α = 1e-300, X·1e-14, ‖y‖ = 1e-13", Float64, 1e-13, 1e-300; xscale = 1e-14, fractions = (0.0,), coordinate = :underflow),
+   d1_case("Float64, α = nextfloat(0.0), ‖X_k‖² ≈ 0.25, ‖y‖ = 0.3", Float64, 0.3, nextfloat(0.0); xscale = sqrt(0.25 / 30), fractions = (0.0,), coordinate = :underflow),
+   d1_case("Float64, α = 1e-200, X·1e-63, ‖y‖ = 1e-62", Float64, 1e-62, 1e-200; xscale = 1e-63, fractions = (0.0,), coordinate = :underflow),
+   d1_case("Float32, α = 1f-30, X·1e-9, ‖y‖ = 1e-9", Float32, 1e-9, 1f-30; xscale = 1e-9, fractions = (0.0,), coordinate = :underflow),
+   d1_case("Float32, α = 1f-20, X·1e-14, ‖y‖ = 1e-14", Float32, 1e-14, 1f-20; xscale = 1e-14, fractions = (0.0,), coordinate = :underflow)]
 end
 
 @testset "CD converges where α a_k underflows to 0 and its root is normal: $(c.label)" for c in coordinate_underflow_cases()
@@ -951,34 +951,67 @@ end
 end
 
 # ---------------------------------------------------------------------------
-# 16. More coordinate scales outside the range of their product (#293; the step is #294)
+# 16. More cases with a product α a_k outside the normal range (#293; the step and overflow are #294)
 # ---------------------------------------------------------------------------
 # Each case is solved and checked as in section 10 (KKT, tolerance, reported minimum, zero column),
 # with the assertions of `check_feasible` named by `coordinate`.
 #   - Underflow in Float32 with α = nextfloat(0f0) (the Float64 case is in section 15).
-#   - Overflow: α a_k is above floatmax(T) and its root is a normal number. The solve was refused with
-#     "a coordinate step or its stopping scale is not finite" (the scale was Inf) and now converges at a
-#     penalty of 0. The step coefficient 1/(α a_k) is 0 there, so the step's threshold is 0 and the penalty
-#     has no effect on the step; a solve at a positive penalty can stop at a point that violates KKT
-#     (observed in Float64, #294). No positive penalty is asserted here.
 #   - A positive penalty where the step stays usable: α a_k is subnormal with a finite reciprocal, so the
 #     step coefficient is finite and the coordinate scale comes from the two roots.
-#   - A zero column next to coordinate scales that underflow, overflow or are subnormal: its scale is 0
-#     and its coordinate stays at the prox of 0.
+#   - A zero column next to coordinate scales that underflow or are subnormal: its scale is 0 and its
+#     coordinate stays at the prox of 0.
 function coordinate_range_cases()
-  [d1_case("Float32, α = nextfloat(0f0), ‖X_k‖² ≈ 0.25, ‖y‖ = 0.3", Float32, 0.3, nextfloat(0f0); xscale = sqrt(0.25 / 30), fractions = (0.0,), coordinate = :range),
-   d1_case("Float64, overflow: α = 1e300, X·1e5, ‖y‖ = 1e3", Float64, 1e3, 1e300; xscale = 1e5, fractions = (0.0,), coordinate = :range),
-   d1_case("Float32, overflow: α = 1f30, X·1e4, ‖y‖ = 1e5", Float32, 1e5, 1f30; xscale = 1e4, fractions = (0.0,), coordinate = :range),
-   d1_case("Float64, overflow with a zero column", Float64, 1e3, 1e300; xscale = 1e5, zero_column = true, fractions = (0.0,), coordinate = :range),
+  [d1_case("Float32, α = nextfloat(0f0), ‖X_k‖² ≈ 0.25, ‖y‖ = 0.3", Float32, 0.3, nextfloat(0f0); xscale = sqrt(0.25 / 30), fractions = (0.0,), coordinate = :underflow),
    d1_case("Float64, penalty with a subnormal α a_k (finite reciprocal): α = 1e-300, X·1.8e-5, ‖y‖ = 1e5", Float64, 1e5, 1e-300; xscale = 1.8e-5, fractions = (0.0, 0.01, 0.1, 0.5), coordinate = :subnormal),
    d1_case("Float32, penalty with a subnormal α a_k (finite reciprocal): α = 1f-30, X·1.3e-5, ‖y‖ = 1e5", Float32, 1e5, 1f-30; xscale = 1.3e-5, fractions = (0.0, 0.01, 0.1, 0.5), coordinate = :subnormal),
    d1_case("Float64, subnormal α a_k with a zero column, penalty 0.1 λmax", Float64, 1e5, 1e-300; xscale = 1.8e-5, zero_column = true, fractions = (0.1,), coordinate = :subnormal),
-   d1_case("Float64, α a_k underflows, with a zero column", Float64, 1e-13, 1e-300; xscale = 1e-16, zero_column = true, fractions = (0.0,), coordinate = :range),
-   d1_case("Float32, α a_k underflows, with a zero column", Float32, 1e-9, 1f-30; xscale = 1e-9, zero_column = true, fractions = (0.0,), coordinate = :range)]
+   d1_case("Float64, α a_k underflows, with a zero column", Float64, 1e-13, 1e-300; xscale = 1e-16, zero_column = true, fractions = (0.0,), coordinate = :underflow),
+   d1_case("Float32, α a_k underflows, with a zero column", Float32, 1e-9, 1f-30; xscale = 1e-9, zero_column = true, fractions = (0.0,), coordinate = :underflow)]
 end
 
-@testset "CD with a coordinate scale outside the range of its product: $(c.label)" for c in coordinate_range_cases()
+@testset "CD with a product α a_k below the normal range: $(c.label)" for c in coordinate_range_cases()
   check_d1_case(c)
+end
+
+# Overflow of α a_k: refused, the step and scale are #294. Where α a_k is above floatmax(T) and its root is
+# a normal number, the coordinate scale is Inf (it is not formed from the two roots there), so a nonzero
+# change of a coordinate is Inf and CD throws "a coordinate step or its stopping scale is not finite" in the
+# first pass, as df00333 did; x and the owner state are as they were, and the generator too for the cyclic
+# order (the random orders draw from it at the start of each pass). The step coefficient 1/(α a_k) is 0
+# there, so the step's threshold is 0 and the penalty has no effect on the step. With a finite scale, a
+# solve at a positive penalty reported convergence at a KKT residual of 0.1 (observed for the Float64
+# fixture, after 23 to 28 passes), which is why the refusal is kept. The penalty 0 is refused too, for the same scale. The data are the fixed
+# problem of section 10; the start is cold and warm, and a warm pass would change x. The penalty is a
+# fraction of λmax formed in BigFloat, as λmax can be above floatmax(T).
+function penalty_fraction(T, X, y, α, fraction)
+  iszero(fraction) && return zero(T)
+  setprecision(BigFloat, 256) do
+    T(big(fraction) * maximum(abs, big(α) .* (big.(X)' * big.(y))))
+  end
+end
+
+function coordinate_overflow_cases()
+  [("Float64, α = 1e300, X·1e5, ‖y‖ = 1e3", Float64, 1e3, 1e300, 1e5, false),
+   ("Float32, α = 1f30, X·1e4, ‖y‖ = 1e5", Float32, 1e5, 1f30, 1e4, false),
+   ("Float64, α = 1e300, X·1e5, ‖y‖ = 1e3, with a zero column", Float64, 1e3, 1e300, 1e5, true)]
+end
+
+@testset "α a_k above floatmax(T) is refused, x unchanged (#294): $label" for (label, T, target, α, xscale, zero_column) in coordinate_overflow_cases()
+  X, y, c = scaled_problem(T, target; xscale, zero_column)
+  setprecision(BigFloat, 256) do
+    products = filter(!iszero, [big(α) * sum(abs2, big.(X[:, k])) for k in axes(X, 2)])
+    @test all(a -> a > big(floatmax(T)) && sqrt(a) <= big(floatmax(T)), products)
+    @test true_scale(y, α) <= big(floatmax(T))
+  end
+  f = α * LeastSquaresLoss(y, X)
+  p = size(X, 2)
+  for fraction in (0.0, 0.1)
+    λ = penalty_fraction(T, X, y, α, fraction)
+    @test iszero(fraction) || (isfinite(λ) && λ > 0)
+    for x0 in (zeros(T, p), T.(c .* (0.3 .* sin.(1:p)))), (order, momentum) in ORDERS, owner in (false, true)
+      check_refusal(f, NormL1(λ), x0; order, momentum, owner, pattern = r"not finite", rng_unchanged = order === :cyclic)
+    end
+  end
 end
 
 # A coordinate step that overflows is refused and leaves x unchanged (the refusal predates this PR; the
@@ -1000,20 +1033,19 @@ end
 # 17. The coordinate scale: values, branches, inference and allocation
 # ---------------------------------------------------------------------------
 # One column of n entries 1.3 2^k and a loss scale 1.3 2^j (in Float32, Float64, a Float64 scale on
-# Float32 data, or BigFloat) over magnitudes that take each of the three branches of `coordinate_scale`
-# (see its comment: the root of the rounded product, the root of the product in S, the product of the
-# two roots), for both types. Where the first or the second branch applies the result is the same bits as
-# that formula. Where the BigFloat root √(α a), with a the computed curvature of the column, is more than
-# 4 eps(T) below floatmax(T), the result is within 2 eps(T) of it, plus nextfloat(zero(T)) for a subnormal
-# result. The result is 0 for a = 0, and Inf for an infinite a or a root more than 4 eps(T) above
-# floatmax(T). The calls are inferred, and for IEEE scales allocate nothing after warm-up (the third
-# branch included).
+# Float32 data, or BigFloat) over magnitudes that take each way of forming the coordinate scale (see the
+# comment of `coordinate_scale`): 1, the root of the rounded product; 2, the root of the product p in S
+# where p is not below floatmin(S), which is Inf where p overflows; 3, the product of the two roots where p
+# is zero or subnormal in S. This holds for both types. Where way 1 or 2 applies the result is the same bits
+# as that formula. The result is 0 for a = 0, and Inf for an infinite a, for an overflowing p (also where
+# the root is a normal number, #294) and for a root more than 4 eps(T) above floatmax(T). Otherwise, where
+# the BigFloat root √(α a), with a the computed curvature of the column, is more than 4 eps(T) below
+# floatmax(T), the result is within 2 eps(T) of it, plus nextfloat(zero(T)) for a subnormal result. The
+# calls are inferred, and for IEEE scales allocate nothing after warm-up (the third way included).
 function coordinate_way(m::PS.LSModel{T}, a) where T
   p = m.s * a
   floatmin(T) <= T(p) <= floatmax(T) && return 1
-  S = typeof(p)
-  floatmin(S) <= p <= floatmax(S) && return 2
-  3
+  p < floatmin(typeof(p)) ? 3 : 2
 end
 
 function check_coordinate_point(T, k, α, ways)
@@ -1024,13 +1056,15 @@ function check_coordinate_point(T, k, α, ways)
   res = PS.coordinate_scale(m, nothing, 1)
   @test res isa T
   push!(ways, way)
+  overflow = isinf(m.s * a)
   setprecision(BigFloat, 256) do
     ref = sqrt(big(m.s) * big(a))
     fm = big(floatmax(T))
     if iszero(a)
       @test res === zero(T)
-    elseif isinf(a) || ref > fm * (1 + 4 * eps(T))
-      @test res === T(Inf)      # an infinite curvature, or a root above floatmax(T)
+    elseif isinf(a) || overflow || ref > fm * (1 + 4 * eps(T))
+      @test res === T(Inf)      # an infinite curvature, an overflowing product, or a root above floatmax(T)
+      overflow && !isinf(a) && ref < fm * (1 - 4 * eps(T)) && push!(ways, 4)   # an overflowing product with a normal root
     elseif ref < fm * (1 - 4 * eps(T))
       @test abs(big(res) - ref) <= 2 * eps(T) * ref + big(nextfloat(zero(T)))
     end
@@ -1064,7 +1098,7 @@ end
       check_coordinate_point(T, k, big(1.3) * BigFloat(2)^j, ways)
     end
   end
-  @test ways == Set([1, 2, 3])
+  @test ways == Set([1, 2, 3, 4])
   # a zero column has the scale 0; an infinite curvature the scale Inf
   X = zeros(T, 4, 1)
   @test PS.coordinate_scale(PS.LSModel(zeros(T, 4), X, 1.0), nothing, 1) === zero(T)

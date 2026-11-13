@@ -50,16 +50,20 @@ converted to `BigFloat` at the active precision when the model is built.
 `_root_scale` then converts the stored value at a scoped precision of 256 bits.
 The coordinate scale, with `a` the squared norm of the column, `p = s * a`
 in `S` and `q = T(p)`, is `sqrt(q)` where `q` is a normal number of `T`;
-otherwise `T(sqrt(p))` where `p` is a normal number of `S`; otherwise
-`T(sqrt(s) * sqrt(S(a)))`, formed in `S` from the two roots, so the product
-`p` does not enter it. That last form is 0 for `a = 0`, infinite for infinite
-`a`, and 0 where its value is at most half of `nextfloat(zero(T))`. For
-`S == T` the first two forms have the same value. The range of the coordinate
-scale is handled here; the step is not changed. It passes the coefficient
-`inv(s * a)` to the ProximalBase prox, which rounds the threshold to `T`, and
-that coefficient is infinite where `s * a` is below about `1 / floatmax(S)` and
-0 where `s * a` is infinite. The step reciprocal and infinite curvature remain
-issue #294.
+otherwise `T(sqrt(p))` where `p` is not below `floatmin(S)`; otherwise (`p` zero
+or subnormal in `S`) `T(sqrt(s) * sqrt(S(a)))`, formed in `S` from the two
+roots, so the rounded product `p` does not enter it. That last form is 0 for
+`a = 0`, and 0 where its value is at most half of `nextfloat(zero(T))`. For
+`S == T` the first two forms have the same value where `p` is normal. Where
+`s * a` overflows, or `a` is infinite, the second form is infinite, and `_visit!`
+refuses a nonzero change times that scale with `ArgumentError("a coordinate
+step or its stopping scale is not finite")`, and `x` and an owner are not
+changed (the solve works on a private copy). The underflow range of the coordinate scale is handled here;
+the step is not changed. It passes the coefficient `inv(s * a)` to the
+ProximalBase prox, which rounds the threshold to `T`, and that coefficient is
+infinite where `s * a` is below about `1 / floatmax(S)` and 0 where `s * a` is
+infinite. The overflow of `s * a`, the step reciprocal and infinite curvature
+remain issue #294.
 `X`, `y`, the residual, the
 curvature cache and the iterate stay in `T`. A scale of type `T`,
 `Int`, `Bool`, `Rational{Int}`, `Irrational` or `Float16`, or a

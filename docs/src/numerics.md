@@ -14,7 +14,9 @@ code.
   tolerance can differ from the value passed to the constructor. Each
   coordinate change is also multiplied by `sqrt(s * a)` for the squared norm
   `a` of its column, formed from the two square roots where the product
-  `s * a` is not a normal number. If the computed `sqrt(s) * norm(y)`, after
+  `s * a` is zero or subnormal; where it overflows the scale is infinite and
+  a nonzero change is refused with an `ArgumentError` (that overflow is issue
+  #294). If the computed `sqrt(s) * norm(y)`, after
   rounding to the working type, is not a normal floating-point number, the
   solve is refused with an `ArgumentError` before the first pass (rescale, or
   use `relative=false`, which can still end in the `nonfinite objective`

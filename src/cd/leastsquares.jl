@@ -89,7 +89,8 @@ end
 _cache(m::LSModel) = m.r
 # The stopping scales form the product `p` of the loss scale with a sum of squares in `S`.
 # A zero response scale selects the absolute fallback of `_tolerances`; a zero coordinate scale
-# makes that coordinate's change count as 0 in `_visit!`.
+# makes that coordinate's change count as 0 in `_visit!`, and an infinite one makes a nonzero change
+# infinite, which `_visit!` refuses.
 # Response scale √(m.s Σy²): the sum Σy² is formed in `T` and is clean when it is finite and at
 # least 4 length(y) floatmin(T), where the squares that underflow change it by less than u/4
 # relative (u = eps(T)/2, the bound of `_se_norm_onepass`). With p = m.s Σy² in `S` and q = T(p),
@@ -100,22 +101,24 @@ _cache(m::LSModel) = m.r
 #   3. otherwise the exponent-separated value of `_response_scale_exceptional`.
 # Coordinate scale √(m.s a), with a the curvature of column k, p = m.s a in `S` and q = T(p):
 #   1. sqrt(q), if q is a normal number of `T`;
-#   2. T(sqrt(p)), if p is a normal number of `S`;
-#   3. otherwise T(sqrt(m.s) sqrt(S(a))), formed in `S`: each root is taken before the two are
-#      multiplied, so the result does not depend on the product p, which is not a normal number of
-#      `S` here. It is 0 for a = 0 (a column of zero curvature) and Inf for a = Inf, and it is 0
-#      where it is at most half the smallest subnormal of `T`.
-# For `S == T` the first two expressions have the same value. The step does not form this scale: its
-# coefficient inv(m.s a) is the reciprocal of p, which is Inf where p is below 1/floatmax(S) and 0
-# where p is Inf (#294).
+#   2. otherwise T(sqrt(p)), if p is not below floatmin(S): this is Inf where p is Inf (an
+#      overflowing product), and `_visit!` refuses a nonzero change times Inf;
+#   3. otherwise (p is zero or subnormal in `S`) T(sqrt(m.s) sqrt(S(a))), formed in `S`: each root is
+#      taken before the two are multiplied, so the result does not depend on the rounded product p.
+#      It is 0 for a = 0 (a column of zero curvature), and 0 where it is at most half the smallest
+#      subnormal of `T`.
+# For `S == T` the first two expressions have the same value where p is normal. For m.s > 0 an
+# infinite curvature a gives Inf by the second. The step does not form this scale: its coefficient inv(m.s a)
+# is the reciprocal of p, which is Inf where p is below 1/floatmax(S) and 0 where p is Inf. The
+# overflow of m.s a, the step reciprocal and the infinite curvature are #294.
 function coordinate_scale(m::LSModel{T}, x, k::Int) where T
   a = _sqnorm!(m, k)
   p = m.s*a
   q = T(p)
   floatmin(T) <= q <= floatmax(T) && return sqrt(q)
   S = typeof(p)
-  floatmin(S) <= p <= floatmax(S) && return T(sqrt(p))
-  T(sqrt(m.s)*sqrt(S(a)))
+  p < floatmin(S) && return T(sqrt(m.s)*sqrt(S(a)))
+  T(sqrt(p))
 end
 function response_scale(m::LSModel{T}, x) where T
   s = zero(T)

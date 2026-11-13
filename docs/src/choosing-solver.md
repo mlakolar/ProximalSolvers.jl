@@ -64,13 +64,17 @@ it ends at `maxpasses` with a warning, unless an independent numerical failure
 (for example a non-finite coordinate step) stops it first with an error.
 
 Each coordinate change is also multiplied by `sqrt(s * a)`, where `a` is the
-squared norm of the column. Where the product `s * a` is zero, subnormal or
-infinite (in the type that combines `s` with the working type), CD takes the
-square roots of `s` and of `a` separately and multiplies them, so the scale
-does not become 0 or infinite because the product left the range. It is 0 where
-the root is at most half the smallest subnormal number, and infinite where `a`
-is. The reciprocal `1 / (s * a)` that the coordinate step uses is not changed
-by this and can still be infinite or 0; that case is tracked in issue #294.
+squared norm of the column. Where the product `s * a` is zero or subnormal (in
+the type that combines `s` with the working type), CD takes the square roots of
+`s` and of `a` separately and multiplies them, so the scale does not become 0
+because the product underflowed. It is still 0 where that root is at most half
+the smallest subnormal number. Where the product overflows, the scale is
+infinite, and a nonzero coordinate change then makes `solve!` throw an
+`ArgumentError` ("a coordinate step or its stopping scale is not finite") and
+leave the starting point unchanged. That overflow, the reciprocal
+`1 / (s * a)` that the coordinate step uses (which can be infinite or 0), and an
+infinite squared column norm are not changed by this and are tracked in issue
+#294.
 
 **Randomness and momentum:** By default `order=:random`, and the
 historical CD algorithm can apply momentum to active passes and restart
