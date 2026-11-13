@@ -19,18 +19,24 @@ unlisted tests and empty selections fail; unknown source defaults full.
 The separately approved Linux-only matrix and required gate graph remain
 unchanged: stable Julia1 Linux x64 for every tier, full master checks, coverage,
 required jobs/merge gate, benchmark analysis and provenance-aware nightly reuse.
-No automatic macOS/Windows result is implied. Historical full-suite/platform
-measurements and deferred macOS C0 failure run42949840807 are preserved in
+No required check runs on macOS or Windows. macOS ARM and Windows run the full suite nightly, on
+Julia `1`, in `Nightly.yml` (below); those runs are not required checks, and the macOS leg is where
+the deferred macOS C0 case (run42949840807) is checked again. Historical full-suite/platform
+measurements and that deferred failure are preserved in
 [the historical record](../docs/audit/historical-full-testing.md). See
 [complete test provenance](../docs/audit/minimal-core-test-provenance.md).
 
 **Nightly compatibility runs.** `.github/workflows/Nightly.yml` runs the full suite
-(`scripts/test.jl --tier=full`), scheduled daily, on Linux with Julia 1.10, which resolves from
-`Manifest-v1.10.toml`; its matrix lists one `include` entry per leg. It is not a required check
-and does not change the required Linux Julia 1 jobs of `CI.yml`. It has no skip or reuse logic: a
-run does not read the runs of `CI.yml` or earlier nights. A pull request that edits `Nightly.yml`,
-`Manifest-v1.10.toml` or `Project.toml` also starts its Julia 1.10 job, as an advisory result that
-opens no issue. On scheduled and manual runs the report job attempts an issue titled `Nightly
+(`scripts/test.jl --tier=full`), scheduled daily, as four legs that run concurrently, each its own
+job: Linux with Julia 1.10, which resolves from `Manifest-v1.10.toml`, and Julia `1` on Linux, on
+macOS ARM (`aarch64`) and on Windows, which resolve from `Project.toml` with ProximalBase taken from
+`[sources]`. The matrix lists one `include` entry per leg, with 4 test workers (3 on macOS). It is
+not a required check and does not change the required Linux Julia 1 jobs of `CI.yml`. It has no skip
+or reuse logic: a test job does not read the runs of `CI.yml`, of earlier nights or of another leg,
+so a success on one leg cannot suppress the run of another, and each leg has its own record and issue
+title. A pull request that edits `Nightly.yml`, `Manifest-v1.10.toml` or `Project.toml` also starts
+the four legs, as an advisory result that opens no issue. On scheduled and manual runs the report
+job attempts an issue titled `Nightly
 failing: Julia <version> - <os>` (the branch name in parentheses when the ref is not `master`), or a
 comment on the open issue with that title, for each listed leg that did not succeed; a "Green again"
 comment on the open issue of a listed leg that succeeded; and a fallback issue when the leg list
@@ -40,7 +46,8 @@ attempts to leave a record with its step outcomes and, when the test log contain
 recognised final test table and, for a test step that did not succeed, a bounded excerpt of the
 failure lines; runner loss can leave no record. Rerun with
 `gh workflow run Nightly.yml --ref master`, or locally with
-`julia +1.10 scripts/test.jl --tier=full`. GitHub can delay scheduled runs, and in a public
+`julia +<version> scripts/test.jl --tier=full` with the leg's Julia version (`1.10` or `1`). GitHub
+can delay scheduled runs, and in a public
 repository disables them after 60 days without repository activity. Julia 1.11 and later take
 ProximalBase from `[sources]` in `Project.toml` and Julia 1.10 ignores it, so the quick test in
 `test/aqua.jl` (`pin_problems`) compares the two: `[sources].ProximalBase` must have exactly `url`
@@ -50,6 +57,23 @@ ProximalBase UUID in `[deps]`, with a `git-tree-sha1` and no `path` or `repo-sub
 `[sources]` or its ProximalBase entry is removed, or a key other than `url` and `rev` is added
 inside that entry, that test fails until `pin_problems` and its cases are changed to the new policy
 (`PIN_POLICY` only labels it).
+
+**Native code.** A test in `test/tier_selection.jl` (quick tier; a change to `src/` plans the full
+tier, which includes it) reads the `.jl` files under `src/` (and `ext/`, if it exists) for explicit
+native calls: `ccall`, `@ccall`, a `LAPACK.` or `BLAS.` call, a `using` or `import` line that names
+LAPACK, BLAS or Libdl, and a `Libdl.` call. `src/` has none today. The patterns match text, so a
+call made in a way they do not name is not matched, and generic calls such as `mul!` or `dot`,
+which reach BLAS, are not matched either; the nightly legs run them on macOS and Windows.
+A file with a match fails the test unless a `[[native]]` entry in `.github/tier-rules.toml` lists
+it. An entry has the keys `why`, `paths`, `checks`, `platforms` and `enforcement`: its paths must
+exist and contain a match, its checks must be tests of the tier lists, its platforms are
+`macos-latest` and `windows-latest`, and its `enforcement` must name a mechanism in
+`IMPLEMENTED_NATIVE_ENFORCEMENT` in `test/tier_selection.jl`. That list is empty, because `CI.yml` has
+no macOS or Windows job, so every entry fails the test until a pull request implements such a
+mechanism and names it there. A pull request that adds native code therefore has to implement the
+pre-merge platform job in the plan and verdict of `CI.yml` (running the entry's checks on the entry's
+platforms), add it to the list, register the entry, and change the assertion in `test/ci_gate.jl`
+that `CI.yml` has no macOS or Windows job.
 
 The existing Benchmark analysis controls job has no tier or test-reuse condition, so it is
 independent of the main tier and nightly test reuse. It runs as three separate matrix

@@ -235,6 +235,188 @@ end
   @test sort(collect(keys(CI.timeouts))) == sort(collect(TIERS))
 end
 
+# Explicit native calls in the package source. A file under src/ (or ext/) that makes one must be
+# registered in a [[native]] entry of .github/tier-rules.toml, and an entry is accepted only when
+# its `enforcement` names a pre-merge platform mechanism that this repository implements. The
+# patterns match the text of a line that does not start with `#`; they do not parse Julia, so a
+# docstring or string literal that contains such text is also a match (the guard fails closed).
+# Generic linear algebra (`mul!`, `dot`) is not matched.
+const NATIVE_PATTERNS = [
+  r"\bccall\s*\(",
+  r"@ccall\b",
+  r"\b(?:LAPACK|BLAS)\.\w",
+  r"^\s*(?:using|import)\b.*\b(?:LAPACK|BLAS|Libdl)\b",
+  r"\bLibdl\.\w",
+]
+# the pre-merge platform enforcement mechanisms that this repository implements; empty until a
+# PR adds one (a CI.yml plan/verdict job that runs the registered checks on the registered
+# platforms) and names it here
+const IMPLEMENTED_NATIVE_ENFORCEMENT = String[]
+const NATIVE_KEYS = ["why", "paths", "checks", "platforms", "enforcement"]
+const NATIVE_PLATFORMS = ["macos-latest", "windows-latest"]
+
+# path => the line numbers (1-based) that match a pattern, for the files that have any
+function native_hits(sources::AbstractDict{String, String})
+  hits = Dict{String, Vector{Int}}()
+  for (path, text) in sources, (i, line) in enumerate(split(text, '\n'))
+    startswith(lstrip(line), "#") && continue
+    any(re -> occursin(re, line), NATIVE_PATTERNS) && push!(get!(hits, path, Int[]), i)
+  end
+  return hits
+end
+
+isstringlist(v) = v isa AbstractVector && !isempty(v) && all(x -> x isa AbstractString, v)
+
+# The problems of the sources and the [[native]] entries: a file with a native call that no entry
+# lists, and an entry whose keys, paths, checks, platforms or enforcement do not describe a
+# registration that is enforced (`why` is required but its text is not checked).
+function native_problems(sources::AbstractDict{String, String}, entries::AbstractVector, tests, implemented)
+  problems = String[]
+  hits = native_hits(sources)
+  registered = Set{String}()
+  for (i, entry) in enumerate(entries)
+    if !(entry isa AbstractDict)
+      push!(problems, "native entry $i is not a table")
+      continue
+    end
+    paths = get(entry, "paths", nothing)
+    label = "native entry $i" * (isstringlist(paths) ? " ($(join(paths, ", ")))" : "")
+    for key in NATIVE_KEYS
+      haskey(entry, key) || push!(problems, "$label is missing the key `$key`")
+    end
+    for key in sort!(String.(collect(keys(entry))))
+      key in NATIVE_KEYS || push!(problems, "$label has the unknown key `$key`")
+    end
+    if haskey(entry, "paths") && !isstringlist(paths)
+      push!(problems, "$label: `paths` must be a non-empty list of strings")
+    elseif haskey(entry, "paths")
+      for path in paths
+        push!(registered, path)
+        if !haskey(sources, path)
+          push!(problems, "$label: `$path` is not a source file under src/ or ext/")
+        elseif !haskey(hits, path)
+          push!(problems, "$label: `$path` has no explicit native call, so the registration is stale")
+        end
+      end
+    end
+    checks = get(entry, "checks", nothing)
+    if haskey(entry, "checks") && !isstringlist(checks)
+      push!(problems, "$label: `checks` must be a non-empty list of test names")
+    elseif haskey(entry, "checks")
+      for check in checks
+        check in tests || push!(problems, "$label: check `$check` is not a test in the tier lists")
+      end
+    end
+    platforms = get(entry, "platforms", nothing)
+    if haskey(entry, "platforms") && !isstringlist(platforms)
+      push!(problems, "$label: `platforms` must be a non-empty list of strings")
+    elseif haskey(entry, "platforms")
+      for platform in platforms
+        platform in NATIVE_PLATFORMS ||
+          push!(problems, "$label: platform `$platform` is not one of $(join(NATIVE_PLATFORMS, ", "))")
+      end
+    end
+    if haskey(entry, "enforcement")
+      enforcement = entry["enforcement"]
+      enforcement isa AbstractString && enforcement in implemented ||
+        push!(problems, "$label names no implemented pre-merge platform enforcement ($(repr(enforcement)); " *
+          "implemented: $(isempty(implemented) ? "none" : join(implemented, ", "))). The PR that adds native " *
+          "code must implement one in the plan and verdict of CI.yml and add it to " *
+          "IMPLEMENTED_NATIVE_ENFORCEMENT in test/tier_selection.jl")
+    end
+  end
+  for path in sort!(collect(keys(hits)))
+    path in registered && continue
+    push!(problems, "`$path` makes an explicit native call (line $(first(hits[path]))) and is not listed in " *
+      "the `paths` of a [[native]] entry of .github/tier-rules.toml")
+  end
+  return problems
+end
+
+# the .jl files under src/ and ext/ (if it exists), keyed by their repository-relative path with `/`
+function native_sources(root)
+  sources = Dict{String, String}()
+  for dir in ("src", "ext")
+    isdir(joinpath(root, dir)) || continue
+    for (d, _, files) in walkdir(joinpath(root, dir)), file in files
+      endswith(file, ".jl") || continue
+      path = joinpath(d, file)
+      sources[replace(relpath(path, root), '\\' => '/')] = read(path, String)
+    end
+  end
+  return sources
+end
+
+@testset "explicit native calls in the package source are registered and enforced" begin
+  sources = native_sources(ROOT)
+  @test haskey(sources, "src/ProximalSolvers.jl")
+  native = get(TOML.parsefile(RULES), "native", [])
+  found = native isa AbstractVector ?
+    native_problems(sources, native, Set(keys(CI.tier)), IMPLEMENTED_NATIVE_ENFORCEMENT) :
+    ["`native` in .github/tier-rules.toml must be an array of tables ([[native]])"]
+  @test found == String[]
+end
+
+@testset "native guard: synthetic sources and registrations" begin
+  source(text) = Dict("src/f.jl" => text)
+  unregistered(text) = native_problems(source(text), [], ["a", "b"], String[])
+  # a call or import that is not registered
+  for text in ("ccall(:f, Cvoid, ())", "x = 1\n  @ccall f()::Cvoid", "LAPACK.syevr!('V', 'U', A)",
+               "y = BLAS.gemv!('N', 1.0, A, x, 0.0, y)", "using LinearAlgebra: LAPACK", "import LinearAlgebra.BLAS",
+               "import LinearAlgebra: BLAS, mul!", "using Libdl", "h = Libdl.dlopen(\"x\")",
+               "LinearAlgebra.BLAS.scal!(2, 3.0, x, 1)", "ccall (:f, Cvoid, ())")
+    @test mentions(unregistered(text), "`src/f.jl` makes an explicit native call")
+  end
+  # text that is not a native call
+  for text in ("# uses BLAS.gemv", "    # ccall(:f, Cvoid, ())", "  #  using LinearAlgebra: LAPACK",
+               "(CPU, BLAS kernel, compilation) rather than on the accuracy of the point.",
+               "mul!(y, A, x)", "using LinearAlgebra", "import LinearAlgebra: mul!, dot", "x = myccall(1)",
+               "z = SBLAS.f(1)", "# Libdl.dlopen(\"x\")\nx = 1\n")
+    @test unregistered(text) == String[]
+  end
+  # the line numbers of the matches (a comment line does not count)
+  @test native_hits(source("a = 1\n# BLAS.gemv!(1)\nBLAS.gemv!(1)\n\nccall(:f, Cvoid, ())\n")) ==
+        Dict("src/f.jl" => [3, 5])
+  @test isempty(native_hits(source("a = 1\n")))
+  # registrations
+  src = source("x = 1\nccall(:f, Cvoid, ())\n")
+  entry = Dict{String, Any}("why" => "a C routine", "paths" => ["src/f.jl"], "checks" => ["a"],
+                            "platforms" => ["macos-latest", "windows-latest"], "enforcement" => "pre-merge-platform-job")
+  with(; kw...) = merge(entry, Dict{String, Any}(String(k) => v for (k, v) in kw))
+  without(key) = delete!(copy(entry), key)
+  problems_of(e, implemented = ["pre-merge-platform-job"]) = native_problems(src, [e], ["a", "b"], implemented)
+  # an entry that names an enforcement that is not implemented fails; the same entry passes once a PR implements it
+  @test mentions(problems_of(entry, String[]), "names no implemented pre-merge platform enforcement")
+  @test mentions(problems_of(entry, ["another-mechanism"]), "names no implemented pre-merge platform enforcement")
+  @test mentions(problems_of(with(enforcement = "other"), ["pre-merge-platform-job"]), "names no implemented")
+  @test mentions(problems_of(with(enforcement = ""), ["pre-merge-platform-job"]), "names no implemented")
+  @test mentions(problems_of(with(enforcement = 3), ["pre-merge-platform-job"]), "names no implemented")
+  @test problems_of(entry) == String[]
+  @test problems_of(with(platforms = ["windows-latest"])) == String[]
+  # the other fields
+  @test mentions(problems_of(with(checks = String[])), "`checks` must be a non-empty list")
+  @test mentions(problems_of(with(checks = ["a", "zz"])), "check `zz` is not a test in the tier lists")
+  @test mentions(problems_of(with(checks = "a")), "`checks` must be a non-empty list")
+  @test mentions(problems_of(with(paths = ["src/other.jl"])), "`src/other.jl` is not a source file")
+  @test mentions(problems_of(with(paths = ["src/other.jl"])), "`src/f.jl` makes an explicit native call")
+  @test mentions(problems_of(with(paths = String[])), "`paths` must be a non-empty list")
+  @test mentions(native_problems(merge(src, Dict("src/g.jl" => "x = 1\n")), [with(paths = ["src/g.jl"])], ["a"],
+                                 ["pre-merge-platform-job"]), "`src/g.jl` has no explicit native call")
+  @test mentions(problems_of(with(platforms = ["linux"])), "platform `linux` is not one of")
+  @test mentions(problems_of(with(platforms = ["macos-latest", "linux"])), "platform `linux` is not one of")
+  @test mentions(problems_of(with(platforms = String[])), "`platforms` must be a non-empty list")
+  for key in NATIVE_KEYS
+    label = key == "paths" ? "native entry 1" : "native entry 1 (src/f.jl)"
+    @test mentions(problems_of(without(key)), "$label is missing the key `$key`")
+  end
+  @test mentions(problems_of(with(extra = "x")), "has the unknown key `extra`")
+  @test mentions(native_problems(src, [3], ["a"], String[]), "native entry 1 is not a table")
+  # a registered path covers its file only, and a registration for one file does not hide another
+  both = merge(src, Dict("src/g.jl" => "BLAS.gemv!(1)\n"))
+  @test mentions(native_problems(both, [entry], ["a"], ["pre-merge-platform-job"]), "`src/g.jl` makes an explicit native call")
+  @test native_problems(both, [with(paths = ["src/f.jl", "src/g.jl"])], ["a"], ["pre-merge-platform-job"]) == String[]
+end
+
 @testset "labels only raise the tier" begin
   @test pr("test/core_contracts.jl"; labels = ["test:standard"]) == ("standard", String[])
   @test pr("test/core_contracts.jl"; labels = ["test:full"]) == ("full", String[])
@@ -338,7 +520,7 @@ mktempdir() do root
   @test original != CE.environment_name(lines; channel="other", root)
   for path in CE.POLICY_FILES
     target = joinpath(root, path)
-    content = read(target, String)
+    content = replace(read(target, String), "\r\n" => "\n")
     write(target, content * "\n# changed policy\n")
     @test original != CE.environment_name(lines; channel="1", root)
     write(target, replace(content, "\n" => "\r\n"))

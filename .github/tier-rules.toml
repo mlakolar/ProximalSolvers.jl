@@ -95,3 +95,34 @@ why = "both supported examples are tests"
 tier = "quick"
 focus = ["examples"]
 paths = ["examples/**"]
+
+# Registrations of explicit native calls in the package source. No [[native]] table is defined
+# here, because no file under src/ makes such a call today. test/tier_selection.jl reads the table
+# (test/tiers.jl loads this file for scripts/ci_plan.jl but does not read it). The test scans the
+# .jl files under src/ (and ext/, if it exists) for the explicit native calls of NATIVE_PATTERNS
+# (a `ccall` or `@ccall`, a `LAPACK.` or `BLAS.` call, a `using` or `import` line that names
+# LAPACK, BLAS or Libdl, a `Libdl.` call), and a file with such a call fails the test unless an
+# entry below lists it.
+# Generic linear algebra such as `mul!` or `dot` is not matched.
+#
+# An entry has exactly these keys:
+#   why         a string: what the native call is for
+#   paths       a non-empty list of source files, each existing and containing an explicit native call
+#   checks      a non-empty list of test names from the tier lists: the tests that must run on the platforms
+#   platforms   a non-empty list drawn from "macos-latest" and "windows-latest"
+#   enforcement a string: a pre-merge mechanism named in IMPLEMENTED_NATIVE_ENFORCEMENT in
+#               test/tier_selection.jl
+# That list is empty. An entry therefore fails the test until the PR that adds the native call
+# also implements the pre-merge platform job (in the plan and verdict of CI.yml, which has no
+# macOS or Windows job today) and names it in that list; the entry alone does not pass it.
+#
+# test/tiers.jl `load` merges the top-level keys of this file into the tier data and rejects only
+# a key that both files define, and `parse_manifest` does not read a `native` key, so the loader
+# accepts the table.
+#
+# [[native]]
+# why = "..."
+# paths = ["src/example.jl"]
+# checks = ["example_test"]
+# platforms = ["macos-latest"]
+# enforcement = "pre-merge-platform-job"
