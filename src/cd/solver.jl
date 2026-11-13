@@ -144,44 +144,30 @@ end
 # largest change of a coordinate, scaled if `scaled`
 function _pass!(x, m, g, st::_CDState{T}, full::Bool, scaled::Bool) where {T}
   maxh = if full
-    _fullpass!(x, m, g, st, scaled)
+    _sweep!(x, m, g, st, scaled, Base.OneTo(ncoordinates(x)))
   else
-    _activepass!(x, m, g, st, scaled)
+    _sweep!(x, m, g, st, scaled, activecoordinates(x))
   end
   dropzeros!(x)
   maxh
 end
 
-function _fullpass!(x, m, g, st::_CDState{T}, scaled::Bool) where {T}
-  n = ncoordinates(x)
+# visits `coords` (all coordinates, or the stored active ones) in order or in a
+# fresh random permutation; in an active pass a step writes only the coordinate it
+# visits, which is stored, so a zero write keeps it stored and `coords` stays the
+# same until `dropzeros!` runs after the pass in `_pass!`
+function _sweep!(x, m, g, st::_CDState{T}, scaled::Bool, coords) where {T}
+  n = length(coords)
   maxh = zero(T)
   if st.random
     order = _shuffle!(st.order, n, st.rng)
     for i in 1:n
-      h = _visit!(m, g, x, @inbounds(order[i]), scaled)
-      h > maxh && (maxh = h)
-    end
-  else
-    for k in 1:n
-      h = _visit!(m, g, x, k, scaled)
-      h > maxh && (maxh = h)
-    end
-  end
-  maxh
-end
-function _activepass!(x, m, g, st::_CDState{T}, scaled::Bool) where {T}
-  n = nactive(x)
-  act = activecoordinates(x)
-  maxh = zero(T)
-  if st.random
-    order = _shuffle!(st.order, n, st.rng)
-    for i in 1:n
-      h = _visit!(m, g, x, @inbounds(act[order[i]]), scaled)
+      h = _visit!(m, g, x, @inbounds(coords[order[i]]), scaled)
       h > maxh && (maxh = h)
     end
   else
     for i in 1:n
-      h = _visit!(m, g, x, @inbounds(act[i]), scaled)
+      h = _visit!(m, g, x, @inbounds(coords[i]), scaled)
       h > maxh && (maxh = h)
     end
   end
