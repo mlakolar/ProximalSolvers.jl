@@ -510,10 +510,11 @@ end
 
 @testset "PGD end to end under the strict ftol = 0 settings" begin
   # solve! with ftol = 0, allow_f_increases = true, xtol = 1e-300, gradtol = 1e-11 on the
-  # Float32 design above. Float32 reaches its floating-point fixed point, where gradtol = 1e-11
-  # is out of reach and an unchanged iterate is not convergence under ftol = 0, so the solve
-  # runs to maxiter with converged = false; the point meets the gap target. Float64 stops on the
-  # gradient test.
+  # Float32 design above. Float32 reaches its floating-point fixed point. At an unchanged
+  # iterate the computed x and gradient tests can hold, but the exact-stall rule of ftol = 0
+  # does not count them, and between such iterations the iterate can still move; on this
+  # design the solve runs to maxiter with converged = false. The independent gap checks the
+  # accuracy. Float64 stops on the gradient test.
   X, y, s, λ = pgd_lasso_design(33, 100, 32)
   for (T, maxiter) in ((Float32, 300), (Float64, 2000))
     A, b = T.(X), T.(y)

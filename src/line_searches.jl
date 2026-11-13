@@ -23,10 +23,11 @@ are too close to compare in floating point, and from gradients after that.
 An LS trial whose image or value overflows is never accepted: it gives no
 estimate, and the search retries with `L ← L / β`.
 
-For [`ProximalGradientDescent`](@ref) on its supported least-squares model, a
-rejection is checked by the certified least-squares bound that
-`AccProxGradDescent` uses: `√α ‖X d‖ ≤ (1 + 4eps) √L ‖d‖` for function-value
-estimates, and the same with `2α` for gradient estimates. A rejection is not
+For [`ProximalGradientDescent`](@ref ProximalSolvers.ProximalGradientDescent)
+on its supported least-squares model, a rejection is checked by the certified
+least-squares bound that `AccProxGradDescent` uses:
+`√α ‖X d‖ ≤ (1 + 4eps) √L ‖d‖` for function-value estimates, and the same with
+`2α` for gradient estimates. A rejection is not
 checked, and keeps TFOCS's update, when its trial value is not finite, when the
 computed `‖d̂‖²` is zero (the zero-step exit, which includes a tiny nonzero step
 whose square underflows), when `L̂` is NaN, or when a gradient estimate comes
