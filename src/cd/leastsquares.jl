@@ -86,17 +86,28 @@ end
 end
 
 _cache(m::LSModel) = m.r
-# The products of the loss scale with a sum of squares are formed in `S` and rounded to `T`
-# before the square root (for `S == T` this is the product in `T`). A product that rounds to 0
-# gives a scale of 0, which `_tolerances` reads as no response scale; rounding the root instead
-# could leave a subnormal scale whose product with the tolerance rounds to 0.
-coordinate_scale(m::LSModel{T}, x, k::Int) where T = sqrt(T(m.s*_sqnorm!(m, k)))
+# The stopping scales form the product `p` of the loss scale with a sum of squares in `S`.
+# A zero response scale selects the absolute fallback of `_tolerances`; a zero coordinate scale
+# makes that coordinate's change count as 0 in `_visit!`.
+# Response scale: `p` is rounded to `T` before the root, so a `p` that rounds to 0 in `T` (a tiny
+# response, or y = 0) gives 0, and the fallback, instead of a subnormal root whose product with the
+# tolerance can round to 0. If the rounded `p` is infinite the root is formed in `S` and rounded.
+# Coordinate scale: the root of the rounded `p` where that is a normal number of `T`, else the root
+# of `p` formed in `S` and rounded to `T`, which is 0 only where that root rounds to 0 in `T` (also
+# for p = 0, a column of zero curvature). For `S == T` both expressions equal `sqrt(p)`.
+function coordinate_scale(m::LSModel{T}, x, k::Int) where T
+  p = m.s*_sqnorm!(m, k)
+  q = T(p)
+  floatmin(T) <= q <= floatmax(T) ? sqrt(q) : T(sqrt(p))
+end
 function response_scale(m::LSModel{T}, x) where T
   s = zero(T)
   @inbounds for i in eachindex(m.y)
     s += m.y[i]*m.y[i]
   end
-  sqrt(T(m.s*s))
+  p = m.s*s
+  q = T(p)
+  isfinite(q) ? sqrt(q) : T(sqrt(p))
 end
 function loss_value(m::LSModel{T}, x) where T
   v = zero(T)
