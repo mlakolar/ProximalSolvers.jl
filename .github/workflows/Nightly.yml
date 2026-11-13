@@ -36,7 +36,9 @@ on:
 permissions:
   contents: read
 concurrency:
-  # A new commit on a pull request cancels its older run. Scheduled and manual runs queue.
+  # A new commit on a pull request cancels its older run. Scheduled and manual runs of a ref
+  # queue behind a running one, and a newer pending run replaces an older pending one (GitHub
+  # keeps one pending run per group).
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
@@ -185,9 +187,14 @@ jobs:
           BUILD_OUTCOME: ${{ steps.build.outcome }}
           TESTS_OUTCOME: ${{ steps.tests.outcome }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
+      # The artifact carries the leg's record only; the report job reads the verdict from the jobs
+      # API. On a "Re-run failed jobs" attempt the name may already exist, so the upload
+      # overwrites it, and a failed upload does not turn a leg red whose tests passed.
       - uses: actions/upload-artifact@v7
         if: always()
+        continue-on-error: true
         with:
+          overwrite: true
           name: nightly-leg-${{ matrix.os }}-${{ matrix.version }}-${{ matrix.arch }}
           path: ${{ runner.temp }}/leg/
           if-no-files-found: warn
