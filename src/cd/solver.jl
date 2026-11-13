@@ -153,9 +153,9 @@ function _pass!(x, m, g, st::_CDState{T}, full::Bool, scaled::Bool) where {T}
 end
 
 # visits `coords` (all coordinates, or the stored active ones) in order or in a
-# fresh random permutation; in an active pass a step writes only the coordinate it
-# visits, which is stored, so a zero write keeps it stored and `coords` stays the
-# same until `dropzeros!` runs after the pass in `_pass!`
+# fresh random permutation. An active pass needs `coords` to stay the same during
+# the pass: `LSModel`'s step writes only the coordinate it visits, which is stored,
+# and a zero write keeps it stored; `dropzeros!` runs after the pass, in `_pass!`.
 function _sweep!(x, m, g, st::_CDState{T}, scaled::Bool, coords) where {T}
   n = length(coords)
   maxh = zero(T)
