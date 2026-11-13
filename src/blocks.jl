@@ -2,14 +2,13 @@ module Blocks
 # Private native-vector operations; historical reductions are retained.
 using LinearAlgebra
 using ProximalBase: norm_diff
-export _eltype, _copy, _similar, _dense_similar, _copyto!, _copy!, _sub!, _step!, _norm, _norm_diff, _norm_inf, _dot, _dot_diff, _maxabs_axpy, _maxabs_residual,
+export _eltype, _copy, _similar, _dense_similar, _copyto!, _sub!, _step!, _norm, _norm_diff, _norm_inf, _dot, _dot_diff, _maxabs_axpy, _maxabs_residual,
        _extrapolate_point!, _maxabs_diff, _maxabs_stepdiff
 _eltype(x::AbstractArray) = eltype(x)
 _copy(x::AbstractArray) = copy(x)
 _similar(x::AbstractArray) = similar(x)
 _dense_similar(x::AbstractArray{T}) where {T} = Array{T}(undef, size(x))
 _copyto!(y::AbstractArray, x::AbstractArray) = copyto!(y, x)
-_copy!(y::AbstractArray, x::AbstractArray) = copy!(y, x)
 _sub!(y::AbstractArray, a, b) = (@. y = a - b; y)
 _step!(y::AbstractArray, x, g, L) = (@. y = x - g / L; y)
 _extrapolate_point!(y::AbstractArray, x, xp, ω) = (@. y = x + ω * (x - xp); y)

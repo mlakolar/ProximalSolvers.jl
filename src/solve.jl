@@ -100,7 +100,7 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
 
     if tracing
       # update trace; callbacks can stop routine early by returning true
-      stopped_by_callback = trace!(tr, f, g, state, iteration, method, options)
+      stopped_by_callback = trace!(tr, state, iteration, options)
     end
 
     stopped_by_time_limit = time()-t0 > options.time_limit ? true : false
