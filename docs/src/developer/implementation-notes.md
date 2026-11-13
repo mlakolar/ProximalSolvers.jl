@@ -55,11 +55,14 @@ or subnormal in `S`) `T(sqrt(s) * sqrt(S(a)))`, formed in `S` from the two
 roots, so the rounded product `p` does not enter it. That last form is 0 for
 `a = 0`, and 0 where its value is at most half of `nextfloat(zero(T))`. For
 `S == T` the first two forms have the same value where `p` is normal. Where
-`s * a` overflows, or `a` is infinite, the second form is infinite, and `_visit!`
-refuses a nonzero change times that scale with `ArgumentError("a coordinate
-step or its stopping scale is not finite")`, and `x` and an owner are not
-changed (the solve works on a private copy). The underflow range of the coordinate scale is handled here;
-the step is not changed. It passes the coefficient `inv(s * a)` to the
+`s * a` overflows, or `a` is infinite, the second form is infinite. Where
+`scaled` holds in `_tolerances` (`relative=true` and a positive response scale),
+`_visit!` multiplies a nonzero change by the coordinate scale and refuses an
+infinite product with `ArgumentError("a coordinate step or its stopping scale
+is not finite")`, and `x` and an owner are not changed (the solve works on a
+private copy). With `relative=false` or `y = 0` the coordinate
+scale is not used. The underflow range of the coordinate scale is handled
+here; the step is not changed. It passes the coefficient `inv(s * a)` to the
 ProximalBase prox, which rounds the threshold to `T`, and that coefficient is
 infinite where `s * a` is below about `1 / floatmax(S)` and 0 where `s * a` is
 infinite. The overflow of `s * a`, the step reciprocal and infinite curvature

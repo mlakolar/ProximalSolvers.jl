@@ -11,12 +11,14 @@ code.
   scaled by a response-dependent quantity, `sqrt(s * sum(abs2, y))`, formed
   so that the sum of squares and its product with the loss scale `s` may
   leave the range of the working type; the reported effective
-  tolerance can differ from the value passed to the constructor. Each
-  coordinate change is also multiplied by `sqrt(s * a)` for the squared norm
-  `a` of its column, formed from the two square roots where the product
-  `s * a` is zero or subnormal; where it overflows the scale is infinite and
-  a nonzero change is refused with an `ArgumentError` (that overflow is issue
-  #294). If the computed `sqrt(s) * norm(y)`, after
+  tolerance can differ from the value passed to the constructor. When
+  relative scaling is active (`relative=true` and a positive response scale),
+  each coordinate change is also multiplied by `sqrt(s * a)` for the squared
+  norm `a` of its column, formed from the two square roots where the product
+  `s * a` is zero or subnormal; where it overflows the scale is infinite and a
+  nonzero change is then refused with an `ArgumentError` (that overflow is
+  issue #294). With `relative=false`, or with `y = 0`, the coordinate scale is
+  not used. If the computed `sqrt(s) * norm(y)`, after
   rounding to the working type, is not a normal floating-point number, the
   solve is refused with an `ArgumentError` before the first pass (rescale, or
   use `relative=false`, which can still end in the `nonfinite objective`

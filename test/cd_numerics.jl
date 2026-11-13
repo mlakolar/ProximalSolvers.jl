@@ -323,9 +323,9 @@ end
 # ---------------------------------------------------------------------------
 # The coordinate scale is the root of α a. With Float32 data and a Float64 scale, α a can round to
 # 0 in Float32 (below nextfloat(0f0)/2) or to a subnormal, while its root is a normal Float32 of
-# order 1e-23. With a scale of 0, `_visit!` counts the displacement of that coordinate as 0; if that
-# holds for all coordinates, CD accepts the first pass as converged at a point that need not be a
-# solution. A product that rounds to a subnormal can lose significant digits of the exact product.
+# order 1e-23. With relative scaling active and a scale of 0, `_visit!` counts the displacement of
+# that coordinate as 0; if that holds for all coordinates, CD accepts the first pass as converged at a
+# point that need not be a solution. A product that rounds to a subnormal can lose significant digits of the exact product.
 # The Float32 data X below have two columns with a ≈ 0.063.
 const COLUMN_CURVATURE = 0.063
 boundary_problem() = (Float32[.251 .24; 0 .0735], Float32[1e8, 1e8], fill(.2f0, 2))
@@ -746,8 +746,8 @@ end
 
 # The refusal suggests `relative = false`. Where Σr² overflows at the solution, that run ends in the
 # nonfinite-objective refusal (R3) instead. y = c (1, -1, 1, -1) is orthogonal to the single column of
-# ones, so x stays 0, Σr² = Σy² overflows T, and √α‖y‖ is above floatmax(T) (α = 100 in Float64, 400 in
-# Float32).
+# ones, so the minimizer is x = 0, Σr² = Σy² overflows T at that minimizer, and √α‖y‖ is above floatmax(T)
+# (α = 100 in Float64, 400 in Float32). The refusals below start from the warm x = 0.3.
 @testset "relative = false after an overflow refusal can end in the nonfinite-objective refusal ($T)" for (T, c, α) in
     ((Float64, 2.0^1020, 100.0), (Float32, 2f0^123, 400f0))
   y = c .* T[1, -1, 1, -1]
@@ -923,10 +923,11 @@ end
 # ---------------------------------------------------------------------------
 # 15. A coordinate scale whose product α a_k underflows to 0 (#293)
 # ---------------------------------------------------------------------------
-# The coordinate scale √(α a_k) multiplies each coordinate change in the stopping test. Where the
-# rounded product α a_k is 0 (S == T), a scale formed as the root of the rounded product is 0, and a
-# change of that coordinate counts as 0; with a normal response scale, CD would then accept the first
-# pass as converged at a large KKT violation. In the seven fixtures below (five in Float64 and two in
+# Where relative scaling is active (the default, with a positive response scale), the coordinate scale
+# √(α a_k) multiplies each coordinate change in the stopping test. Where the rounded product α a_k is 0
+# (S == T), a scale formed as the root of the rounded product is 0, and a change of that coordinate
+# counts as 0; with a normal response scale, CD would then accept the first pass as converged at a large
+# KKT violation. In the seven fixtures below (five in Float64 and two in
 # Float32, S == T; the penalty is 0, as α a_k of 0 gives the step coefficient 1/(α a_k) = Inf at a
 # positive penalty, #294) both α Σy² and α a_k round to 0 while √α ‖y‖ is a normal number. Each runs
 # from a cold and a warm start, in the
@@ -973,16 +974,19 @@ end
   check_d1_case(c)
 end
 
-# Overflow of α a_k: refused, the step and scale are #294. Where α a_k is above floatmax(T) and its root is
-# a normal number, the coordinate scale is Inf (it is not formed from the two roots there), so a nonzero
-# change of a coordinate is Inf and CD throws "a coordinate step or its stopping scale is not finite" in the
-# first pass; x and the owner state are as they were, and the generator too for the cyclic order (the
-# random orders draw from it at the start of each pass). The step coefficient 1/(α a_k) is 0 there, so
-# the step's threshold is 0 and the penalty has no effect on the step: with a finite coordinate scale a
-# solve at a positive penalty could stop at a point that is not a minimizer, which is why the infinite
-# scale and its refusal are kept. The penalty 0 is refused too, for the same scale. The data are the fixed
-# problem of section 10; the start is cold and warm, and a warm pass would change x. The penalty is a
-# fraction of λmax formed in BigFloat, as λmax can be above floatmax(T).
+# Overflow of α a_k: refused, the step and scale are #294. In these S == T fixtures α a_k is above
+# floatmax(T) and its root is a normal number, so the coordinate scale is Inf (it is not formed from the
+# two roots there). Where relative scaling is active (the default, with a positive response scale, as
+# here), a nonzero change of a coordinate is then Inf and CD throws "a coordinate step or its stopping
+# scale is not finite" in the first pass; x and the owner state are as they were, and the generator too
+# for the cyclic order (the random orders draw from it at the start of each pass). With S wider than T
+# (Float32 data and a Float64 α) the product can exceed floatmax(T) and be finite in S, and the scale is
+# then finite where its root is. The step coefficient 1/(α a_k) is 0 here, so the step's threshold is 0 and the penalty has
+# no effect on the step: with a finite coordinate scale a solve at a positive penalty could stop at a point
+# that is not a minimizer, which is why the infinite scale and its refusal are kept. The penalty 0 is
+# refused too, for the same scale. The data are the fixed problem of section 10; the start is cold and
+# warm, and a warm pass would change x. The penalty is a fraction of λmax formed in BigFloat, as λmax can
+# be above floatmax(T).
 function penalty_fraction(T, X, y, α, fraction)
   iszero(fraction) && return zero(T)
   setprecision(BigFloat, 256) do
