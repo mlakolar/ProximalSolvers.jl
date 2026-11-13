@@ -157,8 +157,9 @@ LineSearches.value_and_gradient_at_x!(state::ProximalGradientDescentState, f) =
 
 # The computed curvature c = m α ‖fl(X d̂)‖²/‖d̂‖² of the rejected step d̂ = state.delta_x, from
 # the product X d̂ formed in dz (scratch: _image_value_and_gradient! overwrites it before any
-# read), with m = 1 in function-value mode and m = 2 in gradient mode. Returns (c ≤ L, c), c of
-# type T.
+# read), with m = 1 in function-value mode and m = 2 in gradient mode. Returns (accepted, c):
+# accepted is the comparison of the curvature value with L (in Float64 for Float32 data), and c,
+# of type T, is the estimate that the caller uses after a rejection.
 function LineSearches.check_rejection!(state::ProximalGradientDescentState, gradient_mode::Bool)
     mul!(state.dz, state.model.X, state.delta_x)
     state.verifications += 1
@@ -174,16 +175,23 @@ function _step_curvature(state::ProximalGradientDescentState{T}, m) where T
     c <= state.L, c
 end
 
-# Float32 data: the sums of squares are accumulated in Float64, where the square of a Float32 is
-# exact, so neither sum overflows or underflows, and ‖d̂‖² > 0 for d̂ ≠ 0. An entry of fl(X d̂)
-# that overflowed to Inf or NaN makes c nonfinite: the trial is not accepted and the caller
-# keeps TFOCS's estimate. Underflow in the product, gradual or flushed to zero, changes each
-# entry by up to about 2p floatmin(Float32), so ‖fl(X d̂) - X d̂‖ is up to about the allowance
-# τ = 2√n p floatmin(Float32), which is added to ‖fl(X d̂)‖ before squaring. So c ≥ m α τ²/‖d̂‖²
-# > 0, and a product lost to underflow gives a positive c instead of a zero. c and the
-# comparison with L are in Float64; c is returned as Float32, which is Inf when c rounds above
-# floatmax(Float32).
+# Float32 data. When the calling thread flushes subnormals to zero (get_zero_subnormals(), one
+# read of the floating-point control register), the product and the sums below can drop
+# subnormal operands, so the computed curvature is not used: the result is (false, Inf32), and
+# the caller keeps TFOCS's estimate. Otherwise the sums of squares are accumulated in Float64,
+# where the square of a finite Float32 is exact, so neither sum overflows or underflows, and
+# ‖d̂‖² > 0 for d̂ ≠ 0. An entry of fl(X d̂) that overflowed to Inf or NaN makes the curvature
+# nonfinite: the trial is not accepted and the caller keeps TFOCS's estimate. The allowance
+# τ = 2√n p floatmin(Float32) for the underflow contribution to fl(X d̂) under gradual underflow
+# is added to ‖fl(X d̂)‖ before squaring; it is not a bound on the total error of the product,
+# which also carries the rounding of its products and sums. The comparison value
+# c64 = m α (‖fl(X d̂)‖ + τ)²/‖d̂‖², in Float64, is at least m α τ²/‖d̂‖² > 0 when finite, so a
+# product lost to underflow does not make it zero. Acceptance is c64 ≤ L in Float64. The
+# returned estimate Float32(c64) is used after a rejection only, where c64 > L and L is a
+# Float32, so Float32(c64) ≥ L under round-to-nearest; it can round to 0 (after an acceptance,
+# where it is unused) or to Inf (above floatmax(Float32)).
 function _step_curvature(state::ProximalGradientDescentState{Float32}, m)
+    get_zero_subnormals() && return false, Inf32
     n, p = size(state.model.X)
     τ = 2 * sqrt(Float64(n)) * p * Float64(floatmin(Float32))
     w = sqrt(_sumsq64(state.dz)) + τ

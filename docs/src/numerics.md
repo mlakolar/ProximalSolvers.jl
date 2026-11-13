@@ -277,14 +277,19 @@ only on `converged`.
   along `d̂`, the decision can go either way, and a step nearly in the null
   space of `X` can have a computed `c` with a large relative error. For
   Float32 data the two squared norms are accumulated in Float64, where the
-  square of a Float32 is exact, and the allowance `2√n p floatmin(Float32)`
-  for underflow in the product, gradual or flushed to zero, is added to
-  `‖fl(X d̂)‖` before squaring. So
-  a finite `c` is positive, a product lost to underflow does not give
-  `c = 0`, and an entry of `fl(X d̂)` that overflowed makes `c` nonfinite,
-  which keeps TFOCS's update; a `c` that rounds above `floatmax(Float32)`
-  also keeps it. When `‖fl(X d̂)‖` is at least about `2·10⁻²² √n p`, the
-  allowance is below the Float64 rounding of `‖fl(X d̂)‖`. For Float64 data, over- or
+  square of a finite Float32 is exact, and the allowance
+  `2√n p floatmin(Float32)` for the underflow contribution to the product
+  under gradual underflow is added to `‖fl(X d̂)‖` before squaring; it is not
+  a bound on the total error of the product. The curvature value compared
+  with `L`, in Float64, is then positive when finite, so a product lost to
+  underflow does not make it zero; the estimate used for a retry is that
+  value rounded to Float32, which can be Inf. An entry of `fl(X d̂)` that
+  overflowed makes the value nonfinite, which keeps TFOCS's update. When the
+  calling thread flushes subnormals to zero (`set_zero_subnormals(true)`), the
+  product can drop subnormal operands, and the check keeps TFOCS's update.
+  At ordinary scales the allowance is negligible: with round-to-nearest it
+  leaves the computed norm `w = ‖fl(X d̂)‖` unchanged when it is below
+  `eps(w)/2`. For Float64 data, over- or
   underflow of `‖fl(X d̂)‖²` or `‖d̂‖²` can make `c` infinite or NaN, which
   keeps TFOCS's update, or spuriously zero, which accepts the trial: with
   extreme scalings, `‖fl(X d̂)‖²` can underflow (or `‖d̂‖²` overflow), so `c`

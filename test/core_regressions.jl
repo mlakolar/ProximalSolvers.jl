@@ -407,6 +407,28 @@ end
   @test Float32[1 1] * (st.x .- st.x_previous) == Float32[0]
   @test PS.LineSearches.backtrack!(st, method.ls, f, g0)
   @test st.verifications == 1 && st.backtrack_simple && st.L == 1f0
+  # With subnormals flushed on this thread, BLAS can drop the subnormal operand a: fl(X d̂) is 0
+  # (or 1e-30) although X d̂ ≈ 1.2e-28, and the curvature 4.7e-38 (4.8e-38) is above
+  # L = floatmin(Float32). The check keeps TFOCS's estimate rather than accept on that product.
+  # The rejection is forced by lowering f(x'); the mode is restored in every case.
+  a = reinterpret(Float32, 0x007fffff)
+  for (X, d) in ((fill(a, 1, 1), Float32[1f10]), (reshape(Float32[a, 1f-30], 1, 2), Float32[1f10, 1]))
+    f = floatmax(Float32) * LeastSquaresLoss(Float32[0], X)
+    st = pgd_pair_trial(f, g0, zeros(Float32, length(d)), d, floatmin(Float32))
+    st.f_x_previous -= 1
+    old = get_zero_subnormals()
+    try
+      if set_zero_subnormals(true)
+        @test !PS.LineSearches.backtrack!(st, method.ls, f, g0)
+        @test st.verifications == 1 && st.L > floatmin(Float32)
+      else
+        @info "set_zero_subnormals(true) is not available on this platform; flushed-operand check skipped"
+      end
+    finally
+      set_zero_subnormals(old)
+    end
+    @test pgd_exact_curvature(st, 1) > floatmin(Float32)
+  end
   # An entry of fl(X d̂) overflows (1e30 · 1e10): c is not finite, so the check does not
   # accept the trial, and backtrack! keeps TFOCS's estimate (see the next testset). The step is
   # set directly, as backtrack! leaves it in delta_x.

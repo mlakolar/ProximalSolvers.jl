@@ -34,11 +34,14 @@ when `c` is finite, and TFOCS's `L ← min(Lexact, max(L̂, L / β))` when it is
 not. `c` carries no rounding certificate: when `L` is within rounding of the
 curvature along `d̂`, the decision can go either way. For Float32 data the
 squared norms are accumulated in Float64, and the allowance
-`2√n p floatmin(Float32)` for underflow in the product (gradual or flushed to
-zero, up to about `2p floatmin(Float32)` per entry) is added to `‖fl(X d̂)‖`
-before squaring, so a finite `c` is positive and a product lost
-to underflow does not give `c = 0`; a product that overflowed gives a nonfinite
-`c`, and TFOCS's update is kept. For Float64 data, over- or underflow of `‖fl(X d̂)‖²` or
+`2√n p floatmin(Float32)` for the underflow contribution to the product under
+gradual underflow is added to `‖fl(X d̂)‖` before squaring; the curvature value
+compared with `L`, in Float64, is then positive when finite, so a product lost
+to underflow does not make it zero. The estimate used for a retry is that value
+rounded to Float32 (Inf above `floatmax(Float32)`). A product that overflowed
+gives a nonfinite value, and TFOCS's update is kept; so it is when the calling
+thread flushes subnormals to zero, where the product can drop subnormal
+operands. For Float64 data, over- or underflow of `‖fl(X d̂)‖²` or
 `‖d̂‖²` can make `c` nonfinite (TFOCS's update is then kept) or spuriously zero
 (the trial is then accepted). A rejection is not
 checked, and keeps TFOCS's update, when its trial value is not finite, when the
@@ -142,8 +145,8 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
     # finite. With L ≥ c the trial is accepted and the mode is unchanged; for Float64 data
     # this includes a c that over- or underflow of a sum of squares makes spuriously zero (see
     # _step_curvature). Otherwise a finite c replaces the estimate; a nonfinite c (Inf or NaN,
-    # from overflow in the product or, for Float64 data, over- or underflow of a sum of
-    # squares) leaves TFOCS's estimate. A NaN estimate, or a gradient estimate from a
+    # from overflow in the product, for Float32 data from a thread that flushes subnormals, and
+    # for Float64 data from over- or underflow of a sum of squares) leaves TFOCS's estimate. A NaN estimate, or a gradient estimate from a
     # nonfinite ∇f(x), is kept: the update and the error check below run on it as before. A
     # NaN estimate raises the error; an infinite one raises it unless a finite Lexact caps L.
     if !isnan(local_l) && (!gradient_mode || all(isfinite, state.grad_f_x))
