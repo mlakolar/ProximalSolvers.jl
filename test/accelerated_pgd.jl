@@ -948,7 +948,8 @@ end
       # x != x_previous while the norm of delta_x is 0: not a stall, evaluated as with ftol > 0
       ("x != x_previous, delta_x = 0", (previous = moved, delta = zeros(T, 2), F = F, F_previous = F + 1),
        (true, false, true, true, false), (true, false, true, true, false), (true, false, true, true, false)),
-      # a subnormal difference: whether or not its norm rounds to 0, x != x_previous
+      # a subnormal difference (this row assumes IEEE gradual underflow in the comparison of the iterates):
+      # x != x_previous, so the flags are those of ftol > 0 whichever way the computed norm comes out
       ("x != x_previous, a subnormal difference", (x = T[1, 0], previous = T[1, tiny], F = F, F_previous = F + 1),
        (true, false, true, true, false), (true, false, true, true, false), (true, false, true, true, false)),
     ]
@@ -956,8 +957,6 @@ end
       a = apg_assessment(T, ftol; merge((; x), state)...)
       @test (label, T, ftol, a.flags) == (label, T, ftol, expected)
     end
-    # the norm of a nonzero difference does not round to 0 here, so that case reaches the x test
-    @test !iszero(PS._norm(T[1, 0] .- T[1, tiny]))
     # gradient_converged! still runs on an unchanged iterate, so max_residual is updated as with ftol > 0
     for ftol in (1e-15, 1e-300, 0)
       a = apg_assessment(T, ftol; x, previous = x, y = far, F, F_previous = F + 1)
@@ -990,7 +989,9 @@ end
 end
 
 @testset "APG: ftol = 0 with allow_f_increases and strict tolerances meets the fixture requirements with margin (#270)" begin
-  base = TIGHT
+  # the control uses the tolerances of TIGHT and allows increases, so that it does not depend on an
+  # increase stop of the rounded trajectory
+  base = ProximalOptions(maxiter = 20_000, ftol = 1e-15, allow_f_increases = true, xtol = 1e-14, gradtol = 1e-11)
   strict = ProximalOptions(maxiter = 20_000, ftol = 0, allow_f_increases = true, xtol = 1e-300, gradtol = 1e-11)
   for T in (Float64, Float32)
     # the fixture of "correlated full rank" with n, p = 40, 12 and the penalty 0.3 λmax
@@ -999,7 +1000,7 @@ end
     lmax = λmax(X, y, s)
     λ = T(0.3 * lmax)
     f, g = loss(y, X, s), NormL1(λ)
-    # at the settings of TIGHT the objective test ends the solve
+    # at the tolerances of TIGHT the objective test ends the solve
     rb = solve!(zeros(T, 12), f, g, AccProxGradDescent(), base)
     @test rb.f_converged
     x = zeros(T, 12)

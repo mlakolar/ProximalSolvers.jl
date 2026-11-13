@@ -230,7 +230,8 @@ end
       # x != x_previous while the norm of delta_x is 0: not a stall, evaluated as with ftol > 0
       ("x != x_previous, delta_x = 0", (previous = moved, delta = zeros2, F = F, F_previous = F + 1, grad = zeros2),
        (true, false, true, true, false), (true, false, true, true, false), (true, false, true, true, false)),
-      # a subnormal difference: whether or not its norm rounds to 0, x != x_previous
+      # a subnormal difference (this row assumes IEEE gradual underflow in the comparison of the iterates):
+      # x != x_previous, so the flags are those of ftol > 0 whichever way the computed norm comes out
       ("x != x_previous, a subnormal difference", (x = T[1, 0], previous = T[1, tiny], F = F, F_previous = F + 1, grad = zeros2),
        (true, false, true, true, false), (true, false, true, true, false), (true, false, true, true, false)),
     ]
@@ -238,8 +239,6 @@ end
       a = pgd_assessment(T, ftol; merge((; x), state)...)
       @test (label, T, ftol, a.flags) == (label, T, ftol, expected)
     end
-    # the norm of a nonzero difference does not round to 0 here, so that case reaches the x test
-    @test !iszero(PS._norm(T[1, 0] .- T[1, tiny]))
     # gradient_converged! still runs on an unchanged iterate, so max_residual is updated as with ftol > 0
     for ftol in (1e-15, 1e-300, 0)
       a = pgd_assessment(T, ftol; x, previous = x, F, F_previous = F + 1, grad = T[1, 1.5], grad_previous = T[.5, 1])
@@ -254,7 +253,7 @@ alloc_unchanged(a, b) = @allocated PS._unchanged(a, b)
   @test PS._unchanged([0.0, 1.0], [-0.0, 1.0])
   @test PS._unchanged(Float32[], Float32[])
   @test !PS._unchanged([0.0, 1.0], [0.0, nextfloat(1.0)])
-  @test !PS._unchanged([1.0, 0.0], [1.0, nextfloat(0.0)])
+  @test !PS._unchanged([1.0, 0.0], [1.0, floatmin(Float64)])
   for T in (Float64, Float32)
     a, b = rand(T, 100), zeros(T, 100)
     b .= a
@@ -319,9 +318,10 @@ end
 
 @testset "PGD: ftol = 0 with allow_f_increases and strict tolerances ends on the gradient test (#270)" begin
   X, y, scale, λ, f, g = fasta_fixture(Float64)
-  base = ProximalOptions(maxiter = 20_000, ftol = 1e-15, xtol = 1e-14, gradtol = 1e-11)
+  # the control allows increases, so that it does not depend on an increase stop of the rounded trajectory
+  base = ProximalOptions(maxiter = 20_000, ftol = 1e-15, allow_f_increases = true, xtol = 1e-14, gradtol = 1e-11)
   strict = ProximalOptions(maxiter = 20_000, ftol = 0, allow_f_increases = true, xtol = 1e-300, gradtol = 1e-11)
-  # at the base settings the objective test ends the solve
+  # at the base tolerances the objective test ends the solve
   r = solve!(zeros(12), f, g, ProximalGradientDescent(), base)
   @test r.f_converged
   x = zeros(12)

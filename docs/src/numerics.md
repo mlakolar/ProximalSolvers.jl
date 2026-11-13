@@ -45,7 +45,7 @@ are evaluated as follows:
 | Field | Value at that iteration |
 | --- | --- |
 | `x_converged` | `norm(x - x') < xtol * max(norm(x), 1)`; with `ftol = 0`, `false` when `x == x'` elementwise |
-| `f_converged` | with `ftol > 0`: `abs(F - F') / (abs(F) + ftol) < ftol`, **or** `abs(F - F') < eps(abs(F) + abs(F'))` (about two units in the last place of `F`, and also when `F == F'`); with `ftol = 0`: `false` |
+| `f_converged` | with `ftol > 0`: `abs(F - F') / (abs(F) + ftol) < ftol`, **or** `abs(F - F') < eps(abs(F) + abs(F'))` (this form holds when `F == F'` and the sum is finite, and in the ordinary range, where the sum is finite and not subnormal, it is about two units in the last place of `F`); with `ftol = 0`: `false` |
 | `grad_converged` | the gradient/proximal residual test with `gradtol` holds; with `ftol = 0`, `false` when `x == x'` elementwise |
 | `converged` | at least one of `x_converged`, `f_converged` and `grad_converged` |
 | `f_increased` | `F > F'` |
@@ -55,8 +55,9 @@ So an objective-increase stop reports `f_increased=true` together with
 `converged=false`, unless one of the three tests also held at that
 iteration. Two other combinations are possible and not contradictory:
 
-- With `ftol > 0`, an increase smaller than about two units in the last
-  place of `F` passes the objective test, so the result reports
+- With `ftol > 0`, in the ordinary range (`abs(F) + abs(F')` finite and not
+  subnormal), an increase smaller than about two units in the last place of
+  `F` passes the objective test, so the result reports
   `converged=true` **and** `f_increased=true`. With `ftol = 0` the objective
   test is off, so an increase of any size reports `converged=false` unless the
   `x` or the gradient test held.
@@ -91,12 +92,16 @@ alone.
 ### Strict accuracy
 
 With `ftol > 0`, including the default `1e-6`, the objective-change test
-also holds when two successive computed objectives are equal or differ by
-about two units in the last place, which can happen well before the point is
+also holds when two successive computed objectives are equal or, in the
+ordinary range (`abs(F) + abs(F')` finite and not subnormal), differ by about
+two units in the last place. That can happen well before the point is
 accurate to the working precision. `ProximalOptions(ftol = 0)` switches the
 objective-change test off for `ProximalGradientDescent` and
-`AccProxGradDescent`: `f_converged` is `false` at every iteration. The other
-tests, the objective-increase stop and the iteration limit are unchanged.
+`AccProxGradDescent`: `f_converged` is `false` at every iteration. The
+objective-increase stop and the iteration limit are unchanged. So are the `x`
+and gradient tests, except that under `ftol = 0` an iteration whose accepted
+iterate equals the previous one elementwise sets neither `x_converged` nor
+`grad_converged` (see "An exact stall" below).
 `ftol` must be finite and nonnegative; a positive `ftol` that rounds to `0` in
 `Float64` is refused, so that a tiny positive value does not silently switch
 the test off.
@@ -114,16 +119,18 @@ independently computed targets of a relative duality gap of `1e-8` in Float64
 and `1e-5` in Float32. It is **not** a guarantee of accuracy on other problems,
 and `converged=true` is still not a certificate: check the returned point
 independently, for example with the bound below. Float32 PGD did not meet its
-target in every draw with this configuration: its line search can stall, and
-it then ends at `maxiter` with `converged=false`.
+target in every draw with this configuration. In those probes (with
+`maxiter = 2000`), all 100 Float32 PGD solves ran to `maxiter` with
+`converged=false`, and the iterate was unchanged in 309 to 1992 of their 2000
+iterations.
 
 - **`allow_f_increases = true`.** With the objective test off, a computed
   increase of `F` still ends the solve under the default
   `allow_f_increases=false`, and reports `converged=false` unless the `x` or
-  gradient test held. Near a minimizer such increases are rounding-level
-  (see above). In the benchmark probes, switching off the objective tests alone
-  ended most solves at an increase, so a strict solve also sets
-  `allow_f_increases = true`.
+  gradient test held. Near a minimizer such increases can be at the level of
+  rounding (see above). In the benchmark probes, switching off the objective
+  tests alone ended most solves at an increase, and the configuration above,
+  which met the targets in those probes, enables increases.
 - **`xtol` is not an accuracy criterion for PGD.** PGD's step is scaled by
   `1/L`, where `L` is the inverse step size, so the test
   `norm(x - x') < xtol * max(norm(x), 1)` bounds the proximal-gradient residual
@@ -131,15 +138,19 @@ it then ends at `maxiter` with `converged=false`.
   `x` and on the penalty level `λ`, not on an accuracy target. In the benchmark
   probes with `xtol = 1e-14`, one Float64 PGD draw (on Julia 1.10) missed the
   target, and it ended on the `x` test. `xtol = 1e-300` lets that test hold
-  only for steps of norm below `1e-300 * max(norm(x), 1)`, so the solve ends on
-  the gradient test, the iteration limit or another limit.
+  only for steps of norm below `1e-300 * max(norm(x), 1)`, which still includes
+  a nonzero step that small (for example `x = [1e-310]` after
+  `x_previous = [0.0]`). In the benchmark probes with these tolerances, all
+  Float64 solves ended on the gradient test.
 - **An exact stall under `ftol = 0`.** An iteration whose accepted iterate
   equals the previous one elementwise (by value) is no progress, not
   convergence: it sets neither `x_converged` nor `grad_converged`, and the
-  solve continues within its limits. With `ftol > 0` such an iteration passes
-  the `x` test. A stall can end: the step size `1/L` and APG's extrapolated
-  point change from one iteration to the next. A solve that stays at an
-  unchanged iterate until `maxiter` ends with `converged=false` and
+  solve continues, subject to the other tests, the limits and, with
+  `allow_f_increases=false`, the objective-increase stop. With `ftol > 0` such
+  an iteration passes the `x` test. A stall can end when the step size `1/L`
+  or, for APG, the extrapolated point changes from one iteration to the next;
+  they need not change (for example with a zero step or `α = 1`). A solve that
+  stays at an unchanged iterate until `maxiter` ends with `converged=false` and
   `iteration_converged=true`; that reports no progress, not that the point is
   wrong (for `x = 0` with a penalty level at or above `norm(∇f(0), Inf)`, the
   point is the solution). For `AccProxGradDescent`, an extrapolated point `y`
@@ -147,18 +158,19 @@ it then ends at `maxiter` with `converged=false`.
   residual `L * maximum(abs, x - y)` is `0`, so the gradient test holds when
   `gradtol > 0`.
 
-**A check of a lasso solution.** Let `f(x) = s‖y - Xx‖²/2` and `g(x) = λ‖x‖₁`
-with `λ > 0` (an unweighted `NormL1`), let `F = f + g`, and let `G` be the
-element of `∇f(x) + λ ∂‖x‖₁` of smallest infinity norm, which is the
+**A check of a lasso solution.** Let `f(x) = s‖y - Xx‖²/2` with `s > 0` and
+`g(x) = λ‖x‖₁` with `λ > 0` (an unweighted `NormL1`), let `F = f + g`, and let
+`G` be the element of `∇f(x) + λ ∂‖x‖₁` of smallest infinity norm, which is the
 [independent KKT residual](sparsity-and-kkt.md). Put `k = norm(G, Inf) / λ`.
-With the dual point `θ = κ s (y - Xx)`, where `κ = min(1, λ / norm(∇f(x), Inf))`,
-and `D(θ) = ⟨θ, y⟩ - ‖θ‖²/(2s)`, the relative duality gap satisfies
+With the dual point `θ = κ s (y - Xx)`, where
+`κ = min(1, λ / norm(∇f(x), Inf))` and `κ = 1` when `∇f(x) = 0`, and
+`D(θ) = ⟨θ, y⟩ - ‖θ‖²/(2s)`, the relative duality gap satisfies
 
 ~~~math
 \frac{F(x) - D(\theta)}{F(x)} \le 2k + k^2
 ~~~
 
-**in exact arithmetic**, for `F(x) > 0`. This follows from
+**in exact arithmetic**, for `s > 0`, `λ > 0` and `F(x) > 0`. This follows from
 `F(x) - D(θ) = (1-κ)² f(x) + (1-κ) λ‖x‖₁ + κ⟨G, x⟩`, `1 - κ ≤ k` and
 `F ≥ max(f, λ‖x‖₁)`. Evaluating `k` in `Float64` from the returned `x` is an
 independent numerical check, **not** a rigorous floating-point certificate: the

@@ -22,18 +22,21 @@ PGD stops when **any** of the iterate-change (`xtol`), objective-change
 
 `ftol` must be finite and nonnegative. With `ftol > 0`, including the default,
 the objective test holds when `|F - F'| / (|F| + ftol) < ftol` or
-`|F - F'| < eps(|F| + |F'|)`, about two units in the last place of `F`, where
-`F = f(x) + g(x)` is the computed objective and `F'` the previous one. The second
-form also holds when `F == F'`, so a flat computed objective ends the solve with
-`f_converged=true`, which is not evidence of an accurate point. `ftol = 0` switches
+`|F - F'| < eps(|F| + |F'|)`, where `F = f(x) + g(x)` is the computed objective and
+`F'` the previous one. The second form holds when `F == F'` and `|F| + |F'|` is finite,
+so a flat computed objective ends the solve with `f_converged=true`, which is not
+evidence of an accurate point; in the ordinary range, where `|F| + |F'|` is finite and
+not subnormal, it is about two units in the last place of `F`. (If `|F| + |F'|`
+overflows, `eps` is `NaN` and the second form does not hold.) `ftol = 0` switches
 the objective test off: `f_converged` is `false` at every iteration. A positive
 `ftol` that rounds to 0 in `Float64` is refused, so that a tiny value does not
 mean "off", and `-0.0` is stored as `0.0`.
 
 With `ftol = 0` only, an iteration whose accepted iterate equals the previous one
 elementwise (compared by value, so `-0.0 == 0.0`) is no progress: it sets neither
-`x_converged` nor `grad_converged`, and the solve continues until another test
-holds or a limit is reached. A solve whose iterate stays unchanged until `maxiter`
+`x_converged` nor `grad_converged`, and the solve continues, subject to the other
+tests, the limits and, with `allow_f_increases=false`, the objective-increase stop.
+A solve whose iterate stays unchanged until `maxiter`
 ends with `converged=false` and `iteration_converged=true`; the flags then report
 no progress, not that the point is wrong. An iterate that differs from the previous
 one in any entry is evaluated as usual, including when the norm of the difference
@@ -49,8 +52,9 @@ convergence test. At the iteration where any stop occurs, the result
 reports `f_increased = F > F'` and
 `converged = x_converged || f_converged || grad_converged`, so an
 objective-increase stop reports `converged=false` unless one of those
-tests also held. With `ftol > 0`, an increase smaller than about two units in
-the last place of `F` passes the objective test and reports both
+tests also held. With `ftol > 0`, in the ordinary range (`|F| + |F'|` finite and
+not subnormal), an increase smaller than about two units in the last place of `F`
+passes the objective test and reports both
 `converged=true` and `f_increased=true`. With `ftol = 0`, `f_converged` is
 `false`, so an increase of any size reports `converged=false` unless the `x` or
 gradient test held. Near a minimizer the computed
