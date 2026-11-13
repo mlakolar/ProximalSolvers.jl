@@ -1,0 +1,55 @@
+diff --git a/src/solve.jl b/src/solve.jl
+index a542d95..d55cf6e 100644
+--- a/src/solve.jl
++++ b/src/solve.jl
+@@ -141,3 +141,13 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
+                 NaN)           # gap sentinel, never computed
+ 
+ end
++
++# The dense gradient-method solve!: validation, the method's own checks, the start and the engine.
++function _solve_dense!(x, f, g, method, options, kwargs)
++  _check_keywords(kwargs)
++  _check_problem(x, f, g)
++  _check_method_for(method, f, x)
++  t0 = time()
++  state = initial_state(method, options, f, g, x)
++  _solve_gradient!(state, f, g, method, options, t0)
++end
+diff --git a/src/solvers/accelerated_proximal_gradient_descent.jl b/src/solvers/accelerated_proximal_gradient_descent.jl
+index 9aa5b28..ff0d5ac 100644
+--- a/src/solvers/accelerated_proximal_gradient_descent.jl
++++ b/src/solvers/accelerated_proximal_gradient_descent.jl
+@@ -308,11 +308,10 @@ internal counters. The result shares `x`.
+ """
+ function solve!(x, f, g, method::AccProxGradDescent,
+                 options::ProximalOptions = ProximalOptions(); kwargs...)
+-  _check_keywords(kwargs)
+-  _check_problem(x, f, g)
++  _solve_dense!(x, f, g, method, options, kwargs)
++end
++
++function _check_method_for(method::AccProxGradDescent, f, x)
+   _check_method(method, eltype(x))
+   _check_bound_size(f, eltype(x))
+-  t0 = time()
+-  state = initial_state(method, options, f, g, x)
+-  _solve_gradient!(state, f, g, method, options, t0)
+ end
+diff --git a/src/solvers/proximal_gradient_descent.jl b/src/solvers/proximal_gradient_descent.jl
+index 63b3a28..0b89682 100644
+--- a/src/solvers/proximal_gradient_descent.jl
++++ b/src/solvers/proximal_gradient_descent.jl
+@@ -191,9 +191,7 @@ handles taken earlier may no longer describe the active set.
+ """
+ function solve!(x, f, g, method::ProximalGradientDescent,
+                 options::ProximalOptions = ProximalOptions(); kwargs...)
+-  _check_keywords(kwargs)
+-  _check_problem(x, f, g)
+-  t0 = time()
+-  state = initial_state(method, options, f, g, x)
+-  _solve_gradient!(state, f, g, method, options, t0)
++  _solve_dense!(x, f, g, method, options, kwargs)
+ end
++
++_check_method_for(::ProximalGradientDescent, f, x) = nothing

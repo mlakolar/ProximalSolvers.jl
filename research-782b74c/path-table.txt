@@ -1,0 +1,53 @@
+path | location | reached F32 (1.10/1.13) | F64 (1.10/1.13) | alloc F32 1.10 || 1.13 | alloc F64 1.10 || 1.13
+pgd_ls_Float64_data_Float32 | proximal_gradient_descent.jl:125; line_searches.jl:81,110 | yes/yes | -/- | pgd_default_bt s=1648 u=0@k1 || pgd_default_bt s=1616 u=0@k1 | - || -
+pgd_ls_Float32_data_Float32 | proximal_gradient_descent.jl:125; line_searches.jl:81,110 | yes/yes | -/- | pgd_bt_f32params s=1648 u=0@k1 || pgd_bt_f32params s=1616 u=0@k1 | - || -
+pgd_exit_lexact | line_searches.jl:109 | yes/yes | yes/yes | pgd_lexact s=1648 u=0@k1 || pgd_lexact s=1616 u=0@k1 | pgd_lexact s=2560 u=0@k1 || pgd_lexact s=2496 u=0@k1
+pgd_mode_switch | line_searches.jl:93-98 | yes/yes | yes/yes | pgd_mode_switch s=1648 u=0@k17 || pgd_mode_switch s=1616 u=0@k138 | pgd_mode_switch s=2560 u=0@k21 || pgd_mode_switch s=2496 u=0@k21
+pgd_gradient_mode_trial | line_searches.jl:99-105 | yes/yes | yes/yes | pgd_mode_switch s=1648 u=0@k17 || pgd_mode_switch s=1616 u=0@k138 | pgd_mode_switch s=2560 u=0@k21 || pgd_mode_switch s=2496 u=0@k21
+pgd_zero_step_simple | line_searches.jl:64-73 | yes/yes | yes/yes | pgd_zero_step_simple s=1248 u=0@k1 || pgd_zero_step_simple s=1216 u=0@k1 | pgd_zero_step_simple s=1776 u=0@k1 || pgd_zero_step_simple s=1744 u=0@k1
+pgd_zero_step_gradient | line_searches.jl:67-72 | yes/yes | yes/yes | pgd_zero_step_gradient s=256 u=0@k1 || pgd_zero_step_gradient s=224 u=0@k1 | pgd_zero_step_gradient s=256 u=0@k1 || pgd_zero_step_gradient s=224 u=0@k1
+pgd_nonfinite_trial | line_searches.jl:79-83 | yes/yes | yes/yes | pgd_nonfinite_trial_recovers s=864 u=0@k1 || pgd_nonfinite_trial_recovers s=832 u=0@k1 | pgd_nonfinite_trial_recovers s=1008 u=0@k1 || pgd_nonfinite_trial_recovers s=976 u=0@k1
+next_curvature_error | line_searches.jl:48-52 | yes/yes | yes/yes | pgd_nonfinite_then_error s=688 u=16@k1 || pgd_nonfinite_then_error s=656 u=16@k1 | pgd_nonfinite_then_error s=720 u=16@k1 || pgd_nonfinite_then_error s=688 u=16@k1
+eng_rollback | solve.jl:88-96 | yes/yes | yes/yes | pgd_nonfinite_then_error s=688 u=16@k1 || pgd_nonfinite_then_error s=656 u=16@k1 | pgd_nonfinite_then_error s=720 u=16@k1 || pgd_nonfinite_then_error s=688 u=16@k1
+apg_accept_cached | image_models.jl:259 | yes/yes | yes/yes | apg_illcond s=2496 u=0@k1 || apg_illcond s=2464 u=0@k1 | apg_illcond s=3904 u=0@k1 || apg_illcond s=3808 u=0@k1
+apg_early_reject | image_models.jl:261 | yes/yes | yes/yes | apg_illcond s=2496 u=0@k1 || apg_illcond s=2464 u=0@k1 | apg_illcond s=3904 u=0@k1 || apg_illcond s=3808 u=0@k1
+apg_fresh_product | image_models.jl:264 | yes/yes | yes/yes | apg_illcond s=2496 u=0@k1 || apg_illcond s=2464 u=0@k1 | apg_fresh_only s=256 u=0@k1 || apg_fresh_only s=224 u=0@k1
+apg_fresh_accept | image_models.jl:264-269 | yes/yes | yes/yes | apg_illcond s=2496 u=0@k1 || apg_illcond s=2464 u=0@k1 | apg_curvature_near s=2160 u=0@k2 || apg_curvature_near s=2288 u=0@k2
+apg_fresh_reject | image_models.jl:264-269 | yes/yes | yes/yes | apg_illcond s=2496 u=0@k1 || apg_illcond s=2464 u=0@k1 | apg_curvature_exact s=2160 u=0@k1 || apg_curvature_exact s=2288 u=0@k1
+apg_W_nothing | image_models.jl:266 | no/no | no/no | apg_wide_range_nonfinite_pair s=1680 u=0@k1 || apg_wide_range_nonfinite_pair s=1808 u=0@k1 | apg_wide_range_nonfinite_pair s=112 u=-1@k1 || apg_wide_range_nonfinite_pair s=112 u=-1@k1
+apg_cached_norm_nothing | image_models.jl:255-256 | no/no | no/no | apg_illcond s=2496 u=0@k1 || apg_illcond s=2464 u=0@k1 | apg_illcond s=3904 u=0@k1 || apg_illcond s=3808 u=0@k1
+apg_norm_nothing | accelerated_proximal_gradient_descent.jl:232 | no/no | no/no | apg_wide_range_nonfinite_pair s=1680 u=0@k1 || apg_wide_range_nonfinite_pair s=1808 u=0@k1 | apg_wide_range_nonfinite_pair s=112 u=-1@k1 || apg_wide_range_nonfinite_pair s=112 u=-1@k1
+apg_zero_step | accelerated_proximal_gradient_descent.jl:233-238 | yes/yes | yes/yes | apg_zero_step s=2144 u=0@k1 || apg_zero_step s=2272 u=0@k1 | apg_zero_step s=2944 u=0@k1 || apg_zero_step s=3072 u=0@k1
+apg_onepass_to_twopass | image_models.jl:125-128 | yes/yes | yes/yes | apg_overflow_rollback s=1360 u=16@k1 || apg_overflow_rollback s=1488 u=16@k1 | apg_overflow_rollback s=1408 u=16@k1 || apg_overflow_rollback s=1536 u=16@k1
+apg_diffonepass_to_twopass | image_models.jl:129-132 | yes/yes | yes/yes | apg_subnormal_images s=1536 u=0@k1 || apg_subnormal_images s=1664 u=0@k1 | apg_tiny_X s=1376 u=0@k5 || apg_tiny_X s=1344 u=0@k5
+apg_frobenius_scaled | image_models.jl:156 | no/no | yes/yes | apg_frob_huge s=1328 u=0@k1 || apg_frob_huge s=1296 u=0@k1 | apg_frob_huge s=1376 u=0@k1 || apg_frob_huge s=1344 u=0@k1
+apg_alpha_Int64 | image_models.jl:175 | yes/yes | yes/yes | apg_alpha_Int s=1936 u=0@k1 || apg_alpha_Int s=2064 u=0@k1 | apg_alpha_Int s=2464 u=0@k1 || apg_alpha_Int s=2592 u=0@k1
+apg_alpha_Rational{Int64} | image_models.jl:175 | yes/yes | yes/yes | apg_alpha_Rational s=2208 u=0@k1 || apg_alpha_Rational s=2736 u=0@k1 | apg_alpha_Rational s=2672 u=0@k1 || apg_alpha_Rational s=3264 u=0@k1
+apg_alpha_BigFloat | image_models.jl:175 | yes/yes | yes/yes | apg_alpha_BigFloat s=17536 u=1248@k1 || apg_alpha_BigFloat s=16464 u=1152@k1 | apg_alpha_BigFloat s=31584 u=1248@k1 || apg_alpha_BigFloat s=29472 u=1152@k1
+apg_alpha_Bool | image_models.jl:10,175 | yes/yes | yes/yes | apg_alpha_Bool_rawLS s=1936 u=0@k1 || apg_alpha_Bool_rawLS s=2064 u=0@k1 | apg_alpha_Bool_rawLS s=2464 u=0@k1 || apg_alpha_Bool_rawLS s=2592 u=0@k1
+apg_alpha_Irrational{:π} | image_models.jl:175 | yes/yes | yes/yes | apg_alpha_Irrational s=1936 u=0@k1 || apg_alpha_Irrational s=2064 u=0@k1 | apg_alpha_Irrational s=2416 u=0@k1 || apg_alpha_Irrational s=2544 u=0@k1
+apg_fresh_only | image_models.jl:254 | yes/yes | yes/yes | apg_fresh_only s=256 u=0@k1 || apg_fresh_only s=224 u=0@k1 | apg_fresh_only s=256 u=0@k1 || apg_fresh_only s=224 u=0@k1
+apg_restart | accelerated_proximal_gradient_descent.jl:189-195 | yes/yes | yes/yes | apg_illcond s=2496 u=0@k1 || apg_illcond s=2464 u=0@k1 | apg_illcond s=3904 u=0@k1 || apg_illcond s=3808 u=0@k1
+apg_nonfinite_y | accelerated_proximal_gradient_descent.jl:215-218 | yes/yes | yes/yes | apg_nonfinite_y s=-1 u=0@k1 || apg_nonfinite_y s=-1 u=0@k1 | apg_nonfinite_y s=-1 u=0@k1 || apg_nonfinite_y s=-1 u=0@k1
+apg_overflow_rollback | accelerated_proximal_gradient_descent.jl:253 | yes/yes | yes/yes | apg_overflow_rollback s=1360 u=16@k1 || apg_overflow_rollback s=1488 u=16@k1 | apg_overflow_rollback s=1408 u=16@k1 || apg_overflow_rollback s=1536 u=16@k1
+eng_store_trace | utils.jl:15 | yes/yes | yes/yes | eng_pgd_store s=9088 u=0@k1 || eng_pgd_store s=4704 u=0@k1 | eng_pgd_store s=14688 u=0@k1 || eng_pgd_store s=6400 u=0@k1
+eng_show_trace | utils.jl:16 | yes/yes | yes/yes | eng_pgd_show s=26440 u=0@k1 || eng_pgd_show s=20416 u=0@k1 | eng_pgd_show s=32328 u=0@k1 || eng_pgd_show s=23152 u=0@k1
+eng_extended_metadata | utils.jl:9-12 | yes/yes | yes/yes | eng_pgd_ext_alone s=10144 u=0@k1 || eng_pgd_ext_alone s=10240 u=0@k1 | eng_pgd_ext_alone s=22272 u=0@k1 || eng_pgd_ext_alone s=21088 u=0@k1
+eng_callback_called | utils.jl:17-18 | yes/yes | yes/yes | eng_pgd_cb_stop3 s=22712 u=0@k1 || eng_pgd_cb_stop3 s=19504 u=0@k1 | eng_pgd_cb_stop3 s=24856 u=0@k1 || eng_pgd_cb_stop3 s=21712 u=0@k1
+eng_callback_stop | solve.jl:103 | yes/yes | yes/yes | eng_pgd_cb_stop3 s=22712 u=0@k1 || eng_pgd_cb_stop3 s=19504 u=0@k1 | eng_pgd_cb_stop3 s=24856 u=0@k1 || eng_pgd_cb_stop3 s=21712 u=0@k1
+eng_time_limit_stop | solve.jl:106 | yes/yes | yes/yes | eng_pgd_time0 s=1824 u=0@k1 || eng_pgd_time0 s=1792 u=0@k1 | eng_pgd_time0 s=2816 u=0@k1 || eng_pgd_time0 s=2848 u=0@k1
+eng_f_limit | solve.jl:107 | yes/yes | yes/yes | eng_pgd_fcalls s=1824 u=0@k1 || eng_pgd_fcalls s=1792 u=0@k1 | eng_pgd_fcalls s=2816 u=0@k1 || eng_pgd_fcalls s=2848 u=0@k1
+eng_grad_limit | solve.jl:108 | yes/yes | yes/yes | eng_pgd_gradcalls s=1824 u=0@k1 || eng_pgd_gradcalls s=1792 u=0@k1 | eng_pgd_gradcalls s=2816 u=0@k1 || eng_pgd_gradcalls s=2848 u=0@k1
+eng_prox_limit | solve.jl:109 | yes/yes | yes/yes | eng_pgd_proxcalls s=1824 u=0@k1 || eng_pgd_proxcalls s=1792 u=0@k1 | eng_pgd_proxcalls s=2816 u=0@k1 || eng_pgd_proxcalls s=2848 u=0@k1
+eng_f_increase_allowed | solve.jl:111-115 | no/yes | yes/yes | eng_pgd_allow_inc s=1824 u=0@k1 || eng_pgd_allow_inc s=1792 u=0@k1 | eng_pgd_allow_inc s=2816 u=0@k1 || eng_pgd_allow_inc s=2848 u=0@k1
+eng_f_increase_stop | solve.jl:111-115 | no/yes | yes/yes | eng_pgd_tight s=1824 u=0@k1 || eng_pgd_tight s=1792 u=0@k1 | eng_pgd_inc_stop s=2816 u=0@k1 || eng_pgd_inc_stop s=2848 u=0@k1
+refuse_dimension | solve.jl (_check_data) | yes/yes | yes/yes | ref_pgd_dim_x s=16 u=-1@k1 || ref_pgd_dim_x s=16 u=-1@k1 | ref_pgd_dim_x s=16 u=-1@k1 || ref_pgd_dim_x s=16 u=-1@k1
+refuse_empty | solve.jl (_check_data) | yes/yes | yes/yes | ref_pgd_empty_rows s=16 u=-1@k1 || ref_pgd_empty_rows s=16 u=-1@k1 | ref_pgd_empty_rows s=16 u=-1@k1 || ref_pgd_empty_rows s=16 u=-1@k1
+refuse_nonfinite | solve.jl (_check_problem, _check_data) | yes/yes | yes/yes | ref_pgd_nan_X s=16 u=-1@k1 || ref_pgd_nan_X s=16 u=-1@k1 | ref_pgd_nan_X s=16 u=-1@k1 || ref_pgd_nan_X s=16 u=-1@k1
+refuse_keywords | solve.jl (_check_keywords) | yes/yes | yes/yes | ref_pgd_keywords s=344 u=-1@k1 || ref_pgd_keywords s=208 u=-1@k1 | ref_pgd_keywords s=344 u=-1@k1 || ref_pgd_keywords s=208 u=-1@k1
+refuse_type | solve.jl (_check_problem, _check_data) | yes/yes | yes/yes | ref_pgd_mixed_types s=376 u=-1@k1 || ref_pgd_mixed_types s=384 u=-1@k1 | ref_pgd_mixed_types s=376 u=-1@k1 || ref_pgd_mixed_types s=384 u=-1@k1
+refuse_alias | solve.jl (_check_data) | yes/yes | yes/yes | ref_pgd_alias_y s=16 u=-1@k1 || ref_pgd_alias_y s=16 u=-1@k1 | ref_pgd_alias_y s=16 u=-1@k1 || ref_pgd_alias_y s=16 u=-1@k1
+refuse_scale | solve.jl (_scalar_parameter) | yes/yes | yes/yes | ref_pgd_scale_neg s=-1 u=-1@k1 || ref_pgd_scale_neg s=-1 u=-1@k1 | ref_pgd_scale_neg s=-1 u=-1@k1 || ref_pgd_scale_neg s=-1 u=-1@k1
+refuse_options | types.jl (ProximalOptions) | yes/yes | yes/yes | ref_pgd_opts_maxiter1 s=-1 u=-1@k1 || ref_pgd_opts_maxiter1 s=-1 u=-1@k1 | ref_pgd_opts_maxiter1 s=-1 u=-1@k1 || ref_pgd_opts_maxiter1 s=-1 u=-1@k1
+refuse_method | solver constructors, _check_method | yes/yes | yes/yes | ref_pgd_m_normalized s=-1 u=-1@k1 || ref_pgd_m_normalized s=-1 u=-1@k1 | ref_pgd_m_normalized s=-1 u=-1@k1 || ref_pgd_m_normalized s=-1 u=-1@k1
+refuse_bound_size | accelerated_proximal_gradient_descent.jl:268-273 | yes/yes | -/- | ref_apg_bound_size s=336 u=-1@k1 || ref_apg_bound_size s=320 u=-1@k1 | - || -

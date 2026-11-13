@@ -1,0 +1,40 @@
+diff --git a/src/solve.jl b/src/solve.jl
+index a542d95..5fefed5 100644
+--- a/src/solve.jl
++++ b/src/solve.jl
+@@ -96,11 +96,11 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
+     end
+ 
+     x_converged, fg_converged,
+-    grad_converged, converged, f_increased = convergence_assessment(state, f, g, options)
++    grad_converged, converged, f_increased = convergence_assessment(state, options)
+ 
+     if tracing
+       # update trace; callbacks can stop routine early by returning true
+-      stopped_by_callback = trace!(tr, f, g, state, iteration, method, options)
++      stopped_by_callback = trace!(tr, state, iteration, options)
+     end
+ 
+     stopped_by_time_limit = time()-t0 > options.time_limit ? true : false
+diff --git a/src/utils.jl b/src/utils.jl
+index 5f0c10a..2ba43bb 100644
+--- a/src/utils.jl
++++ b/src/utils.jl
+@@ -4,7 +4,7 @@
+ #
+ 
+ # Records iteration `iteration` and calls the callback; returns whether it stopped the solve.
+-function trace!(tr, f, g, state, iteration, method::ProximalSolver, options)
++function trace!(tr, state, iteration, options)
+     dt = Dict()
+     if options.extended_trace && iteration > 0
+         dt["x"] = _copy(state.x)
+@@ -24,7 +24,7 @@ f_residual(f_x, f_x_previous, f_tol) = abs(f_x-f_x_previous)/(abs(f_x)+f_tol)
+ g_residual(state::ProximalGradientDescentState) = _maxabs_residual(state.grad_f_x, state.grad_f_x_previous, state.delta_x, state.L)
+ function convergence_assessment(
+   state::Union{ProximalGradientDescentState, AccProxGradDescentState},
+-  f, g, options::ProximalOptions
++  options::ProximalOptions
+   )
+ 
+   x_converged, f_converged, grad_converged, f_increased = false, false, false, false

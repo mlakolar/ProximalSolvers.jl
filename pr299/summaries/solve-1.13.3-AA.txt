@@ -1,0 +1,36 @@
+paired repetitions: [1, 2, 3, 4, 5]
+case	median_ratio	min_ratio	max_ratio	bytes_before	bytes_after	same_iterations	same_minimizer
+apg/Float32/corr/default	1.0004	0.9964	1.0158	9072	9072	True	True
+apg/Float32/corr/ftol0	1.0042	1.0002	1.0170	9072	9072	True	True
+apg/Float32/small/default	0.9992	0.9942	1.0386	2464	2464	True	True
+apg/Float32/small/ftol0	0.9962	0.9891	1.0427	2464	2464	True	True
+apg/Float32/tall/default	1.0001	0.9986	1.0128	11376	11376	True	True
+apg/Float32/tall/ftol0	1.0053	0.9991	1.0087	11376	11376	True	True
+apg/Float32/wide/default	1.0027	0.9992	1.0238	12960	12960	True	True
+apg/Float32/wide/ftol0	1.0040	1.0018	1.0112	12960	12960	True	True
+apg/Float64/corr/default	0.9934	0.9842	1.0094	15744	15744	True	True
+apg/Float64/corr/ftol0	1.0045	0.9838	1.0280	15744	15744	True	True
+apg/Float64/small/default	0.9911	0.9730	1.0247	3808	3808	True	True
+apg/Float64/small/ftol0	0.9943	0.9849	1.0205	3808	3808	True	True
+apg/Float64/tall/default	0.9941	0.9789	1.0153	21824	21952	True	True
+apg/Float64/tall/ftol0	1.0012	0.9991	1.0139	21824	21824	True	True
+apg/Float64/wide/default	1.0009	0.9968	1.0280	25000	25000	True	True
+apg/Float64/wide/ftol0	1.0081	0.9838	1.0194	25000	25000	True	True
+pgd/Float32/corr/default	1.0076	0.9987	1.0172	6880	6880	True	True
+pgd/Float32/corr/ftol0	1.0060	0.9930	1.0159	6880	6880	True	True
+pgd/Float32/small/default	1.0018	0.9949	1.0295	1616	1616	True	True
+pgd/Float32/small/ftol0	0.9993	0.9793	1.0185	1616	1616	True	True
+pgd/Float32/tall/default	1.0118	1.0018	1.0136	6912	6912	True	True
+pgd/Float32/tall/ftol0	1.0031	1.0009	1.0139	6912	6912	True	True
+pgd/Float32/wide/default	1.0000	0.9992	1.0073	11664	11664	True	True
+pgd/Float32/wide/ftol0	1.0089	0.9985	1.0134	11664	11664	True	True
+pgd/Float64/corr/default	1.0056	1.0031	1.0089	12064	12064	True	True
+pgd/Float64/corr/ftol0	1.0037	0.9902	1.0231	12064	12064	True	True
+pgd/Float64/small/default	0.9979	0.9813	1.0229	2496	2496	True	True
+pgd/Float64/small/ftol0	1.0027	0.9723	1.0209	2496	2496	True	True
+pgd/Float64/tall/default	0.9981	0.9870	1.0138	13264	13264	True	True
+pgd/Float64/tall/ftol0	1.0003	0.9870	1.0121	13264	13264	True	True
+pgd/Float64/wide/default	0.9997	0.9836	1.0155	22824	22792	True	True
+pgd/Float64/wide/ftol0	1.0024	0.9862	1.0150	22792	22824	True	True
+geomean_of_median_ratios	1.0015
+cases_above_1.05	0

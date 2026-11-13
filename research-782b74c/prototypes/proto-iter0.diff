@@ -1,0 +1,13 @@
+diff --git a/src/utils.jl b/src/utils.jl
+index 5f0c10a..3bb0524 100644
+--- a/src/utils.jl
++++ b/src/utils.jl
+@@ -6,7 +6,7 @@
+ # Records iteration `iteration` and calls the callback; returns whether it stopped the solve.
+ function trace!(tr, f, g, state, iteration, method::ProximalSolver, options)
+     dt = Dict()
+-    if options.extended_trace && iteration > 0
++    if options.extended_trace
+         dt["x"] = _copy(state.x)
+         extended_trace!(dt, state)
+     end

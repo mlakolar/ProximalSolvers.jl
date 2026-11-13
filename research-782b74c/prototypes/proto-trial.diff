@@ -1,0 +1,53 @@
+diff --git a/src/solvers/accelerated_proximal_gradient_descent.jl b/src/solvers/accelerated_proximal_gradient_descent.jl
+index 9aa5b28..2e9aeef 100644
+--- a/src/solvers/accelerated_proximal_gradient_descent.jl
++++ b/src/solvers/accelerated_proximal_gradient_descent.jl
+@@ -217,11 +217,7 @@ function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where
+       return state
+     end
+     while true
+-      _step!(state.xhat, state.y, state.grad_f_y, state.L)
+-      state.g_x = convert(T, value_and_prox!(state.x, g, state.xhat, one(state.L) / state.L))
+-      state.f_x = _value!(state.x, state.model, state.z_x)
+-      state.prox_calls += 1
+-      state.f_calls += 1
++      _trial_point!(state, g, state.y, state.grad_f_y)
+ 
+       _sub!(state.xhat, state.x, state.y)
+       state.backtrack_steps += 1
+diff --git a/src/solvers/proximal_gradient_descent.jl b/src/solvers/proximal_gradient_descent.jl
+index 63b3a28..11c1ea8 100644
+--- a/src/solvers/proximal_gradient_descent.jl
++++ b/src/solvers/proximal_gradient_descent.jl
+@@ -127,11 +127,7 @@ function update_state!(
+     # backtracking loop
+     while true
+       # find next point
+-      _step!(state.xhat, state.x_previous, state.grad_f_x_previous, state.L)
+-      state.g_x = convert(_eltype(state.x), value_and_prox!(state.x, g, state.xhat, one(state.L) / state.L))
+-      state.f_x = _value!(state.x, state.model, state.z_x)
+-      state.prox_calls += 1
+-      state.f_calls += 1
++      _trial_point!(state, g, state.x_previous, state.grad_f_x_previous)
+ 
+       # check if enough progress is done
+       backtrack!(state, method.ls, f, g) && break
+diff --git a/src/utils.jl b/src/utils.jl
+index 5f0c10a..f7f67c2 100644
+--- a/src/utils.jl
++++ b/src/utils.jl
+@@ -66,3 +66,14 @@ end
+ 
+ _state_norm(s::ProximalGradientDescentState, x) = _norm(x)
+ _state_normdiff(s::ProximalGradientDescentState) = _norm_diff(s.x, s.x_previous, 2.)
++
++# The trial point x = prox_{g/L}(base - ∇f(base)/L) of both line searches and its value; the base point is
++# x_previous for PGD and y for APG, and `grad` is the gradient there.
++function _trial_point!(state::Union{ProximalGradientDescentState{T}, AccProxGradDescentState{T}}, g, base, grad) where T
++  _step!(state.xhat, base, grad, state.L)
++  state.g_x = convert(T, value_and_prox!(state.x, g, state.xhat, one(state.L) / state.L))
++  state.f_x = _value!(state.x, state.model, state.z_x)
++  state.prox_calls += 1
++  state.f_calls += 1
++  state
++end

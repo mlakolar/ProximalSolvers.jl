@@ -1,0 +1,35 @@
+diff --git a/src/solvers/accelerated_proximal_gradient_descent.jl b/src/solvers/accelerated_proximal_gradient_descent.jl
+index 9aa5b28..00f58c7 100644
+--- a/src/solvers/accelerated_proximal_gradient_descent.jl
++++ b/src/solvers/accelerated_proximal_gradient_descent.jl
+@@ -79,7 +79,6 @@ mutable struct AccProxGradDescentState{T, X<:Vector{T}, M, Z}
+     f_x_previous::T
+     g_x_previous::T
+     y::X
+-    f_y::T
+     grad_f_y::X
+     xhat::X
+     delta_x::X
+@@ -125,7 +124,6 @@ function initial_state(
+                          T(NaN),
+                          T(NaN),
+                          _similar(x0), # extrapolated point y
+-                         T(NaN),      # f(y)
+                          _dense_similar(x0), # gradient of f at y
+                          _similar(x0), # Temporary storage
+                          _similar(x0), # x - x_previous
+@@ -207,12 +205,12 @@ end
+ # f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + L/2 ‖x - y‖² (with legacy's slack 8eps on L), or until
+ # x == y entrywise.
+ function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where T
+-    state.f_y = _value_and_gradient!(state.grad_f_y, state.y, state.model, state.z_y, state.dz)
++    f_y = _value_and_gradient!(state.grad_f_y, state.y, state.model, state.z_y, state.dz)
+     state.f_calls += 1
+     state.grad_calls += 1
+     # An extrapolated y whose value or gradient overflows gives no step; f(x) = Inf
+     # makes the caller restart from x_previous, or, without momentum, fail with rollback.
+-    if !(isfinite(state.f_y) && _allfinite(state.grad_f_y))
++    if !(isfinite(f_y) && _allfinite(state.grad_f_y))
+       state.f_x = T(Inf)
+       return state
+     end

@@ -1,0 +1,119 @@
+diff --git a/src/blocks.jl b/src/blocks.jl
+index f21b00e..cec94e4 100644
+--- a/src/blocks.jl
++++ b/src/blocks.jl
+@@ -2,14 +2,13 @@ module Blocks
+ # Private native-vector operations; historical reductions are retained.
+ using LinearAlgebra
+ using ProximalBase: norm_diff
+-export _eltype, _copy, _similar, _dense_similar, _copyto!, _copy!, _sub!, _step!, _norm, _norm_diff, _norm_inf, _dot, _dot_diff, _maxabs_axpy, _maxabs_residual,
++export _eltype, _copy, _similar, _dense_similar, _copyto!, _sub!, _step!, _norm, _norm_diff, _norm_inf, _dot, _dot_diff, _maxabs_axpy, _maxabs_residual,
+        _extrapolate_point!, _maxabs_diff, _maxabs_stepdiff
+ _eltype(x::AbstractArray) = eltype(x)
+ _copy(x::AbstractArray) = copy(x)
+ _similar(x::AbstractArray) = similar(x)
+ _dense_similar(x::AbstractArray{T}) where {T} = Array{T}(undef, size(x))
+ _copyto!(y::AbstractArray, x::AbstractArray) = copyto!(y, x)
+-_copy!(y::AbstractArray, x::AbstractArray) = copy!(y, x)
+ _sub!(y::AbstractArray, a, b) = (@. y = a - b; y)
+ _step!(y::AbstractArray, x, g, L) = (@. y = x - g / L; y)
+ _extrapolate_point!(y::AbstractArray, x, xp, ω) = (@. y = x + ω * (x - xp); y)
+diff --git a/src/solve.jl b/src/solve.jl
+index a542d95..354dab3 100644
+--- a/src/solve.jl
++++ b/src/solve.jl
+@@ -100,7 +100,7 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
+ 
+     if tracing
+       # update trace; callbacks can stop routine early by returning true
+-      stopped_by_callback = trace!(tr, f, g, state, iteration, method, options)
++      stopped_by_callback = trace!(tr, state, iteration, options)
+     end
+ 
+     stopped_by_time_limit = time()-t0 > options.time_limit ? true : false
+diff --git a/src/solvers/accelerated_proximal_gradient_descent.jl b/src/solvers/accelerated_proximal_gradient_descent.jl
+index 9aa5b28..7082e4e 100644
+--- a/src/solvers/accelerated_proximal_gradient_descent.jl
++++ b/src/solvers/accelerated_proximal_gradient_descent.jl
+@@ -79,7 +79,6 @@ mutable struct AccProxGradDescentState{T, X<:Vector{T}, M, Z}
+     f_x_previous::T
+     g_x_previous::T
+     y::X
+-    f_y::T
+     grad_f_y::X
+     xhat::X
+     delta_x::X
+@@ -125,7 +124,6 @@ function initial_state(
+                          T(NaN),
+                          T(NaN),
+                          _similar(x0), # extrapolated point y
+-                         T(NaN),      # f(y)
+                          _dense_similar(x0), # gradient of f at y
+                          _similar(x0), # Temporary storage
+                          _similar(x0), # x - x_previous
+@@ -207,12 +205,12 @@ end
+ # f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + L/2 ‖x - y‖² (with legacy's slack 8eps on L), or until
+ # x == y entrywise.
+ function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where T
+-    state.f_y = _value_and_gradient!(state.grad_f_y, state.y, state.model, state.z_y, state.dz)
++    f_y = _value_and_gradient!(state.grad_f_y, state.y, state.model, state.z_y, state.dz)
+     state.f_calls += 1
+     state.grad_calls += 1
+     # An extrapolated y whose value or gradient overflows gives no step; f(x) = Inf
+     # makes the caller restart from x_previous, or, without momentum, fail with rollback.
+-    if !(isfinite(state.f_y) && _allfinite(state.grad_f_y))
++    if !(isfinite(f_y) && _allfinite(state.grad_f_y))
+       state.f_x = T(Inf)
+       return state
+     end
+@@ -289,9 +287,6 @@ function gradient_converged!(state::AccProxGradDescentState, options::ProximalOp
+   residual / (state.max_residual + options.gradtol) < options.gradtol || n_residual < options.gradtol
+ end
+ 
+-_state_norm(s::AccProxGradDescentState, x) = _norm(x)
+-_state_normdiff(s::AccProxGradDescentState) = _norm_diff(s.x, s.x_previous, 2.)
+-
+ """
+     solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions())
+ 
+diff --git a/src/solvers/proximal_gradient_descent.jl b/src/solvers/proximal_gradient_descent.jl
+index 63b3a28..91cb009 100644
+--- a/src/solvers/proximal_gradient_descent.jl
++++ b/src/solvers/proximal_gradient_descent.jl
+@@ -118,10 +118,10 @@ function update_state!(
+     ) where T
+ 
+     # copy x --> x_previous
+-    _copy!(state.x_previous, state.x)
++    _copyto!(state.x_previous, state.x)
+     state.f_x_previous = state.f_x
+     state.g_x_previous = state.g_x
+-    _copy!(state.grad_f_x_previous, state.grad_f_x)
++    _copyto!(state.grad_f_x_previous, state.grad_f_x)
+     state.L *= method.ls.α
+ 
+     # backtracking loop
+diff --git a/src/utils.jl b/src/utils.jl
+index 5f0c10a..3e7926e 100644
+--- a/src/utils.jl
++++ b/src/utils.jl
+@@ -4,9 +4,9 @@
+ #
+ 
+ # Records iteration `iteration` and calls the callback; returns whether it stopped the solve.
+-function trace!(tr, f, g, state, iteration, method::ProximalSolver, options)
++function trace!(tr, state, iteration, options)
+     dt = Dict()
+-    if options.extended_trace && iteration > 0
++    if options.extended_trace
+         dt["x"] = _copy(state.x)
+         extended_trace!(dt, state)
+     end
+@@ -64,5 +64,5 @@ function gradient_converged!(state::ProximalGradientDescentState{T}, options::Pr
+   residual / (state.max_residual + options.gradtol) < options.gradtol || n_residual < options.gradtol
+ end
+ 
+-_state_norm(s::ProximalGradientDescentState, x) = _norm(x)
+-_state_normdiff(s::ProximalGradientDescentState) = _norm_diff(s.x, s.x_previous, 2.)
++_state_norm(s::Union{ProximalGradientDescentState, AccProxGradDescentState}, x) = _norm(x)
++_state_normdiff(s::Union{ProximalGradientDescentState, AccProxGradDescentState}) = _norm_diff(s.x, s.x_previous, 2.)
