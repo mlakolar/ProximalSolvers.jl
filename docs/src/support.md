@@ -34,9 +34,11 @@ check, CD, PGD and APG use the loss scale as supplied, combined with
 keeps its `Float64` value, also where that value is subnormal in
 `Float32`. The arrays and the coefficients stay in `T`, so this does
 not imply mixed-precision array support or a guarantee about every
-intermediate arithmetic type. A `BigFloat` or `BigInt` loss scale makes
-the scalar step arithmetic of CD `BigFloat`, at the precision current
-when the solve runs; it allocates and is slow, and is not a fast path.
+intermediate arithmetic type. A `BigFloat`, `BigInt` or
+`Rational{BigInt}` loss scale makes the scalar arithmetic of CD (the step
+coefficient, the two stopping scales and the reported objective)
+`BigFloat`, at the precision current when the solve runs; it allocates
+and is slow, and is not a fast path.
 
 The data must not be modified while a solve is running. The coefficient
 vector (or the supported CD `SparseIterate`) is mutated in place, so do

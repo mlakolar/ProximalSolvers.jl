@@ -197,15 +197,16 @@ nonzero parameter to zero. After that check, CD, PGD and APG use the
 loss scale as supplied, combined with `T` by Julia's promotion: a
 `Float64` scale in a `Float32` solve keeps its `Float64` value (also
 where that value is subnormal in `Float32`). In CD, the coordinate step,
-the two stopping scales and the reported objective use that value, and
-each result is rounded to `T` where it enters the iterate, the
-tolerance or the result; an `Int`, `Rational`, `Irrational`, `Bool` or
-`Float16` scale is used there as `T(s)`. A `BigFloat` or `BigInt` loss
-scale makes the scalar step arithmetic of CD `BigFloat`, at the
-precision current when the solve runs; it allocates and is slow, and is
-not a fast path. This convenience does **not** enable a general
-mixed-precision model or guarantee that every intermediate operation
-uses `T`. Prefer explicit native scalars:
+the two stopping scales and the reported objective are formed from that
+value and rounded to `T` where they enter the iterate, the tolerance or
+the result; an `Int`, `Rational{Int}`, `Irrational`, `Bool` or `Float16`
+scale is used there as `T(s)`. A `BigFloat`, `BigInt` or
+`Rational{BigInt}` loss scale makes the scalar arithmetic of CD (the
+step coefficient, the two stopping scales and the reported objective)
+`BigFloat`, at the precision current when the solve runs; it allocates
+and is slow, and is not a fast path. This convenience does **not**
+enable a general mixed-precision model or guarantee that every
+intermediate operation uses `T`. Prefer explicit native scalars:
 
 ```julia
 T = Float32

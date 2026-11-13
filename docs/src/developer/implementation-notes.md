@@ -17,14 +17,20 @@ combined with `T` by Julia's promotion. CD's `LSModel` stores it as
 `s::S` with `S = promote_type(T, typeof(α))` if that is a concrete
 `AbstractFloat` type and `S = T` otherwise. The coordinate step, the
 two stopping scales and the reported objective form their products
-with `s` in `S`: the two stopping scales and the objective round the
-product to `T` once, and the step passes its coefficient to the
-ProximalBase prox, which rounds the threshold to `T`. `X`, `y`, the
-residual, the curvature cache and the iterate stay in `T`. A scale of type `T`,
+with `s` in `S`. The objective rounds its product to `T`. The response
+scale takes the root of its product rounded to `T`, or the root formed
+in `S` and then rounded to `T` where that rounded product is infinite.
+The coordinate scale takes the root of its product rounded to `T` where
+that is a normal number of `T`, and otherwise the root formed in `S` and
+rounded to `T`. The step passes its coefficient to the ProximalBase
+prox, which rounds the threshold to `T`. `X`, `y`, the residual, the
+curvature cache and the iterate stay in `T`. A scale of type `T`,
 `Int`, `Bool`, `Rational{Int}`, `Irrational` or `Float16`, or a
 `Float32` scale on `Float64` data, gives `S = T` and the arithmetic of
-`T`. A `BigFloat` or `BigInt` scale gives `S = BigFloat`, whose scalar
-arithmetic uses the precision current when the solve runs.
+`T`. A `BigFloat`, `BigInt` or `Rational{BigInt}` scale gives
+`S = BigFloat`, whose scalar arithmetic (the step coefficient, the two
+stopping scales and the reported objective) uses the precision current
+when the solve runs.
 This accepted wider-scalar behavior is a narrow compatibility
 exception, not a generic mixed-precision guarantee.
 
@@ -43,9 +49,11 @@ not a promotion of solver iterates or an optimality certificate.
 `converged=true` retains its algorithm-specific historical meaning;
 use independent objective/KKT checks for accuracy, especially with
 `Float32`. BigFloat may be used for independent test references,
-not as a supported solver working type; a `BigFloat` or `BigInt` loss
-scale is accepted by the representability check and makes CD's scalar
-step arithmetic BigFloat, which allocates and is not a fast path.
+not as a supported solver working type; a `BigFloat`, `BigInt` or
+`Rational{BigInt}` loss scale is accepted by the representability check
+and makes CD's scalar arithmetic (the step coefficient, the two stopping
+scales and the reported objective) BigFloat, which allocates and is not
+a fast path.
 
 This is a documentation alignment with the homogeneous numerical
 policy tracked in
