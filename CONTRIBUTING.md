@@ -50,6 +50,11 @@ green neither validates those platforms nor proves legacy algorithms still work.
 Historical full-suite/platform measurements and the deferred macOS C0 warm
 convergence failure remain in docs/audit/historical-full-testing.md.
 
+A separate `Nightly` workflow runs the full suite on Linux with Julia 1.10 once a day. It is not a required
+check, and it opens an issue for a failing leg; see "Nightly compatibility runs" in `test/TESTING.md`. When you
+change the ProximalBase pin, change `[sources]` in `Project.toml` and `Manifest-v1.10.toml` together, as the quick
+test in `test/aqua.jl` requires.
+
 CD preserves private PB SparseIterate storage/compaction, full-active scheduling,
 Fisher–Yates/RNG ownership, native residual/lazy curvature, scalar prox_block and
 default random momentum/restarts/cache refresh. PGD keeps native LS image math,

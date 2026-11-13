@@ -1,0 +1,318 @@
+name: Nightly
+# The full package test suite (scripts/test.jl --tier=full) on the Julia versions and platforms
+# of the matrix below, once a day. It is not a required check: CI.yml keeps the required checks
+# and runs Julia 1 on Linux. Julia 1.10 is the lowest version the package supports (Project.toml
+# `julia` compat), and it resolves its dependencies from the tracked Manifest-v1.10.toml.
+#
+# There is no skip or reuse logic here: a run does not read CI.yml's runs or an earlier
+# night's, so a success elsewhere cannot suppress it. CI.yml's own nightly keeps its reuse
+# logic.
+#
+# Triggers:
+# - the daily schedule and manual runs (`gh workflow run Nightly.yml --ref master`);
+# - a pull request that edits this workflow, Manifest-v1.10.toml or Project.toml, to show the
+#   1.10 result before merge. That run is advisory and reports no issue. A change to this file
+#   alone is tier `none` in .github/tier-rules.toml, so CI.yml runs no package tests for it and
+#   this run is its package test.
+#
+# Reporting: the `test` job leaves one record per matrix leg (leg.md: commit, Julia version,
+# ProximalBase line, step outcomes, per-file test summary and a failure excerpt). On a schedule
+# or manual run, the `report` job opens an issue per leg that did not succeed, titled
+# `Nightly failing: Julia <version> - <os>` (with the branch name in parentheses off master), or
+# comments on the open issue of that title; a leg that succeeded gets a "Green again" comment on
+# its open issue. Issues are closed by hand.
+#
+# scripts/ci_environment.jl is not used: on Julia 1.10 it resolves ProximalBase from the
+# registry, which has no 0.6 release, instead of from Manifest-v1.10.toml.
+on:
+  schedule:
+    - cron: '43 6 * * *'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/Nightly.yml'
+      - 'Manifest-v1.10.toml'
+      - 'Project.toml'
+permissions:
+  contents: read
+concurrency:
+  # A new commit on a pull request cancels its older run. Scheduled and manual runs queue.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  test:
+    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    # This job runs the PR's code on pull requests, so its token is read-only (see CI.yml).
+    permissions:
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # One entry per leg, so a leg can be added without restructuring.
+        include:
+          - version: '1.10'
+            os: ubuntu-latest
+            arch: x64
+            # ParallelTestRunner worker processes per Linux job (test/TESTING.md).
+            ptr_jobs: '4'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      # test/benchmark_formal.jl needs Python 3.11 or later when CI=true.
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: ${{ matrix.version }}
+          arch: ${{ matrix.arch }}
+      - uses: julia-actions/cache@v3
+        with:
+          delete-old-caches: false
+      # On Julia 1.10 this instantiates from Manifest-v1.10.toml.
+      - name: Resolve registered dependencies
+        id: resolve
+        shell: bash
+        run: julia --color=yes --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.status(; mode=Pkg.PKGMODE_MANIFEST)' 2>&1 | tee "$RUNNER_TEMP/resolve.log"
+      - uses: julia-actions/julia-buildpkg@v1
+        id: build
+      - name: Run package tests
+        id: tests
+        shell: bash
+        run: |
+          echo "Full tier at $GITHUB_SHA, coverage: $JULIA_TEST_COVERAGE"
+          start=$(date +%s)
+          status=0
+          julia --color=yes scripts/test.jl --verbose --tier=full 2>&1 | tee "$RUNNER_TEMP/test-output.log" || status=$?
+          echo $(( $(date +%s) - start )) > "$RUNNER_TEMP/test-seconds"
+          exit $status
+        env:
+          # Coverage roughly doubles compile time, and no result of this workflow uses it.
+          JULIA_TEST_COVERAGE: 'false'
+          PTR_NUM_JOBS: ${{ matrix.ptr_jobs }}
+      - name: Timing summary
+        if: ${{ !cancelled() && steps.tests.outcome != 'skipped' }}
+        continue-on-error: true
+        shell: bash
+        run: julia --startup-file=no scripts/test_report.jl "$RUNNER_TEMP/test-output.log" "$(cat "$RUNNER_TEMP/test-seconds")" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          TEST_REPORT_TITLE: Julia ${{ matrix.version }}, ${{ matrix.os }}, full tier, ${{ matrix.ptr_jobs }} workers
+      # The leg's record, for the job summary and, through the artifact, for the report job. It
+      # is written when a step failed or the job was cancelled, from what exists by then.
+      - name: Record the leg result
+        if: always()
+        shell: bash
+        run: |
+          leg="$RUNNER_TEMP/leg"
+          mkdir -p "$leg"
+          log="$RUNNER_TEMP/test-output.log"
+          resolve_log="$RUNNER_TEMP/resolve.log"
+          clean="$RUNNER_TEMP/test-output.clean"
+          # the logs contain colour codes
+          if [ -f "$log" ]; then sed 's/\x1b\[[0-9;]*m//g' "$log" | tr -d '\r' > "$clean"; else : > "$clean"; fi
+          julia_version=$(julia --version 2>&1) || julia_version="not available"
+          proximalbase="not in the resolve log"
+          if [ -f "$resolve_log" ]; then
+            line=$(sed 's/\x1b\[[0-9;]*m//g' "$resolve_log" | grep -m1 ProximalBase || true)
+            # the status line, without its leading blanks
+            if [ -n "$line" ]; then proximalbase=${line#"${line%%[![:space:]]*}"}; fi
+          fi
+          printf '%s\n' "$LEG_NAME" > "$leg/name.txt"
+          if [ "$TESTS_OUTCOME" = success ]; then conclusion=success; else conclusion=failure; fi
+          printf '%s\n' "$conclusion" > "$leg/conclusion.txt"
+          {
+            echo "## $LEG_NAME"
+            echo
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Ref: \`$GITHUB_REF\`"
+            echo "- Run: $RUN_URL"
+            echo "- Julia: \`$julia_version\`"
+            echo "- ProximalBase: $proximalbase"
+            echo "- Resolve step: ${RESOLVE_OUTCOME:-did not run}"
+            echo "- Build step: ${BUILD_OUTCOME:-did not run}"
+            echo "- Test step: ${TESTS_OUTCOME:-did not run}"
+            echo
+            if [ "$TESTS_OUTCOME" = skipped ] || [ -z "$TESTS_OUTCOME" ]; then
+              if [ "$RESOLVE_OUTCOME" != success ]; then
+                echo "The tests did not start: the dependency resolution step ended as \`${RESOLVE_OUTCOME:-did not run}\` (a step before it failed, or the job was cancelled)."
+              else
+                echo "The tests did not start: the package build step ended as \`${BUILD_OUTCOME:-did not run}\`."
+              fi
+            else
+              echo "Per-file test summary:"
+              echo
+              echo '```'
+              awk '/Test Summary:/ { buf = ""; on = 1 }
+                   on { buf = buf $0 "\n" }
+                   on && /^[[:space:]]*Overall[[:space:]]*\|/ { last = buf; on = 0 }
+                   END { printf "%s", last }' "$clean" | sed 's/```/'"'''"'/g'
+              echo '```'
+              if [ "$TESTS_OUTCOME" != success ]; then
+                echo
+                echo "Failure excerpt:"
+                echo
+                echo '```'
+                # each block starts at a failure line and keeps up to 12 lines after it
+                awk -v context=12 -v limit=150 '
+                  function keep(s) { lines[++n] = s; if (n > limit) exit }
+                  /Test Failed at|Error During Test at|Got exception outside of a @test|LoadError|ERROR:/ { remaining = context; show = 1 }
+                  show || remaining > 0 {
+                    if (!show) remaining--
+                    if (gap && n > 0) keep("...")
+                    gap = 0
+                    show = 0
+                    keep($0)
+                    next
+                  }
+                  { gap = 1 }
+                  END {
+                    last = n > limit ? limit - 1 : n
+                    for (i = 1; i <= last; i++) print lines[i]
+                    if (n > limit) print "[excerpt stops at " limit " lines]"
+                  }' "$clean" | sed 's/```/'"'''"'/g'
+                echo '```'
+              fi
+            fi
+          } > "$leg/leg.md"
+          cat "$leg/leg.md" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          LEG_NAME: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
+          RESOLVE_OUTCOME: ${{ steps.resolve.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          TESTS_OUTCOME: ${{ steps.tests.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: nightly-leg-${{ matrix.os }}-${{ matrix.version }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/leg/
+          if-no-files-found: warn
+          retention-days: 14
+  report:
+    # Scheduled and manual runs get write access to issues (the condition below). This job runs
+    # no repository code: it has no checkout, and the script below uses gh and the leg records
+    # the test job uploaded.
+    name: Report failing legs
+    needs: test
+    if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      issues: write # open or update the issues
+    steps:
+      # A missing artifact (a job cancelled before it uploaded) must not stop the report.
+      - uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          pattern: nightly-leg-*
+          path: legs
+      - name: Open or update the issues
+        shell: bash
+        run: |
+          suffix=""
+          if [ "$GITHUB_REF" != refs/heads/master ]; then suffix=" ($GITHUB_REF_NAME)"; fi
+          workdir="$RUNNER_TEMP/report"
+          mkdir -p "$workdir"
+          status=0
+
+          # the number of the open issue with this title (the search can also return titles that
+          # merely contain these words, so the title is compared)
+          find_issue() {
+            TITLE="$1" gh issue list --state open --limit 100 --search "\"$1\" in:title" --json number,title \
+              --jq 'map(select(.title == env.TITLE))[0].number // empty'
+          }
+          # comment on the open issue with this title, or open one
+          post() {
+            local number
+            number=$(find_issue "$1") || return 1
+            if [ -n "$number" ]; then
+              gh issue comment "$number" --body-file "$2" || return 1
+            else
+              gh issue create --title "$1" --body-file "$2" || return 1
+            fi
+          }
+
+          # the conclusions of the jobs of this attempt; the API is the source of the verdict
+          jobs="$workdir/jobs.tsv"
+          read_ok=true
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs" --paginate --jq '.jobs[] | select(.name | startswith("Julia ")) | [.name, .conclusion] | @tsv' > "$jobs" || read_ok=false
+          if [ "$read_ok" = false ] || { [ ! -s "$jobs" ] && [ "$TEST_RESULT" != success ]; }; then
+            title="Nightly failing: report could not read the leg results$suffix"
+            {
+              echo "The Nightly report job could not read the results of the test legs."
+              echo
+              echo "- Event: $GITHUB_EVENT_NAME"
+              echo "- Ref: \`$GITHUB_REF\`"
+              echo "- Commit: \`$GITHUB_SHA\`"
+              echo "- Run: $RUN_URL"
+              echo "- Result of the test job: \`$TEST_RESULT\`"
+              if [ "$read_ok" = false ]; then
+                echo "- The jobs API call failed."
+              else
+                echo "- The jobs API returned no job whose name starts with \`Julia \`."
+              fi
+              echo
+              echo "See the run for the legs' own logs and summaries."
+            } > "$workdir/body-unreadable.md"
+            post "$title" "$workdir/body-unreadable.md" || status=1
+            exit $status
+          fi
+
+          n=0
+          while IFS=$'\t' read -r name conclusion <&3; do
+            n=$((n + 1))
+            title="Nightly failing: ${name% - *}$suffix"
+            if [ "$conclusion" = success ]; then
+              number=$(find_issue "$title") || { status=1; continue; }
+              if [ -n "$number" ]; then
+                echo "Green again at $GITHUB_SHA ($RUN_URL)." > "$workdir/green-$n.md"
+                gh issue comment "$number" --body-file "$workdir/green-$n.md" || status=1
+              fi
+              continue
+            fi
+            # the leg's own record, found by the leg name it wrote
+            record=""
+            for f in legs/*/name.txt; do
+              if [ -f "$f" ] && [ "$(cat "$f")" = "$name" ] && [ -f "$(dirname "$f")/leg.md" ]; then
+                record="$(dirname "$f")/leg.md"
+                break
+              fi
+            done
+            version=${name#Julia }
+            version=${version%% - *}
+            ref=${GITHUB_REF_NAME}
+            {
+              echo "The Nightly leg \`$name\` ended as \`${conclusion:-unknown}\`."
+              echo
+              echo "- Event: $GITHUB_EVENT_NAME"
+              echo "- Ref: \`$GITHUB_REF\`"
+              echo "- Commit: \`$GITHUB_SHA\`"
+              echo "- Run: $RUN_URL"
+              echo "- Conclusion: \`${conclusion:-unknown}\`"
+              echo
+              if [ -n "$record" ]; then
+                cat "$record"
+              else
+                echo "No leg record (the job was cancelled or timed out before it wrote one); see the run."
+              fi
+              echo
+              echo "Rerun on GitHub, or locally with the same Julia version:"
+              echo
+              echo '```'
+              echo "gh workflow run Nightly.yml --ref $ref"
+              echo "julia +$version scripts/test.jl --tier=full"
+              echo '```'
+            } > "$workdir/body-$n.md"
+            post "$title" "$workdir/body-$n.md" || status=1
+          done 3< "$jobs"
+          exit $status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TEST_RESULT: ${{ needs.test.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}

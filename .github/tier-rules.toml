@@ -48,6 +48,7 @@ paths = [
   ".github/dependabot.yml",
   ".github/workflows/CompatHelper.yml",
   ".github/workflows/Documentation.yml",
+  ".github/workflows/Nightly.yml",
   ".github/workflows/TagBot.yml",
 ]
 
