@@ -376,9 +376,6 @@ def call_main(argv, hooks=None, facts=None, environ=None):
 # ------------------------------------------------------------------------------------------------- TOML
 
 class TomlTests(unittest.TestCase):
-    def test_planted_failure_issue228(self):
-        self.fail("planted failure: #228 PR A failure injection; must fail the campaign leg")
-
     def roundtrip(self, data):
         text = C.toml_dumps(data)
         self.assertEqual(tomllib.loads(text), data, text)

@@ -222,6 +222,9 @@ def leaks(text):
 
 
 class MigrationCase(unittest.TestCase):
+    def test_planted_skip_issue228(self):
+        self.skipTest("planted skip: #228 PR A failure injection; must fail the comparator leg")
+
     """A fresh copy of a built input set per test (`self.c`); `fresh` makes another one."""
 
     def setUp(self):
