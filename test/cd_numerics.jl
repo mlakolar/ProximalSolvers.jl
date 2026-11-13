@@ -5,8 +5,10 @@ module CDNumerics
 # (Float32 data with a Float64 scale keeps the Float64 value). X, y, the residual and the iterate
 # stay in `T`. Accuracy is checked in BigFloat from the raw data and the supplied scale.
 # The response scale `√α‖y‖` of the relative stopping rule is formed range-safely (#293): the cases
-# below fix it where `Σy²` or `α Σy²` overflows or underflows, and where `√α‖y‖` is not a normal
-# number of `T`.
+# below fix it where `Σy²` or `α Σy²` overflows or underflows, and refuse a computed `√α‖y‖` that is
+# not a normal number of `T`. The coordinate scale `√(α a_k)` is formed from the two roots where the
+# product `α a_k` is not a normal number of `T`; the step reciprocal `1/(α a_k)` and infinite curvature
+# are not changed (#294).
 using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
 using Logging: with_logger, Warn
 const PS = ProximalSolvers
@@ -116,9 +118,9 @@ end
 # `rng_unchanged` the generator is as it was too, which holds where the solve is refused before any pass.
 # Returns the log records of the solve.
 function check_refusal(f, g, x0; order, momentum = nothing, owner = false, pattern = r"response scale",
-                       rng_unchanged = true, maxpasses = 50)
+                       rng_unchanged = true, maxpasses = 50, relative = true)
   rng = Xoshiro(5)
-  solver = CDSolver(; order, momentum, maxpasses, rng)
+  solver = CDSolver(; order, momentum, maxpasses, relative, rng)
   x = owner ? SparseIterate(copy(x0)) : copy(x0)
   snapshot() = owner ? (collect(ProximalBase.activecoordinates(x)), collect(ProximalBase.activevalues(x))) : copy(x)
   before, rng_before = snapshot(), copy(rng)
@@ -518,22 +520,25 @@ end
 end
 
 # ---------------------------------------------------------------------------
-# 10. The response scale outside the range of T: CD does not stop after one pass (#293)
+# 10. An intermediate of the response scale leaves the range of T: CD does not stop after one pass (#293)
 # ---------------------------------------------------------------------------
 # The response scale √α‖y‖ multiplies the tolerance. It used to be 0 where Σy² or α Σy² underflowed
 # (the tolerance became the absolute `tol`) and Inf where either overflowed (the tolerance became Inf);
 # either way CD accepted the first pass as converged, with a KKT violation of order 0.1 to 1 of its
-# scale. The scale is now formed with exponent-separated arithmetic where the product is not a normal
-# number of T. Each case below solves a problem with such a response, at a penalty of 0 and of a fraction
-# of λmax (0.1, or less where λ‖x‖₁ would then be too large for T), from a cold and a warm start, in the
-# three orders (cyclic, random with the default momentum, random without momentum), on a dense vector
-# and on an owner. Each solve converges after more than one pass,
-# at a point whose KKT violation for the supplied scale is within the bound, and with a tolerance equal
-# to tol times the BigFloat value of √α‖y‖. The data are one fixed problem (30 × 3 and a response near
-# the column space) of a given response norm and column scale. For each fixture and penalty below,
-# `check_feasible` asserts that the solution has a representable Σr² and objective and that each
-# nonzero α a_k is a normal number of T, so that the cases do not test the coordinate scale or the
-# reported objective (#294, and the R3 cases below).
+# scale. The scale is now formed in a wider type or with exponent-separated arithmetic where the sum or
+# the product is not a normal number of T. The final scale is a normal number of T in each case below,
+# and the control (‖y‖ = 2e151) keeps Σy² and α Σy² in range. Each case solves a problem with such a
+# response, at a penalty of 0 and of a fraction of λmax (0.1, or less where λ‖x‖₁ would then be too
+# large for T), from a cold and a warm start, in the three orders (cyclic, random with the default
+# momentum, random without momentum), on a dense vector and on an owner. Each solve converges after more
+# than one pass, at a point whose KKT violation for the supplied scale is within the bound, and with a
+# tolerance equal to tol times the BigFloat value of √α‖y‖. The data are one fixed problem (30 × 3 and a
+# response near the column space) of a given response norm and column scale. For each fixture and penalty
+# below, `check_feasible` asserts that at the reference solution Σr² and the objective are below
+# floatmax(T)/4, and that each nonzero α a_k lies in [floatmin(T), floatmax(T)/4), so that these cases do
+# not exercise a coordinate scale whose product α a_k is outside the normal range (section 15 does). It
+# checks no lower bound on Σr² or the objective: R3 underflow (a reported minimum of 0) remains possible
+# and is covered in section 14.
 const ORDERS = ((:cyclic, nothing), (:random, nothing), (:random, false))
 
 # X (30 × 3, with a zero fourth column if asked) times `xscale`, y with the norm `target`, in T; and
@@ -567,28 +572,44 @@ function reference_lasso(X, y, α, λ; passes = 150)
 end
 
 # The feasibility of a fixture that is expected to converge: at the reference solution Σr² and the
-# objective α Σr²/2 + λ‖x‖₁ are below floatmax(T)/4, and every nonzero α a_k lies in
-# [floatmin(T), floatmax(T)/4).
-function check_feasible(X, y, α, λ)
+# objective α Σr²/2 + λ‖x‖₁ are below floatmax(T)/4. These are upper bounds; nothing bounds them from
+# below, so R3 underflow of the reported minimum remains possible for a fixture that passes (section
+# 14). For the columns, `coordinate` selects what is asserted about each nonzero α a_k (in BigFloat):
+#   :normal     α a_k lies in [floatmin(T), floatmax(T)/4);
+#   :range      the root √(α a_k) is a normal number of T and at least one α a_k lies outside
+#               [floatmin(T), floatmax(T)], so that the coordinate scale is formed from the two roots;
+#   :subnormal  α a_k is a subnormal number of T with a finite reciprocal, so that the step coefficient
+#               1/(α a_k) is finite and the coordinate scale is formed from the two roots.
+function check_feasible(X, y, α, λ; coordinate = :normal)
   T = eltype(X)
   b, r = reference_lasso(X, y, α, λ)
   setprecision(BigFloat, 256) do
     ab, rss = big(α), sum(abs2, r)
     @assert rss < big(floatmax(T)) / 4 "Σr² at the solution is not below floatmax/4"
     @assert ab * rss / 2 + big(λ) * sum(abs, b) < big(floatmax(T)) / 4 "the objective at the solution is not below floatmax/4"
-    for k in axes(X, 2)
-      a = ab * sum(abs2, big.(X[:, k]))
-      iszero(a) || @assert big(floatmin(T)) <= a < big(floatmax(T)) / 4 "α a_$k is outside [floatmin, floatmax/4)"
+    products = [ab * sum(abs2, big.(X[:, k])) for k in axes(X, 2)]
+    nonzero = filter(!iszero, products)
+    if coordinate === :normal
+      for (k, a) in enumerate(products)
+        iszero(a) || @assert big(floatmin(T)) <= a < big(floatmax(T)) / 4 "α a_$k is outside [floatmin, floatmax/4)"
+      end
+    elseif coordinate === :range
+      @assert all(a -> big(floatmin(T)) <= sqrt(a) <= big(floatmax(T)), nonzero) "a root √(α a_k) is not a normal number of T"
+      @assert any(a -> !(big(floatmin(T)) <= a <= big(floatmax(T))), nonzero) "no α a_k is outside [floatmin, floatmax]"
+    else
+      @assert coordinate === :subnormal
+      @assert all(a -> big(1) / big(floatmax(T)) < a < big(floatmin(T)), nonzero) "an α a_k is not subnormal with a finite reciprocal"
     end
   end
   nothing
 end
 
-function d1_case(label, ::Type{T}, target, α; xscale = 1.0, zero_column = false, fractions = (0.0, 0.1)) where T
+function d1_case(label, ::Type{T}, target, α; xscale = 1.0, zero_column = false, fractions = (0.0, 0.1),
+                 coordinate = :normal) where T
   X, y, c = scaled_problem(T, target; xscale, zero_column)
   f = α === nothing ? LeastSquaresLoss(y, X) : α * LeastSquaresLoss(y, X)
   αo = α === nothing ? 1 : α
-  (; label, X, y, α = αo, f, c, fractions, scale = true_scale(y, αo))
+  (; label, X, y, α = αo, f, c, fractions, coordinate, scale = true_scale(y, αo))
 end
 
 function d1_cases()
@@ -612,9 +633,28 @@ function d1_cases()
    d1_case("Float32, Σy² underflows, zero column", Float32, 1e-24, nothing; zero_column = true)]
 end
 
+# The reported minimum against F(x) = α/2 ‖y - Xx‖² + λ‖x‖₁ in BigFloat at the returned x. Where Σr²
+# and α Σr²/2 are normal numbers of T, the gap is within `objective_bound` of the scale of
+# `objective_gap`. Where one is not (R3: the loss part is formed from Σr² in T and is subnormal or
+# underflows), the reported minimum is within floatmin(T) of F, plus that allowance. The second
+# expectation is a fixture bound for the cases here, not a derived one.
+function check_reported_objective(X, y, α, λ, x, reported)
+  T = eltype(X)
+  setprecision(BigFloat, 256) do
+    Xb, yb, xb, ab, lb = big.(X), big.(y), big.(x), big(α), big(λ)
+    rss = sum(abs2, yb .- Xb * xb)
+    normal = big(floatmin(T)) <= rss && big(floatmin(T)) <= ab * rss / 2
+    F = ab * rss / 2 + lb * sum(abs, xb)
+    allowance = objective_bound(T, size(X, 1), size(X, 2)) * (ab * sum(abs2, yb) / 2 + lb * sum(abs, xb))
+    @test abs(big(reported) - F) <= allowance + (normal ? 0 : big(floatmin(T)))
+  end
+end
+
 # One solve of a case: converged without a warning, after more than one pass, with the KKT violation
-# within the bound and the tolerance of the BigFloat response scale; a zero column stays 0. The Float64
-# solves use tol = 1e-9, so that the KKT bound 1e-7 holds with a margin of about 100.
+# within the bound, the tolerance of the BigFloat response scale and the reported minimum as above; a
+# zero column stays 0. The Float64 solves use tol = 1e-9 against the KKT bound 1e-7, a ratio of 100
+# between two different quantities (a coefficient-change threshold and a KKT violation); the bound is
+# checked on each solve, not implied by the ratio.
 function check_d1_solve(c, λ, x0; order, momentum, owner)
   T = eltype(c.X)
   tol = T === Float64 ? 1e-9 : 1e-7
@@ -623,36 +663,46 @@ function check_d1_solve(c, λ, x0; order, momentum, owner)
   @test r.passes > 1
   @test kkt_relative(c.X, c.y, c.α, λ, r.x) <= kkt_tolerance(T)
   @test isapprox(big(r.tolerance), big(T(tol)) * c.scale, rtol = (length(c.y) + 8) * eps(T))
+  check_reported_objective(c.X, c.y, c.α, λ, r.x, r.minimum)
   all(iszero, c.X[:, end]) && @test r.x[end] == 0
   r
 end
 
-@testset "CD converges where the response scale is outside the range of T: $(c.label)" for c in d1_cases()
+# The solves of one case: each penalty fraction, cold and warm start, order and iterate type.
+function check_d1_case(c)
   T = eltype(c.X)
   p = size(c.X, 2)
   lmax = lambda_max(c.X, c.y, c.α)
   @test c.scale > 0
   for fraction in c.fractions
-    λ = T(fraction * lmax)
-    check_feasible(c.X, c.y, c.α, λ)
+    λ = iszero(fraction) ? zero(T) : T(fraction * lmax)
+    check_feasible(c.X, c.y, c.α, λ; coordinate = c.coordinate)
     for x0 in (zeros(T, p), T.(c.c .* (0.3 .* sin.(1:p)))), (order, momentum) in ORDERS, owner in (false, true)
       check_d1_solve(c, λ, x0; order, momentum, owner)
     end
   end
 end
 
+@testset "CD converges with a normal response scale whose intermediates may leave the range of T: $(c.label)" for c in d1_cases()
+  check_d1_case(c)
+end
+
 # ---------------------------------------------------------------------------
 # 11. A response scale that is not a normal number of T is refused before any pass
 # ---------------------------------------------------------------------------
-# √α‖y‖ above floatmax(T) or below floatmin(T) (a subnormal) is not representable at T's precision, so
-# CD throws an ArgumentError that names the response scale before the first pass: x, the owner state and
-# the generator are as they were (the start is warm, so that a pass would change x; the random orders
-# draw from the generator in each pass). A y with a single subnormal entry is refused too. The columns
-# (1, 1, 1, 1) and (1, -1, 1, -1) fit y = c (1, 1, 1, 1) with x = (c, 0), where c is a power of two
-# or a subnormal, so that the sums of the entries of y and of their differences are exact in any order
-# and the residual is 0 after the first column. The same problem with `relative = false` then runs: it
-# converges, with the absolute tolerance 1e-7, and no product or sum in it overflows. (For the single
-# subnormal entry the residual and the objective underflow.)
+# A response scale whose computed value, rounded to T, is not a normal number of T (above floatmax(T) or
+# below floatmin(T), a subnormal) is not representable at T's precision, so CD throws an ArgumentError
+# that names the response scale before the first pass: x, the owner state and the generator are as they
+# were (the start is warm, so that a pass would change x; the random orders draw from the generator in
+# each pass). The fixtures have √α‖y‖ at least 0.1% beyond those limits, so that the rounding does not
+# decide; within a rounding error of a limit either outcome is allowed (section 13). A y with a single
+# subnormal entry is refused too. The columns (1, 1, 1, 1) and (1, -1, 1, -1) fit y = c (1, 1, 1, 1) with
+# x = (c, 0), where c is a power of two or a subnormal, so that the sums of the entries of y and of their
+# differences are exact in any order and the residual is 0 after the first column. The same problem with
+# `relative = false` then runs: it converges, with the absolute tolerance 1e-7, and no product or sum in
+# it overflows. (For the single subnormal entry the residual and the objective underflow.) Where Σr² itself
+# overflows, `relative = false` does not avoid the refusal: it ends in the nonfinite-objective refusal of R3
+# (the last testset of this section).
 function refusal_problem(label, ::Type{T}, y, α, kind) where T
   X = hcat(ones(T, 4), T[1, -1, 1, -1])
   y = Vector{T}(y)
@@ -691,6 +741,23 @@ end
     x = owner ? SparseIterate(zeros(T, 2)) : zeros(T, 2)
     r, logs = logged(() -> solve!(x, c.f, NormL1(zero(T)), solver))
     @test r.converged && isempty(logs) && r.tolerance === T(1e-7)
+  end
+end
+
+# The refusal suggests `relative = false`. Where Σr² overflows at the solution, that run ends in the
+# nonfinite-objective refusal (R3) instead. y = c (1, -1, 1, -1) is orthogonal to the single column of
+# ones, so x stays 0, Σr² = Σy² overflows T, and √α‖y‖ is above floatmax(T) (α = 100 in Float64, 400 in
+# Float32).
+@testset "relative = false after an overflow refusal can end in the nonfinite-objective refusal ($T)" for (T, c, α) in
+    ((Float64, 2.0^1020, 100.0), (Float32, 2f0^123, 400f0))
+  y = c .* T[1, -1, 1, -1]
+  X = ones(T, 4, 1)
+  f = α * LeastSquaresLoss(y, X)
+  @test true_scale(y, α) > big(floatmax(T)) && sum(abs2, big.(y)) > big(floatmax(T))
+  for (order, momentum) in ORDERS, owner in (false, true)
+    check_refusal(f, NormL1(zero(T)), T[0.3]; order, momentum, owner)
+    check_refusal(f, NormL1(zero(T)), T[0.3]; order, momentum, owner, relative = false,
+                  pattern = r"nonfinite objective", rng_unchanged = false)
   end
 end
 
@@ -851,6 +918,158 @@ end
       @test res.minimum === zero(T)
     end
   end
+end
+
+# ---------------------------------------------------------------------------
+# 15. A coordinate scale whose product α a_k is not a normal number of T (#293)
+# ---------------------------------------------------------------------------
+# The coordinate scale √(α a_k) multiplies each coordinate change in the stopping test. Where the
+# rounded product α a_k is 0 (S == T), a scale formed as the root of the rounded product is 0, and a
+# change of that coordinate counts as 0. With the response scale repaired and these coordinate scales
+# at 0, CD accepted the first pass as converged, with a KKT violation of order 0.3 to 1. The seven
+# fixtures below (five in Float64 and two in Float32, S == T; the penalty is 0, as α a_k of 0 gives the
+# step coefficient 1/(α a_k) = Inf at a positive penalty, #294) converged correctly at df00333, where the
+# response scale was 0 and the absolute test applied. Each now runs from a cold and a warm start, in the
+# three orders, on a dense vector and on an owner: 84 solves, each converged after more than one pass
+# with the KKT violation within the bound. The coordinate scale is formed from the two roots,
+# √α √a_k, in S (= T here), and is a normal number in these fixtures (`check_feasible` with :range
+# asserts it).
+function coordinate_underflow_cases()
+  [d1_case("Float64, α = 1e-300, X·1e-16, ‖y‖ = 1e-13", Float64, 1e-13, 1e-300; xscale = 1e-16, fractions = (0.0,), coordinate = :range),
+   d1_case("Float64, α = 1e-310, X·1e-8, ‖y‖ = 1e-8", Float64, 1e-8, 1e-310; xscale = 1e-8, fractions = (0.0,), coordinate = :range),
+   d1_case("Float64, α = 1e-300, X·1e-14, ‖y‖ = 1e-13", Float64, 1e-13, 1e-300; xscale = 1e-14, fractions = (0.0,), coordinate = :range),
+   d1_case("Float64, α = nextfloat(0.0), ‖X_k‖² ≈ 0.25, ‖y‖ = 0.3", Float64, 0.3, nextfloat(0.0); xscale = sqrt(0.25 / 30), fractions = (0.0,), coordinate = :range),
+   d1_case("Float64, α = 1e-200, X·1e-63, ‖y‖ = 1e-62", Float64, 1e-62, 1e-200; xscale = 1e-63, fractions = (0.0,), coordinate = :range),
+   d1_case("Float32, α = 1f-30, X·1e-9, ‖y‖ = 1e-9", Float32, 1e-9, 1f-30; xscale = 1e-9, fractions = (0.0,), coordinate = :range),
+   d1_case("Float32, α = 1f-20, X·1e-14, ‖y‖ = 1e-14", Float32, 1e-14, 1f-20; xscale = 1e-14, fractions = (0.0,), coordinate = :range)]
+end
+
+@testset "CD converges where α a_k underflows to 0 and its root is normal: $(c.label)" for c in coordinate_underflow_cases()
+  T = eltype(c.X)
+  @test all(k -> iszero(T(big(c.α) * sum(abs2, big.(c.X[:, k])))), 1:3)
+  check_d1_case(c)
+end
+
+# ---------------------------------------------------------------------------
+# 16. More coordinate scales outside the range of their product (#293; the step is #294)
+# ---------------------------------------------------------------------------
+# Each case is solved and checked as in section 10 (KKT, tolerance, reported minimum, zero column),
+# with the assertions of `check_feasible` named by `coordinate`.
+#   - Underflow in Float32 with α = nextfloat(0f0) (the Float64 case is in section 15).
+#   - Overflow: α a_k is above floatmax(T) and its root is a normal number. The solve was refused with
+#     "a coordinate step or its stopping scale is not finite" (the scale was Inf) and now converges at a
+#     penalty of 0. The step coefficient 1/(α a_k) is 0 there, so the step's threshold is 0 and the penalty
+#     has no effect on the step; a solve at a positive penalty can stop at a point that violates KKT
+#     (observed in Float64, #294). No positive penalty is asserted here.
+#   - A positive penalty where the step stays usable: α a_k is subnormal with a finite reciprocal, so the
+#     step coefficient is finite and the coordinate scale comes from the two roots.
+#   - A zero column next to coordinate scales that underflow, overflow or are subnormal: its scale is 0
+#     and its coordinate stays at the prox of 0.
+function coordinate_range_cases()
+  [d1_case("Float32, α = nextfloat(0f0), ‖X_k‖² ≈ 0.25, ‖y‖ = 0.3", Float32, 0.3, nextfloat(0f0); xscale = sqrt(0.25 / 30), fractions = (0.0,), coordinate = :range),
+   d1_case("Float64, overflow: α = 1e300, X·1e5, ‖y‖ = 1e3", Float64, 1e3, 1e300; xscale = 1e5, fractions = (0.0,), coordinate = :range),
+   d1_case("Float32, overflow: α = 1f30, X·1e4, ‖y‖ = 1e5", Float32, 1e5, 1f30; xscale = 1e4, fractions = (0.0,), coordinate = :range),
+   d1_case("Float64, overflow with a zero column", Float64, 1e3, 1e300; xscale = 1e5, zero_column = true, fractions = (0.0,), coordinate = :range),
+   d1_case("Float64, penalty with a subnormal α a_k (finite reciprocal): α = 1e-300, X·1.8e-5, ‖y‖ = 1e5", Float64, 1e5, 1e-300; xscale = 1.8e-5, fractions = (0.0, 0.01, 0.1, 0.5), coordinate = :subnormal),
+   d1_case("Float32, penalty with a subnormal α a_k (finite reciprocal): α = 1f-30, X·1.3e-5, ‖y‖ = 1e5", Float32, 1e5, 1f-30; xscale = 1.3e-5, fractions = (0.0, 0.01, 0.1, 0.5), coordinate = :subnormal),
+   d1_case("Float64, subnormal α a_k with a zero column, penalty 0.1 λmax", Float64, 1e5, 1e-300; xscale = 1.8e-5, zero_column = true, fractions = (0.1,), coordinate = :subnormal),
+   d1_case("Float64, α a_k underflows, with a zero column", Float64, 1e-13, 1e-300; xscale = 1e-16, zero_column = true, fractions = (0.0,), coordinate = :range),
+   d1_case("Float32, α a_k underflows, with a zero column", Float32, 1e-9, 1f-30; xscale = 1e-9, zero_column = true, fractions = (0.0,), coordinate = :range)]
+end
+
+@testset "CD with a coordinate scale outside the range of its product: $(c.label)" for c in coordinate_range_cases()
+  check_d1_case(c)
+end
+
+# A coordinate step that overflows is refused and leaves x unchanged (the refusal predates this PR; the
+# step is #294). With α = 1 and Float64 columns of norm about 1e-160, a_k is subnormal (about 3e-319),
+# the response ‖y‖ = 1e150 is a normal scale, and the largest solution coefficient is above
+# floatmax(Float64) (asserted below), so b/a overflows. The generator is not asserted: the refusal comes
+# within a pass.
+@testset "a coordinate step that overflows is refused, x unchanged (#294)" begin
+  X, y, _ = scaled_problem(Float64, 1e150; xscale = 1e-160)
+  @test all(k -> 0 < sum(abs2, X[:, k]) < floatmin(Float64), 1:3)
+  @test maximum(abs, first(reference_lasso(X, y, 1.0, 0.0))) > big(floatmax(Float64))
+  for (order, momentum) in ORDERS, owner in (false, true)
+    check_refusal(LeastSquaresLoss(y, X), NormL1(0.0), [0.3, -0.2, 0.1]; order, momentum, owner,
+                  pattern = r"not finite", rng_unchanged = false)
+  end
+end
+
+# ---------------------------------------------------------------------------
+# 17. The coordinate scale: values, branches, inference and allocation
+# ---------------------------------------------------------------------------
+# One column of n entries 1.3 2^k and a loss scale 1.3 2^j (in Float32, Float64, a Float64 scale on
+# Float32 data, or BigFloat) over magnitudes that take each of the three branches of `coordinate_scale`
+# (see its comment: the root of the rounded product, the root of the product in S, the product of the
+# two roots), for both types. Where the first or the second branch applies the result is the same bits as
+# that formula. Where the BigFloat root √(α a), with a the computed curvature of the column, is more than
+# 4 eps(T) below floatmax(T), the result is within 2 eps(T) of it, plus nextfloat(zero(T)) for a subnormal
+# result. The result is 0 for a = 0, and Inf for an infinite a or a root more than 4 eps(T) above
+# floatmax(T). The calls are inferred, and for IEEE scales allocate nothing after warm-up (the third
+# branch included).
+function coordinate_way(m::PS.LSModel{T}, a) where T
+  p = m.s * a
+  floatmin(T) <= T(p) <= floatmax(T) && return 1
+  S = typeof(p)
+  floatmin(S) <= p <= floatmax(S) && return 2
+  3
+end
+
+function check_coordinate_point(T, k, α, ways)
+  X = fill(ldexp(T(1.3), k), 6, 1)
+  m = PS.LSModel(zeros(T, 6), X, α)
+  a = PS._sqnorm!(m, 1)
+  way = coordinate_way(m, a)
+  res = PS.coordinate_scale(m, nothing, 1)
+  @test res isa T
+  push!(ways, way)
+  setprecision(BigFloat, 256) do
+    ref = sqrt(big(m.s) * big(a))
+    fm = big(floatmax(T))
+    if iszero(a)
+      @test res === zero(T)
+    elseif isinf(a) || ref > fm * (1 + 4 * eps(T))
+      @test res === T(Inf)      # an infinite curvature, or a root above floatmax(T)
+    elseif ref < fm * (1 - 4 * eps(T))
+      @test abs(big(res) - ref) <= 2 * eps(T) * ref + big(nextfloat(zero(T)))
+    end
+  end
+  way == 1 && @test res === sqrt(T(m.s * a))
+  way == 2 && @test res === T(sqrt(m.s * a))
+  if !(m.s isa BigFloat)
+    @test (@inferred PS.coordinate_scale(m, nothing, 1)) === res
+    alloc_coordinate(m, nothing, 1)
+    @test alloc_coordinate(m, nothing, 1) == 0
+  end
+  nothing
+end
+
+@testset "the coordinate scale over the ranges of the curvature and the loss scale ($T)" for T in (Float32, Float64)
+  ks = T === Float32 ? (-80, -70, -60, -55, -40, -20, 0, 20, 40, 55, 60) :
+                       (-540, -530, -520, -500, -300, -100, 0, 100, 300, 500, 510, 520)
+  js = T === Float32 ? (-148, -140, -100, -60, -1, 0, 1, 60, 100, 126) :
+                       (-1070, -1000, -600, -300, -1, 0, 1, 300, 600, 1000, 1020)
+  ways = Set{Int}()
+  for k in ks, j in js
+    check_coordinate_point(T, k, ldexp(T(1.3), j), ways)
+  end
+  if T === Float32     # a Float64 scale on Float32 data
+    for k in ks, j in (-148, -120, -60, -1, 0, 60, 120, 127)
+      check_coordinate_point(T, k, ldexp(1.3, j), ways)
+    end
+  end
+  setprecision(BigFloat, 256) do    # a BigFloat scale, also beyond the range of T
+    for k in ks, j in (-1500, -300, -1, 0, 1, 300, 1500)
+      check_coordinate_point(T, k, big(1.3) * BigFloat(2)^j, ways)
+    end
+  end
+  @test ways == Set([1, 2, 3])
+  # a zero column has the scale 0; an infinite curvature the scale Inf
+  X = zeros(T, 4, 1)
+  @test PS.coordinate_scale(PS.LSModel(zeros(T, 4), X, 1.0), nothing, 1) === zero(T)
+  X = fill(T === Float32 ? 1f20 : 1e200, 4, 1)
+  @test PS.coordinate_scale(PS.LSModel(zeros(T, 4), X, 1.0), nothing, 1) === T(Inf)
 end
 
 end

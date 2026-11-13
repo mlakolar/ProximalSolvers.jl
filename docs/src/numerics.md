@@ -11,13 +11,19 @@ code.
   scaled by a response-dependent quantity, `sqrt(s * sum(abs2, y))`, formed
   so that the sum of squares and its product with the loss scale `s` may
   leave the range of the working type; the reported effective
-  tolerance can differ from the value passed to the constructor. A response
-  with `sqrt(s) * norm(y)` that is not a normal floating-point number of the
-  working type is refused with an `ArgumentError` before the first pass (use
-  `relative=false` or rescale), and `y = 0` uses the absolute threshold.
-  `tol` times a normal scale can be subnormal or 0; the test
-  `change < threshold` cannot hold for a threshold of 0, so such a run ends at
-  `maxpasses` with a warning, not as converged.
+  tolerance can differ from the value passed to the constructor. Each
+  coordinate change is also multiplied by `sqrt(s * a)` for the squared norm
+  `a` of its column, formed from the two square roots where the product
+  `s * a` is not a normal number. If the computed `sqrt(s) * norm(y)`, after
+  rounding to the working type, is not a normal floating-point number, the
+  solve is refused with an `ArgumentError` before the first pass (rescale, or
+  use `relative=false`, which can still end in the `nonfinite objective`
+  refusal described below); a value within a rounding error of the limits can
+  fall on either side. `y = 0` uses the absolute threshold. `tol` times a
+  normal scale can be subnormal or 0; the test `change < threshold` cannot hold
+  for a threshold of 0, so such a run cannot converge by it and ends at
+  `maxpasses` with a warning, unless an independent numerical failure (for
+  example a non-finite coordinate step) stops it first with an error.
 - **Proximal gradient descent (PGD):** the algorithm applies multiple
   stopping tests for relative coefficient change, objective change and
   a gradient/proximal residual. These combine by **OR**: passing one can

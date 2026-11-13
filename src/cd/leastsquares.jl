@@ -98,13 +98,24 @@ _cache(m::LSModel) = m.r
 #   2. T(sqrt(p)), if `S` is wider than `T`, the sum is clean, p is a normal number of `S` and the
 #      rounded root is a normal number of `T`;
 #   3. otherwise the exponent-separated value of `_response_scale_exceptional`.
-# Coordinate scale: the root of the rounded `p` where that is a normal number of `T`, else the root
-# of `p` formed in `S` and rounded to `T`, which is 0 only where that root rounds to 0 in `T` (also
-# for p = 0, including a column of zero curvature). For `S == T` both expressions equal `sqrt(p)`.
+# Coordinate scale √(m.s a), with a the curvature of column k, p = m.s a in `S` and q = T(p):
+#   1. sqrt(q), if q is a normal number of `T`;
+#   2. T(sqrt(p)), if p is a normal number of `S`;
+#   3. otherwise T(sqrt(m.s) sqrt(S(a))), formed in `S`: each root is taken before the two are
+#      multiplied, so the result does not depend on the product p, which is not a normal number of
+#      `S` here. It is 0 for a = 0 (a column of zero curvature) and Inf for a = Inf, and it is 0
+#      where it is at most half the smallest subnormal of `T`.
+# For `S == T` the first two expressions have the same value. The step does not form this scale: its
+# coefficient inv(m.s a) is the reciprocal of p, which is Inf where p is below 1/floatmax(S) and 0
+# where p is Inf (#294).
 function coordinate_scale(m::LSModel{T}, x, k::Int) where T
-  p = m.s*_sqnorm!(m, k)
+  a = _sqnorm!(m, k)
+  p = m.s*a
   q = T(p)
-  floatmin(T) <= q <= floatmax(T) ? sqrt(q) : T(sqrt(p))
+  floatmin(T) <= q <= floatmax(T) && return sqrt(q)
+  S = typeof(p)
+  floatmin(S) <= p <= floatmax(S) && return T(sqrt(p))
+  T(sqrt(m.s)*sqrt(S(a)))
 end
 function response_scale(m::LSModel{T}, x) where T
   s = zero(T)
@@ -145,7 +156,7 @@ end
 # The throw is out of line, so that `response_scale` carries no string interpolation.
 @noinline function _refuse_response_scale(::Type{T}, finite_y::Bool) where T
   finite_y || throw(ArgumentError("the response scale is not defined: y has a non-finite entry"))
-  throw(ArgumentError("the response scale (the root of the loss scale times the norm of y) is not a normal number of $T; rescale y or the loss scale, or use relative=false"))
+  throw(ArgumentError("the response scale (the root of the loss scale times the norm of y) is not a normal number of $T; rescale y or the loss scale, or use relative=false (an objective that overflows is still refused)"))
 end
 function loss_value(m::LSModel{T}, x) where T
   v = zero(T)

@@ -19,12 +19,15 @@ The borrowed RNG advances when used. Cyclic order does not support
 optimality. With `relative=true`, the stopping threshold is `tol` times the
 response scale `sqrt(s * sum(abs2, y))`, `s` the loss scale; the sum of
 squares and its product with `s` may leave the range of the working type.
-For `y = 0` the threshold is the absolute `tol`. A response scale that is not
-a normal number of the working type is refused with an `ArgumentError` before
-the first pass: rescale the data or use `relative=false`. `tol` times a normal
-response scale can be subnormal or 0; the test `change < threshold` cannot hold
-for a threshold of 0, so the run then ends at `maxpasses` with a warning. `relative=false` makes the
-threshold an absolute change threshold;
+For `y = 0` the threshold is the absolute `tol`. A response scale whose
+computed value, rounded to the working type, is not a normal number is refused
+with an `ArgumentError` before the first pass: rescale the data or use
+`relative=false` (an objective that overflows is still refused). `tol` times a
+normal response scale can be subnormal or 0. The test `change < threshold`
+cannot hold for a threshold of 0, so the run cannot converge by it and ends at
+`maxpasses` with a warning, unless an independent numerical failure (for
+example a non-finite coordinate step) stops it first with an error.
+`relative=false` makes the threshold an absolute change threshold;
 `maxpasses` limits the run. An end-of-pass convergence flag does not
 guarantee a small KKT residual. For reported fits, check optimality
 independently. Anderson acceleration, gap certificates and screening
