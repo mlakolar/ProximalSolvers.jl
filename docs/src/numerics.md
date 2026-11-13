@@ -8,8 +8,16 @@ code.
 
 - **Coordinate descent (CD):** the change during a full pass has fallen
   below the effective `tol`. With `relative=true` this threshold is
-  scaled by a response-dependent quantity; the reported effective
-  tolerance can differ from the value passed to the constructor.
+  scaled by a response-dependent quantity, `sqrt(s * sum(abs2, y))`, formed
+  so that the sum of squares and its product with the loss scale `s` may
+  leave the range of the working type; the reported effective
+  tolerance can differ from the value passed to the constructor. A response
+  with `sqrt(s) * norm(y)` that is not a normal floating-point number of the
+  working type is refused with an `ArgumentError` before the first pass (use
+  `relative=false` or rescale), and `y = 0` uses the absolute threshold.
+  `tol` times a normal scale can be subnormal or 0; the test
+  `change < threshold` cannot hold for a threshold of 0, so such a run ends at
+  `maxpasses` with a warning, not as converged.
 - **Proximal gradient descent (PGD):** the algorithm applies multiple
   stopping tests for relative coefficient change, objective change and
   a gradient/proximal residual. These combine by **OR**: passing one can
@@ -230,7 +238,12 @@ recovery for some representable results, but ProximalSolvers does not
 promise end-to-end recovery of every failed matrix product, curvature,
 step or objective. Unrecoverable numerical failures are handled as
 described below; a successful kernel recovery does not imply the
-solver can continue in every extreme-range case.
+solver can continue in every extreme-range case. For example, CD forms
+its reported objective from the sum of the squared residuals in the working
+type, times the loss scale: where that sum or product overflows, CD refuses
+the finished solve with a `nonfinite objective` error and leaves the starting
+point unchanged; where it underflows, the loss part of the reported minimum
+can be 0.
 
 `Float32` has less precision and may stagnate earlier than `Float64`.
 Some solver tolerances, residual reports and other scalar diagnostics

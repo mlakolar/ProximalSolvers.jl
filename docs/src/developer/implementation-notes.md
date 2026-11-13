@@ -18,8 +18,31 @@ combined with `T` by Julia's promotion. CD's `LSModel` stores it as
 `AbstractFloat` type and `S = T` otherwise. The coordinate step, the
 two stopping scales and the reported objective form their products
 with `s` in `S`. The objective rounds its product to `T`. The response
-scale takes the root of its product rounded to `T`, or the root formed
-in `S` and then rounded to `T` where that rounded product is infinite.
+scale `sqrt(s * sum(abs2, y))` is formed in one of three ways, with the sum
+in `T`. Let it be clean if it is finite and at least `4 length(y) floatmin(T)`
+(the bound of `_se_norm_onepass`), `p = s * sum(abs2, y)` in `S` and
+`q = T(p)`. If the sum is clean and `q` is a normal number of `T`, the scale
+is `sqrt(q)`. Else, if `S` is wider than `T`, the sum is clean, `p` is a
+normal number of `S` and `T(sqrt(p))` is a normal number of `T`, the scale is
+`T(sqrt(p))`. Otherwise the scale is `sqrt(s) * norm(y)` carried as exponent
+and significand with the helpers of `src/solvers/image_models.jl` (`_SE`,
+`_root_scale`, `_se_norm`), in `Float64` for `Float32` data and in `T`
+otherwise, rounded once to `T`. The sums of squares of that last form are
+`@simd`, so its value can differ in the last bits between CPUs. For `y = 0`
+that value is 0, which selects the absolute stopping threshold; if it is not
+a normal number of `T`, `response_scale` throws an `ArgumentError` from
+`_run_cd!`, before momentum or any shuffle, so that `x`, an owner and the RNG
+are unchanged, and `relative=false` is the alternative. The threshold
+`tol * scale` is formed in `T` and can still be subnormal or 0; the test
+`change < threshold` cannot hold for a threshold of 0, so that run ends at
+`maxpasses`. The objective still forms
+`sum(abs2, r)` in `T`: where that sum or its product with `s` overflows, the
+finished solve is refused with a nonfinite-objective error, and where it
+underflows the loss part of the reported minimum can be 0; this is left to
+the ProximalBase cached-oracle migration (issue #277). For a `BigFloat`,
+`BigInt` or `Rational{BigInt}` loss scale the exponent-separated form uses
+the stored scale (held at the precision current when the solve runs), rounded
+to 256 bits if that precision is higher.
 The coordinate scale takes the root of its product rounded to `T` where
 that is a normal number of `T`, and otherwise the root formed in `S` and
 rounded to `T`. The step passes its coefficient to the ProximalBase

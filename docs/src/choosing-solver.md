@@ -45,6 +45,20 @@ this equals `sqrt(8.25 / 3) ≈ 1.658`, so a constructor tolerance of
 to use the unscaled coefficient-change threshold. This is a
 **step-change stopping test**, not an optimality certificate.
 
+CD still forms this scale where `sum(abs2, y)` or its product with `s`
+overflows or underflows in `Float32` or `Float64` (it then uses
+exponent-separated arithmetic), as long as the scale itself is a normal
+number. There are three outcomes.
+A scale that is a normal floating-point number of the working type is used.
+For `y = 0` the scale is 0 and CD uses the absolute threshold. If
+`sqrt(s) * norm(y)` is not a normal number of the working type (above its
+largest finite value, or below its smallest normal number), `solve!` throws an
+`ArgumentError` before the first pass and leaves the starting point
+unchanged; rescale the data or the loss, or use `relative=false`. A normal
+scale can still give a threshold `tol * scale` that is subnormal or 0. The
+change test `change < threshold` cannot hold for a threshold of 0, so the solve
+then ends at `maxpasses` with a warning instead of reporting convergence.
+
 **Randomness and momentum:** By default `order=:random`, and the
 historical CD algorithm can apply momentum to active passes and restart
 it when the active set changes. Momentum attempts to accelerate convergence

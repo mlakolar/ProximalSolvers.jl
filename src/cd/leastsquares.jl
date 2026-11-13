@@ -2,7 +2,8 @@
 # has its own type `S`: the promotion of `T` and the type of the supplied scale where that is a
 # concrete `AbstractFloat` (an IEEE scale wider than `T` keeps its precision), else `T`. X, y,
 # the residual and the curvature cache are in `T`, and so are the loops over them (the column
-# sums, the residual update and the sums in `response_scale` and `loss_value`).
+# sums, the residual update, the sum in `loss_value` and the sum in the first two forms of
+# `response_scale`).
 mutable struct LSModel{T<:AbstractFloat, S<:AbstractFloat, MX<:AbstractMatrix{T}, VY<:AbstractVector{T}} <: CDModel{T}
   X::MX
   y::VY
@@ -89,9 +90,14 @@ _cache(m::LSModel) = m.r
 # The stopping scales form the product `p` of the loss scale with a sum of squares in `S`.
 # A zero response scale selects the absolute fallback of `_tolerances`; a zero coordinate scale
 # makes that coordinate's change count as 0 in `_visit!`.
-# Response scale: `p` is rounded to `T` before the root, so a `p` that rounds to 0 in `T` (a tiny
-# response, or y = 0) gives 0, and the fallback, instead of a subnormal root whose product with the
-# tolerance can round to 0. If the rounded `p` is infinite the root is formed in `S` and rounded.
+# Response scale √(m.s Σy²): the sum Σy² is formed in `T` and is clean when it is finite and at
+# least 4 length(y) floatmin(T), where the squares that underflow change it by less than u/4
+# relative (u = eps(T)/2, the bound of `_se_norm_onepass`). With p = m.s Σy² in `S` and q = T(p),
+# the scale is
+#   1. sqrt(q), if the sum is clean and q is a normal number of `T`;
+#   2. T(sqrt(p)), if `S` is wider than `T`, the sum is clean, p is a normal number of `S` and the
+#      rounded root is a normal number of `T`;
+#   3. otherwise the exponent-separated value of `_response_scale_exceptional`.
 # Coordinate scale: the root of the rounded `p` where that is a normal number of `T`, else the root
 # of `p` formed in `S` and rounded to `T`, which is 0 only where that root rounds to 0 in `T` (also
 # for p = 0, including a column of zero curvature). For `S == T` both expressions equal `sqrt(p)`.
@@ -107,7 +113,39 @@ function response_scale(m::LSModel{T}, x) where T
   end
   p = m.s*s
   q = T(p)
-  isfinite(q) ? sqrt(q) : T(sqrt(p))
+  if isfinite(s) && s >= 4*length(m.y)*floatmin(T)
+    floatmin(T) <= q <= floatmax(T) && return sqrt(q)
+    S = typeof(p)
+    if S !== T && floatmin(S) <= p <= floatmax(S)
+      r = T(sqrt(p))
+      floatmin(T) <= r <= floatmax(T) && return r
+    end
+  end
+  _response_scale_exceptional(m)
+end
+# √(m.s) ‖y‖ with the root of m.s and the norm of y carried as `_SE` (a significand and an Int
+# exponent, from solvers/image_models.jl: `_se_norm`, `_root_scale`, `_se_mul`), in Float64 for
+# Float32 data and in `T` otherwise, so that the exponent of the result is not limited by the range
+# of `T`; the result is rounded once to `T`. It is 0 for y = 0 and for m.s = 0, which `_tolerances`
+# turns into the absolute fallback, and a result that is not a normal number of `T` is refused.
+# The sum of squares in `_se_norm` is `@simd`, so the value can differ in the last bits between CPUs.
+function _response_scale_exceptional(m::LSModel{T}) where T
+  iszero(m.s) && return zero(T)
+  W = T === Float32 ? Float64 : T
+  ny = _se_norm(W, m.y)
+  ny === nothing && _refuse_response_scale(T, false)
+  _se_scale(T, _se_mul(_root_scale(W, m.s), ny))
+end
+function _se_scale(::Type{T}, r::_SE) where T
+  iszero(r.s) && return zero(T)
+  v = T(ldexp(r.s, r.e))
+  floatmin(T) <= v <= floatmax(T) || _refuse_response_scale(T, true)
+  v
+end
+# The throw is out of line, so that `response_scale` carries no string interpolation.
+@noinline function _refuse_response_scale(::Type{T}, finite_y::Bool) where T
+  finite_y || throw(ArgumentError("the response scale is not defined: y has a non-finite entry"))
+  throw(ArgumentError("the response scale (the root of the loss scale times the norm of y) is not a normal number of $T; rescale y or the loss scale, or use relative=false"))
 end
 function loss_value(m::LSModel{T}, x) where T
   v = zero(T)
