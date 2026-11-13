@@ -75,9 +75,10 @@ In #272 / #276, a warmed accelerated proximal gradient step allocated 464 bytes 
 `test/accelerated_pgd.jl` failed there while the required Julia `1` checks passed. A one-off Julia
 1.10 run found it, and #276 fixed it with fixed-arity `_se_mul` methods. With the pre-#276 code
 restored, the nightly's 1.10 leg fails that test (`464 == 0`) and the required checks stay green, as
-shown on the throwaway PR #292. The Julia 1.10.12 and 1.13.3 full-suite results reported for #270 /
-#286 came from one-off cluster (Slurm) runs at the PR's SHA, not from PR CI, which runs Julia `1`
-alone; the nightly's 1.10 leg now runs the full suite on master each night.
+shown on the throwaway PR #292. The Julia 1.10.12 and 1.13.3 results reported for #270 / #286 came from
+one-off cluster (Slurm) runs of four test files (`core_contracts`, `core_regressions`,
+`accelerated_pgd`, `minimal_core_characterization`) at the PR's SHA; the full tier ran in PR CI on
+Julia `1` alone. The nightly's 1.10 leg now runs the full suite on master each night.
 
 **Native code.** A test in `test/tier_selection.jl` (quick tier; a change to `src/` plans the full
 tier, which includes it) scans every line of the `.jl` files under `src/` (and `ext/`, if it exists)
