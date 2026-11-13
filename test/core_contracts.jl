@@ -89,8 +89,12 @@ end
 end
 
 @testset "retained constructor validation" begin
-  for kw in (:ftol, :xtol), v in (0., -1., Inf, NaN)
-    @test_throws ArgumentError ProximalOptions(; kw => v)
+  # ftol = 0 is accepted (see "ftol = 0 is a valid option" below)
+  for v in (-1., Inf, NaN)
+    @test_throws ArgumentError ProximalOptions(; ftol = v)
+  end
+  for v in (0., -1., Inf, NaN)
+    @test_throws ArgumentError ProximalOptions(; xtol = v)
   end
   for kw in (:gradtol, :gaptol), v in (-1., Inf, NaN)
     @test_throws ArgumentError ProximalOptions(; kw => v)
@@ -163,7 +167,7 @@ end
   end
   @test_throws ArgumentError("gapevery must be positive.") ProximalOptions(gapevery = 0)
   for (kw, v, message) in ((:maxiter, 1, "maxiter must be an integer greater than 1."),
-                           (:ftol, 0., "ftol must be finite and positive."),
+                           (:ftol, -1., "ftol must be finite and nonnegative."),
                            (:xtol, NaN, "xtol must be finite and positive."),
                            (:gradtol, -1., "gradtol must be finite and nonnegative."),
                            (:f_calls_limit, -1, "call limits must be nonnegative."),
@@ -175,10 +179,10 @@ end
   end
   # tolerances are checked as given and after conversion to Float64
   tiny = big(1) // big(10)^400
-  @test_throws ArgumentError("ftol must be finite and positive.") ProximalOptions(ftol = tiny)
+  @test_throws ArgumentError("ftol is positive but rounds to 0 in Float64; pass 0 to disable the objective test.") ProximalOptions(ftol = tiny)
   @test_throws ArgumentError("xtol must be finite and positive.") ProximalOptions(xtol = tiny)
   @test_throws ArgumentError("gradtol must be finite and nonnegative.") ProximalOptions(gradtol = -tiny)
-  @test_throws ArgumentError("ftol must be finite and positive.") ProximalOptions(1000, tiny, 1e-8, 1e-5,
+  @test_throws ArgumentError("ftol is positive but rounds to 0 in Float64; pass 0 to disable the objective test.") ProximalOptions(1000, tiny, 1e-8, 1e-5,
     0, 0, 0, false, false, false, false, 1, nothing, Inf)
   @test ProximalOptions(gradtol = tiny).gradtol === 0.0
   # time_limit keeps its untyped keyword: anything convertible to Float64 is accepted
@@ -262,4 +266,38 @@ end
   b = solve!(z, f, g, ProximalGradientDescent(), ProximalOptions(gapevery = 17))
   @test x == z && a.iterations == b.iterations && isnan(b.gap)
 end
+@testset "ftol = 0 is a valid option and a tiny positive ftol is refused (#270)" begin
+  rounds = "ftol is positive but rounds to 0 in Float64; pass 0 to disable the objective test."
+  nonneg = "ftol must be finite and nonnegative."
+  positional(ftol) = ProximalOptions(1000, ftol, 1e-8, 1e-5, 0, 0, 0, false, false, false, false, 1, nothing, Inf)
+  # accepted: these spellings of zero are stored as +0.0, other values as their Float64
+  for z in (0, 0.0, -0.0, 0f0, -0f0, big(0), big"0.0", big"-0.0", 0 // 1)
+    @test ProximalOptions(ftol = z).ftol === 0.0
+    @test positional(z).ftol === 0.0
+  end
+  # the other fields of such options are those of the default options
+  zero_ftol = ProximalOptions(ftol = 0)
+  default = ProximalOptions()
+  @test all(n -> n === :ftol || isequal(getfield(zero_ftol, n), getfield(default, n)), fieldnames(ProximalOptions))
+  @test ProximalOptions(ftol = nextfloat(0.0)).ftol === nextfloat(0.0)
+  @test positional(nextfloat(0.0)).ftol === nextfloat(0.0)
+  @test ProximalOptions(ftol = floatmin(Float64)).ftol === floatmin(Float64)
+  @test ProximalOptions(ftol = 1e-300).ftol === 1e-300
+  # a positive value that is 0.0 as a Float64 is refused, with its own message
+  for tiny in (big"1e-400", 1 // big(10)^400, big"1e-1000", nextfloat(big"0.0"))
+    @test_throws ArgumentError(rounds) ProximalOptions(ftol = tiny)
+    @test_throws ArgumentError(rounds) positional(tiny)
+  end
+  # negative, NaN and infinite values are refused as before, with the nonnegative message
+  for bad in (-1., -1e-300, -nextfloat(0.0), -1, NaN, Inf, -Inf, NaN32, Inf32, big"-1e-400",
+              -1 // big(10)^400, big"1e400")
+    @test_throws ArgumentError(nonneg) ProximalOptions(ftol = bad)
+    @test_throws ArgumentError(nonneg) positional(bad)
+  end
+  # xtol keeps refusing 0 and gradtol keeps accepting it
+  @test_throws ArgumentError("xtol must be finite and positive.") ProximalOptions(xtol = 0)
+  @test_throws ArgumentError("xtol must be finite and positive.") ProximalOptions(ftol = 0, xtol = 0.0)
+  @test ProximalOptions(ftol = 0, gradtol = 0).gradtol === 0.0
+end
+
 end
