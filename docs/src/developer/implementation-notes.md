@@ -82,9 +82,8 @@ an infinite `τ` does, and keeps a `c` that is infinite or NaN non-finite, so
 that `_visit!` refuses it; an infinite level in PB's prox would set that entry
 to 0. In exact arithmetic a fixed point of `x = shrink(x + b / a′, λ / (s a′))`
 satisfies `s b ∈ λ ∂|x|` for any positive `a′` used in both places, so a
-curvature that is rounded or subnormal does not move the fixed point; the
-iteration converges for `a′ ≥ a / 2`, so within that factor it changes the
-convergence rate, not the fixed point. For `λ > 0` the coefficient `γ` of the previous step was
+curvature that is rounded or subnormal does not move the fixed point (whether
+and how fast the iteration reaches it can change). For `λ > 0` the coefficient `γ` of the previous step was
 0 where `p` overflows (the penalty was ignored) and infinite where `p` is below
 `1 / floatmax(S)` (the threshold was infinite, which sets a finite centre to 0),
 which broke that agreement; for `λ = 0` PB's prox keeps a zero threshold for any

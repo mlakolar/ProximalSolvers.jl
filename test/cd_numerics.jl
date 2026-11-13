@@ -1161,8 +1161,9 @@ end
 # a warm start, in the three orders, on a dense vector and an owner, with the KKT violation against the
 # supplied α, the tolerance and the reported objective checked) at a penalty of 0 and of fractions of
 # λmax, with relative = true and relative = false. The Float32 relative tolerance is 1e-6, not the 1e-7 of
-# section 10: with a penalty of 0.5 λmax the threshold τ is of the order of the coefficients, the centre
-# c = x - τ is about twice as large as x, and a Float32 step then has an error of a few ulp of c. A
+# section 10: with a penalty of 0.5 λmax the threshold τ is of the order of the coefficients; for a
+# negative active coordinate near its fixed point the centre x + b/a is about x - τ, about twice as large
+# as x, and a Float32 step then has an error of a few ulp of that centre. A
 # threshold of 1e-7 is of that size in coefficient units, and a pass over the active coordinates that
 # dithers above it gives no full pass that visits the coordinates at 0, so CD can stop at
 # `maxpasses` at a KKT violation of 0.2 (it did under coverage instrumentation, which can change the
@@ -1183,8 +1184,8 @@ end
 end
 
 # A subnormal curvature (out of scope): no false convergence. A column whose squared norm a_k is a subnormal
-# number has lost relative precision (about 8 bits in Float32 at X·1e-22 and about 16 bits in Float64 at
-# X·1e-160, and each square is rounded to the subnormal grid before the sum), and the step b/a′ for the
+# number has lost relative precision (about 8 remaining significant bits in Float32 at X·1e-22 and about
+# 16 in Float64 at X·1e-160, and each square is rounded to the subnormal grid before the sum), and the step b/a′ for the
 # rounded a′ is a step with a different size from b/a, so whether CD converges depends on how far a′ is
 # from a and on the summation order. These fixtures (raw least squares, so that
 # α a_k = a_k is subnormal and its reciprocal overflows) therefore do not assert convergence. They assert

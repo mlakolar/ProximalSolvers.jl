@@ -86,8 +86,8 @@ end
 # curvature a that is not finite gives p = Inf and γ = 0 for a positive finite scale, so it leaves the
 # band and is refused in `_outside_band`. In exact arithmetic a fixed point of
 # x = shrink(x + b/a′, λ/(m.s a′)) satisfies m.s b ∈ λ ∂|x| for any positive a′ used in both places, so
-# a rounded or subnormal curvature does not move the fixed point; the iteration converges for a′ ≥ a/2,
-# so within that factor it affects the convergence rate, not the fixed point.
+# a rounded or subnormal curvature does not move the fixed point (whether and how fast the iteration
+# reaches it can change).
 @inline function coordinate_step!(m::LSModel{T}, g, x::SparseIterate{T}, k::Int) where {T}
   a, b = _column_dot(m, k)
   iszero(a) && !_flat_column(m, k) &&
