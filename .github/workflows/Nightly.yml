@@ -1,20 +1,25 @@
 name: Nightly
-# The full package test suite (scripts/test.jl --tier=full) on the Julia versions and platforms
-# of the matrix below, scheduled daily. It is not a required check: CI.yml keeps the required checks
-# and runs Julia 1 on Linux. Julia 1.10 is the lowest supported release series (Project.toml
-# `julia` compat: >= 1.10.8), and it resolves its dependencies from the tracked
-# Manifest-v1.10.toml.
+# The full package test suite (scripts/test.jl --tier=full) on the four legs of the matrix below,
+# scheduled daily: Linux with Julia 1.10, and Linux, macOS (ARM) and Windows with Julia 1. The legs
+# run concurrently (fail-fast is off, so a failed leg does not cancel the others). The workflow is
+# not a required check: CI.yml keeps the required checks and runs Julia 1 on Linux only. Julia 1.10
+# is the lowest supported release series (Project.toml `julia` compat: >= 1.10.8), and it resolves
+# its dependencies from the tracked Manifest-v1.10.toml; Julia 1 resolves from Project.toml, with
+# ProximalBase taken from its `[sources]` entry.
 #
-# There is no skip or reuse logic here: a run does not read CI.yml's runs or an earlier
-# night's, so a success elsewhere cannot suppress it. CI.yml's own nightly keeps its reuse
-# logic.
+# Each leg is its own job, with its own success record and its own issue title. There is no skip or
+# reuse logic here: a test job does not read the results of CI.yml's runs, of an earlier night or of
+# another leg, so a success on one leg cannot suppress the run of another. (The report job below
+# reads the legs' conclusions to write issues; it starts no tests.) CI.yml's own nightly keeps its
+# reuse logic.
 #
 # Triggers:
 # - the daily schedule (GitHub can delay or skip scheduled runs) and manual runs (`gh workflow run Nightly.yml --ref master`);
 # - a pull request that edits this workflow, Manifest-v1.10.toml or Project.toml, to show the
-#   1.10 result before merge. That run is advisory and reports no issue. With no tier-raising
-#   label (test:standard, test:full), a change to this file alone selects tier `none` in
-#   .github/tier-rules.toml, so CI.yml runs no package tests for it; this advisory run still runs.
+#   results of the legs before merge. That run is advisory and reports no issue. With no
+#   tier-raising label (test:standard, test:full), a change to this file alone selects tier
+#   `none` in .github/tier-rules.toml, so CI.yml runs no package tests for it; this advisory run
+#   still runs.
 #
 # Reporting: the `test` job attempts to leave one record per matrix leg (leg.md: commit, Julia
 # version, ProximalBase entries, the resolve/build/test step outcomes and, when the test log
@@ -25,7 +30,9 @@ name: Nightly
 # <os>`, with the branch name in parentheses off master), a "Green again" comment on the open issue
 # of a listed leg that succeeded, and a fallback issue when the leg list cannot be read or shows no
 # failing leg although the test job did not succeed; the script below gives the exact conditions. A
-# failed write turns it red. Pull request runs open no issue. Issues are closed by hand.
+# failed write turns it red. Pull request runs open no issue. Issues are closed by hand. The title
+# names the Julia version and the operating system but not the architecture, so two legs that
+# differ only in architecture would share an issue; the matrix has none.
 #
 # scripts/ci_environment.jl is not used: on Julia 1.10 it attempts to resolve ProximalBase from
 # the registry in a temporary environment, instead of from Manifest-v1.10.toml, and the registry
@@ -60,12 +67,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # One entry per leg, so a leg can be added without restructuring.
+        # One entry per leg, so a leg can be added without restructuring. `ptr_jobs` is the
+        # number of ParallelTestRunner worker processes (test/TESTING.md): the counts chosen in
+        # docs/audit/historical-full-testing.md from its measurements, 3 on macOS and 4 elsewhere.
         include:
           - version: '1.10'
             os: ubuntu-latest
             arch: x64
-            # ParallelTestRunner worker processes per Linux job (test/TESTING.md).
+            ptr_jobs: '4'
+          - version: '1'
+            os: ubuntu-latest
+            arch: x64
+            ptr_jobs: '4'
+          - version: '1'
+            os: macos-latest
+            arch: aarch64
+            ptr_jobs: '3'
+          - version: '1'
+            os: windows-latest
+            arch: x64
             ptr_jobs: '4'
     steps:
       - uses: actions/checkout@v7
@@ -123,21 +143,21 @@ jobs:
           resolve_log="$RUNNER_TEMP/resolve.log"
           clean="$RUNNER_TEMP/test-output.clean"
           # the logs contain colour codes
-          if [ -f "$log" ]; then sed 's/\x1b\[[0-9;]*m//g' "$log" | tr -d '\r' > "$clean"; else : > "$clean"; fi
+          if [ -f "$log" ]; then perl -pe 's/\e\[[0-9;]*m//g' "$log" | tr -d '\r' > "$clean"; else : > "$clean"; fi
           julia_version=$(julia --version 2>&1) || julia_version="not available"
           # the Pkg.status entry of ProximalBase (by its UUID prefix), without its leading blanks;
           # other lines that name the package, such as "Cloning git-repo", are not selected
           proximalbase="no Pkg.status entry for ProximalBase in the resolve log"
           if [ -f "$resolve_log" ]; then
-            line=$(sed 's/\x1b\[[0-9;]*m//g' "$resolve_log" | grep -m1 '\[0a755509\] ProximalBase ' || true)
+            line=$(perl -pe 's/\e\[[0-9;]*m//g' "$resolve_log" | tr -d '\r' | grep -m1 '\[0a755509\] ProximalBase ' || true)
             if [ -n "$line" ]; then proximalbase=${line#"${line%%[![:space:]]*}"}; fi
           fi
           # the pins in the checkout: Julia 1.10 uses the manifest, Julia 1.11 and later [sources].
-          # These are text matches for the current formatting, or "not found" when no text matches;
-          # they do not parse or validate TOML. The parsed comparison in test/aqua.jl is the
+          # These are text matches for the current formatting (carriage returns of a Windows
+          # checkout removed), or "not found" when no text matches; they do not parse or validate TOML. The parsed comparison in test/aqua.jl is the
           # enforced check.
-          manifest_pin=$(awk '/^\[\[deps\.ProximalBase\]\]/ { on = 1; next } /^\[/ { on = 0 } on && /^(repo-rev|repo-url)[[:space:]]*=/ { printf "%s%s", sep, $0; sep = "; " }' Manifest-v1.10.toml 2>/dev/null || true)
-          sources_pin=$(grep -m1 '^ProximalBase = {' Project.toml 2>/dev/null || true)
+          manifest_pin=$(awk '/^\[\[deps\.ProximalBase\]\]/ { on = 1; next } /^\[/ { on = 0 } on && /^(repo-rev|repo-url)[[:space:]]*=/ { printf "%s%s", sep, $0; sep = "; " }' Manifest-v1.10.toml 2>/dev/null | tr -d '\r' || true)
+          sources_pin=$(grep -m1 '^ProximalBase = {' Project.toml 2>/dev/null | tr -d '\r' || true)
           printf '%s\n' "$LEG_NAME" > "$leg/name.txt"
           printf '%s\n' "$GITHUB_RUN_ATTEMPT" > "$leg/attempt.txt"
           printf '%s\n' "$GITHUB_SHA" > "$leg/sha.txt"
@@ -238,7 +258,9 @@ jobs:
       actions: read
       issues: write # open or update the issues
     steps:
-      # A missing artifact (a job cancelled before it uploaded) must not stop the report.
+      # A missing artifact (a job cancelled before it uploaded) must not stop the report. With
+      # one matching artifact the action extracts it directly into `legs/`, and with several into
+      # one directory each, so the script below looks for the records at any depth.
       - uses: actions/download-artifact@v8
         continue-on-error: true
         with:
@@ -252,6 +274,10 @@ jobs:
           workdir="$RUNNER_TEMP/report"
           mkdir -p "$workdir"
           status=0
+
+          # the downloaded leg records (their name.txt files at any depth below legs/, if it exists)
+          records="$workdir/records.txt"
+          find legs -type f -name name.txt 2>/dev/null | sort > "$records" || true
 
           # the lowest number among the open issues (not pull requests) with exactly this title,
           # from the paginated issue list, which does not depend on the search index
@@ -312,15 +338,15 @@ jobs:
             failing=$((failing + 1))
             # the leg's own record, attached when its name, attempt and commit are this leg's
             record=""
-            for f in legs/*/name.txt; do
+            while IFS= read -r f; do
               d=$(dirname "$f")
-              if [ -f "$f" ] && [ "$(cat "$f")" = "$name" ] && [ -f "$d/leg.md" ] \
+              if [ "$(cat "$f")" = "$name" ] && [ -f "$d/leg.md" ] \
                 && [ "$(cat "$d/attempt.txt" 2>/dev/null)" = "$GITHUB_RUN_ATTEMPT" ] \
                 && [ "$(cat "$d/sha.txt" 2>/dev/null)" = "$GITHUB_SHA" ]; then
                 record="$d/leg.md"
                 break
               fi
-            done
+            done < "$records"
             version=${name#Julia }
             version=${version%% - *}
             ref=${GITHUB_REF_NAME}

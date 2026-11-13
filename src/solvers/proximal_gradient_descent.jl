@@ -138,10 +138,10 @@ function update_state!(
     ) where T
 
     # copy x --> x_previous
-    _copy!(state.x_previous, state.x)
+    _copyto!(state.x_previous, state.x)
     state.f_x_previous = state.f_x
     state.g_x_previous = state.g_x
-    _copy!(state.grad_f_x_previous, state.grad_f_x)
+    _copyto!(state.grad_f_x_previous, state.grad_f_x)
     # A x_previous = A x; the old buffer of A x_previous receives the trial images
     state.z_previous, state.z_x = state.z_x, state.z_previous
     state.L *= method.ls.α

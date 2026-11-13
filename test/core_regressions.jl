@@ -266,10 +266,10 @@ function tfocs_backtrack!(state, ls::PS.LineSearches.BackTracking{T}, f) where T
 end
 
 function tfocs_update!(f, g, state, method)
-  PS._copy!(state.x_previous, state.x)
+  PS._copyto!(state.x_previous, state.x)
   state.f_x_previous = state.f_x
   state.g_x_previous = state.g_x
-  PS._copy!(state.grad_f_x_previous, state.grad_f_x)
+  PS._copyto!(state.grad_f_x_previous, state.grad_f_x)
   state.L *= method.ls.α
   while true
     PS._step!(state.xhat, state.x_previous, state.grad_f_x_previous, state.L)
@@ -312,9 +312,9 @@ end
 function pgd_trial(f, g, x0, L; gradient_mode = false, method = ProximalGradientDescent())
   st = PS.initial_state(method, ProximalOptions(), f, g, copy(x0))
   st.backtrack_simple = !gradient_mode
-  PS._copy!(st.x_previous, st.x)
+  PS._copyto!(st.x_previous, st.x)
   st.f_x_previous, st.g_x_previous = st.f_x, st.g_x
-  PS._copy!(st.grad_f_x_previous, st.grad_f_x)
+  PS._copyto!(st.grad_f_x_previous, st.grad_f_x)
   st.z_previous, st.z_x = st.z_x, st.z_previous
   st.L = L
   PS._step!(st.xhat, st.x_previous, st.grad_f_x_previous, st.L)

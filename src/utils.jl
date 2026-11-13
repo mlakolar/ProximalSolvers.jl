@@ -4,9 +4,9 @@
 #
 
 # Records iteration `iteration` and calls the callback; returns whether it stopped the solve.
-function trace!(tr, f, g, state, iteration, method::ProximalSolver, options)
+function trace!(tr, state, iteration, options)
     dt = Dict()
-    if options.extended_trace && iteration > 0
+    if options.extended_trace
         dt["x"] = _copy(state.x)
         extended_trace!(dt, state)
     end
@@ -89,5 +89,5 @@ function _unchanged(x::AbstractArray, y::AbstractArray)
   true
 end
 
-_state_norm(s::ProximalGradientDescentState, x) = _norm(x)
-_state_normdiff(s::ProximalGradientDescentState) = _norm_diff(s.x, s.x_previous, 2.)
+_state_norm(s::Union{ProximalGradientDescentState, AccProxGradDescentState}, x) = _norm(x)
+_state_normdiff(s::Union{ProximalGradientDescentState, AccProxGradDescentState}) = _norm_diff(s.x, s.x_previous, 2.)
