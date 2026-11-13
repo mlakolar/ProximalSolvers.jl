@@ -120,11 +120,6 @@ function ProximalOptions(; maxiter::Integer = 200,
 end
 
 
-function print_header(method::ProximalSolver, options::ProximalOptions)
-    @printf "Iter     Function value       |dx|/|x|       Step Size\n"
-end
-
-
 """
     OptimizationState{T<:ProximalSolver}
 

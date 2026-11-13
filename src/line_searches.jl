@@ -55,13 +55,11 @@ end
 # computes them from its LS image cache (see image_models.jl)
 function value_and_gradient_at_x! end
 
-stepnorm2(state, d) = _norm(d)^2
-
 function backtrack!(state, ls::BackTracking{T}, f, g) where T
 
     # Quick exit if no progress made
     _sub!(state.delta_x, state.x, state.x_previous)
-    xy_sq = stepnorm2(state, state.delta_x)
+    xy_sq = _norm(state.delta_x)^2
 
     if xy_sq == zero(T) && isfinite(state.f_x)
       # in the gradient mode, update_state! expects ∇f(x), but state.grad_f_x may

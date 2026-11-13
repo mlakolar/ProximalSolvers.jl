@@ -11,8 +11,8 @@ _image_model(f::LeastSquaresLoss) = _LSImage(f, true)
 _image_model(f::Scaled{<:LeastSquaresLoss}) = _LSImage(f.f, f.α)
 _image_buffer(m::_LSImage{TY, TX, A, T}) where {TY, TX, A, T} = zeros(T, size(m.Y))
 _image!(z, m::_LSImage, x) = mul!(z, m.X, x)
-_value!(f, x, m, z) = (_image!(z, m, x); convert(_eltype(x), _image_value(m, z)))
-_value_and_gradient!(G, f, x, m, z, d) = convert(_eltype(x), _image_value_and_gradient!(G, m, z, d))
+_value!(x, m, z) = (_image!(z, m, x); convert(_eltype(x), _image_value(m, z)))
+_value_and_gradient!(G, x, m, z, d) = convert(_eltype(x), _image_value_and_gradient!(G, m, z, d))
 function _image_value(m::_LSImage{TY, TX, A, T}, z) where {TY, TX, A, T}
   Y = m.Y
   v = zero(T)

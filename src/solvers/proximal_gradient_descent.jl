@@ -83,7 +83,7 @@ function initial_state(
     z_x = _image_buffer(model)
     dz = similar(z_x)
     _image!(z_x, model, x0)
-    f_x = _value_and_gradient!(grad_f_x, f, x0, model, z_x, dz)
+    f_x = _value_and_gradient!(grad_f_x, x0, model, z_x, dz)
     _check_start(f_x)
     g_x = T(g(x0))
 
@@ -129,7 +129,7 @@ function update_state!(
       # find next point
       _step!(state.xhat, state.x_previous, state.grad_f_x_previous, state.L)
       state.g_x = convert(_eltype(state.x), value_and_prox!(state.x, g, state.xhat, one(state.L) / state.L))
-      state.f_x = _value!(f, state.x, state.model, state.z_x)
+      state.f_x = _value!(state.x, state.model, state.z_x)
       state.prox_calls += 1
       state.f_calls += 1
 
@@ -146,7 +146,7 @@ end
 
 
 LineSearches.value_and_gradient_at_x!(state::ProximalGradientDescentState, f) =
-  _value_and_gradient!(state.grad_f_x, f, state.x, state.model, state.z_x, state.dz)
+  _value_and_gradient!(state.grad_f_x, state.x, state.model, state.z_x, state.dz)
 
 """
     solve!(x, f, g, CDSolver())
