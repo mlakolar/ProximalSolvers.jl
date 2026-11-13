@@ -45,6 +45,39 @@ this equals `sqrt(8.25 / 3) ≈ 1.658`, so a constructor tolerance of
 to use the unscaled coefficient-change threshold. This is a
 **step-change stopping test**, not an optimality certificate.
 
+CD forms this scale without the sum of squares `sum(abs2, y)` or its product
+with `s` having to stay in the range of `Float32` or `Float64`: where either
+overflows or underflows it uses wider or exponent-separated arithmetic. There
+are three outcomes. A scale that is a normal floating-point number of the
+working type is used. For `y = 0` the scale is 0 and CD uses the absolute
+threshold. If the computed `sqrt(s) * norm(y)`, after rounding to the working
+type, is not a normal number (above its largest finite value or below its
+smallest normal number), `solve!` throws an `ArgumentError` before the first
+pass and leaves the starting point unchanged. A value within a rounding error
+of those limits can fall on either side. In that case rescale the data or the
+loss, or use `relative=false`; with `relative=false` a problem whose objective
+overflows can still end in the `nonfinite objective` error described in
+[Numerical behavior](numerics.md). A normal scale can still give a threshold
+`tol * scale` that is subnormal or 0. The change test `change < threshold`
+cannot hold for a threshold of 0, so the solve cannot converge by this test:
+it ends at `maxpasses` with a warning, unless an independent numerical failure
+(for example a non-finite coordinate step) stops it first with an error.
+
+When relative scaling is active (`relative=true` and a positive response
+scale), each coordinate change is also multiplied by `sqrt(s * a)`, where `a` is
+the squared norm of the column. With `relative=false`, or with `y = 0`, the
+coordinate scale is not used. Where the product `s * a` is zero or subnormal (in
+the type that combines `s` with the working type), CD takes the square roots of
+`s` and of `a` separately and multiplies them, so the scale does not become 0
+because the product underflowed. It is still 0 where that root is at most half
+the smallest subnormal number. Where the product overflows, the scale is
+infinite, and with relative scaling active a nonzero coordinate change then
+makes `solve!` throw an `ArgumentError` ("a coordinate step or its stopping
+scale is not finite") and leave the starting point unchanged. That overflow,
+the reciprocal `1 / (s * a)` that the coordinate step uses (which can be
+infinite or 0), and an infinite squared column norm are not changed by this and
+are tracked in issue #294.
+
 **Randomness and momentum:** By default `order=:random`, and the
 historical CD algorithm can apply momentum to active passes and restart
 it when the active set changes. Momentum attempts to accelerate convergence

@@ -8,8 +8,26 @@ code.
 
 - **Coordinate descent (CD):** the change during a full pass has fallen
   below the effective `tol`. With `relative=true` this threshold is
-  scaled by a response-dependent quantity; the reported effective
-  tolerance can differ from the value passed to the constructor.
+  scaled by a response-dependent quantity, `sqrt(s * sum(abs2, y))`, formed
+  so that the sum of squares and its product with the loss scale `s` may
+  leave the range of the working type; the reported effective
+  tolerance can differ from the value passed to the constructor. When
+  relative scaling is active (`relative=true` and a positive response scale),
+  each coordinate change is also multiplied by `sqrt(s * a)` for the squared
+  norm `a` of its column, formed from the two square roots where the product
+  `s * a` is zero or subnormal; where it overflows the scale is infinite and a
+  nonzero change is then refused with an `ArgumentError` (that overflow is
+  issue #294). With `relative=false`, or with `y = 0`, the coordinate scale is
+  not used. If the computed `sqrt(s) * norm(y)`, after
+  rounding to the working type, is not a normal floating-point number, the
+  solve is refused with an `ArgumentError` before the first pass (rescale, or
+  use `relative=false`, which can still end in the `nonfinite objective`
+  refusal described below); a value within a rounding error of the limits can
+  fall on either side. `y = 0` uses the absolute threshold. `tol` times a
+  normal scale can be subnormal or 0; the test `change < threshold` cannot hold
+  for a threshold of 0, so such a run cannot converge by it and ends at
+  `maxpasses` with a warning, unless an independent numerical failure (for
+  example a non-finite coordinate step) stops it first with an error.
 - **Proximal gradient descent (PGD):** the algorithm applies multiple
   stopping tests for relative coefficient change, objective change and
   a gradient/proximal residual. These combine by **OR**: passing one can
@@ -230,7 +248,12 @@ recovery for some representable results, but ProximalSolvers does not
 promise end-to-end recovery of every failed matrix product, curvature,
 step or objective. Unrecoverable numerical failures are handled as
 described below; a successful kernel recovery does not imply the
-solver can continue in every extreme-range case.
+solver can continue in every extreme-range case. For example, CD forms
+its reported objective from the sum of the squared residuals in the working
+type, times the loss scale: where that sum or product overflows, CD refuses
+the finished solve with a `nonfinite objective` error and leaves the starting
+point unchanged; where it underflows, the loss part of the reported minimum
+can be 0.
 
 `Float32` has less precision and may stagnate earlier than `Float64`.
 Some solver tolerances, residual reports and other scalar diagnostics

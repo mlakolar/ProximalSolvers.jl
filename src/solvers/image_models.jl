@@ -1,4 +1,4 @@
-# Historical LS image evaluation; no exceptional-range recovery is added.
+# Historical LS image evaluation; no exceptional-range recovery is added. `_SE`, `_se_mul`, `_root_scale`, `_se_norm` and `_sumsq_scaled` below are also used by CD's `response_scale` (src/cd/leastsquares.jl).
 
 struct _LSImage{TY<:AbstractVecOrMat, TX<:AbstractMatrix, A<:Real, T<:AbstractFloat}
   Y::TY

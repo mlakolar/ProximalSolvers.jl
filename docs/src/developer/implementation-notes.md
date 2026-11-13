@@ -18,12 +18,56 @@ combined with `T` by Julia's promotion. CD's `LSModel` stores it as
 `AbstractFloat` type and `S = T` otherwise. The coordinate step, the
 two stopping scales and the reported objective form their products
 with `s` in `S`. The objective rounds its product to `T`. The response
-scale takes the root of its product rounded to `T`, or the root formed
-in `S` and then rounded to `T` where that rounded product is infinite.
-The coordinate scale takes the root of its product rounded to `T` where
-that is a normal number of `T`, and otherwise the root formed in `S` and
-rounded to `T`. The step passes its coefficient to the ProximalBase
-prox, which rounds the threshold to `T`. `X`, `y`, the residual, the
+scale `sqrt(s * sum(abs2, y))` is formed in one of three ways, with the sum
+in `T`. Let it be clean if it is finite and at least `4 length(y) floatmin(T)`
+(the bound of `_se_norm_onepass`), `p = s * sum(abs2, y)` in `S` and
+`q = T(p)`. If the sum is clean and `q` is a normal number of `T`, the scale
+is `sqrt(q)`. Else, if `S` is wider than `T`, the sum is clean, `p` is a
+normal number of `S` and `T(sqrt(p))` is a normal number of `T`, the scale is
+`T(sqrt(p))`. Otherwise the scale is `sqrt(s) * norm(y)` carried as exponent
+and significand with the helpers of `src/solvers/image_models.jl` (`_SE`,
+`_root_scale`, `_se_norm`), in `Float64` for `Float32` data and in `T`
+otherwise, rounded once to `T`. The sums of squares of that last form are
+`@simd`, so its value can differ in the last bits between CPUs. For `y = 0`
+that value is 0, which selects the absolute stopping threshold. If the
+rounded value is not a normal number of `T`, `response_scale` throws an
+`ArgumentError` from `_run_cd!`, before momentum or any shuffle, so that `x`,
+an owner and the RNG are unchanged; a value within a rounding error of
+`floatmin(T)` or `floatmax(T)` can fall on either side. `relative=false` is
+the alternative, and it can still end in the nonfinite-objective refusal below.
+The threshold `tol * scale` is formed in `T` and can still be subnormal or 0.
+The test `change < threshold` cannot hold for a threshold of 0, so that run
+cannot converge by it and reaches `maxpasses`, unless an independent
+numerical failure (for example a non-finite coordinate step) stops it first.
+The objective still forms
+`sum(abs2, r)` in `T`: where that sum or its product with `s` overflows, the
+finished solve is refused with a nonfinite-objective error, and where it
+underflows the loss part of the reported minimum can be 0; this is left to
+the ProximalBase cached-oracle migration (issue #277). A supplied `BigFloat`
+loss scale is stored with its own precision, which the precision active when
+the solve runs does not change; a `BigInt` or `Rational{BigInt}` scale is
+converted to `BigFloat` at the active precision when the model is built.
+`_root_scale` then converts the stored value at a scoped precision of 256 bits.
+The coordinate scale, with `a` the squared norm of the column, `p = s * a`
+in `S` and `q = T(p)`, is `sqrt(q)` where `q` is a normal number of `T`;
+otherwise `T(sqrt(p))` where `p` is not below `floatmin(S)`; otherwise (`p` zero
+or subnormal in `S`) `T(sqrt(s) * sqrt(S(a)))`, formed in `S` from the two
+roots, so the rounded product `p` does not enter it. That last form is 0 for
+`a = 0`, and 0 where its value is at most half of `nextfloat(zero(T))`. For
+`S == T` the first two forms have the same value where `p` is normal. Where
+`s * a` overflows, or `a` is infinite, the second form is infinite. Where
+`scaled` holds in `_tolerances` (`relative=true` and a positive response scale),
+`_visit!` multiplies a nonzero change by the coordinate scale and refuses an
+infinite product with `ArgumentError("a coordinate step or its stopping scale
+is not finite")`, and `x` and an owner are not changed (the solve works on a
+private copy). With `relative=false` or `y = 0` the coordinate
+scale is not used. The underflow range of the coordinate scale is handled
+here; the step is not changed. It passes the coefficient `inv(s * a)` to the
+ProximalBase prox, which rounds the threshold to `T`, and that coefficient is
+infinite where `s * a` is below about `1 / floatmax(S)` and 0 where `s * a` is
+infinite. The overflow of `s * a`, the step reciprocal and infinite curvature
+remain issue #294.
+`X`, `y`, the residual, the
 curvature cache and the iterate stay in `T`. A scale of type `T`,
 `Int`, `Bool`, `Rational{Int}`, `Irrational` or `Float16`, or a
 `Float32` scale on `Float64` data, gives `S = T` and the arithmetic of
