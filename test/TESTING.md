@@ -25,21 +25,27 @@ measurements and deferred macOS C0 failure run42949840807 are preserved in
 [complete test provenance](../docs/audit/minimal-core-test-provenance.md).
 
 **Nightly compatibility runs.** `.github/workflows/Nightly.yml` runs the full suite
-(`scripts/test.jl --tier=full`) once a day on Linux with Julia 1.10, which resolves from
+(`scripts/test.jl --tier=full`), scheduled daily, on Linux with Julia 1.10, which resolves from
 `Manifest-v1.10.toml`; its matrix lists one `include` entry per leg. It is not a required check
 and does not change the required Linux Julia 1 jobs of `CI.yml`. It has no skip or reuse logic: a
 run does not read the runs of `CI.yml` or earlier nights. A pull request that edits `Nightly.yml`,
 `Manifest-v1.10.toml` or `Project.toml` also starts its Julia 1.10 job, as an advisory result that
-opens no issue. On a scheduled or manual run, each leg that does not succeed opens an issue titled
-`Nightly failing: Julia <version> - <os>` (the branch name in parentheses when the ref is not
-`master`), or comments on the open issue with that title; a leg that succeeds comments "Green again"
-on its open issue. Issues are closed by hand. Rerun with `gh workflow run Nightly.yml --ref master`,
-or locally with `julia +1.10 scripts/test.jl --tier=full`. GitHub can delay scheduled runs and
-disables them after 60 days without repository activity. Julia 1.11 and later take ProximalBase from
-`[sources]` in `Project.toml` and Julia 1.10 ignores it, so the quick test in `test/aqua.jl` fails
-unless the `[sources]` revision and URL equal the `repo-rev` and `repo-url` of `Manifest-v1.10.toml`.
-When `[sources]` is removed, that test fails until `PIN_POLICY` and `pin_problems` in
-`test/aqua.jl` are changed to the new policy.
+opens no issue. On scheduled and manual runs, the report job attempts, for each leg that does not
+succeed, to open an issue titled `Nightly failing: Julia <version> - <os>` (the branch name in
+parentheses when the ref is not `master`) or to comment on the open issue with that title, and to
+comment "Green again" on the open issue of a leg that succeeds; a failed write turns the report job
+red, and a mismatch between the test job's result and the legs it lists is reported as
+`Nightly failing: inconsistent leg results`. Issues are closed by hand. Each leg attempts to leave a
+record with its step outcomes, the final test table and a failure excerpt; runner loss can leave
+none. Rerun with `gh workflow run Nightly.yml --ref master`, or locally with
+`julia +1.10 scripts/test.jl --tier=full`. GitHub can delay scheduled runs, and in a public
+repository disables them after 60 days without repository activity. Julia 1.11 and later take
+ProximalBase from `[sources]` in `Project.toml` and Julia 1.10 ignores it, so the quick test in
+`test/aqua.jl` (`pin_problems`) compares the two: `[sources].ProximalBase` must have exactly `url`
+and a 40-character lowercase `rev`, and `Manifest-v1.10.toml` must have one ProximalBase entry whose
+`repo-url`, `repo-rev` and `uuid` equal them, with a `git-tree-sha1` and no `path` or
+`repo-subdir`. When `[sources]` is removed or gains another key, that test fails until
+`pin_problems` and its cases are changed to the new policy (`PIN_POLICY` only labels it).
 
 The existing Benchmark analysis controls job has no tier or test-reuse condition, so it is
 independent of the main tier and nightly test reuse. It runs as three separate matrix

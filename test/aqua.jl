@@ -11,32 +11,45 @@ end
 
 # The ProximalBase pin has two homes. Julia 1.11 and later read `[sources]` in Project.toml;
 # Julia 1.10 ignores `[sources]` and uses the tracked Manifest-v1.10.toml, so Julia 1 runs
-# do not notice a stale manifest. This test compares the two before the Nightly workflow's
+# do not notice a stale manifest. pin_problems compares the two before the Nightly workflow's
 # 1.10 run could show the difference.
 #
-# PIN_POLICY names the rule pin_problems checks: while `[sources]` exists, the manifest must
-# carry the same revision and URL. If `[sources]` is removed, pin_problems reports a problem
-# until this policy and the function are changed on purpose; a pin that is merely absent does
-# not pass.
+# PIN_POLICY labels the rule that pin_problems implements: while `[sources]` has a ProximalBase
+# entry with a git `url` and `rev` (and no other key), the manifest has one ProximalBase entry
+# with the same `repo-url` and `repo-rev`, a `git-tree-sha1`, the UUID of Project.toml, and no
+# `path` or `repo-subdir`. The constant is not read by the check. Changing the policy means
+# changing pin_problems and the cases below, and then the label; a pin that is merely absent,
+# or a source selector the function does not model, is reported as a problem.
 const PIN_POLICY = :sources_match_manifest_v1_10
 
-const FULL_SHA = r"^[0-9a-f]{40}$"
+# \A and \z: `$` would accept a final newline
+const FULL_SHA = r"\A[0-9a-f]{40}\z"
+
+const POLICY_UPDATE = "The pin-validation policy must be updated explicitly (PIN_POLICY and pin_problems in test/aqua.jl)."
 
 """
     pin_problems(project, manifest) -> Vector{String}
 
 Problems found when `project` (parsed Project.toml) and `manifest` (parsed
-Manifest-v1.10.toml) are compared under `PIN_POLICY`; empty when the ProximalBase pins agree.
-Revisions and URLs are compared as written.
+Manifest-v1.10.toml) are compared under `PIN_POLICY`; empty when:
+- `[sources].ProximalBase` has exactly the keys `url` and `rev`, and `rev` is a 40-character
+  lowercase hexadecimal string;
+- the manifest has exactly one `deps.ProximalBase` entry, with string `git-tree-sha1`,
+  `repo-rev` and `repo-url`, and with neither `path` nor `repo-subdir`;
+- `repo-rev` and `repo-url` equal `rev` and `url` as written, and the entry's `uuid` equals the
+  ProximalBase UUID in `[deps]`.
+Other keys of the manifest entry (`deps`, `weakdeps`, `version`, ...) are not examined.
 """
 function pin_problems(project::AbstractDict, manifest::AbstractDict)
   problems = String[]
   sources = get(project, "sources", nothing)
   entry = sources isa AbstractDict ? get(sources, "ProximalBase", nothing) : nothing
   if !(entry isa AbstractDict)
-    push!(problems, "Project.toml has no [sources] entry for ProximalBase. The pin-validation " *
-                    "policy must be updated explicitly (PIN_POLICY and pin_problems in test/aqua.jl).")
+    push!(problems, "Project.toml has no [sources] entry for ProximalBase. " * POLICY_UPDATE)
     return problems
+  end
+  for key in sort!(collect(String, keys(entry)))
+    key in ("url", "rev") || push!(problems, "[sources] ProximalBase has the key `$key`, which the policy does not cover. " * POLICY_UPDATE)
   end
   url = get(entry, "url", nothing)
   rev = get(entry, "rev", nothing)
@@ -44,7 +57,7 @@ function pin_problems(project::AbstractDict, manifest::AbstractDict)
   if !(rev isa AbstractString)
     push!(problems, "[sources] ProximalBase has no string `rev`.")
   elseif !occursin(FULL_SHA, rev)
-    push!(problems, "[sources] ProximalBase rev `$rev` is not a full 40-character lowercase hex SHA.")
+    push!(problems, "[sources] ProximalBase rev `$(escape_string(rev))` is not a full 40-character lowercase hex SHA.")
   end
 
   deps = get(manifest, "deps", nothing)
@@ -54,6 +67,11 @@ function pin_problems(project::AbstractDict, manifest::AbstractDict)
     return problems
   end
   pinned = only(entries)
+  for key in ("path", "repo-subdir")
+    haskey(pinned, key) && push!(problems, "Manifest-v1.10.toml deps.ProximalBase has the key `$key`, which the policy does not cover. " * POLICY_UPDATE)
+  end
+  get(pinned, "git-tree-sha1", nothing) isa AbstractString ||
+    push!(problems, "Manifest-v1.10.toml deps.ProximalBase has no string `git-tree-sha1`.")
   repo_rev = get(pinned, "repo-rev", nothing)
   repo_url = get(pinned, "repo-url", nothing)
   if !(repo_rev isa AbstractString) || !(repo_url isa AbstractString)
@@ -117,6 +135,23 @@ end
   @test any(occursin("no repo-rev", s) for s in problems)
   problems = problems_after((p, m) -> pinned(m)["uuid"] = "00000000-0000-0000-0000-000000000000")
   @test any(occursin("uuid", s) for s in problems)
+
+  # source selectors outside the model
+  problems = problems_after((p, m) -> pinned(m)["path"] = "../other")
+  @test any(occursin("`path`", s) && occursin("PIN_POLICY", s) for s in problems)
+  problems = problems_after((p, m) -> pinned(m)["repo-subdir"] = "sub")
+  @test any(occursin("`repo-subdir`", s) && occursin("PIN_POLICY", s) for s in problems)
+  problems = problems_after((p, m) -> p["sources"]["ProximalBase"]["subdir"] = "sub")
+  @test any(occursin("`subdir`", s) && occursin("PIN_POLICY", s) for s in problems)
+  problems = problems_after((p, m) -> p["sources"]["ProximalBase"]["path"] = "../other")
+  @test any(occursin("`path`", s) && occursin("PIN_POLICY", s) for s in problems)
+  problems = problems_after((p, m) -> p["sources"]["ProximalBase"]["unknown"] = "x")
+  @test any(occursin("`unknown`", s) && occursin("PIN_POLICY", s) for s in problems)
+  problems = problems_after((p, m) -> delete!(pinned(m), "git-tree-sha1"))
+  @test any(occursin("git-tree-sha1", s) for s in problems)
+  # `$` in a regular expression would accept a final newline
+  problems = problems_after((p, m) -> p["sources"]["ProximalBase"]["rev"] *= "\n")
+  @test any(occursin("40-character", s) for s in problems)
 end
 
 end

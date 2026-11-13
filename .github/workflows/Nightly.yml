@@ -1,6 +1,6 @@
 name: Nightly
 # The full package test suite (scripts/test.jl --tier=full) on the Julia versions and platforms
-# of the matrix below, once a day. It is not a required check: CI.yml keeps the required checks
+# of the matrix below, scheduled daily. It is not a required check: CI.yml keeps the required checks
 # and runs Julia 1 on Linux. Julia 1.10 is the lowest version the package supports (Project.toml
 # `julia` compat), and it resolves its dependencies from the tracked Manifest-v1.10.toml.
 #
@@ -9,18 +9,20 @@ name: Nightly
 # logic.
 #
 # Triggers:
-# - the daily schedule and manual runs (`gh workflow run Nightly.yml --ref master`);
+# - the daily schedule (GitHub can delay or skip scheduled runs) and manual runs (`gh workflow run Nightly.yml --ref master`);
 # - a pull request that edits this workflow, Manifest-v1.10.toml or Project.toml, to show the
 #   1.10 result before merge. That run is advisory and reports no issue. A change to this file
 #   alone is tier `none` in .github/tier-rules.toml, so CI.yml runs no package tests for it and
 #   this run is its package test.
 #
-# Reporting: the `test` job leaves one record per matrix leg (leg.md: commit, Julia version,
-# ProximalBase line, step outcomes, per-file test summary and a failure excerpt). On a schedule
-# or manual run, the `report` job opens an issue per leg that did not succeed, titled
-# `Nightly failing: Julia <version> - <os>` (with the branch name in parentheses off master), or
-# comments on the open issue of that title; a leg that succeeded gets a "Green again" comment on
-# its open issue. Issues are closed by hand.
+# Reporting: the `test` job attempts to leave one record per matrix leg (leg.md: commit, Julia
+# version, ProximalBase entries, step outcomes, per-file test summary and a failure excerpt);
+# runner loss or a forced cancellation can leave none. On scheduled and manual runs, the
+# `report` job attempts, for each leg that did not succeed, to open an issue titled
+# `Nightly failing: Julia <version> - <os>` (with the branch name in parentheses off master) or
+# to comment on the open issue of that title, and to comment "Green again" on the open issue of a
+# leg that succeeded. A failed write turns the report job red. Pull request runs open no issue.
+# Issues are closed by hand.
 #
 # scripts/ci_environment.jl is not used: on Julia 1.10 it resolves ProximalBase from the
 # registry, which has no 0.6 release, instead of from Manifest-v1.10.toml.
@@ -104,7 +106,8 @@ jobs:
         env:
           TEST_REPORT_TITLE: Julia ${{ matrix.version }}, ${{ matrix.os }}, full tier, ${{ matrix.ptr_jobs }} workers
       # The leg's record, for the job summary and, through the artifact, for the report job. It
-      # is written when a step failed or the job was cancelled, from what exists by then.
+      # is attempted after a failed step or a cancellation (`always()`), from what exists by then;
+      # runner loss or a forced cancellation can leave none.
       - name: Record the leg result
         if: always()
         shell: bash
@@ -117,13 +120,19 @@ jobs:
           # the logs contain colour codes
           if [ -f "$log" ]; then sed 's/\x1b\[[0-9;]*m//g' "$log" | tr -d '\r' > "$clean"; else : > "$clean"; fi
           julia_version=$(julia --version 2>&1) || julia_version="not available"
-          proximalbase="not in the resolve log"
+          # the Pkg.status entry of ProximalBase (by its UUID prefix), without its leading blanks;
+          # other lines that name the package, such as "Cloning git-repo", are not selected
+          proximalbase="no Pkg.status entry for ProximalBase in the resolve log"
           if [ -f "$resolve_log" ]; then
-            line=$(sed 's/\x1b\[[0-9;]*m//g' "$resolve_log" | grep -m1 ProximalBase || true)
-            # the status line, without its leading blanks
+            line=$(sed 's/\x1b\[[0-9;]*m//g' "$resolve_log" | grep -m1 '\[0a755509\] ProximalBase ' || true)
             if [ -n "$line" ]; then proximalbase=${line#"${line%%[![:space:]]*}"}; fi
           fi
+          # the pins in the checkout: Julia 1.10 uses the manifest, Julia 1.11 and later [sources]
+          manifest_pin=$(awk '/^\[\[deps\.ProximalBase\]\]/ { on = 1; next } /^\[/ { on = 0 } on && /^(repo-rev|repo-url)[[:space:]]*=/ { printf "%s%s", sep, $0; sep = "; " }' Manifest-v1.10.toml 2>/dev/null || true)
+          sources_pin=$(grep -m1 '^ProximalBase = {' Project.toml 2>/dev/null || true)
           printf '%s\n' "$LEG_NAME" > "$leg/name.txt"
+          printf '%s\n' "$GITHUB_RUN_ATTEMPT" > "$leg/attempt.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$leg/sha.txt"
           if [ "$TESTS_OUTCOME" = success ]; then conclusion=success; else conclusion=failure; fi
           printf '%s\n' "$conclusion" > "$leg/conclusion.txt"
           {
@@ -133,7 +142,9 @@ jobs:
             echo "- Ref: \`$GITHUB_REF\`"
             echo "- Run: $RUN_URL"
             echo "- Julia: \`$julia_version\`"
-            echo "- ProximalBase: $proximalbase"
+            echo "- ProximalBase, Pkg.status: $proximalbase"
+            echo "- ProximalBase, Manifest-v1.10.toml: ${manifest_pin:-not found}"
+            echo "- ProximalBase, Project.toml [sources]: ${sources_pin:-not found}"
             echo "- Resolve step: ${RESOLVE_OUTCOME:-did not run}"
             echo "- Build step: ${BUILD_OUTCOME:-did not run}"
             echo "- Test step: ${TESTS_OUTCOME:-did not run}"
@@ -145,20 +156,27 @@ jobs:
                 echo "The tests did not start: the package build step ended as \`${BUILD_OUTCOME:-did not run}\`."
               fi
             else
-              echo "Per-file test summary:"
+              echo "Test summary (final table of the log):"
               echo
               echo '```'
-              awk '/Test Summary:/ { buf = ""; on = 1 }
-                   on { buf = buf $0 "\n" }
-                   on && /^[[:space:]]*Overall[[:space:]]*\|/ { last = buf; on = 0 }
-                   END { printf "%s", last }' "$clean" | sed 's/```/'"'''"'/g'
+              # ParallelTestRunner prints the final table as a header, an Overall row and then the
+              # per-file rows (and their testsets), all indented; the last such table is kept
+              awk 'function flush() { if (inblock && seen) last = buf; inblock = 0; seen = 0; buf = "" }
+                   /^[[:space:]]*Test Summary:/ { flush(); inblock = 1; buf = $0 "\n"; next }
+                   inblock && /^[[:space:]]+[^[:space:]].*\|/ {
+                     buf = buf $0 "\n"
+                     if ($0 ~ /^[[:space:]]*Overall[[:space:]]*\|/) seen = 1
+                     next
+                   }
+                   { flush() }
+                   END { flush(); printf "%s", last }' "$clean" | sed 's/```/'"'''"'/g'
               echo '```'
               if [ "$TESTS_OUTCOME" != success ]; then
                 echo
                 echo "Failure excerpt:"
                 echo
                 echo '```'
-                # each block starts at a failure line and keeps up to 12 lines after it
+                # each failure line keeps up to 12 lines after it; overlapping windows merge
                 awk -v context=12 -v limit=150 '
                   function keep(s) { lines[++n] = s; if (n > limit) exit }
                   /Test Failed at|Error During Test at|Got exception outside of a @test|LoadError|ERROR:/ { remaining = context; show = 1 }
@@ -227,11 +245,11 @@ jobs:
           mkdir -p "$workdir"
           status=0
 
-          # the number of the open issue with this title (the search can also return titles that
-          # merely contain these words, so the title is compared)
+          # the lowest number among the open issues (not pull requests) with exactly this title,
+          # from the paginated issue list, which does not depend on the search index
           find_issue() {
-            TITLE="$1" gh issue list --state open --limit 100 --search "\"$1\" in:title" --json number,title \
-              --jq 'map(select(.title == env.TITLE))[0].number // empty'
+            TITLE="$1" gh api "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" --paginate \
+              --jq '.[] | select(.pull_request == null) | select(.title == env.TITLE) | .number' | sort -n | head -n 1
           }
           # comment on the open issue with this title, or open one
           post() {
@@ -271,6 +289,7 @@ jobs:
           fi
 
           n=0
+          failing=0
           while IFS=$'\t' read -r name conclusion <&3; do
             n=$((n + 1))
             title="Nightly failing: ${name% - *}$suffix"
@@ -282,11 +301,15 @@ jobs:
               fi
               continue
             fi
-            # the leg's own record, found by the leg name it wrote
+            failing=$((failing + 1))
+            # the leg's own record, attached when its name, attempt and commit are this leg's
             record=""
             for f in legs/*/name.txt; do
-              if [ -f "$f" ] && [ "$(cat "$f")" = "$name" ] && [ -f "$(dirname "$f")/leg.md" ]; then
-                record="$(dirname "$f")/leg.md"
+              d=$(dirname "$f")
+              if [ -f "$f" ] && [ "$(cat "$f")" = "$name" ] && [ -f "$d/leg.md" ] \
+                && [ "$(cat "$d/attempt.txt" 2>/dev/null)" = "$GITHUB_RUN_ATTEMPT" ] \
+                && [ "$(cat "$d/sha.txt" 2>/dev/null)" = "$GITHUB_SHA" ]; then
+                record="$d/leg.md"
                 break
               fi
             done
@@ -305,7 +328,7 @@ jobs:
               if [ -n "$record" ]; then
                 cat "$record"
               else
-                echo "No leg record (the job was cancelled or timed out before it wrote one); see the run."
+                echo "No leg record for this attempt (the job was cancelled or timed out before it wrote one, or only an older attempt's record exists); see the run."
               fi
               echo
               echo "Rerun on GitHub, or locally with the same Julia version:"
@@ -317,6 +340,25 @@ jobs:
             } > "$workdir/body-$n.md"
             post "$title" "$workdir/body-$n.md" || status=1
           done 3< "$jobs"
+          # the aggregate result and the enumerated legs must agree
+          if [ "$TEST_RESULT" != success ] && [ "$failing" -eq 0 ]; then
+            title="Nightly failing: inconsistent leg results$suffix"
+            {
+              echo "The result of the test job is \`$TEST_RESULT\`, but no leg the jobs API lists for this attempt has a conclusion other than \`success\`."
+              echo
+              echo "- Event: $GITHUB_EVENT_NAME"
+              echo "- Ref: \`$GITHUB_REF\`"
+              echo "- Commit: \`$GITHUB_SHA\`"
+              echo "- Run: $RUN_URL"
+              echo
+              echo "Legs listed (name, conclusion):"
+              echo
+              echo '```'
+              cat "$jobs"
+              echo '```'
+            } > "$workdir/body-inconsistent.md"
+            post "$title" "$workdir/body-inconsistent.md" || status=1
+          fi
           exit $status
         env:
           GH_TOKEN: ${{ github.token }}
