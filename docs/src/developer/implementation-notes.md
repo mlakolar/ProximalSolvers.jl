@@ -50,23 +50,53 @@ converted to `BigFloat` at the active precision when the model is built.
 `_root_scale` then converts the stored value at a scoped precision of 256 bits.
 The coordinate scale, with `a` the squared norm of the column, `p = s * a`
 in `S` and `q = T(p)`, is `sqrt(q)` where `q` is a normal number of `T`;
-otherwise `T(sqrt(p))` where `p` is not below `floatmin(S)`; otherwise (`p` zero
-or subnormal in `S`) `T(sqrt(s) * sqrt(S(a)))`, formed in `S` from the two
-roots, so the rounded product `p` does not enter it. That last form is 0 for
-`a = 0`, and 0 where its value is at most half of `nextfloat(zero(T))`. For
-`S == T` the first two forms have the same value where `p` is normal. Where
-`s * a` overflows, or `a` is infinite, the second form is infinite. Where
+otherwise `T(sqrt(p))` where `p` is not below `floatmin(S)` and is finite or `a`
+is infinite; otherwise (`p` zero or subnormal in `S`, or infinite for a finite
+`a`) `T(sqrt(s) * sqrt(S(a)))`, formed in `S` from the two roots, so the
+rounded product `p` does not enter it. That last form is 0 for `a = 0` and 0
+where its value is at most half of `nextfloat(zero(T))`, and a value above
+`floatmax(T)` rounds to infinity. For `S == T` the first two forms have the same
+value where `p` is normal. The second form is infinite where `a` is infinite and
+where `S` is wider than `T` and the root of `p` exceeds `floatmax(T)`. Where
 `scaled` holds in `_tolerances` (`relative=true` and a positive response scale),
 `_visit!` multiplies a nonzero change by the coordinate scale and refuses an
 infinite product with `ArgumentError("a coordinate step or its stopping scale
 is not finite")`, and `x` and an owner are not changed (the solve works on a
 private copy). With `relative=false` or `y = 0` the coordinate
-scale is not used. The underflow range of the coordinate scale is handled
-here; the step is not changed. It passes the coefficient `inv(s * a)` to the
-ProximalBase prox, which rounds the threshold to `T`, and that coefficient is
-infinite where `s * a` is below about `1 / floatmax(S)` and 0 where `s * a` is
-infinite. The overflow of `s * a`, the step reciprocal and infinite curvature
-remain issue #294.
+scale is not used.
+The coordinate step is the soft threshold of the centre `c = x_k + b / a` at
+`τ = λ / (s * a)`, with `b` the inner product of the residual and the column.
+With `p = s * a` and `γ = inv(p)` in `S`, it is `prox_block(g, c, k, γ)`, the
+step as it was, with the same bits, where `p` and `γ` are both at least
+`floatmin(S)`. Otherwise `_exceptional_step` applies `shrink(c, min(τ,
+floatmax(T)))`, with `τ` formed from `g.λ0` converted to `Float64` and from `s`
+and `a` without `p` or `γ`: for `Float32` in `Float64`, where the product of two
+`Float32` values is exact and the quotient is rounded to `Float64` and then to
+`Float32`, and for `Float64` from significands and exponents (`_threshold`),
+with a relative error below `3 * eps(Float64)` where `τ` is normal. For `τ` in
+`[0, floatmax(T)]`, `shrink(c, τ)` is what PB's `NormL1` prox returns at the
+level `τ` and the step 1. The cap at `floatmax(T)` leaves a finite `c` at 0, as
+an infinite `τ` does, and keeps a `c` that is infinite or NaN non-finite, so
+that `_visit!` refuses it; an infinite level in PB's prox would set that entry
+to 0. In exact arithmetic a fixed point of `x = shrink(x + b / a′, λ / (s a′))`
+satisfies `s b ∈ λ ∂|x|` for any positive `a′` used in both places, so a
+curvature that is rounded or subnormal, within a factor of 2 of the exact one,
+changes the convergence rate and not the fixed point. The coefficient `γ` of the previous step was 0 where `p` overflows
+(the penalty was ignored) and infinite where `p` is below `1 / floatmax(S)` (the
+threshold was infinite), which broke that agreement. Where `p` or `γ` is below
+`floatmin(S)` the step is the exceptional one, also for cases that were correct
+before (a subnormal `p` with a finite reciprocal), and where `λ > 0` their bits
+can differ from before.
+`_exceptional_step` is written for `S == T` and the unweighted `NormL1`. For a
+finite `a`, an `S` wider than `T` keeps `p` inside the band: `solve!` requires a
+loss scale that is representable in `T`, and a finite `a` is finite in `T`, so
+for `Float32` data with a `Float64` scale `p` is between about `1e-90` and
+`1e77`, and the range of `BigFloat` is far wider. A scale of another type, or
+a penalty other than the unweighted `NormL1`, makes the step throw an
+`ArgumentError`. A column whose `a` is not finite in `T` makes `coordinate_step!`
+throw an `ArgumentError` that names the curvature, before the coordinate, the
+residual or the curvature cache entry of that column changes, and `x` and an
+owner are not changed.
 `X`, `y`, the residual, the
 curvature cache and the iterate stay in `T`. A scale of type `T`,
 `Int`, `Bool`, `Rational{Int}`, `Irrational` or `Float16`, or a
@@ -147,8 +177,8 @@ ArgumentError.
   and `maxpasses = 0`, which leaves exactly the entry state, including active
   zeros, signed zeros and order. A normal pass compacts zero coordinates, and
   they are not restored; the order is not sorted.
-- A numerical error, such as a nonfinite step, a curvature that underflows or a
-  nonfinite final objective, leaves the values, active set, signed zeros and
+- A numerical error, such as a nonfinite step, a curvature that underflows or is
+  not finite, or a nonfinite final objective, leaves the values, active set, signed zeros and
   order of `x` unchanged. The borrowed RNG may already have advanced; no rollback
   of the RNG is promised. Process termination, out-of-memory conditions and
   concurrent mutation of x, X or y are not covered.
@@ -185,7 +215,7 @@ strictly below the change tolerance converges. Random LS uses historical
 momentum/restarts and refreshes moved residual caches before full checks; the
 borrowed RNG advances. Cyclic and explicit momentum=false remain supported.
 Zero columns choose the nearest-zero penalty minimizer, including lambda=0.
-Nonzero-column curvature underflow is an error. tol=0 stays strict; maxpasses=0
+Nonzero-column curvature underflow, and a curvature that is not finite, are errors. tol=0 stays strict; maxpasses=0
 returns unconverged with no updates, and an owner then keeps its exact entry state.
 After every pass zero coordinates leave the active set, so an owner that completed
 at least one pass has none and their order follows from compaction, which moves the

@@ -15,9 +15,13 @@ code.
   relative scaling is active (`relative=true` and a positive response scale),
   each coordinate change is also multiplied by `sqrt(s * a)` for the squared
   norm `a` of its column, formed from the two square roots where the product
-  `s * a` is zero or subnormal; where it overflows the scale is infinite and a
-  nonzero change is then refused with an `ArgumentError` (that overflow is
-  issue #294). With `relative=false`, or with `y = 0`, the coordinate scale is
+  `s * a` is zero, subnormal or overflowing for a finite `a`; a nonzero change
+  times an infinite scale (a root above the largest finite number) is refused
+  with an `ArgumentError`. The coordinate step forms its threshold
+  `lambda / (s * a)` without the product or its reciprocal where either is
+  outside the normal range, and a column whose squared norm is not finite is
+  refused with an `ArgumentError` that names the curvature. With
+  `relative=false`, or with `y = 0`, the coordinate scale is
   not used. If the computed `sqrt(s) * norm(y)`, after
   rounding to the working type, is not a normal floating-point number, the
   solve is refused with an `ArgumentError` before the first pass (rescale, or
