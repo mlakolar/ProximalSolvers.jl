@@ -9,12 +9,11 @@ takes a gradient step for the smooth least-squares loss and applies the
 the step size.
 
 `ProximalGradientDescent()` uses the supported
-`LineSearches.BackTracking()` line search. A trial that it rejects is checked
-with the certified least-squares bound of [`AccProxGradDescent`](@ref), except
-in the cases that the `LineSearches.BackTracking` docstring lists: a
-rejection that the bound refutes is accepted, and otherwise the retry replaces
-the estimate `L̂` by `min(L̂, U)`, where `U` is a certified upper bound on the `L`
-that the bound needs (see `LineSearches.BackTracking` and
+`LineSearches.BackTracking()` line search. A trial that it rejects is decided
+again, except in the cases that the `LineSearches.BackTracking` docstring
+lists, by the computed curvature `c` of the step from one product `X d`: it is
+accepted when `L ≥ c`, and otherwise the retry uses `c` in place of the
+estimate `L̂` when `c` is finite (see `LineSearches.BackTracking` and
 [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/)). The options
 `normalized=true`, `debias>0`, `preconditioner!=:none` and custom
 line searches are not implemented and are rejected. These constructor
@@ -73,14 +72,8 @@ mutable struct ProximalGradientDescentState{T, X<:Vector{T}, G<:Vector{T}, M, Z}
     prox_calls::Int
     model::M
     z_x::Z            # A x
-    dz::Z             # F' at A x; buffer of the fresh A d of a checked rejection
-    z_previous::Z     # A x_previous, once an iteration has started
-    bound::Union{Nothing, _BoundConstants{T}}  # constants of the bound test, built at the first checked rejection
-    rootα::Union{Nothing, _SE{T}}   # √α (see _root_scale), built when function-value mode first needs it
-    root2α::Union{Nothing, _SE{T}}  # √(2α), built when gradient mode first needs it
-    certify::Bool     # the dimensions satisfy the bound's size condition (_bound_size_ok)
-    verifications::Int  # rejections checked by the certified bound
-    fallbacks::Int    # fresh products A d formed for those checks
+    dz::Z             # F' at A x; buffer of the product A d of a checked rejection
+    verifications::Int  # rejections checked by the computed curvature (one product A d each)
 end
 
 
@@ -121,12 +114,6 @@ function initial_state(
                          model,
                          z_x,
                          dz,
-                         similar(z_x), # A x_previous
-                         nothing,
-                         nothing,
-                         nothing,
-                         _bound_size_ok(T, size(model.X)...),
-                         0,
                          0
                          )
 end
@@ -142,8 +129,6 @@ function update_state!(
     state.f_x_previous = state.f_x
     state.g_x_previous = state.g_x
     _copyto!(state.grad_f_x_previous, state.grad_f_x)
-    # A x_previous = A x; the old buffer of A x_previous receives the trial images
-    state.z_previous, state.z_x = state.z_x, state.z_previous
     state.L *= method.ls.α
 
     # backtracking loop
@@ -170,61 +155,15 @@ end
 LineSearches.value_and_gradient_at_x!(state::ProximalGradientDescentState, f) =
   _value_and_gradient!(state.grad_f_x, state.x, state.model, state.z_x, state.dz)
 
-# The check of a backtracking rejection of the trial state.x from state.x_previous, d ≠ 0,
-# with the certified least-squares bound of _bound_certified!: of α‖X d‖² ≤ L‖d‖² when
-# gradient_mode is false (function-value mode) and of 2α‖X d‖² ≤ L‖d‖² when it is true, each
-# with the slack (1 + 4eps) on √L. Returns (true, Inf) when the bound is certified, and
-# otherwise (false, U), U an upper bound on the L that the bound needs for this d (see
-# _curvature_cap). U is Inf when the dimensions fail the size condition, when a norm or
-# fl(X d̂) is not finite, and when the bound exceeds floatmax(T). z_previous is the fresh
-# product of x_previous (update_state! swaps it in), so its error bound is that of one product.
-function LineSearches.verify_rejection!(state::ProximalGradientDescentState{T}, gradient_mode::Bool) where T
-    state.certify || return false, T(Inf)
-    sd, sx = _sumsq2(state.delta_x, state.x)
-    normx = _se_norm_onepass(T, sx, state.x)
-    D = _se_norm_onepass(T, sd, state.delta_x)
-    xp = state.x_previous
-    normxp = _se_norm_onepass(T, sum(abs2, xp), xp)
-    (normx === nothing || D === nothing || normxp === nothing) && return false, T(Inf)
-    c = _pgd_bound!(state)
-    rootscale = gradient_mode ? _pgd_root2α!(state) : _pgd_rootα!(state)
-    Ey = _image_error_bound(c, normxp, normxp, false)
+# The computed curvature c = m α ‖fl(X d̂)‖²/‖d̂‖² of the rejected step d̂ = state.delta_x, from
+# the product X d̂ formed in dz (scratch: _image_value_and_gradient! overwrites it before any
+# read), with m = 1 in function-value mode and m = 2 in gradient mode. Returns (c ≤ L, c); c is
+# Inf or NaN when a sum of squares overflows or the squares of d̂ underflow to 0.
+function LineSearches.check_rejection!(state::ProximalGradientDescentState{T}, gradient_mode::Bool) where T
+    mul!(state.dz, state.model.X, state.delta_x)
     state.verifications += 1
-    ok, fresh = _bound_certified!(state.dz, state.model, state.z_previous, state.z_x, state.delta_x,
-                                  D, state.L, Ey, normx, rootscale, c, false)
-    state.fallbacks += fresh
-    ok && return true, T(Inf)
-    U, loose = _curvature_upper(state.dz, state.z_previous, state.z_x, D, Ey, normx, rootscale, c, fresh)
-    if loose && !fresh
-        mul!(state.dz, state.model.X, state.delta_x)
-        state.fallbacks += 1
-        U, _ = _curvature_upper(state.dz, state.z_previous, state.z_x, D, Ey, normx, rootscale, c, true)
-    end
-    false, U
-end
-
-function _pgd_bound!(state::ProximalGradientDescentState{T}) where T
-    b = state.bound
-    b === nothing || return b
-    b = _bound_constants(T, state.model.X)
-    state.bound = b
-    b
-end
-
-function _pgd_rootα!(state::ProximalGradientDescentState{T}) where T
-    r = state.rootα
-    r === nothing || return r
-    r = _root_scale(T, state.model.α)
-    state.rootα = r
-    r
-end
-
-function _pgd_root2α!(state::ProximalGradientDescentState{T}) where T
-    r = state.root2α
-    r === nothing || return r
-    r = _root_scale(T, state.model.α, 1)
-    state.root2α = r
-    r
+    c = (gradient_mode ? 2 : 1) * (T(state.model.α) * (sum(abs2, state.dz) / sum(abs2, state.delta_x)))
+    c <= state.L, c
 end
 
 """

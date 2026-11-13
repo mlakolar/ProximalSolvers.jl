@@ -182,7 +182,7 @@ end
   end
 end
 
-# ---- PGD backtracking: rejections checked by the certified least-squares bound ----
+# ---- PGD backtracking: rejections checked by the computed curvature of the step ----
 
 # Standardized Gaussian columns, five coefficients ±1, noise 0.2, loss scale 1/n and
 # λ = 0.15 λ_max, in Float64.
@@ -223,83 +223,6 @@ function pgd_run(f, g, x0, iterations; gradient_mode = false, method = ProximalG
   state, Lmax
 end
 
-# A copy of PGD's iteration with BackTracking's decision before rejections were checked:
-# TFOCS's estimate decides each trial with a finite value and d ≠ 0.
-function tfocs_backtrack!(state, ls::PS.LineSearches.BackTracking{T}, f) where T
-  PS._sub!(state.delta_x, state.x, state.x_previous)
-  xy_sq = PS._norm(state.delta_x)^2
-  if xy_sq == zero(T) && isfinite(state.f_x)
-    if !state.backtrack_simple
-      PS.LineSearches.value_and_gradient_at_x!(state, f)
-      state.f_calls += 1
-      state.grad_calls += 1
-    end
-    return true
-  end
-  if !isfinite(state.f_x)
-    state.backtrack_steps += 1
-    state.L = PS.LineSearches.next_curvature(state.L, ls.β)
-    return false
-  end
-  local_l = Inf
-  if state.backtrack_simple
-    q_x = state.f_x_previous + PS._dot(state.delta_x, state.grad_f_x_previous) + 0.5 * state.L * xy_sq
-    local_l = state.L + 2. * max(state.f_x - q_x, zero(T)) / xy_sq
-    state.backtrack_simple = abs(state.f_x_previous - state.f_x) >= 1e-10 * max(abs(state.f_x), abs(state.f_x_previous))
-    if !state.backtrack_simple
-      PS.LineSearches.value_and_gradient_at_x!(state, f)
-      state.f_calls += 1
-      state.grad_calls += 1
-    end
-  else
-    PS.LineSearches.value_and_gradient_at_x!(state, f)
-    state.f_calls += 1
-    state.grad_calls += 1
-    local_l = PS._dot_diff(T, state.grad_f_x, state.grad_f_x_previous, state.delta_x)
-    local_l *= 2. / xy_sq
-  end
-  state.backtrack_steps += 1
-  (local_l <= state.L || state.L >= ls.Lexact) && return true
-  state.L = min(ls.Lexact, max(local_l, PS.LineSearches.next_curvature(state.L, ls.β)))
-  isfinite(state.L) || error("line search failed: nonfinite curvature estimate")
-  return false
-end
-
-function tfocs_update!(f, g, state, method)
-  PS._copyto!(state.x_previous, state.x)
-  state.f_x_previous = state.f_x
-  state.g_x_previous = state.g_x
-  PS._copyto!(state.grad_f_x_previous, state.grad_f_x)
-  state.L *= method.ls.α
-  while true
-    PS._step!(state.xhat, state.x_previous, state.grad_f_x_previous, state.L)
-    state.g_x = convert(eltype(state.x), PS.value_and_prox!(state.x, g, state.xhat, one(state.L) / state.L))
-    state.f_x = PS._value!(state.x, state.model, state.z_x)
-    state.prox_calls += 1
-    state.f_calls += 1
-    tfocs_backtrack!(state, method.ls, f) && break
-  end
-  if state.backtrack_simple
-    PS.LineSearches.value_and_gradient_at_x!(state, f)
-    state.f_calls += 1
-    state.grad_calls += 1
-  end
-  state
-end
-
-pgd_trajectory(s) = (copy(s.x), s.L, s.backtrack_simple, s.backtrack_steps, s.f_calls, s.grad_calls, s.prox_calls)
-
-# A state whose trial pair is (xprev, x), with fresh images and d̂ = fl(x - xprev), as
-# backtrack! leaves it before a check
-function pgd_pair!(state, xprev, x)
-  copyto!(state.x_previous, xprev)
-  copyto!(state.x, x)
-  mul!(state.z_previous, state.model.X, state.x_previous)
-  mul!(state.z_x, state.model.X, state.x)
-  PS._sub!(state.delta_x, state.x, state.x_previous)
-  state
-end
-
 # m α ‖X d‖²/‖d‖² for the stored pair, in 512-bit BigFloat
 pgd_exact_curvature(state, m) = setprecision(BigFloat, 512) do
   A = BigFloat.(state.model.X)
@@ -315,7 +238,6 @@ function pgd_trial(f, g, x0, L; gradient_mode = false, method = ProximalGradient
   PS._copyto!(st.x_previous, st.x)
   st.f_x_previous, st.g_x_previous = st.f_x, st.g_x
   PS._copyto!(st.grad_f_x_previous, st.grad_f_x)
-  st.z_previous, st.z_x = st.z_x, st.z_previous
   st.L = L
   PS._step!(st.xhat, st.x_previous, st.grad_f_x_previous, st.L)
   st.g_x = convert(eltype(st.x), PS.value_and_prox!(st.x, g, st.xhat, one(L) / L))
@@ -330,7 +252,8 @@ pgd_fixture() = ([1. 1 .2; 2 1 .3; -1 0 .5; .1 1 1; .4 .3 -.8; -.2 .8 .1; .6 -.1
   # Rounding of f(x) - q(x) dominates TFOCS's function-value estimate once ‖d‖ is small. Observed
   # on one machine at 782b74c: these designs reach L ≈ 4.2e6 and 1.4e6 and stall at gaps 2.6e-4
   # and 7.0e-4.
-  # With the cap U, an accepted L stays below max(0.9, about 4.3 α‖X‖₂²) on such data.
+  # With the computed curvature c (at most about 2α‖X‖₂²), an accepted L stays below about
+  # max(0.9, 4 α‖X‖₂²) on such data.
   T = Float32
   for (seed, n, p) in ((33, 100, 32), (37, 180, 600))
     X, y, s, λ = pgd_lasso_design(seed, n, p)
@@ -363,68 +286,52 @@ end
   end
 end
 
-@testset "PGD trials without a refuted rejection follow TFOCS's rule bit for bit" begin
-  X, y = pgd_fixture()
-  f, g = (1 / 7) * LeastSquaresLoss(y, X), NormL1(.1)
-  method = ProximalGradientDescent()
-  head = PS.initial_state(method, ProximalOptions(), f, g, [.3, -.7, .2])
-  base = PS.initial_state(method, ProximalOptions(), f, g, [.3, -.7, .2])
-  for _ in 1:25
-    PS.update_state!(f, g, head, method)
-    tfocs_update!(f, g, base, method)
-    @test isequal(pgd_trajectory(head), pgd_trajectory(base))
-  end
-  @test head.verifications > 0
-  # Above the size condition the check is skipped and TFOCS's rejection stands, also on data
-  # where TFOCS's estimate inflates L.
-  T = Float32
-  X, y, s, λ = pgd_lasso_design(33, 100, 32)
-  f, g = T(s) * LeastSquaresLoss(T.(y), T.(X)), NormL1(T(λ))
-  head = PS.initial_state(method, ProximalOptions(), f, g, zeros(T, 32))
-  base = PS.initial_state(method, ProximalOptions(), f, g, zeros(T, 32))
-  head.certify = false
-  same, Lmax = true, 0.0
-  for _ in 1:300
-    PS.update_state!(f, g, head, method)
-    tfocs_update!(f, g, base, method)
-    same &= isequal(pgd_trajectory(head), pgd_trajectory(base))
-    Lmax = max(Lmax, Float64(head.L))
-  end
-  @test same && head.verifications == 0 && Lmax > 1e3
-end
-
-@testset "PGD checked rejections: refutation, switch, caps and scale roots" begin
+@testset "PGD checked rejections: the computed curvature decides" begin
   X, y = pgd_fixture()
   scale = 1 / 7
   curvature = scale * opnorm(X)^2
   g = NormL1(.1)
   x0 = [.3, -.7, .2]
   method = ProximalGradientDescent()
-  # A rejection that rounding decided, simulated by lowering f(x'): refuted in function-value
-  # mode, which then ends with ∇f(x) evaluated.
   f = scale * LeastSquaresLoss(y, X)
+  # A trial that TFOCS accepts is not checked.
+  st = pgd_trial(f, g, x0, 2curvature)
+  @test PS.LineSearches.backtrack!(st, method.ls, f, g) && st.verifications == 0
+  # A rejection that rounding decided, simulated by lowering f(x'): L ≥ c, so the trial is
+  # accepted in function-value mode, which it keeps; ∇f(x) is left to update_state!.
   st = pgd_trial(f, g, x0, 2curvature)
   st.f_x_previous -= 10
   counts = (st.f_calls, st.grad_calls, st.backtrack_steps)
   @test PS.LineSearches.backtrack!(st, method.ls, f, g)
-  @test !st.backtrack_simple && st.L == 2curvature && st.verifications == 1
-  @test (st.f_calls, st.grad_calls, st.backtrack_steps) == counts .+ (1, 1, 1)
-  @test st.grad_f_x ≈ scale .* (X' * (X * st.x - y)) atol = 8eps()
-  # The same in gradient mode, with ∇f(x') shifted along d; the test uses 2α.
+  @test st.backtrack_simple && st.L == 2curvature && st.verifications == 1
+  @test (st.f_calls, st.grad_calls, st.backtrack_steps) == counts .+ (0, 0, 1)
+  # The same in gradient mode, with ∇f(x') shifted along d; c uses 2α.
   st = pgd_trial(f, g, x0, 4curvature; gradient_mode = true)
   st.grad_f_x_previous .-= 100 .* (st.x .- st.x_previous)
   counts = (st.f_calls, st.grad_calls, st.backtrack_steps)
   @test PS.LineSearches.backtrack!(st, method.ls, f, g)
   @test !st.backtrack_simple && st.L == 4curvature && st.verifications == 1
   @test (st.f_calls, st.grad_calls, st.backtrack_steps) == counts .+ (1, 1, 1)
-  # A confirmed rejection with an inflated estimate: L ← max(min(L̂, U), L/β) = U, with U
-  # from the cached difference.
-  st = pgd_trial(f, g, x0, curvature / 1e6)
-  st.f_x_previous -= 10
-  @test !PS.LineSearches.backtrack!(st, method.ls, f, g)
-  c = pgd_exact_curvature(st, 1)
-  @test st.verifications == 1 && st.fallbacks == 0 && st.backtrack_simple
-  @test c <= st.L <= c * (1 + 1e-12)
+  # A confirmed rejection with an inflated estimate sets L to c = m α ‖X d̂‖²/‖d̂‖², here
+  # above L/β, against a 512-bit reference, in each mode.
+  for (gradient_mode, m) in ((false, 1), (true, 2))
+    st = pgd_trial(f, g, x0, curvature / 1e6; gradient_mode)
+    gradient_mode ? (st.grad_f_x_previous .-= 100 .* (st.x .- st.x_previous)) : (st.f_x_previous -= 10)
+    @test !PS.LineSearches.backtrack!(st, method.ls, f, g)
+    c = pgd_exact_curvature(st, m)
+    @test st.verifications == 1 && st.backtrack_simple == !gradient_mode
+    @test abs(st.L - c) <= 1e-12 * c
+  end
+  # A nonfinite c keeps TFOCS's estimate. Float32: ‖X d̂‖² = (3e19)² overflows, while both values
+  # 0.5 (1.5e19)² are finite; L̂ = Inf (⟨d, ∇f(x')⟩ overflows) is capped by Lexact = 1e30,
+  # where a finite c would give the curvature 1e20.
+  ls = PS.LineSearches.BackTracking(Lexact = 1e30)
+  wide = ProximalGradientDescent(ls = ls)
+  fb = LeastSquaresLoss(Float32[0], fill(1f10, 1, 1))
+  st = pgd_trial(fb, NormL1(0f0), Float32[-1.5f9], 5f19; method = wide)
+  @test isfinite(st.f_x) && !isfinite(sum(abs2, fill(1f10, 1, 1) * (st.x .- st.x_previous)))
+  @test !PS.LineSearches.backtrack!(st, ls, fb, NormL1(0f0))
+  @test st.L == Float32(1e30) && st.verifications == 1
   # Lexact: a trial at L ≥ Lexact is accepted unchecked; a rejection is capped by Lexact.
   ls = PS.LineSearches.BackTracking(Lexact = curvature / 1e4)
   capped = ProximalGradientDescent(ls = ls)
@@ -446,35 +353,12 @@ end
   st.f_x = Inf
   @test !PS.LineSearches.backtrack!(st, method.ls, f, g)
   @test st.L == curvature / 32 && st.verifications == 0
-  # Scale roots: unscaled, Float32/Float64 scales and Int, Rational and BigFloat scales, both
-  # precisions and both modes, against 512-bit references. At L slightly above m α‖X d‖²/‖d‖²
-  # the rejection is refuted; slightly below it is confirmed with c ≤ U ≤ 1.01c, and U itself
-  # is accepted for the same pair. Float32 pairs with small d need the fresh product.
-  for T in (Float64, Float32), α in (true, 3, 1 // 7, big"0.3", 0.1f0, 1 / 7), m in (1, 2)
-    A, b = T.(X), T.(y)
-    fs = α === true ? LeastSquaresLoss(b, A) : α * LeastSquaresLoss(b, A)
-    st = PS.initial_state(method, ProximalOptions(), fs, NormL1(T(.1)), T.(x0))
-    @test PS._root_scale(T, α, 0) == PS._root_scale(T, α)
-    for (xprev, x, cached) in ((T.(x0), T[.5, -.2, .1], true),
-                               (T.(x0), T.(x0) .+ T[3, -1, 2] .* T(1e-6), T === Float64))
-      pgd_pair!(st, xprev, x)
-      c = pgd_exact_curvature(st, m)
-      st.L = T(c * 1.01)
-      @test PS.LineSearches.verify_rejection!(st, m == 2) == (true, T(Inf))
-      st.L = T(c * 0.99)
-      fallbacks = st.fallbacks
-      refuted, U = PS.LineSearches.verify_rejection!(st, m == 2)
-      @test !refuted && c <= U <= 1.01c
-      @test (st.fallbacks == fallbacks) == cached
-      st.L = U
-      @test first(PS.LineSearches.verify_rejection!(st, m == 2))
-    end
-  end
 end
 
 @testset "PGD checked rejection before an unrepresentable curvature restores the accepted point" begin
-  # 2α‖X d‖²/‖d‖² = 4.5e38 exceeds floatmax(Float32): the rejection at L ≈ 1.98e38 is
-  # confirmed, U overflows, and next_curvature raises; the engine restores x.
+  # 2α‖X d‖²/‖d‖² = 4.5e38 exceeds floatmax(Float32): the rejection at L ≈ 1.98e38 is checked,
+  # c overflows to Inf, TFOCS's estimate is kept, and next_curvature raises; the engine
+  # restores x.
   f = LeastSquaresLoss(Float32[1], fill(1.5f19, 1, 1))
   method = ProximalGradientDescent()
   state = PS.initial_state(method, ProximalOptions(), f, NormL1(0f0), Float32[0])
@@ -486,7 +370,7 @@ end
 
 @testset "PGD rejections with an infinite estimate: nonfinite gradient kept, tiny step checked" begin
   # Gradient mode: at L ≈ 1e21 the trial's value 0.5(1e19 - 1)² is finite but ∇f(x) = 1e20 (1e19 - 1)
-  # overflows Float32, so L̂ = Inf. The rejection is not checked and raises as before.
+  # overflows Float32, so L̂ = Inf. The rejection is not checked and raises as before (Lexact = Inf).
   f = LeastSquaresLoss(Float32[1], fill(1f20, 1, 1))
   method = ProximalGradientDescent()
   state = PS.initial_state(method, ProximalOptions(), f, NormL1(0f0), Float32[0])
@@ -496,8 +380,8 @@ end
   @test state.x == Float32[0] && state.verifications == 0
   @test isfinite(state.f_x) && !all(isfinite, state.grad_f_x)
   # Function-value mode: a step of norm about 1e-157 has ‖d̂‖² subnormal, and a value gap of 10
-  # divided by it overflows to L̂ = Inf. The rejection is checked: L ≈ 1e157 is far above the
-  # curvature, so it is refuted, and L stays finite.
+  # divided by it overflows to L̂ = Inf. The rejection is checked: L ≈ 1e157 is far above c,
+  # so the trial is accepted, and L stays finite.
   X, y = pgd_fixture()
   f = (1 / 7) * LeastSquaresLoss(y, X)
   st = pgd_trial(f, NormL1(0.), zeros(3), 1e157)
@@ -505,7 +389,7 @@ end
   xy_sq = PS._norm(st.x .- st.x_previous)^2
   @test 0 < xy_sq && !isfinite(st.L + 2 * 10 / xy_sq)
   @test PS.LineSearches.backtrack!(st, method.ls, f, NormL1(0.))
-  @test st.verifications == 1 && st.L == 1e157 && !st.backtrack_simple
+  @test st.verifications == 1 && st.L == 1e157 && st.backtrack_simple
 end
 
 @testset "PGD end to end under the strict ftol = 0 settings" begin

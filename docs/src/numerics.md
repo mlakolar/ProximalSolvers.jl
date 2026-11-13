@@ -247,45 +247,36 @@ only on `converged`.
   (see `LineSearches.BackTracking`). Near a minimizer, rounding of
   `f(x) - q(x)` or of the difference of two gradients can inflate `L̂` by
   orders of magnitude, which would shrink the step until `x` stops moving.
-  So a rejection of a trial with a step `d = x - x'` is checked with the
-  least-squares bound that APG certifies (below):
-  `√α ‖X d‖ ≤ (1 + 4eps) √L ‖d‖` while the search uses function values, and
-  the same with `2α`, TFOCS's gradient test `2α ‖X d‖² ≤ L ‖d‖²`, once it
-  uses gradients. The check uses the cached images `X x` and `X x'`, and a
-  freshly computed `X d` when they leave the decision open or bound `U`
-  (below) loosely, with APG's error bounds and assumptions. A rejection is
-  not checked, and keeps TFOCS's update, when the trial value is not
-  finite, when the computed `‖d̂‖²` is zero (the zero-step exit, which
-  includes a tiny nonzero step whose square underflows), when `L̂` is NaN,
-  when a gradient estimate comes from a gradient with a nonfinite entry, or
-  on the size-limit branch below. A rejection that the bound refutes was
-  decided by rounding or lies within the slack `(1 + 4eps)²` on `L`: the
-  trial is accepted, and the search uses gradients for the rest of the
-  solve. Otherwise the search retries with
-  `L ← min(Lexact, max(min(L̂, U), L/β))`, where `U` is a certified upper
-  bound on the `L` that the bound needs for that step. Unless the rounding
-  or underflow terms of the bounds dominate (a step nearly in the null space
-  of `X`, or deep-subnormal data), `U` is at most about `1.07 ρ` times
-  `m α ‖X d‖²/‖d‖²`, with `m = 1` for function values and `m = 2` for
-  gradients, where `ρ = ((1 + γ_{n+4})(1 + γ_{p+4})/((1 - γ_{n+4})(1 - γ_{p+4})))²`
-  and `γ_k = k u/(1 - k u)`, `u = eps(T)/2`, are the norm-evaluation factors of
-  the bounds; `ρ` grows with both `n` and `p` and is close to 1 unless
-  `max(n, p) eps(T)` is not small (for Float32 with `n = 10⁶` and `p = 1`,
-  `ρ ≈ 1.29`). So an `L̂` above `U` does not set `L`. Accepted trials
-  are not checked: a trial that a rounding-decided `L̂` accepts below the
-  curvature stays accepted. The `Lexact` exit (a finite-valued trial at
-  `L ≥ Lexact` is accepted) and the zero-step exit are kept. A search that keeps rejecting
-  until `next_curvature` finds no finite increase of `L`, or until TFOCS's
-  update gives a nonfinite `L`, ends in an error with the last accepted
-  iterate restored. That can happen when the curvature along the steps is
-  above `floatmax(T)`, where the check certifies no `L`, unless TFOCS's
-  estimate, `Lexact` or a zero step accepts a trial; for data deep in the
-  subnormal range, where the underflow terms can dominate the bounds, a step
-  may need `L` far above the curvature, or the search may end in the same
-  error. Problems with `max(n, p) + 4 ≥ 1/(4 eps(T))` or
-  `n p + 3 ≥ 1/(4 eps(Float64))` are not refused (APG refuses them): their
-  rejections are not checked, keep TFOCS's decision and do not get this
-  protection.
+  So a rejected trial with a step `d̂ = x - x'` is decided again by the
+  computed curvature of the step, `c = m α ‖fl(X d̂)‖²/‖d̂‖²`, from one
+  matrix-vector product `X d̂`, with `m = 1` while the search uses function
+  values and `m = 2` once it uses gradients (TFOCS's gradient test is
+  `2α ‖X d‖² ≤ L ‖d‖²`). The trial is accepted when `L ≥ c`, and the
+  search keeps its mode; otherwise it retries with
+  `L ← min(Lexact, max(c, L/β))` when `c` is finite, and with TFOCS's
+  `L ← min(Lexact, max(L̂, L/β))` when it is not (when `‖fl(X d̂)‖²`
+  overflows or the squares of `d̂` underflow). `c` is a computed value with
+  no rounding certificate: when `L` is within rounding of the curvature
+  along `d̂`, the decision can go either way, and a step nearly in the null
+  space of `X` has a computed `c` with a large relative error. In the
+  package's probes (seeded Float32 and Float64 designs, including `p > n`,
+  near-duplicate columns, column scales over `10^±3`, residuals orthogonal
+  to the range of `X` and warm starts at the optimum), no accepted step
+  increased the objective by more than `64 eps(T) |F|`, evaluated in higher
+  precision; this is a measurement, not a guarantee. A rejection is not
+  checked, and keeps TFOCS's update, when the trial value is not finite,
+  when the computed `‖d̂‖²` is zero (the zero-step exit, which includes a
+  tiny nonzero step whose square underflows), when `L̂` is NaN, or when a
+  gradient estimate comes from a gradient with a nonfinite entry. Each
+  checked rejection costs one product `X d̂`. Accepted trials are not
+  checked: a trial that a rounding-decided `L̂` accepts below the curvature
+  stays accepted. The `Lexact` exit (a finite-valued trial at `L ≥ Lexact`
+  is accepted) and the zero-step exit are kept. A search that keeps
+  rejecting until `next_curvature` finds no finite increase of `L`, or until
+  TFOCS's update gives a nonfinite `L`, ends in an error with the last
+  accepted iterate restored; that can happen when the curvature along the
+  steps is above `floatmax(T)`, unless TFOCS's estimate, `Lexact` or a zero
+  step accepts a trial.
   With `ftol > 0` and `allow_f_increases = false`, a solve whose inflated
   `L` used to make the step round to zero, so that the coefficient test
   reported `converged = true`, can instead reach the rounding regime of

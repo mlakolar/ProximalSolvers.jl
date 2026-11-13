@@ -24,22 +24,20 @@ An LS trial whose image or value overflows is never accepted: it gives no
 estimate, and the search retries with `L ← L / β`.
 
 For [`ProximalGradientDescent`](@ref ProximalSolvers.ProximalGradientDescent)
-on its supported least-squares model, a rejection is checked by the certified
-least-squares bound that `AccProxGradDescent` uses:
-`√α ‖X d‖ ≤ (1 + 4eps) √L ‖d‖` for function-value estimates, and the same with
-`2α` for gradient estimates. A rejection is not
+on its supported least-squares model, a rejected trial with step `d̂ = x - x'`
+is decided again by the computed curvature of the step,
+`c = m α ‖fl(X d̂)‖²/‖d̂‖²`, from one product `X d̂`, with `m = 1` for
+function-value estimates and `m = 2` for gradient estimates (TFOCS's gradient
+test `2α ‖X d‖² ≤ L ‖d‖²`). When `L ≥ c` the trial is accepted and the estimate
+mode is unchanged; otherwise the retry uses `L ← min(Lexact, max(c, L / β))`
+when `c` is finite, and TFOCS's `L ← min(Lexact, max(L̂, L / β))` when it is
+not. `c` carries no rounding certificate: when `L` is within rounding of the
+curvature along `d̂`, the decision can go either way. A rejection is not
 checked, and keeps TFOCS's update, when its trial value is not finite, when the
 computed `‖d̂‖²` is zero (the zero-step exit, which includes a tiny nonzero step
 whose square underflows), when `L̂` is NaN, or when a gradient estimate comes
-from a gradient `∇f(x)` with a nonfinite entry. When the bound is certified, the
-rejection was decided by rounding or lies within the slack `(1 + 4eps)²` on `L`:
-the trial is accepted, and function-value estimates end for the rest of the
-solve. Otherwise the retry uses
-`L ← min(Lexact, max(min(L̂, U), L / β))`, where `U` is a certified upper bound
-on the `L` that the bound needs for that step. Accepted trials are not checked.
-When `max(n, p) + 4 ≥ 1/(4 eps(T))` or `n p + 3 ≥ 1/(4 eps(Float64))`, the check
-is skipped and the rejection stands. See
-[numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
+from a gradient `∇f(x)` with a nonfinite entry. Accepted trials are not checked.
+See [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
 
 The object holds settings only and can be shared between solves; the
 bookkeeping lives in the solver state.
@@ -73,11 +71,10 @@ end
 # computes them from its LS image cache (see image_models.jl)
 function value_and_gradient_at_x! end
 
-# verify_rejection!(state, gradient_mode) checks a rejected trial with d ≠ 0 against the
-# curvature bound of its mode: (true, _) when the bound is certified, otherwise (false, U)
-# with U an upper bound on the L the bound needs, Inf when there is none. The PGD state
-# implements it with its LS image cache (proximal_gradient_descent.jl).
-function verify_rejection! end
+# check_rejection!(state, gradient_mode) returns (c ≤ L, c) for a rejected trial with d̂ ≠ 0,
+# with c the computed curvature of the step in the mode of its estimate (twice α‖X d̂‖²/‖d̂‖²
+# in gradient mode). The PGD state implements it with its LS model (proximal_gradient_descent.jl).
+function check_rejection! end
 
 function backtrack!(state, ls::BackTracking{T}, f, g) where T
 
@@ -132,25 +129,17 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
     # Exit if Lipschitz criterion satisfied, or if we hit Lexact
     state.backtrack_steps += 1;
     (local_l <= state.L || state.L >= ls.Lexact) && return true
-    # A rejection with a non-NaN estimate is checked against the bound of the mode in which
-    # the estimate was formed; in gradient mode, only when ∇f(x) is finite. When the bound is
-    # certified, the estimate was decided by rounding or lies within the slack (1 + 4eps)² on
-    # L: the trial is accepted, and function-value mode ends as at a switch. Otherwise the
-    # estimate is capped by the upper bound U. A NaN estimate, or a gradient estimate from a
+    # A rejection with a non-NaN estimate is decided again by the computed curvature c of the
+    # step in the mode in which the estimate was formed; in gradient mode, only when ∇f(x) is
+    # finite. With L ≥ c the trial is accepted and the mode is unchanged. Otherwise a finite c
+    # replaces the estimate; a nonfinite or NaN c (‖fl(X d̂)‖² overflowing, or the squares of
+    # d̂ underflowing) leaves TFOCS's estimate. A NaN estimate, or a gradient estimate from a
     # nonfinite ∇f(x), is kept: the update and the error check below run on it as before. A
     # NaN estimate raises the error; an infinite one raises it unless a finite Lexact caps L.
     if !isnan(local_l) && (!gradient_mode || all(isfinite, state.grad_f_x))
-        refuted, U = verify_rejection!(state, gradient_mode)
-        if refuted
-            if state.backtrack_simple
-                state.backtrack_simple = false
-                value_and_gradient_at_x!(state, f)
-                state.f_calls += 1
-                state.grad_calls += 1
-            end
-            return true
-        end
-        local_l = min(local_l, U)
+        accepted, c = check_rejection!(state, gradient_mode)
+        accepted && return true
+        isfinite(c) && (local_l = c)
     end
     state.L = min( ls.Lexact, max( local_l, next_curvature(state.L, ls.β) ) )
     isfinite(state.L) || error("line search failed: nonfinite curvature estimate")
