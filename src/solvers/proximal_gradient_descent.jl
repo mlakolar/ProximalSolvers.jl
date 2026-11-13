@@ -157,8 +157,10 @@ LineSearches.value_and_gradient_at_x!(state::ProximalGradientDescentState, f) =
 
 # The computed curvature c = m α ‖fl(X d̂)‖²/‖d̂‖² of the rejected step d̂ = state.delta_x, from
 # the product X d̂ formed in dz (scratch: _image_value_and_gradient! overwrites it before any
-# read), with m = 1 in function-value mode and m = 2 in gradient mode. Returns (c ≤ L, c); c is
-# Inf or NaN when a sum of squares overflows or the squares of d̂ underflow to 0.
+# read), with m = 1 in function-value mode and m = 2 in gradient mode. Returns (c ≤ L, c).
+# Overflow or underflow of either sum of squares can make c nonfinite (Inf or NaN; the caller
+# then keeps TFOCS's estimate) or spuriously zero (a finite numerator over an overflowed
+# denominator, or an underflowed numerator; the trial is then accepted).
 function LineSearches.check_rejection!(state::ProximalGradientDescentState{T}, gradient_mode::Bool) where T
     mul!(state.dz, state.model.X, state.delta_x)
     state.verifications += 1

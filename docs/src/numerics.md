@@ -272,11 +272,14 @@ only on `converged`.
   `2α ‖X d‖² ≤ L ‖d‖²`). The trial is accepted when `L ≥ c`, and the
   search keeps its mode; otherwise it retries with
   `L ← min(Lexact, max(c, L/β))` when `c` is finite, and with TFOCS's
-  `L ← min(Lexact, max(L̂, L/β))` when it is not (when `‖fl(X d̂)‖²`
-  overflows or the squares of `d̂` underflow). `c` is a computed value with
-  no rounding certificate: when `L` is within rounding of the curvature
-  along `d̂`, the decision can go either way, and a step nearly in the null
-  space of `X` has a computed `c` with a large relative error. In the
+  `L ← min(Lexact, max(L̂, L/β))` when it is not (when over- or underflow
+  of `‖fl(X d̂)‖²` or `‖d̂‖²` makes `c` infinite or NaN). `c` is a computed
+  value with no rounding certificate: when `L` is within rounding of the
+  curvature along `d̂`, the decision can go either way, and a step nearly
+  in the null space of `X` can have a computed `c` with a large relative
+  error. Over- or underflow can also make `c` spuriously zero, which accepts
+  the trial: with extreme scalings, `‖fl(X d̂)‖²` can underflow (or `‖d̂‖²`
+  overflow), so `c` can be zero although the true curvature is large. In the
   package's probes (seeded Float32 and Float64 designs, including `p > n`,
   near-duplicate columns, column scales over `10^±3`, residuals orthogonal
   to the range of `X` and warm starts at the optimum), no accepted step
