@@ -20,9 +20,9 @@ julia --project=docs -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
 julia --project=docs docs/make.jl
 ```
 
-The four Stage 2B suites also run in the required `Benchmark analysis controls` job: the comparator and campaign suites each in a leg of their own, the other two in the `controls` leg. Run
-`test_stage2b_campaign.py` in a full-history clone: its fingerprint tests read two pinned commits, are skipped
-without them, and CI fails on any skipped test.
+The four Stage 2B suites also run in the `Benchmark analysis controls` job, which is required through `PR required jobs`: the comparator and campaign suites each in a leg of their own, the other two in the `controls` leg. Run
+`test_stage2b_campaign.py` in a full-history clone: its fingerprint tests read two pinned commits and fail
+without them, and CI also fails on any skipped test.
 
 Every pull request builds and checks the documentation on Linux Julia 1 with a
 read-only token. Download the rendered HTML from the

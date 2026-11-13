@@ -236,7 +236,8 @@ jobs:
         run: |
           grep -m1 'model name' /proc/cpuinfo
           nproc
-      # The three legs (comparator, campaign, controls) run in parallel as matrix jobs of this job.
+      # The three legs (comparator, campaign, controls) are separate matrix jobs that GitHub can run
+      # concurrently; runner availability can delay one of them.
       # In each step below that belongs to one leg, that leg runs the commands; the other two named
       # legs print one line and succeed, and any other leg name fails the step. The verdict job
       # reads needs.analysis.result, which is failure when a leg fails.

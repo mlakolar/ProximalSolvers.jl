@@ -24,11 +24,11 @@ measurements and deferred macOS C0 failure run42949840807 are preserved in
 [the historical record](../docs/audit/historical-full-testing.md). See
 [complete test provenance](../docs/audit/minimal-core-test-provenance.md).
 
-The existing always-run Benchmark analysis controls job runs as three parallel
-legs (`comparator`, `campaign` and `controls`). The `controls` leg also executes small
-exact-source A/B diagnostics using fresh isolated processes on every invocation.
-The job is independent of the main tier and nightly test reuse, and retains the Python
-benchmark controls. The normal package suite uses the exact current PB pin. Run
+The existing Benchmark analysis controls job has no tier or test-reuse condition, so it is
+independent of the main tier and nightly test reuse. It runs as three separate matrix
+legs (`comparator`, `campaign` and `controls`) that GitHub can run concurrently. The `controls`
+leg also executes small exact-source A/B diagnostics using fresh isolated processes, after its
+earlier steps succeed, and the job retains the Python benchmark controls. The normal package suite uses the exact current PB pin. Run
 `julia --startup-file=no --project=@stdlib scripts/paired_master_diagnostics.jl`
 for the paired control; it needs Git/network access and ordinary Julia package
 resolution. Its signed-support reference and wider-precision objective/KKT checks

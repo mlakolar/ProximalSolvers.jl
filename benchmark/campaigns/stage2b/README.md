@@ -290,7 +290,7 @@ ordinary tools still read the working tree (`compare.py`, `validate.py` and `sum
 `migration_compare.py` uses, stay pinned there). An official campaign does not use the working tree either: the
 driver clones and verifies its own pinned checkout per role.
 
-**In CI.** The required `Benchmark analysis controls` job (`.github/workflows/CI.yml`) runs all four offline Python
+**In CI.** The `Benchmark analysis controls` job (`.github/workflows/CI.yml`), required through `PR required jobs`, runs all four offline Python
 suites from the repository root, with Python 3.12. The comparator and campaign suites each have a leg of their own (`comparator`, `campaign`); the other two run in the `controls` leg, together with the paired-master diagnostics. The suites:
 
 ```
@@ -303,7 +303,7 @@ python3 -B benchmark/campaigns/stage2b/probes/test_check_reset_probes.py
 Every leg checks out the full history, and the `campaign` leg first checks that the two commits pinned in
 `test_stage2b_campaign.py` (`BASE_COMMIT`, `STACK_A_COMMIT`) are present. The tests at those commits fail, rather than
 skip, when a commit is missing; a skipped test also fails its step. A failing suite fails its leg, which fails the job's
-result (`needs.analysis.result`), which `PR required jobs` and then `PR merge gate` read.
+result (`needs.analysis.result`). `PR required jobs` reads that result, and `PR merge gate` reads the conclusion of `PR required jobs`.
 
 The Julia test
 of the P14 port runs separately, from the repository root, in an environment with ProximalBase, ProximalSolvers

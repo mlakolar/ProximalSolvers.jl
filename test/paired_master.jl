@@ -62,24 +62,72 @@ end
   @test occursin("fail-fast: false", analysis)
   @test occursin("part: [comparator, campaign, controls]", analysis)
   @test occursin("name: Benchmark analysis controls (\${{ matrix.part }})", analysis)
-  for command in (
-    "scripts/test_repo_hygiene.py",
-    "scripts/check_repo_hygiene.py --base 'HEAD^1'",
-    "python -I benchmark/sparse_cd/check_analysis.py",
-    "python -B benchmark/external/coordinatedescent/check_analysis.py",
-    "benchmark/campaigns/stage2b/test_migration_compare.py",
-    "benchmark/campaigns/stage2b/test_stage2b_files.py",
-    "benchmark/campaigns/stage2b/test_stage2b_campaign.py",
-    "benchmark/campaigns/stage2b/probes/test_check_reset_probes.py",
-  )
-    @test occursin(command, analysis)
-  end
-  # Each dispatch on the part name has an unknown-leg error. The quote character is built with a
-  # char literal because this script text is a raw string.
+  # Per-step structure of the dispatch steps. Each table row names a step, its owner leg and the
+  # commands that the owner arm of the step's `case` must contain; the other two legs must share a
+  # no-op arm and any other leg name must reach an error arm. The step text is split at the list-item
+  # marker of the steps, and the arms at the arm terminator, which no command in these steps contains.
+  # A new dispatch step must be added to the table, because the number of steps with a `case` on the
+  # part name is compared with the table size. The quote character is built with a char literal
+  # because this script text is a raw string.
   dq = string('"')
-  dispatches = count(string("case ", dq, "\$PART", dq, " in"), analysis)
-  @test dispatches >= 1
-  @test dispatches == count("::error::Unknown analysis leg", analysis)
+  dispatch = string("case ", dq, "\$PART", dq, " in")
+  legs = ("comparator", "campaign", "controls")
+  unittest_steps = (
+    "Stage 2B migration comparator tests",
+    "Stage 2B file and fixture tests",
+    "Stage 2B campaign-driver tests (including pinned-commit fingerprints)",
+    "Stage 2B reset-probe checker tests",
+  )
+  table = [
+    ("Check repository hygiene (required through analysis verdict)", "controls",
+      ["python3 scripts/test_repo_hygiene.py", "python3 scripts/check_repo_hygiene.py --base 'HEAD^1'"]),
+    ("Check the benchmark analysis", "controls", ["python benchmark/check_analysis.py"]),
+    ("Check the sparse coordinate descent analysis", "controls",
+      ["python -I benchmark/sparse_cd/check_analysis.py"]),
+    ("Check the coordinatedescent comparison analysis", "controls",
+      ["python -B benchmark/external/coordinatedescent/check_analysis.py"]),
+    ("Pinned Stage 2B commits are in the checkout", "campaign",
+      ["benchmark/campaigns/stage2b/test_stage2b_campaign.py", "git cat-file -e"]),
+    ("Stage 2B migration comparator tests", "comparator",
+      ["python3 -B benchmark/campaigns/stage2b/test_migration_compare.py"]),
+    ("Stage 2B file and fixture tests", "controls",
+      ["python3 -B benchmark/campaigns/stage2b/test_stage2b_files.py"]),
+    ("Stage 2B campaign-driver tests (including pinned-commit fingerprints)", "campaign",
+      ["python3 -B benchmark/campaigns/stage2b/test_stage2b_campaign.py"]),
+    ("Stage 2B reset-probe checker tests", "controls",
+      ["python3 -B benchmark/campaigns/stage2b/probes/test_check_reset_probes.py"]),
+    ("Exact-source paired-master diagnostics", "controls",
+      ["julia --startup-file=no --project=@stdlib scripts/paired_master_diagnostics.jl"]),
+  ]
+  steps = split(analysis, "\n      - ")
+  @test count(step -> occursin(dispatch, step), steps) == length(table)
+  for (name, owner, commands) in table
+    matching = [step for step in steps if startswith(step, string("name: ", name, "\n"))]
+    @test length(matching) == 1
+    isempty(matching) && continue
+    step = first(matching)
+    @test occursin(dispatch, step)
+    arms = [strip(arm) for arm in split(last(split(step, dispatch; limit = 2)), ";;")]
+    own = join(filter(arm -> startswith(arm, string(owner, ")")), arms), "\n")
+    @test length(filter(arm -> startswith(arm, string(owner, ")")), arms)) == 1
+    for command in commands
+      @test occursin(command, own)
+    end
+    if name in unittest_steps
+      @test occursin("skipped=", own)
+      @test occursin("Ran [1-9][0-9]* tests? in", own)
+      @test occursin("grep -qx 'OK'", own)
+    end
+    others = setdiff(legs, (owner,))
+    noop_prefixes = (string(others[1], "|", others[2], ")"), string(others[2], "|", others[1], ")"))
+    noop = filter(arm -> any(prefix -> startswith(arm, prefix), noop_prefixes), arms)
+    @test length(noop) == 1
+    @test occursin("Not part of the", join(noop, "\n"))
+    fallback = filter(arm -> startswith(arm, "*)"), arms)
+    @test length(fallback) == 1
+    @test occursin("::error::Unknown analysis leg", join(fallback, "\n"))
+    @test occursin("exit 1", join(fallback, "\n"))
+  end
 end
 """
 
