@@ -881,4 +881,17 @@ end
   end
 end
 
+# the function barrier gives the call concrete argument types; the loop variable T is not inferred
+alloc4(a, b, c, d) = @allocated PS._se_mul(a, b, c, d)
+
+# covers the 4-argument products at the accept and reject tests of `_bound_certified!` and in `_bound_constants`
+@testset "a warmed product of four _SE values allocates nothing" begin
+  for T in (Float64, Float32)
+    a, b, c, d = PS._SE{T}(T(1.5)), PS._SE{T}(T(3)), PS._SE{T}(T(0.75)), PS._SE{T}(floatmax(T))
+    alloc4(a, b, c, d)
+    @test alloc4(a, b, c, d) == 0
+    @test PS._se_mul(a, b, c, d) === PS._se_mul(PS._se_mul(PS._se_mul(a, b), c), d)
+  end
+end
+
 end

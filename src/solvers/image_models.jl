@@ -45,7 +45,9 @@ _renormal(s::T, e::Int) where {T} = iszero(s) ? _se_zero(T) : _SE{T}(significand
 _SE{T}(x::AbstractFloat) where {T} = iszero(x) ? _se_zero(T) : _renormal(T(significand(x)), exponent(x))
 _se_mul(a::_SE{T}, b::_SE{T}) where {T} =
   iszero(a.s) || iszero(b.s) ? _se_zero(T) : _renormal(a.s * b.s, a.e + b.e)
-_se_mul(a::_SE, b::_SE, c::_SE...) = _se_mul(_se_mul(a, b), c...)
+# fixed arities rather than a vararg: Julia 1.10 compiles the 4-argument vararg call to a dynamic, allocating splat
+_se_mul(a::_SE, b::_SE, c::_SE) = _se_mul(_se_mul(a, b), c)
+_se_mul(a::_SE, b::_SE, c::_SE, d::_SE) = _se_mul(_se_mul(a, b, c), d)
 _se_le(a::_SE, b::_SE) = iszero(a.s) || (!iszero(b.s) && (a.e < b.e || (a.e == b.e && a.s <= b.s)))
 function _se_add(a::_SE{T}, b::_SE{T}) where {T}
   iszero(a.s) && return b
