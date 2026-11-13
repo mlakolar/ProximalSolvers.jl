@@ -47,7 +47,7 @@ uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 [[deps.ProximalBase]]
 deps = ["LinearAlgebra", "PrecompileTools", "SparseArrays"]
 git-tree-sha1 = "c2e2ddde114a1e7800358595193ee0869830180d"
-repo-rev = "c123d56ba1948e36a8fdbf183a9eea396a16e0d5"
+repo-rev = "0123d56ba1948e36a8fdbf183a9eea396a16e0d5"
 repo-url = "https://github.com/mlakolar/ProximalBase.jl"
 uuid = "0a755509-c5b1-5d6f-9b24-59bcda3c37a3"
 version = "0.6.0-DEV"
