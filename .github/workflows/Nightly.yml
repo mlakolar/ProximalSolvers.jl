@@ -1,8 +1,9 @@
 name: Nightly
 # The full package test suite (scripts/test.jl --tier=full) on the Julia versions and platforms
 # of the matrix below, scheduled daily. It is not a required check: CI.yml keeps the required checks
-# and runs Julia 1 on Linux. Julia 1.10 is the lowest version the package supports (Project.toml
-# `julia` compat), and it resolves its dependencies from the tracked Manifest-v1.10.toml.
+# and runs Julia 1 on Linux. Julia 1.10 is the lowest supported release series (Project.toml
+# `julia` compat: >= 1.10.8), and it resolves its dependencies from the tracked
+# Manifest-v1.10.toml.
 #
 # There is no skip or reuse logic here: a run does not read CI.yml's runs or an earlier
 # night's, so a success elsewhere cannot suppress it. CI.yml's own nightly keeps its reuse
@@ -11,23 +12,24 @@ name: Nightly
 # Triggers:
 # - the daily schedule (GitHub can delay or skip scheduled runs) and manual runs (`gh workflow run Nightly.yml --ref master`);
 # - a pull request that edits this workflow, Manifest-v1.10.toml or Project.toml, to show the
-#   1.10 result before merge. That run is advisory and reports no issue. A change to this file
-#   alone is tier `none` in .github/tier-rules.toml, so CI.yml runs no package tests for it and
-#   this run is its package test.
+#   1.10 result before merge. That run is advisory and reports no issue. With no tier-raising
+#   label (test:standard, test:full), a change to this file alone selects tier `none` in
+#   .github/tier-rules.toml, so CI.yml runs no package tests for it; this advisory run still runs.
 #
 # Reporting: the `test` job attempts to leave one record per matrix leg (leg.md: commit, Julia
 # version, ProximalBase entries, the resolve/build/test step outcomes and, when the test log
-# contains them, the final test table and the failure lines); runner loss or a forced
-# cancellation can leave none. On scheduled and manual runs the `report` job attempts an issue,
-# or a comment on the open issue of the same title, for each listed leg that did not succeed
-# (`Nightly failing: Julia <version> - <os>`, with the branch name in parentheses off master), a
-# "Green again" comment on the open issue of a listed leg that succeeded, and a fallback issue
-# when the leg list cannot be read or shows no failing leg although the test job did not
-# succeed; the script below gives the exact conditions. A failed write turns it red. Pull
-# request runs open no issue. Issues are closed by hand.
+# contains them, the recognised final test table and, for a test step that did not succeed, a
+# bounded excerpt of the failure lines); runner loss or a forced cancellation can leave none. On
+# scheduled and manual runs the `report` job attempts an issue, or a comment on the open issue of
+# the same title, for each listed leg that did not succeed (`Nightly failing: Julia <version> -
+# <os>`, with the branch name in parentheses off master), a "Green again" comment on the open issue
+# of a listed leg that succeeded, and a fallback issue when the leg list cannot be read or shows no
+# failing leg although the test job did not succeed; the script below gives the exact conditions. A
+# failed write turns it red. Pull request runs open no issue. Issues are closed by hand.
 #
-# scripts/ci_environment.jl is not used: on Julia 1.10 it resolves ProximalBase from the
-# registry, which has no 0.6 release, instead of from Manifest-v1.10.toml.
+# scripts/ci_environment.jl is not used: on Julia 1.10 it attempts to resolve ProximalBase from
+# the registry in a temporary environment, instead of from Manifest-v1.10.toml, and the registry
+# has no release that satisfies the 0.6 compat.
 on:
   schedule:
     - cron: '43 6 * * *'
@@ -40,9 +42,10 @@ on:
 permissions:
   contents: read
 concurrency:
-  # A new commit on a pull request cancels its older run. Scheduled and manual runs of a ref
-  # queue behind a running one, and a newer pending run replaces an older pending one (GitHub
-  # keeps one pending run per group).
+  # A new commit on a pull request cancels its older run. Within each event-and-ref group, a
+  # scheduled or manual run queues behind a running one, and a newer pending run replaces an
+  # older pending one (GitHub keeps one pending run per group); a scheduled and a manual run of
+  # the same ref are in different groups and can run at the same time.
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
@@ -97,7 +100,7 @@ jobs:
           echo $(( $(date +%s) - start )) > "$RUNNER_TEMP/test-seconds"
           exit $status
         env:
-          # Coverage roughly doubles compile time, and no result of this workflow uses it.
+          # Coverage adds compile and run time, and no result of this workflow uses it.
           JULIA_TEST_COVERAGE: 'false'
           PTR_NUM_JOBS: ${{ matrix.ptr_jobs }}
       - name: Timing summary
@@ -164,8 +167,8 @@ jobs:
               echo "Test summary (final table of the log):"
               echo
               echo '```'
-              # ParallelTestRunner prints the final table as a header, an Overall row and then the
-              # per-file rows (and their testsets), all indented; the last such table is kept
+              # ParallelTestRunner prints the final table as a header, then an Overall row and the
+              # per-file rows (and their testsets), the rows indented; the last such table is kept
               awk 'function flush() { if (inblock && seen) last = buf; inblock = 0; seen = 0; buf = "" }
                    /^[[:space:]]*Test Summary:/ { flush(); inblock = 1; buf = $0 "\n"; next }
                    inblock && /^[[:space:]]+[^[:space:]].*\|/ {
@@ -223,9 +226,9 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
   report:
-    # Scheduled and manual runs get write access to issues (the condition below). This job runs
-    # no repository code: it has no checkout, and the script below uses gh and the leg records
-    # the test job uploaded.
+    # Scheduled and manual runs get write access to issues (the condition below). This job has
+    # no checkout and runs no checked-out package, test or pull request code: it runs the inline
+    # script below, which uses gh and treats the uploaded leg records as data.
     name: Report failing legs
     needs: test
     if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
@@ -256,7 +259,7 @@ jobs:
             TITLE="$1" gh api "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" --paginate \
               --jq '.[] | select(.pull_request == null) | select(.title == env.TITLE) | .number' | sort -n | head -n 1
           }
-          # comment on the open issue with this title, or open one
+          # attempt a comment on the open issue with this title, or a new issue
           post() {
             local number
             number=$(find_issue "$1") || return 1
@@ -346,7 +349,8 @@ jobs:
             post "$title" "$workdir/body-$n.md" || status=1
           done 3< "$jobs"
           # an aggregate result other than success with no listed leg that failed (a listed failing
-          # leg has its own issue above, and an empty or unreadable list took the issue before the loop)
+          # leg had its own issue attempted above, and an empty or unreadable list had its issue
+          # attempted before the loop)
           if [ "$TEST_RESULT" != success ] && [ "$failing" -eq 0 ]; then
             title="Nightly failing: inconsistent leg results$suffix"
             {

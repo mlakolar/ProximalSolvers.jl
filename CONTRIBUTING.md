@@ -50,10 +50,11 @@ green neither validates those platforms nor proves legacy algorithms still work.
 Historical full-suite/platform measurements and the deferred macOS C0 warm
 convergence failure remain in docs/audit/historical-full-testing.md.
 
-A separate `Nightly` workflow runs the full suite on Linux with Julia 1.10, scheduled daily. It is not a
-required check. On scheduled and manual runs it attempts to open an issue for a failing leg; pull request runs open
-none. See "Nightly compatibility runs" in `test/TESTING.md`. When you change the ProximalBase pin, change `[sources]`
-in `Project.toml` and `Manifest-v1.10.toml` together, as the quick test in `test/aqua.jl` requires.
+A separate `Nightly` workflow runs the full suite on Linux with Julia 1.10, scheduled daily. It is
+not a required check. On scheduled and manual runs it attempts to open an issue, or comment on the
+open one, for a failing leg; pull request runs open none. See "Nightly compatibility runs" in
+`test/TESTING.md`. When you change the ProximalBase pin, change `[sources]` in `Project.toml` and
+`Manifest-v1.10.toml` together, as the quick test in `test/aqua.jl` requires.
 
 CD preserves private PB SparseIterate storage/compaction, full-active scheduling,
 Fisher–Yates/RNG ownership, native residual/lazy curvature, scalar prox_block and

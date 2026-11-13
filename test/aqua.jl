@@ -10,16 +10,17 @@ using Aqua
 end
 
 # The ProximalBase pin has two homes. Julia 1.11 and later read `[sources]` in Project.toml;
-# Julia 1.10 ignores `[sources]` and uses the tracked Manifest-v1.10.toml, so Julia 1 runs
-# do not notice a stale manifest. This test runs in the required checks on Julia 1 and compares
-# the two declarations, independent of the advisory Julia 1.10 run.
+# Julia 1.10 (the supported series, >= 1.10.8) ignores `[sources]` and uses the tracked
+# Manifest-v1.10.toml, so Julia 1 dependency resolution does not use that manifest. This test
+# runs in the required checks on Julia 1 and compares the manifest's pin with `[sources]`,
+# independent of the advisory Julia 1.10 run.
 #
 # PIN_POLICY labels the rule that pin_problems implements: while `[sources]` has a ProximalBase
-# entry with a git `url` and `rev` (and no other key), the manifest has one ProximalBase entry
-# with the same `repo-url` and `repo-rev`, a `git-tree-sha1`, the UUID of Project.toml, and no
-# `path` or `repo-subdir`. The constant is not read by the check. Changing the policy means
-# changing pin_problems and the cases below, and then the label; a pin that is merely absent,
-# or a source selector the function does not model, is reported as a problem.
+# entry with a git `url` and `rev` (and no other key), the manifest has one ProximalBase entry with
+# the same `repo-url` and `repo-rev`, a `git-tree-sha1`, the UUID of ProximalBase in `[deps]`, and
+# no `path` or `repo-subdir`. The constant is not read by the check. Changing the policy means
+# changing pin_problems and the cases below, and then the label; a pin that is merely absent, or a
+# source selector the function does not model, is reported as a problem.
 const PIN_POLICY = :sources_match_manifest_v1_10
 
 # \A and \z: `$` would accept a final newline

@@ -36,17 +36,20 @@ comment on the open issue with that title, for each listed leg that did not succ
 comment on the open issue of a listed leg that succeeded; and a fallback issue when the leg list
 cannot be read or shows no failing leg although the test job did not succeed (the exact conditions
 are in `Nightly.yml`). A failed write turns the report job red. Issues are closed by hand. Each leg
-attempts to leave a record with its step outcomes and, when the test log contains them, the final
-test table and the failure lines; runner loss can leave no record. Rerun with `gh workflow run
-Nightly.yml --ref master`, or locally with
+attempts to leave a record with its step outcomes and, when the test log contains them, the
+recognised final test table and, for a test step that did not succeed, a bounded excerpt of the
+failure lines; runner loss can leave no record. Rerun with
+`gh workflow run Nightly.yml --ref master`, or locally with
 `julia +1.10 scripts/test.jl --tier=full`. GitHub can delay scheduled runs, and in a public
 repository disables them after 60 days without repository activity. Julia 1.11 and later take
 ProximalBase from `[sources]` in `Project.toml` and Julia 1.10 ignores it, so the quick test in
 `test/aqua.jl` (`pin_problems`) compares the two: `[sources].ProximalBase` must have exactly `url`
 and a 40-character lowercase `rev`, and `Manifest-v1.10.toml` must have one ProximalBase entry whose
-`repo-url` and `repo-rev` equal the `[sources]` `url` and `rev` and whose `uuid` equals the ProximalBase
-UUID in `[deps]`, with a `git-tree-sha1` and no `path` or `repo-subdir`. When `[sources]` is removed or gains
-another key, that test fails until `pin_problems` and its cases are changed to the new policy (`PIN_POLICY` only labels it).
+`repo-url` and `repo-rev` equal the `[sources]` `url` and `rev` and whose `uuid` equals the
+ProximalBase UUID in `[deps]`, with a `git-tree-sha1` and no `path` or `repo-subdir`. When
+`[sources]` or its ProximalBase entry is removed, or a key other than `url` and `rev` is added
+inside that entry, that test fails until `pin_problems` and its cases are changed to the new policy
+(`PIN_POLICY` only labels it).
 
 The existing Benchmark analysis controls job has no tier or test-reuse condition, so it is
 independent of the main tier and nightly test reuse. It runs as three separate matrix
