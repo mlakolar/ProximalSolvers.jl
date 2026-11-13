@@ -45,7 +45,7 @@ are evaluated as follows:
 | Field | Value at that iteration |
 | --- | --- |
 | `x_converged` | `norm(x - x') < xtol * max(norm(x), 1)`; with `ftol = 0`, `false` when `x == x'` elementwise |
-| `f_converged` | with `ftol > 0`: `abs(F - F') / (abs(F) + ftol) < ftol`, **or** `abs(F - F') < eps(abs(F) + abs(F'))` (this form holds when `F == F'` and the sum is finite, and in the ordinary range, where the sum is finite and not subnormal, it is about two units in the last place of `F`); with `ftol = 0`: `false` |
+| `f_converged` | with `ftol > 0`: `abs(F - F') / (abs(F) + ftol) < ftol`, **or** `abs(F - F') < eps(abs(F) + abs(F'))` (this form holds when `F == F'` and the sum is finite, and in the ordinary range, where `F` and `F'` are normal floating-point numbers and the sum is finite, it is about two units in the last place of `F`); with `ftol = 0`: `false` |
 | `grad_converged` | the gradient/proximal residual test with `gradtol` holds; with `ftol = 0`, `false` when `x == x'` elementwise |
 | `converged` | at least one of `x_converged`, `f_converged` and `grad_converged` |
 | `f_increased` | `F > F'` |
@@ -55,9 +55,9 @@ So an objective-increase stop reports `f_increased=true` together with
 `converged=false`, unless one of the three tests also held at that
 iteration. Two other combinations are possible and not contradictory:
 
-- With `ftol > 0`, in the ordinary range (`abs(F) + abs(F')` finite and not
-  subnormal), an increase smaller than about two units in the last place of
-  `F` passes the objective test, so the result reports
+- With `ftol > 0`, in the ordinary range (`F` and `F'` normal floating-point
+  numbers, `abs(F) + abs(F')` finite), an increase smaller than about two units
+  in the last place of `F` passes the objective test, so the result reports
   `converged=true` **and** `f_increased=true`. With `ftol = 0` the objective
   test is off, so an increase of any size reports `converged=false` unless the
   `x` or the gradient test held.
@@ -93,8 +93,8 @@ alone.
 
 With `ftol > 0`, including the default `1e-6`, the objective-change test
 also holds when two successive computed objectives are equal or, in the
-ordinary range (`abs(F) + abs(F')` finite and not subnormal), differ by about
-two units in the last place. That can happen well before the point is
+ordinary range (both normal floating-point numbers, `abs(F) + abs(F')` finite),
+differ by about two units in the last place. That can happen well before the point is
 accurate to the working precision. `ProximalOptions(ftol = 0)` switches the
 objective-change test off for `ProximalGradientDescent` and
 `AccProxGradDescent`: `f_converged` is `false` at every iteration. The
@@ -114,7 +114,7 @@ ProximalOptions(maxiter = 20_000, ftol = 0, allow_f_increases = true,
 ```
 
 On the package's benchmark cases (Float64 PGD and APG, Float32 APG, with 10
-input draws each, on Julia 1.10 and 1.13 and one CPU model) it met the
+input draws each, on Julia 1.10 and 1.13 and two CPU models) it met the
 independently computed targets of a relative duality gap of `1e-8` in Float64
 and `1e-5` in Float32. It is **not** a guarantee of accuracy on other problems,
 and `converged=true` is still not a certificate: check the returned point
