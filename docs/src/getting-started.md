@@ -118,9 +118,14 @@ beta
 
 The shorthand `1/n` produces a `Float64` scalar. The solver may accept
 that scalar when it is representable in the Float32 working type without
-overflow or losing a nonzero value to zero. This is a convenience for scalar
-parameters, **not** a mixed-precision solver mode; the arrays must all use
-the same `T`. Using `one(T)/T(n)` keeps the scale in the working type.
+overflow or losing a nonzero value to zero, and then uses it as supplied,
+combined with `T` by Julia's promotion (it is not first rounded to
+`Float32`). This is a convenience for scalar parameters, **not** a
+mixed-precision solver mode; the arrays must all use the same `T`.
+`one(T)/T(n)` is an explicit choice of a native `T` scale: `n` is
+converted to `T` and the division is done in `T`, so the scale can differ
+from the `Float64` `1/n`. The solve then uses that value, and its products
+with the loss scale are formed in `T`.
 `Float32` iterates still have `Float32` accuracy limits, even though
 some solver tolerances and reported diagnostics use `Float64`.
 See [Numerical behavior](numerics.md) for recovery and stopping limits.

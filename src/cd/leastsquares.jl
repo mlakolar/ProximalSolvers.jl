@@ -1,13 +1,21 @@
-# Borrowed scalar unweighted LS data and native residual/curvature caches.
-mutable struct LSModel{T<:AbstractFloat, MX<:AbstractMatrix{T}, VY<:AbstractVector{T}} <: CDModel{T}
+# Borrowed scalar unweighted LS data and native residual/curvature caches. The loss scale `s`
+# has its own type `S`: the promotion of `T` and the type of the supplied scale where that is a
+# concrete `AbstractFloat` (an IEEE scale wider than `T` keeps its precision), else `T`. X, y,
+# the residual and the curvature cache are in `T`, and so are the loops over them (the column
+# sums, the residual update and the sums in `response_scale` and `loss_value`).
+mutable struct LSModel{T<:AbstractFloat, S<:AbstractFloat, MX<:AbstractMatrix{T}, VY<:AbstractVector{T}} <: CDModel{T}
   X::MX
   y::VY
-  s::T
+  s::S
   r::Vector{T}
   a::Vector{T}
 end
-LSModel(y::AbstractVector{T}, X::AbstractMatrix{T}, s::Real) where T =
-  LSModel(X, y, T(s), zeros(T, length(y)), fill(T(NaN), size(X, 2)))
+function _scale_type(::Type{T}, α) where T
+  S = promote_type(T, typeof(α))
+  isconcretetype(S) && S <: AbstractFloat ? S : T
+end
+LSModel(y::AbstractVector{T}, X::AbstractMatrix{T}, α::Real) where T =
+  LSModel(X, y, convert(_scale_type(T, α), α), zeros(T, length(y)), fill(T(NaN), size(X, 2)))
 cdmodel(f::LeastSquaresLoss{T, <:AbstractVector}, x) where T = LSModel(f.Y, f.X, one(T))
 cdmodel(f::Scaled{<:LeastSquaresLoss{T, <:AbstractVector}}, x) where T = LSModel(f.f.Y, f.f.X, f.α)
 _activeentries(x::SparseIterate) = activecoordinates(x)
@@ -78,18 +86,33 @@ end
 end
 
 _cache(m::LSModel) = m.r
-coordinate_scale(m::LSModel, x, k::Int) = sqrt(m.s*_sqnorm!(m, k))
+# The stopping scales form the product `p` of the loss scale with a sum of squares in `S`.
+# A zero response scale selects the absolute fallback of `_tolerances`; a zero coordinate scale
+# makes that coordinate's change count as 0 in `_visit!`.
+# Response scale: `p` is rounded to `T` before the root, so a `p` that rounds to 0 in `T` (a tiny
+# response, or y = 0) gives 0, and the fallback, instead of a subnormal root whose product with the
+# tolerance can round to 0. If the rounded `p` is infinite the root is formed in `S` and rounded.
+# Coordinate scale: the root of the rounded `p` where that is a normal number of `T`, else the root
+# of `p` formed in `S` and rounded to `T`, which is 0 only where that root rounds to 0 in `T` (also
+# for p = 0, including a column of zero curvature). For `S == T` both expressions equal `sqrt(p)`.
+function coordinate_scale(m::LSModel{T}, x, k::Int) where T
+  p = m.s*_sqnorm!(m, k)
+  q = T(p)
+  floatmin(T) <= q <= floatmax(T) ? sqrt(q) : T(sqrt(p))
+end
 function response_scale(m::LSModel{T}, x) where T
   s = zero(T)
   @inbounds for i in eachindex(m.y)
     s += m.y[i]*m.y[i]
   end
-  sqrt(m.s*s)
+  p = m.s*s
+  q = T(p)
+  isfinite(q) ? sqrt(q) : T(sqrt(p))
 end
 function loss_value(m::LSModel{T}, x) where T
   v = zero(T)
   @inbounds @simd for i in eachindex(m.r)
     v += m.r[i]*m.r[i]
   end
-  m.s*v/2
+  T(m.s*v/2)
 end
