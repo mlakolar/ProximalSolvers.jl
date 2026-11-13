@@ -235,21 +235,34 @@ end
   @test sort(collect(keys(CI.timeouts))) == sort(collect(TIERS))
 end
 
-# Explicit native calls in the package source. A file under src/ (or ext/) that makes one must be
-# registered in a [[native]] entry of .github/tier-rules.toml, and an entry is accepted only when
-# its `enforcement` names a pre-merge platform mechanism that this repository implements. The
-# patterns match the text of a line that does not start with `#`; a `using` or `import` statement
-# that continues on the following lines (while its text ends with `,` or `:`) is matched as one
-# statement. They do not parse Julia, so a docstring or string literal that contains such text is
-# also a match, as is text inside a block comment `#= ... =#` (a line is skipped only when it starts
-# with `#` and not `#=`): these add matches and do not hide a call, so the guard fails closed. Generic linear algebra (`mul!`, `dot`) is not matched.
-const NATIVE_IMPORT = r"^\s*(?:using|import)\b.*\b(?:LAPACK|BLAS|Libdl)\b"
+# Explicit native calls in the package source. A file under src/ (or ext/) whose text matches the
+# patterns below must be listed in a [[native]] entry of .github/tier-rules.toml, and an entry is
+# accepted only when its `enforcement` names a pre-merge platform mechanism that this repository
+# implements. This is a check of the source text, deliberately conservative: every line of every file
+# is scanned, comments and strings included, so a match in a comment or a string is a false
+# positive that fails the test (reword the text, or register the file), and no line is skipped as a
+# comment. A `using` or `import` statement that continues on the following lines (while its text
+# ends with `,` or `:`) is matched as one statement, starting at the word `using` or `import`
+# wherever it occurs in a line. The patterns name the C-call forms (`ccall`, `@ccall`, `cglobal`,
+# `llvmcall`), the modules LAPACK and BLAS (when followed by `.`, `:`, `,`, `;`, a closing bracket or
+# the end of the line, so that prose such as "BLAS kernel" does not match), a `:LAPACK`-style symbol,
+# `Libdl` and `Libc`, and imports of these modules. Out of scope: names built at run time
+# (`eval(Symbol(...))`, `getfield` with a computed symbol) and the expansion of external macros; this
+# is a scope statement, not a claim that no native call can escape. Generic linear algebra (`mul!`,
+# `dot`) is not matched.
+const NATIVE_IMPORT = r"\b(?:using|import)\b.*\b(?:LAPACK|BLAS|Libdl|Libc)\b"
+const IMPORT_WORD = r"\b(?:using|import)\b"
 const NATIVE_PATTERNS = [
-  r"\bccall\s*\(",
+  r"\bccall\b",
   r"@ccall\b",
-  r"\b(?:LAPACK|BLAS)\.\w",
+  r"\bcglobal\b",
+  r"\bllvmcall\b",
+  r"\b(?:LAPACK|BLAS)\b(?=\s*(?:[.:,;)\]}]|$))",
+  r":(?:LAPACK|BLAS|Libdl|Libc)\b",
+  r"\bLibdl\b",
+  r"\bLibc\b(?=\s*(?:[.:,;)\]}]|$))",
+  r"Base\.Libc\b",
   NATIVE_IMPORT,
-  r"\bLibdl\.\w",
 ]
 # the pre-merge platform enforcement mechanisms that this repository implements; empty until a
 # PR adds one (a CI.yml plan/verdict job that runs the registered checks on the registered
@@ -269,10 +282,10 @@ function native_hits(sources::AbstractDict{String, String})
   for (path, text) in sources
     lines = split(text, '\n')
     for (i, line) in enumerate(lines)
-      startswith(lstrip(line), "#") && !startswith(lstrip(line), "#=") && continue
       hit = any(re -> occursin(re, line), NATIVE_PATTERNS)
-      if !hit && occursin(r"^\s*(?:using|import)\b", line)
-        statement = codeof(line)
+      word = match(IMPORT_WORD, line)
+      if !hit && word !== nothing
+        statement = codeof(line[word.offset:end])
         j = i
         while continues(statement) && j < length(lines)
           j += 1
@@ -319,7 +332,7 @@ function native_problems(sources::AbstractDict{String, String}, entries::Abstrac
         if !haskey(sources, path)
           push!(problems, "$label: `$path` is not a source file under src/ or ext/")
         elseif !haskey(hits, path)
-          push!(problems, "$label: `$path` has no explicit native call, so the registration is stale")
+          push!(problems, "$label: `$path` has no match of the native-call patterns, so the registration is stale")
         end
       end
     end
@@ -351,7 +364,7 @@ function native_problems(sources::AbstractDict{String, String}, entries::Abstrac
   end
   for path in sort!(collect(keys(hits)))
     path in registered && continue
-    push!(problems, "`$path` makes an explicit native call (line $(first(hits[path]))) and is not listed in " *
+    push!(problems, "`$path` matches the native-call patterns (line $(first(hits[path]))) and is not listed in " *
       "the `paths` of a [[native]] entry of .github/tier-rules.toml")
   end
   return problems
@@ -384,31 +397,49 @@ end
 @testset "native guard: synthetic sources and registrations" begin
   source(text) = Dict("src/f.jl" => text)
   unregistered(text) = native_problems(source(text), [], ["a", "b"], String[])
-  # a call or import that is not registered
+  # a call, module reference or import that is not registered
   for text in ("ccall(:f, Cvoid, ())", "x = 1\n  @ccall f()::Cvoid", "LAPACK.syevr!('V', 'U', A)",
                "y = BLAS.gemv!('N', 1.0, A, x, 0.0, y)", "using LinearAlgebra: LAPACK", "import LinearAlgebra.BLAS",
                "import LinearAlgebra: BLAS, mul!", "using Libdl", "h = Libdl.dlopen(\"x\")",
-               "LinearAlgebra.BLAS.scal!(2, 3.0, x, 1)", "ccall (:f, Cvoid, ())",
+               "LinearAlgebra.BLAS.scal!(2, 3.0, x, 1)", "ccall (:f, Cvoid, ())", "f = ccall",
+               "cglobal((:x, \"lib\"))", "Base.llvmcall(\"ret void\", Cvoid, Tuple{})",
+               # a module bound to another name, a symbol, and the C library
+               "using LinearAlgebra\nconst L = LinearAlgebra.LAPACK\nf(A) = L.potrf!('U', A)",
+               "using LinearAlgebra\nconst B = LinearAlgebra.BLAS\nf(x) = B.scal!(2, 3.0, x, 1)",
+               "const L = getfield(LinearAlgebra, :LAPACK)", "const B = getfield(LinearAlgebra, :BLAS)",
+               "Base.Libc.malloc(16)", "Libc.free(p)", "using Base.Libc", "import Libc", "p = Libdl.dlsym(h, :f)",
+               # an import with something before it on the line
+               "@eval using LinearAlgebra.BLAS: scal!", "#= note =# using LinearAlgebra.BLAS: scal!",
+               "#= note =# ccall(:f, Cvoid, ())",
+               # text in a comment or a string is scanned like code
+               "s = \"\"\"\n# \$(ccall(:clock, Int32, ()))\n\"\"\"", "# uses BLAS.gemv", "    # ccall(:f, Cvoid, ())",
+               "  #  using LinearAlgebra: LAPACK", "# Libdl.dlopen(\"x\")\nx = 1\n",
                # an import statement that continues on the next lines
-               "#= note =# ccall(:f, Cvoid, ())", "using LinearAlgebra:\n    LAPACK", "import LinearAlgebra: dot,\n    BLAS",
+               "using LinearAlgebra:\n    LAPACK", "import LinearAlgebra: dot,\n    BLAS",
+               "@eval using LinearAlgebra:\n    BLAS", "#= note =# import LinearAlgebra: dot,\n    Libc",
                "using LinearAlgebra: # the names\n\n    # a comment line\n    dot, # one\n    BLAS # two\nx = 1")
-    @test mentions(unregistered(text), "`src/f.jl` makes an explicit native call")
+    @test mentions(unregistered(text), "`src/f.jl` matches the native-call patterns")
   end
-  # text that is not a native call
-  for text in ("# uses BLAS.gemv", "    # ccall(:f, Cvoid, ())", "  #  using LinearAlgebra: LAPACK",
-               "(CPU, BLAS kernel, compilation) rather than on the accuracy of the point.",
-               "mul!(y, A, x)", "using LinearAlgebra", "import LinearAlgebra: mul!, dot", "x = myccall(1)",
-               "z = SBLAS.f(1)", "# Libdl.dlopen(\"x\")\nx = 1\n",
-               # a multi-line statement that names neither, and a name on a line after the statement ended
+  # text that is not matched
+  for text in ("(CPU, BLAS kernel, compilation) rather than on the accuracy of the point.",
+               "mul!(y, A, x)", "dot(x, y)", "using LinearAlgebra", "import LinearAlgebra: mul!, dot",
+               "using LinearAlgebra: dot, mul!", "x = myccall(1)", "z = SBLAS.f(1)", "BLAS_threads = 2",
+               "LAPACKE_wrapper(A)", "x = Libcx.f(1)", "# the BLAS kernel and the Libc-like helpers",
+               # a multi-line statement that names none, and a name on a line after the statement ended
                "using LinearAlgebra:\n    dot,\n    mul!", "import LinearAlgebra: dot,\n    mul!\nx = 1",
                "using LinearAlgebra: dot\nBLAS_threads = 2", "using LinearAlgebra:")
     @test unregistered(text) == String[]
   end
-  # a multi-line statement is reported at its first line
-  @test native_hits(source("x = 1\nusing LinearAlgebra:\n    dot,\n    BLAS\ny = 2\n")) == Dict("src/f.jl" => [2])
-  # the line numbers of the matches (a comment line does not count)
+  # a multi-line statement is reported at its first line, and the line that names the module (here
+  # at the end of the line) matches by itself
+  @test native_hits(source("x = 1\nusing LinearAlgebra:\n    dot,\n    BLAS\ny = 2\n")) == Dict("src/f.jl" => [2, 4])
+  @test native_hits(source("using LinearAlgebra: dot,\n    mul!\nusing LinearAlgebra:\n    LAPACK.potrf!,\n    dot\n")) ==
+        Dict("src/f.jl" => [3, 4])
+  @test native_hits(source("using LinearAlgebra\nconst L = LinearAlgebra.LAPACK\nf(A) = L.potrf!('U', A)\n")) ==
+        Dict("src/f.jl" => [2])
+  # the line numbers of the matches (a comment line counts)
   @test native_hits(source("a = 1\n# BLAS.gemv!(1)\nBLAS.gemv!(1)\n\nccall(:f, Cvoid, ())\n")) ==
-        Dict("src/f.jl" => [3, 5])
+        Dict("src/f.jl" => [2, 3, 5])
   @test isempty(native_hits(source("a = 1\n")))
   # registrations
   src = source("x = 1\nccall(:f, Cvoid, ())\n")
@@ -430,10 +461,10 @@ end
   @test mentions(problems_of(with(checks = ["a", "zz"])), "check `zz` is not a test in the tier lists")
   @test mentions(problems_of(with(checks = "a")), "`checks` must be a non-empty list")
   @test mentions(problems_of(with(paths = ["src/other.jl"])), "`src/other.jl` is not a source file")
-  @test mentions(problems_of(with(paths = ["src/other.jl"])), "`src/f.jl` makes an explicit native call")
+  @test mentions(problems_of(with(paths = ["src/other.jl"])), "`src/f.jl` matches the native-call patterns")
   @test mentions(problems_of(with(paths = String[])), "`paths` must be a non-empty list")
   @test mentions(native_problems(merge(src, Dict("src/g.jl" => "x = 1\n")), [with(paths = ["src/g.jl"])], ["a"],
-                                 ["pre-merge-platform-job"]), "`src/g.jl` has no explicit native call")
+                                 ["pre-merge-platform-job"]), "`src/g.jl` has no match of the native-call patterns")
   @test mentions(problems_of(with(platforms = ["linux"])), "platform `linux` is not one of")
   @test mentions(problems_of(with(platforms = ["macos-latest", "linux"])), "platform `linux` is not one of")
   @test mentions(problems_of(with(platforms = String[])), "`platforms` must be a non-empty list")
@@ -448,7 +479,7 @@ end
   @test mentions(native_problems(src, [3], ["a"], String[]), "native entry 1 is not a table")
   # a registered path covers its file only, and a registration for one file does not hide another
   both = merge(src, Dict("src/g.jl" => "BLAS.gemv!(1)\n"))
-  @test mentions(native_problems(both, [entry], ["a"], ["pre-merge-platform-job"]), "`src/g.jl` makes an explicit native call")
+  @test mentions(native_problems(both, [entry], ["a"], ["pre-merge-platform-job"]), "`src/g.jl` matches the native-call patterns")
   @test native_problems(both, [with(paths = ["src/f.jl", "src/g.jl"])], ["a"], ["pre-merge-platform-job"]) == String[]
 end
 

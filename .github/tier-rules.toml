@@ -97,25 +97,29 @@ focus = ["examples"]
 paths = ["examples/**"]
 
 # Registrations of explicit native calls in the package source. No [[native]] table is defined
-# here, because no file under src/ makes such a call today. test/tier_selection.jl reads the table
-# (test/tiers.jl loads this file for scripts/ci_plan.jl but does not read it). The test scans the
-# .jl files under src/ (and ext/, if it exists) for the explicit native calls of NATIVE_PATTERNS
-# (a `ccall` or `@ccall`, a `LAPACK.` or `BLAS.` call, a `using` or `import` statement that
-# names LAPACK, BLAS or Libdl, also when it continues on lines after a trailing `,` or `:`, and a
-# `Libdl.` call), and a file with such a call fails the test unless an
-# entry below lists it.
-# Generic linear algebra such as `mul!` or `dot` is not matched.
+# here, because no file under src/ matches the guard today. test/tier_selection.jl reads the table
+# (test/tiers.jl loads this file for scripts/ci_plan.jl but does not read it). The test scans every
+# line of the .jl files under src/ (and ext/, if it exists) against NATIVE_PATTERNS, comments and
+# strings included, so a match in a comment or a string also counts: reword the text or register
+# the file. The patterns name `ccall`, `@ccall`, `cglobal` and `llvmcall`; the modules LAPACK and
+# BLAS when followed by `.`, `:`, `,`, `;`, a closing bracket or the end of the line; a `:LAPACK`-style
+# symbol; `Libdl` and `Libc`; and a `using` or `import` statement that names LAPACK, BLAS, Libdl or
+# Libc, also when it continues on lines after a trailing `,` or `:`. A file with a match fails the
+# test unless an entry below lists it. Out of scope: names built at run time (`eval(Symbol(...))`,
+# `getfield` with a computed symbol) and the expansion of external macros; this describes what the
+# test reads, not a claim that no native call can escape it. Generic linear algebra such as `mul!` or
+# `dot` is not matched.
 #
 # An entry has exactly these keys:
 #   why         a non-empty string: what the native call is for
-#   paths       a non-empty list of source files, each existing and containing an explicit native call
+#   paths       a non-empty list of source files, each existing and with a match
 #   checks      a non-empty list of test names from the tier lists: the tests that must run on the platforms
 #   platforms   a non-empty list drawn from "macos-latest" and "windows-latest"
 #   enforcement a string: a pre-merge mechanism named in IMPLEMENTED_NATIVE_ENFORCEMENT in
 #               test/tier_selection.jl
-# That list is empty. An entry therefore fails the test until the PR that adds the native call
-# also implements the pre-merge platform job (in the plan and verdict of CI.yml, which has no
-# macOS or Windows job today) and names it in that list; the entry alone does not pass it.
+# That list is empty, so every entry fails the test until a pull request implements such a
+# mechanism (a pre-merge platform job in the plan and verdict of CI.yml, which has no macOS or
+# Windows job today) and names it in that list; the entry alone does not pass it.
 #
 # test/tiers.jl `load` merges the top-level keys of this file into the tier data and rejects only
 # a key that both files define, and `parse_manifest` does not read a `native` key, so the loader

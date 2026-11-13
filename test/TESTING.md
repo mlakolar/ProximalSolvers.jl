@@ -59,22 +59,26 @@ inside that entry, that test fails until `pin_problems` and its cases are change
 (`PIN_POLICY` only labels it).
 
 **Native code.** A test in `test/tier_selection.jl` (quick tier; a change to `src/` plans the full
-tier, which includes it) reads the `.jl` files under `src/` (and `ext/`, if it exists) for explicit
-native calls: `ccall`, `@ccall`, a `LAPACK.` or `BLAS.` call, a `using` or `import` statement that
-names LAPACK, BLAS or Libdl (also when it continues on lines after a trailing `,` or `:`), and a
-`Libdl.` call. `src/` has none today. The patterns match text, so a
-call made in a way they do not name is not matched, and generic calls such as `mul!` or `dot`,
-which reach BLAS, are not matched either; the nightly legs run them on macOS and Windows.
-A file with a match fails the test unless a `[[native]]` entry in `.github/tier-rules.toml` lists
-it. An entry has the keys `why`, `paths`, `checks`, `platforms` and `enforcement`: its paths must
-exist and contain a match, its checks must be tests of the tier lists, its platforms are
-`macos-latest` and `windows-latest`, and its `enforcement` must name a mechanism in
-`IMPLEMENTED_NATIVE_ENFORCEMENT` in `test/tier_selection.jl`. That list is empty, because `CI.yml` has
-no macOS or Windows job, so every entry fails the test until a pull request implements such a
-mechanism and names it there. A pull request that adds native code therefore has to implement the
-pre-merge platform job in the plan and verdict of `CI.yml` (running the entry's checks on the entry's
-platforms), add it to the list, register the entry, and change the assertion in `test/ci_gate.jl`
-that `CI.yml` has no macOS or Windows job.
+tier, which includes it) scans every line of the `.jl` files under `src/` (and `ext/`, if it exists)
+for text that names a native call or module: `ccall`, `@ccall`, `cglobal`, `llvmcall`; LAPACK and BLAS
+when followed by `.`, `:`, `,`, `;`, a closing bracket or the end of the line (so that "BLAS kernel"
+in prose does not match); a `:LAPACK`-style symbol; `Libdl` and `Libc`; and a `using` or `import`
+statement that names one of these modules, also when it continues on lines after a trailing `,` or
+`:`. Comments and strings are scanned too, so a match in a comment or a string counts (reword it or
+register the file). `src/` has no match today. The test reads source text only: names built at run
+time (`eval(Symbol(...))`, `getfield` with a computed symbol) and the expansion of external macros
+are outside it, and generic calls such as `mul!` or `dot`, which reach BLAS, are not matched; the
+nightly legs run them on macOS and Windows. A file with a match fails the test unless a `[[native]]`
+entry in `.github/tier-rules.toml` lists it. An entry has the keys `why`, `paths`, `checks`,
+`platforms` and `enforcement`: its paths must exist and have a match, its checks must be tests of the
+tier lists, its platforms are `macos-latest` and `windows-latest`, and its `enforcement` must name a
+mechanism in `IMPLEMENTED_NATIVE_ENFORCEMENT` in `test/tier_selection.jl`. That list is empty,
+because `CI.yml` has no macOS or Windows job, so every entry fails the test until a pull request
+implements such a mechanism (the pre-merge platform job in the plan and verdict of `CI.yml`, running
+the entry's checks on the entry's platforms) and names it there; that pull request also has to
+change the assertion in `test/ci_gate.jl` that `CI.yml` has no macOS or Windows job. In short, a
+file whose text matches the guard needs a registration, and a registration needs an implemented
+enforcement mechanism.
 
 The existing Benchmark analysis controls job has no tier or test-reuse condition, so it is
 independent of the main tier and nightly test reuse. It runs as three separate matrix
