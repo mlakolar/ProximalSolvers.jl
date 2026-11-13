@@ -30,7 +30,8 @@ representable in `T` without overflow or rounding a nonzero scalar
 to zero. They may be supplied in a different scalar type, including
 a representable `Float64` literal in a `Float32` problem. After that
 check, CD, PGD and APG use the loss scale as supplied, combined with
-`T` by Julia's promotion: a `Float64` scale in a `Float32` problem
+`T` by Julia's promotion (CD converts a scale to `T` when that promotion
+is not a concrete floating-point type): a `Float64` scale in a `Float32` problem
 keeps its `Float64` value, also where that value is subnormal in
 `Float32`. The arrays and the coefficients stay in `T`, so this does
 not imply mixed-precision array support or a guarantee about every

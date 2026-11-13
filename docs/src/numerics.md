@@ -194,7 +194,9 @@ guaranteeing their numerical behavior.
 a `Float64` literal for a `Float32` solve. The solver checks that
 they are representable in `T` without overflow or loss of a
 nonzero parameter to zero. After that check, CD, PGD and APG use the
-loss scale as supplied, combined with `T` by Julia's promotion: a
+loss scale as supplied, combined with `T` by Julia's promotion (CD
+converts a scale to `T` when that promotion is not a concrete
+floating-point type, such as a custom `Real` without promotion rules): a
 `Float64` scale in a `Float32` solve keeps its `Float64` value (also
 where that value is subnormal in `Float32`). In CD, the coordinate step,
 the two stopping scales and the reported objective are formed from that
