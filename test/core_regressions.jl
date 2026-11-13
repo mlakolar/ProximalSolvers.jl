@@ -407,23 +407,22 @@ end
   @test Float32[1 1] * (st.x .- st.x_previous) == Float32[0]
   @test PS.LineSearches.backtrack!(st, method.ls, f, g0)
   @test st.verifications == 1 && st.backtrack_simple && st.L == 1f0
-  # An entry of fl(X d̂) overflows (1e30 · 6e8): c is not finite, the trial is not accepted, and
-  # TFOCS's estimate L̂ sets L. ∇f(x') = 0, so L̂ = L + 2 max(f(x) - f(x') - L‖d̂‖²/2, 0)/‖d̂‖².
-  X = Float32[1f30 1f30]
+  # An entry of fl(X d̂) overflows (1e30 · 1e10): c is not finite, so the check does not
+  # accept the trial, and backtrack! keeps TFOCS's estimate (see the next testset). The step is
+  # set directly, as backtrack! leaves it in delta_x.
+  X = fill(1f30, 1, 1)
   f = LeastSquaresLoss(Float32[0], X)
-  st = pgd_pair_trial(f, g0, Float32[-3f8, 3f8], Float32[3f8, -3f8], 1f-20)
-  st.f_x_previous -= 1
-  @test isfinite(st.f_x) && !all(isfinite, X * (st.x .- st.x_previous))
-  xy_sq = PS._norm(st.x .- st.x_previous)^2
-  Lhat = st.L + 2. * max(st.f_x - (st.f_x_previous + 0.5 * st.L * xy_sq), 0f0) / xy_sq
-  @test !PS.LineSearches.backtrack!(st, method.ls, f, g0)
-  @test st.verifications == 1 && st.L == Float32(Lhat)
+  st = pgd_pair_trial(f, g0, Float32[0], Float32[0], 1f0)
+  st.delta_x .= 1f10
+  @test !all(isfinite, X * st.delta_x)
+  accepted, c = PS.LineSearches.check_rejection!(st, false)
+  @test !accepted && !isfinite(c) && c isa Float32 && st.verifications == 1
 end
 
 @testset "PGD checked rejection before an unrepresentable curvature restores the accepted point" begin
   # 2α‖X d‖²/‖d‖² = 4.5e38 exceeds floatmax(Float32): the rejection at L ≈ 1.98e38 is checked,
-  # c overflows to Inf, TFOCS's estimate is kept, and next_curvature raises; the engine
-  # restores x.
+  # c (4.5e38 in Float64) is Inf as a Float32, TFOCS's estimate is kept, and next_curvature
+  # raises; the engine restores x.
   f = LeastSquaresLoss(Float32[1], fill(1.5f19, 1, 1))
   method = ProximalGradientDescent()
   state = PS.initial_state(method, ProximalOptions(), f, NormL1(0f0), Float32[0])
