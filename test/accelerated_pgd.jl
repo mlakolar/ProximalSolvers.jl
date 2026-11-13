@@ -894,4 +894,201 @@ alloc4(a, b, c, d) = @allocated PS._se_mul(a, b, c, d)
   end
 end
 
+# ---- ftol = 0 switches off objective-change stopping (#270) ----------------------------------
+# convergence_assessment of a constructed state: the solver's own initial_state, then the fields
+# that the assessment reads are set. F = f_x + g_x with g_x = 0; xtol = 1e-8, gradtol = 1e-11.
+function apg_assessment(T, ftol; x, previous, F, F_previous, y = x, delta = x .- previous,
+                        grad = zeros(T, length(x)), L = one(T))
+  f, g = LeastSquaresLoss(T[1, -1], T[1 0; 0 2]), NormL1(T(.1))
+  options = ProximalOptions(; ftol, xtol = 1e-8, gradtol = 1e-11)
+  state = PS.initial_state(AccProxGradDescent(), options, f, g, T[.3, -.2])
+  state.x .= x
+  state.x_previous .= previous
+  state.delta_x .= delta
+  state.f_x, state.g_x = T(F), zero(T)
+  state.f_x_previous, state.g_x_previous = T(F_previous), zero(T)
+  state.y .= y
+  state.grad_f_y .= grad
+  state.L = L
+  (; flags = PS.convergence_assessment(state, f, g, options), state, f, g, options)
+end
+
+@testset "APG: ftol = 0 switches off the objective test; ftol > 0 keeps its flags (#270)" begin
+  for T in (Float64, Float32)
+    x, F = T[1, 2], T(3) / 2
+    moved = x .+ T(.01)                      # an accepted step that changed x
+    far = x .+ T(1) / 2                      # an extrapolated point away from x: residual L ‖x - y‖∞ = 1/2
+    tiny = nextfloat(zero(T))
+    flat = (false, false, false, false, false)
+    # label, state, then the flags (x_converged, f_converged, grad_converged, converged,
+    # f_increased) for ftol = 1e-15, 1e-300 and 0
+    cases = [
+      ("F == F'", (previous = moved, y = far, F = F, F_previous = F),
+       (false, true, false, true, false), (false, true, false, true, false), flat),
+      ("F' = nextfloat(F): one ulp", (previous = moved, y = far, F = F, F_previous = nextfloat(F)),
+       (false, true, false, true, false), (false, true, false, true, false), flat),
+      # 3 ulps: the relative test holds for 1e-15 in Float64 only, and 1e-300 leaves no test
+      ("F' = F + 3eps(F)", (previous = moved, y = far, F = F, F_previous = F + 3eps(F)),
+       (false, T === Float64, false, T === Float64, false), flat, flat),
+      ("F = nextfloat(F'): an increase of one ulp", (previous = moved, y = far, F = F, F_previous = prevfloat(F)),
+       (false, true, false, true, true), (false, true, false, true, true), (false, false, false, false, true)),
+      ("F = F' + 1/2: a large increase", (previous = moved, y = far, F = F, F_previous = F - T(1) / 2),
+       (false, false, false, false, true), (false, false, false, false, true), (false, false, false, false, true)),
+      # x == x_previous with y == x: residual 0, which passes the gradient test only with ftol > 0
+      ("x == x_previous, y == x", (previous = x, F = F, F_previous = F + 1),
+       (true, false, true, true, false), (true, false, true, true, false), flat),
+      ("x == x_previous with -0.0 against 0.0", (x = T[0, 2], previous = T[-0.0, 2], F = F, F_previous = F + 1),
+       (true, false, true, true, false), (true, false, true, true, false), flat),
+      ("x == x_previous, y != x", (previous = x, y = far, F = F, F_previous = F + 1),
+       (true, false, false, true, false), (true, false, false, true, false), flat),
+      # x == y but x != x_previous: not an unchanged iterate, so ftol = 0 evaluates the gradient
+      # test as ftol > 0 does, and the residual L ‖x - y‖∞ = 0 passes it
+      ("x == y, x != x_previous", (previous = moved, F = F, F_previous = F + 1),
+       (false, false, true, true, false), (false, false, true, true, false), (false, false, true, true, false)),
+      # x != x_previous while the norm of delta_x is 0: not a stall, evaluated as with ftol > 0
+      ("x != x_previous, delta_x = 0", (previous = moved, delta = zeros(T, 2), F = F, F_previous = F + 1),
+       (true, false, true, true, false), (true, false, true, true, false), (true, false, true, true, false)),
+      # a subnormal difference (this row assumes IEEE gradual underflow in the comparison of the iterates):
+      # x != x_previous, so the flags are those of ftol > 0 whichever way the computed norm comes out
+      ("x != x_previous, a subnormal difference", (x = T[1, 0], previous = T[1, tiny], F = F, F_previous = F + 1),
+       (true, false, true, true, false), (true, false, true, true, false), (true, false, true, true, false)),
+    ]
+    for (label, state, e15, e300, e0) in cases, (ftol, expected) in ((1e-15, e15), (1e-300, e300), (0, e0))
+      a = apg_assessment(T, ftol; merge((; x), state)...)
+      @test (label, T, ftol, a.flags) == (label, T, ftol, expected)
+    end
+    # gradient_converged! still runs on an unchanged iterate, so max_residual is updated as with ftol > 0
+    for ftol in (1e-15, 1e-300, 0)
+      a = apg_assessment(T, ftol; x, previous = x, y = far, F, F_previous = F + 1)
+      @test a.state.max_residual == T(.5)
+    end
+  end
+end
+
+alloc_assessment(a) = @allocated PS.convergence_assessment(a.state, a.f, a.g, a.options)
+@testset "APG: a warmed assessment allocates nothing, with and without an unchanged iterate (#270)" begin
+  for T in (Float64, Float32), ftol in (1e-15, 0)
+    x = T[1, 2]
+    for previous in (x .+ T(.01), x)
+      a = apg_assessment(T, ftol; x, previous, F = T(3) / 2, F_previous = T(5) / 2)
+      PS.convergence_assessment(a.state, a.f, a.g, a.options)
+      @test alloc_assessment(a) == 0
+    end
+  end
+end
+
+@testset "APG: f_residual under ftol = 0 for F = F' = 0 and F = 0 != F' (#270)" begin
+  for T in (Float64, Float32)
+    f = LeastSquaresLoss(T[0], T[1;;])
+    r = solve!(T[0], f, NormL1(T(100)), AccProxGradDescent(), ProximalOptions(maxiter = 3, ftol = 0))
+    @test r.f_tol === 0.0 && r.f_residual === 0.0 && !r.f_converged && r.minimum == 0
+    x = T[1]
+    r = solve!(x, f, NormL1(T(100)), AccProxGradDescent(), ProximalOptions(ftol = 0, callback = _ -> true))
+    @test r.iterations == 1 && x == T[0] && r.minimum == 0 && r.f_residual === Inf && !r.f_converged
+  end
+end
+
+@testset "APG: ftol = 0 with allow_f_increases and strict tolerances meets the fixture requirements with margin (#270)" begin
+  # the control uses the tolerances of TIGHT and allows increases, so that it does not depend on an
+  # increase stop of the rounded trajectory
+  base = ProximalOptions(maxiter = 20_000, ftol = 1e-15, allow_f_increases = true, xtol = 1e-14, gradtol = 1e-11)
+  strict = ProximalOptions(maxiter = 20_000, ftol = 0, allow_f_increases = true, xtol = 1e-300, gradtol = 1e-11)
+  for T in (Float64, Float32)
+    # the fixture of "correlated full rank" with n, p = 40, 12 and the penalty 0.3 λmax
+    X, y = correlated(T, 40, 12; seed = 52)
+    s = one(T) / T(40)
+    lmax = λmax(X, y, s)
+    λ = T(0.3 * lmax)
+    f, g = loss(y, X, s), NormL1(λ)
+    # at the tolerances of TIGHT the objective test ends the solve
+    rb = solve!(zeros(T, 12), f, g, AccProxGradDescent(), base)
+    @test rb.f_converged
+    x = zeros(T, 12)
+    r = solve!(x, f, g, AccProxGradDescent(), strict)
+    @test !r.f_converged && r.f_tol === 0.0
+    @test r.converged == (r.x_converged || r.grad_converged)
+    # Float64 ends on the gradient test; Float32 ends on the x or the gradient test, or at maxiter
+    T == Float64 && @test r.grad_converged && !r.iteration_converged
+    # the requirements of that testset, each tightened tenfold
+    @test kkt(X, y, s, λ, x) <= kkt_tol(T) * max(1, lmax) / 10
+    @test gap(X, y, s, λ, x) <= gap_tol(T) * Float64(objective(X, y, s, λ, zeros(T, 12))) / 10
+    if T == Float64
+      ref = support_reference(X, y, s, λ, x)
+      @test maximum(abs, big_(x) - ref) <= coef_tol(T) * max(1, Float64(maximum(abs, ref))) / 10
+    end
+  end
+end
+
+@testset "APG: an exactly unchanged iterate under ftol = 0 is no progress, not convergence (#270)" begin
+  # λ is twice the largest |∇f(0)|, so a step from x = 0 and y = 0 is soft thresholded to 0:
+  # the iterate stays x == x_previous. The point is the exact solution; the flags report no
+  # progress, not an error.
+  for T in (Float64, Float32)
+    X, y = correlated(T, 20, 6; seed = 4)
+    s = one(T) / T(20)
+    f, g = loss(y, X, s), NormL1(T(2 * λmax(X, y, s)))
+    # the settings of the base: an unchanged iterate passes the x test
+    r = solve!(zeros(T, 6), f, g, AccProxGradDescent(),
+               ProximalOptions(maxiter = 50, ftol = 1e-15, xtol = 1e-14, gradtol = 1e-11))
+    @test r.converged && r.x_converged && !r.iteration_converged
+    # ftol = 0 stops on neither the x test nor the gradient test, and runs to maxiter.
+    # allow_f_increases = true keeps a rounding-level increase of the computed objective from ending it.
+    x = zeros(T, 6)
+    r = solve!(x, f, g, AccProxGradDescent(),
+               ProximalOptions(maxiter = 5, ftol = 0, allow_f_increases = true, xtol = 1e-300, gradtol = 1e-11))
+    @test !r.converged && r.iteration_converged && r.iterations == 5
+    @test !r.x_converged && !r.f_converged && !r.grad_converged
+    @test all(iszero, x) && r.x_residual == 0 && r.g_residual == 0
+  end
+end
+
+@testset "APG: ftol = 0, gradtol = 0 and a tiny xtol end at maxiter when the solve is far from its solution (#270)" begin
+  for T in (Float64, Float32)
+    X, y = correlated(T, 40, 15; seed = 3)
+    s = one(T) / T(40)
+    x = zeros(T, 15)
+    r = solve!(x, loss(y, X, s), NormL1(T(0.05)), AccProxGradDescent(),
+               ProximalOptions(maxiter = 3, ftol = 0, gradtol = 0, xtol = 1e-300))
+    @test !r.converged && r.iteration_converged && r.iterations == 3
+    @test !r.x_converged && !r.f_converged && !r.grad_converged && any(!iszero, x)
+  end
+end
+
+@testset "APG: with ftol = 0 an increase or any other stop reports converged from the x and gradient tests only (#270)" begin
+  for T in (Float64, Float32), frac in (.05, .3), allow in (false, true)
+    X, y = correlated(T, 40, 12; seed = 52)
+    s = one(T) / T(40)
+    λ = T(frac * λmax(X, y, s))
+    f, g = loss(y, X, s), NormL1(λ)
+    r = solve!(zeros(T, 12), f, g, AccProxGradDescent(),
+               ProximalOptions(maxiter = 2000, ftol = 0, allow_f_increases = allow, xtol = 1e-300, gradtol = 1e-11))
+    @test !r.f_converged
+    @test r.converged == (r.x_converged || r.grad_converged)
+    # an increase of the computed objective can end the solve only when allow is false; no test requires one
+    r.f_increased && !allow && @test r.converged == (r.x_converged || r.grad_converged)
+    # with ftol > 0 the objective test is part of converged
+    r = solve!(zeros(T, 12), f, g, AccProxGradDescent(),
+               ProximalOptions(maxiter = 2000, ftol = 1e-15, allow_f_increases = allow, xtol = 1e-14, gradtol = 1e-11))
+    @test r.converged == (r.x_converged || r.f_converged || r.grad_converged)
+  end
+end
+
+@testset "APG: the result display shows a disabled objective test and a true increase line (#270)" begin
+  X, y = correlated(Float64, 40, 12; seed = 52)
+  f, g = loss(y, X, 1 / 40), NormL1(0.1)
+  r = solve!(zeros(12), f, g, AccProxGradDescent(), ProximalOptions(maxiter = 5, ftol = 0))
+  shown = sprint(show, r)
+  @test occursin("\n   * objective-change test: disabled (ftol = 0)\n     |f(x) - f(x')| / |f(x)| = ", shown)
+  @test !occursin("|f(x) - f(x')| / |f(x)| <", shown)
+  @test occursin("\n   * objective increased at the last iteration: $(r.f_increased)\n", shown)
+  @test !occursin("stopped by an increasing objective", shown)
+  r.f_increased = true
+  @test occursin("\n   * objective increased at the last iteration: true\n", sprint(show, r))
+  r = solve!(zeros(12), f, g, AccProxGradDescent())
+  shown = sprint(show, r)
+  @test occursin("\n   * |f(x) - f(x')| / |f(x)| < 1.0e-06: $(r.f_converged)\n", shown)
+  @test occursin("\n   * objective increased at the last iteration: $(r.f_increased)\n", shown)
+  @test !occursin("disabled", shown) && !occursin("stopped by an increasing objective", shown)
+end
+
 end
