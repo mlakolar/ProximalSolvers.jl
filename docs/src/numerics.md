@@ -209,10 +209,9 @@ scales on their normal-range branch are formed in `T`. It allocates
 and is slow, and is not a fast path. This convenience does **not**
 enable a general mixed-precision model or guarantee that every
 intermediate operation uses `T`. Prefer explicit native scalars. Writing
-`one(T) / T(n)` chooses a native `T` scale: it is `1/n` rounded to `T`, which
-can differ from the `Float64` `1/n`, so the solve uses the rounded value (the
-problem changes at the rounding level of `T`) and the scale arithmetic stays
-in `T`:
+`one(T) / T(n)` chooses a native `T` scale: `n` is converted to `T` and the
+division is done in `T`, so the value can differ from the `Float64` `1/n`. The
+solve uses that value, and the products with the loss scale are formed in `T`:
 
 ```julia
 T = Float32

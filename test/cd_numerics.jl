@@ -74,9 +74,9 @@ kkt_violation(X, y, α, λ, x) = ((v, dmax, _) = kkt_terms(X, y, α, λ, x); (v,
 kkt_tolerance(::Type{T}) where T = max(1e-7, 100eps(T))
 # violation / (kkt_tolerance * scale): at most 1 is accepted
 kkt_ratio(X, y, α, λ, x) = ((v, s) = kkt_violation(X, y, α, λ, x); v / (kkt_tolerance(eltype(x)) * s))
-# The same with the scale max(λ, ‖α Xᵀy‖∞), used below only with λ = 0. For λ = 0 the violation
-# equals ‖d‖∞, so the scale of `kkt_ratio` is the violation's own size and its ratio is 1/tolerance
-# at any point where d ≠ 0; the response scale does not have that property.
+# The same with the scale max(λ, ‖α Xᵀy‖∞), which does not depend on x; the tests below call it
+# with λ = 0 only. In exact arithmetic with λ = 0 the violation equals ‖d‖∞, the scale of
+# `kkt_ratio`, so that ratio cannot measure the violation there.
 kkt_ratio_response(X, y, α, λ, x) =
   ((v, _, e) = kkt_terms(X, y, α, λ, x); v / (kkt_tolerance(eltype(x)) * max(Float64(λ), e)))
 
