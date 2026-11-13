@@ -16,8 +16,8 @@ code.
   each coordinate change is also multiplied by `sqrt(s * a)` for the squared
   norm `a` of its column, formed from the two square roots where the product
   `s * a` is zero, subnormal or overflowing for a finite `a`; a nonzero change
-  times an infinite scale (a root above the largest finite number) is refused
-  with an `ArgumentError`. The coordinate step forms its threshold
+  times an infinite scale (a computed scale that overflows the working type) is
+  refused with an `ArgumentError`. The coordinate step forms its threshold
   `lambda / (s * a)` without the product or its reciprocal where either is
   outside the normal range, and a column whose squared norm is not finite is
   refused with an `ArgumentError` that names the curvature. With

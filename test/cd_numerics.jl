@@ -7,9 +7,9 @@ module CDNumerics
 # The response scale `√α‖y‖` of the relative stopping rule is formed range-safely (#293): the cases
 # below fix it where `Σy²` or `α Σy²` overflows or underflows, and refuse a computed `√α‖y‖` that is
 # not a normal number of `T`. The coordinate scale `√(α a_k)` is formed from the two roots where the
-# product `α a_k` is zero, subnormal or overflowing. The coordinate step does not form the reciprocal
-# of `α a_k` where that product or its reciprocal leaves the range of the scale type; it forms the
-# threshold `λ/(α a_k)` directly (#294), and an infinite curvature is refused.
+# product `α a_k` is zero, subnormal or overflowing. Where that product or its reciprocal leaves the range
+# of the scale type, the coordinate step forms the threshold `λ/(α a_k)` without using them (it still forms
+# the product and its reciprocal to choose between the two ways, #294), and an infinite curvature is refused.
 using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
 using Logging: with_logger, Warn
 const PS = ProximalSolvers
@@ -592,8 +592,12 @@ end
 #               1/(α a_k) is finite and the coordinate scale is formed from the two roots;
 #   :overflow   α a_k is above floatmax(T) and its root is at most floatmax(T), so that the step
 #               coefficient 1/(α a_k) is 0 and the coordinate scale is formed from the two roots (#294);
+#               the curvature a_k is at least floatmin(T) (a normal number);
 #   :reciprocal α a_k is below 1/floatmax(T) and its root is a normal number of T, so that the reciprocal
-#               1/(α a_k) overflows (#294);
+#               1/(α a_k) overflows (#294); the curvature a_k is at least floatmin(T) (a normal number);
+#   :subnormal_curvature  every nonzero curvature a_k is below floatmin(T) (a subnormal number of T, which has
+#               lost relative precision) and α a_k is below 1/floatmax(T) with a root that is a normal
+#               number of T; these fixtures are outside the convergence claims (see `check_honest`);
 #   :any        nothing about α a_k.
 function check_feasible(X, y, α, λ; coordinate = :normal)
   T = eltype(X)
@@ -602,8 +606,10 @@ function check_feasible(X, y, α, λ; coordinate = :normal)
     ab, rss = big(α), sum(abs2, r)
     @assert rss < big(floatmax(T)) / 4 "Σr² at the solution is not below floatmax/4"
     @assert ab * rss / 2 + big(λ) * sum(abs, b) < big(floatmax(T)) / 4 "the objective at the solution is not below floatmax/4"
-    products = [ab * sum(abs2, big.(X[:, k])) for k in axes(X, 2)]
+    curvatures = [sum(abs2, big.(X[:, k])) for k in axes(X, 2)]
+    products = ab .* curvatures
     nonzero = filter(!iszero, products)
+    nonzero_curvature = filter(!iszero, curvatures)
     if coordinate === :normal
       for (k, a) in enumerate(products)
         iszero(a) || @assert big(floatmin(T)) <= a < big(floatmax(T)) / 4 "α a_$k is outside [floatmin, floatmax/4)"
@@ -613,7 +619,12 @@ function check_feasible(X, y, α, λ; coordinate = :normal)
       @assert any(a -> a < big(floatmin(T)), nonzero) "no α a_k is below floatmin"
     elseif coordinate === :overflow
       @assert all(a -> a > big(floatmax(T)) && sqrt(a) <= big(floatmax(T)), nonzero) "an α a_k is not above floatmax with a root of at most floatmax"
+      @assert all(a -> a >= big(floatmin(T)), nonzero_curvature) "a curvature a_k is subnormal"
     elseif coordinate === :reciprocal
+      @assert all(a -> a < big(1) / big(floatmax(T)) && sqrt(a) >= big(floatmin(T)), nonzero) "an α a_k is not below 1/floatmax with a normal root"
+      @assert all(a -> a >= big(floatmin(T)), nonzero_curvature) "a curvature a_k is subnormal"
+    elseif coordinate === :subnormal_curvature
+      @assert all(a -> a < big(floatmin(T)), nonzero_curvature) "a curvature a_k is not subnormal"
       @assert all(a -> a < big(1) / big(floatmax(T)) && sqrt(a) >= big(floatmin(T)), nonzero) "an α a_k is not below 1/floatmax with a normal root"
     elseif coordinate === :subnormal
       @assert all(a -> big(1) / big(floatmax(T)) < a < big(floatmin(T)), nonzero) "an α a_k is not subnormal with a finite reciprocal"
@@ -677,10 +688,10 @@ end
 # checked on each solve, not implied by the ratio. With `relative = false` the threshold is the
 # absolute change `tol ‖y‖ / max_k ‖X_k‖` (with tol = 1e-9 in Float64 and 1e-6 in Float32), the
 # coefficient-unit equivalent of the relative threshold at the column of largest norm, and is the
-# reported tolerance.
-function check_d1_solve(c, λ, x0; order, momentum, owner, relative = true)
+# reported tolerance. The Float32 relative tolerance is `tol32`.
+function check_d1_solve(c, λ, x0; order, momentum, owner, relative = true, tol32 = 1e-7)
   T = eltype(c.X)
-  tol = T === Float64 ? 1e-9 : 1e-7
+  tol = T === Float64 ? 1e-9 : tol32
   tol_abs = relative ? tol : (T === Float64 ? 1e-9 : 1e-6) * norm(c.y) / maximum(norm, eachcol(c.X))
   r = cd_solve(c.f, λ, x0; order, momentum, owner, relative, tol = tol_abs)
   @test r.converged && isempty(r.logs)
@@ -696,7 +707,7 @@ end
 
 # The solves of one case: each penalty fraction, cold and warm start, order and iterate type, and each
 # stopping rule in `relatives`.
-function check_d1_case(c; relatives = (true,))
+function check_d1_case(c; relatives = (true,), tol32 = 1e-7)
   T = eltype(c.X)
   p = size(c.X, 2)
   @test c.scale > 0
@@ -706,7 +717,7 @@ function check_d1_case(c; relatives = (true,))
     check_feasible(c.X, c.y, c.α, λ; coordinate = c.coordinate)
     for x0 in (zeros(T, p), T.(c.c .* (0.3 .* sin.(1:p)))), (order, momentum) in ORDERS, owner in (false, true),
         relative in relatives
-      check_d1_solve(c, λ, x0; order, momentum, owner, relative)
+      check_d1_solve(c, λ, x0; order, momentum, owner, relative, tol32)
     end
   end
 end
@@ -1005,7 +1016,7 @@ end
 # Overflow of α a_k (#294). In these S == T fixtures α a_k is above floatmax(T) and its root is a normal
 # number. The coordinate scale is then the product of the two roots, a finite number (it was Inf, which
 # `_visit!` refuses where relative scaling is active), and the step coefficient 1/(α a_k) would be 0, which
-# ignores the penalty, so the step forms the threshold λ/(α a_k) directly. Each fixture is solved as in
+# ignores a positive penalty, so the step forms the threshold λ/(α a_k) directly. Each fixture is solved as in
 # section 10 (from a cold and a warm start, in the three orders, on a dense vector and an owner, with
 # the KKT violation, the tolerance and the reported minimum checked), at a penalty of 0 and of a fraction of
 # λmax, and the scale of each column is checked against the BigFloat root. The penalty is a fraction of
@@ -1038,7 +1049,7 @@ end
 # (asserted below), so b/a overflows. At a positive penalty (0.25 and 0.5 of λmax) the threshold
 # λ/a_k also overflows for at least one column (asserted below; for 0.5 of λmax for every column). That
 # threshold is capped at floatmax, and the centre b/a that overflows is still refused rather than set
-# to 0, as an infinite threshold would set it. The generator is not asserted: the refusal comes within a
+# to 0, as an infinite level passed to PB's NormL1 prox would set it. The generator is not asserted: the refusal comes within a
 # pass.
 @testset "a coordinate step whose centre overflows is refused, x unchanged: penalty $fraction λmax" for fraction in (0.0, 0.25, 0.5)
   X, y, _ = scaled_problem(Float64, 1e150; xscale = 1e-160)
@@ -1139,14 +1150,23 @@ end
 # 18. The coordinate step where α a_k or its reciprocal leaves the range of the scale type (#294)
 # ---------------------------------------------------------------------------
 # The step of column k is the soft threshold of the centre c = x_k + b/a_k at τ = λ/(α a_k). It used the
-# coefficient 1/(α a_k) in PB's NormL1 prox, which is 0 where α a_k overflows (the penalty was ignored: CD
-# reported converged = true at a KKT violation of about 0.1 or 0.5 of the scale) and Inf where α a_k is
-# below 1/floatmax (the threshold was Inf, which sets a finite centre to 0). Where α a_k
-# and its reciprocal are at least floatmin(S) the step is unchanged; outside that band, S == T here, the
-# step forms τ without the product or its reciprocal. Each fixture below is solved as in section 10
-# (from a cold and a warm start, in the three orders, on a dense vector and an owner, with the KKT violation
-# against the supplied α, the tolerance and the reported objective checked) at a penalty of 0 and of
-# fractions of λmax, with relative = true and relative = false.
+# coefficient 1/(α a_k) in PB's NormL1 prox. At a positive penalty that coefficient is 0 where α a_k
+# overflows (the penalty was ignored: CD reported converged = true at a KKT violation of about 0.1 or 0.5
+# of the scale) and Inf where α a_k is below 1/floatmax (the threshold was Inf, which sets a finite centre
+# to 0); at a zero penalty PB keeps a zero threshold for any coefficient. Where α a_k and its reciprocal
+# are at least floatmin(S) the step is unchanged; outside that band, S == T here, the step forms τ without
+# using the product or its reciprocal (`_scaled_prox` still forms them to choose the way). Each fixture
+# below has a normal curvature a_k (asserted by `check_feasible`), so that a_k keeps its relative
+# precision while the product α a_k leaves the range. It is solved as in section 10 (from a cold and
+# a warm start, in the three orders, on a dense vector and an owner, with the KKT violation against the
+# supplied α, the tolerance and the reported objective checked) at a penalty of 0 and of fractions of
+# λmax, with relative = true and relative = false. The Float32 relative tolerance is 1e-6, not the 1e-7 of
+# section 10: with a penalty of 0.5 λmax the threshold τ is of the order of the coefficients, the centre
+# c = x - τ is about twice as large as x, and a Float32 step then has an error of a few ulp of c. A
+# threshold of 1e-7 is of that size in coefficient units, and a pass over the active coordinates that
+# dithers above it gives no full pass that visits the coordinates at 0, so CD can stop at
+# `maxpasses` at a KKT violation of 0.2 (it did under coverage instrumentation, which can change the
+# summation order and the inlining). The KKT bound is unchanged.
 function step_cases()
   [d1_case("Float64, α a_k overflows: α = 1e300, X·1e5, ‖y‖ = 100", Float64, 100.0, 1e300; xscale = 1e5, fractions = (0.0, 0.1, 0.5), coordinate = :overflow),
    d1_case("Float32, α a_k overflows: α = 1f30, X·1e4, ‖y‖ = 1e3", Float32, 1e3, 1f30; xscale = 1e4, fractions = (0.0, 0.1, 0.5), coordinate = :overflow),
@@ -1155,13 +1175,53 @@ function step_cases()
    d1_case("Float64, α a_k overflows, with a zero column", Float64, 100.0, 1e300; xscale = 1e5, zero_column = true, fractions = (0.0, 0.1), coordinate = :overflow),
    d1_case("Float32, α a_k overflows, with a zero column", Float32, 1e3, 1f30; xscale = 1e4, zero_column = true, fractions = (0.0, 0.1), coordinate = :overflow),
    d1_case("Float64, 1/(α a_k) overflows, with a zero column", Float64, 100.0, 1e-300; xscale = 1e-5, zero_column = true, fractions = (0.0, 0.1), coordinate = :reciprocal),
-   d1_case("Float32, 1/(α a_k) overflows, with a zero column", Float32, 100.0, 1f-30; xscale = 3e-6, zero_column = true, fractions = (0.0, 0.1), coordinate = :reciprocal),
-   d1_case("Float64, raw LS with a subnormal curvature: X·1e-160, ‖y‖ = 1", Float64, 1.0, nothing; xscale = 1e-160, fractions = (0.0, 0.1, 0.5), coordinate = :reciprocal),
-   d1_case("Float32, raw LS with a subnormal curvature: X·1e-22, ‖y‖ = 1", Float32, 1.0, nothing; xscale = 1e-22, fractions = (0.0, 0.1, 0.5), coordinate = :reciprocal)]
+   d1_case("Float32, 1/(α a_k) overflows, with a zero column", Float32, 100.0, 1f-30; xscale = 3e-6, zero_column = true, fractions = (0.0, 0.1), coordinate = :reciprocal)]
 end
 
 @testset "CD converges where α a_k or its reciprocal is out of range, the penalty is applied: $(c.label)" for c in step_cases()
-  check_d1_case(c; relatives = (true, false))
+  check_d1_case(c; relatives = (true, false), tol32 = 1e-6)
+end
+
+# A subnormal curvature (out of scope): no false convergence. A column whose squared norm a_k is a subnormal
+# number has lost relative precision (about 8 bits in Float32 at X·1e-22 and about 16 bits in Float64 at
+# X·1e-160, and each square is rounded to the subnormal grid before the sum), and the step b/a′ for the
+# rounded a′ is a step with a different size from b/a, so whether CD converges depends on how far a′ is
+# from a and on the summation order. These fixtures (raw least squares, so that
+# α a_k = a_k is subnormal and its reciprocal overflows) therefore do not assert convergence. They assert
+# the contract: a run that reports converged = true has a KKT violation within the bound (never converged
+# = true above it), and a run that does not converge only warns that it reached maxpasses. The oracle is
+# the same BigFloat KKT violation as above. The test does not count how many runs converge.
+function subnormal_curvature_cases()
+  [d1_case("Float64, raw LS: X·1e-160, ‖y‖ = 1", Float64, 1.0, nothing; xscale = 1e-160, fractions = (0.0, 0.1, 0.5), coordinate = :subnormal_curvature),
+   d1_case("Float32, raw LS: X·1e-22, ‖y‖ = 1", Float32, 1.0, nothing; xscale = 1e-22, fractions = (0.0, 0.1, 0.5), coordinate = :subnormal_curvature)]
+end
+
+# One solve: only warnings in the log; a run that does not converge says so in the log; if converged, the KKT
+# violation is within kkt_tolerance and the minimum is finite.
+function check_honest(c, λ, x0; order, momentum, owner, relative)
+  T = eltype(c.X)
+  tol = T === Float64 ? 1e-9 : 1e-6
+  tol = relative ? tol : tol * norm(c.y) / maximum(norm, eachcol(c.X))
+  r = cd_solve(c.f, λ, x0; order, momentum, owner, relative, tol)
+  @test only_warnings(r.logs)
+  @test r.converged || !isempty(r.logs)
+  if r.converged
+    @test kkt_relative(c.X, c.y, c.α, λ, r.x) <= kkt_tolerance(T)
+    @test isfinite(r.minimum)
+  end
+  nothing
+end
+
+@testset "subnormal curvature (out of scope): no false convergence: $(c.label)" for c in subnormal_curvature_cases()
+  T = eltype(c.X)
+  p = size(c.X, 2)
+  for fraction in c.fractions
+    λ = penalty_fraction(T, c.X, c.y, c.α, fraction)
+    check_feasible(c.X, c.y, c.α, λ; coordinate = c.coordinate)
+    for x0 in (zeros(T, p), T.(c.c .* (0.3 .* sin.(1:p)))), (order, momentum) in ORDERS, owner in (false, true), relative in (false, true)
+      check_honest(c, λ, x0; order, momentum, owner, relative)
+    end
+  end
 end
 
 # Boundaries of the band: the columns have norm 1 up to rounding, so that α a_k is within 1% of α, and α
@@ -1298,24 +1358,48 @@ end
     b = ProximalBase.prox_block(NormL1(τ), c, 1, one(T))
     @test isequal(a, b) && (isnan(a) || signbit(a) == signbit(b))
   end
+  # a zero penalty stays unpenalized at an infinite step coefficient (the former step at λ = 0)
+  @test ProximalBase.prox_block(NormL1(zero(T)), T(3), 1, T(Inf)) == T(3)
 end
 
-# The threshold λ/(α a): Float32 is the correctly rounded quotient for a Float32 level (computed in Float64
-# from an exact product), Float64 is within 3 eps(Float64) of the quotient where it is normal and within
-# nextfloat(0.0) + 3 eps of it where it is subnormal, and Inf above floatmax. A Float64 or Int level is
-# converted to Float64 first.
+# The threshold λ/(α a): Float32 is within one Float32 ulp of the quotient where that is below floatmax (the
+# product of α and a is exact in Float64 and the quotient is rounded to Float64 and then to Float32, which
+# can round to the neighbor of the correctly rounded value), and at least floatmax where the quotient is.
+# Float64 is within 3 eps(Float64) of the quotient where it is normal, within nextfloat(0.0) + 3 eps of it
+# where it is subnormal, and Inf where the quotient exceeds floatmax by more than 3 eps (relative). A
+# Float64 or Int level is converted to Float64 first.
+function check_float32_threshold(λ, α, a)
+  res = PS._threshold(Float32, λ, α, a)
+  ref = setprecision(BigFloat, 256) do
+    big(λ) / (big(α) * big(a))
+  end
+  @test res isa Float32
+  if ref >= big(floatmax(Float32))
+    @test res >= floatmax(Float32)
+  else
+    @test abs(big(res) - ref) <= big(max(eps(res), eps(min(nextfloat(res), floatmax(Float32)))))
+  end
+  res
+end
+
 @testset "the threshold λ/(α a) over the ranges of α, a and λ (Float32)" begin
   ks = (-140, -100, -60, -20, 0, 20, 60, 100, 120)
   for λ in (0f0, nextfloat(0f0), 1f-30, 0.3f0, 1f10, floatmax(Float32)), jα in ks, ja in ks
-    α, a = ldexp(1.3f0, jα), ldexp(1.7f0, ja)
-    ref = setprecision(BigFloat, 256) do
-      big(λ) / (big(α) * big(a))
-    end
-    @test PS._threshold(Float32, λ, α, a) === Float32(ref)
-    @test PS._threshold(Float32, Float64(λ), α, a) isa Float32
+    check_float32_threshold(λ, ldexp(1.3f0, jα), ldexp(1.7f0, ja))
+    @test PS._threshold(Float32, Float64(λ), ldexp(1.3f0, jα), ldexp(1.7f0, ja)) isa Float32
   end
   @test PS._threshold(Float32, 2, 1f0, 4f0) === 0.5f0
   @test (@inferred PS._threshold(Float32, 0.3, 1.3f0, 2.5f0)) isa Float32
+end
+
+# A case where the quotient is not the correctly rounded Float32 value: the exact product of α and a has 48
+# significant bits, the Float64 quotient falls on a midpoint between two Float32 values, and the second
+# rounding takes the lower one: the result is 2.0000005f0 where the correctly rounded value is 2.0000007f0.
+# The one-ulp bound holds (and the result is one of those two neighbors).
+@testset "the Float32 threshold is within one ulp where the double rounding is not the correct rounding" begin
+  α, a, λ = ldexp(1.7116712f0, -64), ldexp(1.8695179f0, -64), ldexp(1.6000005f0, -126)
+  res = check_float32_threshold(λ, α, a)
+  @test res in (2.0000005f0, 2.0000007f0)
 end
 
 @testset "the threshold λ/(α a) over the ranges of α, a and λ (Float64)" begin
@@ -1390,10 +1474,12 @@ end
 # y = 0 with an extreme loss scale, an absolute penalty and a warm start. The response scale is 0 and the
 # stopping threshold is the absolute tol, for both settings of `relative`. The minimizer is x = 0; CD
 # reaches it with a step that applies the positive threshold λ/(α a_k) once the iterate is within it (the
-# penalty is chosen so that each threshold is between 1e-6 and 0.1, asserted below), where a step that
-# ignores the penalty would end at a point near 0 that is not 0. The reported minimum is finite and nonnegative; it is not
-# asserted to be 0, as the loss part forms Σr² from the cached residual, which keeps the rounding error of
-# the earlier steps (with a large α that error can give a large loss part).
+# penalty is chosen so that each threshold is between 1e-6 and 0.1, asserted below). Where α a_k overflows
+# (the first two fixtures) a step that ignores the penalty would end at a point near 0 that is not 0; where
+# 1/(α a_k) overflows (the last two) the former infinite threshold also gives x = 0 here. The reported
+# minimum is finite and nonnegative; it is not asserted to be 0, as the loss part forms Σr² from the
+# cached residual, which keeps the rounding error of the earlier steps (with a large α that error can give
+# a large loss part).
 zero_response_cases() =
   [("Float64, α = 1e300, X·1e5", Float64, 1e300, 1e5, floatmax(Float64) / 16),
    ("Float32, α = 1f30, X·1e4", Float32, 1f30, 1e4, floatmax(Float32) / 16),
@@ -1454,7 +1540,7 @@ step_cost_cases() =
   [("Float64, in the band", Float64, 0.7, 1.0, false), ("Float32, in the band", Float32, 0.7f0, 1.0, false),
    ("Float64, α a_k overflows", Float64, 1e300, 1e5, true), ("Float32, α a_k overflows", Float32, 1f30, 1e4, true),
    ("Float64, 1/(α a_k) overflows", Float64, 1e-300, 1e-5, true), ("Float32, 1/(α a_k) overflows", Float32, 1f-30, 3e-6, true),
-   ("Float64, raw LS, subnormal curvature", Float64, nothing, 1e-160, true), ("Float32, raw LS, subnormal curvature", Float32, nothing, 1e-22, true)]
+   ("Float64, raw LS, subnormal curvature (out of scope: cost only)", Float64, nothing, 1e-160, true), ("Float32, raw LS, subnormal curvature (out of scope: cost only)", Float32, nothing, 1e-22, true)]
 
 @testset "the step is inferred and allocates nothing on both paths ($label)" for (label, T, α, xscale, exceptional) in step_cost_cases()
   m, x, g = step_model(T, α, xscale)

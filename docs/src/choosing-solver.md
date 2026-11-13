@@ -70,9 +70,10 @@ coordinate scale is not used. Where the product `s * a` is zero, subnormal or
 overflowing for a finite `a` (in the type that combines `s` with the working
 type), CD takes the square roots of `s` and of `a` separately and multiplies
 them, so the scale does not become 0 or infinite because the product left the
-range. It is still 0 where that root is at most half the smallest subnormal
-number, and infinite where it is above the largest finite number; with relative
-scaling active a nonzero coordinate change times an infinite scale makes
+range. The computed scale is still 0 where the root is at most half the
+smallest subnormal number, and infinite where the computed, rounded scale
+overflows the working type; with relative scaling active a nonzero coordinate
+change times an infinite scale makes
 `solve!` throw an `ArgumentError` ("a coordinate step or its stopping scale is
 not finite") and leave the starting point unchanged.
 
@@ -82,9 +83,10 @@ least the smallest normal number of the type that combines `s` with the working
 type, it applies the proximal operator with the coefficient `1 / (s * a)`.
 Where one of them is smaller (the product is zero or subnormal, or it is large
 enough that its reciprocal is subnormal or zero), that coefficient can be 0,
-infinite or inexact: 0 would ignore the penalty and an infinite coefficient
-would set the coordinate to 0. The step then forms the threshold without the
-product and its reciprocal. A threshold above the largest finite number sets a
+infinite or inexact. With a positive penalty, 0 would ignore the penalty and an
+infinite coefficient would set a finite unpenalized minimizer to 0; a zero
+penalty stays unpenalized for any coefficient. The step then forms the
+threshold without the product and its reciprocal. A threshold above the largest finite number sets a
 finite unpenalized minimizer to 0. A column whose squared norm `a` is not finite
 in the working type makes `solve!` throw an `ArgumentError` that names the
 curvature, with the starting point unchanged.
