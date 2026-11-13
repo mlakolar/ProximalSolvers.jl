@@ -94,7 +94,7 @@ _cache(m::LSModel) = m.r
 # tolerance can round to 0. If the rounded `p` is infinite the root is formed in `S` and rounded.
 # Coordinate scale: the root of the rounded `p` where that is a normal number of `T`, else the root
 # of `p` formed in `S` and rounded to `T`, which is 0 only where that root rounds to 0 in `T` (also
-# for p = 0, a column of zero curvature). For `S == T` both expressions equal `sqrt(p)`.
+# for p = 0, including a column of zero curvature). For `S == T` both expressions equal `sqrt(p)`.
 function coordinate_scale(m::LSModel{T}, x, k::Int) where T
   p = m.s*_sqnorm!(m, k)
   q = T(p)

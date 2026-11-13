@@ -74,8 +74,9 @@ kkt_violation(X, y, α, λ, x) = ((v, dmax, _) = kkt_terms(X, y, α, λ, x); (v,
 kkt_tolerance(::Type{T}) where T = max(1e-7, 100eps(T))
 # violation / (kkt_tolerance * scale): at most 1 is accepted
 kkt_ratio(X, y, α, λ, x) = ((v, s) = kkt_violation(X, y, α, λ, x); v / (kkt_tolerance(eltype(x)) * s))
-# The same with the scale max(λ, ‖α Xᵀy‖∞), for a penalty of 0 or below the size of ‖d‖∞ at the
-# solution, where the scale of `kkt_ratio` is the violation's own size.
+# The same with the scale max(λ, ‖α Xᵀy‖∞), used below only with λ = 0. For λ = 0 the violation
+# equals ‖d‖∞, so the scale of `kkt_ratio` is the violation's own size and its ratio is 1/tolerance
+# at any point where d ≠ 0; the response scale does not have that property.
 kkt_ratio_response(X, y, α, λ, x) =
   ((v, _, e) = kkt_terms(X, y, α, λ, x); v / (kkt_tolerance(eltype(x)) * max(Float64(λ), e)))
 
@@ -279,7 +280,7 @@ end
 # 0 in Float32 (below nextfloat(0f0)/2) or to a subnormal, while its root is a normal Float32 of
 # order 1e-23. With a scale of 0, `_visit!` counts the displacement of that coordinate as 0; if that
 # holds for all coordinates, CD accepts the first pass as converged at a point that need not be a
-# solution. A product that rounds to a subnormal has fewer significant digits than the exact product.
+# solution. A product that rounds to a subnormal can lose significant digits of the exact product.
 # The Float32 data X below have two columns with a ≈ 0.063.
 const COLUMN_CURVATURE = 0.063
 boundary_problem() = (Float32[.251 .24; 0 .0735], Float32[1e8, 1e8], fill(.2f0, 2))
@@ -371,7 +372,7 @@ end
 end
 
 # ---------------------------------------------------------------------------
-# 8. An objective above floatmax(Float32) is refused, and x is not changed
+# 8. An objective that rounds to Inf in Float32 is refused, and x is not changed
 # ---------------------------------------------------------------------------
 # The reported objective α Σr²/2 is formed in Float64 and rounded to Float32. The second row of X is
 # 0, so its residual stays y₂, and the solution is x = 0 with Σr² = fl(y₂²). The two scales below put

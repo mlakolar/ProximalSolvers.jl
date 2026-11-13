@@ -201,12 +201,18 @@ the two stopping scales and the reported objective are formed from that
 value and rounded to `T` where they enter the iterate, the tolerance or
 the result; an `Int`, `Rational{Int}`, `Irrational`, `Bool` or `Float16`
 scale is used there as `T(s)`. A `BigFloat`, `BigInt` or
-`Rational{BigInt}` loss scale makes the scalar arithmetic of CD (the
-step coefficient, the two stopping scales and the reported objective)
-`BigFloat`, at the precision current when the solve runs; it allocates
+`Rational{BigInt}` loss scale makes the scalar arithmetic of CD that involves
+it (the step coefficient, the products of the loss scale in the two
+stopping scales, and the reported objective's product) `BigFloat`, at the
+precision current when the solve runs; the square roots of the stopping
+scales on their normal-range branch are formed in `T`. It allocates
 and is slow, and is not a fast path. This convenience does **not**
 enable a general mixed-precision model or guarantee that every
-intermediate operation uses `T`. Prefer explicit native scalars:
+intermediate operation uses `T`. Prefer explicit native scalars. Writing
+`one(T) / T(n)` chooses a native `T` scale: it is `1/n` rounded to `T`, which
+can differ from the `Float64` `1/n`, so the solve uses the rounded value (the
+problem changes at the rounding level of `T`) and the scale arithmetic stays
+in `T`:
 
 ```julia
 T = Float32

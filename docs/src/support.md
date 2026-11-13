@@ -35,9 +35,11 @@ keeps its `Float64` value, also where that value is subnormal in
 `Float32`. The arrays and the coefficients stay in `T`, so this does
 not imply mixed-precision array support or a guarantee about every
 intermediate arithmetic type. A `BigFloat`, `BigInt` or
-`Rational{BigInt}` loss scale makes the scalar arithmetic of CD (the step
-coefficient, the two stopping scales and the reported objective)
-`BigFloat`, at the precision current when the solve runs; it allocates
+`Rational{BigInt}` loss scale makes the scalar arithmetic of CD that involves
+it (the step coefficient, the products of the loss scale in the two
+stopping scales, and the reported objective's product) `BigFloat`, at the
+precision current when the solve runs; the square roots of the stopping
+scales on their normal-range branch are formed in `T`. It allocates
 and is slow, and is not a fast path.
 
 The data must not be modified while a solve is running. The coefficient
