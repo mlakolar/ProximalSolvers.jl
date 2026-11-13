@@ -104,7 +104,7 @@ function check_quality(key, record; label = "")
   parts = split(key, '/')
   T = parts[2] == "Float32" ? Float32 : Float64
   tolerance = quality_tolerance(T)
-  context = "$key $label"
+  context = isempty(label) ? key : "$key $label"
   objective, kkt, optimum = Float64(record["objective"]), Float64(record["kkt"]), Float64(record["optimum"])
   scale = max(1.0, abs(optimum))
   isfinite(objective) && objective - optimum <= tolerance * scale ||
@@ -149,7 +149,7 @@ end
 #   passes (src/cd/solver.jl:196-205), and `st.passes = pass` (line 199), so a record that is not
 #   `converged` has `passes == CD_MAXPASSES`.
 function check_flags(key, record; label = "")
-  context = "$key $label"
+  context = isempty(label) ? key : "$key $label"
   field(name) = haskey(record, name) ? record[name] : error("stopping field $name is missing: $context")
   flag(name) = field(name) isa Bool ? field(name) : error("stopping flag $name is not a Boolean: $context")
   if endswith(key, "/pgd")
