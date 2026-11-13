@@ -12,3 +12,9 @@ using Test, LinearAlgebra, ProximalBase, ProximalSolvers
 end
 
 end
+
+# Planted failure (do not merge; #228 PR C failure injection): fails only on macOS.
+using Test
+@testset "planted macOS-only failure (#228 injection)" begin
+  @test !Sys.isapple()
+end
