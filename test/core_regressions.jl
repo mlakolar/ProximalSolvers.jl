@@ -507,6 +507,32 @@ end
   @test st.verifications == 1 && st.L == 1e157 && !st.backtrack_simple
 end
 
+@testset "PGD end to end under the strict ftol = 0 settings" begin
+  # solve! with ftol = 0, allow_f_increases = true, xtol = 1e-300, gradtol = 1e-11 on the
+  # Float32 design above. Float32 reaches its floating-point fixed point, where gradtol = 1e-11
+  # is out of reach and an unchanged iterate is not convergence under ftol = 0, so the solve
+  # runs to maxiter with converged = false; the point meets the gap target. Float64 stops on the
+  # gradient test.
+  X, y, s, λ = pgd_lasso_design(33, 100, 32)
+  for (T, maxiter) in ((Float32, 300), (Float64, 2000))
+    A, b = T.(X), T.(y)
+    f, g = T(s) * LeastSquaresLoss(b, A), NormL1(T(λ))
+    options = ProximalOptions(ftol = 0, allow_f_increases = true, xtol = 1e-300, gradtol = 1e-11, maxiter = maxiter)
+    x = zeros(T, 32)
+    r = solve!(x, f, g, ProximalGradientDescent(), options)
+    gap = pgd_relative_gap(A, b, Float64(T(s)), Float64(T(λ)), x)
+    if T === Float32
+      @test gap <= 1e-6
+      @test r.iterations == maxiter && r.iteration_converged && !r.converged
+      @test !r.x_converged && !r.grad_converged && !r.f_converged
+    else
+      @test gap <= 1e-9
+      @test r.converged && r.grad_converged && !r.x_converged && !r.f_converged
+      @test r.iterations < maxiter
+    end
+  end
+end
+
 # ---- ftol = 0 switches off objective-change stopping (#270) ----------------------------------
 # convergence_assessment of a constructed state: the solver's own initial_state, then the fields
 # that the assessment reads are set. F = f_x + g_x with g_x = 0; xtol = 1e-8, gradtol = 1e-11.
