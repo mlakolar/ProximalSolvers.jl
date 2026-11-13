@@ -300,9 +300,10 @@ python3 -B benchmark/campaigns/stage2b/test_stage2b_campaign.py
 python3 -B benchmark/campaigns/stage2b/probes/test_check_reset_probes.py
 ```
 
-The job checks out the full history and first checks that the two commits pinned in `test_stage2b_campaign.py`
-(`BASE_COMMIT`, `STACK_A_COMMIT`) are present. The tests at those commits fail, and are never skipped, when a commit
-is missing; a skipped test also fails its step. A failing suite fails the job and therefore the PR merge gate.
+Every leg checks out the full history, and the `campaign` leg first checks that the two commits pinned in
+`test_stage2b_campaign.py` (`BASE_COMMIT`, `STACK_A_COMMIT`) are present. The tests at those commits fail, rather than
+skip, when a commit is missing; a skipped test also fails its step. A failing suite fails its leg, which fails the job's
+result (`needs.analysis.result`), which `PR required jobs` and then `PR merge gate` read.
 
 The Julia test
 of the P14 port runs separately, from the repository root, in an environment with ProximalBase, ProximalSolvers
