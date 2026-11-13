@@ -67,20 +67,6 @@ end
 
 _check_keywords(kwargs) = isempty(kwargs) ||
   throw(ArgumentError("unsupported solve! keywords: $(join(keys(kwargs), ", "))"))
-_check_method(method) = throw(ArgumentError("unsupported solver $(typeof(method))"))
-
-function _check_options(o::ProximalOptions)
-  o.maxiter>1 || throw(ArgumentError("maxiter must be greater than 1"))
-  isfinite(o.ftol) && o.ftol>0 || throw(ArgumentError("ftol must be finite and positive"))
-  isfinite(o.xtol) && o.xtol>0 || throw(ArgumentError("xtol must be finite and positive"))
-  isfinite(o.gradtol) && o.gradtol>=0 || throw(ArgumentError("gradtol must be finite and nonnegative"))
-  min(o.f_calls_limit,o.grad_calls_limit,o.prox_calls_limit)>=0 || throw(ArgumentError("call limits must be nonnegative"))
-  o.print_every>0 && o.gapevery>0 || throw(ArgumentError("print_every and gapevery must be positive"))
-  !isnan(o.time_limit) || throw(ArgumentError("time_limit must not be NaN"))
-  iszero(o.gaptol) || throw(ArgumentError("gap certificates are deferred"))
-  nothing
-end
-
 _check_start(f_x) = isfinite(f_x) || throw(ArgumentError("start from a point where f is finite"))
 
 function _solve_gradient!(state, f, g, method, options, t0 = time())

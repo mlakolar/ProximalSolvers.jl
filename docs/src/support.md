@@ -57,11 +57,13 @@ The current development core intentionally excludes the following:
 | Generic workspaces, refitting, reweighting | Deferred |
 | PGD or APG with `SparseIterate` coefficients | Deferred |
 | CD `anderson>0`, `gaptol>0`, `gapsafe=true` | Rejected; not implemented |
+| `ProximalOptions(gaptol>0)` | Rejected when the options are constructed; not implemented |
 | PGD `normalized=true`, `debias>0`, `preconditioner != :none` | Rejected; not implemented |
 | APG `preconditioner != :none` | Rejected; not implemented |
 
-Some rejected keywords remain accepted by *constructors* only to
-provide informative errors and compatibility with historical signatures.
+Some rejected keywords remain accepted by *constructors*, at their default
+values only, to provide informative errors and compatibility with historical
+signatures; the solvers and options do not store them.
 Do not interpret their presence as available functionality.
 The reported `gap=NaN` and CD's `kkt_checks=0` are placeholders, not
 computed certificates.

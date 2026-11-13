@@ -12,7 +12,8 @@ the step size.
 `LineSearches.BackTracking()` line search. The options
 `normalized=true`, `debias>0`, `preconditioner!=:none` and custom
 line searches are not implemented and are rejected. These constructor
-keywords remain for compatibility with earlier versions.
+keywords remain for compatibility with earlier versions; their default values
+are accepted and not stored.
 
 Pass `ProximalOptions(...)` as the fifth argument to `solve!` to
 configure stopping tolerances and iteration limits. **The defaults may
@@ -23,25 +24,26 @@ independently before reporting numerical results.
 See the [solver guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/)
 and [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
 """
-struct ProximalGradientDescent{L, P} <: ProximalSolver
+struct ProximalGradientDescent{L} <: ProximalSolver
   ls::L
-  normalized::Bool
-  debias::Int
-  preconditioner::P
+  # The only constructor; BackTracking validates its own settings.
+  function ProximalGradientDescent(ls::L) where L
+    ls isa LineSearches.BackTracking || throw(ArgumentError("only BackTracking is supported"))
+    new{L}(ls)
+  end
 end
 
 Base.summary(::ProximalGradientDescent) = "Proximal Gradient Descent"
 
-ProximalGradientDescent(ls) = ProximalGradientDescent(; ls)
 ProximalGradientDescent(ls, normalized::Bool, debias::Int) = ProximalGradientDescent(; ls, normalized, debias)
 
+# normalized, debias and preconditioner are accepted at their defaults only and not stored.
 function ProximalGradientDescent(; ls = LineSearches.BackTracking(), normalized::Bool = false, debias::Integer = 0, preconditioner::Symbol = :none)
   debias >= 0 || throw(ArgumentError("debias must be nonnegative, but it is $debias."))
   !normalized || throw(ArgumentError("normalized IHT is deferred"))
   iszero(debias) || throw(ArgumentError("debiasing is deferred"))
   preconditioner === :none || throw(ArgumentError("preconditioning is deferred"))
-  ls isa LineSearches.BackTracking || throw(ArgumentError("only BackTracking is supported"))
-  ProximalGradientDescent(ls, normalized, Int(debias), nothing)
+  ProximalGradientDescent(ls)
 end
 
 # Native dense iterates/gradients with retained LS image buffers.
@@ -146,15 +148,6 @@ end
 LineSearches.value_and_gradient_at_x!(state::ProximalGradientDescentState, f) =
   _value_and_gradient!(state.grad_f_x, f, state.x, state.model, state.z_x, state.dz)
 
-function _check_method(m::ProximalGradientDescent)
-  !m.normalized && iszero(m.debias) && m.preconditioner === nothing ||
-    throw(ArgumentError("normalized IHT, debiasing and preconditioning are deferred"))
-  m.ls isa LineSearches.BackTracking || throw(ArgumentError("only BackTracking is supported"))
-  0 < m.ls.α <= 1 && 0 < m.ls.β < 1 && m.ls.Lexact > 0 ||
-    throw(ArgumentError("invalid BackTracking settings"))
-  nothing
-end
-
 """
     solve!(x, f, g, CDSolver())
     solve!(x, f, g, ProximalGradientDescent(), options=ProximalOptions())
@@ -199,8 +192,6 @@ handles taken earlier may no longer describe the active set.
 function solve!(x, f, g, method::ProximalGradientDescent,
                 options::ProximalOptions = ProximalOptions(); kwargs...)
   _check_keywords(kwargs)
-  _check_method(method)
-  _check_options(options)
   _check_problem(x, f, g)
   t0 = time()
   state = initial_state(method, options, f, g, x)

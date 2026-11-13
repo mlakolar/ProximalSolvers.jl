@@ -108,10 +108,89 @@ end
   @test_throws ArgumentError ProximalGradientDescent(debias = 1)
   @test_throws ArgumentError ProximalGradientDescent(preconditioner = :diagonal)
   @test_throws ArgumentError ProximalGradientDescent(ls = nothing)
-  f, g = LeastSquaresLoss([1.], ones(1, 1)), NormL1(.1)
-  refused([0.], f, g, ProximalGradientDescent(); options = ProximalOptions(gaptol = .1))
-  refused([0.], f, g,
-    ProximalGradientDescent(ProximalSolvers.LineSearches.BackTracking(), true, 0, nothing))
+  # the explicit 3-argument method still routes through the keyword checks
+  @test_throws ArgumentError("normalized IHT is deferred") ProximalGradientDescent(
+    ProximalSolvers.LineSearches.BackTracking(), true, 0)
+  @test_throws ArgumentError("debiasing is deferred") ProximalGradientDescent(
+    ProximalSolvers.LineSearches.BackTracking(), false, 1)
+end
+@testset "PGD and its options have one validated constructor each (#268)" begin
+  LS = ProximalSolvers.LineSearches
+  # the deferred settings are accepted at their defaults but not stored
+  @test fieldnames(ProximalGradientDescent) == (:ls,)
+  @test ProximalGradientDescent(normalized = false, debias = 0, preconditioner = :none) ==
+        ProximalGradientDescent() == ProximalGradientDescent(LS.BackTracking()) ==
+        ProximalGradientDescent(LS.BackTracking(), false, 0)
+  @test ProximalGradientDescent() isa ProximalGradientDescent{LS.BackTracking{Float64}}
+  @test_throws ArgumentError("debias must be nonnegative, but it is -1.") ProximalGradientDescent(debias = -1)
+  @test_throws ArgumentError("normalized IHT is deferred") ProximalGradientDescent(normalized = true)
+  @test_throws ArgumentError("debiasing is deferred") ProximalGradientDescent(debias = 1)
+  @test_throws ArgumentError("preconditioning is deferred") ProximalGradientDescent(preconditioner = :diagonal)
+  for ls in (nothing, :backtracking, 0.5)
+    @test_throws ArgumentError("only BackTracking is supported") ProximalGradientDescent(ls)
+    @test_throws ArgumentError("only BackTracking is supported") ProximalGradientDescent(; ls)
+  end
+  # the former default constructors with the deferred fields are gone
+  @test_throws MethodError ProximalGradientDescent(LS.BackTracking(), false, 0, nothing)
+  @test_throws MethodError ProximalGradientDescent{LS.BackTracking{Float64}}(LS.BackTracking())
+  # BackTracking validates every route, before and after conversion to floating point
+  message = "backtracking needs 0 < α <= 1, 0 < β < 1, and Lexact > 0"
+  for (α, β, Lexact) in ((0., .5, Inf), (1.5, .5, Inf), (.9, 1., Inf), (.9, 0., Inf),
+                         (.9, .5, 0.), (NaN, .5, Inf), (.9, NaN, Inf), (.9, .5, NaN))
+    @test_throws ArgumentError(message) LS.BackTracking(α, β, Lexact)
+    @test_throws ArgumentError(message) LS.BackTracking(; α, β, Lexact)
+  end
+  @test_throws ArgumentError(message) LS.BackTracking(α = 1 + big(1) // big(10)^20)
+  # a setting valid as given but not after promotion (2-bit BigFloat: 0.99 rounds to 1)
+  setprecision(BigFloat, 2) do
+    @test_throws ArgumentError(message) LS.BackTracking(β = 0.99, Lexact = big(Inf))
+  end
+  @test_throws MethodError LS.BackTracking{Float64}(.9, .5, Inf)
+  @test LS.BackTracking(α = 1, β = 1 // 4, Lexact = 10) === LS.BackTracking(1.0, 0.25, 10.0)
+  @test LS.BackTracking(α = .9f0, β = .5f0, Lexact = Inf32) isa LS.BackTracking{Float32}
+  # ProximalOptions: gaptol and gapevery are accepted for compatibility and not stored;
+  # a nondefault gaptol is refused at construction
+  @test fieldnames(ProximalOptions) == (:maxiter, :ftol, :xtol, :gradtol, :f_calls_limit,
+    :grad_calls_limit, :prox_calls_limit, :allow_f_increases, :store_trace, :show_trace,
+    :extended_trace, :print_every, :callback, :time_limit)
+  plain = ProximalOptions()
+  @test all(n -> isequal(getfield(plain, n), getfield(ProximalOptions(gaptol = 0, gapevery = 17), n)),
+            fieldnames(ProximalOptions))
+  @test_throws ArgumentError("gap certificates are deferred") ProximalOptions(gaptol = .1)
+  @test_throws ArgumentError("gap certificates are deferred") ProximalOptions(gaptol = 1e-300)
+  for v in (-1., Inf, NaN)
+    @test_throws ArgumentError("gaptol must be finite and nonnegative.") ProximalOptions(gaptol = v)
+  end
+  @test_throws ArgumentError("gapevery must be positive.") ProximalOptions(gapevery = 0)
+  for (kw, v, message) in ((:maxiter, 1, "maxiter must be an integer greater than 1."),
+                           (:ftol, 0., "ftol must be finite and positive."),
+                           (:xtol, NaN, "xtol must be finite and positive."),
+                           (:gradtol, -1., "gradtol must be finite and nonnegative."),
+                           (:f_calls_limit, -1, "call limits must be nonnegative."),
+                           (:grad_calls_limit, -1, "call limits must be nonnegative."),
+                           (:prox_calls_limit, -1, "call limits must be nonnegative."),
+                           (:time_limit, NaN, "time_limit must not be NaN."),
+                           (:print_every, 0, "print_every must be positive."))
+    @test_throws ArgumentError(message) ProximalOptions(; kw => v)
+  end
+  # tolerances are checked as given and after conversion to Float64
+  tiny = big(1) // big(10)^400
+  @test_throws ArgumentError("ftol must be finite and positive.") ProximalOptions(ftol = tiny)
+  @test_throws ArgumentError("xtol must be finite and positive.") ProximalOptions(xtol = tiny)
+  @test_throws ArgumentError("gradtol must be finite and nonnegative.") ProximalOptions(gradtol = -tiny)
+  @test_throws ArgumentError("ftol must be finite and positive.") ProximalOptions(1000, tiny, 1e-8, 1e-5,
+    0, 0, 0, false, false, false, false, 1, nothing, Inf)
+  @test ProximalOptions(gradtol = tiny).gradtol === 0.0
+  # time_limit keeps its untyped keyword: anything convertible to Float64 is accepted
+  @test ProximalOptions(time_limit = 5 + 0im).time_limit === 5.0
+  @test_throws ArgumentError("time_limit must not be NaN.") ProximalOptions(time_limit = complex(NaN, 0))
+  @test_throws MethodError ProximalOptions{Nothing}((getfield(plain, n) for n in fieldnames(ProximalOptions))...)
+  # the former 16-field positional form with gaptol and gapevery is gone
+  @test_throws MethodError ProximalOptions((getfield(plain, n) for n in fieldnames(ProximalOptions))..., 0., 10)
+  callback = state -> false
+  o = ProximalOptions(maxiter = big(50), ftol = 1 // 10^6, print_every = Int32(3), time_limit = 5, callback = callback)
+  @test o.maxiter === 50 && o.ftol === 1e-6 && o.print_every === 3 && o.time_limit === 5.0
+  @test o isa ProximalOptions{typeof(callback)} && o.callback === callback
 end
 @testset "CDSolver has one validated constructor (#268)" begin
   # anderson, gaptol and gapsafe are accepted at their defaults but not stored
@@ -164,17 +243,18 @@ end
     end
   end
 end
-@testset "auto positional options are validated before mutation" begin
+@testset "positional options are validated at construction" begin
   f, g = LeastSquaresLoss([1.], ones(1, 1)), NormL1(.1)
   valid = ProximalOptions()
   for (field, bad) in ((:maxiter, 1), (:ftol, NaN), (:xtol, 0.), (:gradtol, -1.),
        (:f_calls_limit, -1), (:grad_calls_limit, -1), (:prox_calls_limit, -1),
-       (:print_every, 0), (:gapevery, 0), (:time_limit, NaN), (:gaptol, .1))
+       (:print_every, 0), (:time_limit, NaN))
     values = Any[getfield(valid, n) for n in fieldnames(typeof(valid))]
     values[findfirst(n -> n == field, fieldnames(typeof(valid)))] = bad
-    options = typeof(valid)(values...)
-    refused([0.], f, g, ProximalGradientDescent(); options)
+    @test_throws ArgumentError ProximalOptions(values...)
   end
+  values = Any[getfield(valid, n) for n in fieldnames(typeof(valid))]
+  @test isequal(ProximalOptions(values...), valid)
   r = solve!([0.], f, g, ProximalGradientDescent(), ProximalOptions(time_limit = -1.))
   @test r.iterations == 1
   x, z = [0.], [0.]

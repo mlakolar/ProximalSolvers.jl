@@ -30,8 +30,15 @@ struct BackTracking{T<:Real}
     α::T
     β::T
     Lexact::T
+    # The only constructor, so every route into a BackTracking is validated.
+    function BackTracking(α::T, β::T, Lexact::T) where {T<:Real}
+        0 < α <= 1 && 0 < β < 1 && Lexact > 0 ||
+            throw(ArgumentError("backtracking needs 0 < α <= 1, 0 < β < 1, and Lexact > 0"))
+        new{T}(α, β, Lexact)
+    end
 end
 
+# The settings are also checked before their conversion to floating point.
 function BackTracking(; α::Real = 0.9, β::Real = 0.5, Lexact::Real = Inf)
     0 < α <= 1 && 0 < β < 1 && Lexact > 0 ||
         throw(ArgumentError("backtracking needs 0 < α <= 1, 0 < β < 1, and Lexact > 0"))
