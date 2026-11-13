@@ -104,6 +104,27 @@ change the assertion in `test/ci_gate.jl` that `CI.yml` has no macOS or Windows 
 file whose text matches the guard needs a registration, and a registration needs an implemented
 enforcement mechanism.
 
+**What a numerical test asserts.** An optimization test states what the code is meant to guarantee.
+
+- *Numerical correctness* is checked against an independent reference: objective quality, the KKT
+  residual, the duality gap where one is computed, feasibility, fitted values, and coefficients only
+  where the solution is unique. Different trajectories, iteration counts, floating-point bits and
+  random-number advancement are accepted when they violate no documented contract. Stopping flags are
+  checked for what they report: `converged=true` is not an accuracy certificate, so accuracy comes from
+  the independent checks and the flags are checked only for being consistent with the stopping
+  rules in `src/`.
+- *Mechanical refactors* may show unchanged behavior by exact trajectories, as a diagnostic. An exact
+  trajectory is not a correctness requirement for an optimization algorithm.
+- *Performance* compares time and computational work at matched, independently verified accuracy,
+  and not only at equal iteration counts.
+- *Randomized algorithms* use fixed seeds so that a run can be repeated. A seed does not make a
+  historical trajectory part of the contract unless a test says so.
+- *Exact contracts* stay exact: structural invariants, owner storage semantics, input preservation and
+  identity, exact scalar operations, the result API surface, and mutation safety and rollback.
+
+Existing numerical tests are not relaxed wholesale. Each assertion is audited for what it guarantees,
+and the accuracy thresholds are not loosened to make a run pass.
+
 The existing Benchmark analysis controls job has no tier or test-reuse condition, so it is
 independent of the main tier and nightly test reuse. It runs as three separate matrix
 legs (`comparator`, `campaign` and `controls`) that GitHub can run concurrently. The `controls`
@@ -111,6 +132,35 @@ leg also executes small exact-source A/B diagnostics using fresh isolated proces
 earlier steps succeed, and the job retains the Python benchmark controls. The normal package suite uses the exact current PB pin. Run
 `julia --startup-file=no --project=@stdlib scripts/paired_master_diagnostics.jl`
 for the paired control; it needs Git/network access and ordinary Julia package
-resolution. Its signed-support reference and wider-precision objective/KKT checks
-are independent of PB proximal operators and PS stopping/caches. The full suite
-continues to exercise the broader unchanged C0 oracle and behavioral fixtures.
+resolution. Side A is the frozen extraction and side B the current tree, each in its own process
+with its own source-identity checks and pins.
+
+The paired control compares the 288 records of the two sides by kind. The inventory and the
+format are fixed.
+
+- **Optimization records** (`lasso/...`: proximal gradient descent and both coordinate-descent
+  orders): both sides must pass the same independent quality checks, each with its own
+  normalizer, where `tolerance` is `5e-4` in `Float32` and `2e-6` in `Float64`:
+  objective against the signed-support or analytic reference, within `tolerance * max(1, |optimum|)`;
+  the returned minimum against the independent objective, within the same bound; the KKT residual,
+  within `tolerance * kkt_scale`, where `kkt_scale = max(1, α‖Xᵀy‖∞, λ)` for the loss scale `α` and
+  the penalty `λ`; fitted values, within `4 * tolerance * max(1, ‖reference_fit‖∞)`; and, for the
+  designs with a unique solution, coefficients, within `4 * tolerance * max(1, ‖reference_point‖∞)`.
+  The probe stops at once when a check fails on its own side.
+  The current tree must also have stopping flags that satisfy the relations below. Side A is not
+  checked for them. For proximal gradient descent, `converged` is the disjunction of `x_converged`, `f_converged` and
+  `grad_converged`, `iteration_converged` is `iterations == maxiter`, and a run that did not converge
+  reports `iteration_converged`, `f_increased` or `call_limit_reached`. For coordinate descent,
+  `converged` implies `maxchange < tolerance`, and a run that did not converge made `maxpasses`
+  passes. The source lines for these relations are cited in `check_flags` in
+  `scripts/paired_master_diagnostics.jl`. Both sides must have the same result fields. Bits,
+  trajectories, iteration counts and random-number advancement may differ: a differing record is
+  printed as a `diagnostic:` line and is not a failure.
+- **Exact contracts** (`scalar/...` scalar oracle values and `owner/...` storage semantics): the two
+  sides must be equal.
+
+The signed-support reference and the wider-precision objective/KKT checks are independent of PB
+proximal operators and PS stopping and caches. `test/paired_master.jl` shows on synthetic records that
+accurate solutions with different bits pass and that an inaccurate record, a flag inconsistency, a
+changed exact record, a missing record and a changed field set fail. The full suite continues to
+exercise the broader unchanged C0 oracle and behavioral fixtures.

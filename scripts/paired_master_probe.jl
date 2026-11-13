@@ -12,8 +12,7 @@ realpath(pathof(PB)) == realpath(joinpath(pb_root, "src", "ProximalBase.jl")) ||
 ps_identity = PM.checkout_identity(ps_root, ps_sha; digest = ps_digest)
 pb_identity = PM.checkout_identity(pb_root, pb_sha; digest = pb_digest)
 PM.pinned_revision(ps_root) == pb_sha || error("PS/PB pin mismatch")
-bits(v::Union{Float32, Float64}) = string(typeof(v), ":", bitstring(v))
-bits(v::AbstractArray) = bits.(v)
+const bits = PM.bits
 
 # Independent Float64 arithmetic, including evaluation of Float32 solutions at
 # wider precision. These helpers never call PB prox or PS caches/stopping code.
@@ -76,11 +75,11 @@ for T in (Float32, Float64), design in ("orthogonal", "correlated", "nonunique")
     f = scale_id == 1 ? LeastSquaresLoss(y, X) : scale * LeastSquaresLoss(y, X)
     g = NormL1(lambda)
     rng = Xoshiro(713)
-    method = method_name == "random" ? CDSolver(; rng) :
-             method_name == "cyclic" ? CDSolver(; order = :cyclic, momentum = false, rng) :
+    method = method_name == "random" ? CDSolver(; rng, maxpasses = PM.CD_MAXPASSES) :
+             method_name == "cyclic" ? CDSolver(; order = :cyclic, momentum = false, rng, maxpasses = PM.CD_MAXPASSES) :
              ProximalGradientDescent()
     result = with_logger(NullLogger()) do
-      method_name == "pgd" ? solve!(x, f, g, method, ProximalOptions(; maxiter = 10_000,
+      method_name == "pgd" ? solve!(x, f, g, method, ProximalOptions(; maxiter = PM.PGD_MAXITER,
         ftol = eps(T)^2, xtol = eps(T)^2, gradtol = T == Float32 ? 1e-6 : 1e-10)) :
         solve!(x, f, g, method)
     end
@@ -88,17 +87,11 @@ for T in (Float32, Float64), design in ("orthogonal", "correlated", "nonunique")
     objective, kkt, fitted = objective_kkt(X, y, x, scale, lambda)
     solution = reference(X, y, scale, lambda, nonunique)
     optimum, _, reference_fit = objective_kkt(X, y, solution, scale, lambda)
-    tolerance = T == Float32 ? 5e-4 : 2e-6
-    objective_scale = max(1.0, abs(optimum))
-    isfinite(objective) && objective - optimum <= tolerance * objective_scale || error("independent objective failure")
-    kkt <= tolerance * max(1.0, Float64(scale) * norm(Float64.(X)' * Float64.(y), Inf), Float64(lambda)) ||
-      error("independent KKT failure: $T/$design/$scale_id/$penalty_id/$start_id/$method_name: $kkt")
-    abs(Float64(result.minimum) - objective) <= tolerance * objective_scale || error("returned objective mismatch")
-    norm(fitted - reference_fit, Inf) <= 4tolerance * max(1, norm(reference_fit, Inf)) || error("independent fitted-value failure")
-    nonunique || norm(Float64.(x) - solution, Inf) <= 4tolerance * max(1, norm(solution, Inf)) || error("independent coefficient failure")
     record = Dict{String, Any}("minimum" => bits(result.minimum), "objective" => objective,
-      "kkt" => kkt, "fitted" => fitted, "rng_next" => string(rand(rng, UInt64)))
-    nonunique || (record["point"] = bits(x))
+      "kkt" => kkt, "fitted" => fitted, "rng_next" => string(rand(rng, UInt64)),
+      "optimum" => optimum, "reference_fit" => reference_fit,
+      "kkt_scale" => max(1.0, Float64(scale) * norm(Float64.(X)' * Float64.(y), Inf), Float64(lambda)))
+    nonunique || (record["point"] = bits(x); record["reference_point"] = solution)
     for name in (:passes, :iterations, :converged, :iteration_converged, :x_converged,
         :x_residual, :f_converged, :f_residual, :grad_converged, :g_residual,
         :f_increased, :maxchange, :tolerance, :kkt_checks, :gap, :backtrack_steps,
@@ -107,7 +100,9 @@ for T in (Float32, Float64), design in ("orthogonal", "correlated", "nonunique")
       value = getproperty(result, name)
       record[string(name)] = value isa Union{Float32, Float64} ? bits(value) : value
     end
-    records["lasso/$T/$design/$scale_id/$penalty_id/$start_id/$method_name"] = record
+    key = "lasso/$T/$design/$scale_id/$penalty_id/$start_id/$method_name"
+    PM.check_quality(key, record)   # a failed independent check stops the probe at once
+    records[key] = record
   end
 end
 
