@@ -244,12 +244,14 @@ end
 # comment. A `using` or `import` statement that continues on the following lines (while its text
 # ends with `,` or `:`) is matched as one statement, starting at the word `using` or `import`
 # wherever it occurs in a line. The patterns name the C-call forms (`ccall`, `@ccall`, `cglobal`,
-# `llvmcall`), the modules LAPACK and BLAS (when followed by `.`, `:`, `,`, `;`, a closing bracket or
-# the end of the line, so that prose such as "BLAS kernel" does not match), a `:LAPACK`-style symbol,
-# `Libdl` and `Libc`, and imports of these modules. Out of scope: names built at run time
-# (`eval(Symbol(...))`, `getfield` with a computed symbol) and the expansion of external macros; this
-# is a scope statement, not a claim that no native call can escape. Generic linear algebra (`mul!`,
-# `dot`) is not matched.
+# `llvmcall`); `LinearAlgebra.LAPACK` and `LinearAlgebra.BLAS` (also with spaces around the dot) and
+# `Base.Libc`, whatever follows the name; an unqualified word `LAPACK`, `BLAS` or `Libc`, unless
+# whitespace and then a letter or underscore follow it (prose such as "BLAS kernel"); a
+# `:LAPACK`-style symbol; `Libdl`; and imports of these modules (`import ... as` included).
+# Known miss: an unqualified module name followed by whitespace and an identifier, such as the macro
+# argument in `@m BLAS x`. Out of scope: names built at run time (`eval(Symbol(...))`, `getfield`
+# with a computed symbol) and the expansion of external macros; this is a scope statement, not a
+# claim that no native call can escape. Generic linear algebra (`mul!`, `dot`) is not matched.
 const NATIVE_IMPORT = r"\b(?:using|import)\b.*\b(?:LAPACK|BLAS|Libdl|Libc)\b"
 const IMPORT_WORD = r"\b(?:using|import)\b"
 const NATIVE_PATTERNS = [
@@ -257,11 +259,12 @@ const NATIVE_PATTERNS = [
   r"@ccall\b",
   r"\bcglobal\b",
   r"\bllvmcall\b",
-  r"\b(?:LAPACK|BLAS)\b(?=\s*(?:[.:,;)\]}]|$))",
+  r"\bLinearAlgebra\s*\.\s*(?:LAPACK|BLAS)\b",
+  r"\b(?:LAPACK|BLAS)\b(?!\s+[A-Za-z_])",
   r":(?:LAPACK|BLAS|Libdl|Libc)\b",
   r"\bLibdl\b",
-  r"\bLibc\b(?=\s*(?:[.:,;)\]}]|$))",
-  r"Base\.Libc\b",
+  r"\bLibc\b(?!\s+[A-Za-z_])",
+  r"\bBase\s*\.\s*Libc\b",
   NATIVE_IMPORT,
 ]
 # the pre-merge platform enforcement mechanisms that this repository implements; empty until a
@@ -407,6 +410,11 @@ end
                "using LinearAlgebra\nconst L = LinearAlgebra.LAPACK\nf(A) = L.potrf!('U', A)",
                "using LinearAlgebra\nconst B = LinearAlgebra.BLAS\nf(x) = B.scal!(2, 3.0, x, 1)",
                "const L = getfield(LinearAlgebra, :LAPACK)", "const B = getfield(LinearAlgebra, :BLAS)",
+               # a module reference followed by a comment or by other code
+               "const L = LinearAlgebra.LAPACK # backend\nf(A) = L.potrf!('U', A)",
+               "const B = LinearAlgebra.BLAS # backend", "const L = LinearAlgebra.LAPACK #= backend =#",
+               "x = LinearAlgebra.BLAS |> identity", "f(; m = LinearAlgebra.LAPACK)", "const L = LAPACK # local alias",
+               "LinearAlgebra . LAPACK", "import LinearAlgebra.BLAS as B", "Base . Libc . malloc(1)", "# the Libc-like helpers",
                "Base.Libc.malloc(16)", "Libc.free(p)", "using Base.Libc", "import Libc", "p = Libdl.dlsym(h, :f)",
                # an import with something before it on the line
                "@eval using LinearAlgebra.BLAS: scal!", "#= note =# using LinearAlgebra.BLAS: scal!",
@@ -424,7 +432,7 @@ end
   for text in ("(CPU, BLAS kernel, compilation) rather than on the accuracy of the point.",
                "mul!(y, A, x)", "dot(x, y)", "using LinearAlgebra", "import LinearAlgebra: mul!, dot",
                "using LinearAlgebra: dot, mul!", "x = myccall(1)", "z = SBLAS.f(1)", "BLAS_threads = 2",
-               "LAPACKE_wrapper(A)", "x = Libcx.f(1)", "# the BLAS kernel and the Libc-like helpers",
+               "LAPACKE_wrapper(A)", "x = Libcx.f(1)", "# the BLAS kernel and the Libc helpers",
                # a multi-line statement that names none, and a name on a line after the statement ended
                "using LinearAlgebra:\n    dot,\n    mul!", "import LinearAlgebra: dot,\n    mul!\nx = 1",
                "using LinearAlgebra: dot\nBLAS_threads = 2", "using LinearAlgebra:")

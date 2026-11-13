@@ -60,14 +60,16 @@ inside that entry, that test fails until `pin_problems` and its cases are change
 
 **Native code.** A test in `test/tier_selection.jl` (quick tier; a change to `src/` plans the full
 tier, which includes it) scans every line of the `.jl` files under `src/` (and `ext/`, if it exists)
-for text that names a native call or module: `ccall`, `@ccall`, `cglobal`, `llvmcall`; LAPACK and BLAS
-when followed by `.`, `:`, `,`, `;`, a closing bracket or the end of the line (so that "BLAS kernel"
-in prose does not match); a `:LAPACK`-style symbol; `Libdl` and `Libc`; and a `using` or `import`
-statement that names one of these modules, also when it continues on lines after a trailing `,` or
-`:`. Comments and strings are scanned too, so a match in a comment or a string counts (reword it or
-register the file). `src/` has no match today. The test reads source text only: names built at run
-time (`eval(Symbol(...))`, `getfield` with a computed symbol) and the expansion of external macros
-are outside it, and generic calls such as `mul!` or `dot`, which reach BLAS, are not matched; the
+for text that names a native call or module: `ccall`, `@ccall`, `cglobal`, `llvmcall`;
+`LinearAlgebra.LAPACK`, `LinearAlgebra.BLAS` and `Base.Libc`, whatever follows the name; an unqualified
+word `LAPACK`, `BLAS` or `Libc`, unless whitespace and then a letter or underscore follow it (so that
+"BLAS kernel" in prose does not match); a `:LAPACK`-style symbol; `Libdl`; and a `using` or `import`
+statement (`import ... as` included) that names one of these modules, also when it continues on lines
+after a trailing `,` or `:`. Comments and strings are scanned too, so a match in a comment or a string
+counts (reword it or register the file). `src/` has no match today. The test reads source text only:
+an unqualified module name followed by whitespace and an identifier (the macro argument in `@m BLAS x`),
+names built at run time (`eval(Symbol(...))`, `getfield` with a computed symbol) and the expansion of
+external macros are outside it, and generic calls such as `mul!` or `dot`, which reach BLAS, are not matched; the
 nightly legs run them on macOS and Windows. A file with a match fails the test unless a `[[native]]`
 entry in `.github/tier-rules.toml` lists it. An entry has the keys `why`, `paths`, `checks`,
 `platforms` and `enforcement`: its paths must exist and have a match, its checks must be tests of the
