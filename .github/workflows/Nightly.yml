@@ -187,7 +187,7 @@ jobs:
           BUILD_OUTCOME: ${{ steps.build.outcome }}
           TESTS_OUTCOME: ${{ steps.tests.outcome }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
-      # The artifact carries the leg's record only; the report job reads the verdict from the jobs
+      # The artifact holds the leg's record; the report job takes the verdict from the jobs
       # API. On a "Re-run failed jobs" attempt the name may already exist, so the upload
       # overwrites it, and a failed upload does not turn a leg red whose tests passed.
       - uses: actions/upload-artifact@v7
