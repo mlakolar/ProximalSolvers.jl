@@ -291,7 +291,7 @@ ordinary tools still read the working tree (`compare.py`, `validate.py` and `sum
 driver clones and verifies its own pinned checkout per role.
 
 **In CI.** The required `Benchmark analysis controls` job (`.github/workflows/CI.yml`) runs all four offline Python
-suites from the repository root, one step each, with Python 3.12:
+suites from the repository root, with Python 3.12. The comparator and campaign suites each have a leg of their own (`comparator`, `campaign`); the other two run in the `controls` leg, together with the paired-master diagnostics. The suites:
 
 ```
 python3 -B benchmark/campaigns/stage2b/test_migration_compare.py

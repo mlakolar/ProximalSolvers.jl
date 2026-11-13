@@ -59,6 +59,27 @@ end
   @test !occursin(r"(?m)^\s*if:", analysis)
   @test !occursin("continue-on-error", analysis)
   @test occursin("needs: [plan, test, analysis]", workflow)
+  @test occursin("fail-fast: false", analysis)
+  @test occursin("part: [comparator, campaign, controls]", analysis)
+  @test occursin("name: Benchmark analysis controls (\${{ matrix.part }})", analysis)
+  for command in (
+    "scripts/test_repo_hygiene.py",
+    "scripts/check_repo_hygiene.py --base 'HEAD^1'",
+    "python -I benchmark/sparse_cd/check_analysis.py",
+    "python -B benchmark/external/coordinatedescent/check_analysis.py",
+    "benchmark/campaigns/stage2b/test_migration_compare.py",
+    "benchmark/campaigns/stage2b/test_stage2b_files.py",
+    "benchmark/campaigns/stage2b/test_stage2b_campaign.py",
+    "benchmark/campaigns/stage2b/probes/test_check_reset_probes.py",
+  )
+    @test occursin(command, analysis)
+  end
+  # Each dispatch on the part name has an unknown-leg error. The quote character is built with a
+  # char literal because this script text is a raw string.
+  dq = string('"')
+  dispatches = count(string("case ", dq, "\$PART", dq, " in"), analysis)
+  @test dispatches >= 1
+  @test dispatches == count("::error::Unknown analysis leg", analysis)
 end
 """
 
