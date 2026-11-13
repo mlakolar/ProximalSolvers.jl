@@ -277,12 +277,13 @@ only on `converged`.
   along `d̂`, the decision can go either way, and a step nearly in the null
   space of `X` can have a computed `c` with a large relative error. For
   Float32 data the two squared norms are accumulated in Float64, where the
-  square of a Float32 is exact, and the allowance `√n p floatmin(Float32)`
-  for underflow in the product is added to `‖fl(X d̂)‖` before squaring. So
+  square of a Float32 is exact, and the allowance `2√n p floatmin(Float32)`
+  for underflow in the product, gradual or flushed to zero, is added to
+  `‖fl(X d̂)‖` before squaring. So
   a finite `c` is positive, a product lost to underflow does not give
   `c = 0`, and an entry of `fl(X d̂)` that overflowed makes `c` nonfinite,
   which keeps TFOCS's update; a `c` that rounds above `floatmax(Float32)`
-  also keeps it. When `‖fl(X d̂)‖` is at least about `10⁻²² √n p`, the
+  also keeps it. When `‖fl(X d̂)‖` is at least about `2·10⁻²² √n p`, the
   allowance is below the Float64 rounding of `‖fl(X d̂)‖`. For Float64 data, over- or
   underflow of `‖fl(X d̂)‖²` or `‖d̂‖²` can make `c` infinite or NaN, which
   keeps TFOCS's update, or spuriously zero, which accepts the trial: with

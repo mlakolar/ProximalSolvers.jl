@@ -33,10 +33,12 @@ mode is unchanged; otherwise the retry uses `L ← min(Lexact, max(c, L / β))`
 when `c` is finite, and TFOCS's `L ← min(Lexact, max(L̂, L / β))` when it is
 not. `c` carries no rounding certificate: when `L` is within rounding of the
 curvature along `d̂`, the decision can go either way. For Float32 data the
-squared norms are accumulated in Float64, and `√n p floatmin(Float32)` is added
-to `‖fl(X d̂)‖` before squaring, so a finite `c` is positive and a product lost
-to underflow does not give `c = 0`; a product that overflowed gives a nonfinite `c`, and TFOCS's
-update is kept. For Float64 data, over- or underflow of `‖fl(X d̂)‖²` or
+squared norms are accumulated in Float64, and the allowance
+`2√n p floatmin(Float32)` for underflow in the product (gradual or flushed to
+zero, up to about `2p floatmin(Float32)` per entry) is added to `‖fl(X d̂)‖`
+before squaring, so a finite `c` is positive and a product lost
+to underflow does not give `c = 0`; a product that overflowed gives a nonfinite
+`c`, and TFOCS's update is kept. For Float64 data, over- or underflow of `‖fl(X d̂)‖²` or
 `‖d̂‖²` can make `c` nonfinite (TFOCS's update is then kept) or spuriously zero
 (the trial is then accepted). A rejection is not
 checked, and keeps TFOCS's update, when its trial value is not finite, when the
