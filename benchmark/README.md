@@ -15,7 +15,7 @@ lack, and enabled again by declaring the capability when the solver returns
 
 | Component | Path | Runs against master? |
 |---|---|---|
-| Formal harness: problems, certificates, cases, runner, local exploration | `problems.jl`, `certificates.jl`, `cases.jl`, `run.jl`, `setup.jl`, `local.jl` | Yes, for 32 current-core cases (dense and `SparseIterate` CD, dense PGD, Float32/Float64) with `setup.jl ... pinned`; 100 historical cases deferred. Documented in [HARNESS.md](HARNESS.md); `test/benchmark_formal.jl` tests it. |
+| Formal harness: problems, certificates, cases, runner, local exploration | `problems.jl`, `certificates.jl`, `cases.jl`, `run.jl`, `setup.jl`, `local.jl` | Yes, for 42 cases (40 current-core cases: dense and `SparseIterate` CD, dense PGD and APG, Float32/Float64; and 2 historical) with `setup.jl ... pinned`; 100 historical cases deferred. Documented in [HARNESS.md](HARNESS.md); `test/benchmark_formal.jl` tests it. |
 | Historical environment template | `Project.toml` | Kept with ProximalBase 0.5 for full-package checkouts and Stage 2A verification (#225). |
 | Harness self-checks | `check_certificates.jl`, `check_local.jl` | No (deferred): they exercise historical solvers. |
 | Record validation, summaries, paired statistics | `validate.py`, `summarize.py`, `compare.py` | Yes. Python only; they read records and never load the package. |
@@ -76,7 +76,7 @@ ProximalBase pin (URL and full commit of the root `Project.toml` `[sources]`) on
 current stable; `benchmark/Project.toml` keeps ProximalBase 0.5 for the historical modes. `run.jl`
 refuses a ProximalBase other than the loaded checkout's pin (URL, commit and committed manifest
 tree), at a moving revision or outside its manifest tree, records its manifest identity, and checks `PS_EXPECTED_PROXIMALBASE_REV` and `PS_EXPECTED_PACKAGE_REVISION` when set.
-`cases.jl` declares the core's capabilities; the 30 current-core cases and 2 historical cases that
+`cases.jl` declares the core's capabilities; the 40 current-core cases and 2 historical cases that
 run unchanged are supported, and the other 100 historical cases are deferred
 (`PS_LIST=deferred`). Requesting a deferred case stops the runner with what it lacks.
 
@@ -138,7 +138,7 @@ is done without changing `benchmark/Project.toml`, and steps 5 and 6 remain.
    predicates (a solver type can exist without supporting a problem, iterate or phase): each case
    lists its requirements, `CAPABILITIES` lists the core's, and the per-solver options rule replaces
    the hard-coded `Union`. Start metadata records the capabilities and the deferred count.
-4. **Current API.** Done: 30 current-core cases (HARNESS.md, "Supported and deferred cases").
+4. **Current API.** Done: 40 current-core cases, 10 of them for APG (HARNESS.md, "Supported and deferred cases").
    `problems.jl` and `certificates.jl` are unchanged; Float32 problems are certified in exact
    Float64.
 5. **External suite.** Its analysis already works on current records and runs in CI. Port

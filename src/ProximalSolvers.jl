@@ -2,9 +2,9 @@
     ProximalSolvers
 
 Least-squares lasso with dense Matrix designs. [`CDSolver`](@ref) accepts a dense
-`Vector` or a one-dimensional `SparseIterate` as the iterate and
-[`ProximalGradientDescent`](@ref) a dense `Vector` only, both through
-[`solve!`](@ref). Losses, proximal operators and coordinate storage belong to PB.
+`Vector` or a one-dimensional `SparseIterate` as the iterate, and
+[`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref) a dense `Vector`
+only, all through [`solve!`](@ref). Losses, proximal operators and coordinate storage belong to PB.
 """
 module ProximalSolvers
 using LinearAlgebra
@@ -18,7 +18,7 @@ include("blocks.jl")
 using .Blocks
 include("line_searches.jl")
 using .LineSearches
-export CDSolver, ProximalGradientDescent, solve!, ProximalSolver, ProximalOptions,
+export CDSolver, ProximalGradientDescent, AccProxGradDescent, solve!, ProximalSolver, ProximalOptions,
        CDResults, OptimizationState, OptimizationTrace
 @static if VERSION >= v"1.11.0-DEV.469"
   eval(Expr(:public, :OptimizationResults, :LineSearches))
@@ -27,6 +27,7 @@ include("types.jl")
 include("solve.jl")
 include("solvers/image_models.jl")
 include("solvers/proximal_gradient_descent.jl")
+include("solvers/accelerated_proximal_gradient_descent.jl")
 include("cd/models.jl")
 include("cd/solver.jl")
 include("cd/leastsquares.jl")

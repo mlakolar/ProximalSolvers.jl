@@ -60,7 +60,7 @@ extended_trace!(dt, state::ProximalGradientDescentState) = dt["grad_f(x)"] = _co
 f_residual(f_x, f_x_previous, f_tol) = abs(f_x-f_x_previous)/(abs(f_x)+f_tol)
 g_residual(state::ProximalGradientDescentState) = _maxabs_residual(state.grad_f_x, state.grad_f_x_previous, state.delta_x, state.L)
 function convergence_assessment(
-  state::ProximalGradientDescentState,
+  state::Union{ProximalGradientDescentState, AccProxGradDescentState},
   f, g, options::ProximalOptions
   )
 

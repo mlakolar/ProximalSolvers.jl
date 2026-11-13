@@ -70,6 +70,6 @@ violation uses the analytic lasso conditions, independently of the solver's
 stopping flag. See [Choosing a solver](choosing-solver.md) for a tighter PGD
 configuration and [the KKT tutorial](sparsity-and-kkt.md) for the formula.
 
-These are two algorithms for **the same optimization problem**. Neither is universally faster. Start with CD for lasso experiments or active-coordinate storage; consider PGD if you want full-vector gradient iterations or detailed traces.
+These are two algorithms for **the same optimization problem**. Neither is universally faster. Start with CD for lasso experiments or active-coordinate storage; consider PGD if you want full-vector gradient iterations or detailed traces. `AccProxGradDescent` is an accelerated variant of PGD with the same options and results; see [Choosing a solver](choosing-solver.md).
 
 Continue to [sparsity and the KKT check](sparsity-and-kkt.md), then [solver options](choosing-solver.md).

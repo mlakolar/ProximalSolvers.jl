@@ -20,9 +20,9 @@ r = solve!(beta, f, penalty,
    converged=r.converged)
 ~~~
 
-Both solvers report `minimizer`, `minimum` and `converged`.
+Every solver reports `minimizer`, `minimum` and `converged`.
 Coordinate descent also provides `passes`, `maxchange`, and `tolerance`.
-PGD provides `iterations`, more detailed stopping residuals and
+PGD and APG provide `iterations`, more detailed stopping residuals and
 an optional iteration `trace`. These differ because the current package
 retains two algorithm-specific result types.
 

@@ -36,7 +36,7 @@ beta
 
 `LeastSquaresLoss` means **half the sum** of squared residuals, not their mean. Multiplication by `1/n` produces the conventional lasso objective. `solve!` modifies `beta` in place, and `result.minimizer === beta`.
 
-Both solvers optimize the same objective; they differ in how they update
+The solvers optimize the same objective; they differ in how they update
 coefficients. These examples choose `CDSolver(order=:cyclic,
 momentum=false)` for reproducible output. For routine exploratory
 lasso work, `CDSolver()` is a reasonable starting point (random order

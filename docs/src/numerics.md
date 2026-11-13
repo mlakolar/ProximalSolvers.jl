@@ -14,6 +14,10 @@ code.
   stopping tests for relative coefficient change, objective change and
   a gradient/proximal residual. These combine by **OR**: passing one can
   stop the algorithm, even if the others remain large.
+- **Accelerated proximal gradient (APG):** the same three tests and the
+  same objective-increase stop as PGD. Its gradient/proximal residual is
+  `L ‖x - y‖∞`, measured from the extrapolated point `y` rather than from
+  the previous iterate, so it is a stopping quantity, not a KKT residual at `x`.
 
 Neither `converged=true` is a certificate of mathematical optimality.
 **On the small tutorial examples, default PGD typically produces only about
@@ -87,7 +91,7 @@ A supported solve uses a single floating-point working type
 `T = Float32` or `T = Float64` for the design matrix `X`, response
 vector `y`, and coefficient iterate. `CDSolver` accepts either a
 dense `Vector{T}` or a one-dimensional `SparseIterate` of `T`;
-`ProximalGradientDescent` accepts only a dense `Vector{T}`.
+`ProximalGradientDescent` and `AccProxGradDescent` accept only a dense `Vector{T}`.
 Mixed-precision arrays, such as `Float32` coefficients with a
 `Float64` design, are rejected. This is stricter than ProximalBase
 function dispatch, which may permit some heterogeneous calls without
@@ -141,6 +145,33 @@ only on `converged`.
 - PGD uses in-place dense arrays, and restores the **last accepted**
   iterate if a numerical step fails. Its counters and other internals
   are not transactional.
+- APG does the same. Its backtracking raises an error, after which the last
+  accepted iterate is restored, when the next curvature estimate `L/β` is not a
+  finite increase; a trial whose objective is not finite is never accepted.
+  An extrapolated point whose objective or gradient is not finite restarts the
+  momentum when the step uses momentum; without momentum the step fails, with the
+  same rollback. Its line search accepts a step only when the least-squares bound
+  `√α ‖X(x - y)‖ ≤ (1 + 4eps) √L ‖x - y‖` is certified by conservative
+  floating-point error bounds for the stored `x` and `y`, so it does not subtract
+  nearly equal objective values and does not accept a step whose bound check is
+  dominated by rounding. It first uses the difference of the cached images `X x`
+  and `X y`, whose error is bounded through `‖X‖_F` and the iterate norms; when
+  that bound leaves the decision open it computes `X(x - y)` afresh, one extra
+  matrix-vector product whose error bound is a relative term proportional to the
+  step plus an absolute underflow term, and rejects a step that is still undecided.
+  The norms and the bound arithmetic are carried as significand and binary
+  exponent, so they do not overflow or round to subnormal values in `T`; the native
+  products and their underflow enter only through the bounds. A curvature above
+  `floatmax(T)` is never certified, so backtracking then ends in its error with
+  rollback. These bounds assume IEEE arithmetic with gradual underflow and a
+  matrix-vector product evaluated as dot products; the native products and the
+  extrapolation are computed in `T` and enter only through the bounds. The extra
+  product is needed more often in Float32, where the bounds are wider relative to
+  small late steps; for data deep in the subnormal range, where the underflow terms
+  can dominate the bounds, a step may need `L` far above the curvature, or the solve
+  may fail with rollback. APG also
+  requires `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 3 < 1/(4 eps(Float64))`; larger
+  problems are refused before `x` is modified.
 - Reaching a pass or iteration limit is not convergence. CD can return
   a finite nonconverged solution with a warning.
 

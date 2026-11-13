@@ -37,6 +37,9 @@ const CAPABILITIES = Set([
   "cd", "cd:lasso", "cd:sparse_iterate", "cd:float32", "random-cd", "random-cd:lasso",
   # ProximalGradientDescent: the same problem with a dense Vector, Float32 or Float64.
   "pg", "pg:lasso", "pg:float32",
+  # AccProxGradDescent: the same problem with a dense Vector, Float32 or Float64; no gap
+  # stopping, workspaces or other problems.
+  "apg", "apg:lasso", "apg:float32",
 ])
 
 const SOLVER_NAMES = Dict("cd" => "CDSolver", "random-cd" => "CDSolver(order = :random)",
@@ -286,15 +289,15 @@ function setup_case_state(a, solver)
   CaseState(() -> nothing, call!, check, data_hash(a))
 end
 
-# Current-core cases (#110): CDSolver with a dense Vector or a vector SparseIterate and
-# ProximalGradientDescent with a dense Vector, Float32 or Float64. Targets are fixed per
+# Current-core cases (#110): CDSolver with a dense Vector or a vector SparseIterate, and
+# ProximalGradientDescent and AccProxGradDescent with a dense Vector, Float32 or Float64. Targets are fixed per
 # precision for every solver: 1e-8 in Float64, the threshold of the #103-#109 B cases, and
 # 1e-5 in Float32, about 50-100 times the relative gap of the exact solution rounded to
 # Float32 (5e-8 to 2e-7 on these designs). A solver that stops short of them is a non-ok
 # observation, never a timing.
 const CORE_TARGETS = Dict(Float64 => 1e-8, Float32 => 1e-5)
 const CORE_PRECISIONS = ((Float64, "f64"), (Float32, "f32"))
-const CORE_ITERATES = Dict("cd" => (:dense, :sparse), "pg" => (:dense,))
+const CORE_ITERATES = Dict("cd" => (:dense, :sparse), "pg" => (:dense,), "apg" => (:dense,))
 
 # The start of a warm case: the solution at 1.25λ, the previous level of a path with ratio
 # 0.8, computed in Float64 by the certificate module's own coordinate descent, so it does
@@ -330,6 +333,7 @@ function core_method(solver, ::Type{T}) where T
   solver == "cd" && return PS.CDSolver(order = :cyclic, tol = T == Float32 ? 1e-6 : 1e-11,
                                        rng = Xoshiro(9))
   solver == "pg" && return PS.ProximalGradientDescent()
+  solver == "apg" && return PS.AccProxGradDescent()
   error("no current-core method for $solver")
 end
 
@@ -338,12 +342,12 @@ function core_case_state(a, solver, iterate)
   T = eltype(a.X)
   f, g = benchmark_model(a)
   method = core_method(solver, T)
-  options = benchmark_options(; residual = true)   # PGD only; gaptol = 0
+  options = benchmark_options(; residual = true)   # PGD and APG only; gaptol = 0
   start = iterate == :sparse ? sparse_start(a.start) : copy(a.start)
   x = copy(start)
   # copyto! between SparseIterates of one size copies the state: values, active set, order.
   reset! = () -> (copyto!(x, start); reset_solver_rng!(method); nothing)
-  call! = solver == "pg" ? (() -> PS.solve!(x, f, g, method, options)) :
+  call! = solver in ("pg", "apg") ? (() -> PS.solve!(x, f, g, method, options)) :
     (() -> PS.solve!(x, f, g, method))
   exact = exact_problem(a)
   check(output) = certify(exact, Float64.(Array(output.minimizer)))
@@ -519,7 +523,7 @@ function build_catalog(suite, groups; deferred = false)
       workspace = true, suite = "extended", measure = "fixed_point_residual",
       needs = (string(kind),))
   end
-  # Current core (#110): one small and one medium correlated design shared by CD and PGD
+  # Current core (#110): one small and one medium correlated design shared by CD, PGD and APG
   # (cold and warm starts), and two larger designs in the extended suite. The medium and
   # larger designs reuse the inputs of the deferred extended cases of the same design.
   core_designs = (("lasso", rep -> regression_problem(rep, "core/lasso"), (false,), "quick"),
@@ -532,6 +536,7 @@ function build_catalog(suite, groups; deferred = false)
   for (problem, make_problem, starts, suite) in core_designs, warm in starts
     add_core_cases!(catalog, "cd", problem, "cd", make_problem; warm, suite)
     add_core_cases!(catalog, "gradient", problem, "pg", make_problem; warm, suite)
+    add_core_cases!(catalog, "gradient", problem, "apg", make_problem; warm, suite)
   end
   # IDs are unique across supported and deferred cases, so restoring one never renames another.
   length(unique(c.meta.id for c in catalog)) == length(catalog) || error("duplicate case id")
