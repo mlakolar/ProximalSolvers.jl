@@ -1,3 +1,4 @@
+using ProximalBase: shrink
 # Borrowed scalar unweighted LS data and native residual/curvature caches. The loss scale `s`
 # has its own type `S`: the promotion of `T` and the type of the supplied scale where that is a
 # concrete `AbstractFloat` (an IEEE scale wider than `T` keeps its precision), else `T`. X, y,
@@ -72,18 +73,75 @@ function _flat_column(m::LSModel{T}, k::Int) where T
   end
   true
 end
+# The coordinate step. With a = ‖X_k‖², b = rᵀX_k and the centre c = old + b/a, the step is the soft
+# threshold of c at τ = λ/(m.s a). A flat column (a = 0 and X_k = 0) takes the penalty's minimizer. A
+# curvature a that is 0 for a column that is not flat (its squares underflow), or that is not finite, is
+# refused before the coordinate or the residual changes. For a finite a, p = m.s a is formed in `S` and
+# γ = 1/p. Where p and γ are both at least floatmin(S), the step is `prox_block(g, c, k, γ)`, whose NormL1
+# prox forms the threshold γλ in its own working type. Where one of them is smaller, `_outside_band`
+# takes over. There γ is not a usable coefficient at a positive penalty: it is 0 where p overflows (the
+# threshold γλ is 0 and the penalty is ignored), Inf where p is below 1/floatmax(S) (the threshold is
+# Inf, which sets a finite centre to 0), and has fewer significant bits where p or γ is subnormal. At
+# λ = 0 the prox keeps a zero threshold for any γ. `_exceptional_step` forms τ without p or γ. A
+# curvature a that is not finite gives p = Inf and γ = 0 for a positive finite scale, so it leaves the
+# band and is refused in `_outside_band`. In exact arithmetic a fixed point of
+# x = shrink(x + b/a′, λ/(m.s a′)) satisfies m.s b ∈ λ ∂|x| for any positive a′ used in both places, so
+# a rounded or subnormal curvature does not move the fixed point (whether and how fast the iteration
+# reaches it can change).
 @inline function coordinate_step!(m::LSModel{T}, g, x::SparseIterate{T}, k::Int) where {T}
   a, b = _column_dot(m, k)
   iszero(a) && !_flat_column(m, k) &&
     throw(ArgumentError("the coordinate curvature underflows; rescale the data or loss"))
   old = x[k]
-  new = iszero(a) ? _coordinate_minimizer(g, old, k) : prox_block(g, old + b / a, k, inv(m.s * a))
+  new = iszero(a) ? _coordinate_minimizer(g, old, k) : _scaled_prox(m, g, old + b / a, k, a)
   m.a[k] = a
   h = new - old
   iszero(h) && return h      # x and the residuals do not change
   x[k] = new
   _residual_axpy!(m, k, h)
   h
+end
+@inline function _scaled_prox(m::LSModel{T}, g, c::T, k::Int, a::T) where T
+  p = m.s * a
+  γ = inv(p)
+  S = typeof(p)
+  (floatmin(S) <= p) & (floatmin(S) <= γ) ? prox_block(g, c, k, γ) : _outside_band(m, g, c, k, a)
+end
+# Out of line, with the refusal of a curvature that is not finite: p = m.s a is Inf and γ = 0 for it.
+@noinline function _outside_band(m::LSModel{T}, g, c::T, k::Int, a::T) where T
+  isfinite(a) || _refuse_curvature(T, k)
+  _exceptional_step(g, c, m.s, a, k)
+end
+# The throws are out of line, so that the step carries no string interpolation.
+@noinline _refuse_curvature(::Type{T}, k::Int) where T =
+  throw(ArgumentError("the curvature of coordinate $k (the squared norm of its column) is not finite in $T; rescale the data"))
+# The soft threshold of c at τ = λ/(α a) for a finite positive α and a, formed without the product α a
+# or its reciprocal and capped at floatmax(T). At a finite c the cap leaves the result 0 that a larger τ
+# gives; at a c that is infinite or NaN it keeps that non-finite value, which `_visit!` refuses, where an
+# infinite level passed to PB's NormL1 prox would fix the entry at 0 instead. For τ in [0, floatmax(T)]
+# `shrink(c, τ)` is what that prox returns at the level τ and the step 1.
+# This method is for S == T ∈ {Float32, Float64}. For a finite a, an `S` wider than `T` keeps p = α a
+# in the band of the fast path: α is representable in T (`solve!` checks it) and a is finite in T, so
+# p lies between about 1e-90 and 1e77 for S = Float64 on Float32 data and inside the far wider range of
+# BigFloat. Another scale type, or a penalty other than the unweighted NormL1, is refused.
+@noinline function _exceptional_step(g::NormL1{<:Real, Nothing}, c::T, α::T, a::T, k::Int) where {T<:Union{Float32, Float64}}
+  shrink(c, min(_threshold(T, g.λ0, α, a), floatmax(T)))
+end
+@noinline _exceptional_step(g, c, α, a, k::Int) =
+  throw(ArgumentError("the coordinate step of coordinate $k has no range-safe form for a $(typeof(g)) penalty and a loss scale of type $(typeof(α))"))
+# τ = λ/(α a) with λ the penalty level converted to Float64. Float32: α and a are Float32, so their
+# product is exact in Float64 (24 + 24 ≤ 53 bits, inside its range), and the quotient is rounded to
+# Float64 and then to Float32. That double rounding keeps the result within one Float32 ulp of the exact
+# quotient where the quotient is below floatmax, and the result is not always the correctly rounded
+# one. Float64: significands and exponents are separated, mλ/(mα ma) 2^(eλ - eα - ea); the
+# relative error is below 3 eps(Float64) where τ is normal, and a subnormal τ is formed by `ldexp` (the
+# tests allow an error of nextfloat(0.0) there). τ is 0 for λ = 0.
+_threshold(::Type{Float32}, λ, α::Float32, a::Float32) = Float32(Float64(λ) / (Float64(α) * Float64(a)))
+function _threshold(::Type{Float64}, λ, α::Float64, a::Float64)
+  mλ, eλ = frexp(Float64(λ))
+  mα, eα = frexp(α)
+  ma, ea = frexp(a)
+  ldexp(mλ / (mα * ma), eλ - eα - ea)
 end
 
 _cache(m::LSModel) = m.r
@@ -103,24 +161,22 @@ _cache(m::LSModel) = m.r
 #   3. otherwise the exponent-separated value of `_response_scale_exceptional`.
 # Coordinate scale √(m.s a), with a the curvature of column k, p = m.s a in `S` and q = T(p):
 #   1. sqrt(q), if q is a normal number of `T`;
-#   2. otherwise T(sqrt(p)), if p is not below floatmin(S): this is Inf where p is Inf (an
-#      overflowing product), and where relative scaling is active `_visit!` refuses a nonzero change
-#      times Inf;
-#   3. otherwise (p is zero or subnormal in `S`) T(sqrt(m.s) sqrt(S(a))), formed in `S`: each root is
-#      taken before the two are multiplied, so the result does not depend on the rounded product p.
-#      It is 0 for a = 0 (a column of zero curvature), and 0 where it is at most half the smallest
-#      subnormal of `T`.
-# For `S == T` the first two expressions have the same value where p is normal. For m.s > 0 an
-# infinite curvature a gives Inf by the second. The step does not form this scale: its coefficient inv(m.s a)
-# is the reciprocal of p, which is Inf where p is below 1/floatmax(S) and 0 where p is Inf. The
-# overflow of m.s a, the step reciprocal and the infinite curvature are #294.
+#   2. otherwise T(sqrt(p)), if p is not below floatmin(S) and is finite or a is infinite. This is Inf
+#      for an infinite a, and for `S` wider than `T` where the rounded root of p overflows `T`;
+#   3. otherwise (p is zero or subnormal in `S`, or p is Inf for a finite a) T(sqrt(m.s) sqrt(S(a))),
+#      formed in `S`: each root is taken before the two are multiplied, so the result does not depend
+#      on the rounded product p. It is 0 for a = 0 (a column of zero curvature), and 0 where it is at
+#      most half the smallest subnormal of `T`; rounding to `T` gives Inf where the value overflows.
+# Where relative scaling is active, `_visit!` refuses a nonzero change times an infinite scale.
+# For `S == T` the first two expressions have the same value where p is normal. The step does not
+# form this scale (see `coordinate_step!`).
 function coordinate_scale(m::LSModel{T}, x, k::Int) where T
   a = _sqnorm!(m, k)
   p = m.s*a
   q = T(p)
   floatmin(T) <= q <= floatmax(T) && return sqrt(q)
   S = typeof(p)
-  p < floatmin(S) && return T(sqrt(m.s)*sqrt(S(a)))
+  (p < floatmin(S) || isinf(p) && isfinite(a)) && return T(sqrt(m.s)*sqrt(S(a)))
   T(sqrt(p))
 end
 function response_scale(m::LSModel{T}, x) where T

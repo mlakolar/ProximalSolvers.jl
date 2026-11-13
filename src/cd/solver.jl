@@ -27,6 +27,11 @@ normal response scale can be subnormal or 0. The test `change < threshold`
 cannot hold for a threshold of 0, so the run cannot converge by it and ends at
 `maxpasses` with a warning, unless an independent numerical failure (for
 example a non-finite coordinate step) stops it first with an error.
+A column whose squared norm `a` is not finite in the working type is refused with
+an `ArgumentError` before the first change of its coordinate, and the starting
+point is unchanged. Where the product `s * a` or its reciprocal is outside the
+normal range of the type that combines `s` with the working type, the
+coordinate step forms its threshold `lambda / (s * a)` without them.
 `relative=false` makes the threshold an absolute change threshold;
 `maxpasses` limits the run. An end-of-pass convergence flag does not
 guarantee a small KKT residual. For reported fits, check optimality

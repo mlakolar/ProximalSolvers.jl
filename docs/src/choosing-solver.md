@@ -66,17 +66,30 @@ it ends at `maxpasses` with a warning, unless an independent numerical failure
 When relative scaling is active (`relative=true` and a positive response
 scale), each coordinate change is also multiplied by `sqrt(s * a)`, where `a` is
 the squared norm of the column. With `relative=false`, or with `y = 0`, the
-coordinate scale is not used. Where the product `s * a` is zero or subnormal (in
-the type that combines `s` with the working type), CD takes the square roots of
-`s` and of `a` separately and multiplies them, so the scale does not become 0
-because the product underflowed. It is still 0 where that root is at most half
-the smallest subnormal number. Where the product overflows, the scale is
-infinite, and with relative scaling active a nonzero coordinate change then
-makes `solve!` throw an `ArgumentError` ("a coordinate step or its stopping
-scale is not finite") and leave the starting point unchanged. That overflow,
-the reciprocal `1 / (s * a)` that the coordinate step uses (which can be
-infinite or 0), and an infinite squared column norm are not changed by this and
-are tracked in issue #294.
+coordinate scale is not used. Where the product `s * a` is zero, subnormal or
+overflowing for a finite `a` (in the type that combines `s` with the working
+type), CD takes the square roots of `s` and of `a` separately and multiplies
+them, so the scale does not become 0 or infinite because the product left the
+range. The computed scale is still 0 where the root is at most half the
+smallest subnormal number, and infinite where the computed, rounded scale
+overflows the working type; with relative scaling active a nonzero coordinate
+change times an infinite scale makes
+`solve!` throw an `ArgumentError` ("a coordinate step or its stopping scale is
+not finite") and leave the starting point unchanged.
+
+The coordinate step soft-thresholds the unpenalized minimizer along the
+coordinate at `lambda / (s * a)`. Where `s * a` and its reciprocal are both at
+least the smallest normal number of the type that combines `s` with the working
+type, it applies the proximal operator with the coefficient `1 / (s * a)`.
+Where one of them is smaller (the product is zero or subnormal, or it is large
+enough that its reciprocal is subnormal or zero), that coefficient can be 0,
+infinite or inexact. With a positive penalty, 0 would ignore the penalty and an
+infinite coefficient would set a finite unpenalized minimizer to 0; a zero
+penalty stays unpenalized for any coefficient. The step then forms the
+threshold without the product and its reciprocal. A threshold above the largest finite number sets a
+finite unpenalized minimizer to 0. A column whose squared norm `a` is not finite
+in the working type makes `solve!` throw an `ArgumentError` that names the
+curvature, with the starting point unchanged.
 
 **Randomness and momentum:** By default `order=:random`, and the
 historical CD algorithm can apply momentum to active passes and restart
