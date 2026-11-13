@@ -925,11 +925,11 @@ end
 # ---------------------------------------------------------------------------
 # The coordinate scale √(α a_k) multiplies each coordinate change in the stopping test. Where the
 # rounded product α a_k is 0 (S == T), a scale formed as the root of the rounded product is 0, and a
-# change of that coordinate counts as 0. With the response scale repaired and these coordinate scales
-# at 0, CD accepted the first pass as converged, with a KKT violation of order 0.3 to 1. The seven
-# fixtures below (five in Float64 and two in Float32, S == T; the penalty is 0, as α a_k of 0 gives the
-# step coefficient 1/(α a_k) = Inf at a positive penalty, #294) converged correctly at df00333, where the
-# response scale was 0 and the absolute test applied. Each now runs from a cold and a warm start, in the
+# change of that coordinate counts as 0; with a normal response scale, CD would then accept the first
+# pass as converged at a large KKT violation. In the seven fixtures below (five in Float64 and two in
+# Float32, S == T; the penalty is 0, as α a_k of 0 gives the step coefficient 1/(α a_k) = Inf at a
+# positive penalty, #294) both α Σy² and α a_k round to 0 while √α ‖y‖ is a normal number. Each runs
+# from a cold and a warm start, in the
 # three orders, on a dense vector and on an owner: 84 solves, each converged after more than one pass
 # with the KKT violation within the bound. The coordinate scale is formed from the two roots,
 # √α √a_k, in S (= T here), and is a normal number in these fixtures (`check_feasible` with :underflow
@@ -976,11 +976,11 @@ end
 # Overflow of α a_k: refused, the step and scale are #294. Where α a_k is above floatmax(T) and its root is
 # a normal number, the coordinate scale is Inf (it is not formed from the two roots there), so a nonzero
 # change of a coordinate is Inf and CD throws "a coordinate step or its stopping scale is not finite" in the
-# first pass, as df00333 did; x and the owner state are as they were, and the generator too for the cyclic
-# order (the random orders draw from it at the start of each pass). The step coefficient 1/(α a_k) is 0
-# there, so the step's threshold is 0 and the penalty has no effect on the step. With a finite scale, a
-# solve at a positive penalty reported convergence at a KKT residual of 0.1 (observed for the Float64
-# fixture, after 23 to 28 passes), which is why the refusal is kept. The penalty 0 is refused too, for the same scale. The data are the fixed
+# first pass; x and the owner state are as they were, and the generator too for the cyclic order (the
+# random orders draw from it at the start of each pass). The step coefficient 1/(α a_k) is 0 there, so
+# the step's threshold is 0 and the penalty has no effect on the step: with a finite coordinate scale a
+# solve at a positive penalty could stop at a point that is not a minimizer, which is why the infinite
+# scale and its refusal are kept. The penalty 0 is refused too, for the same scale. The data are the fixed
 # problem of section 10; the start is cold and warm, and a warm pass would change x. The penalty is a
 # fraction of λmax formed in BigFloat, as λmax can be above floatmax(T).
 function penalty_fraction(T, X, y, α, fraction)
