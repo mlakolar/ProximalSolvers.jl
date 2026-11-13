@@ -24,12 +24,16 @@ An LS trial whose image or value overflows is never accepted: it gives no
 estimate, and the search retries with `L ← L / β`.
 
 For [`ProximalGradientDescent`](@ref) on its supported least-squares model, a
-rejection of a trial with a finite value, a step `d ≠ 0` and a non-NaN `L̂` is
-checked by the certified least-squares bound that `AccProxGradDescent` uses:
-`√α ‖X d‖ ≤ (1 + 4eps) √L ‖d‖` for function-value estimates, and the same with
-`2α` for gradient estimates. When the bound is certified, the rejection was
-decided by rounding: the trial is accepted, and function-value estimates end
-for the rest of the solve. Otherwise the retry uses
+rejection is checked by the certified least-squares bound that
+`AccProxGradDescent` uses: `√α ‖X d‖ ≤ (1 + 4eps) √L ‖d‖` for function-value
+estimates, and the same with `2α` for gradient estimates. A rejection is not
+checked, and keeps TFOCS's update, when its trial value is not finite, when the
+computed `‖d̂‖²` is zero (the zero-step exit, which includes a tiny nonzero step
+whose square underflows), when `L̂` is NaN, or when a gradient estimate comes
+from a gradient `∇f(x)` with a nonfinite entry. When the bound is certified, the
+rejection was decided by rounding or lies within the slack `(1 + 4eps)²` on `L`:
+the trial is accepted, and function-value estimates end for the rest of the
+solve. Otherwise the retry uses
 `L ← min(Lexact, max(min(L̂, U), L / β))`, where `U` is a certified upper bound
 on the `L` that the bound needs for that step. Accepted trials are not checked.
 When `max(n, p) + 4 ≥ 1/(4 eps(T))` or `n p + 3 ≥ 1/(4 eps(Float64))`, the check
@@ -128,11 +132,12 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
     state.backtrack_steps += 1;
     (local_l <= state.L || state.L >= ls.Lexact) && return true
     # A rejection with a non-NaN estimate is checked against the bound of the mode in which
-    # the estimate was formed. When the bound is certified, the estimate was decided by
-    # rounding: the trial is accepted, and function-value mode ends as at a switch.
-    # Otherwise the estimate is capped by the upper bound U. A NaN estimate is kept, so it
-    # raises the error below as before.
-    if !isnan(local_l)
+    # the estimate was formed; in gradient mode, only when ∇f(x) is finite. When the bound is
+    # certified, the estimate was decided by rounding or lies within the slack (1 + 4eps)² on
+    # L: the trial is accepted, and function-value mode ends as at a switch. Otherwise the
+    # estimate is capped by the upper bound U. A NaN estimate, or a gradient estimate from a
+    # nonfinite ∇f(x), is kept, so it raises the error below as before.
+    if !isnan(local_l) && (!gradient_mode || all(isfinite, state.grad_f_x))
         refuted, U = verify_rejection!(state, gradient_mode)
         if refuted
             if state.backtrack_simple

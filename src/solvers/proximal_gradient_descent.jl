@@ -10,7 +10,8 @@ the step size.
 
 `ProximalGradientDescent()` uses the supported
 `LineSearches.BackTracking()` line search. A trial that it rejects is checked
-with the certified least-squares bound of [`AccProxGradDescent`](@ref): a
+with the certified least-squares bound of [`AccProxGradDescent`](@ref), except
+in the cases that the `LineSearches.BackTracking` docstring lists: a
 rejection that the bound refutes is accepted, and otherwise the retry replaces
 the estimate `L̂` by `min(L̂, U)`, where `U` is a certified upper bound on the `L`
 that the bound needs (see `LineSearches.BackTracking` and

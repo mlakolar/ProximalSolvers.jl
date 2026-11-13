@@ -482,4 +482,28 @@ end
   @test_throws r"curvature estimate cannot increase finitely" PS._solve_gradient!(state, f, NormL1(0f0), method, ProximalOptions())
   @test state.x == Float32[0] && state.verifications == 1
 end
+
+@testset "PGD rejections with an infinite estimate: nonfinite gradient kept, tiny step checked" begin
+  # Gradient mode: at L ≈ 1e21 the trial's value 0.5(1e19 - 1)² is finite but ∇f(x) = 1e20 (1e19 - 1)
+  # overflows Float32, so L̂ = Inf. The rejection is not checked and raises as before.
+  f = LeastSquaresLoss(Float32[1], fill(1f20, 1, 1))
+  method = ProximalGradientDescent()
+  state = PS.initial_state(method, ProximalOptions(), f, NormL1(0f0), Float32[0])
+  state.backtrack_simple = false
+  state.L = 1f21 / 0.9f0
+  @test_throws r"nonfinite curvature estimate" PS._solve_gradient!(state, f, NormL1(0f0), method, ProximalOptions())
+  @test state.x == Float32[0] && state.verifications == 0
+  @test isfinite(state.f_x) && !all(isfinite, state.grad_f_x)
+  # Function-value mode: a step of norm about 1e-157 has ‖d̂‖² subnormal, and a value gap of 10
+  # divided by it overflows to L̂ = Inf. The rejection is checked: L ≈ 1e157 is far above the
+  # curvature, so it is refuted, and L stays finite.
+  X, y = pgd_fixture()
+  f = (1 / 7) * LeastSquaresLoss(y, X)
+  st = pgd_trial(f, NormL1(0.), zeros(3), 1e157)
+  st.f_x_previous -= 10
+  xy_sq = PS._norm(st.x .- st.x_previous)^2
+  @test 0 < xy_sq && !isfinite(st.L + 2 * 10 / xy_sq)
+  @test PS.LineSearches.backtrack!(st, method.ls, f, NormL1(0.))
+  @test st.verifications == 1 && st.L == 1e157 && !st.backtrack_simple
+end
 end

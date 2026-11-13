@@ -150,19 +150,27 @@ only on `converged`.
   (see `LineSearches.BackTracking`). Near a minimizer, rounding of
   `f(x) - q(x)` or of the difference of two gradients can inflate `L̂` by
   orders of magnitude, which would shrink the step until `x` stops moving.
-  So a rejection of a trial with a finite value and a step `d = x - x' ≠ 0`
-  is checked with the least-squares bound that APG certifies (below):
+  So a rejection of a trial with a step `d = x - x'` is checked with the
+  least-squares bound that APG certifies (below):
   `√α ‖X d‖ ≤ (1 + 4eps) √L ‖d‖` while the search uses function values, and
   the same with `2α`, TFOCS's gradient test `2α ‖X d‖² ≤ L ‖d‖²`, once it
   uses gradients. The check uses the cached images `X x` and `X x'`, and a
   freshly computed `X d` when they leave the decision open or bound `U`
-  (below) loosely, with APG's error bounds and assumptions. A rejection
-  that the bound refutes was decided by rounding: the trial is accepted,
-  and the search uses gradients for the rest of the solve. Otherwise the search retries with
+  (below) loosely, with APG's error bounds and assumptions. A rejection is
+  not checked, and keeps TFOCS's update, when the trial value is not
+  finite, when the computed `‖d̂‖²` is zero (the zero-step exit, which
+  includes a tiny nonzero step whose square underflows), when `L̂` is NaN,
+  when a gradient estimate comes from a gradient with a nonfinite entry, or
+  on the size-limit branch below. A rejection that the bound refutes was
+  decided by rounding or lies within the slack `(1 + 4eps)²` on `L`: the
+  trial is accepted, and the search uses gradients for the rest of the
+  solve. Otherwise the search retries with
   `L ← min(Lexact, max(min(L̂, U), L/β))`, where `U` is a certified upper
-  bound on the `L` that the bound needs for that step. Unless the underflow
-  terms of the bounds dominate, `U` is close to `α ‖X d‖²/‖d‖²` (twice that
-  with gradients), so an `L̂` above `U` does not set `L`. Accepted trials
+  bound on the `L` that the bound needs for that step. Unless the rounding
+  or underflow terms of the bounds dominate (a step nearly in the null space
+  of `X`, or deep-subnormal data), `U` is at most about 1.07 times
+  `m α ‖X d‖²/‖d‖²`, with `m = 1` for function values and `m = 2` for
+  gradients, so an `L̂` above `U` does not set `L`. Accepted trials
   are not checked: a trial that a rounding-decided `L̂` accepts below the
   curvature stays accepted. For a curvature above `floatmax(T)` the check
   certifies no `L`, and a search whose trials TFOCS's estimate also rejects
