@@ -145,7 +145,41 @@ only on `converged`.
 - PGD uses in-place dense arrays, and restores the **last accepted**
   iterate if a numerical step fails. Its counters and other internals
   are not transactional.
-- APG does the same. Its backtracking raises an error, after which the last
+  Its backtracking line search decides each trial with TFOCS's local
+  curvature estimate `L̂`, from function values and later from gradients
+  (see `LineSearches.BackTracking`). Near a minimizer, rounding of
+  `f(x) - q(x)` or of the difference of two gradients can inflate `L̂` by
+  orders of magnitude, which would shrink the step until `x` stops moving.
+  So a rejection of a trial with a finite value and a step `d = x - x' ≠ 0`
+  is checked with the least-squares bound that APG certifies (below):
+  `√α ‖X d‖ ≤ (1 + 4eps) √L ‖d‖` while the search uses function values, and
+  the same with `2α`, TFOCS's gradient test `2α ‖X d‖² ≤ L ‖d‖²`, once it
+  uses gradients. The check uses the cached images `X x` and `X x'`, and a
+  freshly computed `X d` when they leave the decision open or bound `U`
+  (below) loosely, with APG's error bounds and assumptions. A rejection
+  that the bound refutes was decided by rounding: the trial is accepted,
+  and the search uses gradients for the rest of the solve. Otherwise the search retries with
+  `L ← min(Lexact, max(min(L̂, U), L/β))`, where `U` is a certified upper
+  bound on the `L` that the bound needs for that step. Unless the underflow
+  terms of the bounds dominate, `U` is close to `α ‖X d‖²/‖d‖²` (twice that
+  with gradients), so an `L̂` above `U` does not set `L`. Accepted trials
+  are not checked: a trial that a rounding-decided `L̂` accepts below the
+  curvature stays accepted. For a curvature above `floatmax(T)` the check
+  certifies no `L`, and a search whose trials TFOCS's estimate also rejects
+  ends in an error with the last accepted iterate restored; for data deep in
+  the subnormal range, where the underflow terms can dominate the bounds, a
+  step may need `L` far above the curvature, or the search may end in the
+  same error. Problems with `max(n, p) + 4 ≥ 1/(4 eps(T))` or
+  `n p + 3 ≥ 1/(4 eps(Float64))` are not refused (APG refuses them): their
+  rejections are not checked, keep TFOCS's decision and do not get this
+  protection.
+  With `ftol > 0` and `allow_f_increases = false`, a solve whose inflated
+  `L` used to make the step round to zero, so that the coefficient test
+  reported `converged = true`, can instead reach the rounding regime of
+  the objective and end on an objective-increase stop
+  (`f_increased = true`); see "Why rounding triggers it" in
+  [PGD stops when the computed objective increases](@ref).
+- APG handles a failed step in the same way. Its backtracking raises an error, after which the last
   accepted iterate is restored, when the next curvature estimate `L/β` is not a
   finite increase; a trial whose objective is not finite is never accepted.
   An extrapolated point whose objective or gradient is not finite restarts the

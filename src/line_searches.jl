@@ -23,6 +23,19 @@ are too close to compare in floating point, and from gradients after that.
 An LS trial whose image or value overflows is never accepted: it gives no
 estimate, and the search retries with `L ← L / β`.
 
+For [`ProximalGradientDescent`](@ref) on its supported least-squares model, a
+rejection of a trial with a finite value, a step `d ≠ 0` and a non-NaN `L̂` is
+checked by the certified least-squares bound that `AccProxGradDescent` uses:
+`√α ‖X d‖ ≤ (1 + 4eps) √L ‖d‖` for function-value estimates, and the same with
+`2α` for gradient estimates. When the bound is certified, the rejection was
+decided by rounding: the trial is accepted, and function-value estimates end
+for the rest of the solve. Otherwise the retry uses
+`L ← min(Lexact, max(min(L̂, U), L / β))`, where `U` is a certified upper bound
+on the `L` that the bound needs for that step. Accepted trials are not checked.
+When `max(n, p) + 4 ≥ 1/(4 eps(T))` or `n p + 3 ≥ 1/(4 eps(Float64))`, the check
+is skipped and the rejection stands. See
+[numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
+
 The object holds settings only and can be shared between solves; the
 bookkeeping lives in the solver state.
 """
@@ -55,6 +68,12 @@ end
 # computes them from its LS image cache (see image_models.jl)
 function value_and_gradient_at_x! end
 
+# verify_rejection!(state, gradient_mode) checks a rejected trial with d ≠ 0 against the
+# curvature bound of its mode: (true, _) when the bound is certified, otherwise (false, U)
+# with U an upper bound on the L the bound needs, Inf when there is none. The PGD state
+# implements it with its LS image cache (proximal_gradient_descent.jl).
+function verify_rejection! end
+
 function backtrack!(state, ls::BackTracking{T}, f, g) where T
 
     # Quick exit if no progress made
@@ -83,6 +102,7 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
     end
 
     local_l = Inf
+    gradient_mode = !state.backtrack_simple
     # Compute Lipschitz estimate
     if state.backtrack_simple
         q_x = state.f_x_previous + _dot( state.delta_x, state.grad_f_x_previous ) + 0.5 * state.L * xy_sq
@@ -107,6 +127,24 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
     # Exit if Lipschitz criterion satisfied, or if we hit Lexact
     state.backtrack_steps += 1;
     (local_l <= state.L || state.L >= ls.Lexact) && return true
+    # A rejection with a non-NaN estimate is checked against the bound of the mode in which
+    # the estimate was formed. When the bound is certified, the estimate was decided by
+    # rounding: the trial is accepted, and function-value mode ends as at a switch.
+    # Otherwise the estimate is capped by the upper bound U. A NaN estimate is kept, so it
+    # raises the error below as before.
+    if !isnan(local_l)
+        refuted, U = verify_rejection!(state, gradient_mode)
+        if refuted
+            if state.backtrack_simple
+                state.backtrack_simple = false
+                value_and_gradient_at_x!(state, f)
+                state.f_calls += 1
+                state.grad_calls += 1
+            end
+            return true
+        end
+        local_l = min(local_l, U)
+    end
     state.L = min( ls.Lexact, max( local_l, next_curvature(state.L, ls.β) ) )
     isfinite(state.L) || error("line search failed: nonfinite curvature estimate")
 
