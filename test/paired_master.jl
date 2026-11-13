@@ -147,7 +147,8 @@ end
       end
     end
   end
-  # A nonunique design checks the fit only: different coefficients pass, a fit error fails.
+  # On a nonunique design only the coefficient comparison is exempt, so different coefficients pass;
+  # the objective, KKT, returned-minimum and fitted-value checks remain, and a fit error fails.
   key = pick("Float64", "nonunique", "random")
   a, b = fixture(), fixture()
   a["records"][key]["point"], b["records"][key]["point"] = PM.bits([1.0, 0.0, 0.0]), PM.bits([0.0, 1.0, 0.0])
@@ -161,7 +162,10 @@ end
   pgd, cd = pick("Float32", "correlated", "pgd"), pick("Float64", "orthogonal", "random")
   cyclic = pick("Float32", "orthogonal", "cyclic")
   flags(; kwargs...) = r -> merge!(r, Dict{String, Any}(string(name) => value for (name, value) in kwargs))
-  # Truthful records pass, whichever stopping reason a run that did not converge reports.
+  # Records that satisfy the checked flag relations pass, whichever stopping reason a run that did not
+  # converge reports. Some of them (call_limit_reached = true) cannot arise under the probe's settings,
+  # which set no call limit (the flag is the disjunction of the limit tests, src/solve.jl:106-109 and
+  # 140); they exercise the relation.
   stopped(; kwargs...) = flags(; converged = false, x_converged = false, kwargs...)
   for change in (stopped(iterations = PM.PGD_MAXITER, iteration_converged = true),
       stopped(f_increased = true), stopped(call_limit_reached = true),

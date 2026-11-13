@@ -139,13 +139,16 @@ The paired control compares the 288 records of the two sides by kind. The invent
 format are fixed.
 
 - **Optimization records** (`lasso/...`: proximal gradient descent and both coordinate-descent
-  orders): both sides must pass the same independent quality checks, with thresholds relative to
-  `max(1, |optimum|)`: objective against the signed-support or analytic reference (`5e-4` in
-  `Float32`, `2e-6` in `Float64`), the KKT residual, the returned minimum against the independent
-  objective, fitted values (4 times the threshold) and, for the designs with a unique solution,
-  coefficients (4 times the threshold). The probe stops at once when a check fails on its own side.
-  The current tree must also have truthful stopping flags. Side A is not checked for them. For
-  proximal gradient descent, `converged` is the disjunction of `x_converged`, `f_converged` and
+  orders): both sides must pass the same independent quality checks, each with its own
+  normalizer, where `tolerance` is `5e-4` in `Float32` and `2e-6` in `Float64`:
+  objective against the signed-support or analytic reference, within `tolerance * max(1, |optimum|)`;
+  the returned minimum against the independent objective, within the same bound; the KKT residual,
+  within `tolerance * kkt_scale`, where `kkt_scale = max(1, α‖Xᵀy‖∞, λ)` for the loss scale `α` and
+  the penalty `λ`; fitted values, within `4 * tolerance * max(1, ‖reference_fit‖∞)`; and, for the
+  designs with a unique solution, coefficients, within `4 * tolerance * max(1, ‖reference_point‖∞)`.
+  The probe stops at once when a check fails on its own side.
+  The current tree must also have stopping flags that satisfy the relations below. Side A is not
+  checked for them. For proximal gradient descent, `converged` is the disjunction of `x_converged`, `f_converged` and
   `grad_converged`, `iteration_converged` is `iterations == maxiter`, and a run that did not converge
   reports `iteration_converged`, `f_increased` or `call_limit_reached`. For coordinate descent,
   `converged` implies `maxchange < tolerance`, and a run that did not converge made `maxpasses`
