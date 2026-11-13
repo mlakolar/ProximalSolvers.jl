@@ -38,8 +38,8 @@ function cd_solve(f, λ, x0; order, momentum = nothing, owner = false, maxpasses
   (; x = Vector(x), state, minimum = r.minimum, passes = r.passes, converged = r.converged,
      maxchange = r.maxchange, tolerance = r.tolerance, rng = copy(solver.rng), logs)
 end
-# Equal in every returned bit (isequal: an equal -0.0 and 0.0 differ, a NaN equals itself) and
-# in the generator state.
+# Equal under isequal (so -0.0 and 0.0 differ and a NaN equals itself) in x, the owner state, the
+# minimum, the passes, the converged flag, maxchange and tolerance, and equal in the generator state.
 same_run(a, b) =
   isequal((a.x, a.state, a.minimum, a.passes, a.converged, a.maxchange, a.tolerance),
           (b.x, b.state, b.minimum, b.passes, b.converged, b.maxchange, b.tolerance)) && a.rng == b.rng
@@ -87,11 +87,12 @@ objective_bound(T, n, p) = (n + p) * eps(T)
 # ---------------------------------------------------------------------------
 # 1. Power-of-two invariance: the supplied scale, not its rounding to Float32, is used
 # ---------------------------------------------------------------------------
-# With c = 2^k, y and X scaled by c and α = α′ 2^(-2k) give α c² a = α′ a for every curvature and
-# sum of squares, and leave the coefficients and the penalty unchanged. The data are scaled exactly,
-# so Float32 data with the Float64 scale α′ 2^(-2k) must reproduce Float32 data with the Float64
-# scale α′ bit for bit, for each solve below. α is subnormal in Float32 and Float32(α) != α, so a
-# solver that rounds the scale to Float32 differs.
+# With c = 2^k, y and X scaled by c and α = α′ 2^(-2k) give α c² a = α′ a for the curvature a of a
+# column and for the sums of squares of y and of the residual, and leave the coefficients and the
+# penalty unchanged. Scaling by a power of two is exact in Float32 while no entry or sum leaves its
+# normal range, which the data below keep, so Float32 data with the Float64 scale α′ 2^(-2k) must
+# reproduce Float32 data with the Float64 scale α′ bit for bit in each solve below. α is subnormal in
+# Float32 and Float32(α) != α, so a solver that rounds the scale to Float32 differs.
 @testset "a power-of-two rescaling of the data and of the loss scale leaves CD unchanged (Float32 data, Float64 scale)" begin
   k = 50
   c = 2f0^k
@@ -305,7 +306,7 @@ end
   @test (@inferred PS.loss_value(m, x)) isa Float32
   @test (@inferred PS.response_scale(m, x)) isa Float32
   @test (@inferred PS.coordinate_scale(m, x, 4)) isa Float32
-  for k in 1:size(X, 2)    # warm every column
+  for k in 1:size(X, 2)    # warm the calls for each column
     alloc_step(m, g, x, k)
     alloc_visit(m, g, x, k, true)
   end
