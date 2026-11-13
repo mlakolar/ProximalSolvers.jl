@@ -175,27 +175,34 @@ function _step_curvature(state::ProximalGradientDescentState{T}, m) where T
     c <= state.L, c
 end
 
-# Float32 data. When the calling thread flushes subnormals to zero (get_zero_subnormals(), one
-# read of the floating-point control register), the product and the sums below can drop
-# subnormal operands, so the computed curvature is not used: the result is (false, Inf32), and
-# the caller keeps TFOCS's estimate. Otherwise the sums of squares are accumulated in Float64,
-# where the square of a finite Float32 is exact, so neither sum overflows or underflows, and
-# ‖d̂‖² > 0 for d̂ ≠ 0. An entry of fl(X d̂) that overflowed to Inf or NaN makes the curvature
-# nonfinite: the trial is not accepted and the caller keeps TFOCS's estimate. The allowance
-# τ = 2√n p floatmin(Float32) for the underflow contribution to fl(X d̂) under gradual underflow
-# is added to ‖fl(X d̂)‖ before squaring; it is not a bound on the total error of the product,
-# which also carries the rounding of its products and sums. The comparison value
-# c64 = m α (‖fl(X d̂)‖ + τ)²/‖d̂‖², in Float64, is at least m α τ²/‖d̂‖² > 0 when finite, so a
-# product lost to underflow does not make it zero. Acceptance is c64 ≤ L in Float64. The
-# returned estimate Float32(c64) is used after a rejection only, where c64 > L and L is a
-# Float32, so Float32(c64) ≥ L under round-to-nearest; it can round to 0 (after an acceptance,
-# where it is unused) or to Inf (above floatmax(Float32)).
+# Float32 data. The computed curvature is not used, and the result is (false, Inf32) so that the
+# caller keeps TFOCS's estimate, when the calling thread flushes subnormals to zero
+# (get_zero_subnormals(), one read of the floating-point control register) or when d̂ has a
+# subnormal entry, which a flushing thread could drop from the product. Otherwise the sums of
+# squares are accumulated in Float64, where the square of a finite Float32 is exact, so neither
+# sum overflows or underflows, and ‖d̂‖² > 0 for d̂ ≠ 0. An entry of fl(X d̂) that overflowed to
+# Inf or NaN makes the curvature nonfinite: the trial is not accepted and the caller keeps
+# TFOCS's estimate. Two allowances are added to ‖fl(X d̂)‖ before squaring, under the assumption
+# that flushing to zero, by the calling thread or by a BLAS thread, affects only subnormal
+# operands and results: τ = 2√n p floatmin(Float32) for underflow of the results, and
+# √n floatmin(Float32) ‖d̂‖₁ for subnormal entries of X dropped from the product, each of which
+# changes an entry of fl(X d̂) by at most floatmin(Float32) |d̂ⱼ|. They are not a bound on the
+# total error of the product, which also carries the rounding of its products and sums, and the
+# curvature carries no certificate. The comparison value
+# c64 = m α (‖fl(X d̂)‖ + τ + √n floatmin(Float32) ‖d̂‖₁)²/‖d̂‖², in Float64, is at least
+# m α τ²/‖d̂‖² > 0 when finite, so a product lost to underflow or flushing does not make it zero.
+# Acceptance is c64 ≤ L in Float64. The returned estimate Float32(c64) is used after a rejection
+# only, where c64 > L and L is a Float32, so Float32(c64) ≥ L under round-to-nearest; it can
+# round to 0 (after an acceptance, where it is unused) and may round to Inf (when the conversion
+# overflows).
 function _step_curvature(state::ProximalGradientDescentState{Float32}, m)
     get_zero_subnormals() && return false, Inf32
+    den, l1, subnormal = _step_norms64(state.delta_x)
+    subnormal && return false, Inf32
     n, p = size(state.model.X)
-    τ = 2 * sqrt(Float64(n)) * p * Float64(floatmin(Float32))
-    w = sqrt(_sumsq64(state.dz)) + τ
-    c = m * (Float64(state.model.α) * (w^2 / _sumsq64(state.delta_x)))
+    fm, rn = Float64(floatmin(Float32)), sqrt(Float64(n))
+    w = sqrt(_sumsq64(state.dz)) + 2 * rn * p * fm + rn * fm * l1
+    c = m * (Float64(state.model.α) * (w^2 / den))
     c <= state.L, Float32(c)
 end
 
@@ -206,6 +213,18 @@ function _sumsq64(v)
         s += abs2(Float64(v[i]))
     end
     s
+end
+
+# Σ vᵢ² and Σ |vᵢ| of a Float32 vector, accumulated in Float64, and whether an entry is subnormal
+function _step_norms64(v)
+    s2, s1, subnormal = 0.0, 0.0, false
+    @inbounds @simd for i in eachindex(v)
+        x = Float64(v[i])
+        s2 += abs2(x)
+        s1 += abs(x)
+        subnormal |= issubnormal(v[i])
+    end
+    s2, s1, subnormal
 end
 
 """

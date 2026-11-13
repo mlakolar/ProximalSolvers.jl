@@ -429,6 +429,17 @@ end
     end
     @test pgd_exact_curvature(st, 1) > floatmin(Float32)
   end
+  # A subnormal entry of d̂ (here 1e-40), which a flushing thread could drop from the product:
+  # the curvature is not used, and TFOCS's estimate sets L although L = 10 is above the
+  # curvature along d̂.
+  f = LeastSquaresLoss(Float32[0], Float32[1 0])
+  st = pgd_pair_trial(f, g0, Float32[0, 0], Float32[1, 1f-40], 10f0)
+  st.f_x_previous -= 10
+  @test issubnormal(st.x[2])
+  xy_sq = PS._norm(st.x .- st.x_previous)^2
+  Lhat = st.L + 2. * max(st.f_x - (st.f_x_previous + 0.5 * st.L * xy_sq), 0f0) / xy_sq
+  @test !PS.LineSearches.backtrack!(st, method.ls, f, g0)
+  @test st.verifications == 1 && st.L == Float32(Lhat)
   # An entry of fl(X d̂) overflows (1e30 · 1e10): c is not finite, so the check does not
   # accept the trial, and backtrack! keeps TFOCS's estimate (see the next testset). The step is
   # set directly, as backtrack! leaves it in delta_x.
@@ -439,6 +450,54 @@ end
   @test !all(isfinite, X * st.delta_x)
   accepted, c = PS.LineSearches.check_rejection!(st, false)
   @test !accepted && !isfinite(c) && c isa Float32 && st.verifications == 1
+end
+
+# A BLAS thread pool grown while subnormals were flushed, then the calling thread restored to
+# gradual underflow: in a separate process (OpenBLAS starts with one thread), BLAS threads that
+# flush subnormals compute rows 513:2048 of X d̂, whose operands are the subnormal
+# reinterpret(Float32, 0x007fffff), and can return 0 for them; the curvature along d̂ is about
+# 1.5e-31, above L = floatmin(Float32). The rejection is forced by lowering f(x').
+const PGD_WORKER_SCRIPT = raw"""
+using LinearAlgebra, ProximalBase, ProximalSolvers
+const PS = ProximalSolvers
+n = p = 2048
+a = reinterpret(Float32, 0x007fffff)
+X = zeros(Float32, n, p)
+X[513:end, :] .= a
+d = fill(1f10, p)
+if !set_zero_subnormals(true)
+  println("SKIP")
+  exit(0)
+end
+BLAS.set_num_threads(4)
+v = zeros(Float32, n)
+mul!(v, X, d); mul!(v, X, d)
+set_zero_subnormals(false)
+mul!(v, X, d)
+f, g = floatmax(Float32) * LeastSquaresLoss(zeros(Float32, n), X), NormL1(0f0)
+method = ProximalGradientDescent()
+st = PS.initial_state(method, ProximalOptions(), f, g, zeros(Float32, p))
+copyto!(st.x_previous, st.x)
+st.f_x_previous, st.g_x_previous = st.f_x - 1, st.g_x
+copyto!(st.grad_f_x_previous, st.grad_f_x)
+st.L = floatmin(Float32)
+copyto!(st.x, d)
+st.g_x = g(st.x)
+st.f_x = PS._value!(st.x, st.model, st.z_x)
+accepted = PS.LineSearches.backtrack!(st, method.ls, f, g)
+println("RESULT accepted=", accepted, " verifications=", st.verifications, " lost=", all(iszero, v))
+"""
+
+@testset "PGD Float32 check with BLAS threads that flush subnormals" begin
+  cmd = `$(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) -e $PGD_WORKER_SCRIPT`
+  out = readchomp(addenv(cmd, "OPENBLAS_NUM_THREADS" => "1", "JULIA_NUM_THREADS" => "1"))
+  if out == "SKIP"
+    @info "set_zero_subnormals(true) is not available on this platform; BLAS-thread check skipped"
+  else
+    m = match(r"RESULT accepted=(\w+) verifications=(\d+) lost=(\w+)", out)
+    @test m !== nothing
+    @test m[1] == "false" && m[2] == "1"
+  end
 end
 
 @testset "PGD checked rejection before an unrepresentable curvature restores the accepted point" begin
