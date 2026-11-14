@@ -285,7 +285,7 @@ end
 # Numerical stagnation, after an iteration of _solve_gradient!: true for Float32 PGD with ftol = 0
 # when the accepted iterate equals the previous one elementwise and the last rejection of the
 # iteration's line search replaced L by a finite computed curvature (verified_rejection). It is
-# false for every other method, element type and ftol > 0. The stop it causes is not a
+# false for AccProxGradDescent, for Float64 PGD and when ftol > 0. The stop it causes is not a
 # convergence or accuracy test.
 _stagnated(state, options) = false
 _stagnated(state::ProximalGradientDescentState{Float32}, options) =

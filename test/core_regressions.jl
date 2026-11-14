@@ -684,17 +684,18 @@ end
 end
 
 @testset "PGD Float32 strict: an exact optimum runs to maxiter without a stagnation stop (#308)" begin
-  # λ = 1.5 λ_max from 0: every step is soft thresholded to 0, so nothing is ever rejected
+  # λ = 1.5 λ_max from 0: the steps are soft thresholded to 0 and the line search rejects no trial
   X, y, s, _ = pgd_lasso_design(33, 100, 32)
   r, x, gap = pgd_strict_solve(Float32, X, y, s, 1.5 * norm(s * X' * y, Inf), zeros(32), 300)
   @test r.iterations == 300 && r.iteration_converged
   @test !r.converged && !r.stagnated
-  @test all(iszero, x)
+  @test all(iszero, x) && r.backtrack_steps == 0
 end
 
 @testset "PGD Float32 strict: a stall above the Float32 floor is never reported as convergence (#308)" begin
   # near interpolation (noise 1e-3, λ = 1e-4 λ_max) the Float32 floor of the gap is above the 1e-5
-  # target; some of the draws stagnate exactly, the others keep moving by rounding error
+  # target; some of the draws reach an unchanged iterate with a checked rejection, the others keep
+  # moving by rounding error
   stagnated = 0
   for seed in 1:24
     X, y, s, λ = pgd_ar_problem(seed, 100, 32, 0.5, 1e-3, 1e-4)
@@ -783,7 +784,7 @@ end
   st.verified_rejection = true
   st.x[3] = nextfloat(st.x[3])
   @test !PS._stagnated(st, strict)
-  # Float64 PGD and APG never stagnate
+  # the test is false for a Float64 PGD state and for an APG state
   @test !stagnation(Float64, strict)
   f = (1 / 7) * LeastSquaresLoss(y, X)
   apg = PS.initial_state(AccProxGradDescent(), strict, f, NormL1(.1), [.3, -.7, .2])

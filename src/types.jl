@@ -249,10 +249,10 @@ replaced the curvature estimate by the finite computed curvature of the rejected
 `f_converged` and `grad_converged` are `false` and `x_residual` is `0`. `stagnated=true`
 is **not** a certificate of convergence or accuracy: it reports that an iteration left the
 iterate unchanged after its line search last rejected a step by that step's computed
-curvature, and the returned point need not meet any accuracy target. `stagnated` is `false` for every other method and
-element type and with `ftol > 0`. Each stopping flag reports its own condition, so
-`stagnated` can be `true` together with `call_limit_reached`, or at an iteration at which
-the callback returned `true`.
+curvature, and the returned point need not meet any accuracy target. `stagnated` is `false`
+for `AccProxGradDescent`, for `Float64` data and with `ftol > 0`. Each stopping flag reports
+its own condition, so `stagnated` can be `true` together with `call_limit_reached`, or at an
+iteration at which the callback returned `true`.
 """
 mutable struct OptimizationResults{O<:ProximalSolver, T, N, M, X<:AbstractArray{T, N}}
     method::O

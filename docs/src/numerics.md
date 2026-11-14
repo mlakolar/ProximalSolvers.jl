@@ -72,7 +72,7 @@ are evaluated as follows:
 | `converged` | at least one of `x_converged`, `f_converged` and `grad_converged` |
 | `f_increased` | `F > F'` |
 | `iteration_converged` | `iterations == maxiter` |
-| `stagnated` | `true` only for `ProximalGradientDescent` on `Float32` data with `ftol = 0`, at the stop described under [Strict accuracy](#Strict-accuracy) (a stagnation stop); `false` otherwise |
+| `stagnated` | `true` at the stagnation stop of `ProximalGradientDescent` on `Float32` data with `ftol = 0` (see [Strict accuracy](#Strict-accuracy)); `false` for `AccProxGradDescent`, for `Float64` data, with `ftol > 0` and at any other stop |
 
 So an objective-increase stop reports `f_increased=true` together with
 `converged=false`, unless one of the three tests also held at that
@@ -144,11 +144,11 @@ and `converged=true` is still not a certificate: check the returned point
 independently, for example with the bound below. With this configuration
 Float32 PGD reached its floating-point fixed point and met the independent
 `1e-5` target on the benchmark cases (in these probes, with `maxiter = 10000`;
-10 input draws each, on Julia 1.10 and 1.13, one CPU model). It does not run to
-`maxiter` there: it stops at a stagnation stop (see "A stagnation stop" below),
-with `stagnated=true` and `converged=false`. At an iteration whose accepted
+10 input draws each, on Julia 1.10 and 1.13, one CPU model). With the stagnation
+stop (see "A stagnation stop" below), such a solve ends before `maxiter` with
+`stagnated=true` and `converged=false`. At an iteration whose accepted
 iterate is unchanged, the computed `x` and gradient tests can hold (the computed
-gradient residual can be exactly `0`), but under `ftol = 0` the exact-stall rule
+gradient residual can be `0`), but under `ftol = 0` the exact-stall rule
 (see "An exact stall" below) does not count them; between such iterations the
 iterate can still move. The computed residual is not an accuracy measure: the
 `1e-5` target was checked with the independent duality gap.
