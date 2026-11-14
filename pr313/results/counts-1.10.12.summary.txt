@@ -1,0 +1,74 @@
+
+### all runs
+      K  runs  conv kkt>bound kkt>10xM visits/M (sum)  max run  p95 run  passes/M  full/M changed
+    fix   392   392        23        0         0.7567    1.000    1.000     0.800   0.992      13
+ master   392   392        23        0         1.0000    1.000    1.000     1.000   1.000       0
+
+### Float32
+      K  runs  conv kkt>bound kkt>10xM visits/M (sum)  max run  p95 run  passes/M  full/M changed
+    fix   196   196         0        0         0.8427    1.000    1.000     0.865   0.991       5
+ master   196   196         0        0         1.0000    1.000    1.000     1.000   1.000       0
+
+### Float64
+      K  runs  conv kkt>bound kkt>10xM visits/M (sum)  max run  p95 run  passes/M  full/M changed
+    fix   196   196        23        0         0.7009    1.000    1.000     0.763   0.993       8
+ master   196   196        23        0         1.0000    1.000    1.000     1.000   1.000       0
+
+### random, momentum=false
+      K  runs  conv kkt>bound kkt>10xM visits/M (sum)  max run  p95 run  passes/M  full/M changed
+    fix   168   168        12        0         0.6182    1.000    1.000     0.695   0.982      11
+ master   168   168        12        0         1.0000    1.000    1.000     1.000   1.000       0
+
+### random, momentum=nothing
+      K  runs  conv kkt>bound kkt>10xM visits/M (sum)  max run  p95 run  passes/M  full/M changed
+    fix   168   168         8        0         0.9975    1.000    1.000     0.998   1.000       1
+ master   168   168         8        0         1.0000    1.000    1.000     1.000   1.000       0
+
+### cyclic
+      K  runs  conv kkt>bound kkt>10xM visits/M (sum)  max run  p95 run  passes/M  full/M changed
+    fix    56    56         3        0         0.9316    1.000    1.000     0.944   1.000       1
+ master    56    56         3        0         1.0000    1.000    1.000     1.000   1.000       0
+
+### core-lasso 100x32
+      K  runs  conv kkt>bound kkt>10xM visits/M (sum)  max run  p95 run  passes/M  full/M changed
+    fix    56    56         0        0         1.0000    1.000    1.000     1.000   1.000       0
+ master    56    56         0        0         1.0000    1.000    1.000     1.000   1.000       0
+
+### lasso-B 240x160 r.8
+      K  runs  conv kkt>bound kkt>10xM visits/M (sum)  max run  p95 run  passes/M  full/M changed
+    fix    56    56         0        0         1.0000    1.000    1.000     1.000   1.000       0
+ master    56    56         0        0         1.0000    1.000    1.000     1.000   1.000       0
+
+### lasso-C 800x120 r.5
+      K  runs  conv kkt>bound kkt>10xM visits/M (sum)  max run  p95 run  passes/M  full/M changed
+    fix    56    56         0        0         1.0000    1.000    1.000     1.000   1.000       0
+ master    56    56         0        0         1.0000    1.000    1.000     1.000   1.000       0
+
+### lasso-D 180x600
+      K  runs  conv kkt>bound kkt>10xM visits/M (sum)  max run  p95 run  passes/M  full/M changed
+    fix    56    56         0        0         1.0000    1.000    1.000     1.000   1.000       0
+ master    56    56         0        0         1.0000    1.000    1.000     1.000   1.000       0
+
+### explore 500x200
+      K  runs  conv kkt>bound kkt>10xM visits/M (sum)  max run  p95 run  passes/M  full/M changed
+    fix    56    56         0        0         1.0000    1.000    1.000     1.000   1.000       0
+ master    56    56         0        0         1.0000    1.000    1.000     1.000   1.000       0
+
+### stress 200x1000 r.95
+      K  runs  conv kkt>bound kkt>10xM visits/M (sum)  max run  p95 run  passes/M  full/M changed
+    fix    56    56        12        0         1.0000    1.000    1.000     1.000   1.000       0
+ master    56    56        12        0         1.0000    1.000    1.000     1.000   1.000       0
+
+### stress 100x2000 small-λ
+      K  runs  conv kkt>bound kkt>10xM visits/M (sum)  max run  p95 run  passes/M  full/M changed
+    fix    56    56        11        0         0.7073    1.000    1.000     0.682   0.972      13
+ master    56    56        11        0         1.0000    1.000    1.000     1.000   1.000       0
+
+worst visit ratios for K=master:
+  core-lasso 100x32/Float32/cold/cyclic/false/1/1.0e-7: visits 106->106 passes 9->9 full 2->2 conv true->true kkt 4.84e-08->4.84e-08
+  core-lasso 100x32/Float32/cold/random/nothing/1/1.0e-7: visits 122->122 passes 13->13 full 2->2 conv true->true kkt 9.70e-08->9.70e-08
+  core-lasso 100x32/Float32/cold/random/nothing/2/1.0e-7: visits 126->126 passes 13->13 full 2->2 conv true->true kkt 4.84e-08->4.84e-08
+  core-lasso 100x32/Float32/cold/random/nothing/3/1.0e-7: visits 155->155 passes 14->14 full 3->3 conv true->true kkt 1.03e-07->1.03e-07
+  core-lasso 100x32/Float32/cold/random/false/1/1.0e-7: visits 107->107 passes 10->10 full 2->2 conv true->true kkt 5.17e-08->5.17e-08
+
+not converged: 0
