@@ -1,0 +1,13 @@
+X = reshape(Float32[0.1623875f0, 0.3975033f0, 0.38066474f0, 1.0014724f0, 0.031295117f0, -2.3836505f0], 2, 3)
+y = Float32[-1.0195396f0, -0.7663379f0]
+λ = 0.89738756f0  # 0.5 λmax
+x0 = Float32[-0.46727893f0, -3.7358327f0, -2.9755993f0]
+master owner=false converged=false passes=2000 KKT=2.023e-01 x=Float32[0.0, -0.22492534, 0.0]
+master owner=true  converged=false passes=2000 KKT=2.023e-01 x=Float32[0.0, -0.22492534, 0.0]
+w20    owner=false converged=true  passes=  60 KKT=5.444e-07 x=Float32[0.0, 0.0, 0.1579136]
+w20    owner=true  converged=true  passes=  60 KKT=5.444e-07 x=Float32[0.0, 0.0, 0.1579136]
+w10    owner=false converged=true  passes=  30 KKT=5.444e-07 x=Float32[0.0, 0.0, 0.1579136]
+w10    owner=true  converged=true  passes=  30 KKT=5.444e-07 x=Float32[0.0, 0.0, 0.1579136]
+50     owner=false converged=true  passes=  56 KKT=5.444e-07 x=Float32[0.0, 0.0, 0.1579136]
+50     owner=true  converged=true  passes=  56 KKT=5.444e-07 x=Float32[0.0, 0.0, 0.1579136]
+BigFloat reference: [-0.0, -0.0, 0.15791376737053847]

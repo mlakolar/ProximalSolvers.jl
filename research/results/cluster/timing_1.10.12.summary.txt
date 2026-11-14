@@ -1,0 +1,13 @@
+group                            label  geomean     min     max  |r-1|>5%  worst case
+ordinary (5 designs, 60 cases)   M2      0.9957   0.906   1.065         4  0.906 lasso-D 180x600/Float64/warm/random
+ordinary (5 designs, 60 cases)   C50     1.0051   0.900   1.096         6  0.900 lasso-D 180x600/Float64/warm/random
+ordinary (5 designs, 60 cases)   CW10    1.0202   0.916   1.152        16  1.152 core-lasso 100x32/Float64/warm/random-nomom
+ordinary (5 designs, 60 cases)   CW20    1.0447   0.919   1.181        28  1.181 core-lasso 100x32/Float64/cold/random-nomom
+stress (2 designs, 24 cases)     M2      0.9995   0.988   1.007         0  0.988 stress 200x1000 r.95/Float64/warm/cyclic
+stress (2 designs, 24 cases)     C50     0.7768   0.390   1.028        16  0.390 stress 100x2000 small-λ/Float32/cold/cyclic
+stress (2 designs, 24 cases)     CW10    0.9553   0.715   1.025         4  0.715 stress 100x2000 small-λ/Float32/cold/random-nomom
+stress (2 designs, 24 cases)     CW20    0.9986   0.737   1.055         5  0.737 stress 100x2000 small-λ/Float64/cold/random-nomom
+C50: cases with different bytes 0, different passes 18, not converged 0; master not converged 0
+CW10: cases with different bytes 0, different passes 4, not converged 0; master not converged 0
+CW20: cases with different bytes 0, different passes 2, not converged 0; master not converged 0
+ordinary cases with changed passes per label: {'C50': [], 'CW10': [], 'CW20': []}

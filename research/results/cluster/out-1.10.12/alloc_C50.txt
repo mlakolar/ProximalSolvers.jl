@@ -1,0 +1,6 @@
+Float32 cyclic  false   bytes(maxpasses=10)=30976 bytes(maxpasses=1000)=30992 passes=271 full-pass alloc=16 active-pass alloc=16
+Float32 random  nothing bytes(maxpasses=10)=52960 bytes(maxpasses=1000)=52976 passes=132 full-pass alloc=16 active-pass alloc=16
+Float32 random  false   bytes(maxpasses=10)=39040 bytes(maxpasses=1000)=39056 passes=221 full-pass alloc=16 active-pass alloc=16
+Float64 cyclic  false   bytes(maxpasses=10)=43824 bytes(maxpasses=1000)=43840 passes=271 full-pass alloc=16 active-pass alloc=16
+Float64 random  nothing bytes(maxpasses=10)=79344 bytes(maxpasses=1000)=79360 passes=132 full-pass alloc=16 active-pass alloc=16
+Float64 random  false   bytes(maxpasses=10)=51888 bytes(maxpasses=1000)=51904 passes=224 full-pass alloc=16 active-pass alloc=16

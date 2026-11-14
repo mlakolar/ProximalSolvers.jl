@@ -1,0 +1,109 @@
+  Activating project at `<checkout>/ProximalSolvers.jl-issue311-candw`
+     Testing ProximalSolvers
+      Status `<temporary environment>/Project.toml`
+  [4c88cf16] Aqua v0.8.19
+  [d3525ed8] ParallelTestRunner v2.10.0
+  [aea7be01] PrecompileTools v1.4.0
+  [0a755509] ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#c123d56`
+  [fc4971f5] ProximalSolvers v0.3.2 `<checkout>/ProximalSolvers.jl-issue311-candw`
+  [37e2e46d] LinearAlgebra v1.13.0
+  [56ddb016] Logging v1.11.0
+  [de0858da] Printf v1.11.0
+  [9a3f8284] Random v1.11.0
+  [2f01184e] SparseArrays v1.13.0
+  [fa267f1f] TOML v1.0.3
+  [8dfed614] Test v1.11.0
+      Status `<temporary environment>/Manifest.toml`
+  [4c88cf16] Aqua v0.8.19
+  [34da2185] Compat v4.18.1
+  [b5f81e59] IOCapture v1.0.0
+  [36869731] Malt v1.5.0
+  [d3525ed8] ParallelTestRunner v2.10.0
+  [aea7be01] PrecompileTools v1.4.0
+  [21216c6a] Preferences v1.6.1
+  [0a755509] ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#c123d56`
+  [fc4971f5] ProximalSolvers v0.3.2 `<checkout>/ProximalSolvers.jl-issue311-candw`
+  [05181044] RelocatableFolders v1.0.1
+  [6c6a2e73] Scratch v1.3.0
+  [10745b16] Statistics v1.11.5
+  [0dad84c5] ArgTools v1.1.2
+  [56f22d72] Artifacts v1.11.0
+  [2a0f44e3] Base64 v1.11.0
+  [ade2ca70] Dates v1.11.0
+  [8ba89e20] Distributed v1.11.0
+  [f43a241f] Downloads v1.7.0
+  [7b1f6079] FileWatching v1.11.0
+  [b77e0a4c] InteractiveUtils v1.11.0
+  [ac6e5ff7] JuliaSyntaxHighlighting v1.12.0
+  [b27032c2] LibCURL v1.0.0
+  [76f85450] LibGit2 v1.11.0
+  [8f399da3] Libdl v1.11.0
+  [37e2e46d] LinearAlgebra v1.13.0
+  [56ddb016] Logging v1.11.0
+  [d6f4376e] Markdown v1.11.0
+  [ca575930] NetworkOptions v1.3.0
+  [44cfe95a] Pkg v1.13.0
+  [de0858da] Printf v1.11.0
+  [9a3f8284] Random v1.11.0
+  [ea8e919c] SHA v1.0.0
+  [9e88b42a] Serialization v1.11.0
+  [6462fe0b] Sockets v1.11.0
+  [2f01184e] SparseArrays v1.13.0
+  [f489334b] StyledStrings v1.11.0
+  [fa267f1f] TOML v1.0.3
+  [a4e569a6] Tar v1.10.0
+  [8dfed614] Test v1.11.0
+  [cf7118a7] UUIDs v1.11.0
+  [4ec0a83e] Unicode v1.11.0
+  [e66e0078] CompilerSupportLibraries_jll v1.5.5+2
+  [deac9b47] LibCURL_jll v8.22.0+0
+  [e37daf67] LibGit2_jll v1.9.7+0
+  [29816b5a] LibSSH2_jll v1.11.104+0
+  [14a3606d] MozillaCACerts_jll v2026.10.20
+  [4536629a] OpenBLAS_jll v0.3.30+0
+  [458c3c95] OpenSSL_jll v3.5.8+0
+  [efcefdf7] PCRE2_jll v10.47.0+0
+  [bea87d4a] SuiteSparse_jll v7.10.1+0
+  [83775a58] Zlib_jll v1.3.2+0
+  [3161d3a3] Zstd_jll v1.5.7+1
+  [8e850b90] libblastrampoline_jll v5.15.0+0
+  [8e850ede] nghttp2_jll v1.70.0+0
+  [3f19e933] p7zip_jll v17.8.3+0
+Precompiling for configuration --code-coverage=@<checkout>/ProximalSolvers.jl-issue311-candw --color=auto --warn-overwrite=yes --depwarn=yes --inline=yes --startup-file=no --track-allocation=none --startup-file=no --depwarn=yes
+   2.6 s  ✓ ProximalSolvers
+  1 dependency successfully precompiled in 3 seconds. 47 already precompiled.
+     Testing Running tests...
+ProximalSolvers tests: tier standard: 11 files; Julia 1.13.3 on x86_64-linux-gnu (13th Gen Intel(R) Core(TM) i5-13600K, 20 threads), check-bounds default
+  accelerated_pgd aqua cd_numerics ci_gate core_contracts core_regressions minimal_core_characterization naming paired_master sparse_cd tier_selection
+Running 11 tests using 4 parallel jobs. To change the number of jobs, specify the `--jobs=N` argument to the tests, or set the `PTR_NUM_JOBS` environment variable.
+                                    │   Test   │ ──────────────── CPU ──────────────── │
+Test                       (Worker) │ time (s) │ GC (s) │ GC % │ Alloc (MB) │ RSS (MB) │
+sparse_cd                       (4) │     9.48 │   0.21 │  2.2 │    1353.54 │   474.62 │
+core_regressions                (1) │    11.45 │   0.34 │  3.0 │    1763.33 │   490.01 │
+aqua                            (1) │     5.94 │   0.06 │  1.1 │     397.31 │   697.41 │
+minimal_core_characterization   (4) │     8.20 │   0.18 │  2.1 │    1230.02 │   483.01 │
+accelerated_pgd                 (2) │    20.65 │   0.70 │  3.4 │    5054.49 │   504.27 │
+core_contracts                  (4) │     3.58 │   0.03 │  0.8 │     407.86 │   526.54 │
+tier_selection                  (1) │     5.06 │   0.05 │  1.0 │     542.47 │   697.41 │
+naming                          (1) │     0.02 │   0.00 │  0.0 │       1.57 │   697.41 │
+ci_gate                         (4) │     1.88 │   0.02 │  1.2 │     295.91 │   547.76 │
+paired_master                   (2) │     4.06 │   0.00 │  0.0 │       4.76 │   504.42 │
+cd_numerics                     (3) │    25.74 │   0.62 │  2.4 │    4128.30 │   485.88 │
+
+Output generated during execution of 'paired_master':
+┌ Test Summary:                                         | Pass  Total  Time
+│ paired controls: exact source and fail-closed records |   21     21  2.0s
+│ Test Summary:                                               | Pass  Total  Time
+│ paired controls: quality comparison of optimization records |   86     86  0.6s
+│ Test Summary:                                       | Pass  Total  Time
+│ paired controls: stopping flags of the current tree |   26     26  0.4s
+│ Test Summary:                                               | Pass  Total  Time
+│ paired controls: exact contracts and the result API surface |   18     18  0.1s
+│ Test Summary:                               | Pass  Total  Time
+└ paired controls: always-run gated Linux job |  118    118  0.2s
+
+Test Summary: |  Pass  Total   Time
+  Overall     | 39498  39498  28.6s
+    SUCCESS
+     Testing ProximalSolvers tests passed 
+exit 0

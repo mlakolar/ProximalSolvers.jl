@@ -1,0 +1,1569 @@
+problem	T	start	order	momentum	seed	tol	K	converged	passes	nfull	nactive	visits	kkt
+core-lasso 100x32	Float32	cold	cyclic	false	1	1.0e-7	master	true	9	2	7	106	4.8376792386820164e-8
+core-lasso 100x32	Float32	cold	cyclic	false	1	1.0e-7	50	true	9	2	7	106	4.8376792386820164e-8
+core-lasso 100x32	Float32	cold	cyclic	false	1	1.0e-7	w10	true	9	2	7	106	4.8376792386820164e-8
+core-lasso 100x32	Float32	cold	cyclic	false	1	1.0e-7	w20	true	9	2	7	106	4.8376792386820164e-8
+core-lasso 100x32	Float32	cold	random	nothing	1	1.0e-7	master	true	13	2	11	122	9.702032179732195e-8
+core-lasso 100x32	Float32	cold	random	nothing	1	1.0e-7	50	true	13	2	11	122	9.702032179732195e-8
+core-lasso 100x32	Float32	cold	random	nothing	1	1.0e-7	w10	true	13	2	11	122	9.702032179732195e-8
+core-lasso 100x32	Float32	cold	random	nothing	1	1.0e-7	w20	true	13	2	11	122	9.702032179732195e-8
+core-lasso 100x32	Float32	cold	random	nothing	2	1.0e-7	master	true	13	2	11	126	4.8376792386820164e-8
+core-lasso 100x32	Float32	cold	random	nothing	2	1.0e-7	50	true	13	2	11	126	4.8376792386820164e-8
+core-lasso 100x32	Float32	cold	random	nothing	2	1.0e-7	w10	true	13	2	11	126	4.8376792386820164e-8
+core-lasso 100x32	Float32	cold	random	nothing	2	1.0e-7	w20	true	13	2	11	126	4.8376792386820164e-8
+core-lasso 100x32	Float32	cold	random	nothing	3	1.0e-7	master	true	14	3	11	155	1.0298816294394234e-7
+core-lasso 100x32	Float32	cold	random	nothing	3	1.0e-7	50	true	14	3	11	155	1.0298816294394234e-7
+core-lasso 100x32	Float32	cold	random	nothing	3	1.0e-7	w10	true	14	3	11	155	1.0298816294394234e-7
+core-lasso 100x32	Float32	cold	random	nothing	3	1.0e-7	w20	true	14	3	11	155	1.0298816294394234e-7
+core-lasso 100x32	Float32	cold	random	false	1	1.0e-7	master	true	10	2	8	107	5.167651336628633e-8
+core-lasso 100x32	Float32	cold	random	false	1	1.0e-7	50	true	10	2	8	107	5.167651336628633e-8
+core-lasso 100x32	Float32	cold	random	false	1	1.0e-7	w10	true	10	2	8	107	5.167651336628633e-8
+core-lasso 100x32	Float32	cold	random	false	1	1.0e-7	w20	true	10	2	8	107	5.167651336628633e-8
+core-lasso 100x32	Float32	cold	random	false	2	1.0e-7	master	true	11	2	9	116	5.7362333294860876e-8
+core-lasso 100x32	Float32	cold	random	false	2	1.0e-7	50	true	11	2	9	116	5.7362333294860876e-8
+core-lasso 100x32	Float32	cold	random	false	2	1.0e-7	w10	true	11	2	9	116	5.7362333294860876e-8
+core-lasso 100x32	Float32	cold	random	false	2	1.0e-7	w20	true	11	2	9	116	5.7362333294860876e-8
+core-lasso 100x32	Float32	cold	random	false	3	1.0e-7	master	true	12	2	10	118	5.205061975317208e-8
+core-lasso 100x32	Float32	cold	random	false	3	1.0e-7	50	true	12	2	10	118	5.205061975317208e-8
+core-lasso 100x32	Float32	cold	random	false	3	1.0e-7	w10	true	12	2	10	118	5.205061975317208e-8
+core-lasso 100x32	Float32	cold	random	false	3	1.0e-7	w20	true	12	2	10	118	5.205061975317208e-8
+core-lasso 100x32	Float32	cold	cyclic	false	1	1.0e-6	master	true	8	2	6	101	5.167651336628633e-8
+core-lasso 100x32	Float32	cold	cyclic	false	1	1.0e-6	50	true	8	2	6	101	5.167651336628633e-8
+core-lasso 100x32	Float32	cold	cyclic	false	1	1.0e-6	w10	true	8	2	6	101	5.167651336628633e-8
+core-lasso 100x32	Float32	cold	cyclic	false	1	1.0e-6	w20	true	8	2	6	101	5.167651336628633e-8
+core-lasso 100x32	Float32	cold	random	nothing	1	1.0e-6	master	true	12	2	10	117	9.702032179732195e-8
+core-lasso 100x32	Float32	cold	random	nothing	1	1.0e-6	50	true	12	2	10	117	9.702032179732195e-8
+core-lasso 100x32	Float32	cold	random	nothing	1	1.0e-6	w10	true	12	2	10	117	9.702032179732195e-8
+core-lasso 100x32	Float32	cold	random	nothing	1	1.0e-6	w20	true	12	2	10	117	9.702032179732195e-8
+core-lasso 100x32	Float32	cold	random	nothing	2	1.0e-6	master	true	11	2	9	116	3.940643820415443e-8
+core-lasso 100x32	Float32	cold	random	nothing	2	1.0e-6	50	true	11	2	9	116	3.940643820415443e-8
+core-lasso 100x32	Float32	cold	random	nothing	2	1.0e-6	w10	true	11	2	9	116	3.940643820415443e-8
+core-lasso 100x32	Float32	cold	random	nothing	2	1.0e-6	w20	true	11	2	9	116	3.940643820415443e-8
+core-lasso 100x32	Float32	cold	random	nothing	3	1.0e-6	master	true	10	2	8	108	5.863333931779549e-8
+core-lasso 100x32	Float32	cold	random	nothing	3	1.0e-6	50	true	10	2	8	108	5.863333931779549e-8
+core-lasso 100x32	Float32	cold	random	nothing	3	1.0e-6	w10	true	10	2	8	108	5.863333931779549e-8
+core-lasso 100x32	Float32	cold	random	nothing	3	1.0e-6	w20	true	10	2	8	108	5.863333931779549e-8
+core-lasso 100x32	Float32	cold	random	false	1	1.0e-6	master	true	9	2	7	102	5.167651336628633e-8
+core-lasso 100x32	Float32	cold	random	false	1	1.0e-6	50	true	9	2	7	102	5.167651336628633e-8
+core-lasso 100x32	Float32	cold	random	false	1	1.0e-6	w10	true	9	2	7	102	5.167651336628633e-8
+core-lasso 100x32	Float32	cold	random	false	1	1.0e-6	w20	true	9	2	7	102	5.167651336628633e-8
+core-lasso 100x32	Float32	cold	random	false	2	1.0e-6	master	true	10	2	8	111	5.3690041597442906e-8
+core-lasso 100x32	Float32	cold	random	false	2	1.0e-6	50	true	10	2	8	111	5.3690041597442906e-8
+core-lasso 100x32	Float32	cold	random	false	2	1.0e-6	w10	true	10	2	8	111	5.3690041597442906e-8
+core-lasso 100x32	Float32	cold	random	false	2	1.0e-6	w20	true	10	2	8	111	5.3690041597442906e-8
+core-lasso 100x32	Float32	cold	random	false	3	1.0e-6	master	true	11	2	9	113	5.205061975317208e-8
+core-lasso 100x32	Float32	cold	random	false	3	1.0e-6	50	true	11	2	9	113	5.205061975317208e-8
+core-lasso 100x32	Float32	cold	random	false	3	1.0e-6	w10	true	11	2	9	113	5.205061975317208e-8
+core-lasso 100x32	Float32	cold	random	false	3	1.0e-6	w20	true	11	2	9	113	5.205061975317208e-8
+core-lasso 100x32	Float32	warm	cyclic	false	1	1.0e-7	master	true	8	2	6	94	4.141996643531101e-8
+core-lasso 100x32	Float32	warm	cyclic	false	1	1.0e-7	50	true	8	2	6	94	4.141996643531101e-8
+core-lasso 100x32	Float32	warm	cyclic	false	1	1.0e-7	w10	true	8	2	6	94	4.141996643531101e-8
+core-lasso 100x32	Float32	warm	cyclic	false	1	1.0e-7	w20	true	8	2	6	94	4.141996643531101e-8
+core-lasso 100x32	Float32	warm	random	nothing	1	1.0e-7	master	true	10	2	8	104	4.141996643531101e-8
+core-lasso 100x32	Float32	warm	random	nothing	1	1.0e-7	50	true	10	2	8	104	4.141996643531101e-8
+core-lasso 100x32	Float32	warm	random	nothing	1	1.0e-7	w10	true	10	2	8	104	4.141996643531101e-8
+core-lasso 100x32	Float32	warm	random	nothing	1	1.0e-7	w20	true	10	2	8	104	4.141996643531101e-8
+core-lasso 100x32	Float32	warm	random	nothing	2	1.0e-7	master	true	12	2	10	114	4.8376792386820164e-8
+core-lasso 100x32	Float32	warm	random	nothing	2	1.0e-7	50	true	12	2	10	114	4.8376792386820164e-8
+core-lasso 100x32	Float32	warm	random	nothing	2	1.0e-7	w10	true	12	2	10	114	4.8376792386820164e-8
+core-lasso 100x32	Float32	warm	random	nothing	2	1.0e-7	w20	true	12	2	10	114	4.8376792386820164e-8
+core-lasso 100x32	Float32	warm	random	nothing	3	1.0e-7	master	true	11	2	9	109	5.205061975317208e-8
+core-lasso 100x32	Float32	warm	random	nothing	3	1.0e-7	50	true	11	2	9	109	5.205061975317208e-8
+core-lasso 100x32	Float32	warm	random	nothing	3	1.0e-7	w10	true	11	2	9	109	5.205061975317208e-8
+core-lasso 100x32	Float32	warm	random	nothing	3	1.0e-7	w20	true	11	2	9	109	5.205061975317208e-8
+core-lasso 100x32	Float32	warm	random	false	1	1.0e-7	master	true	10	2	8	104	4.8376792386820164e-8
+core-lasso 100x32	Float32	warm	random	false	1	1.0e-7	50	true	10	2	8	104	4.8376792386820164e-8
+core-lasso 100x32	Float32	warm	random	false	1	1.0e-7	w10	true	10	2	8	104	4.8376792386820164e-8
+core-lasso 100x32	Float32	warm	random	false	1	1.0e-7	w20	true	10	2	8	104	4.8376792386820164e-8
+core-lasso 100x32	Float32	warm	random	false	2	1.0e-7	master	true	10	2	8	104	4.141996643531101e-8
+core-lasso 100x32	Float32	warm	random	false	2	1.0e-7	50	true	10	2	8	104	4.141996643531101e-8
+core-lasso 100x32	Float32	warm	random	false	2	1.0e-7	w10	true	10	2	8	104	4.141996643531101e-8
+core-lasso 100x32	Float32	warm	random	false	2	1.0e-7	w20	true	10	2	8	104	4.141996643531101e-8
+core-lasso 100x32	Float32	warm	random	false	3	1.0e-7	master	true	9	2	7	99	4.8376792386820164e-8
+core-lasso 100x32	Float32	warm	random	false	3	1.0e-7	50	true	9	2	7	99	4.8376792386820164e-8
+core-lasso 100x32	Float32	warm	random	false	3	1.0e-7	w10	true	9	2	7	99	4.8376792386820164e-8
+core-lasso 100x32	Float32	warm	random	false	3	1.0e-7	w20	true	9	2	7	99	4.8376792386820164e-8
+core-lasso 100x32	Float32	warm	cyclic	false	1	1.0e-6	master	true	7	2	5	89	4.8376792386820164e-8
+core-lasso 100x32	Float32	warm	cyclic	false	1	1.0e-6	50	true	7	2	5	89	4.8376792386820164e-8
+core-lasso 100x32	Float32	warm	cyclic	false	1	1.0e-6	w10	true	7	2	5	89	4.8376792386820164e-8
+core-lasso 100x32	Float32	warm	cyclic	false	1	1.0e-6	w20	true	7	2	5	89	4.8376792386820164e-8
+core-lasso 100x32	Float32	warm	random	nothing	1	1.0e-6	master	true	8	2	6	94	1.1143101504822971e-7
+core-lasso 100x32	Float32	warm	random	nothing	1	1.0e-6	50	true	8	2	6	94	1.1143101504822971e-7
+core-lasso 100x32	Float32	warm	random	nothing	1	1.0e-6	w10	true	8	2	6	94	1.1143101504822971e-7
+core-lasso 100x32	Float32	warm	random	nothing	1	1.0e-6	w20	true	8	2	6	94	1.1143101504822971e-7
+core-lasso 100x32	Float32	warm	random	nothing	2	1.0e-6	master	true	10	2	8	104	4.141996643531101e-8
+core-lasso 100x32	Float32	warm	random	nothing	2	1.0e-6	50	true	10	2	8	104	4.141996643531101e-8
+core-lasso 100x32	Float32	warm	random	nothing	2	1.0e-6	w10	true	10	2	8	104	4.141996643531101e-8
+core-lasso 100x32	Float32	warm	random	nothing	2	1.0e-6	w20	true	10	2	8	104	4.141996643531101e-8
+core-lasso 100x32	Float32	warm	random	nothing	3	1.0e-6	master	true	9	2	7	99	4.141996643531101e-8
+core-lasso 100x32	Float32	warm	random	nothing	3	1.0e-6	50	true	9	2	7	99	4.141996643531101e-8
+core-lasso 100x32	Float32	warm	random	nothing	3	1.0e-6	w10	true	9	2	7	99	4.141996643531101e-8
+core-lasso 100x32	Float32	warm	random	nothing	3	1.0e-6	w20	true	9	2	7	99	4.141996643531101e-8
+core-lasso 100x32	Float32	warm	random	false	1	1.0e-6	master	true	8	2	6	94	4.875089877370592e-8
+core-lasso 100x32	Float32	warm	random	false	1	1.0e-6	50	true	8	2	6	94	4.875089877370592e-8
+core-lasso 100x32	Float32	warm	random	false	1	1.0e-6	w10	true	8	2	6	94	4.875089877370592e-8
+core-lasso 100x32	Float32	warm	random	false	1	1.0e-6	w20	true	8	2	6	94	4.875089877370592e-8
+core-lasso 100x32	Float32	warm	random	false	2	1.0e-6	master	true	9	2	7	99	4.8376792386820164e-8
+core-lasso 100x32	Float32	warm	random	false	2	1.0e-6	50	true	9	2	7	99	4.8376792386820164e-8
+core-lasso 100x32	Float32	warm	random	false	2	1.0e-6	w10	true	9	2	7	99	4.8376792386820164e-8
+core-lasso 100x32	Float32	warm	random	false	2	1.0e-6	w20	true	9	2	7	99	4.8376792386820164e-8
+core-lasso 100x32	Float32	warm	random	false	3	1.0e-6	master	true	8	2	6	94	5.205061975317208e-8
+core-lasso 100x32	Float32	warm	random	false	3	1.0e-6	50	true	8	2	6	94	5.205061975317208e-8
+core-lasso 100x32	Float32	warm	random	false	3	1.0e-6	w10	true	8	2	6	94	5.205061975317208e-8
+core-lasso 100x32	Float32	warm	random	false	3	1.0e-6	w20	true	8	2	6	94	5.205061975317208e-8
+core-lasso 100x32	Float64	cold	cyclic	false	1	1.0e-7	master	true	9	2	7	106	3.0422955094670346e-10
+core-lasso 100x32	Float64	cold	cyclic	false	1	1.0e-7	50	true	9	2	7	106	3.0422955094670346e-10
+core-lasso 100x32	Float64	cold	cyclic	false	1	1.0e-7	w10	true	9	2	7	106	3.0422955094670346e-10
+core-lasso 100x32	Float64	cold	cyclic	false	1	1.0e-7	w20	true	9	2	7	106	3.0422955094670346e-10
+core-lasso 100x32	Float64	cold	random	nothing	1	1.0e-7	master	true	13	2	11	122	3.633541985186898e-9
+core-lasso 100x32	Float64	cold	random	nothing	1	1.0e-7	50	true	13	2	11	122	3.633541985186898e-9
+core-lasso 100x32	Float64	cold	random	nothing	1	1.0e-7	w10	true	13	2	11	122	3.633541985186898e-9
+core-lasso 100x32	Float64	cold	random	nothing	1	1.0e-7	w20	true	13	2	11	122	3.633541985186898e-9
+core-lasso 100x32	Float64	cold	random	nothing	2	1.0e-7	master	true	13	2	11	126	1.5158432982919397e-9
+core-lasso 100x32	Float64	cold	random	nothing	2	1.0e-7	50	true	13	2	11	126	1.5158432982919397e-9
+core-lasso 100x32	Float64	cold	random	nothing	2	1.0e-7	w10	true	13	2	11	126	1.5158432982919397e-9
+core-lasso 100x32	Float64	cold	random	nothing	2	1.0e-7	w20	true	13	2	11	126	1.5158432982919397e-9
+core-lasso 100x32	Float64	cold	random	nothing	3	1.0e-7	master	true	12	2	10	118	1.491128045035173e-9
+core-lasso 100x32	Float64	cold	random	nothing	3	1.0e-7	50	true	12	2	10	118	1.491128045035173e-9
+core-lasso 100x32	Float64	cold	random	nothing	3	1.0e-7	w10	true	12	2	10	118	1.491128045035173e-9
+core-lasso 100x32	Float64	cold	random	nothing	3	1.0e-7	w20	true	12	2	10	118	1.491128045035173e-9
+core-lasso 100x32	Float64	cold	random	false	1	1.0e-7	master	true	10	2	8	107	6.001960410545976e-10
+core-lasso 100x32	Float64	cold	random	false	1	1.0e-7	50	true	10	2	8	107	6.001960410545976e-10
+core-lasso 100x32	Float64	cold	random	false	1	1.0e-7	w10	true	10	2	8	107	6.001960410545976e-10
+core-lasso 100x32	Float64	cold	random	false	1	1.0e-7	w20	true	10	2	8	107	6.001960410545976e-10
+core-lasso 100x32	Float64	cold	random	false	2	1.0e-7	master	true	11	2	9	116	5.190417637863868e-9
+core-lasso 100x32	Float64	cold	random	false	2	1.0e-7	50	true	11	2	9	116	5.190417637863868e-9
+core-lasso 100x32	Float64	cold	random	false	2	1.0e-7	w10	true	11	2	9	116	5.190417637863868e-9
+core-lasso 100x32	Float64	cold	random	false	2	1.0e-7	w20	true	11	2	9	116	5.190417637863868e-9
+core-lasso 100x32	Float64	cold	random	false	3	1.0e-7	master	true	12	2	10	118	1.1823174258036232e-9
+core-lasso 100x32	Float64	cold	random	false	3	1.0e-7	50	true	12	2	10	118	1.1823174258036232e-9
+core-lasso 100x32	Float64	cold	random	false	3	1.0e-7	w10	true	12	2	10	118	1.1823174258036232e-9
+core-lasso 100x32	Float64	cold	random	false	3	1.0e-7	w20	true	12	2	10	118	1.1823174258036232e-9
+core-lasso 100x32	Float64	cold	cyclic	false	1	1.0e-11	master	true	13	2	11	126	3.32988001544848e-16
+core-lasso 100x32	Float64	cold	cyclic	false	1	1.0e-11	50	true	13	2	11	126	3.32988001544848e-16
+core-lasso 100x32	Float64	cold	cyclic	false	1	1.0e-11	w10	true	13	2	11	126	3.32988001544848e-16
+core-lasso 100x32	Float64	cold	cyclic	false	1	1.0e-11	w20	true	13	2	11	126	3.32988001544848e-16
+core-lasso 100x32	Float64	cold	random	nothing	1	1.0e-11	master	true	20	2	18	157	1.3753486131643987e-13
+core-lasso 100x32	Float64	cold	random	nothing	1	1.0e-11	50	true	20	2	18	157	1.3753486131643987e-13
+core-lasso 100x32	Float64	cold	random	nothing	1	1.0e-11	w10	true	20	2	18	157	1.3753486131643987e-13
+core-lasso 100x32	Float64	cold	random	nothing	1	1.0e-11	w20	true	20	2	18	157	1.3753486131643987e-13
+core-lasso 100x32	Float64	cold	random	nothing	2	1.0e-11	master	true	19	2	17	156	4.594899810821335e-13
+core-lasso 100x32	Float64	cold	random	nothing	2	1.0e-11	50	true	19	2	17	156	4.594899810821335e-13
+core-lasso 100x32	Float64	cold	random	nothing	2	1.0e-11	w10	true	19	2	17	156	4.594899810821335e-13
+core-lasso 100x32	Float64	cold	random	nothing	2	1.0e-11	w20	true	19	2	17	156	4.594899810821335e-13
+core-lasso 100x32	Float64	cold	random	nothing	3	1.0e-11	master	true	17	2	15	143	8.191466317272372e-14
+core-lasso 100x32	Float64	cold	random	nothing	3	1.0e-11	50	true	17	2	15	143	8.191466317272372e-14
+core-lasso 100x32	Float64	cold	random	nothing	3	1.0e-11	w10	true	17	2	15	143	8.191466317272372e-14
+core-lasso 100x32	Float64	cold	random	nothing	3	1.0e-11	w20	true	17	2	15	143	8.191466317272372e-14
+core-lasso 100x32	Float64	cold	random	false	1	1.0e-11	master	true	14	2	12	127	4.748134013886413e-13
+core-lasso 100x32	Float64	cold	random	false	1	1.0e-11	50	true	14	2	12	127	4.748134013886413e-13
+core-lasso 100x32	Float64	cold	random	false	1	1.0e-11	w10	true	14	2	12	127	4.748134013886413e-13
+core-lasso 100x32	Float64	cold	random	false	1	1.0e-11	w20	true	14	2	12	127	4.748134013886413e-13
+core-lasso 100x32	Float64	cold	random	false	2	1.0e-11	master	true	17	2	15	146	2.5884495697744092e-14
+core-lasso 100x32	Float64	cold	random	false	2	1.0e-11	50	true	17	2	15	146	2.5884495697744092e-14
+core-lasso 100x32	Float64	cold	random	false	2	1.0e-11	w10	true	17	2	15	146	2.5884495697744092e-14
+core-lasso 100x32	Float64	cold	random	false	2	1.0e-11	w20	true	17	2	15	146	2.5884495697744092e-14
+core-lasso 100x32	Float64	cold	random	false	3	1.0e-11	master	true	17	2	15	143	1.9984604440762756e-13
+core-lasso 100x32	Float64	cold	random	false	3	1.0e-11	50	true	17	2	15	143	1.9984604440762756e-13
+core-lasso 100x32	Float64	cold	random	false	3	1.0e-11	w10	true	17	2	15	143	1.9984604440762756e-13
+core-lasso 100x32	Float64	cold	random	false	3	1.0e-11	w20	true	17	2	15	143	1.9984604440762756e-13
+core-lasso 100x32	Float64	warm	cyclic	false	1	1.0e-7	master	true	8	2	6	94	7.0102831270434734e-12
+core-lasso 100x32	Float64	warm	cyclic	false	1	1.0e-7	50	true	8	2	6	94	7.0102831270434734e-12
+core-lasso 100x32	Float64	warm	cyclic	false	1	1.0e-7	w10	true	8	2	6	94	7.0102831270434734e-12
+core-lasso 100x32	Float64	warm	cyclic	false	1	1.0e-7	w20	true	8	2	6	94	7.0102831270434734e-12
+core-lasso 100x32	Float64	warm	random	nothing	1	1.0e-7	master	true	10	2	8	104	1.1187936433792215e-9
+core-lasso 100x32	Float64	warm	random	nothing	1	1.0e-7	50	true	10	2	8	104	1.1187936433792215e-9
+core-lasso 100x32	Float64	warm	random	nothing	1	1.0e-7	w10	true	10	2	8	104	1.1187936433792215e-9
+core-lasso 100x32	Float64	warm	random	nothing	1	1.0e-7	w20	true	10	2	8	104	1.1187936433792215e-9
+core-lasso 100x32	Float64	warm	random	nothing	2	1.0e-7	master	true	12	2	10	114	6.809108673727852e-10
+core-lasso 100x32	Float64	warm	random	nothing	2	1.0e-7	50	true	12	2	10	114	6.809108673727852e-10
+core-lasso 100x32	Float64	warm	random	nothing	2	1.0e-7	w10	true	12	2	10	114	6.809108673727852e-10
+core-lasso 100x32	Float64	warm	random	nothing	2	1.0e-7	w20	true	12	2	10	114	6.809108673727852e-10
+core-lasso 100x32	Float64	warm	random	nothing	3	1.0e-7	master	true	10	2	8	104	2.3732213662644655e-9
+core-lasso 100x32	Float64	warm	random	nothing	3	1.0e-7	50	true	10	2	8	104	2.3732213662644655e-9
+core-lasso 100x32	Float64	warm	random	nothing	3	1.0e-7	w10	true	10	2	8	104	2.3732213662644655e-9
+core-lasso 100x32	Float64	warm	random	nothing	3	1.0e-7	w20	true	10	2	8	104	2.3732213662644655e-9
+core-lasso 100x32	Float64	warm	random	false	1	1.0e-7	master	true	9	2	7	99	4.9202487342248305e-9
+core-lasso 100x32	Float64	warm	random	false	1	1.0e-7	50	true	9	2	7	99	4.9202487342248305e-9
+core-lasso 100x32	Float64	warm	random	false	1	1.0e-7	w10	true	9	2	7	99	4.9202487342248305e-9
+core-lasso 100x32	Float64	warm	random	false	1	1.0e-7	w20	true	9	2	7	99	4.9202487342248305e-9
+core-lasso 100x32	Float64	warm	random	false	2	1.0e-7	master	true	10	2	8	104	9.335630779980497e-10
+core-lasso 100x32	Float64	warm	random	false	2	1.0e-7	50	true	10	2	8	104	9.335630779980497e-10
+core-lasso 100x32	Float64	warm	random	false	2	1.0e-7	w10	true	10	2	8	104	9.335630779980497e-10
+core-lasso 100x32	Float64	warm	random	false	2	1.0e-7	w20	true	10	2	8	104	9.335630779980497e-10
+core-lasso 100x32	Float64	warm	random	false	3	1.0e-7	master	true	9	2	7	99	3.981691601094167e-9
+core-lasso 100x32	Float64	warm	random	false	3	1.0e-7	50	true	9	2	7	99	3.981691601094167e-9
+core-lasso 100x32	Float64	warm	random	false	3	1.0e-7	w10	true	9	2	7	99	3.981691601094167e-9
+core-lasso 100x32	Float64	warm	random	false	3	1.0e-7	w20	true	9	2	7	99	3.981691601094167e-9
+core-lasso 100x32	Float64	warm	cyclic	false	1	1.0e-11	master	true	10	2	8	104	9.948026154148887e-14
+core-lasso 100x32	Float64	warm	cyclic	false	1	1.0e-11	50	true	10	2	8	104	9.948026154148887e-14
+core-lasso 100x32	Float64	warm	cyclic	false	1	1.0e-11	w10	true	10	2	8	104	9.948026154148887e-14
+core-lasso 100x32	Float64	warm	cyclic	false	1	1.0e-11	w20	true	10	2	8	104	9.948026154148887e-14
+core-lasso 100x32	Float64	warm	random	nothing	1	1.0e-11	master	true	15	2	13	129	2.9200643339376775e-13
+core-lasso 100x32	Float64	warm	random	nothing	1	1.0e-11	50	true	15	2	13	129	2.9200643339376775e-13
+core-lasso 100x32	Float64	warm	random	nothing	1	1.0e-11	w10	true	15	2	13	129	2.9200643339376775e-13
+core-lasso 100x32	Float64	warm	random	nothing	1	1.0e-11	w20	true	15	2	13	129	2.9200643339376775e-13
+core-lasso 100x32	Float64	warm	random	nothing	2	1.0e-11	master	true	19	2	17	149	2.0769023407714665e-13
+core-lasso 100x32	Float64	warm	random	nothing	2	1.0e-11	50	true	19	2	17	149	2.0769023407714665e-13
+core-lasso 100x32	Float64	warm	random	nothing	2	1.0e-11	w10	true	19	2	17	149	2.0769023407714665e-13
+core-lasso 100x32	Float64	warm	random	nothing	2	1.0e-11	w20	true	19	2	17	149	2.0769023407714665e-13
+core-lasso 100x32	Float64	warm	random	nothing	3	1.0e-11	master	true	16	2	14	134	1.4659229559260628e-13
+core-lasso 100x32	Float64	warm	random	nothing	3	1.0e-11	50	true	16	2	14	134	1.4659229559260628e-13
+core-lasso 100x32	Float64	warm	random	nothing	3	1.0e-11	w10	true	16	2	14	134	1.4659229559260628e-13
+core-lasso 100x32	Float64	warm	random	nothing	3	1.0e-11	w20	true	16	2	14	134	1.4659229559260628e-13
+core-lasso 100x32	Float64	warm	random	false	1	1.0e-11	master	true	13	2	11	119	2.3648499866736566e-13
+core-lasso 100x32	Float64	warm	random	false	1	1.0e-11	50	true	13	2	11	119	2.3648499866736566e-13
+core-lasso 100x32	Float64	warm	random	false	1	1.0e-11	w10	true	13	2	11	119	2.3648499866736566e-13
+core-lasso 100x32	Float64	warm	random	false	1	1.0e-11	w20	true	13	2	11	119	2.3648499866736566e-13
+core-lasso 100x32	Float64	warm	random	false	2	1.0e-11	master	true	16	2	14	134	6.996229821013038e-14
+core-lasso 100x32	Float64	warm	random	false	2	1.0e-11	50	true	16	2	14	134	6.996229821013038e-14
+core-lasso 100x32	Float64	warm	random	false	2	1.0e-11	w10	true	16	2	14	134	6.996229821013038e-14
+core-lasso 100x32	Float64	warm	random	false	2	1.0e-11	w20	true	16	2	14	134	6.996229821013038e-14
+core-lasso 100x32	Float64	warm	random	false	3	1.0e-11	master	true	14	2	12	124	9.535586205131854e-13
+core-lasso 100x32	Float64	warm	random	false	3	1.0e-11	50	true	14	2	12	124	9.535586205131854e-13
+core-lasso 100x32	Float64	warm	random	false	3	1.0e-11	w10	true	14	2	12	124	9.535586205131854e-13
+core-lasso 100x32	Float64	warm	random	false	3	1.0e-11	w20	true	14	2	12	124	9.535586205131854e-13
+lasso-B 240x160 r.8	Float32	cold	cyclic	false	1	1.0e-7	master	true	33	2	31	519	1.1612371694216374e-7
+lasso-B 240x160 r.8	Float32	cold	cyclic	false	1	1.0e-7	50	true	33	2	31	519	1.1612371694216374e-7
+lasso-B 240x160 r.8	Float32	cold	cyclic	false	1	1.0e-7	w10	true	33	2	31	519	1.1612371694216374e-7
+lasso-B 240x160 r.8	Float32	cold	cyclic	false	1	1.0e-7	w20	true	33	2	31	519	1.1612371694216374e-7
+lasso-B 240x160 r.8	Float32	cold	random	nothing	1	1.0e-7	master	true	25	2	23	452	6.493404981413193e-8
+lasso-B 240x160 r.8	Float32	cold	random	nothing	1	1.0e-7	50	true	25	2	23	452	6.493404981413193e-8
+lasso-B 240x160 r.8	Float32	cold	random	nothing	1	1.0e-7	w10	true	25	2	23	452	6.493404981413193e-8
+lasso-B 240x160 r.8	Float32	cold	random	nothing	1	1.0e-7	w20	true	25	2	23	452	6.493404981413193e-8
+lasso-B 240x160 r.8	Float32	cold	random	nothing	2	1.0e-7	master	true	29	2	27	508	4.557960557446262e-8
+lasso-B 240x160 r.8	Float32	cold	random	nothing	2	1.0e-7	50	true	29	2	27	508	4.557960557446262e-8
+lasso-B 240x160 r.8	Float32	cold	random	nothing	2	1.0e-7	w10	true	29	2	27	508	4.557960557446262e-8
+lasso-B 240x160 r.8	Float32	cold	random	nothing	2	1.0e-7	w20	true	29	2	27	508	4.557960557446262e-8
+lasso-B 240x160 r.8	Float32	cold	random	nothing	3	1.0e-7	master	true	48	4	44	899	4.557960557446262e-8
+lasso-B 240x160 r.8	Float32	cold	random	nothing	3	1.0e-7	50	true	48	4	44	899	4.557960557446262e-8
+lasso-B 240x160 r.8	Float32	cold	random	nothing	3	1.0e-7	w10	true	48	4	44	899	4.557960557446262e-8
+lasso-B 240x160 r.8	Float32	cold	random	nothing	3	1.0e-7	w20	true	48	4	44	899	4.557960557446262e-8
+lasso-B 240x160 r.8	Float32	cold	random	false	1	1.0e-7	master	true	37	2	35	512	7.953887695880814e-8
+lasso-B 240x160 r.8	Float32	cold	random	false	1	1.0e-7	50	true	37	2	35	512	7.953887695880814e-8
+lasso-B 240x160 r.8	Float32	cold	random	false	1	1.0e-7	w10	true	37	2	35	512	7.953887695880814e-8
+lasso-B 240x160 r.8	Float32	cold	random	false	1	1.0e-7	w20	true	37	2	35	512	7.953887695880814e-8
+lasso-B 240x160 r.8	Float32	cold	random	false	2	1.0e-7	master	true	39	2	37	558	6.30049552657648e-8
+lasso-B 240x160 r.8	Float32	cold	random	false	2	1.0e-7	50	true	39	2	37	558	6.30049552657648e-8
+lasso-B 240x160 r.8	Float32	cold	random	false	2	1.0e-7	w10	true	39	2	37	558	6.30049552657648e-8
+lasso-B 240x160 r.8	Float32	cold	random	false	2	1.0e-7	w20	true	39	2	37	558	6.30049552657648e-8
+lasso-B 240x160 r.8	Float32	cold	random	false	3	1.0e-7	master	true	64	3	61	823	1.5333330708638057e-7
+lasso-B 240x160 r.8	Float32	cold	random	false	3	1.0e-7	50	true	64	3	61	823	1.5333330708638057e-7
+lasso-B 240x160 r.8	Float32	cold	random	false	3	1.0e-7	w10	true	64	3	61	823	1.5333330708638057e-7
+lasso-B 240x160 r.8	Float32	cold	random	false	3	1.0e-7	w20	true	64	3	61	823	1.5333330708638057e-7
+lasso-B 240x160 r.8	Float32	cold	cyclic	false	1	1.0e-6	master	true	29	2	27	499	5.586795303952146e-7
+lasso-B 240x160 r.8	Float32	cold	cyclic	false	1	1.0e-6	50	true	29	2	27	499	5.586795303952146e-7
+lasso-B 240x160 r.8	Float32	cold	cyclic	false	1	1.0e-6	w10	true	29	2	27	499	5.586795303952146e-7
+lasso-B 240x160 r.8	Float32	cold	cyclic	false	1	1.0e-6	w20	true	29	2	27	499	5.586795303952146e-7
+lasso-B 240x160 r.8	Float32	cold	random	nothing	1	1.0e-6	master	true	20	2	18	427	2.1171082679117828e-7
+lasso-B 240x160 r.8	Float32	cold	random	nothing	1	1.0e-6	50	true	20	2	18	427	2.1171082679117828e-7
+lasso-B 240x160 r.8	Float32	cold	random	nothing	1	1.0e-6	w10	true	20	2	18	427	2.1171082679117828e-7
+lasso-B 240x160 r.8	Float32	cold	random	nothing	1	1.0e-6	w20	true	20	2	18	427	2.1171082679117828e-7
+lasso-B 240x160 r.8	Float32	cold	random	nothing	2	1.0e-6	master	true	27	2	25	498	4.152204982957289e-7
+lasso-B 240x160 r.8	Float32	cold	random	nothing	2	1.0e-6	50	true	27	2	25	498	4.152204982957289e-7
+lasso-B 240x160 r.8	Float32	cold	random	nothing	2	1.0e-6	w10	true	27	2	25	498	4.152204982957289e-7
+lasso-B 240x160 r.8	Float32	cold	random	nothing	2	1.0e-6	w20	true	27	2	25	498	4.152204982957289e-7
+lasso-B 240x160 r.8	Float32	cold	random	nothing	3	1.0e-6	master	true	42	3	39	713	4.16629239813906e-7
+lasso-B 240x160 r.8	Float32	cold	random	nothing	3	1.0e-6	50	true	42	3	39	713	4.16629239813906e-7
+lasso-B 240x160 r.8	Float32	cold	random	nothing	3	1.0e-6	w10	true	42	3	39	713	4.16629239813906e-7
+lasso-B 240x160 r.8	Float32	cold	random	nothing	3	1.0e-6	w20	true	42	3	39	713	4.16629239813906e-7
+lasso-B 240x160 r.8	Float32	cold	random	false	1	1.0e-6	master	true	32	2	30	487	5.525053716499622e-7
+lasso-B 240x160 r.8	Float32	cold	random	false	1	1.0e-6	50	true	32	2	30	487	5.525053716499622e-7
+lasso-B 240x160 r.8	Float32	cold	random	false	1	1.0e-6	w10	true	32	2	30	487	5.525053716499622e-7
+lasso-B 240x160 r.8	Float32	cold	random	false	1	1.0e-6	w20	true	32	2	30	487	5.525053716499622e-7
+lasso-B 240x160 r.8	Float32	cold	random	false	2	1.0e-6	master	true	33	2	31	528	5.72654020251174e-7
+lasso-B 240x160 r.8	Float32	cold	random	false	2	1.0e-6	50	true	33	2	31	528	5.72654020251174e-7
+lasso-B 240x160 r.8	Float32	cold	random	false	2	1.0e-6	w10	true	33	2	31	528	5.72654020251174e-7
+lasso-B 240x160 r.8	Float32	cold	random	false	2	1.0e-6	w20	true	33	2	31	528	5.72654020251174e-7
+lasso-B 240x160 r.8	Float32	cold	random	false	3	1.0e-6	master	true	61	3	58	810	5.245538284265323e-7
+lasso-B 240x160 r.8	Float32	cold	random	false	3	1.0e-6	50	true	61	3	58	810	5.245538284265323e-7
+lasso-B 240x160 r.8	Float32	cold	random	false	3	1.0e-6	w10	true	61	3	58	810	5.245538284265323e-7
+lasso-B 240x160 r.8	Float32	cold	random	false	3	1.0e-6	w20	true	61	3	58	810	5.245538284265323e-7
+lasso-B 240x160 r.8	Float32	warm	cyclic	false	1	1.0e-7	master	true	24	2	22	431	5.095955995817256e-8
+lasso-B 240x160 r.8	Float32	warm	cyclic	false	1	1.0e-7	50	true	24	2	22	431	5.095955995817256e-8
+lasso-B 240x160 r.8	Float32	warm	cyclic	false	1	1.0e-7	w10	true	24	2	22	431	5.095955995817256e-8
+lasso-B 240x160 r.8	Float32	warm	cyclic	false	1	1.0e-7	w20	true	24	2	22	431	5.095955995817256e-8
+lasso-B 240x160 r.8	Float32	warm	random	nothing	1	1.0e-7	master	true	16	2	14	390	4.557960557446262e-8
+lasso-B 240x160 r.8	Float32	warm	random	nothing	1	1.0e-7	50	true	16	2	14	390	4.557960557446262e-8
+lasso-B 240x160 r.8	Float32	warm	random	nothing	1	1.0e-7	w10	true	16	2	14	390	4.557960557446262e-8
+lasso-B 240x160 r.8	Float32	warm	random	nothing	1	1.0e-7	w20	true	16	2	14	390	4.557960557446262e-8
+lasso-B 240x160 r.8	Float32	warm	random	nothing	2	1.0e-7	master	true	23	2	21	427	5.719650536866407e-8
+lasso-B 240x160 r.8	Float32	warm	random	nothing	2	1.0e-7	50	true	23	2	21	427	5.719650536866407e-8
+lasso-B 240x160 r.8	Float32	warm	random	nothing	2	1.0e-7	w10	true	23	2	21	427	5.719650536866407e-8
+lasso-B 240x160 r.8	Float32	warm	random	nothing	2	1.0e-7	w20	true	23	2	21	427	5.719650536866407e-8
+lasso-B 240x160 r.8	Float32	warm	random	nothing	3	1.0e-7	master	true	23	2	21	427	5.138805547156335e-8
+lasso-B 240x160 r.8	Float32	warm	random	nothing	3	1.0e-7	50	true	23	2	21	427	5.138805547156335e-8
+lasso-B 240x160 r.8	Float32	warm	random	nothing	3	1.0e-7	w10	true	23	2	21	427	5.138805547156335e-8
+lasso-B 240x160 r.8	Float32	warm	random	nothing	3	1.0e-7	w20	true	23	2	21	427	5.138805547156335e-8
+lasso-B 240x160 r.8	Float32	warm	random	false	1	1.0e-7	master	true	28	2	26	450	7.953887695880814e-8
+lasso-B 240x160 r.8	Float32	warm	random	false	1	1.0e-7	50	true	28	2	26	450	7.953887695880814e-8
+lasso-B 240x160 r.8	Float32	warm	random	false	1	1.0e-7	w10	true	28	2	26	450	7.953887695880814e-8
+lasso-B 240x160 r.8	Float32	warm	random	false	1	1.0e-7	w20	true	28	2	26	450	7.953887695880814e-8
+lasso-B 240x160 r.8	Float32	warm	random	false	2	1.0e-7	master	true	30	2	28	462	5.93932521576027e-8
+lasso-B 240x160 r.8	Float32	warm	random	false	2	1.0e-7	50	true	30	2	28	462	5.93932521576027e-8
+lasso-B 240x160 r.8	Float32	warm	random	false	2	1.0e-7	w10	true	30	2	28	462	5.93932521576027e-8
+lasso-B 240x160 r.8	Float32	warm	random	false	2	1.0e-7	w20	true	30	2	28	462	5.93932521576027e-8
+lasso-B 240x160 r.8	Float32	warm	random	false	3	1.0e-7	master	true	29	2	27	457	9.906198013283095e-8
+lasso-B 240x160 r.8	Float32	warm	random	false	3	1.0e-7	50	true	29	2	27	457	9.906198013283095e-8
+lasso-B 240x160 r.8	Float32	warm	random	false	3	1.0e-7	w10	true	29	2	27	457	9.906198013283095e-8
+lasso-B 240x160 r.8	Float32	warm	random	false	3	1.0e-7	w20	true	29	2	27	457	9.906198013283095e-8
+lasso-B 240x160 r.8	Float32	warm	cyclic	false	1	1.0e-6	master	true	20	2	18	411	4.618178949456901e-7
+lasso-B 240x160 r.8	Float32	warm	cyclic	false	1	1.0e-6	50	true	20	2	18	411	4.618178949456901e-7
+lasso-B 240x160 r.8	Float32	warm	cyclic	false	1	1.0e-6	w10	true	20	2	18	411	4.618178949456901e-7
+lasso-B 240x160 r.8	Float32	warm	cyclic	false	1	1.0e-6	w20	true	20	2	18	411	4.618178949456901e-7
+lasso-B 240x160 r.8	Float32	warm	random	nothing	1	1.0e-6	master	true	16	2	14	390	4.557960557446262e-8
+lasso-B 240x160 r.8	Float32	warm	random	nothing	1	1.0e-6	50	true	16	2	14	390	4.557960557446262e-8
+lasso-B 240x160 r.8	Float32	warm	random	nothing	1	1.0e-6	w10	true	16	2	14	390	4.557960557446262e-8
+lasso-B 240x160 r.8	Float32	warm	random	nothing	1	1.0e-6	w20	true	16	2	14	390	4.557960557446262e-8
+lasso-B 240x160 r.8	Float32	warm	random	nothing	2	1.0e-6	master	true	18	2	16	402	9.817409268357503e-7
+lasso-B 240x160 r.8	Float32	warm	random	nothing	2	1.0e-6	50	true	18	2	16	402	9.817409268357503e-7
+lasso-B 240x160 r.8	Float32	warm	random	nothing	2	1.0e-6	w10	true	18	2	16	402	9.817409268357503e-7
+lasso-B 240x160 r.8	Float32	warm	random	nothing	2	1.0e-6	w20	true	18	2	16	402	9.817409268357503e-7
+lasso-B 240x160 r.8	Float32	warm	random	nothing	3	1.0e-6	master	true	19	2	17	407	5.913987204813696e-7
+lasso-B 240x160 r.8	Float32	warm	random	nothing	3	1.0e-6	50	true	19	2	17	407	5.913987204813696e-7
+lasso-B 240x160 r.8	Float32	warm	random	nothing	3	1.0e-6	w10	true	19	2	17	407	5.913987204813696e-7
+lasso-B 240x160 r.8	Float32	warm	random	nothing	3	1.0e-6	w20	true	19	2	17	407	5.913987204813696e-7
+lasso-B 240x160 r.8	Float32	warm	random	false	1	1.0e-6	master	true	22	2	20	420	7.017047839003307e-7
+lasso-B 240x160 r.8	Float32	warm	random	false	1	1.0e-6	50	true	22	2	20	420	7.017047839003307e-7
+lasso-B 240x160 r.8	Float32	warm	random	false	1	1.0e-6	w10	true	22	2	20	420	7.017047839003307e-7
+lasso-B 240x160 r.8	Float32	warm	random	false	1	1.0e-6	w20	true	22	2	20	420	7.017047839003307e-7
+lasso-B 240x160 r.8	Float32	warm	random	false	2	1.0e-6	master	true	25	2	23	437	5.781739474077298e-7
+lasso-B 240x160 r.8	Float32	warm	random	false	2	1.0e-6	50	true	25	2	23	437	5.781739474077298e-7
+lasso-B 240x160 r.8	Float32	warm	random	false	2	1.0e-6	w10	true	25	2	23	437	5.781739474077298e-7
+lasso-B 240x160 r.8	Float32	warm	random	false	2	1.0e-6	w20	true	25	2	23	437	5.781739474077298e-7
+lasso-B 240x160 r.8	Float32	warm	random	false	3	1.0e-6	master	true	25	2	23	437	5.183774409639394e-7
+lasso-B 240x160 r.8	Float32	warm	random	false	3	1.0e-6	50	true	25	2	23	437	5.183774409639394e-7
+lasso-B 240x160 r.8	Float32	warm	random	false	3	1.0e-6	w10	true	25	2	23	437	5.183774409639394e-7
+lasso-B 240x160 r.8	Float32	warm	random	false	3	1.0e-6	w20	true	25	2	23	437	5.183774409639394e-7
+lasso-B 240x160 r.8	Float64	cold	cyclic	false	1	1.0e-7	master	true	33	2	31	519	6.572910365640777e-8
+lasso-B 240x160 r.8	Float64	cold	cyclic	false	1	1.0e-7	50	true	33	2	31	519	6.572910365640777e-8
+lasso-B 240x160 r.8	Float64	cold	cyclic	false	1	1.0e-7	w10	true	33	2	31	519	6.572910365640777e-8
+lasso-B 240x160 r.8	Float64	cold	cyclic	false	1	1.0e-7	w20	true	33	2	31	519	6.572910365640777e-8
+lasso-B 240x160 r.8	Float64	cold	random	nothing	1	1.0e-7	master	true	25	2	23	452	1.3673175854622214e-8
+lasso-B 240x160 r.8	Float64	cold	random	nothing	1	1.0e-7	50	true	25	2	23	452	1.3673175854622214e-8
+lasso-B 240x160 r.8	Float64	cold	random	nothing	1	1.0e-7	w10	true	25	2	23	452	1.3673175854622214e-8
+lasso-B 240x160 r.8	Float64	cold	random	nothing	1	1.0e-7	w20	true	25	2	23	452	1.3673175854622214e-8
+lasso-B 240x160 r.8	Float64	cold	random	nothing	2	1.0e-7	master	true	29	2	27	508	1.3879759876084614e-8
+lasso-B 240x160 r.8	Float64	cold	random	nothing	2	1.0e-7	50	true	29	2	27	508	1.3879759876084614e-8
+lasso-B 240x160 r.8	Float64	cold	random	nothing	2	1.0e-7	w10	true	29	2	27	508	1.3879759876084614e-8
+lasso-B 240x160 r.8	Float64	cold	random	nothing	2	1.0e-7	w20	true	29	2	27	508	1.3879759876084614e-8
+lasso-B 240x160 r.8	Float64	cold	random	nothing	3	1.0e-7	master	true	48	3	45	744	4.0309688293153777e-8
+lasso-B 240x160 r.8	Float64	cold	random	nothing	3	1.0e-7	50	true	48	3	45	744	4.0309688293153777e-8
+lasso-B 240x160 r.8	Float64	cold	random	nothing	3	1.0e-7	w10	true	48	3	45	744	4.0309688293153777e-8
+lasso-B 240x160 r.8	Float64	cold	random	nothing	3	1.0e-7	w20	true	48	3	45	744	4.0309688293153777e-8
+lasso-B 240x160 r.8	Float64	cold	random	false	1	1.0e-7	master	true	38	2	36	517	3.7079382230168366e-8
+lasso-B 240x160 r.8	Float64	cold	random	false	1	1.0e-7	50	true	38	2	36	517	3.7079382230168366e-8
+lasso-B 240x160 r.8	Float64	cold	random	false	1	1.0e-7	w10	true	38	2	36	517	3.7079382230168366e-8
+lasso-B 240x160 r.8	Float64	cold	random	false	1	1.0e-7	w20	true	38	2	36	517	3.7079382230168366e-8
+lasso-B 240x160 r.8	Float64	cold	random	false	2	1.0e-7	master	true	40	2	38	563	5.31562855801662e-8
+lasso-B 240x160 r.8	Float64	cold	random	false	2	1.0e-7	50	true	40	2	38	563	5.31562855801662e-8
+lasso-B 240x160 r.8	Float64	cold	random	false	2	1.0e-7	w10	true	40	2	38	563	5.31562855801662e-8
+lasso-B 240x160 r.8	Float64	cold	random	false	2	1.0e-7	w20	true	40	2	38	563	5.31562855801662e-8
+lasso-B 240x160 r.8	Float64	cold	random	false	3	1.0e-7	master	true	65	3	62	828	6.510263437910579e-8
+lasso-B 240x160 r.8	Float64	cold	random	false	3	1.0e-7	50	true	65	3	62	828	6.510263437910579e-8
+lasso-B 240x160 r.8	Float64	cold	random	false	3	1.0e-7	w10	true	65	3	62	828	6.510263437910579e-8
+lasso-B 240x160 r.8	Float64	cold	random	false	3	1.0e-7	w20	true	65	3	62	828	6.510263437910579e-8
+lasso-B 240x160 r.8	Float64	cold	cyclic	false	1	1.0e-11	master	true	51	2	49	609	5.8633728874393625e-12
+lasso-B 240x160 r.8	Float64	cold	cyclic	false	1	1.0e-11	50	true	51	2	49	609	5.8633728874393625e-12
+lasso-B 240x160 r.8	Float64	cold	cyclic	false	1	1.0e-11	w10	true	51	2	49	609	5.8633728874393625e-12
+lasso-B 240x160 r.8	Float64	cold	cyclic	false	1	1.0e-11	w20	true	51	2	49	609	5.8633728874393625e-12
+lasso-B 240x160 r.8	Float64	cold	random	nothing	1	1.0e-11	master	true	41	2	39	532	4.4007087970008615e-12
+lasso-B 240x160 r.8	Float64	cold	random	nothing	1	1.0e-11	50	true	41	2	39	532	4.4007087970008615e-12
+lasso-B 240x160 r.8	Float64	cold	random	nothing	1	1.0e-11	w10	true	41	2	39	532	4.4007087970008615e-12
+lasso-B 240x160 r.8	Float64	cold	random	nothing	1	1.0e-11	w20	true	41	2	39	532	4.4007087970008615e-12
+lasso-B 240x160 r.8	Float64	cold	random	nothing	2	1.0e-11	master	true	46	2	44	593	1.2547932385864523e-12
+lasso-B 240x160 r.8	Float64	cold	random	nothing	2	1.0e-11	50	true	46	2	44	593	1.2547932385864523e-12
+lasso-B 240x160 r.8	Float64	cold	random	nothing	2	1.0e-11	w10	true	46	2	44	593	1.2547932385864523e-12
+lasso-B 240x160 r.8	Float64	cold	random	nothing	2	1.0e-11	w20	true	46	2	44	593	1.2547932385864523e-12
+lasso-B 240x160 r.8	Float64	cold	random	nothing	3	1.0e-11	master	true	81	3	78	908	1.4101231738750587e-12
+lasso-B 240x160 r.8	Float64	cold	random	nothing	3	1.0e-11	50	true	81	3	78	908	1.4101231738750587e-12
+lasso-B 240x160 r.8	Float64	cold	random	nothing	3	1.0e-11	w10	true	81	3	78	908	1.4101231738750587e-12
+lasso-B 240x160 r.8	Float64	cold	random	nothing	3	1.0e-11	w20	true	81	3	78	908	1.4101231738750587e-12
+lasso-B 240x160 r.8	Float64	cold	random	false	1	1.0e-11	master	true	60	2	58	627	4.853857330114958e-12
+lasso-B 240x160 r.8	Float64	cold	random	false	1	1.0e-11	50	true	61	3	58	787	4.9420184878493735e-12
+lasso-B 240x160 r.8	Float64	cold	random	false	1	1.0e-11	w10	true	60	2	58	627	4.853857330114958e-12
+lasso-B 240x160 r.8	Float64	cold	random	false	1	1.0e-11	w20	true	60	2	58	627	4.853857330114958e-12
+lasso-B 240x160 r.8	Float64	cold	random	false	2	1.0e-11	master	true	63	2	61	678	7.214321118745198e-12
+lasso-B 240x160 r.8	Float64	cold	random	false	2	1.0e-11	50	true	64	3	61	838	4.519884020313613e-12
+lasso-B 240x160 r.8	Float64	cold	random	false	2	1.0e-11	w10	true	63	2	61	678	7.214321118745198e-12
+lasso-B 240x160 r.8	Float64	cold	random	false	2	1.0e-11	w20	true	63	2	61	678	7.214321118745198e-12
+lasso-B 240x160 r.8	Float64	cold	random	false	3	1.0e-11	master	true	105	3	102	1028	6.5355256859798125e-12
+lasso-B 240x160 r.8	Float64	cold	random	false	3	1.0e-11	50	true	104	4	100	1178	5.243800951360332e-12
+lasso-B 240x160 r.8	Float64	cold	random	false	3	1.0e-11	w10	true	105	3	102	1028	6.5355256859798125e-12
+lasso-B 240x160 r.8	Float64	cold	random	false	3	1.0e-11	w20	true	105	3	102	1028	6.5355256859798125e-12
+lasso-B 240x160 r.8	Float64	warm	cyclic	false	1	1.0e-7	master	true	25	2	23	436	3.6652920151030625e-8
+lasso-B 240x160 r.8	Float64	warm	cyclic	false	1	1.0e-7	50	true	25	2	23	436	3.6652920151030625e-8
+lasso-B 240x160 r.8	Float64	warm	cyclic	false	1	1.0e-7	w10	true	25	2	23	436	3.6652920151030625e-8
+lasso-B 240x160 r.8	Float64	warm	cyclic	false	1	1.0e-7	w20	true	25	2	23	436	3.6652920151030625e-8
+lasso-B 240x160 r.8	Float64	warm	random	nothing	1	1.0e-7	master	true	16	2	14	390	3.5593605546761565e-8
+lasso-B 240x160 r.8	Float64	warm	random	nothing	1	1.0e-7	50	true	16	2	14	390	3.5593605546761565e-8
+lasso-B 240x160 r.8	Float64	warm	random	nothing	1	1.0e-7	w10	true	16	2	14	390	3.5593605546761565e-8
+lasso-B 240x160 r.8	Float64	warm	random	nothing	1	1.0e-7	w20	true	16	2	14	390	3.5593605546761565e-8
+lasso-B 240x160 r.8	Float64	warm	random	nothing	2	1.0e-7	master	true	23	2	21	427	8.33869564235159e-9
+lasso-B 240x160 r.8	Float64	warm	random	nothing	2	1.0e-7	50	true	23	2	21	427	8.33869564235159e-9
+lasso-B 240x160 r.8	Float64	warm	random	nothing	2	1.0e-7	w10	true	23	2	21	427	8.33869564235159e-9
+lasso-B 240x160 r.8	Float64	warm	random	nothing	2	1.0e-7	w20	true	23	2	21	427	8.33869564235159e-9
+lasso-B 240x160 r.8	Float64	warm	random	nothing	3	1.0e-7	master	true	23	2	21	427	2.754257466464419e-9
+lasso-B 240x160 r.8	Float64	warm	random	nothing	3	1.0e-7	50	true	23	2	21	427	2.754257466464419e-9
+lasso-B 240x160 r.8	Float64	warm	random	nothing	3	1.0e-7	w10	true	23	2	21	427	2.754257466464419e-9
+lasso-B 240x160 r.8	Float64	warm	random	nothing	3	1.0e-7	w20	true	23	2	21	427	2.754257466464419e-9
+lasso-B 240x160 r.8	Float64	warm	random	false	1	1.0e-7	master	true	29	2	27	455	6.082094653969377e-8
+lasso-B 240x160 r.8	Float64	warm	random	false	1	1.0e-7	50	true	29	2	27	455	6.082094653969377e-8
+lasso-B 240x160 r.8	Float64	warm	random	false	1	1.0e-7	w10	true	29	2	27	455	6.082094653969377e-8
+lasso-B 240x160 r.8	Float64	warm	random	false	1	1.0e-7	w20	true	29	2	27	455	6.082094653969377e-8
+lasso-B 240x160 r.8	Float64	warm	random	false	2	1.0e-7	master	true	31	2	29	467	4.6399258712793307e-8
+lasso-B 240x160 r.8	Float64	warm	random	false	2	1.0e-7	50	true	31	2	29	467	4.6399258712793307e-8
+lasso-B 240x160 r.8	Float64	warm	random	false	2	1.0e-7	w10	true	31	2	29	467	4.6399258712793307e-8
+lasso-B 240x160 r.8	Float64	warm	random	false	2	1.0e-7	w20	true	31	2	29	467	4.6399258712793307e-8
+lasso-B 240x160 r.8	Float64	warm	random	false	3	1.0e-7	master	true	31	2	29	467	5.573448574717383e-8
+lasso-B 240x160 r.8	Float64	warm	random	false	3	1.0e-7	50	true	31	2	29	467	5.573448574717383e-8
+lasso-B 240x160 r.8	Float64	warm	random	false	3	1.0e-7	w10	true	31	2	29	467	5.573448574717383e-8
+lasso-B 240x160 r.8	Float64	warm	random	false	3	1.0e-7	w20	true	31	2	29	467	5.573448574717383e-8
+lasso-B 240x160 r.8	Float64	warm	cyclic	false	1	1.0e-11	master	true	43	2	41	526	3.2737075040939793e-12
+lasso-B 240x160 r.8	Float64	warm	cyclic	false	1	1.0e-11	50	true	43	2	41	526	3.2737075040939793e-12
+lasso-B 240x160 r.8	Float64	warm	cyclic	false	1	1.0e-11	w10	true	43	2	41	526	3.2737075040939793e-12
+lasso-B 240x160 r.8	Float64	warm	cyclic	false	1	1.0e-11	w20	true	43	2	41	526	3.2737075040939793e-12
+lasso-B 240x160 r.8	Float64	warm	random	nothing	1	1.0e-11	master	true	35	2	33	485	6.057431931240054e-13
+lasso-B 240x160 r.8	Float64	warm	random	nothing	1	1.0e-11	50	true	35	2	33	485	6.057431931240054e-13
+lasso-B 240x160 r.8	Float64	warm	random	nothing	1	1.0e-11	w10	true	35	2	33	485	6.057431931240054e-13
+lasso-B 240x160 r.8	Float64	warm	random	nothing	1	1.0e-11	w20	true	35	2	33	485	6.057431931240054e-13
+lasso-B 240x160 r.8	Float64	warm	random	nothing	2	1.0e-11	master	true	39	2	37	507	2.943637618183843e-12
+lasso-B 240x160 r.8	Float64	warm	random	nothing	2	1.0e-11	50	true	39	2	37	507	2.943637618183843e-12
+lasso-B 240x160 r.8	Float64	warm	random	nothing	2	1.0e-11	w10	true	39	2	37	507	2.943637618183843e-12
+lasso-B 240x160 r.8	Float64	warm	random	nothing	2	1.0e-11	w20	true	39	2	37	507	2.943637618183843e-12
+lasso-B 240x160 r.8	Float64	warm	random	nothing	3	1.0e-11	master	true	37	2	35	497	7.073793099794285e-12
+lasso-B 240x160 r.8	Float64	warm	random	nothing	3	1.0e-11	50	true	37	2	35	497	7.073793099794285e-12
+lasso-B 240x160 r.8	Float64	warm	random	nothing	3	1.0e-11	w10	true	37	2	35	497	7.073793099794285e-12
+lasso-B 240x160 r.8	Float64	warm	random	nothing	3	1.0e-11	w20	true	37	2	35	497	7.073793099794285e-12
+lasso-B 240x160 r.8	Float64	warm	random	false	1	1.0e-11	master	true	51	2	49	565	5.803921027505172e-12
+lasso-B 240x160 r.8	Float64	warm	random	false	1	1.0e-11	50	true	51	2	49	565	5.803921027505172e-12
+lasso-B 240x160 r.8	Float64	warm	random	false	1	1.0e-11	w10	true	51	2	49	565	5.803921027505172e-12
+lasso-B 240x160 r.8	Float64	warm	random	false	1	1.0e-11	w20	true	51	2	49	565	5.803921027505172e-12
+lasso-B 240x160 r.8	Float64	warm	random	false	2	1.0e-11	master	true	54	2	52	582	3.749219071539813e-12
+lasso-B 240x160 r.8	Float64	warm	random	false	2	1.0e-11	50	true	54	3	51	737	6.044172734612221e-12
+lasso-B 240x160 r.8	Float64	warm	random	false	2	1.0e-11	w10	true	54	2	52	582	3.749219071539813e-12
+lasso-B 240x160 r.8	Float64	warm	random	false	2	1.0e-11	w20	true	54	2	52	582	3.749219071539813e-12
+lasso-B 240x160 r.8	Float64	warm	random	false	3	1.0e-11	master	true	54	2	52	582	4.509876736061515e-12
+lasso-B 240x160 r.8	Float64	warm	random	false	3	1.0e-11	50	true	54	3	51	737	5.838759065879688e-12
+lasso-B 240x160 r.8	Float64	warm	random	false	3	1.0e-11	w10	true	54	2	52	582	4.509876736061515e-12
+lasso-B 240x160 r.8	Float64	warm	random	false	3	1.0e-11	w20	true	54	2	52	582	4.509876736061515e-12
+lasso-C 800x120 r.5	Float32	cold	cyclic	false	1	1.0e-7	master	true	9	2	7	285	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	cold	cyclic	false	1	1.0e-7	50	true	9	2	7	285	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	cold	cyclic	false	1	1.0e-7	w10	true	9	2	7	285	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	cold	cyclic	false	1	1.0e-7	w20	true	9	2	7	285	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	1	1.0e-7	master	true	12	2	10	301	6.575771263026834e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	1	1.0e-7	50	true	12	2	10	301	6.575771263026834e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	1	1.0e-7	w10	true	12	2	10	301	6.575771263026834e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	1	1.0e-7	w20	true	12	2	10	301	6.575771263026834e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	2	1.0e-7	master	true	12	2	10	302	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	2	1.0e-7	50	true	12	2	10	302	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	2	1.0e-7	w10	true	12	2	10	302	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	2	1.0e-7	w20	true	12	2	10	302	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	3	1.0e-7	master	true	13	2	11	304	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	3	1.0e-7	50	true	13	2	11	304	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	3	1.0e-7	w10	true	13	2	11	304	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	3	1.0e-7	w20	true	13	2	11	304	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	1	1.0e-7	master	true	9	2	7	286	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	1	1.0e-7	50	true	9	2	7	286	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	1	1.0e-7	w10	true	9	2	7	286	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	1	1.0e-7	w20	true	9	2	7	286	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	2	1.0e-7	master	true	10	2	8	292	6.583422901821526e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	2	1.0e-7	50	true	10	2	8	292	6.583422901821526e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	2	1.0e-7	w10	true	10	2	8	292	6.583422901821526e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	2	1.0e-7	w20	true	10	2	8	292	6.583422901821526e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	3	1.0e-7	master	true	10	2	8	289	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	3	1.0e-7	50	true	10	2	8	289	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	3	1.0e-7	w10	true	10	2	8	289	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	3	1.0e-7	w20	true	10	2	8	289	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	cyclic	false	1	1.0e-6	master	true	9	2	7	285	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	cold	cyclic	false	1	1.0e-6	50	true	9	2	7	285	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	cold	cyclic	false	1	1.0e-6	w10	true	9	2	7	285	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	cold	cyclic	false	1	1.0e-6	w20	true	9	2	7	285	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	1	1.0e-6	master	true	11	2	9	296	6.314908841638186e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	1	1.0e-6	50	true	11	2	9	296	6.314908841638186e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	1	1.0e-6	w10	true	11	2	9	296	6.314908841638186e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	1	1.0e-6	w20	true	11	2	9	296	6.314908841638186e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	2	1.0e-6	master	true	11	2	9	297	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	2	1.0e-6	50	true	11	2	9	297	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	2	1.0e-6	w10	true	11	2	9	297	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	2	1.0e-6	w20	true	11	2	9	297	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	3	1.0e-6	master	true	11	2	9	294	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	3	1.0e-6	50	true	11	2	9	294	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	3	1.0e-6	w10	true	11	2	9	294	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	cold	random	nothing	3	1.0e-6	w20	true	11	2	9	294	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	1	1.0e-6	master	true	9	2	7	286	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	1	1.0e-6	50	true	9	2	7	286	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	1	1.0e-6	w10	true	9	2	7	286	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	1	1.0e-6	w20	true	9	2	7	286	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	2	1.0e-6	master	true	9	2	7	287	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	2	1.0e-6	50	true	9	2	7	287	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	2	1.0e-6	w10	true	9	2	7	287	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	2	1.0e-6	w20	true	9	2	7	287	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	3	1.0e-6	master	true	10	2	8	289	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	3	1.0e-6	50	true	10	2	8	289	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	3	1.0e-6	w10	true	10	2	8	289	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	cold	random	false	3	1.0e-6	w20	true	10	2	8	289	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	cyclic	false	1	1.0e-7	master	true	6	2	4	260	6.575771263026834e-8
+lasso-C 800x120 r.5	Float32	warm	cyclic	false	1	1.0e-7	50	true	6	2	4	260	6.575771263026834e-8
+lasso-C 800x120 r.5	Float32	warm	cyclic	false	1	1.0e-7	w10	true	6	2	4	260	6.575771263026834e-8
+lasso-C 800x120 r.5	Float32	warm	cyclic	false	1	1.0e-7	w20	true	6	2	4	260	6.575771263026834e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	1	1.0e-7	master	true	9	2	7	275	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	1	1.0e-7	50	true	9	2	7	275	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	1	1.0e-7	w10	true	9	2	7	275	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	1	1.0e-7	w20	true	9	2	7	275	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	2	1.0e-7	master	true	8	2	6	270	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	2	1.0e-7	50	true	8	2	6	270	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	2	1.0e-7	w10	true	8	2	6	270	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	2	1.0e-7	w20	true	8	2	6	270	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	3	1.0e-7	master	true	9	2	7	275	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	3	1.0e-7	50	true	9	2	7	275	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	3	1.0e-7	w10	true	9	2	7	275	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	3	1.0e-7	w20	true	9	2	7	275	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	1	1.0e-7	master	true	7	2	5	265	6.314908841638186e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	1	1.0e-7	50	true	7	2	5	265	6.314908841638186e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	1	1.0e-7	w10	true	7	2	5	265	6.314908841638186e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	1	1.0e-7	w20	true	7	2	5	265	6.314908841638186e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	2	1.0e-7	master	true	6	2	4	260	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	2	1.0e-7	50	true	6	2	4	260	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	2	1.0e-7	w10	true	6	2	4	260	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	2	1.0e-7	w20	true	6	2	4	260	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	3	1.0e-7	master	true	7	2	5	265	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	3	1.0e-7	50	true	7	2	5	265	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	3	1.0e-7	w10	true	7	2	5	265	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	3	1.0e-7	w20	true	7	2	5	265	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	warm	cyclic	false	1	1.0e-6	master	true	6	2	4	260	6.575771263026834e-8
+lasso-C 800x120 r.5	Float32	warm	cyclic	false	1	1.0e-6	50	true	6	2	4	260	6.575771263026834e-8
+lasso-C 800x120 r.5	Float32	warm	cyclic	false	1	1.0e-6	w10	true	6	2	4	260	6.575771263026834e-8
+lasso-C 800x120 r.5	Float32	warm	cyclic	false	1	1.0e-6	w20	true	6	2	4	260	6.575771263026834e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	1	1.0e-6	master	true	7	2	5	265	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	1	1.0e-6	50	true	7	2	5	265	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	1	1.0e-6	w10	true	7	2	5	265	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	1	1.0e-6	w20	true	7	2	5	265	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	2	1.0e-6	master	true	7	2	5	265	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	2	1.0e-6	50	true	7	2	5	265	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	2	1.0e-6	w10	true	7	2	5	265	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	2	1.0e-6	w20	true	7	2	5	265	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	3	1.0e-6	master	true	7	2	5	265	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	3	1.0e-6	50	true	7	2	5	265	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	3	1.0e-6	w10	true	7	2	5	265	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	nothing	3	1.0e-6	w20	true	7	2	5	265	4.625565582677462e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	1	1.0e-6	master	true	6	2	4	260	6.314908841638186e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	1	1.0e-6	50	true	6	2	4	260	6.314908841638186e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	1	1.0e-6	w10	true	6	2	4	260	6.314908841638186e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	1	1.0e-6	w20	true	6	2	4	260	6.314908841638186e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	2	1.0e-6	master	true	5	2	3	255	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	2	1.0e-6	50	true	5	2	3	255	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	2	1.0e-6	w10	true	5	2	3	255	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	2	1.0e-6	w20	true	5	2	3	255	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	3	1.0e-6	master	true	6	2	4	260	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	3	1.0e-6	50	true	6	2	4	260	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	3	1.0e-6	w10	true	6	2	4	260	4.88642800406611e-8
+lasso-C 800x120 r.5	Float32	warm	random	false	3	1.0e-6	w20	true	6	2	4	260	4.88642800406611e-8
+lasso-C 800x120 r.5	Float64	cold	cyclic	false	1	1.0e-7	master	true	9	2	7	285	7.375587583023486e-10
+lasso-C 800x120 r.5	Float64	cold	cyclic	false	1	1.0e-7	50	true	9	2	7	285	7.375587583023486e-10
+lasso-C 800x120 r.5	Float64	cold	cyclic	false	1	1.0e-7	w10	true	9	2	7	285	7.375587583023486e-10
+lasso-C 800x120 r.5	Float64	cold	cyclic	false	1	1.0e-7	w20	true	9	2	7	285	7.375587583023486e-10
+lasso-C 800x120 r.5	Float64	cold	random	nothing	1	1.0e-7	master	true	12	2	10	301	7.045117369373114e-11
+lasso-C 800x120 r.5	Float64	cold	random	nothing	1	1.0e-7	50	true	12	2	10	301	7.045117369373114e-11
+lasso-C 800x120 r.5	Float64	cold	random	nothing	1	1.0e-7	w10	true	12	2	10	301	7.045117369373114e-11
+lasso-C 800x120 r.5	Float64	cold	random	nothing	1	1.0e-7	w20	true	12	2	10	301	7.045117369373114e-11
+lasso-C 800x120 r.5	Float64	cold	random	nothing	2	1.0e-7	master	true	12	2	10	302	1.4198849424110709e-10
+lasso-C 800x120 r.5	Float64	cold	random	nothing	2	1.0e-7	50	true	12	2	10	302	1.4198849424110709e-10
+lasso-C 800x120 r.5	Float64	cold	random	nothing	2	1.0e-7	w10	true	12	2	10	302	1.4198849424110709e-10
+lasso-C 800x120 r.5	Float64	cold	random	nothing	2	1.0e-7	w20	true	12	2	10	302	1.4198849424110709e-10
+lasso-C 800x120 r.5	Float64	cold	random	nothing	3	1.0e-7	master	true	13	2	11	304	1.9583081592809894e-11
+lasso-C 800x120 r.5	Float64	cold	random	nothing	3	1.0e-7	50	true	13	2	11	304	1.9583081592809894e-11
+lasso-C 800x120 r.5	Float64	cold	random	nothing	3	1.0e-7	w10	true	13	2	11	304	1.9583081592809894e-11
+lasso-C 800x120 r.5	Float64	cold	random	nothing	3	1.0e-7	w20	true	13	2	11	304	1.9583081592809894e-11
+lasso-C 800x120 r.5	Float64	cold	random	false	1	1.0e-7	master	true	9	2	7	286	1.3094170414737292e-10
+lasso-C 800x120 r.5	Float64	cold	random	false	1	1.0e-7	50	true	9	2	7	286	1.3094170414737292e-10
+lasso-C 800x120 r.5	Float64	cold	random	false	1	1.0e-7	w10	true	9	2	7	286	1.3094170414737292e-10
+lasso-C 800x120 r.5	Float64	cold	random	false	1	1.0e-7	w20	true	9	2	7	286	1.3094170414737292e-10
+lasso-C 800x120 r.5	Float64	cold	random	false	2	1.0e-7	master	true	10	2	8	292	9.046572326902276e-10
+lasso-C 800x120 r.5	Float64	cold	random	false	2	1.0e-7	50	true	10	2	8	292	9.046572326902276e-10
+lasso-C 800x120 r.5	Float64	cold	random	false	2	1.0e-7	w10	true	10	2	8	292	9.046572326902276e-10
+lasso-C 800x120 r.5	Float64	cold	random	false	2	1.0e-7	w20	true	10	2	8	292	9.046572326902276e-10
+lasso-C 800x120 r.5	Float64	cold	random	false	3	1.0e-7	master	true	10	2	8	289	2.9903849221500845e-9
+lasso-C 800x120 r.5	Float64	cold	random	false	3	1.0e-7	50	true	10	2	8	289	2.9903849221500845e-9
+lasso-C 800x120 r.5	Float64	cold	random	false	3	1.0e-7	w10	true	10	2	8	289	2.9903849221500845e-9
+lasso-C 800x120 r.5	Float64	cold	random	false	3	1.0e-7	w20	true	10	2	8	289	2.9903849221500845e-9
+lasso-C 800x120 r.5	Float64	cold	cyclic	false	1	1.0e-11	master	true	12	2	10	300	2.2535193589766346e-14
+lasso-C 800x120 r.5	Float64	cold	cyclic	false	1	1.0e-11	50	true	12	2	10	300	2.2535193589766346e-14
+lasso-C 800x120 r.5	Float64	cold	cyclic	false	1	1.0e-11	w10	true	12	2	10	300	2.2535193589766346e-14
+lasso-C 800x120 r.5	Float64	cold	cyclic	false	1	1.0e-11	w20	true	12	2	10	300	2.2535193589766346e-14
+lasso-C 800x120 r.5	Float64	cold	random	nothing	1	1.0e-11	master	true	17	2	15	326	2.0254992292354047e-14
+lasso-C 800x120 r.5	Float64	cold	random	nothing	1	1.0e-11	50	true	17	2	15	326	2.0254992292354047e-14
+lasso-C 800x120 r.5	Float64	cold	random	nothing	1	1.0e-11	w10	true	17	2	15	326	2.0254992292354047e-14
+lasso-C 800x120 r.5	Float64	cold	random	nothing	1	1.0e-11	w20	true	17	2	15	326	2.0254992292354047e-14
+lasso-C 800x120 r.5	Float64	cold	random	nothing	2	1.0e-11	master	true	16	2	14	322	3.675023916188061e-14
+lasso-C 800x120 r.5	Float64	cold	random	nothing	2	1.0e-11	50	true	16	2	14	322	3.675023916188061e-14
+lasso-C 800x120 r.5	Float64	cold	random	nothing	2	1.0e-11	w10	true	16	2	14	322	3.675023916188061e-14
+lasso-C 800x120 r.5	Float64	cold	random	nothing	2	1.0e-11	w20	true	16	2	14	322	3.675023916188061e-14
+lasso-C 800x120 r.5	Float64	cold	random	nothing	3	1.0e-11	master	true	16	2	14	319	9.39813076291295e-14
+lasso-C 800x120 r.5	Float64	cold	random	nothing	3	1.0e-11	50	true	16	2	14	319	9.39813076291295e-14
+lasso-C 800x120 r.5	Float64	cold	random	nothing	3	1.0e-11	w10	true	16	2	14	319	9.39813076291295e-14
+lasso-C 800x120 r.5	Float64	cold	random	nothing	3	1.0e-11	w20	true	16	2	14	319	9.39813076291295e-14
+lasso-C 800x120 r.5	Float64	cold	random	false	1	1.0e-11	master	true	12	2	10	301	1.2901968039003159e-14
+lasso-C 800x120 r.5	Float64	cold	random	false	1	1.0e-11	50	true	12	2	10	301	1.2901968039003159e-14
+lasso-C 800x120 r.5	Float64	cold	random	false	1	1.0e-11	w10	true	12	2	10	301	1.2901968039003159e-14
+lasso-C 800x120 r.5	Float64	cold	random	false	1	1.0e-11	w20	true	12	2	10	301	1.2901968039003159e-14
+lasso-C 800x120 r.5	Float64	cold	random	false	2	1.0e-11	master	true	14	2	12	312	2.9026075532161664e-14
+lasso-C 800x120 r.5	Float64	cold	random	false	2	1.0e-11	50	true	14	2	12	312	2.9026075532161664e-14
+lasso-C 800x120 r.5	Float64	cold	random	false	2	1.0e-11	w10	true	14	2	12	312	2.9026075532161664e-14
+lasso-C 800x120 r.5	Float64	cold	random	false	2	1.0e-11	w20	true	14	2	12	312	2.9026075532161664e-14
+lasso-C 800x120 r.5	Float64	cold	random	false	3	1.0e-11	master	true	14	2	12	309	6.256561343334199e-14
+lasso-C 800x120 r.5	Float64	cold	random	false	3	1.0e-11	50	true	14	2	12	309	6.256561343334199e-14
+lasso-C 800x120 r.5	Float64	cold	random	false	3	1.0e-11	w10	true	14	2	12	309	6.256561343334199e-14
+lasso-C 800x120 r.5	Float64	cold	random	false	3	1.0e-11	w20	true	14	2	12	309	6.256561343334199e-14
+lasso-C 800x120 r.5	Float64	warm	cyclic	false	1	1.0e-7	master	true	6	2	4	260	2.262296638721553e-11
+lasso-C 800x120 r.5	Float64	warm	cyclic	false	1	1.0e-7	50	true	6	2	4	260	2.262296638721553e-11
+lasso-C 800x120 r.5	Float64	warm	cyclic	false	1	1.0e-7	w10	true	6	2	4	260	2.262296638721553e-11
+lasso-C 800x120 r.5	Float64	warm	cyclic	false	1	1.0e-7	w20	true	6	2	4	260	2.262296638721553e-11
+lasso-C 800x120 r.5	Float64	warm	random	nothing	1	1.0e-7	master	true	9	2	7	275	1.6858422472944864e-10
+lasso-C 800x120 r.5	Float64	warm	random	nothing	1	1.0e-7	50	true	9	2	7	275	1.6858422472944864e-10
+lasso-C 800x120 r.5	Float64	warm	random	nothing	1	1.0e-7	w10	true	9	2	7	275	1.6858422472944864e-10
+lasso-C 800x120 r.5	Float64	warm	random	nothing	1	1.0e-7	w20	true	9	2	7	275	1.6858422472944864e-10
+lasso-C 800x120 r.5	Float64	warm	random	nothing	2	1.0e-7	master	true	8	2	6	270	1.7460489673036316e-10
+lasso-C 800x120 r.5	Float64	warm	random	nothing	2	1.0e-7	50	true	8	2	6	270	1.7460489673036316e-10
+lasso-C 800x120 r.5	Float64	warm	random	nothing	2	1.0e-7	w10	true	8	2	6	270	1.7460489673036316e-10
+lasso-C 800x120 r.5	Float64	warm	random	nothing	2	1.0e-7	w20	true	8	2	6	270	1.7460489673036316e-10
+lasso-C 800x120 r.5	Float64	warm	random	nothing	3	1.0e-7	master	true	9	2	7	275	4.0253162200754815e-12
+lasso-C 800x120 r.5	Float64	warm	random	nothing	3	1.0e-7	50	true	9	2	7	275	4.0253162200754815e-12
+lasso-C 800x120 r.5	Float64	warm	random	nothing	3	1.0e-7	w10	true	9	2	7	275	4.0253162200754815e-12
+lasso-C 800x120 r.5	Float64	warm	random	nothing	3	1.0e-7	w20	true	9	2	7	275	4.0253162200754815e-12
+lasso-C 800x120 r.5	Float64	warm	random	false	1	1.0e-7	master	true	7	2	5	265	4.097023852818253e-10
+lasso-C 800x120 r.5	Float64	warm	random	false	1	1.0e-7	50	true	7	2	5	265	4.097023852818253e-10
+lasso-C 800x120 r.5	Float64	warm	random	false	1	1.0e-7	w10	true	7	2	5	265	4.097023852818253e-10
+lasso-C 800x120 r.5	Float64	warm	random	false	1	1.0e-7	w20	true	7	2	5	265	4.097023852818253e-10
+lasso-C 800x120 r.5	Float64	warm	random	false	2	1.0e-7	master	true	6	2	4	260	4.932105942415585e-10
+lasso-C 800x120 r.5	Float64	warm	random	false	2	1.0e-7	50	true	6	2	4	260	4.932105942415585e-10
+lasso-C 800x120 r.5	Float64	warm	random	false	2	1.0e-7	w10	true	6	2	4	260	4.932105942415585e-10
+lasso-C 800x120 r.5	Float64	warm	random	false	2	1.0e-7	w20	true	6	2	4	260	4.932105942415585e-10
+lasso-C 800x120 r.5	Float64	warm	random	false	3	1.0e-7	master	true	7	2	5	265	7.067613741149007e-10
+lasso-C 800x120 r.5	Float64	warm	random	false	3	1.0e-7	50	true	7	2	5	265	7.067613741149007e-10
+lasso-C 800x120 r.5	Float64	warm	random	false	3	1.0e-7	w10	true	7	2	5	265	7.067613741149007e-10
+lasso-C 800x120 r.5	Float64	warm	random	false	3	1.0e-7	w20	true	7	2	5	265	7.067613741149007e-10
+lasso-C 800x120 r.5	Float64	warm	cyclic	false	1	1.0e-11	master	true	9	2	7	275	8.327055102051251e-16
+lasso-C 800x120 r.5	Float64	warm	cyclic	false	1	1.0e-11	50	true	9	2	7	275	8.327055102051251e-16
+lasso-C 800x120 r.5	Float64	warm	cyclic	false	1	1.0e-11	w10	true	9	2	7	275	8.327055102051251e-16
+lasso-C 800x120 r.5	Float64	warm	cyclic	false	1	1.0e-11	w20	true	9	2	7	275	8.327055102051251e-16
+lasso-C 800x120 r.5	Float64	warm	random	nothing	1	1.0e-11	master	true	13	2	11	295	2.4650413194765846e-13
+lasso-C 800x120 r.5	Float64	warm	random	nothing	1	1.0e-11	50	true	13	2	11	295	2.4650413194765846e-13
+lasso-C 800x120 r.5	Float64	warm	random	nothing	1	1.0e-11	w10	true	13	2	11	295	2.4650413194765846e-13
+lasso-C 800x120 r.5	Float64	warm	random	nothing	1	1.0e-11	w20	true	13	2	11	295	2.4650413194765846e-13
+lasso-C 800x120 r.5	Float64	warm	random	nothing	2	1.0e-11	master	true	13	2	11	295	2.063293546175727e-14
+lasso-C 800x120 r.5	Float64	warm	random	nothing	2	1.0e-11	50	true	13	2	11	295	2.063293546175727e-14
+lasso-C 800x120 r.5	Float64	warm	random	nothing	2	1.0e-11	w10	true	13	2	11	295	2.063293546175727e-14
+lasso-C 800x120 r.5	Float64	warm	random	nothing	2	1.0e-11	w20	true	13	2	11	295	2.063293546175727e-14
+lasso-C 800x120 r.5	Float64	warm	random	nothing	3	1.0e-11	master	true	12	2	10	290	2.6356471469389125e-14
+lasso-C 800x120 r.5	Float64	warm	random	nothing	3	1.0e-11	50	true	12	2	10	290	2.6356471469389125e-14
+lasso-C 800x120 r.5	Float64	warm	random	nothing	3	1.0e-11	w10	true	12	2	10	290	2.6356471469389125e-14
+lasso-C 800x120 r.5	Float64	warm	random	nothing	3	1.0e-11	w20	true	12	2	10	290	2.6356471469389125e-14
+lasso-C 800x120 r.5	Float64	warm	random	false	1	1.0e-11	master	true	11	2	9	285	2.930784740005161e-14
+lasso-C 800x120 r.5	Float64	warm	random	false	1	1.0e-11	50	true	11	2	9	285	2.930784740005161e-14
+lasso-C 800x120 r.5	Float64	warm	random	false	1	1.0e-11	w10	true	11	2	9	285	2.930784740005161e-14
+lasso-C 800x120 r.5	Float64	warm	random	false	1	1.0e-11	w20	true	11	2	9	285	2.930784740005161e-14
+lasso-C 800x120 r.5	Float64	warm	random	false	2	1.0e-11	master	true	10	2	8	280	1.8774064298419156e-14
+lasso-C 800x120 r.5	Float64	warm	random	false	2	1.0e-11	50	true	10	2	8	280	1.8774064298419156e-14
+lasso-C 800x120 r.5	Float64	warm	random	false	2	1.0e-11	w10	true	10	2	8	280	1.8774064298419156e-14
+lasso-C 800x120 r.5	Float64	warm	random	false	2	1.0e-11	w20	true	10	2	8	280	1.8774064298419156e-14
+lasso-C 800x120 r.5	Float64	warm	random	false	3	1.0e-11	master	true	10	2	8	280	2.411189821311223e-14
+lasso-C 800x120 r.5	Float64	warm	random	false	3	1.0e-11	50	true	10	2	8	280	2.411189821311223e-14
+lasso-C 800x120 r.5	Float64	warm	random	false	3	1.0e-11	w10	true	10	2	8	280	2.411189821311223e-14
+lasso-C 800x120 r.5	Float64	warm	random	false	3	1.0e-11	w20	true	10	2	8	280	2.411189821311223e-14
+lasso-D 180x600	Float32	cold	cyclic	false	1	1.0e-7	master	true	8	2	6	1267	6.112411974575745e-8
+lasso-D 180x600	Float32	cold	cyclic	false	1	1.0e-7	50	true	8	2	6	1267	6.112411974575745e-8
+lasso-D 180x600	Float32	cold	cyclic	false	1	1.0e-7	w10	true	8	2	6	1267	6.112411974575745e-8
+lasso-D 180x600	Float32	cold	cyclic	false	1	1.0e-7	w20	true	8	2	6	1267	6.112411974575745e-8
+lasso-D 180x600	Float32	cold	random	nothing	1	1.0e-7	master	true	12	2	10	1323	7.365686277613201e-8
+lasso-D 180x600	Float32	cold	random	nothing	1	1.0e-7	50	true	12	2	10	1323	7.365686277613201e-8
+lasso-D 180x600	Float32	cold	random	nothing	1	1.0e-7	w10	true	12	2	10	1323	7.365686277613201e-8
+lasso-D 180x600	Float32	cold	random	nothing	1	1.0e-7	w20	true	12	2	10	1323	7.365686277613201e-8
+lasso-D 180x600	Float32	cold	random	nothing	2	1.0e-7	master	true	12	2	10	1287	6.61490547982326e-8
+lasso-D 180x600	Float32	cold	random	nothing	2	1.0e-7	50	true	12	2	10	1287	6.61490547982326e-8
+lasso-D 180x600	Float32	cold	random	nothing	2	1.0e-7	w10	true	12	2	10	1287	6.61490547982326e-8
+lasso-D 180x600	Float32	cold	random	nothing	2	1.0e-7	w20	true	12	2	10	1287	6.61490547982326e-8
+lasso-D 180x600	Float32	cold	random	nothing	3	1.0e-7	master	true	13	2	11	1295	6.112411974575745e-8
+lasso-D 180x600	Float32	cold	random	nothing	3	1.0e-7	50	true	13	2	11	1295	6.112411974575745e-8
+lasso-D 180x600	Float32	cold	random	nothing	3	1.0e-7	w10	true	13	2	11	1295	6.112411974575745e-8
+lasso-D 180x600	Float32	cold	random	nothing	3	1.0e-7	w20	true	13	2	11	1295	6.112411974575745e-8
+lasso-D 180x600	Float32	cold	random	false	1	1.0e-7	master	true	10	2	8	1313	5.726262855602777e-8
+lasso-D 180x600	Float32	cold	random	false	1	1.0e-7	50	true	10	2	8	1313	5.726262855602777e-8
+lasso-D 180x600	Float32	cold	random	false	1	1.0e-7	w10	true	10	2	8	1313	5.726262855602777e-8
+lasso-D 180x600	Float32	cold	random	false	1	1.0e-7	w20	true	10	2	8	1313	5.726262855602777e-8
+lasso-D 180x600	Float32	cold	random	false	2	1.0e-7	master	true	9	2	7	1272	5.726262855602777e-8
+lasso-D 180x600	Float32	cold	random	false	2	1.0e-7	50	true	9	2	7	1272	5.726262855602777e-8
+lasso-D 180x600	Float32	cold	random	false	2	1.0e-7	w10	true	9	2	7	1272	5.726262855602777e-8
+lasso-D 180x600	Float32	cold	random	false	2	1.0e-7	w20	true	9	2	7	1272	5.726262855602777e-8
+lasso-D 180x600	Float32	cold	random	false	3	1.0e-7	master	true	10	2	8	1280	7.756416247525622e-8
+lasso-D 180x600	Float32	cold	random	false	3	1.0e-7	50	true	10	2	8	1280	7.756416247525622e-8
+lasso-D 180x600	Float32	cold	random	false	3	1.0e-7	w10	true	10	2	8	1280	7.756416247525622e-8
+lasso-D 180x600	Float32	cold	random	false	3	1.0e-7	w20	true	10	2	8	1280	7.756416247525622e-8
+lasso-D 180x600	Float32	cold	cyclic	false	1	1.0e-6	master	true	7	2	5	1262	7.756416247525622e-8
+lasso-D 180x600	Float32	cold	cyclic	false	1	1.0e-6	50	true	7	2	5	1262	7.756416247525622e-8
+lasso-D 180x600	Float32	cold	cyclic	false	1	1.0e-6	w10	true	7	2	5	1262	7.756416247525622e-8
+lasso-D 180x600	Float32	cold	cyclic	false	1	1.0e-6	w20	true	7	2	5	1262	7.756416247525622e-8
+lasso-D 180x600	Float32	cold	random	nothing	1	1.0e-6	master	true	11	2	9	1318	6.112411974575745e-8
+lasso-D 180x600	Float32	cold	random	nothing	1	1.0e-6	50	true	11	2	9	1318	6.112411974575745e-8
+lasso-D 180x600	Float32	cold	random	nothing	1	1.0e-6	w10	true	11	2	9	1318	6.112411974575745e-8
+lasso-D 180x600	Float32	cold	random	nothing	1	1.0e-6	w20	true	11	2	9	1318	6.112411974575745e-8
+lasso-D 180x600	Float32	cold	random	nothing	2	1.0e-6	master	true	10	2	8	1277	7.756416247525622e-8
+lasso-D 180x600	Float32	cold	random	nothing	2	1.0e-6	50	true	10	2	8	1277	7.756416247525622e-8
+lasso-D 180x600	Float32	cold	random	nothing	2	1.0e-6	w10	true	10	2	8	1277	7.756416247525622e-8
+lasso-D 180x600	Float32	cold	random	nothing	2	1.0e-6	w20	true	10	2	8	1277	7.756416247525622e-8
+lasso-D 180x600	Float32	cold	random	nothing	3	1.0e-6	master	true	11	2	9	1285	6.112411974575745e-8
+lasso-D 180x600	Float32	cold	random	nothing	3	1.0e-6	50	true	11	2	9	1285	6.112411974575745e-8
+lasso-D 180x600	Float32	cold	random	nothing	3	1.0e-6	w10	true	11	2	9	1285	6.112411974575745e-8
+lasso-D 180x600	Float32	cold	random	nothing	3	1.0e-6	w20	true	11	2	9	1285	6.112411974575745e-8
+lasso-D 180x600	Float32	cold	random	false	1	1.0e-6	master	true	9	2	7	1308	5.726262855602777e-8
+lasso-D 180x600	Float32	cold	random	false	1	1.0e-6	50	true	9	2	7	1308	5.726262855602777e-8
+lasso-D 180x600	Float32	cold	random	false	1	1.0e-6	w10	true	9	2	7	1308	5.726262855602777e-8
+lasso-D 180x600	Float32	cold	random	false	1	1.0e-6	w20	true	9	2	7	1308	5.726262855602777e-8
+lasso-D 180x600	Float32	cold	random	false	2	1.0e-6	master	true	8	2	6	1267	5.726262855602777e-8
+lasso-D 180x600	Float32	cold	random	false	2	1.0e-6	50	true	8	2	6	1267	5.726262855602777e-8
+lasso-D 180x600	Float32	cold	random	false	2	1.0e-6	w10	true	8	2	6	1267	5.726262855602777e-8
+lasso-D 180x600	Float32	cold	random	false	2	1.0e-6	w20	true	8	2	6	1267	5.726262855602777e-8
+lasso-D 180x600	Float32	cold	random	false	3	1.0e-6	master	true	9	2	7	1275	7.756416247525622e-8
+lasso-D 180x600	Float32	cold	random	false	3	1.0e-6	50	true	9	2	7	1275	7.756416247525622e-8
+lasso-D 180x600	Float32	cold	random	false	3	1.0e-6	w10	true	9	2	7	1275	7.756416247525622e-8
+lasso-D 180x600	Float32	cold	random	false	3	1.0e-6	w20	true	9	2	7	1275	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	cyclic	false	1	1.0e-7	master	true	6	2	4	1220	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	cyclic	false	1	1.0e-7	50	true	6	2	4	1220	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	cyclic	false	1	1.0e-7	w10	true	6	2	4	1220	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	cyclic	false	1	1.0e-7	w20	true	6	2	4	1220	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	random	nothing	1	1.0e-7	master	true	9	2	7	1235	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	random	nothing	1	1.0e-7	50	true	9	2	7	1235	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	random	nothing	1	1.0e-7	w10	true	9	2	7	1235	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	random	nothing	1	1.0e-7	w20	true	9	2	7	1235	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	random	nothing	2	1.0e-7	master	true	9	2	7	1235	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	random	nothing	2	1.0e-7	50	true	9	2	7	1235	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	random	nothing	2	1.0e-7	w10	true	9	2	7	1235	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	random	nothing	2	1.0e-7	w20	true	9	2	7	1235	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	random	nothing	3	1.0e-7	master	true	9	2	7	1235	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	random	nothing	3	1.0e-7	50	true	9	2	7	1235	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	random	nothing	3	1.0e-7	w10	true	9	2	7	1235	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	random	nothing	3	1.0e-7	w20	true	9	2	7	1235	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	random	false	1	1.0e-7	master	true	7	2	5	1225	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	random	false	1	1.0e-7	50	true	7	2	5	1225	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	random	false	1	1.0e-7	w10	true	7	2	5	1225	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	random	false	1	1.0e-7	w20	true	7	2	5	1225	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	random	false	2	1.0e-7	master	true	6	2	4	1220	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	false	2	1.0e-7	50	true	6	2	4	1220	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	false	2	1.0e-7	w10	true	6	2	4	1220	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	false	2	1.0e-7	w20	true	6	2	4	1220	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	false	3	1.0e-7	master	true	8	2	6	1230	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	false	3	1.0e-7	50	true	8	2	6	1230	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	false	3	1.0e-7	w10	true	8	2	6	1230	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	false	3	1.0e-7	w20	true	8	2	6	1230	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	cyclic	false	1	1.0e-6	master	true	5	2	3	1215	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	cyclic	false	1	1.0e-6	50	true	5	2	3	1215	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	cyclic	false	1	1.0e-6	w10	true	5	2	3	1215	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	cyclic	false	1	1.0e-6	w20	true	5	2	3	1215	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	nothing	1	1.0e-6	master	true	7	2	5	1225	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	nothing	1	1.0e-6	50	true	7	2	5	1225	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	nothing	1	1.0e-6	w10	true	7	2	5	1225	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	nothing	1	1.0e-6	w20	true	7	2	5	1225	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	nothing	2	1.0e-6	master	true	7	2	5	1225	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	nothing	2	1.0e-6	50	true	7	2	5	1225	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	nothing	2	1.0e-6	w10	true	7	2	5	1225	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	nothing	2	1.0e-6	w20	true	7	2	5	1225	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	nothing	3	1.0e-6	master	true	7	2	5	1225	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	random	nothing	3	1.0e-6	50	true	7	2	5	1225	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	random	nothing	3	1.0e-6	w10	true	7	2	5	1225	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	random	nothing	3	1.0e-6	w20	true	7	2	5	1225	6.112411974575745e-8
+lasso-D 180x600	Float32	warm	random	false	1	1.0e-6	master	true	6	2	4	1220	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	false	1	1.0e-6	50	true	6	2	4	1220	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	false	1	1.0e-6	w10	true	6	2	4	1220	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	false	1	1.0e-6	w20	true	6	2	4	1220	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	false	2	1.0e-6	master	true	6	2	4	1220	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	false	2	1.0e-6	50	true	6	2	4	1220	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	false	2	1.0e-6	w10	true	6	2	4	1220	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	false	2	1.0e-6	w20	true	6	2	4	1220	7.756416247525622e-8
+lasso-D 180x600	Float32	warm	random	false	3	1.0e-6	master	true	6	2	4	1220	7.365686277613201e-8
+lasso-D 180x600	Float32	warm	random	false	3	1.0e-6	50	true	6	2	4	1220	7.365686277613201e-8
+lasso-D 180x600	Float32	warm	random	false	3	1.0e-6	w10	true	6	2	4	1220	7.365686277613201e-8
+lasso-D 180x600	Float32	warm	random	false	3	1.0e-6	w20	true	6	2	4	1220	7.365686277613201e-8
+lasso-D 180x600	Float64	cold	cyclic	false	1	1.0e-7	master	true	8	2	6	1267	9.275047690536172e-12
+lasso-D 180x600	Float64	cold	cyclic	false	1	1.0e-7	50	true	8	2	6	1267	9.275047690536172e-12
+lasso-D 180x600	Float64	cold	cyclic	false	1	1.0e-7	w10	true	8	2	6	1267	9.275047690536172e-12
+lasso-D 180x600	Float64	cold	cyclic	false	1	1.0e-7	w20	true	8	2	6	1267	9.275047690536172e-12
+lasso-D 180x600	Float64	cold	random	nothing	1	1.0e-7	master	true	12	2	10	1323	2.3877113184100574e-9
+lasso-D 180x600	Float64	cold	random	nothing	1	1.0e-7	50	true	12	2	10	1323	2.3877113184100574e-9
+lasso-D 180x600	Float64	cold	random	nothing	1	1.0e-7	w10	true	12	2	10	1323	2.3877113184100574e-9
+lasso-D 180x600	Float64	cold	random	nothing	1	1.0e-7	w20	true	12	2	10	1323	2.3877113184100574e-9
+lasso-D 180x600	Float64	cold	random	nothing	2	1.0e-7	master	true	12	2	10	1287	1.0005498700471767e-10
+lasso-D 180x600	Float64	cold	random	nothing	2	1.0e-7	50	true	12	2	10	1287	1.0005498700471767e-10
+lasso-D 180x600	Float64	cold	random	nothing	2	1.0e-7	w10	true	12	2	10	1287	1.0005498700471767e-10
+lasso-D 180x600	Float64	cold	random	nothing	2	1.0e-7	w20	true	12	2	10	1287	1.0005498700471767e-10
+lasso-D 180x600	Float64	cold	random	nothing	3	1.0e-7	master	true	13	2	11	1295	1.4197959007122018e-11
+lasso-D 180x600	Float64	cold	random	nothing	3	1.0e-7	50	true	13	2	11	1295	1.4197959007122018e-11
+lasso-D 180x600	Float64	cold	random	nothing	3	1.0e-7	w10	true	13	2	11	1295	1.4197959007122018e-11
+lasso-D 180x600	Float64	cold	random	nothing	3	1.0e-7	w20	true	13	2	11	1295	1.4197959007122018e-11
+lasso-D 180x600	Float64	cold	random	false	1	1.0e-7	master	true	10	2	8	1313	4.7812904573908814e-11
+lasso-D 180x600	Float64	cold	random	false	1	1.0e-7	50	true	10	2	8	1313	4.7812904573908814e-11
+lasso-D 180x600	Float64	cold	random	false	1	1.0e-7	w10	true	10	2	8	1313	4.7812904573908814e-11
+lasso-D 180x600	Float64	cold	random	false	1	1.0e-7	w20	true	10	2	8	1313	4.7812904573908814e-11
+lasso-D 180x600	Float64	cold	random	false	2	1.0e-7	master	true	9	2	7	1272	2.773549768309239e-10
+lasso-D 180x600	Float64	cold	random	false	2	1.0e-7	50	true	9	2	7	1272	2.773549768309239e-10
+lasso-D 180x600	Float64	cold	random	false	2	1.0e-7	w10	true	9	2	7	1272	2.773549768309239e-10
+lasso-D 180x600	Float64	cold	random	false	2	1.0e-7	w20	true	9	2	7	1272	2.773549768309239e-10
+lasso-D 180x600	Float64	cold	random	false	3	1.0e-7	master	true	10	2	8	1280	3.0370784262153086e-11
+lasso-D 180x600	Float64	cold	random	false	3	1.0e-7	50	true	10	2	8	1280	3.0370784262153086e-11
+lasso-D 180x600	Float64	cold	random	false	3	1.0e-7	w10	true	10	2	8	1280	3.0370784262153086e-11
+lasso-D 180x600	Float64	cold	random	false	3	1.0e-7	w20	true	10	2	8	1280	3.0370784262153086e-11
+lasso-D 180x600	Float64	cold	cyclic	false	1	1.0e-11	master	true	10	2	8	1277	2.761663308461807e-15
+lasso-D 180x600	Float64	cold	cyclic	false	1	1.0e-11	50	true	10	2	8	1277	2.761663308461807e-15
+lasso-D 180x600	Float64	cold	cyclic	false	1	1.0e-11	w10	true	10	2	8	1277	2.761663308461807e-15
+lasso-D 180x600	Float64	cold	cyclic	false	1	1.0e-11	w20	true	10	2	8	1277	2.761663308461807e-15
+lasso-D 180x600	Float64	cold	random	nothing	1	1.0e-11	master	true	17	2	15	1348	1.6516575078008723e-14
+lasso-D 180x600	Float64	cold	random	nothing	1	1.0e-11	50	true	17	2	15	1348	1.6516575078008723e-14
+lasso-D 180x600	Float64	cold	random	nothing	1	1.0e-11	w10	true	17	2	15	1348	1.6516575078008723e-14
+lasso-D 180x600	Float64	cold	random	nothing	1	1.0e-11	w20	true	17	2	15	1348	1.6516575078008723e-14
+lasso-D 180x600	Float64	cold	random	nothing	2	1.0e-11	master	true	15	2	13	1302	1.3018080952249565e-13
+lasso-D 180x600	Float64	cold	random	nothing	2	1.0e-11	50	true	15	2	13	1302	1.3018080952249565e-13
+lasso-D 180x600	Float64	cold	random	nothing	2	1.0e-11	w10	true	15	2	13	1302	1.3018080952249565e-13
+lasso-D 180x600	Float64	cold	random	nothing	2	1.0e-11	w20	true	15	2	13	1302	1.3018080952249565e-13
+lasso-D 180x600	Float64	cold	random	nothing	3	1.0e-11	master	true	16	2	14	1310	2.8404515443265914e-14
+lasso-D 180x600	Float64	cold	random	nothing	3	1.0e-11	50	true	16	2	14	1310	2.8404515443265914e-14
+lasso-D 180x600	Float64	cold	random	nothing	3	1.0e-11	w10	true	16	2	14	1310	2.8404515443265914e-14
+lasso-D 180x600	Float64	cold	random	nothing	3	1.0e-11	w20	true	16	2	14	1310	2.8404515443265914e-14
+lasso-D 180x600	Float64	cold	random	false	1	1.0e-11	master	true	13	2	11	1328	5.393843118542365e-15
+lasso-D 180x600	Float64	cold	random	false	1	1.0e-11	50	true	13	2	11	1328	5.393843118542365e-15
+lasso-D 180x600	Float64	cold	random	false	1	1.0e-11	w10	true	13	2	11	1328	5.393843118542365e-15
+lasso-D 180x600	Float64	cold	random	false	1	1.0e-11	w20	true	13	2	11	1328	5.393843118542365e-15
+lasso-D 180x600	Float64	cold	random	false	2	1.0e-11	master	true	12	2	10	1287	5.503003230675671e-14
+lasso-D 180x600	Float64	cold	random	false	2	1.0e-11	50	true	12	2	10	1287	5.503003230675671e-14
+lasso-D 180x600	Float64	cold	random	false	2	1.0e-11	w10	true	12	2	10	1287	5.503003230675671e-14
+lasso-D 180x600	Float64	cold	random	false	2	1.0e-11	w20	true	12	2	10	1287	5.503003230675671e-14
+lasso-D 180x600	Float64	cold	random	false	3	1.0e-11	master	true	13	2	11	1295	4.968414067581853e-15
+lasso-D 180x600	Float64	cold	random	false	3	1.0e-11	50	true	13	2	11	1295	4.968414067581853e-15
+lasso-D 180x600	Float64	cold	random	false	3	1.0e-11	w10	true	13	2	11	1295	4.968414067581853e-15
+lasso-D 180x600	Float64	cold	random	false	3	1.0e-11	w20	true	13	2	11	1295	4.968414067581853e-15
+lasso-D 180x600	Float64	warm	cyclic	false	1	1.0e-7	master	true	6	2	4	1220	1.1963549262042193e-11
+lasso-D 180x600	Float64	warm	cyclic	false	1	1.0e-7	50	true	6	2	4	1220	1.1963549262042193e-11
+lasso-D 180x600	Float64	warm	cyclic	false	1	1.0e-7	w10	true	6	2	4	1220	1.1963549262042193e-11
+lasso-D 180x600	Float64	warm	cyclic	false	1	1.0e-7	w20	true	6	2	4	1220	1.1963549262042193e-11
+lasso-D 180x600	Float64	warm	random	nothing	1	1.0e-7	master	true	9	2	7	1235	6.880254493740139e-10
+lasso-D 180x600	Float64	warm	random	nothing	1	1.0e-7	50	true	9	2	7	1235	6.880254493740139e-10
+lasso-D 180x600	Float64	warm	random	nothing	1	1.0e-7	w10	true	9	2	7	1235	6.880254493740139e-10
+lasso-D 180x600	Float64	warm	random	nothing	1	1.0e-7	w20	true	9	2	7	1235	6.880254493740139e-10
+lasso-D 180x600	Float64	warm	random	nothing	2	1.0e-7	master	true	9	2	7	1235	2.7139085884297816e-10
+lasso-D 180x600	Float64	warm	random	nothing	2	1.0e-7	50	true	9	2	7	1235	2.7139085884297816e-10
+lasso-D 180x600	Float64	warm	random	nothing	2	1.0e-7	w10	true	9	2	7	1235	2.7139085884297816e-10
+lasso-D 180x600	Float64	warm	random	nothing	2	1.0e-7	w20	true	9	2	7	1235	2.7139085884297816e-10
+lasso-D 180x600	Float64	warm	random	nothing	3	1.0e-7	master	true	9	2	7	1235	2.3218294931428323e-11
+lasso-D 180x600	Float64	warm	random	nothing	3	1.0e-7	50	true	9	2	7	1235	2.3218294931428323e-11
+lasso-D 180x600	Float64	warm	random	nothing	3	1.0e-7	w10	true	9	2	7	1235	2.3218294931428323e-11
+lasso-D 180x600	Float64	warm	random	nothing	3	1.0e-7	w20	true	9	2	7	1235	2.3218294931428323e-11
+lasso-D 180x600	Float64	warm	random	false	1	1.0e-7	master	true	7	2	5	1225	1.0223298749345709e-11
+lasso-D 180x600	Float64	warm	random	false	1	1.0e-7	50	true	7	2	5	1225	1.0223298749345709e-11
+lasso-D 180x600	Float64	warm	random	false	1	1.0e-7	w10	true	7	2	5	1225	1.0223298749345709e-11
+lasso-D 180x600	Float64	warm	random	false	1	1.0e-7	w20	true	7	2	5	1225	1.0223298749345709e-11
+lasso-D 180x600	Float64	warm	random	false	2	1.0e-7	master	true	6	2	4	1220	3.625297472011389e-11
+lasso-D 180x600	Float64	warm	random	false	2	1.0e-7	50	true	6	2	4	1220	3.625297472011389e-11
+lasso-D 180x600	Float64	warm	random	false	2	1.0e-7	w10	true	6	2	4	1220	3.625297472011389e-11
+lasso-D 180x600	Float64	warm	random	false	2	1.0e-7	w20	true	6	2	4	1220	3.625297472011389e-11
+lasso-D 180x600	Float64	warm	random	false	3	1.0e-7	master	true	7	2	5	1225	7.328766027575053e-10
+lasso-D 180x600	Float64	warm	random	false	3	1.0e-7	50	true	7	2	5	1225	7.328766027575053e-10
+lasso-D 180x600	Float64	warm	random	false	3	1.0e-7	w10	true	7	2	5	1225	7.328766027575053e-10
+lasso-D 180x600	Float64	warm	random	false	3	1.0e-7	w20	true	7	2	5	1225	7.328766027575053e-10
+lasso-D 180x600	Float64	warm	cyclic	false	1	1.0e-11	master	true	8	2	6	1230	1.8404220060592683e-15
+lasso-D 180x600	Float64	warm	cyclic	false	1	1.0e-11	50	true	8	2	6	1230	1.8404220060592683e-15
+lasso-D 180x600	Float64	warm	cyclic	false	1	1.0e-11	w10	true	8	2	6	1230	1.8404220060592683e-15
+lasso-D 180x600	Float64	warm	cyclic	false	1	1.0e-11	w20	true	8	2	6	1230	1.8404220060592683e-15
+lasso-D 180x600	Float64	warm	random	nothing	1	1.0e-11	master	true	14	2	12	1260	2.3430938767470865e-14
+lasso-D 180x600	Float64	warm	random	nothing	1	1.0e-11	50	true	14	2	12	1260	2.3430938767470865e-14
+lasso-D 180x600	Float64	warm	random	nothing	1	1.0e-11	w10	true	14	2	12	1260	2.3430938767470865e-14
+lasso-D 180x600	Float64	warm	random	nothing	1	1.0e-11	w20	true	14	2	12	1260	2.3430938767470865e-14
+lasso-D 180x600	Float64	warm	random	nothing	2	1.0e-11	master	true	14	2	12	1260	1.3357793393129131e-14
+lasso-D 180x600	Float64	warm	random	nothing	2	1.0e-11	50	true	14	2	12	1260	1.3357793393129131e-14
+lasso-D 180x600	Float64	warm	random	nothing	2	1.0e-11	w10	true	14	2	12	1260	1.3357793393129131e-14
+lasso-D 180x600	Float64	warm	random	nothing	2	1.0e-11	w20	true	14	2	12	1260	1.3357793393129131e-14
+lasso-D 180x600	Float64	warm	random	nothing	3	1.0e-11	master	true	14	2	12	1260	1.7511629194417644e-14
+lasso-D 180x600	Float64	warm	random	nothing	3	1.0e-11	50	true	14	2	12	1260	1.7511629194417644e-14
+lasso-D 180x600	Float64	warm	random	nothing	3	1.0e-11	w10	true	14	2	12	1260	1.7511629194417644e-14
+lasso-D 180x600	Float64	warm	random	nothing	3	1.0e-11	w20	true	14	2	12	1260	1.7511629194417644e-14
+lasso-D 180x600	Float64	warm	random	false	1	1.0e-11	master	true	9	2	7	1235	2.4392264534712087e-13
+lasso-D 180x600	Float64	warm	random	false	1	1.0e-11	50	true	9	2	7	1235	2.4392264534712087e-13
+lasso-D 180x600	Float64	warm	random	false	1	1.0e-11	w10	true	9	2	7	1235	2.4392264534712087e-13
+lasso-D 180x600	Float64	warm	random	false	1	1.0e-11	w20	true	9	2	7	1235	2.4392264534712087e-13
+lasso-D 180x600	Float64	warm	random	false	2	1.0e-11	master	true	9	2	7	1235	6.538436400687635e-14
+lasso-D 180x600	Float64	warm	random	false	2	1.0e-11	50	true	9	2	7	1235	6.538436400687635e-14
+lasso-D 180x600	Float64	warm	random	false	2	1.0e-11	w10	true	9	2	7	1235	6.538436400687635e-14
+lasso-D 180x600	Float64	warm	random	false	2	1.0e-11	w20	true	9	2	7	1235	6.538436400687635e-14
+lasso-D 180x600	Float64	warm	random	false	3	1.0e-11	master	true	11	2	9	1245	7.695223335850462e-15
+lasso-D 180x600	Float64	warm	random	false	3	1.0e-11	50	true	11	2	9	1245	7.695223335850462e-15
+lasso-D 180x600	Float64	warm	random	false	3	1.0e-11	w10	true	11	2	9	1245	7.695223335850462e-15
+lasso-D 180x600	Float64	warm	random	false	3	1.0e-11	w20	true	11	2	9	1245	7.695223335850462e-15
+explore 500x200	Float32	cold	cyclic	false	1	1.0e-7	master	true	8	2	6	469	5.6245122585787304e-8
+explore 500x200	Float32	cold	cyclic	false	1	1.0e-7	50	true	8	2	6	469	5.6245122585787304e-8
+explore 500x200	Float32	cold	cyclic	false	1	1.0e-7	w10	true	8	2	6	469	5.6245122585787304e-8
+explore 500x200	Float32	cold	cyclic	false	1	1.0e-7	w20	true	8	2	6	469	5.6245122585787304e-8
+explore 500x200	Float32	cold	random	nothing	1	1.0e-7	master	true	12	2	10	517	5.91533920802569e-8
+explore 500x200	Float32	cold	random	nothing	1	1.0e-7	50	true	12	2	10	517	5.91533920802569e-8
+explore 500x200	Float32	cold	random	nothing	1	1.0e-7	w10	true	12	2	10	517	5.91533920802569e-8
+explore 500x200	Float32	cold	random	nothing	1	1.0e-7	w20	true	12	2	10	517	5.91533920802569e-8
+explore 500x200	Float32	cold	random	nothing	2	1.0e-7	master	true	12	2	10	517	4.933750635787149e-8
+explore 500x200	Float32	cold	random	nothing	2	1.0e-7	50	true	12	2	10	517	4.933750635787149e-8
+explore 500x200	Float32	cold	random	nothing	2	1.0e-7	w10	true	12	2	10	517	4.933750635787149e-8
+explore 500x200	Float32	cold	random	nothing	2	1.0e-7	w20	true	12	2	10	517	4.933750635787149e-8
+explore 500x200	Float32	cold	random	nothing	3	1.0e-7	master	true	10	2	8	480	7.519249114611055e-8
+explore 500x200	Float32	cold	random	nothing	3	1.0e-7	50	true	10	2	8	480	7.519249114611055e-8
+explore 500x200	Float32	cold	random	nothing	3	1.0e-7	w10	true	10	2	8	480	7.519249114611055e-8
+explore 500x200	Float32	cold	random	nothing	3	1.0e-7	w20	true	10	2	8	480	7.519249114611055e-8
+explore 500x200	Float32	cold	random	false	1	1.0e-7	master	true	10	2	8	501	4.933750635787149e-8
+explore 500x200	Float32	cold	random	false	1	1.0e-7	50	true	10	2	8	501	4.933750635787149e-8
+explore 500x200	Float32	cold	random	false	1	1.0e-7	w10	true	10	2	8	501	4.933750635787149e-8
+explore 500x200	Float32	cold	random	false	1	1.0e-7	w20	true	10	2	8	501	4.933750635787149e-8
+explore 500x200	Float32	cold	random	false	2	1.0e-7	master	true	10	2	8	501	5.91533920802569e-8
+explore 500x200	Float32	cold	random	false	2	1.0e-7	50	true	10	2	8	501	5.91533920802569e-8
+explore 500x200	Float32	cold	random	false	2	1.0e-7	w10	true	10	2	8	501	5.91533920802569e-8
+explore 500x200	Float32	cold	random	false	2	1.0e-7	w20	true	10	2	8	501	5.91533920802569e-8
+explore 500x200	Float32	cold	random	false	3	1.0e-7	master	true	9	2	7	472	7.416814960502383e-8
+explore 500x200	Float32	cold	random	false	3	1.0e-7	50	true	9	2	7	472	7.416814960502383e-8
+explore 500x200	Float32	cold	random	false	3	1.0e-7	w10	true	9	2	7	472	7.416814960502383e-8
+explore 500x200	Float32	cold	random	false	3	1.0e-7	w20	true	9	2	7	472	7.416814960502383e-8
+explore 500x200	Float32	cold	cyclic	false	1	1.0e-6	master	true	8	2	6	469	5.6245122585787304e-8
+explore 500x200	Float32	cold	cyclic	false	1	1.0e-6	50	true	8	2	6	469	5.6245122585787304e-8
+explore 500x200	Float32	cold	cyclic	false	1	1.0e-6	w10	true	8	2	6	469	5.6245122585787304e-8
+explore 500x200	Float32	cold	cyclic	false	1	1.0e-6	w20	true	8	2	6	469	5.6245122585787304e-8
+explore 500x200	Float32	cold	random	nothing	1	1.0e-6	master	true	10	2	8	501	8.208533672276806e-8
+explore 500x200	Float32	cold	random	nothing	1	1.0e-6	50	true	10	2	8	501	8.208533672276806e-8
+explore 500x200	Float32	cold	random	nothing	1	1.0e-6	w10	true	10	2	8	501	8.208533672276806e-8
+explore 500x200	Float32	cold	random	nothing	1	1.0e-6	w20	true	10	2	8	501	8.208533672276806e-8
+explore 500x200	Float32	cold	random	nothing	2	1.0e-6	master	true	10	2	8	501	7.597548264670558e-8
+explore 500x200	Float32	cold	random	nothing	2	1.0e-6	50	true	10	2	8	501	7.597548264670558e-8
+explore 500x200	Float32	cold	random	nothing	2	1.0e-6	w10	true	10	2	8	501	7.597548264670558e-8
+explore 500x200	Float32	cold	random	nothing	2	1.0e-6	w20	true	10	2	8	501	7.597548264670558e-8
+explore 500x200	Float32	cold	random	nothing	3	1.0e-6	master	true	9	2	7	472	5.6245122585787304e-8
+explore 500x200	Float32	cold	random	nothing	3	1.0e-6	50	true	9	2	7	472	5.6245122585787304e-8
+explore 500x200	Float32	cold	random	nothing	3	1.0e-6	w10	true	9	2	7	472	5.6245122585787304e-8
+explore 500x200	Float32	cold	random	nothing	3	1.0e-6	w20	true	9	2	7	472	5.6245122585787304e-8
+explore 500x200	Float32	cold	random	false	1	1.0e-6	master	true	9	2	7	493	4.942910291556207e-8
+explore 500x200	Float32	cold	random	false	1	1.0e-6	50	true	9	2	7	493	4.942910291556207e-8
+explore 500x200	Float32	cold	random	false	1	1.0e-6	w10	true	9	2	7	493	4.942910291556207e-8
+explore 500x200	Float32	cold	random	false	1	1.0e-6	w20	true	9	2	7	493	4.942910291556207e-8
+explore 500x200	Float32	cold	random	false	2	1.0e-6	master	true	9	2	7	493	4.942910291556207e-8
+explore 500x200	Float32	cold	random	false	2	1.0e-6	50	true	9	2	7	493	4.942910291556207e-8
+explore 500x200	Float32	cold	random	false	2	1.0e-6	w10	true	9	2	7	493	4.942910291556207e-8
+explore 500x200	Float32	cold	random	false	2	1.0e-6	w20	true	9	2	7	493	4.942910291556207e-8
+explore 500x200	Float32	cold	random	false	3	1.0e-6	master	true	8	2	6	464	7.416814960502383e-8
+explore 500x200	Float32	cold	random	false	3	1.0e-6	50	true	8	2	6	464	7.416814960502383e-8
+explore 500x200	Float32	cold	random	false	3	1.0e-6	w10	true	8	2	6	464	7.416814960502383e-8
+explore 500x200	Float32	cold	random	false	3	1.0e-6	w20	true	8	2	6	464	7.416814960502383e-8
+explore 500x200	Float32	warm	cyclic	false	1	1.0e-7	master	true	6	2	4	432	5.91533920802569e-8
+explore 500x200	Float32	warm	cyclic	false	1	1.0e-7	50	true	6	2	4	432	5.91533920802569e-8
+explore 500x200	Float32	warm	cyclic	false	1	1.0e-7	w10	true	6	2	4	432	5.91533920802569e-8
+explore 500x200	Float32	warm	cyclic	false	1	1.0e-7	w20	true	6	2	4	432	5.91533920802569e-8
+explore 500x200	Float32	warm	random	nothing	1	1.0e-7	master	true	9	2	7	456	6.345317387406574e-8
+explore 500x200	Float32	warm	random	nothing	1	1.0e-7	50	true	9	2	7	456	6.345317387406574e-8
+explore 500x200	Float32	warm	random	nothing	1	1.0e-7	w10	true	9	2	7	456	6.345317387406574e-8
+explore 500x200	Float32	warm	random	nothing	1	1.0e-7	w20	true	9	2	7	456	6.345317387406574e-8
+explore 500x200	Float32	warm	random	nothing	2	1.0e-7	master	true	9	2	7	456	6.345317387406574e-8
+explore 500x200	Float32	warm	random	nothing	2	1.0e-7	50	true	9	2	7	456	6.345317387406574e-8
+explore 500x200	Float32	warm	random	nothing	2	1.0e-7	w10	true	9	2	7	456	6.345317387406574e-8
+explore 500x200	Float32	warm	random	nothing	2	1.0e-7	w20	true	9	2	7	456	6.345317387406574e-8
+explore 500x200	Float32	warm	random	nothing	3	1.0e-7	master	true	9	2	7	456	5.91533920802569e-8
+explore 500x200	Float32	warm	random	nothing	3	1.0e-7	50	true	9	2	7	456	5.91533920802569e-8
+explore 500x200	Float32	warm	random	nothing	3	1.0e-7	w10	true	9	2	7	456	5.91533920802569e-8
+explore 500x200	Float32	warm	random	nothing	3	1.0e-7	w20	true	9	2	7	456	5.91533920802569e-8
+explore 500x200	Float32	warm	random	false	1	1.0e-7	master	true	8	2	6	448	5.2790196728055676e-8
+explore 500x200	Float32	warm	random	false	1	1.0e-7	50	true	8	2	6	448	5.2790196728055676e-8
+explore 500x200	Float32	warm	random	false	1	1.0e-7	w10	true	8	2	6	448	5.2790196728055676e-8
+explore 500x200	Float32	warm	random	false	1	1.0e-7	w20	true	8	2	6	448	5.2790196728055676e-8
+explore 500x200	Float32	warm	random	false	2	1.0e-7	master	true	7	2	5	440	5.91533920802569e-8
+explore 500x200	Float32	warm	random	false	2	1.0e-7	50	true	7	2	5	440	5.91533920802569e-8
+explore 500x200	Float32	warm	random	false	2	1.0e-7	w10	true	7	2	5	440	5.91533920802569e-8
+explore 500x200	Float32	warm	random	false	2	1.0e-7	w20	true	7	2	5	440	5.91533920802569e-8
+explore 500x200	Float32	warm	random	false	3	1.0e-7	master	true	7	2	5	440	6.345317387406574e-8
+explore 500x200	Float32	warm	random	false	3	1.0e-7	50	true	7	2	5	440	6.345317387406574e-8
+explore 500x200	Float32	warm	random	false	3	1.0e-7	w10	true	7	2	5	440	6.345317387406574e-8
+explore 500x200	Float32	warm	random	false	3	1.0e-7	w20	true	7	2	5	440	6.345317387406574e-8
+explore 500x200	Float32	warm	cyclic	false	1	1.0e-6	master	true	6	2	4	432	5.91533920802569e-8
+explore 500x200	Float32	warm	cyclic	false	1	1.0e-6	50	true	6	2	4	432	5.91533920802569e-8
+explore 500x200	Float32	warm	cyclic	false	1	1.0e-6	w10	true	6	2	4	432	5.91533920802569e-8
+explore 500x200	Float32	warm	cyclic	false	1	1.0e-6	w20	true	6	2	4	432	5.91533920802569e-8
+explore 500x200	Float32	warm	random	nothing	1	1.0e-6	master	true	8	2	6	448	4.5976412545377886e-8
+explore 500x200	Float32	warm	random	nothing	1	1.0e-6	50	true	8	2	6	448	4.5976412545377886e-8
+explore 500x200	Float32	warm	random	nothing	1	1.0e-6	w10	true	8	2	6	448	4.5976412545377886e-8
+explore 500x200	Float32	warm	random	nothing	1	1.0e-6	w20	true	8	2	6	448	4.5976412545377886e-8
+explore 500x200	Float32	warm	random	nothing	2	1.0e-6	master	true	8	2	6	448	4.942910291556207e-8
+explore 500x200	Float32	warm	random	nothing	2	1.0e-6	50	true	8	2	6	448	4.942910291556207e-8
+explore 500x200	Float32	warm	random	nothing	2	1.0e-6	w10	true	8	2	6	448	4.942910291556207e-8
+explore 500x200	Float32	warm	random	nothing	2	1.0e-6	w20	true	8	2	6	448	4.942910291556207e-8
+explore 500x200	Float32	warm	random	nothing	3	1.0e-6	master	true	7	2	5	440	6.054490437959615e-8
+explore 500x200	Float32	warm	random	nothing	3	1.0e-6	50	true	7	2	5	440	6.054490437959615e-8
+explore 500x200	Float32	warm	random	nothing	3	1.0e-6	w10	true	7	2	5	440	6.054490437959615e-8
+explore 500x200	Float32	warm	random	nothing	3	1.0e-6	w20	true	7	2	5	440	6.054490437959615e-8
+explore 500x200	Float32	warm	random	false	1	1.0e-6	master	true	7	2	5	440	5.2790196728055676e-8
+explore 500x200	Float32	warm	random	false	1	1.0e-6	50	true	7	2	5	440	5.2790196728055676e-8
+explore 500x200	Float32	warm	random	false	1	1.0e-6	w10	true	7	2	5	440	5.2790196728055676e-8
+explore 500x200	Float32	warm	random	false	1	1.0e-6	w20	true	7	2	5	440	5.2790196728055676e-8
+explore 500x200	Float32	warm	random	false	2	1.0e-6	master	true	7	2	5	440	5.91533920802569e-8
+explore 500x200	Float32	warm	random	false	2	1.0e-6	50	true	7	2	5	440	5.91533920802569e-8
+explore 500x200	Float32	warm	random	false	2	1.0e-6	w10	true	7	2	5	440	5.91533920802569e-8
+explore 500x200	Float32	warm	random	false	2	1.0e-6	w20	true	7	2	5	440	5.91533920802569e-8
+explore 500x200	Float32	warm	random	false	3	1.0e-6	master	true	6	2	4	432	5.91533920802569e-8
+explore 500x200	Float32	warm	random	false	3	1.0e-6	50	true	6	2	4	432	5.91533920802569e-8
+explore 500x200	Float32	warm	random	false	3	1.0e-6	w10	true	6	2	4	432	5.91533920802569e-8
+explore 500x200	Float32	warm	random	false	3	1.0e-6	w20	true	6	2	4	432	5.91533920802569e-8
+explore 500x200	Float64	cold	cyclic	false	1	1.0e-7	master	true	8	2	6	469	2.53578691647855e-10
+explore 500x200	Float64	cold	cyclic	false	1	1.0e-7	50	true	8	2	6	469	2.53578691647855e-10
+explore 500x200	Float64	cold	cyclic	false	1	1.0e-7	w10	true	8	2	6	469	2.53578691647855e-10
+explore 500x200	Float64	cold	cyclic	false	1	1.0e-7	w20	true	8	2	6	469	2.53578691647855e-10
+explore 500x200	Float64	cold	random	nothing	1	1.0e-7	master	true	12	2	10	517	5.916374968371661e-10
+explore 500x200	Float64	cold	random	nothing	1	1.0e-7	50	true	12	2	10	517	5.916374968371661e-10
+explore 500x200	Float64	cold	random	nothing	1	1.0e-7	w10	true	12	2	10	517	5.916374968371661e-10
+explore 500x200	Float64	cold	random	nothing	1	1.0e-7	w20	true	12	2	10	517	5.916374968371661e-10
+explore 500x200	Float64	cold	random	nothing	2	1.0e-7	master	true	12	2	10	517	2.2475544286383888e-10
+explore 500x200	Float64	cold	random	nothing	2	1.0e-7	50	true	12	2	10	517	2.2475544286383888e-10
+explore 500x200	Float64	cold	random	nothing	2	1.0e-7	w10	true	12	2	10	517	2.2475544286383888e-10
+explore 500x200	Float64	cold	random	nothing	2	1.0e-7	w20	true	12	2	10	517	2.2475544286383888e-10
+explore 500x200	Float64	cold	random	nothing	3	1.0e-7	master	true	11	2	9	488	5.827085091235887e-10
+explore 500x200	Float64	cold	random	nothing	3	1.0e-7	50	true	11	2	9	488	5.827085091235887e-10
+explore 500x200	Float64	cold	random	nothing	3	1.0e-7	w10	true	11	2	9	488	5.827085091235887e-10
+explore 500x200	Float64	cold	random	nothing	3	1.0e-7	w20	true	11	2	9	488	5.827085091235887e-10
+explore 500x200	Float64	cold	random	false	1	1.0e-7	master	true	10	2	8	501	1.8480237119118683e-9
+explore 500x200	Float64	cold	random	false	1	1.0e-7	50	true	10	2	8	501	1.8480237119118683e-9
+explore 500x200	Float64	cold	random	false	1	1.0e-7	w10	true	10	2	8	501	1.8480237119118683e-9
+explore 500x200	Float64	cold	random	false	1	1.0e-7	w20	true	10	2	8	501	1.8480237119118683e-9
+explore 500x200	Float64	cold	random	false	2	1.0e-7	master	true	10	2	8	501	7.626215658140369e-10
+explore 500x200	Float64	cold	random	false	2	1.0e-7	50	true	10	2	8	501	7.626215658140369e-10
+explore 500x200	Float64	cold	random	false	2	1.0e-7	w10	true	10	2	8	501	7.626215658140369e-10
+explore 500x200	Float64	cold	random	false	2	1.0e-7	w20	true	10	2	8	501	7.626215658140369e-10
+explore 500x200	Float64	cold	random	false	3	1.0e-7	master	true	9	2	7	472	5.106321707536502e-10
+explore 500x200	Float64	cold	random	false	3	1.0e-7	50	true	9	2	7	472	5.106321707536502e-10
+explore 500x200	Float64	cold	random	false	3	1.0e-7	w10	true	9	2	7	472	5.106321707536502e-10
+explore 500x200	Float64	cold	random	false	3	1.0e-7	w20	true	9	2	7	472	5.106321707536502e-10
+explore 500x200	Float64	cold	cyclic	false	1	1.0e-11	master	true	11	2	9	493	1.3901188545983919e-14
+explore 500x200	Float64	cold	cyclic	false	1	1.0e-11	50	true	11	2	9	493	1.3901188545983919e-14
+explore 500x200	Float64	cold	cyclic	false	1	1.0e-11	w10	true	11	2	9	493	1.3901188545983919e-14
+explore 500x200	Float64	cold	cyclic	false	1	1.0e-11	w20	true	11	2	9	493	1.3901188545983919e-14
+explore 500x200	Float64	cold	random	nothing	1	1.0e-11	master	true	17	2	15	557	1.3861727088515224e-13
+explore 500x200	Float64	cold	random	nothing	1	1.0e-11	50	true	17	2	15	557	1.3861727088515224e-13
+explore 500x200	Float64	cold	random	nothing	1	1.0e-11	w10	true	17	2	15	557	1.3861727088515224e-13
+explore 500x200	Float64	cold	random	nothing	1	1.0e-11	w20	true	17	2	15	557	1.3861727088515224e-13
+explore 500x200	Float64	cold	random	nothing	2	1.0e-11	master	true	17	2	15	557	1.1876435597540858e-13
+explore 500x200	Float64	cold	random	nothing	2	1.0e-11	50	true	17	2	15	557	1.1876435597540858e-13
+explore 500x200	Float64	cold	random	nothing	2	1.0e-11	w10	true	17	2	15	557	1.1876435597540858e-13
+explore 500x200	Float64	cold	random	nothing	2	1.0e-11	w20	true	17	2	15	557	1.1876435597540858e-13
+explore 500x200	Float64	cold	random	nothing	3	1.0e-11	master	true	16	2	14	528	6.030888091794484e-14
+explore 500x200	Float64	cold	random	nothing	3	1.0e-11	50	true	16	2	14	528	6.030888091794484e-14
+explore 500x200	Float64	cold	random	nothing	3	1.0e-11	w10	true	16	2	14	528	6.030888091794484e-14
+explore 500x200	Float64	cold	random	nothing	3	1.0e-11	w20	true	16	2	14	528	6.030888091794484e-14
+explore 500x200	Float64	cold	random	false	1	1.0e-11	master	true	14	2	12	533	1.585271195409928e-13
+explore 500x200	Float64	cold	random	false	1	1.0e-11	50	true	14	2	12	533	1.585271195409928e-13
+explore 500x200	Float64	cold	random	false	1	1.0e-11	w10	true	14	2	12	533	1.585271195409928e-13
+explore 500x200	Float64	cold	random	false	1	1.0e-11	w20	true	14	2	12	533	1.585271195409928e-13
+explore 500x200	Float64	cold	random	false	2	1.0e-11	master	true	14	2	12	533	4.128163092038804e-14
+explore 500x200	Float64	cold	random	false	2	1.0e-11	50	true	14	2	12	533	4.128163092038804e-14
+explore 500x200	Float64	cold	random	false	2	1.0e-11	w10	true	14	2	12	533	4.128163092038804e-14
+explore 500x200	Float64	cold	random	false	2	1.0e-11	w20	true	14	2	12	533	4.128163092038804e-14
+explore 500x200	Float64	cold	random	false	3	1.0e-11	master	true	12	2	10	496	3.535205022579168e-13
+explore 500x200	Float64	cold	random	false	3	1.0e-11	50	true	12	2	10	496	3.535205022579168e-13
+explore 500x200	Float64	cold	random	false	3	1.0e-11	w10	true	12	2	10	496	3.535205022579168e-13
+explore 500x200	Float64	cold	random	false	3	1.0e-11	w20	true	12	2	10	496	3.535205022579168e-13
+explore 500x200	Float64	warm	cyclic	false	1	1.0e-7	master	true	6	2	4	432	1.6606019071374382e-10
+explore 500x200	Float64	warm	cyclic	false	1	1.0e-7	50	true	6	2	4	432	1.6606019071374382e-10
+explore 500x200	Float64	warm	cyclic	false	1	1.0e-7	w10	true	6	2	4	432	1.6606019071374382e-10
+explore 500x200	Float64	warm	cyclic	false	1	1.0e-7	w20	true	6	2	4	432	1.6606019071374382e-10
+explore 500x200	Float64	warm	random	nothing	1	1.0e-7	master	true	9	2	7	456	7.38621705465973e-10
+explore 500x200	Float64	warm	random	nothing	1	1.0e-7	50	true	9	2	7	456	7.38621705465973e-10
+explore 500x200	Float64	warm	random	nothing	1	1.0e-7	w10	true	9	2	7	456	7.38621705465973e-10
+explore 500x200	Float64	warm	random	nothing	1	1.0e-7	w20	true	9	2	7	456	7.38621705465973e-10
+explore 500x200	Float64	warm	random	nothing	2	1.0e-7	master	true	9	2	7	456	3.840677117207647e-9
+explore 500x200	Float64	warm	random	nothing	2	1.0e-7	50	true	9	2	7	456	3.840677117207647e-9
+explore 500x200	Float64	warm	random	nothing	2	1.0e-7	w10	true	9	2	7	456	3.840677117207647e-9
+explore 500x200	Float64	warm	random	nothing	2	1.0e-7	w20	true	9	2	7	456	3.840677117207647e-9
+explore 500x200	Float64	warm	random	nothing	3	1.0e-7	master	true	9	2	7	456	1.057397344506717e-9
+explore 500x200	Float64	warm	random	nothing	3	1.0e-7	50	true	9	2	7	456	1.057397344506717e-9
+explore 500x200	Float64	warm	random	nothing	3	1.0e-7	w10	true	9	2	7	456	1.057397344506717e-9
+explore 500x200	Float64	warm	random	nothing	3	1.0e-7	w20	true	9	2	7	456	1.057397344506717e-9
+explore 500x200	Float64	warm	random	false	1	1.0e-7	master	true	8	2	6	448	1.4433436319303963e-10
+explore 500x200	Float64	warm	random	false	1	1.0e-7	50	true	8	2	6	448	1.4433436319303963e-10
+explore 500x200	Float64	warm	random	false	1	1.0e-7	w10	true	8	2	6	448	1.4433436319303963e-10
+explore 500x200	Float64	warm	random	false	1	1.0e-7	w20	true	8	2	6	448	1.4433436319303963e-10
+explore 500x200	Float64	warm	random	false	2	1.0e-7	master	true	7	2	5	440	2.246688468315952e-9
+explore 500x200	Float64	warm	random	false	2	1.0e-7	50	true	7	2	5	440	2.246688468315952e-9
+explore 500x200	Float64	warm	random	false	2	1.0e-7	w10	true	7	2	5	440	2.246688468315952e-9
+explore 500x200	Float64	warm	random	false	2	1.0e-7	w20	true	7	2	5	440	2.246688468315952e-9
+explore 500x200	Float64	warm	random	false	3	1.0e-7	master	true	7	2	5	440	1.413887727687444e-9
+explore 500x200	Float64	warm	random	false	3	1.0e-7	50	true	7	2	5	440	1.413887727687444e-9
+explore 500x200	Float64	warm	random	false	3	1.0e-7	w10	true	7	2	5	440	1.413887727687444e-9
+explore 500x200	Float64	warm	random	false	3	1.0e-7	w20	true	7	2	5	440	1.413887727687444e-9
+explore 500x200	Float64	warm	cyclic	false	1	1.0e-11	master	true	9	2	7	456	5.611679662570838e-15
+explore 500x200	Float64	warm	cyclic	false	1	1.0e-11	50	true	9	2	7	456	5.611679662570838e-15
+explore 500x200	Float64	warm	cyclic	false	1	1.0e-11	w10	true	9	2	7	456	5.611679662570838e-15
+explore 500x200	Float64	warm	cyclic	false	1	1.0e-11	w20	true	9	2	7	456	5.611679662570838e-15
+explore 500x200	Float64	warm	random	nothing	1	1.0e-11	master	true	15	2	13	504	2.1136628843160492e-14
+explore 500x200	Float64	warm	random	nothing	1	1.0e-11	50	true	15	2	13	504	2.1136628843160492e-14
+explore 500x200	Float64	warm	random	nothing	1	1.0e-11	w10	true	15	2	13	504	2.1136628843160492e-14
+explore 500x200	Float64	warm	random	nothing	1	1.0e-11	w20	true	15	2	13	504	2.1136628843160492e-14
+explore 500x200	Float64	warm	random	nothing	2	1.0e-11	master	true	14	2	12	496	7.796934385876376e-14
+explore 500x200	Float64	warm	random	nothing	2	1.0e-11	50	true	14	2	12	496	7.796934385876376e-14
+explore 500x200	Float64	warm	random	nothing	2	1.0e-11	w10	true	14	2	12	496	7.796934385876376e-14
+explore 500x200	Float64	warm	random	nothing	2	1.0e-11	w20	true	14	2	12	496	7.796934385876376e-14
+explore 500x200	Float64	warm	random	nothing	3	1.0e-11	master	true	14	2	12	496	1.711163932403097e-13
+explore 500x200	Float64	warm	random	nothing	3	1.0e-11	50	true	14	2	12	496	1.711163932403097e-13
+explore 500x200	Float64	warm	random	nothing	3	1.0e-11	w10	true	14	2	12	496	1.711163932403097e-13
+explore 500x200	Float64	warm	random	nothing	3	1.0e-11	w20	true	14	2	12	496	1.711163932403097e-13
+explore 500x200	Float64	warm	random	false	1	1.0e-11	master	true	11	2	9	472	6.679389417461409e-14
+explore 500x200	Float64	warm	random	false	1	1.0e-11	50	true	11	2	9	472	6.679389417461409e-14
+explore 500x200	Float64	warm	random	false	1	1.0e-11	w10	true	11	2	9	472	6.679389417461409e-14
+explore 500x200	Float64	warm	random	false	1	1.0e-11	w20	true	11	2	9	472	6.679389417461409e-14
+explore 500x200	Float64	warm	random	false	2	1.0e-11	master	true	11	2	9	472	1.8537223880698053e-13
+explore 500x200	Float64	warm	random	false	2	1.0e-11	50	true	11	2	9	472	1.8537223880698053e-13
+explore 500x200	Float64	warm	random	false	2	1.0e-11	w10	true	11	2	9	472	1.8537223880698053e-13
+explore 500x200	Float64	warm	random	false	2	1.0e-11	w20	true	11	2	9	472	1.8537223880698053e-13
+explore 500x200	Float64	warm	random	false	3	1.0e-11	master	true	11	2	9	472	5.77905450613091e-14
+explore 500x200	Float64	warm	random	false	3	1.0e-11	50	true	11	2	9	472	5.77905450613091e-14
+explore 500x200	Float64	warm	random	false	3	1.0e-11	w10	true	11	2	9	472	5.77905450613091e-14
+explore 500x200	Float64	warm	random	false	3	1.0e-11	w20	true	11	2	9	472	5.77905450613091e-14
+stress 200x1000 r.95	Float32	cold	cyclic	false	1	1.0e-7	master	true	541	5	536	16811	2.2713187682841982e-7
+stress 200x1000 r.95	Float32	cold	cyclic	false	1	1.0e-7	50	true	271	7	264	13581	1.8656440349172638e-7
+stress 200x1000 r.95	Float32	cold	cyclic	false	1	1.0e-7	w10	true	541	5	536	16811	2.2713187682841982e-7
+stress 200x1000 r.95	Float32	cold	cyclic	false	1	1.0e-7	w20	true	541	5	536	16811	2.2713187682841982e-7
+stress 200x1000 r.95	Float32	cold	random	nothing	1	1.0e-7	master	true	190	5	185	9295	1.8609255325487334e-7
+stress 200x1000 r.95	Float32	cold	random	nothing	1	1.0e-7	50	true	132	4	128	7466	1.967214692699111e-7
+stress 200x1000 r.95	Float32	cold	random	nothing	1	1.0e-7	w10	true	190	5	185	9295	1.8609255325487334e-7
+stress 200x1000 r.95	Float32	cold	random	nothing	1	1.0e-7	w20	true	190	5	185	9295	1.8609255325487334e-7
+stress 200x1000 r.95	Float32	cold	random	nothing	2	1.0e-7	master	true	154	4	150	7669	7.315771670839991e-8
+stress 200x1000 r.95	Float32	cold	random	nothing	2	1.0e-7	50	true	141	5	136	8457	2.1995092531513056e-7
+stress 200x1000 r.95	Float32	cold	random	nothing	2	1.0e-7	w10	true	154	4	150	7669	7.315771670839991e-8
+stress 200x1000 r.95	Float32	cold	random	nothing	2	1.0e-7	w20	true	154	4	150	7669	7.315771670839991e-8
+stress 200x1000 r.95	Float32	cold	random	nothing	3	1.0e-7	master	true	305	6	299	12312	1.48333865059143e-7
+stress 200x1000 r.95	Float32	cold	random	nothing	3	1.0e-7	50	true	193	6	187	10471	9.293125690090705e-8
+stress 200x1000 r.95	Float32	cold	random	nothing	3	1.0e-7	w10	true	305	6	299	12312	1.48333865059143e-7
+stress 200x1000 r.95	Float32	cold	random	nothing	3	1.0e-7	w20	true	305	6	299	12312	1.48333865059143e-7
+stress 200x1000 r.95	Float32	cold	random	false	1	1.0e-7	master	true	444	5	439	13827	2.150371139404043e-7
+stress 200x1000 r.95	Float32	cold	random	false	1	1.0e-7	50	true	221	7	214	12317	1.899142310950136e-7
+stress 200x1000 r.95	Float32	cold	random	false	1	1.0e-7	w10	true	444	5	439	13827	2.150371139404043e-7
+stress 200x1000 r.95	Float32	cold	random	false	1	1.0e-7	w20	true	444	5	439	13827	2.150371139404043e-7
+stress 200x1000 r.95	Float32	cold	random	false	2	1.0e-7	master	true	409	5	404	13100	2.3498223090917032e-7
+stress 200x1000 r.95	Float32	cold	random	false	2	1.0e-7	50	true	223	6	217	11221	1.4128300741331767e-7
+stress 200x1000 r.95	Float32	cold	random	false	2	1.0e-7	w10	true	409	5	404	13100	2.3498223090917032e-7
+stress 200x1000 r.95	Float32	cold	random	false	2	1.0e-7	w20	true	409	5	404	13100	2.3498223090917032e-7
+stress 200x1000 r.95	Float32	cold	random	false	3	1.0e-7	master	true	575	6	569	17585	2.196460659106198e-7
+stress 200x1000 r.95	Float32	cold	random	false	3	1.0e-7	50	true	269	7	262	13202	3.101003523478227e-7
+stress 200x1000 r.95	Float32	cold	random	false	3	1.0e-7	w10	true	575	6	569	17585	2.196460659106198e-7
+stress 200x1000 r.95	Float32	cold	random	false	3	1.0e-7	w20	true	575	6	569	17585	2.196460659106198e-7
+stress 200x1000 r.95	Float32	cold	cyclic	false	1	1.0e-6	master	true	417	5	412	14415	1.5239249846169326e-6
+stress 200x1000 r.95	Float32	cold	cyclic	false	1	1.0e-6	50	true	249	6	243	12140	1.34800844238432e-6
+stress 200x1000 r.95	Float32	cold	cyclic	false	1	1.0e-6	w10	true	417	5	412	14415	1.5239249846169326e-6
+stress 200x1000 r.95	Float32	cold	cyclic	false	1	1.0e-6	w20	true	417	5	412	14415	1.5239249846169326e-6
+stress 200x1000 r.95	Float32	cold	random	nothing	1	1.0e-6	master	true	149	5	144	8577	2.149408450463383e-6
+stress 200x1000 r.95	Float32	cold	random	nothing	1	1.0e-6	50	true	122	4	118	7270	8.079507981607168e-7
+stress 200x1000 r.95	Float32	cold	random	nothing	1	1.0e-6	w10	true	149	5	144	8577	2.149408450463383e-6
+stress 200x1000 r.95	Float32	cold	random	nothing	1	1.0e-6	w20	true	149	5	144	8577	2.149408450463383e-6
+stress 200x1000 r.95	Float32	cold	random	nothing	2	1.0e-6	master	true	140	4	136	7308	2.0797651687450534e-6
+stress 200x1000 r.95	Float32	cold	random	nothing	2	1.0e-6	50	true	120	4	116	7045	1.3981695692226672e-6
+stress 200x1000 r.95	Float32	cold	random	nothing	2	1.0e-6	w10	true	140	4	136	7308	2.0797651687450534e-6
+stress 200x1000 r.95	Float32	cold	random	nothing	2	1.0e-6	w20	true	140	4	136	7308	2.0797651687450534e-6
+stress 200x1000 r.95	Float32	cold	random	nothing	3	1.0e-6	master	true	228	5	223	10015	1.4885982944057417e-6
+stress 200x1000 r.95	Float32	cold	random	nothing	3	1.0e-6	50	true	172	5	167	9065	1.290524853445402e-6
+stress 200x1000 r.95	Float32	cold	random	nothing	3	1.0e-6	w10	true	228	5	223	10015	1.4885982944057417e-6
+stress 200x1000 r.95	Float32	cold	random	nothing	3	1.0e-6	w20	true	228	5	223	10015	1.4885982944057417e-6
+stress 200x1000 r.95	Float32	cold	random	false	1	1.0e-6	master	true	318	4	314	10606	2.1465991993819294e-6
+stress 200x1000 r.95	Float32	cold	random	false	1	1.0e-6	50	true	175	6	169	10372	2.8014756944621385e-6
+stress 200x1000 r.95	Float32	cold	random	false	1	1.0e-6	w10	true	318	4	314	10606	2.1465991993819294e-6
+stress 200x1000 r.95	Float32	cold	random	false	1	1.0e-6	w20	true	318	4	314	10606	2.1465991993819294e-6
+stress 200x1000 r.95	Float32	cold	random	false	2	1.0e-6	master	true	311	6	305	12291	1.5769570948099868e-6
+stress 200x1000 r.95	Float32	cold	random	false	2	1.0e-6	50	true	190	6	184	10528	1.8378280528960066e-6
+stress 200x1000 r.95	Float32	cold	random	false	2	1.0e-6	w10	true	311	6	305	12291	1.5769570948099868e-6
+stress 200x1000 r.95	Float32	cold	random	false	2	1.0e-6	w20	true	311	6	305	12291	1.5769570948099868e-6
+stress 200x1000 r.95	Float32	cold	random	false	3	1.0e-6	master	true	447	5	442	14077	1.719699514465325e-6
+stress 200x1000 r.95	Float32	cold	random	false	3	1.0e-6	50	true	229	6	223	11383	2.2479836917510655e-6
+stress 200x1000 r.95	Float32	cold	random	false	3	1.0e-6	w10	true	447	5	442	14077	1.719699514465325e-6
+stress 200x1000 r.95	Float32	cold	random	false	3	1.0e-6	w20	true	447	5	442	14077	1.719699514465325e-6
+stress 200x1000 r.95	Float32	warm	cyclic	false	1	1.0e-7	master	true	177	3	174	6436	1.8809680920789356e-7
+stress 200x1000 r.95	Float32	warm	cyclic	false	1	1.0e-7	50	true	126	4	122	6500	2.2261776518120108e-7
+stress 200x1000 r.95	Float32	warm	cyclic	false	1	1.0e-7	w10	true	177	3	174	6436	1.8809680920789356e-7
+stress 200x1000 r.95	Float32	warm	cyclic	false	1	1.0e-7	w20	true	177	3	174	6436	1.8809680920789356e-7
+stress 200x1000 r.95	Float32	warm	random	nothing	1	1.0e-7	master	true	96	4	92	5896	1.4155506211607968e-7
+stress 200x1000 r.95	Float32	warm	random	nothing	1	1.0e-7	50	true	96	4	92	5896	1.4155506211607968e-7
+stress 200x1000 r.95	Float32	warm	random	nothing	1	1.0e-7	w10	true	96	4	92	5896	1.4155506211607968e-7
+stress 200x1000 r.95	Float32	warm	random	nothing	1	1.0e-7	w20	true	96	4	92	5896	1.4155506211607968e-7
+stress 200x1000 r.95	Float32	warm	random	nothing	2	1.0e-7	master	true	88	4	84	5711	1.2511013569884948e-7
+stress 200x1000 r.95	Float32	warm	random	nothing	2	1.0e-7	50	true	88	4	84	5711	1.2511013569884948e-7
+stress 200x1000 r.95	Float32	warm	random	nothing	2	1.0e-7	w10	true	88	4	84	5711	1.2511013569884948e-7
+stress 200x1000 r.95	Float32	warm	random	nothing	2	1.0e-7	w20	true	88	4	84	5711	1.2511013569884948e-7
+stress 200x1000 r.95	Float32	warm	random	nothing	3	1.0e-7	master	true	97	4	93	5883	1.5064709462646878e-7
+stress 200x1000 r.95	Float32	warm	random	nothing	3	1.0e-7	50	true	89	4	85	5721	1.135384809387579e-7
+stress 200x1000 r.95	Float32	warm	random	nothing	3	1.0e-7	w10	true	97	4	93	5883	1.5064709462646878e-7
+stress 200x1000 r.95	Float32	warm	random	nothing	3	1.0e-7	w20	true	97	4	93	5883	1.5064709462646878e-7
+stress 200x1000 r.95	Float32	warm	random	false	1	1.0e-7	master	true	329	6	323	12467	1.187555611984902e-7
+stress 200x1000 r.95	Float32	warm	random	false	1	1.0e-7	50	true	168	5	163	8360	2.49796407305856e-7
+stress 200x1000 r.95	Float32	warm	random	false	1	1.0e-7	w10	true	329	6	323	12467	1.187555611984902e-7
+stress 200x1000 r.95	Float32	warm	random	false	1	1.0e-7	w20	true	329	6	323	12467	1.187555611984902e-7
+stress 200x1000 r.95	Float32	warm	random	false	2	1.0e-7	master	true	228	3	225	7466	2.292636994539856e-7
+stress 200x1000 r.95	Float32	warm	random	false	2	1.0e-7	50	true	152	7	145	9978	2.0898633595401018e-7
+stress 200x1000 r.95	Float32	warm	random	false	2	1.0e-7	w10	true	228	3	225	7466	2.292636994539856e-7
+stress 200x1000 r.95	Float32	warm	random	false	2	1.0e-7	w20	true	228	3	225	7466	2.292636994539856e-7
+stress 200x1000 r.95	Float32	warm	random	false	3	1.0e-7	master	true	224	3	221	7419	1.6792240587397765e-7
+stress 200x1000 r.95	Float32	warm	random	false	3	1.0e-7	50	true	146	4	142	6942	2.2480560445878057e-7
+stress 200x1000 r.95	Float32	warm	random	false	3	1.0e-7	w10	true	224	3	221	7419	1.6792240587397765e-7
+stress 200x1000 r.95	Float32	warm	random	false	3	1.0e-7	w20	true	224	3	221	7419	1.6792240587397765e-7
+stress 200x1000 r.95	Float32	warm	cyclic	false	1	1.0e-6	master	true	127	3	124	5464	1.4431255139028364e-6
+stress 200x1000 r.95	Float32	warm	cyclic	false	1	1.0e-6	50	true	101	3	98	4996	1.6201343738662854e-6
+stress 200x1000 r.95	Float32	warm	cyclic	false	1	1.0e-6	w10	true	127	3	124	5464	1.4431255139028364e-6
+stress 200x1000 r.95	Float32	warm	cyclic	false	1	1.0e-6	w20	true	127	3	124	5464	1.4431255139028364e-6
+stress 200x1000 r.95	Float32	warm	random	nothing	1	1.0e-6	master	true	63	3	60	4245	2.4272904840548693e-6
+stress 200x1000 r.95	Float32	warm	random	nothing	1	1.0e-6	50	true	63	3	60	4245	2.4272904840548693e-6
+stress 200x1000 r.95	Float32	warm	random	nothing	1	1.0e-6	w10	true	63	3	60	4245	2.4272904840548693e-6
+stress 200x1000 r.95	Float32	warm	random	nothing	1	1.0e-6	w20	true	63	3	60	4245	2.4272904840548693e-6
+stress 200x1000 r.95	Float32	warm	random	nothing	2	1.0e-6	master	true	55	3	52	4059	1.3088165527188087e-6
+stress 200x1000 r.95	Float32	warm	random	nothing	2	1.0e-6	50	true	55	3	52	4059	1.3088165527188087e-6
+stress 200x1000 r.95	Float32	warm	random	nothing	2	1.0e-6	w10	true	55	3	52	4059	1.3088165527188087e-6
+stress 200x1000 r.95	Float32	warm	random	nothing	2	1.0e-6	w20	true	55	3	52	4059	1.3088165527188087e-6
+stress 200x1000 r.95	Float32	warm	random	nothing	3	1.0e-6	master	true	69	3	66	4344	1.4936467871276104e-6
+stress 200x1000 r.95	Float32	warm	random	nothing	3	1.0e-6	50	true	69	3	66	4344	1.4936467871276104e-6
+stress 200x1000 r.95	Float32	warm	random	nothing	3	1.0e-6	w10	true	69	3	66	4344	1.4936467871276104e-6
+stress 200x1000 r.95	Float32	warm	random	nothing	3	1.0e-6	w20	true	69	3	66	4344	1.4936467871276104e-6
+stress 200x1000 r.95	Float32	warm	random	false	1	1.0e-6	master	true	187	3	184	6737	1.8034067374167598e-6
+stress 200x1000 r.95	Float32	warm	random	false	1	1.0e-6	50	true	133	4	129	6646	2.100835850514023e-6
+stress 200x1000 r.95	Float32	warm	random	false	1	1.0e-6	w10	true	187	3	184	6737	1.8034067374167598e-6
+stress 200x1000 r.95	Float32	warm	random	false	1	1.0e-6	w20	true	187	3	184	6737	1.8034067374167598e-6
+stress 200x1000 r.95	Float32	warm	random	false	2	1.0e-6	master	true	150	3	147	5912	2.0622398728605403e-6
+stress 200x1000 r.95	Float32	warm	random	false	2	1.0e-6	50	true	108	4	104	6117	2.0179014940560913e-6
+stress 200x1000 r.95	Float32	warm	random	false	2	1.0e-6	w10	true	150	3	147	5912	2.0622398728605403e-6
+stress 200x1000 r.95	Float32	warm	random	false	2	1.0e-6	w20	true	150	3	147	5912	2.0622398728605403e-6
+stress 200x1000 r.95	Float32	warm	random	false	3	1.0e-6	master	true	149	3	146	5924	1.9282312552194794e-6
+stress 200x1000 r.95	Float32	warm	random	false	3	1.0e-6	50	true	111	4	107	6207	2.0050165190800782e-6
+stress 200x1000 r.95	Float32	warm	random	false	3	1.0e-6	w10	true	149	3	146	5924	1.9282312552194794e-6
+stress 200x1000 r.95	Float32	warm	random	false	3	1.0e-6	w20	true	149	3	146	5924	1.9282312552194794e-6
+stress 200x1000 r.95	Float64	cold	cyclic	false	1	1.0e-7	master	true	474	5	469	15763	1.0545646378531107e-7
+stress 200x1000 r.95	Float64	cold	cyclic	false	1	1.0e-7	50	true	271	7	264	13702	1.2407746759676053e-7
+stress 200x1000 r.95	Float64	cold	cyclic	false	1	1.0e-7	w10	true	474	5	469	15763	1.0545646378531107e-7
+stress 200x1000 r.95	Float64	cold	cyclic	false	1	1.0e-7	w20	true	474	5	469	15763	1.0545646378531107e-7
+stress 200x1000 r.95	Float64	cold	random	nothing	1	1.0e-7	master	true	185	4	181	8217	1.239242620182031e-7
+stress 200x1000 r.95	Float64	cold	random	nothing	1	1.0e-7	50	true	132	4	128	7466	1.8301804210658078e-7
+stress 200x1000 r.95	Float64	cold	random	nothing	1	1.0e-7	w10	true	185	4	181	8217	1.239242620182031e-7
+stress 200x1000 r.95	Float64	cold	random	nothing	1	1.0e-7	w20	true	185	4	181	8217	1.239242620182031e-7
+stress 200x1000 r.95	Float64	cold	random	nothing	2	1.0e-7	master	true	152	3	149	6648	7.866032973798716e-8
+stress 200x1000 r.95	Float64	cold	random	nothing	2	1.0e-7	50	true	139	4	135	7436	2.36711002103853e-7
+stress 200x1000 r.95	Float64	cold	random	nothing	2	1.0e-7	w10	true	152	3	149	6648	7.866032973798716e-8
+stress 200x1000 r.95	Float64	cold	random	nothing	2	1.0e-7	w20	true	152	3	149	6648	7.866032973798716e-8
+stress 200x1000 r.95	Float64	cold	random	nothing	3	1.0e-7	master	true	303	5	298	11291	9.220637384589055e-8
+stress 200x1000 r.95	Float64	cold	random	nothing	3	1.0e-7	50	true	192	5	187	9471	1.0516631601947301e-7
+stress 200x1000 r.95	Float64	cold	random	nothing	3	1.0e-7	w10	true	303	5	298	11291	9.220637384589055e-8
+stress 200x1000 r.95	Float64	cold	random	nothing	3	1.0e-7	w20	true	303	5	298	11291	9.220637384589055e-8
+stress 200x1000 r.95	Float64	cold	random	false	1	1.0e-7	master	true	419	7	412	15277	1.8628204665794047e-7
+stress 200x1000 r.95	Float64	cold	random	false	1	1.0e-7	50	true	224	7	217	12380	1.774011299805717e-7
+stress 200x1000 r.95	Float64	cold	random	false	1	1.0e-7	w10	true	419	7	412	15277	1.8628204665794047e-7
+stress 200x1000 r.95	Float64	cold	random	false	1	1.0e-7	w20	true	419	7	412	15277	1.8628204665794047e-7
+stress 200x1000 r.95	Float64	cold	random	false	2	1.0e-7	master	true	409	5	404	13100	1.1671672437352637e-7
+stress 200x1000 r.95	Float64	cold	random	false	2	1.0e-7	50	true	225	8	217	13221	1.3275049526250016e-7
+stress 200x1000 r.95	Float64	cold	random	false	2	1.0e-7	w10	true	409	5	404	13100	1.1671672437352637e-7
+stress 200x1000 r.95	Float64	cold	random	false	2	1.0e-7	w20	true	409	5	404	13100	1.1671672437352637e-7
+stress 200x1000 r.95	Float64	cold	random	false	3	1.0e-7	master	true	575	6	569	17585	1.1828288765002529e-7
+stress 200x1000 r.95	Float64	cold	random	false	3	1.0e-7	50	true	267	7	260	13160	3.7794177784838195e-7
+stress 200x1000 r.95	Float64	cold	random	false	3	1.0e-7	w10	true	575	6	569	17585	1.1828288765002529e-7
+stress 200x1000 r.95	Float64	cold	random	false	3	1.0e-7	w20	true	575	6	569	17585	1.1828288765002529e-7
+stress 200x1000 r.95	Float64	cold	cyclic	false	1	1.0e-11	master	true	948	5	943	25087	1.6648135923520123e-11
+stress 200x1000 r.95	Float64	cold	cyclic	false	1	1.0e-11	50	true	372	9	363	17781	9.825522381474718e-12
+stress 200x1000 r.95	Float64	cold	cyclic	false	1	1.0e-11	w10	true	948	5	943	25087	1.6648135923520123e-11
+stress 200x1000 r.95	Float64	cold	cyclic	false	1	1.0e-11	w20	true	948	5	943	25087	1.6648135923520123e-11
+stress 200x1000 r.95	Float64	cold	random	nothing	1	1.0e-11	master	true	331	4	327	11012	1.1434601135461651e-11
+stress 200x1000 r.95	Float64	cold	random	nothing	1	1.0e-11	50	true	188	5	183	9615	1.4624124034666958e-11
+stress 200x1000 r.95	Float64	cold	random	nothing	1	1.0e-11	w10	true	331	4	327	11012	1.1434601135461651e-11
+stress 200x1000 r.95	Float64	cold	random	nothing	1	1.0e-11	w20	true	331	4	327	11012	1.1434601135461651e-11
+stress 200x1000 r.95	Float64	cold	random	nothing	2	1.0e-11	master	true	299	4	295	10170	1.1087475200274101e-11
+stress 200x1000 r.95	Float64	cold	random	nothing	2	1.0e-11	50	true	183	5	178	9339	1.3773144400227391e-11
+stress 200x1000 r.95	Float64	cold	random	nothing	2	1.0e-11	w10	true	299	4	295	10170	1.1087475200274101e-11
+stress 200x1000 r.95	Float64	cold	random	nothing	2	1.0e-11	w20	true	299	4	295	10170	1.1087475200274101e-11
+stress 200x1000 r.95	Float64	cold	random	nothing	3	1.0e-11	master	true	462	6	456	15459	1.2928319631277929e-11
+stress 200x1000 r.95	Float64	cold	random	nothing	3	1.0e-11	50	true	242	6	236	11494	9.309708007326527e-12
+stress 200x1000 r.95	Float64	cold	random	nothing	3	1.0e-11	w10	true	462	6	456	15459	1.2928319631277929e-11
+stress 200x1000 r.95	Float64	cold	random	nothing	3	1.0e-11	w20	true	462	6	456	15459	1.2928319631277929e-11
+stress 200x1000 r.95	Float64	cold	random	false	1	1.0e-11	master	true	860	6	854	22430	2.0853505193342655e-11
+stress 200x1000 r.95	Float64	cold	random	false	1	1.0e-11	50	true	396	9	387	17950	2.2357198628653432e-11
+stress 200x1000 r.95	Float64	cold	random	false	1	1.0e-11	w10	true	860	6	854	22430	2.0853505193342655e-11
+stress 200x1000 r.95	Float64	cold	random	false	1	1.0e-11	w20	true	860	6	854	22430	2.0853505193342655e-11
+stress 200x1000 r.95	Float64	cold	random	false	2	1.0e-11	master	true	846	6	840	22248	1.5831726048148842e-11
+stress 200x1000 r.95	Float64	cold	random	false	2	1.0e-11	50	true	382	10	372	18476	1.9212043561437694e-11
+stress 200x1000 r.95	Float64	cold	random	false	2	1.0e-11	w10	true	846	6	840	22248	1.5831726048148842e-11
+stress 200x1000 r.95	Float64	cold	random	false	2	1.0e-11	w20	true	846	6	840	22248	1.5831726048148842e-11
+stress 200x1000 r.95	Float64	cold	random	false	3	1.0e-11	master	true	1166	5	1161	27514	2.175287986198319e-11
+stress 200x1000 r.95	Float64	cold	random	false	3	1.0e-11	50	true	448	11	437	20877	1.3575714810189878e-11
+stress 200x1000 r.95	Float64	cold	random	false	3	1.0e-11	w10	true	1166	5	1161	27514	2.175287986198319e-11
+stress 200x1000 r.95	Float64	cold	random	false	3	1.0e-11	w20	true	1166	5	1161	27514	2.175287986198319e-11
+stress 200x1000 r.95	Float64	warm	cyclic	false	1	1.0e-7	master	true	176	3	173	6415	2.0080436276966498e-7
+stress 200x1000 r.95	Float64	warm	cyclic	false	1	1.0e-7	50	true	126	4	122	6500	1.9396272346644567e-7
+stress 200x1000 r.95	Float64	warm	cyclic	false	1	1.0e-7	w10	true	176	3	173	6415	2.0080436276966498e-7
+stress 200x1000 r.95	Float64	warm	cyclic	false	1	1.0e-7	w20	true	176	3	173	6415	2.0080436276966498e-7
+stress 200x1000 r.95	Float64	warm	random	nothing	1	1.0e-7	master	true	94	3	91	4875	1.648551889503038e-7
+stress 200x1000 r.95	Float64	warm	random	nothing	1	1.0e-7	50	true	94	3	91	4875	1.648551889503038e-7
+stress 200x1000 r.95	Float64	warm	random	nothing	1	1.0e-7	w10	true	94	3	91	4875	1.648551889503038e-7
+stress 200x1000 r.95	Float64	warm	random	nothing	1	1.0e-7	w20	true	94	3	91	4875	1.648551889503038e-7
+stress 200x1000 r.95	Float64	warm	random	nothing	2	1.0e-7	master	true	84	3	81	4648	1.941135450492763e-7
+stress 200x1000 r.95	Float64	warm	random	nothing	2	1.0e-7	50	true	84	3	81	4648	1.941135450492763e-7
+stress 200x1000 r.95	Float64	warm	random	nothing	2	1.0e-7	w10	true	84	3	81	4648	1.941135450492763e-7
+stress 200x1000 r.95	Float64	warm	random	nothing	2	1.0e-7	w20	true	84	3	81	4648	1.941135450492763e-7
+stress 200x1000 r.95	Float64	warm	random	nothing	3	1.0e-7	master	true	87	3	84	4698	2.699973142779537e-7
+stress 200x1000 r.95	Float64	warm	random	nothing	3	1.0e-7	50	true	87	3	84	4700	1.4000343447254364e-7
+stress 200x1000 r.95	Float64	warm	random	nothing	3	1.0e-7	w10	true	87	3	84	4698	2.699973142779537e-7
+stress 200x1000 r.95	Float64	warm	random	nothing	3	1.0e-7	w20	true	87	3	84	4698	2.699973142779537e-7
+stress 200x1000 r.95	Float64	warm	random	false	1	1.0e-7	master	true	330	6	324	12488	1.550096144527393e-7
+stress 200x1000 r.95	Float64	warm	random	false	1	1.0e-7	50	true	168	5	163	8360	2.5402298839622653e-7
+stress 200x1000 r.95	Float64	warm	random	false	1	1.0e-7	w10	true	330	6	324	12488	1.550096144527393e-7
+stress 200x1000 r.95	Float64	warm	random	false	1	1.0e-7	w20	true	330	6	324	12488	1.550096144527393e-7
+stress 200x1000 r.95	Float64	warm	random	false	2	1.0e-7	master	true	228	3	225	7466	1.9135673636972806e-7
+stress 200x1000 r.95	Float64	warm	random	false	2	1.0e-7	50	true	149	4	145	6978	1.7806073233883147e-7
+stress 200x1000 r.95	Float64	warm	random	false	2	1.0e-7	w10	true	228	3	225	7466	1.9135673636972806e-7
+stress 200x1000 r.95	Float64	warm	random	false	2	1.0e-7	w20	true	228	3	225	7466	1.9135673636972806e-7
+stress 200x1000 r.95	Float64	warm	random	false	3	1.0e-7	master	true	224	3	221	7419	1.7754479857402645e-7
+stress 200x1000 r.95	Float64	warm	random	false	3	1.0e-7	50	true	148	4	144	6984	1.9221289980241115e-7
+stress 200x1000 r.95	Float64	warm	random	false	3	1.0e-7	w10	true	224	3	221	7419	1.7754479857402645e-7
+stress 200x1000 r.95	Float64	warm	random	false	3	1.0e-7	w20	true	224	3	221	7419	1.7754479857402645e-7
+stress 200x1000 r.95	Float64	warm	cyclic	false	1	1.0e-11	master	true	386	3	383	10510	1.7355246191262163e-11
+stress 200x1000 r.95	Float64	warm	cyclic	false	1	1.0e-11	50	true	231	6	225	10663	1.6258214670745886e-11
+stress 200x1000 r.95	Float64	warm	cyclic	false	1	1.0e-11	w10	true	386	3	383	10510	1.7355246191262163e-11
+stress 200x1000 r.95	Float64	warm	cyclic	false	1	1.0e-11	w20	true	386	3	383	10510	1.7355246191262163e-11
+stress 200x1000 r.95	Float64	warm	random	nothing	1	1.0e-11	master	true	181	3	178	6612	3.040168112849619e-11
+stress 200x1000 r.95	Float64	warm	random	nothing	1	1.0e-11	50	true	151	4	147	7037	1.5592489846204187e-11
+stress 200x1000 r.95	Float64	warm	random	nothing	1	1.0e-11	w10	true	181	3	178	6612	3.040168112849619e-11
+stress 200x1000 r.95	Float64	warm	random	nothing	1	1.0e-11	w20	true	181	3	178	6612	3.040168112849619e-11
+stress 200x1000 r.95	Float64	warm	random	nothing	2	1.0e-11	master	true	187	3	184	6695	1.457811938334599e-11
+stress 200x1000 r.95	Float64	warm	random	nothing	2	1.0e-11	50	true	132	4	128	6621	1.1382651917510378e-11
+stress 200x1000 r.95	Float64	warm	random	nothing	2	1.0e-11	w10	true	187	3	184	6695	1.457811938334599e-11
+stress 200x1000 r.95	Float64	warm	random	nothing	2	1.0e-11	w20	true	187	3	184	6695	1.457811938334599e-11
+stress 200x1000 r.95	Float64	warm	random	nothing	3	1.0e-11	master	true	169	3	166	6344	1.1947337550179333e-11
+stress 200x1000 r.95	Float64	warm	random	nothing	3	1.0e-11	50	true	145	4	141	6897	9.044804144375986e-12
+stress 200x1000 r.95	Float64	warm	random	nothing	3	1.0e-11	w10	true	169	3	166	6344	1.1947337550179333e-11
+stress 200x1000 r.95	Float64	warm	random	nothing	3	1.0e-11	w20	true	169	3	166	6344	1.1947337550179333e-11
+stress 200x1000 r.95	Float64	warm	random	false	1	1.0e-11	master	true	813	5	808	21180	1.845196970288939e-11
+stress 200x1000 r.95	Float64	warm	random	false	1	1.0e-11	50	true	320	8	312	14489	3.746757491086624e-11
+stress 200x1000 r.95	Float64	warm	random	false	1	1.0e-11	w10	true	813	5	808	21180	1.845196970288939e-11
+stress 200x1000 r.95	Float64	warm	random	false	1	1.0e-11	w20	true	813	5	808	21180	1.845196970288939e-11
+stress 200x1000 r.95	Float64	warm	random	false	2	1.0e-11	master	true	544	3	541	13806	1.8144399465184994e-11
+stress 200x1000 r.95	Float64	warm	random	false	2	1.0e-11	50	true	317	8	309	14422	2.6859621142578145e-11
+stress 200x1000 r.95	Float64	warm	random	false	2	1.0e-11	w10	true	544	3	541	13806	1.8144399465184994e-11
+stress 200x1000 r.95	Float64	warm	random	false	2	1.0e-11	w20	true	544	3	541	13806	1.8144399465184994e-11
+stress 200x1000 r.95	Float64	warm	random	false	3	1.0e-11	master	true	543	3	540	13806	2.3227765063015116e-11
+stress 200x1000 r.95	Float64	warm	random	false	3	1.0e-11	50	true	311	9	302	15302	1.5684227766273845e-11
+stress 200x1000 r.95	Float64	warm	random	false	3	1.0e-11	w10	true	543	3	540	13806	2.3227765063015116e-11
+stress 200x1000 r.95	Float64	warm	random	false	3	1.0e-11	w20	true	543	3	540	13806	2.3227765063015116e-11
+stress 100x2000 small-λ	Float32	cold	cyclic	false	1	1.0e-7	master	true	966	7	959	90586	5.693544233987139e-7
+stress 100x2000 small-λ	Float32	cold	cyclic	false	1	1.0e-7	50	true	289	7	282	37826	2.792000019562046e-7
+stress 100x2000 small-λ	Float32	cold	cyclic	false	1	1.0e-7	w10	true	713	7	706	70102	3.2243496755373564e-7
+stress 100x2000 small-λ	Float32	cold	cyclic	false	1	1.0e-7	w20	true	966	7	959	90586	5.693544233987139e-7
+stress 100x2000 small-λ	Float32	cold	random	nothing	1	1.0e-7	master	true	430	8	422	51434	1.0980556662350047e-7
+stress 100x2000 small-λ	Float32	cold	random	nothing	1	1.0e-7	50	true	286	9	277	42537	1.1178016198258538e-7
+stress 100x2000 small-λ	Float32	cold	random	nothing	1	1.0e-7	w10	true	430	8	422	51434	1.0980556662350047e-7
+stress 100x2000 small-λ	Float32	cold	random	nothing	1	1.0e-7	w20	true	430	8	422	51434	1.0980556662350047e-7
+stress 100x2000 small-λ	Float32	cold	random	nothing	2	1.0e-7	master	true	589	9	580	68783	1.0121704399838998e-7
+stress 100x2000 small-λ	Float32	cold	random	nothing	2	1.0e-7	50	true	264	7	257	37554	1.43955511104483e-7
+stress 100x2000 small-λ	Float32	cold	random	nothing	2	1.0e-7	w10	true	572	8	564	65435	9.93292081151127e-8
+stress 100x2000 small-λ	Float32	cold	random	nothing	2	1.0e-7	w20	true	589	9	580	68783	1.0121704399838998e-7
+stress 100x2000 small-λ	Float32	cold	random	nothing	3	1.0e-7	master	true	561	9	552	66068	1.0293246228930044e-7
+stress 100x2000 small-λ	Float32	cold	random	nothing	3	1.0e-7	50	true	259	8	251	39138	6.895398605143801e-8
+stress 100x2000 small-λ	Float32	cold	random	nothing	3	1.0e-7	w10	true	479	8	471	56827	9.305696604123657e-8
+stress 100x2000 small-λ	Float32	cold	random	nothing	3	1.0e-7	w20	true	561	9	552	66068	1.0293246228930044e-7
+stress 100x2000 small-λ	Float32	cold	random	false	1	1.0e-7	master	true	1111	10	1101	106402	4.809336023801492e-7
+stress 100x2000 small-λ	Float32	cold	random	false	1	1.0e-7	50	true	360	10	350	48785	2.075956532664649e-7
+stress 100x2000 small-λ	Float32	cold	random	false	1	1.0e-7	w10	true	755	7	748	74085	4.08106236045675e-7
+stress 100x2000 small-λ	Float32	cold	random	false	1	1.0e-7	w20	true	801	6	795	74113	4.33304447774075e-7
+stress 100x2000 small-λ	Float32	cold	random	false	2	1.0e-7	master	true	2033	9	2024	194105	6.907003625459799e-7
+stress 100x2000 small-λ	Float32	cold	random	false	2	1.0e-7	50	true	373	9	364	49196	2.7031899814553505e-7
+stress 100x2000 small-λ	Float32	cold	random	false	2	1.0e-7	w10	true	618	7	611	61747	3.544086838272733e-7
+stress 100x2000 small-λ	Float32	cold	random	false	2	1.0e-7	w20	true	959	8	951	94051	2.9147843573238513e-7
+stress 100x2000 small-λ	Float32	cold	random	false	3	1.0e-7	master	true	1630	8	1622	156658	5.706831096077234e-7
+stress 100x2000 small-λ	Float32	cold	random	false	3	1.0e-7	50	true	345	9	336	46974	2.1328248227264134e-7
+stress 100x2000 small-λ	Float32	cold	random	false	3	1.0e-7	w10	true	786	7	779	76639	5.237593112068196e-7
+stress 100x2000 small-λ	Float32	cold	random	false	3	1.0e-7	w20	true	778	6	772	75942	2.517597903769069e-7
+stress 100x2000 small-λ	Float32	cold	cyclic	false	1	1.0e-6	master	true	750	8	742	75884	1.7983086877401226e-6
+stress 100x2000 small-λ	Float32	cold	cyclic	false	1	1.0e-6	50	true	263	7	256	36184	1.0198570227984492e-6
+stress 100x2000 small-λ	Float32	cold	cyclic	false	1	1.0e-6	w10	true	651	7	644	66518	2.123433532060376e-6
+stress 100x2000 small-λ	Float32	cold	cyclic	false	1	1.0e-6	w20	true	750	8	742	75884	1.7983086877401226e-6
+stress 100x2000 small-λ	Float32	cold	random	nothing	1	1.0e-6	master	true	402	8	394	50193	1.2391016112441292e-6
+stress 100x2000 small-λ	Float32	cold	random	nothing	1	1.0e-6	50	true	249	7	242	36437	1.1314783048271e-6
+stress 100x2000 small-λ	Float32	cold	random	nothing	1	1.0e-6	w10	true	402	8	394	50193	1.2391016112441292e-6
+stress 100x2000 small-λ	Float32	cold	random	nothing	1	1.0e-6	w20	true	402	8	394	50193	1.2391016112441292e-6
+stress 100x2000 small-λ	Float32	cold	random	nothing	2	1.0e-6	master	true	455	7	448	54327	7.747406862363524e-7
+stress 100x2000 small-λ	Float32	cold	random	nothing	2	1.0e-6	50	true	247	7	240	36605	1.1625714004194182e-6
+stress 100x2000 small-λ	Float32	cold	random	nothing	2	1.0e-6	w10	true	455	7	448	54327	7.747406862363524e-7
+stress 100x2000 small-λ	Float32	cold	random	nothing	2	1.0e-6	w20	true	455	7	448	54327	7.747406862363524e-7
+stress 100x2000 small-λ	Float32	cold	random	nothing	3	1.0e-6	master	true	456	7	449	54753	1.1281461950610192e-6
+stress 100x2000 small-λ	Float32	cold	random	nothing	3	1.0e-6	50	true	230	7	223	35409	1.7769661427691914e-6
+stress 100x2000 small-λ	Float32	cold	random	nothing	3	1.0e-6	w10	true	442	8	434	54665	8.128283796633666e-7
+stress 100x2000 small-λ	Float32	cold	random	nothing	3	1.0e-6	w20	true	456	7	449	54753	1.1281461950610192e-6
+stress 100x2000 small-λ	Float32	cold	random	false	1	1.0e-6	master	true	584	7	577	60318	1.274509442077196e-6
+stress 100x2000 small-λ	Float32	cold	random	false	1	1.0e-6	50	true	325	9	316	44596	1.1273181625771325e-6
+stress 100x2000 small-λ	Float32	cold	random	false	1	1.0e-6	w10	true	648	8	640	69280	2.0311441618727636e-6
+stress 100x2000 small-λ	Float32	cold	random	false	1	1.0e-6	w20	true	584	7	577	60318	1.274509442077196e-6
+stress 100x2000 small-λ	Float32	cold	random	false	2	1.0e-6	master	true	1128	7	1121	112119	1.3879847008600646e-6
+stress 100x2000 small-λ	Float32	cold	random	false	2	1.0e-6	50	true	338	8	330	44992	1.6840778645573405e-6
+stress 100x2000 small-λ	Float32	cold	random	false	2	1.0e-6	w10	true	449	6	443	49392	2.0523154167897217e-6
+stress 100x2000 small-λ	Float32	cold	random	false	2	1.0e-6	w20	true	879	9	870	90632	1.0423147732239274e-6
+stress 100x2000 small-λ	Float32	cold	random	false	3	1.0e-6	master	true	1195	7	1188	116410	1.50691369255854e-6
+stress 100x2000 small-λ	Float32	cold	random	false	3	1.0e-6	50	true	311	8	303	42840	1.5934987793369889e-6
+stress 100x2000 small-λ	Float32	cold	random	false	3	1.0e-6	w10	true	643	8	635	69191	2.1613603086312634e-6
+stress 100x2000 small-λ	Float32	cold	random	false	3	1.0e-6	w20	true	705	7	698	73952	1.8035864281597967e-6
+stress 100x2000 small-λ	Float32	warm	cyclic	false	1	1.0e-7	master	true	82	3	79	11021	1.4598365794074702e-7
+stress 100x2000 small-λ	Float32	warm	cyclic	false	1	1.0e-7	50	true	82	3	79	11021	1.4598365794074702e-7
+stress 100x2000 small-λ	Float32	warm	cyclic	false	1	1.0e-7	w10	true	82	3	79	11021	1.4598365794074702e-7
+stress 100x2000 small-λ	Float32	warm	cyclic	false	1	1.0e-7	w20	true	82	3	79	11021	1.4598365794074702e-7
+stress 100x2000 small-λ	Float32	warm	random	nothing	1	1.0e-7	master	true	62	3	59	9741	1.291364717853717e-7
+stress 100x2000 small-λ	Float32	warm	random	nothing	1	1.0e-7	50	true	62	3	59	9741	1.291364717853717e-7
+stress 100x2000 small-λ	Float32	warm	random	nothing	1	1.0e-7	w10	true	62	3	59	9741	1.291364717853717e-7
+stress 100x2000 small-λ	Float32	warm	random	nothing	1	1.0e-7	w20	true	62	3	59	9741	1.291364717853717e-7
+stress 100x2000 small-λ	Float32	warm	random	nothing	2	1.0e-7	master	true	58	4	54	11452	1.2220268192228585e-7
+stress 100x2000 small-λ	Float32	warm	random	nothing	2	1.0e-7	50	true	58	4	54	11452	1.2220268192228585e-7
+stress 100x2000 small-λ	Float32	warm	random	nothing	2	1.0e-7	w10	true	58	4	54	11452	1.2220268192228585e-7
+stress 100x2000 small-λ	Float32	warm	random	nothing	2	1.0e-7	w20	true	58	4	54	11452	1.2220268192228585e-7
+stress 100x2000 small-λ	Float32	warm	random	nothing	3	1.0e-7	master	true	83	5	78	14919	1.218471898044772e-7
+stress 100x2000 small-λ	Float32	warm	random	nothing	3	1.0e-7	50	true	83	5	78	14919	1.218471898044772e-7
+stress 100x2000 small-λ	Float32	warm	random	nothing	3	1.0e-7	w10	true	83	5	78	14919	1.218471898044772e-7
+stress 100x2000 small-λ	Float32	warm	random	nothing	3	1.0e-7	w20	true	83	5	78	14919	1.218471898044772e-7
+stress 100x2000 small-λ	Float32	warm	random	false	1	1.0e-7	master	true	128	4	124	15810	1.9762495370222045e-7
+stress 100x2000 small-λ	Float32	warm	random	false	1	1.0e-7	50	true	115	4	111	15038	2.0844709383157323e-7
+stress 100x2000 small-λ	Float32	warm	random	false	1	1.0e-7	w10	true	128	4	124	15810	1.9762495370222045e-7
+stress 100x2000 small-λ	Float32	warm	random	false	1	1.0e-7	w20	true	128	4	124	15810	1.9762495370222045e-7
+stress 100x2000 small-λ	Float32	warm	random	false	2	1.0e-7	master	true	112	3	109	12941	1.9335526806803648e-7
+stress 100x2000 small-λ	Float32	warm	random	false	2	1.0e-7	50	true	109	4	105	14699	1.5162773414962133e-7
+stress 100x2000 small-λ	Float32	warm	random	false	2	1.0e-7	w10	true	112	3	109	12941	1.9335526806803648e-7
+stress 100x2000 small-λ	Float32	warm	random	false	2	1.0e-7	w20	true	112	3	109	12941	1.9335526806803648e-7
+stress 100x2000 small-λ	Float32	warm	random	false	3	1.0e-7	master	true	185	5	180	21351	1.6851728545895496e-7
+stress 100x2000 small-λ	Float32	warm	random	false	3	1.0e-7	50	true	155	5	150	19512	2.1598210968951812e-7
+stress 100x2000 small-λ	Float32	warm	random	false	3	1.0e-7	w10	true	185	5	180	21351	1.6851728545895496e-7
+stress 100x2000 small-λ	Float32	warm	random	false	3	1.0e-7	w20	true	185	5	180	21351	1.6851728545895496e-7
+stress 100x2000 small-λ	Float32	warm	cyclic	false	1	1.0e-6	master	true	53	3	50	9191	1.2635859632892944e-6
+stress 100x2000 small-λ	Float32	warm	cyclic	false	1	1.0e-6	50	true	53	3	50	9191	1.2635859632892944e-6
+stress 100x2000 small-λ	Float32	warm	cyclic	false	1	1.0e-6	w10	true	53	3	50	9191	1.2635859632892944e-6
+stress 100x2000 small-λ	Float32	warm	cyclic	false	1	1.0e-6	w20	true	53	3	50	9191	1.2635859632892944e-6
+stress 100x2000 small-λ	Float32	warm	random	nothing	1	1.0e-6	master	true	44	3	41	8610	1.3380197351604889e-6
+stress 100x2000 small-λ	Float32	warm	random	nothing	1	1.0e-6	50	true	44	3	41	8610	1.3380197351604889e-6
+stress 100x2000 small-λ	Float32	warm	random	nothing	1	1.0e-6	w10	true	44	3	41	8610	1.3380197351604889e-6
+stress 100x2000 small-λ	Float32	warm	random	nothing	1	1.0e-6	w20	true	44	3	41	8610	1.3380197351604889e-6
+stress 100x2000 small-λ	Float32	warm	random	nothing	2	1.0e-6	master	true	44	3	41	8632	1.254519263372861e-6
+stress 100x2000 small-λ	Float32	warm	random	nothing	2	1.0e-6	50	true	44	3	41	8632	1.254519263372861e-6
+stress 100x2000 small-λ	Float32	warm	random	nothing	2	1.0e-6	w10	true	44	3	41	8632	1.254519263372861e-6
+stress 100x2000 small-λ	Float32	warm	random	nothing	2	1.0e-6	w20	true	44	3	41	8632	1.254519263372861e-6
+stress 100x2000 small-λ	Float32	warm	random	nothing	3	1.0e-6	master	true	61	4	57	11601	1.4302867436148008e-6
+stress 100x2000 small-λ	Float32	warm	random	nothing	3	1.0e-6	50	true	61	4	57	11601	1.4302867436148008e-6
+stress 100x2000 small-λ	Float32	warm	random	nothing	3	1.0e-6	w10	true	61	4	57	11601	1.4302867436148008e-6
+stress 100x2000 small-λ	Float32	warm	random	nothing	3	1.0e-6	w20	true	61	4	57	11601	1.4302867436148008e-6
+stress 100x2000 small-λ	Float32	warm	random	false	1	1.0e-6	master	true	78	3	75	10743	1.4076467826523178e-6
+stress 100x2000 small-λ	Float32	warm	random	false	1	1.0e-6	50	true	78	3	75	10743	1.4076467826523178e-6
+stress 100x2000 small-λ	Float32	warm	random	false	1	1.0e-6	w10	true	78	3	75	10743	1.4076467826523178e-6
+stress 100x2000 small-λ	Float32	warm	random	false	1	1.0e-6	w20	true	78	3	75	10743	1.4076467826523178e-6
+stress 100x2000 small-λ	Float32	warm	random	false	2	1.0e-6	master	true	73	3	70	10479	1.2895629318237402e-6
+stress 100x2000 small-λ	Float32	warm	random	false	2	1.0e-6	50	true	73	3	70	10479	1.2895629318237402e-6
+stress 100x2000 small-λ	Float32	warm	random	false	2	1.0e-6	w10	true	73	3	70	10479	1.2895629318237402e-6
+stress 100x2000 small-λ	Float32	warm	random	false	2	1.0e-6	w20	true	73	3	70	10479	1.2895629318237402e-6
+stress 100x2000 small-λ	Float32	warm	random	false	3	1.0e-6	master	true	117	5	112	17064	1.3833031573517386e-6
+stress 100x2000 small-λ	Float32	warm	random	false	3	1.0e-6	50	true	117	5	112	17064	1.3833031573517386e-6
+stress 100x2000 small-λ	Float32	warm	random	false	3	1.0e-6	w10	true	117	5	112	17064	1.3833031573517386e-6
+stress 100x2000 small-λ	Float32	warm	random	false	3	1.0e-6	w20	true	117	5	112	17064	1.3833031573517386e-6
+stress 100x2000 small-λ	Float64	cold	cyclic	false	1	1.0e-7	master	true	970	7	963	90849	9.774097967581177e-8
+stress 100x2000 small-λ	Float64	cold	cyclic	false	1	1.0e-7	50	true	290	7	283	37891	1.0518832870443015e-7
+stress 100x2000 small-λ	Float64	cold	cyclic	false	1	1.0e-7	w10	true	715	7	708	70217	2.186271055548465e-7
+stress 100x2000 small-λ	Float64	cold	cyclic	false	1	1.0e-7	w20	true	970	7	963	90849	9.774097967581177e-8
+stress 100x2000 small-λ	Float64	cold	random	nothing	1	1.0e-7	master	true	360	7	353	43133	1.2921465679265256e-7
+stress 100x2000 small-λ	Float64	cold	random	nothing	1	1.0e-7	50	true	284	8	276	40472	9.686699689289571e-8
+stress 100x2000 small-λ	Float64	cold	random	nothing	1	1.0e-7	w10	true	360	7	353	43133	1.2921465679265256e-7
+stress 100x2000 small-λ	Float64	cold	random	nothing	1	1.0e-7	w20	true	360	7	353	43133	1.2921465679265256e-7
+stress 100x2000 small-λ	Float64	cold	random	nothing	2	1.0e-7	master	true	547	7	540	60736	1.05315235304387e-7
+stress 100x2000 small-λ	Float64	cold	random	nothing	2	1.0e-7	50	true	264	7	257	37554	1.3169293099951685e-7
+stress 100x2000 small-λ	Float64	cold	random	nothing	2	1.0e-7	w10	true	572	8	564	65435	8.724701992725029e-8
+stress 100x2000 small-λ	Float64	cold	random	nothing	2	1.0e-7	w20	true	547	7	540	60736	1.05315235304387e-7
+stress 100x2000 small-λ	Float64	cold	random	nothing	3	1.0e-7	master	true	556	8	548	63807	1.3514690464033876e-7
+stress 100x2000 small-λ	Float64	cold	random	nothing	3	1.0e-7	50	true	257	7	250	37073	5.437670793268463e-8
+stress 100x2000 small-λ	Float64	cold	random	nothing	3	1.0e-7	w10	true	461	7	454	53800	5.8047072600434287e-8
+stress 100x2000 small-λ	Float64	cold	random	nothing	3	1.0e-7	w20	true	556	8	548	63807	1.3514690464033876e-7
+stress 100x2000 small-λ	Float64	cold	random	false	1	1.0e-7	master	true	1105	9	1096	104213	1.3603387687575775e-7
+stress 100x2000 small-λ	Float64	cold	random	false	1	1.0e-7	50	true	358	8	350	44785	1.6717122462895622e-7
+stress 100x2000 small-λ	Float64	cold	random	false	1	1.0e-7	w10	true	755	8	747	76019	1.478646276822264e-7
+stress 100x2000 small-λ	Float64	cold	random	false	1	1.0e-7	w20	true	801	6	795	74113	1.796522620240767e-7
+stress 100x2000 small-λ	Float64	cold	random	false	2	1.0e-7	master	true	1543	7	1536	142359	1.6992009296840662e-7
+stress 100x2000 small-λ	Float64	cold	random	false	2	1.0e-7	50	true	373	9	364	49196	1.729638225668132e-7
+stress 100x2000 small-λ	Float64	cold	random	false	2	1.0e-7	w10	true	621	8	613	63946	1.338865579488565e-7
+stress 100x2000 small-λ	Float64	cold	random	false	2	1.0e-7	w20	true	1000	7	993	94908	2.3579352357040953e-7
+stress 100x2000 small-λ	Float64	cold	random	false	3	1.0e-7	master	true	1755	8	1747	166207	1.7864163831690857e-7
+stress 100x2000 small-λ	Float64	cold	random	false	3	1.0e-7	50	true	347	10	337	49039	1.0327253433767183e-7
+stress 100x2000 small-λ	Float64	cold	random	false	3	1.0e-7	w10	true	849	10	839	86129	1.4524760236495705e-7
+stress 100x2000 small-λ	Float64	cold	random	false	3	1.0e-7	w20	true	767	7	760	77452	1.3065592365696922e-7
+stress 100x2000 small-λ	Float64	cold	cyclic	false	1	1.0e-11	master	true	1952	7	1945	165035	1.2267697574199281e-11
+stress 100x2000 small-λ	Float64	cold	cyclic	false	1	1.0e-11	50	true	389	9	380	48094	1.722451958723283e-11
+stress 100x2000 small-λ	Float64	cold	cyclic	false	1	1.0e-11	w10	true	978	7	971	85378	2.0299481809262954e-11
+stress 100x2000 small-λ	Float64	cold	cyclic	false	1	1.0e-11	w20	true	1456	7	1449	124375	1.2268444052332788e-11
+stress 100x2000 small-λ	Float64	cold	random	nothing	1	1.0e-11	master	true	739	7	732	73009	9.599252387871834e-12
+stress 100x2000 small-λ	Float64	cold	random	nothing	1	1.0e-11	50	true	365	9	356	47570	8.82173115966036e-12
+stress 100x2000 small-λ	Float64	cold	random	nothing	1	1.0e-11	w10	true	667	7	660	65126	1.0204837609507412e-11
+stress 100x2000 small-λ	Float64	cold	random	nothing	1	1.0e-11	w20	true	739	7	732	73009	9.599252387871834e-12
+stress 100x2000 small-λ	Float64	cold	random	nothing	2	1.0e-11	master	true	779	7	772	78055	1.3188059888375713e-11
+stress 100x2000 small-λ	Float64	cold	random	nothing	2	1.0e-11	50	true	317	8	309	42851	1.5529788724916604e-11
+stress 100x2000 small-λ	Float64	cold	random	nothing	2	1.0e-11	w10	true	811	8	803	81003	7.286217684033594e-12
+stress 100x2000 small-λ	Float64	cold	random	nothing	2	1.0e-11	w20	true	779	7	772	78055	1.3188059888375713e-11
+stress 100x2000 small-λ	Float64	cold	random	nothing	3	1.0e-11	master	true	874	7	867	87317	8.625332215501195e-12
+stress 100x2000 small-λ	Float64	cold	random	nothing	3	1.0e-11	50	true	321	8	313	43121	3.834389418610988e-12
+stress 100x2000 small-λ	Float64	cold	random	nothing	3	1.0e-11	w10	true	666	8	658	68102	9.208901789008426e-12
+stress 100x2000 small-λ	Float64	cold	random	nothing	3	1.0e-11	w20	true	846	7	839	84414	1.14152386078435e-11
+stress 100x2000 small-λ	Float64	cold	random	false	1	1.0e-11	master	true	2168	7	2161	179038	2.201768486226107e-11
+stress 100x2000 small-λ	Float64	cold	random	false	1	1.0e-11	50	true	479	11	468	58455	1.7821295993256424e-11
+stress 100x2000 small-λ	Float64	cold	random	false	1	1.0e-11	w10	true	1075	7	1068	92336	1.884656838032745e-11
+stress 100x2000 small-λ	Float64	cold	random	false	1	1.0e-11	w20	true	1336	9	1327	111778	1.3429698181499478e-11
+stress 100x2000 small-λ	Float64	cold	random	false	2	1.0e-11	master	true	4322	8	4314	372775	1.584529371403635e-11
+stress 100x2000 small-λ	Float64	cold	random	false	2	1.0e-11	50	true	497	11	486	61126	1.465597572273017e-11
+stress 100x2000 small-λ	Float64	cold	random	false	2	1.0e-11	w10	true	1100	8	1092	92927	1.5097878818359705e-11
+stress 100x2000 small-λ	Float64	cold	random	false	2	1.0e-11	w20	true	1637	7	1630	136402	1.8314838145929107e-11
+stress 100x2000 small-λ	Float64	cold	random	false	3	1.0e-11	master	true	4525	8	4517	402168	1.7571191224790635e-11
+stress 100x2000 small-λ	Float64	cold	random	false	3	1.0e-11	50	true	465	11	454	58644	2.117221851798954e-11
+stress 100x2000 small-λ	Float64	cold	random	false	3	1.0e-11	w10	true	1168	9	1159	102889	1.644769344756565e-11
+stress 100x2000 small-λ	Float64	cold	random	false	3	1.0e-11	w20	true	1246	7	1239	105390	2.0720259882787385e-11
+stress 100x2000 small-λ	Float64	warm	cyclic	false	1	1.0e-7	master	true	82	3	79	11021	1.2665268261931372e-7
+stress 100x2000 small-λ	Float64	warm	cyclic	false	1	1.0e-7	50	true	82	3	79	11021	1.2665268261931372e-7
+stress 100x2000 small-λ	Float64	warm	cyclic	false	1	1.0e-7	w10	true	82	3	79	11021	1.2665268261931372e-7
+stress 100x2000 small-λ	Float64	warm	cyclic	false	1	1.0e-7	w20	true	82	3	79	11021	1.2665268261931372e-7
+stress 100x2000 small-λ	Float64	warm	random	nothing	1	1.0e-7	master	true	62	3	59	9741	7.906850135275994e-8
+stress 100x2000 small-λ	Float64	warm	random	nothing	1	1.0e-7	50	true	62	3	59	9741	7.906850135275994e-8
+stress 100x2000 small-λ	Float64	warm	random	nothing	1	1.0e-7	w10	true	62	3	59	9741	7.906850135275994e-8
+stress 100x2000 small-λ	Float64	warm	random	nothing	1	1.0e-7	w20	true	62	3	59	9741	7.906850135275994e-8
+stress 100x2000 small-λ	Float64	warm	random	nothing	2	1.0e-7	master	true	56	3	53	9387	1.7246379746646918e-7
+stress 100x2000 small-λ	Float64	warm	random	nothing	2	1.0e-7	50	true	56	3	53	9387	1.7246379746646918e-7
+stress 100x2000 small-λ	Float64	warm	random	nothing	2	1.0e-7	w10	true	56	3	53	9387	1.7246379746646918e-7
+stress 100x2000 small-λ	Float64	warm	random	nothing	2	1.0e-7	w20	true	56	3	53	9387	1.7246379746646918e-7
+stress 100x2000 small-λ	Float64	warm	random	nothing	3	1.0e-7	master	true	83	4	79	12982	9.087851368381134e-8
+stress 100x2000 small-λ	Float64	warm	random	nothing	3	1.0e-7	50	true	83	4	79	12982	9.087851368381134e-8
+stress 100x2000 small-λ	Float64	warm	random	nothing	3	1.0e-7	w10	true	83	4	79	12982	9.087851368381134e-8
+stress 100x2000 small-λ	Float64	warm	random	nothing	3	1.0e-7	w20	true	83	4	79	12982	9.087851368381134e-8
+stress 100x2000 small-λ	Float64	warm	random	false	1	1.0e-7	master	true	128	4	124	15810	1.6588820851074334e-7
+stress 100x2000 small-λ	Float64	warm	random	false	1	1.0e-7	50	true	117	5	112	17103	1.3634288567052623e-7
+stress 100x2000 small-λ	Float64	warm	random	false	1	1.0e-7	w10	true	128	4	124	15810	1.6588820851074334e-7
+stress 100x2000 small-λ	Float64	warm	random	false	1	1.0e-7	w20	true	128	4	124	15810	1.6588820851074334e-7
+stress 100x2000 small-λ	Float64	warm	random	false	2	1.0e-7	master	true	114	4	110	15006	1.4307489911736137e-7
+stress 100x2000 small-λ	Float64	warm	random	false	2	1.0e-7	50	true	109	4	105	14699	1.2607510958275427e-7
+stress 100x2000 small-λ	Float64	warm	random	false	2	1.0e-7	w10	true	114	4	110	15006	1.4307489911736137e-7
+stress 100x2000 small-λ	Float64	warm	random	false	2	1.0e-7	w20	true	114	4	110	15006	1.4307489911736137e-7
+stress 100x2000 small-λ	Float64	warm	random	false	3	1.0e-7	master	true	185	5	180	21351	1.60347089320622e-7
+stress 100x2000 small-λ	Float64	warm	random	false	3	1.0e-7	50	true	155	5	150	19512	1.9417250298099883e-7
+stress 100x2000 small-λ	Float64	warm	random	false	3	1.0e-7	w10	true	185	5	180	21351	1.60347089320622e-7
+stress 100x2000 small-λ	Float64	warm	random	false	3	1.0e-7	w20	true	185	5	180	21351	1.60347089320622e-7
+stress 100x2000 small-λ	Float64	warm	cyclic	false	1	1.0e-11	master	true	213	3	210	19246	1.6777674889448657e-11
+stress 100x2000 small-λ	Float64	warm	cyclic	false	1	1.0e-11	50	true	174	5	169	20776	1.703027231320595e-11
+stress 100x2000 small-λ	Float64	warm	cyclic	false	1	1.0e-11	w10	true	213	3	210	19246	1.6777674889448657e-11
+stress 100x2000 small-λ	Float64	warm	cyclic	false	1	1.0e-11	w20	true	213	3	210	19246	1.6777674889448657e-11
+stress 100x2000 small-λ	Float64	warm	random	nothing	1	1.0e-11	master	true	124	3	121	13631	7.523909984547575e-12
+stress 100x2000 small-λ	Float64	warm	random	nothing	1	1.0e-11	50	true	112	4	108	14836	7.370195719600789e-12
+stress 100x2000 small-λ	Float64	warm	random	nothing	1	1.0e-11	w10	true	124	3	121	13631	7.523909984547575e-12
+stress 100x2000 small-λ	Float64	warm	random	nothing	1	1.0e-11	w20	true	124	3	121	13631	7.523909984547575e-12
+stress 100x2000 small-λ	Float64	warm	random	nothing	2	1.0e-11	master	true	120	3	117	13424	1.1013082450010419e-11
+stress 100x2000 small-λ	Float64	warm	random	nothing	2	1.0e-11	50	true	118	4	114	15268	1.3311079621809533e-11
+stress 100x2000 small-λ	Float64	warm	random	nothing	2	1.0e-11	w10	true	120	3	117	13424	1.1013082450010419e-11
+stress 100x2000 small-λ	Float64	warm	random	nothing	2	1.0e-11	w20	true	120	3	117	13424	1.1013082450010419e-11
+stress 100x2000 small-λ	Float64	warm	random	nothing	3	1.0e-11	master	true	183	4	179	19282	7.57050248203207e-12
+stress 100x2000 small-λ	Float64	warm	random	nothing	3	1.0e-11	50	true	167	5	162	20235	6.282033719122522e-12
+stress 100x2000 small-λ	Float64	warm	random	nothing	3	1.0e-11	w10	true	183	4	179	19282	7.57050248203207e-12
+stress 100x2000 small-λ	Float64	warm	random	nothing	3	1.0e-11	w20	true	183	4	179	19282	7.57050248203207e-12
+stress 100x2000 small-λ	Float64	warm	random	false	1	1.0e-11	master	true	347	3	344	27648	1.543010485490433e-11
+stress 100x2000 small-λ	Float64	warm	random	false	1	1.0e-11	50	true	236	6	230	26773	1.3523288044756409e-11
+stress 100x2000 small-λ	Float64	warm	random	false	1	1.0e-11	w10	true	347	3	344	27648	1.543010485490433e-11
+stress 100x2000 small-λ	Float64	warm	random	false	1	1.0e-11	w20	true	347	3	344	27648	1.543010485490433e-11
+stress 100x2000 small-λ	Float64	warm	random	false	2	1.0e-11	master	true	320	3	317	26131	1.4008034198239777e-11
+stress 100x2000 small-λ	Float64	warm	random	false	2	1.0e-11	50	true	229	6	223	26369	1.723922766182998e-11
+stress 100x2000 small-λ	Float64	warm	random	false	2	1.0e-11	w10	true	320	3	317	26131	1.4008034198239777e-11
+stress 100x2000 small-λ	Float64	warm	random	false	2	1.0e-11	w20	true	320	3	317	26131	1.4008034198239777e-11
+stress 100x2000 small-λ	Float64	warm	random	false	3	1.0e-11	master	true	480	5	475	39940	1.2438179651726354e-11
+stress 100x2000 small-λ	Float64	warm	random	false	3	1.0e-11	50	true	277	8	269	33247	1.6411714670932717e-11
+stress 100x2000 small-λ	Float64	warm	random	false	3	1.0e-11	w10	true	480	5	475	39940	1.2438179651726354e-11
+stress 100x2000 small-λ	Float64	warm	random	false	3	1.0e-11	w20	true	480	5	475	39940	1.2438179651726354e-11

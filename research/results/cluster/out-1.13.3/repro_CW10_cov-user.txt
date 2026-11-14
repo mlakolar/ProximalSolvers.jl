@@ -1,0 +1,16 @@
+Julia 1.13.3  coverage=1  λ=4.79038e-34  ref x*=[842817.9836515745, -2.898954149922232e6, 350215.35506926035]  KKT(ref)=2.31e-08
+== schedule: K = master
+start order   mom    owner | conv  passes  full active        KKT    relgapF  maxch/tol | restart: conv   pass        KKT
+cold  cyclic  nothing false | true      30     4     26   7.01e-08   1.59e-15   2.79e-01 | restart: true      1   5.03e-08
+cold  cyclic  nothing true  | true      30     4     26   7.01e-08   1.59e-15   2.79e-01 | restart: true      1   5.03e-08
+cold  random  nothing false | true      21     4     17   1.00e-07   5.01e-15   7.41e-01 | restart: true      1   1.45e-07
+cold  random  nothing true  | true      21     4     17   1.00e-07   5.01e-15   7.41e-01 | restart: true      1   1.45e-07
+cold  random  false  false | true      21     4     17   7.01e-08   1.59e-15   0.00e+00 | restart: true      1   1.15e-07
+cold  random  false  true  | true      21     4     17   7.01e-08   1.59e-15   0.00e+00 | restart: true      1   1.15e-07
+warm  cyclic  nothing false | true      30     4     26   1.02e-07   4.84e-15   7.79e-01 | restart: true      1   7.01e-08
+warm  cyclic  nothing true  | true      30     4     26   1.02e-07   4.84e-15   7.79e-01 | restart: true      1   7.01e-08
+warm  random  nothing false | true      22     4     18   1.00e-07   5.01e-15   3.90e-01 | restart: true      1   1.45e-07
+warm  random  nothing true  | true      22     4     18   1.00e-07   5.01e-15   3.90e-01 | restart: true      1   1.45e-07
+warm  random  false  false | true      50     4     46   1.91e-07   8.21e-15   5.59e-01 | restart: true      1   7.97e-08
+warm  random  false  true  | true      50     4     46   1.91e-07   8.21e-15   5.59e-01 | restart: true      1   7.97e-08
+control tol=1e-6 (warm,random,false,dense, master schedule): conv=true passes=19 KKT=6.03e-08
