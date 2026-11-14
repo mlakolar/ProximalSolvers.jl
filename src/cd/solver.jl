@@ -39,6 +39,13 @@ independently. Anderson acceleration, gap certificates and screening
 are not implemented: `anderson`, `gaptol` and `gapsafe` are accepted only
 at their defaults, are not stored, and other values are rejected.
 
+Once the active passes since the last full pass have together visited 20 times
+as many coordinates as a full pass, the next pass is a full pass even when the
+active changes have not fallen below `tol`. If, when `tol` is at the Float32
+rounding level of the coefficients, the changes of full passes also stay above
+`tol`, the run ends at `maxpasses` (not converged, with the warning); a looser
+`tol`, or Float64 data with the same `tol`, puts `tol` above that level.
+
 A `SparseIterate` is solved on a private copy retaining its initial
 active zeros and coordinate order. After a completed finite run the caller
 receives the complete final state, including any zero-coordinate
@@ -204,12 +211,25 @@ function _tolerances(m, x, s::CDSolver, ::Type{T}) where T
 end
 # After each pass, the strict change test `maxh < tol` selects the next pass:
 # full after a converged pass, active otherwise. Only a converged full pass stops.
+#
+# A full pass is the only pass that visits the coordinates outside the active set, which are at 0.
+# A full pass also follows active passes that, since the last full pass, together visited
+# `_FULL_PASS_WORK` times as many coordinates as a full pass, p = `ncoordinates(x)`: active changes
+# that stay above `tol` through rounding, as with Float32 steps near the tolerance (#311), then
+# still lead to a full pass. A forced full pass visits p coordinates after active passes that
+# visited at least `_FULL_PASS_WORK * p`, so the forced passes of a run make at most
+# `1 / _FULL_PASS_WORK` of the visits of that run's active passes; a forced pass also changes the
+# iterates that follow, so this does not bound the run's total work against a schedule without
+# forced passes. In the momentum loop, a forced full pass first refreshes the cache if momentum
+# moved it, as the converged active pass before an ordinary full pass does.
+const _FULL_PASS_WORK = 20
 function _cd_plain!(x, m, g, st::_CDState{T}, s::CDSolver) where {T}
   tol, scaled = _tolerances(m, x, s, T)
   st.passes, st.converged, st.maxchange, st.tolerance = 0, false, T(NaN), tol
-  converged = true
+  converged, visits = true, 0
   for pass in 1:s.maxpasses
-    full = converged
+    full = converged || visits >= _FULL_PASS_WORK * ncoordinates(x)
+    visits = full ? 0 : visits + nactive(x)
     maxh = _pass!(x, m, g, st, full, scaled)
     st.passes, st.maxchange = pass, maxh
     converged = maxh<tol
@@ -243,10 +263,15 @@ function _cd_momentum!(x, m, g, st::_CDState{T}, s::CDSolver) where {T}
   tol, scaled = _tolerances(m, x, s, T)
   st.passes, st.converged, st.maxchange, st.tolerance = 0, false, T(NaN), tol
   mom = _momentum_start!(st.momentum, x, m)
-  converged = true
+  converged, visits = true, 0
   for pass in 1:s.maxpasses
-    full = converged
-    full || _momentum_step!(mom, x, m)
+    full = converged || visits >= _FULL_PASS_WORK * ncoordinates(x)
+    visits = full ? 0 : visits + nactive(x)
+    if !full
+      _momentum_step!(mom, x, m)
+    elseif !converged
+      _momentum_refresh!(mom, x, m)
+    end
     maxh = _pass!(x, m, g, st, full, scaled)
     st.passes, st.maxchange = pass, maxh
     converged = maxh<tol

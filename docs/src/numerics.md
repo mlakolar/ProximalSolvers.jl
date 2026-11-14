@@ -31,7 +31,13 @@ code.
   normal scale can be subnormal or 0; the test `change < threshold` cannot hold
   for a threshold of 0, so such a run cannot converge by it and ends at
   `maxpasses` with a warning, unless an independent numerical failure (for
-  example a non-finite coordinate step) stops it first with an error.
+  example a non-finite coordinate step) stops it first with an error. Once the
+  active passes since the last full pass have together visited 20 times as many
+  coordinates as a full pass, the next pass is a full pass even when the active
+  changes have not fallen below `tol`. If, when `tol` is at the Float32 rounding
+  level of the coefficients, the changes of full passes also stay above `tol`,
+  the run ends at `maxpasses` with a warning; a looser `tol`, or Float64 data
+  with the same `tol`, puts `tol` above that level.
 - **Proximal gradient descent (PGD):** the algorithm applies multiple
   stopping tests for relative coefficient change, objective change and
   a gradient/proximal residual. These combine by **OR**: passing one can
