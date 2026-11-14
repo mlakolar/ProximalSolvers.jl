@@ -215,9 +215,12 @@ private one for a dense vector, and a private copy of the caller's owner for a
 `SparseIterate`, which starts with that owner's active zeros and slot order and
 which the caller's owner receives, whole, only after a finite completed run. First
 full passes admit coordinates, active passes refine them, and only a full pass
-strictly below the change tolerance converges. Random LS uses historical
-momentum/restarts and refreshes moved residual caches before full checks; the
-borrowed RNG advances. Cyclic and explicit momentum=false remain supported.
+strictly below the change tolerance converges. Once the active passes since the
+last full pass have together visited 20 times as many coordinates as a full pass,
+the next pass is full. Random LS uses historical momentum/restarts and refreshes
+moved residual caches before full checks, including before such a forced full
+pass; the borrowed RNG advances.
+Cyclic and explicit momentum=false remain supported.
 Zero columns choose the nearest-zero penalty minimizer, including lambda=0.
 Nonzero-column curvature underflow, and a curvature that is not finite, are errors. tol=0 stays strict; maxpasses=0
 returns unconverged with no updates, and an owner then keeps its exact entry state.

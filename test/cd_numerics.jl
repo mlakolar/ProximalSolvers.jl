@@ -688,10 +688,10 @@ end
 # checked on each solve, not implied by the ratio. With `relative = false` the threshold is the
 # absolute change `tol ‖y‖ / max_k ‖X_k‖` (with tol = 1e-9 in Float64 and 1e-6 in Float32), the
 # coefficient-unit equivalent of the relative threshold at the column of largest norm, and is the
-# reported tolerance. The Float32 relative tolerance is `tol32`.
-function check_d1_solve(c, λ, x0; order, momentum, owner, relative = true, tol32 = 1e-7)
+# reported tolerance. The Float32 relative tolerance is 1e-7.
+function check_d1_solve(c, λ, x0; order, momentum, owner, relative = true)
   T = eltype(c.X)
-  tol = T === Float64 ? 1e-9 : tol32
+  tol = T === Float64 ? 1e-9 : 1e-7
   tol_abs = relative ? tol : (T === Float64 ? 1e-9 : 1e-6) * norm(c.y) / maximum(norm, eachcol(c.X))
   r = cd_solve(c.f, λ, x0; order, momentum, owner, relative, tol = tol_abs)
   @test r.converged && isempty(r.logs)
@@ -707,7 +707,7 @@ end
 
 # The solves of one case: each penalty fraction, cold and warm start, order and iterate type, and each
 # stopping rule in `relatives`.
-function check_d1_case(c; relatives = (true,), tol32 = 1e-7)
+function check_d1_case(c; relatives = (true,))
   T = eltype(c.X)
   p = size(c.X, 2)
   @test c.scale > 0
@@ -717,7 +717,7 @@ function check_d1_case(c; relatives = (true,), tol32 = 1e-7)
     check_feasible(c.X, c.y, c.α, λ; coordinate = c.coordinate)
     for x0 in (zeros(T, p), T.(c.c .* (0.3 .* sin.(1:p)))), (order, momentum) in ORDERS, owner in (false, true),
         relative in relatives
-      check_d1_solve(c, λ, x0; order, momentum, owner, relative, tol32)
+      check_d1_solve(c, λ, x0; order, momentum, owner, relative)
     end
   end
 end
@@ -1160,14 +1160,10 @@ end
 # precision while the product α a_k leaves the range. It is solved as in section 10 (from a cold and
 # a warm start, in the three orders, on a dense vector and an owner, with the KKT violation against the
 # supplied α, the tolerance and the reported objective checked) at a penalty of 0 and of fractions of
-# λmax, with relative = true and relative = false. The Float32 relative tolerance is 1e-6, not the 1e-7 of
-# section 10: with a penalty of 0.5 λmax the threshold τ is of the order of the coefficients; for a
-# negative active coordinate near its fixed point the centre x + b/a is about x - τ, about twice as large
-# as x, and a Float32 step then has an error of a few ulp of that centre. A
-# threshold of 1e-7 is of that size in coefficient units, and a pass over the active coordinates that
-# dithers above it gives no full pass that visits the coordinates at 0, so CD can stop at
-# `maxpasses` at a KKT violation of 0.2 (it did under coverage instrumentation, which can change the
-# summation order and the inlining). The KKT bound is unchanged.
+# λmax, with relative = true and relative = false. The Float32 relative tolerance is the 1e-7 of section 10.
+# At 0.5 λmax an active pass can dither above that threshold through Float32 rounding (the starvation
+# of #311, seen under coverage instrumentation); the full pass that follows a bounded amount of active
+# work (section 19) then visits the coordinates at 0. The KKT bound is that of section 10.
 function step_cases()
   [d1_case("Float64, α a_k overflows: α = 1e300, X·1e5, ‖y‖ = 100", Float64, 100.0, 1e300; xscale = 1e5, fractions = (0.0, 0.1, 0.5), coordinate = :overflow),
    d1_case("Float32, α a_k overflows: α = 1f30, X·1e4, ‖y‖ = 1e3", Float32, 1e3, 1f30; xscale = 1e4, fractions = (0.0, 0.1, 0.5), coordinate = :overflow),
@@ -1180,7 +1176,7 @@ function step_cases()
 end
 
 @testset "CD converges where α a_k or its reciprocal is out of range, the penalty is applied: $(c.label)" for c in step_cases()
-  check_d1_case(c; relatives = (true, false), tol32 = 1e-6)
+  check_d1_case(c; relatives = (true, false))
 end
 
 # A subnormal curvature (out of scope): no false convergence. A column whose squared norm a_k is a subnormal
@@ -1561,6 +1557,134 @@ step_cost_cases() =
   @test all(k -> alloc_step(m, g, x, k) == 0, 1:3)
   @test all(k -> alloc_visit(m, g, x, k, true) == 0, 1:3)
   @test all(k -> alloc_visit(m, g, x, k, false) == 0, 1:3)
+end
+
+# ---------------------------------------------------------------------------
+# 19. A full pass after a bounded amount of active-pass work (#311)
+# ---------------------------------------------------------------------------
+# Before #311 a full pass followed an active pass only when that pass had a change below the threshold.
+# Where the changes of the active passes stay above it through Float32 rounding, no full pass followed,
+# and an inactive coordinate (at 0) was not visited again: the run ended at `maxpasses`, in the data
+# below at a KKT violation of 0.2 of the scale. CD now also runs a full pass after active passes that,
+# since the last full pass, together visited 20 times as many coordinates as a full pass, and in the
+# momentum loop that pass first refreshes the cache if momentum moved it. A full pass is the only pass
+# that visits the coordinates outside the active set.
+
+# Literal Float32 data from a scan of the #311 fixture; with two rows each column sum has two terms. After
+# a few passes coordinates 1 and 3 are at 0 and leave the active set, and the change of coordinate 2 stays
+# above the threshold through rounding, so no full pass follows. On master the run stops at `maxpasses` with
+# x = (0, -0.2249, 0) and a KKT violation of 0.20 of the scale, while the minimizer, computed in BigFloat,
+# is (0, 0, 0.15791...).
+@testset "a coordinate at 0 is visited by a full pass after active work: seed-598 data, $(owner ? "owner" : "dense")" for owner in (false, true)
+  X = reshape(Float32[0.1623875f0, 0.3975033f0, 0.38066474f0, 1.0014724f0, 0.031295117f0, -2.3836505f0], 2, 3)
+  y = Float32[-1.0195396f0, -0.7663379f0]
+  λ = 0.89738756f0
+  x0 = Float32[-0.46727893f0, -3.7358327f0, -2.9755993f0]
+  r = cd_solve(LeastSquaresLoss(y, X), λ, x0; order = :cyclic, momentum = false, owner, tol = 1e-7, maxpasses = 2000)
+  @test r.converged
+  @test isempty(r.logs)
+  @test r.passes < 2000
+  @test kkt_relative(X, y, 1, λ, r.x) <= kkt_tolerance(Float32)
+  @test r.x[1] == 0
+  @test r.x[2] == 0
+  @test r.x[3] > 0
+end
+
+# A model that delegates to an `LSModel` and records, at the start of each pass, whether the pass is full,
+# how many coordinates it visits, whether momentum has left the cache moved, and whether the cache equals
+# one computed afresh from x by the model's own `initialize!`. Every active pass reports an infinite
+# change, so none is converged, and so do the first `inf_fulls` full passes; a later full pass reports its
+# true change. The pass itself is the model's own.
+mutable struct ScheduleRecorder{T, M} <: PS.CDModel{T}
+  inner::M
+  fresh::M
+  inf_fulls::Int
+  full::Vector{Bool}
+  visited::Vector{Int}
+  moved::Vector{Bool}
+  cache_fresh::Vector{Bool}
+  reported::Vector{T}
+end
+function ScheduleRecorder(f, x::SparseIterate{T}; inf_fulls) where T
+  inner = PS.cdmodel(f, x)
+  PS.initialize!(inner, x)
+  ScheduleRecorder{T, typeof(inner)}(inner, PS.cdmodel(f, x), inf_fulls, Bool[], Int[], Bool[], Bool[], T[])
+end
+PS.response_scale(m::ScheduleRecorder, x) = PS.response_scale(m.inner, x)
+PS._cache(m::ScheduleRecorder) = PS._cache(m.inner)
+PS._initialize!(m::ScheduleRecorder, x, fresh::Bool) = (PS._initialize!(m.inner, x, fresh); m)
+function PS._pass!(x, m::ScheduleRecorder, g, st::PS._CDState{T}, full::Bool, scaled::Bool) where T
+  PS.initialize!(m.fresh, x)
+  push!(m.full, full)
+  push!(m.visited, full ? ncoordinates(x) : nactive(x))
+  push!(m.moved, st.momentum.moved)
+  push!(m.cache_fresh, isequal(PS._cache(m.inner), PS._cache(m.fresh)))
+  h = PS._pass!(x, m.inner, g, st, full, scaled)
+  reported = full && count(m.full) > m.inf_fulls ? h : T(Inf)
+  push!(m.reported, reported)
+  reported
+end
+
+# A lasso with 6 columns whose solution has a strict subset of them active: the response is built from
+# columns 1 and 2 and a little noise, and the penalty is 0.6 of λmax. Returns the loss, the penalty and the
+# number of columns.
+function schedule_problem(::Type{T}) where T
+  n, p = 20, 6
+  X, e = plain_data(T, n, p; seed = 11)
+  y = T.(2 .* X[:, 1] .- T(1.5) .* X[:, 2] .+ T(0.1) .* e)
+  LeastSquaresLoss(y, X), NormL1(penalty_fraction(T, X, y, 1, 0.6)), p
+end
+
+# One run of the recorder model, with the first 3 full passes (the first pass and two forced ones)
+# reporting an infinite change: the recorder and the state.
+function recorded_run(T, f, g, p; order, momentum, maxpasses = 400)
+  x = SparseIterate(zeros(T, p))
+  recorder = ScheduleRecorder(f, x; inf_fulls = 3)
+  solver = CDSolver(; order, momentum, maxpasses, tol = 1e-5, rng = Xoshiro(3))
+  state = PS._CDState(T, x, solver)
+  PS._cd!(x, recorder, g, state, solver)
+  recorder, state
+end
+
+# The schedule: pass 1 is full, and pass i > 1 is full when pass i - 1 had a change below the threshold or when
+# the active passes since the last full pass visited at least 20 p coordinates (the recorded visits; no
+# active pass is converged), and is active otherwise. The forced passes are the full passes that follow a
+# pass that was not converged. On master there is none.
+@testset "a full pass follows active passes that visited 20 full passes' worth of coordinates: $T, $order" for T in (Float32, Float64), order in (:cyclic, :random)
+  @test PS._FULL_PASS_WORK == 20
+  f, g, p = schedule_problem(T)
+  recorder, state = recorded_run(T, f, g, p; order, momentum = false)
+  n = length(recorder.full)
+  @test state.passes == n
+  @test recorder.full[1]
+  @test all(<(p), recorder.visited[.!recorder.full])
+  wrong, lastfull = Int[], 1
+  for i in 2:n
+    expected = recorder.reported[i-1] < state.tolerance ||
+               sum(@view(recorder.visited[lastfull+1:i-1]); init = 0) >= 20p
+    recorder.full[i] == expected || push!(wrong, i)
+    recorder.full[i] && (lastfull = i)
+  end
+  @test isempty(wrong)
+  forced = [i for i in 2:n if recorder.full[i] && !(recorder.reported[i-1] < state.tolerance)]
+  @test length(forced) >= 2
+  # converged only by a full pass whose change is below the threshold
+  @test state.converged == (recorder.full[n] && recorder.reported[n] < state.tolerance)
+end
+
+# The cache after momentum: a forced full pass follows an unconverged active pass, after which the model's
+# cache may have been moved by extrapolation. If momentum moved it, the cache must be computed again before
+# that pass, as it is before a full pass that follows a converged active pass; it is then bitwise the cache
+# that `initialize!` computes from x. The test also checks that momentum moved the cache before a forced pass.
+@testset "a forced full pass starts from a refreshed cache after momentum moved it: $T" for T in (Float32, Float64)
+  f, g, p = schedule_problem(T)
+  recorder, state = recorded_run(T, f, g, p; order = :random, momentum = true)
+  n = length(recorder.full)
+  forced = [i for i in 2:n if recorder.full[i] && !(recorder.reported[i-1] < state.tolerance)]
+  @test length(forced) >= 1
+  @test any(i -> recorder.moved[i-1], forced)
+  @test all(i -> !recorder.moved[i], forced)
+  @test all(i -> recorder.cache_fresh[i], forced)
 end
 
 end
