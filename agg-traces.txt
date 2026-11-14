@@ -1,0 +1,50 @@
+v1.13: 50 solves, all maxiter: True, all same: True
+  khit               median 16 [7, 73]
+  lastp              median 15 [6, 69]
+  k1                 median 25 [14, 129]
+  kB                 median 30 [14, 275]
+  stallfrac          median 0.662 [0.179, 0.892]
+  maxrun             median 24 [7, 49]
+  gain_after_k1      median 2.79e-15 [0, 2.06e-14]
+  maxulps_after_k1   median 1 [1, 160]
+  gapmin_after       median 6.71e-08 [2.25e-08, 1.21e-07]
+  gapmax_after       median 3.25e-07 [1.71e-07, 5.65e-07]
+  iters_after_lastp  median 9.98e+03 [9.93e+03, 9.99e+03]
+  prods_after_hit    median 2.53e+04 [2.44e+04, 2.81e+04]
+  prods_total        median 2.53e+04 [2.45e+04, 2.82e+04]
+  prods_at_B         median 77.5 [39, 731]
+  Lmin               median 1.03 [0.553, 1.4]
+  Lmax               median 4.67 [3.48, 7.2]
+  B after hit in all: True  B >= lastp in all: True  k1 >= lastp in all: True
+  exact state cycles within 10000: 26 / 50  periods: [47, 86, 86, 95, 152, 250, 250, 271, 299, 375, 427, 427, 449, 461, 520, 520, 528, 560, 1035, 1988, 1994, 2408, 3297, 3475, 6185, 8831]
+  stall-run histogram (len:count): [(1, 33866), (2, 18532), (3, 11972), (4, 7415), (5, 5168), (6, 3452), (7, 2345), (8, 1725), (9, 1117), (10, 1006), (11, 568), (12, 906), (13, 532), (14, 247), (15, 131), (16, 287), (17, 294), (18, 196), (19, 124), (20, 271), (21, 146), (22, 49), (23, 21), (24, 43), (25, 6), (26, 18), (27, 2), (28, 79), (30, 82), (31, 2), (32, 2), (34, 2), (35, 7), (37, 1), (38, 1), (42, 10), (43, 19), (45, 1), (46, 1), (49, 77)]
+  lasso         khit med 11 kB med 18 max 32 stallfrac 0.65 maxrun 32
+  lasso-B       khit med 56 kB med 110 max 239 stallfrac 0.47 maxrun 49
+  lasso-B-warm  khit med 29 kB med 57 max 275 stallfrac 0.47 maxrun 49
+  lasso-C       khit med 16 kB med 30 max 41 stallfrac 0.73 maxrun 46
+  lasso-D       khit med 14 kB med 28 max 38 stallfrac 0.69 maxrun 42
+v1.10: 50 solves, all maxiter: True, all same: True
+  khit               median 15 [7, 98]
+  lastp              median 14 [7, 102]
+  k1                 median 23 [11, 186]
+  kB                 median 26 [13, 202]
+  stallfrac          median 0.677 [0.0962, 0.887]
+  maxrun             median 26 [4, 55]
+  gain_after_k1      median 1.68e-15 [0, 1.5e-14]
+  maxulps_after_k1   median 1 [1, 384]
+  gapmin_after       median 7.87e-08 [3.32e-08, 1.09e-07]
+  gapmax_after       median 3.26e-07 [1.2e-07, 7.59e-07]
+  iters_after_lastp  median 9.99e+03 [9.9e+03, 9.99e+03]
+  prods_after_hit    median 2.52e+04 [2.41e+04, 2.82e+04]
+  prods_total        median 2.53e+04 [2.42e+04, 2.83e+04]
+  prods_at_B         median 67 [35, 509]
+  Lmin               median 1.07 [0.501, 1.61]
+  Lmax               median 4.64 [3.63, 7.28]
+  B after hit in all: True  B >= lastp in all: True  k1 >= lastp in all: True
+  exact state cycles within 10000: 29 / 50  periods: [36, 99, 99, 99, 145, 145, 158, 329, 441, 602, 772, 1000, 1369, 1369, 1494, 1494, 1573, 1892, 2303, 3000, 3053, 3724, 3895, 4002, 4540, 4540, 4547, 9468, 9480]
+  stall-run histogram (len:count): [(1, 31862), (2, 19419), (3, 12027), (4, 8253), (5, 6093), (6, 4327), (7, 2747), (8, 1670), (9, 1581), (10, 1343), (11, 889), (12, 853), (13, 343), (14, 280), (15, 179), (16, 191), (17, 275), (18, 89), (19, 142), (20, 88), (21, 193), (22, 30), (23, 56), (24, 27), (25, 19), (26, 69), (27, 21), (28, 8), (29, 33), (30, 4), (31, 9), (32, 31), (33, 37), (34, 2), (35, 3), (36, 6), (37, 6), (39, 1), (41, 6), (44, 1), (47, 6), (48, 1), (55, 100)]
+  lasso         khit med 12 kB med 20 max 34 stallfrac 0.69 maxrun 55
+  lasso-B       khit med 42 kB med 60 max 202 stallfrac 0.57 maxrun 37
+  lasso-B-warm  khit med 16 kB med 38 max 153 stallfrac 0.56 maxrun 48
+  lasso-C       khit med 14 kB med 24 max 30 stallfrac 0.70 maxrun 39
+  lasso-D       khit med 14 kB med 25 max 33 stallfrac 0.69 maxrun 35

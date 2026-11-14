@@ -1,0 +1,23 @@
+== v113 random
+B     n=400 fired=314 premature=0 target-lost=0 baseline-hit=386 mean saved(fired)=91.1% median stop=132.0
+A1    n=400 fired=341 premature=0 target-lost=0 baseline-hit=386 mean saved(fired)=91.7% median stop=82
+A2    n=400 fired=329 premature=0 target-lost=0 baseline-hit=386 mean saved(fired)=90.9% median stop=115
+A3    n=400 fired=302 premature=0 target-lost=0 baseline-hit=386 mean saved(fired)=91.7% median stop=131.5
+A5    n=400 fired=255 premature=0 target-lost=0 baseline-hit=386 mean saved(fired)=86.9% median stop=161
+A10   n=400 fired=120 premature=0 target-lost=0 baseline-hit=386 mean saved(fired)=86.5% median stop=248.5
+A20   n=400 fired=34 premature=0 target-lost=0 baseline-hit=386 mean saved(fired)=76.2% median stop=330.5
+A50   n=400 fired=10 premature=0 target-lost=0 baseline-hit=386 mean saved(fired)=87.7% median stop=93.5
+A100  n=400 fired=10 premature=0 target-lost=0 baseline-hit=386 mean saved(fired)=86.7% median stop=143.5
+A200  n=400 fired=9 premature=0 target-lost=0 baseline-hit=386 mean saved(fired)=94.2% median stop=237
+== v110 random
+B     n=400 fired=321 premature=0 target-lost=0 baseline-hit=385 mean saved(fired)=89.2% median stop=137
+A1    n=400 fired=343 premature=0 target-lost=0 baseline-hit=385 mean saved(fired)=90.0% median stop=95
+A2    n=400 fired=329 premature=1 target-lost=1 baseline-hit=385 mean saved(fired)=88.8% median stop=133
+    PREMATURE R292-n200-p300-rho0.9-f0.01-s0.01-c0.1-perturbed stop 309 gap_stop 1.0714314560671372e-5 later_min 1.8239223985738413e-6 gain 1.3250095139945723e-13 base_hit 105
+A3    n=400 fired=305 premature=0 target-lost=0 baseline-hit=385 mean saved(fired)=87.8% median stop=149
+A5    n=400 fired=249 premature=0 target-lost=0 baseline-hit=385 mean saved(fired)=85.1% median stop=199
+A10   n=400 fired=115 premature=0 target-lost=0 baseline-hit=385 mean saved(fired)=84.1% median stop=266
+A20   n=400 fired=33 premature=0 target-lost=0 baseline-hit=385 mean saved(fired)=77.0% median stop=881
+A50   n=400 fired=6 premature=0 target-lost=0 baseline-hit=385 mean saved(fired)=91.1% median stop=93.5
+A100  n=400 fired=6 premature=0 target-lost=0 baseline-hit=385 mean saved(fired)=90.1% median stop=143.5
+A200  n=400 fired=6 premature=0 target-lost=0 baseline-hit=385 mean saved(fired)=88.1% median stop=243.5

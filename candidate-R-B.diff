@@ -1,0 +1,82 @@
+diff --git a/src/line_searches.jl b/src/line_searches.jl
+index 3302104..a68dbde 100644
+--- a/src/line_searches.jl
++++ b/src/line_searches.jl
+@@ -113,6 +113,7 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
+     if !isfinite(state.f_x)
+         state.backtrack_steps += 1
+         state.L = next_curvature(state.L, ls.β)
++        state.verified_rejection = false
+         return false
+     end
+ 
+@@ -152,11 +153,15 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
+     # sum of squares) leaves TFOCS's estimate. A NaN estimate, or a gradient estimate from a
+     # nonfinite ∇f(x), is kept: the update and the error check below run on it as before. A
+     # NaN estimate raises the error; an infinite one raises it unless a finite Lexact caps L.
++    verified = false
+     if !isnan(local_l) && (!gradient_mode || all(isfinite, state.grad_f_x))
+         accepted, c = check_rejection!(state, gradient_mode)
+         accepted && return true
+-        isfinite(c) && (local_l = c)
++        verified = isfinite(c)
++        verified && (local_l = c)
+     end
++    # #308: whether this L comes from the computed curvature of a rejected representable step
++    state.verified_rejection = verified
+     state.L = min( ls.Lexact, max( local_l, next_curvature(state.L, ls.β) ) )
+     isfinite(state.L) || error("line search failed: nonfinite curvature estimate")
+ 
+diff --git a/src/solve.jl b/src/solve.jl
+index 354dab3..fcaad57 100644
+--- a/src/solve.jl
++++ b/src/solve.jl
+@@ -109,7 +109,7 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
+     prox_limit_reached = options.prox_calls_limit > 0 && state.prox_calls >= options.prox_calls_limit
+ 
+     increased = f_increased && !options.allow_f_increases
+-    if increased || stopped_by_callback ||
++    if increased || _stagnated(state, options) || stopped_by_callback ||
+         stopped_by_time_limit || f_limit_reached || grad_limit_reached || prox_limit_reached
+         stopped = true
+     end
+diff --git a/src/solvers/proximal_gradient_descent.jl b/src/solvers/proximal_gradient_descent.jl
+index 68fbb7a..76b7e31 100644
+--- a/src/solvers/proximal_gradient_descent.jl
++++ b/src/solvers/proximal_gradient_descent.jl
+@@ -74,6 +74,7 @@ mutable struct ProximalGradientDescentState{T, X<:Vector{T}, G<:Vector{T}, M, Z}
+     z_x::Z            # A x
+     dz::Z             # F' at A x; buffer of the product A d of a checked rejection
+     verifications::Int  # rejections checked by the computed curvature (one product A d each)
++    verified_rejection::Bool  # #308: the last rejection of this iteration was decided by its computed curvature
+ end
+ 
+ 
+@@ -114,7 +115,8 @@ function initial_state(
+                          model,
+                          z_x,
+                          dz,
+-                         0
++                         0,
++                         false
+                          )
+ end
+ 
+@@ -130,6 +132,7 @@ function update_state!(
+     state.g_x_previous = state.g_x
+     _copyto!(state.grad_f_x_previous, state.grad_f_x)
+     state.L *= method.ls.α
++    state.verified_rejection = false
+ 
+     # backtracking loop
+     while true
+@@ -276,3 +279,9 @@ function solve!(x, f, g, method::ProximalGradientDescent,
+   state = initial_state(method, options, f, g, x)
+   _solve_gradient!(state, f, g, method, options, t0)
+ end
++
++# #308: Float32 PGD with ftol = 0 stops, without convergence, at an exact stall whose step size
++# was set by the computed curvature of a rejected representable step in the same iteration.
++_stagnated(state, options) = false
++_stagnated(state::ProximalGradientDescentState{Float32}, options) =
++  iszero(options.ftol) && state.verified_rejection && _unchanged(state.x, state.x_previous)

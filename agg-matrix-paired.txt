@@ -1,0 +1,46 @@
+============================== run v113
+Model name:          Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz
+0.00 0.10 1.25 1/424 295813
+julia version 1.13.3
+337a6acd3fd7743811a8becde85bf9595e1bd2aa (git metadata not synced; SHA written by launcher)
+1.00 1.00 1.05 1/422 297030
+strict  Float32 base: pass [10, 10, 10, 10, 10] worst gap 2.69e-07 term {'maxiter': 50} iters mean 10000.0 max 10000 | products 25693 f 23020 grad 11508 prox 11512 bt 5505 verif 2673 alloc 7756B time 145747us
+strict  Float32 cand: pass [10, 10, 10, 10, 10] worst gap 3.78e-07 term {'stopped_other': 50} iters mean 54.7 max 275 | products 141 f 123 grad 60 prox 63 bt 59 verif 18 alloc 7755B time 626us
+strict  Float64 base: pass [10, 10, 10, 10, 10] worst gap 1.86e-11 term {'converged': 50} iters mean 48.4 max 149 | products 116 f 107 grad 51 prox 55 bt 55 verif 9 alloc 14652B time 1192us
+strict  Float64 cand: pass [10, 10, 10, 10, 10] worst gap 1.86e-11 term {'converged': 50} iters mean 48.4 max 149 | products 116 f 107 grad 51 prox 55 bt 55 verif 9 alloc 14667B time 1200us
+        strict Float64: base/cand outcome differences: 0 []
+harness Float32 base: pass [1, 0, 0, 0, 4] worst gap 1.24e-03 term {'converged': 48, 'f_increased': 2} iters mean 18.5 max 52 | products 43 f 40 grad 20 prox 21 bt 21 verif 3 alloc 7753B time 234us
+harness Float32 cand: pass [1, 0, 0, 0, 4] worst gap 1.24e-03 term {'converged': 48, 'f_increased': 2} iters mean 18.5 max 52 | products 43 f 40 grad 20 prox 21 bt 21 verif 3 alloc 7752B time 236us
+        harness Float32: base/cand outcome differences: 0 []
+harness Float64 base: pass [9, 2, 2, 6, 5] worst gap 8.66e-08 term {'converged': 50} iters mean 33.4 max 106 | products 77 f 72 grad 34 prox 38 bt 38 verif 5 alloc 14651B time 810us
+harness Float64 cand: pass [9, 2, 2, 6, 5] worst gap 8.66e-08 term {'converged': 50} iters mean 33.4 max 106 | products 77 f 72 grad 34 prox 38 bt 38 verif 5 alloc 14668B time 813us
+        harness Float64: base/cand outcome differences: 0 []
+same_x_as_base by (group, side): {('strict-f32', 'cand', 'false'): 45, ('strict-f32', 'cand2', 'false'): 45, ('strict-f32', 'cand', 'true'): 5, ('strict-f32', 'cand2', 'true'): 5, ('strict-f64', 'cand', 'true'): 50, ('strict-f64', 'cand2', 'true'): 50, ('harness-f32', 'cand', 'true'): 50, ('harness-f32', 'cand2', 'true'): 50, ('harness-f64', 'cand', 'true'): 50, ('harness-f64', 'cand2', 'true'): 50}
+alloc mean bytes: {('strict-f32', 'base'): 7753, ('strict-f32', 'cand'): 7753, ('strict-f64', 'base'): 14656, ('strict-f64', 'cand'): 14671, ('harness-f32', 'base'): 7762, ('harness-f32', 'cand'): 7762, ('harness-f64', 'base'): 14651, ('harness-f64', 'cand'): 14668}
+paired strict-f32   cases 50: cand/base gm 0.0039 (0.002-0.027) | A/A base2/base gm 0.9990 (0.991-1.003) cand2/cand gm 1.0019 (0.993-1.008) | mean base 145412.3us cand 614.8us
+paired strict-f64   cases 50: cand/base gm 0.9994 (0.996-1.003) | A/A base2/base gm 1.0011 (0.997-1.006) cand2/cand gm 0.9994 (0.993-1.002) | mean base 1243.8us cand 1242.7us
+paired harness-f32  cases 50: cand/base gm 0.9996 (0.989-1.007) | A/A base2/base gm 1.0002 (0.997-1.004) cand2/cand gm 1.0012 (0.997-1.004) | mean base 230.8us cand 230.7us
+paired harness-f64  cases 50: cand/base gm 0.9993 (0.996-1.003) | A/A base2/base gm 1.0010 (0.998-1.005) cand2/cand gm 0.9994 (0.994-1.003) | mean base 846.7us cand 845.8us
+============================== run v110
+Model name:          Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz
+0.01 0.43 1.58 1/428 968415
+julia version 1.10.13
+337a6acd3fd7743811a8becde85bf9595e1bd2aa (git metadata not synced; SHA written by launcher)
+1.00 1.00 1.09 1/421 968983
+strict  Float32 base: pass [10, 10, 10, 10, 10] worst gap 3.01e-07 term {'maxiter': 50} iters mean 10000.0 max 10000 | products 25471 f 23030 grad 11513 prox 11517 bt 5089 verif 2441 alloc 8022B time 154012us
+strict  Float32 cand: pass [10, 10, 10, 10, 10] worst gap 5.29e-07 term {'stopped_other': 50} iters mean 39.9 max 202 | products 101 f 90 grad 43 prox 46 bt 43 verif 12 alloc 8022B time 542us
+strict  Float64 base: pass [10, 10, 10, 10, 10] worst gap 3.58e-11 term {'converged': 50} iters mean 41.6 max 226 | products 99 f 91 grad 44 prox 48 bt 48 verif 8 alloc 14864B time 1088us
+strict  Float64 cand: pass [10, 10, 10, 10, 10] worst gap 3.58e-11 term {'converged': 50} iters mean 41.6 max 226 | products 99 f 91 grad 44 prox 48 bt 48 verif 8 alloc 14880B time 1050us
+        strict Float64: base/cand outcome differences: 0 []
+harness Float32 base: pass [0, 0, 1, 2, 2] worst gap 1.15e-03 term {'converged': 49, 'f_increased': 1} iters mean 17.7 max 65 | products 41 f 39 grad 19 prox 20 bt 20 verif 3 alloc 8022B time 263us
+harness Float32 cand: pass [0, 0, 1, 2, 2] worst gap 1.15e-03 term {'converged': 49, 'f_increased': 1} iters mean 17.7 max 65 | products 41 f 39 grad 19 prox 20 bt 20 verif 3 alloc 8022B time 267us
+        harness Float32: base/cand outcome differences: 0 []
+harness Float64 base: pass [9, 4, 5, 6, 4] worst gap 7.67e-08 term {'converged': 50} iters mean 30.0 max 150 | products 69 f 65 grad 31 prox 34 bt 34 verif 4 alloc 14864B time 766us
+harness Float64 cand: pass [9, 4, 5, 6, 4] worst gap 7.67e-08 term {'converged': 50} iters mean 30.0 max 150 | products 69 f 65 grad 31 prox 34 bt 34 verif 4 alloc 14880B time 769us
+        harness Float64: base/cand outcome differences: 0 []
+same_x_as_base by (group, side): {('strict-f32', 'cand', 'false'): 46, ('strict-f32', 'cand2', 'false'): 46, ('strict-f32', 'cand', 'true'): 4, ('strict-f32', 'cand2', 'true'): 4, ('strict-f64', 'cand', 'true'): 50, ('strict-f64', 'cand2', 'true'): 50, ('harness-f32', 'cand', 'true'): 50, ('harness-f32', 'cand2', 'true'): 50, ('harness-f64', 'cand', 'true'): 50, ('harness-f64', 'cand2', 'true'): 50}
+alloc mean bytes: {('strict-f32', 'base'): 8142, ('strict-f32', 'cand'): 8142, ('strict-f64', 'base'): 14984, ('strict-f64', 'cand'): 15000, ('harness-f32', 'base'): 8102, ('harness-f32', 'cand'): 8102, ('harness-f64', 'base'): 14944, ('harness-f64', 'cand'): 14960}
+paired strict-f32   cases 50: cand/base gm 0.0035 (0.002-0.019) | A/A base2/base gm 1.0004 (0.998-1.006) cand2/cand gm 1.0006 (0.993-1.013) | mean base 154643.1us cand 539.1us
+paired strict-f64   cases 50: cand/base gm 0.9990 (0.996-1.004) | A/A base2/base gm 0.9981 (0.987-1.001) cand2/cand gm 1.0011 (0.999-1.007) | mean base 1104.7us cand 1103.5us
+paired harness-f32  cases 50: cand/base gm 1.0006 (0.995-1.004) | A/A base2/base gm 1.0011 (0.997-1.005) cand2/cand gm 1.0009 (0.999-1.003) | mean base 259.6us cand 259.8us
+paired harness-f64  cases 50: cand/base gm 0.9995 (0.997-1.003) | A/A base2/base gm 0.9981 (0.986-1.002) cand2/cand gm 1.0006 (0.998-1.005) | mean base 800.2us cand 799.3us
