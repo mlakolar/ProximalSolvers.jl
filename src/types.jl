@@ -17,15 +17,41 @@ Options for proximal gradient descent (PGD); `AccProxGradDescent` uses the
 same options and tests. The defaults prioritize an
 exploratory solve rather than a guaranteed number of accurate digits.
 PGD stops when **any** of the iterate-change (`xtol`), objective-change
-(`ftol`), or gradient/proximal-residual (`gradtol`) criteria succeeds.
-`converged=true` is therefore **not** a KKT certificate.
+(`ftol`), or gradient/proximal-residual (`gradtol`) criteria proposes a stop and
+the stationarity check below passes.
+
+**The stationarity check.** At an iteration at which one of the three tests
+holds, the solver computes the minimal-norm KKT residual `G` at the accepted
+iterate `x` for the penalty level `λ` (the element of `∇f(x) + λ ∂‖x‖₁` of least
+infinity norm). The stop counts only if
+`‖G‖∞ < max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `T` the element type and
+`λmax = α‖Xᵀy‖∞` for the loss scale `α` (1 for a plain `LeastSquaresLoss`), and
+when that bound is finite and at least `floatmin(T)`. Otherwise
+`x_converged`, `f_converged` and `grad_converged` are all `false`, and the solve
+continues. With `y = 0` and `λ = 0` both `λ` and `λmax` are 0, and nothing
+converges. `converged=true` therefore means that a test proposed a stop and that
+the computed (working-precision) relative KKT residual at the returned `x` is
+below that bound. It is not an exact-arithmetic certificate, and it does not
+bound the distance to a minimizer. A `gradtol` below `64 eps(T)`, including
+`0`, gives the bound `64 eps(T) max(λ, λmax)`. For `AccProxGradDescent` the check
+forms `∇f(x)` from the cached image `A x` at each iteration at which a stop is
+proposed, and counts that evaluation in `grad_calls`.
+
+The gradient test holds when `r < gradtol * m` or `r < gradtol * N`, with `r` the
+gradient/proximal residual of the iteration, `m` the largest `r` so far in the
+solve and `N` the larger of the gradient's and the proximal step's infinity
+norms, each only against a scale that exceeds `ρ = L eps(T) ‖x‖∞`, the rounding
+resolution of `L x`. No absolute term is added to `m` or `N`: a residual of 0
+against `m = N = 0` does not hold.
 
 `ftol` must be finite and nonnegative. With `ftol > 0`, including the default,
-the objective test holds when `|F - F'| / (|F| + ftol) < ftol` or
+the objective test holds when `|F - F'| / |F| < ftol` or
 `|F - F'| < eps(|F| + |F'|)`, where `F = f(x) + g(x)` is the computed objective and
-`F'` the previous one. The second form holds when `F == F'` and `|F| + |F'|` is finite,
-so a flat computed objective ends the solve with `f_converged=true`, which is not
-evidence of an accurate point; in the ordinary range, where `F` and `F'` are normal
+`F'` the previous one. The quotient is `0` when `F == F'` and `Inf` when
+`F = 0 ≠ F'`. The second form holds when `F == F'` and `|F| + |F'|` is finite,
+so a flat computed objective proposes a stop through the objective test, which is
+not evidence of an accurate point (the stationarity check decides); in the ordinary
+range, where `F` and `F'` are normal
 floating-point numbers and `|F| + |F'|` is finite, it is about two units in the last
 place of `F`. (If `|F| + |F'|`
 overflows, `eps` is `NaN` and the second form does not hold.) `ftol = 0` switches
@@ -41,10 +67,11 @@ A solve whose iterate stays unchanged until `maxiter`, and does not stop as desc
 below, ends with `converged=false` and `iteration_converged=true`; the flags then report
 no progress, not that the point is wrong. An iterate that differs from the previous
 one in any entry is evaluated as usual, including when the norm of the difference
-rounds to 0. With `ftol > 0`, an unchanged iterate satisfies the `xtol` test. For
+rounds to 0. With `ftol > 0`, an unchanged iterate proposes a stop through the `xtol` test,
+and the stationarity check decides. For
 `AccProxGradDescent`, an extrapolated point `y` equal to `x` while `x` differs from
 the previous iterate is not a stall: its residual `L * maximum(abs, x - y)` is 0, so
-the gradient test holds when `gradtol > 0`.
+the gradient test holds when `gradtol > 0`, `N > 0` and `ρ < N`.
 
 With `ftol = 0`, `ProximalGradientDescent` on `Vector{Float32}` data also stops at an
 iteration in which both of these hold: the accepted iterate equals the previous one
@@ -70,12 +97,16 @@ convergence test. At the iteration where any stop occurs, the result
 reports `f_increased = F > F'` and
 `converged = x_converged || f_converged || grad_converged`, so an
 objective-increase stop reports `converged=false` unless one of those
-tests also held. With `ftol > 0`, in the ordinary range (`F` and `F'` normal
-floating-point numbers, `|F| + |F'|` finite), an increase smaller than about two
-units in the last place of `F` passes the objective test and reports both
-`converged=true` and `f_increased=true`. With `ftol = 0`, `f_converged` is
+tests also held and the stationarity check passed. With `ftol > 0`, in the ordinary
+range (`F` and `F'` normal floating-point numbers, `|F| + |F'|` finite), an
+increase smaller than about two units in the last place of `F` passes the objective
+test, and the result reports both `converged=true` and `f_increased=true` if the
+stationarity check also passes, and `converged=false` with `f_increased=true` if it
+does not. A `Float32` solve with the default options can therefore end on the
+objective-increase stop, with `converged=false`, where it used to stop on the objective
+test. With `ftol = 0`, `f_converged` is
 `false`, so an increase of any size reports `converged=false` unless the `x` or
-gradient test held. Near a minimizer the computed
+gradient test held and the check passed. Near a minimizer the computed
 change in `F` is of the size of the rounding error of evaluating `F`, so
 whether a strict-tolerance solve ends with `converged=true` or with an
 objective-increase stop can depend on the last bits of its trajectory
@@ -221,13 +252,19 @@ end
 
 Result from proximal gradient descent, plain or accelerated. `minimizer` aliases the caller's
 coefficient vector; `minimum` is the reported objective at that iterate.
-`iterations` counts steps and `converged` means **at least one** stopping
-criterion succeeded, not necessarily that the solution satisfies KKT
-optimality. `iteration_converged` reports reaching the iteration limit,
+`iterations` counts steps and `converged` means that **at least one** stopping
+test proposed a stop and that the stationarity check passed (see
+[`ProximalOptions`](@ref)): the computed KKT residual at `minimizer` is below
+`max(gradtol, 64 eps(T)) * max(λ, λmax)`. It is a working-precision value, not an
+exact-arithmetic certificate. `iteration_converged` reports reaching the iteration limit,
 **not** successful convergence.
 
 The result also stores stopping flags, residuals and tolerances, optional
-`trace`, call counts and backtracking counts. For PGD, `backtrack_steps`
+`trace`, call counts and backtracking counts. `x_converged`, `f_converged` and
+`grad_converged` are the flags after the stationarity check, so all three are
+`false` at an iteration where the check refused a proposed stop; the residual
+fields are those of the tests at the last iteration. `grad_calls` of
+`AccProxGradDescent` includes one gradient at `x` for each check. For PGD, `backtrack_steps`
 includes accepted nonzero line-search trials; for APG it counts every trial,
 including the accepted one. `gap=NaN` means a dual
 gap was not calculated, not that the gap is zero.
@@ -239,7 +276,7 @@ not store. With `ftol = 0` (see [`ProximalOptions`](@ref)), `f_tol` is `0.0` and
 `f_converged` is `false`, because the objective test is off. `f_residual` is
 then reported only and does not decide a stop; it is `|F - F'| / |F|`, with the
 value `0.0` for `F = F' = 0` and `Inf` for `F = 0` and `F' != 0`. With `ftol > 0`
-it is `|F - F'| / (|F| + ftol)`. On an iteration whose iterate equals the
+it is the same quantity, the one that the objective test compares with `ftol`. On an iteration whose iterate equals the
 previous one elementwise, `ftol = 0` sets neither `x_converged` nor
 `grad_converged` (see [`ProximalOptions`](@ref) for the accelerated method's
 case `x == y`).

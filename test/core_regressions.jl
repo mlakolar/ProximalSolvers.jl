@@ -806,8 +806,7 @@ end
   X, y, s, λ = pgd_lasso_design(33, 100, 32)
   r, x, gap = pgd_strict_solve(Float64, c .* X, c .* y, s, c^2 * λ, ones(32), 2000)
   @test !r.stagnated && r.converged && gap <= 1e-5
-  # Float32 with ftol > 0: the default options end on a stopping test, and an exact stall (the first
-  # iterations of the inflated curvature) ends the solve through the x test, as before
+  # Float32 with ftol > 0: the default options end on a stopping test (or an objective increase)
   for (X, y, s, λ) in designs[1:3]
     A, b = Float32.(X), Float32.(y)
     f, g = Float32(s) * LeastSquaresLoss(b, A), NormL1(Float32(λ))
@@ -817,7 +816,9 @@ end
   A, b = Float32.(c .* X), Float32.(c .* y)
   r = solve!(ones(Float32, 32), Float32(s) * LeastSquaresLoss(b, A), NormL1(Float32(c^2 * λ)), ProximalGradientDescent(),
              ProximalOptions(ftol = 1e-15, allow_f_increases = true, xtol = 1e-300, gradtol = 1e-11, maxiter = 2000))
-  @test !r.stagnated && r.converged && r.x_converged && r.iterations < 10
+  # an exact stall in the first iterations of the inflated curvature proposes the x test, but the
+  # point is not stationary, so the solve continues until a stop passes the check (#296)
+  @test !r.stagnated && r.converged && r.iterations >= 10
   # APG under the strict settings
   X, y, s, λ = designs[1]
   r, x, gap = pgd_strict_solve(Float32, X, y, s, λ, zeros(32), 2000; method = AccProxGradDescent())
@@ -866,9 +867,15 @@ end
 # ---- ftol = 0 switches off objective-change stopping (#270) ----------------------------------
 # convergence_assessment of a constructed state: the solver's own initial_state, then the fields
 # that the assessment reads are set. F = f_x + g_x with g_x = 0; xtol = 1e-8, gradtol = 1e-11.
+# A proposed stop is kept only if x is stationary (#296): `stationary = true` moves both gradients
+# by the same amount, so that the gradient at x is -λ sign(x) (the residual of the gradient test
+# does not change; the model is the identity design, whose λmax is ‖y‖∞ = ‖x‖∞ + λ),
+# `stationary = false` leaves the gradient at x one away from it, and `stationary = nothing` sets
+# the given gradients as they are.
 function pgd_assessment(T, ftol; x, previous, F, F_previous, delta = x .- previous,
-                        grad = zeros(T, length(x)), grad_previous = grad, L = one(T))
-  f, g = LeastSquaresLoss(T[1, -1], T[1 0; 0 2]), NormL1(T(.1))
+                        grad = zeros(T, length(x)), grad_previous = grad, L = one(T), stationary = true)
+  λ = T(.1)
+  f, g = LeastSquaresLoss(x .+ λ .* sign.(x), T[1 0; 0 1]), NormL1(λ)
   options = ProximalOptions(; ftol, xtol = 1e-8, gradtol = 1e-11)
   state = PS.initial_state(ProximalGradientDescent(), options, f, g, T[.3, -.2])
   state.x .= x
@@ -876,8 +883,14 @@ function pgd_assessment(T, ftol; x, previous, F, F_previous, delta = x .- previo
   state.delta_x .= delta
   state.f_x, state.g_x = T(F), zero(T)
   state.f_x_previous, state.g_x_previous = T(F_previous), zero(T)
-  state.grad_f_x .= grad
-  state.grad_f_x_previous .= grad_previous
+  if stationary === nothing
+    state.grad_f_x .= grad
+    state.grad_f_x_previous .= grad_previous
+  else
+    target = -λ .* sign.(x) .+ (stationary ? zero(T) : one(T))
+    state.grad_f_x .= target
+    state.grad_f_x_previous .= grad == grad_previous ? target : grad_previous .+ (target .- grad)
+  end
   state.L = L
   (; flags = PS.convergence_assessment(state, f, g, options), state, f, g, options)
 end
@@ -923,7 +936,8 @@ end
     end
     # gradient_converged! still runs on an unchanged iterate, so max_residual is updated as with ftol > 0
     for ftol in (1e-15, 1e-300, 0)
-      a = pgd_assessment(T, ftol; x, previous = x, F, F_previous = F + 1, grad = T[1, 1.5], grad_previous = T[.5, 1])
+      a = pgd_assessment(T, ftol; x, previous = x, F, F_previous = F + 1, grad = T[1, 1.5], grad_previous = T[.5, 1],
+                         stationary = nothing)
       @test a.state.max_residual == T(.5)
     end
   end
@@ -946,6 +960,29 @@ alloc_unchanged(a, b) = @allocated PS._unchanged(a, b)
   end
 end
 
+@testset "PGD: a proposed stop at a point that is not stationary is cleared, and the check evaluates no gradient (#296)" begin
+  for T in (Float64, Float32)
+    x, F = T[1, 2], T(3) / 2
+    # x == x_previous proposes the x test (with ftol > 0); equal nonzero gradients make the
+    # gradient test hold as well
+    kept = pgd_assessment(T, 1e-15; x, previous = x, F, F_previous = F + 1)
+    @test kept.flags == (true, false, true, true, false)
+    cleared = pgd_assessment(T, 1e-15; x, previous = x, F, F_previous = F + 1, stationary = false)
+    @test cleared.flags == (false, false, false, false, false)
+    @test cleared.state.grad_calls == kept.state.grad_calls == 1
+    # equal zero gradients and a zero step (a zero normalizer and a zero largest residual) are not
+    # evidence for the gradient test
+    zero_normalizer = pgd_assessment(T, 1e-15; x, previous = x, F, F_previous = F + 1, stationary = nothing)
+    @test !PS.gradient_converged!(zero_normalizer.state, zero_normalizer.options)
+    for ftol in (1e-15, 0)
+      # no proposal, no check
+      none = pgd_assessment(T, ftol; x, previous = x .+ T(.01), F, F_previous = F + 1,
+                            grad = ones(T, 2), grad_previous = zeros(T, 2), stationary = false)
+      @test none.flags == (false, false, false, false, false)
+    end
+  end
+end
+
 alloc_assessment(a) = @allocated PS.convergence_assessment(a.state, a.f, a.g, a.options)
 @testset "PGD: a warmed assessment allocates nothing, with and without an unchanged iterate (#270)" begin
   for T in (Float64, Float32), ftol in (1e-15, 0)
@@ -958,7 +995,7 @@ alloc_assessment(a) = @allocated PS.convergence_assessment(a.state, a.f, a.g, a.
   end
 end
 
-@testset "f_residual under ftol = 0 reports 0 for F = F' = 0, Inf for F = 0 != F' and |F - F'|/|F| otherwise (#270)" begin
+@testset "f_residual is |F - F'|/|F| with 0 for F = F' = 0 and Inf for F = 0 != F', for ftol = 0 and ftol > 0 (#270, #296)" begin
   for T in (Float64, Float32)
     @test PS.f_residual(T(0), T(0), 0.0) === 0.0
     @test PS.f_residual(T(0), T(1), 0.0) === Inf
@@ -966,10 +1003,11 @@ end
     @test PS.f_residual(T(-3), T(-3), 0.0) === 0.0
     @test PS.f_residual(T(2), T(1), 0.0) === 0.5
     @test PS.f_residual(T(1), T(3) / 2, 0.0) === 0.5
-    # ftol > 0 keeps its formula
+    # ftol > 0 is the same relative quantity: there is no absolute ftol in the denominator (#296)
     @test PS.f_residual(T(0), T(0), 1e-6) === 0.0
-    @test PS.f_residual(T(0), T(1), 1e-6) === 1 / 1e-6
-    @test PS.f_residual(T(1), T(3) / 2, 1e-6) === 0.5 / (1 + 1e-6)
+    @test PS.f_residual(T(0), T(1), 1e-6) === Inf
+    @test PS.f_residual(T(1), T(3) / 2, 1e-6) === 0.5
+    @test PS.f_residual(T(1), T(3) / 2, 1e-6) === PS.f_residual(T(1), T(3) / 2, 0.0)
     # the result reports what the solve ended with: F = F' = 0, then F = 0 != F'
     f = LeastSquaresLoss(T[0], T[1;;])
     r = solve!(T[0], f, NormL1(T(100)), ProximalGradientDescent(), ProximalOptions(maxiter = 3, ftol = 0))
