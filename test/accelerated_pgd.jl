@@ -497,10 +497,11 @@ end
     @test value(r) >= frob(X) && value(r) <= frob(X) * (1 + 1e-12) + 1e-320
   end
   @test iszero(PS._frobenius_upper(Float64, zeros(2, 2)).s)
-  # a design with a tiny nonzero entry: the start is already the solution
+  # a design with a tiny nonzero entry, y = 0 and λ = 0: the start is the solution, but both
+  # λ and λmax are 0, so no stopping test can be verified and the solve ends at maxiter
   x = [0.0]
   r = solve!(x, LeastSquaresLoss([0.0], fill(1e-310, 1, 1)), NormL1(0.0), AccProxGradDescent())
-  @test x == [0.0] && r.iterations == 1
+  @test x == [0.0] && !r.converged && r.iteration_converged
 end
 
 @testset "the fresh-product reference (Option B) on fixtures" begin
@@ -820,11 +821,18 @@ end
     @test r.trace[end].fg_x == Float64(r.minimum)
     @test haskey(r.trace[end].metadata, "x") && haskey(r.trace[end].metadata, "grad_f(y)")
     @test r.trace[end].metadata["x"] == x
-    # one value-and-gradient at y per step (two when it restarts), one value per trial
-    @test r.f_calls == 1 + r.grad_calls + r.prox_calls
+    # one value-and-gradient at y per step (two when it restarts), one value per trial; every
+    # stationarity check of a proposed stop adds one gradient at x to grad_calls (and no value),
+    # at most one per iteration, and the stop of a converged solve passed one
+    checks = 1 + r.grad_calls + r.prox_calls - r.f_calls
+    @test r.converged ? 1 <= checks <= r.iterations : 0 <= checks <= r.iterations
     @test r.backtrack_steps == r.prox_calls
-    @test r.iterations <= r.grad_calls <= 2 * r.iterations
-    @test r.grad_calls <= r.prox_calls
+    @test r.iterations <= r.grad_calls - checks <= 2 * r.iterations
+    @test r.grad_calls - checks <= r.prox_calls
+    # with these options no test proposes a stop in these iterations, so there is no check and the relation is exact
+    r0 = solve!(zeros(T, 15), f, g, m, ProximalOptions(maxiter = 25, ftol = 0, xtol = 1e-300, gradtol = 0, allow_f_increases = true))
+    @test r0.iterations == 25 && !r0.converged
+    @test r0.f_calls == 1 + r0.grad_calls + r0.prox_calls
     @test isnan(r.gap) && !r.call_limit_reached
     @test occursin("Accelerated Proximal Gradient Descent", sprint(show, r))
     @test r.converged == (r.x_converged || r.f_converged || r.grad_converged)
@@ -897,12 +905,18 @@ end
 # ---- ftol = 0 switches off objective-change stopping (#270) ----------------------------------
 # convergence_assessment of a constructed state: the solver's own initial_state, then the fields
 # that the assessment reads are set. F = f_x + g_x with g_x = 0; xtol = 1e-8, gradtol = 1e-11.
+# A proposed stop is kept only if x is stationary (#296). The loss is the identity design with
+# y = x + λ sign(x), whose gradient at x is -λ sign(x), so that x is the lasso solution and the
+# check passes; `stationary = false` moves y away from it, and the check then clears the three stopping flags.
 function apg_assessment(T, ftol; x, previous, F, F_previous, y = x, delta = x .- previous,
-                        grad = zeros(T, length(x)), L = one(T))
-  f, g = LeastSquaresLoss(T[1, -1], T[1 0; 0 2]), NormL1(T(.1))
+                        grad = ones(T, length(x)), L = one(T), stationary = true)
+  λ = T(.1)
+  response = stationary ? x .+ λ .* sign.(x) : x .+ T(1) .+ λ .* sign.(x)
+  f, g = LeastSquaresLoss(response, T[1 0; 0 1]), NormL1(λ)
   options = ProximalOptions(; ftol, xtol = 1e-8, gradtol = 1e-11)
   state = PS.initial_state(AccProxGradDescent(), options, f, g, T[.3, -.2])
   state.x .= x
+  PS._image!(state.z_x, state.model, state.x)
   state.x_previous .= previous
   state.delta_x .= delta
   state.f_x, state.g_x = T(F), zero(T)
@@ -961,6 +975,29 @@ end
     for ftol in (1e-15, 1e-300, 0)
       a = apg_assessment(T, ftol; x, previous = x, y = far, F, F_previous = F + 1)
       @test a.state.max_residual == T(.5)
+    end
+  end
+end
+
+@testset "APG: a proposed stop at a point that is not stationary is cleared, and the check counts one gradient (#296)" begin
+  for T in (Float64, Float32)
+    x, F = T[1, 2], T(3) / 2
+    # x == x_previous proposes the x test (with ftol > 0); with y == x and a nonzero gradient the
+    # gradient test holds as well
+    kept = apg_assessment(T, 1e-15; x, previous = x, F, F_previous = F + 1)
+    @test kept.flags == (true, false, true, true, false)
+    @test kept.state.grad_calls == 1
+    cleared = apg_assessment(T, 1e-15; x, previous = x, F, F_previous = F + 1, stationary = false)
+    @test cleared.flags == (false, false, false, false, false)
+    @test cleared.state.grad_calls == 1
+    # a zero gradient and a zero step is not evidence for the gradient test; the x test proposes
+    zero_normalizer = apg_assessment(T, 1e-15; x, previous = x, F, F_previous = F + 1, grad = zeros(T, 2))
+    @test zero_normalizer.flags == (true, false, false, true, false)
+    for ftol in (1e-15, 0)
+      # no proposal, no check
+      none = apg_assessment(T, ftol; x, previous = x .+ T(.01), F, F_previous = F + 1, y = x .+ T(1) / 2, stationary = false)
+      @test none.flags == (false, false, false, false, false)
+      @test none.state.grad_calls == 0
     end
   end
 end

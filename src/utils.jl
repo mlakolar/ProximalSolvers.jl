@@ -20,12 +20,12 @@ end
 
 extended_trace!(dt, state::ProximalGradientDescentState) = dt["grad_f(x)"] = _copy(state.grad_f_x)
 
-# The objective-change residual that results report. With f_tol > 0 it is the quantity
-# of the relative test. With f_tol = 0 no objective test is evaluated, so it only
-# reports: |F - F'| / |F|, which is 0 for F = F' = 0 (an explicit branch, 0/0 is NaN)
-# and Inf for F = 0 != F'.
+# The objective-change residual of the relative objective test and of the result:
+# |F - F'| / |F|, evaluated in Float64. It is 0 when F == F' (an explicit branch: 0/0 is NaN),
+# so it is 0 for F = F' = 0, and Inf for F = 0 != F'. There is no absolute term in the
+# denominator, so a small objective is judged on its own scale. `f_tol` is not used: the value
+# is the same whether the test is on (f_tol > 0) or off (f_tol = 0, where it only reports).
 function f_residual(f_x, f_x_previous, f_tol)
-  iszero(f_tol) || return abs(f_x-f_x_previous)/(abs(f_x)+f_tol)
   change = Float64(abs(f_x-f_x_previous))
   iszero(change) ? 0.0 : change / abs(Float64(f_x))
 end
@@ -67,6 +67,12 @@ function convergence_assessment(
   # evaluated on a stalled iteration too, so max_residual is updated as without the rule
   grad_converged = gradient_converged!(state, options) && !stalled
 
+  # A stop proposed by any of the three tests counts only if the accepted iterate is stationary
+  # for the lasso, to the working precision (see _stationary!); otherwise the solve continues.
+  if (x_converged || f_converged || grad_converged) && !_stationary!(state, g, options)
+    x_converged, f_converged, grad_converged = false, false, false
+  end
+
   converged = x_converged || f_converged || grad_converged
 
   return x_converged, f_converged, grad_converged, converged, f_increased
@@ -76,9 +82,82 @@ function gradient_converged!(state::ProximalGradientDescentState{T}, options::Pr
   state.max_residual = max(state.max_residual, residual)
   # (xhat - x) / τ = -(L (x - x_previous) + ∇f(x_previous))
   subgrad = _maxabs_axpy(state.L, state.delta_x, state.grad_f_x_previous)
-  normalizer = max(_norm_inf(state.grad_f_x), subgrad) + options.gradtol
-  n_residual = residual / normalizer
-  residual / (state.max_residual + options.gradtol) < options.gradtol || n_residual < options.gradtol
+  _gradient_test(state, options, residual, max(_norm_inf(state.grad_f_x), subgrad))
+end
+
+# The gradient test of PGD and APG, for the residual r of the iteration, the largest residual so
+# far m = state.max_residual and the scale N of the gradient and the proximal step. It holds
+# when r < gradtol m or r < gradtol N, with no absolute term added to m or N (a test on a scale
+# of 0 does not hold), and only against a scale that exceeds ρ = L eps(T) ‖x‖∞, the rounding
+# resolution of L x. A residual that is zero because a step rounded to nothing does not hold
+# when ρ is at least as large as both m and N.
+function _gradient_test(state::Union{ProximalGradientDescentState{T}, AccProxGradDescentState{T}},
+                        options::ProximalOptions, residual, N) where T
+  ρ = state.L * eps(T) * _norm_inf(state.x)
+  m = state.max_residual
+  (residual < options.gradtol * m && ρ < m) || (residual < options.gradtol * N && ρ < N)
+end
+
+# ---- the stationarity check of a proposed stop -------------------------------------------------
+#
+# The check is for the lasso ½α‖Xb - y‖² + λ‖b‖₁ (α = 1 for a raw LeastSquaresLoss), whose gradient
+# the solver forms. G is the element of ∇f(x) + λ ∂‖x‖₁ of least norm: |∇fᵢ| - λ clipped at 0
+# where xᵢ = 0, and |∇fᵢ + λ sign xᵢ| otherwise. The stop is kept when ‖G‖∞ < τ S, with
+# S = max(λ, λmax), λmax = α‖Xᵀy‖∞ = ‖∇f(0)‖∞, and τ = max(gradtol, 64 eps(T)): the threshold is
+# relative to S, which a common positive factor on the loss and the penalty scales alike (within
+# the range of T), and 64 eps(T) is a floor of a few dozen units of roundoff, chosen without a
+# bound on the error of the computed gradient. It is not kept when S is not finite, when τ S is
+# below floatmin(T) (a threshold that may have underflowed) or when ‖G‖∞ is not finite.
+# It is a computed residual, not a certificate in exact arithmetic.
+function _stationary!(state, g, options::ProximalOptions)
+  T = eltype(state.x)
+  λmax = _lambda_max!(state)       # first: it uses xhat, which APG's gradient below also uses
+  grad = _gradient_at_x!(state)
+  λ = T(g.λ0)
+  residual = _kkt_residual(grad, state.x, λ)
+  S = max(λ, λmax)
+  τ = T(max(options.gradtol, 64 * Float64(eps(T))))
+  threshold = τ * S
+  isfinite(S) && threshold >= floatmin(T) && isfinite(residual) && residual < threshold
+end
+
+# α‖Xᵀy‖∞, computed once per solve (state.λmax is negative until then) with the arithmetic of the
+# gradient kernel at x = 0 (Xᵀ times a vector, then the scale α). It is formed in state.xhat. At
+# every use in the solvers xhat is written before it is read (the input of the proximal step in
+# PGD's update_state!, the same input and the difference x - y in APG's _prox_grad_step!), and
+# the convergence tests and the trace do not read it, so a stop that is assessed after an
+# iteration can overwrite it. It is not a counted call.
+function _lambda_max!(state)
+  state.λmax < 0 || return state.λmax
+  m = state.model
+  mul!(state.xhat, transpose(m.X), m.Y)
+  state.xhat .*= m.α
+  state.λmax = _norm_inf(state.xhat)
+end
+
+# ∇f at the accepted x. PGD holds it.
+_gradient_at_x!(state::ProximalGradientDescentState) = state.grad_f_x
+
+# APG holds ∇f(y), not ∇f(x). It forms ∇f(x) from the cached image A x with the gradient kernel,
+# in state.xhat (the length-p buffer above) with state.dz, the image-length buffer that APG writes
+# before it reads it at each use (the value and gradient at y, the fresh product of the bound
+# test), and counts the evaluation in grad_calls.
+function _gradient_at_x!(state::AccProxGradDescentState)
+  _image_value_and_gradient!(state.xhat, state.model, state.z_x, state.dz)
+  state.grad_calls += 1
+  state.xhat
+end
+
+# maxᵢ of |gᵢ - λ| clipped at 0 where xᵢ = 0, and of |gᵢ + λ sign xᵢ| elsewhere; NaN if an entry is
+# NaN (max propagates it)
+function _kkt_residual(grad::AbstractArray, x::AbstractArray, λ::T) where {T}
+  m = zero(T)
+  @inbounds for i in eachindex(grad, x)
+    xi = x[i]
+    r = iszero(xi) ? max(abs(grad[i]) - λ, zero(T)) : abs(grad[i] + λ * sign(xi))
+    m = max(m, r)
+  end
+  m
 end
 
 # x == y elementwise, by value (so -0.0 == 0.0), without allocating

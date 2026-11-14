@@ -238,10 +238,20 @@ violation: assess accuracy with an independent objective/KKT check.
 
 PGD retains native LS image/value/gradient order, scalar steps, fused PB prox,
 TFOCS objective-to-gradient checks, finite curvature-growth refusal and zero-step
-gradient refresh. Historical objective/iterate/FASTA convergence tests combine
-by OR. Converged does not guarantee KKT below gradtol; objective rounding can
-stop even with very small ftol; `ftol = 0` disables the objective test. Check
-objective/KKT independently. Native
+gradient refresh. Objective/iterate/FASTA convergence tests combine by OR and carry no
+absolute term: the objective test is `|F - F'| / |F| < ftol` or the flat form, and the
+gradient test compares the residual with `gradtol` times the largest residual so far or
+times the larger of ‖∇f‖∞ and the proximal-step residual, against a scale that exceeds
+`L eps(T) ‖x‖∞`. A stop that any of them proposes is checked once in `_stationary!`
+(`src/utils.jl`): the minimal-norm KKT residual of the accepted `x` must be below
+`max(gradtol, 64 eps(T)) * max(λ, λmax)`, `λmax = α‖Xᵀy‖∞` (formed once per solve in `xhat`
+and kept in the state field `λmax`), and that bound must be finite and at least `floatmin(T)`;
+otherwise the three flags are cleared and the solve continues. PGD uses the `∇f(x)` it holds. APG
+forms `∇f(x)` from the cached image `z_x` with `_image_value_and_gradient!`, into `xhat`
+and `dz`, which the next iteration overwrites before reading, and counts it in `grad_calls`.
+The check is a computed working-precision residual, not an exact-arithmetic certificate.
+Objective rounding can still end a solve with an objective increase; `ftol = 0`
+disables the objective test. Check objective/KKT independently. Native
 Float32 may stagnate earlier. Finite inputs do not ensure finite intermediates;
 historical LS image exceptional-range limitations remain outside this extraction.
 

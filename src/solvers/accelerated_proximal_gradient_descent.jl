@@ -39,10 +39,13 @@ Backtracking raises an error when the next curvature estimate `L/β` is not a fi
 increase of `L`; `solve!` then restores the last accepted iterate and rethrows. A
 `β` close to one makes each rejected trial raise `L` only slightly. `preconditioner = :diagonal` is deferred and
 rejected. Pass `ProximalOptions(...)` as the fifth argument to [`solve!`](@ref).
-`converged = true` means that one of the stopping rules was satisfied; it is not an
-optimality certificate. The gradient-mapping residual of the result,
-`L ‖x - y‖∞`, is measured from the extrapolated point `y`, not from `x`; check KKT
-conditions independently before reporting numerical results.
+A stop that the `xtol`, `ftol` or `gradtol` test proposes counts only if the computed KKT
+residual at the accepted `x` is below `max(gradtol, 64 eps(T)) * max(λ, λmax)`, with
+`λmax = α‖Xᵀy‖∞` (see [`ProximalOptions`](@ref)); `converged = true` means that, in working
+precision, and is not an exact-arithmetic certificate. The check forms `∇f(x)` from the
+cached image `A x` and counts that evaluation in `grad_calls`. The gradient-mapping residual
+of the result, `L ‖x - y‖∞`, is measured from the extrapolated point `y`, not from `x`; check
+KKT conditions independently before reporting numerical results.
 See the [solver guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/)
 and [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
 """
@@ -84,6 +87,7 @@ mutable struct AccProxGradDescentState{T, X<:Vector{T}, M, Z}
     delta_x::X
     L::T
     max_residual::T
+    λmax::T           # α‖Xᵀy‖∞ for the stationarity check of a stop, -1 until it is computed
     k::Int            # iterations since the start or the last restart
     restarts::Int
     backtrack_steps::Int
@@ -129,6 +133,7 @@ function initial_state(
                          _similar(x0), # x - x_previous
                          one(T),      # L
                          T(-Inf),     # max_residual
+                         -one(T),     # λmax, not yet computed
                          0,           # k
                          0,           # restarts
                          0,           # backtrack_steps
@@ -282,9 +287,7 @@ function gradient_converged!(state::AccProxGradDescentState, options::ProximalOp
   state.max_residual = max(state.max_residual, residual)
   # (xhat - x) / τ = L (y - x) - ∇f(y), with xhat = y - τ∇f(y)
   subgrad = _maxabs_stepdiff(state.L, state.y, state.x, state.grad_f_y)
-  normalizer = max(_norm_inf(state.grad_f_y), subgrad) + options.gradtol
-  n_residual = residual / normalizer
-  residual / (state.max_residual + options.gradtol) < options.gradtol || n_residual < options.gradtol
+  _gradient_test(state, options, residual, max(_norm_inf(state.grad_f_y), subgrad))
 end
 
 """

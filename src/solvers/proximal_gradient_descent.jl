@@ -21,11 +21,13 @@ keywords remain for compatibility with earlier versions; their default values
 are accepted and not stored.
 
 Pass `ProximalOptions(...)` as the fifth argument to `solve!` to
-configure stopping tolerances and iteration limits. **The defaults may
-stop after only 3–4 correct digits on the small tutorial examples.**
-`converged=true` means a stopping rule was satisfied, not that the
-result is an accurate minimizer. Tighten tolerances and check KKT conditions
-independently before reporting numerical results.
+configure stopping tolerances and iteration limits. A stop that the `xtol`, `ftol` or
+`gradtol` test proposes counts only if the computed KKT residual of the iterate is below
+`max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞` (see
+[`ProximalOptions`](@ref)). `converged=true` means that, in working precision; it is not an
+exact-arithmetic certificate and does not bound the distance to a minimizer, and the
+default tolerances are not a specified number of correct digits. Tighten tolerances and
+check KKT conditions independently before reporting numerical results.
 See the [solver guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/)
 and [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
 """
@@ -65,6 +67,7 @@ mutable struct ProximalGradientDescentState{T, X<:Vector{T}, G<:Vector{T}, M, Z}
     delta_x::X
     L::T
     max_residual::T
+    λmax::T         # α‖Xᵀy‖∞ for the stationarity check of a stop, -1 until it is computed
     backtrack_simple::Bool  # line search uses function values, not gradients
     backtrack_steps::Int
     f_calls::Int
@@ -111,6 +114,7 @@ function initial_state(
                          _similar(x0), # Temporary storage for x1 - x0
                          one(T),      # L
                          T(-Inf),     # max_residual
+                         -one(T),     # λmax, not yet computed
                          true,        # backtrack_simple
                          0,           # backtrack_steps
                          1,           # f_calls
@@ -246,7 +250,8 @@ T=Float32 or Float64; `CDSolver` also accepts a one-dimensional `SparseIterate{T
 its unnormalized meaning. One positive finite scalar LS wrapper is supported.
 Borrowed X/y must not alias mutable `x` or change during a solve. Results share
 `x`; copy it to retain earlier coefficients. Unsupported inputs/options fail
-before mutation. Convergence uses historical stopping tests, not a KKT
+before mutation. A stop of the stopping tests counts only at a point whose computed KKT
+residual meets the bound of [`ProximalOptions`](@ref), which is not an exact-arithmetic
 certificate. Finite intermediate arithmetic is required. PGD step errors restore
 its last accepted `x` and rethrow, without a transaction guarantee for internal
 counters.

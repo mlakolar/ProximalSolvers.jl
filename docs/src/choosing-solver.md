@@ -114,8 +114,10 @@ coordinate order and no momentum, use
 ## Proximal gradient descent
 
 Defaults are useful for an **exploratory first run**, not for claiming
-coefficient accuracy. Even on this two-coefficient problem they can stop with
-only around 3–4 correct digits, despite `converged=true`:
+coefficient accuracy. With them, `converged=true` means that the computed
+relative KKT residual is below `max(gradtol, 64eps(T)) * max(λ, λmax)`, which
+does not bound the coefficient error, shown here next to the KKT violation
+on this two-coefficient problem:
 
 ~~~@example choosing_pgd
 using ProximalBase, ProximalSolvers
@@ -161,11 +163,19 @@ strict_kkt = maximum([
 The default `maxiter=200`, `ftol=1e-6`, `xtol=1e-8`
 and `gradtol=1e-5` target convenience, **not a specified number of
 accurate digits**. Tighten them for results you intend to report, but do
-not assume smaller tolerances guarantee a correspondingly smaller error.
-PGD's stopping tests combine by **OR**, so a satisfied objective-change
-test can stop the run even when the KKT residual is not small;
-`ftol = 0` switches that test off, as described under Strict accuracy in
-[Numerical behavior](numerics.md).
+not assume smaller tolerances guarantee a correspondingly smaller error:
+`gradtol` below `64eps(T)` is not resolved by the check of a stop, and the
+residual that is checked does not bound the coefficient error.
+PGD's stopping tests combine by **OR**, so any one of them can propose a stop,
+and a proposed stop counts only if the computed relative KKT residual is below
+`max(gradtol, 64eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞`. A solve
+that the check keeps from stopping continues, and can end at `maxiter` with
+`converged=false`. `ftol = 0` switches the objective-change test off, as
+described under Strict accuracy in [Numerical behavior](numerics.md).
+With these stricter tolerances and the default `allow_f_increases=false`, PGD on
+this problem ended on the objective-increase stop with `converged=false` in a
+test run on Julia 1.13.3; `allow_f_increases=true` lets it continue to a stop
+that passes the check (see "Strict accuracy" in [Numerical behavior](numerics.md)).
 The two results above report both coefficient error (possible here because
 the analytic answer is known) and an independently computed
 [KKT violation](sparsity-and-kkt.md). On other problems, evaluate the KKT
