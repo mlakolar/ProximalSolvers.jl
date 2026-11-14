@@ -32,8 +32,10 @@ beta_cd = zeros(T, size(X, 2))
 cd = solve!(beta_cd, f, g, CDSolver(order=:cyclic, momentum=false))
 
 beta_pgd = zeros(T, size(X, 2))
+# allow_f_increases=true: at gradtol=1e-10 a solve can otherwise end on a computed
+# objective increase (converged = false, f_increased = true)
 options = ProximalOptions(maxiter=2000, ftol=1e-14,
-                          xtol=1e-12, gradtol=1e-10)
+                          xtol=1e-12, gradtol=1e-10, allow_f_increases=true)
 pgd = solve!(beta_pgd, f, g, ProximalGradientDescent(), options)
 
 beta_apg = zeros(T, size(X, 2))
@@ -47,10 +49,11 @@ the random number generator. Set an explicit `rng` if you want to
 reproduce that order.
 
 **For PGD and APG, `converged=true` means that a stopping test proposed a stop and
-that the computed relative KKT residual is below `max(gradtol, 64eps(T)) * max(λ, λmax)`
-(`λmax = α‖Xᵀy‖∞`), not that the coefficients have a specified number of correct digits.**
-Use tighter options and independently check optimality for results you plan to report.
-It is a working-precision residual, not an exact-arithmetic certificate. See the
+that the computed KKT residual `‖G‖∞` at the returned point is below
+`max(gradtol, 64eps(T)) * max(λ, λmax)` (`λmax = α‖Xᵀy‖∞`; equivalently, `‖G‖∞ / max(λ, λmax)`
+is below `max(gradtol, 64eps(T))`), not that the coefficients have a specified number of
+correct digits.** Use tighter options and independently check optimality for results you plan
+to report. It is a working-precision residual, not an exact-arithmetic certificate. See the
 [numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/)
 and [solver settings](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/).
 

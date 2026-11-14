@@ -89,14 +89,14 @@ pgd_kkt = [iszero(beta_pgd[j]) ?
    max_kkt_violation=maximum(pgd_kkt))
 ~~~
 
-The defaults may report `converged=true` while the coefficients still differ
-from the analytic answer. On this tutorial problem, **default PGD typically
-gives about 3–4 correct digits**, not full Float64 accuracy; this is not a
-general guarantee. Tighten tolerances for results you plan to report and
-verify an independent KKT residual. See
+With the defaults, `converged=true` means that a stopping test proposed a stop and
+that the computed KKT residual is below `max(gradtol, 64eps(T)) * max(λ, λmax)`; the
+coefficients can still differ from the analytic answer, as the displayed errors show,
+and this is not a general guarantee. Tighten tolerances for results you plan to report
+and verify an independent KKT residual. See
 [Choosing a solver](choosing-solver.md) for tighter settings.
-The solver's `converged` flag is a stopping indicator, not an optimality
-certificate.
+The solver's `converged` flag is a working-precision check of the KKT residual, not an
+exact optimality certificate.
 
 ## Float32 data
 

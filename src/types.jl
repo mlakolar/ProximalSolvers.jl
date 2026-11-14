@@ -25,13 +25,16 @@ holds, the solver computes the minimal-norm KKT residual `G` at the accepted
 iterate `x` for the penalty level `λ` (the element of `∇f(x) + λ ∂‖x‖₁` of least
 infinity norm). The stop counts only if
 `‖G‖∞ < max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `T` the element type and
-`λmax = α‖Xᵀy‖∞` for the loss scale `α` (1 for a plain `LeastSquaresLoss`), and
-when that bound is finite and at least `floatmin(T)`. Otherwise
+`λmax = α‖Xᵀy‖∞` for the loss scale `α` (1 for a plain `LeastSquaresLoss`). The check
+also requires that `S = max(λ, λmax)` is finite, that the product
+`max(gradtol, 64 eps(T)) * S`, formed in `T`, is at least `floatmin(T)`, and that `‖G‖∞` is
+finite; it does not require that product to be finite (for a huge `gradtol` it can be
+`Inf`). Otherwise
 `x_converged`, `f_converged` and `grad_converged` are all `false`, and the solve
 continues. With `y = 0` and `λ = 0` both `λ` and `λmax` are 0, and nothing
 converges. `converged=true` therefore means that a test proposed a stop and that
-the computed (working-precision) relative KKT residual at the returned `x` is
-below that bound. It is not an exact-arithmetic certificate, and it does not
+the computed (working-precision) KKT residual `‖G‖∞` at the returned `x` is
+below that bound, that is, `‖G‖∞ / max(λ, λmax) < max(gradtol, 64 eps(T))`. It is not an exact-arithmetic certificate, and it does not
 bound the distance to a minimizer. A `gradtol` below `64 eps(T)`, including
 `0`, gives the bound `64 eps(T) max(λ, λmax)`. For `AccProxGradDescent` the check
 forms `∇f(x)` from the cached image `A x` at each iteration at which a stop is
@@ -41,8 +44,10 @@ The gradient test holds when `r < gradtol * m` or `r < gradtol * N`, with `r` th
 gradient/proximal residual of the iteration, `m` the largest `r` so far in the
 solve and `N` the larger of the gradient's and the proximal step's infinity
 norms, each only against a scale that exceeds `ρ = L eps(T) ‖x‖∞`, the rounding
-resolution of `L x`. No absolute term is added to `m` or `N`: a residual of 0
-against `m = N = 0` does not hold.
+resolution of `L x`. No absolute term is added to `m` or `N`. The comparisons use the
+floating-point products `gradtol * m` and `gradtol * N`: a residual of 0 holds only against
+a positive product, so it does not hold against `m = N = 0` or against a product that
+underflows to 0.
 
 `ftol` must be finite and nonnegative. With `ftol > 0`, including the default,
 the objective test holds when `|F - F'| / |F| < ftol` or
@@ -71,7 +76,7 @@ rounds to 0. With `ftol > 0`, an unchanged iterate proposes a stop through the `
 and the stationarity check decides. For
 `AccProxGradDescent`, an extrapolated point `y` equal to `x` while `x` differs from
 the previous iterate is not a stall: its residual `L * maximum(abs, x - y)` is 0, so
-the gradient test holds when `gradtol > 0`, `N > 0` and `ρ < N`.
+the gradient test holds when `0 < gradtol * N` and `ρ < N`, or `0 < gradtol * m` and `ρ < m`.
 
 With `ftol = 0`, `ProximalGradientDescent` on `Vector{Float32}` data also stops at an
 iteration in which both of these hold: the accepted iterate equals the previous one

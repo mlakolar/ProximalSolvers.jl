@@ -26,15 +26,34 @@ function data(name)
   X, X * β + 0.3 * randn(rng, 30)
 end
 
-# ‖G‖∞/max(λ, λmax) for the minimal-norm element G of ∇f(x) + λ ∂‖x‖₁, f(x) = α/2 ‖y - X x‖², and
-# S = max(λ, λmax), from the T data as given; Inf for S = 0. BigFloat precision is scoped.
-function relative_kkt(X, y, α, λ, x)
+# The exact minimal-norm KKT residual ‖G‖∞ of ∇f(x) + λ ∂‖x‖₁, f(x) = α/2 ‖y - X x‖², and
+# S = max(λ, λmax), from the T data as given, in BigFloat (precision is scoped). Returns
+#   (‖G‖∞ - eG - τ (1 + 4 eps(T)) (S + eS)) / S,   Inf for S = 0,
+# which is at most 0 when the exact residual is within the threshold τ S of the solver's check
+# plus the first-order rounding error of what the solver computes. The solver compares its
+# computed residual Ĝ with τ Ŝ, where Ŝ uses a computed λmax. With u = eps(T) (twice the unit
+# roundoff, as slack), standard dot-product bounds for a computed d̂ = fl(X x) - y and gradient
+# ĝ = α fl(Xᵀ d̂) give, from the raw products and the exact residual d = X x - y,
+#   eG = max over coordinates i of α Σⱼ |Xⱼᵢ| (e_j + (n+1) u (|d_j| + e_j)) + u (|gᵢ| + λ),
+#   e_j = (p+1) u (Σₖ |Xⱼₖ||xₖ| + |y_j|),     eS = α (n+1) u max over i of Σⱼ |Xⱼᵢ||y_j|,
+# with eG covering |Ĝ - G| and eS covering |λ̂max - λmax|. These are estimates under that error
+# model, not guarantees for every BLAS kernel, and they do not make the computed residual an
+# exact one.
+function kkt_excess(X, y, α, λ, x, τ, ::Type{T}) where T
   setprecision(BigFloat, 256) do
     Xb, yb, xb, a, l = BigFloat.(X), BigFloat.(y), BigFloat.(x), BigFloat(α), BigFloat(λ)
-    g = a .* (Xb' * (Xb * xb - yb))
+    n, p = size(Xb)
+    u = BigFloat(eps(T))
+    d = Xb * xb - yb
+    g = a .* (Xb' * d)
     G = maximum(j -> iszero(xb[j]) ? max(abs(g[j]) - l, zero(l)) : abs(g[j] + l * sign(xb[j])), eachindex(xb))
     S = max(l, maximum(abs, a .* (Xb' * yb)))
-    iszero(S) ? Inf : Float64(G / S)
+    iszero(S) && return Inf
+    absX = abs.(Xb)
+    e = (p + 1) * u .* (absX * abs.(xb) + abs.(yb))
+    eG = maximum(a .* (absX' * (e .+ (n + 1) * u .* (abs.(d) .+ e))) .+ u .* (abs.(g) .+ l))
+    eS = a * (n + 1) * u * maximum(absX' * abs.(yb))
+    Float64((G - eG - BigFloat(τ) * (1 + 4u) * (S + eS)) / S)
   end
 end
 
@@ -61,17 +80,16 @@ function solve_case(method, y, X, α, λ, x0, options)
   end
 end
 
-# The invariant, checked for each result below that has converged = true: ‖G‖∞/S is at most τ (1 + 1e-3) + 1e3 eps(T),
-# with τ = max(gradtol, 64 eps(T)) the threshold of the solver's own check. The factor 1 + 1e-3 and
-# the 1e3 eps(T) allow for the rounding of the residual that the solver computes, against the
-# exact residual computed here, which is at most a few eps times the size of the terms of the
-# gradient, and the terms are at most about S at the points where the check passes.
+# The invariant, checked for each result below that has converged = true: the exact residual ‖G‖∞
+# is within τ S of the solver's check, τ = max(gradtol, 64 eps(T)), up to the first-order rounding
+# estimates of kkt_excess, which come from the raw products of the data and the returned x.
+# The solver's contract is on its computed residual; this does not claim an exact-residual bound.
 function invariant(label, r, X, y, α, λ, options, ::Type{T}) where T
   r === nothing && return
   r.converged || return
   τ = max(options.gradtol, 64 * Float64(eps(T)))
-  rel = relative_kkt(X, y, α, λ, r.minimizer)
-  @test (label, rel <= τ * (1 + 1e-3) + 1e3 * Float64(eps(T))) == (label, true)
+  excess = kkt_excess(X, y, α, λ, r.minimizer, τ, T)
+  @test (label, excess <= 0) == (label, true)
 end
 
 const DEFAULT = ProximalOptions()

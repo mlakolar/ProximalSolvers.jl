@@ -816,9 +816,19 @@ end
   A, b = Float32.(c .* X), Float32.(c .* y)
   r = solve!(ones(Float32, 32), Float32(s) * LeastSquaresLoss(b, A), NormL1(Float32(c^2 * λ)), ProximalGradientDescent(),
              ProximalOptions(ftol = 1e-15, allow_f_increases = true, xtol = 1e-300, gradtol = 1e-11, maxiter = 2000))
-  # an exact stall in the first iterations of the inflated curvature proposes the x test, but the
-  # point is not stationary, so the solve continues until a stop passes the check (#296)
-  @test !r.stagnated && r.converged && r.iterations >= 10
+  # an exact stall in the first iterations of the inflated curvature proposes the x test at a
+  # point that is not stationary, which the check refuses (#296): the solve is not converged
+  # after its first nine iterations. The returned point is checked independently by its duality gap:
+  # a converged stop has a KKT residual below 64eps(Float32) max(λ, λmax) (the default floor, as
+  # gradtol = 1e-11 is below it), and the gap satisfies (F - D)/F <= 2k + k^2 for k = ‖G‖∞/λ (see
+  # numerics.md), with 1% extra for the rounding of the computed residual
+  r9 = solve!(ones(Float32, 32), Float32(s) * LeastSquaresLoss(b, A), NormL1(Float32(c^2 * λ)), ProximalGradientDescent(),
+              ProximalOptions(ftol = 1e-15, allow_f_increases = true, xtol = 1e-300, gradtol = 1e-11, maxiter = 9))
+  @test !r9.converged && !r9.x_converged && r9.iteration_converged
+  @test !r.stagnated && r.converged
+  s32, λ32 = Float64(Float32(s)), Float64(Float32(c^2 * λ))
+  k = 64 * Float64(eps(Float32)) * max(λ32, s32 * norm(Float64.(A)' * Float64.(b), Inf)) / λ32
+  @test pgd_relative_gap(Float64.(A), Float64.(b), s32, λ32, r.minimizer) <= 1.01 * (2k + k^2)
   # APG under the strict settings
   X, y, s, λ = designs[1]
   r, x, gap = pgd_strict_solve(Float32, X, y, s, λ, zeros(32), 2000; method = AccProxGradDescent())

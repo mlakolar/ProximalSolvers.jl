@@ -148,7 +148,7 @@ function _gradient_at_x!(state::AccProxGradDescentState)
   state.xhat
 end
 
-# maxᵢ of |gᵢ - λ| clipped at 0 where xᵢ = 0, and of |gᵢ + λ sign xᵢ| elsewhere; NaN if an entry is
+# maxᵢ of max(|gᵢ| - λ, 0) where xᵢ = 0, and of |gᵢ + λ sign xᵢ| elsewhere; NaN if an entry is
 # NaN (max propagates it)
 function _kkt_residual(grad::AbstractArray, x::AbstractArray, λ::T) where {T}
   m = zero(T)

@@ -216,10 +216,11 @@ end
             solve!(x, f, NormL1(λ), method, strict_options(T))
         @test r.minimizer === x
         @test eltype(x) === T && typeof(r.minimum) === T
-        # PGD ends a strict solve either on a stopping test, which now holds only at a point whose
-        # computed KKT residual is below max(gradtol, 64eps(T)) max(λ, λmax) (#296), or, below
-        # that, on a rounding-size objective increase, which warm_pgd_accepted accepts; the
-        # accuracy of the point is checked independently below
+        # A stopping test now holds only at a point whose computed KKT residual is below
+        # max(gradtol, 64eps(T)) max(λ, λmax) (#296), and a rounding-size objective increase can
+        # end a strict PGD solve before that bound is met. warm_pgd_accepted accepts either
+        # exit for PGD (a small objective increase alone does not show a residual below the
+        # bound); the accuracy of the point is checked independently below
         first_ok = method isa CDSolver ? r.converged : warm_pgd_accepted(r, first_options(method, T), T)
         @test first_ok
         first_ok || println(first_report(T, λ, scale, initial, method, first_options(method, T),
@@ -246,10 +247,11 @@ end
         r = method isa CDSolver ? solve!(x, f, NormL1(λ), method) :
             solve!(x, f, NormL1(λ), method, strict_options(T))
         push!(solutions, copy(x))
-        # PGD ends a strict solve either on a stopping test, which now holds only at a point whose
-        # computed KKT residual is below max(gradtol, 64eps(T)) max(λ, λmax) (#296), or, below
-        # that, on a rounding-size objective increase, which warm_pgd_accepted accepts; the
-        # accuracy of the point is checked independently below
+        # A stopping test now holds only at a point whose computed KKT residual is below
+        # max(gradtol, 64eps(T)) max(λ, λmax) (#296), and a rounding-size objective increase can
+        # end a strict PGD solve before that bound is met. warm_pgd_accepted accepts either
+        # exit for PGD (a small objective increase alone does not show a residual below the
+        # bound); the accuracy of the point is checked independently below
         first_ok = method isa CDSolver ? r.converged : warm_pgd_accepted(r, first_options(method, T), T)
         @test first_ok
         first_ok || println(first_report(T, λ, scale, initial, method, first_options(method, T),
@@ -609,8 +611,9 @@ end
   @test r.iterations == 2 && r.iteration_converged && !r.converged
   @test (r.f_calls, r.grad_calls, r.prox_calls, r.backtrack_steps) == (6, 3, 3, 3)
   # Default stopping: a stop that a test proposes counts only at a point whose computed KKT residual
-  # is below max(gradtol, 64eps(T)) max(λ, λmax) (#296); the residual is checked independently, with
-  # the allowance of the rounding of the computed residual against the exact one
+  # is below max(gradtol, 64eps(T)) max(λ, λmax) (#296); the residual is checked independently,
+  # with a fixture-specific allowance (a relative 1e-3 and 1e3 eps(T) of S) for the difference
+  # between the computed and the exact residual on this small problem
   for T in (Float64, Float32)
     A, b = correlated(T)
     scale = one(T) / T(7)

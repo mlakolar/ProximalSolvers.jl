@@ -115,7 +115,7 @@ coordinate order and no momentum, use
 
 Defaults are useful for an **exploratory first run**, not for claiming
 coefficient accuracy. With them, `converged=true` means that the computed
-relative KKT residual is below `max(gradtol, 64eps(T)) * max(λ, λmax)`, which
+KKT residual `‖G‖∞` is below `max(gradtol, 64eps(T)) * max(λ, λmax)`, which
 does not bound the coefficient error, shown here next to the KKT violation
 on this two-coefficient problem:
 
@@ -167,7 +167,7 @@ not assume smaller tolerances guarantee a correspondingly smaller error:
 `gradtol` below `64eps(T)` is not resolved by the check of a stop, and the
 residual that is checked does not bound the coefficient error.
 PGD's stopping tests combine by **OR**, so any one of them can propose a stop,
-and a proposed stop counts only if the computed relative KKT residual is below
+and a proposed stop counts only if the computed KKT residual `‖G‖∞` is below
 `max(gradtol, 64eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞`. A solve
 that the check keeps from stopping continues, and can end at `maxiter` with
 `converged=false`. `ftol = 0` switches the objective-change test off, as

@@ -54,7 +54,7 @@ code.
 
 Neither `converged=true` is a certificate of mathematical optimality. For
 PGD and APG it means that a test proposed a stop and that the computed
-relative KKT residual at the returned point is below
+KKT residual `‖G‖∞` at the returned point is below
 `max(gradtol, 64 eps(T)) * max(λ, λmax)` (see [The stationarity check of a stop](@ref "The stationarity check of a stop")); it is a working-precision residual, not an exact-arithmetic
 certificate, and it does not bound the distance to a minimizer. The
 default `gradtol = 1e-5` is not a specified number of correct digits.
@@ -78,9 +78,12 @@ elsewhere. The stop counts only if
 ‖G‖∞ < max(gradtol, 64 eps(T)) * max(λ, λmax),    λmax = α ‖Xᵀy‖∞,
 ~~~
 
-where `T` is the element type of the coefficients, `α` is the loss scale (1 for
-a plain `LeastSquaresLoss`), and the right side is finite and at least
-`floatmin(T)`. Otherwise `x_converged`, `f_converged` and `grad_converged` are
+where `T` is the element type of the coefficients and `α` is the loss scale (1 for
+a plain `LeastSquaresLoss`). Equivalently, `‖G‖∞ / max(λ, λmax) < max(gradtol, 64 eps(T))`.
+The check also requires that `S = max(λ, λmax)` is finite, that the product
+`max(gradtol, 64 eps(T)) * S`, formed in `T`, is at least `floatmin(T)`, and that `‖G‖∞`
+is finite. It does not require that product to be finite: for a huge `gradtol` it can
+be `Inf`, and a finite residual then passes. Otherwise `x_converged`, `f_converged` and `grad_converged` are
 all reported `false`, so `converged=false`, and the solve continues. The
 `f_residual`, `x_residual` and `g_residual` fields still report the quantities
 of the tests. What `converged=true` therefore says about the returned `x`:
@@ -89,16 +92,31 @@ of the tests. What `converged=true` therefore says about the returned `x`:
   precision, is below the bound. It is not an exact-arithmetic certificate,
   because that gradient carries rounding error, and it bounds the KKT
   residual, not the distance to a minimizer.
-- The bound is relative to `max(λ, λmax)`. Multiplying the loss and the penalty
-  by the same positive factor leaves it unchanged, within the representable
-  range.
+- The normalized inequality `‖G‖∞ / max(λ, λmax) < max(gradtol, 64 eps(T))` does
+  not change when the loss and the penalty are multiplied by the same positive
+  factor, in exact arithmetic (the bound `τ S` itself scales with the factor).
+  In working precision the outcome can change: the quantities are rounded, and
+  the requirement that `τ S` is at least `floatmin(T)` can refuse a stop at a
+  scale where `α`, `λ`, `S` and `τ S` are all representable. For example, for
+  `Float32` data `X = [1]`, `y = [1]` at `x = 0`, `α = λ = 1` passes and
+  `α = λ = 1f-35` does not, because `τ S` is below `floatmin(Float32)`.
 - The factor `64 eps(T)` is a floor on the relative residual. A `gradtol` below
   it, including `gradtol = 0`, gives the bound `64 eps(T) max(λ, λmax)`.
-- The exit at `x = 0` with `λ ≥ λmax` has `G = 0` and passes. A solve that
-  starts at `x = 0` with such a `λ` stops at the first iteration.
+- The exit at `x = 0` with `λ ≥ λmax` has `G = 0`. A solve that starts at
+  `x = 0` with such a `λ` stops at the first iteration when a test proposes a
+  stop there, `S > 0` and `τ S ≥ floatmin(T)`. Under `ftol = 0` an unchanged
+  iterate proposes nothing (see "An exact stall" below), so such a solve
+  continues, and can end at `maxiter` with `converged=false`.
 - Where `λ` and `λmax` are both 0 (for example `y = 0` and `λ = 0`), or where
   the bound is below `floatmin(T)`, no stop passes. The solve then ends at
   `maxiter` unless another exit applies.
+- The check bounds the residual relative to `max(λ, λmax)`. A coordinate whose
+  gradient is on a scale far below `λmax` can stay inaccurate when the check
+  passes: for `X = diag(1e6, 1)`, `y = [1e6, 1]`, `λ = 0` from a cold start with
+  the default options, a review run reported convergence after 9 or 10
+  iterations with an independent relative KKT residual of a few `1e-6`, while the
+  coefficient of the flat column was almost 1 off. `converged=true` is not a
+  guarantee of coefficient accuracy.
 
 The check runs only at an iteration at which a test proposes a stop. PGD uses
 the gradient `∇f(x)` that it holds. APG holds `∇f(y)` at the extrapolated point,
@@ -117,13 +135,15 @@ resolution of `L x`, the test holds when
 (r < gradtol * m  and  ρ < m)   or   (r < gradtol * N  and  ρ < N).
 ~~~
 
-A residual of 0 against `m = N = 0` does not hold, and a scale below `ρ` decides
-nothing. The objective test is `abs(F - F') / abs(F) < ftol` (see the table
+The comparisons use the floating-point products `gradtol * m` and `gradtol * N`.
+A residual of 0 holds only against a product that is positive: against `m = N = 0`
+it does not hold, and neither when a product underflows to 0. A scale below `ρ`
+decides nothing. The objective test is `abs(F - F') / abs(F) < ftol` (see the table
 below) or the flat form, with no absolute term in the denominator.
 
 With the default options, a solve with `ftol > 0` can stop later than before:
 an objective change below `ftol`, or a flat objective, does not count as
-convergence while the relative KKT residual is above the bound, and the solve
+convergence while `‖G‖∞` is above the bound, and the solve
 can end at `maxiter` with `converged=false`. A `Float32` solve with the default options
 can end on the objective-increase exit below, with `converged=false` and
 `f_increased=true`, where it used to stop on the objective test: the objective
@@ -271,7 +291,8 @@ These probes were made before the stationarity check of a stop was added
   point is the solution). For `AccProxGradDescent`, an extrapolated point `y`
   equal to `x` while `x` differs from the previous iterate is not a stall: its
   residual `L * maximum(abs, x - y)` is `0`, so the gradient test holds when
-  `gradtol > 0`, `N > 0` and `ρ < N` (see [The stationarity check of a stop](@ref "The stationarity check of a stop")),
+  `0 < gradtol * N` and `ρ < N`, or `0 < gradtol * m` and `ρ < m` (see
+  [The stationarity check of a stop](@ref "The stationarity check of a stop")),
   and the stationarity check then decides.
 - **A stagnation stop.** Under `ftol = 0`, `ProximalGradientDescent` on `Float32`
   data stops after an iteration in which both of these hold: the accepted
@@ -459,8 +480,9 @@ only on `converged`.
   accepted iterate restored; that can happen when the curvature along the
   steps is above `floatmax(T)`, unless TFOCS's estimate, `Lexact` or a zero
   step accepts a trial.
-  A solve whose inflated `L` makes the step round to zero proposes a stop
-  through the coefficient test. It used to report `converged = true` there;
+  With `ftol > 0`, a solve whose inflated `L` makes the step round to zero proposes a stop
+  through the coefficient test (with `ftol = 0` an unchanged iterate proposes nothing, as
+  at the base). It used to report `converged = true` there;
   the [stationarity check of a stop](@ref "The stationarity check of a stop") now refuses the stop unless the
   iterate meets the bound, and the solve continues. With `ftol > 0` and
   `allow_f_increases = false` it can then reach the rounding regime of
