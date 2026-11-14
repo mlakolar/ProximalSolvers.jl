@@ -1,0 +1,6 @@
+PS /home/mkolar/projects/juliaPkg/ProximalSolvers.jl-issue314 julia 1.13.3 raptorlake items 120
+done local/smoke-sel.tsv
+
+real	0m25.878s
+user	0m26.447s
+sys	0m0.116s

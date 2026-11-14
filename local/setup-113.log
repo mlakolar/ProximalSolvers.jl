@@ -1,0 +1,55 @@
+  Activating project at `~/projects/juliaPkg/ProximalSolvers.jl-runs/run-20261114T1800-issue314/local/env-113`
+   Resolving package versions...
+    Updating `~/projects/juliaPkg/ProximalSolvers.jl-runs/run-20261114T1800-issue314/local/env-113/Project.toml`
+  [0a755509] + ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#c123d56`
+  [10745b16] + Statistics v1.11.5
+  [37e2e46d] ~ LinearAlgebra ⇒ v1.13.0
+  [de0858da] ~ Printf ⇒ v1.11.0
+  [9abbd945] ~ Profile ⇒ v1.11.0
+  [9a3f8284] ~ Random ⇒ v1.11.0
+  [ea8e919c] ~ SHA ⇒ v1.0.0
+  [2f01184e] ~ SparseArrays ⇒ v1.13.0
+  [fa267f1f] ~ TOML ⇒ v1.0.3
+    Updating `~/projects/juliaPkg/ProximalSolvers.jl-runs/run-20261114T1800-issue314/local/env-113/Manifest.toml`
+  [aea7be01] + PrecompileTools v1.4.0
+  [21216c6a] + Preferences v1.6.1
+  [0a755509] + ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#c123d56`
+  [10745b16] + Statistics v1.11.5
+  [56f22d72] + Artifacts v1.11.0
+  [ade2ca70] + Dates v1.11.0
+  [8f399da3] + Libdl v1.11.0
+  [37e2e46d] ~ LinearAlgebra ⇒ v1.13.0
+  [de0858da] ~ Printf ⇒ v1.11.0
+  [9abbd945] ~ Profile ⇒ v1.11.0
+  [9a3f8284] ~ Random ⇒ v1.11.0
+  [ea8e919c] ~ SHA ⇒ v1.0.0
+  [9e88b42a] + Serialization v1.11.0
+  [2f01184e] ~ SparseArrays ⇒ v1.13.0
+  [f489334b] + StyledStrings v1.11.0
+  [fa267f1f] ~ TOML ⇒ v1.0.3
+  [4ec0a83e] + Unicode v1.11.0
+  [e66e0078] + CompilerSupportLibraries_jll v1.5.5+2
+  [4536629a] + OpenBLAS_jll v0.3.30+0
+  [bea87d4a] + SuiteSparse_jll v7.10.1+0
+  [8e850b90] + libblastrampoline_jll v5.15.0+0
+Precompiling packages...
+   3.2 s  ✓ ProximalBase
+  1 dependency successfully precompiled in 3 seconds. 10 already precompiled.
+   Resolving package versions...
+    Updating `~/projects/juliaPkg/ProximalSolvers.jl-runs/run-20261114T1800-issue314/local/env-113/Project.toml`
+  [fc4971f5] + ProximalSolvers v0.3.2 `~/projects/juliaPkg/ProximalSolvers.jl-issue314`
+    Updating `~/projects/juliaPkg/ProximalSolvers.jl-runs/run-20261114T1800-issue314/local/env-113/Manifest.toml`
+  [fc4971f5] + ProximalSolvers v0.3.2 `~/projects/juliaPkg/ProximalSolvers.jl-issue314`
+      Compat entry set:
+  ProximalBase = "0.6"
+     Resolve checking for compliance with the new compat rules...
+     Project No packages added to or removed from `~/projects/juliaPkg/ProximalSolvers.jl-runs/run-20261114T1800-issue314/local/env-113/Project.toml`
+    Manifest No packages added to or removed from `~/projects/juliaPkg/ProximalSolvers.jl-runs/run-20261114T1800-issue314/local/env-113/Manifest.toml`
+Precompiling packages...
+   2.5 s  ✓ ProximalSolvers
+  1 dependency successfully precompiled in 3 seconds. 15 already precompiled.
+ProximalSolvers path: /home/mkolar/projects/juliaPkg/ProximalSolvers.jl-issue314
+ProximalBase version: 0.6.0-DEV
+ProximalBase source: https://github.com/mlakolar/ProximalBase.jl#c123d56ba1948e36a8fdbf183a9eea396a16e0d5
+ProximalBase git-tree-sha1: c2e2ddde114a1e7800358595193ee0869830180d
+ProximalBase path: /home/mkolar/.julia/packages/ProximalBase/WNPma

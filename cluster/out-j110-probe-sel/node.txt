@@ -1,0 +1,12 @@
+d18-33.hpc.usc.edu
+2026-11-14T10:14:01-08:00
+CPU(s):              20
+Model name:          Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz
+Flags:               fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon pebs
+0.00 0.36 0.61 1/448 4076049
+julia version 1.10.13
+fad90d93eb0abca3025ac5a07468b7ebe4c7e323
+0
+SLURM_JOB_ID=14240064 SLURM_JOB_PARTITION=oneweek SLURM_NODELIST=d18-33
+1.00 0.77 0.73 1/446 4076128
+2026-11-14T10:18:53-08:00
