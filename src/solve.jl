@@ -109,7 +109,8 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
     grad_limit_reached = options.grad_calls_limit > 0 && state.grad_calls >= options.grad_calls_limit
     prox_limit_reached = options.prox_calls_limit > 0 && state.prox_calls >= options.prox_calls_limit
 
-    # a numerical-stagnation stop (see _stagnated); the callback has already seen this iteration
+    # a numerical-stagnation stop (see _stagnated), checked after trace! and any callback call
+    # that is due at this iteration under print_every
     stagnated = _stagnated(state, options)
 
     increased = f_increased && !options.allow_f_increases

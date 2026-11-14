@@ -635,7 +635,8 @@ function pgd_recording_solve(X, y, s, λ, x0, maxiter; target = 1e-5)
   (; r, x, gap = pgd_relative_gap(A64, b64, s64, λ64, x), first_change, first_target)
 end
 
-# What a stagnation stop reports: no stopping test holds, and neither a limit nor an increase ended it
+# The flags of a stagnation stop in the cases below, where no call limit, callback stop or maxiter
+# coincides with it and the objective did not increase; another stop can hold together with it
 pgd_stagnation_signature(r) = r.stagnated && !r.converged && !r.x_converged && !r.f_converged &&
   !r.grad_converged && !r.f_increased && !r.call_limit_reached && !r.iteration_converged &&
   r.x_residual == 0 && r.g_residual == 0
@@ -653,10 +654,12 @@ pgd_stagnation_signature(r) = r.stagnated && !r.converged && !r.x_converged && !
 end
 
 @testset "PGD Float32 strict: an inflated initial curvature does not stop the solve during the initial stalls (#308)" begin
-  # X and y scaled by c = 1e-6 (λ by c², the same minimizer up to the scale), start at ones: the
-  # first L = 1 is far above the curvature of the problem, so the steps round to zero until L has
-  # fallen. Those iterations are exact stalls without a rejection and must not stop the solve
-  # (a rule that counts stalls stops here with a gap near 1).
+  # X and y scaled by c = 1e-6 and λ by c² (the objective is c² times the original, with the same
+  # minimizer), start at ones: the first L = 1 is far above the curvature of the problem, so the
+  # steps round to zero until L has fallen. Those iterations are exact stalls without a rejection
+  # and must not stop the solve. The stall streak asserted below is at least 39 iterations and the
+  # target is first met after it, so a rule that stopped after at most 39 consecutive stalls would
+  # stop before the target.
   c = 1e-6
   for seed in (33, 34, 35)
     X, y, s, λ = pgd_lasso_design(seed, 100, 32)
@@ -692,10 +695,10 @@ end
   @test all(iszero, x) && r.backtrack_steps == 0
 end
 
-@testset "PGD Float32 strict: a stall above the Float32 floor is never reported as convergence (#308)" begin
-  # near interpolation (noise 1e-3, λ = 1e-4 λ_max) the Float32 floor of the gap is above the 1e-5
-  # target; some of the draws reach an unchanged iterate with a checked rejection, the others keep
-  # moving by rounding error
+@testset "PGD Float32 strict: a stall with a gap above the target is never reported as convergence (#308)" begin
+  # near interpolation (noise 1e-3, λ = 1e-4 λ_max) the Float32 gap of these draws stays above the
+  # 1e-5 target; some of the draws reach an unchanged iterate with a checked rejection, the others
+  # keep moving by rounding error
   stagnated = 0
   for seed in 1:24
     X, y, s, λ = pgd_ar_problem(seed, 100, 32, 0.5, 1e-3, 1e-4)
@@ -820,7 +823,8 @@ end
   r, x, gap = pgd_strict_solve(Float32, X, y, s, λ, zeros(32), 2000; method = AccProxGradDescent())
   @test !r.stagnated && gap <= 1e-5
   @test occursin("\n   * Stopped at numerical stagnation: false\n", sprint(show, r))
-  # the callback sees the stopping iteration, and can still stop the solve there or earlier
+  # with print_every = 1 the callback is called at the stopping iteration, and can still stop the
+  # solve there or earlier
   X, y, s, λ = designs[1]
   r, _ = pgd_strict_solve(Float32, X, y, s, λ, zeros(32), 10_000)
   K = r.iterations

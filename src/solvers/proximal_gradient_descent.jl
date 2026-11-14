@@ -74,8 +74,10 @@ mutable struct ProximalGradientDescentState{T, X<:Vector{T}, G<:Vector{T}, M, Z}
     z_x::Z            # A x
     dz::Z             # F' at A x; buffer of the product A d of a checked rejection
     verifications::Int  # rejections checked by the computed curvature (one product A d each)
-    # true when the last rejection of the current iteration's line search replaced L by the finite
-    # computed curvature of a rejected step; set by backtrack!, cleared at the start of update_state!
+    # true when the last rejection of the current iteration's line search replaced its estimate L̂
+    # by the finite computed curvature c of the rejected step (the retry's L is then
+    # min(Lexact, max(c, L/β)) for the rejected trial's L, which need not equal c); set by
+    # backtrack!, cleared at the start of update_state!
     verified_rejection::Bool
 end
 
@@ -284,9 +286,9 @@ end
 
 # Numerical stagnation, after an iteration of _solve_gradient!: true for Float32 PGD with ftol = 0
 # when the accepted iterate equals the previous one elementwise and the last rejection of the
-# iteration's line search replaced L by a finite computed curvature (verified_rejection). It is
-# false for AccProxGradDescent, for Float64 PGD and when ftol > 0. The stop it causes is not a
-# convergence or accuracy test.
+# iteration's line search replaced its estimate L̂ by a finite computed curvature
+# (verified_rejection). It is false for AccProxGradDescent, for Float64 PGD and when ftol > 0.
+# The stop it causes is not a convergence or accuracy test.
 _stagnated(state, options) = false
 _stagnated(state::ProximalGradientDescentState{Float32}, options) =
   iszero(options.ftol) && state.verified_rejection && _unchanged(state.x, state.x_previous)

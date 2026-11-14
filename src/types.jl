@@ -46,19 +46,22 @@ rounds to 0. With `ftol > 0`, an unchanged iterate satisfies the `xtol` test. Fo
 the previous iterate is not a stall: its residual `L * maximum(abs, x - y)` is 0, so
 the gradient test holds when `gradtol > 0`.
 
-With `ftol = 0`, `ProximalGradientDescent` on `Vector{Float32}` data also stops, after
-the callback has seen the iteration, at an iteration in which both of these hold: the
-accepted iterate equals the previous one elementwise, and the last rejection of that
-iteration's line search was decided by the computed curvature of the rejected step, which
-was finite and replaced the curvature estimate. A rejection that is not checked (a trial
-value that is not finite, a NaN estimate, a gradient estimate from a gradient with a
-nonfinite entry) or whose computed curvature is not finite does not count, and neither does
-an iteration whose first trial is already a zero step (it has no rejection). A later
-rejection of the same iteration replaces an earlier one, and nothing carries over from
-an earlier iteration. The result then has `stagnated=true`
-and `converged=false` (see [`OptimizationResults`](@ref)); this is not a convergence or
-accuracy certificate. For `Float64` data, for `AccProxGradDescent` and with `ftol > 0`,
-`stagnated` is `false` and the stopping behavior is as described above.
+With `ftol = 0`, `ProximalGradientDescent` on `Vector{Float32}` data also stops at an
+iteration in which both of these hold: the accepted iterate equals the previous one
+elementwise, and the last rejection of that iteration's line search was decided by the
+computed curvature of the rejected step, which was finite and replaced the line search's
+curvature estimate `L̂` (the retry's `L` is then `min(Lexact, max(c, L / β))` for the
+rejected trial's `L`, so it need not equal the curvature `c`). A rejection that is not
+checked (a trial value that is not finite, a NaN estimate, a gradient estimate from a
+gradient with a nonfinite entry) or whose computed curvature is not finite does not count,
+and neither does an iteration whose first trial is already a zero step (it has no
+rejection). A later rejection of the same iteration replaces an earlier one, and nothing
+carries over from an earlier iteration. The stagnation check comes after tracing and after
+any callback call that is due at that iteration under `print_every`; it does not change
+the callback cadence. The result then has
+`stagnated=true` and `converged=false` (see [`OptimizationResults`](@ref)); this is not a
+convergence or accuracy certificate. For `Float64` data, for `AccProxGradDescent` and with
+`ftol > 0`, `stagnated` is `false` and the stopping behavior is as described above.
 
 With `allow_f_increases=false` (the default), PGD also stops at the first
 iteration whose computed objective `F = f(x) + g(x)`, in the working
@@ -244,15 +247,16 @@ case `x == y`).
 `stagnated` is `true` when `ProximalGradientDescent` on `Vector{Float32}` data with
 `ftol = 0` stopped after an iteration in which both of these held: the accepted iterate
 equals the previous one elementwise, and the last rejection of that iteration's line search
-replaced the curvature estimate by the finite computed curvature of the rejected step (see
-[`ProximalOptions`](@ref) for the condition). At such a stop `converged`, `x_converged`,
-`f_converged` and `grad_converged` are `false` and `x_residual` is `0`. `stagnated=true`
-is **not** a certificate of convergence or accuracy: it reports that an iteration left the
-iterate unchanged after its line search last rejected a step by that step's computed
-curvature, and the returned point need not meet any accuracy target. `stagnated` is `false`
-for `AccProxGradDescent`, for `Float64` data and with `ftol > 0`. Each stopping flag reports
-its own condition, so `stagnated` can be `true` together with `call_limit_reached`, or at an
-iteration at which the callback returned `true`.
+replaced the line search's curvature estimate `L̂` by the finite computed curvature of the
+rejected step (see [`ProximalOptions`](@ref) for the condition). At such a stop `converged`,
+`x_converged`, `f_converged` and `grad_converged` are `false` and `x_residual` is `0`.
+`stagnated=true` is **not** a certificate of convergence or accuracy: it reports that an
+iteration left the iterate unchanged after the last rejection of its line search was decided
+by that step's computed curvature, and the returned point need not meet any accuracy target.
+`stagnated` is `false` for `AccProxGradDescent`, for `Float64` data and with `ftol > 0`. Each
+stopping flag reports its own condition, so `stagnated` can be `true` together with
+`call_limit_reached`, with `iteration_converged`, or at an iteration at which the callback
+returned `true`.
 """
 mutable struct OptimizationResults{O<:ProximalSolver, T, N, M, X<:AbstractArray{T, N}}
     method::O
