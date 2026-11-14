@@ -541,8 +541,9 @@ end
   # solve! with ftol = 0, allow_f_increases = true, xtol = 1e-300, gradtol = 1e-11 on the
   # Float32 design above. Float32 reaches its floating-point fixed point. At an unchanged
   # iterate the computed x and gradient tests can hold, but the exact-stall rule of ftol = 0
-  # does not count them, and between such iterations the iterate can still move; on this
-  # design the solve runs to maxiter with converged = false. The independent gap checks the
+  # does not count them. On this design the solve ends before maxiter at the stagnation stop
+  # (an unchanged iterate in an iteration whose last rejection was decided by its computed
+  # curvature, #308): stagnated = true, converged = false. The independent gap checks the
   # accuracy. Float64 stops on the gradient test.
   X, y, s, λ = pgd_lasso_design(33, 100, 32)
   for (T, maxiter) in ((Float32, 300), (Float64, 2000))
@@ -554,13 +555,311 @@ end
     gap = pgd_relative_gap(A, b, Float64(T(s)), Float64(T(λ)), x)
     if T === Float32
       @test gap <= 1e-6
-      @test r.iterations == maxiter && r.iteration_converged && !r.converged
-      @test !r.x_converged && !r.grad_converged && !r.f_converged
+      @test r.stagnated && !r.converged && r.iterations < maxiter && !r.iteration_converged
+      @test !r.x_converged && !r.grad_converged && !r.f_converged && !r.f_increased
+      @test r.x_residual == 0 && r.g_residual == 0
     else
       @test gap <= 1e-9
       @test r.converged && r.grad_converged && !r.x_converged && !r.f_converged
-      @test r.iterations < maxiter
+      @test r.iterations < maxiter && !r.stagnated
     end
+  end
+end
+
+# ---- Float32 PGD stops at numerical stagnation under ftol = 0 (#308) --------------------------
+# The stop: an unchanged accepted iterate in an iteration whose last rejection was decided by its
+# computed curvature. The designs below are seeded constructions in Float64, converted to Float32.
+
+# AR(1) Gaussian columns (correlation ρ between neighbours), each scaled to squared norm n
+function pgd_ar_design(rng, n, p, ρ)
+  X = randn(rng, n, p)
+  for j in 2:p
+    @views X[:, j] .= ρ .* X[:, j-1] .+ sqrt(1 - ρ^2) .* X[:, j]
+  end
+  for j in 1:p
+    @views X[:, j] ./= sqrt(sum(abs2, X[:, j]) / n)
+  end
+  X
+end
+
+# The design above with coefficients β (standard normal if not given), noise level `noise`, loss
+# scale 1/n and λ = frac λ_max; returns X, y, s, λ
+function pgd_ar_problem(seed, n, p, ρ, noise, frac; β = nothing)
+  rng = Xoshiro(seed)
+  X = pgd_ar_design(rng, n, p, ρ)
+  β === nothing && (β = randn(rng, p))
+  y = X * β + noise * randn(rng, n)
+  s = 1 / n
+  X, y, s, frac * norm(s * X' * y, Inf)
+end
+
+# Benchmark-like: n = 240, p = 160, ρ = 0.8, five coefficients ±1, noise 0.2, λ = 0.15 λ_max
+function pgd_bench_problem(seed)
+  rng = Xoshiro(1000 + seed)
+  β = zeros(160)
+  β[randperm(rng, 160)[1:5]] .= rand(rng, (-1.0, 1.0), 5)
+  pgd_ar_problem(seed, 240, 160, 0.8, 0.2, 0.15; β)
+end
+
+pgd_strict(maxiter; kwargs...) =
+  ProximalOptions(; ftol = 0, allow_f_increases = true, xtol = 1e-300, gradtol = 1e-11, maxiter, kwargs...)
+
+# Solves in element type T from x0 under the strict settings; returns the result, the iterate and
+# the independent relative gap in Float64
+function pgd_strict_solve(::Type{T}, X, y, s, λ, x0, maxiter; method = ProximalGradientDescent(), kwargs...) where T
+  A, b = T.(X), T.(y)
+  f, g = T(s) * LeastSquaresLoss(b, A), NormL1(T(λ))
+  x = T.(x0)
+  r = solve!(x, f, g, method, pgd_strict(maxiter; kwargs...))
+  r, x, pgd_relative_gap(A, b, Float64(T(s)), Float64(T(λ)), x)
+end
+
+# As pgd_strict_solve in Float32 with PGD, with a callback that records the first iteration at which
+# the caller's x (the solver iterates in it) differs from x0 and the first at which its independent
+# relative gap is at most `target` (0 if none)
+function pgd_recording_solve(X, y, s, λ, x0, maxiter; target = 1e-5)
+  A, b = Float32.(X), Float32.(y)
+  A64, b64 = Float64.(A), Float64.(b)
+  s64, λ64 = Float64(Float32(s)), Float64(Float32(λ))
+  f, g = Float32(s) * LeastSquaresLoss(b, A), NormL1(Float32(λ))
+  x = Float32.(x0)
+  start = copy(x)
+  k = first_change = first_target = 0
+  callback = _ -> begin
+    k += 1
+    first_change == 0 && x != start && (first_change = k)
+    first_target == 0 && pgd_relative_gap(A64, b64, s64, λ64, x) <= target && (first_target = k)
+    false
+  end
+  r = solve!(x, f, g, ProximalGradientDescent(), pgd_strict(maxiter; callback))
+  (; r, x, gap = pgd_relative_gap(A64, b64, s64, λ64, x), first_change, first_target)
+end
+
+# The flags of a stagnation stop in the cases below, where no call limit, callback stop or maxiter
+# coincides with it and the objective did not increase; another stop can hold together with it
+pgd_stagnation_signature(r) = r.stagnated && !r.converged && !r.x_converged && !r.f_converged &&
+  !r.grad_converged && !r.f_increased && !r.call_limit_reached && !r.iteration_converged &&
+  r.x_residual == 0 && r.g_residual == 0
+
+@testset "PGD Float32 strict: repeated exact stalls end in a stagnation stop (#308)" begin
+  problems = Any[pgd_lasso_design(seed, 100, 32) for seed in (33, 34, 35)]
+  append!(problems, Any[pgd_bench_problem(seed) for seed in (1, 2)])
+  for (X, y, s, λ) in problems
+    r, x, gap = pgd_strict_solve(Float32, X, y, s, λ, zeros(size(X, 2)), 10_000)
+    @test pgd_stagnation_signature(r)
+    @test r.iterations < 1_000
+    @test gap <= 1e-5
+    @test PS.stagnated(r) && occursin("\n   * Stopped at numerical stagnation: true\n", sprint(show, r))
+  end
+end
+
+@testset "PGD Float32 strict: an inflated initial curvature does not stop the solve during the initial stalls (#308)" begin
+  # X and y scaled by c = 1e-6 and λ by c² (the objective is c² times the original, with the same
+  # minimizer), start at ones: the first L = 1 is far above the curvature of the problem, so the
+  # steps round to zero until L has fallen. Those iterations are exact stalls without a rejection
+  # and must not stop the solve. The stall streak asserted below is at least 39 iterations and the
+  # target is first met after it, so a rule that stopped after at most 39 consecutive stalls would
+  # stop before the target.
+  c = 1e-6
+  for seed in (33, 34, 35)
+    X, y, s, λ = pgd_lasso_design(seed, 100, 32)
+    o = pgd_recording_solve(c .* X, c .* y, s, c^2 * λ, ones(32), 2000)
+    @test o.first_change >= 40
+    @test o.first_change < o.first_target
+    @test 0 < o.first_target <= o.r.iterations
+    @test pgd_stagnation_signature(o.r) && o.gap <= 1e-5
+  end
+end
+
+@testset "PGD Float32 strict: a slowly converging correlated design stops only after meeting the target (#308)" begin
+  β = zeros(100)
+  β[[3, 30, 60, 90]] .= (2, -1, 1.5, -2)
+  stagnated = Bool[]
+  for seed in (1, 2, 3)
+    X, y, s, λ = pgd_ar_problem(seed, 200, 100, 0.99, 0.1, 0.02; β)
+    o = pgd_recording_solve(X, y, s, λ, zeros(100), 30_000)
+    @test o.gap <= 1e-5 && !o.r.converged
+    @test 0 < o.first_target < o.r.iterations
+    push!(stagnated, o.r.stagnated)
+    o.r.stagnated && @test pgd_stagnation_signature(o.r)
+  end
+  @test any(stagnated)
+end
+
+@testset "PGD Float32 strict: an exact optimum runs to maxiter without a stagnation stop (#308)" begin
+  # λ = 1.5 λ_max from 0: the steps are soft thresholded to 0 and the line search rejects no trial
+  X, y, s, _ = pgd_lasso_design(33, 100, 32)
+  r, x, gap = pgd_strict_solve(Float32, X, y, s, 1.5 * norm(s * X' * y, Inf), zeros(32), 300)
+  @test r.iterations == 300 && r.iteration_converged
+  @test !r.converged && !r.stagnated
+  @test all(iszero, x) && r.backtrack_steps == 0
+end
+
+@testset "PGD Float32 strict: a stall with a gap above the target is never reported as convergence (#308)" begin
+  # near interpolation (noise 1e-3, λ = 1e-4 λ_max) the Float32 gap of these draws stays above the
+  # 1e-5 target; some of the draws reach an unchanged iterate with a checked rejection, the others
+  # keep moving by rounding error
+  stagnated = 0
+  for seed in 1:24
+    X, y, s, λ = pgd_ar_problem(seed, 100, 32, 0.5, 1e-3, 1e-4)
+    r, x, gap = pgd_strict_solve(Float32, X, y, s, λ, zeros(32), 10_000)
+    @test gap > 1e-5
+    @test !r.converged
+    if r.stagnated
+      stagnated += 1
+      @test pgd_stagnation_signature(r)
+    else
+      @test r.iterations == 10_000 && r.iteration_converged
+    end
+  end
+  @test stagnated >= 2
+end
+
+@testset "PGD stagnation flag: set by a checked rejection, cleared by an unverified one and at the start of an iteration (#308)" begin
+  X, y = pgd_fixture()
+  scale = 1 / 7
+  curvature = scale * opnorm(X)^2
+  g = NormL1(.1)
+  x0 = [.3, -.7, .2]
+  method = ProximalGradientDescent()
+  f = scale * LeastSquaresLoss(y, X)
+  @test !PS.initial_state(method, ProximalOptions(), f, g, copy(x0)).verified_rejection
+  # a rejection decided by a finite computed curvature sets it, in each mode
+  for gradient_mode in (false, true)
+    st = pgd_trial(f, g, x0, curvature / 1e6; gradient_mode)
+    gradient_mode ? (st.grad_f_x_previous .-= 100 .* (st.x .- st.x_previous)) : (st.f_x_previous -= 10)
+    @test !st.verified_rejection
+    @test !PS.LineSearches.backtrack!(st, method.ls, f, g)
+    @test st.verified_rejection && st.verifications == 1
+  end
+  # a nonfinite trial value clears it
+  st = pgd_trial(f, g, x0, curvature / 64)
+  st.f_x = Inf
+  st.verified_rejection = true
+  @test !PS.LineSearches.backtrack!(st, method.ls, f, g)
+  @test !st.verified_rejection && st.verifications == 0
+  # a rejection that is checked but whose computed curvature is not finite leaves it false: d̂ has a
+  # subnormal entry, so the Float32 curvature is not used and TFOCS's estimate is kept
+  f32 = Float32(scale) * LeastSquaresLoss(Float32.(y), Float32.(X))
+  st = pgd_pair_trial(f32, NormL1(0f0), zeros(Float32, 3), Float32[1f-3, 1f-40, 0], 1f-3)
+  st.f_x_previous -= 10f0
+  st.verified_rejection = true
+  @test issubnormal(st.x[2])
+  @test !PS.LineSearches.backtrack!(st, method.ls, f32, NormL1(0f0))
+  @test st.verifications == 1 && !st.verified_rejection && isfinite(st.L) && st.L > 1f-3
+  # a zero step does not touch it, so a rejection of the same iteration is still recorded
+  st = pgd_trial(f, NormL1(1e3), zeros(3), curvature)
+  st.verified_rejection = true
+  @test PS.LineSearches.backtrack!(st, method.ls, f, NormL1(1e3))
+  @test st.verified_rejection
+  # update_state! starts from false: its first trial is accepted, or is a zero step
+  for (x, penalty, L) in ((x0, g, 100.0), (zeros(3), NormL1(1e3), 1.0))
+    st = PS.initial_state(method, ProximalOptions(), f, penalty, copy(x))
+    st.L = L
+    st.verified_rejection = true
+    PS.update_state!(f, penalty, st, method)
+    @test !st.verified_rejection && st.verifications == 0
+  end
+end
+
+@testset "PGD stagnation test: Float32 PGD with ftol = 0, an unchanged iterate and a verified rejection (#308)" begin
+  X, y = pgd_fixture()
+  method = ProximalGradientDescent()
+  stagnation(T, options; unchanged = true, verified = true) = begin
+    f = T(1 / 7) * LeastSquaresLoss(T.(y), T.(X))
+    st = PS.initial_state(method, options, f, NormL1(T(.1)), T[.3, -.7, .2])
+    unchanged && PS._copyto!(st.x_previous, st.x)
+    unchanged || PS._copyto!(st.x_previous, st.x .+ T(.01))
+    st.verified_rejection = verified
+    PS._stagnated(st, options)
+  end
+  strict = ProximalOptions(ftol = 0)
+  @test stagnation(Float32, strict)
+  # each condition is needed
+  @test !stagnation(Float32, strict; verified = false)
+  @test !stagnation(Float32, strict; unchanged = false)
+  @test !stagnation(Float32, ProximalOptions(ftol = 1e-15))
+  @test !stagnation(Float32, ProximalOptions(ftol = 1e-300))
+  # a single changed entry is a changed iterate
+  f32 = Float32(1 / 7) * LeastSquaresLoss(Float32.(y), Float32.(X))
+  st = PS.initial_state(method, strict, f32, NormL1(.1f0), Float32[.3, -.7, .2])
+  PS._copyto!(st.x_previous, st.x)
+  st.verified_rejection = true
+  st.x[3] = nextfloat(st.x[3])
+  @test !PS._stagnated(st, strict)
+  # the test is false for a Float64 PGD state and for an APG state
+  @test !stagnation(Float64, strict)
+  f = (1 / 7) * LeastSquaresLoss(y, X)
+  apg = PS.initial_state(AccProxGradDescent(), strict, f, NormL1(.1), [.3, -.7, .2])
+  @test !PS._stagnated(apg, strict)
+end
+
+@testset "PGD stagnation stop: Float64, APG and ftol > 0 are unchanged, callbacks and limits keep their meaning (#308)" begin
+  designs = Any[pgd_lasso_design(seed, 100, 32) for seed in (33, 34, 35)]
+  push!(designs, pgd_bench_problem(1))
+  # Float64 strict ends on the gradient test, on the designs of the stalls and of the inflated curvature
+  for (X, y, s, λ) in designs
+    r, x, gap = pgd_strict_solve(Float64, X, y, s, λ, zeros(size(X, 2)), 10_000)
+    @test !r.stagnated && r.converged && r.grad_converged && gap <= 1e-9
+  end
+  c = 1e-6
+  X, y, s, λ = pgd_lasso_design(33, 100, 32)
+  r, x, gap = pgd_strict_solve(Float64, c .* X, c .* y, s, c^2 * λ, ones(32), 2000)
+  @test !r.stagnated && r.converged && gap <= 1e-5
+  # Float32 with ftol > 0: the default options end on a stopping test, and an exact stall (the first
+  # iterations of the inflated curvature) ends the solve through the x test, as before
+  for (X, y, s, λ) in designs[1:3]
+    A, b = Float32.(X), Float32.(y)
+    f, g = Float32(s) * LeastSquaresLoss(b, A), NormL1(Float32(λ))
+    r = solve!(zeros(Float32, size(X, 2)), f, g, ProximalGradientDescent())
+    @test !r.stagnated && !r.iteration_converged && (r.converged || r.f_increased)
+  end
+  A, b = Float32.(c .* X), Float32.(c .* y)
+  r = solve!(ones(Float32, 32), Float32(s) * LeastSquaresLoss(b, A), NormL1(Float32(c^2 * λ)), ProximalGradientDescent(),
+             ProximalOptions(ftol = 1e-15, allow_f_increases = true, xtol = 1e-300, gradtol = 1e-11, maxiter = 2000))
+  @test !r.stagnated && r.converged && r.x_converged && r.iterations < 10
+  # APG under the strict settings
+  X, y, s, λ = designs[1]
+  r, x, gap = pgd_strict_solve(Float32, X, y, s, λ, zeros(32), 2000; method = AccProxGradDescent())
+  @test !r.stagnated && gap <= 1e-5
+  @test occursin("\n   * Stopped at numerical stagnation: false\n", sprint(show, r))
+  # with print_every = 1 the callback is called at the stopping iteration, and can still stop the
+  # solve there or earlier
+  X, y, s, λ = designs[1]
+  r, _ = pgd_strict_solve(Float32, X, y, s, λ, zeros(32), 10_000)
+  K = r.iterations
+  @test r.stagnated && K > 3
+  calls = 0
+  r, _ = pgd_strict_solve(Float32, X, y, s, λ, zeros(32), 10_000; callback = _ -> (calls += 1; false))
+  @test r.stagnated && r.iterations == K && calls == K
+  calls = 0
+  r, _ = pgd_strict_solve(Float32, X, y, s, λ, zeros(32), 10_000; callback = _ -> (calls += 1; calls == K))
+  @test r.stagnated && r.iterations == K
+  calls = 0
+  r, _ = pgd_strict_solve(Float32, X, y, s, λ, zeros(32), 10_000; callback = _ -> (calls += 1; calls == K - 3))
+  @test !r.stagnated && r.iterations == K - 3
+  # a call limit reached before the stagnation stop is reported as such; when both hold at the same
+  # iteration, each flag reports its own condition
+  r, _ = pgd_strict_solve(Float32, X, y, s, λ, zeros(32), 10_000)
+  fcalls = r.f_calls
+  r, _ = pgd_strict_solve(Float32, X, y, s, λ, zeros(32), 10_000; f_calls_limit = 10)
+  @test r.call_limit_reached && !r.stagnated && r.iterations < K
+  r, _ = pgd_strict_solve(Float32, X, y, s, λ, zeros(32), 10_000; f_calls_limit = fcalls)
+  @test r.call_limit_reached && r.stagnated && r.iterations == K
+end
+
+alloc_pgd_stagnation_step(st, f, g, method, options) = @allocated begin
+  PS.update_state!(f, g, st, method)
+  PS._stagnated(st, options)
+end
+@testset "PGD: a warmed iteration with the stagnation test allocates nothing (#308)" begin
+  X, y, s, λ = pgd_lasso_design(33, 100, 32)
+  f, g = Float32(s) * LeastSquaresLoss(Float32.(y), Float32.(X)), NormL1(Float32(λ))
+  method, options = ProximalGradientDescent(), pgd_strict(100)
+  st = PS.initial_state(method, options, f, g, zeros(Float32, 32))
+  alloc_pgd_stagnation_step(st, f, g, method, options)
+  for _ in 1:3
+    @test alloc_pgd_stagnation_step(st, f, g, method, options) == 0
   end
 end
 

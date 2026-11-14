@@ -1005,7 +1005,7 @@ end
     @test rb.f_converged
     x = zeros(T, 12)
     r = solve!(x, f, g, AccProxGradDescent(), strict)
-    @test !r.f_converged && r.f_tol === 0.0
+    @test !r.f_converged && r.f_tol === 0.0 && !r.stagnated
     @test r.converged == (r.x_converged || r.grad_converged)
     # Float64 ends on the gradient test; Float32 ends on the x or the gradient test, or at maxiter
     T == Float64 && @test r.grad_converged && !r.iteration_converged

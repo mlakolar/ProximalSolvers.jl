@@ -72,6 +72,7 @@ are evaluated as follows:
 | `converged` | at least one of `x_converged`, `f_converged` and `grad_converged` |
 | `f_increased` | `F > F'` |
 | `iteration_converged` | `iterations == maxiter` |
+| `stagnated` | `true` when the stagnation condition of `ProximalGradientDescent` on `Float32` data with `ftol = 0` holds at that iteration (see [Strict accuracy](#Strict-accuracy)); `false` for `AccProxGradDescent`, for `Float64` data and with `ftol > 0`. It can be `true` together with `call_limit_reached`, with `iteration_converged`, or at an iteration at which the callback returned `true` |
 
 So an objective-increase stop reports `f_increased=true` together with
 `converged=false`, unless one of the three tests also held at that
@@ -143,14 +144,15 @@ and `converged=true` is still not a certificate: check the returned point
 independently, for example with the bound below. With this configuration
 Float32 PGD reached its floating-point fixed point and met the independent
 `1e-5` target on the benchmark cases (in these probes, with `maxiter = 10000`;
-10 input draws each, on Julia 1.10 and 1.13, one CPU model), but it ran to
-`maxiter` with `converged=false`. At an iteration whose accepted iterate is
-unchanged, the computed `x` and gradient tests can hold (the computed gradient
-residual can be exactly `0`), but under `ftol = 0` the exact-stall rule (see
-"An exact stall" below) does not count them; between such iterations the
-iterate can still move. Its run time therefore measures the iteration limit.
-The computed residual is not an accuracy measure: the `1e-5` target was
-checked with the independent duality gap.
+10 input draws each, on Julia 1.10 and 1.13, one CPU model). With the stagnation
+stop (see "A stagnation stop" below), such a solve ends, before `maxiter` on those
+cases, at an iteration that meets its condition, with `stagnated=true` and
+`converged=false`. At an iteration whose accepted iterate is unchanged, the
+computed `x` and gradient tests can hold (the computed gradient residual can be
+`0`), but under `ftol = 0` the exact-stall rule (see "An exact stall" below) does
+not count them; between such iterations the iterate can still move. The computed
+residual is not an accuracy measure: the `1e-5` target was checked with the
+independent duality gap.
 
 - **`allow_f_increases = true`.** With the objective test off, a computed
   increase of `F` still ends the solve under the default
@@ -178,13 +180,43 @@ checked with the independent duality gap.
   an iteration passes the `x` test. A stall can end when the step size `1/L`
   or, for APG, the extrapolated point changes from one iteration to the next;
   they need not change (for example with a zero step or `α = 1`). A solve that
-  stays at an unchanged iterate until `maxiter` ends with `converged=false` and
+  stays at an unchanged iterate until `maxiter`, with no iteration that meets the
+  condition of the next item, ends with `converged=false` and
   `iteration_converged=true`; that reports no progress, not that the point is
   wrong (for `x = 0` with a penalty level at or above `norm(∇f(0), Inf)`, the
   point is the solution). For `AccProxGradDescent`, an extrapolated point `y`
   equal to `x` while `x` differs from the previous iterate is not a stall: its
   residual `L * maximum(abs, x - y)` is `0`, so the gradient test holds when
   `gradtol > 0`.
+- **A stagnation stop.** Under `ftol = 0`, `ProximalGradientDescent` on `Float32`
+  data stops after an iteration in which both of these hold: the accepted
+  iterate equals the previous one elementwise, and the last rejection of that
+  iteration's line search was decided by the computed curvature of the rejected
+  step, which was finite and replaced the line search's curvature estimate `L̂`
+  (the retry's `L` is then `min(Lexact, max(c, L / β))` for the rejected trial's
+  `L`, so it need not equal the curvature `c`). The solve ends with
+  `stagnated=true` and `converged=false`; `x_converged`, `f_converged` and
+  `grad_converged` are `false`, and `iteration_converged` is
+  `iterations == maxiter`. The stagnation check comes after tracing and after any
+  callback call that is due at that iteration under `print_every`; it does not
+  change the callback cadence, and a callback that returns `true` there can
+  still stop the solve itself. A rejection that is not checked
+  (a trial value that is not finite, a NaN estimate, a gradient estimate from a
+  gradient with a nonfinite entry) or whose computed curvature is not finite does
+  not count. A later rejection of the same iteration replaces an earlier one, and
+  nothing carries over from an earlier iteration. An iteration whose first trial
+  is already a zero step has no rejection and does not trigger the stagnation
+  stop (other stops, such as a callback or a limit, still apply); this happens,
+  for example, while `L` is so large that the first trial step rounds to a zero
+  step, and at `x = 0` with a penalty level at or above `norm(∇f(0), Inf)`. An
+  iteration whose accepted iterate differs from the previous one in any entry
+  does not trigger it either, so a solve that keeps moving by rounding error,
+  with no unchanged iterate, is ended by another stop or by `maxiter`.
+  `stagnated=true` is **not** a convergence or accuracy certificate: the point
+  can be inaccurate (a nearly interpolating problem with a small penalty level
+  can stall with a duality gap above the `1e-5` target), and the iterate could
+  still move at a later iteration if the solve continued. For `Float64` data, for
+  `AccProxGradDescent` and with `ftol > 0`, `stagnated` is `false`.
 
 **A check of a lasso solution.** Let `f(x) = s‖y - Xx‖²/2` with `s > 0` and
 `g(x) = λ‖x‖₁` with `λ > 0` (an unweighted `NormL1`), let `F = f + g`, and let
@@ -349,7 +381,9 @@ only on `converged`.
   (`f_increased = true`); see "Why rounding triggers it" in
   [PGD stops when the computed objective increases](@ref). Under `ftol = 0`
   with the settings of [Strict accuracy](@ref), a Float32 solve can reach its
-  floating-point fixed point and, by the exact-stall rule there, run to
+  floating-point fixed point and end at the stagnation stop there, with
+  `stagnated = true` and `converged = false`; without an iteration that meets
+  its condition, the exact-stall rule applies and the solve can run to
   `maxiter` with `converged = false`.
 - APG handles a failed step in the same way. Its backtracking raises an error, after which the last
   accepted iterate is restored, when the next curvature estimate `L/β` is not a
