@@ -113,6 +113,7 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
     if !isfinite(state.f_x)
         state.backtrack_steps += 1
         state.L = next_curvature(state.L, ls.β)
+        state.verified_rejection = false
         return false
     end
 
@@ -152,11 +153,16 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
     # sum of squares) leaves TFOCS's estimate. A NaN estimate, or a gradient estimate from a
     # nonfinite ∇f(x), is kept: the update and the error check below run on it as before. A
     # NaN estimate raises the error; an infinite one raises it unless a finite Lexact caps L.
+    # verified: this rejection's check ran and replaced L̂ by a finite computed curvature c
+    verified = false
     if !isnan(local_l) && (!gradient_mode || all(isfinite, state.grad_f_x))
         accepted, c = check_rejection!(state, gradient_mode)
         accepted && return true
-        isfinite(c) && (local_l = c)
+        verified = isfinite(c)
+        verified && (local_l = c)
     end
+    # recorded for PGD's stagnation test: whether this retry's L̂ is such a curvature
+    state.verified_rejection = verified
     state.L = min( ls.Lexact, max( local_l, next_curvature(state.L, ls.β) ) )
     isfinite(state.L) || error("line search failed: nonfinite curvature estimate")
 

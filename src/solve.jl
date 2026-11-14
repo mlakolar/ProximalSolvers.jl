@@ -74,6 +74,7 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
   tr = OptimizationTrace{typeof(method)}()
   tracing = options.store_trace || options.show_trace || options.extended_trace || options.callback !== nothing
   stopped, stopped_by_callback, stopped_by_time_limit = false, false, false
+  stagnated = false
   f_limit_reached, grad_limit_reached, prox_limit_reached = false, false, false
   x_converged, fg_converged, grad_converged, f_increased = false, false, false, false
 
@@ -108,8 +109,11 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
     grad_limit_reached = options.grad_calls_limit > 0 && state.grad_calls >= options.grad_calls_limit
     prox_limit_reached = options.prox_calls_limit > 0 && state.prox_calls >= options.prox_calls_limit
 
+    # a numerical-stagnation stop (see _stagnated); the callback has already seen this iteration
+    stagnated = _stagnated(state, options)
+
     increased = f_increased && !options.allow_f_increases
-    if increased || stopped_by_callback ||
+    if increased || stagnated || stopped_by_callback ||
         stopped_by_time_limit || f_limit_reached || grad_limit_reached || prox_limit_reached
         stopped = true
     end
@@ -138,6 +142,7 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
                 state.grad_calls,
                 state.prox_calls,
                 f_limit_reached || grad_limit_reached || prox_limit_reached,
+                stagnated,
                 NaN)           # gap sentinel, never computed
 
 end
