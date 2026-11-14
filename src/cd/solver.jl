@@ -41,10 +41,13 @@ at their defaults, are not stored, and other values are rejected.
 
 Once the active passes since the last full pass have together visited 20 times
 as many coordinates as a full pass, the next pass is a full pass even when the
-active changes have not fallen below `tol`. If, when `tol` is at the Float32
-rounding level of the coefficients, the changes of full passes also stay above
-`tol`, the run ends at `maxpasses` (not converged, with the warning); a looser
-`tol`, or Float64 data with the same `tol`, puts `tol` above that level.
+active changes have not fallen below the threshold. Float32 rounding of the
+coefficients can also keep the largest change of every full pass at or above the
+effective threshold (the reported `tolerance`; with `relative=true` and a
+positive response scale, each coordinate change is first multiplied by
+`sqrt(s * a)`, `a` the squared norm of its column); the run then ends at
+`maxpasses` without converging, with the warning. A threshold well above that
+rounding level avoids this; Float64 data has a much lower rounding level.
 
 A `SparseIterate` is solved on a private copy retaining its initial
 active zeros and coordinate order. After a completed finite run the caller
