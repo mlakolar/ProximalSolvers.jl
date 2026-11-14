@@ -24,9 +24,11 @@ Pass `ProximalOptions(...)` as the fifth argument to `solve!` to
 configure stopping tolerances and iteration limits. A stop that the `xtol`, `ftol` or
 `gradtol` test proposes counts only if the computed KKT residual of the iterate is below
 `max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞` (see
-[`ProximalOptions`](@ref)). `converged=true` means that, in working precision; it is not an
-exact-arithmetic certificate and does not bound the distance to a minimizer, and the
-default tolerances are not a specified number of correct digits. Tighten tolerances and
+[`ProximalOptions`](@ref)). `converged=true` guarantees only that the computed, normalized KKT
+residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))`; it is not an
+exact-arithmetic certificate, does not bound the distance to a minimizer and does not
+guarantee coefficient accuracy on ill-conditioned designs (see the
+[stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)), and the default tolerances are not a specified number of correct digits. Tighten tolerances and
 check KKT conditions independently before reporting numerical results.
 See the [solver guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/)
 and [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).

@@ -34,8 +34,12 @@ finite; it does not require that product to be finite (for a huge `gradtol` it c
 continues. With `y = 0` and `λ = 0` both `λ` and `λmax` are 0, and nothing
 converges. `converged=true` therefore means that a test proposed a stop and that
 the computed (working-precision) KKT residual `‖G‖∞` at the returned `x` is
-below that bound, that is, `‖G‖∞ / max(λ, λmax) < max(gradtol, 64 eps(T))`. It is not an exact-arithmetic certificate, and it does not
-bound the distance to a minimizer. A `gradtol` below `64 eps(T)`, including
+below that bound, that is, `‖G‖∞ / max(λ, λmax) < max(gradtol, 64 eps(T))`.
+`converged = true` guarantees only that the computed, normalized KKT residual
+`‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))`. It is not an exact-arithmetic
+certificate, it does not bound the distance to a minimizer, and it does not guarantee
+coefficient accuracy on ill-conditioned designs (see the
+[stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)). A `gradtol` below `64 eps(T)`, including
 `0`, gives the bound `64 eps(T) max(λ, λmax)`. For `AccProxGradDescent` the check
 forms `∇f(x)` from the cached image `A x` at each iteration at which a stop is
 proposed, and counts that evaluation in `grad_calls`.
@@ -261,7 +265,9 @@ coefficient vector; `minimum` is the reported objective at that iterate.
 test proposed a stop and that the stationarity check passed (see
 [`ProximalOptions`](@ref)): the computed KKT residual at `minimizer` is below
 `max(gradtol, 64 eps(T)) * max(λ, λmax)`. It is a working-precision value, not an
-exact-arithmetic certificate. `iteration_converged` reports reaching the iteration limit,
+exact-arithmetic certificate; it guarantees only that the computed, normalized residual
+`‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))`, not coefficient accuracy on
+ill-conditioned designs. `iteration_converged` reports reaching the iteration limit,
 **not** successful convergence.
 
 The result also stores stopping flags, residuals and tolerances, optional

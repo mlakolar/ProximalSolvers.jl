@@ -29,8 +29,11 @@ retains two algorithm-specific result types.
 **Warning:** for PGD and APG, `converged=true` means that a stopping test
 proposed a stop and that the computed KKT residual `‖G‖∞` at the returned point
 is below `max(gradtol, 64eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞`: a
-working-precision value, not an exact-arithmetic certificate, and not a bound on
-the distance to a minimizer. For CD it means that a stopping rule was satisfied.
+working-precision value. `converged = true` guarantees only that the computed,
+normalized KKT residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64eps(T))`. It is not
+an exact-arithmetic certificate, not a bound on the distance to a minimizer, and
+does not guarantee coefficient accuracy on ill-conditioned designs (see
+[the stationarity check](numerics.md)). For CD it means that a stopping rule was satisfied.
 Neither certifies the output as optimal. For the lasso, use the separate
 [numerical KKT check](sparsity-and-kkt.md). A result's `gap=NaN` and
 CD's `kkt_checks=0` are placeholders: neither is a computed certificate.
