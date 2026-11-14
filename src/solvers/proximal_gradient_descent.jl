@@ -25,7 +25,8 @@ configure stopping tolerances and iteration limits. A stop that the `xtol`, `fto
 `gradtol` test proposes counts only if the computed KKT residual of the iterate is below
 `max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞` (see
 [`ProximalOptions`](@ref)). `converged=true` guarantees only that the computed, normalized KKT
-residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))`; it is not an
+residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the threshold is formed in
+`T`, which can round or overflow; see [`ProximalOptions`](@ref)); it is not an
 exact-arithmetic certificate, does not bound the distance to a minimizer and does not
 guarantee coefficient accuracy on ill-conditioned designs (see the
 [stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)), and the default tolerances are not a specified number of correct digits. Tighten tolerances and

@@ -42,7 +42,8 @@ rejected. Pass `ProximalOptions(...)` as the fifth argument to [`solve!`](@ref).
 A stop that the `xtol`, `ftol` or `gradtol` test proposes counts only if the computed KKT
 residual at the accepted `x` is below `max(gradtol, 64 eps(T)) * max(λ, λmax)`, with
 `λmax = α‖Xᵀy‖∞` (see [`ProximalOptions`](@ref)); `converged = true` guarantees only that the
-computed, normalized KKT residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))`. It is
+computed, normalized KKT residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the
+threshold is formed in `T`, which can round or overflow; see [`ProximalOptions`](@ref)). It is
 not an exact-arithmetic certificate and does not guarantee coefficient accuracy on
 ill-conditioned designs (see the [stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)). The check forms `∇f(x)` from the
 cached image `A x` and counts that evaluation in `grad_calls`. The gradient-mapping residual

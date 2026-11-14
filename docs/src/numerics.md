@@ -79,7 +79,11 @@ elsewhere. The stop counts only if
 ~~~
 
 where `T` is the element type of the coefficients and `α` is the loss scale (1 for
-a plain `LeastSquaresLoss`). Equivalently, `‖G‖∞ / max(λ, λmax) < max(gradtol, 64 eps(T))`.
+a plain `LeastSquaresLoss`). The code forms `τ = T(max(gradtol, 64 eps(T)))` and the
+threshold `τ * S` in `T`; the normalized form `‖G‖∞ / S < max(gradtol, 64 eps(T))` is the
+exact-arithmetic reading. In working precision the conversion to `T` and the product can
+round, or overflow to `Inf` for a huge `gradtol`, and a finite residual then passes against
+the infinite threshold.
 The check also requires that `S = max(λ, λmax)` is finite, that the product
 `max(gradtol, 64 eps(T)) * S`, formed in `T`, is at least `floatmin(T)`, and that `‖G‖∞`
 is finite. It does not require that product to be finite: for a huge `gradtol` it can
@@ -98,7 +102,7 @@ of the tests. What `converged=true` therefore says about the returned `x`:
   In working precision the outcome can change: the quantities are rounded, and
   the requirement that `τ S` is at least `floatmin(T)` can refuse a stop at a
   scale where `α`, `λ`, `S` and `τ S` are all representable. For example, for
-  `Float32` data `X = [1]`, `y = [1]` at `x = 0`, `α = λ = 1` passes and
+  `Float32` data `X = [1]`, `y = [1]` at `x = 0` with the default `gradtol`, `α = λ = 1` passes and
   `α = λ = 1f-35` does not, because `τ S` is below `floatmin(Float32)`.
 - The factor `64 eps(T)` is a floor on the relative residual. A `gradtol` below
   it, including `gradtol = 0`, gives the bound `64 eps(T) max(λ, λmax)`.

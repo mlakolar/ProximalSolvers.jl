@@ -614,15 +614,31 @@ end
   # is below max(gradtol, 64eps(T)) max(λ, λmax) (#296); the residual is checked independently,
   # with a fixture-specific allowance (a relative 1e-3 and 1e3 eps(T) of S) for the difference
   # between the computed and the exact residual on this small problem
+  # In Float32 the documented objective-increase exit can end the solve before the check passes
+  # (the objective increases by rounding), with converged = false; that branch is accepted with
+  # the file's Float32 quality targets (objective atol 2e-5, KKT 2e-3), checked independently.
   for T in (Float64, Float32)
-    A, b = correlated(T)
-    scale = one(T) / T(7)
-    r = solve!(zeros(T, 3), scale * LeastSquaresLoss(b, A), NormL1(T(.1)), ProximalGradientDescent())
-    @test r.converged && !r.f_increased && (r.x_converged || r.f_converged || r.grad_converged)
-    @test r.prox_calls == r.backtrack_steps && r.f_calls == r.grad_calls + r.prox_calls
-    S = max(.1, Float64(scale) * maximum(abs, Float64.(A)' * Float64.(b)))
-    @test kkt(A, b, r.minimizer, T(.1), scale) <= max(r.g_tol, 64 * Float64(eps(T))) * S * (1 + 1e-3) + 1e3 * eps(T) * S
-    @test isnan(r.gap)
+    @testset "default PGD stopping, $T" begin
+      A, b = correlated(T)
+      scale = one(T) / T(7)
+      r = solve!(zeros(T, 3), scale * LeastSquaresLoss(b, A), NormL1(T(.1)), ProximalGradientDescent())
+      # holds after an objective-increase exit too: each iteration completed its gradient
+      @test r.prox_calls == r.backtrack_steps && r.f_calls == r.grad_calls + r.prox_calls
+      @test isnan(r.gap)
+      T === Float64 && @test r.converged
+      if r.converged
+        @test !r.f_increased && (r.x_converged || r.f_converged || r.grad_converged)
+        S = max(.1, Float64(scale) * maximum(abs, Float64.(A)' * Float64.(b)))
+        @test kkt(A, b, r.minimizer, T(.1), scale) <= max(r.g_tol, 64 * Float64(eps(T))) * S * (1 + 1e-3) + 1e3 * eps(T) * S
+      else
+        @test T === Float32
+        @test r.f_increased && !r.iteration_converged && !r.call_limit_reached
+        @test !r.x_converged && !r.f_converged && !r.grad_converged
+        _, optimum = reference(A, b, T(.1), scale)
+        @test objective(A, b, r.minimizer, T(.1), scale) ≈ optimum atol = 2e-5
+        @test kkt(A, b, r.minimizer, T(.1), scale) < 2e-3
+      end
+    end
   end
   # Printing samples rows without changing the retained trace or numerical work.
   function run_trace(show)

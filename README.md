@@ -50,9 +50,10 @@ reproduce that order.
 
 **For PGD and APG, `converged=true` means that a stopping test proposed a stop and
 that the computed KKT residual `‖G‖∞` at the returned point is below
-`max(gradtol, 64eps(T)) * max(λ, λmax)` (`λmax = α‖Xᵀy‖∞`; equivalently, `‖G‖∞ / max(λ, λmax)`
-is below `max(gradtol, 64eps(T))`), not that the coefficients have a specified number of
-correct digits.** It guarantees only that the normalized residual is below that bound; it does not
+`max(gradtol, 64eps(T)) * max(λ, λmax)` (`λmax = α‖Xᵀy‖∞`; the threshold is formed in `T`, where it can round or
+overflow for a huge `gradtol`), not that the coefficients have a specified number of
+correct digits.** It guarantees only that the computed, normalized residual `‖G‖∞ / max(λ, λmax)` is below
+`max(gradtol, 64eps(T))`, with the threshold formed in `T`; it does not
 guarantee coefficient accuracy on ill-conditioned designs. Use tighter options and independently check optimality for
 results you plan to report. It is a working-precision residual, not an exact-arithmetic
 certificate (see [the stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)). See the

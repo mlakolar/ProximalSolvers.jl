@@ -30,7 +30,9 @@ retains two algorithm-specific result types.
 proposed a stop and that the computed KKT residual `‖G‖∞` at the returned point
 is below `max(gradtol, 64eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞`: a
 working-precision value. `converged = true` guarantees only that the computed,
-normalized KKT residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64eps(T))`. It is not
+normalized KKT residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64eps(T))` (the
+threshold is formed in `T`, where it can round or overflow; see
+[the stationarity check](numerics.md)). It is not
 an exact-arithmetic certificate, not a bound on the distance to a minimizer, and
 does not guarantee coefficient accuracy on ill-conditioned designs (see
 [the stationarity check](numerics.md)). For CD it means that a stopping rule was satisfied.

@@ -34,9 +34,13 @@ finite; it does not require that product to be finite (for a huge `gradtol` it c
 continues. With `y = 0` and `λ = 0` both `λ` and `λmax` are 0, and nothing
 converges. `converged=true` therefore means that a test proposed a stop and that
 the computed (working-precision) KKT residual `‖G‖∞` at the returned `x` is
-below that bound, that is, `‖G‖∞ / max(λ, λmax) < max(gradtol, 64 eps(T))`.
+below that bound. The code forms `τ = T(max(gradtol, 64 eps(T)))` and the threshold
+`τ * max(λ, λmax)` in `T`, and compares `‖G‖∞` with it. The normalized form
+`‖G‖∞ / max(λ, λmax) < max(gradtol, 64 eps(T))` is the exact-arithmetic reading: in working
+precision the conversion to `T` and the product can round, or overflow to `Inf` for a huge
+`gradtol`, in which case a finite residual passes against the infinite threshold.
 `converged = true` guarantees only that the computed, normalized KKT residual
-`‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))`. It is not an exact-arithmetic
+`‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))`, in that sense. It is not an exact-arithmetic
 certificate, it does not bound the distance to a minimizer, and it does not guarantee
 coefficient accuracy on ill-conditioned designs (see the
 [stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)). A `gradtol` below `64 eps(T)`, including
@@ -266,8 +270,8 @@ test proposed a stop and that the stationarity check passed (see
 [`ProximalOptions`](@ref)): the computed KKT residual at `minimizer` is below
 `max(gradtol, 64 eps(T)) * max(λ, λmax)`. It is a working-precision value, not an
 exact-arithmetic certificate; it guarantees only that the computed, normalized residual
-`‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))`, not coefficient accuracy on
-ill-conditioned designs. `iteration_converged` reports reaching the iteration limit,
+`‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the threshold is formed in `T`, see
+[`ProximalOptions`](@ref)), not coefficient accuracy on ill-conditioned designs. `iteration_converged` reports reaching the iteration limit,
 **not** successful convergence.
 
 The result also stores stopping flags, residuals and tolerances, optional
