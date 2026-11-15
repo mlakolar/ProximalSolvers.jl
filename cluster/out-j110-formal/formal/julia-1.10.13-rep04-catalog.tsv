@@ -1,0 +1,22 @@
+id	group	problem	solver	variant	phase	suite	inputs	issue	measure	target
+gradient/lasso-B/apg/dense-f32/call	gradient	lasso-B	apg	dense-f32	call	quick	draw		relative_gap	1.0e-5
+gradient/lasso-B/apg/dense-f64/call	gradient	lasso-B	apg	dense-f64	call	quick	draw		relative_gap	1.0e-8
+gradient/lasso-B/apg/warm-dense-f32/call	gradient	lasso-B	apg	warm-dense-f32	call	quick	draw		relative_gap	1.0e-5
+gradient/lasso-B/apg/warm-dense-f64/call	gradient	lasso-B	apg	warm-dense-f64	call	quick	draw		relative_gap	1.0e-8
+gradient/lasso-B/pg/dense-f32/call	gradient	lasso-B	pg	dense-f32	call	quick	draw		relative_gap	1.0e-5
+gradient/lasso-B/pg/dense-f64/call	gradient	lasso-B	pg	dense-f64	call	quick	draw		relative_gap	1.0e-8
+gradient/lasso-B/pg/warm-dense-f32/call	gradient	lasso-B	pg	warm-dense-f32	call	quick	draw		relative_gap	1.0e-5
+gradient/lasso-B/pg/warm-dense-f64/call	gradient	lasso-B	pg	warm-dense-f64	call	quick	draw		relative_gap	1.0e-8
+gradient/lasso-C/apg/dense-f32/call	gradient	lasso-C	apg	dense-f32	call	extended	draw		relative_gap	1.0e-5
+gradient/lasso-C/apg/dense-f64/call	gradient	lasso-C	apg	dense-f64	call	extended	draw		relative_gap	1.0e-8
+gradient/lasso-C/pg/dense-f32/call	gradient	lasso-C	pg	dense-f32	call	extended	draw		relative_gap	1.0e-5
+gradient/lasso-C/pg/dense-f64/call	gradient	lasso-C	pg	dense-f64	call	extended	draw		relative_gap	1.0e-8
+gradient/lasso-D/apg/dense-f32/call	gradient	lasso-D	apg	dense-f32	call	extended	draw		relative_gap	1.0e-5
+gradient/lasso-D/apg/dense-f64/call	gradient	lasso-D	apg	dense-f64	call	extended	draw		relative_gap	1.0e-8
+gradient/lasso-D/pg/dense-f32/call	gradient	lasso-D	pg	dense-f32	call	extended	draw		relative_gap	1.0e-5
+gradient/lasso-D/pg/dense-f64/call	gradient	lasso-D	pg	dense-f64	call	extended	draw		relative_gap	1.0e-8
+gradient/lasso/apg/dense-f32/call	gradient	lasso	apg	dense-f32	call	quick	draw		relative_gap	1.0e-5
+gradient/lasso/apg/dense-f64/call	gradient	lasso	apg	dense-f64	call	quick	draw		relative_gap	1.0e-8
+gradient/lasso/pg/R/call	gradient	lasso	pg	R	call	quick	fixed	#106	relative_gap	NaN
+gradient/lasso/pg/dense-f32/call	gradient	lasso	pg	dense-f32	call	quick	draw		relative_gap	1.0e-5
+gradient/lasso/pg/dense-f64/call	gradient	lasso	pg	dense-f64	call	quick	draw		relative_gap	1.0e-8
