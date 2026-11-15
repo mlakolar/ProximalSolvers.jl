@@ -216,9 +216,15 @@ end
             solve!(x, f, NormL1(λ), method, strict_options(T))
         @test r.minimizer === x
         @test eltype(x) === T && typeof(r.minimum) === T
-        @test r.converged
-        r.converged || println(first_report(T, λ, scale, initial, method, first_options(method, T),
-                                            X, y, r, x, oracle, optimum))
+        # A stopping test now holds only at a point whose computed KKT residual is below
+        # max(gradtol, 64eps(T)) max(λ, λmax) (#296), and a rounding-size objective increase can
+        # end a strict PGD solve before that bound is met. warm_pgd_accepted accepts either
+        # exit for PGD (a small objective increase alone does not show a residual below the
+        # bound); the accuracy of the point is checked independently below
+        first_ok = method isa CDSolver ? r.converged : warm_pgd_accepted(r, first_options(method, T), T)
+        @test first_ok
+        first_ok || println(first_report(T, λ, scale, initial, method, first_options(method, T),
+                                         X, y, r, x, oracle, optimum))
         @test x ≈ expected atol = T === Float64 ? 2e-7 : 2e-3
         @test objective(X, y, x, λ, scale) ≈ optimum atol = T === Float64 ? 1e-12 : 2e-5
         @test kkt(X, y, x, λ, scale) < (T === Float64 ? 2e-7 : 2e-3)
@@ -241,9 +247,15 @@ end
         r = method isa CDSolver ? solve!(x, f, NormL1(λ), method) :
             solve!(x, f, NormL1(λ), method, strict_options(T))
         push!(solutions, copy(x))
-        @test r.converged
-        r.converged || println(first_report(T, λ, scale, initial, method, first_options(method, T),
-                                            X, y, r, x, oracle, optimum))
+        # A stopping test now holds only at a point whose computed KKT residual is below
+        # max(gradtol, 64eps(T)) max(λ, λmax) (#296), and a rounding-size objective increase can
+        # end a strict PGD solve before that bound is met. warm_pgd_accepted accepts either
+        # exit for PGD (a small objective increase alone does not show a residual below the
+        # bound); the accuracy of the point is checked independently below
+        first_ok = method isa CDSolver ? r.converged : warm_pgd_accepted(r, first_options(method, T), T)
+        @test first_ok
+        first_ok || println(first_report(T, λ, scale, initial, method, first_options(method, T),
+                                         X, y, r, x, oracle, optimum))
         if T === Float64 && iszero(λ) && iszero(initial)
           # Exercises the first-solve report when the check passes too.
           report = first_report(T, λ, scale, initial, method, first_options(method, T),
@@ -598,16 +610,35 @@ end
              ProximalOptions(maxiter = 2, ftol = 1e-30, xtol = 1e-30, gradtol = 0.))
   @test r.iterations == 2 && r.iteration_converged && !r.converged
   @test (r.f_calls, r.grad_calls, r.prox_calls, r.backtrack_steps) == (6, 3, 3, 3)
-  # Characterize historical default objective stopping separately from KKT.
+  # Default stopping: a stop that a test proposes counts only at a point whose computed KKT residual
+  # is below max(gradtol, 64eps(T)) max(λ, λmax) (#296); the residual is checked independently,
+  # with a fixture-specific allowance (a relative 1e-3 and 1e3 eps(T) of S) for the difference
+  # between the computed and the exact residual on this small problem
+  # In Float32 the documented objective-increase exit can end the solve before the check passes
+  # (the objective increases by rounding), with converged = false; that branch is accepted with
+  # the file's Float32 quality targets (objective atol 2e-5, KKT 2e-3), checked independently.
   for T in (Float64, Float32)
-    A, b = correlated(T)
-    scale = one(T) / T(7)
-    r = solve!(zeros(T, 3), scale * LeastSquaresLoss(b, A), NormL1(T(.1)), ProximalGradientDescent())
-    @test r.converged && r.f_converged && !r.x_converged && !r.grad_converged && !r.f_increased
-    @test r.iterations == 14
-    @test (r.f_calls, r.grad_calls, r.prox_calls, r.backtrack_steps) == (30, 15, 15, 15)
-    @test r.g_tol < kkt(A, b, r.minimizer, T(.1), scale) < 2e-3
-    @test isnan(r.gap)
+    @testset "default PGD stopping, $T" begin
+      A, b = correlated(T)
+      scale = one(T) / T(7)
+      r = solve!(zeros(T, 3), scale * LeastSquaresLoss(b, A), NormL1(T(.1)), ProximalGradientDescent())
+      # holds after an objective-increase exit too: each iteration completed its gradient
+      @test r.prox_calls == r.backtrack_steps && r.f_calls == r.grad_calls + r.prox_calls
+      @test isnan(r.gap)
+      T === Float64 && @test r.converged
+      if r.converged
+        @test !r.f_increased && (r.x_converged || r.f_converged || r.grad_converged)
+        S = max(.1, Float64(scale) * maximum(abs, Float64.(A)' * Float64.(b)))
+        @test kkt(A, b, r.minimizer, T(.1), scale) <= max(r.g_tol, 64 * Float64(eps(T))) * S * (1 + 1e-3) + 1e3 * eps(T) * S
+      else
+        @test T === Float32
+        @test r.f_increased && !r.iteration_converged && !r.call_limit_reached
+        @test !r.x_converged && !r.f_converged && !r.grad_converged
+        _, optimum = reference(A, b, T(.1), scale)
+        @test objective(A, b, r.minimizer, T(.1), scale) ≈ optimum atol = 2e-5
+        @test kkt(A, b, r.minimizer, T(.1), scale) < 2e-3
+      end
+    end
   end
   # Printing samples rows without changing the retained trace or numerical work.
   function run_trace(show)

@@ -26,8 +26,17 @@ PGD and APG provide `iterations`, more detailed stopping residuals and
 an optional iteration `trace`. These differ because the current package
 retains two algorithm-specific result types.
 
-**Warning:** `converged=true` means a stopping rule was satisfied, not
-that the output is certified optimal. For the lasso, use the separate
+**Warning:** for PGD and APG, `converged=true` means that a stopping test
+proposed a stop and that the computed KKT residual `‖G‖∞` at the returned point
+is below `max(gradtol, 64eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞`: a
+working-precision value. `converged = true` guarantees only that the computed,
+normalized KKT residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64eps(T))` (the
+threshold is formed in `T`, where it can round or overflow; see
+[the stationarity check](numerics.md)). It is not
+an exact-arithmetic certificate, not a bound on the distance to a minimizer, and
+does not guarantee coefficient accuracy on ill-conditioned designs (see
+[the stationarity check](numerics.md)). For CD it means that a stopping rule was satisfied.
+Neither certifies the output as optimal. For the lasso, use the separate
 [numerical KKT check](sparsity-and-kkt.md). A result's `gap=NaN` and
 CD's `kkt_checks=0` are placeholders: neither is a computed certificate.
 
@@ -52,8 +61,10 @@ gradient/proximal stopping residual**, **not** the value of your
 penalty object, even if you named that object `g`. Likewise,
 the displayed `|x - x'|` abbreviates a stopping diagnostic;
 see the [API documentation](api.md) for precise definitions.
-PGD can stop when **any** of its historical stopping criteria
-is met, so a small `gradtol` does not by itself force a small KKT residual.
+PGD can propose a stop when **any** of its stopping criteria is met, and the
+stop counts only if the computed KKT residual `‖G‖∞` is below
+`max(gradtol, 64eps(T)) * max(λ, λmax)`; `gradtol` below `64eps(T)` is
+not resolved by that check. See [Numerical behavior](numerics.md).
 
 Trace fields such as `dxx` describe relative iterate changes, and
 `backtrack_steps` counts line-search trials. These are solver

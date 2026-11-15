@@ -238,10 +238,22 @@ violation: assess accuracy with an independent objective/KKT check.
 
 PGD retains native LS image/value/gradient order, scalar steps, fused PB prox,
 TFOCS objective-to-gradient checks, finite curvature-growth refusal and zero-step
-gradient refresh. Historical objective/iterate/FASTA convergence tests combine
-by OR. Converged does not guarantee KKT below gradtol; objective rounding can
-stop even with very small ftol; `ftol = 0` disables the objective test. Check
-objective/KKT independently. Native
+gradient refresh. Objective/iterate/FASTA convergence tests combine by OR. The objective
+denominator and the gradient normalizers carry no absolute term: the objective test is
+`|F - F'| / |F| < ftol` or the flat form, and the gradient test compares the residual with
+`gradtol` times the largest residual so far or times the larger of ‖∇f‖∞ and the proximal-step
+residual, against a scale that exceeds `L eps(T) ‖x‖∞`. The iterate test keeps
+`xtol * max(‖x‖, 1)`, which for `‖x‖ < 1` is an absolute tolerance. A stop that any of them
+proposes is checked once in `_stationary!` (`src/utils.jl`): the minimal-norm KKT residual of
+the accepted `x` must be below `max(gradtol, 64 eps(T)) * max(λ, λmax)`, `λmax = α‖Xᵀy‖∞`
+(formed once per solve in `xhat` and kept in the state field `λmax`). The check requires `S =
+max(λ, λmax)` finite, that product, formed in `T`, at least `floatmin(T)` and the residual
+finite; it does not require the product to be finite. Otherwise the three flags are cleared and the solve continues. PGD uses the `∇f(x)` it holds. APG
+forms `∇f(x)` from the cached image `z_x` with `_image_value_and_gradient!`, into `xhat`
+and `dz`, which the next iteration overwrites before reading, and counts it in `grad_calls`.
+The check is a computed working-precision residual, not an exact-arithmetic certificate.
+Objective rounding can still end a solve with an objective increase; `ftol = 0`
+disables the objective test. Check objective/KKT independently. Native
 Float32 may stagnate earlier. Finite inputs do not ensure finite intermediates;
 historical LS image exceptional-range limitations remain outside this extraction.
 
@@ -263,9 +275,11 @@ nonfinite gradient at `y` is treated like a nonfinite value (restart, or failure
 without momentum). Each step writes `x_previous ← x` after forming `y` and before the
 first trial, so the shared engine's rollback restores the last accepted iterate.
 `backtrack_steps` counts every trial, including the accepted one, so it equals
-`prox_calls`; `grad_calls` is the number of steps plus restarts and
-`f_calls = 1 + grad_calls + prox_calls`. Its gradient residual `L‖x - y‖∞` is a
-stopping quantity measured from `y`; it is not an independent KKT residual at `x`.
+`prox_calls`. With `C` the number of stationarity checks of the solve (each evaluates
+`∇f(x)` once, counted in `grad_calls` and not in `f_calls`), `grad_calls = iterations +
+restarts + C` and `f_calls = 1 + grad_calls + prox_calls - C`. Its reported gradient residual
+`L‖x - y‖∞` is a stopping quantity measured from `y`; it is not an independent KKT residual
+at `x` (the check evaluates `∇f(x)` separately).
 
 ### The APG bound test
 

@@ -61,12 +61,13 @@ kkt = [iszero(beta[j]) ?
    max_kkt_violation=maximum(kkt))
 ~~~
 
-The default PGD result can report `converged=true` despite a visibly
-nonzero coefficient error and KKT violation. In these tutorial problems,
-**defaults typically give roughly 3–4 correct digits; tighten the tolerances
-and check optimality before reporting numerical results.** This is an
-illustration, not an accuracy guarantee for other problems. Here the KKT
-violation uses the analytic lasso conditions, independently of the solver's
+With the default options, `converged=true` for PGD means that a stopping test
+proposed a stop and that the computed KKT residual is below
+`max(gradtol, 64eps(T)) * max(λ, λmax)`: a working-precision check, not an exact
+optimality certificate. The displayed coefficient error and KKT violation can still
+be nonzero. **Tighten the tolerances and check optimality before reporting numerical
+results.** This is an illustration, not an accuracy guarantee for other problems. Here
+the KKT violation uses the analytic lasso conditions, independently of the solver's
 stopping flag. See [Choosing a solver](choosing-solver.md) for a tighter PGD
 configuration and [the KKT tutorial](sparsity-and-kkt.md) for the formula.
 
