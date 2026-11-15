@@ -4,27 +4,27 @@ X = [1. 0.; 0. 2.; 0. 0.]
 y = [2., -2., .5]
 x = zeros(2)
 f = (1/length(y)) * LeastSquaresLoss(y, X)
-g = NormL1(.1);
-options = ProximalOptions(maxiter=2000, ftol=1e-14, xtol=1e-12, gradtol=1e-10)
+g = NormL1(.1);</code></pre><p>gradtol = 1e-10 is near the rounding level of the objective, so the solve may end on a computed objective increase (converged = false) unless increases are allowed</p><pre><code class="language-julia hljs">options = ProximalOptions(maxiter=2000, ftol=1e-14, xtol=1e-12, gradtol=1e-10,
+                          allow_f_increases=true)
 result = solve!(x, f, g, ProximalGradientDescent(), options)
 @assert result.converged &amp;&amp; result.minimizer === x</code></pre><p>Accuracy is checked separately from the solver&#39;s stopping flag.</p><pre><code class="language-julia hljs">@assert isapprox(x, [1.7, -.925]; atol=1e-7)
 println(result)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Results of Optimization Algorithm
  * Algorithm: Proximal Gradient Descent
- * Minimizer: [1.6999999383746303,-0.925000007358236]
+ * Minimizer: [1.6999999996915773,-0.9250000000104999]
  * Minimum: 3.229167e-01
- * Iterations: 26
+ * Iterations: 36
  * Convergence: true
    * |x - x&#39;| &lt; 1.0e-12: false
-     |x - x&#39;| = 4.23e-08
+     |x - x&#39;| = 3.35e-10
    * |f(x) - f(x&#39;)| / |f(x)| &lt; 1.0e-14: true
-     |f(x) - f(x&#39;)| / |f(x)| = 3.27e-15
+     |f(x) - f(x&#39;)| / |f(x)| = 1.72e-16
    * |g(x)| &lt; 1.0e-10: false
-     |g(x)| = 2.05e-08
+     |g(x)| = 1.03e-10
    * objective increased at the last iteration: false
    * Reached Maximum Number of Iterations: false
    * Reached a limit on the number of calls: false
    * Stopped at numerical stagnation: false
- * Backtracking steps: 29
- * f(x) calls: 56
- * ∇f(x) calls: 27
- * prox calls: 29</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../01_cd_lasso/">« Coordinate descent lasso</a><a class="docs-footer-nextpage" href="../03_sparse_cd_lasso/">Coordinate descent on a SparseIterate »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Saturday 14 November 2026 16:42">Saturday 14 November 2026</span>. Using Julia version 1.13.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+ * Backtracking steps: 40
+ * f(x) calls: 77
+ * ∇f(x) calls: 37
+ * prox calls: 40</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../01_cd_lasso/">« Coordinate descent lasso</a><a class="docs-footer-nextpage" href="../03_sparse_cd_lasso/">Coordinate descent on a SparseIterate »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Sunday 15 November 2026 01:03">Sunday 15 November 2026</span>. Using Julia version 1.13.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
