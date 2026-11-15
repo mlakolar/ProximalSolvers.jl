@@ -337,12 +337,19 @@ function core_method(solver, ::Type{T}) where T
   error("no current-core method for $solver")
 end
 
-function core_case_state(a, solver, iterate)
+# The `acc-` setting of PGD and APG (#314), Float64 only: no objective test (`ftol = 0`),
+# objective increases allowed and a step test that practically never decides, so the gradient
+# test at target/100 ends the solve. It is a setting, not a certification: as for every case,
+# the certificate decides `ok`.
+accuracy_options() = ProximalSolvers.ProximalOptions(maxiter = 10_000, ftol = 0, xtol = 1e-14,
+  gradtol = 1e-10, allow_f_increases = true)
+
+# `options` apply to PGD and APG only (gaptol = 0).
+function core_case_state(a, solver, iterate; options = benchmark_options(; residual = true))
   PS = ProximalSolvers
   T = eltype(a.X)
   f, g = benchmark_model(a)
   method = core_method(solver, T)
-  options = benchmark_options(; residual = true)   # PGD and APG only; gaptol = 0
   start = iterate == :sparse ? sparse_start(a.start) : copy(a.start)
   x = copy(start)
   # copyto! between SparseIterates of one size copies the state: values, active set, order.
@@ -537,6 +544,14 @@ function build_catalog(suite, groups; deferred = false)
     add_core_cases!(catalog, "cd", problem, "cd", make_problem; warm, suite)
     add_core_cases!(catalog, "gradient", problem, "pg", make_problem; warm, suite)
     add_core_cases!(catalog, "gradient", problem, "apg", make_problem; warm, suite)
+  end
+  # The same PGD and APG problems in Float64 under `accuracy_options` (#314), extended suite only.
+  for (problem, make_problem, starts, _) in core_designs, warm in starts, solver in ("pg", "apg")
+    make = rep -> core_case_state(core_problem(make_problem(rep), Float64; warm), solver, :dense;
+                                  options = accuracy_options())
+    add_case!(catalog, "gradient", problem, solver, "acc-$(warm ? "warm-" : "")dense-f64", make;
+              suite = "extended", target = CORE_TARGETS[Float64],
+              requires = case_requirements(solver, ["lasso"], "call"))
   end
   # IDs are unique across supported and deferred cases, so restoring one never renames another.
   length(unique(c.meta.id for c in catalog)) == length(catalog) || error("duplicate case id")

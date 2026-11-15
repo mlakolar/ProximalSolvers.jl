@@ -118,6 +118,14 @@ PGD and APG, cold and warm starts, dense and `SparseIterate` iterates:
 | `lasso-C` | 800×120, correlated ρ=0.5 | extended | as `lasso` |
 | `lasso-D` | 180×600, p > n | extended | as `lasso` |
 
+The extended suite adds ten Float64 `acc-` cases for PGD and APG (#314):
+`gradient/<problem>/{pg,apg}/acc-{dense,warm-dense}-f64/call` on the problems, starts and inputs
+of the table, with the same target and certificate, under `accuracy_options()`
+(`maxiter = 10_000, ftol = 0, xtol = 1e-14, gradtol = 1e-10, allow_f_increases = true`). `acc-`
+names a setting, not a `converged = true` certification: the status is the certificate's, so a
+solve that ends `stagnated` or at `maxiter` with an accurate minimizer is `ok`, and a
+`converged = true` solve above the target is `target_missed`. There are no Float32 `acc-` cases.
+
 Float32 inputs are the Float64 draw rounded once; the data hash covers the rounded values and
 the start. A warm start is the solution at 1.25λ, computed in Float64 by the certificate
 module's own coordinate descent (`cert_loading_refit`), so it does not depend on the solver
