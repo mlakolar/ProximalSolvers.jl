@@ -39,15 +39,21 @@ const QUICK = sort!(vcat(
 @testset "supported and deferred cases" begin
   quick, extended = catalog(), catalog("extended")
   @test [s.meta.id for s in quick] == QUICK
-  @test length(extended) == 42
+  @test length(extended) == 52
   @test issubset(Set(s.meta.id for s in quick), Set(s.meta.id for s in extended))
   deferred = catalog("extended"; deferred = true)
   @test length(deferred) == 100
   @test all(s -> call(H.case_available, s), extended)
   @test all(s -> !isempty(call(H.missing_requirements, s)), deferred)
-  # 102 historical IDs (2 supported, 100 deferred) and 40 current-core IDs, all distinct.
+  # 102 historical IDs (2 supported, 100 deferred), 40 current-core IDs and the 10 Float64
+  # `acc-` IDs of PGD and APG (#314, extended suite only), all distinct.
   ids = [s.meta.id for s in vcat(extended, deferred)]
-  @test allunique(ids) && length(ids) == 142
+  @test allunique(ids) && length(ids) == 152
+  acc = sort!(["gradient/$p/$solver/acc-$(w)dense-f64/call" for solver in ("pg", "apg")
+               for (p, ws) in (("lasso", ("",)), ("lasso-B", ("", "warm-")), ("lasso-C", ("",)),
+                               ("lasso-D", ("",))) for w in ws])
+  @test sort!(filter(id -> occursin("/acc-", id), ids)) == acc
+  @test all(id -> id in [s.meta.id for s in extended], acc)
   for id in ("cd/lasso-dense/cd/B/call", "cd/lasso-dense/cd/R/workspace", "admm/lasso/admm/R/call",
              "gradient/lasso/apg/tight/call", "paths/lasso/cd/grid8/call", "cd/lasso-csc/cd/B/call")
     @test id in ids && !(id in [s.meta.id for s in extended])
