@@ -1,0 +1,62 @@
+start 2026-11-16T03:52:48Z loadavg 1.08 1.07 1.09 1/460 2399511
+rep 1 arm A loadavg 1.08 1.07 1.09 1/460 2399514
+rep 1 arm A exit 2
+rep 1 arm B loadavg 1.06 1.06 1.09 1/455 2399524
+rep 1 arm B exit 2
+rep 1 arm C loadavg 1.04 1.06 1.08 1/455 2399533
+rep 1 arm C exit 2
+rep 2 arm B loadavg 1.03 1.05 1.08 1/454 2399543
+rep 2 arm B exit 2
+rep 2 arm C loadavg 1.02 1.05 1.08 1/455 2399554
+rep 2 arm C exit 2
+rep 2 arm A loadavg 1.01 1.05 1.08 1/456 2399564
+rep 2 arm A exit 2
+rep 3 arm C loadavg 1.01 1.04 1.08 1/454 2399575
+rep 3 arm C exit 2
+rep 3 arm A loadavg 1.01 1.04 1.08 1/455 2399586
+rep 3 arm A exit 2
+rep 3 arm B loadavg 1.00 1.04 1.07 1/458 2399620
+rep 3 arm B exit 2
+rep 4 arm A loadavg 1.00 1.03 1.07 1/458 2399630
+rep 4 arm A exit 2
+rep 4 arm B loadavg 1.00 1.03 1.07 1/456 2399641
+rep 4 arm B exit 2
+rep 4 arm C loadavg 1.00 1.03 1.07 1/457 2399651
+rep 4 arm C exit 2
+rep 5 arm B loadavg 0.94 1.01 1.06 1/457 2399662
+rep 5 arm B exit 2
+rep 5 arm C loadavg 0.96 1.01 1.06 1/453 2399698
+rep 5 arm C exit 2
+rep 5 arm A loadavg 0.97 1.00 1.06 1/453 2399708
+rep 5 arm A exit 2
+rep 6 arm C loadavg 0.98 1.00 1.06 1/453 2399718
+rep 6 arm C exit 2
+rep 6 arm A loadavg 0.98 1.00 1.05 1/454 2399728
+rep 6 arm A exit 2
+rep 6 arm B loadavg 0.99 1.00 1.05 1/452 2399739
+rep 6 arm B exit 2
+rep 7 arm A loadavg 0.99 1.00 1.05 1/452 2399749
+rep 7 arm A exit 2
+rep 7 arm B loadavg 1.00 1.00 1.05 1/453 2399759
+rep 7 arm B exit 2
+rep 7 arm C loadavg 1.00 1.00 1.05 1/451 2399769
+rep 7 arm C exit 2
+rep 8 arm B loadavg 1.00 1.00 1.04 1/450 2399779
+rep 8 arm B exit 2
+rep 8 arm C loadavg 1.00 1.00 1.04 1/450 2399788
+rep 8 arm C exit 2
+rep 8 arm A loadavg 1.00 1.00 1.04 1/452 2399821
+rep 8 arm A exit 2
+rep 9 arm C loadavg 1.00 1.00 1.04 1/453 2399833
+rep 9 arm C exit 2
+rep 9 arm A loadavg 1.00 1.00 1.04 1/449 2399870
+rep 9 arm A exit 2
+rep 9 arm B loadavg 1.00 1.00 1.04 1/450 2399880
+rep 9 arm B exit 2
+rep 10 arm A loadavg 1.00 1.00 1.03 1/450 2399902
+rep 10 arm A exit 2
+rep 10 arm B loadavg 1.00 1.00 1.03 1/451 2399912
+rep 10 arm B exit 2
+rep 10 arm C loadavg 1.00 1.00 1.03 2/450 2399922
+rep 10 arm C exit 2
+end 2026-11-16T04:02:18Z loadavg 1.00 1.00 1.03 1/451 2399936

@@ -1,0 +1,238 @@
+CSV,meta,arm,C
+CSV,meta,version,1.10.13
+CSV,meta,cpu,Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz
+CSV,meta,threads,20
+CSV,meta,slurm_job,14277245
+CSV,meta,project,<PROJECT>/abc-1.10.13/env-C
+CSV,meta,depot1,<PROJECT>/abc-1.10.13/depot-C
+CSV,meta,loadavg,2.13 1.57 1.18
+CSV,meta,ProximalSolvers_path,<PROJECT>/arm-C
+CSV,meta,ProximalSolvers_cache,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji
+CSV,meta,ProximalBase_path,<PROJECT>/depot/packages/ProximalBase/i2Pu4
+CSV,meta,ProximalBase_cache,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,meta,ProximalBase_source,<PROJECT>/depot/packages/ProximalBase/i2Pu4 50db4b1ef376cbe01831c3dd019b6be0027db0b6 4556e470aea2da876ea3b5a5998618f4c17326b1
+CSV,precompile,C,1.10.13,1,8.95376205444336,5.277172088623047,14372824,6843131
+CSV,precompile,C,1.10.13,2,9.068827152252197,5.3269548416137695,14371520,6841931
+CSV,precompile,C,1.10.13,3,8.634982109069824,5.333814859390259,14376824,6841939
+CSV,load,C,1.10.13,1,0.3420279026031494
+CSV,first,C,1.10.13,apg,Float32,raw-scaled,1,337653186,6626767,486459052,483279255,raw,285383658,285171987,27472,0,19.442947,true,scaled,62014,0,25975,0,0.34110436,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float64,scaled-raw,1,337480525,6520986,668030024,664600126,scaled,103167,0,26060,0,0.4157969138756076,true,raw,175960488,175896916,29131,0,23.70042409140257,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float64,raw-scaled,1,343059882,6654192,663350269,659179378,raw,279238603,278978610,33577,0,23.70042409155201,true,scaled,54887,0,23009,0,0.4157969138730394,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float64,scaled-raw,1,340578258,6595468,664668501,661199148,scaled,264881,0,25550,0,0.4157969138730394,true,raw,279622340,279548555,31639,0,23.70042409155201,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float64,raw-scaled,1,350075720,6623401,661575829,657497300,raw,44179462,43931435,25710,0,23.70042409045322,false,scaled,36524,0,23984,0,0.4157969138676008,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float64,raw-scaled,1,349249870,6980547,667507751,663986900,raw,177292494,177190488,30638,0,23.70042409140257,true,scaled,59267,0,27231,0,0.4157969138756076,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float64,scaled-raw,1,339655383,6749920,667070928,663608263,scaled,249603,0,25595,0,0.4157969138676005,false,raw,43629116,43568291,30358,0,23.70042409045322,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float32,raw-scaled,1,368788793,6576908,488439529,485136495,raw,199863775,199770659,21470,0,19.442947,true,scaled,57757,0,20251,0,0.3411044,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float32,raw-scaled,1,341412196,6604379,490050035,486847362,raw,41469277,41235405,33938,0,19.442945,false,scaled,38531,0,20234,0,0.3411043,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float32,scaled-raw,1,349684561,6568096,486233750,482643436,scaled,223353,0,21518,0,0.3411043,false,raw,41615843,41569534,19569,0,19.442945,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float32,scaled-raw,1,342955184,6629074,487377345,484249049,scaled,244844,0,28788,0,0.34110436,true,raw,295992707,295925258,26322,0,19.442947,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float32,scaled-raw,1,341087884,6584540,488719482,485494754,scaled,93820,0,21079,0,0.3411044,true,raw,209101725,209043486,22769,0,19.442947,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,meta,loadavg_end,1.79 1.58 1.21
+CSV,done
+CSV,meta,arm,C
+CSV,meta,version,1.10.13
+CSV,meta,cpu,Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz
+CSV,meta,threads,20
+CSV,meta,slurm_job,14277245
+CSV,meta,project,<PROJECT>/abc-1.10.13/env-C
+CSV,meta,depot1,<PROJECT>/abc-1.10.13/depot-C
+CSV,meta,loadavg,1.52 1.53 1.2
+CSV,load,C,1.10.13,2,0.3657670021057129
+CSV,first,C,1.10.13,pg,Float32,scaled-raw,2,345602474,7011064,483042306,479814287,scaled,87425,0,20540,0,0.3411044,true,raw,208643671,208582518,23220,0,19.442947,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float64,raw-scaled,2,361623710,7013097,662313814,658874914,raw,175911677,175816740,26104,0,23.70042409140257,true,scaled,59556,0,25891,0,0.4157969138756076,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float64,scaled-raw,2,343067355,6981833,659821755,656388406,scaled,276818,0,23713,0,0.4157969138730394,true,raw,279702901,279632506,28528,0,23.70042409155201,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float64,scaled-raw,2,338168839,7135479,659918809,656535732,scaled,105415,0,26810,0,0.4157969138756076,true,raw,174876095,174812143,27130,0,23.70042409140257,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float32,scaled-raw,2,378918807,7131082,480902086,477742049,scaled,256600,0,27583,0,0.34110436,true,raw,295837512,295771147,26193,0,19.442947,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float32,raw-scaled,2,343947720,7004642,481575017,478441773,raw,199370406,199269946,21426,0,19.442947,true,scaled,58144,0,20474,0,0.3411044,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float32,raw-scaled,2,352665137,7030331,481992687,478278045,raw,41616292,41364588,25263,0,19.442947,false,scaled,42633,0,20683,0,0.3411043,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float64,raw-scaled,2,346620302,7066512,659309812,655400074,raw,44111623,43862006,40591,0,23.70042409045322,false,scaled,51036,0,24952,0,0.41579691386760037,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float64,scaled-raw,2,342474042,7005324,660396117,656907648,scaled,251161,0,26302,0,0.4157969138676003,false,raw,43669155,43616176,23900,0,23.700424090453218,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float32,scaled-raw,2,338812726,7016376,482007937,478898530,scaled,1023015,0,84160,0,0.34110433,false,raw,41271991,41218855,21111,0,19.44295,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float32,raw-scaled,2,349646009,7015563,480144086,476998129,raw,285144492,284897126,26556,0,19.442947,true,scaled,67268,0,26759,0,0.34110436,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float64,raw-scaled,2,339666163,6964110,663154023,659682332,raw,280031079,279761745,28353,0,23.70042409155201,true,scaled,54094,0,22974,0,0.4157969138730394,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,meta,loadavg_end,1.34 1.49 1.2
+CSV,done
+CSV,meta,arm,C
+CSV,meta,version,1.10.13
+CSV,meta,cpu,Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz
+CSV,meta,threads,20
+CSV,meta,slurm_job,14277245
+CSV,meta,project,<PROJECT>/abc-1.10.13/env-C
+CSV,meta,depot1,<PROJECT>/abc-1.10.13/depot-C
+CSV,meta,loadavg,1.3 1.46 1.2
+CSV,load,C,1.10.13,3,0.33472299575805664
+CSV,first,C,1.10.13,apg,Float64,raw-scaled,3,335208248,6622625,671896957,668343278,raw,280745579,280486877,33325,0,23.70042409155201,true,scaled,57145,0,23536,0,0.4157969138730394,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float32,raw-scaled,3,350014682,6722403,486780075,483575598,raw,200468541,200369726,21474,0,19.442947,true,scaled,57354,0,20691,0,0.3411044,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float64,scaled-raw,3,339278288,6655677,681685915,664716527,scaled,921481,0,24143,0,0.4157969138730394,true,raw,280735354,280662910,30890,0,23.70042409155201,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float64,raw-scaled,3,344008186,6565955,677421114,673890452,raw,43701633,43450559,37116,0,23.700424090453225,false,scaled,38926,0,26936,0,0.4157969138676005,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float32,raw-scaled,3,344534470,6685042,485567325,482387841,raw,285554837,285316900,28225,0,19.442947,true,scaled,62181,0,26238,0,0.34110436,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float32,raw-scaled,3,337818309,6687566,488919574,485783766,raw,41566067,41327100,20000,0,19.442944,false,scaled,29825,0,18710,0,0.3411043,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float64,scaled-raw,3,410728622,6660409,665201479,661928379,scaled,231091,0,26292,0,0.4157969138676006,false,raw,44131802,44077857,25532,0,23.700424090453218,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float32,scaled-raw,3,342843112,6647693,486558058,483478256,scaled,95988,0,21368,0,0.3411044,true,raw,208270575,208212487,21838,0,19.442947,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float32,scaled-raw,3,346354997,6672903,487190574,483939917,scaled,223311,0,30862,0,0.3411043,false,raw,41537273,41481593,31239,0,19.442944,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float64,raw-scaled,3,346462234,6617678,664207400,660901128,raw,175704414,175606217,26251,0,23.70042409140257,true,scaled,59107,0,26175,0,0.4157969138756076,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float64,scaled-raw,3,341235911,6622443,666426338,662963768,scaled,98198,0,26591,0,0.4157969138756076,true,raw,175568937,175505632,27314,0,23.70042409140257,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float32,scaled-raw,3,347724036,6584769,486977754,483476972,scaled,241345,0,27903,0,0.34110436,true,raw,295045793,294979025,26170,0,19.442947,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,meta,loadavg_end,1.19 1.43 1.19
+CSV,done
+CSV,meta,arm,C
+CSV,meta,version,1.10.13
+CSV,meta,cpu,Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz
+CSV,meta,threads,20
+CSV,meta,slurm_job,14277245
+CSV,meta,project,<PROJECT>/abc-1.10.13/env-C
+CSV,meta,depot1,<PROJECT>/abc-1.10.13/depot-C
+CSV,meta,loadavg,1.03 1.29 1.16
+CSV,load,C,1.10.13,4,0.3416879177093506
+CSV,first,C,1.10.13,apg,Float32,scaled-raw,4,342380297,6965267,484818757,479326069,scaled,249696,0,26532,0,0.34110436,true,raw,294725842,294659165,25245,0,19.442947,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float64,raw-scaled,4,349051468,7253993,687401417,683908341,raw,46378506,46114873,27852,0,23.700424090453218,false,scaled,46685,0,24108,0,0.41579691386760026,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float64,scaled-raw,4,362524662,6999463,657294956,653899530,scaled,280896,0,24048,0,0.4157969138730394,true,raw,279770979,279694652,28390,0,23.70042409155201,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float64,raw-scaled,4,340297884,7037122,663473731,660002123,raw,175832234,175735620,27173,0,23.70042409140257,true,scaled,56823,0,26215,0,0.4157969138756076,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float64,scaled-raw,4,339388870,7341974,689544276,686106476,scaled,258661,0,29866,0,0.4157969138676005,false,raw,46101284,46040448,24721,0,23.700424090453236,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float64,raw-scaled,4,356617462,7338623,694276480,690314449,raw,294351779,294080557,29320,0,23.70042409155201,true,scaled,56087,0,23694,0,0.4157969138730394,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float32,raw-scaled,4,349639952,7275013,503766302,500541177,raw,298936302,298686473,26635,0,19.442947,true,scaled,68250,0,27274,0,0.34110436,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float32,scaled-raw,4,351553710,7007161,481255120,478122826,scaled,353606,0,83282,0,0.34110427,false,raw,41153473,41097304,29151,0,19.442944,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float32,raw-scaled,4,344520529,7226372,502827713,499655281,raw,43488964,43141407,86382,0,19.442944,false,scaled,37097,0,19687,0,0.34110427,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float64,scaled-raw,4,340091957,7104376,658046481,654144080,scaled,105555,0,26594,0,0.4157969138756076,true,raw,175473595,175408343,30248,0,23.70042409140257,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float32,raw-scaled,4,344990730,6991242,484088057,480971530,raw,198692264,198600852,21740,0,19.442947,true,scaled,57974,0,20576,0,0.3411044,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float32,scaled-raw,4,348615916,7031418,480295348,476799144,scaled,85904,0,20648,0,0.3411044,true,raw,207991767,207932231,22344,0,19.442947,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,meta,loadavg_end,1.02 1.27 1.16
+CSV,done
+CSV,meta,arm,C
+CSV,meta,version,1.10.13
+CSV,meta,cpu,Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz
+CSV,meta,threads,20
+CSV,meta,slurm_job,14277245
+CSV,meta,project,<PROJECT>/abc-1.10.13/env-C
+CSV,meta,depot1,<PROJECT>/abc-1.10.13/depot-C
+CSV,meta,loadavg,1.01 1.24 1.15
+CSV,load,C,1.10.13,5,0.336029052734375
+CSV,first,C,1.10.13,pg,Float32,scaled-raw,5,340080570,6616052,490501203,487333600,scaled,90563,0,21113,0,0.3411044,true,raw,208252485,208194785,22080,0,19.442947,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float32,scaled-raw,5,341229606,6595587,487103161,483991491,scaled,191878,0,22853,0,0.34110433,false,raw,41566166,41516651,20030,0,19.442947,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float32,scaled-raw,5,345384011,6683241,492048940,488851782,scaled,248584,0,30292,0,0.34110436,true,raw,296227188,296159972,26166,0,19.442947,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float64,raw-scaled,5,339688350,6529074,667051463,663699861,raw,44274224,44057113,29758,0,23.700424090453225,false,scaled,37364,0,25266,0,0.41579691386760037,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float64,scaled-raw,5,341482678,6615140,663506190,660129183,scaled,995601,0,23837,0,0.4157969138730394,true,raw,280997616,280926068,30344,0,23.70042409155201,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float32,raw-scaled,5,365862491,6537785,486378405,483229395,raw,200304990,200204494,22174,0,19.442947,true,scaled,57222,0,20304,0,0.3411044,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float64,raw-scaled,5,341424240,6570426,668726921,665318881,raw,176309443,176205961,29136,0,23.70042409140257,true,scaled,57552,0,25872,0,0.4157969138756076,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float32,raw-scaled,5,410511400,6642441,487037877,483843060,raw,41779238,41521886,35232,0,19.442945,false,scaled,31318,0,22929,0,0.34110436,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float64,raw-scaled,5,341941400,6535846,668190567,664798098,raw,281572490,281310661,29927,0,23.70042409155201,true,scaled,54485,0,22664,0,0.4157969138730394,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float64,scaled-raw,5,352481141,6569159,669355977,665761078,scaled,238470,0,31417,0,0.41579691386760037,false,raw,44010039,43956093,25874,0,23.70042409045323,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float64,scaled-raw,5,343325211,6561850,665280066,661882087,scaled,95888,0,26552,0,0.4157969138756076,true,raw,177243517,177179550,28983,0,23.70042409140257,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float32,raw-scaled,5,342315174,6561355,489672918,485930403,raw,287071457,286824630,28849,0,19.442947,true,scaled,64316,0,27150,0,0.34110436,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,meta,loadavg_end,1.01 1.22 1.15
+CSV,done
+CSV,meta,arm,C
+CSV,meta,version,1.10.13
+CSV,meta,cpu,Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz
+CSV,meta,threads,20
+CSV,meta,slurm_job,14277245
+CSV,meta,project,<PROJECT>/abc-1.10.13/env-C
+CSV,meta,depot1,<PROJECT>/abc-1.10.13/depot-C
+CSV,meta,loadavg,1.0 1.2 1.14
+CSV,load,C,1.10.13,6,0.337507963180542
+CSV,first,C,1.10.13,pg,Float32,scaled-raw,6,347266765,6971111,480955268,477428734,scaled,88340,0,21159,0,0.3411044,true,raw,208418012,208358129,23992,0,19.442947,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float32,raw-scaled,6,342818666,7273436,503347845,499774480,raw,299998216,299746044,33376,0,19.442947,true,scaled,64248,0,26332,0,0.34110436,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float32,scaled-raw,6,346290922,7271545,502573693,499430448,scaled,247968,0,20420,0,0.34110427,false,raw,43720206,43665477,29768,0,19.442945,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float64,scaled-raw,6,345130506,7342451,690984104,687555841,scaled,887679,0,24241,0,0.4157969138730394,true,raw,294084227,294011086,30655,0,23.70042409155201,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float32,raw-scaled,6,345722920,6985746,481135478,477996610,raw,41830699,41561727,18010,0,19.442944,false,scaled,40030,0,29221,0,0.34110427,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float64,raw-scaled,6,568101696,7041435,664084700,659003639,raw,175798553,175698469,30458,0,23.70042409140257,true,scaled,59652,0,26392,0,0.4157969138756076,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float32,raw-scaled,6,344336813,6963673,480884038,477669479,raw,197446563,197353792,21906,0,19.442947,true,scaled,58232,0,20589,0,0.3411044,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float64,raw-scaled,6,349405464,6952289,659702233,656255502,raw,44257457,43950140,27439,0,23.700424090453232,false,scaled,30823,0,29452,0,0.4157969138676007,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float64,scaled-raw,6,346298145,6985386,661380319,657975786,scaled,105836,0,26642,0,0.4157969138756076,true,raw,174644270,174579243,29386,0,23.70042409140257,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float64,raw-scaled,6,344385405,7005410,658081742,654609386,raw,280388732,280121717,31149,0,23.70042409155201,true,scaled,53274,0,22911,0,0.4157969138730394,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float64,scaled-raw,6,346051041,7031757,664992706,661041258,scaled,264304,0,24632,0,0.41579691386760037,false,raw,44053997,43997115,27523,0,23.70042409045322,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float32,scaled-raw,6,342911389,6977719,482535502,478958561,scaled,267820,0,27156,0,0.34110436,true,raw,293519223,293451740,25062,0,19.442947,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,meta,loadavg_end,1.0 1.19 1.14
+CSV,done
+CSV,meta,arm,C
+CSV,meta,version,1.10.13
+CSV,meta,cpu,Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz
+CSV,meta,threads,20
+CSV,meta,slurm_job,14277245
+CSV,meta,project,<PROJECT>/abc-1.10.13/env-C
+CSV,meta,depot1,<PROJECT>/abc-1.10.13/depot-C
+CSV,meta,loadavg,1.04 1.14 1.12
+CSV,load,C,1.10.13,7,0.33728814125061035
+CSV,first,C,1.10.13,pg,Float64,scaled-raw,7,346333091,6543965,665071820,661527643,scaled,106091,0,26861,0,0.4157969138756076,true,raw,174719299,174655671,28248,0,23.70042409140257,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float32,raw-scaled,7,344083035,6563506,484432815,481298216,raw,41180405,40974269,31065,0,19.442945,false,scaled,34368,0,18241,0,0.34110427,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float32,scaled-raw,7,337086963,6514253,485129929,481963067,scaled,90662,0,20846,0,0.3411044,true,raw,207812116,207752933,22668,0,19.442947,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float32,raw-scaled,7,342122786,6532296,487458696,484257871,raw,198730494,198633210,21423,0,19.442947,true,scaled,57067,0,20153,0,0.3411044,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float32,raw-scaled,7,337756775,6558715,487217343,483932344,raw,285844119,285612777,28456,0,19.442947,true,scaled,67140,0,26800,0,0.34110436,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float64,scaled-raw,7,333797046,6506386,667378827,663527787,scaled,251477,0,25561,0,0.4157969138676003,false,raw,43725154,43666522,25712,0,23.700424090453218,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float32,scaled-raw,7,344960240,6561512,484777131,481673984,scaled,880105,0,27820,0,0.34110436,true,raw,294252012,294185776,25770,0,19.442947,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float32,scaled-raw,7,342413523,6554853,484581523,481411573,scaled,228460,0,23027,0,0.3411043,false,raw,41208425,41154338,30882,0,19.442944,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float64,raw-scaled,7,351578601,6553318,665255417,661870459,raw,280005804,279752847,31261,0,23.70042409155201,true,scaled,54704,0,23158,0,0.4157969138730394,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float64,scaled-raw,7,342870185,6562303,662733073,659322100,scaled,253953,0,25432,0,0.4157969138730394,true,raw,281024503,280954685,28677,0,23.70042409155201,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float64,raw-scaled,7,337043813,6591172,670513553,667123409,raw,175388461,175281748,30330,0,23.70042409140257,true,scaled,57208,0,26804,0,0.4157969138756076,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float64,raw-scaled,7,341572833,6518553,667303177,663869027,raw,44631321,43738404,35499,0,23.700424090453243,false,scaled,39246,0,24208,0,0.41579691386760037,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,meta,loadavg_end,1.03 1.13 1.12
+CSV,done
+CSV,meta,arm,C
+CSV,meta,version,1.10.13
+CSV,meta,cpu,Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz
+CSV,meta,threads,20
+CSV,meta,slurm_job,14277245
+CSV,meta,project,<PROJECT>/abc-1.10.13/env-C
+CSV,meta,depot1,<PROJECT>/abc-1.10.13/depot-C
+CSV,meta,loadavg,1.02 1.12 1.11
+CSV,load,C,1.10.13,8,0.3380320072174072
+CSV,first,C,1.10.13,pg,Float64,scaled-raw,8,351675977,7241064,691501936,687564958,scaled,110064,0,27013,0,0.4157969138756076,true,raw,183001948,182931174,28267,0,23.70042409140257,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float32,scaled-raw,8,341081998,6970347,480676832,477574089,scaled,224899,0,27633,0,0.34110436,true,raw,296669907,296596876,28005,0,19.442947,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float64,raw-scaled,8,348575993,7010313,657054362,653656018,raw,175054078,174955393,33856,0,23.70042409140257,true,scaled,57242,0,26269,0,0.4157969138756076,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float32,scaled-raw,8,345302496,6992999,482423029,478796016,scaled,86154,0,20980,0,0.3411044,true,raw,208469059,208402861,22933,0,19.442947,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float32,raw-scaled,8,341749041,7013259,472017796,468767154,raw,283403378,282379960,26665,0,19.442947,true,scaled,64257,0,26850,0,0.34110436,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float64,scaled-raw,8,434533802,6990331,656858667,653357173,scaled,261807,0,24812,0,0.4157969138676004,false,raw,43722274,43666197,26982,0,23.700424090453218,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float32,scaled-raw,8,351237326,6996150,482590501,479321291,scaled,234916,0,28476,0,0.34110427,false,raw,41187337,41133115,20501,0,19.442944,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float32,raw-scaled,8,337634632,6965192,482210000,478629077,raw,199431693,199331302,21403,0,19.442947,true,scaled,58206,0,20450,0,0.3411044,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float64,scaled-raw,8,349908218,6990903,661659910,658299455,scaled,256025,0,23894,0,0.4157969138730394,true,raw,281059569,280988779,30791,0,23.70042409155201,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float64,raw-scaled,8,341798600,7081559,657799943,654412109,raw,44537742,43660980,27658,0,23.70042409045325,false,scaled,39066,0,25995,0,0.4157969138676004,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float64,raw-scaled,8,343506955,7035880,656979127,653516057,raw,278434634,278165451,32207,0,23.70042409155201,true,scaled,54081,0,23548,0,0.4157969138730394,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float32,raw-scaled,8,349630920,6996102,481514746,477834527,raw,41859370,41609840,30354,0,19.442944,false,scaled,29812,0,18082,0,0.34110433,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,meta,loadavg_end,1.01 1.11 1.11
+CSV,done
+CSV,meta,arm,C
+CSV,meta,version,1.10.13
+CSV,meta,cpu,Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz
+CSV,meta,threads,20
+CSV,meta,slurm_job,14277245
+CSV,meta,project,<PROJECT>/abc-1.10.13/env-C
+CSV,meta,depot1,<PROJECT>/abc-1.10.13/depot-C
+CSV,meta,loadavg,1.0 1.1 1.1
+CSV,load,C,1.10.13,9,0.3552279472351074
+CSV,first,C,1.10.13,pg,Float64,scaled-raw,9,337158251,6534837,660662625,657285798,scaled,109329,0,26535,0,0.4157969138756076,true,raw,174687641,174623832,28877,0,23.70042409140257,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float32,raw-scaled,9,338325983,6954150,488041821,484854240,raw,286363577,286149667,28204,0,19.442947,true,scaled,62638,0,26833,0,0.34110436,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float32,raw-scaled,9,398687700,6535260,485719223,482433669,raw,199309582,199211956,21566,0,19.442947,true,scaled,55363,0,20146,0,0.3411044,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float64,scaled-raw,9,340729676,6605949,663244694,659854318,scaled,2931017,0,33992,0,0.4157969138676004,false,raw,43590165,43523410,28576,0,23.70042409045322,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float32,scaled-raw,9,338800410,6571730,486751786,483550167,scaled,239486,0,28456,0,0.34110436,true,raw,293852673,293787258,24725,0,19.442947,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float32,scaled-raw,9,344145403,6511719,489020425,485435534,scaled,235510,0,34272,0,0.34110427,false,raw,41799357,41752779,22477,0,19.442945,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float32,raw-scaled,9,340331117,6596002,487221861,483992945,raw,41528055,41292418,30782,0,19.442945,false,scaled,30920,0,18124,0,0.34110433,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float64,raw-scaled,9,339153107,6516230,681539859,673497756,raw,44667262,44383672,28125,0,23.700424090453236,false,scaled,38816,0,26503,0,0.41579691386760037,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float64,raw-scaled,9,346137088,7014744,662663670,659259248,raw,175336778,175233335,30467,0,23.70042409140257,true,scaled,59094,0,26140,0,0.4157969138756076,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float32,scaled-raw,9,428555001,6526040,486486294,483267838,scaled,85225,0,20479,0,0.3411044,true,raw,208256127,208197103,22485,0,19.442947,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float64,scaled-raw,9,336907772,6559066,668135634,664681762,scaled,258880,0,24537,0,0.4157969138730394,true,raw,279043811,278969591,32994,0,23.70042409155201,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float64,raw-scaled,9,355060055,6609934,666428700,662467834,raw,281028959,280759021,34560,0,23.70042409155201,true,scaled,55372,0,23923,0,0.4157969138730394,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,meta,loadavg_end,1.0 1.09 1.1
+CSV,done
+CSV,meta,arm,C
+CSV,meta,version,1.10.13
+CSV,meta,cpu,Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz
+CSV,meta,threads,20
+CSV,meta,slurm_job,14277245
+CSV,meta,project,<PROJECT>/abc-1.10.13/env-C
+CSV,meta,depot1,<PROJECT>/abc-1.10.13/depot-C
+CSV,meta,loadavg,1.0 1.06 1.08
+CSV,load,C,1.10.13,10,0.3367018699645996
+CSV,first,C,1.10.13,pg,Float64,raw-scaled,10,350785855,6987449,659233626,655780000,raw,175666884,175570531,30013,0,23.70042409140257,true,scaled,64574,0,25988,0,0.4157969138756076,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float32,raw-scaled,10,343864503,7014311,481822167,478686707,raw,42025119,41663612,28694,0,19.442944,false,scaled,29700,0,19500,0,0.34110427,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float64,scaled-raw,10,352470311,6986104,659679740,656242749,scaled,104871,0,26152,0,0.4157969138756076,true,raw,177280232,177211502,30760,0,23.70042409140257,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float32,scaled-raw,10,343056294,6947811,484375467,481191087,scaled,88510,0,20877,0,0.3411044,true,raw,209318030,209257182,23373,0,19.442947,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float32,scaled-raw,10,342620820,7002435,482868490,479654223,scaled,252706,0,27193,0,0.34110436,true,raw,292507125,292439714,26702,0,19.442947,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float32,scaled-raw,10,343221899,6990019,481848703,478697690,scaled,249940,0,26618,0,0.34110433,false,raw,41083148,41034770,34681,0,19.442945,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float64,scaled-raw,10,343153627,7025838,663257450,659857186,scaled,276396,0,26682,0,0.41579691386760076,false,raw,43937825,43877715,33959,0,23.70042409045323,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,pg,Float32,raw-scaled,10,339048678,6977447,481769119,478532432,raw,199968391,199866538,22117,0,19.442947,true,scaled,61516,0,20280,0,0.3411044,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float64,scaled-raw,10,347964681,6985270,661920435,658484384,scaled,264173,0,23980,0,0.4157969138730394,true,raw,282331611,282257955,30840,0,23.70042409155201,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float64,raw-scaled,10,348960277,6961321,659583792,655634840,raw,280771774,280494812,28210,0,23.70042409155201,true,scaled,52908,0,22941,0,0.4157969138730394,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,cd,Float64,raw-scaled,10,344486528,6962294,661108614,657607996,raw,43974789,43710092,24407,0,23.700424090453225,false,scaled,37418,0,30329,0,0.4157969138676003,false,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,first,C,1.10.13,apg,Float32,raw-scaled,10,346217490,6990834,480369214,477187007,raw,282899147,282654252,27257,0,19.442947,true,scaled,64617,0,26216,0,0.34110436,true,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalSolvers/uDWxJ_1W7pC.ji,<PROJECT>/abc-1.10.13/depot-C/compiled/v1.10/ProximalBase/YlKgm_1W7pC.ji
+CSV,meta,loadavg_end,1.08 1.07 1.09
+CSV,done

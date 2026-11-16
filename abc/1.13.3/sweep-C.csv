@@ -1,0 +1,295 @@
+arm,version,case,T,scale,solver,start,outcome,message,x_unchanged,tmp_unchanged,minimum,obj_relerr,kkt,iters,converged,stagnated
+C,1.13.3,rand-raw,Float64,Int64:1,cd,cold,ok,,,true,47.33447768377101,5.670951184572324e-17,5.7603754715519523e-11,8,true,
+C,1.13.3,rand-raw,Float64,Int64:1,cd,warm,ok,,,true,47.334477683771006,2.0682624363747968e-16,7.614365360171133e-11,7,true,
+C,1.13.3,rand-raw,Float64,Int64:1,cd-sparse,cold,ok,,,true,47.33447768377101,5.670951184572324e-17,5.7603754715519523e-11,8,true,
+C,1.13.3,rand-raw,Float64,Int64:1,cd-sparse,warm,ok,,,true,47.334477683771006,2.0682624363747968e-16,7.614365360171133e-11,7,true,
+C,1.13.3,rand-raw,Float64,Int64:1,pg,cold,ok,,,true,47.334477688273424,6.097342710481516e-17,4.655020809079231e-6,10,true,false
+C,1.13.3,rand-raw,Float64,Int64:1,pg,warm,ok,,,true,47.33447768466079,2.3337230918598748e-17,2.1673405278690915e-6,7,true,false
+C,1.13.3,rand-raw,Float64,Int64:1,apg,cold,ok,,,true,47.3344776838277,8.77671460425097e-17,6.913639142729235e-7,10,true,false
+C,1.13.3,rand-raw,Float64,Int64:1,apg,warm,ok,,,true,47.33447769371825,2.544090633044927e-17,6.0983423069323246e-6,5,true,false
+C,1.13.3,rand-raw,Float64,Int64:1,pg-acc,cold,ok,,,true,47.33447768377101,5.670482922583782e-17,2.0253558810906968e-11,22,true,false
+C,1.13.3,rand-raw,Float64,Int64:1,pg-acc,warm,ok,,,true,47.33447768377101,5.670326200757452e-17,7.466384066521321e-12,17,true,false
+C,1.13.3,rand-raw,Float64,Int64:1,apg-acc,cold,ok,,,true,47.33447768377102,9.340712172225916e-17,1.3740222054731342e-11,21,true,false
+C,1.13.3,rand-raw,Float64,Int64:1,apg-acc,warm,ok,,,true,47.33447768377101,5.6703090785845e-17,4.077167290227029e-12,21,true,false
+C,1.13.3,rand-scaledT,Float64,Float64:0.017543859649122806,cd,cold,ok,,,true,0.8304294330486142,1.2926802730565853e-16,5.760375352229553e-11,8,true,
+C,1.13.3,rand-scaledT,Float64,Float64:0.017543859649122806,cd,warm,ok,,,true,0.8304294330486142,1.2927372575972788e-16,7.614365240848734e-11,7,true,
+C,1.13.3,rand-scaledT,Float64,Float64:0.017543859649122806,cd-sparse,cold,ok,,,true,0.8304294330486142,1.2926802730565853e-16,5.760375352229553e-11,8,true,
+C,1.13.3,rand-scaledT,Float64,Float64:0.017543859649122806,cd-sparse,warm,ok,,,true,0.8304294330486142,1.2927372575972788e-16,7.614365240848734e-11,7,true,
+C,1.13.3,rand-scaledT,Float64,Float64:0.017543859649122806,pg,cold,ok,,,true,0.8304294331330697,1.3446597813996527e-17,4.9799837893976186e-6,9,true,false
+C,1.13.3,rand-scaledT,Float64,Float64:0.017543859649122806,pg,warm,ok,,,true,0.8304294330615255,2.6169859138173423e-17,1.913677890986031e-6,6,true,false
+C,1.13.3,rand-scaledT,Float64,Float64:0.017543859649122806,apg,cold,ok,,,true,0.8304294332049795,3.6979820067625656e-17,6.808517901305348e-6,13,true,false
+C,1.13.3,rand-scaledT,Float64,Float64:0.017543859649122806,apg,warm,ok,,,true,0.8304294331024902,8.299476680389436e-18,5.579358384345077e-6,5,true,false
+C,1.13.3,rand-scaledT,Float64,Float64:0.017543859649122806,pg-acc,cold,ok,,,true,0.8304294330486143,4.425577418951473e-18,3.501076829643122e-11,19,true,false
+C,1.13.3,rand-scaledT,Float64,Float64:0.017543859649122806,pg-acc,warm,ok,,,true,0.8304294330486143,4.431102547732366e-18,1.055762383713869e-12,15,true,false
+C,1.13.3,rand-scaledT,Float64,Float64:0.017543859649122806,apg-acc,cold,ok,,,true,0.8304294330486142,1.2926166919121434e-16,5.734293816332827e-12,25,true,false
+C,1.13.3,rand-scaledT,Float64,Float64:0.017543859649122806,apg-acc,warm,ok,,,true,0.8304294330486143,4.431063662410493e-18,3.178808160124984e-12,16,true,false
+C,1.13.3,rand-int3,Float64,Int64:3,cd,cold,ok,,,true,142.00343305131304,7.232459803749196e-18,5.760376018424564e-11,8,true,
+C,1.13.3,rand-int3,Float64,Int64:3,cd,warm,ok,,,true,142.00343305131304,7.238158258945533e-18,7.614365907043745e-11,7,true,
+C,1.13.3,rand-int3,Float64,Int64:3,cd-sparse,cold,ok,,,true,142.00343305131304,7.232459803749196e-18,5.760376018424564e-11,8,true,
+C,1.13.3,rand-int3,Float64,Int64:3,cd-sparse,warm,ok,,,true,142.00343305131304,7.238158258945533e-18,7.614365907043745e-11,7,true,
+C,1.13.3,rand-int3,Float64,Int64:3,pg,cold,ok,,,true,142.00343306482026,1.1157155846732542e-16,4.655020809138267e-6,10,true,false
+C,1.13.3,rand-int3,Float64,Int64:3,pg,warm,ok,,,true,142.00343305398238,7.617628017184696e-17,2.167340527847918e-6,7,true,false
+C,1.13.3,rand-int3,Float64,Int64:3,apg,cold,ok,,,true,142.00343306609574,7.337825340957275e-17,4.7734605942548495e-6,13,true,false
+C,1.13.3,rand-int3,Float64,Int64:3,apg,warm,ok,,,true,142.00343308133375,5.65519290973312e-17,7.057292678255996e-6,7,true,false
+C,1.13.3,rand-int3,Float64,Int64:3,pg-acc,cold,ok,,,true,142.00343305131304,7.227777177716803e-18,2.0253476694841558e-11,22,true,false
+C,1.13.3,rand-int3,Float64,Int64:3,pg-acc,warm,ok,,,true,142.00343305131304,7.226209962472454e-18,7.466325031325722e-12,17,true,false
+C,1.13.3,rand-int3,Float64,Int64:3,apg-acc,cold,ok,,,true,142.00343305131304,7.226266436349058e-18,8.1740522764802e-12,22,true,false
+C,1.13.3,rand-int3,Float64,Int64:3,apg-acc,warm,ok,,,true,142.00343305131304,7.225965434103611e-18,6.031210230858459e-13,23,true,false
+C,1.13.3,exact-l0,Float64,Int64:1,cd,cold,ok,,,true,1.3793302115298762e-14,4.990810418337935e-10,7.891047437146868e-9,14,true,
+C,1.13.3,exact-l0,Float64,Int64:1,cd-sparse,cold,ok,,,true,1.3793302115298762e-14,4.990810418337935e-10,7.891047437146868e-9,14,true,
+C,1.13.3,exact-l0,Float64,Int64:1,pg,cold,ok,,,true,1.0803305196722385e-9,9.325714203579217e-13,2.266680481527876e-6,16,true,false
+C,1.13.3,exact-l0,Float64,Int64:1,apg,cold,ok,,,true,1.7378807181446133e-9,9.192685118733093e-12,2.025034733329033e-6,13,true,false
+C,1.13.3,exact-l0,Float64,Int64:1,pg-acc,cold,ok,,,true,5.124169544336906e-19,5.553357565206412e-7,3.148486045397365e-11,33,true,false
+C,1.13.3,exact-l0,Float64,Int64:1,apg-acc,cold,ok,,,true,9.916192286173237e-19,3.4555641320411094e-8,5.082828894348758e-11,27,true,false
+C,1.13.3,exact-l1e-6,Float64,Int64:1,cd,cold,ok,,,true,0.0002900487727759876,1.0262993890171095e-16,2.92108470232456e-10,13,true,
+C,1.13.3,exact-l1e-6,Float64,Int64:1,cd-sparse,cold,ok,,,true,0.0002900487727759876,1.0262993890171095e-16,2.92108470232456e-10,13,true,
+C,1.13.3,exact-l1e-6,Float64,Int64:1,pg,cold,ok,,,true,0.0002900510952785131,7.258181243066267e-17,3.05357723568644e-6,15,true,false
+C,1.13.3,exact-l1e-6,Float64,Int64:1,apg,cold,ok,,,true,0.0002900506156074592,8.282383212016131e-17,2.282516815968622e-6,13,true,false
+C,1.13.3,exact-l1e-6,Float64,Int64:1,pg-acc,cold,ok,,,true,0.0002900487727759819,1.1435666628877494e-16,2.543434016055278e-11,25,true,false
+C,1.13.3,exact-l1e-6,Float64,Int64:1,apg-acc,cold,ok,,,true,0.0002900487727759819,1.192594796228602e-17,1.9308160794347475e-11,23,true,false
+C,1.13.3,near-l1e-6,Float64,Float64:0.025,cd,cold,ok,,,true,7.251219319381114e-6,6.612823283835386e-17,2.9211153891948465e-10,13,true,
+C,1.13.3,near-l1e-6,Float64,Float64:0.025,cd-sparse,cold,ok,,,true,7.251219319381114e-6,6.612823283835386e-17,2.9211153891948465e-10,13,true,
+C,1.13.3,near-l1e-6,Float64,Float64:0.025,pg,cold,ok,,,true,7.251259869279191e-6,1.5068804564563006e-16,2.3931019222671885e-6,14,true,false
+C,1.13.3,near-l1e-6,Float64,Float64:0.025,apg,cold,ok,,,true,7.2512406731763935e-6,5.077984132921212e-17,2.194805821692044e-6,14,true,false
+C,1.13.3,near-l1e-6,Float64,Float64:0.025,pg-acc,cold,ok,,,true,7.251219319380971e-6,4.789201557464869e-17,1.5654311668981784e-11,25,true,false
+C,1.13.3,near-l1e-6,Float64,Float64:0.025,apg-acc,cold,ok,,,true,7.2512193193809704e-6,4.150842272931444e-17,1.2147421027008847e-11,22,true,false
+C,1.13.3,zerocol,Float64,Int64:1,cd,cold,ok,,,true,47.33447768377101,5.670951184572324e-17,5.7603754715519523e-11,8,true,
+C,1.13.3,zerocol,Float64,Int64:1,cd-sparse,cold,ok,,,true,47.33447768377101,5.670951184572324e-17,5.7603754715519523e-11,8,true,
+C,1.13.3,zerocol,Float64,Int64:1,pg,cold,ok,,,true,47.33447768754262,4.1790578396928234e-17,4.259710340582591e-6,10,true,false
+C,1.13.3,zerocol,Float64,Int64:1,apg,cold,ok,,,true,47.334477683837314,1.2175197463387091e-16,7.559848769270869e-7,10,true,false
+C,1.13.3,zerocol,Float64,Int64:1,pg-acc,cold,ok,,,true,47.33447768377101,5.670417073749827e-17,1.6164132293042054e-11,22,true,false
+C,1.13.3,zerocol,Float64,Int64:1,apg-acc,cold,ok,,,true,47.33447768377101,5.670384902697478e-17,1.3849616110292722e-11,18,true,false
+C,1.13.3,cancel,Float64,Float64:0.017543859649122806,cd,cold,ok,,,true,4.8769501810513625e14,8.863264379619112e-18,1.251341676791962e-16,3,true,
+C,1.13.3,cancel,Float64,Float64:0.017543859649122806,cd-sparse,cold,ok,,,true,4.8769501810513625e14,8.863264379619112e-18,1.251341676791962e-16,3,true,
+C,1.13.3,cancel,Float64,Float64:0.017543859649122806,pg,cold,ok,,,true,4.876950181051362e14,1.1929059752127553e-16,5.67284004218956e-17,2,true,false
+C,1.13.3,cancel,Float64,Float64:0.017543859649122806,apg,cold,ok,,,true,4.87695018331329e14,2.414229469525897e-17,6.724616223589021e-6,6,true,false
+C,1.13.3,cancel,Float64,Float64:0.017543859649122806,pg-acc,cold,ok,,,true,4.876950181051362e14,1.1929059752127553e-16,5.67284004218956e-17,2,true,false
+C,1.13.3,cancel,Float64,Float64:0.017543859649122806,apg-acc,cold,ok,,,true,4.8769501810513625e14,8.857237775343054e-18,2.4240336568026845e-11,12,true,false
+C,1.13.3,largen,Float64,Float64:1.0e-6,cd,cold,ok,,,true,1.3436641232230828,9.750745666175908e-17,1.376936221709157e-16,5,true,
+C,1.13.3,largen,Float64,Float64:1.0e-6,pg,cold,ok,,,true,1.3436641233808517,7.636840016746402e-17,6.56476785334493e-6,9,true,false
+C,1.13.3,largen,Float64,Float64:1.0e-6,apg,cold,ok,,,true,1.3436641235497477,7.569888547500512e-18,9.805078585389884e-6,7,true,false
+C,1.13.3,rand-raw,Float32,Int64:1,cd,cold,ok,,,true,47.334476,3.9820977016807297e-8,3.694104560842442e-8,8,true,
+C,1.13.3,rand-raw,Float32,Int64:1,cd,warm,ok,,,true,47.334476,3.9820977016807297e-8,3.694104560842442e-8,7,true,
+C,1.13.3,rand-raw,Float32,Int64:1,cd-sparse,cold,ok,,,true,47.334476,3.9820977016807297e-8,3.694104560842442e-8,8,true,
+C,1.13.3,rand-raw,Float32,Int64:1,cd-sparse,warm,ok,,,true,47.334476,3.9820977016807297e-8,3.694104560842442e-8,7,true,
+C,1.13.3,rand-raw,Float32,Int64:1,pg,cold,ok,,,true,47.334476,3.991504257837448e-8,4.648513966200979e-6,10,true,false
+C,1.13.3,rand-raw,Float32,Int64:1,pg,warm,ok,,,true,47.33448,4.0210251326492924e-8,1.2107803728739591e-5,6,false,false
+C,1.13.3,rand-raw,Float32,Int64:1,apg,cold,ok,,,true,47.33448,2.9773806464166038e-8,6.841991877845831e-5,9,false,false
+C,1.13.3,rand-raw,Float32,Int64:1,apg,warm,ok,,,true,47.334476,4.002953834018594e-8,6.0836003000859996e-6,5,true,false
+C,1.13.3,rand-scaledT,Float32,Float32:0.01754386,cd,cold,ok,,,true,0.8304294,9.134434784481241e-8,3.6941045609243625e-8,8,true,
+C,1.13.3,rand-scaledT,Float32,Float32:0.01754386,cd,warm,ok,,,true,0.8304294,9.134434784481241e-8,3.6941045609243625e-8,7,true,
+C,1.13.3,rand-scaledT,Float32,Float32:0.01754386,cd-sparse,cold,ok,,,true,0.8304294,9.134434784481241e-8,3.6941045609243625e-8,8,true,
+C,1.13.3,rand-scaledT,Float32,Float32:0.01754386,cd-sparse,warm,ok,,,true,0.8304294,9.134434784481241e-8,3.6941045609243625e-8,7,true,
+C,1.13.3,rand-scaledT,Float32,Float32:0.01754386,pg,cold,ok,,,true,0.83042943,1.9717874215776804e-8,6.9511868044435925e-6,8,true,false
+C,1.13.3,rand-scaledT,Float32,Float32:0.01754386,pg,warm,ok,,,true,0.83042943,1.9584415382989757e-8,1.952418717849762e-6,6,true,false
+C,1.13.3,rand-scaledT,Float32,Float32:0.01754386,apg,cold,ok,,,true,0.83042943,1.9652092293836546e-8,4.5506459853709085e-6,12,true,false
+C,1.13.3,rand-scaledT,Float32,Float32:0.01754386,apg,warm,ok,,,true,0.8304295,4.886774726905724e-8,3.581387046292778e-5,5,false,false
+C,1.13.3,rand-scaled64,Float32,Float64:0.017543859649122806,cd,cold,ok,,,true,0.8304294,8.389376786937204e-8,3.6941045608848603e-8,8,true,
+C,1.13.3,rand-scaled64,Float32,Float64:0.017543859649122806,cd,warm,ok,,,true,0.8304294,8.389376786937204e-8,3.6941045608848603e-8,7,true,
+C,1.13.3,rand-scaled64,Float32,Float64:0.017543859649122806,cd-sparse,cold,ok,,,true,0.8304294,8.389376786937204e-8,3.6941045608848603e-8,8,true,
+C,1.13.3,rand-scaled64,Float32,Float64:0.017543859649122806,cd-sparse,warm,ok,,,true,0.8304294,8.389376786937204e-8,3.6941045608848603e-8,7,true,
+C,1.13.3,rand-scaled64,Float32,Float64:0.017543859649122806,pg,cold,ok,,,true,0.83042943,1.2267293706677613e-8,6.951186804443987e-6,8,true,false
+C,1.13.3,rand-scaled64,Float32,Float64:0.017543859649122806,pg,warm,ok,,,true,0.83042943,1.2133834872896213e-8,1.952418717850157e-6,6,true,false
+C,1.13.3,rand-scaled64,Float32,Float64:0.017543859649122806,apg,cold,ok,,,true,0.83042943,1.2201511784247216e-8,4.550645985370514e-6,12,true,false
+C,1.13.3,rand-scaled64,Float32,Float64:0.017543859649122806,apg,warm,ok,,,true,0.8304295,5.631832828915924e-8,3.581387046292739e-5,5,false,false
+C,1.13.3,rand-int3,Float32,Int64:3,cd,cold,ok,,,true,142.00345,9.449609982677223e-8,3.694104563029932e-8,8,true,
+C,1.13.3,rand-int3,Float32,Int64:3,cd,warm,ok,,,true,142.00345,9.449609982677223e-8,3.694104563029932e-8,7,true,
+C,1.13.3,rand-int3,Float32,Int64:3,cd-sparse,cold,ok,,,true,142.00345,9.449609982677223e-8,3.694104563029932e-8,8,true,
+C,1.13.3,rand-int3,Float32,Int64:3,cd-sparse,warm,ok,,,true,142.00345,9.449609982677223e-8,3.694104563029932e-8,7,true,
+C,1.13.3,rand-int3,Float32,Int64:3,pg,cold,ok,,,true,142.00343,1.3052670099664297e-8,4.640729987374474e-6,10,true,false
+C,1.13.3,rand-int3,Float32,Int64:3,pg,warm,ok,,,true,142.00345,9.449261244041385e-8,9.48886925317517e-7,8,true,false
+C,1.13.3,rand-int3,Float32,Int64:3,apg,cold,ok,,,true,142.00345,9.248948347369365e-8,2.1017217245849713e-5,13,false,false
+C,1.13.3,rand-int3,Float32,Int64:3,apg,warm,ok,,,true,142.00343,1.2971302564032458e-8,2.1476158273250475e-6,9,true,false
+C,1.13.3,exact-l0,Float32,Int64:1,cd,cold,ok,,,true,2.2298951e-13,0.3472103609248698,2.2671416164130016e-8,14,true,
+C,1.13.3,exact-l0,Float32,Int64:1,cd-sparse,cold,ok,,,true,2.2298951e-13,0.3472103609248698,2.2671416164130016e-8,14,true,
+C,1.13.3,exact-l0,Float32,Int64:1,pg,cold,ok,,,true,1.1853925e-8,0.00040583101714752,5.215295291634026e-6,15,true,false
+C,1.13.3,exact-l0,Float32,Int64:1,apg,cold,ok,,,true,1.7457038e-9,0.000656378140627408,2.008978816854908e-6,13,true,false
+C,1.13.3,exact-l1e-6,Float32,Int64:1,cd,cold,ok,,,true,0.00029004877,1.5630771853655646e-8,1.8353711448664257e-8,13,true,
+C,1.13.3,exact-l1e-6,Float32,Int64:1,cd-sparse,cold,ok,,,true,0.00029004877,1.5630771853655646e-8,1.8353711448664257e-8,13,true,
+C,1.13.3,exact-l1e-6,Float32,Int64:1,pg,cold,ok,,,true,0.00029005113,5.27228215600398e-8,3.0831519428277095e-6,15,true,false
+C,1.13.3,exact-l1e-6,Float32,Int64:1,apg,cold,ok,,,true,0.00029005058,4.985193662831891e-8,2.2486833440923366e-6,13,true,false
+C,1.13.3,near-l1e-6,Float32,Float64:0.025,cd,cold,ok,,,true,7.25122e-6,7.41240469564795e-8,2.450741786116359e-8,13,true,
+C,1.13.3,near-l1e-6,Float32,Float64:0.025,cd-sparse,cold,ok,,,true,7.25122e-6,7.41240469564795e-8,2.450741786116359e-8,13,true,
+C,1.13.3,near-l1e-6,Float32,Float64:0.025,pg,cold,ok,,,true,7.251266e-6,7.623444491053415e-8,3.1258677826489905e-6,15,true,false
+C,1.13.3,near-l1e-6,Float32,Float64:0.025,apg,cold,ok,,,true,7.2512416e-6,7.32536629744204e-8,2.2045803327010234e-6,14,true,false
+C,1.13.3,zerocol,Float32,Int64:1,cd,cold,ok,,,true,47.334476,3.9820977016807297e-8,3.694104560842442e-8,8,true,
+C,1.13.3,zerocol,Float32,Int64:1,cd-sparse,cold,ok,,,true,47.334476,3.9820977016807297e-8,3.694104560842442e-8,8,true,
+C,1.13.3,zerocol,Float32,Int64:1,pg,cold,ok,,,true,47.334476,3.990124573906133e-8,4.318771177494723e-6,10,true,false
+C,1.13.3,zerocol,Float32,Int64:1,apg,cold,ok,,,true,47.334476,3.9866605225315064e-8,3.137998488548808e-6,11,true,false
+C,1.13.3,cancel,Float32,Float64:0.017543859649122806,cd,cold,ok,,,true,4.8769505e14,6.079130917061532e-8,4.172082262336768e-8,3,true,
+C,1.13.3,cancel,Float32,Float64:0.017543859649122806,cd-sparse,cold,ok,,,true,4.8769505e14,6.079130917061532e-8,4.172082262336768e-8,3,true,
+C,1.13.3,cancel,Float32,Float64:0.017543859649122806,pg,cold,ok,,,true,4.8769505e14,6.079129495563121e-8,5.591590030611442e-8,2,true,false
+C,1.13.3,cancel,Float32,Float64:0.017543859649122806,apg,cold,ok,,,true,4.87695e14,8.01099571107664e-9,1.5355262323559653e-7,8,true,false
+C,1.13.3,largen,Float32,Float64:1.0e-6,cd,cold,ok,,,true,1.343664,5.4595226913772664e-8,1.0613880317507323e-7,5,true,
+C,1.13.3,largen,Float32,Float64:1.0e-6,pg,cold,ok,,,true,1.3436642,3.400720342764553e-8,6.564993884697201e-6,9,true,false
+C,1.13.3,largen,Float32,Float64:1.0e-6,apg,cold,ok,,,true,1.3436642,3.412294188410352e-8,7.275587184957408e-7,9,true,false
+C,1.13.3,F64-alpha1e-300,Float64,Float64:1.0e-300,cd,cold,ok,,,true,35.107776112485844,6.112963277066512e-17,2.437838155702368e-10,9,true,
+C,1.13.3,F64-alpha1e-300,Float64,Float64:1.0e-300,cd-sparse,cold,ok,,,true,35.107776112485844,6.112963277066512e-17,2.437838155702368e-10,9,true,
+C,1.13.3,F64-alpha1e-300,Float64,Float64:1.0e-300,pg,cold,ok,,,true,35.10777611754944,1.3731859235631043e-16,5.06707268675763e-6,10,true,false
+C,1.13.3,F64-alpha1e-300,Float64,Float64:1.0e-300,apg,cold,ok,,,true,35.10777611389281,5.88149803647511e-17,3.483693289649725e-6,11,true,false
+C,1.13.3,F64-alpha1e-300,Float64,Float64:1.0e-300,pg-acc,cold,ok,,,true,35.107776112485844,6.131211356863724e-17,1.0133148296305356e-11,17,true,false
+C,1.13.3,F64-alpha1e-300,Float64,Float64:1.0e-300,apg-acc,cold,ok,,,true,35.107776112485844,6.13123706509447e-17,1.0293939356429522e-11,24,true,false
+C,1.13.3,F64-alpha1e280,Float64,Float64:1.0e280,cd,cold,ok,,,true,35.107776112485844,9.985368172453014e-17,2.4378384911258197e-10,9,true,
+C,1.13.3,F64-alpha1e280,Float64,Float64:1.0e280,cd-sparse,cold,ok,,,true,35.107776112485844,9.985368172453014e-17,2.4378384911258197e-10,9,true,
+C,1.13.3,F64-alpha1e280,Float64,Float64:1.0e280,pg,cold,ok,,,true,35.10777611754944,9.85932633114483e-17,5.067072686724087e-6,10,true,false
+C,1.13.3,F64-alpha1e280,Float64,Float64:1.0e280,apg,cold,ok,,,true,35.10777611389281,2.0093684654676104e-17,3.4836932897492323e-6,11,true,false
+C,1.13.3,F64-alpha1e280,Float64,Float64:1.0e280,pg-acc,cold,ok,,,true,35.10777611248584,1.0235207079502991e-16,9.235323147367545e-13,20,true,false
+C,1.13.3,F64-alpha1e280,Float64,Float64:1.0e280,apg-acc,cold,ok,,,true,35.10777611248584,1.0235257059330107e-16,1.02937909312451e-11,24,true,false
+C,1.13.3,F64-alpha-subnormal1e-310,Float64,Float64:1.0e-310,cd,cold,threw,ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finite in Float64; rescale the data,true,true,,,,,,
+C,1.13.3,F64-alpha-subnormal1e-310,Float64,Float64:1.0e-310,cd-sparse,cold,threw,ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finite in Float64; rescale the data,true,true,,,,,,
+C,1.13.3,F64-alpha-subnormal1e-310,Float64,Float64:1.0e-310,pg,cold,threw,line search failed: the curvature estimate cannot increase finitely,true,true,,,,,,
+C,1.13.3,F64-alpha-subnormal1e-310,Float64,Float64:1.0e-310,apg,cold,threw,the gradient step did not produce a finite objective,true,true,,,,,,
+C,1.13.3,F64-alpha-subnormal1e-310,Float64,Float64:1.0e-310,pg-acc,cold,threw,line search failed: the curvature estimate cannot increase finitely,true,true,,,,,,
+C,1.13.3,F64-alpha-subnormal1e-310,Float64,Float64:1.0e-310,apg-acc,cold,threw,the gradient step did not produce a finite objective,true,true,,,,,,
+C,1.13.3,R1,Float64,Int64:1,pg,cold,threw,ArgumentError: start from a point where f is finite,true,true,,,,,,
+C,1.13.3,R1,Float64,Int64:1,apg,cold,threw,ArgumentError: start from a point where f is finite,true,true,,,,,,
+C,1.13.3,R2-underflow,Float64,Int64:1,cd,cold,ok,,,true,9.0e-322,0.0005028135247705248,4.608714058215698e-16,100000,false,
+C,1.13.3,R2-underflow,Float64,Int64:1,pg,cold,ok,,,true,7.9873e-319,1.2917270929243074e-6,2.2065706568663142e-11,200,false,false
+C,1.13.3,R2-underflow,Float64,Int64:1,apg,cold,ok,,,true,7.9873e-319,1.2917270929243074e-6,2.2065706568663142e-11,200,false,false
+C,1.13.3,R3-f32-alpha1e-39-l0.0,Float32,Float64:1.0e-39,cd,cold,ok,,,true,0.00014304448,3.1519004572542246e-8,2.684609228891189e-8,9,true,
+C,1.13.3,R3-f32-alpha1e-39-l0.0,Float32,Float64:1.0e-39,pg,cold,ok,,,true,0.00014304451,2.046036865097838e-7,5.099927116789062e-6,33,true,false
+C,1.13.3,R3-f32-alpha1e-39-l0.0,Float32,Float64:1.0e-39,apg,cold,ok,,,true,0.00014304435,8.929198767871178e-7,2.8153521817056427e-6,29,true,false
+C,1.13.3,R3-f32-alpha1e-39-l0.1,Float32,Float64:1.0e-39,cd,cold,ok,,,true,0.031381585,2.308559658672609e-8,2.07694221195956e-8,8,true,
+C,1.13.3,R3-f32-alpha1e-39-l0.1,Float32,Float64:1.0e-39,pg,cold,ok,,,true,0.031381585,2.3101860032124365e-8,2.3478356147107526e-6,31,true,false
+C,1.13.3,R3-f32-alpha1e-39-l0.1,Float32,Float64:1.0e-39,apg,cold,ok,,,true,0.031381585,2.3417815344335502e-8,9.658732685833925e-6,25,true,false
+C,1.13.3,R3-f32-alpha1e-39-l0.5,Float32,Float64:1.0e-39,cd,cold,ok,,,true,0.1091166,4.7522571069406006e-8,5.335084483859554e-8,7,true,
+C,1.13.3,R3-f32-alpha1e-39-l0.5,Float32,Float64:1.0e-39,pg,cold,ok,,,true,0.109116614,8.24166675075395e-8,7.866530020017649e-5,28,false,false
+C,1.13.3,R3-f32-alpha1e-39-l0.5,Float32,Float64:1.0e-39,apg,cold,ok,,,true,0.1091166,4.756403557252595e-8,7.779222955231462e-6,23,true,false
+C,1.13.3,R4-f32-alpha1e-44,Float32,Float64:1.0e-44,cd,cold,ok,,,true,3.1381586e-7,1.95176432842335e-8,2.076942212193141e-8,8,true,
+C,1.13.3,R4-f32-alpha1e-44,Float32,Float64:1.0e-44,pg,cold,ok,,,true,3.1381586e-7,1.949338183924949e-8,2.9201979145809272e-6,140,true,false
+C,1.13.3,R4-f32-alpha1e-44,Float32,Float64:1.0e-44,apg,cold,ok,,,true,3.1381586e-7,1.7643581243603785e-8,2.3298002737201704e-5,133,false,false
+C,1.13.3,R5,Float64,Float64:1.0e-100,cd,cold,ok,,,true,0.0,0.0,0.0,3,true,
+C,1.13.3,R5,Float64,Float64:1.0e-100,pg,cold,ok,,,true,2.4999999999999996e220,1.871051685224434e-16,1.0,200,false,false
+C,1.13.3,R5,Float64,Float64:1.0e-100,apg,cold,ok,,,true,2.4999999999999996e220,1.871051685224434e-16,1.0,200,false,false
+C,1.13.3,zminusY-overflow,Float64,Float64:1.0e-310,cd,cold,threw,ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finite in Float64; rescale the data,true,true,,,,,,
+C,1.13.3,zminusY-overflow,Float64,Float64:1.0e-310,pg,cold,threw,ArgumentError: start from a point where f is finite,true,true,,,,,,
+C,1.13.3,zminusY-overflow,Float64,Float64:1.0e-310,apg,cold,threw,the gradient step did not produce a finite objective,true,true,,,,,,
+C,1.13.3,rollback-apg,Float64,Float64:0.5,apg-beta,cold,threw,line search failed: the curvature estimate cannot increase finitely,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,Int64:2,cd,cold,ok,,,true,0.2690222077243704,4.8232699198636356e-17,6.394842587138872e-11,7,true,
+C,1.13.3,scale-domain,Float64,Int64:2,cd-sparse,cold,ok,,,true,0.2690222077243704,4.8232699198636356e-17,6.394842587138872e-11,7,true,
+C,1.13.3,scale-domain,Float64,Int64:2,pg,cold,ok,,,true,0.2690222082240961,1.2213715080309768e-15,1.8995618032454147e-6,10,true,false
+C,1.13.3,scale-domain,Float64,Int64:2,apg,cold,ok,,,true,0.26902220898823737,1.105496586049954e-15,3.1855823979101344e-6,10,true,false
+C,1.13.3,scale-domain,Float64,Bool:true,cd,cold,ok,,,true,0.1345111038621852,4.8232699198636356e-17,6.394842587138872e-11,7,true,
+C,1.13.3,scale-domain,Float64,Bool:true,cd-sparse,cold,ok,,,true,0.1345111038621852,4.8232699198636356e-17,6.394842587138872e-11,7,true,
+C,1.13.3,scale-domain,Float64,Bool:true,pg,cold,ok,,,true,0.13451110411204806,1.2213715080309768e-15,1.8995618032454147e-6,10,true,false
+C,1.13.3,scale-domain,Float64,Bool:true,apg,cold,ok,,,true,0.13451110449411868,1.105496586049954e-15,3.1855823979101344e-6,10,true,false
+C,1.13.3,scale-domain,Float64,UInt8:3,cd,cold,ok,,,true,0.4035333115865556,1.170140731736954e-16,6.394842587138872e-11,7,true,
+C,1.13.3,scale-domain,Float64,UInt8:3,cd-sparse,cold,ok,,,true,0.4035333115865556,1.170140731736954e-16,6.394842587138872e-11,7,true,
+C,1.13.3,scale-domain,Float64,UInt8:3,pg,cold,ok,,,true,0.4035333123361442,1.1525901341836836e-15,1.8995618032454147e-6,10,true,false
+C,1.13.3,scale-domain,Float64,UInt8:3,apg,cold,ok,,,true,0.40353331165295775,8.170263204829172e-16,6.881947567924752e-7,11,true,false
+C,1.13.3,scale-domain,Float64,Int64:16777216,cd,cold,ok,,,true,2.2567218438943154e6,4.8232699198636356e-17,6.394842587138872e-11,7,true,
+C,1.13.3,scale-domain,Float64,Int64:16777216,cd-sparse,cold,ok,,,true,2.2567218438943154e6,4.8232699198636356e-17,6.394842587138872e-11,7,true,
+C,1.13.3,scale-domain,Float64,Int64:16777216,pg,cold,ok,,,true,2.2567218480863185e6,1.2213715080309768e-15,1.8995618032454147e-6,10,true,false
+C,1.13.3,scale-domain,Float64,Int64:16777216,apg,cold,ok,,,true,2.2567218544964e6,1.105496586049954e-15,3.1855823979101344e-6,10,true,false
+C,1.13.3,scale-domain,Float64,Int64:16777217,cd,cold,ok,,,true,2.2567219784054193e6,5.204436465819626e-17,6.394842587138872e-11,7,true,
+C,1.13.3,scale-domain,Float64,Int64:16777217,cd-sparse,cold,ok,,,true,2.2567219784054193e6,5.204436465819626e-17,6.394842587138872e-11,7,true,
+C,1.13.3,scale-domain,Float64,Int64:16777217,pg,cold,ok,,,true,2.256721982597423e6,1.129558441530892e-15,1.8995618032454147e-6,10,true,false
+C,1.13.3,scale-domain,Float64,Int64:16777217,apg,cold,ok,,,true,2.256721989007492e6,2.9436384027651095e-16,3.185580429522345e-6,10,true,false
+C,1.13.3,scale-domain,Float64,Int64:9007199254740992,cd,cold,ok,,,true,1.2115683144618628e15,4.8232699198636356e-17,6.394842587138872e-11,7,true,
+C,1.13.3,scale-domain,Float64,Int64:9007199254740992,cd-sparse,cold,ok,,,true,1.2115683144618628e15,4.8232699198636356e-17,6.394842587138872e-11,7,true,
+C,1.13.3,scale-domain,Float64,Int64:9007199254740992,pg,cold,ok,,,true,1.2115683167124272e15,1.2213715080309768e-15,1.8995618032454147e-6,10,true,false
+C,1.13.3,scale-domain,Float64,Int64:9007199254740992,apg,cold,ok,,,true,1.2115683201538135e15,1.105496586049954e-15,3.1855823979101344e-6,10,true,false
+C,1.13.3,scale-domain,Float64,Int64:9007199254740993,cd,cold,threw,ArgumentError: loss scale 9007199254740993 of type Int64 is not exactly representable in Float64; only Float32 and Float64 scales and fixed-width integer scales,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,Int64:9007199254740993,cd-sparse,cold,threw,ArgumentError: loss scale 9007199254740993 of type Int64 is not exactly representable in Float64; only Float32 and Float64 scales and fixed-width integer scales,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,Int64:9007199254740993,pg,cold,threw,ArgumentError: loss scale 9007199254740993 of type Int64 is not exactly representable in Float64; only Float32 and Float64 scales and fixed-width integer scales,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,Int64:9007199254740993,apg,cold,threw,ArgumentError: loss scale 9007199254740993 of type Int64 is not exactly representable in Float64; only Float32 and Float64 scales and fixed-width integer scales,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,BigInt:2,cd,cold,threw,ArgumentError: loss scale 2 of type BigInt has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float64 represents exact,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,BigInt:2,cd-sparse,cold,threw,ArgumentError: loss scale 2 of type BigInt has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float64 represents exact,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,BigInt:2,pg,cold,threw,ArgumentError: loss scale 2 of type BigInt has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float64 represents exact,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,BigInt:2,apg,cold,threw,ArgumentError: loss scale 2 of type BigInt has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float64 represents exact,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,BigFloat:2.0,cd,cold,threw,ArgumentError: loss scale 2.0 of type BigFloat has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float64 represents e,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,BigFloat:2.0,cd-sparse,cold,threw,ArgumentError: loss scale 2.0 of type BigFloat has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float64 represents e,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,BigFloat:2.0,pg,cold,threw,ArgumentError: loss scale 2.0 of type BigFloat has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float64 represents e,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,BigFloat:2.0,apg,cold,threw,ArgumentError: loss scale 2.0 of type BigFloat has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float64 represents e,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,Rational{Int64}:1//4,cd,cold,threw,ArgumentError: loss scale 1//4 of type Rational{Int64} has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float64 repr,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,Rational{Int64}:1//4,cd-sparse,cold,threw,ArgumentError: loss scale 1//4 of type Rational{Int64} has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float64 repr,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,Rational{Int64}:1//4,pg,cold,threw,ArgumentError: loss scale 1//4 of type Rational{Int64} has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float64 repr,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,Rational{Int64}:1//4,apg,cold,threw,ArgumentError: loss scale 1//4 of type Rational{Int64} has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float64 repr,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,Float16:0.5,cd,cold,threw,ArgumentError: loss scale 0.5 of type Float16 has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float64 represents ex,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,Float16:0.5,cd-sparse,cold,threw,ArgumentError: loss scale 0.5 of type Float16 has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float64 represents ex,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,Float16:0.5,pg,cold,threw,ArgumentError: loss scale 0.5 of type Float16 has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float64 represents ex,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,Float16:0.5,apg,cold,threw,ArgumentError: loss scale 0.5 of type Float16 has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float64 represents ex,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,Irrational{:π}:π,cd,cold,threw,ArgumentError: loss scale π of type Irrational{:π} has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float64 represen,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,Irrational{:π}:π,cd-sparse,cold,threw,ArgumentError: loss scale π of type Irrational{:π} has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float64 represen,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,Irrational{:π}:π,pg,cold,threw,ArgumentError: loss scale π of type Irrational{:π} has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float64 represen,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,Irrational{:π}:π,apg,cold,threw,ArgumentError: loss scale π of type Irrational{:π} has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float64 represen,true,true,,,,,,
+C,1.13.3,scale-domain,Float64,Float32:0.25,cd,cold,ok,,,true,0.0336277759655463,4.8232699198636356e-17,6.394842587138872e-11,7,true,
+C,1.13.3,scale-domain,Float64,Float32:0.25,cd-sparse,cold,ok,,,true,0.0336277759655463,4.8232699198636356e-17,6.394842587138872e-11,7,true,
+C,1.13.3,scale-domain,Float64,Float32:0.25,pg,cold,ok,,,true,0.033627776028012014,1.2213715080309768e-15,1.8995618032454147e-6,10,true,false
+C,1.13.3,scale-domain,Float64,Float32:0.25,apg,cold,ok,,,true,0.03362777612352967,1.105496586049954e-15,3.1855823979101344e-6,10,true,false
+C,1.13.3,scale-domain,Float64,Float64:0.25,cd,cold,ok,,,true,0.0336277759655463,4.8232699198636356e-17,6.394842587138872e-11,7,true,
+C,1.13.3,scale-domain,Float64,Float64:0.25,cd-sparse,cold,ok,,,true,0.0336277759655463,4.8232699198636356e-17,6.394842587138872e-11,7,true,
+C,1.13.3,scale-domain,Float64,Float64:0.25,pg,cold,ok,,,true,0.033627776028012014,1.2213715080309768e-15,1.8995618032454147e-6,10,true,false
+C,1.13.3,scale-domain,Float64,Float64:0.25,apg,cold,ok,,,true,0.03362777612352967,1.105496586049954e-15,3.1855823979101344e-6,10,true,false
+C,1.13.3,scale-domain,Float64,Float64:1.0e-44,cd,cold,ok,,,true,1.345111038621852e-45,3.310432667153594e-17,6.394842587138872e-11,7,true,
+C,1.13.3,scale-domain,Float64,Float64:1.0e-44,cd-sparse,cold,ok,,,true,1.345111038621852e-45,3.310432667153594e-17,6.394842587138872e-11,7,true,
+C,1.13.3,scale-domain,Float64,Float64:1.0e-44,pg,cold,ok,,,true,3.758741401823861e-43,1.3916757925296974e-16,0.7475517681112043,200,false,false
+C,1.13.3,scale-domain,Float64,Float64:1.0e-44,apg,cold,ok,,,true,3.758741401823861e-43,1.3916757925296974e-16,0.7475517681112043,200,false,false
+C,1.13.3,scale-domain,Float64,Float64:1.0e-300,cd,cold,ok,,,true,1.3451110386218522e-301,8.391324458496313e-18,6.394842587138872e-11,7,true,
+C,1.13.3,scale-domain,Float64,Float64:1.0e-300,cd-sparse,cold,ok,,,true,1.3451110386218522e-301,8.391324458496313e-18,6.394842587138872e-11,7,true,
+C,1.13.3,scale-domain,Float64,Float64:1.0e-300,pg,cold,ok,,,true,3.758741401823862e-299,4.745941440359295e-17,0.7475517681112043,200,false,false
+C,1.13.3,scale-domain,Float64,Float64:1.0e-300,apg,cold,ok,,,true,3.758741401823862e-299,4.745941440359295e-17,0.7475517681112043,200,false,false
+C,1.13.3,scale-domain,Float32,Int64:2,cd,cold,ok,,,true,0.2690223,2.8778656050452017e-7,2.631188764721676e-8,7,true,
+C,1.13.3,scale-domain,Float32,Int64:2,cd-sparse,cold,ok,,,true,0.2690223,2.8778656050452017e-7,2.631188764721676e-8,7,true,
+C,1.13.3,scale-domain,Float32,Int64:2,pg,cold,ok,,,true,0.26902223,6.435600421688979e-8,1.8991375868975774e-6,10,true,false
+C,1.13.3,scale-domain,Float32,Int64:2,apg,cold,ok,,,true,0.26902223,6.571881087653894e-8,9.724710083365866e-7,11,true,false
+C,1.13.3,scale-domain,Float32,Bool:true,cd,cold,ok,,,true,0.13451114,2.8778656050452017e-7,2.631188764721676e-8,7,true,
+C,1.13.3,scale-domain,Float32,Bool:true,cd-sparse,cold,ok,,,true,0.13451114,2.8778656050452017e-7,2.631188764721676e-8,7,true,
+C,1.13.3,scale-domain,Float32,Bool:true,pg,cold,ok,,,true,0.13451111,6.435600421688979e-8,1.8991375868975774e-6,10,true,false
+C,1.13.3,scale-domain,Float32,Bool:true,apg,cold,ok,,,true,0.13451111,6.571881087653894e-8,9.724710083365866e-7,11,true,false
+C,1.13.3,scale-domain,Float32,UInt8:3,cd,cold,ok,,,true,0.40353343,2.8778656050452017e-7,2.631188764721676e-8,7,true,
+C,1.13.3,scale-domain,Float32,UInt8:3,cd-sparse,cold,ok,,,true,0.40353343,2.8778656050452017e-7,2.631188764721676e-8,7,true,
+C,1.13.3,scale-domain,Float32,UInt8:3,pg,cold,ok,,,true,0.40353334,6.435600421688979e-8,1.8991375868975774e-6,10,true,false
+C,1.13.3,scale-domain,Float32,UInt8:3,apg,cold,ok,,,true,0.40353334,2.183495188155096e-8,9.381512778072247e-6,11,true,false
+C,1.13.3,scale-domain,Float32,Int64:16777216,cd,cold,ok,,,true,2.2567225e6,2.8778656050452017e-7,2.631188764721676e-8,7,true,
+C,1.13.3,scale-domain,Float32,Int64:16777216,cd-sparse,cold,ok,,,true,2.2567225e6,2.8778656050452017e-7,2.631188764721676e-8,7,true,
+C,1.13.3,scale-domain,Float32,Int64:16777216,pg,cold,ok,,,true,2.256722e6,6.435600421688979e-8,1.8991375868975774e-6,10,true,false
+C,1.13.3,scale-domain,Float32,Int64:16777216,apg,cold,ok,,,true,2.256722e6,6.571881087653894e-8,9.724710083365866e-7,11,true,false
+C,1.13.3,scale-domain,Float32,Int64:16777217,cd,cold,threw,ArgumentError: loss scale 16777217 of type Int64 is not exactly representable in Float32; only Float32 and Float64 scales and fixed-width integer scales that Fl,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,Int64:16777217,cd-sparse,cold,threw,ArgumentError: loss scale 16777217 of type Int64 is not exactly representable in Float32; only Float32 and Float64 scales and fixed-width integer scales that Fl,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,Int64:16777217,pg,cold,threw,ArgumentError: loss scale 16777217 of type Int64 is not exactly representable in Float32; only Float32 and Float64 scales and fixed-width integer scales that Fl,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,Int64:16777217,apg,cold,threw,ArgumentError: loss scale 16777217 of type Int64 is not exactly representable in Float32; only Float32 and Float64 scales and fixed-width integer scales that Fl,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,Int64:9007199254740992,cd,cold,ok,,,true,1.2115687e15,2.8778656050452017e-7,2.631188764721676e-8,7,true,
+C,1.13.3,scale-domain,Float32,Int64:9007199254740992,cd-sparse,cold,ok,,,true,1.2115687e15,2.8778656050452017e-7,2.631188764721676e-8,7,true,
+C,1.13.3,scale-domain,Float32,Int64:9007199254740992,pg,cold,ok,,,true,1.2115684e15,6.435600421688979e-8,1.8991375868975774e-6,10,true,false
+C,1.13.3,scale-domain,Float32,Int64:9007199254740992,apg,cold,ok,,,true,1.2115684e15,6.571881087653894e-8,9.724710083365866e-7,11,true,false
+C,1.13.3,scale-domain,Float32,Int64:9007199254740993,cd,cold,threw,ArgumentError: loss scale 9007199254740993 of type Int64 is not exactly representable in Float32; only Float32 and Float64 scales and fixed-width integer scales,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,Int64:9007199254740993,cd-sparse,cold,threw,ArgumentError: loss scale 9007199254740993 of type Int64 is not exactly representable in Float32; only Float32 and Float64 scales and fixed-width integer scales,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,Int64:9007199254740993,pg,cold,threw,ArgumentError: loss scale 9007199254740993 of type Int64 is not exactly representable in Float32; only Float32 and Float64 scales and fixed-width integer scales,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,Int64:9007199254740993,apg,cold,threw,ArgumentError: loss scale 9007199254740993 of type Int64 is not exactly representable in Float32; only Float32 and Float64 scales and fixed-width integer scales,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,BigInt:2,cd,cold,threw,ArgumentError: loss scale 2 of type BigInt has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float32 represents exact,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,BigInt:2,cd-sparse,cold,threw,ArgumentError: loss scale 2 of type BigInt has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float32 represents exact,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,BigInt:2,pg,cold,threw,ArgumentError: loss scale 2 of type BigInt has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float32 represents exact,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,BigInt:2,apg,cold,threw,ArgumentError: loss scale 2 of type BigInt has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float32 represents exact,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,BigFloat:2.0,cd,cold,threw,ArgumentError: loss scale 2.0 of type BigFloat has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float32 represents e,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,BigFloat:2.0,cd-sparse,cold,threw,ArgumentError: loss scale 2.0 of type BigFloat has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float32 represents e,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,BigFloat:2.0,pg,cold,threw,ArgumentError: loss scale 2.0 of type BigFloat has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float32 represents e,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,BigFloat:2.0,apg,cold,threw,ArgumentError: loss scale 2.0 of type BigFloat has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float32 represents e,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,Rational{Int64}:1//4,cd,cold,threw,ArgumentError: loss scale 1//4 of type Rational{Int64} has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float32 repr,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,Rational{Int64}:1//4,cd-sparse,cold,threw,ArgumentError: loss scale 1//4 of type Rational{Int64} has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float32 repr,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,Rational{Int64}:1//4,pg,cold,threw,ArgumentError: loss scale 1//4 of type Rational{Int64} has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float32 repr,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,Rational{Int64}:1//4,apg,cold,threw,ArgumentError: loss scale 1//4 of type Rational{Int64} has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float32 repr,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,Float16:0.5,cd,cold,threw,ArgumentError: loss scale 0.5 of type Float16 has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float32 represents ex,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,Float16:0.5,cd-sparse,cold,threw,ArgumentError: loss scale 0.5 of type Float16 has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float32 represents ex,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,Float16:0.5,pg,cold,threw,ArgumentError: loss scale 0.5 of type Float16 has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float32 represents ex,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,Float16:0.5,apg,cold,threw,ArgumentError: loss scale 0.5 of type Float16 has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float32 represents ex,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,Irrational{:π}:π,cd,cold,threw,ArgumentError: loss scale π of type Irrational{:π} has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float32 represen,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,Irrational{:π}:π,cd-sparse,cold,threw,ArgumentError: loss scale π of type Irrational{:π} has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float32 represen,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,Irrational{:π}:π,pg,cold,threw,ArgumentError: loss scale π of type Irrational{:π} has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float32 represen,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,Irrational{:π}:π,apg,cold,threw,ArgumentError: loss scale π of type Irrational{:π} has an unsupported type; only Float32 and Float64 scales and fixed-width integer scales that Float32 represen,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,Float32:0.25,cd,cold,ok,,,true,0.033627786,2.8778656050452017e-7,2.631188764721676e-8,7,true,
+C,1.13.3,scale-domain,Float32,Float32:0.25,cd-sparse,cold,ok,,,true,0.033627786,2.8778656050452017e-7,2.631188764721676e-8,7,true,
+C,1.13.3,scale-domain,Float32,Float32:0.25,pg,cold,ok,,,true,0.03362778,6.435600421688979e-8,1.8991375868975774e-6,10,true,false
+C,1.13.3,scale-domain,Float32,Float32:0.25,apg,cold,ok,,,true,0.03362778,6.571881087653894e-8,9.724710083365866e-7,11,true,false
+C,1.13.3,scale-domain,Float32,Float64:0.25,cd,cold,ok,,,true,0.033627786,2.8778656050452017e-7,2.631188764721676e-8,7,true,
+C,1.13.3,scale-domain,Float32,Float64:0.25,cd-sparse,cold,ok,,,true,0.033627786,2.8778656050452017e-7,2.631188764721676e-8,7,true,
+C,1.13.3,scale-domain,Float32,Float64:0.25,pg,cold,ok,,,true,0.03362778,6.435600421688979e-8,1.8991375868975774e-6,10,true,false
+C,1.13.3,scale-domain,Float32,Float64:0.25,apg,cold,ok,,,true,0.03362778,6.571881087653894e-8,9.724710083365866e-7,11,true,false
+C,1.13.3,scale-domain,Float32,Float64:1.0e-44,cd,cold,ok,,,true,1.0e-45,0.04177158610663356,2.631188764721676e-8,7,true,
+C,1.13.3,scale-domain,Float32,Float64:1.0e-44,cd-sparse,cold,ok,,,true,1.0e-45,0.04177158610663356,2.631188764721676e-8,7,true,
+C,1.13.3,scale-domain,Float32,Float64:1.0e-44,pg,cold,ok,,,true,3.76e-43,0.0008676887696162023,0.7475517696294733,200,false,false
+C,1.13.3,scale-domain,Float32,Float64:1.0e-44,apg,cold,ok,,,true,3.76e-43,0.0008676887696162023,0.7475517696294733,200,false,false
+C,1.13.3,scale-domain,Float32,Float64:1.0e-300,cd,cold,threw,ArgumentError: loss scale is not representable without overflow or underflow in Float32,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,Float64:1.0e-300,cd-sparse,cold,threw,ArgumentError: loss scale is not representable without overflow or underflow in Float32,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,Float64:1.0e-300,pg,cold,threw,ArgumentError: loss scale is not representable without overflow or underflow in Float32,true,true,,,,,,
+C,1.13.3,scale-domain,Float32,Float64:1.0e-300,apg,cold,threw,ArgumentError: loss scale is not representable without overflow or underflow in Float32,true,true,,,,,,

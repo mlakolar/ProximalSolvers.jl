@@ -1,0 +1,132 @@
+
+=== evidence/baseline/full-1.10.13  julia 1.10.13  arm A1
+precompile PB s    6.498 [  6.458-  6.589] | PS s    5.225 [  5.161-  5.330] | cache PB MB 10.59 PS MB 6.74
+load s    0.331 [  0.330-  0.351]
+solver T       loss   pos  n   first wall s [min-max]          first compile s          repeat wall ms
+apg  Float32  raw    0  10     0.559 [  0.555-  0.562]     0.559 [  0.555-  0.561]     0.028
+apg  Float32  raw    1  10     0.557 [  0.556-  0.561]     0.557 [  0.556-  0.561]     0.029
+apg  Float32  scaled 0  10     0.000 [  0.000-  0.001]     0.000 [  0.000-  0.000]     0.029
+apg  Float32  scaled 1  10     0.000 [  0.000-  0.001]     0.000 [  0.000-  0.000]     0.028
+apg  Float64  raw    0  10     0.554 [  0.552-  0.582]     0.554 [  0.552-  0.582]     0.036
+apg  Float64  raw    1  10     0.546 [  0.544-  0.560]     0.546 [  0.544-  0.560]     0.036
+apg  Float64  scaled 0  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.023
+apg  Float64  scaled 1  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.023
+cd   Float32  raw    0  10     0.057 [  0.057-  0.060]     0.057 [  0.057-  0.060]     0.021  repeat!=first
+cd   Float32  raw    1  10     0.057 [  0.057-  0.058]     0.057 [  0.057-  0.058]     0.030  repeat!=first
+cd   Float32  scaled 0  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.032  repeat!=first
+cd   Float32  scaled 1  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.022  repeat!=first
+cd   Float64  raw    0  10     0.059 [  0.059-  0.063]     0.059 [  0.058-  0.063]     0.030  repeat!=first
+cd   Float64  raw    1  10     0.060 [  0.059-  0.062]     0.060 [  0.059-  0.062]     0.027  repeat!=first
+cd   Float64  scaled 0  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.026  repeat!=first
+cd   Float64  scaled 1  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.025  repeat!=first
+pg   Float32  raw    0  10     0.354 [  0.351-  0.364]     0.354 [  0.351-  0.364]     0.021
+pg   Float32  raw    1  10     0.364 [  0.360-  0.388]     0.364 [  0.360-  0.388]     0.022
+pg   Float32  scaled 0  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.020
+pg   Float32  scaled 1  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.020
+pg   Float64  raw    0  10     0.316 [  0.313-  0.331]     0.316 [  0.313-  0.331]     0.027
+pg   Float64  raw    1  10     0.308 [  0.307-  0.315]     0.308 [  0.307-  0.315]     0.028
+pg   Float64  scaled 0  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.027
+pg   Float64  scaled 1  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.026
+six-solve raw pos0 sum s (paired by process index):    1.904 [  1.890-  1.942]
+six-solve raw pos1 sum s (paired by process index):    1.898 [  1.885-  1.926]
+six-solve scaled pos0 sum s (paired by process index):    0.001 [  0.001-  0.001]
+six-solve scaled pos1 sum s (paired by process index):    0.000 [  0.000-  0.001]
+
+=== evidence/baseline/full-1.10.13  julia 1.10.13  arm A2
+precompile PB s    6.505 [  6.441-  6.637] | PS s    5.348 [  5.162-  5.407] | cache PB MB 10.59 PS MB 6.74
+load s    0.332 [  0.327-  0.335]
+solver T       loss   pos  n   first wall s [min-max]          first compile s          repeat wall ms
+apg  Float32  raw    0  10     0.561 [  0.557-  0.587]     0.560 [  0.557-  0.587]     0.031
+apg  Float32  raw    1  10     0.559 [  0.555-  0.587]     0.559 [  0.555-  0.587]     0.028
+apg  Float32  scaled 0  10     0.000 [  0.000-  0.001]     0.000 [  0.000-  0.000]     0.027
+apg  Float32  scaled 1  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.027
+apg  Float64  raw    0  10     0.555 [  0.552-  0.582]     0.554 [  0.551-  0.581]     0.036
+apg  Float64  raw    1  10     0.546 [  0.543-  0.577]     0.545 [  0.543-  0.576]     0.036
+apg  Float64  scaled 0  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.024
+apg  Float64  scaled 1  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.023
+cd   Float32  raw    0  10     0.057 [  0.057-  0.060]     0.057 [  0.057-  0.060]     0.030  repeat!=first
+cd   Float32  raw    1  10     0.057 [  0.057-  0.061]     0.057 [  0.057-  0.061]     0.028  repeat!=first
+cd   Float32  scaled 0  10     0.000 [  0.000-  0.001]     0.000 [  0.000-  0.000]     0.023  repeat!=first
+cd   Float32  scaled 1  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.025  repeat!=first
+cd   Float64  raw    0  10     0.059 [  0.059-  0.063]     0.059 [  0.059-  0.062]     0.029  repeat!=first
+cd   Float64  raw    1  10     0.059 [  0.059-  0.062]     0.059 [  0.059-  0.062]     0.028  repeat!=first
+cd   Float64  scaled 0  10     0.000 [  0.000-  0.001]     0.000 [  0.000-  0.000]     0.027  repeat!=first
+cd   Float64  scaled 1  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.026  repeat!=first
+pg   Float32  raw    0  10     0.365 [  0.362-  0.380]     0.365 [  0.361-  0.380]     0.021
+pg   Float32  raw    1  10     0.363 [  0.361-  0.381]     0.363 [  0.361-  0.381]     0.021
+pg   Float32  scaled 0  10     0.000 [  0.000-  0.001]     0.000 [  0.000-  0.000]     0.021
+pg   Float32  scaled 1  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.020
+pg   Float64  raw    0  10     0.316 [  0.314-  0.332]     0.316 [  0.314-  0.331]     0.028
+pg   Float64  raw    1  10     0.306 [  0.306-  0.323]     0.306 [  0.306-  0.322]     0.027
+pg   Float64  scaled 0  10     0.000 [  0.000-  0.002]     0.000 [  0.000-  0.000]     0.027
+pg   Float64  scaled 1  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.026
+six-solve raw pos0 sum s (paired by process index):    1.916 [  1.906-  1.962]
+six-solve raw pos1 sum s (paired by process index):    1.895 [  1.885-  1.952]
+six-solve scaled pos0 sum s (paired by process index):    0.002 [  0.001-  0.004]
+six-solve scaled pos1 sum s (paired by process index):    0.000 [  0.000-  0.000]
+
+=== evidence/baseline/full-1.13.3  julia 1.13.3  arm A1
+precompile PB s    6.979 [  6.945-  7.009] | PS s    5.858 [  5.837-  5.864] | cache PB MB 9.57 PS MB 5.14
+load s    0.422 [  0.411-  0.540]
+solver T       loss   pos  n   first wall s [min-max]          first compile s          repeat wall ms
+apg  Float32  raw    0  10     0.798 [  0.794-  0.803]     0.798 [  0.794-  0.803]     0.026
+apg  Float32  raw    1  10     0.798 [  0.794-  0.804]     0.798 [  0.794-  0.803]     0.024
+apg  Float32  scaled 0  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.025
+apg  Float32  scaled 1  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.025
+apg  Float64  raw    0  10     0.788 [  0.784-  0.833]     0.788 [  0.783-  0.833]     0.035
+apg  Float64  raw    1  10     0.787 [  0.785-  0.830]     0.786 [  0.785-  0.830]     0.033
+apg  Float64  scaled 0  10     0.000 [  0.000-  0.001]     0.000 [  0.000-  0.000]     0.021
+apg  Float64  scaled 1  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.022
+cd   Float32  raw    0  10     0.091 [  0.091-  0.096]     0.091 [  0.090-  0.095]     0.024  repeat!=first
+cd   Float32  raw    1  10     0.091 [  0.090-  0.091]     0.090 [  0.090-  0.091]     0.019  repeat!=first
+cd   Float32  scaled 0  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.018  repeat!=first
+cd   Float32  scaled 1  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.023  repeat!=first
+cd   Float64  raw    0  10     0.090 [  0.090-  0.095]     0.090 [  0.089-  0.095]     0.032  repeat!=first
+cd   Float64  raw    1  10     0.090 [  0.089-  0.096]     0.090 [  0.089-  0.096]     0.028  repeat!=first
+cd   Float64  scaled 0  10     0.000 [  0.000-  0.001]     0.000 [  0.000-  0.000]     0.023  repeat!=first
+cd   Float64  scaled 1  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.023  repeat!=first
+pg   Float32  raw    0  10     0.461 [  0.459-  0.462]     0.461 [  0.459-  0.462]     0.027
+pg   Float32  raw    1  10     0.460 [  0.457-  0.462]     0.460 [  0.457-  0.462]     0.028
+pg   Float32  scaled 0  10     0.000 [  0.000-  0.001]     0.000 [  0.000-  0.000]     0.018
+pg   Float32  scaled 1  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.017
+pg   Float64  raw    0  10     0.421 [  0.419-  0.477]     0.421 [  0.419-  0.442]     0.028
+pg   Float64  raw    1  10     0.422 [  0.418-  0.445]     0.422 [  0.418-  0.445]     0.026
+pg   Float64  scaled 0  10     0.000 [  0.000-  0.002]     0.000 [  0.000-  0.000]     0.024
+pg   Float64  scaled 1  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.023
+six-solve raw pos0 sum s (paired by process index):    2.654 [  2.639-  2.748]
+six-solve raw pos1 sum s (paired by process index):    2.652 [  2.640-  2.691]
+six-solve scaled pos0 sum s (paired by process index):    0.002 [  0.002-  0.004]
+six-solve scaled pos1 sum s (paired by process index):    0.000 [  0.000-  0.001]
+
+=== evidence/baseline/full-1.13.3  julia 1.13.3  arm A2
+precompile PB s    7.041 [  7.005-  7.092] | PS s    5.829 [  5.823-  5.846] | cache PB MB 9.57 PS MB 5.14
+load s    0.416 [  0.410-  0.470]
+solver T       loss   pos  n   first wall s [min-max]          first compile s          repeat wall ms
+apg  Float32  raw    0  10     0.797 [  0.792-  0.837]     0.796 [  0.792-  0.837]     0.034
+apg  Float32  raw    1  10     0.796 [  0.791-  0.800]     0.796 [  0.791-  0.800]     0.032
+apg  Float32  scaled 0  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.024
+apg  Float32  scaled 1  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.024
+apg  Float64  raw    0  10     0.787 [  0.785-  0.795]     0.787 [  0.784-  0.795]     0.033
+apg  Float64  raw    1  10     0.790 [  0.785-  0.828]     0.790 [  0.785-  0.828]     0.031
+apg  Float64  scaled 0  10     0.000 [  0.000-  0.004]     0.000 [  0.000-  0.000]     0.023
+apg  Float64  scaled 1  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.022
+cd   Float32  raw    0  10     0.091 [  0.091-  0.092]     0.091 [  0.091-  0.091]     0.026  repeat!=first
+cd   Float32  raw    1  10     0.091 [  0.090-  0.091]     0.090 [  0.090-  0.091]     0.023  repeat!=first
+cd   Float32  scaled 0  10     0.000 [  0.000-  0.002]     0.000 [  0.000-  0.000]     0.025  repeat!=first
+cd   Float32  scaled 1  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.022  repeat!=first
+cd   Float64  raw    0  10     0.090 [  0.090-  0.091]     0.090 [  0.090-  0.091]     0.025  repeat!=first
+cd   Float64  raw    1  10     0.090 [  0.089-  0.094]     0.090 [  0.089-  0.094]     0.023  repeat!=first
+cd   Float64  scaled 0  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.024  repeat!=first
+cd   Float64  scaled 1  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.023  repeat!=first
+pg   Float32  raw    0  10     0.461 [  0.459-  0.462]     0.460 [  0.459-  0.462]     0.024
+pg   Float32  raw    1  10     0.460 [  0.459-  0.482]     0.460 [  0.458-  0.482]     0.023
+pg   Float32  scaled 0  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.018
+pg   Float32  scaled 1  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.017
+pg   Float64  raw    0  10     0.420 [  0.418-  0.440]     0.420 [  0.418-  0.440]     0.027
+pg   Float64  raw    1  10     0.421 [  0.421-  0.423]     0.421 [  0.420-  0.423]     0.026
+pg   Float64  scaled 0  10     0.000 [  0.000-  0.002]     0.000 [  0.000-  0.000]     0.026
+pg   Float64  scaled 1  10     0.000 [  0.000-  0.000]     0.000 [  0.000-  0.000]     0.023
+six-solve raw pos0 sum s (paired by process index):    2.648 [  2.640-  2.685]
+six-solve raw pos1 sum s (paired by process index):    2.648 [  2.640-  2.704]
+six-solve scaled pos0 sum s (paired by process index):    0.002 [  0.002-  0.005]
+six-solve scaled pos1 sum s (paired by process index):    0.000 [  0.000-  0.000]

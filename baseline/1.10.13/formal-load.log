@@ -1,0 +1,42 @@
+start 2026-11-16T02:06:15Z loadavg 1.01 1.07 0.81 1/514 902178
+rep 1 arm A1 loadavg 1.01 1.07 0.81 1/514 902181
+rep 1 arm A1 exit 2
+rep 1 arm A2 loadavg 1.01 1.07 0.82 1/509 902217
+rep 1 arm A2 exit 2
+rep 2 arm A2 loadavg 1.01 1.06 0.82 1/509 902227
+rep 2 arm A2 exit 2
+rep 2 arm A1 loadavg 1.00 1.06 0.83 1/507 902237
+rep 2 arm A1 exit 2
+rep 3 arm A1 loadavg 1.00 1.05 0.83 1/507 902247
+rep 3 arm A1 exit 2
+rep 3 arm A2 loadavg 1.00 1.05 0.83 1/505 902256
+rep 3 arm A2 exit 2
+rep 4 arm A2 loadavg 1.00 1.05 0.84 1/504 902266
+rep 4 arm A2 exit 2
+rep 4 arm A1 loadavg 0.93 1.03 0.83 1/504 902276
+rep 4 arm A1 exit 2
+rep 5 arm A1 loadavg 0.95 1.02 0.84 1/501 902286
+rep 5 arm A1 exit 2
+rep 5 arm A2 loadavg 0.97 1.02 0.84 1/501 902296
+rep 5 arm A2 exit 2
+rep 6 arm A2 loadavg 0.97 1.02 0.85 1/499 902307
+rep 6 arm A2 exit 2
+rep 6 arm A1 loadavg 0.98 1.02 0.85 1/499 902316
+rep 6 arm A1 exit 2
+rep 7 arm A1 loadavg 0.99 1.02 0.85 1/502 902351
+rep 7 arm A1 exit 2
+rep 7 arm A2 loadavg 0.99 1.02 0.86 1/502 902372
+rep 7 arm A2 exit 2
+rep 8 arm A2 loadavg 1.00 1.01 0.86 1/503 902383
+rep 8 arm A2 exit 2
+rep 8 arm A1 loadavg 1.00 1.01 0.87 1/503 902393
+rep 8 arm A1 exit 2
+rep 9 arm A1 loadavg 1.00 1.01 0.87 1/501 902433
+rep 9 arm A1 exit 2
+rep 9 arm A2 loadavg 1.00 1.01 0.87 1/500 902442
+rep 9 arm A2 exit 2
+rep 10 arm A2 loadavg 1.00 1.01 0.88 1/500 902452
+rep 10 arm A2 exit 2
+rep 10 arm A1 loadavg 1.00 1.00 0.88 1/501 902463
+rep 10 arm A1 exit 2
+end 2026-11-16T02:12:34Z loadavg 1.00 1.00 0.88 1/502 902476

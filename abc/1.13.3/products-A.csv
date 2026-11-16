@@ -1,0 +1,61 @@
+arm,version,problem,T,loss,solver,start,fwd,adj,counters,minimum,converged
+A,1.13.3,small,Float64,raw,cd,cold,0,0,(passes = 15;),142.12271390317025,true
+A,1.13.3,small,Float64,raw,cd,warm,0,0,(passes = 10;),142.12271390317034,true
+A,1.13.3,small,Float64,raw,pg,cold,17,14,(iters = 12; f = 27; g = 13; p = 14; bt = 14),142.12271393788882,true
+A,1.13.3,small,Float64,raw,pg,warm,15,12,(iters = 10; f = 23; g = 11; p = 12; bt = 12),142.12271401320862,true
+A,1.13.3,small,Float64,raw,apg,cold,22,20,(iters = 13; f = 35; g = 19; p = 21; bt = 21),142.12271396374058,true
+A,1.13.3,small,Float64,raw,apg,warm,16,13,(iters = 8; f = 24; g = 12; p = 15; bt = 15),142.1227139688501,true
+A,1.13.3,small,Float64,scaled,cd,cold,0,0,(passes = 14;),2.493380945669653,true
+A,1.13.3,small,Float64,scaled,cd,warm,0,0,(passes = 12;),2.493380945669654,true
+A,1.13.3,small,Float64,scaled,pg,cold,16,13,(iters = 11; f = 25; g = 12; p = 13; bt = 13),2.493380946478746,true
+A,1.13.3,small,Float64,scaled,pg,warm,11,10,(iters = 8; f = 18; g = 9; p = 9; bt = 9),2.493380947125328,true
+A,1.13.3,small,Float64,scaled,apg,cold,16,19,(iters = 11; f = 29; g = 18; p = 15; bt = 15),2.493380946546093,true
+A,1.13.3,small,Float64,scaled,apg,warm,11,14,(iters = 8; f = 19; g = 13; p = 10; bt = 10),2.493380946271038,true
+A,1.13.3,small,Float32,raw,cd,cold,0,0,(passes = 13;),142.12271,true
+A,1.13.3,small,Float32,raw,cd,warm,0,0,(passes = 11;),142.12271,true
+A,1.13.3,small,Float32,raw,pg,cold,17,14,(iters = 12; f = 27; g = 13; p = 14; bt = 14),142.12271,true
+A,1.13.3,small,Float32,raw,pg,warm,16,12,(iters = 10; f = 23; g = 11; p = 12; bt = 12),142.12273,true
+A,1.13.3,small,Float32,raw,apg,cold,26,21,(iters = 13; f = 37; g = 20; p = 22; bt = 22),142.12271,true
+A,1.13.3,small,Float32,raw,apg,warm,17,13,(iters = 8; f = 24; g = 12; p = 15; bt = 15),142.12271,true
+A,1.13.3,small,Float32,scaled,cd,cold,0,0,(passes = 15;),2.4933808,true
+A,1.13.3,small,Float32,scaled,cd,warm,0,0,(passes = 13;),2.4933808,true
+A,1.13.3,small,Float32,scaled,pg,cold,16,13,(iters = 11; f = 25; g = 12; p = 13; bt = 13),2.493381,true
+A,1.13.3,small,Float32,scaled,pg,warm,11,10,(iters = 8; f = 18; g = 9; p = 9; bt = 9),2.493381,true
+A,1.13.3,small,Float32,scaled,apg,cold,16,17,(iters = 10; f = 27; g = 16; p = 14; bt = 14),2.493381,false
+A,1.13.3,small,Float32,scaled,apg,warm,15,15,(iters = 8; f = 21; g = 14; p = 11; bt = 11),2.493381,false
+A,1.13.3,small,Float32,scaled64,cd,cold,0,0,(passes = 14;),2.4933808,true
+A,1.13.3,small,Float32,scaled64,cd,warm,0,0,(passes = 12;),2.4933805,true
+A,1.13.3,small,Float32,scaled64,pg,cold,17,13,(iters = 11; f = 25; g = 12; p = 13; bt = 13),2.493381,true
+A,1.13.3,small,Float32,scaled64,pg,warm,11,10,(iters = 8; f = 18; g = 9; p = 9; bt = 9),2.493381,true
+A,1.13.3,small,Float32,scaled64,apg,cold,16,17,(iters = 10; f = 27; g = 16; p = 14; bt = 14),2.493381,false
+A,1.13.3,small,Float32,scaled64,apg,warm,14,14,(iters = 8; f = 19; g = 13; p = 10; bt = 10),2.493381,true
+A,1.13.3,corr,Float64,raw,cd,cold,0,0,(passes = 43;),385.9154511486597,true
+A,1.13.3,corr,Float64,raw,cd,warm,0,0,(passes = 28;),385.9154511486703,true
+A,1.13.3,corr,Float64,raw,pg,cold,138,117,(iters = 115; f = 242; g = 116; p = 126; bt = 126),385.9154515626958,true
+A,1.13.3,corr,Float64,raw,pg,warm,67,51,(iters = 49; f = 107; g = 50; p = 57; bt = 57),385.91545198239237,true
+A,1.13.3,corr,Float64,raw,apg,cold,77,65,(iters = 56; f = 135; g = 64; p = 76; bt = 76),385.9154516777259,true
+A,1.13.3,corr,Float64,raw,apg,warm,39,38,(iters = 24; f = 65; g = 37; p = 38; bt = 38),385.9154516833198,true
+A,1.13.3,corr,Float64,scaled,cd,cold,0,0,(passes = 59;),1.607981046452747,true
+A,1.13.3,corr,Float64,scaled,cd,warm,0,0,(passes = 31;),1.6079810464527728,true
+A,1.13.3,corr,Float64,scaled,pg,cold,138,117,(iters = 115; f = 242; g = 116; p = 126; bt = 126),1.607981048177899,true
+A,1.13.3,corr,Float64,scaled,pg,warm,66,51,(iters = 49; f = 107; g = 50; p = 57; bt = 57),1.6079810499266158,true
+A,1.13.3,corr,Float64,scaled,apg,cold,71,70,(iters = 58; f = 131; g = 69; p = 70; bt = 70),1.6079810483711445,true
+A,1.13.3,corr,Float64,scaled,apg,warm,29,34,(iters = 22; f = 53; g = 33; p = 28; bt = 28),1.607981049029676,true
+A,1.13.3,corr,Float32,raw,cd,cold,0,0,(passes = 55;),385.91544,true
+A,1.13.3,corr,Float32,raw,cd,warm,0,0,(passes = 59;),385.9154,true
+A,1.13.3,corr,Float32,raw,pg,cold,127,109,(iters = 107; f = 224; g = 108; p = 116; bt = 116),385.91547,false
+A,1.13.3,corr,Float32,raw,pg,warm,51,37,(iters = 35; f = 77; g = 36; p = 41; bt = 41),385.9155,false
+A,1.13.3,corr,Float32,raw,apg,cold,89,65,(iters = 56; f = 135; g = 64; p = 76; bt = 76),385.91547,true
+A,1.13.3,corr,Float32,raw,apg,warm,51,34,(iters = 22; f = 61; g = 33; p = 36; bt = 36),385.91544,false
+A,1.13.3,corr,Float32,scaled,cd,cold,0,0,(passes = 76;),1.607981,true
+A,1.13.3,corr,Float32,scaled,cd,warm,0,0,(passes = 52;),1.6079807,true
+A,1.13.3,corr,Float32,scaled,pg,cold,129,108,(iters = 106; f = 222; g = 107; p = 115; bt = 115),1.6079813,false
+A,1.13.3,corr,Float32,scaled,pg,warm,46,35,(iters = 33; f = 72; g = 34; p = 38; bt = 38),1.6079814,false
+A,1.13.3,corr,Float32,scaled,apg,cold,98,79,(iters = 61; f = 143; g = 78; p = 76; bt = 76),1.607981,true
+A,1.13.3,corr,Float32,scaled,apg,warm,58,45,(iters = 27; f = 66; g = 44; p = 35; bt = 35),1.607981,true
+A,1.13.3,corr,Float32,scaled64,cd,cold,0,0,(passes = 64;),1.607981,true
+A,1.13.3,corr,Float32,scaled64,cd,warm,0,0,(passes = 26;),1.607981,true
+A,1.13.3,corr,Float32,scaled64,pg,cold,131,110,(iters = 108; f = 226; g = 109; p = 117; bt = 117),1.6079811,false
+A,1.13.3,corr,Float32,scaled64,pg,warm,46,35,(iters = 33; f = 72; g = 34; p = 38; bt = 38),1.6079814,false
+A,1.13.3,corr,Float32,scaled64,apg,cold,90,72,(iters = 58; f = 135; g = 71; p = 72; bt = 72),1.6079812,false
+A,1.13.3,corr,Float32,scaled64,apg,warm,50,40,(iters = 25; f = 59; g = 39; p = 31; bt = 31),1.607981,true
