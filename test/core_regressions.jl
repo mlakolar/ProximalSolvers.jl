@@ -1135,11 +1135,13 @@ end
 # ---- The least-squares value and gradient at the call sites of the solvers (#307) -----------------
 # PGD and APG form the image z = X x and take the value and the gradient from ProximalBase's predictor
 # oracles; CD takes the value from its cached residual with the residual oracle. The losses below are a
-# raw one, a Scaled one with a scale of type T, one with a Float32 or Float64 scale on data of the other type,
-# and one with an integer scale.
+# raw one, a Scaled one with a scale of type T, two with a Float32 or Float64 scale on data of the other type
+# (0.25, which T holds, and 1/57 or 0.1f0, which it does not for Float32 data and a Float64 scale), and one
+# with an integer scale.
 oracle_losses(::Type{T}, y, X) where T =
   ((:raw, LeastSquaresLoss(y, X), 1), (:scaledT, T(0.25) * LeastSquaresLoss(y, X), T(0.25)),
    (:mixed, (T === Float32 ? 0.25 : 0.25f0) * LeastSquaresLoss(y, X), 0.25),
+   (:mixedinexact, (T === Float32 ? 1 / 57 : 0.1f0) * LeastSquaresLoss(y, X), T === Float32 ? 1 / 57 : 0.1f0),
    (:integer, 3 * LeastSquaresLoss(y, X), 3))
 oracle_data(::Type{T}; n = 40, p = 5) where T = (rng = Xoshiro(307); (randn(rng, T, n, p), randn(rng, T, n)))
 tmp_of(f::Scaled) = f.f.tmp
@@ -1192,6 +1194,12 @@ end
       end
     end
   end
+  # Float32 data of order 1e18 with the Float64 scale 1e-44, which is subnormal in Float32 and rounds by about
+  # a tenth there: a value formed with Float32(α) would leave the (n + 8) eps(T) bound
+  X, y = oracle_data(Float32)
+  Xs, ys = 1f18 .* X, 1f18 .* y
+  @test Float64(Float32(1e-44)) != 1e-44
+  check_oracles(Float32, 1e-44 * LeastSquaresLoss(ys, Xs), 1e-44, Xs, ys, Float32.(0.3 .* sin.(1:size(X, 2))))
 end
 
 @testset "a solve leaves the scratch of the loss unchanged and reports a value of the 256-bit objective (#307)" begin
@@ -1201,11 +1209,14 @@ end
     for (label, f, α) in oracle_losses(T, y, X)
       # the penalty is in units of the loss: it scales with α
       g = NormL1(T(λ * α))
-      before = copy(tmp_of(f))
-      for (name, method, x) in (("CD dense", CDSolver(rng = Xoshiro(1)), zeros(T, 4)),
-                                ("CD owner", CDSolver(rng = Xoshiro(1)), SparseIterate(zeros(T, 4))),
-                                ("PGD", ProximalGradientDescent(), zeros(T, 4)),
-                                ("APG", AccProxGradDescent(), zeros(T, 4)))
+      # a nonzero sentinel in the scratch and a nonzero start: an evaluation that writes the scratch is detected
+      x0 = T.(0.1 .* (1:4))
+      for (name, method, x) in (("CD dense", CDSolver(rng = Xoshiro(1)), copy(x0)),
+                                ("CD owner", CDSolver(rng = Xoshiro(1)), SparseIterate(copy(x0))),
+                                ("PGD", ProximalGradientDescent(), copy(x0)),
+                                ("APG", AccProxGradDescent(), copy(x0)))
+        fill!(tmp_of(f), T(7))
+        before = copy(tmp_of(f))
         r = with_logger(Logging.NullLogger()) do
           solve!(x, f, g, method)
         end

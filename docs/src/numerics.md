@@ -380,10 +380,16 @@ for example `Float64(s) * LeastSquaresLoss(y, X)`; the error message suggests it
 when it passes that rule. After the check, CD, PGD and APG use the loss scale as
 supplied, combined with `T` by Julia's promotion: a `Float64` scale in a
 `Float32` solve keeps its `Float64` value (also where that value is subnormal in
-`Float32`). In CD, the coordinate step, the two stopping scales and the reported
-objective are formed from that value and rounded to `T` where they enter the
-iterate, the tolerance or the result; an integer or `Bool` scale is used there
-as `T(s)`, which equals `s` by the check. This convenience does **not**
+`Float32`). In CD, the coordinate step and the two stopping scales are formed
+from that value and rounded to `T` where they enter the iterate or the
+tolerance; an integer or `Bool` scale is used there as `T(s)`. The loss part of
+CD's reported objective is formed by ProximalBase from the loss as supplied: it
+converts an integer or `Bool` scale to `Float64`, forms the product in the
+promoted type of the scale and `T`, and rounds the result to `T`. By the check,
+`T(s)` and `Float64(s)` both equal `s`, so these computations use the same real
+scale, but not the same arithmetic precision (for `Float32` data and the scale
+`3`, CD's step and stopping arithmetic is in `Float32` and the objective's
+product is in `Float64`). This convenience does **not**
 enable a general mixed-precision model or guarantee that every
 intermediate operation uses `T`. Prefer explicit native scalars. Writing
 `one(T) / T(n)` chooses a native `T` scale: `n` is converted to `T` and the
@@ -407,26 +413,33 @@ step or objective. Unrecoverable numerical failures are handled as
 described below; a successful kernel recovery does not imply the
 solver can continue in every extreme-range case.
 
-The least-squares value and gradient come from ProximalBase's oracles
-`value_from_predictor`, `value_and_gradient_from_predictor!` and
-`value_from_residual`; ProximalSolvers keeps the image `X x` (PGD, APG), the
-residual (CD), the steps, the line searches and the stopping rules. The exact
+All three solvers take the least-squares value from ProximalBase's oracles
+(`value_from_predictor` and `value_and_gradient_from_predictor!` for PGD and APG,
+`value_from_residual` for CD), and PGD and APG take the coefficient gradient from
+`value_and_gradient_from_predictor!`. ProximalSolvers forms CD's coordinate
+correlations and updates and the `λmax` product of the stationarity check, and
+keeps the image `X x` (PGD, APG), the residual (CD), the steps, the line searches
+and the stopping rules. The exact
 accuracy and range statements are those of the section "Least squares at a
 predictor or residual that the caller holds" of the
 [ProximalBase guide to the smooth functions](https://github.com/mlakolar/ProximalBase.jl/blob/50db4b1ef376cbe01831c3dd019b6be0027db0b6/docs/src/smooth.md); they are not restated here.
 What changes for the solvers:
 
-- CD reports `value_from_residual` of its cached residual plus the penalty. Where
-  `sum(abs2, r)` or its product with the loss scale overflows in `T` and the
-  value is representable, ProximalBase recomputes the value and CD reports a
-  finite objective; before, CD refused the finished solve there. CD still refuses the
-  finished solve with a `nonfinite objective` error and leaves the starting point
-  unchanged where the reported objective is not finite, for example where the
-  value itself is above the range of `T` (the guide linked above states where
-  ProximalBase's result is `Inf`). Where the value is below `floatmin(T)`,
-  the loss part of the reported minimum is within ProximalBase's allowance for
-  subnormal results (`2 nextfloat(zero(T))`) of the value, so it can be 0 or a
-  small subnormal number.
+- CD takes the loss part of its objective from `value_from_residual` of its
+  cached residual. Where `sum(abs2, r)` or its product with the loss scale leaves
+  the range of `T`, ProximalBase recomputes the loss; before, CD refused the
+  finished solve where the sum overflowed. The recovery holds for finite data and
+  a value representable with ProximalBase's margin; near the overflow threshold
+  its result can be `Inf` (the "Range" statement of the guide linked above gives
+  the conditions). CD returns an objective only when the loss plus the penalty is
+  finite. Otherwise the finished solve is refused with a `nonfinite objective`
+  `ArgumentError` and the starting point is unchanged; the sum can be non-finite
+  where the recovered loss is finite, for example through an overflowing penalty
+  value. Where the loss is below `floatmin(T)`, the
+  guide's bound for the loss is `(n + 8) eps(T) |v|` plus
+  `2 nextfloat(zero(T))`, with `n` the number of rows of `X` and `v` the exact
+  value at the cached residual, so the reported loss part can be 0 or a small
+  subnormal number.
 - PGD and APG take the value at a start and at each trial from
   `value_from_predictor` (PGD's start and its gradient refreshes use
   `value_and_gradient_from_predictor!`, and so does APG's stationarity check). A

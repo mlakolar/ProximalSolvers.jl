@@ -23,9 +23,10 @@ original function parameters or ensure that all private arithmetic is of type
 `T`. After it CD, PGD and APG use the loss scale as supplied,
 combined with `T` by Julia's promotion. CD's `LSModel` stores it as
 `s::S` with `S = promote_type(T, typeof(α))` if that is a concrete
-`AbstractFloat` type and `S = T` otherwise. The coordinate step, the
-two stopping scales and the reported objective form their products
-with `s` in `S`. The objective rounds its product to `T`. The response
+`AbstractFloat` type and `S = T` otherwise. The coordinate step and the
+two stopping scales form their products with `s` in `S`. The loss part of
+the reported objective does not use `s` or `S`: ProximalBase forms it from the
+original loss (see below). The response
 scale `sqrt(s * sum(abs2, y))` is formed in one of three ways, with the sum
 in `T`. Let it be clean if it is finite and at least `4 length(y) floatmin(T)`
 (the bound of `_se_norm_onepass`), `p = s * sum(abs2, y)` in `S` and
@@ -52,12 +53,18 @@ The loss part of the reported objective is
 original loss `f` passed to `loss_value` from `_run_cd!` (once per solve; `f` is
 not stored in `LSModel`). ProximalBase forms the sum of squares and its product
 with the scale, and recomputes the value where they leave the range of `T` (its
-guide, "Least squares at a predictor or residual that the caller holds"): the
-finished solve is refused with a nonfinite-objective error where the value that
-it returns is not finite, and where the value is below `floatmin(T)` the loss
-part of the reported minimum is within ProximalBase's allowance of
-`2 nextfloat(zero(T))` of the value (it can be 0). `_root_scale` converts an
-integer or `Bool` scale at a scoped precision of 256 bits.
+guide, "Least squares at a predictor or residual that the caller holds"). The
+finished solve is refused with a nonfinite-objective error where the loss plus
+the penalty, in `_run_cd!`, is not finite; the loss itself can be `Inf` near the
+overflow threshold, where the guide does not decide between a finite value and
+`Inf`. Where the value is below `floatmin(T)` the guide's bound for the loss is
+`(n + 8) eps(T) |v|` plus `2 nextfloat(zero(T))` (`v` the exact value at the
+cached residual), so the loss part of the reported minimum can be 0. For an
+integer or `Bool` scale ProximalBase converts the scale to `Float64` and forms
+the product in the promoted type of that scale and `T` before rounding to `T`,
+while CD's step and stopping arithmetic uses `T(s)`; the real scale is the same
+by the check in `src/solve.jl`, the arithmetic precision is not. `_root_scale`
+converts an integer or `Bool` scale at a scoped precision of 256 bits.
 The coordinate scale, with `a` the squared norm of the column, `p = s * a`
 in `S` and `q = T(p)`, is `sqrt(q)` where `q` is a normal number of `T`;
 otherwise `T(sqrt(p))` where `p` is not below `floatmin(S)` and is finite or `a`
@@ -115,18 +122,23 @@ owner are not changed.
 curvature cache and the iterate stay in `T`. A scale of type `T`, a
 `Float32` scale on `Float64` data, or a fixed-width integer or `Bool` scale
 (accepted only where `T` represents it exactly) gives `S = T` and the arithmetic
-of `T`; a `Float64` scale on `Float32` data gives `S = Float64`. This accepted
+of `T` in CD's step and stopping computations; a `Float64` scale on `Float32`
+data gives `S = Float64`. `S` does not describe the reported objective's
+product, which ProximalBase forms (see above). This accepted
 wider-scalar behavior is a narrow compatibility exception, not a generic
 mixed-precision guarantee.
 
-ProximalBase owns the least-squares value, the gradient and the scale as the
-computation uses it. CD, PGD and APG read `Y`, `X` and the stored scale through
-`ProximalBase.leastsquares_data` and take the value and the gradient from
-`value_from_predictor`, `value_and_gradient_from_predictor!` and
-`value_from_residual`, with the rounding, recovery and bounds that ProximalBase
-states, and keep no copy of those kernels. ProximalSolvers owns the caches (the
-image `X x`, the CD residual and curvatures), the coordinate updates, the step
-and line searches, APG's certified bound, the stopping rules and the rollback.
+ProximalBase owns the least-squares value in all three solvers and the
+coefficient gradient in PGD and APG, with the scale as its computation uses it.
+CD, PGD and APG read `Y`, `X` and the stored scale through
+`ProximalBase.leastsquares_data`. PGD and APG take the value and the gradient
+from `value_from_predictor` and `value_and_gradient_from_predictor!`, and CD
+takes its final loss value from `value_from_residual` (which returns a value
+only), with the rounding, recovery and bounds that ProximalBase states; the
+solvers do not repeat those value and iterate-gradient computations. ProximalSolvers owns the caches (the image `X x`, the CD
+residual and curvatures), CD's coordinate correlations and updates, the `λmax`
+product of the stationarity check, the step and line searches, APG's certified
+bound, the stopping rules and the rollback.
 ProximalBase's selective recovery may avoid
 intermediate overflow/underflow for representable values, but the
 solver adds independent matrix products, state updates, stopping
@@ -149,8 +161,10 @@ policy tracked in
 [ProximalBase PR #857](https://github.com/mlakolar/ProximalBase.jl/pull/857).
 Failure atomicity is as before; the loss scale types that the
 scalar-acceptance check accepts are narrowed as stated above (#307). CD's
-arithmetic is as before where the loss scale promotes to `T`; for a
-loss scale wider than `T` it uses the scale as supplied (#295).
+coordinate step and stopping arithmetic is as before where the loss scale promotes
+to `T`; for a loss scale wider than `T` it uses the scale as supplied (#295). The
+loss part of the reported objective is ProximalBase's reduction, which differs
+from the former one in `T` (#307).
 
 ## support.md (previous detailed notes)
 
@@ -407,7 +421,7 @@ values and tests aliasing against the original owner. PGD keeps the dense gate a
 refuses owners.
 
 The current exact PB pin is `50db4b1ef376cbe01831c3dd019b6be0027db0b6`. CD uses
-its scalar `prox_block` oracle; PGD retains fused `value_and_prox!`. The least-squares value and gradient of all three solvers come from the PB oracles named above. The private PB
+its scalar `prox_block` oracle; PGD retains fused `value_and_prox!`. All three solvers take the least-squares value from the PB oracles named above, and PGD and APG take the coefficient gradient from them. The private PB
 SparseIterate contract remains unchanged. PR #237's group/workspace migration is
 not imported. The gated analysis job always runs isolated exact-source paired
 diagnostics against PB A e8a45a8a6ffe2a6f92d83c4c77d62a9b7631e291 and frozen
