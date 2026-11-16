@@ -20,21 +20,22 @@ The centered squared norm currently requires an explicitly supplied finite
 
 | Input | Supported |
 | --- | --- |
-| Design matrix `X` | Nonempty, finite, dense `Matrix{Float32}` or `Matrix{Float64}` |
-| Response `y` | Finite vector with the same element type and `length(y) == size(X,1)` |
+| Design matrix `X` | For `LeastSquaresLoss`: nonempty, finite, dense `Matrix{Float32}` or `Matrix{Float64}`; no design matrix for `SqrNormL2` |
+| Response `y` | Finite `Vector{T}`; match `size(X,1)` for least squares, `length(β)` for centered squared norm |
 | Coefficients `beta` | Same-type dense vector for CD, PGD or APG; alternatively, one-dimensional ProximalBase `SparseIterate` for CD only |
 | Loss | `LeastSquaresLoss`, one finite positive scalar multiple of it, or centered `SqrNormL2(α, y)` with `α > 0` |
 | Penalty | Unweighted `NormL1(lambda)` with nonnegative finite `lambda` |
 | Solvers | `CDSolver`, `ProximalGradientDescent`, `AccProxGradDescent` (APG also needs `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 3 < 1/(4 eps(Float64))`) |
 
-The three numerical arrays use one common `T` (`Float32` or
+For least squares, the three numerical arrays use one common `T` (`Float32` or
 `Float64`); mixed-element-type `X`, `y` and coefficient arrays
 are not supported. The penalty level must be finite, nonnegative and
 representable in `T` without overflow or rounding a nonzero scalar
 to zero; it may be supplied in a different scalar type, including
 a representable `Float64` literal in a `Float32` problem.
 
-The loss scale of `Scaled(LeastSquaresLoss(...), s)` is supported as
+The loss scale of `Scaled(LeastSquaresLoss(...), s)`, and similarly the
+positive level of `SqrNormL2(α, y)`, is supported as
 
 - a positive finite `Float32` or `Float64` that converts to a finite nonzero
   number of `T` (a value that is subnormal in `T` is accepted, and a `Float64`
@@ -57,7 +58,8 @@ where that value is subnormal in `Float32`. The arrays and the coefficients
 stay in `T`, so this does not imply mixed-precision array support or a
 guarantee about every intermediate arithmetic type.
 
-The data must not be modified while a solve is running. The coefficient
+The data and any squared-norm center must not be modified while a solve is
+running. The coefficient
 vector (or the supported CD `SparseIterate`) is mutated in place, so do
 not alias it to `X` or `y`. To retain a result, save `copy(beta)`.
 See [Numerical behavior](numerics.md) for numerical recovery limits,
