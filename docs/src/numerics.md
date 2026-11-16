@@ -402,7 +402,10 @@ the stored values of `X` in `T`, formed as follows.
 
 The step of a nonflat group also needs `s ℓ_k` and its reciprocal to be at least the
 smallest normal number of the type that combines `s` with `T`; this is checked with the
-curvatures, so that a refusal does not depend on the order of the visits. These checks
+curvatures, so that a refusal does not depend on the order of the visits. For `Float32`
+data with a `Float64` loss scale the check cannot fail, because the scale is representable
+in `Float32` and the curvature is a normal `Float32` number; it can fail only when the
+type of the scale is the data type. These checks
 refuse the solve with an `ArgumentError` that names the group, before the first pass,
 and leave `x` unchanged and the random number generator unused:
 
@@ -448,7 +451,8 @@ The solve runs on a private copy of `x`. A finite completed run, including one t
 ends at `maxpasses` with the warning, replaces `x` by one same-layout copy of the final
 state; a refusal or numerical error before that leaves the values, the active groups and
 their order of `x` unchanged, though a random order may already have drawn from the
-generator. After a solve, take `activecoordinates(x)` again, as for a `SparseIterate`.
+generator. The entries of the groups that are inactive at the end are zero; their sign is
+not specified. After a solve, take `activecoordinates(x)` again, as for a `SparseIterate`.
 
 ## Working precision: Float32 and Float64
 
