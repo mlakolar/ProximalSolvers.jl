@@ -524,13 +524,13 @@ end
 # otherwise takes the full step. Guard 1: γs is a normal number of S (floatmin(S) ≤ γs ≤ floatmax(S)),
 # because a γs that rounded to Inf, 0 or a subnormal would not carry 1/s to relative precision. Guard 2:
 # bmax = max_i |b_i| is 0 or at least floatmin(T)/2^-53 (`_screen_floor`), because an all-zero output of
-# `prox_block!` is a zero certificate only if the output cannot have underflowed. That follows from how
+# `prox_block!` is a zero certificate where it does not come from underflow. The guard rests on how
 # ProximalBase writes the output: entry i is the product of the shrink factor t = 1 − c/‖b‖ with b_i,
 # rounded to T, where c = γs λ0 w_k, on its ordinary path (everything in T, t = fl(1 − fl(c/‖b‖)) and
 # either 0 or at least eps(T)/2 ≥ 2^-53) and on its cold path (in R = Float64 for Float32 or Float64
 # penalty and step types, as `_scalar_parameter` and the loss scale require; t = 1 − r for r < 1 in R, so
-# at least eps(R)/2 = 2^-53). A zero level or step and an unpenalized group give a copy of b, zero only
-# from b = 0, and an infinite level or weight gives the exact answer 0. So a nonzero shrink factor is at
+# at least eps(R)/2 = 2^-53). A zero level or step and an unpenalized group give a copy of b, zero where
+# b = 0, and an infinite level or weight gives the exact answer 0. So a nonzero shrink factor is at
 # least 2^-53, and with bmax ≥ 2^53 floatmin(T) the entry of the largest |b_i| is at least floatmin(T)
 # before the rounding, hence nonzero after it (floatmin(T) is a normal number of R and of T). Below
 # guard 2 the output can be all 0 although ‖b‖ exceeds the threshold by a factor of 2 or more (for
@@ -542,7 +542,8 @@ end
 # 0 where ‖b‖ ≤ λ0 w_k/s, for any ℓ > 0; a copy that `prox_block!` returns as all 0 therefore gives the
 # displacement 0 without the curvature, and the step returns zero(T) with x and the residual unchanged.
 # The screen and the full step both decide by ProximalBase's comparison, on different inputs and steps
-# (b at γs, and fl(b/ℓ) at 1/fl(s ℓ)), so they can differ only within the tie band; there the shrink factor
+# (b at γs, and fl(b/ℓ) at 1/fl(s ℓ)), so under both guards a difference of their decisions lies within
+# the tie band; there the shrink factor
 # of the full step, 1 − λ0 w_k/(s ‖b‖), is about the width of the band at most, so the block that it would
 # write is about that factor times the trial point. A zero block that the screen returns as 0 forms no
 # trial point, so it is not refused even where b/ℓ would overflow. A nonfinite b is not screened (bmax is
