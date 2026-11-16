@@ -235,8 +235,8 @@ loss_value(m::LSModel, f, x) = value_from_residual(f, m.r)
 # It is 0 for a flat group, where all entries of X_k are 0, and NaN while it is not computed: before
 # `_prepare!` has run, and for a group of the Gram route whose curvature `_prepare!` left to the first
 # visit that needs it (`_curvature_deferrable`, `coordinate_step!`). `old`, `u` and `b` are scratch
-# vectors as long as the largest group (`b` holds the correlations rᵀX_k of the visit). `Bbuf` and
-# `Gbuf` are the Float64 buffers of `_gram_curvature`, empty until a curvature of the Gram route is
+# vectors as long as the largest group (`b` holds the correlations rᵀX_k of the visit). `colbuf` and
+# `grambuf` are the Float64 buffers of `_gram_curvature`, empty until a curvature of the Gram route is
 # computed. The model has no `_cache`, so momentum stays off.
 mutable struct BlockLSModel{T<:AbstractFloat, S<:AbstractFloat, M<:LSModel{T, S}} <: CDModel{T}
   ls::M
@@ -244,8 +244,8 @@ mutable struct BlockLSModel{T<:AbstractFloat, S<:AbstractFloat, M<:LSModel{T, S}
   old::Vector{T}
   u::Vector{T}
   b::Vector{T}
-  Bbuf::Matrix{Float64}
-  Gbuf::Matrix{Float64}
+  colbuf::Matrix{Float64}
+  grambuf::Matrix{Float64}
 end
 function cdmodel(f::Union{LeastSquaresLoss{T, <:AbstractVector}, Scaled{<:LeastSquaresLoss{T, <:AbstractVector}}}, x::BlockIterate{T}) where T
   d = leastsquares_data(f)
@@ -316,12 +316,12 @@ end
 # for a singleton), and the first call also allocates the buffers.
 @noinline function _group_curvature!(m::BlockLSModel, idx, k::Int)
   mmax = length(m.old)
-  if size(m.Bbuf, 2) < mmax
+  if size(m.colbuf, 2) < mmax
     n = size(m.ls.X, 1)
-    m.Bbuf = Matrix{Float64}(undef, n, mmax)
-    m.Gbuf = Matrix{Float64}(undef, mmax, mmax)
+    m.colbuf = Matrix{Float64}(undef, n, mmax)
+    m.grambuf = Matrix{Float64}(undef, mmax, mmax)
   end
-  ℓ = _gram_curvature(m.ls, idx, k, m.Bbuf, m.Gbuf)
+  ℓ = _gram_curvature(m.ls, idx, k, m.colbuf, m.grambuf)
   _check_step_band(m.ls, ℓ, k)
   ℓ
 end
@@ -358,7 +358,7 @@ function _singleton_curvature(ls::LSModel{T}, j::Int, k::Int) where T
   ℓ
 end
 # The curvature bound of a group from the Gram matrix Ĝ of its columns B (n rows, mk columns), formed
-# in W = Float64 with `mul!` on a copy of B held in the buffer Bbuf (n × mmax; Gbuf is mmax × mmax).
+# in W = Float64 with `mul!` on a copy of B held in the buffer colbuf (n × mmax; grambuf is mmax × mmax).
 # A nonfinite Ĝ or trace t̂ is refused as overflow, and t̂ < mk floatmin(W) as underflow, both before
 # the eigensolve. With μ̂ the largest eigenvalue of Ĝ (the entry Ĝ[1, 1] for one column), the bound
 # in W is
@@ -389,18 +389,18 @@ end
 # μ̂ or an ℓ that is Inf is refused as overflow, and an ℓ below floatmin(T) as underflow; an
 # eigensolver failure propagates as an exception before any pass for a curvature computed in
 # `_prepare!`, and during a pass for a deferred one.
-function _gram_curvature(ls::LSModel{T}, idx, k::Int, Bbuf::Matrix{Float64}, Gbuf::Matrix{Float64}) where T
+function _gram_curvature(ls::LSModel{T}, idx, k::Int, colbuf::Matrix{Float64}, grambuf::Matrix{Float64}) where T
   W = Float64
   X = ls.X
   n, mk = size(X, 1), length(idx)
-  Bv = view(Bbuf, 1:n, 1:mk)
+  Bv = view(colbuf, 1:n, 1:mk)
   for c in 1:mk
     j = Int(idx[c])
     @inbounds for i in 1:n
       Bv[i, c] = X[i, j]
     end
   end
-  Gv = view(Gbuf, 1:mk, 1:mk)
+  Gv = view(grambuf, 1:mk, 1:mk)
   mul!(Gv, transpose(Bv), Bv)
   t = zero(W)
   dmax = zero(W)
@@ -451,8 +451,13 @@ end
 #   (1) below holds, so ℓW ≤ 1.42 t and the stored ℓ ≤ 1.5 t (the rounding up to T adds at most
 #   1.5 eps(T) relative). The code uses the generous hi := 4 t.
 # The bounds hold for the values of the stored matrix, computed in W; the comparisons below are made in
-# W with the factor 2 (or 1/2) that absorbs the rounding of lo, hi and the products with s (relative
-# error below 4u). The group is left uncomputed if all four hold, and computed at once otherwise:
+# W with the factor 2 (or 1/2) that absorbs the rounding of lo, hi and the products with s, whose relative
+# error is below 4u where the computed values are normal numbers of W. A product that leaves the normal
+# range does not enter through that error: a product that underflows on the lower side (for example a
+# Float64 scale nextfloat(0.0) and lo near 2^-1000, where s lo rounds to 0) or overflows on the upper
+# side makes its comparison false, and one that underflows on the upper side or overflows on the lower
+# side lies on the same side of the bound as the exact product. The group is left uncomputed if all
+# four hold, and computed at once otherwise:
 #   (1) lo ≥ 2 mk floatmin(W): then t̂ ≥ mk floatmin(W), so the underflow refusal of the trace is not made;
 #   (2) lo ≥ 2 floatmin(T): then ℓ ≥ floatmin(T), so the underflow refusal of ℓ is not made;
 #   (3) hi ≤ floatmax(T)/2: then, under the eigensolver model, the Gram entries (each at most
@@ -499,6 +504,10 @@ end
   throw(ArgumentError("the step of group $k is not representable in $S: the loss scale times the group curvature, or its reciprocal, is outside the normal range; rescale the data or the loss"))
 @noinline _refuse_block_value(::Type{T}, k::Int) where T =
   throw(ArgumentError("the trial point or the displacement of group $k is not finite in $T; rescale the data"))
+# The smallest max_i |b_i| at which an all-zero output of the screen counts: 2^53 floatmin(T), a normal
+# number of T for Float32 and Float64 (2^-73 and 2^-969). See the derivation in the comment of
+# `coordinate_step!`.
+@inline _screen_floor(::Type{T}) where T = ldexp(floatmin(T), 53)
 
 # The group step. With the curvature bound ℓ, b_i = rᵀX[:, j_i] and the trial point u = old + b/ℓ, the
 # new block is `prox_block!(u, g, u, k, 1/(s ℓ))`, the proximal point of the majorizing surrogate of the
@@ -511,17 +520,35 @@ end
 # The step returns the 2-norm of the displacement, formed by LinearAlgebra's `norm`, which scales the
 # squares.
 # Screen. For a group other than a flat one whose current block is identically 0 (active or not), the
-# step first applies `prox_block!` to a copy of b at the step γs = 1/s in S, when γs is a normal number
-# of S (floatmin(S) ≤ γs ≤ floatmax(S)); otherwise the screen is bypassed, because a γs that rounded to
-# Inf, 0 or a subnormal would not carry 1/s to relative precision. The step γs sets the threshold
-# λ0 w_k γs = λ0 w_k/s of the screen. The prox of b/ℓ at the step 1/(s ℓ) is 0 where ‖b‖ ≤ λ0 w_k/s,
-# for any ℓ > 0, so a copy that `prox_block!` returns as all 0 gives the displacement 0 without the
-# curvature: the step returns zero(T) with x and the residual unchanged. A zero block that the screen
-# returns as 0 forms no trial point, so it is not refused even where b/ℓ would overflow. The screen and
-# the full step both decide by ProximalBase's range-safe comparison. Near a tie ‖b‖ = λ0 w_k/s, within a
-# few mk eps(T) relative, they can decide differently: they take different inputs and steps (b at γs,
-# and fl(b/ℓ) at 1/fl(s ℓ)); where they differ, the full step's block is within rounding of 0. A
-# nonfinite b is not screened and is refused by the full step.
+# step first applies `prox_block!` to a copy of b at the step γs = 1/s in S, under two guards, and
+# otherwise takes the full step. Guard 1: γs is a normal number of S (floatmin(S) ≤ γs ≤ floatmax(S)),
+# because a γs that rounded to Inf, 0 or a subnormal would not carry 1/s to relative precision. Guard 2:
+# bmax = max_i |b_i| is 0 or at least floatmin(T)/2^-53 (`_screen_floor`), because an all-zero output of
+# `prox_block!` is a zero certificate where it does not come from underflow. The guard rests on how
+# ProximalBase writes the output: entry i is the product of the shrink factor t = 1 − c/‖b‖ with b_i,
+# rounded to T, where c = γs λ0 w_k, on its ordinary path (everything in T, t = fl(1 − fl(c/‖b‖)) and
+# either 0 or at least eps(T)/2 ≥ 2^-53) and on its cold path (in R = Float64 for Float32 or Float64
+# penalty and step types, as `_scalar_parameter` and the loss scale require; t = 1 − r for r < 1 in R, so
+# at least eps(R)/2 = 2^-53). A zero level or step and an unpenalized group give a copy of b, zero where
+# b = 0, and an infinite level or weight gives the exact answer 0. So a nonzero shrink factor is at
+# least 2^-53, and with bmax ≥ 2^53 floatmin(T) the entry of the largest |b_i| is at least floatmin(T)
+# before the rounding, hence nonzero after it (floatmin(T) is a normal number of R and of T). Below
+# guard 2 the output can be all 0 although ‖b‖ exceeds the threshold by a factor of 2 or more (for
+# example a subnormal b with the threshold half of ‖b‖), and the screen is bypassed. With
+# both guards, an all-zero output means that ProximalBase's comparison of its computed norm with its
+# computed threshold decided zero, or that its shrink factor rounded to 0, which is a tie of ‖b‖ with
+# λ0 w_k/s up to the relative error of that computation: the squares and their sum, the threshold and the
+# quotient c/‖b‖, of order (mk + 8) eps(T) (not derived here). The prox of b/ℓ at the step 1/(s ℓ) is
+# 0 where ‖b‖ ≤ λ0 w_k/s, for any ℓ > 0; a copy that `prox_block!` returns as all 0 therefore gives the
+# displacement 0 without the curvature, and the step returns zero(T) with x and the residual unchanged.
+# The screen and the full step both decide by ProximalBase's comparison, on different inputs and steps
+# (b at γs, and fl(b/ℓ) at 1/fl(s ℓ)), so under both guards a difference of their decisions lies within
+# the tie band; there the shrink factor
+# of the full step, 1 − λ0 w_k/(s ‖b‖), is about the width of the band at most, so the block that it would
+# write is about that factor times the trial point. A zero block that the screen returns as 0 forms no
+# trial point, so it is not refused even where b/ℓ would overflow. A nonfinite b is not screened (bmax is
+# NaN or Inf: NaN fails guard 2, and an Inf entry is returned unchanged by the prox) and is refused by the
+# full step.
 # Curvature. Where ℓ[k] is NaN (`_prepare!` left it uncomputed) and the screen did not return, the
 # curvature and the step band are computed now by `_group_curvature!` and stored; the arithmetic of the
 # step is then as for a curvature computed in `_prepare!`. A refusal or an eigensolver failure there
@@ -547,12 +574,15 @@ function coordinate_step!(m::BlockLSModel{T}, g::GroupNormL2, x::BlockIterate{T}
   if iszero(ℓ)
     prox_block!(u, g, old, k, Inf)
   else
+    bmax = zero(T)
     for i in 1:mk
-      b[i] = _column_dot(ls.X, ls.r, Int(idx[i]), one(T))[2]
+      bi = _column_dot(ls.X, ls.r, Int(idx[i]), one(T))[2]
+      b[i] = bi
+      bmax = max(bmax, abs(bi))
     end
     if zeroblock
       γs = inv(ls.s)
-      if floatmin(typeof(γs)) <= γs <= floatmax(typeof(γs))
+      if floatmin(typeof(γs)) <= γs <= floatmax(typeof(γs)) && (iszero(bmax) || bmax >= _screen_floor(T))
         copyto!(u, b)
         prox_block!(u, g, u, k, γs)
         screened = true
