@@ -385,11 +385,12 @@ from that value and rounded to `T` where they enter the iterate or the
 tolerance; an integer or `Bool` scale is used there as `T(s)`. The loss part of
 CD's reported objective is formed by ProximalBase from the loss as supplied: it
 converts an integer or `Bool` scale to `Float64`, forms the product in the
-promoted type of the scale and `T`, and rounds the result to `T`. By the check,
-`T(s)` and `Float64(s)` both equal `s`, so these computations use the same real
-scale, but not the same arithmetic precision (for `Float32` data and the scale
-`3`, CD's step and stopping arithmetic is in `Float32` and the objective's
-product is in `Float64`). This convenience does **not**
+promoted type of the scale and `T`, and rounds the result to `T`. For an integer
+or `Bool` scale the check makes `T(s)` and `Float64(s)` both equal `s`, so CD's
+step and stopping computations and the objective use the same real scale. The
+arithmetic precision can differ: for `Float32` data and the scale `3`, CD's step
+and stopping arithmetic is in `Float32` and the objective's product is in
+`Float64`; for `Float64` data both are in `Float64`. This convenience does **not**
 enable a general mixed-precision model or guarantee that every
 intermediate operation uses `T`. Prefer explicit native scalars. Writing
 `one(T) / T(n)` chooses a native `T` scale: `n` is converted to `T` and the
@@ -426,12 +427,12 @@ predictor or residual that the caller holds" of the
 What changes for the solvers:
 
 - CD takes the loss part of its objective from `value_from_residual` of its
-  cached residual. Where `sum(abs2, r)` or its product with the loss scale leaves
-  the range of `T`, ProximalBase recomputes the loss; before, CD refused the
-  finished solve where the sum overflowed. The recovery holds for finite data and
-  a value representable with ProximalBase's margin; near the overflow threshold
-  its result can be `Inf` (the "Range" statement of the guide linked above gives
-  the conditions). CD returns an objective only when the loss plus the penalty is
+  cached residual. ProximalBase recomputes exceptional values under the
+  conditions its guide states (the "Value and rounding" section of the guide
+  linked above); before, CD refused the finished solve where the sum of squares
+  overflowed. The recovery holds for finite data and a value representable with
+  ProximalBase's margin; near the overflow threshold its result can be `Inf` (the
+  "Range" statement of the guide gives the conditions). CD returns an objective only when the loss plus the penalty is
   finite. Otherwise the finished solve is refused with a `nonfinite objective`
   `ArgumentError` and the starting point is unchanged; the sum can be non-finite
   where the recovered loss is finite, for example through an overflowing penalty
@@ -443,9 +444,9 @@ What changes for the solvers:
 - PGD and APG take the value at a start and at each trial from
   `value_from_predictor` (PGD's start and its gradient refreshes use
   `value_and_gradient_from_predictor!`, and so does APG's stationarity check). A
-  start or trial whose value ProximalBase recovers is evaluated finitely where
-  the sum of squares or its product with the loss scale overflows or underflows
-  in `T`; before, the sum of squares was formed in `T` without that recovery.
+  start or trial whose value ProximalBase recovers, under the conditions of its
+  guide, is evaluated finitely where the sum of squares overflows in `T`; before,
+  the sum of squares was formed in `T` without that recovery.
 - The gradient is `α` times the rounded product `Xᵀd` with `d = z - y` for the
   image `z = X x`. An `Xᵀd` that overflows or underflows before the scaling is not
   recovered, also where `α` would bring the exact gradient into range.

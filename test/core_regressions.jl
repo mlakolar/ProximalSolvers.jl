@@ -1194,8 +1194,8 @@ end
       end
     end
   end
-  # Float32 data of order 1e18 with the Float64 scale 1e-44, which is subnormal in Float32 and rounds by about
-  # a tenth there: a value formed with Float32(α) would leave the (n + 8) eps(T) bound
+  # Float32 data of order 1e18 with the Float64 scale 1e-44, which is subnormal in Float32: Float32(1e-44) ≈
+  # 9.809e-45, 1.9% below the supplied scale, so a value formed with Float32(α) would leave the (n + 8) eps(T) bound
   X, y = oracle_data(Float32)
   Xs, ys = 1f18 .* X, 1f18 .* y
   @test Float64(Float32(1e-44)) != 1e-44

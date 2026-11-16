@@ -52,8 +52,9 @@ The loss part of the reported objective is
 `ProximalBase.value_from_residual(f, r)` of the cached residual, with the
 original loss `f` passed to `loss_value` from `_run_cd!` (once per solve; `f` is
 not stored in `LSModel`). ProximalBase forms the sum of squares and its product
-with the scale, and recomputes the value where they leave the range of `T` (its
-guide, "Least squares at a predictor or residual that the caller holds"). The
+with the scale, and recomputes exceptional values under the conditions that its
+guide states ("Least squares at a predictor or residual that the caller holds",
+"Value and rounding"). The
 finished solve is refused with a nonfinite-objective error where the loss plus
 the penalty, in `_run_cd!`, is not finite; the loss itself can be `Inf` near the
 overflow threshold, where the guide does not decide between a finite value and
@@ -62,8 +63,10 @@ overflow threshold, where the guide does not decide between a finite value and
 cached residual), so the loss part of the reported minimum can be 0. For an
 integer or `Bool` scale ProximalBase converts the scale to `Float64` and forms
 the product in the promoted type of that scale and `T` before rounding to `T`,
-while CD's step and stopping arithmetic uses `T(s)`; the real scale is the same
-by the check in `src/solve.jl`, the arithmetic precision is not. `_root_scale`
+while CD's step and stopping arithmetic uses `T(s)`. For an integer or `Bool`
+scale the check in `src/solve.jl` makes the two real scales equal; the arithmetic
+precision can differ (Float32 data and the scale `3`: `Float32` in CD, `Float64`
+in the objective's product), and for `Float64` data both are `Float64`. `_root_scale`
 converts an integer or `Bool` scale at a scoped precision of 256 bits.
 The coordinate scale, with `a` the squared norm of the column, `p = s * a`
 in `S` and `q = T(p)`, is `sqrt(q)` where `q` is a normal number of `T`;
