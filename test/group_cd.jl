@@ -277,6 +277,49 @@ end
 
 @testset "group_cd" begin
 
+# The references themselves, without the solver
+@testset "references" begin
+  # the analytic block threshold satisfies the independent KKT to rounding, a perturbation does not
+  for T in TYPES
+    X, y = orthogonal_design(T, 12; exponent = 0, seed = 1)
+    groups = layout(:contiguous, 12)
+    for α in (nothing, 3.0)
+      g = mixed_penalty(X, y, sval(α), groups, nothing, T, T)
+      β, = orthogonal_solution(X, y, sval(α), g)
+      rep = kkt_report(X, y, sval(α), g, β)
+      @test rep.stat <= 1e-12 * max(1.0, Float64(g.λ0)) && rep.screen <= 1e-12
+      @test any(iszero, β) && any(!iszero, β)
+      for (j, δ) in ((1, 1e-3), (5, -1e-3), (12, 1e-2))
+        βp = copy(β); βp[j] += δ
+        @test kkt_report(X, y, sval(α), g, βp).stat > 1e-4 * max(1.0, Float64(g.λ0)) ||
+              kkt_report(X, y, sval(α), g, βp).screen > 1e-4
+      end
+      # the objective of the analytic solution is below that of perturbed points, in BigFloat and Float64
+      F = objective_big(X, y, sval(α), g, β)
+      @test isapprox(F, objective_wide(X, y, sval(α), g, β); rtol = 1e-12)
+      for j in 1:12
+        βp = copy(β); βp[j] += 1e-3
+        @test objective_big(X, y, sval(α), g, βp) > F
+      end
+    end
+  end
+  # the curvature test accepts a value just above λmax and rejects values below it and values too far above it
+  X = Float64[2 0; 0 1; 0 0]            # Gram matrix diag(4, 1)
+  @test majorizes(X, [1, 2], 4 * (1 + 1e-9), 1e-6)
+  @test !majorizes(X, [1, 2], 4 * (1 - 1e-9), 1e-6)
+  @test !majorizes(X, [1, 2], 4 * (1 + 2e-6), 1e-6)
+  @test majorizes(X, [2], 1.0 * (1 + 1e-9), 1e-6) && !majorizes(X, [2], 0.99, 1e-6)
+  # λmax bounds the penalties above which β = 0 solves the problem
+  X, y = make_design(Float64, :plain, 60, 12; seed = 5)
+  groups = layout(:contiguous, 12)
+  w = sqrt.(length.(groups))
+  for fraction in (0.99, 1.01)
+    g = penalty(fraction * lambda_max(X, y, 1.0, groups, w), groups, nothing, Float64)
+    rep = kkt_report(X, y, 1.0, g, zeros(12))
+    @test (rep.screen <= 0) == (fraction > 1)
+  end
+end
+
 @testset "orthogonal designs: analytic block soft threshold" begin
   p = 12
   for T in TYPES, exponent in (0, -1)
