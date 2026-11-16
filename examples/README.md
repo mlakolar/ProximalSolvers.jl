@@ -25,9 +25,9 @@ examples remain on legacy/full and protected archives.
 
 Run `julia --project=. examples/06_sparse_covariance_soft_thresholding.jl`
 for an additional sparse covariance example. It converts the upper-triangular
-sample covariance entries into a small, identity-design lasso, solves them
-with cyclic coordinate descent, and checks the result against the exact
-soft-thresholding formula and independent KKT conditions. It is a teaching
-example only: an identity design uses O(p^4) storage, and entrywise
-soft-thresholding does not guarantee a positive-semidefinite estimate.
+sample covariance entries into a centered squared-norm + L1 objective using
+`SqrNormL2` and `NormL1`, solves with cyclic coordinate descent, and checks
+the result against exact soft-thresholding and independent KKT conditions.
+No identity design matrix is constructed. It is a teaching example:
+entrywise soft-thresholding does not guarantee positive semidefiniteness.
 
