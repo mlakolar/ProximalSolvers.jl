@@ -96,6 +96,69 @@ end
   end
 end
 
+# ElasticNet (#324): ProximalGradientDescent and AccProxGradDescent accept an unweighted one, and
+# CDSolver refuses every one. The refusals leave x unchanged. The APG counterpart is in
+# test/accelerated_pgd.jl.
+const EN_GRADIENT_REFUSAL = "only unweighted NormL1 or unweighted ElasticNet is supported"
+const EN_CD_REFUSAL = "CDSolver does not support ElasticNet yet; use ProximalGradientDescent or AccProxGradDescent"
+
+function refused_with(x, f, g, method, msg)
+  original = copy(x)
+  @test_throws ArgumentError(msg) solve!(x, f, g, method)
+  @test isequal(x, original)
+end
+
+@testset "PGD refuses the penalties it does not support, with the ElasticNet message (#324)" begin
+  for T in (Float64, Float32)
+    X, y, x = T[1 0; 0 2], T[1, -1], T[.3, -.2]
+    f = LeastSquaresLoss(y, X)
+    method = ProximalGradientDescent()
+    en = ElasticNet(T(.1), T(.2))
+    for g in (ElasticNet(T(.1), T(.2), ones(T, 2)), Scaled(en, 2), NormL1(T(.1), ones(T, 2)), SqrNormL2(T(.1)))
+      refused_with(x, f, g, method, EN_GRADIENT_REFUSAL)
+    end
+    refused_with(x, f, ElasticNet(T(Inf), zero(T)), method, "penalty lambda1 must be finite and nonnegative")
+    refused_with(x, f, ElasticNet(zero(T), T(Inf)), method, "penalty lambda2 must be finite and nonnegative")
+    if T === Float32
+      for a in (1e40, 1e-60)
+        refused_with(x, f, ElasticNet(a, 0.1), method, "penalty lambda1 is not representable without overflow or underflow in Float32")
+        refused_with(x, f, ElasticNet(0.1, a), method, "penalty lambda2 is not representable without overflow or underflow in Float32")
+      end
+    end
+    # a SparseIterate is not an iterate of PGD, and the iterate is checked before the penalty
+    refused_with(SparseIterate(x), f, en, method, "x must be a dense Vector{Float32} or Vector{Float64}")
+    refused_with(SparseIterate(x), f, ElasticNet(T(.1), T(.2), ones(T, 2)), method,
+                 "x must be a dense Vector{Float32} or Vector{Float64}")
+    refused_with(Int[0, 0], f, en, method, "x must be a dense Vector{Float32} or Vector{Float64}")
+    # the loss and shape checks come before the penalty check, as for NormL1
+    @test_throws DimensionMismatch solve!(zeros(T, 3), f, en, method)
+    @test x == T[.3, -.2]
+  end
+end
+
+@testset "CD refuses every ElasticNet before any copy, write or RNG use, and keeps its other message (#324)" begin
+  for T in (Float64, Float32)
+    X, y, x = T[1 0; 0 2], T[1, -1], T[.3, -.2]
+    f = LeastSquaresLoss(y, X)
+    en = ElasticNet(T(.1), T(.2))
+    for g in (en, ElasticNet(T(.1), T(.2), ones(T, 2)), ElasticNet(T(Inf), zero(T)), ElasticNet(zero(T), T(Inf)))
+      for start in (copy(x), SparseIterate(copy(x)))
+        rng = Xoshiro(1)
+        before = copy(rng)
+        refused_with(start, f, g, CDSolver(rng = rng), EN_CD_REFUSAL)
+        @test rng == before && rand(rng) == rand(before)
+      end
+    end
+    # the iterate is checked before the penalty, and every other penalty has the message of NormL1
+    refused_with(Int[0, 0], f, en, CDSolver(), "x must be a dense Vector{Float32} or Vector{Float64}")
+    for g in (Scaled(en, 2), NormL1(T(.1), ones(T, 2)), SqrNormL2(T(.1)))
+      refused_with(copy(x), f, g, CDSolver(), "only unweighted NormL1 is supported")
+      refused_with(SparseIterate(copy(x)), f, g, CDSolver(), "only unweighted NormL1 is supported")
+    end
+    @test x == T[.3, -.2]
+  end
+end
+
 @testset "retained constructor validation" begin
   # ftol = 0 is accepted (see "ftol = 0 is a valid option" below)
   for v in (-1., Inf, NaN)
