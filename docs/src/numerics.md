@@ -423,7 +423,7 @@ keeps the image `X x` (PGD, APG), the residual (CD), the steps, the line searche
 and the stopping rules. The exact
 accuracy and range statements are those of the section "Least squares at a
 predictor or residual that the caller holds" of the
-[ProximalBase guide to the smooth functions](https://github.com/mlakolar/ProximalBase.jl/blob/50db4b1ef376cbe01831c3dd019b6be0027db0b6/docs/src/smooth.md); they are not restated here.
+[ProximalBase guide to the smooth functions](https://github.com/mlakolar/ProximalBase.jl/blob/30efdc48d900a32a391be15680df1a021e1e75f7/docs/src/smooth.md); they are not restated here.
 What changes for the solvers:
 
 - CD takes the loss part of its objective from `value_from_residual` of its
