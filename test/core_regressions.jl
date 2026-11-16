@@ -1233,4 +1233,64 @@ end
   end
 end
 
+@testset "centered squared norm + L1 reuses the CD/PGD/APG engines" begin
+  for T in (Float32, Float64)
+    y = T[2.4, -0.7, 0.05, -1.3, 0.0]
+    ybefore = copy(y)
+    alpha, lambda = T(1.5), T(0.2)
+    f, g = SqrNormL2(alpha, y), NormL1(lambda)
+    analytic = sign.(y) .* max.(abs.(y) .- lambda / alpha, zero(T))
+    original = T[0.3, 0.2, -0.5, 0.1, 0.4]
+
+    # Independent objective and KKT checks: no use of the solver's result flags
+    # or a ProximalBase proximal call to construct the reference.
+    objective(x) = Float64(alpha) * sum(abs2, Float64.(x) .- Float64.(y)) / 2 +
+                   Float64(lambda) * sum(abs, Float64.(x))
+    function kkt(x)
+      maximum(eachindex(x)) do k
+        grad = Float64(alpha) * (Float64(x[k]) - Float64(y[k]))
+        iszero(x[k]) ? max(abs(grad) - Float64(lambda), 0.0) :
+                       abs(grad + Float64(lambda) * sign(x[k]))
+      end
+    end
+
+    options = ProximalOptions(maxiter=5000, ftol=1e-10, xtol=1e-9,
+                             gradtol=1e-7, allow_f_increases=true)
+    for solver in (CDSolver(order=:cyclic, momentum=false, relative=false, tol=1e-7),
+                   ProximalGradientDescent(), AccProxGradDescent())
+      x = copy(original)
+      result = solver isa CDSolver ? solve!(x, f, g, solver) :
+                                     solve!(x, f, g, solver, options)
+      @test result.minimizer === x
+      @test isapprox(x, analytic; atol=(T === Float32 ? 1e-4 : 1e-6), rtol=0.0)
+      @test kkt(x) <= (T === Float32 ? 2e-4 : 2e-6)
+      @test isapprox(objective(x), objective(analytic); atol=1e-6, rtol=1e-6)
+      @test y == ybefore
+    end
+
+    # A one-dimensional SparseIterate continues through CD's unchanged
+    # private-copy / same-owner commit path.
+    xs = SparseIterate(copy(original))
+    rs = solve!(xs, f, g, CDSolver(order=:cyclic, momentum=false,
+                                   relative=false, tol=1e-7))
+    @test rs.minimizer === xs && rs.converged
+    @test isapprox(Vector(xs), analytic; atol=(T === Float32 ? 1e-5 : 1e-10))
+
+    # Input failures are before any mutation of the user's iterate.
+    for solver in (CDSolver(order=:cyclic, momentum=false),
+                   ProximalGradientDescent(), AccProxGradDescent())
+      x = copy(original)
+      @test_throws ArgumentError solve!(x, SqrNormL2(one(T)), g, solver)
+      @test isequal(x, original)
+      @test_throws DimensionMismatch solve!(x, SqrNormL2(one(T), y[1:2]), g, solver)
+      @test isequal(x, original)
+      @test_throws ArgumentError solve!(x, SqrNormL2(zero(T), y), g, solver)
+      @test isequal(x, original)
+      center_alias = copy(original)
+      @test_throws ArgumentError solve!(center_alias, SqrNormL2(one(T), center_alias), g, solver)
+      @test isequal(center_alias, original)
+    end
+  end
+end
+
 end
