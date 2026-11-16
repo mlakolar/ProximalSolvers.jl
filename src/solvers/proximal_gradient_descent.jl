@@ -2,7 +2,8 @@
     ProximalGradientDescent(; ls=LineSearches.BackTracking(), normalized=false,
                              debias=0, preconditioner=:none)
 
-Proximal gradient descent (PGD) for least-squares lasso with a dense
+Proximal gradient descent (PGD) for least-squares lasso or centered
+squared-norm + L1 with a dense
 `Vector{Float32}` or `Vector{Float64}` coefficient iterate. Each iteration
 takes a gradient step for the smooth least-squares loss and applies the
 `NormL1` proximal operator (soft thresholding); backtracking adjusts
@@ -245,13 +246,18 @@ end
     solve!(x, f, g, CDSolver())
     solve!(x, f, g, ProximalGradientDescent(), options=ProximalOptions())
 
-Minimize a least-squares lasso, overwriting `x`. `x` is a dense `Vector{T}`,
+Minimize a least-squares lasso or centered squared-norm + L1, overwriting
+`x`. `x` is a dense `Vector{T}`,
 T=Float32 or Float64; `CDSolver` also accepts a one-dimensional `SparseIterate{T}`
 (see below), while `ProximalGradientDescent` refuses it. The loss uses same-type
 `Matrix` X and `Vector` y, and the penalty is an unweighted finite nonnegative
 `NormL1`. Use `(one(T)/T(n))*LeastSquaresLoss` for normalized lasso; raw LS keeps
 its unnormalized meaning. One positive finite scalar LS wrapper is supported.
-Borrowed X/y must not alias mutable `x` or change during a solve. Results share
+Alternatively, `SqrNormL2(α, y)` uses a finite matching `Vector{T}` center
+and a strictly positive, finite and representable level `α` without a dense
+identity matrix. `SqrNormL2(α)` without an explicit center is deferred.
+Borrowed X/y or the squared norm's center must not alias mutable `x`
+or change during a solve. Results share
 `x`; copy it to retain earlier coefficients. Unsupported inputs/options fail
 before mutation. A stop of the stopping tests counts only at a point whose computed KKT
 residual meets the bound of [`ProximalOptions`](@ref), which is not an exact-arithmetic
