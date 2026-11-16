@@ -12,10 +12,8 @@
 # The diagonal is unpenalized. Each off-diagonal pair has the exact solution
 # sign(S[i,j]) * max(abs(S[i,j]) - lambda, 0).
 #
-# Current ProximalSolvers master accepts dense least-squares lasso, so this
-# educational example solves an equivalent lasso over the upper triangle of
-# Sigma. The identity design is deliberately small; its O(p^4) storage is NOT
-# a scalable approach to covariance thresholding.
+# This example solves the equivalent centered squared-norm + L1 problem
+# directly through ProximalSolvers. No identity design matrix is needed.
 using LinearAlgebra, Random, ProximalBase, ProximalSolvers
 
 # ## Generate observations with a sparse population covariance
@@ -46,11 +44,9 @@ lambda = 0.2
 
 # ## Solve using the existing lasso API
 #
-# LeastSquaresLoss is the unnormalized 1/2 squared residual. No 1/m
-# factor is needed, and the penalty is unweighted because the diagonal
-# does not appear in the decision vector.
-design = Matrix{Float64}(I, m, m)
-f = LeastSquaresLoss(s, design)
+# SqrNormL2(1.0, s) is precisely 1/2 * ||b-s||². The unweighted penalty
+# applies only to the off-diagonal entries collected in b.
+f = SqrNormL2(1.0, s)
 g = NormL1(lambda)
 b = zeros(m)
 result = solve!(b, f, g, CDSolver(order=:cyclic, momentum=false,
@@ -96,5 +92,5 @@ println("Smallest eigenvalue of estimate: ", eigmin(Symmetric(Sigma_hat)))
 # Thresholding need not preserve positive semidefiniteness. A negative
 # smallest eigenvalue would make Sigma_hat unsuitable for applications that
 # require a valid covariance matrix. This example does not impose a PSD
-# constraint or silently repair the estimate. For a large p, use the closed
-# form directly instead of creating the identity design above.
+# constraint or silently repair the estimate. For large problems, the closed
+# form (or a direct ProximalBase prox call) is simpler than running a solver.
