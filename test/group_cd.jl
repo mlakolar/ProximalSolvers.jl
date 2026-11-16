@@ -275,6 +275,110 @@ function mixed_penalty(X, y, s, groups, w, ::Type{T}, ptype) where T
   penalty(T((q[a] + q[a + 1]) / 2), groups, w, ptype)
 end
 
+# One cyclic pass from `β0`, with the exact curvature λmax(X_Gᵀ X_G) of each group: u = β_G + X_Gᵀ r/ℓ and
+# the shrinkage of u at λ0 wₖ/(s ℓ). The solver's curvature is that value up to a relative margin (at most
+# 1e-6, and about 2 n eps(T) for a Float32 singleton), which moves a pass by that margin times the step.
+function one_cyclic_pass(X, y, s, g, β0)
+  Xd = Float64.(X)
+  β = copy(β0)
+  r = Float64.(y) - Xd * β
+  for (k, G) in enumerate(g.groups)
+    B = Xd[:, G]
+    ℓ = eigmax(Symmetric(B' * B))
+    u = β[G] .+ B' * r ./ ℓ
+    thr = Float64(g.λ0) * Float64(g.w[k]) / (s * ℓ)
+    nu = norm(u)
+    new = nu > thr ? (1 - thr / nu) .* u : zero(u)
+    r .-= B * (new .- β[G])
+    β[G] = new
+  end
+  β
+end
+
+# ---------------------------------------------------------------------------
+# White-box checks of the model (frozen names)
+# ---------------------------------------------------------------------------
+function whitebox_model(X, y, α, g, x)
+  m = PS.cdmodel(mkloss(y, X, α), x)
+  PS.initialize!(m, x)
+  PS._prepare!(m, g, x)
+  m
+end
+
+# λmax(X_Gᵀ X_G) ≤ ℓ ≤ (1 + ε) λmax(X_Gᵀ X_G), decided in BigFloat by Cholesky factorizations of shifted Gram
+# matrices: s I - Gram is positive definite iff s > λmax. So ℓ ≥ λmax holds when ℓ I - Gram is positive
+# definite, and ℓ ≤ (1 + ε) λmax holds when (ℓ/(1+ε)) I - Gram is not.
+function majorizes(X, G, ℓ, ε)
+  setprecision(BigFloat, 256) do
+    B = big.(X[:, G])
+    Gram = Matrix(B' * B)
+    shifted_posdef(s) = issuccess(cholesky(Symmetric(s * I - Gram); check = false))
+    shifted_posdef(big(ℓ)) && !shifted_posdef(big(ℓ) / (1 + big(ε)))
+  end
+end
+
+# the allowed excess: 1e-6, and more for a Float32 singleton, whose curvature is the Float32 sum of squares
+# with the margin 2 n eps(T) (the sum of squares rounds by up to about n eps(T)/2 relative)
+curvature_margin(::Type{T}, n, m) where T = m == 1 ? max(1e-6, 4n * eps(T)) : 1e-6
+
+function curvature_cases(::Type{T}) where T
+  rng = Xoshiro(201)
+  cases = Tuple{String, Matrix{T}, Vector{Vector{Int}}}[]
+  orth(n, mk) = Matrix(qr(randn(rng, n, mk)).Q)
+  # near-identity Grams: orthonormal columns inside each group
+  n = 64
+  push!(cases, ("orthonormal", T.(hcat(orth(n, 32), orth(n, 8), orth(n, 3), orth(n, 1))),
+                [collect(1:32), collect(33:40), collect(41:43), [44]]))
+  # rank-deficient groups, duplicated columns, a column repeated across groups
+  a, b, c = randn(rng, 40), randn(rng, 40), randn(rng, 40)
+  push!(cases, ("rank-deficient", T.(hcat(a, b, a .+ b, 2 .* a .- b, c, c, c, a)),
+                [[1, 2, 3, 4], [5, 6, 7], [8]]))
+  # columns scaled from 1e-8 to 1e8 inside a group and as singletons
+  scales = 10.0 .^ (-8:4:8)
+  push!(cases, ("scaled", T.(hcat(randn(rng, 40, 5) .* scales', randn(rng, 40, 5) .* scales')),
+                [collect(1:5), [6], [7], [8], [9], [10]]))
+  # dense groups of up to 32 columns, a pair and a singleton
+  push!(cases, ("dense", T.(randn(rng, 100, 52)), [collect(1:32), collect(33:49), [50, 51], [52]]))
+  # a decaying spectrum inside one group
+  U = orth(50, 6)
+  push!(cases, ("spectrum", T.(U * Diagonal(10.0 .^ (0:-3:-15)) * orth(6, 6)'), [collect(1:6)]))
+  cases
+end
+
+function step_allocations(m, g, x, ks)
+  total = 0
+  for k in ks
+    total += @allocated PS.coordinate_step!(m, g, x, k)
+  end
+  total
+end
+
+# ---------------------------------------------------------------------------
+# Numerical refusals and special groups
+# ---------------------------------------------------------------------------
+# A solve that is refused: it throws an ArgumentError whose message contains `fragment`, and the caller's
+# iterate (values, active groups in slot order) and the generator are as they were.
+function check_block_refusal(X, y, α, g, x0; fragment, order = :random, activezero = (), maxpasses = 50)
+  x = BlockIterate(copy(x0), g.groups)
+  foreach(k -> activate!(x, k), activezero)
+  rng = Xoshiro(5)
+  solver = CDSolver(; order, maxpasses, rng)
+  snapshot() = (copy(Vector(x)), collect(activecoordinates(x)))
+  before, rng_before = snapshot(), copy(rng)
+  err, logs = logged(() -> try
+    solve!(x, mkloss(y, X, α), g, solver)
+    nothing
+  catch e
+    e
+  end)
+  @test err isa ArgumentError
+  err isa ArgumentError && @test occursin(fragment, err.msg)
+  @test isequal(snapshot(), before)
+  @test rng == rng_before
+  @test isempty(logs)
+  err
+end
+
 @testset "group_cd" begin
 
 @testset "orthogonal designs: analytic block soft threshold" begin
@@ -578,25 +682,6 @@ end
   end
 end
 
-# One cyclic pass from `β0`, with the exact curvature λmax(X_Gᵀ X_G) of each group: u = β_G + X_Gᵀ r/ℓ and
-# the shrinkage of u at λ0 wₖ/(s ℓ). The solver's curvature is that value up to a relative margin (at most
-# 1e-6, and about 2 n eps(T) for a Float32 singleton), which moves a pass by that margin times the step.
-function one_cyclic_pass(X, y, s, g, β0)
-  Xd = Float64.(X)
-  β = copy(β0)
-  r = Float64.(y) - Xd * β
-  for (k, G) in enumerate(g.groups)
-    B = Xd[:, G]
-    ℓ = eigmax(Symmetric(B' * B))
-    u = β[G] .+ B' * r ./ ℓ
-    thr = Float64(g.λ0) * Float64(g.w[k]) / (s * ℓ)
-    nu = norm(u)
-    new = nu > thr ? (1 - thr / nu) .* u : zero(u)
-    r .-= B * (new .- β[G])
-    β[G] = new
-  end
-  β
-end
 @testset "maxpasses = 1 commits the state after one cyclic pass" begin
   for T in TYPES, α in (nothing, 2.5), lkind in (:reordered, :strided, :singletons, :contiguous)
     X, y, g = make_problem(T, :correlated, lkind, :explicit, 0.2; α, seed = 121, ptype = ptype_for(T, α))
@@ -644,55 +729,6 @@ end
     @test abs(Fb - Fs) <= obj_rtol(T) * objective_scale(X, y, s, g, xs)
     @test all(j -> isactive(xb, j) == !iszero(xs[j]), 1:p)
   end
-end
-
-# ---------------------------------------------------------------------------
-# White-box checks of the model (frozen names)
-# ---------------------------------------------------------------------------
-function whitebox_model(X, y, α, g, x)
-  m = PS.cdmodel(mkloss(y, X, α), x)
-  PS.initialize!(m, x)
-  PS._prepare!(m, g, x)
-  m
-end
-
-# λmax(X_Gᵀ X_G) ≤ ℓ ≤ (1 + ε) λmax(X_Gᵀ X_G), decided in BigFloat by Cholesky factorizations of shifted Gram
-# matrices: s I - Gram is positive definite iff s > λmax. So ℓ ≥ λmax holds when ℓ I - Gram is positive
-# definite, and ℓ ≤ (1 + ε) λmax holds when (ℓ/(1+ε)) I - Gram is not.
-function majorizes(X, G, ℓ, ε)
-  setprecision(BigFloat, 256) do
-    B = big.(X[:, G])
-    Gram = Matrix(B' * B)
-    shifted_posdef(s) = issuccess(cholesky(Symmetric(s * I - Gram); check = false))
-    shifted_posdef(big(ℓ)) && !shifted_posdef(big(ℓ) / (1 + big(ε)))
-  end
-end
-# the allowed excess: 1e-6, and more for a Float32 singleton, whose curvature is the Float32 sum of squares
-# with the margin 2 n eps(T) (the sum of squares rounds by up to about n eps(T)/2 relative)
-curvature_margin(::Type{T}, n, m) where T = m == 1 ? max(1e-6, 4n * eps(T)) : 1e-6
-
-function curvature_cases(::Type{T}) where T
-  rng = Xoshiro(201)
-  cases = Tuple{String, Matrix{T}, Vector{Vector{Int}}}[]
-  orth(n, mk) = Matrix(qr(randn(rng, n, mk)).Q)
-  # near-identity Grams: orthonormal columns inside each group
-  n = 64
-  push!(cases, ("orthonormal", T.(hcat(orth(n, 32), orth(n, 8), orth(n, 3), orth(n, 1))),
-                [collect(1:32), collect(33:40), collect(41:43), [44]]))
-  # rank-deficient groups, duplicated columns, a column repeated across groups
-  a, b, c = randn(rng, 40), randn(rng, 40), randn(rng, 40)
-  push!(cases, ("rank-deficient", T.(hcat(a, b, a .+ b, 2 .* a .- b, c, c, c, a)),
-                [[1, 2, 3, 4], [5, 6, 7], [8]]))
-  # columns scaled from 1e-8 to 1e8 inside a group and as singletons
-  scales = 10.0 .^ (-8:4:8)
-  push!(cases, ("scaled", T.(hcat(randn(rng, 40, 5) .* scales', randn(rng, 40, 5) .* scales')),
-                [collect(1:5), [6], [7], [8], [9], [10]]))
-  # dense groups of up to 32 columns, a pair and a singleton
-  push!(cases, ("dense", T.(randn(rng, 100, 52)), [collect(1:32), collect(33:49), [50, 51], [52]]))
-  # a decaying spectrum inside one group
-  U = orth(50, 6)
-  push!(cases, ("spectrum", T.(U * Diagonal(10.0 .^ (0:-3:-15)) * orth(6, 6)'), [collect(1:6)]))
-  cases
 end
 
 # The references themselves, without the solver
@@ -821,13 +857,6 @@ end
   end
 end
 
-function step_allocations(m, g, x, ks)
-  total = 0
-  for k in ks
-    total += @allocated PS.coordinate_step!(m, g, x, k)
-  end
-  total
-end
 @testset "coordinate_step! allocates nothing" begin
   for T in TYPES, lkind in (:reordered, :contiguous, :singletons)
     X, y, g = make_problem(T, :correlated, lkind, :explicit, 0.1; seed = 171)
@@ -838,32 +867,6 @@ end
     @test step_allocations(m, g, x, ks) == 0
     @test step_allocations(m, g, x, ks) == 0
   end
-end
-
-# ---------------------------------------------------------------------------
-# Numerical refusals and special groups
-# ---------------------------------------------------------------------------
-# A solve that is refused: it throws an ArgumentError whose message contains `fragment`, and the caller's
-# iterate (values, active groups in slot order) and the generator are as they were.
-function check_block_refusal(X, y, α, g, x0; fragment, order = :random, activezero = (), maxpasses = 50)
-  x = BlockIterate(copy(x0), g.groups)
-  foreach(k -> activate!(x, k), activezero)
-  rng = Xoshiro(5)
-  solver = CDSolver(; order, maxpasses, rng)
-  snapshot() = (copy(Vector(x)), collect(activecoordinates(x)))
-  before, rng_before = snapshot(), copy(rng)
-  err, logs = logged(() -> try
-    solve!(x, mkloss(y, X, α), g, solver)
-    nothing
-  catch e
-    e
-  end)
-  @test err isa ArgumentError
-  err isa ArgumentError && @test occursin(fragment, err.msg)
-  @test isequal(snapshot(), before)
-  @test rng == rng_before
-  @test isempty(logs)
-  err
 end
 
 @testset "curvature underflow is refused before the first pass" begin
