@@ -79,7 +79,7 @@ diagnostics, not changes to the statistical model.
 | Penalty seems too strong or too weak | `LeastSquaresLoss` is a sum; explicitly multiply by `1/n` for mean-normalized lasso |
 | PGD rejects `SparseIterate` | PGD needs a dense coefficient vector; CD supports one-dimensional `SparseIterate` |
 | PGD or APG rejects `BlockIterate` | Only CD solves the group lasso, with a `BlockIterate` and a `GroupNormL2` penalty |
-| `DimensionMismatch` naming groups, or an error naming a group | The groups of `BlockIterate` and `GroupNormL2` must be equal in number, order and members; a group error is a curvature or step refusal, see [Numerical behavior](numerics.md) |
+| `DimensionMismatch` naming groups, or an error naming a group | The groups of `BlockIterate` and `GroupNormL2` must be equal in number, order and members; an error naming a group is a curvature or step refusal, see [Numerical behavior](numerics.md), or a weight or parameter refusal such as `group weight 2 …` |
 | Convergence flag is false | Inspect the solver's iteration/pass limit; check the [KKT residual](sparsity-and-kkt.md) |
 | `gap` is NaN | Gap certification is not implemented |
 | Float32 precision looks poor | Start with native Float32 inputs/scales, check the KKT residual; Float32 has lower precision |
