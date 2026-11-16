@@ -177,6 +177,9 @@ function analytic(X, y, α, λ1, λ2)
   end
 end
 
+# the bytes allocated by one call, measured inside a function so that no argument is boxed
+residual_allocations(g, x, a, b) = @allocated ProximalSolvers._kkt_residual(g, x, a, b)
+
 @testset "the residual of the stopping check for the elastic net" begin
   for T in (Float32, Float64)
     # for λ2 = 0 the 4-argument method is the 3-argument one, bit for bit, also for -0.0 and signs
@@ -201,8 +204,9 @@ end
     g = randn(Xoshiro(1), T, 64)
     x = randn(Xoshiro(2), T, 64)
     x[1:20] .= 0
-    ProximalSolvers._kkt_residual(g, x, T(0.1), T(0.2))
-    @test (@allocated ProximalSolvers._kkt_residual(g, x, T(0.1), T(0.2))) == 0
+    a, b = T(0.1), T(0.2)
+    ProximalSolvers._kkt_residual(g, x, a, b)
+    @test residual_allocations(g, x, a, b) == 0
   end
 end
 
