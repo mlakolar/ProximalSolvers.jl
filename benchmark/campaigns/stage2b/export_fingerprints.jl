@@ -76,6 +76,16 @@ const HARNESS_FILES = ("problems.jl", "certificates.jl", "cases.jl", "run.jl")
 const ALLOWED_MODULES = (:ProximalSolvers, :ProximalBase, :Random)
 const MAX_DEPTH = 40
 
+# The CD-only successor campaign (#333, ruling on the escalation, O1): the stack A CDSolver (b0de3f7) carries three
+# fields that the minimal core removed, with their inert values at these settings. For a campaign named here the
+# solver encoding omits exactly these three fields, after checking that each has exactly the inert value (an error, so
+# no row, otherwise); every other field is still encoded, so any other difference between the stacks still mismatches.
+# For every other campaign, and for every direct use of the encoder, nothing is omitted: the original Stage 2B campaign
+# is checked as before (its P01 case, for instance, sets gaptol and would fail closed here).
+const NORMALIZED_CAMPAIGNS = ("stage2b-cd-minimal-core-v1",)
+const REMOVED_CD_FIELDS = (anderson = 0, gaptol = 0.0, gapsafe = false)     # field => its required inert value
+const NORMALIZE_SOLVER = Ref(false)
+
 struct UsageError <: Exception
   msg::String
 end
@@ -229,8 +239,17 @@ function enc!(c::Ctx, x, depth::Int = 0)
     put_str(c, String(owner))
     put_str(c, String(nameof(T)))
     names = fieldnames(T)
-    put_i64(c, length(names))
+    omitted = NORMALIZE_SOLVER[] && owner === :ProximalSolvers && nameof(T) === :CDSolver ?
+      Tuple(name for name in names if name in keys(REMOVED_CD_FIELDS)) : ()
+    for name in omitted
+      value = getfield(x, name)
+      value === getfield(REMOVED_CD_FIELDS, name) ||
+        throw(EncodeError("CDSolver field $name is $(repr(value)), not the inert $(repr(getfield(REMOVED_CD_FIELDS, name))) " *
+                          "that the successor campaign requires where the field exists"))
+    end
+    put_i64(c, length(names) - length(omitted))
     for (i, name) in enumerate(names)
+      name in omitted && continue
       isdefined(x, i) || throw(EncodeError("field $name of $T is undefined"))
       put_str(c, String(name))
       enc!(c, getfield(x, i), depth + 1)
@@ -628,7 +647,7 @@ function read_schedule(path)
     s, sched = t["settings"], t["schedule"]
     versions = String[v["version"] for (_, v) in t["julia"]]
     (; suite = String(s["suite"]), groups = String(s["groups"]), case_filter = String(s["case_filter"]),
-       reps = Int.(sched["reps"]), versions)
+       reps = Int.(sched["reps"]), versions, campaign_id = String(sched["campaign_id"]))
   catch err
     err isa KeyError || rethrow()
     throw(VerifyError("the schedule $path lacks $(err.key)"))
@@ -680,6 +699,7 @@ function summary_table(cfg, sched, results, harness_hash_value, certificates, ce
     "proximalbase_root" => roots.base,
     "proximalbase_version" => string(pkgversion(ProximalBase)),
     "suite" => sched.suite, "groups" => sched.groups, "case_filter" => sched.case_filter,
+    "campaign_id" => sched.campaign_id, "removed_cd_fields_omitted" => NORMALIZE_SOLVER[],
     "reps" => cfg.reps, "cases" => length(unique(r.id for r in results)),
     "rows" => sum(length(r.rows) for r in results),
     "cold_differences" => count(r -> !isempty(r.cold_differences), results),
@@ -820,7 +840,12 @@ function run(args)
     throw(VerifyError("--reps $(cfg.reps) is not a subset of the schedule's repetitions $(sched.reps)"))
   certificates = hex_file(joinpath(cfg.harness, "certificates.jl"))
   H = load_harness(cfg.harness)
-  Base.invokelatest(run_loaded, H, cfg, sched, certificates, computed)
+  NORMALIZE_SOLVER[] = sched.campaign_id in NORMALIZED_CAMPAIGNS
+  try
+    Base.invokelatest(run_loaded, H, cfg, sched, certificates, computed)
+  finally
+    NORMALIZE_SOLVER[] = false
+  end
 end
 
 """Everything that touches the loaded harness (newer than the caller: reached through `invokelatest`)."""

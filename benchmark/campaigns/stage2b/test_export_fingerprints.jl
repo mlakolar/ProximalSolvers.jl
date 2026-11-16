@@ -67,6 +67,48 @@ function run_group(body, name)
 end
 
 fp(x) = E.fingerprint("fixture", "t", x)
+
+# Stand-ins for the CDSolver of the two stacks, in modules named ProximalSolvers as the encoder expects (it reads the
+# owner module and the type name): stack A (b0de3f7) has the three fields that the minimal core removed.
+module FakeStackA
+module ProximalSolvers
+struct CDSolver{R}
+  maxpasses::Int
+  tol::Float64
+  random::Bool
+  relative::Bool
+  anderson::Int
+  momentum::Union{Nothing, Bool}
+  rng::R
+  gaptol::Float64
+  gapsafe::Bool
+end
+end
+end
+module FakeStackB
+module ProximalSolvers
+struct CDSolver{R}
+  maxpasses::Int
+  tol::Float64
+  random::Bool
+  relative::Bool
+  momentum::Union{Nothing, Bool}
+  rng::R
+end
+end
+end
+fake_a(; tol = 1e-11, maxpasses = 100000, anderson = 0, gaptol = 0.0, gapsafe = false, rng = Xoshiro(9)) =
+  FakeStackA.ProximalSolvers.CDSolver(maxpasses, tol, false, true, anderson, nothing, rng, gaptol, gapsafe)
+fake_b(; tol = 1e-11, maxpasses = 100000, rng = Xoshiro(9)) =
+  FakeStackB.ProximalSolvers.CDSolver(maxpasses, tol, false, true, nothing, rng)
+function normalized(f)
+  E.NORMALIZE_SOLVER[] = true
+  try
+    f()
+  finally
+    E.NORMALIZE_SOLVER[] = false
+  end
+end
 hex64(s) = occursin(r"^[0-9a-f]{64}$", s)
 differ(a, b) = fp(a) != fp(b)
 rejects(x) = try
@@ -163,6 +205,35 @@ encoder_ok = run_group("encoder") do
     @test !(Vector{Float64} <: E.WORKING_SET_TYPES)
     @test (E.HAS_ATOM_ITERATE ? PB.AtomIterate <: E.ITERATE_TYPES && PB.AtomIterate <: E.WORKING_SET_TYPES : true)
     @test E.active_ids(PB.SparseIterate(4)) == Int[] && E.active_ids(zeros(3)) === nothing
+  end
+  @testset "the solver fingerprint of the successor campaign (O1, #333)" begin
+    # Off by default and for every other campaign: the stack A layout differs from the stack B layout.
+    @test !E.NORMALIZE_SOLVER[] && fp(fake_a()) != fp(fake_b())
+    # Positive: with inert values the three removed fields are omitted and the rows are identical.
+    @test normalized(() -> fp(fake_a())) == normalized(() -> fp(fake_b()))
+    @test normalized(() -> fp(fake_a(tol = 1e-6, maxpasses = 7))) == normalized(() -> fp(fake_b(tol = 1e-6, maxpasses = 7)))
+    # Negative, each field: a value that is not exactly the inert one fails closed (no row), only when normalizing.
+    for bad in (fake_a(anderson = 1), fake_a(gaptol = 1e-8), fake_a(gapsafe = true), fake_a(gaptol = -0.0))
+      @test normalized(() -> rejects(bad))
+      @test hex64(fp(bad))
+    end
+    # Negative: every shared field still counts, the RNG state included.
+    @test normalized(() -> fp(fake_a(tol = 1e-10))) != normalized(() -> fp(fake_b()))
+    @test normalized(() -> fp(fake_a(maxpasses = 5))) != normalized(() -> fp(fake_b()))
+    @test normalized(() -> fp(fake_a(rng = Xoshiro(10)))) != normalized(() -> fp(fake_b()))
+    @test normalized(() -> fp(fake_a())) != normalized(() -> fp(fake_b(tol = 1e-10)))
+    # Only CDSolver is touched: other structs of the package are encoded as before.
+    @test normalized(() -> fp(PS.ProximalOptions(maxiter = 100))) == fp(PS.ProximalOptions(maxiter = 100))
+    # The loaded package: a real CDSolver of either stack matches the stack B layout built from its shared fields.
+    real = PS.CDSolver(order = :cyclic, tol = 1e-11, rng = Xoshiro(9))
+    shared = (; (n => getfield(real, n) for n in fieldnames(typeof(real)) if !(n in keys(E.REMOVED_CD_FIELDS)))...)
+    as_b = FakeStackB.ProximalSolvers.CDSolver(shared.maxpasses, shared.tol, shared.random, shared.relative,
+                                               shared.momentum, shared.rng)
+    @test normalized(() -> fp(real)) == normalized(() -> fp(as_b))
+    # Which schedules switch it on: the successor and no other.
+    @test E.read_schedule(CD_SCHEDULE).campaign_id in E.NORMALIZED_CAMPAIGNS
+    @test !(E.read_schedule(joinpath(@__DIR__, "schedule.toml")).campaign_id in E.NORMALIZED_CAMPAIGNS)
+    @test E.NORMALIZED_CAMPAIGNS == ("stage2b-cd-minimal-core-v1",)
   end
   @testset "solver and option structs" begin
     @test fp(PS.ProximalOptions(maxiter = 100)) != fp(PS.ProximalOptions(maxiter = 101))
@@ -508,7 +579,7 @@ end
 # ---- 3. The command line -----------------------------------------------------------------------------
 function write_schedule(path, ids; reps = [1, 2])
   open(path, "w") do io
-    TOML.print(io, Dict("schedule" => Dict("reps" => reps),
+    TOML.print(io, Dict("schedule" => Dict("reps" => reps, "campaign_id" => "export-test"),
                         "settings" => Dict("suite" => "extended", "groups" => join(GROUPS, ','),
                                            "case_filter" => join(ids, ',')),
                         "julia" => Dict("x" => Dict("version" => string(VERSION)))))
