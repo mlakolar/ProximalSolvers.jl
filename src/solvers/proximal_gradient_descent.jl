@@ -290,8 +290,9 @@ handles taken earlier may no longer describe the active set.
 parameters, aliasing and finiteness happen before the iterate is copied and before the RNG is
 used, and a refused call neither changes `x` nor advances the RNG. The curvature and step
 refusals that can be decided from the data follow, before the first pass, before any RNG draw and
-only when `maxpasses > 0`, with `x` unchanged; the curvature of a group of two or more columns
-is computed when a visit first needs it, and an exception of its eigenvalue routine or a
+only when `maxpasses > 0`, with `x` unchanged; the curvature of a group that is neither flat nor
+a one-column group with `n eps(T) <= 1/8` is computed in that preparation, or at the first visit that
+needs it when cheap bounds exclude a refusal, and an exception of its eigenvalue routine or a
 refusal at that point happens during a pass, with `x` unchanged and the RNG possibly advanced. The solve
 then runs on `work = copy(x)` and `x` receives the final state of `work` by one `copyto!`.
 Zero groups are deactivated after a pass, so the active groups of `x` after a solve with at

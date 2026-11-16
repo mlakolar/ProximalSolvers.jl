@@ -419,19 +419,32 @@ response scale and the final objective still apply).
   proved bound for every input.
 
 **Lazy computation.** The eigenvalue computation is the expensive part, and a group that
-stays at zero may never need it. During the preparation, a group on the Gram route first
-gets cheap bounds, from the sums of squares of its columns, on the curvature that the
-rule above would store and on the step that follows from it, with explicit rounding
-margins. If the refusals below are decided not to occur at both ends of these bounds, the
-curvature is left uncomputed (`NaN` in the model) and is computed, once per solve, at the
-first visit that needs it: a visit whose block is nonzero, or a zero block that the
-screen above does not remove. A group that stays at zero and passes the screen at every
-visit never computes it. If the bounds do not decide a refusal, the curvature is computed
-during the preparation, as for the other groups, and refuses as below.
+stays at zero may never need it. During the preparation, a group on the Gram route gets
+cheap bounds, formed in `Float64` from the sums of squares `q_c` of its columns (`n m`
+operations, no products between columns): with `t` the sum and `d` the largest of the
+`q_c`, a lower bound `lo = d (1 − 2 n eps(Float64)) − 2 n η` and an upper bound `hi = 4 t`
+on the curvature that the rule above would store (`η` the smallest positive `Float64`; the
+bounds assume gradual underflow, and the upper one the eigenvalue model). The curvature is
+left uncomputed (`NaN` in the model) only if the type `S` of the scale is `Float32` or
+`Float64`, `4 (n + m²) eps(Float64) ≤ 1/16`, `t` is finite, and all of these hold:
+
+1. `lo ≥ 2 m floatmin(Float64)`, so that the trace underflow refusal is not made;
+2. `lo ≥ 2 floatmin(T)`, so that the curvature underflow refusal is not made;
+3. `hi ≤ floatmax(T) / 2`, so that no overflow refusal is made;
+4. `s lo ≥ 2 floatmin(S)` and `s hi ≤ 1 / (2 floatmin(S))`, so that the step band check
+   does not refuse.
+
+The curvature is then computed, once per solve, at the first visit that needs it: a visit
+whose block is nonzero, or whose block is zero and which the screen above does not remove,
+and the band check is made there. A group that stays at zero and is screened out at each
+visit never computes it. If any condition fails or the bounds do not apply, the curvature
+and the band are computed during the preparation, as for the other groups, and refuse as
+below. The bounds do not decide an eigenvalue routine that throws, or a largest eigenvalue
+that is not finite; these surface at the lazy computation.
 
 The step of a nonflat group also needs `s ℓ_k` and its reciprocal to be at least the
-smallest normal number of the type `S` that combines `s` with `T`. This band check is part
-of the same computation. It cannot fail when `S` is wider than `T`, for example `Float32`
+smallest normal number of the type `S` that combines `s` with `T`. This band check is made
+where the curvature is computed: during the preparation, or at the lazy computation. It cannot fail when `S` is wider than `T`, for example `Float32`
 data with a `Float64` loss scale, because the scale then converts to a finite nonzero
 `Float32` and the curvature is a normal `Float32` number; it can fail only when `S` is `T`
 itself. The scale need not have the data type: `Float64` data `X = fill(2.0^-500, 1, 1)`
@@ -440,12 +453,12 @@ number, and `s ℓ_k` is below the smallest normal `Float64` number.
 
 **When the refusals happen.** The refusals below throw an `ArgumentError` that names the
 group, and they leave `x` unchanged. Those that are predictable, because the curvature is
-computed during the preparation or the bounds decide that no refusal occurs, happen before
-the first pass, and the random number generator is unused. A curvature computed lazily is
-computed in the same way, and an exception of the eigenvalue routine (which is not
-caught) or a curvature or step refusal at that point, which the bounds are meant to
-exclude, happens during a pass: `x` is still unchanged, but a random order may already
-have drawn from the generator.
+computed during the preparation or the four conditions above hold, happen before the first
+pass, and the random number generator is unused. A curvature computed lazily is computed
+in the same way, and an exception of the eigenvalue routine (which is not caught), a
+largest eigenvalue that is not finite, or a curvature or step refusal at that point (which
+the four conditions are meant to exclude) happens during a pass: `x` is still unchanged,
+but a random order may already have drawn from the generator.
 
 | Category | Condition | Message contains |
 | --- | --- | --- |
