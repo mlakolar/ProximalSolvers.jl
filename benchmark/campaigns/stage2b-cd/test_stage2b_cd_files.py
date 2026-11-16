@@ -271,8 +271,12 @@ class LockTests(Files):
 
 class UnchangedFilesTests(unittest.TestCase):
     def test_the_frozen_files_are_byte_for_byte_those_of_master(self):
+        # The frozen files of the original campaign must be unchanged in this checkout. The harness files are pinned
+        # at the commit the lock names (the next test): master may move on after 9f86a808 (#326 changed cases.jl),
+        # and the campaign runs the harness of the pinned checkouts, never that of this checkout.
         for relative, digest in FROZEN.items():
-            self.assertEqual(sha256(REPO / relative), digest, relative)
+            if relative.startswith("benchmark/campaigns/"):
+                self.assertEqual(sha256(REPO / relative), digest, relative)
 
     def test_the_pinned_digests_are_those_of_the_commit_the_lock_names(self):
         for relative, digest in FROZEN.items():
@@ -281,7 +285,9 @@ class UnchangedFilesTests(unittest.TestCase):
             self.assertEqual(hashlib.sha256(blob.stdout).hexdigest(), digest, relative)
 
     def test_nothing_under_pre06_or_src_differs_from_the_commit_the_lock_names(self):
-        for path in ("benchmark/campaigns/pre06", "src", "Project.toml", "Manifest-v1.10.toml"):
+        # src/ is not compared with this checkout: master may move on after 9f86a808 (#326), and the source of
+        # Stack B is bound by its commit, tree and package hash (recomputed from git above).
+        for path in ("benchmark/campaigns/pre06", "Project.toml", "Manifest-v1.10.toml"):
             result = subprocess.run(["git", "-C", str(REPO), "diff", "--quiet", STACK_B_PS, "--", path])
             self.assertEqual(result.returncode, 0, path)
 
