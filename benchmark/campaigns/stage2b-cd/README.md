@@ -46,6 +46,24 @@ Use it with the existing driver:
 `--campaign-dir` defaults to `benchmark/campaigns/stage2b`, the original campaign; every read of `schedule.toml` and
 `case-mapping.toml` goes through it.
 
+## Reporting classes (maintainer ruling, #333)
+
+All 21 cases are kept and no definition, target or certificate is changed. The 20 cases with finite targets are **Q2**
+(accuracy-qualified end-to-end `solve!` time, counted only when the independent certificate passes). `cd/lasso-dense/cd/R/call`
+has **target NaN** (the release configuration of #108 has none): it is reported separately as **Q1**, the runtime of the
+default settings at the recorded accuracy, and is excluded from the accuracy-qualified conclusions. Its certificate is still
+required to be a finite `relative_gap` value, and the comparator's accuracy band for it reads `missed/invalid` only because
+the target is NaN.
+
+## Solver fingerprint (O1, ruling on the escalation)
+
+Stack A's `CDSolver` has three fields that the minimal core removed: `anderson`, `gaptol`, `gapsafe`. The exporter's
+`config/solver` row omits exactly these three, and only for the schedules named in `NORMALIZED_CAMPAIGNS`
+(`stage2b-cd-minimal-core-v1`), after checking that they are exactly `0` (an `Int`), `0.0` and `false`; any other value is an
+error and no row is written. Every other field (`maxpasses`, `tol`, `random`, `relative`, `momentum`, the RNG state) is still
+encoded, so any other difference between the stacks still mismatches. It is not applied to any other campaign: the original
+Stage 2B campaign (whose P01 sets `gaptol`) is checked as before. The comparator and its specification are unchanged.
+
 ## Notes for readers
 
 - **Gates.** G1-G7 of the original campaign are replaced for this campaign by the minimal-core correctness and provenance

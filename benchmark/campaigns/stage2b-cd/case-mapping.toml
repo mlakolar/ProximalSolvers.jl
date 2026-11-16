@@ -935,6 +935,7 @@ approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuec
 class_reason = "identical harness bytes on both stacks; inputs/starts/targets/options/timing definitions identical"
 verification_needed = [
   "matching validation (nonofficial, evidence not committed): certificate ok on both stacks and both Julia versions, identical data hashes and input fingerprints between the stacks; the successor smoke run before the official campaign",
+  "reporting class (maintainer ruling, #333): this case has no target (NaN) and is reported as Q1, default-setting runtime at the recorded accuracy; it is outside the accuracy-qualified conclusions, which cover the other 20 cases (Q2). The comparator labels its accuracy band missed/invalid because the target is NaN; that label is an artifact of the missing target, not a failed certificate (the certificate of the case is ok)",
 ]
 equivalence_check = [
   "the fingerprint exporter (export_fingerprints.jl) writes the reset state, solver configuration, options and per-array input hashes of every case and repetition on both stacks outside any timed region; the comparator refuses a case whose fingerprints differ (migration_compare.py), and finalize checks the files before any measurement",
