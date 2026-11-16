@@ -256,9 +256,9 @@ only `CDSolver` accepts it, and `CDSolver` describes it. The loss uses same-type
 its unnormalized meaning. One positive finite scalar LS wrapper is supported.
 Borrowed X/y must not alias mutable `x` or change during a solve. Results share
 `x`; copy it to retain earlier coefficients. Unsupported inputs/options fail
-before mutation. A stop of the stopping tests counts only at a point whose computed KKT
-residual meets the bound of [`ProximalOptions`](@ref), which is not an exact-arithmetic
-certificate. Finite intermediate arithmetic is required. PGD step errors restore
+before mutation. For PGD and APG, a stop of the stopping tests counts only at a point whose
+computed KKT residual meets the bound of [`ProximalOptions`](@ref), which is not an
+exact-arithmetic certificate; CD stops by its change test (see [`CDSolver`](@ref)). Finite intermediate arithmetic is required. PGD step errors restore
 its last accepted `x` and rethrow, without a transaction guarantee for internal
 counters.
 
@@ -288,11 +288,16 @@ handles taken earlier may no longer describe the active set.
 
 **CD on a `BlockIterate`.** The checks of the receiver, momentum, penalty, groups,
 parameters, aliasing and finiteness happen before the iterate is copied and before the RNG is
-used, and a refused call neither changes `x` nor advances the RNG. Curvature and step
-refusals follow, before the first pass and only when `maxpasses > 0`, still with `x` and the RNG
-unchanged. The solve
-then runs on `work = copy(x)` and `x` receives the final state of `work` by one `copyto!`,
-including the active groups after the compaction of zero groups; a numerical error leaves
+used, and a refused call neither changes `x` nor advances the RNG. The curvature and step
+refusals that can be decided from the data follow, before the first pass, before any RNG draw and
+only when `maxpasses > 0`, with `x` unchanged; the curvature of a group that is neither flat nor
+a one-column group with `n eps(T) <= 1/8` is computed in that preparation, or at the first visit that
+needs it when cheap bounds exclude a refusal, and an exception of its eigenvalue routine or a
+refusal at that point happens during a pass, with `x` unchanged and the RNG possibly advanced. The solve
+then runs on `work = copy(x)` and `x` receives the final state of `work` by one `copyto!`.
+Zero groups are deactivated after a pass, so the active groups of `x` after a solve with at
+least one pass are the groups with a nonzero block; with `maxpasses = 0` the entry state is kept,
+including active groups whose block is zero. A numerical error leaves
 the values and the active groups of `x` unchanged, though the borrowed RNG may already have
 advanced. The result's `minimizer` is `x` itself.
 """

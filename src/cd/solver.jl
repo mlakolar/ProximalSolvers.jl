@@ -68,10 +68,20 @@ a group is `norm` of its displacement, which `relative=true` multiplies by
 `sqrt(s * l)` for a positive response scale, where `l` bounds the largest eigenvalue of
 the Gram matrix of the columns of the group; the forced full pass counts group visits.
 As for the lasso, `converged` reports this change test and is not a KKT certificate.
-Before the first pass, an `ArgumentError` that names the group refuses a curvature that
-underflows or overflows in `T` and a step outside the normal range, and during a pass a
-trial point or displacement that is not finite; `x` is then unchanged. The curvature rule
-and the refusals are described in the numerical guide.
+The curvature of a flat group, and of a group of one column when `n eps(T) <= 1/8` (`n`
+the number of rows), is set before the first pass. That of any other group is computed
+at the first visit that needs it when cheap bounds show that no refusal can occur, and
+before the first pass otherwise. A visit to a nonflat group whose block is zero, active or
+not, first applies ProximalBase's `prox_block!` to the correlations at the step `1/s`
+(skipped when `1/s` is not a normal number of the scale's arithmetic type) and ends
+without a change, and without computing the curvature, when the result is zero. Before
+the first pass, and before any draw from the RNG, an `ArgumentError` that names the group
+refuses a curvature that underflows or overflows in `T` and a step outside the normal
+range, for each group whose curvature is computed then. An exception of the eigenvalue
+routine, a refusal of a lazily computed curvature, and a trial point or displacement that
+is not finite can occur during a pass; `x` is then unchanged, and the RNG may have
+advanced. The curvature rule and the refusals are described in the numerical
+guide.
 
 See [`solve!`](@ref)
 and the [solver guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/).

@@ -359,69 +359,121 @@ not-converged warning and the result type are those of the lasso. The result has
 
 ### The group step
 
-For group `k`, with entries `G` and the current residual `r`, the solver uses a number
-`ℓ_k`, computed as described below, that is meant to bound the largest eigenvalue of
-`X[:, G]' * X[:, G]` from above.
+For a group `k` that is not flat (see below), with entries `G` and the current residual
+`r`, the solver uses a number `ℓ_k > 0`, computed as described below, that is meant to
+bound the largest eigenvalue of `X[:, G]' * X[:, G]` from above.
 A visit forms the trial point `u = x[G] + X[:, G]' * r / ℓ_k` in `T`, replaces the block
 by the proximal point of the penalty at `u` with the step `1 / (s ℓ_k)`, `s` the loss
 scale, and updates the residual for each entry of the block that changed. The change of
-the visit is the 2-norm `‖Δ_G‖₂` of the displacement of the block. A group whose block
-does not change is not written, which keeps an inactive group inactive. A trial point or
-displacement that is not finite stops the solve with an `ArgumentError` that names the
-group, and the iterate of the caller is unchanged; a change or stopping scale that is not
-finite is refused as for the lasso.
+the visit is the 2-norm `‖Δ_G‖₂` of the displacement of the block. A flat group has
+`ℓ_k = 0` and takes the proximal point at the step `Inf` instead, without a trial point
+(see below). A group whose block does not change is not written, which keeps an inactive
+group inactive. A trial point or displacement that is not finite stops the solve with an
+`ArgumentError` that names the group, and the iterate of the caller is unchanged; a change
+or stopping scale that is not finite is refused as for the lasso.
+
+**The zero-group screen.** When the block of a nonflat group is identically zero (whether
+or not the group is active), the visit first forms the correlations `X[:, G]' * r` and
+passes them to ProximalBase's `prox_block!` for the group with the step `1 / s`. If the
+result is entirely zero, the visit ends with no change: nothing is written to the iterate
+or the residual, and `ℓ_k` is not computed if it had not been. In exact arithmetic this is
+the condition under which the full step above gives a zero block, for any `ℓ_k > 0`. The
+screen is bypassed, and the visit takes the full step, when `1 / s` formed in the type `S`
+of the scale is not a finite positive normal number of `S`. The screen and the full step
+both use ProximalBase's range-safe comparison, but they are different computations, so at
+an exact tie (the correlations' norm equal to `λ w_k / s` in exact arithmetic) they can
+decide by rounding differently.
 
 ### The curvature bound
 
-`ℓ_k` is computed once per solve, after the residual is set and before the first pass
-and any draw from the random number generator, and only when `maxpasses > 0`; with
-`maxpasses = 0` it is not computed and the refusals below do not occur. It is a bound on
-the stored values of `X` in `T`, formed as follows.
+`ℓ_k` is a bound on the stored values of `X` in `T`, formed as follows. It is prepared
+after the residual is set, before the first pass and any draw from the random number
+generator, and only when `maxpasses > 0`; with `maxpasses = 0` this preparation is
+skipped and the preparation refusals below do not occur (the refusals of the inputs, the
+response scale and the final objective still apply).
 
-- **Flat group.** If every entry of `X[:, G]` is exactly 0, `ℓ_k = 0`. The visit takes
-  the minimizer of the penalty alone: a zero block when the level and the weight are
-  positive, and the block unchanged when one of them is 0. Its stopping scale is 0.
+- **Flat group.** If every entry of `X[:, G]` is exactly 0, `ℓ_k = 0`, set during the
+  preparation. The visit takes the minimizer of the penalty alone: a zero block when the
+  level and the weight are positive, and the block unchanged when one of them is 0. Its
+  stopping scale is 0.
 - **Group of one column**, with `n` the number of rows and `n eps(T) ≤ 1/8`. `ℓ_k` is
-  the next floating-point number above `a (1 + 2 n eps(T))`, where `a` is the sum of
-  squares of the column accumulated in `T`. The factor is a margin for the rounding of `a`,
-  so `ℓ_k` is larger than the squared norm by a relative amount of about `2 n eps(T)`; the
-  scalar lasso step uses `a` itself. The two sums are accumulated differently, so they can
-  differ by rounding even before the margin.
-- **Any other group**, and a group of one column with `n eps(T) > 1/8`. The Gram matrix `Ĝ`
-  of the columns is formed in `Float64` from a copy of the columns (for `Float32` data
-  too), and all eigenvalues of `Ĝ` are computed; `μ` is the largest. With `t` the trace of
-  `Ĝ`, `m` the size of the group and `d` the largest diagonal entry, the bound in
-  `Float64` is the next number above `max(μ, d) + 4 (n + m²) eps(Float64) t`, rounded up to
-  `T`. The three error terms that the margin covers are the rounding of `Ĝ`, products that
-  underflow, and the eigenvalue computation. The first two follow from standard bounds
-  and assume IEEE gradual underflow (subnormal numbers are not flushed to zero); the third
-  assumes that the computed eigenvalues are exact eigenvalues of a nearby matrix, within
-  a multiple of `eps(Float64)` times the trace, a model of the eigenvalue routine and not a
-  proved bound for every input. An exception thrown by the eigenvalue routine is not caught
-  and stops the solve before any pass.
+  computed during the preparation as the next floating-point number above
+  `a (1 + 2 n eps(T))`, where `a` is the sum of squares of the column accumulated in `T`.
+  The factor is a margin for the rounding of `a`, so `ℓ_k` is larger than the squared norm
+  by a relative amount of about `2 n eps(T)`; the scalar lasso step uses `a` itself. The
+  two sums are accumulated differently, so they can differ by rounding even before the
+  margin.
+- **Any other group**, and a group of one column with `n eps(T) > 1/8` (the *Gram route*).
+  The Gram matrix `Ĝ` of the columns is formed in `Float64` from a copy of the columns
+  (for `Float32` data too). With `t` the trace of `Ĝ`, `m` the size of the group and `d`
+  the largest diagonal entry, the bound in `Float64` is the next number above
+  `max(μ, d) + 4 (n + m²) eps(Float64) t`, rounded up to `T`, where `μ` is the largest
+  eigenvalue of `Ĝ`: all eigenvalues of `Ĝ` are computed and the largest is taken, for a
+  group of `m ≥ 2` columns. For a group of one column on this route, `μ` is the diagonal
+  entry `Ĝ[1, 1]`, with no eigenvalue computation and no eigenvalue model. The error terms
+  that the margin covers are the rounding of `Ĝ`, products that underflow, and, for
+  `m ≥ 2`, the eigenvalue computation. The first two follow from standard bounds and
+  assume IEEE gradual underflow (subnormal numbers are not flushed to zero); the third
+  assumes that the computed eigenvalues are exact eigenvalues of a nearby matrix, within a
+  multiple of `eps(Float64)` times the trace, a model of the eigenvalue routine and not a
+  proved bound for every input.
+
+**Lazy computation.** The eigenvalue computation is the expensive part, and a group that
+stays at zero may never need it. During the preparation, a group on the Gram route gets
+cheap bounds, formed in `Float64` from the sums of squares `q_c` of its columns (`n m`
+operations, no products between columns): with `t` the sum and `d` the largest of the
+`q_c`, a lower bound `lo = d (1 − 2 n eps(Float64)) − 2 n η` and an upper bound `hi = 4 t`
+on the curvature that the rule above would store (`η` the smallest positive `Float64`; the
+bounds assume gradual underflow, and the upper one the eigenvalue model). The curvature is
+left uncomputed (`NaN` in the model) only if the type `S` of the scale is `Float32` or
+`Float64`, `4 (n + m²) eps(Float64) ≤ 1/16`, `t` is finite, and all of these hold:
+
+1. `lo ≥ 2 m floatmin(Float64)`, so that the trace underflow refusal is not made;
+2. `lo ≥ 2 floatmin(T)`, so that the curvature underflow refusal is not made;
+3. `hi ≤ floatmax(T) / 2`, so that no overflow refusal is made;
+4. `s lo ≥ 2 floatmin(S)` and `s hi ≤ 1 / (2 floatmin(S))`, so that the step band check
+   does not refuse.
+
+The curvature is then computed, once per solve, at the first visit that needs it: a visit
+whose block is nonzero, or whose block is zero and which the screen above does not remove,
+and the band check is made there. A group that stays at zero and is screened out at each
+visit never computes it. If any condition fails or the bounds do not apply, the curvature
+and the band are computed during the preparation, as for the other groups, and refuse as
+below. The bounds do not decide an eigenvalue routine that throws, or a largest eigenvalue
+that is not finite; these surface at the lazy computation.
 
 The step of a nonflat group also needs `s ℓ_k` and its reciprocal to be at least the
-smallest normal number of the type that combines `s` with `T`; this is checked with the
-curvatures, so that a refusal does not depend on the order of the visits. For `Float32`
-data with a `Float64` loss scale the check cannot fail, because the scale is representable
-in `Float32` and the curvature is a normal `Float32` number; it can fail only when the
-type of the scale is the data type. These checks
-refuse the solve with an `ArgumentError` that names the group, before the first pass,
-and leave `x` unchanged and the random number generator unused:
+smallest normal number of the type `S` that combines `s` with `T`. This band check is made
+where the curvature is computed: during the preparation, or at the lazy computation. It cannot fail when `S` is wider than `T`, for example `Float32`
+data with a `Float64` loss scale, because the scale then converts to a finite nonzero
+`Float32` and the curvature is a normal `Float32` number; it can fail only when `S` is `T`
+itself. The scale need not have the data type: `Float64` data `X = fill(2.0^-500, 1, 1)`
+with the `Float32` scale `nextfloat(0f0)` has `ℓ_k` about `2^-1000`, a normal `Float64`
+number, and `s ℓ_k` is below the smallest normal `Float64` number.
+
+**When the refusals happen.** The refusals below throw an `ArgumentError` that names the
+group, and they leave `x` unchanged. Those that are predictable, because the curvature is
+computed during the preparation or the four conditions above hold, happen before the first
+pass, and the random number generator is unused. A curvature computed lazily is computed
+in the same way, and an exception of the eigenvalue routine (which is not caught), a
+largest eigenvalue that is not finite, or a curvature or step refusal at that point (which
+the four conditions are meant to exclude) happens during a pass: `x` is still unchanged,
+but a random order may already have drawn from the generator.
 
 | Category | Condition | Message contains |
 | --- | --- | --- |
-| Curvature underflow | the sum of squares of the column of a group of one column is below `floatmin(T)`, the trace of `Ĝ` is below `m` times `floatmin(Float64)`, or `ℓ_k` is below `floatmin(T)` | `underflows` |
-| Curvature overflow | the sum of squares, `Ĝ`, its trace or its largest eigenvalue is not finite, or `ℓ_k` is infinite in `T` | `overflows` |
+| Curvature underflow | the sum of squares of the column of a group of one column with `n eps(T) ≤ 1/8` is below `floatmin(T)`, the trace of `Ĝ` is below `m` times `floatmin(Float64)`, or `ℓ_k` is below `floatmin(T)` | `underflows` |
+| Curvature overflow | the sum of squares of that column, `Ĝ`, its trace or its largest eigenvalue is not finite, or `ℓ_k` is infinite in `T` | `overflows` |
 | Step | `s ℓ_k` or its reciprocal is outside the normal range | `step of group` |
 
 A group whose curvature bound is subnormal in `T` is refused here, where the scalar
-lasso accepts a subnormal squared norm of a column. Before these, `solve!` refuses a receiver that is not
-a `BlockIterate{Float32}` or `BlockIterate{Float64}`, `momentum = true`, a penalty that
-is not a `GroupNormL2{Float32}` or `GroupNormL2{Float64}`, a level or weight that is not
-finite, nonnegative and representable in `T` (messages `penalty lambda` and `group weight`), and groups of `x`
-and of the penalty that differ in number, order or membership (`DimensionMismatch`). No
-fallback rule replaces a refused curvature.
+lasso accepts a subnormal squared norm of a column. Before these, `solve!` refuses a
+receiver that is not a `BlockIterate{Float32}` or `BlockIterate{Float64}`,
+`momentum = true`, a penalty that is not a `GroupNormL2{Float32}` or `GroupNormL2{Float64}`,
+a level or weight that is not finite, nonnegative and representable in `T` (messages
+`penalty lambda` and `group weight`), and groups of `x` and of the penalty that differ in
+number, order or membership (`DimensionMismatch`); these input refusals also apply with
+`maxpasses = 0`. No fallback rule replaces a refused curvature.
 
 ### The stopping statistic
 
