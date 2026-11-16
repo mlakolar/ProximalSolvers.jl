@@ -131,11 +131,9 @@ of the tests. What `converged=true` therefore says about the returned `x`:
   but `2^24 + 1` rounds to `2^24` when the terms are summed in that order, so the computed `λmax` can be 1,
   and the check then works with that rounded value; a stop can then count at a point whose residual for the
   exact data is not small relative to the computed `S`.
-  A start with a finite `f(x0)` is accepted even if `g(x0)` overflows in `T` (for example a ridge term
-  `(λ2/2)‖x0‖²` above `floatmax(T)`). If a later objective is not finite, the solve throws an error,
-  from the line search (for example "line search failed: nonfinite curvature estimate") or from the
-  finite-objective check of the iteration, and `x` is restored to the last accepted iterate. The
-  `NormL1` value can overflow the same way. `CDSolver` supports `NormL1` only: it refuses an `ElasticNet`
+  A start `x0` with a finite `f(x0)` is accepted even if `g(x0)` overflows in `T` (for example a ridge term
+  `(λ2/2)‖x0‖²` above `floatmax(T)`). An error raised in the step of an iteration (its line search, or the
+  check that the accepted objective is finite) restores the last accepted iterate and is rethrown, as for `NormL1`. `CDSolver` supports `NormL1` only: it refuses an `ElasticNet`
   with an `ArgumentError`, and support in CD is planned.
 - The check bounds the residual relative to `max(λ, λmax)`. A coordinate whose
   gradient is on a scale far below `λmax` can stay inaccurate when the check
