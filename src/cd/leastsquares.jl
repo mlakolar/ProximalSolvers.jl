@@ -340,8 +340,9 @@ end
 #     mk n η/2 ≤ n eps(W) t̂/2, with η = nextfloat(0.0) = eps(W) floatmin(W). A product of two
 #     Float32 values does not underflow in W.
 #   - Eigensolver: the symmetric eigensolver's backward error is modelled as
-#     ‖E‖₂ ≤ p(mk) u ‖Ĝ‖₂ ≤ p(mk) u t̂, and 4 mk² eps(W) t̂ covers p(mk) ≤ 8 mk². The library states
-#     only that p grows modestly with mk, so this term rests on a modelling assumption.
+#     ‖E‖₂ ≤ p(mk) u ‖Ĝ‖₂ ≤ p(mk) u t̂, and 4 mk² eps(W) t̂ covers p(mk) ≤ 8 mk². The eigensolver's
+#     documentation describes p as a modestly growing function of mk, so this term is a modelling
+#     assumption, not a proven bound.
 # By Weyl's inequality λmax(G) is at most μ̂ plus the three terms. The entry max_i Ĝ_ii, a lower bound
 # of λmax(Ĝ), guards a μ̂ that is computed below it. The rounding to T takes the nearest value, then
 # `nextfloat` where that value is below ℓW. An ℓ that is Inf is refused as overflow, and an ℓ below
