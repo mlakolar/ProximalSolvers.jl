@@ -464,6 +464,8 @@ a curvature when it is screened. A one-column group with `n eps(T) > 1/8` is on 
 route and can be deferred. The bounds do not decide an eigenvalue routine that throws, or a
 largest eigenvalue that is not finite: these surface during the preparation for a group
 that is not deferred, and at the lazy computation, during a pass, for a deferred group.
+How much the lazy computation saves depends on how many groups fail the screen; see
+[Cost of the lazy curvature](choosing-solver.md#Cost-of-the-lazy-curvature).
 
 The step of a nonflat group also needs `s ℓ_k` and its reciprocal to be at least the
 smallest normal number of the type `S` that combines `s` with `T`. This band check is made
