@@ -44,7 +44,7 @@ check then uses the rounded `λmax`. `ElasticNet(λ1, λ2)` on the loss `½α‖
 supports `NormL1` only; an `ElasticNet` is refused there, and its support is planned.
 A start `x0` with a finite `f(x0)` is accepted even if `g(x0)` overflows in `T` (for example a ridge
 term `(λ2/2)‖x0‖²` above `floatmax(T)`). An error raised in the step of an iteration (its line search, or the
-check that the accepted objective is finite) restores the last accepted iterate and is rethrown, as for `NormL1`. `converged=true` therefore means that a test proposed a stop and that
+check that the accepted objective is finite) restores the last accepted iterate and is rethrown, as for `NormL1`. `converged=true` means that a test proposed a stop and that
 the computed (working-precision) KKT residual `‖G‖∞` at the returned `x` is
 below that bound. The code forms `τ = T(max(gradtol, 64 eps(T)))` and the threshold
 `τ * max(λ, λmax)` in `T`, and compares `‖G‖∞` with it. The normalized form
