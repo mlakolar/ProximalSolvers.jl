@@ -523,32 +523,36 @@ end
 # step first applies `prox_block!` to a copy of b at the step γs = 1/s in S, under two guards, and
 # otherwise takes the full step. Guard 1: γs is a normal number of S (floatmin(S) ≤ γs ≤ floatmax(S)),
 # because a γs that rounded to Inf, 0 or a subnormal would not carry 1/s to relative precision. Guard 2:
-# bmax = max_i |b_i| is 0 or at least floatmin(T)/2^-53 (`_screen_floor`), because an all-zero output of
+# bmax = max_i |b_i| is 0 or at least 2^53 floatmin(T) (`_screen_floor`), because an all-zero output of
 # `prox_block!` is a zero certificate where it does not come from underflow. The guard rests on how
 # ProximalBase writes the output: entry i is the product of the shrink factor t = 1 − c/‖b‖ with b_i,
-# rounded to T, where c = γs λ0 w_k, on its ordinary path (everything in T, t = fl(1 − fl(c/‖b‖)) and
-# either 0 or at least eps(T)/2 ≥ 2^-53) and on its cold path (in R = Float64 for Float32 or Float64
-# penalty and step types, as `_scalar_parameter` and the loss scale require; t = 1 − r for r < 1 in R, so
-# at least eps(R)/2 = 2^-53). A zero level or step and an unpenalized group give a copy of b, zero where
-# b = 0, and an infinite level or weight gives the exact answer 0. So a nonzero shrink factor is at
-# least 2^-53, and with bmax ≥ 2^53 floatmin(T) the entry of the largest |b_i| is at least floatmin(T)
-# before the rounding, hence nonzero after it (floatmin(T) is a normal number of R and of T). Below
-# guard 2 the output can be all 0 although ‖b‖ exceeds the threshold by a factor of 2 or more (for
-# example a subnormal b with the threshold half of ‖b‖), and the screen is bypassed. With
-# both guards, an all-zero output means that ProximalBase's comparison of its computed norm with its
-# computed threshold decided zero, or that its shrink factor rounded to 0, which is a tie of ‖b‖ with
-# λ0 w_k/s up to the relative error of that computation: the squares and their sum, the threshold and the
-# quotient c/‖b‖, of order (mk + 8) eps(T) (not derived here). The prox of b/ℓ at the step 1/(s ℓ) is
-# 0 where ‖b‖ ≤ λ0 w_k/s, for any ℓ > 0; a copy that `prox_block!` returns as all 0 therefore gives the
+# rounded to T, where c = γs λ0 w_k. On its ordinary path the threshold c is formed in the promoted type
+# of T, S and the penalty and rounded once to T, the factor and the comparison are in T, and
+# t = fl(1 − fl(c/‖b‖)) is either 0 or at least eps(T)/2 ≥ 2^-53. On its cold path the product t b_i is
+# formed in R = Float64 and rounded to R, then to T, with t = 1 − r for r < 1 in R, so t ≥ eps(R)/2 =
+# 2^-53. The types T, S and the penalty's are Float32 or Float64 because `solve!` validates them
+# (`_check_penalty` takes GroupNormL2{<:Union{Float32, Float64}}, `_check_loss_scale` and `_scale_type`
+# the scale); the bound 2^-53 assumes that validation, and a model built directly with a BigFloat scale
+# would make R = BigFloat, for which it does not hold. A zero level or step and an unpenalized group give a
+# copy of b, zero where b = 0; an infinite level or weight is refused by `_check_penalty`. So a nonzero
+# shrink factor is at least 2^-53, and with bmax ≥ 2^53 floatmin(T) the entry of the largest |b_i| is at
+# least floatmin(T) before the rounding, hence nonzero after it (floatmin(T) is a normal number of R
+# and of T). Below guard 2 the output can be all 0 although ‖b‖ exceeds the threshold by a factor of 2 or
+# more (for example a subnormal b with the threshold half of ‖b‖), and the screen is bypassed. With both
+# guards, an all-zero output means that ProximalBase's comparison of its computed norm with its computed
+# threshold decided zero, or that its shrink factor rounded to 0, which is a tie of ‖b‖ with λ0 w_k/s up
+# to the relative error of that computation: the squares and their sum, the threshold and the quotient
+# c/‖b‖, of order (mk + 8) eps(T) (not derived here). The prox of b/ℓ at the step 1/(s ℓ) is 0 where
+# ‖b‖ ≤ λ0 w_k/s, for any ℓ > 0; a copy that `prox_block!` returns as all 0 therefore gives the
 # displacement 0 without the curvature, and the step returns zero(T) with x and the residual unchanged.
-# The screen and the full step both decide by ProximalBase's comparison, on different inputs and steps
-# (b at γs, and fl(b/ℓ) at 1/fl(s ℓ)), so under both guards a difference of their decisions lies within
-# the tie band; there the shrink factor
-# of the full step, 1 − λ0 w_k/(s ‖b‖), is about the width of the band at most, so the block that it would
-# write is about that factor times the trial point. A zero block that the screen returns as 0 forms no
-# trial point, so it is not refused even where b/ℓ would overflow. A nonfinite b is not screened (bmax is
-# NaN or Inf: NaN fails guard 2, and an Inf entry is returned unchanged by the prox) and is refused by the
-# full step.
+# The decision is one-sided: where the screen returns 0, ‖b‖ is within the tie band of λ0 w_k/s, so the
+# exact full-step factor 1 − λ0 w_k/(s ‖b‖) is at most about the band width, and the block that the full
+# step would write is about that factor times the trial point at most. The full step has no counterpart
+# of guard 2 (fl(b_i/ℓ) or its prox can underflow to 0 where ‖b‖ is far above the threshold), which does
+# not matter where the full step is the one that is used. A zero block that the screen returns as 0 forms
+# no trial point, so it is not refused even where b/ℓ would overflow. A nonfinite b is not screened (bmax
+# is NaN or Inf: NaN fails guard 2, and an Inf entry is returned unchanged by the prox) and is refused by
+# the full step.
 # Curvature. Where ℓ[k] is NaN (`_prepare!` left it uncomputed) and the screen did not return, the
 # curvature and the step band are computed now by `_group_curvature!` and stored; the arithmetic of the
 # step is then as for a curvature computed in `_prepare!`. A refusal or an eigensolver failure there
