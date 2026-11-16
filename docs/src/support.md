@@ -60,6 +60,10 @@ See [Numerical behavior](numerics.md) for numerical recovery limits,
 solver stopping and diagnostics.
 
 For an executable complete example, see [Getting started](getting-started.md).
+The [sparse covariance soft-thresholding example](examples/06_sparse_covariance_soft_thresholding.md)
+shows how to express a small nonregression problem as an identity-design lasso;
+it is not a generic covariance solver, does not scale to large covariance matrices,
+and does not enforce positive semidefiniteness.
 For using sparse **coefficients**, see the
 [sparsity tutorial](sparsity-and-kkt.md). The design matrix still must be
 dense, even when the coefficients use `SparseIterate`.
