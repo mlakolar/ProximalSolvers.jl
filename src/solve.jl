@@ -21,7 +21,7 @@ function _scalar_parameter(v, ::Type{T}, name; positive = false) where T
   nothing
 end
 
-# The loss scale of a Scaled loss, for data of type T. A Float32 or Float64 scale must be finite and
+# The loss scale of a Scaled loss or the level of SqrNormL2, for data of type T. A Float32 or Float64 scale must be finite and
 # positive with a conversion to T that is finite and nonzero (a value that is subnormal in T is
 # accepted). A fixed-width integer or Bool scale must be positive and equal to its conversion to T, so
 # that ProximalBase's oracles and the solvers' own T-valued scale use the same number. A scale of any
