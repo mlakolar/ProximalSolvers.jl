@@ -11,9 +11,9 @@ using LinearAlgebra
 using Printf
 using Random: AbstractRNG, default_rng, rand
 using SparseArrays: dropzeros!
-using ProximalBase: LeastSquaresLoss, Scaled, NormL1, SparseIterate,
+using ProximalBase: LeastSquaresLoss, SqrNormL2, Scaled, NormL1, SparseIterate,
   ncoordinates, nactive, activecoordinates, activevalues, prox_block,
-  value_and_prox!
+  value_and_prox!, value_and_gradient!
 include("blocks.jl")
 using .Blocks
 include("line_searches.jl")
@@ -31,6 +31,7 @@ include("solvers/accelerated_proximal_gradient_descent.jl")
 include("cd/models.jl")
 include("cd/solver.jl")
 include("cd/leastsquares.jl")
+include("cd/squarednorm.jl")
 include("utils.jl")
 include("precompile.jl")
 end
