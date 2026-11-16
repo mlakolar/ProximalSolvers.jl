@@ -1061,7 +1061,8 @@ end
 # it, and a group that is screened out at each of its visits does not need it, so `m.ℓ[k]` stays NaN for it. A
 # flat group and a singleton group with n eps(T) ≤ 1/8 (all the singletons here) are set in `_prepare!`. A
 # group whose bounds are inconclusive or predict a refusal is computed there too, and a singleton with a
-# large n takes the deferred Gram route; no fixture here relies on those cases except where it says so.
+# large n takes the Gram route (deferred or computed in `_prepare!`, as the bounds decide); no fixture here
+# relies on those cases except where it says so.
 # Visits the groups in `order` for `passes` passes with single steps and returns the largest change.
 function manual_passes!(m, g, x, passes; order = 1:ncoordinates(x))
   h = 0.0
@@ -1336,8 +1337,9 @@ end
 # block is far from optimal (here s‖b‖ = 2 λ w, a factor 2, not a rounding tie), while the step b/ℓ then
 # 1/(s ℓ) is representable. The fixtures are exact powers of two, X = diag(a, a), ℓ = a², b = (a y₁, 0):
 #   one step from zero: β₁ = b₁/ℓ - λ w/(s ℓ), the block soft threshold of b/ℓ at λ w/(s ℓ).
-# KKT is formed in BigFloat and relative to the penalty level c = λ w (the gradient is of the order of c, which
-# is subnormal here, so an absolute bound would be vacuous).
+# KKT is formed in BigFloat and relative to the penalty level c = λ w: the gradient is of the order of c, which
+# is tiny in the :subnormal fixtures below (it is normal in some other variants), so an absolute bound would be
+# vacuous there.
 function kkt_relative_big(X, y, s, g, β)
   setprecision(BigFloat, 256) do
     Xb, yb, βb = big.(X), big.(y), big.(Vector(β))
@@ -1359,15 +1361,17 @@ end
 
 # Two families of the same exact fixtures (X = diag(a, a), y = (y₁, 0), loss scale s, level λ = s a y₁/2 so that
 # s‖b‖ = 2 λ w for the first correlation b = a y₁, and a one-step value β₁ = b/ℓ - λ w/(s ℓ) with ℓ = a²):
-#  * :subnormal: b = a y₁ is the smallest subnormal. After the correct first step the residual is half of y₁
-#    and the next correlation is half of the smallest subnormal, which rounds to 0 in the gradient: the
-#    trial is then the current coefficient, which the prox shrinks to 0 (the eager step computes b the same way),
-#    so the passes alternate between 0 and β₁ and do not converge. This is the floating-point gradient at the
-#    subnormal edge, not the screen, so these fixtures assert the one-pass result only (the screen regression).
+#  * :subnormal: b = a y₁ is the smallest subnormal η. The stored curvature is a² up to a small upward margin, so
+#    after the first step β ≈ β₁ the residual is about y₁/2 (slightly above) and the next correlation is still
+#    η, or 0, because a correlation is rounded to a multiple of η. In a probe (Float32 and Float64 pair, cyclic)
+#    the passes alternate between about β₁ and about 2β₁ (coefficient ratios 0.99999988, 1.9999995, 0.9999996,
+#    1.9999995, ... for Float32) and do not converge; the eager step behaves the same. This is the gradient at
+#    the subnormal edge, not the screen, so these fixtures assert the one-pass result only (the screen
+#    regression), including its KKT.
 #  * :guard_edge: b is a normal number below the guard floor 2^53 floatmin(T) of the screen (Float32:
 #    b = 2^-80 < 2^-73; Float64: b = 2^-1000 < 2^-969), where the screen is bypassed but the gradients stay
-#    normal (the correlation after the first step is b/2 and then exact), so the solve converges to β₁ and the
-#    KKT is asserted.
+#    normal (after the first step the correlation is about b/2, up to the curvature margin, and the later ones
+#    are normal), so the solve converges to β₁ and the KKT is asserted.
 @testset "the screen does not certify zero from the underflow of its output" begin
   for T in TYPES, family in (:subnormal, :guard_edge)
     ea, ey = if family === :subnormal
@@ -1415,6 +1419,10 @@ end
         @test x[1] != 0 && isactive(x, 1) && x[2] == 0
         @test isapprox(Float64(x[1]), expected; rtol = 1e-4)
         @test res.passes == 1
+        # the one-step value is the minimizer of the block up to the curvature margin, so the point is
+        # stationary relative to λ w (in this orthogonal fixture the group is separable)
+        rep1 = kkt_relative_big(X, y, s, g, x)
+        @test rep1.stat <= kkt_bound(T) && rep1.screen <= kkt_bound(T)
       end
       # solving to convergence, where the later gradients stay normal: the group is active, the point is the
       # one-step value and is stationary relative to λ w
