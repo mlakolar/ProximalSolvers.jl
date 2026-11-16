@@ -51,6 +51,22 @@ end
 # Loss, data, shape, penalty and alias checks shared by the dense gate and the
 # CD owner gate; `x` is the caller's original array or owner, of length `length(x)`.
 function _check_data(x, f, g, ::Type{T}) where T
+  if f isa SqrNormL2
+    # A centered squared norm requires no design matrix. Borrow its center;
+    # the caller's mutable iterate cannot share storage with it.
+    y = f.y
+    y isa Vector{T} ||
+      throw(ArgumentError("SqrNormL2 requires a centered Vector{$T}"))
+    length(y) > 0 && length(x) == length(y) ||
+      throw(DimensionMismatch("x and the SqrNormL2 center must have the same positive length"))
+    _check_loss_scale(f.λ, T)
+    g isa NormL1 && g.w === nothing ||
+      throw(ArgumentError("only unweighted NormL1 is supported"))
+    _scalar_parameter(g.λ0, T, "penalty lambda")
+    Base.mightalias(x, y) &&
+      throw(ArgumentError("mutable x must not alias the SqrNormL2 center"))
+    return y
+  end
   base = if f isa LeastSquaresLoss
     f
   elseif f isa Scaled && f.f isa LeastSquaresLoss
@@ -75,7 +91,9 @@ function _check_problem(x, f, g)
   x isa Vector && eltype(x) in (Float32, Float64) ||
     throw(ArgumentError("x must be a dense Vector{Float32} or Vector{Float64}"))
   base = _check_data(x, f, g, eltype(x))
-  _allfinite(x) && _allfinite(base.Y) && _allfinite(base.X) ||
+  finite_data = f isa SqrNormL2 ? _allfinite(base) :
+                (_allfinite(base.Y) && _allfinite(base.X))
+  _allfinite(x) && finite_data ||
     throw(ArgumentError("x, X and y must contain only finite values"))
   nothing
 end
@@ -88,7 +106,9 @@ function _check_owner_problem(x, f, g)
   _is_cd_owner(x) ||
     throw(ArgumentError("x must be a dense Vector or a one-dimensional SparseIterate of Float32 or Float64"))
   base = _check_data(x, f, g, eltype(x))
-  all(isfinite, activevalues(x)) && _allfinite(base.Y) && _allfinite(base.X) ||
+  finite_data = f isa SqrNormL2 ? _allfinite(base) :
+                (_allfinite(base.Y) && _allfinite(base.X))
+  all(isfinite, activevalues(x)) && finite_data ||
     throw(ArgumentError("x, X and y must contain only finite values"))
   nothing
 end
