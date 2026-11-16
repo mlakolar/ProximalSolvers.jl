@@ -102,8 +102,8 @@ function check_solution(X, y, α, g, x, res; converged = true)
   @test rep.stat <= kkt_bound(T) * max(1.0, Float64(g.λ0))
   @test rep.screen <= kkt_bound(T)
   for (k, G) in enumerate(g.groups)
-    # a group is active after a finished run exactly when it holds a nonzero entry (the last pass is
-    # followed by `dropzeros!`), and an inactive group holds +0.0
+    # after a run of at least one pass, a group is active when it holds a nonzero entry (each pass is
+    # followed by `dropzeros!`) and not otherwise, and an inactive group holds +0.0
     nonzero = any(i -> !iszero(x[i]), G)
     @test isactive(x, k) == nonzero
     nonzero || @test all(i -> isequal(x[i], zero(T)), G)
@@ -146,14 +146,16 @@ end
 # ---------------------------------------------------------------------------
 # Designs: :plain Gaussian; :correlated (a shared factor: correlation about 0.7); :duplicate (columns p and
 # p-1 repeat columns 1 and 2); :scaled (column scales 10^-d … 10^d, d = 3 for Float64 and 1 for Float32,
-# where the gradient of a column of scale 10^d carries rounding of order eps(T) 10^d times its norm);
+# where the rounding of a Float32 gradient is about eps(Float32) times the scale of the column, which must
+# stay well below the bound);
 # :wide (a plain design; the caller takes n < p).
 # The columns of Z have norm about 1 and ‖y‖ is of order 1, so that the gradient is of order 1 and the
 # stationarity bound, absolute for a penalty up to 1 and relative to λ0 above it, is a relative accuracy.
-# With entries of order 1 (gradients of order ‖X‖² ≈ 100) a Float32 solve at the tolerance 1e-6 stops
-# with a stationarity of about 1e-3, from the step rule's slack (a change below the threshold, divided by
-# one minus the contraction factor of the passes) and from the rounding of the iterate, about
-# eps(Float32) ‖X‖² ‖β‖.
+# In a probe before this scaling, with entries of order 1 (gradients of order ‖X‖², about 100 here), Float32
+# solves at the tolerance 1e-6 ended with stationarities between 1e-4 and 2e-3, above the bound 1e-4. Two
+# causes: the stopping rule bounds one pass's change, not the distance to the solution (the stationarity can
+# be that change divided by one minus the contraction factor of the passes), and the rounding of the
+# iterate, about eps(Float32) ‖X‖² ‖β‖.
 function make_design(::Type{T}, kind::Symbol, n, p; seed) where T
   rng = Xoshiro(seed)
   Z = randn(rng, n, p) ./ sqrt(n)
@@ -317,8 +319,9 @@ function majorizes(X, G, ℓ, ε)
   end
 end
 
-# the allowed excess: 1e-6, and more for a Float32 singleton, whose curvature is the Float32 sum of squares
-# with the margin 2 n eps(T) (the sum of squares rounds by up to about n eps(T)/2 relative)
+# the allowed excess over λmax: 1e-6, and 4 n eps(T) where that is larger for a singleton group, whose
+# curvature is the sum of squares in T followed by a margin of 2 n eps(T) (the maintainer's ruling on #275),
+# about 2e-5 for Float32 and n = 40
 curvature_margin(::Type{T}, n, m) where T = m == 1 ? max(1e-6, 4n * eps(T)) : 1e-6
 
 function curvature_cases(::Type{T}) where T
@@ -446,7 +449,8 @@ end
   for T in TYPES, dkind in (:plain, :correlated, :duplicate, :scaled),
       lkind in (:one, :one_range, :singletons, :contiguous, :strided, :reordered, :many),
       (wkind, fraction) in ((:default, 0.3), (:explicit, 0.02), (:explicit, 0.3))
-    # one group over columns of widely different scales is a gradient method with a huge condition number
+    # a group that spans columns of widely different scales converges at a rate set by the condition number
+    # of its Gram matrix, which is large there
     dkind === :scaled && lkind in (:one, :one_range, :strided, :reordered) && continue
     idx += 1
     α = (fraction == 0.3 && wkind === :explicit) ? (T === Float32 ? 0.7 : 2.0) : nothing   # a scaled loss on some
@@ -590,7 +594,7 @@ end
   for T in TYPES
     n, q = 60, 8
     Zfull, y = make_design(T, :correlated, n, q; seed = 81)
-    Zfull[:, 1] .= T.(Float64.(y) .+ 0.3 .* randn(Xoshiro(82), n) ./ sqrt(n))     # column 1 is the strongest, so group {1} is active
+    Zfull[:, 1] .= T.(Float64.(y) .+ 0.3 .* randn(Xoshiro(82), n) ./ sqrt(n))     # column 1 is y plus noise, so |Xᵀy| is largest there and group {1} is nonzero at 0.3 λmax
     X = hcat(Zfull, Zfull[:, 1])
     gd = [[1, 9], [2, 3], [4], [5, 6, 7], [8]]
     gr = [[1], [2, 3], [4], [5, 6, 7], [8]]
