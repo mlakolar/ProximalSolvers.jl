@@ -1,4 +1,4 @@
-# # Sparse covariance estimation by soft-thresholding
+# Sparse covariance estimation by soft-thresholding.
 #
 # Rothman, Levina and Zhu (2009), "Generalized Thresholding of Large Covariance
 # Matrices" (https://doi.org/10.1198/jasa.2009.0101), include soft-thresholding
@@ -83,7 +83,7 @@ for (k, (i, j)) in enumerate(pairs)
 end
 @assert issymmetric(Sigma_hat)
 @assert diag(Sigma_hat) == diag(S)
-@assert count(!iszero, b) <= m
+@assert all(abs.(b) .<= abs.(s) .+ 1e-12)
 
 println("Number of distinct off-diagonal entries: ", m)
 println("Nonzero entries after thresholding: ", count(!iszero, b))
