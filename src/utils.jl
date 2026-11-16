@@ -112,7 +112,7 @@ end
 # common positive factor on the loss and the penalty levels scales alike (within the range of T), and
 # 64 eps(T) is a floor of a few dozen units of roundoff, chosen without a bound on the error of the
 # computed gradient. It is not kept when S is not finite, when τ S is below floatmin(T) (a threshold
-# that may have underflowed; S = 0, for λ1 = 0 and λmax = 0, is one) or when ‖G‖∞ is not finite.
+# that may have underflowed; a computed S = 0, as for λ1 = 0 and y = 0, is one) or when ‖G‖∞ is not finite.
 # It is a computed residual, not a certificate in exact arithmetic.
 function _stationary!(state, f, g, options::ProximalOptions)
   T = eltype(state.x)

@@ -7,9 +7,9 @@ module ElasticNetTests
 # off-support optimality condition verified. The support and signs of the second one are taken from a
 # tight Float64 solve of AccProxGradDescent, and the BigFloat solve is accepted as the minimizer only
 # if its signs agree and the off-support condition holds (the second value of `reference`). `converged` is a stopping flag, not an accuracy
-# certificate: accuracy comes from the references, and each `converged = true` in this file is
-# checked against the independent residual with an allowance for the rounding of the computed
-# gradient (`kkt_excess`). Refusals of penalties and of iterates are in test/core_contracts.jl and
+# certificate: accuracy comes from the references, and each `converged = true` of the solves routed
+# through `run` is checked against the independent residual with an allowance for the rounding of the
+# computed gradient (`kkt_excess`). Refusals of penalties and of iterates are in test/core_contracts.jl and
 # test/accelerated_pgd.jl.
 using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
@@ -299,15 +299,15 @@ end
   end
 end
 
-@testset "ridge solutions at x = 0: S = 0 refuses every stop" begin
+@testset "ridge solutions at x = 0: a computed S = 0 refuses every stop" begin
   for T in (Float32, Float64), method in METHODS
-    # y = 0, so the minimizer of ElasticNet(0, 1) from x0 = 0 is x0, and λmax = 0
+    # y = 0, so the minimizer of ElasticNet(0, 1) from x0 = 0 is x0, and the computed λmax is 0
     X = randn(Xoshiro(3), T, 10, 3)
     x = zeros(T, 3)
     options = ProximalOptions(maxiter = 40)
     r = solve!(x, LeastSquaresLoss(zeros(T, 10), X), ElasticNet(zero(T), one(T)), method, options)
     @test all(iszero, x) && !r.converged && r.iterations == 40 && r.iteration_converged
-    # Xᵀy = 0 with y ≠ 0
+    # y ≠ 0 with a computed Xᵀy of exactly 0 (1 - 1: the products and the sum are exact)
     X1 = reshape(T[1, 1], 2, 1)
     x = zeros(T, 1)
     r = solve!(x, LeastSquaresLoss(T[1, -1], X1), ElasticNet(zero(T), one(T)), method, options)
@@ -369,14 +369,16 @@ end
   end
 end
 
-@testset "a start whose penalty overflows is refused with the iterate restored" begin
-  # f(x0) = 0 is finite, the ridge value (λ2/2) x0² = 5e39 is above floatmax(Float32)
+@testset "a start whose penalty overflows: the solve throws and the iterate is restored" begin
+  # f(x0) = 0 is finite, the ridge value (λ2/2) x0² = 5e39 is above floatmax(Float32). The message
+  # depends on whether the line search or the finite-objective check fails first on other data, so
+  # only the error type and the rollback are asserted.
   for method in METHODS
     X, y = reshape(Float32[1e-20], 1, 1), Float32[1]
     x0 = Float32[1e20]
     @test isfinite(LeastSquaresLoss(y, X)(x0)) && !isfinite(ElasticNet(0f0, 1f0)(x0))
     x = copy(x0)
-    @test_throws r"did not produce a finite objective" solve!(x, LeastSquaresLoss(y, X), ElasticNet(0f0, 1f0), method)
+    @test_throws ErrorException solve!(x, LeastSquaresLoss(y, X), ElasticNet(0f0, 1f0), method)
     @test isequal(x, x0)
   end
 end
@@ -398,8 +400,9 @@ end
 @testset "allocations: an ElasticNet solve allocates no more than the NormL1 solve, beyond its own penalty validation" begin
   # The validation of the penalty levels (_scalar_parameter, once per solve) allocates a few bytes on
   # some Julia versions and level types, and an ElasticNet validates two levels where NormL1 validates
-  # one, so the bytes of the validation are taken out of both counts. The rest of the solve, which is
-  # the iteration, must not allocate more for the ElasticNet.
+  # one, so the bytes of the validation are taken out of both counts. The remainder (solve bytes minus
+  # validation bytes) is the rest of the solve's allocation cost, including its setup, the result and
+  # the trace setup; it must not be larger for the ElasticNet.
   options = ProximalOptions(maxiter = 30, ftol = 0, xtol = 1e-300, gradtol = 0, allow_f_increases = true)
   for T in (Float32, Float64), scaled in (false, true), method in METHODS
     X, y = design(T, 40, 10, 16)
@@ -408,9 +411,9 @@ end
     λ = 0.1 * lambdamax(X, y, α)
     x0 = zeros(T, 10)
     for (en, l1) in ((ElasticNet(T(λ), T(0.5)), NormL1(T(λ))), (ElasticNet(λ, 0.5), NormL1(λ)))
-      iteration_en = solve_allocations(method, f, en, x0, options) - validation_allocations(en, T)
-      iteration_l1 = solve_allocations(method, f, l1, x0, options) - validation_allocations(l1, T)
-      @test (T, scaled, typeof(method), iteration_en <= iteration_l1) == (T, scaled, typeof(method), true)
+      remainder_en = solve_allocations(method, f, en, x0, options) - validation_allocations(en, T)
+      remainder_l1 = solve_allocations(method, f, l1, x0, options) - validation_allocations(l1, T)
+      @test (T, scaled, typeof(method), remainder_en <= remainder_l1) == (T, scaled, typeof(method), true)
     end
   end
 end

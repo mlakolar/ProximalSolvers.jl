@@ -122,13 +122,19 @@ of the tests. What `converged=true` therefore says about the returned `x`:
   `½‖X̃b - ỹ‖²` equals `α/2 ‖Xb - y‖² + (λ2/2)‖b‖²`, its gradient is `∇f(x) + λ2 x`, and its
   `λ̃max = ‖X̃ᵀỹ‖∞ = α‖Xᵀy‖∞` is the `λmax` above. The check with `S = max(λ1, λmax)` is therefore
   the lasso check on those data, and has the same properties: it is covariant under a common
-  positive factor on `α`, `λ1` and `λ2` (in exact arithmetic), and it refuses every stop where `S`
-  is 0. The scale does not contain `λ2` or `λ2‖x‖∞`. With `λ1 = 0` and `y = 0` (or `Xᵀy = 0`), `S = 0`
-  although `x = 0` is the ridge solution: no stop counts, and the solve runs to `maxiter` with
-  `converged=false`, as `NormL1(0)` does for `y = 0` (unless another exit applies). A start with a
-  finite `f(x0)` is accepted even if `g(x0)` overflows in `T` (for example a ridge term
-  `(λ2/2)‖x0‖²` above `floatmax(T)`); if the penalty value of the first trial point also overflows,
-  the solve throws "did not produce a finite objective", with `x` restored to `x0`. The
+  positive factor on `α`, `λ1` and `λ2` (in exact arithmetic), and it refuses every stop where the
+  computed `S = max(T(λ1), λmax)` is 0, with `λmax` as the solver computes it. The scale does not
+  contain `λ2` or `λ2‖x‖∞`. With `λ1 = 0` and `y = 0`, the computed `S` is 0 although `x = 0` is the
+  ridge solution: no stop counts, and the solve runs to `maxiter` with `converged=false`, as
+  `NormL1(0)` does for `y = 0` (unless another exit applies). An exact `Xᵀy = 0` need not give a computed
+  `λmax = 0`: in `Float32`, `X = reshape(Float32[2^24, 1, -2^24, -1], 4, 1)` with `y = ones(Float32, 4)` has `Xᵀy = 0`,
+  but `2^24 + 1` rounds to `2^24` in a left-to-right sum, so the computed `λmax` can be 1, and the check
+  then works with that rounded value (a solve of this problem reported convergence at iteration 2 at a point
+  whose exact-data residual is about 1.25).
+  A start with a finite `f(x0)` is accepted even if `g(x0)` overflows in `T` (for example a ridge term
+  `(λ2/2)‖x0‖²` above `floatmax(T)`). If a later objective is not finite, the solve throws an error,
+  from the line search (for example "line search failed: nonfinite curvature estimate") or from the
+  finite-objective check of the iteration, and `x` is restored to the last accepted iterate. The
   `NormL1` value can overflow the same way. `CDSolver` supports `NormL1` only: it refuses an `ElasticNet`
   with an `ArgumentError`, and support in CD is planned.
 - The check bounds the residual relative to `max(λ, λmax)`. A coordinate whose
