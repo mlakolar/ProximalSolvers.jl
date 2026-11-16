@@ -101,7 +101,7 @@ snapshot `9be1773e911a44ec21d49df28cb01fea37c4316e`.
 Restore capabilities selectively with focused numerical checks.
 
 The ProximalBase source pin for this development branch is
-`c123d56ba1948e36a8fdbf183a9eea396a16e0d5`;
+`50db4b1ef376cbe01831c3dd019b6be0027db0b6`;
 the isolated historical comparison baseline is
 `e8a45a8a6ffe2a6f92d83c4c77d62a9b7631e291`.
 Every relevant CI run performs exact-source independent probes in

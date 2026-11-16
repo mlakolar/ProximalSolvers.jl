@@ -392,7 +392,7 @@ checks shared by both gates and an owner gate that inspects only public active
 values and tests aliasing against the original owner. PGD keeps the dense gate and
 refuses owners.
 
-The current exact PB pin is `c123d56ba1948e36a8fdbf183a9eea396a16e0d5`. CD uses
+The current exact PB pin is `50db4b1ef376cbe01831c3dd019b6be0027db0b6`. CD uses
 its scalar `prox_block` oracle; PGD retains fused `value_and_prox!`. The private PB
 SparseIterate contract remains unchanged. PR #237's group/workspace migration is
 not imported. The gated analysis job always runs isolated exact-source paired
