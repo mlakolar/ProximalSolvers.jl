@@ -128,9 +128,9 @@ of the tests. What `converged=true` therefore says about the returned `x`:
   ridge solution: no stop counts, and the solve runs to `maxiter` with `converged=false`, as
   `NormL1(0)` does for `y = 0` (unless another exit applies). An exact `Xᵀy = 0` need not give a computed
   `λmax = 0`: in `Float32`, `X = reshape(Float32[2^24, 1, -2^24, -1], 4, 1)` with `y = ones(Float32, 4)` has `Xᵀy = 0`,
-  but `2^24 + 1` rounds to `2^24` in a left-to-right sum, so the computed `λmax` can be 1, and the check
-  then works with that rounded value (a solve of this problem reported convergence at iteration 2 at a point
-  whose exact-data residual is about 1.25).
+  but `2^24 + 1` rounds to `2^24` when the terms are summed in that order, so the computed `λmax` can be 1,
+  and the check then works with that rounded value; a stop can then count at a point whose residual for the
+  exact data is not small relative to the computed `S`.
   A start with a finite `f(x0)` is accepted even if `g(x0)` overflows in `T` (for example a ridge term
   `(λ2/2)‖x0‖²` above `floatmax(T)`). If a later objective is not finite, the solve throws an error,
   from the line search (for example "line search failed: nonfinite curvature estimate") or from the
