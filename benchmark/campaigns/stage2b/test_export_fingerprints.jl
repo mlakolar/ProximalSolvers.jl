@@ -295,6 +295,8 @@ cell(result, kind, name) = first(v for (k, n, v) in result.rows if k == kind && 
 check_with_exact(exact) = output -> exact
 # A call! with the captured names the exporter reads (function arguments keep their names).
 call_with(x, method, f, g) = () -> (x, method, f, g)
+# The same with the `own_options` flag a call-phase case of the historical layout captures (the release case).
+call_with(x, method, f, g, own_options) = () -> (x, method, f, g, own_options)
 bits(v) = collect(reinterpret(UInt64, collect(Float64, v)))
 
 # Copy the four harness files to a fresh directory (the harness is never modified in place).
@@ -596,16 +598,19 @@ harness_ok = run_group("real cases") do
         @test refused(err_of(second, spec))
         @test calls[] >= 2
       end
-      # an unknown loss or penalty type of the release case is refused, never skipped
+      # an unknown loss or penalty type of the release case is refused by the live validation, never skipped: the
+      # replacement call! keeps the captured own_options, so the refusal comes from the guard and not from a missing capture
+      @test getfield(spec.make(1).call!, :own_options) isa Bool
       for (f2, g2) in ((zeros(2), nothing), (nothing, zeros(2)))
         function make(rep)
           c = spec.make(rep)
           f3 = f2 === nothing ? getfield(c.call!, :f) : f2
           g3 = g2 === nothing ? getfield(c.call!, :g) : g2
-          H.CaseState(c.reset!, call_with(getfield(c.call!, :x), getfield(c.call!, :method), f3, g3), c.certify,
-                      c.problem_hash)
+          H.CaseState(c.reset!, call_with(getfield(c.call!, :x), getfield(c.call!, :method), f3, g3,
+                                          getfield(c.call!, :own_options)), c.certify, c.problem_hash)
         end
-        @test refused(err_of(make, spec))
+        err = err_of(make, spec)
+        @test refused(err) && occursin("not a scaled least-squares loss and a NormL1", err.msg)
       end
       # the unmodified release case still exports
       @test err_of(spec.make, spec) === nothing
