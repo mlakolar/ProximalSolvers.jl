@@ -69,7 +69,7 @@ function convergence_assessment(
 
   # A stop proposed by any of the three tests counts only if the accepted iterate is stationary
   # for the lasso, to the working precision (see _stationary!); otherwise the solve continues.
-  if (x_converged || f_converged || grad_converged) && !_stationary!(state, g, options)
+  if (x_converged || f_converged || grad_converged) && !_stationary!(state, f, g, options)
     x_converged, f_converged, grad_converged = false, false, false
   end
 
@@ -109,10 +109,10 @@ end
 # bound on the error of the computed gradient. It is not kept when S is not finite, when τ S is
 # below floatmin(T) (a threshold that may have underflowed) or when ‖G‖∞ is not finite.
 # It is a computed residual, not a certificate in exact arithmetic.
-function _stationary!(state, g, options::ProximalOptions)
+function _stationary!(state, f, g, options::ProximalOptions)
   T = eltype(state.x)
   λmax = _lambda_max!(state)       # first: it uses xhat, which APG's gradient below also uses
-  grad = _gradient_at_x!(state)
+  grad = _gradient_at_x!(state, f)
   λ = T(g.λ0)
   residual = _kkt_residual(grad, state.x, λ)
   S = max(λ, λmax)
@@ -122,7 +122,7 @@ function _stationary!(state, g, options::ProximalOptions)
 end
 
 # α‖Xᵀy‖∞, computed once per solve (state.λmax is negative until then) with the arithmetic of the
-# gradient kernel at x = 0 (Xᵀ times a vector, then the scale α). It is formed in state.xhat. At
+# gradient oracle at x = 0 (Xᵀ times a vector, then the scale α). It is formed in state.xhat. At
 # every use in the solvers xhat is written before it is read (the input of the proximal step in
 # PGD's update_state!, the same input and the difference x - y in APG's _prox_grad_step!), and
 # the convergence tests and the trace do not read it, so a stop that is assessed after an
@@ -136,14 +136,14 @@ function _lambda_max!(state)
 end
 
 # ∇f at the accepted x. PGD holds it.
-_gradient_at_x!(state::ProximalGradientDescentState) = state.grad_f_x
+_gradient_at_x!(state::ProximalGradientDescentState, f) = state.grad_f_x
 
-# APG holds ∇f(y), not ∇f(x). It forms ∇f(x) from the cached image A x with the gradient kernel,
+# APG holds ∇f(y), not ∇f(x). It forms ∇f(x) from the cached image A x with the gradient oracle,
 # in state.xhat (the length-p buffer above) with state.dz, the image-length buffer that APG writes
 # before it reads it at each use (the value and gradient at y, the fresh product of the bound
 # test), and counts the evaluation in grad_calls.
-function _gradient_at_x!(state::AccProxGradDescentState)
-  _image_value_and_gradient!(state.xhat, state.model, state.z_x, state.dz)
+function _gradient_at_x!(state::AccProxGradDescentState, f)
+  _value_and_gradient!(state.xhat, state.x, f, state.z_x, state.dz)
   state.grad_calls += 1
   state.xhat
 end

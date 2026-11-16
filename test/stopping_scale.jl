@@ -249,7 +249,7 @@ function check(method, T, x, λ, G, options; λmax = 1, α = one(T))
     f = lossof(α, T[y], T[1;;])
     state = PS.initial_state(method, options, f, g, T[x])
   end
-  PS._stationary!(state, g, options), state
+  PS._stationary!(state, f, g, options), state
 end
 
 @testset "the stationarity check of a stop: thresholds, the zero exit, a zero scale and underflow (#296)" begin
@@ -287,15 +287,18 @@ end
 end
 
 # a function barrier gives the call concrete argument types
-alloc_check(state, g, options) = @allocated PS._stationary!(state, g, options)
+alloc_check(state, f, g, options) = @allocated PS._stationary!(state, f, g, options)
 @testset "the stationarity check allocates nothing (#296)" begin
   o = ProximalOptions(gradtol = 1e-5)
   for T in (Float64, Float32), method in METHODS
     g = NormL1(T(.1))
-    f = LeastSquaresLoss(T[.6, 1], T[1 0; 0 1])
-    state = PS.initial_state(method, o, f, g, T[.5, 0])
-    PS._stationary!(state, g, o)
-    @test alloc_check(state, g, o) == 0
+    raw = LeastSquaresLoss(T[.6, 1], T[1 0; 0 1])
+    # raw, a scale of type T, a Float64 (Float32 data) or Float32 (Float64 data) scale, an integer scale
+    for f in (raw, T(.25) * raw, (T === Float32 ? 0.25 : 0.25f0) * raw, 3 * raw)
+      state = PS.initial_state(method, o, f, g, T[.5, 0])
+      PS._stationary!(state, f, g, o)
+      @test alloc_check(state, f, g, o) == 0
+    end
   end
 end
 
