@@ -265,9 +265,9 @@ at each visit never pays for them, except where cheap bounds cannot rule out a r
 which case the bound is computed before the first pass (such a group, or an ordinary
 one-column group, already has its bound when it is screened). A visit to a nonflat group
 whose block is zero is screened this way, whether or not the group is active, when the
-reciprocal of the loss scale is a normal number of its type and the largest correlation of
-the group is far enough above the underflow range of `T`; otherwise the visit takes the
-full step. The `Float64` copy
+reciprocal of the loss scale is a normal number of its type and either all correlations of
+the group are zero or the largest magnitude is at least `2^53 floatmin(T)`; otherwise the
+visit takes the full step. The `Float64` copy
 of the columns and the Gram matrix are workspace of the solver, allocated when the first such
 bound is computed and sized by the largest group of the iterate: `n` times that size, and
 its square, in `Float64`. The solver keeps no other copy of the columns. For a group of one coefficient, the penalty is a term of an L1 penalty, and

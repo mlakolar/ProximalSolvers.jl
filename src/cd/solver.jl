@@ -74,7 +74,7 @@ at the first visit that needs it when cheap bounds show, under the eigenvalue mo
 before the first pass otherwise. A visit to a nonflat group whose block is zero, active or
 not, first applies ProximalBase's `prox_block!` to the correlations at the step `1/s`
 (skipped when `1/s` is not a normal number of the scale's arithmetic type, or when the
-largest correlation is not far enough above the underflow range of `T`) and ends without a
+correlations are not all zero and the largest magnitude is below `2^53 * floatmin(T)`) and ends without a
 change, and without computing a still-deferred curvature, when the result is zero. Before
 the first pass, and before any draw from the RNG, an `ArgumentError` that names the group
 refuses a curvature that underflows or overflows in `T` and a step outside the normal
