@@ -123,7 +123,7 @@ accepted(x, f, g; method = CDSolver(order = :random)) = PS._check_block_problem(
       refused(ArgumentError, "X must be Matrix", iterate(T), LeastSquaresLoss(opposite.(y), opposite.(X)), g)
       refused(ArgumentError, "X must be Matrix", iterate(T), LeastSquaresLoss(y, sparse(X)), g)
       refused(ArgumentError, "X must be Matrix", iterate(T), LeastSquaresLoss(opposite.(y), X), g)
-      # PB refuses a response whose length differs from the rows of X when it builds the loss
+      # PB refuses a response whose length differs from the rows of X when it builds the loss, so only the columns of X can disagree with x
       refused(DimensionMismatch, "dimensions do not match", iterate(T), LeastSquaresLoss(y, X[:, 1:4]), g)
       refused(DimensionMismatch, "dimensions do not match", iterate(T), LeastSquaresLoss(y, hcat(X, X)), g)
       refused(ArgumentError, "only LeastSquaresLoss", iterate(T), QuadraticFunction(Matrix{T}(I, 5, 5), zeros(T, 5)), g)
