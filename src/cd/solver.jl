@@ -70,7 +70,7 @@ the Gram matrix of the columns of the group; the forced full pass counts group v
 As for the lasso, `converged` reports this change test and is not a KKT certificate.
 The curvature of a flat group, and of a group of one column when `n eps(T) <= 1/8` (`n`
 the number of rows), is set before the first pass. That of any other group is computed
-at the first visit that needs it when cheap bounds show that no refusal can occur, and
+at the first visit that needs it when cheap bounds show, under the eigenvalue model for groups of two or more columns, that no refusal can occur, and
 before the first pass otherwise. A visit to a nonflat group whose block is zero, active or
 not, first applies ProximalBase's `prox_block!` to the correlations at the step `1/s`
 (skipped when `1/s` is not a normal number of the scale's arithmetic type) and ends
