@@ -262,8 +262,12 @@ squares of its column, as the lasso does. Any other group needs the Gram matrix 
 columns in `Float64` and, for two or more columns, an eigenvalue computation. These are
 done at the first visit that needs them, so a group that stays at zero and is screened out
 at each visit never pays for them, except where cheap bounds cannot rule out a refusal (under the eigenvalue model, for groups of two or more columns), in
-which case the bound is computed before the first pass. A visit to any nonflat group whose
-block is zero is screened this way, whether or not the group is active. The `Float64` copy
+which case the bound is computed before the first pass (such a group, or an ordinary
+one-column group, already has its bound when it is screened). A visit to a nonflat group
+whose block is zero is screened this way, whether or not the group is active, when the
+reciprocal of the loss scale is a normal number of its type and the largest correlation of
+the group is far enough above the underflow range of `T`; otherwise the visit takes the
+full step. The `Float64` copy
 of the columns and the Gram matrix are workspace of the solver, allocated when the first such
 bound is computed and sized by the largest group of the iterate: `n` times that size, and
 its square, in `Float64`. The solver keeps no other copy of the columns. For a group of one coefficient, the penalty is a term of an L1 penalty, and

@@ -73,8 +73,9 @@ the number of rows), is set before the first pass. That of any other group is co
 at the first visit that needs it when cheap bounds show, under the eigenvalue model for groups of two or more columns, that no refusal can occur, and
 before the first pass otherwise. A visit to a nonflat group whose block is zero, active or
 not, first applies ProximalBase's `prox_block!` to the correlations at the step `1/s`
-(skipped when `1/s` is not a normal number of the scale's arithmetic type) and ends
-without a change, and without computing the curvature, when the result is zero. Before
+(skipped when `1/s` is not a normal number of the scale's arithmetic type, or when the
+largest correlation is not far enough above the underflow range of `T`) and ends without a
+change, and without computing a still-deferred curvature, when the result is zero. Before
 the first pass, and before any draw from the RNG, an `ArgumentError` that names the group
 refuses a curvature that underflows or overflows in `T` and a step outside the normal
 range, for each group whose curvature is computed then. An exception of the eigenvalue
