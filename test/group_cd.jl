@@ -284,7 +284,7 @@ function one_cyclic_pass(X, y, s, g, β0)
   r = Float64.(y) - Xd * β
   for (k, G) in enumerate(g.groups)
     B = Xd[:, G]
-    ℓ = eigmax(Symmetric(B' * B))
+    ℓ = maximum(eigvals(Symmetric(B' * B)))     # not eigmax: its selected-eigenvalue routine throws on a near-identity Gram on Julia 1.10
     u = β[G] .+ B' * r ./ ℓ
     thr = Float64(g.λ0) * Float64(g.w[k]) / (s * ℓ)
     nu = norm(u)
