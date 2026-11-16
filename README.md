@@ -50,7 +50,8 @@ reproduce that order.
 
 **For PGD and APG, `converged=true` means that a stopping test proposed a stop and
 that the computed KKT residual `‖G‖∞` at the returned point is below
-`max(gradtol, 64eps(T)) * max(λ, λmax)` (`λmax = α‖Xᵀy‖∞`; the threshold is formed in `T`, where it can round or
+`max(gradtol, 64eps(T)) * max(λ, λmax)` (`λmax = α‖Xᵀy‖∞`, and `λ` the ℓ1 level of the penalty: `λ` of `NormL1(λ)`,
+`λ1` of `ElasticNet(λ1, λ2)`; the threshold is formed in `T`, where it can round or
 overflow for a huge `gradtol`), not that the coefficients have a specified number of
 correct digits.** It guarantees only that the computed, normalized residual `‖G‖∞ / max(λ, λmax)` is below
 `max(gradtol, 64eps(T))`, with the threshold formed in `T`; it does not
@@ -59,6 +60,12 @@ results you plan to report. It is a working-precision residual, not an exact-ari
 certificate (see [the stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)). See the
 [numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/)
 and [solver settings](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/).
+
+PGD and APG also solve the elastic net, with `ElasticNet(λ1, λ2)` as the penalty
+`λ1‖β‖₁ + (λ2/2)‖β‖₂²` (levels `λ1, λ2 ≥ 0`, unweighted); the stopping check then uses the residual of the
+elastic-net optimality condition, with the same bound (`λ2` does not enter it). `CDSolver` supports
+`NormL1` only, and refuses an `ElasticNet`; support in CD is planned. See
+[the elastic-net example](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples/06_elasticnet/).
 
 The supported problem uses a finite dense `Matrix{T}`, finite `Vector{T}`
 response and matching coefficients, where `T` is `Float32` or `Float64`.

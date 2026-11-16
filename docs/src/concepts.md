@@ -63,7 +63,7 @@ kkt = [iszero(beta[j]) ?
 
 With the default options, `converged=true` for PGD means that a stopping test
 proposed a stop and that the computed KKT residual is below
-`max(gradtol, 64eps(T)) * max(λ, λmax)`: a working-precision check, not an exact
+`max(gradtol, 64eps(T)) * max(λ, λmax)` (`λ` the ℓ1 level of the penalty): a working-precision check, not an exact
 optimality certificate. The displayed coefficient error and KKT violation can still
 be nonzero. **Tighten the tolerances and check optimality before reporting numerical
 results.** This is an illustration, not an accuracy guarantee for other problems. Here

@@ -115,7 +115,7 @@ coordinate order and no momentum, use
 
 Defaults are useful for an **exploratory first run**, not for claiming
 coefficient accuracy. With them, `converged=true` means that the computed
-KKT residual `‖G‖∞` is below `max(gradtol, 64eps(T)) * max(λ, λmax)`, which
+KKT residual `‖G‖∞` is below `max(gradtol, 64eps(T)) * max(λ, λmax)` (`λ` the ℓ1 level of the penalty), which
 does not bound the coefficient error, shown here next to the KKT violation
 on this two-coefficient problem:
 
@@ -168,7 +168,8 @@ not assume smaller tolerances guarantee a correspondingly smaller error:
 residual that is checked does not bound the coefficient error.
 PGD's stopping tests combine by **OR**, so any one of them can propose a stop,
 and a proposed stop counts only if the computed KKT residual `‖G‖∞` is below
-`max(gradtol, 64eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞`. A solve
+`max(gradtol, 64eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞` and `λ` the ℓ1 level of the penalty
+(`λ1` for an `ElasticNet`, whose residual includes the ridge term `λ2 x`). A solve
 that the check keeps from stopping continues, and can end at `maxiter` with
 `converged=false`. `ftol = 0` switches the objective-change test off, as
 described under Strict accuracy in [Numerical behavior](numerics.md).
@@ -226,7 +227,9 @@ gradient-mapping residual is measured at the extrapolated point. See
 
 `X` must be a finite dense `Matrix{T}`, `y` a finite `Vector{T}`,
 and the coefficients the same type, with `T` equal to Float32 or Float64.
-The penalty is unweighted L1 and the loss is ordinary least squares
+The penalty is unweighted L1 for every solver, and for PGD and APG also an unweighted
+`ElasticNet(lambda1, lambda2)`; `CDSolver` refuses an `ElasticNet`, and support is planned.
+The loss is ordinary least squares
 (or a single positive finite scalar multiple of it).
 
 Coordinate descent can additionally store coefficients in a one-dimensional

@@ -275,7 +275,13 @@ residual, against a scale that exceeds `L eps(T) ‖x‖∞`. The iterate test k
 `xtol * max(‖x‖, 1)`, which for `‖x‖ < 1` is an absolute tolerance. A stop that any of them
 proposes is checked once in `_stationary!` (`src/utils.jl`): the minimal-norm KKT residual of
 the accepted `x` must be below `max(gradtol, 64 eps(T)) * max(λ, λmax)`, `λmax = α‖Xᵀy‖∞`
-(formed once per solve in `xhat` and kept in the state field `λmax`). The check requires `S =
+(formed once per solve in `xhat` and kept in the state field `λmax`), with `λ` the ℓ1 level of the
+penalty. `_stationary!` takes the level and the residual from two small methods on the penalty:
+`NormL1` uses the 3-argument `_kkt_residual(grad, x, λ)` and `ElasticNet` the 4-argument
+`_kkt_residual(grad, x, λ1, λ2)`, which adds `λ2 xᵢ` at the nonzero entries; `λ2` is not in `S`
+(the check is the lasso check on the data augmented by `√λ2 I`, see `numerics.md`).
+The penalty is validated once by `_check_penalty` in `_check_data`: `NormL1` for all solvers,
+`ElasticNet` for PGD and APG, and an `ArgumentError` for an `ElasticNet` in `CDSolver`. The check requires `S =
 max(λ, λmax)` finite, that product, formed in `T`, at least `floatmin(T)` and the residual
 finite; it does not require the product to be finite. Otherwise the three flags are cleared and the solve continues. PGD uses the `∇f(x)` it holds. APG
 forms `∇f(x)` from the cached image `z_x` with `_value_and_gradient!` (ProximalBase's
