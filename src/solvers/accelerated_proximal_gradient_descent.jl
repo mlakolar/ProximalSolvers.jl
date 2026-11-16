@@ -297,7 +297,8 @@ end
 """
     solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions())
 
-Minimize the same least-squares lasso as [`ProximalGradientDescent`](@ref) with
+Minimize the same least-squares lasso or centered squared-norm + L1
+objective as [`ProximalGradientDescent`](@ref) with
 accelerated proximal gradient descent, overwriting `x`, a dense `Vector{T}` with
 `T = Float32` or `Float64`. The inputs, the options and their validation are those
 of `ProximalGradientDescent`; in addition `β` and `α` must satisfy their bounds after
