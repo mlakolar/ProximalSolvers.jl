@@ -380,18 +380,21 @@ nothing is written to the iterate or the residual, and a deferred `ℓ_k` is not
 zero block that the screen returns as zero forms no trial point, so it is not refused where
 the trial point `b / ℓ_k` of the full step would overflow. In exact arithmetic, the full
 step gives a zero block, for any `ℓ_k > 0`, exactly when the norm of `b` is at most
-`λ w_k / s`, and the screen tests the same inequality; the results of the two agree except
-in a band around that equality, where they can decide differently by rounding (a screened
-zero where the full step would give a block that is nonzero but within rounding of the
-threshold, or the reverse). Two guards restrict the screen to cases where an entirely zero
-result is meant to come from that threshold test, up to such a rounding tie:
+`λ w_k / s`, and the screen tests the same inequality. The guarantee is one-sided: where
+the screen returns zero, the positive excess of the norm of `b` over the threshold
+`λ w_k / s` is confined to a rounding band around the equality (a screened zero can also be
+far inside the zero ball, for example `b = 0`). A nonzero screen result does not imply a
+nonzero full step: `b / ℓ_k` can underflow, so the full step can return zero where the
+screen does not. Two guards restrict the screen to cases where an entirely zero result is
+meant to come from the threshold test, up to such a rounding band:
 
 - the reciprocal `1 / s` formed in the type `S` of the scale must be a finite positive normal
   number of `S`; it is `Inf`, 0 or subnormal otherwise;
-- the largest `|b_i|` of the group must be far enough above the underflow range of `T`.
-  Otherwise ProximalBase's shrinkage of a very small correlation could round every entry of
-  the result to zero although the threshold is not exceeded, and a zero result would not
-  certify the zero block.
+- either every correlation `b_i` is zero, or the largest `|b_i|` of the group is at least a
+  floor, `2^53 floatmin(T)`, which is far above the underflow range of `T`. Otherwise
+  ProximalBase's shrinkage of a very small correlation could round every entry of the result
+  to zero although the norm of `b` exceeds the threshold, and a zero result would not certify
+  the zero block.
 
 Outside the guards, the screen is bypassed and the visit takes the full step, with the
 curvature computed if it is still deferred.
