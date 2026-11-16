@@ -312,7 +312,7 @@ function _flat_group(ls::LSModel, idx)
 end
 # ℓ = nextfloat(a (1 + 2 n eps(T))) for a = Σ x_i², the recursive sum of the n rounded squares of the
 # column in T. Where n eps(T) ≤ 1/8, that is n u ≤ 1/16 for u = eps(T)/2, the computed a satisfies
-# S (1 − γ_n) ≤ a + n η/2 for the exact sum S, with γ_n = n u/(1 − n u) ≤ 16 n u/15 = 8 n eps(T)/15 and
+# S (1 − γ_n) ≤ a + (n η/2)(1 + γ_n) for the exact sum S, with γ_n = n u/(1 − n u) ≤ 16 n u/15 = 8 n eps(T)/15 and
 # η = nextfloat(zero(T)): assuming IEEE gradual underflow (subnormals not flushed to zero), the
 # rounding of a square that underflows is an absolute error of at most η/2, which the later additions
 # scale by at most 1 + γ_n. A computed a ≥ floatmin(T) gives η ≤ eps(T) a, so
