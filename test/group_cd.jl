@@ -22,9 +22,14 @@ kkt_bound(::Type{T}) where T = T === Float64 ? 1e-8 : 1e-4
 solve_tol(::Type{T}) where T = T === Float64 ? 1e-12 : 1e-6
 pass_limit(::Type{T}) where T = T === Float64 ? 100_000 : 20_000
 # Two solutions of one problem: relative objective difference, and the difference of the fitted values X β
-# relative to max(1, ‖y‖). The objective gap of a point is at most about (stationarity × distance) and the
-# fitted values are strongly convex in F, ‖Xβ₁ - Xβ₂‖ ≤ 2 √(2 gap / s), so the fitted-value bound is
-# about the square root of the objective bound.
+# relative to max(1, ‖y‖). For a point β let gap(β) = F(β) - F*, with F* the minimum of the objective F.
+# Since 0 is a subgradient of F at a minimizer β*, F(β) - F(β*) ≥ (s/2)‖X(β - β*)‖², so
+# ‖Xβ - Xβ*‖ ≤ √(2 gap(β)/s) and ‖Xβ₁ - Xβ₂‖ ≤ √(2 gap(β₁)/s) + √(2 gap(β₂)/s). Agreement of F(β₁) and F(β₂)
+# alone does not bound this (equal objectives can have different fits); each gap is needed. By convexity
+# gap(β) ≤ ‖e‖ ‖β - β*‖ for a subgradient e of F at β of norm ‖e‖, which is the stationarity of `kkt_report`
+# (checked for every solution here), and the fixtures keep ‖β - β*‖ of order max(1, ‖β*‖). So gap is at most
+# about the stationarity bound times that distance, and the fitted-value bound is about the square root
+# of the objective bound. These are fixture tolerances, not derived constants.
 obj_rtol(::Type{T}) where T = T === Float64 ? 1e-9 : 1e-3
 fit_rtol(::Type{T}) where T = T === Float64 ? 1e-5 : 3e-2
 # difference of coefficients of the unique solutions of a full-column-rank problem, relative to max(1, ‖β‖)
@@ -87,7 +92,11 @@ function kkt_report(X, y, s, g, β)
   (; stat, screen)
 end
 
-# λmax = max over penalized groups of ‖s X_Gᵀ y‖/wₖ: at or above it β = 0 is a solution
+# λmax = max over groups with wₖ > 0 of ‖s X_Gᵀ y‖/wₖ. With every weight positive, β = 0 is optimal for
+# λ0 ≥ λmax (the gradient at 0 is -s Xᵀy). A zero-weight group is not penalized: β = 0 is then optimal
+# only if its gradient s X_Gᵀ y also vanishes (X = I(2), y = [1, 1], singleton groups and w = [0, 1]: the
+# unpenalized coordinate needs β₁ = 1). Callers that assert the zero solution use positive weights; the
+# others use λmax only as a scale for λ0.
 function lambda_max(X, y, s, groups, w)
   b = s .* (Float64.(X)' * Float64.(y))
   maximum(k -> norm(b[groups[k]]) / Float64(w[k]), filter(k -> w[k] > 0, eachindex(groups)))
@@ -103,7 +112,9 @@ function check_solution(X, y, α, g, x, res; converged = true)
   @test rep.screen <= kkt_bound(T)
   for (k, G) in enumerate(g.groups)
     # after a run of at least one pass, a group is active when it holds a nonzero entry (each pass is
-    # followed by `dropzeros!`) and not otherwise, and an inactive group holds +0.0
+    # followed by `dropzeros!`) and not otherwise. An inactive group holds +0.0 here because every fixture
+    # starts from +0.0 entries (a -0.0 entry of an inactive group in the caller's start would survive a zero
+    # step and the final copy, and compares equal to 0 under `iszero`)
     nonzero = any(i -> !iszero(x[i]), G)
     @test isactive(x, k) == nonzero
     nonzero || @test all(i -> isequal(x[i], zero(T)), G)
@@ -235,11 +246,12 @@ end
 # ---------------------------------------------------------------------------
 # Orthogonal designs: the analytic block soft threshold
 # ---------------------------------------------------------------------------
-# For XᵀX = c I the objective is (s/2)‖y - Xβ‖² = (s c/2)‖β - z‖² + const with z = Xᵀy / c, a separable
-# sum over groups, so each group minimizes (s c/2)‖β_G - z_G‖² + λ0 wₖ‖β_G‖. Stationarity
-# s c (β_G - z_G) + λ0 wₖ β_G/‖β_G‖ = 0 gives β_G ∥ z_G and ‖β_G‖ = ‖z_G‖ - λ0 wₖ/(s c), so
-#   β_G = max(0, 1 - λ0 wₖ/(s c ‖z_G‖)) z_G,
-# and, for s c > 0 and wₖ > 0, the group is zero when λ0 wₖ ≥ s c ‖z_G‖. (The threshold is λ0 wₖ/(s c), not λ0 wₖ/s.)
+# For XᵀX = c I the smooth part (s/2)‖y - Xβ‖² equals (s c/2)‖β - z‖² plus a constant, with z = Xᵀy / c, a
+# separable sum over groups, so each group minimizes (s c/2)‖β_G - z_G‖² + λ0 wₖ‖β_G‖. For s c > 0 and a
+# nonzero optimal block, stationarity s c (β_G - z_G) + λ0 wₖ β_G/‖β_G‖ = 0 gives β_G ∥ z_G and
+# ‖β_G‖ = ‖z_G‖ - λ0 wₖ/(s c) > 0, so
+#   β_G = (1 - λ0 wₖ/(s c ‖z_G‖)) z_G;
+# zero is optimal for the block iff s c ‖z_G‖ ≤ λ0 wₖ, which gives the max(0, ·) form used below. (The threshold is λ0 wₖ/(s c), not λ0 wₖ/s.)
 function hadamard(n)
   H = ones(1, 1)
   while size(H, 1) < n
@@ -277,9 +289,12 @@ function mixed_penalty(X, y, s, groups, w, ::Type{T}, ptype) where T
   penalty(T((q[a] + q[a + 1]) / 2), groups, w, ptype)
 end
 
-# One cyclic pass from `β0`, with the exact curvature λmax(X_Gᵀ X_G) of each group: u = β_G + X_Gᵀ r/ℓ and
-# the shrinkage of u at λ0 wₖ/(s ℓ). The solver's curvature is that value up to a relative margin (at most
-# 1e-6, and about 2 n eps(T) for a Float32 singleton), which moves a pass by that margin times the step.
+# An independent Float64 reference for one cyclic pass from `β0`: for each group the curvature is the largest
+# eigenvalue of the Float64 Gram matrix of the data (rounded, from an eigensolve), then u = β_G + X_Gᵀ r/ℓ and
+# the shrinkage of u at λ0 wₖ/(s ℓ). The solver's curvature differs from that value by rounding and its
+# upward margin (a relative 1e-6 at most for groups of two or more, and a margin of order n eps(T) for a Float32
+# singleton). How that perturbs the whole pass is not propagated here: the tolerance in the comparison below
+# is a fixture-specific choice (1e-5 Float64, 1e-3 Float32, relative to max(1, ‖β‖)).
 function one_cyclic_pass(X, y, s, g, β0)
   Xd = Float64.(X)
   β = copy(β0)
@@ -594,7 +609,8 @@ end
   for T in TYPES
     n, q = 60, 8
     Zfull, y = make_design(T, :correlated, n, q; seed = 81)
-    Zfull[:, 1] .= T.(Float64.(y) .+ 0.3 .* randn(Xoshiro(82), n) ./ sqrt(n))     # column 1 is y plus noise, so |Xᵀy| is largest there and group {1} is nonzero at 0.3 λmax
+    Zfull[:, 1] .= T.(Float64.(y) .+ 0.3 .* randn(Xoshiro(82), n) ./ sqrt(n))     # column 1 is y plus small noise, intended to keep group {1} nonzero at 0.3 λmax; the checked outcome is the
+    # `isactive` assertion below (no claim that column 1 has the largest correlation)
     X = hcat(Zfull, Zfull[:, 1])
     gd = [[1, 9], [2, 3], [4], [5, 6, 7], [8]]
     gr = [[1], [2, 3], [4], [5, 6, 7], [8]]
@@ -818,8 +834,9 @@ end
     x = BlockIterate(x0, g.groups)
     activate!(x, 2)
     m = whitebox_model(X, y, α, g, x)
-    # each update rounds the residual by at most eps(T)/2 relative to its entries (|y| + |X||β|), so the
-    # error of the norm is bounded by that times the count of updates, p initially and a group each step
+    # A conservative tolerance for these bounded fixtures (a few initial updates and six steps from entries of
+    # order 1): n + p + 10 per step times eps(T), relative to ‖y‖ + ‖X‖‖β‖ + 1. One rounding of at most eps(T)/2
+    # per residual entry per update gives the shape of the bound, but does not bound arbitrary update histories.
     residual_bound(steps) = 4 * (n + p + 10 * steps) * eps(T) * (norm(Float64.(y)) + norm(Float64.(X)) * norm(Float64.(Vector(x))) + 1)
     rref() = Float64.(y) - Float64.(X) * Float64.(Vector(x))
     @test norm(Float64.(m.ls.r) - rref()) <= residual_bound(0)
@@ -919,7 +936,8 @@ end
 #    two such columns in a group have λmax = 8e-34 and p = 8e-40.
 #  * large: n = 4 entries 1e9: ℓ = 4e18; s = 3e19 gives p = 1.2e38 (finite, below floatmax = 3.4e38)
 #    and 1/p = 8.3e-39 < floatmin; two such columns have λmax = 8e18, p = 2.4e38 and 1/p = 4.2e-39.
-# A Float64 scale on Float32 data forms p in Float64 and has no band.
+# With a Float64 scale on Float32 data p is formed in Float64, so the band check cannot fail for a curvature
+# that Float32 accepts (the code still performs it).
 @testset "an unrepresentable step is refused before the first pass" begin
   n = 4
   rng = Xoshiro(303)
