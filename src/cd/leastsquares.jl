@@ -279,13 +279,14 @@ coordinate_scale(m::BlockLSModel, x, k::Int) = _curvature_scale(m.ls, m.ℓ[k])
 
 # Per-solve preparation, before the first pass and the first random draw. A group whose columns are all
 # 0 has ℓ = 0 and no band. A group of one column takes the sum of squares of the column (`_sqnorm!`, in
-# T, without `@simd`) with the rounding margin of `_singleton_curvature`, and the band check, at once;
-# the same for a singleton with n eps(T) > 1/8 (n rows) below, which takes the Gram route. A group of
-# the Gram route (two or more columns, or that singleton) is left with ℓ = NaN where
-# `_curvature_deferrable` decides from cheap bounds that neither `_gram_curvature` nor the band check
-# can refuse it; its curvature is then computed at the first visit that needs it (`coordinate_step!`).
-# Otherwise it is computed and checked here, so the refusals of `_gram_curvature` and of the band check
-# for that group are made here, before the first pass. A refusal names the group; `_prepare!` changes
+# T, without `@simd`) with the rounding margin of `_singleton_curvature`, and the band check, at once,
+# except a singleton with n eps(T) > 1/8 (n rows), which takes the Gram route below. A group of the
+# Gram route (two or more columns, or that singleton) is left with ℓ = NaN where
+# `_curvature_deferrable` decides from cheap bounds, under the eigensolver model of `_gram_curvature`,
+# that neither `_gram_curvature` nor the band check refuses it; its curvature is then computed at the
+# first visit that needs it (`coordinate_step!`). Otherwise it is computed and checked here, so the
+# refusals of `_gram_curvature` and of the band check for that group are made here, before the first
+# pass. A refusal names the group; `_prepare!` changes
 # neither the coordinates nor the residual. The block path refuses a curvature below floatmin(T), which
 # the scalar path accepts as a subnormal value. `_sqnorm!` sums in order, while the scalar step takes the
 # sum from `_column_dot`, which `@simd` reassociates, so the two can differ by rounding, and the block
@@ -311,7 +312,8 @@ function _prepare!(m::BlockLSModel{T}, g::GroupNormL2, x::BlockIterate{T}) where
 end
 # The curvature of group k by the Gram route and the check of its step band, with the buffers of the model
 # (allocated at the first use, for the largest group). It throws the refusals of `_gram_curvature` and of
-# the band; it allocates (the eigensolve), once per group and solve.
+# the band. It allocates the eigensolve of a group of two or more columns, once per group and solve (none
+# for a singleton), and the first call also allocates the buffers.
 @noinline function _group_curvature!(m::BlockLSModel, idx, k::Int)
   mmax = length(m.old)
   if size(m.Bbuf, 2) < mmax
@@ -385,7 +387,8 @@ end
 # margin. The entry max_i Ĝ_ii, a lower bound of λmax(Ĝ), guards a μ̂ that is computed below it. The
 # rounding to T takes the nearest value, then `nextfloat` where that value is below ℓW. A nonfinite
 # μ̂ or an ℓ that is Inf is refused as overflow, and an ℓ below floatmin(T) as underflow; an
-# eigensolver failure propagates as an exception before any pass.
+# eigensolver failure propagates as an exception before any pass for a curvature computed in
+# `_prepare!`, and during a pass for a deferred one.
 function _gram_curvature(ls::LSModel{T}, idx, k::Int, Bbuf::Matrix{Float64}, Gbuf::Matrix{Float64}) where T
   W = Float64
   X = ls.X
@@ -418,8 +421,8 @@ function _gram_curvature(ls::LSModel{T}, idx, k::Int, Bbuf::Matrix{Float64}, Gbu
   ℓ
 end
 # Whether the curvature of a group of the Gram route can be left uncomputed by `_prepare!`: true where
-# bounds decide that `_gram_curvature` and `_check_step_band` do not refuse the group, false where a
-# bound does not decide. The bounds come
+# bounds decide, under the eigensolver model of `_gram_curvature`, that `_gram_curvature` and
+# `_check_step_band` do not refuse the group, false where a bound does not decide. The bounds come
 # from q_c = Σ_i X[i, j_c]² for each column c, formed in W = Float64 by loop summation (n rows, mk
 # columns), t = Σ_c q_c and d = max_c q_c, in O(n mk) operations and without products between columns.
 # Notation as in `_gram_curvature`: u = eps(W)/2, γ_k = k u/(1 − k u), η = nextfloat(0.0), and gradual
@@ -428,30 +431,36 @@ end
 # that is not finite.
 #   Errors of the diagonal. Let G_cc = Σ_i X[i, j_c]² be the exact diagonal entry. Each of q_c and the
 #   computed diagonal Ĝ_cc of `_gram_curvature` (any order of summation) lies within γ_n G_cc + A of G_cc,
-#   where A = (n η/2)(1 + γ_{n−1}) ≤ n η bounds the error of the squares that underflow.
-#   Lower bound, without the eigensolver model. For c* with q_{c*} = d, G_{c*} ≥ (d − A)/(1 + γ_n), so
+#   where A = (n η/2)(1 + γ_{n−1}) ≤ n η bounds the errors of the roundings into the subnormal range.
+#   Lower bound, without the eigensolver model. For c* with q_{c*} = d, G_{c*c*} ≥ (d − A)/(1 + γ_n), so
 #   the computed maximum diagonal dmax̂ ≥ Ĝ_{c*c*} ≥ (1 − γ_n)(d − A)/(1 + γ_n) − A
 #   ≥ d (1 − 2 γ_n) − 2 A ≥ lo := d (1 − 2 n eps(W)) − 2 n η. The computed trace t̂ ≥ dmax̂ (a sum of
 #   nonnegative terms), ℓW ≥ dmax̂ (the bound adds a positive margin to a maximum that contains dmax̂),
 #   and the stored ℓ ≥ ℓW. So t̂ ≥ lo and ℓ ≥ lo.
 #   Upper bound, under the eigensolver model of `_gram_curvature`. With tr G = Σ_c G_cc and all γ
-#   below 1/15 (they are below 1/100): tr G ≤ (t/(1 − γ_mk) + mk A)/(1 − γ_n) ≤ 1.15 t + 1.1 mk A; λmax(Ĝ) ≤ (1 + γ_n) tr G + mk A
-#   by Weyl's inequality and the entrywise bound of `_gram_curvature`; μ̂ ≤ λmax(Ĝ) + 4 mk² eps(W) t̂ with
-#   4 mk² eps(W) ≤ 1/16; t̂ ≤ (1 + γ_mk) ((1 + γ_n) tr G + mk A) ≤ 1.31 t + 2.3 mk A. Then
-#   ℓW ≤ (1 + 4 (n + mk²) eps(W)) (1 + u)² max(μ̂, dmax̂) ≤ 1.4 t + 2.5 mk A, and mk A ≤ mk n η
-#   = mk (n eps(W)) floatmin(W) ≤ mk floatmin(W)/64 ≤ lo/128 ≤ t/128 where the threshold (1) below
-#   holds, so the stored ℓ ≤ 1.5 t (the rounding up to T adds at most 1.5 eps(T) relative). The code
-#   uses the generous hi := 4 t.
+#   below 1/15 (they are below 1/100): tr G ≤ (t/(1 − γ_mk) + mk A)/(1 − γ_n) ≤ 1.15 t + 1.08 mk A;
+#   λmax(Ĝ) ≤ (1 + γ_n) tr G + mk A by Weyl's inequality and the entrywise bound of `_gram_curvature`;
+#   μ̂ ≤ λmax(Ĝ) + 4 mk² eps(W) t̂ with 4 mk² eps(W) ≤ 1/16; and
+#   t̂ ≤ (1 + γ_mk) ((1 + γ_n) tr G + mk A) ≤ 1.31 t + 2.3 mk A (the exact factor 15/14 in tr G gives
+#   2.286 mk A). Then max(μ̂, dmax̂) ≤ 1.31 t + 2.3 mk A, and
+#   ℓW ≤ (1 + u)(1 + 2u)(max(μ̂, dmax̂) + (1 + u) 4 (n + mk²) eps(W) t̂), where the product with t̂ and the
+#   sum each round once and `nextfloat` adds at most 2u relative. With 4 (n + mk²) eps(W) ≤ 1/16 this is
+#   ≤ 1.31 t + 2.3 mk A + (1.31 t + 2.3 mk A)/16 ≤ 1.4 t + 2.5 mk A (the recomputed constants are
+#   1.388 t + 2.43 mk A; the factors 1 + u and 1 + 2u change them by less than 10⁻¹⁵ relative). Also
+#   mk A ≤ mk n η = mk (n eps(W)) floatmin(W) ≤ mk floatmin(W)/64 ≤ lo/128 ≤ t/128 where the threshold
+#   (1) below holds, so ℓW ≤ 1.42 t and the stored ℓ ≤ 1.5 t (the rounding up to T adds at most
+#   1.5 eps(T) relative). The code uses the generous hi := 4 t.
 # The bounds hold for the values of the stored matrix, computed in W; the comparisons below are made in
 # W with the factor 2 (or 1/2) that absorbs the rounding of lo, hi and the products with s (relative
 # error below 4u). The group is left uncomputed if all four hold, and computed at once otherwise:
 #   (1) lo ≥ 2 mk floatmin(W): then t̂ ≥ mk floatmin(W), so the underflow refusal of the trace is not made;
 #   (2) lo ≥ 2 floatmin(T): then ℓ ≥ floatmin(T), so the underflow refusal of ℓ is not made;
-#   (3) hi ≤ floatmax(T)/2: then the Gram entries (each at most (1 + γ_n) tr G in magnitude) and t̂ are
-#       finite and ℓ is finite in T (it is at most 1.5 t ≤ hi/2.6), so the overflow refusals are not
-#       made;
-#   (4) s lo ≥ 2 floatmin(S) and s hi ≤ 1/(2 floatmin(S)), with s converted to W: then p = s ℓ rounded in S
-#       satisfies p ≥ floatmin(S) and 1/p ≥ floatmin(S), so `_check_step_band` does not refuse.
+#   (3) hi ≤ floatmax(T)/2: then, under the eigensolver model, the Gram entries (each at most
+#       (1 + γ_n) tr G + A in magnitude) and t̂ are finite and ℓ is finite in T (it is at most
+#       1.5 t ≤ hi/2.6), so the overflow refusals are not made;
+#   (4) s lo ≥ 2 floatmin(S) and s hi ≤ 1/(2 floatmin(S)), with s converted to W: then, under the
+#       eigensolver model, p = s ℓ rounded in S satisfies p ≥ floatmin(S) and 1/p ≥ floatmin(S), so
+#       `_check_step_band` does not refuse.
 # The eigensolver model enters the upper bound hi but not the lower bound lo. Neither an eigensolver
 # failure nor a nonfinite μ̂ is decided here: such a failure surfaces at the lazy computation.
 function _curvature_deferrable(ls::LSModel{T}, idx) where T
@@ -504,18 +513,22 @@ end
 # Screen. For a group other than a flat one whose current block is identically 0 (active or not), the
 # step first applies `prox_block!` to a copy of b at the step γs = 1/s in S, when γs is a normal number
 # of S (floatmin(S) ≤ γs ≤ floatmax(S)); otherwise the screen is bypassed, because a γs that rounded to
-# Inf or 0 would not describe the step 1/(s ℓ). The prox of b/ℓ at the step 1/(s ℓ) is 0 where
-# ‖b‖ ≤ λ0 w_k/s, for any ℓ > 0, so a copy that `prox_block!` returns as all 0 gives the displacement 0
-# without the curvature: the step returns zero(T) with x and the residual unchanged. The screen and the
-# full step both decide by ProximalBase's range-safe comparison, but at a tie ‖b‖ = λ0 w_k/s they
-# take different quantities (γs and 1/(s ℓ)) and can decide differently by rounding. A nonfinite b is
-# not screened and is refused by the full step.
+# Inf, 0 or a subnormal would not carry 1/s to relative precision. The step γs sets the threshold
+# λ0 w_k γs = λ0 w_k/s of the screen. The prox of b/ℓ at the step 1/(s ℓ) is 0 where ‖b‖ ≤ λ0 w_k/s,
+# for any ℓ > 0, so a copy that `prox_block!` returns as all 0 gives the displacement 0 without the
+# curvature: the step returns zero(T) with x and the residual unchanged. A zero block that the screen
+# returns as 0 forms no trial point, so it is not refused even where b/ℓ would overflow. The screen and
+# the full step both decide by ProximalBase's range-safe comparison. Near a tie ‖b‖ = λ0 w_k/s, within a
+# few mk eps(T) relative, they can decide differently: they take different inputs and steps (b at γs,
+# and fl(b/ℓ) at 1/fl(s ℓ)); where they differ, the full step's block is within rounding of 0. A
+# nonfinite b is not screened and is refused by the full step.
 # Curvature. Where ℓ[k] is NaN (`_prepare!` left it uncomputed) and the screen did not return, the
 # curvature and the step band are computed now by `_group_curvature!` and stored; the arithmetic of the
 # step is then as for a curvature computed in `_prepare!`. A refusal or an eigensolver failure there
 # occurs during a pass: the run is on a private copy, so the caller's iterate is unchanged, and the
-# borrowed generator may have advanced. A refusal that is predictable from the data is made in
-# `_prepare!` (see `_curvature_deferrable`). The band of the step, s ℓ and its reciprocal at least
+# borrowed generator may have advanced. A group is deferred only where the bounds exclude these refusals
+# (under the eigensolver model, see `_curvature_deferrable`), so a lazy refusal needs an eigensolver
+# exception or a model violation. The band of the step, s ℓ and its reciprocal at least
 # floatmin(typeof(s ℓ)), is checked where ℓ is computed.
 function coordinate_step!(m::BlockLSModel{T}, g::GroupNormL2, x::BlockIterate{T}, k::Int) where T
   ls = m.ls
