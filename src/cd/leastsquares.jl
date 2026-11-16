@@ -230,10 +230,11 @@ loss_value(m::LSModel, f, x) = value_from_residual(f, m.r)
 
 # Block least squares: the group-lasso step on a BlockIterate. The LSModel `ls` supplies the data, the
 # residual and the column kernels. `ℓ[k]` is the unscaled curvature bound of group k, a number with
-# ℓ[k] ≥ λmax(X_kᵀX_k) in exact arithmetic (the loss scale s is applied where the step is formed). It
-# is 0 for a flat group, where all entries of X_k are 0, and NaN until `_prepare!` has run. `old` and
-# `u` are scratch vectors as long as the largest group. The model has no `_cache`, so momentum stays
-# off.
+# ℓ[k] ≥ λmax(X_kᵀX_k) of the stored data after rounding (for a group of two or more columns, under
+# the eigensolver model of `_gram_curvature`); the loss scale s is applied where the step is formed.
+# It is 0 for a flat group, where all entries of X_k are 0, and NaN until `_prepare!` has run. `old`
+# and `u` are scratch vectors as long as the largest group. The model has no `_cache`, so momentum
+# stays off.
 struct BlockLSModel{T<:AbstractFloat, S<:AbstractFloat, M<:LSModel{T, S}} <: CDModel{T}
   ls::M
   ℓ::Vector{T}
@@ -275,7 +276,7 @@ coordinate_scale(m::BlockLSModel, x, k::Int) = _curvature_scale(m.ls, m.ℓ[k])
 # `_gram_curvature`. The block path refuses a curvature below floatmin(T), which the scalar path
 # accepts as a subnormal value. `_sqnorm!` sums in order, while the scalar step takes the sum from
 # `_column_dot`, which `@simd` reassociates, so the two can differ by rounding, and the block
-# curvature of a singleton is larger than the scalar one by its margin.
+# curvature of a singleton is larger than the scalar one by about its margin.
 function _prepare!(m::BlockLSModel{T}, g::GroupNormL2, x::BlockIterate{T}) where T
   ls = m.ls
   n = size(ls.X, 1)
@@ -311,12 +312,14 @@ function _flat_group(ls::LSModel, idx)
 end
 # ℓ = nextfloat(a (1 + 2 n eps(T))) for a = Σ x_i², the recursive sum of the n rounded squares of the
 # column in T. Where n eps(T) ≤ 1/8, that is n u ≤ 1/16 for u = eps(T)/2, the computed a satisfies
-# S (1 − γ_n) ≤ a + n η/2 for the exact sum S, with γ_n = n u/(1 − n u) ≤ 16 n u/15 = 8 n eps(T)/15 and
-# η = nextfloat(zero(T)) (the rounding of a square that underflows adds at most η/2). A computed
-# a ≥ floatmin(T) gives η ≤ eps(T) a, so S ≤ a (1 + n eps(T)/2)/(1 − γ_n), which is below
-# a (1 + 2 n eps(T)) when n eps(T) ≤ 1/8. The factor 1 + 2 n eps(T) is exact in T, and `nextfloat`
-# covers the rounding of the product, so ℓ ≥ S. A computed a below floatmin(T), zero or subnormal,
-# is refused as underflow, and an a or an ℓ that is not finite as overflow.
+# S (1 − γ_n) ≤ a + (n η/2)(1 + γ_n) for the exact sum S, with γ_n = n u/(1 − n u) ≤ 16 n u/15 = 8 n eps(T)/15 and
+# η = nextfloat(zero(T)): assuming IEEE gradual underflow (subnormals not flushed to zero), the
+# rounding of a square that underflows is an absolute error of at most η/2, which the later additions
+# scale by at most 1 + γ_n. A computed a ≥ floatmin(T) gives η ≤ eps(T) a, so
+# S ≤ a (1 + n eps(T) (1 + γ_n)/2)/(1 − γ_n), which is below a (1 + 2 n eps(T)) when
+# n eps(T) ≤ 1/8. The factor 1 + 2 n eps(T) is exact in T, and `nextfloat` covers the rounding of the
+# product, so ℓ ≥ S. A computed a below floatmin(T), zero or subnormal, is refused as underflow, and
+# an a or an ℓ that is not finite as overflow.
 function _singleton_curvature(ls::LSModel{T}, j::Int, k::Int) where T
   a = _sqnorm!(ls, j)
   a < floatmin(T) && return _refuse_group_curvature(T, k, false)
@@ -332,21 +335,27 @@ end
 # the eigensolve. With μ̂ the largest eigenvalue of Ĝ (the entry Ĝ[1, 1] for one column), the bound
 # in W is
 #   ℓW = nextfloat(max(μ̂, max_i Ĝ_ii) + 4 (n + mk²) eps(W) t̂),
-# which is rounded up to T. It adds three error terms to μ̂, each a multiple of t̂:
-#   - Gram rounding: entrywise |Ĝ − G| ≤ γ_n |B|ᵀ|B| for any order of summation, with
-#     γ_n = n u/(1 − n u) and u = eps(W)/2, so ‖Ĝ − G‖₂ ≤ γ_n ‖B‖_F² = γ_n tr G, and tr G is at most
-#     t̂/(1 − γ_n). The term is about n eps(W) t̂/2.
+# which is rounded up to T. With u = eps(W)/2 and γ_n = n u/(1 − n u), which needs n eps(W) ≤ 1/8 and
+# holds for any n that fits in memory as Float64, the bound adds three error terms to μ̂, each a
+# multiple of t̂, assuming IEEE gradual underflow (subnormals not flushed to zero):
+#   - Gram rounding: entrywise |Ĝ − G| ≤ γ_n |B|ᵀ|B| for any order of summation, so
+#     ‖Ĝ − G‖₂ ≤ γ_n ‖B‖_F² = γ_n tr G, and tr G ≤ t̂ (1 + O((n + mk) u)). The term is about
+#     n eps(W) t̂/2.
 #   - Underflowing products: t̂ ≥ mk floatmin(W) bounds their total error in ‖·‖₂ by
 #     mk n η/2 ≤ n eps(W) t̂/2, with η = nextfloat(0.0) = eps(W) floatmin(W). A product of two
 #     Float32 values does not underflow in W.
-#   - Eigensolver: the symmetric eigensolver's backward error is modelled as
-#     ‖E‖₂ ≤ p(mk) u ‖Ĝ‖₂ ≤ p(mk) u t̂, and 4 mk² eps(W) t̂ covers p(mk) ≤ 8 mk². The eigensolver's
-#     documentation describes p as a modestly growing function of mk, so this term is a modelling
-#     assumption, not a proven bound.
-# By Weyl's inequality λmax(G) is at most μ̂ plus the three terms. The entry max_i Ĝ_ii, a lower bound
-# of λmax(Ĝ), guards a μ̂ that is computed below it. The rounding to T takes the nearest value, then
-# `nextfloat` where that value is below ℓW. An ℓ that is Inf is refused as overflow, and an ℓ below
-# floatmin(T) as underflow.
+#   - Eigensolver, for mk ≥ 2 (for mk = 1 there is no eigensolve and no model): the computed
+#     eigenvalues are modelled as exact eigenvalues of Ĝ + E with ‖E‖₂ ≤ p(mk) u t̂, and
+#     4 mk² eps(W) t̂ covers p(mk) ≤ 8 mk². The eigensolver's documentation describes p as a modestly
+#     growing function of mk, so this term is a modelling assumption, not a proven bound.
+# The three terms need about (n + 4 mk²) eps(W) t̂. The remaining 3 n eps(W) t̂ or so of the margin
+# 4 (n + mk²) eps(W) t̂ covers the rounding of the trace, the (1 + γ) propagation factors (including
+# the (1 + γ_{n−1}) factor of the underflow term) and the rounding of the margin product; the final
+# `nextfloat` covers the last addition. By Weyl's inequality λmax(G) is then at most μ̂ plus the
+# margin. The entry max_i Ĝ_ii, a lower bound of λmax(Ĝ), guards a μ̂ that is computed below it. The
+# rounding to T takes the nearest value, then `nextfloat` where that value is below ℓW. A nonfinite
+# μ̂ or an ℓ that is Inf is refused as overflow, and an ℓ below floatmin(T) as underflow; an
+# eigensolver failure propagates as an exception before any pass.
 function _gram_curvature(ls::LSModel{T}, idx, k::Int, Bbuf::Matrix{Float64}, Gbuf::Matrix{Float64}) where T
   W = Float64
   X = ls.X
@@ -370,6 +379,7 @@ function _gram_curvature(ls::LSModel{T}, idx, k::Int, Bbuf::Matrix{Float64}, Gbu
   all(isfinite, Gv) && isfinite(t) || return _refuse_group_curvature(T, k, true)
   t < mk*floatmin(W) && return _refuse_group_curvature(T, k, false)
   μ = mk == 1 ? dmax : maximum(eigvals(Symmetric(Gv)))
+  isfinite(μ) || return _refuse_group_curvature(T, k, true)
   ℓW = nextfloat(max(μ, dmax) + 4(n + mk^2)*eps(W)*t)
   ℓ = T(ℓW)
   W(ℓ) < ℓW && (ℓ = nextfloat(ℓ))
