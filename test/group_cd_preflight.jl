@@ -133,6 +133,29 @@ accepted(x, f, g; method = CDSolver(order = :random)) = PS._check_block_problem(
       T === Float32 && refused(ArgumentError, "loss scale", iterate(T), Scaled(f, 1e-50), g)
     end
 
+    @testset "aliasing of the iterate storage ($T)" begin
+      # PB's documented low-level constructor takes the storage vector and independently built layout and
+      # activity arrays, so the storage of x can be the response or the memory of the design.
+      groups = GROUPS
+      group_of = [1, 1, 2, 3, 3]
+      aliased(storage) = BlockIterate(storage, groups, group_of, nothing, [1, 2, 3], [1, 2, 3], 3)
+      rng = Xoshiro(3)
+      y5 = T.(randn(rng, 5))
+      X5 = T.(randn(rng, 5, 5))
+      x = aliased(y5)
+      @test Base.mightalias(x, y5)
+      refused(ArgumentError, "must not alias", x, LeastSquaresLoss(y5, X5), g)
+      refused(ArgumentError, "must not alias", aliased(y5), 0.5 * LeastSquaresLoss(y5, X5), g)
+      # a Vector over the memory of a one-row design
+      X1 = T.(randn(rng, 1, 5))
+      y1 = T.(randn(rng, 1))
+      xs = aliased(vec(X1))
+      @test Base.mightalias(xs, X1)
+      refused(ArgumentError, "must not alias", xs, LeastSquaresLoss(y1, X1), g)
+      # the same layout over its own storage is accepted
+      @test accepted(aliased(copy(y5)), LeastSquaresLoss(y5, X5), g)
+    end
+
     @testset "nonfinite values ($T)" begin
       for v in (T(NaN), T(Inf), -T(Inf))
         x = iterate(T)
