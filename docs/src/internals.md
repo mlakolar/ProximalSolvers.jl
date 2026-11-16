@@ -32,8 +32,10 @@ second with an accelerated variant:
   predictable curvature and step refusals therefore happen before any random draw.
   A lazily computed curvature that refuses, or an exception of the eigenvalue
   routine, happens during a pass. The default `_prepare!` of the scalar models
-  does nothing. A visit to a nonflat group whose block is zero first screens it
-  with ProximalBase's `prox_block!` at the step `1 / s`, and returns without a
+  does nothing. A visit to a nonflat group whose block is zero first screens it,
+  when the reciprocal `1 / s` is a normal number of the scale's type and the largest
+  correlation is far enough above the underflow range of `T`, with ProximalBase's
+  `prox_block!` at the step `1 / s`, and returns without computing a still-deferred
   curvature when the result is zero; otherwise a group step uses `prox_block!` on
   a compact scratch vector. The engine, the pass schedule, the change test (with
   the change of a group as its statistic) and the private-copy transaction are

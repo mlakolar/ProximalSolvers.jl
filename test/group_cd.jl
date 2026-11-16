@@ -28,10 +28,12 @@ pass_limit(::Type{T}) where T = T === Float64 ? 100_000 : 20_000
 # alone does not bound this (equal objectives can have different fits); each gap is needed. By convexity
 # gap(β) ≤ ‖e‖ ‖β - β*‖ for a subgradient e of F at β. `kkt_report` gives the block parts of such an e: the
 # stationarity of each nonzero or unpenalized block, and for a block at zero the distance
-# max(0, ‖∇_G‖ - λ0 wₖ) of the gradient from the penalty ball, at most `screen` λ0 wₖ. So the full norm is at
-# most √K times the largest block part (K groups), and the fixtures keep ‖β - β*‖ of order max(1, ‖β*‖).
-# The gap is then at most about √K times the stationarity bound times that distance, and the fitted-value
-# bound is about the square root of the objective bound. These are fixture tolerances, not derived constants.
+# max(0, ‖∇_G‖ - λ0 wₖ) of the gradient from the penalty ball, which is at most max(0, screen) λ0 wₖ (a
+# negative `screen` gives distance 0). So the full norm is at most √K times the largest block part, the
+# larger of `stat` and the positive zero-block parts max(0, screen) λ0 wₖ (K groups), and the fixtures keep
+# ‖β - β*‖ of order max(1, ‖β*‖). The gap is then at most about √K times the accepted stationarity or
+# positive screen excess times that distance, and the fitted-value bound is about the square root of the
+# objective bound. These are fixture tolerances, not derived constants.
 obj_rtol(::Type{T}) where T = T === Float64 ? 1e-9 : 1e-3
 fit_rtol(::Type{T}) where T = T === Float64 ? 1e-5 : 3e-2
 # difference of coefficients of the unique solutions of a full-column-rank problem, relative to max(1, ‖β‖)
@@ -1054,9 +1056,12 @@ end
 # ---------------------------------------------------------------------------
 # Lazy curvature and the zero-group screen (maintainer ruling on #275)
 # ---------------------------------------------------------------------------
-# A group of two or more columns has its curvature computed on the first step that needs it. A group that
-# is screened out at each of its visits does not need it, so `m.ℓ[k]` stays NaN for it; a singleton group and
-# a flat group are set in `_prepare!`.
+# In the ordinary fixtures below (small n, moderate column scales, so that the cheap bounds of `_prepare!`
+# decide) a group of two or more columns is deferred: its curvature is computed on the first step that needs
+# it, and a group that is screened out at each of its visits does not need it, so `m.ℓ[k]` stays NaN for it. A
+# flat group and a singleton group with n eps(T) ≤ 1/8 (all the singletons here) are set in `_prepare!`. A
+# group whose bounds are inconclusive or predict a refusal is computed there too, and a singleton with a
+# large n takes the deferred Gram route; no fixture here relies on those cases except where it says so.
 # Visits the groups in `order` for `passes` passes with single steps and returns the largest change.
 function manual_passes!(m, g, x, passes; order = 1:ncoordinates(x))
   h = 0.0
@@ -1275,9 +1280,10 @@ end
     z = (Xd' * yd) ./ c
     G = groups[2]
     wk = sqrt(length(G))
-    for δ in (0.0, 1e-12, -1e-12)
-      λtie = s * c * norm(z[G]) / wk * (1 + δ)
-      g = penalty(T(λtie), groups, nothing, ptype_for(T, α))
+    λ_tie = T(s * c * norm(z[G]) / wk)
+    # the tie penalty rounded to T and its representable neighbours (a relative 1e-12 would round to the same T)
+    for λ_stored in (prevfloat(λ_tie), λ_tie, nextfloat(λ_tie))
+      g = penalty(λ_stored, groups, nothing, ptype_for(T, α))
       x = BlockIterate(T, p, g)
       out = run_group_cd(X, y, α, g, x; order)
       check_solution(X, y, α, g, x, out.res)
@@ -1321,6 +1327,84 @@ end
         e
       end)
       @test err === nothing || !occursin(r"step of group|underflows|overflows", sprint(showerror, err))
+    end
+  end
+end
+
+# The screen of a zero block must not certify zero from the underflow of PB's output. With b = Xᵀr of the
+# group subnormal (or near the underflow range), PB's shrink can round every entry to zero though the zero
+# block is far from optimal (here s‖b‖ = 2 λ w, a factor 2, not a rounding tie), while the step b/ℓ then
+# 1/(s ℓ) is representable. The fixtures are exact powers of two, X = diag(a, a), ℓ = a², b = (a y₁, 0):
+#   one step from zero: β₁ = b₁/ℓ - λ w/(s ℓ), the block soft threshold of b/ℓ at λ w/(s ℓ).
+# KKT is formed in BigFloat and relative to the penalty level c = λ w (the gradient is of the order of c, which
+# is subnormal here, so an absolute bound would be vacuous).
+function kkt_relative_big(X, y, s, g, β)
+  setprecision(BigFloat, 256) do
+    Xb, yb, βb = big.(X), big.(y), big.(Vector(β))
+    ∇ = big(s) .* (Xb' * (Xb * βb .- yb))
+    stat, screen = 0.0, -Inf
+    for (k, G) in enumerate(g.groups)
+      c = big(g.λ0) * big(g.w[k])
+      gk, bk = ∇[G], βb[G]
+      if all(iszero, bk)
+        screen = max(screen, Float64((sqrt(sum(abs2, gk)) - c) / c))
+      else
+        nb = sqrt(sum(abs2, bk))
+        stat = max(stat, Float64(sqrt(sum(abs2, gk .+ (c / nb) .* bk)) / c))
+      end
+    end
+    (; stat, screen)
+  end
+end
+
+@testset "the screen does not certify zero from the underflow of its output" begin
+  for T in TYPES
+    ea, ey = T === Float32 ? (-60, -89) : (-500, -574)       # a = 2^ea, y₁ = 2^ey, a y₁ = the smallest subnormal
+    a = ldexp(one(T), ea)
+    tiny = nextfloat(zero(T))
+    # (name, groups, scale s, penalty level λ, penalty element type, number of groups)
+    variants = [("subnormal level, pair", [[1, 2]], T(2), tiny, T),
+                ("subnormal level, singletons", [[1], [2]], T(2), tiny, T),
+                ("normal scale and level, pair", [[1, 2]], ldexp(one(T), T === Float32 ? 120 : 1000),
+                 ldexp(one(T), T === Float32 ? -30 : -75), T),
+                ("normal scale and level, singletons", [[1], [2]], ldexp(one(T), T === Float32 ? 120 : 1000),
+                 ldexp(one(T), T === Float32 ? -30 : -75), T)]
+    T === Float32 && push!(variants, ("Float64 penalty on Float32 data", [[1, 2]], T(2), tiny, Float64))
+    for (name, groups, s, λ, P) in variants
+      X = T[a 0; 0 a]
+      y = T[ldexp(one(T), ey), 0]
+      w = ones(P, length(groups))
+      g = GroupNormL2(P(λ), groups, w)
+      f = s * LeastSquaresLoss(y, X)
+      # the zero point violates the KKT by a factor of 2: s‖b‖ = 2 λ w (exact in BigFloat)
+      setprecision(BigFloat, 256) do
+        @test big(s) * big(a) * big(y[1]) == 2 * big(λ)
+      end
+      rep0 = kkt_relative_big(X, y, s, g, zeros(T, 2))
+      @test rep0.screen > 0.5
+      # the first block of the one-step value: b₁/ℓ - λ w/(s ℓ) with ℓ = a² (the solver's curvature is a² up to
+      # a relative margin of 1e-6 or so)
+      expected = setprecision(BigFloat, 256) do
+        ℓ = big(a)^2
+        Float64(big(a) * big(y[1]) / ℓ - big(λ) / (big(s) * ℓ))
+      end
+      @test expected > 0
+      # one cyclic pass: the block is not left at zero
+      x = BlockIterate(T, 2, g)
+      res, logs = logged(() -> solve!(x, f, g, CDSolver(order = :cyclic, relative = false, tol = 1e-30, maxpasses = 1,
+                                                       rng = Xoshiro(1))))
+      @test x[1] != 0 && isactive(x, 1) && x[2] == 0
+      @test isapprox(Float64(x[1]), expected; rtol = 1e-4)
+      @test res.passes == 1
+      # solving to convergence: the group is active, the point is stationary relative to λ w
+      for order in (:cyclic, :random)
+        x = BlockIterate(T, 2, g)
+        res, logs = logged(() -> solve!(x, f, g, CDSolver(order = order, maxpasses = 100, rng = Xoshiro(2))))
+        @test res.converged && isactive(x, 1) && x[1] != 0
+        @test isapprox(Float64(x[1]), expected; rtol = 1e-4)
+        rep = kkt_relative_big(X, y, s, g, x)
+        @test rep.stat <= kkt_bound(T) && rep.screen <= kkt_bound(T)
+      end
     end
   end
 end
