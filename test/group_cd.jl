@@ -239,7 +239,7 @@ end
 # sum over groups, so each group minimizes (s c/2)‖β_G - z_G‖² + λ0 wₖ‖β_G‖. Stationarity
 # s c (β_G - z_G) + λ0 wₖ β_G/‖β_G‖ = 0 gives β_G ∥ z_G and ‖β_G‖ = ‖z_G‖ - λ0 wₖ/(s c), so
 #   β_G = max(0, 1 - λ0 wₖ/(s c ‖z_G‖)) z_G,
-# and the group is zero exactly when λ0 wₖ ≥ s c ‖z_G‖. (The threshold is λ0 wₖ/(s c), not λ0 wₖ/s.)
+# and, for s c > 0 and wₖ > 0, the group is zero when λ0 wₖ ≥ s c ‖z_G‖. (The threshold is λ0 wₖ/(s c), not λ0 wₖ/s.)
 function hadamard(n)
   H = ones(1, 1)
   while size(H, 1) < n
