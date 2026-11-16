@@ -244,12 +244,15 @@ end
 """
     solve!(x, f, g, CDSolver())
     solve!(x, f, g, ProximalGradientDescent(), options=ProximalOptions())
+    solve!(x::BlockIterate, f, g::GroupNormL2, CDSolver())
 
 Minimize a least-squares lasso, overwriting `x`. `x` is a dense `Vector{T}`,
 T=Float32 or Float64; `CDSolver` also accepts a one-dimensional `SparseIterate{T}`
-(see below), while `ProximalGradientDescent` refuses it. The loss uses same-type
+(see below), while `ProximalGradientDescent` refuses it. The third form minimizes the
+group lasso with a `GroupNormL2` penalty on a `BlockIterate{T}` with the same groups;
+only `CDSolver` accepts it, and `CDSolver` describes it. The loss uses same-type
 `Matrix` X and `Vector` y, and the penalty is an unweighted finite nonnegative
-`NormL1`. Use `(one(T)/T(n))*LeastSquaresLoss` for normalized lasso; raw LS keeps
+`NormL1` (a `GroupNormL2` in the third form). Use `(one(T)/T(n))*LeastSquaresLoss` for normalized lasso; raw LS keeps
 its unnormalized meaning. One positive finite scalar LS wrapper is supported.
 Borrowed X/y must not alias mutable `x` or change during a solve. Results share
 `x`; copy it to retain earlier coefficients. Unsupported inputs/options fail
@@ -282,6 +285,16 @@ nonfinite step or objective) throws with the values, the active set, signed zero
 and the order of `x` unchanged; the borrowed RNG may already have advanced.
 After a successful call, take `activevalues(x)` and `activecoordinates(x)` again:
 handles taken earlier may no longer describe the active set.
+
+**CD on a `BlockIterate`.** The checks of the receiver, momentum, penalty, groups,
+parameters, aliasing and finiteness happen before the iterate is copied and before the RNG is
+used, and a refused call neither changes `x` nor advances the RNG. Curvature and step
+refusals follow, before the first pass and only when `maxpasses > 0`, still with `x` and the RNG
+unchanged. The solve
+then runs on `work = copy(x)` and `x` receives the final state of `work` by one `copyto!`,
+including the active groups after the compaction of zero groups; a numerical error leaves
+the values and the active groups of `x` unchanged, though the borrowed RNG may already have
+advanced. The result's `minimizer` is `x` itself.
 """
 function solve!(x, f, g, method::ProximalGradientDescent,
                 options::ProximalOptions = ProximalOptions(); kwargs...)

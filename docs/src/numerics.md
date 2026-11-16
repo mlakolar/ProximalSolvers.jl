@@ -41,6 +41,8 @@ code.
   the run then ends at `maxpasses` without converging, with the warning. A
   threshold well above that rounding level avoids this; Float64 data has a much
   lower rounding level.
+  For a group lasso on a `BlockIterate`, the change is that of a whole group; see
+  [Group lasso on a BlockIterate](@ref "Group lasso on a BlockIterate").
 - **Proximal gradient descent (PGD):** the algorithm applies multiple
   stopping tests for relative coefficient change, objective change and
   a gradient/proximal residual. These combine by **OR**: any one of them
@@ -346,12 +348,115 @@ With the dual point `θ = κ s (y - Xx)`, where
 independent numerical check, **not** a rigorous floating-point certificate: the
 rounding errors of that evaluation are not bounded here.
 
+## Group lasso on a BlockIterate
+
+`CDSolver` accepts a `BlockIterate{T}` with a `GroupNormL2` penalty (see
+[Supported problems](support.md)); the coordinates of the solver are the groups. The pass
+schedule, `tol`, `relative`, `maxpasses`, the borrowed random number generator, the
+not-converged warning and the result type are those of the lasso. The result has
+`kkt_checks = 0` and `gap = NaN`, placeholders and not computed certificates, and
+`minimizer === x`. A random order permutes the groups.
+
+### The group step
+
+For group `k`, with entries `G` and the current residual `r`, the solver uses a number
+`ℓ_k`, computed as described below, that is meant to bound the largest eigenvalue of
+`X[:, G]' * X[:, G]` from above.
+A visit forms the trial point `u = x[G] + X[:, G]' * r / ℓ_k` in `T`, replaces the block
+by the proximal point of the penalty at `u` with the step `1 / (s ℓ_k)`, `s` the loss
+scale, and updates the residual for each entry of the block that changed. The change of
+the visit is the 2-norm `‖Δ_G‖₂` of the displacement of the block. A group whose block
+does not change is not written, which keeps an inactive group inactive. A trial point or
+displacement that is not finite stops the solve with an `ArgumentError` that names the
+group, and the iterate of the caller is unchanged; a change or stopping scale that is not
+finite is refused as for the lasso.
+
+### The curvature bound
+
+`ℓ_k` is computed once per solve, after the residual is set and before the first pass
+and any draw from the random number generator, and only when `maxpasses > 0`; with
+`maxpasses = 0` it is not computed and the refusals below do not occur. It is a bound on
+the stored values of `X` in `T`, formed as follows.
+
+- **Flat group.** If every entry of `X[:, G]` is exactly 0, `ℓ_k = 0`. The visit takes
+  the minimizer of the penalty alone: a zero block when the level and the weight are
+  positive, and the block unchanged when one of them is 0. Its stopping scale is 0.
+- **Group of one column**, with `n` the number of rows and `n eps(T) ≤ 1/8`. `ℓ_k` is
+  the next floating-point number above `a (1 + 2 n eps(T))`, where `a` is the sum of
+  squares of the column accumulated in `T`. The factor is a margin for the rounding of `a`,
+  so `ℓ_k` is larger than the squared norm by a relative amount of about `2 n eps(T)`; the
+  scalar lasso step uses `a` itself. The two sums are accumulated differently, so they can
+  differ by rounding even before the margin.
+- **Any other group**, and a group of one column with `n eps(T) > 1/8`. The Gram matrix `Ĝ`
+  of the columns is formed in `Float64` from a copy of the columns (for `Float32` data
+  too), and all eigenvalues of `Ĝ` are computed; `μ` is the largest. With `t` the trace of
+  `Ĝ`, `m` the size of the group and `d` the largest diagonal entry, the bound in
+  `Float64` is the next number above `max(μ, d) + 4 (n + m²) eps(Float64) t`, rounded up to
+  `T`. The three error terms that the margin covers are the rounding of `Ĝ`, products that
+  underflow, and the eigenvalue computation. The first two follow from standard bounds
+  and assume IEEE gradual underflow (subnormal numbers are not flushed to zero); the third
+  assumes that the computed eigenvalues are exact eigenvalues of a nearby matrix, within
+  a multiple of `eps(Float64)` times the trace, a model of the eigenvalue routine and not a
+  proved bound for every input. An exception thrown by the eigenvalue routine is not caught
+  and stops the solve before any pass.
+
+The step of a nonflat group also needs `s ℓ_k` and its reciprocal to be at least the
+smallest normal number of the type that combines `s` with `T`; this is checked with the
+curvatures, so that a refusal does not depend on the order of the visits. These checks
+refuse the solve with an `ArgumentError` that names the group, before the first pass,
+and leave `x` unchanged and the random number generator unused:
+
+| Category | Condition | Message contains |
+| --- | --- | --- |
+| Curvature underflow | the sum of squares of the column of a group of one column is below `floatmin(T)`, the trace of `Ĝ` is below `m` times `floatmin(Float64)`, or `ℓ_k` is below `floatmin(T)` | `underflows` |
+| Curvature overflow | the sum of squares, `Ĝ`, its trace or its largest eigenvalue is not finite, or `ℓ_k` is infinite in `T` | `overflows` |
+| Step | `s ℓ_k` or its reciprocal is outside the normal range | `step of group` |
+
+A group whose curvature bound is subnormal in `T` is refused here, where the scalar
+lasso accepts a subnormal squared norm of a column. Before these, `solve!` refuses a receiver that is not
+a `BlockIterate{Float32}` or `BlockIterate{Float64}`, `momentum = true`, a penalty that
+is not a `GroupNormL2{Float32}` or `GroupNormL2{Float64}`, a level or weight that is not
+finite, nonnegative and representable in `T` (message `group weight`), and groups of `x`
+and of the penalty that differ in number, order or membership (`DimensionMismatch`). No
+fallback rule replaces a refused curvature.
+
+### The stopping statistic
+
+With `relative = true` and a positive response scale, the change of a visit is
+`‖Δ_G‖₂ √(s ℓ_k)`, formed by the range-safe rule that the lasso uses for `√(s a)`, and it
+is compared with `tol` times the response scale of the lasso. For a group of one column
+this is the lasso statistic up to the margin and rounding noted above. A flat group has
+scale 0, so its change is 0. With `relative = false`, or for `y = 0`, the change is
+`‖Δ_G‖₂` itself. A pass reports the largest change among the groups it visited, and a
+full pass whose largest change is below the threshold ends the solve with
+`converged = true`.
+
+`converged = true` reports that change test only. It is not a certificate of optimality:
+compute the group KKT conditions from the data, as in
+[Example 6](examples/06_group_cd_lasso.md), where for `∇ = s Xᵀ(Xβ − y)` a nonzero group
+needs `∇[G] + λ w β[G] / ‖β[G]‖ = 0` and a zero group needs `‖∇[G]‖ ≤ λ w`.
+
+The pass schedule is that of the lasso with groups as the coordinates. A full pass
+visits every group and an active pass visits the active groups; after each pass the
+groups whose block is entirely zero become inactive. The forced full pass counts group
+visits: once the active passes since the last full pass have together visited 20 times as
+many groups as there are groups, the next pass is a full pass, whatever the changes.
+
+### Result and failure
+
+The solve runs on a private copy of `x`. A finite completed run, including one that
+ends at `maxpasses` with the warning, replaces `x` by one same-layout copy of the final
+state; a refusal or numerical error before that leaves the values, the active groups and
+their order of `x` unchanged, though a random order may already have drawn from the
+generator. After a solve, take `activecoordinates(x)` again, as for a `SparseIterate`.
+
 ## Working precision: Float32 and Float64
 
 A supported solve uses a single floating-point working type
 `T = Float32` or `T = Float64` for the design matrix `X`, response
 vector `y`, and coefficient iterate. `CDSolver` accepts either a
-dense `Vector{T}` or a one-dimensional `SparseIterate` of `T`;
+dense `Vector{T}`, a one-dimensional `SparseIterate` of `T`, or, for the group lasso, a
+`BlockIterate{T}`;
 `ProximalGradientDescent` and `AccProxGradDescent` accept only a dense `Vector{T}`.
 Mixed-precision arrays, such as `Float32` coefficients with a
 `Float64` design, are rejected. This is stricter than ProximalBase
