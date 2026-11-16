@@ -1,10 +1,13 @@
 """
     ProximalSolvers
 
-Least-squares lasso with dense Matrix designs. [`CDSolver`](@ref) accepts a dense
+Least-squares lasso with dense Matrix designs, or centered `SqrNormL2`
+with an unweighted `NormL1` penalty. [`CDSolver`](@ref) accepts a dense
 `Vector` or a one-dimensional `SparseIterate` as the iterate, and
 [`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref) a dense `Vector`
-only, all through [`solve!`](@ref). Losses, proximal operators and coordinate storage belong to PB.
+only, all through [`solve!`](@ref). Centered squared-norm objectives
+reuse these solver engines without a dense identity design. Losses,
+proximal operators and coordinate storage belong to PB.
 """
 module ProximalSolvers
 using LinearAlgebra
