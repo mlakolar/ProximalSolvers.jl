@@ -7,12 +7,22 @@
 # Environment variables (all optional):
 #   PS_FP_HARNESS   the harness directory to test (run.jl, problems.jl, cases.jl, certificates.jl);
 #                   default: this checkout's benchmark/
-#   PS_FP_FULL      "true" also exports all 19 scheduled cases for repetitions 1-2 and validates the file
+#   PS_FP_SCHEDULE  the schedule of the optional full export; default: stage2b/schedule.toml next to this file
+#                   (the successor campaign: ../stage2b-cd/schedule.toml)
+#   PS_FP_FULL      "true" also exports every scheduled case for repetitions 1-2 and validates the file
+#
+# Two harness generations are covered, chosen by what the harness catalog offers. The CURRENT-CORE harness (the
+# 21 cd cases of cases.jl core_case_state and the release case cd/lasso-dense/cd/R/call: ProximalSolvers 9f86a808
+# and the Stack A harness port of #333) runs on ProximalBase 0.5.4 and on the minimal-core ProximalBase alike. The
+# LEGACY harness (the 19 cases of Stage 2A, PS_FP_HARNESS pointing at the frozen harness of 412063d8) needs the
+# solver families that the minimal core removed, so its testsets run only where the catalog has those cases; on
+# the minimal core they are inapplicable and are not restored (#333).
 #
 # Groups: 1 the encoder (pairs that must differ, unsupported types, known answers); 2 the real cases through
-# the harness: identity checks, data_hash against problem_hash, the reset semantics of P14, P04, P13 and D04, the
-# certificate file identity, fail-closed adapters; 3 the command line: determinism and refusals; 4 (optional)
-# the full scheduled export (with an atomic-publication group before it). The script exits non-zero when a check fails and prints
+# the harness: identity checks, data_hash against problem_hash, the reset semantics (current core: the working set
+# of the sparse starts and the Float32 problem; legacy: P14, P04, P13 and D04), the certificate file identity,
+# fail-closed adapters; 3 the command line: determinism and refusals; 4 (optional) the full scheduled export (with
+# an atomic-publication group before it). The script exits non-zero when a check fails and prints
 # `FINGERPRINT EXPORTER TEST: PASS` or `FINGERPRINT EXPORTER TEST: FAIL` as its last line.
 
 using Test, Random, LinearAlgebra, SparseArrays, TOML
@@ -26,10 +36,18 @@ const PS = ProximalSolvers
 
 const HARNESS_DIR = abspath(get(ENV, "PS_FP_HARNESS", joinpath(@__DIR__, "..", "..")))
 const FULL = get(ENV, "PS_FP_FULL", "false") == "true"
+const SCHEDULE = abspath(get(ENV, "PS_FP_SCHEDULE", joinpath(@__DIR__, "schedule.toml")))
+const CD_SCHEDULE = abspath(joinpath(@__DIR__, "..", "stage2b-cd", "schedule.toml"))
 const GROUPS = ["admm", "cd", "gradient", "newton", "paths", "primal_dual", "sgl"]
+# The legacy (Stage 2A) cases of the testsets that need the removed solver families.
 const IDS = (P02 = "cd/lasso-csc/cd/B/call", P03 = "cd/lasso-dense/cd/B/workspace",
              P04 = "cd/group-lasso/cd/tight/call", P13 = "admm/lasso/admm/construction/setup",
              P14 = "paths/lasso/cd/grid8/call", D04 = "primal_dual/generalized-lasso/condat-vu/tight/call")
+# Current-core cases: dense and sparse, cold and warm, Float64 and Float32, and the release case.
+const CORE = (dense = "cd/lasso/cd/dense-f64/call", sparse = "cd/lasso/cd/sparse-f64/call",
+              dense32 = "cd/lasso/cd/dense-f32/call", sparse32 = "cd/lasso-B/cd/sparse-f32/call",
+              warm = "cd/lasso-B/cd/warm-dense-f64/call", warm_sparse = "cd/lasso-B/cd/warm-sparse-f64/call",
+              release = "cd/lasso-dense/cd/R/call")
 
 println("FINGERPRINT EXPORTER TEST: Julia ", VERSION, ", ProximalBase ", pkgversion(PB), ", ProximalSolvers ",
         pkgversion(PS), ", threads ", Threads.nthreads(), ", harness ", basename(HARNESS_DIR))
@@ -62,6 +80,8 @@ end
 # Known answers: identical on Julia 1.10 and 1.13 (the encoding never depends on Julia's hash or printing). The first
 # 14 were also reproduced by an independent implementation of the documented encoding written in Python.
 # Regenerate with PS_FP_PRINT_KNOWN=true after a deliberate change of the encoding (a new version name).
+# The last two payloads are structs of the loaded package: their digests follow the package's field layout, which
+# the two stacks of #333 do not share, so they are checked for determinism and no longer pinned.
 known_payloads() = [
   ("nothing", nothing), ("bool", true), ("int64", 42), ("int32", Int32(-7)), ("float64", 0.1),
   ("negative_zero", -0.0), ("float32", 1.5f0), ("string", "λ"), ("symbol", :lasso),
@@ -85,8 +105,7 @@ const KNOWN = Dict{String, String}(
   "matrix" => "71f67ec3328fcd27c88cc69b4dfe5a46d26fa596b638a982c2a590b668d9a134",
   "groups" => "1e98f425d3c7435ea5ecf191c31df49f3dfd29395359e34d7b341fd95baa7ca1",
   "sparse" => "ff40ea2b29c6cb17f5224ed2df9b8f32f9c894f35824e5415407328c68da63c8",
-  "options" => "6ecf96da8106b24c92dcbfa24d32ce5f1e02f6b6e6b91ecf937a757e6f00d1c8",
-  "cd_task_local" => "a6ddd1793e3008ac7519d63fa60cad4529896ee03fd6f673a78e75441dd03f94")
+  )
 
 encoder_ok = run_group("encoder") do
   nan1 = reinterpret(Float64, 0x7ff8000000000001)
@@ -136,9 +155,19 @@ encoder_ok = run_group("encoder") do
       @test rejects(bad)
     end
   end
+  @testset "ProximalBase with and without AtomIterate (N2, #333)" begin
+    # Loading the exporter at all is the first check: PB.AtomIterate is not defined by the minimal-core ProximalBase.
+    @test E.HAS_ATOM_ITERATE == isdefined(PB, :AtomIterate)
+    @test Vector{Float64} <: E.ITERATE_TYPES && Vector{Float32} <: E.ITERATE_TYPES && Matrix{Float64} <: E.ITERATE_TYPES
+    @test PB.SparseIterate <: E.ITERATE_TYPES && PB.SparseIterate <: E.WORKING_SET_TYPES
+    @test !(Vector{Float64} <: E.WORKING_SET_TYPES)
+    @test (E.HAS_ATOM_ITERATE ? PB.AtomIterate <: E.ITERATE_TYPES && PB.AtomIterate <: E.WORKING_SET_TYPES : true)
+    @test E.active_ids(PB.SparseIterate(4)) == Int[] && E.active_ids(zeros(3)) === nothing
+  end
   @testset "solver and option structs" begin
     @test fp(PS.ProximalOptions(maxiter = 100)) != fp(PS.ProximalOptions(maxiter = 101))
-    @test fp(PS.ProximalOptions(gaptol = 1e-10)) != fp(PS.ProximalOptions(gaptol = 1e-8))
+    @test fp(PS.ProximalOptions(gradtol = 1e-10)) != fp(PS.ProximalOptions(gradtol = 1e-8))
+    @test fp(PS.ProximalOptions(maxiter = 100)) == fp(PS.ProximalOptions(maxiter = 100))
     @test fp(PS.CDSolver(tol = 1e-11)) != fp(PS.CDSolver(tol = 1e-10))
     @test fp(PS.CDSolver(order = :cyclic)) != fp(PS.CDSolver(order = :random))
     @test fp(PS.CDSolver(rng = Xoshiro(9))) == fp(PS.CDSolver(rng = Xoshiro(9)))
@@ -161,7 +190,13 @@ encoder_ok = run_group("encoder") do
       end
     end
     for (label, payload) in payloads
-      @test E.fingerprint("fixture", label, payload) == KNOWN[label]
+      if haskey(KNOWN, label)
+        @test E.fingerprint("fixture", label, payload) == KNOWN[label]
+      else
+        again = Dict(known_payloads())[label]
+        @test E.fingerprint("fixture", label, payload) == E.fingerprint("fixture", label, again)
+        @test hex64(E.fingerprint("fixture", label, payload))
+      end
     end
   end
 end
@@ -170,9 +205,23 @@ end
 H = E.load_harness(HARNESS_DIR)
 const CERT = E.hex_file(joinpath(HARNESS_DIR, "certificates.jl"))
 
-catalog_spec(H, id; groups = GROUPS) = first(s for s in H.build_catalog("extended", groups) if s.meta.id == id)
+const ALL_GROUPS = collect(String, H.CASE_GROUPS)
+catalog_ids(H) = [String(s.meta.id) for s in H.build_catalog("extended", ALL_GROUPS)]
+# What the catalog of this harness on this package offers decides which testsets apply.
+const LEGACY = IDS.P02 in catalog_ids(H)          # the Stage 2A families (removed from the minimal core)
+const CURRENT = CORE.dense in catalog_ids(H)      # the current-core cd cases
+println("EXPORTER INFO harness cases: legacy families ", LEGACY, ", current-core cd cases ", CURRENT)
+LEGACY || CURRENT || error("the harness offers neither the legacy nor the current-core cases")
+# The cases the identity, command line and publication checks run on, and the one the layout checks use.
+const CHECKED = LEGACY ? collect(IDS) : collect(CORE)
+const FIRST = LEGACY ? IDS.P02 : CORE.dense
+
+catalog_spec(H, id; groups = ALL_GROUPS) = first(s for s in H.build_catalog("extended", groups) if s.meta.id == id)
 parts_of(H, spec, state = spec.make(1)) = E.extract_parts(H, spec.meta, state, CERT)
 cell(result, kind, name) = first(v for (k, n, v) in result.rows if k == kind && n == name)
+# A check closure that captures `exact`, as the check of a current-core case does (a function argument keeps its name;
+# a local of a @testset does not).
+check_with_exact(exact) = output -> exact
 bits(v) = collect(reinterpret(UInt64, collect(Float64, v)))
 
 # Copy the four harness files to a fresh directory (the harness is never modified in place).
@@ -191,7 +240,7 @@ harness_ok = run_group("real cases") do
     @test E.harness_hash(HARNESS_DIR) == H.fingerprint(HARNESS_DIR, [joinpath(HARNESS_DIR, n) for n in E.HARNESS_FILES])
   end
   @testset "every checked case exports; data_hash equals problem_hash" begin
-    for id in IDS
+    for id in CHECKED
       spec = catalog_spec(H, id)
       result = E.export_case(H, spec.meta, spec.make, 1, CERT)
       @test result.data_hash == spec.make(1).problem_hash
@@ -209,11 +258,12 @@ harness_ok = run_group("real cases") do
     end
   end
   @testset "closure identities" begin
-    spec = catalog_spec(H, IDS.P02)
+    spec = catalog_spec(H, FIRST)
     state = spec.make(1)
     @test getfield(state.reset!, :x) === getfield(state.call!, :x)
     @test getfield(state.reset!, :method) === getfield(state.call!, :method)
     @test E.family(spec.meta) == :call
+    LEGACY && @testset "workspace and primal-dual closures (legacy)" begin
     spec = catalog_spec(H, IDS.P03)
     state = spec.make(1)
     @test getfield(state.reset!, :workspace) === getfield(state.call!, :workspace)
@@ -228,16 +278,30 @@ harness_ok = run_group("real cases") do
     parts = parts_of(H, spec, state)
     @test parts.family == :primal_dual && parts.iterate[1] === getfield(state.call!, :x)
     @test parts.iterate[2] === getfield(state.call!, :y)
+    end
+    CURRENT && @testset "current-core closures" begin
+      for id in (CORE.dense, CORE.sparse32, CORE.release)
+        spec = catalog_spec(H, id)
+        state = spec.make(1)
+        # the check closure of a current-core case captures the Float64 image `exact`, not `a`
+        id == CORE.release || @test E.has_field(state.certify, :exact) && !E.has_field(state.certify, :a)
+        @test id != CORE.release || E.has_field(state.certify, :a)
+        parts = parts_of(H, spec, state)
+        @test parts.family == :call && parts.iterate === getfield(state.call!, :x)
+        @test parts.solver === getfield(state.call!, :method) && parts.options === nothing
+        @test parts.iterate isa Union{Vector{Float64}, Vector{Float32}, PB.SparseIterate}
+      end
+    end
   end
   @testset "a second make is identical field by field" begin
-    spec = catalog_spec(H, IDS.P14)
+    spec = catalog_spec(H, LEGACY ? IDS.P14 : CORE.warm_sparse)
     a1, a2 = parts_of(H, spec), parts_of(H, spec)
     @test [E.fingerprint("fixture", n, v) for (n, v) in E.fixture_items(a1)] ==
           [E.fingerprint("fixture", n, v) for (n, v) in E.fixture_items(a2)]
     names = first.(E.fixture_items(a1))
-    @test "grid" in names && "X" in names && issorted(names)
+    @test (LEGACY ? "grid" in names : "start" in names) && "X" in names && issorted(names)
   end
-  @testset "P14: the cold reset empties the working set" begin
+  LEGACY && @testset "P14: the cold reset empties the working set" begin
     spec = catalog_spec(H, IDS.P14)
     state = spec.make(1)
     parts = parts_of(H, spec, state)
@@ -270,7 +334,7 @@ harness_ok = run_group("real cases") do
     sres = E.export_case(H, slope.meta, slope.make, 1, CERT)
     @test cell(sres, "reset", "active_ids") == "none" && sres.family == :path
   end
-  @testset "P04: the active groups are restored to the empty set" begin
+  LEGACY && @testset "P04: the active groups are restored to the empty set" begin
     spec = catalog_spec(H, IDS.P04)
     state = spec.make(1)
     parts = parts_of(H, spec, state)
@@ -286,7 +350,7 @@ harness_ok = run_group("real cases") do
     @test cell(result, "reset", "active_ids") == rows[("reset", "active_ids")]
     @test "groups" in [n for (k, n, _) in result.rows if k == "fixture"]
   end
-  @testset "P13: the setup case has no iterate" begin
+  LEGACY && @testset "P13: the setup case has no iterate" begin
     spec = catalog_spec(H, IDS.P13)
     result = E.export_case(H, spec.meta, spec.make, 1, CERT)
     @test result.family == :setup
@@ -295,8 +359,83 @@ harness_ok = run_group("real cases") do
     @test cell(result, "config", "solver") == E.fingerprint("config", "solver", descriptor)
     @test cell(result, "config", "options") == E.fingerprint("config", "options", descriptor)
   end
-  @testset "D04: the certificate file is part of the identity" begin
-    spec = catalog_spec(H, IDS.D04)
+  CURRENT && @testset "current core: the reset restores the start, working set included" begin
+    for id in (CORE.sparse, CORE.warm_sparse, CORE.sparse32)
+      spec = catalog_spec(H, id)
+      state = spec.make(1)
+      parts = parts_of(H, spec, state)
+      x = parts.iterate
+      @test x isa PB.SparseIterate
+      before = E.snapshot_rows(parts, E.tls_copy())
+      ids0 = sort!(collect(Int, PB.activecoordinates(x)))
+      warm = occursin("/warm-", id)
+      @test isempty(ids0) == !warm
+      empty_set = E.fingerprint("reset", "active_ids", Int[])
+      @test (before[("reset", "active_ids")] == empty_set) == !warm
+      state.call!()
+      used = E.snapshot_rows(parts, E.tls_copy())
+      @test used[("reset", "values")] != before[("reset", "values")]    # a solve moves the iterate
+      state.reset!()
+      after = E.snapshot_rows(parts, E.tls_copy())
+      @test after[("reset", "values")] == before[("reset", "values")]
+      @test after[("reset", "active_ids")] == before[("reset", "active_ids")]
+      @test sort!(collect(Int, PB.activecoordinates(x))) == ids0
+      # Negative check: writing into the captured iterate after the reset changes the hash.
+      x[3] = 1.5
+      changed = E.snapshot_rows(parts, E.tls_copy())
+      @test changed[("reset", "values")] != after[("reset", "values")]
+      state.reset!()
+      @test E.snapshot_rows(parts, E.tls_copy())[("reset", "values")] == before[("reset", "values")]
+      result = E.export_case(H, spec.meta, spec.make, 1, CERT)
+      @test cell(result, "reset", "values") == before[("reset", "values")]
+      @test cell(result, "reset", "active_ids") == before[("reset", "active_ids")]
+    end
+    for id in (CORE.dense, CORE.dense32, CORE.warm)       # a dense iterate has no working set
+      spec = catalog_spec(H, id)
+      result = E.export_case(H, spec.meta, spec.make, 1, CERT)
+      @test cell(result, "reset", "active_ids") == "none"
+    end
+  end
+  CURRENT && @testset "current core: a Float32 problem is its Float64 image rounded back" begin
+    spec = catalog_spec(H, CORE.dense32)
+    state = spec.make(1)
+    parts = parts_of(H, spec, state)
+    @test eltype(parts.a.X) == Float32 && eltype(parts.a.y) == Float32 && eltype(parts.a.start) == Float32
+    @test parts.a.s isa Float32 && parts.a.λ isa Float32
+    @test H.data_hash(parts.a) == state.problem_hash
+    exact = getfield(state.certify, :exact)
+    @test eltype(exact.X) == Float64 && Float32.(exact.X) == parts.a.X
+    spec64 = catalog_spec(H, CORE.dense)
+    @test spec64.make(1).problem_hash != state.problem_hash
+    @test E.fingerprint("fixture", "X", parts.a.X) != E.fingerprint("fixture", "X", Float64.(parts.a.X))
+    # an image that is not the rounded-up problem of the case fails closed
+    fake = H.CaseState(state.reset!, state.call!, check_with_exact(merge(exact, (; y = exact.y .+ 1.0))),
+                       state.problem_hash)
+    err = try
+      E.export_case(H, spec.meta, rep -> fake, 1, CERT)
+      nothing
+    catch e
+      e
+    end
+    @test err isa E.VerifyError && occursin("data_hash", err.msg)
+  end
+  CURRENT && @testset "current core: the release case keeps the historical closure layout" begin
+    spec = catalog_spec(H, CORE.release)
+    state = spec.make(1)
+    parts = parts_of(H, spec, state)
+    @test E.has_field(state.call!, :own_options) && E.has_field(state.certify, :a)
+    @test parts.options === nothing && parts.iterate isa Vector{Float64}
+    @test spec.meta.inputs == "fixed" && isnan(spec.meta.target)
+    result = E.export_case(H, spec.meta, spec.make, 1, CERT)
+    @test cell(result, "config", "options") == E.fingerprint("config", "options", nothing)
+  end
+  CURRENT && isfile(CD_SCHEDULE) && @testset "the successor schedule lists exactly the cd cases of this harness" begin
+    sched = E.read_schedule(CD_SCHEDULE)
+    ids = [String(s.meta.id) for s in H.build_catalog(sched.suite, String.(split(sched.groups, ',')))]
+    @test length(ids) == 21 && sort(ids) == sort(String.(split(sched.case_filter, ',')))
+  end
+  @testset "the certificate file is part of the identity" begin
+    spec = catalog_spec(H, LEGACY ? IDS.D04 : CORE.dense)
     base = E.export_case(H, spec.meta, spec.make, 1, CERT)
     @test cell(base, "file", "certificates.jl") == CERT
     @test cell(base, "reset", "active_ids") == "none"
@@ -309,7 +448,7 @@ harness_ok = run_group("real cases") do
       H2 = E.load_harness(dir)
       Base.invokelatest() do
         @test E.check_certify_methods(H2, dir) >= 1
-        spec2 = catalog_spec(H2, IDS.D04)
+        spec2 = catalog_spec(H2, spec.meta.id)
         changed = E.export_case(H2, spec2.meta, spec2.make, 1, cert)
         @test cell(changed, "file", "certificates.jl") == cert != cell(base, "file", "certificates.jl")
         # everything else is the same state
@@ -328,7 +467,7 @@ harness_ok = run_group("real cases") do
     end
   end
   @testset "fail closed on a changed closure layout" begin
-    spec = catalog_spec(H, IDS.P02)
+    spec = catalog_spec(H, FIRST)
     real = spec.make(1)
     fake = H.CaseState(() -> nothing, () -> nothing, output -> nothing, "h")
     err = try
@@ -357,8 +496,10 @@ harness_ok = run_group("real cases") do
     end
     @test err isa E.VerifyError && occursin("data_hash", err.msg)
     # a case of a known id whose family does not fit the closure it was built with
-    p13 = catalog_spec(H, IDS.P13)
-    @test_throws E.VerifyError E.export_case(H, p13.meta, rep -> real, 1, CERT)
+    LEGACY && @test_throws E.VerifyError E.export_case(H, catalog_spec(H, IDS.P13).meta, rep -> real, 1, CERT)
+    # a Float32 problem is rebuilt from its Float64 image only for the element types the harness rounds to
+    @test_throws E.VerifyError E.core_problem_of("id", (; X = zeros(1, 1)), Float16)
+    @test_throws E.VerifyError E.core_problem_of("id", (; X = zeros(1, 1)), Float32)
     # an iterate of an unexpected type
     @test_throws E.VerifyError E.check_iterate("id", view(zeros(3), 1:2), "x")
   end
@@ -387,7 +528,7 @@ end
 
 cli_ok = run_group("command line") do
   mktempdir() do dir
-    ids = collect(IDS)
+    ids = collect(CHECKED)
     schedule = joinpath(dir, "schedule.toml")
     write_schedule(schedule, ids)
     c1, o1 = cli(dir, "a.tsv", schedule)
@@ -434,14 +575,14 @@ cli_ok = run_group("command line") do
       @test entry["warm_reset_values"] == only(warm)
     end
     by = Dict((e["id"], e["rep"]) => e for e in summary["case"])
-    @test by[(IDS.P02, 1)]["cold_equals_warm"] && by[(IDS.P02, 1)]["cold_reset_values"] == by[(IDS.P02, 1)]["warm_reset_values"]
+    @test by[(FIRST, 1)]["cold_equals_warm"] && by[(FIRST, 1)]["cold_reset_values"] == by[(FIRST, 1)]["warm_reset_values"]
     # Every recorded difference carries two different hashes, and the cold hash is the encoding of the cold state.
     for entry in summary["case"]
       entry["cold_equals_warm"] && continue
       @test entry["cold_reset_values"] != entry["warm_reset_values"]
     end
-    p04 = by[(IDS.P04, 1)]
-    if !p04["cold_equals_warm"]
+    p04 = LEGACY ? by[(IDS.P04, 1)] : nothing
+    if LEGACY && !p04["cold_equals_warm"]
       zeros_cold = E.fingerprint("reset", "values", (; iterate = (; type = "AtomIterate", values = zeros(32)), rng = nothing))
       @test p04["cold_reset_values"] == zeros_cold && p04["warm_reset_values"] != zeros_cold
     end
@@ -508,7 +649,7 @@ publish_ok = run_group("atomic publication") do
     @test sort(readdir(dir)) == ["keep"]
     # the same failure through the command line
     schedule = joinpath(dir, "schedule.toml")
-    write_schedule(schedule, [IDS.P02]; reps = [1])
+    write_schedule(schedule, [FIRST]; reps = [1])
     count[] = 0
     E.STAGE_HOOK[] = path -> (count[] += 1; count[] == 2 && error("injected write failure"))
     code, _ = try
@@ -535,7 +676,7 @@ publish_ok = run_group("atomic publication") do
   # through the command line: a sidecar appearing between the existence check and the publication
   mktempdir() do dir
     schedule = joinpath(dir, "schedule.toml")
-    write_schedule(schedule, [IDS.P02]; reps = [1])
+    write_schedule(schedule, [FIRST]; reps = [1])
     out = joinpath(dir, "z.tsv")
     for (n, target) in ((2, out * ".datahash.tsv"), (3, out * ".summary.toml"))
       E.PUBLISH_HOOK[] = i -> i == n && symlink(joinpath(dir, "nowhere"), target)
@@ -555,10 +696,10 @@ end
 
 # ---- 4. The full scheduled export (opt-in) -----------------------------------------------------------
 full_ok = !FULL || run_group("full scheduled export, repetitions 1-2") do
-  schedule = joinpath(@__DIR__, "schedule.toml")
+  schedule = SCHEDULE
   sched = E.read_schedule(schedule)
   ids = String.(split(sched.case_filter, ','))
-  @test length(ids) == 19
+  @test length(ids) == length(unique(ids)) && !isempty(ids)
   mktempdir() do dir
     code, out = cli(dir, "full.tsv", schedule; reps = "1-2")
     @test code == 0
@@ -577,7 +718,7 @@ full_ok = !FULL || run_group("full scheduled export, repetitions 1-2") do
       @test all(r -> hex64(r[6]) || (r[6] == "none" && r[4] == "reset" &&
                     (r[5] == "active_ids" || (r[5] == "values" && endswith(id, "/setup")))), mine)
     end
-    @test length(unique(r[2] for r in rows)) == 19
+    @test length(unique(r[2] for r in rows)) == length(ids)
     println("EXPORTER INFO full export: ", length(rows), " rows, ", length(ids), " cases, repetitions 1-2")
   end
 end

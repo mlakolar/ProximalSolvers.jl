@@ -334,7 +334,17 @@ function family(meta)
   throw(VerifyError("$(meta.id): no known state family for phase $(meta.phase), group $(meta.group)"))
 end
 
-const ITERATE_TYPES = Union{Vector{Float64}, Matrix{Float64}, PB.SparseIterate, PB.AtomIterate}
+# AtomIterate exists in ProximalBase 0.5 and not in the minimal-core ProximalBase (#333): its types join the unions only
+# where it is defined, and the unions are identical to the former ones on ProximalBase 0.5.4.
+const HAS_ATOM_ITERATE = isdefined(PB, :AtomIterate)
+# Vector{Float32} is the dense iterate of the Float32 cases of the current-core harness (cases.jl core_case_state).
+const ITERATE_TYPES = HAS_ATOM_ITERATE ?
+  Union{Vector{Float64}, Vector{Float32}, Matrix{Float64}, PB.SparseIterate, PB.AtomIterate} :
+  Union{Vector{Float64}, Vector{Float32}, Matrix{Float64}, PB.SparseIterate}
+# The solver types that carry their own options (cases.jl own_options); only those the loaded package defines.
+const OWN_OPTION_SOLVERS = Tuple(getfield(ProximalSolvers, name)
+  for name in (:CDSolver, :ProxNewton, :SLOPEAPG, :SLOPEHybrid) if isdefined(ProximalSolvers, name))
+const WORKING_SET_TYPES = HAS_ATOM_ITERATE ? Union{PB.SparseIterate, PB.AtomIterate} : PB.SparseIterate
 
 struct Parts
   id::String
@@ -358,12 +368,28 @@ function check_iterate(id, x, what)
   x
 end
 
+"""The problem of a current-core case from the Float64 image `exact` that its check closure captured: the image rounded
+back to the element type `T` of the iterate (a Float32 case rounds the Float64 draw once, so the rounding back is exact).
+check_data_hash then compares the data hash of the result with the problem_hash of the case, and fails closed on any
+difference."""
+function core_problem_of(id, exact, T)
+  T === Float64 && return exact
+  T === Float32 || throw(VerifyError("$id: the iterate of a current-core case has the element type $T"))
+  names = (:X, :y, :s, :λ, :w, :start)
+  all(name -> haskey(exact, name), names) ||
+    throw(VerifyError("$id: the captured problem lacks one of the fields $names"))
+  merge(exact, NamedTuple{names}(map(name -> T.(getproperty(exact, name)), names)))
+end
+
 function extract_parts(H, meta, state, certificates)
   id = String(meta.id)
   state isa H.CaseState || throw(VerifyError("$id: the state is a $(typeof(state)), not a CaseState"))
   reset, call, certify = state.reset!, state.call!, state.certify
   fam = family(meta)
-  a = cap(id, certify, :a, "certify")
+  # The check of a current-core case (cases.jl core_case_state) captures `exact`, the Float64 image of the problem,
+  # in place of `a`; the call phase of such a case has no own_options flag (see below).
+  core = has_field(certify, :exact) && !has_field(certify, :a)
+  a = cap(id, certify, core ? :exact : :a, "certify")
   a isa NamedTuple || throw(VerifyError("$id: the captured problem is a $(typeof(a)), not a NamedTuple"))
   grid = nothing
   iterate = solver = options = workspace = nothing
@@ -378,12 +404,13 @@ function extract_parts(H, meta, state, certificates)
     method = cap(id, reset, :method, "reset!")
     same(id, "the iterate x", x, cap(id, call, :x, "call!"))
     same(id, "the solver", method, cap(id, call, :method, "call!"))
-    own = cap(id, call, :own_options, "call!")
+    # core_case_state passes options only to the solvers that take them: its call! captures `options` then and only then
+    own = core ? !has_field(call, :options) : cap(id, call, :own_options, "call!")
     own isa Bool || throw(VerifyError("$id: own_options is a $(typeof(own)), not a Bool"))
-    own == (method isa Union{ProximalSolvers.CDSolver, ProximalSolvers.ProxNewton, ProximalSolvers.SLOPEAPG,
-                             ProximalSolvers.SLOPEHybrid}) ||
+    own == any(T -> method isa T, OWN_OPTION_SOLVERS) ||
       throw(VerifyError("$id: own_options = $own does not match the solver type $(typeof(method))"))
     iterate = check_iterate(id, x, "x")
+    core && (a = core_problem_of(id, a, eltype(x)))
     solver = method
     options = own ? nothing : cap(id, call, :options, "call!")
   elseif fam == :workspace
@@ -442,7 +469,7 @@ end
 dense_values(x::Array) = copy(x)
 dense_values(x) = collect(Float64, x)
 iterate_payload(x) = (; type = String(nameof(typeof(x))), values = dense_values(x))
-active_ids(x::Union{PB.SparseIterate, PB.AtomIterate}) = sort!(collect(Int, PB.activecoordinates(x)))
+active_ids(x::WORKING_SET_TYPES) = sort!(collect(Int, PB.activecoordinates(x)))
 active_ids(x) = nothing
 
 tls_copy() = copy(Random.default_rng())
