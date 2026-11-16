@@ -419,7 +419,7 @@ A group whose curvature bound is subnormal in `T` is refused here, where the sca
 lasso accepts a subnormal squared norm of a column. Before these, `solve!` refuses a receiver that is not
 a `BlockIterate{Float32}` or `BlockIterate{Float64}`, `momentum = true`, a penalty that
 is not a `GroupNormL2{Float32}` or `GroupNormL2{Float64}`, a level or weight that is not
-finite, nonnegative and representable in `T` (message `group weight`), and groups of `x`
+finite, nonnegative and representable in `T` (messages `penalty lambda` and `group weight`), and groups of `x`
 and of the penalty that differ in number, order or membership (`DimensionMismatch`). No
 fallback rule replaces a refused curvature.
 
