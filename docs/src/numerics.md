@@ -384,7 +384,7 @@ step gives a zero block, for any `ℓ_k > 0`, exactly when the norm of `b` is at
 in a band around that equality, where they can decide differently by rounding (a screened
 zero where the full step would give a block that is nonzero but within rounding of the
 threshold, or the reverse). Two guards restrict the screen to cases where an entirely zero
-result can only mean that threshold test:
+result is meant to come from that threshold test, up to such a rounding tie:
 
 - the reciprocal `1 / s` formed in the type `S` of the scale must be a finite positive normal
   number of `S`; it is `Inf`, 0 or subnormal otherwise;
