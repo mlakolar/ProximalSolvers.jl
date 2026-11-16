@@ -85,6 +85,10 @@ const MAX_DEPTH = 40
 const NORMALIZED_CAMPAIGNS = ("stage2b-cd-minimal-core-v1",)
 const REMOVED_CD_FIELDS = (anderson = 0, gaptol = 0.0, gapsafe = false)     # field => its required inert value
 const NORMALIZE_SOLVER = Ref(false)
+# The same campaigns require the live lasso validation (check_live_lasso) for EVERY scheduled case, decided from the
+# campaign and never from the live loss or penalty: a layout that the validator does not support enters it and is
+# refused. Other campaigns keep the selection of extract_parts (the current-core layout and the plain cd lasso).
+const REQUIRE_LIVE_LASSO = Ref(false)
 
 struct UsageError <: Exception
   msg::String
@@ -490,10 +494,9 @@ function extract_parts(H, meta, state, certificates)
     # supported loss and penalty is checked too. Other solvers (ADMM fills its loss cache in the solve) are left as they were.
     supported = String(meta.solver) == "cd" && has_field(call, :f) && has_field(call, :g) &&
       let f = cap(id, call, :f, "call!"), g = cap(id, call, :g, "call!")
-        f isa PB.Scaled && f.f isa PB.LeastSquaresLoss && g isa PB.NormL1 &&
-          hasfield(typeof(f.f), :w) && isempty(f.f.w)       # the plain lasso of the cd group (no observation weights)
+        f isa PB.Scaled && f.f isa PB.LeastSquaresLoss && g isa PB.NormL1     # the plain cd lasso
       end
-    (core || supported) && (live = () -> check_live_lasso(id, call, reset, a))
+    (core || supported || REQUIRE_LIVE_LASSO[]) && (live = () -> check_live_lasso(id, call, reset, a))
     solver = method
     options = own ? nothing : cap(id, call, :options, "call!")
   elseif fam == :workspace
@@ -765,6 +768,7 @@ function summary_table(cfg, sched, results, harness_hash_value, certificates, ce
     "proximalbase_version" => string(pkgversion(ProximalBase)),
     "suite" => sched.suite, "groups" => sched.groups, "case_filter" => sched.case_filter,
     "campaign_id" => sched.campaign_id, "removed_cd_fields_omitted" => NORMALIZE_SOLVER[],
+    "live_lasso_required" => REQUIRE_LIVE_LASSO[],
     "reps" => cfg.reps, "cases" => length(unique(r.id for r in results)),
     "rows" => sum(length(r.rows) for r in results),
     "cold_differences" => count(r -> !isempty(r.cold_differences), results),
@@ -905,11 +909,11 @@ function run(args)
     throw(VerifyError("--reps $(cfg.reps) is not a subset of the schedule's repetitions $(sched.reps)"))
   certificates = hex_file(joinpath(cfg.harness, "certificates.jl"))
   H = load_harness(cfg.harness)
-  NORMALIZE_SOLVER[] = sched.campaign_id in NORMALIZED_CAMPAIGNS
+  NORMALIZE_SOLVER[] = REQUIRE_LIVE_LASSO[] = sched.campaign_id in NORMALIZED_CAMPAIGNS
   try
     Base.invokelatest(run_loaded, H, cfg, sched, certificates, computed)
   finally
-    NORMALIZE_SOLVER[] = false
+    NORMALIZE_SOLVER[] = REQUIRE_LIVE_LASSO[] = false
   end
 end
 

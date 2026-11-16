@@ -543,6 +543,76 @@ harness_ok = run_group("real cases") do
     make = rep -> (c = spec.make(rep); getfield(c.reset!, :start)[1] += 1e-8; c)
     @test refused(err_of(make, spec), "live start")
   end
+  CURRENT && @testset "the successor requires the live validation for every case (round-2 fix)" begin
+    required(f) = (E.REQUIRE_LIVE_LASSO[] = true; try f() finally E.REQUIRE_LIVE_LASSO[] = false end)
+    err_of(make, spec) = try
+      E.export_case(H, spec.meta, make, 1, CERT)
+      nothing
+    catch e
+      e
+    end
+    refused(err) = err isa E.VerifyError
+    @test !E.REQUIRE_LIVE_LASSO[]
+    @test E.read_schedule(CD_SCHEDULE).campaign_id in E.NORMALIZED_CAMPAIGNS
+    # every one of the 21 scheduled cases installs the validator, whatever its layout
+    ids = String.(split(E.read_schedule(CD_SCHEDULE).case_filter, ','))
+    @test length(ids) == 21
+    required() do
+      for id in ids
+        spec = catalog_spec(H, id)
+        parts = parts_of(H, spec)
+        @test parts.live !== nothing && parts.live() === nothing
+      end
+    end
+    # the release case, under the successor: an unsupported layout enters the validator and is refused
+    spec = catalog_spec(H, CORE.release)
+    function unweighted_to_weighted(rep)
+      c = spec.make(rep)
+      loss = getfield(c.call!, :f).f
+      loss.w = ones(length(loss.Y))
+      c
+    end
+    function detached_and_weighted(rep)
+      c = spec.make(rep)
+      loss = getfield(c.call!, :f).f
+      loss.Y = copy(loss.Y); loss.Y[1] += 1e-8; loss.w = ones(length(loss.Y))
+      c
+    end
+    function detached_only(rep)
+      c = spec.make(rep)
+      loss = getfield(c.call!, :f).f
+      loss.Y = copy(loss.Y); loss.Y[1] += 1e-8
+      c
+    end
+    required() do
+      for make in (unweighted_to_weighted, detached_and_weighted, detached_only)
+        @test refused(err_of(make, spec))
+      end
+      @test occursin("observation weights", err_of(detached_and_weighted, spec).msg)
+      # a changed second make is refused as well
+      for changed in (detached_and_weighted, detached_only)
+        calls = Ref(0)
+        second(rep) = (calls[] += 1; calls[] == 2 ? changed(rep) : spec.make(rep))
+        @test refused(err_of(second, spec))
+        @test calls[] >= 2
+      end
+      # an unknown loss or penalty type of the release case is refused, never skipped
+      for (f2, g2) in ((zeros(2), nothing), (nothing, zeros(2)))
+        function make(rep)
+          c = spec.make(rep)
+          f3 = f2 === nothing ? getfield(c.call!, :f) : f2
+          g3 = g2 === nothing ? getfield(c.call!, :g) : g2
+          H.CaseState(c.reset!, call_with(getfield(c.call!, :x), getfield(c.call!, :method), f3, g3), c.certify,
+                      c.problem_hash)
+        end
+        @test refused(err_of(make, spec))
+      end
+      # the unmodified release case still exports
+      @test err_of(spec.make, spec) === nothing
+    end
+    # outside the successor the plain cd lasso is still checked, and a weighted layout of it is refused too
+    @test refused(err_of(detached_and_weighted, spec)) && refused(err_of(unweighted_to_weighted, spec))
+  end
   CURRENT && @testset "current core: the Float32 image must be an exact promotion (round-1 fix)" begin
     spec = catalog_spec(H, CORE.dense32)
     state = spec.make(1)
