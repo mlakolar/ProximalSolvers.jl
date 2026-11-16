@@ -2,9 +2,10 @@
     ProximalSolvers
 
 Least-squares lasso with dense Matrix designs. [`CDSolver`](@ref) accepts a dense
-`Vector` or a one-dimensional `SparseIterate` as the iterate, and
-[`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref) a dense `Vector`
-only, all through [`solve!`](@ref). Losses, proximal operators and coordinate storage belong to PB.
+`Vector` or a one-dimensional `SparseIterate` as the iterate, and, for a group lasso with
+a `GroupNormL2` penalty, a `BlockIterate`. [`ProximalGradientDescent`](@ref) and
+[`AccProxGradDescent`](@ref) accept a dense `Vector` only, all through [`solve!`](@ref).
+Losses, proximal operators and coordinate storage belong to PB.
 """
 module ProximalSolvers
 using LinearAlgebra

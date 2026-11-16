@@ -7,6 +7,7 @@ Coordinate descent for the least-squares lasso. Call
 `solve!(beta, f, g, CDSolver())` with matching `Float32` or `Float64`
 design/response data and coefficients. The coefficient storage can be
 a dense `Vector` or a one-dimensional ProximalBase `SparseIterate`.
+For a group lasso it can be a ProximalBase `BlockIterate`, as described below.
 
 `CDSolver()` uses random coordinate order and the algorithm's default
 momentum behavior, a reasonable exploratory choice. For deterministic
@@ -52,7 +53,27 @@ rounding level avoids this; Float64 data has a much lower rounding level.
 A `SparseIterate` is solved on a private copy retaining its initial
 active zeros and coordinate order. After a completed finite run the caller
 receives the complete final state, including any zero-coordinate
-compaction. The copy needs `O(p)` extra storage. See [`solve!`](@ref)
+compaction. The copy needs `O(p)` extra storage.
+
+**Group lasso.** With `T` equal to `Float32` or `Float64`, `x = BlockIterate(T, p, g)`
+and `g = GroupNormL2(lambda, groups)` (or with weights), the call
+`solve!(x, f, g, CDSolver(order=:cyclic, tol=1e-10))` minimizes the least-squares
+loss plus `lambda * sum(w[k] * norm(x[groups[k]]))`. The loss is as for the lasso. `g` is a
+`GroupNormL2{Float32}` or `GroupNormL2{Float64}` whose level and weights are finite,
+nonnegative and representable in `T`, and its groups and those of `x` agree in number,
+order and ordered members, otherwise a `DimensionMismatch` is thrown. The coordinates are
+the groups, and a pass visits whole groups. `momentum = true` is refused with an
+`ArgumentError`; `nothing` and `false` give plain block coordinate descent. The change of
+a group is `norm` of its displacement, which `relative=true` multiplies by
+`sqrt(s * l)` for a positive response scale, where `l` bounds the largest eigenvalue of
+the Gram matrix of the columns of the group; the forced full pass counts group visits.
+As for the lasso, `converged` reports this change test and is not a KKT certificate.
+Before the first pass, an `ArgumentError` that names the group refuses a curvature that
+underflows or overflows in `T` and a step outside the normal range, and during a pass a
+trial point or displacement that is not finite; `x` is then unchanged. The curvature rule
+and the refusals are described in the numerical guide.
+
+See [`solve!`](@ref)
 and the [solver guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/).
 """
 struct CDSolver{R<:AbstractRNG} <: ProximalSolver
