@@ -504,9 +504,9 @@ end
   throw(ArgumentError("the step of group $k is not representable in $S: the loss scale times the group curvature, or its reciprocal, is outside the normal range; rescale the data or the loss"))
 @noinline _refuse_block_value(::Type{T}, k::Int) where T =
   throw(ArgumentError("the trial point or the displacement of group $k is not finite in $T; rescale the data"))
-# The smallest max_i |b_i| at which an all-zero output of the screen counts: 2^53 floatmin(T), a normal
-# number of T for Float32 and Float64 (2^-73 and 2^-969). See the derivation in the comment of
-# `coordinate_step!`.
+# The smallest positive max_i |b_i| at which an all-zero output of the screen counts (bmax = 0 is
+# screened as well): 2^53 floatmin(T), a normal number of T for Float32 and Float64 (2^-73 and 2^-969).
+# See the derivation in the comment of `coordinate_step!`.
 @inline _screen_floor(::Type{T}) where T = ldexp(floatmin(T), 53)
 
 # The group step. With the curvature bound ℓ, b_i = rᵀX[:, j_i] and the trial point u = old + b/ℓ, the
@@ -540,19 +540,21 @@ end
 # and of T). Below guard 2 the output can be all 0 although ‖b‖ exceeds the threshold by a factor of 2 or
 # more (for example a subnormal b with the threshold half of ‖b‖), and the screen is bypassed. With both
 # guards, an all-zero output means that ProximalBase's comparison of its computed norm with its computed
-# threshold decided zero, or that its shrink factor rounded to 0, which is a tie of ‖b‖ with λ0 w_k/s up
-# to the relative error of that computation: the squares and their sum, the threshold and the quotient
-# c/‖b‖, of order (mk + 8) eps(T) (not derived here). The prox of b/ℓ at the step 1/(s ℓ) is 0 where
-# ‖b‖ ≤ λ0 w_k/s, for any ℓ > 0; a copy that `prox_block!` returns as all 0 therefore gives the
-# displacement 0 without the curvature, and the step returns zero(T) with x and the residual unchanged.
-# The decision is one-sided: where the screen returns 0, ‖b‖ is within the tie band of λ0 w_k/s, so the
-# exact full-step factor 1 − λ0 w_k/(s ‖b‖) is at most about the band width, and the block that the full
-# step would write is about that factor times the trial point at most. The full step has no counterpart
-# of guard 2 (fl(b_i/ℓ) or its prox can underflow to 0 where ‖b‖ is far above the threshold), which does
-# not matter where the full step is the one that is used. A zero block that the screen returns as 0 forms
-# no trial point, so it is not refused even where b/ℓ would overflow. A nonfinite b is not screened (bmax
-# is NaN or Inf: NaN fails guard 2, and an Inf entry is returned unchanged by the prox) and is refused by
-# the full step.
+# threshold decided zero, or that its shrink factor rounded to 0. That decision carries the relative error
+# of PB's computation (the squares and their sum, the threshold and the quotient c/‖b‖), of order
+# (mk + 8) eps(T) (not derived here). So where the screen returns 0, ‖b‖ is at most the threshold
+# λ0 w_k/s plus that rounding allowance: a positive excess ‖b‖ − λ0 w_k/s, if there is one, is confined
+# to the band, and ‖b‖ can be far below the threshold. A b = 0 is an exact zero. The prox of b/ℓ at the
+# step 1/(s ℓ) is 0 where ‖b‖ ≤ λ0 w_k/s, for any ℓ > 0; a copy that `prox_block!` returns as all 0
+# therefore gives the displacement 0 without the curvature, and the step returns zero(T) with x and the
+# residual unchanged. The decision is one-sided: where the screen returns 0, the exact full-step shrink
+# factor max(0, 1 − λ0 w_k/(s ‖b‖)) is 0 for ‖b‖ ≤ λ0 w_k/s and at most about the band width otherwise, so
+# the block that the full step would write is about that factor times the trial point at most. The full
+# step has no counterpart of guard 2 (fl(b_i/ℓ) or its prox can underflow to 0 where ‖b‖ is far above the
+# threshold), which does not matter where the full step is the one that is used. A zero block that the
+# screen returns as 0 forms no trial point, so it is not refused even where b/ℓ would overflow. A
+# nonfinite b is not screened (bmax is NaN or Inf: NaN fails guard 2, and an Inf entry is returned
+# unchanged by the prox) and is refused by the full step.
 # Curvature. Where ℓ[k] is NaN (`_prepare!` left it uncomputed) and the screen did not return, the
 # curvature and the step band are computed now by `_group_curvature!` and stored; the arithmetic of the
 # step is then as for a curvature computed in `_prepare!`. A refusal or an eigensolver failure there
