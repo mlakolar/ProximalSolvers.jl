@@ -387,9 +387,10 @@ end
 # The run shared by the dense and owner wrappers, on a private SparseIterate: the
 # solve, the not-converged warning and the finite-objective check. It returns the
 # state and the final objective; the caller commits the point only afterwards.
-function _run_cd!(work::SparseIterate, f, g, method::CDSolver)
+function _run_cd!(work::Union{SparseIterate, BlockIterate}, f, g, method::CDSolver)
   m = cdmodel(f, work)
   initialize!(m, work)
+  method.maxpasses > 0 && _prepare!(m, g, work)
   st = _CDState(eltype(work), work, method)
   _cd!(work, m, g, st, method)
   _warn_not_converged(st, method)
@@ -406,7 +407,7 @@ end
 # The run does not touch the caller's owner: it works on a state-preserving private
 # copy (values, active zeros and slot order), and the owner changes only at the final
 # same-shape owner-to-owner copy, which carries the compaction order with it.
-function _solve_owner!(x::SparseIterate, f, g, method::CDSolver)
+function _solve_owner!(x::Union{SparseIterate, BlockIterate}, f, g, method::CDSolver)
   work = copy(x)
   st, result_value = _run_cd!(work, f, g, method)
   copyto!(x, work)
@@ -424,6 +425,9 @@ function solve!(x, f, g, method::CDSolver; kwargs...)
   _check_keywords(kwargs)
   if x isa SparseIterate
     _check_owner_problem(x, f, g)
+    return _solve_owner!(x, f, g, method)
+  elseif x isa BlockIterate
+    _check_block_problem(x, f, g, method)
     return _solve_owner!(x, f, g, method)
   end
   _check_problem(x, f, g)

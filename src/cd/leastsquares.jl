@@ -22,6 +22,9 @@ function cdmodel(f::Union{LeastSquaresLoss{T, <:AbstractVector}, Scaled{<:LeastS
   d = leastsquares_data(f)
   LSModel(d.Y, d.X, d.α)
 end
+# Placeholder until the block least-squares model lands.
+cdmodel(f::Union{LeastSquaresLoss{T, <:AbstractVector}, Scaled{<:LeastSquaresLoss{T, <:AbstractVector}}}, x::BlockIterate{T}) where T =
+  throw(ArgumentError("block coordinate descent is not implemented yet"))
 _activeentries(x::SparseIterate) = activecoordinates(x)
 initialize!(m::LSModel{T}, x::SparseIterate{T}) where T = _initialize!(m, x, true)
 function _initialize!(m::LSModel{T}, x::SparseIterate{T}, fresh::Bool) where T

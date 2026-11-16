@@ -93,6 +93,9 @@ function _check_owner_problem(x, f, g)
   nothing
 end
 
+# Group-lasso block coordinate descent on a BlockIterate (placeholder until the block preflight lands).
+_check_block_problem(x, f, g, method) = nothing
+
 _check_keywords(kwargs) = isempty(kwargs) ||
   throw(ArgumentError("unsupported solve! keywords: $(join(keys(kwargs), ", "))"))
 _check_start(f_x) = isfinite(f_x) || throw(ArgumentError("start from a point where f is finite"))
