@@ -248,6 +248,7 @@ end
   unittest_steps = (
     "Stage 2B migration comparator tests",
     "Stage 2B file and fixture tests",
+    "Stage 2B successor (CD-only) file tests",
     "Stage 2B campaign-driver tests (including pinned-commit fingerprints)",
     "Stage 2B reset-probe checker tests",
   )
@@ -265,6 +266,8 @@ end
       ["python3 -B benchmark/campaigns/stage2b/test_migration_compare.py"]),
     ("Stage 2B file and fixture tests", "controls",
       ["python3 -B benchmark/campaigns/stage2b/test_stage2b_files.py"]),
+    ("Stage 2B successor (CD-only) file tests", "controls",
+      ["python3 -B benchmark/campaigns/stage2b-cd/test_stage2b_cd_files.py"]),
     ("Stage 2B campaign-driver tests (including pinned-commit fingerprints)", "campaign",
       ["python3 -B benchmark/campaigns/stage2b/test_stage2b_campaign.py"]),
     ("Stage 2B reset-probe checker tests", "controls",
