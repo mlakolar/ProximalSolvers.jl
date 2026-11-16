@@ -12,12 +12,25 @@ function _image_model(f)
   d = leastsquares_data(f)
   _LSImage{typeof(d.Y), typeof(d.X), typeof(d.α), eltype(d.X)}(d.Y, d.X, d.α)
 end
+# A centered squared norm is an identity-design quadratic. Use a compact
+# Diagonal operator so PGD/APG reuse their existing cached-image steps without
+# allocating the dense identity matrix used by the original example.
+function _image_model(f::SqrNormL2)
+  y = f.y                          # preflight requires Vector{T}
+  X = Diagonal(ones(eltype(y), length(y)))
+  _LSImage{typeof(y), typeof(X), typeof(f.λ), eltype(y)}(y, X, f.λ)
+end
 _image_buffer(m::_LSImage{TY, TX, A, T}) where {TY, TX, A, T} = zeros(T, size(m.Y))
 _image!(z, m::_LSImage, x) = mul!(z, m.X, x)
 # The loss value at x: the image z = X x is formed here and the value is ProximalBase's.
 _value!(x, f, m, z) = (_image!(z, m, x); convert(_eltype(x), value_from_predictor(f, z)))
 # The value at the image z, with d = z - Y and G the gradient, both written by ProximalBase.
 _value_and_gradient!(G, x, f, z, d) = convert(_eltype(x), value_and_gradient_from_predictor!(G, d, f, z))
+# SqrNormL2 already provides its own checked value/gradient oracles in PB;
+# neither predictor oracle nor a fabricated LeastSquaresLoss is required.
+_value!(x, f::SqrNormL2, m, z) = (_image!(z, m, x); convert(_eltype(x), f(z)))
+_value_and_gradient!(G, x, f::SqrNormL2, z, d) =
+  convert(_eltype(x), value_and_gradient!(G, f, z))
 
 # ---- The accelerated method's certified backtracking test ----------------------------
 #
@@ -134,6 +147,11 @@ _gamma(::Type{T}, k) where {T} = (ku = k * _unit(T); ku / (1 - ku))
 # is below 2 and the sum Σ(Xᵢⱼ 2^-e)² is finite (γ_{N+1}), and the result is multiplied by
 # 2^e as an _SE exponent. The square root and the conversion to T are rounded up by explicit
 # factors; γ_{N+3} covers every branch.
+# A diagonal operator has only length(X.diag) nonzero entries. Delegating to
+# the existing Frobenius bound on those entries avoids an O(p^2) scan on APG
+# initialization and preserves the bound (zeros contribute exactly nothing).
+_frobenius_upper(::Type{T}, X::Diagonal) where T = _frobenius_upper(T, X.diag)
+
 function _frobenius_upper(::Type{T}, X) where {T}
   N = length(X)
   s = 0.0
