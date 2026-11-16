@@ -134,7 +134,7 @@ targets (`1e-8` in Float64 and `1e-5` in Float32) and the exact Float64 read-bac
 data are those of the lasso cases, and the certificate is `group_certificate`, the group-lasso
 relative duality gap of the problem the solver received, from the returned minimizer only. A warm
 start is the solution at 1.25λ from `group_warm_start`, cyclic block coordinate descent in Float64
-with the largest eigenvalue of each Gram matrix as the curvature, written in `cases.jl` and
+with the largest eigenvalue of each Gram matrix (from all its eigenvalues) as the curvature, written in `cases.jl` and
 stopped at a certified relative gap of `1e-12`; `cert_loading_refit` is lasso-only, and this start
 does not depend on the solver under test. There are no group-lasso cases in the extended suite
 and no PGD or APG group cases (those solvers do not accept a `BlockIterate`).

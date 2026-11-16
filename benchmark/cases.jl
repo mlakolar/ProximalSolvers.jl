@@ -323,7 +323,9 @@ function group_warm_start(a)
   a.s == 1 / size(a.X, 1) || error("warm starts need s = 1/n")
   λ = 1.25a.λ
   β, residual = zeros(size(a.X, 2)), copy(a.y)
-  curvature = [eigmax(Symmetric(a.X[:, g]' * a.X[:, g])) for g in a.groups]
+  # All eigenvalues, not `eigmax`: on Julia 1.10 the selected-eigenvalue routine behind `eigmax` can throw a
+  # convergence error on a Gram matrix close to the identity.
+  curvature = [maximum(eigvals(Symmetric(a.X[:, g]' * a.X[:, g]))) for g in a.groups]
   for pass in 1:100_000
     for (k, g) in enumerate(a.groups)
       block = view(a.X, :, g)
