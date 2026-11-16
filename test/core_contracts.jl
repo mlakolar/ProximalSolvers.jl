@@ -1,5 +1,6 @@
 module CoreContracts
 using Test, LinearAlgebra, SparseArrays, Random, ProximalBase, ProximalSolvers
+import Logging
 
 # A real callable composition, independent of PB's deferred Translate wrapper.
 struct ShiftedLoss{F, V} <: ProximalBase.AbstractFunction
@@ -8,11 +9,18 @@ struct ShiftedLoss{F, V} <: ProximalBase.AbstractFunction
 end
 (f::ShiftedLoss)(x) = f.loss(x .+ f.shift)
 
-@testset "CD refuses nonfinite final objectives before scatter" begin
+@testset "CD reports the objective where Σr² overflows and the value is representable; it refuses a nonfinite one before scatter" begin
+  # Σr² = fl(1e20)² overflows Float32, and the value α Σr²/2 is representable: ProximalBase's residual
+  # oracle recomputes it, within (n + 8) eps(T) |v| (n = 1).
+  y, X = Float32[1e20], zeros(Float32, 1, 1)
+  r = solve!(Float32[.5], 1e-10 * LeastSquaresLoss(y, X), NormL1(0f0), CDSolver())
+  v = setprecision(BigFloat, 256) do
+    big(1e-10) * big(y[1])^2 / 2
+  end
+  @test isfinite(r.minimum) && abs(big(r.minimum) - v) <= 9 * eps(Float32) * v
+  # the value itself is above floatmax(Float32)
   x = Float32[.5]
-  @test_throws r"nonfinite objective" solve!(x,
-    1e-10 * LeastSquaresLoss(Float32[1e20], zeros(Float32, 1, 1)),
-    NormL1(0f0), CDSolver())
+  @test_throws r"nonfinite objective" solve!(x, 1e10 * LeastSquaresLoss(y, X), NormL1(0f0), CDSolver())
   @test x == Float32[.5]
   x = [1e308, -1e308]
   @test_logs (:warn, r"maxpasses = 0") begin
@@ -298,6 +306,94 @@ end
   @test_throws ArgumentError("xtol must be finite and positive.") ProximalOptions(xtol = 0)
   @test_throws ArgumentError("xtol must be finite and positive.") ProximalOptions(ftol = 0, xtol = 0.0)
   @test ProximalOptions(ftol = 0, gradtol = 0).gradtol === 0.0
+end
+
+# ---- The loss scale of a Scaled loss: supported types, and refusals before any write (#307) ---------
+# A Float32 or Float64 scale, or a fixed-width integer or Bool that T represents exactly, is supported. A scale
+# of another type (BigInt, BigFloat, Rational, Float16, Irrational) and an integer that T rounds are refused
+# before any write: this narrows the scales that were accepted before ProximalBase's oracles were used.
+const LOSS_SCALE_REFUSAL = r"only Float32 and Float64 scales and fixed-width integer scales that \w+ represents exactly are supported"
+
+function scale_problem(::Type{T}) where T
+  X = T[1 0 .2; 0 1 -.1; .3 .1 1; .5 -.4 .2; -.2 .3 .6; .1 .1 -.7]
+  y = T[1, -.5, .7, .2, -.6, .4]
+  X, y
+end
+# the owner of a SparseIterate: its active coordinates and values
+owner_state(x::SparseIterate) = (collect(ProximalBase.activecoordinates(x)), collect(ProximalBase.activevalues(x)))
+owner_state(x) = copy(x)
+
+const SCALE_SOLVERS = (("CD dense", () -> CDSolver(rng = Xoshiro(3)), false),
+                       ("CD owner", () -> CDSolver(rng = Xoshiro(3)), true),
+                       ("PGD", () -> ProximalGradientDescent(), false),
+                       ("APG", () -> AccProxGradDescent(), false))
+scale_accepted(::Type{Float32}) = Any[0.25, 0.25f0, 3, true, UInt8(3), 2^24]
+scale_accepted(::Type{Float64}) = Any[0.25, 0.25f0, 3, true, UInt8(3), 2^24, 2^53]
+scale_refused(::Type{Float32}) = Any[2^24 + 1, big(2), big(2.0), 1 // 4, Float16(0.5), π]
+scale_refused(::Type{Float64}) = Any[2^53 + 1, big(2), big(2.0), 1 // 4, Float16(0.5), π]
+
+@testset "the supported loss scales are accepted by every solver and ProximalBase's value oracle" begin
+  for T in (Float32, Float64), (name, method, owner) in SCALE_SOLVERS, α in scale_accepted(T)
+    X, y = scale_problem(T)
+    f = Scaled(LeastSquaresLoss(y, X), α)
+    g = NormL1(T(0.1 * Float64(α) * maximum(abs, X' * y)))
+    x = owner ? SparseIterate(zeros(T, 3)) : zeros(T, 3)
+    r = Logging.with_logger(Logging.NullLogger()) do
+      solve!(x, f, g, method())
+    end
+    @test isfinite(r.minimum)
+    # the rule of PS is a subset of the domain of the residual oracle of ProximalBase
+    @test ProximalBase.value_from_residual(f, T[.1, -.2, .3, 0, .1, -.1]) isa T
+  end
+end
+
+@testset "an unsupported loss scale is refused before any write: dense iterate and owner unchanged" begin
+  for T in (Float32, Float64), (name, method, owner) in SCALE_SOLVERS, α in scale_refused(T)
+    X, y = scale_problem(T)
+    f = Scaled(LeastSquaresLoss(y, X), α)
+    x = owner ? SparseIterate(T[.3, 0, -.2]) : T[.3, 0, -.2]
+    before = owner_state(x)
+    err = try
+      solve!(x, f, NormL1(T(0.01)), method())
+      nothing
+    catch e
+      e
+    end
+    @test err isa ArgumentError && occursin(LOSS_SCALE_REFUSAL, err.msg)
+    @test isequal(owner_state(x), before)
+  end
+end
+
+@testset "the refusal of a loss scale suggests Float64(α) only where that conversion is supported" begin
+  function message(α, T = Float32)
+    X, y = scale_problem(T)
+    try
+      solve!(zeros(T, 3), Scaled(LeastSquaresLoss(y, X), α), NormL1(T(0.01)), CDSolver())
+      ""
+    catch e
+      e.msg
+    end
+  end
+  for α in (Float16(0.5), 1 // 4, 2^24 + 1, big(2), big(2.0), π)
+    @test occursin("Float64(α) * LeastSquaresLoss(y, X)", message(α))
+  end
+  @test occursin("Float64(α) * LeastSquaresLoss(y, X)", message(2^53 + 1, Float64))
+  # Float64(α) is Inf, 0, or a scale that Float32 does not hold
+  for α in (big(2.0)^2000, big(2)^2000, big(2.0)^-2000, big(10.0)^-300)
+    @test occursin(LOSS_SCALE_REFUSAL, message(α))
+    @test !occursin("Float64(α)", message(α))
+  end
+  # the message names the type and the value
+  @test occursin("Float16", message(Float16(0.5))) && occursin("0.5", message(Float16(0.5)))
+end
+
+@testset "a Float32 or Float64 scale keeps the rule of the loss scale: nonzero in T, subnormal allowed" begin
+  X, y = scale_problem(Float32)
+  # subnormal in Float32: accepted; rounds to 0 in Float32: refused
+  @test isfinite(solve!(zeros(Float32, 3), Scaled(LeastSquaresLoss(y, X), 1e-44), NormL1(0f0), CDSolver()).minimum)
+  x = zeros(Float32, 3)
+  @test_throws ArgumentError solve!(x, Scaled(LeastSquaresLoss(y, X), 1e-300), NormL1(0.01f0), CDSolver())
+  @test x == zeros(Float32, 3)
 end
 
 end

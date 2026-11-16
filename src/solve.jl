@@ -1,4 +1,5 @@
 # Once-per-solve validation; no numeric solver arithmetic or conversion changes.
+using ProximalBase: leastsquares_data
 function _allfinite(A::Array)
   finite = true
   @inbounds @simd for i in eachindex(A)
@@ -20,13 +21,40 @@ function _scalar_parameter(v, ::Type{T}, name; positive = false) where T
   nothing
 end
 
+# The loss scale of a Scaled loss, for data of type T. A Float32 or Float64 scale must be finite and
+# positive with a conversion to T that is finite and nonzero (a value that is subnormal in T is
+# accepted). A fixed-width integer or Bool scale must be positive and equal to its conversion to T, so
+# that ProximalBase's oracles and the solvers' own T-valued scale use the same number. A scale of any
+# other type is refused.
+function _check_loss_scale(α, ::Type{T}) where T
+  if α isa Union{Float32, Float64}
+    _scalar_parameter(α, T, "loss scale"; positive = true)
+  elseif α isa Union{Base.BitInteger, Bool}
+    α > 0 || throw(ArgumentError("loss scale must be finite and positive"))
+    T(α) == α || _loss_scale_error(α, T, "is not exactly representable in $T")
+  else
+    _loss_scale_error(α, T, "has an unsupported type")
+  end
+  nothing
+end
+
+# Whether the Float64 value a passes the rule of _check_loss_scale for data of type T
+_float64_scale_ok(a::Float64, ::Type{T}) where T = isfinite(a) && a > 0 && (n = T(a); isfinite(n) && n > 0)
+
+@noinline function _loss_scale_error(α, ::Type{T}, why) where T
+  a = try Float64(α) catch; nothing end
+  hint = a isa Float64 && _float64_scale_ok(a, T) ?
+    "; convert it explicitly with Float64(α) * LeastSquaresLoss(y, X), here α = $a" : ""
+  throw(ArgumentError("loss scale $α of type $(typeof(α)) $why; only Float32 and Float64 scales and fixed-width integer scales that $T represents exactly are supported$hint"))
+end
+
 # Loss, data, shape, penalty and alias checks shared by the dense gate and the
 # CD owner gate; `x` is the caller's original array or owner, of length `length(x)`.
 function _check_data(x, f, g, ::Type{T}) where T
   base = if f isa LeastSquaresLoss
     f
   elseif f isa Scaled && f.f isa LeastSquaresLoss
-    _scalar_parameter(f.α, T, "loss scale"; positive = true)
+    _check_loss_scale(leastsquares_data(f).α, T)
     f.f
   else
     throw(ArgumentError("only LeastSquaresLoss or one positive Scaled(LeastSquaresLoss) is supported"))

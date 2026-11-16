@@ -9,6 +9,9 @@ const PS = ProximalSolvers
 
 const TIGHT = ProximalOptions(maxiter = 20_000, ftol = 1e-15, xtol = 1e-14, gradtol = 1e-11)
 
+# The message of the refusal of a loss scale of an unsupported type or of an integer that T does not hold (#307)
+const LOSS_SCALE_REFUSAL = r"only Float32 and Float64 scales and fixed-width integer scales that \w+ represents exactly are supported"
+
 big_(a) = BigFloat.(a)
 
 # F(b) = s/2 ‖y - X b‖² + λ ‖b‖₁ from the raw data, in BigFloat.
@@ -432,28 +435,18 @@ end
   @test_throws r"cannot increase finitely" solve!(x, 0.5f0 * LeastSquaresLoss([1.0], Xf), NormL1(0.0),
                                                   AccProxGradDescent(α = 1.0, β = nextfloat(1 / floatmax(Float64))))
   @test x == [0.0]
-  # A BigFloat scale under a low active precision: √α is not computed at that precision.
-  # The references are evaluated after the scoped block, at the default precision.
+  # A BigFloat scale is refused before any write, also under a low active precision (#307); ProximalBase's
+  # oracles do not take it.
   prec = precision(BigFloat)
-  stlow = setprecision(BigFloat, 8) do
-    f8 = BigFloat(0.5) * LeastSquaresLoss([1.0], ones(1, 1))
-    st8 = PS.initial_state(AccProxGradDescent(α = 0.49995), TIGHT, f8, NormL1(0.0), [0.0])
-    PS.update_state!(f8, NormL1(0.0), st8, AccProxGradDescent(α = 0.49995))
-    st8
-  end
-  @test precision(BigFloat) == prec
-  @test BigFloat(1) / 2 <= (1 + 4eps())^2 * BigFloat(stlow.L)
   x = [0.0]
-  @test_throws r"cannot increase finitely" setprecision(BigFloat, 8) do
+  @test_throws LOSS_SCALE_REFUSAL setprecision(BigFloat, 8) do
     solve!(x, BigFloat(0.5) * LeastSquaresLoss([1.0], Xf), NormL1(0.0),
            AccProxGradDescent(α = 1.0, β = nextfloat(1 / floatmax(Float64))))
   end
   @test x == [0.0] && precision(BigFloat) == prec
-  # Scales whose value needs more bits than the active precision: a 256-bit BigFloat stored
-  # before entering the block, a BigInt and a Rational{BigInt} (the references are formed
-  # after the block, at 512 bits).
-  αhi = BigFloat("0.5012345678901234567"; precision = 256)
-  for (α, method_α) in ((αhi, 0.5005), (BigInt(257), 0.501), (BigInt(257) // BigInt(512), 0.5005))
+  # A fixed-width integer scale under a low active precision: √α is not computed at that precision. The
+  # references are formed after the block, at 512 bits.
+  for (α, method_α) in ((257, 0.501), (UInt16(257), 0.501))
     st8 = setprecision(BigFloat, 8) do
       f8 = α * LeastSquaresLoss([1.0], ones(1, 1))
       s8 = PS.initial_state(AccProxGradDescent(α = method_α), TIGHT, f8, NormL1(0.0), [0.0])
@@ -463,13 +456,17 @@ end
     @test precision(BigFloat) == prec
     @test BigFloat(α; precision = 512) <= (1 + 4eps())^2 * BigFloat(st8.L)
   end
+  # A 256-bit BigFloat, a BigInt and a Rational{BigInt} scale are refused before any write
+  αhi = BigFloat("0.5012345678901234567"; precision = 256)
   Xh = fill(sqrt(floatmax(Float64)) * sqrt(2.0) * (1 - 0.0005), 1, 1)
-  x = [0.0]
-  @test_throws r"cannot increase finitely" setprecision(BigFloat, 8) do
-    solve!(x, αhi * LeastSquaresLoss([1.0], Xh), NormL1(0.0),
-           AccProxGradDescent(α = 1.0, β = nextfloat(1 / floatmax(Float64))))
+  for α in (αhi, BigInt(257), BigInt(257) // BigInt(512))
+    x = [0.0]
+    @test_throws LOSS_SCALE_REFUSAL setprecision(BigFloat, 8) do
+      solve!(x, α * LeastSquaresLoss([1.0], Xh), NormL1(0.0),
+             AccProxGradDescent(α = 1.0, β = nextfloat(1 / floatmax(Float64))))
+    end
+    @test x == [0.0] && precision(BigFloat) == prec
   end
-  @test x == [0.0] && precision(BigFloat) == prec
   for (T, α) in ((Float64, BigFloat(2)^-1074 * 3), (Float32, 1.49 * Float64(nextfloat(0f0))),
                  (Float64, 0.5f0), (Float32, BigFloat(10)^30), (Float64, αhi), (Float64, BigInt(257)),
                  (Float64, 257 // 512), (Float64, true), (Float64, π), (Float32, Float16(0.3)))
