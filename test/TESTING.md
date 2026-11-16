@@ -9,7 +9,8 @@ analytic, duality-gap, KKT and finite-support references from the raw data;
 momentum, rejected trials, restarts and image caches; refusals, nonfinite trials,
 curvature overflow and rollback; trace, callbacks, limits and counters) and the elastic net with PGD and APG
 (`elasticnet`: the residual of the stopping check, closed-form and signed-support BigFloat minimizers, an
-independent residual for every `converged = true`, a false-stop guard, level types, rollback and allocations). Full adds every runnable lasso example under `examples/`, which
+independent residual check at each `converged = true` of the file's main solves, a false-stop guard, level types,
+rollback and allocations). Full adds every runnable lasso example under `examples/`, which
 `test/examples.jl` discovers by itself, the exploratory benchmark script
 (`benchmark_explore`) and the formal benchmark harness on the current core
 (`benchmark_formal`: case selection and deferral, inputs, certificates, resets,

@@ -97,7 +97,7 @@ end
 end
 
 # ElasticNet (#324): ProximalGradientDescent and AccProxGradDescent accept an unweighted one, and
-# CDSolver refuses every one. The refusals leave x unchanged. The APG counterpart is in
+# CDSolver refuses an ElasticNet of any weights and levels. The refusals tested here leave x unchanged. The APG counterpart is in
 # test/accelerated_pgd.jl.
 const EN_GRADIENT_REFUSAL = "only unweighted NormL1 or unweighted ElasticNet is supported"
 const EN_CD_REFUSAL = "CDSolver does not support ElasticNet yet; use ProximalGradientDescent or AccProxGradDescent"
@@ -149,7 +149,7 @@ end
         @test rng == before && rand(rng) == rand(before)
       end
     end
-    # the iterate is checked before the penalty, and every other penalty has the message of NormL1
+    # the iterate is checked before the penalty, and the penalties below get the message of NormL1
     refused_with(Int[0, 0], f, en, CDSolver(), "x must be a dense Vector{Float32} or Vector{Float64}")
     for g in (Scaled(en, 2), NormL1(T(.1), ones(T, 2)), SqrNormL2(T(.1)))
       refused_with(copy(x), f, g, CDSolver(), "only unweighted NormL1 is supported")

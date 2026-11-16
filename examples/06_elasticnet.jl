@@ -41,7 +41,8 @@ pgd = solve!(beta_pgd, f, g, ProximalGradientDescent(), options)
 @assert maximum(abs, beta_apg - beta_pgd) <= 1e-5
 
 # The elastic-net solution has a smaller Euclidean norm than the lasso solution with the same ℓ1
-# level: comparing the two objectives at the two solutions shows ‖β_EN‖ ≤ ‖β_lasso‖.
+# level, for the exact minimizers: comparing the two objectives at the two solutions shows
+# ‖β_EN‖ ≤ ‖β_lasso‖.
 beta_lasso = zeros(p)
 solve!(beta_lasso, f, NormL1(lambda1), AccProxGradDescent(), options)
 @assert norm(beta_apg) < norm(beta_lasso)

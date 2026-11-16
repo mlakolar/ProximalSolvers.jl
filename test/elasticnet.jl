@@ -1,10 +1,12 @@
 module ElasticNetTests
 # ElasticNet(λ1, λ2) with ProximalGradientDescent and AccProxGradDescent on the least-squares loss
 # ½α‖Xb - y‖² + λ1‖b‖₁ + (λ2/2)‖b‖² (α = 1 for a raw LeastSquaresLoss, 1/n for Scaled(LS, 1/n)).
-# Every reference is computed from the raw X, y and the levels in 256-bit BigFloat, never with the
+# The references are computed from the raw X, y and the levels in 256-bit BigFloat, not with the
 # solvers' gradients, caches or kernels: the closed form of an orthogonal design with disjoint column
 # supports, and a signed-support solve of the normal equations on a random full-rank design with the
-# off-support optimality condition verified. `converged` is a stopping flag, not an accuracy
+# off-support optimality condition verified. The support and signs of the second one are taken from a
+# tight Float64 solve of AccProxGradDescent, and the BigFloat solve is accepted as the minimizer only
+# if its signs agree and the off-support condition holds (the second value of `reference`). `converged` is a stopping flag, not an accuracy
 # certificate: accuracy comes from the references, and each `converged = true` in this file is
 # checked against the independent residual with an allowance for the rounding of the computed
 # gradient (`kkt_excess`). Refusals of penalties and of iterates are in test/core_contracts.jl and
@@ -32,7 +34,7 @@ end
 # ĝ = α fl(Xᵀ d̂) give, with the exact residual d = X x - y,
 #   eG = maxᵢ α Σⱼ |Xⱼᵢ| (e_j + (n+1) u (|d_j| + e_j)) + u (|gᵢ| + λ1 + λ2 |xᵢ|),
 #   e_j = (p+1) u (Σₖ |Xⱼₖ||xₖ| + |y_j|),    eS = α (n+1) u maxᵢ Σⱼ |Xⱼᵢ||y_j|.
-# They are estimates under that error model, not guarantees for every BLAS kernel.
+# They are estimates under that error model, not guarantees for the BLAS kernel in use.
 function kktparts(X, y, α, λ1, λ2, x, ::Type{T}) where T
   setprecision(BigFloat, 256) do
     Xb, yb, xb, a, l1, l2 = big.(X), big.(y), big.(x), big(α), big(λ1), big(λ2)
@@ -155,8 +157,8 @@ function design(::Type{T}, n, p, seed) where T
   X, y
 end
 
-# a design whose columns have disjoint supports, so that XᵀX is exactly diagonal in floating point
-# (every product of two different columns has a zero factor in each term)
+# a design whose columns have disjoint supports, so that XᵀX is diagonal in floating point (each
+# term of the product of two different columns has a zero factor, so the off-diagonal entries are 0)
 function orthogonal(::Type{T}, seed) where T
   rng = Xoshiro(seed)
   X = zeros(T, 8, 4)
@@ -166,7 +168,7 @@ function orthogonal(::Type{T}, seed) where T
   X, randn(rng, T, 8)
 end
 
-# the minimizer for a design with exactly diagonal XᵀX: β_j = shrink(α X_jᵀy, λ1) / (α‖X_j‖² + λ2)
+# the minimizer for a design with diagonal XᵀX: β_j = shrink(α X_jᵀy, λ1) / (α‖X_j‖² + λ2)
 function analytic(X, y, α, λ1, λ2)
   setprecision(BigFloat, 256) do
     Xb, yb, a, l1, l2 = big.(X), big.(y), big(α), big(λ1), big(λ2)
@@ -194,8 +196,8 @@ residual_allocations(g, x, a, b) = @allocated ProximalSolvers._kkt_residual(g, x
       @test isnan(ProximalSolvers._kkt_residual(g, x, T(0.5), T(2)))
       @test isnan(ProximalSolvers._kkt_residual(g, x, T(0.5), zero(T)))
     end
-    # worked values, λ1 = 1, λ2 = 2, x = [0, 0.5]: a minimizer (0), and a point at which only the
-    # λ2 term in entry 2 is missing from the ℓ1 residual (|-1 + 1| = 0, with it |-1 + 1 + 1| = 1)
+    # worked values, λ1 = 1, λ2 = 2, x = [0, 0.5]: a minimizer (residual 0), and a gradient at which
+    # entry 2 has residual |-1 + 1| = 0 without the λ2 term and |-1 + 2 * 0.5 + 1| = 1 with it
     x = T[0, 0.5]
     @test ProximalSolvers._kkt_residual(T[0.7, -2.0], x, one(T), T(2)) === zero(T)
     @test ProximalSolvers._kkt_residual(T[1.5, -1.0], x, one(T), T(2)) === one(T)
@@ -212,7 +214,7 @@ end
 
 @testset "orthogonal design: the closed-form minimizer of the elastic net" begin
   # λ1 and λ2 as fractions of λmax and of α mean(‖X_j‖²): lasso only, ridge only, both, both zero,
-  # and λ1 above λmax (the minimizer is 0, and the solve must return exactly 0)
+  # and λ1 above λmax (the minimizer is 0, and the solve from x0 = 0 returns x = 0)
   levels = (("lasso", 0.3, 0.0), ("ridge", 0.0, 0.5), ("both", 0.3, 0.5), ("zero", 0.0, 0.0), ("above λmax", 2.0, 0.5))
   for T in (Float32, Float64), scaled in (false, true), (name, f1, f2) in levels, method in METHODS, seed in (1, 2)
     X, y = orthogonal(T, seed)
@@ -271,10 +273,13 @@ end
 @testset "stopping honesty: a stop at a point that is stationary for the lasso only is refused" begin
   # X = diag(1, a) with a = 0.01 and y = (0, 1), α = 1, λ1 = 0.2 a, λ2 = 1e-4, gradtol = 1e-3. The
   # warm start is the minimizer of NormL1(λ1), from the closed form. Its first coordinate is 0 and the
-  # second is 80. A proximal step from it (L = 1) only applies the ridge weight 1/(1 + λ2/L), so the
-  # iterate moves by a relative 1e-4, below xtol, and a test proposes a stop. At that iterate the
-  # residual of NormL1(λ1) is of the order of 1e-6, below τ S = 1e-5 (S = λmax = a), while the elastic-net
-  # residual is of the order of λ2 x2 = 8e-3: a stop counts only if the residual includes λ2 x.
+  # second is 80. In the first iteration L is of the order of 1 (0.9 with the default options: the
+  # initial estimate 1 times the line search factor; the curvature of the step is below it, so the
+  # trial is accepted), the soft-threshold part of the step leaves
+  # the warm start unchanged up to rounding, and the ridge weight 1/(1 + λ2/L) scales it, so the iterate
+  # moves by a relative 1e-4, below xtol, and a test proposes a stop. At that iterate the residual of
+  # NormL1(λ1) is of the order of 1e-6, below τ S = 1e-5 (S = λmax = a), while the elastic-net residual
+  # is of the order of λ2 x2 = 8e-3, so the stop is refused when the residual includes λ2 x.
   for T in (Float32, Float64), method in METHODS
     X, y = T[1 0; 0 0.01], T[0, 1]
     α = one(T)

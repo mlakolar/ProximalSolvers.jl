@@ -125,10 +125,11 @@ of the tests. What `converged=true` therefore says about the returned `x`:
   positive factor on `α`, `λ1` and `λ2` (in exact arithmetic), and it refuses every stop where `S`
   is 0. The scale does not contain `λ2` or `λ2‖x‖∞`. With `λ1 = 0` and `y = 0` (or `Xᵀy = 0`), `S = 0`
   although `x = 0` is the ridge solution: no stop counts, and the solve runs to `maxiter` with
-  `converged=false`, as `NormL1(0)` does for `y = 0`. A start with a finite `f(x0)` and a `g(x0)`
-  that overflows in `T` (for example a ridge term `(λ2/2)‖x0‖²` above `floatmax(T)`) throws
-  "did not produce a finite objective" at the first trial, with `x` restored to `x0`; a
-  `NormL1` level can do the same. `CDSolver` supports `NormL1` only: it refuses an `ElasticNet`
+  `converged=false`, as `NormL1(0)` does for `y = 0` (unless another exit applies). A start with a
+  finite `f(x0)` is accepted even if `g(x0)` overflows in `T` (for example a ridge term
+  `(λ2/2)‖x0‖²` above `floatmax(T)`); if the penalty value of the first trial point also overflows,
+  the solve throws "did not produce a finite objective", with `x` restored to `x0`. The
+  `NormL1` value can overflow the same way. `CDSolver` supports `NormL1` only: it refuses an `ElasticNet`
   with an `ArgumentError`, and support in CD is planned.
 - The check bounds the residual relative to `max(λ, λmax)`. A coordinate whose
   gradient is on a scale far below `λmax` can stay inaccurate when the check

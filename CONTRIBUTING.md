@@ -69,7 +69,7 @@ extrapolation, objective-increase restart and backtracking that accepts a step o
 when the LS bound is certified by rounding-error bounds under the assumptions stated
 in the implementation notes; its
 tests in `test/accelerated_pgd.jl` check accuracy against BigFloat references from
-the raw data, never only against CD or PGD; `test/elasticnet.jl` does the same for `ElasticNet` with PGD and APG. Retain C0 numerical fixtures unchanged. Test correctness
+the raw data, never only against CD or PGD; `test/elasticnet.jl` checks its `ElasticNet` solves with PGD and APG against BigFloat references from the raw data. Retain C0 numerical fixtures unchanged. Test correctness
 independently using raw objective/KKT and analytic/finite-support references.
 The nonfinite-CD-objective refusal is a separate bounded guard, not range recovery.
 
