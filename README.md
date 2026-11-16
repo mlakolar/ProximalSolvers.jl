@@ -1,6 +1,6 @@
 # ProximalSolvers.jl
 
-**Coordinate descent and (accelerated) proximal gradient descent for least-squares lasso in Julia.**
+**Coordinate descent and (accelerated) proximal gradient descent for least-squares lasso and centered squared-norm L1 objectives in Julia.**
 
 [Documentation](https://mlakolar.github.io/ProximalSolvers.jl/dev/) ·
 [Getting started](https://mlakolar.github.io/ProximalSolvers.jl/dev/getting-started/) ·
@@ -13,6 +13,10 @@ The current GitHub **development** version solves
 \min_{\beta}\; \frac{1}{2n}\lVert y-X\beta\rVert_2^2
  +\lambda\lVert\beta\rVert_1.
 ```
+
+The same solvers also accept `SqrNormL2(α, y)` with an explicitly supplied
+finite dense vector center, positive `α`, and `NormL1(λ)`; this handles
+`α‖β-y‖²/2 + λ‖β‖₁` without constructing an identity design matrix.
 
 It uses [ProximalBase.jl](https://mlakolar.github.io/ProximalBase.jl/dev/)
 for losses, penalties and coefficient storage. The registered release may
