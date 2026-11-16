@@ -14,6 +14,9 @@ using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
 using Logging: with_logger, Warn
 const PS = ProximalSolvers
 
+# The message of the refusal of a loss scale of an unsupported type or of an integer that T does not hold (#307)
+const LOSS_SCALE_REFUSAL = r"only Float32 and Float64 scales and fixed-width integer scales that \w+ represents exactly are supported"
+
 # A Real that has no promotion rule with Float32 or Float64.
 struct NoPromoScale <: Real
   v::Float64
@@ -230,25 +233,17 @@ end
 # ---------------------------------------------------------------------------
 # 3. Float64 data with a BigFloat scale whose Float64 value is subnormal and inexact
 # ---------------------------------------------------------------------------
-@testset "Float64 data, BigFloat scale with a subnormal Float64 value: CD solves the supplied scale" begin
+@testset "Float64 data, BigFloat scale: refused before any write (the narrowing of #307)" begin
   setprecision(BigFloat, 256) do
     α = BigFloat(3) * BigFloat(2)^-1074 * 1.3
     @test issubnormal(Float64(α)) && big(Float64(α)) != α
-    @test PS._scale_type(Float64, α) === BigFloat
     c = 2.0^480
     X, y = plain_data(Float64, 8, 5; seed = 3)
     X, y = c .* X, c .* y
-    n, p = size(X)
-    @test 64 * n * max(maximum(abs2, X), maximum(abs2, y)) < floatmax(Float64)
-    lmax = lambda_max(X, y, α)
-    λ = 0.1 * lmax
+    p = size(X, 2)
+    λ = 0.1 * lambda_max(X, y, α)
     for (order, owner, x0) in ((:cyclic, false, zeros(p)), (:random, false, zeros(p)), (:random, true, 0.3 .* sin.(1:p)))
-      r = cd_solve(α * LeastSquaresLoss(y, X), λ, x0; order, owner, tol = 1e-10)
-      @test r.converged && only_warnings(r.logs) && count(!iszero, r.x) >= 1
-      @test r.minimum isa Float64 && r.tolerance isa Float64 && r.maxchange isa Float64
-      @test kkt_ratio(X, y, α, λ, r.x) <= 1
-      @test kkt_ratio(X, y, big(Float64(α)), λ, r.x) > 10
-      @test objective_gap(X, y, α, λ, r.x, r.minimum) <= objective_bound(Float64, n, p)
+      check_refusal(α * LeastSquaresLoss(y, X), NormL1(λ), x0; order, owner, pattern = LOSS_SCALE_REFUSAL)
     end
   end
 end
@@ -259,11 +254,14 @@ end
 # A scale whose promotion with T is T keeps the scale T(α), as before: the same model value
 # and the same solve, bit for bit, as the scale T(α) itself. This includes a Float32 scale on
 # Float64 data.
-@testset "a scale that promotes to T is T(α) and solves as Scaled(f, T(α))" begin
+@testset "a scale that promotes to T is T(α) and solves as Scaled(f, T(α)); other types are refused (#307)" begin
   for T in (Float32, Float64)
     X, y = plain_data(T, 14, 6; seed = 41)
     f = LeastSquaresLoss(y, X)
-    scales = Any[T(0.3), 2, true, 1 // 3, π, Float16(0.3)]
+    for α in (1 // 3, π, Float16(0.3)), (order, owner) in ((:cyclic, false), (:random, true))
+      check_refusal(Scaled(f, α), NormL1(T(0.1)), T.(0.2 .* cos.(1:6)); order, owner, pattern = LOSS_SCALE_REFUSAL)
+    end
+    scales = Any[T(0.3), 2, true]
     T === Float64 && push!(scales, 0.1f0)
     for α in scales
       @test PS._scale_type(T, α) === T
@@ -427,22 +425,25 @@ end
 end
 
 # ---------------------------------------------------------------------------
-# 8. An objective that rounds to Inf in Float32 is refused, and x is not changed
+# 8. An objective above the range of Float32 is refused, and x is not changed
 # ---------------------------------------------------------------------------
-# The reported objective α Σr²/2 is formed in Float64 and rounded to Float32. The second row of X is
-# 0, so its residual stays y₂, and the solution is x = 0 with Σr² = fl(y₂²). The two scales below put
-# α Σr²/2 just below and just above floatmax(Float32) + 2^103, the Float64 value that is a tie
-# between floatmax(Float32) and 2^128 and rounds to even, that is to Inf. Above it CD refuses the
-# result with an ArgumentError and leaves x as it was; below it CD returns floatmax(Float32).
+# The reported loss part α Σr²/2 comes from ProximalBase's residual oracle. The second row of X is 0, so
+# its residual stays y₂, and the solution is x = 0 with Σr² = fl(y₂²). With u = floatmax(Float32) -
+# prevfloat(floatmax(Float32)) = 2^104 and w = (n + 8) eps(Float32) (n = 2), ProximalBase's guide to the
+# smooth functions ("Range" of the least-squares oracles) states a finite value within w|v| of v where
+# |v|(1 + w) <= floatmax, and Inf where v is above (floatmax + u/2)(1 + w); between the two the result can
+# be either, so the scales below keep v out of that interval, at a factor 1 + 2w from its ends. Above it CD
+# refuses the result with an ArgumentError and leaves x as it was; below it CD reports the objective.
 @testset "an objective that overflows Float32 is refused and x is unchanged" begin
   X = Float32[1; 0;;]
   y = Float32[0, 1.7f19]
   x0 = Float32[0.5]
   v = y[2] * y[2]
   @test isfinite(v)
-  bound = 2 * (Float64(floatmax(Float32)) + 2.0^103) / Float64(v)
-  below, above = bound * (1 - 2.0^-30), bound * (1 + 2.0^-30)
-  @test Float32(below * Float64(v) / 2) == floatmax(Float32) && Float32(above * Float64(v) / 2) == Inf32
+  w = 10 * Float64(eps(Float32))
+  scale(target) = 2 * target / Float64(v)
+  below = scale(Float64(floatmax(Float32)) / (1 + 2w))
+  above = scale((Float64(floatmax(Float32)) + 2.0^103) * (1 + 2w))
   g = NormL1(0f0)
   for order in (:cyclic, :random), owner in (false, true)
     solver() = CDSolver(; order, momentum = false, rng = Xoshiro(5))
@@ -452,7 +453,10 @@ end
     @test_throws ArgumentError solve!(x, above * LeastSquaresLoss(y, X), g, solver())
     @test isequal(snapshot(), before)
     r = solve!(x, below * LeastSquaresLoss(y, X), g, solver())
-    @test r.converged && r.minimum === floatmax(Float32) && Vector(x) == [0f0]
+    vref = setprecision(BigFloat, 256) do
+      big(below) * big(y[2])^2 / 2
+    end
+    @test r.converged && isfinite(r.minimum) && abs(big(r.minimum) - vref) <= w * vref && Vector(x) == [0f0]
   end
 end
 
@@ -462,21 +466,22 @@ end
 function mixed_model(α)
   X, y = r4_problem()
   x = SparseIterate(zeros(Float32, size(X, 2)))
-  m = PS.cdmodel(α * LeastSquaresLoss(y, X), x)
+  f = α * LeastSquaresLoss(y, X)
+  m = PS.cdmodel(f, x)
   PS.initialize!(m, x)
-  X, y, m, x
+  X, y, m, x, f
 end
 
 alloc_step(m, g, x, k) = @allocated PS.coordinate_step!(m, g, x, k)
 alloc_visit(m, g, x, k, scaled) = @allocated PS._visit!(m, g, x, k, scaled)
-alloc_value(m, x) = @allocated PS.loss_value(m, x)
+alloc_value(m, f, x) = @allocated PS.loss_value(m, f, x)
 alloc_response(m, x) = @allocated PS.response_scale(m, x)
 alloc_coordinate(m, x, k) = @allocated PS.coordinate_scale(m, x, k)
 alloc_solve(x, f, g, solver) = @allocated solve!(x, f, g, solver)
 
 @testset "the three result boundaries return T and use the supplied scale" begin
   for α in (1e-44, 1e-41)
-    X, y, m, x = mixed_model(α)
+    X, y, m, x, f = mixed_model(α)
     n, p = size(X)
     @test m isa PS.LSModel{Float32, Float64} && m.s === α
     g = NormL1(Float32(0.1 * lambda_max(X, y, α)))
@@ -484,36 +489,64 @@ alloc_solve(x, f, g, solver) = @allocated solve!(x, f, g, solver)
       Xb, yb, ab = big.(X), big.(y), big(α)
       @test PS.response_scale(m, x) isa Float32
       @test PS.response_scale(m, x) ≈ sqrt(ab * sum(abs2, yb)) rtol = (n + 4) * eps(Float32)
-      @test PS.loss_value(m, x) isa Float32
-      @test PS.loss_value(m, x) ≈ ab * sum(abs2, yb) / 2 rtol = (n + 4) * eps(Float32)
+      @test PS.loss_value(m, f, x) isa Float32
+      @test PS.loss_value(m, f, x) ≈ ab * sum(abs2, yb) / 2 rtol = (n + 4) * eps(Float32)
       for k in 1:p
         PS.coordinate_step!(m, g, x, k)
         @test PS.coordinate_scale(m, x, k) isa Float32
         @test PS.coordinate_scale(m, x, k) ≈ sqrt(ab * sum(abs2, Xb[:, k])) rtol = (n + 4) * eps(Float32)
       end
       xb = big.(Vector(x))
-      @test PS.loss_value(m, x) ≈ ab * sum(abs2, yb .- Xb * xb) / 2 rtol = 100eps(Float32)
+      @test PS.loss_value(m, f, x) ≈ ab * sum(abs2, yb .- Xb * xb) / 2 rtol = 100eps(Float32)
     end
   end
 end
 
 @testset "the mixed model is inferred and allocates nothing in its steps" begin
-  X, y, m, x = mixed_model(1e-44)
+  X, y, m, x, f = mixed_model(1e-44)
   g = NormL1(Float32(0.1 * lambda_max(X, y, 1e-44)))
   @test (@inferred PS.coordinate_step!(m, g, x, 1)) isa Float32
   @test (@inferred PS._visit!(m, g, x, 2, true)) isa Float32
   @test (@inferred PS._visit!(m, g, x, 3, false)) isa Float32
-  @test (@inferred PS.loss_value(m, x)) isa Float32
+  @test (@inferred PS.loss_value(m, f, x)) isa Float32
   @test (@inferred PS.response_scale(m, x)) isa Float32
   @test (@inferred PS.coordinate_scale(m, x, 4)) isa Float32
   for k in 1:size(X, 2)    # warm the calls for each column
     alloc_step(m, g, x, k)
     alloc_visit(m, g, x, k, true)
   end
-  alloc_value(m, x); alloc_response(m, x); alloc_coordinate(m, x, 1)
+  alloc_value(m, f, x); alloc_response(m, x); alloc_coordinate(m, x, 1)
   @test all(k -> alloc_step(m, g, x, k) == 0, 1:size(X, 2))
   @test all(k -> alloc_visit(m, g, x, k, true) == 0, 1:size(X, 2))
-  @test alloc_value(m, x) == 0 && alloc_response(m, x) == 0 && alloc_coordinate(m, x, 1) == 0
+  @test alloc_value(m, f, x) == 0 && alloc_response(m, x) == 0 && alloc_coordinate(m, x, 1) == 0
+end
+
+# The value at the cached residual, from ProximalBase's residual oracle, for a raw loss, a Scaled one with a
+# scale of type T, one with a Float64 (Float32 data) or Float32 (Float64 data) scale, and an integer scale: within
+# (n + 8) eps(T) |v| of the 256-bit value at the entries of the cached residual, which allocates nothing and is
+# inferred, with the scratch of the loss unchanged.
+@testset "loss_value is the oracle's value at the cached residual: reference, allocation and inference (#307)" begin
+  for T in (Float32, Float64)
+    X, y = plain_data(T, 24, 5; seed = 307)
+    n = length(y)
+    for (label, f, α) in ((:raw, LeastSquaresLoss(y, X), 1), (:scaledT, T(0.25) * LeastSquaresLoss(y, X), T(0.25)),
+                          (:mixed, (T === Float32 ? 0.25 : 0.25f0) * LeastSquaresLoss(y, X), 0.25),
+                          (:integer, 3 * LeastSquaresLoss(y, X), 3))
+      x = SparseIterate(T.(0.3 .* sin.(1:5)))
+      m = PS.cdmodel(f, x)
+      PS.initialize!(m, x)
+      tmp = copy(f isa Scaled ? f.f.tmp : f.tmp)
+      v = PS.loss_value(m, f, x)
+      @test v isa T
+      setprecision(BigFloat, 256) do
+        vref = big(α) * sum(abs2, big.(m.r)) / 2
+        @test abs(big(v) - vref) <= (n + 8) * eps(T) * vref
+      end
+      @test (@inferred PS.loss_value(m, f, x)) isa T
+      @test alloc_value(m, f, x) == 0
+      @test isequal(f isa Scaled ? f.f.tmp : f.tmp, tmp)
+    end
+  end
 end
 
 @testset "a warmed solve with a Float64 scale allocates as one with a Float32 scale" begin
@@ -547,8 +580,8 @@ end
 # below, `check_feasible` asserts that at the reference solution Σr² and the objective are below
 # floatmax(T)/4, and that each nonzero α a_k lies in [floatmin(T), floatmax(T)/4), so that these cases do
 # not exercise a coordinate scale whose product α a_k is outside the normal range (section 15 does). It
-# checks no lower bound on Σr² or the objective: R3 underflow (a reported minimum of 0) remains possible
-# and is covered in section 14.
+# checks no lower bound on Σr² or the objective: an underflowing loss part (a reported minimum within
+# 2 nextfloat(zero(T)) of the value) remains possible and is covered in section 14.
 const ORDERS = ((:cyclic, nothing), (:random, nothing), (:random, false))
 
 # X (30 × 3, with a zero fourth column if asked) times `xscale`, y with the norm `target`, in T; and
@@ -583,8 +616,7 @@ end
 
 # The feasibility of a fixture that is expected to converge: at the reference solution Σr² and the
 # objective α Σr²/2 + λ‖x‖₁ are below floatmax(T)/4. These are upper bounds; nothing bounds them from
-# below, so R3 underflow of the reported minimum remains possible for a fixture that passes (section
-# 14). For the columns, `coordinate` selects what is asserted about each nonzero α a_k (in BigFloat):
+# below, so an underflowing loss part remains possible for a fixture that passes (section 14). For the columns, `coordinate` selects what is asserted about each nonzero α a_k (in BigFloat):
 #   :normal     α a_k lies in [floatmin(T), floatmax(T)/4);
 #   :underflow  the root √(α a_k) is a normal number of T and at least one α a_k lies below floatmin(T),
 #               so that the coordinate scale is formed from the two roots;
@@ -666,9 +698,9 @@ end
 
 # The reported minimum against F(x) = α/2 ‖y - Xx‖² + λ‖x‖₁ in BigFloat at the returned x. Where Σr²
 # and α Σr²/2 are normal numbers of T, the gap is within `objective_bound` of the scale of
-# `objective_gap`. Where one is not (R3: the loss part is formed from Σr² in T and is subnormal or
-# underflows), the reported minimum is within floatmin(T) of F, plus that allowance. The second
-# expectation is a fixture bound for the cases here, not a derived one.
+# `objective_gap`. Where one is not (R3: the loss part is below floatmin(T)), the reported minimum is
+# within floatmin(T) of F, plus that allowance. The second expectation is a fixture bound for the cases
+# here, not a derived one.
 function check_reported_objective(X, y, α, λ, x, reported)
   T = eltype(X)
   setprecision(BigFloat, 256) do
@@ -922,30 +954,38 @@ end
 end
 
 # ---------------------------------------------------------------------------
-# 14. R3, not changed here: the reported objective still forms Σr² in T
+# 14. R3: the reported objective where Σr² leaves the range of T (#277, #307)
 # ---------------------------------------------------------------------------
-# The response scale does not limit these problems, but `loss_value` forms Σr² in T, so that CD does
-# not report the objective where it is outside T's range. This is left to the ProximalBase
-# cached-oracle migration (#277, R3). Where Σr² overflows at the solution (x = 0 at a penalty of 1.5 λmax,
-# with Σr² = Σy²), the solve converges and is then refused with a nonfinite-objective error, and x is as
-# it was. Where Σr² or α Σr² underflows at the solution, the solve converges and the reported minimum
-# (λ = 0) is 0.
-@testset "R3: Σr² that overflows at the solution refuses the finished solve, x is unchanged" begin
+# The reported objective takes the loss part from ProximalBase's residual oracle, which recomputes the
+# value where the squares overflow or underflow in T (ProximalBase's guide to the smooth functions, the
+# sections "Value and rounding" and "Range"). Where Σr² overflows in T at the solution (x = 0 at a penalty
+# of 1.5 λmax, with Σr² = Σy²) and α Σr²/2 is representable, the solve converges and reports the value
+# within `(n + 8) eps(T) |v|` of the 256-bit reference, plus the fixture bound `(n + p) eps(T)` of the
+# rounding that the cached residual has collected, as in `objective_gap`. Where Σr² or α Σr² underflows at
+# the solution (λ = 0), the reported minimum is within the oracle's allowance `2 nextfloat(zero(T))` of the
+# 256-bit value, which is below `nextfloat(zero(T))`.
+@testset "R3: Σr² that overflows in T at the solution gives the objective of the 256-bit reference" begin
   for c in (d1_case("Float64, Σy² overflows: α = 1e-300, ‖y‖ = 2e154", Float64, 2e154, 1e-300),
             d1_case("Float32, Σy² overflows: α = 1f-30, ‖y‖ = 3e19", Float32, 3e19, 1f-30))
     T = eltype(c.X)
+    n, p = size(c.X)
     @test sum(abs2, big.(c.y)) > big(floatmax(T))
     λ = T(1.5 * lambda_max(c.X, c.y, c.α))
     x0 = T.(c.c .* (0.3 .* sin.(1:3)))
     for (order, momentum) in ORDERS, owner in (false, true)
-      logs = check_refusal(c.f, NormL1(λ), x0; order, momentum, owner, pattern = r"nonfinite objective",
-                           rng_unchanged = false, maxpasses = 2000)
-      @test isempty(logs)
+      r = cd_solve(c.f, λ, x0; order, momentum, owner, maxpasses = 2000)
+      @test r.converged && isempty(r.logs) && isfinite(r.minimum)
+      setprecision(BigFloat, 256) do
+        Xb, yb, xb = big.(c.X), big.(c.y), big.(r.x)
+        v = big(c.α) * sum(abs2, yb .- Xb * xb) / 2
+        F = v + big(λ) * sum(abs, xb)
+        @test abs(big(r.minimum) - F) <= ((n + 8) + (n + p)) * eps(T) * F
+      end
     end
   end
 end
 
-@testset "R3: Σr² that underflows at the solution gives a reported minimum of 0" begin
+@testset "R3: Σr² that underflows at the solution gives a reported minimum within the oracle's allowance of the reference" begin
   for c in (d1_case("Float64, Σy² underflows: raw, ‖y‖ = 1e-165", Float64, 1e-165, nothing),
             d1_case("Float64, α Σy² underflows: α = 1e-300, ‖y‖ = 1e-10", Float64, 1e-10, 1e-300),
             d1_case("Float32, Σy² underflows: raw, ‖y‖ = 1e-24", Float32, 1e-24, nothing))
@@ -954,7 +994,7 @@ end
     @test 0 < big(c.α) * sum(abs2, r) / 2 < big(nextfloat(zero(T))) / 2
     for (order, momentum) in ORDERS, owner in (false, true)
       res = check_d1_solve(c, zero(T), zeros(T, 3); order, momentum, owner)
-      @test res.minimum === zero(T)
+      @test 0 <= res.minimum <= 2 * nextfloat(zero(T))
     end
   end
 end
@@ -1474,7 +1514,7 @@ end
 # penalty is chosen so that each threshold is between 1e-6 and 0.1, asserted below). Where α a_k overflows
 # (the first two fixtures) a step that ignores the penalty would end at a point near 0 that is not 0; where
 # 1/(α a_k) overflows (the last two) the former infinite threshold also gives x = 0 here. The reported
-# minimum is finite and nonnegative; it is not asserted to be 0, as the loss part forms Σr² from the
+# minimum is finite and nonnegative; it is not asserted to be 0, as the loss part is formed from the
 # cached residual, which keeps the rounding error of the earlier steps (with a large α that error can give
 # a large loss part).
 zero_response_cases() =
@@ -1497,9 +1537,8 @@ zero_response_cases() =
 end
 
 # A non-finite squared column norm is refused before the first coordinate change: the whole design, or one
-# column among normal ones, in both types, for the raw loss and for scales of type T, Float64, Int,
-# Rational, BigFloat, BigInt and Rational{BigInt}, with both stopping rules, in the three orders, on a dense
-# vector and an owner. The message names the curvature; x and the owner are unchanged (the start is warm, so
+# column among normal ones, in both types, for the raw loss and for scales of type T, Float64 and Int,
+# with both stopping rules, in the three orders, on a dense vector and an owner. The message names the curvature; x and the owner are unchanged (the start is warm, so
 # a step would change them), and the generator for the cyclic order. (Before #294 such a run could report
 # converged = true after one pass at a KKT violation of about 0.9 to 1 of its scale.)
 function infinite_curvature_problem(::Type{T}; one_column) where T
@@ -1513,12 +1552,17 @@ end
 
 @testset "an infinite curvature is refused, x unchanged: $T, $(one_column ? "one column" : "every column")" for T in (Float32, Float64), one_column in (false, true)
   X, y = infinite_curvature_problem(T; one_column)
-  for α in (nothing, T(2), 2.0, 2, 1 // 3, big"2.0", big(2), big(2) // 1)
+  for α in (nothing, T(2), 2.0, 2)
     f = α === nothing ? LeastSquaresLoss(y, X) : α * LeastSquaresLoss(y, X)
     for λ in (zero(T), T(0.01)), (order, momentum) in ORDERS, owner in (false, true), relative in (true, false)
       check_refusal(f, NormL1(λ), T.([0.3, -0.2, 0.1]); order, momentum, owner, relative,
                     pattern = r"curvature of coordinate", rng_unchanged = order === :cyclic)
     end
+  end
+  # scales of an unsupported type are refused by the preflight, before the curvature is formed (#307)
+  for α in (1 // 3, big"2.0", big(2), big(2) // 1)
+    check_refusal(α * LeastSquaresLoss(y, X), NormL1(T(0.01)), T.([0.3, -0.2, 0.1]); order = :cyclic,
+                  pattern = LOSS_SCALE_REFUSAL)
   end
 end
 
