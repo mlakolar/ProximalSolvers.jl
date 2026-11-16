@@ -22,9 +22,6 @@ function cdmodel(f::Union{LeastSquaresLoss{T, <:AbstractVector}, Scaled{<:LeastS
   d = leastsquares_data(f)
   LSModel(d.Y, d.X, d.α)
 end
-# Placeholder until the block least-squares model lands.
-cdmodel(f::Union{LeastSquaresLoss{T, <:AbstractVector}, Scaled{<:LeastSquaresLoss{T, <:AbstractVector}}}, x::BlockIterate{T}) where T =
-  throw(ArgumentError("block coordinate descent is not implemented yet"))
 _activeentries(x::SparseIterate) = activecoordinates(x)
 initialize!(m::LSModel{T}, x::SparseIterate{T}) where T = _initialize!(m, x, true)
 function _initialize!(m::LSModel{T}, x::SparseIterate{T}, fresh::Bool) where T
@@ -176,8 +173,10 @@ _cache(m::LSModel) = m.r
 # Where relative scaling is active, `_visit!` refuses a nonzero change times an infinite scale.
 # For `S == T` the first two expressions have the same value where p is normal. The step does not
 # form this scale (see `coordinate_step!`).
-function coordinate_scale(m::LSModel{T}, x, k::Int) where T
-  a = _sqnorm!(m, k)
+coordinate_scale(m::LSModel, x, k::Int) = _curvature_scale(m, _sqnorm!(m, k))
+# The scale for the curvature a, which `coordinate_scale` takes from the column cache and the block model
+# from the group curvature.
+@inline function _curvature_scale(m::LSModel{T}, a::T) where T
   p = m.s*a
   q = T(p)
   floatmin(T) <= q <= floatmax(T) && return sqrt(q)
@@ -228,3 +227,208 @@ end
 end
 # The loss value at the current residual, from ProximalBase's residual oracle with the original loss f.
 loss_value(m::LSModel, f, x) = value_from_residual(f, m.r)
+
+# Block least squares: the group-lasso step on a BlockIterate. The LSModel `ls` supplies the data, the
+# residual and the column kernels. `ℓ[k]` is the unscaled curvature bound of group k, a number with
+# ℓ[k] ≥ λmax(X_kᵀX_k) in exact arithmetic (the loss scale s is applied where the step is formed). It
+# is 0 for a flat group, where all entries of X_k are 0, and NaN until `_prepare!` has run. `old` and
+# `u` are scratch vectors as long as the largest group. The model has no `_cache`, so momentum stays
+# off.
+struct BlockLSModel{T<:AbstractFloat, S<:AbstractFloat, M<:LSModel{T, S}} <: CDModel{T}
+  ls::M
+  ℓ::Vector{T}
+  old::Vector{T}
+  u::Vector{T}
+end
+function cdmodel(f::Union{LeastSquaresLoss{T, <:AbstractVector}, Scaled{<:LeastSquaresLoss{T, <:AbstractVector}}}, x::BlockIterate{T}) where T
+  d = leastsquares_data(f)
+  ls = LSModel(d.Y, d.X, d.α)
+  K = ncoordinates(x)
+  mmax = maximum(length(blockindices(x, k)) for k in 1:K)
+  BlockLSModel{T, typeof(ls.s), typeof(ls)}(ls, fill(T(NaN), K), Vector{T}(undef, mmax), Vector{T}(undef, mmax))
+end
+# r = y − Σ X[:, j] x[j] over the entries j of the active groups (entry indices, not group numbers).
+function initialize!(m::BlockLSModel{T}, x::BlockIterate{T}) where T
+  ls = m.ls
+  length(x)==size(ls.X, 2) || throw(DimensionMismatch("iterate length differs from X columns"))
+  copyto!(ls.r, ls.y)
+  for k in activecoordinates(x)
+    for j in blockindices(x, k)
+      v = x[j]
+      iszero(v) || _residual_axpy!(ls, Int(j), v)
+    end
+  end
+  fill!(ls.a, T(NaN))
+  m
+end
+response_scale(m::BlockLSModel, x) = response_scale(m.ls, x)
+loss_value(m::BlockLSModel, f, x) = loss_value(m.ls, f, x)
+# The stopping scale of group k is √(s ℓ[k]), through the range-safe formula of `coordinate_scale`. It
+# is 0 for a flat group.
+coordinate_scale(m::BlockLSModel, x, k::Int) = _curvature_scale(m.ls, m.ℓ[k])
+
+# Per-solve preparation: the curvature bound and the step band of each group, before the first pass.
+# A group whose columns are all 0 has ℓ = 0 and no band. A refusal names the group; `_prepare!`
+# changes neither the coordinates nor the residual. The curvature of a group of one column is the sum
+# of squares of the column (`_sqnorm!`, in T, without `@simd`) with the rounding margin of
+# `_singleton_curvature`; any other group, and a singleton with n eps(T) > 1/8 (n rows), takes
+# `_gram_curvature`. The block path refuses a curvature below floatmin(T), which the scalar path
+# accepts as a subnormal value. `_sqnorm!` sums in order, while the scalar step takes the sum from
+# `_column_dot`, which `@simd` reassociates, so the two can differ by rounding, and the block
+# curvature of a singleton is larger than the scalar one by its margin.
+function _prepare!(m::BlockLSModel{T}, g::GroupNormL2, x::BlockIterate{T}) where T
+  ls = m.ls
+  n = size(ls.X, 1)
+  mmax = length(m.old)
+  Bbuf = Matrix{Float64}(undef, 0, 0)
+  Gbuf = Matrix{Float64}(undef, 0, 0)
+  for k in 1:ncoordinates(x)
+    idx = blockindices(x, k)
+    if _flat_group(ls, idx)
+      m.ℓ[k] = zero(T)
+      continue
+    end
+    if length(idx) == 1 && n*eps(T) <= 1/8
+      ℓ = _singleton_curvature(ls, Int(idx[1]), k)
+    else
+      if size(Bbuf, 2) < length(idx)
+        Bbuf = Matrix{Float64}(undef, n, mmax)
+        Gbuf = Matrix{Float64}(undef, mmax, mmax)
+      end
+      ℓ = _gram_curvature(ls, idx, k, Bbuf, Gbuf)
+    end
+    p = ls.s*ℓ
+    (floatmin(typeof(p)) <= p) & (floatmin(typeof(p)) <= inv(p)) || _refuse_group_step(typeof(p), k)
+    m.ℓ[k] = ℓ
+  end
+  m
+end
+function _flat_group(ls::LSModel, idx)
+  for j in idx
+    _flat_column(ls, Int(j)) || return false
+  end
+  true
+end
+# ℓ = nextfloat(a (1 + 2 n eps(T))) for a = Σ x_i², the recursive sum of the n rounded squares of the
+# column in T. Where n eps(T) ≤ 1/8, that is n u ≤ 1/16 for u = eps(T)/2, the computed a satisfies
+# S (1 − γ_n) ≤ a + n η/2 for the exact sum S, with γ_n = n u/(1 − n u) ≤ 16 n u/15 = 8 n eps(T)/15 and
+# η = nextfloat(zero(T)) (the rounding of a square that underflows adds at most η/2). A computed
+# a ≥ floatmin(T) gives η ≤ eps(T) a, so S ≤ a (1 + n eps(T)/2)/(1 − γ_n), which is below
+# a (1 + 2 n eps(T)) when n eps(T) ≤ 1/8. The factor 1 + 2 n eps(T) is exact in T, and `nextfloat`
+# covers the rounding of the product, so ℓ ≥ S. A computed a below floatmin(T), zero or subnormal,
+# is refused as underflow, and an a or an ℓ that is not finite as overflow.
+function _singleton_curvature(ls::LSModel{T}, j::Int, k::Int) where T
+  a = _sqnorm!(ls, j)
+  a < floatmin(T) && return _refuse_group_curvature(T, k, false)
+  isfinite(a) || return _refuse_group_curvature(T, k, true)
+  n = size(ls.X, 1)
+  ℓ = nextfloat(a*(one(T) + 2n*eps(T)))
+  isfinite(ℓ) || return _refuse_group_curvature(T, k, true)
+  ℓ
+end
+# The curvature bound of a group from the Gram matrix Ĝ of its columns B (n rows, mk columns), formed
+# in W = Float64 with `mul!` on a copy of B held in the buffer Bbuf (n × mmax; Gbuf is mmax × mmax).
+# A nonfinite Ĝ or trace t̂ is refused as overflow, and t̂ < mk floatmin(W) as underflow, both before
+# the eigensolve. With μ̂ the largest eigenvalue of Ĝ (the entry Ĝ[1, 1] for one column), the bound
+# in W is
+#   ℓW = nextfloat(max(μ̂, max_i Ĝ_ii) + 4 (n + mk²) eps(W) t̂),
+# which is rounded up to T. It adds three error terms to μ̂, each a multiple of t̂:
+#   - Gram rounding: entrywise |Ĝ − G| ≤ γ_n |B|ᵀ|B| for any order of summation, with
+#     γ_n = n u/(1 − n u) and u = eps(W)/2, so ‖Ĝ − G‖₂ ≤ γ_n ‖B‖_F² = γ_n tr G, and tr G is at most
+#     t̂/(1 − γ_n). The term is about n eps(W) t̂/2.
+#   - Underflowing products: t̂ ≥ mk floatmin(W) bounds their total error in ‖·‖₂ by
+#     mk n η/2 ≤ n eps(W) t̂/2, with η = nextfloat(0.0) = eps(W) floatmin(W). A product of two
+#     Float32 values does not underflow in W.
+#   - Eigensolver: the symmetric eigensolver's backward error is modelled as
+#     ‖E‖₂ ≤ p(mk) u ‖Ĝ‖₂ ≤ p(mk) u t̂, and 4 mk² eps(W) t̂ covers p(mk) ≤ 8 mk². The library states
+#     only that p grows modestly with mk, so this term rests on a modelling assumption.
+# By Weyl's inequality λmax(G) is at most μ̂ plus the three terms. The entry max_i Ĝ_ii, a lower bound
+# of λmax(Ĝ), guards a μ̂ that is computed below it. The rounding to T takes the nearest value, then
+# `nextfloat` where that value is below ℓW. An ℓ that is Inf is refused as overflow, and an ℓ below
+# floatmin(T) as underflow.
+function _gram_curvature(ls::LSModel{T}, idx, k::Int, Bbuf::Matrix{Float64}, Gbuf::Matrix{Float64}) where T
+  W = Float64
+  X = ls.X
+  n, mk = size(X, 1), length(idx)
+  Bv = view(Bbuf, 1:n, 1:mk)
+  for c in 1:mk
+    j = Int(idx[c])
+    @inbounds for i in 1:n
+      Bv[i, c] = X[i, j]
+    end
+  end
+  Gv = view(Gbuf, 1:mk, 1:mk)
+  mul!(Gv, transpose(Bv), Bv)
+  t = zero(W)
+  dmax = zero(W)
+  for c in 1:mk
+    d = Gv[c, c]
+    t += d
+    dmax = max(dmax, d)
+  end
+  all(isfinite, Gv) && isfinite(t) || return _refuse_group_curvature(T, k, true)
+  t < mk*floatmin(W) && return _refuse_group_curvature(T, k, false)
+  μ = mk == 1 ? dmax : maximum(eigvals(Symmetric(Gv)))
+  ℓW = nextfloat(max(μ, dmax) + 4(n + mk^2)*eps(W)*t)
+  ℓ = T(ℓW)
+  W(ℓ) < ℓW && (ℓ = nextfloat(ℓ))
+  isinf(ℓ) && return _refuse_group_curvature(T, k, true)
+  ℓ < floatmin(T) && return _refuse_group_curvature(T, k, false)
+  ℓ
+end
+# The throws are out of line, so that the success path carries no string interpolation.
+@noinline function _refuse_group_curvature(::Type{T}, k::Int, overflow::Bool) where T
+  overflow && throw(ArgumentError("the curvature of group $k (a bound on the largest eigenvalue of the Gram matrix of its columns) overflows in $T; rescale the data"))
+  throw(ArgumentError("the curvature of group $k (a bound on the largest eigenvalue of the Gram matrix of its columns) underflows in $T; rescale the data or loss"))
+end
+@noinline _refuse_group_step(::Type{S}, k::Int) where S =
+  throw(ArgumentError("the step of group $k is not representable in $S: the loss scale times the group curvature, or its reciprocal, is outside the normal range; rescale the data or the loss"))
+@noinline _refuse_block_value(::Type{T}, k::Int) where T =
+  throw(ArgumentError("the trial point or the displacement of group $k is not finite in $T; rescale the data"))
+
+# The group step. With the curvature bound ℓ of `_prepare!`, b_i = rᵀX[:, j_i] and the trial point
+# u = old + b/ℓ, the new block is `prox_block!(u, g, u, k, 1/(s ℓ))`, the proximal point of the
+# majorizing surrogate of the loss in the group. A flat group (ℓ = 0) takes `prox_block!` at the step
+# Inf: the penalty's minimizer, which is the zero block for a positive level and weight and the block
+# itself where the level or the weight is 0. A trial point or a displacement that is not finite is
+# refused before the block or the residual changes. The displacement is written into `old`. A group
+# whose displacement is 0 is not written, which keeps an inactive group inactive; otherwise the block
+# is written with one `copyto!` of the compact scratch `u` and the residual is updated by one pass per
+# nonzero entry of the displacement. The step returns the 2-norm of the displacement, formed by
+# LinearAlgebra's `norm`, which scales the squares. The band of the step, s ℓ and its reciprocal at
+# least floatmin(typeof(s ℓ)), was checked in `_prepare!`.
+function coordinate_step!(m::BlockLSModel{T}, g::GroupNormL2, x::BlockIterate{T}, k::Int) where T
+  ls = m.ls
+  idx = blockindices(x, k)
+  mk = length(idx)
+  old = view(m.old, 1:mk)
+  u = view(m.u, 1:mk)
+  for i in 1:mk
+    old[i] = x[idx[i]]
+  end
+  ℓ = m.ℓ[k]
+  if iszero(ℓ)
+    prox_block!(u, g, old, k, Inf)
+  else
+    for i in 1:mk
+      b = _column_dot(ls.X, ls.r, Int(idx[i]), one(T))[2]
+      v = old[i] + b/ℓ
+      isfinite(v) || _refuse_block_value(T, k)
+      u[i] = v
+    end
+    prox_block!(u, g, u, k, inv(ls.s*ℓ))
+  end
+  moved = false
+  for i in 1:mk
+    d = u[i] - old[i]
+    isfinite(d) || _refuse_block_value(T, k)
+    old[i] = d
+    iszero(d) || (moved = true)
+  end
+  moved || return zero(T)
+  copyto!(blockview(x, k), u)
+  for i in 1:mk
+    iszero(old[i]) || _residual_axpy!(ls, Int(idx[i]), old[i])
+  end
+  norm(old)
+end
