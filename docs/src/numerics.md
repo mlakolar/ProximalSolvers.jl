@@ -373,27 +373,39 @@ group inactive. A trial point or displacement that is not finite stops the solve
 or stopping scale that is not finite is refused as for the lasso.
 
 **The zero-group screen.** When the block of a nonflat group is identically zero (whether
-or not the group is active), the visit first forms the correlations `X[:, G]' * r` and
-passes them to ProximalBase's `prox_block!` for the group with the step `1 / s`. If the
-result is entirely zero, the visit ends with no change: nothing is written to the iterate
-or the residual, and `ℓ_k` is not computed if it had not been. In exact arithmetic this is
-the condition under which the full step above gives a zero block, for any `ℓ_k > 0`. The
-screen is bypassed, and the visit takes the full step, when `1 / s` formed in the type `S`
-of the scale is not a finite positive normal number of `S` (it is `Inf`, 0 or subnormal).
-A zero block that the screen returns as zero forms no trial point, so it is not refused
-where the trial point `b / ℓ_k` of the full step would overflow: the visit returns the
-exact answer, zero, where the full step would throw. The screen and the full step
-both use ProximalBase's range-safe comparison, but they are different computations, so at
-an exact tie (the correlations' norm equal to `λ w_k / s` in exact arithmetic) they can
-decide by rounding differently.
+or not the group is active), the visit first forms the correlations `b = X[:, G]' * r` and,
+if the two guards below allow, passes them to ProximalBase's `prox_block!` for the group
+with the step `1 / s`. If the result is entirely zero, the visit ends with no change:
+nothing is written to the iterate or the residual, and a deferred `ℓ_k` is not computed. A
+zero block that the screen returns as zero forms no trial point, so it is not refused where
+the trial point `b / ℓ_k` of the full step would overflow. In exact arithmetic, the full
+step gives a zero block, for any `ℓ_k > 0`, exactly when the norm of `b` is at most
+`λ w_k / s`, and the screen tests the same inequality; the results of the two agree except
+in a band around that equality, where they can decide differently by rounding (a screened
+zero where the full step would give a block that is nonzero but within rounding of the
+threshold, or the reverse). Two guards restrict the screen to cases where an entirely zero
+result is meant to come from that threshold test, up to such a rounding tie:
+
+- the reciprocal `1 / s` formed in the type `S` of the scale must be a finite positive normal
+  number of `S`; it is `Inf`, 0 or subnormal otherwise;
+- the largest `|b_i|` of the group must be far enough above the underflow range of `T`.
+  Otherwise ProximalBase's shrinkage of a very small correlation could round every entry of
+  the result to zero although the threshold is not exceeded, and a zero result would not
+  certify the zero block.
+
+Outside the guards, the screen is bypassed and the visit takes the full step, with the
+curvature computed if it is still deferred.
 
 ### The curvature bound
 
-`ℓ_k` is a bound on the stored values of `X` in `T`, formed as follows. It is prepared
-after the residual is set, before the first pass and any draw from the random number
-generator, and only when `maxpasses > 0`; with `maxpasses = 0` this preparation is
-skipped and the preparation refusals below do not occur (the refusals of the inputs, the
-response scale and the final objective still apply).
+`ℓ_k` is a bound on the stored values of `X` in `T`, formed as follows. The preparation
+runs after the residual is set, before the first pass and any draw from the random number
+generator, and only when `maxpasses > 0`; with `maxpasses = 0` it is skipped and the
+preparation refusals below do not occur (the refusals of the inputs, the response scale
+and the final objective still apply). The preparation computes and checks `ℓ_k` for a flat
+group, for an ordinary one-column group and for a group that is not deferred; for a
+deferred group it checks only the bounds below, and `ℓ_k` stays `NaN` until the first visit
+that needs it.
 
 - **Flat group.** If every entry of `X[:, G]` is exactly 0, `ℓ_k = 0`, set during the
   preparation. The visit takes the minimizer of the penalty alone: a zero block when the
@@ -441,11 +453,14 @@ throws, or through a violation of the model. The curvature is left uncomputed (`
 
 The curvature is then computed, once per solve, at the first visit that needs it: a visit
 whose block is nonzero, or whose block is zero and which the screen above does not remove,
-and the band check is made there. A group that stays at zero and is screened out at each
-visit never computes it. If any condition fails or the bounds do not apply, the curvature
-and the band are computed during the preparation, as for the other groups, and refuse as
-below. The bounds do not decide an eigenvalue routine that throws, or a largest eigenvalue
-that is not finite; these surface at the lazy computation.
+and the band check is made there. A deferred group that stays at zero and is screened out
+at each visit never computes its curvature. If any condition fails or the bounds do not
+apply, the group is not deferred: the curvature and the band are computed during the
+preparation, as for the other groups, and refuse as below, so such a group may already have
+a curvature when it is screened. A one-column group with `n eps(T) > 1/8` is on the Gram
+route and can be deferred. The bounds do not decide an eigenvalue routine that throws, or a
+largest eigenvalue that is not finite: these surface during the preparation for a group
+that is not deferred, and at the lazy computation, during a pass, for a deferred group.
 
 The step of a nonflat group also needs `s ℓ_k` and its reciprocal to be at least the
 smallest normal number of the type `S` that combines `s` with `T`. This band check is made
