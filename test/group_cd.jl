@@ -26,10 +26,12 @@ pass_limit(::Type{T}) where T = T === Float64 ? 100_000 : 20_000
 # Since 0 is a subgradient of F at a minimizer β*, F(β) - F(β*) ≥ (s/2)‖X(β - β*)‖², so
 # ‖Xβ - Xβ*‖ ≤ √(2 gap(β)/s) and ‖Xβ₁ - Xβ₂‖ ≤ √(2 gap(β₁)/s) + √(2 gap(β₂)/s). Agreement of F(β₁) and F(β₂)
 # alone does not bound this (equal objectives can have different fits); each gap is needed. By convexity
-# gap(β) ≤ ‖e‖ ‖β - β*‖ for a subgradient e of F at β of norm ‖e‖, which is the stationarity of `kkt_report`
-# (checked for every solution here), and the fixtures keep ‖β - β*‖ of order max(1, ‖β*‖). So gap is at most
-# about the stationarity bound times that distance, and the fitted-value bound is about the square root
-# of the objective bound. These are fixture tolerances, not derived constants.
+# gap(β) ≤ ‖e‖ ‖β - β*‖ for a subgradient e of F at β. `kkt_report` gives the block parts of such an e: the
+# stationarity of each nonzero or unpenalized block, and for a block at zero the distance
+# max(0, ‖∇_G‖ - λ0 wₖ) of the gradient from the penalty ball, at most `screen` λ0 wₖ. So the full norm is at
+# most √K times the largest block part (K groups), and the fixtures keep ‖β - β*‖ of order max(1, ‖β*‖).
+# The gap is then at most about √K times the stationarity bound times that distance, and the fitted-value
+# bound is about the square root of the objective bound. These are fixture tolerances, not derived constants.
 obj_rtol(::Type{T}) where T = T === Float64 ? 1e-9 : 1e-3
 fit_rtol(::Type{T}) where T = T === Float64 ? 1e-5 : 3e-2
 # difference of coefficients of the unique solutions of a full-column-rank problem, relative to max(1, ‖β‖)
@@ -363,14 +365,21 @@ function curvature_cases(::Type{T}) where T
   cases
 end
 
+# The bytes allocated by the steps of `ks`, leaving out a step that computes a deferred curvature (the first
+# step that needs it allocates once, for the eigensolve); `computed` counts those steps.
 function step_allocations(m, g, x, ks)
-  total = 0
+  total, computed = 0, 0
   for k in ks
-    total += @allocated PS.coordinate_step!(m, g, x, k)
+    before = isnan(m.ℓ[k])
+    a = @allocated PS.coordinate_step!(m, g, x, k)
+    if before && !isnan(m.ℓ[k])
+      computed += 1
+    else
+      total += a
+    end
   end
-  total
+  total, computed
 end
-
 # ---------------------------------------------------------------------------
 # Numerical refusals and special groups
 # ---------------------------------------------------------------------------
@@ -798,11 +807,18 @@ end
   for T in TYPES
     for (name, X, groups) in curvature_cases(T)
       y = T.(randn(Xoshiro(5), size(X, 1)))
-      g = penalty(T(1), groups, nothing, T)
+      # λ0 = 0: a nonzero correlation never screens a group out, so a step on it needs its curvature
+      g = penalty(zero(T), groups, nothing, T)
       x = BlockIterate(T, size(X, 2), g)
       m = whitebox_model(X, y, nothing, g, x)
       @test length(m.ℓ) == length(groups)
+      # right after preparation a curvature is unset (NaN, deferred) or already a majorant
       for (k, G) in enumerate(groups)
+        isnan(m.ℓ[k]) || @test majorizes(X, G, m.ℓ[k], curvature_margin(T, size(X, 1), length(G)))
+      end
+      # a step on each group sets it where it was deferred
+      for (k, G) in enumerate(groups)
+        PS.coordinate_step!(m, g, x, k)
         @test m.ℓ[k] isa T && isfinite(m.ℓ[k]) && m.ℓ[k] > 0
         @test majorizes(X, G, m.ℓ[k], curvature_margin(T, size(X, 1), length(G)))
       end
@@ -834,9 +850,9 @@ end
     x = BlockIterate(x0, g.groups)
     activate!(x, 2)
     m = whitebox_model(X, y, α, g, x)
-    # A conservative tolerance for these bounded fixtures (a few initial updates and six steps from entries of
-    # order 1): n + p + 10 per step times eps(T), relative to ‖y‖ + ‖X‖‖β‖ + 1. One rounding of at most eps(T)/2
-    # per residual entry per update gives the shape of the bound, but does not bound arbitrary update histories.
+    # A conservative fixture tolerance for these bounded fixtures (a few initial updates and six steps from
+    # entries of order 1): n + p + 10 per step times eps(T), relative to ‖y‖ + ‖X‖‖β‖ + 1. It is not derived
+    # for arbitrary update histories.
     residual_bound(steps) = 4 * (n + p + 10 * steps) * eps(T) * (norm(Float64.(y)) + norm(Float64.(X)) * norm(Float64.(Vector(x))) + 1)
     rref() = Float64.(y) - Float64.(X) * Float64.(Vector(x))
     @test norm(Float64.(m.ls.r) - rref()) <= residual_bound(0)
@@ -878,15 +894,21 @@ end
   end
 end
 
-@testset "coordinate_step! allocates nothing" begin
-  for T in TYPES, lkind in (:reordered, :contiguous, :singletons)
-    X, y, g = make_problem(T, :correlated, lkind, :explicit, 0.1; seed = 171)
+@testset "coordinate_step! allocates nothing once a curvature is cached" begin
+  for T in TYPES, lkind in (:reordered, :contiguous, :singletons), fraction in (0.0, 0.1)
+    X, y, g = make_problem(T, :correlated, lkind, :explicit, fraction; seed = 171)
     x = BlockIterate(T, size(X, 2), g)
     m = whitebox_model(X, y, nothing, g, x)
     ks = collect(1:ncoordinates(x))
-    step_allocations(m, g, x, ks)          # compile
-    @test step_allocations(m, g, x, ks) == 0
-    @test step_allocations(m, g, x, ks) == 0
+    for _ in 1:4
+      step_allocations(m, g, x, ks)        # compile, and cache the curvatures that these steps need
+    end
+    for _ in 1:2
+      total, computed = step_allocations(m, g, x, ks)
+      @test total == 0
+    end
+    # with no penalty every group steps, so every curvature is set by now
+    fraction == 0 && @test !any(isnan, m.ℓ)
   end
 end
 
@@ -1025,6 +1047,280 @@ end
     for fraction in (0.1, 0.5)
       g = penalty(T(fraction * lambda_max(X, y, 1.0, groups, sqrt.(T.(length.(groups))))), groups, nothing, T)
       solve_and_check(X, y, nothing, g)
+    end
+  end
+end
+
+# ---------------------------------------------------------------------------
+# Lazy curvature and the zero-group screen (maintainer ruling on #275)
+# ---------------------------------------------------------------------------
+# A group of two or more columns has its curvature computed on the first step that needs it. A group whose
+# block is zero and whose step is zero by the screen never needs it, so `m.ℓ[k]` stays NaN for it; a singleton
+# group and a flat group are set in `_prepare!`.
+# Visits the groups in `order` for `passes` passes with single steps and returns the largest change.
+function manual_passes!(m, g, x, passes; order = 1:ncoordinates(x))
+  h = 0.0
+  for _ in 1:passes, k in order
+    h = max(h, Float64(PS.coordinate_step!(m, g, x, k)))
+  end
+  h
+end
+
+@testset "screened zero groups never compute a curvature (orthogonal designs)" begin
+  p = 12
+  for T in TYPES, α in (nothing, T(0.5), 3.0, 0.3), lkind in (:contiguous, :reordered),
+      order_kind in (:cyclic, :random)
+    X, y = orthogonal_design(T, p; exponent = 0, seed = 3)
+    groups = layout(lkind, p; seed = 5)
+    g = mixed_penalty(X, y, sval(α), groups, nothing, T, ptype_for(T, α))
+    β, c = orthogonal_solution(X, y, sval(α), g)
+    x = BlockIterate(T, p, g)
+    m = whitebox_model(X, y, α, g, x)
+    for (k, G) in enumerate(g.groups)
+      # singletons are set at preparation, the other groups are deferred (the Hadamard Gram matrices are
+      # ordinary, so the cheap bounds decide)
+      length(G) == 1 ? (@test !isnan(m.ℓ[k])) : (@test isnan(m.ℓ[k]))
+    end
+    rng = Xoshiro(17)
+    for pass in 1:6
+      order = order_kind === :cyclic ? collect(1:ncoordinates(x)) : randperm(rng, ncoordinates(x))
+      for k in order
+        G = g.groups[k]
+        r_before = copy(m.ls.r)
+        h = PS.coordinate_step!(m, g, x, k)
+        if all(iszero, β[G])
+          @test iszero(h) && !isactive(x, k)
+          @test m.ls.r == r_before
+        end
+      end
+    end
+    @test norm(Float64.(Vector(x)) - β) <= kkt_bound(T) * max(1.0, norm(β))
+    for (k, G) in enumerate(g.groups)
+      if all(iszero, β[G]) && length(G) > 1
+        @test isnan(m.ℓ[k])                    # screened at every visit: no eigensolve
+      else
+        @test m.ℓ[k] isa T && isfinite(m.ℓ[k]) && m.ℓ[k] > 0
+        @test majorizes(X, G, m.ℓ[k], curvature_margin(T, size(X, 1), length(G)))
+      end
+    end
+  end
+end
+
+# Four columns of R⁶: group A = [e₁, e₃] and group B = [e₁ - e₂, e₄], y = e₁ + e₂. At zero, B's correlation
+# X_Bᵀy is 0, so B is screened out at its first visit for any λ0 > 0. Take λ0 = 0.3 s and the default weights
+# √2, so the threshold λ0 wₖ/s of the correlation norm is 0.42. A's first correlation has norm 1 and A takes
+# the coefficient 0.58 on e₁ (to rounding), so the residual is 0.42 e₁ + e₂ and B's correlation has norm
+# |0.42 - 1| = 0.58, above the threshold: B activates at a later visit.
+function activation_problem(::Type{T}, perm) where T
+  E = Matrix{Float64}(I, 6, 6)
+  cols = [E[:, 1], E[:, 3], E[:, 1] .- E[:, 2], E[:, 4]]         # A = columns 1, 2; B = columns 3, 4
+  X = T.(hcat(cols[perm]...))
+  y = T.(E[:, 1] .+ E[:, 2])
+  where_old(c) = findfirst(==(c), perm)
+  A, B = [where_old(1), where_old(2)], [where_old(3), where_old(4)]
+  X, y, A, B
+end
+
+@testset "a screened group activates on a later visit" begin
+  for T in TYPES, α in (nothing, T(0.5), 3.0), perm in ([1, 2, 3, 4], [3, 1, 4, 2])
+    X, y, A, B = activation_problem(T, perm)
+    s = sval(α)
+    groups = [B, A]                                  # B is visited first
+    g = penalty(T(0.3 * s), groups, nothing, ptype_for(T, α))
+    x = BlockIterate(T, 4, g)
+    m = whitebox_model(X, y, α, g, x)
+    @test isnan(m.ℓ[1]) && isnan(m.ℓ[2])
+    # B is screened out at the first visit: no change, no curvature, residual and iterate untouched
+    @test iszero(PS.coordinate_step!(m, g, x, 1))
+    @test isnan(m.ℓ[1]) && !isactive(x, 1) && m.ls.r == y
+    # A moves: it needs its curvature
+    @test PS.coordinate_step!(m, g, x, 2) > 0
+    @test isnan(m.ℓ[1]) && isfinite(m.ℓ[2]) && isactive(x, 2)
+    @test majorizes(X, A, m.ℓ[2], curvature_margin(T, 6, 2))
+    # now B's correlation is above its threshold: it activates and its curvature is set and majorizes
+    @test PS.coordinate_step!(m, g, x, 1) > 0
+    @test isactive(x, 1) && isfinite(m.ℓ[1])
+    @test majorizes(X, B, m.ℓ[1], curvature_margin(T, 6, 2))
+    # the solve, in cyclic and in random order, ends with both groups active and satisfies the KKT
+    for order in (:cyclic, :random)
+      x = BlockIterate(T, 4, g)
+      out = run_group_cd(X, y, α, g, x; order)
+      check_solution(X, y, α, g, x, out.res)
+      @test isactive(x, 1) && isactive(x, 2)
+    end
+  end
+end
+
+@testset "active zero blocks and warm starts" begin
+  for T in TYPES, α in (nothing, 0.8)
+    X, y, A, B = activation_problem(T, [1, 2, 3, 4])
+    s = sval(α)
+    groups = [B, A]
+    # a penalty above λmax: every block stays zero
+    g = penalty(T(5 * s), groups, nothing, ptype_for(T, α))
+    # an active block that is identically zero is screened like an inactive one: no change, still active
+    x = BlockIterate(T, 4, g)
+    activate!(x, 1)
+    m = whitebox_model(X, y, α, g, x)
+    @test iszero(PS.coordinate_step!(m, g, x, 1))
+    @test isactive(x, 1) && isnan(m.ℓ[1]) && m.ls.r == y
+    # a nonzero (warm-started) block is not screened: its curvature is set even where the step is small
+    x = BlockIterate(T, 4, g)
+    x[B[1]] = T(1e-3)
+    m = whitebox_model(X, y, α, g, x)
+    h = PS.coordinate_step!(m, g, x, 1)
+    @test h > 0 && isfinite(m.ℓ[1])
+    @test majorizes(X, B, m.ℓ[1], curvature_margin(T, 6, 2))
+    # and the solves from these starts end at zero with the KKT satisfied
+    for start in (:active_zero, :warm)
+      x = BlockIterate(T, 4, g)
+      start === :active_zero ? activate!(x, 2) : (x[A[1]] = T(0.5))
+      out = run_group_cd(X, y, α, g, x)
+      check_solution(X, y, α, g, x, out.res)
+      @test nactive(x) == 0
+    end
+  end
+end
+
+# Flat, singleton and unpenalized groups, and λ0 = 0, on an exact design (columns of a Hadamard matrix of order 8):
+# group 1 = columns 1, 2; group 2 = two zero columns; group 3 = column 3; group 4 = columns 4, 5. Where the
+# correlation of a group is exactly 0 the screen returns zero, with or without a zero weight; where it is nonzero
+# a zero weight or λ0 = 0 makes the step nonzero.
+@testset "flat, singleton, zero-weight groups and the screen" begin
+  for T in TYPES, α in (nothing, 2.0)
+    H = hadamard(8)
+    X = Matrix{T}(hcat(H[:, 1:2], zeros(8, 2), H[:, 3], H[:, 4:5]))
+    groups = [[1, 2], [3, 4], [5], [6, 7]]
+    s = sval(α)
+    y0 = Vector{T}(H[:, 1])                      # the correlation of group 4 and of group 3 is exactly 0
+    y1 = Vector{T}(H[:, 1] .+ 0.5 .* H[:, 4])    # group 4 has a nonzero correlation
+    for (y, nonzero4) in ((y0, false), (y1, true)), (λ, w) in ((0.5, T[1, 1, 1, 0]), (0.0, nothing), (0.5, nothing))
+      g = penalty(T(λ * s), groups, w, ptype_for(T, α))
+      x = BlockIterate(T, 7, g)
+      m = whitebox_model(X, y, α, g, x)
+      @test m.ℓ[2] == 0                          # flat
+      @test m.ℓ[3] > 0                           # singleton, set at preparation
+      @test isnan(m.ℓ[1]) && isnan(m.ℓ[4])      # deferred Gram-route groups
+      # group 4: the screen returns zero only if the correlation is zero or the penalty keeps it at zero
+      h4 = PS.coordinate_step!(m, g, x, 4)
+      unpenalized = λ == 0 || (w !== nothing && iszero(w[4]))
+      if nonzero4 && unpenalized
+        @test h4 > 0 && isfinite(m.ℓ[4])
+      elseif !nonzero4
+        @test iszero(h4) && isnan(m.ℓ[4])        # b = 0 exactly: zero for every penalty
+      end
+      # group 3 (a singleton) has correlation exactly 0 and group 2 is flat: no change
+      @test iszero(PS.coordinate_step!(m, g, x, 3))
+      @test iszero(PS.coordinate_step!(m, g, x, 2)) && m.ℓ[2] == 0
+      # group 1 has a nonzero correlation: it steps for a small enough penalty (0.5 < ‖b‖/w)
+      @test PS.coordinate_step!(m, g, x, 1) > 0 && isfinite(m.ℓ[1])
+      # the whole solve satisfies the independent KKT; an unpenalized group reaches the least-squares value
+      x = BlockIterate(T, 7, g)
+      out = run_group_cd(X, y, α, g, x)
+      check_solution(X, y, α, g, x, out.res)
+      if nonzero4 && unpenalized
+        @test isapprox(Float64.(x[6:7]), (Float64.(X[:, 6:7])' * Float64.(y)) ./ 8; atol = 10kkt_bound(T))
+      end
+    end
+  end
+end
+
+# The screen step is inv(s). For a subnormal scale s, inv(s) is Inf although the step 1/(s ℓ) of a group with
+# ℓ about 1e3 is a normal number (s ℓ = 1e-307 for Float64 with s = 1e-310, and 1e-37 for Float32 with
+# s = 1e-40: both above floatmin). An infinite screen step would put every group at zero (threshold λ0 w/s
+# is 0 or Inf by range, not by size); the solver must then bypass the screen. The problem is the one with
+# unit scale and penalty λ0/s, so the independent KKT is formed with that penalty and the scale 1.
+@testset "the screen is bypassed where inv(s) is not representable" begin
+  for T in TYPES, fraction in (0.3, 0.9)
+    n, p = 60, 9
+    groups = [[1, 4, 7], [2, 5, 8], [3, 6, 9]]
+    X, y = make_design(T, :plain, n, p; seed = 401)
+    ℓmax = maximum(maximum(eigvals(Symmetric(Float64.(X[:, G])' * Float64.(X[:, G])))) for G in groups)
+    X = Matrix{T}(X .* T(sqrt(1e3 / ℓmax)))
+    α = T === Float64 ? 1e-310 : 1f-40
+    s = Float64(α)
+    @test isinf(inv(α)) && floatmin(T) <= α * T(1e3) && isfinite(inv(α * T(900)))
+    wdefault = sqrt.(T.(length.(groups)))
+    λeff = fraction * lambda_max(X, y, 1.0, groups, wdefault)       # the penalty of the unit-scale problem
+    g = penalty(T(λeff * s), groups, nothing, T)
+    @test Float64(g.λ0) > 0
+    gref = GroupNormL2(Float64(g.λ0) / s, groups, Float64.(g.w))   # the penalty of the unit-scale problem, as stored
+    for order in (:cyclic, :random)
+      x = BlockIterate(T, p, g)
+      out = run_group_cd(X, y, α, g, x; order)
+      @test out.res.converged
+      rep = kkt_report(X, y, 1.0, gref, x)
+      @test rep.stat <= kkt_bound(T) * max(1.0, Float64(gref.λ0))
+      @test rep.screen <= kkt_bound(T)
+      @test nactive(x) >= 1
+    end
+    # the screen is bypassed for every group: a zero block still gets its curvature at its first visit
+    x = BlockIterate(T, p, g)
+    m = whitebox_model(X, y, α, g, x)
+    manual_passes!(m, g, x, 3)
+    @test !any(isnan, m.ℓ)
+  end
+end
+
+# A zero group on the boundary of the screen: λ0 = s c ‖z_G‖/w to rounding, so the screen and the full step
+# may decide differently by a rounding. Only the independent KKT is asserted, not the branch.
+@testset "a screening tie satisfies the KKT either way" begin
+  p = 12
+  for T in TYPES, α in (nothing, 3.0), lkind in (:contiguous, :reordered), order in (:cyclic, :random)
+    X, y = orthogonal_design(T, p; exponent = 0, seed = 8)
+    groups = layout(lkind, p; seed = 5)
+    s = sval(α)
+    Xd, yd = Float64.(X), Float64.(y)
+    c = sum(abs2, Xd[:, 1])
+    z = (Xd' * yd) ./ c
+    G = groups[2]
+    wk = sqrt(length(G))
+    for δ in (0.0, 1e-12, -1e-12)
+      λtie = s * c * norm(z[G]) / wk * (1 + δ)
+      g = penalty(T(λtie), groups, nothing, ptype_for(T, α))
+      x = BlockIterate(T, p, g)
+      out = run_group_cd(X, y, α, g, x; order)
+      check_solution(X, y, α, g, x, out.res)
+    end
+  end
+end
+
+# Predictable refusals of a Gram-route group when its step is near the band edge: p = s ℓ or 1/p within 1% of
+# floatmin(T), for a pair of equal columns with entries e in n = 4 rows (λmax of the Gram matrix 8 e²). A group
+# on the refusing side is refused before the first pass with the caller and the RNG unchanged; on the other
+# side it is not refused for its step.
+@testset "a Gram-route group near the band edge" begin
+  n = 4
+  for T in TYPES, edge in (:small, :large), factor in (0.99, 1.01)
+    rng = Xoshiro(501)
+    y = T.(randn(rng, n))
+    X = T.(randn(rng, n, 3))
+    s, target = if edge === :small               # p = factor floatmin(T)
+      T === Float64 ? (1e-3, factor * Float64(floatmin(T)) / 1e-3) : (1f-3, factor * Float64(floatmin(T)) / 1e-3)
+    else                                          # p = factor / floatmin(T)
+      T === Float64 ? (1e10, factor / Float64(floatmin(T)) / 1e10) : (1f10, factor / Float64(floatmin(T)) / 1e10)
+    end
+    e = T(sqrt(target / 8))
+    X[:, 1] .= e
+    X[:, 2] .= e
+    ℓ = Float64(sum(abs2, Float64.(X[:, 1:2])))         # λmax of the Gram matrix of two equal columns
+    @test floatmin(T) <= T(ℓ) < floatmax(T)
+    p = s * T(ℓ)
+    refused_side = edge === :small ? factor < 1 : factor > 1
+    # the stored p and 1/p sit on the intended side of the band, with the margin of 1% (above the rounding)
+    refused_side ? @test(!(floatmin(T) <= p && floatmin(T) <= inv(p))) : @test(floatmin(T) <= p && floatmin(T) <= inv(p))
+    g = GroupNormL2(T(0.5), [[1, 2], [3]])
+    if refused_side
+      check_block_refusal(X, y, s, g, T[0, 0, -0.1]; fragment = "step of group", activezero = (1,))
+    else
+      x = BlockIterate(T[0, 0, -0.1], g.groups)
+      err, logs = logged(() -> try
+        solve!(x, mkloss(y, X, s), g, CDSolver(; order = :random, maxpasses = 3, rng = Xoshiro(5)))
+        nothing
+      catch e
+        e
+      end)
+      @test err === nothing || !occursin(r"step of group|underflows|overflows", sprint(showerror, err))
     end
   end
 end
