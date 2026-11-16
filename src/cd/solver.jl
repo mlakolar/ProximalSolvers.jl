@@ -7,6 +7,7 @@ Coordinate descent for the least-squares lasso. Call
 `solve!(beta, f, g, CDSolver())` with matching `Float32` or `Float64`
 design/response data and coefficients. The coefficient storage can be
 a dense `Vector` or a one-dimensional ProximalBase `SparseIterate`.
+For a group lasso it can be a ProximalBase `BlockIterate`, as described below.
 
 `CDSolver()` uses random coordinate order and the algorithm's default
 momentum behavior, a reasonable exploratory choice. For deterministic
@@ -52,7 +53,38 @@ rounding level avoids this; Float64 data has a much lower rounding level.
 A `SparseIterate` is solved on a private copy retaining its initial
 active zeros and coordinate order. After a completed finite run the caller
 receives the complete final state, including any zero-coordinate
-compaction. The copy needs `O(p)` extra storage. See [`solve!`](@ref)
+compaction. The copy needs `O(p)` extra storage.
+
+**Group lasso.** With `T` equal to `Float32` or `Float64`, `x = BlockIterate(T, p, g)`
+and `g = GroupNormL2(lambda, groups)` (or with weights), the call
+`solve!(x, f, g, CDSolver(order=:cyclic, tol=1e-10))` minimizes the least-squares
+loss plus `lambda * sum(w[k] * norm(x[groups[k]]))`. The loss is as for the lasso. `g` is a
+`GroupNormL2{Float32}` or `GroupNormL2{Float64}` whose level and weights are finite,
+nonnegative and representable in `T`, and its groups and those of `x` agree in number,
+order and ordered members, otherwise a `DimensionMismatch` is thrown. The coordinates are
+the groups, and a pass visits whole groups. `momentum = true` is refused with an
+`ArgumentError`; `nothing` and `false` give plain block coordinate descent. The change of
+a group is `norm` of its displacement, which `relative=true` multiplies by
+`sqrt(s * l)` for a positive response scale, where `l` bounds the largest eigenvalue of
+the Gram matrix of the columns of the group; the forced full pass counts group visits.
+As for the lasso, `converged` reports this change test and is not a KKT certificate.
+The curvature of a flat group, and of a group of one column when `n eps(T) <= 1/8` (`n`
+the number of rows), is set before the first pass. That of any other group is computed
+at the first visit that needs it when cheap bounds show, under the eigenvalue model for groups of two or more columns, that no refusal can occur, and
+before the first pass otherwise. A visit to a nonflat group whose block is zero, active or
+not, first applies ProximalBase's `prox_block!` to the correlations at the step `1/s`
+(skipped when `1/s` is not a normal number of the scale's arithmetic type, or when the
+correlations are not all zero and the largest magnitude is below `2^53 * floatmin(T)`) and ends without a
+change, and without computing a still-deferred curvature, when the result is zero. Before
+the first pass, and before any draw from the RNG, an `ArgumentError` that names the group
+refuses a curvature that underflows or overflows in `T` and a step outside the normal
+range, for each group whose curvature is computed then. An exception of the eigenvalue
+routine, a refusal of a lazily computed curvature, and a trial point or displacement that
+is not finite can occur during a pass; `x` is then unchanged, and the RNG may have
+advanced. The curvature rule and the refusals are described in the numerical
+guide.
+
+See [`solve!`](@ref)
 and the [solver guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/).
 """
 struct CDSolver{R<:AbstractRNG} <: ProximalSolver
@@ -387,9 +419,10 @@ end
 # The run shared by the dense and owner wrappers, on a private SparseIterate: the
 # solve, the not-converged warning and the finite-objective check. It returns the
 # state and the final objective; the caller commits the point only afterwards.
-function _run_cd!(work::SparseIterate, f, g, method::CDSolver)
+function _run_cd!(work::Union{SparseIterate, BlockIterate}, f, g, method::CDSolver)
   m = cdmodel(f, work)
   initialize!(m, work)
+  method.maxpasses > 0 && _prepare!(m, g, work)
   st = _CDState(eltype(work), work, method)
   _cd!(work, m, g, st, method)
   _warn_not_converged(st, method)
@@ -406,7 +439,7 @@ end
 # The run does not touch the caller's owner: it works on a state-preserving private
 # copy (values, active zeros and slot order), and the owner changes only at the final
 # same-shape owner-to-owner copy, which carries the compaction order with it.
-function _solve_owner!(x::SparseIterate, f, g, method::CDSolver)
+function _solve_owner!(x::Union{SparseIterate, BlockIterate}, f, g, method::CDSolver)
   work = copy(x)
   st, result_value = _run_cd!(work, f, g, method)
   copyto!(x, work)
@@ -424,6 +457,9 @@ function solve!(x, f, g, method::CDSolver; kwargs...)
   _check_keywords(kwargs)
   if x isa SparseIterate
     _check_owner_problem(x, f, g)
+    return _solve_owner!(x, f, g, method)
+  elseif x isa BlockIterate
+    _check_block_problem(x, f, g, method)
     return _solve_owner!(x, f, g, method)
   end
   _check_problem(x, f, g)

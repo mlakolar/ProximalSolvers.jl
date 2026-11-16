@@ -11,6 +11,8 @@ quick = [
 ]
 standard = [
   "cd_numerics",
+  "group_cd",
+  "group_cd_preflight",
   "core_regressions",
   "sparse_cd",
   "accelerated_pgd",
