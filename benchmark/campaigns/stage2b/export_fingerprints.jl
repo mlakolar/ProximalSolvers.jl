@@ -375,6 +375,7 @@ struct Parts
   options::Any
   workspace::Any
   certificates::String  # SHA-256 of certificates.jl
+  live::Any             # nothing, or a thunk that throws unless the live lasso inputs are still the problem's
 end
 
 function same(id, what, a, b)
@@ -397,7 +398,60 @@ function core_problem_of(id, exact, T)
   names = (:X, :y, :s, :λ, :w, :start)
   all(name -> haskey(exact, name), names) ||
     throw(VerifyError("$id: the captured problem lacks one of the fields $names"))
-  merge(exact, NamedTuple{names}(map(name -> T.(getproperty(exact, name)), names)))
+  typed = NamedTuple{names}(map(name -> T.(getproperty(exact, name)), names))
+  # The image must be an exact promotion of the Float32 values: every converted field promoted back is the captured
+  # field to the bit (signed zeros and NaN payloads included, as the canonical encoding distinguishes them).
+  for name in names
+    same_bits(Float64.(getproperty(typed, name)), getproperty(exact, name)) ||
+      throw(VerifyError("$id: the field $name of the certificate image is not an exact Float32 promotion; " *
+                        "the problem cannot be rebuilt without loss"))
+  end
+  merge(exact, typed)
+end
+
+"""Equal to the bit and in type, shape and element type, by the canonical encoding itself."""
+same_bits(x, y) = fingerprint("bits", "x", x) == fingerprint("bits", "x", y)
+
+"""
+    check_live_lasso(id, call, reset, a)
+
+The lasso problem that a supported `call!` really solves, read from its captured objective and penalty (a scaled
+least-squares loss and a NormL1; the data X and Y, the scale, lambda and the weights) and from the `start` that `reset!`
+restores, against the problem `a` that the fixture, the certificate and `problem_hash` describe: every value must be
+the same to the bit. Called after the first make, after the untimed call and after the second make. Any other layout
+(another objective or penalty type, observation weights, another start type) is refused.
+"""
+function check_live_lasso(id, call, reset, a)
+  f, g = cap(id, call, :f, "call!"), cap(id, call, :g, "call!")
+  (f isa PB.Scaled && f.f isa PB.LeastSquaresLoss && g isa PB.NormL1) ||
+    throw(VerifyError("$id: call! captures a $(typeof(f)) and a $(typeof(g)), not a scaled least-squares loss and a NormL1"))
+  loss = f.f
+  all(name -> hasfield(typeof(loss), name), (:X, :Y, :w)) && all(name -> hasfield(typeof(g), name), (:λ0, :w)) ||
+    throw(VerifyError("$id: the layout of the captured loss or penalty is not the supported one"))
+  isempty(loss.w) || throw(VerifyError("$id: the captured loss has observation weights"))
+  p = size(loss.X, 2)
+  weights = g.w === nothing ? ones(eltype(loss.X), p) : g.w
+  live = (; X = loss.X, y = loss.Y, s = f.α, λ = g.λ0, w = weights)
+  for name in keys(live)
+    haskey(a, name) || throw(VerifyError("$id: the problem has no field $name to compare with the live input"))
+    same_bits(getproperty(live, name), getproperty(a, name)) ||
+      throw(VerifyError("$id: the live $name of call! differs from the problem the fixture, the certificate and " *
+                        "problem_hash describe"))
+  end
+  start = cap(id, reset, :start, "reset!")
+  length(start) == p || throw(VerifyError("$id: the captured start has length $(length(start)), expected $p"))
+  want = haskey(a, :start) ? a.start : zeros(eltype(loss.X), p)
+  if start isa PB.SparseIterate
+    # a sparse iterate stores no zeros, so a signed zero of the dense start is not kept: values compare with ==
+    collect(Float64, start) == Float64.(want) &&
+      sort!(collect(Int, PB.activecoordinates(start))) == findall(!iszero, want) ||
+      throw(VerifyError("$id: the live start (values or working set) differs from the problem's start"))
+  elseif start isa Vector
+    same_bits(start, want) || throw(VerifyError("$id: the live start differs from the problem's start"))
+  else
+    throw(VerifyError("$id: the captured start has the unsupported type $(typeof(start))"))
+  end
+  nothing
 end
 
 function extract_parts(H, meta, state, certificates)
@@ -412,6 +466,7 @@ function extract_parts(H, meta, state, certificates)
   a isa NamedTuple || throw(VerifyError("$id: the captured problem is a $(typeof(a)), not a NamedTuple"))
   grid = nothing
   iterate = solver = options = workspace = nothing
+  live = nothing
   if fam == :setup
     isempty(fieldnames(typeof(reset))) ||
       throw(VerifyError("$id: the reset! of a setup case captures state: $(collect(fieldnames(typeof(reset))))"))
@@ -430,6 +485,15 @@ function extract_parts(H, meta, state, certificates)
       throw(VerifyError("$id: own_options = $own does not match the solver type $(typeof(method))"))
     iterate = check_iterate(id, x, "x")
     core && (a = core_problem_of(id, a, eltype(x)))
+    # Bind the problem to what is really solved. A current-core case must have the supported layout (anything else
+    # is refused); a coordinate-descent case of another layout (the release case, the legacy cd lasso) that captures a
+    # supported loss and penalty is checked too. Other solvers (ADMM fills its loss cache in the solve) are left as they were.
+    supported = String(meta.solver) == "cd" && has_field(call, :f) && has_field(call, :g) &&
+      let f = cap(id, call, :f, "call!"), g = cap(id, call, :g, "call!")
+        f isa PB.Scaled && f.f isa PB.LeastSquaresLoss && g isa PB.NormL1 &&
+          hasfield(typeof(f.f), :w) && isempty(f.f.w)       # the plain lasso of the cd group (no observation weights)
+      end
+    (core || supported) && (live = () -> check_live_lasso(id, call, reset, a))
     solver = method
     options = own ? nothing : cap(id, call, :options, "call!")
   elseif fam == :workspace
@@ -469,13 +533,14 @@ function extract_parts(H, meta, state, certificates)
   elseif haskey(a, :grid)
     throw(VerifyError("$id: the path problem already has a field grid"))
   end
-  Parts(id, fam, a, grid, iterate, solver, options, workspace, certificates)
+  Parts(id, fam, a, grid, iterate, solver, options, workspace, certificates, live)
 end
 
 fixture_items(p::Parts) = sort!(vcat([(String(k), getfield(p.a, k)) for k in keys(p.a)],
                                      p.grid === nothing ? Tuple{String,Any}[] : [("grid", p.grid)]); by = first)
 
 function check_data_hash(H, p::Parts, state)
+  p.live === nothing || p.live()
   fixture = p.grid === nothing ? p.a : merge(p.a, (; grid = p.grid))
   hash = H.data_hash(fixture)
   hash == state.problem_hash ||

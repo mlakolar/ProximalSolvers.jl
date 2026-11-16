@@ -293,6 +293,8 @@ cell(result, kind, name) = first(v for (k, n, v) in result.rows if k == kind && 
 # A check closure that captures `exact`, as the check of a current-core case does (a function argument keeps its name;
 # a local of a @testset does not).
 check_with_exact(exact) = output -> exact
+# A call! with the captured names the exporter reads (function arguments keep their names).
+call_with(x, method, f, g) = () -> (x, method, f, g)
 bits(v) = collect(reinterpret(UInt64, collect(Float64, v)))
 
 # Copy the four harness files to a fresh directory (the harness is never modified in place).
@@ -479,16 +481,89 @@ harness_ok = run_group("real cases") do
     spec64 = catalog_spec(H, CORE.dense)
     @test spec64.make(1).problem_hash != state.problem_hash
     @test E.fingerprint("fixture", "X", parts.a.X) != E.fingerprint("fixture", "X", Float64.(parts.a.X))
-    # an image that is not the rounded-up problem of the case fails closed
-    fake = H.CaseState(state.reset!, state.call!, check_with_exact(merge(exact, (; y = exact.y .+ 1.0))),
-                       state.problem_hash)
-    err = try
-      E.export_case(H, spec.meta, rep -> fake, 1, CERT)
+    # an image that is not an exact Float32 promotion fails closed, and so does an exact promotion of another problem
+    for y in (exact.y .+ 1.0, Float64.(Float32.(exact.y) .+ 1f0))
+      fake = H.CaseState(state.reset!, state.call!, check_with_exact(merge(exact, (; y))), state.problem_hash)
+      err = try
+        E.export_case(H, spec.meta, rep -> fake, 1, CERT)
+        nothing
+      catch e
+        e
+      end
+      @test err isa E.VerifyError && (occursin("exact Float32 promotion", err.msg) || occursin("live y", err.msg))
+    end
+  end
+  CURRENT && @testset "current core: the live solve inputs are bound to the problem (round-1 fix)" begin
+    err_of(make, spec) = try
+      E.export_case(H, spec.meta, make, 1, CERT)
       nothing
     catch e
       e
     end
-    @test err isa E.VerifyError && occursin("data_hash", err.msg)
+    refused(err, text) = err isa E.VerifyError && occursin(text, err.msg)
+    # Positive, the real cases: the live inputs are the problem's, before and after the untimed solve.
+    for id in values(CORE)
+      spec = catalog_spec(H, id)
+      state = spec.make(1)
+      parts = parts_of(H, spec, state)
+      @test parts.live !== nothing
+      @test parts.live() === nothing
+      state.reset!(); state.call!()
+      @test parts.live() === nothing
+      @test E.check_data_hash(H, parts, state) == state.problem_hash
+    end
+    for id in (CORE.dense, CORE.dense32, CORE.warm_sparse)
+      spec = catalog_spec(H, id)
+      T = id == CORE.dense32 ? Float32 : Float64
+      step = T === Float32 ? Float32(1e-5) : 1e-8
+      # Negative: mutate the live objective data or start, the certificate copy and the stored hash stay as they are.
+      mutations = [c -> (getfield(c.call!, :f).f.Y[1] += step),
+                   c -> (getfield(c.call!, :f).f.X[1, 1] = nextfloat(getfield(c.call!, :f).f.X[1, 1])),
+                   id == CORE.warm_sparse ? c -> (getfield(c.reset!, :start)[3] = T(1.5)) :
+                                            c -> (getfield(c.reset!, :start)[1] += step)]
+      for mutate! in mutations
+        make = rep -> (c = spec.make(rep); mutate!(c); c)
+        @test refused(err_of(make, spec), "live")
+      end
+      # Negative: another penalty, another scale, another objective or penalty type, in a fresh call! closure.
+      real = spec.make(1)
+      f, g, x, method = getfield(real.call!, :f), getfield(real.call!, :g), getfield(real.call!, :x),
+                        getfield(real.call!, :method)
+      swapped(f2, g2) = rep -> (c = spec.make(rep);
+                                H.CaseState(c.reset!, call_with(getfield(c.call!, :x), getfield(c.call!, :method), f2, g2),
+                                            c.certify, c.problem_hash))
+      @test err_of(swapped(f, g), spec) === nothing                        # the stand-in layout itself is accepted
+      @test refused(err_of(swapped(f, PB.NormL1(nextfloat(g.λ0))), spec), "live λ")
+      @test refused(err_of(swapped(nextfloat(f.α) * f.f, g), spec), "live s")
+      @test refused(err_of(swapped(f, ones(T, 2)), spec), "not a scaled least-squares loss")
+      @test refused(err_of(swapped(zeros(T, 2), g), spec), "not a scaled least-squares loss")
+    end
+    # A dense start that is not the problem's start is refused as well.
+    spec = catalog_spec(H, CORE.warm)
+    make = rep -> (c = spec.make(rep); getfield(c.reset!, :start)[1] += 1e-8; c)
+    @test refused(err_of(make, spec), "live start")
+  end
+  CURRENT && @testset "current core: the Float32 image must be an exact promotion (round-1 fix)" begin
+    spec = catalog_spec(H, CORE.dense32)
+    state = spec.make(1)
+    exact = getfield(state.certify, :exact)
+    for name in (:y, :X, :start, :w)
+      tampered = copy(getproperty(exact, name))
+      tampered[1] = nextfloat(tampered[1])            # below a Float32 ulp: Float32 rounding would hide it
+      fake = H.CaseState(state.reset!, state.call!, check_with_exact(merge(exact, NamedTuple{(name,)}((tampered,)))),
+                         state.problem_hash)
+      err = try
+        E.export_case(H, spec.meta, rep -> fake, 1, CERT)
+        nothing
+      catch e
+        e
+      end
+      @test err isa E.VerifyError && occursin("exact Float32 promotion", err.msg)
+    end
+    for (name, value) in ((:s, nextfloat(exact.s)), (:λ, nextfloat(exact.λ)))
+      @test_throws E.VerifyError E.core_problem_of("id", merge(exact, NamedTuple{(name,)}((value,))), Float32)
+    end
+    @test E.core_problem_of("id", exact, Float32).y == Float32.(exact.y)         # the real image is accepted
   end
   CURRENT && @testset "current core: the release case keeps the historical closure layout" begin
     spec = catalog_spec(H, CORE.release)
