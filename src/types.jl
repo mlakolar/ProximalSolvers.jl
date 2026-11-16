@@ -22,8 +22,10 @@ the stationarity check below passes.
 
 **The stationarity check.** At an iteration at which one of the three tests
 holds, the solver computes the minimal-norm KKT residual `G` at the accepted
-iterate `x` for the penalty level `λ` (the element of `∇f(x) + λ ∂‖x‖₁` of least
-infinity norm). The stop counts only if
+iterate `x`: the element of `∇f(x) + λ ∂‖x‖₁` of least infinity norm for
+`NormL1(λ)`, and the element of `∇f(x) + λ2 x + λ1 ∂‖x‖₁` of least infinity norm for
+`ElasticNet(λ1, λ2)` (proximal gradient descent only). Below, `λ` is the ℓ1 level of the
+penalty (`λ` of `NormL1`, `λ1` of `ElasticNet`); `λ2` does not enter the bound. The stop counts only if
 `‖G‖∞ < max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `T` the element type and
 `λmax = α‖Xᵀy‖∞` for the loss scale `α` (1 for a plain `LeastSquaresLoss`). The check
 also requires that `S = max(λ, λmax)` is finite, that the product
@@ -32,7 +34,14 @@ finite; it does not require that product to be finite (for a huge `gradtol` it c
 `Inf`). Otherwise
 `x_converged`, `f_converged` and `grad_converged` are all `false`, and the solve
 continues. With `y = 0` and `λ = 0` both `λ` and `λmax` are 0, and nothing
-converges. `converged=true` therefore means that a test proposed a stop and that
+converges, including `ElasticNet(0, λ2)` with `y = 0` or `Xᵀy = 0` (the ridge solution is `x = 0`
+but the solve runs to `maxiter` with `converged=false`). `ElasticNet(λ1, λ2)` on the loss `½α‖Xb - y‖²` is the lasso with level `λ1` on the data
+`X̃ = [√α X; √λ2 I]`, `ỹ = [√α y; 0]`, whose gradient is `∇f(x) + λ2 x` and whose `λmax` is the
+`λmax` above: the check is that of the lasso on those data. The coordinate descent solver
+supports `NormL1` only; an `ElasticNet` is refused there, and its support is planned.
+A start `x0` with a finite `f(x0)` and an infinite `g(x0)` (a ridge term that overflows
+in `T`) throws "did not produce a finite objective" at the first trial, and `x` is restored
+to `x0`. `converged=true` therefore means that a test proposed a stop and that
 the computed (working-precision) KKT residual `‖G‖∞` at the returned `x` is
 below that bound. The code forms `τ = T(max(gradtol, 64 eps(T)))` and the threshold
 `τ * max(λ, λmax)` in `T`, and compares `‖G‖∞` with it. The normalized form

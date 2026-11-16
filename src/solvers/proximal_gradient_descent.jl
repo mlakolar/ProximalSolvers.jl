@@ -2,10 +2,11 @@
     ProximalGradientDescent(; ls=LineSearches.BackTracking(), normalized=false,
                              debias=0, preconditioner=:none)
 
-Proximal gradient descent (PGD) for least-squares lasso with a dense
+Proximal gradient descent (PGD) for least-squares lasso or elastic net with a dense
 `Vector{Float32}` or `Vector{Float64}` coefficient iterate. Each iteration
 takes a gradient step for the smooth least-squares loss and applies the
-`NormL1` proximal operator (soft thresholding); backtracking adjusts
+proximal operator of the penalty, soft thresholding for `NormL1` and soft
+thresholding followed by the ridge weight for `ElasticNet`; backtracking adjusts
 the step size.
 
 `ProximalGradientDescent()` uses the supported
@@ -23,8 +24,8 @@ are accepted and not stored.
 Pass `ProximalOptions(...)` as the fifth argument to `solve!` to
 configure stopping tolerances and iteration limits. A stop that the `xtol`, `ftol` or
 `gradtol` test proposes counts only if the computed KKT residual of the iterate is below
-`max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞` (see
-[`ProximalOptions`](@ref)). `converged=true` guarantees only that the computed, normalized KKT
+`max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞` and `λ` the ℓ1 level of the penalty
+(`λ` of `NormL1`, `λ1` of `ElasticNet`; see [`ProximalOptions`](@ref)). `converged=true` guarantees only that the computed, normalized KKT
 residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the threshold is formed in
 `T`, which can round or overflow; see [`ProximalOptions`](@ref)); it is not an
 exact-arithmetic certificate, does not bound the distance to a minimizer and does not
@@ -244,12 +245,15 @@ end
 """
     solve!(x, f, g, CDSolver())
     solve!(x, f, g, ProximalGradientDescent(), options=ProximalOptions())
+    solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions())
 
-Minimize a least-squares lasso, overwriting `x`. `x` is a dense `Vector{T}`,
+Minimize a least-squares lasso or elastic net, overwriting `x`. `x` is a dense `Vector{T}`,
 T=Float32 or Float64; `CDSolver` also accepts a one-dimensional `SparseIterate{T}`
-(see below), while `ProximalGradientDescent` refuses it. The loss uses same-type
-`Matrix` X and `Vector` y, and the penalty is an unweighted finite nonnegative
-`NormL1`. Use `(one(T)/T(n))*LeastSquaresLoss` for normalized lasso; raw LS keeps
+(see below), while `ProximalGradientDescent` and `AccProxGradDescent` refuse it. The loss uses same-type
+`Matrix` X and `Vector` y. The penalty of `ProximalGradientDescent` and `AccProxGradDescent` is an
+unweighted `NormL1(λ)` or an unweighted `ElasticNet(λ1, λ2)` (`λ1 ‖x‖₁ + (λ2/2) ‖x‖²`), whose levels are
+finite and nonnegative and representable in `T` without overflow or underflow; `CDSolver` supports an
+unweighted `NormL1` only and refuses an `ElasticNet` (its support is planned). Use `(one(T)/T(n))*LeastSquaresLoss` for normalized lasso; raw LS keeps
 its unnormalized meaning. One positive finite scalar LS wrapper is supported.
 Borrowed X/y must not alias mutable `x` or change during a solve. Results share
 `x`; copy it to retain earlier coefficients. Unsupported inputs/options fail
@@ -286,7 +290,7 @@ handles taken earlier may no longer describe the active set.
 function solve!(x, f, g, method::ProximalGradientDescent,
                 options::ProximalOptions = ProximalOptions(); kwargs...)
   _check_keywords(kwargs)
-  _check_problem(x, f, g)
+  _check_problem(x, f, g, true)
   t0 = time()
   state = initial_state(method, options, f, g, x)
   _solve_gradient!(state, f, g, method, options, t0)

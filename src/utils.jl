@@ -100,21 +100,26 @@ end
 
 # ---- the stationarity check of a proposed stop -------------------------------------------------
 #
-# The check is for the lasso ½α‖Xb - y‖² + λ‖b‖₁ (α = 1 for a raw LeastSquaresLoss), whose gradient
-# the solver forms. G is the element of ∇f(x) + λ ∂‖x‖₁ of least norm: |∇fᵢ| - λ clipped at 0
-# where xᵢ = 0, and |∇fᵢ + λ sign xᵢ| otherwise. The stop is kept when ‖G‖∞ < τ S, with
-# S = max(λ, λmax), λmax = α‖Xᵀy‖∞ = ‖∇f(0)‖∞, and τ = max(gradtol, 64 eps(T)): the threshold is
-# relative to S, which a common positive factor on the loss and the penalty scales alike (within
-# the range of T), and 64 eps(T) is a floor of a few dozen units of roundoff, chosen without a
-# bound on the error of the computed gradient. It is not kept when S is not finite, when τ S is
-# below floatmin(T) (a threshold that may have underflowed) or when ‖G‖∞ is not finite.
+# The check is for the least-squares problem ½α‖Xb - y‖² + h(b) (α = 1 for a raw LeastSquaresLoss),
+# whose gradient ∇f the solver forms, with h = λ‖·‖₁ for NormL1(λ), or
+# h = λ1‖·‖₁ + (λ2/2)‖·‖² for ElasticNet(λ1, λ2). G is the element of ∇f(x) + ∂h(x) of least norm:
+# for NormL1, |∇fᵢ| - λ clipped at 0 where xᵢ = 0 and |∇fᵢ + λ sign xᵢ| otherwise; for ElasticNet, the
+# same with λ = λ1 and the term λ2 xᵢ added to ∇fᵢ where xᵢ ≠ 0 (the ridge part has gradient λ2 x,
+# which is 0 where xᵢ = 0). The stop is kept when ‖G‖∞ < τ S, with S = max(λ1, λmax) (λ1 = λ for
+# NormL1), λmax = α‖Xᵀy‖∞ = ‖∇f(0)‖∞, and τ = max(gradtol, 64 eps(T)). S does not contain λ2: for
+# ElasticNet the problem is the lasso with level λ1 on the data [√α X; √λ2 I], [√α y; 0], whose
+# gradient is ∇f(x) + λ2 x and whose λmax is the λmax above. The threshold is relative to S, which a
+# common positive factor on the loss and the penalty levels scales alike (within the range of T), and
+# 64 eps(T) is a floor of a few dozen units of roundoff, chosen without a bound on the error of the
+# computed gradient. It is not kept when S is not finite, when τ S is below floatmin(T) (a threshold
+# that may have underflowed; S = 0, for λ1 = 0 and λmax = 0, is one) or when ‖G‖∞ is not finite.
 # It is a computed residual, not a certificate in exact arithmetic.
 function _stationary!(state, f, g, options::ProximalOptions)
   T = eltype(state.x)
   λmax = _lambda_max!(state)       # first: it uses xhat, which APG's gradient below also uses
   grad = _gradient_at_x!(state, f)
-  λ = T(g.λ0)
-  residual = _kkt_residual(grad, state.x, λ)
+  λ = _l1_level(g, T)
+  residual = _stationarity_residual(g, grad, state.x, T)
   S = max(λ, λmax)
   τ = T(max(options.gradtol, 64 * Float64(eps(T))))
   threshold = τ * S
@@ -148,6 +153,13 @@ function _gradient_at_x!(state::AccProxGradDescentState, f)
   state.xhat
 end
 
+# The ℓ1 level of the penalty in T, and the residual of ∇f(x) + ∂h(x) at x in T, for the penalties that
+# _check_penalty accepts for PGD and APG
+_l1_level(g::NormL1, ::Type{T}) where T = T(g.λ0)
+_l1_level(g::ElasticNet, ::Type{T}) where T = T(g.λ1)
+_stationarity_residual(g::NormL1, grad, x, ::Type{T}) where T = _kkt_residual(grad, x, T(g.λ0))
+_stationarity_residual(g::ElasticNet, grad, x, ::Type{T}) where T = _kkt_residual(grad, x, T(g.λ1), T(g.λ2))
+
 # maxᵢ of max(|gᵢ| - λ, 0) where xᵢ = 0, and of |gᵢ + λ sign xᵢ| elsewhere; NaN if an entry is
 # NaN (max propagates it)
 function _kkt_residual(grad::AbstractArray, x::AbstractArray, λ::T) where {T}
@@ -155,6 +167,19 @@ function _kkt_residual(grad::AbstractArray, x::AbstractArray, λ::T) where {T}
   @inbounds for i in eachindex(grad, x)
     xi = x[i]
     r = iszero(xi) ? max(abs(grad[i]) - λ, zero(T)) : abs(grad[i] + λ * sign(xi))
+    m = max(m, r)
+  end
+  m
+end
+
+# The residual for the elastic net: maxᵢ of max(|gᵢ| - λ1, 0) where xᵢ = 0, and of
+# |gᵢ + λ2 xᵢ + λ1 sign xᵢ| elsewhere; NaN if an entry is NaN (max propagates it). For λ2 = 0 and
+# finite x it equals the value of the 3-argument method.
+function _kkt_residual(grad::AbstractArray, x::AbstractArray, λ1::T, λ2::T) where {T}
+  m = zero(T)
+  @inbounds for i in eachindex(grad, x)
+    xi = x[i]
+    r = iszero(xi) ? max(abs(grad[i]) - λ1, zero(T)) : abs(grad[i] + λ2 * xi + λ1 * sign(xi))
     m = max(m, r)
   end
   m

@@ -48,9 +48,29 @@ _float64_scale_ok(a::Float64, ::Type{T}) where T = isfinite(a) && a > 0 && (n = 
   throw(ArgumentError("loss scale $α of type $(typeof(α)) $why; only Float32 and Float64 scales and fixed-width integer scales that $T represents exactly are supported$hint"))
 end
 
+# The penalty check of _check_data. `elasticnet` is true for the gradient solvers (PGD and APG), which
+# accept an unweighted NormL1 or an unweighted ElasticNet, and false for CDSolver, which accepts an
+# unweighted NormL1 and refuses an ElasticNet of any weights with its own message. The levels must pass
+# _scalar_parameter for the data type T (finite, nonnegative, representable without overflow or underflow).
+function _check_penalty(g, ::Type{T}, elasticnet::Bool) where T
+  if g isa NormL1 && g.w === nothing
+    _scalar_parameter(g.λ0, T, "penalty lambda")
+  elseif g isa ElasticNet && !elasticnet
+    throw(ArgumentError("CDSolver does not support ElasticNet yet; use ProximalGradientDescent or AccProxGradDescent"))
+  elseif elasticnet && g isa ElasticNet && g.w === nothing
+    _scalar_parameter(g.λ1, T, "penalty lambda1")
+    _scalar_parameter(g.λ2, T, "penalty lambda2")
+  else
+    throw(ArgumentError(elasticnet ? "only unweighted NormL1 or unweighted ElasticNet is supported" :
+                                     "only unweighted NormL1 is supported"))
+  end
+  nothing
+end
+
 # Loss, data, shape, penalty and alias checks shared by the dense gate and the
 # CD owner gate; `x` is the caller's original array or owner, of length `length(x)`.
-function _check_data(x, f, g, ::Type{T}) where T
+# `elasticnet` selects the penalties that _check_penalty accepts.
+function _check_data(x, f, g, ::Type{T}, elasticnet::Bool) where T
   base = if f isa LeastSquaresLoss
     f
   elseif f isa Scaled && f.f isa LeastSquaresLoss
@@ -64,17 +84,16 @@ function _check_data(x, f, g, ::Type{T}) where T
   n, p = size(base.X)
   n > 0 && p > 0 || throw(DimensionMismatch("X must have positive row and column counts"))
   length(base.Y) == n && length(x) == p || throw(DimensionMismatch("x/y dimensions do not match X"))
-  g isa NormL1 && g.w === nothing || throw(ArgumentError("only unweighted NormL1 is supported"))
-  _scalar_parameter(g.λ0, T, "penalty lambda")
+  _check_penalty(g, T, elasticnet)
   (Base.mightalias(x, base.X) || Base.mightalias(x, base.Y)) &&
     throw(ArgumentError("mutable x must not alias borrowed X or y"))
   base
 end
 
-function _check_problem(x, f, g)
+function _check_problem(x, f, g, elasticnet::Bool)
   x isa Vector && eltype(x) in (Float32, Float64) ||
     throw(ArgumentError("x must be a dense Vector{Float32} or Vector{Float64}"))
-  base = _check_data(x, f, g, eltype(x))
+  base = _check_data(x, f, g, eltype(x), elasticnet)
   _allfinite(x) && _allfinite(base.Y) && _allfinite(base.X) ||
     throw(ArgumentError("x, X and y must contain only finite values"))
   nothing
@@ -84,10 +103,10 @@ end
 # public active values are inspected; the aliasing check uses the owner itself,
 # so an empty owner whose backing storage is shared with X or y is refused too.
 _is_cd_owner(x) = x isa SparseIterate{<:Any, 1} && eltype(x) in (Float32, Float64)
-function _check_owner_problem(x, f, g)
+function _check_owner_problem(x, f, g, elasticnet::Bool)
   _is_cd_owner(x) ||
     throw(ArgumentError("x must be a dense Vector or a one-dimensional SparseIterate of Float32 or Float64"))
-  base = _check_data(x, f, g, eltype(x))
+  base = _check_data(x, f, g, eltype(x), elasticnet)
   all(isfinite, activevalues(x)) && _allfinite(base.Y) && _allfinite(base.X) ||
     throw(ArgumentError("x, X and y must contain only finite values"))
   nothing
