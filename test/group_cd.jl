@@ -1357,53 +1357,76 @@ function kkt_relative_big(X, y, s, g, β)
   end
 end
 
+# Two families of the same exact fixtures (X = diag(a, a), y = (y₁, 0), loss scale s, level λ = s a y₁/2 so that
+# s‖b‖ = 2 λ w for the first correlation b = a y₁, and a one-step value β₁ = b/ℓ - λ w/(s ℓ) with ℓ = a²):
+#  * :subnormal: b = a y₁ is the smallest subnormal. After the correct first step the residual is half of y₁
+#    and the next correlation is half of the smallest subnormal, which rounds to 0 in the gradient: the
+#    trial is then the current coefficient, which the prox shrinks to 0 (the eager step computes b the same way),
+#    so the passes alternate between 0 and β₁ and do not converge. This is the floating-point gradient at the
+#    subnormal edge, not the screen, so these fixtures assert the one-pass result only (the screen regression).
+#  * :guard_edge: b is a normal number below the guard floor 2^53 floatmin(T) of the screen (Float32:
+#    b = 2^-80 < 2^-73; Float64: b = 2^-1000 < 2^-969), where the screen is bypassed but the gradients stay
+#    normal (the correlation after the first step is b/2 and then exact), so the solve converges to β₁ and the
+#    KKT is asserted.
 @testset "the screen does not certify zero from the underflow of its output" begin
-  for T in TYPES
-    ea, ey = T === Float32 ? (-60, -89) : (-500, -574)       # a = 2^ea, y₁ = 2^ey, a y₁ = the smallest subnormal
+  for T in TYPES, family in (:subnormal, :guard_edge)
+    ea, ey = if family === :subnormal
+      T === Float32 ? (-60, -89) : (-500, -574)          # b = 2^-149 or 2^-1074, the smallest subnormal
+    else
+      T === Float32 ? (-30, -50) : (-500, -500)          # b = 2^-80 or 2^-1000
+    end
     a = ldexp(one(T), ea)
-    tiny = nextfloat(zero(T))
-    # (name, groups, scale s, penalty level λ, penalty element type, number of groups)
-    variants = [("subnormal level, pair", [[1, 2]], T(2), tiny, T),
-                ("subnormal level, singletons", [[1], [2]], T(2), tiny, T),
-                ("normal scale and level, pair", [[1, 2]], ldexp(one(T), T === Float32 ? 120 : 1000),
-                 ldexp(one(T), T === Float32 ? -30 : -75), T),
-                ("normal scale and level, singletons", [[1], [2]], ldexp(one(T), T === Float32 ? 120 : 1000),
-                 ldexp(one(T), T === Float32 ? -30 : -75), T)]
-    T === Float32 && push!(variants, ("Float64 penalty on Float32 data", [[1, 2]], T(2), tiny, Float64))
-    for (name, groups, s, λ, P) in variants
+    big_scale = family === :subnormal ? (T === Float32 ? 120 : 1000) : (T === Float32 ? 120 : 1000)
+    # (name, groups, scale s, penalty element type)
+    variants = [("pair, s = 2", [[1, 2]], T(2), T),
+                ("singletons, s = 2", [[1], [2]], T(2), T),
+                ("pair, large scale", [[1, 2]], ldexp(one(T), big_scale), T),
+                ("singletons, large scale", [[1], [2]], ldexp(one(T), big_scale), T)]
+    T === Float32 && push!(variants, ("Float64 penalty on Float32 data", [[1, 2]], T(2), Float64))
+    for (name, groups, s, P) in variants
       X = T[a 0; 0 a]
       y = T[ldexp(one(T), ey), 0]
+      b0 = setprecision(BigFloat, 256) do
+        big(a) * big(y[1])
+      end
+      λ = setprecision(BigFloat, 256) do
+        T(big(s) * b0 / 2)
+      end
+      @test λ > 0 && isfinite(λ)
       w = ones(P, length(groups))
       g = GroupNormL2(P(λ), groups, w)
       f = s * LeastSquaresLoss(y, X)
       # the zero point violates the KKT by a factor of 2: s‖b‖ = 2 λ w (exact in BigFloat)
       setprecision(BigFloat, 256) do
-        @test big(s) * big(a) * big(y[1]) == 2 * big(λ)
+        @test big(s) * b0 == 2 * big(λ)
       end
-      rep0 = kkt_relative_big(X, y, s, g, zeros(T, 2))
-      @test rep0.screen > 0.5
-      # the first block of the one-step value: b₁/ℓ - λ w/(s ℓ) with ℓ = a² (the solver's curvature is a² up to
-      # a relative margin of 1e-6 or so)
+      @test kkt_relative_big(X, y, s, g, zeros(T, 2)).screen > 0.5
+      # the one-step value with ℓ = a² (the solver's curvature is a² up to a relative margin of 1e-6 or so)
       expected = setprecision(BigFloat, 256) do
         ℓ = big(a)^2
-        Float64(big(a) * big(y[1]) / ℓ - big(λ) / (big(s) * ℓ))
+        Float64(b0 / ℓ - big(λ) / (big(s) * ℓ))
       end
       @test expected > 0
-      # one cyclic pass: the block is not left at zero
-      x = BlockIterate(T, 2, g)
-      res, logs = logged(() -> solve!(x, f, g, CDSolver(order = :cyclic, relative = false, tol = 1e-30, maxpasses = 1,
-                                                       rng = Xoshiro(1))))
-      @test x[1] != 0 && isactive(x, 1) && x[2] == 0
-      @test isapprox(Float64(x[1]), expected; rtol = 1e-4)
-      @test res.passes == 1
-      # solving to convergence: the group is active, the point is stationary relative to λ w
+      # one cyclic or random pass: the block is not left at zero and has the one-step value
       for order in (:cyclic, :random)
         x = BlockIterate(T, 2, g)
-        res, logs = logged(() -> solve!(x, f, g, CDSolver(order = order, maxpasses = 100, rng = Xoshiro(2))))
-        @test res.converged && isactive(x, 1) && x[1] != 0
+        res, logs = logged(() -> solve!(x, f, g, CDSolver(; order, relative = false, tol = 1e-30, maxpasses = 1,
+                                                         rng = Xoshiro(1))))
+        @test x[1] != 0 && isactive(x, 1) && x[2] == 0
         @test isapprox(Float64(x[1]), expected; rtol = 1e-4)
-        rep = kkt_relative_big(X, y, s, g, x)
-        @test rep.stat <= kkt_bound(T) && rep.screen <= kkt_bound(T)
+        @test res.passes == 1
+      end
+      # solving to convergence, where the later gradients stay normal: the group is active, the point is the
+      # one-step value and is stationary relative to λ w
+      if family === :guard_edge
+        for order in (:cyclic, :random)
+          x = BlockIterate(T, 2, g)
+          res, logs = logged(() -> solve!(x, f, g, CDSolver(; order, maxpasses = 100, rng = Xoshiro(2))))
+          @test res.converged && isactive(x, 1) && x[1] != 0
+          @test isapprox(Float64(x[1]), expected; rtol = 1e-4)
+          rep = kkt_relative_big(X, y, s, g, x)
+          @test rep.stat <= kkt_bound(T) && rep.screen <= kkt_bound(T)
+        end
       end
     end
   end
