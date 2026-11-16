@@ -25,23 +25,33 @@ usual normalized convention.
 
 The three numerical arrays use one common `T` (`Float32` or
 `Float64`); mixed-element-type `X`, `y` and coefficient arrays
-are not supported. The finite loss scale and penalty level must be
+are not supported. The penalty level must be finite, nonnegative and
 representable in `T` without overflow or rounding a nonzero scalar
-to zero. They may be supplied in a different scalar type, including
-a representable `Float64` literal in a `Float32` problem. After that
-check, CD, PGD and APG use the loss scale as supplied, combined with
-`T` by Julia's promotion (CD converts a scale to `T` when that promotion
-is not a concrete floating-point type): a `Float64` scale in a `Float32` problem
-keeps its `Float64` value, also where that value is subnormal in
-`Float32`. The arrays and the coefficients stay in `T`, so this does
-not imply mixed-precision array support or a guarantee about every
-intermediate arithmetic type. A `BigFloat`, `BigInt` or
-`Rational{BigInt}` loss scale makes the scalar arithmetic of CD that involves
-it (the step coefficient, the products of the loss scale in the two
-stopping scales, and the reported objective's product) `BigFloat`, at the
-precision current when the solve runs; the square roots of the stopping
-scales on their normal-range branch are formed in `T`. It allocates
-and is slow, and is not a fast path.
+to zero; it may be supplied in a different scalar type, including
+a representable `Float64` literal in a `Float32` problem.
+
+The loss scale of `Scaled(LeastSquaresLoss(...), s)` is supported as
+
+- a positive finite `Float32` or `Float64` that converts to a finite nonzero
+  number of `T` (a value that is subnormal in `T` is accepted, and a `Float64`
+  scale in a `Float32` problem is accepted), or
+- a positive fixed-width integer (`Int`, `UInt8` and the other `Base.BitInteger`
+  types) or `Bool` that `T` represents exactly: `2^24` for `Float32` data, not
+  `2^24 + 1`, and `2^53` for `Float64` data, not `2^53 + 1`.
+
+A scale of any other type (`BigInt`, `BigFloat`, `Rational`, `Float16`,
+`Irrational` or another `Real`), and an integer that `T` would round, is
+refused with an `ArgumentError` before `solve!` writes to the coefficients.
+**This narrows the API:** such scales were accepted before the loss value and
+gradient were taken from ProximalBase's least-squares oracles. Convert the
+scale explicitly, for example `Float64(s) * LeastSquaresLoss(y, X)`, where
+`Float64(s)` is finite, positive and representable in `T` as above; the
+error message suggests this conversion when it passes that rule.
+The solvers use the supplied scale combined with `T` by Julia's promotion:
+a `Float64` scale in a `Float32` problem keeps its `Float64` value, also
+where that value is subnormal in `Float32`. The arrays and the coefficients
+stay in `T`, so this does not imply mixed-precision array support or a
+guarantee about every intermediate arithmetic type.
 
 The data must not be modified while a solve is running. The coefficient
 vector (or the supported CD `SparseIterate`) is mutated in place, so do

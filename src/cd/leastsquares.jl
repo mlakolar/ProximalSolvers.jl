@@ -1,10 +1,10 @@
-using ProximalBase: shrink
+using ProximalBase: shrink, leastsquares_data, value_from_residual
 # Borrowed scalar unweighted LS data and native residual/curvature caches. The loss scale `s`
 # has its own type `S`: the promotion of `T` and the type of the supplied scale where that is a
 # concrete `AbstractFloat` (an IEEE scale wider than `T` keeps its precision), else `T`. X, y,
 # the residual and the curvature cache are in `T`, and so are the loops over them (the column
-# sums, the residual update, the sum in `loss_value` and the sum in the first two forms of
-# `response_scale`).
+# sums, the residual update and the sum in the first two forms of `response_scale`). The loss
+# value is not formed here: `loss_value` takes it from ProximalBase.
 mutable struct LSModel{T<:AbstractFloat, S<:AbstractFloat, MX<:AbstractMatrix{T}, VY<:AbstractVector{T}} <: CDModel{T}
   X::MX
   y::VY
@@ -18,8 +18,10 @@ function _scale_type(::Type{T}, α) where T
 end
 LSModel(y::AbstractVector{T}, X::AbstractMatrix{T}, α::Real) where T =
   LSModel(X, y, convert(_scale_type(T, α), α), zeros(T, length(y)), fill(T(NaN), size(X, 2)))
-cdmodel(f::LeastSquaresLoss{T, <:AbstractVector}, x) where T = LSModel(f.Y, f.X, one(T))
-cdmodel(f::Scaled{<:LeastSquaresLoss{T, <:AbstractVector}}, x) where T = LSModel(f.f.Y, f.f.X, f.α)
+function cdmodel(f::Union{LeastSquaresLoss{T, <:AbstractVector}, Scaled{<:LeastSquaresLoss{T, <:AbstractVector}}}, x) where T
+  d = leastsquares_data(f)
+  LSModel(d.Y, d.X, d.α)
+end
 _activeentries(x::SparseIterate) = activecoordinates(x)
 initialize!(m::LSModel{T}, x::SparseIterate{T}) where T = _initialize!(m, x, true)
 function _initialize!(m::LSModel{T}, x::SparseIterate{T}, fresh::Bool) where T
@@ -122,8 +124,9 @@ end
 # `shrink(c, τ)` is what that prox returns at the level τ and the step 1.
 # This method is for S == T ∈ {Float32, Float64}. For a finite a, an `S` wider than `T` keeps p = α a
 # in the band of the fast path: α is representable in T (`solve!` checks it) and a is finite in T, so
-# p lies between about 1e-90 and 1e77 for S = Float64 on Float32 data and inside the far wider range of
-# BigFloat. Another scale type, or a penalty other than the unweighted NormL1, is refused.
+# p lies between about 1e-90 and 1e77 for S = Float64 on Float32 data. Another scale type (`solve!` refuses
+# one that is not Float32, Float64 or an integer; an LSModel built directly can have S = BigFloat), or a
+# penalty other than the unweighted NormL1, is refused.
 @noinline function _exceptional_step(g::NormL1{<:Real, Nothing}, c::T, α::T, a::T, k::Int) where {T<:Union{Float32, Float64}}
   shrink(c, min(_threshold(T, g.λ0, α, a), floatmax(T)))
 end
@@ -220,10 +223,5 @@ end
   finite_y || throw(ArgumentError("the response scale is not defined: y has a non-finite entry"))
   throw(ArgumentError("the response scale (the root of the loss scale times the norm of y) is not a normal number of $T; rescale y or the loss scale, or use relative=false (an objective that overflows is still refused)"))
 end
-function loss_value(m::LSModel{T}, x) where T
-  v = zero(T)
-  @inbounds @simd for i in eachindex(m.r)
-    v += m.r[i]*m.r[i]
-  end
-  T(m.s*v/2)
-end
+# The loss value at the current residual, from ProximalBase's residual oracle with the original loss f.
+loss_value(m::LSModel, f, x) = value_from_residual(f, m.r)

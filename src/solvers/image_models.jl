@@ -1,34 +1,23 @@
-# Historical LS image evaluation; no exceptional-range recovery is added. `_SE`, `_se_mul`, `_root_scale`, `_se_norm` and `_sumsq_scaled` below are also used by CD's `response_scale` (src/cd/leastsquares.jl).
+# The image model of PGD and APG (the data X, Y and the scale read through `leastsquares_data`, and the image X x) and the arithmetic of APG's certified bound. The loss value and gradient at an image come from ProximalBase's predictor oracles. `_SE`, `_se_mul`, `_root_scale`, `_se_norm` and `_sumsq_scaled` below are also used by CD's `response_scale` (src/cd/leastsquares.jl).
+
+using ProximalBase: leastsquares_data, value_from_predictor, value_and_gradient_from_predictor!
 
 struct _LSImage{TY<:AbstractVecOrMat, TX<:AbstractMatrix, A<:Real, T<:AbstractFloat}
   Y::TY
   X::TX
-  α::A                  # the scale of a Scaled loss, one otherwise
+  α::A                  # the scale of a Scaled loss as supplied, one(T) otherwise
 end
 
-_LSImage(f::LeastSquaresLoss{T}, α::Real) where {T} = _LSImage{typeof(f.Y), typeof(f.X), typeof(α), T}(f.Y, f.X, α)
-_image_model(f::LeastSquaresLoss) = _LSImage(f, true)
-_image_model(f::Scaled{<:LeastSquaresLoss}) = _LSImage(f.f, f.α)
+function _image_model(f)
+  d = leastsquares_data(f)
+  _LSImage{typeof(d.Y), typeof(d.X), typeof(d.α), eltype(d.X)}(d.Y, d.X, d.α)
+end
 _image_buffer(m::_LSImage{TY, TX, A, T}) where {TY, TX, A, T} = zeros(T, size(m.Y))
 _image!(z, m::_LSImage, x) = mul!(z, m.X, x)
-_value!(x, m, z) = (_image!(z, m, x); convert(_eltype(x), _image_value(m, z)))
-_value_and_gradient!(G, x, m, z, d) = convert(_eltype(x), _image_value_and_gradient!(G, m, z, d))
-function _image_value(m::_LSImage{TY, TX, A, T}, z) where {TY, TX, A, T}
-  Y = m.Y
-  v = zero(T)
-  @inbounds @simd for i in eachindex(z, Y)
-    v += abs2(Y[i] - z[i])
-  end
-  m.α * (v / 2)
-end
-
-function _image_value_and_gradient!(G, m::_LSImage, z, d)
-  d .= z .- m.Y
-  mul!(G, transpose(m.X), d)
-  v = sum(abs2, d) / 2
-  G .*= m.α
-  m.α * v
-end
+# The loss value at x: the image z = X x is formed here and the value is ProximalBase's.
+_value!(x, f, m, z) = (_image!(z, m, x); convert(_eltype(x), value_from_predictor(f, z)))
+# The value at the image z, with d = z - Y and G the gradient, both written by ProximalBase.
+_value_and_gradient!(G, x, f, z, d) = convert(_eltype(x), value_and_gradient_from_predictor!(G, d, f, z))
 
 # ---- The accelerated method's certified backtracking test ----------------------------
 #

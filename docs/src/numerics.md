@@ -124,7 +124,7 @@ of the tests. What `converged=true` therefore says about the returned `x`:
 
 The check runs only at an iteration at which a test proposes a stop. PGD uses
 the gradient `∇f(x)` that it holds. APG holds `∇f(y)` at the extrapolated point,
-so it forms `∇f(x)` from its cached product `A x` with the same gradient kernel,
+so it forms `∇f(x)` from its cached product `A x` with the same gradient oracle,
 in preallocated buffers: one transposed product per check, counted in
 `grad_calls` (and not in `f_calls`). `λmax` is computed once per solve, at the
 first check, with one product `Xᵀy` that is not counted.
@@ -358,27 +358,39 @@ Mixed-precision arrays, such as `Float32` coefficients with a
 function dispatch, which may permit some heterogeneous calls without
 guaranteeing their numerical behavior.
 
-**Scalar-parameter exception.** The loss scale in
-`Scaled(LeastSquaresLoss(...), s)` and the `NormL1` penalty level
-`lambda` may be finite real scalars of a different type, including
-a `Float64` literal for a `Float32` solve. The solver checks that
-they are representable in `T` without overflow or loss of a
-nonzero parameter to zero. After that check, CD, PGD and APG use the
-loss scale as supplied, combined with `T` by Julia's promotion (CD
-converts a scale to `T` when that promotion is not a concrete
-floating-point type, such as a custom `Real` without promotion rules): a
-`Float64` scale in a `Float32` solve keeps its `Float64` value (also
-where that value is subnormal in `Float32`). In CD, the coordinate step,
-the two stopping scales and the reported objective are formed from that
-value and rounded to `T` where they enter the iterate, the tolerance or
-the result; an `Int`, `Rational{Int}`, `Irrational`, `Bool` or `Float16`
-scale is used there as `T(s)`. A `BigFloat`, `BigInt` or
-`Rational{BigInt}` loss scale makes the scalar arithmetic of CD that involves
-it (the step coefficient, the products of the loss scale in the two
-stopping scales, and the reported objective's product) `BigFloat`, at the
-precision current when the solve runs; the square roots of the stopping
-scales on their normal-range branch are formed in `T`. It allocates
-and is slow, and is not a fast path. This convenience does **not**
+**Scalar-parameter exception.** The `NormL1` penalty level `lambda` may be a
+finite nonnegative real scalar of a different type, including a `Float64`
+literal for a `Float32` solve, and the loss scale in
+`Scaled(LeastSquaresLoss(...), s)` is supported in two forms: a positive
+finite `Float32` or `Float64`, or a positive fixed-width integer or `Bool`
+that `T` represents exactly (`2^24` but not `2^24 + 1` for `Float32` data;
+`2^53` but not `2^53 + 1` for `Float64` data). The solver checks that a
+penalty level, and a `Float32` or `Float64` loss scale, are representable in `T`
+without overflow or loss of a nonzero parameter to zero (a value that is
+subnormal in `T` is accepted). A loss scale of any other type (`BigInt`,
+`BigFloat`, `Rational`, `Float16`, `Irrational` or another `Real`) or an integer
+that `T` rounds is refused with an `ArgumentError` before any solver writes to
+the coefficients. **This is an intentional narrowing of the supported API:**
+those scales were accepted before the loss value and gradient came from
+ProximalBase's oracles (a `BigFloat`, `BigInt` or `Rational{BigInt}` scale made
+CD's scalar arithmetic `BigFloat`; an `Int`, `Rational{Int}`, `Irrational`,
+`Bool` or `Float16` scale was used there as `T(s)`). Convert the scale
+explicitly where the conversion is finite, positive and representable in `T`,
+for example `Float64(s) * LeastSquaresLoss(y, X)`; the error message suggests it
+when it passes that rule. After the check, CD, PGD and APG use the loss scale as
+supplied, combined with `T` by Julia's promotion: a `Float64` scale in a
+`Float32` solve keeps its `Float64` value (also where that value is subnormal in
+`Float32`). In CD, the coordinate step and the two stopping scales are formed
+from that value and rounded to `T` where they enter the iterate or the
+tolerance; an integer or `Bool` scale is used there as `T(s)`. The loss part of
+CD's reported objective is formed by ProximalBase from the loss as supplied: it
+converts an integer or `Bool` scale to `Float64`, forms the product in the
+promoted type of the scale and `T`, and rounds the result to `T`. For an integer
+or `Bool` scale the check makes `T(s)` and `Float64(s)` both equal `s`, so CD's
+step and stopping computations and the objective use the same real scale. The
+arithmetic precision can differ: for `Float32` data and the scale `3`, CD's step
+and stopping arithmetic is in `Float32` and the objective's product is in
+`Float64`; for `Float64` data both are in `Float64`. This convenience does **not**
 enable a general mixed-precision model or guarantee that every
 intermediate operation uses `T`. Prefer explicit native scalars. Writing
 `one(T) / T(n)` chooses a native `T` scale: `n` is converted to `T` and the
@@ -400,12 +412,50 @@ recovery for some representable results, but ProximalSolvers does not
 promise end-to-end recovery of every failed matrix product, curvature,
 step or objective. Unrecoverable numerical failures are handled as
 described below; a successful kernel recovery does not imply the
-solver can continue in every extreme-range case. For example, CD forms
-its reported objective from the sum of the squared residuals in the working
-type, times the loss scale: where that sum or product overflows, CD refuses
-the finished solve with a `nonfinite objective` error and leaves the starting
-point unchanged; where it underflows, the loss part of the reported minimum
-can be 0.
+solver can continue in every extreme-range case.
+
+All three solvers take the least-squares value from ProximalBase's oracles
+(`value_from_predictor` and `value_and_gradient_from_predictor!` for PGD and APG,
+`value_from_residual` for CD), and PGD and APG take the coefficient gradient from
+`value_and_gradient_from_predictor!`. ProximalSolvers forms CD's coordinate
+correlations and updates and the `λmax` product of the stationarity check, and
+keeps the image `X x` (PGD, APG), the residual (CD), the steps, the line searches
+and the stopping rules. The exact
+accuracy and range statements are those of the section "Least squares at a
+predictor or residual that the caller holds" of the
+[ProximalBase guide to the smooth functions](https://github.com/mlakolar/ProximalBase.jl/blob/50db4b1ef376cbe01831c3dd019b6be0027db0b6/docs/src/smooth.md); they are not restated here.
+What changes for the solvers:
+
+- CD takes the loss part of its objective from `value_from_residual` of its
+  cached residual. ProximalBase recomputes exceptional values under the
+  conditions its guide states (the "Value and rounding" section of the guide
+  linked above); before, CD refused the finished solve where the sum of squares
+  overflowed. The recovery holds for finite data and a value representable with
+  ProximalBase's margin; near the overflow threshold its result can be `Inf` (the
+  "Range" statement of the guide gives the conditions). CD returns an objective only when the loss plus the penalty is
+  finite. Otherwise the finished solve is refused with a `nonfinite objective`
+  `ArgumentError` and the starting point is unchanged; the sum can be non-finite
+  where the recovered loss is finite, for example through an overflowing penalty
+  value. Where the loss is below `floatmin(T)`, the
+  guide's bound for the loss is `(n + 8) eps(T) |v|` plus
+  `2 nextfloat(zero(T))`, with `n` the number of rows of `X` and `v` the exact
+  value at the cached residual, so the reported loss part can be 0 or a small
+  subnormal number.
+- PGD and APG take the value at a start and at each trial from
+  `value_from_predictor` (PGD's start and its gradient refreshes use
+  `value_and_gradient_from_predictor!`, and so does APG's stationarity check). A
+  start or trial whose value ProximalBase recovers, under the conditions of its
+  guide, is evaluated finitely where the sum of squares overflows in `T`; before,
+  the sum of squares was formed in `T` without that recovery.
+- The gradient is `α` times the rounded product `Xᵀd` with `d = z - y` for the
+  image `z = X x`. An `Xᵀd` that overflows or underflows before the scaling is not
+  recovered, also where `α` would bring the exact gradient into range.
+- Where `z - y` overflows with finite entries, `value_from_predictor` recovers the
+  value, while `value_and_gradient_from_predictor!` returns a non-finite value
+  and non-finite gradient entries. In PGD a trial is evaluated by the former and
+  the gradient at an accepted trial by the latter, so an iterate accepted on a
+  finite value can hold a non-finite gradient; this combination is not covered
+  by a test.
 
 `Float32` has less precision and may stagnate earlier than `Float64`.
 Some solver tolerances, residual reports and other scalar diagnostics

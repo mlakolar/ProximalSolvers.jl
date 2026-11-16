@@ -393,7 +393,7 @@ function _run_cd!(work::SparseIterate, f, g, method::CDSolver)
   st = _CDState(eltype(work), work, method)
   _cd!(work, m, g, st, method)
   _warn_not_converged(st, method)
-  result_value = loss_value(m, work)+g(work)
+  result_value = loss_value(m, f, work)+g(work)
   isfinite(result_value) || throw(ArgumentError("coordinate descent produced a nonfinite objective; rescale the problem"))
   st, result_value
 end

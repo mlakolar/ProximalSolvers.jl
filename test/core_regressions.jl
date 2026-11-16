@@ -1,6 +1,7 @@
 module CoreRegressions
 using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
 using Logging: with_logger, Warn
+import Logging
 const PS = ProximalSolvers
 
 @testset "relative units, raw scale equivalence and read-only data" begin
@@ -49,14 +50,15 @@ const PS = ProximalSolvers
     solve!(z, LeastSquaresLoss(y, X), NormL1(λ / s), CDSolver(; order, rng = Xoshiro(88)))
     @test z ≈ x atol = 100eps(T)
     xs = SparseIterate(T[.4, -.3])
-    m = PS.cdmodel(s * LeastSquaresLoss(y, X), xs)
+    f = s * LeastSquaresLoss(y, X)
+    m = PS.cdmodel(f, xs)
     PS.initialize!(m, xs)
     solver = CDSolver(rng = Xoshiro(18))
     state = PS._CDState(T, xs, solver)
     PS._cd!(xs, m, NormL1(λ), state, solver)
     @test state.converged
     @test m.r ≈ y - X * Vector(xs) atol = 100eps(T)
-    @test PS.loss_value(m, xs) ≈ s * sum(abs2, y - X * Vector(xs)) / 2 rtol = 100eps(T)
+    @test PS.loss_value(m, f, xs) ≈ s * sum(abs2, y - X * Vector(xs)) / 2 rtol = 100eps(T)
     X[1, 1] *= 2
     PS.initialize!(m, xs)
     @test all(isnan, m.a)
@@ -241,7 +243,7 @@ function pgd_trial(f, g, x0, L; gradient_mode = false, method = ProximalGradient
   st.L = L
   PS._step!(st.xhat, st.x_previous, st.grad_f_x_previous, st.L)
   st.g_x = convert(eltype(st.x), PS.value_and_prox!(st.x, g, st.xhat, one(L) / L))
-  st.f_x = PS._value!(st.x, st.model, st.z_x)
+  st.f_x = PS._value!(st.x, f, st.model, st.z_x)
   st
 end
 
@@ -255,7 +257,7 @@ function pgd_pair_trial(f, g, xprev, x, L; method = ProximalGradientDescent())
   st.L = L
   copyto!(st.x, x)
   st.g_x = convert(eltype(st.x), g(st.x))
-  st.f_x = PS._value!(st.x, st.model, st.z_x)
+  st.f_x = PS._value!(st.x, f, st.model, st.z_x)
   st
 end
 
@@ -483,7 +485,7 @@ copyto!(st.grad_f_x_previous, st.grad_f_x)
 st.L = floatmin(Float32)
 copyto!(st.x, d)
 st.g_x = g(st.x)
-st.f_x = PS._value!(st.x, st.model, st.z_x)
+st.f_x = PS._value!(st.x, f, st.model, st.z_x)
 accepted = PS.LineSearches.backtrack!(st, method.ls, f, g)
 println("RESULT accepted=", accepted, " verifications=", st.verifications, " lost=", all(iszero, v))
 """
@@ -1128,6 +1130,107 @@ end
   @test occursin("\n   * |f(x) - f(x')| / |f(x)| < 1.0e-06: $(r.f_converged)\n", shown)
   @test occursin("\n   * objective increased at the last iteration: $(r.f_increased)\n", shown)
   @test !occursin("disabled", shown) && !occursin("stopped by an increasing objective", shown)
+end
+
+# ---- The least-squares value and gradient at the call sites of the solvers (#307) -----------------
+# PGD and APG form the image z = X x and take the value and the gradient from ProximalBase's predictor
+# oracles; CD takes the value from its cached residual with the residual oracle. The losses below are a
+# raw one, a Scaled one with a scale of type T, two with a Float32 or Float64 scale on data of the other type
+# (0.25, which T holds, and 1/57 or 0.1f0, which it does not for Float32 data and a Float64 scale), and one
+# with an integer scale.
+oracle_losses(::Type{T}, y, X) where T =
+  ((:raw, LeastSquaresLoss(y, X), 1), (:scaledT, T(0.25) * LeastSquaresLoss(y, X), T(0.25)),
+   (:mixed, (T === Float32 ? 0.25 : 0.25f0) * LeastSquaresLoss(y, X), 0.25),
+   (:mixedinexact, (T === Float32 ? 1 / 57 : 0.1f0) * LeastSquaresLoss(y, X), T === Float32 ? 1 / 57 : 0.1f0),
+   (:integer, 3 * LeastSquaresLoss(y, X), 3))
+oracle_data(::Type{T}; n = 40, p = 5) where T = (rng = Xoshiro(307); (randn(rng, T, n, p), randn(rng, T, n)))
+tmp_of(f::Scaled) = f.f.tmp
+tmp_of(f::LeastSquaresLoss) = f.tmp
+
+# The value within (n + 8) eps(T) |v| of the 256-bit value at the stored image z (ProximalBase's bound for
+# its value oracles). The gradient α fl(Xᵀ d̂) with d̂ = fl(z - Y) differs from α Xᵀ(z - Y) by at most
+# α γ_{n+4} ‖X‖_F ‖d‖: the dot product of a column with d̂ has n terms, so ‖fl(Xᵀ d̂) - Xᵀ d̂‖ ≤ γ_n ‖X‖_F ‖d̂‖,
+# ‖d̂ - d‖ ≤ u ‖d‖ adds u ‖X‖_F ‖d‖, and the scaling and the store in T add two further roundings; the
+# extra 4 in the count covers those roundings and ‖d̂‖ ≤ (1 + u) ‖d‖.
+function check_oracles(T, f, α, X, y, x)
+  n, p = size(X)
+  m = PS._image_model(f)
+  z = PS._image_buffer(m)
+  G, d = zeros(T, p), zeros(T, n)
+  v = PS._value!(x, f, m, z)
+  @test v isa T
+  v2 = PS._value_and_gradient!(G, x, f, z, d)
+  @test v2 isa T && d == z .- y
+  setprecision(BigFloat, 256) do
+    dref = big.(z) .- big.(y)
+    vref = big(α) * sum(abs2, dref) / 2
+    @test abs(big(v) - vref) <= (n + 8) * eps(T) * vref
+    @test abs(big(v2) - vref) <= (n + 8) * eps(T) * vref
+    Gref = big(α) .* (big.(X)' * dref)
+    u = big(eps(T)) / 2
+    γ = (n + 4) * u / (1 - (n + 4) * u)
+    bound = big(α) * γ * sqrt(sum(abs2, big.(X))) * sqrt(sum(abs2, dref))
+    @test sqrt(sum(abs2, big.(G) .- Gref)) <= bound
+  end
+  m, z, G, d
+end
+
+@testset "PGD/APG value and gradient from the oracles agree with 256-bit references; zero warm allocations and inference (#307)" begin
+  for T in (Float32, Float64)
+    X, y = oracle_data(T)
+    x = T.(0.3 .* sin.(1:size(X, 2)))
+    for (label, f, α) in oracle_losses(T, y, X)
+      m, z, G, d = check_oracles(T, f, α, X, y, x)
+      @test (@inferred PS._value!(x, f, m, z)) isa T
+      @test (@inferred PS._value_and_gradient!(G, x, f, z, d)) isa T
+      g = NormL1(T(0.01))
+      for method in (ProximalGradientDescent(), AccProxGradDescent())
+        st = PS.initial_state(method, ProximalOptions(), f, g, copy(x))
+        step!(st) = (PS.update_state!(f, g, st, method); nothing)
+        for _ in 1:3
+          step!(st)
+        end
+        @test (@allocated step!(st)) == 0
+      end
+    end
+  end
+  # Float32 data of order 1e18 with the Float64 scale 1e-44, which is subnormal in Float32: Float32(1e-44) ≈
+  # 9.809e-45, 1.9% below the supplied scale, so a value formed with Float32(α) would leave the (n + 8) eps(T) bound
+  X, y = oracle_data(Float32)
+  Xs, ys = 1f18 .* X, 1f18 .* y
+  @test Float64(Float32(1e-44)) != 1e-44
+  check_oracles(Float32, 1e-44 * LeastSquaresLoss(ys, Xs), 1e-44, Xs, ys, Float32.(0.3 .* sin.(1:size(X, 2))))
+end
+
+@testset "a solve leaves the scratch of the loss unchanged and reports a value of the 256-bit objective (#307)" begin
+  for T in (Float32, Float64)
+    X, y = oracle_data(T; n = 30, p = 4)
+    λ = T(0.2 * maximum(abs, X' * y))
+    for (label, f, α) in oracle_losses(T, y, X)
+      # the penalty is in units of the loss: it scales with α
+      g = NormL1(T(λ * α))
+      # a nonzero sentinel in the scratch and a nonzero start: an evaluation that writes the scratch is detected
+      x0 = T.(0.1 .* (1:4))
+      for (name, method, x) in (("CD dense", CDSolver(rng = Xoshiro(1)), copy(x0)),
+                                ("CD owner", CDSolver(rng = Xoshiro(1)), SparseIterate(copy(x0))),
+                                ("PGD", ProximalGradientDescent(), copy(x0)),
+                                ("APG", AccProxGradDescent(), copy(x0)))
+        fill!(tmp_of(f), T(7))
+        before = copy(tmp_of(f))
+        r = with_logger(Logging.NullLogger()) do
+          solve!(x, f, g, method)
+        end
+        @test isequal(tmp_of(f), before)
+        xv = Vector(x)
+        setprecision(BigFloat, 256) do
+          F = big(α) * sum(abs2, big.(y) .- big.(X) * big.(xv)) / 2 + big(g.λ0) * sum(abs, big.(xv))
+          scale = big(α) * sum(abs2, big.(y)) / 2 + big(g.λ0) * sum(abs, big.(xv))
+          # a fixture bound, not a derived one
+          @test abs(big(r.minimum) - F) <= (2 * size(X, 1) + size(X, 2) + 8) * eps(T) * scale
+        end
+      end
+    end
+  end
 end
 
 end

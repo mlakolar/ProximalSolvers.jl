@@ -8,16 +8,25 @@ The supported solve contract is homogeneous `T = Float32` or
 `T = Float64` for the design matrix, response and coefficient iterate.
 The boundary checks in `src/solve.jl` enforce matching array element
 types, finite data and the solver-specific storage restrictions.
-`_scalar_parameter` validates a finite loss scale or penalty level
-by conversion to `T` and refuses overflow or nonzero-to-zero
-underflow. It does **not** globally convert the original function
-parameters or ensure that all private arithmetic is of type `T`.
-After that check CD, PGD and APG use the loss scale as supplied,
+`_scalar_parameter` validates a finite penalty level, and a `Float32` or
+`Float64` loss scale, by conversion to `T` and refuses overflow or
+nonzero-to-zero underflow. `_check_loss_scale` reads the scale of a `Scaled`
+loss through `ProximalBase.leastsquares_data` and accepts a `Float32` or
+`Float64` scale that passes that check, and a positive `Base.BitInteger` or
+`Bool` scale with `T(α) == α`; a scale of any other type, and an integer that
+`T` rounds, is an `ArgumentError` before any write (#307). That is a narrowing
+of what was accepted before. For an accepted integer scale, the conversions of
+`α` that CD, `_lambda_max!` and `_step_curvature` use (`T(α)` or `Float64(α)`)
+and the one that ProximalBase's oracles use (`Float64(α)`) all equal `α`. The
+check does **not** globally convert the
+original function parameters or ensure that all private arithmetic is of type
+`T`. After it CD, PGD and APG use the loss scale as supplied,
 combined with `T` by Julia's promotion. CD's `LSModel` stores it as
 `s::S` with `S = promote_type(T, typeof(α))` if that is a concrete
-`AbstractFloat` type and `S = T` otherwise. The coordinate step, the
-two stopping scales and the reported objective form their products
-with `s` in `S`. The objective rounds its product to `T`. The response
+`AbstractFloat` type and `S = T` otherwise. The coordinate step and the
+two stopping scales form their products with `s` in `S`. The loss part of
+the reported objective does not use `s` or `S`: ProximalBase forms it from the
+original loss (see below). The response
 scale `sqrt(s * sum(abs2, y))` is formed in one of three ways, with the sum
 in `T`. Let it be clean if it is finite and at least `4 length(y) floatmin(T)`
 (the bound of `_se_norm_onepass`), `p = s * sum(abs2, y)` in `S` and
@@ -39,15 +48,26 @@ The threshold `tol * scale` is formed in `T` and can still be subnormal or 0.
 The test `change < threshold` cannot hold for a threshold of 0, so that run
 cannot converge by it and reaches `maxpasses`, unless an independent
 numerical failure (for example a non-finite coordinate step) stops it first.
-The objective still forms
-`sum(abs2, r)` in `T`: where that sum or its product with `s` overflows, the
-finished solve is refused with a nonfinite-objective error, and where it
-underflows the loss part of the reported minimum can be 0; this is left to
-the ProximalBase cached-oracle migration (issue #277). A supplied `BigFloat`
-loss scale is stored with its own precision, which the precision active when
-the solve runs does not change; a `BigInt` or `Rational{BigInt}` scale is
-converted to `BigFloat` at the active precision when the model is built.
-`_root_scale` then converts the stored value at a scoped precision of 256 bits.
+The loss part of the reported objective is
+`ProximalBase.value_from_residual(f, r)` of the cached residual, with the
+original loss `f` passed to `loss_value` from `_run_cd!` (once per solve; `f` is
+not stored in `LSModel`). ProximalBase forms the sum of squares and its product
+with the scale, and recomputes exceptional values under the conditions that its
+guide states ("Least squares at a predictor or residual that the caller holds",
+"Value and rounding"). The
+finished solve is refused with a nonfinite-objective error where the loss plus
+the penalty, in `_run_cd!`, is not finite; the loss itself can be `Inf` near the
+overflow threshold, where the guide does not decide between a finite value and
+`Inf`. Where the value is below `floatmin(T)` the guide's bound for the loss is
+`(n + 8) eps(T) |v|` plus `2 nextfloat(zero(T))` (`v` the exact value at the
+cached residual), so the loss part of the reported minimum can be 0. For an
+integer or `Bool` scale ProximalBase converts the scale to `Float64` and forms
+the product in the promoted type of that scale and `T` before rounding to `T`,
+while CD's step and stopping arithmetic uses `T(s)`. For an integer or `Bool`
+scale the check in `src/solve.jl` makes the two real scales equal; the arithmetic
+precision can differ (Float32 data and the scale `3`: `Float32` in CD, `Float64`
+in the objective's product), and for `Float64` data both are `Float64`. `_root_scale`
+converts an integer or `Bool` scale at a scoped precision of 256 bits.
 The coordinate scale, with `a` the squared norm of the column, `p = s * a`
 in `S` and `q = T(p)`, is `sqrt(q)` where `q` is a normal number of `T`;
 otherwise `T(sqrt(p))` where `p` is not below `floatmin(S)` and is finite or `a`
@@ -95,25 +115,34 @@ can differ from before.
 finite `a`, an `S` wider than `T` keeps `p` inside the band: `solve!` requires a
 loss scale that is representable in `T`, and `a` is finite in `T`, so
 for `Float32` data with a `Float64` scale `p` is between about `1e-90` and
-`1e77`, and the range of `BigFloat` is far wider. A scale of another type, or
+`1e77`. A scale of another type, or
 a penalty other than the unweighted `NormL1`, makes the step throw an
 `ArgumentError`. A column whose `a` is not finite in `T` makes `coordinate_step!`
 throw an `ArgumentError` that names the curvature, before the coordinate, the
 residual or the curvature cache entry of that column changes, and `x` and an
 owner are not changed.
 `X`, `y`, the residual, the
-curvature cache and the iterate stay in `T`. A scale of type `T`,
-`Int`, `Bool`, `Rational{Int}`, `Irrational` or `Float16`, or a
-`Float32` scale on `Float64` data, gives `S = T` and the arithmetic of
-`T`. A `BigFloat`, `BigInt` or `Rational{BigInt}` scale gives
-`S = BigFloat`, whose scalar arithmetic (the step coefficient, the two
-stopping scales and the reported objective) uses the precision current
-when the solve runs.
-This accepted wider-scalar behavior is a narrow compatibility
-exception, not a generic mixed-precision guarantee.
+curvature cache and the iterate stay in `T`. A scale of type `T`, a
+`Float32` scale on `Float64` data, or a fixed-width integer or `Bool` scale
+(accepted only where `T` represents it exactly) gives `S = T` and the arithmetic
+of `T` in CD's step and stopping computations; a `Float64` scale on `Float32`
+data gives `S = Float64`. `S` does not describe the reported objective's
+product, which ProximalBase forms (see above). This accepted
+wider-scalar behavior is a narrow compatibility exception, not a generic
+mixed-precision guarantee.
 
-ProximalBase separately defines the mathematical oracle precision
-and exceptional-range behavior. Its selective recovery may avoid
+ProximalBase owns the least-squares value in all three solvers and the
+coefficient gradient in PGD and APG, with the scale as its computation uses it.
+CD, PGD and APG read `Y`, `X` and the stored scale through
+`ProximalBase.leastsquares_data`. PGD and APG take the value and the gradient
+from `value_from_predictor` and `value_and_gradient_from_predictor!`, and CD
+takes its final loss value from `value_from_residual` (which returns a value
+only), with the rounding, recovery and bounds that ProximalBase states; the
+solvers do not repeat those value and iterate-gradient computations. ProximalSolvers owns the caches (the image `X x`, the CD
+residual and curvatures), CD's coordinate correlations and updates, the `λmax`
+product of the stationarity check, the step and line searches, APG's certified
+bound, the stopping rules and the rollback.
+ProximalBase's selective recovery may avoid
 intermediate overflow/underflow for representable values, but the
 solver adds independent matrix products, state updates, stopping
 and numerical-finiteness checks. Do not infer end-to-end recovery
@@ -128,17 +157,17 @@ not a promotion of solver iterates or an optimality certificate.
 use independent objective/KKT checks for accuracy, especially with
 `Float32`. BigFloat may be used for independent test references,
 not as a supported solver working type; a `BigFloat`, `BigInt` or
-`Rational{BigInt}` loss scale is accepted by the representability check
-and makes CD's scalar arithmetic (the step coefficient, the two stopping
-scales and the reported objective) BigFloat, which allocates and is not
-a fast path.
+`Rational{BigInt}` loss scale is refused before any write.
 
 This is a documentation alignment with the homogeneous numerical
 policy tracked in
 [ProximalBase PR #857](https://github.com/mlakolar/ProximalBase.jl/pull/857).
-Failure atomicity and the scalar-acceptance check are as before. CD's
-arithmetic is as before where the loss scale promotes to `T`; for a
-loss scale wider than `T` it uses the scale as supplied (#295).
+Failure atomicity is as before; the loss scale types that the
+scalar-acceptance check accepts are narrowed as stated above (#307). CD's
+coordinate step and stopping arithmetic is as before where the loss scale promotes
+to `T`; for a loss scale wider than `T` it uses the scale as supplied (#295). The
+loss part of the reported objective is ProximalBase's reduction, which differs
+from the former one in `T` (#307).
 
 ## support.md (previous detailed notes)
 
@@ -236,7 +265,7 @@ the same active set can change the trajectory and the final point, and the chang
 stopping rule gives no general bound on the distance to a minimizer or on the KKT
 violation: assess accuracy with an independent objective/KKT check.
 
-PGD retains native LS image/value/gradient order, scalar steps, fused PB prox,
+PGD retains the native image-then-value-and-gradient order (the value and gradient themselves are ProximalBase's oracles), scalar steps, fused PB prox,
 TFOCS objective-to-gradient checks, finite curvature-growth refusal and zero-step
 gradient refresh. Objective/iterate/FASTA convergence tests combine by OR. The objective
 denominator and the gradient normalizers carry no absolute term: the objective test is
@@ -249,13 +278,15 @@ the accepted `x` must be below `max(gradtol, 64 eps(T)) * max(λ, λmax)`, `λma
 (formed once per solve in `xhat` and kept in the state field `λmax`). The check requires `S =
 max(λ, λmax)` finite, that product, formed in `T`, at least `floatmin(T)` and the residual
 finite; it does not require the product to be finite. Otherwise the three flags are cleared and the solve continues. PGD uses the `∇f(x)` it holds. APG
-forms `∇f(x)` from the cached image `z_x` with `_image_value_and_gradient!`, into `xhat`
+forms `∇f(x)` from the cached image `z_x` with `_value_and_gradient!` (ProximalBase's
+`value_and_gradient_from_predictor!`), into `xhat`
 and `dz`, which the next iteration overwrites before reading, and counts it in `grad_calls`.
 The check is a computed working-precision residual, not an exact-arithmetic certificate.
 Objective rounding can still end a solve with an objective increase; `ftol = 0`
 disables the objective test. Check objective/KKT independently. Native
-Float32 may stagnate earlier. Finite inputs do not ensure finite intermediates;
-historical LS image exceptional-range limitations remain outside this extraction.
+Float32 may stagnate earlier. Finite inputs do not ensure finite intermediates: the
+value is ProximalBase's, which recovers a value whose squares leave the range of `T`,
+but the image `X x` and the gradient `α fl(Xᵀd)` are not recovered.
 
 APG (`AccProxGradDescent`) is the historical accelerated method narrowed to the
 dense LS core: extrapolation `y = x + k/(k+3)(x - x_previous)`, `L ← αL` before each
@@ -318,10 +349,10 @@ bound `‖Δz‖/((1 + γ_{n+4})(1 + u)) - E_x - E_y` exceeds `(1 + 4eps)(1 + κ
 Otherwise form `w = fl(X d̂)` in the residual buffer, with
 `‖w - X d‖ ≤ (γ_p + 2u)‖X‖_F ‖d̂‖/((1 - γ_{p+4})(1 - u)) + 2p√n η`, accept when its upper bound passes,
 and reject otherwise. `√α` (`_root_scale`) is formed from `α`'s significand and exponent:
-exact in its own type for an IEEE Float16/32/64 scale, and otherwise taken after rounding
-`α` once to 256 bits inside a scoped BigFloat precision (restored afterwards); the
-significand is rounded once to Float64 before its root. So neither a type narrower than `T`,
-the active BigFloat precision, nor `α`'s range limits it.
+exact in its own type for a Float32 or Float64 scale, and otherwise (an integer or `Bool`
+scale) taken after rounding `α` once to 256 bits inside a scoped BigFloat precision
+(restored afterwards); the significand is rounded once to Float64 before its root. So
+neither the active BigFloat precision nor `α`'s range limits it.
 `κ = 32u` covers the roundings of `√L`, of `√α`'s conversion to `T`
 and of the fixed number of `_SE` products and sums on each side; the dimension-dependent
 errors enter through the factors above. These are conservative bounds: in Float32 the
@@ -392,8 +423,8 @@ checks shared by both gates and an owner gate that inspects only public active
 values and tests aliasing against the original owner. PGD keeps the dense gate and
 refuses owners.
 
-The current exact PB pin is `c123d56ba1948e36a8fdbf183a9eea396a16e0d5`. CD uses
-its scalar `prox_block` oracle; PGD retains fused `value_and_prox!`. The private PB
+The current exact PB pin is `50db4b1ef376cbe01831c3dd019b6be0027db0b6`. CD uses
+its scalar `prox_block` oracle; PGD retains fused `value_and_prox!`. All three solvers take the least-squares value from the PB oracles named above, and PGD and APG take the coefficient gradient from them. The private PB
 SparseIterate contract remains unchanged. PR #237's group/workspace migration is
 not imported. The gated analysis job always runs isolated exact-source paired
 diagnostics against PB A e8a45a8a6ffe2a6f92d83c4c77d62a9b7631e291 and frozen
