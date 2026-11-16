@@ -9,7 +9,9 @@ for (file, title) in (("01_cd_lasso.jl", "Coordinate descent lasso"),
                       ("02_pgd_lasso.jl", "Proximal gradient lasso"),
                       ("03_sparse_cd_lasso.jl", "Coordinate descent on a SparseIterate"),
                       ("04_lasso_solver_comparison.jl", "Comparing lasso solvers at equal accuracy"),
-                      ("05_apg_lasso.jl", "Accelerated proximal gradient lasso"))
+                      ("05_apg_lasso.jl", "Accelerated proximal gradient lasso"),
+                      ("06_sparse_covariance_soft_thresholding.jl",
+                       "Sparse covariance by soft-thresholding"))
   source = joinpath(@__DIR__, "..", "examples", file)
   titled = s -> "# # $title\n#\n" * s
   if file == "04_lasso_solver_comparison.jl"
