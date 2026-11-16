@@ -52,7 +52,7 @@ const QUICK = sort!(vcat(
   ids = [s.meta.id for s in vcat(extended, deferred)]
   @test allunique(ids) && length(ids) == 156
   group = sort!(["cd/group-lasso/cd/$(w)block-$t/call" for w in ("", "warm-") for t in ("f32", "f64")])
-  @test sort!(filter(id -> occursin("/block-", id), ids)) == group
+  @test sort!(filter(id -> occursin("block-f", id), ids)) == group
   # The historical group-lasso case stays deferred: it needs gap stopping.
   @test "cd/group-lasso/cd/tight/call" in [s.meta.id for s in deferred]
   acc = sort!(["gradient/$p/$solver/acc-$(w)dense-f64/call" for solver in ("pg", "apg")
