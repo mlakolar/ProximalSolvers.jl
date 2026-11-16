@@ -254,11 +254,18 @@ result = solve!(x, LeastSquaresLoss(y, X), g,
 ~~~
 
 A coordinate of the solver is a group, so `passes` counts passes over groups and the
-active coordinates are group numbers. For each group, the solver computes once per
-solve a bound on the largest eigenvalue of `X[:, G]' * X[:, G]`, which costs a
-product with the columns of the group and an eigenvalue computation, and it keeps a
-`Float64` copy of the columns of the largest group (`n` times the size of that
-group). For a group of one coefficient, the penalty is a term of an L1 penalty, and
+active coordinates are group numbers. Each group needs, at most once per solve, a bound
+on the largest eigenvalue of `X[:, G]' * X[:, G]`. With `maxpasses = 0` none is prepared.
+A group whose columns are all zero needs no product and no eigenvalue computation, and a
+group of one column normally takes the sum of squares of its column, as the lasso
+does. Any other group needs the Gram matrix of its columns in `Float64` and, for two or
+more columns, an eigenvalue computation. These are done at the first visit that needs
+them, so a group that stays at zero and is screened out at each visit never pays for them,
+except where cheap bounds cannot rule out a refusal, in which case the bound is computed
+before the first pass. The `Float64` copy of the columns and the Gram matrix are
+workspace held by the solver for the group sizes involved, with a peak of about `n`
+times the size of the largest such group (and the square of that size) in `Float64`; the
+solver keeps no other copy of the columns. For a group of one coefficient, the penalty is a term of an L1 penalty, and
 with the default weights `GroupNormL2` with only singleton groups is the same problem
 as `NormL1`, which the dense-vector solvers accept. Momentum does not apply:
 `momentum = true` is refused for a `BlockIterate`, and `nothing` or `false` both mean

@@ -136,8 +136,9 @@ relative duality gap of the problem the solver received, from the returned minim
 start is the solution at 1.25λ from `group_warm_start`, cyclic block coordinate descent in Float64
 with the largest eigenvalue of each Gram matrix (from all its eigenvalues) as the curvature, written in `cases.jl` and
 stopped at a certified relative gap of `1e-12`; `cert_loading_refit` is lasso-only, and this start
-does not depend on the solver under test. There are no group-lasso cases in the extended suite
-and no PGD or APG group cases (those solvers do not accept a `BlockIterate`).
+does not depend on the solver under test. The extended suite includes these quick cases, and
+there are no additional group-lasso cases exclusive to it. There are no PGD or APG group cases
+(those solvers do not accept a `BlockIterate`).
 
 The extended suite adds ten Float64 `acc-` cases for PGD and APG (#314):
 `gradient/<problem>/{pg,apg}/acc-{dense,warm-dense}-f64/call` on the problems, starts and inputs

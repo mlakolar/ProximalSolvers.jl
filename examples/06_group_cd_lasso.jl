@@ -24,15 +24,19 @@ lambda = 0.25 * maximum(scores)
 g = GroupNormL2(lambda, groups);
 
 # The solver needs an iterate with the groups of the penalty; `BlockIterate(Float64, p, g)`
-# takes them from `g`. Cyclic order visits the groups in the order of their numbers.
+# takes them from `g`. With cyclic order, a full pass visits the groups in the order of their
+# numbers, and an active pass visits the active groups in the order of their active slots, which
+# the removal of zero groups after a pass can change.
 x = BlockIterate(Float64, p, g)
 res = solve!(x, f, g, CDSolver(order = :cyclic, tol = 1e-10))
 @assert res.converged && res.minimizer === x
 println("passes = ", res.passes, "; converged = ", res.converged)
 
-# `x` is a vector of length `p`; the coordinates of the solver are its groups. After a solve, the
-# active coordinates are the numbers of the groups with a nonzero block, in no fixed order, and
-# `blockindices(x, k)` lists the entries of group `k` in the order the iterate stores them.
+# `x` is a vector of length `p`; the coordinates of the solver are its groups. After a solve of at
+# least one pass, as here, the active coordinates are the numbers of the groups with a nonzero
+# block, in no fixed order (with `maxpasses = 0` the entry state is kept, including active groups
+# with a zero block). `blockindices(x, k)` lists the entries of group `k` in the order the iterate
+# stores them.
 beta = Vector(x)
 active = sort(collect(activecoordinates(x)))
 @assert active == [k for k in eachindex(groups) if any(!iszero, beta[groups[k]])]
