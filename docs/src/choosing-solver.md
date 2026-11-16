@@ -1,6 +1,7 @@
 # Choosing a solver
 
-The three supported algorithms solve the **same dense least-squares lasso**.
+The three supported algorithms solve the **same dense least-squares lasso**; CD
+also solves a group lasso (see [Group lasso](choosing-solver.md#Group-lasso-with-block-coordinate-descent)).
 The difference is how they update coefficients, not what objective is minimized.
 For definitions of soft-thresholding, CD and PGD, see [What problem, which algorithm?](concepts.md).
 
@@ -222,6 +223,50 @@ the OR combination and the objective-change test apply unchanged; its
 gradient-mapping residual is measured at the extrapolated point. See
 [Numerical behavior](numerics.md).
 
+## Group lasso with block coordinate descent
+
+Use it when the coefficients come in known groups that should enter or leave the
+model together. The penalty is `GroupNormL2(lambda, groups)`, that is
+`lambda * sum_k w_k * norm(beta[G_k])` with the default weights
+`w_k = sqrt(length(G_k))`, and the objective is the least-squares loss plus this
+penalty. Only `CDSolver` solves it, with a ProximalBase `BlockIterate` that has the
+groups of the penalty; `ProximalGradientDescent` and `AccProxGradDescent` refuse
+both. The groups may be any disjoint index sets, in any order, and together they must
+cover every coefficient. [Example 6](examples/06_group_cd_lasso.md) uses
+noncontiguous groups; [Supported problems](support.md) lists the restrictions.
+
+~~~@example choosing_group
+using ProximalBase, ProximalSolvers
+X = [1.0 0.0 0.0; 0.0 1.0 0.0; 0.0 0.0 1.0; 0.0 0.0 0.0]
+y = [3.0, 0.2, 4.0, 1.0]
+lambda = 0.5
+groups = [[1, 3], [2]]
+g = GroupNormL2(lambda, groups)
+x = BlockIterate(Float64, 3, g)
+result = solve!(x, LeastSquaresLoss(y, X), g,
+                CDSolver(order=:cyclic, tol=1e-12, relative=false))
+# With orthonormal columns, each group is the soft-thresholded block of y:
+# (1 - lambda * sqrt(2) / ||y[[1, 3]]||) * y[[1, 3]], and the group {2} is zero.
+@assert result.converged
+@assert isapprox(Vector(x), [(1 - lambda * sqrt(2) / 5) * 3, 0.0, (1 - lambda * sqrt(2) / 5) * 4];
+                 atol=1e-10)
+(; coefficients=Vector(x), active_groups=sort(collect(activecoordinates(x))))
+~~~
+
+A coordinate of the solver is a group, so `passes` counts passes over groups and the
+active coordinates are group numbers. For each group, the solver computes once per
+solve a bound on the largest eigenvalue of `X[:, G]' * X[:, G]`, which costs a
+product with the columns of the group and an eigenvalue computation, and it keeps a
+`Float64` copy of the columns of the largest group (`n` times the size of that
+group). For a group of one coefficient, the penalty is a term of an L1 penalty, and
+with the default weights `GroupNormL2` with only singleton groups is the same problem
+as `NormL1`, which the dense-vector solvers accept. Momentum does not apply:
+`momentum = true` is refused for a `BlockIterate`, and `nothing` or `false` both mean
+plain block coordinate descent. The stopping test works as in the relative-tolerance
+discussion above with the change of a group, the norm of its displacement; see
+[Numerical behavior](numerics.md). As for the lasso, `converged = true` is not an
+optimality certificate: check the group KKT conditions independently, as in the example.
+
 ## What is supported now?
 
 `X` must be a finite dense `Matrix{T}`, `y` a finite `Vector{T}`,
@@ -229,6 +274,8 @@ and the coefficients the same type, with `T` equal to Float32 or Float64.
 The penalty is unweighted L1 and the loss is ordinary least squares
 (or a single positive finite scalar multiple of it).
 
+Coordinate descent can also solve a group lasso on a `BlockIterate` with a
+`GroupNormL2` penalty, as described above and in [Supported problems](support.md).
 Coordinate descent can additionally store coefficients in a one-dimensional
 [ProximalBase SparseIterate](https://mlakolar.github.io/ProximalBase.jl/dev/).
 It tracks coordinates that are explicitly active, and can be helpful for

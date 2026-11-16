@@ -3,8 +3,9 @@
 Run `julia --project=. examples/01_cd_lasso.jl`,
 `julia --project=. examples/02_pgd_lasso.jl`,
 `julia --project=. examples/03_sparse_cd_lasso.jl`,
-`julia --project=. examples/04_lasso_solver_comparison.jl` or
-`julia --project=. examples/05_apg_lasso.jl`. Each of the first three
+`julia --project=. examples/04_lasso_solver_comparison.jl`,
+`julia --project=. examples/05_apg_lasso.jl` or
+`julia --project=. examples/06_group_cd_lasso.jl`. Each of the first three
 checks an independent analytic solution; the third runs coordinate descent on a
 caller-owned `SparseIterate` and also checks that the result shares that owner. The
 fourth compares cyclic coordinate descent, random-order coordinate descent and dense
@@ -20,5 +21,8 @@ are produced by the documentation build, and the notebook needs Plots in its
 environment. The fifth runs accelerated proximal gradient descent
 (`AccProxGradDescent`) and plain proximal gradient descent with the same options on a
 seeded correlated lasso, checks both with an independent KKT residual, and prints
-their iterations and oracle calls; it makes no timing comparison. Historical feature
+their iterations and oracle calls; it makes no timing comparison. The sixth runs cyclic
+coordinate descent for the group lasso on a `BlockIterate` with noncontiguous groups
+(`GroupNormL2`) on a seeded problem, prints the groups and the active ones, and checks the
+result with an independent group KKT residual computed from the data. Historical feature
 examples remain on legacy/full and protected archives.
