@@ -329,6 +329,20 @@ jobs:
             comparator|campaign) echo "Not part of the $PART leg." ;;
             *) echo "::error::Unknown analysis leg '$PART'."; exit 1 ;;
           esac
+      - name: Stage 2B successor (CD-only) file tests
+        shell: bash
+        run: |
+          case "$PART" in
+            controls)
+              log="$RUNNER_TEMP/stage2b-cd-files.log"
+              python3 -B benchmark/campaigns/stage2b-cd/test_stage2b_cd_files.py 2>&1 | tee "$log"
+              if grep -E '^(OK|FAILED) \(.*skipped=' "$log"; then echo "::error::Skipped tests are not accepted in CI."; exit 1; fi
+              if ! grep -Eq '^Ran [1-9][0-9]* tests? in ' "$log"; then echo "::error::The unittest log has no 'Ran N tests' line with N >= 1."; exit 1; fi
+              if ! grep -qx 'OK' "$log"; then echo "::error::The unittest log has no 'OK' line."; exit 1; fi
+              ;;
+            comparator|campaign) echo "Not part of the $PART leg." ;;
+            *) echo "::error::Unknown analysis leg '$PART'."; exit 1 ;;
+          esac
       - name: Stage 2B campaign-driver tests (including pinned-commit fingerprints)
         shell: bash
         run: |

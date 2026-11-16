@@ -6111,6 +6111,120 @@ class HugeIntegerTests(unittest.TestCase):
         self.assertIsInstance(written["seconds_limit"], int)
 
 
+CD_DIR = HERE.parent / "stage2b-cd"
+
+
+def prepared_through_dispatch(test, step, campaign_dir=None):
+    """Run `prepare --config LOCK --step STEP` through main() with the engine step replaced by a spy; returns
+    (the Prepare the dispatch built, the campaign directory in force while the step ran, the directory of the lock)."""
+    camp = F.build_campaign(fresh("n1-camp"), "migration")
+    directory = fresh("n1")
+    C.write_toml(directory / "lock.toml", make_lock(camp, session=None))
+    seen = []
+    argv = ["prepare", "--config", str(directory / "lock.toml"), "--base", str(directory / "base"), "--step", step]
+    argv += ["--campaign-dir", str(campaign_dir)] if campaign_dir else []
+    if step == "fetch":
+        argv += ["--julia", f"1.10={JULIA_BINS['1.10']}", "--julia", f"1.13={JULIA_BINS['1.13']}"]
+    name = "prepare_fetch" if step == "fetch" else "prepare_finalize"
+    with unittest.mock.patch.object(C, name, lambda st, *rest: seen.append((st, C.CAMPAIGN_DIR)) or 0):
+        code, out, err = call_main(argv, hooks=hooks_that_never_run() if step == "finalize" else None)
+    test.assertEqual(code, 0, err)
+    test.assertEqual(len(seen), 1)
+    return seen[0][0], seen[0][1], directory
+
+
+class LockThroughDispatchTests(unittest.TestCase):
+    """N1 (#333): `prepare --config LOCK` reaches the engine through the real path (load_config, then
+    prepare_settings), where a lock is an official Prepare and stack_of("ab-b") is B. These tests start from the
+    command line and a lock file; none of them builds the Prepare by hand."""
+
+    def test_a_lock_is_official_and_ab_b_is_stack_b_for_fetch_and_finalize(self):
+        for step in ("fetch", "finalize"):
+            with self.subTest(step=step):
+                st, _, directory = prepared_through_dispatch(self, step)
+                self.assertEqual(st.kind, "official")
+                self.assertIs(st.lock, st.config)
+                self.assertEqual([st.stack_of(role) for role in st.roles()], ["A", "B", "A", "A"])
+                self.assertEqual(st.stack_of("ab-b"), "B")
+                self.assertEqual(st.config_path, directory / "lock.toml")
+
+    def test_a_pilot_configuration_stays_a_pilot_with_stack_a_everywhere(self):
+        directory = fresh("n1-pilot")
+        C.write_toml(directory / "p.toml", full_pilot_config())
+        seen = []
+        with unittest.mock.patch.object(C, "prepare_fetch", lambda st: seen.append(st) or 0):
+            code, _, err = call_main(["prepare", "--config", str(directory / "p.toml"), "--base",
+                                      str(directory / "x-pilot"), "--step", "fetch"])
+        self.assertEqual(code, 0, err)
+        st, = seen
+        self.assertEqual(st.kind, "pilot")
+        self.assertEqual([st.stack_of(role) for role in st.roles()], ["A", "A"], "no role is stack B in a pilot")
+
+    def test_prepare_settings_accepts_the_kind_load_config_returns(self):
+        camp = F.build_campaign(fresh("n1-kind"), "migration")
+        directory = fresh("n1-kind-cfg")
+        C.write_toml(directory / "lock.toml", make_lock(camp, session=None))
+        official = mc.load_schedule(HERE / "schedule.toml")
+        kind, config = C.load_config(directory / "lock.toml", official)
+        self.assertEqual(kind, "lock")
+        args = argparse.Namespace(config=str(directory / "lock.toml"), step="fetch", julia=None, archive=None)
+        st = C.prepare_settings(args, kind, config, directory / "base", official, ENVIRON, dict(JULIA_BINS))
+        self.assertEqual((st.kind, st.stack_of("ab-b"), st.stack_of("ab-a")), ("official", "B", "A"))
+
+
+class CampaignDirectoryTests(unittest.TestCase):
+    """`--campaign-dir` (#333): every read of the schedule and the mapping goes through one directory; the default is
+    the original Stage 2B campaign and nothing leaks from one call to the next."""
+
+    def test_the_default_is_the_original_campaign_and_the_option_selects_the_successor(self):
+        st, seen_dir, _ = prepared_through_dispatch(self, "fetch")
+        self.assertEqual((seen_dir, st.sched["campaign_id"]), (HERE, "pb06-migration-stage2b-v1"))
+        st, seen_dir, _ = prepared_through_dispatch(self, "fetch", CD_DIR)
+        self.assertEqual((seen_dir, st.sched["campaign_id"], st.sched["id"]),
+                         (CD_DIR, "stage2b-cd-minimal-core-v1", "stage2b-cd-8block-v1"))
+        self.assertEqual(C.CAMPAIGN_DIR, HERE, "the directory of one command does not leak into the next")
+
+    def test_the_base_files_are_copies_of_the_chosen_directory(self):
+        st, _, directory = prepared_through_dispatch(self, "fetch", CD_DIR)
+        with unittest.mock.patch.object(C, "CAMPAIGN_DIR", CD_DIR):
+            C.write_base_files(st)
+        for name in ("schedule.toml", "case-mapping.toml"):
+            self.assertEqual((st.base / name).read_bytes(), (CD_DIR / name).read_bytes(), name)
+            self.assertNotEqual((st.base / name).read_bytes(), (HERE / name).read_bytes(), name)
+
+    def test_the_directory_must_be_inside_the_repository_and_hold_both_files(self):
+        self.assertEqual(C.campaign_directory(str(CD_DIR)), CD_DIR)
+        self.assertEqual(C.campaign_directory(str(HERE)), HERE)
+        empty = REPO / "benchmark" / "campaigns" / "no-such-campaign-for-the-test"
+        outside = fresh("outside")
+        for text in (str(outside), str(empty), str(REPO / "benchmark")):
+            with self.subTest(text=text), self.assertRaises(C.UsageError):
+                C.campaign_directory(text)
+        for argv in (["verify", "--base", "x", "--out", "y", "--campaign-dir", str(outside)],
+                     ["pilot", "--config", "x", "--base", "y-pilot", "--campaign-dir", str(outside)]):
+            code, _, err = call_main(argv, hooks=hooks_that_never_run())
+            self.assertEqual(code, 3, err)
+            self.assertEqual(C.CAMPAIGN_DIR, HERE)
+
+    def test_a_shared_harness_is_not_a_misidentified_stack_only_where_stack_a_runs_a_declared_port(self):
+        successor = mc.load_schedule(CD_DIR / "schedule.toml")["stack_a"]
+        lock = {"proximalbase": {"version": "0.6.0-DEV", "commit": "1" * 40, "tree": "2" * 40,
+                                 "package_hash": "3" * 40},
+                "proximalsolvers": {"commit": "4" * 40, "tree": "5" * 40}, "harness_hash": successor["harness_hash"]}
+        with unittest.mock.patch.object(C, "CAMPAIGN_DIR", CD_DIR):
+            self.assertEqual(C.static_candidate_problems(lock), [])
+            same = copy.deepcopy(lock)
+            same["proximalsolvers"]["commit"] = successor["proximalsolvers"]["commit"]
+            self.assertEqual([code for code, _ in C.static_candidate_problems(same)],
+                             ["HISTORICAL_PROXIMALSOLVERS_COMMIT"])
+        historical = mc.load_schedule(HERE / "schedule.toml")["stack_a"]["harness_hash"]
+        self.assertEqual(historical, C.stage2a_harness_hash())
+        lock["harness_hash"] = historical
+        self.assertEqual([code for code, _ in C.static_candidate_problems(lock)], ["HISTORICAL_HARNESS_HASH"])
+        with unittest.mock.patch.object(C, "CAMPAIGN_DIR", CD_DIR):
+            self.assertEqual(C.static_candidate_problems(lock), [])
+
+
 class LayoutTests(unittest.TestCase):
     def test_the_module_stays_standard_library_only_and_does_not_import_pre06(self):
         text = (HERE / "stage2b_campaign.py").read_text(encoding="utf-8")
