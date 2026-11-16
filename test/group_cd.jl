@@ -807,7 +807,7 @@ end
   for T in TYPES
     for (name, X, groups) in curvature_cases(T)
       y = T.(randn(Xoshiro(5), size(X, 1)))
-      # λ0 = 0: a nonzero correlation never screens a group out, so a step on it needs its curvature
+      # λ0 = 0: the screen's prox is the identity, so a group with a nonzero correlation is not screened out and a step on it needs its curvature
       g = penalty(zero(T), groups, nothing, T)
       x = BlockIterate(T, size(X, 2), g)
       m = whitebox_model(X, y, nothing, g, x)
@@ -1054,9 +1054,9 @@ end
 # ---------------------------------------------------------------------------
 # Lazy curvature and the zero-group screen (maintainer ruling on #275)
 # ---------------------------------------------------------------------------
-# A group of two or more columns has its curvature computed on the first step that needs it. A group whose
-# block is zero and whose step is zero by the screen never needs it, so `m.ℓ[k]` stays NaN for it; a singleton
-# group and a flat group are set in `_prepare!`.
+# A group of two or more columns has its curvature computed on the first step that needs it. A group that
+# is screened out at each of its visits does not need it, so `m.ℓ[k]` stays NaN for it; a singleton group and
+# a flat group are set in `_prepare!`.
 # Visits the groups in `order` for `passes` passes with single steps and returns the largest change.
 function manual_passes!(m, g, x, passes; order = 1:ncoordinates(x))
   h = 0.0
@@ -1097,7 +1097,7 @@ end
     @test norm(Float64.(Vector(x)) - β) <= kkt_bound(T) * max(1.0, norm(β))
     for (k, G) in enumerate(g.groups)
       if all(iszero, β[G]) && length(G) > 1
-        @test isnan(m.ℓ[k])                    # screened at every visit: no eigensolve
+        @test isnan(m.ℓ[k])                    # screened at each visit here: no eigensolve
       else
         @test m.ℓ[k] isa T && isfinite(m.ℓ[k]) && m.ℓ[k] > 0
         @test majorizes(X, G, m.ℓ[k], curvature_margin(T, size(X, 1), length(G)))
@@ -1227,8 +1227,8 @@ end
 
 # The screen step is inv(s). For a subnormal scale s, inv(s) is Inf although the step 1/(s ℓ) of a group with
 # ℓ about 1e3 is a normal number (s ℓ = 1e-307 for Float64 with s = 1e-310, and 1e-37 for Float32 with
-# s = 1e-40: both above floatmin). An infinite screen step would put every group at zero (threshold λ0 w/s
-# is 0 or Inf by range, not by size); the solver must then bypass the screen. The problem is the one with
+# s = 1e-40: both above floatmin). An infinite screen step could screen out a group that needs a step (the
+# threshold λ0 w/s of the screen is then decided by range, not by size); the solver must bypass the screen there. The problem is the one with
 # unit scale and penalty λ0/s, so the independent KKT is formed with that penalty and the scale 1.
 @testset "the screen is bypassed where inv(s) is not representable" begin
   for T in TYPES, fraction in (0.3, 0.9)
