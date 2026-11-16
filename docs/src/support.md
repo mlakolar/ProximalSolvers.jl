@@ -5,21 +5,25 @@ the wider feature set in historical releases.
 
 ## What works today?
 
-The supported objective is a lasso:
+The supported objectives are a least-squares lasso and a centered squared norm with L1 penalty:
 
 ~~~math
 \min_\beta\quad \frac{s}{2}\|y-X\beta\|_2^2+\lambda\|\beta\|_1,
 ~~~
 
 where `s=1` for raw `LeastSquaresLoss` or `s=1/n` for the
-usual normalized convention.
+usual normalized convention. Additionally, `SqrNormL2(α, y)` supports
+`α‖β-y‖²/2 + λ‖β‖₁` without constructing an identity design matrix.
+The centered squared norm currently requires an explicitly supplied finite
+`Vector{T}` center and a positive, finite, representable `α`;
+`SqrNormL2(α)` without a center is deferred.
 
 | Input | Supported |
 | --- | --- |
 | Design matrix `X` | Nonempty, finite, dense `Matrix{Float32}` or `Matrix{Float64}` |
 | Response `y` | Finite vector with the same element type and `length(y) == size(X,1)` |
 | Coefficients `beta` | Same-type dense vector for CD, PGD or APG; alternatively, one-dimensional ProximalBase `SparseIterate` for CD only |
-| Loss | `LeastSquaresLoss` or one finite positive scalar multiple of it |
+| Loss | `LeastSquaresLoss`, one finite positive scalar multiple of it, or centered `SqrNormL2(α, y)` with `α > 0` |
 | Penalty | Unweighted `NormL1(lambda)` with nonnegative finite `lambda` |
 | Solvers | `CDSolver`, `ProximalGradientDescent`, `AccProxGradDescent` (APG also needs `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 3 < 1/(4 eps(Float64))`) |
 
@@ -61,9 +65,9 @@ solver stopping and diagnostics.
 
 For an executable complete example, see [Getting started](getting-started.md).
 The [sparse covariance soft-thresholding example](examples/06_sparse_covariance_soft_thresholding.md)
-shows how to express a small nonregression problem as an identity-design lasso;
-it is not a generic covariance solver, does not scale to large covariance matrices,
-and does not enforce positive semidefiniteness.
+uses `SqrNormL2` directly on off-diagonal entries without allocating an identity
+design. It is a teaching example, not a generic covariance solver, and does
+not enforce positive semidefiniteness.
 For using sparse **coefficients**, see the
 [sparsity tutorial](sparsity-and-kkt.md). The design matrix still must be
 dense, even when the coefficients use `SparseIterate`.
