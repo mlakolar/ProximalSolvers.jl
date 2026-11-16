@@ -48,6 +48,42 @@ _float64_scale_ok(a::Float64, ::Type{T}) where T = isfinite(a) && a > 0 && (n = 
   throw(ArgumentError("loss scale $α of type $(typeof(α)) $why; only Float32 and Float64 scales and fixed-width integer scales that $T represents exactly are supported$hint"))
 end
 
+# The penalty of the scalar solvers and of coordinate descent on a one-dimensional owner.
+function _check_penalty(g, x, ::Type{T}) where T
+  g isa NormL1 && g.w === nothing || throw(ArgumentError("only unweighted NormL1 is supported"))
+  _scalar_parameter(g.λ0, T, "penalty lambda")
+end
+
+# The penalty of group coordinate descent on a BlockIterate: a GroupNormL2 whose level and weights
+# convert to T without overflow, or underflow to 0 from a nonzero value, and whose groups are those
+# of x, in the same order and with the same ordered members.
+function _check_penalty(g, x::BlockIterate, ::Type{T}) where T
+  g isa GroupNormL2{<:Union{Float32, Float64}} ||
+    throw(ArgumentError("a BlockIterate needs a GroupNormL2 penalty with Float32 or Float64 parameters"))
+  _scalar_parameter(g.λ0, T, "penalty lambda")
+  for k in eachindex(g.w)
+    _weight_ok(g.w[k], T) || _weight_error(g.w[k], k, T)
+  end
+  ncoordinates(x) == length(g.groups) ||
+    throw(DimensionMismatch("x has $(ncoordinates(x)) groups but the penalty has $(length(g.groups))"))
+  for k in 1:ncoordinates(x)
+    blockindices(x, k) == g.groups[k] ||
+      throw(DimensionMismatch("the groups of x and of the penalty differ at group $k"))
+  end
+  nothing
+end
+
+# The rule of _scalar_parameter for a nonnegative value
+function _weight_ok(w, ::Type{T}) where T
+  native = T(w)
+  isfinite(w) && w >= 0 && isfinite(native) && (iszero(w) ? iszero(native) : native > 0)
+end
+
+@noinline function _weight_error(w, k, ::Type{T}) where T
+  _scalar_parameter(w, T, "group weight $k")
+  throw(ArgumentError("group weight $k is not valid in $T"))
+end
+
 # Loss, data, shape, penalty and alias checks shared by the dense gate and the
 # CD owner gate; `x` is the caller's original array or owner, of length `length(x)`.
 function _check_data(x, f, g, ::Type{T}) where T
@@ -64,8 +100,7 @@ function _check_data(x, f, g, ::Type{T}) where T
   n, p = size(base.X)
   n > 0 && p > 0 || throw(DimensionMismatch("X must have positive row and column counts"))
   length(base.Y) == n && length(x) == p || throw(DimensionMismatch("x/y dimensions do not match X"))
-  g isa NormL1 && g.w === nothing || throw(ArgumentError("only unweighted NormL1 is supported"))
-  _scalar_parameter(g.λ0, T, "penalty lambda")
+  _check_penalty(g, x, T)
   (Base.mightalias(x, base.X) || Base.mightalias(x, base.Y)) &&
     throw(ArgumentError("mutable x must not alias borrowed X or y"))
   base
@@ -93,8 +128,18 @@ function _check_owner_problem(x, f, g)
   nothing
 end
 
-# Group-lasso block coordinate descent on a BlockIterate (placeholder until the block preflight lands).
-_check_block_problem(x, f, g, method) = nothing
+# Group-lasso block coordinate descent on a BlockIterate. Runs before any copy of x or draw from the
+# RNG; the entries of inactive groups are zero.
+function _check_block_problem(x, f, g, method)
+  x isa BlockIterate{<:Union{Float32, Float64}} ||
+    throw(ArgumentError("block coordinate descent needs a BlockIterate of Float32 or Float64"))
+  method.momentum === true &&
+    throw(ArgumentError("block coordinate descent does not support momentum; use momentum = false or nothing"))
+  base = _check_data(x, f, g, eltype(x))
+  all(isfinite, x) && _allfinite(base.Y) && _allfinite(base.X) ||
+    throw(ArgumentError("x, X and y must contain only finite values"))
+  nothing
+end
 
 _check_keywords(kwargs) = isempty(kwargs) ||
   throw(ArgumentError("unsupported solve! keywords: $(join(keys(kwargs), ", "))"))
