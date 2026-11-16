@@ -261,7 +261,7 @@ group of one column (when `n eps(T) ≤ 1/8`, `n` the number of rows) takes the 
 squares of its column, as the lasso does. Any other group needs the Gram matrix of its
 columns in `Float64` and, for two or more columns, an eigenvalue computation. These are
 done at the first visit that needs them, so a group that stays at zero and is screened out
-at each visit never pays for them, except where cheap bounds cannot rule out a refusal, in
+at each visit never pays for them, except where cheap bounds cannot rule out a refusal (under the eigenvalue model, for groups of two or more columns), in
 which case the bound is computed before the first pass. A visit to any nonflat group whose
 block is zero is screened this way, whether or not the group is active. The `Float64` copy
 of the columns and the Gram matrix are workspace of the solver, allocated when the first such

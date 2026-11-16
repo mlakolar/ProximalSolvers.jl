@@ -379,7 +379,10 @@ result is entirely zero, the visit ends with no change: nothing is written to th
 or the residual, and `ℓ_k` is not computed if it had not been. In exact arithmetic this is
 the condition under which the full step above gives a zero block, for any `ℓ_k > 0`. The
 screen is bypassed, and the visit takes the full step, when `1 / s` formed in the type `S`
-of the scale is not a finite positive normal number of `S`. The screen and the full step
+of the scale is not a finite positive normal number of `S` (it is `Inf`, 0 or subnormal).
+A zero block that the screen returns as zero forms no trial point, so it is not refused
+where the trial point `b / ℓ_k` of the full step would overflow: the visit returns the
+exact answer, zero, where the full step would throw. The screen and the full step
 both use ProximalBase's range-safe comparison, but they are different computations, so at
 an exact tie (the correlations' norm equal to `λ w_k / s` in exact arithmetic) they can
 decide by rounding differently.
@@ -424,8 +427,10 @@ cheap bounds, formed in `Float64` from the sums of squares `q_c` of its columns 
 operations, no products between columns): with `t` the sum and `d` the largest of the
 `q_c`, a lower bound `lo = d (1 − 2 n eps(Float64)) − 2 n η` and an upper bound `hi = 4 t`
 on the curvature that the rule above would store (`η` the smallest positive `Float64`; the
-bounds assume gradual underflow, and the upper one the eigenvalue model). The curvature is
-left uncomputed (`NaN` in the model) only if the type `S` of the scale is `Float32` or
+bounds assume gradual underflow, and the upper one the eigenvalue model, for groups of two
+or more columns). Under that model, the four conditions below exclude the refusals; a
+deferred group can still be refused during a pass through an eigenvalue routine that
+throws, or through a violation of the model. The curvature is left uncomputed (`NaN` in the model) only if the type `S` of the scale is `Float32` or
 `Float64`, `4 (n + m²) eps(Float64) ≤ 1/16`, `t` is finite, and all of these hold:
 
 1. `lo ≥ 2 m floatmin(Float64)`, so that the trace underflow refusal is not made;

@@ -27,7 +27,8 @@ second with an accelerated variant:
   `maxpasses > 0`), a `_prepare!` step sets the bound of a flat group and of an
   ordinary one-column group, and checks the step band; a group on the Gram route
   gets cheap bounds, and its curvature is left for the first visit that needs it
-  when the bounds rule out a refusal, and computed in `_prepare!` otherwise. The
+  when the bounds rule out a refusal (under the eigenvalue model, for groups of two
+  or more columns), and computed in `_prepare!` otherwise. The
   predictable curvature and step refusals therefore happen before any random draw.
   A lazily computed curvature that refuses, or an exception of the eigenvalue
   routine, happens during a pass. The default `_prepare!` of the scalar models
