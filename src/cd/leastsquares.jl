@@ -338,12 +338,14 @@ end
 # which is rounded up to T. With u = eps(W)/2 and γ_n = n u/(1 − n u), which needs n eps(W) ≤ 1/8 and
 # holds for any n that fits in memory as Float64, the bound adds three error terms to μ̂, each a
 # multiple of t̂, assuming IEEE gradual underflow (subnormals not flushed to zero):
-#   - Gram rounding: entrywise |Ĝ − G| ≤ γ_n |B|ᵀ|B| for any order of summation, so
-#     ‖Ĝ − G‖₂ ≤ γ_n ‖B‖_F² = γ_n tr G, and tr G ≤ t̂ (1 + O((n + mk) u)). The term is about
-#     n eps(W) t̂/2.
-#   - Underflowing products: t̂ ≥ mk floatmin(W) bounds their total error in ‖·‖₂ by
-#     mk n η/2 ≤ n eps(W) t̂/2, with η = nextfloat(0.0) = eps(W) floatmin(W). A product of two
-#     Float32 values does not underflow in W.
+#   - Gram rounding, the relative component: where no product underflows, entrywise
+#     |Ĝ − G| ≤ γ_n |B|ᵀ|B| for any order of summation, so ‖Ĝ − G‖₂ ≤ γ_n ‖B‖_F² = γ_n tr G, and
+#     tr G ≤ t̂ (1 + O((n + mk) u)). The term is about n eps(W) t̂/2. This inequality alone does not
+#     bound the total error: a product that underflows can have a relative error of 1.
+#   - Underflowing products, the absolute component: each adds an absolute error of at most η/2, and
+#     t̂ ≥ mk floatmin(W) bounds their total in ‖·‖₂ by mk n η/2 ≤ n eps(W) t̂/2, with
+#     η = nextfloat(0.0) = eps(W) floatmin(W). The total Gram error is bounded by the sum of the two
+#     components. A product of two Float32 values does not underflow in W.
 #   - Eigensolver, for mk ≥ 2 (for mk = 1 there is no eigensolve and no model): the computed
 #     eigenvalues are modelled as exact eigenvalues of Ĝ + E with ‖E‖₂ ≤ p(mk) u t̂, and
 #     4 mk² eps(W) t̂ covers p(mk) ≤ 8 mk². The eigensolver's documentation describes p as a modestly
