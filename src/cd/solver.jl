@@ -3,7 +3,8 @@
                momentum=nothing, rng=Random.default_rng(), anderson=0,
                gaptol=0, gapsafe=false)
 
-Coordinate descent for the least-squares lasso. Call
+Coordinate descent for the least-squares lasso and, with ProximalBase's `SqrtLeastSquaresLoss`,
+the square-root lasso (described below). Call
 `solve!(beta, f, g, CDSolver())` with matching `Float32` or `Float64`
 design/response data and coefficients. The coefficient storage can be
 a dense `Vector` or a one-dimensional ProximalBase `SparseIterate`.
@@ -17,7 +18,8 @@ The borrowed RNG advances when used. Cyclic order does not support
 `momentum=true`.
 
 `tol` (default `1e-7`) measures coefficient change, **not** independent
-optimality. With `relative=true`, the stopping threshold is `tol` times the
+optimality (the square-root lasso adds a certificate, below). With `relative=true`, the
+stopping threshold is `tol` times the
 response scale `sqrt(s * sum(abs2, y))`, `s` the loss scale; the sum of
 squares and its product with `s` may leave the range of the working type.
 For `y = 0` the threshold is the absolute `tol`. A response scale whose
@@ -34,9 +36,9 @@ point is unchanged. Where the product `s * a` or its reciprocal is outside the
 normal range of the type that combines `s` with the working type, the
 coordinate step forms its threshold `lambda / (s * a)` without them.
 `relative=false` makes the threshold an absolute change threshold;
-`maxpasses` limits the run. An end-of-pass convergence flag does not
-guarantee a small KKT residual. For reported fits, check optimality
-independently. Anderson acceleration, gap certificates and screening
+`maxpasses` limits the run. For least squares and the group lasso, an end-of-pass
+convergence flag does not guarantee a small KKT residual; for reported fits, check
+optimality independently. Anderson acceleration, a user-set gap target and screening
 are not implemented: `anderson`, `gaptol` and `gapsafe` are accepted only
 at their defaults, are not stored, and other values are rejected.
 
@@ -84,6 +86,38 @@ is not finite can occur during a pass; `x` is then unchanged, and the RNG may ha
 advanced. The curvature rule and the refusals are described in the numerical
 guide.
 
+**Square-root lasso.** With `T` equal to `Float32` or `Float64`, `X::Matrix{T}`, `y::Vector{T}`,
+ProximalBase's `f = SqrtLeastSquaresLoss(y, X)` and `g = NormL1(lambda)`, the call
+`solve!(x, f, g, CDSolver(...))` minimizes `P(beta) = norm(y - X*beta) + lambda * norm(beta, 1)`,
+without a `1/sqrt(n)` factor, for a dense `Vector{T}` or a one-dimensional `SparseIterate{T}` `x`.
+The normalized objective `norm(y - X*beta)/sqrt(n) + lambda_n * norm(beta, 1)` has the same
+minimizers at `lambda = sqrt(n) * lambda_n`, and its values are those of `P` divided by `sqrt(n)`; a
+scaled-lasso noise estimate is then `norm(y - X*beta)/sqrt(n)` at the solution. `lambda` must be
+positive (at `lambda = 0`, use `LeastSquaresLoss`, which has the same minimizers), finite and
+representable in `T`; it may be given in another `Real` type. A weighted `NormL1`, an `ElasticNet`,
+`Scaled(SqrtLeastSquaresLoss, alpha)` (use the unscaled loss at the level `lambda/alpha`), a
+`BlockIterate`, and `ProximalGradientDescent` or `AccProxGradDescent` (the loss is not smooth where
+`y = X*beta`) are refused with an `ArgumentError` before `x` changes. A visit computes the minimizer
+of `P` over its coordinate, up to rounding: a soft threshold at the least-squares centre with a threshold
+that depends on the residual. The order, momentum, the change threshold and `maxpasses` are as for least
+squares.
+
+A full pass whose largest change is below the threshold runs a duality certificate: a dual point along
+the residual `y - X*beta`, recomputed in `Float64`, with a proved bound on the rounding of each computed
+term. `converged = true` only when it proves `(P(beta) - P*)/P* <= 1e-4`, `P*` the minimum, and `gap`
+then holds that bound, rounded up; its denominator is a lower bound of `P*` from the dual point. When
+the certificate does not pass, the change threshold (the reported `tolerance`) is divided by 100 and the
+run continues, at most twice per solve and not below `16 eps(T)` times `norm(y)`. Otherwise the run stops
+with `converged = false`, `gap = NaN` and a warning that differs from the `maxpasses` warning. This
+happens at an exact fit (`y = X*beta`) with a positive penalty, where the dual direction is undefined and
+a coordinatewise minimum need not be a minimum; after a full pass that changed nothing; and when the
+threshold cannot be lowered further, for example where the rounding of the recomputed residual is not
+small against the residual itself (as where the fitted values dwarf it), or for `Float32` data at the
+default `tol`, where `tol/100` is below that floor. With `tol = 0`, or a threshold below the changes that
+rounding produces, the change test does not pass, the certificate does not run, and the run ends at
+`maxpasses` with that warning. At a stop of the certificate, `minimum` is evaluated from the residual that
+it recomputed, when every entry of it is representable in `T`.
+
 See [`solve!`](@ref)
 and the [solver guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/).
 """
@@ -124,8 +158,10 @@ Base.summary(::CDSolver) = "Coordinate Descent"
     CDResults
 
 Result sharing the caller's vector or `SparseIterate` as minimizer, with minimum,
-passes, converged, maxchange and tolerance. Compatibility fields kkt_checks=0 and
-gap=NaN are sentinels, never computed certificates.
+passes, converged, maxchange and tolerance. The compatibility field `kkt_checks = 0` is a
+sentinel. `gap` is `NaN` except after a certified square-root lasso run (see [`CDSolver`](@ref)),
+where `converged = true` and `gap` is the certified upper bound on `(P - P*)/P*`. For least squares
+and the group lasso, `converged` reports the change test and `gap` is `NaN`.
 """
 struct CDResults{X, T}
   minimizer::X
@@ -182,10 +218,12 @@ mutable struct _CDState{T, R<:AbstractRNG}
   converged::Bool
   maxchange::T
   tolerance::T
+  gap::T                # the certified bound of a model with a certificate (`_stop_check!`), else NaN
+  uncertified::Bool     # whether `_stop_check!` stopped the run without a certificate
 end
 _CDState(::Type{T}, x, s::CDSolver) where T =
   _CDState{T, typeof(s.rng)}(s.random, s.rng, Vector{Int}(undef, s.random ? ncoordinates(x) : 0),
-                          _Momentum{T}(), 0, false, T(NaN), T(NaN))
+                          _Momentum{T}(), 0, false, T(NaN), T(NaN), T(NaN), false)
 function _shuffle!(order::Vector{Int}, n::Int, rng::AbstractRNG)
   @inbounds for i in 1:n
     order[i] = i
@@ -245,7 +283,11 @@ function _tolerances(m, x, s::CDSolver, ::Type{T}) where T
   T(s.tol)*u, scaled
 end
 # After each pass, the strict change test `maxh < tol` selects the next pass:
-# full after a converged pass, active otherwise. Only a converged full pass stops.
+# full after a converged pass, active otherwise. Only a converged full pass stops, through the model's
+# `_stop_check!`: for least squares and the group lasso it stops with `converged = true`; for the
+# square-root loss it stops certified or uncertified, or it lowers the threshold, and the loop then
+# reads `tol` again and continues (in the momentum loop, after `_momentum_reset!`, as after any full
+# pass that does not stop).
 #
 # A full pass is the only pass that visits the coordinates outside the active set, which are at 0.
 # A full pass also follows active passes that, since the last full pass, together visited
@@ -269,8 +311,14 @@ function _cd_plain!(x, m, g, st::_CDState{T}, s::CDSolver) where {T}
     st.passes, st.maxchange = pass, maxh
     converged = maxh<tol
     if full && converged
-      st.converged = true
-      break
+      status = _stop_check!(m, g, x, st, maxh)
+      if status === :retry
+        tol = st.tolerance
+        converged = maxh<tol
+      else
+        st.converged = status === :converged
+        break
+      end
     end
   end
   x
@@ -311,8 +359,14 @@ function _cd_momentum!(x, m, g, st::_CDState{T}, s::CDSolver) where {T}
     st.passes, st.maxchange = pass, maxh
     converged = maxh<tol
     if full && converged
-      st.converged = true
-      break
+      status = _stop_check!(m, g, x, st, maxh)
+      if status === :retry
+        tol = st.tolerance
+        converged = maxh<tol
+      else
+        st.converged = status === :converged
+        break
+      end
     end
     if full
       _momentum_reset!(mom, x, m)
@@ -412,9 +466,15 @@ function _restartdot(s::_Momentum{T}, x::SparseIterate, n::Int) where {T}
   end
   d
 end
+# The warning of a run that did not converge: an uncertified stop of the square-root loss
+# (`st.uncertified`, set by its `_stop_check!`) has its own text; any other such run ended at maxpasses.
 function _warn_not_converged(st::_CDState, s::CDSolver)
   st.converged && return
-  @warn "coordinate descent did not converge in maxpasses = $(s.maxpasses) passes (last change $(round(st.maxchange; sigdigits = 3)), tolerance $(round(st.tolerance; sigdigits = 3)))."
+  if st.uncertified
+    @warn "coordinate descent stopped without a duality certificate after $(st.passes) passes (last change $(round(st.maxchange; sigdigits = 3)), tolerance $(round(st.tolerance; sigdigits = 3))): the point is not certified to be within a relative 1e-4 of the minimum (for example at an exact fit y = X*beta with a positive penalty, where a coordinatewise minimum need not be a minimum)."
+  else
+    @warn "coordinate descent did not converge in maxpasses = $(s.maxpasses) passes (last change $(round(st.maxchange; sigdigits = 3)), tolerance $(round(st.tolerance; sigdigits = 3)))."
+  end
 end
 # The run shared by the dense and owner wrappers, on a private SparseIterate: the
 # solve, the not-converged warning and the finite-objective check. It returns the
@@ -434,7 +494,7 @@ function _solve_dense!(x::Vector, f, g, method::CDSolver)
   xs = SparseIterate(x)
   st, result_value = _run_cd!(xs, f, g, method)
   _copy_dense!(x, xs)
-  CDResults(x, result_value, st.passes, st.converged, st.maxchange, st.tolerance, 0)
+  CDResults(x, result_value, st.passes, st.converged, st.maxchange, st.tolerance, 0, st.gap)
 end
 # The run does not touch the caller's owner: it works on a state-preserving private
 # copy (values, active zeros and slot order), and the owner changes only at the final
@@ -443,7 +503,7 @@ function _solve_owner!(x::Union{SparseIterate, BlockIterate}, f, g, method::CDSo
   work = copy(x)
   st, result_value = _run_cd!(work, f, g, method)
   copyto!(x, work)
-  CDResults(x, result_value, st.passes, st.converged, st.maxchange, st.tolerance, 0)
+  CDResults(x, result_value, st.passes, st.converged, st.maxchange, st.tolerance, 0, st.gap)
 end
 function _copy_dense!(dest::Vector{T}, src::SparseIterate{T}) where {T}
   fill!(dest, zero(T))

@@ -122,10 +122,57 @@ function _check_data(x, f, g, ::Type{T}, elasticnet::Bool) where T
   base
 end
 
+# The square-root least-squares loss, unwrapped or in one Scaled wrapper (which _check_sqrt_data refuses).
+_is_sqrt_loss(f) = f isa SqrtLeastSquaresLoss || (f isa Scaled && f.f isa SqrtLeastSquaresLoss)
+
+# The checks of _check_data for the square-root loss, used in its place by the gates below; `kind` is
+# :cd (CDSolver with a dense Vector or a one-dimensional SparseIterate), :block (a BlockIterate) or
+# :gradient (PGD and APG, whose dense gate passes `elasticnet = true`). Each refusal is an ArgumentError
+# (a DimensionMismatch for the shapes) with its own message, in this order: a BlockIterate; PGD and APG;
+# a Scaled wrapper; the data, read through `leastsquares_data` and checked as for least squares (types,
+# shapes), with the element type of the loss equal to T; the penalty (`_check_sqrt_penalty`); an x that
+# may alias X or y. It returns the data
+# `(; Y, X, α)`, whose `Y` and `X` the gates check for finite values.
+function _check_sqrt_data(x, f, g, ::Type{T}, kind::Symbol) where T
+  kind === :block &&
+    throw(ArgumentError("SqrtLeastSquaresLoss does not support a BlockIterate (there is no group square-root lasso); use a dense Vector or a one-dimensional SparseIterate"))
+  kind === :gradient &&
+    throw(ArgumentError("SqrtLeastSquaresLoss is not smooth (it has no gradient where y = X*x), so ProximalGradientDescent and AccProxGradDescent do not support it; use CDSolver"))
+  f isa Scaled &&
+    throw(ArgumentError("Scaled(SqrtLeastSquaresLoss, alpha) is not supported; use the unscaled SqrtLeastSquaresLoss with the penalty level lambda/alpha, which has the same minimizers (the scaled objective is alpha times the unscaled one)"))
+  d = leastsquares_data(f)
+  d.X isa Matrix{T} && d.Y isa Vector{T} && f isa SqrtLeastSquaresLoss{T} ||
+    throw(ArgumentError("X must be Matrix{$T} and y Vector{$T}; sparse designs, matrix responses and mixed array types are deferred"))
+  n, p = size(d.X)
+  n > 0 && p > 0 || throw(DimensionMismatch("X must have positive row and column counts"))
+  length(d.Y) == n && length(x) == p || throw(DimensionMismatch("x/y dimensions do not match X"))
+  _check_sqrt_penalty(g, T)
+  (Base.mightalias(x, d.X) || Base.mightalias(x, d.Y)) &&
+    throw(ArgumentError("mutable x must not alias borrowed X or y"))
+  d
+end
+
+# The penalty of the square-root loss: an unweighted NormL1 whose level is positive, finite and
+# representable in T without overflow or underflow. Refused in this order: an ElasticNet; a penalty that
+# is not a NormL1; a weighted NormL1 (all-ones weights included); a zero level (-0.0 included), with a
+# pointer to LeastSquaresLoss; then the checks of `_scalar_parameter` with `positive = true`.
+function _check_sqrt_penalty(g, ::Type{T}) where T
+  g isa ElasticNet &&
+    throw(ArgumentError("SqrtLeastSquaresLoss with an ElasticNet penalty is not supported; use an unweighted NormL1"))
+  g isa NormL1 || throw(ArgumentError("only unweighted NormL1 is supported with SqrtLeastSquaresLoss"))
+  g.w === nothing ||
+    throw(ArgumentError("a weighted NormL1 with SqrtLeastSquaresLoss is deferred (weighted square-root lasso); use an unweighted NormL1"))
+  iszero(g.λ0) &&
+    throw(ArgumentError("SqrtLeastSquaresLoss needs a positive penalty level; at lambda = 0 use LeastSquaresLoss, which has the same minimizers"))
+  _scalar_parameter(g.λ0, T, "penalty lambda"; positive = true)
+  nothing
+end
+
 function _check_problem(x, f, g, elasticnet::Bool)
   x isa Vector && eltype(x) in (Float32, Float64) ||
     throw(ArgumentError("x must be a dense Vector{Float32} or Vector{Float64}"))
-  base = _check_data(x, f, g, eltype(x), elasticnet)
+  base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), elasticnet ? :gradient : :cd) :
+    _check_data(x, f, g, eltype(x), elasticnet)
   _allfinite(x) && _allfinite(base.Y) && _allfinite(base.X) ||
     throw(ArgumentError("x, X and y must contain only finite values"))
   nothing
@@ -138,7 +185,7 @@ _is_cd_owner(x) = x isa SparseIterate{<:Any, 1} && eltype(x) in (Float32, Float6
 function _check_owner_problem(x, f, g, elasticnet::Bool)
   _is_cd_owner(x) ||
     throw(ArgumentError("x must be a dense Vector or a one-dimensional SparseIterate of Float32 or Float64"))
-  base = _check_data(x, f, g, eltype(x), elasticnet)
+  base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), :cd) : _check_data(x, f, g, eltype(x), elasticnet)
   all(isfinite, activevalues(x)) && _allfinite(base.Y) && _allfinite(base.X) ||
     throw(ArgumentError("x, X and y must contain only finite values"))
   nothing
@@ -151,7 +198,7 @@ function _check_block_problem(x, f, g, method)
     throw(ArgumentError("block coordinate descent needs a BlockIterate of Float32 or Float64"))
   method.momentum === true &&
     throw(ArgumentError("block coordinate descent does not support momentum; use momentum = false or nothing"))
-  base = _check_data(x, f, g, eltype(x), false)
+  base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), :block) : _check_data(x, f, g, eltype(x), false)
   all(isfinite, x) && _allfinite(base.Y) && _allfinite(base.X) ||
     throw(ArgumentError("x, X and y must contain only finite values"))
   nothing

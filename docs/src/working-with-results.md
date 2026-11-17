@@ -36,10 +36,12 @@ threshold is formed in `T`, where it can round or overflow; see
 [the stationarity check](numerics.md)). It is not
 an exact-arithmetic certificate, not a bound on the distance to a minimizer, and
 does not guarantee coefficient accuracy on ill-conditioned designs (see
-[the stationarity check](numerics.md)). For CD it means that a stopping rule was satisfied.
-Neither certifies the output as optimal. For the lasso, use the separate
-[numerical KKT check](sparsity-and-kkt.md). A result's `gap=NaN` and
-CD's `kkt_checks=0` are placeholders: neither is a computed certificate.
+[the stationarity check](numerics.md)). For CD with least squares or the group lasso it
+means that a stopping rule was satisfied. Neither certifies the output as optimal. For the lasso,
+use the separate [numerical KKT check](sparsity-and-kkt.md). For CD with the square-root loss,
+`converged=true` means that a duality certificate proved `(P − P*)/P* ≤ 1e-4`, and `gap` holds the
+proved bound (see [`CDSolver`](@ref)). Otherwise a result's `gap=NaN` and CD's `kkt_checks=0` are
+placeholders: neither is a computed certificate.
 
 ## Avoid accidentally overwriting results
 
@@ -76,13 +78,14 @@ diagnostics, not changes to the statistical model.
 | Symptom | Check |
 | --- | --- |
 | `DimensionMismatch` | `size(X, 1) == length(y)` and `size(X, 2) == length(beta)` |
-| Type/unsupported input error | Dense Float32 or Float64 `X` and `y` with matching coefficient type; only ordinary least squares + unweighted L1 (PGD and APG also accept an unweighted `ElasticNet`; CD refuses it), or with CD a `BlockIterate` and a `GroupNormL2` penalty |
+| Type/unsupported input error | Dense Float32 or Float64 `X` and `y` with matching coefficient type; only ordinary least squares + unweighted L1 (PGD and APG also accept an unweighted `ElasticNet`; CD refuses it), with CD a `BlockIterate` and a `GroupNormL2` penalty, or with CD `SqrtLeastSquaresLoss` and an unweighted `NormL1` with a positive level |
 | Penalty seems too strong or too weak | `LeastSquaresLoss` is a sum; explicitly multiply by `1/n` for mean-normalized lasso |
 | PGD rejects `SparseIterate` | PGD needs a dense coefficient vector; CD supports one-dimensional `SparseIterate` |
 | PGD or APG rejects `BlockIterate` | Only CD solves the group lasso, with a `BlockIterate` and a `GroupNormL2` penalty |
 | `DimensionMismatch` naming groups, or an error naming a group | The groups of `BlockIterate` and `GroupNormL2` must be equal in number, order and members; an error naming a group is a curvature or step refusal, see [Numerical behavior](numerics.md), or a weight or parameter refusal such as `group weight 2 …` |
 | Convergence flag is false | Inspect the solver's iteration/pass limit; check the [KKT residual](sparsity-and-kkt.md) |
-| `gap` is NaN | Gap certification is not implemented |
+| `gap` is NaN | Gap certification is implemented only for the square-root lasso with CD; there, `NaN` means that the run stopped without a certificate |
+| Square-root lasso: `converged = false` with a warning about a missing duality certificate | The certificate did not pass, for example at an exact fit (`y = X*beta`), where coordinate descent can stop at a coordinatewise minimum that is not a minimum; see [`CDSolver`](@ref) |
 | Float32 precision looks poor | Start with native Float32 inputs/scales, check the KKT residual; Float32 has lower precision |
 | Coefficients appear to change unexpectedly | `solve!` mutates the supplied coefficients; copy them to save the old solution |
 

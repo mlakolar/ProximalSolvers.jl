@@ -5,7 +5,8 @@ the wider feature set in historical releases.
 
 ## What works today?
 
-The supported objective is a lasso (CD also solves a group lasso on a `BlockIterate`, below):
+The supported objective is a lasso (CD also solves a group lasso on a `BlockIterate` and a
+square-root lasso, below):
 
 ~~~math
 \min_\beta\quad \frac{s}{2}\|y-X\beta\|_2^2+\lambda\|\beta\|_1,
@@ -26,8 +27,8 @@ with `ElasticNet(lambda1, lambda2)`; `CDSolver` refuses an `ElasticNet` (support
 | Design matrix `X` | Nonempty, finite, dense `Matrix{Float32}` or `Matrix{Float64}` |
 | Response `y` | Finite vector with the same element type and `length(y) == size(X,1)` |
 | Coefficients `beta` | Same-type dense vector for CD, PGD or APG; alternatively, one-dimensional ProximalBase `SparseIterate` for CD only |
-| Loss | `LeastSquaresLoss` or one finite positive scalar multiple of it |
-| Penalty | Unweighted `NormL1(lambda)` with nonnegative finite `lambda` (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`); unweighted `ElasticNet(lambda1, lambda2)` with nonnegative finite levels (PGD and APG only; `CDSolver` refuses it, support is planned) |
+| Loss | `LeastSquaresLoss` or one finite positive scalar multiple of it; for `CDSolver` on a dense vector or a `SparseIterate`, also ProximalBase's `SqrtLeastSquaresLoss` (unscaled; see below) |
+| Penalty | Unweighted `NormL1(lambda)` with nonnegative finite `lambda` (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`), and positive `lambda` with `SqrtLeastSquaresLoss`; unweighted `ElasticNet(lambda1, lambda2)` with nonnegative finite levels (PGD and APG only; `CDSolver` refuses it, support is planned) |
 | Solvers | `CDSolver`, `ProximalGradientDescent`, `AccProxGradDescent` (APG also needs `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 3 < 1/(4 eps(Float64))`) |
 | Group lasso | `CDSolver` only, with a ProximalBase `BlockIterate{Float32}` or `BlockIterate{Float64}` as the coefficients and a `GroupNormL2{Float32}` or `GroupNormL2{Float64}` penalty, on the same dense least-squares loss (see below) |
 
@@ -61,6 +62,31 @@ refusals of these inputs (receiver, momentum, penalty, weights, layout, aliasing
 `x` with `X` or `y`, nonfinite values) throw before `x` is copied or the random number
 generator is used. [Numerical behavior](numerics.md) lists the refusals that depend on
 the values of `X` and describes the curvature and the stopping statistic of a group.
+
+### Square-root lasso with coordinate descent
+
+~~~math
+\min_\beta\quad P(\beta) = \|y-X\beta\|_2+\lambda\|\beta\|_1
+~~~
+
+with ProximalBase's [`SqrtLeastSquaresLoss(y, X)`](https://mlakolar.github.io/ProximalBase.jl/dev/)
+(the loss is unnormalized) and `NormL1(lambda)`. `solve!(x, f, g, CDSolver(...))` accepts this problem
+when `x` is a dense `Vector{T}` or a one-dimensional `SparseIterate{T}`, `X` and `y` are as above, and
+`lambda` is positive, finite and representable in `T`. The normalized objective
+`‖y − Xβ‖₂/√n + λₙ‖β‖₁` (`Scaled(f, inv(sqrt(n)))` in ProximalBase) has the same minimizers as `P` at
+`lambda = sqrt(n) * λₙ`, and its values are those of `P` divided by `√n`; for the scaled lasso, the noise
+estimate at the solution is `norm(y - X*beta)/sqrt(n)`. Refused with an `ArgumentError`, before `x` is
+copied or the random number generator is used: `Scaled(SqrtLeastSquaresLoss, alpha)` (use the unscaled
+loss at the level `lambda/alpha`), `lambda = 0` (use `LeastSquaresLoss`, which has the same minimizers), a
+weighted `NormL1` (also with all weights equal to one), an `ElasticNet`, a `BlockIterate`, and
+`ProximalGradientDescent` or `AccProxGradDescent` (the loss is not smooth where `y = X*beta`).
+
+For this loss, `converged = true` means that a duality certificate proved
+`(P(beta) − P*)/P* ≤ 1e-4`, with `P*` the minimum, and `gap` then holds that proved bound. A run that
+stops without a certificate reports `converged = false` and `gap = NaN`, with its own warning: at an exact
+fit (`y = X*beta`) with a positive penalty, coordinate descent can stop at a point that minimizes every
+coordinate but not `P`. [`CDSolver`](@ref) describes the stopping rule, and
+[Numerical behavior](numerics.md) the step and the certificate.
 
 The three numerical arrays use one common `T` (`Float32` or
 `Float64`); mixed-element-type `X`, `y` and coefficient arrays
@@ -113,7 +139,8 @@ The current development core intentionally excludes the following:
 | Generalized losses, matrix responses, intercepts/offsets | Deferred |
 | Weighted `NormL1`, group penalties other than `GroupNormL2` with `CDSolver` on a `BlockIterate`, weighted `ElasticNet`, `Scaled(ElasticNet)`, generalized penalty combinations | Deferred |
 | `ElasticNet` with `CDSolver` | Refused with an `ArgumentError`; planned |
-| Penalty paths, screening and dual-gap certificates | Deferred |
+| Penalty paths and screening; dual-gap certificates other than the one of the square-root lasso with `CDSolver` | Deferred |
+| Weighted square-root lasso, `Scaled(SqrtLeastSquaresLoss)`, `SqrtLeastSquaresLoss` with an `ElasticNet` or a `BlockIterate`, or with PGD or APG | Refused with an `ArgumentError` (weights and `Scaled` deferred) |
 | ADMM, Newton, monotone or active-set accelerated gradient, primal-dual, SLOPE, graphical models | Deferred |
 | Generic workspaces, refitting, reweighting | Deferred |
 | PGD or APG with `SparseIterate` coefficients | Deferred |
@@ -129,8 +156,8 @@ Some rejected keywords remain accepted by *constructors*, at their default
 values only, to provide informative errors and compatibility with historical
 signatures; the solvers and options do not store them.
 Do not interpret their presence as available functionality.
-The reported `gap=NaN` and CD's `kkt_checks=0` are placeholders, not
-computed certificates.
+CD's `kkt_checks=0` is a placeholder, and so is `gap=NaN`, except that a
+certified square-root lasso run of `CDSolver` reports its certified bound in `gap`.
 
 ## About previous versions
 

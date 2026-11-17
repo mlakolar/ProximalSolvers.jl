@@ -10,6 +10,13 @@ function cdmodel end
 # Per-solve preparation after `initialize!` and before the first pass (and its RNG draws), run
 # only when `maxpasses > 0`: a model caches and validates what depends only on the data here.
 _prepare!(m::CDModel, g, x) = m
+# The stop check at a full pass whose largest change `maxh` is below the threshold (`_cd_plain!`,
+# `_cd_momentum!`). It returns `:converged` (stop with `converged = true`), `:uncertified` (stop with
+# `converged = false`) or `:retry` (the check lowered `st.tolerance`; the loop continues with it), and
+# may set `st.gap` and `st.uncertified`. This method, for the models without a certificate (least
+# squares, group lasso), returns the constant `:converged` and changes nothing: their stop is the
+# change test. `SqrtLSModel` has its own method.
+_stop_check!(m::CDModel, g, x, st, maxh) = :converged
 cdmodel(f,x)=throw(ArgumentError("unsupported private coordinate-descent model"))
 # The minimizer along a flat LS column (zero slope and curvature): the penalty's.
 function _coordinate_minimizer(g::NormL1, old::T, i) where T
