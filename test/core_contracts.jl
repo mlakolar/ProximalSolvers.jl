@@ -61,7 +61,10 @@ end
     for badscale in (-1., NaN)
       @test_throws ArgumentError Scaled(f, badscale)
     end
-    refused(x, f, NormL1(T(.1), ones(T, 2)), method)
+    # weights are accepted (test/weighted_lasso.jl); these are not: an infinite weight, and weights of the other
+    # precision
+    refused(x, f, NormL1(T(.1), T[1, Inf]), method)
+    refused(x, f, NormL1(T(.1), ones(opposite, 2)), method)
     refused(x, f, SqrNormL2(T(.1)), method)
     for keyword in (:intercept, :offset, :continuation, :screening)
       refused(x, f, g, method; keyword => true)
@@ -99,7 +102,7 @@ end
 # ElasticNet (#324): ProximalGradientDescent and AccProxGradDescent accept an unweighted one, and
 # CDSolver refuses an ElasticNet of any weights and levels. The refusals tested here leave x unchanged. The APG counterpart is in
 # test/accelerated_pgd.jl.
-const EN_GRADIENT_REFUSAL = "only unweighted NormL1 or unweighted ElasticNet is supported"
+const EN_GRADIENT_REFUSAL = "only NormL1 or unweighted ElasticNet is supported"
 const EN_CD_REFUSAL = "CDSolver does not support ElasticNet yet; use ProximalGradientDescent or AccProxGradDescent"
 
 function refused_with(x, f, g, method, msg)
@@ -114,9 +117,12 @@ end
     f = LeastSquaresLoss(y, X)
     method = ProximalGradientDescent()
     en = ElasticNet(T(.1), T(.2))
-    for g in (ElasticNet(T(.1), T(.2), ones(T, 2)), Scaled(en, 2), NormL1(T(.1), ones(T, 2)), SqrNormL2(T(.1)))
+    for g in (ElasticNet(T(.1), T(.2), ones(T, 2)), Scaled(en, 2), Scaled(NormL1(T(.1), ones(T, 2)), 2), SqrNormL2(T(.1)))
       refused_with(x, f, g, method, EN_GRADIENT_REFUSAL)
     end
+    # a NormL1 with weights is accepted (#331); its solves are in test/weighted_lasso.jl
+    r = solve!(copy(x), f, NormL1(T(.1), T[1, 2]), method)
+    @test r.converged && all(isfinite, r.minimizer)
     refused_with(x, f, ElasticNet(T(Inf), zero(T)), method, "penalty lambda1 must be finite and nonnegative")
     refused_with(x, f, ElasticNet(zero(T), T(Inf)), method, "penalty lambda2 must be finite and nonnegative")
     if T === Float32
@@ -151,9 +157,14 @@ end
     end
     # the iterate is checked before the penalty, and the penalties below get the message of NormL1
     refused_with(Int[0, 0], f, en, CDSolver(), "x must be a dense Vector{Float32} or Vector{Float64}")
-    for g in (Scaled(en, 2), NormL1(T(.1), ones(T, 2)), SqrNormL2(T(.1)))
-      refused_with(copy(x), f, g, CDSolver(), "only unweighted NormL1 is supported")
-      refused_with(SparseIterate(copy(x)), f, g, CDSolver(), "only unweighted NormL1 is supported")
+    for g in (Scaled(en, 2), Scaled(NormL1(T(.1), ones(T, 2)), 2), SqrNormL2(T(.1)))
+      refused_with(copy(x), f, g, CDSolver(), "only NormL1 is supported")
+      refused_with(SparseIterate(copy(x)), f, g, CDSolver(), "only NormL1 is supported")
+    end
+    # a NormL1 with weights is accepted, on a dense vector and on an owner (#331)
+    for start in (copy(x), SparseIterate(copy(x)))
+      r = solve!(start, f, NormL1(T(.1), T[1, 2]), CDSolver(order = :cyclic))
+      @test r.converged && r.minimizer === start
     end
     @test x == T[.3, -.2]
   end

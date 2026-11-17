@@ -1342,9 +1342,9 @@ end
 
 # The refusals of the step itself. A column whose squared norm is not finite is refused before the
 # coordinate, the residual or the curvature cache changes, in both types and for each kind of scale; a
-# penalty that is not the unweighted NormL1 is refused where the product is outside the band (the
-# exceptional step is written for NormL1), and a scale type for which the product is outside the band
-# is refused with the same message.
+# penalty without an exceptional step (a NormL1 with or without weights has one) is refused where the product
+# is outside the band, and a scale type for which the product is outside the band is refused with the same
+# message.
 @testset "the step refuses a curvature that is not finite and forms no step for a penalty it cannot handle ($T)" for T in (Float32, Float64)
   X, y = plain_data(T, 8, 3; seed = 3)
   X[:, 2] .*= T === Float32 ? 1f20 : 1e160
@@ -1364,7 +1364,8 @@ end
     @test err isa ArgumentError && occursin("curvature of coordinate 2", err.msg)
     @test m.r == r0 && Vector(x) == x0 && isnan(m.a[2])
   end
-  # a weighted penalty where the product is outside the band
+  # a penalty without an exceptional step, where the product is outside the band (a weighted NormL1 has one,
+  # test/weighted_lasso.jl)
   Xs = T.(1e5 .* X[:, [1, 3]])
   m = PS.cdmodel((T === Float32 ? 1f30 : 1e300) * LeastSquaresLoss(y, Xs), SparseIterate(zeros(T, 2)))
   x = SparseIterate(T.([0.1, 0.2]))
@@ -1372,7 +1373,7 @@ end
   a = PS._sqnorm!(m, 1)
   @test isinf(m.s * a)
   err = try
-    PS.coordinate_step!(m, NormL1(T(0.01), ones(T, 2)), x, 1)
+    PS.coordinate_step!(m, SqrNormL2(T(0.01)), x, 1)
     nothing
   catch e
     e
