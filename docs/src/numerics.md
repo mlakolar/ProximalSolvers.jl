@@ -20,7 +20,15 @@ code.
   refused with an `ArgumentError`. The coordinate step forms its threshold
   `lambda / (s * a)` without the product or its reciprocal where either is
   outside the normal range, and a column whose squared norm is not finite is
-  refused with an `ArgumentError` that names the curvature. With
+  refused with an `ArgumentError` that names the curvature. For an `ElasticNet`,
+  in the normal range the step of a visit is ProximalBase's `prox_block`. At a visit to a column
+  with a finite positive `a` where `s * a` or its reciprocal is below `floatmin` of the type that
+  combines `s` with the working type, the step with `lambda2 = 0` is the lasso's, and with
+  `lambda2 > 0` the visit is refused with an `ArgumentError` that names the coordinate, during the
+  pass: the iterate passed to `solve!` is unchanged, and a borrowed RNG may have advanced.
+  A visit to a flat column (all entries 0) sets its coordinate to 0 at the levels that `solve!`
+  accepts, and a visit to a column that is not flat whose `a` underflows to 0 is refused with an
+  `ArgumentError` about the curvature, as for the lasso. With `maxpasses = 0` no coordinate is visited. With
   `relative=false`, or with `y = 0`, the coordinate scale is
   not used. If the computed `sqrt(s) * norm(y)`, after
   rounding to the working type, is not a normal floating-point number, the
@@ -140,7 +148,7 @@ of the tests. What `converged=true` therefore says about the returned `x`:
   A start `x0` with a finite `f(x0)` is accepted even if `g(x0)` overflows in `T` (for example a ridge term
   `(λ2/2)‖x0‖²` above `floatmax(T)`). An error raised in the step of an iteration (its line search, or the
   check that the accepted objective is finite) restores the last accepted iterate and is rethrown, as for `NormL1`. On a dense `Vector` or a one-dimensional `SparseIterate`, `CDSolver`
-  accepts `NormL1` only: it refuses an `ElasticNet` with an `ArgumentError`, and support in CD is planned.
+  accepts an `ElasticNet` and stops by its change test, as for `NormL1`; this check is not applied there.
 - The check bounds the residual relative to `max(λ, λmax)`. A coordinate whose
   gradient is on a scale far below `λmax` can stay inaccurate when the check
   passes: for `X = diag(1e6, 1)`, `y = [1e6, 1]`, `λ = 0` from a cold start with

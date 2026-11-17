@@ -7,7 +7,7 @@ a linear model that can make some coefficients exactly zero.
 multiplied by the strength parameter `lambda`.
 
 **Elastic net:** The penalty `lambda1 * sum(abs, beta) + lambda2/2 * sum(abs2, beta)`, an L1 term plus a
-ridge (squared L2) term, `ElasticNet(lambda1, lambda2)`. PGD and APG accept it.
+ridge (squared L2) term, `ElasticNet(lambda1, lambda2)`. CD, PGD and APG accept it.
 
 **Proximal operator:** A minimization step balancing closeness to an
 input point with the value of a penalty.

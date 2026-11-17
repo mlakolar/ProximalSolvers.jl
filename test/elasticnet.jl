@@ -479,8 +479,8 @@ function solve_allocations(method, f, g, x0, options)
 end
 function validation_allocations(g, ::Type{T}) where T
   x = zeros(T, 1)
-  PS._check_penalty(g, x, T, true)
-  minimum((@allocated PS._check_penalty(g, x, T, true)) for _ in 1:3)
+  PS._check_penalty(g, x, T)
+  minimum((@allocated PS._check_penalty(g, x, T)) for _ in 1:3)
 end
 
 @testset "allocations: an ElasticNet solve allocates no more than the NormL1 solve, beyond its own penalty validation" begin
