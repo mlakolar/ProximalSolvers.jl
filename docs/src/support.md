@@ -12,7 +12,14 @@ The supported objective is a lasso (CD also solves a group lasso on a `BlockIter
 ~~~
 
 where `s=1` for raw `LeastSquaresLoss` or `s=1/n` for the
-usual normalized convention.
+usual normalized convention. `ProximalGradientDescent` and `AccProxGradDescent` also solve the
+elastic net
+
+~~~math
+\min_\beta\quad \frac{s}{2}\|y-X\beta\|_2^2+\lambda_1\|\beta\|_1+\frac{\lambda_2}{2}\|\beta\|_2^2,
+~~~
+
+with `ElasticNet(lambda1, lambda2)`; `CDSolver` refuses an `ElasticNet` (support is planned).
 
 | Input | Supported |
 | --- | --- |
@@ -20,7 +27,7 @@ usual normalized convention.
 | Response `y` | Finite vector with the same element type and `length(y) == size(X,1)` |
 | Coefficients `beta` | Same-type dense vector for CD, PGD or APG; alternatively, one-dimensional ProximalBase `SparseIterate` for CD only |
 | Loss | `LeastSquaresLoss` or one finite positive scalar multiple of it |
-| Penalty | Unweighted `NormL1(lambda)` with nonnegative finite `lambda` |
+| Penalty | Unweighted `NormL1(lambda)` with nonnegative finite `lambda` (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`); unweighted `ElasticNet(lambda1, lambda2)` with nonnegative finite levels (PGD and APG only; `CDSolver` refuses it, support is planned) |
 | Solvers | `CDSolver`, `ProximalGradientDescent`, `AccProxGradDescent` (APG also needs `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 3 < 1/(4 eps(Float64))`) |
 | Group lasso | `CDSolver` only, with a ProximalBase `BlockIterate{Float32}` or `BlockIterate{Float64}` as the coefficients and a `GroupNormL2{Float32}` or `GroupNormL2{Float64}` penalty, on the same dense least-squares loss (see below) |
 
@@ -57,7 +64,7 @@ the values of `X` and describes the curvature and the stopping statistic of a gr
 
 The three numerical arrays use one common `T` (`Float32` or
 `Float64`); mixed-element-type `X`, `y` and coefficient arrays
-are not supported. The penalty level must be finite, nonnegative and
+are not supported. The penalty levels must be finite, nonnegative and
 representable in `T` without overflow or rounding a nonzero scalar
 to zero; it may be supplied in a different scalar type, including
 a representable `Float64` literal in a `Float32` problem.
@@ -104,7 +111,8 @@ The current development core intentionally excludes the following:
 | --- | --- |
 | Sparse design matrices; sparse or view-based dense coefficients | Deferred |
 | Generalized losses, matrix responses, intercepts/offsets | Deferred |
-| Weighted `NormL1`, group penalties other than `GroupNormL2` with `CDSolver` on a `BlockIterate`, generalized penalty combinations | Deferred |
+| Weighted `NormL1`, group penalties other than `GroupNormL2` with `CDSolver` on a `BlockIterate`, weighted `ElasticNet`, `Scaled(ElasticNet)`, generalized penalty combinations | Deferred |
+| `ElasticNet` with `CDSolver` | Refused with an `ArgumentError`; planned |
 | Penalty paths, screening and dual-gap certificates | Deferred |
 | ADMM, Newton, monotone or active-set accelerated gradient, primal-dual, SLOPE, graphical models | Deferred |
 | Generic workspaces, refitting, reweighting | Deferred |

@@ -22,8 +22,10 @@ the stationarity check below passes.
 
 **The stationarity check.** At an iteration at which one of the three tests
 holds, the solver computes the minimal-norm KKT residual `G` at the accepted
-iterate `x` for the penalty level `λ` (the element of `∇f(x) + λ ∂‖x‖₁` of least
-infinity norm). The stop counts only if
+iterate `x`: the element of `∇f(x) + λ ∂‖x‖₁` of least infinity norm for
+`NormL1(λ)`, and the element of `∇f(x) + λ2 x + λ1 ∂‖x‖₁` of least infinity norm for
+`ElasticNet(λ1, λ2)` (`ProximalGradientDescent` and `AccProxGradDescent`). Below, `λ` is the ℓ1 level of the
+penalty (`λ` of `NormL1`, `λ1` of `ElasticNet`); `λ2` does not enter the bound. The stop counts only if
 `‖G‖∞ < max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `T` the element type and
 `λmax = α‖Xᵀy‖∞` for the loss scale `α` (1 for a plain `LeastSquaresLoss`). The check
 also requires that `S = max(λ, λmax)` is finite, that the product
@@ -32,7 +34,18 @@ finite; it does not require that product to be finite (for a huge `gradtol` it c
 `Inf`). Otherwise
 `x_converged`, `f_converged` and `grad_converged` are all `false`, and the solve
 continues. With `y = 0` and `λ = 0` both `λ` and `λmax` are 0, and nothing
-converges. `converged=true` therefore means that a test proposed a stop and that
+converges. This holds when the computed `S = max(λ, λmax)` is 0, with `λmax` as the solver
+computes it: for example `ElasticNet(0, λ2)` with `y = 0`,
+where the ridge solution is `x = 0` but the solve runs to `maxiter` with `converged=false`, unless another
+exit applies. An exact `Xᵀy = 0` need not give a computed `λmax = 0` (rounding), and the
+check then uses the rounded `λmax`. `ElasticNet(λ1, λ2)` on the loss `½α‖Xb - y‖²` is the lasso with level `λ1` on the data
+`X̃ = [√α X; √λ2 I]`, `ỹ = [√α y; 0]`, whose gradient is `∇f(x) + λ2 x` and whose `λmax` is the
+`λmax` above: the check is that of the lasso on those data. For a dense `Vector` or a
+one-dimensional `SparseIterate`, the coordinate descent solver accepts `NormL1` only; an `ElasticNet` is
+refused there, and its support is planned.
+A start `x0` with a finite `f(x0)` is accepted even if `g(x0)` overflows in `T` (for example a ridge
+term `(λ2/2)‖x0‖²` above `floatmax(T)`). An error raised in the step of an iteration (its line search, or the
+check that the accepted objective is finite) restores the last accepted iterate and is rethrown, as for `NormL1`. `converged=true` means that a test proposed a stop and that
 the computed (working-precision) KKT residual `‖G‖∞` at the returned `x` is
 below that bound. The code forms `τ = T(max(gradtol, 64 eps(T)))` and the threshold
 `τ * max(λ, λmax)` in `T`, and compares `‖G‖∞` with it. The normalized form

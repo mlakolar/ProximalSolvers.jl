@@ -134,7 +134,10 @@ The **smaller** `max_kkt`, the closer this solution is to satisfying
 first-order optimality. The threshold used to judge it depends on the
 scale and numerical precision of your problem. For this convex lasso,
 the KKT conditions characterize an optimum; this check is separate
-from the solver's `converged` flag.
+from the solver's `converged` flag. For `ElasticNet(lambda1, lambda2)` (PGD and APG) the penalty
+also has the ridge term `lambda2/2 * sum(abs2, beta)`: for each nonzero coefficient the gradient plus
+`lambda2 * beta[j]` must be `-lambda1 * sign(beta[j])`, and for each zero coefficient the gradient's
+magnitude must be no larger than `lambda1`.
 
 ## What about SparseIterate?
 

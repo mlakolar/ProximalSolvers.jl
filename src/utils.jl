@@ -100,25 +100,32 @@ end
 
 # ---- the stationarity check of a proposed stop -------------------------------------------------
 #
-# The check is for the lasso ½α‖Xb - y‖² + λ‖b‖₁ (α = 1 for a raw LeastSquaresLoss), whose gradient
-# the solver forms. G is the element of ∇f(x) + λ ∂‖x‖₁ of least norm: |∇fᵢ| - λ clipped at 0
-# where xᵢ = 0, and |∇fᵢ + λ sign xᵢ| otherwise. The stop is kept when ‖G‖∞ < τ S, with
-# S = max(λ, λmax), λmax = α‖Xᵀy‖∞ = ‖∇f(0)‖∞, and τ = max(gradtol, 64 eps(T)): the threshold is
-# relative to S, which a common positive factor on the loss and the penalty scales alike (within
-# the range of T), and 64 eps(T) is a floor of a few dozen units of roundoff, chosen without a
-# bound on the error of the computed gradient. It is not kept when S is not finite, when τ S is
-# below floatmin(T) (a threshold that may have underflowed) or when ‖G‖∞ is not finite.
-# ‖G‖∞ is ProximalBase's full-point kkt_violation(NormL1(λ), ∇f(x), x) with λ = T(λ0), the
-# coefficient of the formula above; the level is converted before the call, so that ProximalBase
-# does not round it again. An infinite entry of x gives a non-finite residual (Inf, or NaN when
-# a NaN is read), so such a stop is not kept.
+# The check is for the least-squares problem ½α‖Xb - y‖² + h(b) (α = 1 for a raw LeastSquaresLoss),
+# whose gradient ∇f the solver forms, with h = λ‖·‖₁ for NormL1(λ), or
+# h = λ1‖·‖₁ + (λ2/2)‖·‖² for ElasticNet(λ1, λ2). G is the element of ∇f(x) + ∂h(x) of least norm:
+# for NormL1, |∇fᵢ| - λ clipped at 0 where xᵢ = 0 and |∇fᵢ + λ sign xᵢ| otherwise; for ElasticNet, the
+# same with λ = λ1 and the term λ2 xᵢ added to ∇fᵢ where xᵢ ≠ 0 (the ridge part has gradient λ2 x,
+# which is 0 where xᵢ = 0). The stop is kept when ‖G‖∞ < τ S, with S = max(λ1, λmax) (λ1 = λ for
+# NormL1), λmax = α‖Xᵀy‖∞ = ‖∇f(0)‖∞, and τ = max(gradtol, 64 eps(T)). S does not contain λ2: for
+# ElasticNet the problem is the lasso with level λ1 on the data [√α X; √λ2 I], [√α y; 0], whose
+# gradient is ∇f(x) + λ2 x and whose λmax is the λmax above. The threshold is relative to S, which a
+# common positive factor on the loss and the penalty levels scales alike (within the range of T), and
+# 64 eps(T) is a floor of a few dozen units of roundoff, chosen without a bound on the error of the
+# computed gradient. It is not kept when S is not finite, when τ S is below floatmin(T) (a threshold
+# that may have underflowed; a computed S = 0, as for λ1 = 0 and y = 0, is one) or when ‖G‖∞ is not finite.
+# ‖G‖∞ is ProximalBase's full-point kkt_violation(h, ∇f(x), x) for NormL1(T(λ0)) or
+# ElasticNet(T(λ1), T(λ2)), the coefficients of the formulas above: each level is converted to T once, into
+# a penalty that gives both S and the residual, so that ProximalBase does not round the levels again.
+# An infinite entry of x gives a non-finite residual (Inf, or NaN when a NaN is read), so such a stop is
+# not kept.
 # It is a computed residual, not a certificate in exact arithmetic.
 function _stationary!(state, f, g, options::ProximalOptions)
   T = eltype(state.x)
   λmax = _lambda_max!(state)       # first: it uses xhat, which APG's gradient below also uses
   grad = _gradient_at_x!(state, f)
-  λ = T(g.λ0)
-  residual = kkt_violation(NormL1(λ), grad, state.x)
+  gT = _converted_penalty(g, T)
+  λ = _l1_level(gT)
+  residual = kkt_violation(gT, grad, state.x)
   S = max(λ, λmax)
   τ = T(max(options.gradtol, 64 * Float64(eps(T))))
   threshold = τ * S
@@ -151,6 +158,13 @@ function _gradient_at_x!(state::AccProxGradDescentState, f)
   state.grad_calls += 1
   state.xhat
 end
+
+# The penalty with its levels converted to T, for the penalties that _check_penalty accepts for PGD and APG,
+# and the ℓ1 level of a converted penalty
+_converted_penalty(g::NormL1, ::Type{T}) where T = NormL1(T(g.λ0))
+_converted_penalty(g::ElasticNet, ::Type{T}) where T = ElasticNet(T(g.λ1), T(g.λ2))
+_l1_level(g::NormL1) = g.λ0
+_l1_level(g::ElasticNet) = g.λ1
 
 # x == y elementwise, by value (so -0.0 == 0.0), without allocating
 function _unchanged(x::AbstractArray, y::AbstractArray)
