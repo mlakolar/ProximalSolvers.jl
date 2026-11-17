@@ -57,7 +57,7 @@ code.
 Neither `converged=true` is a certificate of mathematical optimality. For
 PGD and APG it means that a test proposed a stop and that the computed
 KKT residual `‖G‖∞` at the returned point is below
-`max(gradtol, 64 eps(T)) * max(λ, λmax)` (see [The stationarity check of a stop](@ref "The stationarity check of a stop")); it is a working-precision residual, not an exact-arithmetic
+`max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λ` the ℓ1 level of the penalty (see [The stationarity check of a stop](@ref "The stationarity check of a stop")); it is a working-precision residual, not an exact-arithmetic
 certificate, and it does not bound the distance to a minimizer. The
 default `gradtol = 1e-5` is not a specified number of correct digits.
 Tighten tolerances for results you intend to report, then compute the
@@ -71,13 +71,17 @@ the value of the user's L1 penalty.
 
 PGD and APG verify a proposed stop. At an iteration at which the `x`, `f` or
 gradient test holds (under `ftol = 0`, after the exact-stall rule below), the
-solver computes the minimal-norm KKT residual `G` at the accepted iterate `x`
-for the penalty level `λ`: the element of `∇f(x) + λ ∂‖x‖₁` of least infinity
+solver computes the minimal-norm KKT residual `G` at the accepted iterate `x`.
+For `NormL1(λ)` it is the element of `∇f(x) + λ ∂‖x‖₁` of least infinity
 norm, that is `max(|∇fᵢ| - λ, 0)` where `xᵢ = 0` and `|∇fᵢ + λ sign(xᵢ)|`
-elsewhere, with `λ = T(λ0)`, the penalty level converted to the coefficient type `T`. The solver
-computes `‖G‖∞` with ProximalBase's `kkt_violation(NormL1(λ), ∇f(x), x)`, passing the converted
-level `λ`. An infinite entry of `x` gives a non-finite residual (`Inf`, or `NaN` when a `NaN` is
-read), so the stop does not count. The stop counts only if
+elsewhere, with `λ = T(λ0)`, the penalty level converted to the coefficient type `T`. For
+`ElasticNet(λ1, λ2)` (PGD and APG) it is the element of
+`∇f(x) + λ2 x + λ1 ∂‖x‖₁` of least infinity norm: `max(|∇fᵢ| - λ1, 0)` where
+`xᵢ = 0` and `|∇fᵢ + λ2 xᵢ + λ1 sign(xᵢ)|` elsewhere, with the levels `T(λ1)` and `T(λ2)`. The solver
+computes `‖G‖∞` with ProximalBase's `kkt_violation(NormL1(T(λ0)), ∇f(x), x)` or
+`kkt_violation(ElasticNet(T(λ1), T(λ2)), ∇f(x), x)`, passing the converted levels. An infinite entry of `x`
+gives a non-finite residual (`Inf`, or `NaN` when a `NaN` is read), so the stop does not count. Below,
+`λ` is the ℓ1 level of the penalty (`λ` of `NormL1`, `λ1` of `ElasticNet`). The stop counts only if
 
 ~~~
 ‖G‖∞ < max(gradtol, 64 eps(T)) * max(λ, λmax),    λmax = α ‖Xᵀy‖∞,
@@ -119,6 +123,24 @@ of the tests. What `converged=true` therefore says about the returned `x`:
 - Where `λ` and `λmax` are both 0 (for example `y = 0` and `λ = 0`), or where
   the bound is below `floatmin(T)`, no stop passes. The solve then ends at
   `maxiter` unless another exit applies.
+- **The elastic net.** `ElasticNet(λ1, λ2)` on the loss `α/2 ‖Xb - y‖²` is the lasso with
+  level `λ1` on the augmented data `X̃ = [√α X; √λ2 I]`, `ỹ = [√α y; 0]`: its loss
+  `½‖X̃b - ỹ‖²` equals `α/2 ‖Xb - y‖² + (λ2/2)‖b‖²`, its gradient is `∇f(x) + λ2 x`, and its
+  `λ̃max = ‖X̃ᵀỹ‖∞ = α‖Xᵀy‖∞` is the `λmax` above. The check with `S = max(λ1, λmax)` is therefore
+  the lasso check on those data, and has the same properties: it is covariant under a common
+  positive factor on `α`, `λ1` and `λ2` (in exact arithmetic), and it refuses every stop where the
+  computed `S = max(T(λ1), λmax)` is 0, with `λmax` as the solver computes it. The scale does not
+  contain `λ2` or `λ2‖x‖∞`. With `λ1 = 0` and `y = 0`, the computed `S` is 0 although `x = 0` is the
+  ridge solution: no stop counts, and the solve runs to `maxiter` with `converged=false`, as
+  `NormL1(0)` does for `y = 0` (unless another exit applies). An exact `Xᵀy = 0` need not give a computed
+  `λmax = 0`: in `Float32`, `X = reshape(Float32[2^24, 1, -2^24, -1], 4, 1)` with `y = ones(Float32, 4)` has `Xᵀy = 0`,
+  but `2^24 + 1` rounds to `2^24` when the terms are summed in that order, so the computed `λmax` can be 1,
+  and the check then works with that rounded value; a stop can then count at a point whose residual for the
+  exact data is not small relative to the computed `S`.
+  A start `x0` with a finite `f(x0)` is accepted even if `g(x0)` overflows in `T` (for example a ridge term
+  `(λ2/2)‖x0‖²` above `floatmax(T)`). An error raised in the step of an iteration (its line search, or the
+  check that the accepted objective is finite) restores the last accepted iterate and is rethrown, as for `NormL1`. On a dense `Vector` or a one-dimensional `SparseIterate`, `CDSolver`
+  accepts `NormL1` only: it refuses an `ElasticNet` with an `ArgumentError`, and support in CD is planned.
 - The check bounds the residual relative to `max(λ, λmax)`. A coordinate whose
   gradient is on a scale far below `λmax` can stay inaccurate when the check
   passes: for `X = diag(1e6, 1)`, `y = [1e6, 1]`, `λ = 0` from a cold start with

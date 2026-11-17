@@ -90,7 +90,7 @@ pgd_kkt = [iszero(beta_pgd[j]) ?
 ~~~
 
 With the defaults, `converged=true` means that a stopping test proposed a stop and
-that the computed KKT residual is below `max(gradtol, 64eps(T)) * max(λ, λmax)`; the
+that the computed KKT residual is below `max(gradtol, 64eps(T)) * max(λ, λmax)` (`λ` the ℓ1 level of the penalty); the
 coefficients can still differ from the analytic answer, as the displayed errors show,
 and this is not a general guarantee. Tighten tolerances for results you plan to report
 and verify an independent KKT residual. See

@@ -17,6 +17,7 @@ standard = [
   "sparse_cd",
   "accelerated_pgd",
   "stopping_scale",
+  "elasticnet",
 ]
 full = [
   "examples",

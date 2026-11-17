@@ -456,13 +456,13 @@ end
 function solve!(x, f, g, method::CDSolver; kwargs...)
   _check_keywords(kwargs)
   if x isa SparseIterate
-    _check_owner_problem(x, f, g)
+    _check_owner_problem(x, f, g, false)
     return _solve_owner!(x, f, g, method)
   elseif x isa BlockIterate
     _check_block_problem(x, f, g, method)
     return _solve_owner!(x, f, g, method)
   end
-  _check_problem(x, f, g)
+  _check_problem(x, f, g, false)
   _solve_dense!(x, f, g, method)
 end
 solve!(x, f, g, method::ProximalSolver, args...; kwargs...) =

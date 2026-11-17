@@ -802,6 +802,38 @@ end
   @test x == [1e200, 1e200]
 end
 
+@testset "APG refuses the penalties it does not support, with the ElasticNet message (#324)" begin
+  msg = "only unweighted NormL1 or unweighted ElasticNet is supported"
+  vector_msg = "x must be a dense Vector{Float32} or Vector{Float64}"
+  method = AccProxGradDescent()
+  refused_with(x, f, g, m, msg) = begin
+    original = copy(x)
+    @test_throws ArgumentError(msg) solve!(x, f, g, m)
+    @test isequal(x, original)
+  end
+  for T in (Float64, Float32)
+    X, y, x = T[1 0; 0 2], T[1, -1], T[.3, -.2]
+    f = LeastSquaresLoss(y, X)
+    en = ElasticNet(T(.1), T(.2))
+    for g in (ElasticNet(T(.1), T(.2), ones(T, 2)), Scaled(en, 2), NormL1(T(.1), ones(T, 2)), SqrNormL2(T(.1)))
+      refused_with(x, f, g, method, msg)
+    end
+    refused_with(x, f, ElasticNet(T(Inf), zero(T)), method, "penalty lambda1 must be finite and nonnegative")
+    refused_with(x, f, ElasticNet(zero(T), T(Inf)), method, "penalty lambda2 must be finite and nonnegative")
+    if T === Float32
+      for a in (1e40, 1e-60)
+        refused_with(x, f, ElasticNet(a, 0.1), method, "penalty lambda1 is not representable without overflow or underflow in Float32")
+        refused_with(x, f, ElasticNet(0.1, a), method, "penalty lambda2 is not representable without overflow or underflow in Float32")
+      end
+    end
+    refused_with(SparseIterate(x), f, en, method, vector_msg)
+    refused_with(SparseIterate(x), f, ElasticNet(T(.1), T(.2), ones(T, 2)), method, vector_msg)
+    refused_with(Int[0, 0], f, en, method, vector_msg)
+    @test_throws DimensionMismatch solve!(zeros(T, 3), f, en, method)
+    @test x == T[.3, -.2]
+  end
+end
+
 @testset "trace, callbacks, limits, result identity and counters" begin
   for T in (Float64, Float32)
     X, y = correlated(T, 40, 15; seed = 3)

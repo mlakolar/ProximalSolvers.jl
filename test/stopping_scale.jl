@@ -303,6 +303,25 @@ alloc_check(state, f, g, options) = @allocated PS._stationary!(state, f, g, opti
   end
 end
 
+# The bytes of the conversions that one check must make: a Rational{BigInt} level allocates when it is converted
+# to T. The complete check converts each level once, so it allocates no more than the conversions themselves.
+convert_bytes(::Type{T}, λ) where T = minimum((@allocated T(λ)) for _ in 1:3)
+convert_bytes(::Type{T}, λ1, λ2) where T = minimum((@allocated (T(λ1), T(λ2))) for _ in 1:3)
+min_alloc_check(state, f, g, options) = minimum(alloc_check(state, f, g, options) for _ in 1:3)
+@testset "the stationarity check converts each level once: Rational{BigInt} levels" begin
+  o = ProximalOptions(gradtol = 1e-5)
+  λ1, λ2 = big(1) // big(3), big(1) // big(7)
+  for T in (Float64, Float32), method in METHODS
+    f = LeastSquaresLoss(T[.6, 1], T[1 0; 0 1])
+    for (g, bytes) in ((NormL1(λ1), convert_bytes(T, λ1)), (ElasticNet(λ1, λ2), convert_bytes(T, λ1, λ2)))
+      @test bytes > 0
+      state = PS.initial_state(method, o, f, g, T[.5, 0])
+      PS._stationary!(state, f, g, o)
+      @test min_alloc_check(state, f, g, o) <= bytes
+    end
+  end
+end
+
 # The residual of the check is ProximalBase's kkt_violation(NormL1(λ), ∇f(x), x) with λ = T(λ0). The
 # reference is a local loop of the documented formula with the coefficient c: max(|gᵢ| - c, 0) where
 # xᵢ = 0 and |gᵢ + c sign xᵢ| elsewhere, started at 0; the default coefficient is T(λ0), the one
@@ -393,7 +412,7 @@ end
   # a UInt128 level that converts to floatmax(Float32); the penalty validation accepts it
   λ0 = typemax(UInt128) - (UInt128(1) << 103)
   @test Float32(λ0) == floatmax(Float32)
-  @test PS._check_penalty(NormL1(λ0), Float32[1], Float32) === nothing
+  @test PS._check_penalty(NormL1(λ0), Float32[1], Float32, true) === nothing
   level_decision(Float32, λ0, Inf32)
 end
 

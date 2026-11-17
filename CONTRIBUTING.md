@@ -1,7 +1,7 @@
 # Developing the minimal dense core
 
 Keep PB's committed exact source pin fixed outside a reviewed integration PR. The supported surface is dense
-Float32/Float64 LS+unweighted L1; unsupported features need separate reviewed
+Float32/Float64 LS with an unweighted L1 penalty (and, for PGD and APG only, an unweighted ElasticNet); unsupported features need separate reviewed
 restoration PRs. No version bump or release follows from the reduction.
 
 ```sh
@@ -69,7 +69,7 @@ extrapolation, objective-increase restart and backtracking that accepts a step o
 when the LS bound is certified by rounding-error bounds under the assumptions stated
 in the implementation notes; its
 tests in `test/accelerated_pgd.jl` check accuracy against BigFloat references from
-the raw data, never only against CD or PGD. Retain C0 numerical fixtures unchanged. Test correctness
+the raw data, never only against CD or PGD; `test/elasticnet.jl` checks its `ElasticNet` solves with PGD and APG against BigFloat references from the raw data. Retain C0 numerical fixtures unchanged. Test correctness
 independently using raw objective/KKT and analytic/finite-support references.
 The nonfinite-CD-objective refusal is a separate bounded guard, not range recovery.
 
