@@ -180,36 +180,118 @@ function analytic(X, y, α, λ1, λ2)
 end
 
 # the bytes allocated by one call, measured inside a function so that no argument is boxed
-residual_allocations(g, x, a, b) = @allocated ProximalSolvers._kkt_residual(g, x, a, b)
+residual_allocations(pen, grad, x, ::Type{T}) where T = @allocated PS._stationarity_residual(pen, grad, x, T)
 
-@testset "the residual of the stopping check for the elastic net" begin
+# Independent loops of the formulas of the stopping check, with the coefficients c = T(λ1) and r = T(λ2)
+# given as T values: max(|gᵢ| - c, 0) where xᵢ = 0 and |(gᵢ + r xᵢ) + c sign xᵢ| elsewhere, started at 0,
+# and, for the lasso, the same with r = 0 and no ridge term.
+function reference_elasticnet(grad::Vector{T}, x::Vector{T}, c::T, r::T) where T
+  m = zero(T)
+  for i in eachindex(grad, x)
+    v = iszero(x[i]) ? abs(grad[i]) - c : abs((grad[i] + r * x[i]) + c * sign(x[i]))
+    m = max(m, v)
+  end
+  m
+end
+function reference_lasso(grad::Vector{T}, x::Vector{T}, c::T) where T
+  m = zero(T)
+  for i in eachindex(grad, x)
+    v = iszero(x[i]) ? abs(grad[i]) - c : abs(grad[i] + c * sign(x[i]))
+    m = max(m, v)
+  end
+  m
+end
+
+@testset "the residual of the stopping check: ProximalBase's kkt_violation at the converted levels" begin
   for T in (Float32, Float64)
-    # for λ2 = 0 the 4-argument method is the 3-argument one, bit for bit, also for -0.0 and signs
+    # for λ2 = 0 the residual of the elastic net is the one of the lasso, also for -0.0 and signs
     grad = T[0.3, -2, 0, 0.5, -0.0, 7, -0.25, 1]
     for x in (T[0, 1, -0.0, -2, 0.0, 3, 0, 0], T[0.0, -0.0, 0, 0, 0, 0, 0, 0], T[1, -1, 1, -1, 1, -1, 1, -1])
       for λ in (zero(T), T(0.5), T(2), T(10))
-        @test ProximalSolvers._kkt_residual(grad, x, λ, zero(λ)) === ProximalSolvers._kkt_residual(grad, x, λ)
+        en = PS._stationarity_residual(ElasticNet(λ, zero(λ)), grad, x, T)
+        l1 = PS._stationarity_residual(NormL1(λ), grad, x, T)
+        @test en === l1
+        @test l1 === reference_lasso(grad, x, λ)
+        @test en === reference_elasticnet(grad, x, λ, zero(λ))
       end
     end
     # a NaN gradient entry or iterate entry propagates
     for (g, x) in ((T[NaN, 1], T[0, 1]), (T[1, 1], T[0, NaN]), (T[1, NaN], T[1, 0]))
-      @test isnan(ProximalSolvers._kkt_residual(g, x, T(0.5), T(2)))
-      @test isnan(ProximalSolvers._kkt_residual(g, x, T(0.5), zero(T)))
+      @test isnan(PS._stationarity_residual(ElasticNet(T(0.5), T(2)), g, x, T))
+      @test isnan(PS._stationarity_residual(ElasticNet(T(0.5), zero(T)), g, x, T))
+      @test isnan(PS._stationarity_residual(NormL1(T(0.5)), g, x, T))
     end
     # worked values, λ1 = 1, λ2 = 2, x = [0, 0.5]: a minimizer (residual 0), and a gradient at which
     # entry 2 has residual |-1 + 1| = 0 without the λ2 term and |-1 + 2 * 0.5 + 1| = 1 with it
     x = T[0, 0.5]
-    @test ProximalSolvers._kkt_residual(T[0.7, -2.0], x, one(T), T(2)) === zero(T)
-    @test ProximalSolvers._kkt_residual(T[1.5, -1.0], x, one(T), T(2)) === one(T)
-    @test ProximalSolvers._kkt_residual(T[1.5, -1.0], x, one(T)) === T(0.5)
-    # the call allocates nothing once compiled
+    en = ElasticNet(one(T), T(2))
+    @test PS._stationarity_residual(en, T[0.7, -2.0], x, T) === zero(T)
+    @test PS._stationarity_residual(en, T[1.5, -1.0], x, T) === one(T)
+    @test PS._stationarity_residual(NormL1(one(T)), T[1.5, -1.0], x, T) === T(0.5)
+    # random vectors: structural zeros, -0.0, and gradients exactly at the boundary of each formula; the
+    # levels are of other types than T, and the coefficients of the loops are T(λ1) and T(λ2)
+    rng = Xoshiro(324)
+    for λ1 in (0.3, 0.3f0, 2, big"0.3"), λ2 in (0.0, 0.5f0, 3, big"0.2"), n in (0, 1, 16, 17, 300)
+      c, r = T(λ1), T(λ2)
+      for rep in 1:3
+        x = T[rand(rng) < 0.4 ? zero(T) : randn(rng, T) for _ in 1:n]
+        for i in eachindex(x)
+          iszero(x[i]) && rand(rng) < 0.3 && (x[i] = -zero(T))
+        end
+        grad = Vector{T}(undef, n)
+        for i in 1:n
+          grad[i] = rand(rng) < 0.5 ? (iszero(x[i]) ? (rand(rng, Bool) ? c : -c) : -(r * x[i] + c * sign(x[i]))) :
+                                      2 * randn(rng, T)
+        end
+        # the coefficients are T(λ1) and T(λ2) on both sides and the entry formulas are evaluated in T
+        @test PS._stationarity_residual(ElasticNet(λ1, λ2), grad, x, T) === reference_elasticnet(grad, x, c, r)
+        @test PS._stationarity_residual(NormL1(λ1), grad, x, T) === reference_lasso(grad, x, c)
+      end
+    end
+    # the call allocates nothing once compiled, for levels of type T and for a BigFloat level
     g = randn(Xoshiro(1), T, 64)
     x = randn(Xoshiro(2), T, 64)
     x[1:20] .= 0
-    a, b = T(0.1), T(0.2)
-    ProximalSolvers._kkt_residual(g, x, a, b)
-    @test residual_allocations(g, x, a, b) == 0
+    for (pen_en, pen_l1) in ((ElasticNet(T(0.1), T(0.2)), NormL1(T(0.1))), (ElasticNet(big"0.1", big"0.2"), NormL1(big"0.1")))
+      PS._stationarity_residual(pen_en, g, x, T)
+      PS._stationarity_residual(pen_l1, g, x, T)
+      @test residual_allocations(pen_en, g, x, T) == 0
+      @test residual_allocations(pen_l1, g, x, T) == 0
+    end
   end
+end
+
+# Levels whose conversion to T depends on how it is rounded (as for the lasso check): the residual uses the
+# coefficients T(λ), not another rounding of λ. With x = [1] and the gradient -2c, the residual with
+# the coefficients c = T(λ) is 0, and with the other rounding `other` it is not.
+@testset "the residual of the stopping check uses T(λ): levels that round differently" begin
+  big256 = setprecision(() -> BigFloat("0.3"), BigFloat, 256)
+  cases = (
+    ("BigFloat, precision 24, Float64", Float64, big256, 24, 0.30000001192092896),
+    ("BigFloat, precision 8, Float32", Float32, big256, 8, 0.30078125f0),
+    ("Rational, Float32", Float32, 1152921573326323713 // 1152921504606846976, 0, 1f0),
+    ("Int128, Float32", Float32, (Int128(1) << 100) + (Int128(1) << 76) + 1, 0, nothing),
+  )
+  for (name, T, λ, prec, other) in cases
+    c = T(λ)
+    o = other === nothing ? T(Float64(λ)) : T(other)
+    @test c != o
+    name == "BigFloat, precision 24, Float64" && @test precision(λ) == 256 && c == 0.3
+    x = T[1]
+    grad = T[-2c]
+    @test reference_elasticnet(grad, x, c, c) === zero(T)
+    @test reference_elasticnet(grad, x, o, o) != zero(T)
+    grad1 = T[-c]
+    @test reference_lasso(grad1, x, c) === zero(T)
+    @test reference_lasso(grad1, x, o) != zero(T)
+    with_precision(f) = prec == 0 ? f() : setprecision(f, BigFloat, prec)
+    en = with_precision(() -> PS._stationarity_residual(ElasticNet(λ, λ), grad, x, T))
+    l1 = with_precision(() -> PS._stationarity_residual(NormL1(λ), grad1, x, T))
+    @test (name, en) == (name, zero(T))
+    @test (name, l1) == (name, zero(T))
+  end
+  @test Float32((Int128(1) << 100) + (Int128(1) << 76) + 1) != Float32(Float64((Int128(1) << 100) + (Int128(1) << 76) + 1))
+  @test Float32(1152921573326323713 // 1152921504606846976) != Float32(Float64(1152921573326323713 // 1152921504606846976))
 end
 
 @testset "orthogonal design: the closed-form minimizer of the elastic net" begin
@@ -393,8 +475,9 @@ function solve_allocations(method, f, g, x0, options)
   end for _ in 1:3)
 end
 function validation_allocations(g, ::Type{T}) where T
-  PS._check_penalty(g, T, true)
-  minimum((@allocated PS._check_penalty(g, T, true)) for _ in 1:3)
+  x = zeros(T, 1)
+  PS._check_penalty(g, x, T, true)
+  minimum((@allocated PS._check_penalty(g, x, T, true)) for _ in 1:3)
 end
 
 @testset "allocations: an ElasticNet solve allocates no more than the NormL1 solve, beyond its own penalty validation" begin
