@@ -313,7 +313,7 @@ internal counters. The result shares `x`.
 function solve!(x, f, g, method::AccProxGradDescent,
                 options::ProximalOptions = ProximalOptions(); kwargs...)
   _check_keywords(kwargs)
-  _check_problem(x, f, g, true)
+  _check_problem(x, f, g)
   _check_method(method, eltype(x))
   _check_bound_size(f, eltype(x))
   t0 = time()

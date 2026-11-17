@@ -61,11 +61,13 @@ certificate (see [the stationarity check](https://mlakolar.github.io/ProximalSol
 [numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/)
 and [solver settings](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/).
 
-PGD and APG also solve the elastic net, with `ElasticNet(λ1, λ2)` as the penalty
-`λ1‖β‖₁ + (λ2/2)‖β‖₂²` (levels `λ1, λ2 ≥ 0`, unweighted); the stopping check then uses the residual of the
-elastic-net optimality condition, with the same bound (`λ2` does not enter it). On a dense `Vector`
-or a one-dimensional `SparseIterate`, `CDSolver` accepts `NormL1` only and refuses an `ElasticNet`;
-support in CD is planned. See
+CD, PGD and APG also solve the elastic net, with `ElasticNet(λ1, λ2)` as the penalty
+`λ1‖β‖₁ + (λ2/2)‖β‖₂²` (levels `λ1, λ2 ≥ 0`, unweighted); for PGD and APG the stopping check then uses the residual of the
+elastic-net optimality condition, with the same bound (`λ2` does not enter it). `CDSolver` takes the
+coordinate step from ProximalBase's proximal operator of the penalty, on a dense `Vector` or a one-dimensional
+`SparseIterate`; as for the lasso, its `converged` is the change test, not a KKT certificate. With `λ2 > 0`, a
+coordinate whose scaled curvature (the loss scale times the squared norm of its column) or the reciprocal of that
+is below `floatmin` of the type that combines the scale with the working type is refused (with `λ2 = 0` the step takes the lasso's range-safe form). See
 [the elastic-net example](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples/07_elasticnet/).
 
 The supported problem uses a finite dense `Matrix{T}`, finite `Vector{T}`

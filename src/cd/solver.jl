@@ -3,10 +3,16 @@
                momentum=nothing, rng=Random.default_rng(), anderson=0,
                gaptol=0, gapsafe=false)
 
-Coordinate descent for the least-squares lasso. Call
+Coordinate descent for the least-squares lasso and elastic net. Call
 `solve!(beta, f, g, CDSolver())` with matching `Float32` or `Float64`
 design/response data and coefficients. The coefficient storage can be
-a dense `Vector` or a one-dimensional ProximalBase `SparseIterate`.
+a dense `Vector` or a one-dimensional ProximalBase `SparseIterate`. The penalty
+is an unweighted `NormL1(lambda)` or an unweighted `ElasticNet(lambda1, lambda2)`;
+for an `ElasticNet` the coordinate step is ProximalBase's proximal operator of the
+penalty. With `lambda2 > 0`, a coordinate whose `s * a` or its reciprocal is below
+`floatmin` of the type that combines `s` with the working type (`s` the loss scale,
+`a` the squared norm of the column) is refused with an `ArgumentError` that names the
+coordinate; with `lambda2 = 0` the step is the lasso's.
 For a group lasso it can be a ProximalBase `BlockIterate`, as described below.
 
 `CDSolver()` uses random coordinate order and the algorithm's default
@@ -456,13 +462,13 @@ end
 function solve!(x, f, g, method::CDSolver; kwargs...)
   _check_keywords(kwargs)
   if x isa SparseIterate
-    _check_owner_problem(x, f, g, false)
+    _check_owner_problem(x, f, g)
     return _solve_owner!(x, f, g, method)
   elseif x isa BlockIterate
     _check_block_problem(x, f, g, method)
     return _solve_owner!(x, f, g, method)
   end
-  _check_problem(x, f, g, false)
+  _check_problem(x, f, g)
   _solve_dense!(x, f, g, method)
 end
 solve!(x, f, g, method::ProximalSolver, args...; kwargs...) =
