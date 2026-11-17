@@ -27,7 +27,7 @@ coordinate descent for the group lasso on a `BlockIterate` with noncontiguous gr
 (`GroupNormL2`) on a seeded problem, prints the groups and the active ones, and checks the
 result with an independent group KKT residual computed from the data. The seventh solves a
 seeded correlated elastic net (`ElasticNet(λ1, λ2)`) with both gradient methods, checks the
-objective and the KKT residual from X and y, and checks that the elastic-net solution has a
+objective from X and y and the KKT residual (ProximalBase's `kkt_violation` at the gradient from X and y), and checks that the elastic-net solution has a
 smaller Euclidean norm than the lasso solution with the same ℓ1 level; coordinate descent
 refuses an `ElasticNet` (support is planned). Historical feature
 examples remain on legacy/full and protected archives.
