@@ -11,9 +11,11 @@ Peak memory is recorded only as process-wide `maxrss_bytes`, not per case.
 
 ## Current core
 
-Master's core is `CDSolver` (dense `Vector`, vector `SparseIterate`, or `BlockIterate` for the
-group lasso) and `ProximalGradientDescent` (dense `Vector`) on Float32/Float64 least-squares
-lasso (the group lasso with `CDSolver` only), with ProximalBase pinned to an exact development commit in the root `Project.toml` `[sources]`.
+Master's core is `CDSolver` (dense `Vector` or vector `SparseIterate` for least-squares
+lasso, and `BlockIterate` for group lasso), `ProximalGradientDescent`, and
+`AccProxGradDescent` (both with dense `Vector` for least-squares lasso), all on
+Float32/Float64. ProximalBase is pinned to an exact development commit in the root
+`Project.toml` `[sources]`.
 From the package root, with Julia 1.10 or later and Python 3.11 or later:
 
 ```sh
@@ -147,6 +149,12 @@ of the table, with the same target and certificate, under `accuracy_options()`
 names a setting, not a `converged = true` certification: the status is the certificate's, so a
 solve that ends `stagnated` or at `maxiter` with an accurate minimizer is `ok`, and a
 `converged = true` solve above the target is `target_missed`. There are no Float32 `acc-` cases.
+
+With all groups selected, the default quick suite has 30 supported cases: 24 standard
+lasso cases, 4 group-lasso CD `BlockIterate` cases, and 2 unchanged historical cases.
+The extended suite includes quick and has 56 supported cases: 40 standard lasso cases,
+10 Float64 PGD/APG `acc-` cases, 4 group-lasso CD cases, and the same 2 historical cases.
+The other 100 historical cases are deferred in the extended suite.
 
 Float32 inputs are the Float64 draw rounded once; the data hash covers the rounded values and
 the start. A warm start is the solution at 1.25λ, computed in Float64 by the certificate
