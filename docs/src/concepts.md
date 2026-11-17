@@ -22,7 +22,7 @@ For example, soft-thresholding `0.3` at threshold `0.5` gives `0`, while thresho
 
 ## Coordinate descent (CD)
 
-CD updates **one coefficient at a time** while holding the rest fixed, using a scalar soft-thresholding update for the lasso. It repeats sweeps (`passes`) over coordinates, sometimes focusing on the nonzero ones. It is a natural starting point for lasso and supports either a dense coefficient vector or a one-dimensional ProximalBase `SparseIterate`.
+CD updates **one coefficient at a time** while holding the rest fixed, using a scalar soft-thresholding update for the lasso. It repeats sweeps (`passes`) over coordinates, sometimes focusing on the nonzero ones. It is a natural starting point for lasso and supports either a dense coefficient vector or a one-dimensional ProximalBase `SparseIterate`. For a group lasso, CD updates one whole group of coefficients at a time on a ProximalBase `BlockIterate`; see [Choosing a solver](choosing-solver.md).
 
 ~~~@example concepts_cd
 using ProximalBase, ProximalSolvers

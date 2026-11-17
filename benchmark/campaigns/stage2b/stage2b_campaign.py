@@ -3,11 +3,16 @@
 
     python3 -B stage2b_campaign.py preflight --config FILE --base BASE [--official --freeze-sha SHA] [--arms AB,AA]
                                              [--julia MM=PATH ...]
+                                             [--campaign-dir DIR]
     python3 -B stage2b_campaign.py prepare   --config FILE --base BASE --step fetch|finalize [--julia MM=PATH ...]
                                              [--archive FILE]
     python3 -B stage2b_campaign.py run       --config LOCK --base BASE --official --freeze-sha SHA [--julia MM=PATH ...]
     python3 -B stage2b_campaign.py pilot     --config PILOT --base BASE [--arms AB] [--julia MM=PATH ...]
     python3 -B stage2b_campaign.py verify    --base BASE --out FILE [--config PILOT_CONFIG]
+
+Every subcommand takes `--campaign-dir DIR`: the directory (inside the repository) whose schedule.toml and
+case-mapping.toml define the campaign. The default is the directory of this script, the original Stage 2B campaign;
+a successor campaign keeps its own definition files in its own directory (stage2b-cd/, #333).
 
 Standard library only (Python 3.11 or later). The driver launches `benchmark/run.jl` of each role's checkout and
 never measures anything itself. Everything that depends on Julia or on the host is injected: the pure functions
@@ -75,6 +80,23 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 BENCH = HERE.parent.parent
+# The directory that holds the campaign definition (schedule.toml and case-mapping.toml). It is this directory unless
+# `--campaign-dir` names another one inside the repository (see `campaign_directory`); every read of the schedule and the
+# mapping goes through it, nothing else does (the tools of the campaign stay in HERE).
+CAMPAIGN_DIR = HERE
+
+
+def campaign_directory(text):
+    """The directory `--campaign-dir` names: a directory of this repository that holds schedule.toml and
+    case-mapping.toml (inside the repository so that the verifier can ask git about the two files)."""
+    directory = Path(text).resolve()
+    repo = HERE.parents[2]
+    if repo not in directory.parents:
+        raise UsageError(f"--campaign-dir {text!r} is not a directory inside the repository {repo}")
+    for name in ("schedule.toml", "case-mapping.toml"):
+        if not (directory / name).is_file():
+            raise UsageError(f"--campaign-dir {text!r} has no {name}")
+    return directory
 
 
 def load_comparator():
@@ -568,7 +590,7 @@ def static_candidate_problems(stack):
     """(code, detail) of the static checks of a stack B candidate: ProximalBase is a 0.6 release and nothing
     equals the historical stack A. Used by the gate and again where `verify` reads an archived lock (a
     verification-consistency check only: it does not replace the gate or the external F1-B approval)."""
-    historical = mc.load_schedule(HERE / "schedule.toml")["stack_a"]
+    historical = mc.load_schedule(CAMPAIGN_DIR / "schedule.toml")["stack_a"]
     found = []
     table = stack.get("proximalbase") or {}
     if not (isinstance(table.get("version"), str) and re.match(r"0\.6\.", table["version"])):
@@ -578,7 +600,10 @@ def static_candidate_problems(stack):
             if (stack.get(key) or {}).get(field) == historical[key][field]:
                 found.append((f"HISTORICAL_{key.upper()}_{field.upper()}",
                               f"stack_b {key}.{field} equals the historical stack A value"))
-    if stack.get("harness_hash") == historical["harness_hash"]:
+    # Equal harness hashes are a misidentification only where stack A runs the frozen Stage 2A harness. A successor
+    # campaign whose stack A carries a declared harness-only port (its [stack_a] harness_hash is not the Stage 2A one)
+    # runs the same harness on both stacks by design, and stack B is still told apart by the checks above.
+    if stack.get("harness_hash") == historical["harness_hash"] and historical["harness_hash"] == stage2a_harness_hash():
         found.append(("HISTORICAL_HARNESS_HASH", "stack_b harness_hash equals the historical stack A value"))
     return found
 
@@ -984,7 +1009,7 @@ def plan_from_lock(lock, base, julia_bins, parent_env, freeze_sha, bundled_depot
     """The plan of an official run. `base/schedule.toml` is the copy the campaign uses."""
     base = Path(base)
     for name in ("schedule.toml", "case-mapping.toml"):
-        if not (base / name).is_file() or sha256_file(base / name) != sha256_file(HERE / name):
+        if not (base / name).is_file() or sha256_file(base / name) != sha256_file(CAMPAIGN_DIR / name):
             raise Refused(f"{name} of the base is not the committed file", field=name)
     sched = mc.load_schedule(base / "schedule.toml")
     lock = parse_lock(copy.deepcopy(lock), strata=list(sched["strata"]))
@@ -1008,10 +1033,10 @@ def plan_from_pilot(config, base, julia_bins, parent_env, arms=None, bundled_dep
     if "pilot" not in base.name:
         raise LockRefusal("base", f"the base directory name {base.name!r} lacks pilot")
     if not (base / "case-mapping.toml").is_file() or sha256_file(base / "case-mapping.toml") != sha256_file(
-            HERE / "case-mapping.toml"):
+            CAMPAIGN_DIR / "case-mapping.toml"):
         raise Refused("case-mapping.toml of the base is not the committed file", field="case-mapping.toml")
     sched = mc.load_schedule(base / "schedule.toml")
-    official = mc.load_schedule(HERE / "schedule.toml")
+    official = mc.load_schedule(CAMPAIGN_DIR / "schedule.toml")
     config = parse_pilot(copy.deepcopy(config), official)
     if sched["id"] != config["schedule"]["id"] or sched["id"] == official["id"] or "-pilot" not in sched["id"]:
         raise LockRefusal("schedule.id", f"the schedule copy {sched['id']!r} is not the pilot schedule "
@@ -2719,7 +2744,7 @@ def verifier_schedule_problems(run=subprocess.run):
     repo = HERE.parents[2]
     problems = []
     for name in POLICY_FILES:
-        relative = (HERE / name).relative_to(repo).as_posix()
+        relative = (CAMPAIGN_DIR / name).relative_to(repo).as_posix()
         for argv, text in ((["ls-files", "--error-unmatch", "--", relative], "is not tracked"),
                            (["diff", "--quiet", "HEAD", "--", relative], "is modified")):
             try:
@@ -2735,7 +2760,7 @@ def verifier_schedule_problems(run=subprocess.run):
 def check_policy_copy(base, campaign, problems):
     """The archived case-mapping.toml equals the verifier's and campaign.json records its digest (checked before
     anything is derived from the mapping)."""
-    trusted = (HERE / "case-mapping.toml").read_bytes()
+    trusted = (CAMPAIGN_DIR / "case-mapping.toml").read_bytes()
     path = Path(base) / "case-mapping.toml"
     if not path.is_file() or path.read_bytes() != trusted:
         problems.append("case-mapping.toml of the archive differs from the verifier's case-mapping.toml")
@@ -2782,7 +2807,7 @@ def check_pilot_binding(base, sched, campaign, config_path, problems):
     if archived.read_bytes() != held:
         problems.append("pilot-config.toml differs from the configuration supplied with --config")
     try:
-        config = parse_pilot(tomllib.loads(held.decode("utf-8")), mc.load_schedule(HERE / "schedule.toml"))
+        config = parse_pilot(tomllib.loads(held.decode("utf-8")), mc.load_schedule(CAMPAIGN_DIR / "schedule.toml"))
     except (Refused, tomllib.TOMLDecodeError, UnicodeDecodeError, mc.Usage) as error:
         problems.append(f"pilot configuration: {error}")
         return
@@ -2791,7 +2816,7 @@ def check_pilot_binding(base, sched, campaign, config_path, problems):
     if "session_id" in config["campaign"] and config["campaign"]["session_id"] != campaign.get("session_id"):
         problems.append("pilot configuration: the session id differs from the attempt")
     problems += [f"pilot configuration: {p}" for p in pilot_schedule_problems(
-        config, sched, mc.load_schedule(HERE / "schedule.toml"), schedule_arms(base))]
+        config, sched, mc.load_schedule(CAMPAIGN_DIR / "schedule.toml"), schedule_arms(base))]
     if campaign.get("pilot_config_sha256") != sha256_file(archived):
         problems.append("pilot-config.toml differs from the digest recorded in logs/campaign.json")
     declared_path = base / "declared-differences.toml"
@@ -2919,7 +2944,7 @@ def verify(base, out, replay=True, config=None, run=subprocess.run):
     problems = []
     document = {"schema": 1, "problems": problems}
     sched, arms, reference = None, ("AB",), base
-    verifier = mc.load_schedule(HERE / "schedule.toml")
+    verifier = mc.load_schedule(CAMPAIGN_DIR / "schedule.toml")
     campaign = read_json_file(base / "logs" / "campaign.json") or {}
     pairs = [(campaign.get("campaign_id"), campaign.get("schedule_id"))]
     try:
@@ -2941,9 +2966,9 @@ def verify(base, out, replay=True, config=None, run=subprocess.run):
     if mode == "official":
         # The reference for an official attempt is the verifier's own tracked, unmodified schedule.toml, never
         # the archive: arms, roots, blocks and counts derive from it.
-        reference = HERE
+        reference = CAMPAIGN_DIR
         problems += verifier_schedule_problems(run)
-        trusted = (HERE / "schedule.toml").read_bytes()
+        trusted = (CAMPAIGN_DIR / "schedule.toml").read_bytes()
         if not (base / "schedule.toml").is_file() or (base / "schedule.toml").read_bytes() != trusted:
             problems.append("schedule.toml of the archive differs from the verifier's schedule.toml")
         if campaign.get("schedule_sha256") != sha256_bytes(trusted):
@@ -3330,7 +3355,7 @@ class RealHooks:
     def export(self, spec, mm, reps, out):
         argv = julia_command(self.plan, spec, mm, [
             str(HERE / "export_fingerprints.jl"), "--harness", f"{spec.checkout}/benchmark",
-            "--expected-package-root", str(spec.checkout), "--schedule", str(HERE / "schedule.toml"),
+            "--expected-package-root", str(spec.checkout), "--schedule", str(CAMPAIGN_DIR / "schedule.toml"),
             "--reps", ",".join(str(r) for r in reps), "--expected-harness-hash", spec.expected["harness_hash"],
             "--out", str(out)])
         return self._step(f"finalize-{spec.name}-{mm}-export", spec, mm, argv, launch_env(self.plan, spec, mm, 1))
@@ -3580,7 +3605,7 @@ def prepare_settings(args, kind, config, base, official_sched, environ, bins=Non
     else:
         if "stack_b" not in config:
             raise Refused("the lock has no [stack_b] candidate", field="stack_b")
-        arms = schedule_arms(HERE)
+        arms = schedule_arms(CAMPAIGN_DIR)
         repository = config["stack_b"]["proximalsolvers"]["source"]
         pb_source = config["stack_b"]["proximalbase"]["source"]
         archive, min_cpus, lock = getattr(args, "archive", None), 2, config
@@ -3589,7 +3614,8 @@ def prepare_settings(args, kind, config, base, official_sched, environ, bins=Non
     if args.step == "fetch" and not repository:
         raise Refused("prepare --step fetch needs the ProximalSolvers repository locator ([source] repository of "
                       "the pilot configuration)", field="source.repository")
-    return Prepare(kind=kind, config=config, config_path=Path(args.config), base=base, sched=official_sched,
+    # load_config calls an official lock "lock"; the Prepare and its stack roles know "pilot" and "official" only.
+    return Prepare(kind="pilot" if kind == "pilot" else "official", config=config, config_path=Path(args.config), base=base, sched=official_sched,
                    arms=arms, julia_bins=bins, parent_env=dict(environ), source=repository, pb_source=pb_source,
                    archive=archive, lock=lock, min_cpus=min_cpus, repo=HERE.parents[2])
 
@@ -3782,6 +3808,11 @@ def check_pb_tag(st, depot):
     return record
 
 
+def stage2a_harness_hash():
+    """The harness hash of the frozen Stage 2A campaign definition (STAGE2A_CAMPAIGN)."""
+    return stage2a_campaign()["proximalsolvers"]["harness_hash"]
+
+
 def stage2a_campaign():
     try:
         return tomllib.loads(STAGE2A_CAMPAIGN.read_text(encoding="utf-8"))
@@ -3794,7 +3825,8 @@ def write_base_files(st):
     replaces it), case-mapping.toml and the configuration."""
     st.base.mkdir(parents=True, exist_ok=True)
     configuration = "pilot-config.toml" if st.kind == "pilot" else "lock.toml"
-    for name, source in (("schedule.toml", HERE / "schedule.toml"), ("case-mapping.toml", HERE / "case-mapping.toml"),
+    for name, source in (("schedule.toml", CAMPAIGN_DIR / "schedule.toml"),
+                         ("case-mapping.toml", CAMPAIGN_DIR / "case-mapping.toml"),
                          (configuration, st.config_path)):
         target = st.base / name
         if target.exists():
@@ -3924,7 +3956,7 @@ def pilot_machine(observations, strata, roles, sample, cpu):
 def write_pilot_schedule(st, machine):
     """Replace the provisional schedule.toml of a pilot base by the derived one (once) and record both digests."""
     base = st.base
-    official_text = (HERE / "schedule.toml").read_bytes()
+    official_text = (CAMPAIGN_DIR / "schedule.toml").read_bytes()
     current = base / "schedule.toml"
     if current.read_bytes() != official_text:
         raise Refused("schedule.toml of the base is not the provisional copy of the committed schedule")
@@ -4101,11 +4133,16 @@ class Parser(argparse.ArgumentParser):
         raise UsageError(message)
 
 
+CAMPAIGN_DIR_HELP = ("the directory of the campaign definition, schedule.toml and case-mapping.toml (default: the "
+                     "directory of this script, the original Stage 2B campaign)")
+
+
 def build_parser():
     parser = Parser(description=__doc__, allow_abbrev=False, formatter_class=argparse.RawDescriptionHelpFormatter)
     commands = parser.add_subparsers(dest="command", required=True, parser_class=Parser)
     for name in ("preflight", "prepare", "run", "pilot"):
         sub = commands.add_parser(name, allow_abbrev=False)
+        sub.add_argument("--campaign-dir", help=CAMPAIGN_DIR_HELP)
         sub.add_argument("--config", required=True)
         sub.add_argument("--base", required=True)
         if name in ("preflight", "run"):
@@ -4120,6 +4157,7 @@ def build_parser():
             sub.add_argument("--archive", help="the Stage 2A archive (default: [archive] path of a pilot "
                                                "configuration)")
     verify_parser = commands.add_parser("verify", allow_abbrev=False)
+    verify_parser.add_argument("--campaign-dir", help=CAMPAIGN_DIR_HELP)
     verify_parser.add_argument("--base", required=True)
     verify_parser.add_argument("--out", required=True)
     verify_parser.add_argument("--config", help="the pilot configuration the verifier holds (a pilot needs it; "
@@ -4142,8 +4180,11 @@ def main(argv=None, hooks=None, facts=collect_repo_facts, environ=None):
     """The command line. `hooks` (a Hooks) is how tests, and later the real Julia hooks, reach the engine;
     `facts` reads the repository facts of the official gate. The mode comes from the subcommand only."""
     environ = os.environ if environ is None else environ
+    global CAMPAIGN_DIR
+    previous = CAMPAIGN_DIR
     try:
         args = build_parser().parse_args(sys.argv[1:] if argv is None else argv)
+        CAMPAIGN_DIR = campaign_directory(args.campaign_dir) if args.campaign_dir else HERE
         return dispatch(args, hooks, facts, environ)
     except (UsageError, mc.Usage) as error:
         report(f"usage error: {error}")
@@ -4158,6 +4199,8 @@ def main(argv=None, hooks=None, facts=collect_repo_facts, environ=None):
     except Exception as error:
         report(f"INTERNAL ERROR: {type(error).__name__}: {error}")
         return 3
+    finally:
+        CAMPAIGN_DIR = previous                      # one command's campaign never leaks into the next call
 
 
 def dispatch(args, hooks, facts, environ):
@@ -4169,7 +4212,7 @@ def dispatch(args, hooks, facts, environ):
         for problem in document["problems"][:20]:
             report(f"  {problem}")
         return status
-    official_sched = mc.load_schedule(HERE / "schedule.toml")
+    official_sched = mc.load_schedule(CAMPAIGN_DIR / "schedule.toml")
     strata = list(official_sched["strata"])
     if args.command == "run" and not args.official:
         raise UsageError("run needs --official (a campaign that is not official is a pilot)")
@@ -4196,7 +4239,8 @@ def dispatch(args, hooks, facts, environ):
                 shutil.copyfile(args.config, copy_path)
         return run_plan(plan, hooks, args.command == "preflight")
     lock = load_lock(args.config, strata=strata)
-    observed = facts(HERE.parents[2], args.config, base, HERE / "schedule.toml", HERE / "case-mapping.toml")
+    observed = facts(HERE.parents[2], args.config, base, CAMPAIGN_DIR / "schedule.toml",
+                     CAMPAIGN_DIR / "case-mapping.toml")
     unmet = official_gate(lock, observed, args.freeze_sha)
     if unmet:
         raise Refused("the official gate is not met: " + "; ".join(unmet[:5]), field="gate", problems=unmet)

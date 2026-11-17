@@ -33,7 +33,7 @@ lack, and enabled again by declaring the capability when the solver returns
 julia benchmark/setup.jl "$PWD" benchmark/results/env pinned
 PS_LIST=true julia --project=benchmark/results/env benchmark/run.jl         # supported cases
 PS_LIST=deferred julia --project=benchmark/results/env benchmark/run.jl     # deferred, with what they lack
-JULIA_NUM_THREADS=1 PS_EXPECTED_PROXIMALBASE_REV=30efdc48d900a32a391be15680df1a021e1e75f7 \
+JULIA_NUM_THREADS=1 PS_EXPECTED_PROXIMALBASE_REV=a19c59aa723d085d5d7cf5242895bda16eb77214 \
   julia --project=benchmark/results/env benchmark/run.jl
 python3 benchmark/validate.py benchmark/results benchmark/results/validation.json
 python3 benchmark/summarize.py benchmark/results benchmark/results/summary

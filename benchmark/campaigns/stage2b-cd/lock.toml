@@ -1,0 +1,69 @@
+schema = 1
+
+[campaign]
+id = "stage2b-cd-minimal-core-v1"
+
+[stack_b]
+harness_hash = "164fab53cac906e52e5a75e8b93658c1d174c14e"
+
+[stack_b.proximalsolvers]
+commit = "9f86a808bfac968f5421b9efeb6d0aecd7c1c775"
+tree = "55265af9a6bc7c459d4b5c43b0e9c85a7ad687b9"
+version = "0.3.2"
+package_hash = "dc9cb31ffa76847c45f185a47370dfe34832ee47"
+source = "https://github.com/mlakolar/ProximalSolvers.jl.git"
+
+[stack_b.proximalbase]
+commit = "50db4b1ef376cbe01831c3dd019b6be0027db0b6"
+tree = "4556e470aea2da876ea3b5a5998618f4c17326b1"
+version = "0.6.0-DEV"
+package_hash = "9b951b73f59e5bbf78b502cdec3c7aa954153b96"
+source = "https://github.com/mlakolar/ProximalBase.jl"
+release = "development"
+
+[stack_b.environments]
+[stack_b.environments."1.10"]
+project = "benchmark/campaigns/stage2b-cd/freeze/stack-b/julia-1.10/Project.toml"
+project_sha256 = "c661df8a5893f4739b497443817a940bafd88714f183d2cfb5436ff3ac755729"
+manifest = "benchmark/campaigns/stage2b-cd/freeze/stack-b/julia-1.10/Manifest.toml"
+manifest_sha256 = "5bae2c5e274182505937c7c9a2556fdb419bb10be46ab3c7d0a5b38c4b0832e6"
+
+[stack_b.environments."1.13"]
+project = "benchmark/campaigns/stage2b-cd/freeze/stack-b/julia-1.13/Project.toml"
+project_sha256 = "ca8d89cc42fc418b28a62a92322054b985018fcba2a639f5d0f155637039aa3e"
+manifest = "benchmark/campaigns/stage2b-cd/freeze/stack-b/julia-1.13/Manifest.toml"
+manifest_sha256 = "98608246ef318c97f93c9ab1c0772949d3b91881a312db3f89989151441ba68e"
+
+[[declared]]
+kind = "manifest"
+name = "ProximalBase"
+uuid = "0a755509-c5b1-5d6f-9b24-59bcda3c37a3"
+change = "changed"
+reason = "The dependency under comparison: Stack A uses the registered ProximalBase 0.5.4 (tag v0.5.4, tree 1226119e), Stack B the minimal-core ProximalBase 0.6.0-DEV at 50db4b1 (tree 4556e470). The Gate 0 ruling on #330 accepts this pair, labelled minimal-core post-#307, not a PB 0.6 release."
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+
+[[declared]]
+kind = "manifest"
+name = "PrecompileTools"
+uuid = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+change = "changed"
+julia = ["1.13"]
+reason = "A resolution difference of the Julia 1.13 manifests: the Stage 2A manifest (Stack A) records PrecompileTools 1.3.4 and the Stack B manifest, resolved against the current registry, 1.4.0. Both packages use it only for their precompile workloads; neither is a timed dependency."
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+
+[[declared]]
+kind = "compat"
+name = "ProximalBase"
+reason = "[compat] ProximalBase is 0.5 in the Stage 2A environment (Stack A) and 0.6 in the Stack B environment: the compat entry follows the dependency version declared above."
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+
+[approvals]
+G1 = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+G2 = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+G3 = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+G4 = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+G5 = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+G6 = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+G7 = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+G8 = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+case_mapping = ["https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"]

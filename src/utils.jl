@@ -113,6 +113,10 @@ end
 # 64 eps(T) is a floor of a few dozen units of roundoff, chosen without a bound on the error of the
 # computed gradient. It is not kept when S is not finite, when τ S is below floatmin(T) (a threshold
 # that may have underflowed; a computed S = 0, as for λ1 = 0 and y = 0, is one) or when ‖G‖∞ is not finite.
+# ‖G‖∞ is ProximalBase's full-point kkt_violation(h, ∇f(x), x) for NormL1(T(λ0)) or
+# ElasticNet(T(λ1), T(λ2)), the coefficients of the formulas above: the levels are converted to T before
+# the call, so that ProximalBase does not round them again. An infinite entry of x gives a non-finite
+# residual (Inf, or NaN when a NaN is read), so such a stop is not kept.
 # It is a computed residual, not a certificate in exact arithmetic.
 function _stationary!(state, f, g, options::ProximalOptions)
   T = eltype(state.x)
@@ -153,37 +157,13 @@ function _gradient_at_x!(state::AccProxGradDescentState, f)
   state.xhat
 end
 
-# The ℓ1 level of the penalty in T, and the residual of ∇f(x) + ∂h(x) at x in T, for the penalties that
-# _check_penalty accepts for PGD and APG
+# The ℓ1 level of the penalty in T, and the residual of ∇f(x) + ∂h(x) at x with the levels converted to T,
+# for the penalties that _check_penalty accepts for PGD and APG
 _l1_level(g::NormL1, ::Type{T}) where T = T(g.λ0)
 _l1_level(g::ElasticNet, ::Type{T}) where T = T(g.λ1)
-_stationarity_residual(g::NormL1, grad, x, ::Type{T}) where T = _kkt_residual(grad, x, T(g.λ0))
-_stationarity_residual(g::ElasticNet, grad, x, ::Type{T}) where T = _kkt_residual(grad, x, T(g.λ1), T(g.λ2))
-
-# maxᵢ of max(|gᵢ| - λ, 0) where xᵢ = 0, and of |gᵢ + λ sign xᵢ| elsewhere; NaN if an entry is
-# NaN (max propagates it)
-function _kkt_residual(grad::AbstractArray, x::AbstractArray, λ::T) where {T}
-  m = zero(T)
-  @inbounds for i in eachindex(grad, x)
-    xi = x[i]
-    r = iszero(xi) ? max(abs(grad[i]) - λ, zero(T)) : abs(grad[i] + λ * sign(xi))
-    m = max(m, r)
-  end
-  m
-end
-
-# The residual for the elastic net: maxᵢ of max(|gᵢ| - λ1, 0) where xᵢ = 0, and of
-# |gᵢ + λ2 xᵢ + λ1 sign xᵢ| elsewhere; NaN if an entry is NaN (max propagates it). For λ2 = 0 and
-# finite x it equals the value of the 3-argument method.
-function _kkt_residual(grad::AbstractArray, x::AbstractArray, λ1::T, λ2::T) where {T}
-  m = zero(T)
-  @inbounds for i in eachindex(grad, x)
-    xi = x[i]
-    r = iszero(xi) ? max(abs(grad[i]) - λ1, zero(T)) : abs(grad[i] + λ2 * xi + λ1 * sign(xi))
-    m = max(m, r)
-  end
-  m
-end
+_stationarity_residual(g::NormL1, grad, x, ::Type{T}) where T = kkt_violation(NormL1(T(g.λ0)), grad, x)
+_stationarity_residual(g::ElasticNet, grad, x, ::Type{T}) where T =
+  kkt_violation(ElasticNet(T(g.λ1), T(g.λ2)), grad, x)
 
 # x == y elementwise, by value (so -0.0 == 0.0), without allocating
 function _unchanged(x::AbstractArray, y::AbstractArray)

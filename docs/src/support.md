@@ -5,7 +5,7 @@ the wider feature set in historical releases.
 
 ## What works today?
 
-The supported objective is a lasso:
+The supported objective is a lasso (CD also solves a group lasso on a `BlockIterate`, below):
 
 ~~~math
 \min_\beta\quad \frac{s}{2}\|y-X\beta\|_2^2+\lambda\|\beta\|_1,
@@ -29,6 +29,38 @@ with `ElasticNet(lambda1, lambda2)`; `CDSolver` supports the lasso only.
 | Loss | `LeastSquaresLoss` or one finite positive scalar multiple of it |
 | Penalty | Unweighted `NormL1(lambda)` with nonnegative finite `lambda` (all solvers); unweighted `ElasticNet(lambda1, lambda2)` with nonnegative finite levels (PGD and APG only; `CDSolver` refuses it, support is planned) |
 | Solvers | `CDSolver`, `ProximalGradientDescent`, `AccProxGradDescent` (APG also needs `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 3 < 1/(4 eps(Float64))`) |
+| Group lasso | `CDSolver` only, with a ProximalBase `BlockIterate{Float32}` or `BlockIterate{Float64}` as the coefficients and a `GroupNormL2{Float32}` or `GroupNormL2{Float64}` penalty, on the same dense least-squares loss (see below) |
+
+### Group lasso with coordinate descent
+
+~~~math
+\min_\beta\quad \frac{s}{2}\|y-X\beta\|_2^2+\lambda\sum_k w_k\|\beta_{G_k}\|_2,
+~~~
+
+with the groups `G_k` of a `GroupNormL2(lambda, groups)` or
+`GroupNormL2(lambda, groups, w)`; the default weights are `w_k = sqrt(|G_k|)`.
+`solve!(x, f, g, CDSolver(...))` accepts this problem when
+
+- `x` is a `BlockIterate{T}` and the data, the loss and the scale are as above, with
+  `T` equal to `Float32` or `Float64`;
+- `g` is a `GroupNormL2` whose element type is `Float32` or `Float64`. A `Float64`
+  penalty on `Float32` data is accepted. The level `lambda` and every weight must be
+  finite, nonnegative and representable in `T` without overflow, and a nonzero value
+  must not round to zero;
+- the groups of `g` and of `x` are the same, group by group, in the same order and with
+  the same ordered members, otherwise `solve!` throws a `DimensionMismatch`. A
+  `BlockIterate` is a nonempty partition of `1:p` into disjoint groups, so there are no
+  unpenalized coefficients outside the groups; `BlockIterate(T, p, g)` builds one with
+  the groups of `g`;
+- the solver does not use momentum: `momentum = true` is refused with an
+  `ArgumentError`, and `nothing` or `false` both give plain block coordinate descent.
+
+The coordinates of the solver are the groups: a pass visits whole groups, `passes`
+counts passes, and the active coordinates of the iterate are group numbers. All
+refusals of these inputs (receiver, momentum, penalty, weights, layout, aliasing of
+`x` with `X` or `y`, nonfinite values) throw before `x` is copied or the random number
+generator is used. [Numerical behavior](numerics.md) lists the refusals that depend on
+the values of `X` and describes the curvature and the stopping statistic of a group.
 
 The three numerical arrays use one common `T` (`Float32` or
 `Float64`); mixed-element-type `X`, `y` and coefficient arrays
@@ -79,12 +111,15 @@ The current development core intentionally excludes the following:
 | --- | --- |
 | Sparse design matrices; sparse or view-based dense coefficients | Deferred |
 | Generalized losses, matrix responses, intercepts/offsets | Deferred |
-| Weighted or group penalties, weighted `ElasticNet`, `Scaled(ElasticNet)`, other penalty combinations | Deferred |
+| Weighted `NormL1`, group penalties other than `GroupNormL2` with `CDSolver` on a `BlockIterate`, weighted `ElasticNet`, `Scaled(ElasticNet)`, generalized penalty combinations | Deferred |
 | `ElasticNet` with `CDSolver` | Refused with an `ArgumentError`; planned |
 | Penalty paths, screening and dual-gap certificates | Deferred |
 | ADMM, Newton, monotone or active-set accelerated gradient, primal-dual, SLOPE, graphical models | Deferred |
 | Generic workspaces, refitting, reweighting | Deferred |
 | PGD or APG with `SparseIterate` coefficients | Deferred |
+| PGD or APG with `BlockIterate` coefficients or a `GroupNormL2` penalty | Deferred; refused with an `ArgumentError` |
+| Momentum (`momentum = true`) with a `BlockIterate` | Rejected; not implemented |
+| Group lasso with a sparse design, mixed-element-type arrays or a loss other than least squares | Deferred |
 | CD `anderson>0`, `gaptol>0`, `gapsafe=true` | Rejected; not implemented |
 | `ProximalOptions(gaptol>0)` | Rejected when the options are constructed; not implemented |
 | PGD `normalized=true`, `debias>0`, `preconditioner != :none` | Rejected; not implemented |

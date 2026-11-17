@@ -246,20 +246,24 @@ end
     solve!(x, f, g, CDSolver())
     solve!(x, f, g, ProximalGradientDescent(), options=ProximalOptions())
     solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions())
+    solve!(x::BlockIterate, f, g::GroupNormL2, CDSolver())
 
 Minimize a least-squares lasso or elastic net, overwriting `x`. `x` is a dense `Vector{T}`,
 T=Float32 or Float64; `CDSolver` also accepts a one-dimensional `SparseIterate{T}`
-(see below), while `ProximalGradientDescent` and `AccProxGradDescent` refuse it. The loss uses same-type
-`Matrix` X and `Vector` y. The penalty of `ProximalGradientDescent` and `AccProxGradDescent` is an
+(see below), while `ProximalGradientDescent` and `AccProxGradDescent` refuse it. The third form minimizes
+the group lasso with a `GroupNormL2` penalty on a `BlockIterate{T}` with the same groups; only
+`CDSolver` accepts it, and `CDSolver` describes it. The loss uses same-type `Matrix` X and `Vector` y.
+In the first two forms the penalty of `ProximalGradientDescent` and `AccProxGradDescent` is an
 unweighted `NormL1(λ)` or an unweighted `ElasticNet(λ1, λ2)` (`λ1 ‖x‖₁ + (λ2/2) ‖x‖²`), whose levels are
 finite and nonnegative and representable in `T` without overflow or underflow; `CDSolver` supports an
-unweighted `NormL1` only and refuses an `ElasticNet` (its support is planned). Use `(one(T)/T(n))*LeastSquaresLoss` for normalized lasso; raw LS keeps
+unweighted `NormL1` only (a `GroupNormL2` in the third form) and refuses an `ElasticNet` (its support is
+planned). Use `(one(T)/T(n))*LeastSquaresLoss` for normalized lasso; raw LS keeps
 its unnormalized meaning. One positive finite scalar LS wrapper is supported.
 Borrowed X/y must not alias mutable `x` or change during a solve. Results share
 `x`; copy it to retain earlier coefficients. Unsupported inputs/options fail
-before mutation. A stop of the stopping tests counts only at a point whose computed KKT
-residual meets the bound of [`ProximalOptions`](@ref), which is not an exact-arithmetic
-certificate. Finite intermediate arithmetic is required. PGD step errors restore
+before mutation. For PGD and APG, a stop of the stopping tests counts only at a point whose
+computed KKT residual meets the bound of [`ProximalOptions`](@ref), which is not an
+exact-arithmetic certificate; CD stops by its change test (see [`CDSolver`](@ref)). Finite intermediate arithmetic is required. PGD step errors restore
 its last accepted `x` and rethrow, without a transaction guarantee for internal
 counters.
 
@@ -286,6 +290,21 @@ nonfinite step or objective) throws with the values, the active set, signed zero
 and the order of `x` unchanged; the borrowed RNG may already have advanced.
 After a successful call, take `activevalues(x)` and `activecoordinates(x)` again:
 handles taken earlier may no longer describe the active set.
+
+**CD on a `BlockIterate`.** The checks of the receiver, momentum, penalty, groups,
+parameters, aliasing and finiteness happen before the iterate is copied and before the RNG is
+used, and a refused call neither changes `x` nor advances the RNG. The curvature and step
+refusals that can be decided from the data follow, before the first pass, before any RNG draw and
+only when `maxpasses > 0`, with `x` unchanged; the curvature of a group that is neither flat nor
+a one-column group with `n eps(T) <= 1/8` is computed in that preparation, or at the first visit that
+needs it when cheap bounds exclude a refusal (under the eigenvalue model for groups of two or more columns), and an exception of its eigenvalue routine or a
+refusal at that point happens during a pass, with `x` unchanged and the RNG possibly advanced. The solve
+then runs on `work = copy(x)` and `x` receives the final state of `work` by one `copyto!`.
+Zero groups are deactivated after a pass, so the active groups of `x` after a solve with at
+least one pass are the groups with a nonzero block; with `maxpasses = 0` the entry state is kept,
+including active groups whose block is zero. A numerical error leaves
+the values and the active groups of `x` unchanged, though the borrowed RNG may already have
+advanced. The result's `minimizer` is `x` itself.
 """
 function solve!(x, f, g, method::ProximalGradientDescent,
                 options::ProximalOptions = ProximalOptions(); kwargs...)

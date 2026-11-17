@@ -276,9 +276,10 @@ residual, against a scale that exceeds `L eps(T) ‖x‖∞`. The iterate test k
 proposes is checked once in `_stationary!` (`src/utils.jl`): the minimal-norm KKT residual of
 the accepted `x` must be below `max(gradtol, 64 eps(T)) * max(λ, λmax)`, `λmax = α‖Xᵀy‖∞`
 (formed once per solve in `xhat` and kept in the state field `λmax`), with `λ` the ℓ1 level of the
-penalty. `_stationary!` takes the level and the residual from two small methods on the penalty:
-`NormL1` uses the 3-argument `_kkt_residual(grad, x, λ)` and `ElasticNet` the 4-argument
-`_kkt_residual(grad, x, λ1, λ2)`, which adds `λ2 xᵢ` at the nonzero entries; `λ2` is not in `S`
+penalty. `_stationary!` takes the level and the residual from two small methods on the penalty. The
+residual is ProximalBase's full-point `kkt_violation` of `NormL1(T(λ0))` or of
+`ElasticNet(T(λ1), T(λ2))`, built from the levels converted to `T` before the call (`_stationarity_residual`);
+for `ElasticNet` it adds `λ2 xᵢ` at the nonzero entries. `λ2` is not in `S`
 (the check is the lasso check on the data augmented by `√λ2 I`, see `numerics.md`).
 The penalty is validated once by `_check_penalty` in `_check_data`: `NormL1` for all solvers,
 `ElasticNet` for PGD and APG, and an `ArgumentError` for an `ElasticNet` in `CDSolver`. The check requires `S =
@@ -429,7 +430,7 @@ checks shared by both gates and an owner gate that inspects only public active
 values and tests aliasing against the original owner. PGD keeps the dense gate and
 refuses owners.
 
-The current exact PB pin is `30efdc48d900a32a391be15680df1a021e1e75f7`. CD uses
+The current exact PB pin is `a19c59aa723d085d5d7cf5242895bda16eb77214`. CD uses
 its scalar `prox_block` oracle; PGD retains fused `value_and_prox!`. All three solvers take the least-squares value from the PB oracles named above, and PGD and APG take the coefficient gradient from them. The private PB
 SparseIterate contract remains unchanged. PR #237's group/workspace migration is
 not imported. The gated analysis job always runs isolated exact-source paired

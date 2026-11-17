@@ -11,14 +11,14 @@ Peak memory is recorded only as process-wide `maxrss_bytes`, not per case.
 
 ## Current core
 
-Master's core is `CDSolver` (dense `Vector` or vector `SparseIterate`) and
-`ProximalGradientDescent` (dense `Vector`) on Float32/Float64 least-squares lasso, with
-ProximalBase pinned to an exact development commit in the root `Project.toml` `[sources]`.
+Master's core is `CDSolver` (dense `Vector`, vector `SparseIterate`, or `BlockIterate` for the
+group lasso) and `ProximalGradientDescent` (dense `Vector`) on Float32/Float64 least-squares
+lasso (the group lasso with `CDSolver` only), with ProximalBase pinned to an exact development commit in the root `Project.toml` `[sources]`.
 From the package root, with Julia 1.10 or later and Python 3.11 or later:
 
 ```sh
 julia benchmark/setup.jl "$PWD" benchmark/results/env-quick pinned
-JULIA_NUM_THREADS=1 PS_EXPECTED_PROXIMALBASE_REV=30efdc48d900a32a391be15680df1a021e1e75f7 \
+JULIA_NUM_THREADS=1 PS_EXPECTED_PROXIMALBASE_REV=a19c59aa723d085d5d7cf5242895bda16eb77214 \
   julia --project=benchmark/results/env-quick benchmark/run.jl
 python3 benchmark/validate.py benchmark/results benchmark/results/validation.json
 python3 benchmark/summarize.py benchmark/results benchmark/results/summary
@@ -87,7 +87,7 @@ between-run interval.
 ## Supported and deferred cases
 
 Every case declares what it needs from the loaded package: its solver ID and, per feature,
-`solver:feature` (problem, `float32`, `sparse_iterate`, `gap` for duality-gap stopping,
+`solver:feature` (problem, `float32`, `sparse_iterate`, `block_iterate`, `gap` for duality-gap stopping,
 `workspace`, `path`, `setup`). `CAPABILITIES` in `cases.jl` declares what the current core
 provides; it is a short explicit list, not inferred from the names the package defines, since a
 solver type can exist without supporting a problem, an iterate or a phase. A case with a
@@ -117,6 +117,28 @@ PGD and APG, cold and warm starts, dense and `SparseIterate` iterates:
 | `lasso-B` | 240×160, correlated ρ=0.8 (inputs of `*/lasso-B/*/tight`) | quick | as above, and `warm-` of each |
 | `lasso-C` | 800×120, correlated ρ=0.5 | extended | as `lasso` |
 | `lasso-D` | 180×600, p > n | extended | as `lasso` |
+
+Four more current-core cases (quick suite) run `CDSolver` on a `BlockIterate` for the group lasso
+(#275). They need the capability `cd:block_iterate` (and `cd:float32` in Float32):
+
+| Problem | Design | Suite | Variants |
+|---|---|---|---|
+| `group-lasso` | 120×32, independent columns, contiguous groups of four with the default weights `√4` (`grouped_problem`, key `core/group-lasso`) | quick | CD `block-{f64,f32}`; `warm-` of each |
+
+Their IDs are `cd/group-lasso/cd/{,warm-}block-{f64,f32}/call`. The historical
+`cd/group-lasso/cd/tight/call` keeps its inputs and stays deferred: it needs `cd:group`
+(`GroupNormL2` on an `AtomIterate`) and `cd:gap`, which `CAPABILITIES` does not declare, and its
+draws differ from those of the current-core key. The penalty is `GroupNormL2` of the problem's element type, and the start is a
+`BlockIterate` with the groups of the problem, active where the start is nonzero. The settings,
+targets (`1e-8` in Float64 and `1e-5` in Float32) and the exact Float64 read-back of the rounded
+data are those of the lasso cases, and the certificate is `group_certificate`, the group-lasso
+relative duality gap of the problem the solver received, from the returned minimizer only. A warm
+start is the solution at 1.25λ from `group_warm_start`, cyclic block coordinate descent in Float64
+with the largest eigenvalue of each Gram matrix (from all its eigenvalues) as the curvature, written in `cases.jl` and
+stopped at a certified relative gap of `1e-12`; `cert_loading_refit` is lasso-only, and this start
+does not depend on the solver under test. The extended suite includes these quick cases, and
+there are no additional group-lasso cases exclusive to it. There are no PGD or APG group cases
+(those solvers do not accept a `BlockIterate`).
 
 The extended suite adds ten Float64 `acc-` cases for PGD and APG (#314):
 `gradient/<problem>/{pg,apg}/acc-{dense,warm-dense}-f64/call` on the problems, starts and inputs
@@ -154,7 +176,7 @@ PS_SUITE=extended PS_GROUPS=gradient PS_LIST=true \
 
 Each case builds its inputs from a seed keyed by its scenario and repetition, so a case
 selected alone has the same inputs, data hash and certificate as in the full suite.
-`PS_CASES='cd/lasso-B/cd/*-f64/call'` measures four of the 13 supported quick `cd` cases.
+`PS_CASES='cd/lasso-B/cd/*-f64/call'` measures four of the 17 supported quick `cd` cases.
 
 ## Local exploration
 

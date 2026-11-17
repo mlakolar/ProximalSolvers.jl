@@ -76,6 +76,20 @@ const HARNESS_FILES = ("problems.jl", "certificates.jl", "cases.jl", "run.jl")
 const ALLOWED_MODULES = (:ProximalSolvers, :ProximalBase, :Random)
 const MAX_DEPTH = 40
 
+# The CD-only successor campaign (#333, ruling on the escalation, O1): the stack A CDSolver (b0de3f7) carries three
+# fields that the minimal core removed, with their inert values at these settings. For a campaign named here the
+# solver encoding omits exactly these three fields, after checking that each has exactly the inert value (an error, so
+# no row, otherwise); every other field is still encoded, so any other difference between the stacks still mismatches.
+# For every other campaign, and for every direct use of the encoder, nothing is omitted: the original Stage 2B campaign
+# is checked as before (its P01 case, for instance, sets gaptol and would fail closed here).
+const NORMALIZED_CAMPAIGNS = ("stage2b-cd-minimal-core-v1",)
+const REMOVED_CD_FIELDS = (anderson = 0, gaptol = 0.0, gapsafe = false)     # field => its required inert value
+const NORMALIZE_SOLVER = Ref(false)
+# The same campaigns require the live lasso validation (check_live_lasso) for EVERY scheduled case, decided from the
+# campaign and never from the live loss or penalty: a layout that the validator does not support enters it and is
+# refused. Other campaigns keep the selection of extract_parts (the current-core layout and the plain cd lasso).
+const REQUIRE_LIVE_LASSO = Ref(false)
+
 struct UsageError <: Exception
   msg::String
 end
@@ -229,8 +243,17 @@ function enc!(c::Ctx, x, depth::Int = 0)
     put_str(c, String(owner))
     put_str(c, String(nameof(T)))
     names = fieldnames(T)
-    put_i64(c, length(names))
+    omitted = NORMALIZE_SOLVER[] && owner === :ProximalSolvers && nameof(T) === :CDSolver ?
+      Tuple(name for name in names if name in keys(REMOVED_CD_FIELDS)) : ()
+    for name in omitted
+      value = getfield(x, name)
+      value === getfield(REMOVED_CD_FIELDS, name) ||
+        throw(EncodeError("CDSolver field $name is $(repr(value)), not the inert $(repr(getfield(REMOVED_CD_FIELDS, name))) " *
+                          "that the successor campaign requires where the field exists"))
+    end
+    put_i64(c, length(names) - length(omitted))
     for (i, name) in enumerate(names)
+      name in omitted && continue
       isdefined(x, i) || throw(EncodeError("field $name of $T is undefined"))
       put_str(c, String(name))
       enc!(c, getfield(x, i), depth + 1)
@@ -334,7 +357,17 @@ function family(meta)
   throw(VerifyError("$(meta.id): no known state family for phase $(meta.phase), group $(meta.group)"))
 end
 
-const ITERATE_TYPES = Union{Vector{Float64}, Matrix{Float64}, PB.SparseIterate, PB.AtomIterate}
+# AtomIterate exists in ProximalBase 0.5 and not in the minimal-core ProximalBase (#333): its types join the unions only
+# where it is defined, and the unions are identical to the former ones on ProximalBase 0.5.4.
+const HAS_ATOM_ITERATE = isdefined(PB, :AtomIterate)
+# Vector{Float32} is the dense iterate of the Float32 cases of the current-core harness (cases.jl core_case_state).
+const ITERATE_TYPES = HAS_ATOM_ITERATE ?
+  Union{Vector{Float64}, Vector{Float32}, Matrix{Float64}, PB.SparseIterate, PB.AtomIterate} :
+  Union{Vector{Float64}, Vector{Float32}, Matrix{Float64}, PB.SparseIterate}
+# The solver types that carry their own options (cases.jl own_options); only those the loaded package defines.
+const OWN_OPTION_SOLVERS = Tuple(getfield(ProximalSolvers, name)
+  for name in (:CDSolver, :ProxNewton, :SLOPEAPG, :SLOPEHybrid) if isdefined(ProximalSolvers, name))
+const WORKING_SET_TYPES = HAS_ATOM_ITERATE ? Union{PB.SparseIterate, PB.AtomIterate} : PB.SparseIterate
 
 struct Parts
   id::String
@@ -346,6 +379,7 @@ struct Parts
   options::Any
   workspace::Any
   certificates::String  # SHA-256 of certificates.jl
+  live::Any             # nothing, or a thunk that throws unless the live lasso inputs are still the problem's
 end
 
 function same(id, what, a, b)
@@ -358,15 +392,85 @@ function check_iterate(id, x, what)
   x
 end
 
+"""The problem of a current-core case from the Float64 image `exact` that its check closure captured: the image rounded
+back to the element type `T` of the iterate (a Float32 case rounds the Float64 draw once, so the rounding back is exact).
+check_data_hash then compares the data hash of the result with the problem_hash of the case, and fails closed on any
+difference."""
+function core_problem_of(id, exact, T)
+  T === Float64 && return exact
+  T === Float32 || throw(VerifyError("$id: the iterate of a current-core case has the element type $T"))
+  names = (:X, :y, :s, :λ, :w, :start)
+  all(name -> haskey(exact, name), names) ||
+    throw(VerifyError("$id: the captured problem lacks one of the fields $names"))
+  typed = NamedTuple{names}(map(name -> T.(getproperty(exact, name)), names))
+  # The image must be an exact promotion of the Float32 values: every converted field promoted back is the captured
+  # field to the bit (signed zeros and NaN payloads included, as the canonical encoding distinguishes them).
+  for name in names
+    same_bits(Float64.(getproperty(typed, name)), getproperty(exact, name)) ||
+      throw(VerifyError("$id: the field $name of the certificate image is not an exact Float32 promotion; " *
+                        "the problem cannot be rebuilt without loss"))
+  end
+  merge(exact, typed)
+end
+
+"""Equal to the bit and in type, shape and element type, by the canonical encoding itself."""
+same_bits(x, y) = fingerprint("bits", "x", x) == fingerprint("bits", "x", y)
+
+"""
+    check_live_lasso(id, call, reset, a)
+
+The lasso problem that a supported `call!` really solves, read from its captured objective and penalty (a scaled
+least-squares loss and a NormL1; the data X and Y, the scale, lambda and the weights) and from the `start` that `reset!`
+restores, against the problem `a` that the fixture, the certificate and `problem_hash` describe: every value must be
+the same to the bit. Called after the first make, after the untimed call and after the second make. Any other layout
+(another objective or penalty type, observation weights, another start type) is refused.
+"""
+function check_live_lasso(id, call, reset, a)
+  f, g = cap(id, call, :f, "call!"), cap(id, call, :g, "call!")
+  (f isa PB.Scaled && f.f isa PB.LeastSquaresLoss && g isa PB.NormL1) ||
+    throw(VerifyError("$id: call! captures a $(typeof(f)) and a $(typeof(g)), not a scaled least-squares loss and a NormL1"))
+  loss = f.f
+  all(name -> hasfield(typeof(loss), name), (:X, :Y, :w)) && all(name -> hasfield(typeof(g), name), (:λ0, :w)) ||
+    throw(VerifyError("$id: the layout of the captured loss or penalty is not the supported one"))
+  isempty(loss.w) || throw(VerifyError("$id: the captured loss has observation weights"))
+  p = size(loss.X, 2)
+  weights = g.w === nothing ? ones(eltype(loss.X), p) : g.w
+  live = (; X = loss.X, y = loss.Y, s = f.α, λ = g.λ0, w = weights)
+  for name in keys(live)
+    haskey(a, name) || throw(VerifyError("$id: the problem has no field $name to compare with the live input"))
+    same_bits(getproperty(live, name), getproperty(a, name)) ||
+      throw(VerifyError("$id: the live $name of call! differs from the problem the fixture, the certificate and " *
+                        "problem_hash describe"))
+  end
+  start = cap(id, reset, :start, "reset!")
+  length(start) == p || throw(VerifyError("$id: the captured start has length $(length(start)), expected $p"))
+  want = haskey(a, :start) ? a.start : zeros(eltype(loss.X), p)
+  if start isa PB.SparseIterate
+    # a sparse iterate stores no zeros, so a signed zero of the dense start is not kept: values compare with ==
+    collect(Float64, start) == Float64.(want) &&
+      sort!(collect(Int, PB.activecoordinates(start))) == findall(!iszero, want) ||
+      throw(VerifyError("$id: the live start (values or working set) differs from the problem's start"))
+  elseif start isa Vector
+    same_bits(start, want) || throw(VerifyError("$id: the live start differs from the problem's start"))
+  else
+    throw(VerifyError("$id: the captured start has the unsupported type $(typeof(start))"))
+  end
+  nothing
+end
+
 function extract_parts(H, meta, state, certificates)
   id = String(meta.id)
   state isa H.CaseState || throw(VerifyError("$id: the state is a $(typeof(state)), not a CaseState"))
   reset, call, certify = state.reset!, state.call!, state.certify
   fam = family(meta)
-  a = cap(id, certify, :a, "certify")
+  # The check of a current-core case (cases.jl core_case_state) captures `exact`, the Float64 image of the problem,
+  # in place of `a`; the call phase of such a case has no own_options flag (see below).
+  core = has_field(certify, :exact) && !has_field(certify, :a)
+  a = cap(id, certify, core ? :exact : :a, "certify")
   a isa NamedTuple || throw(VerifyError("$id: the captured problem is a $(typeof(a)), not a NamedTuple"))
   grid = nothing
   iterate = solver = options = workspace = nothing
+  live = nothing
   if fam == :setup
     isempty(fieldnames(typeof(reset))) ||
       throw(VerifyError("$id: the reset! of a setup case captures state: $(collect(fieldnames(typeof(reset))))"))
@@ -378,12 +482,21 @@ function extract_parts(H, meta, state, certificates)
     method = cap(id, reset, :method, "reset!")
     same(id, "the iterate x", x, cap(id, call, :x, "call!"))
     same(id, "the solver", method, cap(id, call, :method, "call!"))
-    own = cap(id, call, :own_options, "call!")
+    # core_case_state passes options only to the solvers that take them: its call! captures `options` then and only then
+    own = core ? !has_field(call, :options) : cap(id, call, :own_options, "call!")
     own isa Bool || throw(VerifyError("$id: own_options is a $(typeof(own)), not a Bool"))
-    own == (method isa Union{ProximalSolvers.CDSolver, ProximalSolvers.ProxNewton, ProximalSolvers.SLOPEAPG,
-                             ProximalSolvers.SLOPEHybrid}) ||
+    own == any(T -> method isa T, OWN_OPTION_SOLVERS) ||
       throw(VerifyError("$id: own_options = $own does not match the solver type $(typeof(method))"))
     iterate = check_iterate(id, x, "x")
+    core && (a = core_problem_of(id, a, eltype(x)))
+    # Bind the problem to what is really solved. A current-core case must have the supported layout (anything else
+    # is refused); a coordinate-descent case of another layout (the release case, the legacy cd lasso) that captures a
+    # supported loss and penalty is checked too. Other solvers (ADMM fills its loss cache in the solve) are left as they were.
+    supported = String(meta.solver) == "cd" && has_field(call, :f) && has_field(call, :g) &&
+      let f = cap(id, call, :f, "call!"), g = cap(id, call, :g, "call!")
+        f isa PB.Scaled && f.f isa PB.LeastSquaresLoss && g isa PB.NormL1     # the plain cd lasso
+      end
+    (core || supported || REQUIRE_LIVE_LASSO[]) && (live = () -> check_live_lasso(id, call, reset, a))
     solver = method
     options = own ? nothing : cap(id, call, :options, "call!")
   elseif fam == :workspace
@@ -423,13 +536,14 @@ function extract_parts(H, meta, state, certificates)
   elseif haskey(a, :grid)
     throw(VerifyError("$id: the path problem already has a field grid"))
   end
-  Parts(id, fam, a, grid, iterate, solver, options, workspace, certificates)
+  Parts(id, fam, a, grid, iterate, solver, options, workspace, certificates, live)
 end
 
 fixture_items(p::Parts) = sort!(vcat([(String(k), getfield(p.a, k)) for k in keys(p.a)],
                                      p.grid === nothing ? Tuple{String,Any}[] : [("grid", p.grid)]); by = first)
 
 function check_data_hash(H, p::Parts, state)
+  p.live === nothing || p.live()
   fixture = p.grid === nothing ? p.a : merge(p.a, (; grid = p.grid))
   hash = H.data_hash(fixture)
   hash == state.problem_hash ||
@@ -442,7 +556,7 @@ end
 dense_values(x::Array) = copy(x)
 dense_values(x) = collect(Float64, x)
 iterate_payload(x) = (; type = String(nameof(typeof(x))), values = dense_values(x))
-active_ids(x::Union{PB.SparseIterate, PB.AtomIterate}) = sort!(collect(Int, PB.activecoordinates(x)))
+active_ids(x::WORKING_SET_TYPES) = sort!(collect(Int, PB.activecoordinates(x)))
 active_ids(x) = nothing
 
 tls_copy() = copy(Random.default_rng())
@@ -601,7 +715,7 @@ function read_schedule(path)
     s, sched = t["settings"], t["schedule"]
     versions = String[v["version"] for (_, v) in t["julia"]]
     (; suite = String(s["suite"]), groups = String(s["groups"]), case_filter = String(s["case_filter"]),
-       reps = Int.(sched["reps"]), versions)
+       reps = Int.(sched["reps"]), versions, campaign_id = String(sched["campaign_id"]))
   catch err
     err isa KeyError || rethrow()
     throw(VerifyError("the schedule $path lacks $(err.key)"))
@@ -653,6 +767,8 @@ function summary_table(cfg, sched, results, harness_hash_value, certificates, ce
     "proximalbase_root" => roots.base,
     "proximalbase_version" => string(pkgversion(ProximalBase)),
     "suite" => sched.suite, "groups" => sched.groups, "case_filter" => sched.case_filter,
+    "campaign_id" => sched.campaign_id, "removed_cd_fields_omitted" => NORMALIZE_SOLVER[],
+    "live_lasso_required" => REQUIRE_LIVE_LASSO[],
     "reps" => cfg.reps, "cases" => length(unique(r.id for r in results)),
     "rows" => sum(length(r.rows) for r in results),
     "cold_differences" => count(r -> !isempty(r.cold_differences), results),
@@ -793,7 +909,12 @@ function run(args)
     throw(VerifyError("--reps $(cfg.reps) is not a subset of the schedule's repetitions $(sched.reps)"))
   certificates = hex_file(joinpath(cfg.harness, "certificates.jl"))
   H = load_harness(cfg.harness)
-  Base.invokelatest(run_loaded, H, cfg, sched, certificates, computed)
+  NORMALIZE_SOLVER[] = REQUIRE_LIVE_LASSO[] = sched.campaign_id in NORMALIZED_CAMPAIGNS
+  try
+    Base.invokelatest(run_loaded, H, cfg, sched, certificates, computed)
+  finally
+    NORMALIZE_SOLVER[] = REQUIRE_LIVE_LASSO[] = false
+  end
 end
 
 """Everything that touches the loaded harness (newer than the caller: reached through `invokelatest`)."""

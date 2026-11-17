@@ -37,7 +37,12 @@ records which coordinates are *active* and their values. It is not
 a sparse data/design matrix.
 
 **Active coordinate:** A coefficient coordinate currently present
-in a `SparseIterate`'s storage.
+in a `SparseIterate`'s storage. For a `BlockIterate`, the coordinates are
+groups and an active coordinate is a group number.
+
+**BlockIterate:** A ProximalBase coefficient vector whose coordinates for
+coordinate descent are groups of entries that partition `1:p`. `CDSolver`
+uses it with a `GroupNormL2` penalty for the group lasso.
 
 **Compaction:** Removing zero-valued coordinates from the list of
 active coordinates, possibly changing their storage order.

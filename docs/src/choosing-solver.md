@@ -1,6 +1,7 @@
 # Choosing a solver
 
-The three supported algorithms solve the **same dense least-squares lasso**.
+The three supported algorithms solve the **same dense least-squares lasso**; CD
+also solves a group lasso (see [Group lasso](choosing-solver.md#Group-lasso-with-block-coordinate-descent)).
 The difference is how they update coefficients, not what objective is minimized.
 For definitions of soft-thresholding, CD and PGD, see [What problem, which algorithm?](concepts.md).
 
@@ -223,6 +224,97 @@ the OR combination and the objective-change test apply unchanged; its
 gradient-mapping residual is measured at the extrapolated point. See
 [Numerical behavior](numerics.md).
 
+## Group lasso with block coordinate descent
+
+Use it when the coefficients come in known groups that should enter or leave the
+model together. The penalty is `GroupNormL2(lambda, groups)`, that is
+`lambda * sum_k w_k * norm(beta[G_k])` with the default weights
+`w_k = sqrt(length(G_k))`, and the objective is the least-squares loss plus this
+penalty. Only `CDSolver` solves it, with a ProximalBase `BlockIterate` that has the
+groups of the penalty; `ProximalGradientDescent` and `AccProxGradDescent` refuse
+both. The groups may be any disjoint index sets, in any order, and together they must
+cover every coefficient. [Example 6](examples/06_group_cd_lasso.md) uses
+noncontiguous groups; [Supported problems](support.md) lists the restrictions.
+
+~~~@example choosing_group
+using ProximalBase, ProximalSolvers
+X = [1.0 0.0 0.0; 0.0 1.0 0.0; 0.0 0.0 1.0; 0.0 0.0 0.0]
+y = [3.0, 0.2, 4.0, 1.0]
+lambda = 0.5
+groups = [[1, 3], [2]]
+g = GroupNormL2(lambda, groups)
+x = BlockIterate(Float64, 3, g)
+result = solve!(x, LeastSquaresLoss(y, X), g,
+                CDSolver(order=:cyclic, tol=1e-12, relative=false))
+# With orthonormal columns, each group is the soft-thresholded block of y:
+# (1 - lambda * sqrt(2) / ||y[[1, 3]]||) * y[[1, 3]], and the group {2} is zero.
+@assert result.converged
+@assert isapprox(Vector(x), [(1 - lambda * sqrt(2) / 5) * 3, 0.0, (1 - lambda * sqrt(2) / 5) * 4];
+                 atol=1e-10)
+(; coefficients=Vector(x), active_groups=sort(collect(activecoordinates(x))))
+~~~
+
+A coordinate of the solver is a group, so `passes` counts passes over groups and the
+active coordinates are group numbers. Each group needs, at most once per solve, a bound
+on the largest eigenvalue of `X[:, G]' * X[:, G]`. With `maxpasses = 0` none is prepared.
+A group whose columns are all zero needs no product and no eigenvalue computation, and a
+group of one column (when `n eps(T) ≤ 1/8`, `n` the number of rows) takes the sum of
+squares of its column, as the lasso does. Any other group needs the Gram matrix of its
+columns in `Float64` and, for two or more columns, an eigenvalue computation. These are
+done at the first visit that needs them, so a group that stays at zero and is screened out
+at each visit never pays for them, except where cheap bounds cannot rule out a refusal (under the eigenvalue model, for groups of two or more columns), in
+which case the bound is computed before the first pass (such a group, or an ordinary
+one-column group, already has its bound when it is screened). A visit to a nonflat group
+whose block is zero is screened this way, whether or not the group is active, when the
+reciprocal of the loss scale is a normal number of its type and either all correlations of
+the group are zero or the largest magnitude is at least `2^53 floatmin(T)`; otherwise the
+visit takes the full step. The `Float64` copy
+of the columns and the Gram matrix are workspace of the solver, allocated when the first such
+bound is computed and sized by the largest group of the iterate: `n` times that size, and
+its square, in `Float64`. The solver keeps no other copy of the columns. For a group of one coefficient, the penalty is a term of an L1 penalty, and
+with the default weights `GroupNormL2` with only singleton groups is the same problem
+as `NormL1`, which the dense-vector solvers accept. Momentum does not apply:
+`momentum = true` is refused for a `BlockIterate`, and `nothing` or `false` both mean
+plain block coordinate descent. The stopping test works as in the relative-tolerance
+discussion above with the change of a group, the norm of its displacement; see
+[Numerical behavior](numerics.md). As for the lasso, `converged = true` is not an
+optimality certificate: check the group KKT conditions independently, as in the example.
+
+### Cost of the lazy curvature
+
+The lazy curvature and the zero-group screen save the curvature of a Gram-route group only
+while that group passes the screen at every visit. A screened visit still computes the
+correlations of the group. In one profile, a screened visit took 155 ns and a visit to a
+zero group whose curvature was already computed took 135 ns (neither changed a
+coefficient), so these zero-group visits cost about the same in that profile: the screen
+saves the curvature, not the visit.
+
+From a cold start (`x = 0`, residual `y`), the first full pass starts at the residual `y`
+and screens each eligible group against the current residual, after the updates of the
+groups before it; the guards of the screen can bypass it for a group. A group that fails the
+screen needs its curvature, and it can leave the active set again later. The saving
+therefore depends on how many groups ever fail the screen, not on the number of active
+groups at the solution. In the low-occupancy designs measured below, many groups entered the
+active set in the first pass at a small `λ / λmax` and left it later. Starting a path from a
+nearby solution can reduce the number of groups that fail the screen in the first pass; this
+has not been measured.
+
+Measured on these designs, with `n = 500` rows, groups of 2 or 8 columns, and `λ` set so that
+about 5% of the groups were active at the solution (`λ / λmax` about 0.06 to 0.10):
+
+- On one exclusive node, with one thread, Julia 1.10 and 1.13, the solve was 1.05 to 1.45
+  times faster than computing every curvature before the first pass at `p = 1024`, and 1.5
+  to 3.3 times at `p = 256`, except 1.2 to 1.3 times in one layout and group size on Julia
+  1.13. At high occupancy the largest slowdown against computing every curvature before the
+  first pass was about 4%. The two computations gave bit-identical iterates in every cell.
+- A separate diagnostic profile on a shared node (absolute times noisy) found that 40% to 68%
+  of the groups computed a curvature in the first pass. In a `λ` sweep on one of these
+  designs (`p = 1024`) in that profile, the ratio was about 1.9 to 3.6 for `λ / λmax ≥ 0.2`,
+  and about 1 for `λ / λmax ≤ 0.04`.
+
+These are measurements on these designs, not general claims: the ratio depends on `n`, the
+group sizes, the layout and `λ`.
+
 ## What is supported now?
 
 `X` must be a finite dense `Matrix{T}`, `y` a finite `Vector{T}`,
@@ -232,6 +324,8 @@ The penalty is unweighted L1 for every solver, and for PGD and APG also an unwei
 The loss is ordinary least squares
 (or a single positive finite scalar multiple of it).
 
+Coordinate descent can also solve a group lasso on a `BlockIterate` with a
+`GroupNormL2` penalty, as described above and in [Supported problems](support.md).
 Coordinate descent can additionally store coefficients in a one-dimensional
 [ProximalBase SparseIterate](https://mlakolar.github.io/ProximalBase.jl/dev/).
 It tracks coordinates that are explicitly active, and can be helpful for
