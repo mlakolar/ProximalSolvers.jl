@@ -609,11 +609,16 @@ Where the fitted values `Xβ` dwarf the residual, the rounding of `r̂` in `Floa
 ### Tightening and the uncertified stop
 
 A check that does not certify divides the threshold by 100 and the run continues, at most twice per solve
-and while `tolerance/100` is positive and at least `16 eps(T) norm(y)`. The run stops with
-`converged = false`, `gap = NaN` and the warning `coordinate descent stopped without a duality
-certificate` when the certificate is not defined (above), when the full pass changed nothing, or when no
-tightening is left. With `relative=true` and the default `tol = 1e-7`, `Float32` data get no tightening,
-because `1e-9` is below `16 eps(Float32)`. At an exact fit with a positive penalty, coordinate descent can
+and while `tolerance/100` is positive and at least a floor in the units of the threshold: `16 eps(T)
+norm(y)` for a relative threshold (`relative=true` and `y ≠ 0`, where a change is scaled by
+`norm(X[:, k])`), and `16 eps(T)` times the largest `|β_k|` at the check for an absolute one
+(`relative=false`, or `y = 0`), with no tightening at `β = 0`. The run stops with `converged = false`,
+`gap = NaN` and the warning `coordinate descent stopped without a duality certificate` when the
+certificate is not defined (above), when the full pass changed nothing, or when no tightening is left.
+With `relative=true` and the default `tol = 1e-7`, `Float32` data get no tightening, because `1e-9` is
+below `16 eps(Float32)`. With `y = 0` and a nonzero start, `P* = 0`, so no relative bound can be
+certified unless `β` reaches 0; coordinate descent can approach 0 without reaching it and then stops
+uncertified. At an exact fit with a positive penalty, coordinate descent can
 stop at a point that minimizes `P` along every coordinate but not overall; such a run, and one that
 stops at the minimizer at an exact fit, are reported uncertified. An uncertified stop at the last allowed
 pass gets the uncertified warning, and `passes == maxpasses` alone does not tell it apart from the limit.

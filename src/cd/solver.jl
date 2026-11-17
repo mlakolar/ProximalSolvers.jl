@@ -120,16 +120,21 @@ the residual `y - X*beta`, recomputed in `Float64`, with a proved bound on the r
 term. `converged = true` only when it proves `(P(beta) - P*)/P* <= 1e-4`, `P*` the minimum, and `gap`
 then holds that bound, rounded up; its denominator is a lower bound of `P*` from the dual point. When
 the certificate does not pass, the change threshold (the reported `tolerance`) is divided by 100 and the
-run continues, at most twice per solve and not below `16 eps(T)` times `norm(y)`. Otherwise the run stops
-with `converged = false`, `gap = NaN` and a warning that differs from the `maxpasses` warning. This
-happens at an exact fit (`y = X*beta`) with a positive penalty, where the dual direction is undefined and
-a coordinatewise minimum need not be a minimum; after a full pass that changed nothing; and when the
-threshold cannot be lowered further, for example where the rounding of the recomputed residual is not
-small against the residual itself (as where the fitted values dwarf it), or for `Float32` data at the
-default `tol`, where `tol/100` is below that floor. With `tol = 0`, or a threshold below the changes that
-rounding produces, the change test does not pass, the certificate does not run, and the run ends at
-`maxpasses` with that warning. At a stop of the certificate, `minimum` is evaluated from the residual that
-it recomputed, when every entry of it is representable in `T`.
+run continues, at most twice per solve and not below a floor in the units of the threshold: with a
+relative threshold (`relative=true` and `y != 0`), `16 eps(T)` times `norm(y)`; with an absolute one
+(`relative=false`, or `y = 0`), `16 eps(T)` times the largest `abs(beta[k])` at the check, and no
+tightening at `beta = 0`. Otherwise the run stops with `converged = false`, `gap = NaN` and a warning that
+differs from the `maxpasses` warning. This happens at an exact fit (`y = X*beta`) with a positive penalty,
+where the dual direction is undefined and a coordinatewise minimum need not be a minimum; after a full
+pass that changed nothing; with `y = 0` and a nonzero start, where `P* = 0`, so that no relative bound
+can be certified unless `beta` reaches 0, and coordinate descent can approach 0 without reaching it; and
+when the threshold cannot be lowered further, for example where the rounding of the recomputed residual
+is not small against the residual itself (as where the fitted values dwarf it), or for `Float32` data
+at the default `tol` with a relative threshold, where `tol/100` is below that floor. With `tol = 0`, or
+a threshold below the changes that rounding produces, the change test does not pass, the certificate
+does not run, and the run ends at `maxpasses` with that warning. At a stop of the certificate,
+`minimum` is evaluated from the residual that it recomputed, when every entry of it is representable
+in `T`.
 
 See [`solve!`](@ref)
 and the [solver guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/).
@@ -234,10 +239,11 @@ mutable struct _CDState{T, R<:AbstractRNG}
   tolerance::T
   gap::T                # the certified bound of a model with a certificate (`_stop_check!`), else NaN
   uncertified::Bool     # whether `_stop_check!` stopped the run without a certificate
+  scaled::Bool          # whether the change test is relative (`scaled` of `_tolerances`), set by the loops
 end
 _CDState(::Type{T}, x, s::CDSolver) where T =
   _CDState{T, typeof(s.rng)}(s.random, s.rng, Vector{Int}(undef, s.random ? ncoordinates(x) : 0),
-                          _Momentum{T}(), 0, false, T(NaN), T(NaN), T(NaN), false)
+                          _Momentum{T}(), 0, false, T(NaN), T(NaN), T(NaN), false, false)
 function _shuffle!(order::Vector{Int}, n::Int, rng::AbstractRNG)
   @inbounds for i in 1:n
     order[i] = i
@@ -317,6 +323,7 @@ const _FULL_PASS_WORK = 20
 function _cd_plain!(x, m, g, st::_CDState{T}, s::CDSolver) where {T}
   tol, scaled = _tolerances(m, x, s, T)
   st.passes, st.converged, st.maxchange, st.tolerance = 0, false, T(NaN), tol
+  st.scaled = scaled
   converged, visits = true, 0
   for pass in 1:s.maxpasses
     full = converged || visits >= _FULL_PASS_WORK * ncoordinates(x)
@@ -359,6 +366,7 @@ _momentum_default(m::CDModel) = _cache(m) !== nothing
 function _cd_momentum!(x, m, g, st::_CDState{T}, s::CDSolver) where {T}
   tol, scaled = _tolerances(m, x, s, T)
   st.passes, st.converged, st.maxchange, st.tolerance = 0, false, T(NaN), tol
+  st.scaled = scaled
   mom = _momentum_start!(st.momentum, x, m)
   converged, visits = true, 0
   for pass in 1:s.maxpasses

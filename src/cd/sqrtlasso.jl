@@ -7,8 +7,9 @@
 # residual update, the flat-column test and the two stopping scales. `gt` is the penalty at the level
 # T(λ0), which the coordinate step uses for its comparison with √a and for its prox (set by
 # `_prepare!`). The certificate works with brackets `lo64` ≤ λ0 ≤ `hi64` of the level of the objective,
-# λ0 = g.λ0 (NaN when `_level_brackets` finds none). `floor64` = 16 eps(T) ‖y‖: the stop check does not
-# tighten the change threshold below it. `tightenings` counts the tightenings of the solve. `res64` and
+# λ0 = g.λ0 (NaN when `_level_brackets` finds none). `floor64` = 16 eps(T) ‖y‖: with a relative change
+# threshold, the stop check does not tighten it below this value. `tightenings` counts the tightenings
+# of the solve. `res64` and
 # `rowmag64` are Float64 vectors of length n (allocated by `_prepare!`): the certificate's residual and
 # row magnitudes; `res64` is also the scaled residual of `_sqrt_offrange_step`.
 mutable struct SqrtLSModel{T<:Union{Float32, Float64}, M<:LSModel{T, T}} <: CDModel{T}
@@ -263,8 +264,12 @@ end
 #    to T, and the run stops with `converged = true`;
 # 2. otherwise `st.gap` is NaN, and the run stops uncertified (`st.uncertified = true`, `converged =
 #    false`) where the certificate is undefined (`:undefined`), or the pass changed nothing (maxh = 0),
-#    or 2 tightenings were made in this solve, or tol/100 (in T) is 0 or below `floor64`;
+#    or 2 tightenings were made in this solve, or tol/100 (in T) is 0 or below the floor;
 # 3. otherwise the threshold is tightened, `st.tolerance /= 100`, and the loop continues with it.
+# The floor is in the units of the threshold: with a relative threshold (`st.scaled`, the changes scaled
+# by √a_k and compared with tol ‖y‖) it is `floor64` = 16 eps(T) ‖y‖; with an absolute one (relative =
+# false, or y = 0, the changes |h| themselves) it is 16 eps(T) max_k |β_k| at the check, 16 times the
+# rounding unit of the largest coefficient, and there is no tightening where every β_k is 0.
 function _stop_check!(m::SqrtLSModel{T}, g, x::SparseIterate{T}, st, maxh) where T
   code, ratio = _certify!(m, x)
   if code === :certified
@@ -274,7 +279,7 @@ function _stop_check!(m::SqrtLSModel{T}, g, x::SparseIterate{T}, st, maxh) where
   st.gap = T(NaN)
   if code === :failed && !iszero(maxh) && m.tightenings < 2
     tol = st.tolerance/100
-    if tol > 0 && Float64(tol) >= m.floor64
+    if tol > 0 && _above_floor(m, x, st.scaled, Float64(tol))
       m.tightenings += 1
       st.tolerance = tol
       return :retry
@@ -282,6 +287,15 @@ function _stop_check!(m::SqrtLSModel{T}, g, x::SparseIterate{T}, st, maxh) where
   end
   st.uncertified = true
   :uncertified
+end
+# Whether the tightened threshold `tol` is at least the floor of `_stop_check!`.
+function _above_floor(m::SqrtLSModel{T}, x::SparseIterate{T}, scaled::Bool, tol::Float64) where T
+  scaled && return tol >= m.floor64
+  βmax = 0.0
+  for k in activecoordinates(x)
+    βmax = max(βmax, abs(Float64(x[k])))
+  end
+  βmax > 0 && tol >= 16eps(T)*βmax
 end
 # The smallest number of T that is at least the Float64 v (for v ≤ floatmax(T)).
 function _round_up(::Type{T}, v::Float64) where T
@@ -318,25 +332,32 @@ const _CERT_TARGET = prevfloat(1e-4)
 # (n + p + 2) u ≤ 1/8 and n + p < 2^52 (u = eps(W)/2 = 2^-53, η = nextfloat(0.0) = 2^-1074,
 # ε = eps(W) = 2u, γ_k = k u/(1 − k u)); Julia's comparisons of a Float64 with the level are exact for
 # the level types of `_level_brackets`. Data, β and λ0 are finite (`solve!` checks them). Error model of
-# one operation on floats a, b: fl(a ± b) = (a ± b)(1 + δ) (exact where the result is subnormal),
-# fl(a b) = a b (1 + δ) + ζ, fl(a/b) = (a/b)(1 + δ) + ζ, fl(√a) = √a (1 + δ), with |δ| ≤ u, |ζ| ≤ η/2,
-# and an FMA has one rounding of the first kind. Facts used (standard, any order of summation, so they
-# cover `@simd`): (F1) for k + 1 terms, |fl(Σ) − Σ| ≤ γ_k Σ|terms|; for nonnegative terms the computed sum
-# lies in [Σ (1 − γ_k), Σ (1 + γ_k)]. (F2) for a dot product of length k, |fl(Σ x_i y_i) − Σ x_i y_i| ≤
-# γ_k Σ|x_i y_i| + k η. (F3) 1/(1 − γ_k) ≤ 1 + 2 k u and γ_k ≤ 2 k u = k ε for k u ≤ 1/4. Products of two
-# Float32 values are exact in W; the bounds below hold for Float32 data as well (with room to spare).
-# Each scalar operation after the loops that can round is rounded outward with `_up`/`_dn`, which bound
-# the exact result of the operation on the computed operands (the products of an integer below 2^52 with
-# ε or η, 1 ± ψ, 1 ± m ε and the selections by min, max and comparisons are exact); as the operands are themselves bounds and the operations
-# are monotone in each operand with the signs that occur (noted where a sign matters), each computed
-# bound bounds the real quantity it names.
+# one operation on floats a, b, c: fl(a ± b) = (a ± b)(1 + δ) (exact where the result is subnormal),
+# fl(a b) = a b (1 + δ) + ζ, fl(a/b) = (a/b)(1 + δ) + ζ, fl(√a) = √a (1 + δ), and, where the compiler
+# contracts a product and a sum into a fused multiply-add (LLVM may do so in the `@simd` column loop),
+# fl(fma(a, b, c)) = (a b + c)(1 + δ) + ζ; always |δ| ≤ u and |ζ| ≤ η/2, with ζ ≠ 0 only for a result below
+# floatmin(W). Facts used (standard, for any order of summation, so they cover `@simd`): (F1) for k + 1
+# terms, |fl(Σ) − Σ| ≤ γ_k Σ|terms|; for nonnegative terms the computed sum lies in [Σ (1 − γ_k),
+# Σ (1 + γ_k)]. (F2) for a dot product of length k, with or without contraction,
+# |fl(Σ x_i y_i) − Σ x_i y_i| ≤ γ_k Σ|x_i y_i| + (k η/2)(1 + γ_{k−1}) ≤ γ_k Σ|x_i y_i| + k η: each product
+# or fused operation contributes at most one ζ, and the later additions scale it by at most 1 + γ_{k−1}.
+# (F3) 1/(1 − γ_k) ≤ 1 + 2 k u and γ_k ≤ 2 k u = k ε for k u ≤ 1/4. Products of two Float32 values are
+# exact in W; the bounds below hold for Float32 data as well (with room to spare). Each scalar operation
+# after the loops that can round is rounded outward with `_up`/`_dn`, which bound the exact result of the
+# operation on the computed operands (the products of an integer below 2^52 with ε or η, 1 ± ψ, 1 ± m ε
+# and the selections by min, max and comparisons are exact); as the operands are themselves bounds and
+# the operations are monotone in each operand with the signs that occur (noted where a sign matters),
+# each computed bound bounds the real quantity it names.
 #
 # Step 1, residual (sequential over the nonzero β_k, k in the stored order, each row updated in turn).
 # r̂_i = fl(y_i − Σ_k π_ik) and μ̂_i = fl(|y_i| + Σ_k |π_ik|) with π_ik = fl(X_ik β_k). With r = y − Xβ and
 # e = r − r̂: by F1 (m + 1 terms), |r̂_i − (y_i − Σπ_ik)| ≤ γ_m A_i, A_i = |y_i| + Σ|π_ik|; by the model,
 # |Σ(π_ik − X_ik β_k)| ≤ u Σ|X_ik β_k| + m η/2 with |X_ik β_k| ≤ (|π_ik| + η/2)/(1 − u); and μ̂_i ≥
-# A_i (1 − γ_m). So |e_i| ≤ (γ_m + u/(1 − u)) A_i + m η ≤ κ μ̂_i + m η with
-# κ = (γ_m + u/(1 − u))/(1 − γ_m) ≤ (m + 1) u/(1 − 2 m u) ≤ (m + 1) ε, and ‖e‖₂ ≤ (m + 1) ε ‖μ̂‖₂ + m n η.
+# A_i (1 − γ_m). So, for m ≥ 1, |e_i| ≤ (γ_m + u/(1 − u)) A_i + m η ≤ κ μ̂_i + m η with
+# κ = (γ_m + u/(1 − u))/(1 − γ_m) ≤ (m + 1) u/(1 − 2 m u) ≤ (m + 1) ε, and ‖e‖₂ ≤ (m + 1) ε ‖μ̂‖₂ + m n η;
+# for m = 0, r̂ = y exactly and e = 0, so the same bound holds. (If the compiler fused the product and the
+# subtraction of a row update, the one fused rounding replaces the two, with at most one ζ per term, and
+# the bound holds as well.)
 #
 # Step 2, norms. ŝ_r = fl(Σ r̂_i²), ŝ_μ = fl(Σ μ̂_i²). With N = ‖r̂‖₂ (the norm of the computed vector) and
 # σ = Σ fl(r̂_i²) ∈ [N²(1 − u) − nη/2, N²(1 + u) + nη/2], F1 gives ŝ_r ∈ [σ (1 − γ_{n−1}), σ (1 + γ_{n−1})].
@@ -347,15 +368,18 @@ const _CERT_TARGET = prevfloat(1e-4)
 # condition, the same steps give ‖μ̂‖₂² ≤ ŝ_μ (1 + ψ) + n η, so M_up = up(√up(up(ŝ_μ (1 + ψ)) + n η))
 # bounds ‖μ̂‖₂; n η is exact.
 #
-# Step 3, columns (every k in 1:p). b̂_k = fl(Σ_i X_ik r̂_i) and â_k = fl(Σ_i X_ik²); B̂ = max |b̂_k|,
-# Â = max â_k; Q̂ = fl(Σ_k fl(β_k b̂_k)) over the nonzero β_k (ascending k). With a_k = ‖X_k‖² and
-# b_k = X_kᵀ r̂ (exact): as in step 2, a_k ≤ Â (1 + ψ) + n η, so √a_k ≤ R_up = up(√up(up(Â (1 + ψ)) + n η));
-# by F2 and Cauchy–Schwarz (Σ|X_ik r̂_i| ≤ √a_k N), |b_k − b̂_k| ≤ γ_n √a_k N + n η ≤ n ε R_up N + n η.
-# So for every k, |b_k|/N ≤ (B̂ + n η)/N + n ε R_up ≤ G = up(up(up(B̂ + n η)/N_lo) + up(n ε R_up)).
+# Step 3, columns (every k in 1:p; the loop over the rows is `@simd`, and may be contracted). b̂_k =
+# fl(Σ_i X_ik r̂_i) and â_k = fl(Σ_i X_ik²); B̂ = max |b̂_k|, Â = max â_k; Q̂ = fl(Σ_k fl(β_k b̂_k)) over the
+# nonzero β_k (ascending k). With a_k = ‖X_k‖² and b_k = X_kᵀ r̂ (exact): F2 for X_kᵀX_k gives
+# a_k ≤ (â_k + (n η/2)(1 + γ_{n−1}))/(1 − γ_n) ≤ â_k (1 + 2 n u) + n η ≤ Â (1 + ψ) + n η (F3), so
+# √a_k ≤ R_up = up(√up(up(Â (1 + ψ)) + n η)); F2 and Cauchy–Schwarz (Σ|X_ik r̂_i| ≤ √a_k N) give
+# |b_k − b̂_k| ≤ γ_n √a_k N + n η ≤ n ε R_up N + n η. The n η terms of R_up and of G absorb the absolute
+# errors ζ of the products or of the fused operations of these two sums. So for every k,
+# |b_k|/N ≤ (B̂ + n η)/N + n ε R_up ≤ G = up(up(up(B̂ + n η)/N_lo) + up(n ε R_up)).
 #
-# Step 4, dual point. t = 1 for G = 0, else t = min(1, max(dn(lo/G), 0)), with lo = `lo64` ≤ λ0. Then
-# 0 ≤ t ≤ 1 and t G ≤ lo: for G = 0 or t = 0 trivially; for t = 1 and G > 0, 1 ≤ dn(lo/G) ≤ lo/G; for
-# 0 < t < 1, t = dn(lo/G) ≤ lo/G. The dual point is
+# Step 4, dual point. G ≥ η > 0 (it is `nextfloat` of a nonnegative number), and t = min(1, max(dn(lo/G),
+# 0)), with lo = `lo64` ≤ λ0. Then 0 ≤ t ≤ 1 and t G ≤ lo: for t = 0 trivially; for t = 1,
+# 1 ≤ dn(lo/G) ≤ lo/G; for 0 < t < 1, t = dn(lo/G) ≤ lo/G. The dual point is
 # θ = t r̂/N, a real vector in the exact direction of the computed residual: ‖θ‖₂ = t ≤ 1 and, by step 3,
 # ‖Xᵀθ‖∞ = t max_k |b_k|/N ≤ t G ≤ lo ≤ λ0. So θ is dual feasible and P* ≥ θᵀy.
 #
@@ -370,8 +394,8 @@ const _CERT_TARGET = prevfloat(1e-4)
 #   - t Σ β_k g_k = t Q/N with Q = Σ_k β_k b_k. By F2 (with |β_k b̂_k| ≤ B̂ |β_k|) and step 3,
 #     Q ≥ Q̂ − (m ε B̂ + n η + n ε R_up N) Σ|β_k| − m η, so, for t ≥ 0 and N_lo ≤ N ≤ N_up,
 #     t Q/N ≥ t q_n − t E₂ with q_n = dn(Q̂/N_up) for Q̂ ≥ 0 and dn(Q̂/N_lo) for Q̂ < 0 (q_n ≤ Q̂/N), and
-#     E₂ = up(up(up(up(up(m ε B̂) + n η) Σ_up) + m η)/N_lo + up(n ε up(R_up Σ_up))); S₂ = dn(dn(t q_n) −
-#     up(t E₂)) ≤ t Σ β_k g_k.
+#     E₂ = up(up(up(up(up(up(m ε B̂) + n η) Σ_up) + m η)/N_lo) + up(n ε up(R_up Σ_up)));
+#     S₂ = dn(dn(t q_n) − up(t E₂)) ≤ t Σ β_k g_k.
 #   - ‖e‖ ≤ E_up = up(up((m + 1) ε M_up) + up(up(m n) η)) by step 1.
 #   gap_hi = up(up(T1 + up(S₁ − S₂)) + up(up(1 + t) E_up)) ≥ P(β) − θᵀy.
 # Step 6, dual lower bound and decision. P(β) ≥ max(0, N − ‖e‖) + λ0 ‖β‖₁ ≥ P_lo =
@@ -452,7 +476,7 @@ function _certify!(m::SqrtLSModel{T}, x::SparseIterate{T}) where T
   Rup = _up(sqrt(_up(_up(amax*(1 + ψ)) + nη)))
   G = _up(_up(_up(bmax + nη)/Nlo) + _up((n*ε)*Rup))
   isfinite(G) || return :undefined, NaN
-  t = iszero(G) ? 1.0 : min(1.0, max(_dn(lo/G), 0.0))
+  t = min(1.0, max(_dn(lo/G), 0.0))
   T1 = _up(_up(1 - t)*Nup)
   sbu = _up(sb*(1 + nb*ε))
   sbl = _dn(sb*(1 - nb*ε))

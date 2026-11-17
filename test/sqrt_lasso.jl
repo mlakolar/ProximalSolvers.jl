@@ -517,10 +517,11 @@ end
   XT, yT = T.(X), T.(y)
   g = NormL1(λ)
   p = size(X, 2)
-  function setup(β, tol)
+  function setup(β, tol; scaled = true)
     m, xs = prepared_model(XT, yT, λ, β)
     st = PS._CDState(T, xs, CDSolver())
     st.tolerance = T(tol)
+    st.scaled = scaled
     m, xs, st
   end
   # β = 0 with λ below λmax is not certified (t < 1): two tightenings by 100, then an uncertified stop
@@ -532,14 +533,28 @@ end
   # a pass that changed nothing is not tightened
   m, xs, st = setup(zeros(T, p), 1)
   @test PS._stop_check!(m, g, xs, st, zero(T)) === :uncertified && st.uncertified && m.tightenings == 0
-  # tol/100 below the floor 16 eps(T) ‖y‖ is not used
+  # relative threshold: tol/100 below the floor 16 eps(T) ‖y‖ is not used
   m, xs, st = setup(zeros(T, p), 1000 * eps(T) * norm(y))
   @test PS._stop_check!(m, g, xs, st, eps(T)) === :uncertified && m.tightenings == 0
+  # absolute threshold (relative = false, or y = 0): the floor is 16 eps(T) max_k |β_k| at the check, and
+  # there is no tightening at β = 0
+  m, xs, st = setup(zeros(T, p), 1; scaled = false)
+  @test PS._stop_check!(m, g, xs, st, T(0.5)) === :uncertified && st.uncertified && m.tightenings == 0
+  βh = T.(ref.β ./ 2)                      # not certified (checked), with max |β_k| about 1
+  bmax = maximum(abs, βh)
+  @test certify(XT, yT, λ, βh)[1] === :failed
+  m, xs, st = setup(βh, 1; scaled = false)
+  @test PS._stop_check!(m, g, xs, st, T(0.5)) === :retry && st.tolerance == T(1) / 100 && m.tightenings == 1
+  m, xs, st = setup(βh, 1000 * eps(T) * bmax; scaled = false)      # tol/100 = 10 eps(T) max |β_k|
+  @test PS._stop_check!(m, g, xs, st, eps(T)) === :uncertified && m.tightenings == 0
+  m, xs, st = setup(βh, 4000 * eps(T) * bmax; scaled = false)      # tol/100 = 40 eps(T) max |β_k|
+  @test PS._stop_check!(m, g, xs, st, eps(T)) === :retry && m.tightenings == 1
   # an exact fit with β ≠ 0 is not tightened
   Xe = T[1 2; 3 4; 5 6]
   me, xe = prepared_model(Xe, Xe * T[1, -1], λ, T[1, -1])
   ste = PS._CDState(T, xe, CDSolver())
   ste.tolerance = one(T)
+  ste.scaled = true
   @test PS._stop_check!(me, g, xe, ste, T(0.5)) === :uncertified && me.tightenings == 0
   # a certified point: converged, with st.gap the certified ratio rounded up to T
   βT = T.(ref.β)
