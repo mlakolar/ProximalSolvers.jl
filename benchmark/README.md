@@ -6,16 +6,18 @@ matched-accuracy comparisons, statistical A/B comparisons with A/A noise control
 timing and allocation records, an external-solver comparison suite and the historical and migration
 campaigns. All of it is kept and maintained, to be reused as solvers return to the package.
 
-Master currently supports coordinate descent (`CDSolver`, with a dense `Vector` or a vector
-`SparseIterate`) and proximal gradient descent (`ProximalGradientDescent`, dense `Vector`) on Float32
-and Float64 least-squares lasso. The formal harness runs these on master; its cases for other
-solvers and features are **deferred**: kept with their IDs and definitions, listed with what they
-lack, and enabled again by declaring the capability when the solver returns
-([HARNESS.md](HARNESS.md#restoring-a-solver)).
+Master currently supports coordinate descent (`CDSolver`) with dense `Vector` or vector
+`SparseIterate` iterates for least-squares lasso, and `BlockIterate` for group lasso.
+Proximal gradient descent (`ProximalGradientDescent`) and accelerated proximal gradient
+descent (`AccProxGradDescent`) support dense `Vector` least-squares lasso iterates.
+All three solvers support Float32 and Float64. The formal harness runs their supported
+cases on master; cases for other solvers and features are **deferred**: kept with their IDs
+and definitions, listed with what they lack, and enabled again by declaring the
+capability when the solver returns ([HARNESS.md](HARNESS.md#restoring-a-solver)).
 
 | Component | Path | Runs against master? |
 |---|---|---|
-| Formal harness: problems, certificates, cases, runner, local exploration | `problems.jl`, `certificates.jl`, `cases.jl`, `run.jl`, `setup.jl`, `local.jl` | Yes, for 42 cases (40 current-core cases: dense and `SparseIterate` CD, dense PGD and APG, Float32/Float64; and 2 historical) with `setup.jl ... pinned`; 100 historical cases deferred. Documented in [HARNESS.md](HARNESS.md); `test/benchmark_formal.jl` tests it. |
+| Formal harness: problems, certificates, cases, runner, local exploration | `problems.jl`, `certificates.jl`, `cases.jl`, `run.jl`, `setup.jl`, `local.jl` | Yes: 30 quick or 56 extended cases (extended includes quick) with `setup.jl ... pinned`; 100 historical cases deferred in the extended suite. Documented in [HARNESS.md](HARNESS.md); `test/benchmark_formal.jl` tests it. |
 | Historical environment template | `Project.toml` | Kept with ProximalBase 0.5 for full-package checkouts and Stage 2A verification (#225). |
 | Harness self-checks | `check_certificates.jl`, `check_local.jl` | No (deferred): they exercise historical solvers. |
 | Record validation, summaries, paired statistics | `validate.py`, `summarize.py`, `compare.py` | Yes. Python only; they read records and never load the package. |
@@ -31,8 +33,12 @@ lack, and enabled again by declaring the capability when the solver returns
 ```sh
 # Formal, independently certified records (HARNESS.md): environment, supported and deferred cases, a run
 julia benchmark/setup.jl "$PWD" benchmark/results/env pinned
-PS_LIST=true julia --project=benchmark/results/env benchmark/run.jl         # supported cases
-PS_LIST=deferred julia --project=benchmark/results/env benchmark/run.jl     # deferred, with what they lack
+# Quick (default): 30 supported cases
+PS_LIST=true julia --project=benchmark/results/env benchmark/run.jl
+# Extended (includes quick): 56 supported cases
+PS_SUITE=extended PS_LIST=true julia --project=benchmark/results/env benchmark/run.jl
+# Extended: 100 deferred historical cases, with missing capabilities
+PS_SUITE=extended PS_LIST=deferred julia --project=benchmark/results/env benchmark/run.jl
 JULIA_NUM_THREADS=1 PS_EXPECTED_PROXIMALBASE_REV=a19c59aa723d085d5d7cf5242895bda16eb77214 \
   julia --project=benchmark/results/env benchmark/run.jl
 python3 benchmark/validate.py benchmark/results benchmark/results/validation.json
@@ -76,9 +82,14 @@ ProximalBase pin (URL and full commit of the root `Project.toml` `[sources]`) on
 current stable; `benchmark/Project.toml` keeps ProximalBase 0.5 for the historical modes. `run.jl`
 refuses a ProximalBase other than the loaded checkout's pin (URL, commit and committed manifest
 tree), at a moving revision or outside its manifest tree, records its manifest identity, and checks `PS_EXPECTED_PROXIMALBASE_REV` and `PS_EXPECTED_PACKAGE_REVISION` when set.
-`cases.jl` declares the core's capabilities; the 40 current-core cases and 2 historical cases that
-run unchanged are supported, and the other 100 historical cases are deferred
-(`PS_LIST=deferred`). Requesting a deferred case stops the runner with what it lacks.
+`cases.jl` declares the core's capabilities. With all groups selected, the default quick suite
+supports 30 cases: 24 standard least-squares lasso cases, 4 group-lasso CD cases on a
+`BlockIterate`, and 2 unchanged historical cases. The extended suite includes quick and
+supports 56 cases: 40 standard least-squares lasso cases (dense and `SparseIterate` CD,
+dense PGD and APG, Float32/Float64), 10 accuracy-focused Float64 PGD/APG `acc-` cases,
+4 group-lasso CD cases, and the same 2 historical cases. The other 100 historical
+cases are deferred in the extended suite (`PS_LIST=deferred`). Requesting a deferred
+case stops the runner with what it lacks.
 
 **Frozen identities.** The Stage 2B harness identities are verified against pinned historical
 commits, not against the working tree, so the four harness files (`problems.jl`, `certificates.jl`,
@@ -138,7 +149,9 @@ is done without changing `benchmark/Project.toml`, and steps 5 and 6 remain.
    predicates (a solver type can exist without supporting a problem, iterate or phase): each case
    lists its requirements, `CAPABILITIES` lists the core's, and the per-solver options rule replaces
    the hard-coded `Union`. Start metadata records the capabilities and the deferred count.
-4. **Current API.** Done: 40 current-core cases, 10 of them for APG (HARNESS.md, "Supported and deferred cases").
+4. **Current API.** Done for #110: 40 standard least-squares lasso cases, 10 of them for APG
+   (HARNESS.md, "Supported and deferred cases"). Later restorations added 10 extended
+   accuracy-focused PGD/APG cases (#314, #318) and 4 group-lasso CD cases (#275, #326).
    `problems.jl` and `certificates.jl` are unchanged; Float32 problems are certified in exact
    Float64.
 5. **External suite.** Its analysis already works on current records and runs in CI. Port
