@@ -110,7 +110,7 @@ end
 # below floatmin(T) (a threshold that may have underflowed) or when ‖G‖∞ is not finite.
 # ‖G‖∞ is ProximalBase's full-point kkt_violation(NormL1(λ), ∇f(x), x) with λ = T(λ0), the
 # coefficient of the formula above; the level is converted before the call, so that ProximalBase
-# does not convert it again. An infinite entry of x gives a non-finite residual (Inf, or NaN when
+# does not round it again. An infinite entry of x gives a non-finite residual (Inf, or NaN when
 # a NaN is read), so such a stop is not kept.
 # It is a computed residual, not a certificate in exact arithmetic.
 function _stationary!(state, f, g, options::ProximalOptions)
