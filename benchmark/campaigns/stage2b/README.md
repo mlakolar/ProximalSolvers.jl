@@ -227,7 +227,8 @@ new base (a new `fetch`) for another attempt; the stopped one is kept as evidenc
 **Recovering a refused attempt (`recover`, #333).** An official attempt that measured every process and was then refused
 only because the comparator did not accept the metadata keys of the harness (every recorded problem is a
 `metadata_keys` refusal of those eleven keys) can be finished once, on a COPY of the base, with the corrected
-comparator: `recover` applies the official gate of `run`, requires the attempt to verify as `refused` with a complete
+comparator: `recover` applies the official gate of `run` unchanged (so it needs a complete copy of the base, the private
+`installations/` included, and refuses an evidence-only copy), requires the attempt to verify as `refused` with a complete
 receipt (every process exit 0), moves `logs/STATE.json` and `checksums.sha256` aside byte for byte
 (`logs/STATE.original.json`, `logs/checksums.original.sha256`), writes `logs/recovery.json` (original digests, the
 freeze commit, the driver and comparator digests, the time, the ruling) and runs the same tail as `run` (declared

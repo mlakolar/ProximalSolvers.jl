@@ -6575,16 +6575,32 @@ class RecoveryTests(unittest.TestCase):
                 self.assertIn(text, err)
                 self.assertFalse((copy_ / C.RECOVERY_RECORD).exists())
 
-    def test_a_base_without_the_private_installations_skips_only_the_checkout_gates(self):
+    def test_a_copy_without_the_private_installations_is_refused_with_a_clear_message(self):
         copy_ = clone(self.base)
         lock = tomllib.loads((copy_ / "lock.toml").read_text(encoding="utf-8"))
-        facts = {**facts_for(copy_, lock), "checkouts": {}}
-        self.assertEqual(C.recovery_gate(lock, facts, FREEZE), [])
-        self.assertTrue(any(item.startswith("PS_B_") for item in C.official_gate(lock, facts, FREEZE)))
-        self.assertTrue(any("HEAD" in item for item in C.recovery_gate(lock, {**facts, "head": "e" * 40}, FREEZE)))
-        wrong = {"ps_b": {"commit": "1" * 40, "tree": "1" * 40, "package_hash": "1" * 40}}
-        self.assertTrue(any(item.startswith("PS_B_COMMIT") for item in
-                            C.recovery_gate(lock, {**facts, "checkouts": wrong}, FREEZE)))
+        before = digests(copy_)
+        code, out, err = self.recover(copy_, facts={**facts_for(copy_, lock), "checkouts": {}})
+        self.assertEqual(code, 2, err)
+        self.assertIn("recover needs a complete copy of the attempt base", err)
+        self.assertEqual(digests(copy_), before)
+        self.assertFalse(hasattr(C, "recovery_gate"), "the gate of recover is official_gate, unrelaxed")
+
+    def test_the_checkout_gates_apply_to_recover(self):
+        copy_ = clone(self.base)
+        lock = tomllib.loads((copy_ / "lock.toml").read_text(encoding="utf-8"))
+        facts = facts_for(copy_, lock)
+        facts["checkouts"] = {**facts["checkouts"], "ps_b": {**facts["checkouts"]["ps_b"], "commit": "1" * 40}}
+        code, out, err = self.recover(copy_, facts=facts)
+        self.assertEqual(code, 2, err)
+        self.assertIn("PS_B_COMMIT", err)
+        self.assertFalse((copy_ / C.RECOVERY_RECORD).exists())
+
+    def test_verify_of_recovered_evidence_does_not_need_the_private_directories(self):
+        base, _ = self.recovered()
+        stripped = fresh("evidence") / "tree"
+        shutil.copytree(base, stripped, symlinks=True, ignore=shutil.ignore_patterns(*C.PRIVATE_DIRECTORIES))
+        document, status = self.verify(stripped)
+        self.assertEqual((document["state"], status, document["problems"]), ("verified_recovered", 0, []))
 
     def test_a_comparator_that_still_refuses_is_recorded_and_not_retried(self):
         copy_ = clone(self.base, "still-refused")

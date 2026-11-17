@@ -24,7 +24,8 @@ configuration, tests pass mocks. `prepare --step fetch` clones, builds the envir
 identities (network allowed); `prepare --step finalize` runs on the measurement node, offline, with the formal Julia
 flags and environment.
 
-`recover` (official only, #333) reruns only the post-measurement tail (declared differences, comparator, completion,
+`recover` (official only, #333; it needs a complete copy of the base, private directories included, and applies the
+official gate of `run` unchanged) reruns only the post-measurement tail (declared differences, comparator, completion,
 seals) on a COPY of an official attempt that was refused solely because the comparator did not accept the metadata
 keys of the harness (every recorded problem a `metadata_keys` refusal of those keys). It moves STATE.json and
 checksums.sha256 aside byte for byte (logs/STATE.original.json, logs/checksums.original.sha256), records the
@@ -2239,16 +2240,6 @@ def metadata_keys_refusal_problems(state):
             problems.append(f"a recorded problem names missing keys {missing} or keys outside the harness keys "
                             f"{sorted(set(unknown) - allowed)}: {item[:100]!r}")
     return problems
-
-
-def recovery_gate(lock, repo_facts, freeze_sha):
-    """The official gate of `run` for a recovery. The private installations are not part of an archived copy, so
-    the gates that compare a fetched checkout with the lock (PS_B_* and PB_B_*) apply only where the base has one;
-    the identity of the measured stack B is bound to the lock by the declared differences and the comparator."""
-    unmet = official_gate(lock, repo_facts, freeze_sha)
-    if (repo_facts or {}).get("checkouts"):
-        return unmet
-    return [item for item in unmet if not item.startswith(("PS_B_", "PB_B_"))]
 
 
 def recovery_problems(base, lock_path, run=subprocess.run):
@@ -4483,7 +4474,11 @@ def dispatch(args, hooks, facts, environ):
         lock = load_lock(args.config, strata=strata)
         observed = facts(HERE.parents[2], args.config, base, CAMPAIGN_DIR / "schedule.toml",
                          CAMPAIGN_DIR / "case-mapping.toml")
-        unmet = recovery_gate(lock, observed, args.freeze_sha)
+        if not (observed or {}).get("checkouts"):
+            raise Refused("recover needs a complete copy of the attempt base: the private installations "
+                          "(installations/ab-b) are missing, and the official gate compares them with the lock",
+                          field="base")
+        unmet = official_gate(lock, observed, args.freeze_sha)
         if unmet:
             raise Refused("the official gate is not met: " + "; ".join(unmet[:5]), field="gate", problems=unmet)
         outcome = recover(plan_for_recovery(lock, base, args.freeze_sha), args.config)
