@@ -8,16 +8,17 @@ Coordinate descent for the least-squares lasso and elastic net. Call
 design/response data and coefficients. The coefficient storage can be
 a dense `Vector` or a one-dimensional ProximalBase `SparseIterate`. The penalty
 is an unweighted `NormL1(lambda)` or an unweighted `ElasticNet(lambda1, lambda2)`;
-for an `ElasticNet` the coordinate step in the normal range is ProximalBase's `prox_block`
-of the penalty. Let `s` be the loss scale and `a` the squared norm of the column, finite
-and positive. Where `s * a` or its reciprocal is below `floatmin` of the type that
-combines `s` with the working type, the step with `lambda2 = 0` is the lasso's
-range-safe form (the threshold formed without the product or its reciprocal), and with
-`lambda2 > 0` it is refused with an `ArgumentError` that names the coordinate. The
-refusal happens during the pass: the iterate passed to `solve!` is unchanged, and a
-borrowed RNG may have advanced. A flat column (all entries 0) ends at 0 at the levels that `solve!` accepts for
-either penalty; a column that is not flat and whose `a` underflows to 0 is refused
-as for the lasso.
+for an `ElasticNet` the coordinate step of a visit in the normal range is ProximalBase's
+`prox_block` of the penalty. Let `s` be the loss scale and `a` the squared norm of the
+column, finite and positive. At a visit where `s * a` or its reciprocal is below
+`floatmin` of the type that combines `s` with the working type, the step with
+`lambda2 = 0` is the lasso's range-safe form (the threshold formed without the product
+or its reciprocal), and with `lambda2 > 0` the visit is refused with an `ArgumentError`
+that names the coordinate. The refusal happens during the pass: the iterate passed to
+`solve!` is unchanged, and a borrowed RNG may have advanced. A visit to a flat column
+(all entries 0) sets its coordinate to 0, at the levels that `solve!` accepts, for either
+penalty; a visit to a column that is not flat and whose `a` underflows to 0 is refused
+as for the lasso. With `maxpasses = 0` no coordinate is visited.
 For a group lasso it can be a ProximalBase `BlockIterate`, as described below.
 
 `CDSolver()` uses random coordinate order and the algorithm's default

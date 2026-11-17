@@ -19,9 +19,9 @@ elastic net
 \min_\beta\quad \frac{s}{2}\|y-X\beta\|_2^2+\lambda_1\|\beta\|_1+\frac{\lambda_2}{2}\|\beta\|_2^2,
 ~~~
 
-with `ElasticNet(lambda1, lambda2)`. In the normal range, `CDSolver` takes the coordinate step from
-ProximalBase's `prox_block` of the penalty; out of range, the step with `lambda2 = 0` is the lasso's range-safe form and
-with `lambda2 > 0` it is refused (see [the numerical guide](numerics.md)). Its `converged` is the change test, not a KKT
+with `ElasticNet(lambda1, lambda2)`. In the normal range, `CDSolver` takes the coordinate step of a visit from
+ProximalBase's `prox_block` of the penalty; out of range, the step of a visit with `lambda2 = 0` is the lasso's
+range-safe form and a visit with `lambda2 > 0` is refused (see [the numerical guide](numerics.md)). Its `converged` is the change test, not a KKT
 certificate.
 
 | Input | Supported |
