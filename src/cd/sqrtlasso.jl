@@ -9,9 +9,10 @@
 # `_prepare!`). The certificate works with brackets `lo64` ≤ λ0 ≤ `hi64` of the level of the objective,
 # λ0 = g.λ0 (NaN when `_level_brackets` finds none). `floor64` = 16 eps(T) ‖y‖: with a relative change
 # threshold, the stop check does not tighten it below this value. `tightenings` counts the tightenings
-# of the solve. `res64` and
-# `rowmag64` are Float64 vectors of length n (allocated by `_prepare!`): the certificate's residual and
-# row magnitudes; `res64` is also the scaled residual of `_sqrt_offrange_step`.
+# of the solve. `gap` and `uncertified` record the outcome of the stop check for the result (the
+# certified bound, or NaN; whether the run stopped without a certificate). `res64` and `rowmag64` are
+# Float64 vectors of length n (allocated by `_prepare!`): the certificate's residual and row
+# magnitudes; `res64` is also the scaled residual of `_sqrt_offrange_step`.
 mutable struct SqrtLSModel{T<:Union{Float32, Float64}, M<:LSModel{T, T}} <: CDModel{T}
   ls::M
   gt::NormL1{T, Nothing}
@@ -19,13 +20,15 @@ mutable struct SqrtLSModel{T<:Union{Float32, Float64}, M<:LSModel{T, T}} <: CDMo
   hi64::Float64
   floor64::Float64
   tightenings::Int
+  gap::T
+  uncertified::Bool
   res64::Vector{Float64}
   rowmag64::Vector{Float64}
 end
 function cdmodel(f::SqrtLeastSquaresLoss{T, <:Vector{T}, <:Matrix{T}}, x::SparseIterate{T}) where {T<:Union{Float32, Float64}}
   d = leastsquares_data(f)
   ls = LSModel(d.Y, d.X, d.α)
-  SqrtLSModel{T, typeof(ls)}(ls, NormL1(zero(T)), NaN, NaN, NaN, 0, Float64[], Float64[])
+  SqrtLSModel{T, typeof(ls)}(ls, NormL1(zero(T)), NaN, NaN, NaN, 0, T(NaN), false, Float64[], Float64[])
 end
 
 # The LS methods with the loss scale 1, forwarded: the `CDModel` defaults (unit coordinate scale, zero
@@ -36,9 +39,13 @@ response_scale(m::SqrtLSModel, x) = response_scale(m.ls, x)
 _cache(m::SqrtLSModel) = m.ls.r
 # The loss value ‖r‖₂ at the cached residual, from ProximalBase's residual oracle of the loss f.
 loss_value(m::SqrtLSModel, f, x) = value_from_residual(f, m.ls.r)
+# The outcome of the stop check, for the result and the warning (see `_stop_check!` in models.jl).
+_result_gap(m::SqrtLSModel) = m.gap
+_uncertified(m::SqrtLSModel) = m.uncertified
 
 # Per-solve preparation (before the first pass, only when maxpasses > 0): the step's penalty at the
-# level T(λ0), the certificate's brackets of λ0, the tightening floor, the counter and the work vectors.
+# level T(λ0), the certificate's brackets of λ0, the tightening floor, the counter, the outcome and the
+# work vectors.
 function _prepare!(m::SqrtLSModel{T}, g::NormL1, x::SparseIterate{T}) where T
   m.gt = NormL1(T(g.λ0))
   m.lo64, m.hi64 = _level_brackets(g.λ0)
@@ -50,6 +57,8 @@ function _prepare!(m::SqrtLSModel{T}, g::NormL1, x::SparseIterate{T}) where T
   ny, ey = _scaled_norm(m.ls.y, n)
   m.floor64 = 16eps(T)*ldexp(ny, ey)
   m.tightenings = 0
+  m.gap = T(NaN)
+  m.uncertified = false
   m
 end
 
@@ -132,12 +141,15 @@ end
 # the centre c = old + b/a and d = ‖r − (b/a) X_k‖ (the distance of r from the span of X_k),
 # ‖r_k − X_k z‖² = a (z − c)² + d², so the minimizer is 0 for λ ≥ √a and shrink(c, τ) with
 # τ = λ d/√(a (a − λ²)) for λ < √a. The level λ is T(λ0), from `gt`, in the comparison and in the prox.
-# The checks come in the order of the LS step: a curvature that is 0 for a column that is not flat (its
-# squares underflow) and a curvature that is not finite are refused before the coordinate or the
-# residual changes; a flat column takes the penalty's minimizer (`_coordinate_minimizer`).
+# Refused, before the coordinate or the residual changes and before any other branch: a residual with an
+# entry that is not finite (a computed ρ² that is not finite is checked entry by entry, because the
+# squares of a finite residual can overflow), then, in the order of the LS step, a curvature that is 0 for
+# a column that is not flat (its squares underflow) and a curvature that is not finite. A flat column
+# takes the penalty's minimizer (`_coordinate_minimizer`).
 @inline function coordinate_step!(m::SqrtLSModel{T}, g, x::SparseIterate{T}, k::Int) where T
   ls = m.ls
   a, b, ρ2 = _column_dot_rsqr(ls.X, ls.r, k, ls.a[k])
+  isfinite(ρ2) || _check_residual(ls.r, k)
   iszero(a) && !_flat_column(ls, k) &&
     throw(ArgumentError("the coordinate curvature underflows; rescale the data"))
   isfinite(a) || _refuse_curvature(T, k)
@@ -207,14 +219,18 @@ end
 # Float32 data the scaled entries and their products are exact). With 2^ex ≤ max_i |X_ik| < 2^(ex+1) (the
 # column is not flat, so the maximum is positive, and it is finite) and x̃ = X_k 2^-ex: ã = ‖x̃‖² is between 1
 # and 4n, √a = √ã 2^ex and λ̃ = λ 2^-ex, so λ ≥ √a is tested as λ̃ ≥ √ã (a λ̃ that overflows to Inf
-# passes it). Then, with M = max_i |r_i|: r = 0 (M = 0) gives b = 0 and d = 0, so the minimizer is c = old;
-# an M that is not finite is refused before the coordinate or the residual changes. Otherwise, with
-# 2^er ≤ M < 2^(er+1) and s = r 2^-er (into `res64`): b̃ = x̃ᵀs, ‖s‖² (between 1 and 4n) and q̃ = b̃/ã give
+# passes it). Then, with M = max_i |r_i| (finite: `coordinate_step!` has refused a residual that is not):
+# r = 0 (M = 0) gives b = 0 and d = 0, so the minimizer is c = old. Otherwise, with 2^er ≤ M < 2^(er+1)
+# and s = r 2^-er (into `res64`): b̃ = x̃ᵀs, ‖s‖² (between 1 and 4n) and q̃ = b̃/ã give
 # b/a = q̃ 2^(er − ex); d̃² = ‖s‖² − b̃ q̃, formed again as ‖s − q̃ x̃‖² by `_scaled_norm` (which scales by the
 # largest entry of the difference) where it is below ‖s‖²/16, gives d = d̃ 2^er. The step is
 # shrink(c, τ) with c = old + T(q̃ 2^(er − ex)) and τ = (λ̃/√ã)(d̃/√((√ã − λ̃)(√ã + λ̃))) 2^(er − ex), the
-# threshold of the scaled problem, from `_sqrt_band_step`. A d that is not 0 is not rounded to 0 on the
-# way to τ.
+# threshold of the scaled problem, from `_sqrt_band_step`. The scaling keeps the largest entries in
+# [1, 2); an entry below 2^-1074 times the largest one of its vector (x̃, s or the difference) becomes 0
+# or loses bits. The discarded parts change a, b and d by at most a relative √n 2^-1074 of their scales
+# (√a, ‖r‖), far below the rounding allowance of the step (for example, a residual [2^1000, 2^-1000]
+# against the column [1, 0] gives d̃ = 0 for d = 2^-1000, which changes the coordinate objective by at
+# most 2d).
 @noinline function _sqrt_offrange_step(m::SqrtLSModel{T}, old::T, k::Int) where T
   ls = m.ls
   X, r, s = ls.X, ls.r, m.res64
@@ -234,7 +250,6 @@ end
   λs = ldexp(Float64(m.gt.λ0), -ex)
   λs >= ras && return zero(T)
   iszero(M) && return old
-  isfinite(M) || _refuse_residual(T, k)
   er = exponent(M)
   bs, ss = 0.0, 0.0
   @inbounds for i in 1:n
@@ -255,37 +270,44 @@ end
   end
   _sqrt_band_step(old + T(ldexp(qs, er - ex)), ras, λs, ds, ed + er - ex)
 end
-@noinline _refuse_residual(::Type{T}, k::Int) where T =
-  throw(ArgumentError("the residual is not finite in $T at the visit of coordinate $k; rescale the data"))
+# The refusal of a residual with an entry that is not finite, at the visit of coordinate k.
+@noinline function _check_residual(r::AbstractVector{T}, k::Int) where T
+  for v in r
+    isfinite(v) || throw(ArgumentError("the residual is not finite in $T at the visit of coordinate $k; rescale the data"))
+  end
+  nothing
+end
 
 # The stop check at a converged full pass (see `_stop_check!` in models.jl), in this order:
 # 1. the certificate `_certify!` runs (also where the pass changed nothing, so that y = 0 and λ0 ≥ λmax
-#    from 0 can be certified at the first pass); certified: `st.gap` holds the certified bound rounded up
+#    from 0 can be certified at the first pass); certified: `m.gap` holds the certified bound rounded up
 #    to T, and the run stops with `converged = true`;
-# 2. otherwise `st.gap` is NaN, and the run stops uncertified (`st.uncertified = true`, `converged =
+# 2. otherwise `m.gap` is NaN, and the run stops uncertified (`m.uncertified = true`, `converged =
 #    false`) where the certificate is undefined (`:undefined`), or the pass changed nothing (maxh = 0),
-#    or 2 tightenings were made in this solve, or tol/100 (in T) is 0 or below the floor;
-# 3. otherwise the threshold is tightened, `st.tolerance /= 100`, and the loop continues with it.
-# The floor is in the units of the threshold: with a relative threshold (`st.scaled`, the changes scaled
-# by √a_k and compared with tol ‖y‖) it is `floor64` = 16 eps(T) ‖y‖; with an absolute one (relative =
-# false, or y = 0, the changes |h| themselves) it is 16 eps(T) max_k |β_k| at the check, 16 times the
-# rounding unit of the largest coefficient, and there is no tightening where every β_k is 0.
-function _stop_check!(m::SqrtLSModel{T}, g, x::SparseIterate{T}, st, maxh) where T
+#    or 2 tightenings were made in this solve, or the candidate tol/100 (in T) is not finite, is not
+#    below the current threshold, is 0, or is below the floor (so a threshold that overflowed to Inf in T
+#    is not lowered and spends no tightening);
+# 3. otherwise the threshold is tightened, `st.tolerance = tol/100`, and the loop continues with it.
+# The floor is in the units of the threshold: with a relative threshold (`scaled`, the changes scaled by
+# √a_k and compared with tol ‖y‖) it is `floor64` = 16 eps(T) ‖y‖; with an absolute one (relative =
+# false, or y = 0, the changes |h| themselves) it is 16 eps(T) max_k |β_k| at the check, a roundoff scale
+# of the largest coefficient, and there is no tightening where every β_k is 0.
+function _stop_check!(m::SqrtLSModel{T}, g, x::SparseIterate{T}, st, maxh, scaled::Bool) where T
   code, ratio = _certify!(m, x)
   if code === :certified
-    st.gap = _round_up(T, ratio)
+    m.gap = _round_up(T, ratio)
     return :converged
   end
-  st.gap = T(NaN)
+  m.gap = T(NaN)
   if code === :failed && !iszero(maxh) && m.tightenings < 2
     tol = st.tolerance/100
-    if tol > 0 && _above_floor(m, x, st.scaled, Float64(tol))
+    if isfinite(tol) && tol < st.tolerance && tol > 0 && _above_floor(m, x, scaled, Float64(tol))
       m.tightenings += 1
       st.tolerance = tol
       return :retry
     end
   end
-  st.uncertified = true
+  m.uncertified = true
   :uncertified
 end
 # Whether the tightened threshold `tol` is at least the floor of `_stop_check!`.
@@ -316,10 +338,12 @@ const _CERT_TARGET = prevfloat(1e-4)
 # W = Float64 for both data types. It returns (code, ratio): (:certified, ratio) with
 # ratio ≤ prevfloat(1e-4) a proved upper bound on (P(β) − P*)/P* for the current β; (:failed, ratio or
 # NaN) where the bound is larger or the dual lower bound is not positive (more passes can help); and
-# (:undefined, NaN) where it cannot be formed: the computed residual is 0 with β ≠ 0 (an exact fit,
-# where the direction r/‖r‖ is undefined), its sum of squares is outside the range of the proof, the
-# level has no brackets, or an aggregate is not finite (tested explicitly, not through a comparison
-# with NaN). It also refreshes the residual cache `ls.r` with T.(r̂) where every r̂_i is finite and
+# (:undefined, NaN) where it cannot be formed: the computed residual r̂ is 0 in every entry while some
+# β_k ≠ 0 (the direction r̂/‖r̂‖ is undefined; this is the usual outcome at an exact fit y = Xβ, and r̂ can
+# also round to 0 where y − Xβ is not 0, by cancellation at the scale of the row magnitudes below), its
+# sum of squares is outside the range of the proof, the level has no brackets, or an aggregate is not
+# finite (tested explicitly, not through a comparison with NaN). A true exact fit whose computed r̂ is
+# not 0 goes through the bound like any other point, and a certificate there is valid. It also refreshes the residual cache `ls.r` with T.(r̂) where every r̂_i is finite and
 # at most floatmax(T) in magnitude; x is not changed.
 #
 # Problem. P(β) = ‖y − Xβ‖₂ + λ0 ‖β‖₁ for the stored β (exact values of T) and the level λ0 = g.λ0 that

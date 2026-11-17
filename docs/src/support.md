@@ -79,10 +79,11 @@ when `x` is a dense `Vector{T}` or a one-dimensional `SparseIterate{T}`, `X` and
 `‖y − Xβ‖₂/√n + λₙ‖β‖₁` (`Scaled(f, inv(sqrt(n)))` in ProximalBase) has the same minimizers as `P` at
 `lambda = sqrt(n) * λₙ`, and its values are those of `P` divided by `√n`; for the scaled lasso, the noise
 estimate at the solution is `norm(y - X*beta)/sqrt(n)`. Refused with an `ArgumentError`, before `x` is
-copied or the random number generator is used: `Scaled(SqrtLeastSquaresLoss, alpha)` (use the unscaled
-loss at the level `lambda/alpha`), `lambda = 0` (use `LeastSquaresLoss`, which has the same minimizers), a
-weighted `NormL1` (also with all weights equal to one), an `ElasticNet`, a `BlockIterate`, and
-`ProximalGradientDescent` or `AccProxGradDescent` (the loss is not smooth where `y = X*beta`).
+copied or the random number generator is used: `Scaled(SqrtLeastSquaresLoss, alpha)` (for a positive
+finite `alpha`, use the unscaled loss at the level `lambda/alpha`), `lambda = 0` (use `LeastSquaresLoss`,
+which has the same minimizers), a weighted `NormL1` (also with all weights equal to one), an `ElasticNet`,
+a `BlockIterate`, and `ProximalGradientDescent` or `AccProxGradDescent` (ProximalBase provides no gradient
+for this loss; for `X ≠ 0` it is not differentiable where `y = X*beta`).
 
 For this loss, `converged = true` means that a duality certificate proved
 `(P(beta) − P*)/P* ≤ 1e-4`, with `P*` the minimum, and `gap` then holds that proved bound. A run that

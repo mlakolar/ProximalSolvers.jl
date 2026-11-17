@@ -131,9 +131,9 @@ function _check_sqrt_data(x, f, g, ::Type{T}, kind::Symbol) where T
   kind === :block &&
     throw(ArgumentError("SqrtLeastSquaresLoss does not support a BlockIterate (there is no group square-root lasso); use a dense Vector or a one-dimensional SparseIterate"))
   kind === :gradient &&
-    throw(ArgumentError("SqrtLeastSquaresLoss is not smooth (it has no gradient where y = X*x), so ProximalGradientDescent and AccProxGradDescent do not support it; use CDSolver"))
+    throw(ArgumentError("ProximalBase provides no gradient for SqrtLeastSquaresLoss (for X ≠ 0 it is not differentiable where y = X*x), so ProximalGradientDescent and AccProxGradDescent do not support it; use CDSolver"))
   f isa Scaled &&
-    throw(ArgumentError("Scaled(SqrtLeastSquaresLoss, alpha) is not supported; use the unscaled SqrtLeastSquaresLoss with the penalty level lambda/alpha, which has the same minimizers (the scaled objective is alpha times the unscaled one)"))
+    throw(ArgumentError("Scaled(SqrtLeastSquaresLoss, alpha) is not supported; for a positive finite alpha, use the unscaled SqrtLeastSquaresLoss with the penalty level lambda/alpha, which has the same minimizers (the scaled objective is alpha times the unscaled one)"))
   d = leastsquares_data(f)
   d.X isa Matrix{T} && d.Y isa Vector{T} && f isa SqrtLeastSquaresLoss{T} ||
     throw(ArgumentError("X must be Matrix{$T} and y Vector{$T}; sparse designs, matrix responses and mixed array types are deferred"))

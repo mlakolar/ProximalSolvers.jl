@@ -3,9 +3,10 @@ module SqrtLasso
 # CDSolver(...))` minimizes P(β) = ‖y − Xβ‖₂ + λ‖β‖₁. `converged = true` only where the
 # residual-direction duality certificate proves (P(β) − P*)/P* ≤ 1e-4, and then `gap` is that proved
 # bound; otherwise `converged = false` and `gap` is NaN. Following #305, the tests assert truthful flags
-# and the quality of the objective, not bits: every certified run is checked against a dual lower bound
-# that the test verifies in BigFloat, and accuracy statements are medians with a margin; the per-run
-# hard bound is the 1e-4 contract. The data of the reference problems are small dyadic numbers from a
+# and the quality of the objective, not bits: the certified runs of the reference problems (B), the
+# certified points of the adversarial tests (C) and the dominant-coefficient runs are checked against a
+# dual lower bound that the test verifies in BigFloat; accuracy statements are medians with a margin; the
+# per-run hard bound is the 1e-4 contract. The data of the reference problems are small dyadic numbers from a
 # fixed hash (no random-number stream), exact in Float32 and in Float64, so both types solve the same
 # problem. The dual vectors θ* and primal points β* below come from an offline Clarabel solve (the
 # script is in the run record of #332 PR A, not in test/); the test trusts neither: it checks that θ*
@@ -291,8 +292,10 @@ end
 # rounding into the subnormal range adds an absolute error of at most η/2 (η = nextfloat(zero(T))),
 # which moves φ by at most (√a + λ) η/2; the test allows 4 (√a + λ) η for these. The paths that form
 # the threshold in Float64 (`_sqrt_band_step`) or scale the column and the residual by powers of two
-# (`_sqrt_offrange_step`, where a curvature or a residual is outside the clean range of the fast path, so
-# that its squares do not underflow there) have the same counts or fewer roundings in T.
+# (`_sqrt_offrange_step`, where a curvature or a residual is outside the clean range of the fast path)
+# have the same counts or fewer roundings in T. That scaling keeps the largest entries in [1, 2), and the
+# parts below 2^-1074 times the largest entry that it loses change a, b and d by at most a relative
+# √n 2^-1074 of √a and max(‖ρ‖, ‖r‖), inside the allowances above (a lost d moves φ by at most 2d).
 step_bound(::Type{T}, n, S, ra, λ) where T =
   (37 * (n * eps(T) / 2) / (1 - n * eps(T) / 2) + 56 * eps(T) / 2) * S + 4 * (ra + λ) * nextfloat(zero(T))
 
@@ -517,51 +520,87 @@ end
   XT, yT = T.(X), T.(y)
   g = NormL1(λ)
   p = size(X, 2)
-  function setup(β, tol; scaled = true)
+  function setup(β, tol)
     m, xs = prepared_model(XT, yT, λ, β)
     st = PS._CDState(T, xs, CDSolver())
     st.tolerance = T(tol)
-    st.scaled = scaled
     m, xs, st
   end
+  check!(m, xs, st, maxh; scaled = true) = PS._stop_check!(m, g, xs, st, maxh, scaled)
   # β = 0 with λ below λmax is not certified (t < 1): two tightenings by 100, then an uncertified stop
   m, xs, st = setup(zeros(T, p), 1)
-  @test PS._stop_check!(m, g, xs, st, T(0.5)) === :retry && st.tolerance == T(1) / 100 && m.tightenings == 1
-  @test isnan(st.gap) && !st.uncertified
-  @test PS._stop_check!(m, g, xs, st, T(0.5)) === :retry && st.tolerance == T(1) / 100 / 100 && m.tightenings == 2
-  @test PS._stop_check!(m, g, xs, st, T(0.5)) === :uncertified && st.uncertified && isnan(st.gap)
+  @test check!(m, xs, st, T(0.5)) === :retry && st.tolerance == T(1) / 100 && m.tightenings == 1
+  @test isnan(m.gap) && !m.uncertified
+  @test check!(m, xs, st, T(0.5)) === :retry && st.tolerance == T(1) / 100 / 100 && m.tightenings == 2
+  @test check!(m, xs, st, T(0.5)) === :uncertified && m.uncertified && isnan(m.gap)
+  @test isnan(PS._result_gap(m)) && PS._uncertified(m)
   # a pass that changed nothing is not tightened
   m, xs, st = setup(zeros(T, p), 1)
-  @test PS._stop_check!(m, g, xs, st, zero(T)) === :uncertified && st.uncertified && m.tightenings == 0
+  @test check!(m, xs, st, zero(T)) === :uncertified && m.uncertified && m.tightenings == 0
+  # a threshold that overflowed to Inf in T is not lowered by a division, so there is no retry
+  m, xs, st = setup(zeros(T, p), Inf)
+  @test check!(m, xs, st, T(0.5)) === :uncertified && m.tightenings == 0 && isinf(st.tolerance)
   # relative threshold: tol/100 below the floor 16 eps(T) ‖y‖ is not used
   m, xs, st = setup(zeros(T, p), 1000 * eps(T) * norm(y))
-  @test PS._stop_check!(m, g, xs, st, eps(T)) === :uncertified && m.tightenings == 0
+  @test check!(m, xs, st, eps(T)) === :uncertified && m.tightenings == 0
   # absolute threshold (relative = false, or y = 0): the floor is 16 eps(T) max_k |β_k| at the check, and
   # there is no tightening at β = 0
-  m, xs, st = setup(zeros(T, p), 1; scaled = false)
-  @test PS._stop_check!(m, g, xs, st, T(0.5)) === :uncertified && st.uncertified && m.tightenings == 0
+  m, xs, st = setup(zeros(T, p), 1)
+  @test check!(m, xs, st, T(0.5); scaled = false) === :uncertified && m.uncertified && m.tightenings == 0
   βh = T.(ref.β ./ 2)                      # not certified (checked), with max |β_k| about 1
   bmax = maximum(abs, βh)
   @test certify(XT, yT, λ, βh)[1] === :failed
-  m, xs, st = setup(βh, 1; scaled = false)
-  @test PS._stop_check!(m, g, xs, st, T(0.5)) === :retry && st.tolerance == T(1) / 100 && m.tightenings == 1
-  m, xs, st = setup(βh, 1000 * eps(T) * bmax; scaled = false)      # tol/100 = 10 eps(T) max |β_k|
-  @test PS._stop_check!(m, g, xs, st, eps(T)) === :uncertified && m.tightenings == 0
-  m, xs, st = setup(βh, 4000 * eps(T) * bmax; scaled = false)      # tol/100 = 40 eps(T) max |β_k|
-  @test PS._stop_check!(m, g, xs, st, eps(T)) === :retry && m.tightenings == 1
-  # an exact fit with β ≠ 0 is not tightened
+  m, xs, st = setup(βh, 1)
+  @test check!(m, xs, st, T(0.5); scaled = false) === :retry && st.tolerance == T(1) / 100 && m.tightenings == 1
+  m, xs, st = setup(βh, 1000 * eps(T) * bmax)      # tol/100 = 10 eps(T) max |β_k|
+  @test check!(m, xs, st, eps(T); scaled = false) === :uncertified && m.tightenings == 0
+  m, xs, st = setup(βh, 4000 * eps(T) * bmax)      # tol/100 = 40 eps(T) max |β_k|
+  @test check!(m, xs, st, eps(T); scaled = false) === :retry && m.tightenings == 1
+  # an exact fit with β ≠ 0 (a computed residual of 0) is not tightened
   Xe = T[1 2; 3 4; 5 6]
   me, xe = prepared_model(Xe, Xe * T[1, -1], λ, T[1, -1])
   ste = PS._CDState(T, xe, CDSolver())
   ste.tolerance = one(T)
-  ste.scaled = true
-  @test PS._stop_check!(me, g, xe, ste, T(0.5)) === :uncertified && me.tightenings == 0
-  # a certified point: converged, with st.gap the certified ratio rounded up to T
+  @test PS._stop_check!(me, g, xe, ste, T(0.5), true) === :uncertified && me.tightenings == 0
+  # a certified point: converged, with the result's gap the certified ratio rounded up to T
   βT = T.(ref.β)
   code, ratio = certify(XT, yT, λ, βT)
   m, xs, st = setup(βT, 1)
-  @test code === :certified && PS._stop_check!(m, g, xs, st, T(0.5)) === :converged
-  @test Float64(st.gap) >= ratio && Float64(prevfloat(st.gap)) < ratio && !st.uncertified
+  @test code === :certified && check!(m, xs, st, T(0.5)) === :converged
+  @test Float64(m.gap) >= ratio && Float64(prevfloat(m.gap)) < ratio && !m.uncertified
+  @test PS._result_gap(m) === m.gap
+end
+
+# An effective threshold that overflows to Inf in T (Float32 data, tol = 1e100): the first full pass
+# passes the change test, and its check certifies or stops the run (Inf cannot be lowered), in both loops.
+@testset "overflowed threshold: no retry, in both loops" begin
+  X, y = Float32[1 0.99; 0 0.1; 1 1], Float32[1, 2, 4]
+  for momentum in (false, true)
+    x, r, logs = sqrt_solve(X, y, 0.01f0, zeros(Float32, 2); order = :random, momentum, rng = Xoshiro(119), tol = 1e100)
+    @test isinf(r.tolerance) && r.passes == 1
+    if r.converged
+      @test 0 <= r.gap <= 1e-4 && isempty(logs)
+    else
+      @test isnan(r.gap) && length(logs) == 1 && occursin(UNCERTIFIED, messages(logs)[1])
+    end
+  end
+end
+
+# A residual with an entry that is not finite is refused at the visit, before any branch of the step
+# (here λ ≥ √a, which would set the coordinate to 0), with the coordinate and the residual unchanged.
+@testset "nonfinite residual refused before the step's branches ($T)" for T in (Float64, Float32)
+  X, y, β0 = reshape(T[4], 1, 1), T[1], T[floatmax(T) / 2]
+  m, xs = prepared_model(X, y, T(5), β0)
+  r0 = copy(m.ls.r)
+  @test isinf(r0[1])
+  @test_throws ArgumentError PS.coordinate_step!(m, NormL1(T(5)), xs, 1)
+  @test xs[1] == β0[1] && isequal(m.ls.r, r0)
+  # the public solve refuses it during the pass and leaves the caller unchanged, dense and owner
+  for x in (copy(β0), SparseIterate(copy(β0)))
+    before = Vector(x)
+    err = try solve!(x, SqrtLeastSquaresLoss(y, X), NormL1(T(5)), CDSolver(order = :cyclic)); nothing catch e; e end
+    @test err isa ArgumentError && occursin("residual is not finite", sprint(showerror, err)) && Vector(x) == before
+  end
 end
 
 # ---------------------------------------------------------------------------
@@ -727,9 +766,9 @@ end
     @test refused(DimensionMismatch, "dimensions do not match", x, SqrtLeastSquaresLoss(y, X[:, 1:2]), g, solver())
     T === Float32 && @test refused(ArgumentError, "not representable", x, f, NormL1(1e-50), solver())
   end
-  # PGD and APG with a dense Vector: the loss is not smooth
+  # PGD and APG with a dense Vector: ProximalBase provides no gradient for the loss
   for method in (ProximalGradientDescent(), AccProxGradDescent())
-    @test refused(ArgumentError, "is not smooth", T[0.5, 0, -0.25], f, g, method)
+    @test refused(ArgumentError, "provides no gradient", T[0.5, 0, -0.25], f, g, method)
   end
   # a BlockIterate (with momentum = nothing, which the block gate checks first)
   xb = BlockIterate(T, 3, [1:2, 3:3])
@@ -775,7 +814,7 @@ end
   # the uncertified warning differs from the maxpasses warning
   @test_logs (:warn, UNCERTIFIED) solve!(T[1, -1], SqrtLeastSquaresLoss(T[1 1; 0 0.01] * T[1, -1], T[1 1; 0 0.01]),
                                          NormL1(0.1), CDSolver(order = :cyclic))
-  @test_logs (:warn, NOTCONVERGED) solve!(zeros(T, p), SqrtLeastSquaresLoss(yT, XT), NormL1(λ), CDSolver(maxpasses = 1))
+  @test_logs (:warn, NOTCONVERGED) solve!(zeros(T, p), SqrtLeastSquaresLoss(yT, XT), NormL1(λ), CDSolver(maxpasses = 1, rng = Xoshiro(3)))
   # CDSolver() on a dense Vector uses momentum, as for least squares (random order on the private copy)
   xs = SparseIterate(zeros(T, p))
   @test PS._usemomentum(CDSolver(), xs, PS.cdmodel(SqrtLeastSquaresLoss(yT, XT), xs))

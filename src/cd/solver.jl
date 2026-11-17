@@ -108,8 +108,9 @@ minimizers at `lambda = sqrt(n) * lambda_n`, and its values are those of `P` div
 scaled-lasso noise estimate is then `norm(y - X*beta)/sqrt(n)` at the solution. `lambda` must be
 positive (at `lambda = 0`, use `LeastSquaresLoss`, which has the same minimizers), finite and
 representable in `T`; it may be given in another `Real` type. A weighted `NormL1`, an `ElasticNet`,
-`Scaled(SqrtLeastSquaresLoss, alpha)` (use the unscaled loss at the level `lambda/alpha`), a
-`BlockIterate`, and `ProximalGradientDescent` or `AccProxGradDescent` (the loss is not smooth where
+`Scaled(SqrtLeastSquaresLoss, alpha)` (for a positive finite `alpha`, use the unscaled loss at the
+level `lambda/alpha`), a `BlockIterate`, and `ProximalGradientDescent` or `AccProxGradDescent`
+(ProximalBase provides no gradient for this loss; for `X != 0` it is not differentiable where
 `y = X*beta`) are refused with an `ArgumentError` before `x` changes. A visit computes the minimizer
 of `P` over its coordinate, up to rounding: a soft threshold at the least-squares centre with a threshold
 that depends on the residual. The order, momentum, the change threshold and `maxpasses` are as for least
@@ -120,13 +121,17 @@ the residual `y - X*beta`, recomputed in `Float64`, with a proved bound on the r
 term. `converged = true` only when it proves `(P(beta) - P*)/P* <= 1e-4`, `P*` the minimum, and `gap`
 then holds that bound, rounded up; its denominator is a lower bound of `P*` from the dual point. When
 the certificate does not pass, the change threshold (the reported `tolerance`) is divided by 100 and the
-run continues, at most twice per solve and not below a floor in the units of the threshold: with a
+run continues, at most twice per solve, where `tolerance/100` is finite, positive and below `tolerance`
+(an effective threshold that overflowed to `Inf` is not lowered), and not below a floor in the units of
+the threshold: with a
 relative threshold (`relative=true` and `y != 0`), `16 eps(T)` times `norm(y)`; with an absolute one
 (`relative=false`, or `y = 0`), `16 eps(T)` times the largest `abs(beta[k])` at the check, and no
 tightening at `beta = 0`. Otherwise the run stops with `converged = false`, `gap = NaN` and a warning that
-differs from the `maxpasses` warning. This happens at an exact fit (`y = X*beta`) with a positive penalty,
-where the dual direction is undefined and a coordinatewise minimum need not be a minimum; after a full
-pass that changed nothing; with `y = 0` and a nonzero start, where `P* = 0`, so that no relative bound
+differs from the `maxpasses` warning. This happens where the recomputed residual is 0 with a nonzero
+coefficient, so that the dual direction is undefined: the usual outcome at an exact fit (`y = X*beta`)
+with a positive penalty, where a coordinatewise minimum need not be a minimum (the residual can also
+round to 0 where `y - X*beta` is not 0, and an exact fit whose recomputed residual is not 0 can be
+certified, validly); after a full pass that changed nothing; with `y = 0` and a nonzero start, where `P* = 0`, so that no relative bound
 can be certified unless `beta` reaches 0, and coordinate descent can approach 0 without reaching it; and
 when the threshold cannot be lowered further, for example where the rounding of the recomputed residual
 is not small against the residual itself (as where the fitted values dwarf it), or for `Float32` data
@@ -237,13 +242,10 @@ mutable struct _CDState{T, R<:AbstractRNG}
   converged::Bool
   maxchange::T
   tolerance::T
-  gap::T                # the certified bound of a model with a certificate (`_stop_check!`), else NaN
-  uncertified::Bool     # whether `_stop_check!` stopped the run without a certificate
-  scaled::Bool          # whether the change test is relative (`scaled` of `_tolerances`), set by the loops
 end
 _CDState(::Type{T}, x, s::CDSolver) where T =
   _CDState{T, typeof(s.rng)}(s.random, s.rng, Vector{Int}(undef, s.random ? ncoordinates(x) : 0),
-                          _Momentum{T}(), 0, false, T(NaN), T(NaN), T(NaN), false, false)
+                          _Momentum{T}(), 0, false, T(NaN), T(NaN))
 function _shuffle!(order::Vector{Int}, n::Int, rng::AbstractRNG)
   @inbounds for i in 1:n
     order[i] = i
@@ -323,7 +325,6 @@ const _FULL_PASS_WORK = 20
 function _cd_plain!(x, m, g, st::_CDState{T}, s::CDSolver) where {T}
   tol, scaled = _tolerances(m, x, s, T)
   st.passes, st.converged, st.maxchange, st.tolerance = 0, false, T(NaN), tol
-  st.scaled = scaled
   converged, visits = true, 0
   for pass in 1:s.maxpasses
     full = converged || visits >= _FULL_PASS_WORK * ncoordinates(x)
@@ -332,7 +333,7 @@ function _cd_plain!(x, m, g, st::_CDState{T}, s::CDSolver) where {T}
     st.passes, st.maxchange = pass, maxh
     converged = maxh<tol
     if full && converged
-      status = _stop_check!(m, g, x, st, maxh)
+      status = _stop_check!(m, g, x, st, maxh, scaled)
       if status === :retry
         tol = st.tolerance
         converged = maxh<tol
@@ -366,7 +367,6 @@ _momentum_default(m::CDModel) = _cache(m) !== nothing
 function _cd_momentum!(x, m, g, st::_CDState{T}, s::CDSolver) where {T}
   tol, scaled = _tolerances(m, x, s, T)
   st.passes, st.converged, st.maxchange, st.tolerance = 0, false, T(NaN), tol
-  st.scaled = scaled
   mom = _momentum_start!(st.momentum, x, m)
   converged, visits = true, 0
   for pass in 1:s.maxpasses
@@ -381,7 +381,7 @@ function _cd_momentum!(x, m, g, st::_CDState{T}, s::CDSolver) where {T}
     st.passes, st.maxchange = pass, maxh
     converged = maxh<tol
     if full && converged
-      status = _stop_check!(m, g, x, st, maxh)
+      status = _stop_check!(m, g, x, st, maxh, scaled)
       if status === :retry
         tol = st.tolerance
         converged = maxh<tol
@@ -489,10 +489,10 @@ function _restartdot(s::_Momentum{T}, x::SparseIterate, n::Int) where {T}
   d
 end
 # The warning of a run that did not converge: an uncertified stop of the square-root loss
-# (`st.uncertified`, set by its `_stop_check!`) has its own text; any other such run ended at maxpasses.
-function _warn_not_converged(st::_CDState, s::CDSolver)
+# (`uncertified`, from the model's `_uncertified`) has its own text; any other such run ended at maxpasses.
+function _warn_not_converged(st::_CDState, s::CDSolver, uncertified::Bool)
   st.converged && return
-  if st.uncertified
+  if uncertified
     @warn "coordinate descent stopped without a duality certificate after $(st.passes) passes (last change $(round(st.maxchange; sigdigits = 3)), tolerance $(round(st.tolerance; sigdigits = 3))): the point is not certified to be within a relative 1e-4 of the minimum (for example at an exact fit y = X*beta with a positive penalty, where a coordinatewise minimum need not be a minimum)."
   else
     @warn "coordinate descent did not converge in maxpasses = $(s.maxpasses) passes (last change $(round(st.maxchange; sigdigits = 3)), tolerance $(round(st.tolerance; sigdigits = 3)))."
@@ -500,32 +500,33 @@ function _warn_not_converged(st::_CDState, s::CDSolver)
 end
 # The run shared by the dense and owner wrappers, on a private SparseIterate: the
 # solve, the not-converged warning and the finite-objective check. It returns the
-# state and the final objective; the caller commits the point only afterwards.
+# state, the final objective and the result's gap (`_result_gap` of the model); the caller commits
+# the point only afterwards.
 function _run_cd!(work::Union{SparseIterate, BlockIterate}, f, g, method::CDSolver)
   m = cdmodel(f, work)
   initialize!(m, work)
   method.maxpasses > 0 && _prepare!(m, g, work)
   st = _CDState(eltype(work), work, method)
   _cd!(work, m, g, st, method)
-  _warn_not_converged(st, method)
+  _warn_not_converged(st, method, _uncertified(m))
   result_value = loss_value(m, f, work)+g(work)
   isfinite(result_value) || throw(ArgumentError("coordinate descent produced a nonfinite objective; rescale the problem"))
-  st, result_value
+  st, result_value, _result_gap(m)
 end
 function _solve_dense!(x::Vector, f, g, method::CDSolver)
   xs = SparseIterate(x)
-  st, result_value = _run_cd!(xs, f, g, method)
+  st, result_value, gap = _run_cd!(xs, f, g, method)
   _copy_dense!(x, xs)
-  CDResults(x, result_value, st.passes, st.converged, st.maxchange, st.tolerance, 0, st.gap)
+  CDResults(x, result_value, st.passes, st.converged, st.maxchange, st.tolerance, 0, gap)
 end
 # The run does not touch the caller's owner: it works on a state-preserving private
 # copy (values, active zeros and slot order), and the owner changes only at the final
 # same-shape owner-to-owner copy, which carries the compaction order with it.
 function _solve_owner!(x::Union{SparseIterate, BlockIterate}, f, g, method::CDSolver)
   work = copy(x)
-  st, result_value = _run_cd!(work, f, g, method)
+  st, result_value, gap = _run_cd!(work, f, g, method)
   copyto!(x, work)
-  CDResults(x, result_value, st.passes, st.converged, st.maxchange, st.tolerance, 0, st.gap)
+  CDResults(x, result_value, st.passes, st.converged, st.maxchange, st.tolerance, 0, gap)
 end
 function _copy_dense!(dest::Vector{T}, src::SparseIterate{T}) where {T}
   fill!(dest, zero(T))
