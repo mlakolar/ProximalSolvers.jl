@@ -285,9 +285,10 @@ class UnchangedFilesTests(unittest.TestCase):
             self.assertEqual(hashlib.sha256(blob.stdout).hexdigest(), digest, relative)
 
     def test_nothing_under_pre06_or_src_differs_from_the_commit_the_lock_names(self):
-        # src/ is not compared with this checkout: master may move on after 9f86a808 (#326), and the source of
-        # Stack B is bound by its commit, tree and package hash (recomputed from git above).
-        for path in ("benchmark/campaigns/pre06", "Project.toml", "Manifest-v1.10.toml"):
+        # src/ and the root project files are not compared with this checkout: master may move on after
+        # 9f86a808 (#326), including its ProximalBase pin. The environment of Stack B is bound by the commit,
+        # tree and package hash of the lock (recomputed from git above) and by the freeze/stack-b/ files.
+        for path in ("benchmark/campaigns/pre06",):
             result = subprocess.run(["git", "-C", str(REPO), "diff", "--quiet", STACK_B_PS, "--", path])
             self.assertEqual(result.returncode, 0, path)
 
