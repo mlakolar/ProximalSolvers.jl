@@ -290,8 +290,9 @@ end
 alloc_check(state, f, g, options) = @allocated PS._stationary!(state, f, g, options)
 @testset "the stationarity check allocates nothing (#296)" begin
   o = ProximalOptions(gradtol = 1e-5)
-  for T in (Float64, Float32), method in METHODS
-    g = NormL1(T(.1))
+  # a level of type T, a BigFloat level and a Rational level
+  for T in (Float64, Float32), method in METHODS, level in (T(.1), big"0.1", 1 // 10)
+    g = NormL1(level)
     raw = LeastSquaresLoss(T[.6, 1], T[1 0; 0 1])
     # raw, a scale of type T, a Float64 (Float32 data) or Float32 (Float64 data) scale, an integer scale
     for f in (raw, T(.25) * raw, (T === Float32 ? 0.25 : 0.25f0) * raw, 3 * raw)
@@ -302,11 +303,12 @@ alloc_check(state, f, g, options) = @allocated PS._stationary!(state, f, g, opti
   end
 end
 
-# The residual of the check is ProximalBase's kkt_violation(NormL1(λ0), ∇f(x), x). The reference is a
-# local loop of the documented formula with λ = T(λ0): max(|gᵢ| - λ, 0) where xᵢ = 0 and
-# |gᵢ + λ sign xᵢ| elsewhere, started at 0.
-function reference_residual(grad::Vector{T}, x::Vector{T}, λ0) where T
-  λ = T(λ0)
+# The residual of the check is ProximalBase's kkt_violation(NormL1(λ), ∇f(x), x) with λ = T(λ0). The
+# reference is a local loop of the documented formula with the coefficient c: max(|gᵢ| - c, 0) where
+# xᵢ = 0 and |gᵢ + c sign xᵢ| elsewhere, started at 0; the default coefficient is T(λ0), the one
+# the solver uses.
+function reference_residual(grad::Vector{T}, x::Vector{T}, λ0; c = T(λ0)) where T
+  λ = T(c)
   m = zero(T)
   for i in eachindex(grad, x)
     r = iszero(x[i]) ? max(abs(grad[i]) - λ, zero(T)) : abs(grad[i] + λ * sign(x[i]))
@@ -330,10 +332,82 @@ end
       for i in 1:n
         grad[i] = rand(rng) < 0.5 ? (iszero(x[i]) ? (rand(rng, Bool) ? λ : -λ) : -λ * sign(x[i])) : 2 * randn(rng, T)
       end
-      # both sides perform the same operations in T, so the results are equal
-      @test kkt_violation(NormL1(λ0), grad, x) === reference_residual(grad, x, λ0)
+      # the coefficient is λ = T(λ0) on both sides and the entry formulas are evaluated in T, so the
+      # results are equal
+      @test kkt_violation(NormL1(T(λ0)), grad, x) === reference_residual(grad, x, λ0)
     end
   end
+end
+
+
+# The decision of _stationary! for a penalty level λ0 whose conversion to T depends on how it is
+# rounded. The one-column problem has λmax = 1 and x = 1; the gradient is -λ + δ, with the
+# coefficient λ = T(λ0) and a perturbation δ that is searched among a few values so that the
+# independent residual with the coefficient T(λ0) is below the threshold τ S (τ = 64 eps(T),
+# gradtol = 0) and the residual with the coefficient `other`, a different rounding of λ0, is not.
+# The solver must keep the stop: it uses the coefficient T(λ0).
+function level_decision(T, λ0, other; setup = f -> f())
+  o = ProximalOptions(gradtol = 0)
+  τ = T(64 * Float64(eps(T)))
+  λ = T(λ0)
+  @test λ != T(other)
+  S = max(λ, one(T))
+  threshold = τ * S
+  x = T[1]
+  found = false
+  for k in 2:24, s in (1, -1)
+    grad = T[-λ + s * (1 - T(2)^-k) * threshold]
+    r_true = reference_residual(grad, x, λ0)
+    r_other = reference_residual(grad, x, λ0; c = T(other))
+    if r_true < threshold <= r_other
+      found = true
+      ok = setup() do
+        f = LeastSquaresLoss(T[1], T[1;;])
+        g = NormL1(λ0)
+        state = PS.initial_state(ProximalGradientDescent(), o, f, g, copy(x))
+        state.grad_f_x .= grad
+        PS._stationary!(state, f, g, o)
+      end
+      @test ok === true
+      break
+    end
+  end
+  @test found
+end
+
+@testset "the stationarity check uses the coefficient T(λ0): levels that round differently" begin
+  # a BigFloat level stored at 256 bits and used while the precision is 24 (8 for Float32)
+  for (T, prec, other) in ((Float64, 24, 0.30000001192092896), (Float32, 8, 0.30078125f0))
+    λ0 = setprecision(() -> BigFloat("0.3"), BigFloat, 256)
+    @test precision(λ0) == 256 && T(λ0) == T(0.3)
+    level_decision(T, λ0, other; setup = f -> setprecision(f, BigFloat, prec))
+  end
+  # a Rational whose Float32 value is 1.0000001f0, where the rounding through Float64 gives 1.0f0
+  λ0 = 1152921573326323713 // 1152921504606846976
+  @test Float32(λ0) == 1.0000001f0 && Float32(Float64(λ0)) == 1f0
+  level_decision(Float32, λ0, Float32(Float64(λ0)))
+  # an Int128 level above the tie of Float32: directly rounded up, but a tie rounded to even after Float64
+  λ0 = (Int128(1) << 100) + (Int128(1) << 76) + 1
+  @test Float32(λ0) != Float32(Float64(λ0))
+  level_decision(Float32, λ0, Float32(Float64(λ0)))
+  # a UInt128 level that converts to floatmax(Float32); the penalty validation accepts it
+  λ0 = typemax(UInt128) - (UInt128(1) << 103)
+  @test Float32(λ0) == floatmax(Float32)
+  @test PS._check_penalty(NormL1(λ0), Float32[1], Float32) === nothing
+  level_decision(Float32, λ0, Inf32)
+end
+
+@testset "a BigFloat level stored at 256 bits, used at precision 24: no false convergence" begin
+  λ = setprecision(() -> BigFloat("0.3"), BigFloat, 256)
+  r, x = setprecision(BigFloat, 24) do
+    x = zeros(1)
+    f = LeastSquaresLoss([1.0], ones(1, 1))
+    method = ProximalGradientDescent(ls = PS.LineSearches.BackTracking(α = 1.0))
+    options = ProximalOptions(maxiter = 10, gradtol = 1e-10, allow_f_increases = true)
+    solve!(x, f, NormL1(λ), method, options), x
+  end
+  @test !r.converged
+  @test x[1] ≈ 0.7 atol = 1e-6
 end
 
 end
