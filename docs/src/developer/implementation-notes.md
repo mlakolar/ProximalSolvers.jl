@@ -116,7 +116,8 @@ unweighted `ElasticNet` (at `λ2 = 0` the step of `NormL1(λ1)`; at `λ2 > 0` it
 weights the `NormL1` method forms `cₖ = T(λ0) wₖ` in `T`, the coefficient that `solve!` has checked (finite, and
 nonzero where `T(λ0)` and `wₖ` are both positive), and calls the unweighted method at the level `cₖ`: `τ` is within
 the bounds above of `cₖ / (s a)`, and within those bounds plus `|cₖ - λ0 wₖ| / (s a)` of `λ0 wₖ / (s a)`
-(`cₖ` is `λ0 wₖ` rounded once to `T` for a level of type `T`). A zero weight or level gives `τ = 0` and
+(for a level of type `T`, `cₖ` is `λ0 wₖ` rounded once to `T`, with an error of at most `eps(T)/2` times the exact product where
+that is at least `floatmin(T)`, and at most half the smallest subnormal where it is below `floatmin(T)`). A zero weight or level gives `τ = 0` and
 `shrink(c, 0) = c`. Inside the band the step is PB's weighted `prox_block`, whose threshold is `γ λ0 wₖ` formed
 in its own working type; the weighted step has no exponent-separated threshold of its own. A column of `X` that
 is zero takes `_coordinate_minimizer`, PB's `prox_block(g, 0, k, floatmax(T))`, which is 0 for a weighted `NormL1`

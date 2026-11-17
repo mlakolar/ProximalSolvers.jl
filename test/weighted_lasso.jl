@@ -60,8 +60,8 @@ end
 # computed λmax, for the unit roundoff u = eps(T)/2 doubled as slack: with d = X x - y exact,
 #   eG = maxᵢ α Σⱼ |Xⱼᵢ| (e_j + (n+1) u (|d_j| + e_j)) + u (|gᵢ| + cᵢ) + tiny(T) /2,
 #   e_j = (p+1) u (Σₖ |Xⱼₖ||xₖ| + |y_j|),    eS = α (n+1) u maxᵢ Σⱼ |Xⱼᵢ||y_j|.
-# The terms u cᵢ and tiny(T)/2 are the rounding of the coefficient to T (relative, and absolute where it is
-# subnormal).
+# The terms u cᵢ and tiny(T)/2 allow for the rounding of the coefficient to T: at most eps(T)/2 times the exact
+# product where that is at least floatmin(T), and at most tiny(T)/2 where it is below floatmin(T).
 function kktparts(X, y, α, λ0, w, x, ::Type{T}) where T
   big256() do
     Xb, yb, xb, a, l0, wb = big.(X), big.(y), big.(x), big(α), big(λ0), big.(w)

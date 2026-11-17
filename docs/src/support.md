@@ -13,7 +13,7 @@ The supported objective is a lasso (CD also solves a group lasso on a `BlockIter
 
 where `s=1` for raw `LeastSquaresLoss` or `s=1/n` for the
 usual normalized convention; all three solvers also accept per-coordinate weights
-(`NormL1(lambda, w)`, see [Weighted lasso](@ref "Weighted lasso")). `CDSolver`, `ProximalGradientDescent` and `AccProxGradDescent` also solve the
+(`NormL1(lambda, w)`, see [Weighted lasso](@ref weighted-lasso-support)). `CDSolver`, `ProximalGradientDescent` and `AccProxGradDescent` also solve the
 elastic net
 
 ~~~math
@@ -35,7 +35,7 @@ certificate.
 | Solvers | `CDSolver`, `ProximalGradientDescent`, `AccProxGradDescent` (APG also needs `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 3 < 1/(4 eps(Float64))`) |
 | Group lasso | `CDSolver` only, with a ProximalBase `BlockIterate{Float32}` or `BlockIterate{Float64}` as the coefficients and a `GroupNormL2{Float32}` or `GroupNormL2{Float64}` penalty, on the same dense least-squares loss (see below) |
 
-### Weighted lasso
+### [Weighted lasso](@id weighted-lasso-support)
 
 ~~~math
 \min_\beta\quad \frac{s}{2}\|y-X\beta\|_2^2+\lambda\sum_j w_j|\beta_j|,
