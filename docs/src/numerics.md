@@ -74,9 +74,10 @@ gradient test holds (under `ftol = 0`, after the exact-stall rule below), the
 solver computes the minimal-norm KKT residual `G` at the accepted iterate `x`
 for the penalty level `λ`: the element of `∇f(x) + λ ∂‖x‖₁` of least infinity
 norm, that is `max(|∇fᵢ| - λ, 0)` where `xᵢ = 0` and `|∇fᵢ + λ sign(xᵢ)|`
-elsewhere. The solver computes `‖G‖∞` with ProximalBase's
-`kkt_violation(g, ∇f(x), x)`, which evaluates this formula in `T`; an infinite entry of `x`
-gives an infinite residual, so the stop does not count. The stop counts only if
+elsewhere, with `λ = T(λ0)`, the penalty level converted to the coefficient type `T`. The solver
+computes `‖G‖∞` with ProximalBase's `kkt_violation(NormL1(λ), ∇f(x), x)`, passing the converted
+level `λ`. An infinite entry of `x` gives a non-finite residual (`Inf`, or `NaN` when a `NaN` is
+read), so the stop does not count. The stop counts only if
 
 ~~~
 ‖G‖∞ < max(gradtol, 64 eps(T)) * max(λ, λmax),    λmax = α ‖Xᵀy‖∞,
