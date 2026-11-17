@@ -46,7 +46,7 @@ or a `SparseIterate`), `ProximalGradientDescent` and `AccProxGradDescent`, on th
 
 - `w` is a `Vector{T}` with the element type `T` of the data and the coefficients, and one entry per
   coefficient. A `Vector` of the other precision, a view, a range or another array type is refused
-  (`T.(w)` converts);
+  (`collect(T, vec(w))` converts, taking `w` in linear order);
 - every weight is finite and nonnegative (an infinite weight is refused);
 - the level `lambda` is accepted as above, and the coefficient `c_j = T(lambda) * w_j` of every
   entry, formed in `T`, is finite and, where `T(lambda)` and `w_j` are both positive, not zero. A

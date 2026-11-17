@@ -136,9 +136,11 @@ end
 # Problems
 # ---------------------------------------------------------------------------------------------------------
 
-# n × p Gaussian design (the same Float64 draw for both types), optionally with neighbouring correlation ρ
-# (the columns of a correlated design are ill conditioned: σmin² of the order of n (1 - ρ)² / (1 + ρ)²…),
-# and a response from four active coefficients
+# n × p Gaussian design (the same Float64 draw for both types), optionally with ρ > 0: column j is
+# ρ times column j - 1 plus √(1 - ρ²) times a fresh column, so that the population correlation of columns i and j is
+# ρ^|i-j|, whose matrix has its eigenvalues in [(1 - ρ)/(1 + ρ), (1 + ρ)/(1 - ρ)]. The design is therefore worse
+# conditioned than an independent one in the population; the sample Gram matrix of a finite design only approximates
+# it, and the quality bounds below use σmin of the X as drawn. The response has four active coefficients.
 function design(::Type{T}, n, p, seed; ρ = 0.0) where T
   rng = Xoshiro(seed)
   Z = randn(rng, n, p)
@@ -889,16 +891,26 @@ end
     @test (label, err isa E) == (label, true)
     err isa E || continue
     text = err.msg
-    expected = if g isa ElasticNet
-      s.kind === :cd ? "CDSolver does not support ElasticNet yet" : "only NormL1 or unweighted ElasticNet is supported"
-    elseif g isa Scaled
-      s.kind === :cd ? "only NormL1 is supported" : "only NormL1 or unweighted ElasticNet is supported"
-    else
-      msg
-    end
+    # a weighted ElasticNet and a scaled penalty get the message that all three solvers share
+    expected = g isa Union{ElasticNet, Scaled} ? "only NormL1 or unweighted ElasticNet is supported" : msg
     @test (label, occursin(expected, text)) == (label, true)
     @test isequal(snapshot(), before) && rng == rng_before
     @test X == X0 && y == y0
+  end
+end
+
+# the advice of the message works: collect(T, vec(w)) turns each refused container into a Vector{T} that is accepted
+@testset "collect(T, vec(w)) converts refused weight containers ($T)" for T in (Float32, Float64)
+  X, y = T[1 0.2; 0.1 2; 0.3 0.4], T[1, -1, 0.5]
+  f = LeastSquaresLoss(y, X)
+  other = T === Float32 ? Float64 : Float32
+  for w in (other.([1, 2]), view(T[1, 2, 3], 1:2), T(1):T(2), reshape(T[1, 2], 2, 1), reshape(T[1, 2], 1, 2))
+    g = NormL1(T(0.1), w)
+    err = try solve!(zeros(T, 2), f, g, CDSolver(order = :cyclic)); nothing catch e e end
+    @test err isa ArgumentError && occursin("collect($T, vec(w))", err.msg)
+    converted = collect(T, vec(w))
+    @test converted isa Vector{T} && converted == T[1, 2]
+    @test solve!(zeros(T, 2), f, NormL1(T(0.1), converted), CDSolver(order = :cyclic)).converged
   end
 end
 

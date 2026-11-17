@@ -73,7 +73,7 @@ function _check_l1_weights(g, x, ::Type{T}) where T
   _scalar_parameter(g.λ0, T, "penalty lambda")
   w = g.w
   w isa Vector{T} ||
-    throw(ArgumentError("penalty weights must be a Vector{$T} (the element type of the data); convert them with $T.(w)"))
+    throw(ArgumentError("penalty weights must be a Vector{$T} (the element type of the data); convert an array with collect($T, vec(w)), which takes it in linear order"))
   length(w) == length(x) ||
     throw(DimensionMismatch("the penalty has $(length(w)) weights but x has $(length(x)) entries"))
   Base.mightalias(x, w) && throw(ArgumentError("mutable x must not alias the penalty weights"))
