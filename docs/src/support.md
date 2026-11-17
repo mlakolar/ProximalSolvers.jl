@@ -58,7 +58,8 @@ used. A zero weight leaves its coefficient unpenalized: it is not fixed at 0. Wi
 takes the largest `c_j` as the level `λ` of its scale
 ([the stationarity check](@ref "The stationarity check of a stop")), and CD's `converged` remains
 the change test. A scaled penalty such as `Scaled(NormL1(lambda, w), a)`, and `ElasticNet` with
-weights, are refused.
+weights, are refused. [Example 8](examples/08_weighted_lasso.md) solves an adaptive lasso with a zero weight with all
+three solvers.
 
 ### Group lasso with coordinate descent
 

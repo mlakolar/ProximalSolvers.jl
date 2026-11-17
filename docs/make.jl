@@ -11,7 +11,8 @@ for (file, title) in (("01_cd_lasso.jl", "Coordinate descent lasso"),
                       ("04_lasso_solver_comparison.jl", "Comparing lasso solvers at equal accuracy"),
                       ("05_apg_lasso.jl", "Accelerated proximal gradient lasso"),
                       ("06_group_cd_lasso.jl", "Group lasso with block coordinate descent"),
-                      ("07_elasticnet.jl", "Elastic net with proximal gradient methods"))
+                      ("07_elasticnet.jl", "Elastic net with proximal gradient methods"),
+                      ("08_weighted_lasso.jl", "Weighted lasso"))
   source = joinpath(@__DIR__, "..", "examples", file)
   titled = s -> "# # $title\n#\n" * s
   if file == "04_lasso_solver_comparison.jl"

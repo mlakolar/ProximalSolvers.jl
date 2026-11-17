@@ -69,7 +69,8 @@ accepted. A zero weight leaves its coefficient unpenalized (it is not fixed at 0
 stopping check scores each coordinate with its own coefficient and takes the largest one as `λ`; the
 `converged` flag of CD is still the change test. See
 [Supported problems](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/#Weighted-lasso)
-and the script `examples/08_weighted_lasso.jl`.
+and [the weighted-lasso example](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples/08_weighted_lasso/)
+(the script `examples/08_weighted_lasso.jl`).
 
 PGD and APG also solve the elastic net, with `ElasticNet(λ1, λ2)` as the penalty
 `λ1‖β‖₁ + (λ2/2)‖β‖₂²` (levels `λ1, λ2 ≥ 0`, unweighted); the stopping check then uses the residual of the
