@@ -276,10 +276,10 @@ residual, against a scale that exceeds `L eps(T) ‖x‖∞`. The iterate test k
 proposes is checked once in `_stationary!` (`src/utils.jl`): the minimal-norm KKT residual of
 the accepted `x` must be below `max(gradtol, 64 eps(T)) * max(λ, λmax)`, `λmax = α‖Xᵀy‖∞`
 (formed once per solve in `xhat` and kept in the state field `λmax`), with `λ` the ℓ1 level of the
-penalty. `_stationary!` takes the level and the residual from two small methods on the penalty. The
+penalty. `_stationary!` converts the levels of the penalty to `T` once (`_converted_penalty`) and takes the
+level and the residual from that penalty. The
 residual is ProximalBase's full-point `kkt_violation` of `NormL1(T(λ0))` or of
-`ElasticNet(T(λ1), T(λ2))`, built from the levels converted to `T` before the call (`_stationarity_residual`);
-for `ElasticNet` it adds `λ2 xᵢ` at the nonzero entries. `λ2` is not in `S`
+`ElasticNet(T(λ1), T(λ2))`; for `ElasticNet` it adds `λ2 xᵢ` at the nonzero entries. `λ2` is not in `S`
 (the check is the lasso check on the data augmented by `√λ2 I`, see `numerics.md`).
 The penalty is validated once by `_check_penalty` in `_check_data`. For an `x` that is not a `BlockIterate`
 it accepts `NormL1` for all solvers, `ElasticNet` for PGD and APG, and raises an `ArgumentError` for an

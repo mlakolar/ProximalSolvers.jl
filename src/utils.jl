@@ -114,16 +114,18 @@ end
 # computed gradient. It is not kept when S is not finite, when τ S is below floatmin(T) (a threshold
 # that may have underflowed; a computed S = 0, as for λ1 = 0 and y = 0, is one) or when ‖G‖∞ is not finite.
 # ‖G‖∞ is ProximalBase's full-point kkt_violation(h, ∇f(x), x) for NormL1(T(λ0)) or
-# ElasticNet(T(λ1), T(λ2)), the coefficients of the formulas above: the levels are converted to T before
-# the call, so that ProximalBase does not round them again. An infinite entry of x gives a non-finite
-# residual (Inf, or NaN when a NaN is read), so such a stop is not kept.
+# ElasticNet(T(λ1), T(λ2)), the coefficients of the formulas above: each level is converted to T once, into
+# a penalty that gives both S and the residual, so that ProximalBase does not round the levels again.
+# An infinite entry of x gives a non-finite residual (Inf, or NaN when a NaN is read), so such a stop is
+# not kept.
 # It is a computed residual, not a certificate in exact arithmetic.
 function _stationary!(state, f, g, options::ProximalOptions)
   T = eltype(state.x)
   λmax = _lambda_max!(state)       # first: it uses xhat, which APG's gradient below also uses
   grad = _gradient_at_x!(state, f)
-  λ = _l1_level(g, T)
-  residual = _stationarity_residual(g, grad, state.x, T)
+  gT = _converted_penalty(g, T)
+  λ = _l1_level(gT)
+  residual = kkt_violation(gT, grad, state.x)
   S = max(λ, λmax)
   τ = T(max(options.gradtol, 64 * Float64(eps(T))))
   threshold = τ * S
@@ -157,13 +159,12 @@ function _gradient_at_x!(state::AccProxGradDescentState, f)
   state.xhat
 end
 
-# The ℓ1 level of the penalty in T, and the residual of ∇f(x) + ∂h(x) at x with the levels converted to T,
-# for the penalties that _check_penalty accepts for PGD and APG
-_l1_level(g::NormL1, ::Type{T}) where T = T(g.λ0)
-_l1_level(g::ElasticNet, ::Type{T}) where T = T(g.λ1)
-_stationarity_residual(g::NormL1, grad, x, ::Type{T}) where T = kkt_violation(NormL1(T(g.λ0)), grad, x)
-_stationarity_residual(g::ElasticNet, grad, x, ::Type{T}) where T =
-  kkt_violation(ElasticNet(T(g.λ1), T(g.λ2)), grad, x)
+# The penalty with its levels converted to T, for the penalties that _check_penalty accepts for PGD and APG,
+# and the ℓ1 level of a converted penalty
+_converted_penalty(g::NormL1, ::Type{T}) where T = NormL1(T(g.λ0))
+_converted_penalty(g::ElasticNet, ::Type{T}) where T = ElasticNet(T(g.λ1), T(g.λ2))
+_l1_level(g::NormL1) = g.λ0
+_l1_level(g::ElasticNet) = g.λ1
 
 # x == y elementwise, by value (so -0.0 == 0.0), without allocating
 function _unchanged(x::AbstractArray, y::AbstractArray)

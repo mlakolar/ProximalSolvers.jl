@@ -180,7 +180,10 @@ function analytic(X, y, α, λ1, λ2)
 end
 
 # the bytes allocated by one call, measured inside a function so that no argument is boxed
-residual_allocations(pen, grad, x, ::Type{T}) where T = @allocated PS._stationarity_residual(pen, grad, x, T)
+# the residual of the check for a penalty with levels of any type: ProximalBase's kkt_violation at the penalty
+# with its levels converted to T, as _stationary! forms it
+residual_of(pen, grad, x, ::Type{T}) where T = kkt_violation(PS._converted_penalty(pen, T), grad, x)
+residual_allocations(pen, grad, x, ::Type{T}) where T = @allocated residual_of(pen, grad, x, T)
 
 # Independent loops of the formulas of the stopping check, with the coefficients c = T(λ1) and r = T(λ2)
 # given as T values: max(|gᵢ| - c, 0) where xᵢ = 0 and |(gᵢ + r xᵢ) + c sign xᵢ| elsewhere, started at 0,
@@ -208,8 +211,8 @@ end
     grad = T[0.3, -2, 0, 0.5, -0.0, 7, -0.25, 1]
     for x in (T[0, 1, -0.0, -2, 0.0, 3, 0, 0], T[0.0, -0.0, 0, 0, 0, 0, 0, 0], T[1, -1, 1, -1, 1, -1, 1, -1])
       for λ in (zero(T), T(0.5), T(2), T(10))
-        en = PS._stationarity_residual(ElasticNet(λ, zero(λ)), grad, x, T)
-        l1 = PS._stationarity_residual(NormL1(λ), grad, x, T)
+        en = residual_of(ElasticNet(λ, zero(λ)), grad, x, T)
+        l1 = residual_of(NormL1(λ), grad, x, T)
         @test en === l1
         @test l1 === reference_lasso(grad, x, λ)
         @test en === reference_elasticnet(grad, x, λ, zero(λ))
@@ -217,17 +220,17 @@ end
     end
     # a NaN gradient entry or iterate entry propagates
     for (g, x) in ((T[NaN, 1], T[0, 1]), (T[1, 1], T[0, NaN]), (T[1, NaN], T[1, 0]))
-      @test isnan(PS._stationarity_residual(ElasticNet(T(0.5), T(2)), g, x, T))
-      @test isnan(PS._stationarity_residual(ElasticNet(T(0.5), zero(T)), g, x, T))
-      @test isnan(PS._stationarity_residual(NormL1(T(0.5)), g, x, T))
+      @test isnan(residual_of(ElasticNet(T(0.5), T(2)), g, x, T))
+      @test isnan(residual_of(ElasticNet(T(0.5), zero(T)), g, x, T))
+      @test isnan(residual_of(NormL1(T(0.5)), g, x, T))
     end
     # worked values, λ1 = 1, λ2 = 2, x = [0, 0.5]: a minimizer (residual 0), and a gradient at which
     # entry 2 has residual |-1 + 1| = 0 without the λ2 term and |-1 + 2 * 0.5 + 1| = 1 with it
     x = T[0, 0.5]
     en = ElasticNet(one(T), T(2))
-    @test PS._stationarity_residual(en, T[0.7, -2.0], x, T) === zero(T)
-    @test PS._stationarity_residual(en, T[1.5, -1.0], x, T) === one(T)
-    @test PS._stationarity_residual(NormL1(one(T)), T[1.5, -1.0], x, T) === T(0.5)
+    @test residual_of(en, T[0.7, -2.0], x, T) === zero(T)
+    @test residual_of(en, T[1.5, -1.0], x, T) === one(T)
+    @test residual_of(NormL1(one(T)), T[1.5, -1.0], x, T) === T(0.5)
     # random vectors: structural zeros, -0.0, and gradients exactly at the boundary of each formula; the
     # levels are of other types than T, and the coefficients of the loops are T(λ1) and T(λ2)
     rng = Xoshiro(324)
@@ -244,8 +247,8 @@ end
                                       2 * randn(rng, T)
         end
         # the coefficients are T(λ1) and T(λ2) on both sides and the entry formulas are evaluated in T
-        @test PS._stationarity_residual(ElasticNet(λ1, λ2), grad, x, T) === reference_elasticnet(grad, x, c, r)
-        @test PS._stationarity_residual(NormL1(λ1), grad, x, T) === reference_lasso(grad, x, c)
+        @test residual_of(ElasticNet(λ1, λ2), grad, x, T) === reference_elasticnet(grad, x, c, r)
+        @test residual_of(NormL1(λ1), grad, x, T) === reference_lasso(grad, x, c)
       end
     end
     # the call allocates nothing once compiled, for levels of type T and for a BigFloat level
@@ -253,8 +256,8 @@ end
     x = randn(Xoshiro(2), T, 64)
     x[1:20] .= 0
     for (pen_en, pen_l1) in ((ElasticNet(T(0.1), T(0.2)), NormL1(T(0.1))), (ElasticNet(big"0.1", big"0.2"), NormL1(big"0.1")))
-      PS._stationarity_residual(pen_en, g, x, T)
-      PS._stationarity_residual(pen_l1, g, x, T)
+      residual_of(pen_en, g, x, T)
+      residual_of(pen_l1, g, x, T)
       @test residual_allocations(pen_en, g, x, T) == 0
       @test residual_allocations(pen_l1, g, x, T) == 0
     end
@@ -285,8 +288,8 @@ end
     @test reference_lasso(grad1, x, c) === zero(T)
     @test reference_lasso(grad1, x, o) != zero(T)
     with_precision(f) = prec == 0 ? f() : setprecision(f, BigFloat, prec)
-    en = with_precision(() -> PS._stationarity_residual(ElasticNet(λ, λ), grad, x, T))
-    l1 = with_precision(() -> PS._stationarity_residual(NormL1(λ), grad1, x, T))
+    en = with_precision(() -> residual_of(ElasticNet(λ, λ), grad, x, T))
+    l1 = with_precision(() -> residual_of(NormL1(λ), grad1, x, T))
     @test (name, en) == (name, zero(T))
     @test (name, l1) == (name, zero(T))
   end
