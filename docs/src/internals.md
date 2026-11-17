@@ -7,8 +7,8 @@ and [Supported problems](support.md) if you are new.
 ## High-level organization
 
 The development core keeps two separate least-squares lasso engines, the
-second with an accelerated variant (the proximal gradient engine also accepts an
-unweighted `ElasticNet`; both accept a `NormL1` with weights):
+second with an accelerated variant (both engines also accept an
+unweighted `ElasticNet` and a `NormL1` with weights):
 
 - **Coordinate descent:** builds and updates a ProximalBase
   `SparseIterate` internally, visiting full coordinate sets and then

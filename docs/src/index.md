@@ -7,7 +7,7 @@
 Use the current development version if you want to study lasso algorithms, control their updates, or experiment with ProximalBase. If you mainly want a ready-to-use statistical modeling workflow with regularization paths and cross-validation, also consider [GLMNet.jl](https://github.com/JuliaStats/GLMNet.jl) and [Lasso.jl](https://github.com/JuliaStats/Lasso.jl). We make no comparative speed or accuracy claim.
 
 !!! note "Current development version"
-    This site documents the GitHub `master` branch, **not necessarily** the registered `ProximalSolvers` release. Development master currently supports dense Float32/Float64 least-squares lasso with an L1 penalty, weighted or not, with CD, PGD or APG, with CD only, a group lasso on a ProximalBase `BlockIterate` with a `GroupNormL2` penalty, and least-squares elastic net (unweighted `ElasticNet`) with PGD or APG. Its previously broader feature set, including paths and ADMM, is not in this branch. See [installation](getting-started.md).
+    This site documents the GitHub `master` branch, **not necessarily** the registered `ProximalSolvers` release. Development master currently supports dense Float32/Float64 least-squares lasso with an L1 penalty, weighted or not, with CD, PGD or APG, with CD only, a group lasso on a ProximalBase `BlockIterate` with a `GroupNormL2` penalty, and least-squares elastic net (unweighted `ElasticNet`) with CD, PGD or APG. Its previously broader feature set, including paths and ADMM, is not in this branch. See [installation](getting-started.md).
 
 ## Start here
 

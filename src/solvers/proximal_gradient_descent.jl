@@ -257,13 +257,13 @@ The `BlockIterate` form of `CDSolver` minimizes the group lasso with a `GroupNor
 uses same-type `Matrix` X and `Vector` y. The penalty of the gradient methods is a `NormL1(λ)` or
 `NormL1(λ, w)` or an unweighted `ElasticNet(λ1, λ2)` (`λ1 ‖x‖₁ + (λ2/2) ‖x‖²`), whose levels are
 finite and nonnegative and representable in `T` without overflow or underflow; for a dense `Vector` or a
-`SparseIterate`, `CDSolver` accepts a `NormL1` only and refuses an `ElasticNet` (its support
-is planned); its `BlockIterate` form takes a `GroupNormL2`. The weights `w` of `NormL1(λ, w)` are a
+`SparseIterate`, `CDSolver` accepts the same penalties (see [`CDSolver`](@ref)); its `BlockIterate`
+form takes a `GroupNormL2`. The weights `w` of `NormL1(λ, w)` are a
 `Vector{T}` with one finite nonnegative entry per entry of `x` (`T` the element type of the data and of `x`),
 and `x` must not alias them. The solvers use the coefficient `T(λ) wⱼ`, formed in `T`, for entry `j`; it must be
 finite, and not zero where `T(λ)` and `wⱼ` are both positive (a subnormal coefficient is accepted). A zero
 weight leaves its entry unpenalized (it is not fixed at 0). Any other weight array type (a view, a range, a
-vector of another element type) and any `Scaled` penalty is refused. Use `(one(T)/T(n))*LeastSquaresLoss` for normalized lasso; raw LS keeps
+vector of another element type), a weighted `ElasticNet` and any `Scaled` penalty is refused. Use `(one(T)/T(n))*LeastSquaresLoss` for normalized lasso; raw LS keeps
 its unnormalized meaning. One positive finite scalar LS wrapper is supported.
 Borrowed X/y must not alias mutable `x` or change during a solve. Results share
 `x`; copy it to retain earlier coefficients. Unsupported inputs/options fail
@@ -315,7 +315,7 @@ advanced. The result's `minimizer` is `x` itself.
 function solve!(x, f, g, method::ProximalGradientDescent,
                 options::ProximalOptions = ProximalOptions(); kwargs...)
   _check_keywords(kwargs)
-  _check_problem(x, f, g, true)
+  _check_problem(x, f, g)
   t0 = time()
   state = initial_state(method, options, f, g, x)
   _solve_gradient!(state, f, g, method, options, t0)

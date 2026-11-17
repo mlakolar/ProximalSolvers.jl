@@ -76,7 +76,7 @@ diagnostics, not changes to the statistical model.
 | Symptom | Check |
 | --- | --- |
 | `DimensionMismatch` | `size(X, 1) == length(y)` and `size(X, 2) == length(beta)` |
-| Type/unsupported input error | Dense Float32 or Float64 `X` and `y` with matching coefficient type; only ordinary least squares + L1 (with weights, a `Vector{T}` of finite nonnegative entries whose coefficients `T(lambda) * w[j]` neither overflow nor underflow to zero; PGD and APG also accept an unweighted `ElasticNet`; CD refuses it), or with CD a `BlockIterate` and a `GroupNormL2` penalty |
+| Type/unsupported input error | Dense Float32 or Float64 `X` and `y` with matching coefficient type; only ordinary least squares + L1 (with weights, a `Vector{T}` of finite nonnegative entries whose coefficients `T(lambda) * w[j]` neither overflow nor underflow to zero; an unweighted `ElasticNet` is also accepted), or with CD a `BlockIterate` and a `GroupNormL2` penalty |
 | Penalty seems too strong or too weak | `LeastSquaresLoss` is a sum; explicitly multiply by `1/n` for mean-normalized lasso |
 | PGD rejects `SparseIterate` | PGD needs a dense coefficient vector; CD supports one-dimensional `SparseIterate` |
 | PGD or APG rejects `BlockIterate` | Only CD solves the group lasso, with a `BlockIterate` and a `GroupNormL2` penalty |

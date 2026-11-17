@@ -99,11 +99,10 @@ end
   end
 end
 
-# ElasticNet (#324): ProximalGradientDescent and AccProxGradDescent accept an unweighted one, and
-# CDSolver refuses an ElasticNet of any weights and levels. The refusals tested here leave x unchanged. The APG counterpart is in
-# test/accelerated_pgd.jl.
-const EN_GRADIENT_REFUSAL = "only NormL1 or unweighted ElasticNet is supported"
-const EN_CD_REFUSAL = "CDSolver does not support ElasticNet yet; use ProximalGradientDescent or AccProxGradDescent"
+# ElasticNet (#324): ProximalGradientDescent, AccProxGradDescent and CDSolver accept an unweighted one
+# and refuse the other penalties with the message below. The refusals tested here leave x unchanged. The
+# APG counterpart is in test/accelerated_pgd.jl; the CD solves are in test/cd_elasticnet.jl.
+const EN_PENALTY_REFUSAL = "only NormL1 or unweighted ElasticNet is supported"
 
 function refused_with(x, f, g, method, msg)
   original = copy(x)
@@ -118,7 +117,7 @@ end
     method = ProximalGradientDescent()
     en = ElasticNet(T(.1), T(.2))
     for g in (ElasticNet(T(.1), T(.2), ones(T, 2)), Scaled(en, 2), Scaled(NormL1(T(.1), ones(T, 2)), 2), SqrNormL2(T(.1)))
-      refused_with(x, f, g, method, EN_GRADIENT_REFUSAL)
+      refused_with(x, f, g, method, EN_PENALTY_REFUSAL)
     end
     # a NormL1 with weights is accepted (#331); its solves are in test/weighted_lasso.jl
     r = solve!(copy(x), f, NormL1(T(.1), T[1, 2]), method)
@@ -142,30 +141,40 @@ end
   end
 end
 
-@testset "CD refuses every ElasticNet before any copy, write or RNG use, and keeps its other message (#324)" begin
+@testset "CD accepts an unweighted ElasticNet and refuses the other penalties before any copy, write or RNG use (#324)" begin
   for T in (Float64, Float32)
     X, y, x = T[1 0; 0 2], T[1, -1], T[.3, -.2]
     f = LeastSquaresLoss(y, X)
     en = ElasticNet(T(.1), T(.2))
-    for g in (en, ElasticNet(T(.1), T(.2), ones(T, 2)), ElasticNet(T(Inf), zero(T)), ElasticNet(zero(T), T(Inf)))
+    for start in (copy(x), SparseIterate(copy(x)))
+      r = solve!(start, f, en, CDSolver(order = :cyclic, momentum = false, tol = 1e-6))
+      @test r.converged && r.minimizer === start && all(isfinite, Vector(start))
+      @test Vector(start) != x
+    end
+    for g in (ElasticNet(T(.1), T(.2), ones(T, 2)), Scaled(en, 2), Scaled(NormL1(T(.1), ones(T, 2)), 2), SqrNormL2(T(.1)))
       for start in (copy(x), SparseIterate(copy(x)))
         rng = Xoshiro(1)
         before = copy(rng)
-        refused_with(start, f, g, CDSolver(rng = rng), EN_CD_REFUSAL)
+        refused_with(start, f, g, CDSolver(rng = rng), EN_PENALTY_REFUSAL)
         @test rng == before && rand(rng) == rand(before)
       end
-    end
-    # the iterate is checked before the penalty, and the penalties below get the message of NormL1
-    refused_with(Int[0, 0], f, en, CDSolver(), "x must be a dense Vector{Float32} or Vector{Float64}")
-    for g in (Scaled(en, 2), Scaled(NormL1(T(.1), ones(T, 2)), 2), SqrNormL2(T(.1)))
-      refused_with(copy(x), f, g, CDSolver(), "only NormL1 is supported")
-      refused_with(SparseIterate(copy(x)), f, g, CDSolver(), "only NormL1 is supported")
     end
     # a NormL1 with weights is accepted, on a dense vector and on an owner (#331)
     for start in (copy(x), SparseIterate(copy(x)))
       r = solve!(start, f, NormL1(T(.1), T[1, 2]), CDSolver(order = :cyclic))
       @test r.converged && r.minimizer === start
     end
+    for (g, msg) in ((ElasticNet(T(Inf), zero(T)), "penalty lambda1 must be finite and nonnegative"),
+                     (ElasticNet(zero(T), T(Inf)), "penalty lambda2 must be finite and nonnegative"))
+      for start in (copy(x), SparseIterate(copy(x)))
+        rng = Xoshiro(1)
+        before = copy(rng)
+        refused_with(start, f, g, CDSolver(rng = rng), msg)
+        @test rng == before && rand(rng) == rand(before)
+      end
+    end
+    # the iterate is checked before the penalty
+    refused_with(Int[0, 0], f, en, CDSolver(), "x must be a dense Vector{Float32} or Vector{Float64}")
     @test x == T[.3, -.2]
   end
 end

@@ -3,15 +3,26 @@
                momentum=nothing, rng=Random.default_rng(), anderson=0,
                gaptol=0, gapsafe=false)
 
-Coordinate descent for the least-squares lasso. Call
+Coordinate descent for the least-squares lasso and elastic net. Call
 `solve!(beta, f, g, CDSolver())` with matching `Float32` or `Float64`
 design/response data and coefficients. The coefficient storage can be
-a dense `Vector` or a one-dimensional ProximalBase `SparseIterate`.
+a dense `Vector` or a one-dimensional ProximalBase `SparseIterate`. The penalty
+is `NormL1(lambda)`, `NormL1(lambda, w)` or an unweighted `ElasticNet(lambda1, lambda2)`. The weights `w`
+of a `NormL1` are a `Vector{T}` (`T` the element type of the data) with finite nonnegative entries (see
+[`solve!`](@ref)): entry `j` uses the coefficient `T(lambda) w[j]`, and a zero weight leaves it unpenalized.
+For an `ElasticNet` the coordinate step of a visit in the normal range is ProximalBase's
+`prox_block` of the penalty. Let `s` be the loss scale and `a` the squared norm of the
+column, finite and positive. At a visit where `s * a` or its reciprocal is below
+`floatmin` of the type that combines `s` with the working type, the step with
+`lambda2 = 0` is the lasso's range-safe form (the threshold formed without the product
+or its reciprocal), and with `lambda2 > 0` the visit is refused with an `ArgumentError`
+that names the coordinate; for a `NormL1` with weights the step there is the lasso's range-safe form at
+the coefficient `T(lambda) w[k]` of the coordinate. The refusal happens during the pass: the iterate passed to
+`solve!` is unchanged, and a borrowed RNG may have advanced. A visit to a flat column
+(all entries 0) sets its coordinate to 0, at the levels that `solve!` accepts, for each of these
+penalties (also where a weight is zero); a visit to a column that is not flat and whose `a` underflows to 0 is refused
+as for the lasso. With `maxpasses = 0` no coordinate is visited.
 For a group lasso it can be a ProximalBase `BlockIterate`, as described below.
-The penalty `g` of the lasso is `NormL1(λ)` or `NormL1(λ, w)`, whose weights `w` are a `Vector{T}`
-(`T` the element type of the data) with finite nonnegative entries; see [`solve!`](@ref). Entry `j` uses the
-coefficient `T(λ) wⱼ`, and a zero weight leaves it unpenalized. A column of `X` that is zero gets the
-coefficient 0, also where its weight is zero.
 
 `CDSolver()` uses random coordinate order and the algorithm's default
 momentum behavior, a reasonable exploratory choice. For deterministic
@@ -460,13 +471,13 @@ end
 function solve!(x, f, g, method::CDSolver; kwargs...)
   _check_keywords(kwargs)
   if x isa SparseIterate
-    _check_owner_problem(x, f, g, false)
+    _check_owner_problem(x, f, g)
     return _solve_owner!(x, f, g, method)
   elseif x isa BlockIterate
     _check_block_problem(x, f, g, method)
     return _solve_owner!(x, f, g, method)
   end
-  _check_problem(x, f, g, false)
+  _check_problem(x, f, g)
   _solve_dense!(x, f, g, method)
 end
 solve!(x, f, g, method::ProximalSolver, args...; kwargs...) =

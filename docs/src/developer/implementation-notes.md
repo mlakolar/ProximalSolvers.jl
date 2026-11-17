@@ -111,8 +111,9 @@ which broke that agreement; for `λ = 0` PB's prox keeps a zero threshold for an
 `floatmin(S)` the step is the exceptional one, also for cases that were correct
 before (a subnormal `p` with a finite reciprocal), and where `λ > 0` their bits
 can differ from before.
-`_exceptional_step` is written for `S == T` and a `NormL1` whose weights are absent or a `Vector{T}`. With
-weights its method forms `cₖ = T(λ0) wₖ` in `T`, the coefficient that `solve!` has checked (finite, and
+`_exceptional_step` is written for `S == T`, for a `NormL1` whose weights are absent or a `Vector{T}`, and for an
+unweighted `ElasticNet` (at `λ2 = 0` the step of `NormL1(λ1)`; at `λ2 > 0` it throws an `ArgumentError`, see `CDSolver`). With
+weights the `NormL1` method forms `cₖ = T(λ0) wₖ` in `T`, the coefficient that `solve!` has checked (finite, and
 nonzero where `T(λ0)` and `wₖ` are both positive), and calls the unweighted method at the level `cₖ`: `τ` is within
 the bounds above of `cₖ / (s a)`, and within those bounds plus `|cₖ - λ0 wₖ| / (s a)` of `λ0 wₖ / (s a)`
 (`cₖ` is `λ0 wₖ` rounded once to `T` for a level of type `T`). A zero weight or level gives `τ = 0` and
@@ -124,7 +125,7 @@ finite `a`, an `S` wider than `T` keeps `p` inside the band: `solve!` requires a
 loss scale that is representable in `T`, and `a` is finite in `T`, so
 for `Float32` data with a `Float64` scale `p` is between about `1e-90` and
 `1e77`. A scale of another type, or
-a penalty without a method of `_exceptional_step` (a `NormL1` whose weights are absent or a `Vector{T}` has one), makes
+a penalty without a method of `_exceptional_step` (an unweighted `NormL1` or `ElasticNet`, or a `NormL1` with a `Vector{T}` of weights, has one), makes
 the step throw an `ArgumentError`. A column whose `a` is not finite in `T` makes `coordinate_step!`
 throw an `ArgumentError` that names the curvature, before the coordinate, the
 residual or the curvature cache entry of that column changes, and `x` and an
@@ -292,9 +293,9 @@ residual is ProximalBase's full-point `kkt_violation` of `NormL1(T(λ0))`, of `N
 `ElasticNet(T(λ1), T(λ2))`; for `ElasticNet` it adds `λ2 xᵢ` at the nonzero entries. `λ2` is not in `S`
 (the check is the lasso check on the data augmented by `√λ2 I`, see `numerics.md`).
 The penalty is validated once by `_check_penalty` in `_check_data`. For an `x` that is not a `BlockIterate`
-it accepts `NormL1` for all solvers (with weights, `_check_l1_weights`: a `Vector{T}` of the length of `x`, finite and nonnegative entries,
-no alias with `x`, and the coefficients `T(λ0) wⱼ` finite and nonzero for positive factors), `ElasticNet` for PGD and APG, and raises an `ArgumentError` for an
-`ElasticNet` in `CDSolver`; a `BlockIterate` has its own method, for a `GroupNormL2`. The check requires `S =
+it accepts a `NormL1` for all solvers (with weights, `_check_l1_weights`: a `Vector{T}` of the length of `x`, finite and nonnegative entries,
+no alias with `x`, and the coefficients `T(λ0) wⱼ` finite and nonzero for positive factors) or an unweighted `ElasticNet` for all solvers and refuses any other
+penalty; a `BlockIterate` has its own method, for a `GroupNormL2`. The check requires `S =
 max(λ, λmax)` finite, that product, formed in `T`, at least `floatmin(T)` and the residual
 finite; it does not require the product to be finite. Otherwise the three flags are cleared and the solve continues. PGD uses the `∇f(x)` it holds. APG
 forms `∇f(x)` from the cached image `z_x` with `_value_and_gradient!` (ProximalBase's
