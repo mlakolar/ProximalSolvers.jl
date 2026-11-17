@@ -65,6 +65,22 @@ error and no row is written. Every other field (`maxpasses`, `tol`, `random`, `r
 encoded, so any other difference between the stacks still mismatches. It is not applied to any other campaign: the original
 Stage 2B campaign (whose P01 sets `gaptol`) is checked as before. The comparator and its specification are unchanged.
 
+## Metadata keys of the harness (#333)
+
+The harness at `9f86a808` writes eleven metadata keys beyond those of `benchmark/validate.py`, which `validate.py` tolerates.
+The first official attempt was refused for exactly these, after all 64 processes had run: `migration_compare.py` now lists them
+(`HARNESS_KEYS`; the key set stays exact, and `MIGRATION_COMPARE_SPEC.md` is unchanged) and checks them as follows, each
+violation a `STACK` refusal unless noted. `proximalbase_tree_sha1` equals the identity file's tree. A registered ProximalBase
+(Stack A) has source `registry` and an empty `proximalbase_rev`, `proximalbase_url` and `required_proximalbase_rev`; a development
+one (Stack B) has source `git`, a URL equal to the lock's `[stack_b.proximalbase].source` (checked by the driver), and the identity
+commit as `proximalbase_rev` and as `required_proximalbase_rev` (the pin of the ProximalSolvers checkout). `expected_package_revision`
+and `expected_proximalbase_rev` (set only by an environment variable that the driver does not set) are empty or the identity commit.
+`proximalbase_path` equals `proximalbase_dir` of the inventory and `active_manifest` is a Manifest in the inventory's environment
+directory (per installation and stratum: they differ between roots, not between repetitions). `capabilities` and `deferred_cases`
+are functions of the harness: equal in every repetition, stratum and root with one harness hash. Types and shapes are `SCHEMA`
+refusals; start and final metadata must agree. `real-metadata/` holds the real files these rules were written against.
+`recover` (`../stage2b/README.md`) finishes a refused attempt of this kind on a copy.
+
 ## Notes for readers
 
 - **Gates.** G1-G7 of the original campaign are replaced for this campaign by the minimal-core correctness and provenance
