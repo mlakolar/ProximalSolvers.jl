@@ -1,7 +1,8 @@
 """
     ProximalSolvers
 
-Least-squares lasso with dense Matrix designs, and least-squares elastic net for
+Least-squares lasso with dense Matrix designs (`NormL1(λ)`, or `NormL1(λ, w)` with weights `w`), and
+least-squares elastic net for
 [`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref) (`CDSolver` refuses an
 `ElasticNet`; support is planned). [`CDSolver`](@ref) accepts a dense
 `Vector` or a one-dimensional `SparseIterate` as the iterate, and, for a group lasso with

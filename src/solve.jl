@@ -49,23 +49,53 @@ _float64_scale_ok(a::Float64, ::Type{T}) where T = isfinite(a) && a > 0 && (n = 
 end
 
 # The penalty check of _check_data for an x that is not a BlockIterate. `elasticnet` is true for the
-# gradient solvers (PGD and APG), which accept an unweighted NormL1 or an unweighted ElasticNet, and
-# false for CDSolver, which accepts an unweighted NormL1 and refuses an ElasticNet of any weights with
-# its own message. The levels must pass _scalar_parameter for the data type T (finite, nonnegative,
-# representable without overflow or underflow).
+# gradient solvers (PGD and APG), which accept a NormL1 or an unweighted ElasticNet, and false for
+# CDSolver, which accepts a NormL1 and refuses an ElasticNet of any weights with its own message. The
+# levels must pass _scalar_parameter for the data type T (finite, nonnegative, representable without
+# overflow or underflow). A NormL1 with weights also passes _check_l1_weights.
 function _check_penalty(g, x, ::Type{T}, elasticnet::Bool) where T
-  if g isa NormL1 && g.w === nothing
-    _scalar_parameter(g.λ0, T, "penalty lambda")
+  if g isa NormL1
+    g.w === nothing ? _scalar_parameter(g.λ0, T, "penalty lambda") : _check_l1_weights(g, x, T)
   elseif g isa ElasticNet && !elasticnet
     throw(ArgumentError("CDSolver does not support ElasticNet yet; use ProximalGradientDescent or AccProxGradDescent"))
   elseif elasticnet && g isa ElasticNet && g.w === nothing
     _scalar_parameter(g.λ1, T, "penalty lambda1")
     _scalar_parameter(g.λ2, T, "penalty lambda2")
   else
-    throw(ArgumentError(elasticnet ? "only unweighted NormL1 or unweighted ElasticNet is supported" :
-                                     "only unweighted NormL1 is supported"))
+    throw(ArgumentError(elasticnet ? "only NormL1 or unweighted ElasticNet is supported" :
+                                     "only NormL1 is supported"))
   end
   nothing
+end
+
+# The weights of a NormL1 for data of type T. They must be a Vector{T} with one entry per entry of x,
+# finite and nonnegative, and x must not alias them (x is the caller's array or owner, as for X and y).
+# The solvers use the coefficient cⱼ = T(λ0) wⱼ, formed in T, of the entry j: it must be finite, and
+# nonzero where T(λ0) and wⱼ are both positive (a product that is subnormal in T is accepted; a zero
+# level or weight gives the coefficient 0, which leaves the entry unpenalized when it comes from wⱼ = 0).
+function _check_l1_weights(g, x, ::Type{T}) where T
+  _scalar_parameter(g.λ0, T, "penalty lambda")
+  w = g.w
+  w isa Vector{T} ||
+    throw(ArgumentError("penalty weights must be a Vector{$T} (the element type of the data); convert them with $T.(w)"))
+  length(w) == length(x) ||
+    throw(DimensionMismatch("the penalty has $(length(w)) weights but x has $(length(x)) entries"))
+  Base.mightalias(x, w) && throw(ArgumentError("mutable x must not alias the penalty weights"))
+  λ = T(g.λ0)
+  @inbounds for j in eachindex(w)
+    wj = w[j]
+    c = λ * wj
+    isfinite(wj) && wj >= 0 && isfinite(c) && (!iszero(c) || iszero(λ) || iszero(wj)) ||
+      _l1_weight_error(λ, wj, j, T)
+  end
+  nothing
+end
+
+@noinline function _l1_weight_error(λ::T, wj::T, j, ::Type{T}) where T
+  isfinite(wj) && wj >= 0 ||
+    throw(ArgumentError("penalty weight $j must be finite and nonnegative"))
+  throw(ArgumentError("the penalty coefficient of entry $j, lambda * weight in $T, " *
+                      (isinf(λ * wj) ? "overflows" : "underflows to zero") * "; rescale the level or the weights"))
 end
 
 # The penalty of group coordinate descent on a BlockIterate: a GroupNormL2 whose level and weights

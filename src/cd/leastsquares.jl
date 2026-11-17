@@ -126,10 +126,20 @@ end
 # in the band of the fast path: α is representable in T (`solve!` checks it) and a is finite in T, so
 # p lies between about 1e-90 and 1e77 for S = Float64 on Float32 data. Another scale type (`solve!` refuses
 # one that is not Float32, Float64 or an integer; an LSModel built directly can have S = BigFloat), or a
-# penalty other than the unweighted NormL1, is refused.
+# penalty without a method below (a NormL1 whose weights are absent or a Vector{T} has one), is refused.
 @noinline function _exceptional_step(g::NormL1{<:Real, Nothing}, c::T, α::T, a::T, k::Int) where {T<:Union{Float32, Float64}}
   shrink(c, min(_threshold(T, g.λ0, α, a), floatmax(T)))
 end
+# With weights, the threshold of coordinate k is that of the unweighted method at the level cₖ = T(λ0) wₖ,
+# the coefficient that `solve!` validates (finite, and nonzero where both factors are positive) and that
+# the stopping check of PGD and APG uses. So τ is within the bounds stated at `_threshold` of cₖ/(α a), and
+# within those bounds plus |cₖ - λ0 wₖ|/(α a) of λ0 wₖ/(α a). For a level λ0 of type T, cₖ is λ0 wₖ rounded
+# once to T: |cₖ - λ0 wₖ| is at most eps(T)/2 relative for a normal cₖ and half the smallest subnormal for a
+# subnormal cₖ; a level of another type adds the rounding of T(λ0).
+# A zero weight or a zero level gives cₖ = 0, τ = 0 and `shrink(c, 0) = c`: the coordinate is unpenalized.
+# In the comments of `coordinate_step!` above, λ is λ0 wₖ for a penalty with weights.
+@noinline _exceptional_step(g::NormL1{<:Real, Vector{T}}, c::T, α::T, a::T, k::Int) where {T<:Union{Float32, Float64}} =
+  _exceptional_step(NormL1(T(g.λ0) * g.w[k]), c, α, a, k)
 @noinline _exceptional_step(g, c, α, a, k::Int) =
   throw(ArgumentError("the coordinate step of coordinate $k has no range-safe form for a $(typeof(g)) penalty and a loss scale of type $(typeof(α))"))
 # τ = λ/(α a) with λ the penalty level converted to Float64. Float32: α and a are Float32, so their

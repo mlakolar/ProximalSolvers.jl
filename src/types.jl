@@ -24,8 +24,12 @@ the stationarity check below passes.
 holds, the solver computes the minimal-norm KKT residual `G` at the accepted
 iterate `x`: the element of `∇f(x) + λ ∂‖x‖₁` of least infinity norm for
 `NormL1(λ)`, and the element of `∇f(x) + λ2 x + λ1 ∂‖x‖₁` of least infinity norm for
-`ElasticNet(λ1, λ2)` (`ProximalGradientDescent` and `AccProxGradDescent`). Below, `λ` is the ℓ1 level of the
-penalty (`λ` of `NormL1`, `λ1` of `ElasticNet`); `λ2` does not enter the bound. The stop counts only if
+`ElasticNet(λ1, λ2)` (`ProximalGradientDescent` and `AccProxGradDescent`). For `NormL1(λ, w)` with weights `w`
+it is the element of `∇f(x) + ∂(λ Σⱼ wⱼ |xⱼ|)` of least infinity norm, with the coefficient `T(λ) wⱼ` of entry `j`
+(`T` the element type; `w` is a `Vector{T}`); a zero weight gives the coefficient 0, so its entry is unpenalized
+and its score is `|∇fⱼ(x)|`. Below, `λ` is the ℓ1 level of the
+penalty (`λ` of `NormL1(λ)`, the largest coefficient `T(λ) * maximum(w)` of `NormL1(λ, w)`, `λ1` of `ElasticNet`);
+`λ2` does not enter the bound. The stop counts only if
 `‖G‖∞ < max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `T` the element type and
 `λmax = α‖Xᵀy‖∞` for the loss scale `α` (1 for a plain `LeastSquaresLoss`). The check
 also requires that `S = max(λ, λmax)` is finite, that the product

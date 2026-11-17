@@ -8,6 +8,10 @@ Coordinate descent for the least-squares lasso. Call
 design/response data and coefficients. The coefficient storage can be
 a dense `Vector` or a one-dimensional ProximalBase `SparseIterate`.
 For a group lasso it can be a ProximalBase `BlockIterate`, as described below.
+The penalty `g` of the lasso is `NormL1(λ)` or `NormL1(λ, w)`, whose weights `w` are a `Vector{T}`
+(`T` the element type of the data) with finite nonnegative entries; see [`solve!`](@ref). Entry `j` uses the
+coefficient `T(λ) wⱼ`, and a zero weight leaves it unpenalized. A column of `X` that is zero gets the
+coefficient 0, also where its weight is zero.
 
 `CDSolver()` uses random coordinate order and the algorithm's default
 momentum behavior, a reasonable exploratory choice. For deterministic

@@ -2,11 +2,11 @@
     ProximalGradientDescent(; ls=LineSearches.BackTracking(), normalized=false,
                              debias=0, preconditioner=:none)
 
-Proximal gradient descent (PGD) for least-squares lasso or elastic net with a dense
+Proximal gradient descent (PGD) for least-squares lasso (with optional weights) or elastic net with a dense
 `Vector{Float32}` or `Vector{Float64}` coefficient iterate. Each iteration
 takes a gradient step for the smooth least-squares loss and applies the
-proximal operator of the penalty, soft thresholding for `NormL1` and soft
-thresholding followed by the ridge weight for `ElasticNet`; backtracking adjusts
+proximal operator of the penalty, soft thresholding for `NormL1` (at the level `λ wⱼ` of entry `j` for
+`NormL1(λ, w)`) and soft thresholding followed by the ridge weight for `ElasticNet`; backtracking adjusts
 the step size.
 
 `ProximalGradientDescent()` uses the supported
@@ -25,7 +25,8 @@ Pass `ProximalOptions(...)` as the fifth argument to `solve!` to
 configure stopping tolerances and iteration limits. A stop that the `xtol`, `ftol` or
 `gradtol` test proposes counts only if the computed KKT residual of the iterate is below
 `max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞` and `λ` the ℓ1 level of the penalty
-(`λ` of `NormL1`, `λ1` of `ElasticNet`; see [`ProximalOptions`](@ref)). `converged=true` guarantees only that the computed, normalized KKT
+(`λ` of `NormL1(λ)`, the largest coefficient `T(λ) * maximum(w)` of `NormL1(λ, w)`, `λ1` of `ElasticNet`; see
+[`ProximalOptions`](@ref)). `converged=true` guarantees only that the computed, normalized KKT
 residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the threshold is formed in
 `T`, which can round or overflow; see [`ProximalOptions`](@ref)); it is not an
 exact-arithmetic certificate, does not bound the distance to a minimizer and does not
@@ -248,16 +249,21 @@ end
     solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions())
     solve!(x::BlockIterate, f, g::GroupNormL2, CDSolver())
 
-Minimize a least-squares lasso or elastic net, overwriting `x`. `x` is a dense `Vector{T}`,
+Minimize a least-squares lasso (with optional weights) or elastic net, overwriting `x`. `x` is a dense `Vector{T}`,
 T=Float32 or Float64; `CDSolver` also accepts a one-dimensional `SparseIterate{T}`
 (see below), while the gradient methods (`ProximalGradientDescent`, `AccProxGradDescent`) refuse it.
 The `BlockIterate` form of `CDSolver` minimizes the group lasso with a `GroupNormL2` penalty on a
 `BlockIterate{T}` with the same groups; only `CDSolver` accepts it, and `CDSolver` describes it. The loss
-uses same-type `Matrix` X and `Vector` y. The penalty of the gradient methods is an
-unweighted `NormL1(λ)` or an unweighted `ElasticNet(λ1, λ2)` (`λ1 ‖x‖₁ + (λ2/2) ‖x‖²`), whose levels are
+uses same-type `Matrix` X and `Vector` y. The penalty of the gradient methods is a `NormL1(λ)` or
+`NormL1(λ, w)` or an unweighted `ElasticNet(λ1, λ2)` (`λ1 ‖x‖₁ + (λ2/2) ‖x‖²`), whose levels are
 finite and nonnegative and representable in `T` without overflow or underflow; for a dense `Vector` or a
-`SparseIterate`, `CDSolver` accepts an unweighted `NormL1` only and refuses an `ElasticNet` (its support
-is planned); its `BlockIterate` form takes a `GroupNormL2`. Use `(one(T)/T(n))*LeastSquaresLoss` for normalized lasso; raw LS keeps
+`SparseIterate`, `CDSolver` accepts a `NormL1` only and refuses an `ElasticNet` (its support
+is planned); its `BlockIterate` form takes a `GroupNormL2`. The weights `w` of `NormL1(λ, w)` are a
+`Vector{T}` with one finite nonnegative entry per entry of `x` (`T` the element type of the data and of `x`),
+and `x` must not alias them. The solvers use the coefficient `T(λ) wⱼ`, formed in `T`, for entry `j`; it must be
+finite, and not zero where `T(λ)` and `wⱼ` are both positive (a subnormal coefficient is accepted). A zero
+weight leaves its entry unpenalized (it is not fixed at 0). Any other weight array type (a view, a range, a
+vector of another element type) and any `Scaled` penalty is refused. Use `(one(T)/T(n))*LeastSquaresLoss` for normalized lasso; raw LS keeps
 its unnormalized meaning. One positive finite scalar LS wrapper is supported.
 Borrowed X/y must not alias mutable `x` or change during a solve. Results share
 `x`; copy it to retain earlier coefficients. Unsupported inputs/options fail
