@@ -36,6 +36,7 @@ Discovery EPYC 7513 on an exclusive node, the Stage 2A sampling settings.
 | `case-mapping.toml` | the 21 class A rows, approved by the ruling |
 | `lock.toml` | the Stack B candidate: commits, trees, package hashes, the per-stratum environment files and their SHA-256, the declared differences, the approvals |
 | `freeze/stack-{a,b}/julia-{1.10,1.13}/` | the environment files (`Project.toml`, `Manifest.toml`) of both stacks, with the ProximalSolvers path relative to the base layout; `SHA256SUMS` lists them. The driver uses the Stack B files through the lock; the Stack A files are what the driver derives from the Stage 2A archive, recorded here for provenance |
+| `real-metadata/` | the harness-written metadata of the nonofficial smoke run (#330), copied verbatim: `ab-a` and `ab-b`, both strata, start and final. The fixtures of the comparator tests for the eleven metadata keys that the first official attempt was refused for (#333) |
 | `test_stage2b_cd_files.py` | consistency, identity and unchanged-file tests |
 
 Use it with the existing driver:

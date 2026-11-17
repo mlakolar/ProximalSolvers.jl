@@ -141,7 +141,8 @@ Exactly these may differ between the roots, and each must be declared (section 1
    never forced equal. Without an approved record, a differing `harness_hash` is refused.
 
 **Treatment of every metadata key** (the keys of `START_KEYS`, `FINAL_KEYS` and `case_filter` of
-`benchmark/validate.py`; any other key, or a missing one, is a `SCHEMA` refusal):
+`benchmark/validate.py`, and the eleven further keys that the harness at `9f86a808` writes and `validate.py`
+tolerates, `HARNESS_KEYS` of the tool (#333); any other key, or a missing one, is a `SCHEMA` refusal):
 
 | Key | Treatment | Class on violation |
 |:--|:--|:--|
@@ -155,6 +156,9 @@ Exactly these may differ between the roots, and each must be declared (section 1
 | `proximalsolvers_hash`, `proximalbase_hash` of a Stack A root | equal to `package_hash` of `[stack_a.proximalsolvers]` and `[stack_a.proximalbase]` of the schedule (the values of the Stage 2A records); Stack B's hashes are checked only through the declared pair | `IDENTITY` |
 | `proximalsolvers_sha`, `proximalsolvers_hash`, `proximalbase_version`, `proximalbase_hash` | the A value and the B value equal the declared pair | `UNDECLARED` |
 | `proximalsolvers_sha`, `proximalbase_version` | also equal to `stack-identity.toml` | `STACK` |
+| `proximalbase_tree_sha1`, `proximalbase_source`, `proximalbase_rev`, `proximalbase_url`, `required_proximalbase_rev`, `expected_package_revision`, `expected_proximalbase_rev` | `proximalbase_tree_sha1` equal to the `tree` of `stack-identity.toml`; a `registered` ProximalBase has source `registry` and an empty revision, URL and pin; a `development` one has source `git`, a non-empty URL (a Stack B URL equal to the lock's `[stack_b.proximalbase].source`, checked by the driver), and the identity `commit` as revision and as pin; the two `expected_*` values are empty or the identity commit of their package; the type and shape of every value (40-hex or empty, `registry` or `git`) is a `SCHEMA` refusal; start and final metadata agree | `STACK` |
+| `proximalbase_path`, `active_manifest` | `proximalbase_path` equal to `proximalbase_dir` of the inventory (when it has one) and `active_manifest` a Manifest file in the directory of the inventory `active_project`; per installation and stratum, so they differ between roots and strata but not between repetitions | `STACK` |
+| `capabilities`, `deferred_cases` | a sorted list of distinct capability names and a non-negative integer; functions of the harness, so equal in every repetition and stratum of a root and in all roots with one `harness_hash` (field `all:mixed`) | `STACK` |
 | `proximalsolvers_dirty` | `false` | `STACK` |
 | `proximalsolvers_path`, `expected_package_root` | `validate.py` checks them against each other; the tool additionally requires `expected_package_root` non-empty and `proximalsolvers_path` equal to `proximalsolvers_dir` of the inventory | `STACK` |
 | `rep`, `finished`, `cases`, `ok_cases`, `nonok_cases`, `elapsed_s`, `maxrss_bytes`, `job_id` | per process; not compared between roots and not a provenance check (equal `job_id` values in A and B, and both processes of a block in one allocation, are accepted; `rep`, `finished`, the counts and `elapsed_s` are used as stated in sections 5 and 12) | |

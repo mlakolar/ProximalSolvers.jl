@@ -40,6 +40,7 @@ import io
 import json
 import math
 import os
+import posixpath
 import re
 import shutil
 import sys
@@ -65,6 +66,11 @@ PS_UUID = "fc4971f5-6616-4709-9bfc-89a819252f6b"
 PS_A_PACKAGE_HASH = "f37fc61f300ad597a33c7ab5f448d38c865db854"
 PB_A_PACKAGE_HASH = "d4747f2ab51212b20d9adcf70e21c2200b090b2a"
 BLAS = "LBTConfig([ILP64] libopenblas64_.so)"
+# Values of the harness keys of a real run (benchmark/run.jl at 9f86a808; the Discovery smoke run of #330).
+CAPABILITIES = ("apg,apg:float32,apg:lasso,cd,cd:float32,cd:lasso,cd:sparse_iterate,pg,pg:float32,pg:lasso,"
+                "random-cd,random-cd:lasso")
+DEFERRED_CASES = 29
+PB_URL = "https://github.com/mlakolar/ProximalBase.jl"
 CERTIFICATES_HASH = hashlib.sha256(b"certificates.jl").hexdigest()
 BANNED_WORDS = ("noninferior", "non-inferior", "no-regression", "significant", "equivalent")
 CSV_COLUMNS = ("julia, id, role, phase, class, reason, repetitions, a_ns, b_ns, ratio, abs_diff_ns, geomean_ratio, "
@@ -377,6 +383,7 @@ def stack_a(schedule, label, installation):
         label=label, installation=installation, dirty=False, blas=BLAS,
         checkout=f"/synthroot/{installation}/ProximalSolvers.jl", depot=f"/synthroot/{installation}/depot",
         depot_real=f"/synthroot/{installation}/depot",
+        pb_dir=f"/synthroot/{installation}/depot/packages/ProximalBase/synth",
         env=f"/synthroot/{installation}/envs/env-{{version}}/Project.toml",
         env_real=f"/synthroot/{installation}/envs/env-{{version}}/Project.toml",
         ps=dict(commit=ident["proximalsolvers"]["commit"], tree=ident["proximalsolvers"]["tree"],
@@ -736,6 +743,21 @@ class Campaign:
                 errors.append([case["id"], rep, status, ov.get("error_text", {}).get(orig, ERROR_TEXT[status]), ""])
         return catalog, metrics, samples, errors, nonok
 
+    def harness_meta(self, stack, jkey):
+        """The eleven keys that the harness at 9f86a808 writes next to validate.py's START_KEYS (#333), with the
+        values of a real run: a registered ProximalBase is loaded from the registry (no URL, revision or pin), a
+        development one from git at its commit, which the ProximalSolvers checkout pins."""
+        pb = stack["pb"]
+        registered = pb.get("release") == "registered"
+        return {
+            "active_manifest": posixpath.dirname(stack["env"].format(version=self.version(jkey))) + "/Manifest.toml",
+            "capabilities": CAPABILITIES, "deferred_cases": DEFERRED_CASES,
+            "expected_package_revision": "", "expected_proximalbase_rev": "",
+            "proximalbase_path": stack["pb_dir"], "proximalbase_rev": "" if registered else pb["commit"],
+            "proximalbase_source": "registry" if registered else "git", "proximalbase_tree_sha1": pb["tree"],
+            "proximalbase_url": "" if registered else PB_URL,
+            "required_proximalbase_rev": "" if registered else pb["commit"]}
+
     def metadata(self, label, jkey, rep, ov, cases, nonok):
         s, stack = self.sched["settings"], self.stack(label)
         start = {
@@ -748,7 +770,8 @@ class Campaign:
             "blas_threads": s["blas_threads"], "blas": stack["blas"], "cpu": self.sched["machine"]["cpu"][jkey],
             "cpu_model": self.sched["machine"]["cpu_model"], "samples_target": s["samples_target"],
             "seconds_limit": s["seconds_limit"], "case_seconds": s["case_seconds"],
-            "profile_seconds": s["profile_seconds"], "seed_scheme": s["seed_scheme"], "job_id": "none"}
+            "profile_seconds": s["profile_seconds"], "seed_scheme": s["seed_scheme"], "job_id": "none",
+            **self.harness_meta(stack, jkey)}
         start.update(ov.get("meta", {}))
         start.update(ov.get("start_meta", {}))
         final = dict(start)
@@ -850,6 +873,7 @@ class Campaign:
             "depot_path": [stack["depot"], "/synthroot/julia/depot"],
             "proximalbase_version": stack["pb"]["version"],
             "proximalbase_loaded_tree": stack["loaded_tree"] or stack["pb"]["tree"],
+            "proximalbase_dir": stack["pb_dir"],
             "proximalsolvers_dir": stack["checkout"], "threads": 1,
             "active_project": stack["env"].format(version=self.version(jkey)),
             "depot_realpath": stack["depot_real"], "cpu_name": self.sched["machine"]["cpu"][jkey]}

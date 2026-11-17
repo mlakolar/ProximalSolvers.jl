@@ -8,6 +8,7 @@
                                              [--archive FILE]
     python3 -B stage2b_campaign.py run       --config LOCK --base BASE --official --freeze-sha SHA [--julia MM=PATH ...]
     python3 -B stage2b_campaign.py pilot     --config PILOT --base BASE [--arms AB] [--julia MM=PATH ...]
+    python3 -B stage2b_campaign.py recover   --config LOCK --base COPY --freeze-sha SHA [--campaign-dir DIR]
     python3 -B stage2b_campaign.py verify    --base BASE --out FILE [--config PILOT_CONFIG]
 
 Every subcommand takes `--campaign-dir DIR`: the directory (inside the repository) whose schedule.toml and
@@ -22,6 +23,13 @@ untimed environment probe, the depot digest, the data-hash check); `main(..., ho
 configuration, tests pass mocks. `prepare --step fetch` clones, builds the environments and verifies the pinned
 identities (network allowed); `prepare --step finalize` runs on the measurement node, offline, with the formal Julia
 flags and environment.
+
+`recover` (official only, #333) reruns only the post-measurement tail (declared differences, comparator, completion,
+seals) on a COPY of an official attempt that was refused solely because the comparator did not accept the metadata
+keys of the harness (every recorded problem a `metadata_keys` refusal of those keys). It moves STATE.json and
+checksums.sha256 aside byte for byte (logs/STATE.original.json, logs/checksums.original.sha256), records the
+recovery in logs/recovery.json and touches no root, raw file, receipt or measurement seal. `verify` of the result
+reports `verified_recovered` (or `verified_recovered_non_ok`), never plain `verified`.
 
 Exit status: 0 success; 1 completed with non-ok cases (a process exit 2 or comparator exit 1; reported and
 retained); 2 refused or stopped (official gate, preflight problem, infrastructure stop, comparator refusal,
@@ -55,6 +63,7 @@ There is no other switch and no environment variable that changes the mode.
 """
 
 import argparse
+import ast
 import contextlib
 import copy
 import csv
@@ -1614,6 +1623,13 @@ def declared_differences(base, lock):
                 for sha in mc.meta_values(root, "proximalsolvers_sha", usable=False):
                     if sha != ident[table]["commit"]:
                         problems.append(f"{table} root {side}: metadata sha differs from the identity commit")
+        if table == "proximalbase" and stack_b is not None:
+            # The comparator binds the metadata keys of #333 to each root's identity file; the URL of a development
+            # ProximalBase is bound to the lock here (the identity file has none).
+            for url in sorted(mc.meta_values(roots["b"], "proximalbase_url", usable=False)):
+                if url not in ("", stack_b[table].get("source")):
+                    problems.append(f"{table} root b: metadata proximalbase_url {url!r} differs from the lock "
+                                    f"{stack_b[table].get('source')!r}")
         observed[table] = sides
         fields = list(sides["a"])
         differing = [f for f in fields if sides["a"][f] != sides["b"][f]]
@@ -1889,6 +1905,15 @@ def check_identity_files(plan):
 
 
 PROBE_LOG = "logs/probes.jsonl"
+# Recovery of a refused official attempt (#333): the ruling that authorizes it and the files it leaves behind.
+RECOVERY_RULING = "https://github.com/mlakolar/ProximalSolvers.jl/issues/333#issuecomment-6958416181"
+RECOVERY_RECORD, STATE_ORIGINAL, CHECKSUMS_ORIGINAL = ("logs/recovery.json", "logs/STATE.original.json",
+                                                       "logs/checksums.original.sha256")
+RECOVERY_KEYS = ("schema", "recovered", "ruling", "recovered_utc", "freeze_sha", "driver_sha256",
+                 "comparator_sha256", "original_state_sha256", "original_state_reason",
+                 "original_checksums_sha256")
+METADATA_KEYS_PROBLEM = re.compile(r"SCHEMA [^:\s]+:metadata_keys: .* (?:start|final) metadata missing "
+                                   r"(\[[^\]]*\]) unknown (\[[^\]]*\])")
 PROBE_KEYS = ("record", "timed", "phase", "campaign_id", "session_id", "schedule_id", "process", "arm", "role",
               "installation", "julia", "rep", "logical_cpu", "outcome", "error", "machine", "commands")
 PROBE_COMMAND_KEYS = ("kind", "argv", "exit", "start_utc", "end_utc")
@@ -1943,6 +1968,8 @@ def sample_differences(first, other):
 class Attempt:
     """The records of one attempt: STATE, receipt, sidecar logs. Created exclusively at the start."""
 
+    extra = {}              # added to every STATE.json this attempt writes (a recovery marks its states)
+
     def __init__(self, plan, hooks):
         self.plan, self.hooks, self.finished = plan, hooks, False
         # The last depot-cache digest read per installation (role); prepare may record a baseline per role in
@@ -1981,7 +2008,7 @@ class Attempt:
         logs = self.plan.base / "logs"
         replace_file(logs / "STATE.json", state_text(state, campaign_id=self.plan.campaign_id,
                                                       session_id=self.plan.session_id,
-                                                      schedule_id=self.plan.sched["id"], **info))
+                                                      schedule_id=self.plan.sched["id"], **info, **self.extra))
         write_checksums(self.plan.base)
         self.finished = True
 
@@ -2139,8 +2166,10 @@ def run_one(plan, hooks, attempt, key, observations, first, nonok):
         raise
 
 
-def finalize(plan, hooks, attempt, count, nonok):
-    """After the last process: declared differences, the comparator, the sealed completion record, checksums."""
+def finalize(plan, hooks, attempt, count, nonok, recovery=None):
+    """After the last process: declared differences, the comparator, the sealed completion record, checksums.
+    `recovery` (see `recover`) is the extra fields of completion.json of a recovered attempt; `run` and `recover`
+    share this tail."""
     base = plan.base
     try:
         write_declared_differences(base, plan.lock)
@@ -2165,7 +2194,8 @@ def finalize(plan, hooks, attempt, count, nonok):
         "campaign_sha256": sha256_file(base / "logs" / "campaign.json"),
         **({"lock_sha256": sha256_file(base / "lock.toml")} if plan.official else
            {"pilot_config_sha256": (sha256_file(base / "pilot-config.toml")
-                                    if (base / "pilot-config.toml").is_file() else None)})}, indent=2) + "\n")
+                                    if (base / "pilot-config.toml").is_file() else None)}),
+        **(recovery or {})}, indent=2) + "\n")
     seal_file(base, "logs/completion.json", "completion")
     problems = verify_seals(base)
     if problems:
@@ -2173,6 +2203,227 @@ def finalize(plan, hooks, attempt, count, nonok):
     attempt.finish("completed", comparator_exit=code)
     return Outcome(0 if code == 0 and not nonok else 1, "completed", count, nonok, code)
 
+
+# ------------------------------------------------------------------------------------- recovery (#333)
+#
+# Official attempt 1 of the Stage 2B CD campaign measured all 64 processes and was then refused by the comparator
+# for eleven metadata keys that the harness writes and the comparator's exact key set did not list (a defect of the
+# analysis tool, not of a measurement). The ruling on #333 lets the post-measurement tail be rerun, once, on a COPY
+# of that attempt with the corrected comparator, and the recovery recorded. Nothing else is permitted: the roots,
+# the raw files, the receipt and the seals of the measurements are never touched.
+
+def metadata_keys_refusal_problems(state):
+    """Why `state` (the parsed STATE.json of an attempt) is not a refusal for the metadata keys of the harness
+    alone ([] when it is): the state is `refused` with the reason of an unreadable root, and every recorded
+    problem is a `SCHEMA <root>:metadata_keys` problem with no missing key and only keys of
+    `migration_compare.HARNESS_KEYS` unknown."""
+    problems = []
+    if state.get("state") != "refused":
+        problems.append(f"the state is {state.get('state')!r}, not refused")
+    reason = state.get("reason")
+    if not (isinstance(reason, str) and reason.startswith("the roots cannot be read")):
+        problems.append("the reason does not start with 'the roots cannot be read'")
+    recorded = state.get("problems")
+    if not (isinstance(recorded, list) and recorded and all(isinstance(item, str) for item in recorded)):
+        return problems + ["no problem is recorded"]
+    allowed = set(mc.HARNESS_KEYS)
+    for item in recorded:
+        match = METADATA_KEYS_PROBLEM.fullmatch(item)
+        try:
+            missing, unknown = (ast.literal_eval(group) for group in match.groups()) if match else (None, None)
+        except (ValueError, SyntaxError):
+            missing = unknown = None
+        if not (isinstance(missing, list) and isinstance(unknown, list) and all(isinstance(k, str) for k in unknown)):
+            problems.append(f"a recorded problem is not a metadata_keys refusal: {item[:100]!r}")
+        elif missing or not unknown or set(unknown) - allowed:
+            problems.append(f"a recorded problem names missing keys {missing} or keys outside the harness keys "
+                            f"{sorted(set(unknown) - allowed)}: {item[:100]!r}")
+    return problems
+
+
+def recovery_gate(lock, repo_facts, freeze_sha):
+    """The official gate of `run` for a recovery. The private installations are not part of an archived copy, so
+    the gates that compare a fetched checkout with the lock (PS_B_* and PB_B_*) apply only where the base has one;
+    the identity of the measured stack B is bound to the lock by the declared differences and the comparator."""
+    unmet = official_gate(lock, repo_facts, freeze_sha)
+    if (repo_facts or {}).get("checkouts"):
+        return unmet
+    return [item for item in unmet if not item.startswith(("PS_B_", "PB_B_"))]
+
+
+def recovery_problems(base, lock_path, run=subprocess.run):
+    """Why the attempt in BASE cannot be recovered ([] when it can): it is a metadata-keys-only refusal, no tail
+    record and no recovery record exists, checksums and seals verify (the whole attempt verifies as `refused`),
+    every scheduled process is in the receipt with exit 0 and complete, and the schedule, the case mapping and the
+    lock of the base are the files of the campaign definition and of --config."""
+    base = Path(base)
+    state = read_json_file(base / "logs" / "STATE.json")
+    if state is None:
+        return ["logs/STATE.json is missing or not a JSON object"]
+    problems = metadata_keys_refusal_problems(state)
+    for relative in ("declared-differences.toml", "comparison", "logs/comparator.json", "logs/completion.json",
+                     RECOVERY_RECORD, STATE_ORIGINAL, CHECKSUMS_ORIGINAL):
+        if (base / relative).exists() or (base / relative).is_symlink():
+            problems.append(f"{relative} exists: the tail ran or the attempt was recovered already")
+    for name, trusted in (("schedule.toml", CAMPAIGN_DIR / "schedule.toml"),
+                          ("case-mapping.toml", CAMPAIGN_DIR / "case-mapping.toml"), ("lock.toml", Path(lock_path))):
+        if not (base / name).is_file() or (base / name).read_bytes() != Path(trusted).read_bytes():
+            problems.append(f"{name} of the base is not the file of the campaign definition or of --config")
+    if problems:
+        return problems
+    with tempfile.TemporaryDirectory(prefix="stage2b-recover-") as scratch:
+        document, _ = verify(base, Path(scratch) / "verification.json", run=run)
+    if document["state"] != "refused" or document["problems"]:
+        return [f"the attempt does not verify as refused: {document['state']}"] + document["problems"][:10]
+    sched, arms, receipt_problems = mc.load_schedule(base / "schedule.toml"), schedule_arms(base), []
+    seen = check_receipt_text(base, sched, "AA" in arms, receipt_problems)
+    problems += receipt_problems
+    for arm, letter, mm, rep in required_keys(sched, arms):
+        event = seen.get((arm, letter, sched["strata"][mm]["version"], rep))
+        if event is None or event["exit"] != 0 or event["complete"] is not True:
+            problems.append(f"receipt: process {process_name(arm, letter, mm, rep)} is missing, did not exit 0 or "
+                            "is not complete")
+    return problems
+
+
+def plan_for_recovery(lock, base, freeze_sha):
+    """The part of the plan that the tail needs: the base, the schedule, the lock and the ids of the attempt."""
+    base = Path(base)
+    sched = mc.load_schedule(base / "schedule.toml")
+    lock = parse_lock(copy.deepcopy(lock), strata=list(sched["strata"]))
+    if "stack_b" not in lock:
+        raise Refused("the lock has no [stack_b] candidate", field="stack_b")
+    if lock["campaign"]["id"] != sched["campaign_id"]:
+        raise Refused(f"lock campaign {lock['campaign']['id']!r} is not the schedule's {sched['campaign_id']!r}",
+                      field="campaign.id")
+    session = (read_json_file(base / "logs" / "campaign.json") or {}).get("session_id")
+    if not is_text(session):
+        raise Refused("logs/campaign.json has no session id", field="session_id")
+    return Plan(base=base, sched=sched, official=True, campaign_id=sched["campaign_id"], session_id=session,
+                arms=schedule_arms(base), roles={}, cpu=sched["machine"]["logical_cpu"],
+                case_filter=sched["settings"]["case_filter"], parent_env={}, lock=lock, freeze_sha=freeze_sha)
+
+
+class RecoveryAttempt(Attempt):
+    """The records of the tail of a recovery: STATE.json (marked recovered) and the checksums."""
+    extra = {"recovered": True}
+
+    def __init__(self, plan):
+        self.plan, self.hooks, self.finished = plan, None, False
+
+
+def recover(plan, lock_path, run=subprocess.run):
+    """Rerun the tail of the refused official attempt in `plan.base` (a copy) with the corrected comparator.
+
+    The original STATE.json and checksums.sha256 are moved aside byte for byte, logs/recovery.json records the
+    recovery, and `finalize` (the tail of `run`) does the rest. A comparator that still refuses is recorded, not
+    retried: the recovery record then exists and a second recovery is refused."""
+    base = plan.base
+    problems = recovery_problems(base, lock_path, run)
+    if problems:
+        raise Refused("the attempt cannot be recovered: " + "; ".join(problems[:5]), field="recover",
+                      problems=problems)
+    logs = base / "logs"
+    original_state, original_sums = (logs / "STATE.json").read_bytes(), (base / "checksums.sha256").read_bytes()
+    record = {"schema": 1, "recovered": True, "ruling": RECOVERY_RULING, "recovered_utc": utc_text(utc_now()),
+              "freeze_sha": plan.freeze_sha, "driver_sha256": sha256_file(Path(__file__)),
+              "comparator_sha256": sha256_file(HERE / "migration_compare.py"),
+              "original_state_sha256": sha256_bytes(original_state),
+              "original_state_reason": json.loads(original_state)["reason"],
+              "original_checksums_sha256": sha256_bytes(original_sums)}
+    create_exclusive(base / RECOVERY_RECORD, json.dumps(record, indent=2) + "\n")
+    (base / RECOVERY_RECORD).chmod(0o444)
+    for source, target in ((logs / "STATE.json", base / STATE_ORIGINAL),
+                           (base / "checksums.sha256", base / CHECKSUMS_ORIGINAL)):
+        os.replace(source, target)
+        target.chmod(0o444)
+    count = len(required_keys(plan.sched, plan.arms))
+    return finalize(plan, None, RecoveryAttempt(plan), count, [],
+                    recovery={"recovered": True, "recovery_sha256": sha256_file(base / RECOVERY_RECORD)})
+
+
+def check_recovery(base, state, completion, listed, mode, problems):
+    """The records of a recovery against each other and against the original attempt; returns the recovery record
+    (or None). Required when any recovery file exists or STATE.json or completion.json says `recovered`."""
+    base = Path(base)
+    record = read_json_file(base / RECOVERY_RECORD)
+    if mode != "official":
+        problems.append("recovery: only an official attempt can be recovered")
+    if record is None:
+        problems.append(f"recovery: {RECOVERY_RECORD} is missing or not a JSON object")
+        record = {}
+    elif sorted(record) != sorted(RECOVERY_KEYS) or record["schema"] != 1 or record["recovered"] is not True:
+        problems.append(f"recovery: {RECOVERY_RECORD} does not have exactly the keys {list(RECOVERY_KEYS)} with "
+                        "schema 1 and recovered true")
+    if record.get("ruling") != RECOVERY_RULING:
+        problems.append("recovery: the ruling URL is not the one of the #333 ruling")
+    for key in ("driver_sha256", "comparator_sha256", "original_state_sha256", "original_checksums_sha256"):
+        if record and not (isinstance(record.get(key), str) and HEX64.fullmatch(record[key])):
+            problems.append(f"recovery: {key} is not a SHA-256")
+    if record and not is_hex40(record.get("freeze_sha")):
+        problems.append("recovery: freeze_sha is not a full commit")
+    if record and _parse_time(record.get("recovered_utc")) is None:
+        problems.append("recovery: recovered_utc is not a UTC time")
+    original = read_json_file(base / STATE_ORIGINAL)
+    if not (base / STATE_ORIGINAL).is_file():
+        problems.append(f"recovery: {STATE_ORIGINAL} is missing")
+    elif sha256_file(base / STATE_ORIGINAL) != record.get("original_state_sha256"):
+        problems.append(f"recovery: {STATE_ORIGINAL} is not the original STATE.json recorded in the recovery")
+    if original is None:
+        problems.append(f"recovery: {STATE_ORIGINAL} is not a JSON object")
+    else:
+        problems += [f"recovery: the original STATE.json: {item}" for item in metadata_keys_refusal_problems(original)]
+        if original.get("reason") != record.get("original_state_reason"):
+            problems.append("recovery: the reason of the original STATE.json differs from the recovery record")
+        ids = {k: (read_json_file(base / "logs" / "campaign.json") or {}).get(k)
+               for k in ("campaign_id", "session_id", "schedule_id")}
+        if any(original.get(k) != v for k, v in ids.items()):
+            problems.append("recovery: the ids of the original STATE.json differ from logs/campaign.json")
+    original_listing = {}
+    if not (base / CHECKSUMS_ORIGINAL).is_file():
+        problems.append(f"recovery: {CHECKSUMS_ORIGINAL} is missing")
+    elif sha256_file(base / CHECKSUMS_ORIGINAL) != record.get("original_checksums_sha256"):
+        problems.append(f"recovery: {CHECKSUMS_ORIGINAL} is not the original checksums.sha256 recorded in the "
+                        "recovery")
+    else:
+        try:
+            original_listing = read_checksums(base / CHECKSUMS_ORIGINAL)
+        except (OSError, ValueError) as error:
+            problems.append(f"recovery: {CHECKSUMS_ORIGINAL}: {error}")
+    for relative in (RECOVERY_RECORD, STATE_ORIGINAL, CHECKSUMS_ORIGINAL):
+        if relative not in listed:
+            problems.append(f"recovery: {relative} is not in checksums.sha256")
+    # No measurement or record changed: every file of the original listing is still there with its digest, except
+    # STATE.json (replaced by the tail's own) and seals.jsonl (the completion seal is appended: all but its last
+    # line is the original file).
+    state_listed = original_listing.get("logs/STATE.json")
+    if original_listing and state_listed != record.get("original_state_sha256"):
+        problems.append("recovery: the original checksums list another STATE.json than the original STATE")
+    finished = state.get("state") == "completed"
+    for relative, digest in sorted(original_listing.items()):
+        path = base / relative
+        if relative == "logs/STATE.json":
+            continue
+        if not path.is_file():
+            problems.append(f"recovery: {relative} of the original attempt is missing")
+        elif relative == "logs/seals.jsonl":
+            data = path.read_bytes()
+            kept = data[:data.rstrip(b"\n").rfind(b"\n") + 1] if finished else data
+            if sha256_bytes(kept) != digest:
+                problems.append("recovery: logs/seals.jsonl is not the original with the completion seal appended")
+        elif sha256_file(path) != digest:
+            problems.append(f"recovery: {relative} differs from the original attempt")
+    added = {"declared-differences.toml", "logs/comparator.json", "logs/completion.json", RECOVERY_RECORD,
+             STATE_ORIGINAL, CHECKSUMS_ORIGINAL}
+    for relative in sorted(set(listed) - set(original_listing)):
+        if relative not in added and not relative.startswith("comparison/"):
+            problems.append(f"recovery: {relative} is not a file of the original attempt or of the tail")
+    if state.get("recovered") is not True:
+        problems.append("recovery: STATE.json does not say recovered")
+    if finished and not (completion and completion.get("recovered") is True and (base / RECOVERY_RECORD).is_file()
+                         and completion.get("recovery_sha256") == sha256_file(base / RECOVERY_RECORD)):
+        problems.append("recovery: completion.json does not carry recovered and the digest of the recovery record")
+    return record
 
 # ------------------------------------------------------------------------------------------- verify
 
@@ -2991,6 +3242,9 @@ def verify(base, out, replay=True, config=None, run=subprocess.run):
     aa = "AA" in arms
     state = read_json_file(base / "logs" / "STATE.json") or {}
     kind = state.get("state")
+    recovered = (any((base / name).exists() for name in (RECOVERY_RECORD, STATE_ORIGINAL, CHECKSUMS_ORIGINAL))
+                 or "recovered" in state
+                 or "recovered" in (read_json_file(base / "logs" / "completion.json") or {}))
     required = ["schedule.toml", "case-mapping.toml", "receipt.jsonl", "logs/seals.jsonl", "logs/commands.jsonl",
                 "logs/hardware.jsonl", "logs/STATE.json", "logs/campaign.json"]
     if campaign.get("probe_record") == PROBE_LOG:
@@ -2999,6 +3253,8 @@ def verify(base, out, replay=True, config=None, run=subprocess.run):
         required.append(SESSION_RECORD)
     if kind == "completed":
         required += ["declared-differences.toml", "logs/comparator.json", "logs/completion.json"]
+    if recovered:
+        required += [RECOVERY_RECORD, STATE_ORIGINAL, CHECKSUMS_ORIGINAL]
     for relative in required + ["checksums.sha256"]:
         if not (base / relative).is_file():
             problems.append(f"{relative} is missing")
@@ -3026,6 +3282,8 @@ def verify(base, out, replay=True, config=None, run=subprocess.run):
         completion = read_json_file(base / "logs" / "completion.json")
         if completion is None:
             problems.append("logs/completion.json is not a valid JSON object")
+    if recovered:
+        document["recovery"] = check_recovery(base, state, completion, listed, mode, problems)
     receipt, campaign = {}, {}
     if sched is not None:
         receipt = check_receipt_text(base, sched, aa, problems, complete=kind != "stopped")
@@ -3097,6 +3355,8 @@ def verify(base, out, replay=True, config=None, run=subprocess.run):
     elif kind == "completed" and completion is not None:
         success = document["campaign_outcome"] == "comparable" and document["comparator_exit"] in (0, None)
         label = "verified" if mode == "official" else "pilot_verified"
+        if recovered:
+            label = "verified_recovered"
         document["state"], status = (label, 0) if success else (label + "_non_ok", 1)
     elif kind == "refused":
         document["state"], status = "refused", 2
@@ -4156,6 +4416,11 @@ def build_parser():
             sub.add_argument("--step", required=True, choices=("fetch", "finalize"))
             sub.add_argument("--archive", help="the Stage 2A archive (default: [archive] path of a pilot "
                                                "configuration)")
+    recover_parser = commands.add_parser("recover", allow_abbrev=False)
+    recover_parser.add_argument("--campaign-dir", help=CAMPAIGN_DIR_HELP)
+    recover_parser.add_argument("--config", required=True, help="the lock of the attempt")
+    recover_parser.add_argument("--base", required=True, help="a COPY of the refused official attempt")
+    recover_parser.add_argument("--freeze-sha", required=True)
     verify_parser = commands.add_parser("verify", allow_abbrev=False)
     verify_parser.add_argument("--campaign-dir", help=CAMPAIGN_DIR_HELP)
     verify_parser.add_argument("--base", required=True)
@@ -4214,6 +4479,17 @@ def dispatch(args, hooks, facts, environ):
         return status
     official_sched = mc.load_schedule(CAMPAIGN_DIR / "schedule.toml")
     strata = list(official_sched["strata"])
+    if args.command == "recover":
+        lock = load_lock(args.config, strata=strata)
+        observed = facts(HERE.parents[2], args.config, base, CAMPAIGN_DIR / "schedule.toml",
+                         CAMPAIGN_DIR / "case-mapping.toml")
+        unmet = recovery_gate(lock, observed, args.freeze_sha)
+        if unmet:
+            raise Refused("the official gate is not met: " + "; ".join(unmet[:5]), field="gate", problems=unmet)
+        outcome = recover(plan_for_recovery(lock, base, args.freeze_sha), args.config)
+        print(f"campaign {outcome.state} (recovered): {outcome.processes} processes, comparator exit "
+              f"{outcome.comparator_exit}")
+        return outcome.exit_code
     if args.command == "run" and not args.official:
         raise UsageError("run needs --official (a campaign that is not official is a pilot)")
     if args.command == "prepare":

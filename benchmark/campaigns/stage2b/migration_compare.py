@@ -42,15 +42,30 @@ PRIMARY_CASES = 14          # section 2: the first 14 declared cases are primary
 PHASES = ("call", "workspace", "setup")
 SETTING_KEYS = ("suite", "groups", "case_filter", "samples_target", "seconds_limit", "case_seconds",
                 "profile_seconds")
+# The metadata keys that the harness at 9f86a808 writes next to validate.py's START_KEYS (benchmark/run.jl,
+# `start_metadata`, lines 226-233: the source identities checked at startup, #110; validate.py reads only
+# START_KEYS and tolerates these). Official attempt 1 of Stage 2B was refused for exactly these eleven keys
+# (#333). The key set stays exact: a key of neither tuple, or a missing key of either, is a SCHEMA refusal.
+HARNESS_KEYS = ("active_manifest", "capabilities", "deferred_cases", "expected_package_revision",
+                "expected_proximalbase_rev", "proximalbase_path", "proximalbase_rev", "proximalbase_source",
+                "proximalbase_tree_sha1", "proximalbase_url", "required_proximalbase_rev")
+# Identical in every repetition and stratum of a root (a stack-level fact, or a constant of the harness).
+HARNESS_ROOT_KEYS = ("capabilities", "deferred_cases", "expected_package_revision", "expected_proximalbase_rev",
+                     "proximalbase_rev", "proximalbase_source", "proximalbase_tree_sha1", "proximalbase_url",
+                     "required_proximalbase_rev")
+# Per installation and Julia stratum (a location): identical in the repetitions of a stratum and bound to the
+# environment inventory of that stratum; they legitimately differ between roots.
+HARNESS_STRATUM_KEYS = ("active_manifest", "proximalbase_path")
 MIXED_KEYS = ("proximalsolvers_sha", "proximalsolvers_hash", "proximalbase_version", "proximalbase_hash",
-              "harness_hash")
-META_START = tuple(validate.START_KEYS) + ("case_filter",)
+              "harness_hash") + HARNESS_ROOT_KEYS
+META_START = tuple(validate.START_KEYS) + ("case_filter",) + HARNESS_KEYS
 META_FINAL = META_START + tuple(validate.FINAL_KEYS)
 # The type of every metadata value the checks read: s string, b boolean, i integer, n number.
 META_TYPES = {**dict.fromkeys(
     "julia suite groups case_filter harness_hash proximalsolvers_path proximalsolvers_sha proximalsolvers_hash "
     "proximalbase_version proximalbase_hash expected_package_root blas cpu cpu_model seed_scheme job_id".split(), "s"),
     **dict.fromkeys("proximalsolvers_dirty finished".split(), "b"),
+    **dict.fromkeys(HARNESS_KEYS, "s"), "deferred_cases": "i",
     **dict.fromkeys("rep julia_threads blas_threads samples_target cases ok_cases nonok_cases "
                     "maxrss_bytes".split(), "i"),
     **dict.fromkeys("seconds_limit case_seconds profile_seconds elapsed_s".split(), "n")}
@@ -337,6 +352,12 @@ def tables_problem(tables):
     return None
 
 
+def key_set_problem(meta, keys):
+    """The keys of `keys` that the metadata lacks and the keys of the metadata that `keys` does not list (the key
+    set of a metadata file is exact)."""
+    return sorted(set(keys) - set(meta)), sorted(set(meta) - set(keys))
+
+
 def read_stratum(root, mm, info, sched, ref):
     """Read one stratum of one root; every unreadable item is a refusal, never a guess."""
     name, version, base = root["name"], info["version"], Path(root["path"]) / f"julia-{mm}"
@@ -406,10 +427,14 @@ def read_stratum(root, mm, info, sched, ref):
                 refuse(ref, "JULIA", f"{name}:julia", f"{name} {where} rep {rep}: julia {meta['julia']!r}, "
                        f"expected {version!r}")
         for label, meta, keys in (("final", final_raw, META_FINAL), ("start", start, META_START)):
-            if set(meta) != set(keys):
+            missing, unknown = key_set_problem(meta, keys)
+            if missing or unknown:
                 refuse(ref, "SCHEMA", f"{name}:metadata_keys",
-                       f"{name} {where} rep {rep}: {label} metadata missing {sorted(set(keys) - set(meta))} "
-                       f"unknown {sorted(set(meta) - set(keys))}")
+                       f"{name} {where} rep {rep}: {label} metadata missing {missing} unknown {unknown}")
+        for key in HARNESS_KEYS:
+            if key in start and key in final_raw and not same(start[key], final_raw[key]):
+                refuse(ref, "SCHEMA", f"{name}:records", f"{name} {where} rep {rep}: start and final metadata "
+                       f"disagree on {key}")
         if prefix in blocked:
             continue
         try:
@@ -500,6 +525,31 @@ def trusted(root):
     return root["ident"] if root["stack_ok"] else None
 
 
+def check_harness_values(meta, where, name, ref):
+    """The shape of the HARNESS_KEYS values that the harness writes (benchmark/run.jl at 9f86a808): what no stack
+    identity needs to be known for. A value of the wrong type is already absent (typed_meta)."""
+    def bad(key, detail):
+        refuse(ref, "SCHEMA", f"{name}:records", f"{where}: metadata {key} {meta[key]!r} {detail}")
+    for key in ("proximalbase_rev", "required_proximalbase_rev", "expected_proximalbase_rev",
+                "expected_package_revision"):
+        if key in meta and meta[key] != "" and not hex40(meta[key]):
+            bad(key, "is neither empty nor 40 lowercase hex")
+    if "proximalbase_tree_sha1" in meta and not hex40(meta["proximalbase_tree_sha1"]):
+        bad("proximalbase_tree_sha1", "is not 40 lowercase hex")
+    if "proximalbase_source" in meta and meta["proximalbase_source"] not in ("registry", "git"):
+        bad("proximalbase_source", "is neither registry nor git")
+    if "deferred_cases" in meta and meta["deferred_cases"] < 0:
+        bad("deferred_cases", "is negative")
+    if "capabilities" in meta:
+        tokens = meta["capabilities"].split(",")      # the harness writes the sorted, distinct capability names
+        name_ok = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*(:[a-z0-9_]+)*").fullmatch
+        if not (all(name_ok(t) for t in tokens) and tokens == sorted(set(tokens))):
+            bad("capabilities", "is not a sorted comma-separated list of distinct capability names")
+    for key in ("proximalbase_path", "active_manifest"):
+        if key in meta and not (meta[key].startswith("/") and norm(meta[key]) == meta[key]):
+            bad(key, "is not an absolute path in normal form")
+
+
 def check_records(root, st, sched, ref):
     """Section 3 table: the metadata keys against the schedule."""
     name, ver = root["name"], st["version"]
@@ -518,6 +568,7 @@ def check_records(root, st, sched, ref):
             diff("THREADS", f"{name}:{key}", key, settings[key])
         diff("MACHINE", f"{name}:cpu_model", "cpu_model", machine["cpu_model"])
         diff("MACHINE", f"{name}:cpu", "cpu", machine["cpu"][st["mm"]])
+        check_harness_values(meta, where, name, ref)
         if meta.get("proximalsolvers_dirty") is True:
             refuse(ref, "STACK", f"{name}:dirty", f"{where}: proximalsolvers_dirty is true")
         if meta.get("expected_package_root") == "":
@@ -583,10 +634,70 @@ def check_stack(root, st, ref):
                 != ident["proximalbase"]["version"]:
             stack("loaded_tree", f"{at}: proximalbase_version {meta['proximalbase_version']!r}, identity "
                   f"{ident['proximalbase']['version']!r}")
+        if ident:
+            check_harness_identity(meta, ident, inv, at, stack)
         if inv and "proximalsolvers_path" in meta and norm(meta["proximalsolvers_path"]) != norm(
                 inv["proximalsolvers_dir"]):
             stack("loaded_tree", f"{at}: proximalsolvers_path {meta['proximalsolvers_path']!r} differs from "
                   f"inventory proximalsolvers_dir {inv['proximalsolvers_dir']!r}")
+
+
+def check_harness_identity(meta, ident, inv, at, stack):
+    """The HARNESS_KEYS against the identity of the root (stack-identity.toml, already bound to [stack_a] or to the
+    lock) and the environment inventory; `stack(field, detail)` records a STACK refusal. A registered ProximalBase
+    is loaded from the registry (no URL, revision or pin); a development one from git at its identity commit, which
+    is also the pin of the ProximalSolvers checkout (run.jl `check_proximalbase`: loaded rev == pin rev)."""
+    base, ps = ident["proximalbase"], ident["proximalsolvers"]
+
+    def wrong(key, expected):
+        stack("loaded_tree", f"{at}: {key} {meta[key]!r}, expected {expected!r}")
+
+    def expect(key, expected):
+        if key in meta and meta[key] != expected:
+            wrong(key, expected)
+    expect("proximalbase_tree_sha1", base["tree"])
+    if base["release"] == "registered":
+        for key, expected in (("proximalbase_source", "registry"), ("proximalbase_rev", ""),
+                              ("proximalbase_url", ""), ("required_proximalbase_rev", "")):
+            expect(key, expected)
+    else:
+        for key, expected in (("proximalbase_source", "git"), ("proximalbase_rev", base["commit"]),
+                              ("required_proximalbase_rev", base["commit"])):
+            expect(key, expected)
+        if meta.get("proximalbase_url") == "":
+            wrong("proximalbase_url", "a URL")
+    # The driver sets neither PS_EXPECTED_* variable; when one is set the harness has checked it, so it is the commit.
+    for key, commit in (("expected_package_revision", ps["commit"]), ("expected_proximalbase_rev", base["commit"])):
+        if key in meta and meta[key] not in ("", commit):
+            wrong(key, commit)
+    if inv:
+        if "proximalbase_path" in meta and "proximalbase_dir" in inv and norm(meta["proximalbase_path"]) != norm(
+                str(inv["proximalbase_dir"])):
+            stack("loaded_tree", f"{at}: proximalbase_path {meta['proximalbase_path']!r} differs from inventory "
+                  f"proximalbase_dir {inv['proximalbase_dir']!r}")
+        if "active_manifest" in meta:
+            folder, leaf = posixpath.split(meta["active_manifest"])
+            if folder != posixpath.dirname(norm(inv["active_project"])) or not re.fullmatch(
+                    r"Manifest(-v[0-9]+\.[0-9]+)?\.toml", leaf):
+                stack("loaded_tree", f"{at}: active_manifest {meta['active_manifest']!r} is not a Manifest of the "
+                      f"inventory environment {inv['active_project']!r}")
+
+
+def check_harness_constants(roots, ref):
+    """capabilities and deferred_cases are functions of the harness (CAPABILITIES, the case catalog of the suite
+    and groups): roots with one harness_hash must record one value of each. Different harness hashes are a
+    declared difference of their own (check_harness)."""
+    seen = {}
+    for name, root in roots.items():
+        for st in root["strata"].values():
+            for meta in st["metas"].values():
+                for key in ("capabilities", "deferred_cases"):
+                    if key in meta and "harness_hash" in meta:
+                        seen.setdefault((meta["harness_hash"], key), {}).setdefault(meta[key], set()).add(name)
+    for (harness, key), values in sorted(seen.items()):
+        if len(values) > 1:
+            detail = {str(v): sorted(n) for v, n in sorted(values.items(), key=lambda kv: str(kv[0]))}
+            refuse(ref, "STACK", "all:mixed", f"{key} differs between roots with harness_hash {harness}: {detail}")
 
 
 def meta_values(root, key, usable=True):
@@ -602,6 +713,12 @@ def check_mixed(root, ref):
         if len(values) > 1:
             refuse(ref, "STACK", f"{root['name']}:mixed", f"{key} differs between repetitions or strata: "
                    f"{sorted(map(str, values))}")
+    for st in root["strata"].values():
+        for key in HARNESS_STRATUM_KEYS:
+            values = {meta[key] for meta in st["metas"].values() if key in meta}
+            if len(values) > 1:
+                refuse(ref, "STACK", f"{root['name']}:mixed", f"julia {st['version']}: {key} differs between "
+                       f"repetitions: {sorted(map(str, values))}")
 
 
 def check_stack_a(root, sched, ref):
@@ -1663,6 +1780,7 @@ def run(argv, state):
     roots = {name: read_root(name, path, sched, ref, stack_a=name != "b") for name, path in names}
     for root in roots.values():
         check_cases(root, sched, ref)
+    check_harness_constants(roots, ref)
     check_pair("ab", roots["a"], roots["b"], sched, ref)
     if args.aa:
         check_pair("aa", roots["aa_a"], roots["aa_b"], sched, ref)

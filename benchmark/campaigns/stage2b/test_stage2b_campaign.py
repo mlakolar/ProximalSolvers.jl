@@ -21,6 +21,8 @@ four roots, and runs the engine over it with mocked hooks; its tests copy the fi
     SealTests, EngineTests        sealing, stop state, exit statuses over a small (one repetition) pilot-shaped set
     IntegrationTests              the full shape: execute, verify, copies, the negative controls of the tree
     CliTests                      the command line and its exit statuses
+    RecoveryTests                 `recover` on a copy of an attempt refused for the metadata keys (#333), `verify` of
+                                  the result and the tampers and refusals around it
 """
 
 import atexit
@@ -1376,6 +1378,14 @@ class DeclaredDifferencesTests(unittest.TestCase):
         lock = copy.deepcopy(self.lock)
         lock["stack_b"]["proximalsolvers"]["commit"] = "6" * 40
         self.assertIn("differs from the lock", self.refusal(lock))
+
+    def test_the_proximalbase_url_of_root_b_is_bound_to_the_lock(self):
+        lock = copy.deepcopy(self.lock)
+        self.assertEqual(lock["stack_b"]["proximalbase"]["source"], "https://github.com/mlakolar/ProximalBase.jl")
+        C.declared_differences(self.base, lock)
+        lock["stack_b"]["proximalbase"]["source"] = "https://github.com/someone/ProximalBase.jl"
+        self.assertIn("metadata proximalbase_url 'https://github.com/mlakolar/ProximalBase.jl' differs from the "
+                      "lock", self.refusal(lock))
 
     def test_without_a_lock_any_observed_difference_is_refused_and_none_gives_schema_only(self):
         self.assertIn("lock has no reason", self.refusal(None))
@@ -6223,6 +6233,392 @@ class CampaignDirectoryTests(unittest.TestCase):
         self.assertEqual([code for code, _ in C.static_candidate_problems(lock)], ["HISTORICAL_HARNESS_HASH"])
         with unittest.mock.patch.object(C, "CAMPAIGN_DIR", CD_DIR):
             self.assertEqual(C.static_candidate_problems(lock), [])
+
+
+# ---------------------------------------------------------------------- recovery of a refused attempt (#333)
+
+def digests(base):
+    """path -> SHA-256 of every file of BASE that is evidence (not the private directories)."""
+    return {name: C.sha256_file(Path(base) / name) for name in C.evidence_paths(base)}
+
+
+_REFUSED = {}
+
+
+def shared_refused():
+    """The full-shape tree run with the key set of the comparator before the fix (#333): every process runs, the
+    declared differences are refused for exactly the metadata keys of the harness. Built once."""
+    if not _REFUSED:
+        camp = shared_full()["camp"]
+        start = tuple(F.validate.START_KEYS) + ("case_filter",)
+        with unittest.mock.patch.object(mc, "META_START", start), unittest.mock.patch.object(
+                mc, "META_FINAL", start + tuple(F.validate.FINAL_KEYS)):
+            base, host, code, out, err = run_full(camp, name="refused-keys")
+        _REFUSED.update(base=base, code=code, err=err, camp=camp)
+    return _REFUSED
+
+
+class RecoveryTests(unittest.TestCase):
+    """`recover` reruns the tail on a copy of an attempt that the comparator refused only for the harness's metadata
+    keys; `verify` reports it as verified_recovered and no tamper passes."""
+
+    @classmethod
+    def setUpClass(cls):
+        for key, value in shared_refused().items():
+            setattr(cls, key, value)
+        cls.completed = shared_full()["base"]
+
+    def recover(self, base, freeze=FREEZE, config=None, facts=None):
+        lock = tomllib.loads((Path(base) / "lock.toml").read_text(encoding="utf-8"))
+        facts = facts or facts_for(base, lock)
+        return call_main(["recover", "--config", str(config or Path(base) / "lock.toml"), "--base", str(base),
+                          "--freeze-sha", freeze], facts=lambda *a: facts)
+
+    def verify(self, base):
+        return C.verify(base, fresh("v") / "verification.json")
+
+    def recovered(self):
+        """A recovered copy (made once) and the digests of the refused attempt before the recovery."""
+        if "copy" not in _REFUSED:
+            copy_ = clone(self.base, "recovered")
+            before = digests(copy_)
+            code, out, err = self.recover(copy_)
+            _REFUSED.update(copy=copy_, before=before, rcode=code, rout=out, rerr=err)
+        return _REFUSED["copy"], _REFUSED["before"]
+
+    def resealed(self, base, function):
+        """A clone of `base` after `function(clone)`, with the checksums rewritten (one guard at a time)."""
+        copy_ = clone(base)
+        function(copy_)
+        C.write_checksums(copy_)
+        return copy_
+
+    def assertRefusedBy(self, base, text):
+        before = digests(base)
+        code, out, err = self.recover(base)
+        self.assertEqual(code, 2, err)
+        self.assertIn(text, err)
+        self.assertEqual(digests(base), before, "a refused recovery changes nothing")
+
+    def with_problems(self, function):
+        """A clone of the refused attempt whose recorded problems are `function(problems)`, checksums rewritten."""
+        def edit(base):
+            path = writable(base / "logs" / "STATE.json")
+            state = json.loads(path.read_text())
+            state["problems"] = function(state["problems"])
+            path.write_text(json.dumps(state, indent=2) + "\n")
+        return self.resealed(self.base, edit)
+
+    # ---- the refused attempt, unchanged ----
+    def test_the_refused_attempt_stops_at_the_metadata_keys_and_verifies_as_refused(self):
+        self.assertEqual(self.code, 2, self.err)
+        state = json.loads((self.base / "logs" / "STATE.json").read_text())
+        self.assertEqual(state["state"], "refused")
+        self.assertTrue(state["reason"].startswith("the roots cannot be read"))
+        self.assertEqual(C.metadata_keys_refusal_problems(state), [])
+        self.assertTrue(any(f"'{key}'" in p for p in state["problems"] for key in mc.HARNESS_KEYS))
+        self.assertFalse((self.base / "declared-differences.toml").exists())
+        document, status = self.verify(self.base)
+        self.assertEqual((document["state"], status, document["problems"]), ("refused", 2, []))
+        self.assertNotIn("recovery", document)
+
+    # ---- the recovery ----
+    def test_recover_completes_the_copy_and_records_the_recovery(self):
+        base, before = self.recovered()
+        self.assertEqual(_REFUSED["rcode"], 0, _REFUSED["rerr"])
+        self.assertIn("campaign completed (recovered)", _REFUSED["rout"])
+        state = json.loads((base / "logs" / "STATE.json").read_text())
+        self.assertEqual((state["state"], state["recovered"], state["comparator_exit"]), ("completed", True, 0))
+        completion = json.loads((base / "logs" / "completion.json").read_text())
+        self.assertIs(completion["recovered"], True)
+        self.assertEqual(completion["recovery_sha256"], C.sha256_file(base / C.RECOVERY_RECORD))
+        self.assertEqual(completion["processes"], 64)
+        self.assertEqual(completion["outcome"], "comparable")
+        record = json.loads((base / C.RECOVERY_RECORD).read_text())
+        self.assertEqual(tuple(record), C.RECOVERY_KEYS)
+        self.assertEqual(record["ruling"], "https://github.com/mlakolar/ProximalSolvers.jl/issues/333#issuecomment-6958416181")
+        self.assertEqual(record["freeze_sha"], FREEZE)
+        self.assertEqual(record["driver_sha256"], C.sha256_file(HERE / "stage2b_campaign.py"))
+        self.assertEqual(record["comparator_sha256"], C.sha256_file(HERE / "migration_compare.py"))
+        self.assertEqual(record["original_state_sha256"], before["logs/STATE.json"])
+        self.assertEqual(record["original_checksums_sha256"], C.sha256_file(base / C.CHECKSUMS_ORIGINAL))
+        self.assertEqual(record["original_state_reason"], json.loads((base / C.STATE_ORIGINAL).read_text())["reason"])
+        self.assertTrue(C.TIME_TEXT.fullmatch(record["recovered_utc"]), record["recovered_utc"])
+
+    def test_recover_moves_the_originals_byte_for_byte_and_touches_nothing_else(self):
+        base, before = self.recovered()
+        self.assertEqual((base / C.STATE_ORIGINAL).read_bytes(),
+                         (self.base / "logs" / "STATE.json").read_bytes())
+        self.assertEqual((base / C.CHECKSUMS_ORIGINAL).read_bytes(),
+                         (self.base / "checksums.sha256").read_bytes())
+        after = digests(base)
+        changed = {name for name in before if after.get(name) != before[name]}
+        self.assertEqual(changed, {"logs/STATE.json", "logs/seals.jsonl"})
+        added = set(after) - set(before)
+        self.assertEqual({a for a in added if not a.startswith("comparison/")},
+                         {"declared-differences.toml", "logs/comparator.json", "logs/completion.json",
+                          C.RECOVERY_RECORD, C.STATE_ORIGINAL, C.CHECKSUMS_ORIGINAL})
+        seals = (base / "logs" / "seals.jsonl").read_bytes().splitlines(keepends=True)
+        self.assertEqual(json.loads(seals[-1])["file"], "logs/completion.json")
+        self.assertEqual(C.sha256_bytes(b"".join(seals[:-1])), before["logs/seals.jsonl"])
+        for name in C.evidence_paths(self.base):
+            if name.startswith(("roots/", "receipt")) or "/raw/" in name:
+                self.assertEqual(after[name], before[name], name)
+
+    def test_the_recovered_copy_verifies_as_verified_recovered_also_after_cp_a(self):
+        base, _ = self.recovered()
+        for path in (base, clone(base, "cp-a")):
+            document, status = self.verify(path)
+            self.assertEqual((document["state"], status, document["problems"]), ("verified_recovered", 0, []))
+            self.assertEqual(document["recovery"], json.loads((base / C.RECOVERY_RECORD).read_text()))
+            self.assertEqual(document["classification"], {"COMPARABLE": 38})
+            self.assertEqual(document["campaign_outcome"], "comparable")
+
+    def test_a_non_ok_outcome_is_verified_recovered_non_ok(self):
+        base, _ = self.recovered()
+        copy_ = clone(base, "nonok")
+        completion = writable(copy_ / "logs" / "completion.json")
+        data = json.loads(completion.read_text())
+        data["outcome"] = "non_ok"
+        completion.write_text(json.dumps(data, indent=2) + "\n")
+        os.chmod(completion, 0o444)
+        refresh_all(copy_)
+        document, status = self.verify(copy_)
+        self.assertEqual((document["state"], status), ("verified_recovered_non_ok", 1), document["problems"])
+
+    # ---- tampering with the recovered copy ----
+    def tampered(self, function):
+        base, _ = self.recovered()
+        copy_ = clone(base, "tamper")
+        function(copy_)
+        return copy_
+
+    def assertFailsWith(self, base, text):
+        document, status = self.verify(base)
+        self.assertEqual((document["state"], status), ("failed", 2), document["problems"][:5])
+        self.assertTrue(any(text in p for p in document["problems"]), (text, document["problems"][:8]))
+
+    def test_an_edited_raw_file_fails_even_with_checksums_and_seals_rewritten(self):
+        def edit(base):
+            path = next((base / "roots" / "ab-a" / "julia-1.10" / "raw").glob("*-metrics.tsv"))
+            edit_text(path, lambda text: text.replace("ok", "ok ", 1))
+            refresh_all(base)
+        copy_ = self.tampered(edit)
+        self.assertFailsWith(copy_, "differs from the original attempt")
+
+    def test_an_edited_raw_file_fails(self):
+        def edit(base):
+            path = next((base / "roots" / "ab-a" / "julia-1.10" / "raw").glob("*-metrics.tsv"))
+            edit_text(path, lambda text: text.replace("ok", "ko", 1))
+        self.assertFailsWith(self.tampered(edit), "changed")
+
+    def test_an_edited_original_state_fails(self):
+        def edit(base):
+            edit_text(base / C.STATE_ORIGINAL, lambda text: text.replace("refused", "stopped", 1))
+            C.write_checksums(base)
+        self.assertFailsWith(self.tampered(edit), "is not the original STATE.json recorded in the recovery")
+
+    def test_a_removed_recovery_record_fails(self):
+        def edit(base):
+            writable(base / C.RECOVERY_RECORD).unlink()
+        self.assertFailsWith(self.tampered(edit), f"{C.RECOVERY_RECORD} is missing")
+
+    def test_a_removed_recovery_record_with_rewritten_checksums_fails(self):
+        def edit(base):
+            writable(base / C.RECOVERY_RECORD).unlink()
+            C.write_checksums(base)
+        self.assertFailsWith(self.tampered(edit), f"{C.RECOVERY_RECORD} is missing")
+
+    def test_an_original_checksum_mismatch_fails(self):
+        def edit(base):
+            edit_text(base / C.CHECKSUMS_ORIGINAL, lambda text: "0" * 64 + text[64:])
+            C.write_checksums(base)
+        self.assertFailsWith(self.tampered(edit), "is not the original checksums.sha256 recorded in the recovery")
+
+    def test_an_original_listing_that_the_recovery_record_signs_but_the_tree_contradicts_fails(self):
+        def edit(base):
+            lines = (base / C.CHECKSUMS_ORIGINAL).read_text().splitlines(keepends=True)
+            index = next(i for i, line in enumerate(lines) if "receipt.jsonl" in line)
+            lines[index] = "1" * 64 + lines[index][64:]
+            writable(base / C.CHECKSUMS_ORIGINAL).write_text("".join(lines))
+            record = writable(base / C.RECOVERY_RECORD)
+            data = json.loads(record.read_text())
+            data["original_checksums_sha256"] = C.sha256_file(base / C.CHECKSUMS_ORIGINAL)
+            record.write_text(json.dumps(data, indent=2) + "\n")
+            completion = writable(base / "logs" / "completion.json")
+            data = json.loads(completion.read_text())
+            data["recovery_sha256"] = C.sha256_file(record)
+            completion.write_text(json.dumps(data, indent=2) + "\n")
+            refresh_all(base)
+        self.assertFailsWith(self.tampered(edit), "receipt.jsonl differs from the original attempt")
+
+    def test_a_recovery_record_that_is_not_the_one_in_completion_fails(self):
+        def edit(base):
+            record = writable(base / C.RECOVERY_RECORD)
+            data = json.loads(record.read_text())
+            data["freeze_sha"] = "0" * 40
+            record.write_text(json.dumps(data, indent=2) + "\n")
+            C.write_checksums(base)
+        self.assertFailsWith(self.tampered(edit), "completion.json does not carry recovered")
+
+    def test_a_state_that_does_not_say_recovered_fails(self):
+        def edit(base):
+            state = writable(base / "logs" / "STATE.json")
+            data = json.loads(state.read_text())
+            del data["recovered"]
+            state.write_text(json.dumps(data, indent=2) + "\n")
+            C.write_checksums(base)
+        self.assertFailsWith(self.tampered(edit), "STATE.json does not say recovered")
+
+    def test_a_file_the_recovery_may_not_add_fails(self):
+        def edit(base):
+            (base / "logs" / "extra.json").write_text("{}")
+            C.write_checksums(base)
+        self.assertFailsWith(self.tampered(edit), "is not a file of the original attempt or of the tail")
+
+    def test_the_recovery_of_a_pilot_is_not_a_thing(self):
+        problems = []
+        base, _ = self.recovered()
+        C.check_recovery(base, json.loads((base / "logs" / "STATE.json").read_text()),
+                         json.loads((base / "logs" / "completion.json").read_text()),
+                         C.read_checksums(base / "checksums.sha256"), "pilot", problems)
+        self.assertIn("recovery: only an official attempt can be recovered", problems)
+
+    # ---- what `recover` refuses ----
+    def test_a_completed_base_is_not_recovered(self):
+        self.assertRefusedBy(clone(self.completed), "the state is 'completed', not refused")
+
+    def test_a_stopped_base_is_not_recovered(self):
+        def edit(base):
+            edit_text(base / "logs" / "STATE.json", lambda text: text.replace('"refused"', '"stopped"', 1))
+        self.assertRefusedBy(self.resealed(self.base, edit), "the state is 'stopped', not refused")
+
+    def test_another_class_of_problem_is_not_recovered(self):
+        for problem in ("STACK a:loaded_tree: a julia 1.10.13: something else",
+                        "SCHEMA a:records: a julia 1.10.13 rep 1: something else",
+                        "SCHEMA a:files: stack-identity.toml: something else"):
+            with self.subTest(problem=problem):
+                copy_ = self.with_problems(lambda problems: problems + [problem])
+                self.assertRefusedBy(copy_, "a recorded problem is not a metadata_keys refusal")
+
+    def test_a_key_outside_the_eleven_is_not_recovered(self):
+        copy_ = self.with_problems(lambda problems: [problems[0].replace("'active_manifest'", "'surprise'")]
+                                   + problems[1:])
+        self.assertRefusedBy(copy_, "keys outside the harness keys ['surprise']")
+        copy_ = self.with_problems(lambda problems: [problems[0].replace("unknown [", "unknown ['surprise', ")]
+                                   + problems[1:])
+        self.assertRefusedBy(copy_, "keys outside the harness keys ['surprise']")
+
+    def test_a_missing_key_is_not_recovered(self):
+        copy_ = self.with_problems(lambda problems: [problems[0].replace("missing []", "missing ['job_id']")]
+                                   + problems[1:])
+        self.assertRefusedBy(copy_, "names missing keys ['job_id']")
+
+    def test_no_recorded_problem_is_not_recovered(self):
+        self.assertRefusedBy(self.with_problems(lambda problems: []), "no problem is recorded")
+
+    def test_a_base_with_a_tail_record_is_not_recovered(self):
+        for relative in ("declared-differences.toml", "logs/comparator.json", "logs/completion.json"):
+            with self.subTest(relative=relative):
+                def edit(base):
+                    (base / relative).write_text("x")
+                self.assertRefusedBy(self.resealed(self.base, edit), f"{relative} exists")
+        def edit(base):
+            (base / "comparison").mkdir()
+        self.assertRefusedBy(self.resealed(self.base, edit), "comparison exists")
+
+    def test_a_recovered_copy_is_not_recovered_again(self):
+        base, _ = self.recovered()
+        self.assertRefusedBy(clone(base, "twice"), f"{C.RECOVERY_RECORD} exists")
+
+    def test_unverified_evidence_is_not_recovered(self):
+        def edit(base):
+            edit_text(base / "logs" / "commands.jsonl", lambda text: text + "\n")
+        copy_ = clone(self.base)
+        edit(copy_)
+        self.assertRefusedBy(copy_, "the attempt does not verify as refused")
+
+    def test_an_incomplete_receipt_is_not_recovered(self):
+        def edit(base):
+            edit_text(base / "receipt.jsonl", lambda text: text.replace('"exit": 0', '"exit": 2', 1))
+        self.assertRefusedBy(self.resealed(self.base, edit), "the attempt does not verify as refused")
+
+    def test_a_process_that_did_not_exit_0_is_not_recovered_even_when_the_evidence_verifies(self):
+        def edit(base):
+            edit_text(base / "receipt.jsonl", lambda text: text.replace('"exit": 0', '"exit": 2', 1))
+        copy_ = self.resealed(self.base, edit)
+        verified = ({"state": "refused", "problems": []}, 2)
+        with unittest.mock.patch.object(C, "verify", return_value=verified):
+            problems = C.recovery_problems(copy_, copy_ / "lock.toml")
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("did not exit 0", problems[0])
+
+    def test_the_base_must_carry_the_lock_the_schedule_and_the_mapping_given(self):
+        other = fresh("other-lock") / "lock.toml"
+        lock = tomllib.loads((self.base / "lock.toml").read_text(encoding="utf-8"))
+        lock["harness"]["changed_lines"] = ["another"]
+        C.write_toml(other, lock)
+        copy_ = clone(self.base)
+        code, out, err = self.recover(copy_, config=other)
+        self.assertEqual(code, 2, err)
+        self.assertIn("lock.toml of the base is not the file of the campaign definition or of --config", err)
+        self.assertFalse((copy_ / C.RECOVERY_RECORD).exists())
+
+    def test_the_official_gate_applies(self):
+        copy_ = clone(self.base)
+        lock = tomllib.loads((copy_ / "lock.toml").read_text(encoding="utf-8"))
+        for change, text in ((dict(head="e" * 40), "HEAD"), (dict(clean=False), "CLEAN"),
+                             (dict(lock_tracked=False), "LOCK_TRACKED")):
+            with self.subTest(change=change):
+                code, out, err = self.recover(copy_, facts={**facts_for(copy_, lock), **change})
+                self.assertEqual(code, 2, err)
+                self.assertIn(text, err)
+                self.assertFalse((copy_ / C.RECOVERY_RECORD).exists())
+
+    def test_a_base_without_the_private_installations_skips_only_the_checkout_gates(self):
+        copy_ = clone(self.base)
+        lock = tomllib.loads((copy_ / "lock.toml").read_text(encoding="utf-8"))
+        facts = {**facts_for(copy_, lock), "checkouts": {}}
+        self.assertEqual(C.recovery_gate(lock, facts, FREEZE), [])
+        self.assertTrue(any(item.startswith("PS_B_") for item in C.official_gate(lock, facts, FREEZE)))
+        self.assertTrue(any("HEAD" in item for item in C.recovery_gate(lock, {**facts, "head": "e" * 40}, FREEZE)))
+        wrong = {"ps_b": {"commit": "1" * 40, "tree": "1" * 40, "package_hash": "1" * 40}}
+        self.assertTrue(any(item.startswith("PS_B_COMMIT") for item in
+                            C.recovery_gate(lock, {**facts, "checkouts": wrong}, FREEZE)))
+
+    def test_a_comparator_that_still_refuses_is_recorded_and_not_retried(self):
+        copy_ = clone(self.base, "still-refused")
+        with unittest.mock.patch.object(C, "run_comparator", return_value=(2, "REFUSED:STACK x")):
+            code, out, err = self.recover(copy_)
+        self.assertEqual(code, 2)
+        state = json.loads((copy_ / "logs" / "STATE.json").read_text())
+        self.assertEqual((state["state"], state["recovered"], state["comparator_exit"]), ("refused", True, 2))
+        self.assertTrue((copy_ / C.RECOVERY_RECORD).is_file())
+        self.assertFalse((copy_ / "logs" / "completion.json").exists())
+        code, out, err = self.recover(copy_)
+        self.assertEqual(code, 2)
+        self.assertIn(f"{C.RECOVERY_RECORD} exists", err)
+        document, status = self.verify(copy_)
+        self.assertEqual((document["state"], status), ("refused", 2), document["problems"])
+        self.assertEqual(document["recovery"]["freeze_sha"], FREEZE)
+
+    def test_a_declared_differences_refusal_after_the_recovery_began_is_recorded(self):
+        copy_ = clone(self.base, "still-declared")
+        error = C.DeclaredRefusal("declared differences: x", field="declared", problems=["x"])
+        with unittest.mock.patch.object(C, "write_declared_differences", side_effect=error):
+            code, out, err = self.recover(copy_)
+        self.assertEqual(code, 2)
+        state = json.loads((copy_ / "logs" / "STATE.json").read_text())
+        self.assertEqual((state["state"], state["recovered"]), ("refused", True))
+        self.assertTrue((copy_ / C.STATE_ORIGINAL).is_file())
+
+    def test_the_command_line_has_the_recover_subcommand(self):
+        args = C.build_parser().parse_args(["recover", "--config", "l", "--base", "b", "--freeze-sha", "f"])
+        self.assertEqual((args.command, args.config, args.base, args.freeze_sha), ("recover", "l", "b", "f"))
+        for missing in (["--base", "b", "--freeze-sha", "f"], ["--config", "l", "--freeze-sha", "f"],
+                        ["--config", "l", "--base", "b"]):
+            with self.assertRaises(C.UsageError):
+                C.build_parser().parse_args(["recover", *missing])
 
 
 class LayoutTests(unittest.TestCase):

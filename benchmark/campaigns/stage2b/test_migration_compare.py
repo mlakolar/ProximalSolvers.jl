@@ -24,6 +24,10 @@ Test counts (methods; table-driven methods run one sub-test per row):
                                                the Stack A package hashes, the realpath keys, narrow skips and the
                                                positive controls; every mutation asserts the exact set of
                                                (class, field) pairs, only refusals.json and finite timings)
+    harness keys    HarnessMetadataTests  27   (the eleven metadata keys of the harness at 9f86a808 (#333): the
+                                               exact key set against the real files of the smoke run, types and
+                                               shapes, the binding to the identity and the inventory, the
+                                               repetitions, the start and final files and the roots)
     classification  ClassificationTests   24
     output          OutputTests           49   (including the paths in every output channel and at every site that
                                                cleans a string, the internal error, the phase boundary and the
@@ -49,10 +53,12 @@ import re
 import shutil
 import sys
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 from unittest import mock
 
+import migration_compare as MC
 import stage2b_fixtures as F
 from stage2b_fixtures import (
     jsonl_append, jsonl_drop, jsonl_edit, jsonl_read, jsonl_write, process_event, toml_append, toml_del,
@@ -1571,6 +1577,13 @@ def inventory_file(c, label, jkey):
     return c.stratum(label, jkey) / "environment-inventory.toml"
 
 
+def follow_environment(c, label, jkey):
+    """The metadata of `label` names the Manifest of the environment that its (edited) inventory records: the
+    harness writes both from the one active project, so a test that moves the environment moves both."""
+    folder = posixpath.dirname(toml_load(inventory_file(c, label, jkey))["active_project"])
+    c.set_meta(label, "active_manifest", folder + "/Manifest.toml", jkeys=[jkey])
+
+
 def edit_inventory(label, key, value, jkeys=(J10, J13)):
     """Mutation: set `key` (a tuple of keys) in the inventory of the given strata of a root."""
     def mutate(c):
@@ -1734,6 +1747,7 @@ class ProvenanceTests(MigrationCase):
 
         def environment_one_stratum(c):
             toml_set(inventory_file(c, "b", J10), ("active_project",), toml_load(inventory_file(c, "a", J10))["active_project"])
+            follow_environment(c, "b", J10)
 
         def environment_realpath_one_stratum(c):
             toml_set(inventory_file(c, "b", J13), ("active_project_realpath",),
@@ -1743,6 +1757,7 @@ class ProvenanceTests(MigrationCase):
             # another file name in the same directory is the same environment
             toml_set(inventory_file(c, "b", J10), ("active_project",),
                      posixpath.dirname(toml_load(inventory_file(c, "a", J10))["active_project"]) + "/JuliaProject.toml")
+            follow_environment(c, "b", J10)
 
         self.exact([
             ("equal installation id, nothing else", same_id, {AB}, "both roots have installation"),
@@ -2098,6 +2113,7 @@ class ProvenanceTests(MigrationCase):
     def test_a_refused_input_skips_only_the_checks_that_need_it(self):
         def same_environment_and_missing_realpath_elsewhere(c):
             toml_set(inventory_file(c, "b", J10), ("active_project",), toml_load(inventory_file(c, "a", J10))["active_project"])
+            follow_environment(c, "b", J10)
             toml_del(inventory_file(c, "b", J13), ("depot_realpath",))
 
         def same_checkout_without_identity(c):
@@ -3158,6 +3174,340 @@ class OutputTests(MigrationCase):
         self.assertEqual(leaks(result.stderr), [])
         for stray in stray_strings(c):
             self.assertNotIn(stray, result.stderr)
+
+
+# --------------------------------------------------------------------------------------------------------------
+# 4b. The metadata keys of the harness at 9f86a808 (#333), with the metadata of a real run
+# --------------------------------------------------------------------------------------------------------------
+
+CD_DIR = F.HERE.parent / "stage2b-cd"
+# Next to the campaign definition, not in this directory: the files are verbatim harness output and carry the
+# scratch paths and the job id of the run, which test_stage2b_files.py keeps out of this directory.
+REAL_METADATA = CD_DIR / "real-metadata"
+HARNESS_KEYS = (
+    "active_manifest", "capabilities", "deferred_cases", "expected_package_revision", "expected_proximalbase_rev",
+    "proximalbase_path", "proximalbase_rev", "proximalbase_source", "proximalbase_tree_sha1", "proximalbase_url",
+    "required_proximalbase_rev")
+STRING_HARNESS_KEYS = tuple(key for key in HARNESS_KEYS if key != "deferred_cases")
+ROLES = {"ab-a": "a", "ab-b": "b"}
+
+
+def real_files():
+    """(role, stratum, kind, path) of the real files: the harness-written metadata of the nonofficial smoke run of
+    the Stage 2B CD campaign on Discovery (#330), copied verbatim, both stacks, both strata, start and final."""
+    return [(role, mm, kind, next((REAL_METADATA / role / f"julia-{mm}").glob(f"julia-*-rep01-{name}.toml")))
+            for role in ROLES for mm in (J10, J13) for kind, name in (("final", "metadata"),
+                                                                      ("start", "metadata-start"))]
+
+
+def real_meta(role, mm, kind):
+    return next(toml_load(path) for r, m, k, path in real_files() if (r, m, k) == (role, mm, kind))
+
+
+def real_identity(role):
+    """The identity file of a real root, from the frozen schedule (Stack A) and lock (Stack B) of the campaign."""
+    if role == "ab-a":
+        top = toml_load(CD_DIR / "schedule.toml")["stack_a"]
+    else:
+        top = toml_load(CD_DIR / "lock.toml")["stack_b"]
+    return {key: {k: v for k, v in top[key].items() if k in ("commit", "tree", "version", "release", "tag")}
+            for key in ("proximalsolvers", "proximalbase")}
+
+
+def real_inventory(meta):
+    """What the environment inventory of the root records of the two locations that the metadata also names."""
+    return {"proximalbase_dir": meta["proximalbase_path"],
+            "active_project": posixpath.dirname(meta["active_manifest"]) + "/Project.toml"}
+
+
+class HarnessMetadataTests(MigrationCase):
+    """The eleven keys that the harness writes next to validate.py's keys: the exact key set, their types and
+    values, and their consistency with the identity of the root, between the repetitions and between the roots."""
+
+    def check_real(self, role, mm, kind, edit=None):
+        meta = dict(real_meta(role, mm, kind))
+        if edit:
+            edit(meta)
+        typed, wrong = MC.typed_meta(meta)
+        ref = []
+        MC.check_harness_values(typed, "real", role, ref)
+        problems = []
+        MC.check_harness_identity(typed, real_identity(role), real_inventory(real_meta(role, mm, kind)), "real",
+                                  lambda field, detail: problems.append((field, detail)))
+        return meta, wrong, [r[1:3] for r in ref], problems
+
+    # ---- the real files are accepted --------------------------------------------------------------------
+
+    def test_the_real_files_are_all_present_and_verbatim_harness_output(self):
+        files = real_files()
+        self.assertEqual(len(files), 8)
+        for _, _, _, path in files:
+            text = path.read_text(encoding="utf-8")
+            self.assertIn('harness_hash = "164fab53cac906e52e5a75e8b93658c1d174c14e"', text)
+            self.assertEqual(len(tomllib.loads(text)), 41 if "start" not in path.name else 35)
+
+    def test_the_exact_key_set_accepts_every_real_file(self):
+        for role, mm, kind, path in real_files():
+            with self.subTest(role=role, stratum=mm, kind=kind):
+                meta = toml_load(path)
+                keys = MC.META_FINAL if kind == "final" else MC.META_START
+                self.assertEqual(MC.key_set_problem(meta, keys), ([], []))
+                self.assertTrue(set(HARNESS_KEYS) <= set(meta))
+
+    def test_the_new_keys_are_exactly_the_eleven_of_attempt_1(self):
+        self.assertEqual(MC.HARNESS_KEYS, HARNESS_KEYS)
+        self.assertEqual(set(MC.META_START), set(F.validate.START_KEYS) | {"case_filter"} | set(HARNESS_KEYS))
+        self.assertEqual(set(MC.META_FINAL), set(MC.META_START) | set(F.validate.FINAL_KEYS))
+
+    def test_types_values_and_identity_accept_every_real_file(self):
+        for role, mm, kind, _ in real_files():
+            with self.subTest(role=role, stratum=mm, kind=kind):
+                _, wrong, shape, problems = self.check_real(role, mm, kind)
+                self.assertEqual((wrong, shape, problems), ([], [], []))
+
+    def test_the_real_files_have_the_values_the_rules_assume(self):
+        a, b = real_meta("ab-a", J10, "final"), real_meta("ab-b", J10, "final")
+        self.assertEqual([a[k] for k in ("proximalbase_source", "proximalbase_rev", "proximalbase_url",
+                                         "required_proximalbase_rev")], ["registry", "", "", ""])
+        self.assertEqual([b[k] for k in ("proximalbase_source", "proximalbase_url")],
+                         ["git", "https://github.com/mlakolar/ProximalBase.jl"])
+        self.assertEqual(b["proximalbase_rev"], b["required_proximalbase_rev"])
+        self.assertEqual(a["capabilities"], b["capabilities"])
+        self.assertEqual(a["deferred_cases"], b["deferred_cases"])
+        for role in ROLES:
+            self.assertEqual(real_meta(role, J10, "final")["proximalbase_path"],
+                             real_meta(role, J13, "final")["proximalbase_path"])
+            self.assertNotEqual(real_meta(role, J10, "final")["active_manifest"],
+                                real_meta(role, J13, "final")["active_manifest"])
+
+    # ---- the key set is exact -----------------------------------------------------------------------------
+
+    def test_one_extra_key_is_refused_at_the_key_set(self):
+        for kind, keys in (("final", MC.META_FINAL), ("start", MC.META_START)):
+            meta = dict(real_meta("ab-b", J13, kind), surprise="x")
+            self.assertEqual(MC.key_set_problem(meta, keys), ([], ["surprise"]))
+
+    def test_each_new_key_removed_is_refused_at_the_key_set(self):
+        for key in HARNESS_KEYS:
+            for kind, keys in (("final", MC.META_FINAL), ("start", MC.META_START)):
+                with self.subTest(key=key, kind=kind):
+                    meta = dict(real_meta("ab-a", J10, kind))
+                    del meta[key]
+                    self.assertEqual(MC.key_set_problem(meta, keys), ([key], []))
+
+    def test_an_old_key_removed_is_refused_at_the_key_set(self):
+        for key in ("job_id", "harness_hash", "proximalbase_hash"):
+            for kind, keys in (("final", MC.META_FINAL), ("start", MC.META_START)):
+                with self.subTest(key=key, kind=kind):
+                    meta = dict(real_meta("ab-a", J10, kind))
+                    del meta[key]
+                    self.assertEqual(MC.key_set_problem(meta, keys), ([key], []))
+
+    def test_in_a_campaign_an_extra_key_is_a_schema_refusal(self):
+        for label in ("a", "b"):
+            for files in (("metadata",), ("metadata-start",)):
+                with self.subTest(label=label, files=files):
+                    c = self.fresh()
+                    c.set_meta(label, "surprise", "x", files=files)
+                    result = self.refused(c.run(), "SCHEMA", fields=[("SCHEMA", f"{label}:metadata_keys")])
+                    self.assertTrue(any("unknown ['surprise']" in i["detail"] for i in result.refusals))
+
+    def test_in_a_campaign_each_new_key_removed_is_a_schema_refusal_naming_it(self):
+        for key in HARNESS_KEYS:
+            for files in (("metadata",), ("metadata-start",)):
+                with self.subTest(key=key, files=files):
+                    c = self.fresh()
+                    c.del_meta("a", key, jkeys=[J13], reps=[2], files=files)
+                    result = self.refused(c.run(), "SCHEMA", fields=[("SCHEMA", "a:metadata_keys")])
+                    self.assertTrue(any(f"missing ['{key}']" in i["detail"] for i in result.refusals),
+                                    result.stderr)
+
+    def test_in_a_campaign_an_old_key_removed_is_a_schema_refusal(self):
+        for key in ("job_id", "proximalbase_version"):
+            with self.subTest(key=key):
+                c = self.fresh()
+                c.del_meta("b", key, jkeys=[J10], reps=[1])
+                result = self.refused(c.run(), "SCHEMA", fields=[("SCHEMA", "b:metadata_keys")])
+                self.assertTrue(any(f"missing ['{key}']" in i["detail"] for i in result.refusals))
+
+    # ---- types and values ---------------------------------------------------------------------------------
+
+    def test_a_string_key_of_the_wrong_type_is_a_wrong_type_refusal(self):
+        for key in STRING_HARNESS_KEYS:
+            for wrong_value in (5, True, ["x"]):
+                with self.subTest(key=key, value=wrong_value):
+                    _, wrong, _, _ = self.check_real("ab-b", J10, "final", lambda m: m.update({key: wrong_value}))
+                    self.assertEqual(wrong, [key])
+                    c = self.fresh()
+                    c.set_meta("b", key, wrong_value, jkeys=[J10], reps=[4])
+                    result = self.refused(c.run(), "SCHEMA", fields=[("SCHEMA", "b:records")])
+                    self.assertTrue(any(f"metadata {key} has a value of the wrong type" in i["detail"]
+                                        for i in result.refusals), result.stderr)
+
+    def test_deferred_cases_of_the_wrong_type_is_a_wrong_type_refusal(self):
+        for wrong_value in ("29", 29.0, True, [29]):
+            with self.subTest(value=wrong_value):
+                _, wrong, _, _ = self.check_real("ab-a", J13, "start", lambda m: m.update(deferred_cases=wrong_value))
+                self.assertEqual(wrong, ["deferred_cases"])
+                c = self.fresh()
+                c.set_meta("a", "deferred_cases", wrong_value, jkeys=[J13], reps=[1])
+                result = self.refused(c.run(), "SCHEMA", fields=[("SCHEMA", "a:records")])
+                self.assertTrue(any("metadata deferred_cases has a value of the wrong type" in i["detail"]
+                                    for i in result.refusals))
+
+    def test_values_of_the_right_type_but_the_wrong_shape_are_schema_refusals(self):
+        bad = {"proximalbase_tree_sha1": ("", "abc", "G" * 40, "A" * 40),
+               "proximalbase_rev": ("abc", "G" * 40), "required_proximalbase_rev": ("main",),
+               "expected_proximalbase_rev": ("abc",), "expected_package_revision": ("abc",),
+               "proximalbase_source": ("", "path", "unknown", "Git"), "deferred_cases": (-1,),
+               "capabilities": ("", "cd,apg", "cd,cd", "CD", "cd, pg", "cd,"),
+               "proximalbase_path": ("", "relative/dir", "/a/../b", "/a/b/"),
+               "active_manifest": ("", "relative/Manifest.toml", "/a/./Manifest.toml")}
+        for key, values in bad.items():
+            for value in values:
+                with self.subTest(key=key, value=value):
+                    _, wrong, shape, _ = self.check_real("ab-b", J10, "final", lambda m: m.update({key: value}))
+                    self.assertEqual((wrong, shape), ([], [("SCHEMA", "ab-b:records")]))
+
+    # ---- consistency with the identity of the root ---------------------------------------------------------
+
+    def test_a_real_root_against_the_identity_of_the_other_stack_is_refused(self):
+        for role, other in (("ab-b", "ab-a"), ("ab-a", "ab-b")):
+            with self.subTest(role=role):
+                meta = real_meta(role, J10, "final")
+                typed, _ = MC.typed_meta(meta)
+                problems = []
+                MC.check_harness_identity(typed, real_identity(other), real_inventory(meta), "real",
+                                          lambda field, detail: problems.append(detail))
+                keys = {key for key in HARNESS_KEYS if any(f" {key} " in p for p in problems)}
+                self.assertLessEqual({"proximalbase_tree_sha1", "proximalbase_source"}, keys)
+                self.assertTrue(keys, problems)
+
+    def test_each_identity_bound_key_that_disagrees_is_refused_alone(self):
+        b = real_meta("ab-b", J10, "final")
+        a = real_meta("ab-a", J10, "final")
+        cases = [("ab-b", "proximalbase_rev", a["proximalbase_rev"]),
+                 ("ab-b", "proximalbase_rev", "1" * 40),
+                 ("ab-b", "required_proximalbase_rev", ""),
+                 ("ab-b", "required_proximalbase_rev", "1" * 40),
+                 ("ab-b", "proximalbase_source", "registry"),
+                 ("ab-b", "proximalbase_url", ""),
+                 ("ab-b", "proximalbase_tree_sha1", a["proximalbase_tree_sha1"]),
+                 ("ab-b", "expected_proximalbase_rev", "1" * 40),
+                 ("ab-b", "expected_package_revision", "1" * 40),
+                 ("ab-b", "proximalbase_path", "/elsewhere/ProximalBase/i2Pu4"),
+                 ("ab-b", "active_manifest", "/elsewhere/env-1.10/Manifest.toml"),
+                 ("ab-b", "active_manifest", posixpath.dirname(b["active_manifest"]) + "/Other.toml"),
+                 ("ab-a", "proximalbase_rev", b["proximalbase_rev"]),
+                 ("ab-a", "proximalbase_source", "git"),
+                 ("ab-a", "proximalbase_url", b["proximalbase_url"]),
+                 ("ab-a", "required_proximalbase_rev", b["required_proximalbase_rev"]),
+                 ("ab-a", "proximalbase_tree_sha1", b["proximalbase_tree_sha1"])]
+        for role, key, value in cases:
+            with self.subTest(role=role, key=key, value=value):
+                _, wrong, shape, problems = self.check_real(role, J10, "final", lambda m: m.update({key: value}))
+                self.assertEqual((wrong, shape), ([], []))
+                self.assertEqual([f for f, _ in problems], ["loaded_tree"])
+                self.assertIn(f" {key} ", problems[0][1])
+
+    def test_matching_expected_revisions_are_accepted(self):
+        for role, ident in (("ab-a", real_identity("ab-a")), ("ab-b", real_identity("ab-b"))):
+            _, _, shape, problems = self.check_real(role, J10, "final", lambda m: m.update(
+                expected_package_revision=ident["proximalsolvers"]["commit"],
+                expected_proximalbase_rev=ident["proximalbase"]["commit"]))
+            self.assertEqual((shape, problems), ([], []))
+
+    def test_in_a_campaign_stack_b_with_the_revision_of_stack_a_is_a_stack_refusal(self):
+        for key, value_of in (("proximalbase_rev", lambda c: ""), ("proximalbase_rev", lambda c: c.stack("a")["pb"]["commit"]),
+                              ("proximalbase_tree_sha1", lambda c: c.stack("a")["pb"]["tree"]),
+                              ("proximalbase_source", lambda c: "registry"),
+                              ("required_proximalbase_rev", lambda c: ""), ("proximalbase_url", lambda c: ""),
+                              ("proximalbase_path", lambda c: "/synthroot/elsewhere/ProximalBase"),
+                              ("active_manifest", lambda c: "/synthroot/elsewhere/Manifest.toml"),
+                              ("expected_proximalbase_rev", lambda c: "1" * 40)):
+            with self.subTest(key=key):
+                c = self.fresh()
+                value = value_of(c)
+                c.set_meta("b", key, value)
+                result = self.refused(c.run(), "STACK", fields=[("STACK", "b:loaded_tree")])
+                self.assertTrue(any(f" {key} " in i["detail"] for i in result.refusals), result.stderr)
+
+    def test_in_a_campaign_stack_a_with_the_values_of_stack_b_is_a_stack_refusal(self):
+        for key, value_of in (("proximalbase_rev", lambda c: c.stack("b")["pb"]["commit"]),
+                              ("proximalbase_source", lambda c: "git"),
+                              ("proximalbase_url", lambda c: "https://github.com/mlakolar/ProximalBase.jl"),
+                              ("required_proximalbase_rev", lambda c: c.stack("b")["pb"]["commit"]),
+                              ("proximalbase_tree_sha1", lambda c: c.stack("b")["pb"]["tree"])):
+            with self.subTest(key=key):
+                c = self.fresh()
+                c.set_meta("a", key, value_of(c))
+                result = self.refused(c.run(), "STACK", fields=[("STACK", "a:loaded_tree")])
+                self.assertTrue(any(f" {key} " in i["detail"] for i in result.refusals), result.stderr)
+
+    # ---- consistency between the repetitions, the files and the roots -----------------------------------------
+
+    def test_repetitions_that_disagree_are_a_mixed_root(self):
+        for key, value in (("proximalbase_tree_sha1", "2" * 40), ("proximalbase_rev", "2" * 40),
+                           ("proximalbase_source", "registry"), ("required_proximalbase_rev", "2" * 40),
+                           ("proximalbase_url", "https://example.org/x"), ("expected_proximalbase_rev", "2" * 40),
+                           ("expected_package_revision", "2" * 40), ("deferred_cases", 30),
+                           ("capabilities", "cd,pg")):
+            with self.subTest(key=key):
+                c = self.fresh()
+                c.set_meta("b", key, value, jkeys=[J13], reps=[3])
+                self.refused(c.run(), "STACK", fields=[("STACK", "b:mixed")])
+
+    def test_strata_that_disagree_on_a_stack_level_key_are_a_mixed_root(self):
+        c = self.fresh()
+        c.set_meta("a", "capabilities", "cd,pg", jkeys=[J13])
+        self.refused(c.run(), "STACK", fields=[("STACK", "a:mixed")])
+
+    def test_location_keys_may_differ_between_strata_but_not_between_repetitions(self):
+        c = self.fresh()
+        self.assertNotEqual(c.stratum("b", J10), c.stratum("b", J13))
+        for key in ("active_manifest", "proximalbase_path"):
+            with self.subTest(key=key):
+                c = self.fresh()
+                c.set_meta("b", key, "/synthroot/other/Manifest.toml" if key == "active_manifest" else
+                           "/synthroot/other/ProximalBase", jkeys=[J10], reps=[5])
+                result = self.refused(c.run(), "STACK", fields=[("STACK", "b:mixed")])
+                self.assertTrue(any(f"julia 1.10.13: {key} differs between repetitions" in i["detail"]
+                                    for i in result.refusals), result.stderr)
+
+    def test_start_and_final_metadata_must_agree_on_every_new_key(self):
+        for key, value in (("proximalbase_path", "/synthroot/other/ProximalBase"), ("deferred_cases", 30),
+                           ("proximalbase_rev", "2" * 40), ("capabilities", "cd")):
+            with self.subTest(key=key):
+                c = self.fresh()
+                c.set_meta("a", key, value, jkeys=[J10], reps=[1], files=("metadata",))
+                result = self.refused(c.run(), "SCHEMA", fields=[("SCHEMA", "a:records")])
+                self.assertTrue(any(f"start and final metadata disagree on {key}" in i["detail"]
+                                    for i in result.refusals), result.stderr)
+
+    def test_roots_with_one_harness_hash_must_record_one_capability_set_and_deferred_count(self):
+        for key, value in (("capabilities", "cd,pg"), ("deferred_cases", 30)):
+            with self.subTest(key=key):
+                c = self.fresh(variant="identical")
+                c.set_meta("b", key, value)
+                result = self.refused(c.run(), "STACK", fields=[("STACK", "all:mixed")])
+                self.assertTrue(any(f"{key} differs between roots" in i["detail"] for i in result.refusals))
+
+    def test_roots_with_different_harness_hashes_are_not_compared_on_capabilities(self):
+        c = self.fresh()                # the migration variant: another harness hash for Stack B (a declared change)
+        c.set_meta("b", "capabilities", "cd,pg")
+        result = c.run()
+        self.assertNotIn("all:mixed", result.stderr)
+
+    def test_paths_and_urls_in_the_new_keys_do_not_reach_the_outputs(self):
+        result = self.accepted(self.c.run())
+        text = "".join((result.out / name).read_text(encoding="utf-8") for name in result.files)
+        self.assertNotIn("/synthroot", text)
+
+    def test_a_valid_set_with_the_real_key_set_is_accepted(self):
+        result = self.accepted(self.fresh().run())
+        self.assertEqual(result.code, 0)
+        self.assertEqual(MC.key_set_problem(toml_load(self.c.record("a", J10, 1, "metadata")), MC.META_FINAL),
+                         ([], []))
 
 
 # --------------------------------------------------------------------------------------------------------------
