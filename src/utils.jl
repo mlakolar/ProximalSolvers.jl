@@ -108,13 +108,15 @@ end
 # the range of T), and 64 eps(T) is a floor of a few dozen units of roundoff, chosen without a
 # bound on the error of the computed gradient. It is not kept when S is not finite, when τ S is
 # below floatmin(T) (a threshold that may have underflowed) or when ‖G‖∞ is not finite.
+# ‖G‖∞ is ProximalBase's full-point kkt_violation(g, ∇f(x), x), computed in T with the λ of g;
+# an infinite entry of x gives an infinite residual, so such a stop is not kept.
 # It is a computed residual, not a certificate in exact arithmetic.
 function _stationary!(state, f, g, options::ProximalOptions)
   T = eltype(state.x)
   λmax = _lambda_max!(state)       # first: it uses xhat, which APG's gradient below also uses
   grad = _gradient_at_x!(state, f)
   λ = T(g.λ0)
-  residual = _kkt_residual(grad, state.x, λ)
+  residual = kkt_violation(g, grad, state.x)
   S = max(λ, λmax)
   τ = T(max(options.gradtol, 64 * Float64(eps(T))))
   threshold = τ * S
@@ -146,18 +148,6 @@ function _gradient_at_x!(state::AccProxGradDescentState, f)
   _value_and_gradient!(state.xhat, state.x, f, state.z_x, state.dz)
   state.grad_calls += 1
   state.xhat
-end
-
-# maxᵢ of max(|gᵢ| - λ, 0) where xᵢ = 0, and of |gᵢ + λ sign xᵢ| elsewhere; NaN if an entry is
-# NaN (max propagates it)
-function _kkt_residual(grad::AbstractArray, x::AbstractArray, λ::T) where {T}
-  m = zero(T)
-  @inbounds for i in eachindex(grad, x)
-    xi = x[i]
-    r = iszero(xi) ? max(abs(grad[i]) - λ, zero(T)) : abs(grad[i] + λ * sign(xi))
-    m = max(m, r)
-  end
-  m
 end
 
 # x == y elementwise, by value (so -0.0 == 0.0), without allocating
