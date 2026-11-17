@@ -231,11 +231,14 @@ comparator: `recover` applies the official gate of `run` unchanged (so it needs 
 `installations/` included, and refuses an evidence-only copy), requires the attempt to verify as `refused` with a complete
 receipt (every process exit 0), moves `logs/STATE.json` and `checksums.sha256` aside byte for byte
 (`logs/STATE.original.json`, `logs/checksums.original.sha256`), writes `logs/recovery.json` (original digests, the
-freeze commit, the driver and comparator digests, the time, the ruling) and runs the same tail as `run` (declared
+freeze commit, the driver and comparator digests, the time, the ruling; the driver and comparator digests must be those of
+the committed files at the freeze commit, which must be a commit of the verifier's own checkout) and runs the same tail as `run` (declared
 differences, comparator, completion, seals). The roots, raw files, receipt and the seals of the measurements are never
 touched; `completion.json` and `STATE.json` carry `"recovered": true`. A comparator that still refuses is recorded
 and the recovery is not repeated. `verify` of the copy reports `verified_recovered` (`verified_recovered_non_ok` for a
-non-comparable outcome), checks that every original file is unchanged, and never reports plain `verified`; the
+non-comparable outcome), checks that every original file is unchanged and the recorded tool digests against the
+freeze commit, requires the complete recovery records whenever any trace of a recovery (a recovery file, or `recovered` or
+`recovery_sha256` in a log record) remains, and never reports plain `verified` for it; the
 refused original keeps verifying as `refused`.
 
 **Verification and copies.** `verify` is read-only and needs no Julia. Run it on the base, copy the tree with `cp -a`

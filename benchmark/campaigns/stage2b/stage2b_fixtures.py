@@ -69,7 +69,6 @@ BLAS = "LBTConfig([ILP64] libopenblas64_.so)"
 # Values of the harness keys of a real run (benchmark/run.jl at 9f86a808; the Discovery smoke run of #330).
 CAPABILITIES = ("apg,apg:float32,apg:lasso,cd,cd:float32,cd:lasso,cd:sparse_iterate,pg,pg:float32,pg:lasso,"
                 "random-cd,random-cd:lasso")
-DEFERRED_CASES = 29
 PB_URL = "https://github.com/mlakolar/ProximalBase.jl"
 CERTIFICATES_HASH = hashlib.sha256(b"certificates.jl").hexdigest()
 BANNED_WORDS = ("noninferior", "non-inferior", "no-regression", "significant", "equivalent")
@@ -751,7 +750,9 @@ class Campaign:
         registered = pb.get("release") == "registered"
         return {
             "active_manifest": posixpath.dirname(stack["env"].format(version=self.version(jkey))) + "/Manifest.toml",
-            "capabilities": CAPABILITIES, "deferred_cases": DEFERRED_CASES,
+            "capabilities": CAPABILITIES,
+            "deferred_cases": load_tool().trusted_deferred(
+                load_tool().HARNESS_SUCCESSOR, self.sched["settings"]["suite"], self.sched["settings"]["groups"]),
             "expected_package_revision": "", "expected_proximalbase_rev": "",
             "proximalbase_path": stack["pb_dir"], "proximalbase_rev": "" if registered else pb["commit"],
             "proximalbase_source": "registry" if registered else "git", "proximalbase_tree_sha1": pb["tree"],
@@ -771,7 +772,7 @@ class Campaign:
             "cpu_model": self.sched["machine"]["cpu_model"], "samples_target": s["samples_target"],
             "seconds_limit": s["seconds_limit"], "case_seconds": s["case_seconds"],
             "profile_seconds": s["profile_seconds"], "seed_scheme": s["seed_scheme"], "job_id": "none",
-            **self.harness_meta(stack, jkey)}
+            **(self.harness_meta(stack, jkey) if self.model.get("harness_keys") else {})}
         start.update(ov.get("meta", {}))
         start.update(ov.get("start_meta", {}))
         final = dict(start)
@@ -890,6 +891,8 @@ class Campaign:
                 item["git-tree-sha1"] = entry["tree"]
             if "path" in entry:
                 item["path"] = entry["path"]
+            if name == "ProximalBase" and self.stack(label)["pb"].get("release") != "registered":
+                item["repo-url"], item["repo-rev"] = PB_URL, self.stack(label)["pb"]["commit"]
             deps[name] = [dict(sorted(item.items()))]
         return {"julia_version": self.version(jkey), "manifest_format": "2.0",
                 "project_hash": sha1_text("project", label), "deps": deps}
@@ -1081,11 +1084,16 @@ def declared_differences(camp):
 # Building a set
 # --------------------------------------------------------------------------------------------------------------
 
-def build_campaign(dest, variant="migration", reps=None, schedule_edit=None):
+def build_campaign(dest, variant="migration", reps=None, schedule_edit=None, harness_keys=False,
+                   successor_harness=False):
     """Build a complete valid input set in `dest/campaign` and return its `Campaign`.
 
     `reps`: the number of repetition IDs (default: the schedule's eight; the schedule copy follows).
-    `schedule_edit`: a function applied to the schedule dict before anything is built."""
+    `schedule_edit`: a function applied to the schedule dict before anything is built.
+    `harness_keys`: the metadata of the successor harness (#333), the original eleven keys of the harness at 9f86a808
+    next to those of validate.py; the default is the metadata of the original harness (412063d8, b0de3f7).
+    `successor_harness`: both stacks carry the harness hash of 9f86a808, the one that the comparator knows writes
+    them (the schedule copy is edited); without it the comparator has to be told the synthetic hashes."""
     assert variant in ("migration", "manifest", "identical")
     base = Path(dest) / "campaign"
     base.mkdir(parents=True)
@@ -1098,7 +1106,9 @@ def build_campaign(dest, variant="migration", reps=None, schedule_edit=None):
                                           for rep in range(1, reps + 1)}
     if schedule_edit is not None:
         schedule_edit(schedule)
-    if reps is not None or schedule_edit is not None:
+    if successor_harness:
+        schedule["stack_a"]["harness_hash"] = load_tool().HARNESS_SUCCESSOR
+    if reps is not None or schedule_edit is not None or successor_harness:
         toml_write(base / "schedule.toml", schedule)
     cases = load_cases()
     declared_ids = schedule["settings"]["case_filter"].split(",")
@@ -1106,7 +1116,10 @@ def build_campaign(dest, variant="migration", reps=None, schedule_edit=None):
     stacks = {"a": stack_a(schedule, "a", "inst-a1"), "b": stack_b(schedule, "inst-b1", variant),
               "aa_a": stack_a(schedule, "aa_a", "inst-aa1"), "aa_b": stack_a(schedule, "aa_b", "inst-aa2")}
     stacks["b"]["label"] = "b"
-    camp = Campaign(base, {"schedule": schedule, "cases": cases, "stacks": stacks, "variant": variant})
+    if successor_harness:
+        stacks["b"]["harness"] = schedule["stack_a"]["harness_hash"]
+    camp = Campaign(base, {"schedule": schedule, "cases": cases, "stacks": stacks, "variant": variant,
+                           "harness_keys": harness_keys})
     camp.write_inputs()
     return camp
 

@@ -2315,10 +2315,14 @@ def recover(plan, lock_path, run=subprocess.run):
         raise Refused("the attempt cannot be recovered: " + "; ".join(problems[:5]), field="recover",
                       problems=problems)
     logs = base / "logs"
+    tools = {"driver_sha256": sha256_file(Path(__file__)), "comparator_sha256": sha256_file(HERE / "migration_compare.py")}
+    problems = tooling_problems({"freeze_sha": plan.freeze_sha, **tools})
+    if problems:
+        raise Refused("the running driver and comparator are not the committed ones at the freeze commit: "
+                      + "; ".join(problems), field="tooling", problems=problems)
     original_state, original_sums = (logs / "STATE.json").read_bytes(), (base / "checksums.sha256").read_bytes()
     record = {"schema": 1, "recovered": True, "ruling": RECOVERY_RULING, "recovered_utc": utc_text(utc_now()),
-              "freeze_sha": plan.freeze_sha, "driver_sha256": sha256_file(Path(__file__)),
-              "comparator_sha256": sha256_file(HERE / "migration_compare.py"),
+              "freeze_sha": plan.freeze_sha, **tools,
               "original_state_sha256": sha256_bytes(original_state),
               "original_state_reason": json.loads(original_state)["reason"],
               "original_checksums_sha256": sha256_bytes(original_sums)}
@@ -2331,6 +2335,55 @@ def recover(plan, lock_path, run=subprocess.run):
     count = len(required_keys(plan.sched, plan.arms))
     return finalize(plan, None, RecoveryAttempt(plan), count, [],
                     recovery={"recovered": True, "recovery_sha256": sha256_file(base / RECOVERY_RECORD)})
+
+
+def recovery_marked(base, state):
+    """Whether BASE is, or claims to be, a recovered attempt: a recovery file exists, or STATE.json, completion.json,
+    campaign.json or comparator.json carries `recovered` or `recovery_sha256`. Any such trace requires the complete
+    recovery records, so stripping some of them cannot turn a recovery into a plain attempt."""
+    base = Path(base)
+    if any((base / name).exists() or (base / name).is_symlink()
+           for name in (RECOVERY_RECORD, STATE_ORIGINAL, CHECKSUMS_ORIGINAL)):
+        return True
+    documents = [state] + [read_json_file(base / "logs" / name) or {}
+                           for name in ("completion.json", "campaign.json", "comparator.json")]
+    return any("recovered" in d or "recovery_sha256" in d for d in documents)
+
+
+TOOL_FILES = {"driver_sha256": "stage2b_campaign.py", "comparator_sha256": "migration_compare.py"}
+
+
+def tooling_digests(commit, repo=None):
+    """SHA-256 of the driver and of the comparator as committed at `commit` in the checkout `repo` (default: the
+    verifier's own), as {"driver_sha256", "comparator_sha256"}; None when `commit` is not a commit of that checkout
+    or lacks either file. A consistency anchor outside the evidence, not a signature."""
+    if not is_hex40(commit):
+        return None
+    repo = Path(repo) if repo else HERE.parents[2]
+    found = {}
+    for key, name in TOOL_FILES.items():
+        relative = (HERE / name).relative_to(HERE.parents[2]).as_posix()
+        try:
+            result = subprocess.run(["git", "-C", str(repo), "show", f"{commit}^{{commit}}:{relative}"],
+                                    capture_output=True)
+        except OSError:
+            return None
+        if result.returncode != 0:
+            return None
+        found[key] = sha256_bytes(result.stdout)
+    return found
+
+
+def tooling_problems(record):
+    """Why the tool digests of a recovery record are not those of the tools at its freeze commit in the verifier's
+    checkout ([] when they are)."""
+    freeze = record.get("freeze_sha")
+    committed = tooling_digests(freeze)
+    if committed is None:
+        return [f"the freeze commit {str(freeze)[:40]!r} is not a commit of the verifier's checkout with the driver "
+                "and the comparator"]
+    return [f"{key} {record.get(key)!r} is not the digest {committed[key]} of {name} at the freeze commit"
+            for key, name in TOOL_FILES.items() if record.get(key) != committed[key]]
 
 
 def check_recovery(base, state, completion, listed, mode, problems):
@@ -2355,6 +2408,8 @@ def check_recovery(base, state, completion, listed, mode, problems):
         problems.append("recovery: freeze_sha is not a full commit")
     if record and _parse_time(record.get("recovered_utc")) is None:
         problems.append("recovery: recovered_utc is not a UTC time")
+    if record:
+        problems += [f"recovery: {item}" for item in tooling_problems(record)]
     original = read_json_file(base / STATE_ORIGINAL)
     if not (base / STATE_ORIGINAL).is_file():
         problems.append(f"recovery: {STATE_ORIGINAL} is missing")
@@ -3233,9 +3288,7 @@ def verify(base, out, replay=True, config=None, run=subprocess.run):
     aa = "AA" in arms
     state = read_json_file(base / "logs" / "STATE.json") or {}
     kind = state.get("state")
-    recovered = (any((base / name).exists() for name in (RECOVERY_RECORD, STATE_ORIGINAL, CHECKSUMS_ORIGINAL))
-                 or "recovered" in state
-                 or "recovered" in (read_json_file(base / "logs" / "completion.json") or {}))
+    recovered = recovery_marked(base, state)
     required = ["schedule.toml", "case-mapping.toml", "receipt.jsonl", "logs/seals.jsonl", "logs/commands.jsonl",
                 "logs/hardware.jsonl", "logs/STATE.json", "logs/campaign.json"]
     if campaign.get("probe_record") == PROBE_LOG:

@@ -45,7 +45,8 @@ SETTING_KEYS = ("suite", "groups", "case_filter", "samples_target", "seconds_lim
 # The metadata keys that the harness at 9f86a808 writes next to validate.py's START_KEYS (benchmark/run.jl,
 # `start_metadata`, lines 226-233: the source identities checked at startup, #110; validate.py reads only
 # START_KEYS and tolerates these). Official attempt 1 of Stage 2B was refused for exactly these eleven keys
-# (#333). The key set stays exact: a key of neither tuple, or a missing key of either, is a SCHEMA refusal.
+# (#333). The key set stays exact, and it depends on the harness (below): a harness that does not write them
+# (the original Stage 2B harness, 412063d8 and b0de3f7) keeps the exact set of START_KEYS and FINAL_KEYS.
 HARNESS_KEYS = ("active_manifest", "capabilities", "deferred_cases", "expected_package_revision",
                 "expected_proximalbase_rev", "proximalbase_path", "proximalbase_rev", "proximalbase_source",
                 "proximalbase_tree_sha1", "proximalbase_url", "required_proximalbase_rev")
@@ -58,8 +59,45 @@ HARNESS_ROOT_KEYS = ("capabilities", "deferred_cases", "expected_package_revisio
 HARNESS_STRATUM_KEYS = ("active_manifest", "proximalbase_path")
 MIXED_KEYS = ("proximalsolvers_sha", "proximalsolvers_hash", "proximalbase_version", "proximalbase_hash",
               "harness_hash") + HARNESS_ROOT_KEYS
-META_START = tuple(validate.START_KEYS) + ("case_filter",) + HARNESS_KEYS
+# The harnesses whose metadata carries HARNESS_KEYS, by harness_hash, with the values that the harness itself fixes
+# (computed from the pinned sources, independently of any attempt's records; see stage2b-cd/derive_harness_constants.jl
+# and test_stage2b_campaign.py HarnessConstantTests, which re-derive `capabilities` from the pinned cases.jl):
+#   164fab53...  benchmark/{problems,certificates,cases,run}.jl at 9f86a808 (the successor harness of #333)
+#     capabilities   CAPABILITIES of cases.jl (lines 33-46), joined sorted as run.jl:232 does;
+#     deferred       length(build_catalog(suite, groups; deferred = true)) (run.jl:233, cases.jl `build_catalog`)
+#                    for each single group; the groups of a run are distinct, so the counts add.
+HARNESS_SUCCESSOR = "164fab53cac906e52e5a75e8b93658c1d174c14e"
+TRUSTED_HARNESS = {HARNESS_SUCCESSOR: dict(
+    keys=HARNESS_KEYS,
+    capabilities=("apg,apg:float32,apg:lasso,cd,cd:float32,cd:lasso,cd:sparse_iterate,pg,pg:float32,pg:lasso,"
+                  "random-cd,random-cd:lasso"),
+    deferred={"quick": dict(admm=5, cd=19, gradient=14, newton=4, nonconvex=6, paths=3, primal_dual=1, sgl=4,
+                            slope=2),
+              "extended": dict(admm=7, cd=29, gradient=24, newton=6, nonconvex=12, paths=8, primal_dual=2, sgl=8,
+                               slope=4)})}
+
+
+def harness_keys(harness_hash):
+    """The HARNESS_KEYS that the harness identified by `harness_hash` writes (none for any other harness)."""
+    return TRUSTED_HARNESS.get(harness_hash, {}).get("keys", ()) if isinstance(harness_hash, str) else ()
+
+
+def trusted_deferred(harness_hash, suite, groups):
+    """The deferred-case count that the harness fixes for `suite` and the comma-separated `groups`, or None."""
+    table = TRUSTED_HARNESS.get(harness_hash, {}).get("deferred", {}).get(suite)
+    names = groups.split(",") if isinstance(groups, str) else []
+    if table is None or not names or len(set(names)) != len(names) or any(n not in table for n in names):
+        return None
+    return sum(table[n] for n in names)
+
+
+META_START = tuple(validate.START_KEYS) + ("case_filter",)
 META_FINAL = META_START + tuple(validate.FINAL_KEYS)
+
+
+def meta_key_set(harness_hash, final):
+    """The exact key set of a start (or final) metadata file of the harness `harness_hash`."""
+    return (META_FINAL if final else META_START) + harness_keys(harness_hash)
 # The type of every metadata value the checks read: s string, b boolean, i integer, n number.
 META_TYPES = {**dict.fromkeys(
     "julia suite groups case_filter harness_hash proximalsolvers_path proximalsolvers_sha proximalsolvers_hash "
@@ -75,6 +113,7 @@ REQUIRED_ROWS = (("reset", "values"), ("reset", "active_ids"), ("config", "solve
 FP_ALLOWED = {("reset", "values"), ("reset", "active_ids"), ("config", "solver"), ("config", "options"),
               ("file", "certificates.jl")}
 FP_HEADER = "julia\tid\trep\tkind\tname\tvalue"
+SOURCE_URL = re.compile(r"(?:https?|ssh|git)://[A-Za-z0-9._~-]+(?::[0-9]+)?(?:/[A-Za-z0-9._~%+@:-]+)+")
 HEX40, HEX64 = re.compile(r"[0-9a-f]{40}"), re.compile(r"[0-9a-f]{64}")
 TIME = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})")
 FIRST_LINE = ("This is a whole-stack migration comparison. Differences cannot be attributed solely to "
@@ -268,7 +307,7 @@ def load_schedule(path):
 
 def parse_manifest(data):
     """Section 10: (parsed, problems). Entries are keyed by (name, uuid)."""
-    problems, entries, by_name = [], {}, defaultdict(list)
+    problems, entries, by_name, repo = [], {}, defaultdict(list), defaultdict(list)
     if not is_str(data.get("julia_version")):
         problems.append("julia_version missing")
     if data.get("manifest_format") not in ("2.0", "2.1"):
@@ -279,7 +318,8 @@ def parse_manifest(data):
     for name, items in deps.items():
         for item in items if isinstance(items, list) else [None]:
             if (not isinstance(item, dict) or not is_str(item.get("uuid"))
-                    or any(not isinstance(item.get(k, ""), str) for k in ("version", "git-tree-sha1", "path"))):
+                    or any(not isinstance(item.get(k, ""), str)
+                           for k in ("version", "git-tree-sha1", "path", "repo-url", "repo-rev"))):
                 problems.append(f"deps.{name} has a malformed entry")
                 continue
             value = (item.get("version", ""), item.get("git-tree-sha1", ""))
@@ -287,9 +327,10 @@ def parse_manifest(data):
                 problems.append(f"deps.{name} {item['uuid']} appears twice")
             entries[(name, item["uuid"])] = value
             by_name[name].append(value)
+            repo[name].append((item.get("repo-url", ""), item.get("repo-rev", "")))
     if problems:
         return None, problems
-    return dict(julia_version=data["julia_version"], entries=entries, by_name=by_name), []
+    return dict(julia_version=data["julia_version"], entries=entries, by_name=by_name, repo=repo), []
 
 
 def parse_project(data):
@@ -426,8 +467,8 @@ def read_stratum(root, mm, info, sched, ref):
             if "julia" in meta and meta["julia"] != version:
                 refuse(ref, "JULIA", f"{name}:julia", f"{name} {where} rep {rep}: julia {meta['julia']!r}, "
                        f"expected {version!r}")
-        for label, meta, keys in (("final", final_raw, META_FINAL), ("start", start, META_START)):
-            missing, unknown = key_set_problem(meta, keys)
+        for label, meta, final_file in (("final", final_raw, True), ("start", start, False)):
+            missing, unknown = key_set_problem(meta, meta_key_set(meta.get("harness_hash"), final_file))
             if missing or unknown:
                 refuse(ref, "SCHEMA", f"{name}:metadata_keys",
                        f"{name} {where} rep {rep}: {label} metadata missing {missing} unknown {unknown}")
@@ -545,6 +586,8 @@ def check_harness_values(meta, where, name, ref):
         name_ok = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*(:[a-z0-9_]+)*").fullmatch
         if not (all(name_ok(t) for t in tokens) and tokens == sorted(set(tokens))):
             bad("capabilities", "is not a sorted comma-separated list of distinct capability names")
+    if meta.get("proximalbase_url") and not SOURCE_URL.fullmatch(meta["proximalbase_url"]):
+        bad("proximalbase_url", "is not a URL (https, http, ssh or git, with a host and a path)")
     for key in ("proximalbase_path", "active_manifest"):
         if key in meta and not (meta[key].startswith("/") and norm(meta[key]) == meta[key]):
             bad(key, "is not an absolute path in normal form")
@@ -624,6 +667,7 @@ def check_stack(root, st, ref):
             elif found[0][0] != want["version"] or (with_tree and found[0][1] != want["tree"]):
                 stack("loaded_tree", f"Manifest {package} {found[0]} differs from identity "
                       f"({want['version']!r}, {want['tree']!r})")
+    check_inventory_dir(root, st, ref)
     for rep, proc in procs(st):
         meta, at = proc["meta"], f"{where} rep {rep}"
         if ident and meta.get("proximalsolvers_sha", ident["proximalsolvers"]["commit"]) \
@@ -635,30 +679,38 @@ def check_stack(root, st, ref):
             stack("loaded_tree", f"{at}: proximalbase_version {meta['proximalbase_version']!r}, identity "
                   f"{ident['proximalbase']['version']!r}")
         if ident:
-            check_harness_identity(meta, ident, inv, at, stack)
+            check_harness_identity(meta, ident, inv, man, at, stack)
         if inv and "proximalsolvers_path" in meta and norm(meta["proximalsolvers_path"]) != norm(
                 inv["proximalsolvers_dir"]):
             stack("loaded_tree", f"{at}: proximalsolvers_path {meta['proximalsolvers_path']!r} differs from "
                   f"inventory proximalsolvers_dir {inv['proximalsolvers_dir']!r}")
 
 
-def check_harness_identity(meta, ident, inv, at, stack):
+def check_harness_identity(meta, ident, inv, man, at, stack):
     """The HARNESS_KEYS against the identity of the root (stack-identity.toml, already bound to [stack_a] or to the
-    lock) and the environment inventory; `stack(field, detail)` records a STACK refusal. A registered ProximalBase
-    is loaded from the registry (no URL, revision or pin); a development one from git at its identity commit, which
-    is also the pin of the ProximalSolvers checkout (run.jl `check_proximalbase`: loaded rev == pin rev)."""
+    lock), the archived Manifest of the stratum and the environment inventory; `stack(field, detail)` records a
+    STACK refusal. A registered ProximalBase is loaded from the registry (no URL, revision, pin or expectation:
+    run.jl:121 requires a git source for a non-empty `expected_proximalbase_rev`); a development one from git at its
+    identity commit, which is also the pin of the ProximalSolvers checkout (`check_proximalbase`: loaded rev ==
+    pin rev), at the repo-url and repo-rev of the Manifest entry. The inventory must carry `proximalbase_dir`
+    (check_inventory_dir) and the Manifest of the environment is `Manifest.toml` next to its active project."""
     base, ps = ident["proximalbase"], ident["proximalsolvers"]
+    registered = base["release"] == "registered"
+
+    reported = set()
 
     def wrong(key, expected):
+        reported.add(key)
         stack("loaded_tree", f"{at}: {key} {meta[key]!r}, expected {expected!r}")
 
     def expect(key, expected):
-        if key in meta and meta[key] != expected:
+        if key in meta and key not in reported and meta[key] != expected:
             wrong(key, expected)
     expect("proximalbase_tree_sha1", base["tree"])
-    if base["release"] == "registered":
+    if registered:
         for key, expected in (("proximalbase_source", "registry"), ("proximalbase_rev", ""),
-                              ("proximalbase_url", ""), ("required_proximalbase_rev", "")):
+                              ("proximalbase_url", ""), ("required_proximalbase_rev", ""),
+                              ("expected_proximalbase_rev", "")):
             expect(key, expected)
     else:
         for key, expected in (("proximalbase_source", "git"), ("proximalbase_rev", base["commit"]),
@@ -666,34 +718,64 @@ def check_harness_identity(meta, ident, inv, at, stack):
             expect(key, expected)
         if meta.get("proximalbase_url") == "":
             wrong("proximalbase_url", "a URL")
+        if "expected_proximalbase_rev" in meta and meta["expected_proximalbase_rev"] not in ("", base["commit"]):
+            wrong("expected_proximalbase_rev", base["commit"])
     # The driver sets neither PS_EXPECTED_* variable; when one is set the harness has checked it, so it is the commit.
-    for key, commit in (("expected_package_revision", ps["commit"]), ("expected_proximalbase_rev", base["commit"])):
-        if key in meta and meta[key] not in ("", commit):
-            wrong(key, commit)
+    if "expected_package_revision" in meta and meta["expected_package_revision"] not in ("", ps["commit"]):
+        wrong("expected_package_revision", ps["commit"])
+    entries = (man or {}).get("repo", {}).get("ProximalBase")
+    if entries is not None and len(entries) == 1 and not registered:
+        for key, found in (("proximalbase_url", entries[0][0]), ("proximalbase_rev", entries[0][1])):
+            expect(key, found)
     if inv:
-        if "proximalbase_path" in meta and "proximalbase_dir" in inv and norm(meta["proximalbase_path"]) != norm(
-                str(inv["proximalbase_dir"])):
+        if "proximalbase_path" in meta and isinstance(inv.get("proximalbase_dir"), str) and norm(
+                meta["proximalbase_path"]) != norm(inv["proximalbase_dir"]):
             stack("loaded_tree", f"{at}: proximalbase_path {meta['proximalbase_path']!r} differs from inventory "
                   f"proximalbase_dir {inv['proximalbase_dir']!r}")
-        if "active_manifest" in meta:
-            folder, leaf = posixpath.split(meta["active_manifest"])
-            if folder != posixpath.dirname(norm(inv["active_project"])) or not re.fullmatch(
-                    r"Manifest(-v[0-9]+\.[0-9]+)?\.toml", leaf):
-                stack("loaded_tree", f"{at}: active_manifest {meta['active_manifest']!r} is not a Manifest of the "
-                      f"inventory environment {inv['active_project']!r}")
+        if "active_manifest" in meta and meta["active_manifest"] != posixpath.dirname(
+                norm(inv["active_project"])) + "/Manifest.toml":
+            stack("loaded_tree", f"{at}: active_manifest {meta['active_manifest']!r} is not the Manifest.toml of the "
+                  f"inventory environment {inv['active_project']!r}")
+
+
+def check_inventory_dir(root, st, ref):
+    """An inventory used with metadata that carries HARNESS_KEYS must name the loaded ProximalBase directory: a
+    normalized absolute `proximalbase_dir` (environment_probe.jl writes it), against which proximalbase_path is
+    compared."""
+    inv = st["inv"]
+    if inv and any(harness_keys(p["meta"].get("harness_hash")) for p in st["procs"].values()):
+        value = inv.get("proximalbase_dir")
+        if not (isinstance(value, str) and value.startswith("/") and norm(value) == value):
+            refuse(ref, "SCHEMA", f"{root['name']}:files", f"julia {st['version']}: inventory proximalbase_dir is "
+                   "missing or not an absolute path in normal form")
 
 
 def check_harness_constants(roots, ref):
-    """capabilities and deferred_cases are functions of the harness (CAPABILITIES, the case catalog of the suite
-    and groups): roots with one harness_hash must record one value of each. Different harness hashes are a
-    declared difference of their own (check_harness)."""
+    """`capabilities` and `deferred_cases` are fixed by the harness (CAPABILITIES, and the case catalog of the suite
+    and groups): they equal the trusted values of TRUSTED_HARNESS for the harness_hash (and suite and groups) of the
+    process, and roots with one harness_hash record one value of each (different harness hashes are a declared
+    difference of their own, check_harness)."""
     seen = {}
     for name, root in roots.items():
         for st in root["strata"].values():
-            for meta in st["metas"].values():
+            for rep, meta in sorted(st["metas"].items()):
+                harness = meta.get("harness_hash")
+                where = f"{name} julia {st['version']} rep {rep}"
+                trusted = TRUSTED_HARNESS.get(harness) if isinstance(harness, str) else None
+                if trusted is not None:
+                    if "capabilities" in meta and meta["capabilities"] != trusted["capabilities"]:
+                        refuse(ref, "STACK", f"{name}:harness_constants", f"{where}: capabilities "
+                               f"{meta['capabilities']!r}, the harness {harness} fixes {trusted['capabilities']!r}")
+                    expected = trusted_deferred(harness, meta.get("suite"), meta.get("groups"))
+                    if "deferred_cases" in meta and expected is None:
+                        refuse(ref, "STACK", f"{name}:harness_constants", f"{where}: no trusted deferred_cases for "
+                               f"suite {meta.get('suite')!r} and groups {meta.get('groups')!r}")
+                    elif "deferred_cases" in meta and meta["deferred_cases"] != expected:
+                        refuse(ref, "STACK", f"{name}:harness_constants", f"{where}: deferred_cases "
+                               f"{meta['deferred_cases']!r}, the harness {harness} fixes {expected!r}")
                 for key in ("capabilities", "deferred_cases"):
-                    if key in meta and "harness_hash" in meta:
-                        seen.setdefault((meta["harness_hash"], key), {}).setdefault(meta[key], set()).add(name)
+                    if key in meta and harness is not None:
+                        seen.setdefault((harness, key), {}).setdefault(meta[key], set()).add(name)
     for (harness, key), values in sorted(seen.items()):
         if len(values) > 1:
             detail = {str(v): sorted(n) for v, n in sorted(values.items(), key=lambda kv: str(kv[0]))}

@@ -103,17 +103,20 @@ EXTRA_CASE = dict(id="extra/synthetic/solver/variant/call", group="extra", probl
 _BASES, _WORK = {}, []
 
 
-def base(variant):
-    """The built input set of a variant, built once per test run."""
-    if variant not in _BASES:
+def base(variant, successor=False):
+    """The built input set of a variant, built once per test run. By default the metadata is that of the original
+    harness (the exact key set of validate.py); `successor` builds the metadata of the harness at 9f86a808, whose
+    hash the comparator knows to write the eleven further keys (#333)."""
+    key = (variant, successor)
+    if key not in _BASES:
         if not _WORK:
             _WORK.append(tempfile.mkdtemp(prefix="stage2b-fixtures-"))
             atexit.register(shutil.rmtree, _WORK[0], True)
-        directory = Path(_WORK[0]) / variant
+        directory = Path(_WORK[0]) / (variant + ("-successor" if successor else ""))
         directory.mkdir()
-        _BASES[variant] = F.build_campaign(directory, variant)
-        F.freeze(_BASES[variant].base)
-    return _BASES[variant]
+        _BASES[key] = F.build_campaign(directory, variant, harness_keys=successor, successor_harness=successor)
+        F.freeze(_BASES[key].base)
+    return _BASES[key]
 
 
 def tearDownModule():
@@ -242,11 +245,11 @@ class MigrationCase(unittest.TestCase):
             self.fresh()
         return self._c
 
-    def fresh(self, variant="migration", aa=False):
+    def fresh(self, variant="migration", aa=False, successor=False):
         self._copies += 1
         work = Path(self._tmp.name) / f"w{self._copies}"
         work.mkdir()
-        self._c = base(variant).copy(work, with_aa=aa)
+        self._c = base(variant, successor).copy(work, with_aa=aa)
         return self._c
 
     # ---- assertions ----------------------------------------------------------------------------------------
@@ -1577,13 +1580,6 @@ def inventory_file(c, label, jkey):
     return c.stratum(label, jkey) / "environment-inventory.toml"
 
 
-def follow_environment(c, label, jkey):
-    """The metadata of `label` names the Manifest of the environment that its (edited) inventory records: the
-    harness writes both from the one active project, so a test that moves the environment moves both."""
-    folder = posixpath.dirname(toml_load(inventory_file(c, label, jkey))["active_project"])
-    c.set_meta(label, "active_manifest", folder + "/Manifest.toml", jkeys=[jkey])
-
-
 def edit_inventory(label, key, value, jkeys=(J10, J13)):
     """Mutation: set `key` (a tuple of keys) in the inventory of the given strata of a root."""
     def mutate(c):
@@ -1747,7 +1743,6 @@ class ProvenanceTests(MigrationCase):
 
         def environment_one_stratum(c):
             toml_set(inventory_file(c, "b", J10), ("active_project",), toml_load(inventory_file(c, "a", J10))["active_project"])
-            follow_environment(c, "b", J10)
 
         def environment_realpath_one_stratum(c):
             toml_set(inventory_file(c, "b", J13), ("active_project_realpath",),
@@ -1757,7 +1752,6 @@ class ProvenanceTests(MigrationCase):
             # another file name in the same directory is the same environment
             toml_set(inventory_file(c, "b", J10), ("active_project",),
                      posixpath.dirname(toml_load(inventory_file(c, "a", J10))["active_project"]) + "/JuliaProject.toml")
-            follow_environment(c, "b", J10)
 
         self.exact([
             ("equal installation id, nothing else", same_id, {AB}, "both roots have installation"),
@@ -2113,7 +2107,6 @@ class ProvenanceTests(MigrationCase):
     def test_a_refused_input_skips_only_the_checks_that_need_it(self):
         def same_environment_and_missing_realpath_elsewhere(c):
             toml_set(inventory_file(c, "b", J10), ("active_project",), toml_load(inventory_file(c, "a", J10))["active_project"])
-            follow_environment(c, "b", J10)
             toml_del(inventory_file(c, "b", J13), ("depot_realpath",))
 
         def same_checkout_without_identity(c):
@@ -3214,15 +3207,35 @@ def real_identity(role):
             for key in ("proximalsolvers", "proximalbase")}
 
 
+def real_manifest(role, mm):
+    """The archived Manifest of the root, parsed as the comparator parses it (the frozen environment files of the
+    campaign; the real runs copy these into their roots)."""
+    path = CD_DIR / "freeze" / ("stack-a" if role == "ab-a" else "stack-b") / f"julia-{mm}" / "Manifest.toml"
+    parsed, problems = MC.parse_manifest(toml_load(path))
+    assert not problems, problems
+    return parsed
+
+
 def real_inventory(meta):
     """What the environment inventory of the root records of the two locations that the metadata also names."""
     return {"proximalbase_dir": meta["proximalbase_path"],
             "active_project": posixpath.dirname(meta["active_manifest"]) + "/Project.toml"}
 
 
+def real_stage2a_files():
+    """The metadata of the Stage 2A campaign (the original harness b7bf3d95, which writes validate.py's keys only),
+    from the released asset bench-pre06-v1, copied verbatim: (stratum, kind, path)."""
+    return [(mm, kind, next((REAL_METADATA / "stage2a" / f"julia-{mm}").glob(f"julia-*-rep01-{name}.toml")))
+            for mm in (J10, J13) for kind, name in (("final", "metadata"), ("start", "metadata-start"))]
+
+
 class HarnessMetadataTests(MigrationCase):
     """The eleven keys that the harness writes next to validate.py's keys: the exact key set, their types and
-    values, and their consistency with the identity of the root, between the repetitions and between the roots."""
+    values, and their consistency with the identity of the root, between the repetitions and between the roots.
+    The campaigns built here carry the metadata of the successor harness (see `base`)."""
+
+    def fresh(self, variant="migration", aa=False, successor=True):
+        return super().fresh(variant, aa, successor)
 
     def check_real(self, role, mm, kind, edit=None):
         meta = dict(real_meta(role, mm, kind))
@@ -3232,8 +3245,8 @@ class HarnessMetadataTests(MigrationCase):
         ref = []
         MC.check_harness_values(typed, "real", role, ref)
         problems = []
-        MC.check_harness_identity(typed, real_identity(role), real_inventory(real_meta(role, mm, kind)), "real",
-                                  lambda field, detail: problems.append((field, detail)))
+        MC.check_harness_identity(typed, real_identity(role), real_inventory(real_meta(role, mm, kind)),
+                                  real_manifest(role, mm), "real", lambda field, detail: problems.append((field, detail)))
         return meta, wrong, [r[1:3] for r in ref], problems
 
     # ---- the real files are accepted --------------------------------------------------------------------
@@ -3250,14 +3263,17 @@ class HarnessMetadataTests(MigrationCase):
         for role, mm, kind, path in real_files():
             with self.subTest(role=role, stratum=mm, kind=kind):
                 meta = toml_load(path)
-                keys = MC.META_FINAL if kind == "final" else MC.META_START
+                keys = MC.meta_key_set(meta["harness_hash"], kind == "final")
                 self.assertEqual(MC.key_set_problem(meta, keys), ([], []))
                 self.assertTrue(set(HARNESS_KEYS) <= set(meta))
 
     def test_the_new_keys_are_exactly_the_eleven_of_attempt_1(self):
         self.assertEqual(MC.HARNESS_KEYS, HARNESS_KEYS)
-        self.assertEqual(set(MC.META_START), set(F.validate.START_KEYS) | {"case_filter"} | set(HARNESS_KEYS))
-        self.assertEqual(set(MC.META_FINAL), set(MC.META_START) | set(F.validate.FINAL_KEYS))
+        successor = MC.HARNESS_SUCCESSOR
+        self.assertEqual(set(MC.meta_key_set(successor, False)),
+                         set(F.validate.START_KEYS) | {"case_filter"} | set(HARNESS_KEYS))
+        self.assertEqual(set(MC.meta_key_set(successor, True)),
+                         set(MC.meta_key_set(successor, False)) | set(F.validate.FINAL_KEYS))
 
     def test_types_values_and_identity_accept_every_real_file(self):
         for role, mm, kind, _ in real_files():
@@ -3283,23 +3299,26 @@ class HarnessMetadataTests(MigrationCase):
     # ---- the key set is exact -----------------------------------------------------------------------------
 
     def test_one_extra_key_is_refused_at_the_key_set(self):
-        for kind, keys in (("final", MC.META_FINAL), ("start", MC.META_START)):
+        for kind in ("final", "start"):
             meta = dict(real_meta("ab-b", J13, kind), surprise="x")
+            keys = MC.meta_key_set(meta["harness_hash"], kind == "final")
             self.assertEqual(MC.key_set_problem(meta, keys), ([], ["surprise"]))
 
     def test_each_new_key_removed_is_refused_at_the_key_set(self):
         for key in HARNESS_KEYS:
-            for kind, keys in (("final", MC.META_FINAL), ("start", MC.META_START)):
+            for kind in ("final", "start"):
                 with self.subTest(key=key, kind=kind):
                     meta = dict(real_meta("ab-a", J10, kind))
+                    keys = MC.meta_key_set(meta["harness_hash"], kind == "final")
                     del meta[key]
                     self.assertEqual(MC.key_set_problem(meta, keys), ([key], []))
 
     def test_an_old_key_removed_is_refused_at_the_key_set(self):
         for key in ("job_id", "harness_hash", "proximalbase_hash"):
-            for kind, keys in (("final", MC.META_FINAL), ("start", MC.META_START)):
+            for kind in ("final", "start"):
                 with self.subTest(key=key, kind=kind):
                     meta = dict(real_meta("ab-a", J10, kind))
+                    keys = MC.meta_key_set(meta["harness_hash"], kind == "final")
                     del meta[key]
                     self.assertEqual(MC.key_set_problem(meta, keys), ([key], []))
 
@@ -3377,7 +3396,7 @@ class HarnessMetadataTests(MigrationCase):
                 meta = real_meta(role, J10, "final")
                 typed, _ = MC.typed_meta(meta)
                 problems = []
-                MC.check_harness_identity(typed, real_identity(other), real_inventory(meta), "real",
+                MC.check_harness_identity(typed, real_identity(other), real_inventory(meta), real_manifest(role, J10), "real",
                                           lambda field, detail: problems.append(detail))
                 keys = {key for key in HARNESS_KEYS if any(f" {key} " in p for p in problems)}
                 self.assertLessEqual({"proximalbase_tree_sha1", "proximalbase_source"}, keys)
@@ -3410,12 +3429,29 @@ class HarnessMetadataTests(MigrationCase):
                 self.assertEqual([f for f, _ in problems], ["loaded_tree"])
                 self.assertIn(f" {key} ", problems[0][1])
 
-    def test_matching_expected_revisions_are_accepted(self):
-        for role, ident in (("ab-a", real_identity("ab-a")), ("ab-b", real_identity("ab-b"))):
+    def test_matching_expected_revisions_are_accepted_where_the_harness_can_have_them(self):
+        # run.jl:121 (9f86a808): a non-empty PS_EXPECTED_PROXIMALBASE_REV needs a git source, so a registered
+        # ProximalBase (Stack A) has none; the expected package revision is possible for both.
+        for role in ("ab-a", "ab-b"):
+            ident = real_identity(role)
             _, _, shape, problems = self.check_real(role, J10, "final", lambda m: m.update(
-                expected_package_revision=ident["proximalsolvers"]["commit"],
-                expected_proximalbase_rev=ident["proximalbase"]["commit"]))
-            self.assertEqual((shape, problems), ([], []))
+                expected_package_revision=ident["proximalsolvers"]["commit"]))
+            self.assertEqual((shape, problems), ([], []), role)
+        ident = real_identity("ab-b")
+        _, _, shape, problems = self.check_real("ab-b", J10, "final", lambda m: m.update(
+            expected_proximalbase_rev=ident["proximalbase"]["commit"]))
+        self.assertEqual((shape, problems), ([], []))
+
+    def test_a_registered_source_with_an_expected_proximalbase_revision_is_refused(self):
+        commit = real_identity("ab-a")["proximalbase"]["commit"]
+        _, wrong, shape, problems = self.check_real("ab-a", J10, "final", lambda m: m.update(
+            expected_proximalbase_rev=commit))
+        self.assertEqual((wrong, shape, [f for f, _ in problems]), ([], [], ["loaded_tree"]))
+        self.assertIn(" expected_proximalbase_rev ", problems[0][1])
+        c = self.fresh()
+        c.set_meta("a", "expected_proximalbase_rev", c.stack("a")["pb"]["commit"])
+        result = self.refused(c.run(), "STACK", fields=[("STACK", "a:loaded_tree")])
+        self.assertTrue(any(" expected_proximalbase_rev " in i["detail"] for i in result.refusals), result.stderr)
 
     def test_in_a_campaign_stack_b_with_the_revision_of_stack_a_is_a_stack_refusal(self):
         for key, value_of in (("proximalbase_rev", lambda c: ""), ("proximalbase_rev", lambda c: c.stack("a")["pb"]["commit"]),
@@ -3492,11 +3528,162 @@ class HarnessMetadataTests(MigrationCase):
                 result = self.refused(c.run(), "STACK", fields=[("STACK", "all:mixed")])
                 self.assertTrue(any(f"{key} differs between roots" in i["detail"] for i in result.refusals))
 
-    def test_roots_with_different_harness_hashes_are_not_compared_on_capabilities(self):
-        c = self.fresh()                # the migration variant: another harness hash for Stack B (a declared change)
-        c.set_meta("b", "capabilities", "cd,pg")
-        result = c.run()
-        self.assertNotIn("all:mixed", result.stderr)
+    # ---- the schema follows the harness (finding 3) ------------------------------------------------------------
+
+    def test_the_real_stage2a_metadata_has_exactly_the_original_key_set(self):
+        files = real_stage2a_files()
+        self.assertEqual(len(files), 4)
+        for mm, kind, path in files:
+            with self.subTest(stratum=mm, kind=kind):
+                meta = toml_load(path)
+                self.assertEqual(meta["harness_hash"], "b7bf3d953ec6e9f9720e74d7895b5cf95a629fd4")
+                self.assertFalse(set(HARNESS_KEYS) & set(meta))
+                keys = MC.meta_key_set(meta["harness_hash"], kind == "final")
+                self.assertEqual(MC.key_set_problem(meta, keys), ([], []))
+                self.assertEqual(set(keys), set(MC.META_FINAL if kind == "final" else MC.META_START))
+                typed, wrong = MC.typed_meta(meta)
+                self.assertEqual(wrong, [])
+
+    def test_only_the_successor_harness_is_known_to_write_the_eleven_keys(self):
+        self.assertEqual(set(MC.TRUSTED_HARNESS), {"164fab53cac906e52e5a75e8b93658c1d174c14e"})
+        for harness in ("b7bf3d953ec6e9f9720e74d7895b5cf95a629fd4", "", None, 5):
+            self.assertEqual(MC.harness_keys(harness), ())
+            self.assertEqual(MC.meta_key_set(harness, True), MC.META_FINAL)
+        self.assertEqual(MC.harness_keys(MC.HARNESS_SUCCESSOR), HARNESS_KEYS)
+
+    def test_the_real_stage2a_metadata_is_refused_as_successor_metadata_and_conversely(self):
+        for mm, kind, path in real_stage2a_files():
+            meta = dict(toml_load(path))
+            keys = MC.meta_key_set(MC.HARNESS_SUCCESSOR, kind == "final")
+            self.assertEqual(MC.key_set_problem(meta, keys), (sorted(HARNESS_KEYS), []))
+        for role, mm, kind, path in real_files():
+            meta = toml_load(path)
+            legacy = MC.META_FINAL if kind == "final" else MC.META_START
+            self.assertEqual(MC.key_set_problem(meta, legacy), ([], sorted(HARNESS_KEYS)))
+
+    def test_a_campaign_of_the_original_harness_keeps_its_exact_key_set(self):
+        c = self.fresh(successor=False)
+        self.assertEqual(toml_load(c.record("a", J10, 1, "metadata")).keys() & set(HARNESS_KEYS), set())
+        self.accepted(c.run())
+        for label in ("a", "b"):
+            for key in ("proximalbase_rev", "capabilities"):
+                c = self.fresh(successor=False)
+                c.set_meta(label, key, "", jkeys=[J10], reps=[1])
+                result = self.refused(c.run(), "SCHEMA", fields=[("SCHEMA", f"{label}:metadata_keys")])
+                self.assertTrue(any(f"unknown ['{key}']" in i["detail"] for i in result.refusals), result.stderr)
+
+    def test_a_campaign_of_the_successor_harness_without_the_keys_is_refused(self):
+        c = self.fresh()
+        for label in ("a", "b"):
+            for key in HARNESS_KEYS:
+                c.del_meta(label, key)
+        result = self.refused(c.run(), "SCHEMA", fields=[("SCHEMA", "a:metadata_keys"), ("SCHEMA", "b:metadata_keys")])
+        self.assertTrue(any(f"missing {sorted(HARNESS_KEYS)}" in i["detail"] for i in result.refusals))
+
+    # ---- the inventory and the Manifest (findings 5 and 6) ----------------------------------------------------
+
+    def test_a_successor_inventory_without_proximalbase_dir_is_a_schema_refusal(self):
+        c = self.fresh()
+        for jkey in c.jkeys:
+            toml_del(c.stratum("a", jkey) / "environment-inventory.toml", ("proximalbase_dir",))
+        c.set_meta("a", "proximalbase_path", "/elsewhere/ProximalBase/wrong")
+        result = self.refused(c.run(), "SCHEMA", fields=[("SCHEMA", "a:files")])
+        self.assertTrue(any("inventory proximalbase_dir is missing" in i["detail"] for i in result.refusals))
+
+    def test_an_inventory_proximalbase_dir_of_the_wrong_type_or_shape_is_a_schema_refusal(self):
+        for value in (5, "", "relative/dir", "/a/../b", "/a/b/"):
+            with self.subTest(value=value):
+                c = self.fresh()
+                edit_inventory("b", ("proximalbase_dir",), value)(c)
+                self.refused(c.run(), "SCHEMA", fields=[("SCHEMA", "b:files")])
+
+    def test_proximalbase_path_is_compared_with_the_inventory(self):
+        c = self.fresh()
+        c.set_meta("a", "proximalbase_path", "/elsewhere/ProximalBase/wrong")
+        result = self.refused(c.run(), "STACK", fields=[("STACK", "a:loaded_tree")])
+        self.assertTrue(any("differs from inventory proximalbase_dir" in i["detail"] for i in result.refusals))
+
+    def test_a_manifest_name_other_than_manifest_toml_is_refused(self):
+        for leaf in ("Manifest-v99.99.toml", "Manifest-v1.10.toml", "manifest.toml", "Other.toml"):
+            with self.subTest(leaf=leaf):
+                _, wrong, shape, problems = self.check_real("ab-a", J10, "final", lambda m: m.update(
+                    active_manifest=posixpath.dirname(m["active_manifest"]) + "/" + leaf))
+                self.assertEqual((wrong, shape, [f for f, _ in problems]), ([], [], ["loaded_tree"]))
+                c = self.fresh()
+                folder = posixpath.dirname(toml_load(c.record("a", J10, 1, "metadata"))["active_manifest"])
+                c.set_meta("a", "active_manifest", folder + "/" + leaf, jkeys=[J10])
+                result = self.refused(c.run(), "STACK", fields=[("STACK", "a:loaded_tree")])
+                self.assertTrue(any(" active_manifest " in i["detail"] for i in result.refusals), result.stderr)
+
+    # ---- the constants of the harness (finding 7) ----------------------------------------------------------------
+
+    def test_the_trusted_constants_reproduce_the_real_values(self):
+        trusted = MC.TRUSTED_HARNESS[MC.HARNESS_SUCCESSOR]
+        for role, mm, kind, path in real_files():
+            meta = toml_load(path)
+            self.assertEqual(meta["capabilities"], trusted["capabilities"])
+            self.assertEqual(meta["deferred_cases"], MC.trusted_deferred(meta["harness_hash"], meta["suite"],
+                                                                         meta["groups"]))
+        self.assertEqual(MC.trusted_deferred(MC.HARNESS_SUCCESSOR, "extended", "cd"), 29)
+        # the groups of a run add (the evidence of #307 at this harness: groups cd,gradient, extended, 53 deferred)
+        self.assertEqual(MC.trusted_deferred(MC.HARNESS_SUCCESSOR, "extended", "cd,gradient"), 53)
+        self.assertEqual(sum(trusted["deferred"]["quick"].values()), 58)
+        self.assertEqual(sum(trusted["deferred"]["extended"].values()), 100)
+        for args in (("extended", "nothing"), ("other", "cd"), ("extended", ""), ("extended", "cd,cd"),
+                     ("extended", None), (None, "cd")):
+            self.assertIsNone(MC.trusted_deferred(MC.HARNESS_SUCCESSOR, *args), args)
+        self.assertIsNone(MC.trusted_deferred("b7bf3d953ec6e9f9720e74d7895b5cf95a629fd4", "extended", "cd"))
+
+    def test_constants_that_every_root_changes_consistently_are_refused(self):
+        for key, value in (("capabilities", "made-up"), ("capabilities", "cd"), ("deferred_cases", 987654),
+                           ("deferred_cases", 0)):
+            with self.subTest(key=key, value=value):
+                c = self.fresh(aa=True)
+                for label in ("a", "b", "aa_a", "aa_b"):
+                    c.set_meta(label, key, value)
+                result = self.refused(c.run(aa=True), "STACK", fields=[("STACK", "a:harness_constants"),
+                                                                       ("STACK", "b:harness_constants")])
+                self.assertFalse(result.has("STACK", "all:mixed"), "the roots agree: only the trusted value refuses")
+                self.assertTrue(any(f"{key} " in i["detail"] and "fixes" in i["detail"] for i in result.refusals))
+
+    def test_the_real_files_with_false_constants_are_refused_by_the_trusted_values(self):
+        for key, value in (("capabilities", "made-up"), ("deferred_cases", 987654)):
+            c = self.fresh()
+            for label in ("a", "b"):
+                c.set_meta(label, key, value)
+            self.refused(c.run(), "STACK", fields=[("STACK", "a:harness_constants")])
+
+    def test_a_suite_or_groups_without_a_trusted_count_is_refused(self):
+        c = self.fresh()
+        for label in ("a", "b"):
+            c.set_meta(label, "groups", "nothing")
+        result = self.refused(c.run())
+        self.assertTrue(any("no trusted deferred_cases" in i["detail"] for i in result.refusals), result.stderr)
+
+    # ---- the development source URL (finding 8) ------------------------------------------------------------------
+
+    def test_a_malformed_development_url_is_refused_by_the_comparator(self):
+        for value in ("not a URL", "github.com/mlakolar/ProximalBase.jl", "https://", "ftp://github.com/x/y",
+                      "https://github.com", "https://github.com/a b"):
+            with self.subTest(value=value):
+                _, wrong, shape, _ = self.check_real("ab-b", J10, "final", lambda m: m.update(proximalbase_url=value))
+                self.assertEqual((wrong, shape), ([], [("SCHEMA", "ab-b:records")]))
+                c = self.fresh()
+                c.set_meta("b", "proximalbase_url", value)
+                result = self.refused(c.run(), "SCHEMA", fields=[("SCHEMA", "b:records")])
+                self.assertTrue(any("is not a URL" in i["detail"] for i in result.refusals), result.stderr)
+
+    def test_the_development_url_and_revision_are_bound_to_the_manifest_entry(self):
+        for key, value in (("proximalbase_url", "https://github.com/someone/ProximalBase.jl"),
+                           ("proximalbase_rev", "2" * 40)):
+            with self.subTest(key=key):
+                _, wrong, shape, problems = self.check_real("ab-b", J10, "final", lambda m: m.update({key: value}))
+                self.assertEqual((wrong, shape, [f for f, _ in problems]), ([], [], ["loaded_tree"]))
+                self.assertIn(f" {key} ", problems[0][1])
+        c = self.fresh()
+        c.set_meta("b", "proximalbase_url", "https://github.com/someone/ProximalBase.jl")
+        result = self.refused(c.run(), "STACK", fields=[("STACK", "b:loaded_tree")])
+        self.assertTrue(any(" proximalbase_url " in i["detail"] for i in result.refusals), result.stderr)
 
     def test_paths_and_urls_in_the_new_keys_do_not_reach_the_outputs(self):
         result = self.accepted(self.c.run())
@@ -3506,8 +3693,8 @@ class HarnessMetadataTests(MigrationCase):
     def test_a_valid_set_with_the_real_key_set_is_accepted(self):
         result = self.accepted(self.fresh().run())
         self.assertEqual(result.code, 0)
-        self.assertEqual(MC.key_set_problem(toml_load(self.c.record("a", J10, 1, "metadata")), MC.META_FINAL),
-                         ([], []))
+        self.assertEqual(MC.key_set_problem(toml_load(self.c.record("a", J10, 1, "metadata")),
+                                            MC.meta_key_set(MC.HARNESS_SUCCESSOR, True)), ([], []))
 
 
 # --------------------------------------------------------------------------------------------------------------

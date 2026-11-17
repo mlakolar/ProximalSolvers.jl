@@ -1380,12 +1380,15 @@ class DeclaredDifferencesTests(unittest.TestCase):
         self.assertIn("differs from the lock", self.refusal(lock))
 
     def test_the_proximalbase_url_of_root_b_is_bound_to_the_lock(self):
-        lock = copy.deepcopy(self.lock)
-        self.assertEqual(lock["stack_b"]["proximalbase"]["source"], "https://github.com/mlakolar/ProximalBase.jl")
-        C.declared_differences(self.base, lock)
-        lock["stack_b"]["proximalbase"]["source"] = "https://github.com/someone/ProximalBase.jl"
-        self.assertIn("metadata proximalbase_url 'https://github.com/mlakolar/ProximalBase.jl' differs from the "
-                      "lock", self.refusal(lock))
+        camp = F.build_campaign(fresh("decl-url"), "migration", harness_keys=True)
+        base = assemble_base(camp, fresh("decl-url-base") / "base", with_raw=True)
+        lock = make_lock(camp)
+        with unittest.mock.patch.dict(mc.TRUSTED_HARNESS, successor_hashes(camp)):
+            self.assertEqual(lock["stack_b"]["proximalbase"]["source"], "https://github.com/mlakolar/ProximalBase.jl")
+            C.declared_differences(base, lock)
+            lock["stack_b"]["proximalbase"]["source"] = "https://github.com/someone/ProximalBase.jl"
+            self.assertIn("metadata proximalbase_url 'https://github.com/mlakolar/ProximalBase.jl' differs from "
+                          "the lock", self.refusal(lock, base))
 
     def test_without_a_lock_any_observed_difference_is_refused_and_none_gives_schema_only(self):
         self.assertIn("lock has no reason", self.refusal(None))
@@ -6245,15 +6248,19 @@ def digests(base):
 _REFUSED = {}
 
 
+def successor_hashes(camp):
+    """The synthetic harness hashes of the roots, taken as the successor harness: {hash: its trusted entry}."""
+    entry = mc.TRUSTED_HARNESS[mc.HARNESS_SUCCESSOR]
+    return {stack["harness"]: entry for stack in camp.model["stacks"].values()}
+
+
 def shared_refused():
-    """The full-shape tree run with the key set of the comparator before the fix (#333): every process runs, the
-    declared differences are refused for exactly the metadata keys of the harness. Built once."""
+    """The full-shape tree with the metadata of the successor harness (#333), run while the comparator does not
+    know that its harness writes the eleven keys (the comparator before the fix): every process runs, the declared
+    differences are refused for exactly those keys. Built once."""
     if not _REFUSED:
-        camp = shared_full()["camp"]
-        start = tuple(F.validate.START_KEYS) + ("case_filter",)
-        with unittest.mock.patch.object(mc, "META_START", start), unittest.mock.patch.object(
-                mc, "META_FINAL", start + tuple(F.validate.FINAL_KEYS)):
-            base, host, code, out, err = run_full(camp, name="refused-keys")
+        camp = F.build_campaign(fresh("refused-camp"), "migration", harness_keys=True)
+        base, host, code, out, err = run_full(camp, name="refused-keys")
         _REFUSED.update(base=base, code=code, err=err, camp=camp)
     return _REFUSED
 
@@ -6267,6 +6274,18 @@ class RecoveryTests(unittest.TestCase):
         for key, value in shared_refused().items():
             setattr(cls, key, value)
         cls.completed = shared_full()["base"]
+
+    def setUp(self):
+        # the comparator knows the synthetic harnesses as the successor, and the freeze commit FREEZE of these
+        # tests holds the tools as they are in the working tree (the real lookup is tested in ToolingTests)
+        patcher = unittest.mock.patch.dict(mc.TRUSTED_HARNESS, successor_hashes(self.camp))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        tools = {key: C.sha256_file(HERE / name) for key, name in C.TOOL_FILES.items()}
+        patcher = unittest.mock.patch.object(C, "tooling_digests", lambda commit, repo=None: (
+            dict(tools) if commit == FREEZE else None))
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def recover(self, base, freeze=FREEZE, config=None, facts=None):
         lock = tomllib.loads((Path(base) / "lock.toml").read_text(encoding="utf-8"))
@@ -6461,6 +6480,89 @@ class RecoveryTests(unittest.TestCase):
             C.write_checksums(base)
         self.assertFailsWith(self.tampered(edit), "completion.json does not carry recovered")
 
+    def stripped(self, base):
+        """The recovered copy without its recovery files and without the `recovered` fields, completion seal and
+        checksums refreshed; completion.json still carries recovery_sha256 (the probe of the review)."""
+        for name in (C.RECOVERY_RECORD, C.STATE_ORIGINAL, C.CHECKSUMS_ORIGINAL):
+            writable(base / name).unlink()
+        for name in ("STATE.json", "completion.json"):
+            path = writable(base / "logs" / name)
+            data = json.loads(path.read_text())
+            del data["recovered"]
+            path.write_text(json.dumps(data, indent=2) + "\n")
+            os.chmod(path, 0o444 if name == "completion.json" else 0o644)
+        refresh_all(base)
+
+    def test_a_recovery_stripped_of_its_records_does_not_verify_as_verified(self):
+        copy_ = self.tampered(self.stripped)
+        completion = json.loads((copy_ / "logs" / "completion.json").read_text())
+        self.assertIn("recovery_sha256", completion)
+        self.assertNotIn("recovered", completion)
+        self.assertFailsWith(copy_, f"{C.RECOVERY_RECORD} is missing")
+        document, status = self.verify(copy_)
+        self.assertNotIn(document["state"], ("verified", "verified_recovered", "verified_recovered_non_ok"))
+
+    def test_any_trace_of_a_recovery_requires_the_recovery_records(self):
+        base, _ = self.recovered()
+        for name, key, value in (("campaign.json", "recovered", True), ("comparator.json", "recovery_sha256", "0" * 64)):
+            with self.subTest(name=name):
+                def edit(copy_, name=name, key=key, value=value):
+                    for item in (C.RECOVERY_RECORD, C.STATE_ORIGINAL, C.CHECKSUMS_ORIGINAL):
+                        writable(copy_ / item).unlink()
+                    for item in ("STATE.json", "completion.json"):
+                        path = writable(copy_ / "logs" / item)
+                        data = json.loads(path.read_text())
+                        data.pop("recovered", None), data.pop("recovery_sha256", None)
+                        path.write_text(json.dumps(data, indent=2) + "\n")
+                        os.chmod(path, 0o444 if item == "completion.json" else 0o644)
+                    path = writable(copy_ / "logs" / name)
+                    data = json.loads(path.read_text())
+                    data[key] = value
+                    path.write_text(json.dumps(data, indent=2) + "\n")
+                    refresh_all(copy_)
+                copy_ = self.tampered(edit)
+                document, status = self.verify(copy_)
+                self.assertEqual((document["state"], status), ("failed", 2), document["problems"][:5])
+                self.assertTrue(any(f"{C.RECOVERY_RECORD} is missing" in p for p in document["problems"]))
+
+    def forged(self, base, **changes):
+        """The recovery record with `changes`, every dependent digest refreshed (completion, seal, checksums)."""
+        record = writable(base / C.RECOVERY_RECORD)
+        data = json.loads(record.read_text())
+        data.update(changes)
+        record.write_text(json.dumps(data, indent=2) + "\n")
+        os.chmod(record, 0o444)
+        completion = writable(base / "logs" / "completion.json")
+        data = json.loads(completion.read_text())
+        data["recovery_sha256"] = C.sha256_file(record)
+        completion.write_text(json.dumps(data, indent=2) + "\n")
+        os.chmod(completion, 0o444)
+        refresh_all(base)
+
+    def test_a_fabricated_tooling_identity_is_refused_although_every_digest_is_refreshed(self):
+        for name, changes, text in (
+                ("both digests and the commit", dict(driver_sha256="2" * 64, comparator_sha256="3" * 64,
+                                                     freeze_sha="1" * 40), "is not a commit of the verifier's checkout"),
+                ("the driver digest", dict(driver_sha256="2" * 64), "driver_sha256"),
+                ("the comparator digest", dict(comparator_sha256="3" * 64), "comparator_sha256"),
+                ("the freeze commit", dict(freeze_sha="1" * 40), "is not a commit of the verifier's checkout")):
+            with self.subTest(name):
+                copy_ = self.tampered(lambda base, changes=changes: self.forged(base, **changes))
+                self.assertFailsWith(copy_, text)
+
+    def test_the_honest_record_survives_the_same_refresh(self):
+        base, _ = self.recovered()
+        copy_ = self.tampered(lambda b: self.forged(b))
+        document, status = self.verify(copy_)
+        self.assertEqual((document["state"], status, document["problems"]), ("verified_recovered", 0, []))
+
+    def test_recover_refuses_when_the_running_tools_are_not_those_of_the_freeze_commit(self):
+        with unittest.mock.patch.object(C, "tooling_digests", lambda commit, repo=None: {
+                "driver_sha256": "4" * 64, "comparator_sha256": C.sha256_file(HERE / "migration_compare.py")}):
+            self.assertRefusedBy(clone(self.base), "driver_sha256")
+        with unittest.mock.patch.object(C, "tooling_digests", lambda commit, repo=None: None):
+            self.assertRefusedBy(clone(self.base), "is not a commit of the verifier's checkout")
+
     def test_a_state_that_does_not_say_recovered_fails(self):
         def edit(base):
             state = writable(base / "logs" / "STATE.json")
@@ -6635,6 +6737,111 @@ class RecoveryTests(unittest.TestCase):
                         ["--config", "l", "--base", "b"]):
             with self.assertRaises(C.UsageError):
                 C.build_parser().parse_args(["recover", *missing])
+
+
+SUCCESSOR_COMMIT = "9f86a808bfac968f5421b9efeb6d0aecd7c1c775"       # the harness of #333 (master after #307)
+SUCCESSOR_HARNESS_HASH = "164fab53cac906e52e5a75e8b93658c1d174c14e"
+
+
+def pinned_source(commit, name):
+    """benchmark/NAME at `commit`, as text from the object store (a missing commit or file raises)."""
+    require_commit(commit)
+    result = subprocess.run(["git", "-C", str(REPO), "cat-file", "blob", f"{commit}:benchmark/{name}"],
+                            capture_output=True, env=history_env())
+    if result.returncode != 0:
+        raise HistoricalSourceError(f"benchmark/{name} is not a file of commit {commit}")
+    return result.stdout.decode("utf-8")
+
+
+def start_metadata_keys(run_jl):
+    """The keys that `start_metadata` of a run.jl writes (the quoted names before `=>`)."""
+    body = run_jl[run_jl.index("function start_metadata"):run_jl.index("function write_metadata")]
+    return set(re.findall(r'"([a-z_0-9]+)"\s*=>', body))
+
+
+class HarnessSchemaTests(unittest.TestCase):
+    """The harness that writes the eleven metadata keys, and the constants it fixes, from the pinned sources (read with
+    git, never from the working tree; a missing commit fails, it is not skipped)."""
+
+    def test_the_successor_harness_hash_is_that_of_the_pinned_files(self):
+        verify_historical_harness(SUCCESSOR_COMMIT, SUCCESSOR_HARNESS_HASH)
+        self.assertEqual(mc.HARNESS_SUCCESSOR, SUCCESSOR_HARNESS_HASH)
+        self.assertEqual(set(mc.TRUSTED_HARNESS), {SUCCESSOR_HARNESS_HASH})
+        self.assertEqual(mc.load_schedule(HERE.parent / "stage2b-cd" / "schedule.toml")["stack_a"]["harness_hash"],
+                         SUCCESSOR_HARNESS_HASH)
+
+    def test_the_original_harnesses_hash_as_recorded_and_are_not_trusted_to_write_the_keys(self):
+        verify_historical_harness(STAGE2B_HARNESS_COMMIT, STAGE2B_HARNESS_HASH)
+        verify_historical_harness(STACK_A_COMMIT, STACK_A_HARNESS_HASH)
+        for harness in (STAGE2B_HARNESS_HASH, STACK_A_HARNESS_HASH):
+            self.assertEqual(mc.harness_keys(harness), ())
+
+    def test_only_the_successor_harness_source_writes_the_eleven_keys(self):
+        legacy = set(mc.META_START) - {"case_filter"} | {"case_filter"}
+        for commit in (STAGE2B_HARNESS_COMMIT, STACK_A_COMMIT):
+            self.assertEqual(start_metadata_keys(pinned_source(commit, "run.jl")), legacy, commit)
+        self.assertEqual(start_metadata_keys(pinned_source(SUCCESSOR_COMMIT, "run.jl")),
+                         legacy | set(mc.HARNESS_KEYS))
+
+    def test_the_trusted_capabilities_are_those_of_the_pinned_cases(self):
+        source = pinned_source(SUCCESSOR_COMMIT, "cases.jl")
+        block = source[source.index("const CAPABILITIES = Set(["):]
+        block = block[:block.index("])")]
+        lines = [line.split("#")[0] for line in block.splitlines()[1:]]
+        derived = ",".join(sorted(re.findall(r'"([^"]+)"', "\n".join(lines))))
+        self.assertEqual(derived, mc.TRUSTED_HARNESS[SUCCESSOR_HARNESS_HASH]["capabilities"])
+        self.assertIn('join(sort!(collect(CAPABILITIES)), \',\')', pinned_source(SUCCESSOR_COMMIT, "run.jl"))
+
+    def test_the_deferred_counts_are_the_documented_derivation(self):
+        # derive_harness_constants.jl (next to the lock) loads the pinned cases.jl and prints, per suite and group,
+        # length(build_catalog(suite, groups; deferred = true)); run.jl:233 records that number as deferred_cases.
+        script = (HERE.parent / "stage2b-cd" / "derive_harness_constants.jl").read_text(encoding="utf-8")
+        self.assertIn("build_catalog(suite, [group]; deferred = true)", script)
+        self.assertIn("deferred_cases\" => length(build_catalog(s.suite, s.groups; deferred = true))",
+                      pinned_source(SUCCESSOR_COMMIT, "run.jl").replace("\n   ", " ").replace("  ", " "))
+        deferred = mc.TRUSTED_HARNESS[SUCCESSOR_HARNESS_HASH]["deferred"]
+        self.assertEqual((sum(deferred["quick"].values()), sum(deferred["extended"].values())), (58, 100))
+        self.assertEqual(set(deferred["quick"]), set(deferred["extended"]))
+
+
+class ToolingTests(unittest.TestCase):
+    """The lookup of the committed tools at a freeze commit, against a scratch repository."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.repo = fresh("tooling-repo")
+        git_run(cls.repo, "init", "-q")
+        git_run(cls.repo, "config", "user.email", "t@example.org")
+        git_run(cls.repo, "config", "user.name", "t")
+        directory = cls.repo / HERE.relative_to(REPO)
+        directory.mkdir(parents=True)
+        cls.contents = {"stage2b_campaign.py": b"driver\n", "migration_compare.py": b"comparator\n"}
+        for name, data in cls.contents.items():
+            (directory / name).write_bytes(data)
+        git_run(cls.repo, "add", "-A")
+        git_run(cls.repo, "commit", "-q", "-m", "tools")
+        cls.commit = git_run(cls.repo, "rev-parse", "HEAD").strip()
+        cls.tree = git_run(cls.repo, "rev-parse", "HEAD^{tree}").strip()
+
+    def test_the_digests_are_those_of_the_blobs_at_the_commit(self):
+        found = C.tooling_digests(self.commit, self.repo)
+        self.assertEqual(found, {"driver_sha256": C.sha256_bytes(b"driver\n"),
+                                 "comparator_sha256": C.sha256_bytes(b"comparator\n")})
+
+    def test_an_unknown_commit_a_tree_a_short_name_or_a_branch_is_not_a_freeze_commit(self):
+        for value in ("1" * 40, self.tree, self.commit[:12], "master", "HEAD", "", None):
+            self.assertIsNone(C.tooling_digests(value, self.repo), value)
+
+    def test_a_commit_without_the_tools_is_not_a_freeze_commit(self):
+        empty_tree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"       # git's well-known empty tree
+        empty = git_run(self.repo, "commit-tree", empty_tree, "-m", "empty")
+        self.assertIsNone(C.tooling_digests(empty, self.repo))
+
+    def test_this_checkout_resolves_its_own_head_with_the_committed_tools(self):
+        head = git_run(REPO, "rev-parse", "HEAD").strip()
+        found = C.tooling_digests(head)
+        self.assertEqual(set(found), set(C.TOOL_FILES))
+        self.assertTrue(all(re.fullmatch("[0-9a-f]{64}", v) for v in found.values()))
 
 
 class LayoutTests(unittest.TestCase):

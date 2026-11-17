@@ -36,7 +36,8 @@ Discovery EPYC 7513 on an exclusive node, the Stage 2A sampling settings.
 | `case-mapping.toml` | the 21 class A rows, approved by the ruling |
 | `lock.toml` | the Stack B candidate: commits, trees, package hashes, the per-stratum environment files and their SHA-256, the declared differences, the approvals |
 | `freeze/stack-{a,b}/julia-{1.10,1.13}/` | the environment files (`Project.toml`, `Manifest.toml`) of both stacks, with the ProximalSolvers path relative to the base layout; `SHA256SUMS` lists them. The driver uses the Stack B files through the lock; the Stack A files are what the driver derives from the Stage 2A archive, recorded here for provenance |
-| `real-metadata/` | the harness-written metadata of the nonofficial smoke run (#330), copied verbatim: `ab-a` and `ab-b`, both strata, start and final. The fixtures of the comparator tests for the eleven metadata keys that the first official attempt was refused for (#333) |
+| `real-metadata/` | harness-written metadata, copied verbatim: `ab-a` and `ab-b` of the nonofficial smoke run (#330), both strata, start and final, and `stage2a/` of the released Stage 2A asset (the original harness). The fixtures of the comparator tests for the eleven metadata keys that the first official attempt was refused for (#333) |
+| `derive_harness_constants.jl` | derives `capabilities` and the deferred-case counts that the comparator binds those metadata keys to, from the pinned `benchmark/` files of `9f86a808` |
 | `test_stage2b_cd_files.py` | consistency, identity and unchanged-file tests |
 
 Use it with the existing driver:
@@ -67,19 +68,32 @@ Stage 2B campaign (whose P01 sets `gaptol`) is checked as before. The comparator
 
 ## Metadata keys of the harness (#333)
 
-The harness at `9f86a808` writes eleven metadata keys beyond those of `benchmark/validate.py`, which `validate.py` tolerates.
-The first official attempt was refused for exactly these, after all 64 processes had run: `migration_compare.py` now lists them
-(`HARNESS_KEYS`; the key set stays exact, and `MIGRATION_COMPARE_SPEC.md` is unchanged) and checks them as follows, each
-violation a `STACK` refusal unless noted. `proximalbase_tree_sha1` equals the identity file's tree. A registered ProximalBase
-(Stack A) has source `registry` and an empty `proximalbase_rev`, `proximalbase_url` and `required_proximalbase_rev`; a development
-one (Stack B) has source `git`, a URL equal to the lock's `[stack_b.proximalbase].source` (checked by the driver), and the identity
-commit as `proximalbase_rev` and as `required_proximalbase_rev` (the pin of the ProximalSolvers checkout). `expected_package_revision`
-and `expected_proximalbase_rev` (set only by an environment variable that the driver does not set) are empty or the identity commit.
-`proximalbase_path` equals `proximalbase_dir` of the inventory and `active_manifest` is a Manifest in the inventory's environment
-directory (per installation and stratum: they differ between roots, not between repetitions). `capabilities` and `deferred_cases`
-are functions of the harness: equal in every repetition, stratum and root with one harness hash. Types and shapes are `SCHEMA`
-refusals; start and final metadata must agree. `real-metadata/` holds the real files these rules were written against.
-`recover` (`../stage2b/README.md`) finishes a refused attempt of this kind on a copy.
+The harness at `9f86a808` (harness hash `164fab53...`) writes eleven metadata keys beyond those of `benchmark/validate.py`,
+which `validate.py` tolerates. The first official attempt was refused for exactly these, after all 64 processes had run.
+`migration_compare.py` selects the exact key set from the harness hash of the record: the original Stage 2B harnesses
+(412063d8, b0de3f7) keep the exact set of `START_KEYS`, `FINAL_KEYS` and `case_filter`; the successor harness has those plus
+exactly the eleven (`HARNESS_KEYS`, `TRUSTED_HARNESS`; the frozen `MIGRATION_COMPARE_SPEC.md` is not edited). Each violation
+below is a `STACK` refusal unless noted.
+
+- `proximalbase_tree_sha1` equals the identity file's tree. A registered ProximalBase (Stack A) has source `registry` and an
+  empty `proximalbase_rev`, `proximalbase_url`, `required_proximalbase_rev` and `expected_proximalbase_rev` (run.jl:121: a
+  non-empty expectation needs a git source). A development one (Stack B) has source `git`, a syntactically valid URL (`SCHEMA`
+  otherwise) equal to the Manifest entry's `repo-url` and to the lock's `[stack_b.proximalbase].source` (checked by the driver),
+  and the identity commit as `proximalbase_rev` (equal to the Manifest's `repo-rev`) and `required_proximalbase_rev` (the pin of
+  the ProximalSolvers checkout); its `expected_proximalbase_rev` is empty or that commit. `expected_package_revision` (set only
+  by an environment variable the driver does not set) is empty or the ProximalSolvers identity commit.
+- The inventory of every stratum must carry a normalized absolute `proximalbase_dir` (`SCHEMA` otherwise), and
+  `proximalbase_path` equals it. `active_manifest` is the `Manifest.toml` next to the inventory's active project. Both are
+  per installation and stratum: they differ between roots and strata, not between repetitions.
+- `capabilities` and `deferred_cases` are fixed by the harness, not by any record: they equal the values of `TRUSTED_HARNESS`
+  for the harness hash (and for `deferred_cases` the suite and groups), which `derive_harness_constants.jl` derives from the
+  pinned `cases.jl` (the table: capabilities as `run.jl:232` joins them; deferred counts per group, which add). Roots with one
+  harness hash also record one value (`all:mixed`).
+- Types and shapes are `SCHEMA` refusals; start and final metadata agree.
+
+`real-metadata/` holds real files these rules were written against: `ab-a` and `ab-b` from the nonofficial smoke run
+(successor harness) and `stage2a/` from the released Stage 2A asset (the original harness). `recover` (`../stage2b/README.md`)
+finishes a refused attempt of this kind on a copy.
 
 ## Notes for readers
 
