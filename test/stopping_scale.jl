@@ -302,4 +302,38 @@ alloc_check(state, f, g, options) = @allocated PS._stationary!(state, f, g, opti
   end
 end
 
+# The residual of the check is ProximalBase's kkt_violation(NormL1(λ0), ∇f(x), x). The reference is a
+# local loop of the documented formula with λ = T(λ0): max(|gᵢ| - λ, 0) where xᵢ = 0 and
+# |gᵢ + λ sign xᵢ| elsewhere, started at 0.
+function reference_residual(grad::Vector{T}, x::Vector{T}, λ0) where T
+  λ = T(λ0)
+  m = zero(T)
+  for i in eachindex(grad, x)
+    r = iszero(x[i]) ? max(abs(grad[i]) - λ, zero(T)) : abs(grad[i] + λ * sign(x[i]))
+    m = max(m, r)
+  end
+  m
+end
+
+@testset "stationarity residual: ProximalBase kkt_violation" begin
+  rng = Xoshiro(341)
+  for T in (Float32, Float64), λ0 in (0.3, 0.3f0, 2, big"0.3"), n in (0, 1, 16, 17, 300)
+    λ = T(λ0)
+    for rep in 1:4
+      x = T[rand(rng) < 0.4 ? zero(T) : randn(rng, T) for _ in 1:n]
+      for i in eachindex(x)
+        iszero(x[i]) && rand(rng) < 0.3 && (x[i] = -zero(T))
+      end
+      # gradients: exactly at the boundary (±λ at zeros, -λ sign xᵢ at nonzeros) for some entries,
+      # a random value for the others
+      grad = Vector{T}(undef, n)
+      for i in 1:n
+        grad[i] = rand(rng) < 0.5 ? (iszero(x[i]) ? (rand(rng, Bool) ? λ : -λ) : -λ * sign(x[i])) : 2 * randn(rng, T)
+      end
+      # both sides perform the same operations in T, so the results are equal
+      @test kkt_violation(NormL1(λ0), grad, x) === reference_residual(grad, x, λ0)
+    end
+  end
+end
+
 end
