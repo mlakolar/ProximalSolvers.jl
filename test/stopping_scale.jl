@@ -412,7 +412,7 @@ end
   # a UInt128 level that converts to floatmax(Float32); the penalty validation accepts it
   λ0 = typemax(UInt128) - (UInt128(1) << 103)
   @test Float32(λ0) == floatmax(Float32)
-  @test PS._check_penalty(NormL1(λ0), Float32[1], Float32, true) === nothing
+  @test PS._check_penalty(NormL1(λ0), Float32[1], Float32) === nothing
   level_decision(Float32, λ0, Inf32)
 end
 

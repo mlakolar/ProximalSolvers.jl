@@ -62,11 +62,16 @@ certificate (see [the stationarity check](https://mlakolar.github.io/ProximalSol
 [numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/)
 and [solver settings](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/).
 
-PGD and APG also solve the elastic net, with `ElasticNet(λ1, λ2)` as the penalty
-`λ1‖β‖₁ + (λ2/2)‖β‖₂²` (levels `λ1, λ2 ≥ 0`, unweighted); the stopping check then uses the residual of the
-elastic-net optimality condition, with the same bound (`λ2` does not enter it). On a dense `Vector`
-or a one-dimensional `SparseIterate`, `CDSolver` accepts `NormL1` only and refuses an `ElasticNet`;
-support in CD is planned. See
+CD, PGD and APG also solve the elastic net, with `ElasticNet(λ1, λ2)` as the penalty
+`λ1‖β‖₁ + (λ2/2)‖β‖₂²` (levels `λ1, λ2 ≥ 0`, unweighted); for PGD and APG the stopping check then uses the residual of the
+elastic-net optimality condition, with the same bound (`λ2` does not enter it). `CDSolver` works on a dense `Vector` or a
+one-dimensional `SparseIterate`; as for the lasso, its `converged` is the change test, not a KKT certificate. In the
+normal range the coordinate step of a visit is ProximalBase's `prox_block` of the penalty. At a visit to a column with a
+finite positive squared norm whose scaled curvature (the loss scale times that norm) or its reciprocal is below
+`floatmin` of the type that combines the scale with the working type, the step with `λ2 = 0` is the lasso's range-safe
+form (the threshold formed without the product or its reciprocal), and with `λ2 > 0` the visit is refused during the
+pass: the iterate passed to `solve!` is unchanged and a borrowed RNG may have advanced. A visit to a flat column (all
+entries 0) sets its coordinate to 0, at the levels that `solve!` accepts. With `maxpasses = 0` no coordinate is visited. See
 [the elastic-net example](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples/07_elasticnet/).
 
 The supported problem uses a finite dense `Matrix{T}`, finite `Vector{T}`

@@ -321,9 +321,9 @@ group sizes, the layout and `λ`.
 
 `X` must be a finite dense `Matrix{T}`, `y` a finite `Vector{T}`,
 and the coefficients the same type, with `T` equal to Float32 or Float64.
-For a dense `Vector`, and for CD a one-dimensional `SparseIterate`, the penalty is unweighted L1 for
-every solver, and for PGD and APG also an unweighted
-`ElasticNet(lambda1, lambda2)`; `CDSolver` refuses an `ElasticNet`, and support is planned.
+For a dense `Vector`, and for CD a one-dimensional `SparseIterate`, the penalty is an unweighted L1 or an
+unweighted `ElasticNet(lambda1, lambda2)`, for CD, PGD and APG. `CDSolver` stops by its change test for an `ElasticNet` too, not by a KKT check;
+with `lambda2 > 0` it refuses a coordinate step outside the normal range (see the numerical guide).
 The loss is ordinary least squares
 (or a single positive finite scalar multiple of it).
 

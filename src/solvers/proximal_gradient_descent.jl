@@ -257,8 +257,8 @@ The `BlockIterate` form of `CDSolver` minimizes the group lasso with a `GroupNor
 uses same-type `Matrix` X and `Vector` y. The penalty of the gradient methods is an
 unweighted `NormL1(λ)` or an unweighted `ElasticNet(λ1, λ2)` (`λ1 ‖x‖₁ + (λ2/2) ‖x‖²`), whose levels are
 finite and nonnegative and representable in `T` without overflow or underflow; for a dense `Vector` or a
-`SparseIterate`, `CDSolver` accepts an unweighted `NormL1` only and refuses an `ElasticNet` (its support
-is planned); its `BlockIterate` form takes a `GroupNormL2`. Use `(one(T)/T(n))*LeastSquaresLoss` for normalized lasso; raw LS keeps
+`SparseIterate`, `CDSolver` accepts the same two penalties (see [`CDSolver`](@ref)); its `BlockIterate`
+form takes a `GroupNormL2`. Use `(one(T)/T(n))*LeastSquaresLoss` for normalized lasso; raw LS keeps
 its unnormalized meaning. One positive finite scalar LS wrapper is supported. `CDSolver` also accepts
 ProximalBase's `SqrtLeastSquaresLoss(y, X)` with an unweighted `NormL1(λ)`, `λ > 0`, on a dense `Vector`
 or a `SparseIterate` (see [`CDSolver`](@ref)); the gradient methods refuse it.
@@ -313,7 +313,7 @@ advanced. The result's `minimizer` is `x` itself.
 function solve!(x, f, g, method::ProximalGradientDescent,
                 options::ProximalOptions = ProximalOptions(); kwargs...)
   _check_keywords(kwargs)
-  _check_problem(x, f, g, true)
+  _check_problem(x, f, g)
   t0 = time()
   state = initial_state(method, options, f, g, x)
   _solve_gradient!(state, f, g, method, options, t0)

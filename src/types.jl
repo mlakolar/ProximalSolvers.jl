@@ -41,8 +41,8 @@ exit applies. An exact `Xᵀy = 0` need not give a computed `λmax = 0` (roundin
 check then uses the rounded `λmax`. `ElasticNet(λ1, λ2)` on the loss `½α‖Xb - y‖²` is the lasso with level `λ1` on the data
 `X̃ = [√α X; √λ2 I]`, `ỹ = [√α y; 0]`, whose gradient is `∇f(x) + λ2 x` and whose `λmax` is the
 `λmax` above: the check is that of the lasso on those data. For a dense `Vector` or a
-one-dimensional `SparseIterate`, the coordinate descent solver accepts `NormL1` only; an `ElasticNet` is
-refused there, and its support is planned.
+one-dimensional `SparseIterate`, the coordinate descent solver accepts an unweighted `NormL1` or `ElasticNet`;
+it stops by its change test, not by this check (see [`CDSolver`](@ref)).
 A start `x0` with a finite `f(x0)` is accepted even if `g(x0)` overflows in `T` (for example a ridge
 term `(λ2/2)‖x0‖²` above `floatmax(T)`). An error raised in the step of an iteration (its line search, or the
 check that the accepted objective is finite) restores the last accepted iterate and is rethrown, as for `NormL1`. `converged=true` means that a test proposed a stop and that

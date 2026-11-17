@@ -1,11 +1,11 @@
 """
     ProximalSolvers
 
-Least-squares lasso with dense Matrix designs, and least-squares elastic net for
-[`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref) (`CDSolver` refuses an
-`ElasticNet`; support is planned). [`CDSolver`](@ref) also solves the square-root lasso, with
-ProximalBase's `SqrtLeastSquaresLoss` and an unweighted `NormL1`, and reports `converged = true`
-for it only with a duality certificate. [`CDSolver`](@ref) accepts a dense
+Least-squares lasso and elastic net (an unweighted `ElasticNet`) with dense Matrix designs, for
+[`CDSolver`](@ref), [`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref).
+[`CDSolver`](@ref) also solves the square-root lasso, with ProximalBase's `SqrtLeastSquaresLoss` and
+an unweighted `NormL1`, and reports `converged = true` for it only with a duality certificate.
+[`CDSolver`](@ref) accepts a dense
 `Vector` or a one-dimensional `SparseIterate` as the iterate, and, for a group lasso with
 a `GroupNormL2` penalty, a `BlockIterate`. [`ProximalGradientDescent`](@ref) and
 [`AccProxGradDescent`](@ref) accept a dense `Vector` only, all through [`solve!`](@ref).

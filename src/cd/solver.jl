@@ -3,11 +3,24 @@
                momentum=nothing, rng=Random.default_rng(), anderson=0,
                gaptol=0, gapsafe=false)
 
-Coordinate descent for the least-squares lasso and, with ProximalBase's `SqrtLeastSquaresLoss`,
-the square-root lasso (described below). Call
+Coordinate descent for the least-squares lasso and elastic net, and, with ProximalBase's
+`SqrtLeastSquaresLoss`, the square-root lasso (described below). Call
 `solve!(beta, f, g, CDSolver())` with matching `Float32` or `Float64`
 design/response data and coefficients. The coefficient storage can be
-a dense `Vector` or a one-dimensional ProximalBase `SparseIterate`.
+a dense `Vector` or a one-dimensional ProximalBase `SparseIterate`. With the least-squares
+loss, the penalty is an unweighted `NormL1(lambda)` or an unweighted `ElasticNet(lambda1, lambda2)`
+(the square-root lasso, below, takes an unweighted `NormL1` with a positive level);
+for an `ElasticNet` the coordinate step of a visit in the normal range is ProximalBase's
+`prox_block` of the penalty. Let `s` be the loss scale and `a` the squared norm of the
+column, finite and positive. At a visit where `s * a` or its reciprocal is below
+`floatmin` of the type that combines `s` with the working type, the step with
+`lambda2 = 0` is the lasso's range-safe form (the threshold formed without the product
+or its reciprocal), and with `lambda2 > 0` the visit is refused with an `ArgumentError`
+that names the coordinate. The refusal happens during the pass: the iterate passed to
+`solve!` is unchanged, and a borrowed RNG may have advanced. A visit to a flat column
+(all entries 0) sets its coordinate to 0, at the levels that `solve!` accepts, for either
+penalty; a visit to a column that is not flat and whose `a` underflows to 0 is refused
+as for the lasso. With `maxpasses = 0` no coordinate is visited.
 For a group lasso it can be a ProximalBase `BlockIterate`, as described below.
 
 `CDSolver()` uses random coordinate order and the algorithm's default
@@ -36,7 +49,7 @@ point is unchanged. Where the product `s * a` or its reciprocal is outside the
 normal range of the type that combines `s` with the working type, the
 coordinate step forms its threshold `lambda / (s * a)` without them.
 `relative=false` makes the threshold an absolute change threshold;
-`maxpasses` limits the run. For least squares and the group lasso, an end-of-pass
+`maxpasses` limits the run. For least squares (lasso and elastic net) and the group lasso, an end-of-pass
 convergence flag does not guarantee a small KKT residual; for reported fits, check
 optimality independently. Anderson acceleration, a user-set gap target and screening
 are not implemented: `anderson`, `gaptol` and `gapsafe` are accepted only
@@ -160,8 +173,9 @@ Base.summary(::CDSolver) = "Coordinate Descent"
 Result sharing the caller's vector or `SparseIterate` as minimizer, with minimum,
 passes, converged, maxchange and tolerance. The compatibility field `kkt_checks = 0` is a
 sentinel. `gap` is `NaN` except after a certified square-root lasso run (see [`CDSolver`](@ref)),
-where `converged = true` and `gap` is the certified upper bound on `(P - P*)/P*`. For least squares
-and the group lasso, `converged` reports the change test and `gap` is `NaN`.
+where `converged = true` and `gap` is the certified upper bound on `(P - P*)/P*`. For the
+least-squares lasso and elastic net and the group lasso, `converged` reports the change test and
+`gap` is `NaN`.
 """
 struct CDResults{X, T}
   minimizer::X
@@ -516,13 +530,13 @@ end
 function solve!(x, f, g, method::CDSolver; kwargs...)
   _check_keywords(kwargs)
   if x isa SparseIterate
-    _check_owner_problem(x, f, g, false)
+    _check_owner_problem(x, f, g)
     return _solve_owner!(x, f, g, method)
   elseif x isa BlockIterate
     _check_block_problem(x, f, g, method)
     return _solve_owner!(x, f, g, method)
   end
-  _check_problem(x, f, g, false)
+  _check_problem(x, f, g, :cd)
   _solve_dense!(x, f, g, method)
 end
 solve!(x, f, g, method::ProximalSolver, args...; kwargs...) =
