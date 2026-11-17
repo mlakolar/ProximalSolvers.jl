@@ -1207,6 +1207,10 @@ end
       @test m.ℓ[2] == 0                          # flat
       @test m.ℓ[3] > 0                           # singleton, set at preparation
       @test isnan(m.ℓ[1]) && isnan(m.ℓ[4])      # deferred Gram-route groups
+      # At the initial zero iterate, group 3 has exactly zero correlation with either response.
+      # Check exact-zero screening before group 4 changes the residual: rounding in that update
+      # can leave a tiny nonzero correlation even though the design is orthogonal.
+      @test iszero(PS.coordinate_step!(m, g, x, 3))
       # group 4: the screen returns zero only if the correlation is zero or the penalty keeps it at zero
       h4 = PS.coordinate_step!(m, g, x, 4)
       unpenalized = λ == 0 || (w !== nothing && iszero(w[4]))
@@ -1215,8 +1219,7 @@ end
       elseif !nonzero4
         @test iszero(h4) && isnan(m.ℓ[4])        # b = 0 exactly: zero for every penalty
       end
-      # group 3 (a singleton) has correlation exactly 0 and group 2 is flat: no change
-      @test iszero(PS.coordinate_step!(m, g, x, 3))
+      # group 2 is flat: no change
       @test iszero(PS.coordinate_step!(m, g, x, 2)) && m.ℓ[2] == 0
       # group 1 has a nonzero correlation: it steps for a small enough penalty (0.5 < ‖b‖/w)
       @test PS.coordinate_step!(m, g, x, 1) > 0 && isfinite(m.ℓ[1])
