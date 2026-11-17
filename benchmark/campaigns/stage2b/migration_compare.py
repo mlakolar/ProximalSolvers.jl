@@ -462,6 +462,9 @@ def read_stratum(root, mm, info, sched, ref):
         for key in wrong:
             refuse(ref, "SCHEMA", f"{name}:records", f"{name} {where} rep {rep}: metadata {key} has a value of "
                    "the wrong type")
+        for key in typed_meta(start)[1]:
+            refuse(ref, "SCHEMA", f"{name}:records", f"{name} {where} rep {rep}: start metadata {key} has a value "
+                   "of the wrong type")
         st["metas"][rep] = final
         for meta in (final_raw, start):
             if "julia" in meta and meta["julia"] != version:
@@ -724,7 +727,7 @@ def check_harness_identity(meta, ident, inv, man, at, stack):
     if "expected_package_revision" in meta and meta["expected_package_revision"] not in ("", ps["commit"]):
         wrong("expected_package_revision", ps["commit"])
     entries = (man or {}).get("repo", {}).get("ProximalBase")
-    if entries is not None and len(entries) == 1 and not registered:
+    if entries is not None and len(entries) == 1:       # a registered entry has an empty URL and revision
         for key, found in (("proximalbase_url", entries[0][0]), ("proximalbase_rev", entries[0][1])):
             expect(key, found)
     if inv:

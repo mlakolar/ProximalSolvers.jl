@@ -3374,6 +3374,55 @@ class HarnessMetadataTests(MigrationCase):
                 self.assertTrue(any("metadata deferred_cases has a value of the wrong type" in i["detail"]
                                     for i in result.refusals))
 
+    def test_a_start_file_with_a_float_deferred_count_is_refused_for_both_stacks(self):
+        for label in ("a", "b"):
+            with self.subTest(label=label):
+                c = self.fresh()
+                value = float(toml_load(c.record(label, J10, 1, "metadata-start"))["deferred_cases"])
+                c.set_meta(label, "deferred_cases", value, jkeys=[J10], reps=[1], files=("metadata-start",))
+                self.assertEqual(toml_load(c.record(label, J10, 1, "metadata"))["deferred_cases"], int(value))
+                result = self.refused(c.run(), "SCHEMA", fields=[("SCHEMA", f"{label}:records")])
+                self.assertTrue(any("start metadata deferred_cases has a value of the wrong type" in i["detail"]
+                                    for i in result.refusals), result.stderr)
+
+    def test_every_start_key_of_the_wrong_type_is_a_wrong_type_refusal(self):
+        for key in ("julia_threads", "samples_target", "suite", "harness_hash", "proximalsolvers_dirty",
+                    "proximalbase_source"):
+            with self.subTest(key=key):
+                c = self.fresh()
+                c.set_meta("b", key, [1], jkeys=[J13], reps=[2], files=("metadata-start",))
+                result = self.refused(c.run(), "SCHEMA", fields=[("SCHEMA", "b:records")])
+                self.assertTrue(any(f"start metadata {key} has a value of the wrong type" in i["detail"]
+                                    for i in result.refusals), result.stderr)
+
+    def test_a_registered_manifest_entry_with_a_source_contradicts_the_registry_metadata(self):
+        for name, fields in (("url and revision", {"repo-url": "https://github.com/mlakolar/ProximalBase.jl",
+                                                   "__rev__": True}),
+                             ("revision only", {"__rev__": True})):
+            with self.subTest(name):
+                c = self.fresh()
+                for jkey in c.jkeys:
+                    path = c.stratum("a", jkey) / "Manifest.toml"
+                    for key, value in fields.items():
+                        if key == "__rev__":
+                            key, value = "repo-rev", c.stack("a")["pb"]["commit"]
+                        toml_set(path, ("deps", "ProximalBase", 0, key), value)
+                self.assertEqual(toml_load(c.record("a", J10, 1, "metadata"))["proximalbase_source"], "registry")
+                result = self.refused(c.run(), "STACK", fields=[("STACK", "a:loaded_tree")])
+                self.assertTrue(any(" proximalbase_rev " in i["detail"] or " proximalbase_url " in i["detail"]
+                                    for i in result.refusals), result.stderr)
+        _, _, _, problems = self.check_real("ab-a", J10, "final")
+        self.assertEqual(problems, [])
+        man = real_manifest("ab-a", J10)
+        self.assertEqual(man["repo"]["ProximalBase"], [("", "")])
+        man["repo"]["ProximalBase"] = [("https://github.com/mlakolar/ProximalBase.jl", "")]
+        problems = []
+        meta, _ = MC.typed_meta(real_meta("ab-a", J10, "final"))
+        MC.check_harness_identity(meta, real_identity("ab-a"), real_inventory(real_meta("ab-a", J10, "final")), man,
+                                  "real", lambda field, detail: problems.append(detail))
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn(" proximalbase_url ", problems[0])
+
     def test_values_of_the_right_type_but_the_wrong_shape_are_schema_refusals(self):
         bad = {"proximalbase_tree_sha1": ("", "abc", "G" * 40, "A" * 40),
                "proximalbase_rev": ("abc", "G" * 40), "required_proximalbase_rev": ("main",),
