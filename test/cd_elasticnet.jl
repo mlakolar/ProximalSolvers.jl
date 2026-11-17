@@ -18,8 +18,10 @@ module CDElasticNetTests
 # relative to max(λ1, α‖Xᵀy‖∞) were set from the worst values these solves reach: each is at least 150 times
 # that value (the ridge with more columns than rows, which is ill conditioned, takes the factor `slack` = 10;
 # the closed forms of the designs with a diagonal XᵀX are asserted to within 100 eps(T) relative to ‖b‖∞ plus
-# the largest unpenalized coordinate, where the solves reach 1 eps(T)), and each is far below the error of a
-# solve that ignores λ2 or λ1 (10% and more for the levels used).
+# the largest unpenalized coordinate, where the solves reach 1 eps(T)). The bound on the distance is below
+# the difference between the solutions with and without the ridge term for the raw-loss design of seed 11
+# at the levels (f1, c2) = (0.05, 0.02): 1.7% (Float32) and 2.8% (Float64) of ‖b‖∞, in independent
+# BigFloat references that pass the sign and off-support checks; omitting a term that is 0 changes nothing.
 # Bit-for-bit assertions are made where two penalties give the same function, ElasticNet(λ, 0) against
 # NormL1(λ), and where an iterate must be unchanged. The solves use order = :cyclic or a seeded Xoshiro:
 # CD's default RNG is unseeded.
@@ -286,6 +288,25 @@ end
       x = startof(kind, zeros(T, p))
       r = solve_en(X, y, scale, g, x; order, momentum, seed = 7)
       check!(label, X, y, scale, g, x, r, β, T)
+    end
+  end
+end
+
+@testset "a Float64 loss scale on Float32 data: dense and SparseIterate" begin
+  n, p = 40, 10
+  X, y = design(Float32, n, p, 11)
+  scale = 1 / n
+  α = alpha_of(scale)
+  for (f1, c2) in ((0.1, 0.1), (0.0, 0.5), (0.2, 0.0))
+    λ1, λ2 = levels(Float32, X, y, scale, f1, c2)
+    β, ok = reference(X, y, α, λ1, λ2)
+    @test (f1, c2, ok) == (f1, c2, true)
+    ok || continue
+    g = ElasticNet(λ1, λ2)
+    for kind in (:dense, :empty), (order, momentum) in CONFIGS[[1, 3]]
+      x = startof(kind, zeros(Float32, p))
+      r = solve_en(X, y, scale, g, x; order, momentum, seed = 7)
+      check!((:scale64, f1, c2, kind, order, momentum), X, y, scale, g, x, r, β, Float32)
     end
   end
 end

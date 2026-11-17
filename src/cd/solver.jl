@@ -8,11 +8,16 @@ Coordinate descent for the least-squares lasso and elastic net. Call
 design/response data and coefficients. The coefficient storage can be
 a dense `Vector` or a one-dimensional ProximalBase `SparseIterate`. The penalty
 is an unweighted `NormL1(lambda)` or an unweighted `ElasticNet(lambda1, lambda2)`;
-for an `ElasticNet` the coordinate step is ProximalBase's proximal operator of the
-penalty. With `lambda2 > 0`, a coordinate whose `s * a` or its reciprocal is below
-`floatmin` of the type that combines `s` with the working type (`s` the loss scale,
-`a` the squared norm of the column) is refused with an `ArgumentError` that names the
-coordinate; with `lambda2 = 0` the step is the lasso's.
+for an `ElasticNet` the coordinate step in the normal range is ProximalBase's `prox_block`
+of the penalty. Let `s` be the loss scale and `a` the squared norm of the column, finite
+and positive. Where `s * a` or its reciprocal is below `floatmin` of the type that
+combines `s` with the working type, the step with `lambda2 = 0` is the lasso's
+range-safe form (the threshold formed without the product or its reciprocal), and with
+`lambda2 > 0` it is refused with an `ArgumentError` that names the coordinate. The
+refusal happens during the pass: the iterate passed to `solve!` is unchanged, and a
+borrowed RNG may have advanced. A flat column (all entries 0) ends at 0 at the levels that `solve!` accepts for
+either penalty; a column that is not flat and whose `a` underflows to 0 is refused
+as for the lasso.
 For a group lasso it can be a ProximalBase `BlockIterate`, as described below.
 
 `CDSolver()` uses random coordinate order and the algorithm's default

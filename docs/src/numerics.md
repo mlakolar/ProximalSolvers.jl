@@ -20,12 +20,14 @@ code.
   refused with an `ArgumentError`. The coordinate step forms its threshold
   `lambda / (s * a)` without the product or its reciprocal where either is
   outside the normal range, and a column whose squared norm is not finite is
-  refused with an `ArgumentError` that names the curvature. For an `ElasticNet`
-  with `lambda2 > 0`, a coordinate whose `s * a` or its reciprocal is below `floatmin`
-  of the type that combines `s` with the working type is refused with an `ArgumentError`
-  that names the coordinate, during the pass: the iterate passed to `solve!` is
-  unchanged, and a borrowed RNG may have advanced. With `lambda2 = 0` the step is the
-  lasso's. With
+  refused with an `ArgumentError` that names the curvature. For an `ElasticNet`,
+  in the normal range the step is ProximalBase's `prox_block`. For a column with a finite
+  positive `a`, where `s * a` or its reciprocal is below `floatmin` of the type that
+  combines `s` with the working type, the step with `lambda2 = 0` is the lasso's, and with
+  `lambda2 > 0` it is refused with an `ArgumentError` that names the coordinate, during the
+  pass: the iterate passed to `solve!` is unchanged, and a borrowed RNG may have advanced.
+  A flat column (all entries 0) ends at 0 at the levels that `solve!` accepts, and a column that is not flat
+  whose `a` underflows to 0 is refused with an `ArgumentError` about the curvature, as for the lasso. With
   `relative=false`, or with `y = 0`, the coordinate scale is
   not used. If the computed `sqrt(s) * norm(y)`, after
   rounding to the working type, is not a normal floating-point number, the
