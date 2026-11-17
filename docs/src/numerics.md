@@ -581,10 +581,11 @@ and `shrink(c, λ d/√(a (a − λ²)))` otherwise; the step uses the level `T(
 `‖r‖²/16` it forms `d` again as the norm of `r − (b/a) X_k`, because the subtraction loses accuracy there.
 Where `a` is below `n floatmin(T)/eps(T)`, or `‖r‖²` or that recomputed `d²` is below it or not finite (a
 column whose squares can underflow, a residual whose squares underflow or overflow, and `r = 0`), the step
-is formed in `Float64` from the column and the residual scaled by powers of two. Where `d/√(a (a − λ²))` or its product with `λ` is outside the
-normal range of `T`, the threshold is formed in `Float64` without that product. The scaling keeps the
-largest entries in `[1, 2)`; parts below `2^-1074` times the largest entry are lost, which changes `a`, `b`
-and `d` by a relative amount far below the rounding of the step. At every visit, before any of these
+is formed in `Float64` from the column and the residual scaled by powers of two. In that scaling a small
+entry can underflow or lose bits, which changes `√a`, `b/√a` and `d` by absolute amounts of at most
+`3n 2^-1074` times `‖X_k‖` or `‖r‖` (to first order); the error bound of the step, derived in the source, covers this (a
+tiny `d` can become 0). Where `d/√(a (a − λ²))` or its product with `λ` is outside the normal range of
+`T`, the threshold is formed in `Float64` without that product. At every visit, before any of these
 branches, a residual with an entry that is not finite is refused with an `ArgumentError`, and so are a
 column whose squared norm is 0 but which is not zero and a column whose squared norm is not finite; the
 coordinate and the residual are then unchanged.

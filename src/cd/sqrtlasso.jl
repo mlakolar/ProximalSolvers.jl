@@ -136,8 +136,9 @@ end
 # underflow) change s by at most eps(T)²/2 relative.
 @inline _clean_sum(s::T, n::Int) where T = isfinite(s) & (s >= n*(floatmin(T)/eps(T)))
 
-# The coordinate step: the exact minimizer of φ(z) = ‖r_k − X_k z‖₂ + λ|z| over the coordinate, with
-# r_k = r + X_k old the residual without coordinate k (Stage 0 of #332, §2). With a = ‖X_k‖², b = X_kᵀr,
+# The coordinate step: the minimizer of φ(z) = ‖r_k − X_k z‖₂ + λ|z| over the coordinate, computed up to
+# rounding (bounded in the comment of `step_bound` in test/sqrt_lasso.jl), with r_k = r + X_k old the
+# residual without coordinate k (Stage 0 of #332, §2). With a = ‖X_k‖², b = X_kᵀr,
 # the centre c = old + b/a and d = ‖r − (b/a) X_k‖ (the distance of r from the span of X_k),
 # ‖r_k − X_k z‖² = a (z − c)² + d², so the minimizer is 0 for λ ≥ √a and shrink(c, τ) with
 # τ = λ d/√(a (a − λ²)) for λ < √a. The level λ is T(λ0), from `gt`, in the comparison and in the prox.
@@ -225,12 +226,17 @@ end
 # b/a = q̃ 2^(er − ex); d̃² = ‖s‖² − b̃ q̃, formed again as ‖s − q̃ x̃‖² by `_scaled_norm` (which scales by the
 # largest entry of the difference) where it is below ‖s‖²/16, gives d = d̃ 2^er. The step is
 # shrink(c, τ) with c = old + T(q̃ 2^(er − ex)) and τ = (λ̃/√ã)(d̃/√((√ã − λ̃)(√ã + λ̃))) 2^(er − ex), the
-# threshold of the scaled problem, from `_sqrt_band_step`. The scaling keeps the largest entries in
-# [1, 2); an entry below 2^-1074 times the largest one of its vector (x̃, s or the difference) becomes 0
-# or loses bits. The discarded parts change a, b and d by at most a relative √n 2^-1074 of their scales
-# (√a, ‖r‖), far below the rounding allowance of the step (for example, a residual [2^1000, 2^-1000]
-# against the column [1, 0] gives d̃ = 0 for d = 2^-1000, which changes the coordinate objective by at
-# most 2d).
+# threshold of the scaled problem, from `_sqrt_band_step`. The scaling keeps the largest entry of x̃, of s
+# and of the difference in [1, 2). Another entry is scaled exactly unless its scaled value is subnormal in
+# Float64; then it may underflow to 0 or lose bits, an absolute error of at most η/2 in these units
+# (η = 2^-1074). For example, a residual [2^1000, 2^-1000] against the column [1, 0] gives d̃ = 0 for
+# d = 2^-1000, a relative change of 1 in d, while [1.5 2^1000, 2^-74] keeps 2^-74 as η. To first order in
+# η, these errors change √a by at most √n η √a, and b/√a and d by at most 3 n η ‖r‖ (2^ex ≤ √a,
+# 2^er ≤ ‖r‖, ‖x̃‖ ≥ 1 and ‖s‖ < 2√n; d also through the scaling inside `_scaled_norm`): absolute errors
+# at the scales of the column and the residual, not relative to b or d. They are far below the terms
+# u max(‖ρ‖, ‖r‖) of the objective-error bound of the step (the comment of `step_bound` in
+# test/sqrt_lasso.jl), which covers them; for example a d computed as 0 moves the coordinate objective
+# by at most 2d.
 @noinline function _sqrt_offrange_step(m::SqrtLSModel{T}, old::T, k::Int) where T
   ls = m.ls
   X, r, s = ls.X, ls.r, m.res64

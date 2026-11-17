@@ -3,12 +3,15 @@ module SqrtLasso
 # CDSolver(...))` minimizes P(β) = ‖y − Xβ‖₂ + λ‖β‖₁. `converged = true` only where the
 # residual-direction duality certificate proves (P(β) − P*)/P* ≤ 1e-4, and then `gap` is that proved
 # bound; otherwise `converged = false` and `gap` is NaN. Following #305, the tests assert truthful flags
-# and the quality of the objective, not bits: the certified runs of the reference problems (B), the
-# certified points of the adversarial tests (C) and the dominant-coefficient runs are checked against a
-# dual lower bound that the test verifies in BigFloat; accuracy statements are medians with a margin; the
-# per-run hard bound is the 1e-4 contract. The data of the reference problems are small dyadic numbers from a
-# fixed hash (no random-number stream), exact in Float32 and in Float64, so both types solve the same
-# problem. The dual vectors θ* and primal points β* below come from an offline Clarabel solve (the
+# and the quality of the objective, not bits. A dual lower bound that the test verifies in BigFloat
+# checks the certified runs of the reference problems (B), the certified points of the perturbed-optimum,
+# fitted-values, near-λmax and subnormal-coefficient tests of C, the dominant-coefficient runs in their
+# certified branch, and the runs with levels of other types. The rescaling and range cases of C assert
+# the certification decision (and, under rescaling, the ratio), the special cases of C and the analytic
+# cases of A assert their known results, and the stop-check and contract tests assert their own
+# conditions. Accuracy statements are medians with a margin; the per-run hard bound is the 1e-4
+# contract. The data of the reference problems are small dyadic numbers from a fixed hash (no
+# random-number stream), exact in Float32 and in Float64, so both types solve the same problem. The dual vectors θ* and primal points β* below come from an offline Clarabel solve (the
 # script is in the run record of #332 PR A, not in test/); the test trusts neither: it checks that θ*
 # is dual feasible and computes D* = θ*ᵀy ≤ P* and U* = P(β*) ≥ P* in BigFloat.
 using Test, LinearAlgebra, Random, SparseArrays, ProximalBase, ProximalSolvers
@@ -293,9 +296,11 @@ end
 # which moves φ by at most (√a + λ) η/2; the test allows 4 (√a + λ) η for these. The paths that form
 # the threshold in Float64 (`_sqrt_band_step`) or scale the column and the residual by powers of two
 # (`_sqrt_offrange_step`, where a curvature or a residual is outside the clean range of the fast path)
-# have the same counts or fewer roundings in T. That scaling keeps the largest entries in [1, 2), and the
-# parts below 2^-1074 times the largest entry that it loses change a, b and d by at most a relative
-# √n 2^-1074 of √a and max(‖ρ‖, ‖r‖), inside the allowances above (a lost d moves φ by at most 2d).
+# have the same counts or fewer roundings in T. In that scaling an entry whose scaled value is subnormal
+# in Float64 may underflow or lose bits (absolute error at most η₆₄/2, η₆₄ = 2^-1074, in the scaled
+# units); to first order this changes √a by at most √n η₆₄ √a and b/√a and d by at most 3 n η₆₄ ‖r‖,
+# absolute errors at the scales of the column and the residual (not relative: a tiny d can become 0).
+# They are far below the 56u max(‖ρ‖, ‖r‖) term above (a d computed as 0 moves φ by at most 2d).
 step_bound(::Type{T}, n, S, ra, λ) where T =
   (37 * (n * eps(T) / 2) / (1 - n * eps(T) / 2) + 56 * eps(T) / 2) * S + 4 * (ra + λ) * nextfloat(zero(T))
 
@@ -337,14 +342,15 @@ step_ok(xk, y, λ, old) = ((z, r) = step_once(xk, y, λ, old); (e, b) = step_exc
   for λ in (prevfloat(T(2.5)), T(2.5) * (1 - T(2)^-12), T(1.25), T(2)^-20), old in (zero(T), T(0.75), T(-3))
     @test step_ok(xk, y, λ, old)
   end
-  # the guard zone: r nearly parallel to the column (d²/‖r‖² about 2^-21), and both sides of d² = ‖r‖²/16
+  # the guard zone: r nearly parallel to the column (d²/‖r‖² = 2^-20/5, about 2^-22), and both sides of
+  # d² = ‖r‖²/16
   @test step_ok(xk, 2 .* xk .+ T(2)^-10 .* T[2, -1, 0, 0], T(0.5), zero(T))
   e1 = T[1, 0, 0, 0]
   for t in (T(3.87), T(3.88))               # d²/‖r‖² = 1/(t² + 1): above and below 1/16
     @test step_ok(e1, T[t, 1, 0, 0], T(0.25), zero(T))
   end
-  # a tiny column whose squared norm is subnormal in T: γ is outside the normal range, and the
-  # threshold is formed by `_sqrt_band_step` (here about 2^29, of the order of the centre)
+  # a tiny column whose squared norm is subnormal in T: the curvature is outside the clean range, and
+  # the step is formed by `_sqrt_offrange_step` (the threshold is of the order of the centre here)
   s, ys = T === Float32 ? (70, -30) : (530, -400)
   tiny = T(2)^-s .* xk
   @test issubnormal(sum(abs2, tiny))
@@ -606,8 +612,11 @@ end
 # ---------------------------------------------------------------------------
 # C. The certificate at adversarial points (the private `_certify!`)
 # ---------------------------------------------------------------------------
-# In every case: certified implies (P − D)/D ≤ 1e-4 for a verified dual lower bound D, and a reported
-# ratio at least (P − U)/U for an upper bound U ≥ P* (`certified_ok`).
+# In the cases with a verified dual lower bound D and an upper bound U ≥ P* (perturbed optima, fitted
+# values that dwarf the residual, near λmax, a subnormal coefficient): certified implies
+# (P − D)/D ≤ 1e-4, and the reported ratio is at least (P − U)/U (`certified_ok`). The rescaling and
+# range cases assert the decision (and, under rescaling, the ratio), and the special cases assert their
+# known results.
 
 @testset "certificate at perturbed optima ($T)" for T in (Float64, Float32)
   (; X, y, λ, ref, D, U) = reference("full rank")
