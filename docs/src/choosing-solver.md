@@ -79,7 +79,7 @@ change times an infinite scale makes
 not finite") and leave the starting point unchanged.
 
 The coordinate step soft-thresholds the unpenalized minimizer along the
-coordinate at `lambda / (s * a)`. Where `s * a` and its reciprocal are both at
+coordinate at `lambda / (s * a)` (with weights, `lambda` is the coefficient `lambda * w[k]` of the coordinate). Where `s * a` and its reciprocal are both at
 least the smallest normal number of the type that combines `s` with the working
 type, it applies the proximal operator with the coefficient `1 / (s * a)`.
 Where one of them is smaller (the product is zero or subnormal, or it is large
@@ -319,7 +319,8 @@ group sizes, the layout and `λ`.
 
 `X` must be a finite dense `Matrix{T}`, `y` a finite `Vector{T}`,
 and the coefficients the same type, with `T` equal to Float32 or Float64.
-For a dense `Vector`, and for CD a one-dimensional `SparseIterate`, the penalty is unweighted L1 for
+For a dense `Vector`, and for CD a one-dimensional `SparseIterate`, the penalty is
+`NormL1(lambda)` or `NormL1(lambda, w)` (weights `w::Vector{T}`, see [Supported problems](support.md)) for
 every solver, and for PGD and APG also an unweighted
 `ElasticNet(lambda1, lambda2)`; `CDSolver` refuses an `ElasticNet`, and support is planned.
 The loss is ordinary least squares

@@ -5,8 +5,9 @@ Run `julia --project=. examples/01_cd_lasso.jl`,
 `julia --project=. examples/03_sparse_cd_lasso.jl`,
 `julia --project=. examples/04_lasso_solver_comparison.jl`,
 `julia --project=. examples/05_apg_lasso.jl`,
-`julia --project=. examples/06_group_cd_lasso.jl` or
-`julia --project=. examples/07_elasticnet.jl`. Each of the first three
+`julia --project=. examples/06_group_cd_lasso.jl`,
+`julia --project=. examples/07_elasticnet.jl` or
+`julia --project=. examples/08_weighted_lasso.jl`. Each of the first three
 checks an independent analytic solution; the third runs coordinate descent on a
 caller-owned `SparseIterate` and also checks that the result shares that owner. The
 fourth compares cyclic coordinate descent, random-order coordinate descent and dense
@@ -29,5 +30,10 @@ result with an independent group KKT residual computed from the data. The sevent
 seeded correlated elastic net (`ElasticNet(λ1, λ2)`) with both gradient methods, checks the
 objective from X and y and the KKT residual (ProximalBase's `kkt_violation` at the gradient from X and y), and checks that the elastic-net solution has a
 smaller Euclidean norm than the lasso solution with the same ℓ1 level; coordinate descent
-refuses an `ElasticNet` (support is planned). Historical feature
+refuses an `ElasticNet` (support is planned). The eighth solves a seeded weighted lasso, `NormL1(λ, w)`, with
+all three solvers: the weights are adaptive-lasso weights from a ridge pilot fit, with one zero weight (an
+unpenalized coefficient). It checks the three solutions with a weighted KKT residual computed in the script from X, y and
+the coefficients `λ wⱼ`, the reported objectives, that the three agree, that the unpenalized coefficient is nonzero, that
+the weights keep fewer coefficients than the unweighted lasso with the same `λ`, and that weights of another element type
+are refused before `x` is touched. Historical feature
 examples remain on legacy/full and protected archives.

@@ -50,8 +50,8 @@ reproduce that order.
 
 **For PGD and APG, `converged=true` means that a stopping test proposed a stop and
 that the computed KKT residual `‖G‖∞` at the returned point is below
-`max(gradtol, 64eps(T)) * max(λ, λmax)` (`λmax = α‖Xᵀy‖∞`, and `λ` the ℓ1 level of the penalty: `λ` of `NormL1(λ)`,
-`λ1` of `ElasticNet(λ1, λ2)`; the threshold is formed in `T`, where it can round or
+`max(gradtol, 64eps(T)) * max(λ, λmax)` (`λmax = α‖Xᵀy‖∞`, and `λ` the ℓ1 level of the penalty: `λ` of `NormL1(λ)`, the largest
+coefficient `T(λ) * maximum(w)` of `NormL1(λ, w)`, `λ1` of `ElasticNet(λ1, λ2)`; the threshold is formed in `T`, where it can round or
 overflow for a huge `gradtol`), not that the coefficients have a specified number of
 correct digits.** It guarantees only that the computed, normalized residual `‖G‖∞ / max(λ, λmax)` is below
 `max(gradtol, 64eps(T))`, with the threshold formed in `T`; it does not
@@ -60,6 +60,16 @@ results you plan to report. It is a working-precision residual, not an exact-ari
 certificate (see [the stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)). See the
 [numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/)
 and [solver settings](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/).
+
+CD, PGD and APG also solve the weighted lasso `λ Σⱼ wⱼ|βⱼ|` with `NormL1(λ, w)`. The weights
+`w` are a `Vector{T}` of the element type of the data, with one finite nonnegative entry per coefficient,
+and `x` must not alias them. Entry `j` uses the coefficient `T(λ) wⱼ`, formed in `T`; a coefficient
+that overflows, or is 0 where `T(λ)` and `wⱼ` are both positive, is refused, and a subnormal one is
+accepted. A zero weight leaves its coefficient unpenalized (it is not fixed at 0). For PGD and APG the
+stopping check scores each coordinate with its own coefficient and takes the largest one as `λ`; the
+`converged` flag of CD is still the change test. See
+[Supported problems](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/#Weighted-lasso)
+and the script `examples/08_weighted_lasso.jl`.
 
 PGD and APG also solve the elastic net, with `ElasticNet(λ1, λ2)` as the penalty
 `λ1‖β‖₁ + (λ2/2)‖β‖₂²` (levels `λ1, λ2 ≥ 0`, unweighted); the stopping check then uses the residual of the

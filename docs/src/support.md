@@ -12,7 +12,8 @@ The supported objective is a lasso (CD also solves a group lasso on a `BlockIter
 ~~~
 
 where `s=1` for raw `LeastSquaresLoss` or `s=1/n` for the
-usual normalized convention. `ProximalGradientDescent` and `AccProxGradDescent` also solve the
+usual normalized convention; all three solvers also accept per-coordinate weights
+(`NormL1(lambda, w)`, see [Weighted lasso](@ref "Weighted lasso")). `ProximalGradientDescent` and `AccProxGradDescent` also solve the
 elastic net
 
 ~~~math
@@ -27,9 +28,37 @@ with `ElasticNet(lambda1, lambda2)`; `CDSolver` refuses an `ElasticNet` (support
 | Response `y` | Finite vector with the same element type and `length(y) == size(X,1)` |
 | Coefficients `beta` | Same-type dense vector for CD, PGD or APG; alternatively, one-dimensional ProximalBase `SparseIterate` for CD only |
 | Loss | `LeastSquaresLoss` or one finite positive scalar multiple of it |
-| Penalty | Unweighted `NormL1(lambda)` with nonnegative finite `lambda` (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`); unweighted `ElasticNet(lambda1, lambda2)` with nonnegative finite levels (PGD and APG only; `CDSolver` refuses it, support is planned) |
+| Penalty | `NormL1(lambda)` or `NormL1(lambda, w)` with nonnegative finite `lambda` and, for `w`, a `Vector{T}` of finite nonnegative weights (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`); unweighted `ElasticNet(lambda1, lambda2)` with nonnegative finite levels (PGD and APG only; `CDSolver` refuses it, support is planned) |
 | Solvers | `CDSolver`, `ProximalGradientDescent`, `AccProxGradDescent` (APG also needs `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 3 < 1/(4 eps(Float64))`) |
 | Group lasso | `CDSolver` only, with a ProximalBase `BlockIterate{Float32}` or `BlockIterate{Float64}` as the coefficients and a `GroupNormL2{Float32}` or `GroupNormL2{Float64}` penalty, on the same dense least-squares loss (see below) |
+
+### Weighted lasso
+
+~~~math
+\min_\beta\quad \frac{s}{2}\|y-X\beta\|_2^2+\lambda\sum_j w_j|\beta_j|,
+~~~
+
+with `NormL1(lambda, w)`. `solve!(x, f, g, method)` accepts it for `CDSolver` (a dense vector
+or a `SparseIterate`), `ProximalGradientDescent` and `AccProxGradDescent`, on the loss above, when
+
+- `w` is a `Vector{T}` with the element type `T` of the data and the coefficients, and one entry per
+  coefficient. A `Vector` of the other precision, a view, a range or another array type is refused
+  (`T.(w)` converts);
+- every weight is finite and nonnegative (an infinite weight is refused);
+- the level `lambda` is accepted as above, and the coefficient `c_j = T(lambda) * w_j` of every
+  entry, formed in `T`, is finite and, where `T(lambda)` and `w_j` are both positive, not zero. A
+  coefficient that is subnormal in `T` is accepted. One that overflows or underflows to zero is
+  refused, with the entry `j` named. A zero level or a zero weight gives the coefficient 0;
+- `x` does not alias `w`, as for `X` and `y`.
+
+These checks run before `x` is copied or written and before the random number generator is
+used. A zero weight leaves its coefficient unpenalized: it is not fixed at 0. With CD, a column of
+`X` that is zero gets the coefficient 0, also where its weight is zero. The solvers use the coefficient
+`c_j` of entry `j` in place of `lambda`; for PGD and APG the stopping check scores the entry with it and
+takes the largest `c_j` as the level `λ` of its scale
+([the stationarity check](@ref "The stationarity check of a stop")), and CD's `converged` remains
+the change test. A scaled penalty such as `Scaled(NormL1(lambda, w), a)`, and `ElasticNet` with
+weights, are refused.
 
 ### Group lasso with coordinate descent
 
@@ -111,7 +140,8 @@ The current development core intentionally excludes the following:
 | --- | --- |
 | Sparse design matrices; sparse or view-based dense coefficients | Deferred |
 | Generalized losses, matrix responses, intercepts/offsets | Deferred |
-| Weighted `NormL1`, group penalties other than `GroupNormL2` with `CDSolver` on a `BlockIterate`, weighted `ElasticNet`, `Scaled(ElasticNet)`, generalized penalty combinations | Deferred |
+| Group penalties other than `GroupNormL2` with `CDSolver` on a `BlockIterate`, weighted `ElasticNet`, `Scaled` penalties (including `Scaled(NormL1)`), generalized penalty combinations | Deferred |
+| Observation weights; infinite penalty weights; penalty weights that are not a `Vector{T}` of the type of the data | Deferred; the penalty weights are refused with an `ArgumentError` |
 | `ElasticNet` with `CDSolver` | Refused with an `ArgumentError`; planned |
 | Penalty paths, screening and dual-gap certificates | Deferred |
 | ADMM, Newton, monotone or active-set accelerated gradient, primal-dual, SLOPE, graphical models | Deferred |

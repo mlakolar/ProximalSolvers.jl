@@ -17,7 +17,7 @@ capability when the solver returns ([HARNESS.md](HARNESS.md#restoring-a-solver))
 
 | Component | Path | Runs against master? |
 |---|---|---|
-| Formal harness: problems, certificates, cases, runner, local exploration | `problems.jl`, `certificates.jl`, `cases.jl`, `run.jl`, `setup.jl`, `local.jl` | Yes: 30 quick or 56 extended cases (extended includes quick) with `setup.jl ... pinned`; 100 historical cases deferred in the extended suite. Documented in [HARNESS.md](HARNESS.md); `test/benchmark_formal.jl` tests it. |
+| Formal harness: problems, certificates, cases, runner, local exploration | `problems.jl`, `certificates.jl`, `cases.jl`, `run.jl`, `setup.jl`, `local.jl` | Yes: 30 quick or 62 extended cases (extended includes quick) with `setup.jl ... pinned`; 100 historical cases deferred in the extended suite. Documented in [HARNESS.md](HARNESS.md); `test/benchmark_formal.jl` tests it. |
 | Historical environment template | `Project.toml` | Kept with ProximalBase 0.5 for full-package checkouts and Stage 2A verification (#225). |
 | Harness self-checks | `check_certificates.jl`, `check_local.jl` | No (deferred): they exercise historical solvers. |
 | Record validation, summaries, paired statistics | `validate.py`, `summarize.py`, `compare.py` | Yes. Python only; they read records and never load the package. |
@@ -35,7 +35,7 @@ capability when the solver returns ([HARNESS.md](HARNESS.md#restoring-a-solver))
 julia benchmark/setup.jl "$PWD" benchmark/results/env pinned
 # Quick (default): 30 supported cases
 PS_LIST=true julia --project=benchmark/results/env benchmark/run.jl
-# Extended (includes quick): 56 supported cases
+# Extended (includes quick): 62 supported cases
 PS_SUITE=extended PS_LIST=true julia --project=benchmark/results/env benchmark/run.jl
 # Extended: 100 deferred historical cases, with missing capabilities
 PS_SUITE=extended PS_LIST=deferred julia --project=benchmark/results/env benchmark/run.jl
@@ -85,9 +85,9 @@ tree), at a moving revision or outside its manifest tree, records its manifest i
 `cases.jl` declares the core's capabilities. With all groups selected, the default quick suite
 supports 30 cases: 24 standard least-squares lasso cases, 4 group-lasso CD cases on a
 `BlockIterate`, and 2 unchanged historical cases. The extended suite includes quick and
-supports 56 cases: 40 standard least-squares lasso cases (dense and `SparseIterate` CD,
+supports 62 cases: 40 standard least-squares lasso cases (dense and `SparseIterate` CD,
 dense PGD and APG, Float32/Float64), 10 accuracy-focused Float64 PGD/APG `acc-` cases,
-4 group-lasso CD cases, and the same 2 historical cases. The other 100 historical
+4 group-lasso CD cases, 6 weighted lasso cases (#331), and the same 2 historical cases. The other 100 historical
 cases are deferred in the extended suite (`PS_LIST=deferred`). Requesting a deferred
 case stops the runner with what it lacks.
 

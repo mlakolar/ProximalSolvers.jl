@@ -89,7 +89,7 @@ between-run interval.
 ## Supported and deferred cases
 
 Every case declares what it needs from the loaded package: its solver ID and, per feature,
-`solver:feature` (problem, `float32`, `sparse_iterate`, `block_iterate`, `gap` for duality-gap stopping,
+`solver:feature` (problem, `float32`, `sparse_iterate`, `block_iterate`, `weighted_l1`, `gap` for duality-gap stopping,
 `workspace`, `path`, `setup`). `CAPABILITIES` in `cases.jl` declares what the current core
 provides; it is a short explicit list, not inferred from the names the package defines, since a
 solver type can exist without supporting a problem, an iterate or a phase. A case with a
@@ -107,8 +107,9 @@ The 102 historical cases keep their IDs, inputs, settings, measures and targets.
 current core unchanged: `cd/lasso-dense/cd/R/call` and `gradient/lasso/pg/R/call` (default
 settings, accuracy recorded with target `NaN`). The other 100 are deferred: their solvers are
 not in the core (FISTA variants, ProxNewton/QUIC, ADMM, Condat–Vũ, SLOPE), or they need gap
-stopping, `SolverWorkspace`, paths, setup phases, weighted or sparse designs, or other losses
-and penalties.
+stopping, `SolverWorkspace`, paths, setup phases, sparse designs, or other losses
+and penalties (the historical weighted lasso, `cd/weighted-lasso/cd/tight`, needs gap stopping and a workspace; the
+weights themselves are supported, see below).
 
 The 40 current-core cases (`cd` and `gradient` groups) use one problem per design, shared by CD,
 PGD and APG, cold and warm starts, dense and `SparseIterate` iterates:
@@ -150,10 +151,26 @@ names a setting, not a `converged = true` certification: the status is the certi
 solve that ends `stagnated` or at `maxiter` with an accurate minimizer is `ok`, and a
 `converged = true` solve above the target is `target_missed`. There are no Float32 `acc-` cases.
 
+Six more current-core cases (extended suite, #331) solve the weighted lasso, `NormL1(λ, w)`, on the
+100×32 independent design of `lasso` with the positive weights `0.5, …, 2.5` (`weighted_problem`, key
+`core/lasso-weighted`; λ is 0.15 of the λmax of the unweighted problem), from a cold start (a warm start needs unit
+weights). They need `weighted_l1` for the solver (`cd:weighted_l1`, `pg:weighted_l1`, `apg:weighted_l1`; `random-cd:weighted_l1`
+is declared for the random-order CD ID, which has no current-core case) and `float32` in Float32. The relative gap
+certificate applies to positive weights; zero weights would need the KKT residual certificate:
+
+| Problem | Design | Suite | Variants |
+|---|---|---|---|
+| `lasso-weighted` | 100×32, independent columns, weights `0.5, …, 2.5` | extended | CD `{dense,sparse}-{f64,f32}`; PGD and APG `acc-dense-f64` |
+
+Their IDs are `cd/lasso-weighted/cd/{dense,sparse}-{f64,f32}/call` and
+`gradient/lasso-weighted/{pg,apg}/acc-dense-f64/call`. The settings, targets and certificate are those
+of the other current-core cases of the same solver and precision (`acc-dense-f64`: `accuracy_options`). As for the other
+`acc-` cases there are no Float32 PGD or APG cases.
+
 With all groups selected, the default quick suite has 30 supported cases: 24 standard
 lasso cases, 4 group-lasso CD `BlockIterate` cases, and 2 unchanged historical cases.
-The extended suite includes quick and has 56 supported cases: 40 standard lasso cases,
-10 Float64 PGD/APG `acc-` cases, 4 group-lasso CD cases, and the same 2 historical cases.
+The extended suite includes quick and has 62 supported cases: 40 standard lasso cases,
+10 Float64 PGD/APG `acc-` cases, 4 group-lasso CD cases, 6 weighted lasso cases, and the same 2 historical cases.
 The other 100 historical cases are deferred in the extended suite.
 
 Float32 inputs are the Float64 draw rounded once; the data hash covers the rounded values and
