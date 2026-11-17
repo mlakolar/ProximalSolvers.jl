@@ -139,8 +139,8 @@ of the tests. What `converged=true` therefore says about the returned `x`:
   exact data is not small relative to the computed `S`.
   A start `x0` with a finite `f(x0)` is accepted even if `g(x0)` overflows in `T` (for example a ridge term
   `(λ2/2)‖x0‖²` above `floatmax(T)`). An error raised in the step of an iteration (its line search, or the
-  check that the accepted objective is finite) restores the last accepted iterate and is rethrown, as for `NormL1`. `CDSolver` supports `NormL1` only: it refuses an `ElasticNet`
-  with an `ArgumentError`, and support in CD is planned.
+  check that the accepted objective is finite) restores the last accepted iterate and is rethrown, as for `NormL1`. On a dense `Vector` or a one-dimensional `SparseIterate`, `CDSolver`
+  accepts `NormL1` only: it refuses an `ElasticNet` with an `ArgumentError`, and support in CD is planned.
 - The check bounds the residual relative to `max(λ, λmax)`. A coordinate whose
   gradient is on a scale far below `λmax` can stay inaccurate when the check
   passes: for `X = diag(1e6, 1)`, `y = [1e6, 1]`, `λ = 0` from a cold start with

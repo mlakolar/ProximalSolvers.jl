@@ -29,5 +29,5 @@ result with an independent group KKT residual computed from the data. The sevent
 seeded correlated elastic net (`ElasticNet(λ1, λ2)`) with both gradient methods, checks the
 objective and the KKT residual from X and y, and checks that the elastic-net solution has a
 smaller Euclidean norm than the lasso solution with the same ℓ1 level; coordinate descent
-supports `NormL1` only. Historical feature
+refuses an `ElasticNet` (support is planned). Historical feature
 examples remain on legacy/full and protected archives.

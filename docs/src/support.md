@@ -19,7 +19,7 @@ elastic net
 \min_\beta\quad \frac{s}{2}\|y-X\beta\|_2^2+\lambda_1\|\beta\|_1+\frac{\lambda_2}{2}\|\beta\|_2^2,
 ~~~
 
-with `ElasticNet(lambda1, lambda2)`; `CDSolver` supports the lasso only.
+with `ElasticNet(lambda1, lambda2)`; `CDSolver` refuses an `ElasticNet` (support is planned).
 
 | Input | Supported |
 | --- | --- |
@@ -27,7 +27,7 @@ with `ElasticNet(lambda1, lambda2)`; `CDSolver` supports the lasso only.
 | Response `y` | Finite vector with the same element type and `length(y) == size(X,1)` |
 | Coefficients `beta` | Same-type dense vector for CD, PGD or APG; alternatively, one-dimensional ProximalBase `SparseIterate` for CD only |
 | Loss | `LeastSquaresLoss` or one finite positive scalar multiple of it |
-| Penalty | Unweighted `NormL1(lambda)` with nonnegative finite `lambda` (all solvers); unweighted `ElasticNet(lambda1, lambda2)` with nonnegative finite levels (PGD and APG only; `CDSolver` refuses it, support is planned) |
+| Penalty | Unweighted `NormL1(lambda)` with nonnegative finite `lambda` (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`); unweighted `ElasticNet(lambda1, lambda2)` with nonnegative finite levels (PGD and APG only; `CDSolver` refuses it, support is planned) |
 | Solvers | `CDSolver`, `ProximalGradientDescent`, `AccProxGradDescent` (APG also needs `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 3 < 1/(4 eps(Float64))`) |
 | Group lasso | `CDSolver` only, with a ProximalBase `BlockIterate{Float32}` or `BlockIterate{Float64}` as the coefficients and a `GroupNormL2{Float32}` or `GroupNormL2{Float64}` penalty, on the same dense least-squares loss (see below) |
 

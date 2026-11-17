@@ -255,9 +255,9 @@ the group lasso with a `GroupNormL2` penalty on a `BlockIterate{T}` with the sam
 `CDSolver` accepts it, and `CDSolver` describes it. The loss uses same-type `Matrix` X and `Vector` y.
 In the first two forms the penalty of `ProximalGradientDescent` and `AccProxGradDescent` is an
 unweighted `NormL1(λ)` or an unweighted `ElasticNet(λ1, λ2)` (`λ1 ‖x‖₁ + (λ2/2) ‖x‖²`), whose levels are
-finite and nonnegative and representable in `T` without overflow or underflow; `CDSolver` supports an
-unweighted `NormL1` only (a `GroupNormL2` in the third form) and refuses an `ElasticNet` (its support is
-planned). Use `(one(T)/T(n))*LeastSquaresLoss` for normalized lasso; raw LS keeps
+finite and nonnegative and representable in `T` without overflow or underflow; for a dense `Vector` or a
+`SparseIterate`, `CDSolver` accepts an unweighted `NormL1` only and refuses an `ElasticNet` (its support
+is planned); the third form takes a `GroupNormL2`. Use `(one(T)/T(n))*LeastSquaresLoss` for normalized lasso; raw LS keeps
 its unnormalized meaning. One positive finite scalar LS wrapper is supported.
 Borrowed X/y must not alias mutable `x` or change during a solve. Results share
 `x`; copy it to retain earlier coefficients. Unsupported inputs/options fail

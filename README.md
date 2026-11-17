@@ -63,8 +63,9 @@ and [solver settings](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing
 
 PGD and APG also solve the elastic net, with `ElasticNet(λ1, λ2)` as the penalty
 `λ1‖β‖₁ + (λ2/2)‖β‖₂²` (levels `λ1, λ2 ≥ 0`, unweighted); the stopping check then uses the residual of the
-elastic-net optimality condition, with the same bound (`λ2` does not enter it). `CDSolver` supports
-`NormL1` only, and refuses an `ElasticNet`; support in CD is planned. See
+elastic-net optimality condition, with the same bound (`λ2` does not enter it). On a dense `Vector`
+or a one-dimensional `SparseIterate`, `CDSolver` accepts `NormL1` only and refuses an `ElasticNet`;
+support in CD is planned. See
 [the elastic-net example](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples/07_elasticnet/).
 
 The supported problem uses a finite dense `Matrix{T}`, finite `Vector{T}`

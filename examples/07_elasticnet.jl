@@ -4,7 +4,7 @@
 # ``\min_b \; \frac{1}{2n}\|y - Xb\|^2 + \lambda_1 \|b\|_1 + \frac{\lambda_2}{2}\|b\|^2``.
 #
 # `ElasticNet(λ1, λ2)` is accepted by `ProximalGradientDescent` and `AccProxGradDescent`;
-# `CDSolver` supports `NormL1` only. Accuracy is checked with an objective and a KKT residual
+# `CDSolver` refuses an `ElasticNet` (support is planned). Accuracy is checked with an objective and a KKT residual
 # computed from X and y, not with the solvers' `converged` flags.
 using LinearAlgebra, Random, ProximalBase, ProximalSolvers
 
