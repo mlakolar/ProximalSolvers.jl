@@ -21,19 +21,20 @@ function _scalar_parameter(v, ::Type{T}, name; positive = false) where T
   nothing
 end
 
-# The loss scale of a Scaled loss, for data of type T. A Float32 or Float64 scale must be finite and
+# The loss scale of a Scaled loss, or the level α of a SqrNormL2, for data of type T. A Float32 or Float64 scale must be finite and
 # positive with a conversion to T that is finite and nonzero (a value that is subnormal in T is
 # accepted). A fixed-width integer or Bool scale must be positive and equal to its conversion to T, so
 # that ProximalBase's oracles and the solvers' own T-valued scale use the same number. A scale of any
-# other type is refused.
-function _check_loss_scale(α, ::Type{T}) where T
+# other type is refused. `kind` is :ls (a Scaled least-squares loss, the default) or :sqr (the level of a
+# SqrNormL2), and selects the loss that the hint of a refusal names.
+function _check_loss_scale(α, ::Type{T}, kind::Symbol = :ls) where T
   if α isa Union{Float32, Float64}
     _scalar_parameter(α, T, "loss scale"; positive = true)
   elseif α isa Union{Base.BitInteger, Bool}
     α > 0 || throw(ArgumentError("loss scale must be finite and positive"))
-    T(α) == α || _loss_scale_error(α, T, "is not exactly representable in $T")
+    T(α) == α || _loss_scale_error(α, T, "is not exactly representable in $T", kind)
   else
-    _loss_scale_error(α, T, "has an unsupported type")
+    _loss_scale_error(α, T, "has an unsupported type", kind)
   end
   nothing
 end
@@ -41,7 +42,7 @@ end
 # Whether the Float64 value a passes the rule of _check_loss_scale for data of type T
 _float64_scale_ok(a::Float64, ::Type{T}) where T = isfinite(a) && a > 0 && (n = T(a); isfinite(n) && n > 0)
 
-@noinline function _loss_scale_error(α, ::Type{T}, why) where T
+@noinline function _loss_scale_error(α, ::Type{T}, why, kind::Symbol = :ls) where T
   a = try Float64(α) catch; nothing end
   # the hint is offered when Float64(α) passes the rule of _check_loss_scale for T and, for an integer α, a == α
   # returns true (a comparison that throws or returns another value omits the hint); for an α that is not an
@@ -49,7 +50,7 @@ _float64_scale_ok(a::Float64, ::Type{T}) where T = isfinite(a) && a > 0 && (n = 
   exact = !(α isa Integer) || (try (a == α) === true catch; false end)
   ok = a isa Float64 && _float64_scale_ok(a, T) && exact
   hint = !ok ? "" :
-    "; convert it explicitly with Float64(α) * LeastSquaresLoss(y, X), where Float64(α) = $a" *
+    "; convert it explicitly with $(kind === :sqr ? "SqrNormL2(Float64(α), s)" : "Float64(α) * LeastSquaresLoss(y, X)"), where Float64(α) = $a" *
     (α isa Integer ? "" : " (the conversion may round α)")
   throw(ArgumentError("loss scale $α of type $(typeof(α)) $why; only Float32 and Float64 scales and fixed-width integer scales that $T represents exactly are supported$hint"))
 end
@@ -149,7 +150,9 @@ function _check_data(x, f, g, ::Type{T}) where T
     _check_loss_scale(leastsquares_data(f).α, T)
     f.f
   else
-    throw(ArgumentError("only LeastSquaresLoss or one positive Scaled(LeastSquaresLoss) is supported"))
+    f isa Scaled && f.f isa SqrNormL2 &&
+      throw(ArgumentError("Scaled(SqrNormL2(α, s), c) is not supported; for a positive finite c, SqrNormL2(c α, s) is the same function in exact arithmetic"))
+    throw(ArgumentError("only LeastSquaresLoss, one positive Scaled(LeastSquaresLoss), or SqrNormL2(α, s) with a centre s is supported"))
   end
   base.X isa Matrix{T} && base.Y isa Vector{T} ||
     throw(ArgumentError("X must be Matrix{$T} and y Vector{$T}; sparse designs, matrix responses and mixed array types are deferred"))
@@ -209,14 +212,58 @@ function _check_sqrt_penalty(g, ::Type{T}) where T
   nothing
 end
 
+# The centered squared norm (α/2)‖b - s‖² of ProximalBase's SqrNormL2, with a centre s.
+_is_sqr_loss(f) = f isa SqrNormL2
+
+# The checks of _check_data for SqrNormL2, used in its place by the gates below; `kind` is as for
+# `_check_sqrt_data`, and PGD, APG and CDSolver all take this loss. Each refusal is an ArgumentError
+# (a DimensionMismatch for the length), in this order: a BlockIterate; a loss without a centre; a centre that
+# is not a Vector{T} (a different element type included); a centre whose length is zero or differs from that of x;
+# the level α, by `_check_loss_scale` (positive Float32 or Float64, or an integer that T represents exactly,
+# with a conversion to T that is finite and nonzero); a penalty that is not an unweighted NormL1, whose level
+# must pass `_scalar_parameter` (a weighted NormL1, an ElasticNet and every other penalty are refused; this
+# does not call `_check_penalty`, whose rules are those of least squares); an x that may alias the centre.
+# It returns the centre, which the gates check for finite values.
+function _check_sqr_data(x, f, g, ::Type{T}, kind::Symbol) where T
+  kind === :block &&
+    throw(ArgumentError("SqrNormL2 does not support a BlockIterate; use a dense Vector or, with CDSolver, a one-dimensional SparseIterate"))
+  s = f.y
+  s === nothing &&
+    throw(ArgumentError("SqrNormL2 needs a centre: use SqrNormL2(alpha, s) with s a Vector{$T}; SqrNormL2(alpha) without one is not supported"))
+  s isa Vector{T} ||
+    throw(ArgumentError("the centre of SqrNormL2 must be a Vector{$T} (the element type of x), not a $(typeof(s)); convert it with collect($T, vec(s)), which takes it in linear order"))
+  length(s) > 0 && length(s) == length(x) ||
+    throw(DimensionMismatch("the centre of SqrNormL2 has $(length(s)) entries and x has $(length(x)); they must be equal and positive"))
+  _check_loss_scale(f.λ, T, :sqr)
+  g isa NormL1 ||
+    throw(ArgumentError("only an unweighted NormL1 is supported with SqrNormL2"))
+  g.w === nothing ||
+    throw(ArgumentError("a weighted NormL1 with SqrNormL2 is not supported; use an unweighted NormL1"))
+  _scalar_parameter(g.λ0, T, "penalty lambda")
+  Base.mightalias(x, s) &&
+    throw(ArgumentError("mutable x must not alias the centre of SqrNormL2"))
+  s
+end
+
+# Whether the data that a gate checked are finite: the centre of a SqrNormL2, or the response and the design of
+# a least-squares loss.
+_allfinite_data(s::Vector) = _allfinite(s)
+_allfinite_data(d) = _allfinite(d.Y) && _allfinite(d.X)
+@noinline _nonfinite_error(::Vector) =
+  throw(ArgumentError("x and the centre of SqrNormL2 must contain only finite values"))
+@noinline _nonfinite_error(_) =
+  throw(ArgumentError("x, X and y must contain only finite values"))
+
 # The dense gate. `kind` matters only for the square-root loss: CDSolver passes :cd, and PGD and APG
-# use the default :gradient, under which `_check_sqrt_data` refuses that loss.
+# use the default :gradient, under which `_check_sqrt_data` refuses that loss; `_check_sqr_data` uses `kind` for
+# :block only.
 function _check_problem(x, f, g, kind::Symbol = :gradient)
   x isa Vector && eltype(x) in (Float32, Float64) ||
     throw(ArgumentError("x must be a dense Vector{Float32} or Vector{Float64}"))
-  base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), kind) : _check_data(x, f, g, eltype(x))
-  _allfinite(x) && _allfinite(base.Y) && _allfinite(base.X) ||
-    throw(ArgumentError("x, X and y must contain only finite values"))
+  base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), kind) :
+         _is_sqr_loss(f) ? _check_sqr_data(x, f, g, eltype(x), kind) : _check_data(x, f, g, eltype(x))
+  _allfinite(x) && _allfinite_data(base) ||
+    _nonfinite_error(base)
   nothing
 end
 
@@ -227,9 +274,10 @@ _is_cd_owner(x) = x isa SparseIterate{<:Any, 1} && eltype(x) in (Float32, Float6
 function _check_owner_problem(x, f, g)
   _is_cd_owner(x) ||
     throw(ArgumentError("x must be a dense Vector or a one-dimensional SparseIterate of Float32 or Float64"))
-  base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), :cd) : _check_data(x, f, g, eltype(x))
-  all(isfinite, activevalues(x)) && _allfinite(base.Y) && _allfinite(base.X) ||
-    throw(ArgumentError("x, X and y must contain only finite values"))
+  base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), :cd) :
+         _is_sqr_loss(f) ? _check_sqr_data(x, f, g, eltype(x), :cd) : _check_data(x, f, g, eltype(x))
+  all(isfinite, activevalues(x)) && _allfinite_data(base) ||
+    _nonfinite_error(base)
   nothing
 end
 
@@ -240,9 +288,10 @@ function _check_block_problem(x, f, g, method)
     throw(ArgumentError("block coordinate descent needs a BlockIterate of Float32 or Float64"))
   method.momentum === true &&
     throw(ArgumentError("block coordinate descent does not support momentum; use momentum = false or nothing"))
-  base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), :block) : _check_data(x, f, g, eltype(x))
-  all(isfinite, x) && _allfinite(base.Y) && _allfinite(base.X) ||
-    throw(ArgumentError("x, X and y must contain only finite values"))
+  base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), :block) :
+         _is_sqr_loss(f) ? _check_sqr_data(x, f, g, eltype(x), :block) : _check_data(x, f, g, eltype(x))
+  all(isfinite, x) && _allfinite_data(base) ||
+    _nonfinite_error(base)
   nothing
 end
 

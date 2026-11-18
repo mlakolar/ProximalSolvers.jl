@@ -151,7 +151,7 @@ const STANDARD = TT.select(CI, "standard")
     @test classify(path)[1]=="full"
   end
   for path in ("src/ProximalSolvers.jl","src/types.jl","src/solve.jl","src/blocks.jl","src/line_searches.jl",
-    "src/precompile.jl","src/cd/models.jl","src/cd/solver.jl","src/cd/leastsquares.jl",
+    "src/precompile.jl","src/cd/models.jl","src/cd/solver.jl","src/cd/leastsquares.jl","src/cd/squarednorm.jl",
     "src/utils.jl","src/solvers/image_models.jl","src/solvers/proximal_gradient_descent.jl")
     @test classify(path)==("full",String[])
   end

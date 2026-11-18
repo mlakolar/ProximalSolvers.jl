@@ -12,12 +12,25 @@ function _image_model(f)
   d = leastsquares_data(f)
   _LSImage{typeof(d.Y), typeof(d.X), typeof(d.α), eltype(d.X)}(d.Y, d.X, d.α)
 end
+# The centered squared norm (α/2)‖z - s‖² as an image model: the operator is the identity, stored as
+# Diagonal(ones(T, p)), so that the image z = X x equals x and the model needs O(p) storage. The centre s
+# plays the response and α = f.λ is kept as supplied. PGD and APG read the cached images
+# (the bound test, the gradient at the extrapolated image, the stationarity check), so the value and
+# gradient methods below form the image first, as for least squares.
+function _image_model(f::SqrNormL2)
+  s = f.y                                   # a Vector{T}, checked by `_check_sqr_data`
+  X = Diagonal(ones(eltype(s), length(s)))
+  _LSImage{typeof(s), typeof(X), typeof(f.λ), eltype(s)}(s, X, f.λ)
+end
 _image_buffer(m::_LSImage{TY, TX, A, T}) where {TY, TX, A, T} = zeros(T, size(m.Y))
 _image!(z, m::_LSImage, x) = mul!(z, m.X, x)
 # The loss value at x: the image z = X x is formed here and the value is ProximalBase's.
 _value!(x, f, m, z) = (_image!(z, m, x); convert(_eltype(x), value_from_predictor(f, z)))
 # The value at the image z, with d = z - Y and G the gradient, both written by ProximalBase.
 _value_and_gradient!(G, x, f, z, d) = convert(_eltype(x), value_and_gradient_from_predictor!(G, d, f, z))
+# For SqrNormL2 the value and gradient are ProximalBase's SqrNormL2 oracles at the image z (= x); d is not used.
+_value!(x, f::SqrNormL2, m, z) = (_image!(z, m, x); convert(_eltype(x), f(z)))
+_value_and_gradient!(G, x, f::SqrNormL2, z, d) = convert(_eltype(x), value_and_gradient!(G, f, z))
 
 # ---- The accelerated method's certified backtracking test ----------------------------
 #
@@ -119,6 +132,11 @@ _gamma(::Type{T}, k) where {T} = (ku = k * _unit(T); ku / (1 - ku))
 function _frobenius_upper(::Type{T}, X) where {T}
   _frobenius_upper(T, X, _sumsq64(X))
 end
+
+# For a Diagonal X, which has length(X.diag) entries that are not structurally zero: the bound of its diagonal
+# as a vector. The zeros of the matrix add exactly 0 to the sums, so the bound holds with the number of
+# terms length(X.diag) in place of length(X), and the scan of the p² entries is avoided.
+_frobenius_upper(::Type{T}, X::Diagonal) where {T} = _frobenius_upper(T, X.diag)
 
 # The bound above from s = Σ Float64(Xᵢⱼ)², a one-pass sum of the squares in any order, which
 # the caller has computed. The argument above applies to any such s.

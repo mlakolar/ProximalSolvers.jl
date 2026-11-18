@@ -30,6 +30,19 @@ penalties (also where a weight is zero); a visit to a column that is not flat an
 as for the lasso. With `maxpasses = 0` no coordinate is visited.
 For a group lasso it can be a ProximalBase `BlockIterate`, as described below.
 
+**Centered squared norm.** With `T` equal to `Float32` or `Float64`, `s::Vector{T}` finite, ProximalBase's
+`f = SqrNormL2(α, s)` and an unweighted `g = NormL1(λ)`, the call `solve!(x, f, g, CDSolver(...))` minimizes
+`(α/2) ‖b - s‖² + λ ‖b‖₁` for a dense `Vector{T}` or a one-dimensional `SparseIterate{T}` `x`; the other
+inputs and refusals are those of [`solve!`](@ref). Each coordinate step is the soft threshold of `s[k]` at
+`λ/α`, so a pass costs O(p) time and the model O(p) storage (the centre is borrowed; a `SparseIterate` is
+solved on a copy, as above). The coordinate step is that of least squares with the identity as design, in
+particular outside the normal range of the type of `α` (the step is then formed without `α` or its
+reciprocal, as above); an unweighted `NormL1` has no coordinate step that throws there, and there is
+no loss-dependent state that a momentum step moves, so `momentum = nothing` is `false`. With `relative = true`
+the stopping threshold is `tol` times `sqrt(α) ‖s‖` (`tol` itself for `s = 0`), each coordinate change being
+scaled by `sqrt(α)`; a response scale that is not a normal number of `T` is refused before the first pass, as
+for least squares.
+
 `CDSolver()` uses random coordinate order and the algorithm's default
 momentum behavior, a reasonable exploratory choice. For deterministic
 tutorial examples use `CDSolver(order=:cyclic, momentum=false)`;

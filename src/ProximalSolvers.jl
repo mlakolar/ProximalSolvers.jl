@@ -10,6 +10,10 @@ an unweighted `NormL1`, and reports `converged = true` for it only with a dualit
 `Vector` or a one-dimensional `SparseIterate` as the iterate, and, for a group lasso with
 a `GroupNormL2` penalty, a `BlockIterate`. [`ProximalGradientDescent`](@ref) and
 [`AccProxGradDescent`](@ref) accept a dense `Vector` only, all through [`solve!`](@ref).
+Also minimized, with an unweighted `NormL1(λ)`, is the centered squared norm
+`SqrNormL2(α, s)` of a `Vector{T}` centre `s`, `(α/2) ‖b - s‖² + λ ‖b‖₁`, by all three methods
+(`CDSolver` with a dense `Vector` or a one-dimensional `SparseIterate`, the others with a dense `Vector`),
+without a design matrix, at O(p) time per iteration or pass and O(p) storage.
 Losses, proximal operators and coordinate storage belong to PB.
 """
 module ProximalSolvers
@@ -17,9 +21,9 @@ using LinearAlgebra
 using Printf
 using Random: AbstractRNG, default_rng, rand
 using SparseArrays: dropzeros!
-using ProximalBase: LeastSquaresLoss, SqrtLeastSquaresLoss, Scaled, NormL1, ElasticNet, SparseIterate,
+using ProximalBase: LeastSquaresLoss, SqrtLeastSquaresLoss, SqrNormL2, Scaled, NormL1, ElasticNet, SparseIterate,
   ncoordinates, nactive, activecoordinates, activevalues, prox_block,
-  value_and_prox!, BlockIterate, GroupNormL2, blockindices, blockview, prox_block!, kkt_violation
+  value_and_prox!, value_and_gradient!, BlockIterate, GroupNormL2, blockindices, blockview, prox_block!, kkt_violation
 include("blocks.jl")
 using .Blocks
 include("line_searches.jl")
@@ -37,6 +41,7 @@ include("solvers/accelerated_proximal_gradient_descent.jl")
 include("cd/models.jl")
 include("cd/solver.jl")
 include("cd/leastsquares.jl")
+include("cd/squarednorm.jl")
 include("cd/sqrtlasso.jl")
 include("utils.jl")
 include("precompile.jl")

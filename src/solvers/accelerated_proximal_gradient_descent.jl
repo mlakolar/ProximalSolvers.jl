@@ -30,6 +30,15 @@ decreasing. The estimate before the first iteration is `min(1, α_f ‖X‖_F²)
 `α_f`, with `‖X‖_F` an upper bound, rounded to `T` and raised to `floatmin(T)` when it is positive and
 rounds below that; it is `1` when that product is at least 1 or `X = 0`.
 
+For the centered squared norm `SqrNormL2(α, s)` (see [`solve!`](@ref)) the operator is the identity of order
+`p = length(s)`, `Diagonal(ones(T, p))`, and the estimate before the first iteration is `min(1, α p)` up to that
+rounding. The certified bound is that of a dense product, with `‖X‖_F = √p`, and its error terms grow like
+`p^1.5 eps(T)`: in `Float32` a trial `L` is accepted only when `L ≥ ρ α` with `ρ` = RHO1 at `p = 10⁴`, RHO2 at
+`p = 10⁵` and RHO3 at `p = 10⁶` (the smallest `L` that the test of `solve!` accepts for the exact identity product, found by bisection in the
+checks of `test/centered_sqnorm.jl`, and the same for each `p` up to rounding), so the iteration counts
+grow with `p` at large `p`; in `Float64` the factor is 1 up to rounding for `p` up to 10⁶. The problem size is
+limited to `p + 4 < 1/(4 eps(T))` and `p + 3 < 1/(4 eps(Float64))` (`p < 2,097,148` for `Float32`).
+
 When an extrapolated step would increase the computed objective, the momentum is
 restarted: the step is repeated from `y = x'` and `k` returns to zero, so the next
 iteration extrapolates with `1/4`. An accepted step that used momentum therefore
@@ -278,6 +287,14 @@ end
 
 # The error bounds of the bound test need k u < 1/8 for k = max(n, p) + 4 in T, and for
 # k = n p + 3 in Float64, where ‖X‖_F is accumulated.
+# The same bounds for the identity of SqrNormL2, whose Frobenius norm is accumulated over p terms and whose
+# image sums have p terms: the number of terms p + 4 in T and p + 3 in Float64, p the length of the centre.
+_bound_size_ok(::Type{T}, p::Integer) where T = (p + 4) * _unit(T) < 1 / 8 && (p + 3) * _unit(Float64) < 1 / 8
+function _check_bound_size(f::SqrNormL2, ::Type{T}) where T
+  _bound_size_ok(T, length(f.y)) ||
+    throw(ArgumentError("AccProxGradDescent with SqrNormL2 needs p + 4 < 1/(4 eps($T)) and p + 3 < 1/(4 eps(Float64)) for its rounding-error bounds, p the length of the centre"))
+  nothing
+end
 function _check_bound_size(f, ::Type{T}) where T
   n, p = size(_image_model(f).X)
   (max(n, p) + 4) * _unit(T) < 1 / 8 && (n * p + 3) * _unit(Float64) < 1 / 8 ||
@@ -304,13 +321,14 @@ end
 """
     solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions())
 
-Minimize the same least-squares lasso or elastic net as [`ProximalGradientDescent`](@ref) with
+Minimize the same least-squares lasso, elastic net or centered squared norm as [`ProximalGradientDescent`](@ref) with
 accelerated proximal gradient descent, overwriting `x`, a dense `Vector{T}` with
 `T = Float32` or `Float64`. The inputs, the options and their validation are those
 of `ProximalGradientDescent`; in addition `β` and `α` must satisfy their bounds after
 conversion to `T`, and the dimensions must satisfy `max(n, p) + 4 < 1/(4 eps(T))` and
 `n p + 3 < 1/(4 eps(Float64))` (for Float32, `max(n, p) < 2,097,148`), which the
-rounding-error bounds of the line search need. Every refusal of an input, option or
+rounding-error bounds of the line search need; for `SqrNormL2(α, s)` the dimension condition is that of the
+type docstring, `p + 4 < 1/(4 eps(T))` with `p = length(s)`. Every refusal of an input, option or
 method setting happens before `x` is modified. A step error
 restores the last accepted `x` and rethrows, without a transaction guarantee for
 internal counters. The result shares `x`.
