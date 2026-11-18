@@ -29,7 +29,7 @@ where `NormL1(lambda, w)` has one weight per coefficient. `GroupNormL2` takes it
 weights, the default `sqrt(|G_k|)` or explicit finite nonnegative weights (see
 [Group lasso with coordinate descent](@ref)). The lasso, weighted lasso, elastic net and group lasso rows use
 `LeastSquaresLoss` or one positive finite scalar multiple of it, and the square-root lasso
-row uses the unscaled `SqrtLeastSquaresLoss`. The multi-response row uses the same loss with a matrix
+row uses the unscaled `SqrtLeastSquaresLoss`. The multi-response row uses `LeastSquaresLoss` (or one positive scalar multiple of it) with a matrix
 response `Y` and `Matrix` coefficients (see [Multi-response group lasso with coordinate descent](@ref)). The centered squared norm row has no design matrix: its loss is `(alpha/2) * norm(b - s)^2` with the centre `s`. The design of the other rows is a dense `Matrix`. For `CDSolver`, `converged = true` is the test on the change of the
 coefficients over a pass and not a certificate of optimality, except for the square-root
 lasso (note e).
