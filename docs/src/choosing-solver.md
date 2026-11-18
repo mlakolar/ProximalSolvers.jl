@@ -291,7 +291,7 @@ discussion above with the change of a group, the norm of its displacement; see
 [Numerical behavior](numerics.md). As for the lasso, `converged = true` is not an
 optimality certificate: check the group KKT conditions independently, as in the example.
 `ProximalGradientDescent` takes the block soft threshold of every group at each step and
-stops only where the group KKT residual passes its check; the
+reports `converged = true` only where the group KKT residual passes its check; the
 [group lasso tutorial](examples/problems/group_lasso.md) solves one problem both ways, and
 [Group lasso: CD and PGD](examples/comparisons/group_lasso_solvers.md) compares the two on one
 seeded problem.

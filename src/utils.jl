@@ -136,7 +136,7 @@ end
 # threshold and the guards are those above. As for the ℓ1 penalties, a kept stop says that the computed residual is
 # below the computed threshold, not that the residual in exact arithmetic is. For singleton groups with unit weights,
 # S equals the S of NormL1(λ0) where no entry of ∇f(0) has a subnormal square (there the computed norm of a one-entry
-# block is its magnitude); the iterates and the residuals of the two penalties agree only up to rounding, since
+# block is its magnitude); the iterates and the residuals of the two penalties can differ by rounding, since
 # ProximalBase's group operations are not its ℓ1 operations.
 function _stationary!(state, f, g, options::ProximalOptions)
   T = eltype(state.x)

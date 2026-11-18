@@ -137,5 +137,6 @@ end
 # The times illustrate how to compare the two solvers at equal accuracy on this one problem, one
 # design and one `lambda`; they come from one machine in one run and are not benchmark evidence
 # (see [Benchmarks and performance](../../benchmarks.md)). A CD pass and a PGD iteration are
-# different units of work: a pass visits every group once, and an iteration multiplies by `X` and
-# by its transpose.
+# different units of work: a full pass visits each group once and an active pass the active groups,
+# while a PGD iteration forms products with `X` and its transpose (more of them when its line search
+# rejects a trial).
