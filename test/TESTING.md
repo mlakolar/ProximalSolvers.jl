@@ -7,11 +7,11 @@ regressions, the vector `SparseIterate` coordinate-descent contracts
 (`sparse_cd`), the coordinate-descent loss-scale numerics (`cd_numerics`) and the accelerated proximal gradient contracts (`accelerated_pgd`:
 analytic, duality-gap, KKT and finite-support references from the raw data;
 momentum, rejected trials, restarts and image caches; refusals, nonfinite trials,
-curvature overflow and rollback; trace, callbacks, limits and counters) and the elastic net with PGD and APG
+curvature overflow and rollback; trace, callbacks, limits and counters), the initial curvature estimate of PGD and APG (`initial_curvature`: the start `min(1, α‖X‖_F²)` at extreme and ordinary scales, an independent KKT residual of the solves that a testset names, and the allocations of the start) and the elastic net with PGD and APG
 (`elasticnet`: the residual of the stopping check, closed-form and signed-support BigFloat minimizers, an
 independent residual check at each `converged = true` of the file's main solves, a false-stop guard, level types,
 rollback and allocations) and with CDSolver (`cd_elasticnet`: BigFloat residual and objective oracle, closed-form
-and signed-support references, `NormL1` equality at `λ2 = 0`, flat and out-of-range columns, refusals and rollback). Full adds every runnable lasso example under `examples/`, which
+and signed-support references, `NormL1` equality at `λ2 = 0`, flat and out-of-range columns, refusals and rollback). Full adds every `.jl` script under `examples/`, including its subfolders, which
 `test/examples.jl` discovers by itself, the exploratory benchmark script
 (`benchmark_explore`) and the formal benchmark harness on the current core
 (`benchmark_formal`: case selection and deferral, inputs, certificates, resets,
