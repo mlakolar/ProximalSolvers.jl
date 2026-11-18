@@ -162,7 +162,13 @@ end
 # The penalty with its levels converted to T, for the penalties that _check_penalty accepts for PGD and APG,
 # and the ℓ1 level of a converted penalty
 _converted_penalty(g::NormL1, ::Type{T}) where T = NormL1(T(g.λ0))
-_converted_penalty(g::ElasticNet, ::Type{T}) where T = ElasticNet(T(g.λ1), T(g.λ2))
+# Each ElasticNet level that is not of type T is converted in a call of its own (#351): when two conversions are
+# in one function, LLVM can combine them into one vector conversion, and the AArch64 NEON lowering of LLVM before
+# 21 (llvm/llvm-project#130665) converts a pair of Int64 to Float32 through Float64, which rounds twice (as for
+# Rational{Int64} levels). A level of type T is returned as it is.
+_converted_level(::Type{T}, λ::T) where T = λ
+@noinline _converted_level(::Type{T}, λ) where T = T(λ)
+_converted_penalty(g::ElasticNet, ::Type{T}) where T = ElasticNet(_converted_level(T, g.λ1), _converted_level(T, g.λ2))
 _l1_level(g::NormL1) = g.λ0
 _l1_level(g::ElasticNet) = g.λ1
 
