@@ -144,14 +144,16 @@ end
 # There is no step, no curvature L and no proximal evaluation in it.
 #
 # The subdifferential. At x = 0 it is the unit ℓ1 ball {v: ‖v‖₁ ≤ 1}, and min_v ‖g + λ v‖₁ = max(‖g‖₁ - λ, 0): the
-# triangle inequality gives ‖g + λ v‖₁ ≥ ‖g‖₁ - λ‖v‖₁ ≥ ‖g‖₁ - λ, and v = -g/‖g‖₁ attains it when ‖g‖₁ ≥ λ (v = -g/λ
-# gives 0 otherwise). At x ≠ 0, with m = maxᵢ|xᵢ|, M = {i : |xᵢ| = m} and sᵢ = sign xᵢ, it is the set of v with vᵢ = 0
-# off M, vᵢ = sᵢ wᵢ on M, wᵢ ≥ 0 and Σ wᵢ = 1. Then r = off + min_w Σ_{i∈M} |sᵢgᵢ + λ wᵢ|, off = Σ_{i∉M} |gᵢ|. The
-# term |aᵢ + λ wᵢ| (aᵢ = sᵢgᵢ) has slope +λ in wᵢ if aᵢ ≥ 0, and slope -λ until wᵢ = -aᵢ/λ and +λ after if aᵢ < 0. With
-# N = Σ_{i∈M} max(sᵢgᵢ, 0) and P = Σ_{i∈M} max(-sᵢgᵢ, 0), the unit of mass is spent first where the slope is -λ (a total
-# capacity P/λ) and then at slope +λ: the minimum is N + (P - λ) if λ ≤ P and N + (λ - P) otherwise, that is
-#     r = off + N + |λ - P|.
-# This closed form was checked against an exact (rational) vertex enumeration of the minimization for |M| ≤ 3.
+# triangle inequality gives ‖g + λ v‖₁ ≥ ‖g‖₁ - λ‖v‖₁ ≥ ‖g‖₁ - λ, and v = -g/max(‖g‖₁, λ) attains the minimum when
+# max(‖g‖₁, λ) > 0 (then g + λ v = g (1 - λ/max(‖g‖₁, λ)); for λ = 0 the minimum is ‖g‖₁ whatever v is, and v = 0 attains
+# it when g = 0 too). At x ≠ 0, with m = maxᵢ|xᵢ|, M = {i : |xᵢ| = m} and sᵢ = sign xᵢ, it is the set of v with vᵢ = 0 off M,
+# vᵢ = sᵢ wᵢ on M, wᵢ ≥ 0 and Σ wᵢ = 1. Then r = off + min_w Σ_{i∈M} |sᵢgᵢ + λ wᵢ|, off = Σ_{i∉M} |gᵢ|. For λ = 0 this is
+# ‖g‖₁. For λ > 0, the term |aᵢ + λ wᵢ| (aᵢ = sᵢgᵢ) has slope +λ in wᵢ if aᵢ ≥ 0, and slope -λ until wᵢ = -aᵢ/λ and +λ after
+# if aᵢ < 0. With N = Σ_{i∈M} max(sᵢgᵢ, 0) and P = Σ_{i∈M} max(-sᵢgᵢ, 0), the unit of mass is spent first where the slope
+# is -λ (a total capacity P/λ) and then at slope +λ: the minimum is N + (P - λ) if λ ≤ P and N + (λ - P) otherwise, that is
+#     r = off + N + |λ - P|,
+# which also holds at λ = 0. This closed form was checked against an exact (rational) vertex enumeration of the
+# minimization for |M| ≤ 3.
 #
 # The stop is kept when r < τ S, with S = max(λ, λcrit), λcrit = ‖∇f(0)‖₁ = α‖Xᵀy‖₁ (_lambda_max! with the 1-norm)
 # and τ = max(gradtol, 64 eps(T)), all in T, as for the lasso check; it is not kept when S is not finite, when τ S is
@@ -162,18 +164,34 @@ end
 #
 # The active set M is found by exact equality of the stored values, with no tolerance. The accepted iterate of PGD and of
 # APG is the output of PB's value_and_prox! for NormLinf, which for a positive clip level stores each clipped entry as ±τ with the
-# same τ, so entries that are tied at the maximum by the clip are bitwise equal. An iterate whose entries near the maximum are not bitwise equal is
-# treated as having the smaller ones off M, so that their |gᵢ| count in r: r is then the exact residual of that stored
-# point, and the check can refuse a point near a tied optimum, but it does not accept a point whose residual is above τ S.
+# same τ, so the entries that the clip ties at the maximum have equal magnitudes (their signed values differ when their signs do).
+# Exact equality of the magnitudes makes the subdifferential, and so r in exact arithmetic, those of the stored point. An iterate
+# whose entries near the maximum have unequal magnitudes has the smaller ones off M, so their |gᵢ| count in r: that can make
+# the check refuse (when their gradient contribution is too large), but it does not always (a point with M = {1} and a
+# smaller entry whose gradient is 0 can have r = 0), and a point whose exact residual is above τ S is not accepted for that reason.
+#
+# Summation. The residual is a difference of sums, r = off + N + |λ - P| (and max(‖g‖₁ - λ, 0) at x = 0), in which λ is
+# cancelled against P (resp. ‖g‖₁), so a plain sequential sum can lose small terms before the subtraction (a sum at 1 does not
+# change when 2^-24 is added to it in Float32, however many times). Each accumulator is therefore a Neumaier-compensated sum in T,
+# written inline, with λ folded into it: D = λ - Σ_{i∈M} max(-sᵢgᵢ, 0) at x ≠ 0 and D0 = -λ + Σ|gᵢ| at x = 0, so that the
+# cancellation happens inside the compensated sum; off and N, which enter r with the same sign, share one. The error of a
+# compensated sum of p terms is about eps(T) times the magnitude of the exact result plus a term of order p eps(T)² times the sum
+# of the magnitudes of the terms (IEEE arithmetic without fused or reordered operations). The floor 64 eps(T) of τ is far above
+# the first, and covers the second when p eps(T) is well below 64; neither is the error of the computed gradient, which is
+# not covered (below). An infinite or NaN gradient entry, or an overflowing sum, makes the compensation NaN (Inf - Inf) or
+# infinite, so that r is not finite and the check refuses; a NaN or infinite entry of x gives r = NaN.
 #
 # What it is and is not. r is computed in T from the computed gradient, so the rounding error of the gradient is not
 # covered (as for the lasso check): the true residual at a kept stop can be slightly above τ S (a sweep of Float32 solves
-# against a BigFloat reference found at most 1.033 τ S). It is not a certificate in exact arithmetic and it does not bound the
-# distance to a minimizer. It reads x and g in two passes (m, then the sums, accumulated in T). ∇f(x) is
-# _gradient_at_x! (PGD: the accepted gradient, no new evaluation; APG: one gradient from the cached image A x, counted in
-# grad_calls). ∇f(0) is computed first and once per solve, into state.xhat, which the iterations write before they read.
-# The check evaluates no proximal operator, uses no other buffer and does not write delta_x. It allocates nothing for a level of
-# type Float32, Float64, Int, Float16 or Rational{Int}; the conversion of a BigFloat or a Rational{BigInt} level to T can allocate.
+# against a BigFloat reference found at most 1.033 τ S). The remaining error sources are that gradient error and the
+# compensated summation's error above. It is not a certificate in exact arithmetic and it does not bound the distance to a minimizer. It
+# reads x and g in two passes (m, then the sums, accumulated in T). ∇f(x) is _gradient_at_x! (PGD: the accepted gradient, no new
+# evaluation; APG: one gradient from the cached image A x, counted in grad_calls). ∇f(0) is computed first and once per solve, into
+# state.xhat, which the iterations write before they read. _linf_kkt_residual reads x and g and writes neither. _stationary!
+# caches λcrit in the state, overwrites state.xhat and, for APG, writes the gradient and residual scratch of its accepted-point
+# gradient and counts one gradient; it leaves x, delta_x and the engines' gradients as they were, evaluates no proximal operator
+# and uses no other buffer. It allocates nothing for a level of type Float32, Float64, Int, Float16 or Rational{Int}; the
+# conversion of a BigFloat or a Rational{BigInt} level to T can allocate.
 function _stationary!(state, f, g::NormLinf, options::ProximalOptions)
   T = eltype(state.x)
   λcrit = _lambda_max!(state, v -> norm(v, 1))   # first: it uses xhat, which the gradient below may also use
@@ -186,29 +204,43 @@ function _stationary!(state, f, g::NormLinf, options::ProximalOptions)
   isfinite(S) && threshold >= floatmin(T) && isfinite(r) && r < threshold
 end
 
-# r = min over v in ∂‖x‖∞ of ‖grad + λ v‖₁ for the level λ ≥ 0, accumulated in the type of λ (see the comment above): the
-# active set is the set of entries of maximal magnitude, by exact equality.
+# r = min over v in ∂‖x‖∞ of ‖grad + λ v‖₁ for the level λ ≥ 0, in the type of λ (see the comment above): the active set is the
+# set of entries of maximal magnitude, by exact equality; the sums are Neumaier-compensated, with λ folded into the one that
+# it is cancelled against. It reads x and grad and writes neither.
 function _linf_kkt_residual(x, grad, λ)
   z = zero(λ)
   m = maximum(abs, x)
+  isfinite(m) || return oftype(z, NaN)           # a NaN or infinite entry of x: no residual
   if iszero(m)
-    s = z
+    s, c = -λ, z                                 # D0 = -λ + Σ|gᵢ|
     @inbounds for i in eachindex(grad)
-      s += abs(grad[i])
+      t = abs(grad[i])
+      u = s + t
+      c += abs(s) >= t ? (s - u) + t : (t - u) + s
+      s = u
     end
-    return max(s - λ, z)
+    return max(s + c, z)
   end
-  off = N = P = z
+  d, cd = λ, z                                   # D = λ - Σ_{i∈M} max(-sᵢgᵢ, 0)
+  a, ca = z, z                                   # off + N = Σ_{i∉M} |gᵢ| + Σ_{i∈M} max(sᵢgᵢ, 0)
   @inbounds for i in eachindex(x, grad)
     if abs(x[i]) == m
       sg = sign(x[i]) * grad[i]
-      N += max(sg, z)
-      P += max(-sg, z)
+      q = max(-sg, z)
+      if q > z
+        u = d - q
+        cd += abs(d) >= q ? (d - u) - q : (-q - u) + d
+        d = u
+      end
+      t = max(sg, z)
     else
-      off += abs(grad[i])
+      t = abs(grad[i])
     end
+    u = a + t
+    ca += abs(a) >= t ? (a - u) + t : (t - u) + a
+    a = u
   end
-  off + N + abs(λ - P)
+  (a + ca) + abs(d + cd)
 end
 
 # α‖Xᵀy‖ = ‖∇f(0)‖ in the norm `nrm`: the ∞-norm by default (NormL1 and ElasticNet) and the 1-norm for

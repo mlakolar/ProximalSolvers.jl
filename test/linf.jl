@@ -343,7 +343,7 @@ end
     # x = 0, ∇f(0) = (-2, -2), ‖∇f(0)‖₁ = 4: max(4 - λ, 0)
     @test res(T[0, 0], 5) == 0 && res(T[0, 0], 4) == 0 && res(T[0, 0], 3) == 1 && res(T[0, 0], 0) == 4
     @test res(T[-0.0, 0.0], 3) == 1                      # signed zeros are zero
-    # a near-tie that is not bitwise: only the larger entry is in M, so r is the exact residual of the stored point, about 1
+    # a pair with unequal magnitudes near the maximum: only the larger entry is in M, so r is the exact residual of the stored point; here about 1
     δ = T === Float64 ? 1e-8 : 1e-6
     xn = T[0.75, 0.75 * (1 - δ)]
     @test xn[1] != xn[2]
@@ -377,7 +377,8 @@ end
       @test check_at(method, T, [0.75, 0.75], L)[1]
       @test !check_at(method, T, [0.5, 0.5], L)[1]
     end
-    # a near-tie that is not bitwise is refused: only the larger entry is in M, r ≈ 1
+    # unequal magnitudes near the maximum: only the larger entry is in M, the smaller entry's gradient counts in r ≈ 1, and this point is refused
+    # (a point with unequal magnitudes is not always refused: see the test of X = I₂ below)
     δ = T === Float64 ? 1e-8 : 1e-6
     @test !check_at(method, T, [0.75, 0.75 * (1 - δ)], 2)[1]
     # S = 0 (y = 0, λ = 0), τ S below floatmin(T) (a stationary point at a tiny scale), S not finite: not kept
@@ -484,6 +485,122 @@ end
       @test r.converged
       @test kkt_ratio(X, y, one(T), 1, x; gradtol) <= 1.1
     end
+  end
+end
+
+# ---- the sums of the residual: small terms against a large one, order independence ---------------------
+
+# a state at x for X, y, λ, with the gradient formed by the engine
+function state_at(method, X, y, x, λ)
+  T = eltype(X)
+  f, g = LeastSquaresLoss(y, X), NormLinf(T(λ))
+  st = PS.initial_state(method, ProximalOptions(), f, g, copy(x))
+  st.x_previous .= x
+  f, g, st
+end
+
+# Codex's fixtures. (1) x ≠ 0, all of the entries in M: X = I/1024, x = fill(1024, p), λ = 1, y[1] = 1025 and y[2:end] = 1 + δ. The gradient is
+# exactly (-1, -δ, …, -δ) (δ = 2^-14 for Float32, 2^-43 for Float64: the entries 1 + δ are normal and X is a power of two), so that
+# P = 1 + (p - 1)δ·... with the signs of x: a sequential P starts at 1 and does not change when δ/1024 = 2^-24 (resp. 2^-53) is added,
+# and the exact residual is |λ - P| = (p - 1) 2^-24 (resp. 2^-53), about 3 τ S.
+# (2) x = 0: X = I, y = (1, u, …, u) with u = 2^-24 (2^-53) and λ = 1: ‖∇f(0)‖₁ = 1 + (p - 1)u, and a sequential sum stays at 1.
+fixture1(T, p) = (Matrix{T}(I, p, p) / T(1024), vcat(T(1025), fill(T(1) + (T === Float32 ? T(2)^-14 : T(2)^-43), p - 1)), fill(T(1024), p))
+fixture0(T, p) = (Matrix{T}(I, p, p), vcat(one(T), fill(T(2)^(T === Float32 ? -24 : -53), p - 1)), zeros(T, p))
+
+@testset "small summands against a large one: both branches, through solve! and on built states (Codex's fixtures)" begin
+  for T in (Float32, Float64), method in METHODS
+    gt = T === Float32 ? 1e-5 : 0.0              # gradtol; 0 gives the floor 64 eps(T)
+    opts = ProximalOptions(maxiter = 3, gradtol = gt)
+    # x ≠ 0 branch, p = 1001: the residual is about 3 τ S (Float32) and 3.95 τ S (Float64)
+    X, y, x0 = fixture1(T, 1001)
+    x = copy(x0)
+    # a callback ends the solve after iteration 1, where the unchanged iterate was declared converged
+    r = solve!(x, LeastSquaresLoss(y, X), NormLinf(one(T)), method, ProximalOptions(callback = _ -> true, gradtol = gt))
+    @test !r.converged && r.iterations == 1 && all(==(T(1024)), x)
+    @test kkt_ratio(X, y, one(T), 1, x; gradtol = gt) > 2.5
+    f, g, st = state_at(method, X, y, x0, 1)
+    @test !PS._stationary!(st, f, g, opts)
+    # x = 0 branch (the iterate is 0 where PB's zero fill is used or the state is built at 0): the check on a built state at 0
+    X0, y0, z0 = fixture0(T, 1001)
+    f, g, st = state_at(method, X0, y0, z0, 1)
+    @test !PS._stationary!(st, f, g, opts)
+    @test kkt_ratio(X0, y0, one(T), 1, z0; gradtol = gt) > 5
+    # a solve from 0 with a callback after iteration 1: the iterate is 0 or not; it is not declared converged at 0 with that residual
+    z = copy(z0)
+    r = solve!(z, LeastSquaresLoss(y0, X0), NormLinf(one(T)), method, ProximalOptions(callback = _ -> true, gradtol = gt))
+    @test r.iterations == 1 && (!r.converged || kkt_ratio(X0, y0, one(T), 1, z; gradtol = gt) <= 1.1)
+    # the same states with the stationary gradient (y[2:end] = 1: the gradient is (-1, 0, …, 0), r = 0): kept
+    y2 = copy(y); y2[2:end] .= 1
+    f, g, st = state_at(method, X, y2, x0, 1)
+    @test PS._stationary!(st, f, g, opts)
+  end
+end
+
+@testset "the decision does not depend on the order of the coordinates" begin
+  rng = Xoshiro(11)
+  for T in (Float32, Float64), method in METHODS
+    gt = T === Float32 ? 1e-5 : 0.0
+    opts = ProximalOptions(gradtol = gt)
+    X1, y1, x1 = fixture1(T, 1001)
+    X0, y0, x0 = fixture0(T, 1001)
+    y1s = copy(y1); y1s[2:end] .= 1                       # stationary: kept
+    for (X, y, x, expected) in ((X1, y1, x1, false), (X0, y0, x0, false), (X1, y1s, x1, true))
+      for perm in (collect(1:1001), reverse(1:1001), randperm(rng, 1001), randperm(rng, 1001))
+        Xp = X[perm, perm]; yp = y[perm]; xp = x[perm]
+        f, g, st = state_at(method, Xp, yp, xp, 1)
+        @test PS._stationary!(st, f, g, opts) == expected
+      end
+    end
+  end
+end
+
+@testset "_linf_kkt_residual against an exact reference: a large summand and many small ones (p up to 3000), random orders" begin
+  rng = Xoshiro(21)
+  exact(x, g, λ) = Float64(rkkt_ref(big.(Rational{BigInt}.(x)), big.(Rational{BigInt}.(g)), big(Rational{BigInt}(λ))))
+  for T in (Float32, Float64)
+    u = T(2)^(T === Float32 ? -24 : -53)
+    for p in (10, 100, 1001, 3000), ord in 1:3
+      # x ≠ 0, all of the entries in M, s = +: g = (-1, -u, …, -u) in a random or reversed order, λ = 1: |λ - P| = (p - 1) u
+      g = vcat(-one(T), fill(-u, p - 1))
+      ord == 2 && reverse!(g); ord == 3 && shuffle!(rng, g)
+      x = ones(T, p)
+      Σ = Float64(sum(abs, big.(g)))
+      r, ex = Float64(PS._linf_kkt_residual(x, g, one(T))), exact(x, g, 1)
+      @test ex ≈ (p - 1) * Float64(u) rtol = 1e-12
+      @test abs(r - ex) <= 4 * Float64(eps(T)) * ex + 10 * p * Float64(eps(T))^2 * Σ
+      # x = 0: D0 = -λ + Σ|g|
+      z = zeros(T, p)
+      r0, ex0 = Float64(PS._linf_kkt_residual(z, g, one(T))), exact(z, g, 1)
+      @test ex0 ≈ (p - 1) * Float64(u) rtol = 1e-12
+      @test abs(r0 - ex0) <= 4 * Float64(eps(T)) * ex0 + 10 * p * Float64(eps(T))^2 * Σ
+      # a mix: random signs (so that P and N both occur), magnitudes over several decades, off-M entries, λ near P
+      s = rand(rng, Bool, p) .* 2 .- 1
+      gm = T.(s .* 10.0 .^ (-6 .* rand(rng, p)))
+      xm = T.(vcat(fill(2, p ÷ 2), 0.5 .* rand(rng, p - p ÷ 2))) .* sign.(randn(rng, p))
+      xm[xm .== 0] .= T(2)
+      xm[1] = T(2)                                         # at least one entry in M
+      P = sum(max(-sign(xm[i]) * gm[i], 0) for i in 1:p if abs(xm[i]) == maximum(abs, xm); init = 0.0)
+      λm = T(P)
+      Σm = Float64(sum(abs, gm))
+      rm, exm = Float64(PS._linf_kkt_residual(xm, gm, λm)), exact(xm, gm, λm)
+      @test abs(rm - exm) <= 4 * Float64(eps(T)) * exm + 10 * p * Float64(eps(T))^2 * Σm + Float64(eps(T)) * Σm * 1e-3
+    end
+  end
+end
+
+@testset "a point with unequal magnitudes near the maximum is not refused when its smaller entry has a zero gradient" begin
+  # X = I₂, λ = 1, y = (1.75, 0.75 - δ), x = (0.75, 0.75 - δ): M = {1}, g = (-1, 0), r = 0; the exact minimizer
+  for T in (Float64, Float32), method in METHODS
+    δ = T === Float64 ? T(1e-8) : T(1e-6)
+    X, y = Matrix{T}(I, 2, 2), T[1.75, 0.75 - δ]
+    x = T[0.75, 0.75 - δ]
+    @test x[1] != x[2]
+    @test PS._linf_kkt_residual(x, X' * (X * x - y), one(T)) == 0
+    f, g, st = state_at(method, X, y, x, 1)
+    @test PS._stationary!(st, f, g, ProximalOptions())
+    xs = copy(x)
+    r = solve!(xs, LeastSquaresLoss(y, X), NormLinf(one(T)), method, ProximalOptions())
+    @test r.converged && maximum(abs, xs - x) <= 1e-5 && kkt_ratio(X, y, one(T), 1, xs) <= 1.1
   end
 end
 

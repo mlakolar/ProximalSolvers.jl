@@ -64,7 +64,7 @@ proposed, and counts that evaluation in `grad_calls`.
 **The stationarity check for `NormLinf(λ)`.** For this penalty the check is the direct KKT residual
 `r = min over v ∈ ∂‖x‖∞ of ‖∇f(x) + λ v‖₁` at the accepted iterate `x`, in place of the KKT residual above, and the same
 `ProximalOptions` tests propose a stop. Write `g = ∇f(x)`. At `x = 0` the subdifferential is the unit ℓ1 ball and
-`r = max(‖g‖₁ - λ, 0)`. At `x ≠ 0`, let `M` be the entries of maximal magnitude (found by exact equality of the stored values),
+`r = max(‖g‖₁ - λ, 0)` (at `λ = 0`, `r = ‖g‖₁` in both cases). At `x ≠ 0`, let `M` be the entries of maximal magnitude (found by exact equality of the stored values),
 `sᵢ = sign xᵢ`, `N = Σ_{i∈M} max(sᵢgᵢ, 0)` and `P = Σ_{i∈M} max(-sᵢgᵢ, 0)`; then `r = Σ_{i∉M} |gᵢ| + N + |λ - P|`. The stop counts
 only if `r < max(gradtol, 64 eps(T)) * max(λ, λcrit)`, with `λcrit = α‖Xᵀy‖₁ = ‖∇f(0)‖₁`, the smallest level for which 0 is
 a minimizer (the lasso's threshold `‖∇f(0)‖∞` does not apply); it also requires that `max(λ, λcrit)` is finite, that
@@ -73,11 +73,15 @@ minimizes the objective. The check uses no step size, no curvature `L` and no pr
 one gradient at `x` from the cached image `A x` and counts it in `grad_calls`, before the call limits are compared (so a stop that
 the check refuses can reach `grad_calls_limit`); for `ProximalGradientDescent` it uses the accepted gradient. The active set `M`
 has no tolerance: the accepted iterate is the output of ProximalBase's `value_and_prox!`, which for a positive clip level stores each clipped entry as `±τ` with the same
-`τ`, and an iterate with entries near the maximum that are not bitwise equal is refused, not accepted, so the check can refuse a point
-near a tied optimum but does not accept a point whose residual is above the bound. The residual is computed in working precision from the
-computed gradient, whose rounding error it does not cover, so the true residual at a kept stop can be slightly above the bound (a sweep of
-`Float32` solves against a BigFloat reference found at most 1.033 times the bound); it is not a certificate in exact arithmetic and it does
-not bound the distance to a minimizer. See [the numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-for-NormLinf).
+`τ`, so the entries that the clip ties at the maximum have equal magnitudes. Exact equality of the magnitudes makes the subdifferential,
+and so `r` in exact arithmetic, those of the stored point. An iterate whose entries near the maximum have unequal magnitudes has the smaller
+ones off `M`, so their `|gᵢ|` count in `r`; that can make the check refuse, when their gradient contribution is too large, but it does not
+always (a point with `M = {1}` and a smaller entry whose gradient is 0 can have `r = 0`). The sums in `r` are Neumaier-compensated in `T`, with
+`λ` folded into the sum it is cancelled against, so that small terms are not lost before the subtraction. The residual is computed in working
+precision from the computed gradient, whose rounding error it does not cover, and the compensated sums have a small error of their own
+(about `eps(T)` times the magnitude of the result, plus a term of order `p eps(T)²` times the sum of the magnitudes of the terms), so the true
+residual at a kept stop can be slightly above the bound (a sweep of `Float32` solves against a BigFloat reference found at most 1.033 times the
+bound); it is not a certificate in exact arithmetic and it does not bound the distance to a minimizer. See [the numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-for-NormLinf).
 
 The gradient test holds when `r < gradtol * m` or `r < gradtol * N`, with `r` the
 gradient/proximal residual of the iteration, `m` the largest `r` so far in the
