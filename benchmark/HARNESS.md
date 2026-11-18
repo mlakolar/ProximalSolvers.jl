@@ -491,6 +491,66 @@ all three files. Invalid records, mismatched settings, catalogs or data hashes p
 comparison. Intervals include input variability and machine noise, without corrections
 for correlated noise or multiple comparisons.
 
+## Cross-solver readout
+
+`cross_solver.py` sets the per-case summaries of different solvers and settings (CD, PGD, APG)
+side by side for the same problem and accuracy target. It reads existing records only: the
+results directory, for the catalog fields and the per-repetition data hashes, and the
+`summary.csv` that `summarize.py` wrote from that directory. It writes `REPORT.md` and
+`cross_solver.csv` to a fresh directory and changes no record.
+
+```sh
+python3 benchmark/summarize.py benchmark/results benchmark/results/summary --expected-runs 10
+python3 benchmark/cross_solver.py benchmark/results benchmark/results/summary \
+  benchmark/results/cross-solver --expected-runs 10
+```
+
+- **Groups.** A group holds the cases of one Julia version, problem, phase, certificate measure,
+  target and catalog input mode (`fixed`, `draw`) whose data hashes agree in every repetition. The
+  data hash covers the problem data the solver received, not the solver or its settings; for the
+  current-core cases it covers the data in the solver's precision, the penalty and the start, so
+  the cases of a group received the same inputs. Precision (`f64`, `f32`) and start (`cold`,
+  `warm`) are also read from the variant and kept apart; the solver with the rest of the variant
+  names the configuration (`cd sparse`, `pg acc-dense`). Variants without a precision suffix (the
+  historical `R`) show both as `not encoded`. Configurations are listed alphabetically.
+- **Values.** `cross_solver.csv` carries the target, runs, timing runs, mean time, CI95 bounds,
+  worst certificate and status counts of `summary.csv` as strings, unchanged, for every case.
+  `REPORT.md` shows the fields its tables list to six significant digits, as `SUMMARY.md` does.
+- **Failed and missing cases.** A time is shown only for a case with a finite target whose every
+  repetition is `ok`, that is, whose independent certificate met the target in every sample.
+  Other cases are listed with their status counts, worst certificate and the reason
+  (`not every run ok`, `no accuracy target`), without a time. `not recorded` marks a configuration
+  that another case of the same problem, phase and start has and this group lacks. A case with an
+  empty data hash in some repetition (a failure before the runner recorded its input hash) keeps
+  its row in `cross_solver.csv`; "Cases not grouped" lists its labels (including measure, target
+  and input mode), ok runs, worst certificate and status counts, and a group with all of those
+  labels marks the configuration `ungrouped`.
+- **Refusals** (exit 2): invalid records; a `summary.csv` that does not cover the records exactly,
+  or disagrees with their catalog (group, phase, measure, target), with `--expected-runs`, or with
+  the records' status counts, timing runs, worst certificate or mean time (for example a summary
+  of another series with other outcomes; the intervals are not rechecked); two cases of one group
+  that name the same configuration.
+
+The readout is descriptive and per case. Each interval is the case's own Student-t interval over
+repetitions, not a paired comparison between solvers, so overlapping or separate intervals are not
+a test. It does not rank solvers or compute ratios. A claim that one solver is faster at matched
+accuracy needs the protocol of #110 (paired runs within a series, A/A controls, hardware policy).
+
+One group of a 10-repetition extended run (Julia 1.13.3, `637f06a`):
+
+```text
+### Group 4: Julia 1.13.3, precision f32, start cold, relative_gap target 1e-05, inputs 4a1d7fea9474 (draw)
+
+| Configuration | Case | Ok runs / total | Mean time (ns) | 95% interval (ns) | Worst certificate | Status counts | Time |
+|---|---|---:|---:|---:|---:|---|---|
+| apg acc-dense | | | | | | | not recorded |
+| apg dense | gradient/lasso/apg/dense-f32/call | 1 / 10 |  |  | 9.67056e-05 | ok=1, target_missed=9 | excluded: not every run ok |
+| cd dense | cd/lasso/cd/dense-f32/call | 10 / 10 | 5242.6 | [5041.96, 5443.24] | 3.57172e-07 | ok=10 | shown |
+| cd sparse | cd/lasso/cd/sparse-f32/call | 10 / 10 | 5301.2 | [5053.68, 5548.72] | 3.57172e-07 | ok=10 | shown |
+| pg acc-dense | | | | | | | not recorded |
+| pg dense | gradient/lasso/pg/dense-f32/call | 4 / 10 |  |  | 0.00010668 | ok=4, target_missed=6 | excluded: not every run ok |
+```
+
 ## Records and evidence
 
 Each process writes `julia-<VERSION>-rep<NN>` files under `PS_OUTPUT` (two-digit reps).
@@ -531,6 +591,7 @@ Pass `--expected-runs N` to `validate.py`, `summarize.py` and `compare.py` for r
 series. Validation and summarization also accept `--versions VERSION ...`.
 `summarize.py` writes `SUMMARY.md`
 and `summary.csv`, retaining status counts and using the mean of repetition medians.
+`cross_solver.py` takes the same `--expected-runs` and `--versions` (see "Cross-solver readout").
 `check_analysis.py` tests synthetic records, including failures and interruptions. Generated
 results, environments and profiles are ignored by Git. Put concise findings and limitations
 in the pull request. Never select the fastest run or discard adverse runs.
