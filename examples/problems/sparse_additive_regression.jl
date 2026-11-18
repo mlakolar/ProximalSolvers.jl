@@ -92,10 +92,11 @@ predict(b, Xnew) = avg(y) .+ sum(component(j, b, Xnew[:, j]) for j in 1:p)
 
 # ## The problem and its penalty levels
 #
-# The response is centered, `z = y − mean(y)`. Every column of `Z` has mean zero, so for a fixed
+# The response is centered, `z = y − mean(y)`. Each of the `pK` columns of `Z` has mean zero, so for a fixed
 # `b` the minimizer over the intercept `a` of `‖y − a − Z b‖²/(2n)` is `a = mean(y)` and the
-# minimum is `‖z − Z b‖²/(2n)`; the intercept of the full fit is `mean(y)`. The point `b = 0` is
-# optimal exactly when `λ` is at least `λmax = maxⱼ ‖Zⱼᵀ z‖₂ / (n wⱼ)`.
+# minimum is `‖z − Z b‖²/(2n)`; the intercept of the full fit is `mean(y)`. The group
+# optimality condition at `b = 0` is `‖Zⱼᵀ z‖₂/n ≤ λ wⱼ` for each `j`; the problem is convex, so
+# `b = 0` is a minimizer when `λ` is at least `λmax = maxⱼ ‖Zⱼᵀ z‖₂ / (n wⱼ)`.
 z = y .- avg(y)
 @assert abs(sum(z)) <= 1e-12 * n
 f = (1 / n) * LeastSquaresLoss(z, Z)
@@ -124,10 +125,9 @@ function violations(b, lambda)
 end
 
 # The solver tolerance `1e-12` is a threshold on the change of the coefficients over a pass,
-# relative to the scale of the response, and `converged` only reports that the change test
-# passed. The optimality statements below rest on `violations`. Its tolerance `1e-6 λ` is a
-# choice made small against the penalty level, and the printed violations show how far under it
-# the solves are.
+# relative to the scale of the response, and `converged` reports that the change test
+# passed. The optimality statements below rest on `violations`. Its tolerance `1e-9 λ` is a
+# choice made small against the penalty level; the printed violations are the measured values.
 function fit(lambda)
   g = GroupNormL2(lambda, groups)
   x = BlockIterate(Float64, p * K, g)
@@ -143,8 +143,8 @@ end
 
 # ## At and above `λmax`
 #
-# At `λ = λmax` and at larger levels every block of the solution is zero, and the solver
-# reports no active group.
+# The script asserts that at `λ = λmax` and at `λ = 1.5 λmax` all `p` blocks of the solution
+# are zero and that the solver reports no active group.
 for lambda in (lambdamax, 1.5 * lambdamax)
   r = fit(lambda)
   @assert isempty(r.active) && all(iszero, r.b)
@@ -198,7 +198,7 @@ for frac in fractions
 
   ## the optimality conditions
   nz, zr = violations(b, lambda)
-  @assert nz <= 1e-6 * lambda && zr <= 1e-6 * lambda
+  @assert nz <= 1e-9 * lambda && zr <= 1e-9 * lambda
   println("λ = ", frac, " λmax = ", round(lambda, digits = 4), ": selected groups ", r.active,
           " (true ", true_groups, "); passes = ", r.res.passes,
           "; violations ", nz / lambda, " λ (nonzero), ", zr / lambda, " λ (zero)",
@@ -241,9 +241,11 @@ println("nonzero coefficients per group: ", nonzero_per_group)
 #   cross-validation or an information criterion.
 # - The components are piecewise linear with kinks at the knots, so curvature inside a piece is
 #   not represented; a different basis gives a different estimate.
-# - The group norm equals the empirical norm of the component only on the training sample, and
-#   the orthonormalization depends on that sample. The estimator is not SpAM.
-# - The weights `wⱼ = √K` are equal across the predictors here, so they only rescale `λ`.
+# - The group norm `‖bⱼ‖₂` equals the empirical norm of the fitted component on the training
+#   sample, whose rows define the centering and the orthonormalization; at other points the
+#   empirical norm of the component is a different number. The estimator is not SpAM.
+# - The weights `wⱼ = √K` are equal across the predictors, so the penalty is `λ √K Σⱼ ‖bⱼ‖₂`, a
+#   rescaling of `λ`.
 # - The selected groups are reported for one simulated data set and compared with the truth.
 #   They are no guarantee of recovery on other data, and the page asserts none.
 # - `CDSolver`'s `converged` is a test of the change over a pass. The optimality statements on
