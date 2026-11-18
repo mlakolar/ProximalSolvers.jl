@@ -685,6 +685,16 @@ end
 # 8. The stopping check of PGD and APG
 # ---------------------------------------------------------------------------------------------------------
 
+# Zero weights leave their coordinates unpenalized, so the stop check must score them with their full gradient. Part (1)
+# uses options that do not end a run on a computed objective increase (`allow_f_increases = true`, and
+# `gradient_options`, which has it too): the run must be accepted (converged), the unpenalized coordinates are nonzero
+# and the independent residual is within the bound. Part (2) uses the default `ProximalOptions()`, under which a
+# Float32 run can end on an increase of the computed objective (the documented exit: `f_increased = true` and
+# `converged = false`; the increase is rounding in the Float32 objective, whose last decreases here are a few ulps). For
+# Float64 the run must converge, and for any run that converges the independent residual is within the bound (no false
+# stop); a Float32 run that does not converge must have ended on the objective increase or on numerical stagnation, so
+# that a run cut off by `maxiter` or by an error is not accepted as an outcome. The labels carry the exit
+# (converged, f_increased, stagnated, iterations), so a failure shows how the run ended.
 @testset "zero weights on nonzero coordinates: a stop is accepted at the weighted stationary point" begin
   n, p = 40, 8
   for T in (Float32, Float64), method in (ProximalGradientDescent(), AccProxGradDescent())
@@ -692,14 +702,26 @@ end
     w = T[0, 0, 0, 1, 1, 1, 1, 1]
     λ0 = T(0.2 * lambdamax(X, y, 1.0))
     s = Spec("stop", method isa ProximalGradientDescent ? :pgd : :apg, :cyclic, nothing, false)
-    for options in (ProximalOptions(), gradient_options(T))
-      x, r = solve_spec(s, T, LeastSquaresLoss(y, X), NormL1(λ0, w), zeros(T, p); options)
-      label = (T, s.kind, options.gradtol)
-      @test (label, r.converged) == (label, true)
-      @test (label, all(!iszero, x[1:3])) == (label, true)
+    within_bound(x, options) = begin
       G, S, eG, eS = kktparts(X, y, 1, λ0, w, x, T)
       τ = max(big(options.gradtol), 64 * big(eps(T)))
-      @test (label, G - eG <= τ * (1 + 4 * big(eps(T))) * (S + eS)) == (label, true)
+      G - eG <= τ * (1 + 4 * big(eps(T))) * (S + eS)
+    end
+    for options in (ProximalOptions(allow_f_increases = true), gradient_options(T))
+      x, r = solve_spec(s, T, LeastSquaresLoss(y, X), NormL1(λ0, w), zeros(T, p); options)
+      label = (T, s.kind, options.gradtol, :allow_f_increases, r.converged, r.f_increased, r.stagnated, r.iterations)
+      @test (label, r.converged) == (label, true)
+      @test (label, all(!iszero, x[1:3])) == (label, true)
+      @test (label, within_bound(x, options)) == (label, true)
+    end
+    options = ProximalOptions()
+    x, r = solve_spec(s, T, LeastSquaresLoss(y, X), NormL1(λ0, w), zeros(T, p); options)
+    label = (T, s.kind, options.gradtol, :default, r.converged, r.f_increased, r.stagnated, r.iterations)
+    if r.converged
+      @test (label, all(!iszero, x[1:3])) == (label, true)
+      @test (label, within_bound(x, options)) == (label, true)
+    else
+      @test (label, T === Float32 && (r.f_increased || r.stagnated)) == (label, true)
     end
   end
 end

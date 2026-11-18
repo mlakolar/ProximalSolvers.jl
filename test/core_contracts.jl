@@ -119,8 +119,9 @@ end
     for g in (ElasticNet(T(.1), T(.2), ones(T, 2)), Scaled(en, 2), Scaled(NormL1(T(.1), ones(T, 2)), 2), SqrNormL2(T(.1)))
       refused_with(x, f, g, method, EN_PENALTY_REFUSAL)
     end
-    # a NormL1 with weights is accepted (#331); its solves are in test/weighted_lasso.jl
-    r = solve!(copy(x), f, NormL1(T(.1), T[1, 2]), method)
+    # a NormL1 with weights is accepted (#331); its solves are in test/weighted_lasso.jl. The options allow an increase
+    # of the computed objective, which under the default options can end a Float32 run before its stop is accepted.
+    r = solve!(copy(x), f, NormL1(T(.1), T[1, 2]), method, ProximalOptions(allow_f_increases = true))
     @test r.converged && all(isfinite, r.minimizer)
     refused_with(x, f, ElasticNet(T(Inf), zero(T)), method, "penalty lambda1 must be finite and nonnegative")
     refused_with(x, f, ElasticNet(zero(T), T(Inf)), method, "penalty lambda2 must be finite and nonnegative")
