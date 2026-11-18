@@ -53,7 +53,8 @@ end
 # The independent checks use only the data of one regression. The objective is
 # `‖y − Xo b‖²/(2n) + λ‖b‖₁`. The residual of the optimality condition `0 ∈ grad + λ ∂‖b‖₁`, for
 # `grad = Xoᵀ(Xo b − y)/n`, is `|grad_k + λ sign(b_k)|` at a nonzero coefficient and
-# `max(|grad_k| − λ, 0)` at a zero coefficient. It is zero exactly at a minimizer. The level
+# `max(|grad_k| − λ, 0)` at a zero coefficient. It is zero at a minimizer, and a point with a
+# zero residual is a minimizer because the objective is convex. The level
 # `λmax = ‖Xoᵀ y‖∞ / n` is the smallest level at which `b = 0` is the minimizer.
 objective(Xo, y, λ, b) = sum(abs2, y - Xo * b) / (2 * length(y)) + λ * sum(abs, b)
 function node_kkt_residual(Xo, y, λ, b)
@@ -135,7 +136,7 @@ println("largest |S - Σ| entry = ", maximum(abs, S .- Σ), ", largest sd of an 
 
 # Gaussian edges are nonzero entries of the precision matrix, not of the covariance. Here the
 # graph has `10` edges, while `Σ = Ω⁻¹` has no zero entry: `Ω` is a symmetric matrix with
-# nonpositive off-diagonal entries and a connected graph, so `Σ` has only positive entries.
+# nonpositive off-diagonal entries and a connected graph, so all entries of `Σ` are positive.
 # Two variables that are not joined by an edge, such as 1 and 3, are still correlated.
 @assert minimum(Σ[j, k] for j in 1:p for k in 1:p if j != k) > 0
 println("Σ[1, 3] = ", Σ[1, 3], " although Ω[1, 3] = ", Ω[1, 3])
@@ -144,8 +145,8 @@ println("Σ[1, 3] = ", Σ[1, 3], " although Ω[1, 3] = ", Ω[1, 3])
 #
 # Each column is scaled to `mean(x²) = 1` after centering (the `1/n` convention, not `1/(n−1)`).
 # The coefficients of the regressions are then on the standardized scale, and the support of
-# a regression is the support on that scale. All the fits and all the checks below use exactly
-# this matrix. The same level `λ = √(2 log(p) / n)` is used for every variable; this is the usual
+# a regression is the support on that scale. The fits and the checks below use this
+# matrix. The same level `λ = √(2 log(p) / n)` is used for all `p` variables; this is the usual
 # order of the level in the theory of the lasso and is not tuned with the true graph.
 # Because of the standardization, `λmax,j` is the largest absolute correlation of column
 # `j` with the other columns.
@@ -177,8 +178,8 @@ for (j, f) in enumerate(fits)
 end
 
 # The level at which a regression selects nothing is `λmax,j`. Each fit is repeated at
-# `1.01 λmax,j`, where the coefficients are all zero, and at `0.9 λmax,j`, where they cannot
-# all be zero, because `b = 0` violates the optimality condition below `λmax,j`. The factor
+# `1.01 λmax,j`, where the coefficients are all zero, and at `0.9 λmax,j`, where at least one
+# is nonzero, because `b = 0` violates the optimality condition below `λmax,j`. The factor
 # `1.01` keeps the solver's rounding in the gradient from the boundary case.
 ratios = Float64[]
 for (j, f) in enumerate(fits)
