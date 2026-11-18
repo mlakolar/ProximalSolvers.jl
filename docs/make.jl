@@ -6,8 +6,8 @@ rm(GENERATED; force = true, recursive = true)
 mkpath(GENERATED)
 
 # The examples that become documentation pages. A path is relative to `examples/`, and a page
-# is written to `docs/src/examples/<the same path>.md`. A notebook is also written next to
-# its page. When a script is added to `examples/` it is added here too, and the check below
+# is written to `docs/src/examples/<the same path>.md`. With `notebook = true`, a notebook is
+# also written next to its page. When a script is added to `examples/` it is added here too, and the check below
 # fails otherwise.
 const EXAMPLES = [
   (section = "Problems", path = "problems/lasso.jl", title = "Lasso", notebook = false),

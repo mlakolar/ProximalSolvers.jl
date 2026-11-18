@@ -9,8 +9,8 @@ The table lists the combinations of problem, solver, iterate and element type wi
 support: `solve!` accepts the combination, and a test under `test/` checks the returned point
 against an independent reference for each element type listed. An entry "Float32, Float64"
 means both; a letter refers to a limit in the notes below the table. A dash means that
-`solve!` refuses the combination with an `ArgumentError`. A combination that is not in the
-table is not supported; the sections below give the exact input rules, and
+`solve!` refuses the combination with an `ArgumentError`. A combination that is not marked
+as supported in the table is not verified; the sections below give the exact input rules, and
 [What is not supported yet?](@ref "What is not supported yet?") lists what is deferred.
 
 | Problem | `CDSolver` on a `Vector` | `CDSolver` on a `SparseIterate` | `CDSolver` on a `BlockIterate` | `ProximalGradientDescent` on a `Vector` | `AccProxGradDescent` on a `Vector` | Tutorial |
@@ -20,9 +20,11 @@ table is not supported; the sections below give the exact input rules, and
 | Group lasso: `GroupNormL2` | — | — | Float32, Float64 (d) | — | — | [Group lasso](examples/problems/group_lasso.md) |
 | Square-root lasso: `SqrtLeastSquaresLoss`, `NormL1` | Float32, Float64 (e) | Float32, Float64 (e) | — | — | — | [Square-root lasso](examples/problems/square_root_lasso.md) |
 
-All rows are unweighted penalties on the dense least-squares loss `LeastSquaresLoss` (or one
-positive scalar multiple of it; the square-root lasso takes the unscaled loss), with a dense
-`Matrix` design. For `CDSolver`, `converged = true` is the test on the change of the
+`NormL1` and `ElasticNet` are unweighted where they appear in the table. `GroupNormL2` takes its group
+weights, the default `sqrt(|G_k|)` or explicit finite nonnegative weights (see
+[Group lasso with coordinate descent](@ref)). The lasso, elastic net and group lasso rows use
+`LeastSquaresLoss` or one positive finite scalar multiple of it, and the square-root lasso
+row uses the unscaled `SqrtLeastSquaresLoss`. The design is a dense `Matrix`. For `CDSolver`, `converged = true` is the test on the change of the
 coefficients over a pass and not a certificate of optimality, except for the square-root
 lasso (note e).
 
@@ -31,16 +33,20 @@ lasso (note e).
   `Float32`-sized tolerances, and do not require `converged = true`, because a `Float32`
   solve can end without it: with `ftol = 0`, `ProximalGradientDescent` can stop at
   numerical stagnation with `stagnated = true` and `converged = false`, and with the default
-  options a solve can end on the objective-increase exit with `converged = false`. Assess the
+  options a `Float32` solve can end on the objective-increase exit with `converged = false`. Assess the
   returned point with an independent residual; see [Numerical behavior](numerics.md).
 - **(b)** `AccProxGradDescent` also needs `max(n, p) + 4 < 1/(4 eps(T))` and
-  `n p + 3 < 1/(4 eps(Float64))` (see "What works today?" below). The tests do not exercise
-  sizes near this bound.
+  `n p + 3 < 1/(4 eps(Float64))` (see "What works today?" below).
 - **(c)** The elastic net is accepted for the least-squares loss with an unweighted
-  `ElasticNet(lambda1, lambda2)`. `CDSolver` with `lambda2 > 0` refuses a coordinate whose
-  step is out of the range of the arithmetic; see [Numerical behavior](numerics.md).
+  `ElasticNet(lambda1, lambda2)`. For `CDSolver`, at a visit to a column with a finite
+  positive squared norm `a`, where the loss scale times `a`, or its reciprocal, is below
+  `floatmin` of the type that combines the scale with the working type, a visit with
+  `lambda2 = 0` takes the lasso's range-safe step and a visit with `lambda2 > 0` is refused
+  with an `ArgumentError`. A flat column (all entries 0) sets its coordinate to 0. See
+  [Numerical behavior](numerics.md).
 - **(d)** `CDSolver` on a `BlockIterate` refuses `momentum = true`, and accepts a `Float64`
-  penalty with `Float32` data (tested). Its groups must equal those of the iterate.
+  penalty with `Float32` data (tested). The groups of the penalty and of the iterate must be the same, in
+  the same order.
 - **(e)** The square-root lasso needs the unscaled `SqrtLeastSquaresLoss` and `lambda > 0`.
   `converged = true` means that a duality certificate proved a relative gap of at most
   `1e-4`; a run without a certificate reports `converged = false`, and `Float32` runs can end

@@ -1,9 +1,9 @@
 # Examples
 
 The scripts here are documentation pages and tests at the same time. The documentation
-build turns each script into a page (see `docs/make.jl`), and `test/examples.jl` runs every
-script under this folder, subfolders included. A script ends normally only if its own
-checks pass.
+build turns each registered script into a page (see `docs/make.jl`), and `test/examples.jl`
+runs every `.jl` script under this folder, subfolders included. The checks of a script are
+`@assert` statements, so a failed check stops the script with an error.
 
 ## How the folder is organized
 
@@ -11,12 +11,13 @@ checks pass.
   problem (`lasso.jl`, `elastic_net.jl`, ...). A tutorial can solve its problem with several
   solvers, in separate sections.
 - `comparisons/` holds comparisons of solvers on a problem, named `<problem>_solvers.jl`.
-- A solver is not a problem. A weighted lasso, for example, is `LeastSquaresLoss` with
-  `NormL1(λ, w)`, solved by the existing solvers; once the package supports it, it is
+- A solver is not a problem. A weighted lasso, for example, is `LeastSquaresLoss` with a
+  weighted `NormL1(λ, w)`; the current solvers refuse a weighted `NormL1` (deferred, see
+  [Supported problems](../docs/src/support.md)). Once the package supports it, it is
   documented under `problems/`, not as a separate solver.
 
-A new script is registered in `docs/make.jl`, which stops with an error when a script under
-this folder is not registered. A change that adds or removes support for a combination of
+A new script is registered in `docs/make.jl`, which stops with an error when a `.jl` script
+under this folder is not registered or a registered script is missing. A change that adds or removes support for a combination of
 problem, solver, iterate and element type also changes the matrix of
 [Supported problems](../docs/src/support.md).
 
@@ -26,13 +27,15 @@ Run a script from the repository root with `julia --project=. examples/<path>`.
 
 | File | Problem | Solvers it runs | What it checks independently |
 | --- | --- | --- | --- |
-| `problems/lasso.jl` | Lasso on a small orthogonal design and on a seeded correlated design | `CDSolver` on a dense `Vector` and on a `SparseIterate`; `ProximalGradientDescent`; `AccProxGradDescent` | The closed-form soft-thresholded solution of the orthogonal problem; a KKT residual computed from `X`, `y` and the coefficients; that each result's `minimizer` is the iterate passed in and that the active coordinates of the `SparseIterate` are those expected |
-| `problems/elastic_net.jl` | Elastic net on a seeded correlated design | `ProximalGradientDescent`; `AccProxGradDescent` | The objective from `X` and `y`; the KKT residual (ProximalBase's `kkt_violation` at the gradient computed from `X` and `y`); that the elastic-net solution has a smaller Euclidean norm than the lasso solution with the same ℓ1 level |
-| `problems/group_lasso.jl` | Group lasso with noncontiguous groups on a seeded design | `CDSolver` on a `BlockIterate` | A group KKT residual computed from the data; which groups are active |
-| `problems/square_root_lasso.jl` | Square-root lasso on a seeded design | `CDSolver` on a dense `Vector` and, in `Float32`, on a `SparseIterate` | The objective and a residual-direction duality gap computed from `X`, `y`, `λ` and the coefficients, not the solver's `converged` flag; two small exact fits, on which the solver reports no certificate |
-| `comparisons/lasso_solvers.jl` | Lasso on a seeded correlated design | Cyclic and random-order `CDSolver`; `ProximalGradientDescent` | The time each solver needs to reach the same independently measured objective gap and KKT violation; the reference solution (cyclic coordinate descent at a very small tolerance); that each solver reaches the target at some setting of its sweep |
+| `problems/lasso.jl` | Lasso on a small orthogonal design and on a seeded correlated design | `CDSolver` on a dense `Vector` and on a `SparseIterate`; `ProximalGradientDescent`; `AccProxGradDescent` | On the orthogonal design, the closed-form soft-thresholded solution for the `CDSolver` and `ProximalGradientDescent` runs (`λ = 0.1`) and for the `SparseIterate` run (`λ = 1`); on the correlated design and for the three small solutions, a KKT residual (at most `1e-6`) computed from `X`, `y` and the coefficients; the active coordinates of the `SparseIterate` result. The `minimizer === x` assertion is made for the `CDSolver`, `ProximalGradientDescent` and `SparseIterate` runs on the orthogonal design and for the `AccProxGradDescent` run on the correlated design, not for the `ProximalGradientDescent` run on the correlated design |
+| `problems/elastic_net.jl` | Elastic net on a seeded correlated design | `ProximalGradientDescent`; `AccProxGradDescent` | The KKT residual (ProximalBase's `kkt_violation` at the gradient computed from `X` and `y`); the reported objective against the objective computed from `X` and `y`; that the two solutions agree; that the elastic-net solution has a smaller Euclidean norm than the lasso solution with the same ℓ1 level |
+| `problems/group_lasso.jl` | Group lasso with noncontiguous groups on a seeded design | `CDSolver` on a `BlockIterate` | A group KKT residual computed from the data; that the active groups are the groups with a nonzero block and that some but not all groups are active |
+| `problems/square_root_lasso.jl` | Square-root lasso on a seeded design | `CDSolver` on a dense `Vector` and, in `Float32`, on a `SparseIterate` | The reported objective against the objective computed from `X`, `y`, `λ` and the coefficients, and a relative duality gap of at most `1e-4` from a dual point computed from the same data, for the `Float64` and the `Float32` solve (the script also asserts that the solver reports `converged`); for two small exact fits, that the solver reports no certificate (`converged = false`, `gap = NaN`) and, for the second, that a dual point gives the objective of the returned point |
+| `comparisons/lasso_solvers.jl` | Lasso on a seeded correlated design | Cyclic and random-order `CDSolver`; `ProximalGradientDescent` | The reference solution (cyclic `CDSolver` at a very small tolerance): it reports `converged`, its KKT violation is at most `1e-10 λ`, and its objective agrees with the independent objective; that each solver reaches the accuracy target at some setting of its sweep |
 
-The checks of `comparisons/lasso_solvers.jl` concern accuracy, and none concerns time. Run as
+`comparisons/lasso_solvers.jl` measures the time each solver needs to reach the same
+independently measured objective gap and KKT violation. Its checks concern accuracy, and none
+concerns time. Run as
 a script it prints the comparison table and does not load Plots; the plot and the downloadable
 notebook are produced by the documentation build, and the notebook needs Plots in its
 environment. Its times are illustrative, from one machine and one run, and are not benchmark
