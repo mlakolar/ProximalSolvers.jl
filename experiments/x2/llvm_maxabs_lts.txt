@@ -1,0 +1,13 @@
+Julia 1.10.13 CPU goldmont
+
+Float32:
+  OLD (@simd _maxabs_diff): vector.body=0 vector types: none fcmp/select/maximum intrinsics: 1/2/0   native: packed ops (maxps/maxpd/cmpunord/andps..): 0 cmpunord 1 ymm 0 xmm 27 lines=57
+  NEW (PB norm_diff, p=Inf): vector.body=0 vector types: none fcmp/select/maximum intrinsics: 3/2/0   native: packed ops: 0 cmpunord 1 ymm 0 xmm 34 lines=125
+  indicative n=1000: old 1.921 ns/elt, new 1.924 ns/elt, ratio new/old 1.0
+  indicative n=100000: old 1.92 ns/elt, new 1.924 ns/elt, ratio new/old 1.0
+
+Float64:
+  OLD (@simd _maxabs_diff): vector.body=0 vector types: none fcmp/select/maximum intrinsics: 1/2/0   native: packed ops (maxps/maxpd/cmpunord/andps..): 0 cmpunord 1 ymm 0 xmm 28 lines=58
+  NEW (PB norm_diff, p=Inf): vector.body=0 vector types: none fcmp/select/maximum intrinsics: 3/2/0   native: packed ops: 0 cmpunord 1 ymm 0 xmm 35 lines=126
+  indicative n=1000: old 1.912 ns/elt, new 1.92 ns/elt, ratio new/old 1.0
+  indicative n=100000: old 1.916 ns/elt, new 1.912 ns/elt, ratio new/old 1.0

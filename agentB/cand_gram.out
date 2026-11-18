@@ -1,0 +1,4 @@
+Float32: 400 groups. majorization violated: PS _gram_curvature 0, PB lipschitz(LS(y, X_G)) 230.  relative excess over λmax (median): PS 4.33e-08  PB -3.96e-08  (PB min -7.01e-07)
+   time per call (incl. loss construction for PB): PS 2813.0 us, PB 211.4 us (indicative setup-path timing)
+Float64: 400 groups. majorization violated: PS _gram_curvature 0, PB lipschitz(LS(y, X_G)) 223.  relative excess over λmax (median): PS 3.85e-13  PB 0.00e+00  (PB min -1.33e-15)
+   time per call (incl. loss construction for PB): PS 155.7 us, PB 204.4 us (indicative setup-path timing)

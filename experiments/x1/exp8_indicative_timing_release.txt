@@ -1,0 +1,7 @@
+# Julia 1.13.4 INDICATIVE timings: median ns per visit over 15 interleaved reps of 200 passes
+Float32 n=20 p=10: base 8.4 ns (min 8.4) | x1a 9.9 ns (min 9.9) | x1b 8.3 ns (min 8.3)
+Float32 n=100 p=60: base 23.3 ns (min 22.3) | x1a 24.3 ns (min 23.4) | x1b 23.3 ns (min 21.7)
+Float32 n=500 p=40: base 30.6 ns (min 30.5) | x1a 31.2 ns (min 31.1) | x1b 31.4 ns (min 31.2)
+Float64 n=20 p=10: base 18.2 ns (min 18.2) | x1a 18.9 ns (min 18.9) | x1b 15.0 ns (min 15.0)
+Float64 n=100 p=60: base 24.0 ns (min 23.2) | x1a 25.1 ns (min 24.1) | x1b 23.8 ns (min 22.7)
+Float64 n=500 p=40: base 49.7 ns (min 49.4) | x1a 50.3 ns (min 49.8) | x1b 50.5 ns (min 45.9)

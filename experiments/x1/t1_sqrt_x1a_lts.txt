@@ -1,0 +1,117 @@
+ERROR: Some tests did not pass: 1408 passed, 0 failed, 3 errored, 0 broken.
+coordinate step, one column (Float64): Error During Test at <WORK>/ps-353-x1a/test/sqrt_lasso.jl:359
+  Test threw exception
+  Expression: step_ok(tiny, T(2) ^ ys .* T[1, 0, 2, -1], T(2) ^ (-s - 1), old)
+  ArgumentError: the coordinate step of coordinate 1 is outside the supported range of Float64 (the squared norm of its column or of the residual, or the threshold, leaves the normal range); rescale the data
+  Stacktrace:
+    [1] _sqrt_cold(m::ProximalSolvers.SqrtLSModel{Float64, ProximalSolvers.LSModel{Float64, Float64, Matrix{Float64}, Vector{Float64}}}, x::SubArray{Float64, 1, Matrix{Float64}, Tuple{Base.Slice{Base.OneTo{Int64}}, Int64}, true}, r::Vector{Float64}, g::ProximalBase.NormL1{Float64, Nothing}, old::Float64, a::Float64, k::Int64)
+      @ ProximalSolvers <WORK>/ps-353-x1a/src/cd/sqrtlasso.jl:183
+    [2] _sqrt_step
+      @ <WORK>/ps-353-x1a/src/cd/sqrtlasso.jl:156 [inlined]
+    [3] _sqrt_minimizer
+      @ <WORK>/ps-353-x1a/src/cd/sqrtlasso.jl:152 [inlined]
+    [4] coordinate_step!
+      @ <WORK>/ps-353-x1a/src/cd/sqrtlasso.jl:141 [inlined]
+    [5] step_once(xk::Vector{Float64}, y::Vector{Float64}, λ::Float64, old::Float64)
+      @ Main.SqrtLasso <WORK>/ps-353-x1a/test/sqrt_lasso.jl:277
+    [6] step_ok(xk::Vector{Float64}, y::Vector{Float64}, λ::Float64, old::Float64)
+      @ Main.SqrtLasso <WORK>/ps-353-x1a/test/sqrt_lasso.jl:332
+    [7] macro expansion
+      @ <WORK>/ps-353-x1a/test/sqrt_lasso.jl:359 [inlined]
+    [8] macro expansion
+      @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+    [9] macro expansion
+      @ <WORK>/ps-353-x1a/test/sqrt_lasso.jl:359 [inlined]
+   [10] macro expansion
+      @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:1674 [inlined]
+   [11] top-level scope
+      @ <WORK>/ps-353-x1a/test/sqrt_lasso.jl:334
+coordinate step, one column (Float64): Error During Test at <WORK>/ps-353-x1a/test/sqrt_lasso.jl:359
+  Test threw exception
+  Expression: step_ok(tiny, T(2) ^ ys .* T[1, 0, 2, -1], T(2) ^ (-s - 1), old)
+  ArgumentError: the coordinate step of coordinate 1 is outside the supported range of Float64 (the squared norm of its column or of the residual, or the threshold, leaves the normal range); rescale the data
+  Stacktrace:
+    [1] _sqrt_cold(m::ProximalSolvers.SqrtLSModel{Float64, ProximalSolvers.LSModel{Float64, Float64, Matrix{Float64}, Vector{Float64}}}, x::SubArray{Float64, 1, Matrix{Float64}, Tuple{Base.Slice{Base.OneTo{Int64}}, Int64}, true}, r::Vector{Float64}, g::ProximalBase.NormL1{Float64, Nothing}, old::Float64, a::Float64, k::Int64)
+      @ ProximalSolvers <WORK>/ps-353-x1a/src/cd/sqrtlasso.jl:183
+    [2] _sqrt_step
+      @ <WORK>/ps-353-x1a/src/cd/sqrtlasso.jl:156 [inlined]
+    [3] _sqrt_minimizer
+      @ <WORK>/ps-353-x1a/src/cd/sqrtlasso.jl:152 [inlined]
+    [4] coordinate_step!
+      @ <WORK>/ps-353-x1a/src/cd/sqrtlasso.jl:141 [inlined]
+    [5] step_once(xk::Vector{Float64}, y::Vector{Float64}, λ::Float64, old::Float64)
+      @ Main.SqrtLasso <WORK>/ps-353-x1a/test/sqrt_lasso.jl:277
+    [6] step_ok(xk::Vector{Float64}, y::Vector{Float64}, λ::Float64, old::Float64)
+      @ Main.SqrtLasso <WORK>/ps-353-x1a/test/sqrt_lasso.jl:332
+    [7] macro expansion
+      @ <WORK>/ps-353-x1a/test/sqrt_lasso.jl:359 [inlined]
+    [8] macro expansion
+      @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+    [9] macro expansion
+      @ <WORK>/ps-353-x1a/test/sqrt_lasso.jl:359 [inlined]
+   [10] macro expansion
+      @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:1674 [inlined]
+   [11] top-level scope
+      @ <WORK>/ps-353-x1a/test/sqrt_lasso.jl:334
+coordinate step, one column (Float64): Error During Test at <WORK>/ps-353-x1a/test/sqrt_lasso.jl:363
+  Test threw exception
+  Expression: step_ok(xk, sub .* T[1, 0, 2, -1], T(2) ^ -10, zero(T))
+  ArgumentError: the coordinate step of coordinate 1 is outside the supported range of Float64 (the squared norm of its column or of the residual, or the threshold, leaves the normal range); rescale the data
+  Stacktrace:
+    [1] _sqrt_cold(m::ProximalSolvers.SqrtLSModel{Float64, ProximalSolvers.LSModel{Float64, Float64, Matrix{Float64}, Vector{Float64}}}, x::SubArray{Float64, 1, Matrix{Float64}, Tuple{Base.Slice{Base.OneTo{Int64}}, Int64}, true}, r::Vector{Float64}, g::ProximalBase.NormL1{Float64, Nothing}, old::Float64, a::Float64, k::Int64)
+      @ ProximalSolvers <WORK>/ps-353-x1a/src/cd/sqrtlasso.jl:183
+    [2] _sqrt_step
+      @ <WORK>/ps-353-x1a/src/cd/sqrtlasso.jl:156 [inlined]
+    [3] _sqrt_minimizer
+      @ <WORK>/ps-353-x1a/src/cd/sqrtlasso.jl:152 [inlined]
+    [4] coordinate_step!
+      @ <WORK>/ps-353-x1a/src/cd/sqrtlasso.jl:141 [inlined]
+    [5] step_once(xk::Vector{Float64}, y::Vector{Float64}, λ::Float64, old::Float64)
+      @ Main.SqrtLasso <WORK>/ps-353-x1a/test/sqrt_lasso.jl:277
+    [6] step_ok(xk::Vector{Float64}, y::Vector{Float64}, λ::Float64, old::Float64)
+      @ Main.SqrtLasso <WORK>/ps-353-x1a/test/sqrt_lasso.jl:332
+    [7] macro expansion
+      @ <WORK>/ps-353-x1a/test/sqrt_lasso.jl:363 [inlined]
+    [8] macro expansion
+      @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+    [9] macro expansion
+      @ <WORK>/ps-353-x1a/test/sqrt_lasso.jl:363 [inlined]
+   [10] macro expansion
+      @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:1674 [inlined]
+   [11] top-level scope
+      @ <WORK>/ps-353-x1a/test/sqrt_lasso.jl:334
+Test Summary:                                                                           | Pass  Error  Total   Time
+x                                                                                       | 1408      3   1411  17.3s
+  coordinate step, one column (Float64)                                                 |   20      3     23   1.1s
+  coordinate step, one column (Float32)                                                 |   23            23   0.5s
+  coordinate step, random one-column problems against the derived bound (Float64)       |  401           401   0.5s
+  coordinate step, random one-column problems against the derived bound (Float32)       |  401           401   0.4s
+  analytic cases (Float64)                                                              |   15            15   0.8s
+  analytic cases (Float32)                                                              |   15            15   1.1s
+  dominant coefficient: certified after a tightening (Float64), no tightening (Float32) |   10            10   0.6s
+  references are exact data and verified bounds: full rank                              |    3             3   0.2s
+  references are exact data and verified bounds: rank deficient                         |    3             3   0.0s
+  references are exact data and verified bounds: correlated                             |    3             3   0.0s
+  references are exact data and verified bounds: p > n                                  |    3             3   0.0s
+  references are exact data and verified bounds: exact fit                              |    3             3   0.0s
+  references are exact data and verified bounds: near-exact fit                         |    3             3   0.0s
+  references are exact data and verified bounds: duplicate columns                      |    3             3   0.0s
+  reference problems (Float64)                                                          |  147           147   0.6s
+  reference problems (Float32)                                                          |  147           147   1.0s
+  stop check: certified, tightened, uncertified (Float64)                               |   17            17   0.2s
+  stop check: certified, tightened, uncertified (Float32)                               |   17            17   0.2s
+  overflowed threshold: no retry, in both loops                                         |    6             6   0.3s
+  nonfinite residual refused before the step's branches (Float64)                       |    5             5   0.1s
+  nonfinite residual refused before the step's branches (Float32)                       |    5             5   0.1s
+  certificate at perturbed optima (Float64)                                             |   11            11   0.1s
+  certificate at perturbed optima (Float32)                                             |   11            11   0.1s
+  certificate where the fit dwarfs the residual                                         |   10            10   0.5s
+  certificate near λmax (Float64)                                                       |    2             2   0.0s
+  certificate near λmax (Float32)                                                       |    2             2   0.0s
+  certificate at subnormal and extreme scales, and a subnormal coefficient              |   14            14   0.4s
+  certificate: special cases from exact data                                            |    8             8   0.1s
+  refusals before any change of x or the RNG (Float64)                                  |   26            26   1.0s
+  refusals before any change of x or the RNG (Float32)                                  |   28            28   0.8s
+  levels of other types on Float32 data                                                 |   16            16   1.9s
+  failure partway, maxpasses = 0, warnings and momentum (Float64)                       |   15            15   0.5s
+  failure partway, maxpasses = 0, warnings and momentum (Float32)                       |   15            15   0.2s

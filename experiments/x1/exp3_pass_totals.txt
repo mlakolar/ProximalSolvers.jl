@@ -1,0 +1,6 @@
+Julia 1.13 trees ['base', 'x1a', 'x1b']
+  Float32: certified-in-both cases 252; total passes {'base': 24280, 'x1a': 24280, 'x1b': 24539}; x1b/base passes 1.0107; n*p-weighted work ratio 0.9976; pass diff: zero 154, >0 58, <0 40, min -51, max 278, |d|>5: 13
+  Float64: certified-in-both cases 248; total passes {'base': 27156, 'x1a': 27156, 'x1b': 27147}; x1b/base passes 0.9997; n*p-weighted work ratio 0.9999; pass diff: zero 236, >0 3, <0 9, min -4, max 3, |d|>5: 0
+Julia 1.10 trees ['base', 'x1a', 'x1b']
+  Float32: certified-in-both cases 240; total passes {'base': 14398, 'x1a': 14398, 'x1b': 14321}; x1b/base passes 0.9947; n*p-weighted work ratio 0.9858; pass diff: zero 125, >0 55, <0 60, min -24, max 13, |d|>5: 12
+  Float64: certified-in-both cases 248; total passes {'base': 257826, 'x1a': 257826, 'x1b': 257830}; x1b/base passes 1.0000; n*p-weighted work ratio 1.0002; pass diff: zero 238, >0 7, <0 3, min -1, max 1, |d|>5: 0

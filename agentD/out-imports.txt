@@ -1,0 +1,37 @@
+Julia 1.13.4
+LeastSquaresLoss                        exported=true  public(1.11+)=true
+SqrtLeastSquaresLoss                    exported=true  public(1.11+)=true
+Scaled                                  exported=true  public(1.11+)=true
+NormL1                                  exported=true  public(1.11+)=true
+ElasticNet                              exported=true  public(1.11+)=true
+SparseIterate                           exported=true  public(1.11+)=true
+ncoordinates                            exported=true  public(1.11+)=true
+nactive                                 exported=true  public(1.11+)=true
+activecoordinates                       exported=true  public(1.11+)=true
+activevalues                            exported=true  public(1.11+)=true
+prox_block                              exported=true  public(1.11+)=true
+value_and_prox!                         exported=true  public(1.11+)=true
+BlockIterate                            exported=true  public(1.11+)=true
+GroupNormL2                             exported=true  public(1.11+)=true
+blockindices                            exported=true  public(1.11+)=true
+blockview                               exported=true  public(1.11+)=true
+prox_block!                             exported=true  public(1.11+)=true
+kkt_violation                           exported=true  public(1.11+)=true
+norm_diff                               exported=true  public(1.11+)=true
+shrink                                  exported=true  public(1.11+)=true
+leastsquares_data                       exported=false  public(1.11+)=true
+value_from_residual                     exported=false  public(1.11+)=true
+value_from_predictor                    exported=false  public(1.11+)=true
+value_and_gradient_from_predictor!      exported=false  public(1.11+)=true
+ERROR: LoadError: MethodError: no method matching doc(::Type{NormL1})
+The function `doc` exists, but no method is defined for this combination of argument types.
+Stacktrace:
+ [1] top-level scope
+   @ <WORK>/ps-353/.codex-orchestrator/runs/run-20261118-issue353/agentD/ps_imports.jl:11
+ [2] include(mod::Module, _path::String)
+   @ Base ./Base.jl:309
+ [3] exec_options(opts::Base.JLOptions)
+   @ Base ./client.jl:344
+ [4] _start()
+   @ Base ./client.jl:577
+in expression starting at <RUN>/agentD/ps_imports.jl:11

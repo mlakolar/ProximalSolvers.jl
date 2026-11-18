@@ -1,0 +1,40 @@
+# E6 certificate verification in BigFloat (512 bits). columns: cases certified failed undefined violations
+Float32 boundary scan (perturbation 1e-9..1e-1)         800    412    388      0    0
+Float32 fit dwarfs residual (2^s)                       180     47    106     27    0
+Float32 gaussian solved+perturbed                       300    166    134      0    0
+Float32 independent y/X scaling                         112     57     55      0    0
+Float32 joint scaling 2^s                                84      0     84      0    0
+Float32 large n or many nonzeros                          6      0      6      0    0
+Float32 large n or many nonzeros (solved)                 3      2      1      0    0
+Float32 level of type BigFloat                           30     16     14      0    0
+Float32 level of type Float16                            30     17     13      0    0
+Float32 level of type Float32                            60     39     21      0    0
+Float32 level of type Int64                              30     30      0      0    0
+Float32 level of type Irrational{:π}                     30     30      0      0    0
+Float32 level of type Irrational{:φ}                     30     30      0      0    0
+Float32 level of type Rational{Int64}                    30     28      2      0    0
+Float32 near lambda_max, beta=0                         150    150      0      0    0
+Float32 subnormal coefficient                           240     52    188      0    0
+Float32 tiny column                                      40     10     30      0    0
+Float64 boundary scan (perturbation 1e-9..1e-1)         800    382    418      0    0
+Float64 fit dwarfs residual (2^s)                       180     81     99      0    0
+Float64 gaussian solved+perturbed                       300    150    150      0    0
+Float64 independent y/X scaling                         112     25     23     64    0
+Float64 joint scaling 2^s                               108      0     60     48    0
+Float64 large n or many nonzeros                          6      0      6      0    0
+Float64 large n or many nonzeros (solved)                 3      2      1      0    0
+Float64 level of type BigFloat                           30     19     11      0    0
+Float64 level of type Float16                            30     20     10      0    0
+Float64 level of type Float64                            60     43     17      0    0
+Float64 level of type Int64                              30     30      0      0    0
+Float64 level of type Irrational{:π}                     30     30      0      0    0
+Float64 level of type Irrational{:φ}                     30     30      0      0    0
+Float64 level of type Rational{Int64}                    30     26      4      0    0
+Float64 near exact fits (beta fixed)                    100      0     84     16    0
+Float64 near lambda_max, beta=0                         150    150      0      0    0
+Float64 subnormal coefficient                           240     65    175      0    0
+Float64 tiny column                                      40     12     28      0    0
+exact fit with computed rhat != 0                         1      1      0      0    0
+rounded-to-zero rhat                                      1      0      0      1    0
+total cases: 4436  violations: 0
+tightness ratio(returned ratio / true θ-ratio) over certified points: n=2152 median=1.00000002668183 max=7.13623846352985e44 min=1.0000000000301894

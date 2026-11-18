@@ -1,0 +1,5 @@
+Julia 1.13.4
+ldexp(Float64) results in the subnormal range: 0 / 200000 differ from correct rounding; max difference = 0 subnormal spacing(s)
+ldexp with random exponent shifts: 0 / 100000 differ
+frexp/exponent on subnormal Float64 inconsistent: 0 / 20000
+_level_brackets: 0 / 2605 brackets violate the exact bracket property (BigFloat 1024)

@@ -1,0 +1,10 @@
+E13 _maxabs_diff vs PB norm_diff(.,.,Inf) vs norm(.,Inf), indicative, julia 1.10.13
+  Float32  n=   1000 equal=true  Blocks._maxabs_diff=    1.91 us  PB.norm_diff(Inf)=    1.91 us  norm(x,Inf)=    0.79 us  maximum(abs,x)=    0.79 us
+  Float32  n= 100000 equal=true  Blocks._maxabs_diff=  191.67 us  PB.norm_diff(Inf)=  191.45 us  norm(x,Inf)=   46.67 us  maximum(abs,x)=   46.38 us
+  Float64  n=   1000 equal=true  Blocks._maxabs_diff=    1.92 us  PB.norm_diff(Inf)=    1.92 us  norm(x,Inf)=    0.78 us  maximum(abs,x)=    0.78 us
+  Float64  n= 100000 equal=true  Blocks._maxabs_diff=  191.67 us  PB.norm_diff(Inf)=  192.12 us  norm(x,Inf)=   47.12 us  maximum(abs,x)=   47.15 us
+E13 _maxabs_diff vs PB norm_diff(.,.,Inf) vs norm(.,Inf), indicative, julia 1.13.4
+  Float32  n=   1000 equal=true  Blocks._maxabs_diff=    0.15 us  PB.norm_diff(Inf)=    0.16 us  norm(x,Inf)=    0.15 us  maximum(abs,x)=    0.13 us
+  Float32  n= 100000 equal=true  Blocks._maxabs_diff=   12.43 us  PB.norm_diff(Inf)=   12.28 us  norm(x,Inf)=   14.05 us  maximum(abs,x)=   14.05 us
+  Float64  n=   1000 equal=true  Blocks._maxabs_diff=    0.26 us  PB.norm_diff(Inf)=    0.26 us  norm(x,Inf)=    0.24 us  maximum(abs,x)=    0.24 us
+  Float64  n= 100000 equal=true  Blocks._maxabs_diff=   24.76 us  PB.norm_diff(Inf)=   24.73 us  norm(x,Inf)=   24.93 us  maximum(abs,x)=   24.94 us

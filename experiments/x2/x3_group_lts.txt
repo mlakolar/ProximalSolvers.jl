@@ -1,0 +1,14 @@
+Julia 1.10.13 CPU goldmont
+singleton groups Float32: cases=128 bit-identical=13 passes equal=109 (max |Δpasses| = 3) converged: base 128/x3 128 max objective rel diff=7.07e-11 (eps(T)=1.1920929e-7) max KKT residual: base 0.000125 x3 0.000128 (tolerances 1e-4 F32 / 1e-8 F64 in the test suite)
+singleton groups Float64: cases=128 bit-identical=11 passes equal=128 (max |Δpasses| = 0) converged: base 128/x3 128 max objective rel diff=8.09e-25 (eps(T)=2.220446049250313e-16) max KKT residual: base 1.72e-9 x3 1.72e-9 (tolerances 1e-4 F32 / 1e-8 F64 in the test suite)
+multi-column groups (control) Float32: cases=64 bit-identical=64 passes equal=64 (max |Δpasses| = 0) converged: base 64/x3 64 max objective rel diff=0.0 (eps(T)=1.1920929e-7) max KKT residual: base 1.24 x3 1.24 (tolerances 1e-4 F32 / 1e-8 F64 in the test suite)
+multi-column groups (control) Float64: cases=64 bit-identical=64 passes equal=64 (max |Δpasses| = 0) converged: base 64/x3 64 max objective rel diff=0.0 (eps(T)=2.220446049250313e-16) max KKT residual: base 1.24 x3 1.24 (tolerances 1e-4 F32 / 1e-8 F64 in the test suite)
+  largest pass difference: Float32 n=30 p=40 frac=0.05 tol=1.0000000000000001e-7 α=0.02f0 random base 144 vs x3 141 converged (true, true), kkt base 3.3563149872238827e-7 x3 3.634656979870339e-7
+  largest pass difference: Float32 n=60 p=30 frac=0.05 tol=1.0000000000000001e-7 α=nothing random base 28 vs x3 30 converged (true, true), kkt base 1.281679403372196e-6 x3 1.3281796047121052e-6
+  largest pass difference: Float32 n=200 p=80 frac=0.3 tol=1.0000000000000001e-7 α=0.37 random base 26 vs x3 28 converged (true, true), kkt base 2.9991398236316006e-7 x3 2.6316379795127495e-7
+  largest pass difference: Float32 n=40 p=12 frac=0.05 tol=1.0000000000000001e-7 α=nothing cyclic base 19 vs x3 18 converged (true, true), kkt base 1.0471503299344222e-6 x3 4.485846928468058e-7
+  largest pass difference: Float32 n=60 p=30 frac=0.3 tol=1.0000000000000001e-7 α=nothing cyclic base 14 vs x3 13 converged (true, true), kkt base 4.5715808296079003e-7 x3 2.0223570133436563e-7
+  Float32, tol at the working-precision floor (tolscale 1e-2): cases=64, passes differ in 18, max |Δpasses|=3, converged differs in 0
+  Float32, ordinary tol: cases=64, passes differ in 1, max |Δpasses|=1, converged differs in 0
+  Float64, tol at the working-precision floor (tolscale 1e-2): cases=64, passes differ in 0, max |Δpasses|=0, converged differs in 0
+  Float64, ordinary tol: cases=64, passes differ in 0, max |Δpasses|=0, converged differs in 0

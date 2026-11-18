@@ -1,0 +1,698 @@
+# E2 scale sweep; rows: type sx sy | branches | worst step excess/bound | step err | public solve
+Float32 sx=-150 sy=-150 | lamrange
+Float32 sx=-150 sy=-135 | lamrange
+Float32 sx=-150 sy=-120 | lamrange
+Float32 sx=-150 sy=-105 | lamrange
+Float32 sx=-150 sy=-90 | lamrange
+Float32 sx=-150 sy=-75 | lamrange
+Float32 sx=-150 sy=-60 | lamrange
+Float32 sx=-150 sy=-45 | lamrange
+Float32 sx=-150 sy=-30 | lamrange
+Float32 sx=-150 sy=-15 | lamrange
+Float32 sx=-150 sy=0 | lamrange
+Float32 sx=-150 sy=15 | lamrange
+Float32 sx=-150 sy=30 | lamrange
+Float32 sx=-150 sy=45 | lamrange
+Float32 sx=-150 sy=60 | lamrange
+Float32 sx=-150 sy=75 | lamrange
+Float32 sx=-135 sy=-150 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=0 band=0
+Float32 sx=-135 sy=-135 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=0 band=0
+Float32 sx=-135 sy=-120 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-135 sy=-105 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-135 sy=-90 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-135 sy=-75 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-135 sy=-60 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-135 sy=-45 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-135 sy=-30 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-135 sy=-15 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-135 sy=0 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-135 sy=15 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-135 sy=30 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-135 sy=45 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-135 sy=60 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-135 sy=75 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-120 sy=-150 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=0 band=0
+Float32 sx=-120 sy=-135 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=0 band=0
+Float32 sx=-120 sy=-120 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-120 sy=-105 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-120 sy=-90 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-120 sy=-75 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-120 sy=-60 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-120 sy=-45 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-120 sy=-30 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-120 sy=-15 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-120 sy=0 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-120 sy=15 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-120 sy=30 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-120 sy=45 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-120 sy=60 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-120 sy=75 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-105 sy=-150 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=0 band=0
+Float32 sx=-105 sy=-135 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=0 band=0
+Float32 sx=-105 sy=-120 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-105 sy=-105 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-105 sy=-90 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-105 sy=-75 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-105 sy=-60 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-105 sy=-45 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-105 sy=-30 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-105 sy=-15 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-105 sy=0 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-105 sy=15 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-105 sy=30 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-105 sy=45 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-105 sy=60 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-105 sy=75 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-90 sy=-150 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=0 band=0
+Float32 sx=-90 sy=-135 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=0 band=0
+Float32 sx=-90 sy=-120 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-90 sy=-105 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-90 sy=-90 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-90 sy=-75 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-90 sy=-60 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-90 sy=-45 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-90 sy=-30 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-90 sy=-15 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-90 sy=0 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-90 sy=15 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-90 sy=30 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-90 sy=45 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-90 sy=60 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-90 sy=75 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float32 sx=-75 sy=-150 | off_asmall=48 | 1.25e-11 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=48 band=48
+Float32 sx=-75 sy=-135 | off_asmall=48 | 3.61e-12 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=48 band=48
+Float32 sx=-75 sy=-120 | off_asmall=48 | 2.22e-12 | - | conv=true gap=5.3e-07 passes=14 | off=136 band=136
+Float32 sx=-75 sy=-105 | off_asmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-75 sy=-90 | off_asmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-75 sy=-75 | off_asmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-75 sy=-60 | off_asmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-75 sy=-45 | off_asmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-75 sy=-30 | off_asmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-75 sy=-15 | off_asmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-75 sy=0 | off_asmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-75 sy=15 | off_asmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-75 sy=30 | off_asmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-75 sy=45 | off_asmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-75 sy=60 | off_asmall=1 refuse_resid=1 | NaN | ArgumentError: the residual is not finite in Float32 at the visit of c | THROW:ArgumentError: a coordinate step or its stopping scale is not finite | off=2 band=2
+Float32 sx=-75 sy=75 | off_asmall=1 refuse_resid=1 | NaN | ArgumentError: the residual is not finite in Float32 at the visit of c | THROW:ArgumentError: a coordinate step or its stopping scale is not finite | off=2 band=2
+Float32 sx=-60 sy=-150 | off_asmall=48 | 1.25e-11 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=48 band=48
+Float32 sx=-60 sy=-135 | off_asmall=48 | 3.61e-12 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=48 band=48
+Float32 sx=-60 sy=-120 | off_asmall=48 | 2.22e-12 | - | conv=true gap=5.3e-07 passes=14 | off=136 band=136
+Float32 sx=-60 sy=-105 | off_asmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-60 sy=-90 | off_asmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-60 sy=-75 | off_asmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-60 sy=-60 | off_asmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-60 sy=-45 | off_asmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-60 sy=-30 | off_asmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-60 sy=-15 | off_asmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-60 sy=0 | off_asmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-60 sy=15 | off_asmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-60 sy=30 | off_asmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-60 sy=45 | off_asmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-60 sy=60 | off_asmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-60 sy=75 | off_asmall=1 refuse_resid=1 | NaN | ArgumentError: the residual is not finite in Float32 at the visit of c | THROW:ArgumentError: a coordinate step or its stopping scale is not finite | off=2 band=2
+Float32 sx=-45 sy=-150 | off_runder=48 | 1.25e-11 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=48 band=48
+Float32 sx=-45 sy=-135 | off_runder=48 | 3.61e-12 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=48 band=48
+Float32 sx=-45 sy=-120 | off_runder=48 | 2.22e-12 | - | conv=true gap=5.3e-07 passes=14 | off=136 band=136
+Float32 sx=-45 sy=-105 | off_runder=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-45 sy=-90 | off_runder=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-45 sy=-75 | off_rsmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-45 sy=-60 | off_rsmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-45 sy=-45 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=-45 sy=-30 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=-45 sy=-15 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=-45 sy=0 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=-45 sy=15 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=-45 sy=30 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=-45 sy=45 | band=48 | 2.70e-11 | - | conv=true gap=3.3e-07 passes=14 | off=0 band=136
+Float32 sx=-45 sy=60 | band=48 | 2.70e-11 | - | conv=true gap=3.3e-07 passes=14 | off=0 band=136
+Float32 sx=-45 sy=75 | off_rbig=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-30 sy=-150 | off_runder=48 | 1.25e-11 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=48 band=48
+Float32 sx=-30 sy=-135 | off_runder=48 | 3.61e-12 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=48 band=48
+Float32 sx=-30 sy=-120 | off_runder=48 | 2.22e-12 | - | conv=true gap=5.3e-07 passes=14 | off=136 band=136
+Float32 sx=-30 sy=-105 | off_runder=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-30 sy=-90 | off_runder=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-30 sy=-75 | off_rsmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-30 sy=-60 | off_rsmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-30 sy=-45 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=-30 sy=-30 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=-30 sy=-15 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=-30 sy=0 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=-30 sy=15 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=-30 sy=30 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=-30 sy=45 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=-30 sy=60 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=-30 sy=75 | off_rbig=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-15 sy=-150 | off_runder=48 | 4.63e-06 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=48 band=48
+Float32 sx=-15 sy=-135 | off_runder=48 | 3.61e-12 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=48 band=48
+Float32 sx=-15 sy=-120 | off_runder=48 | 2.22e-12 | - | conv=true gap=5.3e-07 passes=14 | off=136 band=136
+Float32 sx=-15 sy=-105 | off_runder=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-15 sy=-90 | off_runder=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-15 sy=-75 | off_rsmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-15 sy=-60 | off_rsmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=-15 sy=-45 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=-15 sy=-30 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=-15 sy=-15 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=-15 sy=0 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=-15 sy=15 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=-15 sy=30 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=-15 sy=45 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=-15 sy=60 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=-15 sy=75 | off_rbig=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=0 sy=-150 | off_runder=8 | 4.86e-03 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=8 band=8
+Float32 sx=0 sy=-135 | off_runder=48 | 6.11e-06 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=48 band=48
+Float32 sx=0 sy=-120 | off_runder=48 | 2.22e-12 | - | conv=true gap=5.3e-07 passes=14 | off=136 band=136
+Float32 sx=0 sy=-105 | off_runder=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=0 sy=-90 | off_runder=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=0 sy=-75 | off_rsmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=0 sy=-60 | off_rsmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=0 sy=-45 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=0 sy=-30 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=0 sy=-15 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=0 sy=0 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=0 sy=15 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=0 sy=30 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=0 sy=45 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=0 sy=60 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=0 sy=75 | off_rbig=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=15 sy=-150 | off_runder=8 | 1.48e-07 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=8 band=8
+Float32 sx=15 sy=-135 | off_runder=8 | 3.36e-03 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=8 band=8
+Float32 sx=15 sy=-120 | off_runder=48 | 6.55e-06 | - | conv=false gap=NaN passes=10 | off=112 band=112
+Float32 sx=15 sy=-105 | off_runder=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=15 sy=-90 | off_runder=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=15 sy=-75 | off_rsmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=15 sy=-60 | off_rsmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=15 sy=-45 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=15 sy=-30 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=15 sy=-15 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=15 sy=0 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=15 sy=15 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=15 sy=30 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=15 sy=45 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=15 sy=60 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=15 sy=75 | off_rbig=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=30 sy=-150 | off_runder=8 | 4.52e-12 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=8 band=8
+Float32 sx=30 sy=-135 | off_runder=8 | 1.03e-07 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=8 band=8
+Float32 sx=30 sy=-120 | off_runder=8 | 3.36e-03 | - | conv=false gap=NaN passes=1 | off=16 band=16
+Float32 sx=30 sy=-105 | off_runder=48 | 6.54e-06 | - | conv=false gap=NaN passes=10 | off=112 band=112
+Float32 sx=30 sy=-90 | off_runder=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=30 sy=-75 | off_rsmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=30 sy=-60 | off_rsmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=30 sy=-45 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=30 sy=-30 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=30 sy=-15 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=30 sy=0 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=30 sy=15 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=30 sy=30 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=30 sy=45 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=30 sy=60 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=30 sy=75 | off_rbig=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=45 sy=-150 | off_runder=8 | 1.38e-16 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=8 band=8
+Float32 sx=45 sy=-135 | off_runder=8 | 3.13e-12 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=8 band=8
+Float32 sx=45 sy=-120 | off_runder=8 | 1.03e-07 | - | conv=false gap=NaN passes=1 | off=16 band=16
+Float32 sx=45 sy=-105 | off_runder=8 | 3.36e-03 | - | conv=false gap=NaN passes=1 | off=16 band=16
+Float32 sx=45 sy=-90 | off_runder=48 | 6.54e-06 | - | conv=false gap=NaN passes=10 | off=112 band=112
+Float32 sx=45 sy=-75 | off_rsmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=45 sy=-60 | off_rsmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=45 sy=-45 | band=48 | 2.70e-11 | - | conv=true gap=3.3e-07 passes=14 | off=0 band=136
+Float32 sx=45 sy=-30 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=45 sy=-15 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=45 sy=0 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=45 sy=15 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=45 sy=30 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=45 sy=45 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=45 sy=60 | ord=48 | 3.24e-11 | - | conv=true gap=3.4e-07 passes=14 | off=0 band=0
+Float32 sx=45 sy=75 | off_rbig=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=60 sy=-150 | off_runder=8 | 4.21e-21 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=8 band=8
+Float32 sx=60 sy=-135 | off_runder=8 | 9.55e-17 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=8 band=8
+Float32 sx=60 sy=-120 | off_runder=8 | 3.13e-12 | - | conv=false gap=NaN passes=1 | off=16 band=16
+Float32 sx=60 sy=-105 | off_runder=8 | 1.03e-07 | - | conv=false gap=NaN passes=1 | off=16 band=16
+Float32 sx=60 sy=-90 | off_runder=8 | 3.36e-03 | - | conv=false gap=NaN passes=1 | off=16 band=16
+Float32 sx=60 sy=-75 | off_rsmall=48 | 6.54e-06 | - | conv=false gap=NaN passes=10 | off=112 band=112
+Float32 sx=60 sy=-60 | off_rsmall=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=60 sy=-45 | band=48 | 2.70e-11 | - | conv=true gap=3.3e-07 passes=14 | off=0 band=136
+Float32 sx=60 sy=-30 | band=48 | 2.70e-11 | - | conv=true gap=3.3e-07 passes=14 | off=0 band=136
+Float32 sx=60 sy=-15 | band=48 | 2.70e-11 | - | conv=true gap=3.3e-07 passes=14 | off=0 band=136
+Float32 sx=60 sy=0 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=60 sy=15 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=60 sy=30 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=60 sy=45 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=60 sy=60 | ord=48 | 2.03e-11 | - | conv=true gap=9.8e-07 passes=14 | off=0 band=0
+Float32 sx=60 sy=75 | off_rbig=48 | 2.18e-12 | - | conv=true gap=5.0e-07 passes=14 | off=136 band=136
+Float32 sx=75 sy=-150 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=0 band=0
+Float32 sx=75 sy=-135 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=0 band=0
+Float32 sx=75 sy=-120 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float32 sx=75 sy=-105 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float32 sx=75 sy=-90 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float32 sx=75 sy=-75 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float32 sx=75 sy=-60 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float32 sx=75 sy=-45 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float32 sx=75 sy=-30 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float32 sx=75 sy=-15 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float32 sx=75 sy=0 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float32 sx=75 sy=15 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float32 sx=75 sy=30 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float32 sx=75 sy=45 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float32 sx=75 sy=60 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float32 sx=75 sy=75 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=-1070 sy=-1070 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=0 band=0
+Float64 sx=-1070 sy=-970 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-1070 sy=-870 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-1070 sy=-770 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-1070 sy=-670 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-1070 sy=-570 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-1070 sy=-470 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-1070 sy=-370 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-1070 sy=-270 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-1070 sy=-170 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-1070 sy=-70 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-1070 sy=30 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-1070 sy=130 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-1070 sy=230 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-1070 sy=330 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-1070 sy=430 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-1070 sy=530 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-1070 sy=630 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-1070 sy=730 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-1070 sy=830 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-1070 sy=930 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-970 sy=-1070 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=0 band=0
+Float64 sx=-970 sy=-970 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-970 sy=-870 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-970 sy=-770 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-970 sy=-670 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-970 sy=-570 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-970 sy=-470 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-970 sy=-370 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-970 sy=-270 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-970 sy=-170 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-970 sy=-70 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-970 sy=30 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-970 sy=130 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-970 sy=230 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-970 sy=330 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-970 sy=430 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-970 sy=530 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-970 sy=630 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-970 sy=730 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-970 sy=830 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-970 sy=930 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-870 sy=-1070 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=0 band=0
+Float64 sx=-870 sy=-970 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-870 sy=-870 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-870 sy=-770 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-870 sy=-670 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-870 sy=-570 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-870 sy=-470 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-870 sy=-370 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-870 sy=-270 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-870 sy=-170 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-870 sy=-70 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-870 sy=30 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-870 sy=130 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-870 sy=230 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-870 sy=330 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-870 sy=430 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-870 sy=530 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-870 sy=630 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-870 sy=730 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-870 sy=830 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-870 sy=930 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-770 sy=-1070 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=0 band=0
+Float64 sx=-770 sy=-970 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-770 sy=-870 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-770 sy=-770 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-770 sy=-670 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-770 sy=-570 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-770 sy=-470 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-770 sy=-370 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-770 sy=-270 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-770 sy=-170 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-770 sy=-70 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-770 sy=30 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-770 sy=130 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-770 sy=230 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-770 sy=330 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-770 sy=430 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-770 sy=530 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-770 sy=630 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-770 sy=730 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-770 sy=830 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-770 sy=930 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-670 sy=-1070 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=0 band=0
+Float64 sx=-670 sy=-970 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-670 sy=-870 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-670 sy=-770 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-670 sy=-670 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-670 sy=-570 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-670 sy=-470 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-670 sy=-370 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-670 sy=-270 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-670 sy=-170 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-670 sy=-70 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-670 sy=30 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-670 sy=130 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-670 sy=230 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-670 sy=330 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-670 sy=430 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-670 sy=530 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-670 sy=630 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-670 sy=730 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-670 sy=830 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-670 sy=930 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-570 sy=-1070 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=0 band=0
+Float64 sx=-570 sy=-970 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-570 sy=-870 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-570 sy=-770 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-570 sy=-670 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-570 sy=-570 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-570 sy=-470 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-570 sy=-370 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-570 sy=-270 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-570 sy=-170 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-570 sy=-70 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-570 sy=30 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-570 sy=130 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-570 sy=230 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-570 sy=330 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-570 sy=430 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-570 sy=530 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-570 sy=630 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-570 sy=730 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-570 sy=830 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-570 sy=930 | refuse_a0=1 | NaN | ArgumentError: the coordinate curvature underflows; rescale the data | THROW:ArgumentError: the coordinate curvature underflows; rescale the data | off=0 band=0
+Float64 sx=-470 sy=-1070 | off_runder=48 | NaN | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=48 band=48
+Float64 sx=-470 sy=-970 | off_runder=48 | 0.00e+00 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-470 sy=-870 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-470 sy=-770 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-470 sy=-670 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-470 sy=-570 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-470 sy=-470 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-470 sy=-370 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-470 sy=-270 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-470 sy=-170 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-470 sy=-70 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-470 sy=30 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-470 sy=130 | band=48 | 3.62e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=136
+Float64 sx=-470 sy=230 | band=48 | 3.62e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=136
+Float64 sx=-470 sy=330 | band=48 | 3.62e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=136
+Float64 sx=-470 sy=430 | band=48 | 3.62e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=136
+Float64 sx=-470 sy=530 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-470 sy=630 | off_rbig=1 refuse_resid=1 | NaN | ArgumentError: the residual is not finite in Float64 at the visit of c | THROW:ArgumentError: a coordinate step or its stopping scale is not finite | off=2 band=2
+Float64 sx=-470 sy=730 | off_rbig=1 refuse_resid=1 | NaN | ArgumentError: the residual is not finite in Float64 at the visit of c | THROW:ArgumentError: a coordinate step or its stopping scale is not finite | off=2 band=2
+Float64 sx=-470 sy=830 | off_rbig=1 refuse_resid=1 | NaN | ArgumentError: the residual is not finite in Float64 at the visit of c | THROW:ArgumentError: a coordinate step or its stopping scale is not finite | off=2 band=2
+Float64 sx=-470 sy=930 | off_rbig=1 refuse_resid=1 | NaN | ArgumentError: the residual is not finite in Float64 at the visit of c | THROW:ArgumentError: a coordinate step or its stopping scale is not finite | off=2 band=2
+Float64 sx=-370 sy=-1070 | off_runder=48 | NaN | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=48 band=48
+Float64 sx=-370 sy=-970 | off_runder=48 | 0.00e+00 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-370 sy=-870 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-370 sy=-770 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-370 sy=-670 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-370 sy=-570 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-370 sy=-470 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-370 sy=-370 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-370 sy=-270 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-370 sy=-170 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-370 sy=-70 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-370 sy=30 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-370 sy=130 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-370 sy=230 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-370 sy=330 | band=48 | 3.62e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=136
+Float64 sx=-370 sy=430 | band=48 | 3.62e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=136
+Float64 sx=-370 sy=530 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-370 sy=630 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-370 sy=730 | off_rbig=1 refuse_resid=1 | NaN | ArgumentError: the residual is not finite in Float64 at the visit of c | THROW:ArgumentError: a coordinate step or its stopping scale is not finite | off=2 band=2
+Float64 sx=-370 sy=830 | off_rbig=1 refuse_resid=1 | NaN | ArgumentError: the residual is not finite in Float64 at the visit of c | THROW:ArgumentError: a coordinate step or its stopping scale is not finite | off=2 band=2
+Float64 sx=-370 sy=930 | off_rbig=1 refuse_resid=1 | NaN | ArgumentError: the residual is not finite in Float64 at the visit of c | THROW:ArgumentError: a coordinate step or its stopping scale is not finite | off=2 band=2
+Float64 sx=-270 sy=-1070 | off_runder=48 | NaN | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=48 band=48
+Float64 sx=-270 sy=-970 | off_runder=48 | 0.00e+00 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-270 sy=-870 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-270 sy=-770 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-270 sy=-670 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-270 sy=-570 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-270 sy=-470 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-270 sy=-370 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-270 sy=-270 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-270 sy=-170 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-270 sy=-70 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-270 sy=30 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-270 sy=130 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-270 sy=230 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-270 sy=330 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-270 sy=430 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-270 sy=530 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-270 sy=630 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-270 sy=730 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-270 sy=830 | off_rbig=1 refuse_resid=1 | NaN | ArgumentError: the residual is not finite in Float64 at the visit of c | THROW:ArgumentError: a coordinate step or its stopping scale is not finite | off=2 band=2
+Float64 sx=-270 sy=930 | off_rbig=1 refuse_resid=1 | NaN | ArgumentError: the residual is not finite in Float64 at the visit of c | THROW:ArgumentError: a coordinate step or its stopping scale is not finite | off=2 band=2
+Float64 sx=-170 sy=-1070 | off_runder=48 | NaN | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=48 band=48
+Float64 sx=-170 sy=-970 | off_runder=48 | 0.00e+00 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-170 sy=-870 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-170 sy=-770 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-170 sy=-670 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-170 sy=-570 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-170 sy=-470 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-170 sy=-370 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-170 sy=-270 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-170 sy=-170 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-170 sy=-70 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-170 sy=30 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-170 sy=130 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-170 sy=230 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-170 sy=330 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-170 sy=430 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-170 sy=530 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-170 sy=630 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-170 sy=730 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-170 sy=830 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-170 sy=930 | off_rbig=1 refuse_resid=1 | NaN | ArgumentError: the residual is not finite in Float64 at the visit of c | THROW:ArgumentError: a coordinate step or its stopping scale is not finite | off=2 band=2
+Float64 sx=-70 sy=-1070 | off_runder=48 | NaN | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=48 band=48
+Float64 sx=-70 sy=-970 | off_runder=48 | 0.00e+00 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-70 sy=-870 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-70 sy=-770 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-70 sy=-670 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-70 sy=-570 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-70 sy=-470 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-70 sy=-370 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-70 sy=-270 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-70 sy=-170 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-70 sy=-70 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-70 sy=30 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-70 sy=130 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-70 sy=230 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-70 sy=330 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-70 sy=430 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=-70 sy=530 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-70 sy=630 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-70 sy=730 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-70 sy=830 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=-70 sy=930 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=30 sy=-1070 | off_runder=8 | 9.08e-11 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=8 band=8
+Float64 sx=30 sy=-970 | off_runder=48 | 0.00e+00 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=30 sy=-870 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=30 sy=-770 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=30 sy=-670 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=30 sy=-570 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=30 sy=-470 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=30 sy=-370 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=30 sy=-270 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=30 sy=-170 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=30 sy=-70 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=30 sy=30 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=30 sy=130 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=30 sy=230 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=30 sy=330 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=30 sy=430 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=30 sy=530 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=30 sy=630 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=30 sy=730 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=30 sy=830 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=30 sy=930 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=130 sy=-1070 | off_runder=8 | 7.16e-41 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=8 band=8
+Float64 sx=130 sy=-970 | off_runder=8 | 1.00e-10 | - | conv=false gap=NaN passes=1 | off=16 band=16
+Float64 sx=130 sy=-870 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=130 sy=-770 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=130 sy=-670 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=130 sy=-570 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=130 sy=-470 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=130 sy=-370 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=130 sy=-270 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=130 sy=-170 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=130 sy=-70 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=130 sy=30 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=130 sy=130 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=130 sy=230 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=130 sy=330 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=130 sy=430 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=130 sy=530 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=130 sy=630 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=130 sy=730 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=130 sy=830 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=130 sy=930 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=230 sy=-1070 | off_runder=8 | 5.65e-71 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=8 band=8
+Float64 sx=230 sy=-970 | off_runder=8 | 7.90e-41 | - | conv=false gap=NaN passes=1 | off=16 band=16
+Float64 sx=230 sy=-870 | off_runder=8 | 1.00e-10 | - | conv=false gap=NaN passes=1 | off=16 band=16
+Float64 sx=230 sy=-770 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=230 sy=-670 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=230 sy=-570 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=230 sy=-470 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=230 sy=-370 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=230 sy=-270 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=230 sy=-170 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=230 sy=-70 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=230 sy=30 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=230 sy=130 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=230 sy=230 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=230 sy=330 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=230 sy=430 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=230 sy=530 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=230 sy=630 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=230 sy=730 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=230 sy=830 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=230 sy=930 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=330 sy=-1070 | off_runder=8 | 4.46e-101 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=8 band=8
+Float64 sx=330 sy=-970 | off_runder=8 | 6.23e-71 | - | conv=false gap=NaN passes=1 | off=16 band=16
+Float64 sx=330 sy=-870 | off_runder=8 | 7.90e-41 | - | conv=false gap=NaN passes=1 | off=16 band=16
+Float64 sx=330 sy=-770 | off_runder=8 | 1.00e-10 | - | conv=false gap=NaN passes=1 | off=16 band=16
+Float64 sx=330 sy=-670 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=330 sy=-570 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=330 sy=-470 | band=48 | 3.62e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=136
+Float64 sx=330 sy=-370 | band=48 | 3.62e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=136
+Float64 sx=330 sy=-270 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=330 sy=-170 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=330 sy=-70 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=330 sy=30 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=330 sy=130 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=330 sy=230 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=330 sy=330 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=330 sy=430 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=330 sy=530 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=330 sy=630 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=330 sy=730 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=330 sy=830 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=330 sy=930 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=430 sy=-1070 | off_runder=8 | 3.51e-131 | - | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=8 band=8
+Float64 sx=430 sy=-970 | off_runder=8 | 4.92e-101 | - | conv=false gap=NaN passes=1 | off=16 band=16
+Float64 sx=430 sy=-870 | off_runder=8 | 6.23e-71 | - | conv=false gap=NaN passes=1 | off=16 band=16
+Float64 sx=430 sy=-770 | off_runder=8 | 7.90e-41 | - | conv=false gap=NaN passes=1 | off=16 band=16
+Float64 sx=430 sy=-670 | off_runder=8 | 1.00e-10 | - | conv=false gap=NaN passes=1 | off=16 band=16
+Float64 sx=430 sy=-570 | off_runder=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=430 sy=-470 | band=48 | 3.62e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=136
+Float64 sx=430 sy=-370 | band=48 | 3.62e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=136
+Float64 sx=430 sy=-270 | band=48 | 3.62e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=136
+Float64 sx=430 sy=-170 | band=48 | 3.62e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=136
+Float64 sx=430 sy=-70 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=430 sy=30 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=430 sy=130 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=430 sy=230 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=430 sy=330 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=430 sy=430 | ord=48 | 3.71e-20 | - | conv=true gap=5.9e-08 passes=14 | off=0 band=0
+Float64 sx=430 sy=530 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=430 sy=630 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=430 sy=730 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=430 sy=830 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=430 sy=930 | off_rbig=48 | 2.98e-20 | - | conv=false gap=NaN passes=14 | off=136 band=136
+Float64 sx=530 sy=-1070 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=0 band=0
+Float64 sx=530 sy=-970 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=530 sy=-870 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=530 sy=-770 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=530 sy=-670 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=530 sy=-570 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=530 sy=-470 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=530 sy=-370 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=530 sy=-270 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=530 sy=-170 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=530 sy=-70 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=530 sy=30 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=530 sy=130 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=530 sy=230 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=530 sy=330 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=530 sy=430 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=530 sy=530 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=530 sy=630 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=530 sy=730 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=530 sy=830 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=530 sy=930 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=630 sy=-1070 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=0 band=0
+Float64 sx=630 sy=-970 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=630 sy=-870 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=630 sy=-770 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=630 sy=-670 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=630 sy=-570 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=630 sy=-470 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=630 sy=-370 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=630 sy=-270 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=630 sy=-170 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=630 sy=-70 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=630 sy=30 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=630 sy=130 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=630 sy=230 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=630 sy=330 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=630 sy=430 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=630 sy=530 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=630 sy=630 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=630 sy=730 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=630 sy=830 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=630 sy=930 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=730 sy=-1070 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=0 band=0
+Float64 sx=730 sy=-970 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=730 sy=-870 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=730 sy=-770 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=730 sy=-670 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=730 sy=-570 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=730 sy=-470 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=730 sy=-370 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=730 sy=-270 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=730 sy=-170 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=730 sy=-70 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=730 sy=30 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=730 sy=130 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=730 sy=230 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=730 sy=330 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=730 sy=430 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=730 sy=530 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=730 sy=630 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=730 sy=730 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=730 sy=830 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=730 sy=930 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=830 sy=-1070 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=0 band=0
+Float64 sx=830 sy=-970 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=830 sy=-870 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=830 sy=-770 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=830 sy=-670 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=830 sy=-570 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=830 sy=-470 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=830 sy=-370 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=830 sy=-270 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=830 sy=-170 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=830 sy=-70 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=830 sy=30 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=830 sy=130 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=830 sy=230 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=830 sy=330 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=830 sy=430 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=830 sy=530 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=830 sy=630 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=830 sy=730 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=830 sy=830 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=830 sy=930 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=930 sy=-1070 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the response scale (the root of the loss scale times the norm of y) is not  | off=0 band=0
+Float64 sx=930 sy=-970 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=930 sy=-870 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=930 sy=-770 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=930 sy=-670 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=930 sy=-570 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=930 sy=-470 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=930 sy=-370 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=930 sy=-270 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=930 sy=-170 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=930 sy=-70 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=930 sy=30 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=930 sy=130 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=930 sy=230 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=930 sy=330 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=930 sy=430 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=930 sy=530 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=930 sy=630 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=930 sy=730 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=930 sy=830 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0
+Float64 sx=930 sy=930 | refuse_ainf=1 | NaN | ArgumentError: the curvature of coordinate 1 (the squared norm of its  | THROW:ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finit | off=0 band=0

@@ -1,0 +1,2 @@
+Float32 failures by class: Dict("norm < floatmin (subnormal T result)" => 138)   totals: Dict("normal" => 3674, "norm near/above floatmax" => 1, "norm < floatmin (subnormal T result)" => 295)
+Float64 failures by class: Dict("norm < floatmin (subnormal T result)" => 69)   totals: Dict("normal" => 3897, "norm < floatmin (subnormal T result)" => 98)

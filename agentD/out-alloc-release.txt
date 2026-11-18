@@ -1,0 +1,108 @@
+Julia 1.13.4
+PB shrink(v,c) [Float32]                                   0 B
+PB norm_diff(x,y) ordinary [Float32]                       0 B
+PB norm_diff(xbig,0) exceptional [Float32]                 0 B
+PB norm_diff(tiny,0) exceptional [Float32]                 0 B
+PB value_from_residual(LS, r) [Float32]                    0 B
+PB value_from_residual(SqrtLS, r) [Float32]                0 B
+PB value_from_residual(SqrtLS, xbig) [Float32]             0 B
+PB value_from_residual(SqrtLS, tiny) [Float32]             0 B
+PB value_from_predictor(LS, z) [Float32]                   0 B
+PB value_and_gradient_from_predictor! [Float32]            0 B
+PB opnorm2(X) (Lanczos; documented to allocate) [Float32]  16088 B
+PB _shrink_nonneg [Float32]                                0 B
+PB _positive_product [Float32]                             0 B
+PB _threshold_product [Float32]                            0 B
+PB _scaled_product(a,b,c,k) ordinary [Float32]             0 B
+PB _scaled_product(a,b,c,k) k=3000 [Float32]               0 B
+PB _compensated_add [Float32]                              0 B
+PB _power_factors(T,5) [Float32]                           0 B
+PB _squares_normal [Float32]                               0 B
+PB _sumabs2(x) [Float32]                                   0 B
+PB _sumabs2_diff(x,y) [Float32]                            0 B
+PB _maximum_abs(x) [Float32]                               0 B
+PB _all_zero(x) [Float32]                                  0 B
+PB _square_exponent(x,nothing,T) [Float32]                 0 B
+PB _residual_squares(x,nothing,T) [Float32]                0 B
+PB _residual_squares(x,nothing,Float64) [Float32]          0 B
+PB _residual_squares(x,y,T) [Float32]                      0 B
+PB _scaled_norm(xbig,nothing,s) [Float32]                  0 B
+PB _indexed_sumabs2(x,G,T) [Float32]                       0 B
+PB _l2_classified_norm(x,G,Float64) [Float32]              0 B
+PB _pow2_sum(T,(m,e),(m,e)) [Float32]                      0 B
+PB _expsum_add [Float32]                                   0 B
+PS _se_norm(T,x) [Float32]                                 0 B
+PS _se_norm(T,xbig) [Float32]                              0 B
+PS _se_norm_diff(T,a,b) [Float32]                          0 B
+PS _se_mul(a,b) [Float32]                                  0 B
+PS _se_mul(a,b,c,d) [Float32]                              0 B
+PS _se_add [Float32]                                       0 B
+PS _se_sub [Float32]                                       0 B
+PS _se_le [Float32]                                        0 B
+PS _sumsq_scaled(v,m) [Float32]                            0 B
+PS _sumsq2(d,x) [Float32]                                  0 B
+PS _sumsq_diff(a,b) [Float32]                              0 B
+PS _se_norm_onepass(T,s,v) [Float32]                       0 B
+PS _maxabs_diff [Float32]                                  0 B
+PS _scaled_norm(v,n) (sqrtlasso) [Float32]                 0 B
+PS _column_dot_rsqr [Float32]                              0 B
+PS _distance_sqr [Float32]                                 0 B
+PS _clean_sum [Float32]                                    0 B
+PS _frobenius_upper(T,X) [Float32]                         0 B
+PS _root_scale(T,α) [Float32]                              0 B
+PS _root_scale(T,α=BigFloat) (once per solve) [Float32]    368 B
+PB shrink(v,c) [Float64]                                   0 B
+PB norm_diff(x,y) ordinary [Float64]                       0 B
+PB norm_diff(xbig,0) exceptional [Float64]                 0 B
+PB norm_diff(tiny,0) exceptional [Float64]                 0 B
+PB value_from_residual(LS, r) [Float64]                    0 B
+PB value_from_residual(SqrtLS, r) [Float64]                0 B
+PB value_from_residual(SqrtLS, xbig) [Float64]             0 B
+PB value_from_residual(SqrtLS, tiny) [Float64]             0 B
+PB value_from_predictor(LS, z) [Float64]                   0 B
+PB value_and_gradient_from_predictor! [Float64]            0 B
+PB opnorm2(X) (Lanczos; documented to allocate) [Float64]  23592 B
+PB _shrink_nonneg [Float64]                                0 B
+PB _positive_product [Float64]                             0 B
+PB _threshold_product [Float64]                            0 B
+PB _scaled_product(a,b,c,k) ordinary [Float64]             0 B
+PB _scaled_product(a,b,c,k) k=3000 [Float64]               0 B
+PB _compensated_add [Float64]                              0 B
+PB _power_factors(T,5) [Float64]                           0 B
+PB _squares_normal [Float64]                               0 B
+PB _sumabs2(x) [Float64]                                   0 B
+PB _sumabs2_diff(x,y) [Float64]                            0 B
+PB _maximum_abs(x) [Float64]                               0 B
+PB _all_zero(x) [Float64]                                  0 B
+PB _square_exponent(x,nothing,T) [Float64]                 0 B
+PB _residual_squares(x,nothing,T) [Float64]                0 B
+PB _residual_squares(x,nothing,Float64) [Float64]          0 B
+PB _residual_squares(x,y,T) [Float64]                      0 B
+PB _scaled_norm(xbig,nothing,s) [Float64]                  0 B
+PB _indexed_sumabs2(x,G,T) [Float64]                       0 B
+PB _l2_classified_norm(x,G,Float64) [Float64]              0 B
+PB _pow2_sum(T,(m,e),(m,e)) [Float64]                      0 B
+PB _expsum_add [Float64]                                   0 B
+PS _se_norm(T,x) [Float64]                                 0 B
+PS _se_norm(T,xbig) [Float64]                              0 B
+PS _se_norm_diff(T,a,b) [Float64]                          0 B
+PS _se_mul(a,b) [Float64]                                  0 B
+PS _se_mul(a,b,c,d) [Float64]                              0 B
+PS _se_add [Float64]                                       0 B
+PS _se_sub [Float64]                                       0 B
+PS _se_le [Float64]                                        0 B
+PS _sumsq_scaled(v,m) [Float64]                            0 B
+PS _sumsq2(d,x) [Float64]                                  0 B
+PS _sumsq_diff(a,b) [Float64]                              0 B
+PS _se_norm_onepass(T,s,v) [Float64]                       0 B
+PS _maxabs_diff [Float64]                                  0 B
+PS _scaled_norm(v,n) (sqrtlasso) [Float64]                 0 B
+PS _column_dot_rsqr [Float64]                              0 B
+PS _distance_sqr [Float64]                                 0 B
+PS _clean_sum [Float64]                                    0 B
+PS _frobenius_upper(T,X) [Float64]                         0 B
+PS _root_scale(T,α) [Float64]                              0 B
+PS _root_scale(T,α=BigFloat) (once per solve) [Float64]    368 B
+PS _level_brackets(0.3)                                    0 B
+PS _round_up(Float32, v)                                   0 B
+PS _up(z)                                                  0 B

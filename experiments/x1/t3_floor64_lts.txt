@@ -1,0 +1,3 @@
+# Julia 1.10.13
+Float32: 4000 vectors, floor64 differs in 1702 (42.6%), worst relative difference 1.0565307880010721e-15; zeros: 0.0 vs 0.0
+Float64: 4000 vectors, floor64 differs in 1596 (39.9%), worst relative difference 7.76609394535642e-16; zeros: 0.0 vs 0.0

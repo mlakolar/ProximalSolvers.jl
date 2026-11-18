@@ -1,0 +1,26 @@
+# E1 ordinary Gaussian designs (cyclic CD from 0, up to 25 passes, every visit referenced to BigFloat 512)
+type n p lamfrac | visits | branch counts | worst excess/bound (all) | worst coordinate rel err
+Float32 n=20 p=10 lf=0.50 | 250 | ord=250 | 1.059e-10 | 3.048e-07 | realOFF=0 realBAND=0 err=nothing
+Float32 n=20 p=10 lf=0.10 | 250 | ord=250 | 7.918e-11 | 2.080e-07 | realOFF=0 realBAND=0 err=nothing
+Float32 n=20 p=10 lf=0.02 | 250 | ord=250 | 6.470e-11 | 7.823e-07 | realOFF=0 realBAND=0 err=nothing
+Float32 n=100 p=60 lf=0.50 | 780 | ord=780 | 6.079e-12 | 2.694e-07 | realOFF=0 realBAND=0 err=nothing
+Float32 n=100 p=60 lf=0.10 | 1500 | ord=1500 | 3.866e-12 | 9.126e-07 | realOFF=0 realBAND=0 err=nothing
+Float32 n=100 p=60 lf=0.02 | 1500 | ord=1500 | 5.653e-12 | 1.932e-06 | realOFF=0 realBAND=0 err=nothing
+Float32 n=400 p=40 lf=0.50 | 520 | ord=520 | 3.359e-13 | 2.400e-07 | realOFF=0 realBAND=0 err=nothing
+Float32 n=400 p=40 lf=0.10 | 1000 | ord=1000 | 3.348e-13 | 8.793e-07 | realOFF=0 realBAND=0 err=nothing
+Float32 n=400 p=40 lf=0.02 | 1000 | ord=1000 | 2.161e-13 | 2.149e-06 | realOFF=0 realBAND=0 err=nothing
+Float32 n=30 p=120 lf=0.50 | 3000 | ord=3000 | 1.285e-10 | 3.754e-07 | realOFF=0 realBAND=0 err=nothing
+Float32 n=30 p=120 lf=0.10 | 3000 | ord=3000 | 1.542e-04 | 5.058e-07 | realOFF=0 realBAND=0 err=nothing
+Float32 n=30 p=120 lf=0.02 | 3000 | ord=3000 | 1.286e-04 | 7.259e-07 | realOFF=0 realBAND=0 err=nothing
+Float64 n=20 p=10 lf=0.50 | 230 | ord=230 | 9.414e-20 | 4.234e-16 | realOFF=0 realBAND=0 err=nothing
+Float64 n=20 p=10 lf=0.10 | 250 | ord=250 | 4.196e-20 | 4.202e-16 | realOFF=0 realBAND=0 err=nothing
+Float64 n=20 p=10 lf=0.02 | 250 | ord=250 | 4.577e-20 | 4.318e-16 | realOFF=0 realBAND=0 err=nothing
+Float64 n=100 p=60 lf=0.50 | 1500 | ord=1500 | 8.945e-21 | 7.376e-16 | realOFF=0 realBAND=0 err=nothing
+Float64 n=100 p=60 lf=0.10 | 1500 | ord=1500 | 7.352e-21 | 1.029e-15 | realOFF=0 realBAND=0 err=nothing
+Float64 n=100 p=60 lf=0.02 | 1500 | ord=1500 | 7.573e-21 | 2.842e-15 | realOFF=0 realBAND=0 err=nothing
+Float64 n=400 p=40 lf=0.50 | 1000 | ord=1000 | 7.337e-22 | 7.426e-16 | realOFF=0 realBAND=0 err=nothing
+Float64 n=400 p=40 lf=0.10 | 1000 | ord=1000 | 1.147e-21 | 1.836e-15 | realOFF=0 realBAND=0 err=nothing
+Float64 n=400 p=40 lf=0.02 | 1000 | ord=1000 | 6.645e-22 | 6.947e-15 | realOFF=0 realBAND=0 err=nothing
+Float64 n=30 p=120 lf=0.50 | 3000 | ord=3000 | 2.443e-19 | 5.355e-16 | realOFF=0 realBAND=0 err=nothing
+Float64 n=30 p=120 lf=0.10 | 3000 | ord=3000 | 7.167e-05 | 6.403e-16 | realOFF=0 realBAND=0 err=nothing
+Float64 n=30 p=120 lf=0.02 | 3000 | ord=3000 | 1.512e-04 | 2.254e-15 | realOFF=0 realBAND=0 err=nothing

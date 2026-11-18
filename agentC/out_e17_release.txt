@@ -1,0 +1,7 @@
+E17 final decision with PB.norm_diff substituted for _se_norm_diff_onepass(_sumsq_diff(...)), julia 1.13.4
+  Float32 PS N: accept ⇒ exact inequality                    n= 23970 violations=0 worst_ratio=-Inf
+  Float32 PB norm_diff N: accept ⇒ exact inequality          n= 23970 violations=0 worst_ratio=-Inf
+   Float32: accept decisions PS=10668 PB=10668, decisions that differ=0, cases with ‖Δz‖ < floatmin(T): 688
+  Float64 PS N: accept ⇒ exact inequality                    n= 16220 violations=0 worst_ratio=-Inf
+  Float64 PB norm_diff N: accept ⇒ exact inequality          n= 16220 violations=0 worst_ratio=-Inf
+   Float64: accept decisions PS=7086 PB=7086, decisions that differ=0, cases with ‖Δz‖ < floatmin(T): 503

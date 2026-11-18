@@ -1,0 +1,32 @@
+src/blocks.jl | base: ## src/blocks.jl  executable=53  physical=61 | new: ## src/blocks.jl  executable=46  physical=52
+src/solvers/image_models.jl | base: ## src/solvers/image_models.jl  executable=183  physical=275 | new: ## src/solvers/image_models.jl  executable=176  physical=265
+src/solvers/accelerated_proximal_gradient_descent.jl | base: ## src/solvers/accelerated_proximal_gradient_descent.jl  executable=196  physical=322 | new: ## src/solvers/accelerated_proximal_gradient_descent.jl  executable=196  physical=322
+src/solvers/proximal_gradient_descent.jl | base: ## src/solvers/proximal_gradient_descent.jl  executable=156  physical=329 | new: ## src/solvers/proximal_gradient_descent.jl  executable=156  physical=329
+src/cd/sqrtlasso.jl | base: ## src/cd/sqrtlasso.jl  executable=310  physical=526 | new: ## src/cd/sqrtlasso.jl  executable=293  physical=504
+src/cd/leastsquares.jl | base: ## src/cd/leastsquares.jl  executable=367  physical=635 | new: ## src/cd/leastsquares.jl  executable=339  physical=607
+src/blocks.jl < ## src/blocks.jl  executable=53  physical=61
+src/blocks.jl > ## src/blocks.jl  executable=46  physical=52
+src/blocks.jl < 7 _maxabs_diff
+src/solvers/image_models.jl < ## src/solvers/image_models.jl  executable=183  physical=275
+src/solvers/image_models.jl > ## src/solvers/image_models.jl  executable=176  physical=265
+src/solvers/image_models.jl < 19 _frobenius_upper
+src/solvers/image_models.jl < 1 _significand_exponent
+src/solvers/image_models.jl < 4 _significand_exponent
+src/solvers/image_models.jl < 9 _root_scale
+src/solvers/image_models.jl > 16 _frobenius_upper
+src/solvers/image_models.jl > 10 _root_scale
+src/cd/sqrtlasso.jl < ## src/cd/sqrtlasso.jl  executable=310  physical=526
+src/cd/sqrtlasso.jl > ## src/cd/sqrtlasso.jl  executable=293  physical=504
+src/cd/sqrtlasso.jl < 14 _scaled_norm
+src/cd/sqrtlasso.jl < 39 _sqrt_offrange_step
+src/cd/sqrtlasso.jl > 40 _sqrt_offrange_step
+src/cd/sqrtlasso.jl < 4 _round_up
+src/cd/leastsquares.jl < ## src/cd/leastsquares.jl  executable=367  physical=635
+src/cd/leastsquares.jl > ## src/cd/leastsquares.jl  executable=339  physical=607
+src/cd/leastsquares.jl < 11 _sqnorm!
+src/cd/leastsquares.jl < 6 _flat_column
+src/cd/leastsquares.jl > 1 _flat_column
+src/cd/leastsquares.jl < 17 response_scale
+src/cd/leastsquares.jl > 10 response_scale
+src/cd/leastsquares.jl < 6 _flat_group
+src/cd/leastsquares.jl > 1 _flat_group

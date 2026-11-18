@@ -1,0 +1,7 @@
+Julia 1.10.13
+Float32 n=   50  ns/visit: LS=      14  sqrt-ordinary=      14 (x0.94 of LS)   sqrt-offrange(tiny y)=      486 (x35.7 of ordinary)
+Float32 n=  500  ns/visit: LS=      30  sqrt-ordinary=      36 (x1.18 of LS)   sqrt-offrange(tiny y)=     4111 (x115.2 of ordinary)
+Float32 n= 5000  ns/visit: LS=     279  sqrt-ordinary=     264 (x0.95 of LS)   sqrt-offrange(tiny y)=    39735 (x150.6 of ordinary)
+Float64 n=   50  ns/visit: LS=      19  sqrt-ordinary=      18 (x0.95 of LS)   sqrt-offrange(tiny y)=      253 (x13.8 of ordinary)
+Float64 n=  500  ns/visit: LS=      43  sqrt-ordinary=      53 (x1.23 of LS)   sqrt-offrange(tiny y)=     2280 (x43.0 of ordinary)
+Float64 n= 5000  ns/visit: LS=     476  sqrt-ordinary=     516 (x1.08 of LS)   sqrt-offrange(tiny y)=    22904 (x44.4 of ordinary)

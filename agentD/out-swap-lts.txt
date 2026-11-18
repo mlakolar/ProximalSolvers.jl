@@ -1,0 +1,26 @@
+Julia 1.10.13
+case              PS (s,e)                                    PB (s,k)
+randn Float64     (7.678176399289672, 1)                      (7.678176399289672, 1)   -> same exponent, s rel diff = 0.0
+zeros Float64     (0.0, 0)                                    (0.0, 0)   -> same exponent, s rel diff = 0.0
+one entry Float64 (1.75, 1)                                   (1.75, 1)   -> same exponent, s rel diff = 0.0
+huge Float64      (5.038727145881988, 1016)                   (5.038727145881988, 1016)   -> same exponent, s rel diff = 0.0
+tiny normal Float64(4.5250609060115545, -999)                  (4.525060906011555, -999)   -> same exponent, s rel diff = 1.9627988178461377e-16
+subnormal Float64 (1.5811388300841898, -1073)                 (1.5811388300841898, -1073)   -> same exponent, s rel diff = 0.0
+with Inf Float64  (Inf, 0)                                    nonfinite   -> PB returns nothing; PS returns (M,0) = (Inf, 0)
+with NaN Float64  (NaN, 0)                                    nonfinite   -> PB returns nothing; PS returns (M,0) = (NaN, 0)
+-0 and 0 Float64  (0.0, 0)                                    (0.0, 0)   -> same exponent, s rel diff = 0.0
+randn Float32     (8.671184745253386, 1)                      (8.671184745253388, 1)   -> same exponent, s rel diff = 2.0485745507528596e-16
+zeros Float32     (0.0, 0)                                    (0.0, 0)   -> same exponent, s rel diff = 0.0
+one entry Float32 (1.75, 1)                                   (1.75, 1)   -> same exponent, s rel diff = 0.0
+huge Float32      (5.04995267152246, 120)                     (5.04995267152246, 120)   -> same exponent, s rel diff = 0.0
+tiny normal Float32(5.020295946508783, -119)                   (5.020295946508784, -119)   -> same exponent, s rel diff = 1.7691754214565433e-16
+subnormal Float32 (1.5811388300841898, -148)                  (1.5811388300841898, -148)   -> same exponent, s rel diff = 0.0
+with Inf Float32  (Inf, 0)                                    nonfinite   -> PB returns nothing; PS returns (M,0) = (Inf, 0)
+with NaN Float32  (NaN, 0)                                    nonfinite   -> PB returns nothing; PS returns (M,0) = (NaN, 0)
+-0 and 0 Float32  (0.0, 0)                                    (0.0, 0)   -> same exponent, s rel diff = 0.0
+
+Indicative timing, ns/element (min of 5 x 200 calls; NOT a controlled benchmark)
+Float64 n=1000: PS _scaled_norm 2.71  PB _residual_squares(F64)+sqrt 1.26  PS _se_norm(T) 1.33  PB _residual_squares(T) 1.41  PS _sumsq_scaled 0.4  Base sum 0.07
+Float64 n=100000: PS _scaled_norm 2.7  PB _residual_squares(F64)+sqrt 1.24  PS _se_norm(T) 0.87  PB _residual_squares(T) 1.24  PS _sumsq_scaled 0.39  Base sum 0.06
+Float32 n=1000: PS _scaled_norm 2.86  PB _residual_squares(F64)+sqrt 1.44  PS _se_norm(T) 1.05  PB _residual_squares(T) 1.32  PS _sumsq_scaled 0.17  Base sum 0.03
+Float32 n=100000: PS _scaled_norm 2.83  PB _residual_squares(F64)+sqrt 1.5  PS _se_norm(T) 0.6  PB _residual_squares(T) 1.18  PS _sumsq_scaled 0.12  Base sum 0.04

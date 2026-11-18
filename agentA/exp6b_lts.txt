@@ -1,0 +1,11 @@
+δ=-0.001: code=undefined ratio=NaN
+δ=-1.0e-9: code=undefined ratio=NaN
+δ=1.0e-9: code=certified ratio=4.44089209850065e-16
+δ=0.001: code=certified ratio=4.440892098500651e-16
+δ=1.0: code=certified ratio=4.440892098500647e-16
+δ=100.0: code=certified ratio=4.440892098500648e-16
+y~1.0e150: code=certified
+y~1.0e152: code=certified
+y~1.0e153: code=certified
+y~1.0e154: code=undefined
+cases=386 certified=60 violations=0

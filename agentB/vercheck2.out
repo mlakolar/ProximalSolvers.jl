@@ -1,0 +1,8 @@
+### lts
+Float32 _threshold: max rel error 0.50 eps(T) (normal results); result hash 067899909a8c
+Float64 _threshold: max rel error 0.89 eps(T) (normal results); result hash d397d615921f
+_curvature_scale result hash 6afaf7d62c39
+### release
+Float32 _threshold: max rel error 0.50 eps(T) (normal results); result hash 067899909a8c
+Float64 _threshold: max rel error 0.89 eps(T) (normal results); result hash 7d581cc2f7f5
+_curvature_scale result hash 6afaf7d62c39

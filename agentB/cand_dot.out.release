@@ -1,0 +1,16 @@
+Float32 n=20     p=20  warm: bit-identical=true  old 0.048 us  new 0.047 us  control 0.049 us  new/old 0.982  ctl/old 1.016
+Float32 n=20     p=20  cold: bit-identical=false  old 0.058 us  new 0.067 us  control 0.056 us  new/old 1.145  ctl/old 0.967
+Float32 n=100    p=50  warm: bit-identical=true  old 0.185 us  new 0.184 us  control 0.185 us  new/old 0.996  ctl/old 1.000
+Float32 n=100    p=50  cold: bit-identical=false  old 0.285 us  new 0.261 us  control 0.285 us  new/old 0.916  ctl/old 1.000
+Float32 n=1000   p=50  warm: bit-identical=true  old 1.449 us  new 1.456 us  control 1.445 us  new/old 1.005  ctl/old 0.997
+Float32 n=1000   p=50  cold: bit-identical=false  old 2.455 us  new 2.291 us  control 2.454 us  new/old 0.933  ctl/old 0.999
+Float32 n=10000  p=20  warm: bit-identical=true  old 7.588 us  new 7.666 us  control 7.613 us  new/old 1.010  ctl/old 1.003
+Float32 n=10000  p=20  cold: bit-identical=false  old 12.285 us  new 9.806 us  control 12.280 us  new/old 0.798  ctl/old 1.000
+Float64 n=20     p=20  warm: bit-identical=true  old 0.052 us  new 0.052 us  control 0.052 us  new/old 0.996  ctl/old 1.006
+Float64 n=20     p=20  cold: bit-identical=false  old 0.072 us  new 0.079 us  control 0.073 us  new/old 1.096  ctl/old 1.007
+Float64 n=100    p=50  warm: bit-identical=true  old 0.266 us  new 0.265 us  control 0.265 us  new/old 0.996  ctl/old 0.997
+Float64 n=100    p=50  cold: bit-identical=false  old 0.455 us  new 0.410 us  control 0.455 us  new/old 0.900  ctl/old 1.000
+Float64 n=1000   p=50  warm: bit-identical=true  old 3.008 us  new 2.952 us  control 2.995 us  new/old 0.981  ctl/old 0.996
+Float64 n=1000   p=50  cold: bit-identical=false  old 5.420 us  new 4.611 us  control 5.397 us  new/old 0.851  ctl/old 0.996
+Float64 n=10000  p=20  warm: bit-identical=true  old 18.091 us  new 18.038 us  control 17.997 us  new/old 0.997  ctl/old 0.995
+Float64 n=10000  p=20  cold: bit-identical=false  old 25.096 us  new 21.024 us  control 25.153 us  new/old 0.838  ctl/old 1.002

@@ -1,0 +1,13 @@
+E2 _se_norm family on julia 1.13.4
+  Float32 _se_norm: |D-‖v‖|/‖v‖ <= γ_{n+4}                   n=  2983 violations=0 worst_ratio=0.344493
+  Float32 _se_norm_onepass (driven as the solver does)       n=  3000 violations=0 worst_ratio=0.344493
+  Float32 _se_norm_diff_onepass: ‖a-b‖ within upper/lower_image n=  3000 violations=0 worst_ratio=0.35764
+  Float32 _se_norm_diff (two-pass) same                      n=  3000 violations=0 worst_ratio=0.443446
+  Float32: diff path counts one-pass=1406 scaled=1594, `nothing` returns=0
+  Float64 _se_norm: |D-‖v‖|/‖v‖ <= γ_{n+4}                   n=  2996 violations=0 worst_ratio=0.355363
+  Float64 _se_norm_onepass (driven as the solver does)       n=  3000 violations=0 worst_ratio=0.304229
+  Float64 _se_norm_diff_onepass: ‖a-b‖ within upper/lower_image n=  3000 violations=0 worst_ratio=0.372457
+  Float64 _se_norm_diff (two-pass) same                      n=  3000 violations=0 worst_ratio=0.372457
+  Float64: diff path counts one-pass=1458 scaled=1542, `nothing` returns=0
+  Float32 threshold zone: constant entries, s just above/below 4 n floatmin n=    63 violations=0 worst_ratio=0.158995
+  Float64 threshold zone: constant entries, s just above/below 4 n floatmin n=    63 violations=0 worst_ratio=0.176899

@@ -1,0 +1,7 @@
+E1 _frobenius_upper on julia 1.13.4
+  Float32 upper ≥ ‖X‖_F                                      n=   290 violations=0 worst_ratio=-Inf
+  Float32 upper/‖X‖_F - 1 (tightness)                        n=   289 violations=0 worst_ratio=5.5262e-07
+  Float32: bound slack target gamma_{N+3}(F64)+8u_T+eps: for N=40000  4.77e-07;  cases with slack>1e-3: 0
+  Float64 upper ≥ ‖X‖_F                                      n=   290 violations=0 worst_ratio=-Inf
+  Float64 upper/‖X‖_F - 1 (tightness)                        n=   289 violations=0 worst_ratio=5.17005e-12
+  Float64: bound slack target gamma_{N+3}(F64)+8u_T+eps: for N=40000  4.44e-12;  cases with slack>1e-3: 0

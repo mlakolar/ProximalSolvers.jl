@@ -1,0 +1,8 @@
+Julia 1.13.4
+equivalence: 0 differences of 500
+Float32 n=100: PS _maxabs_diff 0.318 ns/elt   PB norm_diff(.,.,Inf) 0.327 ns/elt   ratio PB/PS 1.03
+Float32 n=10000: PS _maxabs_diff 0.125 ns/elt   PB norm_diff(.,.,Inf) 0.125 ns/elt   ratio PB/PS 1.0
+Float32 n=1000000: PS _maxabs_diff 0.133 ns/elt   PB norm_diff(.,.,Inf) 0.133 ns/elt   ratio PB/PS 1.0
+Float64 n=100: PS _maxabs_diff 0.386 ns/elt   PB norm_diff(.,.,Inf) 0.41 ns/elt   ratio PB/PS 1.06
+Float64 n=10000: PS _maxabs_diff 0.247 ns/elt   PB norm_diff(.,.,Inf) 0.247 ns/elt   ratio PB/PS 1.0
+Float64 n=1000000: PS _maxabs_diff 0.32 ns/elt   PB norm_diff(.,.,Inf) 0.308 ns/elt   ratio PB/PS 0.96

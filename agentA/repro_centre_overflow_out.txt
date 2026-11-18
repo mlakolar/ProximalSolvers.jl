@@ -1,0 +1,3 @@
+exact minimizer z* = 0.0   exact centre c = 4.745979557294755e38   floatmax(Float32) = 3.4028235e38
+returned coordinate = Inf  (branch: off_asmall on a fresh model)
+public solve!: ArgumentError: a coordinate step or its stopping scale is not finite

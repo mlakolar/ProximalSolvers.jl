@@ -1,0 +1,18 @@
+julia 1.10.13
+Julia Version 1.10.13
+Commit e184dd512e3 (2026-10-30 18:48 UTC)
+Build Info:
+  Official https://julialang.org/ release
+Platform Info:
+  OS: Linux (x86_64-linux-gnu)
+  CPU: 20 × 13th Gen Intel(R) Core(TM) i5-13600K
+  WORD_SIZE: 64
+  LIBM: libopenlibm
+  LLVM: libLLVM-15.0.7 (ORCJIT, goldmont)
+Threads: 1 default, 0 interactive, 1 GC (on 20 virtual cores)
+BLAS: LBTConfig([ILP64] libopenblas64_.so)
+BLAS threads: 10  julia threads: 1
+PS pkgdir: <WORK>/ps-353
+PB pkgdir: <DEPOT>/packages/ProximalBase/2welE
+PB manifest: version=0.6.0-DEV tree=138929aa27c6221284ee1763e66b1110dd6ec418 rev=a19c59aa723d085d5d7cf5242895bda16eb77214 source=<DEPOT>/packages/ProximalBase/2welE
+PB src/numerical_kernels.jl sha256: 813d0a23305681e3eca1dffb810aea39785c455404817337af7326527669c280

@@ -1,0 +1,16 @@
+### lts
+Float32 data / Float32 scale: 4000 cases; unexpected errors 0; refusal disagreement 0; max error (ulps of T) PB-oracle 2.26 vs current 5.81; worst PB at (1000, 27, -108)
+Float32 data / Float64 scale: 4000 cases; unexpected errors 0; refusal disagreement 0; max error (ulps of T) PB-oracle 1.76 vs current 5.63; worst PB at (50, -9, -92)
+Float64 data / Float64 scale: 4000 cases; unexpected errors 0; refusal disagreement 0; max error (ulps of T) PB-oracle 2.03 vs current 5.97; worst PB at (1000, 27, 362)
+Float32 n=20: current 9 ns / 16 B; PB-oracle variant 36 ns / 208 B (setup path, indicative)
+Float32 n=1000: current 384 ns / 16 B; PB-oracle variant 853 ns / 4224 B (setup path, indicative)
+Float64 n=20: current 9 ns / 16 B; PB-oracle variant 33 ns / 288 B (setup path, indicative)
+Float64 n=1000: current 383 ns / 16 B; PB-oracle variant 826 ns / 8192 B (setup path, indicative)
+### release
+Float32 data / Float32 scale: 4000 cases; unexpected errors 0; refusal disagreement 0; max error (ulps of T) PB-oracle 1.49 vs current 6.10; worst PB at (4, -1, -25)
+Float32 data / Float64 scale: 4000 cases; unexpected errors 0; refusal disagreement 0; max error (ulps of T) PB-oracle 1.32 vs current 5.63; worst PB at (1000, 17, 5)
+Float64 data / Float64 scale: 4000 cases; unexpected errors 0; refusal disagreement 0; max error (ulps of T) PB-oracle 2.03 vs current 5.97; worst PB at (1000, 27, 362)
+Float32 n=20: current 5 ns / 0 B; PB-oracle variant 20 ns / 192 B (setup path, indicative)
+Float32 n=1000: current 368 ns / 0 B; PB-oracle variant 562 ns / 4152 B (setup path, indicative)
+Float64 n=20: current 5 ns / 0 B; PB-oracle variant 118 ns / 272 B (setup path, indicative)
+Float64 n=1000: current 370 ns / 0 B; PB-oracle variant 616 ns / 8120 B (setup path, indicative)

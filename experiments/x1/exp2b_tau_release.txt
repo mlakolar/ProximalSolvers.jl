@@ -1,0 +1,37 @@
+Float32: formula search 120000 cases, non-finite τ: 0, largest τ/floatmax (BigFloat exact on the same inputs) = 0.420448197174171  at n,a,ρ²,d²,λ,τ = (1, 9.8607613f-32, 3.4028235f38, 3.4028235f38, 3.1401846f-16, 1.4307109f38)
+   analytic corner n=2: a=1.9721523e-31 ρ²=3.4028229e38 finite=true τ=1.2030796e38 (floatmax=3.4028235e38)
+   step base: z=0.0 err=none
+   step x1a: z=0.0 err=none
+   step x1b: z=0.0 err=none
+   x1=2^-51 k=1 τ formula=1.2030796e38  τ/floatmax=0.3535533547401428
+   x1=2^-51 k=2 τ formula=8.5070577e37  τ/floatmax=0.2499999701976776
+   x1=2^-51 k=3 τ formula=6.9459835e37  τ/floatmax=0.20412412285804749
+   x1=2^-50 k=1 τ formula=6.015398e37  τ/floatmax=0.1767766773700714
+   x1=2^-50 k=2 τ formula=4.2535288e37  τ/floatmax=0.1249999850988388
+   x1=2^-50 k=3 τ formula=3.472992e37  τ/floatmax=0.10206206887960434
+   x1=2^-49 k=1 τ formula=3.007699e37  τ/floatmax=0.0883883386850357
+   x1=2^-49 k=2 τ formula=2.1267644e37  τ/floatmax=0.0624999925494194
+   x1=2^-49 k=3 τ formula=1.7364959e37  τ/floatmax=0.05103103071451187
+   x1=2^-48 k=1 τ formula=1.5038495e37  τ/floatmax=0.04419416934251785
+   x1=2^-48 k=2 τ formula=1.0633822e37  τ/floatmax=0.0312499962747097
+   x1=2^-48 k=3 τ formula=8.68248e36  τ/floatmax=0.025515517219901085
+Float64: formula search 120000 cases, non-finite τ: 0, largest τ/floatmax (BigFloat exact on the same inputs) = 0.3535533898708742  at n,a,ρ²,d²,λ,τ = (1, 1.0020841881945385e-292, 1.7976931348623157e308, 1.7976931348623157e308, 1.0010415516823154e-146, 6.355805017781702e307)
+   analytic corner n=2: a=2.0041683600089732e-292 ρ²=1.7976931348623151e308 finite=true τ=5.344573666424528e307 (floatmax=1.7976931348623157e308)
+   step base: z=0.0 err=none
+   step x1a: z=0.0 err=ArgumentError: the coordinate step of coordinate 1 is outside the supported rang
+   step x1b: z=0.0 err=none
+   x1=2^-484 k=1 τ formula=4.4942328371557873e307  τ/floatmax=0.2499999999999999
+   x1=2^-484 k=2 τ formula=3.177902515384115e307  τ/floatmax=0.17677669529663687
+   x1=2^-484 k=3 τ formula=2.5947465383327496e307  τ/floatmax=0.1443375672974064
+   x1=2^-483 k=1 τ formula=2.2471164185778941e307  τ/floatmax=0.12499999999999997
+   x1=2^-483 k=2 τ formula=1.5889512576920575e307  τ/floatmax=0.08838834764831843
+   x1=2^-483 k=3 τ formula=1.2973732691663748e307  τ/floatmax=0.0721687836487032
+   x1=2^-482 k=1 τ formula=1.1235582092889468e307  τ/floatmax=0.06249999999999997
+   x1=2^-482 k=2 τ formula=7.944756288460287e306  τ/floatmax=0.044194173824159216
+   x1=2^-482 k=3 τ formula=6.486866345831874e306  τ/floatmax=0.0360843918243516
+   x1=2^-481 k=1 τ formula=5.6177910464447353e306  τ/floatmax=0.031249999999999993
+   x1=2^-481 k=2 τ formula=3.9723781442301437e306  τ/floatmax=0.022097086912079608
+   x1=2^-481 k=3 τ formula=3.243433172915937e306  τ/floatmax=0.0180421959121758
+   x1=2^-480 k=1 τ formula=2.808895523222367e306  τ/floatmax=0.015624999999999993
+   x1=2^-480 k=2 τ formula=1.9861890721150718e306  τ/floatmax=0.011048543456039804
+   x1=2^-480 k=3 τ formula=1.6217165864579685e306  τ/floatmax=0.0090210979560879

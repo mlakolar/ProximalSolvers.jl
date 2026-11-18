@@ -1,0 +1,3 @@
+E10 fold prototypes, julia 1.10.13
+  _se_norm via zero operand: mismatches 0 of 120000 comparisons
+  _frobenius_upper loop vs _sumsq64: mismatches 0 of 4000

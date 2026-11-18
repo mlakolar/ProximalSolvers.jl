@@ -1,0 +1,35 @@
+# Float64 Julia 1.13.4. C converged+certified, u returned but converged=false, . input not representable/λ not finite; throws: A='coordinate curvature underflows', B='curvature of coordinate k (squared norm) not finite', R='coordinate step ... outside the supported range' (prototype refusal), S=other
+## y only: y*2^s, X=1
+  base .[-1100..-1076] S[-1075..-1025] u[-1024..-485] C[-484..508] u[509..1021] S[1022..1023] .[1024..1040]
+  x1a  .[-1100..-1076] S[-1075..-1025] R[-1024..-485] C[-484..508] u[509..509] R[510..1021] S[1022..1023] .[1024..1040]
+  x1b  .[-1100..-1076] S[-1075..-1025] R[-1024..-485] C[-484..508] u[509..509] R[510..1021] S[1022..1023] .[1024..1040]
+  differing (base,x1a,x1b triple per interval): uRR[-1024..-485] uRR[510..1021]
+## X only: X*2^s, y=1
+  base .[-1100..-1075] A[-1074..-539] C[-538..509] B[510..1022] .[1023..1040]
+  x1a  .[-1100..-1075] A[-1074..-540] R[-539..-485] C[-484..509] B[510..1022] .[1023..1040]
+  x1b  .[-1100..-1075] A[-1074..-540] R[-539..-485] C[-484..509] B[510..1022] .[1023..1040]
+  differing (base,x1a,x1b triple per interval): ARR[-539..-539] CRR[-538..-485]
+## joint: y,X both *2^s
+  base .[-1100..-1075] S[-1074..-1025] A[-1024..-539] u[-538..-485] C[-484..508] u[509..509] B[510..1021] S[1022..1022] .[1023..1040]
+  x1a  .[-1100..-1075] S[-1074..-1025] A[-1024..-540] R[-539..-485] C[-484..508] u[509..509] B[510..1021] S[1022..1022] .[1023..1040]
+  x1b  .[-1100..-1075] S[-1074..-1025] A[-1024..-540] R[-539..-485] C[-484..508] u[509..509] B[510..1021] S[1022..1022] .[1023..1040]
+  differing (base,x1a,x1b triple per interval): ARR[-539..-539] uRR[-538..-485]
+## one column: X[:,1]*2^s, rest 1, y=1
+  base C[-1100..-1077] A[-1076..-540] C[-539..509] B[510..1022] .[1023..1040]
+  x1a  C[-1100..-1077] A[-1076..-540] R[-539..-486] C[-485..509] B[510..1022] .[1023..1040]
+  x1b  C[-1100..-1077] A[-1076..-540] R[-539..-486] C[-485..509] B[510..1022] .[1023..1040]
+  differing (base,x1a,x1b triple per interval): CRR[-539..-486]
+## opposite: y*2^s, X*2^-s
+  base .[-1100..-1023] B[-1022..-510] u[-509..-485] C[-484..508] u[509..512] S[513..539] A[540..1021] S[1022..1023] .[1024..1040]
+  x1a  .[-1100..-1023] B[-1022..-510] R[-509..-340] C[-339..342] R[343..539] A[540..1021] S[1022..1023] .[1024..1040]
+  x1b  .[-1100..-1023] B[-1022..-510] R[-509..-485] C[-484..484] R[485..539] A[540..1021] S[1022..1023] .[1024..1040]
+  differing (base,x1a,x1b triple per interval): uRR[-509..-485] CRC[-484..-340] CRC[343..484] CRR[485..508] uRR[509..512] SRR[513..539]
+## opposite2: y*2^-s, X*2^s
+  base .[-1100..-1024] S[-1023..-1022] A[-1021..-540] S[-539..-513] u[-512..-509] C[-508..484] u[485..509] B[510..1022] .[1023..1040]
+  x1a  .[-1100..-1024] S[-1023..-1022] A[-1021..-540] R[-539..-343] C[-342..339] R[340..509] B[510..1022] .[1023..1040]
+  x1b  .[-1100..-1024] S[-1023..-1022] A[-1021..-540] R[-539..-485] C[-484..484] R[485..509] B[510..1022] .[1023..1040]
+  differing (base,x1a,x1b triple per interval): SRR[-539..-513] uRR[-512..-509] CRR[-508..-485] CRC[-484..-343] CRC[340..484] uRR[485..509]
+msg A: ArgumentError: the coordinate curvature underflows; rescale the data
+msg B: ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finite in Float64; rescale the data
+msg R: ArgumentError: the coordinate step of coordinate 1 is outside the supported range of Float64 (the squared norm of its column or of the residual, or the threshold, leaves the normal range); rescale the data
+msg S: ArgumentError: a coordinate step or its stopping scale is not finite

@@ -1,0 +1,7 @@
+rows 107 107
+nonzero rows: name | Julia 1.10 B | Julia 1.13 B
+PB opnorm2(X) (Lanczos; documented to allocate) [Float32]      16416 16088
+PS _root_scale(T,α=BigFloat) (once per solve) [Float32]          208 368
+PB opnorm2(X) (Lanczos; documented to allocate) [Float64]      23824 23592
+PS _root_scale(T,α=BigFloat) (once per solve) [Float64]          208 368
+zero-allocation rows on both versions: 103 of 107

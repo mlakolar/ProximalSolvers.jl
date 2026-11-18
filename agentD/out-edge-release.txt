@@ -1,0 +1,33 @@
+Julia 1.13.4
+shrink(NaN, 1)                                                    NaN
+shrink(Inf, Inf) [Inf - Inf]                                      NaN
+_shrink_nonneg(-0.0, 0.0) (sign of zero)                          0.0
+_positive_product(0, Inf, 1)                                      0.0
+_positive_product(2^-600, 2^-600, 2^900) [intermediate underflows]4.909093465297727e-91
+  ordinary (a*b)*c would give                                     0.0
+_scaled_product(2^-600,2^-600,2^900,0)                            4.909093465297727e-91
+_scaled_product(0, Inf, 1, 5)  (zero wins)                        0.0
+_scaled_product(NaN, 2, 1, 5)                                     NaN
+_scaled_product(0.75, 1, 1, -1074) (1.10: 0.0, 1.13: 5.0e-324; #896)5.0e-324
+_scaled_product(subnormal ds, 2, 1, 2000) [recovers exponent]     1.34217728e8
+_squares_normal(NaN, 10, Float64) / (Inf,...) / (0,...)           (false, true, false)
+_sum_kept(NaN,10) / _sum_kept(0.0,10)                             (true, false)
+_residual_squares([1e200,1e200], nothing, Float64) -> (s, k)      (3.4134673558132813, 664)
+_residual_squares([ds, 0], nothing, Float64) (subnormal entry)    (1.0, -1074)
+_residual_squares([0,0], nothing, Float64)                        (0.0, 0)
+_residual_squares([1,NaN], nothing, Float64)                      nothing
+_residual_squares([1,Inf], nothing, Float64)                      nothing
+_residual_squares([1e308,-1e308],[-1e308,1e308],Float64) (a-b overflows)(2.4754768379060628, 1024)
+_square_exponent([1,NaN],nothing,Float64) / ([1,Inf],...) codes   (9223372036854775807, 9223372036854775806)
+norm_diff([3e200,4e200],[0,0])  (ordinary sum overflows)          4.9999999999999995e200
+norm_diff([3e-200,4e-200],[0,0]) (ordinary sum underflows)        5.0e-200
+norm_diff([1,NaN],[0,0]) / ([1,Inf],[0,0])                        (NaN, Inf)
+norm_diff(Float32[3e38,3e38], zeros) (norm outside Float32)       Inf
+norm_diff(Float32[3e38,3e38], Float32[0,0], Inf)                  3.0e38
+_maximum_abs([-3, NaN, 2]) / ([-3, Inf])                          (NaN, Inf)
+_all_zero([0,-0.0]) / ([0, NaN])                                  (true, false)
+_power_factors(Float64, 1074) / (Float64, 2100) [split range]     ((8.98846567431158e307, 2.251799813685248e15), (8.98846567431158e307, Inf))
+_threshold_product(Float64, 2^-600, 2^-600, 2^900)                (0.0, false)
+value_from_residual(SqrtLS, [3e200,4e200]) vs LinearAlgebra       4.9999999999999995e200
+value_from_residual(SqrtLS, [1, NaN])                             NaN
+value_from_residual(SqrtLS, [0,0])                                0.0

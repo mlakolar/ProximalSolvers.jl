@@ -1,0 +1,20 @@
+Julia 1.10.13 CPU goldmont
+T=Float32 S=Float64: trials by BASE tier (1,2,3) = [35137, 17405, 7458]; tier-2 inputs: 17405, value changed: 7530, max |new-old| = 24.727 eps(T)-units; BASE refuses 0, X2 refuses 0 (accepted->refused: 0); tier 1/3 inputs identical: 42595/42595
+   tier-2 error vs exact (ulps of T): base mean/max = 3.34/41.87   x2 mean/max = 0.27/0.5
+T=Float64 S=BigFloat: trials by BASE tier (1,2,3) = [35389, 14976, 9635]; tier-2 inputs: 14976, value changed: 13117, max |new-old| = 7.397066003263748e14 eps(T)-units; BASE refuses 0, X2 refuses 10147 (accepted->refused: 10147); tier 1/3 inputs identical: 44365/45024
+   tier-2 error vs exact (ulps of T): base mean/max = 2.44/37.22   x2 mean/max = 1.74633989629954e12/1.0603488046714594e15
+T=Float32 S=BigFloat: trials by BASE tier (1,2,3) = [35146, 17442, 7412]; tier-2 inputs: 17442, value changed: 7616, max |new-old| = 33.221 eps(T)-units; BASE refuses 0, X2 refuses 0 (accepted->refused: 0); tier 1/3 inputs identical: 42558/42558
+   tier-2 error vs exact (ulps of T): base mean/max = 3.41/50.15   x2 mean/max = 0.28/0.5
+T=Float64 S=Float64: trials by BASE tier (1,2,3) = [33173, 0, 1197]; tier-2 inputs: 0, value changed: 0, max |new-old| = 0.0 eps(T)-units; BASE refuses 0, X2 refuses 0 (accepted->refused: 0); tier 1/3 inputs identical: 34370/34370
+T=Float32 S=Float32: trials by BASE tier (1,2,3) = [28087, 0, 11421]; tier-2 inputs: 0, value changed: 0, max |new-old| = 0.0 eps(T)-units; BASE refuses 0, X2 refuses 0 (accepted->refused: 0); tier 1/3 inputs identical: 39508/39508
+
+Float32 data, Float64 α, n=1 (the T-sum of one square has one rounding): tier 2 vs exceptional
+   y=1 entries α=1.0e-40  tier=2  base=1.0e-20  x2=1.0e-20  exact=1.0e-20
+   y=1 entries α=1.0e45  tier=2  base=9.486833e22  x2=9.486833e22  exact=9.486833e22
+   y=1 entries α=7.346839692639297e-40  tier=2  base=2.7105055e-21  x2=2.7105055e-21  exact=2.7105055e-21
+   y=10 entries α=1.0e-41  tier=2  base=6.204837e-20  x2=6.204837e-20  exact=6.204837e-20
+   y=10000 entries α=1.0e-41  tier=2  base=3.1623244e-20  x2=3.1622776e-20  exact=3.1622776e-20
+
+Float64 data, BigFloat scale (direct LSModel only): BASE vs X2 by whether α is inside the Float64 range
+  inside  2^[-1000,1000]: cases=18502 (BASE tiers 1/2/3 = [12821, 4112, 1569]), value changed=2235, accepted->refused=0, max rel change among accepted-both=1.5404921875538643e-15
+  outside 2^[1030,3000] and 2^[-3000,-1080]: cases=18474 (BASE tiers 1/2/3 = [2068, 6620, 9786]), value changed=7377, accepted->refused=7377, max rel change among accepted-both=0.0

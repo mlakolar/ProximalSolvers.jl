@@ -1,0 +1,19 @@
+src/cd/leastsquares.jl instrumented lines: 301 zero-hit: 18
+  L36: m
+  L41: a = zero(T)
+  L45: end
+  L49: end
+  L58: end
+  L59: r
+  L70: a
+  L76: true
+  L107: h
+  L231: v
+  L280: m
+  L321: m
+  L336: ℓ
+  L343: nothing
+  L349: true
+  L368: ℓ
+  L431: ℓ
+  L496: end

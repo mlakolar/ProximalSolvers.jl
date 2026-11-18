@@ -1,0 +1,12 @@
+Julia 1.13.4
+Float32 guard on: worst excess/bound 0.0213 ; guard off: worst 34.2, violations 792 / 4000
+Float64 guard on: worst excess/bound 1.9e-08 ; guard off: worst 4.44e+05, violations 1190 / 4000
+simplified _level_brackets: 0 bracket violations / 4513; brackets wider than the current ones for 4506 levels (by at most 1 ulp each side)
+Float32 n=    50  LS kernel        7 ns  fused kernel        9 ns  ratio 1.26
+Float32 n=   500  LS kernel       20 ns  fused kernel       23 ns  ratio 1.13
+Float32 n=  5000  LS kernel      148 ns  fused kernel      150 ns  ratio 1.01
+Float32 n= 50000  LS kernel     3595 ns  fused kernel     3597 ns  ratio 1.00
+Float64 n=    50  LS kernel        7 ns  fused kernel        7 ns  ratio 1.15
+Float64 n=   500  LS kernel       31 ns  fused kernel       32 ns  ratio 1.03
+Float64 n=  5000  LS kernel      450 ns  fused kernel      446 ns  ratio 0.99
+Float64 n= 50000  LS kernel     9090 ns  fused kernel     8375 ns  ratio 0.92

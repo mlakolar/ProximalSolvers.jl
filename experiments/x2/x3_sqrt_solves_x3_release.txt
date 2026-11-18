@@ -1,0 +1,6 @@
+Julia 1.13.4 CPU raptorlake
+solves: 456; solves in which BASE called _scaled_norm beyond the one call of _prepare! (the off-range recomputed norm): 161; such calls in total: 235
+comparisons=456 mismatches=2 (base converged 108, base threw 24)
+   base threw x24: ERROR: ArgumentError: the coordinate curvature underflows; rescale the data
+MISMATCH [x3] sqrt Float64 n=100 p=10 scale=9.322925914000258e-156 noise=0.001 frac=0.6 random cold.1.1.minimizer[2]: 0.8996611107248582 vs 0.8996611107248581
+MISMATCH [x3] sqrt Float64 n=100 p=10 scale=9.322925914000258e-156 noise=1.0e-6 frac=0.05 cyclic cold.1.1.minimizer[4]: 7.454134188381515e-9 vs 7.454134188381092e-9

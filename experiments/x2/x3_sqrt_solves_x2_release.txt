@@ -1,0 +1,4 @@
+Julia 1.13.4 CPU raptorlake
+solves: 456; solves in which BASE called _scaled_norm beyond the one call of _prepare! (the off-range recomputed norm): 161; such calls in total: 235
+comparisons=456 mismatches=0 (base converged 108, base threw 24)
+   base threw x24: ERROR: ArgumentError: the coordinate curvature underflows; rescale the data

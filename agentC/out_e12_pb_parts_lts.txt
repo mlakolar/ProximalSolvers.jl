@@ -1,0 +1,5 @@
+E12 PB private _parts_product vs _se_mul; PB master identical? julia 1.10.13
+  Float32: _parts_product == _se_mul (as exact values) mismatches: 0 of 100000
+  Float64: _parts_product == _se_mul (as exact values) mismatches: 0 of 100000
+  PB names present: [:_parts, :_parts_product, :_ExpSum, :_expsum_add, :_scaled_product, :_scaled_norm, :_frexp]
+  exported/public numerical API of PB: norm_diff, shrink, opnorm2 (truetruetrue); extended-range type: false

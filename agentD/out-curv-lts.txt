@@ -1,0 +1,7 @@
+Julia 1.10.13
+Float64 n=50 mk=2: fraction clearly BELOW (by >8 eps(T)) the true lambda_max: PB.opnorm2 0.0  PB.lipschitz(LS) 0.0  PS._gram_curvature 0.0   (PS overshoot median 5.6e-14)
+Float64 n=200 mk=4: fraction clearly BELOW (by >8 eps(T)) the true lambda_max: PB.opnorm2 0.0  PB.lipschitz(LS) 0.0  PS._gram_curvature 0.0   (PS overshoot median 2.9e-13)
+Float64 n=500 mk=8: fraction clearly BELOW (by >8 eps(T)) the true lambda_max: PB.opnorm2 0.0  PB.lipschitz(LS) 0.0  PS._gram_curvature 0.0   (PS overshoot median 9.0e-13)
+Float32 n=50 mk=2: fraction clearly BELOW (by >8 eps(T)) the true lambda_max: PB.opnorm2 0.0  PB.lipschitz(LS) 0.0  PS._gram_curvature 0.0   (PS overshoot median 4.4e-8)
+Float32 n=200 mk=4: fraction clearly BELOW (by >8 eps(T)) the true lambda_max: PB.opnorm2 0.0  PB.lipschitz(LS) 0.0  PS._gram_curvature 0.0   (PS overshoot median 4.1e-8)
+Float32 n=500 mk=8: fraction clearly BELOW (by >8 eps(T)) the true lambda_max: PB.opnorm2 0.0  PB.lipschitz(LS) 0.0  PS._gram_curvature 0.0   (PS overshoot median 4.3e-8)

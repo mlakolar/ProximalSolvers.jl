@@ -1,0 +1,4 @@
+src/cd/models.jl instrumented lines: 14 zero-hit: 3
+  L23: cdmodel(f,x)=throw(ArgumentError("unsupported private coordinate-descent model"))
+  L31: new
+  L37: change

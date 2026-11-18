@@ -1,0 +1,9 @@
+Julia 1.13.4 CPU raptorlake
+Float32: checks=768 (columns refused as underflow/overflow: 6 of sequential sums); violations: seq=0, simd=0, base-sum=0, production(X3._singleton_curvature)=0
+    largest fraction of the margin 2n eps consumed by the underestimate (exact − a)/(a 2n eps): seq: 0.25 [one big + many small n=1048576]; simd: 0.167 [one big + many small n=3]; base-sum: 0.214 [one big + many small n=7]
+    min slack (ℓ/exact − 1): seq: 2.88e-7 [geometric growth n=1]; simd: 2.88e-7 [geometric growth n=1]; base-sum: 2.88e-7 [geometric growth n=1]; production(X3._singleton_curvature): 2.88e-7 [geometric growth n=1]
+Float64: checks=616 (columns refused as underflow/overflow: 8 of sequential sums); violations: seq=0, simd=0, base-sum=0, production(X3._singleton_curvature)=0
+    largest fraction of the margin 2n eps consumed by the underestimate (exact − a)/(a 2n eps): seq: 0.0838 [randn n=1]; simd: 0.0838 [randn n=1]; base-sum: 0.0838 [randn n=1]
+    min slack (ℓ/exact − 1): seq: 5.6e-16 [squares straddling floatmin n=1]; simd: 5.6e-16 [squares straddling floatmin n=1]; base-sum: 5.6e-16 [squares straddling floatmin n=1]; production(X3._singleton_curvature): 5.6e-16 [squares straddling floatmin n=1]
+
+margin 2n eps(T) relative to the worst-case recursive bound γ_n ≈ n eps/2 is a factor ~4 (Float32 n=2^20: 2n eps = 0.25)

@@ -1,0 +1,86 @@
+_scaled_norm: defs=1 callers=2
+   cd/sqrtlasso.jl:57 cd/sqrtlasso.jl:274
+_column_dot_rsqr: defs=1 callers=1
+   cd/sqrtlasso.jl:152
+_distance_sqr: defs=1 callers=1
+   cd/sqrtlasso.jl:189
+_clean_sum: defs=1 callers=2
+   cd/sqrtlasso.jl:181 cd/sqrtlasso.jl:190
+_level_brackets: defs=1 callers=1
+   cd/sqrtlasso.jl:51
+_round_up: defs=1 callers=1
+   cd/sqrtlasso.jl:305
+_up: defs=1 callers=12
+   cd/sqrtlasso.jl:504 cd/sqrtlasso.jl:506 cd/sqrtlasso.jl:507 cd/sqrtlasso.jl:508 cd/sqrtlasso.jl:511 cd/sqrtlasso.jl:512 cd/sqrtlasso.jl:514 cd/sqrtlasso.jl:516 cd/sqrtlasso.jl:517 cd/sqrtlasso.jl:518 cd/sqrtlasso.jl:519 cd/sqrtlasso.jl:524
+_dn: defs=1 callers=7
+   cd/sqrtlasso.jl:505 cd/sqrtlasso.jl:510 cd/sqrtlasso.jl:513 cd/sqrtlasso.jl:515 cd/sqrtlasso.jl:517 cd/sqrtlasso.jl:520 cd/sqrtlasso.jl:521
+_column_dot: defs=2 callers=2
+   cd/leastsquares.jl:97 cd/leastsquares.jl:595
+_residual_axpy!: defs=1 callers=5
+   cd/leastsquares.jl:33 cd/leastsquares.jl:106 cd/leastsquares.jl:276 cd/leastsquares.jl:632 cd/sqrtlasso.jl:163
+_sqnorm!: defs=1 callers=2
+   cd/leastsquares.jl:186 cd/leastsquares.jl:362
+_curvature_scale: defs=1 callers=2
+   cd/leastsquares.jl:186 cd/leastsquares.jl:288
+_response_scale_exceptional: defs=1 callers=1
+   cd/leastsquares.jl:212
+_se_scale: defs=1 callers=1
+   cd/leastsquares.jl:225
+_gram_curvature: defs=1 callers=1
+   cd/leastsquares.jl:334
+_SE: defs=1 callers=48
+   cd/leastsquares.jl:227 solvers/accelerated_proximal_gradient_descent.jl:108 solvers/accelerated_proximal_gradient_descent.jl:109 solvers/accelerated_proximal_gradient_descent.jl:110 solvers/accelerated_proximal_gradient_descent.jl:111 solvers/image_models.jl:27 solvers/image_models.jl:31 solvers/image_models.jl:32 solvers/image_models.jl:35 solvers/image_models.jl:38 solvers/image_models.jl:39 solvers/image_models.jl:40 solvers/image_models.jl:41 solvers/image_models.jl:48 solvers/image_models.jl:78 solvers/image_models.jl:88 solvers/image_models.jl:115 solvers/image_models.jl:119 solvers/image_models.jl:153 solvers/image_models.jl:154 solvers/image_models.jl:175 solvers/image_models.jl:176 solvers/image_models.jl:183 solvers/image_models.jl:184 solvers/image_models.jl:185 solvers/image_models.jl:186 solvers/image_models.jl:187 solvers/image_models.jl:188 solvers/image_models.jl:189 solvers/image_models.jl:190 solvers/image_models.jl:191 solvers/image_models.jl:192 solvers/image_models.jl:193 solvers/image_models.jl:194 solvers/image_models.jl:195 solvers/image_models.jl:204 solvers/image_models.jl:205 solvers/image_models.jl:206 solvers/image_models.jl:207 solvers/image_models.jl:208 solvers/image_models.jl:209 solvers/image_models.jl:210 solvers/image_models.jl:211 solvers/image_models.jl:212 solvers/image_models.jl:237 solvers/image_models.jl:238 solvers/image_models.jl:241 solvers/image_models.jl:270
+_se_zero: defs=1 callers=8
+   solvers/accelerated_proximal_gradient_descent.jl:155 solvers/image_models.jl:32 solvers/image_models.jl:34 solvers/image_models.jl:36 solvers/image_models.jl:50 solvers/image_models.jl:77 solvers/image_models.jl:85 solvers/image_models.jl:143
+_renormal: defs=1 callers=4
+   solvers/image_models.jl:34 solvers/image_models.jl:36 solvers/image_models.jl:45 solvers/image_models.jl:51
+_se_mul: defs=3 callers=19
+   cd/leastsquares.jl:225 solvers/image_models.jl:78 solvers/image_models.jl:88 solvers/image_models.jl:153 solvers/image_models.jl:209 solvers/image_models.jl:210 solvers/image_models.jl:211 solvers/image_models.jl:212 solvers/image_models.jl:242 solvers/image_models.jl:246 solvers/image_models.jl:247 solvers/image_models.jl:248 solvers/image_models.jl:249 solvers/image_models.jl:250 solvers/image_models.jl:256 solvers/image_models.jl:257 solvers/image_models.jl:258 solvers/image_models.jl:273 solvers/image_models.jl:274
+_se_le: defs=1 callers=4
+   solvers/image_models.jl:50 solvers/image_models.jl:248 solvers/image_models.jl:250 solvers/image_models.jl:258
+_se_add: defs=1 callers=7
+   solvers/image_models.jl:212 solvers/image_models.jl:246 solvers/image_models.jl:247 solvers/image_models.jl:256 solvers/image_models.jl:257 solvers/image_models.jl:273 solvers/image_models.jl:274
+_se_sub: defs=1 callers=1
+   solvers/image_models.jl:249
+_sumsq_scaled: defs=1 callers=1
+   solvers/image_models.jl:78
+_sumsq_scaled_diff: defs=1 callers=1
+   solvers/image_models.jl:86
+_se_norm: defs=1 callers=3
+   cd/leastsquares.jl:223 solvers/accelerated_proximal_gradient_descent.jl:127 solvers/image_models.jl:116
+_se_norm_diff: defs=1 callers=1
+   solvers/image_models.jl:120
+_sumsq2: defs=1 callers=1
+   solvers/accelerated_proximal_gradient_descent.jl:237
+_sumsq_diff: defs=1 callers=1
+   solvers/image_models.jl:244
+_se_norm_onepass: defs=1 callers=3
+   solvers/accelerated_proximal_gradient_descent.jl:238 solvers/accelerated_proximal_gradient_descent.jl:239 solvers/image_models.jl:254
+_se_norm_diff_onepass: defs=1 callers=1
+   solvers/image_models.jl:244
+_frobenius_upper: defs=1 callers=1
+   solvers/image_models.jl:203
+_root_scale: defs=1 callers=2
+   cd/leastsquares.jl:225 solvers/accelerated_proximal_gradient_descent.jl:154
+_significand_exponent: defs=2 callers=1
+   solvers/image_models.jl:170
+_norm: defs=1 callers=3
+   blocks.jl:5 line_searches.jl:96 utils.jl:177
+_norm_diff: defs=1 callers=2
+   blocks.jl:5 utils.jl:178
+_dot_diff: defs=1 callers=2
+   blocks.jl:5 line_searches.jl:139
+_maxabs_diff: defs=1 callers=3
+   blocks.jl:6 solvers/accelerated_proximal_gradient_descent.jl:289 solvers/image_models.jl:83
+_maxabs_axpy: defs=1 callers=2
+   blocks.jl:5 utils.jl:84
+_maxabs_residual: defs=1 callers=2
+   blocks.jl:5 utils.jl:32
+_maxabs_stepdiff: defs=1 callers=2
+   blocks.jl:6 solvers/accelerated_proximal_gradient_descent.jl:295
+_norm_inf: defs=1 callers=5
+   blocks.jl:5 solvers/accelerated_proximal_gradient_descent.jl:296 utils.jl:85 utils.jl:96 utils.jl:146
+_unit: defs=1 callers=4
+   solvers/accelerated_proximal_gradient_descent.jl:278 solvers/image_models.jl:126 solvers/image_models.jl:153 solvers/image_models.jl:200
+_gamma: defs=1 callers=2
+   solvers/image_models.jl:152 solvers/image_models.jl:201

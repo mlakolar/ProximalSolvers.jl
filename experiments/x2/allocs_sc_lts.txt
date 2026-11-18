@@ -1,0 +1,33 @@
+Julia 1.10.13 CPU goldmont
+case                                    base        sc          
+cd lasso dense Float32                  3936        3936        
+cd lasso scaled(Float64 α) sparse Float322432        2432        
+cd enet dense Float32                   3952        3952        
+cd group Float32                        27504       27504       
+cd group singletons Float32             3552        3552        
+cd sqrt Float32                         5648        5648        
+pgd lasso Float32                       2400        2400        
+pgd lasso scaled Float32                2432        2432        
+apg lasso Float32                       3520        3520        
+apg lasso scaled Float32                3552        3552        
+apg enet Float32                        3536        3536        
+cd lasso tiny-scale Float32             3936        3936        
+apg lasso tiny-scale Float32            3520        3520        
+cd lasso dense Float64                  5808        5808        
+cd lasso scaled(Float64 α) sparse Float643152        3152        
+cd enet dense Float64                   5824        5824        
+cd group Float64                        28320       28320       
+cd group singletons Float64             4448        4448        
+cd sqrt Float64                         7536        7536        
+pgd lasso Float64                       3984        3984        
+pgd lasso scaled Float64                4016        4016        
+apg lasso Float64                       5792        5792        
+apg lasso scaled Float64                5824        5824        
+apg enet Float64                        5808        5808        
+cd lasso tiny-scale Float64             5808        5808        
+apg lasso tiny-scale Float64            5792        5792        
+cases with differing allocation: 0 of 26
+
+allocation of single warmed calls (bytes):
+  base: Float32 _norm_diff(Inf)=16 _frobenius_upper=32 _root_scale=32 response_scale=16 response_scale(S=Float64)=16 _flat_column(nonflat/flat)=0/0 _flat_group=0 | Float64 _norm_diff(Inf)=16 _frobenius_upper=32 _root_scale=32 response_scale=16 response_scale(S=Float64)=16 _flat_column(nonflat/flat)=0/0 _flat_group=0
+  sc: Float32 _norm_diff(Inf)=16 _frobenius_upper=32 _root_scale=32 response_scale=16 response_scale(S=Float64)=16 _flat_column(nonflat/flat)=0/0 _flat_group=0 | Float64 _norm_diff(Inf)=16 _frobenius_upper=32 _root_scale=32 response_scale=16 response_scale(S=Float64)=16 _flat_column(nonflat/flat)=0/0 _flat_group=0

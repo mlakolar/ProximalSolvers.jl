@@ -1,0 +1,3 @@
+## B. Ownership ledger
+
+Every numerical helper of the CD, PGD and APG scope has a row. Source links are pinned to PS `dac9f4b`; the number in parentheses is the executable line count (non-blank, non-comment, non-docstring; `tools/count_loc.py` in the archive). Classes: **A** already appropriately shared, keep; **B** solver-specific, keep in PS; **C** true duplication removable through an existing public API (of PB, or of Base where said); **D** shared primitive missing from PB's supported interface; **E** low-value exceptional recovery or generality, replaceable by a documented refusal; **F** proof-only text. "PB+PS total" decreases for every proposed deletion: nothing is moved into PB. R1–R4 refer to section C.

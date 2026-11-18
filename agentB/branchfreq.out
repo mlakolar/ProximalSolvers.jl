@@ -1,0 +1,79 @@
+problems: 6080  nonconverged: 200
+== Float32 lasso: 1200 solves, passes total 248713
+   coord_step             total     14987950  in 1200 solves
+   cs_calls               total     13131836  in 1200 solves
+   cs_fast                total     13131836  in 1200 solves
+   dot_cachemiss          total       943720  in 1200 solves
+   dot_calls              total     14987950  in 1200 solves
+   flat_column            total        32186  in  300 solves
+   init_calls             total         2307  in 1200 solves
+   rs_calls               total         1200  in 1200 solves
+   rs_t1                  total         1200  in 1200 solves
+   scaled_prox            total     14955764  in 1200 solves
+== Float32 enet: 1200 solves, passes total 237048
+   coord_step             total     14184087  in 1200 solves
+   cs_calls               total     12363074  in 1200 solves
+   cs_fast                total     12363074  in 1200 solves
+   dot_cachemiss          total       941470  in 1200 solves
+   dot_calls              total     14184087  in 1200 solves
+   flat_column            total        30641  in  300 solves
+   init_calls             total         2342  in 1200 solves
+   rs_calls               total         1200  in 1200 solves
+   rs_t1                  total         1200  in 1200 solves
+   scaled_prox            total     14153446  in 1200 solves
+== Float32 group: 1248 solves, passes total 238683
+   cs_calls               total      8798124  in 1212 solves
+   cs_fast                total      8798124  in 1212 solves
+   dot_calls              total     34406375  in 1248 solves
+   flat_column            total       202380  in 1248 solves
+   grp_deferred           total        39096  in  768 solves
+   grp_flatgroup          total         2586  in  240 solves
+   grp_gram_calls         total        13653  in  732 solves
+   grp_lazy_curv          total        13653  in  732 solves
+   grp_screen_attempt     total      1170298  in 1248 solves
+   grp_screen_zero        total      1107479  in 1128 solves
+   grp_singleton          total       157230  in  480 solves
+   grp_step               total      9929254  in 1248 solves
+   grp_zero_ell           total        19887  in  240 solves
+   rs_calls               total         1248  in 1248 solves
+   rs_t1                  total         1248  in 1248 solves
+   sqnorm_cold            total       157230  in  480 solves
+== Float64 lasso: 800 solves, passes total 217954
+   coord_step             total     11877332  in  800 solves
+   cs_calls               total     10686036  in  800 solves
+   cs_fast                total     10686036  in  800 solves
+   dot_cachemiss          total       639340  in  800 solves
+   dot_calls              total     11877332  in  800 solves
+   flat_column            total        21998  in  200 solves
+   init_calls             total         1578  in  800 solves
+   rs_calls               total          800  in  800 solves
+   rs_t1                  total          800  in  800 solves
+   scaled_prox            total     11855334  in  800 solves
+== Float64 enet: 800 solves, passes total 229776
+   coord_step             total     13195208  in  800 solves
+   cs_calls               total     11942835  in  800 solves
+   cs_fast                total     11942835  in  800 solves
+   dot_cachemiss          total       648680  in  800 solves
+   dot_calls              total     13195208  in  800 solves
+   flat_column            total        22220  in  200 solves
+   init_calls             total         1584  in  800 solves
+   rs_calls               total          800  in  800 solves
+   rs_t1                  total          800  in  800 solves
+   scaled_prox            total     13172988  in  800 solves
+== Float64 group: 832 solves, passes total 350052
+   cs_calls               total     12602290  in  808 solves
+   cs_fast                total     12602290  in  808 solves
+   dot_calls              total     50064992  in  832 solves
+   flat_column            total       134936  in  832 solves
+   grp_deferred           total        26064  in  512 solves
+   grp_flatgroup          total         1720  in  160 solves
+   grp_gram_calls         total         9162  in  488 solves
+   grp_lazy_curv          total         9162  in  488 solves
+   grp_screen_attempt     total       857774  in  832 solves
+   grp_screen_zero        total       814506  in  744 solves
+   grp_singleton          total       104824  in  320 solves
+   grp_step               total     13443372  in  832 solves
+   grp_zero_ell           total        18740  in  160 solves
+   rs_calls               total          832  in  832 solves
+   rs_t1                  total          832  in  832 solves
+   sqnorm_cold            total       104824  in  320 solves

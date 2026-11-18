@@ -1,0 +1,11 @@
+# julia 1.10.13: 748 solve configurations x 3 trees; certified results independently checked in BigFloat-256: 1470 (0 skipped by my check as dual direction undefined/non-positive; 0 trivial P=0); true-gap-bound violations (reported > 1e-4 or mine > 1e-4): 0; results where my own (P-D)/D exceeds the reported gap: 0 (worst mine/reported 0.0)
+X1A vs BASE: identical (x, passes, converged, gap, minimum bitwise): 748 of 748; differing: 0
+X1B vs BASE: bitwise identical: 69 of 748; differing: 679
+X1B vs BASE over differing configs (min/median/90%/99%/max): relative objective difference 1.13e-16 / 6.88e-08 / 3.92e-07 / 0.00902 / 0.0146 (500 of 748 exactly equal)
+   relative |x_B - x_base|/|x_base| 2.34e-32 / 4.01e-09 / 6.16e-06 / 0.0628 / 0.171 (72 exactly equal)
+   gap difference (x1b - base), over pairs with both gaps -2.52e-05 / 0 / 5.43e-07 / 1.05e-05 / 4.95e-05; relative: -0.858 / 0 / 0.724 / 3.6 / 40.7
+   pass count difference (x1b - base): min -24 max 40; #differ 159 of 748; histogram [-24 => 1, -22 => 2, -19 => 2, -13 => 1, -9 => 2, -7 => 1, -6 => 2, -4 => 13, -3 => 9, -2 => 17, -1 => 29, 0 => 589, 1 => 41, 2 => 16, 3 => 8, 4 => 4, 5 => 2, 6 => 2, 8 => 1, 11 => 2, 13 => 3, 40 => 1]
+   converged changes: 5 Any[((Float32, :gauss, 100, 60, 0.02, :cyc_dense_cold), false, true), ((Float32, :gauss, 100, 60, 0.02, :cyc_dense_warm), false, true), ((Float32, :gauss, 100, 60, 0.02, :cyc_sparse_cold), false, true), ((Float32, :corr, 100, 60, 0.02, :cyc_dense_warm), true, false), ((Float32, :exactfit, 1000, 200, 0.5, :rnd_sparse_mom_cold), false, true)]; throw status changes: 0 Any[]
+outcomes by tree: base: C=489 u=259 T=0 | x1a: C=489 u=259 T=0 | x1b: C=492 u=256 T=0
+   Float32: configs 374; X1B objective differs from BASE in 128; max rel obj diff 0.014601890487950268; median of the nonzero 1.0569006789212891e-7
+   Float64: configs 374; X1B objective differs from BASE in 120; max rel obj diff 0.004087332177128685; median of the nonzero 2.1445986139918542e-16

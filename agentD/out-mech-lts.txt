@@ -1,0 +1,8 @@
+Julia 1.10.13
+PB exports: 54
+Base.ispublic defined: false; names(PB) lists only exports: 54
+PB.value_from_residual callable qualified: 4.5
+code_typed(PS._clean_sum) statements=8 :invoke=0
+code_typed(PB._squares_normal) statements=4 :invoke=0
+LinearAlgebra.norm(Float32[3e38,3e38]) = Inf   PS._scaled_norm -> (2.4936000847084885, 127) (value 4.2426406948942856e38)  Float64(norm(Float64.(y))) = 4.2426406948942856e38
+PB.norm_diff(y, zeros(Float32,2)) = Inf

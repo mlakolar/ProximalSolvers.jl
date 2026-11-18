@@ -1,0 +1,7 @@
+Julia 1.10.13
+Float32: PS._sumsq_diff === PB._sumabs2_diff bitwise: 100 / 100
+Float64: PS._sumsq_diff === PB._sumabs2_diff bitwise: 100 / 100
+Float32 n=1000: PS _sumsq_diff 0.039 ns/elt   PB _sumabs2_diff 0.039 ns/elt   ratio PB/PS 1.0
+Float32 n=100000: PS _sumsq_diff 0.038 ns/elt   PB _sumabs2_diff 0.038 ns/elt   ratio PB/PS 1.01
+Float64 n=1000: PS _sumsq_diff 0.066 ns/elt   PB _sumabs2_diff 0.067 ns/elt   ratio PB/PS 1.01
+Float64 n=100000: PS _sumsq_diff 0.095 ns/elt   PB _sumabs2_diff 0.099 ns/elt   ratio PB/PS 1.04

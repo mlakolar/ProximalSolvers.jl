@@ -1,0 +1,13 @@
+Julia 1.13.4 CPU raptorlake
+
+Float32:
+  OLD (@simd _maxabs_diff): vector.body=17 vector types: <8 x float> fcmp/select/maximum intrinsics: 0/0/9   native: packed ops (maxps/maxpd/cmpunord/andps..): 9 cmpunord 16 ymm 160 xmm 224 lines=257
+  NEW (PB norm_diff, p=Inf): vector.body=17 vector types: <8 x float> fcmp/select/maximum intrinsics: 2/0/9   native: packed ops: 9 cmpunord 16 ymm 160 xmm 232 lines=351
+  indicative n=1000: old 0.142 ns/elt, new 0.144 ns/elt, ratio new/old 1.01
+  indicative n=100000: old 0.122 ns/elt, new 0.122 ns/elt, ratio new/old 1.0
+
+Float64:
+  OLD (@simd _maxabs_diff): vector.body=17 vector types: <4 x double> fcmp/select/maximum intrinsics: 0/0/9   native: packed ops (maxps/maxpd/cmpunord/andps..): 10 cmpunord 13 ymm 189 xmm 130 lines=222
+  NEW (PB norm_diff, p=Inf): vector.body=17 vector types: <4 x double> fcmp/select/maximum intrinsics: 2/0/9   native: packed ops: 10 cmpunord 13 ymm 189 xmm 138 lines=314
+  indicative n=1000: old 0.263 ns/elt, new 0.262 ns/elt, ratio new/old 1.0
+  indicative n=100000: old 0.246 ns/elt, new 0.246 ns/elt, ratio new/old 1.0

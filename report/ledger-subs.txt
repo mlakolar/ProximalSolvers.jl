@@ -1,0 +1,21 @@
+# placeholder = text  (filled from experiments X2/X3)
+ROUNDUP=0 mismatches in 6,000,068 values per type on Julia 1.10 and 1.13 (zeros, subnormals, values above floatmax(Float32), NaN, Inf); `Float64(v, RoundUp) === v`
+SQNORM_SAVE=−11 exec; −1 concept (a second `Σx²` algorithm). 12 test sites change (6 direct `PS._sqnorm!` references, 5 cold-cache `coordinate_scale` calls, 1 helper)
+SQNORM_CORR=`ℓ` and the minimizer of singleton-group solves move in the last bits (94–97 % of such solves; objective relative difference ≤ 7e-11 Float32, 8e-25 Float64). A direct `coordinate_scale` call on a cold cache would return NaN (tests only; production always fills the cache first)
+SQNORM_PERF={SQNORM_T}
+SINGLETON_CORR=the margin `nextfloat(a(1+2n eps)) ≥ Σx²` holds for sequential, pairwise and `@simd` orders: 768 Float32 and 612–616 Float64 adversarial columns up to n = 2^20, 0 violations; the worst case uses 25 % of the margin
+FLAT_SAVE=−10 exec
+FLAT_CORR=0 mismatches in 89,775 columns and groups (−0.0, NaN, ±Inf, subnormal); 0 B
+RS_SAVE=−7 exec; −1 concept (the wide-scale tier). 3 test edits in test/cd_numerics.jl
+RS_CORR=Unchanged for a scale of type T. For Float32 data with a Float64 scale whose `αΣy²` leaves the Float32 normal range (reachable from `solve!`), 7,530 of 17,405 inputs change by ≤ 24.7 ulp, toward the exact value (max error 0.5 ulp after, 41.9 ulp before); no accepted input becomes a refusal
+SC=Folding the plain and the `_diff` forms into one kernel with an optional second operand removes 17 exec lines bit for bit (R4)
+SD_SAVE=−3 exec
+SB_ACTION=**delete** both methods; `_root_scale` starts from `Float64(α)` (R2)
+SB_SAVE=−4 exec; −1 concept (a BigFloat route). 1 test edit
+SB_CORR=0 mismatches in 39,982 scales that `solve!` admits (Float32, Float64, fixed-width integers, Bool: all exact in Float64). A scale outside the Float64 range, possible only for a directly constructed `LSModel` with a BigFloat scale (test/cd_numerics.jl:943), becomes a `DomainError`
+SA_ACTION=**delete**; both callers use `_norm_diff(x, y, Inf)` (R2)
+SA_SAVE=−7 exec and one export; −1 loop
+SA_CORR=0 mismatches in 10,900 unit cases (NaN, ±Inf, ±0, subnormals, views, n = 0…4096) and in 4,806 / 4,794 whole solves
+SA_PERF={SA_T}
+SA_T=PB's loop vectorizes like PS's `@simd` loop on Julia 1.13 and neither vectorizes on 1.10; APG solves 0.995–1.010 of master (A/A 0.993–1.010)
+SQNORM_T=singleton-group solves 0.40–1.01 of master (geometric mean 0.77 on Julia 1.13, 0.85–0.89 on 1.10): `_prepare!` no longer sums in order

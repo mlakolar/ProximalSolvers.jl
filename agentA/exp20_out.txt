@@ -1,0 +1,4 @@
+Float32 owner=false: solved, converged path (F32 tiny y accepted by widening)
+Float32 owner=true: solved, converged path (F32 tiny y accepted by widening)
+Float64 owner=false: ArgumentError: the coordinate step of coordinate 1 is outside the supp | caller unchanged: true
+Float64 owner=true: ArgumentError: the coordinate step of coordinate 1 is outside the supp | caller unchanged: true

@@ -1,0 +1,86 @@
+shrink: defs=2 callers=14
+   ProximalBase.jl:25 functions/elasticnet.jl:15 functions/elasticnet.jl:89 functions/elasticnet.jl:91 functions/elasticnet.jl:136 functions/groupnorml2.jl:216 functions/groupnorml2.jl:222 functions/norml1.jl:14 functions/norml1.jl:92 functions/norml1.jl:106 functions/norml1.jl:158 functions/norml2.jl:25 numerical_kernels.jl:16 numerical_kernels.jl:41
+_shrink_nonneg: defs=3 callers=3
+   functions/elasticnet.jl:87 functions/elasticnet.jl:125 functions/norml1.jl:86
+_positive_product: defs=2 callers=2
+   functions/elasticnet.jl:189 functions/norml1.jl:67
+_weight_product: defs=3 callers=2
+   functions/norml1.jl:91 numerical_kernels.jl:98
+_threshold_product: defs=1 callers=6
+   functions/elasticnet.jl:91 functions/elasticnet.jl:97 functions/norml1.jl:87 functions/norml1.jl:106 functions/norml1.jl:131 numerical_kernels.jl:1001
+_weight_coefficient: defs=2 callers=3
+   numerical_kernels.jl:110 numerical_kernels.jl:111 numerical_kernels.jl:114
+_kkt_coefficient: defs=2 callers=7
+   functions/elasticnet.jl:399 functions/elasticnet.jl:415 functions/elasticnet.jl:419 functions/norml1.jl:166 functions/norml1.jl:172 functions/norml1.jl:175 numerical_kernels.jl:1184
+_scaled_product: defs=2 callers=15
+   functions/elasticnet.jl:255 functions/norml1.jl:207 functions/sqrnorml2.jl:292 numerical_kernels.jl:59 numerical_kernels.jl:126 numerical_kernels.jl:308 numerical_kernels.jl:331 numerical_kernels.jl:361 numerical_kernels.jl:505 numerical_kernels.jl:614 numerical_kernels.jl:839 numerical_kernels.jl:1061 numerical_kernels.jl:1164 numerical_kernels.jl:1201 symmetric_sparse_iterate.jl:257
+_scaled_product_retained: defs=2 callers=2
+   functions/scaled.jl:519 numerical_kernels.jl:158
+_scaled_product_norm: defs=1 callers=1
+   numerical_kernels.jl:1131
+_compensated_add: defs=1 callers=5
+   numerical_kernels.jl:246 numerical_kernels.jl:427 numerical_kernels.jl:430 numerical_kernels.jl:801 numerical_kernels.jl:812
+_power_factors: defs=2 callers=4
+   functions/leastsquares.jl:229 functions/norml1.jl:206 numerical_kernels.jl:798 numerical_kernels.jl:808
+_scale_value: defs=1 callers=8
+   functions/leastsquares.jl:231 functions/leastsquares.jl:237 functions/leastsquares.jl:239 iterate_storage.jl:119 numerical_kernels.jl:246 numerical_kernels.jl:256 numerical_kernels.jl:750 numerical_kernels.jl:811
+_scaled_value_sum: defs=1 callers=1
+   functions/norml1.jl:206
+_scaled_dot: defs=2 callers=0
+   
+_pow2_weighted: defs=2 callers=1
+   numerical_kernels.jl:363
+_pow2_sum: defs=1 callers=1
+   functions/leastsquares.jl:235
+_expsum_add: defs=1 callers=4
+   functions/linear.jl:243 functions/linear.jl:250 numerical_kernels.jl:445 numerical_kernels.jl:451
+_norm_diff2: defs=1 callers=1
+   numerical_kernels.jl:573
+norm_diff: defs=5 callers=3
+   ProximalBase.jl:25 numerical_kernels.jl:568 symmetric_sparse_iterate.jl:840
+_scaled_norm: defs=1 callers=4
+   functions/sqrnorml2.jl:91 functions/sqrnorml2.jl:94 functions/sqrt_leastsquares.jl:177 numerical_kernels.jl:602
+_sumabs2_diff: defs=1 callers=4
+   functions/sqrt_leastsquares.jl:94 numerical_kernels.jl:590 numerical_kernels.jl:658 numerical_kernels.jl:668
+_squares_normal: defs=1 callers=7
+   functions/sqrnorml2.jl:200 functions/sqrt_leastsquares.jl:167 numerical_kernels.jl:648 numerical_kernels.jl:1004 numerical_kernels.jl:1089 numerical_kernels.jl:1144 numerical_kernels.jl:1186
+_halved_difference: defs=1 callers=2
+   functions/sqrnorml2.jl:291 numerical_kernels.jl:741
+_residual_squares: defs=1 callers=4
+   functions/leastsquares.jl:242 numerical_kernels.jl:611 numerical_kernels.jl:836 numerical_kernels.jl:853
+_square_exponent: defs=3 callers=3
+   numerical_kernels.jl:826 numerical_kernels.jl:987 numerical_kernels.jl:1157
+_square_scaled_sum: defs=2 callers=3
+   numerical_kernels.jl:829 numerical_kernels.jl:989 numerical_kernels.jl:1164
+_product_sum_shift: defs=1 callers=1
+   functions/leastsquares.jl:227
+_sumabs2: defs=4 callers=6
+   functions/sqrnorml2.jl:92 functions/sqrt_leastsquares.jl:95 numerical_kernels.jl:658 numerical_kernels.jl:675 numerical_kernels.jl:694 numerical_kernels.jl:696
+_sum_kept: defs=1 callers=3
+   functions/groupnorml2.jl:146 functions/norml1.jl:232 functions/norml1.jl:252
+_maximum_abs: defs=4 callers=6
+   functions/norml1.jl:203 functions/normlinf.jl:94 iterate_storage.jl:125 numerical_kernels.jl:790 utils.jl:170 utils.jl:171
+_all_zero: defs=2 callers=7
+   functions/elasticnet.jl:271 functions/norml1.jl:269 functions/normlinf.jl:537 functions/scaled.jl:449 numerical_kernels.jl:899 numerical_kernels.jl:1146 utils.jl:152
+_stored_values: defs=4 callers=17
+   functions/elasticnet.jl:271 functions/elasticnet.jl:272 functions/groupnorml2.jl:153 functions/norml1.jl:269 functions/norml1.jl:270 functions/scaled.jl:402 numerical_kernels.jl:513 numerical_kernels.jl:525 numerical_kernels.jl:772 numerical_kernels.jl:810 numerical_kernels.jl:1146 utils.jl:108 utils.jl:124 utils.jl:136 utils.jl:146 utils.jl:154 utils.jl:172
+_largest_eigenvalue: defs=1 callers=2
+   numerical_kernels.jl:1276 numerical_kernels.jl:1282
+opnorm2: defs=1 callers=3
+   ProximalBase.jl:21 interface.jl:557 numerical_kernels.jl:1258
+_opnorm_upper: defs=3 callers=2
+   functions/quadratic.jl:253 numerical_kernels.jl:1301
+_opnorm2_upper: defs=2 callers=3
+   functions/leastsquares.jl:334 numerical_kernels.jl:1303 numerical_kernels.jl:1304
+_level_fits: defs=4 callers=9
+   functions/norml1.jl:191 functions/scaled.jl:198 functions/sqrnorml2.jl:133 functions/sqrnorml2.jl:200 functions/sqrnorml2.jl:227 functions/sqrnorml2.jl:245 functions/sqrnorml2.jl:514 numerical_kernels.jl:659 numerical_kernels.jl:1142
+_parts: defs=1 callers=2
+   numerical_kernels.jl:397 numerical_kernels.jl:857
+_recovery_type: defs=1 callers=6
+   functions/groupnorml2.jl:161 functions/sqrt_leastsquares.jl:176 numerical_kernels.jl:1056 numerical_kernels.jl:1124 numerical_kernels.jl:1156 numerical_kernels.jl:1194
+_indexed_sumabs2: defs=1 callers=4
+   functions/sqrnorml2.jl:65 numerical_kernels.jl:1003 numerical_kernels.jl:1088 numerical_kernels.jl:1185
+_underflow_threshold: defs=1 callers=1
+   functions/quadratic.jl:167
+_min_nonzero_exponent: defs=4 callers=2
+   numerical_kernels.jl:534 numerical_kernels.jl:535

@@ -1,0 +1,191 @@
+diff --git a/src/blocks.jl b/src/blocks.jl
+index cec94e4..4777749 100644
+--- a/src/blocks.jl
++++ b/src/blocks.jl
+@@ -3,7 +3,7 @@ module Blocks
+ using LinearAlgebra
+ using ProximalBase: norm_diff
+ export _eltype, _copy, _similar, _dense_similar, _copyto!, _sub!, _step!, _norm, _norm_diff, _norm_inf, _dot, _dot_diff, _maxabs_axpy, _maxabs_residual,
+-       _extrapolate_point!, _maxabs_diff, _maxabs_stepdiff
++       _extrapolate_point!, _maxabs_stepdiff
+ _eltype(x::AbstractArray) = eltype(x)
+ _copy(x::AbstractArray) = copy(x)
+ _similar(x::AbstractArray) = similar(x)
+@@ -40,15 +40,6 @@ function _maxabs_residual(a::AbstractArray, b::AbstractArray, d::AbstractArray,
+   m
+ end
+ 
+-# maxᵢ |xᵢ - yᵢ|
+-function _maxabs_diff(x::AbstractArray{T}, y::AbstractArray) where {T}
+-  m = zero(T)
+-  @inbounds @simd for i in eachindex(x)
+-    m = max(m, abs(x[i] - y[i]))
+-  end
+-  m
+-end
+-
+ # maxᵢ |L (yᵢ - xᵢ) - gᵢ|
+ function _maxabs_stepdiff(L::T, y::AbstractArray, x::AbstractArray, g::AbstractArray) where {T}
+   m = zero(T)
+diff --git a/src/cd/leastsquares.jl b/src/cd/leastsquares.jl
+index d506d1a..44a53cd 100644
+--- a/src/cd/leastsquares.jl
++++ b/src/cd/leastsquares.jl
+@@ -69,12 +69,7 @@ function _sqnorm!(m::LSModel{T}, k::Int) where T
+   end
+   a
+ end
+-function _flat_column(m::LSModel{T}, k::Int) where T
+-  for i in axes(m.X, 1)
+-    m.X[i, k] == zero(T) || return false
+-  end
+-  true
+-end
++_flat_column(m::LSModel, k::Int) = all(iszero, view(m.X, :, k))
+ # The coordinate step. With a = ‖X_k‖², b = rᵀX_k and the centre c = old + b/a, the step is the soft
+ # threshold of c at τ = λ/(m.s a) (for an ElasticNet, followed by the ridge weight 1/(1 + λ2/(m.s a))).
+ # A flat column (a = 0 and X_k = 0) takes the penalty's minimizer. A
+@@ -169,9 +164,7 @@ _cache(m::LSModel) = m.r
+ # relative (u = eps(T)/2, the bound of `_se_norm_onepass`). With p = m.s Σy² in `S` and q = T(p),
+ # the scale is
+ #   1. sqrt(q), if the sum is clean and q is a normal number of `T`;
+-#   2. T(sqrt(p)), if `S` is wider than `T`, the sum is clean, p is a normal number of `S` and the
+-#      rounded root is a normal number of `T`;
+-#   3. otherwise the exponent-separated value of `_response_scale_exceptional`.
++#   2. otherwise the exponent-separated value of `_response_scale_exceptional`.
+ # Coordinate scale √(m.s a), with a the curvature of column k, p = m.s a in `S` and q = T(p):
+ #   1. sqrt(q), if q is a normal number of `T`;
+ #   2. otherwise T(sqrt(p)), if p is not below floatmin(S) and is finite or a is infinite. This is Inf
+@@ -201,14 +194,7 @@ function response_scale(m::LSModel{T}, x) where T
+   end
+   p = m.s*s
+   q = T(p)
+-  if isfinite(s) && s >= 4*length(m.y)*floatmin(T)
+-    floatmin(T) <= q <= floatmax(T) && return sqrt(q)
+-    S = typeof(p)
+-    if S !== T && floatmin(S) <= p <= floatmax(S)
+-      r = T(sqrt(p))
+-      floatmin(T) <= r <= floatmax(T) && return r
+-    end
+-  end
++  isfinite(s) && s >= 4*length(m.y)*floatmin(T) && floatmin(T) <= q <= floatmax(T) && return sqrt(q)
+   _response_scale_exceptional(m)
+ end
+ # √(m.s) ‖y‖ with the root of m.s and the norm of y carried as `_SE` (a significand and an Int
+@@ -342,12 +328,7 @@ end
+   (floatmin(typeof(p)) <= p) & (floatmin(typeof(p)) <= inv(p)) || _refuse_group_step(typeof(p), k)
+   nothing
+ end
+-function _flat_group(ls::LSModel, idx)
+-  for j in idx
+-    _flat_column(ls, Int(j)) || return false
+-  end
+-  true
+-end
++_flat_group(ls::LSModel, idx) = all(j -> _flat_column(ls, Int(j)), idx)
+ # ℓ = nextfloat(a (1 + 2 n eps(T))) for a = Σ x_i², the recursive sum of the n rounded squares of the
+ # column in T. Where n eps(T) ≤ 1/8, that is n u ≤ 1/16 for u = eps(T)/2, the computed a satisfies
+ # S (1 − γ_n) ≤ a + (n η/2)(1 + γ_n) for the exact sum S, with γ_n = n u/(1 − n u) ≤ 16 n u/15 = 8 n eps(T)/15 and
+diff --git a/src/cd/sqrtlasso.jl b/src/cd/sqrtlasso.jl
+index 595060b..62b1b43 100644
+--- a/src/cd/sqrtlasso.jl
++++ b/src/cd/sqrtlasso.jl
+@@ -302,7 +302,7 @@ end
+ function _stop_check!(m::SqrtLSModel{T}, g, x::SparseIterate{T}, st, maxh, scaled::Bool) where T
+   code, ratio = _certify!(m, x)
+   if code === :certified
+-    m.gap = _round_up(T, ratio)
++    m.gap = T(ratio, RoundUp)
+     return :converged
+   end
+   m.gap = T(NaN)
+@@ -326,11 +326,6 @@ function _above_floor(m::SqrtLSModel{T}, x::SparseIterate{T}, scaled::Bool, tol:
+   end
+   βmax > 0 && tol >= 16eps(T)*βmax
+ end
+-# The smallest number of T that is at least the Float64 v (for v ≤ floatmax(T)).
+-function _round_up(::Type{T}, v::Float64) where T
+-  r = T(v)
+-  Float64(r) < v ? nextfloat(r) : r
+-end
+ # Rounded upward and downward: nextfloat and prevfloat of the round-to-nearest result. For a real z
+ # with fl(z) its round-to-nearest value in Float64 (gradual underflow, overflow to ±Inf), z lies between
+ # fl(z) and its neighbour on the side of z, within half their distance, so
+diff --git a/src/solvers/accelerated_proximal_gradient_descent.jl b/src/solvers/accelerated_proximal_gradient_descent.jl
+index dc8aa71..5b2d916 100644
+--- a/src/solvers/accelerated_proximal_gradient_descent.jl
++++ b/src/solvers/accelerated_proximal_gradient_descent.jl
+@@ -286,7 +286,7 @@ extended_trace!(dt, state::AccProxGradDescentState) = dt["grad_f(y)"] = _copy(st
+ # r = ∇f(x) - ∇f(y) - L (x - y) ∈ ∇f(x) + ∂g(x). The reported residual does not evaluate
+ # ∇f(x) (the stationarity check does, at each proposed stop, see _gradient_at_x!), but
+ # ‖r‖ ≤ (L + L_f) ‖x - y‖ when ∇f is L_f-Lipschitz, so L ‖x - y‖∞ is used instead.
+-g_residual(state::AccProxGradDescentState) = state.L * _maxabs_diff(state.x, state.y)
++g_residual(state::AccProxGradDescentState) = state.L * _norm_diff(state.x, state.y, Inf)
+ 
+ function gradient_converged!(state::AccProxGradDescentState, options::ProximalOptions)
+   residual = g_residual(state)
+diff --git a/src/solvers/image_models.jl b/src/solvers/image_models.jl
+index d91a84c..4569bd0 100644
+--- a/src/solvers/image_models.jl
++++ b/src/solvers/image_models.jl
+@@ -80,7 +80,7 @@ end
+ 
+ # The computed ‖a - b‖ of the rounded differences aᵢ - bᵢ
+ function _se_norm_diff(::Type{T}, a, b) where {T}
+-  m = _maxabs_diff(a, b)
++  m = _norm_diff(a, b, Inf)
+   isfinite(m) || return nothing
+   iszero(m) && return _se_zero(T)
+   s = _sumsq_scaled_diff(a, b, m)
+@@ -136,10 +136,7 @@ _gamma(::Type{T}, k) where {T} = (ku = k * _unit(T); ku / (1 - ku))
+ # factors; γ_{N+3} covers every branch.
+ function _frobenius_upper(::Type{T}, X) where {T}
+   N = length(X)
+-  s = 0.0
+-  @inbounds @simd for i in eachindex(X)
+-    s += abs2(Float64(X[i]))
+-  end
++  s = _sumsq64(X)
+   iszero(s) && all(iszero, X) && return _se_zero(T)
+   e = 0
+   if !(isfinite(s) && (T === Float32 || s >= 4N * floatmin(Float64)))
+@@ -154,20 +151,13 @@ function _frobenius_upper(::Type{T}, X) where {T}
+   _SE{T}(r.s, r.e + e)
+ end
+ 
+-# √α as an _SE{T}, for the loss scale α as given: α = s·2^e with s ∈ [1, 2). For an IEEE
+-# Float16/32/64 scale, s and e are exact in its own type. For any other real type (BigFloat
+-# of any precision, integers, rationals, irrationals), α is rounded once to 256 bits and s
+-# and e are taken there, inside a scoped BigFloat precision that is restored afterwards, so
+-# the active precision plays no part. s is rounded once to Float64 (at least the precision
+-# of T) before its square root, and e made even, so √α = √s′ · 2^(e′/2) without range loss.
+-_significand_exponent(α::Union{Float16, Float32, Float64}) = (Float64(significand(α)), exponent(α))
+-_significand_exponent(α::Real) = setprecision(BigFloat, 256) do
+-  b = BigFloat(α)
+-  (Float64(significand(b)), exponent(b))
+-end
+-
++# √α as an _SE{T}, for the loss scale α as given: α = s·2^e with s ∈ [1, 2) the Float64 significand
++# of α (exact for the Float32, Float64, fixed-width integer and Bool scales that `_check_loss_scale`
++# admits), and e made even, so √α = √s′ · 2^(e′/2) without range loss. An α outside the range of
++# Float64 is not supported.
+ function _root_scale(::Type{T}, α) where {T}
+-  s, e = _significand_exponent(α)
++  a = Float64(α)
++  s, e = significand(a), exponent(a)
+   if isodd(e)
+     s *= 2
+     e -= 1
+diff --git a/src/solvers/proximal_gradient_descent.jl b/src/solvers/proximal_gradient_descent.jl
+index 7cda0f7..904602f 100644
+--- a/src/solvers/proximal_gradient_descent.jl
++++ b/src/solvers/proximal_gradient_descent.jl
+@@ -221,7 +221,7 @@ function _step_curvature(state::ProximalGradientDescentState{Float32}, m)
+     c <= state.L, Float32(c)
+ end
+ 
+-# Σ vᵢ² of a Float32 vector, accumulated in Float64
++# Σ vᵢ² of an array of Float32 or Float64, accumulated in Float64
+ function _sumsq64(v)
+     s = 0.0
+     @inbounds @simd for i in eachindex(v)

@@ -1,0 +1,288 @@
+Test Summary:                                                                                                | Pass  Total  Time
+a power-of-two rescaling of the data and of the loss scale leaves CD unchanged (Float32 data, Float64 scale) |  281    281  1.5s
+Test Summary:                                                                   | Pass  Total  Time
+Float32 data, Float64 scale 1e-44: CD solves the supplied scale, not Float32(α) |   38     38  0.5s
+Test Summary:                                                                  | Pass  Total  Time
+Float64 data, BigFloat scale: refused before any write (the narrowing of #307) |   10     10  0.5s
+Test Summary:                                                                                    | Pass  Total  Time
+a scale that promotes to T is T(α) and solves as Scaled(f, T(α)); other types are refused (#307) |  108    108  2.0s
+Test Summary:                                                                        | Pass  Total  Time
+the scale type: the promotion of T and the scale if a concrete AbstractFloat, else T |   22     22  0.0s
+Test Summary:                                                            | Pass  Total  Time
+a response scale that is subnormal in Float32 is refused before any pass |   27     27  0.2s
+Test Summary:                                                                                                 | Pass  Total  Time
+a coordinate scale is the root of the supplied scale times the curvature when that product underflows Float32 |   73     73  0.3s
+Test Summary:                                                                                    | Pass  Total  Time
+a response scale is the root of the supplied scale times Σy² when that product overflows Float32 |   33     33  0.0s
+Test Summary:                                                     | Pass  Total  Time
+an objective that overflows Float32 is refused and x is unchanged |   13     13  0.1s
+Test Summary:                                                   | Pass  Total  Time
+the three result boundaries return T and use the supplied scale |   36     36  0.2s
+Test Summary:                                                  | Pass  Total  Time
+the mixed model is inferred and allocates nothing in its steps |    9      9  0.2s
+Test Summary:                                                                                       | Pass  Total  Time
+loss_value is the oracle's value at the cached residual: reference, allocation and inference (#307) |   40     40  0.3s
+Test Summary:                                                             | Pass  Total  Time
+a warmed solve with a Float64 scale allocates as one with a Float32 scale |    2      2  0.0s
+Test Summary:                                                                                                                           | Pass  Total  Time
+CD converges with a normal response scale whose intermediates may leave the range of T: Float64, Σy² overflows: α = 1e-300, ‖y‖ = 2e154 |  147    147  0.9s
+Test Summary:                                                                                                                    | Pass  Total  Time
+CD converges with a normal response scale whose intermediates may leave the range of T: Float64, Σy² overflows: raw, ‖y‖ = 2e154 |  147    147  0.6s
+Test Summary:                                                                                                                     | Pass  Total  Time
+CD converges with a normal response scale whose intermediates may leave the range of T: Float64, control: α = 1e-300, ‖y‖ = 2e151 |  147    147  0.0s
+Test Summary:                                                                                                                      | Pass  Total  Time
+CD converges with a normal response scale whose intermediates may leave the range of T: Float64, Σy² underflows: raw, ‖y‖ = 1e-165 |  147    147  0.0s
+Test Summary:                                                                                                                          | Pass  Total  Time
+CD converges with a normal response scale whose intermediates may leave the range of T: Float64, Σy² underflows: α = 1.0, ‖y‖ = 1e-165 |  147    147  0.0s
+Test Summary:                                                                                                                          | Pass  Total  Time
+CD converges with a normal response scale whose intermediates may leave the range of T: Float64, α Σy² overflows: α = 1e300, ‖y‖ = 3e4 |  147    147  0.0s
+Test Summary:                                                                                                                              | Pass  Total  Time
+CD converges with a normal response scale whose intermediates may leave the range of T: Float64, α Σy² underflows: α = 1e-300, ‖y‖ = 1e-10 |  147    147  0.0s
+Test Summary:                                                                                                                      | Pass  Total  Time
+CD converges with a normal response scale whose intermediates may leave the range of T: Float64, subnormal α = 1e-310, ‖y‖ = 1e-10 |  147    147  0.0s
+Test Summary:                                                                                                               | Pass  Total  Time
+CD converges with a normal response scale whose intermediates may leave the range of T: Float64, Σy² overflows, zero column |  171    171  0.0s
+Test Summary:                                                                                                                | Pass  Total  Time
+CD converges with a normal response scale whose intermediates may leave the range of T: Float64, Σy² underflows, zero column |  171    171  0.0s
+Test Summary:                                                                                                                         | Pass  Total  Time
+CD converges with a normal response scale whose intermediates may leave the range of T: Float32, Σy² overflows: α = 1f-30, ‖y‖ = 3e19 |  147    147  0.7s
+Test Summary:                                                                                                                                 | Pass  Total  Time
+CD converges with a normal response scale whose intermediates may leave the range of T: Float32, Σy² overflows: Float64 α = 1e-30, ‖y‖ = 3e19 |  147    147  0.4s
+Test Summary:                                                                                                                   | Pass  Total  Time
+CD converges with a normal response scale whose intermediates may leave the range of T: Float32, Σy² overflows: raw, ‖y‖ = 3e19 |  147    147  0.6s
+Test Summary:                                                                                                                         | Pass  Total  Time
+CD converges with a normal response scale whose intermediates may leave the range of T: Float32, Σy² underflows: α = 1f0, ‖y‖ = 1e-24 |  147    147  0.0s
+Test Summary:                                                                                                                                 | Pass  Total  Time
+CD converges with a normal response scale whose intermediates may leave the range of T: Float32, Σy² underflows: Float64 α = 1.0, ‖y‖ = 1e-24 |  147    147  0.0s
+Test Summary:                                                                                                                     | Pass  Total  Time
+CD converges with a normal response scale whose intermediates may leave the range of T: Float32, Σy² underflows: raw, ‖y‖ = 1e-24 |  147    147  0.0s
+Test Summary:                                                                                                               | Pass  Total  Time
+CD converges with a normal response scale whose intermediates may leave the range of T: Float32, Σy² overflows, zero column |  171    171  0.0s
+Test Summary:                                                                                                                | Pass  Total  Time
+CD converges with a normal response scale whose intermediates may leave the range of T: Float32, Σy² underflows, zero column |  171    171  0.0s
+Test Summary:                                                                                             | Pass  Total  Time
+a response scale that is not a normal number of T is refused: Float64, √α‖y‖ ≈ 2e308: α = 100, y = 2^1020 |   42     42  0.2s
+Test Summary:                                                                                              | Pass  Total  Time
+a response scale that is not a normal number of T is refused: Float64, √α‖y‖ ≈ 2e308: α = 1e300, y = 2^526 |   42     42  0.0s
+Test Summary:                                                                                             | Pass  Total  Time
+a response scale that is not a normal number of T is refused: Float32, √α‖y‖ ≈ 4e38: α = 400f0, y = 2^123 |   42     42  0.1s
+Test Summary:                                                                                                   | Pass  Total  Time
+a response scale that is not a normal number of T is refused: Float32, √α‖y‖ ≈ 4e38: Float64 α = 400, y = 2^123 |   42     42  0.1s
+Test Summary:                                                                                           | Pass  Total  Time
+a response scale that is not a normal number of T is refused: Float32, √α‖y‖ ≈ 6e38: α = 1f30, y = 2^78 |   42     42  0.0s
+Test Summary:                                                                                                 | Pass  Total  Time
+a response scale that is not a normal number of T is refused: Float64, √α‖y‖ ≈ 4e-310: α = 1e-220, y = 2^-664 |   42     42  0.0s
+Test Summary:                                                                                   | Pass  Total  Time
+a response scale that is not a normal number of T is refused: Float64, subnormal raw y = 1e-310 |   42     42  0.1s
+Test Summary:                                                                                   | Pass  Total  Time
+a response scale that is not a normal number of T is refused: Float64, one subnormal entry, raw |   42     42  0.0s
+Test Summary:                                                                                       | Pass  Total  Time
+a response scale that is not a normal number of T is refused: Float64, one subnormal entry, α = 1.0 |   42     42  0.0s
+Test Summary:                                                                                               | Pass  Total  Time
+a response scale that is not a normal number of T is refused: Float32, √α‖y‖ ≈ 2e-40: α = 1f-20, y = 2^-100 |   42     42  0.0s
+Test Summary:                                                                                                       | Pass  Total  Time
+a response scale that is not a normal number of T is refused: Float32, √α‖y‖ ≈ 2e-40: Float64 α = 1e-20, y = 2^-100 |   42     42  0.0s
+Test Summary:                                                                                  | Pass  Total  Time
+a response scale that is not a normal number of T is refused: Float32, subnormal raw y = 1f-39 |   42     42  0.1s
+Test Summary:                                                                                   | Pass  Total  Time
+a response scale that is not a normal number of T is refused: Float32, one subnormal entry, raw |   42     42  0.0s
+Test Summary:                                                                                               | Pass  Total  Time
+a response scale that is not a normal number of T is refused: Float32, one subnormal entry, Float64 α = 1.0 |   42     42  0.0s
+Test Summary:                                                                                   | Pass  Total  Time
+relative = false after an overflow refusal can end in the nonfinite-objective refusal (Float64) |   31     31  0.1s
+Test Summary:                                                                                   | Pass  Total  Time
+relative = false after an overflow refusal can end in the nonfinite-objective refusal (Float32) |   31     31  0.0s
+Test Summary:                                               | Pass  Total  Time
+y = 0: the absolute tolerance, converged at x = 0 (Float32) |  108    108  0.5s
+Test Summary:                                               | Pass  Total  Time
+y = 0: the absolute tolerance, converged at x = 0 (Float64) |  108    108  0.4s
+Test Summary:                                                        | Pass  Total  Time
+the response scale over the ranges of y and the loss scale (Float32) | 1325   1325  0.4s
+Test Summary:                                                        | Pass  Total  Time
+the response scale over the ranges of y and the loss scale (Float64) | 1031   1031  0.2s
+Test Summary:                                                                            | Pass  Total  Time
+R3: Σr² that overflows in T at the solution gives the objective of the 256-bit reference |   26     26  0.3s
+Test Summary:                                                                                                   | Pass  Total  Time
+R3: Σr² that underflows at the solution gives a reported minimum within the oracle's allowance of the reference |  129    129  0.1s
+Test Summary:                                                                                              | Pass  Total  Time
+CD converges where α a_k underflows to 0 and its root is normal: Float64, α = 1e-300, X·1e-16, ‖y‖ = 1e-13 |   75     75  0.2s
+Test Summary:                                                                                            | Pass  Total  Time
+CD converges where α a_k underflows to 0 and its root is normal: Float64, α = 1e-310, X·1e-8, ‖y‖ = 1e-8 |   75     75  0.0s
+Test Summary:                                                                                              | Pass  Total  Time
+CD converges where α a_k underflows to 0 and its root is normal: Float64, α = 1e-300, X·1e-14, ‖y‖ = 1e-13 |   75     75  0.0s
+Test Summary:                                                                                                          | Pass  Total  Time
+CD converges where α a_k underflows to 0 and its root is normal: Float64, α = nextfloat(0.0), ‖X_k‖² ≈ 0.25, ‖y‖ = 0.3 |   75     75  0.0s
+Test Summary:                                                                                              | Pass  Total  Time
+CD converges where α a_k underflows to 0 and its root is normal: Float64, α = 1e-200, X·1e-63, ‖y‖ = 1e-62 |   75     75  0.0s
+Test Summary:                                                                                           | Pass  Total  Time
+CD converges where α a_k underflows to 0 and its root is normal: Float32, α = 1f-30, X·1e-9, ‖y‖ = 1e-9 |   75     75  0.2s
+Test Summary:                                                                                             | Pass  Total  Time
+CD converges where α a_k underflows to 0 and its root is normal: Float32, α = 1f-20, X·1e-14, ‖y‖ = 1e-14 |   75     75  0.0s
+Test Summary:                                                                                         | Pass  Total  Time
+CD with a product α a_k below the normal range: Float32, α = nextfloat(0f0), ‖X_k‖² ≈ 0.25, ‖y‖ = 0.3 |   74     74  0.0s
+Test Summary:                                                                                                                                | Pass  Total  Time
+CD with a product α a_k below the normal range: Float64, penalty with a subnormal α a_k (finite reciprocal): α = 1e-300, X·1.8e-5, ‖y‖ = 1e5 |  293    293  0.2s
+Test Summary:                                                                                                                               | Pass  Total  Time
+CD with a product α a_k below the normal range: Float32, penalty with a subnormal α a_k (finite reciprocal): α = 1f-30, X·1.3e-5, ‖y‖ = 1e5 |  293    293  0.2s
+Test Summary:                                                                                                 | Pass  Total  Time
+CD with a product α a_k below the normal range: Float64, subnormal α a_k with a zero column, penalty 0.1 λmax |   86     86  0.0s
+Test Summary:                                                                                 | Pass  Total  Time
+CD with a product α a_k below the normal range: Float64, α a_k underflows, with a zero column |   86     86  0.0s
+Test Summary:                                                                                 | Pass  Total  Time
+CD with a product α a_k below the normal range: Float32, α a_k underflows, with a zero column |   86     86  0.0s
+Test Summary:                                                                                                          | Pass  Total  Time
+CD converges where α a_k is above floatmax(T) and the coordinate scale is finite: Float64, α = 1e300, X·1e5, ‖y‖ = 1e3 |  294    294  0.1s
+Test Summary:                                                                                                         | Pass  Total  Time
+CD converges where α a_k is above floatmax(T) and the coordinate scale is finite: Float32, α = 1f30, X·1e4, ‖y‖ = 1e5 |  149    149  0.1s
+Test Summary:                                                                                                                              | Pass  Total  Time
+CD converges where α a_k is above floatmax(T) and the coordinate scale is finite: Float64, α = 1e300, X·1e5, ‖y‖ = 1e3, with a zero column |  342    342  0.0s
+Test Summary:                                                                      | Pass  Total  Time
+a coordinate step whose centre overflows is refused, x unchanged: penalty 0.0 λmax |   14     14  0.1s
+Test Summary:                                                                       | Pass  Total  Time
+a coordinate step whose centre overflows is refused, x unchanged: penalty 0.25 λmax |   15     15  0.0s
+Test Summary:                                                                      | Pass  Total  Time
+a coordinate step whose centre overflows is refused, x unchanged: penalty 0.5 λmax |   16     16  0.0s
+Test Summary:                                                                      | Pass  Total  Time
+the coordinate scale over the ranges of the curvature and the loss scale (Float32) | 1163   1163  0.2s
+Test Summary:                                                                      | Pass  Total  Time
+the coordinate scale over the ranges of the curvature and the loss scale (Float64) |  859    859  0.2s
+Test Summary:                                                                                                                             | Pass  Total  Time
+CD converges where α a_k or its reciprocal is out of range, the penalty is applied: Float64, α a_k overflows: α = 1e300, X·1e5, ‖y‖ = 100 |  436    436  0.2s
+Test Summary:                                                                                                                            | Pass  Total  Time
+CD converges where α a_k or its reciprocal is out of range, the penalty is applied: Float32, α a_k overflows: α = 1f30, X·1e4, ‖y‖ = 1e3 |  436    436  0.2s
+Test Summary:                                                                                                                                   | Pass  Total  Time
+CD converges where α a_k or its reciprocal is out of range, the penalty is applied: Float64, 1/(α a_k) overflows: α = 1e-300, X·1e-5, ‖y‖ = 100 |  436    436  0.0s
+Test Summary:                                                                                                                                  | Pass  Total  Time
+CD converges where α a_k or its reciprocal is out of range, the penalty is applied: Float32, 1/(α a_k) overflows: α = 1f-30, X·3e-6, ‖y‖ = 100 |  436    436  0.0s
+Test Summary:                                                                                                                    | Pass  Total  Time
+CD converges where α a_k or its reciprocal is out of range, the penalty is applied: Float64, α a_k overflows, with a zero column |  339    339  0.0s
+Test Summary:                                                                                                                    | Pass  Total  Time
+CD converges where α a_k or its reciprocal is out of range, the penalty is applied: Float32, α a_k overflows, with a zero column |  339    339  0.1s
+Test Summary:                                                                                                                        | Pass  Total  Time
+CD converges where α a_k or its reciprocal is out of range, the penalty is applied: Float64, 1/(α a_k) overflows, with a zero column |  339    339  0.0s
+Test Summary:                                                                                                                        | Pass  Total  Time
+CD converges where α a_k or its reciprocal is out of range, the penalty is applied: Float32, 1/(α a_k) overflows, with a zero column |  339    339  0.0s
+Test Summary:                                                                                | Pass  Total  Time
+subnormal curvature (out of scope): no false convergence: Float64, raw LS: X·1e-160, ‖y‖ = 1 |  288    288  0.1s
+Test Summary:                                                                               | Pass  Total  Time
+subnormal curvature (out of scope): no false convergence: Float32, raw LS: X·1e-22, ‖y‖ = 1 |  288    288  0.1s
+Test Summary:                                                           | Pass  Total  Time
+CD at the boundaries of the band of the step: Float32, α = 0.5 floatmin |  443    443  0.0s
+Test Summary:                                                           | Pass  Total  Time
+CD at the boundaries of the band of the step: Float32, α = 2.0 floatmin |  442    442  0.0s
+Test Summary:                                                           | Pass  Total  Time
+CD at the boundaries of the band of the step: Float32, α = 0.5/floatmin |  442    442  0.0s
+Test Summary:                                                           | Pass  Total  Time
+CD at the boundaries of the band of the step: Float32, α = 2.0/floatmin |  442    442  0.0s
+Test Summary:                                                           | Pass  Total  Time
+CD at the boundaries of the band of the step: Float64, α = 0.5 floatmin |  443    443  0.0s
+Test Summary:                                                           | Pass  Total  Time
+CD at the boundaries of the band of the step: Float64, α = 2.0 floatmin |  442    442  0.0s
+Test Summary:                                                           | Pass  Total  Time
+CD at the boundaries of the band of the step: Float64, α = 0.5/floatmin |  442    442  0.0s
+Test Summary:                                                           | Pass  Total  Time
+CD at the boundaries of the band of the step: Float64, α = 2.0/floatmin |  442    442  0.0s
+Test Summary:                                                                                  | Pass  Total  Time
+inside the band the coordinate step is the former prox_block step (T = Float32, scale Float32) |   65     65  0.1s
+Test Summary:                                                                                | Pass  Total  Time
+inside the band the coordinate step is the former prox_block step (T = Float32, scale Int64) |   65     65  0.0s
+Test Summary:                                                                                  | Pass  Total  Time
+inside the band the coordinate step is the former prox_block step (T = Float32, scale Float64) |   65     65  0.0s
+Test Summary:                                                                                  | Pass  Total  Time
+inside the band the coordinate step is the former prox_block step (T = Float32, scale Float64) |   65     65  0.0s
+Test Summary:                                                                                  | Pass  Total  Time
+inside the band the coordinate step is the former prox_block step (T = Float32, scale Float64) |   65     65  0.0s
+Test Summary:                                                                                   | Pass  Total  Time
+inside the band the coordinate step is the former prox_block step (T = Float32, scale BigFloat) |   65     65  0.2s
+Test Summary:                                                                                          | Pass  Total  Time
+inside the band the coordinate step is the former prox_block step (T = Float32, scale Rational{Int64}) |   65     65  0.1s
+Test Summary:                                                                                  | Pass  Total  Time
+inside the band the coordinate step is the former prox_block step (T = Float64, scale Float64) |   65     65  0.1s
+Test Summary:                                                                                  | Pass  Total  Time
+inside the band the coordinate step is the former prox_block step (T = Float64, scale Float64) |   65     65  0.0s
+Test Summary:                                                                                  | Pass  Total  Time
+inside the band the coordinate step is the former prox_block step (T = Float64, scale Float64) |   65     65  0.0s
+Test Summary:                                                                                  | Pass  Total  Time
+inside the band the coordinate step is the former prox_block step (T = Float64, scale Float32) |   65     65  0.0s
+Test Summary:                                                                                   | Pass  Total  Time
+inside the band the coordinate step is the former prox_block step (T = Float64, scale BigFloat) |   65     65  0.2s
+Test Summary:                                                                                 | Pass  Total  Time
+inside the band the coordinate step is the former prox_block step (T = Float64, scale BigInt) |   65     65  0.1s
+Test Summary:                                                                                              | Pass  Total  Time
+the step refuses a curvature that is not finite and forms no step for a penalty it cannot handle (Float32) |   21     21  0.2s
+Test Summary:                                                                                              | Pass  Total  Time
+the step refuses a curvature that is not finite and forms no step for a penalty it cannot handle (Float64) |   21     21  0.2s
+Test Summary:                                                     | Pass  Total  Time
+shrink is the NormL1 prox at the level τ and the step 1 (Float32) |  181    181  0.0s
+Test Summary:                                                     | Pass  Total  Time
+shrink is the NormL1 prox at the level τ and the step 1 (Float64) |  181    181  0.0s
+Test Summary:                                                 | Pass  Total  Time
+the threshold λ/(α a) over the ranges of α, a and λ (Float32) | 1460   1460  0.0s
+Test Summary:                                                                                 | Pass  Total  Time
+the Float32 threshold is within one ulp where the double rounding is not the correct rounding |    3      3  0.0s
+Test Summary:                                                 | Pass  Total  Time
+the threshold λ/(α a) over the ranges of α, a and λ (Float64) | 1455   1455  0.1s
+Test Summary:                                                                        | Pass  Total  Time
+a threshold above floatmax(T) gives x = 0, level Int64 (Float64, α = 1e-300, X·1e-5) |   73     73  0.6s
+Test Summary:                                                                          | Pass  Total  Time
+a threshold above floatmax(T) gives x = 0, level Float64 (Float64, α = 1e-300, X·1e-5) |   73     73  0.0s
+Test Summary:                                                                          | Pass  Total  Time
+a threshold above floatmax(T) gives x = 0, level Float32 (Float64, α = 1e-300, X·1e-5) |   73     73  0.5s
+Test Summary:                                                                       | Pass  Total  Time
+a threshold above floatmax(T) gives x = 0, level Int64 (Float32, α = 1f-30, X·3e-6) |   73     73  0.5s
+Test Summary:                                                                         | Pass  Total  Time
+a threshold above floatmax(T) gives x = 0, level Float64 (Float32, α = 1f-30, X·3e-6) |   73     73  0.5s
+Test Summary:                                                                         | Pass  Total  Time
+a threshold above floatmax(T) gives x = 0, level Float32 (Float32, α = 1f-30, X·3e-6) |   73     73  0.1s
+Test Summary:                                                                                                             | Pass  Total  Time
+Float32 data with a Float64 level and an Int level where α a_k is out of range: Float32, α a_k overflows: α = 1f30, X·1e4 |  100    100  0.0s
+Test Summary:                                                                                                                   | Pass  Total  Time
+Float32 data with a Float64 level and an Int level where α a_k is out of range: Float32, 1/(α a_k) overflows: α = 1f-30, X·3e-6 |  100    100  0.0s
+Test Summary:                                                                               | Pass  Total  Time
+y = 0: an absolute penalty and an extreme loss scale give x = 0 (Float64, α = 1e300, X·1e5) |   49     49  0.0s
+Test Summary:                                                                              | Pass  Total  Time
+y = 0: an absolute penalty and an extreme loss scale give x = 0 (Float32, α = 1f30, X·1e4) |   49     49  0.1s
+Test Summary:                                                                                 | Pass  Total  Time
+y = 0: an absolute penalty and an extreme loss scale give x = 0 (Float64, α = 1e-300, X·1e-5) |   49     49  0.0s
+Test Summary:                                                                                | Pass  Total  Time
+y = 0: an absolute penalty and an extreme loss scale give x = 0 (Float32, α = 1f-30, X·3e-6) |   49     49  0.0s
+Test Summary:                                                        | Pass  Total  Time
+an infinite curvature is refused, x unchanged: Float32, every column |  238    238  0.4s
+Test Summary:                                                      | Pass  Total  Time
+an infinite curvature is refused, x unchanged: Float32, one column |  238    238  0.0s
+Test Summary:                                                        | Pass  Total  Time
+an infinite curvature is refused, x unchanged: Float64, every column |  238    238  0.4s
+Test Summary:                                                      | Pass  Total  Time
+an infinite curvature is refused, x unchanged: Float64, one column |  238    238  0.0s
+Test Summary:                                                                   | Pass  Total  Time
+the step is inferred and allocates nothing on both paths (Float64, in the band) |    9      9  0.2s
+Test Summary:                                                                   | Pass  Total  Time
+the step is inferred and allocates nothing on both paths (Float32, in the band) |    9      9  0.1s
+Test Summary:                                                                       | Pass  Total  Time
+the step is inferred and allocates nothing on both paths (Float64, α a_k overflows) |    9      9  0.0s
+Test Summary:                                                                       | Pass  Total  Time
+the step is inferred and allocates nothing on both paths (Float32, α a_k overflows) |    9      9  0.0s
+Test Summary:                                                                           | Pass  Total  Time
+the step is inferred and allocates nothing on both paths (Float64, 1/(α a_k) overflows) |    9      9  0.0s
+Test Summary:                                                                           | Pass  Total  Time
+the step is inferred and allocates nothing on both paths (Float32, 1/(α a_k) overflows) |    9      9  0.0s
+Test Summary:                                                                                                             | Pass  Total  Time
+the step is inferred and allocates nothing on both paths (Float64, raw LS, subnormal curvature (out of scope: cost only)) |    9      9  0.0s
+Test Summary:                                                                                                             | Pass  Total  Time
+the step is inferred and allocates nothing on both paths (Float32, raw LS, subnormal curvature (out of scope: cost only)) |    9      9  0.0s
+Test Summary:                                                                       | Pass  Total  Time
+a coordinate at 0 is visited by a full pass after active work: seed-598 data, dense |    7      7  0.0s
+Test Summary:                                                                       | Pass  Total  Time
+a coordinate at 0 is visited by a full pass after active work: seed-598 data, owner |    7      7  0.0s
+Test Summary:                                                                                        | Pass  Total  Time
+a full pass follows active passes that visited 20 full passes' worth of coordinates: Float32, cyclic |    7      7  0.4s
+Test Summary:                                                                                        | Pass  Total  Time
+a full pass follows active passes that visited 20 full passes' worth of coordinates: Float32, random |    7      7  0.0s
+Test Summary:                                                                                        | Pass  Total  Time
+a full pass follows active passes that visited 20 full passes' worth of coordinates: Float64, cyclic |    7      7  0.3s
+Test Summary:                                                                                        | Pass  Total  Time
+a full pass follows active passes that visited 20 full passes' worth of coordinates: Float64, random |    7      7  0.0s
+Test Summary:                                                                     | Pass  Total  Time
+a forced full pass starts from a refreshed cache after momentum moved it: Float32 |    4      4  0.0s
+Test Summary:                                                                     | Pass  Total  Time
+a forced full pass starts from a refreshed cache after momentum moved it: Float64 |    4      4  0.0s

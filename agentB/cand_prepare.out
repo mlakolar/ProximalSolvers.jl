@@ -1,0 +1,18 @@
+### lts
+Float32 n=100 p=200 group size 1: _prepare! 0.007 ms; whole solve 0.163 ms (prepare = 4.2%); simd Σx² of all columns: 0.001 ms
+Float32 n=1000 p=1000 group size 1: _prepare! 0.390 ms; whole solve 2.449 ms (prepare = 15.9%); simd Σx² of all columns: 0.056 ms
+Float32 n=1000 p=1000 group size 5: _prepare! 0.077 ms; whole solve 2.012 ms (prepare = 3.8%); simd Σx² of all columns: 0.057 ms
+Float32 n=10000 p=200 group size 1: _prepare! 0.798 ms; whole solve 3.666 ms (prepare = 21.8%); simd Σx² of all columns: 0.132 ms
+Float64 n=100 p=200 group size 1: _prepare! 0.009 ms; whole solve 0.137 ms (prepare = 6.5%); simd Σx² of all columns: 0.002 ms
+Float64 n=1000 p=1000 group size 1: _prepare! 0.469 ms; whole solve 7.224 ms (prepare = 6.5%); simd Σx² of all columns: 0.132 ms
+Float64 n=1000 p=1000 group size 5: _prepare! 0.134 ms; whole solve 6.014 ms (prepare = 2.2%); simd Σx² of all columns: 0.128 ms
+Float64 n=10000 p=200 group size 1: _prepare! 1.069 ms; whole solve 7.276 ms (prepare = 14.7%); simd Σx² of all columns: 0.579 ms
+### release
+Float32 n=100 p=200 group size 1: _prepare! 0.007 ms; whole solve 0.245 ms (prepare = 2.7%); simd Σx² of all columns: 0.001 ms
+Float32 n=1000 p=1000 group size 1: _prepare! 0.377 ms; whole solve 1.697 ms (prepare = 22.2%); simd Σx² of all columns: 0.058 ms
+Float32 n=1000 p=1000 group size 5: _prepare! 0.069 ms; whole solve 1.426 ms (prepare = 4.8%); simd Σx² of all columns: 0.057 ms
+Float32 n=10000 p=200 group size 1: _prepare! 0.810 ms; whole solve 2.573 ms (prepare = 31.5%); simd Σx² of all columns: 0.128 ms
+Float64 n=100 p=200 group size 1: _prepare! 0.007 ms; whole solve 0.117 ms (prepare = 6.1%); simd Σx² of all columns: 0.002 ms
+Float64 n=1000 p=1000 group size 1: _prepare! 0.430 ms; whole solve 3.039 ms (prepare = 14.2%); simd Σx² of all columns: 0.125 ms
+Float64 n=1000 p=1000 group size 5: _prepare! 0.123 ms; whole solve 1.892 ms (prepare = 6.5%); simd Σx² of all columns: 0.127 ms
+Float64 n=10000 p=200 group size 1: _prepare! 1.020 ms; whole solve 5.668 ms (prepare = 18.0%); simd Σx² of all columns: 0.740 ms

@@ -1,0 +1,23 @@
+Julia 1.13.4  CPU raptorlake  trees: base, x3
+cd-group         comparisons=512 mismatches=302 (base converged: 512, base threw: 0)
+cd-lasso/enet    comparisons=2940 mismatches=0 (base converged: 2919, base threw: 21)
+    base threw x2: ERROR: ArgumentError: the coordinate step of coordinate 22 is outside the normal range of Float32 (the loss sc
+    base threw x5: ERROR: ArgumentError: the coordinate step of coordinate 1 is outside the normal range of Float32 (the loss sca
+    base threw x6: ERROR: ArgumentError: coordinate descent produced a nonfinite objective; rescale the problem
+    base threw x8: ERROR: ArgumentError: the coordinate step of coordinate 8 is outside the normal range of Float32 (the loss sca
+cd-sqrt          comparisons=158 mismatches=0 (base converged: 98, base threw: 0)
+pgd/apg          comparisons=1184 mismatches=0 (base converged: 775, base threw: 8)
+    base threw x8: ERROR: line search failed: nonfinite curvature estimate
+TOTAL comparisons=4794 (cases x trees), mismatches=302
+MISMATCH cd-group [x3] group Float32 n=40 p=12 gs=1 α=nothing cyclic cold frac=0.1.1.1.minimizer[2]: -0.055478413f0 vs -0.05547842f0
+MISMATCH cd-group [x3] group Float32 n=40 p=12 gs=1 α=nothing cyclic warm frac=0.1.1.1.minimizer[2]: -0.05547851f0 vs -0.055478554f0
+MISMATCH cd-group [x3] group Float32 n=40 p=12 gs=1 α=nothing random cold frac=0.1.1.1.minimizer[2]: -0.055482697f0 vs -0.055482738f0
+MISMATCH cd-group [x3] group Float32 n=40 p=12 gs=1 α=nothing random cold frac=0.5.1.1.minimizer[1]: 1.8565881f0 vs 1.8565884f0
+MISMATCH cd-group [x3] group Float32 n=40 p=12 gs=1 α=nothing random warm frac=0.1.1.1.minimizer[1]: 2.1750426f0 vs 2.1750429f0
+MISMATCH cd-group [x3] group Float32 n=40 p=12 gs=1 α=0.025f0 cyclic cold frac=0.1.1.1.minimizer[1]: 2.1750429f0 vs 2.1750426f0
+MISMATCH cd-group [x3] group Float32 n=40 p=12 gs=1 α=0.025f0 cyclic warm frac=0.1.1.1.minimizer[2]: -0.055478547f0 vs -0.05547854f0
+MISMATCH cd-group [x3] group Float32 n=40 p=12 gs=1 α=0.025f0 cyclic warm frac=0.5.1.1.minimizer[1]: 1.8565881f0 vs 1.8565884f0
+MISMATCH cd-group [x3] group Float32 n=40 p=12 gs=1 α=0.025f0 random cold frac=0.1.1.1.minimizer[2]: -0.055482693f0 vs -0.05548273f0
+MISMATCH cd-group [x3] group Float32 n=40 p=12 gs=1 α=0.025f0 random warm frac=0.1.1.1.minimizer[1]: 2.1750429f0 vs 2.1750426f0
+MISMATCH cd-group [x3] group Float32 n=40 p=12 gs=1 α=2 cyclic cold frac=0.1.1.1.minimizer[2]: -0.055478413f0 vs -0.05547842f0
+MISMATCH cd-group [x3] group Float32 n=40 p=12 gs=1 α=2 cyclic warm frac=0.1.1.1.minimizer[2]: -0.05547851f0 vs -0.055478554f0

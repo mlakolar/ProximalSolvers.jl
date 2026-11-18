@@ -1,0 +1,18 @@
+E18 fallback cost: PS scaled two-pass vs PB norm_diff recovery (indicative), julia 1.10.13
+  Float32  n=   1000 ordinary               PS onepass(+fallback)=     0.29 us  PS two-pass alone=     2.29 us  PB norm_diff=     0.05 us
+  Float32  n=   1000 underflowing squares   PS onepass(+fallback)=     5.61 us  PS two-pass alone=     2.31 us  PB norm_diff=     6.14 us
+  Float32  n= 100000 ordinary               PS onepass(+fallback)=     4.15 us  PS two-pass alone=   204.22 us  PB norm_diff=     3.86 us
+  Float32  n= 100000 underflowing squares   PS onepass(+fallback)=   508.76 us  PS two-pass alone=   204.13 us  PB norm_diff=   303.68 us
+  Float64  n=   1000 ordinary               PS onepass(+fallback)=     0.32 us  PS two-pass alone=     2.56 us  PB norm_diff=     0.09 us
+  Float64  n=   1000 underflowing squares   PS onepass(+fallback)=     8.87 us  PS two-pass alone=     2.56 us  PB norm_diff=     9.14 us
+  Float64  n= 100000 ordinary               PS onepass(+fallback)=     9.10 us  PS two-pass alone=   231.61 us  PB norm_diff=     8.55 us
+  Float64  n= 100000 underflowing squares   PS onepass(+fallback)=   841.97 us  PS two-pass alone=   231.57 us  PB norm_diff=   895.65 us
+E18 fallback cost: PS scaled two-pass vs PB norm_diff recovery (indicative), julia 1.13.4
+  Float32  n=   1000 ordinary               PS onepass(+fallback)=     0.05 us  PS two-pass alone=     0.28 us  PB norm_diff=     0.05 us
+  Float32  n=   1000 underflowing squares   PS onepass(+fallback)=     3.37 us  PS two-pass alone=     0.28 us  PB norm_diff=     5.91 us
+  Float32  n= 100000 ordinary               PS onepass(+fallback)=     3.78 us  PS two-pass alone=    24.56 us  PB norm_diff=     3.87 us
+  Float32  n= 100000 underflowing squares   PS onepass(+fallback)=   328.77 us  PS two-pass alone=    24.56 us  PB norm_diff=   304.06 us
+  Float64  n=   1000 ordinary               PS onepass(+fallback)=     0.08 us  PS two-pass alone=     0.66 us  PB norm_diff=     0.08 us
+  Float64  n=   1000 underflowing squares   PS onepass(+fallback)=     6.77 us  PS two-pass alone=     0.66 us  PB norm_diff=     9.04 us
+  Float64  n= 100000 ordinary               PS onepass(+fallback)=     9.84 us  PS two-pass alone=    63.86 us  PB norm_diff=     9.75 us
+  Float64  n= 100000 underflowing squares   PS onepass(+fallback)=   672.73 us  PS two-pass alone=    63.93 us  PB norm_diff=   892.90 us

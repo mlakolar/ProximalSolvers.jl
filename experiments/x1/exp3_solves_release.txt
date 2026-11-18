@@ -1,0 +1,11 @@
+# julia 1.13.4: 748 solve configurations x 3 trees; certified results independently checked in BigFloat-256: 1500 (0 skipped by my check as dual direction undefined/non-positive; 0 trivial P=0); true-gap-bound violations (reported > 1e-4 or mine > 1e-4): 0; results where my own (P-D)/D exceeds the reported gap: 0 (worst mine/reported 0.0)
+X1A vs BASE: identical (x, passes, converged, gap, minimum bitwise): 748 of 748; differing: 0
+X1B vs BASE: bitwise identical: 64 of 748; differing: 684
+X1B vs BASE over differing configs (min/median/90%/99%/max): relative objective difference 1.12e-16 / 3.3e-13 / 2.12e-07 / 0.0118 / 0.0623 (462 of 748 exactly equal)
+   relative |x_B - x_base|/|x_base| 3.57e-33 / 3.34e-09 / 1.94e-06 / 0.0928 / 0.236 (71 exactly equal)
+   gap difference (x1b - base), over pairs with both gaps -1.73e-05 / -9.19e-17 / 2.16e-07 / 1.06e-05 / 1.64e-05; relative: -0.947 / -1.45e-10 / 0.462 / 3.6 / 4.79
+   pass count difference (x1b - base): min -51 max 278; #differ 148 of 748; histogram [-51 => 1, -41 => 1, -27 => 2, -23 => 2, -21 => 1, -15 => 2, -9 => 1, -7 => 3, -6 => 2, -5 => 2, -4 => 4, -3 => 4, -2 => 20, -1 => 24, 0 => 600, 1 => 42, 2 => 10, 3 => 5, 4 => 6, 5 => 2, 6 => 3, 7 => 1, 14 => 1, 15 => 2, 21 => 2, 34 => 1, 39 => 2, 42 => 1, 278 => 1]
+   converged changes: 0 Any[]; throw status changes: 0 Any[]
+outcomes by tree: base: C=500 u=248 T=0 | x1a: C=500 u=248 T=0 | x1b: C=500 u=248 T=0
+   Float32: configs 374; X1B objective differs from BASE in 129; max rel obj diff 0.062300178343935995; median of the nonzero 9.329136217143482e-8
+   Float64: configs 374; X1B objective differs from BASE in 157; max rel obj diff 0.0025999216108072705; median of the nonzero 1.9745060918654413e-16

@@ -1,0 +1,11 @@
+Julia 1.10.13 CPU: goldmont
+Float32 _certify!           (fma instr, total vfm*, lines): (5, 5, 2637)
+Float32 _column_dot_rsqr    : (12, 12, 186)
+Float32 _distance_sqr       : (3, 3, 98)
+Float32 _sqrt_offrange_step : (0, 0, 1145)
+Float32 _residual_axpy!     : (0, 0, 89)
+Float64 _certify!           (fma instr, total vfm*, lines): (5, 5, 2625)
+Float64 _column_dot_rsqr    : (13, 13, 173)
+Float64 _distance_sqr       : (5, 5, 104)
+Float64 _sqrt_offrange_step : (0, 0, 1134)
+Float64 _residual_axpy!     : (0, 0, 89)

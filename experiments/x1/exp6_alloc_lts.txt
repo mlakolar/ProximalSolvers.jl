@@ -1,0 +1,28 @@
+# Julia 1.10.13
+Float32  base  ordinary: 1 pass of 40 visits = 0 B, 20 passes = 0 B; warmed solve! dense cyclic = 15536 B; sparse random(momentum) = 21536 B
+Float32  x1a   ordinary: 1 pass of 40 visits = 0 B, 20 passes = 0 B; warmed solve! dense cyclic = 15536 B; sparse random(momentum) = 21536 B
+Float32  x1b   ordinary: 1 pass of 40 visits = 0 B, 20 passes = 0 B; warmed solve! dense cyclic = 15536 B; sparse random(momentum) = 21536 B
+   Float32  base  cold [tiny residual (rho^2 unclean)]: 2000 visits, 0 B total = 0.0 B/visit
+   Float32  x1a   cold [tiny residual (rho^2 unclean)]: 2000 visits, 0 B total = 0.0 B/visit
+   Float32  x1b   cold [tiny residual (rho^2 unclean)]: 2000 visits, 0 B total = 0.0 B/visit
+   Float32  base  cold [tiny column (a unclean)]: 2000 visits, 0 B total = 0.0 B/visit
+   Float32  x1a   cold [tiny column (a unclean)]: 2000 visits, 0 B total = 0.0 B/visit
+   Float32  x1b   cold [tiny column (a unclean)]: 2000 visits, 0 B total = 0.0 B/visit
+   Float32  base  cold [huge residual (rho^2 overflow, F32 only)]: 2000 visits, 0 B total = 0.0 B/visit
+   Float32  x1a   cold [huge residual (rho^2 overflow, F32 only)]: 2000 visits, 0 B total = 0.0 B/visit
+   Float32  x1b   cold [huge residual (rho^2 overflow, F32 only)]: 2000 visits, 0 B total = 0.0 B/visit
+   Float32  base  r = 0: 2000 visits, 0 B
+   Float32  x1a   r = 0: 2000 visits, 0 B
+   Float32  x1b   r = 0: 2000 visits, 0 B
+Float64  base  ordinary: 1 pass of 40 visits = 0 B, 20 passes = 0 B; warmed solve! dense cyclic = 20208 B; sparse random(momentum) = 30992 B
+Float64  x1a   ordinary: 1 pass of 40 visits = 0 B, 20 passes = 0 B; warmed solve! dense cyclic = 20208 B; sparse random(momentum) = 30992 B
+Float64  x1b   ordinary: 1 pass of 40 visits = 0 B, 20 passes = 0 B; warmed solve! dense cyclic = 20208 B; sparse random(momentum) = 30992 B
+   Float64  base  cold [tiny residual (rho^2 unclean)]: 2000 visits, 0 B total = 0.0 B/visit
+   Float64  x1a   cold [tiny residual (rho^2 unclean)]: refused (throws)
+   Float64  x1b   cold [tiny residual (rho^2 unclean)]: refused (throws)
+   Float64  base  cold [tiny column (a unclean)]: 2000 visits, 0 B total = 0.0 B/visit
+   Float64  x1a   cold [tiny column (a unclean)]: refused (throws)
+   Float64  x1b   cold [tiny column (a unclean)]: refused (throws)
+   Float64  base  r = 0: 2000 visits, 0 B
+   Float64  x1a   r = 0: 2000 visits, 0 B
+   Float64  x1b   r = 0: 2000 visits, 0 B

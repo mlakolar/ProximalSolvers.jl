@@ -1,0 +1,4 @@
+Julia 1.10.13 CPU goldmont
+solves: 454; solves in which BASE called _scaled_norm beyond the one call of _prepare! (the off-range recomputed norm): 162; such calls in total: 264
+comparisons=454 mismatches=0 (base converged 101, base threw 22)
+   base threw x22: ERROR: ArgumentError: the coordinate curvature underflows; rescale the data

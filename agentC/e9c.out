@@ -1,0 +1,10 @@
+E9c warmed update_state! allocations, julia 1.10.13
+  Float32  APG update_state! allocations over 20 iterations: min=0 max=0 bytes (fallbacks so far: 52)
+  Float32  PGD update_state! allocations over 20 iterations: min=0 max=0 bytes (fallbacks so far: -)
+  Float64  APG update_state! allocations over 20 iterations: min=0 max=0 bytes (fallbacks so far: 34)
+  Float64  PGD update_state! allocations over 20 iterations: min=0 max=0 bytes (fallbacks so far: -)
+E9c warmed update_state! allocations, julia 1.13.4
+  Float32  APG update_state! allocations over 20 iterations: min=0 max=0 bytes (fallbacks so far: 51)
+  Float32  PGD update_state! allocations over 20 iterations: min=0 max=0 bytes (fallbacks so far: -)
+  Float64  APG update_state! allocations over 20 iterations: min=0 max=0 bytes (fallbacks so far: 32)
+  Float64  PGD update_state! allocations over 20 iterations: min=0 max=0 bytes (fallbacks so far: -)

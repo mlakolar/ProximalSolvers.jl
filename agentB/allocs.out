@@ -1,0 +1,10 @@
+### lts
+Float32 n=100  allocs (bytes): response_scale 16, rs_new 16, rs_new64 16, _response_scale_exceptional 16, sum(abs2,view) 16, _sqnorm! 16, _se_norm(F64) 32, _scaled_norm 32
+Float32 n=10000  allocs (bytes): response_scale 16, rs_new 16, rs_new64 16, _response_scale_exceptional 16, sum(abs2,view) 16, _sqnorm! 16, _se_norm(F64) 32, _scaled_norm 32
+Float64 n=100  allocs (bytes): response_scale 16, rs_new 16, rs_new64 16, _response_scale_exceptional 16, sum(abs2,view) 16, _sqnorm! 16, _se_norm(F64) 32, _scaled_norm 32
+Float64 n=10000  allocs (bytes): response_scale 16, rs_new 16, rs_new64 16, _response_scale_exceptional 16, sum(abs2,view) 16, _sqnorm! 16, _se_norm(F64) 32, _scaled_norm 32
+### release
+Float32 n=100  allocs (bytes): response_scale 0, rs_new 0, rs_new64 0, _response_scale_exceptional 0, sum(abs2,view) 0, _sqnorm! 0, _se_norm(F64) 0, _scaled_norm 0
+Float32 n=10000  allocs (bytes): response_scale 0, rs_new 0, rs_new64 0, _response_scale_exceptional 0, sum(abs2,view) 0, _sqnorm! 0, _se_norm(F64) 0, _scaled_norm 0
+Float64 n=100  allocs (bytes): response_scale 0, rs_new 0, rs_new64 0, _response_scale_exceptional 0, sum(abs2,view) 0, _sqnorm! 0, _se_norm(F64) 0, _scaled_norm 0
+Float64 n=10000  allocs (bytes): response_scale 0, rs_new 0, rs_new64 0, _response_scale_exceptional 0, sum(abs2,view) 0, _sqnorm! 0, _se_norm(F64) 0, _scaled_norm 0

@@ -1,0 +1,11 @@
+E11 _SE operation-level error (vs exact BigFloat of the _SE operands), julia 1.13.4
+  Float32: worst |rel err|/u  mul=1.0 add=1.0 sub=0.999   invariant/order violations=0
+  Float32: zero*a=ProximalSolvers._SE{Float32}(0.0f0, 0)  zero+a==a: true  le(0,a)=true  le(a,0)=false  sub(a,a)=ProximalSolvers._SE{Float32}(0.0f0, 0)
+  Float32: _SE{T}(Inf) -> DomainError
+  Float32: _SE{T}(NaN) -> DomainError
+  Float32: _SE{T}(-1.0) -> ProximalSolvers._SE{Float32}(-1.0f0, 0)
+  Float64: worst |rel err|/u  mul=1.0 add=1.0 sub=0.998   invariant/order violations=0
+  Float64: zero*a=ProximalSolvers._SE{Float64}(0.0, 0)  zero+a==a: true  le(0,a)=true  le(a,0)=false  sub(a,a)=ProximalSolvers._SE{Float64}(0.0, 0)
+  Float64: _SE{T}(Inf) -> DomainError
+  Float64: _SE{T}(NaN) -> DomainError
+  Float64: _SE{T}(-1.0) -> ProximalSolvers._SE{Float64}(-1.0, 0)

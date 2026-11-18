@@ -1,0 +1,830 @@
+# E4 one-column grid: cell = column scale 2^sx, residual scale 2^sr; entries: worst excess/bound over 3 modes x 3 lambda fractions
+# columns: T sx sr | branches seen | real | fast(B-lite) | naive(B-min) | errors
+Float32 sx=-100 sr=-100 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-100 sr=-90 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-100 sr=-80 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-100 sr=-70 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-100 sr=-60 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-100 sr=-50 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-100 sr=-40 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-100 sr=-30 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-100 sr=-20 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-100 sr=-10 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-100 sr=0 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-100 sr=10 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-100 sr=20 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-100 sr=30 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-100 sr=40 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-100 sr=50 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-100 sr=60 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-100 sr=70 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-90 sr=-100 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-90 sr=-90 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-90 sr=-80 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-90 sr=-70 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-90 sr=-60 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-90 sr=-50 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-90 sr=-40 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-90 sr=-30 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-90 sr=-20 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-90 sr=-10 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-90 sr=0 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-90 sr=10 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-90 sr=20 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-90 sr=30 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-90 sr=40 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-90 sr=50 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-90 sr=60 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-90 sr=70 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-80 sr=-100 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-80 sr=-90 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-80 sr=-80 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-80 sr=-70 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-80 sr=-60 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-80 sr=-50 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-80 sr=-40 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-80 sr=-30 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-80 sr=-20 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-80 sr=-10 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-80 sr=0 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-80 sr=10 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-80 sr=20 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-80 sr=30 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-80 sr=40 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-80 sr=50 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-80 sr=60 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-80 sr=70 | refuse_a0=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the coordinate curvature underflows
+Float32 sx=-70 sr=-100 | off_asmall=9 | real=5.42e-04 | fast=4.22e+04 | naive=4.22e+04 | 
+Float32 sx=-70 sr=-90 | off_asmall=9 | real=4.66e-04 | fast=4.22e+04 | naive=4.22e+04 | 
+Float32 sx=-70 sr=-80 | off_asmall=9 | real=1.64e-03 | fast=4.22e+04 | naive=4.22e+04 | 
+Float32 sx=-70 sr=-70 | off_asmall=9 | real=1.13e-03 | fast=1.24e+02 | naive=1.24e+02 | 
+Float32 sx=-70 sr=-60 | off_asmall=9 | real=5.04e-05 | fast=5.35e+00 | naive=5.35e+00 | 
+Float32 sx=-70 sr=-50 | off_asmall=9 | real=1.07e-03 | fast=3.33e+01 | naive=3.33e+01 | 
+Float32 sx=-70 sr=-40 | off_asmall=9 | real=1.17e-03 | fast=1.88e+00 | naive=1.88e+00 | 
+Float32 sx=-70 sr=-30 | off_asmall=9 | real=2.15e-03 | fast=4.43e+01 | naive=4.43e+01 | 
+Float32 sx=-70 sr=-20 | off_asmall=9 | real=3.24e-05 | fast=1.45e+01 | naive=1.44e+01 | 
+Float32 sx=-70 sr=-10 | off_asmall=9 | real=7.38e-04 | fast=9.15e+00 | naive=9.15e+00 | 
+Float32 sx=-70 sr=0 | off_asmall=9 | real=1.66e-03 | fast=4.46e+01 | naive=4.22e+04 | 
+Float32 sx=-70 sr=10 | off_asmall=9 | real=1.54e-03 | fast=9.30e+00 | naive=4.22e+04 | 
+Float32 sx=-70 sr=20 | off_asmall=9 | real=1.87e-04 | fast=1.80e+01 | naive=4.22e+04 | 
+Float32 sx=-70 sr=30 | off_asmall=9 | real=2.59e-03 | fast=7.07e+00 | naive=4.22e+04 | 
+Float32 sx=-70 sr=40 | off_asmall=9 | real=1.21e-03 | fast=4.63e+01 | naive=4.22e+04 | 
+Float32 sx=-70 sr=50 | off_asmall=9 | real=3.73e-03 | fast=1.10e+01 | naive=4.22e+04 | 
+Float32 sx=-70 sr=60 | off_asmall=9 | real=Inf | fast=Inf | naive=Inf | 
+Float32 sx=-70 sr=70 | off_asmall=9 | real=Inf | fast=Inf | naive=Inf | 
+Float32 sx=-60 sr=-100 | off_asmall=9 | real=6.94e-04 | fast=4.22e+04 | naive=4.22e+04 | 
+Float32 sx=-60 sr=-90 | off_asmall=9 | real=2.25e-03 | fast=4.45e+04 | naive=4.45e+04 | 
+Float32 sx=-60 sr=-80 | off_asmall=9 | real=1.69e-03 | fast=2.45e+04 | naive=2.45e+04 | 
+Float32 sx=-60 sr=-70 | off_asmall=9 | real=4.20e-04 | fast=5.82e+02 | naive=5.82e+02 | 
+Float32 sx=-60 sr=-60 | off_asmall=9 | real=2.16e-03 | fast=4.36e-03 | naive=4.36e-03 | 
+Float32 sx=-60 sr=-50 | off_asmall=9 | real=9.06e-04 | fast=9.06e-04 | naive=9.06e-04 | 
+Float32 sx=-60 sr=-40 | off_asmall=9 | real=1.45e-04 | fast=1.45e-04 | naive=1.45e-04 | 
+Float32 sx=-60 sr=-30 | off_asmall=9 | real=2.49e-03 | fast=1.07e-03 | naive=1.07e-03 | 
+Float32 sx=-60 sr=-20 | off_asmall=9 | real=1.86e-04 | fast=5.02e-03 | naive=5.02e-03 | 
+Float32 sx=-60 sr=-10 | off_asmall=9 | real=5.66e-04 | fast=2.79e-03 | naive=2.79e-03 | 
+Float32 sx=-60 sr=0 | off_asmall=9 | real=1.31e-03 | fast=3.90e-03 | naive=3.90e-03 | 
+Float32 sx=-60 sr=10 | off_asmall=9 | real=9.09e-04 | fast=9.09e-04 | naive=9.09e-04 | 
+Float32 sx=-60 sr=20 | off_asmall=9 | real=9.67e-05 | fast=2.60e-03 | naive=5.99e+03 | 
+Float32 sx=-60 sr=30 | off_asmall=9 | real=3.42e-05 | fast=3.42e-05 | naive=4.20e+04 | 
+Float32 sx=-60 sr=40 | off_asmall=9 | real=1.70e-03 | fast=8.61e-03 | naive=4.22e+04 | 
+Float32 sx=-60 sr=50 | off_asmall=9 | real=7.37e-04 | fast=2.92e-03 | naive=4.22e+04 | 
+Float32 sx=-60 sr=60 | off_asmall=9 | real=1.25e-04 | fast=2.18e-03 | naive=4.22e+04 | 
+Float32 sx=-60 sr=70 | off_asmall=9 | real=Inf | fast=Inf | naive=Inf | 
+Float32 sx=-50 sr=-100 | off_runder=9 | real=2.27e-03 | fast=4.22e+04 | naive=4.22e+04 | 
+Float32 sx=-50 sr=-90 | off_runder=9 | real=4.32e-03 | fast=2.08e+04 | naive=2.08e+04 | 
+Float32 sx=-50 sr=-80 | off_runder=9 | real=3.43e-04 | fast=1.83e+04 | naive=1.83e+04 | 
+Float32 sx=-50 sr=-70 | off_asmall=1 off_rsmall=8 | real=9.37e-04 | fast=1.55e+02 | naive=1.55e+02 | 
+Float32 sx=-50 sr=-60 | off_rsmall=9 | real=5.09e-05 | fast=1.16e-02 | naive=1.16e-02 | 
+Float32 sx=-50 sr=-50 | off_d=5 off_rsmall=1 ord=3 | real=1.00e-04 | fast=2.71e-04 | naive=2.71e-04 | 
+Float32 sx=-50 sr=-40 | off_d=3 ord=3 ord_guard=3 | real=1.15e-03 | fast=1.22e-03 | naive=1.22e-03 | 
+Float32 sx=-50 sr=-30 | off_d=3 ord=3 ord_guard=3 | real=1.08e-03 | fast=2.92e-03 | naive=2.92e-03 | 
+Float32 sx=-50 sr=-20 | ord=3 ord_guard=6 | real=1.45e-03 | fast=1.45e-03 | naive=1.45e-03 | 
+Float32 sx=-50 sr=-10 | ord=3 ord_guard=6 | real=3.77e-03 | fast=3.77e-03 | naive=3.77e-03 | 
+Float32 sx=-50 sr=0 | ord=3 ord_guard=6 | real=4.20e-03 | fast=4.20e-03 | naive=4.20e-03 | 
+Float32 sx=-50 sr=10 | ord=3 ord_guard=6 | real=1.28e-03 | fast=1.28e-03 | naive=1.28e-03 | 
+Float32 sx=-50 sr=20 | ord=3 ord_guard=6 | real=2.61e-03 | fast=2.61e-03 | naive=2.61e-03 | 
+Float32 sx=-50 sr=30 | band=1 ord=2 ord_guard=6 | real=3.52e-04 | fast=3.52e-04 | naive=3.52e-04 | 
+Float32 sx=-50 sr=40 | band=6 ord_guard=3 | real=2.60e-03 | fast=2.60e-03 | naive=4.21e+04 | 
+Float32 sx=-50 sr=50 | band=7 off_d=1 ord_guard=1 | real=1.21e-03 | fast=1.21e-03 | naive=4.22e+04 | 
+Float32 sx=-50 sr=60 | band=9 | real=3.25e-03 | fast=3.25e-03 | naive=4.22e+04 | 
+Float32 sx=-50 sr=70 | off_rbig=9 | real=1.33e-04 | fast=Inf | naive=Inf | 
+Float32 sx=-40 sr=-100 | off_runder=9 | real=7.97e-05 | fast=1.93e+04 | naive=1.93e+04 | 
+Float32 sx=-40 sr=-90 | off_runder=9 | real=1.81e-03 | fast=1.21e+04 | naive=1.21e+04 | 
+Float32 sx=-40 sr=-80 | off_runder=9 | real=7.53e-04 | fast=1.45e+04 | naive=1.45e+04 | 
+Float32 sx=-40 sr=-70 | off_rsmall=9 | real=3.30e-03 | fast=6.44e+01 | naive=6.44e+01 | 
+Float32 sx=-40 sr=-60 | off_rsmall=9 | real=2.05e-03 | fast=2.37e-03 | naive=2.37e-03 | 
+Float32 sx=-40 sr=-50 | off_d=3 off_rsmall=3 ord=3 | real=3.31e-03 | fast=3.78e-03 | naive=3.78e-03 | 
+Float32 sx=-40 sr=-40 | off_d=3 ord=3 ord_guard=3 | real=1.46e-03 | fast=1.29e-03 | naive=1.29e-03 | 
+Float32 sx=-40 sr=-30 | off_d=3 ord=3 ord_guard=3 | real=1.52e-03 | fast=1.52e-03 | naive=1.52e-03 | 
+Float32 sx=-40 sr=-20 | ord=3 ord_guard=6 | real=1.74e-03 | fast=1.74e-03 | naive=1.74e-03 | 
+Float32 sx=-40 sr=-10 | ord=3 ord_guard=6 | real=8.49e-04 | fast=8.49e-04 | naive=8.49e-04 | 
+Float32 sx=-40 sr=0 | ord=3 ord_guard=6 | real=4.41e-04 | fast=4.41e-04 | naive=4.41e-04 | 
+Float32 sx=-40 sr=10 | ord=3 ord_guard=6 | real=2.83e-03 | fast=2.83e-03 | naive=2.83e-03 | 
+Float32 sx=-40 sr=20 | ord=3 ord_guard=6 | real=2.60e-03 | fast=2.60e-03 | naive=2.60e-03 | 
+Float32 sx=-40 sr=30 | ord=3 ord_guard=6 | real=6.84e-04 | fast=6.84e-04 | naive=6.84e-04 | 
+Float32 sx=-40 sr=40 | off_d=1 ord=3 ord_guard=5 | real=2.89e-03 | fast=2.89e-03 | naive=2.89e-03 | 
+Float32 sx=-40 sr=50 | band=3 off_d=2 ord_guard=4 | real=2.67e-07 | fast=3.60e-04 | naive=3.30e+00 | 
+Float32 sx=-40 sr=60 | band=6 ord_guard=3 | real=4.40e-03 | fast=4.40e-03 | naive=4.22e+04 | 
+Float32 sx=-40 sr=70 | off_rbig=9 | real=3.72e-04 | fast=Inf | naive=Inf | 
+Float32 sx=-30 sr=-100 | off_runder=9 | real=2.47e-04 | fast=7.88e+03 | naive=7.88e+03 | 
+Float32 sx=-30 sr=-90 | off_runder=9 | real=8.83e-04 | fast=1.92e+04 | naive=1.92e+04 | 
+Float32 sx=-30 sr=-80 | off_runder=9 | real=4.46e-05 | fast=2.34e+04 | naive=2.34e+04 | 
+Float32 sx=-30 sr=-70 | off_rsmall=8 off_runder=1 | real=3.49e-03 | fast=3.96e+03 | naive=3.96e+03 | 
+Float32 sx=-30 sr=-60 | off_rsmall=9 | real=4.66e-04 | fast=4.66e-04 | naive=4.66e-04 | 
+Float32 sx=-30 sr=-50 | off_d=4 off_rsmall=2 ord=3 | real=2.20e-03 | fast=2.20e-03 | naive=2.20e-03 | 
+Float32 sx=-30 sr=-40 | off_d=3 ord=4 ord_guard=2 | real=4.69e-04 | fast=4.69e-04 | naive=4.69e-04 | 
+Float32 sx=-30 sr=-30 | off_d=3 ord=3 ord_guard=3 | real=1.10e-04 | fast=4.08e-03 | naive=4.08e-03 | 
+Float32 sx=-30 sr=-20 | off_d=1 ord=3 ord_guard=5 | real=1.80e-03 | fast=3.03e-03 | naive=3.03e-03 | 
+Float32 sx=-30 sr=-10 | ord=3 ord_guard=6 | real=3.19e-03 | fast=3.19e-03 | naive=3.19e-03 | 
+Float32 sx=-30 sr=0 | off_d=1 ord=3 ord_guard=5 | real=4.53e-04 | fast=4.53e-04 | naive=4.53e-04 | 
+Float32 sx=-30 sr=10 | ord=3 ord_guard=6 | real=1.60e-03 | fast=1.60e-03 | naive=1.60e-03 | 
+Float32 sx=-30 sr=20 | ord=3 ord_guard=6 | real=4.12e-03 | fast=4.12e-03 | naive=4.12e-03 | 
+Float32 sx=-30 sr=30 | ord=3 ord_guard=6 | real=1.09e-03 | fast=1.09e-03 | naive=1.09e-03 | 
+Float32 sx=-30 sr=40 | ord=3 ord_guard=6 | real=2.51e-03 | fast=2.51e-03 | naive=2.51e-03 | 
+Float32 sx=-30 sr=50 | ord=3 ord_guard=6 | real=1.84e-04 | fast=1.84e-04 | naive=1.84e-04 | 
+Float32 sx=-30 sr=60 | ord=3 ord_guard=6 | real=9.96e-04 | fast=9.96e-04 | naive=9.96e-04 | 
+Float32 sx=-30 sr=70 | off_rbig=9 | real=3.18e-04 | fast=Inf | naive=Inf | 
+Float32 sx=-20 sr=-100 | off_runder=9 | real=1.16e-03 | fast=2.04e+04 | naive=2.04e+04 | 
+Float32 sx=-20 sr=-90 | off_runder=9 | real=3.58e-04 | fast=2.48e+04 | naive=2.48e+04 | 
+Float32 sx=-20 sr=-80 | off_runder=9 | real=2.20e-04 | fast=2.01e+04 | naive=2.01e+04 | 
+Float32 sx=-20 sr=-70 | off_rsmall=9 | real=2.85e-03 | fast=6.12e+01 | naive=6.12e+01 | 
+Float32 sx=-20 sr=-60 | off_rsmall=9 | real=3.15e-03 | fast=3.15e-03 | naive=3.15e-03 | 
+Float32 sx=-20 sr=-50 | off_d=3 off_rsmall=3 ord=3 | real=6.05e-04 | fast=5.54e-03 | naive=5.54e-03 | 
+Float32 sx=-20 sr=-40 | off_d=3 ord=3 ord_guard=3 | real=5.24e-04 | fast=2.27e-03 | naive=2.27e-03 | 
+Float32 sx=-20 sr=-30 | off_d=3 ord=3 ord_guard=3 | real=5.17e-03 | fast=5.58e-05 | naive=5.58e-05 | 
+Float32 sx=-20 sr=-20 | ord=3 ord_guard=6 | real=8.62e-03 | fast=8.62e-03 | naive=8.62e-03 | 
+Float32 sx=-20 sr=-10 | ord=3 ord_guard=6 | real=1.90e-03 | fast=1.90e-03 | naive=1.90e-03 | 
+Float32 sx=-20 sr=0 | ord=3 ord_guard=6 | real=2.86e-03 | fast=2.86e-03 | naive=2.86e-03 | 
+Float32 sx=-20 sr=10 | ord=3 ord_guard=6 | real=1.26e-03 | fast=1.26e-03 | naive=1.26e-03 | 
+Float32 sx=-20 sr=20 | ord=3 ord_guard=6 | real=8.82e-03 | fast=8.82e-03 | naive=8.82e-03 | 
+Float32 sx=-20 sr=30 | ord=3 ord_guard=6 | real=7.59e-03 | fast=7.59e-03 | naive=7.59e-03 | 
+Float32 sx=-20 sr=40 | off_d=1 ord=3 ord_guard=5 | real=2.12e-04 | fast=2.12e-04 | naive=2.12e-04 | 
+Float32 sx=-20 sr=50 | ord=3 ord_guard=6 | real=2.35e-03 | fast=2.35e-03 | naive=2.35e-03 | 
+Float32 sx=-20 sr=60 | ord=3 ord_guard=6 | real=2.01e-03 | fast=2.01e-03 | naive=2.01e-03 | 
+Float32 sx=-20 sr=70 | off_rbig=9 | real=1.53e-03 | fast=Inf | naive=Inf | 
+Float32 sx=-10 sr=-100 | off_runder=9 | real=9.72e-05 | fast=1.75e+04 | naive=1.75e+04 | 
+Float32 sx=-10 sr=-90 | off_runder=9 | real=1.76e-04 | fast=7.02e+03 | naive=7.02e+03 | 
+Float32 sx=-10 sr=-80 | off_runder=9 | real=2.40e-03 | fast=1.44e+04 | naive=1.44e+04 | 
+Float32 sx=-10 sr=-70 | off_rsmall=9 | real=1.19e-03 | fast=1.29e+02 | naive=1.29e+02 | 
+Float32 sx=-10 sr=-60 | off_rsmall=9 | real=1.53e-05 | fast=1.19e-03 | naive=1.19e-03 | 
+Float32 sx=-10 sr=-50 | off_d=3 off_rsmall=3 ord=3 | real=7.76e-04 | fast=7.76e-04 | naive=7.76e-04 | 
+Float32 sx=-10 sr=-40 | off_d=3 ord=3 ord_guard=3 | real=1.27e-04 | fast=3.93e-03 | naive=3.93e-03 | 
+Float32 sx=-10 sr=-30 | off_d=3 ord=3 ord_guard=3 | real=3.30e-04 | fast=3.59e-03 | naive=3.59e-03 | 
+Float32 sx=-10 sr=-20 | ord=3 ord_guard=6 | real=1.86e-03 | fast=1.86e-03 | naive=1.86e-03 | 
+Float32 sx=-10 sr=-10 | off_d=1 ord=3 ord_guard=5 | real=5.15e-03 | fast=5.15e-03 | naive=5.15e-03 | 
+Float32 sx=-10 sr=0 | ord=3 ord_guard=6 | real=1.21e-03 | fast=1.21e-03 | naive=1.21e-03 | 
+Float32 sx=-10 sr=10 | off_d=1 ord=3 ord_guard=5 | real=4.11e-03 | fast=4.11e-03 | naive=4.11e-03 | 
+Float32 sx=-10 sr=20 | ord=3 ord_guard=6 | real=2.27e-03 | fast=2.27e-03 | naive=2.27e-03 | 
+Float32 sx=-10 sr=30 | ord=3 ord_guard=6 | real=1.17e-03 | fast=1.17e-03 | naive=1.17e-03 | 
+Float32 sx=-10 sr=40 | ord=3 ord_guard=6 | real=6.65e-03 | fast=6.65e-03 | naive=6.65e-03 | 
+Float32 sx=-10 sr=50 | off_d=1 ord=3 ord_guard=5 | real=6.64e-04 | fast=7.67e-04 | naive=7.67e-04 | 
+Float32 sx=-10 sr=60 | ord=3 ord_guard=6 | real=3.22e-03 | fast=3.22e-03 | naive=3.22e-03 | 
+Float32 sx=-10 sr=70 | off_rbig=9 | real=1.27e-04 | fast=Inf | naive=Inf | 
+Float32 sx=0 sr=-100 | off_runder=9 | real=1.03e-04 | fast=2.08e+04 | naive=2.08e+04 | 
+Float32 sx=0 sr=-90 | off_runder=9 | real=7.19e-04 | fast=2.08e+04 | naive=2.08e+04 | 
+Float32 sx=0 sr=-80 | off_runder=9 | real=1.33e-03 | fast=1.94e+04 | naive=1.94e+04 | 
+Float32 sx=0 sr=-70 | off_rsmall=9 | real=1.95e-03 | fast=2.16e+02 | naive=2.16e+02 | 
+Float32 sx=0 sr=-60 | off_rsmall=9 | real=5.26e-04 | fast=2.68e-03 | naive=2.68e-03 | 
+Float32 sx=0 sr=-50 | off_d=3 off_rsmall=4 ord=2 | real=4.37e-03 | fast=4.37e-03 | naive=4.37e-03 | 
+Float32 sx=0 sr=-40 | off_d=3 ord=3 ord_guard=3 | real=1.66e-04 | fast=8.14e-03 | naive=8.14e-03 | 
+Float32 sx=0 sr=-30 | off_d=3 ord=3 ord_guard=3 | real=5.30e-04 | fast=4.20e-03 | naive=4.20e-03 | 
+Float32 sx=0 sr=-20 | ord=3 ord_guard=6 | real=4.90e-03 | fast=4.90e-03 | naive=4.90e-03 | 
+Float32 sx=0 sr=-10 | ord=3 ord_guard=6 | real=1.10e-03 | fast=1.10e-03 | naive=1.10e-03 | 
+Float32 sx=0 sr=0 | ord=3 ord_guard=6 | real=1.85e-04 | fast=1.85e-04 | naive=1.85e-04 | 
+Float32 sx=0 sr=10 | ord=3 ord_guard=6 | real=4.22e-03 | fast=4.22e-03 | naive=4.22e-03 | 
+Float32 sx=0 sr=20 | off_d=2 ord=3 ord_guard=4 | real=2.83e-04 | fast=6.16e-04 | naive=6.16e-04 | 
+Float32 sx=0 sr=30 | off_d=1 ord=3 ord_guard=5 | real=1.80e-03 | fast=2.65e-03 | naive=2.65e-03 | 
+Float32 sx=0 sr=40 | ord=3 ord_guard=6 | real=1.57e-03 | fast=1.57e-03 | naive=1.57e-03 | 
+Float32 sx=0 sr=50 | ord=3 ord_guard=6 | real=1.11e-03 | fast=1.11e-03 | naive=1.11e-03 | 
+Float32 sx=0 sr=60 | ord=3 ord_guard=6 | real=5.13e-04 | fast=5.13e-04 | naive=5.13e-04 | 
+Float32 sx=0 sr=70 | off_rbig=9 | real=2.50e-03 | fast=Inf | naive=Inf | 
+Float32 sx=10 sr=-100 | off_runder=9 | real=3.61e-04 | fast=2.49e+04 | naive=2.49e+04 | 
+Float32 sx=10 sr=-90 | off_runder=9 | real=1.15e-03 | fast=2.08e+04 | naive=2.08e+04 | 
+Float32 sx=10 sr=-80 | off_runder=9 | real=6.40e-04 | fast=2.23e+04 | naive=2.23e+04 | 
+Float32 sx=10 sr=-70 | off_rsmall=9 | real=2.95e-03 | fast=1.69e+02 | naive=1.69e+02 | 
+Float32 sx=10 sr=-60 | off_rsmall=9 | real=9.18e-04 | fast=9.42e-03 | naive=9.42e-03 | 
+Float32 sx=10 sr=-50 | off_d=2 off_rsmall=4 ord=3 | real=2.81e-04 | fast=6.84e-03 | naive=6.84e-03 | 
+Float32 sx=10 sr=-40 | off_d=3 ord=4 ord_guard=2 | real=1.14e-03 | fast=1.14e-03 | naive=1.14e-03 | 
+Float32 sx=10 sr=-30 | off_d=3 ord=3 ord_guard=3 | real=9.57e-04 | fast=3.62e-03 | naive=3.62e-03 | 
+Float32 sx=10 sr=-20 | ord=3 ord_guard=6 | real=8.21e-05 | fast=8.21e-05 | naive=8.21e-05 | 
+Float32 sx=10 sr=-10 | ord=3 ord_guard=6 | real=3.03e-03 | fast=3.03e-03 | naive=3.03e-03 | 
+Float32 sx=10 sr=0 | ord=3 ord_guard=6 | real=2.87e-03 | fast=2.87e-03 | naive=2.87e-03 | 
+Float32 sx=10 sr=10 | ord=3 ord_guard=6 | real=1.26e-05 | fast=1.26e-05 | naive=1.26e-05 | 
+Float32 sx=10 sr=20 | ord=3 ord_guard=6 | real=2.88e-05 | fast=2.88e-05 | naive=2.88e-05 | 
+Float32 sx=10 sr=30 | ord=3 ord_guard=6 | real=3.55e-03 | fast=3.55e-03 | naive=3.55e-03 | 
+Float32 sx=10 sr=40 | ord=3 ord_guard=6 | real=1.58e-03 | fast=1.58e-03 | naive=1.58e-03 | 
+Float32 sx=10 sr=50 | ord=3 ord_guard=6 | real=1.23e-03 | fast=1.23e-03 | naive=1.23e-03 | 
+Float32 sx=10 sr=60 | off_d=1 ord=3 ord_guard=5 | real=1.20e-03 | fast=1.20e-03 | naive=1.20e-03 | 
+Float32 sx=10 sr=70 | off_rbig=9 | real=2.73e-04 | fast=Inf | naive=Inf | 
+Float32 sx=20 sr=-100 | off_runder=9 | real=1.68e-04 | fast=2.08e+04 | naive=2.08e+04 | 
+Float32 sx=20 sr=-90 | off_runder=9 | real=5.11e-03 | fast=2.30e+04 | naive=2.30e+04 | 
+Float32 sx=20 sr=-80 | off_runder=9 | real=1.16e-03 | fast=2.49e+04 | naive=2.49e+04 | 
+Float32 sx=20 sr=-70 | off_rsmall=9 | real=1.15e-03 | fast=6.18e+01 | naive=6.18e+01 | 
+Float32 sx=20 sr=-60 | off_rsmall=9 | real=2.80e-04 | fast=1.36e-03 | naive=1.36e-03 | 
+Float32 sx=20 sr=-50 | off_rsmall=6 ord=3 | real=6.62e-04 | fast=8.30e-03 | naive=8.30e-03 | 
+Float32 sx=20 sr=-40 | off_d=4 ord=3 ord_guard=2 | real=7.16e-04 | fast=7.16e-04 | naive=7.16e-04 | 
+Float32 sx=20 sr=-30 | off_d=3 ord=3 ord_guard=3 | real=5.55e-04 | fast=6.01e-03 | naive=6.01e-03 | 
+Float32 sx=20 sr=-20 | off_d=1 ord=3 ord_guard=5 | real=1.98e-03 | fast=1.98e-03 | naive=1.98e-03 | 
+Float32 sx=20 sr=-10 | ord=3 ord_guard=6 | real=1.19e-03 | fast=1.19e-03 | naive=1.19e-03 | 
+Float32 sx=20 sr=0 | ord=3 ord_guard=6 | real=8.00e-04 | fast=8.00e-04 | naive=8.00e-04 | 
+Float32 sx=20 sr=10 | ord=3 ord_guard=6 | real=4.13e-03 | fast=4.13e-03 | naive=4.13e-03 | 
+Float32 sx=20 sr=20 | off_d=1 ord=3 ord_guard=5 | real=6.84e-04 | fast=7.26e-04 | naive=7.26e-04 | 
+Float32 sx=20 sr=30 | ord=3 ord_guard=6 | real=3.14e-03 | fast=3.14e-03 | naive=3.14e-03 | 
+Float32 sx=20 sr=40 | ord=3 ord_guard=6 | real=3.75e-03 | fast=3.75e-03 | naive=3.75e-03 | 
+Float32 sx=20 sr=50 | ord=3 ord_guard=6 | real=2.43e-03 | fast=2.43e-03 | naive=2.43e-03 | 
+Float32 sx=20 sr=60 | ord=3 ord_guard=6 | real=2.12e-03 | fast=2.12e-03 | naive=2.12e-03 | 
+Float32 sx=20 sr=70 | off_rbig=9 | real=7.95e-04 | fast=Inf | naive=Inf | 
+Float32 sx=30 sr=-100 | off_runder=9 | real=6.62e-02 | fast=9.24e+03 | naive=9.24e+03 | 
+Float32 sx=30 sr=-90 | off_runder=9 | real=6.58e-04 | fast=2.38e+04 | naive=2.38e+04 | 
+Float32 sx=30 sr=-80 | off_runder=9 | real=3.78e-03 | fast=1.71e+04 | naive=1.71e+04 | 
+Float32 sx=30 sr=-70 | off_rsmall=9 | real=8.30e-04 | fast=1.06e+03 | naive=1.06e+03 | 
+Float32 sx=30 sr=-60 | off_rsmall=9 | real=5.21e-05 | fast=1.09e-02 | naive=1.09e-02 | 
+Float32 sx=30 sr=-50 | off_d=2 off_rsmall=4 ord=3 | real=9.56e-04 | fast=6.68e-03 | naive=6.68e-03 | 
+Float32 sx=30 sr=-40 | off_d=3 ord=3 ord_guard=3 | real=1.22e-04 | fast=1.22e-04 | naive=1.22e-04 | 
+Float32 sx=30 sr=-30 | off_d=3 ord=3 ord_guard=3 | real=3.08e-04 | fast=3.08e-04 | naive=3.08e-04 | 
+Float32 sx=30 sr=-20 | ord=3 ord_guard=6 | real=4.74e-03 | fast=4.74e-03 | naive=4.74e-03 | 
+Float32 sx=30 sr=-10 | ord=3 ord_guard=6 | real=4.61e-03 | fast=4.61e-03 | naive=4.61e-03 | 
+Float32 sx=30 sr=0 | ord=3 ord_guard=6 | real=1.69e-04 | fast=1.69e-04 | naive=1.69e-04 | 
+Float32 sx=30 sr=10 | ord=3 ord_guard=6 | real=8.65e-03 | fast=8.65e-03 | naive=8.65e-03 | 
+Float32 sx=30 sr=20 | ord=3 ord_guard=6 | real=2.05e-03 | fast=2.05e-03 | naive=2.05e-03 | 
+Float32 sx=30 sr=30 | ord=3 ord_guard=6 | real=5.48e-03 | fast=5.48e-03 | naive=5.48e-03 | 
+Float32 sx=30 sr=40 | ord=3 ord_guard=6 | real=2.06e-03 | fast=2.06e-03 | naive=2.06e-03 | 
+Float32 sx=30 sr=50 | ord=3 ord_guard=6 | real=1.33e-03 | fast=1.33e-03 | naive=1.33e-03 | 
+Float32 sx=30 sr=60 | ord=3 ord_guard=6 | real=1.17e-03 | fast=1.17e-03 | naive=1.17e-03 | 
+Float32 sx=30 sr=70 | off_rbig=9 | real=3.75e-04 | fast=Inf | naive=Inf | 
+Float32 sx=40 sr=-100 | off_runder=9 | real=5.55e-02 | fast=2.55e+01 | naive=2.55e+01 | 
+Float32 sx=40 sr=-90 | off_runder=9 | real=4.10e-02 | fast=1.28e+04 | naive=1.28e+04 | 
+Float32 sx=40 sr=-80 | off_runder=9 | real=2.53e-04 | fast=5.02e+03 | naive=5.02e+03 | 
+Float32 sx=40 sr=-70 | off_rsmall=9 | real=1.09e-03 | fast=8.61e+01 | naive=1.23e+04 | 
+Float32 sx=40 sr=-60 | off_rsmall=9 | real=2.61e-04 | fast=5.87e-03 | naive=8.66e+00 | 
+Float32 sx=40 sr=-50 | band=3 off_d=1 off_rsmall=5 | real=3.13e-03 | fast=3.13e-03 | naive=3.13e-03 | 
+Float32 sx=40 sr=-40 | band=3 off_d=3 ord=3 | real=3.86e-03 | fast=2.11e-03 | naive=2.11e-03 | 
+Float32 sx=40 sr=-30 | off_d=3 ord=3 ord_guard=3 | real=3.61e-03 | fast=1.15e-03 | naive=1.15e-03 | 
+Float32 sx=40 sr=-20 | band=1 ord=3 ord_guard=5 | real=7.14e-04 | fast=7.14e-04 | naive=7.14e-04 | 
+Float32 sx=40 sr=-10 | ord=3 ord_guard=6 | real=1.91e-03 | fast=1.91e-03 | naive=1.91e-03 | 
+Float32 sx=40 sr=0 | ord=3 ord_guard=6 | real=1.17e-03 | fast=1.17e-03 | naive=1.17e-03 | 
+Float32 sx=40 sr=10 | ord=3 ord_guard=6 | real=1.88e-04 | fast=1.88e-04 | naive=1.88e-04 | 
+Float32 sx=40 sr=20 | off_d=1 ord=3 ord_guard=5 | real=2.43e-03 | fast=2.43e-03 | naive=2.43e-03 | 
+Float32 sx=40 sr=30 | ord=3 ord_guard=6 | real=4.00e-04 | fast=4.00e-04 | naive=4.00e-04 | 
+Float32 sx=40 sr=40 | ord=3 ord_guard=6 | real=3.59e-04 | fast=3.59e-04 | naive=3.59e-04 | 
+Float32 sx=40 sr=50 | ord=3 ord_guard=6 | real=6.35e-04 | fast=6.35e-04 | naive=6.35e-04 | 
+Float32 sx=40 sr=60 | ord=3 ord_guard=6 | real=4.15e-04 | fast=4.15e-04 | naive=4.15e-04 | 
+Float32 sx=40 sr=70 | off_rbig=9 | real=7.54e-04 | fast=Inf | naive=Inf | 
+Float32 sx=50 sr=-100 | off_runder=9 | real=1.12e-01 | fast=1.18e-01 | naive=1.18e-01 | 
+Float32 sx=50 sr=-90 | off_runder=9 | real=7.50e-02 | fast=2.28e+01 | naive=2.28e+01 | 
+Float32 sx=50 sr=-80 | off_runder=9 | real=1.93e-02 | fast=8.27e+03 | naive=8.27e+03 | 
+Float32 sx=50 sr=-70 | off_rsmall=9 | real=1.04e-03 | fast=3.08e+02 | naive=1.99e+04 | 
+Float32 sx=50 sr=-60 | off_rsmall=9 | real=2.44e-03 | fast=7.18e-03 | naive=1.68e+04 | 
+Float32 sx=50 sr=-50 | band=3 off_d=3 off_rsmall=3 | real=4.27e-04 | fast=1.62e-03 | naive=1.46e+04 | 
+Float32 sx=50 sr=-40 | band=6 off_d=3 | real=1.79e-04 | fast=4.36e-03 | naive=1.52e+00 | 
+Float32 sx=50 sr=-30 | band=6 off_d=3 | real=1.01e-03 | fast=3.92e-03 | naive=1.63e-02 | 
+Float32 sx=50 sr=-20 | band=5 ord=3 ord_guard=1 | real=2.21e-03 | fast=2.21e-03 | naive=2.21e-03 | 
+Float32 sx=50 sr=-10 | band=3 ord=3 ord_guard=3 | real=3.01e-03 | fast=3.01e-03 | naive=3.01e-03 | 
+Float32 sx=50 sr=0 | off_d=1 ord=3 ord_guard=5 | real=1.12e-04 | fast=1.12e-04 | naive=1.12e-04 | 
+Float32 sx=50 sr=10 | ord=3 ord_guard=6 | real=3.21e-03 | fast=3.21e-03 | naive=3.21e-03 | 
+Float32 sx=50 sr=20 | ord=3 ord_guard=6 | real=5.06e-03 | fast=5.06e-03 | naive=5.06e-03 | 
+Float32 sx=50 sr=30 | ord=3 ord_guard=6 | real=7.93e-04 | fast=7.93e-04 | naive=7.93e-04 | 
+Float32 sx=50 sr=40 | ord=3 ord_guard=6 | real=1.57e-03 | fast=1.57e-03 | naive=1.57e-03 | 
+Float32 sx=50 sr=50 | ord=3 ord_guard=6 | real=5.44e-03 | fast=5.44e-03 | naive=5.44e-03 | 
+Float32 sx=50 sr=60 | ord=3 ord_guard=6 | real=1.97e-03 | fast=1.97e-03 | naive=1.97e-03 | 
+Float32 sx=50 sr=70 | off_rbig=9 | real=1.08e-03 | fast=Inf | naive=Inf | 
+Float32 sx=60 sr=-100 | off_runder=9 | real=2.76e-05 | fast=2.76e-05 | naive=2.76e-05 | 
+Float32 sx=60 sr=-90 | off_runder=9 | real=1.00e-01 | fast=1.00e-01 | naive=1.00e-01 | 
+Float32 sx=60 sr=-80 | off_runder=9 | real=4.86e-02 | fast=1.20e+01 | naive=1.20e+01 | 
+Float32 sx=60 sr=-70 | off_rsmall=8 off_runder=1 | real=6.47e-03 | fast=2.52e+01 | naive=1.08e+04 | 
+Float32 sx=60 sr=-60 | off_rsmall=9 | real=7.27e-04 | fast=1.24e-02 | naive=2.36e+04 | 
+Float32 sx=60 sr=-50 | band=3 off_d=3 off_rsmall=3 | real=9.55e-05 | fast=5.44e-03 | naive=1.11e+04 | 
+Float32 sx=60 sr=-40 | band=6 off_d=3 | real=1.05e-05 | fast=6.69e-03 | naive=2.07e+04 | 
+Float32 sx=60 sr=-30 | band=6 off_d=3 | real=1.87e-04 | fast=1.87e-04 | naive=2.01e+04 | 
+Float32 sx=60 sr=-20 | band=9 | real=2.45e-03 | fast=2.45e-03 | naive=8.72e+01 | 
+Float32 sx=60 sr=-10 | band=8 ord=1 | real=2.55e-04 | fast=2.55e-04 | naive=3.06e-04 | 
+Float32 sx=60 sr=0 | band=6 ord=3 | real=6.54e-03 | fast=6.54e-03 | naive=6.54e-03 | 
+Float32 sx=60 sr=10 | band=3 ord=3 ord_guard=3 | real=5.99e-03 | fast=5.99e-03 | naive=5.99e-03 | 
+Float32 sx=60 sr=20 | band=1 ord=4 ord_guard=4 | real=1.94e-04 | fast=1.94e-04 | naive=1.94e-04 | 
+Float32 sx=60 sr=30 | ord=3 ord_guard=6 | real=3.38e-04 | fast=3.38e-04 | naive=3.38e-04 | 
+Float32 sx=60 sr=40 | ord=3 ord_guard=6 | real=1.36e-03 | fast=1.36e-03 | naive=1.36e-03 | 
+Float32 sx=60 sr=50 | ord=3 ord_guard=6 | real=2.75e-03 | fast=2.75e-03 | naive=2.75e-03 | 
+Float32 sx=60 sr=60 | ord=3 ord_guard=6 | real=2.72e-03 | fast=2.72e-03 | naive=2.72e-03 | 
+Float32 sx=60 sr=70 | off_rbig=9 | real=1.91e-03 | fast=Inf | naive=Inf | 
+Float32 sx=70 sr=-100 | refuse_ainf=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the curvature of coordinate 1 (the 
+Float32 sx=70 sr=-90 | refuse_ainf=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the curvature of coordinate 1 (the 
+Float32 sx=70 sr=-80 | refuse_ainf=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the curvature of coordinate 1 (the 
+Float32 sx=70 sr=-70 | refuse_ainf=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the curvature of coordinate 1 (the 
+Float32 sx=70 sr=-60 | refuse_ainf=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the curvature of coordinate 1 (the 
+Float32 sx=70 sr=-50 | refuse_ainf=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the curvature of coordinate 1 (the 
+Float32 sx=70 sr=-40 | refuse_ainf=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the curvature of coordinate 1 (the 
+Float32 sx=70 sr=-30 | refuse_ainf=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the curvature of coordinate 1 (the 
+Float32 sx=70 sr=-20 | refuse_ainf=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the curvature of coordinate 1 (the 
+Float32 sx=70 sr=-10 | refuse_ainf=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the curvature of coordinate 1 (the 
+Float32 sx=70 sr=0 | refuse_ainf=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the curvature of coordinate 1 (the 
+Float32 sx=70 sr=10 | refuse_ainf=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the curvature of coordinate 1 (the 
+Float32 sx=70 sr=20 | refuse_ainf=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the curvature of coordinate 1 (the 
+Float32 sx=70 sr=30 | refuse_ainf=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the curvature of coordinate 1 (the 
+Float32 sx=70 sr=40 | refuse_ainf=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the curvature of coordinate 1 (the 
+Float32 sx=70 sr=50 | refuse_ainf=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the curvature of coordinate 1 (the 
+Float32 sx=70 sr=60 | refuse_ainf=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the curvature of coordinate 1 (the 
+Float32 sx=70 sr=70 | refuse_ainf=9 | real=0.00e+00 | fast=Inf | naive=Inf | ArgumentError: the curvature of coordinate 1 (the 
+Float64 sx=-500 sr=-600 | off_asmall=9 | real=2.51e-04 | fast=2.27e+13 | naive=2.27e+13 | 
+Float64 sx=-500 sr=-550 | off_asmall=9 | real=4.27e-03 | fast=1.29e+13 | naive=1.29e+13 | 
+Float64 sx=-500 sr=-500 | off_asmall=9 | real=6.25e-03 | fast=1.21e-02 | naive=1.21e-02 | 
+Float64 sx=-500 sr=-450 | off_asmall=9 | real=4.44e-04 | fast=4.44e-04 | naive=4.44e-04 | 
+Float64 sx=-500 sr=-400 | off_asmall=9 | real=4.62e-03 | fast=1.43e-03 | naive=1.43e-03 | 
+Float64 sx=-500 sr=-350 | off_asmall=9 | real=3.27e-03 | fast=2.41e-04 | naive=2.41e-04 | 
+Float64 sx=-500 sr=-300 | off_asmall=9 | real=7.86e-04 | fast=1.02e-03 | naive=1.02e-03 | 
+Float64 sx=-500 sr=-250 | off_asmall=9 | real=3.39e-04 | fast=6.57e-03 | naive=6.57e-03 | 
+Float64 sx=-500 sr=-200 | off_asmall=9 | real=5.41e-03 | fast=1.85e-04 | naive=1.85e-04 | 
+Float64 sx=-500 sr=-150 | off_asmall=9 | real=4.90e-03 | fast=7.11e-04 | naive=7.11e-04 | 
+Float64 sx=-500 sr=-100 | off_asmall=9 | real=6.27e-03 | fast=6.27e-03 | naive=6.27e-03 | 
+Float64 sx=-500 sr=-50 | off_asmall=9 | real=7.02e-04 | fast=7.02e-04 | naive=7.02e-04 | 
+Float64 sx=-500 sr=0 | off_asmall=9 | real=6.39e-03 | fast=9.83e-04 | naive=9.83e-04 | 
+Float64 sx=-500 sr=50 | off_asmall=9 | real=1.07e-03 | fast=1.07e-03 | naive=2.25e+13 | 
+Float64 sx=-500 sr=100 | off_asmall=9 | real=5.35e-04 | fast=5.35e-04 | naive=2.27e+13 | 
+Float64 sx=-500 sr=150 | off_asmall=9 | real=3.41e-03 | fast=3.41e-03 | naive=2.27e+13 | 
+Float64 sx=-500 sr=200 | off_asmall=9 | real=2.91e-03 | fast=2.91e-03 | naive=2.27e+13 | 
+Float64 sx=-500 sr=250 | off_asmall=9 | real=1.53e-04 | fast=1.23e-03 | naive=2.27e+13 | 
+Float64 sx=-500 sr=300 | off_asmall=9 | real=3.82e-03 | fast=4.99e-04 | naive=2.27e+13 | 
+Float64 sx=-500 sr=350 | off_asmall=9 | real=1.16e-03 | fast=1.16e-03 | naive=2.27e+13 | 
+Float64 sx=-500 sr=400 | off_asmall=9 | real=2.77e-03 | fast=2.77e-03 | naive=2.27e+13 | 
+Float64 sx=-500 sr=450 | off_asmall=9 | real=1.11e-03 | fast=2.50e-03 | naive=2.27e+13 | 
+Float64 sx=-500 sr=500 | off_asmall=9 | real=4.78e-03 | fast=2.72e-03 | naive=2.27e+13 | 
+Float64 sx=-500 sr=550 | off_asmall=9 | real=Inf | fast=Inf | naive=Inf | 
+Float64 sx=-450 sr=-600 | off_runder=9 | real=7.41e-03 | fast=8.85e+12 | naive=8.85e+12 | 
+Float64 sx=-450 sr=-550 | off_runder=9 | real=4.70e-03 | fast=1.33e+13 | naive=1.33e+13 | 
+Float64 sx=-450 sr=-500 | off_rsmall=9 | real=1.44e-03 | fast=9.49e-03 | naive=9.49e-03 | 
+Float64 sx=-450 sr=-450 | off_d=3 ord=3 ord_guard=3 | real=1.93e-03 | fast=9.64e-03 | naive=9.64e-03 | 
+Float64 sx=-450 sr=-400 | ord=3 ord_guard=6 | real=5.43e-04 | fast=5.43e-04 | naive=5.43e-04 | 
+Float64 sx=-450 sr=-350 | off_d=1 ord=3 ord_guard=5 | real=1.17e-03 | fast=1.17e-03 | naive=1.17e-03 | 
+Float64 sx=-450 sr=-300 | ord=3 ord_guard=6 | real=1.72e-03 | fast=1.72e-03 | naive=1.72e-03 | 
+Float64 sx=-450 sr=-250 | ord=3 ord_guard=6 | real=1.16e-03 | fast=1.16e-03 | naive=1.16e-03 | 
+Float64 sx=-450 sr=-200 | ord=3 ord_guard=6 | real=3.82e-03 | fast=3.82e-03 | naive=3.82e-03 | 
+Float64 sx=-450 sr=-150 | off_d=1 ord=3 ord_guard=5 | real=2.11e-03 | fast=1.64e-04 | naive=1.64e-04 | 
+Float64 sx=-450 sr=-100 | ord=3 ord_guard=6 | real=4.68e-03 | fast=4.68e-03 | naive=4.68e-03 | 
+Float64 sx=-450 sr=-50 | ord=3 ord_guard=6 | real=7.04e-03 | fast=7.04e-03 | naive=7.04e-03 | 
+Float64 sx=-450 sr=0 | ord=3 ord_guard=6 | real=2.75e-03 | fast=2.75e-03 | naive=2.75e-03 | 
+Float64 sx=-450 sr=50 | ord=3 ord_guard=6 | real=1.90e-04 | fast=1.90e-04 | naive=1.90e-04 | 
+Float64 sx=-450 sr=100 | ord=3 ord_guard=6 | real=1.29e-03 | fast=1.29e-03 | naive=1.29e-03 | 
+Float64 sx=-450 sr=150 | band=6 ord_guard=3 | real=1.43e-03 | fast=1.43e-03 | naive=2.27e+13 | 
+Float64 sx=-450 sr=200 | band=8 off_d=1 | real=2.87e-03 | fast=2.87e-03 | naive=2.27e+13 | 
+Float64 sx=-450 sr=250 | band=9 | real=8.16e-04 | fast=8.16e-04 | naive=2.27e+13 | 
+Float64 sx=-450 sr=300 | band=9 | real=9.46e-04 | fast=9.46e-04 | naive=2.27e+13 | 
+Float64 sx=-450 sr=350 | band=9 | real=5.68e-04 | fast=5.68e-04 | naive=2.27e+13 | 
+Float64 sx=-450 sr=400 | band=8 off_d=1 | real=2.95e-04 | fast=2.95e-04 | naive=2.27e+13 | 
+Float64 sx=-450 sr=450 | band=9 | real=5.72e-04 | fast=5.72e-04 | naive=2.27e+13 | 
+Float64 sx=-450 sr=500 | band=9 | real=1.34e-03 | fast=1.34e-03 | naive=2.27e+13 | 
+Float64 sx=-450 sr=550 | off_rbig=9 | real=7.47e-04 | fast=Inf | naive=Inf | 
+Float64 sx=-400 sr=-600 | off_runder=9 | real=1.72e-03 | fast=6.08e+12 | naive=6.08e+12 | 
+Float64 sx=-400 sr=-550 | off_runder=9 | real=1.07e-03 | fast=1.14e+13 | naive=1.14e+13 | 
+Float64 sx=-400 sr=-500 | off_rsmall=9 | real=8.80e-04 | fast=6.44e-03 | naive=6.44e-03 | 
+Float64 sx=-400 sr=-450 | off_d=3 ord=3 ord_guard=3 | real=3.17e-03 | fast=1.60e-03 | naive=1.60e-03 | 
+Float64 sx=-400 sr=-400 | ord=3 ord_guard=6 | real=1.64e-03 | fast=1.64e-03 | naive=1.64e-03 | 
+Float64 sx=-400 sr=-350 | ord=3 ord_guard=6 | real=1.20e-03 | fast=1.20e-03 | naive=1.20e-03 | 
+Float64 sx=-400 sr=-300 | ord=3 ord_guard=6 | real=7.91e-04 | fast=7.91e-04 | naive=7.91e-04 | 
+Float64 sx=-400 sr=-250 | ord=3 ord_guard=6 | real=5.15e-03 | fast=5.15e-03 | naive=5.15e-03 | 
+Float64 sx=-400 sr=-200 | ord=3 ord_guard=6 | real=9.03e-03 | fast=9.03e-03 | naive=9.03e-03 | 
+Float64 sx=-400 sr=-150 | ord=3 ord_guard=6 | real=1.11e-03 | fast=1.11e-03 | naive=1.11e-03 | 
+Float64 sx=-400 sr=-100 | ord=3 ord_guard=6 | real=1.30e-04 | fast=1.30e-04 | naive=1.30e-04 | 
+Float64 sx=-400 sr=-50 | ord=3 ord_guard=6 | real=1.74e-03 | fast=1.74e-03 | naive=1.74e-03 | 
+Float64 sx=-400 sr=0 | ord=3 ord_guard=6 | real=4.50e-04 | fast=4.50e-04 | naive=4.50e-04 | 
+Float64 sx=-400 sr=50 | ord=3 ord_guard=6 | real=3.22e-05 | fast=3.22e-05 | naive=3.22e-05 | 
+Float64 sx=-400 sr=100 | ord=3 ord_guard=6 | real=3.19e-03 | fast=3.19e-03 | naive=3.19e-03 | 
+Float64 sx=-400 sr=150 | ord=3 ord_guard=6 | real=7.47e-03 | fast=7.47e-03 | naive=7.47e-03 | 
+Float64 sx=-400 sr=200 | ord=3 ord_guard=6 | real=7.72e-04 | fast=7.72e-04 | naive=7.72e-04 | 
+Float64 sx=-400 sr=250 | band=6 ord_guard=3 | real=7.65e-03 | fast=7.65e-03 | naive=2.26e+13 | 
+Float64 sx=-400 sr=300 | band=9 | real=1.54e-03 | fast=1.54e-03 | naive=2.27e+13 | 
+Float64 sx=-400 sr=350 | band=9 | real=2.90e-03 | fast=2.90e-03 | naive=2.27e+13 | 
+Float64 sx=-400 sr=400 | band=9 | real=1.14e-04 | fast=1.14e-04 | naive=2.27e+13 | 
+Float64 sx=-400 sr=450 | band=9 | real=6.48e-03 | fast=6.48e-03 | naive=2.27e+13 | 
+Float64 sx=-400 sr=500 | band=9 | real=5.40e-04 | fast=5.40e-04 | naive=2.27e+13 | 
+Float64 sx=-400 sr=550 | off_rbig=9 | real=5.04e-03 | fast=Inf | naive=Inf | 
+Float64 sx=-350 sr=-600 | off_runder=9 | real=2.10e-03 | fast=1.31e+13 | naive=1.31e+13 | 
+Float64 sx=-350 sr=-550 | off_runder=9 | real=2.89e-03 | fast=1.33e+13 | naive=1.33e+13 | 
+Float64 sx=-350 sr=-500 | off_rsmall=9 | real=3.96e-03 | fast=6.84e-03 | naive=6.84e-03 | 
+Float64 sx=-350 sr=-450 | off_d=3 ord=3 ord_guard=3 | real=3.75e-03 | fast=4.59e-03 | naive=4.59e-03 | 
+Float64 sx=-350 sr=-400 | ord=4 ord_guard=5 | real=3.97e-03 | fast=3.97e-03 | naive=3.97e-03 | 
+Float64 sx=-350 sr=-350 | ord=3 ord_guard=6 | real=2.47e-03 | fast=2.47e-03 | naive=2.47e-03 | 
+Float64 sx=-350 sr=-300 | ord=3 ord_guard=6 | real=1.23e-03 | fast=1.23e-03 | naive=1.23e-03 | 
+Float64 sx=-350 sr=-250 | ord=3 ord_guard=6 | real=1.94e-03 | fast=1.94e-03 | naive=1.94e-03 | 
+Float64 sx=-350 sr=-200 | ord=3 ord_guard=6 | real=5.02e-03 | fast=5.02e-03 | naive=5.02e-03 | 
+Float64 sx=-350 sr=-150 | ord=3 ord_guard=6 | real=1.72e-04 | fast=1.72e-04 | naive=1.72e-04 | 
+Float64 sx=-350 sr=-100 | ord=3 ord_guard=6 | real=1.90e-03 | fast=1.90e-03 | naive=1.90e-03 | 
+Float64 sx=-350 sr=-50 | ord=3 ord_guard=6 | real=3.39e-03 | fast=3.39e-03 | naive=3.39e-03 | 
+Float64 sx=-350 sr=0 | off_d=1 ord=3 ord_guard=5 | real=2.47e-04 | fast=3.82e-04 | naive=3.82e-04 | 
+Float64 sx=-350 sr=50 | ord=3 ord_guard=6 | real=2.80e-03 | fast=2.80e-03 | naive=2.80e-03 | 
+Float64 sx=-350 sr=100 | ord=3 ord_guard=6 | real=1.46e-04 | fast=1.46e-04 | naive=1.46e-04 | 
+Float64 sx=-350 sr=150 | ord=3 ord_guard=6 | real=2.64e-03 | fast=2.64e-03 | naive=2.64e-03 | 
+Float64 sx=-350 sr=200 | off_d=1 ord=3 ord_guard=5 | real=4.74e-03 | fast=4.74e-03 | naive=4.74e-03 | 
+Float64 sx=-350 sr=250 | ord=3 ord_guard=6 | real=9.56e-04 | fast=9.56e-04 | naive=9.56e-04 | 
+Float64 sx=-350 sr=300 | ord=3 ord_guard=6 | real=4.80e-04 | fast=4.80e-04 | naive=4.80e-04 | 
+Float64 sx=-350 sr=350 | band=6 ord_guard=3 | real=6.00e-03 | fast=6.00e-03 | naive=2.21e+13 | 
+Float64 sx=-350 sr=400 | band=8 off_d=1 | real=2.04e-03 | fast=2.04e-03 | naive=2.27e+13 | 
+Float64 sx=-350 sr=450 | band=9 | real=7.50e-04 | fast=7.50e-04 | naive=2.27e+13 | 
+Float64 sx=-350 sr=500 | band=9 | real=1.02e-03 | fast=1.02e-03 | naive=2.27e+13 | 
+Float64 sx=-350 sr=550 | off_rbig=9 | real=1.17e-03 | fast=Inf | naive=Inf | 
+Float64 sx=-300 sr=-600 | off_runder=9 | real=1.64e-04 | fast=9.09e+12 | naive=9.09e+12 | 
+Float64 sx=-300 sr=-550 | off_runder=9 | real=2.28e-03 | fast=1.22e+13 | naive=1.22e+13 | 
+Float64 sx=-300 sr=-500 | off_rsmall=9 | real=7.99e-03 | fast=1.29e-02 | naive=1.29e-02 | 
+Float64 sx=-300 sr=-450 | off_d=3 ord=3 ord_guard=3 | real=2.46e-03 | fast=2.46e-03 | naive=2.46e-03 | 
+Float64 sx=-300 sr=-400 | ord=3 ord_guard=6 | real=1.86e-04 | fast=1.86e-04 | naive=1.86e-04 | 
+Float64 sx=-300 sr=-350 | ord=3 ord_guard=6 | real=7.80e-04 | fast=7.80e-04 | naive=7.80e-04 | 
+Float64 sx=-300 sr=-300 | ord=3 ord_guard=6 | real=2.01e-03 | fast=2.01e-03 | naive=2.01e-03 | 
+Float64 sx=-300 sr=-250 | ord=3 ord_guard=6 | real=4.70e-03 | fast=4.70e-03 | naive=4.70e-03 | 
+Float64 sx=-300 sr=-200 | ord=3 ord_guard=6 | real=1.69e-03 | fast=1.69e-03 | naive=1.69e-03 | 
+Float64 sx=-300 sr=-150 | ord=3 ord_guard=6 | real=1.66e-03 | fast=1.66e-03 | naive=1.66e-03 | 
+Float64 sx=-300 sr=-100 | ord=3 ord_guard=6 | real=2.50e-03 | fast=2.50e-03 | naive=2.50e-03 | 
+Float64 sx=-300 sr=-50 | ord=3 ord_guard=6 | real=6.30e-03 | fast=6.30e-03 | naive=6.30e-03 | 
+Float64 sx=-300 sr=0 | ord=3 ord_guard=6 | real=1.31e-03 | fast=1.31e-03 | naive=1.31e-03 | 
+Float64 sx=-300 sr=50 | ord=3 ord_guard=6 | real=1.06e-03 | fast=1.06e-03 | naive=1.06e-03 | 
+Float64 sx=-300 sr=100 | ord=3 ord_guard=6 | real=5.92e-04 | fast=5.92e-04 | naive=5.92e-04 | 
+Float64 sx=-300 sr=150 | ord=3 ord_guard=6 | real=9.56e-04 | fast=9.56e-04 | naive=9.56e-04 | 
+Float64 sx=-300 sr=200 | ord=3 ord_guard=6 | real=3.16e-03 | fast=3.16e-03 | naive=3.16e-03 | 
+Float64 sx=-300 sr=250 | ord=3 ord_guard=6 | real=1.96e-03 | fast=1.96e-03 | naive=1.96e-03 | 
+Float64 sx=-300 sr=300 | off_d=1 ord=3 ord_guard=5 | real=4.18e-05 | fast=4.18e-05 | naive=4.18e-05 | 
+Float64 sx=-300 sr=350 | ord=3 ord_guard=6 | real=5.16e-03 | fast=5.16e-03 | naive=5.16e-03 | 
+Float64 sx=-300 sr=400 | ord=3 ord_guard=6 | real=1.94e-03 | fast=1.94e-03 | naive=1.94e-03 | 
+Float64 sx=-300 sr=450 | band=6 ord_guard=3 | real=3.60e-03 | fast=3.60e-03 | naive=2.25e+13 | 
+Float64 sx=-300 sr=500 | band=9 | real=1.29e-03 | fast=1.29e-03 | naive=2.27e+13 | 
+Float64 sx=-300 sr=550 | off_rbig=9 | real=1.81e-03 | fast=Inf | naive=Inf | 
+Float64 sx=-250 sr=-600 | off_runder=9 | real=6.08e-03 | fast=7.73e+12 | naive=7.73e+12 | 
+Float64 sx=-250 sr=-550 | off_runder=9 | real=2.59e-03 | fast=1.24e+13 | naive=1.24e+13 | 
+Float64 sx=-250 sr=-500 | off_rsmall=9 | real=3.45e-04 | fast=7.15e-03 | naive=7.15e-03 | 
+Float64 sx=-250 sr=-450 | off_d=3 ord=3 ord_guard=3 | real=5.06e-03 | fast=2.76e-04 | naive=2.76e-04 | 
+Float64 sx=-250 sr=-400 | ord=3 ord_guard=6 | real=2.08e-03 | fast=2.08e-03 | naive=2.08e-03 | 
+Float64 sx=-250 sr=-350 | ord=3 ord_guard=6 | real=2.24e-03 | fast=2.24e-03 | naive=2.24e-03 | 
+Float64 sx=-250 sr=-300 | ord=3 ord_guard=6 | real=3.28e-03 | fast=3.28e-03 | naive=3.28e-03 | 
+Float64 sx=-250 sr=-250 | ord=3 ord_guard=6 | real=3.12e-03 | fast=3.12e-03 | naive=3.12e-03 | 
+Float64 sx=-250 sr=-200 | ord=3 ord_guard=6 | real=3.68e-03 | fast=3.68e-03 | naive=3.68e-03 | 
+Float64 sx=-250 sr=-150 | off_d=1 ord=3 ord_guard=5 | real=1.31e-03 | fast=1.31e-03 | naive=1.31e-03 | 
+Float64 sx=-250 sr=-100 | ord=3 ord_guard=6 | real=4.09e-03 | fast=4.09e-03 | naive=4.09e-03 | 
+Float64 sx=-250 sr=-50 | ord=3 ord_guard=6 | real=6.80e-03 | fast=6.80e-03 | naive=6.80e-03 | 
+Float64 sx=-250 sr=0 | ord=3 ord_guard=6 | real=6.45e-03 | fast=6.45e-03 | naive=6.45e-03 | 
+Float64 sx=-250 sr=50 | ord=3 ord_guard=6 | real=4.85e-03 | fast=4.85e-03 | naive=4.85e-03 | 
+Float64 sx=-250 sr=100 | off_d=1 ord=3 ord_guard=5 | real=7.77e-03 | fast=8.39e-04 | naive=8.39e-04 | 
+Float64 sx=-250 sr=150 | off_d=1 ord=3 ord_guard=5 | real=3.85e-04 | fast=3.85e-04 | naive=3.85e-04 | 
+Float64 sx=-250 sr=200 | ord=3 ord_guard=6 | real=2.82e-03 | fast=2.82e-03 | naive=2.82e-03 | 
+Float64 sx=-250 sr=250 | ord=3 ord_guard=6 | real=2.81e-03 | fast=2.81e-03 | naive=2.81e-03 | 
+Float64 sx=-250 sr=300 | off_d=1 ord=3 ord_guard=5 | real=6.87e-03 | fast=6.87e-03 | naive=6.87e-03 | 
+Float64 sx=-250 sr=350 | ord=3 ord_guard=6 | real=8.90e-03 | fast=8.90e-03 | naive=8.90e-03 | 
+Float64 sx=-250 sr=400 | off_d=1 ord=3 ord_guard=5 | real=5.68e-04 | fast=5.68e-04 | naive=5.68e-04 | 
+Float64 sx=-250 sr=450 | ord=3 ord_guard=6 | real=2.12e-03 | fast=2.12e-03 | naive=2.12e-03 | 
+Float64 sx=-250 sr=500 | ord=3 ord_guard=6 | real=6.11e-03 | fast=6.11e-03 | naive=6.11e-03 | 
+Float64 sx=-250 sr=550 | off_rbig=9 | real=1.23e-03 | fast=Inf | naive=Inf | 
+Float64 sx=-200 sr=-600 | off_runder=9 | real=2.81e-03 | fast=8.42e+12 | naive=8.42e+12 | 
+Float64 sx=-200 sr=-550 | off_runder=9 | real=8.11e-03 | fast=8.69e+12 | naive=8.69e+12 | 
+Float64 sx=-200 sr=-500 | off_rsmall=9 | real=3.51e-04 | fast=1.11e-02 | naive=1.11e-02 | 
+Float64 sx=-200 sr=-450 | off_d=3 ord=3 ord_guard=3 | real=4.83e-03 | fast=1.03e-02 | naive=1.03e-02 | 
+Float64 sx=-200 sr=-400 | ord=3 ord_guard=6 | real=3.59e-04 | fast=3.59e-04 | naive=3.59e-04 | 
+Float64 sx=-200 sr=-350 | ord=3 ord_guard=6 | real=5.68e-03 | fast=5.68e-03 | naive=5.68e-03 | 
+Float64 sx=-200 sr=-300 | ord=3 ord_guard=6 | real=1.67e-03 | fast=1.67e-03 | naive=1.67e-03 | 
+Float64 sx=-200 sr=-250 | ord=3 ord_guard=6 | real=6.11e-04 | fast=6.11e-04 | naive=6.11e-04 | 
+Float64 sx=-200 sr=-200 | off_d=1 ord=3 ord_guard=5 | real=4.15e-05 | fast=4.15e-05 | naive=4.15e-05 | 
+Float64 sx=-200 sr=-150 | ord=3 ord_guard=6 | real=3.86e-04 | fast=3.86e-04 | naive=3.86e-04 | 
+Float64 sx=-200 sr=-100 | ord=3 ord_guard=6 | real=1.86e-03 | fast=1.86e-03 | naive=1.86e-03 | 
+Float64 sx=-200 sr=-50 | ord=3 ord_guard=6 | real=1.53e-03 | fast=1.53e-03 | naive=1.53e-03 | 
+Float64 sx=-200 sr=0 | off_d=1 ord=3 ord_guard=5 | real=7.22e-04 | fast=7.22e-04 | naive=7.22e-04 | 
+Float64 sx=-200 sr=50 | ord=3 ord_guard=6 | real=2.08e-03 | fast=2.08e-03 | naive=2.08e-03 | 
+Float64 sx=-200 sr=100 | ord=3 ord_guard=6 | real=4.34e-04 | fast=4.34e-04 | naive=4.34e-04 | 
+Float64 sx=-200 sr=150 | ord=3 ord_guard=6 | real=2.63e-03 | fast=2.63e-03 | naive=2.63e-03 | 
+Float64 sx=-200 sr=200 | ord=3 ord_guard=6 | real=4.94e-03 | fast=4.94e-03 | naive=4.94e-03 | 
+Float64 sx=-200 sr=250 | ord=3 ord_guard=6 | real=2.27e-03 | fast=2.27e-03 | naive=2.27e-03 | 
+Float64 sx=-200 sr=300 | ord=3 ord_guard=6 | real=9.29e-03 | fast=9.29e-03 | naive=9.29e-03 | 
+Float64 sx=-200 sr=350 | off_d=1 ord=3 ord_guard=5 | real=1.78e-03 | fast=1.78e-03 | naive=1.78e-03 | 
+Float64 sx=-200 sr=400 | ord=3 ord_guard=6 | real=1.04e-03 | fast=1.04e-03 | naive=1.04e-03 | 
+Float64 sx=-200 sr=450 | off_d=1 ord=3 ord_guard=5 | real=3.34e-03 | fast=3.34e-03 | naive=3.34e-03 | 
+Float64 sx=-200 sr=500 | ord=3 ord_guard=6 | real=2.73e-04 | fast=2.73e-04 | naive=2.73e-04 | 
+Float64 sx=-200 sr=550 | off_rbig=9 | real=9.68e-04 | fast=Inf | naive=Inf | 
+Float64 sx=-150 sr=-600 | off_runder=9 | real=4.96e-04 | fast=1.12e+13 | naive=1.12e+13 | 
+Float64 sx=-150 sr=-550 | off_runder=9 | real=4.77e-03 | fast=1.08e+13 | naive=1.08e+13 | 
+Float64 sx=-150 sr=-500 | off_rsmall=9 | real=2.47e-03 | fast=4.89e-03 | naive=4.89e-03 | 
+Float64 sx=-150 sr=-450 | off_d=3 ord=3 ord_guard=3 | real=6.76e-03 | fast=6.76e-03 | naive=6.76e-03 | 
+Float64 sx=-150 sr=-400 | ord=3 ord_guard=6 | real=3.60e-03 | fast=3.60e-03 | naive=3.60e-03 | 
+Float64 sx=-150 sr=-350 | ord=3 ord_guard=6 | real=1.85e-03 | fast=1.85e-03 | naive=1.85e-03 | 
+Float64 sx=-150 sr=-300 | off_d=1 ord=4 ord_guard=4 | real=7.58e-04 | fast=7.58e-04 | naive=7.58e-04 | 
+Float64 sx=-150 sr=-250 | off_d=1 ord=3 ord_guard=5 | real=1.08e-03 | fast=1.08e-03 | naive=1.08e-03 | 
+Float64 sx=-150 sr=-200 | off_d=1 ord=3 ord_guard=5 | real=6.10e-04 | fast=6.10e-04 | naive=6.10e-04 | 
+Float64 sx=-150 sr=-150 | off_d=1 ord=3 ord_guard=5 | real=2.77e-03 | fast=2.77e-03 | naive=2.77e-03 | 
+Float64 sx=-150 sr=-100 | ord=3 ord_guard=6 | real=1.70e-03 | fast=1.70e-03 | naive=1.70e-03 | 
+Float64 sx=-150 sr=-50 | ord=3 ord_guard=6 | real=4.60e-04 | fast=4.60e-04 | naive=4.60e-04 | 
+Float64 sx=-150 sr=0 | ord=3 ord_guard=6 | real=7.39e-03 | fast=7.39e-03 | naive=7.39e-03 | 
+Float64 sx=-150 sr=50 | ord=3 ord_guard=6 | real=4.36e-04 | fast=4.36e-04 | naive=4.36e-04 | 
+Float64 sx=-150 sr=100 | ord=3 ord_guard=6 | real=7.51e-04 | fast=7.51e-04 | naive=7.51e-04 | 
+Float64 sx=-150 sr=150 | ord=3 ord_guard=6 | real=1.61e-03 | fast=1.61e-03 | naive=1.61e-03 | 
+Float64 sx=-150 sr=200 | ord=3 ord_guard=6 | real=6.73e-03 | fast=6.73e-03 | naive=6.73e-03 | 
+Float64 sx=-150 sr=250 | off_d=2 ord=3 ord_guard=4 | real=2.31e-03 | fast=2.31e-03 | naive=2.31e-03 | 
+Float64 sx=-150 sr=300 | ord=3 ord_guard=6 | real=1.43e-03 | fast=1.43e-03 | naive=1.43e-03 | 
+Float64 sx=-150 sr=350 | ord=3 ord_guard=6 | real=2.90e-04 | fast=2.90e-04 | naive=2.90e-04 | 
+Float64 sx=-150 sr=400 | ord=3 ord_guard=6 | real=4.13e-03 | fast=4.13e-03 | naive=4.13e-03 | 
+Float64 sx=-150 sr=450 | off_d=1 ord=3 ord_guard=5 | real=5.32e-04 | fast=5.32e-04 | naive=5.32e-04 | 
+Float64 sx=-150 sr=500 | ord=3 ord_guard=6 | real=3.71e-03 | fast=3.71e-03 | naive=3.71e-03 | 
+Float64 sx=-150 sr=550 | off_rbig=9 | real=2.52e-03 | fast=Inf | naive=Inf | 
+Float64 sx=-100 sr=-600 | off_runder=9 | real=2.77e-03 | fast=6.64e+12 | naive=6.64e+12 | 
+Float64 sx=-100 sr=-550 | off_runder=9 | real=6.65e-03 | fast=9.69e+12 | naive=9.69e+12 | 
+Float64 sx=-100 sr=-500 | off_rsmall=9 | real=6.70e-03 | fast=6.70e-03 | naive=6.70e-03 | 
+Float64 sx=-100 sr=-450 | off_d=3 ord=3 ord_guard=3 | real=1.23e-02 | fast=3.43e-03 | naive=3.43e-03 | 
+Float64 sx=-100 sr=-400 | ord=3 ord_guard=6 | real=1.73e-03 | fast=1.73e-03 | naive=1.73e-03 | 
+Float64 sx=-100 sr=-350 | ord=3 ord_guard=6 | real=3.51e-03 | fast=3.51e-03 | naive=3.51e-03 | 
+Float64 sx=-100 sr=-300 | off_d=1 ord=3 ord_guard=5 | real=8.97e-04 | fast=8.97e-04 | naive=8.97e-04 | 
+Float64 sx=-100 sr=-250 | ord=3 ord_guard=6 | real=7.54e-03 | fast=7.54e-03 | naive=7.54e-03 | 
+Float64 sx=-100 sr=-200 | off_d=1 ord=3 ord_guard=5 | real=1.04e-03 | fast=1.04e-03 | naive=1.04e-03 | 
+Float64 sx=-100 sr=-150 | ord=3 ord_guard=6 | real=1.15e-03 | fast=1.15e-03 | naive=1.15e-03 | 
+Float64 sx=-100 sr=-100 | ord=3 ord_guard=6 | real=7.55e-03 | fast=7.55e-03 | naive=7.55e-03 | 
+Float64 sx=-100 sr=-50 | ord=4 ord_guard=5 | real=1.40e-03 | fast=1.40e-03 | naive=1.40e-03 | 
+Float64 sx=-100 sr=0 | ord=3 ord_guard=6 | real=3.85e-03 | fast=3.85e-03 | naive=3.85e-03 | 
+Float64 sx=-100 sr=50 | ord=3 ord_guard=6 | real=2.54e-04 | fast=2.54e-04 | naive=2.54e-04 | 
+Float64 sx=-100 sr=100 | off_d=1 ord=3 ord_guard=5 | real=9.10e-04 | fast=9.10e-04 | naive=9.10e-04 | 
+Float64 sx=-100 sr=150 | ord=3 ord_guard=6 | real=2.14e-03 | fast=2.14e-03 | naive=2.14e-03 | 
+Float64 sx=-100 sr=200 | ord=3 ord_guard=6 | real=5.52e-03 | fast=5.52e-03 | naive=5.52e-03 | 
+Float64 sx=-100 sr=250 | ord=3 ord_guard=6 | real=2.39e-03 | fast=2.39e-03 | naive=2.39e-03 | 
+Float64 sx=-100 sr=300 | ord=3 ord_guard=6 | real=3.46e-04 | fast=3.46e-04 | naive=3.46e-04 | 
+Float64 sx=-100 sr=350 | ord=3 ord_guard=6 | real=1.25e-03 | fast=1.25e-03 | naive=1.25e-03 | 
+Float64 sx=-100 sr=400 | ord=3 ord_guard=6 | real=7.83e-04 | fast=7.83e-04 | naive=7.83e-04 | 
+Float64 sx=-100 sr=450 | off_d=1 ord=3 ord_guard=5 | real=1.68e-04 | fast=1.68e-04 | naive=1.68e-04 | 
+Float64 sx=-100 sr=500 | ord=3 ord_guard=6 | real=3.96e-03 | fast=3.96e-03 | naive=3.96e-03 | 
+Float64 sx=-100 sr=550 | off_rbig=9 | real=2.35e-04 | fast=Inf | naive=Inf | 
+Float64 sx=-50 sr=-600 | off_runder=9 | real=9.73e-04 | fast=5.96e+12 | naive=5.96e+12 | 
+Float64 sx=-50 sr=-550 | off_runder=9 | real=2.79e-03 | fast=1.17e+13 | naive=1.17e+13 | 
+Float64 sx=-50 sr=-500 | off_rsmall=9 | real=2.33e-03 | fast=1.60e-03 | naive=1.60e-03 | 
+Float64 sx=-50 sr=-450 | off_d=3 ord=3 ord_guard=3 | real=4.49e-03 | fast=3.52e-04 | naive=3.52e-04 | 
+Float64 sx=-50 sr=-400 | ord=3 ord_guard=6 | real=4.30e-03 | fast=4.30e-03 | naive=4.30e-03 | 
+Float64 sx=-50 sr=-350 | ord=3 ord_guard=6 | real=4.24e-03 | fast=4.24e-03 | naive=4.24e-03 | 
+Float64 sx=-50 sr=-300 | ord=3 ord_guard=6 | real=1.23e-03 | fast=1.23e-03 | naive=1.23e-03 | 
+Float64 sx=-50 sr=-250 | ord=3 ord_guard=6 | real=8.47e-04 | fast=8.47e-04 | naive=8.47e-04 | 
+Float64 sx=-50 sr=-200 | ord=3 ord_guard=6 | real=1.33e-03 | fast=1.33e-03 | naive=1.33e-03 | 
+Float64 sx=-50 sr=-150 | ord=3 ord_guard=6 | real=7.39e-04 | fast=7.39e-04 | naive=7.39e-04 | 
+Float64 sx=-50 sr=-100 | ord=3 ord_guard=6 | real=4.45e-03 | fast=4.45e-03 | naive=4.45e-03 | 
+Float64 sx=-50 sr=-50 | ord=3 ord_guard=6 | real=7.11e-03 | fast=7.11e-03 | naive=7.11e-03 | 
+Float64 sx=-50 sr=0 | ord=3 ord_guard=6 | real=4.30e-04 | fast=4.30e-04 | naive=4.30e-04 | 
+Float64 sx=-50 sr=50 | ord=3 ord_guard=6 | real=1.57e-03 | fast=1.57e-03 | naive=1.57e-03 | 
+Float64 sx=-50 sr=100 | ord=3 ord_guard=6 | real=2.09e-03 | fast=2.09e-03 | naive=2.09e-03 | 
+Float64 sx=-50 sr=150 | ord=4 ord_guard=5 | real=2.88e-03 | fast=2.88e-03 | naive=2.88e-03 | 
+Float64 sx=-50 sr=200 | ord=3 ord_guard=6 | real=7.79e-03 | fast=7.79e-03 | naive=7.79e-03 | 
+Float64 sx=-50 sr=250 | ord=3 ord_guard=6 | real=5.15e-03 | fast=5.15e-03 | naive=5.15e-03 | 
+Float64 sx=-50 sr=300 | off_d=1 ord=3 ord_guard=5 | real=3.76e-03 | fast=3.76e-03 | naive=3.76e-03 | 
+Float64 sx=-50 sr=350 | ord=3 ord_guard=6 | real=7.09e-04 | fast=7.09e-04 | naive=7.09e-04 | 
+Float64 sx=-50 sr=400 | ord=3 ord_guard=6 | real=1.81e-03 | fast=1.81e-03 | naive=1.81e-03 | 
+Float64 sx=-50 sr=450 | ord=3 ord_guard=6 | real=1.98e-03 | fast=1.98e-03 | naive=1.98e-03 | 
+Float64 sx=-50 sr=500 | ord=3 ord_guard=6 | real=1.84e-04 | fast=1.84e-04 | naive=1.84e-04 | 
+Float64 sx=-50 sr=550 | off_rbig=9 | real=7.05e-03 | fast=Inf | naive=Inf | 
+Float64 sx=0 sr=-600 | off_runder=9 | real=1.05e-03 | fast=7.57e+12 | naive=7.57e+12 | 
+Float64 sx=0 sr=-550 | off_runder=9 | real=1.86e-04 | fast=1.08e+13 | naive=1.08e+13 | 
+Float64 sx=0 sr=-500 | off_rsmall=9 | real=8.72e-05 | fast=3.61e-03 | naive=3.61e-03 | 
+Float64 sx=0 sr=-450 | off_d=3 ord=3 ord_guard=3 | real=3.05e-03 | fast=7.97e-03 | naive=7.97e-03 | 
+Float64 sx=0 sr=-400 | ord=3 ord_guard=6 | real=6.10e-04 | fast=6.10e-04 | naive=6.10e-04 | 
+Float64 sx=0 sr=-350 | ord=3 ord_guard=6 | real=6.26e-05 | fast=6.26e-05 | naive=6.26e-05 | 
+Float64 sx=0 sr=-300 | ord=3 ord_guard=6 | real=2.43e-03 | fast=2.43e-03 | naive=2.43e-03 | 
+Float64 sx=0 sr=-250 | ord=3 ord_guard=6 | real=2.88e-03 | fast=2.88e-03 | naive=2.88e-03 | 
+Float64 sx=0 sr=-200 | ord=3 ord_guard=6 | real=3.78e-03 | fast=3.78e-03 | naive=3.78e-03 | 
+Float64 sx=0 sr=-150 | ord=3 ord_guard=6 | real=3.83e-03 | fast=3.83e-03 | naive=3.83e-03 | 
+Float64 sx=0 sr=-100 | ord=3 ord_guard=6 | real=6.94e-03 | fast=6.94e-03 | naive=6.94e-03 | 
+Float64 sx=0 sr=-50 | ord=3 ord_guard=6 | real=7.70e-04 | fast=7.70e-04 | naive=7.70e-04 | 
+Float64 sx=0 sr=0 | ord=3 ord_guard=6 | real=5.49e-04 | fast=5.49e-04 | naive=5.49e-04 | 
+Float64 sx=0 sr=50 | ord=3 ord_guard=6 | real=6.19e-04 | fast=6.19e-04 | naive=6.19e-04 | 
+Float64 sx=0 sr=100 | ord=3 ord_guard=6 | real=6.27e-04 | fast=6.27e-04 | naive=6.27e-04 | 
+Float64 sx=0 sr=150 | ord=3 ord_guard=6 | real=1.80e-03 | fast=1.80e-03 | naive=1.80e-03 | 
+Float64 sx=0 sr=200 | ord=3 ord_guard=6 | real=1.39e-03 | fast=1.39e-03 | naive=1.39e-03 | 
+Float64 sx=0 sr=250 | off_d=1 ord=3 ord_guard=5 | real=4.12e-04 | fast=4.12e-04 | naive=4.12e-04 | 
+Float64 sx=0 sr=300 | off_d=1 ord=3 ord_guard=5 | real=2.32e-03 | fast=2.32e-03 | naive=2.32e-03 | 
+Float64 sx=0 sr=350 | off_d=1 ord=3 ord_guard=5 | real=7.01e-03 | fast=7.01e-03 | naive=7.01e-03 | 
+Float64 sx=0 sr=400 | ord=3 ord_guard=6 | real=7.68e-04 | fast=7.68e-04 | naive=7.68e-04 | 
+Float64 sx=0 sr=450 | ord=3 ord_guard=6 | real=3.92e-03 | fast=3.92e-03 | naive=3.92e-03 | 
+Float64 sx=0 sr=500 | ord=3 ord_guard=6 | real=3.40e-03 | fast=3.40e-03 | naive=3.40e-03 | 
+Float64 sx=0 sr=550 | off_rbig=9 | real=7.02e-04 | fast=Inf | naive=Inf | 
+Float64 sx=50 sr=-600 | off_runder=9 | real=3.70e-03 | fast=9.34e+12 | naive=9.34e+12 | 
+Float64 sx=50 sr=-550 | off_runder=9 | real=4.10e-03 | fast=1.05e+13 | naive=1.05e+13 | 
+Float64 sx=50 sr=-500 | off_rsmall=9 | real=3.77e-03 | fast=7.99e-03 | naive=7.99e-03 | 
+Float64 sx=50 sr=-450 | off_d=3 ord=3 ord_guard=3 | real=3.72e-04 | fast=9.39e-05 | naive=9.39e-05 | 
+Float64 sx=50 sr=-400 | ord=3 ord_guard=6 | real=6.43e-03 | fast=6.43e-03 | naive=6.43e-03 | 
+Float64 sx=50 sr=-350 | off_d=1 ord=3 ord_guard=5 | real=4.68e-05 | fast=4.68e-05 | naive=4.68e-05 | 
+Float64 sx=50 sr=-300 | ord=3 ord_guard=6 | real=1.24e-03 | fast=1.24e-03 | naive=1.24e-03 | 
+Float64 sx=50 sr=-250 | ord=3 ord_guard=6 | real=5.78e-04 | fast=5.78e-04 | naive=5.78e-04 | 
+Float64 sx=50 sr=-200 | ord=3 ord_guard=6 | real=1.43e-03 | fast=1.43e-03 | naive=1.43e-03 | 
+Float64 sx=50 sr=-150 | off_d=1 ord=3 ord_guard=5 | real=3.73e-03 | fast=3.73e-03 | naive=3.73e-03 | 
+Float64 sx=50 sr=-100 | off_d=1 ord=3 ord_guard=5 | real=5.77e-04 | fast=5.77e-04 | naive=5.77e-04 | 
+Float64 sx=50 sr=-50 | ord=3 ord_guard=6 | real=4.84e-03 | fast=4.84e-03 | naive=4.84e-03 | 
+Float64 sx=50 sr=0 | off_d=1 ord=3 ord_guard=5 | real=1.26e-03 | fast=2.97e-04 | naive=2.97e-04 | 
+Float64 sx=50 sr=50 | off_d=1 ord=3 ord_guard=5 | real=5.86e-03 | fast=5.86e-03 | naive=5.86e-03 | 
+Float64 sx=50 sr=100 | ord=3 ord_guard=6 | real=2.49e-03 | fast=2.49e-03 | naive=2.49e-03 | 
+Float64 sx=50 sr=150 | ord=3 ord_guard=6 | real=5.06e-03 | fast=5.06e-03 | naive=5.06e-03 | 
+Float64 sx=50 sr=200 | ord=3 ord_guard=6 | real=4.62e-03 | fast=4.62e-03 | naive=4.62e-03 | 
+Float64 sx=50 sr=250 | ord=3 ord_guard=6 | real=2.54e-03 | fast=2.54e-03 | naive=2.54e-03 | 
+Float64 sx=50 sr=300 | ord=3 ord_guard=6 | real=2.18e-03 | fast=2.18e-03 | naive=2.18e-03 | 
+Float64 sx=50 sr=350 | ord=3 ord_guard=6 | real=8.47e-03 | fast=8.47e-03 | naive=8.47e-03 | 
+Float64 sx=50 sr=400 | ord=3 ord_guard=6 | real=1.31e-03 | fast=1.31e-03 | naive=1.31e-03 | 
+Float64 sx=50 sr=450 | ord=3 ord_guard=6 | real=4.52e-03 | fast=4.52e-03 | naive=4.52e-03 | 
+Float64 sx=50 sr=500 | ord=3 ord_guard=6 | real=2.17e-03 | fast=2.17e-03 | naive=2.17e-03 | 
+Float64 sx=50 sr=550 | off_rbig=9 | real=6.22e-03 | fast=Inf | naive=Inf | 
+Float64 sx=100 sr=-600 | off_runder=9 | real=6.81e-03 | fast=1.12e+13 | naive=1.12e+13 | 
+Float64 sx=100 sr=-550 | off_runder=9 | real=2.43e-03 | fast=1.11e+13 | naive=1.11e+13 | 
+Float64 sx=100 sr=-500 | off_rsmall=9 | real=7.15e-03 | fast=2.03e-02 | naive=2.03e-02 | 
+Float64 sx=100 sr=-450 | off_d=3 ord=3 ord_guard=3 | real=4.16e-03 | fast=4.16e-03 | naive=4.16e-03 | 
+Float64 sx=100 sr=-400 | ord=3 ord_guard=6 | real=1.20e-02 | fast=1.20e-02 | naive=1.20e-02 | 
+Float64 sx=100 sr=-350 | ord=3 ord_guard=6 | real=1.96e-03 | fast=1.96e-03 | naive=1.96e-03 | 
+Float64 sx=100 sr=-300 | ord=3 ord_guard=6 | real=3.13e-03 | fast=3.13e-03 | naive=3.13e-03 | 
+Float64 sx=100 sr=-250 | ord=3 ord_guard=6 | real=3.60e-03 | fast=3.60e-03 | naive=3.60e-03 | 
+Float64 sx=100 sr=-200 | off_d=2 ord=3 ord_guard=4 | real=1.22e-03 | fast=1.18e-03 | naive=1.18e-03 | 
+Float64 sx=100 sr=-150 | ord=3 ord_guard=6 | real=1.05e-03 | fast=1.05e-03 | naive=1.05e-03 | 
+Float64 sx=100 sr=-100 | ord=3 ord_guard=6 | real=2.23e-03 | fast=2.23e-03 | naive=2.23e-03 | 
+Float64 sx=100 sr=-50 | ord=3 ord_guard=6 | real=2.30e-03 | fast=2.30e-03 | naive=2.30e-03 | 
+Float64 sx=100 sr=0 | ord=3 ord_guard=6 | real=3.93e-04 | fast=3.93e-04 | naive=3.93e-04 | 
+Float64 sx=100 sr=50 | ord=3 ord_guard=6 | real=4.14e-03 | fast=4.14e-03 | naive=4.14e-03 | 
+Float64 sx=100 sr=100 | ord=3 ord_guard=6 | real=7.54e-04 | fast=7.54e-04 | naive=7.54e-04 | 
+Float64 sx=100 sr=150 | ord=3 ord_guard=6 | real=7.67e-03 | fast=7.67e-03 | naive=7.67e-03 | 
+Float64 sx=100 sr=200 | ord=3 ord_guard=6 | real=1.04e-03 | fast=1.04e-03 | naive=1.04e-03 | 
+Float64 sx=100 sr=250 | ord=3 ord_guard=6 | real=2.03e-04 | fast=2.03e-04 | naive=2.03e-04 | 
+Float64 sx=100 sr=300 | off_d=1 ord=3 ord_guard=5 | real=3.61e-03 | fast=1.14e-04 | naive=1.14e-04 | 
+Float64 sx=100 sr=350 | ord=3 ord_guard=6 | real=7.27e-04 | fast=7.27e-04 | naive=7.27e-04 | 
+Float64 sx=100 sr=400 | ord=3 ord_guard=6 | real=2.05e-04 | fast=2.05e-04 | naive=2.05e-04 | 
+Float64 sx=100 sr=450 | ord=3 ord_guard=6 | real=2.97e-03 | fast=2.97e-03 | naive=2.97e-03 | 
+Float64 sx=100 sr=500 | ord=3 ord_guard=6 | real=1.90e-03 | fast=1.90e-03 | naive=1.90e-03 | 
+Float64 sx=100 sr=550 | off_rbig=9 | real=2.51e-03 | fast=Inf | naive=Inf | 
+Float64 sx=150 sr=-600 | off_runder=9 | real=6.09e-03 | fast=1.15e+13 | naive=1.15e+13 | 
+Float64 sx=150 sr=-550 | off_runder=9 | real=1.53e-03 | fast=4.84e+12 | naive=4.84e+12 | 
+Float64 sx=150 sr=-500 | off_rsmall=9 | real=1.71e-03 | fast=9.29e-04 | naive=9.29e-04 | 
+Float64 sx=150 sr=-450 | off_d=3 ord=3 ord_guard=3 | real=5.60e-03 | fast=1.29e-02 | naive=1.29e-02 | 
+Float64 sx=150 sr=-400 | off_d=1 ord=3 ord_guard=5 | real=1.84e-03 | fast=1.84e-03 | naive=1.84e-03 | 
+Float64 sx=150 sr=-350 | ord=3 ord_guard=6 | real=4.63e-04 | fast=4.63e-04 | naive=4.63e-04 | 
+Float64 sx=150 sr=-300 | off_d=1 ord=3 ord_guard=5 | real=2.94e-03 | fast=2.94e-03 | naive=2.94e-03 | 
+Float64 sx=150 sr=-250 | off_d=1 ord=3 ord_guard=5 | real=3.44e-03 | fast=3.44e-03 | naive=3.44e-03 | 
+Float64 sx=150 sr=-200 | off_d=1 ord=3 ord_guard=5 | real=8.93e-03 | fast=7.03e-04 | naive=7.03e-04 | 
+Float64 sx=150 sr=-150 | ord=3 ord_guard=6 | real=9.67e-04 | fast=9.67e-04 | naive=9.67e-04 | 
+Float64 sx=150 sr=-100 | ord=3 ord_guard=6 | real=2.80e-03 | fast=2.80e-03 | naive=2.80e-03 | 
+Float64 sx=150 sr=-50 | off_d=1 ord=3 ord_guard=5 | real=3.06e-03 | fast=3.06e-03 | naive=3.06e-03 | 
+Float64 sx=150 sr=0 | ord=3 ord_guard=6 | real=2.03e-03 | fast=2.03e-03 | naive=2.03e-03 | 
+Float64 sx=150 sr=50 | ord=3 ord_guard=6 | real=8.33e-05 | fast=8.33e-05 | naive=8.33e-05 | 
+Float64 sx=150 sr=100 | ord=3 ord_guard=6 | real=3.17e-03 | fast=3.17e-03 | naive=3.17e-03 | 
+Float64 sx=150 sr=150 | off_d=1 ord=3 ord_guard=5 | real=9.89e-03 | fast=1.58e-04 | naive=1.58e-04 | 
+Float64 sx=150 sr=200 | off_d=2 ord=3 ord_guard=4 | real=6.88e-03 | fast=1.32e-03 | naive=1.32e-03 | 
+Float64 sx=150 sr=250 | ord=3 ord_guard=6 | real=3.83e-03 | fast=3.83e-03 | naive=3.83e-03 | 
+Float64 sx=150 sr=300 | ord=3 ord_guard=6 | real=5.91e-04 | fast=5.91e-04 | naive=5.91e-04 | 
+Float64 sx=150 sr=350 | off_d=1 ord=3 ord_guard=5 | real=5.23e-03 | fast=5.23e-03 | naive=5.23e-03 | 
+Float64 sx=150 sr=400 | off_d=1 ord=3 ord_guard=5 | real=8.03e-03 | fast=8.03e-03 | naive=8.03e-03 | 
+Float64 sx=150 sr=450 | ord=3 ord_guard=6 | real=4.31e-03 | fast=4.31e-03 | naive=4.31e-03 | 
+Float64 sx=150 sr=500 | ord=2 ord_guard=7 | real=8.37e-04 | fast=8.37e-04 | naive=8.37e-04 | 
+Float64 sx=150 sr=550 | off_rbig=9 | real=1.99e-03 | fast=Inf | naive=Inf | 
+Float64 sx=200 sr=-600 | off_runder=9 | real=6.34e-03 | fast=1.32e+13 | naive=1.32e+13 | 
+Float64 sx=200 sr=-550 | off_runder=9 | real=2.64e-03 | fast=3.17e+12 | naive=3.17e+12 | 
+Float64 sx=200 sr=-500 | off_rsmall=9 | real=5.80e-03 | fast=3.33e-03 | naive=3.33e-03 | 
+Float64 sx=200 sr=-450 | off_d=3 ord=3 ord_guard=3 | real=1.95e-03 | fast=8.07e-03 | naive=8.07e-03 | 
+Float64 sx=200 sr=-400 | ord=3 ord_guard=6 | real=1.19e-03 | fast=1.19e-03 | naive=1.19e-03 | 
+Float64 sx=200 sr=-350 | off_d=1 ord=3 ord_guard=5 | real=1.47e-03 | fast=9.84e-04 | naive=9.84e-04 | 
+Float64 sx=200 sr=-300 | ord=3 ord_guard=6 | real=1.08e-03 | fast=1.08e-03 | naive=1.08e-03 | 
+Float64 sx=200 sr=-250 | ord=3 ord_guard=6 | real=6.79e-04 | fast=6.79e-04 | naive=6.79e-04 | 
+Float64 sx=200 sr=-200 | ord=3 ord_guard=6 | real=2.95e-03 | fast=2.95e-03 | naive=2.95e-03 | 
+Float64 sx=200 sr=-150 | off_d=1 ord=3 ord_guard=5 | real=4.71e-03 | fast=1.65e-04 | naive=1.65e-04 | 
+Float64 sx=200 sr=-100 | ord=3 ord_guard=6 | real=1.50e-03 | fast=1.50e-03 | naive=1.50e-03 | 
+Float64 sx=200 sr=-50 | ord=3 ord_guard=6 | real=3.24e-03 | fast=3.24e-03 | naive=3.24e-03 | 
+Float64 sx=200 sr=0 | ord=3 ord_guard=6 | real=1.92e-04 | fast=1.92e-04 | naive=1.92e-04 | 
+Float64 sx=200 sr=50 | ord=3 ord_guard=6 | real=1.91e-03 | fast=1.91e-03 | naive=1.91e-03 | 
+Float64 sx=200 sr=100 | ord=3 ord_guard=6 | real=5.66e-04 | fast=5.66e-04 | naive=5.66e-04 | 
+Float64 sx=200 sr=150 | ord=3 ord_guard=6 | real=4.49e-04 | fast=4.49e-04 | naive=4.49e-04 | 
+Float64 sx=200 sr=200 | ord=3 ord_guard=6 | real=3.17e-03 | fast=3.17e-03 | naive=3.17e-03 | 
+Float64 sx=200 sr=250 | off_d=1 ord=3 ord_guard=5 | real=4.50e-04 | fast=4.50e-04 | naive=4.50e-04 | 
+Float64 sx=200 sr=300 | ord=3 ord_guard=6 | real=5.58e-05 | fast=5.58e-05 | naive=5.58e-05 | 
+Float64 sx=200 sr=350 | off_d=1 ord=3 ord_guard=5 | real=3.98e-03 | fast=2.41e-03 | naive=2.41e-03 | 
+Float64 sx=200 sr=400 | ord=3 ord_guard=6 | real=1.03e-03 | fast=1.03e-03 | naive=1.03e-03 | 
+Float64 sx=200 sr=450 | ord=3 ord_guard=6 | real=1.00e-03 | fast=1.00e-03 | naive=1.00e-03 | 
+Float64 sx=200 sr=500 | ord=3 ord_guard=6 | real=1.55e-03 | fast=1.55e-03 | naive=1.55e-03 | 
+Float64 sx=200 sr=550 | off_rbig=9 | real=2.42e-03 | fast=Inf | naive=Inf | 
+Float64 sx=250 sr=-600 | off_runder=9 | real=8.01e-03 | fast=1.12e+13 | naive=1.12e+13 | 
+Float64 sx=250 sr=-550 | off_runder=9 | real=6.55e-03 | fast=1.17e+13 | naive=1.17e+13 | 
+Float64 sx=250 sr=-500 | off_rsmall=9 | real=2.60e-03 | fast=7.07e-04 | naive=7.07e-04 | 
+Float64 sx=250 sr=-450 | off_d=3 ord=3 ord_guard=3 | real=1.56e-03 | fast=1.56e-03 | naive=1.56e-03 | 
+Float64 sx=250 sr=-400 | ord=3 ord_guard=6 | real=2.55e-03 | fast=2.55e-03 | naive=2.55e-03 | 
+Float64 sx=250 sr=-350 | ord=3 ord_guard=6 | real=6.72e-04 | fast=6.72e-04 | naive=6.72e-04 | 
+Float64 sx=250 sr=-300 | ord=3 ord_guard=6 | real=1.73e-03 | fast=1.73e-03 | naive=1.73e-03 | 
+Float64 sx=250 sr=-250 | ord=3 ord_guard=6 | real=7.26e-04 | fast=7.26e-04 | naive=7.26e-04 | 
+Float64 sx=250 sr=-200 | ord=3 ord_guard=6 | real=8.82e-04 | fast=8.82e-04 | naive=8.82e-04 | 
+Float64 sx=250 sr=-150 | ord=3 ord_guard=6 | real=8.70e-04 | fast=8.70e-04 | naive=8.70e-04 | 
+Float64 sx=250 sr=-100 | ord=3 ord_guard=6 | real=1.29e-03 | fast=1.29e-03 | naive=1.29e-03 | 
+Float64 sx=250 sr=-50 | ord=3 ord_guard=6 | real=2.02e-03 | fast=2.02e-03 | naive=2.02e-03 | 
+Float64 sx=250 sr=0 | ord=3 ord_guard=6 | real=3.14e-03 | fast=3.14e-03 | naive=3.14e-03 | 
+Float64 sx=250 sr=50 | ord=3 ord_guard=6 | real=9.02e-03 | fast=9.02e-03 | naive=9.02e-03 | 
+Float64 sx=250 sr=100 | off_d=1 ord=3 ord_guard=5 | real=1.07e-03 | fast=3.60e-04 | naive=3.60e-04 | 
+Float64 sx=250 sr=150 | ord=3 ord_guard=6 | real=1.24e-03 | fast=1.24e-03 | naive=1.24e-03 | 
+Float64 sx=250 sr=200 | ord=3 ord_guard=6 | real=1.25e-03 | fast=1.25e-03 | naive=1.25e-03 | 
+Float64 sx=250 sr=250 | ord=3 ord_guard=6 | real=1.07e-02 | fast=1.07e-02 | naive=1.07e-02 | 
+Float64 sx=250 sr=300 | ord=3 ord_guard=6 | real=3.69e-03 | fast=3.69e-03 | naive=3.69e-03 | 
+Float64 sx=250 sr=350 | ord=3 ord_guard=6 | real=1.78e-03 | fast=1.78e-03 | naive=1.78e-03 | 
+Float64 sx=250 sr=400 | off_d=1 ord=3 ord_guard=5 | real=1.73e-03 | fast=1.73e-03 | naive=1.73e-03 | 
+Float64 sx=250 sr=450 | ord=3 ord_guard=6 | real=4.24e-04 | fast=4.24e-04 | naive=4.24e-04 | 
+Float64 sx=250 sr=500 | ord=3 ord_guard=6 | real=2.11e-04 | fast=2.11e-04 | naive=2.11e-04 | 
+Float64 sx=250 sr=550 | off_rbig=9 | real=8.02e-04 | fast=Inf | naive=Inf | 
+Float64 sx=300 sr=-600 | off_runder=9 | real=6.70e-03 | fast=3.35e+12 | naive=3.35e+12 | 
+Float64 sx=300 sr=-550 | off_runder=9 | real=1.93e-03 | fast=9.33e+12 | naive=9.33e+12 | 
+Float64 sx=300 sr=-500 | off_rsmall=9 | real=3.26e-03 | fast=4.25e-03 | naive=1.11e+13 | 
+Float64 sx=300 sr=-450 | band=6 off_d=3 | real=8.46e-03 | fast=8.46e-03 | naive=2.49e-01 | 
+Float64 sx=300 sr=-400 | band=3 ord=3 ord_guard=3 | real=8.18e-03 | fast=8.18e-03 | naive=8.18e-03 | 
+Float64 sx=300 sr=-350 | ord=3 ord_guard=6 | real=4.63e-04 | fast=4.63e-04 | naive=4.63e-04 | 
+Float64 sx=300 sr=-300 | ord=3 ord_guard=6 | real=1.71e-03 | fast=1.71e-03 | naive=1.71e-03 | 
+Float64 sx=300 sr=-250 | ord=3 ord_guard=6 | real=1.50e-03 | fast=1.50e-03 | naive=1.50e-03 | 
+Float64 sx=300 sr=-200 | off_d=1 ord=3 ord_guard=5 | real=5.37e-04 | fast=5.37e-04 | naive=5.37e-04 | 
+Float64 sx=300 sr=-150 | ord=3 ord_guard=6 | real=2.13e-04 | fast=2.13e-04 | naive=2.13e-04 | 
+Float64 sx=300 sr=-100 | ord=3 ord_guard=6 | real=1.22e-03 | fast=1.22e-03 | naive=1.22e-03 | 
+Float64 sx=300 sr=-50 | ord=3 ord_guard=6 | real=2.66e-04 | fast=2.66e-04 | naive=2.66e-04 | 
+Float64 sx=300 sr=0 | ord=3 ord_guard=6 | real=2.78e-03 | fast=2.78e-03 | naive=2.78e-03 | 
+Float64 sx=300 sr=50 | off_d=2 ord=3 ord_guard=4 | real=2.82e-03 | fast=2.82e-03 | naive=2.82e-03 | 
+Float64 sx=300 sr=100 | ord=3 ord_guard=6 | real=2.04e-03 | fast=2.04e-03 | naive=2.04e-03 | 
+Float64 sx=300 sr=150 | ord=3 ord_guard=6 | real=3.73e-03 | fast=3.73e-03 | naive=3.73e-03 | 
+Float64 sx=300 sr=200 | ord=3 ord_guard=6 | real=5.38e-04 | fast=5.38e-04 | naive=5.38e-04 | 
+Float64 sx=300 sr=250 | ord=3 ord_guard=6 | real=4.62e-05 | fast=4.62e-05 | naive=4.62e-05 | 
+Float64 sx=300 sr=300 | ord=3 ord_guard=6 | real=2.63e-03 | fast=2.63e-03 | naive=2.63e-03 | 
+Float64 sx=300 sr=350 | off_d=1 ord=3 ord_guard=5 | real=7.14e-03 | fast=2.26e-03 | naive=2.26e-03 | 
+Float64 sx=300 sr=400 | ord=3 ord_guard=6 | real=4.09e-04 | fast=4.09e-04 | naive=4.09e-04 | 
+Float64 sx=300 sr=450 | ord=3 ord_guard=6 | real=7.93e-05 | fast=7.93e-05 | naive=7.93e-05 | 
+Float64 sx=300 sr=500 | ord=3 ord_guard=6 | real=2.54e-05 | fast=2.54e-05 | naive=2.54e-05 | 
+Float64 sx=300 sr=550 | off_rbig=9 | real=2.31e-03 | fast=Inf | naive=Inf | 
+Float64 sx=350 sr=-600 | off_runder=9 | real=3.35e-03 | fast=1.10e+13 | naive=1.10e+13 | 
+Float64 sx=350 sr=-550 | off_runder=9 | real=4.62e-03 | fast=4.13e+12 | naive=4.13e+12 | 
+Float64 sx=350 sr=-500 | off_rsmall=9 | real=2.07e-03 | fast=3.28e-03 | naive=4.67e+12 | 
+Float64 sx=350 sr=-450 | band=6 off_d=3 | real=5.29e-03 | fast=5.29e-03 | naive=8.41e+12 | 
+Float64 sx=350 sr=-400 | band=9 | real=1.04e-03 | fast=1.04e-03 | naive=1.08e+13 | 
+Float64 sx=350 sr=-350 | band=9 | real=6.52e-03 | fast=6.52e-03 | naive=3.04e+00 | 
+Float64 sx=350 sr=-300 | band=3 ord=3 ord_guard=3 | real=1.88e-03 | fast=1.88e-03 | naive=1.88e-03 | 
+Float64 sx=350 sr=-250 | ord=3 ord_guard=6 | real=3.54e-03 | fast=3.54e-03 | naive=3.54e-03 | 
+Float64 sx=350 sr=-200 | ord=3 ord_guard=6 | real=7.32e-04 | fast=7.32e-04 | naive=7.32e-04 | 
+Float64 sx=350 sr=-150 | ord=3 ord_guard=6 | real=1.49e-03 | fast=1.49e-03 | naive=1.49e-03 | 
+Float64 sx=350 sr=-100 | ord=3 ord_guard=6 | real=4.69e-03 | fast=4.69e-03 | naive=4.69e-03 | 
+Float64 sx=350 sr=-50 | ord=3 ord_guard=6 | real=1.01e-02 | fast=1.01e-02 | naive=1.01e-02 | 
+Float64 sx=350 sr=0 | ord=3 ord_guard=6 | real=4.61e-03 | fast=4.61e-03 | naive=4.61e-03 | 
+Float64 sx=350 sr=50 | ord=3 ord_guard=6 | real=5.56e-03 | fast=5.56e-03 | naive=5.56e-03 | 
+Float64 sx=350 sr=100 | ord=3 ord_guard=6 | real=1.42e-04 | fast=1.42e-04 | naive=1.42e-04 | 
+Float64 sx=350 sr=150 | ord=3 ord_guard=6 | real=3.28e-03 | fast=3.28e-03 | naive=3.28e-03 | 
+Float64 sx=350 sr=200 | ord=3 ord_guard=6 | real=4.81e-03 | fast=4.81e-03 | naive=4.81e-03 | 
+Float64 sx=350 sr=250 | ord=3 ord_guard=6 | real=6.58e-03 | fast=6.58e-03 | naive=6.58e-03 | 
+Float64 sx=350 sr=300 | ord=3 ord_guard=6 | real=4.04e-04 | fast=4.04e-04 | naive=4.04e-04 | 
+Float64 sx=350 sr=350 | off_d=1 ord=3 ord_guard=5 | real=1.75e-04 | fast=1.75e-04 | naive=1.75e-04 | 
+Float64 sx=350 sr=400 | ord=3 ord_guard=6 | real=4.88e-04 | fast=4.88e-04 | naive=4.88e-04 | 
+Float64 sx=350 sr=450 | ord=3 ord_guard=6 | real=3.01e-03 | fast=3.01e-03 | naive=3.01e-03 | 
+Float64 sx=350 sr=500 | ord=3 ord_guard=6 | real=4.48e-03 | fast=4.48e-03 | naive=4.48e-03 | 
+Float64 sx=350 sr=550 | off_rbig=9 | real=1.88e-03 | fast=Inf | naive=Inf | 
+Float64 sx=400 sr=-600 | off_runder=9 | real=1.54e-03 | fast=1.23e+13 | naive=1.23e+13 | 
+Float64 sx=400 sr=-550 | off_runder=9 | real=2.44e-03 | fast=1.31e+13 | naive=1.31e+13 | 
+Float64 sx=400 sr=-500 | off_rsmall=9 | real=4.08e-04 | fast=4.33e-03 | naive=5.52e+12 | 
+Float64 sx=400 sr=-450 | band=6 off_d=3 | real=3.94e-03 | fast=3.94e-03 | naive=6.21e+12 | 
+Float64 sx=400 sr=-400 | band=9 | real=1.75e-03 | fast=1.75e-03 | naive=9.52e+12 | 
+Float64 sx=400 sr=-350 | band=9 | real=2.25e-03 | fast=2.25e-03 | naive=1.25e+13 | 
+Float64 sx=400 sr=-300 | band=9 | real=2.35e-03 | fast=2.35e-03 | naive=1.97e+12 | 
+Float64 sx=400 sr=-250 | band=7 off_d=2 | real=2.04e-03 | fast=7.78e-04 | naive=3.31e+01 | 
+Float64 sx=400 sr=-200 | band=2 off_d=1 ord=3 ord_guard=3 | real=1.62e-03 | fast=1.97e-03 | naive=1.97e-03 | 
+Float64 sx=400 sr=-150 | ord=3 ord_guard=6 | real=2.81e-03 | fast=2.81e-03 | naive=2.81e-03 | 
+Float64 sx=400 sr=-100 | ord=3 ord_guard=6 | real=9.19e-04 | fast=9.19e-04 | naive=9.19e-04 | 
+Float64 sx=400 sr=-50 | ord=3 ord_guard=6 | real=4.16e-03 | fast=4.16e-03 | naive=4.16e-03 | 
+Float64 sx=400 sr=0 | ord=3 ord_guard=6 | real=1.73e-04 | fast=1.73e-04 | naive=1.73e-04 | 
+Float64 sx=400 sr=50 | ord=3 ord_guard=6 | real=5.16e-04 | fast=5.16e-04 | naive=5.16e-04 | 
+Float64 sx=400 sr=100 | ord=3 ord_guard=6 | real=4.54e-03 | fast=4.54e-03 | naive=4.54e-03 | 
+Float64 sx=400 sr=150 | ord=3 ord_guard=6 | real=5.93e-03 | fast=5.93e-03 | naive=5.93e-03 | 
+Float64 sx=400 sr=200 | ord=3 ord_guard=6 | real=2.11e-04 | fast=2.11e-04 | naive=2.11e-04 | 
+Float64 sx=400 sr=250 | ord=3 ord_guard=6 | real=8.18e-05 | fast=8.18e-05 | naive=8.18e-05 | 
+Float64 sx=400 sr=300 | ord=3 ord_guard=6 | real=3.72e-03 | fast=3.72e-03 | naive=3.72e-03 | 
+Float64 sx=400 sr=350 | off_d=1 ord=4 ord_guard=4 | real=1.28e-03 | fast=1.28e-03 | naive=1.28e-03 | 
+Float64 sx=400 sr=400 | ord=3 ord_guard=6 | real=2.25e-03 | fast=2.25e-03 | naive=2.25e-03 | 
+Float64 sx=400 sr=450 | ord=3 ord_guard=6 | real=1.32e-03 | fast=1.32e-03 | naive=1.32e-03 | 
+Float64 sx=400 sr=500 | ord=3 ord_guard=6 | real=3.99e-03 | fast=3.99e-03 | naive=3.99e-03 | 
+Float64 sx=400 sr=550 | off_rbig=9 | real=5.04e-03 | fast=Inf | naive=Inf | 
+Float64 sx=450 sr=-600 | off_runder=9 | real=1.04e-01 | fast=5.05e+05 | naive=5.05e+05 | 
+Float64 sx=450 sr=-550 | off_runder=9 | real=6.33e-03 | fast=6.17e+12 | naive=6.17e+12 | 
+Float64 sx=450 sr=-500 | off_rsmall=9 | real=1.74e-03 | fast=1.05e-02 | naive=3.69e+12 | 
+Float64 sx=450 sr=-450 | band=6 off_d=3 | real=1.70e-03 | fast=1.70e-03 | naive=1.33e+13 | 
+Float64 sx=450 sr=-400 | band=9 | real=4.17e-04 | fast=4.17e-04 | naive=1.12e+13 | 
+Float64 sx=450 sr=-350 | band=9 | real=1.73e-04 | fast=1.73e-04 | naive=7.09e+12 | 
+Float64 sx=450 sr=-300 | band=9 | real=3.44e-04 | fast=3.44e-04 | naive=1.09e+13 | 
+Float64 sx=450 sr=-250 | band=9 | real=1.12e-03 | fast=1.12e-03 | naive=9.49e+12 | 
+Float64 sx=450 sr=-200 | band=9 | real=5.03e-03 | fast=5.03e-03 | naive=5.99e+12 | 
+Float64 sx=450 sr=-150 | band=9 | real=3.26e-03 | fast=3.26e-03 | naive=1.56e+02 | 
+Float64 sx=450 sr=-100 | band=2 off_d=1 ord=3 ord_guard=3 | real=5.70e-03 | fast=1.03e-03 | naive=1.03e-03 | 
+Float64 sx=450 sr=-50 | ord=3 ord_guard=6 | real=2.84e-03 | fast=2.84e-03 | naive=2.84e-03 | 
+Float64 sx=450 sr=0 | ord=3 ord_guard=6 | real=4.23e-03 | fast=4.23e-03 | naive=4.23e-03 | 
+Float64 sx=450 sr=50 | ord=3 ord_guard=6 | real=7.42e-04 | fast=7.42e-04 | naive=7.42e-04 | 
+Float64 sx=450 sr=100 | ord=3 ord_guard=6 | real=2.89e-03 | fast=2.89e-03 | naive=2.89e-03 | 
+Float64 sx=450 sr=150 | ord=3 ord_guard=6 | real=1.84e-03 | fast=1.84e-03 | naive=1.84e-03 | 
+Float64 sx=450 sr=200 | off_d=1 ord=4 ord_guard=4 | real=1.14e-03 | fast=1.14e-03 | naive=1.14e-03 | 
+Float64 sx=450 sr=250 | off_d=1 ord=3 ord_guard=5 | real=3.76e-03 | fast=3.76e-03 | naive=3.76e-03 | 
+Float64 sx=450 sr=300 | ord=3 ord_guard=6 | real=4.56e-04 | fast=4.56e-04 | naive=4.56e-04 | 
+Float64 sx=450 sr=350 | ord=3 ord_guard=6 | real=9.18e-05 | fast=9.18e-05 | naive=9.18e-05 | 
+Float64 sx=450 sr=400 | ord=3 ord_guard=6 | real=1.77e-03 | fast=1.77e-03 | naive=1.77e-03 | 
+Float64 sx=450 sr=450 | ord=3 ord_guard=6 | real=1.44e-03 | fast=1.44e-03 | naive=1.44e-03 | 
+Float64 sx=450 sr=500 | ord=3 ord_guard=6 | real=3.00e-03 | fast=3.00e-03 | naive=3.00e-03 | 
+Float64 sx=450 sr=550 | off_rbig=9 | real=5.79e-03 | fast=Inf | naive=Inf | 
+Float64 sx=500 sr=-600 | off_runder=9 | real=1.62e-09 | fast=1.62e-09 | naive=1.62e-09 | 
+Float64 sx=500 sr=-550 | off_runder=9 | real=5.63e-02 | fast=2.81e+05 | naive=2.81e+05 | 
+Float64 sx=500 sr=-500 | off_rsmall=9 | real=1.42e-03 | fast=6.36e-03 | naive=1.13e+13 | 
+Float64 sx=500 sr=-450 | band=6 off_d=3 | real=3.25e-03 | fast=3.25e-03 | naive=1.03e+13 | 
+Float64 sx=500 sr=-400 | band=9 | real=2.23e-03 | fast=2.23e-03 | naive=1.30e+13 | 
+Float64 sx=500 sr=-350 | band=8 off_d=1 | real=2.23e-03 | fast=2.23e-03 | naive=1.20e+13 | 
+Float64 sx=500 sr=-300 | band=9 | real=7.62e-04 | fast=7.62e-04 | naive=5.70e+12 | 
+Float64 sx=500 sr=-250 | band=9 | real=3.38e-03 | fast=3.38e-03 | naive=1.20e+13 | 
+Float64 sx=500 sr=-200 | band=9 | real=9.64e-04 | fast=9.64e-04 | naive=7.30e+12 | 
+Float64 sx=500 sr=-150 | band=9 | real=2.17e-03 | fast=2.17e-03 | naive=1.07e+13 | 
+Float64 sx=500 sr=-100 | band=9 | real=2.57e-03 | fast=2.57e-03 | naive=5.34e+12 | 
+Float64 sx=500 sr=-50 | band=9 | real=1.33e-03 | fast=1.33e-03 | naive=4.10e+00 | 
+Float64 sx=500 sr=0 | band=3 ord=3 ord_guard=3 | real=5.66e-04 | fast=5.66e-04 | naive=5.66e-04 | 
+Float64 sx=500 sr=50 | ord=3 ord_guard=6 | real=1.34e-03 | fast=1.34e-03 | naive=1.34e-03 | 
+Float64 sx=500 sr=100 | off_d=1 ord=3 ord_guard=5 | real=3.35e-03 | fast=3.35e-03 | naive=3.35e-03 | 
+Float64 sx=500 sr=150 | ord=3 ord_guard=6 | real=1.50e-03 | fast=1.50e-03 | naive=1.50e-03 | 
+Float64 sx=500 sr=200 | ord=3 ord_guard=6 | real=3.78e-03 | fast=3.78e-03 | naive=3.78e-03 | 
+Float64 sx=500 sr=250 | ord=3 ord_guard=6 | real=1.93e-03 | fast=1.93e-03 | naive=1.93e-03 | 
+Float64 sx=500 sr=300 | ord=3 ord_guard=6 | real=3.37e-03 | fast=3.37e-03 | naive=3.37e-03 | 
+Float64 sx=500 sr=350 | ord=3 ord_guard=6 | real=3.09e-03 | fast=3.09e-03 | naive=3.09e-03 | 
+Float64 sx=500 sr=400 | off_d=1 ord=3 ord_guard=5 | real=6.12e-05 | fast=6.12e-05 | naive=6.12e-05 | 
+Float64 sx=500 sr=450 | ord=3 ord_guard=6 | real=5.65e-03 | fast=5.65e-03 | naive=5.65e-03 | 
+Float64 sx=500 sr=500 | ord=3 ord_guard=6 | real=5.30e-03 | fast=5.30e-03 | naive=5.30e-03 | 
+Float64 sx=500 sr=550 | off_rbig=9 | real=1.45e-03 | fast=Inf | naive=Inf | 

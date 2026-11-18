@@ -1,0 +1,9 @@
+Julia 1.10.13 CPU goldmont
+Float32: checks=768 (columns refused as underflow/overflow: 6 of sequential sums); violations: seq=0, production(X3._singleton_curvature)=0, base-sum=0, simd=0
+    largest fraction of the margin 2n eps consumed by the underestimate (exact − a)/(a 2n eps): seq: 0.25 [one big + many small n=1048576]; base-sum: 0.242 [one big + many small n=33]; simd: 0.214 [one big + many small n=7]
+    min slack (ℓ/exact − 1): seq: 2.88e-7 [geometric growth n=1]; production(X3._singleton_curvature): 2.88e-7 [geometric growth n=1]; base-sum: 2.88e-7 [geometric growth n=1]; simd: 2.88e-7 [geometric growth n=1]
+Float64: checks=612 (columns refused as underflow/overflow: 9 of sequential sums); violations: seq=0, production(X3._singleton_curvature)=0, base-sum=0, simd=0
+    largest fraction of the margin 2n eps consumed by the underestimate (exact − a)/(a 2n eps): seq: 0.0833 [two big at both ends + smalls n=3]; base-sum: 0.0833 [two big at both ends + smalls n=3]; simd: 0.118 [randn n=3]
+    min slack (ℓ/exact − 1): seq: 5.3e-16 [wide range 2^[-30,30] n=1]; production(X3._singleton_curvature): 5.3e-16 [wide range 2^[-30,30] n=1]; base-sum: 5.3e-16 [wide range 2^[-30,30] n=1]; simd: 5.3e-16 [wide range 2^[-30,30] n=1]
+
+margin 2n eps(T) relative to the worst-case recursive bound γ_n ≈ n eps/2 is a factor ~4 (Float32 n=2^20: 2n eps = 0.25)

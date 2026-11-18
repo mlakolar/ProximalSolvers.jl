@@ -1,0 +1,61 @@
+== band of the lasso step (F32, S=F32, alpha=1): transitions of (outcome, took _outside_band) as the curvature a = 2^e grows
+a=2^-300 -> ok band_exit=false
+a=2^-298 -> refused band_exit=false
+a=2^-148 -> ok band_exit=true
+a=2^-126 -> ok band_exit=false
+a=2^128 -> refused band_exit=true
+== band of the lasso step (F64, S=F64, alpha=1): transitions of (outcome, took _outside_band) as the curvature a = 2^e grows
+a=2^-2200 -> ok band_exit=false
+a=2^-2148 -> refused band_exit=false
+a=2^-1074 -> ok band_exit=true
+a=2^-1022 -> ok band_exit=false
+a=2^1024 -> refused band_exit=true
+== lasso step band vs loss scale alpha=2^l, a=1 (F32 data, F32 alpha)
+alpha=2^-200 -> ok band_exit=true
+alpha=2^-126 -> ok band_exit=false
+alpha=2^127 -> ok band_exit=true
+== lasso step band vs loss scale alpha=2^l, a=1 (F32 data, F64 alpha)
+alpha=2^-1200 -> refused band_exit=true
+alpha=2^-1022 -> ok band_exit=false
+alpha=2^1023 -> refused band_exit=true
+== lasso step band vs loss scale alpha=2^l, a=1 (F64)
+alpha=2^-1200 -> ok band_exit=true
+alpha=2^-1022 -> ok band_exit=false
+alpha=2^1023 -> ok band_exit=true
+== response_scale branch (y = 2^ey on 4 entries, alpha = 2^l) F32/F32: area map (rows ey step, cols l step) summarized by transitions along l at ey=0 and ey=-40/40
+  ey=0: l=-130 -> ("exc", :ok)
+  ey=0: l=-128 -> ("t1", :ok)
+  ey=0: l=126 -> ("exc", :ok)
+  ey=0: l=128 -> ("exc", :err)
+  ey=-40: l=-130 -> ("exc", :ok)
+  ey=-40: l=-48 -> ("t1", :ok)
+  ey=-40: l=128 -> ("exc", :err)
+  ey=40: l=-130 -> ("t1", :ok)
+  ey=40: l=46 -> ("exc", :ok)
+  ey=40: l=128 -> ("exc", :err)
+== response_scale branch (y = 2^ey on 4 entries, alpha = 2^l) F32 data/F64 alpha: area map (rows ey step, cols l step) summarized by transitions along l at ey=0 and ey=-40/40
+  ey=0: l=-300 -> ("exc", :refused)
+  ey=0: l=-254 -> ("t2", :ok)
+  ey=0: l=-128 -> ("t1", :ok)
+  ey=0: l=126 -> ("t2", :ok)
+  ey=0: l=254 -> ("exc", :refused)
+  ey=-40: l=-300 -> ("exc", :refused)
+  ey=-40: l=-174 -> ("t2", :ok)
+  ey=-40: l=-48 -> ("t1", :ok)
+  ey=-40: l=206 -> ("t2", :ok)
+  ey=40: l=-300 -> ("t2", :ok)
+  ey=40: l=-208 -> ("t1", :ok)
+  ey=40: l=46 -> ("t2", :ok)
+  ey=40: l=174 -> ("exc", :refused)
+== response_scale branch (y = 2^ey on 4 entries, alpha = 2^l) F64/F64: area map (rows ey step, cols l step) summarized by transitions along l at ey=0 and ey=-40/40
+  ey=0: l=-1100 -> ("exc", :ok)
+  ey=0: l=-1024 -> ("t1", :ok)
+  ey=0: l=1022 -> ("exc", :ok)
+  ey=0: l=1024 -> ("exc", :err)
+  ey=-400: l=-1100 -> ("exc", :ok)
+  ey=-400: l=-224 -> ("t1", :ok)
+  ey=-400: l=1024 -> ("exc", :err)
+  ey=400: l=-1100 -> ("exc", :ok)
+  ey=400: l=-1074 -> ("t1", :ok)
+  ey=400: l=222 -> ("exc", :ok)
+  ey=400: l=1024 -> ("exc", :err)

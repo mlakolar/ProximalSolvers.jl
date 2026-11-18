@@ -1,0 +1,26 @@
+### Julia lts
+Float32 data / Float32 scale: 6000 cases; refusal-disagreement with reference: new 0, new64 0; bit-different from current: new 2220, new64 2223
+   max error (ulps of T): current 5.81  new 5.81  new64 0.49   worst new at (n,ey,l)=(1000, 26, -35)
+Float32 data / Float64 scale: 6000 cases; refusal-disagreement with reference: new 0, new64 0; bit-different from current: new 2109, new64 2598
+   max error (ulps of T): current 6.05  new 6.05  new64 0.49   worst new at (n,ey,l)=(1000, 24, -69)
+Float64 data / Float64 scale: 6000 cases; refusal-disagreement with reference: new 0, new64 0; bit-different from current: new 2187, new64 2187
+   max error (ulps of T): current 7.46  new 8.72  new64 8.72   worst new at (n,ey,l)=(1000, 430, 636)
+Float32 n=20: current 9 ns, new (T-sum) 15 ns, new64 17 ns, exceptional-only 62 ns
+Float32 n=100: current 34 ns, new (T-sum) 42 ns, new64 46 ns, exceptional-only 249 ns
+Float32 n=1000: current 383 ns, new (T-sum) 396 ns, new64 396 ns, exceptional-only 1205 ns
+Float64 n=20: current 6 ns, new (T-sum) 14 ns, new64 17 ns, exceptional-only 62 ns
+Float64 n=100: current 28 ns, new (T-sum) 40 ns, new64 39 ns, exceptional-only 239 ns
+Float64 n=1000: current 386 ns, new (T-sum) 395 ns, new64 393 ns, exceptional-only 1203 ns
+### Julia release
+Float32 data / Float32 scale: 6000 cases; refusal-disagreement with reference: new 0, new64 0; bit-different from current: new 2228, new64 2209
+   max error (ulps of T): current 6.10  new 6.10  new64 0.49   worst new at (n,ey,l)=(1000, -20, -84)
+Float32 data / Float64 scale: 6000 cases; refusal-disagreement with reference: new 0, new64 0; bit-different from current: new 2109, new64 2553
+   max error (ulps of T): current 6.05  new 6.05  new64 0.49   worst new at (n,ey,l)=(1000, 24, -69)
+Float64 data / Float64 scale: 6000 cases; refusal-disagreement with reference: new 0, new64 0; bit-different from current: new 2200, new64 2200
+   max error (ulps of T): current 7.46  new 8.72  new64 8.72   worst new at (n,ey,l)=(1000, 430, 636)
+Float32 n=20: current 5 ns, new (T-sum) 12 ns, new64 15 ns, exceptional-only 40 ns
+Float32 n=100: current 27 ns, new (T-sum) 36 ns, new64 41 ns, exceptional-only 84 ns
+Float32 n=1000: current 368 ns, new (T-sum) 385 ns, new64 392 ns, exceptional-only 546 ns
+Float64 n=20: current 5 ns, new (T-sum) 14 ns, new64 15 ns, exceptional-only 39 ns
+Float64 n=100: current 28 ns, new (T-sum) 37 ns, new64 38 ns, exceptional-only 88 ns
+Float64 n=1000: current 366 ns, new (T-sum) 400 ns, new64 391 ns, exceptional-only 656 ns

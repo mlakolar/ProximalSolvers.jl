@@ -1,0 +1,9 @@
+== B1
+  F32 X = 1e-17 * N(0,1) (femto-units design), y ~ N(0,1), n=100 p=10            THROWS: ArgumentError: the coordinate step of coordinate 1 is outside the supported range of Float32 (the co
+  F32 raw counts: X ~ 1e10 columns (norm ~1e11), y ~ 1e10                        ok conv=true gap=1.0e-07 passes=9 obj=1.096466e+11
+  F32 y = 1.6e-19 * N(0,1) (charge in coulombs), X standardized, n=200 p=20      THROWS: ArgumentError: the coordinate step of coordinate 1 is outside the supported range of Float32 (the co
+  F32 y = 1e-12 * N(0,1) (pico-units), n=100 p=10                                ok conv=true gap=9.2e-08 passes=4 obj=2.136707e-11
+  F32 y = 1e-21 * N(0,1) (energies in joules), n=100 p=10                        THROWS: ArgumentError: the coordinate step of coordinate 1 is outside the supported range of Float32 (the co
+  F64 y = 1e-12 * N(0,1) (ordinary small scale)                                  ok conv=true gap=1.1e-13 passes=3 obj=2.045441e-11
+  F64 y = 1e-200 * N(0,1), n=100 p=10                                            THROWS: ArgumentError: the coordinate step of coordinate 1 is outside the supported range of Float64 (the co
+  F64 y = 1e200 * N(0,1), n=100 p=10                                             THROWS: ArgumentError: the coordinate step of coordinate 1 is outside the supported range of Float64 (the co

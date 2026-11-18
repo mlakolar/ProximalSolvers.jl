@@ -1,0 +1,92 @@
+# E10 A vs B1
+Float32: grid cells=2070; A succeeds=1133; B1 refuses where A succeeds=646; both succeed=487, of which differ=0
+   sx=-75 lost sy = -125..50 (36 cells)
+   sx=-70 lost sy = -125..55 (37 cells)
+   sx=-65 lost sy = -125..60 (38 cells)
+   sx=-60 lost sy = -125..65 (39 cells)
+   sx=-55 lost sy = -125..70 (40 cells)
+   sx=-50 lost sy = -125..75 (24 cells)
+   sx=-45 lost sy = -125..75 (22 cells)
+   sx=-40 lost sy = -125..75 (20 cells)
+   sx=-35 lost sy = -125..75 (18 cells)
+   sx=-30 lost sy = -125..75 (18 cells)
+   sx=-25 lost sy = -125..75 (18 cells)
+   sx=-20 lost sy = -125..75 (18 cells)
+   sx=-15 lost sy = -125..75 (18 cells)
+   sx=-10 lost sy = -125..75 (18 cells)
+   sx=-5 lost sy = -125..75 (18 cells)
+   sx=0 lost sy = -125..75 (18 cells)
+   sx=5 lost sy = -125..75 (18 cells)
+   sx=10 lost sy = -125..75 (18 cells)
+   sx=15 lost sy = -125..75 (18 cells)
+   sx=20 lost sy = -125..75 (18 cells)
+   sx=25 lost sy = -125..75 (18 cells)
+   sx=30 lost sy = -125..75 (18 cells)
+   sx=35 lost sy = -125..75 (18 cells)
+   sx=40 lost sy = -125..75 (20 cells)
+   sx=45 lost sy = -125..75 (22 cells)
+   sx=50 lost sy = -125..75 (24 cells)
+   sx=55 lost sy = -125..75 (26 cells)
+   sx=60 lost sy = -125..75 (28 cells)
+   family (20, 10, 0.5, :random): A ok=true conv=true  | B ok=true conv=true 
+   family (20, 10, 0.1, :random): A ok=true conv=true  | B ok=true conv=true 
+   family (20, 10, 0.02, :random): A ok=true conv=true  | B ok=true conv=true 
+   family (100, 60, 0.5, :random): A ok=true conv=true  | B ok=true conv=true 
+   family (100, 60, 0.1, :random): A ok=true conv=true  | B ok=true conv=true 
+   family (100, 60, 0.02, :random): A ok=true conv=true  | B ok=true conv=true 
+   family (400, 40, 0.5, :random): A ok=true conv=true  | B ok=true conv=true 
+   family (400, 40, 0.1, :random): A ok=true conv=true  | B ok=true conv=true 
+   family (400, 40, 0.02, :random): A ok=true conv=true  | B ok=true conv=true 
+   family (30, 120, 0.5, :random): A ok=true conv=true  | B ok=true conv=true 
+   family (30, 120, 0.1, :random): A ok=true conv=false  | B ok=true conv=false 
+   family (30, 120, 0.02, :random): A ok=true conv=false  | B ok=true conv=false 
+Float32: ordinary families (30) with a different outcome under B1: 12
+Float64: grid cells=4900; A succeeds=2227; B1 refuses where A succeeds=1258; both succeed=969, of which differ=0
+   sx=-530 lost sy = -1010..490 (51 cells)
+   sx=-500 lost sy = -1010..520 (52 cells)
+   sx=-470 lost sy = -1010..550 (34 cells)
+   sx=-440 lost sy = -1010..580 (33 cells)
+   sx=-410 lost sy = -1010..610 (32 cells)
+   sx=-380 lost sy = -1010..640 (31 cells)
+   sx=-350 lost sy = -1010..670 (30 cells)
+   sx=-320 lost sy = -1010..700 (29 cells)
+   sx=-290 lost sy = -1010..730 (28 cells)
+   sx=-260 lost sy = -1010..760 (27 cells)
+   sx=-230 lost sy = -1010..790 (28 cells)
+   sx=-200 lost sy = -1010..820 (29 cells)
+   sx=-170 lost sy = -1010..850 (30 cells)
+   sx=-140 lost sy = -1010..880 (31 cells)
+   sx=-110 lost sy = -1010..910 (32 cells)
+   sx=-80 lost sy = -1010..940 (33 cells)
+   sx=-50 lost sy = -1010..970 (34 cells)
+   sx=-20 lost sy = -1010..1000 (35 cells)
+   sx=10 lost sy = -1010..1000 (35 cells)
+   sx=40 lost sy = -1010..1000 (35 cells)
+   sx=70 lost sy = -1010..1000 (35 cells)
+   sx=100 lost sy = -1010..1000 (35 cells)
+   sx=130 lost sy = -1010..1000 (35 cells)
+   sx=160 lost sy = -1010..1000 (35 cells)
+   sx=190 lost sy = -1010..1000 (35 cells)
+   sx=220 lost sy = -1010..1000 (35 cells)
+   sx=250 lost sy = -1010..1000 (35 cells)
+   sx=280 lost sy = -1010..1000 (36 cells)
+   sx=310 lost sy = -1010..1000 (38 cells)
+   sx=340 lost sy = -1010..1000 (40 cells)
+   sx=370 lost sy = -1010..1000 (42 cells)
+   sx=400 lost sy = -1010..1000 (44 cells)
+   sx=430 lost sy = -1010..1000 (46 cells)
+   sx=460 lost sy = -1010..1000 (48 cells)
+   sx=490 lost sy = -1010..1000 (50 cells)
+   family (20, 10, 0.5, :random): A ok=true conv=true  | B ok=true conv=true 
+   family (20, 10, 0.1, :random): A ok=true conv=true  | B ok=true conv=true 
+   family (20, 10, 0.02, :random): A ok=true conv=true  | B ok=true conv=true 
+   family (100, 60, 0.5, :random): A ok=true conv=true  | B ok=true conv=true 
+   family (100, 60, 0.1, :random): A ok=true conv=true  | B ok=true conv=true 
+   family (100, 60, 0.02, :random): A ok=true conv=true  | B ok=true conv=true 
+   family (400, 40, 0.5, :random): A ok=true conv=true  | B ok=true conv=true 
+   family (400, 40, 0.1, :random): A ok=true conv=true  | B ok=true conv=true 
+   family (400, 40, 0.02, :random): A ok=true conv=true  | B ok=true conv=true 
+   family (30, 120, 0.5, :random): A ok=true conv=false  | B ok=true conv=false 
+   family (30, 120, 0.1, :random): A ok=true conv=false  | B ok=true conv=false 
+   family (30, 120, 0.02, :random): A ok=true conv=false  | B ok=true conv=false 
+Float64: ordinary families (30) with a different outcome under B1: 12

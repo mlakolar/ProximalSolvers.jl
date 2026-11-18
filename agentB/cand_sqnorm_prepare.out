@@ -1,0 +1,14 @@
+### lts
+Float32 n=100 p=200 singletons: _prepare! old 0.007 ms, new 0.003 ms, old again 0.007 ms (new/old 0.470);  ℓ differs in 157/200 groups, max relative change 5.93e-07
+Float32 n=1000 p=1000 singletons: _prepare! old 0.391 ms, new 0.066 ms, old again 0.401 ms (new/old 0.169);  ℓ differs in 930/1000 groups, max relative change 1.43e-06
+Float32 n=10000 p=200 singletons: _prepare! old 1.546 ms, new 0.127 ms, old again 0.785 ms (new/old 0.162);  ℓ differs in 193/200 groups, max relative change 3.40e-06
+Float64 n=100 p=200 singletons: _prepare! old 0.007 ms, new 0.004 ms, old again 0.009 ms (new/old 0.581);  ℓ differs in 163/200 groups, max relative change 8.67e-16
+Float64 n=1000 p=1000 singletons: _prepare! old 0.397 ms, new 0.128 ms, old again 0.393 ms (new/old 0.326);  ℓ differs in 929/1000 groups, max relative change 2.44e-15
+Float64 n=10000 p=200 singletons: _prepare! old 0.833 ms, new 0.276 ms, old again 0.837 ms (new/old 0.331);  ℓ differs in 198/200 groups, max relative change 9.45e-15
+### release
+Float32 n=100 p=200 singletons: _prepare! old 0.007 ms, new 0.003 ms, old again 0.007 ms (new/old 0.437);  ℓ differs in 150/200 groups, max relative change 4.87e-07
+Float32 n=1000 p=1000 singletons: _prepare! old 0.375 ms, new 0.065 ms, old again 0.376 ms (new/old 0.174);  ℓ differs in 926/1000 groups, max relative change 1.49e-06
+Float32 n=10000 p=200 singletons: _prepare! old 0.782 ms, new 0.126 ms, old again 0.782 ms (new/old 0.161);  ℓ differs in 194/200 groups, max relative change 3.59e-06
+Float64 n=100 p=200 singletons: _prepare! old 0.007 ms, new 0.004 ms, old again 0.007 ms (new/old 0.546);  ℓ differs in 163/200 groups, max relative change 8.67e-16
+Float64 n=1000 p=1000 singletons: _prepare! old 0.377 ms, new 0.125 ms, old again 0.376 ms (new/old 0.333);  ℓ differs in 927/1000 groups, max relative change 2.42e-15
+Float64 n=10000 p=200 singletons: _prepare! old 0.879 ms, new 0.283 ms, old again 0.820 ms (new/old 0.345);  ℓ differs in 195/200 groups, max relative change 9.23e-15

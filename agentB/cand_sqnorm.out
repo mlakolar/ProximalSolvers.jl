@@ -1,0 +1,22 @@
+### lts
+Float32 column_dot_simd      cases  2494  margin violated 0  max |a-exact|/exact = 58.6 eps
+Float32 sqnorm_inorder       cases  2494  margin violated 0  max |a-exact|/exact = 64.4 eps
+Float32 sum_abs2_view        cases  2494  margin violated 0  max |a-exact|/exact = 58.6 eps
+Float64 column_dot_simd      cases  2332  margin violated 0  max |a-exact|/exact = 9.7 eps
+Float64 sqnorm_inorder       cases  2332  margin violated 0  max |a-exact|/exact = 92.2 eps
+Float64 sum_abs2_view        cases  2332  margin violated 0  max |a-exact|/exact = 2.7 eps
+Float32 flat? Bool[1, 1, 0, 0] vs Bool[1, 1, 0, 0]
+   @allocated _flat_column 0, all(iszero, view) 0
+Float64 flat? Bool[1, 1, 0, 0] vs Bool[1, 1, 0, 0]
+   @allocated _flat_column 0, all(iszero, view) 0
+### release
+Float32 column_dot_simd      cases  2490  margin violated 0  max |a-exact|/exact = 82.2 eps
+Float32 sqnorm_inorder       cases  2490  margin violated 0  max |a-exact|/exact = 82.2 eps
+Float32 sum_abs2_view        cases  2490  margin violated 0  max |a-exact|/exact = 82.2 eps
+Float64 column_dot_simd      cases  2389  margin violated 0  max |a-exact|/exact = 5.5 eps
+Float64 sqnorm_inorder       cases  2389  margin violated 0  max |a-exact|/exact = 82.3 eps
+Float64 sum_abs2_view        cases  2389  margin violated 0  max |a-exact|/exact = 2.3 eps
+Float32 flat? Bool[1, 1, 0, 0] vs Bool[1, 1, 0, 0]
+   @allocated _flat_column 0, all(iszero, view) 0
+Float64 flat? Bool[1, 1, 0, 0] vs Bool[1, 1, 0, 0]
+   @allocated _flat_column 0, all(iszero, view) 0

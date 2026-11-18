@@ -1,0 +1,10 @@
+Julia 1.10.13 CPU goldmont
+
+(1) floor64: relative error vs BigFloat (units of eps(Float64)) and bit differences, BASE _scaled_norm vs X3 _se_norm
+  Float32: cases=5997  floor64 bits differ in 2765; max rel err (eps64): BASE 618.9  X3 20.2; mean: BASE 6.27 X3 0.37 (excluded because floor64 underflows: 0)
+  Float64: cases=6000  floor64 bits differ in 2570; max rel err (eps64): BASE 335.3  X3 37.6; mean: BASE 1.44 X3 0.32 (excluded because floor64 underflows: 411)
+  worst |floor64_X3 - floor64_BASE| / floor64 on randn y, n up to 1e5: 232.1 eps(Float64)
+
+(2) _sqrt_offrange_step: BASE vs X3 against the BigFloat step formula (centre c = old + b/a, τ = (λ/√a) d /√(a − λ²), d = ‖r − (b/a) x‖)
+  Float32: cases=12000 (errors/refusals skipped: 0); results differ in 0 (0.0%); max error vs BigFloat (eps(T) of max(|step|,|old|)): BASE 50.799, X3 50.799; X3 farther in 0, BASE farther in 0
+  Float64: cases=12000 (errors/refusals skipped: 0); results differ in 12 (0.1%); max error vs BigFloat (eps(T) of max(|step|,|old|)): BASE 285.456, X3 285.456; X3 farther in 6, BASE farther in 6

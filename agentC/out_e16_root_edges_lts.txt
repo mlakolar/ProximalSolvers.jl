@@ -1,0 +1,4 @@
+E16 _root_scale: BigFloat route vs Float64 route on every scale type that _check_loss_scale accepts; edge cases. julia 1.10.13
+  _root_scale vs single Float64 route: mismatches 0 of 6298 accepted scales
+  Float32: _se_norm_diff overflowing difference -> nothing; NaN -> nothing; Inf -> nothing; _se_norm(floatmax,floatmax) exponent: 128 (finite as SE)
+  Float64: _se_norm_diff overflowing difference -> nothing; NaN -> nothing; Inf -> nothing; _se_norm(floatmax,floatmax) exponent: 1024 (finite as SE)

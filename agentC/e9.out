@@ -1,0 +1,14 @@
+E9 cost/alloc of the certification, julia 1.10.13
+  Float32  n=   200 p=  50  accept=(true, false)  cert(cheap, incl. sumsq2)=   0.39 us   fresh_only=    1.61 us   one X*x=    1.53 us   alloc(cheap)=336 B
+  Float32  n=  2000 p= 500  accept=(true, false)  cert(cheap, incl. sumsq2)=   0.47 us   fresh_only=  140.53 us   one X*x=  140.38 us   alloc(cheap)=336 B
+  Float32  n= 20000 p= 100  accept=(true, false)  cert(cheap, incl. sumsq2)=   1.16 us   fresh_only=  285.33 us   one X*x=  284.27 us   alloc(cheap)=336 B
+  Float64  n=   200 p=  50  accept=(true, false)  cert(cheap, incl. sumsq2)=   0.48 us   fresh_only=    0.92 us   one X*x=    0.82 us   alloc(cheap)=336 B
+  Float64  n=  2000 p= 500  accept=(true, false)  cert(cheap, incl. sumsq2)=   0.61 us   fresh_only=  137.07 us   one X*x=  135.72 us   alloc(cheap)=336 B
+  Float64  n= 20000 p= 100  accept=(true, false)  cert(cheap, incl. sumsq2)=   2.01 us   fresh_only=  327.82 us   one X*x=  359.75 us   alloc(cheap)=336 B
+E9 cost/alloc of the certification, julia 1.13.4
+  Float32  n=   200 p=  50  accept=(true, false)  cert(cheap, incl. sumsq2)=   0.23 us   fresh_only=    0.26 us   one X*x=    0.20 us   alloc(cheap)=96 B
+  Float32  n=  2000 p= 500  accept=(true, false)  cert(cheap, incl. sumsq2)=   0.30 us   fresh_only=   65.89 us   one X*x=   66.03 us   alloc(cheap)=96 B
+  Float32  n= 20000 p= 100  accept=(true, false)  cert(cheap, incl. sumsq2)=   1.01 us   fresh_only=  133.45 us   one X*x=  133.01 us   alloc(cheap)=96 B
+  Float64  n=   200 p=  50  accept=(true, false)  cert(cheap, incl. sumsq2)=   0.24 us   fresh_only=    0.56 us   one X*x=    0.49 us   alloc(cheap)=96 B
+  Float64  n=  2000 p= 500  accept=(true, false)  cert(cheap, incl. sumsq2)=   0.40 us   fresh_only=  135.43 us   one X*x=  135.48 us   alloc(cheap)=96 B
+  Float64  n= 20000 p= 100  accept=(true, false)  cert(cheap, incl. sumsq2)=   1.80 us   fresh_only=  315.75 us   one X*x=  318.03 us   alloc(cheap)=96 B

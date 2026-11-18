@@ -1,0 +1,18 @@
+### lts
+Float64: X entries 2^-500, y entries 2^-700, α = 2^300, λ = 2.96e-272: a = 1.87e-301 (normal: true), α a normal: true, exact x* = 5.445e-61, returned x = 0, converged = true, passes = 1
+   rᵀX_k as computed in T = 0.0 ; exact 0 (min subnormal 4.94e-324)
+Float64: X entries 2^-500, y entries 2^-300, α = 2^300, λ = 7.64e-152: a = 1.87e-301 (normal: true), α a normal: true, exact x* = 1.406e+60, returned x = 1.406e+60, converged = true, passes = 3
+   rᵀX_k as computed in T = 2.999393627791262e-241 ; exact 3e-241 (min subnormal 4.94e-324)
+Float32: X entries 2^-70, y entries 2^-90, α = 2^90, λ = 2.12e-22: a = 1.43e-42 (normal: false), α a normal: true, exact x* = 8.345e-07, returned x = 0, converged = true, passes = 1
+   rᵀX_k as computed in T = 0.0 ; exact 1.37e-48 (min subnormal 1.4e-45)
+Float32: X entries 2^-40, y entries 2^-50, α = 2^60, λ = 2.33e-10: a = 1.65e-24 (normal: true), α a normal: true, exact x* = 0.0008545, returned x = 0.0008545, converged = true, passes = 3
+   rᵀX_k as computed in T = 1.6155871e-27 ; exact 1.62e-27 (min subnormal 1.4e-45)
+### release
+Float64: X entries 2^-500, y entries 2^-700, α = 2^300, λ = 2.96e-272: a = 1.87e-301 (normal: true), α a normal: true, exact x* = 5.445e-61, returned x = 0, converged = true, passes = 1
+   rᵀX_k as computed in T = 0.0 ; exact 0 (min subnormal 4.94e-324)
+Float64: X entries 2^-500, y entries 2^-300, α = 2^300, λ = 7.64e-152: a = 1.87e-301 (normal: true), α a normal: true, exact x* = 1.406e+60, returned x = 1.406e+60, converged = true, passes = 3
+   rᵀX_k as computed in T = 2.999393627791262e-241 ; exact 3e-241 (min subnormal 4.94e-324)
+Float32: X entries 2^-70, y entries 2^-90, α = 2^90, λ = 2.12e-22: a = 1.43e-42 (normal: false), α a normal: true, exact x* = 8.345e-07, returned x = 0, converged = true, passes = 1
+   rᵀX_k as computed in T = 0.0 ; exact 1.37e-48 (min subnormal 1.4e-45)
+Float32: X entries 2^-40, y entries 2^-50, α = 2^60, λ = 2.33e-10: a = 1.65e-24 (normal: true), α a normal: true, exact x* = 0.0008545, returned x = 0.0008545, converged = true, passes = 3
+   rᵀX_k as computed in T = 1.6155871e-27 ; exact 1.62e-27 (min subnormal 1.4e-45)

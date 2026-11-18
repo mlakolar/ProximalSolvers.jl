@@ -1,0 +1,11 @@
+Julia 1.13.4 CPU: raptorlake
+Float32 _certify!           (fma instr, total vfm*, lines): (12, 12, 2800)
+Float32 _column_dot_rsqr    : (24, 24, 330)
+Float32 _distance_sqr       : (6, 6, 166)
+Float32 _sqrt_offrange_step : (0, 0, 1316)
+Float32 _residual_axpy!     : (0, 0, 163)
+Float64 _certify!           (fma instr, total vfm*, lines): (12, 12, 2793)
+Float64 _column_dot_rsqr    : (21, 21, 269)
+Float64 _distance_sqr       : (6, 6, 169)
+Float64 _sqrt_offrange_step : (0, 0, 1325)
+Float64 _residual_axpy!     : (0, 0, 163)

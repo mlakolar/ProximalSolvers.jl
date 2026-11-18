@@ -1,0 +1,18 @@
+E9b allocations of the certified step, no captured variables, julia 1.10.13
+  Float32  cheap accept   result=(true, false)  allocated=16 B
+  Float32  cheap reject   result=(false, false)  allocated=16 B
+  Float32  fresh product  result=(true, true)  allocated=16 B
+  Float32  _image_error_bound+2 se_norm: 320 B ; _bound_constants (setup): 336 B
+  Float64  cheap accept   result=(true, false)  allocated=16 B
+  Float64  cheap reject   result=(false, false)  allocated=16 B
+  Float64  fresh product  result=(true, true)  allocated=16 B
+  Float64  _image_error_bound+2 se_norm: 320 B ; _bound_constants (setup): 336 B
+E9b allocations of the certified step, no captured variables, julia 1.13.4
+  Float32  cheap accept   result=(true, false)  allocated=0 B
+  Float32  cheap reject   result=(false, false)  allocated=0 B
+  Float32  fresh product  result=(true, true)  allocated=0 B
+  Float32  _image_error_bound+2 se_norm: 0 B ; _bound_constants (setup): 0 B
+  Float64  cheap accept   result=(true, false)  allocated=0 B
+  Float64  cheap reject   result=(false, false)  allocated=0 B
+  Float64  fresh product  result=(true, true)  allocated=0 B
+  Float64  _image_error_bound+2 se_norm: 0 B ; _bound_constants (setup): 0 B

@@ -1,0 +1,9 @@
+line 359 old=0.0 base: ok z=-6.273827609104714e37 | ‖X_k‖=7.112827998352248e-160 a=5.05923e-319 (n floatmin/eps = 4.008336720017946e-292, a clean: false) ρ²=8.998180883373786e-241 (clean: true) ‖r‖=9.485874173408471e-121 info=unclean
+line 359 old=0.0 x1a: THROWS | ‖X_k‖=7.112827998352248e-160 a=5.05923e-319 (n floatmin/eps = 4.008336720017946e-292, a clean: false) ρ²=8.998180883373786e-241 (clean: true) ‖r‖=9.485874173408471e-121 info=unclean
+line 359 old=0.0 x1b: THROWS | ‖X_k‖=7.112827998352248e-160 a=5.05923e-319 (n floatmin/eps = 4.008336720017946e-292, a clean: false) ρ²=8.998180883373786e-241 (clean: true) ‖r‖=9.485874173408471e-121 info=unclean
+line 359 old=3.402823669209385e38 base: ok z=-6.273827609104714e37 | ‖X_k‖=7.112827998352248e-160 a=5.05923e-319 (n floatmin/eps = 4.008336720017946e-292, a clean: false) ρ²=1.070877256172349e-240 (clean: true) ‖r‖=1.0348319941770011e-120 info=unclean
+line 359 old=3.402823669209385e38 x1a: THROWS | ‖X_k‖=7.112827998352248e-160 a=5.05923e-319 (n floatmin/eps = 4.008336720017946e-292, a clean: false) ρ²=1.070877256172349e-240 (clean: true) ‖r‖=1.0348319941770011e-120 info=unclean
+line 359 old=3.402823669209385e38 x1b: THROWS | ‖X_k‖=7.112827998352248e-160 a=5.05923e-319 (n floatmin/eps = 4.008336720017946e-292, a clean: false) ρ²=1.070877256172349e-240 (clean: true) ‖r‖=1.0348319941770011e-120 info=unclean
+line 363 base: ok z=-1.9397e-320 | a=6.25 ρ²=0.0 (computed, underflows to 0: true) ‖r‖=1.9828e-319 info=unclean
+line 363 x1a: THROWS | a=6.25 ρ²=0.0 (computed, underflows to 0: true) ‖r‖=1.9828e-319 info=unclean
+line 363 x1b: THROWS | a=6.25 ρ²=0.0 (computed, underflows to 0: true) ‖r‖=1.9828e-319 info=unclean

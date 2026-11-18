@@ -1,0 +1,198 @@
+diff --git a/src/cd/sqrtlasso.jl b/src/cd/sqrtlasso.jl
+index 595060b..09756bc 100644
+--- a/src/cd/sqrtlasso.jl
++++ b/src/cd/sqrtlasso.jl
+@@ -54,8 +54,8 @@ function _prepare!(m::SqrtLSModel{T}, g::NormL1, x::SparseIterate{T}) where T
+     m.res64 = Vector{Float64}(undef, n)
+     m.rowmag64 = Vector{Float64}(undef, n)
+   end
+-  ny, ey = _scaled_norm(m.ls.y, n)
+-  m.floor64 = 16eps(T)*ldexp(ny, ey)
++  ny = _se_norm(Float64, m.ls.y)        # y is finite (`solve!` checks it), so this is not `nothing`
++  m.floor64 = 16eps(T)*ldexp(ny.s, ny.e)
+   m.tightenings = 0
+   m.gap = T(NaN)
+   m.uncertified = false
+@@ -83,23 +83,6 @@ function _level_brackets(λ0)
+   lo <= λ0 <= hi ? (lo, hi) : (NaN, NaN)
+ end
+ 
+-# ‖v[1:n]‖₂ as (s, e) with the norm s 2^e, in Float64: with M = max_i |v_i| and 2^e ≤ M < 2^(e+1), s is
+-# the root of the sum of the squares of v_i 2^-e (each formed by `ldexp`), a sum between 1 and 4n where
+-# M is finite and positive. (0.0, 0) for v = 0, and (M, 0) for an M that is Inf or NaN.
+-function _scaled_norm(v::AbstractVector, n::Int)
+-  M = 0.0
+-  @inbounds for i in 1:n
+-    M = max(M, abs(Float64(v[i])))
+-  end
+-  (iszero(M) || !isfinite(M)) && return (M, 0)
+-  e = exponent(M)
+-  s = 0.0
+-  @inbounds for i in 1:n
+-    w = ldexp(Float64(v[i]), -e)
+-    s += w*w
+-  end
+-  (sqrt(s), e)
+-end
+ 
+ # The fused kernel of the step: a = ‖X_k‖² (only when the cache holds NaN), b = X_kᵀr and ρ² = ‖r‖², in T.
+ @inline function _column_dot_rsqr(X::AbstractMatrix{T}, r::AbstractVector{T}, k::Int, a::T) where T
+@@ -122,11 +105,11 @@ end
+   end
+   a, b, ρ2
+ end
+-# ‖r − q X_k‖², in T.
+-@inline function _distance_sqr(X::AbstractMatrix{T}, r::AbstractVector{T}, k::Int, q::T) where T
++# ‖r − q x‖², in T, for the column x.
++@inline function _distance_sqr(x::AbstractVector{T}, r::AbstractVector{T}, q::T) where T
+   s = zero(T)
+   @inbounds @simd for i in eachindex(r)
+-    v = r[i] - q*X[i, k]
++    v = r[i] - q*x[i]
+     s += v*v
+   end
+   s
+@@ -163,119 +146,41 @@ end
+   _residual_axpy!(ls, k, h)
+   h
+ end
+-# The minimizer for a positive finite a. Fast path, where a and ρ² (the computed ‖r‖²) pass `_clean_sum`:
+-# λ ≥ √a is tested on ra = fl(√a) without squaring λ, and a − λ² is formed as ra² − λ² = (ra − λ)(ra + λ)
+-# through the two roots √(ra − λ) and √(ra + λ), whose product does not underflow where (ra − λ)(ra + λ)
+-# would (ra − λ is positive, and exact for λ ≥ ra/2). d² = ρ² − b (b/a); where it is below ρ²/16 (r
+-# nearly parallel to X_k, where the subtraction cancels), d² is formed again as ‖r − (b/a) X_k‖² by
+-# `_distance_sqr`. With p = ra √(ra − λ) √(ra + λ), γ = d/p and γλ, the step is `prox_block(gt, c, k, γ)`
+-# (the threshold γλ) when p, γ and γλ are normal numbers of T; otherwise `_sqrt_band_step` forms τ without
+-# γ (for example where γ overflows or is subnormal, or where γλ underflows). An a or a ρ² that does not
+-# pass `_clean_sum` (a subnormal curvature, whose squares can underflow, a tiny residual, r = 0
+-# included, or one whose squares overflow), and a recomputed d² that does not, take
+-# `_sqrt_offrange_step`. So the d² of the fast path passes `_clean_sum` or is at least ρ²/16 with ρ²
+-# passing it: it is positive, and it is not a value that underflowed to 0.
+-@inline function _sqrt_minimizer(m::SqrtLSModel{T}, old::T, a::T, b::T, ρ2::T, k::Int) where T
+-  ls = m.ls
+-  n = length(ls.r)
+-  (_clean_sum(a, n) & _clean_sum(ρ2, n)) || return _sqrt_offrange_step(m, old, k)
+-  λ = m.gt.λ0
++# The minimizer for a positive finite a (prototype x1a of #353: the fast path of dac9f4b unchanged; an a, a ρ²
++# or a threshold outside its range takes `_sqrt_cold`). A recomputed d² is used as it is: its squares that
++# underflow change it by at most n nextfloat(zero(T))/2, and d = 0 (r parallel to X_k) gives the centre c.
++@inline _sqrt_minimizer(m::SqrtLSModel{T}, old::T, a::T, b::T, ρ2::T, k::Int) where T =
++  _sqrt_step(m, view(m.ls.X, :, k), m.ls.r, m.gt, old, a, b, ρ2, k)
++@inline function _sqrt_step(m, x, r, g::NormL1{T}, old::T, a::T, b::T, ρ2::T, k::Int) where T
++  n = length(r)
++  (_clean_sum(a, n) & _clean_sum(ρ2, n)) || return _sqrt_cold(m, x, r, g, old, a, k)
++  λ = g.λ0
+   ra = sqrt(a)
+   λ >= ra && return zero(T)
+   q = b/a
+   c = old + q
+   d2 = ρ2 - b*q
+-  if d2 < ρ2/16
+-    d2 = _distance_sqr(ls.X, ls.r, k, q)
+-    _clean_sum(d2, n) || return _sqrt_offrange_step(m, old, k)
+-  end
++  d2 < ρ2/16 && (d2 = _distance_sqr(x, r, q))
+   d = sqrt(d2)
+   p = ra*(sqrt(ra - λ)*sqrt(ra + λ))
+   γ = d/p
+   τ = γ*λ
+-  ((floatmin(T) <= p) & (floatmin(T) <= γ <= floatmax(T)) & (floatmin(T) <= τ <= floatmax(T))) ?
+-    prox_block(m.gt, c, k, γ) : _sqrt_band_step(c, ra, λ, Float64(d), 0)
+-end
+-# shrink(c, τ) with τ = (λ/ra)(d/√((ra − λ)(ra + λ))) for d = d̃ 2^e, formed in Float64 by
+-# `_sqrt_threshold64` and capped at floatmax(T) before the rounding to T. At a finite c the cap gives the 0
+-# that a larger τ gives; a c that is Inf or NaN stays non-finite, which `_visit!` refuses.
+-@noinline function _sqrt_band_step(c::T, ra, λ, d̃::Float64, e::Int) where T
+-  τ = _sqrt_threshold64(ra, λ, d̃, e)
+-  shrink(c, T(min(τ, Float64(floatmax(T)))))
++  ((floatmin(T) <= p) & (iszero(d) | ((floatmin(T) <= γ <= floatmax(T)) & (floatmin(T) <= τ <= floatmax(T))))) ?
++    prox_block(g, c, k, γ) : _sqrt_cold(m, x, r, g, old, a, k)
+ end
+-# τ = (λ/ra)(d/w) with w = √(ra − λ) √(ra + λ), for 0 ≤ λ < ra (after the conversion to Float64) and
+-# d = d̃ 2^e, in Float64: d̃ and w are split into significands and exponents, so that the quotient d/w is
+-# not formed outside the range of Float64 before the final `ldexp` (which rounds a result outside the
+-# normal range to Inf, a subnormal number or 0). 0 for d̃ = 0.
+-function _sqrt_threshold64(ra, λ, d̃::Float64, e::Int)
+-  iszero(d̃) && return 0.0
+-  r, l = Float64(ra), Float64(λ)
+-  w = sqrt(r - l)*sqrt(r + l)
+-  md, ed = frexp(d̃)
+-  mw, ew = frexp(w)
+-  ldexp((l/r)*(md/mw), ed + e - ew)
++# The step where a or ρ² (or, in x1a, the threshold) is outside the range of the fast path, out of line.
++# Float32: the same step in Float64, on Float64 copies of the column and the residual in the work vectors
++# `rowmag64` and `res64` (the conversions are exact, and the squares of Float32 numbers and their sums stay in
++# the normal range of Float64, so the Float64 step leaves its fast path only for r = 0).
++@noinline function _sqrt_cold(m::SqrtLSModel, x, r, g::NormL1{Float32}, old::Float32, a::Float32, k::Int)
++  xw, rw = copyto!(m.rowmag64, x), copyto!(m.res64, r)
++  Float32(_sqrt_step(m, xw, rw, NormL1(Float64(g.λ0)), Float64(old), sum(abs2, xw), dot(xw, rw), sum(abs2, rw), k))
+ end
+-# The step where a, ρ² or the recomputed d² is outside the range of `_clean_sum`, out of line, in Float64
+-# with the column and the residual scaled by powers of two (each entry by `ldexp`, into Float64; for
+-# Float32 data the scaled entries and their products are exact). With 2^ex ≤ max_i |X_ik| < 2^(ex+1) (the
+-# column is not flat, so the maximum is positive, and it is finite) and x̃ = X_k 2^-ex: ã = ‖x̃‖² is between 1
+-# and 4n, √a = √ã 2^ex and λ̃ = λ 2^-ex, so λ ≥ √a is tested as λ̃ ≥ √ã (a λ̃ that overflows to Inf
+-# passes it). Then, with M = max_i |r_i| (finite: `coordinate_step!` has refused a residual that is not):
+-# r = 0 (M = 0) gives b = 0 and d = 0, so the minimizer is c = old. Otherwise, with 2^er ≤ M < 2^(er+1)
+-# and s = r 2^-er (into `res64`): b̃ = x̃ᵀs, ‖s‖² (between 1 and 4n) and q̃ = b̃/ã give
+-# b/a = q̃ 2^(er − ex); d̃² = ‖s‖² − b̃ q̃, formed again as ‖s − q̃ x̃‖² by `_scaled_norm` (which scales by the
+-# largest entry of the difference) where it is below ‖s‖²/16, gives d = d̃ 2^er. The step is
+-# shrink(c, τ) with c = old + T(q̃ 2^(er − ex)) and τ = (λ̃/√ã)(d̃/√((√ã − λ̃)(√ã + λ̃))) 2^(er − ex), the
+-# threshold of the scaled problem, from `_sqrt_band_step`. For each nonzero vector among x̃, s and the
+-# difference, the largest magnitude of its normalized representation is in [1, 2); a zero vector is
+-# returned as 0. Power-of-two scaling is exact when its exact result is in the normal Float64 range; below
+-# that range it may lose bits or underflow to zero, with absolute error at most η/2 in the normalized
+-# units (η = 2^-1074). For example, a residual [2^1000, 2^-1000] against the column [1, 0] gives d̃ = 0 for
+-# d = 2^-1000, a relative change of 1 in d, while [1.5 2^1000, 2^-74] keeps 2^-74 as η. To first order in
+-# η, these errors change √a by at most √n η √a, and b/√a and d by at most 3 n η ‖r‖ (2^ex ≤ √a,
+-# 2^er ≤ ‖r‖, ‖x̃‖ ≥ 1 and ‖s‖ < 2√n; d also through the scaling inside `_scaled_norm`): absolute errors
+-# at the scales of the column and the residual, not relative to b or d. They are far below the terms
+-# u max(‖ρ‖, ‖r‖) of the objective-error bound of the step (the comment of `step_bound` in
+-# test/sqrt_lasso.jl), which covers them; for example a d computed as 0 moves the coordinate objective
+-# by at most 2d.
+-@noinline function _sqrt_offrange_step(m::SqrtLSModel{T}, old::T, k::Int) where T
+-  ls = m.ls
+-  X, r, s = ls.X, ls.r, m.res64
+-  n = length(r)
+-  Mx, M = 0.0, 0.0
+-  @inbounds for i in 1:n
+-    Mx = max(Mx, abs(Float64(X[i, k])))
+-    M = max(M, abs(Float64(r[i])))
+-  end
+-  ex = exponent(Mx)
+-  as = 0.0
+-  @inbounds for i in 1:n
+-    v = ldexp(Float64(X[i, k]), -ex)
+-    as += v*v
+-  end
+-  ras = sqrt(as)
+-  λs = ldexp(Float64(m.gt.λ0), -ex)
+-  λs >= ras && return zero(T)
+-  iszero(M) && return old
+-  er = exponent(M)
+-  bs, ss = 0.0, 0.0
+-  @inbounds for i in 1:n
+-    v = ldexp(Float64(r[i]), -er)
+-    s[i] = v
+-    bs += v*ldexp(Float64(X[i, k]), -ex)
+-    ss += v*v
+-  end
+-  qs = bs/as
+-  ds2 = ss - bs*qs
+-  if ds2 < ss/16
+-    @inbounds for i in 1:n
+-      s[i] -= qs*ldexp(Float64(X[i, k]), -ex)
+-    end
+-    ds, ed = _scaled_norm(s, n)
+-  else
+-    ds, ed = sqrt(ds2), 0
+-  end
+-  _sqrt_band_step(old + T(ldexp(qs, er - ex)), ras, λs, ds, ed + er - ex)
++# Float64: with a in range, r = 0 gives b = 0 and d = 0, so the minimizer is old (0 for λ ≥ √a). Any other
++# step outside the range is refused, before the coordinate or the residual changes.
++@noinline function _sqrt_cold(m::SqrtLSModel, x, r, g::NormL1{Float64}, old::Float64, a::Float64, k::Int)
++  _clean_sum(a, length(r)) && all(iszero, r) && return g.λ0 >= sqrt(a) ? 0.0 : old
++  throw(ArgumentError("the coordinate step of coordinate $k is outside the supported range of Float64 (the squared norm of its column or of the residual, or the threshold, leaves the normal range); rescale the data"))
+ end
+ # The refusal of a residual with an entry that is not finite, at the visit of coordinate k.
+ @noinline function _check_residual(r::AbstractVector{T}, k::Int) where T

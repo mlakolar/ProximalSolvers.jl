@@ -1,0 +1,74 @@
+Test Summary:                                            | Pass  Total  Time
+relative units, raw scale equivalence and read-only data |   61     61  2.7s
+Test Summary:                                 | Pass  Total  Time
+accepted wider scalars and PGD data ownership |    7      7  0.5s
+Test Summary:                                  | Pass  Total  Time
+retained dense primitives and result accessors |   16     16  0.7s
+Test Summary:                                            | Pass  Total  Time
+ported exact power-of-two units and cold curvature scale |    8      8  0.3s
+Test Summary:                                     | Pass  Total  Time
+ported FASTA-only stopping and native diagnostics |    4      4  0.1s
+Test Summary:                                                         | Pass  Total  Time
+ported natural backtracking switch keeps every gradient/image current |  201    201  0.0s
+Test Summary:                                                | Pass  Total  Time
+ported underdetermined lasso has independent planted optimum |   32     32  0.5s
+Test Summary:                                                 | Pass  Total  Time
+ported limits stop at their first complete-iteration crossing |   12     12  0.4s
+Test Summary:                                                  | Pass  Total  Time
+PGD Float32 function-value blowup is checked (n > p and p > n) |    4      4  0.4s
+Test Summary:                                                              | Pass  Total  Time
+PGD gradient-mode blowup with a residual orthogonal to range(X) is checked |    8      8  0.1s
+Test Summary:                                          | Pass  Total  Time
+PGD checked rejections: the computed curvature decides |   26     26  0.3s
+Test Summary:                                            | Pass  Total  Time
+PGD Float32 computed curvature under over- and underflow |   24     24  0.2s
+Test Summary:                                             | Pass  Total  Time
+PGD Float32 check with BLAS threads that flush subnormals |    2      2  0.5s
+Test Summary:                                                                         | Pass  Total  Time
+PGD checked rejection before an unrepresentable curvature restores the accepted point |    2      2  0.0s
+Test Summary:                                                                        | Pass  Total  Time
+PGD rejections with an infinite estimate: nonfinite gradient kept, tiny step checked |    6      6  0.0s
+Test Summary:                                     | Pass  Total  Time
+PGD end to end under the strict ftol = 0 settings |    7      7  0.1s
+Test Summary:                                                             | Pass  Total  Time
+PGD Float32 strict: repeated exact stalls end in a stagnation stop (#308) |   20     20  0.3s
+Test Summary:                                                                                              | Pass  Total  Time
+PGD Float32 strict: an inflated initial curvature does not stop the solve during the initial stalls (#308) |   12     12  0.4s
+Test Summary:                                                                                        | Pass  Total  Time
+PGD Float32 strict: a slowly converging correlated design stops only after meeting the target (#308) |   10     10  0.2s
+Test Summary:                                                                         | Pass  Total  Time
+PGD Float32 strict: an exact optimum runs to maxiter without a stagnation stop (#308) |    3      3  0.0s
+Test Summary:                                                                                   | Pass  Total  Time
+PGD Float32 strict: a stall with a gap above the target is never reported as convergence (#308) |   73     73  0.1s
+Test Summary:                                                                                                         | Pass  Total  Time
+PGD stagnation flag: set by a checked rejection, cleared by an unverified one and at the start of an iteration (#308) |   16     16  0.0s
+Test Summary:                                                                                        | Pass  Total  Time
+PGD stagnation test: Float32 PGD with ftol = 0, an unchanged iterate and a verified rejection (#308) |    8      8  0.4s
+Test Summary:                                                                                                | Pass  Total  Time
+PGD stagnation stop: Float64, APG and ftol > 0 are unchanged, callbacks and limits keep their meaning (#308) |   19     19  0.9s
+Test Summary:                                                             | Pass  Total  Time
+PGD: a warmed iteration with the stagnation test allocates nothing (#308) |    3      3  0.0s
+Test Summary:                                                                  | Pass  Total  Time
+PGD: ftol = 0 switches off the objective test; ftol > 0 keeps its flags (#270) |   66     66  1.1s
+Test Summary:                                      | Pass  Total  Time
+_unchanged is value equality and allocates nothing |    8      8  0.1s
+Test Summary:                                                                                                 | Pass  Total  Time
+PGD: a proposed stop at a point that is not stationary is cleared, and the check evaluates no gradient (#296) |   12     12  0.3s
+Test Summary:                                                                            | Pass  Total  Time
+PGD: a warmed assessment allocates nothing, with and without an unchanged iterate (#270) |    8      8  0.1s
+Test Summary:                                                                                                    | Pass  Total  Time
+f_residual is |F - F'|/|F| with 0 for F = F' = 0 and Inf for F = 0 != F', for ftol = 0 and ftol > 0 (#270, #296) |   24     24  0.2s
+Test Summary:                                                                               | Pass  Total  Time
+PGD: ftol = 0 with allow_f_increases and strict tolerances ends on the gradient test (#270) |    5      5  0.1s
+Test Summary:                                                                           | Pass  Total  Time
+PGD: an exactly unchanged iterate under ftol = 0 is no progress, not convergence (#270) |    8      8  0.2s
+Test Summary:                                                                                            | Pass  Total  Time
+PGD: ftol = 0, gradtol = 0 and a tiny xtol end at maxiter when the solve is far from its solution (#270) |    4      4  0.1s
+Test Summary:                                                                                                | Pass  Total  Time
+PGD: with ftol = 0 an increase or any other stop reports converged from the x and gradient tests only (#270) |   28     28  0.0s
+Test Summary:                                                                           | Pass  Total  Time
+PGD: the result display shows a disabled objective test and a true increase line (#270) |    8      8  0.0s
+Test Summary:                                                                                                         | Pass  Total  Time
+PGD/APG value and gradient from the oracles agree with 256-bit references; zero warm allocations and inference (#307) |   96     96  3.1s
+Test Summary:                                                                                        | Pass  Total  Time
+a solve leaves the scratch of the loss unchanged and reports a value of the 256-bit objective (#307) |   80     80  3.2s

@@ -1,0 +1,81 @@
+# E3 near-exact fits. cols: T n p sigma lf collinear | visits | branches | worst step ratio | public solve
+Float32 n=30 p=100 σ=0e+00 lf=0.05 col=false | 1700 | ord=1700 | 1.14e-04 | conv=false gap=NaN passes=17 | err=-
+Float32 n=30 p=100 σ=0e+00 lf=0.05 col=true | 200 | ord=199 ord_guard=1 | 8.53e-08 | conv=false gap=NaN passes=3 | err=-
+Float32 n=30 p=100 σ=0e+00 lf=0.30 col=false | 12700 | ord=12700 | 1.56e-04 | conv=false gap=NaN passes=57 | err=-
+Float32 n=30 p=100 σ=0e+00 lf=0.30 col=true | 200 | ord=199 ord_guard=1 | 1.15e-07 | conv=false gap=NaN passes=3 | err=-
+Float32 n=30 p=100 σ=1e-12 lf=0.05 col=false | 1700 | ord=1700 | 1.14e-04 | conv=false gap=NaN passes=17 | err=-
+Float32 n=30 p=100 σ=1e-12 lf=0.05 col=true | 200 | ord=199 ord_guard=1 | 8.53e-08 | conv=false gap=NaN passes=3 | err=-
+Float32 n=30 p=100 σ=1e-12 lf=0.30 col=false | 12700 | ord=12700 | 1.56e-04 | conv=false gap=NaN passes=57 | err=-
+Float32 n=30 p=100 σ=1e-12 lf=0.30 col=true | 200 | ord=199 ord_guard=1 | 1.15e-07 | conv=false gap=NaN passes=3 | err=-
+Float32 n=30 p=100 σ=1e-09 lf=0.05 col=false | 1700 | ord=1700 | 1.14e-04 | conv=false gap=NaN passes=17 | err=-
+Float32 n=30 p=100 σ=1e-09 lf=0.05 col=true | 200 | ord=199 ord_guard=1 | 8.53e-08 | conv=false gap=NaN passes=3 | err=-
+Float32 n=30 p=100 σ=1e-09 lf=0.30 col=false | 12700 | ord=12700 | 1.56e-04 | conv=false gap=NaN passes=57 | err=-
+Float32 n=30 p=100 σ=1e-09 lf=0.30 col=true | 200 | ord=199 ord_guard=1 | 1.15e-07 | conv=false gap=NaN passes=3 | err=-
+Float32 n=30 p=100 σ=1e-06 lf=0.05 col=false | 1700 | ord=1700 | 1.14e-04 | conv=false gap=NaN passes=17 | err=-
+Float32 n=30 p=100 σ=1e-06 lf=0.05 col=true | 700 | ord=699 ord_guard=1 | 1.72e-07 | conv=false gap=NaN passes=3 | err=-
+Float32 n=30 p=100 σ=1e-06 lf=0.30 col=false | 12800 | ord=12800 | 8.16e-05 | conv=false gap=NaN passes=56 | err=-
+Float32 n=30 p=100 σ=1e-06 lf=0.30 col=true | 500 | ord=499 ord_guard=1 | 7.52e-08 | conv=false gap=NaN passes=3 | err=-
+Float32 n=30 p=100 σ=1e-03 lf=0.05 col=false | 1700 | ord=1700 | 1.19e-04 | conv=false gap=NaN passes=17 | err=-
+Float32 n=30 p=100 σ=1e-03 lf=0.05 col=true | 2500 | ord=2499 ord_guard=1 | 2.95e-07 | conv=false gap=NaN passes=4 | err=-
+Float32 n=30 p=100 σ=1e-03 lf=0.30 col=false | 11300 | ord=11300 | 1.12e-07 | conv=false gap=NaN passes=72 | err=-
+Float32 n=30 p=100 σ=1e-03 lf=0.30 col=true | 30000 | ord=29999 ord_guard=1 | 2.03e-07 | conv=false gap=NaN passes=4 | err=-
+Float32 n=50 p=20 σ=0e+00 lf=0.05 col=false | 680 | ord=680 | 8.99e-05 | conv=false gap=NaN passes=16 | err=-
+Float32 n=50 p=20 σ=0e+00 lf=0.05 col=true | 100 | ord=99 ord_guard=1 | 4.46e-08 | conv=false gap=NaN passes=3 | err=-
+Float32 n=50 p=20 σ=0e+00 lf=0.30 col=false | 360 | ord=360 | 1.28e-04 | conv=false gap=NaN passes=16 | err=-
+Float32 n=50 p=20 σ=0e+00 lf=0.30 col=true | 120 | ord=119 ord_guard=1 | 1.58e-07 | conv=false gap=NaN passes=3 | err=-
+Float32 n=50 p=20 σ=1e-12 lf=0.05 col=false | 680 | ord=680 | 8.99e-05 | conv=false gap=NaN passes=16 | err=-
+Float32 n=50 p=20 σ=1e-12 lf=0.05 col=true | 100 | ord=99 ord_guard=1 | 4.46e-08 | conv=false gap=NaN passes=3 | err=-
+Float32 n=50 p=20 σ=1e-12 lf=0.30 col=false | 360 | ord=360 | 1.28e-04 | conv=false gap=NaN passes=16 | err=-
+Float32 n=50 p=20 σ=1e-12 lf=0.30 col=true | 120 | ord=119 ord_guard=1 | 1.58e-07 | conv=false gap=NaN passes=3 | err=-
+Float32 n=50 p=20 σ=1e-09 lf=0.05 col=false | 680 | ord=680 | 8.99e-05 | conv=false gap=NaN passes=16 | err=-
+Float32 n=50 p=20 σ=1e-09 lf=0.05 col=true | 100 | ord=99 ord_guard=1 | 4.46e-08 | conv=false gap=NaN passes=3 | err=-
+Float32 n=50 p=20 σ=1e-09 lf=0.30 col=false | 360 | ord=360 | 1.28e-04 | conv=false gap=NaN passes=16 | err=-
+Float32 n=50 p=20 σ=1e-09 lf=0.30 col=true | 120 | ord=119 ord_guard=1 | 1.58e-07 | conv=false gap=NaN passes=3 | err=-
+Float32 n=50 p=20 σ=1e-06 lf=0.05 col=false | 720 | ord=720 | 2.15e-05 | conv=false gap=NaN passes=16 | err=-
+Float32 n=50 p=20 σ=1e-06 lf=0.05 col=true | 140 | ord=139 ord_guard=1 | 1.90e-07 | conv=false gap=NaN passes=3 | err=-
+Float32 n=50 p=20 σ=1e-06 lf=0.30 col=false | 300 | ord=300 | 1.93e-05 | conv=false gap=NaN passes=16 | err=-
+Float32 n=50 p=20 σ=1e-06 lf=0.30 col=true | 180 | ord=179 ord_guard=1 | 4.37e-07 | conv=false gap=NaN passes=3 | err=-
+Float32 n=50 p=20 σ=1e-03 lf=0.05 col=false | 700 | ord=700 | 5.89e-08 | conv=false gap=NaN passes=31 | err=-
+Float32 n=50 p=20 σ=1e-03 lf=0.05 col=true | 60 | ord=59 ord_guard=1 | 9.84e-08 | conv=false gap=NaN passes=3 | err=-
+Float32 n=50 p=20 σ=1e-03 lf=0.30 col=false | 280 | ord=280 | 2.71e-08 | conv=false gap=NaN passes=19 | err=-
+Float32 n=50 p=20 σ=1e-03 lf=0.30 col=true | 60 | ord=59 ord_guard=1 | 8.33e-08 | conv=true gap=5.4e-05 passes=3 | err=-
+Float64 n=30 p=100 σ=0e+00 lf=0.05 col=false | 1600 | ord=1600 | 1.67e-12 | conv=false gap=NaN passes=27 | err=-
+Float64 n=30 p=100 σ=0e+00 lf=0.05 col=true | 30000 | ord=29999 ord_guard=1 | 1.22e-15 | conv=false gap=NaN passes=100000 | err=-
+Float64 n=30 p=100 σ=0e+00 lf=0.30 col=false | 13700 | ord=13700 | 1.90e-12 | conv=false gap=NaN passes=127 | err=-
+Float64 n=30 p=100 σ=0e+00 lf=0.30 col=true | 30000 | ord=29999 ord_guard=1 | 9.26e-16 | conv=false gap=NaN passes=100000 | err=-
+Float64 n=30 p=100 σ=1e-12 lf=0.05 col=false | 1600 | ord=1600 | 1.67e-12 | conv=false gap=NaN passes=27 | err=-
+Float64 n=30 p=100 σ=1e-12 lf=0.05 col=true | 30000 | ord=29999 ord_guard=1 | 1.70e-15 | conv=false gap=NaN passes=100000 | err=-
+Float64 n=30 p=100 σ=1e-12 lf=0.30 col=false | 13700 | ord=13700 | 4.77e-12 | conv=false gap=NaN passes=127 | err=-
+Float64 n=30 p=100 σ=1e-12 lf=0.30 col=true | 30000 | ord=29999 ord_guard=1 | 1.03e-15 | conv=false gap=NaN passes=100000 | err=-
+Float64 n=30 p=100 σ=1e-09 lf=0.05 col=false | 1600 | ord=1600 | 1.21e-12 | conv=false gap=NaN passes=27 | err=-
+Float64 n=30 p=100 σ=1e-09 lf=0.05 col=true | 30000 | ord=29999 ord_guard=1 | 1.09e-15 | conv=false gap=NaN passes=100000 | err=-
+Float64 n=30 p=100 σ=1e-09 lf=0.30 col=false | 13700 | ord=13700 | 1.99e-12 | conv=false gap=NaN passes=128 | err=-
+Float64 n=30 p=100 σ=1e-09 lf=0.30 col=true | 30000 | ord=29999 ord_guard=1 | 1.01e-15 | conv=false gap=NaN passes=100000 | err=-
+Float64 n=30 p=100 σ=1e-06 lf=0.05 col=false | 1600 | ord=1600 | 3.16e-12 | conv=false gap=NaN passes=27 | err=-
+Float64 n=30 p=100 σ=1e-06 lf=0.05 col=true | 30000 | ord=29999 ord_guard=1 | 1.19e-15 | conv=false gap=NaN passes=100000 | err=-
+Float64 n=30 p=100 σ=1e-06 lf=0.30 col=false | 13100 | ord=13100 | 2.43e-13 | conv=false gap=NaN passes=116 | err=-
+Float64 n=30 p=100 σ=1e-06 lf=0.30 col=true | 30000 | ord=29999 ord_guard=1 | 1.05e-15 | conv=false gap=NaN passes=100000 | err=-
+Float64 n=30 p=100 σ=1e-03 lf=0.05 col=false | 1600 | ord=1600 | 1.42e-12 | conv=false gap=NaN passes=26 | err=-
+Float64 n=30 p=100 σ=1e-03 lf=0.05 col=true | 30000 | ord=29999 ord_guard=1 | 2.71e-16 | conv=false gap=NaN passes=100000 | err=-
+Float64 n=30 p=100 σ=1e-03 lf=0.30 col=false | 12000 | ord=12000 | 2.47e-16 | conv=true gap=1.1e-05 passes=106 | err=-
+Float64 n=30 p=100 σ=1e-03 lf=0.30 col=true | 30000 | ord=29999 ord_guard=1 | 2.26e-16 | conv=false gap=NaN passes=100000 | err=-
+Float64 n=50 p=20 σ=0e+00 lf=0.05 col=false | 740 | ord=740 | 4.06e-12 | conv=false gap=NaN passes=28 | err=-
+Float64 n=50 p=20 σ=0e+00 lf=0.05 col=true | 6000 | ord=5999 ord_guard=1 | 1.95e-15 | conv=false gap=NaN passes=100000 | err=-
+Float64 n=50 p=20 σ=0e+00 lf=0.30 col=false | 360 | ord=360 | 5.09e-12 | conv=false gap=NaN passes=24 | err=-
+Float64 n=50 p=20 σ=0e+00 lf=0.30 col=true | 6000 | ord=5999 ord_guard=1 | 4.71e-16 | conv=false gap=NaN passes=100000 | err=-
+Float64 n=50 p=20 σ=1e-12 lf=0.05 col=false | 740 | ord=740 | 4.59e-12 | conv=false gap=NaN passes=28 | err=-
+Float64 n=50 p=20 σ=1e-12 lf=0.05 col=true | 6000 | ord=5999 ord_guard=1 | 5.20e-16 | conv=false gap=NaN passes=100000 | err=-
+Float64 n=50 p=20 σ=1e-12 lf=0.30 col=false | 360 | ord=360 | 1.34e-11 | conv=false gap=NaN passes=24 | err=-
+Float64 n=50 p=20 σ=1e-12 lf=0.30 col=true | 6000 | ord=5999 ord_guard=1 | 5.88e-16 | conv=false gap=NaN passes=100000 | err=-
+Float64 n=50 p=20 σ=1e-09 lf=0.05 col=false | 740 | ord=740 | 3.41e-12 | conv=false gap=NaN passes=29 | err=-
+Float64 n=50 p=20 σ=1e-09 lf=0.05 col=true | 6000 | ord=5999 ord_guard=1 | 4.35e-16 | conv=false gap=NaN passes=100000 | err=-
+Float64 n=50 p=20 σ=1e-09 lf=0.30 col=false | 360 | ord=360 | 1.32e-11 | conv=false gap=NaN passes=23 | err=-
+Float64 n=50 p=20 σ=1e-09 lf=0.30 col=true | 6000 | ord=5999 ord_guard=1 | 4.40e-16 | conv=false gap=NaN passes=100000 | err=-
+Float64 n=50 p=20 σ=1e-06 lf=0.05 col=false | 720 | ord=720 | 1.50e-13 | conv=false gap=NaN passes=34 | err=-
+Float64 n=50 p=20 σ=1e-06 lf=0.05 col=true | 6000 | ord=5999 ord_guard=1 | 5.24e-16 | conv=false gap=NaN passes=100000 | err=-
+Float64 n=50 p=20 σ=1e-06 lf=0.30 col=false | 340 | ord=340 | 4.37e-14 | conv=true gap=1.4e-06 passes=22 | err=-
+Float64 n=50 p=20 σ=1e-06 lf=0.30 col=true | 6000 | ord=5999 ord_guard=1 | 4.26e-16 | conv=false gap=NaN passes=100000 | err=-
+Float64 n=50 p=20 σ=1e-03 lf=0.05 col=false | 720 | ord=720 | 1.32e-16 | conv=true gap=2.5e-05 passes=38 | err=-
+Float64 n=50 p=20 σ=1e-03 lf=0.05 col=true | 6000 | ord=5999 ord_guard=1 | 6.39e-16 | conv=false gap=NaN passes=100000 | err=-
+Float64 n=50 p=20 σ=1e-03 lf=0.30 col=false | 300 | ord=300 | 1.09e-16 | conv=true gap=7.1e-06 passes=19 | err=-
+Float64 n=50 p=20 σ=1e-03 lf=0.30 col=true | 6000 | ord=5999 ord_guard=1 | 1.89e-16 | conv=true gap=5.4e-05 passes=3 | err=-

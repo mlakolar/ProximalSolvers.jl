@@ -1,0 +1,9 @@
+Julia 1.10.13
+1. _clean_sum vs isfinite&&_squares_normal: 0 disagreements of 20110  (differs from _squares_normal alone only at s=+Inf)
+2. _round_up vs Base T(v, RoundUp): 0 disagreements of 40020
+3a. in-range _se_mul vs PB._scaled_product(a,b,0): bitwise equal 10000/10000
+3b. 2^900*2^900: _se_mul -> (1.0, 1800)   PB._scaled_product(a,b,0) = Inf  (a*b = Inf)
+    PB._scaled_product(a,b,1,-1700) = 1.2676506002282294e30 = 2^100.0 (power k supplied by the caller; no value carries an exponent)
+3c. Float32 sum of 6 positive terms (exponents spread over ±3000): _se_add max rel err = 0.94u (below 0.4);  PB _ExpSum max = 0.94u (below 0.4)
+3c. Float64 sum of 6 positive terms (exponents spread over ±3000): _se_add max rel err = 0.87u (below 0.39);  PB _ExpSum max = 0.87u (below 0.39)
+4. PB functions with the names _se_le/_se_sub/_se_mul-like (extended-range compare/sub): [:_setstored!]

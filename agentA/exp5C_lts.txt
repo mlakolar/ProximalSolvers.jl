@@ -1,0 +1,8 @@
+Float32 N=40000 branches: band=1299 off_asmall=6841 off_d=2250 off_r0=19 off_rbig=336 off_rsmall=5410 off_runder=202 ord=11077 ord_guard=8209 refuse_a0=52 zero=4305
+  worst ratio by branch: Dict(:off_d => 0.018027830093840035, :off_rsmall => 0.11878545857427937, :off_asmall => 0.01203569226721328, :ord => 0.0006206568237899765, :band => 0.006539125864146363, :zero => 0.007522300751304052, :off_runder => 0.06548486135635646, :off_r0 => 0.0, :ord_guard => 0.02169791018594909, :off_rbig => 7.707746196483277e-9)
+  refusals/throws: Dict("ArgumentError: the coordinate curvature underflows; rescale " => 52); nonfinite result with unrepresentable exact minimizer: 47
+  violations (ratio>1 or nonfinite): 0
+Float64 N=40000 branches: band=3743 off_asmall=1326 off_d=1360 off_rbig=3 off_rsmall=1340 ord=17193 ord_guard=15035
+  worst ratio by branch: Dict(:off_d => 0.014077700836029156, :ord => 8.725288664638536e-7, :ord_guard => 0.029294628082333962)
+  refusals/throws: Dict("ArgumentError: the coordinate step of coordinate 1 is outsid" => 6548); nonfinite result with unrepresentable exact minimizer: 0
+  violations (ratio>1 or nonfinite): 0

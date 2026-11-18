@@ -1,0 +1,18 @@
+## out-norms-lts.txt
+Float32 n= 64 worst max rel error over kinds ordinary/large/tiny/mixed, in u_T:
+   LinearAlgebra.norm 0.94; PB norm_diff(v,0) 1.62; PB resq R=F64 0; PB resq R=T 1.27; PS _se_norm 1.88; PS sqrtlasso _scaled_norm 0; plain sqrt(sum abs2) T 124
+Float32 n= 4096 worst max rel error over kinds ordinary/large/tiny/mixed, in u_T:
+   LinearAlgebra.norm 1; PB norm_diff(v,0) 12.7; PB resq R=F64 0; PB resq R=T 1.43; PS _se_norm 2.37; PS sqrtlasso _scaled_norm 0; plain sqrt(sum abs2) T 11.2
+Float64 n= 64 worst max rel error over kinds ordinary/large/tiny/mixed, in u_T:
+   LinearAlgebra.norm 0.97; PB norm_diff(v,0) 1.5; PB resq R=F64 1.32; PB resq R=T 1.32; PS _se_norm 2.13; PS sqrtlasso _scaled_norm 3.28; plain sqrt(sum abs2) T 2.64e+10
+Float64 n= 4096 worst max rel error over kinds ordinary/large/tiny/mixed, in u_T:
+   LinearAlgebra.norm 0.96; PB norm_diff(v,0) 1.79; PB resq R=F64 1.42; PB resq R=T 1.42; PS _se_norm 3.1; PS sqrtlasso _scaled_norm 25.9; plain sqrt(sum abs2) T 3.69e+09
+## out-norms-release.txt
+Float32 n= 64 worst max rel error over kinds ordinary/large/tiny/mixed, in u_T:
+   LinearAlgebra.norm 0.95; PB norm_diff(v,0) 1.55; PB resq R=F64 0; PB resq R=T 1.4; PS _se_norm 1.93; PS sqrtlasso _scaled_norm 0; plain sqrt(sum abs2) T 129
+Float32 n= 4096 worst max rel error over kinds ordinary/large/tiny/mixed, in u_T:
+   LinearAlgebra.norm 0.99; PB norm_diff(v,0) 13.5; PB resq R=F64 0; PB resq R=T 1.17; PS _se_norm 2.46; PS sqrtlasso _scaled_norm 0; plain sqrt(sum abs2) T 13.5
+Float64 n= 64 worst max rel error over kinds ordinary/large/tiny/mixed, in u_T:
+   LinearAlgebra.norm 0.95; PB norm_diff(v,0) 1.64; PB resq R=F64 1.35; PB resq R=T 1.35; PS _se_norm 2.52; PS sqrtlasso _scaled_norm 3.33; plain sqrt(sum abs2) T 5.12e+10
+Float64 n= 4096 worst max rel error over kinds ordinary/large/tiny/mixed, in u_T:
+   LinearAlgebra.norm 0.99; PB norm_diff(v,0) 2.18; PB resq R=F64 1.28; PB resq R=T 1.28; PS _se_norm 3.21; PS sqrtlasso _scaled_norm 20.5; plain sqrt(sum abs2) T 5.12e+09

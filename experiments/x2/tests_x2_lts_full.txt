@@ -1,0 +1,1732 @@
+Precompiling packages...
+   3104.8 ms  ✓ ProximalSolvers
+  1 dependency successfully precompiled in 4 seconds. 17 already precompiled.
+  Activating project at `<WORK>/ps-353-x2`
+┌ Warning: The project dependencies or compat requirements have changed since the manifest was last resolved.
+│ It is recommended to `Pkg.resolve()` or consider `Pkg.update()` if necessary.
+└ @ Pkg.API <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Pkg/src/API.jl:1142
+     Testing ProximalSolvers
+      Status `<TMP>/Project.toml`
+  [4c88cf16] Aqua v0.8.19
+  [d3525ed8] ParallelTestRunner v2.10.0
+⌅ [aea7be01] PrecompileTools v1.2.1
+  [0a755509] ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [fc4971f5] ProximalSolvers v0.3.2 `<WORK>/ps-353-x2`
+  [37e2e46d] LinearAlgebra
+  [56ddb016] Logging
+  [de0858da] Printf
+  [9a3f8284] Random
+  [2f01184e] SparseArrays v1.10.0
+  [fa267f1f] TOML v1.0.3
+  [8dfed614] Test
+      Status `<TMP>/Manifest.toml`
+  [4c88cf16] Aqua v0.8.19
+  [34da2185] Compat v4.18.1
+  [b5f81e59] IOCapture v1.0.0
+  [36869731] Malt v1.5.0
+  [d3525ed8] ParallelTestRunner v2.10.0
+⌅ [aea7be01] PrecompileTools v1.2.1
+  [21216c6a] Preferences v1.6.1
+  [0a755509] ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [fc4971f5] ProximalSolvers v0.3.2 `<WORK>/ps-353-x2`
+  [05181044] RelocatableFolders v1.0.1
+  [6c6a2e73] Scratch v1.3.0
+  [f489334b] StyledStrings v1.0.3
+  [0dad84c5] ArgTools v1.1.1
+  [56f22d72] Artifacts
+  [2a0f44e3] Base64
+  [ade2ca70] Dates
+  [8ba89e20] Distributed
+  [f43a241f] Downloads v1.6.0
+  [7b1f6079] FileWatching
+  [b77e0a4c] InteractiveUtils
+  [b27032c2] LibCURL v0.6.4
+  [76f85450] LibGit2
+  [8f399da3] Libdl
+  [37e2e46d] LinearAlgebra
+  [56ddb016] Logging
+  [d6f4376e] Markdown
+  [ca575930] NetworkOptions v1.2.0
+  [44cfe95a] Pkg v1.10.0
+  [de0858da] Printf
+  [3fa0cd96] REPL
+  [9a3f8284] Random
+  [ea8e919c] SHA v0.7.0
+  [9e88b42a] Serialization
+  [6462fe0b] Sockets
+  [2f01184e] SparseArrays v1.10.0
+  [10745b16] Statistics v1.10.0
+  [fa267f1f] TOML v1.0.3
+  [a4e569a6] Tar v1.10.0
+  [8dfed614] Test
+  [cf7118a7] UUIDs
+  [4ec0a83e] Unicode
+  [e66e0078] CompilerSupportLibraries_jll v1.1.2+1
+  [deac9b47] LibCURL_jll v8.7.1+0
+  [e37daf67] LibGit2_jll v1.7.2+0
+  [29816b5a] LibSSH2_jll v1.11.0+1
+  [c8ffd9c3] MbedTLS_jll v2.28.1010+0
+  [14a3606d] MozillaCACerts_jll v2026.10.20
+  [4536629a] OpenBLAS_jll v0.3.23+5
+  [bea87d4a] SuiteSparse_jll v7.2.1+1
+  [83775a58] Zlib_jll v1.3.2+0
+  [8e850b90] libblastrampoline_jll v5.11.0+0
+  [8e850ede] nghttp2_jll v1.70.0+0
+  [3f19e933] p7zip_jll v17.8.3+0
+        Info Packages marked with ⌅ have new versions available but compatibility constraints restrict them from upgrading.
+     Testing Running tests...
+ProximalSolvers tests: tier full: 20 files; Julia 1.10.13 on x86_64-linux-gnu (13th Gen Intel(R) Core(TM) i5-13600K, 20 threads), check-bounds yes
+  accelerated_pgd aqua benchmark_explore benchmark_formal cd_elasticnet cd_numerics ci_gate core_contracts core_regressions elasticnet examples group_cd group_cd_preflight minimal_core_characterization naming paired_master sparse_cd sqrt_lasso stopping_scale tier_selection
+Running 20 tests using 4 parallel jobs. To change the number of jobs, specify the `--jobs=N` argument to the tests, or set the `PTR_NUM_JOBS` environment variable.
+                                    │   Test   │ ──────────────── CPU ──────────────── │
+Test                       (Worker) │ time (s) │ GC (s) │ GC % │ Alloc (MB) │ RSS (MB) │
+sqrt_lasso                      (1) │    16.94 │   0.71 │  4.2 │    3359.45 │   460.02 │
+cd_numerics                     (4) │    28.37 │   failed at 2026-11-17T18:41:06.413
+group_cd                        (3) │    28.40 │   1.00 │  3.5 │    3062.92 │   534.64 │
+cd_elasticnet                   (2) │    29.22 │   0.69 │  2.4 │    3623.99 │   530.65 │
+accelerated_pgd                 (1) │    17.86 │   0.76 │  4.3 │    4433.80 │   554.83 │
+elasticnet                      (4) │    13.32 │   0.38 │  2.9 │    1183.62 │   723.66 │
+core_contracts                  (1) │    11.13 │   0.10 │  0.9 │     681.32 │   565.17 │
+core_regressions                (3) │    20.86 │   0.57 │  2.7 │    3603.12 │   588.83 │
+benchmark_formal                (2) │    22.35 │   0.82 │  3.7 │    2106.24 │   591.80 │
+minimal_core_characterization   (1) │     5.58 │   0.17 │  3.1 │     863.06 │   600.98 │
+group_cd_preflight              (4) │    11.92 │   0.46 │  3.8 │    1131.01 │   746.42 │
+aqua                            (3) │     7.63 │   0.08 │  1.0 │     309.35 │   618.49 │
+examples                        (2) │     7.16 │   0.24 │  3.4 │     903.87 │   598.79 │
+sparse_cd                       (1) │     7.59 │   0.16 │  2.1 │     778.09 │   609.01 │
+stopping_scale                  (4) │     7.06 │   0.20 │  2.8 │     873.64 │   746.42 │
+benchmark_explore               (1) │     2.03 │   0.10 │  5.0 │     370.79 │   609.01 │
+naming                          (1) │     0.02 │   0.00 │  0.0 │       1.69 │   609.01 │
+tier_selection                  (3) │     5.82 │   0.14 │  2.4 │     454.54 │   618.49 │
+ci_gate                         (4) │     1.77 │   0.04 │  2.2 │     225.94 │   754.23 │
+paired_master                   (2) │     4.55 │   0.00 │  0.0 │       2.08 │   598.79 │
+
+Output generated during execution of 'paired_master':
+┌ Test Summary:                                         | Pass  Total  Time
+│ paired controls: exact source and fail-closed records |   21     21  2.6s
+│ Test Summary:                                               | Pass  Total  Time
+│ paired controls: quality comparison of optimization records |   86     86  0.6s
+│ Test Summary:                                       | Pass  Total  Time
+│ paired controls: stopping flags of the current tree |   26     26  0.5s
+│ Test Summary:                                               | Pass  Total  Time
+│ paired controls: exact contracts and the result API surface |   18     18  0.1s
+│ Test Summary:                               | Pass  Total  Time
+└ paired controls: always-run gated Linux job |  130    130  0.2s
+
+Test Summary:                                                                                                                                         |  Pass  Fail  Error  Total     Time
+  Overall                                                                                                                                             | 68150    95     52  68297  1m08.0s
+    sqrt_lasso                                                                                                                                        |  1411                1411    16.9s
+    cd_numerics                                                                                                                                       | 24285    95     52  24432    28.4s
+      a power-of-two rescaling of the data and of the loss scale leaves CD unchanged (Float32 data, Float64 scale)                                    |   281                 281     0.6s
+      Float32 data, Float64 scale 1e-44: CD solves the supplied scale, not Float32(α)                                                                 |    38                  38     0.3s
+      Float64 data, BigFloat scale: refused before any write (the narrowing of #307)                                                                  |    10                  10     0.6s
+      a scale that promotes to T is T(α) and solves as Scaled(f, T(α)); other types are refused (#307)                                                |   108                 108     1.8s
+      the scale type: the promotion of T and the scale if a concrete AbstractFloat, else T                                                            |    22                  22     0.0s
+      a response scale that is subnormal in Float32 is refused before any pass                                                                        |    27                  27     0.0s
+      a coordinate scale is the root of the supplied scale times the curvature when that product underflows Float32                                   |    73                  73     0.4s
+      a response scale is the root of the supplied scale times Σy² when that product overflows Float32                                                |    33                  33     0.0s
+      an objective that overflows Float32 is refused and x is unchanged                                                                               |    13                  13     0.1s
+      the three result boundaries return T and use the supplied scale                                                                                 |    36                  36     0.2s
+      the mixed model is inferred and allocates nothing in its steps                                                                                  |     9                   9     0.2s
+      loss_value is the oracle's value at the cached residual: reference, allocation and inference (#307)                                             |    40                  40     0.3s
+      a warmed solve with a Float64 scale allocates as one with a Float32 scale                                                                       |     2                   2     0.0s
+      CD converges with a normal response scale whose intermediates may leave the range of T: Float64, Σy² overflows: α = 1e-300, ‖y‖ = 2e154         |   147                 147     0.9s
+      CD converges with a normal response scale whose intermediates may leave the range of T: Float64, Σy² overflows: raw, ‖y‖ = 2e154                |   147                 147     0.7s
+      CD converges with a normal response scale whose intermediates may leave the range of T: Float64, control: α = 1e-300, ‖y‖ = 2e151               |   147                 147     0.0s
+      CD converges with a normal response scale whose intermediates may leave the range of T: Float64, Σy² underflows: raw, ‖y‖ = 1e-165              |   147                 147     0.0s
+      CD converges with a normal response scale whose intermediates may leave the range of T: Float64, Σy² underflows: α = 1.0, ‖y‖ = 1e-165          |   147                 147     0.0s
+      CD converges with a normal response scale whose intermediates may leave the range of T: Float64, α Σy² overflows: α = 1e300, ‖y‖ = 3e4          |   147                 147     0.0s
+      CD converges with a normal response scale whose intermediates may leave the range of T: Float64, α Σy² underflows: α = 1e-300, ‖y‖ = 1e-10      |   147                 147     0.0s
+      CD converges with a normal response scale whose intermediates may leave the range of T: Float64, subnormal α = 1e-310, ‖y‖ = 1e-10              |   147                 147     0.0s
+      CD converges with a normal response scale whose intermediates may leave the range of T: Float64, Σy² overflows, zero column                     |   171                 171     0.0s
+      CD converges with a normal response scale whose intermediates may leave the range of T: Float64, Σy² underflows, zero column                    |   171                 171     0.0s
+      CD converges with a normal response scale whose intermediates may leave the range of T: Float32, Σy² overflows: α = 1f-30, ‖y‖ = 3e19           |   147                 147     0.6s
+      CD converges with a normal response scale whose intermediates may leave the range of T: Float32, Σy² overflows: Float64 α = 1e-30, ‖y‖ = 3e19   |   147                 147     0.5s
+      CD converges with a normal response scale whose intermediates may leave the range of T: Float32, Σy² overflows: raw, ‖y‖ = 3e19                 |   147                 147     0.6s
+      CD converges with a normal response scale whose intermediates may leave the range of T: Float32, Σy² underflows: α = 1f0, ‖y‖ = 1e-24           |   147                 147     0.0s
+      CD converges with a normal response scale whose intermediates may leave the range of T: Float32, Σy² underflows: Float64 α = 1.0, ‖y‖ = 1e-24   |   147                 147     0.0s
+      CD converges with a normal response scale whose intermediates may leave the range of T: Float32, Σy² underflows: raw, ‖y‖ = 1e-24               |   147                 147     0.0s
+      CD converges with a normal response scale whose intermediates may leave the range of T: Float32, Σy² overflows, zero column                     |   171                 171     0.0s
+      CD converges with a normal response scale whose intermediates may leave the range of T: Float32, Σy² underflows, zero column                    |   171                 171     0.0s
+      a response scale that is not a normal number of T is refused: Float64, √α‖y‖ ≈ 2e308: α = 100, y = 2^1020                                       |    42                  42     0.2s
+      a response scale that is not a normal number of T is refused: Float64, √α‖y‖ ≈ 2e308: α = 1e300, y = 2^526                                      |    42                  42     0.0s
+      a response scale that is not a normal number of T is refused: Float32, √α‖y‖ ≈ 4e38: α = 400f0, y = 2^123                                       |    42                  42     0.1s
+      a response scale that is not a normal number of T is refused: Float32, √α‖y‖ ≈ 4e38: Float64 α = 400, y = 2^123                                 |    42                  42     0.1s
+      a response scale that is not a normal number of T is refused: Float32, √α‖y‖ ≈ 6e38: α = 1f30, y = 2^78                                         |    42                  42     0.0s
+      a response scale that is not a normal number of T is refused: Float64, √α‖y‖ ≈ 4e-310: α = 1e-220, y = 2^-664                                   |    42                  42     0.0s
+      a response scale that is not a normal number of T is refused: Float64, subnormal raw y = 1e-310                                                 |    42                  42     0.1s
+      a response scale that is not a normal number of T is refused: Float64, one subnormal entry, raw                                                 |    42                  42     0.0s
+      a response scale that is not a normal number of T is refused: Float64, one subnormal entry, α = 1.0                                             |    42                  42     0.0s
+      a response scale that is not a normal number of T is refused: Float32, √α‖y‖ ≈ 2e-40: α = 1f-20, y = 2^-100                                     |    42                  42     0.0s
+      a response scale that is not a normal number of T is refused: Float32, √α‖y‖ ≈ 2e-40: Float64 α = 1e-20, y = 2^-100                             |    42                  42     0.0s
+      a response scale that is not a normal number of T is refused: Float32, subnormal raw y = 1f-39                                                  |    42                  42     0.1s
+      a response scale that is not a normal number of T is refused: Float32, one subnormal entry, raw                                                 |    42                  42     0.0s
+      a response scale that is not a normal number of T is refused: Float32, one subnormal entry, Float64 α = 1.0                                     |    42                  42     0.0s
+      relative = false after an overflow refusal can end in the nonfinite-objective refusal (Float64)                                                 |    31                  31     0.0s
+      relative = false after an overflow refusal can end in the nonfinite-objective refusal (Float32)                                                 |    31                  31     0.0s
+      y = 0: the absolute tolerance, converged at x = 0 (Float32)                                                                                     |   108                 108     0.6s
+      y = 0: the absolute tolerance, converged at x = 0 (Float64)                                                                                     |   108                 108     0.4s
+      the response scale over the ranges of y and the loss scale (Float32)                                                                            |  1273    52     26   1351     1.8s
+      the response scale over the ranges of y and the loss scale (Float64)                                                                            |   973    43     26   1042     1.0s
+      R3: Σr² that overflows in T at the solution gives the objective of the 256-bit reference                                                        |    26                  26     0.4s
+      R3: Σr² that underflows at the solution gives a reported minimum within the oracle's allowance of the reference                                 |   129                 129     0.1s
+      CD converges where α a_k underflows to 0 and its root is normal: Float64, α = 1e-300, X·1e-16, ‖y‖ = 1e-13                                      |    75                  75     0.2s
+      CD converges where α a_k underflows to 0 and its root is normal: Float64, α = 1e-310, X·1e-8, ‖y‖ = 1e-8                                        |    75                  75     0.0s
+      CD converges where α a_k underflows to 0 and its root is normal: Float64, α = 1e-300, X·1e-14, ‖y‖ = 1e-13                                      |    75                  75     0.0s
+      CD converges where α a_k underflows to 0 and its root is normal: Float64, α = nextfloat(0.0), ‖X_k‖² ≈ 0.25, ‖y‖ = 0.3                          |    75                  75     0.0s
+      CD converges where α a_k underflows to 0 and its root is normal: Float64, α = 1e-200, X·1e-63, ‖y‖ = 1e-62                                      |    75                  75     0.0s
+      CD converges where α a_k underflows to 0 and its root is normal: Float32, α = 1f-30, X·1e-9, ‖y‖ = 1e-9                                         |    75                  75     0.2s
+      CD converges where α a_k underflows to 0 and its root is normal: Float32, α = 1f-20, X·1e-14, ‖y‖ = 1e-14                                       |    75                  75     0.0s
+      CD with a product α a_k below the normal range: Float32, α = nextfloat(0f0), ‖X_k‖² ≈ 0.25, ‖y‖ = 0.3                                           |    74                  74     0.0s
+      CD with a product α a_k below the normal range: Float64, penalty with a subnormal α a_k (finite reciprocal): α = 1e-300, X·1.8e-5, ‖y‖ = 1e5    |   293                 293     0.2s
+      CD with a product α a_k below the normal range: Float32, penalty with a subnormal α a_k (finite reciprocal): α = 1f-30, X·1.3e-5, ‖y‖ = 1e5     |   293                 293     0.2s
+      CD with a product α a_k below the normal range: Float64, subnormal α a_k with a zero column, penalty 0.1 λmax                                   |    86                  86     0.0s
+      CD with a product α a_k below the normal range: Float64, α a_k underflows, with a zero column                                                   |    86                  86     0.0s
+      CD with a product α a_k below the normal range: Float32, α a_k underflows, with a zero column                                                   |    86                  86     0.0s
+      CD converges where α a_k is above floatmax(T) and the coordinate scale is finite: Float64, α = 1e300, X·1e5, ‖y‖ = 1e3                          |   294                 294     0.3s
+      CD converges where α a_k is above floatmax(T) and the coordinate scale is finite: Float32, α = 1f30, X·1e4, ‖y‖ = 1e5                           |   149                 149     0.2s
+      CD converges where α a_k is above floatmax(T) and the coordinate scale is finite: Float64, α = 1e300, X·1e5, ‖y‖ = 1e3, with a zero column      |   342                 342     0.0s
+      a coordinate step whose centre overflows is refused, x unchanged: penalty 0.0 λmax                                                              |    14                  14     0.1s
+      a coordinate step whose centre overflows is refused, x unchanged: penalty 0.25 λmax                                                             |    15                  15     0.0s
+      a coordinate step whose centre overflows is refused, x unchanged: penalty 0.5 λmax                                                              |    16                  16     0.0s
+      the coordinate scale over the ranges of the curvature and the loss scale (Float32)                                                              |  1163                1163     0.2s
+      the coordinate scale over the ranges of the curvature and the loss scale (Float64)                                                              |   859                 859     0.1s
+      CD converges where α a_k or its reciprocal is out of range, the penalty is applied: Float64, α a_k overflows: α = 1e300, X·1e5, ‖y‖ = 100       |   436                 436     0.2s
+      CD converges where α a_k or its reciprocal is out of range, the penalty is applied: Float32, α a_k overflows: α = 1f30, X·1e4, ‖y‖ = 1e3        |   436                 436     0.2s
+      CD converges where α a_k or its reciprocal is out of range, the penalty is applied: Float64, 1/(α a_k) overflows: α = 1e-300, X·1e-5, ‖y‖ = 100 |   436                 436     0.0s
+      CD converges where α a_k or its reciprocal is out of range, the penalty is applied: Float32, 1/(α a_k) overflows: α = 1f-30, X·3e-6, ‖y‖ = 100  |   436                 436     0.0s
+      CD converges where α a_k or its reciprocal is out of range, the penalty is applied: Float64, α a_k overflows, with a zero column                |   339                 339     0.0s
+      CD converges where α a_k or its reciprocal is out of range, the penalty is applied: Float32, α a_k overflows, with a zero column                |   339                 339     0.1s
+      CD converges where α a_k or its reciprocal is out of range, the penalty is applied: Float64, 1/(α a_k) overflows, with a zero column            |   339                 339     0.0s
+      CD converges where α a_k or its reciprocal is out of range, the penalty is applied: Float32, 1/(α a_k) overflows, with a zero column            |   339                 339     0.0s
+      subnormal curvature (out of scope): no false convergence: Float64, raw LS: X·1e-160, ‖y‖ = 1                                                    |   288                 288     0.1s
+      subnormal curvature (out of scope): no false convergence: Float32, raw LS: X·1e-22, ‖y‖ = 1                                                     |   288                 288     0.1s
+      CD at the boundaries of the band of the step: Float32, α = 0.5 floatmin                                                                         |   443                 443     0.0s
+      CD at the boundaries of the band of the step: Float32, α = 2.0 floatmin                                                                         |   442                 442     0.0s
+      CD at the boundaries of the band of the step: Float32, α = 0.5/floatmin                                                                         |   442                 442     0.0s
+      CD at the boundaries of the band of the step: Float32, α = 2.0/floatmin                                                                         |   442                 442     0.0s
+      CD at the boundaries of the band of the step: Float64, α = 0.5 floatmin                                                                         |   443                 443     0.0s
+      CD at the boundaries of the band of the step: Float64, α = 2.0 floatmin                                                                         |   442                 442     0.0s
+      CD at the boundaries of the band of the step: Float64, α = 0.5/floatmin                                                                         |   442                 442     0.0s
+      CD at the boundaries of the band of the step: Float64, α = 2.0/floatmin                                                                         |   442                 442     0.0s
+      inside the band the coordinate step is the former prox_block step (T = Float32, scale Float32)                                                  |    65                  65     0.1s
+      inside the band the coordinate step is the former prox_block step (T = Float32, scale Int64)                                                    |    65                  65     0.0s
+      inside the band the coordinate step is the former prox_block step (T = Float32, scale Float64)                                                  |    65                  65     0.0s
+      inside the band the coordinate step is the former prox_block step (T = Float32, scale Float64)                                                  |    65                  65     0.0s
+      inside the band the coordinate step is the former prox_block step (T = Float32, scale Float64)                                                  |    65                  65     0.0s
+      inside the band the coordinate step is the former prox_block step (T = Float32, scale BigFloat)                                                 |    65                  65     0.2s
+      inside the band the coordinate step is the former prox_block step (T = Float32, scale Rational{Int64})                                          |    65                  65     0.1s
+      inside the band the coordinate step is the former prox_block step (T = Float64, scale Float64)                                                  |    65                  65     0.1s
+      inside the band the coordinate step is the former prox_block step (T = Float64, scale Float64)                                                  |    65                  65     0.0s
+      inside the band the coordinate step is the former prox_block step (T = Float64, scale Float64)                                                  |    65                  65     0.0s
+      inside the band the coordinate step is the former prox_block step (T = Float64, scale Float32)                                                  |    65                  65     0.1s
+      inside the band the coordinate step is the former prox_block step (T = Float64, scale BigFloat)                                                 |    65                  65     0.2s
+      inside the band the coordinate step is the former prox_block step (T = Float64, scale BigInt)                                                   |    65                  65     0.1s
+      the step refuses a curvature that is not finite and forms no step for a penalty it cannot handle (Float32)                                      |    21                  21     0.2s
+      the step refuses a curvature that is not finite and forms no step for a penalty it cannot handle (Float64)                                      |    21                  21     0.2s
+      shrink is the NormL1 prox at the level τ and the step 1 (Float32)                                                                               |   181                 181     0.0s
+      shrink is the NormL1 prox at the level τ and the step 1 (Float64)                                                                               |   181                 181     0.0s
+      the threshold λ/(α a) over the ranges of α, a and λ (Float32)                                                                                   |  1460                1460     0.0s
+      the Float32 threshold is within one ulp where the double rounding is not the correct rounding                                                   |     3                   3     0.0s
+      the threshold λ/(α a) over the ranges of α, a and λ (Float64)                                                                                   |  1455                1455     0.0s
+      a threshold above floatmax(T) gives x = 0, level Int64 (Float64, α = 1e-300, X·1e-5)                                                            |    73                  73     0.7s
+      a threshold above floatmax(T) gives x = 0, level Float64 (Float64, α = 1e-300, X·1e-5)                                                          |    73                  73     0.0s
+      a threshold above floatmax(T) gives x = 0, level Float32 (Float64, α = 1e-300, X·1e-5)                                                          |    73                  73     0.6s
+      a threshold above floatmax(T) gives x = 0, level Int64 (Float32, α = 1f-30, X·3e-6)                                                             |    73                  73     0.6s
+      a threshold above floatmax(T) gives x = 0, level Float64 (Float32, α = 1f-30, X·3e-6)                                                           |    73                  73     0.6s
+      a threshold above floatmax(T) gives x = 0, level Float32 (Float32, α = 1f-30, X·3e-6)                                                           |    73                  73     0.0s
+      Float32 data with a Float64 level and an Int level where α a_k is out of range: Float32, α a_k overflows: α = 1f30, X·1e4                       |   100                 100     0.0s
+      Float32 data with a Float64 level and an Int level where α a_k is out of range: Float32, 1/(α a_k) overflows: α = 1f-30, X·3e-6                 |   100                 100     0.0s
+      y = 0: an absolute penalty and an extreme loss scale give x = 0 (Float64, α = 1e300, X·1e5)                                                     |    49                  49     0.0s
+      y = 0: an absolute penalty and an extreme loss scale give x = 0 (Float32, α = 1f30, X·1e4)                                                      |    49                  49     0.0s
+      y = 0: an absolute penalty and an extreme loss scale give x = 0 (Float64, α = 1e-300, X·1e-5)                                                   |    49                  49     0.0s
+      y = 0: an absolute penalty and an extreme loss scale give x = 0 (Float32, α = 1f-30, X·3e-6)                                                    |    49                  49     0.0s
+      an infinite curvature is refused, x unchanged: Float32, every column                                                                            |   238                 238     0.3s
+      an infinite curvature is refused, x unchanged: Float32, one column                                                                              |   238                 238     0.0s
+      an infinite curvature is refused, x unchanged: Float64, every column                                                                            |   238                 238     0.2s
+      an infinite curvature is refused, x unchanged: Float64, one column                                                                              |   238                 238     0.0s
+      the step is inferred and allocates nothing on both paths (Float64, in the band)                                                                 |     9                   9     0.2s
+      the step is inferred and allocates nothing on both paths (Float32, in the band)                                                                 |     9                   9     0.1s
+      the step is inferred and allocates nothing on both paths (Float64, α a_k overflows)                                                             |     9                   9     0.0s
+      the step is inferred and allocates nothing on both paths (Float32, α a_k overflows)                                                             |     9                   9     0.0s
+      the step is inferred and allocates nothing on both paths (Float64, 1/(α a_k) overflows)                                                         |     9                   9     0.0s
+      the step is inferred and allocates nothing on both paths (Float32, 1/(α a_k) overflows)                                                         |     9                   9     0.0s
+      the step is inferred and allocates nothing on both paths (Float64, raw LS, subnormal curvature (out of scope: cost only))                       |     9                   9     0.0s
+      the step is inferred and allocates nothing on both paths (Float32, raw LS, subnormal curvature (out of scope: cost only))                       |     9                   9     0.0s
+      a coordinate at 0 is visited by a full pass after active work: seed-598 data, dense                                                             |     7                   7     0.0s
+      a coordinate at 0 is visited by a full pass after active work: seed-598 data, owner                                                             |     7                   7     0.0s
+      a full pass follows active passes that visited 20 full passes' worth of coordinates: Float32, cyclic                                            |     7                   7     0.3s
+      a full pass follows active passes that visited 20 full passes' worth of coordinates: Float32, random                                            |     7                   7     0.0s
+      a full pass follows active passes that visited 20 full passes' worth of coordinates: Float64, cyclic                                            |     7                   7     0.3s
+      a full pass follows active passes that visited 20 full passes' worth of coordinates: Float64, random                                            |     7                   7     0.0s
+      a forced full pass starts from a refreshed cache after momentum moved it: Float32                                                               |     4                   4     0.0s
+      a forced full pass starts from a refreshed cache after momentum moved it: Float64                                                               |     4                   4     0.0s
+    group_cd                                                                                                                                          | 14791               14791    28.4s
+    cd_elasticnet                                                                                                                                     |  9668                9668    29.2s
+    accelerated_pgd                                                                                                                                   |  9904                9904    17.9s
+    elasticnet                                                                                                                                        |  1747                1747    13.3s
+    core_contracts                                                                                                                                    |   876                 876    11.1s
+    core_regressions                                                                                                                                  |   930                 930    20.9s
+    benchmark_formal                                                                                                                                  |   415                 415    22.4s
+    minimal_core_characterization                                                                                                                     |  1008                1008     5.6s
+    group_cd_preflight                                                                                                                                |   401                 401    11.9s
+    aqua                                                                                                                                              |    30                  30     7.6s
+    examples                                                                                                                                          |     7                   7     7.2s
+    sparse_cd                                                                                                                                         |  1769                1769     7.6s
+    stopping_scale                                                                                                                                    |   344                 344     7.1s
+    benchmark_explore                                                                                                                                 |    22                  22     2.0s
+    naming                                                                                                                                            |     5                   5     0.0s
+    tier_selection                                                                                                                                    |   397                 397     5.8s
+    ci_gate                                                                                                                                           |   139                 139     1.8s
+    paired_master                                                                                                                                     |     1                   1     4.6s
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float32):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float32}, y::Vector{Float32}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:915
+  Expression: res === T(sqrt(m.s * sumsq_loop(y)))
+   Evaluated: DomainError(0.0, "Cannot be ±0.0.") === 3.350102775635168e-244
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:915
+  Expression: res === T(sqrt(m.s * sumsq_loop(y)))
+   Evaluated: DomainError(Inf, "Cannot be NaN or Inf.") === 1.1750372289063074e208
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:915
+  Expression: res === T(sqrt(m.s * sumsq_loop(y)))
+   Evaluated: DomainError(0.0, "Cannot be ±0.0.") === 3.8624055326728724e-226
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:915
+  Expression: res === T(sqrt(m.s * sumsq_loop(y)))
+   Evaluated: DomainError(Inf, "Cannot be NaN or Inf.") === 1.35472568991972e226
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:915
+  Expression: res === T(sqrt(m.s * sumsq_loop(y)))
+   Evaluated: DomainError(0.0, "Cannot be ±0.0.") === 4.453050398131018e-208
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:915
+  Expression: res === T(sqrt(m.s * sumsq_loop(y)))
+   Evaluated: DomainError(Inf, "Cannot be NaN or Inf.") === 1.5618923807517924e244
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:910
+  Expression: res isa T && floatmin(T) <= res <= floatmax(T)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Test Failed at <WORK>/ps-353-x2/test/cd_numerics.jl:911
+  Expression: !(below || above)
+
+Error in testset the response scale over the ranges of y and the loss scale (Float64):
+Error During Test at <WORK>/ps-353-x2/test/cd_numerics.jl:912
+  Test threw exception
+  Expression: abs(big(res) - t) <= (n + 8) * eps(T) * t
+  MethodError: no method matching big(::DomainError)
+  
+  Closest candidates are:
+    big(!Matched::Type{Union{}}, Any...)
+     @ Base number.jl:394
+    big(!Matched::Type{<:Rational})
+     @ Base gmp.jl:491
+    big(!Matched::Type{<:AbstractFloat})
+     @ Base mpfr.jl:416
+    ...
+  
+  Stacktrace:
+   [1] macro expansion
+     @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Test/src/Test.jl:670 [inlined]
+   [2] check_scale_point(T::Type{Float64}, y::Vector{Float64}, α::BigFloat, ways::Set{Int64})
+     @ Main.var"##cd_numerics#225".CDNumerics <WORK>/ps-353-x2/test/cd_numerics.jl:912
+    FAILURE
+
+ERROR: LoadError: Test run finished with errors
+in expression starting at <WORK>/ps-353-x2/test/runtests.jl:68
+ERROR: LoadError: Package ProximalSolvers errored during testing
+Stacktrace:
+ [1] pkgerror(msg::String)
+   @ Pkg.Types <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Pkg/src/Types.jl:70
+ [2] test(ctx::Pkg.Types.Context, pkgs::Vector{Pkg.Types.PackageSpec}; coverage::Bool, julia_args::Cmd, test_args::Cmd, test_fn::Nothing, force_latest_compatible_version::Bool, allow_earlier_backwards_compatible_versions::Bool, allow_reresolve::Bool)
+   @ Pkg.Operations <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Pkg/src/Operations.jl:2051
+ [3] test
+   @ <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Pkg/src/Operations.jl:1932 [inlined]
+ [4] test(ctx::Pkg.Types.Context, pkgs::Vector{Pkg.Types.PackageSpec}; coverage::Bool, test_fn::Nothing, julia_args::Cmd, test_args::Vector{String}, force_latest_compatible_version::Bool, allow_earlier_backwards_compatible_versions::Bool, allow_reresolve::Bool, kwargs::@Kwargs{io::IOStream})
+   @ Pkg.API <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Pkg/src/API.jl:444
+ [5] test(pkgs::Vector{Pkg.Types.PackageSpec}; io::IOStream, kwargs::@Kwargs{coverage::Bool, julia_args::Cmd, test_args::Vector{String}})
+   @ Pkg.API <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Pkg/src/API.jl:159
+ [6] test(; name::Nothing, uuid::Nothing, version::Nothing, url::Nothing, rev::Nothing, path::Nothing, mode::Pkg.Types.PackageMode, subdir::Nothing, kwargs::@Kwargs{coverage::Bool, julia_args::Cmd, test_args::Vector{String}})
+   @ Pkg.API <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Pkg/src/API.jl:174
+ [7] top-level scope
+   @ <WORK>/ps-353-x2/scripts/test.jl:21
+in expression starting at <WORK>/ps-353-x2/scripts/test.jl:21
+
+real	1m18.785s
+user	4m36.349s
+sys	0m4.588s

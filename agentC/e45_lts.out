@@ -1,0 +1,19 @@
+E4/E5 image error bound, cheap-path chain and final decision on julia 1.10.13
+  Float32 E4 ‖zu - X y‖ <= Ey (ω>0: false)                   n=   143 violations=0 worst_ratio=0.764866
+  Float32 E4 ‖zu - X y‖ <= Ey (ω>0: true)                    n=   779 violations=0 worst_ratio=0.136938
+  Float32 E4b ‖(zw-zu) - X d‖ <= E                           n=   922 violations=0 worst_ratio=0.556166
+  Float32 E4c lower_step·D <= ‖d‖ <= upper_step·D            n=   922 violations=0 worst_ratio=-Inf
+  Float32 E4d ‖x‖ <= upper_x·normx                           n=   922 violations=0 worst_ratio=-Inf
+  Float32 E5 MAX of (ρ/tol-1)/eps among accepted (= -min margin in eps), fo=false n=  4467 violations=0 worst_ratio=-71.5203
+  Float32 E5 MAX of (ρ/tol-1)/eps among accepted (= -min margin in eps), fo=true n=  4467 violations=0 worst_ratio=-71.5203
+  Float32 E5 accept ⇒ α‖Xd‖² <= (1+4eps)² L‖d‖²  (fresh_only=false) n= 13504 violations=0 worst_ratio=0.999991
+  Float32 E5 accept ⇒ α‖Xd‖² <= (1+4eps)² L‖d‖²  (fresh_only=true) n= 13504 violations=0 worst_ratio=0.999991
+  Float64 E4 ‖zu - X y‖ <= Ey (ω>0: false)                   n=    31 violations=0 worst_ratio=0.65745
+  Float64 E4 ‖zu - X y‖ <= Ey (ω>0: true)                    n=   576 violations=0 worst_ratio=0.156413
+  Float64 E4b ‖(zw-zu) - X d‖ <= E                           n=   607 violations=0 worst_ratio=0.407949
+  Float64 E4c lower_step·D <= ‖d‖ <= upper_step·D            n=   607 violations=0 worst_ratio=-Inf
+  Float64 E4d ‖x‖ <= upper_x·normx                           n=   607 violations=0 worst_ratio=-Inf
+  Float64 E5 MAX of (ρ/tol-1)/eps among accepted (= -min margin in eps), fo=false n=  2846 violations=0 worst_ratio=-71.5017
+  Float64 E5 MAX of (ρ/tol-1)/eps among accepted (= -min margin in eps), fo=true n=  2846 violations=0 worst_ratio=-71.5017
+  Float64 E5 accept ⇒ α‖Xd‖² <= (1+4eps)² L‖d‖²  (fresh_only=false) n=  8544 violations=0 worst_ratio=1
+  Float64 E5 accept ⇒ α‖Xd‖² <= (1+4eps)² L‖d‖²  (fresh_only=true) n=  8544 violations=0 worst_ratio=1

@@ -1,0 +1,38 @@
+### Julia lts
+case (errors in eps(Float64) of ‖v‖)   _scaled_norm  _se_norm(F64)
+Float32 ordinary n=1000                      1.35           0.18
+Float32 mixed 2^±40 n=1000                   2.43           0.09
+Float32 huge 1e37 n=1000                     4.95           0.47
+Float32 subnormal-heavy n=1000               0.07           0.77
+Float32 n=100000 ordinary                  167.78           1.57
+Float64 ordinary n=1000                      1.02           0.52
+Float64 mixed 2^±40 n=1000                   0.16           0.16
+Float64 huge (1e300*randn) n=1000            0.46           0.92
+Float64 tiny (1e-300*randn) n=1000           1.14           1.14
+Float64 subnormal-heavy n=1000               0.36           0.60
+Float64 one huge + many tiny                 0.00           0.00
+Float64 [2^1000, 2^-1000]                    0.00           0.00
+Float64 near floatmax n=10000                0.14           0.14
+Float64 n=100000 ordinary                   37.53           0.29
+n=100: _scaled_norm 0.28 us   _se_norm(F64) 0.23 us   (indicative, one process; not coordinate-loop timing)
+n=1000: _scaled_norm 2.74 us   _se_norm(F64) 1.20 us   (indicative, one process; not coordinate-loop timing)
+n=100000: _scaled_norm 275.69 us   _se_norm(F64) 87.10 us   (indicative, one process; not coordinate-loop timing)
+### Julia release
+case (errors in eps(Float64) of ‖v‖)   _scaled_norm  _se_norm(F64)
+Float32 ordinary n=1000                      1.35           0.18
+Float32 mixed 2^±40 n=1000                   2.43           0.09
+Float32 huge 1e37 n=1000                     4.95           0.07
+Float32 subnormal-heavy n=1000               0.30           0.30
+Float32 n=100000 ordinary                  166.70           0.33
+Float64 ordinary n=1000                      2.14           0.11
+Float64 mixed 2^±40 n=1000                   0.82           0.76
+Float64 huge (1e300*randn) n=1000            0.66           0.66
+Float64 tiny (1e-300*randn) n=1000           0.02           0.02
+Float64 subnormal-heavy n=1000               2.61           0.07
+Float64 one huge + many tiny                 0.00           0.00
+Float64 [2^1000, 2^-1000]                    0.00           0.00
+Float64 near floatmax n=10000                0.14           0.14
+Float64 n=100000 ordinary                   30.63           0.04
+n=100: _scaled_norm 0.16 us   _se_norm(F64) 0.10 us   (indicative, one process; not coordinate-loop timing)
+n=1000: _scaled_norm 1.16 us   _se_norm(F64) 0.65 us   (indicative, one process; not coordinate-loop timing)
+n=100000: _scaled_norm 117.09 us   _se_norm(F64) 64.49 us   (indicative, one process; not coordinate-loop timing)

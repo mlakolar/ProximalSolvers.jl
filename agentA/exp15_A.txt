@@ -1,0 +1,9 @@
+== A
+  F32 X = 1e-17 * N(0,1) (femto-units design), y ~ N(0,1), n=100 p=10            ok conv=true gap=2.0e-09 passes=5 obj=1.063853e+01
+  F32 raw counts: X ~ 1e10 columns (norm ~1e11), y ~ 1e10                        ok conv=true gap=1.0e-07 passes=9 obj=1.096466e+11
+  F32 y = 1.6e-19 * N(0,1) (charge in coulombs), X standardized, n=200 p=20      ok conv=true gap=8.0e-08 passes=14 obj=5.768508e-18
+  F32 y = 1e-12 * N(0,1) (pico-units), n=100 p=10                                ok conv=true gap=9.2e-08 passes=4 obj=2.136707e-11
+  F32 y = 1e-21 * N(0,1) (energies in joules), n=100 p=10                        ok conv=true gap=4.8e-08 passes=3 obj=2.179400e-20
+  F64 y = 1e-12 * N(0,1) (ordinary small scale)                                  ok conv=true gap=1.1e-13 passes=3 obj=2.045441e-11
+  F64 y = 1e-200 * N(0,1), n=100 p=10                                            ok conv=false gap=NaN passes=3 obj=2.147772e-199
+  F64 y = 1e200 * N(0,1), n=100 p=10                                             ok conv=false gap=NaN passes=3 obj=2.170779e+201

@@ -1,0 +1,24 @@
+src/cd/solver.jl instrumented lines: 216 zero-hit: 23
+  L176: solver
+  L257: order
+  L269: maxh
+  L291: maxh
+  L299: x
+  L338: tol = st.tolerance
+  L339: converged = maxh<tol
+  L346: x
+  L353: true
+  L366: _momentum_default(m::CDModel) = _cache(m) !== nothing
+  L386: tol = st.tolerance
+  L387: converged = maxh<tol
+  L401: x
+  L415: s
+  L429: s
+  L445: _initialize!(m, x, false)
+  L449: end
+  L453: s
+  L470: s
+  L478: s
+  L489: d
+  L496: @warn "coordinate descent stopped without a duality certificate after $(st.passes) passes (last change $(round(st.maxchange; sigdigits = 3)), toleranc
+  L536: dest

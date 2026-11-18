@@ -1,0 +1,89 @@
+# julia 1.10.13 N=20000 seed=2. columns: family type tree | count | worst ratio | #ratio>1 | throws | nonfinite
+ordinary       Float32  base  | 20000 | 3.183e-02 |   0 |    0 |   0
+ordinary       Float32  x1a   | 20000 | 3.183e-02 |   0 |    0 |   0
+ordinary       Float32  x1b   | 20000 | 3.183e-02 |   0 |    0 |   0
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): x1a=Pair{Symbol, Int64}[] x1b=Pair{Symbol, Int64}[]; gained (BASE throws, proto ok): x1a=Dict{Symbol, Int64}() x1b=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] x1a=[0, 0] x1b=[0, 0]
+ordinary       Float64  base  | 20000 | 3.800e-02 |   0 |    0 |   0
+ordinary       Float64  x1a   | 20000 | 3.800e-02 |   0 |    0 |   0
+ordinary       Float64  x1b   | 20000 | 3.800e-02 |   0 |    0 |   0
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): x1a=Pair{Symbol, Int64}[] x1b=Pair{Symbol, Int64}[]; gained (BASE throws, proto ok): x1a=Dict{Symbol, Int64}() x1b=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] x1a=[0, 0] x1b=[0, 0]
+near_parallel  Float32  base  | 20000 | 2.466e-02 |   0 |    0 |   0
+near_parallel  Float32  x1a   | 20000 | 2.466e-02 |   0 |    0 |   0
+near_parallel  Float32  x1b   | 20000 | 2.466e-02 |   0 |    0 |   0
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): x1a=Pair{Symbol, Int64}[] x1b=Pair{Symbol, Int64}[]; gained (BASE throws, proto ok): x1a=Dict{Symbol, Int64}() x1b=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] x1a=[0, 0] x1b=[0, 0]
+near_parallel  Float64  base  | 20000 | 1.872e-02 |   0 |    0 |   0
+near_parallel  Float64  x1a   | 20000 | 1.872e-02 |   0 |    0 |   0
+near_parallel  Float64  x1b   | 20000 | 1.872e-02 |   0 |    0 |   0
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): x1a=Pair{Symbol, Int64}[] x1b=Pair{Symbol, Int64}[]; gained (BASE throws, proto ok): x1a=Dict{Symbol, Int64}() x1b=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] x1a=[0, 0] x1b=[0, 0]
+tiny_d         Float32  base  | 20000 | 2.240e-02 |   0 |    0 |   0
+tiny_d         Float32  x1a   | 20000 | 2.240e-02 |   0 |    0 |   0
+tiny_d         Float32  x1b   | 20000 | 2.240e-02 |   0 |    0 |   0
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): x1a=Pair{Symbol, Int64}[] x1b=Pair{Symbol, Int64}[]; gained (BASE throws, proto ok): x1a=Dict{Symbol, Int64}() x1b=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] x1a=[0, 0] x1b=[0, 0]
+tiny_d         Float64  base  | 20000 | 2.092e-02 |   0 |    0 |   0
+tiny_d         Float64  x1a   | 20000 | 2.092e-02 |   0 |    0 |   0
+tiny_d         Float64  x1b   | 20000 | 2.092e-02 |   0 |    0 |   0
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): x1a=Pair{Symbol, Int64}[] x1b=Pair{Symbol, Int64}[]; gained (BASE throws, proto ok): x1a=Dict{Symbol, Int64}() x1b=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] x1a=[0, 0] x1b=[0, 0]
+lam_near       Float32  base  | 20000 | 3.091e-02 |   0 |    0 |   0
+lam_near       Float32  x1a   | 20000 | 3.091e-02 |   0 |    0 |   0
+lam_near       Float32  x1b   | 20000 | 3.091e-02 |   0 |    0 |   0
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): x1a=Pair{Symbol, Int64}[] x1b=Pair{Symbol, Int64}[]; gained (BASE throws, proto ok): x1a=Dict{Symbol, Int64}() x1b=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] x1a=[0, 0] x1b=[0, 0]
+lam_near       Float64  base  | 20000 | 3.157e-02 |   0 |    0 |   0
+lam_near       Float64  x1a   | 20000 | 3.157e-02 |   0 |    0 |   0
+lam_near       Float64  x1b   | 20000 | 3.157e-02 |   0 |    0 |   0
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): x1a=Pair{Symbol, Int64}[] x1b=Pair{Symbol, Int64}[]; gained (BASE throws, proto ok): x1a=Dict{Symbol, Int64}() x1b=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] x1a=[0, 0] x1b=[0, 0]
+thresh         Float32  base  | 20000 | 2.257e-02 |   0 |    0 |   0
+thresh         Float32  x1a   | 20000 | 3.250e-02 |   0 |    0 |   0
+thresh         Float32  x1b   | 20000 | 3.250e-02 |   0 |    0 |   0
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): x1a=Pair{Symbol, Int64}[] x1b=Pair{Symbol, Int64}[]; gained (BASE throws, proto ok): x1a=Dict{Symbol, Int64}() x1b=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] x1a=[0, 0] x1b=[0, 0]
+thresh         Float64  base  | 20000 | 3.572e-02 |   0 |    0 |   0
+thresh         Float64  x1a   | 20000 | 3.572e-02 |   0 | 10833 |   0
+thresh         Float64  x1b   | 20000 | 3.572e-02 |   0 | 10833 |   0
+    x1a: ArgumentError: the coordinate step of coordinate 1 is outsid x10833
+    x1b: ArgumentError: the coordinate step of coordinate 1 is outsid x10833
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): x1a=[:unclean => 10833] x1b=[:unclean => 10833]; gained (BASE throws, proto ok): x1a=Dict{Symbol, Int64}() x1b=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] x1a=[0, 0] x1b=[0, 0]
+corner         Float32  base  | 20000 | 1.377e-02 |   0 |    0 |   0
+corner         Float32  x1a   | 20000 | 1.503e-02 |   0 |    0 |   0
+corner         Float32  x1b   | 20000 | 1.503e-02 |   0 |    0 |   0
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): x1a=Pair{Symbol, Int64}[] x1b=Pair{Symbol, Int64}[]; gained (BASE throws, proto ok): x1a=Dict{Symbol, Int64}() x1b=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] x1a=[0, 0] x1b=[0, 0]
+corner         Float64  base  | 20000 | 1.803e-02 |   0 |    0 |   0
+corner         Float64  x1a   | 20000 | 1.803e-02 |   0 |    0 |   0
+corner         Float64  x1b   | 20000 | 1.803e-02 |   0 |    0 |   0
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): x1a=Pair{Symbol, Int64}[] x1b=Pair{Symbol, Int64}[]; gained (BASE throws, proto ok): x1a=Dict{Symbol, Int64}() x1b=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] x1a=[0, 0] x1b=[0, 0]
+band           Float32  base  | 20000 | 1.315e-07 |   0 |  163 |   0
+band           Float32  x1a   | 20000 | 3.426e-08 |   0 |  163 |   0
+band           Float32  x1b   | 20000 | 1.655e-06 |   0 |  163 |   0
+    base: ArgumentError: the curvature of coordinate 1 (the squared no x163
+    x1a: ArgumentError: the curvature of coordinate 1 (the squared no x163
+    x1b: ArgumentError: the curvature of coordinate 1 (the squared no x163
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): x1a=Pair{Symbol, Int64}[] x1b=Pair{Symbol, Int64}[]; gained (BASE throws, proto ok): x1a=Dict{Symbol, Int64}() x1b=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] x1a=[0, 0] x1b=[0, 0]
+band           Float64  base  | 20000 | 1.576e-15 |   0 |    0 |   0
+band           Float64  x1a   | 20000 | 0.000e+00 |   0 | 20000 |   0
+band           Float64  x1b   | 20000 | 1.576e-15 |   0 |  235 |   0
+    x1a: ArgumentError: the coordinate step of coordinate 1 is outsid x20000
+    x1b: ArgumentError: the coordinate step of coordinate 1 is outsid x235
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): x1a=[:clean => 19765, :unclean => 235] x1b=[:unclean => 235]; gained (BASE throws, proto ok): x1a=Dict{Symbol, Int64}() x1b=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] x1a=[0, 0] x1b=[0, 0]
+sub_lam        Float32  base  | 20000 | 2.681e-02 |   0 |    0 |   0
+sub_lam        Float32  x1a   | 20000 | 1.836e-02 |   0 |    0 |   0
+sub_lam        Float32  x1b   | 20000 | 2.681e-02 |   0 |    0 |   0
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): x1a=Pair{Symbol, Int64}[] x1b=Pair{Symbol, Int64}[]; gained (BASE throws, proto ok): x1a=Dict{Symbol, Int64}() x1b=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] x1a=[0, 0] x1b=[0, 0]
+sub_lam        Float64  base  | 20000 | 2.644e-02 |   0 |    0 |   0
+sub_lam        Float64  x1a   | 20000 | 1.594e-02 |   0 | 18588 |   0
+sub_lam        Float64  x1b   | 20000 | 2.644e-02 |   0 |    0 |   0
+    x1a: ArgumentError: the coordinate step of coordinate 1 is outsid x18588
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): x1a=[:clean => 18588] x1b=Pair{Symbol, Int64}[]; gained (BASE throws, proto ok): x1a=Dict{Symbol, Int64}() x1b=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] x1a=[0, 0] x1b=[0, 0]

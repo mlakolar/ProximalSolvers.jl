@@ -1,0 +1,9 @@
+Julia 1.13.4
+PB exports: 54
+PB public non-exported: [:check_parameters, :check_symmetric_parameters, :entry_parameters, :leastsquares_data, :samegroups, :value_and_gradient_from_predictor!, :value_from_predictor, :value_from_residual]
+PS public: [:AccProxGradDescent, :CDResults, :CDSolver, :LineSearches, :OptimizationResults, :OptimizationState, :OptimizationTrace, :ProximalGradientDescent, :ProximalOptions, :ProximalSolver, :ProximalSolvers, :solve!]
+PB.value_from_residual callable qualified: 4.5
+code_typed(PS._clean_sum) statements=9 :invoke=0
+code_typed(PB._squares_normal) statements=4 :invoke=0
+LinearAlgebra.norm(Float32[3e38,3e38]) = Inf   PS._scaled_norm -> (2.4936000847084885, 127) (value 4.2426406948942856e38)  Float64(norm(Float64.(y))) = 4.2426406948942856e38
+PB.norm_diff(y, zeros(Float32,2)) = Inf
