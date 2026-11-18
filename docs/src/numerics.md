@@ -547,7 +547,7 @@ full pass whose largest change is below the threshold ends the solve with
 
 `converged = true` reports that change test only. It is not a certificate of optimality:
 compute the group KKT conditions from the data, as in
-[Example 6](examples/06_group_cd_lasso.md), where for `∇ = s Xᵀ(Xβ − y)` a nonzero group
+the [group lasso tutorial](examples/problems/group_lasso.md), where for `∇ = s Xᵀ(Xβ − y)` a nonzero group
 needs `∇[G] + λ w β[G] / ‖β[G]‖ = 0` and a zero group needs `‖∇[G]‖ ≤ λ w`.
 
 The pass schedule is that of the lasso with groups as the coordinates. A full pass

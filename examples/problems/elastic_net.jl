@@ -3,10 +3,11 @@
 #
 # ``\min_b \; \frac{1}{2n}\|y - Xb\|^2 + \lambda_1 \|b\|_1 + \frac{\lambda_2}{2}\|b\|^2``.
 #
-# `ElasticNet(λ1, λ2)` is accepted by `ProximalGradientDescent` and `AccProxGradDescent`;
-# `CDSolver` refuses an `ElasticNet` (support is planned). Accuracy is checked with the objective computed from
-# X and y and with the KKT residual, ProximalBase's `kkt_violation` of `g` at the gradient computed from X and y,
-# not with the solvers' `converged` flags.
+# `ElasticNet(λ1, λ2)` is accepted by `ProximalGradientDescent` and `AccProxGradDescent` on a dense
+# `Vector`, and this page solves it with those two. `CDSolver` also accepts an `ElasticNet`, on a dense
+# `Vector` or a `SparseIterate`; see [Supported problems](../../support.md). Accuracy is checked with the
+# objective computed from X and y and with the KKT residual, ProximalBase's `kkt_violation` of `g` at the
+# gradient computed from X and y, not with the solvers' `converged` flags.
 using LinearAlgebra, Random, ProximalBase, ProximalSolvers
 
 rng = Xoshiro(2026)

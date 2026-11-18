@@ -72,7 +72,7 @@ finite positive squared norm whose scaled curvature (the loss scale times that n
 form (the threshold formed without the product or its reciprocal), and with `λ2 > 0` the visit is refused during the
 pass: the iterate passed to `solve!` is unchanged and a borrowed RNG may have advanced. A visit to a flat column (all
 entries 0) sets its coordinate to 0, at the levels that `solve!` accepts. With `maxpasses = 0` no coordinate is visited. See
-[the elastic-net example](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples/07_elasticnet/).
+[the elastic-net example](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples/problems/elastic_net/).
 
 The supported problem uses a finite dense `Matrix{T}`, finite `Vector{T}`
 response and matching coefficients, where `T` is `Float32` or `Float64`.
@@ -86,7 +86,7 @@ with ProximalBase's `SqrtLeastSquaresLoss(y, X)` and `NormL1(lambda)`, `lambda >
 sparse designs, penalty paths, ADMM and other algorithms are not part
 of this development branch; see
 [Supported problems](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/).
-The [square-root lasso example](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples/09_square_root_lasso/)
+The [square-root lasso example](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples/problems/square_root_lasso/)
 checks a solution from the data.
 
 ProximalBase's linked `/dev/` documentation follows its evolving
