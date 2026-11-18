@@ -76,6 +76,10 @@ pages display that residual next to the default-PGD convergence flag.
 PGD's printed `|g(x)|` label is an internal stopping residual, **not**
 the value of the user's L1 penalty.
 
+What the stopping tests imply and their measured limits (products that underflow or cancel, a warm
+start far above the solution scale, Float32, `ftol = 0`) are on the page
+[Limits of the stopping tests](stopping-limits.md).
+
 ### The stationarity check of a stop
 
 PGD and APG verify a proposed stop. At an iteration at which the `x`, `f` or
@@ -549,6 +553,8 @@ full pass whose largest change is below the threshold ends the solve with
 compute the group KKT conditions from the data, as in
 the [group lasso tutorial](examples/problems/group_lasso.md), where for `∇ = s Xᵀ(Xβ − y)` a nonzero group
 needs `∇[G] + λ w β[G] / ‖β[G]‖ = 0` and a zero group needs `‖∇[G]‖ ≤ λ w`.
+What the change test implies, and how far group CD stopped from a minimizer in the audit, is in
+[What the change test of coordinate descent implies](@ref "What the change test of coordinate descent implies").
 
 The pass schedule is that of the lasso with groups as the coordinates. A full pass
 visits every group and an active pass visits the active groups; after each pass the
