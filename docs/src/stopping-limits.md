@@ -344,9 +344,8 @@ What you can do:
 - Start from zero, or from a point at the scale of the solution such as the previous point of a
   λ path.
 - Do not warm-start from a point whose column images are far larger than the response. An
-  unpenalized fit with large cancelling coefficients is such a point, and a rank-deficient or
-  nearly collinear design is where such fits arise; the study gives no size below which a start is
-  safe.
+  unpenalized fit whose column images are large and cancel, as on the rank-deficient design of the
+  study, is such a point; the study gives no size below which a start is safe.
 - Evaluate the [KKT residual independently](sparsity-and-kkt.md) at the returned point. It forms
   `y − Xx` from the returned coefficients, so it does not inherit the error of the cache; where the
   returned coefficients are still far above the scale of the solution, as in the example, evaluate
