@@ -16,7 +16,7 @@ using LinearAlgebra, Random, ProximalBase, ProximalSolvers
 # ## The problem
 #
 # The data are drawn from a seeded generator: `n = 200` observations, `p = 50` features whose columns are
-# scaled to `sum(abs2, X[:, j]) == n`, five nonzero coefficients and noise of standard deviation 0.5. The
+# scaled to `sum(abs2, X[:, j]) ≈ n` (up to rounding), five nonzero coefficients and noise of standard deviation 0.5. The
 # level is `λ = sqrt(n)*λₙ` with `λₙ = 1.1*sqrt(2 log(2p/0.05)/n)`; it does not use the noise level. Any
 # level at or above `λmax = ‖Xᵀy‖∞/‖y‖` gives the solution `β = 0`, so the script checks that `λ < λmax`.
 rng = Xoshiro(2026)
@@ -33,15 +33,15 @@ println("λ = ", λ, ", λmax = ", λmax)
 
 # ## Solving it
 #
-# Coordinate descent with cyclic order and no momentum, which makes the output reproducible. The result
-# reports the objective value (`minimum`), whether a duality certificate was proved (`converged`), the proved
+# Coordinate descent with cyclic order and no momentum, which fixes the order of the coordinate updates; the low digits of
+# the printed numbers can differ between Julia versions and machines. The result reports the objective value (`minimum`), whether a duality certificate was proved (`converged`), the proved
 # bound on the relative gap (`gap`) and the number of passes over the coordinates. [`CDSolver`](@ref)
 # describes the stopping rule.
 β = zeros(p)
 result = solve!(β, SqrtLeastSquaresLoss(y, X), NormL1(λ), CDSolver(order = :cyclic, momentum = false))
 println("minimum = ", result.minimum, ", converged = ", result.converged, ", gap = ", result.gap,
         ", passes = ", result.passes)
-println("nonzero coefficients: ", findall(!iszero, β))
+println("indices of the nonzero coefficients: ", findall(!iszero, β))
 @assert result.converged && 0 <= result.gap <= 1e-4
 
 # ## Checking the answer independently
@@ -99,14 +99,15 @@ println("active coordinates: ", collect(activecoordinates(x32)))
 
 # ## [Limitation: exact fits](@id sqrt-lasso-exact-fit)
 #
-# At a point with `y = Xβ` the residual is zero and the loss `‖y - Xβ‖` is not differentiable there. The
-# solver certifies a point through the residual direction `r/‖r‖` (the dual point above), which does not
-# exist at `r = 0`. Two things can follow. Coordinate descent can stop at a point that minimizes `P` along
-# every coordinate but not overall. And a point that is optimal can remain uncertified. In the two cases
-# below the run reports `converged = false` and `gap = NaN`, which means that no certificate was proved;
-# by itself it does not say whether the point is wrong. A point reported this way has to be checked by other means. The
-# two cases below are small; the rest of this page does not depend on them, and each solve logs a
-# warning about the missing certificate. Related issues:
+# For `X ≠ 0`, the loss `‖y - Xβ‖` is not differentiable at a point with `y = Xβ` (an exact fit), where the
+# residual is zero. The solver forms its certificate from the residual recomputed in `Float64` and the
+# direction `r/‖r‖` of that residual (the dual point above). At the two points below that residual is 0,
+# so the direction cannot be formed. Two things can happen at an exact fit. Coordinate descent can stop at
+# a point that minimizes `P` along every coordinate but not overall. And a point that is optimal can remain
+# uncertified. In the two cases below the run reports `converged = false` and `gap = NaN`, which means that
+# no certificate was proved; by itself it does not say whether the point is wrong. A point reported this way
+# should be checked by other means. The two cases are small; the rest of this page does not depend on
+# them, and each solve logs a warning about the missing certificate. Related issues:
 # [#155](https://github.com/mlakolar/ProximalSolvers.jl/issues/155),
 # [#156](https://github.com/mlakolar/ProximalSolvers.jl/issues/156).
 #
@@ -130,7 +131,7 @@ println("start at 0: β = ", β1_zero, ", converged = ", r1_zero.converged)
 
 # In the second case, `X = [1 2; 0 1]`, `y = (1, 0)`, `λ = 0.1`, started at 0: the solver reaches
 # `β = (1, 0)`, which fits `y` exactly, and reports no certificate. This point is optimal. The dual point
-# `θ = (0.1, -0.1)` has `‖θ‖ = 0.1414 ≤ 1` and `Xᵀθ = (0.1, 0.1)`, so `‖Xᵀθ‖∞ = 0.1 ≤ λ`, and
+# `θ = (0.1, -0.1)` has `‖θ‖ ≈ 0.1414 ≤ 1` and `Xᵀθ = (0.1, 0.1)`, so `‖Xᵀθ‖∞ = 0.1 ≤ λ`, and
 # `θᵀy = 0.1 = P(β)`; by the weak-duality bound above, `P* ≥ 0.1 = P(β)`. A certificate of the
 # residual-direction form cannot be formed because `r = y - Xβ = 0`.
 X2 = [1.0 2.0; 0.0 1.0]
@@ -147,9 +148,9 @@ println("exact-fit optimum: β = ", β2, ", converged = ", r2.converged, ", gap 
 
 # ## Not supported
 #
-# `CDSolver` refuses the following with an `ArgumentError`, see [Supported problems](../support.md):
-# `ProximalGradientDescent` and `AccProxGradDescent` (ProximalBase provides no gradient for this loss), a
-# weighted `NormL1`, `Scaled(SqrtLeastSquaresLoss, α)` (use the unscaled loss at the level `λ/α`),
-# `λ = 0` (use `LeastSquaresLoss`, which has the same minimizers), an `ElasticNet` penalty and a
-# `BlockIterate`. The scaled-lasso estimator, which estimates the noise level as well, is a separate
+# `solve!` refuses the following with an `ArgumentError`, see [Supported problems](../support.md): this
+# loss with `ProximalGradientDescent` or `AccProxGradDescent` (ProximalBase provides no gradient for it),
+# and, with `CDSolver`, a weighted `NormL1`, `Scaled(SqrtLeastSquaresLoss, α)` (for a positive finite `α`,
+# use the unscaled loss at the level `λ/α`, which has the same minimizers), `λ = 0` (use
+# `LeastSquaresLoss`, which has the same minimizers), an `ElasticNet` penalty and a `BlockIterate`. The scaled-lasso estimator, which estimates the noise level as well, is a separate
 # computation and is not part of this page.
