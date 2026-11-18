@@ -736,45 +736,26 @@ What changes for the solvers:
   start or trial whose value ProximalBase recovers, under the conditions of its
   guide, is evaluated finitely where the sum of squares overflows in `T`; before,
   the sum of squares was formed in `T` without that recovery.
-- A start accepted in this way can have a finite objective while the unscaled
-  sum of squares `Σ(z - y)²` is not representable, and the solve can then make
-  very little progress. The curvature estimate `L` of PGD and APG starts at
-  `one(T)`, independent of the data, is multiplied by `α = 0.9` (the default) before
-  each iteration, and is raised only when a trial is rejected. Take `X = ones(5, 1)`,
-  `y = fill(1e160, 5)`, the loss scale `1e-100` and the start `0`: `value_from_predictor`
-  returns `2.4999999999999996e220`, although `(1e160)^2 = 1e320` exceeds
-  `floatmax(Float64)`, and the curvature `α‖X‖²` is `5.000000000000001e-100`. With the
-  default options and the penalty `NormL1(0.0)`, each of the 200 iterations of both
-  solvers needed one trial, so `L` was `0.9^k` after iteration `k`, up to rounding
-  (`7.055079108655365e-10` after 200). Both solves ended at `maxiter` with `converged = false`,
-  `minimum = 2.4999999999999996e220` (the value at the start, to the digits printed) and
-  `x = [7.087092744769261e70]` (PGD) and `[6.182223808711084e71]` (APG), against the
-  minimizer `1e160`. With `maxiter = 2000` both still ended with `converged = false`,
-  at `1.6366322020561378e153` (PGD) and `1.6146584214667208e154` (APG). With the penalty
-  `NormL1(1.0e60)`, whose minimizer is `8e159`, both also ended at `maxiter` with
-  `converged = false`. Julia 1.10.13 and 1.13.3 printed the same values.
-- PGD and APG log no warning when they end at `maxiter`; check `converged` and an
-  [independent KKT residual](sparsity-and-kkt.md). CD logs a warning when a run ends
-  with `converged = false`. On the example above, `CDSolver(order = :cyclic)` with its
-  other defaults returned `converged = true` after 3 passes, with `x = [1.0e160]` for
-  `NormL1(0.0)` and `x = [8.0e159]` for `NormL1(1.0e60)`. That is the outcome for this
-  example, not a statement about extreme-scale problems in general.
-- A rescaling can serve as a workaround where the rescaled problem has the
-  corresponding minimizers and the penalty is rescaled to match. For a `NormL1` penalty, the
-  substitution `x = s u` with `s > 0` replaces `X` by `s X` and the level `λ` by
-  `s λ`: the objective at `u` equals the original objective at `x = s u`, the curvature
-  is `s²` times the original, and a start `x₀` becomes `x₀ / s`. With `s = 1e50` and the
-  penalty `NormL1(1.0e60)` replaced by `NormL1(1.0e110)`, the curvature in the example
-  is `5.000000000000002`, and PGD and APG with the default options returned
-  `converged = true` after 9 and 7 iterations, with `u = [7.999907746048042e109]` and
-  `[8.000029236387538e109]`, against `u = 8e109` for the minimizer `x = 8e159`. Scaling
-  `X`, `y` and the loss scale together (`y' = c y`, `X' = c X`, scale `α / c²`) keeps the
-  objective and the curvature `α‖X‖²`; with `c = 1e-80` and the penalty `NormL1(1.0e60)`,
-  both solvers ended at `maxiter` with `converged = false`. Multiplying the loss scale
-  and the penalty level by the same `κ > 0` keeps the minimizers and multiplies the
-  objective, and with it the curvature, by `κ`: for `κ = 1e100` the objective at the
-  start is not representable (PGD and APG refuse the start, CD refuses with the
-  `nonfinite objective` error), and for `κ = 1e60` PGD and APG still ended at `maxiter` with `converged = false`.
+- A start accepted in this way can have a finite value while `Σ(z - y)²` overflows
+  in `T`, and PGD and APG can then make very little progress. Their curvature estimate
+  `L` starts at `one(T)`, independent of the data, is multiplied by the line search's
+  decrease factor (default 0.9) before each iteration and is raised only on a rejected
+  trial, so reaching a curvature far below 1 takes many iterations. For
+  `X = ones(5, 1)`, `y = fill(1e160, 5)`, loss scale `1e-100`, `NormL1(0.0)` and start 0,
+  the curvature `α‖X‖²` is `5.000000000000001e-100`; after 200 iterations both solvers
+  ended with `converged = false`, at `x` ≈ 7.1e70 (PGD) and 6.2e71 (APG) against the
+  minimizer `1e160`, and with `maxiter = 2000` still with `converged = false` (Julia 1.10.13
+  and 1.13.3 agree).
+- PGD and APG log no warning when they end at `maxiter`, so check `converged` and an
+  [independent KKT residual](sparsity-and-kkt.md). CD logs a warning when a run ends with
+  `converged = false`. CD solved the example above (`converged = true`, `x = [1.0e160]`);
+  this is not a statement about extreme-scale problems in general.
+- A rescaling can serve as a workaround where it keeps the minimizers. For a `NormL1`
+  penalty, `x = s u` with `s > 0` replaces `X` by `sX` and `λ` by `sλ`, multiplies the
+  curvature by `s²`, and turns a start `x₀` into `x₀ / s`. On the example with `s = 1e50`
+  and level `1.0e60` replaced by `1.0e110`, PGD and APG both returned `converged = true`,
+  after 9 and 7 iterations. Rescaling `X`, `y` and the loss scale together leaves the
+  curvature `α‖X‖²` unchanged, so it does not help here.
   [#321](https://github.com/mlakolar/ProximalSolvers.jl/issues/321) tracks the
   investigation of the initial curvature estimate for such problems; its outcome may
   leave some extreme-range cases unsolved.
@@ -786,33 +767,21 @@ What changes for the solvers:
   and non-finite gradient entries.
   - At a start where `z - y` overflows, PGD takes the start's value from
     `value_and_gradient_from_predictor!` and refuses a non-finite one with
-    `ArgumentError("start from a point where f is finite")`, a message that is also
-    raised where `value_from_predictor` is finite. APG takes the start's value from
-    `value_from_predictor` and accepts the start; its first step evaluates
-    `value_and_gradient_from_predictor!` at the start and fails with
-    `ErrorException("the gradient step did not produce a finite objective")`.
-    For `Float32`, `X = [1;;]`, `y = [3f38]`, the loss scale `1e-44`, `NormL1(0f0)` and
-    the start `[-3f38]` (`value_from_predictor` returns `1.8e33`), both left `x` unchanged.
+    `ArgumentError("start from a point where f is finite")`, also where
+    `value_from_predictor` is finite. APG takes it from `value_from_predictor`, accepts
+    the start, and its first step fails with
+    `ErrorException("the gradient step did not produce a finite objective")`. Both leave
+    `x` unchanged (`Float32`, `X = [1;;]`, `y = [3f38]`, start `[-3f38]`).
     [#328](https://github.com/mlakolar/ProximalSolvers.jl/issues/328) tracks the message
-    and the difference between the two solvers.
-  - In PGD a trial is evaluated by `value_from_predictor` and the gradient at an
-    accepted trial by `value_and_gradient_from_predictor!`. Where the line search
-    decides a trial from function values, the code accepts it on the finite value
-    (when its curvature estimate does not exceed `L`) and forms the gradient afterwards
-    without checking the value that call returns, so an iterate accepted on a finite
-    value can hold a non-finite gradient. The probe below did not reach this path, and
-    it is not covered by a test. Where the line search decides from gradients, a trial
-    whose gradient has a non-finite entry makes the curvature estimate non-finite and
-    the step raises. In the probe `Float32`, `X = ones(3, 1)`,
-    `y = [-3.3e38, 3.3e38, 3.3e38]`, the loss scale `1e-44`, `NormL1(0f0)`, start `[0f0]`,
-    `maxiter = 3000`, the first trial of the failing iteration, computed from the last
-    accepted iterate, is `x = [1.1084206f37]`; it has the value `1.598765f33` and a
-    gradient of `Inf32` (`x + 3.3e38` exceeds `floatmax(Float32)`). The solve threw
-    `ErrorException("line search failed: nonfinite curvature estimate")` after 907
-    iterations and `x` was restored to the last accepted iterate `[1.002516f37]`, whose
-    gradient is finite. All 18 runs of this probe (three magnitudes of `y`, three
-    values of the line search's `α`, `ftol` at its default and at 0) ended in this
-    exception with `x` equal to the last accepted iterate, on Julia 1.10.13 and 1.13.3.
+    and the difference.
+  - In PGD a trial is evaluated by `value_from_predictor` and the gradient at an accepted
+    trial by `value_and_gradient_from_predictor!`. Where the line search decides from
+    function values, the code accepts a trial on its finite value, so an accepted iterate
+    can hold a non-finite gradient; this was not reproduced and is not covered by a test.
+    Where it decides from gradients, a non-finite trial gradient makes the curvature
+    estimate non-finite and the step raises
+    `ErrorException("line search failed: nonfinite curvature estimate")`, restoring the
+    last accepted iterate (observed in a `Float32` probe on Julia 1.10.13 and 1.13.3).
 
 `Float32` has less precision and may stagnate earlier than `Float64`.
 Some solver tolerances, residual reports and other scalar diagnostics
