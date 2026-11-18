@@ -68,7 +68,7 @@ function convergence_assessment(
   grad_converged = gradient_converged!(state, options) && !stalled
 
   # A stop proposed by any of the three tests counts only if the accepted iterate passes the
-  # stationarity check of the penalty, to the working precision (see _stationary!); otherwise the solve continues.
+  # stationarity check of _stationary!, to the working precision; otherwise the solve continues.
   if (x_converged || f_converged || grad_converged) && !_stationary!(state, f, g, options)
     x_converged, f_converged, grad_converged = false, false, false
   end
@@ -138,7 +138,7 @@ end
 # S equals the S of NormL1(λ0) where no entry of ∇f(0) has a subnormal square (there the computed norm of a one-entry
 # block is its magnitude); the iterates and the residuals of the two penalties can differ by rounding, since
 # ProximalBase's group operations are not its ℓ1 operations.
-function _stationary!(state, f, g, options::ProximalOptions)
+function _stationary!(state, f, g::Union{NormL1, ElasticNet, GroupNormL2}, options::ProximalOptions)
   T = eltype(state.x)
   λmax = _lambda_max!(state, _scale_norm(g))   # first: it uses xhat, which APG's gradient below also uses
   grad = _gradient_at_x!(state, f)
@@ -151,7 +151,37 @@ function _stationary!(state, f, g, options::ProximalOptions)
   isfinite(S) && threshold >= floatmin(T) && isfinite(residual) && residual < threshold
 end
 
-# α‖Xᵀy‖ = ‖∇f(0)‖ in the norm `nrm` (the ∞-norm by default; _scale_norm of the penalty in _stationary!),
+# The default stationarity check, for a penalty without a dedicated check above (today NormLinf): a new
+# proximable g needs no convergence code of its own. At the accepted x, with t = 1/L (the accepted curvature),
+# it forms u = x - t ∇f(x) and p = prox_{t g}(u) with the iterations' value_and_prox! call, and r = ‖x - p‖∞ / t,
+# the ∞-norm of the proximal-gradient mapping G_t(x). The stop is kept when r < τ S, with S = max(‖∇f(0)‖∞,
+# ‖∇f(x)‖∞) and τ = max(gradtol, 64 eps(T)). It is refused when t is not finite and positive (before the prox),
+# S or r is not finite, τ S is below floatmin(T) (so S = 0, as for X = 0 or at x = 0 when y = 0, never converges), τ S does not
+# exceed the rounding resolution L eps(T) ‖x‖∞ of the gradient test, or the step t τ S is below floatmin(T)/eps(T)
+# (a step that subnormal rounding can lose at x = 0). The prox counts in prox_calls; APG's gradient at x counts in
+# grad_calls. u goes to xhat and p to delta_x, which is then restored to x - x_previous. A small accepted L makes
+# t large and ‖G_t‖ a weaker measure of stationarity; a penalty with curvature of its own, far above L, is the
+# extreme case. A kept stop is a working-precision indication, not a certificate.
+function _stationary!(state, f, g, options::ProximalOptions)
+  T = eltype(state.x)
+  t = one(T) / state.L
+  isfinite(t) && t > 0 || return false
+  λmax = _lambda_max!(state)       # first: it uses xhat, which APG's gradient below also uses
+  grad = _gradient_at_x!(state, f)
+  S = max(λmax, _norm_inf(grad))
+  _step!(state.xhat, state.x, grad, state.L)   # elementwise, so APG's grad === xhat is safe
+  value_and_prox!(state.delta_x, g, state.xhat, t)
+  state.prox_calls += 1
+  r = _norm_diff(state.x, state.delta_x, Inf) / t
+  _sub!(state.delta_x, state.x, state.x_previous)
+  threshold = T(max(options.gradtol, 64 * Float64(eps(T)))) * S
+  # (L ‖x‖∞) eps(T): a product in this order underflows only where ρ < floatmin(T) ≤ τ S, and overflows to Inf (refused)
+  ρ = (state.L * _norm_inf(state.x)) * eps(T)
+  isfinite(S) && isfinite(r) && threshold >= floatmin(T) && threshold > ρ &&
+    t * threshold >= floatmin(T) / eps(T) && r < threshold
+end
+
+# α‖Xᵀy‖ = ‖∇f(0)‖ in the norm `nrm` (the ∞-norm by default, as in the default check; the dedicated check passes _scale_norm(g)),
 # computed once per solve (state.λmax is negative until then; the penalty, and so the norm, is fixed in a
 # solve) with the arithmetic of the gradient oracle at x = 0 (Xᵀ times a vector, then the scale α). It is formed in state.xhat. At
 # every use in the solvers xhat is written before it is read (the input of the proximal step in
@@ -183,7 +213,7 @@ function _gradient_at_x!(state::AccProxGradDescentState, f)
   state.xhat
 end
 
-# The penalty with its levels converted to T, for the penalties that _check_penalty accepts for PGD and APG,
+# The penalty with its levels converted to T, for NormL1, ElasticNet and GroupNormL2 (the penalties of the dedicated check above),
 # and the ℓ1 level of a converted penalty
 _converted_penalty(g::NormL1{<:Real, Nothing}, ::Type{T}) where T = NormL1(T(g.λ0))
 # weights that are already in T are not converted or copied

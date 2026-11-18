@@ -43,6 +43,9 @@ use the separate [numerical KKT check](sparsity-and-kkt.md). For CD with the squ
 proved bound (see [`CDSolver`](@ref)). Otherwise a result's `gap=NaN` and CD's `kkt_checks=0` are
 placeholders: neither is a computed certificate.
 
+For PGD and APG with a `NormLinf` penalty, `converged=true` means that a stopping test proposed a stop and that the
+[generic proximal-gradient check](numerics.md#The-generic-stationarity-check) passed: a working-precision indication, not a certificate.
+
 ## Avoid accidentally overwriting results
 
 ~~~@example results_cd

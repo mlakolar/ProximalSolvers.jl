@@ -174,7 +174,8 @@ PGD's stopping tests combine by **OR**, so any one of them can propose a stop,
 and a proposed stop counts only if the computed KKT residual `‖G‖∞` is below
 `max(gradtol, 64eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞` and `λ` the ℓ1 level of the penalty
 (`λ1` for an `ElasticNet`, whose residual includes the ridge term `λ2 x`; for a `GroupNormL2`, the group residual
-and scale of [the stationarity check](@ref "The stationarity check of a stop")). A solve
+and scale of [the stationarity check](@ref "The stationarity check of a stop"); a `NormLinf` penalty uses the
+[generic check](numerics.md#The-generic-stationarity-check)). A solve
 that the check keeps from stopping continues, and can end at `maxiter` with
 `converged=false`. `ftol = 0` switches the objective-change test off, as
 described under Strict accuracy in [Numerical behavior](numerics.md).
@@ -340,6 +341,13 @@ group sizes, the layout and `λ`.
 The [Problem × solver matrix](@ref "Problem × solver matrix") of
 [Supported problems](support.md) lists, for each problem, the solvers, iterates and
 element types with verified support, and the sections below it give the exact input rules.
+
+For PGD and APG on a dense `Vector`, `NormLinf(lambda)` (`lambda * maximum(abs, beta)`) is also accepted, with least squares or one
+positive scalar multiple of it; use `ProximalGradientDescent` or `AccProxGradDescent` for it, because this `CDSolver` needs a
+separable penalty for its coordinate step and refuses `NormLinf` for a dense `Vector`, a `SparseIterate` and a `BlockIterate`. The
+ℓ∞ penalty can tie the largest coefficients at a common magnitude and does not in general give zeros; in exact arithmetic, 0 is a
+minimizer exactly when `lambda` is at least `‖∇f(0)‖₁ = α‖Xᵀy‖₁`. A proposed stop is verified by the
+[generic proximal-gradient check](numerics.md#The-generic-stationarity-check). See [the ℓ∞ tutorial](examples/problems/linf_regularized_regression.md).
 
 Coordinate descent can also solve a group lasso on a `BlockIterate` with a
 `GroupNormL2` penalty, as described above and in [Supported problems](support.md).

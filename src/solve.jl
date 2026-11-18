@@ -57,20 +57,25 @@ end
 # The penalty check of _check_data for an x that is not a BlockIterate. `kind` is the gate's:
 # :gradient (PGD and APG) and :cd (CDSolver on a dense Vector or a SparseIterate, and the default of a call
 # without `kind`) both accept a NormL1, with or without weights, and an unweighted ElasticNet; :gradient also
-# accepts a GroupNormL2 that passes _check_dense_group_penalty. The levels
-# must pass _scalar_parameter for the data type T (finite, nonnegative, representable without overflow or
-# underflow; a level that is subnormal in T passes it). A NormL1 with weights also passes _check_l1_weights,
-# which refuses a level that is subnormal in T.
+# accepts a NormLinf, which :cd refuses with a message of its own (this CDSolver needs a separable penalty for
+# its coordinate step), and a GroupNormL2 that passes _check_dense_group_penalty. The levels must pass _scalar_parameter for the data type T (finite, nonnegative,
+# representable without overflow or underflow; a level that is subnormal in T passes it). A NormL1 with
+# weights also passes _check_l1_weights, which refuses a level that is subnormal in T. A wrapper such as
+# Scaled(NormLinf(λ)) is refused as any other penalty.
 function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
   if g isa NormL1
     g.w === nothing ? _scalar_parameter(g.λ0, T, "penalty lambda") : _check_l1_weights(g, x, T)
   elseif g isa ElasticNet && g.w === nothing
     _scalar_parameter(g.λ1, T, "penalty lambda1")
     _scalar_parameter(g.λ2, T, "penalty lambda2")
+  elseif g isa NormLinf && kind === :gradient
+    _scalar_parameter(g.λ, T, "penalty lambda")
+  elseif g isa NormLinf
+    throw(ArgumentError("CDSolver does not support NormLinf (its coordinate step needs a separable penalty); use ProximalGradientDescent or AccProxGradDescent"))
   elseif g isa GroupNormL2 && kind === :gradient
     _check_dense_group_penalty(g, x, T)
   elseif kind === :gradient
-    throw(ArgumentError("only NormL1, unweighted ElasticNet or GroupNormL2 is supported"))
+    throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf or GroupNormL2 is supported"))
   else
     throw(ArgumentError("only NormL1 or unweighted ElasticNet is supported"))
   end
@@ -186,9 +191,8 @@ function _check_group_penalty(g, ::Type{T}, holder::String) where T
 end
 
 # The penalty of group coordinate descent on a BlockIterate: a GroupNormL2 as above, whose groups are those
-# of x, in the same order and with the same ordered members. It ignores `kind` and is more specific in x
-# than the generic method, so a call of _check_data with a BlockIterate reaches these checks for each `kind`.
-function _check_penalty(g, x::BlockIterate, ::Type{T}, kind::Symbol = :block) where T
+# of x, in the same order and with the same ordered members.
+function _check_penalty(g, x::BlockIterate, ::Type{T}) where T
   _check_group_penalty(g, T, "a BlockIterate")
   ncoordinates(x) == length(g.groups) ||
     throw(DimensionMismatch("x has $(ncoordinates(x)) groups but the penalty has $(length(g.groups))"))
@@ -198,6 +202,9 @@ function _check_penalty(g, x::BlockIterate, ::Type{T}, kind::Symbol = :block) wh
   end
   nothing
 end
+# The gates pass a `kind` (:gradient, :cd or :block) to _check_penalty; a BlockIterate ignores it. This method is
+# more specific in x than the generic one, so a BlockIterate reaches the checks above for each `kind`.
+_check_penalty(g, x::BlockIterate, ::Type{T}, kind::Symbol) where T = _check_penalty(g, x, T)
 
 # The rule of _scalar_parameter for a nonnegative value
 function _weight_ok(w, ::Type{T}) where T
@@ -281,7 +288,7 @@ function _check_sqrt_penalty(g, ::Type{T}) where T
 end
 
 # The dense gate. `kind` is :cd for CDSolver and :gradient, the default, for PGD and APG. Under
-# :gradient `_check_sqrt_data` refuses the square-root loss and `_check_penalty` accepts a GroupNormL2,
+# :gradient `_check_sqrt_data` refuses the square-root loss and `_check_penalty` accepts a NormLinf and a GroupNormL2,
 # which it refuses under :cd.
 function _check_problem(x, f, g, kind::Symbol = :gradient)
   x isa Vector && eltype(x) in (Float32, Float64) ||

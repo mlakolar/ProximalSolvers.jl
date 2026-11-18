@@ -67,7 +67,7 @@ code.
 Neither `converged=true` is a certificate of mathematical optimality. For
 PGD and APG it means that a test proposed a stop and that the computed
 KKT residual `‖G‖∞` at the returned point is below
-`max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λ` the ℓ1 level of the penalty (for `GroupNormL2`, the group residual and scale; see [The stationarity check of a stop](@ref "The stationarity check of a stop")); it is a working-precision residual, not an exact-arithmetic
+`max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λ` the ℓ1 level of the penalty (for `GroupNormL2`, the group residual and scale; for `NormLinf`, the residual and scale of the generic check; see [The stationarity check of a stop](@ref "The stationarity check of a stop")); it is a working-precision residual, not an exact-arithmetic
 certificate, and it does not bound the distance to a minimizer. The
 default `gradtol = 1e-5` is not a specified number of correct digits.
 Tighten tolerances for results you intend to report, then compute the
@@ -83,7 +83,8 @@ Float32, `ftol = 0`) are on the page [Limits of the stopping tests](stopping-lim
 
 ### The stationarity check of a stop
 
-PGD and APG verify a proposed stop. At an iteration at which the `x`, `f` or
+PGD and APG verify a proposed stop; this section is the check for `NormL1`, `ElasticNet` and, with PGD,
+`GroupNormL2` (the **Groups** item below), and other penalties use [the generic stationarity check](@ref "The generic stationarity check"). At an iteration at which the `x`, `f` or
 gradient test holds (under `ftol = 0`, after the exact-stall rule below), the
 solver computes the minimal-norm KKT residual `G` at the accepted iterate `x`.
 For `NormL1(λ)` it is the element of `∇f(x) + λ ∂‖x‖₁` of least infinity
@@ -221,6 +222,29 @@ can end on the objective-increase exit below, with `converged=false` and
 `f_increased=true`, where it used to stop on the objective test: the objective
 test proposes the stop, the check refuses it, and the computed objective then
 increases by rounding before the residual reaches the bound.
+
+### The generic stationarity check
+
+A penalty without a dedicated check (today `NormLinf`) uses one check that needs only the penalty's proximal
+operator, so a new proximable penalty needs no convergence code of its own. At the accepted `x`, with `t = 1/L`
+(the accepted curvature), the solver forms `p = prox_{t g}(x - t ∇f(x))` with the same ProximalBase
+`value_and_prox!` as the iterations, and the residual `r = ‖x - p‖∞ / t`, the ∞-norm of the proximal-gradient
+mapping. A proposed stop counts only if
+
+~~~
+r < max(gradtol, 64 eps(T)) * S,     S = max(‖∇f(0)‖∞, ‖∇f(x)‖∞),
+~~~
+
+with the threshold formed in `T`. It is refused when `t` is not finite and positive, when `S` or `r` is not finite,
+when the threshold is below `floatmin(T)` (so a solve with `S = 0`, as for `X = 0` or at `x = 0` when `y = 0`, does not report
+convergence), when the threshold does not exceed `ρ = L eps(T) ‖x‖∞` (the rounding resolution of the gradient test),
+or when `t` times the threshold is below `floatmin(T)/eps(T)` (a step that subnormal rounding can lose at `x = 0`).
+Each proposed stop with a finite positive `t` costs one proximal evaluation, counted in `prox_calls`, and for APG one gradient at `x`, counted
+in `grad_calls`, before the call limits are compared.
+
+A small accepted `L` makes `t` large and `r` a weaker measure of stationarity than with the true curvature; a
+penalty with curvature of its own far above `L` is the extreme case. `converged = true` is a working-precision
+indication, not a certificate, and it does not bound the distance to a minimizer.
 
 ### PGD stops when the computed objective increases
 
