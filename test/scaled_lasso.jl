@@ -4,8 +4,9 @@ module ScaledLasso
 # minimizes) and L(β, σ) = ‖r‖²/(2nσ) + σ/2 + λ₀‖β‖₁ for σ > 0, the file checks the mathematics that
 # the tutorial examples/problems/scaled_lasso.jl relies on, not the square-root solver:
 #   1. for r ≠ 0 and σ̂ = ‖r‖/√n: L(β, σ̂) = P(β)/√n, and L(β, σ) − L(β, σ̂) = (σ − σ̂)²/(2σ) ≥ 0 (T1, T2);
-#   2. a certified run with gap ≤ 1e-4 bounds the relative gap of L(β̂, σ̂) from the dual bound of an
-#      independent BigFloat computation (T3), and σ̂ computed in Float32 or Float64 is within a stated
+#   2. for y ≠ 0 (so P* > 0) and a certified run with gap ≤ 1e-4 whose point has r ≠ 0, the relative gap of
+#      L(β̂, σ̂) is at most that of P(β̂), checked against the dual bound of an independent BigFloat
+#      computation (T3); at y = 0 there is no relative gap and no σ̂. And σ̂ computed in Float32 or Float64 is within a stated
 #      rounding bound of σ̂ in BigFloat (T4);
 #   3. the tutorial's data have a residual clearly away from zero (T5);
 #   4. at r = 0, L(β, ·) = σ/2 + λ₀‖β‖₁ has no minimizing σ > 0, and a small stored nonzero residual is
@@ -36,7 +37,8 @@ messages(logs) = [string(l.message) for l in logs]
 with_big(f) = setprecision(f, BigFloat, 256)
 
 # Seeded data of the tutorial's kind (columns scaled to sum(abs2) ≈ n, five nonzero coefficients, noise 0.5),
-# stored in T, with λ₀ = 1.1 √(2 log(2p/0.05)/n) and λ = √n λ₀ both computed in T.
+# stored in T. λ₀ = 1.1 √(2 log(2p/0.05)/n) is evaluated in Float64 and then converted to T; λ = √T(n) λ₀ is
+# formed in T.
 function make_problem(T, seed, n, p)
   rng = Xoshiro(seed)
   X = randn(rng, n, p)
@@ -47,7 +49,9 @@ function make_problem(T, seed, n, p)
   (X = T.(X), y = T.(y), n = n, p = p, λ₀ = λ₀, λ = sqrt(T(n)) * λ₀)
 end
 
-# λmax = ‖Xᵀy‖∞/‖y‖ in Float64 from the stored values; any level at or above it gives β = 0.
+# The Float64 evaluation, from the stored values, of λmax = ‖Xᵀy‖∞/‖y‖. In exact arithmetic any level at or
+# above λmax gives β = 0; the evaluation is rounded, so it is an approximation of that threshold, and the
+# tests compare λ with it only far from the boundary.
 lambda_max(X, y) = maximum(abs, Float64.(X)' * Float64.(y)) / norm(Float64.(y))
 
 # One solve from x0 (copied), dense or on a SparseIterate; returns the dense point, the result and the logs.
@@ -109,7 +113,7 @@ function dual_bound_big(X, y, λ, β)
   end
 end
 
-# For D ≤ P* and a point β with r ≠ 0, in BigFloat: whether D/√n ≤ L(β, σ̂), the relative gap
+# For a dual bound D ≤ P* with D > 0 (so P* > 0) and a point β with r ≠ 0, in BigFloat: whether D/√n ≤ L(β, σ̂), the relative gap
 # (L(β, σ̂) − D/√n)/(D/√n) as a Float64, the same for (P(β) − D)/D, and their absolute difference.
 function certificate_big(X, y, λ, β, D)
   with_big() do
@@ -156,8 +160,9 @@ function check_profile(X, y, λ, β; strict = true)
   T = eltype(X)
   st = stats_T(X, y, λ, β)
   @test !iszero(st.r)
-  # T1 (a): the identity in BigFloat from the stored values; the bound 1e-70 is a few hundred roundings
-  # at 2^-256 ≈ 1e-77 relative.
+  # T1 (a): the identity in BigFloat from the stored values; 1e-70 is a deliberately generous
+  # allowance: the rounding of a 256-bit evaluation is of the order 2^-256 ≈ 8.6e-78 per operation, and a
+  # wrong formula gives errors many orders of magnitude above 1e-70.
   pb = profile_big(X, y, λ, β, DELTAS)
   @test pb.identity <= 1e-70
   # T2 (big): the identity of L(σ) − L(σ̂) with the same rounding bound relative to L(σ̂), and a strict increase.
@@ -186,7 +191,7 @@ end
   # The problems, solved with a certificate: Float64 twice (n > p and n < p), Float32 dense, Float32 on a
   # SparseIterate (tol = 1e-5, where the default tol is close to the rounding level of Float32 data).
   specs = [("Float64, n > p", Float64, 11, 100, 30, false, (;)),
-           ("Float64, n < p", Float64, 12, 80, 60, false, (;)),
+           ("Float64, n < p", Float64, 12, 60, 80, false, (;)),
            ("Float32, dense", Float32, 13, 100, 30, false, (tol = 1e-5,)),
            ("Float32, SparseIterate", Float32, 14, 100, 30, true, (tol = 1e-5,))]
   cases = map(specs) do (label, T, seed, n, p, owner, kw)

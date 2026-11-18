@@ -20,8 +20,9 @@ using LinearAlgebra, Random, ProximalBase, ProximalSolvers
 # The data are those of the [square-root lasso](square_root_lasso.md) page: `n = 200`, `p = 50`, columns
 # scaled to `sum(abs2, X[:, j]) ≈ n`, five nonzero coefficients and noise of standard deviation 0.5, from
 # the same seed. The level is `λ₀ = 1.1*sqrt(2 log(2p/0.05)/n)`; it does not use the noise level. The
-# solver takes the unnormalized level `λ = sqrt(n)*λ₀`, which must be positive and finite and, as on that
-# page, below `λmax = ‖Xᵀy‖∞/‖y‖`, the level at and above which `β = 0` is a minimizer.
+# solver takes the unnormalized level `λ = sqrt(n)*λ₀`, which must be positive and finite. This example
+# also chooses `λ` below `λmax = ‖Xᵀy‖∞/‖y‖`, as the square-root page does, to get a solution with nonzero
+# coefficients: a level at or above `λmax` is accepted and gives `β = 0`.
 rng = Xoshiro(2026)
 n, p = 200, 50
 X = randn(rng, n, p)
@@ -82,9 +83,13 @@ end
 #
 # The infimum of `L` over `β` and `σ > 0` is `P*/√n`, where `P*` is the minimum of the square-root
 # objective, because minimizing over `σ` first gives `P(β)/√n` for every `β` with a nonzero residual
-# and `λ₀‖β‖₁` (approached as `σ ↓ 0`) for an exact fit. A run with `converged = true` proves
-# `(P(β̂) - P*)/P* ≤ gap`, and then `(L(β̂, σ̂) - inf L)/inf L ≤ gap` as well, with `gap ≤ 1e-4`. This
-# bounds how far the objective value is from the infimum; it does not say how far `σ̂` is from a
+# and `λ₀‖β‖₁` (approached as `σ ↓ 0`) for an exact fit. For `y ≠ 0` and `λ > 0` the minimum `P*` is
+# positive, since `P(β) = 0` forces `y - X*β = 0` and `β = 0`. A run with `converged = true` proves
+# `(P(β̂) - P*)/P* ≤ gap` and, when the residual of `β̂` is nonzero so that `σ̂ > 0`,
+# `(L(β̂, σ̂) - inf L)/inf L ≤ gap` as well, with `gap ≤ 1e-4`; both hold for this page's data, where `y ≠ 0`
+# and the residual was checked above. For `y = 0` the solver certifies `β = 0` with `gap = 0`, but
+# `P* = 0` and the residual is zero, so there is no relative gap and no `σ̂`; the exact-fit discussion
+# below applies. The bound on the objective value does not say how far `σ̂` is from a
 # minimizing `σ`. The square-root page
 # [checks this certificate independently](square_root_lasso.md#Checking-the-answer-independently) from
 # `X`, `y`, `λ` and `β`. A run with `converged = false` and `gap = NaN` has no certificate: its `σ̂` is
