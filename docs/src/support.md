@@ -182,8 +182,10 @@ the values of `X` and describes the curvature and the stopping statistic of a gr
 - `g` is a `GroupNormL2{T}`: its level and weights have the element type of the data (convert with
   `GroupNormL2(T(lambda), groups, T.(w))`; unlike `CDSolver` on a `BlockIterate`, a `Float64` penalty with
   `Float32` data is refused);
-- the groups of `g`, as they are at the call, partition `1:p`: an index above `p` is refused with a
-  `DimensionMismatch`, and an index in two groups or in no group with an `ArgumentError`;
+- the groups of `g` partition `1:p` and hold the members they were constructed with: an index above `p` is
+  refused with a `DimensionMismatch`, and an empty group, an index in two groups or in no group, and a change of
+  `g.groups` after construction that moves an index (ProximalBase's operators use the layout cached at
+  construction) with an `ArgumentError`;
 - the level and the weights pass the rules of the [weighted lasso](@ref weighted-lasso-support), with one coefficient
   `c_k = T(lambda) * w_k` per group in place of one per entry (a zero weight leaves its group unpenalized);
 - `x` does not alias `X`, `y` or the weights.
@@ -196,7 +198,8 @@ stop counts only if ProximalBase's group KKT residual is below `max(gradtol, 64 
 and weights with a zero), a correlated design (also against `CDSolver` on a `BlockIterate`), contiguous, permuted,
 singleton and single-group layouts given as ranges or as vectors, a group of zero columns, `lambda = 0` against
 the least-squares fit, a level above the smallest level with a zero solution, and a `Float64` loss scale of
-`1e-300`. Singleton groups with unit weights have the stop scale of `NormL1(lambda)`. `AccProxGradDescent`
+`1e-300`. Singleton groups with unit weights have the stop scale of `NormL1(lambda)` where no entry of `∇f(0)` has a
+subnormal square. `AccProxGradDescent`
 refuses `GroupNormL2`.
 
 ### Square-root lasso with coordinate descent

@@ -67,8 +67,9 @@ fstar = objective(reference)
 
 # ## Sweeps
 #
-# Each run starts from zero. The time of a setting is the minimum over three timed calls of
-# `solve!` after one warm-up call. Coordinate descent is swept over `tol`, and proximal gradient
+# Each run starts from zero. The time of a setting is the minimum over three timed calls after
+# one warm-up call; a timed call allocates the starting iterate, calls `solve!` and, for coordinate
+# descent, converts the `BlockIterate` result to a `Vector`, so these costs are included. Coordinate descent is swept over `tol`, and proximal gradient
 # descent over one scale used for `xtol` and `gradtol` (with `ftol = 0`).
 function measure(run!; repetitions = 3)
   besttime, beta, result = Inf, zeros(p), nothing

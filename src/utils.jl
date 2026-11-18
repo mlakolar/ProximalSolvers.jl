@@ -127,8 +127,8 @@ end
 # not kept.
 # It is a computed residual, not a certificate in exact arithmetic.
 #
-# GroupNormL2(λ0, groups, w) (ProximalGradientDescent; solve! requires a GroupNormL2{T} whose current groups partition
-# 1:p), h = Σₖ cₖ ‖b[Gₖ]‖₂ with cₖ = λ0 wₖ rounded in T. The residual is ProximalBase's full-point
+# GroupNormL2(λ0, groups, w) (ProximalGradientDescent; solve! requires a GroupNormL2{T} whose groups partition 1:p
+# and hold the members they were constructed with), h = Σₖ cₖ ‖b[Gₖ]‖₂ with cₖ = λ0 wₖ rounded in T. The residual is ProximalBase's full-point
 # kkt_violation(g, ∇f(x), x) = max(0, maxₖ scoreₖ), with scoreₖ = ‖∇_G f + cₖ x_G/‖x_G‖₂‖₂ at a group with a nonzero
 # entry and ‖∇_G f‖₂ - cₖ at a zero group (a zero weight gives the score ‖∇_G f‖₂). S = max(c_max, Λ), with
 # c_max = λ0 maximum(w) = maxₖ cₖ (rounding is monotone) and Λ = maxₖ ‖[∇f(0)]_{Gₖ}‖₂ = α maxₖ ‖[Xᵀy]_{Gₖ}‖₂

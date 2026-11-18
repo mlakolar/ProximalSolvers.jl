@@ -133,10 +133,15 @@ end
 end
 
 # A GroupNormL2 under the :gradient gate, for a dense x of type T, checked in this order: its parameters have the
-# element type T; it has one weight per group, and its current groups (read at this call, so a change of g.groups
-# after construction is seen) partition 1:p, p = length(x), checked with one mask of p entries (an index above p is a
-# DimensionMismatch; an index below 1, an index that appears twice and an index in no group are ArgumentErrors); the
-# level and the coefficients λ wₖ pass _weighted_level and _check_coefficients; x does not alias the weights.
+# element type T; it has one weight per group; its groups, read at this call, partition 1:p (p = length(x)) and hold
+# the members they were constructed with; the level and the coefficients λ wₖ pass _weighted_level and
+# _check_coefficients; x does not alias the weights. The groups are checked with one mask of p entries: an empty group,
+# an index below 1, an index that appears twice and an index in no group are ArgumentErrors, and an index above p is
+# a DimensionMismatch. ProximalBase's operators read the layout cached at construction (group_of, free), not g.groups,
+# so a change of g.groups after construction is refused where that cache disagrees: each member i of group k must
+# have group_of[i] == k, group_of must have p entries and free must be empty. With group_of[i] == k for the members
+# of a partition of 1:p, every entry of group_of is nonzero, so the free computed from it at construction is empty;
+# free is still checked because it is a separate array.
 function _check_group_penalty(g::GroupNormL2, x, ::Type{T}) where T
   g isa GroupNormL2{T} ||
     throw(ArgumentError("the parameters of GroupNormL2 must have the element type $T of the data; convert the penalty " *
@@ -145,13 +150,19 @@ function _check_group_penalty(g::GroupNormL2, x, ::Type{T}) where T
     throw(DimensionMismatch("GroupNormL2 has $(length(g.w)) weights but $(length(g.groups)) groups"))
   p = length(x)
   seen = falses(p)
-  for (k, G) in enumerate(g.groups), i in G
-    i > p && throw(DimensionMismatch("group $k of GroupNormL2 holds the index $i, but x has $p entries"))
-    (i >= 1 && !seen[i]) || _partition_error(p, i < 1 ? "group $k holds the index $i" : "the index $i appears a second time (in group $k)")
-    seen[i] = true
+  group_of = g.group_of
+  for (k, G) in enumerate(g.groups)
+    isempty(G) && _partition_error(p, "group $k is empty")
+    for i in G
+      i > p && throw(DimensionMismatch("group $k of GroupNormL2 holds the index $i, but x has $p entries"))
+      (i >= 1 && !seen[i]) || _partition_error(p, i < 1 ? "group $k holds the index $i" : "the index $i appears a second time (in group $k)")
+      (i <= length(group_of) && group_of[i] == k) || _layout_error()
+      seen[i] = true
+    end
   end
   j = findfirst(!, seen)
   j === nothing || _partition_error(p, "the index $j is in no group")
+  length(group_of) == p && isempty(g.free) || _layout_error()
   _check_coefficients(_weighted_level(g.λ0, T), g.w, :group)
   Base.mightalias(x, g.w) && throw(ArgumentError("mutable x must not alias the penalty weights"))
   nothing
@@ -159,6 +170,8 @@ end
 
 @noinline _partition_error(p, why) =
   throw(ArgumentError("the groups of GroupNormL2 must partition 1:p (p = $p, the length of x): $why"))
+@noinline _layout_error() =
+  throw(ArgumentError("the groups of GroupNormL2 differ from the layout it was constructed with (they were changed after construction); construct the penalty again"))
 
 # The penalty of group coordinate descent on a BlockIterate: a GroupNormL2 whose level and weights
 # convert to T without overflow, or underflow to 0 from a nonzero value, and whose groups are those

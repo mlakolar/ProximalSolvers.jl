@@ -262,7 +262,8 @@ end
   # ranges and vectors of the same partition: the same problem
   @test abs(objs["contiguous ranges"] - objs["contiguous vectors"]) <= gap_target(T) * abs(objs["contiguous ranges"])
 
-  # Singleton groups with unit weights are the lasso: the scale S is the lasso's exactly; each solver's own final
+  # Singleton groups with unit weights are the lasso: on this fixture (no entry of ∇f(0) has a subnormal square) the
+  # scale S is the lasso's exactly; each solver's own final
   # point meets the independent residual and the objectives agree within the target (the iterates are not compared).
   λ = T(0.2 * lambda_max(X, y, s, [i:i for i in 1:p], ones(p)))
   gs, gl = GroupNormL2(λ, [i:i for i in 1:p], ones(T, p)), NormL1(λ)
@@ -358,6 +359,18 @@ end
   gm = GroupNormL2(λ, [[1, 2], [3, 4, 5, 6, 7, 8]])
   gm.groups[2][1] = 2                                                                # changed after construction
   refused(ArgumentError, "appears a second time", start(), f, gm)
+  # groups changed after construction into a partition that differs from ProximalBase's cached layout, and an empty group
+  stale = "differ from the layout it was constructed with"
+  X4, y4 = Matrix{T}(I, 4, 4), T[1, 2, 3, 4]
+  g1 = GroupNormL2(T(0.5), [[1], [3, 4]], ones(T, 2))
+  push!(g1.groups[1], 2)                     # a partition of 1:4; the cached layout leaves 2 in no group
+  refused(ArgumentError, stale, T[0.5, -0.0, 0, 1], lossof(X4, y4, nothing), g1)
+  g2 = GroupNormL2(T(0.5), [[1, 2], [3, 4, 5]])
+  pop!(g2.groups[2])                         # a partition of 1:4; the cached layout reaches index 5
+  refused(ArgumentError, stale, T[0.5, -0.0, 0, 1], lossof(X4, y4, nothing), g2)
+  g3 = GroupNormL2(T(0.1), [[1], [2]], T[1e20, 1])
+  empty!(g3.groups[1]); push!(g3.groups[2], 1)
+  refused(ArgumentError, "group 1 is empty", T[10, -0.0], lossof(Matrix{T}(I, 2, 2), T[1, 1], nothing), g3)
   other = T === Float32 ? Float64 : Float32
   refused(ArgumentError, "GroupNormL2($T(λ0), groups, $T.(w))", start(), f, GroupNormL2(other(0.1), [1:2, 3:8]))
   for v in (T(NaN), T(Inf))

@@ -7,7 +7,8 @@ Proximal gradient descent (PGD) for least-squares lasso (with optional weights),
 takes a gradient step for the smooth least-squares loss and applies the
 proximal operator of the penalty, soft thresholding for `NormL1` (at the level `λ wⱼ` of entry `j` for
 `NormL1(λ, w)`), soft thresholding followed by the ridge weight for `ElasticNet`, and ProximalBase's block soft
-threshold for `GroupNormL2` (each group scaled by `max(0, 1 - γ λ wₖ/‖v_G‖₂)` at the step `γ`); backtracking adjusts
+threshold for `GroupNormL2` (each group block `v_G` of the input scaled by `max(0, 1 - γ λ wₖ/‖v_G‖₂)` at the step `γ`;
+a zero block stays zero); backtracking adjusts
 the step size.
 The curvature estimate before the first iteration is `min(1, α_f ‖X‖_F²)` for the loss scale
 `α_f`, with `‖X‖_F` an upper bound, rounded to `T` and raised to `floatmin(T)` when it is positive and
@@ -306,8 +307,9 @@ or a `SparseIterate` (see [`CDSolver`](@ref)); the gradient methods refuse it, a
 **Group lasso with `ProximalGradientDescent`.** On a dense `Vector{T}` with the least-squares loss above,
 `ProximalGradientDescent` accepts `g = GroupNormL2(λ, groups, w)` (or with the default weights) when `g` is a
 `GroupNormL2{T}` (its level and weights have the element type of the data; convert with
-`GroupNormL2(T(λ), groups, T.(w))`), its groups, as they are at the call, partition `1:p` (no index in two groups,
-none in no group, none above `p`), its weights are finite and nonnegative, `T(λ)` is zero or a normal number of `T`,
+`GroupNormL2(T(λ), groups, T.(w))`), its groups partition `1:p` (none empty, no index in two groups,
+none in no group, none above `p`) and hold the members they were constructed with (a change of `g.groups` after
+construction that moves an index is refused; construct the penalty again), its weights are finite and nonnegative, `T(λ)` is zero or a normal number of `T`,
 each coefficient `λ wₖ`, rounded in `T`, is finite and, where `λ` and `wₖ` are both positive, a normal number of `T`,
 and `x` does not alias `w`. A zero weight leaves its group unpenalized. The proximal step is ProximalBase's block soft
 threshold, and the stopping check uses the group KKT residual of ProximalBase's `kkt_violation` (see
