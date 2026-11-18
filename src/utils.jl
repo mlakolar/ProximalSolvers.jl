@@ -191,7 +191,7 @@ end
 # γ_p ≤ 2^-14.5, that is p ≤ 2^-14.5/(u (1 + 2^-14.5)), about 3.9e11, which is above the cap 2^32 that is used (2^32 entries of Float32 are 16 GiB). The helper is therefore used for p ≤ 2^24 - 1 entries of Float64 data and p ≤ 2^32 entries of
 # Float32 data; for a longer x of those types it returns NaN, before any pass, and the check refuses. Other element types (the exact
 # rational inputs of the tests) have no cap.
-# What a kept stop guarantees within the regime. With r_c the computed residual and r_true the exact one at the stored x and the
+# What a kept stop gives within the regime, under the bound above. With r_c the computed residual and r_true the exact one at the stored x and the
 # computed gradient, r_true ≤ r_c + u r_true + 2^-10 · 64 eps(T) S (to first order in u; the last term is the bound above), so that r_c < τ S gives
 # r_true < τ S (1 + 2^-10) + u r_true (since τ ≥ 64 eps(T)); that is, the exact residual of the supplied gradient is below τ S up to a
 # relative 2^-10 and a first-order term u r_true. This is not a bound on the error of the computed gradient itself, which is not
