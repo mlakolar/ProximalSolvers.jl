@@ -328,9 +328,9 @@ a length that differs from that of `x`, a weighted `NormL1` or any other penalty
 matrix is stored, and a call takes O(p) time per iteration or pass and O(p) storage. For the gradient methods the
 operator is the identity `Diagonal(ones(T, p))`, the curvature estimate before the first iteration is
 `min(1, α p)` and `λmax` of [`ProximalOptions`](@ref) is `α ‖s‖∞`. `converged` has the meaning that it has for
-least squares (see [`CDSolver`](@ref)). In `Float32`, `AccProxGradDescent` accepts a trial curvature `L` only above
-about `α (1 + p^1.5 eps(Float32)/2)²` for large `p`, because its certified bound is that of a dense product (see
-[`AccProxGradDescent`](@ref)).
+least squares (see [`CDSolver`](@ref)). In `Float32` the certified bound of `AccProxGradDescent` is that of a
+dense product and accepts a curvature only well above `α` at large `p`, which slows it (see
+[`AccProxGradDescent`](@ref) for the factors and the limit on `p`).
 
 **CD on a dense vector.** A numerical error, including a nonfinite final
 objective, leaves `x` unchanged.
