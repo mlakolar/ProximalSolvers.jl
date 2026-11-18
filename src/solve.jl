@@ -54,17 +54,26 @@ _float64_scale_ok(a::Float64, ::Type{T}) where T = isfinite(a) && a > 0 && (n = 
   throw(ArgumentError("loss scale $α of type $(typeof(α)) $why; only Float32 and Float64 scales and fixed-width integer scales that $T represents exactly are supported$hint"))
 end
 
-# The penalty check of _check_data for an x that is not a BlockIterate: a NormL1, with or without weights,
-# or an unweighted ElasticNet, which the gradient solvers (PGD and APG) and CDSolver accept alike. The
-# levels must pass _scalar_parameter for the data type T (finite, nonnegative, representable without
-# overflow or underflow; a level that is subnormal in T passes it). A NormL1 with weights also passes
-# _check_l1_weights, which refuses a level that is subnormal in T.
-function _check_penalty(g, x, ::Type{T}) where T
+# The penalty check of _check_data for an x that is not a BlockIterate. `kind` is the gate's:
+# :gradient (PGD and APG) and :cd (CDSolver on a dense Vector or a SparseIterate, and the default of a call
+# without `kind`) both accept a NormL1, with or without weights, and an unweighted ElasticNet; :gradient also
+# accepts a NormLinf, which :cd refuses with a message of its own (this CDSolver needs a separable penalty for
+# its coordinate step). The levels must pass _scalar_parameter for the data type T (finite, nonnegative,
+# representable without overflow or underflow; a level that is subnormal in T passes it). A NormL1 with
+# weights also passes _check_l1_weights, which refuses a level that is subnormal in T. A wrapper such as
+# Scaled(NormLinf(λ)) is refused as any other penalty.
+function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
   if g isa NormL1
     g.w === nothing ? _scalar_parameter(g.λ0, T, "penalty lambda") : _check_l1_weights(g, x, T)
   elseif g isa ElasticNet && g.w === nothing
     _scalar_parameter(g.λ1, T, "penalty lambda1")
     _scalar_parameter(g.λ2, T, "penalty lambda2")
+  elseif g isa NormLinf && kind === :gradient
+    _scalar_parameter(g.λ, T, "penalty lambda")
+  elseif g isa NormLinf
+    throw(ArgumentError("CDSolver does not support NormLinf (its coordinate step needs a separable penalty); use ProximalGradientDescent or AccProxGradDescent"))
+  elseif kind === :gradient
+    throw(ArgumentError("only NormL1, unweighted ElasticNet or NormLinf is supported"))
   else
     throw(ArgumentError("only NormL1 or unweighted ElasticNet is supported"))
   end
@@ -135,6 +144,9 @@ function _check_penalty(g, x::BlockIterate, ::Type{T}) where T
   end
   nothing
 end
+# The gates pass a `kind` (:gradient, :cd or :block) to _check_penalty; a BlockIterate ignores it. This method is
+# more specific in x than the generic one, so a BlockIterate reaches the checks above for each `kind`.
+_check_penalty(g, x::BlockIterate, ::Type{T}, kind::Symbol) where T = _check_penalty(g, x, T)
 
 # The rule of _scalar_parameter for a nonnegative value
 function _weight_ok(w, ::Type{T}) where T
@@ -147,9 +159,10 @@ end
   throw(ArgumentError("group weight $k is not valid in $T"))
 end
 
-# Loss, data, shape, penalty and alias checks shared by the dense gate and the
-# CD owner gate; `x` is the caller's original array or owner, of length `length(x)`.
-function _check_data(x, f, g, ::Type{T}) where T
+# Loss, data, shape, penalty and alias checks shared by the dense gate, the CD owner gate and the
+# block gate; `x` is the caller's original array or owner, of length `length(x)`. `kind` (:gradient,
+# :cd or :block) is passed to _check_penalty.
+function _check_data(x, f, g, ::Type{T}, kind::Symbol) where T
   base = if f isa LeastSquaresLoss
     f
   elseif f isa Scaled && f.f isa LeastSquaresLoss
@@ -163,7 +176,7 @@ function _check_data(x, f, g, ::Type{T}) where T
   n, p = size(base.X)
   n > 0 && p > 0 || throw(DimensionMismatch("X must have positive row and column counts"))
   length(base.Y) == n && length(x) == p || throw(DimensionMismatch("x/y dimensions do not match X"))
-  _check_penalty(g, x, T)
+  _check_penalty(g, x, T, kind)
   (Base.mightalias(x, base.X) || Base.mightalias(x, base.Y)) &&
     throw(ArgumentError("mutable x must not alias borrowed X or y"))
   base
@@ -216,12 +229,13 @@ function _check_sqrt_penalty(g, ::Type{T}) where T
   nothing
 end
 
-# The dense gate. `kind` matters only for the square-root loss: CDSolver passes :cd, and PGD and APG
-# use the default :gradient, under which `_check_sqrt_data` refuses that loss.
+# The dense gate. `kind` is :cd for CDSolver and :gradient, the default, for PGD and APG. Under
+# :gradient `_check_sqrt_data` refuses the square-root loss and `_check_penalty` accepts a NormLinf,
+# which it refuses under :cd.
 function _check_problem(x, f, g, kind::Symbol = :gradient)
   x isa Vector && eltype(x) in (Float32, Float64) ||
     throw(ArgumentError("x must be a dense Vector{Float32} or Vector{Float64}"))
-  base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), kind) : _check_data(x, f, g, eltype(x))
+  base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), kind) : _check_data(x, f, g, eltype(x), kind)
   _allfinite(x) && _allfinite(base.Y) && _allfinite(base.X) ||
     throw(ArgumentError("x, X and y must contain only finite values"))
   nothing
@@ -234,7 +248,7 @@ _is_cd_owner(x) = x isa SparseIterate{<:Any, 1} && eltype(x) in (Float32, Float6
 function _check_owner_problem(x, f, g)
   _is_cd_owner(x) ||
     throw(ArgumentError("x must be a dense Vector or a one-dimensional SparseIterate of Float32 or Float64"))
-  base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), :cd) : _check_data(x, f, g, eltype(x))
+  base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), :cd) : _check_data(x, f, g, eltype(x), :cd)
   all(isfinite, activevalues(x)) && _allfinite(base.Y) && _allfinite(base.X) ||
     throw(ArgumentError("x, X and y must contain only finite values"))
   nothing
@@ -248,7 +262,7 @@ function _check_block_problem(x, f, g, method)
   _is_matrix_response(f) && return _check_multiresponse(x, f, g, method)
   method.momentum === true &&
     throw(ArgumentError("block coordinate descent does not support momentum; use momentum = false or nothing"))
-  base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), :block) : _check_data(x, f, g, eltype(x))
+  base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), :block) : _check_data(x, f, g, eltype(x), :block)
   all(isfinite, x) && _allfinite(base.Y) && _allfinite(base.X) ||
     throw(ArgumentError("x, X and y must contain only finite values"))
   nothing
