@@ -249,7 +249,8 @@ end
     solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions())
     solve!(x::BlockIterate, f, g::GroupNormL2, CDSolver())
 
-Minimize a least-squares lasso (with optional weights) or elastic net, overwriting `x`. `x` is a dense `Vector{T}`,
+Minimize a least-squares lasso (with optional weights) or elastic net, or with `CDSolver` a square-root lasso,
+overwriting `x`. `x` is a dense `Vector{T}`,
 T=Float32 or Float64; `CDSolver` also accepts a one-dimensional `SparseIterate{T}`
 (see below), while the gradient methods (`ProximalGradientDescent`, `AccProxGradDescent`) refuse it.
 The `BlockIterate` form of `CDSolver` minimizes the group lasso with a `GroupNormL2` penalty on a
@@ -265,12 +266,15 @@ finite and, where `T(λ)` and `wⱼ` are both positive, a normal number of `T` (
 level `T(λ)` that is subnormal, are refused). A zero level or weight gives the coefficient 0, which is accepted; a zero
 weight leaves its entry unpenalized (it is not fixed at 0). Any other weight array type (a view, a range, a
 vector of another element type), a weighted `ElasticNet` and any `Scaled` penalty is refused. Use `(one(T)/T(n))*LeastSquaresLoss` for normalized lasso; raw LS keeps
-its unnormalized meaning. One positive finite scalar LS wrapper is supported.
+its unnormalized meaning. One positive finite scalar LS wrapper is supported. `CDSolver` also accepts
+ProximalBase's `SqrtLeastSquaresLoss(y, X)` with an unweighted `NormL1(λ)`, `λ > 0`, on a dense `Vector`
+or a `SparseIterate` (see [`CDSolver`](@ref)); the gradient methods refuse it, and `CDSolver` refuses it with a weighted `NormL1`.
 Borrowed X/y must not alias mutable `x` or change during a solve. Results share
 `x`; copy it to retain earlier coefficients. Unsupported inputs/options fail
 before mutation. For PGD and APG, a stop of the stopping tests counts only at a point whose
 computed KKT residual meets the bound of [`ProximalOptions`](@ref), which is not an
-exact-arithmetic certificate; CD stops by its change test (see [`CDSolver`](@ref)). Finite intermediate arithmetic is required. PGD step errors restore
+exact-arithmetic certificate; CD stops by its change test, and for the square-root loss reports
+`converged = true` only when a duality certificate passes (see [`CDSolver`](@ref)). Finite intermediate arithmetic is required. PGD step errors restore
 its last accepted `x` and rethrow, without a transaction guarantee for internal
 counters.
 

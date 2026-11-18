@@ -42,6 +42,14 @@ unweighted `ElasticNet` and a `NormL1` with weights):
   the change of a group as its statistic) and the private-copy transaction are
   those of the `SparseIterate` path. The rules are in
   [Numerical behavior](numerics.md).
+- **Square-root lasso coordinate descent:** the `SparseIterate` engine with a private
+  `SqrtLSModel`, which wraps the least-squares model with the loss scale 1 (data, residual,
+  curvature cache, residual update and stopping scales) and adds its own coordinate step. A
+  converged full pass calls the model hook `_stop_check!`, which returns `:converged`,
+  `:uncertified` or `:retry` (after lowering the threshold, which the loop then reads again). Its
+  generic method returns the constant `:converged`, so the least-squares and group models keep the
+  change test as their stop; the square-root model runs its duality certificate there and records
+  the certified bound in the result's `gap`.
 
 Losses, L1 proximal operations and sparse coefficient storage live
 in ProximalBase. Solver orchestration and algorithm-specific results

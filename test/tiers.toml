@@ -19,6 +19,7 @@ standard = [
   "stopping_scale",
   "elasticnet",
   "cd_elasticnet",
+  "sqrt_lasso",
   "weighted_lasso",
 ]
 full = [

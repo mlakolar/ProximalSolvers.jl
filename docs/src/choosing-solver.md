@@ -1,7 +1,8 @@
 # Choosing a solver
 
 The three supported algorithms solve the **same dense least-squares lasso**; CD
-also solves a group lasso (see [Group lasso](choosing-solver.md#Group-lasso-with-block-coordinate-descent)).
+also solves a group lasso (see [Group lasso](choosing-solver.md#Group-lasso-with-block-coordinate-descent))
+and the square-root lasso `norm(y - X*beta) + lambda * norm(beta, 1)` (see [Supported problems](support.md)).
 The difference is how they update coefficients, not what objective is minimized.
 For definitions of soft-thresholding, CD and PGD, see [What problem, which algorithm?](concepts.md).
 
@@ -44,7 +45,8 @@ least-squares scale (`1/n` for our normalized lasso). In the tiny example,
 this equals `sqrt(8.25 / 3) ≈ 1.658`, so a constructor tolerance of
 `1e-7` appears in the result as about `1.66e-7`. Set `relative=false`
 to use the unscaled coefficient-change threshold. This is a
-**step-change stopping test**, not an optimality certificate.
+**step-change stopping test**, not an optimality certificate; for the square-root lasso, CD
+reports `converged = true` only when a duality certificate also passes (see [`CDSolver`](@ref)).
 
 CD forms this scale without the sum of squares `sum(abs2, y)` or its product
 with `s` having to stay in the range of `Float32` or `Float64`: where either

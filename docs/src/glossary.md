@@ -56,8 +56,8 @@ active coordinates, possibly changing their storage order.
 storage. In beginner-facing pages, we call it the *coefficient
 vector* or *coefficient storage*.
 
-**Sentinel:** A placeholder value, such as `gap=NaN`, indicating that
-a diagnostic was not computed.
+**Sentinel:** A placeholder value, such as `kkt_checks=0`, or `gap=NaN` where no
+certificate was computed or none passed, indicating that a diagnostic is not available.
 
 **Gradient residual:** A numerical measure used by an optimizer's
 stopping test. It is not the value of your penalty object.

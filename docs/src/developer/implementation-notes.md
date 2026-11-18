@@ -237,9 +237,10 @@ Sparse designs, sparse vectors and views as iterates, `SparseIterate` for proxim
 gradient descent (plain or accelerated), matrix-shaped, group and symmetric owners, weighted
 `ElasticNet`, `Scaled` penalties, group penalties other than `GroupNormL2` with CD, matrix responses, intercepts/offsets, generalized losses/compositions,
 monotone/active-set acceleration and APG diagonal preconditioning, ADMM/Newton,
-primal-dual/SLOPE/graphical models, paths/screening/certificates/workspaces/refit
-and reweighting are deferred. Nondefault feature requests are refused. gap=NaN
-and CD kkt_checks=0 are compatibility sentinels, not computed diagnostics.
+primal-dual/SLOPE/graphical models, paths/screening/workspaces/refit, certificates other
+than the duality certificate of square-root lasso CD, and reweighting are deferred. Nondefault
+feature requests are refused. CD kkt_checks=0 is a compatibility sentinel, and gap=NaN is one too,
+except after a certified square-root lasso run of CD, where gap is the certified bound.
 
 This is a breaking support reduction. Version/registration and any public
 release remain a separate decision; existing releases are untouched. Protected

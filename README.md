@@ -1,6 +1,7 @@
 # ProximalSolvers.jl
 
-**Coordinate descent and (accelerated) proximal gradient descent for least-squares lasso in Julia.**
+**Coordinate descent and (accelerated) proximal gradient descent for least-squares lasso in Julia,
+and coordinate descent for the square-root lasso.**
 
 [Documentation](https://mlakolar.github.io/ProximalSolvers.jl/dev/) ·
 [Getting started](https://mlakolar.github.io/ProximalSolvers.jl/dev/getting-started/) ·
@@ -61,7 +62,8 @@ certificate (see [the stationarity check](https://mlakolar.github.io/ProximalSol
 [numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/)
 and [solver settings](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/).
 
-CD, PGD and APG also solve the weighted lasso `λ Σⱼ wⱼ|βⱼ|` with `NormL1(λ, w)`. The weights
+CD, PGD and APG also solve the weighted least-squares lasso `λ Σⱼ wⱼ|βⱼ|` with `NormL1(λ, w)` (the square-root
+lasso below takes no weights). The weights
 `w` are a `Vector{T}` of the element type of the data, with one finite nonnegative entry per coefficient,
 and `x` must not alias them. Entry `j` uses the coefficient `T(λ) wⱼ`, formed in `T`. `solve!` refuses a
 level `T(λ)` that is subnormal in `T`, and a coefficient that overflows or that is zero or subnormal where
@@ -90,7 +92,10 @@ response and matching coefficients, where `T` is `Float32` or `Float64`.
 CD additionally accepts one-dimensional ProximalBase `SparseIterate`
 coefficients, and, for a group lasso, a ProximalBase `BlockIterate` with a
 `GroupNormL2` penalty; PGD and accelerated PGD (`AccProxGradDescent`) accept dense
-coefficients only. Generalized models,
+coefficients only. CD also minimizes the square-root lasso `norm(y - X*beta) + lambda * norm(beta, 1)`
+with ProximalBase's `SqrtLeastSquaresLoss(y, X)` and `NormL1(lambda)`, `lambda > 0`; there
+`converged = true` only when a duality certificate proves the relative gap to be at most `1e-4`, and
+`gap` reports that bound. Generalized models,
 sparse designs, penalty paths, ADMM and other algorithms are not part
 of this development branch; see
 [Supported problems](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/).
