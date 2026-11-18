@@ -593,7 +593,7 @@ end
 # an integer) the error is at most (eps(T)/2) T(λ0). Julia's conversion of a Rational can round the numerator and the
 # denominator before dividing, so a Rational level can have a larger error: with the numerator and the denominator
 # 2^p + 1 and 2^p + 3 (p = 24 for Float32, 53 for Float64) both round and the ratio is off by about twice that bound.
-# Only the actual-error form |cⱼ - λ0 wⱼ| <= |T(λ0) - λ0| wⱼ + (eps(T)/2) cⱼ holds for every level; the exact value of the
+# Only the actual-error form |cⱼ - λ0 wⱼ| <= |T(λ0) - λ0| wⱼ + (eps(T)/2) cⱼ holds for the levels with a normal cⱼ; the exact value of the
 # Rational is computed in BigFloat at 256 bits from its numerator and denominator.
 @testset "the conversion of a level to T: the half-eps bound and the Rational counterexample ($T)" for T in (Float32, Float64)
   rational = T === Float32 ? Rational{Int}(2^24 + 1, 2^24 + 3) : Rational{Int}(2^53 + 1, 2^53 + 3)
