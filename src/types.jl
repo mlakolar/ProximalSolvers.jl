@@ -72,8 +72,8 @@ the threshold, formed in `T`, is at least `floatmin(T)`, and that `r` is finite.
 minimizes the objective. The check uses no step size, no curvature `L` and no proximal evaluation. For `AccProxGradDescent` it forms
 one gradient at `x` from the cached image `A x` and counts it in `grad_calls`, before the call limits are compared (so a stop that
 the check refuses can reach `grad_calls_limit`); for `ProximalGradientDescent` it uses the accepted gradient. The active set `M`
-has no tolerance: the accepted iterate is the output of ProximalBase's `value_and_prox!`, which stores every clipped entry as the same
-`±τ`, and an iterate with entries near the maximum that are not bitwise equal is refused, not accepted, so the check can refuse a point
+has no tolerance: the accepted iterate is the output of ProximalBase's `value_and_prox!`, which for a positive clip level stores each clipped entry as `±τ` with the same
+`τ`, and an iterate with entries near the maximum that are not bitwise equal is refused, not accepted, so the check can refuse a point
 near a tied optimum but does not accept a point whose residual is above the bound. The residual is computed in working precision from the
 computed gradient, whose rounding error it does not cover, so the true residual at a kept stop can be slightly above the bound (a sweep of
 `Float32` solves against a BigFloat reference found at most 1.033 times the bound); it is not a certificate in exact arithmetic and it does

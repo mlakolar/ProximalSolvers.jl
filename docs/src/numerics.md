@@ -228,7 +228,7 @@ formed in `T`, as for the lasso check; it is not kept when `max(λ, λcrit)` is 
   level for which 0 is a minimizer; it is not the lasso's `‖∇f(0)‖∞`. In exact arithmetic, the change `(f, λ) → (c f, c λ)` for a
   constant `c > 0` scales `g`, `λ`, `r` and the threshold by `c`, so the comparison does not change (within the range of `T`).
 - **No tolerance for the active set.** `M` is found by exact equality of the stored values. The accepted iterate of PGD and of APG is
-  the output of ProximalBase's `value_and_prox!`, which stores every clipped entry as the same `±τ`, so entries tied at the maximum by the
+  the output of ProximalBase's `value_and_prox!`, which for a positive clip level stores each clipped entry as `±τ` with the same `τ`, so entries tied at the maximum by the
   clip are bitwise equal. An iterate whose entries near the maximum are not bitwise equal is treated as having the smaller ones off
   `M`, so their `|gᵢ|` count in `r`: `r` is then the exact residual of the stored point. The check can refuse a point near a tied optimum
   (for `X = [1 1]`, `y = [2]`, `λ = 1` and `x = (0.75, 0.75(1 - 10⁻⁸))`, `r = 1`), but it does not accept a point whose residual is

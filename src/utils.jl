@@ -161,8 +161,8 @@ end
 # λ, r and S by c, so the comparison r < τ S does not change (within the range of T).
 #
 # The active set M is found by exact equality of the stored values, with no tolerance. The accepted iterate of PGD and of
-# APG is the output of PB's value_and_prox! for NormLinf, which stores every clipped entry as the same ±τ, so entries that are
-# tied at the maximum by the clip are bitwise equal. An iterate whose entries near the maximum are not bitwise equal is
+# APG is the output of PB's value_and_prox! for NormLinf, which for a positive clip level stores each clipped entry as ±τ with the
+# same τ, so entries that are tied at the maximum by the clip are bitwise equal. An iterate whose entries near the maximum are not bitwise equal is
 # treated as having the smaller ones off M, so that their |gᵢ| count in r: r is then the exact residual of that stored
 # point, and the check can refuse a point near a tied optimum, but it does not accept a point whose residual is above τ S.
 #

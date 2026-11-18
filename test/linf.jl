@@ -548,7 +548,7 @@ end
       r.converged && @test kkt_ratio(X, y, α, λ, x) <= 1.1
       # above λcrit the zero is found at once; with cond = 1e3 the solves converge
       frac > 1 && @test r.converged && all(iszero, x)
-      cond == 1e3 && frac > 0 && @test r.converged        # λ = 0: PGD cannot reach the bound in 20000 iterations, and does not claim to
+      cond == 1e3 && frac > 0 && @test r.converged        # λ = 0: PGD does not reach the bound in 20000 iterations on these designs (measured), and does not claim to
     end
   end
 end
