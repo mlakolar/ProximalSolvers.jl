@@ -406,12 +406,13 @@ python3 benchmark/cross_solver.py benchmark/results benchmark/results/summary \
   benchmark/results/cross-solver --expected-runs 10
 ```
 
-- **Groups.** A group holds the cases of one Julia version, problem, phase, certificate measure
-  and target whose data hashes agree in every repetition. The data hash covers the problem data in
-  the solver's precision, the penalty and the start, not the solver or its settings, so the cases
-  of a group received the same inputs. Precision (`f64`, `f32`) and start (`cold`, `warm`) are
-  also read from the variant and kept apart; the solver with the rest of the variant names the
-  configuration (`cd sparse`, `pg acc-dense`). Variants without a precision suffix (the
+- **Groups.** A group holds the cases of one Julia version, problem, phase, certificate measure,
+  target and catalog input mode (`fixed`, `draw`) whose data hashes agree in every repetition. The
+  data hash covers the problem data the solver received, not the solver or its settings; for the
+  current-core cases it covers the data in the solver's precision, the penalty and the start, so
+  the cases of a group received the same inputs. Precision (`f64`, `f32`) and start (`cold`,
+  `warm`) are also read from the variant and kept apart; the solver with the rest of the variant
+  names the configuration (`cd sparse`, `pg acc-dense`). Variants without a precision suffix (the
   historical `R`) show both as `not encoded`. Configurations are listed alphabetically.
 - **Values.** `cross_solver.csv` carries the target, runs, timing runs, mean time, CI95 bounds,
   worst certificate and status counts of `summary.csv` as strings, unchanged. `REPORT.md` shows
@@ -420,12 +421,13 @@ python3 benchmark/cross_solver.py benchmark/results benchmark/results/summary \
   repetition is `ok`, that is, whose independent certificate met the target in every sample.
   Other cases are listed with their status counts, worst certificate and the reason
   (`not every run ok`, `no accuracy target`), without a time. `not recorded` marks a configuration
-  that another group of the same problem, phase and start has and this group lacks. A case with
-  an empty data hash in some repetition (an error before its inputs were built) is listed under
-  "Cases not grouped".
+  that another case of the same problem, phase and start has and this group lacks. A case with an
+  empty data hash in some repetition (an error before its inputs were built) keeps its values and
+  statuses under "Cases not grouped", and a group with its labels marks it `ungrouped`.
 - **Refusals** (exit 2): invalid records; a `summary.csv` that does not cover the records exactly,
-  or disagrees with their catalog (group, phase, measure, target) or with `--expected-runs`; two
-  cases of one group that name the same configuration.
+  or disagrees with their catalog (group, phase, measure, target), with `--expected-runs`, or with
+  the records' status counts, timing runs, worst certificate or mean time (a summary of another
+  series); two cases of one group that name the same configuration.
 
 The readout is descriptive and per case. Each interval is the case's own Student-t interval over
 repetitions, not a paired comparison between solvers, so overlapping or separate intervals are not
@@ -435,7 +437,7 @@ accuracy needs the protocol of #110 (paired runs within a series, A/A controls, 
 One group of a 10-repetition extended run (Julia 1.13.3, `637f06a`):
 
 ```text
-### Group 4: Julia 1.13.3, precision f32, start cold, relative_gap target 1e-05, inputs 4a1d7fea9474
+### Group 4: Julia 1.13.3, precision f32, start cold, relative_gap target 1e-05, inputs 4a1d7fea9474 (draw)
 
 | Configuration | Case | Ok runs / total | Mean time (ns) | 95% interval (ns) | Worst certificate | Status counts | Time |
 |---|---|---:|---:|---:|---:|---|---|
