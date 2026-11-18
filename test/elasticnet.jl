@@ -461,7 +461,8 @@ end
   # depends on whether the line search or the finite-objective check fails first on other data, so
   # only the error type and the rollback are asserted. With X = [1] the loss curvature α‖X‖_F² is 1,
   # so the first curvature estimate is 1 as before the scale-aware estimate of #321; the gradient
-  # at x0 is 0, the first step gives x0 / 2, and its ridge value 1.25e39 is still above floatmax(Float32).
+  # at x0 is 0, and the first trial at L = 0.9 gives about 0.47 x0, whose ridge value of about 1.1e39 is still
+  # above floatmax(Float32).
   for method in METHODS
     X, y = reshape(Float32[1], 1, 1), Float32[1f20]
     x0 = Float32[1f20]

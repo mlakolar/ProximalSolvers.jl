@@ -2,11 +2,14 @@ module InitialCurvatureTests
 # The curvature estimate with which ProximalGradientDescent (PGD) and AccProxGradDescent (APG) start,
 # for the loss f(x) = (α/2)‖y - X x‖² (α = 1 for a raw LeastSquaresLoss): min(1, α‖X‖_F²), with ‖X‖_F the
 # solvers' upper bound, which is 1 when that product is at least 1 or X = 0 (#321). The start is read
-# through `ProximalSolvers.initial_state`. Where a solve is run, its quality is checked by the exact KKT
-# residual of the returned point, computed here in 256-bit BigFloat from the raw data, against the
-# solver's bound max(gradtol, 64 eps(T)) max(λ, λmax). The bits of a trajectory are not asserted; an
-# iteration count appears as the loose limit that a case states. `converged` is a stopping flag, which a case
-# asserts where it says so.
+# through `ProximalSolvers.initial_state`. Each testset that runs a solve states what it checks. The
+# R5-type cases, the moderate-scale case and the Float32 R5-like cases compare, for each solver that reports
+# `converged = true`, the exact KKT residual of the returned point, computed here in 256-bit BigFloat from
+# the raw data, with the solver's bound max(gradtol, 64 eps(T)) max(λ, λmax). The X = 0 case checks the
+# analytic result, the underflow cases finiteness, the recovered ElasticNet case the distance to its
+# minimizer, and the allocation cases bytes. The bits of a trajectory are not asserted; an iteration count
+# appears as the loose limit that a case states. `converged` is a stopping flag, which a case asserts where
+# it says so.
 using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
 
@@ -43,9 +46,9 @@ function kkt_ratio(X, y, α, λ1, λ2, x)
   end
 end
 
-# the solver's bound on that ratio, with an allowance of 1e-6 relative for the rounding of the solver's
-# own residual (the rounding is of order (n + p) eps, far below it)
-bound(options, ::Type{T}) where T = max(options.gradtol, 64 * Float64(eps(T))) * (1 + 1e-6)
+# the solver's bound on that ratio, with an allowance of 1e-6 relative and of 16 eps(T) for the rounding of
+# the solver's own residual
+bound(options, ::Type{T}) where T = max(options.gradtol, 64 * Float64(eps(T))) * (1 + 1e-6) + 16 * Float64(eps(T))
 
 # A seeded design with unit-variance, zero-mean columns, and a response from a sparse coefficient vector
 # plus noise.
@@ -79,8 +82,12 @@ end
       r = solve!(x, f, g, AccProxGradDescent(), DEFAULT)
       @test r.converged && r.iterations <= 12
       @test kkt_ratio(X, y, α, λ, 0, x) <= bound(DEFAULT, Float64)
-      # APG counts every trial, so a count above the iterations means that a trial was rejected
-      @test r.backtrack_steps > r.iterations
+      # the first trial of the first APG iteration, at 0.9 L0, is rejected: the iteration makes at least two
+      # trials and ends with an L above 0.9 L0
+      st = PS.initial_state(AccProxGradDescent(), DEFAULT, f, g, zeros(1))
+      L0 = st.L
+      PS.update_state!(f, g, st, AccProxGradDescent())
+      @test st.backtrack_steps >= 2 && st.L > 0.9 * L0
 
       # PGD ends at the objective increase. Its backtracking test forms the squared step norm, which overflows
       # for a step beyond about 1.3e154, and the iterate is within 0.4% of the minimizer. This documents
@@ -176,11 +183,19 @@ end
   end
 end
 
-@testset "an Integer or Bool loss scale gives the start one(T) (T = $T)" for T in (Float32, Float64)
-  # an integer or Bool scale is at least 1, so the tiny-scale branch is not reachable with one
+@testset "an Integer or Bool loss scale: the start on a standardized design and on a small design (T = $T)" for T in (Float32, Float64)
+  # on a standardized 100×8 design, α‖X‖_F² is at least 8 for each of these scales, so the start is one(T)
   X, y = standardized(T, 100, 8)
   for method in METHODS, α in (2, true, Int8(3), UInt16(5))
     @test start(method, lossof(α, y, X), NormL1(T(0.1)), zeros(T, 8)) === one(T)
+  end
+  # an integer scale does not by itself give the start 1: with X = [0.1], α‖X‖_F² is 0.02 or 0.01
+  Xs, ys = reshape(T[0.1], 1, 1), T[1]
+  for method in METHODS, α in (2, true)
+    c = curvature(Xs, α)
+    @test c < 0.05
+    L0 = start(method, lossof(α, ys, Xs), NormL1(T(0.01)), zeros(T, 1))
+    @test c <= L0 <= 1.0001 * c
   end
 end
 
@@ -223,7 +238,7 @@ end
 alloc_scan(::Type{T}, X, α) where T = @allocated PS._scanned_initial_curvature(T, X, α)
 alloc_apg(::Type{T}, X, α) where T = @allocated PS._initial_curvature(T, PS._root_scale(T, α), PS._frobenius_upper(T, X))
 
-@testset "the start has type T and a warmed start allocates nothing" begin
+@testset "the start has type T and a warmed start allocates nothing (Float32 and Float64 scales)" begin
   inputs = Any[]
   for T in (Float32, Float64)
     Xs, _ = standardized(T, 100, 8)
@@ -240,6 +255,51 @@ alloc_apg(::Type{T}, X, α) where T = @allocated PS._initial_curvature(T, PS._ro
       # the two starts agree in branch
       L = PS._scanned_initial_curvature(T, X, α)
       @test (L === one(T)) == (PS._initial_curvature(T, PS._root_scale(T, α), PS._frobenius_upper(T, X)) === one(T))
+    end
+  end
+end
+
+alloc_solve(f, g, x0, method) = (x = copy(x0); @allocated solve!(x, f, g, method, DEFAULT))
+
+@testset "Integer and Bool scales on the full-scan branch: the start and a warmed solve allocate no more than a Float64 scale (T = $T)" for T in (Float32, Float64)
+  # X = [√0.75], so α‖X‖_F² is 1.5 for α = 2 and the scan reads the whole matrix: no early exit
+  X, y = fill(T(sqrt(0.75)), 1, 1), ones(T, 1)
+  g, x0 = NormL1(T(0.1)), zeros(T, 1)
+  for α in (2, true, Int8(2), Int64(2), UInt16(2))
+    @test @inferred(PS._scanned_initial_curvature(T, X, α)) isa T
+    PS._scanned_initial_curvature(T, X, α); alloc_apg(T, X, α)
+    @test alloc_scan(T, X, α) == 0
+    @test alloc_apg(T, X, α) == 0
+  end
+  f2, f2f = lossof(2, y, X), lossof(2.0, y, X)
+  for method in METHODS
+    for f in (f2, f2f); solve!(copy(x0), f, g, method, DEFAULT); solve!(copy(x0), f, g, method, DEFAULT); end
+    @test alloc_solve(f2, g, x0, method) == alloc_solve(f2f, g, x0, method)
+  end
+end
+
+@testset "the significand and exponent of an exactly representable integer or Bool scale equal the 256-bit route" begin
+  for α in (true, Int8(2), Int8(3), Int8(127), Int64(1), Int64(2)^40 + 1, UInt16(65535), Int32(7), UInt8(200))
+    @test PS._significand_exponent(α) == PS._significand_exponent_big(α)
+  end
+  # 2^53 + 1 is not exact in Float64: the 256-bit route runs, and it gives the same pair as before
+  @test PS._significand_exponent(Int64(2)^53 + 1) == PS._significand_exponent_big(Int64(2)^53 + 1)
+  @test PS._significand_exponent(typemax(Int64)) == PS._significand_exponent_big(typemax(Int64))
+end
+
+@testset "Float32 R5-like data: PGD and APG converge from the scale-aware start (T = Float32, Float64 scale α)" begin
+  X, y = ones(Float32, 5, 1), fill(1f20, 5)
+  for α in (1e-10, 1e-30)
+    @test PS._check_loss_scale(α, Float32) === nothing
+    f, g = lossof(α, y, X), NormL1(0f0)
+    c = curvature(X, α)
+    for method in METHODS
+      L0 = start(method, f, g, zeros(Float32, 1))
+      @test c <= L0 <= 1.0001 * c
+      x = zeros(Float32, 1)
+      r = solve!(x, f, g, method, DEFAULT)
+      @test r.converged
+      @test kkt_ratio(X, y, α, 0f0, 0, x) <= bound(DEFAULT, Float32)
     end
   end
 end
