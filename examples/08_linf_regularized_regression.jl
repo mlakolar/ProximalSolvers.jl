@@ -55,7 +55,7 @@ lambda = 0.3 * lambda_crit
 g = NormLinf(lambda)
 
 # The objective from the data, and a duality gap. For `u = (Xb - y)/n` scaled by `min(1, λ/‖Xᵀu‖₁)`, the
-# dual objective is ``-y^T u - n\|u\|^2/2`` and it never exceeds the optimal value; the gap is the
+# dual objective is ``-y^T u - n\|u\|^2/2``, which is at most the optimal value; the gap is the
 # primal value minus it, and it is nonnegative.
 objective(b) = sum(abs2, y - X * b) / (2n) + lambda * maximum(abs, b)
 function duality_gap(b)

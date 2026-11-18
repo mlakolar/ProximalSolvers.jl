@@ -200,7 +200,7 @@ G_t(x) = (x - prox_{tλ‖·‖∞}(x - t∇f(x))) / t,     t = 1/L,
 ~~~
 
 with `L` the curvature that the line search accepted for this iterate. For this convex problem and any `t > 0`,
-`G_t(x) = 0` exactly when `x` is a minimizer. The check forms the gradient `∇f(x)` at the accepted iterate (for
+`G_t(x) = 0` in exact arithmetic when and only when `x` is a minimizer. The check forms the gradient `∇f(x)` at the accepted iterate (for
 APG, not at the extrapolated point: one gradient from the cached image `A x`, counted in `grad_calls`), the point
 `u = x - ∇f(x)/L`, and `p = prox_{tλ‖·‖∞}(u)` with ProximalBase's `value_and_prox!` (counted in `prox_calls`). The
 proximal operator of `t λ ‖·‖∞` is `u` minus its projection onto the ℓ1 ball of radius `tλ`: the entries of `u`
@@ -231,8 +231,8 @@ zero fill the entries with `uᵢ ≠ 0`) and `s = Σ_{pᵢ≠uᵢ} |uᵢ|`. The 
   positive, when `1/L` is not finite or is below `floatmin(T)`, when `S` is not finite, when `τ S` is below `floatmin(T)`, or when
   `r` or `ρ` is not finite.
 - **Float32.** At `x = 0` with `λ` above `λcrit` by more than the rounding of ProximalBase's comparison of `‖u‖₁` with `tλ`,
-  `p = 0`, `r = 0` and `ρ = eps(T) k λcrit`, which is below `τ S` when `k eps(T) < τ`: always in `Float64` at ordinary sizes,
-  and for `Float32` with the default `gradtol` when fewer than about 84 entries of `∇f(0)` are nonzero. A `Float32` solve with
+  `p = 0`, `r = 0` and `ρ = eps(T) k λcrit`, which is below `τ S` when `k eps(T) < τ`: for `Float64` with the default `gradtol`, when `k` is below about
+  `4e10`, and for `Float32` with the default `gradtol` when fewer than about 84 entries of `∇f(0)` are nonzero. A `Float32` solve with
   more tied or nonzero entries can end with `converged = false` at a point whose residual is below the bound, because `ρ` is
   too large to resolve it.
 - **Counting.** The evaluations of the check are counted when the check runs, before the call limits are compared. A stop that
