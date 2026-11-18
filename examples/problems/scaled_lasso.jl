@@ -87,9 +87,10 @@ end
 # positive, since `P(β) = 0` forces `y - X*β = 0` and `β = 0`. A run with `converged = true` proves
 # `(P(β̂) - P*)/P* ≤ gap` and, when the residual of `β̂` is nonzero so that `σ̂ > 0`,
 # `(L(β̂, σ̂) - inf L)/inf L ≤ gap` as well, with `gap ≤ 1e-4`; both hold for this page's data, where `y ≠ 0`
-# and the residual was checked above. For `y = 0` the solver certifies `β = 0` with `gap = 0`, but
-# `P* = 0` and the residual is zero, so there is no relative gap and no `σ̂`; the exact-fit discussion
-# below applies. The bound on the objective value does not say how far `σ̂` is from a
+# and the residual was checked above. For `y = 0`, `P* = 0` is
+# attained at `β = 0` with residual 0, so there is no relative gap and no `σ̂` (started at 0, the solver
+# certifies `β = 0` with `gap = 0`; from a nonzero start it can end without a certificate); the exact-fit
+# discussion below applies. The bound on the objective value does not say how far `σ̂` is from a
 # minimizing `σ`. The square-root page
 # [checks this certificate independently](square_root_lasso.md#Checking-the-answer-independently) from
 # `X`, `y`, `λ` and `β`. A run with `converged = false` and `gap = NaN` has no certificate: its `σ̂` is
