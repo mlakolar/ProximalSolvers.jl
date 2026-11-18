@@ -176,7 +176,7 @@ end
 #       floatmin(T) of the threshold. At x = 0 with λ above λcrit by more than the rounding of PB's
 #       comparison of ‖u‖₁ with tλ, PB's zero fill gives p = +0, so r = 0 and ρ = eps(T) k λcrit
 #       (up to rounding), and the stop is kept when eps(T) k λcrit < τ max(λ, λcrit); this holds for
-#       every k with eps(T) k < τ (as S ≥ λcrit), and can hold for larger k when λ is large against λcrit. For Float32 at the default gradtol,
+#       the k with eps(T) k < τ (as S ≥ λcrit), and can hold for larger k when λ is large against λcrit. For Float32 at the default gradtol,
 #       eps(T) k < τ is k below about 84 nonzero entries of ∇f(0). A Float32 solve with larger k can
 #       report converged = false there, and so can one with many tied or nonzero entries at a nonzero optimum.
 # The stop is not kept when L is not finite and positive, when t = 1/L is not finite or is below

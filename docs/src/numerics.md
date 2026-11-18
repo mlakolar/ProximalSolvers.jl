@@ -237,7 +237,7 @@ zero fill the entries with `uᵢ ≠ 0`) and `s = Σ_{pᵢ≠uᵢ} |uᵢ|`. The 
   `r` or `ρ` is not finite.
 - **Float32 and large `k`.** At `x = 0` with `λ` above `λcrit` by more than the rounding of ProximalBase's comparison of `‖u‖₁`
   with `tλ`, `p = 0`, `r = 0` and `ρ = eps(T) k λcrit` (up to rounding). The stop is kept when `eps(T) k λcrit < τ max(λ, λcrit)`.
-  That holds whenever `eps(T) k < τ` (as `max(λ, λcrit) ≥ λcrit`), which for `Float64` with the default `gradtol` is `k` below about
+  That holds (up to rounding) when `eps(T) k < τ` (as `max(λ, λcrit) ≥ λcrit`), which for `Float64` with the default `gradtol` is `k` below about
   `4e10` and for `Float32` with the default `gradtol` is fewer than about 84 nonzero entries of `∇f(0)`; it can also hold for larger `k`
   when `λ` is large against `λcrit`. A `Float32` solve with more tied or nonzero entries can end with `converged = false` at a
   point whose residual is below the bound, because `ρ` is too large to resolve it.

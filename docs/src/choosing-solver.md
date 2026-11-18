@@ -329,7 +329,7 @@ For PGD and APG on a dense `Vector`, `NormLinf(lambda)` (`lambda * maximum(abs, 
 representable in `T`) is also accepted, with least squares or one positive scalar multiple of it; use `ProximalGradientDescent`
 or `AccProxGradDescent` for it, because this `CDSolver` needs a separable penalty for its coordinate step and refuses `NormLinf`
 for a dense `Vector`, a `SparseIterate` and a `BlockIterate`. The ℓ∞ penalty can tie the largest coefficients at a common
-magnitude and does not in general give zeros; 0 is a minimizer when `lambda` is at least `‖∇f(0)‖₁ = α‖Xᵀy‖₁` (and only then).
+magnitude and does not in general give zeros; in exact arithmetic, 0 is a minimizer exactly when `lambda` is at least `‖∇f(0)‖₁ = α‖Xᵀy‖₁`.
 A solve declares convergence only through the ℓ∞ check
 of [Numerical behavior](numerics.md#The-stationarity-check-for-NormLinf) (a solve can also end through a limit, an objective
 increase or stagnation without passing it), which adds one gradient for APG and, when its guard on the step `1/L` passes, one
