@@ -459,10 +459,13 @@ end
 @testset "a start whose penalty overflows: the solve throws and the iterate is restored" begin
   # f(x0) = 0 is finite, the ridge value (λ2/2) x0² = 5e39 is above floatmax(Float32). The message
   # depends on whether the line search or the finite-objective check fails first on other data, so
-  # only the error type and the rollback are asserted.
+  # only the error type and the rollback are asserted. With X = [1] the loss curvature α‖X‖_F² is 1,
+  # so the first curvature estimate is 1 as before the scale-aware estimate of #321; the gradient
+  # at x0 is 0, and the first trial at L = 0.9 gives about 0.47 x0, whose ridge value of about 1.1e39 is still
+  # above floatmax(Float32).
   for method in METHODS
-    X, y = reshape(Float32[1e-20], 1, 1), Float32[1]
-    x0 = Float32[1e20]
+    X, y = reshape(Float32[1], 1, 1), Float32[1f20]
+    x0 = Float32[1f20]
     @test isfinite(LeastSquaresLoss(y, X)(x0)) && !isfinite(ElasticNet(0f0, 1f0)(x0))
     x = copy(x0)
     @test_throws ErrorException solve!(x, LeastSquaresLoss(y, X), ElasticNet(0f0, 1f0), method)
