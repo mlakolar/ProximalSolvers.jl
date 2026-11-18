@@ -217,8 +217,14 @@ here is unchanged.
   solves ended on the objective-increase exit, with `converged = false`, at points within the `1e-5`
   benchmark target; the KKT residual there was a median of 4 times the bound. The exit is described in
   [PGD stops when the computed objective increases](@ref "PGD stops when the computed objective increases"),
-  which says that a Float32 solve can end on it. [Issue #320](https://github.com/mlakolar/ProximalSolvers.jl/issues/320)
-  has the measurements on the benchmark designs.
+  which says that a Float32 solve can end on it. On the five benchmark designs with the benchmark options (10 draws each,
+  Julia 1.10.13 and 1.13.3, before and after #319), Float32 PGD ended above the `1e-5` target in 36 to 39 of 50 solves
+  on 1.10.13 and in 37 of 50 on 1.13.3, and 22 to 25 and 15 to 16 of those solves had `converged = true`; Float32 APG missed
+  40 to 41 of 50, with 26 to 29 `converged = true`. For the Float32 PGD solves with `converged = true` that missed the target, the gap was
+  2.3 to 7.0 times the independent KKT residual, which was below the bound `64 eps(Float32) ≈ 7.63e-6`. The bound is on a KKT
+  residual and the target is on a duality gap, so a solve can meet the former and miss the latter. The conditions and counts are in the
+  [benchmark harness notes](https://github.com/mlakolar/ProximalSolvers.jl/blob/master/benchmark/HARNESS.md)
+  and in [issue #320](https://github.com/mlakolar/ProximalSolvers.jl/issues/320).
 - **Square-root lasso.** Certified solves at the default `tol` with `relative = true`, on the seven designs
   of the audit that are not exact or near-exact fits (210 solves per cell). The penalty level is
   a fraction of the level at which the solution is 0. The last column is an upper bound of the

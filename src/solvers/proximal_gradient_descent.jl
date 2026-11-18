@@ -34,7 +34,8 @@ residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the t
 `T`, which can round or overflow; see [`ProximalOptions`](@ref)); it is not an
 exact-arithmetic certificate, does not bound the distance to a minimizer and does not
 guarantee coefficient accuracy on ill-conditioned designs (see the
-[stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)), and the default tolerances are not a specified number of correct digits. Tighten tolerances and
+[stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)), and the default tolerances are not a specified number of correct digits. In `Float32`, a solve can report `converged = true` at a relative duality gap above `1e-5`, as in measurements on small benchmark designs (see
+[the limits of the stopping tests](https://mlakolar.github.io/ProximalSolvers.jl/dev/stopping-limits/)). Tighten tolerances and
 check KKT conditions independently before reporting numerical results.
 See the [solver guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/)
 and [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).

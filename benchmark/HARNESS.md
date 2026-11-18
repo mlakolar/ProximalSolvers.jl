@@ -203,6 +203,88 @@ Each case builds its inputs from a seed keyed by its scenario and repetition, so
 selected alone has the same inputs, data hash and certificate as in the full suite.
 `PS_CASES='cd/lasso-B/cd/*-f64/call'` measures four of the 17 supported quick `cd` cases.
 
+### Float32 PGD and APG against the `1e-5` target
+
+PGD and APG with the harness options (`benchmark_options(residual = true)`: `maxiter = 10_000`,
+`ftol = 1e-15`, `xtol = 1e-14`, `gradtol = 1e-11`, `allow_f_increases = false`) often end above
+the target in Float32, and the case is then recorded as `target_missed`. This subsection says
+which cases, why, and what it means. The target stays at `1e-5` and the recorded results are
+unchanged. The numbers are from the
+[Phase 0 report of issue #320](https://github.com/mlakolar/ProximalSolvers.jl/issues/320#issuecomment-6967100343);
+its scripts, configurations and summary tables are on the branch
+[`archive/issue-320-evidence`](https://github.com/mlakolar/ProximalSolvers.jl/tree/archive/issue-320-evidence).
+They hold for these conditions: the five designs `lasso`, `lasso-B` (cold and warm), `lasso-C` and
+`lasso-D`, 10 draws each (50 solves per cell); Julia 1.10.13 and 1.13.3; the revisions before and
+after #319 (master `dac9f4b` stopped at the same iterations as `9f86a80`); one CPU kind, the Intel
+Xeon E5-2640 v4 of the #319 report. Counts can differ slightly with the CPU kind and the Julia
+version: for Float32 PGD on master, the two CPU kinds of the report gave 214 and 215 misses of 240
+records (these designs and an adverse set), with 3 records changing status. The input hashes of
+the warm designs and of a few `lasso` draws differed between the two CPU kinds, so that
+comparison is of nearly identical inputs.
+
+| Solver, harness options | Julia | Misses of 50 | Of those, `converged = true` |
+| --- | --- | --- | --- |
+| Float32 PGD | 1.10.13 | 36 to 39 | 22 to 25 |
+| Float32 PGD | 1.13.3 | 37 | 15 to 16 |
+| Float32 APG | 1.10.13 | 40 | 26 |
+| Float32 APG | 1.13.3 | 41 | 29 |
+| Float64 PGD | 1.10.13 | 4 | 0 |
+| Float64 PGD | 1.13.3 | 5 | 0 |
+
+A miss is an independent relative duality gap above the target (`1e-5` in Float32, `1e-8` in
+Float64). The ranges in the PGD rows run from the revision before #319 to the one after it: the
+number of misses changed by at most 3 of 50 (36 to 39 on Julia 1.10.13, 37 and 37 on 1.13.3),
+and which draws miss changed too.
+
+**Why they miss, Float32 PGD.**
+
+- The objective test proposes the stop. In 237 of the 240 Float32 PGD records of the report
+  (these designs and the adverse set, both Julia versions, master), the first proposal came from
+  the objective test, through its one-ulp branch `|F - F'| < eps(|F| + |F'|)` (about two spacings
+  of `F` in the ordinary range; see [Strict accuracy](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#Strict-accuracy)),
+  because `ftol = 1e-15` is below the resolution of a Float32 objective. In the other 3 records no
+  test proposed a stop first.
+- The stationarity check accepts a proposal when its computed normalized KKT residual is below
+  `max(gradtol, 64 eps(T))`, which is `64 eps(Float32) ≈ 7.63e-6` here. The relative duality gap
+  of the target is a different quantity: a computed KKT residual can pass that threshold while the
+  independent relative gap exceeds `1e-5`. Among the 119 Float32 PGD `converged = true` records
+  that missed the target (summed over the six revision and Julia-version cells), the independent
+  relative gap was 1.07e-5 to 3.75e-5 and was 2.3 to 7.0 times the independent KKT residual. This
+  range is for Float32 PGD and is not a bound for APG.
+- On master and the five harness designs, the misses with `converged = false` ended on the
+  objective-increase stop: 14 of 50 solves on Julia 1.10.13 and 21 of 50 on 1.13.3. The stationarity
+  check had refused at least one earlier proposal in 14 and in 19 of them. The other 2 on 1.13.3
+  (`lasso-B-warm` draw 4 and `lasso-D` draw 6) ended on the increase with no proposal made. On the
+  adverse set of the report, on master, 63 (1.10.13) and 57 (1.13.3) of the 69 misses ended on the
+  objective-increase stop after refused proposals, and 2 and 4 at the iteration limit. On master,
+  all 156 objective-increase stops of the report (these designs and the adverse set) were
+  increases of 1 to 3 Float32 spacings of the objective, 142 of them of exactly 1.
+- The gradient evaluation was not the limit: the Float32 gradient of the solver differed from the
+  Float64 gradient of the same rounded data by at most `2.5e-7` of the residual's scale
+  `max(λ, λmax)`, over about 957,000 recorded iterations, which is 30 times below the threshold
+  of the check.
+
+**What the evidence shows.** In these measurements, the independent KKT residual of each Float32
+PGD `converged = true` record was below the threshold of the check (191 records on these designs,
+largest value `7.616e-6`), so those records meet the contract documented for `converged = true`.
+The measurements indicate a limit of the stopping criterion in Float32 relative to a stricter
+benchmark target, and do not show a solver defect. Float32 APG was measured for the counts in the
+table; the report did not classify its mechanism separately. For both solvers, a
+`target_missed` status on a default-settings Float32 case, or one record changing status between
+revisions, is not by itself evidence for or against a code change.
+
+**When the gap target is stricter than the stopping contract.** The contract of `converged = true`
+is in [Limits of the stopping tests](https://mlakolar.github.io/ProximalSolvers.jl/dev/stopping-limits/).
+On the Float32 PGD records above, meeting it did not imply meeting the independent `1e-5` gap
+target, so a gap target can be stricter than that contract. With the strict profiles S and A of
+the report (`ftol = 0`, `allow_f_increases = true`, with `xtol` and `gradtol` as listed there),
+Float32 PGD missed the target in 0 of 50 solves in each of the six revision and Julia-version
+cells and reported `converged = true` in none (all ended on the stagnation stop, a median of 10 to 14
+iterations after the target was reached); Float32 APG with the same profiles reported
+`converged = true` in 50 of 50 with no miss. On the adverse set of the report (ill-conditioned
+and low-penalty designs, not part of this suite), those profiles ended at the iteration limit
+in 40 or 41 of 70 Float32 PGD solves, so they are not a general remedy.
+
 ## Local exploration
 
 `local.jl` is a development aid: it decides whether a change is worth pursuing, not whether

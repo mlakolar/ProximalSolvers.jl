@@ -49,7 +49,8 @@ residual at the accepted `x` is below `max(gradtol, 64 eps(T)) * max(λ, λmax)`
 computed, normalized KKT residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the
 threshold is formed in `T`, which can round or overflow; see [`ProximalOptions`](@ref)). It is
 not an exact-arithmetic certificate and does not guarantee coefficient accuracy on
-ill-conditioned designs (see the [stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)). The check forms `∇f(x)` from the
+ill-conditioned designs (see the [stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)). In `Float32`, a solve can report `converged = true` at a relative duality gap above `1e-5`, as in measurements on small benchmark designs (see
+[the limits of the stopping tests](https://mlakolar.github.io/ProximalSolvers.jl/dev/stopping-limits/)). The check forms `∇f(x)` from the
 cached image `A x` and counts that evaluation in `grad_calls`. The gradient-mapping residual
 of the result, `L ‖x - y‖∞`, is measured from the extrapolated point `y`, not from `x`; check
 KKT conditions independently before reporting numerical results.
