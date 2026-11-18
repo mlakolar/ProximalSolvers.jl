@@ -1,0 +1,57 @@
+# Temporary investigation workflow for #351 (not for master): the Rational/Float32 ElasticNet residual on
+# macOS aarch64 and Linux x64, at the pinned ProximalBase of Project.toml / Manifest-v1.10.toml.
+name: probe-351
+on:
+  push:
+    branches:
+      - research/issue-351-probe
+permissions:
+  contents: read
+jobs:
+  probe:
+    name: ${{ matrix.os }} ${{ matrix.arch }} Julia ${{ matrix.version }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest, arch: aarch64, version: '1.13.4' }
+          - { os: ubuntu-latest, arch: x64, version: '1.13.4' }
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: ${{ matrix.version }}
+          arch: ${{ matrix.arch }}
+      - name: Resolve
+        run: julia --color=yes --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.status(; mode=Pkg.PKGMODE_MANIFEST); using InteractiveUtils; versioninfo()'
+      - name: Probe (-O2, native code)
+        run: julia --startup-file=no --project=. .github/probe351/probe.jl --native
+      - name: Probe -O0
+        continue-on-error: true
+        run: julia --startup-file=no -O0 --project=. .github/probe351/probe.jl --native
+      - name: Probe -O1
+        continue-on-error: true
+        run: julia --startup-file=no -O1 --project=. .github/probe351/probe.jl --native
+      - name: Probe -O3
+        continue-on-error: true
+        run: julia --startup-file=no -O3 --project=. .github/probe351/probe.jl --native
+      - name: Isolated test, baseline (test/elasticnet.jl)
+        id: base
+        continue-on-error: true
+        run: julia --color=yes scripts/test.jl --jobs=1 elasticnet
+      - name: Apply the candidate patch (workspace only)
+        run: git apply .github/probe351/candidate_a2.patch && git diff --stat
+      - name: Probe with the candidate patch (-O2, native code)
+        run: julia --startup-file=no --project=. .github/probe351/probe.jl --native
+      - name: Isolated test with the candidate patch
+        id: patched
+        continue-on-error: true
+        run: julia --color=yes scripts/test.jl --jobs=1 elasticnet
+      - name: Outcomes
+        run: |
+          echo "baseline isolated test: ${{ steps.base.outcome }}"
+          echo "patched isolated test:  ${{ steps.patched.outcome }}"

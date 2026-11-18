@@ -1,0 +1,16 @@
+diff --git a/src/utils.jl b/src/utils.jl
+index 125da82..1d20656 100644
+--- a/src/utils.jl
++++ b/src/utils.jl
+@@ -162,7 +162,10 @@ end
+ # The penalty with its levels converted to T, for the penalties that _check_penalty accepts for PGD and APG,
+ # and the ℓ1 level of a converted penalty
+ _converted_penalty(g::NormL1, ::Type{T}) where T = NormL1(T(g.λ0))
+-_converted_penalty(g::ElasticNet, ::Type{T}) where T = ElasticNet(T(g.λ1), T(g.λ2))
++# Each level converted in a call of its own (#351): two conversions in one function can be vectorized, and the
++# AArch64 code of LLVM before 21 converts a pair of Int64 to Float32 through Float64, which rounds twice.
++@noinline _converted_level(::Type{T}, λ) where T = T(λ)
++_converted_penalty(g::ElasticNet, ::Type{T}) where T = ElasticNet(_converted_level(T, g.λ1), _converted_level(T, g.λ2))
+ _l1_level(g::NormL1) = g.λ0
+ _l1_level(g::ElasticNet) = g.λ1
+ 

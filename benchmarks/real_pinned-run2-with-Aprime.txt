@@ -1,0 +1,50 @@
+Julia 1.13.4 | raptorlake | BLAS threads 1
+Float32 A  100×32   native   PGD  _stationary! 52 ns, solve 7.1 µs | A/A +0.0 ns / solve -0.01% | A -1.0 ns / solve +0.09% | A' +0.0 ns / solve -0.04% | B -11.0 ns / solve +0.47% | C0 -4.0 ns / solve -1.12%
+Float32 A  100×32   native   APG  _stationary! 163 ns, solve 9.9 µs | A/A +1.0 ns / solve -0.09% | A +5.0 ns / solve +0.33% | A' +1.0 ns / solve +0.14% | B +4.0 ns / solve +0.23% | C0 -8.0 ns / solve -0.43%
+Float32 A  100×32   Rational PGD  _stationary! 49 ns, solve 7.3 µs | A/A -1.0 ns / solve +0.00% | A -6.0 ns / solve +0.83% | A' +6.0 ns / solve +0.87% | B +6.0 ns / solve +0.91% |
+Float32 A  100×32   Rational APG  _stationary! 159 ns, solve 10.0 µs | A/A +0.0 ns / solve +0.20% | A +8.0 ns / solve +0.71% | A' +8.0 ns / solve +0.43% | B +8.0 ns / solve +0.57% |
+Float32 B  200×500  native   PGD  _stationary! 217 ns, solve 686.2 µs | A/A +1.0 ns / solve -0.19% | A -4.0 ns / solve -0.25% | A' -1.0 ns / solve -0.19% | B -6.0 ns / solve -0.10% | C0 -12.0 ns / solve -0.21%
+Float32 B  200×500  native   APG  _stationary! 3244 ns, solve 493.2 µs | A/A +1.0 ns / solve -0.52% | A +3.0 ns / solve -0.51% | A' +15.0 ns / solve -0.39% | B +22.0 ns / solve +0.70% | C0 +3.0 ns / solve +0.37%
+Float32 B  200×500  Rational PGD  _stationary! 215 ns, solve 695.7 µs | A/A +0.0 ns / solve +0.11% | A -3.0 ns / solve -0.17% | A' -2.0 ns / solve +0.04% | B -2.0 ns / solve +0.48% |
+Float32 B  200×500  Rational APG  _stationary! 3252 ns, solve 492.4 µs | A/A -2.0 ns / solve +0.76% | A +12.0 ns / solve +0.54% | A' +15.0 ns / solve +0.72% | B -2.0 ns / solve +0.65% |
+Float32 C 1000×200  native   PGD  _stationary! 101 ns, solve 317.1 µs | A/A +0.0 ns / solve +0.78% | A -2.0 ns / solve +0.20% | A' +0.0 ns / solve +0.09% | B -1.0 ns / solve +0.31% | C0 -6.0 ns / solve +0.13%
+Float32 C 1000×200  native   APG  _stationary! 5268 ns, solve 388.5 µs | A/A +10.0 ns / solve -0.00% | A +3.0 ns / solve +0.25% | A' +14.0 ns / solve +0.04% | B +9.0 ns / solve +0.27% | C0 +4.0 ns / solve -0.33%
+Float32 C 1000×200  Rational PGD  _stationary! 99 ns, solve 318.0 µs | A/A +0.0 ns / solve +0.31% | A +2.0 ns / solve +0.94% | A' +2.0 ns / solve +0.17% | B +2.0 ns / solve +0.66% |
+Float32 C 1000×200  Rational APG  _stationary! 5262 ns, solve 343.9 µs | A/A +3.0 ns / solve -0.21% | A +28.0 ns / solve +0.31% | A' +16.0 ns / solve +0.46% | B +10.0 ns / solve -0.34% |
+Float64 A  100×32   native   PGD  _stationary! 60 ns, solve 8.5 µs | A/A -12.0 ns / solve +0.02% | A -12.0 ns / solve +0.04% | A' -12.0 ns / solve +0.23% | B +0.0 ns / solve +0.02% | C0 -14.0 ns / solve -0.78%
+Float64 A  100×32   native   APG  _stationary! 217 ns, solve 11.9 µs | A/A +0.0 ns / solve -0.13% | A +3.0 ns / solve -0.04% | A' +1.0 ns / solve -0.10% | B +0.0 ns / solve -0.00% | C0 -2.0 ns / solve -0.52%
+Float64 A  100×32   Rational PGD  _stationary! 60 ns, solve 8.7 µs | A/A +0.0 ns / solve -0.03% | A +7.0 ns / solve +0.93% | A' -7.0 ns / solve +0.58% | B +0.0 ns / solve -0.03% |
+Float64 A  100×32   Rational APG  _stationary! 212 ns, solve 12.2 µs | A/A -1.0 ns / solve +0.05% | A +8.0 ns / solve +0.29% | A' +7.0 ns / solve +0.46% | B +1.0 ns / solve +0.16% |
+Float64 B  200×500  native   PGD  _stationary! 385 ns, solve 1687.9 µs | A/A +1.0 ns / solve +0.03% | A +3.0 ns / solve +0.06% | A' +1.0 ns / solve +0.14% | B +1.0 ns / solve +0.16% | C0 +0.0 ns / solve -0.20%
+Float64 B  200×500  native   APG  _stationary! 5146 ns, solve 1030.4 µs | A/A -2.0 ns / solve -0.02% | A +7.0 ns / solve +0.16% | A' +5.0 ns / solve -0.17% | B -4.0 ns / solve +0.04% | C0 -3.0 ns / solve +0.62%
+Float64 B  200×500  Rational PGD  _stationary! 387 ns, solve 1690.4 µs | A/A +0.0 ns / solve -0.04% | A +6.0 ns / solve +0.18% | A' +7.0 ns / solve +0.13% | B +1.0 ns / solve -0.06% |
+Float64 B  200×500  Rational APG  _stationary! 5148 ns, solve 1030.4 µs | A/A +3.0 ns / solve +0.14% | A +1.0 ns / solve -0.16% | A' -6.0 ns / solve -0.29% | B -9.0 ns / solve -0.04% |
+Float64 C 1000×200  native   PGD  _stationary! 165 ns, solve 795.2 µs | A/A +1.0 ns / solve +0.21% | A +5.0 ns / solve -0.13% | A' +1.0 ns / solve +0.45% | B +1.0 ns / solve +0.24% | C0 +0.0 ns / solve +0.26%
+Float64 C 1000×200  native   APG  _stationary! 10712 ns, solve 644.8 µs | A/A +8.0 ns / solve +0.59% | A +24.0 ns / solve -0.15% | A' -7.0 ns / solve +0.37% | B -52.0 ns / solve +0.32% | C0 +48.0 ns / solve +0.32%
+Float64 C 1000×200  Rational PGD  _stationary! 168 ns, solve 797.1 µs | A/A +0.0 ns / solve -0.37% | A +6.0 ns / solve +0.27% | A' +6.0 ns / solve +0.27% | B +0.0 ns / solve +0.03% |
+Float64 C 1000×200  Rational APG  _stationary! 10740 ns, solve 648.2 µs | A/A -31.0 ns / solve +0.06% | A +59.0 ns / solve -0.39% | A' -29.0 ns / solve +0.08% | B -36.0 ns / solve +0.05% |
+Julia 1.13.4 | raptorlake | BLAS threads 1
+Float32 A  100×32   native   PGD  _stationary! 50 ns, solve 7.1 µs | A/A +0.0 ns / solve +0.06% | A +2.0 ns / solve +0.15% | A' +1.0 ns / solve +0.03% | B +2.0 ns / solve +0.11% | C0 -3.0 ns / solve -1.39%
+Float32 A  100×32   native   APG  _stationary! 164 ns, solve 9.9 µs | A/A -1.0 ns / solve +0.18% | A +3.0 ns / solve +0.33% | A' +0.0 ns / solve +0.23% | B +2.0 ns / solve +0.39% | C0 -9.0 ns / solve -0.40%
+Float32 A  100×32   Rational PGD  _stationary! 49 ns, solve 7.4 µs | A/A -1.0 ns / solve +0.07% | A +5.0 ns / solve +0.93% | A' +5.0 ns / solve +1.04% | B -6.0 ns / solve +1.23% |
+Float32 A  100×32   Rational APG  _stationary! 159 ns, solve 10.1 µs | A/A +0.0 ns / solve -0.10% | A +7.0 ns / solve +0.53% | A' +8.0 ns / solve +0.54% | B +7.0 ns / solve +0.46% |
+Float32 B  200×500  native   PGD  _stationary! 217 ns, solve 689.0 µs | A/A -2.0 ns / solve +0.05% | A -5.0 ns / solve -0.12% | A' +0.0 ns / solve +0.11% | B -5.0 ns / solve -0.18% | C0 -10.0 ns / solve -0.18%
+Float32 B  200×500  native   APG  _stationary! 3245 ns, solve 492.1 µs | A/A +11.0 ns / solve -0.40% | A +22.0 ns / solve -0.17% | A' +23.0 ns / solve -0.09% | B +26.0 ns / solve -0.44% | C0 +6.0 ns / solve -0.26%
+Float32 B  200×500  Rational PGD  _stationary! 214 ns, solve 694.8 µs | A/A +0.0 ns / solve -0.19% | A -1.0 ns / solve -0.35% | A' +0.0 ns / solve -0.50% | B +2.0 ns / solve -0.05% |
+Float32 B  200×500  Rational APG  _stationary! 3247 ns, solve 494.3 µs | A/A +0.0 ns / solve +1.56% | A +13.0 ns / solve +0.07% | A' +18.0 ns / solve +0.32% | B +23.0 ns / solve +0.14% |
+Float32 C 1000×200  native   PGD  _stationary! 100 ns, solve 322.4 µs | A/A +0.0 ns / solve -0.81% | A +0.0 ns / solve -0.98% | A' +0.0 ns / solve -1.30% | B +0.0 ns / solve -0.65% | C0 -4.0 ns / solve -0.55%
+Float32 C 1000×200  native   APG  _stationary! 5277 ns, solve 388.7 µs | A/A -5.0 ns / solve +0.63% | A -2.0 ns / solve +0.05% | A' -8.0 ns / solve +0.67% | B +3.0 ns / solve +0.79% | C0 -6.0 ns / solve +1.87%
+Float32 C 1000×200  Rational PGD  _stationary! 99 ns, solve 323.2 µs | A/A +0.0 ns / solve +0.11% | A +3.0 ns / solve +0.20% | A' +3.0 ns / solve -1.10% | B +2.0 ns / solve +0.50% |
+Float32 C 1000×200  Rational APG  _stationary! 5876 ns, solve 482.4 µs | A/A -609.0 ns / solve -21.45% | A -589.0 ns / solve -27.93% | A' -588.0 ns / solve -26.24% | B -53.0 ns / solve +2.73% |
+Float64 A  100×32   native   PGD  _stationary! 51 ns, solve 8.6 µs | A/A +10.0 ns / solve -0.60% | A -2.0 ns / solve -0.13% | A' +10.0 ns / solve -0.42% | B +10.0 ns / solve -0.55% | C0 +8.0 ns / solve -0.61%
+Float64 A  100×32   native   APG  _stationary! 216 ns, solve 12.0 µs | A/A +0.0 ns / solve -0.02% | A +2.0 ns / solve +0.00% | A' +0.0 ns / solve -0.22% | B +0.0 ns / solve -0.09% | C0 -2.0 ns / solve -0.56%
+Float64 A  100×32   Rational PGD  _stationary! 48 ns, solve 8.8 µs | A/A -1.0 ns / solve +0.06% | A +19.0 ns / solve +0.87% | A' +5.0 ns / solve +1.10% | B +12.0 ns / solve +0.11% |
+Float64 A  100×32   Rational APG  _stationary! 212 ns, solve 12.3 µs | A/A +0.0 ns / solve +0.34% | A +7.0 ns / solve +0.48% | A' +7.0 ns / solve +0.47% | B +0.0 ns / solve +0.65% |
+Float64 B  200×500  native   PGD  _stationary! 384 ns, solve 1700.0 µs | A/A +0.0 ns / solve +0.05% | A -1.0 ns / solve +1.00% | A' +0.0 ns / solve +0.21% | B +4.0 ns / solve +0.20% | C0 -4.0 ns / solve +1.07%
+Float64 B  200×500  native   APG  _stationary! 5154 ns, solve 1032.8 µs | A/A -2.0 ns / solve -0.27% | A -2.0 ns / solve +0.00% | A' +0.0 ns / solve +0.26% | B +2.0 ns / solve +0.44% | C0 -13.0 ns / solve -0.25%
+Float64 B  200×500  Rational PGD  _stationary! 381 ns, solve 1702.9 µs | A/A -1.0 ns / solve +0.36% | A +8.0 ns / solve +0.31% | A' +8.0 ns / solve +0.06% | B -1.0 ns / solve +0.82% |
+Float64 B  200×500  Rational APG  _stationary! 5155 ns, solve 1049.4 µs | A/A -4.0 ns / solve -0.29% | A -12.0 ns / solve -0.49% | A' -3.0 ns / solve -0.36% | B -6.0 ns / solve -0.43% |
+Float64 C 1000×200  native   PGD  _stationary! 170 ns, solve 772.9 µs | A/A +0.0 ns / solve -1.79% | A -1.0 ns / solve -0.62% | A' +1.0 ns / solve -2.54% | B +0.0 ns / solve -1.61% | C0 -4.0 ns / solve -2.41%
+Float64 C 1000×200  native   APG  _stationary! 10151 ns, solve 598.8 µs | A/A -15.0 ns / solve +3.06% | A -15.0 ns / solve +0.93% | A' -67.0 ns / solve -0.14% | B -47.0 ns / solve +0.17% | C0 +2.0 ns / solve +0.97%
+Float64 C 1000×200  Rational PGD  _stationary! 166 ns, solve 743.2 µs | A/A +0.0 ns / solve +0.39% | A +6.0 ns / solve -0.51% | A' +6.0 ns / solve -0.09% | B +0.0 ns / solve +0.60% |
+Float64 C 1000×200  Rational APG  _stationary! 10087 ns, solve 605.5 µs | A/A +17.0 ns / solve +0.09% | A +24.0 ns / solve -0.35% | A' +22.0 ns / solve -0.31% | B +60.0 ns / solve -0.32% |

@@ -1,0 +1,835 @@
+﻿2026-11-18T01:57:06.4419980Z Current runner version: '2.338.2'
+##[group]Runner Image Provisioner
+Hosted Compute Agent
+Version: 20261103.629
+Commit: 15dbd9ccb5dbf34fae002b6ed1a2670f52df37bc
+Build Date: 2026-11-03T17:26:59Z
+Worker ID: {838d288a-5718-4c3e-b27f-36eb6de55d88}
+Region: westus
+Cloud: MacCloud
+##[endgroup]
+##[group]Operating System
+macOS
+26.7.2
+25G332
+##[endgroup]
+##[group]Runner Image
+Image: macos-26-arm64
+Version: 20261112.0504.1
+Included Software: https://github.com/actions/runner-images/blob/macos-26-arm64/20261112.0504/images/macos/macos-26-arm64-Readme.md
+Image Release: https://github.com/actions/runner-images/releases/tag/macos-26-arm64%2F20261112.0504
+##[endgroup]
+##[group]GITHUB_TOKEN Permissions
+Contents: read
+Metadata: read
+##[endgroup]
+Secret source: Actions
+Cache mode: write
+Prepare workflow directory
+Prepare all required actions
+Getting action download info
+Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+Download action repository 'julia-actions/setup-julia@v3' (SHA:da908477b5db94c10ffce8cfea9f2b3b9d5db687)
+Complete job name: macos-latest aarch64 Julia 1.13.4
+##[group]Run actions/checkout@v7
+with:
+  persist-credentials: false
+  repository: mlakolar/ProximalSolvers.jl
+  token: ***
+  ssh-strict: true
+  ssh-user: git
+  clean: true
+  sparse-checkout-cone-mode: true
+  fetch-depth: 1
+  fetch-tags: false
+  show-progress: true
+  lfs: false
+  submodules: false
+  set-safe-directory: true
+  allow-unsafe-pr-checkout: false
+##[endgroup]
+Syncing repository: mlakolar/ProximalSolvers.jl
+##[group]Getting Git version info
+Working directory is '/Users/runner/work/ProximalSolvers.jl/ProximalSolvers.jl'
+[command]/opt/homebrew/bin/git version
+git version 2.56.1
+##[endgroup]
+Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/6e1b8bc6-b44d-4a29-bb28-7e313c7e59fb/.gitconfig'
+Temporarily overriding HOME='/Users/runner/work/_temp/6e1b8bc6-b44d-4a29-bb28-7e313c7e59fb' before making global git config changes
+Adding repository directory to the temporary git global config as a safe directory
+[command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/ProximalSolvers.jl/ProximalSolvers.jl
+Deleting the contents of '/Users/runner/work/ProximalSolvers.jl/ProximalSolvers.jl'
+##[group]Determining repository object format
+##[endgroup]
+##[group]Initializing the repository
+[command]/opt/homebrew/bin/git init /Users/runner/work/ProximalSolvers.jl/ProximalSolvers.jl
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+Initialized empty Git repository in /Users/runner/work/ProximalSolvers.jl/ProximalSolvers.jl/.git/
+[command]/opt/homebrew/bin/git remote add origin https://github.com/mlakolar/ProximalSolvers.jl
+##[endgroup]
+##[group]Disabling automatic garbage collection
+[command]/opt/homebrew/bin/git config --local gc.auto 0
+##[endgroup]
+##[group]Setting up auth
+Removing SSH command configuration
+[command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+[command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Removing HTTP extra header
+[command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+[command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Removing includeIf entries pointing to credentials config files
+[command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+[command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+[command]/opt/homebrew/bin/git config --file /Users/runner/work/_temp/git-credentials-eba66d14-2043-4360-831d-a684b55920cc.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+[command]/opt/homebrew/bin/git config --local includeIf.gitdir:/Users/runner/work/ProximalSolvers.jl/ProximalSolvers.jl/.git.path /Users/runner/work/_temp/git-credentials-eba66d14-2043-4360-831d-a684b55920cc.config
+[command]/opt/homebrew/bin/git config --local includeIf.gitdir:/Users/runner/work/ProximalSolvers.jl/ProximalSolvers.jl/.git/worktrees/*.path /Users/runner/work/_temp/git-credentials-eba66d14-2043-4360-831d-a684b55920cc.config
+[command]/opt/homebrew/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-eba66d14-2043-4360-831d-a684b55920cc.config
+[command]/opt/homebrew/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-eba66d14-2043-4360-831d-a684b55920cc.config
+##[endgroup]
+##[group]Fetching the repository
+[command]/opt/homebrew/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +1aa26a8b82caf410b88e15fd13ba13e734648eff:refs/remotes/origin/research/issue-351-probe
+From https://github.com/mlakolar/ProximalSolvers.jl
+ * [new ref]         1aa26a8b82caf410b88e15fd13ba13e734648eff -> origin/research/issue-351-probe
+[command]/opt/homebrew/bin/git branch --list --remote origin/research/issue-351-probe
+  origin/research/issue-351-probe
+[command]/opt/homebrew/bin/git rev-parse refs/remotes/origin/research/issue-351-probe
+1aa26a8b82caf410b88e15fd13ba13e734648eff
+##[endgroup]
+##[group]Determining the checkout info
+##[endgroup]
+[command]/opt/homebrew/bin/git sparse-checkout disable
+[command]/opt/homebrew/bin/git config --local --unset-all extensions.worktreeConfig
+##[group]Checking out the ref
+[command]/opt/homebrew/bin/git checkout --progress --force -B research/issue-351-probe refs/remotes/origin/research/issue-351-probe
+Switched to a new branch 'research/issue-351-probe'
+branch 'research/issue-351-probe' set up to track 'origin/research/issue-351-probe'.
+##[endgroup]
+[command]/opt/homebrew/bin/git log -1 --format=%H
+1aa26a8b82caf410b88e15fd13ba13e734648eff
+##[group]Removing auth
+Removing SSH command configuration
+[command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+[command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Removing HTTP extra header
+[command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+[command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Removing includeIf entries pointing to credentials config files
+[command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+includeif.gitdir:/Users/runner/work/ProximalSolvers.jl/ProximalSolvers.jl/.git.path
+includeif.gitdir:/Users/runner/work/ProximalSolvers.jl/ProximalSolvers.jl/.git/worktrees/*.path
+includeif.gitdir:/github/workspace/.git.path
+includeif.gitdir:/github/workspace/.git/worktrees/*.path
+[command]/opt/homebrew/bin/git config --local --get-all includeif.gitdir:/Users/runner/work/ProximalSolvers.jl/ProximalSolvers.jl/.git.path
+/Users/runner/work/_temp/git-credentials-eba66d14-2043-4360-831d-a684b55920cc.config
+[command]/opt/homebrew/bin/git config --local --unset includeif.gitdir:/Users/runner/work/ProximalSolvers.jl/ProximalSolvers.jl/.git.path \/Users\/runner\/work\/_temp\/git\-credentials\-eba66d14\-2043\-4360\-831d\-a684b55920cc\.config
+[command]/opt/homebrew/bin/git config --local --get-all includeif.gitdir:/Users/runner/work/ProximalSolvers.jl/ProximalSolvers.jl/.git/worktrees/*.path
+/Users/runner/work/_temp/git-credentials-eba66d14-2043-4360-831d-a684b55920cc.config
+[command]/opt/homebrew/bin/git config --local --unset includeif.gitdir:/Users/runner/work/ProximalSolvers.jl/ProximalSolvers.jl/.git/worktrees/*.path \/Users\/runner\/work\/_temp\/git\-credentials\-eba66d14\-2043\-4360\-831d\-a684b55920cc\.config
+[command]/opt/homebrew/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+/github/runner_temp/git-credentials-eba66d14-2043-4360-831d-a684b55920cc.config
+[command]/opt/homebrew/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-eba66d14\-2043\-4360\-831d\-a684b55920cc\.config
+[command]/opt/homebrew/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+/github/runner_temp/git-credentials-eba66d14-2043-4360-831d-a684b55920cc.config
+[command]/opt/homebrew/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-eba66d14\-2043\-4360\-831d\-a684b55920cc\.config
+[command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Removing credentials config '/Users/runner/work/_temp/git-credentials-eba66d14-2043-4360-831d-a684b55920cc.config'
+##[endgroup]
+##[group]Run julia-actions/setup-julia@v3
+with:
+  version: 1.13.4
+  arch: aarch64
+  include-all-prereleases: false
+  force-arch: false
+  show-versioninfo: false
+##[endgroup]
+[command]/usr/bin/tar xf /Users/runner/work/_temp/29e5d8bf-3d2d-4e31-a3e9-bf380735c68c --strip-components=1 -C /Users/runner/hostedtoolcache/julia/1.13.4/aarch64
+[command]/Users/runner/hostedtoolcache/julia/1.13.4/aarch64/bin/julia --version
+julia version 1.13.4
+##[group]Run julia --color=yes --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.status(; mode=Pkg.PKGMODE_MANIFEST); using InteractiveUtils; versioninfo()'
+julia --color=yes --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.status(; mode=Pkg.PKGMODE_MANIFEST); using InteractiveUtils; versioninfo()'
+shell: /bin/bash -e {0}
+##[endgroup]
+  Installing known registries into `~/.julia`
+       Added `General` registry to ~/.julia/registries
+     Cloning git-repo `https://github.com/mlakolar/ProximalBase.jl`
+    Updating git-repo `https://github.com/mlakolar/ProximalBase.jl`
+   Installed Preferences ───── v1.6.1
+   Installed PrecompileTools ─ v1.4.0
+    Updating `~/work/ProximalSolvers.jl/ProximalSolvers.jl/Project.toml`
+  [aea7be01] + PrecompileTools v1.4.0
+  [0a755509] + ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [37e2e46d] ~ LinearAlgebra ⇒ v1.13.0
+  [de0858da] ~ Printf ⇒ v1.11.0
+  [9a3f8284] ~ Random ⇒ v1.11.0
+  [2f01184e] ~ SparseArrays ⇒ v1.13.0
+    Updating `~/work/ProximalSolvers.jl/ProximalSolvers.jl/Manifest.toml`
+  [aea7be01] + PrecompileTools v1.4.0
+  [21216c6a] + Preferences v1.6.1
+  [0a755509] + ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [56f22d72] + Artifacts v1.11.0
+  [ade2ca70] + Dates v1.11.0
+  [8f399da3] + Libdl v1.11.0
+  [37e2e46d] ~ LinearAlgebra ⇒ v1.13.0
+  [de0858da] ~ Printf ⇒ v1.11.0
+  [9a3f8284] ~ Random ⇒ v1.11.0
+  [ea8e919c] + SHA v1.0.0
+  [9e88b42a] + Serialization v1.11.0
+  [2f01184e] ~ SparseArrays ⇒ v1.13.0
+  [fa267f1f] + TOML v1.0.3
+  [4ec0a83e] + Unicode v1.11.0
+  [e66e0078] + CompilerSupportLibraries_jll v1.5.5+2
+  [4536629a] + OpenBLAS_jll v0.3.30+1
+  [bea87d4a] + SuiteSparse_jll v7.10.1+0
+  [8e850b90] + libblastrampoline_jll v5.15.0+0
+Precompiling packages...
+   1.6 s  ✓ Preferences
+   0.4 s  ✓ PrecompileTools
+  15.6 s  ✓ ProximalBase
+   7.5 s  ✓ ProximalSolvers
+  4 dependencies successfully precompiled in 25 seconds. 8 already precompiled.
+Project ProximalSolvers v0.3.2
+Status `~/work/ProximalSolvers.jl/ProximalSolvers.jl/Manifest.toml`
+  [aea7be01] PrecompileTools v1.4.0
+  [21216c6a] Preferences v1.6.1
+  [0a755509] ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [56f22d72] Artifacts v1.11.0
+  [ade2ca70] Dates v1.11.0
+  [8f399da3] Libdl v1.11.0
+  [37e2e46d] LinearAlgebra v1.13.0
+  [de0858da] Printf v1.11.0
+  [9a3f8284] Random v1.11.0
+  [ea8e919c] SHA v1.0.0
+  [9e88b42a] Serialization v1.11.0
+  [2f01184e] SparseArrays v1.13.0
+  [fa267f1f] TOML v1.0.3
+  [4ec0a83e] Unicode v1.11.0
+  [e66e0078] CompilerSupportLibraries_jll v1.5.5+2
+  [4536629a] OpenBLAS_jll v0.3.30+1
+  [bea87d4a] SuiteSparse_jll v7.10.1+0
+  [8e850b90] libblastrampoline_jll v5.15.0+0
+Julia Version 1.13.4
+Commit c1ac32ab733 (2026-11-13 17:30 UTC)
+Build Info:
+  Official https://julialang.org release
+Platform Info:
+  OS: macOS (arm64-apple-darwin27.2.0)
+  CPU: 3 × Apple M1 (Virtual)
+  WORD_SIZE: 64
+  LLVM: libLLVM-20.1.8 (ORCJIT, apple-m1)
+  GC: Built with stock GC
+Threads: 1 default, 1 interactive, 1 GC (on 3 virtual cores)
+##[group]Run julia --startup-file=no --project=. .github/probe351/probe.jl --native
+julia --startup-file=no --project=. .github/probe351/probe.jl --native
+shell: /bin/bash -e {0}
+##[endgroup]
+Julia 1.13.4 | arm64-apple-darwin27.2.0 | CPU apple-m1 | LLVM 20.1.8 | -O2
+PS 0.3.2 at /Users/runner/work/ProximalSolvers.jl/ProximalSolvers.jl
+PB 0.6.0-DEV at /Users/runner/.julia/packages/ProximalBase/2welE
+
+[1-2] the level and its Float32 roundings
+  λ                                                    1152921573326323713//1152921504606846976 
+  T(λ)  (Base: T(num)/T(den))                          1.0000001f0    0 01111111 00000000000000000000001
+  T(Float64(λ))  (double rounding)                     1.0f0          0 01111111 00000000000000000000000
+  T(BigFloat(λ, 256 bits))  (reference)                1.0000001f0    0 01111111 00000000000000000000001
+  T(num), T(den) scalar                                (1.1529216f18, 1.1529215f18) 
+  sitofp <2 x i64> -> <2 x float> of (num, den): num   1.1529215f18   0 10111011 00000000000000000000000
+    scalar sitofp num                                  1.1529216f18   0 10111011 00000000000000000000001
+
+[3] the coefficients of PS._converted_penalty
+  _converted_penalty(ElasticNet(λ,λ), T).λ1            1.0f0          0 01111111 00000000000000000000000
+  _converted_penalty(ElasticNet(λ,λ), T).λ2            1.0f0          0 01111111 00000000000000000000000
+  _converted_penalty(NormL1(λ), T).λ0                  1.0000001f0    0 01111111 00000000000000000000001
+  (T(a), T(b)) for two Rational levels, inlined pair   (1.0000001f0, 1.0000001f0) 
+  candidate: ElasticNet(cvt(T, λ1), cvt(T, λ2)).λ1  (@noinline) 1.0000001f0    0 01111111 00000000000000000000001
+  Int64 level L: T(L)                                  1.1529216f18   0 10111011 00000000000000000000001
+  Int64 level L: _converted_penalty(ElasticNet(L,L)).λ1 1.1529216f18   0 10111011 00000000000000000000001
+
+[4-7] the residual at x = [1], grad = [-2c], c = T(λ)
+  direct Float32 formula |(g + c x) + c sign x|        0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(ElasticNet(c,c), grad, x)  (@simd Array path) 0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(ElasticNet(c,c), view(grad), view(x))  (generic) 0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(ElasticNet(c,c), grad, x, 1)  (one coordinate) 0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(_converted_penalty(g,T), grad, x)      2.3841858f-7   0 01101001 00000000000000000000000
+  kkt_violation(_converted_penalty(g,T), grad, x, 1)   2.3841858f-7   0 01101001 00000000000000000000000
+  kkt_violation(_converted_penalty(g,T), views)        2.3841858f-7   0 01101001 00000000000000000000000
+  direct formula at the converted coefficients         2.3841858f-7   0 01101001 00000000000000000000000
+  test helper residual_of (PS test/elasticnet.jl:185)  2.3841858f-7   0 01101001 00000000000000000000000
+
+[8] solves: PGD and APG, Float32, ElasticNet(λ, λ) with the Rational level
+  ProximalGradientDescent  converged=true iters=24  residual(T(λ))=2.623e-06 residual(double-rounded)=2.861e-06 |diff|=2.384e-07 threshold=8.958e-05
+  AccProxGradDescent       converged=true iters=17  residual(T(λ))=2.146e-06 residual(double-rounded)=2.384e-06 |diff|=2.384e-07 threshold=8.958e-05
+
+[9] native code: vector conversions (scvtf/ucvtf .2d followed by fcvtn) per specialization
+  _converted_penalty(ElasticNet{Rational})         (vector cvt, fcvtn, scalar scvtf s,x) = (2, 2, 0)
+  _converted_penalty(NormL1{Rational})             (vector cvt, fcvtn, scalar scvtf s,x) = (0, 0, 2)
+  _converted_penalty(ElasticNet{Int64})            (vector cvt, fcvtn, scalar scvtf s,x) = (0, 0, 2)
+  _stationary!(ProximalGradientDescentState, …, ElasticNet{Rational{Int64}, Nothing}) = (2, 2, 0)
+  _stationary!(AccProxGradDescentState, …, ElasticNet{Rational{Int64}, Nothing}) = (2, 2, 0)
+
+--- code_native _converted_penalty(ElasticNet{Rational{Int64}}, Float32), first lines
+_julia__converted_penalty_1744:         ; @julia__converted_penalty_1744
+	sub	sp, sp, #80
+	stp	x20, x19, [sp, #48]             ; 16-byte Folded Spill
+	stp	x29, x30, [sp, #64]             ; 16-byte Folded Spill
+	add	x29, sp, #64
+	mov	x20, x0
+	mov	x19, x8
+	str	xzr, [sp, #16]
+	str	xzr, [sp, #8]
+	mov	x8, #1640                       ; =0x668
+	movk	x8, #1076, lsl #16
+	movk	x8, #1, lsl #32
+	str	xzr, [sp]
+	add	x0, x8, #36
+	blr	x8
+	mov	w8, #4                          ; =0x4
+	str	x8, [sp]
+	ldr	x8, [x0]
+	str	x8, [sp, #8]
+	mov	x8, sp
+##[group]Run julia --startup-file=no -O0 --project=. .github/probe351/probe.jl --native
+julia --startup-file=no -O0 --project=. .github/probe351/probe.jl --native
+shell: /bin/bash -e {0}
+##[endgroup]
+Julia 1.13.4 | arm64-apple-darwin27.2.0 | CPU apple-m1 | LLVM 20.1.8 | -O0
+PS 0.3.2 at /Users/runner/work/ProximalSolvers.jl/ProximalSolvers.jl
+PB 0.6.0-DEV at /Users/runner/.julia/packages/ProximalBase/2welE
+
+[1-2] the level and its Float32 roundings
+  λ                                                    1152921573326323713//1152921504606846976 
+  T(λ)  (Base: T(num)/T(den))                          1.0000001f0    0 01111111 00000000000000000000001
+  T(Float64(λ))  (double rounding)                     1.0f0          0 01111111 00000000000000000000000
+  T(BigFloat(λ, 256 bits))  (reference)                1.0000001f0    0 01111111 00000000000000000000001
+  T(num), T(den) scalar                                (1.1529216f18, 1.1529215f18) 
+  sitofp <2 x i64> -> <2 x float> of (num, den): num   1.1529215f18   0 10111011 00000000000000000000000
+    scalar sitofp num                                  1.1529216f18   0 10111011 00000000000000000000001
+
+[3] the coefficients of PS._converted_penalty
+  _converted_penalty(ElasticNet(λ,λ), T).λ1            1.0000001f0    0 01111111 00000000000000000000001
+  _converted_penalty(ElasticNet(λ,λ), T).λ2            1.0000001f0    0 01111111 00000000000000000000001
+  _converted_penalty(NormL1(λ), T).λ0                  1.0000001f0    0 01111111 00000000000000000000001
+  (T(a), T(b)) for two Rational levels, inlined pair   (1.0000001f0, 1.0000001f0) 
+  candidate: ElasticNet(cvt(T, λ1), cvt(T, λ2)).λ1  (@noinline) 1.0000001f0    0 01111111 00000000000000000000001
+  Int64 level L: T(L)                                  1.1529216f18   0 10111011 00000000000000000000001
+  Int64 level L: _converted_penalty(ElasticNet(L,L)).λ1 1.1529216f18   0 10111011 00000000000000000000001
+
+[4-7] the residual at x = [1], grad = [-2c], c = T(λ)
+  direct Float32 formula |(g + c x) + c sign x|        0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(ElasticNet(c,c), grad, x)  (@simd Array path) 0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(ElasticNet(c,c), view(grad), view(x))  (generic) 0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(ElasticNet(c,c), grad, x, 1)  (one coordinate) 0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(_converted_penalty(g,T), grad, x)      0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(_converted_penalty(g,T), grad, x, 1)   0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(_converted_penalty(g,T), views)        0.0f0          0 00000000 00000000000000000000000
+  direct formula at the converted coefficients         0.0f0          0 00000000 00000000000000000000000
+  test helper residual_of (PS test/elasticnet.jl:185)  0.0f0          0 00000000 00000000000000000000000
+
+[8] solves: PGD and APG, Float32, ElasticNet(λ, λ) with the Rational level
+  ProximalGradientDescent  converged=true iters=29  residual(T(λ))=2.623e-06 residual(double-rounded)=2.861e-06 |diff|=2.384e-07 threshold=8.958e-05
+  AccProxGradDescent       converged=true iters=19  residual(T(λ))=1.907e-06 residual(double-rounded)=2.146e-06 |diff|=2.384e-07 threshold=8.958e-05
+
+[9] native code: vector conversions (scvtf/ucvtf .2d followed by fcvtn) per specialization
+  _converted_penalty(ElasticNet{Rational})         (vector cvt, fcvtn, scalar scvtf s,x) = (0, 0, 4)
+  _converted_penalty(NormL1{Rational})             (vector cvt, fcvtn, scalar scvtf s,x) = (0, 0, 2)
+  _converted_penalty(ElasticNet{Int64})            (vector cvt, fcvtn, scalar scvtf s,x) = (0, 0, 2)
+  _stationary!(ProximalGradientDescentState, …, ElasticNet{Rational{Int64}, Nothing}) = (0, 0, 4)
+  _stationary!(AccProxGradDescentState, …, ElasticNet{Rational{Int64}, Nothing}) = (0, 0, 4)
+
+--- code_native _converted_penalty(ElasticNet{Rational{Int64}}, Float32), first lines
+_julia__converted_penalty_1744:         ; @julia__converted_penalty_1744
+	sub	sp, sp, #144
+	stp	x29, x30, [sp, #128]            ; 16-byte Folded Spill
+	add	x29, sp, #128
+	str	x8, [sp, #16]                   ; 8-byte Folded Spill
+	str	x0, [sp, #40]                   ; 8-byte Folded Spill
+	mov	x8, #9568                       ; =0x2560
+	movk	x8, #7918, lsl #16
+	movk	x8, #1, lsl #32
+	str	x8, [sp, #24]                   ; 8-byte Folded Spill
+	sub	x0, x29, #48
+	str	x0, [sp, #32]                   ; 8-byte Folded Spill
+	mov	w8, #24                         ; =0x18
+	mov	x2, x8
+	mov	w1, #0                          ; =0x0
+	bl	_memset
+	mov	x0, #50828                      ; =0xc68c
+	movk	x0, #240, lsl #16
+	movk	x0, #1, lsl #32
+	mov	x8, #50792                      ; =0xc668
+##[group]Run julia --startup-file=no -O1 --project=. .github/probe351/probe.jl --native
+julia --startup-file=no -O1 --project=. .github/probe351/probe.jl --native
+shell: /bin/bash -e {0}
+##[endgroup]
+Julia 1.13.4 | arm64-apple-darwin27.2.0 | CPU apple-m1 | LLVM 20.1.8 | -O1
+PS 0.3.2 at /Users/runner/work/ProximalSolvers.jl/ProximalSolvers.jl
+PB 0.6.0-DEV at /Users/runner/.julia/packages/ProximalBase/2welE
+
+[1-2] the level and its Float32 roundings
+  λ                                                    1152921573326323713//1152921504606846976 
+  T(λ)  (Base: T(num)/T(den))                          1.0000001f0    0 01111111 00000000000000000000001
+  T(Float64(λ))  (double rounding)                     1.0f0          0 01111111 00000000000000000000000
+  T(BigFloat(λ, 256 bits))  (reference)                1.0000001f0    0 01111111 00000000000000000000001
+  T(num), T(den) scalar                                (1.1529216f18, 1.1529215f18) 
+  sitofp <2 x i64> -> <2 x float> of (num, den): num   1.1529215f18   0 10111011 00000000000000000000000
+    scalar sitofp num                                  1.1529216f18   0 10111011 00000000000000000000001
+
+[3] the coefficients of PS._converted_penalty
+  _converted_penalty(ElasticNet(λ,λ), T).λ1            1.0000001f0    0 01111111 00000000000000000000001
+  _converted_penalty(ElasticNet(λ,λ), T).λ2            1.0000001f0    0 01111111 00000000000000000000001
+  _converted_penalty(NormL1(λ), T).λ0                  1.0000001f0    0 01111111 00000000000000000000001
+  (T(a), T(b)) for two Rational levels, inlined pair   (1.0000001f0, 1.0000001f0) 
+  candidate: ElasticNet(cvt(T, λ1), cvt(T, λ2)).λ1  (@noinline) 1.0000001f0    0 01111111 00000000000000000000001
+  Int64 level L: T(L)                                  1.1529216f18   0 10111011 00000000000000000000001
+  Int64 level L: _converted_penalty(ElasticNet(L,L)).λ1 1.1529216f18   0 10111011 00000000000000000000001
+
+[4-7] the residual at x = [1], grad = [-2c], c = T(λ)
+  direct Float32 formula |(g + c x) + c sign x|        0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(ElasticNet(c,c), grad, x)  (@simd Array path) 0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(ElasticNet(c,c), view(grad), view(x))  (generic) 0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(ElasticNet(c,c), grad, x, 1)  (one coordinate) 0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(_converted_penalty(g,T), grad, x)      0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(_converted_penalty(g,T), grad, x, 1)   0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(_converted_penalty(g,T), views)        0.0f0          0 00000000 00000000000000000000000
+  direct formula at the converted coefficients         0.0f0          0 00000000 00000000000000000000000
+  test helper residual_of (PS test/elasticnet.jl:185)  0.0f0          0 00000000 00000000000000000000000
+
+[8] solves: PGD and APG, Float32, ElasticNet(λ, λ) with the Rational level
+  ProximalGradientDescent  converged=true iters=29  residual(T(λ))=2.623e-06 residual(double-rounded)=2.861e-06 |diff|=2.384e-07 threshold=8.958e-05
+  AccProxGradDescent       converged=true iters=18  residual(T(λ))=2.146e-06 residual(double-rounded)=2.384e-06 |diff|=2.384e-07 threshold=8.958e-05
+
+[9] native code: vector conversions (scvtf/ucvtf .2d followed by fcvtn) per specialization
+  _converted_penalty(ElasticNet{Rational})         (vector cvt, fcvtn, scalar scvtf s,x) = (0, 0, 4)
+  _converted_penalty(NormL1{Rational})             (vector cvt, fcvtn, scalar scvtf s,x) = (0, 0, 2)
+  _converted_penalty(ElasticNet{Int64})            (vector cvt, fcvtn, scalar scvtf s,x) = (0, 0, 2)
+  _stationary!(ProximalGradientDescentState, …, ElasticNet{Rational{Int64}, Nothing}) = (0, 0, 4)
+  _stationary!(AccProxGradDescentState, …, ElasticNet{Rational{Int64}, Nothing}) = (0, 0, 4)
+
+--- code_native _converted_penalty(ElasticNet{Rational{Int64}}, Float32), first lines
+_julia__converted_penalty_1744:         ; @julia__converted_penalty_1744
+	sub	sp, sp, #80
+	stp	x20, x19, [sp, #48]             ; 16-byte Folded Spill
+	stp	x29, x30, [sp, #64]             ; 16-byte Folded Spill
+	add	x29, sp, #64
+	mov	x20, x0
+	mov	x19, x8
+	str	xzr, [sp, #16]
+	str	xzr, [sp, #8]
+	mov	x8, #18024                      ; =0x4668
+	movk	x8, #712, lsl #16
+	movk	x8, #1, lsl #32
+	str	xzr, [sp]
+	add	x0, x8, #36
+	blr	x8
+	mov	w8, #4                          ; =0x4
+	str	x8, [sp]
+	ldr	x8, [x0]
+	str	x8, [sp, #8]
+	mov	x8, sp
+##[group]Run julia --startup-file=no -O3 --project=. .github/probe351/probe.jl --native
+julia --startup-file=no -O3 --project=. .github/probe351/probe.jl --native
+shell: /bin/bash -e {0}
+##[endgroup]
+Julia 1.13.4 | arm64-apple-darwin27.2.0 | CPU apple-m1 | LLVM 20.1.8 | -O3
+PS 0.3.2 at /Users/runner/work/ProximalSolvers.jl/ProximalSolvers.jl
+PB 0.6.0-DEV at /Users/runner/.julia/packages/ProximalBase/2welE
+
+[1-2] the level and its Float32 roundings
+  λ                                                    1152921573326323713//1152921504606846976 
+  T(λ)  (Base: T(num)/T(den))                          1.0000001f0    0 01111111 00000000000000000000001
+  T(Float64(λ))  (double rounding)                     1.0f0          0 01111111 00000000000000000000000
+  T(BigFloat(λ, 256 bits))  (reference)                1.0000001f0    0 01111111 00000000000000000000001
+  T(num), T(den) scalar                                (1.1529216f18, 1.1529215f18) 
+  sitofp <2 x i64> -> <2 x float> of (num, den): num   1.1529215f18   0 10111011 00000000000000000000000
+    scalar sitofp num                                  1.1529216f18   0 10111011 00000000000000000000001
+
+[3] the coefficients of PS._converted_penalty
+  _converted_penalty(ElasticNet(λ,λ), T).λ1            1.0f0          0 01111111 00000000000000000000000
+  _converted_penalty(ElasticNet(λ,λ), T).λ2            1.0f0          0 01111111 00000000000000000000000
+  _converted_penalty(NormL1(λ), T).λ0                  1.0000001f0    0 01111111 00000000000000000000001
+  (T(a), T(b)) for two Rational levels, inlined pair   (1.0000001f0, 1.0000001f0) 
+  candidate: ElasticNet(cvt(T, λ1), cvt(T, λ2)).λ1  (@noinline) 1.0000001f0    0 01111111 00000000000000000000001
+  Int64 level L: T(L)                                  1.1529216f18   0 10111011 00000000000000000000001
+  Int64 level L: _converted_penalty(ElasticNet(L,L)).λ1 1.1529216f18   0 10111011 00000000000000000000001
+
+[4-7] the residual at x = [1], grad = [-2c], c = T(λ)
+  direct Float32 formula |(g + c x) + c sign x|        0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(ElasticNet(c,c), grad, x)  (@simd Array path) 0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(ElasticNet(c,c), view(grad), view(x))  (generic) 0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(ElasticNet(c,c), grad, x, 1)  (one coordinate) 0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(_converted_penalty(g,T), grad, x)      2.3841858f-7   0 01101001 00000000000000000000000
+  kkt_violation(_converted_penalty(g,T), grad, x, 1)   2.3841858f-7   0 01101001 00000000000000000000000
+  kkt_violation(_converted_penalty(g,T), views)        2.3841858f-7   0 01101001 00000000000000000000000
+  direct formula at the converted coefficients         2.3841858f-7   0 01101001 00000000000000000000000
+  test helper residual_of (PS test/elasticnet.jl:185)  2.3841858f-7   0 01101001 00000000000000000000000
+
+[8] solves: PGD and APG, Float32, ElasticNet(λ, λ) with the Rational level
+  ProximalGradientDescent  converged=true iters=24  residual(T(λ))=2.623e-06 residual(double-rounded)=2.861e-06 |diff|=2.384e-07 threshold=8.958e-05
+  AccProxGradDescent       converged=true iters=17  residual(T(λ))=2.146e-06 residual(double-rounded)=2.384e-06 |diff|=2.384e-07 threshold=8.958e-05
+
+[9] native code: vector conversions (scvtf/ucvtf .2d followed by fcvtn) per specialization
+  _converted_penalty(ElasticNet{Rational})         (vector cvt, fcvtn, scalar scvtf s,x) = (2, 2, 0)
+  _converted_penalty(NormL1{Rational})             (vector cvt, fcvtn, scalar scvtf s,x) = (0, 0, 2)
+  _converted_penalty(ElasticNet{Int64})            (vector cvt, fcvtn, scalar scvtf s,x) = (0, 0, 2)
+  _stationary!(ProximalGradientDescentState, …, ElasticNet{Rational{Int64}, Nothing}) = (2, 2, 0)
+  _stationary!(AccProxGradDescentState, …, ElasticNet{Rational{Int64}, Nothing}) = (2, 2, 0)
+
+--- code_native _converted_penalty(ElasticNet{Rational{Int64}}, Float32), first lines
+_julia__converted_penalty_1889:         ; @julia__converted_penalty_1889
+	sub	sp, sp, #80
+	stp	x20, x19, [sp, #48]             ; 16-byte Folded Spill
+	stp	x29, x30, [sp, #64]             ; 16-byte Folded Spill
+	add	x29, sp, #64
+	mov	x20, x0
+	mov	x19, x8
+	str	xzr, [sp, #16]
+	str	xzr, [sp, #8]
+	mov	x8, #18024                      ; =0x4668
+	movk	x8, #1161, lsl #16
+	movk	x8, #1, lsl #32
+	str	xzr, [sp]
+	add	x0, x8, #36
+	blr	x8
+	mov	w8, #4                          ; =0x4
+	str	x8, [sp]
+	ldr	x8, [x0]
+	str	x8, [sp, #8]
+	mov	x8, sp
+##[group]Run julia --color=yes scripts/test.jl --jobs=1 elasticnet
+julia --color=yes scripts/test.jl --jobs=1 elasticnet
+shell: /bin/bash -e {0}
+##[endgroup]
+  Activating project at `~/work/ProximalSolvers.jl/ProximalSolvers.jl`
+     Testing ProximalSolvers
+      Status `/private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/jl_Gr3LyJ/Project.toml`
+  [4c88cf16] Aqua v0.8.19
+  [d3525ed8] ParallelTestRunner v2.10.0
+  [aea7be01] PrecompileTools v1.4.0
+  [0a755509] ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [fc4971f5] ProximalSolvers v0.3.2 `~/work/ProximalSolvers.jl/ProximalSolvers.jl`
+  [37e2e46d] LinearAlgebra v1.13.0
+  [56ddb016] Logging v1.11.0
+  [de0858da] Printf v1.11.0
+  [9a3f8284] Random v1.11.0
+  [2f01184e] SparseArrays v1.13.0
+  [fa267f1f] TOML v1.0.3
+  [8dfed614] Test v1.11.0
+      Status `/private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/jl_Gr3LyJ/Manifest.toml`
+  [4c88cf16] Aqua v0.8.19
+  [34da2185] Compat v4.18.1
+  [b5f81e59] IOCapture v1.0.0
+  [36869731] Malt v1.5.0
+  [d3525ed8] ParallelTestRunner v2.10.0
+  [aea7be01] PrecompileTools v1.4.0
+  [21216c6a] Preferences v1.6.1
+  [0a755509] ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [fc4971f5] ProximalSolvers v0.3.2 `~/work/ProximalSolvers.jl/ProximalSolvers.jl`
+  [05181044] RelocatableFolders v1.0.1
+  [6c6a2e73] Scratch v1.3.0
+  [10745b16] Statistics v1.11.5
+  [0dad84c5] ArgTools v1.1.2
+  [56f22d72] Artifacts v1.11.0
+  [2a0f44e3] Base64 v1.11.0
+  [ade2ca70] Dates v1.11.0
+  [8ba89e20] Distributed v1.11.0
+  [f43a241f] Downloads v1.7.0
+  [7b1f6079] FileWatching v1.11.0
+  [b77e0a4c] InteractiveUtils v1.11.0
+  [ac6e5ff7] JuliaSyntaxHighlighting v1.12.0
+  [b27032c2] LibCURL v1.0.0
+  [76f85450] LibGit2 v1.11.0
+  [8f399da3] Libdl v1.11.0
+  [37e2e46d] LinearAlgebra v1.13.0
+  [56ddb016] Logging v1.11.0
+  [d6f4376e] Markdown v1.11.0
+  [ca575930] NetworkOptions v1.3.0
+  [44cfe95a] Pkg v1.13.0
+  [de0858da] Printf v1.11.0
+  [9a3f8284] Random v1.11.0
+  [ea8e919c] SHA v1.0.0
+  [9e88b42a] Serialization v1.11.0
+  [6462fe0b] Sockets v1.11.0
+  [2f01184e] SparseArrays v1.13.0
+  [f489334b] StyledStrings v1.11.0
+  [fa267f1f] TOML v1.0.3
+  [a4e569a6] Tar v1.10.0
+  [8dfed614] Test v1.11.0
+  [cf7118a7] UUIDs v1.11.0
+  [4ec0a83e] Unicode v1.11.0
+  [e66e0078] CompilerSupportLibraries_jll v1.5.5+2
+  [deac9b47] LibCURL_jll v8.22.0+0
+  [e37daf67] LibGit2_jll v1.9.7+0
+  [29816b5a] LibSSH2_jll v1.11.104+0
+  [14a3606d] MozillaCACerts_jll v2026.11.5
+  [4536629a] OpenBLAS_jll v0.3.30+1
+  [458c3c95] OpenSSL_jll v3.5.8+0
+  [efcefdf7] PCRE2_jll v10.47.0+0
+  [bea87d4a] SuiteSparse_jll v7.10.1+0
+  [83775a58] Zlib_jll v1.3.2+0
+  [3161d3a3] Zstd_jll v1.5.7+1
+  [8e850b90] libblastrampoline_jll v5.15.0+0
+  [8e850ede] nghttp2_jll v1.70.0+0
+  [3f19e933] p7zip_jll v17.8.5+0
+Precompiling for configuration --code-coverage=none --color=yes --warn-overwrite=yes --depwarn=yes --inline=yes --startup-file=no --track-allocation=none --startup-file=no --depwarn=yes
+   1.5 s  ✓ IOCapture
+   1.5 s  ✓ Scratch
+   1.5 s  ✓ Compat
+   1.6 s  ✓ Statistics
+   0.4 s  ✓ Compat → CompatLinearAlgebraExt
+   0.8 s  ✓ RelocatableFolders
+   0.8 s  ✓ Statistics → SparseArraysExt
+   0.9 s  ✓ Malt
+   2.2 s  ✓ Aqua
+   1.4 s  ✓ ParallelTestRunner
+  10 dependencies successfully precompiled in 5 seconds. 38 already precompiled.
+     Testing Running tests...
+ProximalSolvers tests: tier full, filtered by elasticnet: 1 files; Julia 1.13.4 on arm64-apple-darwin27.2.0 (Apple M1 (Virtual), 3 threads), commit 1aa26a8b82caf410b88e15fd13ba13e734648eff, check-bounds default
+  elasticnet
+Running 1 tests using 1 parallel jobs. To change the number of jobs, specify the `--jobs=N` argument to the tests, or set the `PTR_NUM_JOBS` environment variable.
+                 │   Test   │ ──────────────── CPU ──────────────── │
+Test    (Worker) │ time (s) │ GC (s) │ GC % │ Alloc (MB) │ RSS (MB) │
+elasticnet   (1) │    17.23 │   failed at 2026-11-18T01:59:20.691
+
+Test Summary:                                                                                                     | Pass  Fail  Total   Time
+  Overall                                                                                                         | 1757     1   1758  21.9s
+    elasticnet                                                                                                    | 1757     1   1758  17.2s
+      the residual of the stopping check: ProximalBase's kkt_violation at the converted levels                    | 1064         1064   0.9s
+      the residual of the stopping check uses T(λ): levels that round differently                                 |   30     1     31   0.3s
+      orthogonal design: the closed-form minimizer of the elastic net                                             |  128          128   2.7s
+      random full-rank designs: signed-support BigFloat minimizer, objective gap and KKT residual                 |  361          361   4.0s
+      ElasticNet(λ, 0) reaches the quality of NormL1(λ)                                                           |   62           62   0.8s
+      stopping honesty: a stop at a point that is stationary for the lasso only is refused                        |   16           16   0.2s
+      ridge solutions at x = 0: a computed S = 0 refuses every stop                                               |    8            8   0.1s
+      level types: Float64 and Int levels, extreme levels                                                         |   64           64   3.6s
+      a start whose penalty overflows: the solve throws and the iterate is restored                               |    6            6   0.0s
+      allocations: an ElasticNet solve allocates no more than the NormL1 solve, beyond its own penalty validation |   16           16   2.2s
+      the stopping checks were exercised                                                                          |    2            2   0.0s
+    FAILURE
+
+Error in testset the residual of the stopping check uses T(λ): levels that round differently:
+Test Failed at /Users/runner/work/ProximalSolvers.jl/ProximalSolvers.jl/test/elasticnet.jl:293
+  Expression: (name, en) == (name, zero(T))
+   Evaluated: ("Rational, Float32", 2.3841858f-7) == ("Rational, Float32", 0.0f0)
+ERROR: LoadError: Test run finished with errors
+in expression starting at /Users/runner/work/ProximalSolvers.jl/ProximalSolvers.jl/test/runtests.jl:68
+ERROR: LoadError: Package ProximalSolvers errored during testing
+Stacktrace:
+  [1] pkgerror(msg::String)
+    @ Pkg.Types ~/hostedtoolcache/julia/1.13.4/aarch64/share/julia/stdlib/v1.13/Pkg/src/Types.jl:68
+  [2] test(ctx::Pkg.Types.Context, pkgs::Vector{PackageSpec}; coverage::Bool, julia_args::Cmd, test_args::Cmd, test_fn::Nothing, force_latest_compatible_version::Bool, allow_earlier_backwards_compatible_versions::Bool, allow_reresolve::Bool)
+    @ Pkg.Operations ~/hostedtoolcache/julia/1.13.4/aarch64/share/julia/stdlib/v1.13/Pkg/src/Operations.jl:3361
+  [3] test
+    @ ~/hostedtoolcache/julia/1.13.4/aarch64/share/julia/stdlib/v1.13/Pkg/src/Operations.jl:3239 [inlined]
+  [4] test(ctx::Pkg.Types.Context, pkgs::Vector{PackageSpec}; coverage::Bool, test_fn::Nothing, julia_args::Cmd, test_args::Vector{String}, force_latest_compatible_version::Bool, allow_earlier_backwards_compatible_versions::Bool, allow_reresolve::Bool, kwargs::@Kwargs{io::IOContext{IO}})
+    @ Pkg.API ~/hostedtoolcache/julia/1.13.4/aarch64/share/julia/stdlib/v1.13/Pkg/src/API.jl:587
+  [5] test(pkgs::Vector{PackageSpec}; io::IOContext{IO}, kwargs::@Kwargs{coverage::Bool, julia_args::Cmd, test_args::Vector{String}})
+    @ Pkg.API ~/hostedtoolcache/julia/1.13.4/aarch64/share/julia/stdlib/v1.13/Pkg/src/API.jl:172
+  [6] test(; name::Nothing, uuid::Nothing, version::Nothing, url::Nothing, rev::Nothing, path::Nothing, mode::PackageMode, subdir::Nothing, kwargs::@Kwargs{coverage::Bool, julia_args::Cmd, test_args::Vector{String}})
+    @ Pkg.API ~/hostedtoolcache/julia/1.13.4/aarch64/share/julia/stdlib/v1.13/Pkg/src/API.jl:189
+  [7] top-level scope
+    @ ~/work/ProximalSolvers.jl/ProximalSolvers.jl/scripts/test.jl:21
+  [8] include(mod::Module, _path::String)
+    @ Base ./Base.jl:309
+  [9] exec_options(opts::Base.JLOptions)
+    @ Base ./client.jl:344
+ [10] _start()
+    @ Base ./client.jl:577
+in expression starting at /Users/runner/work/ProximalSolvers.jl/ProximalSolvers.jl/scripts/test.jl:21
+##[error]Process completed with exit code 1.
+##[group]Run git apply .github/probe351/candidate_a2.patch && git diff --stat
+git apply .github/probe351/candidate_a2.patch && git diff --stat
+shell: /bin/bash -e {0}
+##[endgroup]
+ src/utils.jl | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+##[group]Run julia --startup-file=no --project=. .github/probe351/probe.jl --native
+julia --startup-file=no --project=. .github/probe351/probe.jl --native
+shell: /bin/bash -e {0}
+##[endgroup]
+Julia 1.13.4 | arm64-apple-darwin27.2.0 | CPU apple-m1 | LLVM 20.1.8 | -O2
+PS 0.3.2 at /Users/runner/work/ProximalSolvers.jl/ProximalSolvers.jl
+PB 0.6.0-DEV at /Users/runner/.julia/packages/ProximalBase/2welE
+
+[1-2] the level and its Float32 roundings
+  λ                                                    1152921573326323713//1152921504606846976 
+  T(λ)  (Base: T(num)/T(den))                          1.0000001f0    0 01111111 00000000000000000000001
+  T(Float64(λ))  (double rounding)                     1.0f0          0 01111111 00000000000000000000000
+  T(BigFloat(λ, 256 bits))  (reference)                1.0000001f0    0 01111111 00000000000000000000001
+  T(num), T(den) scalar                                (1.1529216f18, 1.1529215f18) 
+  sitofp <2 x i64> -> <2 x float> of (num, den): num   1.1529215f18   0 10111011 00000000000000000000000
+    scalar sitofp num                                  1.1529216f18   0 10111011 00000000000000000000001
+
+[3] the coefficients of PS._converted_penalty
+  _converted_penalty(ElasticNet(λ,λ), T).λ1            1.0000001f0    0 01111111 00000000000000000000001
+  _converted_penalty(ElasticNet(λ,λ), T).λ2            1.0000001f0    0 01111111 00000000000000000000001
+  _converted_penalty(NormL1(λ), T).λ0                  1.0000001f0    0 01111111 00000000000000000000001
+  (T(a), T(b)) for two Rational levels, inlined pair   (1.0000001f0, 1.0000001f0) 
+  candidate: ElasticNet(cvt(T, λ1), cvt(T, λ2)).λ1  (@noinline) 1.0000001f0    0 01111111 00000000000000000000001
+  Int64 level L: T(L)                                  1.1529216f18   0 10111011 00000000000000000000001
+  Int64 level L: _converted_penalty(ElasticNet(L,L)).λ1 1.1529216f18   0 10111011 00000000000000000000001
+
+[4-7] the residual at x = [1], grad = [-2c], c = T(λ)
+  direct Float32 formula |(g + c x) + c sign x|        0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(ElasticNet(c,c), grad, x)  (@simd Array path) 0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(ElasticNet(c,c), view(grad), view(x))  (generic) 0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(ElasticNet(c,c), grad, x, 1)  (one coordinate) 0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(_converted_penalty(g,T), grad, x)      0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(_converted_penalty(g,T), grad, x, 1)   0.0f0          0 00000000 00000000000000000000000
+  kkt_violation(_converted_penalty(g,T), views)        0.0f0          0 00000000 00000000000000000000000
+  direct formula at the converted coefficients         0.0f0          0 00000000 00000000000000000000000
+  test helper residual_of (PS test/elasticnet.jl:185)  0.0f0          0 00000000 00000000000000000000000
+
+[8] solves: PGD and APG, Float32, ElasticNet(λ, λ) with the Rational level
+  ProximalGradientDescent  converged=true iters=24  residual(T(λ))=2.623e-06 residual(double-rounded)=2.861e-06 |diff|=2.384e-07 threshold=8.958e-05
+  AccProxGradDescent       converged=true iters=17  residual(T(λ))=2.146e-06 residual(double-rounded)=2.384e-06 |diff|=2.384e-07 threshold=8.958e-05
+
+[9] native code: vector conversions (scvtf/ucvtf .2d followed by fcvtn) per specialization
+  _converted_penalty(ElasticNet{Rational})         (vector cvt, fcvtn, scalar scvtf s,x) = (0, 0, 0)
+  _converted_penalty(NormL1{Rational})             (vector cvt, fcvtn, scalar scvtf s,x) = (0, 0, 2)
+  _converted_penalty(ElasticNet{Int64})            (vector cvt, fcvtn, scalar scvtf s,x) = (0, 0, 0)
+  _stationary!(ProximalGradientDescentState, …, ElasticNet{Rational{Int64}, Nothing}) = (0, 0, 0)
+  _stationary!(AccProxGradDescentState, …, ElasticNet{Rational{Int64}, Nothing}) = (0, 0, 0)
+
+--- code_native _converted_penalty(ElasticNet{Rational{Int64}}, Float32), first lines
+_julia__converted_penalty_1870:         ; @julia__converted_penalty_1870
+	sub	sp, sp, #112
+	stp	d9, d8, [sp, #48]               ; 16-byte Folded Spill
+	stp	x22, x21, [sp, #64]             ; 16-byte Folded Spill
+	stp	x20, x19, [sp, #80]             ; 16-byte Folded Spill
+	stp	x29, x30, [sp, #96]             ; 16-byte Folded Spill
+	add	x29, sp, #96
+	mov	x21, x0
+	mov	x20, x8
+	str	xzr, [sp, #16]
+	str	xzr, [sp, #8]
+	mov	x8, #50792                      ; =0xc668
+	movk	x8, #1072, lsl #16
+	movk	x8, #1, lsl #32
+	str	xzr, [sp]
+	add	x0, x8, #36
+	blr	x8
+	mov	x19, x0
+	mov	w8, #4                          ; =0x4
+	str	x8, [sp]
+##[group]Run julia --color=yes scripts/test.jl --jobs=1 elasticnet
+julia --color=yes scripts/test.jl --jobs=1 elasticnet
+shell: /bin/bash -e {0}
+##[endgroup]
+  Activating project at `~/work/ProximalSolvers.jl/ProximalSolvers.jl`
+     Testing ProximalSolvers
+      Status `/private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/jl_FaM2PN/Project.toml`
+  [4c88cf16] Aqua v0.8.19
+  [d3525ed8] ParallelTestRunner v2.10.0
+  [aea7be01] PrecompileTools v1.4.0
+  [0a755509] ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [fc4971f5] ProximalSolvers v0.3.2 `~/work/ProximalSolvers.jl/ProximalSolvers.jl`
+  [37e2e46d] LinearAlgebra v1.13.0
+  [56ddb016] Logging v1.11.0
+  [de0858da] Printf v1.11.0
+  [9a3f8284] Random v1.11.0
+  [2f01184e] SparseArrays v1.13.0
+  [fa267f1f] TOML v1.0.3
+  [8dfed614] Test v1.11.0
+      Status `/private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/jl_FaM2PN/Manifest.toml`
+  [4c88cf16] Aqua v0.8.19
+  [34da2185] Compat v4.18.1
+  [b5f81e59] IOCapture v1.0.0
+  [36869731] Malt v1.5.0
+  [d3525ed8] ParallelTestRunner v2.10.0
+  [aea7be01] PrecompileTools v1.4.0
+  [21216c6a] Preferences v1.6.1
+  [0a755509] ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [fc4971f5] ProximalSolvers v0.3.2 `~/work/ProximalSolvers.jl/ProximalSolvers.jl`
+  [05181044] RelocatableFolders v1.0.1
+  [6c6a2e73] Scratch v1.3.0
+  [10745b16] Statistics v1.11.5
+  [0dad84c5] ArgTools v1.1.2
+  [56f22d72] Artifacts v1.11.0
+  [2a0f44e3] Base64 v1.11.0
+  [ade2ca70] Dates v1.11.0
+  [8ba89e20] Distributed v1.11.0
+  [f43a241f] Downloads v1.7.0
+  [7b1f6079] FileWatching v1.11.0
+  [b77e0a4c] InteractiveUtils v1.11.0
+  [ac6e5ff7] JuliaSyntaxHighlighting v1.12.0
+  [b27032c2] LibCURL v1.0.0
+  [76f85450] LibGit2 v1.11.0
+  [8f399da3] Libdl v1.11.0
+  [37e2e46d] LinearAlgebra v1.13.0
+  [56ddb016] Logging v1.11.0
+  [d6f4376e] Markdown v1.11.0
+  [ca575930] NetworkOptions v1.3.0
+  [44cfe95a] Pkg v1.13.0
+  [de0858da] Printf v1.11.0
+  [9a3f8284] Random v1.11.0
+  [ea8e919c] SHA v1.0.0
+  [9e88b42a] Serialization v1.11.0
+  [6462fe0b] Sockets v1.11.0
+  [2f01184e] SparseArrays v1.13.0
+  [f489334b] StyledStrings v1.11.0
+  [fa267f1f] TOML v1.0.3
+  [a4e569a6] Tar v1.10.0
+  [8dfed614] Test v1.11.0
+  [cf7118a7] UUIDs v1.11.0
+  [4ec0a83e] Unicode v1.11.0
+  [e66e0078] CompilerSupportLibraries_jll v1.5.5+2
+  [deac9b47] LibCURL_jll v8.22.0+0
+  [e37daf67] LibGit2_jll v1.9.7+0
+  [29816b5a] LibSSH2_jll v1.11.104+0
+  [14a3606d] MozillaCACerts_jll v2026.11.5
+  [4536629a] OpenBLAS_jll v0.3.30+1
+  [458c3c95] OpenSSL_jll v3.5.8+0
+  [efcefdf7] PCRE2_jll v10.47.0+0
+  [bea87d4a] SuiteSparse_jll v7.10.1+0
+  [83775a58] Zlib_jll v1.3.2+0
+  [3161d3a3] Zstd_jll v1.5.7+1
+  [8e850b90] libblastrampoline_jll v5.15.0+0
+  [8e850ede] nghttp2_jll v1.70.0+0
+  [3f19e933] p7zip_jll v17.8.5+0
+     Testing Running tests...
+ProximalSolvers tests: tier full, filtered by elasticnet: 1 files; Julia 1.13.4 on arm64-apple-darwin27.2.0 (Apple M1 (Virtual), 3 threads), commit 1aa26a8b82caf410b88e15fd13ba13e734648eff, check-bounds default
+  elasticnet
+Running 1 tests using 1 parallel jobs. To change the number of jobs, specify the `--jobs=N` argument to the tests, or set the `PTR_NUM_JOBS` environment variable.
+                 │   Test   │ ──────────────── CPU ──────────────── │
+Test    (Worker) │ time (s) │ GC (s) │ GC % │ Alloc (MB) │ RSS (MB) │
+elasticnet   (1) │    20.59 │   0.39 │  1.9 │    1455.04 │   505.33 │
+
+Test Summary: | Pass  Total   Time
+  Overall     | 1758   1758  25.7s
+    SUCCESS
+     Testing ProximalSolvers tests passed 
+##[group]Run echo "baseline isolated test: failure"
+echo "baseline isolated test: failure"
+echo "patched isolated test:  success"
+shell: /bin/bash -e {0}
+##[endgroup]
+baseline isolated test: failure
+patched isolated test:  success
+Post job cleanup.
+[command]/opt/homebrew/bin/git version
+git version 2.56.1
+Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/6a8db46f-5ce9-4a42-b80d-8836d607ba39/.gitconfig'
+Temporarily overriding HOME='/Users/runner/work/_temp/6a8db46f-5ce9-4a42-b80d-8836d607ba39' before making global git config changes
+Adding repository directory to the temporary git global config as a safe directory
+[command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/ProximalSolvers.jl/ProximalSolvers.jl
+Removing SSH command configuration
+[command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+[command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Removing HTTP extra header
+[command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+[command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Removing includeIf entries pointing to credentials config files
+[command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+[command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Cleaning up orphan processes
