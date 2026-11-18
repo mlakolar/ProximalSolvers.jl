@@ -54,7 +54,7 @@ convergence flag does not guarantee a small KKT residual; for reported fits, che
 optimality independently. What the change test implies, and where it can be met away
 from a minimizer (a product that underflows or cancels, a warm start far above the
 solution scale), is described in the
-[numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#Limits-of-the-stopping-tests).
+[numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/stopping-limits/).
 Anderson acceleration, a user-set gap target and screening
 are not implemented: `anderson`, `gaptol` and `gapsafe` are accepted only
 at their defaults, are not stored, and other values are rejected.
