@@ -17,7 +17,7 @@ Archive of the research behind the Stage 0 report on issue #353
 
 ## Layout
 
-- `report/REPORT.md`: the report. Branch `archive/issue-353-evidence` is revision r1; branch `archive/issue-353-evidence-r2` adds revision r2 on top of it (archive branches of the repository cannot be updated). `report/ledger.py` + `ledger-subs.txt` generate the ledger tables
+- `report/REPORT.md`: the report. Branch `archive/issue-353-evidence` is revision r1, `archive/issue-353-evidence-r2` adds r2, `archive/issue-353-evidence-r3` adds r3 (archive branches of the repository cannot be updated, so each revision has its own). `experiments/review-r2/` holds the review of r2. `report/ledger.py` + `ledger-subs.txt` generate the ledger tables
   (`ledger-*.md`); `part-*.md` are the sections.
 - `agentA/` (square-root lasso CD), `agentB/` (least-squares and group CD), `agentC/` (PGD/APG and the APG
   certificate), `agentD/` (ProximalBase inventory and the interface question): each has `report.md`, its scripts and

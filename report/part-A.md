@@ -1,8 +1,8 @@
 # Stage 0 report: numerical helper ownership and duplication between ProximalSolvers and ProximalBase
 
-Audited: ProximalSolvers `dac9f4b6` (master after #348), ProximalBase pin `a19c59aa` (the tree PS loads, verified file by file), ProximalBase master `13891ccf` for comparison; Julia 1.10.13 and 1.13.4. Research only: no production code, pin, contract or benchmark baseline was changed, and no implementation PR or follow-up issue was opened. Four read-only source audits (square-root CD, LS and group CD, PGD/APG, the PB inventory) were integrated here, and three candidates were taken to disposable prototypes with BigFloat references and paired timings. Evidence: branch `archive/issue-353-evidence-r2` (this revision); `archive/issue-353-evidence` holds revision r1 as first reviewed.
+Audited: ProximalSolvers `dac9f4b6` (master after #348), ProximalBase pin `a19c59aa` (the tree PS loads, verified file by file), ProximalBase master `13891ccf` for comparison; Julia 1.10.13 and 1.13.4. Research only: no production code, pin, contract or benchmark baseline was changed, and no implementation PR or follow-up issue was opened. Four read-only source audits (square-root CD, LS and group CD, PGD/APG, the PB inventory) were integrated here, and three candidates were taken to disposable prototypes with BigFloat references and paired timings. Evidence: branch `archive/issue-353-evidence-r3` (this revision); `archive/issue-353-evidence` and `archive/issue-353-evidence-r2` hold the two reviewed earlier revisions.
 
-*Revision r2.* Revision r1 was reviewed independently (Codex gpt-6.1-sol, high reasoning effort; its comment is on this issue) and returned two blockers and six further findings. All eight are addressed here; the changes are listed at the end of section G.
+*Revision r3.* The report was reviewed independently by Codex gpt-6.1-sol at high reasoning effort; its comments are on this issue. Revision r1: BLOCKERS (two blockers, six further findings), all addressed in r2. Revision r2: PASS / NO BLOCKERS, with one major and four minor reporting corrections, which are applied here. The changes are listed at the end of section G.
 
 ## A. Audit summary
 

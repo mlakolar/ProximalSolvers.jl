@@ -1,0 +1,7 @@
+Julia 1.10.13
+master boundary converged=true x=Float32[0.0] tolerance=1.1754944e-38
+x2b boundary converged=true x=Float32[0.0] tolerance=1.1754944e-38
+master response_scale reads=200 n=100 value=3.1622778e-21
+x2-old response_scale reads=400 n=100 value=3.1622778e-21
+x2b response_scale reads=200 n=100 value=3.1622778e-21
+fresh Xd overflow: D is nothing=false normx is nothing=false Xd=[Inf] W is nothing=true _bound_certified! returned=(false, true)
