@@ -47,8 +47,8 @@ function kkt_excess(X, y, α, λ, x, τ, ::Type{T}) where T
   end
 end
 
-# The exact residual G = ‖G‖∞, S, and the rounding estimates eG, eS and u of kkt_excess, in
-# BigFloat (the values keep the 256-bit precision they were formed in)
+# The reference residual G = ‖G‖∞, evaluated in 256-bit BigFloat, S, and the rounding estimates eG, eS and u of kkt_excess
+# (the values keep the 256-bit precision they were formed in)
 function kkt_parts(X, y, α, λ, x, ::Type{T}) where T
   setprecision(BigFloat, 256) do
     Xb, yb, xb, a, l = BigFloat.(X), BigFloat.(y), BigFloat.(x), BigFloat(α), BigFloat(λ)

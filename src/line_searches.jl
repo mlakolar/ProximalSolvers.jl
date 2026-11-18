@@ -166,8 +166,7 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
     # sum of squares) leaves TFOCS's estimate. A NaN estimate, or a gradient estimate from a
     # nonfinite ∇f(x), is kept: the update and the error check below run on it as before. A
     # NaN estimate of a rejected trial (L < Lexact) raises an error (a zero gradient-difference
-    # product is not scaled above, so an overflowing 2 / xy_sq does not turn it into NaN); an
-    # infinite one raises an error unless a finite Lexact caps L.
+    # product is not scaled above, so an overflowing 2 / xy_sq does not turn it into NaN).
     # verified: this rejection's check ran and replaced L̂ by a finite computed curvature c
     verified = false
     if !isnan(local_l) && (!gradient_mode || all(isfinite, state.grad_f_x))
