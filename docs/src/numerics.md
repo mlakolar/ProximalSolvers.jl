@@ -737,16 +737,23 @@ What changes for the solvers:
   guide, is evaluated finitely where the sum of squares overflows in `T`; before,
   the sum of squares was formed in `T` without that recovery.
 - A start accepted in this way can have a finite value while `Σ(z - y)²` overflows
-  in `T`, and PGD and APG can then make very little progress. Their curvature estimate
-  `L` starts at `one(T)`, independent of the data, is multiplied by the line search's
-  decrease factor (default 0.9) before each iteration and is raised only on a rejected
-  trial, so with the default decrease factor reaching a curvature far below 1 takes many
-  iterations. For
+  in `T`. PGD and APG start their curvature estimate `L` at `min(1, α‖X‖_F²)` for the
+  loss scale `α` (1 for an unscaled loss), with `‖X‖_F` the solvers' upper bound on the
+  Frobenius norm of `X`. The start is `1` when that product is at least 1 or `X = 0`, and
+  a positive start that rounds below `floatmin(T)` is raised to `floatmin(T)`. `L` is then
+  multiplied by the line search's decrease factor (default 0.9) before each iteration and
+  raised on a rejected trial, so a loss whose curvature is far below 1 starts near it
+  rather than at 1. For
   `X = ones(5, 1)`, `y = fill(1e160, 5)`, loss scale `1e-100`, `NormL1(0.0)` and start 0,
-  the curvature `α‖X‖²` is `5.000000000000001e-100`; after 200 iterations both solvers
-  ended with `converged = false`, at `x` ≈ 7.1e70 (PGD) and 6.2e71 (APG) against the
-  minimizer `1e160`, and with `maxiter = 2000` still with `converged = false` (Julia 1.10.13
-  and 1.13.3 agree).
+  the curvature `α‖X‖²` is `5.000000000000001e-100` and both solvers start at
+  `5.000000000000014e-100`. APG ends with `converged = true` after 8 iterations, and with
+  `NormL1(0.1 λmax)` after 7 (Julia 1.10.13 and 1.13.3 agree). PGD ends with
+  `converged = false` after 7 iterations, stopped by the increase of the objective
+  (`f_increased = true`), at `x` ≈ 1.0034e160 against the minimizer `1e160`: its
+  backtracking test squares the step norm, which overflows once a step exceeds about
+  1.3e154, and then accepts a trial whose `L` is below the curvature, so `L` keeps
+  falling by the decrease factor until the objective increases. This limit of PGD's
+  line search is tracked in #TBD.
 - PGD and APG log no warning when they end at `maxiter`, so check `converged` and an
   [independent KKT residual](sparsity-and-kkt.md). CD logs a warning when a run ends with
   `converged = false`. CD solved the example above (`converged = true`, `x = [1.0e160]`);
@@ -754,14 +761,11 @@ What changes for the solvers:
 - A rescaling can serve as a workaround where it keeps the minimizers. For a `NormL1`
   penalty, `x = s u` with `s > 0` replaces `X` by `sX` and `λ` by `sλ`, multiplies the
   curvature by `s²`, and turns a start `x₀` into `x₀ / s`. On the example with `s = 1e50`
-  and level `1.0e60` replaced by `1.0e110`, PGD and APG both returned `converged = true`,
-  after 9 and 7 iterations. The transformation `X′ = cX`, `y′ = cy`, loss scale `α/c²`,
-  with the penalty unchanged, keeps the objective and the curvature `α‖X‖²`, so it does
-  not change the initial-curvature mismatch (with `c = 1e-80` on the example both solvers
-  still ended at `maxiter` with `converged = false`).
-  [#321](https://github.com/mlakolar/ProximalSolvers.jl/issues/321) tracks the
-  investigation of the initial curvature estimate for such problems; its outcome may
-  leave some extreme-range cases unsolved.
+  and level `1.0e60` replaced by `1.0e110`, the curvature is above 1, the start is `1`,
+  and PGD and APG both returned `converged = true`, after 9 and 7 iterations. The
+  transformation `X′ = cX`, `y′ = cy`, loss scale `α/c²`, with the penalty unchanged,
+  keeps the objective and the curvature `α‖X‖²`, so it keeps the start (with `c = 1e-80`
+  on the example, APG converged after 8 iterations and PGD ended as above).
 - The gradient is `α` times the rounded product `Xᵀd` with `d = z - y` for the
   image `z = X x`. An `Xᵀd` that overflows or underflows before the scaling is not
   recovered, also where `α` would bring the exact gradient into range.
