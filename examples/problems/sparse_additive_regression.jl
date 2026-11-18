@@ -150,18 +150,18 @@ end
 
 # ## At and above `λmax`
 #
-# Three statements are checked. First, from the data alone: `b = 0` satisfies the zero-group
-# condition at `λ = λmax`, which `violations(zeros(p * K), lambdamax)` evaluates from the
-# gradient of the whole design. The script asserts a bound of `1e-12 λ` and not exact equality,
-# because that gradient and `scores` compute the same group score by two different float
-# evaluations, which can differ by rounding.
+# Three statements are checked. First, from the data alone: at `λ = λmax`, `b = 0` satisfies the
+# zero-group condition `‖g[G]‖ ≤ λ w` with `g = Zᵀ(Z·0 − z)/n`, which
+# `violations(zeros(p * K), lambdamax)` evaluates from the gradient of the whole design. The
+# bound is `1e-12 λ` and not 0, because this evaluation and `scores` (which divide the block norm
+# by `wⱼ`) are different float computations of the same comparison.
 #
-# Second, the solver at `λ = λmax`. There `b = 0` is a minimizer and the largest group score
-# equals `λ wⱼ` up to rounding, so a solver that evaluates the score in another order can keep a
-# block of the size of the rounding error; the 1.10.13 and 1.13.4 runs of this page differ here.
-# The check therefore asserts a rounding-level result: each block norm is at most `1e-12` and
-# the optimality violations are at most `1e-12 λ`. The bound on the block norms is absolute,
-# and the group scores printed above lie between 0.05 and 0.7.
+# Second, the solver at `λ = λmax`. Here `b = 0` is a minimizer, and for a group that attains
+# `λmax`, `‖Zⱼᵀ z‖/n` equals `λmax wⱼ` up to rounding, so the solver's own comparison of the two
+# is at the rounding level. The 1.10.13 and 1.13.4 runs of this page differ here (a block of
+# norm 2.8e-16 remains on 1.10.13). The check asserts a rounding-level result: each block norm
+# is at most `1e-12` (an absolute bound; the printed scores lie between 0.05 and 0.7), and the
+# violations are at most `1e-12 λ`.
 #
 # Third, at `λ = (1 + 10⁻⁶) λmax` and at `λ = 1.5 λmax` the solver returns exact zeros and
 # reports no active group. The relative margin `10⁻⁶` is much larger than the rounding of
