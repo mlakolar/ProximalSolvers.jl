@@ -43,20 +43,8 @@ use the separate [numerical KKT check](sparsity-and-kkt.md). For CD with the squ
 proved bound (see [`CDSolver`](@ref)). Otherwise a result's `gap=NaN` and CD's `kkt_checks=0` are
 placeholders: neither is a computed certificate.
 
-For PGD and APG with a `NormLinf(λ)` penalty, `converged=true` means that a stopping test proposed a stop and that the
-direct KKT residual `min over v ∈ ∂‖x‖∞ of ‖∇f(x) + λ v‖₁` (an ℓ1 norm) at the returned point is below
-`max(gradtol, 64eps(T)) * max(λ, ‖∇f(0)‖₁)` (see
-[the ℓ∞ check](numerics.md#The-stationarity-check-for-NormLinf)). It is a working-precision value computed from the computed
-gradient with compensated sums formed in `Float64` (the check refuses for more than `2^24 - 1` entries of `Float64` data and more than `2^32` of `Float32` data), not an
-exact-arithmetic certificate: within that range a kept stop has an exact residual (for the supplied gradient, at the level converted to `T`) below the computed
-threshold times `1 + 2^-10`, and at the level as given below it times `1 + 2^-10 + 2^-7` when the conversion of the level rounds to
-nearest (an exactly representable level has no conversion error),
-and the computed gradient's own rounding error is not covered (see [the ℓ∞ check](numerics.md#The-stationarity-check-for-NormLinf)). A proposed stop costs one
-more gradient for APG (counted in `grad_calls` before the call limits are compared, so a stop that the check refuses can reach
-`grad_calls_limit`) and no proximal evaluation. A solve can also end through a limit, an objective increase or stagnation with
-`converged=false` and without a stop that passed the check. The active set is found by exact equality of magnitudes, without tolerance; the
-iterates of PGD and APG store the entries that the clip ties as `±τ` with the same `τ`. An iterate whose entries near the maximum have unequal
-magnitudes has the smaller ones off the active set, which can make the check refuse when their gradient contribution is too large.
+For PGD and APG with a `NormLinf` penalty, `converged=true` means that a stopping test proposed a stop and that the
+[generic proximal-gradient check](numerics.md#The-generic-stationarity-check) passed: a working-precision indication, not a certificate.
 
 ## Avoid accidentally overwriting results
 

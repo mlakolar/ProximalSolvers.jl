@@ -83,7 +83,8 @@ Float32, `ftol = 0`) are on the page [Limits of the stopping tests](stopping-lim
 
 ### The stationarity check of a stop
 
-PGD and APG verify a proposed stop. At an iteration at which the `x`, `f` or
+PGD and APG verify a proposed stop; this section is the check for `NormL1` and `ElasticNet`, and other
+penalties use [the generic stationarity check](@ref "The generic stationarity check"). At an iteration at which the `x`, `f` or
 gradient test holds (under `ftol = 0`, after the exact-stall rule below), the
 solver computes the minimal-norm KKT residual `G` at the accepted iterate `x`.
 For `NormL1(λ)` it is the element of `∇f(x) + λ ∂‖x‖₁` of least infinity
@@ -209,107 +210,28 @@ can end on the objective-increase exit below, with `converged=false` and
 test proposes the stop, the check refuses it, and the computed objective then
 increases by rounding before the residual reaches the bound.
 
-### The stationarity check for NormLinf
+### The generic stationarity check
 
-For a `NormLinf(λ)` penalty the check of a proposed stop (see [the check above](@ref "The stationarity check of a stop"))
-is the direct KKT residual of the problem `½α‖Xb - y‖² + λ‖b‖∞` at the accepted iterate `x`, with `g = ∇f(x)`:
-
-~~~
-r(x) = min over v ∈ ∂‖x‖∞ of ‖g + λ v‖₁.
-~~~
-
-In exact arithmetic `r(x) = 0` when and only when `x` minimizes the objective (a convex problem). The ℓ1 norm is the dual norm
-of `‖·‖∞`, and `‖·‖₁ ≥ ‖·‖∞`, so it is the stricter of the two natural norms. The residual has a closed form that follows from the
-subdifferential of the ∞-norm.
-
-- **`x = 0`.** `∂‖0‖∞` is the unit ℓ1 ball, and `r = max(‖g‖₁ - λ, 0)`: the triangle inequality gives `‖g + λ v‖₁ ≥ ‖g‖₁ - λ`, and
-  `v = -g/max(‖g‖₁, λ)` attains the minimum when `max(‖g‖₁, λ) > 0` (then `g + λ v = g(1 - λ/max(‖g‖₁, λ))`; for `λ = 0` the result is
-  `‖g‖₁` for every `v`, and `v = 0` attains it when `g = 0` as well).
-- **`x ≠ 0`.** Let `m = maxᵢ|xᵢ|`, `M = {i : |xᵢ| = m}` and `sᵢ = sign xᵢ`. The subgradients `v` have `vᵢ = 0` off `M`, `vᵢ = sᵢwᵢ`
-  on `M`, `wᵢ ≥ 0` and `Σwᵢ = 1`. At `λ = 0` the residual is `‖g‖₁`. For `λ > 0`, the term `|sᵢgᵢ + λwᵢ|` has slope `+λ` in `wᵢ` if
-  `sᵢgᵢ ≥ 0`, and slope `-λ` until `wᵢ = -sᵢgᵢ/λ`, then `+λ`, if `sᵢgᵢ < 0`. With `N = Σ_{i∈M} max(sᵢgᵢ, 0)` and `P = Σ_{i∈M} max(-sᵢgᵢ, 0)` the unit of mass is spent first at slope `-λ` (capacity
-  `P/λ`) and then at slope `+λ`, so
-  ~~~
-  r = Σ_{i∉M} |gᵢ| + N + |λ - P|,
-  ~~~
-  which also holds at `λ = 0`. For `X = [1 1]`, `y = [2]`, `λ = 1`: `r = 0` at `(0.75, 0.75)`, `r = 1` at `(0.5, 0.5)` and `(0.75, 0.5)`; at `λ = 0`, `r = ‖g‖₁`. The
-  formula agrees with an exact (rational) enumeration of the minimization for `|M| ≤ 3`.
-
-The stop is kept when
+A penalty without a dedicated check (today `NormLinf`) uses one check that needs only the penalty's proximal
+operator, so a new proximable penalty needs no convergence code of its own. At the accepted `x`, with `t = 1/L`
+(the accepted curvature), the solver forms `p = prox_{t g}(x - t ∇f(x))` with the same ProximalBase
+`value_and_prox!` as the iterations, and the residual `r = ‖x - p‖∞ / t`, the ∞-norm of the proximal-gradient
+mapping. A proposed stop counts only if
 
 ~~~
-r < max(gradtol, 64 eps(T)) * max(λ, λcrit),     λcrit = α‖Xᵀy‖₁ = ‖∇f(0)‖₁,
+r < max(gradtol, 64 eps(T)) * S,     S = max(‖∇f(0)‖∞, ‖∇f(x)‖∞),
 ~~~
 
-formed in `T`, as for the lasso check; it is not kept when `max(λ, λcrit)` is not finite, when the product on the right is below
-`floatmin(T)`, or when `r` is not finite.
+with the threshold formed in `T`. It is refused when `t` is not finite and positive, when `S` or `r` is not finite,
+when the threshold is below `floatmin(T)` (so a solve with `S = 0`, as for `y = 0` or `X = 0`, does not report
+convergence), when the threshold does not exceed `ρ = L eps(T) ‖x‖∞` (the rounding resolution of the gradient test),
+or when `t` times the threshold is below `floatmin(T)/eps(T)` (a step that subnormal rounding can lose at `x = 0`).
+Each proposed stop costs one proximal evaluation, counted in `prox_calls`, and for APG one gradient at `x`, counted
+in `grad_calls`, before the call limits are compared.
 
-- **Why `λcrit`.** In exact arithmetic, 0 is a minimizer exactly when `‖∇f(0)‖₁ ≤ λ` (the case `x = 0` above), so `λcrit` is the smallest
-  level for which 0 is a minimizer; it is not the lasso's `‖∇f(0)‖∞`. In exact arithmetic, the change `(f, λ) → (c f, c λ)` for a
-  constant `c > 0` scales `g`, `λ`, `r` and the threshold by `c`, so the comparison does not change (within the range of `T`).
-- **No tolerance for the active set.** `M` is found by exact equality of the magnitudes of the stored values. The accepted iterate of PGD
-  and of APG is the output of ProximalBase's `value_and_prox!`, which for a positive clip level stores each clipped entry as `±τ` with the
-  same `τ`, so the entries that the clip ties at the maximum have equal magnitudes (their signed values differ when their signs do). Exact
-  equality of the magnitudes makes the subdifferential, and so `r` in exact arithmetic, those of the stored point. An iterate whose entries
-  near the maximum have unequal magnitudes has the smaller ones off `M`, so their `|gᵢ|` count in `r`. That can make the check refuse, when
-  their gradient contribution is too large: for `X = [1 1]`, `y = [2]`, `λ = 1` and `x = (0.75, 0.75(1 - 10⁻⁸))`, `r = 1`. It does not
-  always: for `X = I₂`, `y = (1.75, 0.75 - δ)`, `λ = 1` and `x = (0.75, 0.75 - δ)`, `M = {1}`, the gradient is `(-1, 0)` and `r = 0`. A
-  relative tolerance on `M` would be a new stopping rule and is not used.
-- **Summation.** `r` is a difference of sums: `λ` is cancelled against `P` (or against `‖g‖₁` at `x = 0`), so a plain sequential sum can lose
-  small terms before the subtraction (in `Float32` a sum at 1 does not change when `2⁻²⁴` is added, however many times). Each sum is
-  therefore a Neumaier-compensated sum, with `λ` folded into it: `D = λ - Σ_{i∈M} max(-sᵢgᵢ, 0)` at `x ≠ 0` and
-  `D₀ = -λ + Σ|gᵢ|` at `x = 0`. The terms `Σ_{i∉M}|gᵢ|` and `N`, which enter `r` with the same sign, share one compensated sum. The sums
-  are formed in `Float64`, for `Float32` and for `Float64` data (each term is converted, exactly for `Float32`, and then accumulated),
-  because the correction of a compensated sum is itself a sum in the accumulation type: in `Float32` it stagnates at about `2²⁴` entries,
-  where a correction stops changing under terms of `2⁻²⁴` times its size.
-- **The error bound and the regime.** For a Neumaier-compensated sum of `k` terms `xᵢ` in IEEE binary arithmetic with round-to-nearest and gradual
-  underflow (no fused or reordered operations), with `k u < 1` and no overflow in an intermediate result,
-  with `u = 2⁻⁵³` the unit roundoff of `Float64`, whose result includes the final addition of the sum and its correction, the error is at most
-  `u|S| + γ_{k-1}² Σ|xᵢ|`, with `S` the exact sum and `γ_k = k u/(1 - k u)` (Ogita, Rump and Oishi, 2005, Proposition 4.5). The second term
-  is quadratic in `k`, not of order `k u²`. Write `B = γ_p²`, `R` for the exact residual of the supplied gradient at the level `λ_T = T(λ)`, the level
-  converted once to `T` with which the check computes, `S_T = max(λ_T, λcrit)` and `r` for the computed residual.
-  `D` has `p + 1` terms with `Σ|xᵢ| = λ_T + P ≤ 2 S_T + |D|` (at `x = 0`, `λ_T + ‖g‖₁` with `‖g‖₁ ≤ λ_T + R`), so the sums give
-  `r ≥ (1 - 2u - B) R - 2 B S_T` in both branches: the compensated sums contribute `u + B` relative errors and the
-  `2 B S_T` term, and the final addition of `off + N` and `|D|` one more relative `u`. This needs no assumption on the size of `R`.
-  If a stop is kept, `r < H` with `H` the computed threshold, and `H ≥ 64 eps(T) S_T`: when that product is normal it is a power-of-two scaling, exact in `T`, and
-  rounding is monotonic; when it is subnormal or underflows, the guard gives `H ≥ floatmin(T)`, which is above it. `B` is required
-  to be at most `2⁻¹²` of that floor, `γ_p² ≤ 2⁻⁶ eps(T)`, that is `γ_p ≤ 2⁻³ sqrt(eps(T))`: then `2 B S_T ≤ 2⁻¹¹ H`. For `Float64`,
-  `sqrt(eps) = 2⁻²⁶`, so `γ_p ≤ 2⁻²⁹`, that is `p ≤ 2²⁴/(1 + 2⁻²⁹)`, whose largest integer is `p = 2²⁴ - 1`. For `Float32`,
-  `sqrt(eps) = 2⁻¹¹·⁵` allows about `3.9·10¹¹` entries, and the cap `2³²` is used. A check on more entries of that type refuses (`r` is `NaN`,
-  before any pass).
-- **What a kept stop says.** Within that regime, a kept stop has `R < (H + 2 B S_T)/(1 - 2u - B) < (1 + 2⁻¹⁰) H`: the exact
-  residual of the supplied gradient at `λ_T` is below the computed threshold `H` (the product `max(gradtol, 64 eps(T)) S_T`
-  formed in `T`) times `1 + 2⁻¹⁰`, also when `R` is
-  larger than `S_T`. For an infinite threshold the statement is vacuous.
-- **The level as given.** The level `λ` of the penalty is accepted in types other than `T` (an `Int`, `Rational` or `BigFloat` level, or a
-  `Float64` level with `Float32` data), and `λ_T = T(λ)` can differ from it. Since every `v ∈ ∂‖x‖∞` has `‖v‖₁ ≤ 1`, the residual is
-  1-Lipschitz in the level, so `R(λ) ≤ R(λ_T) + |λ - λ_T|` for the same supplied gradient. When the conversion rounds to nearest (`Float16`,
-  `Float32`, `Float64` and `Int` levels, a `BigFloat` level under BigFloat's default rounding mode, and a `Rational` of a fixed-width
-  integer type whose numerator and denominator are exact in `T`), `|λ - λ_T| ≤ (eps(T)/2) λ_T ≤ (eps(T)/2) S_T ≤ 2⁻⁷ H` for a normal `λ_T`,
-  and at most half the smallest subnormal, also below `2⁻⁷ H`, otherwise; a kept stop then has `R(λ) < (1 + 2⁻¹⁰ + 2⁻⁷) H`. For another
-  `Rational` level only the first inequality holds, with its own conversion error.
-- **Not covered.** The computed gradient's own rounding error is not covered, as
-  for the lasso check, so the true residual at a kept stop can exceed the computed threshold by that error, beyond the factors above (a sweep of 1608 `Float32` solves
-  against a BigFloat reference found at most 1.002 times the bound, a value measured on that sweep, not a bound). An infinite or NaN gradient
-  entry, or an overflowing sum, makes `r` non-finite and the check refuses. The check is not a certificate in exact arithmetic and does not bound the
-  distance to a minimizer. Because it does not form a step, it does not depend on the accepted curvature `L`, and a small `L` does not weaken it.
-- **Float32 and many tied entries.** The check has no rounding allowance whose size grows with the number of entries, so a `Float32`
-  solve with many entries tied at the maximum is judged by the same rule as any other.
-- **Counting.** For APG the check forms one gradient at `x` from the cached image `A x` (PGD uses the accepted gradient) and counts it
-  in `grad_calls` when it runs, before the call limits are compared: a stop that passes can come with a gradient-limit flag, and a
-  stop that the check refuses can reach `grad_calls_limit`. The check adds no proximal evaluation.
-- **Cost and buffers.** The residual reads `x` and the gradient in at most two passes and writes neither. The check caches `λcrit` in the state,
-  overwrites the buffer `xhat` (which the iterations write before they read) and, for APG, writes the scratch of its accepted-point
-  gradient and counts one gradient; it leaves `x`, `delta_x` and the engines' gradients as they were. Warm (compiled) on validated inputs, it allocates nothing for a `Float32`,
-  `Float64`, `Int`, `Float16` or `Rational{Int}` level (the conversion of a `BigFloat` or `Rational{BigInt}` level to `T` can allocate).
-  The iterations call ProximalBase's `value_and_prox!` for `NormLinf`, whose threshold selection takes O(p) expected time; the first
-  ℓ∞ solve may compile that code. In its ordinary radius path it forms the radius `tλ` as a product in
-  `promote_type(T, float(typeof(step)), float(typeof(level)))` and converts it to `T`; with a positive `BigFloat` or `Rational{BigInt}` level that
-  product can allocate in the iterations, as it does for `NormL1` and `ElasticNet` with such levels.
-
-As a worked case, take `X = [1 1]`, `y = [2]`, `λ = 1` (`λcrit = 4`, minimizer `(0.75, 0.75)`). At `x = (0.75, 0.75)` the gradient is
-`(-0.5, -0.5)`, `M = {1, 2}`, `N = 0`, `P = 1` and `r = 0 + 0 + |1 - 1| = 0`. At `x = (0.5, 0.5)` it is `(-1, -1)`, `N = 0`, `P = 2` and
-`r = |1 - 2| = 1`, far above the threshold `1e-5 * 4`, so a stop proposed there is refused.
+A small accepted `L` makes `t` large and `r` a weaker measure of stationarity than with the true curvature; a
+penalty with curvature of its own far above `L` is the extreme case. `converged = true` is a working-precision
+indication, not a certificate, and it does not bound the distance to a minimizer.
 
 ### PGD stops when the computed objective increases
 
