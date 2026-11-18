@@ -1,0 +1,75 @@
+  Activating project at `<cluster-dir>/env-j113`
+  Installing known registries into `<cluster-dir>/depot-j113`
+       Added `General` registry to <cluster-dir>/depot-j113/registries
+     Cloning git-repo `https://github.com/mlakolar/ProximalBase.jl`
+    Updating git-repo `https://github.com/mlakolar/ProximalBase.jl`
+   Resolving package versions...
+   Installed Statistics ────── v1.11.5
+   Installed Preferences ───── v1.6.1
+   Installed PrecompileTools ─ v1.4.0
+    Updating `<cluster-dir>/env-j113/Project.toml`
+  [0a755509] + ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [10745b16] + Statistics v1.11.5
+  [37e2e46d] ~ LinearAlgebra ⇒ v1.13.0
+  [de0858da] ~ Printf ⇒ v1.11.0
+  [9abbd945] ~ Profile ⇒ v1.11.0
+  [9a3f8284] ~ Random ⇒ v1.11.0
+  [ea8e919c] ~ SHA ⇒ v1.0.0
+  [2f01184e] ~ SparseArrays ⇒ v1.13.0
+  [fa267f1f] ~ TOML ⇒ v1.0.3
+    Updating `<cluster-dir>/env-j113/Manifest.toml`
+  [aea7be01] + PrecompileTools v1.4.0
+  [21216c6a] + Preferences v1.6.1
+  [0a755509] + ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [10745b16] + Statistics v1.11.5
+  [56f22d72] + Artifacts v1.11.0
+  [ade2ca70] + Dates v1.11.0
+  [8f399da3] + Libdl v1.11.0
+  [37e2e46d] ~ LinearAlgebra ⇒ v1.13.0
+  [de0858da] ~ Printf ⇒ v1.11.0
+  [9abbd945] ~ Profile ⇒ v1.11.0
+  [9a3f8284] ~ Random ⇒ v1.11.0
+  [ea8e919c] ~ SHA ⇒ v1.0.0
+  [9e88b42a] + Serialization v1.11.0
+  [2f01184e] ~ SparseArrays ⇒ v1.13.0
+  [f489334b] + StyledStrings v1.11.0
+  [fa267f1f] ~ TOML ⇒ v1.0.3
+  [4ec0a83e] + Unicode v1.11.0
+  [e66e0078] + CompilerSupportLibraries_jll v1.5.5+2
+  [4536629a] + OpenBLAS_jll v0.3.30+0
+  [bea87d4a] + SuiteSparse_jll v7.10.1+0
+  [8e850b90] + libblastrampoline_jll v5.15.0+0
+Precompiling packages...
+   0.3 s  ✓ Unicode
+   0.4 s  ✓ CompilerSupportLibraries_jll
+   0.5 s  ✓ Serialization
+   0.4 s  ✓ SuiteSparse_jll
+   0.7 s  ✓ Preferences
+   0.5 s  ✓ PrecompileTools
+   4.4 s  ✓ SparseArrays
+  10.1 s  ✓ ProximalBase
+  8 dependencies successfully precompiled in 15 seconds. 3 already precompiled.
+   Resolving package versions...
+    Updating `<cluster-dir>/env-j113/Project.toml`
+  [fc4971f5] + ProximalSolvers v0.3.2 `<cluster-dir>/ps`
+    Updating `<cluster-dir>/env-j113/Manifest.toml`
+  [fc4971f5] + ProximalSolvers v0.3.2 `<cluster-dir>/ps`
+      Compat entry set:
+  ProximalBase = "0.6"
+     Resolve checking for compliance with the new compat rules...
+     Project No packages added to or removed from `<cluster-dir>/env-j113/Project.toml`
+    Manifest No packages added to or removed from `<cluster-dir>/env-j113/Manifest.toml`
+┌ Warning: The project dependencies or compat requirements have changed since the manifest was last resolved.
+│ It is recommended to `Pkg.resolve()` or consider `Pkg.update()` if necessary.
+└ @ Pkg.API <julia-root>/julia-1.13.3/share/julia/stdlib/v1.13/Pkg/src/API.jl:1312
+Precompiling packages...
+   0.4 s  ✓ Statistics
+   0.6 s  ✓ Statistics → SparseArraysExt
+   3.3 s  ✓ Profile
+   6.2 s  ✓ ProximalSolvers
+  4 dependencies successfully precompiled in 6 seconds. 12 already precompiled.
+ProximalSolvers path: <cluster-dir>/ps
+ProximalBase version: 0.6.0-DEV
+ProximalBase source: https://github.com/mlakolar/ProximalBase.jl#a19c59aa723d085d5d7cf5242895bda16eb77214
+ProximalBase git-tree-sha1: 138929aa27c6221284ee1763e66b1110dd6ec418
+ProximalBase path: <cluster-dir>/depot-j113/packages/ProximalBase/2welE

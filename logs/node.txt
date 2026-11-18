@@ -1,0 +1,29 @@
+<node>
+2026-11-18T09:47:03-08:00
+CPU(s):              20
+Thread(s) per core:  1
+Socket(s):           2
+Model name:          Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz
+CPU MHz:             3400.000
+CPU max MHz:         3400.0000
+CPU min MHz:         1200.0000
+JOB_ID=14344751
+PS HEAD a0a064778acb34d0535408a31ab2f09ae657e4aa dirty=0
+julia version 1.10.13
+julia version 1.13.3
+Python 3.11.9
+== start
+<node>
+2026-11-18T09:47:11-08:00
+0.15 0.03 0.01 1/419 2342885
+14344751 <user> baseline110-1118 20
+== after-setup
+<node>
+2026-11-18T09:52:10-08:00
+2.09 0.97 0.40 1/432 2344114
+14344751 <user> baseline110-1118 20
+== end
+<node>
+2026-11-18T10:02:51-08:00
+1.00 1.00 0.73 1/431 2344520
+14344751 <user> baseline110-1118 20

@@ -1,0 +1,1 @@
+job 14344751: COMPLETED, elapsed 00:15:52, exit 0:0, start 2026-11-18T09:47:06, end 2026-11-18T10:02:58 (scheduler accounting, one attempt)
