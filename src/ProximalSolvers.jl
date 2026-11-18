@@ -8,7 +8,9 @@ unweighted `ElasticNet`) with dense Matrix designs, for
 an unweighted `NormL1`, and reports `converged = true` for it only with a duality certificate.
 [`CDSolver`](@ref) accepts a dense
 `Vector` or a one-dimensional `SparseIterate` as the iterate, and, for a group lasso with
-a `GroupNormL2` penalty, a `BlockIterate`. [`ProximalGradientDescent`](@ref) and
+a `GroupNormL2` penalty, a `BlockIterate`. For a matrix response `Y` and a `GroupNormL2` whose
+groups are the rows of the coefficients, it accepts a `Matrix` coefficient (or a `BlockIterate`
+over its entries) with a dense `X`, `Y` and `LeastSquaresLoss`. [`ProximalGradientDescent`](@ref) and
 [`AccProxGradDescent`](@ref) accept a dense `Vector` only, all through [`solve!`](@ref).
 Also minimized, with an unweighted `NormL1(λ)`, is the centered squared norm
 `SqrNormL2(α, s)` of a `Vector{T}` centre `s`, `(α/2) ‖b - s‖² + λ ‖b‖₁`, by all three methods
@@ -40,6 +42,7 @@ include("solvers/proximal_gradient_descent.jl")
 include("solvers/accelerated_proximal_gradient_descent.jl")
 include("cd/models.jl")
 include("cd/solver.jl")
+include("cd/multiresponse.jl")
 include("cd/leastsquares.jl")
 include("cd/squarednorm.jl")
 include("cd/sqrtlasso.jl")

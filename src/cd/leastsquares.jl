@@ -12,6 +12,10 @@ mutable struct LSModel{T<:AbstractFloat, S<:AbstractFloat, MX<:AbstractMatrix{T}
   r::Vector{T}
   a::Vector{T}
 end
+# `_curvature_scale`, `response_scale`, `_response_scale_exceptional` and `_check_step_band` read the scale `s`
+# and, for the response scales, `y` (a vector for `LSModel`, the matrix of `MLSModel` in src/cd/multiresponse.jl);
+# they take either model.
+const _LSLike{T} = Union{LSModel{T}, MLSModel{T}}
 function _scale_type(::Type{T}, α) where T
   S = promote_type(T, typeof(α))
   isconcretetype(S) && S <: AbstractFloat ? S : T
@@ -198,7 +202,7 @@ _cache(m::LSModel) = m.r
 coordinate_scale(m::LSModel, x, k::Int) = _curvature_scale(m, _sqnorm!(m, k))
 # The scale for the curvature a, which `coordinate_scale` takes from the column cache and the block model
 # from the group curvature.
-@inline function _curvature_scale(m::LSModel{T}, a::T) where T
+@inline function _curvature_scale(m::_LSLike{T}, a::T) where T
   p = m.s*a
   q = T(p)
   floatmin(T) <= q <= floatmax(T) && return sqrt(q)
@@ -206,7 +210,7 @@ coordinate_scale(m::LSModel, x, k::Int) = _curvature_scale(m, _sqnorm!(m, k))
   (p < floatmin(S) || isinf(p) && isfinite(a)) && return T(sqrt(m.s)*sqrt(S(a)))
   T(sqrt(p))
 end
-function response_scale(m::LSModel{T}, x) where T
+function response_scale(m::_LSLike{T}, x) where T
   s = zero(T)
   @inbounds for i in eachindex(m.y)
     s += m.y[i]*m.y[i]
@@ -229,7 +233,7 @@ end
 # of `T`; the result is rounded once to `T`. It is 0 for y = 0 and for m.s = 0, which `_tolerances`
 # turns into the absolute fallback, and a result that is not a normal number of `T` is refused.
 # The sum of squares in `_se_norm` is `@simd`, so the value can differ in the last bits between CPUs.
-function _response_scale_exceptional(m::LSModel{T}) where T
+function _response_scale_exceptional(m::_LSLike{T}) where T
   iszero(m.s) && return zero(T)
   W = T === Float32 ? Float64 : T
   ny = _se_norm(W, m.y)
@@ -447,7 +451,7 @@ function _gram2_curvature(m::BlockLSModel{T}, idx, k::Int) where T
 end
 # The step band of group k: p = s ℓ in S and its reciprocal at least floatmin(S), the test of
 # `_scaled_prox`.
-@inline function _check_step_band(ls::LSModel, ℓ, k::Int)
+@inline function _check_step_band(ls::_LSLike, ℓ, k::Int)
   p = ls.s*ℓ
   (floatmin(typeof(p)) <= p) & (floatmin(typeof(p)) <= inv(p)) || _refuse_group_step(typeof(p), k)
   nothing
