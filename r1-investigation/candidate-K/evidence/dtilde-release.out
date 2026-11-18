@@ -1,0 +1,3 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353-r1/.codex-orchestrator/depot-probe-release-release:<DEPOT>: julia +release --startup-file=no --project=. .codex-orchestrator/probes/dtilde.jl
+# julia 1.13.4
+cases=15360 | worst excess/bound base=8.6113866182793e-5 cand=8.6113866182793e-5 | differ=0 (zero flips 0)

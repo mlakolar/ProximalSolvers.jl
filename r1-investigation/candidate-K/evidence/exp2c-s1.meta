@@ -1,0 +1,6 @@
+sha=104883497825c6afd638b63d7b042f7ae27b0c5d
+dirty=no
+mode=julia where=local versions=release
+started=2026-11-18T05:50:14Z
+args=--project=. .codex-orchestrator/probes/exp2c.jl 15000 1
+exit release rc=0 ok=yes pass=- total=- seconds=33 tag=probe-release

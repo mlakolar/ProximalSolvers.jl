@@ -1,0 +1,126 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353-2/.codex-orchestrator/depot-impl-lts-lts:<DEPOT>: julia +lts --startup-file=no --project=. scripts/test.jl --tier=full --jobs=3
+Precompiling packages...
+   3207.1 ms  ✓ ProximalSolvers
+  1 dependency successfully precompiled in 4 seconds. 17 already precompiled.
+  Activating project at `<WORK>/ProximalSolvers.jl-issue353-2`
+┌ Warning: The project dependencies or compat requirements have changed since the manifest was last resolved.
+│ It is recommended to `Pkg.resolve()` or consider `Pkg.update()` if necessary.
+└ @ Pkg.API <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Pkg/src/API.jl:1142
+     Testing ProximalSolvers
+      Status `<TMP>/Project.toml`
+  [4c88cf16] Aqua v0.8.19
+  [d3525ed8] ParallelTestRunner v2.10.0
+⌅ [aea7be01] PrecompileTools v1.2.1
+  [0a755509] ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [fc4971f5] ProximalSolvers v0.3.2 `<WORK>/ProximalSolvers.jl-issue353-2`
+  [37e2e46d] LinearAlgebra
+  [56ddb016] Logging
+  [de0858da] Printf
+  [9a3f8284] Random
+  [2f01184e] SparseArrays v1.10.0
+  [fa267f1f] TOML v1.0.3
+  [8dfed614] Test
+      Status `<TMP>/Manifest.toml`
+  [4c88cf16] Aqua v0.8.19
+  [34da2185] Compat v4.18.1
+  [b5f81e59] IOCapture v1.0.0
+  [36869731] Malt v1.5.0
+  [d3525ed8] ParallelTestRunner v2.10.0
+⌅ [aea7be01] PrecompileTools v1.2.1
+  [21216c6a] Preferences v1.6.1
+  [0a755509] ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [fc4971f5] ProximalSolvers v0.3.2 `<WORK>/ProximalSolvers.jl-issue353-2`
+  [05181044] RelocatableFolders v1.0.1
+  [6c6a2e73] Scratch v1.3.0
+  [f489334b] StyledStrings v1.0.3
+  [0dad84c5] ArgTools v1.1.1
+  [56f22d72] Artifacts
+  [2a0f44e3] Base64
+  [ade2ca70] Dates
+  [8ba89e20] Distributed
+  [f43a241f] Downloads v1.6.0
+  [7b1f6079] FileWatching
+  [b77e0a4c] InteractiveUtils
+  [b27032c2] LibCURL v0.6.4
+  [76f85450] LibGit2
+  [8f399da3] Libdl
+  [37e2e46d] LinearAlgebra
+  [56ddb016] Logging
+  [d6f4376e] Markdown
+  [ca575930] NetworkOptions v1.2.0
+  [44cfe95a] Pkg v1.10.0
+  [de0858da] Printf
+  [3fa0cd96] REPL
+  [9a3f8284] Random
+  [ea8e919c] SHA v0.7.0
+  [9e88b42a] Serialization
+  [6462fe0b] Sockets
+  [2f01184e] SparseArrays v1.10.0
+  [10745b16] Statistics v1.10.0
+  [fa267f1f] TOML v1.0.3
+  [a4e569a6] Tar v1.10.0
+  [8dfed614] Test
+  [cf7118a7] UUIDs
+  [4ec0a83e] Unicode
+  [e66e0078] CompilerSupportLibraries_jll v1.1.2+1
+  [deac9b47] LibCURL_jll v8.7.1+0
+  [e37daf67] LibGit2_jll v1.7.2+0
+  [29816b5a] LibSSH2_jll v1.11.0+1
+  [c8ffd9c3] MbedTLS_jll v2.28.1010+0
+  [14a3606d] MozillaCACerts_jll v2026.10.20
+  [4536629a] OpenBLAS_jll v0.3.23+5
+  [bea87d4a] SuiteSparse_jll v7.2.1+1
+  [83775a58] Zlib_jll v1.3.2+0
+  [8e850b90] libblastrampoline_jll v5.11.0+0
+  [8e850ede] nghttp2_jll v1.70.0+0
+  [3f19e933] p7zip_jll v17.8.3+0
+        Info Packages marked with ⌅ have new versions available but compatibility constraints restrict them from upgrading.
+     Testing Running tests...
+ProximalSolvers tests: tier full: 20 files; Julia 1.10.13 on x86_64-linux-gnu (13th Gen Intel(R) Core(TM) i5-13600K, 20 threads), check-bounds yes
+  accelerated_pgd aqua benchmark_explore benchmark_formal cd_elasticnet cd_numerics ci_gate core_contracts core_regressions elasticnet examples group_cd group_cd_preflight minimal_core_characterization naming paired_master sparse_cd sqrt_lasso stopping_scale tier_selection
+Running 20 tests using 3 parallel jobs. To change the number of jobs, specify the `--jobs=N` argument to the tests, or set the `PTR_NUM_JOBS` environment variable.
+                                    │   Test   │ ──────────────── CPU ──────────────── │
+Test                       (Worker) │ time (s) │ GC (s) │ GC % │ Alloc (MB) │ RSS (MB) │
+naming                          (2) │     0.18 │   0.00 │  0.0 │      14.62 │   440.55 │
+ci_gate                         (2) │     1.67 │   0.04 │  2.3 │     230.69 │   440.55 │
+tier_selection                  (2) │     4.43 │   0.08 │  1.7 │     438.05 │   440.55 │
+minimal_core_characterization   (1) │    10.82 │   0.58 │  5.4 │    1552.76 │   453.17 │
+elasticnet                      (3) │    14.11 │   0.41 │  2.9 │    1357.62 │   492.53 │
+examples                        (2) │    12.66 │   0.62 │  4.9 │    1643.30 │   505.15 │
+paired_master                   (2) │     3.44 │   0.00 │  0.0 │       0.82 │   505.15 │
+group_cd_preflight              (3) │    10.74 │   0.36 │  3.3 │    1259.93 │   536.80 │
+benchmark_formal                (1) │    20.17 │   0.76 │  3.8 │    2129.54 │   560.73 │
+aqua                            (3) │     6.10 │   0.06 │  0.9 │     313.26 │   537.53 │
+benchmark_explore               (1) │     2.19 │   0.12 │  5.5 │     541.15 │   560.73 │
+sparse_cd                       (1) │     6.57 │   0.11 │  1.6 │     738.78 │   563.75 │
+group_cd                        (3) │    20.39 │   0.51 │  2.5 │    2029.53 │   606.79 │
+cd_elasticnet                   (2) │    28.64 │   0.61 │  2.1 │    3441.49 │   566.27 │
+core_regressions                (1) │    17.85 │   0.28 │  1.6 │    3103.94 │   610.59 │
+core_contracts                  (2) │    11.39 │   0.13 │  1.2 │     801.55 │   590.64 │
+sqrt_lasso                      (1) │    14.81 │   0.38 │  2.6 │    2834.72 │   654.75 │
+cd_numerics                     (3) │    24.70 │   0.77 │  3.1 │    3531.98 │   700.76 │
+accelerated_pgd                 (2) │    13.44 │   0.44 │  3.3 │    3790.93 │   642.18 │
+stopping_scale                  (1) │     5.35 │   0.10 │  1.9 │     644.65 │   668.96 │
+
+Output generated during execution of 'examples':
+┌ ┌ Warning: coordinate descent stopped without a duality certificate after 1 passes (last change 0.0, tolerance 1.0e-9): the point is not certified to be within a relative 1e-4 of the minimum (for example at an exact fit y = X*beta with a positive penalty, where a coordinatewise minimum need not be a minimum).
+│ └ @ ProximalSolvers <WORK>/ProximalSolvers.jl-issue353-2/src/cd/solver.jl:496
+│ ┌ Warning: coordinate descent stopped without a duality certificate after 3 passes (last change 0.0, tolerance 1.0e-7): the point is not certified to be within a relative 1e-4 of the minimum (for example at an exact fit y = X*beta with a positive penalty, where a coordinatewise minimum need not be a minimum).
+└ └ @ ProximalSolvers <WORK>/ProximalSolvers.jl-issue353-2/src/cd/solver.jl:496
+
+Output generated during execution of 'paired_master':
+┌ Test Summary:                                         | Pass  Total  Time
+│ paired controls: exact source and fail-closed records |   21     21  1.7s
+│ Test Summary:                                               | Pass  Total  Time
+│ paired controls: quality comparison of optimization records |   86     86  0.6s
+│ Test Summary:                                       | Pass  Total  Time
+│ paired controls: stopping flags of the current tree |   26     26  0.4s
+│ Test Summary:                                               | Pass  Total  Time
+│ paired controls: exact contracts and the result API surface |   18     18  0.1s
+│ Test Summary:                               | Pass  Total  Time
+└ paired controls: always-run gated Linux job |  130    130  0.2s
+
+Test Summary: |  Pass  Total     Time
+  Overall     | 68270  68270  1m23.0s
+    SUCCESS
+     Testing ProximalSolvers tests passed 

@@ -1,0 +1,68 @@
+# julia 1.10.13 N=1200 seed=1. columns: family type tree | count | worst ratio | #ratio>1 | throws | nonfinite
+ordinary       Float32  base  |  1200 | 1.713e-02 |   0 |    0 |   0
+ordinary       Float32  cand  |  1200 | 1.713e-02 |   0 |    0 |   0
+ordinary       Float32  x1d   |  1200 | 1.713e-02 |   0 |    0 |   0
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): cand=Pair{Symbol, Int64}[] x1d=Pair{Symbol, Int64}[]; gained (BASE throws, proto ok): cand=Dict{Symbol, Int64}() x1d=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] cand=[0, 0] x1d=[0, 0]
+ordinary       Float64  base  |  1200 | 2.149e-02 |   0 |    0 |   0
+ordinary       Float64  cand  |  1200 | 2.149e-02 |   0 |    0 |   0
+ordinary       Float64  x1d   |  1200 | 2.149e-02 |   0 |    0 |   0
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): cand=Pair{Symbol, Int64}[] x1d=Pair{Symbol, Int64}[]; gained (BASE throws, proto ok): cand=Dict{Symbol, Int64}() x1d=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] cand=[0, 0] x1d=[0, 0]
+wide_mod       Float32  base  |  1200 | 2.193e-02 |   0 |    5 |   0
+wide_mod       Float32  cand  |  1200 | 2.193e-02 |   0 |    5 |   0
+wide_mod       Float32  x1d   |  1200 | 2.193e-02 |   0 |    5 |   0
+    base: ArgumentError: the coordinate curvature underflows; rescale  x5
+    cand: ArgumentError: the coordinate curvature underflows; rescale  x5
+    x1d: ArgumentError: the coordinate curvature underflows; rescale  x5
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): cand=Pair{Symbol, Int64}[] x1d=Pair{Symbol, Int64}[]; gained (BASE throws, proto ok): cand=Dict{Symbol, Int64}() x1d=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] cand=[0, 0] x1d=[0, 0]
+wide_mod       Float64  base  |  1200 | 2.059e-02 |   0 |    0 |   0
+wide_mod       Float64  cand  |  1200 | 2.059e-02 |   0 |    0 |   0
+wide_mod       Float64  x1d   |  1200 | 2.059e-02 |   0 |   62 |   0
+    x1d: ArgumentError: the coordinate step of coordinate 1 is outsid x62
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): cand=Pair{Symbol, Int64}[] x1d=[:unclean => 62]; gained (BASE throws, proto ok): cand=Dict{Symbol, Int64}() x1d=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] cand=[0, 0] x1d=[0, 0]
+wide_full      Float32  base  |  1200 | 6.376e-02 |   0 |  626 |  29
+wide_full      Float32  cand  |  1200 | 6.376e-02 |   0 |  626 |  29
+wide_full      Float32  x1d   |  1200 | 6.376e-02 |   0 |  626 |  10
+    base: ArgumentError: the coordinate curvature underflows; rescale  x330
+    base: ArgumentError: the curvature of coordinate 1 (the squared no x296
+    cand: ArgumentError: the coordinate curvature underflows; rescale  x330
+    cand: ArgumentError: the curvature of coordinate 1 (the squared no x296
+    x1d: ArgumentError: the coordinate curvature underflows; rescale  x330
+    x1d: ArgumentError: the curvature of coordinate 1 (the squared no x296
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): cand=Pair{Symbol, Int64}[] x1d=Pair{Symbol, Int64}[]; gained (BASE throws, proto ok): cand=Dict{Symbol, Int64}() x1d=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[19, 10] cand=[19, 10] x1d=[0, 10]
+wide_full      Float64  base  |  1200 | 1.694e-02 |   0 |  580 |  42
+wide_full      Float64  cand  |  1200 | 1.694e-02 |   0 |  580 |  42
+wide_full      Float64  x1d   |  1200 | 1.694e-02 |   0 |  921 |   0
+    base: ArgumentError: the coordinate curvature underflows; rescale  x314
+    base: ArgumentError: the curvature of coordinate 1 (the squared no x266
+    cand: ArgumentError: the coordinate curvature underflows; rescale  x314
+    cand: ArgumentError: the curvature of coordinate 1 (the squared no x266
+    x1d: ArgumentError: the coordinate curvature underflows; rescale  x314
+    x1d: ArgumentError: the coordinate step of coordinate 1 is outsid x341
+    x1d: ArgumentError: the curvature of coordinate 1 (the squared no x266
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): cand=Pair{Symbol, Int64}[] x1d=[:unclean => 341]; gained (BASE throws, proto ok): cand=Dict{Symbol, Int64}() x1d=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[26, 16] cand=[26, 16] x1d=[0, 0]
+near_parallel  Float32  base  |  1200 | 1.368e-02 |   0 |    0 |   0
+near_parallel  Float32  cand  |  1200 | 1.368e-02 |   0 |    0 |   0
+near_parallel  Float32  x1d   |  1200 | 1.368e-02 |   0 |    0 |   0
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): cand=Pair{Symbol, Int64}[] x1d=Pair{Symbol, Int64}[]; gained (BASE throws, proto ok): cand=Dict{Symbol, Int64}() x1d=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] cand=[0, 0] x1d=[0, 0]
+near_parallel  Float64  base  |  1200 | 9.780e-03 |   0 |    0 |   0
+near_parallel  Float64  cand  |  1200 | 9.780e-03 |   0 |    0 |   0
+near_parallel  Float64  x1d   |  1200 | 1.315e-02 |   0 |    0 |   0
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): cand=Pair{Symbol, Int64}[] x1d=Pair{Symbol, Int64}[]; gained (BASE throws, proto ok): cand=Dict{Symbol, Int64}() x1d=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] cand=[0, 0] x1d=[0, 0]
+tiny_d         Float32  base  |  1200 | 1.644e-02 |   0 |    0 |   0
+tiny_d         Float32  cand  |  1200 | 1.644e-02 |   0 |    0 |   0
+tiny_d         Float32  x1d   |  1200 | 1.644e-02 |   0 |    0 |   0
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): cand=Pair{Symbol, Int64}[] x1d=Pair{Symbol, Int64}[]; gained (BASE throws, proto ok): cand=Dict{Symbol, Int64}() x1d=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] cand=[0, 0] x1d=[0, 0]
+tiny_d         Float64  base  |  1200 | 1.500e-02 |   0 |    0 |   0
+tiny_d         Float64  cand  |  1200 | 1.500e-02 |   0 |    0 |   0
+tiny_d         Float64  x1d   |  1200 | 1.500e-02 |   0 |    0 |   0
+    lost (BASE ok, proto throws) by cause of the computed (a, ρ²): cand=Pair{Symbol, Int64}[] x1d=Pair{Symbol, Int64}[]; gained (BASE throws, proto ok): cand=Dict{Symbol, Int64}() x1d=Dict{Symbol, Int64}()
+    nonfinite results [z* representable, z* not]: base=[0, 0] cand=[0, 0] x1d=[0, 0]

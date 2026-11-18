@@ -1,0 +1,117 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353/.codex-orchestrator/depot-impl-lts-lts:<DEPOT>: julia +lts --startup-file=no --project=. scripts/test.jl --tier=full --jobs=3
+  Activating project at `<WORK>/ProximalSolvers.jl-issue353`
+┌ Warning: The project dependencies or compat requirements have changed since the manifest was last resolved.
+│ It is recommended to `Pkg.resolve()` or consider `Pkg.update()` if necessary.
+└ @ Pkg.API <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Pkg/src/API.jl:1142
+     Testing ProximalSolvers
+      Status `<TMP>/Project.toml`
+  [4c88cf16] Aqua v0.8.19
+  [d3525ed8] ParallelTestRunner v2.10.0
+⌅ [aea7be01] PrecompileTools v1.2.1
+  [0a755509] ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [fc4971f5] ProximalSolvers v0.3.2 `<WORK>/ProximalSolvers.jl-issue353`
+  [37e2e46d] LinearAlgebra
+  [56ddb016] Logging
+  [de0858da] Printf
+  [9a3f8284] Random
+  [2f01184e] SparseArrays v1.10.0
+  [fa267f1f] TOML v1.0.3
+  [8dfed614] Test
+      Status `<TMP>/Manifest.toml`
+  [4c88cf16] Aqua v0.8.19
+  [34da2185] Compat v4.18.1
+  [b5f81e59] IOCapture v1.0.0
+  [36869731] Malt v1.5.0
+  [d3525ed8] ParallelTestRunner v2.10.0
+⌅ [aea7be01] PrecompileTools v1.2.1
+  [21216c6a] Preferences v1.6.1
+  [0a755509] ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [fc4971f5] ProximalSolvers v0.3.2 `<WORK>/ProximalSolvers.jl-issue353`
+  [05181044] RelocatableFolders v1.0.1
+  [6c6a2e73] Scratch v1.3.0
+  [f489334b] StyledStrings v1.0.3
+  [0dad84c5] ArgTools v1.1.1
+  [56f22d72] Artifacts
+  [2a0f44e3] Base64
+  [ade2ca70] Dates
+  [8ba89e20] Distributed
+  [f43a241f] Downloads v1.6.0
+  [7b1f6079] FileWatching
+  [b77e0a4c] InteractiveUtils
+  [b27032c2] LibCURL v0.6.4
+  [76f85450] LibGit2
+  [8f399da3] Libdl
+  [37e2e46d] LinearAlgebra
+  [56ddb016] Logging
+  [d6f4376e] Markdown
+  [ca575930] NetworkOptions v1.2.0
+  [44cfe95a] Pkg v1.10.0
+  [de0858da] Printf
+  [3fa0cd96] REPL
+  [9a3f8284] Random
+  [ea8e919c] SHA v0.7.0
+  [9e88b42a] Serialization
+  [6462fe0b] Sockets
+  [2f01184e] SparseArrays v1.10.0
+  [10745b16] Statistics v1.10.0
+  [fa267f1f] TOML v1.0.3
+  [a4e569a6] Tar v1.10.0
+  [8dfed614] Test
+  [cf7118a7] UUIDs
+  [4ec0a83e] Unicode
+  [e66e0078] CompilerSupportLibraries_jll v1.1.2+1
+  [deac9b47] LibCURL_jll v8.7.1+0
+  [e37daf67] LibGit2_jll v1.7.2+0
+  [29816b5a] LibSSH2_jll v1.11.0+1
+  [c8ffd9c3] MbedTLS_jll v2.28.1010+0
+  [14a3606d] MozillaCACerts_jll v2026.10.20
+  [4536629a] OpenBLAS_jll v0.3.23+5
+  [bea87d4a] SuiteSparse_jll v7.2.1+1
+  [83775a58] Zlib_jll v1.3.2+0
+  [8e850b90] libblastrampoline_jll v5.11.0+0
+  [8e850ede] nghttp2_jll v1.70.0+0
+  [3f19e933] p7zip_jll v17.8.3+0
+        Info Packages marked with ⌅ have new versions available but compatibility constraints restrict them from upgrading.
+     Testing Running tests...
+ProximalSolvers tests: tier full: 20 files; Julia 1.10.13 on x86_64-linux-gnu (13th Gen Intel(R) Core(TM) i5-13600K, 20 threads), check-bounds yes
+  accelerated_pgd aqua benchmark_explore benchmark_formal cd_elasticnet cd_numerics ci_gate core_contracts core_regressions elasticnet examples group_cd group_cd_preflight minimal_core_characterization naming paired_master sparse_cd sqrt_lasso stopping_scale tier_selection
+Running 20 tests using 3 parallel jobs. To change the number of jobs, specify the `--jobs=N` argument to the tests, or set the `PTR_NUM_JOBS` environment variable.
+                                    │   Test   │ ──────────────── CPU ──────────────── │
+Test                       (Worker) │ time (s) │ GC (s) │ GC % │ Alloc (MB) │ RSS (MB) │
+paired_master                   (3) │     3.57 │   0.00 │  0.0 │       4.40 │   439.52 │
+tier_selection                  (3) │     4.67 │   0.08 │  1.6 │     471.15 │   439.52 │
+minimal_core_characterization   (2) │    10.87 │   0.58 │  5.4 │    1553.90 │   462.63 │
+elasticnet                      (1) │    14.37 │   0.43 │  3.0 │    1357.84 │   496.39 │
+ci_gate                         (1) │     1.78 │   0.03 │  1.7 │     230.66 │   496.39 │
+examples                        (2) │    10.73 │   0.52 │  4.9 │    1186.48 │   509.46 │
+aqua                            (1) │     6.61 │   0.07 │  1.0 │     311.11 │   506.41 │
+sparse_cd                       (1) │     9.53 │   0.37 │  3.8 │    1142.05 │   507.73 │
+naming                          (1) │     0.02 │   0.00 │  0.0 │       2.08 │   507.73 │
+benchmark_explore               (1) │     3.14 │   0.32 │ 10.3 │     743.55 │   572.14 │
+cd_elasticnet                   (3) │    30.14 │   0.69 │  2.3 │    3615.21 │   538.93 │
+benchmark_formal                (2) │    17.33 │   0.52 │  3.0 │    1685.11 │   522.12 │
+core_regressions                (2) │    17.75 │   0.27 │  1.5 │    3133.89 │   580.14 │
+group_cd                        (1) │    25.07 │   0.79 │  3.2 │    2612.38 │   661.27 │
+cd_numerics                     (3) │    24.00 │   0.85 │  3.5 │    3655.24 │   600.84 │
+accelerated_pgd                 (2) │    11.70 │   0.33 │  2.9 │    3662.00 │   627.51 │
+group_cd_preflight              (3) │    10.61 │   0.39 │  3.6 │    1123.65 │   653.09 │
+sqrt_lasso                      (1) │    14.72 │   0.37 │  2.5 │    2840.21 │   688.66 │
+core_contracts                  (2) │     9.13 │   0.11 │  1.2 │     542.92 │   635.78 │
+stopping_scale                  (3) │     7.47 │   0.24 │  3.3 │     954.91 │   653.09 │
+
+Output generated during execution of 'paired_master':
+┌ Test Summary:                                         | Pass  Total  Time
+│ paired controls: exact source and fail-closed records |   21     21  1.7s
+│ Test Summary:                                               | Pass  Total  Time
+│ paired controls: quality comparison of optimization records |   86     86  0.6s
+│ Test Summary:                                       | Pass  Total  Time
+│ paired controls: stopping flags of the current tree |   26     26  0.4s
+│ Test Summary:                                               | Pass  Total  Time
+│ paired controls: exact contracts and the result API surface |   18     18  0.1s
+│ Test Summary:                               | Pass  Total  Time
+└ paired controls: always-run gated Linux job |  130    130  0.2s
+
+Test Summary: |  Pass  Total     Time
+  Overall     | 68269  68269  1m26.2s
+    SUCCESS
+     Testing ProximalSolvers tests passed 

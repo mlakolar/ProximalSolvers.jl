@@ -1,0 +1,24 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353-r1/.codex-orchestrator/depot-probe-release-release:<DEPOT>: julia +release --startup-file=no --project=. .codex-orchestrator/probes/alloc.jl
+# Julia 1.13.4
+Float32  base  ordinary: 1 pass of 40 visits = 0 B, 20 passes = 0 B; warmed solve! dense cyclic = 14992 B; sparse random(momentum) = 21072 B
+Float32  cand  ordinary: 1 pass of 40 visits = 0 B, 20 passes = 0 B; warmed solve! dense cyclic = 14992 B; sparse random(momentum) = 21072 B
+   Float32  base  cold [tiny residual (rho^2 unclean)]: 2000 visits, 0 B total = 0.0 B/visit
+   Float32  cand  cold [tiny residual (rho^2 unclean)]: 2000 visits, 0 B total = 0.0 B/visit
+   Float32  base  cold [tiny column (a unclean)]: 2000 visits, 0 B total = 0.0 B/visit
+   Float32  cand  cold [tiny column (a unclean)]: 2000 visits, 0 B total = 0.0 B/visit
+   Float32  base  cold [huge residual (rho^2 overflow, F32 only)]: 2000 visits, 0 B total = 0.0 B/visit
+   Float32  cand  cold [huge residual (rho^2 overflow, F32 only)]: 2000 visits, 0 B total = 0.0 B/visit
+   Float32  base  r = 0: 2000 visits, 0 B
+   Float32  cand  r = 0: 2000 visits, 0 B
+Float64  base  ordinary: 1 pass of 40 visits = 0 B, 20 passes = 0 B; warmed solve! dense cyclic = 19648 B; sparse random(momentum) = 30512 B
+Float64  cand  ordinary: 1 pass of 40 visits = 0 B, 20 passes = 0 B; warmed solve! dense cyclic = 19648 B; sparse random(momentum) = 30512 B
+   Float64  base  cold [tiny residual (rho^2 unclean)]: 2000 visits, 0 B total = 0.0 B/visit
+   Float64  cand  cold [tiny residual (rho^2 unclean)]: 2000 visits, 0 B total = 0.0 B/visit
+   Float64  base  cold [tiny column (a unclean)]: 2000 visits, 0 B total = 0.0 B/visit
+   Float64  cand  cold [tiny column (a unclean)]: 2000 visits, 0 B total = 0.0 B/visit
+   Float64  base  r = 0: 2000 visits, 0 B
+   Float64  cand  r = 0: 2000 visits, 0 B
+   Float32  base  band: 1000 visits, 0 B total
+   Float32  cand  band: 1000 visits, 0 B total
+   Float64  base  band: 1000 visits, 0 B total
+   Float64  cand  band: 1000 visits, 0 B total

@@ -1,0 +1,1 @@
+Fixed in cde5443: the comment now reads "each underflowing square then loses at most floatmin(T) u". Verified: the equality case of the review reproduces (`ldexp(1f0, -75)^2 == 0f0`, loss equal to `floatmin(Float32)·eps(Float32)/2`), and the following comparison with `u s / length(a)` stays strict because `s ≥ 4 length(a) floatmin(T)`. Comment-only change.

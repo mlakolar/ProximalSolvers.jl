@@ -1,0 +1,28 @@
+--- a/src/cd/sqrtlasso.jl
++++ b/src/cd/sqrtlasso.jl
+@@ -175,6 +175,15 @@
+ # included, or one whose squares overflow), and a recomputed d² that does not, take
+ # `_sqrt_offrange_step`. So the d² of the fast path passes `_clean_sum` or is at least ρ²/16 with ρ²
+ # passing it: it is positive, and it is not a value that underflowed to 0.
++
++# timing probe: select form of the soft threshold
++@inline _sel(c::T, τ::T) where T = c > τ ? c - τ : (c < -τ ? c + τ : zero(T))
++# timing probe: ProximalBase's _shrink_nonneg form, reproduced locally
++@inline function _pnn(v::T, c::T) where T
++  lo = -c
++  m = ifelse(v > lo, v, lo)
++  (v - ifelse(m < c, m, c)) + zero(T)
++end
+ @inline function _sqrt_minimizer(m::SqrtLSModel{T}, old::T, a::T, b::T, ρ2::T, k::Int) where T
+   ls = m.ls
+   n = length(ls.r)
+@@ -193,8 +202,7 @@
+   p = ra*(sqrt(ra - λ)*sqrt(ra + λ))
+   γ = d/p
+   τ = γ*λ
+-  ((floatmin(T) <= p) & (floatmin(T) <= γ <= floatmax(T)) & (floatmin(T) <= τ <= floatmax(T))) ?
+-    prox_block(m.gt, c, k, γ) : _sqrt_band_step(c, ra, λ, Float64(d), 0)
++  _sel(c, τ)
+ end
+ # shrink(c, τ) with τ = (λ/ra)(d/√((ra − λ)(ra + λ))) for d = d̃ 2^e, formed in Float64 by
+ # `_sqrt_threshold64` and capped at floatmax(T) before the rounding to T. At a finite c the cap gives the 0

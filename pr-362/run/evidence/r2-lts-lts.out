@@ -1,0 +1,96 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353/.codex-orchestrator/depot-impl-lts-lts:<DEPOT>: julia +lts --startup-file=no --project=. scripts/test.jl --jobs=2 cd_numerics accelerated_pgd sqrt_lasso group_cd core_regressions core_contracts stopping_scale
+Precompiling packages...
+   3222.8 ms  ✓ ProximalSolvers
+  1 dependency successfully precompiled in 4 seconds. 17 already precompiled.
+  Activating project at `<WORK>/ProximalSolvers.jl-issue353`
+┌ Warning: The project dependencies or compat requirements have changed since the manifest was last resolved.
+│ It is recommended to `Pkg.resolve()` or consider `Pkg.update()` if necessary.
+└ @ Pkg.API <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Pkg/src/API.jl:1142
+     Testing ProximalSolvers
+      Status `<TMP>/Project.toml`
+  [4c88cf16] Aqua v0.8.19
+  [d3525ed8] ParallelTestRunner v2.10.0
+⌅ [aea7be01] PrecompileTools v1.2.1
+  [0a755509] ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [fc4971f5] ProximalSolvers v0.3.2 `<WORK>/ProximalSolvers.jl-issue353`
+  [37e2e46d] LinearAlgebra
+  [56ddb016] Logging
+  [de0858da] Printf
+  [9a3f8284] Random
+  [2f01184e] SparseArrays v1.10.0
+  [fa267f1f] TOML v1.0.3
+  [8dfed614] Test
+      Status `<TMP>/Manifest.toml`
+  [4c88cf16] Aqua v0.8.19
+  [34da2185] Compat v4.18.1
+  [b5f81e59] IOCapture v1.0.0
+  [36869731] Malt v1.5.0
+  [d3525ed8] ParallelTestRunner v2.10.0
+⌅ [aea7be01] PrecompileTools v1.2.1
+  [21216c6a] Preferences v1.6.1
+  [0a755509] ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [fc4971f5] ProximalSolvers v0.3.2 `<WORK>/ProximalSolvers.jl-issue353`
+  [05181044] RelocatableFolders v1.0.1
+  [6c6a2e73] Scratch v1.3.0
+  [f489334b] StyledStrings v1.0.3
+  [0dad84c5] ArgTools v1.1.1
+  [56f22d72] Artifacts
+  [2a0f44e3] Base64
+  [ade2ca70] Dates
+  [8ba89e20] Distributed
+  [f43a241f] Downloads v1.6.0
+  [7b1f6079] FileWatching
+  [b77e0a4c] InteractiveUtils
+  [b27032c2] LibCURL v0.6.4
+  [76f85450] LibGit2
+  [8f399da3] Libdl
+  [37e2e46d] LinearAlgebra
+  [56ddb016] Logging
+  [d6f4376e] Markdown
+  [ca575930] NetworkOptions v1.2.0
+  [44cfe95a] Pkg v1.10.0
+  [de0858da] Printf
+  [3fa0cd96] REPL
+  [9a3f8284] Random
+  [ea8e919c] SHA v0.7.0
+  [9e88b42a] Serialization
+  [6462fe0b] Sockets
+  [2f01184e] SparseArrays v1.10.0
+  [10745b16] Statistics v1.10.0
+  [fa267f1f] TOML v1.0.3
+  [a4e569a6] Tar v1.10.0
+  [8dfed614] Test
+  [cf7118a7] UUIDs
+  [4ec0a83e] Unicode
+  [e66e0078] CompilerSupportLibraries_jll v1.1.2+1
+  [deac9b47] LibCURL_jll v8.7.1+0
+  [e37daf67] LibGit2_jll v1.7.2+0
+  [29816b5a] LibSSH2_jll v1.11.0+1
+  [c8ffd9c3] MbedTLS_jll v2.28.1010+0
+  [14a3606d] MozillaCACerts_jll v2026.10.20
+  [4536629a] OpenBLAS_jll v0.3.23+5
+  [bea87d4a] SuiteSparse_jll v7.2.1+1
+  [83775a58] Zlib_jll v1.3.2+0
+  [8e850b90] libblastrampoline_jll v5.11.0+0
+  [8e850ede] nghttp2_jll v1.70.0+0
+  [3f19e933] p7zip_jll v17.8.3+0
+        Info Packages marked with ⌅ have new versions available but compatibility constraints restrict them from upgrading.
+     Testing Running tests...
+ProximalSolvers tests: tier full, filtered by cd_numerics accelerated_pgd sqrt_lasso group_cd core_regressions core_contracts stopping_scale: 8 files; Julia 1.10.13 on x86_64-linux-gnu (13th Gen Intel(R) Core(TM) i5-13600K, 20 threads), check-bounds yes
+  accelerated_pgd cd_numerics core_contracts core_regressions group_cd group_cd_preflight sqrt_lasso stopping_scale
+Running 8 tests using 2 parallel jobs. To change the number of jobs, specify the `--jobs=N` argument to the tests, or set the `PTR_NUM_JOBS` environment variable.
+                         │   Test   │ ──────────────── CPU ──────────────── │
+Test            (Worker) │ time (s) │ GC (s) │ GC % │ Alloc (MB) │ RSS (MB) │
+group_cd_preflight   (2) │    10.83 │   0.45 │  4.1 │    1339.77 │   493.46 │
+core_contracts       (2) │    12.58 │   0.12 │  0.9 │     955.43 │   531.62 │
+group_cd             (1) │    27.29 │   0.82 │  3.0 │    3063.27 │   545.32 │
+stopping_scale       (1) │     7.03 │   0.30 │  4.2 │    1059.71 │   563.52 │
+core_regressions     (2) │    16.47 │   0.41 │  2.5 │    3425.56 │   594.07 │
+sqrt_lasso           (1) │    14.08 │   0.44 │  3.1 │    2973.28 │   598.62 │
+accelerated_pgd      (2) │    12.98 │   0.53 │  4.0 │    3819.14 │   618.92 │
+cd_numerics          (1) │    22.52 │   0.62 │  2.7 │    3393.93 │   679.28 │
+
+Test Summary: |  Pass  Total     Time
+  Overall     | 53057  53057  1m15.1s
+    SUCCESS
+     Testing ProximalSolvers tests passed 

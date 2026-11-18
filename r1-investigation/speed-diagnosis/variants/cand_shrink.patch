@@ -1,0 +1,22 @@
+--- a/src/cd/sqrtlasso.jl
++++ b/src/cd/sqrtlasso.jl
+@@ -183,18 +183,12 @@
+   ra = sqrt(a)
+   λ >= ra && return zero(T)
+   q = b/a
+-  c = old + q
+   d2 = ρ2 - b*q
+   if d2 < ρ2/16
+     d2 = _distance_sqr(ls.X, ls.r, k, q)
+     _clean_sum(d2, n) || return _sqrt_offrange_step(m, old, k)
+   end
+-  d = sqrt(d2)
+-  p = ra*(sqrt(ra - λ)*sqrt(ra + λ))
+-  γ = d/p
+-  τ = γ*λ
+-  ((floatmin(T) <= p) & (floatmin(T) <= γ <= floatmax(T)) & (floatmin(T) <= τ <= floatmax(T))) ?
+-    prox_block(m.gt, c, k, γ) : _sqrt_band_step(c, ra, λ, Float64(d), 0)
++  shrink(old + q, (λ/ra)*(sqrt(d2)/(sqrt(ra - λ)*sqrt(ra + λ))))
+ end
+ # shrink(c, τ) with τ = (λ/ra)(d/√((ra − λ)(ra + λ))) for d = d̃ 2^e, formed in Float64 by
+ # `_sqrt_threshold64` and capped at floatmax(T) before the rounding to T. At a finite c the cap gives the 0

@@ -1,0 +1,32 @@
+--- a/src/cd/sqrtlasso.jl
++++ b/src/cd/sqrtlasso.jl
+@@ -175,9 +175,20 @@
+ # included, or one whose squares overflow), and a recomputed d² that does not, take
+ # `_sqrt_offrange_step`. So the d² of the fast path passes `_clean_sum` or is at least ρ²/16 with ρ²
+ # passing it: it is positive, and it is not a value that underflowed to 0.
++
++@inline function _dist_x(x::AbstractVector{T}, r::AbstractVector{T}, q::T) where T
++  s = zero(T)
++  @inbounds @simd for i in eachindex(r)
++    v = r[i] - q*x[i]
++    s += v*v
++  end
++  s
++end
++@noinline _cold7(m, x, r, g, old, a, k) = _sqrt_offrange_step(m, old, k)
+ @inline function _sqrt_minimizer(m::SqrtLSModel{T}, old::T, a::T, b::T, ρ2::T, k::Int) where T
+   ls = m.ls
+   n = length(ls.r)
++  x = view(ls.X, :, k)
+   (_clean_sum(a, n) & _clean_sum(ρ2, n)) || return _sqrt_offrange_step(m, old, k)
+   λ = m.gt.λ0
+   ra = sqrt(a)
+@@ -186,7 +197,7 @@
+   c = old + q
+   d2 = ρ2 - b*q
+   if d2 < ρ2/16
+-    d2 = _distance_sqr(ls.X, ls.r, k, q)
++    d2 = _dist_x(x, ls.r, q)
+     _clean_sum(d2, n) || return _sqrt_offrange_step(m, old, k)
+   end
+   d = sqrt(d2)

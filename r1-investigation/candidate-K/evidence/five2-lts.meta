@@ -1,0 +1,6 @@
+sha=104883497825c6afd638b63d7b042f7ae27b0c5d
+dirty=no
+mode=tests where=local versions=lts
+started=2026-11-18T05:42:16Z
+args=--project=. scripts/test.jl --jobs=2 sqrt_lasso cd_numerics core_regressions core_contracts stopping_scale
+exit lts rc=0 ok=yes pass=27956 total=27956 seconds=52 tag=impl-lts

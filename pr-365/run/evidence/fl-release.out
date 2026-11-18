@@ -1,0 +1,14 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353-2/.codex-orchestrator/depot-probe-release-release:<DEPOT>: julia +release --startup-file=no --project=. .codex-orchestrator/probes/floor64.jl
+# Julia 1.13.4
+Float32: 4000 vectors, floor64 differs in 1682 (42.0%), worst relative difference 1.0171985759956311e-15; zeros: 0.0 vs 0.0
+   n = 1e5, randn: master 0.000602788555043598 cand 0.0006027885550435733 relative difference 4.100908905093857e-14
+   y = [1, Inf, 2]: master Inf cand throws FieldError: type Nothing has no field `s`; Nothing has no fields at al same: false
+   y = [1, NaN, 2]: master NaN cand throws FieldError: type Nothing has no field `s`; Nothing has no fields at al same: false
+   y = [1, -Inf, 2]: master Inf cand throws FieldError: type Nothing has no field `s`; Nothing has no fields at al same: false
+   y = [NaN, Inf]: master NaN cand throws FieldError: type Nothing has no field `s`; Nothing has no fields at al same: false
+Float64: 4000 vectors, floor64 differs in 1570 (39.2%), worst relative difference 6.387764386673008e-16; zeros: 0.0 vs 0.0
+   n = 1e5, randn: master 1.1227811782187745e-12 cand 1.1227811782187678e-12 relative difference 5.935526046027613e-15
+   y = [1, Inf, 2]: master Inf cand throws FieldError: type Nothing has no field `s`; Nothing has no fields at al same: false
+   y = [1, NaN, 2]: master NaN cand throws FieldError: type Nothing has no field `s`; Nothing has no fields at al same: false
+   y = [1, -Inf, 2]: master Inf cand throws FieldError: type Nothing has no field `s`; Nothing has no fields at al same: false
+   y = [NaN, Inf]: master NaN cand throws FieldError: type Nothing has no field `s`; Nothing has no fields at al same: false

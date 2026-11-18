@@ -1,0 +1,6 @@
+sha=226d165d7b7f29655a6ac47513250d7790f25427
+dirty=no
+mode=julia where=local versions=release
+started=2026-11-18T05:20:51Z
+args=--project=. .codex-orchestrator/probes/fp_matrix.jl x2
+exit release rc=0 ok=yes pass=- total=- seconds=31 tag=probe-release

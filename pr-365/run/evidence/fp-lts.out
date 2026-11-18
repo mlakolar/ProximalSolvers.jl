@@ -1,0 +1,4 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353-2/.codex-orchestrator/depot-probe-lts-lts:<DEPOT>: julia +lts --startup-file=no --project=. .codex-orchestrator/probes/fp_sqrt.jl
+Julia 1.10.13  CPU goldmont  trees: base, cand
+cd-sqrt          comparisons=158 mismatches=0 (base converged: 108, base threw: 0)
+TOTAL comparisons=158 (cases x trees), mismatches=0

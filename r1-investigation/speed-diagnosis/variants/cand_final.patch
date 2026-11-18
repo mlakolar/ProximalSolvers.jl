@@ -1,0 +1,59 @@
+--- a/src/cd/sqrtlasso.jl
++++ b/src/cd/sqrtlasso.jl
+@@ -163,18 +163,28 @@
+   _residual_axpy!(ls, k, h)
+   h
+ end
++# Soft thresholding at a threshold τ ≥ 0: v minus its projection onto [-τ, τ], by the two selects that the
++# hardware maximum and minimum are, plus +0 (which turns the -0 of v = -0 at τ = 0 into +0). It is the value of
++# `shrink` for every v and every τ ≥ 0, a NaN in v or τ included (it propagates), and it avoids `shrink`, which
++# Julia 1.10 compiles, through `max` and `min`, to branches on the signs of v ∓ τ and transfers between the
++# floating-point and the integer registers: 10 % to 15 % per visit.
++@inline function _soft(v::T, τ::T) where T
++  lo = -τ
++  m = ifelse(v > lo, v, lo)
++  (v - ifelse(m < τ, m, τ)) + zero(T)
++end
+ # The minimizer for a positive finite a. Fast path, where a and ρ² (the computed ‖r‖²) pass `_clean_sum`:
+ # λ ≥ √a is tested on ra = fl(√a) without squaring λ, and a − λ² is formed as ra² − λ² = (ra − λ)(ra + λ)
+-# through the two roots √(ra − λ) and √(ra + λ), whose product does not underflow where (ra − λ)(ra + λ)
++# through the two roots √(ra − λ) and √(ra + λ), whose product w does not underflow where (ra − λ)(ra + λ)
+ # would (ra − λ is positive, and exact for λ ≥ ra/2). d² = ρ² − b (b/a); where it is below ρ²/16 (r
+ # nearly parallel to X_k, where the subtraction cancels), d² is formed again as ‖r − (b/a) X_k‖² by
+-# `_distance_sqr`. With p = ra √(ra − λ) √(ra + λ), γ = d/p and γλ, the step is `prox_block(gt, c, k, γ)`
+-# (the threshold γλ) when p, γ and γλ are normal numbers of T; otherwise `_sqrt_band_step` forms τ without
+-# γ (for example where γ overflows or is subnormal, or where γλ underflows). An a or a ρ² that does not
+-# pass `_clean_sum` (a subnormal curvature, whose squares can underflow, a tiny residual, r = 0
+-# included, or one whose squares overflow), and a recomputed d² that does not, take
+-# `_sqrt_offrange_step`. So the d² of the fast path passes `_clean_sum` or is at least ρ²/16 with ρ²
+-# passing it: it is positive, and it is not a value that underflowed to 0.
++# `_distance_sqr`. The step is `_soft(c, τ)` with c = old + b/a and τ = (λ/ra)(d/w). Here λ/ra < 1 and
++# d/w ≤ √(2 floatmax/floatmin) < floatmax (d ≤ √floatmax, ra ≥ √(floatmin/eps) and w ≥ ra √(eps/2)), so τ
++# does not overflow, and it underflows only where the exact threshold does: no branch for a threshold out
++# of range is needed. An a or a ρ² that does not pass `_clean_sum` (a subnormal curvature, whose squares
++# can underflow, a tiny residual, r = 0 included, or one whose squares overflow), and a recomputed d² that
++# does not, take `_sqrt_offrange_step`. So the d² of the fast path passes `_clean_sum` or is at least ρ²/16
++# with ρ² passing it: it is positive, and it is not a value that underflowed to 0.
+ @inline function _sqrt_minimizer(m::SqrtLSModel{T}, old::T, a::T, b::T, ρ2::T, k::Int) where T
+   ls = m.ls
+   n = length(ls.r)
+@@ -183,18 +193,12 @@
+   ra = sqrt(a)
+   λ >= ra && return zero(T)
+   q = b/a
+-  c = old + q
+   d2 = ρ2 - b*q
+   if d2 < ρ2/16
+     d2 = _distance_sqr(ls.X, ls.r, k, q)
+     _clean_sum(d2, n) || return _sqrt_offrange_step(m, old, k)
+   end
+-  d = sqrt(d2)
+-  p = ra*(sqrt(ra - λ)*sqrt(ra + λ))
+-  γ = d/p
+-  τ = γ*λ
+-  ((floatmin(T) <= p) & (floatmin(T) <= γ <= floatmax(T)) & (floatmin(T) <= τ <= floatmax(T))) ?
+-    prox_block(m.gt, c, k, γ) : _sqrt_band_step(c, ra, λ, Float64(d), 0)
++  _soft(old + q, (λ/ra)*(sqrt(d2)/(sqrt(ra - λ)*sqrt(ra + λ))))
+ end
+ # shrink(c, τ) with τ = (λ/ra)(d/√((ra − λ)(ra + λ))) for d = d̃ 2^e, formed in Float64 by
+ # `_sqrt_threshold64` and capped at floatmax(T) before the rounding to T. At a finite c the cap gives the 0

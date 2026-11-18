@@ -1,0 +1,50 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353-2/.codex-orchestrator/depot-probe-release-release:<DEPOT>: julia +release --startup-file=no --project=. .codex-orchestrator/probes/exp2c.jl 4000 7
+# julia 1.13.4 N=4000 seed=7
+ordinary       Float32  cases= 4000 | worst excess/bound base=2.460e-02 cand=2.460e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 255, :fast => 3379, :lam => 366]; differ by master class: Pair{Symbol, Int64}[]
+ordinary       Float64  cases= 4000 | worst excess/bound base=3.198e-02 cand=3.198e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 278, :fast => 3722]; differ by master class: Pair{Symbol, Int64}[]
+wide_mod       Float32  cases= 4000 | worst excess/bound base=2.049e-02 cand=2.049e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=8/8 nonfinite b/c=4/4
+    master class: [:band => 139, :d2 => 165, :fast => 2152, :lam => 243, :shared => 8, :sums => 1293]; differ by master class: Pair{Symbol, Int64}[]
+wide_mod       Float64  cases= 4000 | worst excess/bound base=3.841e-02 cand=3.841e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:band => 384, :d2 => 262, :fast => 3081, :sums => 273]; differ by master class: Pair{Symbol, Int64}[]
+wide_full      Float32  cases= 4000 | worst excess/bound base=5.642e-02 cand=5.642e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=1993/1993 nonfinite b/c=159/159
+    master class: [:band => 46, :d2 => 50, :fast => 512, :lam => 57, :shared => 1993, :sums => 1342]; differ by master class: Pair{Symbol, Int64}[]
+wide_full      Float64  cases= 4000 | worst excess/bound base=1.860e-02 cand=1.860e-02 | >1: base=0 cand=0 | differ=1 (max 2 ulp, max rel 2.4e-16) | outcome-class mismatches=0 | throws b/c=2023/2023 nonfinite b/c=123/123
+    master class: [:band => 81, :d2 => 66, :fast => 745, :shared => 2023, :sums => 1085]; differ by master class: [:sums => 1]
+near_parallel  Float32  cases= 4000 | worst excess/bound base=1.568e-02 cand=1.568e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 1103, :fast => 2438, :lam => 329, :sums => 130]; differ by master class: Pair{Symbol, Int64}[]
+near_parallel  Float64  cases= 4000 | worst excess/bound base=1.456e-02 cand=1.456e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 1142, :fast => 2858]; differ by master class: Pair{Symbol, Int64}[]
+tiny_d         Float32  cases= 4000 | worst excess/bound base=1.801e-02 cand=1.801e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 667, :fast => 2927, :lam => 406]; differ by master class: Pair{Symbol, Int64}[]
+tiny_d         Float64  cases= 4000 | worst excess/bound base=1.860e-02 cand=1.860e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 2158, :fast => 1842]; differ by master class: Pair{Symbol, Int64}[]
+lam_near       Float32  cases= 4000 | worst excess/bound base=2.411e-02 cand=2.411e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 189, :fast => 2665, :lam => 1146]; differ by master class: Pair{Symbol, Int64}[]
+lam_near       Float64  cases= 4000 | worst excess/bound base=2.980e-02 cand=2.980e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 203, :fast => 2697, :lam => 1100]; differ by master class: Pair{Symbol, Int64}[]
+thresh         Float32  cases= 4000 | worst excess/bound base=1.975e-02 cand=1.975e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 162, :fast => 1496, :lam => 187, :sums => 2155]; differ by master class: Pair{Symbol, Int64}[]
+thresh         Float64  cases= 4000 | worst excess/bound base=2.259e-02 cand=2.259e-02 | >1: base=0 cand=0 | differ=2 (max 4 ulp, max rel 8.6e-16) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 205, :fast => 1609, :sums => 2186]; differ by master class: [:sums => 2]
+corner         Float32  cases= 4000 | worst excess/bound base=1.120e-02 cand=1.120e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 4000]; differ by master class: Pair{Symbol, Int64}[]
+corner         Float64  cases= 4000 | worst excess/bound base=1.457e-02 cand=1.457e-02 | >1: base=0 cand=0 | differ=8 (max 2 ulp, max rel 2.43e-16) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 4000]; differ by master class: [:d2 => 8]
+far            Float32  cases= 4000 | worst excess/bound base=1.070e-01 cand=1.070e-01 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=2776/2776 nonfinite b/c=208/208
+    master class: [:band => 45, :d2 => 12, :fast => 61, :lam => 26, :shared => 2776, :sums => 1080]; differ by master class: Pair{Symbol, Int64}[]
+far            Float64  cases= 4000 | worst excess/bound base=7.833e-02 cand=7.833e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=3701/3701 nonfinite b/c=82/82
+    master class: [:band => 1, :fast => 4, :shared => 3701, :sums => 294]; differ by master class: Pair{Symbol, Int64}[]
+huge_edge      Float32  cases= 4000 | worst excess/bound base=2.148e-02 cand=2.148e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=8/8 nonfinite b/c=0/0
+    master class: [:d2 => 2145, :fast => 993, :lam => 332, :shared => 8, :sums => 522]; differ by master class: Pair{Symbol, Int64}[]
+huge_edge      Float64  cases= 4000 | worst excess/bound base=2.121e-02 cand=2.121e-02 | >1: base=0 cand=0 | differ=5 (max 2 ulp, max rel 2.51e-16) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 2542, :fast => 966, :sums => 492]; differ by master class: [:sums => 5]
+band           Float32  cases= 4000 | worst excess/bound base=1.143e-06 cand=1.143e-06 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=33/33 nonfinite b/c=0/0
+    master class: [:band => 3423, :d2 => 15, :lam => 355, :shared => 33, :sums => 174]; differ by master class: Pair{Symbol, Int64}[]
+band           Float64  cases= 4000 | worst excess/bound base=5.690e-17 cand=5.690e-17 | >1: base=0 cand=0 | differ=1 (max 4 ulp, max rel 7.01e-16) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:band => 3926, :d2 => 21, :sums => 53]; differ by master class: [:d2 => 1]
+sub_lam        Float32  cases= 4000 | worst excess/bound base=2.496e-02 cand=2.496e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:band => 3711, :d2 => 249, :fast => 40]; differ by master class: Pair{Symbol, Int64}[]
+sub_lam        Float64  cases= 4000 | worst excess/bound base=2.133e-02 cand=2.133e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:band => 3726, :d2 => 262, :fast => 12]; differ by master class: Pair{Symbol, Int64}[]

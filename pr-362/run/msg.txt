@@ -1,0 +1,19 @@
+Part of #353 (helper ownership audit): the two cleanups the maintainer approved without conditions.
+
+R2, five deletions with bit-identical results on every input a public call can pass:
+- `_maxabs_diff` is replaced by `_norm_diff(x, y, Inf)` (ProximalBase's public `norm_diff`);
+- `_frobenius_upper` takes its Float64 sum of squares from `_sumsq64`;
+- `_round_up(T, v)` is replaced by `T(v, RoundUp)`;
+- `_flat_column` and `_flat_group` use `all`;
+- `_root_scale` rounds the scale once to Float64 and takes its significand and exponent there;
+  `_significand_exponent` and its 256-bit BigFloat conversion are deleted. A scale outside the
+  range of Float64 is not supported by `_root_scale` (the solvers refuse such scale types before
+  it), so the BigFloat scales of one unit loop in test/cd_numerics.jl stop at 2^±1000.
+
+R4: the norm and norm-of-difference kernels of src/solvers/image_models.jl (`_sumsq_scaled`,
+`_se_norm`, `_se_norm_onepass` and their `_diff` twins) are one family with an optional second
+array. The finiteness test of the scaled sum is dropped: with m = max|dᵢ| finite and positive,
+each |dᵢ|/m is at most 1. The proof comment of the one-pass bound now says that an underflowing
+square loses at most floatmin(T) u.
+
+45 executable lines fewer; no public API change, no change of stopping or convergence statuses.

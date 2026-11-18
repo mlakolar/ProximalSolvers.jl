@@ -1,0 +1,6 @@
+sha=a8136f66bff5058d9413f46626c5709044d1bd61
+dirty=no
+mode=julia where=local versions=release
+started=2026-11-18T06:12:20Z
+args=--project=. .codex-orchestrator/probes/timing_b.jl 1 1
+exit release rc=0 ok=yes pass=- total=- seconds=11 tag=probe-release

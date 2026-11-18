@@ -1,0 +1,107 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353-r1/.codex-orchestrator/depot-probe-release-release:<DEPOT>: julia +release --startup-file=no --project=. .codex-orchestrator/probes/verify_a.jl
+# julia 1.13.4
+SAME finding 2a: X=fill(1e-150,2,1) y=0 λ=1e-151 zero start
+    base: (x = [0.0], converged = true, gap = 0.0, passes = 1, minimum = 0.0)
+SAME finding 2b: exact fit nonzero start
+    base: (x = [1.0], converged = false, gap = NaN, passes = 1, minimum = 1.0e-151)
+SAME X tiny 2^-539 zero λ=0.1
+    base: THROWS ArgumentError: the coordinate curvature underflows; rescale the data
+SAME X tiny 2^-539 zero λ=0.5
+    base: THROWS ArgumentError: the coordinate curvature underflows; rescale the data
+SAME X tiny 2^-539 warm λ=0.1
+    base: THROWS ArgumentError: the coordinate curvature underflows; rescale the data
+SAME X tiny 2^-539 warm λ=0.5
+    base: THROWS ArgumentError: the coordinate curvature underflows; rescale the data
+SAME X tiny 2^-500 zero λ=0.1
+    base: (x = [-7.966196824913314e148, 5.1354345586287876e150, 5.310716123012626e148, -1.9432660282555711e149, -6.4655283172772764e150, 1.0758461848224224e149, 1.2460295739152396e149, -2.114131773621918e149], converged = true, gap = 6.122832219967383e-7, passes = 28, minimum = 2.8488409617560144)
+SAME X tiny 2^-500 zero λ=0.5
+    base: (x = [0.0, 4.808138636617203e150, 0.0, 0.0, -6.038569243129066e150, 0.0, 3.269135225914533e148, 0.0], converged = true, gap = 4.882498915519474e-9, passes = 13, minimum = 8.36385455680403)
+SAME X tiny 2^-500 warm λ=0.1
+    base: (x = [-7.966183253785575e148, 5.135434635711285e150, 5.310721328496865e148, -1.9432659209251679e149, -6.4655283158388044e150, 1.0758459957418739e149, 1.2460302212448394e149, -2.114131274279021e149], converged = true, gap = 2.6109822746323507e-7, passes = 29, minimum = 2.8488409617559802)
+SAME X tiny 2^-500 warm λ=0.5
+    base: (x = [0.0, 4.808138633792118e150, 0.0, 0.0, -6.0385692427347944e150, 0.0, 3.26913520033299e148, 0.0], converged = true, gap = 8.64427508733802e-9, passes = 14, minimum = 8.36385455680403)
+SAME X tiny 2^-485 zero λ=0.1
+    base: (x = [-2.431090339634193e144, 1.5672102534877892e146, 1.6207019418373413e144, -5.930377283494788e144, -1.9731226554190907e146, 3.283221999580147e144, 3.8025804868018774e144, -6.451818156805168e144], converged = true, gap = 6.122832230258178e-7, passes = 28, minimum = 2.8488409617560144)
+SAME X tiny 2^-485 zero λ=0.5
+    base: (x = [0.0, 1.4673274647879647e146, 0.0, 0.0, -1.8428250864041339e146, 0.0, 9.976608965803601e143, 0.0], converged = true, gap = 4.882498890315017e-9, passes = 13, minimum = 8.36385455680403)
+SAME X tiny 2^-485 warm λ=0.1
+    base: (x = [-2.4310861980546763e144, 1.5672102770115006e146, 1.620703530425065e144, -5.930376955948391e144, -1.973122654980104e146, 3.2832214225521005e144, 3.802582462295051e144, -6.451816632931588e144], converged = true, gap = 2.6109822486475943e-7, passes = 29, minimum = 2.84884096175598)
+SAME X tiny 2^-485 warm λ=0.5
+    base: (x = [0.0, 1.4673274639258173e146, 0.0, 0.0, -1.842825086283812e146, 0.0, 9.976608887734955e143, 0.0], converged = true, gap = 8.644275825310712e-9, passes = 14, minimum = 8.36385455680403)
+SAME X 2^-539, y=0 zero λ=0.1
+    base: THROWS ArgumentError: the coordinate curvature underflows; rescale the data
+SAME X 2^-539, y=0 zero λ=0.5
+    base: THROWS ArgumentError: the coordinate curvature underflows; rescale the data
+SAME X 2^-539, y=0 warm λ=0.1
+    base: THROWS ArgumentError: the coordinate curvature underflows; rescale the data
+SAME X 2^-539, y=0 warm λ=0.5
+    base: THROWS ArgumentError: the coordinate curvature underflows; rescale the data
+SAME y tiny 2^-1024 zero λ=0.1
+    base: (x = [-1.3537474159118e-310, 8.72697651856427e-309, 9.024843832236e-311, -3.30231780860983e-310, -1.0987290980114647e-308, 1.8282550941588e-310, 2.11745874839813e-310, -3.5926810350546e-310], converged = false, gap = NaN, passes = 28, minimum = 1.5847203877619554e-308)
+SAME y tiny 2^-1024 zero λ=0.5
+    base: (x = [0.0, 8.170781362456663e-309, 0.0, 0.0, -1.026173177535005e-308, 0.0, 5.555453200086e-311, 0.0], converged = false, gap = NaN, passes = 13, minimum = 4.652548532675247e-308)
+SAME y tiny 2^-1024 warm λ=0.1
+    base: (x = [-1.35374510968225e-310, 8.726976649555543e-309, 9.024852678252e-311, -3.30231762621636e-310, -1.098729097767017e-308, 1.828254772842e-310, 2.11745984844725e-310, -3.5926801864887e-310], converged = false, gap = NaN, passes = 29, minimum = 1.584720387761936e-308)
+SAME y tiny 2^-1024 warm λ=0.5
+    base: (x = [0.0, 8.17078135765581e-309, 0.0, 0.0, -1.026173177468004e-308, 0.0, 5.555453156614e-311, 0.0], converged = false, gap = NaN, passes = 14, minimum = 4.652548532675247e-308)
+SAME y tiny 2^-700 zero λ=0.1
+    base: (x = [-4.6265390884785356e-213, 2.9825133930303176e-211, 3.0843119082986356e-213, -1.1285932844290041e-212, -3.7549937749465044e-211, 6.248206687167298e-213, 7.236583097081377e-213, -1.2278272184120522e-212], converged = false, gap = NaN, passes = 28, minimum = 5.415907526110553e-211)
+SAME y tiny 2^-700 zero λ=0.5
+    base: (x = [0.0, 2.79242929016826e-211, 0.0, 0.0, -3.5070281661192593e-211, 0.0, 1.8986201622479154e-213, 0.0], converged = false, gap = NaN, passes = 13, minimum = 1.5900453359659487e-210)
+SAME y tiny 2^-700 warm λ=0.1
+    base: (x = [-4.626531206756007e-213, 2.982513437797625e-211, 3.084314931494891e-213, -1.1285932220945778e-212, -3.754993774111081e-211, 6.248205589041606e-213, 7.236586856586394e-213, -1.227826928407991e-212], converged = false, gap = NaN, passes = 29, minimum = 5.415907526110487e-211)
+SAME y tiny 2^-700 warm λ=0.5
+    base: (x = [0.0, 2.7924292885275307e-211, 0.0, 0.0, -3.5070281658902777e-211, 0.0, 1.898620147390869e-213, 0.0], converged = false, gap = NaN, passes = 14, minimum = 1.5900453359659484e-210)
+SAME y tiny 2^-485 zero λ=0.1
+    base: (x = [-2.4361571695091578e-148, 1.5704766017609345e-146, 1.624079776417755e-148, -5.942737257248103e-148, -1.9772349982039143e-146, 3.29006482522196e-148, 3.810505749017923e-148, -6.46526490720017e-148], converged = false, gap = NaN, passes = 28, minimum = 2.8518081651984417e-146)
+SAME y tiny 2^-485 zero λ=0.5
+    base: (x = [0.0, 1.4703856393501095e-146, 0.0, 0.0, -1.8466658656009833e-146, 0.0, 9.997402014722736e-149, 0.0], converged = false, gap = NaN, passes = 13, minimum = 8.37256590937375e-146)
+SAME y tiny 2^-485 warm λ=0.1
+    base: (x = [-2.4361530192978388e-148, 1.5704766253336735e-146, 1.6240813683163796e-148, -5.942736929019047e-148, -1.9772349977640127e-146, 3.2900642469912905e-148, 3.8105077286283765e-148, -6.465263380150554e-148], converged = false, gap = NaN, passes = 29, minimum = 2.8518081651984075e-146)
+SAME y tiny 2^-485 warm λ=0.5
+    base: (x = [0.0, 1.4703856384861652e-146, 0.0, 0.0, -1.8466658654804106e-146, 0.0, 9.997401936491367e-149, 0.0], converged = false, gap = NaN, passes = 14, minimum = 8.372565909373748e-146)
+SAME y huge 2^510 zero λ=0.1
+    base: (x = [-8.157385548711253e151, 5.258684988035879e153, 5.43817330996491e151, -1.9899044129337074e152, -6.62070099689193e153, 1.1016664932581575e152, 1.2759342836892045e152, -2.1648709361888436e152], converged = false, gap = NaN, passes = 28, minimum = 9.5491781095444e153)
+SAME y huge 2^510 zero λ=0.5
+    base: (x = [0.0, 4.923533963896016e153, 0.0, 0.0, -6.1834949049641635e153, 0.0, 3.3475944713365005e151, 0.0], converged = false, gap = NaN, passes = 13, minimum = 2.8035238862900907e154)
+SAME y huge 2^510 warm λ=0.1
+    base: (x = [-8.157371651876442e151, 5.258685066968356e153, 5.438178640380785e151, -1.989904303027373e152, -6.620700995418936e153, 1.1016662996396786e152, 1.2759349465547165e152, -2.1648704248617183e152], converged = false, gap = NaN, passes = 29, minimum = 9.549178109544283e153)
+SAME y huge 2^510 warm λ=0.5
+    base: (x = [0.0, 4.923533961003128e153, 0.0, 0.0, -6.1834949045604295e153, 0.0, 3.3475944451409817e151, 0.0], converged = false, gap = NaN, passes = 14, minimum = 2.80352388629009e154)
+SAME y huge 2^800 zero λ=0.1
+    base: (x = [-1.6227429526910013e239, 1.0461064950038254e241, 1.0818119802676266e239, -3.9585028111452296e239, -1.3170513788303184e241, 2.191537383485474e239, 2.5382070696420757e239, -4.306562481579683e239], converged = false, gap = NaN, passes = 28, minimum = 1.8996112649968435e241)
+SAME y huge 2^800 zero λ=0.5
+    base: (x = [0.0, 9.794351381993089e240, 0.0, 0.0, -1.2300782793840815e241, 0.0, 6.659346066690309e238, 0.0], converged = false, gap = NaN, passes = 13, minimum = 5.577030289927722e241)
+SAME y huge 2^800 warm λ=0.1
+    base: (x = [-1.622740188203456e239, 1.0461065107058072e241, 1.081813040643498e239, -3.9585025925093354e239, -1.3170513785372965e241, 2.191536998321598e239, 2.5382083882757576e239, -4.3065614644002365e239], converged = false, gap = NaN, passes = 29, minimum = 1.8996112649968204e241)
+SAME y huge 2^800 warm λ=0.5
+    base: (x = [0.0, 9.794351376238286e240, 0.0, 0.0, -1.230078279303767e241, 0.0, 6.65934601457972e238, 0.0], converged = false, gap = NaN, passes = 14, minimum = 5.577030289927721e241)
+SAME y huge 2^1021 zero λ=0.1
+    base: THROWS ArgumentError: the response scale (the root of the loss scale times the norm of y) is not a normal number of Float64; rescale y or
+SAME y huge 2^1021 zero λ=0.5
+    base: THROWS ArgumentError: the response scale (the root of the loss scale times the norm of y) is not a normal number of Float64; rescale y or
+SAME y huge 2^1021 warm λ=0.1
+    base: THROWS ArgumentError: the response scale (the root of the loss scale times the norm of y) is not a normal number of Float64; rescale y or
+SAME y huge 2^1021 warm λ=0.5
+    base: THROWS ArgumentError: the response scale (the root of the loss scale times the norm of y) is not a normal number of Float64; rescale y or
+SAME X 2^-300 y 2^-300 zero λ=0.1
+    base: (x = [-0.02433622435922278, 1.5688425775527628, 0.016223899800414887, -0.059365540536713994, -1.9751777565686761, 0.03286641631546329, 0.03806541055349578, -0.0645853803246751], converged = true, gap = 6.122832306706427e-7, passes = 28, minimum = 1.3985226549028943e-90)
+SAME X 2^-300 y 2^-300 zero λ=0.5
+    base: (x = [0.0, 1.4688557561749305, 0.0, 0.0, -1.8447444764345269, 0.0, 0.009987000078843775, 0.0], converged = true, gap = 4.882498890315017e-9, passes = 13, minimum = 4.105894374950728e-90)
+SAME X 2^-300 y 2^-300 warm λ=0.1
+    base: (x = [-0.024336182900291173, 1.5688426011009748, 0.01622391570283796, -0.05936553725783841, -1.9751777561292323, 0.0328664105391729, 0.0380654303290032, -0.06458536507006749], converged = true, gap = 2.610982349596112e-7, passes = 29, minimum = 1.3985226549028775e-90)
+SAME X 2^-300 y 2^-300 warm λ=0.5
+    base: (x = [0.0, 1.468855755311885, 0.0, 0.0, -1.8447444763140797, 0.0, 0.009987000000693844, 0.0], converged = true, gap = 8.644275825310712e-9, passes = 14, minimum = 4.105894374950728e-90)
+SAME X 2^400, y 2^-500 zero λ=0.1
+    base: (x = [-2.879102343122362e-273, 1.8560226411253136e-271, 1.919372012703156e-273, -7.023253251493172e-273, -2.3367383629765578e-271, 3.888268567347626e-273, 4.503336717264907e-273, -7.64078753875195e-273], converged = false, gap = NaN, passes = 28, minimum = 8.703027847895635e-151)
+SAME X 2^400, y 2^-500 zero λ=0.5
+    base: (x = [0.0, 1.7377330135064025e-271, 0.0, 0.0, -2.1824289857649492e-271, 0.0, 1.1815142276523912e-273, 0.0], converged = false, gap = NaN, passes = 13, minimum = 2.555104342460251e-150)
+SAME X 2^400, y 2^-500 warm λ=0.1
+    base: (x = [-2.8790974383143927e-273, 1.8560226689840778e-271, 1.9193738940427963e-273, -7.023252863585087e-273, -2.3367383624566726e-271, 3.888267883982324e-273, 4.503339056810626e-273, -7.640785734052246e-273], converged = false, gap = NaN, passes = 29, minimum = 8.70302784789553e-151)
+SAME X 2^400, y 2^-500 warm λ=0.5
+    base: (x = [0.0, 1.7377330124853747e-271, 0.0, 0.0, -2.1824289856224536e-271, 0.0, 1.18151421840684e-273, 0.0], converged = false, gap = NaN, passes = 14, minimum = 2.55510434246025e-150)
+SAME X 2^-540, y 2^500 zero λ=0.1
+    base: THROWS ArgumentError: the coordinate curvature underflows; rescale the data
+SAME X 2^-540, y 2^500 zero λ=0.5
+    base: THROWS ArgumentError: the coordinate curvature underflows; rescale the data
+DIFFERENT outcomes: 0

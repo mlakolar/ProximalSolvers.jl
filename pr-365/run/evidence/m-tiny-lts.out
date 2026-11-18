@@ -1,0 +1,5 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353-2/.codex-orchestrator/depot-probe-lts-lts:<DEPOT>: julia +lts --startup-file=no --project=. .codex-orchestrator/probes/tiny_solves.jl
+Julia 1.10.13 CPU goldmont
+solves: 454; throwing in both (same text unless listed above): 22; bitwise identical: 432; not identical: 0
+outcome-class differences: 0; converged flag changes: 0; pass-count changes: 0 Int64[]; max rel diff x: 0.0; max rel diff objective: 0.0
+solves in which master's recomputed-d branch (_scaled_norm beyond the one call of _prepare!) ran: 162; such calls in total: 264

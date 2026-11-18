@@ -1,0 +1,14 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353-2/.codex-orchestrator/depot-probe-lts-lts:<DEPOT>: julia +lts --startup-file=no --project=. .codex-orchestrator/probes/floor64.jl
+# Julia 1.10.13
+Float32: 4000 vectors, floor64 differs in 1702 (42.6%), worst relative difference 1.0565307880010721e-15; zeros: 0.0 vs 0.0
+   n = 1e5, randn: master 0.000604264866764368 cand 0.000604264866764343 relative difference 4.144717252638392e-14
+   y = [1, Inf, 2]: master Inf cand throws type Nothing has no field s same: false
+   y = [1, NaN, 2]: master NaN cand throws type Nothing has no field s same: false
+   y = [1, -Inf, 2]: master Inf cand throws type Nothing has no field s same: false
+   y = [NaN, Inf]: master NaN cand throws type Nothing has no field s same: false
+Float64: 4000 vectors, floor64 differs in 1596 (39.9%), worst relative difference 7.76609394535642e-16; zeros: 0.0 vs 0.0
+   n = 1e5, randn: master 1.1255310230362215e-12 cand 1.1255310230362265e-12 relative difference 4.485624731866675e-15
+   y = [1, Inf, 2]: master Inf cand throws type Nothing has no field s same: false
+   y = [1, NaN, 2]: master NaN cand throws type Nothing has no field s same: false
+   y = [1, -Inf, 2]: master Inf cand throws type Nothing has no field s same: false
+   y = [NaN, Inf]: master NaN cand throws type Nothing has no field s same: false

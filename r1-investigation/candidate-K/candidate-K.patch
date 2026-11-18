@@ -1,0 +1,247 @@
+diff --git a/src/cd/sqrtlasso.jl b/src/cd/sqrtlasso.jl
+index 595060b8..ad125416 100644
+--- a/src/cd/sqrtlasso.jl
++++ b/src/cd/sqrtlasso.jl
+@@ -12,7 +12,7 @@
+ # of the solve. `gap` and `uncertified` record the outcome of the stop check for the result (the
+ # certified bound, or NaN; whether the run stopped without a certificate). `res64` and `rowmag64` are
+ # Float64 vectors of length n (allocated by `_prepare!`): the certificate's residual and row
+-# magnitudes; `res64` is also the scaled residual of `_sqrt_offrange_step`.
++# magnitudes; `_sqrt_cold_step` also uses them, for the scaled residual and the scaled column.
+ mutable struct SqrtLSModel{T<:Union{Float32, Float64}, M<:LSModel{T, T}} <: CDModel{T}
+   ls::M
+   gt::NormL1{T, Nothing}
+@@ -54,8 +54,10 @@ function _prepare!(m::SqrtLSModel{T}, g::NormL1, x::SparseIterate{T}) where T
+     m.res64 = Vector{Float64}(undef, n)
+     m.rowmag64 = Vector{Float64}(undef, n)
+   end
+-  ny, ey = _scaled_norm(m.ls.y, n)
+-  m.floor64 = 16eps(T)*ldexp(ny, ey)
++  # `_se_norm` gives nothing for a y with a non-finite entry: the floor is then 16 eps(T) times the largest
++  # magnitude, which is Inf or NaN
++  ny = _se_norm(Float64, m.ls.y)
++  m.floor64 = ny === nothing ? 16eps(T)*Float64(maximum(abs, m.ls.y)) : 16eps(T)*ldexp(ny.s, ny.e)
+   m.tightenings = 0
+   m.gap = T(NaN)
+   m.uncertified = false
+@@ -83,24 +85,6 @@ function _level_brackets(λ0)
+   lo <= λ0 <= hi ? (lo, hi) : (NaN, NaN)
+ end
+ 
+-# ‖v[1:n]‖₂ as (s, e) with the norm s 2^e, in Float64: with M = max_i |v_i| and 2^e ≤ M < 2^(e+1), s is
+-# the root of the sum of the squares of v_i 2^-e (each formed by `ldexp`), a sum between 1 and 4n where
+-# M is finite and positive. (0.0, 0) for v = 0, and (M, 0) for an M that is Inf or NaN.
+-function _scaled_norm(v::AbstractVector, n::Int)
+-  M = 0.0
+-  @inbounds for i in 1:n
+-    M = max(M, abs(Float64(v[i])))
+-  end
+-  (iszero(M) || !isfinite(M)) && return (M, 0)
+-  e = exponent(M)
+-  s = 0.0
+-  @inbounds for i in 1:n
+-    w = ldexp(Float64(v[i]), -e)
+-    s += w*w
+-  end
+-  (sqrt(s), e)
+-end
+-
+ # The fused kernel of the step: a = ‖X_k‖² (only when the cache holds NaN), b = X_kᵀr and ρ² = ‖r‖², in T.
+ @inline function _column_dot_rsqr(X::AbstractMatrix{T}, r::AbstractVector{T}, k::Int, a::T) where T
+   b = zero(T)
+@@ -169,16 +153,18 @@ end
+ # would (ra − λ is positive, and exact for λ ≥ ra/2). d² = ρ² − b (b/a); where it is below ρ²/16 (r
+ # nearly parallel to X_k, where the subtraction cancels), d² is formed again as ‖r − (b/a) X_k‖² by
+ # `_distance_sqr`. With p = ra √(ra − λ) √(ra + λ), γ = d/p and γλ, the step is `prox_block(gt, c, k, γ)`
+-# (the threshold γλ) when p, γ and γλ are normal numbers of T; otherwise `_sqrt_band_step` forms τ without
+-# γ (for example where γ overflows or is subnormal, or where γλ underflows). An a or a ρ² that does not
+-# pass `_clean_sum` (a subnormal curvature, whose squares can underflow, a tiny residual, r = 0
+-# included, or one whose squares overflow), and a recomputed d² that does not, take
+-# `_sqrt_offrange_step`. So the d² of the fast path passes `_clean_sum` or is at least ρ²/16 with ρ²
+-# passing it: it is positive, and it is not a value that underflowed to 0.
++# (the threshold γλ) when p, γ and γλ are normal numbers of T. The step is formed by `_sqrt_cold_step`
++# instead when a or ρ² does not pass `_clean_sum` (a subnormal curvature, whose squares can underflow, a
++# tiny residual, r = 0 included, or one whose squares overflow), when the recomputed d² does not, and when
++# p, γ or γλ is not a normal number of T (for example where γ overflows or is subnormal, or where γλ
++# underflows), except that a c that is not finite is returned as it is in that case, and `_visit!` refuses
++# it (the scaled step could take the step to 0 instead, by its own test of λ ≥ √a). So the d² of the fast
++# path passes `_clean_sum` or is at least ρ²/16 with ρ² passing it: it is positive, and it is not a value
++# that underflowed to 0.
+ @inline function _sqrt_minimizer(m::SqrtLSModel{T}, old::T, a::T, b::T, ρ2::T, k::Int) where T
+   ls = m.ls
+   n = length(ls.r)
+-  (_clean_sum(a, n) & _clean_sum(ρ2, n)) || return _sqrt_offrange_step(m, old, k)
++  (_clean_sum(a, n) & _clean_sum(ρ2, n)) || return _sqrt_cold_step(m, old, k)
+   λ = m.gt.λ0
+   ra = sqrt(a)
+   λ >= ra && return zero(T)
+@@ -187,60 +173,45 @@ end
+   d2 = ρ2 - b*q
+   if d2 < ρ2/16
+     d2 = _distance_sqr(ls.X, ls.r, k, q)
+-    _clean_sum(d2, n) || return _sqrt_offrange_step(m, old, k)
++    _clean_sum(d2, n) || return _sqrt_cold_step(m, old, k)
+   end
+   d = sqrt(d2)
+   p = ra*(sqrt(ra - λ)*sqrt(ra + λ))
+   γ = d/p
+   τ = γ*λ
+   ((floatmin(T) <= p) & (floatmin(T) <= γ <= floatmax(T)) & (floatmin(T) <= τ <= floatmax(T))) ?
+-    prox_block(m.gt, c, k, γ) : _sqrt_band_step(c, ra, λ, Float64(d), 0)
+-end
+-# shrink(c, τ) with τ = (λ/ra)(d/√((ra − λ)(ra + λ))) for d = d̃ 2^e, formed in Float64 by
+-# `_sqrt_threshold64` and capped at floatmax(T) before the rounding to T. At a finite c the cap gives the 0
+-# that a larger τ gives; a c that is Inf or NaN stays non-finite, which `_visit!` refuses.
+-@noinline function _sqrt_band_step(c::T, ra, λ, d̃::Float64, e::Int) where T
+-  τ = _sqrt_threshold64(ra, λ, d̃, e)
+-  shrink(c, T(min(τ, Float64(floatmax(T)))))
++    prox_block(m.gt, c, k, γ) : isfinite(c) ? _sqrt_cold_step(m, old, k) : c
+ end
+-# τ = (λ/ra)(d/w) with w = √(ra − λ) √(ra + λ), for 0 ≤ λ < ra (after the conversion to Float64) and
+-# d = d̃ 2^e, in Float64: d̃ and w are split into significands and exponents, so that the quotient d/w is
+-# not formed outside the range of Float64 before the final `ldexp` (which rounds a result outside the
+-# normal range to Inf, a subnormal number or 0). 0 for d̃ = 0.
+-function _sqrt_threshold64(ra, λ, d̃::Float64, e::Int)
+-  iszero(d̃) && return 0.0
+-  r, l = Float64(ra), Float64(λ)
+-  w = sqrt(r - l)*sqrt(r + l)
+-  md, ed = frexp(d̃)
+-  mw, ew = frexp(w)
+-  ldexp((l/r)*(md/mw), ed + e - ew)
+-end
+-# The step where a, ρ² or the recomputed d² is outside the range of `_clean_sum`, out of line, in Float64
+-# with the column and the residual scaled by powers of two (each entry by `ldexp`, into Float64; for
+-# Float32 data the scaled entries and their products are exact). With 2^ex ≤ max_i |X_ik| < 2^(ex+1) (the
+-# column is not flat, so the maximum is positive, and it is finite) and x̃ = X_k 2^-ex: ã = ‖x̃‖² is between 1
+-# and 4n, √a = √ã 2^ex and λ̃ = λ 2^-ex, so λ ≥ √a is tested as λ̃ ≥ √ã (a λ̃ that overflows to Inf
+-# passes it). Then, with M = max_i |r_i| (finite: `coordinate_step!` has refused a residual that is not):
+-# r = 0 (M = 0) gives b = 0 and d = 0, so the minimizer is c = old. Otherwise, with 2^er ≤ M < 2^(er+1)
+-# and s = r 2^-er (into `res64`): b̃ = x̃ᵀs, ‖s‖² (between 1 and 4n) and q̃ = b̃/ã give
+-# b/a = q̃ 2^(er − ex); d̃² = ‖s‖² − b̃ q̃, formed again as ‖s − q̃ x̃‖² by `_scaled_norm` (which scales by the
+-# largest entry of the difference) where it is below ‖s‖²/16, gives d = d̃ 2^er. The step is
+-# shrink(c, τ) with c = old + T(q̃ 2^(er − ex)) and τ = (λ̃/√ã)(d̃/√((√ã − λ̃)(√ã + λ̃))) 2^(er − ex), the
+-# threshold of the scaled problem, from `_sqrt_band_step`. For each nonzero vector among x̃, s and the
+-# difference, the largest magnitude of its normalized representation is in [1, 2); a zero vector is
+-# returned as 0. Power-of-two scaling is exact when its exact result is in the normal Float64 range; below
+-# that range it may lose bits or underflow to zero, with absolute error at most η/2 in the normalized
+-# units (η = 2^-1074). For example, a residual [2^1000, 2^-1000] against the column [1, 0] gives d̃ = 0 for
+-# d = 2^-1000, a relative change of 1 in d, while [1.5 2^1000, 2^-74] keeps 2^-74 as η. To first order in
+-# η, these errors change √a by at most √n η √a, and b/√a and d by at most 3 n η ‖r‖ (2^ex ≤ √a,
+-# 2^er ≤ ‖r‖, ‖x̃‖ ≥ 1 and ‖s‖ < 2√n; d also through the scaling inside `_scaled_norm`): absolute errors
+-# at the scales of the column and the residual, not relative to b or d. They are far below the terms
+-# u max(‖ρ‖, ‖r‖) of the objective-error bound of the step (the comment of `step_bound` in
+-# test/sqrt_lasso.jl), which covers them; for example a d computed as 0 moves the coordinate objective
+-# by at most 2d.
+-@noinline function _sqrt_offrange_step(m::SqrtLSModel{T}, old::T, k::Int) where T
++# The step for an input outside the fast path, out of line, in Float64 with the column and the residual
++# scaled by powers of two (each entry by `ldexp`, into Float64; for Float32 data the scaled entries and
++# their products are exact). With 2^ex ≤ max_i |X_ik| < 2^(ex+1) (the column is not flat, so the maximum is
++# positive, and it is finite) and x̃ = X_k 2^-ex (into `rowmag64`): ã = ‖x̃‖² is between 1 and 4n,
++# √a = √ã 2^ex and λ̃ = λ 2^-ex, so λ ≥ √a is tested as λ̃ ≥ √ã (a λ̃ that overflows to Inf passes it).
++# Then, with M = max_i |r_i| (finite: `coordinate_step!` has refused a residual that is not): r = 0 (M = 0)
++# gives b = 0 and d = 0, so the minimizer is c = old. Otherwise, with 2^er ≤ M < 2^(er+1) and s = r 2^-er
++# (into `res64`): b̃ = x̃ᵀs, ‖s‖² (between 1 and 4n) and q̃ = b̃/ã give b/a = q̃ 2^(er − ex); d̃² = ‖s‖² − b̃ q̃,
++# formed again as ‖s − q̃ x̃‖² where it is below ‖s‖²/16, gives d = d̃ 2^er. The step is shrink(c, τ) with
++# c = old + T(q̃ 2^(er − ex)) and τ = τ̃ 2^(er − ex) for the threshold of the scaled problem
++# τ̃ = (λ̃/√ã)(d̃/√((√ã − λ̃)(√ã + λ̃))), capped at floatmax(T) before the rounding to T: at a finite c the cap
++# gives the 0 that a larger τ gives, and a c that is Inf or NaN stays non-finite, which `_visit!` refuses.
++# With 1 ≤ √ã, λ̃ < √ã, the root product at least 2^-26.5 (√ã − λ̃ is at least 2^-53 where λ̃ ≥ √ã/2, and at
++# least 1/2 otherwise) and d̃ at most about 2√n, τ̃ is below about 2^28 √n, so it needs no range test. As
++# √ã √((√ã − λ̃)(√ã + λ̃)) ≤ ã ≤ 4n, τ̃ ≥ λ̃ d̃/(4n) in exact arithmetic, so a τ̃ below the normal range
++# needs λ̃ d̃ below about 4n 2^-1022. Power-of-two scaling is exact when its exact result is in the normal Float64 range;
++# below that range it may lose bits or underflow to zero, with absolute error at most η/2 in the normalized
++# units (η = 2^-1074), also in τ̃ (which moves φ by at most 2√n η ‖r‖). For example, a residual
++# [2^1000, 2^-1000] against the column [1, 0] gives d̃ = 0 for d = 2^-1000, a relative change of 1 in d,
++# while [1.5 2^1000, 2^-74] keeps 2^-74 as η. To first order in η, these errors change √a by at most
++# √n η √a, and b/√a and d by at most 3 n η ‖r‖ (2^ex ≤ √a, 2^er ≤ ‖r‖, ‖x̃‖ ≥ 1 and ‖s‖ < 2√n). The sum
++# of the squares in the recomputed ‖s − q̃ x̃‖² loses at most η/2 per square that is below the normal range,
++# so d̃² changes by at most n η/2 and d̃ by at most √(n η/2) < 2^-537 √n, an absolute error of at most
++# 2^-537 √n ‖r‖ in d. These are absolute errors at the scales of the column and the residual, not relative to
++# b or d. They are far below the terms u max(‖ρ‖, ‖r‖) of the objective-error bound of the step (the
++# comment of `step_bound` in test/sqrt_lasso.jl), which covers them; for example a d computed as 0 moves the
++# coordinate objective by at most 2d.
++@noinline function _sqrt_cold_step(m::SqrtLSModel{T}, old::T, k::Int) where T
+   ls = m.ls
+-  X, r, s = ls.X, ls.r, m.res64
++  X, r, s, xs = ls.X, ls.r, m.res64, m.rowmag64
+   n = length(r)
+   Mx, M = 0.0, 0.0
+   @inbounds for i in 1:n
+@@ -251,6 +222,7 @@ end
+   as = 0.0
+   @inbounds for i in 1:n
+     v = ldexp(Float64(X[i, k]), -ex)
++    xs[i] = v
+     as += v*v
+   end
+   ras = sqrt(as)
+@@ -262,20 +234,21 @@ end
+   @inbounds for i in 1:n
+     v = ldexp(Float64(r[i]), -er)
+     s[i] = v
+-    bs += v*ldexp(Float64(X[i, k]), -ex)
++    bs += v*xs[i]
+     ss += v*v
+   end
+   qs = bs/as
+   ds2 = ss - bs*qs
+   if ds2 < ss/16
++    ds2 = 0.0
+     @inbounds for i in 1:n
+-      s[i] -= qs*ldexp(Float64(X[i, k]), -ex)
++      v = s[i] - qs*xs[i]
++      ds2 += v*v
+     end
+-    ds, ed = _scaled_norm(s, n)
+-  else
+-    ds, ed = sqrt(ds2), 0
+   end
+-  _sqrt_band_step(old + T(ldexp(qs, er - ex)), ras, λs, ds, ed + er - ex)
++  τs = (λs/ras)*(sqrt(ds2)/(sqrt(ras - λs)*sqrt(ras + λs)))
++  e = er - ex
++  shrink(old + T(ldexp(qs, e)), T(min(ldexp(τs, e), Float64(floatmax(T)))))
+ end
+ # The refusal of a residual with an entry that is not finite, at the visit of coordinate k.
+ @noinline function _check_residual(r::AbstractVector{T}, k::Int) where T
+diff --git a/test/sqrt_lasso.jl b/test/sqrt_lasso.jl
+index 1586f9e3..872c34e1 100644
+--- a/test/sqrt_lasso.jl
++++ b/test/sqrt_lasso.jl
+@@ -294,14 +294,15 @@ end
+ # and the test allows (37γ_n + 56u) max(‖ρ‖, ‖r‖), a margin of 3.6u for the second-order terms. A
+ # rounding whose exact result is below the normal range of T (it may give a subnormal number or 0) adds
+ # an absolute error of at most η/2 (η = nextfloat(zero(T))), which moves φ by at most (√a + λ) η/2; the
+-# test allows 4 (√a + λ) η for these. The paths that form the threshold in Float64 (`_sqrt_band_step`) or
+-# scale the column and the residual by powers of two (`_sqrt_offrange_step`, where a curvature or a
+-# residual is outside the clean range of the fast path) have the same counts or fewer roundings in T.
++# test allows 4 (√a + λ) η for these. The path that forms the threshold in Float64 on the column and the
++# residual scaled by powers of two (`_sqrt_cold_step`, where a curvature, a residual or a threshold is
++# outside the range of the fast path) has the same counts or fewer roundings in T.
+ # There, power-of-two scaling is exact when its exact result is in the normal Float64 range; below that
+ # range it may lose bits or underflow to zero, with absolute error at most η₆₄/2 (η₆₄ = 2^-1074) in the
+ # normalized units; to first order this changes √a by at most √n η₆₄ √a and b/√a and d by at most
+-# 3 n η₆₄ ‖r‖, absolute errors at the scales of the column and the residual (not relative: a tiny d can
+-# become 0). They are far below the 56u max(‖ρ‖, ‖r‖) term above (a d computed as 0 moves φ by at most 2d).
++# 3 n η₆₄ ‖r‖, and d by at most √(n η₆₄/2) ‖r‖ more where d² is formed again as a sum of squares: absolute
++# errors at the scales of the column and the residual (not relative: a tiny d can become 0). They are far
++# below the 56u max(‖ρ‖, ‖r‖) term above (a d computed as 0 moves φ by at most 2d).
+ step_bound(::Type{T}, n, S, ra, λ) where T =
+   (37 * (n * eps(T) / 2) / (1 - n * eps(T) / 2) + 56 * eps(T) / 2) * S + 4 * (ra + λ) * nextfloat(zero(T))
+ 
+@@ -351,14 +352,14 @@ step_ok(xk, y, λ, old) = ((z, r) = step_once(xk, y, λ, old); (e, b) = step_exc
+     @test step_ok(e1, T[t, 1, 0, 0], T(0.25), zero(T))
+   end
+   # a tiny column whose squared norm is subnormal in T: the curvature is outside the clean range, and
+-  # the step is formed by `_sqrt_offrange_step` (the threshold is of the order of the centre here)
++  # the step is formed by `_sqrt_cold_step` (the threshold is of the order of the centre here)
+   s, ys = T === Float32 ? (70, -30) : (530, -400)
+   tiny = T(2)^-s .* xk
+   @test issubnormal(sum(abs2, tiny))
+   for old in (zero(T), T(2)^(ys + s - 2))
+     @test step_ok(tiny, T(2)^ys .* T[1, 0, 2, -1], T(2)^(-s - 1), old)
+   end
+-  # a subnormal residual: r = y is subnormal in every nonzero entry (`_sqrt_offrange_step`)
++  # a subnormal residual: r = y is subnormal in every nonzero entry (`_sqrt_cold_step`)
+   sub = T(2)^(T === Float32 ? -140 : -1060)
+   @test step_ok(xk, sub .* T[1, 0, 2, -1], T(2)^-10, zero(T))
+   # a column at the large end of the range

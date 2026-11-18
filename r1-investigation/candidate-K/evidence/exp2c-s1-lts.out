@@ -1,0 +1,50 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353-r1/.codex-orchestrator/depot-probe-lts-lts:<DEPOT>: julia +lts --startup-file=no --project=. .codex-orchestrator/probes/exp2c.jl 15000 1
+# julia 1.10.13 N=15000 seed=1
+ordinary       Float32  cases=15000 | worst excess/bound base=3.060e-02 cand=3.060e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 889, :fast => 12763, :lam => 1348]; differ by master class: Pair{Symbol, Int64}[]
+ordinary       Float64  cases=15000 | worst excess/bound base=3.063e-02 cand=3.063e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 953, :fast => 14047]; differ by master class: Pair{Symbol, Int64}[]
+wide_mod       Float32  cases=15000 | worst excess/bound base=2.940e-02 cand=2.940e-02 | >1: base=0 cand=0 | differ=153 (max 7.98e+03 ulp, max rel 0.000715) | outcome-class mismatches=0 | throws b/c=38/38 nonfinite b/c=10/10
+    master class: [:band => 592, :d2 => 646, :fast => 7922, :lam => 949, :shared => 38, :sums => 4853]; differ by master class: [:band => 153]
+wide_mod       Float64  cases=15000 | worst excess/bound base=3.722e-02 cand=3.722e-02 | >1: base=0 cand=0 | differ=203 (max 4.1e+03 ulp, max rel 5.32e-13) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:band => 1430, :d2 => 917, :fast => 11637, :sums => 1016]; differ by master class: [:band => 203]
+wide_full      Float32  cases=15000 | worst excess/bound base=1.227e-01 cand=1.227e-01 | >1: base=0 cand=0 | differ=34 (max 22 ulp, max rel 1.66e-06) | outcome-class mismatches=0 | throws b/c=7446/7446 nonfinite b/c=465/465
+    master class: [:band => 155, :d2 => 181, :fast => 2013, :lam => 232, :shared => 7446, :sums => 4973]; differ by master class: [:band => 34]
+wide_full      Float64  cases=15000 | worst excess/bound base=1.160e-01 cand=1.160e-01 | >1: base=0 cand=0 | differ=59 (max 169 ulp, max rel 2.53e-14) | outcome-class mismatches=0 | throws b/c=7640/7640 nonfinite b/c=523/523
+    master class: [:band => 343, :d2 => 225, :fast => 2743, :shared => 7640, :sums => 4049]; differ by master class: [:band => 59]
+near_parallel  Float32  cases=15000 | worst excess/bound base=2.225e-02 cand=2.225e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 4189, :fast => 9012, :lam => 1381, :sums => 418]; differ by master class: Pair{Symbol, Int64}[]
+near_parallel  Float64  cases=15000 | worst excess/bound base=1.971e-02 cand=1.971e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 4302, :fast => 10698]; differ by master class: Pair{Symbol, Int64}[]
+tiny_d         Float32  cases=15000 | worst excess/bound base=2.240e-02 cand=2.240e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 2534, :fast => 11036, :lam => 1430]; differ by master class: Pair{Symbol, Int64}[]
+tiny_d         Float64  cases=15000 | worst excess/bound base=2.134e-02 cand=2.134e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 8123, :fast => 6877]; differ by master class: Pair{Symbol, Int64}[]
+lam_near       Float32  cases=15000 | worst excess/bound base=3.252e-02 cand=3.252e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 760, :fast => 10125, :lam => 4115]; differ by master class: Pair{Symbol, Int64}[]
+lam_near       Float64  cases=15000 | worst excess/bound base=2.717e-02 cand=2.717e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 655, :fast => 10212, :lam => 4133]; differ by master class: Pair{Symbol, Int64}[]
+thresh         Float32  cases=15000 | worst excess/bound base=2.565e-02 cand=2.565e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 626, :fast => 5451, :lam => 603, :sums => 8320]; differ by master class: Pair{Symbol, Int64}[]
+thresh         Float64  cases=15000 | worst excess/bound base=2.978e-02 cand=2.978e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 757, :fast => 6137, :sums => 8106]; differ by master class: Pair{Symbol, Int64}[]
+corner         Float32  cases=15000 | worst excess/bound base=1.361e-02 cand=1.361e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 15000]; differ by master class: Pair{Symbol, Int64}[]
+corner         Float64  cases=15000 | worst excess/bound base=1.666e-02 cand=1.666e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 15000]; differ by master class: Pair{Symbol, Int64}[]
+far            Float32  cases=15000 | worst excess/bound base=9.706e-02 cand=9.706e-02 | >1: base=0 cand=0 | differ=35 (max 1.02e+03 ulp, max rel 8.63e-05) | outcome-class mismatches=0 | throws b/c=10433/10433 nonfinite b/c=746/746
+    master class: [:band => 160, :d2 => 42, :fast => 280, :lam => 62, :shared => 10433, :sums => 4023]; differ by master class: [:band => 35]
+far            Float64  cases=15000 | worst excess/bound base=8.181e-02 cand=8.181e-02 | >1: base=0 cand=0 | differ=1 (max 3 ulp, max rel 3.56e-16) | outcome-class mismatches=0 | throws b/c=13845/13845 nonfinite b/c=351/351
+    master class: [:band => 3, :d2 => 2, :fast => 15, :shared => 13845, :sums => 1135]; differ by master class: [:band => 1]
+huge_edge      Float32  cases=15000 | worst excess/bound base=2.149e-02 cand=2.149e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=33/33 nonfinite b/c=0/0
+    master class: [:d2 => 7876, :fast => 3834, :lam => 1384, :shared => 33, :sums => 1873]; differ by master class: Pair{Symbol, Int64}[]
+huge_edge      Float64  cases=15000 | worst excess/bound base=2.561e-02 cand=2.561e-02 | >1: base=0 cand=0 | differ=0 (max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:d2 => 9442, :fast => 3663, :sums => 1895]; differ by master class: Pair{Symbol, Int64}[]
+band           Float32  cases=15000 | worst excess/bound base=2.633e-06 cand=2.272e-08 | >1: base=0 cand=0 | differ=2920 (max 1.01e+06 ulp, max rel 0.075) | outcome-class mismatches=0 | throws b/c=119/119 nonfinite b/c=0/0
+    master class: [:band => 12856, :d2 => 71, :fast => 10, :lam => 1338, :shared => 119, :sums => 606]; differ by master class: [:band => 2920]
+band           Float64  cases=15000 | worst excess/bound base=3.989e-16 cand=3.989e-16 | >1: base=0 cand=0 | differ=2507 (max 4.1e+03 ulp, max rel 5.67e-13) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:band => 14767, :d2 => 59, :sums => 174]; differ by master class: [:band => 2507]
+sub_lam        Float32  cases=15000 | worst excess/bound base=2.643e-02 cand=1.655e-02 | >1: base=0 cand=0 | differ=6430 (max 1.98e+03 ulp, max rel 0.000154) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:band => 13869, :d2 => 994, :fast => 137]; differ by master class: [:band => 6430]
+sub_lam        Float64  cases=15000 | worst excess/bound base=2.764e-02 cand=2.764e-02 | >1: base=0 cand=0 | differ=5900 (max 1.22e+04 ulp, max rel 1.64e-12) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=0/0
+    master class: [:band => 13940, :d2 => 993, :fast => 67]; differ by master class: [:band => 5900]

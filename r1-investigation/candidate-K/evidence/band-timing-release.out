@@ -1,0 +1,14 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353-r1/.codex-orchestrator/depot-probe-release-release:<DEPOT>: julia +release --startup-file=no --project=. .codex-orchestrator/probes/band_timing.jl
+Julia 1.13.4
+Float32 ordinary (control) n=  30 p= 10 band exits at x=0:   0%  passes 10|10|10  base0      1.0 µs  cand/base0 0.972 [0.954, 1.232]  base1/base0 0.999  x equal: true finite: true
+Float32 ordinary (control) n= 200 p= 40 band exits at x=0:   0%  passes 10|10|10  base0      3.0 µs  cand/base0 0.938 [0.926, 1.242]  base1/base0 0.999  x equal: true finite: true
+Float32 ordinary (control) n=1000 p=100 band exits at x=0:   0%  passes 10|10|10  base0     16.8 µs  cand/base0 0.943 [0.904, 1.020]  base1/base0 1.001  x equal: true finite: true
+Float32 band               n=  30 p= 10 band exits at x=0: 100%  passes 10|10|10  base0      1.3 µs  cand/base0 3.610 [3.515, 3.644]  base1/base0 0.997  x equal: false finite: true
+Float32 band               n= 200 p= 40 band exits at x=0: 100%  passes 10|10|10  base0      3.5 µs  cand/base0 11.600 [11.079, 11.841]  base1/base0 0.994  x equal: false finite: true
+Float32 band               n=1000 p=100 band exits at x=0: 100%  passes 10|10|10  base0     17.3 µs  cand/base0 20.070 [19.253, 20.475]  base1/base0 1.008  x equal: false finite: true
+Float64 ordinary (control) n=  30 p= 10 band exits at x=0:   0%  passes 10|10|10  base0      1.3 µs  cand/base0 0.995 [0.919, 1.029]  base1/base0 1.002  x equal: true finite: true
+Float64 ordinary (control) n= 200 p= 40 band exits at x=0:   0%  passes 10|10|10  base0      4.4 µs  cand/base0 0.969 [0.909, 1.064]  base1/base0 0.996  x equal: true finite: true
+Float64 ordinary (control) n=1000 p=100 band exits at x=0:   0%  passes 10|10|10  base0     28.8 µs  cand/base0 0.973 [0.948, 1.004]  base1/base0 0.999  x equal: true finite: true
+Float64 band               n=  30 p= 10 band exits at x=0: 100%  passes 10|10|10  base0      1.4 µs  cand/base0 3.120 [3.043, 3.183]  base1/base0 0.993  x equal: true finite: true
+Float64 band               n= 200 p= 40 band exits at x=0: 100%  passes 10|10|10  base0      4.8 µs  cand/base0 7.998 [7.811, 8.087]  base1/base0 0.990  x equal: true finite: true
+Float64 band               n=1000 p=100 band exits at x=0: 100%  passes 10|10|10  base0     29.8 µs  cand/base0 11.122 [10.647, 11.328]  base1/base0 1.015  x equal: false finite: true

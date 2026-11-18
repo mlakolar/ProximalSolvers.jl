@@ -1,0 +1,8 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353-base/.codex-orchestrator/depot-base-lts-lts:<DEPOT>: julia +lts --startup-file=no --project=. .codex-orchestrator/probes/inst.jl
+┌ Warning: The project dependencies or compat requirements have changed since the manifest was last resolved.
+│ It is recommended to `Pkg.resolve()` or consider `Pkg.update()` if necessary.
+└ @ Pkg.API <DEPOT>/juliaup/julia-1.10.13+0.x64.linux.gnu/share/julia/stdlib/v1.10/Pkg/src/API.jl:1142
+Precompiling packages...
+   2763.2 ms  ✓ ProximalSolvers
+  1 dependency successfully precompiled in 3 seconds. 5 already precompiled.
+instantiated 1.10.13

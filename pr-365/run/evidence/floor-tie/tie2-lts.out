@@ -1,0 +1,21 @@
+Julia 1.10.13
+Float64 tol = 1600 eps (tie)       solves  300 identical  255 | converged -> not   8 | not -> converged   1 | same flag, other passes or tolerance  36
+Float64 tol = 160000 eps (tie)     solves  300 identical  254 | converged -> not   6 | not -> converged   1 | same flag, other passes or tolerance  39
+Float64 tol = prevfloat(1600 eps)  solves  300 identical  244 | converged -> not   1 | not -> converged   7 | same flag, other passes or tolerance  48
+Float64 tol = nextfloat(1600 eps)  solves  300 identical  281 | converged -> not   2 | not -> converged   0 | same flag, other passes or tolerance  17
+Float64 tol = 1599 eps             solves  300 identical  300 | converged -> not   0 | not -> converged   0 | same flag, other passes or tolerance   0
+Float64 tol = 1601 eps             solves  300 identical  300 | converged -> not   0 | not -> converged   0 | same flag, other passes or tolerance   0
+Float64 tol = 16000 eps            solves  300 identical  300 | converged -> not   0 | not -> converged   0 | same flag, other passes or tolerance   0
+Float64 tol = 1e-10 or 1e-4        solves  300 identical  300 | converged -> not   0 | not -> converged   0 | same flag, other passes or tolerance   0
+Float64 tol = 1e-12 or 1e-5        solves  300 identical  300 | converged -> not   0 | not -> converged   0 | same flag, other passes or tolerance   0
+Float64 tol = default tol          solves  300 identical  300 | converged -> not   0 | not -> converged   0 | same flag, other passes or tolerance   0
+Float32 tol = 1600 eps (tie)       solves  300 identical  300 | converged -> not   0 | not -> converged   0 | same flag, other passes or tolerance   0
+Float32 tol = 160000 eps (tie)     solves  300 identical  300 | converged -> not   0 | not -> converged   0 | same flag, other passes or tolerance   0
+Float32 tol = prevfloat(1600 eps)  solves  300 identical  300 | converged -> not   0 | not -> converged   0 | same flag, other passes or tolerance   0
+Float32 tol = nextfloat(1600 eps)  solves  300 identical  300 | converged -> not   0 | not -> converged   0 | same flag, other passes or tolerance   0
+Float32 tol = 1599 eps             solves  300 identical  300 | converged -> not   0 | not -> converged   0 | same flag, other passes or tolerance   0
+Float32 tol = 1601 eps             solves  300 identical  300 | converged -> not   0 | not -> converged   0 | same flag, other passes or tolerance   0
+Float32 tol = 16000 eps            solves  300 identical  300 | converged -> not   0 | not -> converged   0 | same flag, other passes or tolerance   0
+Float32 tol = 1e-10 or 1e-4        solves  300 identical  300 | converged -> not   0 | not -> converged   0 | same flag, other passes or tolerance   0
+Float32 tol = 1e-12 or 1e-5        solves  300 identical  300 | converged -> not   0 | not -> converged   0 | same flag, other passes or tolerance   0
+Float32 tol = default tol          solves  300 identical  300 | converged -> not   0 | not -> converged   0 | same flag, other passes or tolerance   0

@@ -1,0 +1,6 @@
+sha=966004ec527c9fdbc45c950d08abae6c129d53e0
+dirty=no
+mode=julia where=local versions=release
+started=2026-11-18T05:54:45Z
+args=--project=. .codex-orchestrator/probes/band_timing.jl
+exit release rc=0 ok=yes pass=- total=- seconds=7 tag=probe-release

@@ -1,0 +1,6 @@
+sha=a8136f66bff5058d9413f46626c5709044d1bd61
+dirty=no
+mode=julia where=local versions=release
+started=2026-11-18T06:09:53Z
+args=--project=. .codex-orchestrator/probes/exp_b2.jl
+exit release rc=0 ok=yes pass=- total=- seconds=6 tag=probe-release

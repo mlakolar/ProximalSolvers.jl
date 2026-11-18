@@ -1,0 +1,4 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353/.codex-orchestrator/depot-probe-release-release:<DEPOT>: julia +release --startup-file=no --project=. .codex-orchestrator/probes/fold_check.jl
+Julia 1.13.4
+head folded: true
+fold check: mismatches 0 of 990000 comparisons (vectors and matrices; NaN, Inf, zero, -0.0, subnormal, huge, mixed-scale, a == b; Float32 data with Float64 working type included)

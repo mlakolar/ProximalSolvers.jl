@@ -1,0 +1,23 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353/.codex-orchestrator/depot-probe-lts-lts:<DEPOT>: julia +lts --startup-file=no --project=. .codex-orchestrator/probes/empty_check.jl
+Float32 n=5 p=0 apg: base err DimensionMismatch: X must have positive row and column counts | head err DimensionMismatch: X must have positive row and column counts  SAME
+Float32 n=5 p=0 pgd: base err DimensionMismatch: X must have positive row and column counts | head err DimensionMismatch: X must have positive row and column counts  SAME
+Float32 n=5 p=0 cd: base err DimensionMismatch: X must have positive row and column counts | head err DimensionMismatch: X must have positive row and column counts  SAME
+Float32 n=0 p=3 apg: base err DimensionMismatch: X must have positive row and column counts | head err DimensionMismatch: X must have positive row and column counts  SAME
+Float32 n=0 p=3 pgd: base err DimensionMismatch: X must have positive row and column counts | head err DimensionMismatch: X must have positive row and column counts  SAME
+Float32 n=0 p=3 cd: base err DimensionMismatch: X must have positive row and column counts | head err DimensionMismatch: X must have positive row and column counts  SAME
+Float32 n=0 p=0 apg: base err DimensionMismatch: X must have positive row and column counts | head err DimensionMismatch: X must have positive row and column counts  SAME
+Float32 n=0 p=0 pgd: base err DimensionMismatch: X must have positive row and column counts | head err DimensionMismatch: X must have positive row and column counts  SAME
+Float32 n=0 p=0 cd: base err DimensionMismatch: X must have positive row and column counts | head err DimensionMismatch: X must have positive row and column counts  SAME
+Float64 n=5 p=0 apg: base err DimensionMismatch: X must have positive row and column counts | head err DimensionMismatch: X must have positive row and column counts  SAME
+Float64 n=5 p=0 pgd: base err DimensionMismatch: X must have positive row and column counts | head err DimensionMismatch: X must have positive row and column counts  SAME
+Float64 n=5 p=0 cd: base err DimensionMismatch: X must have positive row and column counts | head err DimensionMismatch: X must have positive row and column counts  SAME
+Float64 n=0 p=3 apg: base err DimensionMismatch: X must have positive row and column counts | head err DimensionMismatch: X must have positive row and column counts  SAME
+Float64 n=0 p=3 pgd: base err DimensionMismatch: X must have positive row and column counts | head err DimensionMismatch: X must have positive row and column counts  SAME
+Float64 n=0 p=3 cd: base err DimensionMismatch: X must have positive row and column counts | head err DimensionMismatch: X must have positive row and column counts  SAME
+Float64 n=0 p=0 apg: base err DimensionMismatch: X must have positive row and column counts | head err DimensionMismatch: X must have positive row and column counts  SAME
+Float64 n=0 p=0 pgd: base err DimensionMismatch: X must have positive row and column counts | head err DimensionMismatch: X must have positive row and column counts  SAME
+Float64 n=0 p=0 cd: base err DimensionMismatch: X must have positive row and column counts | head err DimensionMismatch: X must have positive row and column counts  SAME
+Float32 _se_norm(T, []): base (:ok, Main.BaseMod.ProximalSolvers._SE{Float32}(0.0f0, 0)) head (:ok, Main.X2Mod.ProximalSolvers._SE{Float32}(0.0f0, 0))
+Float32 _se_norm(T, [], []): base (:ok, Main.BaseMod.ProximalSolvers._SE{Float32}(0.0f0, 0)) head (:ok, Main.X2Mod.ProximalSolvers._SE{Float32}(0.0f0, 0))
+Float64 _se_norm(T, []): base (:ok, Main.BaseMod.ProximalSolvers._SE{Float64}(0.0, 0)) head (:ok, Main.X2Mod.ProximalSolvers._SE{Float64}(0.0, 0))
+Float64 _se_norm(T, [], []): base (:ok, Main.BaseMod.ProximalSolvers._SE{Float64}(0.0, 0)) head (:ok, Main.X2Mod.ProximalSolvers._SE{Float64}(0.0, 0))

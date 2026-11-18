@@ -1,0 +1,5 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353-r1/.codex-orchestrator/depot-probe-release-release:<DEPOT>: julia +release --startup-file=no --project=. .codex-orchestrator/probes/exp_b2.jl
+# julia 1.13.4: 748 solve configurations; candidate bitwise identical to master (x, passes, converged, gap, minimum, error text): 748 of 748; differing: 0
+outcomes by tree (C certified/converged, u uncertified, T throws): : C=500 u=248 T=0 | : C=500 u=248 T=0
+pass totals over converged rows: : 51436 | : 51436
+outcome-class changes: 0; pass-count changes: 0

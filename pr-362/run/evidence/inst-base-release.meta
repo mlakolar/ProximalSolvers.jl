@@ -1,0 +1,6 @@
+sha=bb20b6a36cc040f7f00088919e331dce27cf257b
+dirty=no
+mode=julia where=local versions=release
+started=2026-11-18T05:14:34Z
+args=--project=. .codex-orchestrator/probes/inst.jl
+exit release rc=0 ok=yes pass=- total=- seconds=10 tag=base-release

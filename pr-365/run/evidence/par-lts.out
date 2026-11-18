@@ -1,0 +1,15 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353-2/.codex-orchestrator/depot-probe-lts-lts:<DEPOT>: julia +lts --startup-file=no --project=. .codex-orchestrator/probes/par_targeted.jl 4 1
+# julia 1.10.13 draws=4 seed=1
+Float32  n=1     cases=   640 reached_offrange=   634 reached_recompute=   634 | cand excess/bound>1: 0 (worst base 2.677e-02 cand 2.677e-02) | outcome-class mismatches=0 | differ=0 (in recompute cases 0; max 0 ulp, max rel 0)
+Float32  n=2     cases=   896 reached_offrange=   896 reached_recompute=   892 | cand excess/bound>1: 0 (worst base 1.530e-02 cand 1.530e-02) | outcome-class mismatches=0 | differ=0 (in recompute cases 0; max 0 ulp, max rel 0)
+Float32  n=3     cases=   896 reached_offrange=   896 reached_recompute=   884 | cand excess/bound>1: 0 (worst base 1.239e-02 cand 1.239e-02) | outcome-class mismatches=0 | differ=0 (in recompute cases 0; max 0 ulp, max rel 0)
+Float32  n=5     cases=   896 reached_offrange=   896 reached_recompute=   880 | cand excess/bound>1: 0 (worst base 7.732e-03 cand 7.732e-03) | outcome-class mismatches=0 | differ=0 (in recompute cases 0; max 0 ulp, max rel 0)
+Float32  n=30    cases=   896 reached_offrange=   896 reached_recompute=   854 | cand excess/bound>1: 0 (worst base 2.373e-03 cand 2.373e-03) | outcome-class mismatches=0 | differ=0 (in recompute cases 0; max 0 ulp, max rel 0)
+Float32  n=2000  cases=   224 reached_offrange=   224 reached_recompute=   206 | cand excess/bound>1: 0 (worst base 1.997e-05 cand 1.997e-05) | outcome-class mismatches=0 | differ=0 (in recompute cases 0; max 0 ulp, max rel 0)
+Float64  n=1     cases=   640 reached_offrange=   640 reached_recompute=   640 | cand excess/bound>1: 0 (worst base 2.720e-02 cand 2.720e-02) | outcome-class mismatches=0 | differ=0 (in recompute cases 0; max 0 ulp, max rel 0)
+Float64  n=2     cases=   896 reached_offrange=   896 reached_recompute=   886 | cand excess/bound>1: 0 (worst base 1.706e-02 cand 1.706e-02) | outcome-class mismatches=0 | differ=6 (in recompute cases 6; max 16 ulp, max rel 2.06e-15)
+Float64  n=3     cases=   896 reached_offrange=   896 reached_recompute=   880 | cand excess/bound>1: 0 (worst base 1.308e-02 cand 1.308e-02) | outcome-class mismatches=0 | differ=8 (in recompute cases 8; max 32 ulp, max rel 4.78e-15)
+Float64  n=5     cases=   896 reached_offrange=   896 reached_recompute=   880 | cand excess/bound>1: 0 (worst base 9.810e-03 cand 9.810e-03) | outcome-class mismatches=0 | differ=5 (in recompute cases 5; max 16 ulp, max rel 2.19e-15)
+Float64  n=30    cases=   896 reached_offrange=   896 reached_recompute=   868 | cand excess/bound>1: 0 (worst base 2.010e-03 cand 2.010e-03) | outcome-class mismatches=0 | differ=5 (in recompute cases 5; max 16 ulp, max rel 2.02e-15)
+Float64  n=2000  cases=   224 reached_offrange=   224 reached_recompute=   206 | cand excess/bound>1: 0 (worst base 1.899e-04 cand 1.899e-04) | outcome-class mismatches=0 | differ=4 (in recompute cases 4; max 7 ulp, max rel 1.03e-15)
+TOTAL [:cases => 8896, :differ => 28, :mism => 0, :offr => 8890, :over => 0, :recomp => 8710]

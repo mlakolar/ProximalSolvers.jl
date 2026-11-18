@@ -1,0 +1,47 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353/.codex-orchestrator/depot-probe-lts-lts:<DEPOT>: julia +lts --startup-file=no --project=. .codex-orchestrator/probes/unit_items.jl
+Julia 1.10.13 CPU goldmont
+
+== item 1: _maxabs_diff vs _norm_diff(x,y,Inf)
+  cases=10900 mismatches=0
+  mixed (Float32, Float64) old: 0.5  new: 0.5
+
+== item 2: _root_scale(T, α), BASE vs X2
+  integer types: cases=43196 field mismatches=0 value mismatches=0
+  admitted scale types (Float32, Float64, BitInteger, Bool): cases=83178 mismatches=0
+  Other types, as the existing test (accelerated_pgd.jl:470) uses them and beyond; BASE and X2 values, relative error vs √α in BigFloat(512):
+  Float64 α=1.48219693752373963252970637860466411709517940784   identical  base: 5.793758576800781e-17  x2: 5.793758576800781e-17
+  Float32 α=2.0879347118439774e-45                              identical  base: 2.622057711793061e-8  x2: 2.622057711793061e-8
+  Float64 α=0.5f0                                               identical  base: 6.835808657661923e-17  x2: 6.835808657661923e-17
+  Float32 α=1.0e+30                                             identical  base: 1.3008896e-8  x2: 1.3008896e-8
+  Float64 α=0.50123456789012345669999999999999999999999999999   identical  base: 2.3562306190598967e-17  x2: 2.3562306190598967e-17
+  Float64 α=257                                                 identical  base: 7.249402482101865e-17  x2: 7.249402482101865e-17
+  Float64 α=257//512                                            identical  base: 4.5786674574228284e-17  x2: 4.5786674574228284e-17
+  Float64 α=true                                                identical  base: 0.0  x2: 0.0
+  Float64 α=π                                                   identical  base: 8.20211707359838e-17  x2: 8.20211707359838e-17
+  Float32 α=Float16(0.3)                                        identical  base: 4.88329548138128e-8  x2: 4.88329548138128e-8
+  Float64 α=0.10000000000000000555111512312578270211815834045   identical  base: 2.5313936124574603e-18  x2: 2.5313936124574603e-18
+  Float64 α=0.10000000000000000555111595030639525514583321186   identical  base: 2.531397748360523e-18  x2: 2.531397748360523e-18
+  Float64 α=1//3                                                identical  base: 5.793758576800781e-17  x2: 5.793758576800781e-17
+  Float64 α=1208925819614629174706177                           identical  base: 4.1359030627651384e-25  x2: 4.1359030627651384e-25
+  Float64 α=2.47032822920623272088284396434110686182529901307   DIFFERENT  base: 6.835808657661923e-17  x2: ERR:DomainError with 0.0:
+  Float64 α=7.71977571626947725275888738856595894320405941584   DIFFERENT  base: 0.0  x2: ERR:DomainError with 0.0:
+  Float64 α=1.35829852904938584927735142835926677860349384693   DIFFERENT  base: 0.0  x2: ERR:DomainError with Inf:
+  Float64 α=8.70980981621721667557619549477887229585910374270   DIFFERENT  base: 0.0  x2: ERR:DomainError with 0.0:
+  Float64 α=1.00000000000000000000000000000000000000000000000   DIFFERENT  base: 3.026687778748964e-17  x2: ERR:DomainError with Inf:
+  Float64 α=1180591620717411303424                              identical  base: 0.0  x2: 0.0
+  Float64 α=1000000000000000000000000000000000000000000000000   DIFFERENT  base: 3.026687778748964e-17  x2: ERR:DomainError with Inf:
+  Float64 α=1//1000000000000000000000000000000000000000000000   DIFFERENT  base: 1.789973760091724e-17  x2: ERR:DomainError with 0.0:
+  Float64 α=0x00000010000000000000000000000000                  identical  base: 0.0  x2: 0.0
+  Float64 α=0x01000000000000000000000000000001                  identical  base: 3.76158192263132e-37  x2: 3.76158192263132e-37
+  CD route: LSModel scale types by construction: Float64, Float32, BigFloat
+
+== item 3: _frobenius_upper, BASE vs X2 (=== on the _SE)
+  cases=8000 mismatches=0
+
+== item 4: _round_up(T, v) vs T(v, RoundUp)
+  cases=6000068 mismatches=0  (negative inputs, not reachable: 0 of 400000 differ)
+  Float64(v, RoundUp) === v for 1e6 random Float64 incl. subnormals: true
+
+== item 5: _flat_column / _flat_group, BASE vs X2
+  cases=89892 mismatches=0 (-0.0 flat, NaN not flat, subnormal not flat in both)
+  sparse X direct LSModel: base flat = Bool[1, 0] x2 flat = Bool[1, 0]

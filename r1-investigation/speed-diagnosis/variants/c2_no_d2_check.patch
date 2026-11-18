@@ -1,0 +1,10 @@
+--- a/src/cd/sqrtlasso.jl
++++ b/src/cd/sqrtlasso.jl
+@@ -187,7 +187,6 @@
+   d2 = ρ2 - b*q
+   if d2 < ρ2/16
+     d2 = _distance_sqr(ls.X, ls.r, k, q)
+-    _clean_sum(d2, n) || return _sqrt_offrange_step(m, old, k)
+   end
+   d = sqrt(d2)
+   p = ra*(sqrt(ra - λ)*sqrt(ra + λ))

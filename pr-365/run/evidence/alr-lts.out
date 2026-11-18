@@ -1,0 +1,14 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353-2/.codex-orchestrator/depot-probe-lts-lts:<DEPOT>: julia +lts --startup-file=no --project=. .codex-orchestrator/probes/alloc_recomp.jl
+# Julia 1.10.13
+Float32  n=3     base recompute-branch visits (of 5, counted in base copy): 5 | 0 B for 1000 visits
+Float32  n=3     head recompute-branch visits (of 5, counted in base copy): 5 | 0 B for 1000 visits
+Float32  n=30    base recompute-branch visits (of 5, counted in base copy): 5 | 0 B for 1000 visits
+Float32  n=30    head recompute-branch visits (of 5, counted in base copy): 5 | 0 B for 1000 visits
+Float32  n=2000  base recompute-branch visits (of 5, counted in base copy): 5 | 0 B for 1000 visits
+Float32  n=2000  head recompute-branch visits (of 5, counted in base copy): 5 | 0 B for 1000 visits
+Float64  n=3     base recompute-branch visits (of 5, counted in base copy): 5 | 0 B for 1000 visits
+Float64  n=3     head recompute-branch visits (of 5, counted in base copy): 5 | 0 B for 1000 visits
+Float64  n=30    base recompute-branch visits (of 5, counted in base copy): 5 | 0 B for 1000 visits
+Float64  n=30    head recompute-branch visits (of 5, counted in base copy): 5 | 0 B for 1000 visits
+Float64  n=2000  base recompute-branch visits (of 5, counted in base copy): 5 | 0 B for 1000 visits
+Float64  n=2000  head recompute-branch visits (of 5, counted in base copy): 5 | 0 B for 1000 visits

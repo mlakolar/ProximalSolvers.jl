@@ -1,0 +1,6 @@
+sha=966004ec527c9fdbc45c950d08abae6c129d53e0
+dirty=no
+mode=tests where=local versions=lts
+started=2026-11-18T05:51:45Z
+args=--project=. scripts/test.jl --jobs=2 sqrt_lasso
+exit lts rc=0 ok=yes pass=1411 total=1411 seconds=28 tag=impl-lts

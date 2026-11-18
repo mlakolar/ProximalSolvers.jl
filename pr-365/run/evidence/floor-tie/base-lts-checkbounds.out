@@ -1,0 +1,120 @@
+  1 tol=  1600 eps passes=   9 converged=false tolerance=5.0173887934832102e-06 gap=NaN
+  1 tol=160000 eps passes=   9 converged=false tolerance=5.0173887934832102e-06 gap=NaN
+  2 tol=  1600 eps passes=  10 converged=false tolerance=4.4634319528324193e-06 gap=NaN
+  2 tol=160000 eps passes=  10 converged=false tolerance=4.4634319528324201e-06 gap=NaN
+  3 tol=  1600 eps passes=2000 converged=false tolerance=0.00051514972105118708 gap=NaN
+  3 tol=160000 eps passes=2000 converged=false tolerance=0.00051514972105118708 gap=NaN
+  4 tol=  1600 eps passes=  10 converged=true  tolerance=4.5920163167497433e-06 gap=7.49837e-05
+  4 tol=160000 eps passes=  10 converged=true  tolerance=4.5920163167497433e-06 gap=7.49708e-05
+  5 tol=  1600 eps passes=  10 converged=true  tolerance=4.8200934993640286e-06 gap=6.89291e-05
+  5 tol=160000 eps passes=  10 converged=true  tolerance=4.8200934993640286e-06 gap=6.8933e-05
+  6 tol=  1600 eps passes=2000 converged=false tolerance=0.00046059709809701633 gap=NaN
+  6 tol=160000 eps passes=2000 converged=false tolerance=0.00046059709809701639 gap=NaN
+  7 tol=  1600 eps passes=  10 converged=false tolerance=4.2902518195855099e-06 gap=NaN
+  7 tol=160000 eps passes=  10 converged=false tolerance=4.2902518195855099e-06 gap=NaN
+  8 tol=  1600 eps passes=  11 converged=false tolerance=4.2340475240639159e-06 gap=NaN
+  8 tol=160000 eps passes=  11 converged=false tolerance=4.2340475240639159e-06 gap=NaN
+  9 tol=  1600 eps passes=2000 converged=false tolerance=0.00045294353600883755 gap=NaN
+  9 tol=160000 eps passes=2000 converged=false tolerance=0.00045294353600883755 gap=NaN
+ 10 tol=  1600 eps passes=   8 converged=false tolerance=4.7246119716593982e-06 gap=NaN
+ 10 tol=160000 eps passes=   8 converged=false tolerance=4.7246119716593982e-06 gap=NaN
+ 11 tol=  1600 eps passes=  10 converged=false tolerance=4.3227845115623822e-06 gap=NaN
+ 11 tol=160000 eps passes=  10 converged=false tolerance=4.3227845115623822e-06 gap=NaN
+ 12 tol=  1600 eps passes=2000 converged=false tolerance=0.00044201219518241145 gap=NaN
+ 12 tol=160000 eps passes=2000 converged=false tolerance=0.00044201219518241145 gap=NaN
+ 13 tol=  1600 eps passes=  10 converged=false tolerance=5.1420909569416991e-06 gap=NaN
+ 13 tol=160000 eps passes=   7 converged=false tolerance=0.00051420909569416977 gap=NaN
+ 14 tol=  1600 eps passes=   9 converged=true  tolerance=4.4606640254534673e-06 gap=5.50639e-05
+ 14 tol=160000 eps passes=   9 converged=true  tolerance=4.4606640254534673e-06 gap=5.50632e-05
+ 15 tol=  1600 eps passes=2000 converged=false tolerance=0.00045418874716703067 gap=NaN
+ 15 tol=160000 eps passes=2000 converged=false tolerance=0.00045418874716703067 gap=NaN
+ 16 tol=  1600 eps passes=   9 converged=false tolerance=4.8711945763346338e-06 gap=NaN
+ 16 tol=160000 eps passes=   9 converged=false tolerance=4.8711945763346338e-06 gap=NaN
+ 17 tol=  1600 eps passes=   8 converged=false tolerance=4.6890572148947596e-06 gap=NaN
+ 17 tol=160000 eps passes=   8 converged=false tolerance=4.6890572148947596e-06 gap=NaN
+ 18 tol=  1600 eps passes=2000 converged=false tolerance=0.00049861498610096161 gap=NaN
+ 18 tol=160000 eps passes=2000 converged=false tolerance=0.00049861498610096161 gap=NaN
+ 19 tol=  1600 eps passes=  10 converged=false tolerance=4.866631479628161e-06 gap=NaN
+ 19 tol=160000 eps passes=  10 converged=false tolerance=4.866631479628161e-06 gap=NaN
+ 20 tol=  1600 eps passes=   9 converged=false tolerance=4.7198177825282212e-06 gap=NaN
+ 20 tol=160000 eps passes=   9 converged=false tolerance=4.7198177825282212e-06 gap=NaN
+ 21 tol=  1600 eps passes=2000 converged=false tolerance=0.000497672995788771 gap=NaN
+ 21 tol=160000 eps passes=2000 converged=false tolerance=0.00049767299578877089 gap=NaN
+ 22 tol=  1600 eps passes=  11 converged=false tolerance=5.0803305257309259e-06 gap=NaN
+ 22 tol=160000 eps passes=  11 converged=false tolerance=5.0803305257309259e-06 gap=NaN
+ 23 tol=  1600 eps passes=   8 converged=false tolerance=4.2510825604269936e-06 gap=NaN
+ 23 tol=160000 eps passes=   8 converged=false tolerance=4.2510825604269936e-06 gap=NaN
+ 24 tol=  1600 eps passes=2000 converged=false tolerance=0.00045190544788102936 gap=NaN
+ 24 tol=160000 eps passes=2000 converged=false tolerance=0.00045190544788102936 gap=NaN
+ 25 tol=  1600 eps passes=  10 converged=false tolerance=4.7963895024034416e-06 gap=NaN
+ 25 tol=160000 eps passes=  10 converged=false tolerance=4.7963895024034416e-06 gap=NaN
+ 26 tol=  1600 eps passes=  10 converged=false tolerance=5.0526816620514739e-06 gap=NaN
+ 26 tol=160000 eps passes=  10 converged=false tolerance=5.0526816620514739e-06 gap=NaN
+ 27 tol=  1600 eps passes=2000 converged=false tolerance=0.00046864310356654871 gap=NaN
+ 27 tol=160000 eps passes=2000 converged=false tolerance=0.00046864310356654871 gap=NaN
+ 28 tol=  1600 eps passes=   9 converged=false tolerance=4.9998010022325453e-06 gap=NaN
+ 28 tol=160000 eps passes=   9 converged=false tolerance=4.9998010022325453e-06 gap=NaN
+ 29 tol=  1600 eps passes=   9 converged=true  tolerance=4.3805067245072754e-06 gap=7.08354e-05
+ 29 tol=160000 eps passes=   9 converged=true  tolerance=4.3805067245072762e-06 gap=7.08223e-05
+ 30 tol=  1600 eps passes=2000 converged=false tolerance=0.00044352323595533288 gap=NaN
+ 30 tol=160000 eps passes=2000 converged=false tolerance=0.00044352323595533288 gap=NaN
+ 31 tol=  1600 eps passes=  10 converged=false tolerance=5.0976727138629114e-06 gap=NaN
+ 31 tol=160000 eps passes=  10 converged=false tolerance=5.0976727138629114e-06 gap=NaN
+ 32 tol=  1600 eps passes=   9 converged=false tolerance=4.4937207648268263e-06 gap=NaN
+ 32 tol=160000 eps passes=   9 converged=false tolerance=4.4937207648268263e-06 gap=NaN
+ 33 tol=  1600 eps passes=2000 converged=false tolerance=0.00045391000302869315 gap=NaN
+ 33 tol=160000 eps passes=2000 converged=false tolerance=0.00045391000302869315 gap=NaN
+ 34 tol=  1600 eps passes=   9 converged=false tolerance=4.5203192172601834e-06 gap=NaN
+ 34 tol=160000 eps passes=   9 converged=false tolerance=4.5203192172601834e-06 gap=NaN
+ 35 tol=  1600 eps passes=   6 converged=false tolerance=0.00049159460026233044 gap=NaN
+ 35 tol=160000 eps passes=   6 converged=false tolerance=0.00049159460026233044 gap=NaN
+ 36 tol=  1600 eps passes=2000 converged=false tolerance=0.00045361365773953543 gap=NaN
+ 36 tol=160000 eps passes=2000 converged=false tolerance=0.00045361365773953543 gap=NaN
+ 37 tol=  1600 eps passes=   8 converged=false tolerance=4.6532353916712253e-06 gap=NaN
+ 37 tol=160000 eps passes=   8 converged=false tolerance=4.6532353916712253e-06 gap=NaN
+ 38 tol=  1600 eps passes=  10 converged=false tolerance=4.527359867308942e-06 gap=NaN
+ 38 tol=160000 eps passes=  10 converged=false tolerance=4.527359867308942e-06 gap=NaN
+ 39 tol=  1600 eps passes=2000 converged=false tolerance=0.00048808594841911541 gap=NaN
+ 39 tol=160000 eps passes=2000 converged=false tolerance=0.00048808594841911546 gap=NaN
+ 40 tol=  1600 eps passes=  10 converged=false tolerance=4.4533884337436503e-06 gap=NaN
+ 40 tol=160000 eps passes=  10 converged=false tolerance=4.4533884337436503e-06 gap=NaN
+ 41 tol=  1600 eps passes=   9 converged=false tolerance=4.5686307847639581e-06 gap=NaN
+ 41 tol=160000 eps passes=   9 converged=false tolerance=4.5686307847639581e-06 gap=NaN
+ 42 tol=  1600 eps passes=2000 converged=false tolerance=0.00050458064724477494 gap=NaN
+ 42 tol=160000 eps passes=2000 converged=false tolerance=0.00050458064724477494 gap=NaN
+ 43 tol=  1600 eps passes=  10 converged=false tolerance=5.2252326504857057e-06 gap=NaN
+ 43 tol=160000 eps passes=  10 converged=false tolerance=5.2252326504857057e-06 gap=NaN
+ 44 tol=  1600 eps passes=   9 converged=false tolerance=4.9228843384857493e-06 gap=NaN
+ 44 tol=160000 eps passes=   9 converged=false tolerance=4.9228843384857493e-06 gap=NaN
+ 45 tol=  1600 eps passes=2000 converged=false tolerance=0.00045962584326237265 gap=NaN
+ 45 tol=160000 eps passes=2000 converged=false tolerance=0.00045962584326237265 gap=NaN
+ 46 tol=  1600 eps passes=   9 converged=false tolerance=4.8910255938755824e-06 gap=NaN
+ 46 tol=160000 eps passes=   9 converged=false tolerance=4.8910255938755824e-06 gap=NaN
+ 47 tol=  1600 eps passes=  10 converged=false tolerance=5.0528769767235972e-06 gap=NaN
+ 47 tol=160000 eps passes=   7 converged=false tolerance=0.00050528769767235965 gap=NaN
+ 48 tol=  1600 eps passes=2000 converged=false tolerance=0.00044004823345958181 gap=NaN
+ 48 tol=160000 eps passes=2000 converged=false tolerance=0.00044004823345958187 gap=NaN
+ 49 tol=  1600 eps passes=  10 converged=false tolerance=4.6939020544748807e-06 gap=NaN
+ 49 tol=160000 eps passes=  10 converged=false tolerance=4.6939020544748807e-06 gap=NaN
+ 50 tol=  1600 eps passes=  10 converged=true  tolerance=4.7764191319675943e-06 gap=3.46021e-05
+ 50 tol=160000 eps passes=  10 converged=true  tolerance=4.7764191319675943e-06 gap=3.45928e-05
+ 51 tol=  1600 eps passes=2000 converged=false tolerance=0.00047393070868097329 gap=NaN
+ 51 tol=160000 eps passes=2000 converged=false tolerance=0.00047393070868097335 gap=NaN
+ 52 tol=  1600 eps passes=  11 converged=false tolerance=4.8744548687744505e-06 gap=NaN
+ 52 tol=160000 eps passes=  11 converged=false tolerance=4.8744548687744505e-06 gap=NaN
+ 53 tol=  1600 eps passes=   9 converged=false tolerance=4.2414261583437149e-06 gap=NaN
+ 53 tol=160000 eps passes=   9 converged=false tolerance=4.2414261583437149e-06 gap=NaN
+ 54 tol=  1600 eps passes=2000 converged=false tolerance=0.00048067433086122421 gap=NaN
+ 54 tol=160000 eps passes=2000 converged=false tolerance=0.00048067433086122421 gap=NaN
+ 55 tol=  1600 eps passes=   8 converged=false tolerance=4.8999872499547445e-06 gap=NaN
+ 55 tol=160000 eps passes=   8 converged=false tolerance=4.8999872499547445e-06 gap=NaN
+ 56 tol=  1600 eps passes=  10 converged=false tolerance=4.1161890698564711e-06 gap=NaN
+ 56 tol=160000 eps passes=  10 converged=false tolerance=4.1161890698564711e-06 gap=NaN
+ 57 tol=  1600 eps passes=2000 converged=false tolerance=0.00049491440619623902 gap=NaN
+ 57 tol=160000 eps passes=2000 converged=false tolerance=0.00049491440619623902 gap=NaN
+ 58 tol=  1600 eps passes=  10 converged=true  tolerance=4.7784494061916773e-06 gap=1.41789e-05
+ 58 tol=160000 eps passes=  10 converged=false tolerance=4.7784494061916773e-06 gap=NaN
+ 59 tol=  1600 eps passes=  10 converged=false tolerance=4.6145586032521775e-06 gap=NaN
+ 59 tol=160000 eps passes=  10 converged=false tolerance=4.6145586032521775e-06 gap=NaN
+ 60 tol=  1600 eps passes=2000 converged=false tolerance=0.00047363961732876242 gap=NaN
+ 60 tol=160000 eps passes=2000 converged=false tolerance=0.00047363961732876242 gap=NaN

@@ -1,0 +1,4 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353-2/.codex-orchestrator/depot-probe-release-release:<DEPOT>: julia +release --startup-file=no --project=. .codex-orchestrator/probes/exp_b1.jl 20000 1
+# julia 1.13.4 N=20000 seed=1
+Float32: steps by master class [:d2 => 4408, :fast => 94106, :lam => 40706, :sums => 10705]; fast/lam steps NOT bitwise equal: 0 Pair{Symbol, Int64}[]; non-fast steps: 15113 of which bitwise equal 15113
+Float64: steps by master class [:d2 => 4447, :fast => 96205, :lam => 37918, :sums => 11010]; fast/lam steps NOT bitwise equal: 0 Pair{Symbol, Int64}[]; non-fast steps: 15457 of which bitwise equal 15457

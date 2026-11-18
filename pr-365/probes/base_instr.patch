@@ -1,0 +1,21 @@
+--- a/src/cd/sqrtlasso.jl
++++ b/src/cd/sqrtlasso.jl
+@@ -13,6 +13,8 @@
+ # certified bound, or NaN; whether the run stopped without a certificate). `res64` and `rowmag64` are
+ # Float64 vectors of length n (allocated by `_prepare!`): the certificate's residual and row
+ # magnitudes; `res64` is also the scaled residual of `_sqrt_offrange_step`.
++const OFFR = Ref(0)
++const RECOMP = Ref(0)
+ mutable struct SqrtLSModel{T<:Union{Float32, Float64}, M<:LSModel{T, T}} <: CDModel{T}
+   ls::M
+   gt::NormL1{T, Nothing}
+@@ -267,7 +269,9 @@
+   end
+   qs = bs/as
+   ds2 = ss - bs*qs
++  OFFR[] += 1
+   if ds2 < ss/16
++    RECOMP[] += 1
+     @inbounds for i in 1:n
+       s[i] -= qs*ldexp(Float64(X[i, k]), -ex)
+     end

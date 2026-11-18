@@ -1,0 +1,7 @@
+sha=43a362dacbdedbc3e9d5f1c28c1d83be32a4d538
+dirty=no
+mode=tests where=local versions=lts,release
+started=2026-11-18T05:43:08Z
+args=--project=. scripts/test.jl --jobs=1 cd_numerics
+exit lts rc=0 ok=yes pass=24400 total=24400 seconds=35 tag=impl-lts
+exit release rc=0 ok=yes pass=24400 total=24400 seconds=69 tag=impl-release

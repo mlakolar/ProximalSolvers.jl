@@ -1,0 +1,6 @@
+sha=4c2efd79975735ddfbed2325e946ddca04d1c62e
+dirty=no
+mode=julia where=local versions=release
+started=2026-11-18T06:19:48Z
+args=--project=. .codex-orchestrator/probes/alloc.jl
+exit release rc=0 ok=yes pass=- total=- seconds=6 tag=probe-release

@@ -1,0 +1,169 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353-2/.codex-orchestrator/depot-probe-lts-lts:<DEPOT>: julia +lts --startup-file=no --project=. .codex-orchestrator/probes/d_all.jl
+# julia 1.10.13 T=Float32 n=1 part=1
+# ladder (14): Float32[1.0f-45, 1.469368f-39, 1.1754942f-38, 1.1754944f-38, 3.1401846f-16, 3.1401849f-16, 3.140185f-16, 3.1401854f-16, 1.0842022f-19, 1.0, 4.611686f18, 1.8446743f19, 1.8446744f19, 3.4028235f38]
+# (x, r) pairs: 564
+RESULT Float32 n=1 part=1 cases=5229 skipped=0 | worst excess/bound base=2.282e-02 cand=2.282e-02 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=1969/1969 nonfinite b/c=80/80
+  master outcomes: [:nonfinite => 80, :throw => 1969, :value => 3180]; master class: [:band => 32, :d2 => 544, :fast => 48, :lam => 156, :shared => 1969, :sums => 2480]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: (Float32[3.1401854f-16], Float32[2.9058994f7], 1.0f-45, 0.0f0, "xu/gam", :fast)
+# julia 1.10.13 T=Float32 n=1 part=2
+# ladder (14): Float32[1.0f-45, 1.469368f-39, 1.1754942f-38, 1.1754944f-38, 3.1401846f-16, 3.1401849f-16, 3.140185f-16, 3.1401854f-16, 1.0842022f-19, 1.0, 4.611686f18, 1.8446743f19, 1.8446744f19, 3.4028235f38]
+# (x, r) pairs: 564
+RESULT Float32 n=1 part=2 cases=26145 skipped=0 | worst excess/bound base=2.282e-02 cand=2.282e-02 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=9845/9845 nonfinite b/c=728/728
+  master outcomes: [:nonfinite => 728, :throw => 9845, :value => 15572]; master class: [:band => 160, :d2 => 2720, :fast => 240, :lam => 780, :shared => 9845, :sums => 12400]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: (Float32[3.1401854f-16], Float32[2.9058994f7], 1.0f-45, 1.0f-45, "xu/gam", :fast)
+# julia 1.10.13 T=Float32 n=2 part=1
+# ladder (14): Float32[1.0f-45, 1.469368f-39, 1.1754942f-38, 1.1754944f-38, 3.1401846f-16, 3.1401849f-16, 3.140185f-16, 3.1401854f-16, 1.0842022f-19, 1.0, 4.611686f18, 1.3043818f19, 1.3043819f19, 3.4028235f38]
+# (x, r) pairs: 1448
+RESULT Float32 n=2 part=1 cases=16666 skipped=0 | worst excess/bound base=1.101e-02 cand=1.101e-02 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=5965/5965 nonfinite b/c=271/271
+  master outcomes: [:nonfinite => 271, :throw => 5965, :value => 10430]; master class: [:band => 573, :d2 => 619, :fast => 314, :lam => 461, :shared => 5965, :sums => 8734]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: (Float32[1.3043818f19, 1.3043818f19], Float32[1.0842022f-19, 1.0842022f-19], 1.8446743f19, 0.0f0, "xu/ru", :sums)
+# julia 1.10.13 T=Float32 n=2 part=2
+# ladder (14): Float32[1.0f-45, 1.469368f-39, 1.1754942f-38, 1.1754944f-38, 3.1401846f-16, 3.1401849f-16, 3.140185f-16, 3.1401854f-16, 1.0842022f-19, 1.0, 4.611686f18, 1.3043818f19, 1.3043819f19, 3.4028235f38]
+# (x, r) pairs: 1448
+RESULT Float32 n=2 part=2 cases=70355 skipped=0 | worst excess/bound base=2.176e-02 cand=2.176e-02 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=26405/26405 nonfinite b/c=1780/1780
+  master outcomes: [:nonfinite => 1780, :throw => 26405, :value => 42170]; master class: [:band => 1945, :d2 => 3050, :fast => 1485, :lam => 1870, :shared => 26405, :sums => 35600]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: (Float32[3.140185f-16, 1.1f-44], Float32[1.3043818f19, 1.1f-44], 3.1401849f-16, 1.2676506f30, "xm/rm", :sums)
+# julia 1.10.13 T=Float32 n=2 part=3
+# ladder (14): Float32[1.0f-45, 1.469368f-39, 1.1754942f-38, 1.1754944f-38, 3.1401846f-16, 3.1401849f-16, 3.140185f-16, 3.1401854f-16, 1.0842022f-19, 1.0, 4.611686f18, 1.3043818f19, 1.3043819f19, 3.4028235f38]
+# (x, r) pairs: 8400
+RESULT Float32 n=2 part=3 cases=327600 skipped=0 | worst excess/bound base=7.692e-03 cand=7.692e-03 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=40480/40480
+  master outcomes: [:nonfinite => 40480, :value => 287120]; master class: [:band => 105696, :d2 => 85500, :fast => 39132, :lam => 94920, :sums => 2352]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: (Float32[3.5527137f-15, 0.0], Float32[3.6028797f16, 1.0f-45], 3.5527135f-15, 3.4028227f38, "qedge x1=1.0*2^-48 q=2^103(1+0u) perp=1.0e-45", :d2)
+# julia 1.10.13 T=Float32 n=3 part=1
+# ladder (14): Float32[1.0f-45, 1.469368f-39, 1.1754942f-38, 1.1754944f-38, 3.1401846f-16, 3.1401849f-16, 3.140185f-16, 3.1401854f-16, 1.0842022f-19, 1.0, 4.611686f18, 1.0650232f19, 1.0650234f19, 3.4028235f38]
+# (x, r) pairs: 1448
+RESULT Float32 n=3 part=1 cases=16722 skipped=0 | worst excess/bound base=1.430e-02 cand=1.430e-02 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=6021/6021 nonfinite b/c=337/337
+  master outcomes: [:nonfinite => 337, :throw => 6021, :value => 10364]; master class: [:band => 596, :d2 => 574, :fast => 356, :lam => 441, :shared => 6021, :sums => 8734]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: (Float32[1.0, 1.0, 1.0], Float32[1.0f-45, -1.0f-45, 1.0f-45], 1.0f-45, 0.0f0, "xu/ra", :sums)
+# julia 1.10.13 T=Float32 n=3 part=2
+# ladder (14): Float32[1.0f-45, 1.469368f-39, 1.1754942f-38, 1.1754944f-38, 3.1401846f-16, 3.1401849f-16, 3.140185f-16, 3.1401854f-16, 1.0842022f-19, 1.0, 4.611686f18, 1.0650232f19, 1.0650234f19, 3.4028235f38]
+# (x, r) pairs: 1448
+RESULT Float32 n=3 part=2 cases=70635 skipped=0 | worst excess/bound base=2.497e-02 cand=2.497e-02 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=26685/26685 nonfinite b/c=2154/2154
+  master outcomes: [:nonfinite => 2154, :throw => 26685, :value => 41796]; master class: [:band => 2060, :d2 => 2825, :fast => 1695, :lam => 1770, :shared => 26685, :sums => 35600]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: (Float32[1.0, 1.0, 1.0], Float32[1.0f-45, -1.0f-45, 1.0f-45], 0.8660254f0, 1.0f-45, "xu/ra", :sums)
+# julia 1.10.13 T=Float32 n=3 part=3
+# ladder (14): Float32[1.0f-45, 1.469368f-39, 1.1754942f-38, 1.1754944f-38, 3.1401846f-16, 3.1401849f-16, 3.140185f-16, 3.1401854f-16, 1.0842022f-19, 1.0, 4.611686f18, 1.0650232f19, 1.0650234f19, 3.4028235f38]
+# (x, r) pairs: 8400
+RESULT Float32 n=3 part=3 cases=327600 skipped=0 | worst excess/bound base=5.988e-03 cand=5.988e-03 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=40480/40480
+  master outcomes: [:nonfinite => 40480, :value => 287120]; master class: [:band => 105696, :d2 => 85500, :fast => 39132, :lam => 94920, :sums => 2352]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: (Float32[3.5527137f-15, 0.0, 0.0], Float32[3.6028797f16, 1.0f-45, 0.0], 3.5527135f-15, 3.4028227f38, "qedge x1=1.0*2^-48 q=2^103(1+0u) perp=1.0e-45", :d2)
+# julia 1.10.13 T=Float32 n=5 part=1
+# ladder (14): Float32[1.0f-45, 1.469368f-39, 1.1754942f-38, 1.1754944f-38, 3.1401846f-16, 3.1401849f-16, 3.140185f-16, 3.1401854f-16, 1.0842022f-19, 1.0, 4.611686f18, 8.2496346f18, 8.249635f18, 3.4028235f38]
+# (x, r) pairs: 1448
+RESULT Float32 n=5 part=1 cases=16705 skipped=0 | worst excess/bound base=1.128e-02 cand=1.128e-02 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=5983/5983 nonfinite b/c=328/328
+  master outcomes: [:nonfinite => 328, :throw => 5983, :value => 10394]; master class: [:band => 609, :d2 => 552, :fast => 353, :lam => 463, :shared => 5983, :sums => 8745]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: (Float32[3.1401854f-16, 3.1401854f-16, 3.1401854f-16, 3.1401854f-16, 3.1401854f-16], Float32[6.4977884f7, 6.4977884f7, 6.4977884f7, 6.4977884f7, 6.4977884f7], 1.0f-45, 0.0f0, "xu/gam", :fast)
+# julia 1.10.13 T=Float32 n=5 part=2
+# ladder (14): Float32[1.0f-45, 1.469368f-39, 1.1754942f-38, 1.1754944f-38, 3.1401846f-16, 3.1401849f-16, 3.140185f-16, 3.1401854f-16, 1.0842022f-19, 1.0, 4.611686f18, 8.2496346f18, 8.249635f18, 3.4028235f38]
+# (x, r) pairs: 1448
+RESULT Float32 n=5 part=2 cases=70440 skipped=0 | worst excess/bound base=1.678e-02 cand=1.678e-02 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=26490/26490 nonfinite b/c=2082/2082
+  master outcomes: [:nonfinite => 2082, :throw => 26490, :value => 41868]; master class: [:band => 2125, :d2 => 2715, :fast => 1680, :lam => 1880, :shared => 26490, :sums => 35550]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: (Float32[1.0, 1.0, 1.0, 1.0, 1.0], Float32[1.0f-45, -1.0f-45, 1.0f-45, -1.0f-45, 1.0f-45], 1.118034f0, 1.0f-45, "xu/ra", :sums)
+# julia 1.10.13 T=Float32 n=5 part=3
+# ladder (14): Float32[1.0f-45, 1.469368f-39, 1.1754942f-38, 1.1754944f-38, 3.1401846f-16, 3.1401849f-16, 3.140185f-16, 3.1401854f-16, 1.0842022f-19, 1.0, 4.611686f18, 8.2496346f18, 8.249635f18, 3.4028235f38]
+# (x, r) pairs: 8400
+RESULT Float32 n=5 part=3 cases=327600 skipped=0 | worst excess/bound base=4.149e-03 cand=4.149e-03 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=40480/40480
+  master outcomes: [:nonfinite => 40480, :value => 287120]; master class: [:band => 105696, :d2 => 85500, :fast => 39132, :lam => 94920, :sums => 2352]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: (Float32[3.5527137f-15, 0.0, 0.0, 0.0, 0.0], Float32[3.6028797f16, 1.0f-45, 0.0, 0.0, 0.0], 3.5527135f-15, 3.4028227f38, "qedge x1=1.0*2^-48 q=2^103(1+0u) perp=1.0e-45", :d2)
+# julia 1.10.13 T=Float32 n=30 part=1
+# ladder (14): Float32[1.0f-45, 1.469368f-39, 1.1754942f-38, 1.1754944f-38, 3.1401846f-16, 3.1401849f-16, 3.140185f-16, 3.1401854f-16, 1.0842022f-19, 1.0, 4.611686f18, 3.367899f18, 3.3678992f18, 3.4028235f38]
+# (x, r) pairs: 1448
+RESULT Float32 n=30 part=1 cases=16839 skipped=0 | worst excess/bound base=5.369e-03 cand=5.369e-03 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=6708/6708 nonfinite b/c=269/269
+  master outcomes: [:nonfinite => 269, :throw => 6708, :value => 9862]; master class: [:band => 455, :d2 => 449, :fast => 291, :lam => 354, :shared => 6708, :sums => 8582]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: (Float32[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], Float32[1.0f-45, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44, 1.1f-44], 1.0f-45, 0.0f0, "xu/rm", :sums)
+# julia 1.10.13 T=Float32 n=30 part=2
+# ladder (14): Float32[1.0f-45, 1.469368f-39, 1.1754942f-38, 1.1754944f-38, 3.1401846f-16, 3.1401849f-16, 3.140185f-16, 3.1401854f-16, 1.0842022f-19, 1.0, 4.611686f18, 3.367899f18, 3.3678992f18, 3.4028235f38]
+# (x, r) pairs: 1448
+RESULT Float32 n=30 part=2 cases=70970 skipped=0 | worst excess/bound base=8.031e-03 cand=8.031e-03 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=29570/29570 nonfinite b/c=1766/1766
+  master outcomes: [:nonfinite => 1766, :throw => 29570, :value => 39634]; master class: [:band => 1605, :d2 => 2200, :fast => 1385, :lam => 1410, :shared => 29570, :sums => 34800]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: (Float32[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], Float32[1.0f-45, -1.0f-45, 1.0f-45, -1.0f-45, 1.0f-45, -1.0f-45, 1.0f-45, -1.0f-45, 1.0f-45, -1.0f-45, 1.0f-45, -1.0f-45, 1.0f-45, -1.0f-45, 1.0f-45, -1.0f-45, 1.0f-45, -1.0f-45, 1.0f-45, -1.0f-45, 1.0f-45, -1.0f-45, 1.0f-45, -1.0f-45, 1.0f-45, -1.0f-45, 1.0f-45, -1.0f-45, 1.0f-45, -1.0f-45], 2.738613f0, 1.0f-45, "xu/ra", :sums)
+# julia 1.10.13 T=Float32 n=30 part=3
+# ladder (14): Float32[1.0f-45, 1.469368f-39, 1.1754942f-38, 1.1754944f-38, 3.1401846f-16, 3.1401849f-16, 3.140185f-16, 3.1401854f-16, 1.0842022f-19, 1.0, 4.611686f18, 3.367899f18, 3.3678992f18, 3.4028235f38]
+# (x, r) pairs: 8400
+RESULT Float32 n=30 part=3 cases=327600 skipped=0 | worst excess/bound base=8.576e-04 cand=8.576e-04 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=40480/40480
+  master outcomes: [:nonfinite => 40480, :value => 287120]; master class: [:band => 105696, :d2 => 85500, :fast => 39132, :lam => 94920, :sums => 2352]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: (Float32[3.5527137f-15, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], Float32[3.6028797f16, 1.0f-45, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 3.5527135f-15, 3.4028227f38, "qedge x1=1.0*2^-48 q=2^103(1+0u) perp=1.0e-45", :d2)
+# julia 1.10.13 T=Float64 n=1 part=1
+# ladder (14): [5.0e-324, 5.180654e-318, 2.225073858507201e-308, 2.2250738585072014e-308, 1.0010415475915502e-146, 1.0010415475915504e-146, 1.0010415475915505e-146, 1.0010415475915507e-146, 1.4916681462400413e-154, 1.0, 3.3519519824856493e153, 1.3407807929942596e154, 1.3407807929942597e154, 1.7976931348623157e308]
+# (x, r) pairs: 570
+RESULT Float64 n=1 part=1 cases=5289 skipped=0 | worst excess/bound base=2.151e-02 cand=2.151e-02 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=1989/1989 nonfinite b/c=80/80
+  master outcomes: [:nonfinite => 80, :throw => 1989, :value => 3220]; master class: [:band => 16, :d2 => 648, :fast => 24, :lam => 172, :shared => 1989, :sums => 2440]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: ([1.0010415475915504e-146], [1.0010415475915505e-146], 1.0010415475915502e-146, 0.0, "xu/ru", :sums)
+# julia 1.10.13 T=Float64 n=1 part=2
+# ladder (14): [5.0e-324, 5.180654e-318, 2.225073858507201e-308, 2.2250738585072014e-308, 1.0010415475915502e-146, 1.0010415475915504e-146, 1.0010415475915505e-146, 1.0010415475915507e-146, 1.4916681462400413e-154, 1.0, 3.3519519824856493e153, 1.3407807929942596e154, 1.3407807929942597e154, 1.7976931348623157e308]
+# (x, r) pairs: 570
+RESULT Float64 n=1 part=2 cases=26445 skipped=0 | worst excess/bound base=2.151e-02 cand=2.151e-02 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=9945/9945 nonfinite b/c=680/680
+  master outcomes: [:nonfinite => 680, :throw => 9945, :value => 15820]; master class: [:band => 80, :d2 => 3240, :fast => 120, :lam => 860, :shared => 9945, :sums => 12200]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: ([1.0010415475915504e-146], [1.0010415475915505e-146], 1.0010415475915502e-146, 5.0e-324, "xu/ru", :sums)
+# julia 1.10.13 T=Float64 n=2 part=1
+# ladder (14): [5.0e-324, 5.180654e-318, 2.225073858507201e-308, 2.2250738585072014e-308, 1.0010415475915502e-146, 1.0010415475915504e-146, 1.0010415475915505e-146, 1.0010415475915507e-146, 1.4916681462400413e-154, 1.0, 3.3519519824856493e153, 9.480751908109176e153, 9.480751908109177e153, 1.7976931348623157e308]
+# (x, r) pairs: 1460
+RESULT Float64 n=2 part=1 cases=16799 skipped=0 | worst excess/bound base=1.538e-02 cand=1.538e-02 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=5973/5973 nonfinite b/c=265/265
+  master outcomes: [:nonfinite => 265, :throw => 5973, :value => 10561]; master class: [:band => 580, :d2 => 769, :fast => 317, :lam => 457, :shared => 5973, :sums => 8703]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: ([1.0010415475915504e-146, 4.0e-323], [1.0010415475915505e-146, 4.0e-323], 1.0010415475915502e-146, 0.0, "xm/rm", :sums)
+# julia 1.10.13 T=Float64 n=2 part=2
+# ladder (14): [5.0e-324, 5.180654e-318, 2.225073858507201e-308, 2.2250738585072014e-308, 1.0010415475915502e-146, 1.0010415475915504e-146, 1.0010415475915505e-146, 1.0010415475915507e-146, 1.4916681462400413e-154, 1.0, 3.3519519824856493e153, 9.480751908109176e153, 9.480751908109177e153, 1.7976931348623157e308]
+# (x, r) pairs: 1460
+RESULT Float64 n=2 part=2 cases=70955 skipped=0 | worst excess/bound base=1.538e-02 cand=1.538e-02 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=26505/26505 nonfinite b/c=1640/1640
+  master outcomes: [:nonfinite => 1640, :throw => 26505, :value => 42810]; master class: [:band => 1980, :d2 => 3800, :fast => 1500, :lam => 1820, :shared => 26505, :sums => 35350]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: ([1.0010415475915504e-146, 4.0e-323], [1.0010415475915505e-146, 4.0e-323], 1.0010415475915502e-146, 5.0e-324, "xm/rm", :sums)
+# julia 1.10.13 T=Float64 n=2 part=3
+# ladder (14): [5.0e-324, 5.180654e-318, 2.225073858507201e-308, 2.2250738585072014e-308, 1.0010415475915502e-146, 1.0010415475915504e-146, 1.0010415475915505e-146, 1.0010415475915507e-146, 1.4916681462400413e-154, 1.0, 3.3519519824856493e153, 9.480751908109176e153, 9.480751908109177e153, 1.7976931348623157e308]
+# (x, r) pairs: 8344
+RESULT Float64 n=2 part=3 cases=325248 skipped=0 | worst excess/bound base=7.692e-03 cand=7.692e-03 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=39976/39976
+  master outcomes: [:nonfinite => 39976, :value => 285272]; master class: [:band => 137988, :d2 => 92340, :lam => 94920]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: ([1.761833123761129e-145, 0.0], [1.758168783537967e147, 5.0e-324], 1.7618331237611286e-145, 1.797693134862315e308, "qedge x1=1.1*2^-481 q=2^970(1+0u) perp=5.0e-324", :d2)
+# julia 1.10.13 T=Float64 n=3 part=1
+# ladder (14): [5.0e-324, 5.180654e-318, 2.225073858507201e-308, 2.2250738585072014e-308, 1.0010415475915502e-146, 1.0010415475915504e-146, 1.0010415475915505e-146, 1.0010415475915507e-146, 1.4916681462400413e-154, 1.0, 3.3519519824856493e153, 7.741001517595157e153, 7.741001517595158e153, 1.7976931348623157e308]
+# (x, r) pairs: 1460
+RESULT Float64 n=3 part=1 cases=16879 skipped=0 | worst excess/bound base=1.409e-02 cand=1.409e-02 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=6041/6041 nonfinite b/c=322/322
+  master outcomes: [:nonfinite => 322, :throw => 6041, :value => 10516]; master class: [:band => 586, :d2 => 740, :fast => 343, :lam => 460, :shared => 6041, :sums => 8709]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: ([7.741001517595157e153, 7.741001517595157e153, 7.741001517595157e153], [1.7976931348623157e308, 1.7976931348623157e308, 1.7976931348623157e308], 5.0e-324, 0.0, "xu/ru", :sums)
+# julia 1.10.13 T=Float64 n=3 part=2
+# ladder (14): [5.0e-324, 5.180654e-318, 2.225073858507201e-308, 2.2250738585072014e-308, 1.0010415475915502e-146, 1.0010415475915504e-146, 1.0010415475915505e-146, 1.0010415475915507e-146, 1.4916681462400413e-154, 1.0, 3.3519519824856493e153, 7.741001517595157e153, 7.741001517595158e153, 1.7976931348623157e308]
+# (x, r) pairs: 1460
+RESULT Float64 n=3 part=2 cases=71235 skipped=0 | worst excess/bound base=1.409e-02 cand=1.409e-02 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=26785/26785 nonfinite b/c=1944/1944
+  master outcomes: [:nonfinite => 1944, :throw => 26785, :value => 42506]; master class: [:band => 2010, :d2 => 3640, :fast => 1630, :lam => 1820, :shared => 26785, :sums => 35350]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: ([7.741001517595157e153, 7.741001517595157e153, 7.741001517595157e153], [1.0010415475915504e-146, 1.0010415475915504e-146, 1.0010415475915504e-146], 5.0e-324, 5.0e-324, "xu/ru", :sums)
+# julia 1.10.13 T=Float64 n=3 part=3
+# ladder (14): [5.0e-324, 5.180654e-318, 2.225073858507201e-308, 2.2250738585072014e-308, 1.0010415475915502e-146, 1.0010415475915504e-146, 1.0010415475915505e-146, 1.0010415475915507e-146, 1.4916681462400413e-154, 1.0, 3.3519519824856493e153, 7.741001517595157e153, 7.741001517595158e153, 1.7976931348623157e308]
+# (x, r) pairs: 8344
+RESULT Float64 n=3 part=3 cases=325248 skipped=0 | worst excess/bound base=5.988e-03 cand=5.988e-03 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=39976/39976
+  master outcomes: [:nonfinite => 39976, :value => 285272]; master class: [:band => 137988, :d2 => 92340, :lam => 94920]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: ([1.6016664761464807e-145, 0.0, 0.0], [1.598335257761788e147, 5.0e-324, 0.0], 1.6016664761464806e-145, 1.797693134862315e308, "qedge x1=1.0*2^-481 q=2^970(1+0u) perp=5.0e-324", :d2)
+# julia 1.10.13 T=Float64 n=5 part=1
+# ladder (14): [5.0e-324, 5.180654e-318, 2.225073858507201e-308, 2.2250738585072014e-308, 1.0010415475915502e-146, 1.0010415475915504e-146, 1.0010415475915505e-146, 1.0010415475915507e-146, 1.4916681462400413e-154, 1.0, 3.3519519824856493e153, 5.996153992122477e153, 5.9961539921224776e153, 1.7976931348623157e308]
+# (x, r) pairs: 1460
+RESULT Float64 n=5 part=1 cases=16868 skipped=0 | worst excess/bound base=1.188e-02 cand=1.188e-02 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=6012/6012 nonfinite b/c=325/325
+  master outcomes: [:nonfinite => 325, :throw => 6012, :value => 10531]; master class: [:band => 607, :d2 => 675, :fast => 377, :lam => 483, :shared => 6012, :sums => 8714]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: ([5.996153992122477e153, 5.996153992122477e153, 5.996153992122477e153, 5.996153992122477e153, 5.996153992122477e153], [1.4916681462400413e-154, 1.4916681462400413e-154, 1.4916681462400413e-154, 1.4916681462400413e-154, 1.4916681462400413e-154], 6.703903964971299e153, 0.0, "xu/ru", :sums)
+# julia 1.10.13 T=Float64 n=5 part=2
+# ladder (14): [5.0e-324, 5.180654e-318, 2.225073858507201e-308, 2.2250738585072014e-308, 1.0010415475915502e-146, 1.0010415475915504e-146, 1.0010415475915505e-146, 1.0010415475915507e-146, 1.4916681462400413e-154, 1.0, 3.3519519824856493e153, 5.996153992122477e153, 5.9961539921224776e153, 1.7976931348623157e308]
+# (x, r) pairs: 1460
+RESULT Float64 n=5 part=2 cases=71040 skipped=0 | worst excess/bound base=1.188e-02 cand=1.188e-02 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=26590/26590 nonfinite b/c=1968/1968
+  master outcomes: [:nonfinite => 1968, :throw => 26590, :value => 42482]; master class: [:band => 2115, :d2 => 3315, :fast => 1785, :lam => 1935, :shared => 26590, :sums => 35300]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: ([5.996153992122477e153, 5.996153992122477e153, 5.996153992122477e153, 5.996153992122477e153, 5.996153992122477e153], [1.4916681462400413e-154, 1.4916681462400413e-154, 1.4916681462400413e-154, 1.4916681462400413e-154, 1.4916681462400413e-154], 6.703903964971299e153, 5.0e-324, "xu/ru", :sums)
+# julia 1.10.13 T=Float64 n=5 part=3
+# ladder (14): [5.0e-324, 5.180654e-318, 2.225073858507201e-308, 2.2250738585072014e-308, 1.0010415475915502e-146, 1.0010415475915504e-146, 1.0010415475915505e-146, 1.0010415475915507e-146, 1.4916681462400413e-154, 1.0, 3.3519519824856493e153, 5.996153992122477e153, 5.9961539921224776e153, 1.7976931348623157e308]
+# (x, r) pairs: 8344
+RESULT Float64 n=5 part=3 cases=325248 skipped=0 | worst excess/bound base=4.149e-03 cand=4.149e-03 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=39976/39976
+  master outcomes: [:nonfinite => 39976, :value => 285272]; master class: [:band => 137988, :d2 => 92340, :lam => 94920]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: ([1.6016664761464807e-145, 0.0, 0.0, 0.0, 0.0], [1.598335257761788e147, 5.0e-324, 0.0, 0.0, 0.0], 1.6016664761464806e-145, 1.797693134862315e308, "qedge x1=1.0*2^-481 q=2^970(1+0u) perp=5.0e-324", :d2)
+# julia 1.10.13 T=Float64 n=30 part=1
+# ladder (14): [5.0e-324, 5.180654e-318, 2.225073858507201e-308, 2.2250738585072014e-308, 1.0010415475915502e-146, 1.0010415475915504e-146, 1.0010415475915505e-146, 1.0010415475915507e-146, 1.4916681462400413e-154, 1.0, 3.3519519824856493e153, 2.4479196166420686e153, 2.447919616642069e153, 1.7976931348623157e308]
+# (x, r) pairs: 1460
+RESULT Float64 n=30 part=1 cases=17002 skipped=0 | worst excess/bound base=6.061e-02 cand=6.061e-02 | >1: base=0 cand=0 | differ=3 (zero flips 0; max 1 ulp, max rel 1.26e-16) | outcome-class mismatches=0 | throws b/c=6754/6754 nonfinite b/c=267/267
+  master outcomes: [:nonfinite => 267, :throw => 6754, :value => 9981]; master class: [:band => 474, :d2 => 588, :fast => 272, :lam => 370, :shared => 6754, :sums => 8544]; differ by master class: [:sums => 3]
+  cand worst case: ([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], [5.0e-324, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323], 2.7386127875258306, 0.0, "xu/rm", :sums)
+# julia 1.10.13 T=Float64 n=30 part=2
+# ladder (14): [5.0e-324, 5.180654e-318, 2.225073858507201e-308, 2.2250738585072014e-308, 1.0010415475915502e-146, 1.0010415475915504e-146, 1.0010415475915505e-146, 1.0010415475915507e-146, 1.4916681462400413e-154, 1.0, 3.3519519824856493e153, 2.4479196166420686e153, 2.447919616642069e153, 1.7976931348623157e308]
+# (x, r) pairs: 1460
+RESULT Float64 n=30 part=2 cases=71570 skipped=0 | worst excess/bound base=6.061e-02 cand=6.061e-02 | >1: base=0 cand=0 | differ=6 (zero flips 0; max 1 ulp, max rel 1.26e-16) | outcome-class mismatches=0 | throws b/c=29770/29770 nonfinite b/c=1660/1660
+  master outcomes: [:nonfinite => 1660, :throw => 29770, :value => 40140]; master class: [:band => 1685, :d2 => 2880, :fast => 1275, :lam => 1460, :shared => 29770, :sums => 34500]; differ by master class: [:sums => 6]
+  cand worst case: ([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], [5.0e-324, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323, 4.0e-323], 2.7386127875258306, 5.0e-324, "xu/rm", :sums)
+# julia 1.10.13 T=Float64 n=30 part=3
+# ladder (14): [5.0e-324, 5.180654e-318, 2.225073858507201e-308, 2.2250738585072014e-308, 1.0010415475915502e-146, 1.0010415475915504e-146, 1.0010415475915505e-146, 1.0010415475915507e-146, 1.4916681462400413e-154, 1.0, 3.3519519824856493e153, 2.4479196166420686e153, 2.447919616642069e153, 1.7976931348623157e308]
+# (x, r) pairs: 8344
+RESULT Float64 n=30 part=3 cases=325248 skipped=0 | worst excess/bound base=8.576e-04 cand=8.576e-04 | >1: base=0 cand=0 | differ=0 (zero flips 0; max 0 ulp, max rel 0) | outcome-class mismatches=0 | throws b/c=0/0 nonfinite b/c=39976/39976
+  master outcomes: [:nonfinite => 39976, :value => 285272]; master class: [:band => 137988, :d2 => 92340, :lam => 94920]; differ by master class: Pair{Symbol, Int64}[]
+  cand worst case: ([1.6016664761464807e-145, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.598335257761788e147, 5.0e-324, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 1.6016664761464806e-145, 1.797693134862315e308, "qedge x1=1.0*2^-481 q=2^970(1+0u) perp=5.0e-324", :d2)

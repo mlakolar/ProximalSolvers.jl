@@ -1,0 +1,13 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353/.codex-orchestrator/depot-probe-lts-lts:<DEPOT>: julia +lts --startup-file=no --project=. .codex-orchestrator/probes/fp_matrix.jl x2
+Julia 1.10.13  CPU goldmont  trees: base, x2
+cd-group         comparisons=512 mismatches=0 (base converged: 512, base threw: 0)
+cd-lasso/enet    comparisons=2952 mismatches=0 (base converged: 2901, base threw: 51)
+    base threw x5: ERROR: ArgumentError: the coordinate step of coordinate 1 is outside the normal range of Float32 (the loss sca
+    base threw x24: ERROR: ArgumentError: a coordinate step or its stopping scale is not finite
+    base threw x12: ERROR: ArgumentError: the coordinate curvature underflows; rescale the data or loss
+    base threw x2: ERROR: ArgumentError: the coordinate step of coordinate 25 is outside the normal range of Float32 (the loss sc
+    base threw x8: ERROR: ArgumentError: the coordinate step of coordinate 8 is outside the normal range of Float32 (the loss sca
+cd-sqrt          comparisons=158 mismatches=0 (base converged: 102, base threw: 0)
+pgd/apg          comparisons=1184 mismatches=0 (base converged: 790, base threw: 8)
+    base threw x8: ERROR: line search failed: nonfinite curvature estimate
+TOTAL comparisons=4806 (cases x trees), mismatches=0

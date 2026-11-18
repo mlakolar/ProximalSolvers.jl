@@ -1,0 +1,33 @@
+$ systemd-run --user --scope -q -p MemoryMax=10G -p MemorySwapMax=0 env JULIA_DEPOT_PATH=<WORK>/ProximalSolvers.jl-issue353-base/.codex-orchestrator/depot-base-release-release:<DEPOT>: julia +release --startup-file=no --project=. .codex-orchestrator/probes/inst.jl
+     Cloning git-repo `https://github.com/mlakolar/ProximalBase.jl`
+    Updating git-repo `https://github.com/mlakolar/ProximalBase.jl`
+    Updating `<WORK>/ProximalSolvers.jl-issue353-base/Project.toml`
+  [aea7be01] + PrecompileTools v1.4.0
+  [0a755509] + ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [37e2e46d] ~ LinearAlgebra ⇒ v1.13.0
+  [de0858da] ~ Printf ⇒ v1.11.0
+  [9a3f8284] ~ Random ⇒ v1.11.0
+  [2f01184e] ~ SparseArrays ⇒ v1.13.0
+    Updating `<WORK>/ProximalSolvers.jl-issue353-base/Manifest.toml`
+  [aea7be01] + PrecompileTools v1.4.0
+  [21216c6a] + Preferences v1.6.1
+  [0a755509] + ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [56f22d72] + Artifacts v1.11.0
+  [ade2ca70] + Dates v1.11.0
+  [8f399da3] + Libdl v1.11.0
+  [37e2e46d] ~ LinearAlgebra ⇒ v1.13.0
+  [de0858da] ~ Printf ⇒ v1.11.0
+  [9a3f8284] ~ Random ⇒ v1.11.0
+  [ea8e919c] + SHA v1.0.0
+  [9e88b42a] + Serialization v1.11.0
+  [2f01184e] ~ SparseArrays ⇒ v1.13.0
+  [fa267f1f] + TOML v1.0.3
+  [4ec0a83e] + Unicode v1.11.0
+  [e66e0078] + CompilerSupportLibraries_jll v1.5.5+2
+  [4536629a] + OpenBLAS_jll v0.3.30+1
+  [bea87d4a] + SuiteSparse_jll v7.10.1+0
+  [8e850b90] + libblastrampoline_jll v5.15.0+0
+Precompiling packages...
+   2.8 s  ✓ ProximalSolvers
+  1 dependency successfully precompiled in 3 seconds. 11 already precompiled.
+instantiated 1.13.4

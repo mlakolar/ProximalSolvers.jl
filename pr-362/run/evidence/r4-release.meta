@@ -1,0 +1,6 @@
+sha=43a362dacbdedbc3e9d5f1c28c1d83be32a4d538
+dirty=no
+mode=tests where=local versions=release
+started=2026-11-18T05:25:50Z
+args=--project=. scripts/test.jl --jobs=2 cd_numerics accelerated_pgd sqrt_lasso group_cd core_regressions core_contracts stopping_scale
+exit release rc=0 ok=yes pass=53013 total=53013 seconds=78 tag=impl-release

@@ -1,0 +1,66 @@
+Test Summary:                         | Pass  Total  Time
+coordinate step, one column (Float64) |   23     23  0.7s
+Test Summary:                         | Pass  Total  Time
+coordinate step, one column (Float32) |   23     23  0.4s
+Test Summary:                                                                   | Pass  Total  Time
+coordinate step, random one-column problems against the derived bound (Float64) |  401    401  0.8s
+Test Summary:                                                                   | Pass  Total  Time
+coordinate step, random one-column problems against the derived bound (Float32) |  401    401  0.7s
+Test Summary:            | Pass  Total  Time
+analytic cases (Float64) |   15     15  0.9s
+Test Summary:            | Pass  Total  Time
+analytic cases (Float32) |   15     15  1.0s
+Test Summary:                                                                         | Pass  Total  Time
+dominant coefficient: certified after a tightening (Float64), no tightening (Float32) |   10     10  0.7s
+Test Summary:                                            | Pass  Total  Time
+references are exact data and verified bounds: full rank |    3      3  0.7s
+Test Summary:                                                 | Pass  Total  Time
+references are exact data and verified bounds: rank deficient |    3      3  0.0s
+Test Summary:                                             | Pass  Total  Time
+references are exact data and verified bounds: correlated |    3      3  0.0s
+Test Summary:                                        | Pass  Total  Time
+references are exact data and verified bounds: p > n |    3      3  0.0s
+Test Summary:                                            | Pass  Total  Time
+references are exact data and verified bounds: exact fit |    3      3  0.0s
+Test Summary:                                                 | Pass  Total  Time
+references are exact data and verified bounds: near-exact fit |    3      3  0.0s
+Test Summary:                                                    | Pass  Total  Time
+references are exact data and verified bounds: duplicate columns |    3      3  0.0s
+Test Summary:                | Pass  Total  Time
+reference problems (Float64) |  147    147  1.3s
+Test Summary:                | Pass  Total  Time
+reference problems (Float32) |  147    147  0.7s
+Test Summary:                                           | Pass  Total  Time
+stop check: certified, tightened, uncertified (Float64) |   17     17  0.1s
+Test Summary:                                           | Pass  Total  Time
+stop check: certified, tightened, uncertified (Float32) |   17     17  0.1s
+Test Summary:                                 | Pass  Total  Time
+overflowed threshold: no retry, in both loops |    6      6  0.3s
+Test Summary:                                                   | Pass  Total  Time
+nonfinite residual refused before the step's branches (Float64) |    5      5  0.1s
+Test Summary:                                                   | Pass  Total  Time
+nonfinite residual refused before the step's branches (Float32) |    5      5  0.1s
+Test Summary:                             | Pass  Total  Time
+certificate at perturbed optima (Float64) |   11     11  0.1s
+Test Summary:                             | Pass  Total  Time
+certificate at perturbed optima (Float32) |   11     11  0.0s
+Test Summary:                                 | Pass  Total  Time
+certificate where the fit dwarfs the residual |   10     10  0.5s
+Test Summary:                   | Pass  Total  Time
+certificate near λmax (Float64) |    2      2  0.0s
+Test Summary:                   | Pass  Total  Time
+certificate near λmax (Float32) |    2      2  0.0s
+Test Summary:                                                            | Pass  Total  Time
+certificate at subnormal and extreme scales, and a subnormal coefficient |   14     14  0.3s
+Test Summary:                              | Pass  Total  Time
+certificate: special cases from exact data |    8      8  0.1s
+Test Summary:                                        | Pass  Total  Time
+refusals before any change of x or the RNG (Float64) |   26     26  1.0s
+Test Summary:                                        | Pass  Total  Time
+refusals before any change of x or the RNG (Float32) |   28     28  1.0s
+Test Summary:                         | Pass  Total  Time
+levels of other types on Float32 data |   16     16  2.2s
+Test Summary:                                                   | Pass  Total  Time
+failure partway, maxpasses = 0, warnings and momentum (Float64) |   15     15  0.4s
+Test Summary:                                                   | Pass  Total  Time
+failure partway, maxpasses = 0, warnings and momentum (Float32) |   15     15  0.3s

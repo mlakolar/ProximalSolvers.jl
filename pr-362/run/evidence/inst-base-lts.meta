@@ -1,0 +1,6 @@
+sha=bb20b6a36cc040f7f00088919e331dce27cf257b
+dirty=no
+mode=julia where=local versions=lts
+started=2026-11-18T05:14:28Z
+args=--project=. .codex-orchestrator/probes/inst.jl
+exit lts rc=0 ok=yes pass=- total=- seconds=4 tag=base-lts

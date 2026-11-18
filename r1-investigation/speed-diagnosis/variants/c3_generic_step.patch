@@ -1,0 +1,35 @@
+--- a/src/cd/sqrtlasso.jl
++++ b/src/cd/sqrtlasso.jl
+@@ -175,18 +175,18 @@
+ # included, or one whose squares overflow), and a recomputed d² that does not, take
+ # `_sqrt_offrange_step`. So the d² of the fast path passes `_clean_sum` or is at least ρ²/16 with ρ²
+ # passing it: it is positive, and it is not a value that underflowed to 0.
+-@inline function _sqrt_minimizer(m::SqrtLSModel{T}, old::T, a::T, b::T, ρ2::T, k::Int) where T
+-  ls = m.ls
+-  n = length(ls.r)
++@inline _sqrt_minimizer(m::SqrtLSModel{T}, old::T, a::T, b::T, ρ2::T, k::Int) where T = _sqrt_step(m, m.ls.X, m.ls.r, m.gt, old, a, b, ρ2, k)
++@inline function _sqrt_step(m, X, r, g::NormL1{T}, old::T, a::T, b::T, ρ2::T, k::Int) where T
++  n = length(r)
+   (_clean_sum(a, n) & _clean_sum(ρ2, n)) || return _sqrt_offrange_step(m, old, k)
+-  λ = m.gt.λ0
++  λ = g.λ0
+   ra = sqrt(a)
+   λ >= ra && return zero(T)
+   q = b/a
+   c = old + q
+   d2 = ρ2 - b*q
+   if d2 < ρ2/16
+-    d2 = _distance_sqr(ls.X, ls.r, k, q)
++    d2 = _distance_sqr(X, r, k, q)
+     _clean_sum(d2, n) || return _sqrt_offrange_step(m, old, k)
+   end
+   d = sqrt(d2)
+@@ -194,7 +194,7 @@
+   γ = d/p
+   τ = γ*λ
+   ((floatmin(T) <= p) & (floatmin(T) <= γ <= floatmax(T)) & (floatmin(T) <= τ <= floatmax(T))) ?
+-    prox_block(m.gt, c, k, γ) : _sqrt_band_step(c, ra, λ, Float64(d), 0)
++    prox_block(g, c, k, γ) : _sqrt_band_step(c, ra, λ, Float64(d), 0)
+ end
+ # shrink(c, τ) with τ = (λ/ra)(d/√((ra − λ)(ra + λ))) for d = d̃ 2^e, formed in Float64 by
+ # `_sqrt_threshold64` and capped at floatmax(T) before the rounding to T. At a finite c the cap gives the 0
