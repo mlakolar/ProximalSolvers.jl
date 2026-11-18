@@ -97,9 +97,10 @@ function profile_big(X, y, λ, β, δs)
   end
 end
 
-# A dual lower bound D ≤ P* from the point β, in BigFloat at 256 bits: θ = t r/‖r‖ with r = y − Xβ and
-# t = min(1, λ/max_k |X_kᵀr|/‖r‖) (1 − 2^-60), which is feasible (‖θ‖ ≤ 1, ‖Xᵀθ‖∞ ≤ λ, both checked
-# here), and D = θᵀy. Requires r ≠ 0. It uses X, y, λ and β only.
+# A dual lower bound D ≤ P* from β, computed with 256-bit BigFloat arithmetic: r = y − Xβ ≠ 0,
+# g = ‖Xᵀr‖∞/‖r‖, t = min(1, λ/g)(1 − 2^-60), θ = t r/‖r‖ and D = θᵀy. When g = 0, take
+# min(1, λ/g) = 1. The two dual feasibility inequalities are checked below. The computation uses X, y, λ
+# and β only.
 function dual_bound_big(X, y, λ, β)
   with_big() do
     Xb, yb, λb = big.(X), big.(y), big(λ)
@@ -135,8 +136,9 @@ function certificate_big(X, y, λ, β, D)
   end
 end
 
-# At an exact fit r = 0 (checked in BigFloat), for L(σ) = σ/2 + λ₀‖β‖₁ and the values σs: whether L is
-# strictly decreasing along σs/2, L(σ) > λ₀‖β‖₁ for each σ, and the relative difference of λ₀‖β‖₁ and P(β)/√n.
+# In the exact-fit cases below, r = 0 is checked in BigFloat. The decreasing field checks L(σ/2) < L(σ) for
+# each σ in σs; above checks L(σ) > λ₀‖β‖₁ for each such σ. The limit field is the relative difference
+# between λ₀‖β‖₁ and P(β)/√n.
 function exact_fit_big(X, y, λ, β, σs)
   with_big() do
     b = big.(Vector(β))
@@ -161,17 +163,17 @@ function check_profile(X, y, λ, β; strict = true)
   T = eltype(X)
   st = stats_T(X, y, λ, β)
   @test !iszero(st.r)
-  # T1 (a): the identity in BigFloat from the stored values; 1e-70 is a deliberately generous
-  # allowance: the rounding of a 256-bit evaluation is of the order 2^-256 ≈ 8.6e-78 per operation, and a
-  # wrong formula gives errors many orders of magnitude above 1e-70.
+  # T1 (a): The identity is evaluated in BigFloat from the stored values. The bound 1e-70 is a deliberately
+  # generous rounding allowance at 256-bit precision, whose unit roundoff is 2^-256 ≈ 8.6e-78. The check
+  # compares the joint and profiled evaluation orders below.
   pb = profile_big(X, y, λ, β, DELTAS)
   @test pb.identity <= 1e-70
   # T2 (big): the identity of L(σ) − L(σ̂) with the same rounding bound relative to L(σ̂), and a strict increase.
   @test pb.t2 <= 1e-70
   @test pb.positive
-  # T1 (b): the same identity in T arithmetic from one s = ‖r‖. Both sides use the same s and ‖β‖₁; they
-  # differ by the roundings of λ/√n, σ̂, s²/(2nσ̂), the sum and P/√n, each of at most eps(T)/2 relative,
-  # so 16 eps(T) relative leaves room for the accumulation.
+  # T1 (b): Both sides use the same computed s and ‖β‖₁. Their products, divisions and additions are
+  # evaluated in different orders. For the normal finite scalar values in these cases, 16 eps(T) relative is
+  # a conservative allowance for the accumulated rounding of those elementary operations.
   @test isapprox(joint_T(st, st.σ̂), st.P / st.sn; rtol = 16 * eps(T))
   # T2 (T): no improvement beyond the same rounding bound for any δ, and, where asked, an increase beyond
   # it for |δ| ≥ 1e-1 (the gain (σ − σ̂)²/(2σ) is at least 0.0045 σ̂, far above 16 eps(T) L at these points).
