@@ -6,8 +6,9 @@ module ScaledLasso
 #   1. for r ≠ 0 and σ̂ = ‖r‖/√n: L(β, σ̂) = P(β)/√n, and L(β, σ) − L(β, σ̂) = (σ − σ̂)²/(2σ) ≥ 0 (T1, T2);
 #   2. for y ≠ 0 (so P* > 0) and a certified run with gap ≤ 1e-4 whose point has r ≠ 0, the relative gap of
 #      L(β̂, σ̂) is at most that of P(β̂), checked against the dual bound of an independent BigFloat
-#      computation (T3); at y = 0 there is no relative gap and no σ̂. And σ̂ computed in Float32 or Float64 is within a stated
-#      rounding bound of σ̂ in BigFloat (T4);
+#      computation (T3); at y = 0, P* = 0 and the relative gap is undefined, and the minimizer β = 0 has
+#      residual 0 and so no positive σ̂ (another β can have r ≠ 0 and its conditional σ̂). And σ̂ computed
+#      in Float32 or Float64 is within a stated rounding bound of σ̂ in BigFloat (T4);
 #   3. the tutorial's data have a residual clearly away from zero (T5);
 #   4. at r = 0, L(β, ·) = σ/2 + λ₀‖β‖₁ has no minimizing σ > 0, and a small stored nonzero residual is
 #      not an exact fit (T6);

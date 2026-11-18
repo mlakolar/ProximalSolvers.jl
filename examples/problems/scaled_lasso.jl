@@ -21,8 +21,9 @@ using LinearAlgebra, Random, ProximalBase, ProximalSolvers
 # scaled to `sum(abs2, X[:, j]) ≈ n`, five nonzero coefficients and noise of standard deviation 0.5, from
 # the same seed. The level is `λ₀ = 1.1*sqrt(2 log(2p/0.05)/n)`; it does not use the noise level. The
 # solver takes the unnormalized level `λ = sqrt(n)*λ₀`, which must be positive and finite. This example
-# also chooses `λ` below `λmax = ‖Xᵀy‖∞/‖y‖`, as the square-root page does, to get a solution with nonzero
-# coefficients: a level at or above `λmax` is accepted and gives `β = 0`.
+# also chooses `λ` below `λmax = ‖Xᵀy‖∞/‖y‖`, as the square-root page does, so that `β = 0` is not a
+# minimizer; at or above `λmax`, `β = 0` is a minimizer, which `solve!` accepts but need not return from
+# every start (see the exact fits on the square-root page).
 rng = Xoshiro(2026)
 n, p = 200, 50
 X = randn(rng, n, p)
