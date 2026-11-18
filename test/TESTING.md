@@ -7,7 +7,7 @@ regressions, the vector `SparseIterate` coordinate-descent contracts
 (`sparse_cd`), the coordinate-descent loss-scale numerics (`cd_numerics`) and the accelerated proximal gradient contracts (`accelerated_pgd`:
 analytic, duality-gap, KKT and finite-support references from the raw data;
 momentum, rejected trials, restarts and image caches; refusals, nonfinite trials,
-curvature overflow and rollback; trace, callbacks, limits and counters) and the elastic net with PGD and APG
+curvature overflow and rollback; trace, callbacks, limits and counters), the initial curvature estimate of PGD and APG (`initial_curvature`: the start `min(1, α‖X‖_F²)` at extreme and ordinary scales, an independent KKT residual of the solves it affects, and the allocations of the start) and the elastic net with PGD and APG
 (`elasticnet`: the residual of the stopping check, closed-form and signed-support BigFloat minimizers, an
 independent residual check at each `converged = true` of the file's main solves, a false-stop guard, level types,
 rollback and allocations) and with CDSolver (`cd_elasticnet`: BigFloat residual and objective oracle, closed-form

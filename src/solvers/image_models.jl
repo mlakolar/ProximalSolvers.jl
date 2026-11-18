@@ -135,11 +135,17 @@ _gamma(::Type{T}, k) where {T} = (ku = k * _unit(T); ku / (1 - ku))
 # 2^e as an _SE exponent. The square root and the conversion to T are rounded up by explicit
 # factors; γ_{N+3} covers every branch.
 function _frobenius_upper(::Type{T}, X) where {T}
-  N = length(X)
   s = 0.0
   @inbounds @simd for i in eachindex(X)
     s += abs2(Float64(X[i]))
   end
+  _frobenius_upper(T, X, s)
+end
+
+# The bound above from s = Σ Float64(Xᵢⱼ)², a one-pass sum of the squares in any order, which
+# the caller has computed. The argument above uses only that s is such a sum.
+function _frobenius_upper(::Type{T}, X, s::Float64) where {T}
+  N = length(X)
   iszero(s) && all(iszero, X) && return _se_zero(T)
   e = 0
   if !(isfinite(s) && (T === Float32 || s >= 4N * floatmin(Float64)))
@@ -176,6 +182,21 @@ function _root_scale(::Type{T}, α) where {T}
   _SE{T}(r.s, r.e + e ÷ 2)
 end
 
+# The start of the curvature estimate L of PGD and APG for the loss (α/2)‖y - X x‖², from
+# rootα, an _SE for √α, and normX, an _SE for an upper bound on ‖X‖_F (the bound of
+# _frobenius_upper, rounded up). It is min(1, r²) for r = rootα normX, formed in _SE and
+# rounded to T once, so that r² estimates α‖X‖_F² from above up to rounding. It is one(T)
+# when r² ≥ 1, decided in _SE without converting to T, and when X = 0 (r = 0, where
+# L = 0 is invalid). A positive r² that rounds to T below floatmin(T) gives floatmin(T),
+# which is then above r².
+function _initial_curvature(::Type{T}, rootα::_SE{T}, normX::_SE{T}) where {T}
+  r = _se_mul(rootα, normX)
+  iszero(r.s) && return one(T)
+  b = _se_mul(r, r)
+  _se_le(_SE{T}(one(T)), b) && return one(T)
+  max(floatmin(T), T(ldexp(b.s, b.e)))
+end
+
 # Constants of the bound test that depend only on n, p, T and ‖X‖_F, formed once per solve.
 # η = nextfloat(zero(T)), at least twice the largest absolute error of an underflowing
 # product, models gradual underflow: fl(a ∘ b) = (a ∘ b)(1 + δ) + η', |δ| ≤ u, |η'| ≤ η/2.
@@ -195,12 +216,11 @@ struct _BoundConstants{T}
   under_extrapolation::_SE{T}  # 8p √n η + 2√p ‖X‖_F η: of an extrapolated image and y
 end
 
-function _bound_constants(::Type{T}, X) where {T}
+function _bound_constants(::Type{T}, X, normX) where {T}
   n, p = size(X)
   u = _unit(T)
   δn, δp, γp = _gamma(T, n + 4), _gamma(T, p + 4), _gamma(T, p)
   κ = 32u
-  normX = _frobenius_upper(T, X)
   η = _SE{T}(nextfloat(zero(T)))
   rn, rp = _SE{T}(sqrt(T(n))), _SE{T}(sqrt(T(p)))
   _BoundConstants{T}(_SE{T}(inv((1 - δn) * (1 - u))), _SE{T}(inv((1 + δn) * (1 + u))),
