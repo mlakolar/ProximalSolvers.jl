@@ -27,7 +27,9 @@ See [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numer
 A trial with `x == y` entrywise is accepted when its value is finite. A rejected trial sets
 `L ← L/β`, `β ∈ (0, 1)`. Before each iteration `L ← α L`, `α ∈ (0, 1]`, so that the
 step can grow again where the curvature is smaller; `α = 1` keeps `L` from
-decreasing.
+decreasing. The estimate before the first iteration is `min(1, α_f ‖X‖_F²)` for the loss scale
+`α_f`, with `‖X‖_F` an upper bound, rounded to `T` and raised to `floatmin(T)` when it is positive and
+rounds below that; it is `1` when that product is at least 1 or `X = 0`.
 
 When an extrapolated step would increase the computed objective, the momentum is
 restarted: the step is repeated from `y = x'` and `k` returns to zero, so the next
@@ -130,6 +132,8 @@ function initial_state(
     f_x = _value!(x0, f, model, z_x)
     _check_start(f_x)
     normx0 = _se_norm(T, x0)          # x0 is finite (checked before)
+    normX = _frobenius_upper(T, model.X)
+    rootα = _root_scale(T, model.α)
     AccProxGradDescentState(
                          x0,          # Maintain current state in state.x
                          f_x,
@@ -141,7 +145,7 @@ function initial_state(
                          _dense_similar(x0), # gradient of f at y
                          _similar(x0), # Temporary storage
                          _similar(x0), # x - x_previous
-                         one(T),      # L
+                         _initial_curvature(T, rootα, normX), # L
                          T(-Inf),     # max_residual
                          -one(T),     # λmax, not yet computed
                          0,           # k
@@ -155,8 +159,8 @@ function initial_state(
                          copy(z_x),   # A x_previous
                          similar(z_x), # A y
                          similar(z_x), # residual at A y
-                         _bound_constants(T, model.X),
-                         _root_scale(T, model.α),
+                         _bound_constants(T, model.X, normX),
+                         rootα,
                          _se_zero(T),
                          normx0,
                          normx0,

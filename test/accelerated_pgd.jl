@@ -284,7 +284,7 @@ function certified(T, X, x, xa, xb, ω, L, α; fresh_only = false)
   d = x .- y
   loss = LeastSquaresLoss(zeros(T, n), X)
   m = PS._image_model(isone(α) ? loss : α * loss)
-  bc = PS._bound_constants(T, X)
+  bc = PS._bound_constants(T, X, PS._frobenius_upper(T, X))
   # the iterate norms as the solver forms them (one pass when accurate)
   Ey = PS._image_error_bound(bc, PS._se_norm_onepass(T, sum(abs2, xa), xa),
                              PS._se_norm_onepass(T, sum(abs2, xb), xb), extrapolated)
@@ -358,7 +358,7 @@ end
     # images [t, t] (or three entries) of d = [t] with X = ones: the exact curvature is 2 (3)
     call(k, L) = PS._bound_certified!(zeros(T, k), PS._image_model(LeastSquaresLoss(zeros(T, k), ones(T, k, 1))),
       zeros(T, k), fill(t, k), T[t], PS._se_norm(T, T[t]), T(L), PS._se_zero(T),
-      PS._se_norm(T, T[t]), one_se, PS._bound_constants(T, ones(T, k, 1)), false)[1]
+      PS._se_norm(T, T[t]), one_se, PS._bound_constants(T, ones(T, k, 1), PS._frobenius_upper(T, ones(T, k, 1))), false)[1]
     # The underflow terms of the bounds are comparable to these subnormal images, so a
     # violated bound is rejected and here acceptance needs a margin above the curvature.
     @test !call(2, 1) && !call(2, 1.9)       # exact ratio 2 and 2/1.9: rejected
@@ -369,12 +369,12 @@ end
     @test iszero(sum(abs2, T[tiny]))
     @test call2 = PS._bound_certified!(zeros(T, 1), PS._image_model(LeastSquaresLoss(zeros(T, 1), ones(T, 1, 1))),
       zeros(T, 1), T[tiny], T[tiny], PS._se_norm(T, T[tiny]), T(1.01), PS._se_zero(T),
-      PS._se_norm(T, T[tiny]), one_se, PS._bound_constants(T, ones(T, 1, 1)), false)[1]
+      PS._se_norm(T, T[tiny]), one_se, PS._bound_constants(T, ones(T, 1, 1), PS._frobenius_upper(T, ones(T, 1, 1))), false)[1]
     # A nonfinite cached image gives no cheap decision; the fresh product X d, which does
     # not use the cached images, decides (the solver calls the test only with a finite
     # trial value). Here X d = [1, 1], so L = 1.5 is rejected and L = 2.01 accepted.
     m1 = PS._image_model(LeastSquaresLoss(zeros(T, 2), ones(T, 2, 1)))
-    bc1 = PS._bound_constants(T, ones(T, 2, 1))
+    bc1 = PS._bound_constants(T, ones(T, 2, 1), PS._frobenius_upper(T, ones(T, 2, 1)))
     for zw in (T[NaN, 1], T[Inf, 1])
       r1 = PS._bound_certified!(zeros(T, 2), m1, zeros(T, 2), zw, T[1], PS._se_norm(T, T[1]), T(1.5),
                                 PS._se_zero(T), PS._se_norm(T, T[1]), one_se, bc1, false)
@@ -477,7 +477,7 @@ end
   c = 0.7071977f0; v = Float32[1.4140569f0]
   Xb = fill(c, 1_000_000, 1); Xb[1] = 1
   z = Xb * v
-  bc = PS._bound_constants(Float32, Xb)
+  bc = PS._bound_constants(Float32, Xb, PS._frobenius_upper(Float32, Xb))
   E = PS._image_error_bound(bc, PS._se_norm(Float32, v), PS._se_norm(Float32, v), false)
   actual = sqrt(BigFloat(999_999)) * abs(BigFloat(z[2]) - BigFloat(c) * BigFloat(v[1]))
   @test actual <= ldexp(BigFloat(E.s), E.e)

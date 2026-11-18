@@ -76,6 +76,10 @@ pages display that residual next to the default-PGD convergence flag.
 PGD's printed `|g(x)|` label is an internal stopping residual, **not**
 the value of the user's L1 penalty.
 
+What the stopping tests imply and their measured limits (products that underflow or cancel, a warm
+start far above the solution scale, Float32, `ftol = 0`) are on the page
+[Limits of the stopping tests](stopping-limits.md).
+
 ### The stationarity check of a stop
 
 PGD and APG verify a proposed stop. At an iteration at which the `x`, `f` or
@@ -558,16 +562,51 @@ that needs it.
   assume IEEE gradual underflow (subnormal numbers are not flushed to zero); the third
   assumes that the computed eigenvalues are exact eigenvalues of a nearby matrix, within a
   multiple of `eps(Float64)` times the trace, a model of the eigenvalue routine and not a
-  proved bound for every input.
+  proved bound for every input. This is the *general rule*; a group of two columns takes it
+  outside the range of the next item.
+- **Group of two columns** (on the Gram route). With `x` and `y` the two columns, the
+  entries `a = ‖x‖²`, `b = ‖y‖²` and `c = xᵀy` of the Gram matrix are accumulated in
+  `Float64` in one pass over the stored columns, without a copy, and `t = a + b` is their
+  computed trace. Where `2^-480 ≤ t ≤ 2^500`, the bound in `Float64` is the next number above
+  `(t + √((a − b)² + 4c²))/2 + (n + 4) eps(Float64) t`, evaluated in `Float64` and rounded
+  up to `T`, with no eigenvalue computation. The first term is the largest eigenvalue of
+  the computed Gram matrix in exact arithmetic. Inside this range the bound is proved, with
+  no eigenvalue model: assuming IEEE binary64 arithmetic with rounding to nearest and
+  gradual underflow, and `n eps(Float64) ≤ 1/8`, it exceeds the largest eigenvalue of the
+  exact Gram matrix of the stored columns by at least `((6/7) n + 3) u t`, with
+  `u = eps(Float64)/2`, for any order of the summation. The margin is a quarter of that of
+  the general rule. Under the same condition on `n`, finite `Float32` data in a group that
+  is not flat is inside this range. `Float64` data is outside it where `√t`, the Frobenius
+  norm of the two columns up to rounding, is below `2^-240` or above `2^250`, and data with
+  a `NaN` or infinite entry is outside it (`t` is then `NaN` or infinite). Outside the range
+  the general rule decides, with its refusals.
 
-**Lazy computation.** The eigenvalue computation is the expensive part, and a group that
-stays at zero may never need it. During the preparation, a group on the Gram route gets
-cheap bounds, formed in `Float64` from the sums of squares `q_c` of its columns (`n m`
-operations, no products between columns): with `t` the sum and `d` the largest of the
-`q_c`, a lower bound `lo = d (1 − 2 n eps(Float64)) − 2 n η` and an upper bound `hi = 4 t`
-on the curvature that the rule above would store (`η` the smallest positive `Float64`; the
-bounds assume gradual underflow, and the upper one the eigenvalue model, for groups of two
-or more columns). Under that model, the four conditions below exclude the refusals; a
+The two rules for a group of two columns compute slightly different bounds: the margins
+differ, and the computed eigenvalue differs from the closed form in the last bits. The
+refusal categories and messages are those of the table below, but where the two bounds,
+or the steps `s ℓ_k` formed from them and their reciprocals, fall on different sides of a
+refusal threshold, the decision can differ from the one that the general rule would make.
+For the bound in `Float64` before its rounding up to `T`, the thresholds are
+`prevfloat(floatmin(T))` and `floatmax(T)`: a bound at or below `prevfloat(floatmin(T))` is
+refused as underflow, a bound strictly above it rounds up to at least `floatmin(T)`, and a
+bound above `floatmax(T)` is refused as overflow. For `s ℓ_k` and its reciprocal the
+threshold is the smallest normal number of `S` (see below).
+Then a bound that the general rule refuses as overflow can be accepted (and then be
+refused by the step check, with the step message), a bound that it accepts can be refused
+as underflow, and a step decision can change in either direction. The gap between the two
+bounds scales with `t`, not with `ℓ_k`, so no fixed relative distance from a threshold is
+claimed.
+
+**Lazy computation.** Computing the bound of a group costs a pass over its columns, and on
+the general rule a copy of the columns, their Gram matrix and, for two or more columns, an
+eigenvalue computation; a group that stays at zero may never need it. During the
+preparation, a group on the Gram route gets cheap bounds, formed in `Float64` from the sums
+of squares `q_c` of its columns (`n m` operations, no products between columns): with `t`
+the sum and `d` the largest of the `q_c`, a lower bound `lo = d (1 − 2 n eps(Float64)) − 2 n η`
+and an upper bound `hi = 4 t` on the curvature that the rules above would store (`η` the
+smallest positive `Float64`; the bounds assume gradual underflow, and the upper one the
+eigenvalue model for a group that takes the eigenvalue computation: three or more columns,
+or two columns outside the range of their rule). Under these assumptions, the four conditions below exclude the refusals; a
 deferred group can still be refused during a pass through an eigenvalue routine that
 throws, or through a violation of the model. The curvature is left uncomputed (`NaN` in the model) only if the type `S` of the scale is `Float32` or
 `Float64`, `4 (n + m²) eps(Float64) ≤ 1/16`, `t` is finite, and all of these hold:
@@ -605,14 +644,14 @@ group, and they leave `x` unchanged. Those that are predictable, because the cur
 computed during the preparation or the four conditions above hold, happen before the first
 pass, and the random number generator is unused. A curvature computed lazily is computed
 in the same way, and an exception of the eigenvalue routine (which is not caught), a
-largest eigenvalue that is not finite, or a curvature or step refusal at that point (which
-the four conditions are meant to exclude) happens during a pass: `x` is still unchanged,
-but a random order may already have drawn from the generator.
+largest eigenvalue that is not finite (both on the general rule), or a curvature or step
+refusal at that point (which the four conditions are meant to exclude) happens during a
+pass: `x` is still unchanged, but a random order may already have drawn from the generator.
 
 | Category | Condition | Message contains |
 | --- | --- | --- |
-| Curvature underflow | the sum of squares of the column of a group of one column with `n eps(T) ≤ 1/8` is below `floatmin(T)`, the trace of `Ĝ` is below `m` times `floatmin(Float64)`, or `ℓ_k` is below `floatmin(T)` | `underflows` |
-| Curvature overflow | the sum of squares of that column, `Ĝ`, its trace or its largest eigenvalue is not finite, or `ℓ_k` is infinite in `T` | `overflows` |
+| Curvature underflow | the sum of squares of the column of a group of one column with `n eps(T) ≤ 1/8` is below `floatmin(T)`, the trace of `Ĝ` is below `m` times `floatmin(Float64)` (on the general rule), or `ℓ_k` is below `floatmin(T)` | `underflows` |
+| Curvature overflow | the sum of squares of that column, `Ĝ`, its trace or its largest eigenvalue is not finite (on the general rule), or `ℓ_k` is infinite in `T` | `overflows` |
 | Step | `s ℓ_k` or its reciprocal is outside the normal range | `step of group` |
 
 A group whose curvature bound is subnormal in `T` is refused here, where the scalar
@@ -639,6 +678,8 @@ full pass whose largest change is below the threshold ends the solve with
 compute the group KKT conditions from the data, as in
 the [group lasso tutorial](examples/problems/group_lasso.md), where for `∇ = s Xᵀ(Xβ − y)` a nonzero group
 needs `∇[G] + λ w β[G] / ‖β[G]‖ = 0` and a zero group needs `‖∇[G]‖ ≤ λ w`.
+What the change test implies, and how far group CD stopped from a minimizer in the audit, is in
+[What the change test of coordinate descent implies](@ref "What the change test of coordinate descent implies").
 
 The pass schedule is that of the lasso with groups as the coordinates. A full pass
 visits every group and an active pass visits the active groups; after each pass the
@@ -756,8 +797,9 @@ CD's scalar arithmetic `BigFloat`; an `Int`, `Rational{Int}`, `Irrational`,
 `Bool` or `Float16` scale was used there as `T(s)`). Convert the scale
 explicitly where the conversion is finite, positive and representable in `T`,
 for example `Float64(s) * LeastSquaresLoss(y, X)`; the error message suggests it
-when it passes that rule. After the check, CD, PGD and APG use the loss scale as
-supplied, combined with `T` by Julia's promotion: a `Float64` scale in a
+when it passes that rule and, for an integer scale, only when `Float64(s)` equals
+`s` (for other types it notes that the conversion may round `s`). After the
+check, CD, PGD and APG use the loss scale as supplied, combined with `T` by Julia's promotion: a `Float64` scale in a
 `Float32` solve keeps its `Float64` value (also where that value is subnormal in
 `Float32`). In CD, the coordinate step and the two stopping scales are formed
 from that value and rounded to `T` where they enter the iterate or the
@@ -827,16 +869,26 @@ What changes for the solvers:
   guide, is evaluated finitely where the sum of squares overflows in `T`; before,
   the sum of squares was formed in `T` without that recovery.
 - A start accepted in this way can have a finite value while `Σ(z - y)²` overflows
-  in `T`, and PGD and APG can then make very little progress. Their curvature estimate
-  `L` starts at `one(T)`, independent of the data, is multiplied by the line search's
-  decrease factor (default 0.9) before each iteration and is raised only on a rejected
-  trial, so with the default decrease factor reaching a curvature far below 1 takes many
-  iterations. For
+  in `T`. PGD and APG start their curvature estimate `L` at `min(1, α‖X‖_F²)` for the
+  loss scale `α` (1 for an unscaled loss), with `‖X‖_F` the solvers' upper bound on the
+  Frobenius norm of `X`. The start is `1` when that product is at least 1 or `X = 0`, and
+  a positive start that rounds below `floatmin(T)` is raised to `floatmin(T)`. `L` is then
+  multiplied by the line search's decrease factor (default 0.9) before each iteration and
+  raised on a rejected trial. The start is the Frobenius bound `α‖X‖_F²` when that is positive and below 1,
+  which exceeds the curvature `α‖X‖₂²` by the factor `‖X‖_F² / ‖X‖₂²` (at most the rank of `X`), up to
+  rounding and the floor; a problem whose positive Frobenius bound is far below 1 therefore starts
+  below 1, and one whose bound is 1 or more starts at 1 (for example `X = I(256)/16` with `α = 1` has
+  curvature `1/256` and starts at 1). For
   `X = ones(5, 1)`, `y = fill(1e160, 5)`, loss scale `1e-100`, `NormL1(0.0)` and start 0,
-  the curvature `α‖X‖²` is `5.000000000000001e-100`; after 200 iterations both solvers
-  ended with `converged = false`, at `x` ≈ 7.1e70 (PGD) and 6.2e71 (APG) against the
-  minimizer `1e160`, and with `maxiter = 2000` still with `converged = false` (Julia 1.10.13
-  and 1.13.3 agree).
+  the curvature `α‖X‖²` is `5.000000000000001e-100`, `X` has rank one, and both solvers start at
+  `5.000000000000014e-100`. APG ends with `converged = true` after 8 iterations, and with
+  `NormL1(0.1 λmax)` after 7 (Julia 1.10.13 and 1.13.3 agree). PGD ends with
+  `converged = false` after 7 iterations, stopped by the increase of the objective
+  (`f_increased = true`), at `x` ≈ 1.0034e160 against the minimizer `1e160`: its
+  backtracking test squares the step norm, which overflows once a step exceeds about
+  1.3e154, and then accepts a trial whose `L` is below the curvature, so `L` keeps
+  falling by the decrease factor until the objective increases. This limit of PGD's
+  line search is tracked in #364.
 - PGD and APG log no warning when they end at `maxiter`, so check `converged` and an
   [independent KKT residual](sparsity-and-kkt.md). CD logs a warning when a run ends with
   `converged = false`. CD solved the example above (`converged = true`, `x = [1.0e160]`);
@@ -844,14 +896,11 @@ What changes for the solvers:
 - A rescaling can serve as a workaround where it keeps the minimizers. For a `NormL1`
   penalty, `x = s u` with `s > 0` replaces `X` by `sX` and `λ` by `sλ`, multiplies the
   curvature by `s²`, and turns a start `x₀` into `x₀ / s`. On the example with `s = 1e50`
-  and level `1.0e60` replaced by `1.0e110`, PGD and APG both returned `converged = true`,
-  after 9 and 7 iterations. The transformation `X′ = cX`, `y′ = cy`, loss scale `α/c²`,
-  with the penalty unchanged, keeps the objective and the curvature `α‖X‖²`, so it does
-  not change the initial-curvature mismatch (with `c = 1e-80` on the example both solvers
-  still ended at `maxiter` with `converged = false`).
-  [#321](https://github.com/mlakolar/ProximalSolvers.jl/issues/321) tracks the
-  investigation of the initial curvature estimate for such problems; its outcome may
-  leave some extreme-range cases unsolved.
+  and level `1.0e60` replaced by `1.0e110`, the curvature is above 1, the start is `1`,
+  and PGD and APG both returned `converged = true`, after 9 and 7 iterations. The
+  transformation `X′ = cX`, `y′ = cy`, loss scale `α/c²`, with the penalty unchanged,
+  keeps the objective and the curvature `α‖X‖²`, so it keeps the start up to rounding (with `c = 1e-80`
+  on the example, APG converged after 8 iterations and PGD ended as above).
 - The gradient is `α` times the rounded product `Xᵀd` with `d = z - y` for the
   image `z = X x`. An `Xᵀd` that overflows or underflows before the scaling is not
   recovered, also where `α` would bring the exact gradient into range.

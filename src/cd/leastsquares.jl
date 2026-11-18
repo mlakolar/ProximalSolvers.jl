@@ -235,14 +235,16 @@ loss_value(m::LSModel, f, x) = value_from_residual(f, m.r)
 
 # Block least squares: the group-lasso step on a BlockIterate. The LSModel `ls` supplies the data, the
 # residual and the column kernels. `ℓ[k]` is the unscaled curvature bound of group k, a number with
-# ℓ[k] ≥ λmax(X_kᵀX_k) of the stored data after rounding (for a group of two or more columns, under
-# the eigensolver model of `_gram_curvature`); the loss scale s is applied where the step is formed.
+# ℓ[k] ≥ λmax(X_kᵀX_k) of the stored data after rounding (for a group of three or more columns, and for
+# a group of two columns outside the gate of `_gram2_curvature`, under the eigensolver model of
+# `_gram_curvature`); the loss scale s is applied where the step is formed.
 # It is 0 for a flat group, where all entries of X_k are 0, and NaN while it is not computed: before
 # `_prepare!` has run, and for a group of the Gram route whose curvature `_prepare!` left to the first
 # visit that needs it (`_curvature_deferrable`, `coordinate_step!`). `old`, `u` and `b` are scratch
 # vectors as long as the largest group (`b` holds the correlations rᵀX_k of the visit). `colbuf` and
-# `grambuf` are the Float64 buffers of `_gram_curvature`, empty until a curvature of the Gram route is
-# computed. The model has no `_cache`, so momentum stays off.
+# `grambuf` are the Float64 buffers of `_gram_curvature`, empty until `_gram_curvature!` first computes
+# a curvature (a group of two columns inside the gate of `_gram2_curvature` does not use them). The
+# model has no `_cache`, so momentum stays off.
 mutable struct BlockLSModel{T<:AbstractFloat, S<:AbstractFloat, M<:LSModel{T, S}} <: CDModel{T}
   ls::M
   ℓ::Vector{T}
@@ -287,11 +289,12 @@ coordinate_scale(m::BlockLSModel, x, k::Int) = _curvature_scale(m.ls, m.ℓ[k])
 # T, without `@simd`) with the rounding margin of `_singleton_curvature`, and the band check, at once,
 # except a singleton with n eps(T) > 1/8 (n rows), which takes the Gram route below. A group of the
 # Gram route (two or more columns, or that singleton) is left with ℓ = NaN where
-# `_curvature_deferrable` decides from cheap bounds, under the eigensolver model of `_gram_curvature`,
-# that neither `_gram_curvature` nor the band check refuses it; its curvature is then computed at the
-# first visit that needs it (`coordinate_step!`). Otherwise it is computed and checked here, so the
-# refusals of `_gram_curvature` and of the band check for that group are made here, before the first
-# pass. A refusal names the group; `_prepare!` changes
+# `_curvature_deferrable` decides from cheap bounds that neither the curvature of `_group_curvature!`
+# nor the band check refuses it (under the eigensolver model of `_gram_curvature` for a group of three
+# or more columns and for a group of two columns outside the gate of `_gram2_curvature`); its curvature
+# is then computed at the first visit that needs it (`coordinate_step!`). Otherwise it is computed and
+# checked here, so the curvature refusals of `_group_curvature!` and the band refusal for that group
+# are made here, before the first pass. A refusal names the group; `_prepare!` changes
 # neither the coordinates nor the residual. The block path refuses a curvature below floatmin(T), which
 # the scalar path accepts as a subnormal value. `_sqnorm!` sums in order, while the scalar step takes the
 # sum from `_column_dot`, which `@simd` reassociates, so the two can differ by rounding, and the block
@@ -315,19 +318,114 @@ function _prepare!(m::BlockLSModel{T}, g::GroupNormL2, x::BlockIterate{T}) where
   end
   m
 end
-# The curvature of group k by the Gram route and the check of its step band, with the buffers of the model
-# (allocated at the first use, for the largest group). It throws the refusals of `_gram_curvature` and of
-# the band. It allocates the eigensolve of a group of two or more columns, once per group and solve (none
-# for a singleton), and the first call also allocates the buffers.
+# The curvature of group k by the Gram route and the check of its step band. A group of two columns takes
+# `_gram2_curvature`, which passes a group outside its gate to `_gram_curvature!`; any other group takes
+# `_gram_curvature!`. It throws the refusals of the route taken and of the band. `_gram_curvature!`
+# allocates the eigensolve of a group of two or more columns, once per group and solve (none for a
+# singleton), and its first call also allocates the buffers of the model. Inside its gate,
+# `_gram2_curvature` uses no copy of the columns, no Gram buffers and no eigensolver workspace.
 @noinline function _group_curvature!(m::BlockLSModel, idx, k::Int)
+  ℓ = length(idx) == 2 ? _gram2_curvature(m, idx, k) : _gram_curvature!(m, idx, k)
+  _check_step_band(m.ls, ℓ, k)
+  ℓ
+end
+# The general route: `_gram_curvature` with the buffers of the model (allocated at the first use, for the
+# largest group), and its refusals.
+@noinline function _gram_curvature!(m::BlockLSModel, idx, k::Int)
   mmax = length(m.old)
   if size(m.colbuf, 2) < mmax
     n = size(m.ls.X, 1)
     m.colbuf = Matrix{Float64}(undef, n, mmax)
     m.grambuf = Matrix{Float64}(undef, mmax, mmax)
   end
-  ℓ = _gram_curvature(m.ls, idx, k, m.colbuf, m.grambuf)
-  _check_step_band(m.ls, ℓ, k)
+  _gram_curvature(m.ls, idx, k, m.colbuf, m.grambuf)
+end
+# The curvature bound of a group of two columns x = X[:, j1] and y = X[:, j2] (n rows), in closed form
+# inside a gate, where it takes no copy of the columns and no eigensolve. One `@simd` pass forms the
+# computed Gram entries â, b̂, ĉ of a = ‖x‖², b = ‖y‖², c = xᵀy in W = Float64, and t̂ = fl(â + b̂). Where
+# 2^-480 ≤ t̂ ≤ 2^500 (the gate), the bound in W is
+#   ℓW = nextfloat(fl(μ̂ + M̂)),  μ̂ = σ/2,  σ = fl(t̂ + h),  h = fl(√(fl(fl(d̂ d̂) + fl(ê ê)))),
+#   M̂ = fl((n + 4) eps(W) t̂),  d̂ = fl(â − b̂),  ê = 2ĉ
+# (in exact arithmetic μ̂ would be λmax(Ĝ) for Ĝ = [â ĉ; ĉ b̂]), which is rounded up to T as in
+# `_gram_curvature`, with its refusals: an ℓ that is Inf in T as overflow and an ℓ below floatmin(T) as
+# underflow. Outside the gate, which includes a t̂ that is NaN or Inf (nonfinite data, for which the gate
+# predicate is false), `_gram_curvature!` decides, with its refusals and its eigensolver model.
+# Claim: inside the gate, ℓW ≥ λ + ((6/7) n + 3) u t̂ > λ, with λ = λmax(G) for the exact Gram matrix
+# G = [a c; c b] of the stored columns and u = eps(W)/2, and a returned ℓ satisfies ℓ ≥ ℓW. It assumes
+# IEEE binary64 arithmetic, round to nearest, with gradual underflow (subnormals not flushed to zero),
+# and n eps(W) ≤ 1/8 (the condition of `_gram_curvature`); the stored values are Float32 or Float64
+# (`solve!` validates T), so their conversion to W is exact. No eigensolver model is used. Proof, with
+# γ_k = k u/(1 − k u) (γ_n/(1 − γ_n) ≤ (8/7) n u), η = nextfloat(0.0) and A = (n η/2)(1 + γ_{n−1}):
+#   - Gram entries. In any order of summation, including the reassociation and the FMA contraction that
+#     `@simd` allows, each product term passes through at most n roundings and adds at most one
+#     absolute underflow error η/2, which the later additions scale by at most 1 + γ_{n−1}. So
+#     |â − a| ≤ γ_n a + A, |b̂ − b| ≤ γ_n b + A and, by Cauchy–Schwarz, |ĉ − c| ≤ γ_n √(ab) + A. A product
+#     of two Float32 values is exact in W. Entrywise |Ĝ − G| ≤ γ_n v vᵀ + A J for v = (√a, √b) and J the
+#     all-ones matrix, so ‖Ĝ − G‖₂ ≤ γ_n (a + b) + 2A, and Weyl's inequality gives
+#     λ ≤ λmax(Ĝ) + γ_n (a + b) + 2A, with a + b ≤ (â + b̂ + 2A)/(1 − γ_n). The loop does not overflow
+#     for a t̂ in the gate: the partial sums of the squares are at most t̂/(1 − u) ≤ 2^501, so each
+#     |vᵢwᵢ| ≤ 2^501 and the partial sums of the products are below n 2^501 (1 + γ_n) < 2^551.
+#   - Gate. Inside it, A < 2^-1024 ≤ 2^-544 t̂, |ĉ| ≤ 0.58 t̂ (so ê = 2ĉ is exact), |d̂| ≤ t̂ (1 + 2u),
+#     and the other intermediates are below 2^503, so they are finite; σ ≥ t̂ ≥ 2^-480 is a normal
+#     number, so σ/2 is exact; (n + 4) eps(W) is exact, and its product with t̂ is a normal number
+#     rounded once. For Float32 data in a group that is not flat, 2^-298 (1 − u)^n ≤ t̂ < 2^307, inside
+#     the gate. Float64 data is outside it where √t̂, the Frobenius norm of the two columns up to
+#     rounding, is below 2^-240 or above 2^250.
+#   - Evaluation. 2 λmax(Ĝ) = â + b̂ + R̂ with R̂ = √((â − b̂)² + 4ĉ²). Each operation has a relative error
+#     of at most u, and each of the two squares also an absolute error of at most η/2, which
+#     √(p − q) ≥ √p − √q turns into the term √η = 2^-537. So λmax(Ĝ) ≤ (μ̂ + 2^-538)/(1 − u)^4, and the
+#     mirror-image bound gives μ̂ ≤ 1.15 t̂.
+#   - Margin. These give λ ≤ μ̂ + ((8/7) n + 4.81) u t̂. M̂ ≥ (2n + 7.87) u t̂, and
+#     nextfloat(fl(μ̂ + M̂)) ≥ μ̂ + M̂ for a positive normal fl(μ̂ + M̂), so ℓW ≥ λ + ((6/7) n + 3.06) u t̂.
+#     The margin (n + 4) eps(W) t̂ is (n + m²) eps(W) t̂ at m = 2, a quarter of that of `_gram_curvature`.
+#   - Rounding to T. T(ℓW) is the nearest value, followed by `nextfloat` where it is below ℓW, so a finite
+#     ℓ satisfies ℓ ≥ ℓW; an ℓW above floatmax(T) gives an ℓ that is Inf, refused as overflow.
+#   - Deferral. The argument of `_curvature_deferrable` (unchanged) uses ℓ ≥ the computed largest
+#     diagonal entry, and an upper bound of ℓ below hi/2 = 2t for its own sum t. Inside the gate,
+#     ℓW ≥ μ̂ + M̂ ≥ max(â, b̂), and the diagonal bound of `_curvature_deferrable`, stated for any order of
+#     summation, covers â and b̂. Under its precondition 4 (n + 4) eps(W) ≤ 1/16, ℓW ≤ 1.17 t̂, and
+#     t̂ ≤ 1.31 t + 2.3 mk A ≤ 1.33 t (mk = 2) where its condition (1) holds, so ℓW ≤ 1.554 t and
+#     the stored ℓ ≤ 1.56 t. So its conditions (1)–(4) keep their conclusions for this route, inside
+#     the gate without the eigensolver model. A deferred group outside the gate takes
+#     `_gram_curvature!`, for which its argument is the existing one.
+# Refusals. The refusal classes (curvature underflow and overflow, nonfinite data, and the step band of
+# `_check_step_band`) and their messages are those of the general route. The two routes compute different
+# curvatures (the margins differ, and μ̂ and the eigensolver's μ differ in the last bits), so their
+# decisions can differ where the two working curvatures, or the rounded band products s ℓ and their
+# reciprocals, fall on different sides of an effective boundary: prevfloat(floatmin(T)) and floatmax(T)
+# for the working curvature before the rounding up to T (a working curvature at or below the first is
+# refused as underflow, one strictly above it rounds up to at least floatmin(T), and one above the second
+# is refused as overflow), and floatmin(S) for s ℓ and 1/(s ℓ). Then a
+# curvature that the general route refuses as overflow can be accepted (and then be refused by the band
+# check, so the first reported message changes), a curvature that the general route accepts can be refused
+# as underflow, and a band decision can change in either direction (test/group_cd.jl has a witness of
+# each). The gap between the two curvatures scales with t̂, not with ℓ, so no fixed relative width around
+# a threshold is claimed.
+function _gram2_curvature(m::BlockLSModel{T}, idx, k::Int) where T
+  W = Float64
+  X = m.ls.X
+  n = size(X, 1)
+  j1, j2 = Int(idx[1]), Int(idx[2])
+  a = zero(W)
+  b = zero(W)
+  c = zero(W)
+  @inbounds @simd for i in 1:n
+    v = W(X[i, j1])
+    w = W(X[i, j2])
+    a += v*v
+    b += w*w
+    c += v*w
+  end
+  t = a + b
+  0x1p-480 <= t <= 0x1p500 || return _gram_curvature!(m, idx, k)
+  d = a - b
+  e = 2c
+  μ = (t + sqrt(d*d + e*e))/2
+  ℓW = nextfloat(μ + (n + 4)*eps(W)*t)
+  ℓ = T(ℓW)
+  W(ℓ) < ℓW && (ℓ = nextfloat(ℓ))
+  isinf(ℓ) && return _refuse_group_curvature(T, k, true)
+  ℓ < floatmin(T) && return _refuse_group_curvature(T, k, false)
   ℓ
 end
 # The step band of group k: p = s ℓ in S and its reciprocal at least floatmin(S), the test of
@@ -421,8 +519,12 @@ function _gram_curvature(ls::LSModel{T}, idx, k::Int, colbuf::Matrix{Float64}, g
   ℓ
 end
 # Whether the curvature of a group of the Gram route can be left uncomputed by `_prepare!`: true where
-# bounds decide, under the eigensolver model of `_gram_curvature`, that `_gram_curvature` and
-# `_check_step_band` do not refuse the group, false where a bound does not decide. The bounds come
+# bounds decide that the curvature of `_group_curvature!` and `_check_step_band` do not refuse the group,
+# false where a bound does not decide. The argument below is made for `_gram_curvature`; its upper bound
+# uses the eigensolver model of `_gram_curvature`, which applies to a group of three or more columns and
+# to a group of two columns outside the gate of `_gram2_curvature`. For a group of two columns inside
+# that gate, the comment of `_gram2_curvature` gives ℓ ≥ max(â, b̂) and ℓ ≤ 1.56 t, with which the
+# conclusions of (1)–(4) below hold without the model. The bounds come
 # from q_c = Σ_i X[i, j_c]² for each column c, formed in W = Float64 by loop summation (n rows, mk
 # columns), t = Σ_c q_c and d = max_c q_c, in O(n mk) operations and without products between columns.
 # Notation as in `_gram_curvature`: u = eps(W)/2, γ_k = k u/(1 − k u), η = nextfloat(0.0), and gradual
@@ -560,9 +662,11 @@ end
 # step is then as for a curvature computed in `_prepare!`. A refusal or an eigensolver failure there
 # occurs during a pass: the run is on a private copy, so the caller's iterate is unchanged, and the
 # borrowed generator may have advanced. A group is deferred only where the bounds exclude these refusals
-# (under the eigensolver model, see `_curvature_deferrable`), so a lazy refusal needs an eigensolver
-# exception or a model violation. The band of the step, s ℓ and its reciprocal at least
-# floatmin(typeof(s ℓ)), is checked where ℓ is computed.
+# (see `_curvature_deferrable`: under the eigensolver model for a group of three or more columns and for
+# a group of two columns outside the gate of `_gram2_curvature`, and without it for a group of two
+# columns inside that gate), so a lazy refusal needs an eigensolver exception or a model violation (or a
+# violation of the arithmetic assumptions of the bounds). The band of the step, s ℓ and its reciprocal
+# at least floatmin(typeof(s ℓ)), is checked where ℓ is computed.
 function coordinate_step!(m::BlockLSModel{T}, g::GroupNormL2, x::BlockIterate{T}, k::Int) where T
   ls = m.ls
   idx = blockindices(x, k)

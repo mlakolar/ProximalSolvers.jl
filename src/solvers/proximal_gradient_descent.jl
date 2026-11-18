@@ -9,6 +9,9 @@ proximal operator of the penalty (ProximalBase's `value_and_prox!`): soft thresh
 thresholding followed by the ridge weight for `ElasticNet`, and, for `NormLinf`, the point minus its projection
 onto the ℓ1 ball of radius `λ/L` (a clip of the entries at a common level); backtracking adjusts
 the step size.
+The curvature estimate before the first iteration is `min(1, α_f ‖X‖_F²)` for the loss scale
+`α_f`, with `‖X‖_F` an upper bound, rounded to `T` and raised to `floatmin(T)` when it is positive and
+rounds below that; it is `1` when that product is at least 1 or `X = 0`.
 
 `ProximalGradientDescent()` uses the supported
 `LineSearches.BackTracking()` line search. A trial that it rejects is decided
@@ -121,7 +124,7 @@ function initial_state(
                          _similar(grad_f_x), # Maintain previous gradient of f in state.grad_f_x_previous for convergence check
                          _similar(x0), # Temporary storage
                          _similar(x0), # Temporary storage for x1 - x0
-                         one(T),      # L
+                         _scanned_initial_curvature(T, model.X, model.α), # L
                          T(-Inf),     # max_residual
                          -one(T),     # λmax, not yet computed
                          true,        # backtrack_simple
@@ -135,6 +138,29 @@ function initial_state(
                          0,
                          false
                          )
+end
+
+# The start of L from one column-wise pass over X, equal to _initial_curvature of the
+# bound that _frobenius_upper forms from the same sum s = Σ Float64(Xᵢⱼ)². The pass stops
+# at the end of a column where s is finite and s ≥ thr = 2/α, and the start is one(T). There
+# s ≤ (1 + γ_N)‖X‖_F² + N nextfloat(0.0) (the last term for squares that underflow) and, for a
+# normal thr, the quotient has relative error at most u, so that α‖X‖_F² ≥ 1 and the bound is
+# at least 1 as well, for N u < 1/8 and N nextfloat(0.0) far below thr. There is no early
+# exit when thr is not a normal number: 2/α overflows to Inf for α < 2/floatmax(Float64), and is
+# subnormal for α > 2/floatmin(Float64). A non-finite s ends the pass, and _frobenius_upper
+# then takes its scaled pass.
+function _scanned_initial_curvature(::Type{T}, X, α) where {T}
+  thr = 2 / Float64(α)
+  thr >= floatmin(Float64) || (thr = Inf)
+  s = 0.0
+  for j in axes(X, 2)
+    @inbounds @simd for i in axes(X, 1)
+      s += abs2(Float64(X[i, j]))
+    end
+    isfinite(s) || break
+    s >= thr && return one(T)
+  end
+  _initial_curvature(T, _root_scale(T, α), _frobenius_upper(T, X, s))
 end
 
 function update_state!(
@@ -308,7 +334,8 @@ used, and a refused call neither changes `x` nor advances the RNG. The curvature
 refusals that can be decided from the data follow, before the first pass, before any RNG draw and
 only when `maxpasses > 0`, with `x` unchanged; the curvature of a group that is neither flat nor
 a one-column group with `n eps(T) <= 1/8` is computed in that preparation, or at the first visit that
-needs it when cheap bounds exclude a refusal (under the eigenvalue model for groups of two or more columns), and an exception of its eigenvalue routine or a
+needs it when cheap bounds exclude a refusal (under the eigenvalue model for groups of three or more columns and for groups of two columns
+outside the range of their closed-form bound), and an exception of its eigenvalue routine or a
 refusal at that point happens during a pass, with `x` unchanged and the RNG possibly advanced. The solve
 then runs on `work = copy(x)` and `x` receives the final state of `work` by one `copyto!`.
 Zero groups are deactivated after a pass, so the active groups of `x` after a solve with at

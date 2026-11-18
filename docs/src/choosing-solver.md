@@ -262,19 +262,25 @@ active coordinates are group numbers. Each group needs, at most once per solve, 
 on the largest eigenvalue of `X[:, G]' * X[:, G]`. With `maxpasses = 0` none is prepared.
 A group whose columns are all zero needs no product and no eigenvalue computation, and a
 group of one column (when `n eps(T) ≤ 1/8`, `n` the number of rows) takes the sum of
-squares of its column, as the lasso does. Any other group needs the Gram matrix of its
-columns in `Float64` and, for two or more columns, an eigenvalue computation. These are
-done at the first visit that needs them, so a group that stays at zero and is screened out
-at each visit never pays for them, except where cheap bounds cannot rule out a refusal (under the eigenvalue model, for groups of two or more columns), in
-which case the bound is computed before the first pass (such a group, or an ordinary
-one-column group, already has its bound when it is screened). A visit to a nonflat group
-whose block is zero is screened this way, whether or not the group is active, when the
-reciprocal of the loss scale is a normal number of its type and either all correlations of
-the group are zero or the largest magnitude is at least `2^53 floatmin(T)`; otherwise the
-visit takes the full step. The `Float64` copy
-of the columns and the Gram matrix are workspace of the solver, allocated when the first such
-bound is computed and sized by the largest group of the iterate: `n` times that size, and
-its square, in `Float64`. The solver keeps no other copy of the columns. For a group of one coefficient, the penalty is a term of an L1 penalty, and
+squares of its column, as the lasso does. A group of two columns takes the three entries
+of its Gram matrix in one pass over its columns and its bound in closed form; inside the
+range of that rule (finite `Float32` data, and `Float64` data whose columns are not
+extremely small or large, see [Numerical behavior](numerics.md#The-curvature-bound)) it
+needs no eigenvalue computation and no `Float64` copy of its columns. Any other group, and
+a group of two columns outside that range, needs the Gram matrix of its columns in
+`Float64` from a copy of the columns and, for two or more columns, an eigenvalue
+computation. These are done at the first visit that needs them, so a group that stays at
+zero and is screened out at each visit never pays for them, except where cheap bounds
+cannot rule out a refusal (under the eigenvalue model, for a group that takes the eigenvalue
+computation), in which case the bound is computed before the first pass (such a group, or
+an ordinary one-column group, already has its bound when it is screened). A visit to a
+nonflat group whose block is zero is screened this way, whether or not the group is active,
+when the reciprocal of the loss scale is a normal number of its type and either all
+correlations of the group are zero or the largest magnitude is at least `2^53 floatmin(T)`;
+otherwise the visit takes the full step. The `Float64` copy of the columns and the Gram
+matrix are workspace of the solver, allocated when the first bound that uses them is
+computed and sized by the largest group of the iterate: `n` times that size, and its
+square, in `Float64`. The solver keeps no other copy of the columns. For a group of one coefficient, the penalty is a term of an L1 penalty, and
 with the default weights `GroupNormL2` with only singleton groups is the same problem
 as `NormL1`, which the dense-vector solvers accept. Momentum does not apply:
 `momentum = true` is refused for a `BlockIterate`, and `nothing` or `false` both mean
@@ -284,6 +290,10 @@ discussion above with the change of a group, the norm of its displacement; see
 optimality certificate: check the group KKT conditions independently, as in the example.
 
 ### Cost of the lazy curvature
+
+The measurements in this section were made before groups of two columns had their own
+rule: the bound of a group of two columns, like that of a larger group, took the copy of
+its columns, the Gram matrix and an eigenvalue computation.
 
 The lazy curvature and the zero-group screen save the curvature of a Gram-route group only
 while that group passes the screen at every visit. A screened visit still computes the
