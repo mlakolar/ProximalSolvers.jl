@@ -6,7 +6,7 @@
 """
     AccProxGradDescent(; β = 0.5, α = 0.9, preconditioner = :none)
 
-Accelerated proximal gradient descent (APG) for least squares with an `NormL1` (lasso), `ElasticNet` or `NormLinf`
+Accelerated proximal gradient descent (APG) for least squares with a `NormL1` (lasso), `ElasticNet` or `NormLinf`
 penalty and a dense `Vector{Float32}` or `Vector{Float64}` coefficient iterate (Parikh and Boyd,
 *Proximal Algorithms*, §4.3). Iteration `k` (counted from the start or the last
 restart) extrapolates `y = x + k/(k+3) (x - x')` from the last two accepted
@@ -46,8 +46,8 @@ residual at the accepted `x` is below `max(gradtol, 64 eps(T)) * max(λ, λmax)`
 `λmax = α‖Xᵀy‖∞` and `λ` the ℓ1 level of the penalty (`λ` of `NormL1`, `λ1` of `ElasticNet`;
 see [`ProximalOptions`](@ref)). For a `NormLinf(λ)` penalty the check is instead on the ℓ1 norm of the
 proximal-gradient mapping at the accepted `x` (not at the extrapolated point), against
-`max(gradtol, 64 eps(T)) * max(λ, ‖∇f(0)‖₁)`, with a rounding allowance; it costs one proximal evaluation and
-one gradient per proposed stop, and `converged = true` has the meaning and the limits stated in
+`max(gradtol, 64 eps(T)) * max(λ, ‖∇f(0)‖₁)`, with a rounding allowance; it costs one gradient per proposed stop and
+one proximal evaluation when its guard on the step `1/L` passes, and `converged = true` has the meaning and the limits stated in
 [`ProximalOptions`](@ref). For `NormL1` and `ElasticNet`, `converged = true` guarantees only that the
 computed, normalized KKT residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the
 threshold is formed in `T`, which can round or overflow; see [`ProximalOptions`](@ref)). It is
@@ -97,7 +97,7 @@ mutable struct AccProxGradDescentState{T, X<:Vector{T}, M, Z}
     delta_x::X
     L::T
     max_residual::T
-    λmax::T           # α‖Xᵀy‖∞ for the stationarity check of a stop, -1 until it is computed
+    λmax::T           # ‖∇f(0)‖ = α‖Xᵀy‖ for the stationarity check of a stop, in the dual norm of the penalty (∞-norm for NormL1 and ElasticNet, 1-norm for NormLinf); -1 until it is computed
     k::Int            # iterations since the start or the last restart
     restarts::Int
     backtrack_steps::Int

@@ -2,7 +2,7 @@
     ProximalGradientDescent(; ls=LineSearches.BackTracking(), normalized=false,
                              debias=0, preconditioner=:none)
 
-Proximal gradient descent (PGD) for least squares with an `NormL1` (lasso), `ElasticNet` or `NormLinf` penalty
+Proximal gradient descent (PGD) for least squares with a `NormL1` (lasso), `ElasticNet` or `NormLinf` penalty
 and a dense `Vector{Float32}` or `Vector{Float64}` coefficient iterate. Each iteration
 takes a gradient step for the smooth least-squares loss and applies the
 proximal operator of the penalty (ProximalBase's `value_and_prox!`): soft thresholding for `NormL1`, soft
@@ -28,8 +28,8 @@ configure stopping tolerances and iteration limits. A stop that the `xtol`, `fto
 `max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞` and `λ` the ℓ1 level of the penalty
 (`λ` of `NormL1`, `λ1` of `ElasticNet`; see [`ProximalOptions`](@ref)). For a `NormLinf(λ)` penalty the check is
 instead on the ℓ1 norm of the proximal-gradient mapping at the iterate, against `max(gradtol, 64 eps(T)) *
-max(λ, ‖∇f(0)‖₁)`, with a rounding allowance, at the cost of one more proximal evaluation per proposed stop (see
-[`ProximalOptions`](@ref)); `converged = true` then has the meaning and the limits stated there.
+max(λ, ‖∇f(0)‖₁)`, with a rounding allowance, at the cost of one more proximal evaluation per proposed stop whose guard on
+the step `1/L` passes (see [`ProximalOptions`](@ref)); `converged = true` then has the meaning and the limits stated there.
 For `NormL1` and `ElasticNet`, `converged=true` guarantees only that the computed, normalized KKT
 residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the threshold is formed in
 `T`, which can round or overflow; see [`ProximalOptions`](@ref)); it is not an
@@ -76,7 +76,7 @@ mutable struct ProximalGradientDescentState{T, X<:Vector{T}, G<:Vector{T}, M, Z}
     delta_x::X
     L::T
     max_residual::T
-    λmax::T         # α‖Xᵀy‖∞ for the stationarity check of a stop, -1 until it is computed
+    λmax::T         # ‖∇f(0)‖ = α‖Xᵀy‖ for the stationarity check of a stop, in the dual norm of the penalty (∞-norm for NormL1 and ElasticNet, 1-norm for NormLinf); -1 until it is computed
     backtrack_simple::Bool  # line search uses function values, not gradients
     backtrack_steps::Int
     f_calls::Int
@@ -263,8 +263,8 @@ uses same-type `Matrix` X and `Vector` y. The penalty of the gradient methods is
 unweighted `NormL1(λ)`, an unweighted `ElasticNet(λ1, λ2)` (`λ1 ‖x‖₁ + (λ2/2) ‖x‖²`) or `NormLinf(λ)`
 (`λ max|xᵢ|`), whose levels are
 finite and nonnegative and representable in `T` without overflow or underflow; for a dense `Vector` or a
-`SparseIterate`, `CDSolver` accepts the first two penalties (see [`CDSolver`](@ref)) and refuses a `NormLinf`, which
-is not separable, before it changes `x` or uses its RNG; its `BlockIterate`
+`SparseIterate`, `CDSolver` accepts the first two penalties (see [`CDSolver`](@ref)) and refuses a `NormLinf` (its
+coordinate step needs a separable penalty) before it changes `x` or uses its RNG; its `BlockIterate`
 form takes a `GroupNormL2`. Use `(one(T)/T(n))*LeastSquaresLoss` for normalized lasso; raw LS keeps
 its unnormalized meaning. One positive finite scalar LS wrapper is supported. `CDSolver` also accepts
 ProximalBase's `SqrtLeastSquaresLoss(y, X)` with an unweighted `NormL1(λ)`, `λ > 0`, on a dense `Vector`

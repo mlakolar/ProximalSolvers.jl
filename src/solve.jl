@@ -51,7 +51,8 @@ end
 # The penalty check of _check_data for an x that is not a BlockIterate. `kind` is the gate's:
 # :gradient (PGD and APG) accepts an unweighted NormL1, an unweighted ElasticNet or a NormLinf;
 # :cd (CDSolver on a dense Vector or a SparseIterate, and the default of a call without `kind`) accepts
-# the first two and refuses a NormLinf, which is not separable, with a message of its own. The levels
+# the first two and refuses a NormLinf with a message of its own (this CDSolver needs a separable penalty for
+# its coordinate step). The levels
 # must pass _scalar_parameter for the data type T (finite, nonnegative, representable without overflow
 # or underflow). A wrapper such as Scaled(NormLinf(λ)) is refused as any other penalty.
 function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
@@ -63,7 +64,7 @@ function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
   elseif g isa NormLinf && kind === :gradient
     _scalar_parameter(g.λ, T, "penalty lambda")
   elseif g isa NormLinf
-    throw(ArgumentError("NormLinf is not separable and CDSolver does not support it; use ProximalGradientDescent or AccProxGradDescent"))
+    throw(ArgumentError("CDSolver does not support NormLinf (its coordinate step needs a separable penalty); use ProximalGradientDescent or AccProxGradDescent"))
   elseif kind === :gradient
     throw(ArgumentError("only unweighted NormL1, unweighted ElasticNet or NormLinf is supported"))
   else

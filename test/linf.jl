@@ -65,6 +65,13 @@ function mapping_residual(X, y, α, λ, β, L)
   end
 end
 
+# ‖∇f(b)‖₁ = α‖Xᵀ(Xb - y)‖₁ in BigFloat, formed directly (the mapping above forms b - u, which loses a
+# gradient that is far below ‖b‖ at 256 bits)
+gradnorm1(X, y, α, β) = setprecision(BigFloat, 256) do
+  Xb = big.(X)
+  big(α) * norm(Xb' * (Xb * big.(β) - big.(y)), 1)
+end
+
 # prox of r‖·‖∞ at u: the entries clipped at τ with Σ(|uᵢ| - τ)₊ = r, and 0 when r ≥ ‖u‖₁
 function clip(u, r)
   a = sort(abs.(u); rev = true)
@@ -304,9 +311,9 @@ end
 
 # The check on a hand-built state. The problem X = [1 1], y = [2], λ = 1 has ∇f(0) = (-2, -2),
 # λcrit = ‖∇f(0)‖₁ = 4, β* = (0.75, 0.75).
-function check_at(method, T, x, L; λ = 1, α = one(T), y = T[2], options = ProximalOptions())
+function check_at(method, T, x, L; λ = 1, α = one(T), y = T[2], options = ProximalOptions(), level = T(λ))
   f = lossof(α, y, T[1 1])
-  g = NormLinf(T(λ))
+  g = NormLinf(level)
   state = PS.initial_state(method, options, f, g, T.(x))
   state.x_previous .= state.x .+ T(1) / 8
   state.delta_x .= state.x .- state.x_previous
@@ -469,19 +476,89 @@ end
 
 # a function barrier gives the call concrete argument types
 alloc_check(state, f, g, options) = @allocated PS._stationary!(state, f, g, options)
-@testset "the check allocates nothing, and writes nothing into the caller's NormLinf" begin
-  for T in (Float64, Float32), method in METHODS, level in (T(1), 1.0, big"1.0")
+@testset "the check allocates nothing for levels of native and small scalar types, and writes nothing into the caller's NormLinf" begin
+  # Float32 and Float64 levels, and Int, Float16 and Rational{Int} levels, whose zero is measured here: with such
+  # levels ProximalBase's scalar arithmetic in each prox does not allocate
+  for T in (Float64, Float32), method in METHODS, level in (T(1), 1.0, 1, Float16(1), 1 // 1)
     f = LeastSquaresLoss(T[2], T[1 1])
     g = NormLinf(level)
     o = ProximalOptions()
     state = PS.initial_state(method, o, f, g, T[0.5, 0.5])
     state.x_previous .= state.x
     PS._stationary!(state, f, g, o)
-    # BigFloat: the radius is formed in that type, which can allocate; the check says nothing then
-    level isa BigFloat || @test alloc_check(state, f, g, o) == 0
+    @test alloc_check(state, f, g, o) == 0
     # the buffer of g is untouched (a field of the pinned ProximalBase object): ProximalBase uses the
     # distinct output as its threshold buffer
     @test g.scratch.buf === nothing
+  end
+end
+
+@testset "BigFloat and Rational{BigInt} levels: correct result and untouched scratch (their scalar arithmetic allocates)" begin
+  # PB forms the radius in a BigFloat product for these levels, which allocates in each prox, in the engines and in the
+  # check (as for NormL1 and ElasticNet levels of these types); no zero-allocation claim is made and none is tested
+  for T in (Float64, Float32), method in METHODS, level in (big"1.0", big(1) // big(1))
+    @test check_at(method, T, [0.75, 0.75], 2; level)[1]
+    @test !check_at(method, T, [0.5, 0.5], 2; level)[1]
+    g = NormLinf(level)
+    @test check_at(method, T, [0.75, 0.75], 2; level)[2].prox_calls == 1
+    x = zeros(T, 2)
+    r = solve!(x, LeastSquaresLoss(T[2], T[1 1]), g, method, TIGHT)
+    @test r.converged && maximum(abs, x - T[0.75, 0.75]) <= (T === Float64 ? 1e-6 : 1e-4)
+    @test abs(r.minimum - 0.875) <= (T === Float64 ? 1e-9 : 1e-6)
+    @test g.scratch.buf === nothing
+  end
+end
+
+# The rounding allowance keeps its scale when L is subnormal (#338 review): ρ = ((‖x‖₁ + k s) eps(T)) L. With the
+# product L eps(T) formed first it rounds to 0 for L ≈ 4e-39 (Float32) or 1e-308 (Float64), and an unchanged,
+# nonstationary iterate (λ = 0, so G_t = ∇f for every t) was declared converged at iteration 1.
+@testset "a subnormal L does not remove the rounding allowance: no false convergence through solve!" begin
+  cases = ((Float32, 1e-22, 1e8, 1.001e30, 4e-39), (Float64, 1e-160, 1e10, 1.00003e170, 1e-308))
+  for (T, xv, yv, x0, a) in cases, scale in (1, 2)
+    X, y = fill(T(xv), 1, 1), T[yv]
+    @test T(a) * eps(T) == 0                              # the product that failed rounds to 0 for this L
+    for method in (ProximalGradientDescent(ls = PS.LineSearches.BackTracking(α = T(a))), AccProxGradDescent(α = T(a)))
+      f = scale == 1 ? LeastSquaresLoss(y, X) : T(scale) * LeastSquaresLoss(y, X)
+      x = T[x0]
+      # a callback ends the solve after iteration 1, where the proposed stop was declared converged: with the
+      # refusal the solve would go on (its line search later fails at this extreme initial α, which is not
+      # the subject here)
+      r = solve!(x, f, NormLinf(zero(T)), method, ProximalOptions(callback = _ -> true))
+      @test r.iterations == 1 && !r.converged && !r.x_converged
+      # independent: λ = 0, the mapping is ∇f, which is above τ S at the returned point
+      α = T(scale)
+      τS = max(1e-5, 64 * Float64(eps(T))) * lambdacrit(X, y, α)
+      @test Float64(gradnorm1(X, y, α, x)) > τS
+    end
+  end
+end
+
+@testset "ρ underflows before the multiplication by L: a nonzero allowance that loses its scale is not kept" begin
+  # Float32, λ = 0, X = [1], y = [1e-12], x = [1e-40] (subnormal), L = 1e36: x - ∇f/L = x (the step 1e-48 is below the
+  # smallest subnormal), so r = 0; (‖x‖₁ eps(T)) = 1.2e-47 rounds to 0 while the true allowance, 1.2e-11, is far above
+  # τ S = 1e-17
+  T = Float32
+  for method in METHODS
+    f, g = LeastSquaresLoss(T[1e-12], fill(T(1), 1, 1)), NormLinf(zero(T))
+    state = PS.initial_state(method, ProximalOptions(), f, g, T[1e-40])
+    state.x_previous .= state.x
+    state.L = 1e36
+    @test !PS._stationary!(state, f, g, ProximalOptions())
+    @test mapping_residual(fill(T(1), 1, 1), T[1e-12], one(T), 0, T[1e-40], 1) > 1e-5 * 1e-12
+  end
+end
+
+@testset "no proximal evaluation when the guard on L and 1/L returns first" begin
+  # Float32, X = [1e19], y = [1], λ = 0, x = 0: the accepted L is about 1e38, so 1/L is subnormal and the check returns
+  # before the proximal operator; APG's gradient is formed before the guard and is counted
+  T = Float32
+  f, g = LeastSquaresLoss(T[1], fill(T(1e19), 1, 1)), NormLinf(zero(T))
+  for method in METHODS
+    a = solve!(T[0], f, g, method, ProximalOptions(xtol = 1e10, ftol = 0, gradtol = 0, callback = _ -> true))
+    b = solve!(T[0], f, g, method, ProximalOptions(xtol = 1e-300, ftol = 0, gradtol = 0, callback = _ -> true))
+    @test a.iterations == 1 && b.iterations == 1 && !a.converged
+    @test a.prox_calls == b.prox_calls
+    @test a.grad_calls == b.grad_calls + (method isa AccProxGradDescent ? 1 : 0)
   end
 end
 
@@ -573,7 +650,7 @@ end
 end
 
 @testset "CDSolver refuses NormLinf for every iterate, before any change of x or of the RNG" begin
-  msg = "NormLinf is not separable and CDSolver does not support it; use ProximalGradientDescent or AccProxGradDescent"
+  msg = "CDSolver does not support NormLinf (its coordinate step needs a separable penalty); use ProximalGradientDescent or AccProxGradDescent"
   for T in (Float64, Float32)
     X, y, x = T[1 0; 0 2], T[1, -1], T[.3, -.2]
     f = LeastSquaresLoss(y, X)
