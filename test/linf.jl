@@ -103,8 +103,9 @@ function solve_case(method, X, y, α, λ, x0, options)
   x, r
 end
 
-# `solve!` from a state whose curvature estimate before the first iteration is L0. The engines start from min(1, α_f ‖X‖_F²) (#367's
-# initial curvature), so the fixtures below that were built for the start 1 (with a line search or a step that rounds back to the
+# `solve!` from a state whose curvature estimate before the first iteration is L0. Since #361 the engines start from min(1, b),
+# b an upper bound on α_f ‖X‖_F² up to rounding, rounded to T and raised to floatmin(T) when it rounds below it (1 when X = 0; see
+# `_initial_curvature`), so the fixtures below that were built for the start 1 (with a line search or a step that rounds back to the
 # start) set it explicitly: the state is the one `solve!` builds, with `state.L` replaced, and `_solve_gradient!` is its loop.
 function solve_from_L0(method, f, g, x, L0, options)
   st = PS.initial_state(method, options, f, g, x)
@@ -435,7 +436,8 @@ end
       f = scale == 1 ? LeastSquaresLoss(y, X) : T(scale) * LeastSquaresLoss(y, X)
       x = T[x0]
       # a callback ends the solve after iteration 1, where the proposed stop was declared converged by the mapping check; the loop starts from
-      # L = 1 (solve! now starts from min(1, α ‖X‖_F²), which is 1e-44 here and changes the fixture)
+      # L = 1 (solve! itself starts from floatmin(T) here: α ‖X‖_F² is about 1e-44 (Float32) or 1e-320 (Float64), below floatmin(T),
+      # and the start is raised to floatmin(T); that changes the fixture)
       r = solve_from_L0(method, f, NormLinf(zero(T)), x, 1, ProximalOptions(callback = _ -> true))
       @test r.iterations == 1 && !r.converged && !r.x_converged
       @test kkt_ratio(X, y, T(scale), 0, x) > 1            # λ = 0: ‖∇f‖₁ is above τ S (3 for Float64, 100 for Float32)
@@ -631,7 +633,7 @@ end
 
 @testset "PGD at p = 2^24 + 4097 (Float32), the solver loop from the start L = 1: the unchanged iterate is not declared converged" begin
   # Codex's reproducer, through the solver loop of solve! from its state with the curvature estimate set to 1 (about 0.4 s and 350 MB; APG's dimension
-  # gate excludes this p; solve! itself now starts from min(1, α ‖X‖_F²), which moves the iterate in iteration 1 at this X). The callback ends the solve after
+  # gate excludes this p; solve! itself starts from floatmin(Float32) at this X, where α ‖X‖_F² is about 2^-200, which moves the iterate in iteration 1). The callback ends the solve after
   # iteration 1, where the check was evaluated at the unchanged x = ones; the exact residual is 12.2 τ S.
   n = 2^24 + 4096
   w, t = Float32(2.0^-100), Float32(2.0^-124)

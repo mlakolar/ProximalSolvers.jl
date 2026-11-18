@@ -193,8 +193,10 @@ end
 # branches, with no assumption on the size of R against S,
 #   r_c ≥ (1 - 2u - B) R - 2 B S.
 # The regime. Let F = 64 eps(T), a power of two, and H the computed threshold fl(τ S) in T, with τ ≥ F. If a stop is kept, r_c < H.
-# H passed the guard H ≥ floatmin(T), and F S is the scaling of S by a power of two, so fl(F S) = F S and H ≥ F S (a larger
-# gradtol makes H larger still). B is required to satisfy 4 B ≤ 2^-10 F, so that 2 B S ≤ 2^-11 F S ≤ 2^-11 H; that is
+# H passed the guard H ≥ floatmin(T), and τ S ≥ F S exactly. If F S ≥ floatmin(T), F S is S scaled by a power of two with a
+# normal result, so it is representable and monotonic rounding gives H = fl(τ S) ≥ F S. If F S < floatmin(T) (the scaling of a
+# small S underflows; F S can then round to 0), H ≥ floatmin(T) > F S directly. In both cases H ≥ F S (a larger gradtol makes
+# H larger still). B is required to satisfy 4 B ≤ 2^-10 F, so that 2 B S ≤ 2^-11 F S ≤ 2^-11 H; that is
 #   γ_p² ≤ 2^-12 F = 2^-6 eps(T), that is γ_p ≤ 2^-3 sqrt(eps(T)).
 # For T = Float64, sqrt(eps) = 2^-26, so γ_p ≤ 2^-29, that is p u (1 + 2^-29) ≤ 2^-29, that is p ≤ 2^24/(1 + 2^-29) = 2^24 - 2^-5 + ...,
 # so the largest p is 2^24 - 1 (at p = 2^24, γ_p = 2^-29/(1 - 2^-29), a factor 1/(1 - 2^-29) above 2^-29). For T = Float32, sqrt(eps) =
