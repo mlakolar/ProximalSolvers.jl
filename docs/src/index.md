@@ -16,6 +16,8 @@ Use the current development version if you want to study lasso algorithms, contr
 | Install into a Julia project and solve your first lasso | **[Getting started](getting-started.md)** |
 | Understand proximal operators, soft-thresholding, CD and PGD | [What problem, which algorithm?](concepts.md) |
 | See coefficients become zero and verify KKT conditions | [Sparsity and an optimality check](sparsity-and-kkt.md) |
+| Follow a complete tutorial for one problem | [Lasso](examples/problems/lasso.md), [Elastic net](examples/problems/elastic_net.md), [Group lasso](examples/problems/group_lasso.md), [Square-root lasso](examples/problems/square_root_lasso.md) |
+| Compare solvers at equal accuracy | [Lasso: solvers at equal accuracy](examples/comparisons/lasso_solvers.md) |
 | Choose solver settings | [Choosing a solver](choosing-solver.md) |
 | Understand results and common errors | [Results and troubleshooting](working-with-results.md) |
 | Check what is supported | [Supported problems](support.md) |
@@ -48,7 +50,7 @@ the settings.
 A larger L1 penalty can make coefficients **exactly zero**, as the
 [next tutorial](sparsity-and-kkt.md) shows.
 
-The **Examples** sidebar has runnable scripts. The introductory guide examples above and below also execute during the documentation CI build.
+The **Problems** and **Solver comparisons** sections of the sidebar have runnable scripts. The introductory guide examples above and below also execute during the documentation CI build.
 
 ## Package API
 

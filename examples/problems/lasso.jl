@@ -1,0 +1,126 @@
+# The lasso minimizes `(s/2)‖y − Xβ‖² + λ‖β‖₁` over `β`, with `s = 1` for the raw sum of squares
+# and `s = 1/n` for the normalized form used on this page. ProximalBase's `LeastSquaresLoss(y, X)`
+# is half the sum of squares, `‖y − Xβ‖²/2`, so `s * LeastSquaresLoss(y, X)` is the smooth part
+# and `NormL1(λ)` is the penalty. This page solves the lasso in four ways, each section with its
+# own iterate that starts from zeros: cyclic coordinate descent, proximal gradient descent,
+# coordinate descent on a `SparseIterate`, and accelerated proximal gradient descent next to
+# proximal gradient descent on a seeded correlated design. Each solution is checked against an
+# independent result, not against the solver's `converged` flag.
+#
+# `CDSolver` accepts this problem on a dense `Vector` or a `SparseIterate`, and
+# `ProximalGradientDescent` and `AccProxGradDescent` on a dense `Vector`, with `Float32` or
+# `Float64` data. See [Supported problems](../../support.md) for the combinations that the test
+# suite checks and their limits.
+#
+# ## The problem
+#
+# A small problem with orthogonal columns of unequal norms has a closed-form solution: each
+# coefficient is the least-squares coefficient of its column, soft-thresholded at
+# `λ / (s ‖X[:, j]‖²)`. At `s = 1/n` and `λ = 0.1` the solution is `[1.7, -0.925]`.
+using LinearAlgebra, Random, ProximalBase, ProximalSolvers
+X = [1. 0.; 0. 2.; 0. 0.]
+y = [2., -2., .5]
+n = length(y)
+s = 1 / n
+f = s * LeastSquaresLoss(y, X)
+
+# The function below measures optimality from the data alone. For `grad = s Xᵀ(Xβ − y)` it
+# returns the largest violation of `0 ∈ grad + λ ∂‖β‖₁`: at a zero coefficient the excess of
+# `|grad_j|` over `λ`, and at a nonzero coefficient the distance `|grad_j + λ sign(β_j)|`.
+# It is zero at a minimizer. It is named differently from ProximalBase's exported
+# `kkt_violation`, which it does not replace, and it takes the data as arguments.
+function lasso_kkt_residual(X, y, s, λ, β)
+  grad = s * (X' * (X * β - y))
+  maximum(iszero(β[j]) ? max(abs(grad[j]) - λ, 0.0) :
+                         abs(grad[j] + λ * sign(β[j])) for j in eachindex(β))
+end;
+
+# ## Coordinate descent
+#
+# `CDSolver` updates one coordinate at a time.
+x_cd = zeros(2)
+g = NormL1(.1);
+# Cyclic order and no momentum make the tutorial output reproducible.
+# CDSolver() uses random order and is also reasonable for exploratory fits.
+result = solve!(x_cd, f, g, CDSolver(order=:cyclic, momentum=false))
+@assert result.converged && result.minimizer === x_cd
+# Independent orthogonal-column solution, with unequal column norms.
+@assert isapprox(x_cd, [1.7, -.925]; atol=1e-7)
+println(result)
+
+# ## Proximal gradient descent
+#
+# `ProximalGradientDescent` is the cached proximal-gradient algorithm. It solves the same
+# lasso from its own zero start.
+x_pgd = zeros(2)
+# gradtol = 1e-10 is near the rounding level of the objective, so the solve may end on a
+# computed objective increase (converged = false) unless increases are allowed
+options = ProximalOptions(maxiter=2000, ftol=1e-14, xtol=1e-12, gradtol=1e-10,
+                          allow_f_increases=true)
+result = solve!(x_pgd, f, g, ProximalGradientDescent(), options)
+@assert result.converged && result.minimizer === x_pgd
+# Accuracy is checked separately from the solver's stopping flag.
+@assert isapprox(x_pgd, [1.7, -.925]; atol=1e-7)
+println(result)
+
+# ## Coordinate descent on a SparseIterate
+#
+# A `SparseIterate` stores only the active coefficients; the design matrix remains dense. An
+# empty `SparseIterate` has no active coordinates, and the solver discovers them. With
+# `λ = 1` the soft-thresholded first coefficient is zero, so one coefficient is active.
+lambda = 1.0
+g_sparse = NormL1(lambda);
+x_sparse = SparseIterate(2)
+result = solve!(x_sparse, f, g_sparse, CDSolver(order=:cyclic, momentum=false))
+@assert result.converged && result.minimizer === x_sparse
+
+# Soft-thresholding the independent orthogonal-column solution:
+@assert isapprox(Vector(x_sparse), [0.0, -0.25]; atol=1e-7)
+# Only the second coordinate is stored as active after compaction.
+@assert nactive(x_sparse) == 1 && collect(activecoordinates(x_sparse)) == [2]
+println("coefficients = ", Vector(x_sparse), "; active coordinates = ", collect(activecoordinates(x_sparse)))
+
+# ## Accelerated proximal gradient descent
+#
+# `AccProxGradDescent` is accelerated proximal gradient descent. Here it runs next to plain
+# proximal gradient descent with the same options on a seeded design with `n = 200` rows,
+# `p = 50` columns, correlation 0.9 between neighbouring columns, and `λ = 0.02`.
+rng = Xoshiro(2026)
+n_corr, p_corr = 200, 50
+X_corr = randn(rng, n_corr, p_corr)
+for j in 2:p_corr                 # neighbouring columns with correlation 0.9
+  X_corr[:, j] .= 0.9 .* X_corr[:, j - 1] .+ sqrt(1 - 0.9^2) .* X_corr[:, j]
+end
+y_corr = X_corr[:, 1:5] * [2.0, -1.5, 1.0, 0.5, -0.5] .+ 0.1 .* randn(rng, n_corr)
+s_corr = 1 / n_corr
+f_corr = s_corr * LeastSquaresLoss(y_corr, X_corr)
+lambda_corr = 0.02
+g_corr = NormL1(lambda_corr)
+
+options_corr = ProximalOptions(maxiter = 10_000, ftol = 1e-14, xtol = 1e-12, gradtol = 1e-10)
+beta_apg, beta_pgd2 = zeros(p_corr), zeros(p_corr)
+apg = solve!(beta_apg, f_corr, g_corr, AccProxGradDescent(), options_corr)
+pgd = solve!(beta_pgd2, f_corr, g_corr, ProximalGradientDescent(), options_corr)
+@assert apg.minimizer === beta_apg
+@assert lasso_kkt_residual(X_corr, y_corr, s_corr, lambda_corr, beta_apg) <= 1e-6 &&
+        lasso_kkt_residual(X_corr, y_corr, s_corr, lambda_corr, beta_pgd2) <= 1e-6
+
+# Iterations and oracle calls of the two runs with the same options. They describe this
+# design only; compare solvers at the same independently measured accuracy before
+# choosing one for speed.
+for (name, r, beta) in (("AccProxGradDescent", apg, beta_apg), ("ProximalGradientDescent", pgd, beta_pgd2))
+  println(rpad(name, 24), " iterations = ", r.iterations, ", gradient calls = ", r.grad_calls,
+          ", prox calls = ", r.prox_calls,
+          ", KKT violation = ", lasso_kkt_residual(X_corr, y_corr, s_corr, lambda_corr, beta),
+          ", nonzeros = ", count(!iszero, beta))
+end
+
+# ## Checking a solution independently
+#
+# The `converged` flag says that a solver's own stopping rule was met. The checks on this page
+# use other measures: a closed-form solution of the orthogonal problem, and the residual
+# `lasso_kkt_residual`, which is computed from `X`, `y`, `s`, `λ` and the coefficients only.
+# The same residual applies to the three small solutions above, each at its own `λ`.
+@assert lasso_kkt_residual(X, y, s, 0.1, x_cd) <= 1e-6
+@assert lasso_kkt_residual(X, y, s, 0.1, x_pgd) <= 1e-6
+@assert lasso_kkt_residual(X, y, s, lambda, Vector(x_sparse)) <= 1e-6

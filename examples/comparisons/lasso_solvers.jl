@@ -211,6 +211,7 @@ end
 #
 #md # The times on this page come from the machine that built the documentation, which
 #md # can be a shared continuous-integration runner.
+#md # They come from one machine in one run; see [Benchmarks and performance](../../benchmarks.md) for how they differ from the benchmark evidence of the repository.
 #nb # The times in this notebook come from the machine that runs its cells.
 #
 # The random-order timings are for the one seed `cdseed`. The comparison covers this one

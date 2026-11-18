@@ -10,7 +10,7 @@
 # knowing the noise level σ, which is the usual reason to use this loss. This page solves one seeded
 # problem with coordinate descent, checks the answer from `X`, `y`, `λ` and `β` alone, repeats the solve in
 # `Float32` on a `SparseIterate`, and then shows a limitation at exact fits. See
-# [Supported problems](../support.md) for the accepted inputs.
+# [Supported problems](../../support.md) for the accepted inputs.
 using LinearAlgebra, Random, ProximalBase, ProximalSolvers
 
 # ## The problem
@@ -84,7 +84,7 @@ println("independent objective = ", c.objective, ", dual bound = ", c.dualbound,
 # `SparseIterate(Float32, p)`, which stores the active coordinates. The `Float32` data are a different
 # problem from the `Float64` one, so the check uses the `Float64` values of the `Float32` arrays and the
 # same `λ`. The run passes `tol = 1e-5`: with the default `tol = 1e-7` the stopping threshold for `Float32`
-# data is close to the rounding level of the data, see [Numerical behavior](../numerics.md). The proved gap
+# data is close to the rounding level of the data, see [Numerical behavior](../../numerics.md). The proved gap
 # is then well below the `1e-4` bound.
 X32, y32 = Float32.(X), Float32.(y)
 x32 = SparseIterate(Float32, p)
@@ -148,7 +148,7 @@ println("exact-fit optimum: β = ", β2, ", converged = ", r2.converged, ", gap 
 
 # ## Not supported
 #
-# `solve!` refuses the following with an `ArgumentError`, see [Supported problems](../support.md): this
+# `solve!` refuses the following with an `ArgumentError`, see [Supported problems](../../support.md): this
 # loss with `ProximalGradientDescent` or `AccProxGradDescent` (ProximalBase provides no gradient for it),
 # and, with `CDSolver`, a weighted `NormL1`, `Scaled(SqrtLeastSquaresLoss, α)` (for a positive finite `α`,
 # use the unscaled loss at the level `λ/α`, which has the same minimizers), `λ = 0` (use

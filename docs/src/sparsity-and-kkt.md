@@ -134,7 +134,7 @@ The **smaller** `max_kkt`, the closer this solution is to satisfying
 first-order optimality. The threshold used to judge it depends on the
 scale and numerical precision of your problem. For this convex lasso,
 the KKT conditions characterize an optimum; this check is separate
-from the solver's `converged` flag. For `ElasticNet(lambda1, lambda2)` (PGD and APG) the penalty
+from the solver's `converged` flag. For `ElasticNet(lambda1, lambda2)` (CD, PGD and APG) the penalty
 also has the ridge term `lambda2/2 * sum(abs2, beta)`: for each nonzero coefficient the gradient plus
 `lambda2 * beta[j]` must be `-lambda1 * sign(beta[j])`, and for each zero coefficient the gradient's
 magnitude must be no larger than `lambda1`.
@@ -146,7 +146,7 @@ stores active coefficient coordinates and their values, rather than
 using an ordinary dense coefficient vector. It can be useful when
 the fitted coefficients have many zeros, but the **design `X` is still dense**
 in this development version. CD accepts it; PGD currently does not.
-See the [sparse coordinate descent example](examples/03_sparse_cd_lasso.md)
+See the [SparseIterate section of the lasso tutorial](examples/problems/lasso.md#Coordinate-descent-on-a-SparseIterate)
 and [Choosing a solver](choosing-solver.md).
 
 The complete beginner workflow is [Getting started](getting-started.md);

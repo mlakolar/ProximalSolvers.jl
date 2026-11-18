@@ -33,10 +33,10 @@ If you are **contributing** to the repository instead, clone it and instantiate 
 git clone https://github.com/mlakolar/ProximalSolvers.jl.git
 cd ProximalSolvers.jl
 julia --project=. -e 'using Pkg; Pkg.instantiate()'
-julia --project=. examples/01_cd_lasso.jl
+julia --project=. examples/problems/lasso.jl
 ~~~
 
-The commands above are installation instructions, not CI tests that modify a project. The actual optimization examples below **execute during the documentation build**.
+The last command runs the whole lasso tutorial of `examples/problems/lasso.jl`. The commands above are installation instructions, not CI tests that modify a project. The actual optimization examples below **execute during the documentation build**.
 
 ## The optimization problem
 
