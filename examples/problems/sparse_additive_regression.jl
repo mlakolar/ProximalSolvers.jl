@@ -168,12 +168,12 @@ end
 @assert maximum(scores) <= lambdamax
 nz0, zr0 = violations(zeros(p * K), lambdamax)
 @assert nz0 == 0 && zr0 <= 1e-12 * lambdamax
-r = fit(lambdamax)
-largest = maximum(norm(r.b[G]) for G in groups)
-nz, zr = violations(r.b, lambdamax)
-@assert largest <= 1e-12 && nz <= 1e-12 * lambdamax && zr <= 1e-12 * lambdamax
+rmax = fit(lambdamax)
+largest = maximum(norm(rmax.b[G]) for G in groups)
+nzmax, zrmax = violations(rmax.b, lambdamax)
+@assert largest <= 1e-12 && nzmax <= 1e-12 * lambdamax && zrmax <= 1e-12 * lambdamax
 println("at λ = λmax: zero-group violation of b = 0 ", zr0, "; solver: largest block norm ", largest,
-        ", violations ", nz, " and ", zr)
+        ", violations ", nzmax, " and ", zrmax)
 for lambda in ((1 + 1e-6) * lambdamax, 1.5 * lambdamax)
   r = fit(lambda)
   @assert isempty(r.active) && all(iszero, r.b)
