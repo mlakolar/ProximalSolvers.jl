@@ -150,15 +150,35 @@ end
 
 # ## At and above `λmax`
 #
-# The script asserts that at `λ = λmax` and at `λ = 1.5 λmax` all `p` blocks of the solution
-# are zero and that the solver reports no active group.
-for lambda in (lambdamax, 1.5 * lambdamax)
+# Three statements are checked. First, from the data alone: `maximum(scores) <= lambdamax` holds
+# by construction, and `b = 0` satisfies the zero-group condition at `λ = λmax`, up to the
+# rounding of two different evaluations of the same group score (`violations` computes the
+# gradient of the whole design, `scores` the block product).
+#
+# Second, the solver at `λ = λmax`. There `b = 0` is a minimizer, but the solver compares its
+# own evaluation of the group score with `λ wⱼ` at the rounding level, so a block of the size
+# of the rounding error can survive, and whether it does depends on the summation order of the
+# platform. The check therefore asserts a rounding-level result: each block norm is at most
+# `1e-12`, where the coefficients are of order one on this data, and the optimality violations
+# are at most `1e-12 λ`.
+#
+# Third, at `λ = (1 + 10⁻⁶) λmax` and at `λ = 1.5 λmax` the solver returns exact zeros and
+# reports no active group. The margin of `10⁻⁶` in relative size is far above rounding, which
+# keeps the comparison away from the boundary.
+@assert maximum(scores) <= lambdamax
+nz0, zr0 = violations(zeros(p * K), lambdamax)
+@assert nz0 == 0 && zr0 <= 1e-12 * lambdamax
+r = fit(lambdamax)
+largest = maximum(norm(r.b[G]) for G in groups)
+nz, zr = violations(r.b, lambdamax)
+@assert largest <= 1e-12 && nz <= 1e-12 * lambdamax && zr <= 1e-12 * lambdamax
+println("at λ = λmax: zero-group violation of b = 0 ", zr0, "; solver: largest block norm ", largest,
+        ", violations ", nz, " and ", zr)
+for lambda in ((1 + 1e-6) * lambdamax, 1.5 * lambdamax)
   r = fit(lambda)
   @assert isempty(r.active) && all(iszero, r.b)
-  nz, zr = violations(r.b, lambda)
-  @assert nz == 0 && zr <= 1e-12 * lambda
 end
-println("all blocks are zero at λ = λmax and at λ = 1.5 λmax")
+println("all blocks are exactly zero at λ = (1 + 1e-6) λmax and at λ = 1.5 λmax")
 
 # ## Three penalty levels
 #
