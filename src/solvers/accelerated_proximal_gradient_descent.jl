@@ -44,10 +44,10 @@ rejected. Pass `ProximalOptions(...)` as the fifth argument to [`solve!`](@ref).
 A stop that the `xtol`, `ftol` or `gradtol` test proposes counts only if the computed KKT
 residual at the accepted `x` is below `max(gradtol, 64 eps(T)) * max(λ, λmax)`, with
 `λmax = α‖Xᵀy‖∞` and `λ` the ℓ1 level of the penalty (`λ` of `NormL1`, `λ1` of `ElasticNet`;
-see [`ProximalOptions`](@ref)). For a `NormLinf(λ)` penalty the check is instead on the ℓ1 norm of the
-proximal-gradient mapping at the accepted `x` (not at the extrapolated point), against
-`max(gradtol, 64 eps(T)) * max(λ, ‖∇f(0)‖₁)`, with a rounding allowance; it costs one gradient per proposed stop and
-one proximal evaluation when its guard on the step `1/L` passes, and `converged = true` has the meaning and the limits stated in
+see [`ProximalOptions`](@ref)). For a `NormLinf(λ)` penalty the check is instead on the
+direct KKT residual (an ℓ1 norm) `min over v ∈ ∂‖x‖∞ of ‖∇f(x) + λ v‖₁` at the accepted `x` (not at the extrapolated point), against
+`max(gradtol, 64 eps(T)) * max(λ, ‖∇f(0)‖₁)`, with no step and no proximal evaluation; it costs one gradient per proposed stop, and
+`converged = true` has the meaning and the limits stated in
 [`ProximalOptions`](@ref). For `NormL1` and `ElasticNet`, `converged = true` guarantees only that the
 computed, normalized KKT residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the
 threshold is formed in `T`, which can round or overflow; see [`ProximalOptions`](@ref)). It is
@@ -97,7 +97,7 @@ mutable struct AccProxGradDescentState{T, X<:Vector{T}, M, Z}
     delta_x::X
     L::T
     max_residual::T
-    λmax::T           # ‖∇f(0)‖ = α‖Xᵀy‖ for the stationarity check of a stop, in the dual norm of the penalty (∞-norm for NormL1 and ElasticNet, 1-norm for NormLinf); -1 until it is computed
+    λmax::T           # ‖∇f(0)‖ = α‖Xᵀy‖ for the stationarity check of a stop: the ∞-norm for NormL1 and ElasticNet (the dual of their ℓ1 part), the 1-norm for NormLinf; -1 until it is computed
     k::Int            # iterations since the start or the last restart
     restarts::Int
     backtrack_steps::Int

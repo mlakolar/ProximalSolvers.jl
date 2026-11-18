@@ -68,10 +68,9 @@ function convergence_assessment(
   grad_converged = gradient_converged!(state, options) && !stalled
 
   # A stop proposed by any of the three tests counts only if the accepted iterate passes the
-  # stationarity check of the penalty (_stationary!: the KKT residual for NormL1 and ElasticNet, the
-  # proximal-gradient mapping for NormLinf), to the working precision; otherwise the solve continues.
-  # The check counts its own proximal (and, for APG, gradient) evaluations here, before the call
-  # limits are compared in _solve_gradient!.
+  # stationarity check of the penalty (_stationary!: the KKT residual of the iterate, with the penalty's own
+  # subdifferential for NormL1, ElasticNet and NormLinf), to the working precision; otherwise the solve continues.
+  # For APG the check counts its one gradient evaluation here, before the call limits are compared in _solve_gradient!.
   if (x_converged || f_converged || grad_converged) && !_stationary!(state, f, g, options)
     x_converged, f_converged, grad_converged = false, false, false
   end
@@ -137,103 +136,80 @@ end
 
 # ---- the stationarity check of a proposed stop, NormLinf --------------------------------------
 #
-# The check is for ½α‖Xb - y‖² + λ‖b‖∞ (α = 1 for a raw LeastSquaresLoss), f the least-squares part
-# and h = λ‖·‖∞ = NormLinf(λ). It uses the proximal-gradient mapping at the accepted iterate x,
-# G_t(x) = (x - prox_{th}(x - t∇f(x))) / t, with t = 1/L for the curvature L = state.L that the line
-# search accepted for this iterate (the step that gave x). For this convex problem and any t > 0, in
-# exact arithmetic, G_t(x) = 0 iff x minimizes f + h. With x⁺ = prox_{th}(x - t∇f(x)), ‖x - x⁺‖ = t‖G_t(x)‖
-# and, when ∇f is L_f-Lipschitz, dist(0, ∂(f + h)(x⁺)) ≤ (1 + L_f/L) ‖G_t(x)‖₂. The Euclidean norm
-# ‖G_t(x)‖₂ is nonincreasing in t, so a small accepted L (a large step) gives a smaller residual than a
-# large L would at the same x, and the factor 1 + L_f/L is large there: a small residual says less. The
-# residual is computed in working precision, so it is not a certificate in exact arithmetic.
+# The check is for ½α‖Xb - y‖² + λ‖b‖∞ (α = 1 for a raw LeastSquaresLoss), f the least-squares part. It is the
+# direct KKT residual at the accepted iterate x, with g = ∇f(x):
+#     r(x) = min over v in ∂‖x‖∞ of ‖g + λ v‖₁,
+# so that r(x) = 0 iff 0 ∈ ∇f(x) + λ ∂‖x‖∞, iff x minimizes f + λ‖·‖∞ (a convex problem, in exact arithmetic).
+# The ℓ1 norm is the dual norm of ‖·‖∞, and ‖·‖₁ ≥ ‖·‖∞, so it is the stricter of the two natural norms.
+# There is no step, no curvature L and no proximal evaluation in it.
 #
-# The stop is kept when r + ρ < τ S, with these quantities (all in T):
-#   r = ‖G_t(x)‖₁ = L Σᵢ |xᵢ - pᵢ|, for p = prox_{th}(u) and u = x - ∇f(x)/L. The 1-norm is the dual
-#       norm of the ℓ∞ penalty, and ‖G‖₁ ≥ ‖G‖∞, so it is the stricter of the two natural norms. The
-#       gradual underflow of the final product L Σ has an absolute error of at most nextfloat(zero(T)),
-#       which is below the floor floatmin(T) of the threshold.
-#   S = max(λ, λcrit), with λcrit = ‖∇f(0)‖₁ = α‖Xᵀy‖₁ (_lambda_max! with the 1-norm). For the
-#       penalty λ‖·‖∞, 0 is a minimizer of f + h iff 0 ∈ ∇f(0) + λ∂‖0‖∞ iff ‖∇f(0)‖₁ ≤ λ, so λcrit is
-#       the smallest level for which 0 is a minimizer; it is an ℓ1 quantity, not the lasso's ‖∇f(0)‖∞.
-#       In exact arithmetic, the change (f, λ, L) → (c f, c λ, c L) for a constant c > 0 leaves u and p
-#       as they were and scales r, S and ρ below by c. With L fixed, scaling f and λ does not scale r.
-#       This is a property of the formulas, not of the sequence of decisions of a solve (L starts at
-#       a fixed value, and the guards below are in the range of T).
-#   τ = max(gradtol, 64 eps(T)), formed in T; the floor 64 eps(T) is a few dozen units of roundoff,
-#       chosen without a bound on the error of the computed gradient.
-#   ρ = ((‖x‖₁ + k s) eps(T)) L, the rounding resolution of r. The first term is the displacement
-#       x - p rounding away (about eps(T)|xᵢ| per entry; a displacement that rounds to 0 can give
-#       r = 0 at a point that is not stationary). The second is a first-order bound eps(T) s on the error of
-#       the clip level that PB forms from the clipped magnitudes and the radius tλ, for the k entries
-#       the prox changed (pᵢ ≠ uᵢ: PB copies the entries inside the clip interval, so these are the
-#       clipped entries, or the entries with uᵢ ≠ 0 under the zero fill) and s = Σ_{pᵢ≠uᵢ} |uᵢ|. It
-#       is a first-order model, not a proved bound, and it does not cover the error of the
-#       computed gradient (as the lasso check does not either). The sum is scaled by eps(T) before it
-#       is scaled by L, so that a subnormal L (for which L eps(T) rounds to 0) does not remove the
-#       allowance; the check is not kept when a nonzero ‖x‖₁ + k s gives a product with eps(T) below
-#       floatmin(T) (it has lost its scale before the multiplication by L), and the gradual underflow
-#       of the final product by L has an absolute error of at most nextfloat(zero(T)), below the floor
-#       floatmin(T) of the threshold. At x = 0 with λ above λcrit by more than the rounding of PB's
-#       comparison of ‖u‖₁ with tλ, PB's zero fill gives p = +0, so r = 0 and ρ = eps(T) k λcrit
-#       (up to rounding), and the stop is kept when eps(T) k λcrit < τ max(λ, λcrit); this holds for
-#       the k with eps(T) k < τ (as S ≥ λcrit), and can hold for larger k when λ is large against λcrit. For Float32 at the default gradtol,
-#       eps(T) k < τ is k below about 84 nonzero entries of ∇f(0). A Float32 solve with larger k can
-#       report converged = false there, and so can one with many tied or nonzero entries at a nonzero optimum.
-# The stop is not kept when L is not finite and positive, when t = 1/L is not finite or is below
-# floatmin(T), when S is not finite, when τ S is below floatmin(T), or when r or ρ is not finite.
+# The subdifferential. At x = 0 it is the unit ℓ1 ball {v: ‖v‖₁ ≤ 1}, and min_v ‖g + λ v‖₁ = max(‖g‖₁ - λ, 0): the
+# triangle inequality gives ‖g + λ v‖₁ ≥ ‖g‖₁ - λ‖v‖₁ ≥ ‖g‖₁ - λ, and v = -g/‖g‖₁ attains it when ‖g‖₁ ≥ λ (v = -g/λ
+# gives 0 otherwise). At x ≠ 0, with m = maxᵢ|xᵢ|, M = {i : |xᵢ| = m} and sᵢ = sign xᵢ, it is the set of v with vᵢ = 0
+# off M, vᵢ = sᵢ wᵢ on M, wᵢ ≥ 0 and Σ wᵢ = 1. Then r = off + min_w Σ_{i∈M} |sᵢgᵢ + λ wᵢ|, off = Σ_{i∉M} |gᵢ|. The
+# term |aᵢ + λ wᵢ| (aᵢ = sᵢgᵢ) has slope +λ in wᵢ if aᵢ ≥ 0, and slope -λ until wᵢ = -aᵢ/λ and +λ after if aᵢ < 0. With
+# N = Σ_{i∈M} max(sᵢgᵢ, 0) and P = Σ_{i∈M} max(-sᵢgᵢ, 0), the unit of mass is spent first where the slope is -λ (a total
+# capacity P/λ) and then at slope +λ: the minimum is N + (P - λ) if λ ≤ P and N + (λ - P) otherwise, that is
+#     r = off + N + |λ - P|.
+# This closed form was checked against an exact (rational) vertex enumeration of the minimization for |M| ≤ 3.
 #
-# Evaluations. ∇f(x) is _gradient_at_x! (PGD: the accepted gradient, no new evaluation; APG: one
-# gradient from the cached image A x, counted in grad_calls, and formed before the guard on L and t).
-# The proximal operator is PB's value_and_prox!(p, h, u, t), counted in prox_calls when the guard on L
-# and t passes (when it returns first there is no proximal evaluation), with p = state.delta_x and u in
-# state.xhat: the output and the input are distinct dense arrays, so PB uses p as its threshold buffer and
-# does not read or write the scratch that h owns (a call with the output the same array as the input
-# would use that scratch, which the caller owns). The check itself allocates nothing when the level of h
-# is a Float32 or a Float64 (also measured for Int, Float16 and Rational{Int}); with a BigFloat or a
-# Rational{BigInt} level PB's scalar arithmetic allocates in each prox, in the iterations and in the
-# check, as for NormL1 and ElasticNet. ∇f(0) is computed first
-# and once per solve, into state.xhat, which the iterations write before they read. For APG, delta_x
-# is not read after the xtol test. PGD's result reads delta_x for its gradient residual, so the check
-# recomputes x - x_previous into it with the _sub! that backtrack! used (the same values) after the
-# prox.
+# The stop is kept when r < τ S, with S = max(λ, λcrit), λcrit = ‖∇f(0)‖₁ = α‖Xᵀy‖₁ (_lambda_max! with the 1-norm)
+# and τ = max(gradtol, 64 eps(T)), all in T, as for the lasso check; it is not kept when S is not finite, when τ S is
+# below floatmin(T) (a threshold that may have underflowed) or when r is not finite. For the penalty λ‖·‖∞, 0 is a minimizer
+# iff ‖∇f(0)‖₁ ≤ λ (the case x = 0 above), so λcrit is the smallest level for which 0 is a minimizer; it is an ℓ1
+# quantity, not the lasso's ‖∇f(0)‖∞. In exact arithmetic, the change (f, λ) → (c f, c λ) for a constant c > 0 scales g,
+# λ, r and S by c, so the comparison r < τ S does not change (within the range of T).
+#
+# The active set M is found by exact equality of the stored values, with no tolerance. The accepted iterate of PGD and of
+# APG is the output of PB's value_and_prox! for NormLinf, which stores every clipped entry as the same ±τ, so entries that are
+# tied at the maximum by the clip are bitwise equal. An iterate whose entries near the maximum are not bitwise equal is
+# treated as having the smaller ones off M, so that their |gᵢ| count in r: r is then the exact residual of that stored
+# point, and the check can refuse a point near a tied optimum, but it does not accept a point whose residual is above τ S.
+#
+# What it is and is not. r is computed in T from the computed gradient, so the rounding error of the gradient is not
+# covered (as for the lasso check): the true residual at a kept stop can be slightly above τ S (a sweep of Float32 solves
+# against a BigFloat reference found at most 1.033 τ S). It is not a certificate in exact arithmetic and it does not bound the
+# distance to a minimizer. It reads x and g in two passes (m, then the sums, accumulated in T). ∇f(x) is
+# _gradient_at_x! (PGD: the accepted gradient, no new evaluation; APG: one gradient from the cached image A x, counted in
+# grad_calls). ∇f(0) is computed first and once per solve, into state.xhat, which the iterations write before they read.
+# The check evaluates no proximal operator, uses no other buffer and does not write delta_x. It allocates nothing for a level of
+# type Float32, Float64, Int, Float16 or Rational{Int}; the conversion of a BigFloat or a Rational{BigInt} level to T can allocate.
 function _stationary!(state, f, g::NormLinf, options::ProximalOptions)
   T = eltype(state.x)
   λcrit = _lambda_max!(state, v -> norm(v, 1))   # first: it uses xhat, which the gradient below may also use
-  S = max(T(g.λ), λcrit)
+  λ = T(g.λ)
+  S = max(λ, λcrit)
   τ = T(max(options.gradtol, 64 * Float64(eps(T))))
   threshold = τ * S
   grad = _gradient_at_x!(state, f)
-  L = state.L
-  t = one(L) / L
-  isfinite(L) && L > 0 && isfinite(t) && t >= floatmin(T) || return false
-  u = _step!(state.xhat, state.x, grad, L)     # for APG grad === u, which an elementwise broadcast allows
-  p = state.delta_x
-  value_and_prox!(p, g, u, t)
-  state.prox_calls += 1
-  x = state.x
-  r = nx = s = zero(T)
-  k = 0
-  @inbounds for i in eachindex(x, p, u)
-    r += abs(x[i] - p[i])
-    nx += abs(x[i])
-    if p[i] != u[i]
-      k += 1
-      s += abs(u[i])
-    end
-  end
-  r *= L
-  a = nx + k * s
-  b = a * eps(T)
-  ρ = b * L
-  _restore_step!(state)
-  (iszero(a) || b >= floatmin(T)) &&
-    isfinite(S) && threshold >= floatmin(T) && isfinite(r) && isfinite(ρ) && r + ρ < threshold
+  r = _linf_kkt_residual(state.x, grad, λ)
+  isfinite(S) && threshold >= floatmin(T) && isfinite(r) && r < threshold
 end
 
-# delta_x = x - x_previous, as backtrack! left it, for the PGD result's gradient residual; APG does not read
-# delta_x after the check.
-_restore_step!(state::ProximalGradientDescentState) = _sub!(state.delta_x, state.x, state.x_previous)
-_restore_step!(state::AccProxGradDescentState) = nothing
+# r = min over v in ∂‖x‖∞ of ‖grad + λ v‖₁ for the level λ ≥ 0, accumulated in the type of λ (see the comment above): the
+# active set is the set of entries of maximal magnitude, by exact equality.
+function _linf_kkt_residual(x, grad, λ)
+  z = zero(λ)
+  m = maximum(abs, x)
+  if iszero(m)
+    s = z
+    @inbounds for i in eachindex(grad)
+      s += abs(grad[i])
+    end
+    return max(s - λ, z)
+  end
+  off = N = P = z
+  @inbounds for i in eachindex(x, grad)
+    if abs(x[i]) == m
+      sg = sign(x[i]) * grad[i]
+      N += max(sg, z)
+      P += max(-sg, z)
+    else
+      off += abs(grad[i])
+    end
+  end
+  off + N + abs(λ - P)
+end
 
 # α‖Xᵀy‖ = ‖∇f(0)‖ in the norm `nrm`: the ∞-norm by default (NormL1 and ElasticNet) and the 1-norm for
 # NormLinf (the dual norm of the penalty). It is computed once per solve (state.λmax is negative until
