@@ -51,8 +51,8 @@ level cannot be constructed (ProximalBase refuses it), and the other refusals le
 `NormLinf` for a dense `Vector`, a `SparseIterate` and a `BlockIterate`, before it changes `x` or draws from its random number
 generator: this `CDSolver` needs a separable penalty for its coordinate oracle.
 The proximal operator is ProximalBase's. In exact arithmetic, 0 is a minimizer exactly when `lambda ≥ ‖∇f(0)‖₁ = s‖Xᵀy‖₁` (not the lasso's
-`‖∇f(0)‖∞`). `converged = true` means that a stopping test proposed a stop and that the ℓ1 norm of the proximal-gradient
-mapping at the returned point, plus a rounding allowance, is below `max(gradtol, 64eps(T)) * max(lambda, ‖∇f(0)‖₁)`; it is not an
+`‖∇f(0)‖∞`). `converged = true` means that a stopping test proposed a stop and that the direct KKT residual
+`min over v ∈ ∂‖x‖∞ of ‖∇f(x) + λ v‖₁` at the returned point is below `max(gradtol, 64eps(T)) * max(lambda, ‖∇f(0)‖₁)`; it is not an
 exact-arithmetic certificate and does not bound the distance to a minimizer (see
 [the ℓ∞ check](numerics.md#The-stationarity-check-for-NormLinf)). For an example with both solvers, see
 [the ℓ∞ example](examples/08_linf_regularized_regression.md).

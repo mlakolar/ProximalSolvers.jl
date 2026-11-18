@@ -75,7 +75,7 @@ entries 0) sets its coordinate to 0, at the levels that `solve!` accepts. With `
 [the elastic-net example](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples/07_elasticnet/).
 
 PGD and APG also solve least squares with an ℓ∞ penalty, `NormLinf(λ)` (`λ max|βᵢ|`, finite `λ ≥ 0`), whose stopping
-check is on the ℓ1 norm of the proximal-gradient mapping against `max(λ, ‖∇f(0)‖₁)` (see
+check is on the direct KKT residual of the ∞-norm's subdifferential, an ℓ1 norm, against `max(λ, ‖∇f(0)‖₁)` (see
 [the ℓ∞ example](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples/08_linf_regularized_regression/)); `CDSolver`
 refuses `NormLinf`.
 

@@ -34,5 +34,6 @@ methods; `CDSolver` also accepts an unweighted `ElasticNet`). The eighth solves 
 (`NormLinf(λ)`) with both gradient methods: an analytic case (`X = [1 1]`, `y = [2]`, `λ = 1`, minimizer
 `(0.75, 0.75)`, value `0.875`), then a seeded correlated problem (`n = 200`, `p = 40`) at a fraction of
 `λcrit = ‖∇f(0)‖₁`, with the objective computed from X and y, an independently computed duality gap, the number of
-coefficients at the largest magnitude and the call counts; `CDSolver` refuses a `NormLinf`. Historical feature
+coefficients at the largest magnitude and the call counts; `CDSolver` refuses a `NormLinf`. A solve stops when the KKT
+residual of the ∞-norm's subdifferential at the iterate is small. Historical feature
 examples remain on legacy/full and protected archives.

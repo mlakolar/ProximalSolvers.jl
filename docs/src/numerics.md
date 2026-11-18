@@ -193,72 +193,66 @@ increases by rounding before the residual reaches the bound.
 ### The stationarity check for NormLinf
 
 For a `NormLinf(λ)` penalty the check of a proposed stop (see [the check above](@ref "The stationarity check of a stop"))
-uses the proximal-gradient mapping at the accepted iterate `x`, for the problem `½α‖Xb - y‖² + λ‖b‖∞`:
+is the direct KKT residual of the problem `½α‖Xb - y‖² + λ‖b‖∞` at the accepted iterate `x`, with `g = ∇f(x)`:
 
 ~~~
-G_t(x) = (x - prox_{tλ‖·‖∞}(x - t∇f(x))) / t,     t = 1/L,
+r(x) = min over v ∈ ∂‖x‖∞ of ‖g + λ v‖₁.
 ~~~
 
-with `L` the curvature that the line search accepted for this iterate. For this convex problem and any `t > 0`,
-`G_t(x) = 0` in exact arithmetic when and only when `x` is a minimizer. The check forms the gradient `∇f(x)` at the accepted iterate (for
-APG, not at the extrapolated point: one gradient from the cached image `A x`, counted in `grad_calls`), the point
-`u = x - ∇f(x)/L`, and `p = prox_{tλ‖·‖∞}(u)` with ProximalBase's `value_and_prox!` (counted in `prox_calls`; the
-check returns before this call when its guard on `L` and `t` fails, see below). The
-proximal operator of `t λ ‖·‖∞` is `u` minus its projection onto the ℓ1 ball of radius `tλ`: the entries of `u`
-are clipped at a level `τ` that solves `Σ(|uᵢ| - τ)₊ = tλ`, and `p = 0` when `tλ ≥ ‖u‖₁`. The stop is kept when
+In exact arithmetic `r(x) = 0` when and only when `x` minimizes the objective (a convex problem). The ℓ1 norm is the dual norm
+of `‖·‖∞`, and `‖·‖₁ ≥ ‖·‖∞`, so it is the stricter of the two natural norms. The residual has a closed form that follows from the
+subdifferential of the ∞-norm.
+
+- **`x = 0`.** `∂‖0‖∞` is the unit ℓ1 ball, and `r = max(‖g‖₁ - λ, 0)`: the triangle inequality gives `‖g + λ v‖₁ ≥ ‖g‖₁ - λ`, and
+  `v = -g/‖g‖₁` attains it when `‖g‖₁ ≥ λ`.
+- **`x ≠ 0`.** Let `m = maxᵢ|xᵢ|`, `M = {i : |xᵢ| = m}` and `sᵢ = sign xᵢ`. The subgradients `v` have `vᵢ = 0` off `M`, `vᵢ = sᵢwᵢ`
+  on `M`, `wᵢ ≥ 0` and `Σwᵢ = 1`. The term `|sᵢgᵢ + λwᵢ|` has slope `+λ` in `wᵢ` if `sᵢgᵢ ≥ 0`, and slope `-λ` until `wᵢ = -sᵢgᵢ/λ`, then `+λ`,
+  if `sᵢgᵢ < 0`. With `N = Σ_{i∈M} max(sᵢgᵢ, 0)` and `P = Σ_{i∈M} max(-sᵢgᵢ, 0)` the unit of mass is spent first at slope `-λ` (capacity
+  `P/λ`) and then at slope `+λ`, so
+  ~~~
+  r = Σ_{i∉M} |gᵢ| + N + |λ - P|.
+  ~~~
+  For `X = [1 1]`, `y = [2]`, `λ = 1`: `r = 0` at `(0.75, 0.75)`, `r = 1` at `(0.5, 0.5)` and `(0.75, 0.5)`; at `λ = 0`, `r = ‖g‖₁`. The
+  formula agrees with an exact (rational) enumeration of the minimization for `|M| ≤ 3`.
+
+The stop is kept when
 
 ~~~
-r + ρ < max(gradtol, 64 eps(T)) * S,
-r = ‖G_t(x)‖₁ = L Σ|xᵢ - pᵢ|,    S = max(λ, λcrit),    λcrit = α‖Xᵀy‖₁ = ‖∇f(0)‖₁,
-ρ = ((‖x‖₁ + k s) eps(T)) L,
+r < max(gradtol, 64 eps(T)) * max(λ, λcrit),     λcrit = α‖Xᵀy‖₁ = ‖∇f(0)‖₁,
 ~~~
 
-with `k` the number of entries that the proximal operator changed (`pᵢ ≠ uᵢ`: the clipped entries, or under the
-zero fill the entries with `uᵢ ≠ 0`) and `s = Σ_{pᵢ≠uᵢ} |uᵢ|`. The quantities are formed in `T`.
+formed in `T`, as for the lasso check; it is not kept when `max(λ, λcrit)` is not finite, when the product on the right is below
+`floatmin(T)`, or when `r` is not finite.
 
-- **Why the ℓ1 norm and `λcrit`.** The dual norm of `‖·‖∞` is `‖·‖₁`. In exact arithmetic, 0 is a minimizer exactly when
-  `0 ∈ ∇f(0) + λ ∂‖0‖∞`, that is, when `‖∇f(0)‖₁ ≤ λ`, so `λcrit = ‖∇f(0)‖₁` is the smallest level for which 0 is a
-  minimizer; it is not the lasso's `‖∇f(0)‖∞`. `‖G‖₁ ≥ ‖G‖∞`, so the ℓ1 norm is the stricter of the two. In exact
-  arithmetic, the change `(f, λ, L) → (c f, c λ, c L)` for a constant `c > 0` leaves `u` and `p` as they were and scales `r`,
-  `S` and `ρ` by `c`; with `L` fixed, scaling `f` and `λ` does not scale `r`. This is a property of the formulas, not of the
-  sequence of decisions of a solve.
-- **The rounding allowance `ρ`.** The first term of `ρ` is the displacement `x - p` rounding away in `T` (about
-  `eps(T)|xᵢ|` per entry): without it, a step smaller than the spacing of `x` gives `r = 0` at a point that is not
-  stationary. The second term is a first-order bound `eps(T) s` on the error of the clip level, which ProximalBase forms from the
-  clipped magnitudes and the radius, applied to the `k` clipped entries. It is a model, not a proved bound, and it does
-  not cover the error of the computed gradient, as the lasso check does not. The sum is multiplied by `eps(T)` before it is
-  multiplied by `L`, so that a subnormal `L` (for which `L eps(T)` rounds to 0) does not remove the allowance; a stop is also not
-  kept when a nonzero `‖x‖₁ + k s` times `eps(T)` is below `floatmin(T)`.
-- **What a kept stop says.** For a gradient with Lipschitz constant `L_f`, `dist(0, ∂F(p)) ≤ (1 + L_f/L) ‖G_t(x)‖₂` at
-  `p = x⁺`, and `‖G_t(x)‖₂` is nonincreasing in `t`, so an accepted `L` that is small (a large step) makes a small
-  residual weaker evidence. `converged = true` is a computed residual in working precision, not an exact-arithmetic
-  certificate and not a bound on the distance to a minimizer. The check does not keep a stop when `L` is not finite and
-  positive, when `1/L` is not finite or is below `floatmin(T)`, when `S` is not finite, when `τ S` is below `floatmin(T)`, or when
-  `r` or `ρ` is not finite.
-- **Float32 and large `k`.** At `x = 0` with `λ` above `λcrit` by more than the rounding of ProximalBase's comparison of `‖u‖₁`
-  with `tλ`, `p = 0`, `r = 0` and `ρ = eps(T) k λcrit` (up to rounding). The stop is kept when `eps(T) k λcrit < τ max(λ, λcrit)`.
-  That holds (up to rounding) when `eps(T) k < τ` (as `max(λ, λcrit) ≥ λcrit`), which for `Float64` with the default `gradtol` is `k` below about
-  `4e10` and for `Float32` with the default `gradtol` is fewer than about 84 nonzero entries of `∇f(0)`; it can also hold for larger `k`
-  when `λ` is large against `λcrit`. A `Float32` solve with more tied or nonzero entries can end with `converged = false` at a
-  point whose residual is below the bound, because `ρ` is too large to resolve it.
-- **Counting.** The gradient of an APG check (formed before the guard) and the proximal evaluation (when the guard passes) are counted when
-  the check runs, before the call limits are compared. A stop that passes can come with `call_limit_reached = true`, and a
-  stop that the check refuses can reach `prox_calls_limit`. When the guard on `L` and `1/L` returns first, the check adds no
-  proximal evaluation (APG's gradient is still counted).
-- **Cost and buffers.** A proposed stop costs one more proximal evaluation when the guard on `L` and `1/L` passes and, for APG, one more
-  gradient. ProximalBase's threshold selection takes O(p) expected time. The check writes its output into the buffer `delta_x`,
-  a dense array that differs from its input, so ProximalBase uses it for the threshold and does not touch the scratch that the
-  caller's `NormLinf` holds. With a `Float32` or `Float64` level the check allocates nothing (also measured for `Int`, `Float16` and
-  `Rational{Int}` levels on Julia 1.13.4). ProximalBase forms each radius as the product of the step and the level in
-  `promote_type(T, float(typeof(step)), float(typeof(level)))` and converts it to `T`; with a `BigFloat` or `Rational{BigInt}` level that
-  product is a `BigFloat` product and allocates in each proximal evaluation, in the iterations and in the check, as it does for `NormL1`
-  and `ElasticNet` with such levels. For PGD the check then recomputes `x - x_previous` into `delta_x`, the values the line search left,
-  because the result's gradient residual reads them. The first ℓ∞ solve may compile ProximalBase's threshold code.
+- **Why `λcrit`.** In exact arithmetic, 0 is a minimizer exactly when `‖∇f(0)‖₁ ≤ λ` (the case `x = 0` above), so `λcrit` is the smallest
+  level for which 0 is a minimizer; it is not the lasso's `‖∇f(0)‖∞`. In exact arithmetic, the change `(f, λ) → (c f, c λ)` for a
+  constant `c > 0` scales `g`, `λ`, `r` and the threshold by `c`, so the comparison does not change (within the range of `T`).
+- **No tolerance for the active set.** `M` is found by exact equality of the stored values. The accepted iterate of PGD and of APG is
+  the output of ProximalBase's `value_and_prox!`, which stores every clipped entry as the same `±τ`, so entries tied at the maximum by the
+  clip are bitwise equal. An iterate whose entries near the maximum are not bitwise equal is treated as having the smaller ones off
+  `M`, so their `|gᵢ|` count in `r`: `r` is then the exact residual of the stored point. The check can refuse a point near a tied optimum
+  (for `X = [1 1]`, `y = [2]`, `λ = 1` and `x = (0.75, 0.75(1 - 10⁻⁸))`, `r = 1`), but it does not accept a point whose residual is
+  above the bound, apart from the rounding of the gradient below. A relative tolerance on `M` would be a new stopping rule and is not used.
+- **What a kept stop says.** `r` is computed in working precision from the computed gradient, whose rounding error it does not cover,
+  as the lasso check does not. The true residual at a kept stop can therefore be slightly above the bound (a sweep of `Float32` solves
+  against a BigFloat reference found at most 1.033 times the bound). It is not a certificate in exact arithmetic and does not
+  bound the distance to a minimizer. Because it does not form a step, it does not depend on the accepted curvature `L`, and a small `L`
+  does not weaken it.
+- **Float32 and many tied entries.** The check has no rounding allowance whose size grows with the number of entries, so a `Float32`
+  solve with many entries tied at the maximum is judged by the same rule as any other.
+- **Counting.** For APG the check forms one gradient at `x` from the cached image `A x` (PGD uses the accepted gradient) and counts it
+  in `grad_calls` when it runs, before the call limits are compared: a stop that passes can come with a gradient-limit flag, and a
+  stop that the check refuses can reach `grad_calls_limit`. The check adds no proximal evaluation.
+- **Cost and buffers.** The check reads `x` and the gradient in two passes, writes nothing, and allocates nothing for a `Float32`,
+  `Float64`, `Int`, `Float16` or `Rational{Int}` level (the conversion of a `BigFloat` or `Rational{BigInt}` level to `T` can allocate).
+  The iterations call ProximalBase's `value_and_prox!` for `NormLinf`, whose threshold selection takes O(p) expected time; the first
+  ℓ∞ solve may compile that code. In its ordinary radius path it forms the radius `tλ` as a product in
+  `promote_type(T, float(typeof(step)), float(typeof(level)))` and converts it to `T`; with a positive `BigFloat` or `Rational{BigInt}` level that
+  product can allocate in the iterations, as it does for `NormL1` and `ElasticNet` with such levels.
 
-As a worked case, take `X = [1 1]`, `y = [2]`, `λ = 1` (`λcrit = 4`, minimizer `(0.75, 0.75)`) and `L = 2`. At `x = (0.75, 0.75)`:
-`∇f(x) = (-0.5, -0.5)`, `u = (1, 1)`, the radius is `tλ = 0.5` and the clip level is 0.75, so `p = x` and `r = 0`. At `x = (0.5, 0.5)`:
-`∇f(x) = (-1, -1)`, `u = (1, 1)`, `p = (0.75, 0.75)` and `r = 2(0.25 + 0.25) = 1`, far above the threshold `1e-5 * 4`, so
-a stop proposed there is refused.
+As a worked case, take `X = [1 1]`, `y = [2]`, `λ = 1` (`λcrit = 4`, minimizer `(0.75, 0.75)`). At `x = (0.75, 0.75)` the gradient is
+`(-0.5, -0.5)`, `M = {1, 2}`, `N = 0`, `P = 1` and `r = 0 + 0 + |1 - 1| = 0`. At `x = (0.5, 0.5)` it is `(-1, -1)`, `N = 0`, `P = 2` and
+`r = |1 - 2| = 1`, far above the threshold `1e-5 * 4`, so a stop proposed there is refused.
 
 ### PGD stops when the computed objective increases
 

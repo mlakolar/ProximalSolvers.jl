@@ -173,7 +173,7 @@ PGD's stopping tests combine by **OR**, so any one of them can propose a stop,
 and a proposed stop counts only if the computed KKT residual `‖G‖∞` is below
 `max(gradtol, 64eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞` and `λ` the ℓ1 level of the penalty
 (`λ1` for an `ElasticNet`, whose residual includes the ridge term `λ2 x`; for a `NormLinf(λ)` penalty the check is
-instead on the proximal-gradient mapping, against `max(λ, ‖∇f(0)‖₁)`, see [Numerical behavior](numerics.md#The-stationarity-check-for-NormLinf)). A solve
+instead on the direct KKT residual of the ∞-norm's subdifferential, against `max(λ, ‖∇f(0)‖₁)`, see [Numerical behavior](numerics.md#The-stationarity-check-for-NormLinf)). A solve
 that the check keeps from stopping continues, and can end at `maxiter` with
 `converged=false`. `ftol = 0` switches the objective-change test off, as
 described under Strict accuracy in [Numerical behavior](numerics.md).
@@ -332,12 +332,13 @@ for a dense `Vector`, a `SparseIterate` and a `BlockIterate`. The ℓ∞ penalty
 magnitude and does not in general give zeros; in exact arithmetic, 0 is a minimizer exactly when `lambda` is at least `‖∇f(0)‖₁ = α‖Xᵀy‖₁`.
 A solve declares convergence only through the ℓ∞ check
 of [Numerical behavior](numerics.md#The-stationarity-check-for-NormLinf) (a solve can also end through a limit, an objective
-increase or stagnation without passing it), which adds one gradient for APG and, when its guard on the step `1/L` passes, one
-proximal evaluation to each proposed stop; ProximalBase's threshold selection costs O(p) expected time per proximal evaluation. The
-first ℓ∞ solve may compile that code. ProximalBase forms each radius as a product in
-`promote_type(T, float(typeof(step)), float(typeof(level)))` and converts it to `T`; a `BigFloat` or `Rational{BigInt}` level makes that
-product a `BigFloat` product, which allocates in each proximal evaluation, as it does for `NormL1` and `ElasticNet`
-with such levels. See [the ℓ∞ example](examples/08_linf_regularized_regression.md).
+increase or stagnation without passing it). The check is the direct KKT residual of the ∞-norm's subdifferential at the accepted
+iterate: it adds one gradient for APG and no proximal evaluation to each proposed stop, and it allocates nothing for a
+`Float32`, `Float64`, `Int`, `Float16` or `Rational{Int}` level. ProximalBase's threshold selection in the iterations costs O(p) expected
+time per proximal evaluation, and the first ℓ∞ solve may compile that code. In its ordinary radius path ProximalBase forms the radius as a
+product in `promote_type(T, float(typeof(step)), float(typeof(level)))` and converts it to `T`; with a positive `BigFloat` or
+`Rational{BigInt}` level that product can allocate in the iterations, as it does for `NormL1` and `ElasticNet` with such levels.
+See [the ℓ∞ example](examples/08_linf_regularized_regression.md).
 The loss is ordinary least squares
 (or a single positive finite scalar multiple of it).
 

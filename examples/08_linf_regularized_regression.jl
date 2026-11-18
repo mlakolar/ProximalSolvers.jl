@@ -10,8 +10,8 @@
 # can tie several of the largest coefficients at the maximum (as in the problems below, not for every
 # problem), and it does not in general give zeros.
 #
-# A solve declares convergence only when the proximal-gradient mapping at the accepted iterate is small, with the
-# ℓ1 norm of the mapping measured against `max(λ, ‖∇f(0)‖₁)`; `‖∇f(0)‖₁` is the smallest level for which 0 is a
+# A solve declares convergence only when the KKT residual at the accepted iterate is small: the distance, in the ℓ1
+# norm, from `-∇f(x)` to `λ ∂‖x‖∞`, measured against `max(λ, ‖∇f(0)‖₁)`; `‖∇f(0)‖₁` is the smallest level for which 0 is a
 # minimizer. (A solve can also end through a limit, an objective increase or stagnation without passing that check.)
 # Accuracy below is checked with the objective and a duality gap computed from X and y, not with the `converged` flags.
 using LinearAlgebra, Random, ProximalBase, ProximalSolvers
