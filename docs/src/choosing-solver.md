@@ -327,13 +327,17 @@ unweighted `ElasticNet(lambda1, lambda2)`, for CD, PGD and APG. `CDSolver` stops
 with `lambda2 > 0` it refuses a coordinate step outside the normal range (see the numerical guide).
 For PGD and APG on a dense `Vector`, `NormLinf(lambda)` (`lambda * maximum(abs, beta)`, finite nonnegative `lambda`
 representable in `T`) is also accepted, with least squares or one positive scalar multiple of it; use `ProximalGradientDescent`
-or `AccProxGradDescent` for it, because `CDSolver` refuses `NormLinf` (it is not separable) for a dense `Vector`, a
-`SparseIterate` and a `BlockIterate`. The ℓ∞ penalty shrinks the largest coefficients to a common magnitude and does not in
-general give zeros; the solution is 0 when `lambda` is at least `‖∇f(0)‖₁ = α‖Xᵀy‖₁`. A solve stops by the ℓ∞ check
-of [Numerical behavior](numerics.md#The-stationarity-check-for-NormLinf), which adds one proximal evaluation (and for APG one
-gradient) to each proposed stop; ProximalBase's threshold selection costs O(p) expected time per proximal evaluation. The
-first ℓ∞ solve compiles that code, and a level that is not a `Float32` or `Float64` (a `BigFloat`, say) makes ProximalBase form each
-radius in that type. See [the ℓ∞ example](examples/08_linf_regularized_regression.md).
+or `AccProxGradDescent` for it, because this `CDSolver` needs a separable penalty for its coordinate step and refuses `NormLinf`
+for a dense `Vector`, a `SparseIterate` and a `BlockIterate`. The ℓ∞ penalty can tie the largest coefficients at a common
+magnitude and does not in general give zeros; 0 is a minimizer when `lambda` is at least `‖∇f(0)‖₁ = α‖Xᵀy‖₁` (and only then).
+A solve declares convergence only through the ℓ∞ check
+of [Numerical behavior](numerics.md#The-stationarity-check-for-NormLinf) (a solve can also end through a limit, an objective
+increase or stagnation without passing it), which adds one gradient for APG and, when its guard on the step `1/L` passes, one
+proximal evaluation to each proposed stop; ProximalBase's threshold selection costs O(p) expected time per proximal evaluation. The
+first ℓ∞ solve may compile that code. ProximalBase forms each radius as a product in
+`promote_type(T, float(typeof(step)), float(typeof(level)))` and converts it to `T`; a `BigFloat` or `Rational{BigInt}` level makes that
+product a `BigFloat` product, which allocates in each proximal evaluation, as it does for `NormL1` and `ElasticNet`
+with such levels. See [the ℓ∞ example](examples/08_linf_regularized_regression.md).
 The loss is ordinary least squares
 (or a single positive finite scalar multiple of it).
 

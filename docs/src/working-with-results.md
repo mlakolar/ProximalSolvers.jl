@@ -47,11 +47,14 @@ For PGD and APG with a `NormLinf(λ)` penalty, `converged=true` means that a sto
 ℓ1 norm of the proximal-gradient mapping at the returned point, plus a rounding allowance, is below
 `max(gradtol, 64eps(T)) * max(λ, ‖∇f(0)‖₁)` (see
 [the ℓ∞ check](numerics.md#The-stationarity-check-for-NormLinf)). It is a working-precision value, not an
-exact-arithmetic certificate, and a small value says less when the accepted step is large. Each proposed stop costs one more proximal
-evaluation (and, for APG, one gradient), counted in `prox_calls` and `grad_calls` before the call limits are compared:
+exact-arithmetic certificate, and a small value says less when the accepted step is large. A proposed stop costs one more
+proximal evaluation when the check's guard on the step `1/L` passes (none when the guard returns first) and, for APG, one gradient,
+counted in `prox_calls` and `grad_calls` before the call limits are compared:
 a stop that the check passes can come with `call_limit_reached = true`, and a stop that it refuses can reach `prox_calls_limit`.
+A solve can also end through a limit, an objective increase or stagnation with `converged=false` and without a stop that passed the check.
 `Float32` solves with many tied or nonzero entries can end with `converged=false` at a point whose residual is below the bound,
-because the allowance is too large to resolve it (about 84 nonzero entries of `∇f(0)` at `x = 0` with the default `gradtol`).
+because the allowance is too large to resolve it (at `x = 0` the condition is `eps(T) k λcrit < τ max(λ, λcrit)`, and with the default
+`gradtol` it holds for fewer than about 84 nonzero entries of `∇f(0)` when `λ` is near `λcrit`).
 
 ## Avoid accidentally overwriting results
 

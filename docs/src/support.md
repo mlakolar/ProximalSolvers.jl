@@ -49,8 +49,8 @@ and `lambda` is finite, nonnegative and representable in `T` without overflow or
 level cannot be constructed (ProximalBase refuses it), and the other refusals leave `x` unchanged. A wrapper such as
 `Scaled(NormLinf(lambda), c)` is refused with the other unsupported penalties. `CDSolver` refuses
 `NormLinf` for a dense `Vector`, a `SparseIterate` and a `BlockIterate`, before it changes `x` or draws from its random number
-generator: the penalty is not separable, so there is no coordinate-wise step.
-The proximal operator is ProximalBase's. The solution is 0 exactly when `lambda ≥ ‖∇f(0)‖₁ = s‖Xᵀy‖₁` (not the lasso's
+generator: this `CDSolver` needs a separable penalty for its coordinate oracle.
+The proximal operator is ProximalBase's. In exact arithmetic, 0 is a minimizer exactly when `lambda ≥ ‖∇f(0)‖₁ = s‖Xᵀy‖₁` (not the lasso's
 `‖∇f(0)‖∞`). `converged = true` means that a stopping test proposed a stop and that the ℓ1 norm of the proximal-gradient
 mapping at the returned point, plus a rounding allowance, is below `max(gradtol, 64eps(T)) * max(lambda, ‖∇f(0)‖₁)`; it is not an
 exact-arithmetic certificate and does not bound the distance to a minimizer (see
@@ -170,7 +170,7 @@ The current development core intentionally excludes the following:
 | Generic workspaces, refitting, reweighting | Deferred |
 | PGD or APG with `SparseIterate` coefficients | Deferred |
 | PGD or APG with `BlockIterate` coefficients or a `GroupNormL2` penalty | Deferred; refused with an `ArgumentError` |
-| `CDSolver` with `NormLinf`; `Scaled(NormLinf)`; `NormLinf` with a loss other than least squares | Refused with an `ArgumentError` (`NormLinf` is not separable, which CD needs; the others deferred) |
+| `CDSolver` with `NormLinf`; `Scaled(NormLinf)`; `NormLinf` with a loss other than least squares | Refused with an `ArgumentError` (this `CDSolver` needs a separable penalty; the others deferred) |
 | Momentum (`momentum = true`) with a `BlockIterate` | Rejected; not implemented |
 | Group lasso with a sparse design, mixed-element-type arrays or a loss other than least squares | Deferred |
 | CD `anderson>0`, `gaptol>0`, `gapsafe=true` | Rejected; not implemented |

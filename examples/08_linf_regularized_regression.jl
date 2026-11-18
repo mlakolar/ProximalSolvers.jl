@@ -4,13 +4,15 @@
 # ``\min_b \; \frac{1}{2n}\|y - Xb\|^2 + \lambda \|b\|_\infty, \qquad \|b\|_\infty = \max_j |b_j|.``
 #
 # `NormLinf(λ)` is accepted by `ProximalGradientDescent` and `AccProxGradDescent`. `CDSolver` refuses it:
-# the penalty is not separable, so there is no coordinate-wise step. Where `NormL1` penalizes the sum of the
-# magnitudes of the coefficients and tends to give zeros, `NormLinf` penalizes the largest magnitude.
-# It shrinks the largest coefficients to a common level, so that several coefficients sit at the maximum,
-# and it does not in general give zeros.
+# this `CDSolver` needs a separable penalty for its coordinate oracle, and `NormLinf` is not separable.
+# Where `NormL1` penalizes the sum of the magnitudes of the coefficients and tends to give zeros,
+# `NormLinf` penalizes the largest magnitude. Its proximal operator clips the entries at a common level, which
+# can tie several of the largest coefficients at the maximum (as in the problems below, not for every
+# problem), and it does not in general give zeros.
 #
-# A solve stops when the proximal-gradient mapping at the accepted iterate is small, with the ℓ1 norm of the
-# mapping measured against `max(λ, ‖∇f(0)‖₁)`; `‖∇f(0)‖₁` is the smallest level at which the solution is 0.
+# A solve declares convergence only when the proximal-gradient mapping at the accepted iterate is small, with the
+# ℓ1 norm of the mapping measured against `max(λ, ‖∇f(0)‖₁)`; `‖∇f(0)‖₁` is the smallest level for which 0 is a
+# minimizer. (A solve can also end through a limit, an objective increase or stagnation without passing that check.)
 # Accuracy below is checked with the objective and a duality gap computed from X and y, not with the `converged` flags.
 using LinearAlgebra, Random, ProximalBase, ProximalSolvers
 
@@ -79,7 +81,7 @@ for (name, method) in (("ProximalGradientDescent", ProximalGradientDescent()), (
 end
 @assert maximum(abs, betas[1] - betas[2]) <= 1e-3                    # both reach the same point, up to the gap's accuracy
 
-# The ℓ∞ solution is not sparse, and its largest coefficients are tied at the maximum.
+# In this problem the ℓ∞ solution has no zero coefficient, and several of its largest coefficients are tied at the maximum.
 for ((name, r), b) in zip(results, betas)
   top = maximum(abs, b)
   at_max = count(c -> abs(c) >= (1 - 1e-6) * top, b)

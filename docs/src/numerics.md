@@ -202,47 +202,58 @@ G_t(x) = (x - prox_{tλ‖·‖∞}(x - t∇f(x))) / t,     t = 1/L,
 with `L` the curvature that the line search accepted for this iterate. For this convex problem and any `t > 0`,
 `G_t(x) = 0` in exact arithmetic when and only when `x` is a minimizer. The check forms the gradient `∇f(x)` at the accepted iterate (for
 APG, not at the extrapolated point: one gradient from the cached image `A x`, counted in `grad_calls`), the point
-`u = x - ∇f(x)/L`, and `p = prox_{tλ‖·‖∞}(u)` with ProximalBase's `value_and_prox!` (counted in `prox_calls`). The
+`u = x - ∇f(x)/L`, and `p = prox_{tλ‖·‖∞}(u)` with ProximalBase's `value_and_prox!` (counted in `prox_calls`; the
+check returns before this call when its guard on `L` and `t` fails, see below). The
 proximal operator of `t λ ‖·‖∞` is `u` minus its projection onto the ℓ1 ball of radius `tλ`: the entries of `u`
 are clipped at a level `τ` that solves `Σ(|uᵢ| - τ)₊ = tλ`, and `p = 0` when `tλ ≥ ‖u‖₁`. The stop is kept when
 
 ~~~
 r + ρ < max(gradtol, 64 eps(T)) * S,
 r = ‖G_t(x)‖₁ = L Σ|xᵢ - pᵢ|,    S = max(λ, λcrit),    λcrit = α‖Xᵀy‖₁ = ‖∇f(0)‖₁,
-ρ = L eps(T) (‖x‖₁ + k s),
+ρ = ((‖x‖₁ + k s) eps(T)) L,
 ~~~
 
 with `k` the number of entries that the proximal operator changed (`pᵢ ≠ uᵢ`: the clipped entries, or under the
 zero fill the entries with `uᵢ ≠ 0`) and `s = Σ_{pᵢ≠uᵢ} |uᵢ|`. The quantities are formed in `T`.
 
-- **Why the ℓ1 norm and `λcrit`.** The dual norm of `‖·‖∞` is `‖·‖₁`. The solution is 0 exactly when
-  `0 ∈ ∇f(0) + λ ∂‖0‖∞`, that is, when `‖∇f(0)‖₁ ≤ λ`, so `λcrit = ‖∇f(0)‖₁` is the smallest level with a zero
-  solution; it is not the lasso's `‖∇f(0)‖∞`. `‖G‖₁ ≥ ‖G‖∞`, so the ℓ1 norm is the stricter of the two. The
-  comparison does not change when the loss and `λ` are multiplied by the same positive factor (within the range of `T`).
+- **Why the ℓ1 norm and `λcrit`.** The dual norm of `‖·‖∞` is `‖·‖₁`. In exact arithmetic, 0 is a minimizer exactly when
+  `0 ∈ ∇f(0) + λ ∂‖0‖∞`, that is, when `‖∇f(0)‖₁ ≤ λ`, so `λcrit = ‖∇f(0)‖₁` is the smallest level for which 0 is a
+  minimizer; it is not the lasso's `‖∇f(0)‖∞`. `‖G‖₁ ≥ ‖G‖∞`, so the ℓ1 norm is the stricter of the two. In exact
+  arithmetic, the change `(f, λ, L) → (c f, c λ, c L)` for a constant `c > 0` leaves `u` and `p` as they were and scales `r`,
+  `S` and `ρ` by `c`; with `L` fixed, scaling `f` and `λ` does not scale `r`. This is a property of the formulas, not of the
+  sequence of decisions of a solve.
 - **The rounding allowance `ρ`.** The first term of `ρ` is the displacement `x - p` rounding away in `T` (about
   `eps(T)|xᵢ|` per entry): without it, a step smaller than the spacing of `x` gives `r = 0` at a point that is not
   stationary. The second term is a first-order bound `eps(T) s` on the error of the clip level, which ProximalBase forms from the
   clipped magnitudes and the radius, applied to the `k` clipped entries. It is a model, not a proved bound, and it does
-  not cover the error of the computed gradient, as the lasso check does not.
+  not cover the error of the computed gradient, as the lasso check does not. The sum is multiplied by `eps(T)` before it is
+  multiplied by `L`, so that a subnormal `L` (for which `L eps(T)` rounds to 0) does not remove the allowance; a stop is also not
+  kept when a nonzero `‖x‖₁ + k s` times `eps(T)` is below `floatmin(T)`.
 - **What a kept stop says.** For a gradient with Lipschitz constant `L_f`, `dist(0, ∂F(p)) ≤ (1 + L_f/L) ‖G_t(x)‖₂` at
   `p = x⁺`, and `‖G_t(x)‖₂` is nonincreasing in `t`, so an accepted `L` that is small (a large step) makes a small
   residual weaker evidence. `converged = true` is a computed residual in working precision, not an exact-arithmetic
   certificate and not a bound on the distance to a minimizer. The check does not keep a stop when `L` is not finite and
   positive, when `1/L` is not finite or is below `floatmin(T)`, when `S` is not finite, when `τ S` is below `floatmin(T)`, or when
   `r` or `ρ` is not finite.
-- **Float32.** At `x = 0` with `λ` above `λcrit` by more than the rounding of ProximalBase's comparison of `‖u‖₁` with `tλ`,
-  `p = 0`, `r = 0` and `ρ = eps(T) k λcrit`, which is below `τ S` when `k eps(T) < τ`: for `Float64` with the default `gradtol`, when `k` is below about
-  `4e10`, and for `Float32` with the default `gradtol` when fewer than about 84 entries of `∇f(0)` are nonzero. A `Float32` solve with
-  more tied or nonzero entries can end with `converged = false` at a point whose residual is below the bound, because `ρ` is
-  too large to resolve it.
-- **Counting.** The evaluations of the check are counted when the check runs, before the call limits are compared. A stop that
-  passes can come with `call_limit_reached = true`, and a stop that the check refuses can reach `prox_calls_limit`.
-- **Cost and buffers.** Each proposed stop costs one more proximal evaluation and, for APG, one more gradient. ProximalBase's threshold
-  selection takes O(p) expected time. The check writes its output into the buffer `delta_x`, a dense array that differs
-  from its input, so ProximalBase uses it for the threshold and does not touch the scratch that the caller's `NormLinf` holds, and
-  nothing is allocated. For PGD the check then recomputes `x - x_previous` into `delta_x`, the values the line search left, because
-  the result's gradient residual reads them. The first ℓ∞ solve compiles ProximalBase's threshold code, and a level that is not a
-  `Float32` or `Float64` (a `BigFloat`, say) makes ProximalBase form each radius in that type.
+- **Float32 and large `k`.** At `x = 0` with `λ` above `λcrit` by more than the rounding of ProximalBase's comparison of `‖u‖₁`
+  with `tλ`, `p = 0`, `r = 0` and `ρ = eps(T) k λcrit` (up to rounding). The stop is kept when `eps(T) k λcrit < τ max(λ, λcrit)`.
+  That holds whenever `eps(T) k < τ` (as `max(λ, λcrit) ≥ λcrit`), which for `Float64` with the default `gradtol` is `k` below about
+  `4e10` and for `Float32` with the default `gradtol` is fewer than about 84 nonzero entries of `∇f(0)`; it can also hold for larger `k`
+  when `λ` is large against `λcrit`. A `Float32` solve with more tied or nonzero entries can end with `converged = false` at a
+  point whose residual is below the bound, because `ρ` is too large to resolve it.
+- **Counting.** The gradient of an APG check (formed before the guard) and the proximal evaluation (when the guard passes) are counted when
+  the check runs, before the call limits are compared. A stop that passes can come with `call_limit_reached = true`, and a
+  stop that the check refuses can reach `prox_calls_limit`. When the guard on `L` and `1/L` returns first, the check adds no
+  proximal evaluation (APG's gradient is still counted).
+- **Cost and buffers.** A proposed stop costs one more proximal evaluation when the guard on `L` and `1/L` passes and, for APG, one more
+  gradient. ProximalBase's threshold selection takes O(p) expected time. The check writes its output into the buffer `delta_x`,
+  a dense array that differs from its input, so ProximalBase uses it for the threshold and does not touch the scratch that the
+  caller's `NormLinf` holds. With a `Float32` or `Float64` level the check allocates nothing (also measured for `Int`, `Float16` and
+  `Rational{Int}` levels on Julia 1.13.4). ProximalBase forms each radius as the product of the step and the level in
+  `promote_type(T, float(typeof(step)), float(typeof(level)))` and converts it to `T`; with a `BigFloat` or `Rational{BigInt}` level that
+  product is a `BigFloat` product and allocates in each proximal evaluation, in the iterations and in the check, as it does for `NormL1`
+  and `ElasticNet` with such levels. For PGD the check then recomputes `x - x_previous` into `delta_x`, the values the line search left,
+  because the result's gradient residual reads them. The first ℓ∞ solve may compile ProximalBase's threshold code.
 
 As a worked case, take `X = [1 1]`, `y = [2]`, `λ = 1` (`λcrit = 4`, minimizer `(0.75, 0.75)`) and `L = 2`. At `x = (0.75, 0.75)`:
 `∇f(x) = (-0.5, -0.5)`, `u = (1, 1)`, the radius is `tλ = 0.5` and the clip level is 0.75, so `p = x` and `r = 0`. At `x = (0.5, 0.5)`:

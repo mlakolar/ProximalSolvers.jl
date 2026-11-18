@@ -29,8 +29,8 @@ coordinate descent for the group lasso on a `BlockIterate` with noncontiguous gr
 result with an independent group KKT residual computed from the data. The seventh solves a
 seeded correlated elastic net (`ElasticNet(λ1, λ2)`) with both gradient methods, checks the
 objective from X and y and the KKT residual (ProximalBase's `kkt_violation` at the gradient from X and y), and checks that the elastic-net solution has a
-smaller Euclidean norm than the lasso solution with the same ℓ1 level; coordinate descent
-refuses an `ElasticNet` (support is planned). The eighth solves least squares with an ℓ∞ penalty
+smaller Euclidean norm than the lasso solution with the same ℓ1 level (the example uses the gradient
+methods; `CDSolver` also accepts an unweighted `ElasticNet`). The eighth solves least squares with an ℓ∞ penalty
 (`NormLinf(λ)`) with both gradient methods: an analytic case (`X = [1 1]`, `y = [2]`, `λ = 1`, minimizer
 `(0.75, 0.75)`, value `0.875`), then a seeded correlated problem (`n = 200`, `p = 40`) at a fraction of
 `λcrit = ‖∇f(0)‖₁`, with the objective computed from X and y, an independently computed duality gap, the number of
