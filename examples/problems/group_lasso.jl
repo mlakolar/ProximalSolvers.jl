@@ -86,9 +86,12 @@ println("PGD: iterations = ", res_pgd.iterations, "; largest violation ",
         "; largest difference from the CD solution ", maximum(abs, beta_pgd - beta))
 
 # `AccProxGradDescent()` takes the place of `ProximalGradientDescent()` in this call, with the same
-# penalty and the same group stopping check, and the same independent check applies.
+# penalty and the same group stopping check, and the same independent check applies. On this problem
+# the default options end the run at an increase of the objective of rounding size, before the gradient
+# test with `gradtol = 1e-10` passes (`converged` is `false`), so the call sets `allow_f_increases = true`.
 beta_apg = zeros(p)
-res_apg = solve!(beta_apg, f, g, AccProxGradDescent(), ProximalOptions(maxiter = 20_000, gradtol = 1e-10))
+res_apg = solve!(beta_apg, f, g, AccProxGradDescent(),
+                 ProximalOptions(maxiter = 20_000, gradtol = 1e-10, allow_f_increases = true))
 @assert res_apg.converged && maximum(k -> violation(beta_apg, k), eachindex(groups)) <= 1e-7
 @assert maximum(abs, beta_apg - beta) <= 1e-6
 println("APG: iterations = ", res_apg.iterations, "; largest violation ",
