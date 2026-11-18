@@ -50,6 +50,17 @@ checked, and keeps TFOCS's update, when its trial value is not finite, when the
 computed `‖d̂‖²` is zero (the zero-step exit, which includes a tiny nonzero step
 whose square underflows), when `L̂` is NaN, or when a gradient estimate comes
 from a gradient `∇f(x)` with a nonfinite entry. Accepted trials are not checked.
+
+In gradient mode a zero gradient-difference product gives `L̂ = 0`. This includes
+the case of Float64 data with `‖d̂‖²` below `2/floatmax(Float64)` (about 1.1e-308),
+where `2/‖d̂‖²` overflows and scaling the product would give `0 · Inf = NaN`. A
+subnormal `‖d̂‖²` can make the Float64 estimates unreliable, and this guard does not
+make a solve converge at such scales: a solve can still end with `converged = false`.
+A subnormal `‖d̂‖²` together with a nonzero product, or with function-value rounding
+noise (`f(x') > q`), can give `L̂ = Inf`, a rejection that the check above decides again. When
+`sum(abs2, d̂)` then underflows to 0 while `‖d̂‖² > 0` (every entry of `d̂` below about
+1.57e-162), the computed curvature is not finite, and the solve can still raise
+`line search failed: nonfinite curvature estimate`. That case is not handled.
 See [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
 
 The object holds settings only and can be shared between solves; the
@@ -137,7 +148,9 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
         state.f_calls += 1
         state.grad_calls += 1
         local_l = _dot_diff(T, state.grad_f_x, state.grad_f_x_previous, state.delta_x)
-        local_l *= 2. / xy_sq
+        # For Float64 data, 2 / xy_sq is Inf when xy_sq is below 2 / floatmax(Float64) (about
+        # 1.1e-308, a subnormal xy_sq), and 0 * Inf is NaN. A zero product is therefore left at 0.
+        iszero(local_l) || (local_l *= 2. / xy_sq)
     end
 
     # Exit if Lipschitz criterion satisfied, or if we hit Lexact
@@ -152,7 +165,9 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
     # subnormals or a subnormal entry of d̂, and for Float64 data from over- or underflow of a
     # sum of squares) leaves TFOCS's estimate. A NaN estimate, or a gradient estimate from a
     # nonfinite ∇f(x), is kept: the update and the error check below run on it as before. A
-    # NaN estimate raises the error; an infinite one raises it unless a finite Lexact caps L.
+    # NaN estimate raises the error (a zero gradient-difference product is not scaled above, so
+    # an overflowing 2 / xy_sq does not turn it into NaN); an infinite one raises it unless a
+    # finite Lexact caps L.
     # verified: this rejection's check ran and replaced L̂ by a finite computed curvature c
     verified = false
     if !isnan(local_l) && (!gradient_mode || all(isfinite, state.grad_f_x))
