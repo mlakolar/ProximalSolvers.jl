@@ -67,9 +67,10 @@ end
 
 # The weights of a NormL1 for data of type T. They must be a Vector{T} with one entry per entry of x,
 # finite and nonnegative, and x must not alias them (x is the caller's array or owner, as for X and y).
-# The level λ = T(λ0) must be zero or a normal number of T (not subnormal). The solvers use the coefficient
-# cⱼ = λ wⱼ, formed in T, of the entry j: it must be finite and, where λ and wⱼ are both positive, a normal
-# number of T (so not zero and not subnormal). The rule is on the rounded cⱼ: an exact product slightly
+# The level λ = T(λ0) must be zero or a normal number of T (not subnormal). The coefficient checked is
+# cⱼ = λ wⱼ of the entry j, the product rounded in T (the stopping check of PGD and APG and the exceptional CD step
+# use this cⱼ; ProximalBase's ordinary steps form their thresholds from λ0 and wⱼ in its working type): it must be
+# finite and, where λ and wⱼ are both positive, a normal number of T (so not zero and not subnormal). The rule is on the rounded cⱼ: an exact product slightly
 # below floatmin(T) that rounds up to floatmin(T) passes. A zero level or weight gives the coefficient 0,
 # which leaves the entry unpenalized when it comes from wⱼ = 0.
 function _check_l1_weights(g, x, ::Type{T}) where T

@@ -261,9 +261,11 @@ finite and nonnegative and representable in `T` without overflow or underflow; f
 `SparseIterate`, `CDSolver` accepts the same penalties (see [`CDSolver`](@ref)); its `BlockIterate`
 form takes a `GroupNormL2`. The weights `w` of `NormL1(λ, w)` are a
 `Vector{T}` with one finite nonnegative entry per entry of `x` (`T` the element type of the data and of `x`),
-and `x` must not alias them. The solvers use the coefficient `T(λ) wⱼ`, formed in `T`, for entry `j`; it must be
+and `x` must not alias them. `solve!` checks the coefficient `T(λ) wⱼ` of entry `j`, the product rounded in `T`: it must be
 finite and, where `T(λ)` and `wⱼ` are both positive, a normal number of `T` (a zero or subnormal product, and a
-level `T(λ)` that is subnormal, are refused). A zero level or weight gives the coefficient 0, which is accepted; a zero
+level `T(λ)` that is subnormal, are refused). The stopping check of PGD and APG uses it; ProximalBase's proximal
+steps form their thresholds from `λ` and `wⱼ` in their working type (see
+[Supported problems](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/#weighted-lasso-support)). A zero level or weight gives the coefficient 0, which is accepted; a zero
 weight leaves its entry unpenalized (it is not fixed at 0). Any other weight array type (a view, a range, a
 vector of another element type), a weighted `ElasticNet` and any `Scaled` penalty is refused. Use `(one(T)/T(n))*LeastSquaresLoss` for normalized lasso; raw LS keeps
 its unnormalized meaning. One positive finite scalar LS wrapper is supported. `CDSolver` also accepts

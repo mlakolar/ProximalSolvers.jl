@@ -122,7 +122,8 @@ for a level of type `T`), plus the rounding of the product to nearest, at most `
 integer) `|T(λ0) - λ0| ≤ (eps(T)/2) T(λ0)`; a `Rational` level can have a larger conversion error, because Julia's
 conversion of a `Rational` can round the numerator and the denominator before dividing, so only the actual error bounds it). A zero weight or level gives `τ = 0` and
 `shrink(c, 0) = c`. Inside the band the step is PB's weighted `prox_block`, whose threshold is `γ λ0 wₖ` formed
-in its own working type; the weighted step has no exponent-separated threshold of its own. A column of `X` that
+in its own working type from `λ0` and `wₖ`, not from the rounded `cₖ` (for a level of type `T` the two are the same product up to rounding;
+for another type they can differ by the conversion error above); the weighted step has no exponent-separated threshold of its own. A column of `X` that
 is zero takes `_coordinate_minimizer`, PB's `prox_block(g, 0, k, floatmax(T))`, which is 0 for a weighted `NormL1`
 also at a zero weight. For a
 finite `a`, an `S` wider than `T` keeps `p` inside the band: `solve!` requires a

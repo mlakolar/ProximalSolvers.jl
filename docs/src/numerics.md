@@ -20,8 +20,8 @@ code.
   times an infinite scale (a computed scale that overflows the working type) is
   refused with an `ArgumentError`. The coordinate step forms its threshold
   `lambda / (s * a)` without the product or its reciprocal where either is
-  outside the normal range (with weights `lambda` stands for the coefficient `T(lambda) * w[k]` of the
-  coordinate), and a column whose squared norm is not finite is
+  outside the normal range (with weights, outside that range `lambda` stands for the coefficient `T(lambda) * w[k]`
+  rounded in `T`; inside it ProximalBase's `prox_block` forms its threshold from `lambda` and `w[k]`), and a column whose squared norm is not finite is
   refused with an `ArgumentError` that names the curvature. For an `ElasticNet`,
   in the normal range the step of a visit is ProximalBase's `prox_block`. At a visit to a column
   with a finite positive `a` where `s * a` or its reciprocal is below `floatmin` of the type that

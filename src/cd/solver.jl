@@ -11,8 +11,11 @@ a dense `Vector` or a one-dimensional ProximalBase `SparseIterate`. With the lea
 loss, the penalty is `NormL1(lambda)`, `NormL1(lambda, w)` or an unweighted `ElasticNet(lambda1, lambda2)`
 (the square-root lasso, below, takes an unweighted `NormL1` with a positive level). The weights `w`
 of a `NormL1` are a `Vector{T}` (`T` the element type of the data) with finite nonnegative entries (see
-[`solve!`](@ref)): entry `j` uses the coefficient `T(lambda) w[j]`, which `solve!` requires to be zero or a normal
-number of `T` (with `T(lambda)` zero or normal as well), and a zero weight leaves it unpenalized.
+[`solve!`](@ref)): `solve!` checks the coefficient `T(lambda) w[j]` of entry `j`, the product rounded in `T`, to be zero
+or a normal number of `T` (with `T(lambda)` zero or normal as well), and a zero weight leaves it unpenalized. The
+coordinate step in the normal range is ProximalBase's `prox_block`, which forms its threshold from `lambda` and
+`w[j]` in its working type; see [Supported problems](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/#weighted-lasso-support)
+for how that threshold and the checked coefficient can differ.
 For an `ElasticNet` the coordinate step of a visit in the normal range is ProximalBase's
 `prox_block` of the penalty. Let `s` be the loss scale and `a` the squared norm of the
 column, finite and positive. At a visit where `s * a` or its reciprocal is below

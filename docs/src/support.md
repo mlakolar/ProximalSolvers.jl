@@ -52,8 +52,8 @@ or a `SparseIterate`), `ProximalGradientDescent` and `AccProxGradDescent`, with 
 - every weight is finite and nonnegative (an infinite weight is refused);
 - the level `lambda` is accepted as above and `T(lambda)` is zero or a normal number of `T` (a level that
   is subnormal in `T` is refused with weights, though an unweighted `NormL1` accepts it), and the coefficient
-  `c_j = T(lambda) * w_j` of every entry, formed in `T`, is finite and, where `T(lambda)` and `w_j` are both
-  positive, a normal number of `T`. A coefficient that overflows, underflows to zero or is subnormal is
+  `c_j = T(lambda) * w_j` of every entry, the product rounded in `T`, is finite and, where `T(lambda)` and `w_j` are
+  both positive, a normal number of `T`. A coefficient that overflows, underflows to zero or is subnormal is
   refused, with the entry `j` named. The rule is on the rounded `c_j`: an exact product slightly below
   `floatmin(T)` that rounds up to `floatmin(T)` is accepted. A zero level or a zero weight gives the
   coefficient 0, which is accepted;
@@ -61,11 +61,18 @@ or a `SparseIterate`), `ProximalGradientDescent` and `AccProxGradDescent`, with 
 
 These checks run before `x` is copied or written and before the random number generator is
 used. A zero weight leaves its coefficient unpenalized: it is not fixed at 0. With CD, a column of
-`X` that is zero gets the coefficient 0, also where its weight is zero. The solvers use the coefficient
-`c_j` of entry `j` in place of `lambda`; for PGD and APG the stopping check scores the entry with it and
+`X` that is zero gets the coefficient 0, also where its weight is zero.
+
+Where `c_j` is used, and where it is not. The stopping check of PGD and APG scores entry `j` with `c_j` and
 takes the largest `c_j` as the level `λ` of its scale
-([the stationarity check](@ref "The stationarity check of a stop")), and CD's `converged` remains
-the change test. A scaled penalty such as `Scaled(NormL1(lambda, w), a)`, and `ElasticNet` with
+([the stationarity check](@ref "The stationarity check of a stop")), and the coordinate step of CD uses `c_j`
+where it forms its threshold without the product `s * a` ([numerical behavior](numerics.md)). ProximalBase's ordinary
+proximal steps (CD's step inside the normal range of `s * a`, and the proximal step of PGD and APG) form their
+thresholds from `lambda` and `w_j` in ProximalBase's working type, not from the rounded `c_j`. For a `lambda` of
+type `T` the two thresholds are the same product up to rounding; for another `Real` type they can also differ by the
+conversion error `|T(lambda) - lambda| w_j` of the level, which can be larger for a `Rational` level than for a
+floating-point or integer one (see the [implementation notes](developer/implementation-notes.md)). CD's
+`converged` remains the change test. A scaled penalty such as `Scaled(NormL1(lambda, w), a)`, and `ElasticNet` with
 weights, are refused. [Example 8](examples/08_weighted_lasso.md) solves an adaptive lasso with a zero weight with all
 three solvers.
 

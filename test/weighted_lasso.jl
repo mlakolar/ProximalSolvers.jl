@@ -365,17 +365,18 @@ end
 # w ≡ 1, w ≡ 2 and w ≡ 1/2 (scalings by a power of two, exact) with the levels λ0, λ0 and 2 λ0 have the coefficients
 # λ0, 2 λ0 and λ0 of the unweighted runs with NormL1(λ0), NormL1(2 λ0) and NormL1(λ0).
 #
-# Two kinds of assertion. (1) Both runs are checked against the reference of the same problem and against the
-# independent residual, and must agree in `converged`. The weighted and the unweighted kernels round differently, so
-# the two runs can follow different trajectories (bit equality is not required, and the auxiliary flags that depend
-# on the iterates, such as the gradient test, can differ between platforms): the flags and the iteration count are
-# compared only where the final points are bit-identical and the iteration counts are equal, and are otherwise
-# recorded in the counters printed at the end. (2) The stop rule is checked at fixed points, independently of any
-# trajectory (D4): at the zero vector, at the final points of both runs and at one fixed perturbed point, the stop scale
-# S = max(level, λmax), ProximalBase's `kkt_violation` of the converted penalty at the same gradient and the verdict of
-# `_stationary!` are equal for the weighted and the unweighted penalty. They are equal bit for bit because the
-# coefficients are the same numbers: T(λw) c = T(λu) for a power of two c, and the data, the point and the gradient are
-# the same.
+# Two kinds of assertion. (1) Each run is checked on its own against the reference of the same problem, against the
+# independent residual and for `converged = true` (`check_solution`). The weighted and the unweighted kernels, in
+# particular those of the penalty value, round differently, so the two runs can follow different trajectories and, even
+# at the same final point after the same number of iterations, can set different auxiliary flags (the objective test
+# and the gradient test depend on the computed objective and on the iterates): no equality of flags, iteration counts
+# or objective-derived quantities between the two runs is asserted. Those comparisons, and the bit equality of the final
+# points, are recorded in the counters printed at the end. (2) The stop rule is checked at fixed points,
+# independently of any trajectory (D4): at the zero vector, at the final points of both runs and at one fixed perturbed
+# point, the stop scale S = max(level, λmax), ProximalBase's `kkt_violation` of the converted penalty at the same
+# gradient and the verdict of `_stationary!` are equal for the weighted and the unweighted penalty. They are equal bit
+# for bit because the coefficients are the same numbers (T(λw) c = T(λu) for a power of two c) and the data, the point
+# and the gradient are the same; none of them uses the computed objective.
 
 # The quantities of the stop rule of `s` (PGD or APG) for the penalty g at the point x, formed as `_stationary!` forms
 # them: the level of the converted penalty, λmax, S, ProximalBase's residual at the gradient at x, and the verdict.
@@ -407,16 +408,14 @@ end
     label = (T, sname, s.label, c)
     check_solution((label, :weighted), s, T, X, y, α, λw, wc, xw, rw, β)
     check_solution((label, :unweighted), s, T, X, y, α, λu, wu, xu, ru, β)
-    @test (label, rw.converged) == (label, ru.converged)
     NPAIR[] += 1
     BITEQ[] += xw == xu
     if s.kind !== :cd
       flags(r) = (r.converged, r.x_converged, r.f_converged, r.grad_converged, r.iteration_converged)
+      # recorded, not asserted
       counts[:pairs] += 1
       counts[:same_iterations] += rw.iterations == ru.iterations
       if xw == xu && rw.iterations == ru.iterations
-        # the same iterates after the same number of iterations: the same flags
-        @test (label, flags(rw)) == (label, flags(ru))
         counts[:identical] += 1
         counts[:identical_flags] += flags(rw) == flags(ru)
       end
@@ -618,7 +617,8 @@ end
       @test abs(big(c) - exact(rational) * big(wj)) <= abs(big(T(rational)) - exact(rational)) * big(wj) + big(eps(T)) / 2 * big(c)
     end
   end
-  # solve! accepts the Rational level (it converts to a normal T(λ0)); the coefficient is T(λ0) w
+  # solve! accepts the Rational level (it converts to a normal T(λ0)); the coefficient that it checks is T(λ0) w, which
+  # ProximalBase's ordinary prox steps do not use (they form their thresholds from λ0 and w in their working type)
   X, y = T[1 0.2; 0.1 2; 0.3 0.4], T[1, -1, 0.5]
   @test solve!(zeros(T, 2), LeastSquaresLoss(y, X), NormL1(rational, T[1, 3]), CDSolver(order = :cyclic)).converged
 end

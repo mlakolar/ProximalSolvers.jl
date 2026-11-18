@@ -65,12 +65,13 @@ and [solver settings](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing
 CD, PGD and APG also solve the weighted least-squares lasso `λ Σⱼ wⱼ|βⱼ|` with `NormL1(λ, w)` (the square-root
 lasso below takes no weights). The weights
 `w` are a `Vector{T}` of the element type of the data, with one finite nonnegative entry per coefficient,
-and `x` must not alias them. Entry `j` uses the coefficient `T(λ) wⱼ`, formed in `T`. `solve!` refuses a
-level `T(λ)` that is subnormal in `T`, and a coefficient that overflows or that is zero or subnormal where
+and `x` must not alias them. `solve!` checks the coefficient `T(λ) wⱼ` of entry `j`, the product rounded in `T`:
+it refuses a level `T(λ)` that is subnormal in `T`, and a coefficient that overflows or that is zero or subnormal where
 `T(λ)` and `wⱼ` are both positive; a zero level or a zero weight gives the coefficient 0, which is accepted.
 A zero weight leaves its coefficient unpenalized (it is not fixed at 0). For PGD and APG the
 stopping check scores each coordinate with its own coefficient and takes the largest one as `λ`; the
-`converged` flag of CD is still the change test. See
+`converged` flag of CD is still the change test. Where that coefficient is used, and how ProximalBase's proximal
+steps differ from it for a level that is not of type `T`, is in
 [Supported problems](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/#weighted-lasso-support)
 and [the weighted-lasso example](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples/08_weighted_lasso/)
 (the script `examples/08_weighted_lasso.jl`).
