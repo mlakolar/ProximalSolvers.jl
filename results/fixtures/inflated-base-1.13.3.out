@@ -1,0 +1,31 @@
+    Updating `<cluster-dir>-base/base-1.13/pkg/Project.toml`
+  [aea7be01] + PrecompileTools v1.4.0
+  [0a755509] + ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [37e2e46d] ~ LinearAlgebra ⇒ v1.13.0
+  [de0858da] ~ Printf ⇒ v1.11.0
+  [9a3f8284] ~ Random ⇒ v1.11.0
+  [2f01184e] ~ SparseArrays ⇒ v1.13.0
+    Updating `<cluster-dir>-base/base-1.13/pkg/Manifest.toml`
+  [aea7be01] + PrecompileTools v1.4.0
+  [21216c6a] + Preferences v1.6.1
+  [0a755509] + ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [56f22d72] + Artifacts v1.11.0
+  [ade2ca70] + Dates v1.11.0
+  [8f399da3] + Libdl v1.11.0
+  [37e2e46d] ~ LinearAlgebra ⇒ v1.13.0
+  [de0858da] ~ Printf ⇒ v1.11.0
+  [9a3f8284] ~ Random ⇒ v1.11.0
+  [ea8e919c] + SHA v1.0.0
+  [9e88b42a] + Serialization v1.11.0
+  [2f01184e] ~ SparseArrays ⇒ v1.13.0
+  [fa267f1f] + TOML v1.0.3
+  [4ec0a83e] + Unicode v1.11.0
+  [e66e0078] + CompilerSupportLibraries_jll v1.5.5+2
+  [4536629a] + OpenBLAS_jll v0.3.30+0
+  [bea87d4a] + SuiteSparse_jll v7.10.1+0
+  [8e850b90] + libblastrampoline_jll v5.15.0+0
+# Julia 1.13.3 PS <cluster-dir>-base/base-1.13/pkg
+# helper takes L0: false
+seed 33	first_change=90	first_target=277	iterations=285	gap=2.9717490727875343e-7	stagnated=true	xhash=188e622d1668c3f1	x1=0.0	minimum=8.303936e-13
+seed 34	first_change=92	first_target=275	iterations=282	gap=3.6175993466154766e-7	stagnated=true	xhash=67d303811e450231	x1=0.0	minimum=9.0380383e-13
+seed 35	first_change=91	first_target=276	iterations=288	gap=2.3409705775955255e-7	stagnated=true	xhash=38cc7e7dee60c655	x1=0.0	minimum=9.205307e-13

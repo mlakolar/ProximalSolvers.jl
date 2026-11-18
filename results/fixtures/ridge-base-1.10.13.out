@@ -1,0 +1,8 @@
+┌ Warning: The project dependencies or compat requirements have changed since the manifest was last resolved.
+│ It is recommended to `Pkg.resolve()` or consider `Pkg.update()` if necessary.
+└ @ Pkg.API <julia-root>/julia-1.10.13/share/julia/stdlib/v1.10/Pkg/src/API.jl:1142
+# Julia 1.10.13 PS <cluster-dir>-base/base-1.10/pkg
+new X=[1] y=[1e20]	ProximalGradientDescent	precondition=true	THROWS ErrorException: the gradient step did not produce a finite objective	x=1.0e20	restored=true
+new X=[1] y=[1e20]	AccProxGradDescent	precondition=true	THROWS ErrorException: the gradient step did not produce a finite objective	x=1.0e20	restored=true
+old X=[1e-20] y=[1]	ProximalGradientDescent	precondition=true	THROWS ErrorException: the gradient step did not produce a finite objective	x=1.0e20	restored=true
+old X=[1e-20] y=[1]	AccProxGradDescent	precondition=true	THROWS ErrorException: the gradient step did not produce a finite objective	x=1.0e20	restored=true

@@ -1,0 +1,149 @@
+{
+  "shared_measurements": 93,
+  "before_only": [],
+  "after_only": [],
+  "excluded": [
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/apg/dense-f32/call",
+      "before": [
+        "rep01: target_missed",
+        "rep02: target_missed",
+        "rep03: target_missed"
+      ],
+      "after": [
+        "rep01: target_missed",
+        "rep02: target_missed",
+        "rep03: target_missed"
+      ]
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/apg/warm-dense-f32/call",
+      "before": [
+        "rep01: target_missed",
+        "rep03: target_missed"
+      ],
+      "after": [
+        "rep01: target_missed",
+        "rep03: target_missed"
+      ]
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/apg/warm-dense-f64/call",
+      "before": [
+        "rep03: target_missed"
+      ],
+      "after": [
+        "rep03: target_missed"
+      ]
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/pg/dense-f32/call",
+      "before": [
+        "rep02: target_missed",
+        "rep03: target_missed"
+      ],
+      "after": [
+        "rep02: target_missed",
+        "rep03: target_missed"
+      ]
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/pg/dense-f64/call",
+      "before": [
+        "rep03: target_missed"
+      ],
+      "after": [
+        "rep03: target_missed"
+      ]
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/pg/warm-dense-f32/call",
+      "before": [
+        "rep01: target_missed",
+        "rep03: target_missed"
+      ],
+      "after": [
+        "rep01: target_missed",
+        "rep03: target_missed"
+      ]
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-C/apg/dense-f32/call",
+      "before": [
+        "rep02: target_missed",
+        "rep03: target_missed"
+      ],
+      "after": [
+        "rep02: target_missed",
+        "rep03: target_missed"
+      ]
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-C/pg/dense-f32/call",
+      "before": [
+        "rep01: target_missed",
+        "rep03: target_missed"
+      ],
+      "after": [
+        "rep01: target_missed",
+        "rep03: target_missed"
+      ]
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-C/pg/dense-f64/call",
+      "before": [
+        "rep01: target_missed"
+      ],
+      "after": [
+        "rep01: target_missed"
+      ]
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-D/apg/dense-f32/call",
+      "before": [
+        "rep01: target_missed",
+        "rep02: target_missed"
+      ],
+      "after": [
+        "rep01: target_missed",
+        "rep02: target_missed"
+      ]
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso/apg/dense-f32/call",
+      "before": [
+        "rep01: target_missed",
+        "rep03: target_missed"
+      ],
+      "after": [
+        "rep01: target_missed",
+        "rep03: target_missed"
+      ]
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso/pg/dense-f32/call",
+      "before": [
+        "rep01: target_missed",
+        "rep02: target_missed",
+        "rep03: target_missed"
+      ],
+      "after": [
+        "rep01: target_missed",
+        "rep02: target_missed",
+        "rep03: target_missed"
+      ]
+    }
+  ]
+}

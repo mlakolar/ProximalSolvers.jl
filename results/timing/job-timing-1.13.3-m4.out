@@ -1,0 +1,68 @@
+job <id> node <node> exclusive
+WARNING: Detected access to binding `BaseSide.ProximalSolvers` in a world prior to its definition world.
+  Julia 1.12 has introduced more strict world age semantics for global bindings.
+  !!! This code may malfunction under Revise.
+  !!! This code will error in future versions of Julia.
+Hint: Add an appropriate `invokelatest` around the access to this binding.
+To make this warning an error, and hence obtain a stack trace, use `julia --depwarn=error`.
+WARNING: Detected access to binding `HeadSide.ProximalSolvers` in a world prior to its definition world.
+  Julia 1.12 has introduced more strict world age semantics for global bindings.
+  !!! This code may malfunction under Revise.
+  !!! This code will error in future versions of Julia.
+Hint: Add an appropriate `invokelatest` around the access to this binding.
+To make this warning an error, and hence obtain a stack trace, use `julia --depwarn=error`.
+WARNING: Detected access to binding `HeadCopy.ProximalSolvers` in a world prior to its definition world.
+  Julia 1.12 has introduced more strict world age semantics for global bindings.
+  !!! This code may malfunction under Revise.
+  !!! This code will error in future versions of Julia.
+Hint: Add an appropriate `invokelatest` around the access to this binding.
+To make this warning an error, and hence obtain a stack trace, use `julia --depwarn=error`.
+WARNING: Detected access to binding `OptionA.ProximalSolvers` in a world prior to its definition world.
+  Julia 1.12 has introduced more strict world age semantics for global bindings.
+  !!! This code may malfunction under Revise.
+  !!! This code will error in future versions of Julia.
+Hint: Add an appropriate `invokelatest` around the access to this binding.
+To make this warning an error, and hence obtain a stack trace, use `julia --depwarn=error`.
+WARNING: Detected access to binding `Previous.ProximalSolvers` in a world prior to its definition world.
+  Julia 1.12 has introduced more strict world age semantics for global bindings.
+  !!! This code may malfunction under Revise.
+  !!! This code will error in future versions of Julia.
+Hint: Add an appropriate `invokelatest` around the access to this binding.
+To make this warning an error, and hence obtain a stack trace, use `julia --depwarn=error`.
+# Julia 1.13.3 | threads=1 blas_threads=1 | LBTConfig([ILP64] libopenblas64_.so)
+# CPU Intel(R) Xeon(R) Silver 4116 CPU @ 2.10GHz
+# node <node> | job 14331165
+# prev <cluster-dir>/timing321i-m4-1.13/pkg/.codex-orchestrator/runs/run-20261118T0505-issue321-3afc/agents/impl-1/prev
+# base <cluster-dir>-base2/base-1.13/pkg
+# head <cluster-dir>/timing321i-m4-1.13/pkg
+# optA <cluster-dir>/timing321i-m4-1.13/pkg/.codex-orchestrator/runs/run-20261118T0505-issue321-3afc/agents/impl-1/optA
+# base source sha256 of src/solvers: 40ebd5466833f7f1be28702dc90c964be8c8dda1228a128be6aed3dd335f1732
+# head source sha256 of src/solvers: 3626774ae52ec6a1d38ae4d5bd08aac20ae6094d92cde19d27ef3813f3fac4a9
+# PB <cluster-dir>/shared-depot/packages/ProximalBase/2welE 0.6.0-DEV
+
+## 1. ordinary cold solves (α = 1/n, standardized, so α‖X‖_F² = p ≥ 2), λ = 0.1 λmax, default options
+
+## 2. tight tolerance (gradtol 1e-9, ftol 0, xtol 1e-12), λ = 0.01 λmax
+
+## 3. warm start at the solution for 2λ
+
+## 4. PGD worst case of the scan: 1 to 4 standardized columns, α‖X‖_F² = target (scan reads all p columns unless it exits at s ≥ 2/α)
+worst pgd Float32 10000x1 α‖X‖²=1.0	reps=122	iters=9/9/9/9	base_us=156.6	head/base med=1.0118 [0.9904 1.0255]	aa/base med=1.0089 [0.9900 1.0307]	optA/base med=1.0109 [0.9893 1.0320]
+worst pgd Float32 10000x1 α‖X‖²=2.0	reps=388	iters=1/1/1/1	base_us=51.6	head/base med=1.0251 [1.0079 1.0532]	aa/base med=1.0344 [1.0061 1.0724]	optA/base med=1.0351 [1.0163 1.0602]
+worst pgd Float32 10000x1 α‖X‖²=4.0	reps=375	iters=1/1/1/1	base_us=51.5	head/base med=1.0293 [0.9976 1.0661]	aa/base med=1.0258 [0.9983 1.0573]	optA/base med=1.0329 [1.0012 1.0658]
+worst pgd Float32 10000x4 α‖X‖²=1.0	reps=68	iters=13/13/13/13	base_us=230.1	head/base med=1.0313 [0.9844 1.0737]	aa/base med=1.0285 [0.9938 1.0761]	optA/base med=1.0295 [0.9864 1.0661]
+worst pgd Float32 10000x4 α‖X‖²=2.0	reps=110	iters=9/9/9/9	base_us=187.9	head/base med=1.0341 [1.0270 1.0544]	aa/base med=1.0329 [1.0273 1.0553]	optA/base med=1.0338 [1.0310 1.0525]
+worst pgd Float32 10000x4 α‖X‖²=4.0	reps=100	iters=9/9/9/9	base_us=203.0	head/base med=1.0225 [1.0094 1.0492]	aa/base med=1.0223 [1.0085 1.0506]	optA/base med=1.0306 [1.0170 1.0353]
+Precompiling packages...
+   0.9 s  ✓ Preferences
+   0.7 s  ✓ PrecompileTools
+  10.9 s  ✓ ProximalBase
+   6.7 s  ✓ ProximalSolvers
+  4 dependencies successfully precompiled in 19 seconds. 8 already precompiled.
+
+## 5. informational: cases where the start changes (the ratio is not a cost, the trajectory differs)
+
+WORST median(head/base) / max(1, median(aa/base)) over the gated cells: 1.0034
+sink 2224800
+done
+exit 0

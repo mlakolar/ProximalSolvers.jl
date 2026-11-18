@@ -1,0 +1,9 @@
+# Julia 1.13.3 PS <cluster-dir>/probe-1.13/pkg
+s=1e50 lambda=1e110 (x = s u)	ProximalGradientDescent	L0=1.0	conv=true	iter=9	f_inc=false	x=7.999907746048042e109
+s=1e50 lambda=1e110 (x = s u)	AccProxGradDescent	L0=1.0	conv=true	iter=7	f_inc=false	x=8.000029236387538e109
+s=1e50 lambda=0	ProximalGradientDescent	L0=1.0	conv=true	iter=10	f_inc=false	x=9.999959096177313e109
+s=1e50 lambda=0	AccProxGradDescent	L0=1.0	conv=true	iter=8	f_inc=false	x=1.0000010015092289e110
+c=1e-80 lambda=0	ProximalGradientDescent	L0=5.000000000000016e-100	conv=false	iter=7	f_inc=true	x=1.0033870141911545e160
+c=1e-80 lambda=0	AccProxGradDescent	L0=5.000000000000016e-100	conv=true	iter=8	f_inc=false	x=9.999967722845455e159
+lambda=1e60 plain	ProximalGradientDescent	L0=5.000000000000014e-100	conv=false	iter=7	f_inc=true	x=8.027096113529238e159
+lambda=1e60 plain	AccProxGradDescent	L0=5.000000000000014e-100	conv=true	iter=7	f_inc=false	x=7.999915189307722e159

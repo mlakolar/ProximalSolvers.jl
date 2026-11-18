@@ -1,0 +1,81 @@
+# Julia 1.10.13 | threads=1 blas_threads=1 | LBTConfig([ILP64] libopenblas64_.so)
+# CPU Intel(R) Xeon(R) Silver 4116 CPU @ 2.10GHz
+# node <node> | job 14330749
+# prev <cluster-dir>/probe-1.10/pkg/.codex-orchestrator/runs/run-20261118T0505-issue321-3afc/agents/impl-1/prev
+# base <cluster-dir>-base/base-1.10/pkg
+# head <cluster-dir>/probe-1.10/pkg
+# optA <cluster-dir>/probe-1.10/pkg/.codex-orchestrator/runs/run-20261118T0505-issue321-3afc/agents/impl-1/optA
+# base source sha256 of src/solvers: 4b1427943bb306a34a0af4040d49d1a15c593bc2e1e88a59d35d4037f27ff86c
+# head source sha256 of src/solvers: 3626774ae52ec6a1d38ae4d5bd08aac20ae6094d92cde19d27ef3813f3fac4a9
+# PB <cluster-dir>/shared-depot/packages/ProximalBase/2welE 0.6.0-DEV
+
+## 1. ordinary cold solves (α = 1/n, standardized, so α‖X‖_F² = p ≥ 2), λ = 0.1 λmax, default options
+ord pgd Float64 100x32	reps=340	iters=11/11/11/11	base_us=42.5	head/base med=0.9777 [0.9538 1.0016]	aa/base med=1.0047 [1.0028 1.0065]	optA/base med=0.9759 [0.9383 1.0135]
+
+## 2. tight tolerance (gradtol 1e-9, ftol 0, xtol 1e-12), λ = 0.01 λmax
+
+## 3. warm start at the solution for 2λ
+
+## 4. PGD worst case of the scan: 1 to 4 standardized columns, α‖X‖_F² = target (scan reads all p columns unless it exits at s ≥ 2/α)
+
+## 5. informational: cases where the start changes (the ratio is not a cost, the trajectory differs)
+
+WORST median(head/base) / max(1, median(aa/base)) over the gated cells: 0.9732
+
+## 6. warmed allocations of whole solves (bytes, min of 10 after 3 warm-ups): base / head
+alloc solve	pgd	Float64	100x32	base=3936	head=3936
+alloc solve	apg	Float64	100x32	base=6064	head=6064
+alloc solve	pgd	Float64	1000x100	base=21200	head=21200
+alloc solve	apg	Float64	1000x100	base=37792	head=37792
+alloc solve	pgd	Float32	100x32	base=2384	head=2384
+alloc solve	apg	Float32	100x32	base=3696	head=3696
+alloc solve	pgd	Float32	1000x100	base=11232	head=11232
+alloc solve	apg	Float32	1000x100	base=19872	head=19872
+
+## 6b. integer and Bool loss scales on the full-scan branch (X = [√0.75], y = 1, λ = 0.1; α‖X‖² = 1.5 for α = 2): warmed whole-solve bytes, base / previous commit / head
+alloc int-scale solve	pgd	Float64	α=2.0	base=912	prev=912	head=912
+alloc int-scale solve	pgd	Float64	α=2	base=912	prev=1120	head=912
+alloc int-scale solve	pgd	Float64	α=2	base=912	prev=1120	head=912
+alloc int-scale solve	pgd	Float64	α=true	base=912	prev=1120	head=912
+alloc int-scale solve	apg	Float64	α=2.0	base=1376	prev=1376	head=1376
+alloc int-scale solve	apg	Float64	α=2	base=1584	prev=1584	head=1376
+alloc int-scale solve	apg	Float64	α=2	base=1584	prev=1584	head=1376
+alloc int-scale solve	apg	Float64	α=true	base=1584	prev=1584	head=1376
+alloc int-scale solve	pgd	Float32	α=2.0	base=880	prev=880	head=880
+alloc int-scale solve	pgd	Float32	α=2	base=880	prev=1088	head=880
+alloc int-scale solve	pgd	Float32	α=2	base=880	prev=1088	head=880
+alloc int-scale solve	pgd	Float32	α=true	base=880	prev=1088	head=880
+alloc int-scale solve	apg	Float32	α=2.0	base=1328	prev=1328	head=1328
+alloc int-scale solve	apg	Float32	α=2	base=1536	prev=1536	head=1328
+alloc int-scale solve	apg	Float32	α=2	base=1536	prev=1536	head=1328
+alloc int-scale solve	apg	Float32	α=true	base=1536	prev=1536	head=1328
+
+## 6c. the start alone with an integer scale on the full-scan branch (bytes): previous commit / head
+alloc int-scale start	Float64	α=2	PGD scan prev=208 head=0	APG start prev=208 head=0
+alloc int-scale start	Float64	α=true	PGD scan prev=208 head=0	APG start prev=208 head=0
+alloc int-scale start	Float64	α=2	PGD scan prev=208 head=0	APG start prev=208 head=0
+alloc int-scale start	Float32	α=2	PGD scan prev=208 head=0	APG start prev=208 head=0
+alloc int-scale start	Float32	α=true	PGD scan prev=208 head=0	APG start prev=208 head=0
+alloc int-scale start	Float32	α=2	PGD scan prev=208 head=0	APG start prev=208 head=0
+
+## 7. warmed allocations of the start (bytes), head
+alloc start	early exit	Float32	α::Float32	PGD scan=0	APG start=0	optionA=0
+alloc start	early exit	Float32	α::Float64	PGD scan=0	APG start=0	optionA=0
+alloc start	full pass	Float32	α::Float32	PGD scan=0	APG start=0	optionA=0
+alloc start	full pass	Float32	α::Float64	PGD scan=0	APG start=0	optionA=0
+alloc start	early exit	Float64	α::Float32	PGD scan=0	APG start=0	optionA=0
+alloc start	early exit	Float64	α::Float64	PGD scan=0	APG start=0	optionA=0
+alloc start	full pass	Float64	α::Float32	PGD scan=0	APG start=0	optionA=0
+alloc start	full pass	Float64	α::Float64	PGD scan=0	APG start=0	optionA=0
+alloc start	overflow	Float64	α::Float32	PGD scan=0	APG start=0	optionA=0
+alloc start	overflow	Float64	α::Float64	PGD scan=0	APG start=0	optionA=0
+
+## 8. cost of the start alone (min µs over 300 calls): PGD scan (early exit / full pass), option A (full bound), one product X x, base's L0 = 1 is free
+start cost	Float64	100x32	scan early exit=0.26	scan full pass=1.02	optionA=0.59	mul!(X,x)=0.45
+start cost	Float64	1000x100	scan early exit=0.53	scan full pass=11.17	optionA=10.43	mul!(X,x)=15.87
+start cost	Float64	5000x500	scan early exit=1.88	scan full pass=1184.49	optionA=1387.86	mul!(X,x)=1330.88
+start cost	Float32	100x32	scan early exit=0.27	scan full pass=1.03	optionA=0.59	mul!(X,x)=0.21
+start cost	Float32	1000x100	scan early exit=0.84	scan full pass=11.88	optionA=10.00	mul!(X,x)=5.36
+start cost	Float32	5000x500	scan early exit=1.76	scan full pass=496.12	optionA=483.00	mul!(X,x)=456.69
+sink 239360
+done

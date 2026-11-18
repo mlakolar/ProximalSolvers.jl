@@ -1,0 +1,67 @@
+job <id> node <node> cpu model name	: Intel(R) Xeon(R) Silver 4116 CPU @ 2.10GHz
+# Julia 1.13.3 | skylake-avx512 | threads=1 blas_threads=1 | LBTConfig([ILP64] libopenblas64_.so)
+# Model name:          Intel(R) Xeon(R) Silver 4116 CPU @ 2.10GHz
+# PS <cluster-dir>/b321-p113/pkg PB <cluster-dir>/shared-depot/packages/ProximalBase/2welE 0.6.0-DEV
+
+## 1. cost of the Frobenius bound against one product (min over 300 calls, µs)
+T	n	p	frobenius_upper	mul!(X,x)	mul!(X',z)	ratio frob/mul
+Float64	100	32	0.42	0.48	0.41	0.87
+Float64	1000	100	14.07	20.74	15.79	0.68
+Float64	5000	500	992.92	1161.16	1002.03	0.86
+Float64	20000	200	1921.51	2227.22	1959.39	0.86
+Float32	100	32	0.42	0.24	0.32	1.75
+Float32	1000	100	9.58	5.32	5.63	1.80
+Float32	5000	500	458.33	452.46	471.17	1.01
+Float32	20000	200	812.98	749.77	757.73	1.08
+
+## 2. whole solves, ordinary problems (α‖X‖_F² ≥ 1, so b1 follows master's trajectory), default options
+pgd Float64 n=100 p=32 λ=0.1λmax	reps=38	iters base=11 b1x=11	base_us=31.0	b1x/base median=1.0023 [min 1.0010 max 1.0049]	A/A median=0.9995 [min 0.9979 max 1.0009]
+apg Float64 n=100 p=32 λ=0.1λmax	reps=255	iters base=9 reuse=9	base_us=37.4	reuse/base median=0.9996 [min 0.9980 max 1.0013]	A/A median=1.0000 [min 0.9988 max 1.0013]
+pgd Float64 n=1000 p=100 λ=0.1λmax	reps=40	iters base=9 b1x=9	base_us=495.3	b1x/base median=1.0006 [min 0.9995 max 1.0019]	A/A median=1.0001 [min 0.9974 max 1.0019]
+apg Float64 n=1000 p=100 λ=0.1λmax	reps=28	iters base=10 reuse=10	base_us=634.9	reuse/base median=1.0005 [min 0.9990 max 1.0017]	A/A median=1.0001 [min 0.9990 max 1.0012]
+pgd Float64 n=5000 p=500 λ=0.1λmax	reps=1	iters base=7 b1x=7	base_us=23553.2	b1x/base median=1.0001 [min 0.9995 max 1.0027]	A/A median=1.0006 [min 0.9986 max 1.0018]
+apg Float64 n=5000 p=500 λ=0.1λmax	reps=1	iters base=7 reuse=7	base_us=26485.5	reuse/base median=1.0002 [min 0.9994 max 1.0012]	A/A median=1.0002 [min 0.9987 max 1.0013]
+pgd Float32 n=100 p=32 λ=0.1λmax	reps=21	iters base=11 b1x=11	base_us=21.8	b1x/base median=1.0049 [min 1.0027 max 1.0060]	A/A median=1.0004 [min 0.9978 max 1.0017]
+apg Float32 n=100 p=32 λ=0.1λmax	reps=239	iters base=9 reuse=9	base_us=31.6	reuse/base median=1.0003 [min 0.9997 max 1.0018]	A/A median=1.0001 [min 0.9992 max 1.0013]
+pgd Float32 n=1000 p=100 λ=0.1λmax	reps=75	iters base=9 b1x=9	base_us=256.0	b1x/base median=1.0020 [min 0.9934 max 1.0186]	A/A median=1.0000 [min 0.9922 max 1.0088]
+apg Float32 n=1000 p=100 λ=0.1λmax	reps=55	iters base=10 reuse=10	base_us=381.1	reuse/base median=1.0000 [min 0.9904 max 1.0110]	A/A median=1.0002 [min 0.9934 max 1.0065]
+pgd Float32 n=5000 p=500 λ=0.1λmax	reps=2	iters base=7 b1x=7	base_us=11030.0	b1x/base median=1.0031 [min 0.9929 max 1.0111]	A/A median=1.0049 [min 0.9923 max 1.0237]
+apg Float32 n=5000 p=500 λ=0.1λmax	reps=2	iters base=7 reuse=7	base_us=13808.2	reuse/base median=0.9967 [min 0.9863 max 1.0115]	A/A median=1.0004 [min 0.9892 max 1.0144]
+
+## 3. whole solves, a tight tolerance (more iterations per solve)
+pgd Float64 n=100 p=32 λ=0.01λmax gradtol=1e-9,ftol=0,xtol=1e-12	reps=249	iters base=22 b1x=22	base_us=56.7	b1x/base median=1.0015 [min 0.9988 max 1.0131]	A/A median=0.9998 [min 0.9759 max 1.0101]
+apg Float64 n=100 p=32 λ=0.01λmax gradtol=1e-9,ftol=0,xtol=1e-12	reps=211	iters base=21 reuse=21	base_us=74.2	reuse/base median=1.0000 [min 0.9830 max 1.0031]	A/A median=0.9999 [min 0.9828 max 1.0106]
+pgd Float64 n=1000 p=100 λ=0.01λmax gradtol=1e-9,ftol=0,xtol=1e-12	reps=25	iters base=16 b1x=16	base_us=817.4	b1x/base median=1.0007 [min 0.9948 max 1.0154]	A/A median=1.0002 [min 0.9948 max 1.0023]
+apg Float64 n=1000 p=100 λ=0.01λmax gradtol=1e-9,ftol=0,xtol=1e-12	reps=19	iters base=21 reuse=21	base_us=1066.7	reuse/base median=1.0009 [min 0.9853 max 1.0110]	A/A median=0.9991 [min 0.9829 max 1.0156]
+
+## 3b. warm-started solves (start at the solution for 2λ; few iterations)
+pgd Float64 warm start n=1000 p=100	reps=52	iters base=7 b1x=7	base_us=384.8	b1x/base median=1.0019 [min 0.9892 max 1.0150]	A/A median=0.9991 [min 0.9877 max 1.0031]
+apg Float64 warm start n=1000 p=100	reps=41	iters base=7 reuse=7	base_us=474.8	reuse/base median=1.0012 [min 1.0002 max 1.0034]	A/A median=0.9998 [min 0.9982 max 1.0147]
+pgd Float64 warm start n=5000 p=500	reps=1	iters base=7 b1x=7	base_us=23619.0	b1x/base median=0.9998 [min 0.9961 max 1.0030]	A/A median=0.9997 [min 0.9956 max 1.0034]
+apg Float64 warm start n=5000 p=500	reps=1	iters base=5 reuse=5	base_us=21755.8	reuse/base median=1.0004 [min 0.9968 max 1.0099]	A/A median=0.9997 [min 0.9963 max 1.0012]
+pgd Float32 warm start n=1000 p=100	reps=100	iters base=7 b1x=7	base_us=197.5	b1x/base median=1.0029 [min 0.9923 max 1.0323]	A/A median=0.9998 [min 0.9893 max 1.0081]
+apg Float32 warm start n=1000 p=100	reps=72	iters base=7 reuse=7	base_us=267.0	reuse/base median=0.9995 [min 0.9989 max 0.9998]	A/A median=1.0002 [min 0.9997 max 1.0014]
+pgd Float32 warm start n=5000 p=500	reps=2	iters base=7 b1x=7	base_us=10828.0	b1x/base median=0.9982 [min 0.9845 max 1.0149]	A/A median=0.9988 [min 0.9808 max 1.0132]
+apg Float32 warm start n=5000 p=500	reps=2	iters base=5 reuse=5	base_us=11280.2	reuse/base median=0.9955 [min 0.9837 max 1.0058]	A/A median=0.9989 [min 0.9935 max 1.0062]
+
+## 4. whole solves where b1 changes the start (α‖X‖_F² < 1: data in small units)
+pgd Float64 xscale=0.01 n=1000 p=100	reps=6	iters base=87 b1x=43	base_us=3457.7	b1x/base median=0.5151 [min 0.5144 max 0.5159]	A/A median=1.0006 [min 0.9968 max 1.0033]
+apg Float64 xscale=0.01 n=1000 p=100	reps=6	iters base=78 reuse=37	base_us=3482.5	reuse/base median=0.5353 [min 0.5338 max 0.5363]	A/A median=0.9995 [min 0.9981 max 1.0017]
+pgd Float64 xscale=0.001 n=1000 p=100	reps=4	iters base=130 b1x=43	base_us=5128.6	b1x/base median=0.3468 [min 0.3460 max 0.3490]	A/A median=0.9998 [min 0.9947 max 1.0049]
+apg Float64 xscale=0.001 n=1000 p=100	reps=4	iters base=121 reuse=37	base_us=5197.8	reuse/base median=0.3578 [min 0.3562 max 0.3596]	A/A median=1.0012 [min 0.9941 max 1.0145]
+pgd Float32 xscale=0.01 n=1000 p=100	reps=12	iters base=87 b1x=43	base_us=1693.6	b1x/base median=0.5304 [min 0.5257 max 0.5320]	A/A median=1.0001 [min 0.9923 max 1.0091]
+apg Float32 xscale=0.01 n=1000 p=100	reps=12	iters base=75 reuse=38	base_us=1694.0	reuse/base median=0.6070 [min 0.5997 max 0.6095]	A/A median=1.0006 [min 0.9955 max 1.0152]
+pgd Float32 xscale=0.001 n=1000 p=100	reps=8	iters base=130 b1x=43	base_us=2519.8	b1x/base median=0.3528 [min 0.3494 max 0.3539]	A/A median=1.0003 [min 0.9880 max 1.0035]
+apg Float32 xscale=0.001 n=1000 p=100	reps=8	iters base=118 reuse=36	base_us=2533.4	reuse/base median=0.3909 [min 0.3862 max 0.3912]	A/A median=1.0000 [min 0.9885 max 1.0091]
+
+## 5. warmed allocations per whole solve (bytes), base vs b1 (full pass), b1x (PGD early exit), reuse (APG)
+alloc	pgd	Float64	n=100 p=32	base=3888	b1=3888	b1x=3888
+alloc	apg	Float64	n=100 p=32	base=6080	b1=6080	b1x=6080	reuse=6080
+alloc	pgd	Float64	n=1000 p=100	base=21216	b1=21216	b1x=21216
+alloc	apg	Float64	n=1000 p=100	base=37696	b1=37696	b1x=37696	reuse=37696
+alloc	pgd	Float32	n=100 p=32	base=2320	b1=2320	b1x=2320
+alloc	apg	Float32	n=100 p=32	base=3600	b1=3600	b1x=3600	reuse=3600
+alloc	pgd	Float32	n=1000 p=100	base=11008	b1=11008	b1x=11008
+alloc	apg	Float32	n=1000 p=100	base=19536	b1=19536	b1x=19536	reuse=19536
+done
+exit 0

@@ -1,0 +1,102 @@
+# Julia 1.10.13 | broadwell
+variant	solver	converged	iters	x_rescaled	rel.err vs 1e160
+R5 X*2^0	pgd	false	200	7.0871e+70	1.00e+00
+R5 X*2^0	apg	false	200	6.1822e+71	1.00e+00
+R5 X*2^0	cd	true	-1	1.0000e+160	0.00e+00
+R5 X*2^100	pgd	false	200	1.1389e+131	1.00e+00
+R5 X*2^100	apg	false	200	9.9345e+131	1.00e+00
+R5 X*2^100	cd	true	-1	1.0000e+160	0.00e+00
+R5 X*2^166	pgd	true	2	1.0000e+160	0.00e+00
+R5 X*2^166	apg	true	9	1.0000e+160	1.28e-06
+R5 X*2^166	cd	true	-1	1.0000e+160	0.00e+00
+R5 X*2^200	pgd	true	10	1.0000e+160	4.09e-06
+R5 X*2^200	apg	true	9	1.0000e+160	1.28e-06
+R5 X*2^200	cd	true	-1	1.0000e+160	0.00e+00
+R5 X*2^300	pgd	true	10	1.0000e+160	4.09e-06
+R5 X*2^300	apg	true	9	1.0000e+160	1.28e-06
+R5 X*2^300	cd	true	-1	1.0000e+160	0.00e+00
+R5 y*2^-100, α*2^200	pgd	false	200	1.1389e+131	1.00e+00
+R5 y*2^-100, α*2^200	apg	false	200	9.9345e+131	1.00e+00
+R5 y*2^-100, α*2^200	cd	true	-1	1.0000e+160	0.00e+00
+R5 y*2^-300, α*2^600	pgd	true	2	1.0000e+160	0.00e+00
+R5 y*2^-300, α*2^600	apg	true	9	1.0000e+160	1.28e-06
+R5 y*2^-300, α*2^600	cd	true	-1	1.0000e+160	0.00e+00
+R5 y*2^-500, α*2^1000	pgd	true	2	1.0000e+160	0.00e+00
+R5 y*2^-500, α*2^1000	apg	true	9	1.0000e+160	1.28e-06
+R5 y*2^-500, α*2^1000	cd	true	-1	1.0000e+160	0.00e+00
+#327 X*2^0	pgd	false	200	7.0871e+70	1.00e+00
+#327 X*2^0	apg	false	200	6.1822e+71	1.00e+00
+#327 X*2^0	cd	true	-1	1.0000e+160	0.00e+00
+#327 X*2^100	pgd	false	200	1.1389e+131	1.00e+00
+#327 X*2^100	apg	false	200	9.9345e+131	1.00e+00
+#327 X*2^100	cd	true	-1	1.0000e+160	0.00e+00
+#327 X*2^166	pgd	true	2	1.0000e+160	0.00e+00
+#327 X*2^166	apg	true	9	1.0000e+160	1.28e-06
+#327 X*2^166	cd	true	-1	1.0000e+160	0.00e+00
+#327 X*2^200	pgd	true	10	1.0000e+160	4.09e-06
+#327 X*2^200	apg	true	9	1.0000e+160	1.28e-06
+#327 X*2^200	cd	true	-1	1.0000e+160	0.00e+00
+#327 X*2^300	pgd	true	10	1.0000e+160	4.09e-06
+#327 X*2^300	apg	true	9	1.0000e+160	1.28e-06
+#327 X*2^300	cd	true	-1	1.0000e+160	0.00e+00
+#327 y*2^-100, α*2^200	pgd	false	200	1.1389e+131	1.00e+00
+#327 y*2^-100, α*2^200	apg	false	200	9.9345e+131	1.00e+00
+#327 y*2^-100, α*2^200	cd	true	-1	1.0000e+160	0.00e+00
+#327 y*2^-300, α*2^600	pgd	true	2	1.0000e+160	0.00e+00
+#327 y*2^-300, α*2^600	apg	true	9	1.0000e+160	1.28e-06
+#327 y*2^-300, α*2^600	cd	true	-1	1.0000e+160	0.00e+00
+#327 y*2^-500, α*2^1000	pgd	true	2	1.0000e+160	0.00e+00
+#327 y*2^-500, α*2^1000	apg	true	9	1.0000e+160	1.28e-06
+#327 y*2^-500, α*2^1000	cd	true	-1	1.0000e+160	0.00e+00
+APG on R5 rescaled by 2^-300 / 2^600: converged=true iterations=9 f_calls=295 backtrack_steps=283 L_f=2.0747577844404965e81
+
+# PGD under b1 on rank-one designs (X = ones(5,1), y = s·ones), α = 1e16/s²: where the line search loses range
+s	solver	policy	outcome	iters	kkt_rel
+1.000e+100	pgd	base	maxiter	200	1.000e+00
+1.000e+100	pgd	b1	converged	10	2.315e-06
+1.000e+100	apg	base	maxiter	200	1.000e+00
+1.000e+100	apg	b1	converged	8	3.228e-06
+1.000e+140	pgd	base	maxiter	200	1.000e+00
+1.000e+140	pgd	b1	converged	10	2.315e-06
+1.000e+140	apg	base	maxiter	200	1.000e+00
+1.000e+140	apg	b1	converged	8	3.228e-06
+1.000e+150	pgd	base	maxiter	200	1.000e+00
+1.000e+150	pgd	b1	converged	10	2.315e-06
+1.000e+150	apg	base	maxiter	200	1.000e+00
+1.000e+150	apg	b1	converged	8	3.228e-06
+1.000e+152	pgd	base	maxiter	200	1.000e+00
+1.000e+152	pgd	b1	converged	10	2.315e-06
+1.000e+152	apg	base	maxiter	200	1.000e+00
+1.000e+152	apg	b1	converged	8	3.228e-06
+1.000e+153	pgd	base	maxiter	200	1.000e+00
+1.000e+153	pgd	b1	converged	10	2.315e-06
+1.000e+153	apg	base	maxiter	200	1.000e+00
+1.000e+153	apg	b1	converged	8	3.228e-06
+1.000e+154	pgd	base	maxiter	200	1.000e+00
+1.000e+154	pgd	b1	converged	10	2.315e-06
+1.000e+154	apg	base	maxiter	200	1.000e+00
+1.000e+154	apg	b1	converged	8	3.228e-06
+1.200e+154	pgd	base	maxiter	200	1.000e+00
+1.200e+154	pgd	b1	converged	10	2.315e-06
+1.200e+154	apg	base	maxiter	200	1.000e+00
+1.200e+154	apg	b1	converged	8	3.228e-06
+1.500e+154	pgd	base	maxiter	200	1.000e+00
+1.500e+154	pgd	b1	converged	10	5.788e-07
+1.500e+154	apg	base	maxiter	200	1.000e+00
+1.500e+154	apg	b1	converged	8	3.228e-06
+2.000e+154	pgd	base	maxiter	200	1.000e+00
+2.000e+154	pgd	b1	converged	10	5.788e-07
+2.000e+154	apg	base	maxiter	200	1.000e+00
+2.000e+154	apg	b1	converged	8	3.228e-06
+1.000e+155	pgd	base	maxiter	200	1.000e+00
+1.000e+155	pgd	b1	converged	10	3.548e-07
+1.000e+155	apg	base	maxiter	200	1.000e+00
+1.000e+155	apg	b1	converged	8	3.228e-06
+1.000e+157	pgd	base	maxiter	200	1.000e+00
+1.000e+157	pgd	b1	f_increased	7	3.387e-03
+1.000e+157	apg	base	maxiter	200	1.000e+00
+1.000e+157	apg	b1	converged	8	3.228e-06
+1.000e+160	pgd	base	maxiter	200	1.000e+00
+1.000e+160	pgd	b1	f_increased	7	3.387e-03
+1.000e+160	apg	base	maxiter	200	1.000e+00
+1.000e+160	apg	b1	converged	8	3.228e-06

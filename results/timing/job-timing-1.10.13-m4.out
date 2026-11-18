@@ -1,0 +1,32 @@
+job <id> node <node> exclusive
+# Julia 1.10.13 | threads=1 blas_threads=1 | LBTConfig([ILP64] libopenblas64_.so)
+# CPU Intel(R) Xeon(R) Silver 4116 CPU @ 2.10GHz
+# node <node> | job 14331159
+# prev <cluster-dir>/timing321i-m4-1.10/pkg/.codex-orchestrator/runs/run-20261118T0505-issue321-3afc/agents/impl-1/prev
+# base <cluster-dir>-base2/base-1.10/pkg
+# head <cluster-dir>/timing321i-m4-1.10/pkg
+# optA <cluster-dir>/timing321i-m4-1.10/pkg/.codex-orchestrator/runs/run-20261118T0505-issue321-3afc/agents/impl-1/optA
+# base source sha256 of src/solvers: 40ebd5466833f7f1be28702dc90c964be8c8dda1228a128be6aed3dd335f1732
+# head source sha256 of src/solvers: 3626774ae52ec6a1d38ae4d5bd08aac20ae6094d92cde19d27ef3813f3fac4a9
+# PB <cluster-dir>/shared-depot/packages/ProximalBase/2welE 0.6.0-DEV
+
+## 1. ordinary cold solves (α = 1/n, standardized, so α‖X‖_F² = p ≥ 2), λ = 0.1 λmax, default options
+
+## 2. tight tolerance (gradtol 1e-9, ftol 0, xtol 1e-12), λ = 0.01 λmax
+
+## 3. warm start at the solution for 2λ
+
+## 4. PGD worst case of the scan: 1 to 4 standardized columns, α‖X‖_F² = target (scan reads all p columns unless it exits at s ≥ 2/α)
+worst pgd Float32 10000x1 α‖X‖²=1.0	reps=120	iters=9/9/9/9	base_us=165.5	head/base med=1.0097 [1.0073 1.0131]	aa/base med=1.0102 [1.0062 1.0154]	optA/base med=1.0092 [1.0064 1.0137]
+worst pgd Float32 10000x1 α‖X‖²=2.0	reps=271	iters=1/1/1/1	base_us=64.9	head/base med=1.0291 [1.0264 1.0306]	aa/base med=1.0279 [1.0257 1.0306]	optA/base med=1.0269 [1.0251 1.0279]
+worst pgd Float32 10000x1 α‖X‖²=4.0	reps=309	iters=1/1/1/1	base_us=64.9	head/base med=1.0271 [1.0254 1.0289]	aa/base med=1.0251 [1.0236 1.0279]	optA/base med=1.0274 [1.0256 1.0290]
+worst pgd Float32 10000x4 α‖X‖²=1.0	reps=77	iters=13/13/13/13	base_us=223.4	head/base med=0.9927 [0.9563 1.0679]	aa/base med=1.0410 [0.9784 1.0902]	optA/base med=1.0476 [0.9885 1.0931]
+worst pgd Float32 10000x4 α‖X‖²=2.0	reps=99	iters=8/8/8/8	base_us=183.1	head/base med=1.0074 [0.9494 1.0511]	aa/base med=1.0198 [0.9871 1.0575]	optA/base med=1.0321 [0.9891 1.0663]
+worst pgd Float32 10000x4 α‖X‖²=4.0	reps=90	iters=8/8/8/8	base_us=199.5	head/base med=1.0110 [0.9783 1.0369]	aa/base med=1.0139 [0.9842 1.0423]	optA/base med=1.0274 [1.0033 1.0760]
+
+## 5. informational: cases where the start changes (the ratio is not a cost, the trajectory differs)
+
+WORST median(head/base) / max(1, median(aa/base)) over the gated cells: 1.002
+sink 2003040
+done
+exit 0

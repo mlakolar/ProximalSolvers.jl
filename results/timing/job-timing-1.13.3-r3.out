@@ -1,0 +1,61 @@
+job <id> node <node> exclusive
+WARNING: Detected access to binding `BaseSide.ProximalSolvers` in a world prior to its definition world.
+  Julia 1.12 has introduced more strict world age semantics for global bindings.
+  !!! This code may malfunction under Revise.
+  !!! This code will error in future versions of Julia.
+Hint: Add an appropriate `invokelatest` around the access to this binding.
+To make this warning an error, and hence obtain a stack trace, use `julia --depwarn=error`.
+WARNING: Detected access to binding `HeadSide.ProximalSolvers` in a world prior to its definition world.
+  Julia 1.12 has introduced more strict world age semantics for global bindings.
+  !!! This code may malfunction under Revise.
+  !!! This code will error in future versions of Julia.
+Hint: Add an appropriate `invokelatest` around the access to this binding.
+To make this warning an error, and hence obtain a stack trace, use `julia --depwarn=error`.
+WARNING: Detected access to binding `HeadCopy.ProximalSolvers` in a world prior to its definition world.
+  Julia 1.12 has introduced more strict world age semantics for global bindings.
+  !!! This code may malfunction under Revise.
+  !!! This code will error in future versions of Julia.
+Hint: Add an appropriate `invokelatest` around the access to this binding.
+To make this warning an error, and hence obtain a stack trace, use `julia --depwarn=error`.
+WARNING: Detected access to binding `OptionA.ProximalSolvers` in a world prior to its definition world.
+  Julia 1.12 has introduced more strict world age semantics for global bindings.
+  !!! This code may malfunction under Revise.
+  !!! This code will error in future versions of Julia.
+Hint: Add an appropriate `invokelatest` around the access to this binding.
+To make this warning an error, and hence obtain a stack trace, use `julia --depwarn=error`.
+# Julia 1.13.3 | threads=1 blas_threads=1 | LBTConfig([ILP64] libopenblas64_.so)
+# CPU Intel(R) Xeon(R) Silver 4116 CPU @ 2.10GHz
+# node <node> | job 14329182
+# base <cluster-dir>-base/base-1.13/pkg
+# head <cluster-dir>/timing321i-r3-1.13/pkg
+# optA <cluster-dir>/timing321i-r3-1.13/pkg/.codex-orchestrator/runs/run-20261118T0505-issue321-3afc/agents/impl-1/optA
+# base source sha256 of src/solvers: 4b1427943bb306a34a0af4040d49d1a15c593bc2e1e88a59d35d4037f27ff86c
+# head source sha256 of src/solvers: c9266014782ae82a6b2e431610192be2553f773e449c61b94592ad8d5984b8ea
+# PB <cluster-dir>/shared-depot/packages/ProximalBase/2welE 0.6.0-DEV
+
+## 1. ordinary cold solves (α = 1/n, standardized, so α‖X‖_F² = p ≥ 2), λ = 0.1 λmax, default options
+
+## 2. tight tolerance (gradtol 1e-9, ftol 0, xtol 1e-12), λ = 0.01 λmax
+
+## 3. warm start at the solution for 2λ
+
+## 4. PGD worst case of the scan: 1 to 4 standardized columns, α‖X‖_F² = target (scan reads all p columns unless it exits at s ≥ 2/α)
+worst pgd Float64 10000x2 α‖X‖²=1.0	reps=91	iters=9/9/9/9	base_us=239.1	head/base med=0.9562 [0.9460 1.0380]	aa/base med=0.9198 [0.8960 0.9479]	optA/base med=0.9162 [0.8953 0.9484]
+worst pgd Float64 10000x2 α‖X‖²=2.0	reps=86	iters=9/9/9/9	base_us=250.6	head/base med=0.9789 [0.9147 1.0472]	aa/base med=0.9139 [0.8800 0.9570]	optA/base med=0.9143 [0.8808 0.9448]
+worst pgd Float64 10000x2 α‖X‖²=4.0	reps=119	iters=6/6/6/6	base_us=192.9	head/base med=1.0107 [0.9283 1.0642]	aa/base med=0.9189 [0.8991 0.9539]	optA/base med=0.9203 [0.9014 0.9480]
+worst pgd Float64 10000x3 α‖X‖²=1.0	reps=65	iters=10/10/10/10	base_us=394.4	head/base med=1.1125 [0.9991 1.2531]	aa/base med=0.7730 [0.7054 0.8600]	optA/base med=0.7729 [0.7035 0.8382]
+worst pgd Float64 10000x3 α‖X‖²=2.0	reps=60	iters=9/9/9/9	base_us=457.4	head/base med=1.0130 [0.9913 1.0576]	aa/base med=0.6664 [0.6545 0.6948]	optA/base med=0.6598 [0.6512 0.6892]
+worst pgd Float64 10000x3 α‖X‖²=4.0	reps=64	iters=9/9/9/9	base_us=483.2	head/base med=1.0019 [0.9365 1.1160]	aa/base med=0.6669 [0.6540 0.7491]	optA/base med=0.6723 [0.6471 0.7663]
+Precompiling packages...
+   2.0 s  ✓ Preferences
+   0.6 s  ✓ PrecompileTools
+  10.8 s  ✓ ProximalBase
+   6.3 s  ✓ ProximalSolvers
+  4 dependencies successfully precompiled in 21 seconds. 8 already precompiled.
+
+## 5. informational: cases where the start changes (the ratio is not a cost, the trajectory differs)
+
+WORST median(head/base) / max(1, median(aa/base)) over the gated cells: 1.1125
+sink 1955040
+done
+exit 0

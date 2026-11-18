@@ -1,0 +1,563 @@
+{
+  "valid": true,
+  "issues": [],
+  "counts": {
+    "processes": 3,
+    "measurements": 93,
+    "samples": 9300,
+    "ok_samples": 7000,
+    "nonok_cases": 23
+  },
+  "status_counts": {
+    "ok": 70,
+    "target_missed": 23,
+    "uncertifiable": 0,
+    "incomplete": 0,
+    "timeout": 0,
+    "error": 0
+  },
+  "nonok_cases": [
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso/apg/dense-f32/call",
+      "rep": 1,
+      "status": "target_missed",
+      "worst_value": "2.6663998013785145e-5"
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso/pg/dense-f32/call",
+      "rep": 1,
+      "status": "target_missed",
+      "worst_value": "7.739713198057556e-5"
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/apg/warm-dense-f32/call",
+      "rep": 1,
+      "status": "target_missed",
+      "worst_value": "0.0002541592707151692"
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/pg/warm-dense-f32/call",
+      "rep": 1,
+      "status": "target_missed",
+      "worst_value": "3.0499297925047524e-5"
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-C/pg/dense-f64/call",
+      "rep": 1,
+      "status": "target_missed",
+      "worst_value": "1.0038768124121614e-8"
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-C/pg/dense-f32/call",
+      "rep": 1,
+      "status": "target_missed",
+      "worst_value": "2.1317983635269352e-5"
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-D/apg/dense-f32/call",
+      "rep": 1,
+      "status": "target_missed",
+      "worst_value": "1.1272245658837576e-5"
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/apg/dense-f32/call",
+      "rep": 1,
+      "status": "target_missed",
+      "worst_value": "1.808816721637417e-5"
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso/pg/dense-f32/call",
+      "rep": 2,
+      "status": "target_missed",
+      "worst_value": "2.048169375940477e-5"
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/apg/dense-f32/call",
+      "rep": 2,
+      "status": "target_missed",
+      "worst_value": "2.685357485372989e-5"
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/pg/dense-f32/call",
+      "rep": 2,
+      "status": "target_missed",
+      "worst_value": "2.9994123926343286e-5"
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-C/apg/dense-f32/call",
+      "rep": 2,
+      "status": "target_missed",
+      "worst_value": "2.0642148055120145e-5"
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-D/apg/dense-f32/call",
+      "rep": 2,
+      "status": "target_missed",
+      "worst_value": "2.289358870141717e-5"
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso/apg/dense-f32/call",
+      "rep": 3,
+      "status": "target_missed",
+      "worst_value": "1.8918748922619562e-5"
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/apg/warm-dense-f64/call",
+      "rep": 3,
+      "status": "target_missed",
+      "worst_value": "2.3934088776925446e-8"
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/apg/dense-f32/call",
+      "rep": 3,
+      "status": "target_missed",
+      "worst_value": "1.5934662572575703e-5"
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso/pg/dense-f32/call",
+      "rep": 3,
+      "status": "target_missed",
+      "worst_value": "1.5008627408314122e-5"
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/apg/warm-dense-f32/call",
+      "rep": 3,
+      "status": "target_missed",
+      "worst_value": "0.00016840751853720783"
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-C/pg/dense-f32/call",
+      "rep": 3,
+      "status": "target_missed",
+      "worst_value": "0.00022442525189781648"
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/pg/warm-dense-f32/call",
+      "rep": 3,
+      "status": "target_missed",
+      "worst_value": "0.00020653727091936023"
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/pg/dense-f32/call",
+      "rep": 3,
+      "status": "target_missed",
+      "worst_value": "0.0002522170149494123"
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-C/apg/dense-f32/call",
+      "rep": 3,
+      "status": "target_missed",
+      "worst_value": "1.5542233474676934e-5"
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/pg/dense-f64/call",
+      "rep": 3,
+      "status": "target_missed",
+      "worst_value": "1.6050558826715006e-8"
+    }
+  ],
+  "expected_runs": 3,
+  "versions": [
+    "1.13.3"
+  ],
+  "case_status_counts": [
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/apg/acc-dense-f64/call",
+      "status_counts": {
+        "ok": 3,
+        "target_missed": 0,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/apg/acc-warm-dense-f64/call",
+      "status_counts": {
+        "ok": 3,
+        "target_missed": 0,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/apg/dense-f32/call",
+      "status_counts": {
+        "ok": 0,
+        "target_missed": 3,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/apg/dense-f64/call",
+      "status_counts": {
+        "ok": 3,
+        "target_missed": 0,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/apg/warm-dense-f32/call",
+      "status_counts": {
+        "ok": 1,
+        "target_missed": 2,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/apg/warm-dense-f64/call",
+      "status_counts": {
+        "ok": 2,
+        "target_missed": 1,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/pg/acc-dense-f64/call",
+      "status_counts": {
+        "ok": 3,
+        "target_missed": 0,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/pg/acc-warm-dense-f64/call",
+      "status_counts": {
+        "ok": 3,
+        "target_missed": 0,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/pg/dense-f32/call",
+      "status_counts": {
+        "ok": 1,
+        "target_missed": 2,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/pg/dense-f64/call",
+      "status_counts": {
+        "ok": 2,
+        "target_missed": 1,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/pg/warm-dense-f32/call",
+      "status_counts": {
+        "ok": 1,
+        "target_missed": 2,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-B/pg/warm-dense-f64/call",
+      "status_counts": {
+        "ok": 3,
+        "target_missed": 0,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-C/apg/acc-dense-f64/call",
+      "status_counts": {
+        "ok": 3,
+        "target_missed": 0,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-C/apg/dense-f32/call",
+      "status_counts": {
+        "ok": 1,
+        "target_missed": 2,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-C/apg/dense-f64/call",
+      "status_counts": {
+        "ok": 3,
+        "target_missed": 0,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-C/pg/acc-dense-f64/call",
+      "status_counts": {
+        "ok": 3,
+        "target_missed": 0,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-C/pg/dense-f32/call",
+      "status_counts": {
+        "ok": 1,
+        "target_missed": 2,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-C/pg/dense-f64/call",
+      "status_counts": {
+        "ok": 2,
+        "target_missed": 1,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-D/apg/acc-dense-f64/call",
+      "status_counts": {
+        "ok": 3,
+        "target_missed": 0,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-D/apg/dense-f32/call",
+      "status_counts": {
+        "ok": 1,
+        "target_missed": 2,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-D/apg/dense-f64/call",
+      "status_counts": {
+        "ok": 3,
+        "target_missed": 0,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-D/pg/acc-dense-f64/call",
+      "status_counts": {
+        "ok": 3,
+        "target_missed": 0,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-D/pg/dense-f32/call",
+      "status_counts": {
+        "ok": 3,
+        "target_missed": 0,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso-D/pg/dense-f64/call",
+      "status_counts": {
+        "ok": 3,
+        "target_missed": 0,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso/apg/acc-dense-f64/call",
+      "status_counts": {
+        "ok": 3,
+        "target_missed": 0,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso/apg/dense-f32/call",
+      "status_counts": {
+        "ok": 1,
+        "target_missed": 2,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso/apg/dense-f64/call",
+      "status_counts": {
+        "ok": 3,
+        "target_missed": 0,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso/pg/R/call",
+      "status_counts": {
+        "ok": 3,
+        "target_missed": 0,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso/pg/acc-dense-f64/call",
+      "status_counts": {
+        "ok": 3,
+        "target_missed": 0,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso/pg/dense-f32/call",
+      "status_counts": {
+        "ok": 0,
+        "target_missed": 3,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    },
+    {
+      "julia": "1.13.3",
+      "id": "gradient/lasso/pg/dense-f64/call",
+      "status_counts": {
+        "ok": 3,
+        "target_missed": 0,
+        "uncertifiable": 0,
+        "incomplete": 0,
+        "timeout": 0,
+        "error": 0
+      }
+    }
+  ],
+  "cases_per_version": {
+    "1.13.3": 31
+  }
+}

@@ -1,0 +1,63 @@
+# Julia 1.10.13 | skylake-avx512 | ref precision 256
+# Model name:          Intel(R) Xeon(R) Silver 4116 CPU @ 2.10GHz
+T	s	alpha	solver	policy	outcome	iters	kkt_rel	max|x|	L_final
+Float64	1e+100	1.00e-184	pgd	base	maxiter	200	9.000e-01	1.952e-72	7.055e-10
+Float64	1e+100	1.00e-184	pgd	b1	converged	29	1.719e-06	1.382e+100	9.326e-183
+Float64	1e+100	1.00e-184	apg	base	maxiter	200	9.000e-01	1.703e-71	7.055e-10
+Float64	1e+100	1.00e-184	apg	b1	converged	24	5.852e-06	1.382e+100	1.579e-182
+Float64	1e+140	1.00e-264	pgd	base	maxiter	200	9.000e-01	1.952e-112	7.055e-10
+Float64	1e+140	1.00e-264	pgd	b1	converged	29	1.719e-06	1.382e+140	9.326e-263
+Float64	1e+140	1.00e-264	apg	base	maxiter	200	9.000e-01	1.703e-111	7.055e-10
+Float64	1e+140	1.00e-264	apg	b1	converged	24	5.852e-06	1.382e+140	1.579e-262
+Float64	1e+150	1.00e-284	pgd	base	maxiter	200	9.000e-01	1.952e-122	7.055e-10
+Float64	1e+150	1.00e-284	pgd	b1	converged	29	1.719e-06	1.382e+150	9.326e-283
+Float64	1e+150	1.00e-284	apg	base	maxiter	200	9.000e-01	1.703e-121	7.055e-10
+Float64	1e+150	1.00e-284	apg	b1	converged	24	5.852e-06	1.382e+150	1.579e-282
+Float64	1e+152	1.00e-288	pgd	base	maxiter	200	9.000e-01	1.952e-124	7.055e-10
+Float64	1e+152	1.00e-288	pgd	b1	converged	29	1.719e-06	1.382e+152	9.326e-287
+Float64	1e+152	1.00e-288	apg	base	maxiter	200	9.000e-01	1.703e-123	7.055e-10
+Float64	1e+152	1.00e-288	apg	b1	converged	24	5.852e-06	1.382e+152	1.579e-286
+Float64	1e+153	1.00e-290	pgd	base	maxiter	200	9.000e-01	1.952e-125	7.055e-10
+Float64	1e+153	1.00e-290	pgd	b1	converged	29	1.719e-06	1.382e+153	9.326e-289
+Float64	1e+153	1.00e-290	apg	base	maxiter	200	9.000e-01	1.703e-124	7.055e-10
+Float64	1e+153	1.00e-290	apg	b1	converged	24	5.852e-06	1.382e+153	1.579e-288
+Float64	1e+154	1.00e-292	pgd	base	maxiter	200	9.000e-01	1.952e-126	7.055e-10
+Float64	1e+154	1.00e-292	pgd	b1	converged	29	1.719e-06	1.382e+154	9.326e-291
+Float64	1e+154	1.00e-292	apg	base	maxiter	200	9.000e-01	1.703e-125	7.055e-10
+Float64	1e+154	1.00e-292	apg	b1	converged	24	5.852e-06	1.382e+154	1.579e-290
+Float64	1e+155	0.00e+00	pgd	base	error:ArgumentError: only LeastSquaresLoss or one positive Scaled(LeastSquaresLoss) is supported	-	-	-	-
+Float64	1e+155	0.00e+00	pgd	b1	error:ArgumentError: only LeastSquaresLoss or one positive Scaled(LeastSquaresLoss) is supported	-	-	-	-
+Float64	1e+155	0.00e+00	apg	base	error:ArgumentError: only LeastSquaresLoss or one positive Scaled(LeastSquaresLoss) is supported	-	-	-	-
+Float64	1e+155	0.00e+00	apg	b1	error:ArgumentError: only LeastSquaresLoss or one positive Scaled(LeastSquaresLoss) is supported	-	-	-	-
+Float64	1e+156	0.00e+00	pgd	base	error:ArgumentError: only LeastSquaresLoss or one positive Scaled(LeastSquaresLoss) is supported	-	-	-	-
+Float64	1e+156	0.00e+00	pgd	b1	error:ArgumentError: only LeastSquaresLoss or one positive Scaled(LeastSquaresLoss) is supported	-	-	-	-
+Float64	1e+156	0.00e+00	apg	base	error:ArgumentError: only LeastSquaresLoss or one positive Scaled(LeastSquaresLoss) is supported	-	-	-	-
+Float64	1e+156	0.00e+00	apg	b1	error:ArgumentError: only LeastSquaresLoss or one positive Scaled(LeastSquaresLoss) is supported	-	-	-	-
+Float64	1e+158	0.00e+00	pgd	base	error:ArgumentError: only LeastSquaresLoss or one positive Scaled(LeastSquaresLoss) is supported	-	-	-	-
+Float64	1e+158	0.00e+00	pgd	b1	error:ArgumentError: only LeastSquaresLoss or one positive Scaled(LeastSquaresLoss) is supported	-	-	-	-
+Float64	1e+158	0.00e+00	apg	base	error:ArgumentError: only LeastSquaresLoss or one positive Scaled(LeastSquaresLoss) is supported	-	-	-	-
+Float64	1e+158	0.00e+00	apg	b1	error:ArgumentError: only LeastSquaresLoss or one positive Scaled(LeastSquaresLoss) is supported	-	-	-	-
+Float32	1e+08	1.00e-11	pgd	base	f_increased	28	9.000e-01	2.494e+01	5.233e-02
+Float32	1e+08	1.00e-11	pgd	b1	converged	29	1.715e-06	1.382e+08	9.326e-10
+Float32	1e+08	1.00e-11	apg	base	f_increased	19	9.000e-01	2.447e+01	1.351e-01
+Float32	1e+08	1.00e-11	apg	b1	converged	24	5.867e-06	1.382e+08	1.579e-09
+Float32	1e+15	1.00e-25	pgd	base	maxiter	200	9.000e-01	1.952e+02	7.055e-10
+Float32	1e+15	1.00e-25	pgd	b1	converged	29	1.731e-06	1.382e+15	9.326e-24
+Float32	1e+15	1.00e-25	apg	base	maxiter	200	9.000e-01	1.703e+03	7.055e-10
+Float32	1e+15	1.00e-25	apg	b1	converged	24	5.859e-06	1.382e+15	1.579e-23
+Float32	1e+18	1.00e-31	pgd	base	maxiter	200	9.000e-01	1.952e-01	7.055e-10
+Float32	1e+18	1.00e-31	pgd	b1	converged	29	1.735e-06	1.382e+18	9.326e-30
+Float32	1e+18	1.00e-31	apg	base	maxiter	200	9.000e-01	1.703e+00	7.055e-10
+Float32	1e+18	1.00e-31	apg	b1	converged	24	5.851e-06	1.382e+18	1.579e-29
+Float32	1e+19	1.00e-33	pgd	base	maxiter	200	9.000e-01	1.952e-02	7.055e-10
+Float32	1e+19	1.00e-33	pgd	b1	converged	29	1.704e-06	1.382e+19	9.326e-32
+Float32	1e+19	1.00e-33	apg	base	maxiter	200	9.000e-01	1.703e-01	7.055e-10
+Float32	1e+19	1.00e-33	apg	b1	converged	24	3.617e-06	1.382e+19	1.579e-31
+Float32	1e+20	1.00e-35	pgd	base	maxiter	200	9.000e-01	1.952e-03	7.055e-10
+Float32	1e+20	1.00e-35	pgd	b1	converged	29	1.713e-06	1.382e+20	9.326e-34
+Float32	1e+20	1.00e-35	apg	base	maxiter	200	9.000e-01	1.703e-02	7.055e-10
+Float32	1e+20	1.00e-35	apg	b1	converged	23	4.795e-06	1.382e+20	1.755e-33
+Float32	1e+21	1.00e-37	pgd	base	maxiter	200	9.000e-01	1.952e-04	7.055e-10
+Float32	1e+21	1.00e-37	pgd	b1	f_increased	28	1.359e-05	1.382e+21	1.036e-35
+Float32	1e+21	1.00e-37	apg	base	maxiter	200	9.000e-01	1.703e-03	7.055e-10
+Float32	1e+21	1.00e-37	apg	b1	converged	23	4.726e-06	1.382e+21	1.755e-35

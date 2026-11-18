@@ -1,0 +1,53 @@
+     Cloning git-repo `https://github.com/mlakolar/ProximalBase.jl`
+    Updating git-repo `https://github.com/mlakolar/ProximalBase.jl`
+    Updating `<cluster-dir>-base2/base-1.13/pkg/Project.toml`
+  [aea7be01] + PrecompileTools v1.4.0
+  [0a755509] + ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [37e2e46d] ~ LinearAlgebra ⇒ v1.13.0
+  [de0858da] ~ Printf ⇒ v1.11.0
+  [9a3f8284] ~ Random ⇒ v1.11.0
+  [2f01184e] ~ SparseArrays ⇒ v1.13.0
+    Updating `<cluster-dir>-base2/base-1.13/pkg/Manifest.toml`
+  [aea7be01] + PrecompileTools v1.4.0
+  [21216c6a] + Preferences v1.6.1
+  [0a755509] + ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [56f22d72] + Artifacts v1.11.0
+  [ade2ca70] + Dates v1.11.0
+  [8f399da3] + Libdl v1.11.0
+  [37e2e46d] ~ LinearAlgebra ⇒ v1.13.0
+  [de0858da] ~ Printf ⇒ v1.11.0
+  [9a3f8284] ~ Random ⇒ v1.11.0
+  [ea8e919c] + SHA v1.0.0
+  [9e88b42a] + Serialization v1.11.0
+  [2f01184e] ~ SparseArrays ⇒ v1.13.0
+  [fa267f1f] + TOML v1.0.3
+  [4ec0a83e] + Unicode v1.11.0
+  [e66e0078] + CompilerSupportLibraries_jll v1.5.5+2
+  [4536629a] + OpenBLAS_jll v0.3.30+0
+  [bea87d4a] + SuiteSparse_jll v7.10.1+0
+  [8e850b90] + libblastrampoline_jll v5.15.0+0
+Precompiling packages...
+   0.8 s  ✓ Preferences
+   0.6 s  ✓ PrecompileTools
+  16.3 s  ✓ ProximalBase
+  10.1 s  ✓ ProximalSolvers
+  4 dependencies successfully precompiled in 28 seconds. 8 already precompiled.
+# Julia 1.13.3 PS <cluster-dir>-base2/base-1.13/pkg
+R5-lam0	ProximalGradientDescent	L0=1.0	conv=false	iter=200	bt=200	f_inc=false	stag=false	itlim=true	x1=7.087092744769261e70	min=2.4999999999999996e220
+R5-lam0	AccProxGradDescent	L0=1.0	conv=false	iter=200	bt=200	f_inc=false	stag=false	itlim=true	x1=6.182223808711084e71	min=2.4999999999999996e220
+R5-lam0.1	ProximalGradientDescent	L0=1.0	conv=false	iter=200	bt=200	f_inc=false	stag=false	itlim=true	x1=6.378383470292333e70	min=2.4999999999999996e220
+R5-lam0.1	AccProxGradDescent	L0=1.0	conv=false	iter=200	bt=200	f_inc=false	stag=false	itlim=true	x1=5.56400142783997e71	min=2.4999999999999996e220
+327	ProximalGradientDescent	L0=1.0	conv=false	iter=200	bt=200	f_inc=false	stag=false	itlim=true	x1=7.087092744769261e70	min=2.4999999999999996e220
+327	AccProxGradDescent	L0=1.0	conv=false	iter=200	bt=200	f_inc=false	stag=false	itlim=true	x1=6.182223808711084e71	min=2.4999999999999996e220
+EN	ProximalGradientDescent	L0=1.0	conv=false	iter=200	bt=200	f_inc=false	stag=false	itlim=true	x1=6.378383470292333e70	min=2.4999999999999996e220
+EN	AccProxGradDescent	L0=1.0	conv=false	iter=200	bt=200	f_inc=false	stag=false	itlim=true	x1=5.56400142783997e71	min=2.4999999999999996e220
+alpha1e-12	ProximalGradientDescent	L0=1.0	conv=false	iter=200	bt=200	f_inc=false	stag=false	itlim=true	x1=1.324055514995384	min=1.0707259162975506e-10
+alpha1e-12	AccProxGradDescent	L0=1.0	conv=false	iter=200	bt=202	f_inc=false	stag=false	itlim=true	x1=1.8265871652514414	min=8.738207357640904e-11
+zeroX-Float32	ProximalGradientDescent	L0=1.0	conv=true	iter=1	bt=0	f_inc=false	stag=false	itlim=false	x1=0.0	min=2.5
+zeroX-Float32	AccProxGradDescent	L0=1.0	conv=true	iter=1	bt=1	f_inc=false	stag=false	itlim=false	x1=0.0	min=2.5
+zeroX-Float64	ProximalGradientDescent	L0=1.0	conv=true	iter=1	bt=0	f_inc=false	stag=false	itlim=false	x1=0.0	min=2.5
+zeroX-Float64	AccProxGradDescent	L0=1.0	conv=true	iter=1	bt=1	f_inc=false	stag=false	itlim=false	x1=0.0	min=2.5
+underflow-F32	ProximalGradientDescent	L0=1.0	conv=false	iter=200	bt=0	f_inc=false	stag=false	itlim=true	x1=0.0	min=0.0
+underflow-F32	AccProxGradDescent	L0=1.0	conv=false	iter=200	bt=200	f_inc=false	stag=false	itlim=true	x1=0.0	min=0.0
+underflow-F64	ProximalGradientDescent	L0=1.0	conv=false	iter=200	bt=0	f_inc=false	stag=false	itlim=true	x1=5.66961107636874e-310	min=2.0e-320
+underflow-F64	AccProxGradDescent	L0=1.0	conv=false	iter=200	bt=200	f_inc=false	stag=false	itlim=true	x1=4.94572398651602e-309	min=2.0e-320

@@ -1,0 +1,8 @@
+┌ Warning: The project dependencies or compat requirements have changed since the manifest was last resolved.
+│ It is recommended to `Pkg.resolve()` or consider `Pkg.update()` if necessary.
+└ @ Pkg.API <julia-root>/julia-1.10.13/share/julia/stdlib/v1.10/Pkg/src/API.jl:1142
+# Julia 1.10.13 PS <cluster-dir>/probe-1.10/pkg
+# helper takes L0: true
+seed 33	first_change=89	first_target=277	iterations=288	gap=3.5105088543049136e-7	stagnated=true	xhash=7efeda91b94808c5	x1=0.0	minimum=8.4354594e-13
+seed 34	first_change=92	first_target=277	iterations=290	gap=2.1867742731984245e-7	stagnated=true	xhash=26b03ef4a5489666	x1=-0.8420142	minimum=8.1480563e-13
+seed 35	first_change=91	first_target=276	iterations=291	gap=1.2779638358742423e-7	stagnated=true	xhash=000797ef5bcd60cf	x1=-0.8186843	minimum=6.2694094e-13

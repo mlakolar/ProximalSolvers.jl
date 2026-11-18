@@ -1,0 +1,31 @@
+job <id> node <node> exclusive
+# Julia 1.10.13 | threads=1 blas_threads=1 | LBTConfig([ILP64] libopenblas64_.so)
+# CPU Intel(R) Xeon(R) Silver 4116 CPU @ 2.10GHz
+# node <node> | job 14329157
+# base <cluster-dir>-base/base-1.10/pkg
+# head <cluster-dir>/timing321i-r2-1.10/pkg
+# optA <cluster-dir>/timing321i-r2-1.10/pkg/.codex-orchestrator/runs/run-20261118T0505-issue321-3afc/agents/impl-1/optA
+# base source sha256 of src/solvers: 4b1427943bb306a34a0af4040d49d1a15c593bc2e1e88a59d35d4037f27ff86c
+# head source sha256 of src/solvers: c9266014782ae82a6b2e431610192be2553f773e449c61b94592ad8d5984b8ea
+# PB <cluster-dir>/shared-depot/packages/ProximalBase/2welE 0.6.0-DEV
+
+## 1. ordinary cold solves (α = 1/n, standardized, so α‖X‖_F² = p ≥ 2), λ = 0.1 λmax, default options
+ord pgd Float32 100x32	reps=394	iters=11/11/11/11	base_us=31.9	head/base med=1.0035 [0.9427 1.0056]	aa/base med=1.0039 [0.9432 1.0063]	optA/base med=1.0204 [0.9600 1.0443]
+ord apg Float32 100x32	reps=311	iters=10/10/10	base_us=42.5	head/base med=1.0012 [0.9579 1.0271]	aa/base med=0.9992 [0.9982 1.0352]
+
+## 2. tight tolerance (gradtol 1e-9, ftol 0, xtol 1e-12), λ = 0.01 λmax
+
+## 3. warm start at the solution for 2λ
+
+## 4. PGD worst case of the scan: 1 to 4 standardized columns, α‖X‖_F² = target (scan reads all p columns unless it exits at s ≥ 2/α)
+worst pgd Float64 10000x3 α‖X‖²=2.0	reps=40	iters=9/9/9/9	base_us=449.9	head/base med=1.0098 [0.9452 1.0828]	aa/base med=1.0179 [0.9507 1.0884]	optA/base med=1.0334 [0.9698 1.0763]
+worst pgd Float32 10000x4 α‖X‖²=1.0	reps=106	iters=13/13/13/13	base_us=231.6	head/base med=1.0274 [0.9995 1.1109]	aa/base med=1.0161 [0.9903 1.0637]	optA/base med=1.0151 [0.9836 1.0656]
+worst pgd Float32 10000x4 α‖X‖²=2.0	reps=98	iters=8/8/8/8	base_us=181.4	head/base med=1.0254 [1.0046 1.0786]	aa/base med=1.0099 [0.9480 1.0742]	optA/base med=1.0416 [0.9744 1.0909]
+worst pgd Float32 10000x4 α‖X‖²=4.0	reps=99	iters=8/8/8/8	base_us=204.3	head/base med=1.0168 [0.9723 1.0776]	aa/base med=1.0116 [0.9475 1.0815]	optA/base med=1.0263 [0.9760 1.0658]
+
+## 5. informational: cases where the start changes (the ratio is not a cost, the trajectory differs)
+
+WORST median(head/base) / max(1, median(aa/base)) over the gated cells: 1.0154
+sink 4790640
+done
+exit 0

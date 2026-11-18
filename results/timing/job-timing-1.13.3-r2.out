@@ -1,0 +1,61 @@
+job <id> node <node> exclusive
+WARNING: Detected access to binding `BaseSide.ProximalSolvers` in a world prior to its definition world.
+  Julia 1.12 has introduced more strict world age semantics for global bindings.
+  !!! This code may malfunction under Revise.
+  !!! This code will error in future versions of Julia.
+Hint: Add an appropriate `invokelatest` around the access to this binding.
+To make this warning an error, and hence obtain a stack trace, use `julia --depwarn=error`.
+WARNING: Detected access to binding `HeadSide.ProximalSolvers` in a world prior to its definition world.
+  Julia 1.12 has introduced more strict world age semantics for global bindings.
+  !!! This code may malfunction under Revise.
+  !!! This code will error in future versions of Julia.
+Hint: Add an appropriate `invokelatest` around the access to this binding.
+To make this warning an error, and hence obtain a stack trace, use `julia --depwarn=error`.
+WARNING: Detected access to binding `HeadCopy.ProximalSolvers` in a world prior to its definition world.
+  Julia 1.12 has introduced more strict world age semantics for global bindings.
+  !!! This code may malfunction under Revise.
+  !!! This code will error in future versions of Julia.
+Hint: Add an appropriate `invokelatest` around the access to this binding.
+To make this warning an error, and hence obtain a stack trace, use `julia --depwarn=error`.
+WARNING: Detected access to binding `OptionA.ProximalSolvers` in a world prior to its definition world.
+  Julia 1.12 has introduced more strict world age semantics for global bindings.
+  !!! This code may malfunction under Revise.
+  !!! This code will error in future versions of Julia.
+Hint: Add an appropriate `invokelatest` around the access to this binding.
+To make this warning an error, and hence obtain a stack trace, use `julia --depwarn=error`.
+# Julia 1.13.3 | threads=1 blas_threads=1 | LBTConfig([ILP64] libopenblas64_.so)
+# CPU Intel(R) Xeon(R) Silver 4116 CPU @ 2.10GHz
+# node <node> | job 14329158
+# base <cluster-dir>-base/base-1.13/pkg
+# head <cluster-dir>/timing321i-r2-1.13/pkg
+# optA <cluster-dir>/timing321i-r2-1.13/pkg/.codex-orchestrator/runs/run-20261118T0505-issue321-3afc/agents/impl-1/optA
+# base source sha256 of src/solvers: 4b1427943bb306a34a0af4040d49d1a15c593bc2e1e88a59d35d4037f27ff86c
+# head source sha256 of src/solvers: c9266014782ae82a6b2e431610192be2553f773e449c61b94592ad8d5984b8ea
+# PB <cluster-dir>/shared-depot/packages/ProximalBase/2welE 0.6.0-DEV
+
+## 1. ordinary cold solves (α = 1/n, standardized, so α‖X‖_F² = p ≥ 2), λ = 0.1 λmax, default options
+ord pgd Float32 100x32	reps=684	iters=11/11/11/11	base_us=21.8	head/base med=1.0065 [1.0028 1.0080]	aa/base med=1.0056 [1.0014 1.0076]	optA/base med=1.0281 [1.0250 1.0367]
+ord apg Float32 100x32	reps=365	iters=9/9/9	base_us=31.4	head/base med=0.9937 [0.9922 0.9982]	aa/base med=0.9951 [0.9925 0.9993]
+
+## 2. tight tolerance (gradtol 1e-9, ftol 0, xtol 1e-12), λ = 0.01 λmax
+
+## 3. warm start at the solution for 2λ
+
+## 4. PGD worst case of the scan: 1 to 4 standardized columns, α‖X‖_F² = target (scan reads all p columns unless it exits at s ≥ 2/α)
+worst pgd Float64 10000x3 α‖X‖²=2.0	reps=65	iters=9/9/9/9	base_us=304.0	head/base med=1.2296 [1.1651 1.2678]	aa/base med=1.0095 [0.9919 1.0204]	optA/base med=1.3037 [1.2679 1.3698]
+worst pgd Float32 10000x4 α‖X‖²=1.0	reps=86	iters=13/13/13/13	base_us=231.3	head/base med=1.0267 [0.9875 1.0683]	aa/base med=1.0281 [0.9868 1.0687]	optA/base med=1.0266 [0.9859 1.0293]
+worst pgd Float32 10000x4 α‖X‖²=2.0	reps=111	iters=9/9/9/9	base_us=189.0	head/base med=1.0330 [1.0180 1.0463]	aa/base med=1.0328 [1.0317 1.0457]	optA/base med=1.0325 [1.0132 1.0519]
+worst pgd Float32 10000x4 α‖X‖²=4.0	reps=101	iters=9/9/9/9	base_us=205.4	head/base med=1.0226 [0.9971 1.0243]	aa/base med=1.0229 [1.0081 1.0261]	optA/base med=1.0304 [1.0082 1.0498]
+Precompiling packages...
+   0.8 s  ✓ Preferences
+   0.6 s  ✓ PrecompileTools
+  10.6 s  ✓ ProximalBase
+   6.4 s  ✓ ProximalSolvers
+  4 dependencies successfully precompiled in 19 seconds. 8 already precompiled.
+
+## 5. informational: cases where the start changes (the ratio is not a cost, the trajectory differs)
+
+WORST median(head/base) / max(1, median(aa/base)) over the gated cells: 1.218
+sink 6527400
+done
+exit 0

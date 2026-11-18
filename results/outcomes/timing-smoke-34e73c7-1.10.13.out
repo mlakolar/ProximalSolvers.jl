@@ -1,0 +1,54 @@
+# Julia 1.10.13 | threads=1 blas_threads=1 | LBTConfig([ILP64] libopenblas64_.so)
+# CPU Intel(R) Xeon(R) Silver 4116 CPU @ 2.10GHz
+# node <node> | job 14329001
+# base <cluster-dir>-base/base-1.10/pkg
+# head <cluster-dir>/probe-1.10/pkg
+# optA <cluster-dir>/probe-1.10/pkg/.codex-orchestrator/runs/run-20261118T0505-issue321-3afc/agents/impl-1/optA
+# base source sha256 of src/solvers: 4b1427943bb306a34a0af4040d49d1a15c593bc2e1e88a59d35d4037f27ff86c
+# head source sha256 of src/solvers: c9266014782ae82a6b2e431610192be2553f773e449c61b94592ad8d5984b8ea
+# PB <cluster-dir>/shared-depot/packages/ProximalBase/2welE 0.6.0-DEV
+
+## 1. ordinary cold solves (α = 1/n, standardized, so α‖X‖_F² = p ≥ 2), λ = 0.1 λmax, default options
+ord pgd Float64 100x32	reps=333	iters=11/11/11/11	base_us=41.9	head/base med=0.9953 [0.9892 1.0014]	aa/base med=0.9999 [0.9977 1.0021]	optA/base med=0.9952 [0.9769 1.0135]
+
+## 2. tight tolerance (gradtol 1e-9, ftol 0, xtol 1e-12), λ = 0.01 λmax
+
+## 3. warm start at the solution for 2λ
+
+## 4. PGD worst case of the scan: 1 to 4 standardized columns, α‖X‖_F² = target (scan reads all p columns unless it exits at s ≥ 2/α)
+
+## 5. informational: cases where the start changes (the ratio is not a cost, the trajectory differs)
+
+WORST median(head/base) / max(1, median(aa/base)) over the gated cells: 0.9953
+
+## 6. warmed allocations of whole solves (bytes, min of 10 after 3 warm-ups): base / head
+alloc solve	pgd	Float64	100x32	base=3936	head=3936
+alloc solve	apg	Float64	100x32	base=6064	head=6064
+alloc solve	pgd	Float64	1000x100	base=21200	head=21200
+alloc solve	apg	Float64	1000x100	base=37792	head=37792
+alloc solve	pgd	Float32	100x32	base=2384	head=2384
+alloc solve	apg	Float32	100x32	base=3696	head=3696
+alloc solve	pgd	Float32	1000x100	base=11232	head=11232
+alloc solve	apg	Float32	1000x100	base=19872	head=19872
+
+## 7. warmed allocations of the start (bytes), head
+alloc start	early exit	Float32	α::Float32	PGD scan=0	APG start=0	optionA=0
+alloc start	early exit	Float32	α::Float64	PGD scan=0	APG start=0	optionA=0
+alloc start	full pass	Float32	α::Float32	PGD scan=0	APG start=0	optionA=0
+alloc start	full pass	Float32	α::Float64	PGD scan=0	APG start=0	optionA=0
+alloc start	early exit	Float64	α::Float32	PGD scan=0	APG start=0	optionA=0
+alloc start	early exit	Float64	α::Float64	PGD scan=0	APG start=0	optionA=0
+alloc start	full pass	Float64	α::Float32	PGD scan=0	APG start=0	optionA=0
+alloc start	full pass	Float64	α::Float64	PGD scan=0	APG start=0	optionA=0
+alloc start	overflow	Float64	α::Float32	PGD scan=0	APG start=0	optionA=0
+alloc start	overflow	Float64	α::Float64	PGD scan=0	APG start=0	optionA=0
+
+## 8. cost of the start alone (min µs over 300 calls): PGD scan (early exit / full pass), option A (full bound), one product X x, base's L0 = 1 is free
+start cost	Float64	100x32	scan early exit=0.25	scan full pass=1.00	optionA=0.59	mul!(X,x)=0.45
+start cost	Float64	1000x100	scan early exit=0.52	scan full pass=12.89	optionA=11.90	mul!(X,x)=18.25
+start cost	Float64	5000x500	scan early exit=1.75	scan full pass=1225.13	optionA=1230.26	mul!(X,x)=1278.13
+start cost	Float32	100x32	scan early exit=0.26	scan full pass=1.03	optionA=0.62	mul!(X,x)=0.21
+start cost	Float32	1000x100	scan early exit=0.52	scan full pass=11.87	optionA=10.05	mul!(X,x)=5.37
+start cost	Float32	5000x500	scan early exit=1.77	scan full pass=508.33	optionA=502.87	mul!(X,x)=462.37
+sink 234432
+done

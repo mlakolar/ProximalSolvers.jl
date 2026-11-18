@@ -1,0 +1,31 @@
+    Updating `<cluster-dir>-base/base-1.13/pkg/Project.toml`
+  [aea7be01] + PrecompileTools v1.4.0
+  [0a755509] + ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [37e2e46d] ~ LinearAlgebra ⇒ v1.13.0
+  [de0858da] ~ Printf ⇒ v1.11.0
+  [9a3f8284] ~ Random ⇒ v1.11.0
+  [2f01184e] ~ SparseArrays ⇒ v1.13.0
+    Updating `<cluster-dir>-base/base-1.13/pkg/Manifest.toml`
+  [aea7be01] + PrecompileTools v1.4.0
+  [21216c6a] + Preferences v1.6.1
+  [0a755509] + ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [56f22d72] + Artifacts v1.11.0
+  [ade2ca70] + Dates v1.11.0
+  [8f399da3] + Libdl v1.11.0
+  [37e2e46d] ~ LinearAlgebra ⇒ v1.13.0
+  [de0858da] ~ Printf ⇒ v1.11.0
+  [9a3f8284] ~ Random ⇒ v1.11.0
+  [ea8e919c] + SHA v1.0.0
+  [9e88b42a] + Serialization v1.11.0
+  [2f01184e] ~ SparseArrays ⇒ v1.13.0
+  [fa267f1f] + TOML v1.0.3
+  [4ec0a83e] + Unicode v1.11.0
+  [e66e0078] + CompilerSupportLibraries_jll v1.5.5+2
+  [4536629a] + OpenBLAS_jll v0.3.30+0
+  [bea87d4a] + SuiteSparse_jll v7.10.1+0
+  [8e850b90] + libblastrampoline_jll v5.15.0+0
+# Julia 1.13.3 PS <cluster-dir>-base/base-1.13/pkg
+new X=[1] y=[1e20]	ProximalGradientDescent	precondition=true	THROWS ErrorException: the gradient step did not produce a finite objective	x=1.0e20	restored=true
+new X=[1] y=[1e20]	AccProxGradDescent	precondition=true	THROWS ErrorException: the gradient step did not produce a finite objective	x=1.0e20	restored=true
+old X=[1e-20] y=[1]	ProximalGradientDescent	precondition=true	THROWS ErrorException: the gradient step did not produce a finite objective	x=1.0e20	restored=true
+old X=[1e-20] y=[1]	AccProxGradDescent	precondition=true	THROWS ErrorException: the gradient step did not produce a finite objective	x=1.0e20	restored=true

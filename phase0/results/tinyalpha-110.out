@@ -1,0 +1,81 @@
+# Julia 1.10.13 | skylake-avx512
+T	alpha	solver	policy	outcome	iters	kkt_rel	L_init
+Float64	1e-100	pgd	base	maxiter	200	9.000e-01	1.000e+00
+Float64	1e-100	pgd	b1	converged	28	5.367e-06	1.980e-97
+Float64	1e-100	apg	base	maxiter	200	9.000e-01	1.000e+00
+Float64	1e-100	apg	b1	converged	26	8.199e-07	1.980e-97
+Float64	1e-150	pgd	base	maxiter	200	9.000e-01	1.000e+00
+Float64	1e-150	pgd	b1	converged	28	5.367e-06	1.980e-147
+Float64	1e-150	apg	base	maxiter	200	9.000e-01	1.000e+00
+Float64	1e-150	apg	b1	converged	26	8.199e-07	1.980e-147
+Float64	1e-200	pgd	base	maxiter	200	9.000e-01	1.000e+00
+Float64	1e-200	pgd	b1	converged	28	5.367e-06	1.980e-197
+Float64	1e-200	apg	base	maxiter	200	9.000e-01	1.000e+00
+Float64	1e-200	apg	b1	converged	26	8.199e-07	1.980e-197
+Float64	1e-250	pgd	base	maxiter	200	9.000e-01	1.000e+00
+Float64	1e-250	pgd	b1	converged	28	5.367e-06	1.980e-247
+Float64	1e-250	apg	base	maxiter	200	9.000e-01	1.000e+00
+Float64	1e-250	apg	b1	converged	26	8.199e-07	1.980e-247
+Float64	1e-290	pgd	base	maxiter	200	9.000e-01	1.000e+00
+Float64	1e-290	pgd	b1	converged	28	5.367e-06	1.980e-287
+Float64	1e-290	apg	base	maxiter	200	9.000e-01	1.000e+00
+Float64	1e-290	apg	b1	converged	26	8.199e-07	1.980e-287
+Float64	1e-300	pgd	base	maxiter	200	9.000e-01	1.000e+00
+Float64	1e-300	pgd	b1	converged	28	5.367e-06	1.980e-297
+Float64	1e-300	apg	base	maxiter	200	9.000e-01	1.000e+00
+Float64	1e-300	apg	b1	converged	26	8.199e-07	1.980e-297
+Float32	1e-10	pgd	base	f_increased	9	9.000e-01	1.000e+00
+Float32	1e-10	pgd	b1	converged	28	5.384e-06	1.980e-07
+Float32	1e-10	apg	base	converged	166	6.782e-06	1.000e+00
+Float32	1e-10	apg	b1	converged	26	5.313e-06	1.980e-07
+Float32	1e-20	pgd	base	maxiter	200	9.000e-01	1.000e+00
+Float32	1e-20	pgd	b1	converged	28	5.386e-06	1.980e-17
+Float32	1e-20	apg	base	maxiter	200	9.000e-01	1.000e+00
+Float32	1e-20	apg	b1	converged	26	5.309e-06	1.980e-17
+Float32	1e-30	pgd	base	maxiter	200	9.000e-01	1.000e+00
+Float32	1e-30	pgd	b1	converged	28	5.379e-06	1.980e-27
+Float32	1e-30	apg	base	maxiter	200	9.000e-01	1.000e+00
+Float32	1e-30	apg	b1	f_increased	25	3.719e-05	1.980e-27
+Float32	1e-35	pgd	base	maxiter	200	9.000e-01	1.000e+00
+Float32	1e-35	pgd	b1	converged	28	5.317e-06	1.980e-32
+Float32	1e-35	apg	base	maxiter	200	9.000e-01	1.000e+00
+Float32	1e-35	apg	b1	converged	26	5.248e-06	1.980e-32
+Float32	1e-37	pgd	base	maxiter	200	9.000e-01	1.000e+00
+Float32	1e-37	pgd	b1	f_increased	28	5.332e-06	1.980e-34
+Float32	1e-37	apg	base	maxiter	200	9.000e-01	1.000e+00
+Float32	1e-37	apg	b1	f_increased	32	3.470e-08	1.980e-34
+
+## #317 family: n=30 p=12 (seed 296), cold start, ProximalOptions(maxiter = 20_000, ftol = 0, allow_f_increases = true, xtol = 1e-300, gradtol = 1e-11)
+alpha	frac	solver	policy	outcome	iters	L_final
+1e-06	0.0	pgd	base	converged	176	3.622e-05
+1e-06	0.0	pgd	b1	converged	100	1.862e-05
+1e-06	0.0	apg	base	converged	137	3.447e-05
+1e-06	0.0	apg	b1	converged	76	3.135e-05
+1e-06	0.1	pgd	base	converged	107	4.404e-05
+1e-06	0.1	pgd	b1	converged	35	7.364e-05
+1e-06	0.1	apg	base	converged	105	3.137e-05
+1e-06	0.1	apg	b1	converged	36	6.628e-05
+1e-100	0.0	pgd	base	converged	2230	3.204e-99
+1e-100	0.0	pgd	b1	converged	102	2.547e-99
+1e-100	0.0	apg	base	converged	2183	8.271e-99
+1e-100	0.0	apg	b1	converged	77	2.821e-99
+1e-100	0.1	pgd	base	converged	2189	4.396e-99
+1e-100	0.1	pgd	b1	converged	35	7.364e-99
+1e-100	0.1	apg	base	converged	2161	2.625e-99
+1e-100	0.1	apg	b1	converged	37	5.965e-99
+1e-200	0.0	pgd	base	error:line search failed: nonfinite curvature estimate	-	-
+1e-200	0.0	pgd	b1	converged	94	1.936e-199
+1e-200	0.0	apg	base	converged	4374	4.602e-199
+1e-200	0.0	apg	b1	converged	77	2.821e-199
+1e-200	0.1	pgd	base	error:line search failed: nonfinite curvature estimate	-	-
+1e-200	0.1	pgd	b1	converged	35	1.841e-199
+1e-200	0.1	apg	base	converged	4344	3.392e-199
+1e-200	0.1	apg	b1	converged	38	5.368e-199
+1e-300	0.0	pgd	base	error:line search failed: nonfinite curvature estimate	-	-
+1e-300	0.0	pgd	b1	maxiter	20000	2.697e-299
+1e-300	0.0	apg	base	maxiter	20000	4.578e-299
+1e-300	0.0	apg	b1	maxiter	20000	8.808e-299
+1e-300	0.1	pgd	base	error:line search failed: nonfinite curvature estimate	-	-
+1e-300	0.1	pgd	b1	maxiter	20000	7.244e-299
+1e-300	0.1	apg	base	maxiter	20000	4.578e-299
+1e-300	0.1	apg	b1	maxiter	20000	4.404e-299

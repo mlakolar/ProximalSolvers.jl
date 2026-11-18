@@ -1,0 +1,4 @@
+job <id> node <node> cpu model name	: Intel(R) Xeon(R) Silver 4116 CPU @ 2.10GHz
+# Julia 1.13.3 | skylake-avx512
+problems: 55 mismatches: 0
+exit 0

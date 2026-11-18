@@ -1,0 +1,41 @@
+# Julia 1.10.13 | skylake-avx512 | ref precision 1024
+
+## (a) unmodified solve!, larger iteration budgets (R5, λ = 0; x* = 1e160)
+maxiter= 200 PGD: converged=false iterations=200 x=7.0871e+70 KKTrel=1.000e+00 f_calls=401 increased=false
+maxiter= 200 APG: converged=false iterations=200 x=6.1822e+71 KKTrel=1.000e+00 f_calls=401 increased=false
+maxiter=1000 PGD: converged=false iterations=1000 x=2.8606e+107 KKTrel=1.000e+00 f_calls=2001 increased=false
+maxiter=1000 APG: converged=false iterations=1000 x=2.7842e+108 KKTrel=1.000e+00 f_calls=2001 increased=false
+maxiter=2000 PGD: converged=false iterations=2000 x=1.6366e+153 KKTrel=1.000e+00 f_calls=4001 increased=false
+maxiter=2000 APG: converged=false iterations=2000 x=1.6147e+154 KKTrel=1.000e+00 f_calls=4001 increased=false
+maxiter=2500 PGD: converged=true iterations=2169 x=1.0000e+160 KKTrel=1.987e-06 f_calls=4339 increased=false
+maxiter=2500 APG: converged=true iterations=2157 x=1.0000e+160 KKTrel=7.121e-06 f_calls=4321 increased=false
+maxiter=3000 PGD: converged=true iterations=2169 x=1.0000e+160 KKTrel=1.987e-06 f_calls=4339 increased=false
+maxiter=3000 APG: converged=true iterations=2157 x=1.0000e+160 KKTrel=7.121e-06 f_calls=4321 increased=false
+maxiter=5000 PGD: converged=true iterations=2169 x=1.0000e+160 KKTrel=1.987e-06 f_calls=4339 increased=false
+maxiter=5000 APG: converged=true iterations=2157 x=1.0000e+160 KKTrel=7.121e-06 f_calls=4321 increased=false
+baseline traced pgd: converged=true iterations=2169 stop=converged x=1.0000e+160
+  it 2100 L_start=9.016e-97 L_end=8.115e-97 #trials=1 x=6.1437e+157 dx=6.128e+156 F/F0=9.878e-01 flags=(000)
+  it 2150 L_start=4.647e-99 L_end=4.182e-99 #trials=1 x=7.0930e+159 dx=3.948e+158 F/F0=8.451e-02 flags=(000)
+  it 2160 L_start=1.620e-99 L_end=1.458e-99 #trials=1 x=9.7765e+159 dx=1.166e+158 F/F0=4.995e-04 flags=(000)
+  it 2169 L_start=6.277e-100 L_end=5.649e-100 #trials=1 x=1.0000e+160 dx=1.530e+155 F/F0=3.949e-12 flags=(001)
+baseline traced apg: converged=true iterations=2157 stop=converged x=1.0000e+160
+  it 2100 L_start=9.016e-97 L_end=8.115e-97 #trials=1 x=5.9816e+158 dx=5.891e+157 F/F0=8.839e-01 flags=(000)
+  it 2150 L_start=4.647e-99 L_end=4.182e-99 #trials=1 x=1.0004e+160 dx=7.484e+155 F/F0=1.282e-07 flags=(000)
+  it 2157 L_start=2.223e-99 L_end=2.000e-99 #trials=1 x=1.0000e+160 dx=3.116e+154 F/F0=5.070e-11 flags=(001)
+
+## (b) PGD backtracking at a step whose square overflows: same one-dimensional problem scaled so that L_f = 5 α... start L0 = 0.4 L_f
+# problem: X = ones(5,1), y = s·ones(5), α = 5e-100·(1e160/s)^2·... chosen so that α s² is fixed; L0 = 0.4 L_f = 0.4·5α
+s=1e+100 α=1.00e+20 L_f=5.000e+20 kind=pgd: it1 #trials=2 trial L's=2.00e+20,5.00e+20  accepted_L=5.000e+20  |dx|=1.000e+100  (dx)^2 finite
+s=1e+100 α=1.00e+20 L_f=5.000e+20 kind=apg: it1 #trials=3 trial L's=2.00e+20,4.00e+20,8.00e+20  accepted_L=8.000e+20  |dx|=6.250e+99  (dx)^2 finite
+s=1e+140 α=1.00e-60 L_f=5.000e-60 kind=pgd: it1 #trials=2 trial L's=2.00e-60,5.00e-60  accepted_L=5.000e-60  |dx|=1.000e+140  (dx)^2 finite
+s=1e+140 α=1.00e-60 L_f=5.000e-60 kind=apg: it1 #trials=3 trial L's=2.00e-60,4.00e-60,8.00e-60  accepted_L=8.000e-60  |dx|=6.250e+139  (dx)^2 finite
+s=1e+150 α=1.00e-80 L_f=5.000e-80 kind=pgd: it1 #trials=2 trial L's=2.00e-80,5.00e-80  accepted_L=5.000e-80  |dx|=1.000e+150  (dx)^2 finite
+s=1e+150 α=1.00e-80 L_f=5.000e-80 kind=apg: it1 #trials=3 trial L's=2.00e-80,4.00e-80,8.00e-80  accepted_L=8.000e-80  |dx|=6.250e+149  (dx)^2 finite
+s=1e+153 α=1.00e-86 L_f=5.000e-86 kind=pgd: it1 #trials=2 trial L's=2.00e-86,5.00e-86  accepted_L=5.000e-86  |dx|=1.000e+153  (dx)^2 finite
+s=1e+153 α=1.00e-86 L_f=5.000e-86 kind=apg: it1 #trials=3 trial L's=2.00e-86,4.00e-86,8.00e-86  accepted_L=8.000e-86  |dx|=6.250e+152  (dx)^2 finite
+s=1e+154 α=1.00e-88 L_f=5.000e-88 kind=pgd: it1 #trials=1 trial L's=2.00e-88  accepted_L=2.000e-88  |dx|=2.500e+154  (dx)^2 overflows
+s=1e+154 α=1.00e-88 L_f=5.000e-88 kind=apg: it1 #trials=3 trial L's=2.00e-88,4.00e-88,8.00e-88  accepted_L=8.000e-88  |dx|=6.250e+153  (dx)^2 finite
+s=1e+155 α=1.00e-90 L_f=5.000e-90 kind=pgd: it1 #trials=1 trial L's=2.00e-90  accepted_L=2.000e-90  |dx|=2.500e+155  (dx)^2 overflows
+s=1e+155 α=1.00e-90 L_f=5.000e-90 kind=apg: it1 #trials=3 trial L's=2.00e-90,4.00e-90,8.00e-90  accepted_L=8.000e-90  |dx|=6.250e+154  (dx)^2 overflows
+s=1e+160 α=1.00e-100 L_f=5.000e-100 kind=pgd: it1 #trials=1 trial L's=2.00e-100  accepted_L=2.000e-100  |dx|=2.500e+160  (dx)^2 overflows
+s=1e+160 α=1.00e-100 L_f=5.000e-100 kind=apg: it1 #trials=3 trial L's=2.00e-100,4.00e-100,8.00e-100  accepted_L=8.000e-100  |dx|=6.250e+159  (dx)^2 overflows

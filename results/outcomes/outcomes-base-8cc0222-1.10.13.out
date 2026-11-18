@@ -1,0 +1,28 @@
+┌ Warning: The project dependencies or compat requirements have changed since the manifest was last resolved.
+│ It is recommended to `Pkg.resolve()` or consider `Pkg.update()` if necessary.
+└ @ Pkg.API <julia-root>/julia-1.10.13/share/julia/stdlib/v1.10/Pkg/src/API.jl:1142
+Precompiling packages...
+    968.7 ms  ✓ Preferences
+    431.1 ms  ✓ PrecompileTools
+  13196.0 ms  ✓ ProximalBase
+   7661.4 ms  ✓ ProximalSolvers
+  4 dependencies successfully precompiled in 24 seconds. 2 already precompiled.
+# Julia 1.10.13 PS <cluster-dir>-base2/base-1.10/pkg
+R5-lam0	ProximalGradientDescent	L0=1.0	conv=false	iter=200	bt=200	f_inc=false	stag=false	itlim=true	x1=7.087092744769261e70	min=2.4999999999999996e220
+R5-lam0	AccProxGradDescent	L0=1.0	conv=false	iter=200	bt=200	f_inc=false	stag=false	itlim=true	x1=6.182223808711084e71	min=2.4999999999999996e220
+R5-lam0.1	ProximalGradientDescent	L0=1.0	conv=false	iter=200	bt=200	f_inc=false	stag=false	itlim=true	x1=6.378383470292333e70	min=2.4999999999999996e220
+R5-lam0.1	AccProxGradDescent	L0=1.0	conv=false	iter=200	bt=200	f_inc=false	stag=false	itlim=true	x1=5.56400142783997e71	min=2.4999999999999996e220
+327	ProximalGradientDescent	L0=1.0	conv=false	iter=200	bt=200	f_inc=false	stag=false	itlim=true	x1=7.087092744769261e70	min=2.4999999999999996e220
+327	AccProxGradDescent	L0=1.0	conv=false	iter=200	bt=200	f_inc=false	stag=false	itlim=true	x1=6.182223808711084e71	min=2.4999999999999996e220
+EN	ProximalGradientDescent	L0=1.0	conv=false	iter=200	bt=200	f_inc=false	stag=false	itlim=true	x1=6.378383470292333e70	min=2.4999999999999996e220
+EN	AccProxGradDescent	L0=1.0	conv=false	iter=200	bt=200	f_inc=false	stag=false	itlim=true	x1=5.56400142783997e71	min=2.4999999999999996e220
+alpha1e-12	ProximalGradientDescent	L0=1.0	conv=false	iter=200	bt=200	f_inc=false	stag=false	itlim=true	x1=1.324055514995384	min=1.0707259162975506e-10
+alpha1e-12	AccProxGradDescent	L0=1.0	conv=false	iter=200	bt=202	f_inc=false	stag=false	itlim=true	x1=1.8265871652514414	min=8.738207357640904e-11
+zeroX-Float32	ProximalGradientDescent	L0=1.0	conv=true	iter=1	bt=0	f_inc=false	stag=false	itlim=false	x1=0.0	min=2.5
+zeroX-Float32	AccProxGradDescent	L0=1.0	conv=true	iter=1	bt=1	f_inc=false	stag=false	itlim=false	x1=0.0	min=2.5
+zeroX-Float64	ProximalGradientDescent	L0=1.0	conv=true	iter=1	bt=0	f_inc=false	stag=false	itlim=false	x1=0.0	min=2.5
+zeroX-Float64	AccProxGradDescent	L0=1.0	conv=true	iter=1	bt=1	f_inc=false	stag=false	itlim=false	x1=0.0	min=2.5
+underflow-F32	ProximalGradientDescent	L0=1.0	conv=false	iter=200	bt=0	f_inc=false	stag=false	itlim=true	x1=0.0	min=0.0
+underflow-F32	AccProxGradDescent	L0=1.0	conv=false	iter=200	bt=200	f_inc=false	stag=false	itlim=true	x1=0.0	min=0.0
+underflow-F64	ProximalGradientDescent	L0=1.0	conv=false	iter=200	bt=0	f_inc=false	stag=false	itlim=true	x1=5.66961107636874e-310	min=2.0e-320
+underflow-F64	AccProxGradDescent	L0=1.0	conv=false	iter=200	bt=200	f_inc=false	stag=false	itlim=true	x1=4.94572398651602e-309	min=2.0e-320

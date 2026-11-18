@@ -1,0 +1,46 @@
+series=aa record-pairs=93 cases=31 cases_with_differences=9 identical_cases=22 unmatched=[]
+DIFF gradient/lasso-C/apg/acc-dense-f64/call solver=apg inputs=draw variant=acc-dense-f64
+   rep1 max_bytes: before='32160' after='32128'
+   rep2 max_bytes: before='32064' after='32128'
+   rep3 max_bytes: before='32064' after='32096'
+DIFF gradient/lasso-C/apg/dense-f64/call solver=apg inputs=draw variant=dense-f64
+   rep1 max_bytes: before='32032' after='32064'
+DIFF gradient/lasso-C/pg/acc-dense-f64/call solver=pg inputs=draw variant=acc-dense-f64
+   rep3 max_bytes: before='18816' after='18784'
+DIFF gradient/lasso-C/pg/dense-f32/call solver=pg inputs=draw variant=dense-f32
+   rep2 max_bytes: before='10000' after='10032'
+DIFF gradient/lasso-C/pg/dense-f64/call solver=pg inputs=draw variant=dense-f64
+   rep2 max_bytes: before='18752' after='18784'
+DIFF gradient/lasso-D/apg/acc-dense-f64/call solver=apg inputs=draw variant=acc-dense-f64
+   rep2 max_bytes: before='31480' after='31544'
+DIFF gradient/lasso-D/apg/dense-f64/call solver=apg inputs=draw variant=dense-f64
+   rep1 max_bytes: before='31448' after='31384'
+   rep2 max_bytes: before='31448' after='31512'
+DIFF gradient/lasso-D/pg/acc-dense-f64/call solver=pg inputs=draw variant=acc-dense-f64
+   rep3 max_bytes: before='28040' after='28136'
+DIFF gradient/lasso-D/pg/dense-f64/call solver=pg inputs=draw variant=dense-f64
+   rep3 max_bytes: before='28136' after='28072'
+NONOK after gradient/lasso-B/apg/dense-f32/call ['target_missed']
+NONOK before gradient/lasso-B/apg/dense-f32/call ['target_missed']
+NONOK after gradient/lasso-B/apg/warm-dense-f32/call ['target_missed']
+NONOK before gradient/lasso-B/apg/warm-dense-f32/call ['target_missed']
+NONOK after gradient/lasso-B/apg/warm-dense-f64/call ['target_missed']
+NONOK before gradient/lasso-B/apg/warm-dense-f64/call ['target_missed']
+NONOK after gradient/lasso-B/pg/dense-f32/call ['target_missed']
+NONOK before gradient/lasso-B/pg/dense-f32/call ['target_missed']
+NONOK after gradient/lasso-B/pg/dense-f64/call ['target_missed']
+NONOK before gradient/lasso-B/pg/dense-f64/call ['target_missed']
+NONOK after gradient/lasso-B/pg/warm-dense-f32/call ['target_missed']
+NONOK before gradient/lasso-B/pg/warm-dense-f32/call ['target_missed']
+NONOK after gradient/lasso-C/apg/dense-f32/call ['target_missed']
+NONOK before gradient/lasso-C/apg/dense-f32/call ['target_missed']
+NONOK after gradient/lasso-C/pg/dense-f32/call ['target_missed']
+NONOK before gradient/lasso-C/pg/dense-f32/call ['target_missed']
+NONOK after gradient/lasso-C/pg/dense-f64/call ['target_missed']
+NONOK before gradient/lasso-C/pg/dense-f64/call ['target_missed']
+NONOK after gradient/lasso-D/apg/dense-f32/call ['target_missed']
+NONOK before gradient/lasso-D/apg/dense-f32/call ['target_missed']
+NONOK after gradient/lasso/apg/dense-f32/call ['target_missed']
+NONOK before gradient/lasso/apg/dense-f32/call ['target_missed']
+NONOK after gradient/lasso/pg/dense-f32/call ['target_missed']
+NONOK before gradient/lasso/pg/dense-f32/call ['target_missed']

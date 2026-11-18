@@ -1,0 +1,54 @@
+    Updating `<cluster-dir>/sweep-1.13/pkg/Project.toml`
+  [aea7be01] + PrecompileTools v1.4.0
+  [0a755509] + ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [37e2e46d] ~ LinearAlgebra ⇒ v1.13.0
+  [de0858da] ~ Printf ⇒ v1.11.0
+  [9a3f8284] ~ Random ⇒ v1.11.0
+  [2f01184e] ~ SparseArrays ⇒ v1.13.0
+    Updating `<cluster-dir>/sweep-1.13/pkg/Manifest.toml`
+  [aea7be01] + PrecompileTools v1.4.0
+  [21216c6a] + Preferences v1.6.1
+  [0a755509] + ProximalBase v0.6.0-DEV `https://github.com/mlakolar/ProximalBase.jl#a19c59a`
+  [56f22d72] + Artifacts v1.11.0
+  [ade2ca70] + Dates v1.11.0
+  [8f399da3] + Libdl v1.11.0
+  [37e2e46d] ~ LinearAlgebra ⇒ v1.13.0
+  [de0858da] ~ Printf ⇒ v1.11.0
+  [9a3f8284] ~ Random ⇒ v1.11.0
+  [ea8e919c] + SHA v1.0.0
+  [9e88b42a] + Serialization v1.11.0
+  [2f01184e] ~ SparseArrays ⇒ v1.13.0
+  [fa267f1f] + TOML v1.0.3
+  [4ec0a83e] + Unicode v1.11.0
+  [e66e0078] + CompilerSupportLibraries_jll v1.5.5+2
+  [4536629a] + OpenBLAS_jll v0.3.30+0
+  [bea87d4a] + SuiteSparse_jll v7.10.1+0
+  [8e850b90] + libblastrampoline_jll v5.15.0+0
+Precompiling packages...
+  11.1 s  ✓ ProximalSolvers
+  1 dependency successfully precompiled in 12 seconds. 11 already precompiled.
+# Julia 1.13.3 PS <cluster-dir>/sweep-1.13/pkg
+
+branch counts:
+  X = 0 -> one                                    12
+  ref < floatmin -> floatmin                      778
+  ref in (floatmin, 1) -> in window               1225
+  ref just below 1 -> one (crossing)              1135
+  ref ≥ 1 -> one                                  5838
+
+crossings (ref just below 1, start one): 1135; smallest ref per T: Dict{DataType, Float64}(Float64 => 0.9999999999999967, Float32 => 0.9999988675117493); as 1 - ref: Dict{DataType, Float64}(Float64 => 3.3306690738754696e-15, Float32 => 1.1324882507324219e-6)
+  Float64 ones(1,1) α=(1/N)±-16 ulps ref=0.9999999999999982
+  Float64 ones(1,1) α=(1/N)±-16 ulps, Float64 α ref=0.9999999999999982
+  Float64 ones(1,1) α=(1/N)±-15 ulps ref=0.9999999999999983
+  Float64 ones(1,1) α=(1/N)±-15 ulps, Float64 α ref=0.9999999999999983
+  Float64 ones(1,1) α=(1/N)±-14 ulps ref=0.9999999999999984
+  Float64 ones(1,1) α=(1/N)±-14 ulps, Float64 α ref=0.9999999999999984
+  Float64 ones(1,1) α=(1/N)±-13 ulps ref=0.9999999999999986
+  Float64 ones(1,1) α=(1/N)±-13 ulps, Float64 α ref=0.9999999999999986
+  Float64 ones(1,1) α=(1/N)±-12 ulps ref=0.9999999999999987
+  Float64 ones(1,1) α=(1/N)±-12 ulps, Float64 α ref=0.9999999999999987
+  Float64 ones(1,1) α=(1/N)±-11 ulps ref=0.9999999999999988
+  Float64 ones(1,1) α=(1/N)±-11 ulps, Float64 α ref=0.9999999999999988
+
+failures: 0
+SWEEP PASS

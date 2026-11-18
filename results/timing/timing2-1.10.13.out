@@ -1,0 +1,118 @@
+job <id> node <node> exclusive
+# Julia 1.10.13 | threads=1 blas_threads=1 | LBTConfig([ILP64] libopenblas64_.so)
+# CPU Intel(R) Xeon(R) Silver 4116 CPU @ 2.10GHz
+# node <node> | job 14330094
+# prev <cluster-dir>/timing321i-t2-1.10/pkg/.codex-orchestrator/runs/run-20261118T0505-issue321-3afc/agents/impl-1/prev
+# base <cluster-dir>-base/base-1.10/pkg
+# head <cluster-dir>/timing321i-t2-1.10/pkg
+# optA <cluster-dir>/timing321i-t2-1.10/pkg/.codex-orchestrator/runs/run-20261118T0505-issue321-3afc/agents/impl-1/optA
+# base source sha256 of src/solvers: 4b1427943bb306a34a0af4040d49d1a15c593bc2e1e88a59d35d4037f27ff86c
+# head source sha256 of src/solvers: b5535616df53fc62b01ef29bccc3ac27e200089fcc57412f2e1e4be33a82137e
+# PB <cluster-dir>/shared-depot/packages/ProximalBase/2welE 0.6.0-DEV
+
+## 1. ordinary cold solves (α = 1/n, standardized, so α‖X‖_F² = p ≥ 2), λ = 0.1 λmax, default options
+ord pgd Float64 100x32	reps=318	iters=11/11/11/11	base_us=40.5	head/base med=1.0012 [0.9998 1.0033]	aa/base med=1.0028 [1.0007 1.0046]	optA/base med=1.0138 [1.0117 1.0158]
+ord apg Float64 100x32	reps=252	iters=9/9/9	base_us=45.9	head/base med=0.9988 [0.9956 1.0013]	aa/base med=1.0005 [0.9992 1.0406]
+ord pgd Float64 1000x100	reps=32	iters=8/8/8/8	base_us=604.2	head/base med=1.0005 [0.9972 1.0040]	aa/base med=0.9997 [0.9969 1.0027]	optA/base med=1.0360 [1.0331 1.0467]
+ord apg Float64 1000x100	reps=30	iters=8/8/8	base_us=669.7	head/base med=1.0025 [0.9978 1.0069]	aa/base med=0.9982 [0.9949 1.0021]
+ord pgd Float64 5000x500	reps=1	iters=7/7/7/7	base_us=25702.5	head/base med=1.0009 [0.9997 1.0027]	aa/base med=1.0006 [0.9981 1.0025]	optA/base med=1.0533 [1.0512 1.0556]
+ord apg Float64 5000x500	reps=1	iters=6/6/6	base_us=27067.6	head/base med=0.9988 [0.9980 1.0016]	aa/base med=0.9997 [0.9975 1.0019]
+ord pgd Float32 100x32	reps=508	iters=11/11/11/11	base_us=31.9	head/base med=1.0037 [1.0023 1.0043]	aa/base med=1.0034 [1.0027 1.0040]	optA/base med=1.0205 [1.0203 1.0223]
+ord apg Float32 100x32	reps=355	iters=10/10/10	base_us=42.6	head/base med=1.0037 [1.0022 1.0062]	aa/base med=1.0017 [1.0000 1.0045]
+ord pgd Float32 1000x100	reps=62	iters=8/8/8/8	base_us=318.0	head/base med=1.0020 [1.0015 1.0025]	aa/base med=1.0020 [1.0014 1.0029]	optA/base med=1.0497 [1.0486 1.0506]
+ord apg Float32 1000x100	reps=50	iters=8/8/8	base_us=401.3	head/base med=0.9998 [0.9993 1.0005]	aa/base med=1.0001 [0.9993 1.0012]
+ord pgd Float32 5000x500	reps=2	iters=7/7/7/7	base_us=12498.3	head/base med=1.0002 [0.9928 1.0072]	aa/base med=1.0006 [0.9932 1.0105]	optA/base med=1.0451 [1.0348 1.0523]
+ord apg Float32 5000x500	reps=2	iters=6/6/6	base_us=12923.3	head/base med=0.9997 [0.9956 1.0070]	aa/base med=1.0023 [0.9925 1.0138]
+
+## 2. tight tolerance (gradtol 1e-9, ftol 0, xtol 1e-12), λ = 0.01 λmax
+
+## 3. warm start at the solution for 2λ
+
+## 4. PGD worst case of the scan: 1 to 4 standardized columns, α‖X‖_F² = target (scan reads all p columns unless it exits at s ≥ 2/α)
+worst pgd Float64 10000x1 α‖X‖²=1.0	reps=54	iters=9/9/9/9	base_us=306.1	head/base med=1.0084 [0.9782 1.0423]	aa/base med=0.9944 [0.9853 1.0373]	optA/base med=1.0015 [0.9749 1.0420]
+worst pgd Float64 10000x1 α‖X‖²=2.0	reps=23	iters=26/26/26/26	base_us=832.5	head/base med=1.0013 [0.9654 1.0309]	aa/base med=0.9994 [0.9372 1.0381]	optA/base med=0.9995 [0.9693 1.0465]
+worst pgd Float64 10000x1 α‖X‖²=4.0	reps=157	iters=1/1/1/1	base_us=115.0	head/base med=1.0075 [0.9385 1.0423]	aa/base med=1.0127 [0.9557 1.0456]	optA/base med=0.9694 [0.9049 1.0117]
+worst pgd Float64 10000x2 α‖X‖²=1.0	reps=57	iters=9/9/9/9	base_us=331.6	head/base med=1.0108 [0.9431 1.0422]	aa/base med=1.0024 [0.9674 1.0233]	optA/base med=1.0150 [0.9801 1.0538]
+worst pgd Float64 10000x2 α‖X‖²=2.0	reps=57	iters=9/9/9/9	base_us=359.0	head/base med=1.0049 [0.9807 1.0289]	aa/base med=0.9894 [0.9629 1.0286]	optA/base med=1.0033 [0.9668 1.0622]
+worst pgd Float64 10000x2 α‖X‖²=4.0	reps=65	iters=6/6/6/6	base_us=286.8	head/base med=1.0081 [0.9575 1.0541]	aa/base med=0.9759 [0.9644 1.0232]	optA/base med=1.0131 [0.9689 1.0640]
+worst pgd Float64 10000x3 α‖X‖²=1.0	reps=40	iters=10/10/10/10	base_us=446.0	head/base med=0.9951 [0.9221 1.0512]	aa/base med=0.9472 [0.8895 0.9965]	optA/base med=1.0109 [0.9712 1.0571]
+worst pgd Float64 10000x3 α‖X‖²=2.0	reps=41	iters=9/9/9/9	base_us=447.4	head/base med=0.9877 [0.9764 1.0172]	aa/base med=0.9314 [0.8903 1.0048]	optA/base med=1.0069 [0.9473 1.0540]
+worst pgd Float64 10000x3 α‖X‖²=4.0	reps=60	iters=9/9/9/9	base_us=478.8	head/base med=1.0071 [0.9703 1.0405]	aa/base med=0.9633 [0.9351 1.0006]	optA/base med=1.0138 [0.9788 1.0512]
+worst pgd Float64 10000x4 α‖X‖²=1.0	reps=46	iters=13/13/13/13	base_us=442.4	head/base med=1.0140 [1.0088 1.0204]	aa/base med=1.0143 [1.0089 1.0189]	optA/base med=1.0159 [1.0100 1.0184]
+worst pgd Float64 10000x4 α‖X‖²=2.0	reps=56	iters=9/9/9/9	base_us=359.0	head/base med=1.0181 [1.0164 1.0200]	aa/base med=1.0185 [1.0165 1.0201]	optA/base med=1.0183 [1.0175 1.0206]
+worst pgd Float64 10000x4 α‖X‖²=4.0	reps=53	iters=9/9/9/9	base_us=383.3	head/base med=1.0080 [1.0036 1.0110]	aa/base med=1.0076 [1.0038 1.0102]	optA/base med=1.0166 [1.0138 1.0191]
+worst pgd Float32 10000x1 α‖X‖²=1.0	reps=121	iters=9/9/9/9	base_us=164.8	head/base med=1.0109 [1.0079 1.0139]	aa/base med=1.0103 [1.0078 1.0127]	optA/base med=1.0096 [1.0072 1.0116]
+worst pgd Float32 10000x1 α‖X‖²=2.0	reps=306	iters=1/1/1/1	base_us=64.1	head/base med=1.0279 [1.0241 1.0345]	aa/base med=1.0283 [1.0223 1.0392]	optA/base med=1.0300 [1.0202 1.0378]
+worst pgd Float32 10000x1 α‖X‖²=4.0	reps=310	iters=1/1/1/1	base_us=64.1	head/base med=1.0264 [1.0173 1.0351]	aa/base med=1.0272 [1.0186 1.0369]	optA/base med=1.0279 [1.0206 1.0369]
+worst pgd Float32 10000x2 α‖X‖²=1.0	reps=118	iters=7/7/7/7	base_us=169.3	head/base med=1.0202 [1.0167 1.0214]	aa/base med=1.0195 [1.0177 1.0233]	optA/base med=1.0193 [1.0178 1.0219]
+worst pgd Float32 10000x2 α‖X‖²=2.0	reps=111	iters=7/7/7/7	base_us=180.0	head/base med=1.0185 [1.0161 1.0212]	aa/base med=1.0188 [1.0161 1.0200]	optA/base med=1.0184 [1.0167 1.0204]
+worst pgd Float32 10000x2 α‖X‖²=4.0	reps=121	iters=6/6/6/6	base_us=165.6	head/base med=1.0088 [1.0077 1.0099]	aa/base med=1.0088 [1.0071 1.0115]	optA/base med=1.0196 [1.0188 1.0207]
+worst pgd Float32 10000x3 α‖X‖²=1.0	reps=80	iters=10/10/10/10	base_us=249.6	head/base med=1.0196 [1.0185 1.0210]	aa/base med=1.0199 [1.0179 1.0208]	optA/base med=1.0194 [1.0180 1.0205]
+worst pgd Float32 10000x3 α‖X‖²=2.0	reps=88	iters=8/8/8/8	base_us=225.3	head/base med=1.0215 [1.0201 1.0223]	aa/base med=1.0211 [1.0190 1.0243]	optA/base med=1.0215 [1.0205 1.0223]
+worst pgd Float32 10000x3 α‖X‖²=4.0	reps=84	iters=8/8/8/8	base_us=237.1	head/base med=1.0142 [1.0127 1.0157]	aa/base med=1.0143 [1.0117 1.0155]	optA/base med=1.0215 [1.0193 1.0226]
+worst pgd Float32 10000x4 α‖X‖²=1.0	reps=78	iters=13/13/13/13	base_us=217.8	head/base med=1.0212 [0.9721 1.0869]	aa/base med=1.0471 [1.0027 1.0693]	optA/base med=1.0173 [0.9544 1.0742]
+worst pgd Float32 10000x4 α‖X‖²=2.0	reps=100	iters=8/8/8/8	base_us=179.1	head/base med=1.0018 [0.9592 1.0554]	aa/base med=1.0103 [0.9456 1.0677]	optA/base med=1.0131 [0.9748 1.0670]
+worst pgd Float32 10000x4 α‖X‖²=4.0	reps=114	iters=8/8/8/8	base_us=197.5	head/base med=1.0016 [0.9753 1.0535]	aa/base med=1.0106 [0.9728 1.0276]	optA/base med=0.9991 [0.9541 1.0387]
+
+## 5. informational: cases where the start changes (the ratio is not a cost, the trajectory differs)
+
+WORST median(head/base) / max(1, median(aa/base)) over the gated cells: 1.0084
+
+## 6. warmed allocations of whole solves (bytes, min of 10 after 3 warm-ups): base / head
+alloc solve	pgd	Float64	100x32	base=3936	head=3936
+alloc solve	apg	Float64	100x32	base=6064	head=6064
+alloc solve	pgd	Float64	1000x100	base=21200	head=21200
+alloc solve	apg	Float64	1000x100	base=37792	head=37792
+alloc solve	pgd	Float32	100x32	base=2384	head=2384
+alloc solve	apg	Float32	100x32	base=3696	head=3696
+alloc solve	pgd	Float32	1000x100	base=11232	head=11232
+alloc solve	apg	Float32	1000x100	base=19872	head=19872
+
+## 6b. integer and Bool loss scales on the full-scan branch (X = [√0.75], y = 1, λ = 0.1; α‖X‖² = 1.5 for α = 2): warmed whole-solve bytes, base / previous commit / head
+alloc int-scale solve	pgd	Float64	α=2.0	base=912	prev=912	head=912
+alloc int-scale solve	pgd	Float64	α=2	base=912	prev=1120	head=912
+alloc int-scale solve	pgd	Float64	α=2	base=912	prev=1120	head=912
+alloc int-scale solve	pgd	Float64	α=true	base=912	prev=1120	head=912
+alloc int-scale solve	apg	Float64	α=2.0	base=1376	prev=1376	head=1376
+alloc int-scale solve	apg	Float64	α=2	base=1584	prev=1584	head=1376
+alloc int-scale solve	apg	Float64	α=2	base=1584	prev=1584	head=1376
+alloc int-scale solve	apg	Float64	α=true	base=1584	prev=1584	head=1376
+alloc int-scale solve	pgd	Float32	α=2.0	base=880	prev=880	head=880
+alloc int-scale solve	pgd	Float32	α=2	base=880	prev=1088	head=880
+alloc int-scale solve	pgd	Float32	α=2	base=880	prev=1088	head=880
+alloc int-scale solve	pgd	Float32	α=true	base=880	prev=1088	head=880
+alloc int-scale solve	apg	Float32	α=2.0	base=1328	prev=1328	head=1328
+alloc int-scale solve	apg	Float32	α=2	base=1536	prev=1536	head=1328
+alloc int-scale solve	apg	Float32	α=2	base=1536	prev=1536	head=1328
+alloc int-scale solve	apg	Float32	α=true	base=1536	prev=1536	head=1328
+
+## 6c. the start alone with an integer scale on the full-scan branch (bytes): previous commit / head
+alloc int-scale start	Float64	α=2	PGD scan prev=208 head=0	APG start prev=208 head=0
+alloc int-scale start	Float64	α=true	PGD scan prev=208 head=0	APG start prev=208 head=0
+alloc int-scale start	Float64	α=2	PGD scan prev=208 head=0	APG start prev=208 head=0
+alloc int-scale start	Float32	α=2	PGD scan prev=208 head=0	APG start prev=208 head=0
+alloc int-scale start	Float32	α=true	PGD scan prev=208 head=0	APG start prev=208 head=0
+alloc int-scale start	Float32	α=2	PGD scan prev=208 head=0	APG start prev=208 head=0
+
+## 7. warmed allocations of the start (bytes), head
+alloc start	early exit	Float32	α::Float32	PGD scan=0	APG start=0	optionA=0
+alloc start	early exit	Float32	α::Float64	PGD scan=0	APG start=0	optionA=0
+alloc start	full pass	Float32	α::Float32	PGD scan=0	APG start=0	optionA=0
+alloc start	full pass	Float32	α::Float64	PGD scan=0	APG start=0	optionA=0
+alloc start	early exit	Float64	α::Float32	PGD scan=0	APG start=0	optionA=0
+alloc start	early exit	Float64	α::Float64	PGD scan=0	APG start=0	optionA=0
+alloc start	full pass	Float64	α::Float32	PGD scan=0	APG start=0	optionA=0
+alloc start	full pass	Float64	α::Float64	PGD scan=0	APG start=0	optionA=0
+alloc start	overflow	Float64	α::Float32	PGD scan=0	APG start=0	optionA=0
+alloc start	overflow	Float64	α::Float64	PGD scan=0	APG start=0	optionA=0
+
+## 8. cost of the start alone (min µs over 300 calls): PGD scan (early exit / full pass), option A (full bound), one product X x, base's L0 = 1 is free
+start cost	Float64	100x32	scan early exit=0.27	scan full pass=1.02	optionA=0.61	mul!(X,x)=0.46
+start cost	Float64	1000x100	scan early exit=0.85	scan full pass=11.07	optionA=9.97	mul!(X,x)=15.94
+start cost	Float64	5000x500	scan early exit=1.75	scan full pass=1280.07	optionA=1235.21	mul!(X,x)=1241.80
+start cost	Float32	100x32	scan early exit=0.27	scan full pass=1.03	optionA=0.59	mul!(X,x)=0.20
+start cost	Float32	1000x100	scan early exit=0.85	scan full pass=11.82	optionA=9.91	mul!(X,x)=5.31
+start cost	Float32	5000x500	scan early exit=1.77	scan full pass=559.73	optionA=546.41	mul!(X,x)=460.16
+sink 14014560
+done
+exit 0

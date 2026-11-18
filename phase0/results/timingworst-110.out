@@ -1,0 +1,16 @@
+job <id> node <node> cpu model name	: Intel(R) Xeon(R) Silver 4116 CPU @ 2.10GHz
+# Julia 1.10.13 | skylake-avx512 | threads=1 blas_threads=1 | LBTConfig([ILP64] libopenblas64_.so)
+# Model name:          Intel(R) Xeon(R) Silver 4116 CPU @ 2.10GHz
+# PS <cluster-dir>/b321-p110/pkg PB <cluster-dir>/shared-depot/packages/ProximalBase/2welE 0.6.0-DEV
+
+## worst case of the early exit: unit-scale problems with few columns (α‖X‖_F² near or below 2), PGD only
+pgd Float64 n=10000 p=1 (α‖X‖_F²=1.0)	reps=38	iters base=9 b1x=9	base_us=201.1	b1x/base median=1.0110 [min 0.9895 max 1.0452]	A/A median=1.0007 [min 0.9767 max 1.0179]
+pgd Float64 n=10000 p=2 (α‖X‖_F²=2.0)	reps=79	iters base=9 b1x=9	base_us=235.8	b1x/base median=1.0148 [min 1.0101 max 1.0418]	A/A median=0.9976 [min 0.9848 max 1.0375]
+pgd Float64 n=10000 p=3 (α‖X‖_F²=3.0)	reps=61	iters base=9 b1x=9	base_us=371.7	b1x/base median=0.9904 [min 0.9413 max 1.0615]	A/A median=1.0002 [min 0.9565 max 1.0499]
+pgd Float64 n=2000 p=4 (α‖X‖_F²=3.998)	reps=154	iters base=9 b1x=9	base_us=83.8	b1x/base median=1.0131 [min 1.0036 max 1.0152]	A/A median=1.0002 [min 0.9920 max 1.0021]
+pgd Float32 n=10000 p=1 (α‖X‖_F²=1.0)	reps=90	iters base=9 b1x=8	base_us=166.7	b1x/base median=0.9522 [min 0.9502 max 0.9538]	A/A median=0.9996 [min 0.9977 max 1.0019]
+pgd Float32 n=10000 p=2 (α‖X‖_F²=2.0)	reps=119	iters base=7 b1x=7	base_us=165.2	b1x/base median=1.0392 [min 1.0369 max 1.0416]	A/A median=1.0002 [min 0.9970 max 1.0015]
+pgd Float32 n=10000 p=3 (α‖X‖_F²=3.0)	reps=85	iters base=8 b1x=8	base_us=239.0	b1x/base median=1.0202 [min 1.0187 max 1.0272]	A/A median=1.0003 [min 0.9990 max 1.0118]
+pgd Float32 n=2000 p=4 (α‖X‖_F²=3.998)	reps=287	iters base=8 b1x=8	base_us=31.3	b1x/base median=1.0191 [min 1.0094 max 1.0230]	A/A median=1.0003 [min 0.9913 max 1.0042]
+done
+exit 0
