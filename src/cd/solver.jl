@@ -112,6 +112,29 @@ is not finite can occur during a pass; `x` is then unchanged, and the RNG may ha
 advanced. The curvature rule and the refusals are described in the numerical
 guide.
 
+**Multi-response group lasso.** With `T` equal to `Float32` or `Float64`, `X::Matrix{T}` (`n` by `p`),
+`Y::Matrix{T}` (`n` by `K`), `B::Matrix{T}` (`p` by `K`), `f = LeastSquaresLoss(Y, X)` (or one positive scalar
+multiple of it, with loss scale `s`) and
+`g = GroupNormL2(lambda, [collect(j:p:p*K) for j in 1:p])` (or with weights, by default `sqrt(K)`), the call
+`solve!(B, f, g, CDSolver(order=:cyclic, momentum=false))` minimizes
+`(s/2) * sum(abs2, Y - X*B) + lambda * sum(w[j] * norm(B[j, :]) for j in 1:p)` from the original `X` and `Y`, without a
+Kronecker design, and returns `B` itself as `minimizer`. The groups of `g` must be the rows of `B`,
+`g.groups[j] == j:p:p*K`, in this order, otherwise a `DimensionMismatch` is thrown. A visit to row `j` costs
+`O(n K)`, and the solver keeps an `n` by `K` residual and `O(p K)` further storage. The run is on a private
+`BlockIterate` over `vec(B)`, and `B` is written only after a completed run with a finite objective. A
+`BlockIterate` over `vec(B)` with the same groups and loss is accepted too. The penalty, the loss scale,
+the refusal of `momentum = true` and the meaning of `converged` (the change test, not a KKT certificate) are
+those of the group lasso above. `B` must share no memory with `X`, `Y`, the penalty weights or the scratch array
+of the loss. With `maxpasses > 0`, an `ArgumentError` that names the row refuses, before the first pass, a column
+of `X` whose squared norm `a` is not finite or is below `floatmin(T)`, unless the column is zero, and a column
+for which `s * a` or its reciprocal is below `floatmin` of the type that combines `s` with `T`. With
+`relative=true` and a positive response scale, the change of row `j` is `norm` of its displacement times
+`sqrt(s * a)` and the response scale is `sqrt(s * sum(abs2, Y))`, both up to rounding in the normal range.
+A zero column of `X` sets its row to 0 at a visit where the level and the weight are positive, and leaves the
+row as it is where either is 0; with `maxpasses = 0` no row is visited, the column checks are not made and `B`
+keeps its values. `ProximalGradientDescent`, `AccProxGradDescent`, a `NormL1` or `ElasticNet` penalty,
+`SqrtLeastSquaresLoss` and a vector response with a `Matrix` coefficient are refused with an `ArgumentError`.
+
 **Square-root lasso.** With `T` equal to `Float32` or `Float64`, `X::Matrix{T}`, `y::Vector{T}`,
 ProximalBase's `f = SqrtLeastSquaresLoss(y, X)` and `g = NormL1(lambda)`, the call
 `solve!(x, f, g, CDSolver(...))` minimizes `P(beta) = norm(y - X*beta) + lambda * norm(beta, 1)`,
@@ -541,6 +564,15 @@ function _solve_owner!(x::Union{SparseIterate, BlockIterate}, f, g, method::CDSo
   copyto!(x, work)
   CDResults(x, result_value, st.passes, st.converged, st.maxchange, st.tolerance, 0, gap)
 end
+# The matrix-response route: the run is on a private BlockIterate over vec(B), built with the groups of the
+# penalty (the rows of B, which `_check_matrix_problem` checks), and B changes only at the final copy. The gate
+# refuses a B that shares memory with X, Y, the penalty weights or the scratch of the loss.
+function _solve_matrix!(B::Matrix, f, g, method::CDSolver)
+  work = BlockIterate(vec(B), g.groups)
+  st, result_value, gap = _run_cd!(work, f, g, method)
+  copyto!(vec(B), work)
+  CDResults(B, result_value, st.passes, st.converged, st.maxchange, st.tolerance, 0, gap)
+end
 function _copy_dense!(dest::Vector{T}, src::SparseIterate{T}) where {T}
   fill!(dest, zero(T))
   @inbounds for k in _activeentries(src)
@@ -557,6 +589,9 @@ function solve!(x, f, g, method::CDSolver; kwargs...)
   elseif x isa BlockIterate
     _check_block_problem(x, f, g, method)
     return _solve_owner!(x, f, g, method)
+  elseif x isa Matrix && _is_matrix_response(f)
+    _check_matrix_problem(x, f, g, method)
+    return _solve_matrix!(x, f, g, method)
   end
   _check_problem(x, f, g, :cd)
   _solve_dense!(x, f, g, method)
