@@ -995,11 +995,12 @@ end
       @test isempty(m.colbuf)             # the closed form, without the buffers of the general route
       @test majorizes_exact(ℓ, exact_gram2(X))
     end
-    # just outside the gate (t̂ = fl(x²) below 2^-480, at 2^520, or one ulp above 2^500): the general route, whose
-    # value is returned
-    for x in (sqrt(prevfloat(ldexp(1.0, -480))), 2.0^260, nextfloat(2.0^250))
-      X = [x 0.0]
-      @test !(0x1p-480 <= x * x <= 0x1p500)
+    # the immediate neighbours outside the gate, t̂ = prevfloat(2^-480) and nextfloat(2^500), and a far case, t̂ = 2^520:
+    # the general route, whose value is returned. With one row the code forms t̂ = fl(fl(x²) + fl(y²)).
+    for (X, t) in (([prevfloat(2.0^-240) ldexp(sqrt(2.0), -267)], prevfloat(ldexp(1.0, -480))),
+                   ([2.0^250 2.0^224], nextfloat(ldexp(1.0, 500))),
+                   ([2.0^260 0.0], ldexp(1.0, 520)))
+      @test X[1, 1] * X[1, 1] + X[1, 2] * X[1, 2] === t
       m = pair_model(X)
       ℓ = PS._group_curvature!(m, 1:2, 1)
       @test ℓ === general_outcome(X)[2]
@@ -1009,8 +1010,8 @@ end
   end
 
   # `solve!` refuses data with a NaN or infinite entry before the preparation (`finite values`,
-  # test/group_cd_preflight.jl), so the model is called directly. t̂ is NaN or Inf, both comparisons of the gate
-  # are false, and the general route refuses the data as overflow.
+  # test/group_cd_preflight.jl), so the model is called directly. t̂ is NaN or Inf, for which the gate predicate is
+  # false, and the general route refuses the data as overflow.
   @testset "nonfinite data and an infinite trace take the general route" begin
     cases = Matrix[]
     for T in TYPES, v in (T(NaN), T(Inf), -T(Inf))
@@ -1078,6 +1079,7 @@ end
                         fragment = "step of group 1")
   end
 
+  # with the Int range 1:2 as the indices of the group
   @testset "a warmed closed-form curvature allocates nothing" begin
     for T in TYPES
       m = pair_model(T.(randn(Xoshiro(341), 40, 2)))

@@ -327,8 +327,8 @@ end
 # `_gram2_curvature`, which passes a group outside its gate to `_gram_curvature!`; any other group takes
 # `_gram_curvature!`. It throws the refusals of the route taken and of the band. `_gram_curvature!`
 # allocates the eigensolve of a group of two or more columns, once per group and solve (none for a
-# singleton), and its first call also allocates the buffers of the model; `_gram2_curvature` does not
-# allocate where it returns a curvature from inside its gate.
+# singleton), and its first call also allocates the buffers of the model. Inside its gate,
+# `_gram2_curvature` uses no copy of the columns, no Gram buffers and no eigensolver workspace.
 @noinline function _group_curvature!(m::BlockLSModel, idx, k::Int)
   ℓ = length(idx) == 2 ? _gram2_curvature(m, idx, k) : _gram_curvature!(m, idx, k)
   _check_step_band(m.ls, ℓ, k)
@@ -353,8 +353,8 @@ end
 #   M̂ = fl((n + 4) eps(W) t̂),  d̂ = fl(â − b̂),  ê = 2ĉ
 # (in exact arithmetic μ̂ would be λmax(Ĝ) for Ĝ = [â ĉ; ĉ b̂]), which is rounded up to T as in
 # `_gram_curvature`, with its refusals: an ℓ that is Inf in T as overflow and an ℓ below floatmin(T) as
-# underflow. Outside the gate, which includes a t̂ that is NaN or Inf (nonfinite data; both comparisons
-# are then false), `_gram_curvature!` decides, with its refusals and its eigensolver model.
+# underflow. Outside the gate, which includes a t̂ that is NaN or Inf (nonfinite data, for which the gate
+# predicate is false), `_gram_curvature!` decides, with its refusals and its eigensolver model.
 # Claim: inside the gate, ℓW ≥ λ + ((6/7) n + 3) u t̂ > λ, with λ = λmax(G) for the exact Gram matrix
 # G = [a c; c b] of the stored columns and u = eps(W)/2, and a returned ℓ satisfies ℓ ≥ ℓW. It assumes
 # IEEE binary64 arithmetic, round to nearest, with gradual underflow (subnormals not flushed to zero),
@@ -398,7 +398,9 @@ end
 # curvatures (the margins differ, and μ̂ and the eigensolver's μ differ in the last bits), so their
 # decisions can differ where the two working curvatures, or the rounded band products s ℓ and their
 # reciprocals, fall on different sides of an effective boundary: prevfloat(floatmin(T)) and floatmax(T)
-# for the working curvature before the rounding up to T, and floatmin(S) for s ℓ and 1/(s ℓ). Then a
+# for the working curvature before the rounding up to T (a working curvature at or below the first is
+# refused as underflow, one strictly above it rounds up to at least floatmin(T), and one above the second
+# is refused as overflow), and floatmin(S) for s ℓ and 1/(s ℓ). Then a
 # curvature that the general route refuses as overflow can be accepted (and then be refused by the band
 # check, so the first reported message changes), a curvature that the general route accepts can be refused
 # as underflow, and a band decision can change in either direction (test/group_cd.jl has a witness of

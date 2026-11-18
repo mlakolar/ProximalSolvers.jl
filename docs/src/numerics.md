@@ -492,8 +492,11 @@ differ, and the computed eigenvalue differs from the closed form in the last bit
 refusal categories and messages are those of the table below, but where the two bounds,
 or the steps `s ℓ_k` formed from them and their reciprocals, fall on different sides of a
 refusal threshold, the decision can differ from the one that the general rule would make.
-The thresholds are the ends of the normal range of `T` for the bound before its rounding
-to `T`, and the smallest normal number of `S` (see below) for `s ℓ_k` and its reciprocal.
+For the bound in `Float64` before its rounding up to `T`, the thresholds are
+`prevfloat(floatmin(T))` and `floatmax(T)`: a bound at or below `prevfloat(floatmin(T))` is
+refused as underflow, a bound strictly above it rounds up to at least `floatmin(T)`, and a
+bound above `floatmax(T)` is refused as overflow. For `s ℓ_k` and its reciprocal the
+threshold is the smallest normal number of `S` (see below).
 Then a bound that the general rule refuses as overflow can be accepted (and then be
 refused by the step check, with the step message), a bound that it accepts can be refused
 as underflow, and a step decision can change in either direction. The gap between the two
