@@ -3,6 +3,55 @@
 This page describes **the current GitHub development master branch**, not
 the wider feature set in historical releases.
 
+## Problem × solver matrix
+
+The table lists the combinations of problem, solver, iterate and element type with verified
+support: `solve!` accepts the combination, and a test under `test/` checks the returned point
+against an independent reference for each element type listed. An entry "Float32, Float64"
+means both; a letter refers to a limit in the notes below the table. A dash means that
+`solve!` refuses the combination with an `ArgumentError`. A combination that is not in the
+table is not supported; the sections below give the exact input rules, and
+[What is not supported yet?](@ref "What is not supported yet?") lists what is deferred.
+
+| Problem | `CDSolver` on a `Vector` | `CDSolver` on a `SparseIterate` | `CDSolver` on a `BlockIterate` | `ProximalGradientDescent` on a `Vector` | `AccProxGradDescent` on a `Vector` | Tutorial |
+| --- | --- | --- | --- | --- | --- | --- |
+| Lasso: `LeastSquaresLoss`, `NormL1` | Float32, Float64 | Float32, Float64 | — | Float32 (a), Float64 | Float32 (a, b), Float64 (b) | [Lasso](examples/problems/lasso.md) |
+| Elastic net: `ElasticNet` | Float32, Float64 (c) | Float32, Float64 (c) | — | Float32 (a), Float64 | Float32 (a, b), Float64 (b) | [Elastic net](examples/problems/elastic_net.md) |
+| Group lasso: `GroupNormL2` | — | — | Float32, Float64 (d) | — | — | [Group lasso](examples/problems/group_lasso.md) |
+| Square-root lasso: `SqrtLeastSquaresLoss`, `NormL1` | Float32, Float64 (e) | Float32, Float64 (e) | — | — | — | [Square-root lasso](examples/problems/square_root_lasso.md) |
+
+All rows are unweighted penalties on the dense least-squares loss `LeastSquaresLoss` (or one
+positive scalar multiple of it; the square-root lasso takes the unscaled loss), with a dense
+`Matrix` design. For `CDSolver`, `converged = true` is the test on the change of the
+coefficients over a pass and not a certificate of optimality, except for the square-root
+lasso (note e).
+
+- **(a)** `ProximalGradientDescent` and `AccProxGradDescent` accept `Float32` data, and the
+  tests check the returned point against `BigFloat` or `Float64` references with
+  `Float32`-sized tolerances, and do not require `converged = true`, because a `Float32`
+  solve can end without it: with `ftol = 0`, `ProximalGradientDescent` can stop at
+  numerical stagnation with `stagnated = true` and `converged = false`, and with the default
+  options a solve can end on the objective-increase exit with `converged = false`. Assess the
+  returned point with an independent residual; see [Numerical behavior](numerics.md).
+- **(b)** `AccProxGradDescent` also needs `max(n, p) + 4 < 1/(4 eps(T))` and
+  `n p + 3 < 1/(4 eps(Float64))` (see "What works today?" below). The tests do not exercise
+  sizes near this bound.
+- **(c)** The elastic net is accepted for the least-squares loss with an unweighted
+  `ElasticNet(lambda1, lambda2)`. `CDSolver` with `lambda2 > 0` refuses a coordinate whose
+  step is out of the range of the arithmetic; see [Numerical behavior](numerics.md).
+- **(d)** `CDSolver` on a `BlockIterate` refuses `momentum = true`, and accepts a `Float64`
+  penalty with `Float32` data (tested). Its groups must equal those of the iterate.
+- **(e)** The square-root lasso needs the unscaled `SqrtLeastSquaresLoss` and `lambda > 0`.
+  `converged = true` means that a duality certificate proved a relative gap of at most
+  `1e-4`; a run without a certificate reports `converged = false`, and `Float32` runs can end
+  uncertified.
+
+**Updating the matrix.** A pull request that adds or removes support for a combination
+changes its cell and its tutorial link in the same pull request, together with the test
+that backs the new cell. A pull request that adds a problem adds a row, a tutorial under
+`examples/problems/` (or registers the path of its example) and its entry in the registry
+in `docs/make.jl`.
+
 ## What works today?
 
 The supported objective is a lasso (CD also solves a group lasso on a `BlockIterate` and a
@@ -91,7 +140,7 @@ stops without a certificate reports `converged = false` and `gap = NaN`, with it
 fit (`y = X*beta`) with a positive penalty, coordinate descent can stop at a point that minimizes every
 coordinate but not `P`. [`CDSolver`](@ref) describes the stopping rule, and
 [Numerical behavior](numerics.md) the step and the certificate.
-[The square-root lasso example](examples/09_square_root_lasso.md) solves a seeded problem, checks it
+[The square-root lasso tutorial](examples/problems/square_root_lasso.md) solves a seeded problem, checks it
 independently from the data, and shows two exact fits.
 
 The three numerical arrays use one common `T` (`Float32` or
