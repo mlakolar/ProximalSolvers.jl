@@ -56,7 +56,11 @@ precision the conversion to `T` and the product can round, or overflow to `Inf` 
 `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))`, in that sense. It is not an exact-arithmetic
 certificate, it does not bound the distance to a minimizer, and it does not guarantee
 coefficient accuracy on ill-conditioned designs (see the
-[stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)). A `gradtol` below `64 eps(T)`, including
+[stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)).
+The check uses the solver's working-precision products, so a gradient product that underflows or
+cancels can pass it at a point that is not stationary (see
+[the limits of the stopping tests](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#Limits-of-the-stopping-tests)).
+A `gradtol` below `64 eps(T)`, including
 `0`, gives the bound `64 eps(T) max(λ, λmax)`. For `AccProxGradDescent` the check
 forms `∇f(x)` from the cached image `A x` at each iteration at which a stop is
 proposed, and counts that evaluation in `grad_calls`.

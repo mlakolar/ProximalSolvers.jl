@@ -51,7 +51,11 @@ coordinate step forms its threshold `lambda / (s * a)` without them.
 `relative=false` makes the threshold an absolute change threshold;
 `maxpasses` limits the run. For least squares (lasso and elastic net) and the group lasso, an end-of-pass
 convergence flag does not guarantee a small KKT residual; for reported fits, check
-optimality independently. Anderson acceleration, a user-set gap target and screening
+optimality independently. What the change test implies, and where it can be met away
+from a minimizer (a product that underflows or cancels, a warm start far above the
+solution scale), is described in the
+[numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#Limits-of-the-stopping-tests).
+Anderson acceleration, a user-set gap target and screening
 are not implemented: `anderson`, `gaptol` and `gapsafe` are accepted only
 at their defaults, are not stored, and other values are rejected.
 
