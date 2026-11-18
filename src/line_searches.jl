@@ -52,20 +52,15 @@ whose square underflows), when `L̂` is NaN, or when a gradient estimate comes
 from a gradient `∇f(x)` with a nonfinite entry. Accepted trials are not checked.
 
 In gradient mode a zero gradient-difference product gives `L̂ = 0`, and the trial is
-accepted. This includes the case of Float64 data with `‖d̂‖²` below
-`2/floatmax(Float64)` (about 1.1e-308), where `2/‖d̂‖²` overflows. Scaling the product
-would give `0 · Inf = NaN`, and a NaN estimate raises
-`line search failed: nonfinite curvature estimate` for a trial that is not accepted
-first (accepted trials include `L ≥ Lexact`). A subnormal `‖d̂‖²` can make the Float64
-estimates unreliable, and the guard does not make a solve converge at such scales: a
-solve can still end with `converged = false`. A subnormal `‖d̂‖²` together with a nonzero
-product, or with function-value rounding noise (`f(x) > q`, with `q` the quadratic
-model at the trial `x`), can give `L̂ = Inf`. If `L < Lexact` and, in gradient mode,
-`∇f(x)` is finite, that rejection is decided again by the computed curvature `c` of the
-step. When that check runs and `sum(abs2, d̂)` underflows to 0 while `‖d̂‖² > 0` (every entry of `d̂` below
-about 1.57e-162), `c` is not finite and the estimate `L̂ = Inf` is kept; with the default
-`Lexact = Inf` the solve can then still raise the error above, and a finite `Lexact` caps
-`L` instead. That case is not handled.
+accepted. This includes Float64 data with `‖d̂‖²` below `2/floatmax(Float64)` (about
+1.1e-308), where `2/‖d̂‖²` overflows and scaling the product would give `0 · Inf = NaN`.
+A subnormal `‖d̂‖²` can make the Float64 estimates unreliable, and this does not make a
+solve converge at such scales: a solve can still end with `converged = false` or with a
+line-search error. One case is not handled: a subnormal `‖d̂‖²` with a nonzero product, or
+with function-value rounding noise (`f(x) > q`, with `q` the quadratic model at the trial
+`x`), can give `L̂ = Inf`, and when `sum(abs2, d̂)` underflows to 0 while `‖d̂‖² > 0` (every
+entry of `d̂` below about 1.57e-162), the computed curvature of the step is not finite and
+does not replace that estimate.
 See [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
 
 The object holds settings only and can be shared between solves; the
@@ -170,9 +165,9 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
     # subnormals or a subnormal entry of d̂, and for Float64 data from over- or underflow of a
     # sum of squares) leaves TFOCS's estimate. A NaN estimate, or a gradient estimate from a
     # nonfinite ∇f(x), is kept: the update and the error check below run on it as before. A
-    # NaN estimate raises the error when the trial was rejected (L < Lexact; a zero gradient-difference
+    # NaN estimate of a rejected trial (L < Lexact) raises an error (a zero gradient-difference
     # product is not scaled above, so an overflowing 2 / xy_sq does not turn it into NaN); an
-    # infinite one raises it unless a finite Lexact caps L.
+    # infinite one raises an error unless a finite Lexact caps L.
     # verified: this rejection's check ran and replaced L̂ by a finite computed curvature c
     verified = false
     if !isnan(local_l) && (!gradient_mode || all(isfinite, state.grad_f_x))

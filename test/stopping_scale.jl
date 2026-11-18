@@ -455,9 +455,8 @@ end
   # bounds ‖G‖∞ by U = eG + τ (1 + 4u)(S + eS) (the stopping threshold τ S plus the rounding
   # estimates of kkt_excess). σlo is a candidate lower bound on σmin: the computed least singular
   # value of X less p eps σmax. It is not claimed from the backward stability of the SVD; it is
-  # certified below by a Cholesky factorization of XᵀX - σlo² I in 256-bit BigFloat (XᵀX is
-  # exact at 256 bits for Float64 data of this size). Success certifies λmin(XᵀX) > σlo², up to
-  # the 256-bit rounding of the factorization, which is far below the margin.
+  # certified below by a Cholesky factorization of XᵀX - σlo² I in 256-bit BigFloat (for this fixture's values, XᵀX is exact at 256 bits). Success certifies λmin(XᵀX) > σlo², up to
+  # the 256-bit rounding of the factorization, which for this fixture is far below the margin.
   τ = max(STRICT.gradtol, 64 * eps())
   _, S, eG, eS, u = kkt_parts(X, y, α, λ, x, Float64)
   setprecision(BigFloat, 256) do
