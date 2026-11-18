@@ -618,8 +618,10 @@ end
 
 # As pgd_strict_solve in Float32 with PGD, with a callback that records the first iteration at which
 # the caller's x (the solver iterates in it) differs from x0 and the first at which its independent
-# relative gap is at most `target` (0 if none)
-function pgd_recording_solve(X, y, s, λ, x0, maxiter; target = 1e-5)
+# relative gap is at most `target` (0 if none). With `L0` given, the curvature estimate at the start is
+# set to Float32(L0) in the state that `solve!` builds, and the solve then runs through the same
+# `_solve_gradient!` call that `solve!` makes.
+function pgd_recording_solve(X, y, s, λ, x0, maxiter; target = 1e-5, L0 = nothing)
   A, b = Float32.(X), Float32.(y)
   A64, b64 = Float64.(A), Float64.(b)
   s64, λ64 = Float64(Float32(s)), Float64(Float32(λ))
@@ -633,7 +635,15 @@ function pgd_recording_solve(X, y, s, λ, x0, maxiter; target = 1e-5)
     first_target == 0 && pgd_relative_gap(A64, b64, s64, λ64, x) <= target && (first_target = k)
     false
   end
-  r = solve!(x, f, g, ProximalGradientDescent(), pgd_strict(maxiter; callback))
+  method, options = ProximalGradientDescent(), pgd_strict(maxiter; callback)
+  if L0 === nothing
+    r = solve!(x, f, g, method, options)
+  else
+    PS._check_problem(x, f, g)
+    state = PS.initial_state(method, options, f, g, x)
+    state.L = Float32(L0)
+    r = PS._solve_gradient!(state, f, g, method, options)
+  end
   (; r, x, gap = pgd_relative_gap(A64, b64, s64, λ64, x), first_change, first_target)
 end
 
@@ -657,15 +667,16 @@ end
 
 @testset "PGD Float32 strict: an inflated initial curvature does not stop the solve during the initial stalls (#308)" begin
   # X and y scaled by c = 1e-6 and λ by c² (the objective is c² times the original, with the same
-  # minimizer), start at ones: the first L = 1 is far above the curvature of the problem, so the
-  # steps round to zero until L has fallen. Those iterations are exact stalls without a rejection
+  # minimizer), start at ones: the first L = 1 is set explicitly (it was the start before the scale-aware
+  # estimate of #321, which is now near the curvature), and it is far above the curvature of the problem,
+  # so the steps round to zero until L has fallen. Those iterations are exact stalls without a rejection
   # and must not stop the solve. The stall streak asserted below is at least 39 iterations and the
   # target is first met after it, so a rule that stopped after at most 39 consecutive stalls would
   # stop before the target.
   c = 1e-6
   for seed in (33, 34, 35)
     X, y, s, λ = pgd_lasso_design(seed, 100, 32)
-    o = pgd_recording_solve(c .* X, c .* y, s, c^2 * λ, ones(32), 2000)
+    o = pgd_recording_solve(c .* X, c .* y, s, c^2 * λ, ones(32), 2000; L0 = 1)
     @test o.first_change >= 40
     @test o.first_change < o.first_target
     @test 0 < o.first_target <= o.r.iterations
