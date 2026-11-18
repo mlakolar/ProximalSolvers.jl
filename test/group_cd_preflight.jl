@@ -203,7 +203,8 @@ accepted(x, f, g; method = CDSolver(order = :random)) = PS._check_block_problem(
         x = copy(start)
         err = try solve!(x, f, g, method) catch e e end
         @test err isa ArgumentError
-        @test err !== nothing && occursin("only NormL1 or unweighted ElasticNet is supported", message(err))
+        # the gradient methods' gate also accepts a NormLinf (#338), so its refusal names it
+        @test err !== nothing && occursin("only NormL1, unweighted ElasticNet or NormLinf is supported", message(err))
         @test isequal(x, start)
       end
     end

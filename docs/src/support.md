@@ -22,6 +22,7 @@ as supported in the table is not verified; the sections below give the exact inp
 | Multi-response group lasso: `LeastSquaresLoss` with a matrix response, `GroupNormL2` on the rows of the coefficients | — | — | Float32, Float64 (g) | Float32, Float64 (g) | — | — | none yet |
 | Square-root lasso: `SqrtLeastSquaresLoss`, `NormL1` | Float32, Float64 (e) | Float32, Float64 (e) | — | — | — | — | [Square-root lasso](examples/problems/square_root_lasso.md) |
 | Centered squared norm: `SqrNormL2(alpha, s)`, `NormL1` | Float32, Float64 (h) | Float32, Float64 (h) | — | — | Float32 (a, h), Float64 (h) | Float32 (a, b, h), Float64 (b, h) | [Sparse covariance thresholding](examples/problems/sparse_covariance_soft_thresholding.md) |
+| ℓ∞-penalized least squares: `LeastSquaresLoss`, `NormLinf` | — | — | — | — | Float32 (a), Float64 | Float32 (a, b), Float64 (b) | [ℓ∞ penalty](examples/problems/linf_regularized_regression.md) |
 
 `NormL1` and `ElasticNet` are unweighted where they appear in the table, except in the weighted-lasso row,
 where `NormL1(lambda, w)` has one weight per coefficient. `GroupNormL2` takes its group
@@ -115,7 +116,8 @@ elastic net
 \min_\beta\quad \frac{s}{2}\|y-X\beta\|_2^2+\lambda_1\|\beta\|_1+\frac{\lambda_2}{2}\|\beta\|_2^2,
 ~~~
 
-with `ElasticNet(lambda1, lambda2)`. In the normal range, `CDSolver` takes the coordinate step of a visit from
+with `ElasticNet(lambda1, lambda2)`. `ProximalGradientDescent` and `AccProxGradDescent` also solve the
+ℓ∞-penalized problem (below). In the normal range, `CDSolver` takes the coordinate step of a visit from
 ProximalBase's `prox_block` of the penalty; out of range, the step of a visit with `lambda2 = 0` is the lasso's
 range-safe form and a visit with `lambda2 > 0` is refused (see [the numerical guide](numerics.md)). Its `converged` is the change test, not a KKT
 certificate.
@@ -126,7 +128,7 @@ certificate.
 | Response `y` | Finite vector with the same element type and `length(y) == size(X,1)` |
 | Coefficients `beta` | Same-type dense vector for CD, PGD or APG; alternatively, one-dimensional ProximalBase `SparseIterate` for CD only |
 | Loss | `LeastSquaresLoss` or one finite positive scalar multiple of it; for `CDSolver` on a dense vector or a `SparseIterate`, also ProximalBase's `SqrtLeastSquaresLoss` (unscaled; see below) |
-| Penalty | With the least-squares loss, `NormL1(lambda)` or `NormL1(lambda, w)` with nonnegative finite `lambda` and, for `w`, a `Vector{T}` of finite nonnegative weights (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`); an unweighted `NormL1(lambda)` with positive `lambda` with `SqrtLeastSquaresLoss`; unweighted `ElasticNet(lambda1, lambda2)` with nonnegative finite levels (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`, with the least-squares loss; with CD and `lambda2 > 0`, a coordinate step outside the normal range is refused, see [the numerical guide](numerics.md)) |
+| Penalty | With the least-squares loss, `NormL1(lambda)` or `NormL1(lambda, w)` with nonnegative finite `lambda` and, for `w`, a `Vector{T}` of finite nonnegative weights (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`); an unweighted `NormL1(lambda)` with positive `lambda` with `SqrtLeastSquaresLoss`; unweighted `ElasticNet(lambda1, lambda2)` with nonnegative finite levels (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`, with the least-squares loss; with CD and `lambda2 > 0`, a coordinate step outside the normal range is refused, see [the numerical guide](numerics.md)); `NormLinf(lambda)` with a nonnegative finite `lambda` representable in `T` (PGD and APG on a dense vector, least-squares loss only; refused by `CDSolver`) |
 | Centered squared norm | `SqrNormL2(alpha, s)` with a finite `s::Vector{T}` of the length of the coefficients, an `alpha` accepted as a loss scale, and an unweighted `NormL1(lambda)` (CD, PGD and APG on a dense vector, CD on a `SparseIterate`; see [Centered squared norm](@ref centered-sqnorm-support)) |
 | Solvers | `CDSolver`, `ProximalGradientDescent`, `AccProxGradDescent` (APG also needs `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 3 < 1/(4 eps(Float64))`) |
 | Group lasso | `CDSolver` only, with a ProximalBase `BlockIterate{Float32}` or `BlockIterate{Float64}` as the coefficients and a `GroupNormL2{Float32}` or `GroupNormL2{Float64}` penalty, on the same dense least-squares loss (see below) |
@@ -163,6 +165,24 @@ Where `c_j` is used, and where it is not. The checks above, the stopping check o
 `converged` remains the change test. A scaled penalty such as `Scaled(NormL1(lambda, w), a)`, and `ElasticNet` with
 weights, are refused. [The weighted-lasso tutorial](examples/problems/weighted_lasso.md) solves an adaptive lasso with a zero
 weight with all three solvers.
+
+### ℓ∞ penalty with PGD and APG
+
+~~~math
+\min_\beta\quad \frac{s}{2}\|y-X\beta\|_2^2+\lambda\|\beta\|_\infty,\qquad \|\beta\|_\infty=\max_j|\beta_j|,
+~~~
+
+with `NormLinf(lambda)`, `s = 1` for a raw `LeastSquaresLoss` and the loss scale of one positive `Scaled(LeastSquaresLoss)`
+otherwise (`s = 1/n` for the normalized convention). `solve!(x, f, g, ProximalGradientDescent())` and
+`solve!(x, f, g, AccProxGradDescent())` accept it when `x` is a dense `Vector{T}`, `X` and `y` are as above with the same `T`,
+and `lambda` is finite, nonnegative and representable in `T` without overflow or underflow of a nonzero value; a negative or `NaN`
+level cannot be constructed (ProximalBase refuses it), and the other refusals leave `x` unchanged. A wrapper such as
+`Scaled(NormLinf(lambda), c)` is refused with the other unsupported penalties. `CDSolver` refuses
+`NormLinf` for a dense `Vector`, a `SparseIterate` and a `BlockIterate`, before it changes `x` or draws from its random number
+generator: this `CDSolver` needs a separable penalty for its coordinate oracle.
+The proximal operator is ProximalBase's. In exact arithmetic, 0 is a minimizer exactly when `lambda ≥ ‖∇f(0)‖₁ = s‖Xᵀy‖₁` (not the lasso's
+`‖∇f(0)‖∞`). A proposed stop is verified by [the generic check](numerics.md#The-generic-stationarity-check). For an example with both solvers, see
+[the ℓ∞ tutorial](examples/problems/linf_regularized_regression.md).
 
 ### Group lasso with coordinate descent
 
@@ -370,6 +390,7 @@ The current development core intentionally excludes the following:
 | Generic workspaces, refitting, reweighting | Deferred |
 | PGD or APG with `SparseIterate` coefficients | Deferred |
 | PGD or APG with `BlockIterate` or `Matrix` coefficients, a matrix response or a `GroupNormL2` penalty | Deferred; refused with an `ArgumentError` |
+| `CDSolver` with `NormLinf`; `Scaled(NormLinf)`; `NormLinf` with a loss other than least squares | Refused with an `ArgumentError` (this `CDSolver` needs a separable penalty; the others deferred) |
 | Momentum (`momentum = true`) with a `BlockIterate` | Rejected; not implemented |
 | Group lasso with a sparse design, mixed-element-type arrays or a loss other than least squares | Deferred |
 | CD `anderson>0`, `gaptol>0`, `gapsafe=true` | Rejected; not implemented |
