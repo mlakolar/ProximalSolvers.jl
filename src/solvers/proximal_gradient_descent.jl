@@ -247,7 +247,7 @@ function _step_curvature(state::ProximalGradientDescentState{Float32}, m)
     c <= state.L, Float32(c)
 end
 
-# Σ vᵢ² of a Float32 vector, accumulated in Float64
+# Σ vᵢ² of an array of Float32 or Float64, accumulated in Float64
 function _sumsq64(v)
     s = 0.0
     @inbounds @simd for i in eachindex(v)

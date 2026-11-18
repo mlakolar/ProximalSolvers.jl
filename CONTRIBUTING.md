@@ -1,7 +1,7 @@
 # Developing the minimal dense core
 
 Keep PB's committed exact source pin fixed outside a reviewed integration PR. The supported surface is dense
-Float32/Float64 LS with an unweighted L1 penalty (and, for PGD and APG only, an unweighted ElasticNet); unsupported features need separate reviewed
+Float32/Float64 LS with an unweighted L1 penalty (and an unweighted ElasticNet, for CD, PGD and APG); unsupported features need separate reviewed
 restoration PRs. No version bump or release follows from the reduction.
 
 ```sh

@@ -547,7 +547,7 @@ full pass whose largest change is below the threshold ends the solve with
 
 `converged = true` reports that change test only. It is not a certificate of optimality:
 compute the group KKT conditions from the data, as in
-[Example 6](examples/06_group_cd_lasso.md), where for `∇ = s Xᵀ(Xβ − y)` a nonzero group
+the [group lasso tutorial](examples/problems/group_lasso.md), where for `∇ = s Xᵀ(Xβ − y)` a nonzero group
 needs `∇[G] + λ w β[G] / ‖β[G]‖ = 0` and a zero group needs `‖∇[G]‖ ≤ λ w`.
 
 The pass schedule is that of the lasso with groups as the coordinates. A full pass
@@ -666,8 +666,9 @@ CD's scalar arithmetic `BigFloat`; an `Int`, `Rational{Int}`, `Irrational`,
 `Bool` or `Float16` scale was used there as `T(s)`). Convert the scale
 explicitly where the conversion is finite, positive and representable in `T`,
 for example `Float64(s) * LeastSquaresLoss(y, X)`; the error message suggests it
-when it passes that rule. After the check, CD, PGD and APG use the loss scale as
-supplied, combined with `T` by Julia's promotion: a `Float64` scale in a
+when it passes that rule and, for an integer scale, only when `Float64(s)` equals
+`s` (for other types it notes that the conversion may round `s`). After the
+check, CD, PGD and APG use the loss scale as supplied, combined with `T` by Julia's promotion: a `Float64` scale in a
 `Float32` solve keeps its `Float64` value (also where that value is subnormal in
 `Float32`). In CD, the coordinate step and the two stopping scales are formed
 from that value and rounded to `T` where they enter the iterate or the
@@ -742,9 +743,9 @@ What changes for the solvers:
   Frobenius norm of `X`. The start is `1` when that product is at least 1 or `X = 0`, and
   a positive start that rounds below `floatmin(T)` is raised to `floatmin(T)`. `L` is then
   multiplied by the line search's decrease factor (default 0.9) before each iteration and
-  raised on a rejected trial. The start is the Frobenius bound `α‖X‖_F²` when that is below 1,
+  raised on a rejected trial. The start is the Frobenius bound `α‖X‖_F²` when that is positive and below 1,
   which exceeds the curvature `α‖X‖₂²` by the factor `‖X‖_F² / ‖X‖₂²` (at most the rank of `X`), up to
-  rounding and the floor; a problem whose Frobenius bound is far below 1 therefore starts
+  rounding and the floor; a problem whose positive Frobenius bound is far below 1 therefore starts
   below 1, and one whose bound is 1 or more starts at 1 (for example `X = I(256)/16` with `α = 1` has
   curvature `1/256` and starts at 1). For
   `X = ones(5, 1)`, `y = fill(1e160, 5)`, loss scale `1e-100`, `NormL1(0.0)` and start 0,

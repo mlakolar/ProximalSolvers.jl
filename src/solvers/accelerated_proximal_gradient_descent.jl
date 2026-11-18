@@ -290,7 +290,7 @@ extended_trace!(dt, state::AccProxGradDescentState) = dt["grad_f(y)"] = _copy(st
 # r = ∇f(x) - ∇f(y) - L (x - y) ∈ ∇f(x) + ∂g(x). The reported residual does not evaluate
 # ∇f(x) (the stationarity check does, at each proposed stop, see _gradient_at_x!), but
 # ‖r‖ ≤ (L + L_f) ‖x - y‖ when ∇f is L_f-Lipschitz, so L ‖x - y‖∞ is used instead.
-g_residual(state::AccProxGradDescentState) = state.L * _maxabs_diff(state.x, state.y)
+g_residual(state::AccProxGradDescentState) = state.L * _norm_diff(state.x, state.y, Inf)
 
 function gradient_converged!(state::AccProxGradDescentState, options::ProximalOptions)
   residual = g_residual(state)

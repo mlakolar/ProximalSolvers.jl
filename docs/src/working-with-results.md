@@ -78,14 +78,14 @@ diagnostics, not changes to the statistical model.
 | Symptom | Check |
 | --- | --- |
 | `DimensionMismatch` | `size(X, 1) == length(y)` and `size(X, 2) == length(beta)` |
-| Type/unsupported input error | Dense Float32 or Float64 `X` and `y` with matching coefficient type; only ordinary least squares + unweighted L1 (an unweighted `ElasticNet` is also accepted), with CD a `BlockIterate` and a `GroupNormL2` penalty, or with CD `SqrtLeastSquaresLoss` and an unweighted `NormL1` with a positive level |
+| Type/unsupported input error | Compare the problem, solver, iterate and element type with the [Problem × solver matrix](@ref "Problem × solver matrix"), and the input with the rules of [Supported problems](support.md) |
 | Penalty seems too strong or too weak | `LeastSquaresLoss` is a sum; explicitly multiply by `1/n` for mean-normalized lasso |
 | PGD rejects `SparseIterate` | PGD needs a dense coefficient vector; CD supports one-dimensional `SparseIterate` |
 | PGD or APG rejects `BlockIterate` | Only CD solves the group lasso, with a `BlockIterate` and a `GroupNormL2` penalty |
 | `DimensionMismatch` naming groups, or an error naming a group | The groups of `BlockIterate` and `GroupNormL2` must be equal in number, order and members; an error naming a group is a curvature or step refusal, see [Numerical behavior](numerics.md), or a weight or parameter refusal such as `group weight 2 …` |
 | Convergence flag is false | Inspect the solver's iteration/pass limit; check the [KKT residual](sparsity-and-kkt.md) |
 | `gap` is NaN | Gap certification is implemented only for the square-root lasso with CD; there, `NaN` means that the run stopped without a certificate |
-| Square-root lasso: `converged = false` with a warning about a missing duality certificate | The certificate did not pass, for example at an exact fit (`y = X*beta`), where coordinate descent can stop at a coordinatewise minimum that is not a minimum; see [`CDSolver`](@ref) |
+| Square-root lasso: `converged = false` with a warning about a missing duality certificate | The certificate did not pass, for example at an exact fit (`y = X*beta`), where coordinate descent can stop at a coordinatewise minimum that is not a minimum; see [`CDSolver`](@ref) and [an example](@ref sqrt-lasso-exact-fit) |
 | Float32 precision looks poor | Start with native Float32 inputs/scales, check the KKT residual; Float32 has lower precision |
 | Coefficients appear to change unexpectedly | `solve!` mutates the supplied coefficients; copy them to save the old solution |
 

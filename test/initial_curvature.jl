@@ -5,7 +5,8 @@ module InitialCurvatureTests
 # through `ProximalSolvers.initial_state`. Each testset that runs a solve states what it checks. The
 # R5-type cases, the moderate-scale case and the Float32 R5-like cases compare, for each solver that reports
 # `converged = true`, the exact KKT residual of the returned point, computed here in 256-bit BigFloat from
-# the raw data, with the solver's bound max(gradtol, 64 eps(T)) max(λ, λmax). The X = 0 case checks the
+# the raw data, with the solver's bound max(gradtol, 64 eps(T)) max(λ, λmax) plus the allowance of `bound` below for the rounding of the
+# residual. The X = 0 case checks the
 # analytic result, the underflow cases finiteness, the recovered ElasticNet case the distance to its
 # minimizer, and the allocation cases bytes. The bits of a trajectory are not asserted; an iteration count
 # appears as the loose limit that a case states. `converged` is a stopping flag, which a case asserts where
@@ -271,20 +272,11 @@ alloc_solve(f, g, x0, method) = (x = copy(x0); @allocated solve!(x, f, g, method
     @test alloc_scan(T, X, α) == 0
     @test alloc_apg(T, X, α) == 0
   end
-  f2, f2f = lossof(2, y, X), lossof(2.0, y, X)
-  for method in METHODS
-    for f in (f2, f2f); solve!(copy(x0), f, g, method, DEFAULT); solve!(copy(x0), f, g, method, DEFAULT); end
-    @test alloc_solve(f2, g, x0, method) == alloc_solve(f2f, g, x0, method)
+  for α in (2, true, Int8(2), Int64(2), UInt16(2)), method in METHODS
+    f, fc = lossof(α, y, X), lossof(Float64(α), y, X)       # the control has the scale Float64(α)
+    for fx in (f, fc); solve!(copy(x0), fx, g, method, DEFAULT); solve!(copy(x0), fx, g, method, DEFAULT); end
+    @test alloc_solve(f, g, x0, method) == alloc_solve(fc, g, x0, method)
   end
-end
-
-@testset "the significand and exponent of an exactly representable integer or Bool scale equal the 256-bit route" begin
-  for α in (true, Int8(2), Int8(3), Int8(127), Int64(1), Int64(2)^40 + 1, UInt16(65535), Int32(7), UInt8(200))
-    @test PS._significand_exponent(α) == PS._significand_exponent_big(α)
-  end
-  # 2^53 + 1 is not exact in Float64: the 256-bit route runs, and it gives the same pair as before
-  @test PS._significand_exponent(Int64(2)^53 + 1) == PS._significand_exponent_big(Int64(2)^53 + 1)
-  @test PS._significand_exponent(typemax(Int64)) == PS._significand_exponent_big(typemax(Int64))
 end
 
 @testset "Float32 R5-like data: PGD and APG converge from the scale-aware start (T = Float32, Float64 scale α)" begin

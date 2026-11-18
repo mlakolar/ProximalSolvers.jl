@@ -2,6 +2,8 @@
 # penalty `λ Σₖ wₖ ‖β[Gₖ]‖₂` with the default weights `wₖ = √|Gₖ|`; the groups may be any
 # disjoint index sets, here not contiguous. The iterate is a `BlockIterate` with the same groups,
 # in the same order, and `CDSolver` updates one whole group at a time.
+# `CDSolver` is the solver that accepts a `GroupNormL2` penalty; see
+# [Supported problems](../../support.md) for the accepted inputs.
 using LinearAlgebra, Random
 using ProximalBase, ProximalSolvers
 
