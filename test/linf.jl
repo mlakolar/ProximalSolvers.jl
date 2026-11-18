@@ -103,6 +103,15 @@ function solve_case(method, X, y, α, λ, x0, options)
   x, r
 end
 
+# `solve!` from a state whose curvature estimate before the first iteration is L0. The engines start from min(1, α_f ‖X‖_F²) (#367's
+# initial curvature), so the fixtures below that were built for the start 1 (with a line search or a step that rounds back to the
+# start) set it explicitly: the state is the one `solve!` builds, with `state.L` replaced, and `_solve_gradient!` is its loop.
+function solve_from_L0(method, f, g, x, L0, options)
+  st = PS.initial_state(method, options, f, g, x)
+  st.L = eltype(x)(L0)
+  PS._solve_gradient!(st, f, g, method, options)
+end
+
 # the largest tolerance on the relative gap of a converged run, by element type
 gaptol(::Type{Float64}) = 1e-3
 gaptol(::Type{Float32}) = 1e-2
@@ -418,15 +427,16 @@ end
 
 # A nonstationary iterate, a step that is lost to rounding or underflow, is not certified: the KKT residual reads the gradient,
 # not the step. The residual ratio r/(τ S) at the returned x is from the BigFloat reference.
-@testset "round 1: a subnormal curvature (raw and scaled loss): no false convergence through solve!" begin
+@testset "round 1: a subnormal curvature (raw and scaled loss): no false convergence in the solver loop from the start L = 1" begin
   cases = ((Float32, 1e-22, 1e8, 1.001e30, 4e-39), (Float64, 1e-160, 1e10, 1.00003e170, 1e-308))
   for (T, xv, yv, x0, a) in cases, scale in (1, 2)
     X, y = fill(T(xv), 1, 1), T[yv]
     for method in (ProximalGradientDescent(ls = PS.LineSearches.BackTracking(α = T(a))), AccProxGradDescent(α = T(a)))
       f = scale == 1 ? LeastSquaresLoss(y, X) : T(scale) * LeastSquaresLoss(y, X)
       x = T[x0]
-      # a callback ends the solve after iteration 1, where the proposed stop was declared converged by the mapping check
-      r = solve!(x, f, NormLinf(zero(T)), method, ProximalOptions(callback = _ -> true))
+      # a callback ends the solve after iteration 1, where the proposed stop was declared converged by the mapping check; the loop starts from
+      # L = 1 (solve! now starts from min(1, α ‖X‖_F²), which is 1e-44 here and changes the fixture)
+      r = solve_from_L0(method, f, NormLinf(zero(T)), x, 1, ProximalOptions(callback = _ -> true))
       @test r.iterations == 1 && !r.converged && !r.x_converged
       @test kkt_ratio(X, y, T(scale), 0, x) > 1            # λ = 0: ‖∇f‖₁ is above τ S (3 for Float64, 100 for Float32)
     end
@@ -508,7 +518,7 @@ end
 fixture1(T, p) = (Matrix{T}(I, p, p) / T(1024), vcat(T(1025), fill(T(1) + (T === Float32 ? T(2)^-14 : T(2)^-43), p - 1)), fill(T(1024), p))
 fixture0(T, p) = (Matrix{T}(I, p, p), vcat(one(T), fill(T(2)^(T === Float32 ? -24 : -53), p - 1)), zeros(T, p))
 
-@testset "small summands against a large one: both branches, through solve! and on built states (Codex's fixtures)" begin
+@testset "small summands against a large one: both branches, in the solver loop from L = 1 and on built states (Codex's fixtures)" begin
   for T in (Float32, Float64), method in METHODS
     gt = T === Float32 ? 1e-5 : 0.0              # gradtol; 0 gives the floor 64 eps(T)
     opts = ProximalOptions(maxiter = 3, gradtol = gt)
@@ -516,7 +526,7 @@ fixture0(T, p) = (Matrix{T}(I, p, p), vcat(one(T), fill(T(2)^(T === Float32 ? -2
     X, y, x0 = fixture1(T, 1001)
     x = copy(x0)
     # a callback ends the solve after iteration 1, where the unchanged iterate was declared converged
-    r = solve!(x, LeastSquaresLoss(y, X), NormLinf(one(T)), method, ProximalOptions(callback = _ -> true, gradtol = gt))
+    r = solve_from_L0(method, LeastSquaresLoss(y, X), NormLinf(one(T)), x, 1, ProximalOptions(callback = _ -> true, gradtol = gt))
     @test !r.converged && r.iterations == 1 && all(==(T(1024)), x)
     @test kkt_ratio(X, y, one(T), 1, x; gradtol = gt) > 2.5
     f, g, st = state_at(method, X, y, x0, 1)
@@ -619,14 +629,15 @@ end
   end
 end
 
-@testset "public PGD solve at p = 2^24 + 4097 (Float32): the unchanged iterate is not declared converged" begin
-  # Codex's reproducer, through solve! (about 0.4 s and 350 MB; APG's dimension gate excludes this p). The callback ends the solve after
+@testset "PGD at p = 2^24 + 4097 (Float32), the solver loop from the start L = 1: the unchanged iterate is not declared converged" begin
+  # Codex's reproducer, through the solver loop of solve! from its state with the curvature estimate set to 1 (about 0.4 s and 350 MB; APG's dimension
+  # gate excludes this p; solve! itself now starts from min(1, α ‖X‖_F²), which moves the iterate in iteration 1 at this X). The callback ends the solve after
   # iteration 1, where the check was evaluated at the unchanged x = ones; the exact residual is 12.2 τ S.
   n = 2^24 + 4096
   w, t = Float32(2.0^-100), Float32(2.0^-124)
   X = fill(t, 1, n + 1); X[end] = w
   x = ones(Float32, n + 1)
-  r = solve!(x, LeastSquaresLoss(Float32[1], X), NormLinf(2w), ProximalGradientDescent(), ProximalOptions(callback = _ -> true))
+  r = solve_from_L0(ProximalGradientDescent(), LeastSquaresLoss(Float32[1], X), NormLinf(2w), x, 1, ProximalOptions(callback = _ -> true))
   @test r.iterations == 1 && !r.converged && all(==(1f0), x)
 end
 
