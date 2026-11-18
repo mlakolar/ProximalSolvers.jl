@@ -184,7 +184,8 @@ when `x` is a dense `Vector{T}` or a one-dimensional `SparseIterate{T}`, `X` and
 `‖y − Xβ‖₂/√n + λₙ‖β‖₁` (`Scaled(f, inv(sqrt(n)))` in ProximalBase) has the same minimizers as `P` at
 `lambda = sqrt(n) * λₙ`, and its values are those of `P` divided by `√n`. The [scaled lasso](glossary.md) at
 the level `λ₀` has as its coefficient estimate a minimizer of `P` at `lambda = sqrt(n) * λ₀`, and as its noise
-estimate `norm(y - X*beta)/sqrt(n)` when `y ≠ X*beta`; the package provides no separate scaled-lasso method.
+estimate `norm(y - X*beta)/sqrt(n)` when `y ≠ X*beta`; the package provides no separate scaled-lasso method,
+and [the scaled-lasso tutorial](examples/problems/scaled_lasso.md) shows the computation.
 Refused with an `ArgumentError`, before `x` is
 copied or the random number generator is used: `Scaled(SqrtLeastSquaresLoss, alpha)` (for a positive
 finite `alpha`, use the unscaled loss at the level `lambda/alpha`), `lambda = 0` (use `LeastSquaresLoss`,
