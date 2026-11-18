@@ -77,12 +77,15 @@ has no tolerance: the accepted iterate is the output of ProximalBase's `value_an
 and so `r` in exact arithmetic, those of the stored point. An iterate whose entries near the maximum have unequal magnitudes has the smaller
 ones off `M`, so their `|gᵢ|` count in `r`; that can make the check refuse, when their gradient contribution is too large, but it does not
 always (a point with `M = {1}` and a smaller entry whose gradient is 0 can have `r = 0`). The sums in `r` are Neumaier-compensated and formed in `Float64`
-(for `Float32` and `Float64` data), with `λ` folded into the sum it is cancelled against, so that small terms are not lost before the subtraction;
-a check on more than `2^32` entries refuses, because the error model of the compensated sum (about `2 eps(Float64)` times the magnitude of the
-result plus a term of order `p eps(Float64)²` times the sum of the magnitudes of the terms, for `p eps(Float64)` well below 1) is used only up to
-there. The residual is computed from the computed gradient, whose rounding error it does not cover, and the sums have a small error of their own
-within that range, so the true residual at a kept stop can be slightly above the bound (a sweep of `Float32` solves against a BigFloat reference
-found at most 1.002 times the bound); it is not a certificate in exact arithmetic and it does not bound the distance to a minimizer. See [the numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-for-NormLinf).
+(for `Float32` and `Float64` data), with `λ` folded into the sum it is cancelled against. The error of such a sum of `k` terms is at most
+`u|S| + γ_{k-1}² Σ|xᵢ|` (`S` the exact sum, `u = 2⁻⁵³`, `γ_k = k u/(1 - k u)`; Ogita, Rump and Oishi 2005), whose second term is quadratic in
+`k`. It is required to be at most `2⁻¹⁰` of the floor `64 eps(T) max(λ, λcrit)` of the threshold when the sum of the magnitudes of the terms is at
+most `4 max(λ, λcrit)` (as near a certification): this holds for at most `2²⁴ - 1` entries of `Float64` data and, with a cap, `2³²` entries of
+`Float32` data; a check on more entries refuses. Within that range, a kept stop has an exact residual (for the supplied gradient) below the bound
+times `1 + 2⁻¹⁰`, plus a relative first-order term of the size of the unit roundoff times the residual, and the computed gradient's own rounding error is
+not covered, so the true residual at a kept stop can exceed the bound by these amounts (a sweep of 1608 `Float32` solves against a BigFloat
+reference found at most 1.002 times the bound, a value measured on that sweep); the check is not a certificate in exact arithmetic and it does not
+bound the distance to a minimizer. See [the numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-for-NormLinf).
 
 The gradient test holds when `r < gradtol * m` or `r < gradtol * N`, with `r` the
 gradient/proximal residual of the iteration, `m` the largest `r` so far in the

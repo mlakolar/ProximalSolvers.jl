@@ -591,9 +591,11 @@ end
 
 @testset "the correction of the compensated sum at its own stagnation boundary (Float32, p = 2^24 + 4097): both branches, both orders" begin
   # Codex's fixture: X = [t … t w] (one row), y = [1], x = ones, λ = 2w, with w = 2^-100 and t = 2^-124: the gradient is
-  # (-t, …, -t, -w) (n = 2^24 + 4096 entries t). All of the entries are in M, P = n t + w = 2w + 4096 t and the exact residual is
-  # |λ - P| = 4096 t = 2^-112, about 12.2 τ S with S = λcrit = ‖∇f(0)‖₁ = P. At x = 0 the residual is |-λ + ‖g‖₁|, the same value. A
-  # compensation accumulated in Float32 stops changing after 2^24 terms and gives 0 in both branches.
+  # (-t, …, -t, -w) (n = 2^24 + 4096 entries t) as the supplied binary gradient (the exact mathematical gradient of the problem is
+  # (c - 1) X with c = Σ Xᵢ, whose exact residual is 4096 t - c²; no decision changes). For the supplied gradient all of the entries
+  # are in M, P = n t + w = 2w + 4096 t and the exact residual is |λ - P| = 4096 t = 2^-112, about 12.2 τ S with S = λcrit =
+  # ‖∇f(0)‖₁ = P. At x = 0 the residual is |-λ + ‖g‖₁|, the same value. A compensation accumulated in Float32 stops changing after
+  # 2^24 terms and gives 0 in both branches.
   n = 2^24 + 4096
   w, t = Float32(2.0^-100), Float32(2.0^-124)
   grad = fill(-t, n + 1); grad[end] = -w
@@ -628,13 +630,59 @@ end
   @test r.iterations == 1 && !r.converged && all(==(1f0), x)
 end
 
-@testset "the regime guard: more than 2^32 entries gives no residual" begin
-  # p eps(Float64) > 2^-20 is p > 2^32; the guard takes p as a keyword, so the test does not build 2^32 entries
-  x, g = ones(Float32, 3), Float32[-1, -0.5, 0.25]
-  r = PS._linf_kkt_residual(x, g, 1f0)
-  @test isfinite(r) && PS._linf_kkt_residual(x, g, 1f0; p = 2^32) == r
-  @test isnan(PS._linf_kkt_residual(x, g, 1f0; p = 2^32 + 1)) && isnan(PS._linf_kkt_residual(zeros(Float32, 3), g, 1f0; p = 2^33))
-  @test isnan(PS._linf_kkt_residual(ones(3), [-1.0, -0.5, 0.25], 1.0; p = 2^40))
+# a vector of n entries c followed by one entry b (b first when rev), and a vector of p equal entries: constant storage
+struct TailVec <: AbstractVector{Float64}
+  n::Int; c::Float64; b::Float64; rev::Bool
+end
+Base.size(v::TailVec) = (v.n + 1,)
+Base.getindex(v::TailVec, i::Int) = v.rev ? (i == 1 ? v.b : v.c) : (i <= v.n ? v.c : v.b)
+struct ConstVec <: AbstractVector{Float64}
+  p::Int; val::Float64
+end
+Base.size(v::ConstVec) = (v.p,)
+Base.getindex(v::ConstVec, i::Int) = v.val
+
+@testset "the regime of the compensated sums: the guard (Float64: 2^24 - 1 entries, Float32: 2^32) and its bound" begin
+  # (a) the cutoffs, on short vectors with the keyword p
+  x, g = ones(3), [-1.0, -0.5, 0.25]
+  r = PS._linf_kkt_residual(x, g, 1.0)
+  @test isfinite(r) && PS._linf_kkt_residual(x, g, 1.0; p = 2^24 - 1) == r
+  @test isnan(PS._linf_kkt_residual(x, g, 1.0; p = 2^24)) && isnan(PS._linf_kkt_residual(zeros(3), g, 1.0; p = 2^24))
+  x32, g32 = ones(Float32, 3), Float32[-1, -0.5, 0.25]
+  r32 = PS._linf_kkt_residual(x32, g32, 1f0)
+  @test isfinite(r32) && PS._linf_kkt_residual(x32, g32, 1f0; p = 2^32) == r32
+  @test isnan(PS._linf_kkt_residual(x32, g32, 1f0; p = 2^32 + 1)) && isnan(PS._linf_kkt_residual(zeros(Float32, 3), g32, 1f0; p = 2^33))
+  # the cutoff for Float64 from the bound: γ_p² ≤ 2^-6 eps, with γ_p = p u/(1 - p u), u = 2^-53
+  γ(p) = p * big(2.0)^-53 / (1 - p * big(2.0)^-53)
+  @test γ(2^24 - 1)^2 <= big(2.0)^-6 * eps(Float64) < γ(2^24)^2
+  # (b) Codex's counterexample, p = 2^32 (n = 2^32 - 1 entries q and b), in constant storage: the guard refuses it (the vector is not
+  # traversed); the exact residual is 2.8e-14, 1.99 τ S, and the unguarded sum returned 1.5e-17
+  q, b = 0x1.feb9b7fbc58fcp-55, 0x1.fffff80519300p-1
+  n = 2^32 - 1
+  for rev in (false, true), x in (ConstVec(n + 1, 1.0), ConstVec(n + 1, 0.0))
+    @test isnan(PS._linf_kkt_residual(x, TailVec(n, -q, -b, rev), 1.0))
+  end
+end
+
+@testset "compensated sums at the Float64 cutoff p = 2^24 - 1: error against the exact value and the bound, both branches, both orders" begin
+  # grad = [-q × n; -b], λ = 1, with (q, b) from a search for a large error at this length (a random search of 400 pairs with the exact
+  # residual 0.25 to 2 times τ S = 64 eps; the best pair is used here). Exact value |n q + b - 1| in Rational{BigInt}; the bound is
+  # u R + γ² Σ|terms| with u = 2^-53, γ = γ_{p+1} (Ogita, Rump, Oishi 2005), the budget is 2^-10 of the floor 64 eps S.
+  q, b = 0x1.04f0cf76740d4p-46, 0x1.fffff7d8799cep-1
+  n = 2^24 - 2
+  p = n + 1
+  Q = n * Rational{BigInt}(q) + Rational{BigInt}(b)
+  R = Float64(abs(Q - 1))
+  u = 2.0^-53
+  γp = (p + 1) * u / (1 - (p + 1) * u)
+  bound = u * R + γp^2 * Float64(1 + Q)
+  budget = 2.0^-10 * 64 * eps(Float64) * Float64(max(1, Q))
+  @test 0.25 * 64 * eps(Float64) < R < 2 * 64 * eps(Float64)        # the residual is of the size of τ S
+  for rev in (false, true), x in (ConstVec(p, 1.0), ConstVec(p, 0.0))
+    r = PS._linf_kkt_residual(x, TailVec(n, -q, -b, rev), 1.0)
+    @test abs(r - R) <= bound
+    @test abs(r - R) <= budget
+  end
 end
 
 @testset "a point with unequal magnitudes near the maximum is not refused when its smaller entry has a zero gradient" begin

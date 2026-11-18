@@ -177,23 +177,32 @@ end
 # cancellation happens inside the compensated sum; off and N, which enter r with the same sign, share one. The sums are formed in
 # A = Float64 for Float32 and for Float64 data (each term is converted to A, which is exact for Float32, and then accumulated),
 # because the correction of a compensated sum is itself a sum in the accumulation type and stagnates when p eps(A) is of order 1
-# (in Float32 at p about 2^24, where a correction at -w stops changing under terms of 2^-24 w). The error of a compensated sum
-# of p terms in A is about 2 eps(A) times the magnitude of the exact result plus a term of order p eps(A)² times the sum of the
-# magnitudes of the terms (IEEE arithmetic without fused or reordered operations), for p eps(A) well below 1. The function is
-# therefore used only for p eps(Float64) ≤ 2^-20, that is p ≤ 2^32 entries; for a longer x it returns NaN and the check refuses.
-# Within that range the error is far below the floor 64 eps(T) of τ: near a certification the terms of D are λ and the terms
-# of P, with λ + P = 2λ + (P - λ) ≤ 2λ + r_true where r_true = |λ - P| is the residual (and at x = 0, λ and the terms of ‖g‖₁, with
-# ‖g‖₁ ≤ λ + r_true), so the second term is at most of order 2^-20 eps(A) (2λ + r_true), against 64 eps(T) max(λ, λcrit),
-# and the first is of order eps(A) r_true; the computed r is therefore within a small fraction of r_true plus a small fraction
-# of the floor. Neither is the error of the computed gradient, which is not covered (below). An infinite or NaN gradient entry,
-# or an overflowing sum, makes the compensation NaN (Inf - Inf) or infinite, so that r is not finite and the check refuses; a
-# NaN or infinite entry of x gives r = NaN. r is returned in A, and the comparison with the threshold, a T converted exactly
-# to A, is made in A.
+# (in Float32 at p about 2^24, where a correction at -w stops changing under terms of 2^-24 w).
+# The error bound. For a Neumaier-compensated sum of the k terms xᵢ in IEEE arithmetic (no fused or reordered operations) with unit
+# roundoff u of the accumulator, |computed - exact| ≤ u |S| + γ_{k-1}² Σ|xᵢ|, S the exact sum, γ_k = k u/(1 - k u) (Ogita, Rump
+# and Oishi 2005, Proposition 4.5). The second term is quadratic in the number of terms; it does not fold into a bound of order
+# p u² Σ|xᵢ|. D has p + 1 terms (λ and the entries), and u = eps(Float64)/2 = 2^-53. Near a certification the terms are λ and the
+# terms of P (at x ≠ 0), with λ + P = 2λ + (P - λ) ≤ 2λ + |D| ≤ 2λ + r_true, where r_true is the residual (and at x = 0, λ and the
+# terms of ‖g‖₁, with ‖g‖₁ ≤ λ + r_true), so Σ|xᵢ| ≤ 2λ + r_true ≤ 4 S for r_true ≤ S, S = max(λ, λcrit) ≥ λ.
+# The regime. The second-order term is required to be at most 2^-10 of the floor 64 eps(T) S of the threshold τ S:
+#   4 γ_p² S ≤ 2^-10 · 64 eps(T) S, that is γ_p² ≤ 2^-6 eps(T), that is γ_p ≤ 2^-3 sqrt(eps(T)).
+# For T = Float64, sqrt(eps) = 2^-26, so γ_p ≤ 2^-29, that is p u (1 + 2^-29) ≤ 2^-29, that is p ≤ 2^24/(1 + 2^-29) = 2^24 - 2^-5 + ...,
+# so the largest p is 2^24 - 1 (at p = 2^24, γ_p is a factor 1 + 2^-29 above 2^-29). For T = Float32, sqrt(eps) = 2^-11.5,
+# γ_p ≤ 2^-14.5, that is p ≤ 2^-14.5/(u (1 + 2^-14.5)), about 3.9e11, which is above the cap 2^32 that is used (2^32 entries of Float32 are 16 GiB). The helper is therefore used for p ≤ 2^24 - 1 entries of Float64 data and p ≤ 2^32 entries of
+# Float32 data; for a longer x of those types it returns NaN, before any pass, and the check refuses. Other element types (the exact
+# rational inputs of the tests) have no cap.
+# What a kept stop guarantees within the regime. With r_c the computed residual and r_true the exact one at the stored x and the
+# computed gradient, r_true ≤ r_c + u r_true + 2^-10 · 64 eps(T) S (to first order in u; the last term is the bound above), so that r_c < τ S gives
+# r_true < τ S (1 + 2^-10) + u r_true (since τ ≥ 64 eps(T)); that is, the exact residual of the supplied gradient is below τ S up to a
+# relative 2^-10 and a first-order term u r_true. This is not a bound on the error of the computed gradient itself, which is not
+# covered (below). An infinite or NaN gradient entry, or an overflowing sum, makes the compensation NaN (Inf - Inf) or infinite, so
+# that r is not finite and the check refuses; a NaN or infinite entry of x gives r = NaN. r is returned in A, and the comparison with
+# the threshold, a T converted exactly to A, is made in A.
 #
 # What it is and is not. r is computed from the computed gradient, so the rounding error of the gradient is not
-# covered (as for the lasso check): the true residual at a kept stop can be slightly above τ S (a sweep of Float32 solves
-# against a BigFloat reference found at most 1.002 τ S). The remaining error sources are that gradient error and the
-# compensated summation's error above. It is not a certificate in exact arithmetic and it does not bound the distance to a minimizer. It
+# covered (as for the lasso check): the true residual at a kept stop can be above τ S by the gradient's error, and by the summation's
+# error within the bounds above (a sweep of 1608 Float32 solves against a BigFloat reference found at most 1.002 τ S: a measured value
+# of that sweep, not a bound). The remaining error sources are that gradient error and the compensated summation's error above. It is not a certificate in exact arithmetic and it does not bound the distance to a minimizer. It
 # reads x and g in two passes (m, then the sums). ∇f(x) is _gradient_at_x! (PGD: the accepted gradient, no new
 # evaluation; APG: one gradient from the cached image A x, counted in grad_calls). ∇f(0) is computed first and once per solve, into
 # state.xhat, which the iterations write before they read. _linf_kkt_residual reads x and g and writes neither. _stationary!
@@ -215,17 +224,19 @@ end
 
 # r = min over v in ∂‖x‖∞ of ‖grad + λ v‖₁ for the level λ ≥ 0 (see the comment above): the active set is the set of entries of
 # maximal magnitude, by exact equality; the sums are Neumaier-compensated, with λ folded into the one that it is cancelled
-# against, and formed in A = Float64 for Float32 and Float64 data (and in the type of λ otherwise, as for the Rational inputs
-# of the tests). It is NaN for a non-finite entry of x, and for more than 2^32 entries (p eps(A) > 2^-20, where the error
-# model of the compensated sum does not hold); `p` is the number of entries, a keyword so that the guard can be tested. It reads
-# x and grad and writes neither.
+# against, and formed in A = Float64 for Float32 and Float64 data (and in the type of λ otherwise, as for the Rational inputs of the
+# tests). For Float64 data and more than 2^24 - 1 entries, and for Float32 data and more than 2^32 entries, it returns NaN before any
+# pass (the regime derived above); `p` is the number of entries, a keyword so that the guard can be tested on a short vector. It is
+# also NaN for a non-finite entry of x. It reads x and grad and writes neither.
 function _linf_kkt_residual(x, grad, λ; p = length(x))
-  A = typeof(λ) <: Union{Float32, Float64} ? Float64 : typeof(λ)
+  T = typeof(λ)
+  A = T <: Union{Float32, Float64} ? Float64 : T
   z = zero(A)
+  pmax = T === Float64 ? 2^24 - 1 : T === Float32 ? 2^32 : typemax(Int)
+  p > pmax && return oftype(z, NaN)
   λ = A(λ)
   m = maximum(abs, x)
   isfinite(m) || return oftype(z, NaN)           # a NaN or infinite entry of x: no residual
-  A <: AbstractFloat && p * eps(A) > 2.0^-20 && return oftype(z, NaN)
   if iszero(m)
     s, c = -λ, z                                 # D0 = -λ + Σ|gᵢ|
     @inbounds for i in eachindex(grad)

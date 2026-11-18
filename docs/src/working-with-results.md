@@ -47,8 +47,9 @@ For PGD and APG with a `NormLinf(λ)` penalty, `converged=true` means that a sto
 direct KKT residual `min over v ∈ ∂‖x‖∞ of ‖∇f(x) + λ v‖₁` (an ℓ1 norm) at the returned point is below
 `max(gradtol, 64eps(T)) * max(λ, ‖∇f(0)‖₁)` (see
 [the ℓ∞ check](numerics.md#The-stationarity-check-for-NormLinf)). It is a working-precision value computed from the computed
-gradient with compensated sums (formed in `Float64`, for at most `2^32` entries), not an exact-arithmetic certificate: the true residual at a kept
-stop can be slightly above the bound (the computed gradient's rounding error, and a small error of the sums). A proposed stop costs one
+gradient with compensated sums formed in `Float64` (the check refuses for more than `2^24 - 1` entries of `Float64` data and more than `2^32` of `Float32` data), not an
+exact-arithmetic certificate: within that range the exact residual of the supplied gradient at a kept stop is below the bound times `1 + 2^-10` plus a relative
+first-order term of the size of the unit roundoff, and the computed gradient's own rounding error is not covered (see [the ℓ∞ check](numerics.md#The-stationarity-check-for-NormLinf)). A proposed stop costs one
 more gradient for APG (counted in `grad_calls` before the call limits are compared, so a stop that the check refuses can reach
 `grad_calls_limit`) and no proximal evaluation. A solve can also end through a limit, an objective increase or stagnation with
 `converged=false` and without a stop that passed the check. The active set is found by exact equality of magnitudes, without tolerance; the
