@@ -752,12 +752,10 @@ What changes for the solvers:
   the curvature `α‖X‖²` is `5.000000000000001e-100`, `X` has rank one, and both solvers start at
   `5.000000000000014e-100`. APG ends with `converged = true` after 8 iterations, and with
   `NormL1(0.1 λmax)` after 7 (Julia 1.10.13 and 1.13.3 agree). PGD ends with
-  `converged = false` after 7 iterations, stopped by the increase of the objective
-  (`f_increased = true`), at `x` ≈ 1.0034e160 against the minimizer `1e160`: its
-  backtracking test squares the step norm, which overflows once a step exceeds about
-  1.3e154, and then accepts a trial whose `L` is below the curvature, so `L` keeps
-  falling by the decrease factor until the objective increases. This limit of PGD's
-  line search is tracked in #364.
+  `converged = true` after 10 iterations, and with `NormL1(0.1 λmax)` after 9 (Julia
+  1.10.12 and 1.13.3 agree). Its backtracking test squares the step norm, which
+  overflows once a step exceeds about 1.3e154, and it decides such a trial on a scaled
+  step (see "Steps whose squared norm overflows" under "Results and failures").
 - PGD and APG log no warning when they end at `maxiter`, so check `converged` and an
   [independent KKT residual](sparsity-and-kkt.md). CD logs a warning when a run ends with
   `converged = false`. CD solved the example above (`converged = true`, `x = [1.0e160]`);
@@ -769,7 +767,7 @@ What changes for the solvers:
   and PGD and APG both returned `converged = true`, after 9 and 7 iterations. The
   transformation `X′ = cX`, `y′ = cy`, loss scale `α/c²`, with the penalty unchanged,
   keeps the objective and the curvature `α‖X‖²`, so it keeps the start up to rounding (with `c = 1e-80`
-  on the example, APG converged after 8 iterations and PGD ended as above).
+  on the example, APG converged after 8 iterations and PGD after 10; Julia 1.10.12 and 1.13.3 agree).
 - The gradient is `α` times the rounded product `Xᵀd` with `d = z - y` for the
   image `z = X x`. An `Xᵀd` that overflows or underflows before the scaling is not
   recovered, also where `α` would bring the exact gradient into range.
@@ -854,13 +852,16 @@ only on `converged`.
   is that value rounded to Float32, which may round to Inf. TFOCS's update is
   kept when an entry of `fl(X d̂)` overflowed, when the calling thread
   flushes subnormals to zero (`set_zero_subnormals(true)`), and when `d̂` has
-  a subnormal entry, which a flushing thread could drop. At ordinary scales
+  a subnormal entry, which a flushing thread could drop (for a trial whose
+  step was scaled, `d̂` is the scaled step of "Steps whose squared norm
+  overflows" below). At ordinary scales
   the allowances are negligible: with round-to-nearest they leave the
   computed norm `w = ‖fl(X d̂)‖` unchanged when their sum is below
   `eps(w)/2`. For Float64 data, over- or
   underflow of `‖fl(X d̂)‖²` or `‖d̂‖²` can make `c` infinite or NaN, which
   keeps TFOCS's update, or spuriously zero, which accepts the trial: with
-  extreme scalings, `‖fl(X d̂)‖²` can underflow (or `‖d̂‖²` overflow), so `c`
+  extreme scalings, `‖fl(X d̂)‖²` can underflow, or `‖d̂‖²` can overflow in the
+  band described under "Steps whose squared norm overflows" below, so `c`
   can be zero although the true curvature is large. In the
   package's probes (seeded Float32 and Float64 designs, including `p > n`,
   near-duplicate columns, column scales over `10^±3`, residuals orthogonal
@@ -894,6 +895,36 @@ only on `converged`.
   `stagnated = true` and `converged = false`; without an iteration that meets
   its condition, the exact-stall rule applies and the solve can run to
   `maxiter` with `converged = false`.
+
+  **Steps whose squared norm overflows.** Suppose the step `d = x - x'` of a trial
+  has finite entries and the computed `norm(d)^2` is `Inf` in `T`: a step above about
+  1.3e154 in Float64 and about 1.8e19 in Float32, which includes a step whose norm
+  is itself above `floatmax(T)`. The trial is then decided on the scaled step
+  `d̃ = s d`, with `s = 2^(-e)` and `e = exponent(max |dᵢ|)`, so that the largest
+  entry of `d̃` is in `[1, 2)`. The local estimate `L̂` is computed from `d̃` and from
+  `f(x)` and `f(x')` multiplied by `s²` (by shifting their exponents, since `s²` can
+  underflow), with the products of `d̃` and `∇f` multiplied by `s`; in exact
+  arithmetic it equals the estimate at `d`. The check of a rejected trial reads `d̃`,
+  and after an accepted trial the solver state holds `x - x'` again. The trial is
+  decided as at a representable scale, up to the rounding of the computed `f` and
+  `∇f` and underflow of an entry of the scaled step, of a scaled function value or
+  of `L̂`. Not changed:
+  - a step with a nonfinite entry is not scaled, and its trial is decided as before;
+  - a step whose squared norm is subnormal or underflows to zero is not scaled
+    ([#317](https://github.com/mlakolar/ProximalSolvers.jl/issues/317));
+  - when `‖fl(X d̂)‖²` overflows for a representable `‖d̂‖²`, `c` is nonfinite and the check
+    does not accept the trial;
+  - for Float64 data, in a narrow band around the overflow threshold of `‖d‖²`,
+    `norm(d)^2` can be finite while the sum of squares of `d` that the check forms
+    overflows (in a probe with random `d` of length 10, 100 and 1000, within about
+    `2 eps` of the threshold); the step is not scaled, and `c` can be zero and
+    accept the trial;
+  - for Float32 data, an entry of `d̃` that is subnormal (an entry of `d` more than
+    about 2^126 times smaller than the largest has one) makes the check keep
+    TFOCS's update, as it does for any `d̂` with a subnormal entry, and the check does
+    not accept the trial. The product `X d̃` is `s` times `X d`, so the absolute
+    allowances of the Float32 check weigh more against it; they change `c` where
+    `‖fl(X d̃)‖` is of the order of the allowances.
 - APG handles a failed step in the same way. Its backtracking raises an error, after which the last
   accepted iterate is restored, when the next curvature estimate `L/β` is not a
   finite increase; a trial whose objective is not finite is never accepted.
