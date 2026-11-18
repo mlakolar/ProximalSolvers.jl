@@ -80,7 +80,7 @@ end
 
 # The computed ‖a - b‖ of the rounded differences aᵢ - bᵢ
 function _se_norm_diff(::Type{T}, a, b) where {T}
-  m = _maxabs_diff(a, b)
+  m = _norm_diff(a, b, Inf)
   isfinite(m) || return nothing
   iszero(m) && return _se_zero(T)
   s = _sumsq_scaled_diff(a, b, m)
@@ -136,10 +136,7 @@ _gamma(::Type{T}, k) where {T} = (ku = k * _unit(T); ku / (1 - ku))
 # factors; γ_{N+3} covers every branch.
 function _frobenius_upper(::Type{T}, X) where {T}
   N = length(X)
-  s = 0.0
-  @inbounds @simd for i in eachindex(X)
-    s += abs2(Float64(X[i]))
-  end
+  s = _sumsq64(X)
   iszero(s) && all(iszero, X) && return _se_zero(T)
   e = 0
   if !(isfinite(s) && (T === Float32 || s >= 4N * floatmin(Float64)))
@@ -154,20 +151,14 @@ function _frobenius_upper(::Type{T}, X) where {T}
   _SE{T}(r.s, r.e + e)
 end
 
-# √α as an _SE{T}, for the loss scale α as given: α = s·2^e with s ∈ [1, 2). For an IEEE
-# Float16/32/64 scale, s and e are exact in its own type. For any other real type (BigFloat
-# of any precision, integers, rationals, irrationals), α is rounded once to 256 bits and s
-# and e are taken there, inside a scoped BigFloat precision that is restored afterwards, so
-# the active precision plays no part. s is rounded once to Float64 (at least the precision
-# of T) before its square root, and e made even, so √α = √s′ · 2^(e′/2) without range loss.
-_significand_exponent(α::Union{Float16, Float32, Float64}) = (Float64(significand(α)), exponent(α))
-_significand_exponent(α::Real) = setprecision(BigFloat, 256) do
-  b = BigFloat(α)
-  (Float64(significand(b)), exponent(b))
-end
-
+# √α as an _SE{T}, for the loss scale α as given: a = Float64(α) = s·2^e with s ∈ [1, 2) (the
+# conversion is exact for the Float32, Float64, fixed-width integer and Bool scales that
+# `_check_loss_scale` admits). Where e is odd, s is doubled and e lowered by one, so that √a =
+# √s′ · 2^(e′/2) with e′ even and the exponent kept in the _SE. An α outside the range of Float64
+# is not supported.
 function _root_scale(::Type{T}, α) where {T}
-  s, e = _significand_exponent(α)
+  a = Float64(α)
+  s, e = significand(a), exponent(a)
   if isodd(e)
     s *= 2
     e -= 1

@@ -302,7 +302,7 @@ end
 function _stop_check!(m::SqrtLSModel{T}, g, x::SparseIterate{T}, st, maxh, scaled::Bool) where T
   code, ratio = _certify!(m, x)
   if code === :certified
-    m.gap = _round_up(T, ratio)
+    m.gap = T(ratio, RoundUp)
     return :converged
   end
   m.gap = T(NaN)
@@ -325,11 +325,6 @@ function _above_floor(m::SqrtLSModel{T}, x::SparseIterate{T}, scaled::Bool, tol:
     βmax = max(βmax, abs(Float64(x[k])))
   end
   βmax > 0 && tol >= 16eps(T)*βmax
-end
-# The smallest number of T that is at least the Float64 v (for v ≤ floatmax(T)).
-function _round_up(::Type{T}, v::Float64) where T
-  r = T(v)
-  Float64(r) < v ? nextfloat(r) : r
 end
 # Rounded upward and downward: nextfloat and prevfloat of the round-to-nearest result. For a real z
 # with fl(z) its round-to-nearest value in Float64 (gradual underflow, overflow to ±Inf), z lies between
