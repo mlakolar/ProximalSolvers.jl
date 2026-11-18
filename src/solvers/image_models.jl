@@ -94,8 +94,8 @@ function _sumsq_diff(a, b)
 end
 
 # ‖a - b‖ of the rounded differences dᵢ = aᵢ - bᵢ (‖a‖ for b = nothing) from s = Σ dᵢ² summed in one pass
-# when that sum is finite and at least 4 length(a) floatmin(T): each underflowing square then loses less
-# than floatmin(T) u, which is below u s / length(a), so the bound γ_{n+4} on the relative error still
+# when that sum is finite and at least 4 length(a) floatmin(T): each underflowing square then loses at most
+# floatmin(T) u, which is below u s / length(a), so the bound γ_{n+4} on the relative error still
 # holds. Otherwise the scaled two-pass form is used (nothing when a dᵢ is not finite).
 function _se_norm_onepass(::Type{T}, s, a, b = nothing) where {T}
   isfinite(s) && s >= 4 * length(a) * floatmin(T) && return _SE{T}(sqrt(s))
