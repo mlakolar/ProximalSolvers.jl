@@ -9,7 +9,8 @@ proximal operator of the penalty, soft thresholding for `NormL1` and soft
 thresholding followed by the ridge weight for `ElasticNet`; backtracking adjusts
 the step size.
 The curvature estimate before the first iteration is `min(1, α_f ‖X‖_F²)` for the loss scale
-`α_f`, with `‖X‖_F` an upper bound; it is `1` when that product is at least 1 or `X = 0`.
+`α_f`, with `‖X‖_F` an upper bound, rounded to `T` and raised to `floatmin(T)` when it is positive and
+rounds below that; it is `1` when that product is at least 1 or `X = 0`.
 
 `ProximalGradientDescent()` uses the supported
 `LineSearches.BackTracking()` line search. A trial that it rejects is decided
@@ -136,14 +137,16 @@ end
 
 # The start of L from one column-wise pass over X, equal to _initial_curvature of the
 # bound that _frobenius_upper forms from the same sum s = Σ Float64(Xᵢⱼ)². The pass stops
-# at the end of a column where s is finite and s ≥ 2/α and the start is one(T): there
-# s ≤ (1 + γ_N)‖X‖_F² + N nextfloat(0.0) (the last term for squares that underflow) and
-# 2/α has relative error at most u, so that α‖X‖_F² ≥ 1 and the bound is at least 1 as well,
-# for N u < 1/8 and N nextfloat(0.0) far below 2/α. For a subnormal Float64 α, 2/α is Inf and
-# the pass is not cut short. A non-finite s ends the pass, and _frobenius_upper then takes
-# its scaled pass.
+# at the end of a column where s is finite and s ≥ thr = 2/α, and the start is one(T). There
+# s ≤ (1 + γ_N)‖X‖_F² + N nextfloat(0.0) (the last term for squares that underflow) and, for a
+# normal thr, the quotient has relative error at most u, so that α‖X‖_F² ≥ 1 and the bound is
+# at least 1 as well, for N u < 1/8 and N nextfloat(0.0) far below thr. There is no early
+# exit when thr is not a normal number: 2/α overflows to Inf for α < 2/floatmax(Float64), and is
+# subnormal for α > 2/floatmin(Float64). A non-finite s ends the pass, and _frobenius_upper
+# then takes its scaled pass.
 function _scanned_initial_curvature(::Type{T}, X, α) where {T}
   thr = 2 / Float64(α)
+  thr >= floatmin(Float64) || (thr = Inf)
   s = 0.0
   for j in axes(X, 2)
     @inbounds @simd for i in axes(X, 1)

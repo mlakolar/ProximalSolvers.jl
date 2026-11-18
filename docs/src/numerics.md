@@ -742,10 +742,13 @@ What changes for the solvers:
   Frobenius norm of `X`. The start is `1` when that product is at least 1 or `X = 0`, and
   a positive start that rounds below `floatmin(T)` is raised to `floatmin(T)`. `L` is then
   multiplied by the line search's decrease factor (default 0.9) before each iteration and
-  raised on a rejected trial, so a loss whose curvature is far below 1 starts near it
-  rather than at 1. For
+  raised on a rejected trial. The start is the Frobenius bound `α‖X‖_F²` when that is below 1,
+  which exceeds the curvature `α‖X‖₂²` by the factor `‖X‖_F² / ‖X‖₂²` (at most the rank of `X`), up to
+  rounding and the floor; a problem whose Frobenius bound is far below 1 therefore no longer starts
+  at 1, and one whose bound is 1 or more still does (for example `X = I(256)/16` with `α = 1` has
+  curvature `1/256` and starts at 1). For
   `X = ones(5, 1)`, `y = fill(1e160, 5)`, loss scale `1e-100`, `NormL1(0.0)` and start 0,
-  the curvature `α‖X‖²` is `5.000000000000001e-100` and both solvers start at
+  the curvature `α‖X‖²` is `5.000000000000001e-100`, `X` has rank one, and both solvers start at
   `5.000000000000014e-100`. APG ends with `converged = true` after 8 iterations, and with
   `NormL1(0.1 λmax)` after 7 (Julia 1.10.13 and 1.13.3 agree). PGD ends with
   `converged = false` after 7 iterations, stopped by the increase of the objective
@@ -764,7 +767,7 @@ What changes for the solvers:
   and level `1.0e60` replaced by `1.0e110`, the curvature is above 1, the start is `1`,
   and PGD and APG both returned `converged = true`, after 9 and 7 iterations. The
   transformation `X′ = cX`, `y′ = cy`, loss scale `α/c²`, with the penalty unchanged,
-  keeps the objective and the curvature `α‖X‖²`, so it keeps the start (with `c = 1e-80`
+  keeps the objective and the curvature `α‖X‖²`, so it keeps the start up to rounding (with `c = 1e-80`
   on the example, APG converged after 8 iterations and PGD ended as above).
 - The gradient is `α` times the rounded product `Xᵀd` with `d = z - y` for the
   image `z = X x`. An `Xᵀd` that overflows or underflows before the scaling is not

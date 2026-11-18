@@ -27,7 +27,8 @@ A trial with `x == y` entrywise is accepted when its value is finite. A rejected
 `L ← L/β`, `β ∈ (0, 1)`. Before each iteration `L ← α L`, `α ∈ (0, 1]`, so that the
 step can grow again where the curvature is smaller; `α = 1` keeps `L` from
 decreasing. The estimate before the first iteration is `min(1, α_f ‖X‖_F²)` for the loss scale
-`α_f`, with `‖X‖_F` an upper bound; it is `1` when that product is at least 1 or `X = 0`.
+`α_f`, with `‖X‖_F` an upper bound, rounded to `T` and raised to `floatmin(T)` when it is positive and
+rounds below that; it is `1` when that product is at least 1 or `X = 0`.
 
 When an extrapolated step would increase the computed objective, the momentum is
 restarted: the step is repeated from `y = x'` and `k` returns to zero, so the next

@@ -167,9 +167,17 @@ end
 # the active precision plays no part. s is rounded once to Float64 (at least the precision
 # of T) before its square root, and e made even, so √α = √s′ · 2^(e′/2) without range loss.
 _significand_exponent(α::Union{Float16, Float32, Float64}) = (Float64(significand(α)), exponent(α))
-_significand_exponent(α::Real) = setprecision(BigFloat, 256) do
+_significand_exponent(α::Real) = _significand_exponent_big(α)
+_significand_exponent_big(α) = setprecision(BigFloat, 256) do
   b = BigFloat(α)
   (Float64(significand(b)), exponent(b))
+end
+# A fixed-width integer or Bool scale that Float64 holds exactly takes the IEEE route, without BigFloat: the
+# 256-bit route rounds its significand once to Float64, which reproduces it, so the result is the same
+# (an accepted scale equals its conversion to T, and so to Float64; any other value takes the 256-bit route).
+function _significand_exponent(α::Union{Base.BitInteger, Bool})
+  a = Float64(α)
+  a == α ? (Float64(significand(a)), exponent(a)) : _significand_exponent_big(α)
 end
 
 function _root_scale(::Type{T}, α) where {T}
