@@ -84,7 +84,7 @@ end
 
       # PGD ends at the objective increase. Its backtracking test forms the squared step norm, which overflows
       # for a step beyond about 1.3e154, and the iterate is within 0.4% of the minimizer. This documents
-      # that range limit (#TBD); a range-safe line search would change these assertions.
+      # that range limit (#364); a range-safe line search would change these assertions.
       x = zeros(1)
       r = solve!(x, f, g, ProximalGradientDescent(), DEFAULT)
       xstar = setprecision(BigFloat, 256) do
@@ -197,6 +197,26 @@ end
   r = solve!(x, f, g, AccProxGradDescent(), DEFAULT)
   @test r.converged
   @test kkt_ratio(X, y, α, λ1, λ2, x) <= bound(DEFAULT, Float64)
+end
+
+@testset "ElasticNet(0, 1) from a start whose penalty overflows: the scale-aware start solves it" begin
+  # f(x0) = 0 is finite and the ridge value (λ2/2) x0² = 5e39 is above floatmax(Float32). The loss curvature
+  # α‖X‖_F² = 1e-40 gives a start of floatmin(Float32), so the first step is large and the ridge shrinks it
+  # to a point with a finite objective. Both methods return the minimizer 1e-20 / (1 + 1e-40) of
+  # (1/2)(1e-20 x - 1)² + x²/2 without an error.
+  T = Float32
+  X, y, x0 = reshape(T[1e-20], 1, 1), T[1], T[1e20]
+  g = ElasticNet(zero(T), one(T))
+  @test isfinite(LeastSquaresLoss(y, X)(x0)) && !isfinite(g(x0))
+  xstar = setprecision(BigFloat, 256) do
+    BigFloat(1e-20) * 1 / (1 + BigFloat(1e-20)^2)
+  end
+  for method in METHODS
+    x = copy(x0)
+    r = solve!(x, LeastSquaresLoss(y, X), g, method)
+    @test isfinite(r.minimum) && all(isfinite, x)
+    @test abs(x[1] - xstar) <= 1e-3 * xstar
+  end
 end
 
 # the function barrier gives the call concrete argument types

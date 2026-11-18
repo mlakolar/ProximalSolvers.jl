@@ -753,7 +753,7 @@ What changes for the solvers:
   backtracking test squares the step norm, which overflows once a step exceeds about
   1.3e154, and then accepts a trial whose `L` is below the curvature, so `L` keeps
   falling by the decrease factor until the objective increases. This limit of PGD's
-  line search is tracked in #TBD.
+  line search is tracked in #364.
 - PGD and APG log no warning when they end at `maxiter`, so check `converged` and an
   [independent KKT residual](sparsity-and-kkt.md). CD logs a warning when a run ends with
   `converged = false`. CD solved the example above (`converged = true`, `x = [1.0e160]`);
