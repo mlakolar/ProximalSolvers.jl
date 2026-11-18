@@ -18,7 +18,8 @@ module CenteredSqNorm
 #   of S, Gtolⱼ = τ S (1 + 8u) + 4u (α(|xⱼ| + |sⱼ|) + λ), and the point is judged by ‖x - b*‖₂ <= ‖Gtol‖₂/α with the
 #   x that the solver returned and the τ of its options, whether or not it reports `converged`. In Float64 the solves
 #   also assert `converged`; in Float32 they do not, as `converged` is a stopping flag of a solver whose residual
-#   threshold is a few eps(Float32).
+#   threshold is a few eps(Float32). The solves pass `allow_f_increases = true`, since at gradtol near the rounding level of the
+#   objective a run can otherwise end on a computed increase with converged = false.
 #   The reported objective is the sum of two nonnegative sums of p terms in T, so |minimum - F(x)| <= 2 (p + 4) u
 #   (α/2 ‖x - s‖² + λ‖x‖₁).
 using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
