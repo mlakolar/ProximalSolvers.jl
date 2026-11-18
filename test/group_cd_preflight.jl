@@ -203,7 +203,7 @@ accepted(x, f, g; method = CDSolver(order = :random)) = PS._check_block_problem(
         x = copy(start)
         err = try solve!(x, f, g, method) catch e e end
         @test err isa ArgumentError
-        @test err !== nothing && occursin("only unweighted NormL1 or unweighted ElasticNet is supported", message(err))
+        @test err !== nothing && occursin("only NormL1 or unweighted ElasticNet is supported", message(err))
         @test isequal(x, start)
       end
     end

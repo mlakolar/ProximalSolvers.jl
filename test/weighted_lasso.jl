@@ -1140,11 +1140,14 @@ end
     @test_throws ArgumentError solve!(x, f, NormL1(T(0.01), w), method_of(s, T))
     @test isequal(snapshot(), before)
   end
-  # PGD and APG: the start has a finite loss and an infinite penalty (cₖ |x₁| above floatmax(T)), so the first
-  # step fails; solve! restores the start
-  Xs, ys = reshape(T[T === Float32 ? 1e-20 : 1e-200], 1, 1), T[1]
-  x0 = T[T === Float32 ? 1e20 : 1e200]
-  wk = T[T === Float32 ? 1e19 : 1e109]
+  # PGD and APG: the start has a finite loss and an infinite penalty (c₂ |x₂| above floatmax(T)), so the first
+  # step fails; solve! restores the start. The loss scale is 1 and ‖X‖_F² = 4 ≥ 1, so the curvature estimate
+  # starts at 1 (min(1, α‖X‖_F²)) and the first trial keeps x₂ - c₂/L at about x₂. With an estimate that starts
+  # far below 1 the soft threshold c₂/L would overflow and the step would land at x₂ = 0, a point with a finite
+  # penalty, and the solve would succeed. The residual at the start is 0.
+  Xs, ys = T[2 0], T[2]
+  x0 = T[1, T === Float32 ? 1e20 : 1e200]
+  wk = T[1, T === Float32 ? 1e19 : 1e109]
   @test isfinite(LeastSquaresLoss(ys, Xs)(x0)) && !isfinite(NormL1(T(1), wk)(x0))
   for method in (ProximalGradientDescent(), AccProxGradDescent())
     x = copy(x0)
