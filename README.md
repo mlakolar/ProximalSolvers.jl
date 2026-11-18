@@ -72,8 +72,8 @@ A zero weight leaves its coefficient unpenalized (it is not fixed at 0). For PGD
 stopping check scores each coordinate with its own coefficient and takes the largest one as `λ`; the
 `converged` flag of CD is still the change test. Where that coefficient is used, and how ProximalBase's proximal
 steps differ from it for a level that is not of type `T`, is in
-[Supported problems](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/#weighted-lasso-support)
-and [the weighted-lasso example](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples/08_weighted_lasso/)
+[Supported problems](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/#weighted-lasso-support).
+For an example see [the weighted-lasso example](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples/08_weighted_lasso/)
 (the script `examples/08_weighted_lasso.jl`).
 
 CD, PGD and APG also solve the elastic net, with `ElasticNet(λ1, λ2)` as the penalty
