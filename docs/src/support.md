@@ -195,14 +195,15 @@ These checks run before `x` is written. The proximal step is ProximalBase's bloc
 stop counts only if ProximalBase's group KKT residual is below `max(gradtol, 64 eps(T)) * S` (for
 `AccProxGradDescent`, the check forms `∇f(x)` once per proposed stop and counts it in `grad_calls`), with
 `S = max(max_k c_k, max_k ‖[∇f(0)]_{G_k}‖₂)` (see [the stationarity check](@ref "The stationarity check of a stop")).
-`test/group_pgd.jl` checks `Float32` and `Float64` solves of both solvers against references computed from the data in
-`BigFloat`: the closed form on designs with block-orthogonal columns (raw and `1/n`-scaled loss, default weights
-and weights with a zero), a correlated design (also against `CDSolver` on a `BlockIterate`), contiguous, permuted,
-singleton and single-group layouts given as ranges or as vectors, a group of zero columns, `lambda = 0` against
-the least-squares fit, a level above the smallest level with a zero solution, and a `Float64` loss scale of
-`1e-300`. Singleton groups with unit weights have the stop scale of `NormL1(lambda)` where no entry of `∇f(0)` has a
-subnormal square. For `AccProxGradDescent`, the test file covers the closed form, the correlated design, the singleton layout
-against `NormL1`, `lambda = 0`, a level above the smallest level with a zero solution, and the stop checks.
+`test/group_pgd.jl` checks `Float32` and `Float64` solves against references computed from the data in `BigFloat`.
+Both `ProximalGradientDescent` and `AccProxGradDescent` run: the closed form on designs with block-orthogonal columns
+(raw and `1/n`-scaled loss, default weights and weights with a zero), a correlated design (also against `CDSolver` on a
+`BlockIterate`), singleton groups with unit weights against `NormL1(lambda)`, a zero weight, `lambda = 0` against the
+least-squares fit, a level above the smallest level with a zero solution, a huge `xtol` or `ftol` that must not stop at a point
+that fails the check, and the stop check just below and just above its threshold. Only `ProximalGradientDescent` runs the
+contiguous, permuted and single-group layouts given as ranges or as vectors, a group of zero columns, and a `Float64` loss scale
+of `1e-300`. Singleton groups with unit weights have the stop scale of `NormL1(lambda)` where no entry of `∇f(0)` has a
+subnormal square.
 
 ### Square-root lasso with coordinate descent
 

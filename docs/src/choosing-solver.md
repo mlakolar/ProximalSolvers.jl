@@ -292,7 +292,7 @@ discussion above with the change of a group, the norm of its displacement; see
 optimality certificate: check the group KKT conditions independently, as in the example.
 `ProximalGradientDescent` and `AccProxGradDescent` take the block soft threshold of every group at each step and
 report `converged = true` only where the group KKT residual passes its check; the
-[group lasso tutorial](examples/problems/group_lasso.md) solves one problem both ways, and
+[group lasso tutorial](examples/problems/group_lasso.md) solves one problem with all three solvers, and
 [Group lasso: CD, PGD and APG](examples/comparisons/group_lasso_solvers.md) compares the three on one
 seeded problem.
 
