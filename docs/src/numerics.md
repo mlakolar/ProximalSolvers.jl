@@ -740,7 +740,8 @@ What changes for the solvers:
   in `T`, and PGD and APG can then make very little progress. Their curvature estimate
   `L` starts at `one(T)`, independent of the data, is multiplied by the line search's
   decrease factor (default 0.9) before each iteration and is raised only on a rejected
-  trial, so reaching a curvature far below 1 takes many iterations. For
+  trial, so with the default decrease factor reaching a curvature far below 1 takes many
+  iterations. For
   `X = ones(5, 1)`, `y = fill(1e160, 5)`, loss scale `1e-100`, `NormL1(0.0)` and start 0,
   the curvature `α‖X‖²` is `5.000000000000001e-100`; after 200 iterations both solvers
   ended with `converged = false`, at `x` ≈ 7.1e70 (PGD) and 6.2e71 (APG) against the
@@ -754,8 +755,10 @@ What changes for the solvers:
   penalty, `x = s u` with `s > 0` replaces `X` by `sX` and `λ` by `sλ`, multiplies the
   curvature by `s²`, and turns a start `x₀` into `x₀ / s`. On the example with `s = 1e50`
   and level `1.0e60` replaced by `1.0e110`, PGD and APG both returned `converged = true`,
-  after 9 and 7 iterations. Rescaling `X`, `y` and the loss scale together leaves the
-  curvature `α‖X‖²` unchanged, so it does not help here.
+  after 9 and 7 iterations. The transformation `X′ = cX`, `y′ = cy`, loss scale `α/c²`,
+  with the penalty unchanged, keeps the objective and the curvature `α‖X‖²`, so it does
+  not change the initial-curvature mismatch (with `c = 1e-80` on the example both solvers
+  still ended at `maxiter` with `converged = false`).
   [#321](https://github.com/mlakolar/ProximalSolvers.jl/issues/321) tracks the
   investigation of the initial curvature estimate for such problems; its outcome may
   leave some extreme-range cases unsolved.
@@ -768,20 +771,29 @@ What changes for the solvers:
   - At a start where `z - y` overflows, PGD takes the start's value from
     `value_and_gradient_from_predictor!` and refuses a non-finite one with
     `ArgumentError("start from a point where f is finite")`, also where
-    `value_from_predictor` is finite. APG takes it from `value_from_predictor`, accepts
-    the start, and its first step fails with
+    `value_from_predictor` is finite. APG takes it from `value_from_predictor` and accepts
+    the start where that value is finite; its first step then fails with
     `ErrorException("the gradient step did not produce a finite objective")`. Both leave
-    `x` unchanged (`Float32`, `X = [1;;]`, `y = [3f38]`, start `[-3f38]`).
+    `x` unchanged (`Float32`, `X = [1;;]`, `y = [3f38]`, loss scale `1e-44`,
+    `NormL1(0f0)`, start `[-3f38]`).
     [#328](https://github.com/mlakolar/ProximalSolvers.jl/issues/328) tracks the message
     and the difference.
   - In PGD a trial is evaluated by `value_from_predictor` and the gradient at an accepted
     trial by `value_and_gradient_from_predictor!`. Where the line search decides from
     function values, the code accepts a trial on its finite value, so an accepted iterate
     can hold a non-finite gradient; this was not reproduced and is not covered by a test.
-    Where it decides from gradients, a non-finite trial gradient makes the curvature
-    estimate non-finite and the step raises
-    `ErrorException("line search failed: nonfinite curvature estimate")`, restoring the
-    last accepted iterate (observed in a `Float32` probe on Julia 1.10.13 and 1.13.3).
+    Expected from the code only: if another step is attempted from such an iterate,
+    `x - ∇f/L` is non-finite for every finite `L`, and for a penalty whose prox keeps
+    non-finite entries (as `NormL1` does) the trial values are non-finite, so the line
+    search raises `L` (`src/line_searches.jl:113-118`) until `next_curvature` cannot
+    increase it finitely and raises
+    `ErrorException("line search failed: the curvature estimate cannot increase finitely")`;
+    `solve!` then restores that iterate and rethrows (`src/solve.jl:223-231`); `maxiter`
+    or another stop can end the solve before that step.
+    In a `Float32` probe with default options (Julia 1.10.13 and 1.13.3), a trial whose
+    gradient was non-finite was rejected, the step raised
+    `ErrorException("line search failed: nonfinite curvature estimate")`, and the last
+    accepted iterate was restored; this is not a guarantee for every setting.
 
 `Float32` has less precision and may stagnate earlier than `Float64`.
 Some solver tolerances, residual reports and other scalar diagnostics
