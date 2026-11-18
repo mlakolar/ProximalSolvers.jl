@@ -790,7 +790,7 @@ What changes for the solvers:
     `ErrorException("line search failed: the curvature estimate cannot increase finitely")`;
     `solve!` then restores that iterate and rethrows (`src/solve.jl:223-231`); `maxiter`
     or another stop can end the solve before that step.
-    In a `Float32` probe with default options (Julia 1.10.13 and 1.13.3), a trial whose
+    In a `Float32` probe with `maxiter = 3000` (Julia 1.10.13 and 1.13.3), a trial whose
     gradient was non-finite was rejected, the step raised
     `ErrorException("line search failed: nonfinite curvature estimate")`, and the last
     accepted iterate was restored; this is not a guarantee for every setting.
