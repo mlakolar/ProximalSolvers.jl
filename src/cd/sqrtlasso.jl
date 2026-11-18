@@ -226,10 +226,11 @@ end
 # b/a = q̃ 2^(er − ex); d̃² = ‖s‖² − b̃ q̃, formed again as ‖s − q̃ x̃‖² by `_scaled_norm` (which scales by the
 # largest entry of the difference) where it is below ‖s‖²/16, gives d = d̃ 2^er. The step is
 # shrink(c, τ) with c = old + T(q̃ 2^(er − ex)) and τ = (λ̃/√ã)(d̃/√((√ã − λ̃)(√ã + λ̃))) 2^(er − ex), the
-# threshold of the scaled problem, from `_sqrt_band_step`. The scaling keeps the largest entry of x̃, of s
-# and of the difference in [1, 2). Another entry is scaled exactly unless its scaled value is subnormal in
-# Float64; then it may underflow to 0 or lose bits, an absolute error of at most η/2 in these units
-# (η = 2^-1074). For example, a residual [2^1000, 2^-1000] against the column [1, 0] gives d̃ = 0 for
+# threshold of the scaled problem, from `_sqrt_band_step`. For each nonzero vector among x̃, s and the
+# difference, the largest magnitude of its normalized representation is in [1, 2); a zero vector is
+# returned as 0. Power-of-two scaling is exact when its exact result is in the normal Float64 range; below
+# that range it may lose bits or underflow to zero, with absolute error at most η/2 in the normalized
+# units (η = 2^-1074). For example, a residual [2^1000, 2^-1000] against the column [1, 0] gives d̃ = 0 for
 # d = 2^-1000, a relative change of 1 in d, while [1.5 2^1000, 2^-74] keeps 2^-74 as η. To first order in
 # η, these errors change √a by at most √n η √a, and b/√a and d by at most 3 n η ‖r‖ (2^ex ≤ √a,
 # 2^er ≤ ‖r‖, ‖x̃‖ ≥ 1 and ‖s‖ < 2√n; d also through the scaling inside `_scaled_norm`): absolute errors

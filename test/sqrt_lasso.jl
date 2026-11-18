@@ -292,15 +292,16 @@ end
 # |φ(z) − φ′(z)| ≤ (γ_n/2 + 3u) ‖ρ‖ + (18γ_n + 14u) ‖r‖, and φ′ is 2√a′-Lipschitz there (λ < √a′). So
 #   φ(step) − min φ ≤ 2 sup |φ − φ′| + 2√a′ 8.2u |ĉ| ≤ (37γ_n + 52.4u) max(‖ρ‖, ‖r‖),
 # and the test allows (37γ_n + 56u) max(‖ρ‖, ‖r‖), a margin of 3.6u for the second-order terms. A
-# rounding into the subnormal range adds an absolute error of at most η/2 (η = nextfloat(zero(T))),
-# which moves φ by at most (√a + λ) η/2; the test allows 4 (√a + λ) η for these. The paths that form
-# the threshold in Float64 (`_sqrt_band_step`) or scale the column and the residual by powers of two
-# (`_sqrt_offrange_step`, where a curvature or a residual is outside the clean range of the fast path)
-# have the same counts or fewer roundings in T. In that scaling an entry whose scaled value is subnormal
-# in Float64 may underflow or lose bits (absolute error at most η₆₄/2, η₆₄ = 2^-1074, in the scaled
-# units); to first order this changes √a by at most √n η₆₄ √a and b/√a and d by at most 3 n η₆₄ ‖r‖,
-# absolute errors at the scales of the column and the residual (not relative: a tiny d can become 0).
-# They are far below the 56u max(‖ρ‖, ‖r‖) term above (a d computed as 0 moves φ by at most 2d).
+# rounding whose exact result is below the normal range of T (it may give a subnormal number or 0) adds
+# an absolute error of at most η/2 (η = nextfloat(zero(T))), which moves φ by at most (√a + λ) η/2; the
+# test allows 4 (√a + λ) η for these. The paths that form the threshold in Float64 (`_sqrt_band_step`) or
+# scale the column and the residual by powers of two (`_sqrt_offrange_step`, where a curvature or a
+# residual is outside the clean range of the fast path) have the same counts or fewer roundings in T.
+# There, power-of-two scaling is exact when its exact result is in the normal Float64 range; below that
+# range it may lose bits or underflow to zero, with absolute error at most η₆₄/2 (η₆₄ = 2^-1074) in the
+# normalized units; to first order this changes √a by at most √n η₆₄ √a and b/√a and d by at most
+# 3 n η₆₄ ‖r‖, absolute errors at the scales of the column and the residual (not relative: a tiny d can
+# become 0). They are far below the 56u max(‖ρ‖, ‖r‖) term above (a d computed as 0 moves φ by at most 2d).
 step_bound(::Type{T}, n, S, ra, λ) where T =
   (37 * (n * eps(T) / 2) / (1 - n * eps(T) / 2) + 56 * eps(T) / 2) * S + 4 * (ra + λ) * nextfloat(zero(T))
 
@@ -342,8 +343,8 @@ step_ok(xk, y, λ, old) = ((z, r) = step_once(xk, y, λ, old); (e, b) = step_exc
   for λ in (prevfloat(T(2.5)), T(2.5) * (1 - T(2)^-12), T(1.25), T(2)^-20), old in (zero(T), T(0.75), T(-3))
     @test step_ok(xk, y, λ, old)
   end
-  # the guard zone: r nearly parallel to the column (d²/‖r‖² = 2^-20/5, about 2^-22), and both sides of
-  # d² = ‖r‖²/16
+  # the guard zone: r nearly parallel to the column (d²/‖r‖² = 2^-20/(5 + 2^-20), about 2^-22), and both
+  # sides of d² = ‖r‖²/16
   @test step_ok(xk, 2 .* xk .+ T(2)^-10 .* T[2, -1, 0, 0], T(0.5), zero(T))
   e1 = T[1, 0, 0, 0]
   for t in (T(3.87), T(3.88))               # d²/‖r‖² = 1/(t² + 1): above and below 1/16
