@@ -66,8 +66,8 @@ y = mu + sigma * randn(rng, n)
 # For predictor `j`, `B̃ⱼ = B(X[:, j]) − mⱼ` is the basis matrix with its column means `mⱼ`
 # removed, and `B̃ⱼ = Qⱼ Rⱼ` is its thin QR factorization. The block is `Zⱼ = √n Qⱼ`, so that
 # `Zⱼᵀ Zⱼ / n = I` up to rounding. Its columns have mean zero because `Qⱼ = B̃ⱼ Rⱼ⁻¹` is a
-# combination of centered columns. With `Zⱼ bⱼ` the fitted component on the sample,
-# `‖Zⱼ bⱼ‖²/n = ‖bⱼ‖²`: the penalty `‖bⱼ‖₂` is the empirical L2 norm of the fitted component of
+# combination of centered columns (`Rⱼ` is invertible by the rank check below). With `Zⱼ bⱼ` the
+# fitted component on the sample, `‖Zⱼ bⱼ‖²/n = ‖bⱼ‖²`: the penalty `‖bⱼ‖₂` is the empirical L2 norm of the fitted component of
 # predictor `j` on the training sample.
 means, Rs, blocks = Vector{Float64}[], Matrix{Float64}[], Matrix{Float64}[]
 for j in 1:p
@@ -99,9 +99,9 @@ predict(b, Xnew) = avg(y) .+ sum(component(j, b, Xnew[:, j]) for j in 1:p)
 
 # ## The problem and its penalty levels
 #
-# The response is centered, `z = y − mean(y)`. Each of the `pK` columns of `Z` has mean zero, so for a fixed
-# `b` the minimizer over the intercept `a` of `‖y − a − Z b‖²/(2n)` is `a = mean(y)` and the
-# minimum is `‖z − Z b‖²/(2n)`; the intercept of the full fit is `mean(y)`. The group
+# The response is centered, `z = y − mean(y)`. Each of the `pK` columns of `Z` has mean zero, so
+# for a fixed `b` the minimizer over the intercept `a` of `‖y − a − Z b‖²/(2n)` is `a = mean(y)`
+# and the minimum is `‖z − Z b‖²/(2n)`; the intercept of the full fit is `mean(y)`. The group
 # optimality condition at `b = 0` is `‖Zⱼᵀ z‖₂/n ≤ λ wⱼ` for each `j`; the problem is convex, so
 # `b = 0` is a minimizer when `λ` is at least `λmax = maxⱼ ‖Zⱼᵀ z‖₂ / (n wⱼ)`.
 z = y .- avg(y)
@@ -132,8 +132,8 @@ function violations(b, lambda)
 end
 
 # The solver tolerance `1e-12` is a threshold on the change of the coefficients over a pass,
-# relative to the scale of the response, and `converged` reports that the change test
-# passed. The optimality statements below rest on `violations`. Its tolerance `1e-9 λ` is a
+# relative to the scale of the response with the default `relative = true`, and `converged`
+# reports that the change test passed. The optimality statements below rest on `violations`. Its tolerance `1e-9 λ` is a
 # choice made small against the penalty level; the printed violations are the measured values.
 function fit(lambda)
   g = GroupNormL2(lambda, groups)
@@ -150,22 +150,22 @@ end
 
 # ## At and above `λmax`
 #
-# Three statements are checked. First, from the data alone: `maximum(scores) <= lambdamax` holds
-# by construction, and `b = 0` satisfies the zero-group condition at `λ = λmax`, up to the
-# rounding of two different evaluations of the same group score (`violations` computes the
-# gradient of the whole design, `scores` the block product).
+# Three statements are checked. First, from the data alone: `b = 0` satisfies the zero-group
+# condition at `λ = λmax`, which `violations(zeros(p * K), lambdamax)` evaluates from the
+# gradient of the whole design. The script asserts a bound of `1e-12 λ` and not exact equality,
+# because that gradient and `scores` compute the same group score by two different float
+# evaluations, which can differ by rounding.
 #
-# Second, the solver at `λ = λmax`. There `b = 0` is a minimizer, but the solver compares its
-# own evaluation of the group score with `λ wⱼ` at the rounding level, so a block of the size
-# of the rounding error can survive, and whether it does depends on the summation order of the
-# platform. The check therefore asserts a rounding-level result: each block norm is at most
-# `1e-12`, where the coefficients are of order one on this data, and the optimality violations
-# are at most `1e-12 λ`.
+# Second, the solver at `λ = λmax`. There `b = 0` is a minimizer and the largest group score
+# equals `λ wⱼ` up to rounding, so a solver that evaluates the score in another order can keep a
+# block of the size of the rounding error; the 1.10.13 and 1.13.4 runs of this page differ here.
+# The check therefore asserts a rounding-level result: each block norm is at most `1e-12` and
+# the optimality violations are at most `1e-12 λ`. The bound on the block norms is absolute,
+# and the group scores printed above lie between 0.05 and 0.7.
 #
 # Third, at `λ = (1 + 10⁻⁶) λmax` and at `λ = 1.5 λmax` the solver returns exact zeros and
-# reports no active group. The margin of `10⁻⁶` in relative size is far above rounding, which
-# keeps the comparison away from the boundary.
-@assert maximum(scores) <= lambdamax
+# reports no active group. The relative margin `10⁻⁶` is much larger than the rounding of
+# double precision (about `10⁻¹⁶`), so the comparison does not sit at the boundary.
 nz0, zr0 = violations(zeros(p * K), lambdamax)
 @assert nz0 == 0 && zr0 <= 1e-12 * lambdamax
 rmax = fit(lambdamax)
@@ -187,8 +187,8 @@ println("all blocks are exactly zero at λ = (1 + 1e-6) λmax and at λ = 1.5 λ
 # objectives, the optimality conditions, and the reconstruction of the fitted signal from the
 # components. It then reports the selected groups and the error of the fitted regression function
 # on `2000` fresh points, which is measured against the true regression function, not against the
-# noisy response. The noise variance is `σ² = 0.09`. The error of the constant fit `b = 0`, which
-# is the fit at `λmax`, is printed first for reference; an estimate that equals the truth has
+# noisy response. The noise variance is `σ² = 0.09`. The error of the fit with `b = 0`, the
+# solution at `1.5 λmax`, is printed first for reference; an estimate that equals the truth has
 # error 0.
 Xnew = rand(Xoshiro(371), 2000, p)
 munew = a_true .+ sum(truth[j].(Xnew[:, j]) for j in 1:p)
@@ -252,11 +252,12 @@ for j in (true_groups..., 3)
   println("   fitted", round.(component(j, mid.b, grid), digits = 2))
 end
 
-# The penalty selects whole groups; it does not make the coefficients inside a selected block
-# sparse. At a nonzero block the optimality condition gives `b[G] = −(‖b[G]‖/(λ w)) g[G]`, which
-# has a zero entry only where the gradient entry is zero, and a zero group has all `K` entries
-# zero. The count below is for the middle level, and the assertion states that each block has
-# either all `K` coefficients nonzero (the group is active) or none.
+# The group penalty zeroes a block as a whole. At a nonzero block the optimality condition gives
+# `b[G] = −(‖b[G]‖/(λ w)) g[G]`, so an entry of the block is zero only if the corresponding
+# entry of the gradient `g` is zero, which does not happen generically. The count below is for
+# the middle level. The assertion states that on this data each block has either all `K`
+# coefficients nonzero (the group is active) or none; it is a statement about this fit and not a
+# property of every data set.
 nonzero_per_group = [count(!iszero, mid.b[groups[j]]) for j in 1:p]
 println("nonzero coefficients per group: ", nonzero_per_group)
 @assert all(nonzero_per_group[j] == (j in mid.active ? K : 0) for j in 1:p)
@@ -267,12 +268,14 @@ println("nonzero coefficients per group: ", nonzero_per_group)
 #   the knots and the penalty levels are not tuned, and the page does not choose `λ` by
 #   cross-validation or an information criterion.
 # - The components are piecewise linear with kinks at the knots, so curvature inside a piece is
-#   not represented; a different basis gives a different estimate.
+#   not represented. Changing the function space (the knots or the type of basis) can change the
+#   estimate; a change of coordinates within the same space does not.
 # - The group norm `‖bⱼ‖₂` equals the empirical norm of the fitted component on the training
-#   sample, whose rows define the centering and the orthonormalization; at other points the
-#   empirical norm of the component is a different number. The penalty is the SpAM penalty on a
-#   fixed finite basis, and the fit is a finite-basis approximation, not the SpAM procedure,
-#   which fits the components nonparametrically with smoothers.
+#   sample, whose rows define the centering and the orthonormalization. The identity
+#   `‖Zⱼ bⱼ‖²/n = ‖bⱼ‖²` holds by that normalization and need not hold at other points. The
+#   penalty is the SpAM penalty on a fixed finite basis, and the fit is a finite-basis
+#   approximation, not the SpAM procedure, which fits the components nonparametrically with
+#   smoothers.
 # - The weights `wⱼ = √K` are equal across the predictors, so the penalty is `λ √K Σⱼ ‖bⱼ‖₂`, a
 #   rescaling of `λ`.
 # - The selected groups are reported for one simulated data set and compared with the truth.
