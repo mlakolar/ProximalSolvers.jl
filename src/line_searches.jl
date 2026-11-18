@@ -58,22 +58,23 @@ When the step `d = x - x'` of a trial has finite entries, `norm(d)^2` overflows 
 scaled step `d̃ = s d`, `s = 2^(-e)` with `e = min(exponent(max |dᵢ|), exponent(floatmax(T)) - 1)`
 for the type `T` of `x`, so that `s` is a normal number and the largest entry of `d̃` is in
 `[1, 2)`, or in `[2, 4)` when `exponent(max |dᵢ|)` is `exponent(floatmax(T))`. A trial whose
-value `f(x)` is not finite is not scaled: it gives no estimate and the search retries with
-`L ← L / β`, as above. `L̂` is formed from `d̃`, from `f(x)` and `f(x')` multiplied by `s²` (by
-shifting their exponents, since `s²` can underflow), and from the products of `d̃` and `∇f`
-multiplied by `s`; in exact arithmetic it equals the estimate at `d`. The trial is then decided
-as at a representable scale, up to the rounding of the computed `f` and `∇f`, overflow of the
-products `⟨d̃, ∇f(x')⟩` and `⟨∇f(x) - ∇f(x'), d̃⟩` before they are multiplied by `s` (an infinite
+value `f(x)` is not finite is not scaled: it takes the exit for a nonfinite trial value described
+above. `L̂` is formed from `d̃`, from `f(x)` and `f(x')` multiplied by `s²` (by shifting their
+exponents, since `s²` can underflow), and from the products of `d̃` and `∇f` multiplied by `s`;
+in exact arithmetic it equals the estimate at `d`. The trial is then decided as at a
+representable scale, up to the rounding of the computed `f` and `∇f`, overflow of the products
+`⟨d̃, ∇f(x')⟩` and `⟨∇f(x) - ∇f(x'), d̃⟩` before they are multiplied by `s` (an infinite
 product, or a NaN from overflowed terms of opposite sign), and underflow of an entry of `d̃`, of
-a scaled function value or of `L̂`. Such a product is not recovered: a `+Inf` function-value
-product gives `L̂ = L` and a `-Inf` gradient product gives `L̂ = -Inf`, and both accept the trial
-without the check; a `-Inf` function-value product or a `+Inf` gradient product gives `L̂ = Inf`,
-and a NaN gives a NaN `L̂`. The check of a rejected trial reads `d̃`, with `‖d̃‖²` between 1 and
-about `16n`; for Float32 data it is also subject to the allowances above, and an entry of `d̃`
-that is subnormal keeps TFOCS's update, while an entry of `d` with `|s dᵢ| ≤ 2^-150` rounds to zero
-in `d̃`, is not detected, and drops out of both sums of squares and of the product. After an
-accepted trial the solver state holds `x - x'` again. A step with a nonfinite entry is not
-scaled, and neither is a step whose squared norm underflows.
+a scaled function value or of `L̂`. Such a product is not recovered by the scaling: `L̂` is
+formed from it by the same expressions as for an unscaled step, with the scaled quantities, so
+it can be finite, infinite or NaN (for example, with finite `f(x)` and `f(x')`, a `+Inf`
+function-value product gives `L̂ = L`, and the trial is accepted without the check). The check
+of a rejected trial reads `d̃`, with `‖d̃‖²` between 1 and about `16n`; for Float32 data it is
+also subject to the allowances above, and an entry of `d̃` that is subnormal keeps TFOCS's
+update, while an entry of `d` with `|s dᵢ| ≤ 2^-150` rounds to zero in `d̃`, is not detected, and
+drops out of both sums of squares and of the product. After an accepted trial the solver state
+holds `x - x'` again. A step with a nonfinite entry is not scaled, and neither is a step whose
+squared norm underflows.
 See [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
 
 The object holds settings only and can be shared between solves; the

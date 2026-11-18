@@ -905,7 +905,7 @@ only on `converged`.
   `e = min(exponent(max |dᵢ|), exponent(floatmax(T)) - 1)`, so that `s` is a normal number
   and the largest entry of `d̃` is in `[1, 2)`, or in `[2, 4)` when `exponent(max |dᵢ|)` is
   `exponent(floatmax(T))` (1023 in Float64, 127 in Float32). A trial whose `f(x)` is not
-  finite is not scaled: it gives no estimate and the search retries with `L ← L/β`, as before.
+  finite is not scaled: it takes the exit for a nonfinite trial value described above, as before.
   The local estimate `L̂` is computed from `d̃` and from `f(x)` and `f(x')` multiplied by `s²`
   (by shifting their exponents, since `s²` can underflow), with the products of `d̃` and `∇f`
   multiplied by `s`; in exact arithmetic it equals the estimate at `d`. The check of a
@@ -918,20 +918,17 @@ only on `converged`.
   - a step whose squared norm is subnormal or underflows to zero is not scaled
     ([#317](https://github.com/mlakolar/ProximalSolvers.jl/issues/317));
   - an overflow of `⟨d̃, ∇f(x')⟩` (in the function-value estimate) or of
-    `⟨∇f(x) - ∇f(x'), d̃⟩` (in the gradient estimate), or a NaN from overflowed terms of opposite
-    sign, is not recovered by the scaling. A `+Inf` function-value product gives `L̂ = L`, and a
-    `-Inf` gradient product gives `L̂ = -Inf`: both accept the trial without the check. A
-    `-Inf` function-value product or a `+Inf` gradient product gives `L̂ = Inf`: the check of
-    the rejection runs (in gradient mode only when `∇f(x)` is finite) and either accepts the
-    trial or replaces `L̂` by a finite `c`; without such a `c`, the error is raised unless a
-    finite `Lexact` caps `L`. A NaN gives a NaN `L̂`, which is kept and raises the error;
-  - when `‖fl(X d̂)‖²` overflows for a representable `‖d̂‖²`, `c` is nonfinite and the check
-    does not accept the trial;
+    `⟨∇f(x) - ∇f(x'), d̃⟩` (in the gradient estimate) before the factor `s`, or a NaN from
+    overflowed terms of opposite sign, is not recovered by the scaling. `L̂` is formed from
+    that infinite or NaN product by the same expressions as for an unscaled step, with the
+    scaled quantities, so it can be finite, infinite or NaN. For example, with finite `f(x)` and
+    `f(x')`, a `+Inf` function-value product gives `L̂ = L`, and the trial is accepted without
+    the check;
+  - an overflow of `‖fl(X d̂)‖²` for a representable `‖d̂‖²` is handled by the check as before;
   - for Float64 data, in a narrow band around the overflow threshold of `‖d‖²`,
     `norm(d)^2` can be finite while the sum of squares of `d` that the check forms
     overflows (in a probe with random `d` of length 10, 100 and 1000, within about
-    `2 eps` of the threshold); the step is not scaled, and `c` can be zero and
-    accept the trial;
+    `2 eps` of the threshold); the step is not scaled, and its trial is decided as before;
   - for Float32 data, a subnormal entry of `d̃` (nonzero, below `floatmin(Float32)`) makes the
     check keep TFOCS's update, as it does for any `d̂` with a subnormal entry, and the check
     does not accept the trial. An entry of `d` with `|s dᵢ| ≤ 2^-150` (half the least positive
