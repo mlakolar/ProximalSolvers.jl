@@ -501,8 +501,8 @@ end
 
 # Codex's fixtures. (1) x ≠ 0, all of the entries in M: X = I/1024, x = fill(1024, p), λ = 1, y[1] = 1025 and y[2:end] = 1 + δ. The gradient is
 # exactly (-1, -δ, …, -δ) (δ = 2^-14 for Float32, 2^-43 for Float64: the entries 1 + δ are normal and X is a power of two), so that
-# P = 1 + (p - 1)δ·... with the signs of x: a sequential P starts at 1 and does not change when δ/1024 = 2^-24 (resp. 2^-53) is added,
-# and the exact residual is |λ - P| = (p - 1) 2^-24 (resp. 2^-53), about 3 τ S.
+# so P = 1 + (p - 1) 2^-24 (resp. 2^-53), a sequential P starts at 1 and does not change when 2^-24 (resp. 2^-53) is added, and
+# the exact residual is |λ - P| = (p - 1) 2^-24 (resp. 2^-53), about 3 τ S (Float32) and 3.95 τ S (Float64 with gradtol = 0).
 # (2) x = 0: X = I, y = (1, u, …, u) with u = 2^-24 (2^-53) and λ = 1: ‖∇f(0)‖₁ = 1 + (p - 1)u, and a sequential sum stays at 1.
 fixture1(T, p) = (Matrix{T}(I, p, p) / T(1024), vcat(T(1025), fill(T(1) + (T === Float32 ? T(2)^-14 : T(2)^-43), p - 1)), fill(T(1024), p))
 fixture0(T, p) = (Matrix{T}(I, p, p), vcat(one(T), fill(T(2)^(T === Float32 ? -24 : -53), p - 1)), zeros(T, p))
