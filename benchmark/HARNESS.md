@@ -234,8 +234,8 @@ and which draws miss changed too.
   that missed the target (summed over the six revision and Julia-version cells), the independent
   relative gap was 1.07e-5 to 3.75e-5 and was 2.3 to 7.0 times the independent KKT residual. This
   range is for Float32 PGD and is not a bound for APG.
-- The misses with `converged = false` ended on the objective-increase stop. On master and these
-  five designs, that was 14 of 50 solves on Julia 1.10.13 and 21 of 50 on 1.13.3. The stationarity
+- On master and the five harness designs, the misses with `converged = false` ended on the
+  objective-increase stop: 14 of 50 solves on Julia 1.10.13 and 21 of 50 on 1.13.3. The stationarity
   check had refused at least one earlier proposal in 14 and in 19 of them. The other 2 on 1.13.3
   (`lasso-B-warm` draw 4 and `lasso-D` draw 6) ended on the increase with no proposal made. On the
   adverse set of the report, on master, 63 (1.10.13) and 57 (1.13.3) of the 69 misses ended on the
