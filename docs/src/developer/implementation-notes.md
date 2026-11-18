@@ -239,7 +239,7 @@ ArgumentError.
 
 Sparse designs, sparse vectors and views as iterates, `SparseIterate` for proximal
 gradient descent (plain or accelerated), matrix-shaped, group and symmetric owners, weighted
-`ElasticNet`, `Scaled` penalties, group penalties other than `GroupNormL2` with CD, matrix responses, intercepts/offsets, generalized losses/compositions,
+`ElasticNet`, `Scaled` penalties, group penalties other than `GroupNormL2` with CD, matrix responses other than least squares with CD and a row-group `GroupNormL2` (a private `BlockIterate` over `vec(B)`, #396), intercepts/offsets, generalized losses/compositions,
 monotone/active-set acceleration and APG diagonal preconditioning, ADMM/Newton,
 primal-dual/SLOPE/graphical models, paths/screening/workspaces/refit, certificates other
 than the duality certificate of square-root lasso CD, and reweighting are deferred. Nondefault

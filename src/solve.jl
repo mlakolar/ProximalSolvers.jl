@@ -110,16 +110,23 @@ end
   throw(ArgumentError("the penalty coefficient of entry $j, lambda * weight in $T, $why; rescale the level or the weights"))
 end
 
-# The penalty of group coordinate descent on a BlockIterate: a GroupNormL2 whose level and weights
-# convert to T without overflow, or underflow to 0 from a nonzero value, and whose groups are those
-# of x, in the same order and with the same ordered members.
-function _check_penalty(g, x::BlockIterate, ::Type{T}) where T
+# The type, level and weights of a group penalty for data of type T: a GroupNormL2 with Float32 or Float64
+# parameters, whose level and weights convert to T without overflow, or underflow to 0 from a nonzero value.
+# `holder` names the coefficient storage in the message.
+function _check_group_penalty(g, ::Type{T}, holder::String) where T
   g isa GroupNormL2{<:Union{Float32, Float64}} ||
-    throw(ArgumentError("a BlockIterate needs a GroupNormL2 penalty with Float32 or Float64 parameters"))
+    throw(ArgumentError("$holder needs a GroupNormL2 penalty with Float32 or Float64 parameters"))
   _scalar_parameter(g.λ0, T, "penalty lambda")
   for k in eachindex(g.w)
     _weight_ok(g.w[k], T) || _weight_error(g.w[k], k, T)
   end
+  nothing
+end
+
+# The penalty of group coordinate descent on a BlockIterate: a GroupNormL2 as above, whose groups are those
+# of x, in the same order and with the same ordered members.
+function _check_penalty(g, x::BlockIterate, ::Type{T}) where T
+  _check_group_penalty(g, T, "a BlockIterate")
   ncoordinates(x) == length(g.groups) ||
     throw(DimensionMismatch("x has $(ncoordinates(x)) groups but the penalty has $(length(g.groups))"))
   for k in 1:ncoordinates(x)
@@ -152,7 +159,7 @@ function _check_data(x, f, g, ::Type{T}) where T
     throw(ArgumentError("only LeastSquaresLoss or one positive Scaled(LeastSquaresLoss) is supported"))
   end
   base.X isa Matrix{T} && base.Y isa Vector{T} ||
-    throw(ArgumentError("X must be Matrix{$T} and y Vector{$T}; sparse designs, matrix responses and mixed array types are deferred"))
+    throw(ArgumentError("X must be Matrix{$T} and y Vector{$T}; sparse designs and mixed array types are deferred, and matrix responses are supported only by CDSolver with a row-group GroupNormL2 on a Matrix or BlockIterate coefficient"))
   n, p = size(base.X)
   n > 0 && p > 0 || throw(DimensionMismatch("X must have positive row and column counts"))
   length(base.Y) == n && length(x) == p || throw(DimensionMismatch("x/y dimensions do not match X"))
@@ -182,7 +189,7 @@ function _check_sqrt_data(x, f, g, ::Type{T}, kind::Symbol) where T
     throw(ArgumentError("Scaled(SqrtLeastSquaresLoss, alpha) is not supported; for a positive finite alpha, use the unscaled SqrtLeastSquaresLoss with the penalty level lambda/alpha, which has the same minimizers (the scaled objective is alpha times the unscaled one)"))
   d = leastsquares_data(f)
   d.X isa Matrix{T} && d.Y isa Vector{T} && f isa SqrtLeastSquaresLoss{T} ||
-    throw(ArgumentError("X must be Matrix{$T} and y Vector{$T}; sparse designs, matrix responses and mixed array types are deferred"))
+    throw(ArgumentError("X must be Matrix{$T} and y Vector{$T}; sparse designs, matrix responses and mixed array types are deferred for SqrtLeastSquaresLoss"))
   n, p = size(d.X)
   n > 0 && p > 0 || throw(DimensionMismatch("X must have positive row and column counts"))
   length(d.Y) == n && length(x) == p || throw(DimensionMismatch("x/y dimensions do not match X"))
@@ -238,11 +245,71 @@ end
 function _check_block_problem(x, f, g, method)
   x isa BlockIterate{<:Union{Float32, Float64}} ||
     throw(ArgumentError("block coordinate descent needs a BlockIterate of Float32 or Float64"))
+  _is_matrix_response(f) && return _check_multiresponse(x, f, g, method)
   method.momentum === true &&
     throw(ArgumentError("block coordinate descent does not support momentum; use momentum = false or nothing"))
   base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), :block) : _check_data(x, f, g, eltype(x))
   all(isfinite, x) && _allfinite(base.Y) && _allfinite(base.X) ||
     throw(ArgumentError("x, X and y must contain only finite values"))
+  nothing
+end
+
+# Matrix-response least squares with CDSolver: B is a Matrix{T} (p × K) or a BlockIterate over vec(B), the loss
+# is a LeastSquaresLoss or one positive Scaled of it with X::Matrix{T} (n × p) and Y::Matrix{T} (n × K), and the
+# penalty is a GroupNormL2 whose group j is row j of B, the entries j:p:p*K of vec(B).
+_is_matrix_response(f) = (f isa Scaled ? f.f : f) isa LeastSquaresLoss{<:Any, <:AbstractMatrix}
+
+# The gate for a Matrix coefficient; its checks are those of `_check_multiresponse`.
+function _check_matrix_problem(x, f, g, method)
+  x isa Matrix{<:Union{Float32, Float64}} ||
+    throw(ArgumentError("a matrix coefficient must be a Matrix{Float32} or Matrix{Float64}"))
+  _check_multiresponse(x, f, g, method)
+end
+
+# The checks of the two matrix-response routes (x a Matrix{T} or a BlockIterate{T}), before any copy of x or
+# draw from the RNG, each refusal an ArgumentError unless noted, in this order: the loss; the types of X and Y;
+# the shapes (DimensionMismatch: positive sizes, the rows of X and Y, the size of x); the penalty type, level
+# and weights, and for a BlockIterate its groups against the penalty's (DimensionMismatch); the row layout of
+# the groups (DimensionMismatch); momentum; aliasing of x with X or Y; finite entries of x, X and Y.
+function _check_multiresponse(x, f, g, method)
+  T = eltype(x)
+  _is_matrix_response(f) ||
+    throw(ArgumentError("a matrix coefficient needs a LeastSquaresLoss, or one positive Scaled of it, with a matrix response Y"))
+  base = f isa Scaled ? f.f : f
+  f isa Scaled && _check_loss_scale(leastsquares_data(f).α, T)
+  base.X isa Matrix{T} && base.Y isa Matrix{T} ||
+    throw(ArgumentError("X and Y must be Matrix{$T} for a matrix coefficient of type $T; sparse designs and mixed array types are deferred"))
+  n, p = size(base.X)
+  K = size(base.Y, 2)
+  n > 0 && p > 0 && K > 0 || throw(DimensionMismatch("X and Y must have positive row and column counts"))
+  size(base.Y, 1) == n || throw(DimensionMismatch("X has $n rows but Y has $(size(base.Y, 1))"))
+  if x isa Matrix
+    size(x) == (p, K) ||
+      throw(DimensionMismatch("B is $(size(x, 1)) × $(size(x, 2)) but X has $p columns and Y has $K columns"))
+    _check_group_penalty(g, T, "a Matrix coefficient")
+  else
+    length(x) == p*K ||
+      throw(DimensionMismatch("x has $(length(x)) entries but X has $p columns and Y has $K columns"))
+    _check_penalty(g, x, T)
+  end
+  _check_row_groups(g, p, K)
+  method.momentum === true &&
+    throw(ArgumentError("matrix-response coordinate descent does not support momentum; use momentum = false or nothing"))
+  (Base.mightalias(x, base.X) || Base.mightalias(x, base.Y)) &&
+    throw(ArgumentError("mutable x must not alias borrowed X or Y"))
+  (x isa Array ? _allfinite(x) : all(isfinite, x)) && _allfinite(base.Y) && _allfinite(base.X) ||
+    throw(ArgumentError("x, X and Y must contain only finite values"))
+  nothing
+end
+
+# The groups of the penalty are the p rows of B, in order: g.groups[j] == j:p:p*K.
+function _check_row_groups(g, p::Int, K::Int)
+  length(g.groups) == p ||
+    throw(DimensionMismatch("the penalty has $(length(g.groups)) groups but B has $p rows; the groups must be the rows of B, [collect(j:$p:$(p*K)) for j in 1:$p]"))
+  for j in 1:p
+    g.groups[j] == j:p:p*K ||
+      throw(DimensionMismatch("group $j of the penalty is not row $j of B (the entries $j:$p:$(p*K) of vec(B))"))
+  end
   nothing
 end
 
