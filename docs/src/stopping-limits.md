@@ -9,7 +9,10 @@ The audit used 11 small designs (20 to 60 rows, 8 to 60 columns) and evaluated e
 weighted `NormL1`, so the `NormL1` problems of the audit were unweighted, and the counts on this page
 do not cover a weighted `NormL1`. These are high-precision
 evaluations, not proofs, and the counts are for those designs: they are not rates to expect on
-other problems.
+other problems. The subsections from [The cached residual](@ref "The cached residual") on report a
+separate, later study ([issue #378](https://github.com/mlakolar/ProximalSolvers.jl/issues/378),
+revision `8cc0222`) with its own designs and starts; its counts are a different population and are
+not to be combined with those of the audit.
 
 ## The criterion and a certificate
 
@@ -213,10 +216,11 @@ iterate with the random order) it is computed again before a full pass when an e
 moved it since it was last computed; the first pass of a solve is a full pass, and no such
 computation precedes it.
 
-Each partial sum of `y − Σ X_k x_k` is rounded at its own size, which is that of the column images
-`X_k x_k` of the start where these are larger than `y`. In exact arithmetic a step changes the cache and `y − Xx` by the same amount, so an
-error `e` of the cache is not removed by the steps that follow: the passes are those of the problem
-with the response `y + e`, and the change test can be met at a point that is not near a minimizer
+The intermediate sums of `y − Σ X_k x_k` can be much larger than the residual itself, and their
+rounding can then lose `y`; this happens where column images `X_k x_k` of the start are much larger
+than `y`. In exact arithmetic a step changes the cache and `y − Xx` by the same amount, so an
+error `e` of the cache is not removed by the steps that follow: until the cache is computed again,
+the passes are those of the problem with the response `y + e`, and the change test can be met at a point that is not near a minimizer
 of the problem that was posed. For `CDSolver` with a least-squares loss, `converged = true` reports
 the change test as computed from the cached residual. It is not a certificate of stationarity, and
 it does not say that the cache is close to `y − Xx` at the returned point.
@@ -228,7 +232,7 @@ reaches: revision `8cc0222`, Julia 1.13.4 and 1.10.13, two CPU kinds, and 1,667,
 49 designs (ten of the designs of the audit and 39 generated ones, up to 5000×20 and 50×200) with lasso,
 elastic-net, ridge and group-lasso penalties, in Float32 and Float64. Each returned point was
 evaluated in 600-bit arithmetic. Most of the starts were built to provoke the failure:
-`x_ref + 2^j z` for a reference solution `x_ref`, five directions `z` scaled so that the largest
+`x_ref + 2^j z` for a reference solution `x_ref`, up to five directions `z` per design, scaled so that the largest
 column image of `z` has the norm of `y`, and `j` up to 28 in Float32 and 60 in Float64. The counts are
 for those designs and starts; they are not rates to expect on other problems. They are from one run
 under Julia 1.13.4. The other three runs give close counts: 264,651 to 264,960 false stops where this
@@ -252,7 +256,7 @@ of groups times the threshold for the group lasso.
   target after a pass that changed nothing); the study did not classify them further.
 - **A pass that changed nothing is not the marker.** 30,258 of the false stops (11%) ended, as the
   example does, with a full pass in which no coefficient or group changed. In the others the last
-  pass moved coefficients by less than the threshold. One hand-built case of the study: from the
+  pass moved coefficients or groups, each by a scaled change below the threshold. One hand-built case of the study: from the
   start `2^50 e_1` on the Gaussian design of the audit, a Float64 solve with cyclic order and no
   momentum converged in 16 passes at a point whose exact KKT residual is `5.9e-3` of
   `max(λ, λmax)`; with the default options the same start ended at `2.3e-10`.
@@ -273,8 +277,9 @@ of groups times the threshold for the group lasso.
   | `j = 40` | – | 4,154 of 22,256 |
   | `j = 48` | – | 13,920 of 22,197 |
 
-  On most designs the false stops begin where the largest column image of the start is `2^8` to
-  `2^12` (Float32) or `2^36` (Float64) times `‖y‖`. The study does not establish a size of the start
+  In this table the false stops become frequent between `j = 12` and `j = 16` in Float32 and between
+  `j = 36` and `j = 40` in Float64, where the largest column image of `2^j z` is that power of two
+  times `‖y‖`. The study does not establish a size of the start
   below which the stop is reliable: the false stops of the second and third rows, and those at
   `j = 0`, are on the rank-deficient design of the audit, and two Float32 false stops at `j = 4` on
   another design started from column images whose norms sum to 29 `‖y‖`.
@@ -318,12 +323,14 @@ solve. None of the four met them.
   continues, left 22 and 0 of the 114,053 false stops (vector penalties) of their comparison with
   the unchanged solver. They lost 64 and 17 Float32 solves that must keep converging, and 23 and 51
   of 260 timing cases, small warm-started solves among them, were more than 5% slower.
-- A rule that recomputes the residual when a bound for the rounding error of the start is large
-  lost none of those solves and left 18 of the 114,053. It was designed after the results were
+- A rule that recomputes the residual when a first-order estimate of the rounding error of the
+  last computation of the cache is large, and stops without `converged = true` when that estimate
+  is large at the stop, lost none of those solves and left 18 of the 114,053. It was designed after the results were
   known, and its constant has no validation on designs that were held out. It reports
   `converged = false` at some exact minimizers with heavy cancellation, its group form is looser
   than its vector form and not range-safe, and one of its timing cases was above 5% in both of
-  two runs.
+  two runs. Its estimate is not a bound on the error of the cache, so passing its tests would not
+  certify the residual either.
 
 The stopping rule, its defaults and the work of a solve are therefore unchanged, and the limit of
 this section remains; [issue #392](https://github.com/mlakolar/ProximalSolvers.jl/issues/392) tracks
@@ -336,15 +343,17 @@ What you can do:
 
 - Start from zero, or from a point at the scale of the solution such as the previous point of a
   λ path.
-- Do not warm-start a penalized problem from an unpenalized fit of a design that is rank deficient
-  or close to it.
+- Do not warm-start from a point whose column images are far larger than the response. An
+  unpenalized fit with large cancelling coefficients is such a point, and a rank-deficient or
+  nearly collinear design is where such fits arise; the study gives no size below which a start is
+  safe.
 - Evaluate the [KKT residual independently](sparsity-and-kkt.md) at the returned point. It forms
   `y − Xx` from the returned coefficients, so it does not inherit the error of the cache; where the
   returned coefficients are still far above the scale of the solution, as in the example, evaluate
   it in higher precision.
 - Calling `solve!` again from the returned point also computes the cache from the returned
-  coefficients. The study did not measure this. It does not help where those coefficients are still
-  large and cancelling: the example returns its start.
+  coefficients. The study did not measure this, and it is not guaranteed to improve the result: it
+  still fails on the example above, which returns its start.
 
 ## Float32
 
