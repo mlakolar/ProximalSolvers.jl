@@ -6,7 +6,7 @@ import sys, os, collections
 PS = "https://github.com/mlakolar/ProximalSolvers.jl/blob/dac9f4b6819d9321117ee3cf3549e9e46a043f01/"
 FILES = {"SQ": "src/cd/sqrtlasso.jl", "LS": "src/cd/leastsquares.jl", "MO": "src/cd/models.jl", "SO": "src/cd/solver.jl",
          "IM": "src/solvers/image_models.jl", "BL": "src/blocks.jl", "UT": "src/utils.jl", "LI": "src/line_searches.jl",
-         "PG": "src/solvers/proximal_gradient_descent.jl", "AP": "src/solvers/accelerated_proximal_gradient_descent.jl"}
+         "PG": "src/solvers/proximal_gradient_descent.jl", "SV": "src/solve.jl", "AP": "src/solvers/accelerated_proximal_gradient_descent.jl"}
 
 def src(f, a, b=None):
     b = b or a
@@ -17,7 +17,7 @@ def src(f, a, b=None):
 ROWS = collections.OrderedDict()
 
 ROWS["sqrt"] = [
- ("`SqrtLSModel`, `cdmodel`, forwarders (`initialize!`, `coordinate_scale`, `response_scale`, `_cache`, `loss_value`, `_result_gap`, `_uncertified`)", "SQ", 16, 44, 25,
+ ("`SqrtLSModel`, `cdmodel`, forwarders (`initialize!`, `coordinate_scale`, `response_scale`, `_cache`, `loss_value`, `_result_gap`, `_uncertified`)", "SQ", 16, 44, 24,
   "SO:506-512 hooks", "Model state around an `LSModel` with scale 1; `loss_value` is PB `value_from_residual`. Plain values.", "setup",
   "`leastsquares_data`, `value_from_residual` (public, used)", "A", "keep", "0", "n/a", "n/a", "#332, #307"),
  ("`_prepare!`", "SQ", 49, 63, 15, "SO:508", "Per-solve setup: step level `T(λ0)`, brackets of λ0, floor `16 eps(T) ‖y‖`, two Float64 work vectors.", "setup",
@@ -26,7 +26,7 @@ ROWS["sqrt"] = [
   "none", "B", "keep (a 7-line form exists, 0 violations on 4,513 levels, but it edits an input of the certificate proof for 8 lines)", "0", "certificate input", "once per solve", "#332"),
  ("`_scaled_norm`", "SQ", 89, 102, 14, "SQ:57 (setup), SQ:274 (cold)", "`‖v‖₂ = s·2^e` in Float64 by `ldexp` scaling. Stable value, not a bound.", "setup / cold",
   "none public. PS's own `_se_norm(Float64, ·)` (IM:74) computes the same quantity; PB private `_residual_squares` is the same family with a compensated sum", "C (PS-internal duplicate)",
-  "**delete** (R1; alone as R1-min)", "−14 exec; −1 concept (a third scaled-norm algorithm in PS). PB+PS total decreases",
+  "**delete** (R1; alone as R1-min)", "−14 exec inside R1; −13 net as R1-min (the cold caller gains one line); −1 concept (a third scaled-norm algorithm in PS). PB+PS total decreases",
   "Max relative difference to `_se_norm` 1.6e-15 over 1,567 vectors across both ranges; `_se_norm` is the more accurate at large n (n=10⁵: 0.04–1.6 vs 31–168 eps(Float64))", "`_se_norm` 1.2–3.2× faster (indicative); setup/cold only", "R1; PB #896 exposure removed"),
  ("`_column_dot_rsqr`", "SQ", 105, 124, 20, "SQ:152", "Fused plain `@simd` sums `a = ‖X_k‖²` (cold cache only), `b = X_kᵀr`, `ρ² = ‖r‖²` in T. Ordinary values.", "hot",
   "none. LS `_column_dot` (LS:38) is the same loop without ρ²", "B", "keep; do not merge with `_column_dot`", "0",
@@ -63,9 +63,9 @@ ROWS["sqrt"] = [
 ]
 
 ROWS["ls"] = [
- ("`LSModel`, `_scale_type`, `cdmodel`, `_activeentries`", "LS", 8, 25, 17, "SO:506; SQ:28-32; LS:260-267", "Borrowed X, y, α from PB `leastsquares_data`; residual `r` and curvature cache `a` in T.", "setup",
+ ("`LSModel`, `_scale_type`, `cdmodel`, `_activeentries`, `_cache`", "LS", 8, 25, 19, "SO:506; SQ:28-32; LS:260-267", "Borrowed X, y, α from PB `leastsquares_data`; residual `r` and curvature cache `a` in T.", "setup",
   "`leastsquares_data` (public, used)", "A", "keep", "0", "n/a", "n/a", "#307, #295"),
- ("`initialize!`, `_initialize!` (scalar and block)", "LS", 26, 37, 12, "SO:507; SO:445 (momentum refresh); LS:269-281", "`r = y − Σ X_j x_j` by one axpy per nonzero entry; curvature cache reset to NaN.", "setup",
+ ("`initialize!`, `_initialize!` (scalar and block)", "LS", 26, 37, 12, "SO:507; SO:445 and SO:476 (momentum reset and refresh); LS:269-281", "`r = y − Σ X_j x_j` by one axpy per nonzero entry; curvature cache reset to NaN.", "setup",
   "none", "B", "keep", "0", "n/a", "the reset at each momentum refresh makes 5–6 % of dot calls cold: #290 (deferred)", "#278, #290"),
  ("`_column_dot` (two methods)", "LS", 38, 53, 16, "LS:97; LS:595", "`b = rᵀX_k` (and `a = ‖X_k‖²` on a cold cache), plain `@simd` sums in T. Ordinary values, no recovery.", "hot",
   "none public (PB `_scaled_dot` is dead code and a different shape)", "B", "keep", "0", "underflow of the product at extreme scales: see Q9", "the `a` cache avoids a 1.2–1.7× slower pass", "#278 item 4"),
@@ -74,7 +74,7 @@ ROWS["ls"] = [
  ("`_sqnorm!`", "LS", 61, 71, 11, "LS:186 (`coordinate_scale`), LS:362 (`_singleton_curvature`)", "In-order (non-`@simd`) `Σx²` with a cache write. Ordinary value.", "cold (`coordinate_scale`: cache always filled in production) / setup (singleton groups)",
   "Base `sum(abs2, view)`", "B, redundant (a second `Σx²` algorithm beside `_column_dot`'s)", "**delete** (R3)", "{SQNORM_SAVE}",
   "{SQNORM_CORR}", "{SQNORM_PERF}", "R3; #278 V3"),
- ("`_flat_column`, `_flat_group`", "LS", 72, 77, 12, "LS:98, SQ:154, LS:347; LS:309", "All entries `== 0`.", "cold / setup",
+ ("`_flat_column` (LS:72-77), `_flat_group` (LS:345-350)", "LS", 72, 77, 12, "LS:98, SQ:154, LS:347; LS:309", "All entries `== 0`.", "cold / setup",
   "Base `all(iszero, view)`", "C (Base)", "**replace** (R2)", "{FLAT_SAVE}", "{FLAT_CORR}", "none", "R2"),
  ("LS `coordinate_step!`", "LS", 96, 108, 13, "MO:34", "`shrink(old + b/a, λ/(s a))` (ridge weight for ElasticNet); refuses a zero non-flat or non-finite curvature before any write.", "hot",
   "`prox_block`, `shrink` (public, used)", "A", "keep", "0", "in-band step bit-identical to the pre-#294 step (test/cd_numerics.jl:1317)", "n/a", "#294, #311"),
@@ -87,17 +87,17 @@ ROWS["ls"] = [
   "0 hits in 6,080 ordinary solves (~77 M visits); the generic fallback is unreachable from `solve!` and reachable by direct model construction (tested)", "cold", "#294; #350 adds a weighted method here"),
  ("`_threshold` (Float32, Float64)", "LS", 152, 158, 7, "LS:134", "`τ = λ/(α a)`: Float32 in Float64 (exact product); Float64 by `frexp`/`ldexp`. Stable value within 1 ulp.", "cold",
   "none (`_threshold_product` forms a product of three factors, not this quotient)", "B", "keep", "0", "max error 0.50 eps (Float32), 0.89 eps (Float64) over 20,000 triples; 1.10 and 1.13 differ only below 2^-1074", "cold", "#294; PB #896"),
- ("`coordinate_scale`, `_curvature_scale`", "LS", 186, 196, 9, "MO:35 (`_visit!`, when scaled and h ≠ 0); LS:288", "`√(s a)` rounded to T: `sqrt(T(p))`, or roots first where `p` leaves the range. Stable value.", "hot (after a nonzero update); branches cold",
+ ("`coordinate_scale` (scalar, and block at LS:288), `_curvature_scale`", "LS", 186, 196, 10, "MO:35 (`_visit!`, when scaled and h ≠ 0); LS:288", "`√(s a)` rounded to T: `sqrt(T(p))`, or roots first where `p` leaves the range. Stable value.", "hot (after a nonzero update); branches cold",
   "none", "B", "keep", "0", "n/a", "one multiply, two compares, one root", "#293, #295 (no reciprocal cache)"),
  ("`response_scale`", "LS", 197, 213, 17, "SO:302 (`_tolerances`, once per solve); SQ:38", "`√(s Σy²)` in three tiers: clean one-pass sum; `T(sqrt(p))` for a scale type wider than T; exceptional.", "setup",
   "PB `value_from_residual(Scaled(SqrtLeastSquaresLoss(y, X), √s), y)` returns `√s‖y‖` with range recovery, but allocates and costs +3–6 % on 2–4 µs solves", "B, simplifiable",
-  "**drop tier 2** (R2). The single `_SE` path (−21) and the PB oracle (−23) are not recommended now", "{RS_SAVE}", "{RS_CORR}", "9 ns at n = 20, once per solve", "R2; #293"),
+  "keep. Dropping tier 2 is deferred (section C): it moves accepted inputs at the normal-range boundary. The single `_SE` path (−21) and the PB oracle (−23) are not recommended", "0 now (−7 if tier 2 goes)", "{RS_CORR}", "9 ns at n = 20, once per solve", "#293, #295"),
  ("`_response_scale_exceptional`, `_se_scale`, `_refuse_response_scale`", "LS", 220, 237, 17, "LS:212; LS:224-230", "`√s‖y‖` as an `_SE`, rounded once to T; refuses a result that is not a normal number of T.", "cold (setup)",
   "none; uses PS `_se_norm`, `_root_scale`, `_se_mul`", "A (shared with APG inside PS)", "keep", "0", "n/a", "1.2 µs at n = 1000, once per solve", "#293"),
  ("`loss_value` (scalar and block)", "LS", 239, 283, 2, "SO:512", "`value_from_residual(f, r)`.", "setup", "it **is** the PB oracle", "A", "keep", "0", "n/a", "n/a", "#307, #277"),
- ("`BlockLSModel`, block `cdmodel`, block `initialize!`", "LS", 251, 281, 30, "SO:506-507", "Group curvature bounds ℓ, scratch vectors, Float64 Gram buffers.", "setup", "none", "B", "keep", "0", "n/a", "buffers allocated on first Gram use", "#275, #326"),
+ ("`BlockLSModel`, block `cdmodel`, block `initialize!`, block `response_scale`", "LS", 251, 282, 31, "SO:506-507", "Group curvature bounds ℓ, scratch vectors, Float64 Gram buffers.", "setup", "none", "B", "keep", "0", "n/a", "buffers allocated on first Gram use", "#275, #326"),
  ("`_prepare!` (block), `_group_curvature!`, `_check_step_band`", "LS", 304, 344, 35, "SO:508; LS:318, 612", "Routing per group (flat, singleton, Gram now or deferred) and the step-band refusal.", "setup / lazy",
-  "none", "B", "keep", "0", "refusals happen before the first pass and before the RNG is used", "3–32 % of a singleton-group solve today (R3 reduces it)", "#326"),
+  "none", "B", "keep", "0", "the refusals that can be predicted (`_curvature_deferrable`) are raised in `_prepare!`, before the first pass and before the RNG is used; a deferred group computes its curvature at its first visit (LS:612) and can still be refused there (eigensolver failure or a non-finite result), after the RNG has advanced, with the caller's x preserved, as docs/src/numerics.md states", "3–32 % of a singleton-group solve today (R3 reduces it); the Gram buffers and the eigensolve allocate at the first use, which for a deferred group is inside a pass", "#326"),
  ("`_singleton_curvature`", "LS", 361, 369, 9, "LS:312", "`ℓ = nextfloat(a(1+2n eps))`: rigorous majorizer of one column.", "setup", "none", "B", "keep; under R3 the sum is `sum(abs2, view)`", "0", "{SINGLETON_CORR}", "n/a", "R3"),
  ("`_gram_curvature`", "LS", 402, 432, 31, "LS:334", "Upper bound on `λmax(X_GᵀX_G)`: Float64 Gram, `eigvals`, margin `4(n+mk²) eps`. Rigorous up to the eigensolver model.", "setup / lazy",
   "`lipschitz`, `opnorm2`, `_opnorm_upper`: none is a rounded-up bound (`opnorm2` is documented \"not a certified upper bound\")", "B", "keep", "0",
@@ -110,6 +110,8 @@ ROWS["ls"] = [
   "`dot` would need two temporaries", "B", "keep", "0", "a NaN or an overflow gives no restart", "n/a", "#278 item 3"),
  ("`_tolerances`, `_visit!`, `_sweep!`", "SO", 276, 306, 29, "`_cd_plain!`, `_cd_momentum!`; MO:33-38", "`tol × response_scale`; `|h| × coordinate_scale`; refusal of a non-finite change.", "setup / hot",
   "none", "B", "keep", "0", "n/a", "n/a", "#288, #278 (V2 NO-GO); #352 owns the policy"),
+ ("`_shuffle!`, `_pass!`, `_cd!`, `_cd_plain!`, `_usemomentum`, `_cd_momentum!`, `_momentum_start!`, `_momentum_reset!`, `_momentum_update!`, `_momentum_refresh!`", "SO", 249, 480, 136, "`_run_cd!` (SO:505)", "Pass drivers: traversal order, active and full passes, momentum bookkeeping, the stop tests on the largest scaled change.", "hot (driver)",
+  "none", "B", "keep (#278: no consolidation of the two loops; hooks, RNG and traversal unchanged)", "0", "n/a", "n/a", "#278, #288, #311; #352 owns the stop tests"),
 ]
 
 ROWS["pgd"] = [
@@ -133,10 +135,10 @@ ROWS["pgd"] = [
   "none", "B", "keep", "0", "constants within 2.2 u of an all-BigFloat chain; ≥ 27 u of the 32 u budget unused", "once per solve", "#267"),
  ("`_frobenius_upper`", "IM", 137, 155, 19, "IM:203", "Upper bound on `‖X‖_F` with explicit rounding factors. The one helper here that is one-sided by construction.", "setup",
   "none (`opnorm2`, `_opnorm_upper` are spectral and not one-sided)", "B", "keep; its first loop can call `_sumsq64` (R2)", "{SD_SAVE}", "290 matrices per type, 0 violations", "one pass over X", "#267; R2"),
- ("`_significand_exponent` (two methods)", "IM", 163, 167, 5, "IM:170", "Significand and exponent of the loss scale; a 256-bit BigFloat route for any other `Real`.", "setup",
-  "none", "E (generality that `solve!` no longer admits)", "{SB_ACTION}", "{SB_SAVE}", "{SB_CORR}", "removes a BigFloat allocation per solve for an integer or Bool scale", "R2; #307 narrowed the scale types"),
+ ("`_significand_exponent` (two methods)", "IM", 163, 167, 5, "IM:170", "Significand and exponent of the loss scale; any scale that is not an IEEE float, which for `solve!` means the admitted integer and Bool scales, goes through a 256-bit BigFloat conversion.", "setup",
+  "none", "E (generality beyond the scales `solve!` admits, all of which are exact in Float64)", "{SB_ACTION}", "{SB_SAVE}", "{SB_CORR}", "removes a BigFloat allocation per solve for an integer or Bool scale", "R2; #307 narrowed the scale types"),
  ("`_root_scale`", "IM", 169, 177, 9, "AP:154; LS:225", "`√α` as `_SE`, ≤ 0.91 u.", "setup", "none", "B", "keep", "0", "66 scales per type", "once per solve", "#267"),
- ("`_bound_certified!`, `_image_error_bound`, `_check_bound_size`", "IM", 237, 275, 29, "AP:248; AP:175, 203; AP:318", "Accept a trial only when `√α‖Xd‖ ≤ (1+4ε)√L‖d‖` is proved from the cached image, a certified early reject, else a fresh product. Rigorous decision through the fixed budget κ.", "hot",
+ ("`_bound_certified!`, `_image_error_bound` (IM), `_check_bound_size` (AP:276-281)", "IM", 237, 275, 35, "AP:248; AP:175, 203; AP:318", "Accept a trial only when `√α‖Xd‖ ≤ (1+4ε)√L‖d‖` is proved from the cached image, a certified early reject, else a fresh product. Rigorous decision through the fixed budget κ.", "hot",
   "none", "B", "keep", "0", "~22,000 decisions per Julia version on an L grid, ~15,000 accepted trials of 132 real solves rechecked in BigFloat: 0 violations", "0.23–0.47 µs per call vs 0.5–140 µs per `X*x`; the early reject ends 20–23 % of trials without a product", "#265/#267, #271, #352"),
  ("`Blocks` forwards (`_norm`, `_norm_diff`, `_norm_inf`, `_dot`, `_eltype`, `_copy`, `_similar`, `_dense_similar`, `_copyto!`) and `_sub!`, `_step!`, `_extrapolate_point!`", "BL", 7, 18, 12, "PG, AP, LI, UT", "Owner seam for the iterate.", "hot",
   "Base and PB `norm_diff` (already forwarded)", "A", "keep", "0", "n/a", "n/a", "#279, #268, #230"),
@@ -144,13 +146,27 @@ ROWS["pgd"] = [
   "none", "B", "keep (a closure-based generic `fsum`/`fmax` would remove ~40 lines but adds an abstraction #279 declined; untested in situ)", "0", "n/a", "on Julia 1.10 the NaN-propagating `max` loops are scalar", "#279, #268"),
  ("`_maxabs_diff`", "BL", 44, 50, 7, "AP:289 (`g_residual`, every iteration); IM:83", "`max|xᵢ − yᵢ|`, NaN propagates.", "hot",
   "**PB public `norm_diff(x, y, Inf)`**, already forwarded as `Blocks._norm_diff`", "C", "{SA_ACTION}", "{SA_SAVE}", "{SA_CORR}", "{SA_PERF}", "R2"),
- ("`f_residual`, `g_residual`, `convergence_assessment`, `gradient_converged!`, `_gradient_test`, `_unchanged`, `_state_norm`, `_state_normdiff`", "UT", 28, 178, 49, "PG, AP `solve!` loops", "Stopping quantities, all plain T.", "hot",
+ ("`f_residual`, `g_residual`, `convergence_assessment`, `gradient_converged!`, `_gradient_test`, `_unchanged`, `_state_norm`, `_state_normdiff` (PGD forms in utils.jl; APG `g_residual`, `gradient_converged!` at AP:289-297)", "UT", 28, 178, 60, "PG, AP `solve!` loops", "Stopping quantities, all plain T.", "hot",
   "Base, PB `norm_diff`", "B", "keep; policy owned by #352. No stopping quantity needs `_SE`", "0", "n/a", "n/a", "#352, #270, #296"),
- ("`_stationary!`, `_lambda_max!`, `_gradient_at_x!`, `_converted_penalty`, `_l1_level`", "UT", 122, 167, 28, "PG, AP stopping gate", "Stationarity check through PB `kkt_violation` and the PB gradient oracle.", "cold (at a stop)",
+ ("`_stationary!`, `_lambda_max!`, `_gradient_at_x!`, `_converted_penalty`, `_l1_level`", "UT", 122, 167, 29, "PG, AP stopping gate", "Stationarity check through PB `kkt_violation` and the PB gradient oracle.", "cold (at a stop)",
   "`kkt_violation`, predictor oracles (public, used)", "A", "keep", "0", "n/a", "n/a", "#341/#343; #350 edits `_converted_penalty`, `_l1_level`"),
  ("`_step_curvature` (T and Float32), `_sumsq64`, `_step_norms64`", "PG", 188, 243, 31, "PG `check_rejection!`", "Direct-curvature backtracking test; Float32 norms accumulated in Float64.", "hot",
   "none", "B", "keep", "0", "documented allowances", "n/a", "#284, #287, #308"),
  ("`backtrack!`, `next_curvature`", "LI", 77, 170, 54, "PG:135, AP:217", "Backtracking loop and curvature decay.", "hot", "none", "B", "keep", "0", "n/a", "n/a", "#284, #316, #321"),
+ ("`_allfinite`, `_scalar_parameter`, `_check_loss_scale`, `_float64_scale_ok`, `_loss_scale_error`", "SV", 3, 50, 37, "SV:103 and the data checks", "Input-domain guards: finite data, a level representable in T, a loss scale that is Float32, Float64, a fixed-width integer or Bool and converts to T exactly or to a finite nonzero value.", "setup",
+  "none", "B", "keep. R2's `Float64(α)` in `_root_scale` is exact because of `_check_loss_scale`", "0", "`Int128(2)^100` and `true` are admitted and exact in Float64; `Int128(2)^100 + 1` is refused for Float64 data", "once per solve", "#307, #322, #329"),
+ ("`_check_penalty`, `_weight_ok`, `_weight_error`, `_check_data`, `_check_sqrt_data`, `_check_sqrt_penalty`, `_check_problem`, the owner and block checks, `_check_keywords`, `_check_start`", "SV", 55, 205, 113, "`solve!` methods", "Validation of the supported loss, penalty, iterate and storage combinations before anything is written.", "setup",
+  "none", "B", "keep", "0", "refusals precede every write", "once per solve", "#234, #332; #350 edits `_check_penalty`"),
+ ("PGD `initial_state`, `update_state!`", "PG", 92, 160, 66, "`_solve_gradient!` (SV:207)", "The PGD iteration: cached image, trial step, mode switch, curvature update.", "hot",
+  "PB predictor oracles and `value_and_prox!` (used)", "B", "keep", "0", "n/a", "n/a", "#284, #287, #308, #309"),
+ ("`value_and_gradient_at_x!`, `check_rejection!` (PGD methods of the line-search hooks)", "PG", 170, 182, 7, "LI:85-90, LI:159", "The fresh value and gradient at a trial point, and the direct-curvature verification with one extra product `X·Δx`.", "hot (per rejected or verified trial)",
+  "none", "B", "keep", "0", "n/a", "one `X·Δx` product when the cheap test is not conclusive", "#284"),
+ ("`_stagnated`", "PG", 327, 329, 3, "SV:249", "Whether a Float32 PGD run stopped at numerical stagnation.", "cold",
+  "none", "B", "keep; policy owned by #352", "0", "n/a", "n/a", "#308, #312, #352"),
+ ("APG `initial_state`, `update_state!`", "AP", 116, 196, 79, "`_solve_gradient!` (SV:207)", "The APG iteration: extrapolation, restart, the norms `normx`, `normx_previous` and the image-error bookkeeping that the certified test reads.", "hot",
+  "PB predictor oracles and `value_and_prox!` (used)", "B", "keep", "0", "warmed `update_state!` allocates 0 B on Julia 1.10 and 1.13", "n/a", "#265/#267, #272"),
+ ("`_prox_grad_step!`", "AP", 217, 264, 39, "AP:191", "One APG trial: the explicit zero-step acceptance, the retry when a norm is not available, and the dispatch to `_bound_certified!`.", "hot",
+  "none", "B", "keep", "0", "the `nothing` guards are reachable on an overflowing `X d̂`", "n/a", "#267, #279"),
 ]
 
 ROWS["pb"] = [
@@ -184,7 +200,7 @@ def cs(text):  # turn "SQ:57" style references into links
     def rep(m):
         f, a, b = m.group(1), m.group(2), m.group(3)
         return src(f, int(a), int(b) if b else None)
-    return re.sub(r"\b(SQ|LS|MO|SO|IM|BL|UT|LI|PG|AP):(\d+)(?:-(\d+))?", rep, text)
+    return re.sub(r"\b(SQ|LS|MO|SO|IM|BL|UT|LI|PG|AP|SV):(\d+)(?:-(\d+))?", rep, text)
 
 def main(out):
     load_subs(os.path.join(os.path.dirname(os.path.abspath(__file__)), "ledger-subs.txt"))

@@ -1,0 +1,21 @@
+┌ Warning: coordinate descent stopped without a duality certificate after 1 passes (last change 0.0, tolerance 1.41e-157): the point is not certified to be within a relative 1e-4 of the minimum (for example at an exact fit y = X*beta with a positive penalty, where a coordinatewise minimum need not be a minimum).
+└ @ ProximalSolvers <WORK>/ps-353-review-codex/src/cd/solver.jl:496
+Julia 1.10.13
+zero response tiny column
+master returned x=[0.0] converged=true gap=0.0
+x1d error=ArgumentError: the coordinate step of coordinate 1 is outside the supported range of Float64 (the squared norm of its column or of the residual, or the threshold, leaves the normal range); rescale the data
+exact fit tiny column
+master returned x=[1.0] converged=false gap=NaN
+x1d error=ArgumentError: the coordinate step of coordinate 1 is outside the supported range of Float64 (the squared norm of its column or of the residual, or the threshold, leaves the normal range); rescale the data
+zero column
+master returned x=[0.0] converged=true gap=4.440892098500641e-16
+x1d returned x=[0.0] converged=true gap=4.440892098500641e-16
+fixed y n=20 v=1.0e-18 sum/exact=0.9999999263751042
+fixed y n=20 v=1.1e-18 sum/exact=1.000000006978648
+fixed y n=20 v=1.5e-18 sum/exact=1.0000002025744255
+fixed y n=100 v=1.0e-18 sum/exact=1.0000008734285715
+fixed y n=100 v=1.1e-18 sum/exact=1.000000552489107
+fixed y n=100 v=1.5e-18 sum/exact=1.0000001643096361
+fixed y n=1000 v=1.0e-18 sum/exact=0.9999970852147022
+fixed y n=1000 v=1.1e-18 sum/exact=1.0000020704312524
+fixed y n=1000 v=1.5e-18 sum/exact=0.999992123601933

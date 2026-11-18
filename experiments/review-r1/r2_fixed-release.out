@@ -1,0 +1,5 @@
+Julia 1.13.4
+s=1.000001e-34 alpha=1.3817856353145052e-42 native alpha=1.382e-42
+master response=1.1754944e-38
+master solve returned converged=true x=Float32[0.0] tolerance=1.1754944e-38
+x2 error=ArgumentError: the response scale (the root of the loss scale times the norm of y) is not a normal number of Float32; rescale y or the loss scale, or use relative=false (an objective that overflows is still refused)

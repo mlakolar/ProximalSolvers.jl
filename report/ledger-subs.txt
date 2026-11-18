@@ -5,14 +5,13 @@ SQNORM_CORR=`ℓ` and the minimizer of singleton-group solves move in the last b
 SQNORM_PERF={SQNORM_T}
 SINGLETON_CORR=the margin `nextfloat(a(1+2n eps)) ≥ Σx²` holds for sequential, pairwise and `@simd` orders: 768 Float32 and 612–616 Float64 adversarial columns up to n = 2^20, 0 violations; the worst case uses 25 % of the margin
 FLAT_SAVE=−10 exec
-FLAT_CORR=0 mismatches in 89,775 columns and groups (−0.0, NaN, ±Inf, subnormal); 0 B
-RS_SAVE=−7 exec; −1 concept (the wide-scale tier). 3 test edits in test/cd_numerics.jl
-RS_CORR=Unchanged for a scale of type T. For Float32 data with a Float64 scale whose `αΣy²` leaves the Float32 normal range (reachable from `solve!`), 7,530 of 17,405 inputs change by ≤ 24.7 ulp, toward the exact value (max error 0.5 ulp after, 41.9 ulp before); no accepted input becomes a refusal
+FLAT_CORR=0 mismatches in 89,775 (Julia 1.10) and 89,776 (1.13) columns and groups (−0.0, NaN, ±Inf, subnormal); 0 B
+RS_CORR=tier 2 is reached from `solve!` only with Float32 data and a Float64 scale whose `αΣy²` leaves the Float32 normal range; its Float32 sum is less accurate there (error up to 41.9 ulp) than the exceptional path (≤ 0.5 ulp)
 SC=Folding the plain and the `_diff` forms into one kernel with an optional second operand removes 17 exec lines bit for bit (R4)
 SD_SAVE=−3 exec
 SB_ACTION=**delete** both methods; `_root_scale` starts from `Float64(α)` (R2)
-SB_SAVE=−4 exec; −1 concept (a BigFloat route). 1 test edit
-SB_CORR=0 mismatches in 39,982 scales that `solve!` admits (Float32, Float64, fixed-width integers, Bool: all exact in Float64). A scale outside the Float64 range, possible only for a directly constructed `LSModel` with a BigFloat scale (test/cd_numerics.jl:943), becomes a `DomainError`
+SB_SAVE=−4 exec; −1 concept (the BigFloat conversion). 1 test edit
+SB_CORR=0 mismatches in 39,982 scales that `solve!` admits. A scale outside the Float64 range, possible only for a directly constructed `LSModel` with a BigFloat scale (test/cd_numerics.jl:943), becomes a `DomainError`
 SA_ACTION=**delete**; both callers use `_norm_diff(x, y, Inf)` (R2)
 SA_SAVE=−7 exec and one export; −1 loop
 SA_CORR=0 mismatches in 10,900 unit cases (NaN, ±Inf, ±0, subnormals, views, n = 0…4096) and in 4,806 / 4,794 whole solves

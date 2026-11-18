@@ -18,17 +18,19 @@ Removed: 64–66 executable lines (21 % of the file) and four concepts (the scal
 **What changes for callers.**
 
 - *Float32: no accepted input is lost.* Every step that leaves the fast path is re-run in Float64, where the squares of Float32 numbers and their sums stay in the normal range. Two scan points change from a refusal to a certified solve (master's centre `old + b/a` overflows there although the minimizer is representable).
-- *Float64: a step is refused* (`ArgumentError`, "rescale the data", before the coordinate or the residual changes) *exactly when the computed `‖X_k‖²` or `‖r‖²` is below `n·2^-970` with `r ≠ 0`, or `‖r‖²` overflows.* In norms: `‖X_k‖` or `‖r‖` below `1.0e-146·√n`, or `‖r‖ ≳ 1.34e154`. `r = 0` exactly (exact fits) and `d = 0` (a residual parallel to the column) stay supported, and so do the Float64 band cases (`‖r‖/‖X_k‖²` beyond `1e±300` with both sums in range).
+- *Float64: a visit of a column that is not flat is refused* (`ArgumentError`, "rescale the data", before the coordinate or the residual changes) *exactly when one of these holds for the computed sums:* (i) `‖X_k‖² < n·2^-970`, whatever the residual, a zero residual included; (ii) `‖r‖² < n·2^-970` with `r ≠ 0`; (iii) `‖r‖²` is not finite. In norms: `‖X_k‖ < 1.0e-146·√n`, or `0 < ‖r‖ < 1.0e-146·√n`, or `‖r‖ ≳ 1.34e154`. A zero residual with a column in range (the usual exact fit) and `d = 0` (a residual parallel to the column) stay supported, and so do the Float64 band cases (`‖r‖/‖X_k‖²` beyond `1e±300` with both sums in range). A flat column takes the penalty's minimizer before this test, as on master.
 - What master returns in the refused Float64 ranges today (public `solve!`, n = 30, p = 8, exact power-of-two rescalings):
 
 | Float64 input | master | prototype |
 |---|---|---|
-| `‖X_k‖ ∈ [~6e-162, 1.0e-146·√n)` (X scaled by 2^-539…2^-485) | converged, certified | refused |
+| `‖X_k‖ ∈ [~6e-162, 1.0e-146·√n)`, residual in range (X scaled by 2^-539…2^-485) | converged, certified | refused |
+| the same columns with `y = 0` and a zero start (e.g. `X = fill(1e-150, 2, 1)`, `λ = 1e-151`) | converged, `gap = 0` | refused |
+| the same columns at an exact fit with a nonzero start (`y = X·1`, start 1) | returned unchanged, `converged = false` | refused |
 | `‖y‖ < 1.0e-146·√n` (y scaled by 2^-1024…2^-485) | returned with `converged = false`, `gap = NaN` (the certificate is undefined there) | refused |
 | `‖y‖ ≳ 1.34e154` (y scaled by 2^510…2^1021) | returned with `converged = false`, `gap = NaN` | refused |
 | everything else | unchanged outcome class | |
 
-So for an extreme `y` the recovery machinery already cannot produce a converged result; only the tiny-column range changes from certified to refused.
+So for an extreme `y` the recovery machinery already cannot produce a converged result; the tiny-column range changes from certified (or, at an exact fit, returned) to refused. The rows with `y = 0` and with an exact fit were found by the independent review and reproduced on both Julia versions.
 
 **Correctness evidence** (Julia 1.10.13 and 1.13.4, Float32 and Float64, master and both prototypes loaded in one process on identical inputs).
 
@@ -50,7 +52,7 @@ So for an extreme `y` the recovery machinery already cannot produce a converged 
 | | 1.10.13, AVX2 target | 1.004–1.106 (1.043) | 0.978–1.038 |
 | | 1.10.13, default target | 0.983–1.146 (1.037) | 0.975–1.021 |
 
-On Julia 1.13 the prototype is at parity or faster. **On Julia 1.10 it is not yet within the 5 % rule**: the solve to convergence at n = 30, p = 120, `λ = 0.1 λmax` is slower by 5.9 % (Float32) and 4.0 % (Float64) with the AVX2 target, and by 12.6 % and 7.7 % with the default target, at equal pass counts; the per-visit probe is slower by 0.4–10.6 %. One contribution is identified: PB's exported `shrink` (the max/min form) takes 4.9 ns in a dependent chain on 1.10 against 4.3 ns for the select form PB uses inside its own prox loops; the rest is not diagnosed. A variant that keeps master's arithmetic bit for bit (`prox_block` and the band test, band exits to the cold path) was also built: it keeps solves within 4.3 % but is 0.5–25 % slower per visit and refuses the Float64 band and every subnormal `λ`, so it is not the recommended form.
+On Julia 1.13 the prototype is at parity or faster. **On Julia 1.10 it is not yet within the 5 % rule**: the solve to convergence at n = 30, p = 120, `λ = 0.1 λmax` is slower by 5.9 % (Float32) and 4.0 % (Float64) with the AVX2 target, and by 12.6 % and 7.7 % with the default target, at equal pass counts, and the three-pass solve of the same Float32 case by 5.3 % with the default target; the per-visit probe is slower by 0.4–10.6 % with the AVX2 target and by up to 14.6 % with the default target (Float64, n = 400, p = 40, zero state: 1.146, every one of the 15 rounds between 1.125 and 1.155 against a control between 0.992 and 1.019; 1.119 at the converged state). So the slowdown is not confined to p > n. One contribution is identified: PB's exported `shrink` (the max/min form) takes 4.9 ns in a dependent chain on 1.10 against 4.3 ns for the select form PB uses inside its own prox loops; the rest is not diagnosed. A variant that keeps master's arithmetic bit for bit (`prox_block` and the band test, band exits to the cold path) was also built: it keeps solves within 4.3 % but is 0.5–25 % slower per visit and refuses the Float64 band and every subnormal `λ`, so it is not the recommended form.
 
 **Recommendation: GO**, as its own small PS issue and PR, with these conditions:
 
@@ -58,6 +60,6 @@ On Julia 1.13 the prototype is at parity or faster. **On Julia 1.10 it is not ye
 2. the Float64 refusal and the square-root section of `docs/src/numerics.md` (lines 568–611, which describe the scaled step) change in the same approved PR, with the three test assertions and one new refusal test;
 3. #352 records the change of the Float64 extreme-`y` outcome from "returned uncertified" to "refused".
 
-If the refusal is not wanted, or the gate cannot be met, the fallback is **R1-min**: delete `_scaled_norm` and call `_se_norm(Float64, ·)` at its two call sites (−14 executable lines, one duplicate algorithm fewer, `floor64` moves by at most 1e-15 relative, no outcome changed in 748 solves).
+If the refusal is not wanted, or the gate cannot be met, the fallback is **R1-min**: delete `_scaled_norm` and call `_se_norm(Float64, ·)` at its two call sites (−13 executable lines net: the 14-line definition goes and the cold caller gains one; one duplicate algorithm fewer; `floor64` moved by at most 1e-15 relative in the 748-solve corpus and by up to 5e-14 at n = 10⁵, where the deleted sequential sum is the less accurate one; no outcome changed in 748 solves, and 2 of 456 targeted tiny-scale Float64 solves moved in the last bits).
 
 Not recommended: refusing the Float32 cold inputs as well (4 more lines; loses Float32 data in physical units such as `y ~ 1e-19`, which certify today), relaxing the `_clean_sum` constant (violations up to 1152× the bound), or replacing the outward rounding in `_certify!`.

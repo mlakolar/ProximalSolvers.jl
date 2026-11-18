@@ -17,7 +17,7 @@ Archive of the research behind the Stage 0 report on issue #353
 
 ## Layout
 
-- `report/REPORT.md`: the report as reviewed. `report/ledger.py` + `ledger-subs.txt` generate the ledger tables
+- `report/REPORT.md`: the report. Branch `archive/issue-353-evidence` is revision r1; branch `archive/issue-353-evidence-r2` adds revision r2 on top of it (archive branches of the repository cannot be updated). `report/ledger.py` + `ledger-subs.txt` generate the ledger tables
   (`ledger-*.md`); `part-*.md` are the sections.
 - `agentA/` (square-root lasso CD), `agentB/` (least-squares and group CD), `agentC/` (PGD/APG and the APG
   certificate), `agentD/` (ProximalBase inventory and the interface question): each has `report.md`, its scripts and
@@ -32,6 +32,7 @@ Archive of the research behind the Stage 0 report on issue #353
 - `experiments/x2/`: experiments X2 (bit-identical bundle, `x2.patch`), X3 (`x3.patch`: X2 plus `_scaled_norm` and
   `_sqnorm!` deleted) and the folded norm kernels (`sc_on_x2.patch`). `report.md`; fingerprints (`fp_*`), unit sweeps,
   the margin check, test runs and the edited test copies (`test_edits/`).
+- `experiments/review-r1/`: the independent review of report revision r1 (`codex-review-r1.md`), its probe scripts and outputs, and the reproduction of its two counterexamples (`verify_findings*`). `experiments/x2/x2b.patch`, `fp_x2b_*`, `tests_x2b_*`: the five-item bundle of revision r2 (X2 with `response_scale` as on master).
 - `experiments/timing/`: paired timing harnesses (`x1_paired.jl`, `x1_visit.jl`, `x2_paired.jl`), the runs
   (`x1-final-*`, `x2-final-*`: `.tsv` raw, `.summary.txt` per case, `.load` load average before and after),
   `x2-final-by-workload.txt`, `shrink_probe.jl`, `summarize.py`.

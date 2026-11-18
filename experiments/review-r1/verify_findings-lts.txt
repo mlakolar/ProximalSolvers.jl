@@ -1,0 +1,6 @@
+1.10.13 finding 1  base: (x = Float32[0.0], converged = true)
+1.10.13 finding 1  x2  : THROWS ArgumentError: the response scale (the root of the loss scale times the norm of y) is not a normal number of F
+1.10.13 finding 2  base: (x = [0.0], converged = true, gap = 0.0)
+1.10.13 finding 2  x1d : THROWS ArgumentError: the coordinate step of coordinate 1 is outside the supported range of Float64 (the squared norm
+1.10.13 finding 2  base: (x = [1.0], converged = false, gap = NaN)
+1.10.13 finding 2  x1d : THROWS ArgumentError: the coordinate step of coordinate 1 is outside the supported range of Float64 (the squared norm

@@ -1,2 +1,2 @@
-rows by class: {'A': 13, 'B': 43, 'C': 4, 'D': 3, 'E': 4, 'o': 1}
-executable lines covered (PS rows): 1127
+rows by class: {'A': 13, 'B': 51, 'C': 4, 'D': 3, 'E': 4, 'o': 1}
+executable lines covered (PS rows): 1628

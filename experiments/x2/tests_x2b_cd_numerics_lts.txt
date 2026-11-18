@@ -1,0 +1,2 @@
+Test Summary:   |  Pass  Total   Time
+cd_numerics x2b | 24400  24400  20.3s
