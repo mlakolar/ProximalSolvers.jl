@@ -940,7 +940,9 @@ end
       end
     end
     setprecision(BigFloat, 256) do    # a BigFloat scale, also beyond the range of T
-      for j in (-1500, -300, -1, 0, 1, 300, 1500)
+      # not beyond the range of Float64: `_root_scale` does not support such a scale (the solvers refuse a
+      # scale of a non-machine type before it, in `_check_loss_scale`)
+      for j in (-1000, -300, -1, 0, 1, 300, 1000)
         check_scale_point(T, y, big(1.3) * BigFloat(2)^j, ways)
       end
     end

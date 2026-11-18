@@ -51,41 +51,27 @@ function _se_sub(a::_SE{T}, b::_SE{T}) where {T}
   _renormal(a.s - ldexp(b.s, b.e - a.e), a.e)     # a > b > 0, so a.e ≥ b.e
 end
 
-# Σ (vᵢ / m)² for m = max|vᵢ| > 0, in [1, length(v)]
-function _sumsq_scaled(v, m)
+# aᵢ - bᵢ, and aᵢ where b is nothing (the norm of a)
+@inline _diff(a, b, i) = a[i] - b[i]
+@inline _diff(a, ::Nothing, i) = a[i]
+
+# Σ (dᵢ / m)² for dᵢ = aᵢ - bᵢ (dᵢ = aᵢ for b = nothing) and m = max|dᵢ| > 0 finite, in [1, length(a)] up to
+# rounding: each |dᵢ / m| ≤ 1 and the largest is 1, so the sum is finite
+function _sumsq_scaled(a, b, m)
   s = zero(m)
-  @inbounds @simd for i in eachindex(v)
-    s += abs2(v[i] / m)
+  @inbounds @simd for i in eachindex(a)
+    s += abs2(_diff(a, b, i) / m)
   end
   s
 end
 
-# Σ ((aᵢ - bᵢ) / m)² for m = max|aᵢ - bᵢ| > 0
-function _sumsq_scaled_diff(a, b, m)
-  s = zero(m)
-  @inbounds @simd for i in eachindex(a, b)
-    s += abs2((a[i] - b[i]) / m)
-  end
-  s
-end
-
-# The computed ‖v‖ (v a vector or matrix of T) in the scaled two-pass form m √s, m = max|vᵢ|,
-# as an _SE; nothing when an entry is not finite.
-function _se_norm(::Type{T}, v) where {T}
-  m = T(maximum(abs, v))           # NaN when an entry is NaN
+# The computed ‖a - b‖ of the rounded differences dᵢ = aᵢ - bᵢ (‖a‖ for b = nothing) in the scaled two-pass
+# form m √s, m = max|dᵢ|, as an _SE; nothing when a dᵢ is not finite (including an overflowing aᵢ - bᵢ).
+function _se_norm(::Type{T}, a, b = nothing) where {T}
+  m = T(b === nothing ? _norm_inf(a) : _norm_diff(a, b, Inf))     # NaN when an entry is NaN
   isfinite(m) || return nothing
   iszero(m) && return _se_zero(T)
-  _se_mul(_SE{T}(m), _SE{T}(sqrt(_sumsq_scaled(v, m))))
-end
-
-# The computed ‖a - b‖ of the rounded differences aᵢ - bᵢ
-function _se_norm_diff(::Type{T}, a, b) where {T}
-  m = _maxabs_diff(a, b)
-  isfinite(m) || return nothing
-  iszero(m) && return _se_zero(T)
-  s = _sumsq_scaled_diff(a, b, m)
-  isfinite(s) || return nothing
-  _se_mul(_SE{T}(m), _SE{T}(sqrt(s)))
+  _se_mul(_SE{T}(m), _SE{T}(sqrt(_sumsq_scaled(a, b, m))))
 end
 
 # Σ dᵢ² and Σ xᵢ² in one pass
@@ -107,17 +93,13 @@ function _sumsq_diff(a, b)
   s
 end
 
-# ‖v‖ from s = Σ vᵢ² summed in one pass when that sum is finite and at least
-# 4 length(v) floatmin(T): each underflowing square then loses less than floatmin(T) u,
-# which is below u s / length(v), so the bound γ_{n+4} on the relative error still holds.
-# Otherwise the scaled two-pass form is used.
-function _se_norm_onepass(::Type{T}, s, v) where {T}
-  isfinite(s) && s >= 4 * length(v) * floatmin(T) && return _SE{T}(sqrt(s))
-  _se_norm(T, v)
-end
-function _se_norm_diff_onepass(::Type{T}, s, a, b) where {T}
+# ‖a - b‖ of the rounded differences dᵢ = aᵢ - bᵢ (‖a‖ for b = nothing) from s = Σ dᵢ² summed in one pass
+# when that sum is finite and at least 4 length(a) floatmin(T): each underflowing square then loses at most
+# floatmin(T) u, which is below u s / length(a), so the bound γ_{n+4} on the relative error still
+# holds. Otherwise the scaled two-pass form is used (nothing when a dᵢ is not finite).
+function _se_norm_onepass(::Type{T}, s, a, b = nothing) where {T}
   isfinite(s) && s >= 4 * length(a) * floatmin(T) && return _SE{T}(sqrt(s))
-  _se_norm_diff(T, a, b)
+  _se_norm(T, a, b)
 end
 
 # u, the unit roundoff, and γₖ = k u / (1 - k u), which bounds the relative error of k
@@ -136,10 +118,7 @@ _gamma(::Type{T}, k) where {T} = (ku = k * _unit(T); ku / (1 - ku))
 # factors; γ_{N+3} covers every branch.
 function _frobenius_upper(::Type{T}, X) where {T}
   N = length(X)
-  s = 0.0
-  @inbounds @simd for i in eachindex(X)
-    s += abs2(Float64(X[i]))
-  end
+  s = _sumsq64(X)
   iszero(s) && all(iszero, X) && return _se_zero(T)
   e = 0
   if !(isfinite(s) && (T === Float32 || s >= 4N * floatmin(Float64)))
@@ -154,20 +133,14 @@ function _frobenius_upper(::Type{T}, X) where {T}
   _SE{T}(r.s, r.e + e)
 end
 
-# √α as an _SE{T}, for the loss scale α as given: α = s·2^e with s ∈ [1, 2). For an IEEE
-# Float16/32/64 scale, s and e are exact in its own type. For any other real type (BigFloat
-# of any precision, integers, rationals, irrationals), α is rounded once to 256 bits and s
-# and e are taken there, inside a scoped BigFloat precision that is restored afterwards, so
-# the active precision plays no part. s is rounded once to Float64 (at least the precision
-# of T) before its square root, and e made even, so √α = √s′ · 2^(e′/2) without range loss.
-_significand_exponent(α::Union{Float16, Float32, Float64}) = (Float64(significand(α)), exponent(α))
-_significand_exponent(α::Real) = setprecision(BigFloat, 256) do
-  b = BigFloat(α)
-  (Float64(significand(b)), exponent(b))
-end
-
+# √α as an _SE{T}, for the loss scale α as given: a = Float64(α) = s·2^e with s ∈ [1, 2) (the
+# conversion is exact for the Float32, Float64, fixed-width integer and Bool scales that
+# `_check_loss_scale` admits). Where e is odd, s is doubled and e lowered by one, so that √a =
+# √s′ · 2^(e′/2) with e′ even and the exponent kept in the _SE. An α outside the range of Float64
+# is not supported.
 function _root_scale(::Type{T}, α) where {T}
-  s, e = _significand_exponent(α)
+  a = Float64(α)
+  s, e = significand(a), exponent(a)
   if isodd(e)
     s *= 2
     e -= 1
@@ -241,7 +214,7 @@ function _bound_certified!(buf, model::_LSImage, zu, zw, d, D::_SE{T}, L, Ey::_S
   rootL = _SE{T}(sqrt(L))
   accept_rhs = _se_mul(c.accept, rootL, c.lower_step, D)
   if !fresh_only
-    N = _se_norm_diff_onepass(T, _sumsq_diff(zw, zu), zw, zu)
+    N = _se_norm_onepass(T, _sumsq_diff(zw, zu), zw, zu)
     if N !== nothing
       E = _se_add(_se_add(_se_mul(c.product, c.upper_x, normx), c.under_product), Ey)
       upper = _se_add(_se_mul(N, c.upper_image), E)
