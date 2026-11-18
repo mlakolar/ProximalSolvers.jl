@@ -64,10 +64,10 @@ def fixture(folder, factor=4, runs=3, allocated=0, cases=(DEFAULT_CASE,), status
         catalog, metrics, samples, errors = [], [], [], []
         for case in cases:
             group, problem, solver, variant, phase = case.split("/")
-            case_target = select(target, rep, case)
+            case_target, case_measure = select(target, rep, case), select(measure, rep, case)
             catalog.append(dict(id=case, group=group, problem=problem, solver=solver,
                                 variant=variant, phase=phase, suite="quick", inputs="draw",
-                                issue="", measure=measure, target=case_target))
+                                issue="", measure=case_measure, target=case_target))
             outcome = select(status, rep, case)
             value = select(accuracy, rep, case) * rep
             if outcome == "target_missed":
@@ -93,7 +93,7 @@ def fixture(folder, factor=4, runs=3, allocated=0, cases=(DEFAULT_CASE,), status
                 median_bytes=allocation if good else math.nan,
                 mean_bytes=allocation if good else math.nan,
                 min_bytes=allocation if good else math.nan, max_bytes=allocation if good else math.nan,
-                measure=measure, target=case_target, worst_value=value, median_value=value,
+                measure=case_measure, target=case_target, worst_value=value, median_value=value,
                 # Cases given the same `inputs` label share their data hashes.
                 data_hash=hashlib.sha256(
                     f"{case if inputs is None else select(inputs, rep, case)}:{rep}".encode()).hexdigest(),
@@ -685,7 +685,8 @@ def cross_solver_controls(root):
              if row["julia"] == VERSION}
     assert split["cd/lasso/cd/sparse-f64/call"] != split["cd/lasso/cd/dense-f64/call"]
     assert split["gradient/lasso/pg/dense-f64/call"] == split["cd/lasso/cd/dense-f64/call"]
-    # A summary of another series with the same catalog and coverage is refused, both ways.
+    # A summary whose status counts differ from the records (here, of another series with the
+    # same catalog and coverage) is refused, both ways.
     all_ok = root / "cross-all-ok"
     cross_fixture(all_ok, status="ok")
     assert summarize(all_ok, root / "cross-all-ok-summary", 3)
@@ -700,8 +701,8 @@ def cross_solver_controls(root):
     assert summarize(clash, root / "cross-clash-summary", 3)
     expect_error(lambda: readout(clash, root / "cross-clash-summary", root / "cross-clash-out", 3),
                  "share inputs")
-    # A case without a data hash in one repetition keeps its values and failure, apart from
-    # every group; a group of the same labels marks the configuration as ungrouped.
+    # A case without a data hash in one repetition keeps its values and failure in the CSV,
+    # apart from every group; a group with all of its known labels marks it as ungrouped.
     lone = root / "cross-lone"
     lone_cases = ("cd/lasso/cd/dense-f64/call", PG_MISSED)
     fixture(lone, cases=lone_cases, status=lambda rep, case: "error" if case == PG_MISSED and rep == 2 else "ok")
@@ -718,9 +719,28 @@ def cross_solver_controls(root):
     assert [row["id"] for row in read_rows(root / "cross-lone-out" / "cross_solver.csv", ",")] == list(lone_cases)
     text = (root / "cross-lone-out" / "REPORT.md").read_text()
     assert "| pg dense | | | | | | | ungrouped |" in text
-    assert (f"| {VERSION} | lasso | f64 | cold | pg dense | {PG_MISSED} | 2 / 3 | "
-            f"{float(stored[PG_MISSED]['worst_value']):.6g} | ok=2, error=1 | "
+    assert (f"| {VERSION} | lasso | call | f64 | cold | relative_gap | 1e-06 | draw | pg dense | "
+            f"{PG_MISSED} | 2 / 3 | {float(stored[PG_MISSED]['worst_value']):.6g} | ok=2, error=1 | "
             "excluded: rep02 has no data hash; inputs unknown |") in text
+    # An ungrouped attempt that differs in target, measure or input mode is not this group's.
+    for name, change in (("target", dict(target=lambda rep, case: 1e-9 if case == PG_MISSED else 1e-6)),
+                         ("measure", dict(measure=lambda rep, case: "kkt_residual" if case == PG_MISSED
+                                          else "relative_gap")),
+                         ("mode", {})):
+        folder = root / f"cross-lone-{name}"
+        fixture(folder, cases=lone_cases, accuracy=1e-10,
+                status=lambda rep, case: "error" if case == PG_MISSED and rep == 2 else "ok", **change)
+        edit_rows(folder, "metrics", lambda rows: [row.update(data_hash="") for row in rows
+                                                   if row["id"] == PG_MISSED], rep=2)
+        if name == "mode":
+            edit_rows(folder, "catalog", lambda rows: [row.update(inputs="fixed") for row in rows
+                                                       if row["id"] == PG_MISSED])
+        assert validate(folder, 3)["valid"], name
+        assert summarize(folder, root / f"cross-lone-{name}-summary", 3)
+        result = readout(folder, root / f"cross-lone-{name}-summary", root / f"cross-lone-{name}-out", 3)
+        assert [row["comparison_group"] for row in result] == [1, ""], name
+        text = (root / f"cross-lone-{name}-out" / "REPORT.md").read_text()
+        assert "| pg dense | | | | | | | not recorded |" in text and "ungrouped |" not in text, name
 
 
 def cli_controls(root):

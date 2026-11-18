@@ -415,19 +415,22 @@ python3 benchmark/cross_solver.py benchmark/results benchmark/results/summary \
   names the configuration (`cd sparse`, `pg acc-dense`). Variants without a precision suffix (the
   historical `R`) show both as `not encoded`. Configurations are listed alphabetically.
 - **Values.** `cross_solver.csv` carries the target, runs, timing runs, mean time, CI95 bounds,
-  worst certificate and status counts of `summary.csv` as strings, unchanged. `REPORT.md` shows
-  them to six significant digits, as `SUMMARY.md` does.
+  worst certificate and status counts of `summary.csv` as strings, unchanged, for every case.
+  `REPORT.md` shows the fields its tables list to six significant digits, as `SUMMARY.md` does.
 - **Failed and missing cases.** A time is shown only for a case with a finite target whose every
   repetition is `ok`, that is, whose independent certificate met the target in every sample.
   Other cases are listed with their status counts, worst certificate and the reason
   (`not every run ok`, `no accuracy target`), without a time. `not recorded` marks a configuration
   that another case of the same problem, phase and start has and this group lacks. A case with an
-  empty data hash in some repetition (an error before its inputs were built) keeps its values and
-  statuses under "Cases not grouped", and a group with its labels marks it `ungrouped`.
+  empty data hash in some repetition (a failure before the runner recorded its input hash) keeps
+  its row in `cross_solver.csv`; "Cases not grouped" lists its labels (including measure, target
+  and input mode), ok runs, worst certificate and status counts, and a group with all of those
+  labels marks the configuration `ungrouped`.
 - **Refusals** (exit 2): invalid records; a `summary.csv` that does not cover the records exactly,
   or disagrees with their catalog (group, phase, measure, target), with `--expected-runs`, or with
-  the records' status counts, timing runs, worst certificate or mean time (a summary of another
-  series); two cases of one group that name the same configuration.
+  the records' status counts, timing runs, worst certificate or mean time (for example a summary
+  of another series with other outcomes; the intervals are not rechecked); two cases of one group
+  that name the same configuration.
 
 The readout is descriptive and per case. Each interval is the case's own Student-t interval over
 repetitions, not a paired comparison between solvers, so overlapping or separate intervals are not

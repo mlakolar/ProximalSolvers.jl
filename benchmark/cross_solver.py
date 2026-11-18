@@ -56,8 +56,9 @@ def read_summary(path):
 
 
 def check_records(row, rows, statuses):
-    """Refuse a summary row whose statuses, timing count, worst certificate or mean time differ
-    from those of the validated records, as a summary of another series would."""
+    """List the fields among the status counts, timing runs, worst certificate and mean time in
+    which a summary row differs from the validated records. This checks those aggregates only,
+    not the intervals or the identity of the series."""
     medians = [number(rep["median_ns"]) for rep in rows]
     values = [number(rep["worst_value"]) for rep in rows]
     observed = dict(timing_runs=sum(math.isfinite(m) for m in medians),
@@ -145,6 +146,18 @@ def number_text(value):
     return f"{number(value):.6g}"
 
 
+def target_text(value):
+    return "none" if math.isnan(number(value)) else number_text(value)
+
+
+def placeholder(row, configuration):
+    """The known labels of a configuration in a group, for matching an ungrouped attempt."""
+    target = number(row["target"])
+    return (row["problem"], row["phase"], row["julia"], row["precision"], row["start"],
+            row["measure"], "NaN" if math.isnan(target) else repr(target), row["input_mode"],
+            configuration)
+
+
 def status_text(row):
     return ", ".join(f"{status}={row[f'status_{status}']}" for status in STATUSES
                      if int(row[f"status_{status}"]))
@@ -176,21 +189,21 @@ def write_report(path, results, ungrouped, expected):
         "A group holds the cases of one Julia version, problem, phase, certificate measure, "
         "target and catalog input mode whose input data hashes agree in every repetition. The "
         "hash covers the problem data the solver received, not the solver or its settings; for "
-        "the current-core cases it also covers the start. Precision, start and configuration "
-        "are read from the case variant and must agree too. Configurations are listed "
-        "alphabetically.", "",
+        "the current-core cases it also covers the start. Precision and start are read from "
+        "the case variant and must agree too. A configuration is the catalog solver with the "
+        "rest of the variant; configurations are listed alphabetically.", "",
         "A time is shown only when the target is finite and every run is ok, which means the "
         "independent certificate met the target in every sample; summary.csv must agree with "
-        "the records on statuses, timing runs, worst certificate and mean time. Other cases "
+        "the records on status counts, timing runs, worst certificate and mean time (intervals "
+        "are not rechecked). Other cases "
         "show their status counts and worst certificate and no time. \"Not recorded\" marks a "
         "configuration that another case of the same problem, phase and start has and that this "
-        "group lacks in the records; \"ungrouped\" marks one that was run but whose inputs are "
-        "unknown (see \"Cases not grouped\").", ""]
+        "group lacks in the records; \"ungrouped\" marks one that was run with all of this "
+        "group's labels but whose input hash is missing (see \"Cases not grouped\").", ""]
     tables = defaultdict(list)
     for row in results:
         tables[(row["problem"], row["phase"])].append(row)
-    lone = {(row["problem"], row["phase"], row["julia"], row["precision"], row["start"],
-             row["configuration"]): row for row in ungrouped}
+    lone = {placeholder(row, row["configuration"]) for row in ungrouped}
     for (problem, phase), rows in sorted(tables.items()):
         lines += [f"## {markdown(problem)} ({markdown(phase)})", ""]
         configurations = defaultdict(set)
@@ -206,7 +219,7 @@ def write_report(path, results, ungrouped, expected):
             labels[tuple(first[k] for k in same)].add(first["inputs"])
         for index, members in sorted(by_group.items()):
             first = next(iter(members.values()))
-            target = "none" if math.isnan(number(first["target"])) else number_text(first["target"])
+            target = target_text(first["target"])
             lines += [f"### Group {index}: Julia {first['julia']}, precision {first['precision']}, "
                       f"start {first['start']}, {markdown(first['measure'])} target {target}, "
                       f"inputs {first['inputs']} ({markdown(first['input_mode'])})", ""]
@@ -220,23 +233,25 @@ def write_report(path, results, ungrouped, expected):
                 row = members.get(label)
                 if row is not None:
                     lines.append(case_line(row))
-                elif (problem, phase, first["julia"], first["precision"], first["start"], label) in lone:
+                elif placeholder(first, label) in lone:
                     lines.append(f"| {markdown(label)} | | | | | | | ungrouped |")
                 else:
                     lines.append(f"| {markdown(label)} | | | | | | | not recorded |")
             lines.append("")
     lines += ["## Cases not grouped", "",
               "Cases whose inputs cannot be identified are not set beside any other case.", "",
-              "| Julia | Problem | Precision | Start | Configuration | Case | Ok runs / total | "
-              "Worst certificate | Status counts | Time |",
-              "|---|---|---|---|---|---|---:|---:|---|---|"]
+              "| Julia | Problem | Phase | Precision | Start | Measure | Target | Input mode | "
+              "Configuration | Case | Ok runs / total | Worst certificate | Status counts | Time |",
+              "|---|---|---|---|---|---|---:|---|---|---|---:|---:|---|---|"]
     for row in ungrouped:
-        lines.append(f"| {row['julia']} | {markdown(row['problem'])} | {row['precision']} | "
-                     f"{row['start']} | {markdown(row['configuration'])} | {markdown(row['id'])} | "
+        lines.append(f"| {row['julia']} | {markdown(row['problem'])} | {markdown(row['phase'])} | "
+                     f"{row['precision']} | {row['start']} | {markdown(row['measure'])} | "
+                     f"{target_text(row['target'])} | {markdown(row['input_mode'])} | "
+                     f"{markdown(row['configuration'])} | {markdown(row['id'])} | "
                      f"{row['status_ok']} / {row['runs']} | {number_text(row['worst_value'])} | "
                      f"{status_text(row)} | excluded: {row['exclusion']} |")
     if not ungrouped:
-        lines.append("| None | | | | | | | | | |")
+        lines.append("| None |" + " |" * 13)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
