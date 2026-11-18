@@ -36,7 +36,10 @@ neighbors(j, p) = [1:j-1; j+1:p]
 
 # `fit_node` solves the lasso of column `j` of `X` on the other columns at the level `λ`, from a
 # fresh zero vector, and returns the coefficients with the numbers of their variables. Cyclic
-# order and no momentum make the run reproducible. The change threshold is `tol = 1e-12`. The
+# order and no momentum make the run reproducible. `tol = 1e-12` is the tolerance parameter of
+# the default relative change test: the threshold is `tol` times the response scale
+# `sqrt(sum(abs2, y) / n)`, and each coordinate change is multiplied by the scale of its column.
+# Both scales are 1 up to rounding for the standardized data below. The
 # KKT residual of each solution is compared below with `1e-8 λ`; on this data the threshold
 # gives a residual several orders of magnitude below that, and the printed maximum shows by how
 # much. The check, not the threshold, decides whether a fit is accepted.
@@ -55,7 +58,7 @@ end
 # `grad = Xoᵀ(Xo b − y)/n`, is `|grad_k + λ sign(b_k)|` at a nonzero coefficient and
 # `max(|grad_k| − λ, 0)` at a zero coefficient. It is zero at a minimizer, and a point with a
 # zero residual is a minimizer because the objective is convex. The level
-# `λmax = ‖Xoᵀ y‖∞ / n` is the smallest level at which `b = 0` is the minimizer.
+# `λmax = ‖Xoᵀ y‖∞ / n` is the smallest level at which `b = 0` is a minimizer.
 objective(Xo, y, λ, b) = sum(abs2, y - Xo * b) / (2 * length(y)) + λ * sum(abs, b)
 function node_kkt_residual(Xo, y, λ, b)
   grad = Xo' * (Xo * b - y) / length(y)
@@ -99,7 +102,7 @@ end;
 #
 # The precision matrix has a chain `1 − 2 − ⋯ − p` with `Ω[j, j+1] = −0.3`, one more edge
 # `(1, 6)` with the same value, and a unit diagonal. A symmetric matrix with a positive
-# diagonal that dominates the absolute sum of the other entries in its row is positive
+# diagonal that strictly dominates the absolute sum of the other entries in its row is positive
 # definite; here the largest such row sum is `0.9` (row 6), against the diagonal `1`. The script
 # also checks that the Cholesky factorization of `Ω` succeeds. The true edges are the pairs
 # `j < k` with `Ω[j, k] ≠ 0`, each counted once.
@@ -135,8 +138,9 @@ cov_sd = sqrt.((diag(Σ) * diag(Σ)' .+ Σ .^ 2) ./ n)
 println("largest |S - Σ| entry = ", maximum(abs, S .- Σ), ", largest sd of an entry = ", maximum(cov_sd))
 
 # Gaussian edges are nonzero entries of the precision matrix, not of the covariance. Here the
-# graph has `10` edges, while `Σ = Ω⁻¹` has no zero entry: `Ω` is a symmetric matrix with
-# nonpositive off-diagonal entries and a connected graph, so all entries of `Σ` are positive.
+# graph has `10` edges, while `Σ = Ω⁻¹` has no zero entry: `Ω` is a symmetric positive definite
+# matrix with nonpositive off-diagonal entries and a connected graph, so all entries of `Σ` are
+# positive.
 # Two variables that are not joined by an edge, such as 1 and 3, are still correlated.
 @assert minimum(Σ[j, k] for j in 1:p for k in 1:p if j != k) > 0
 println("Σ[1, 3] = ", Σ[1, 3], " although Ω[1, 3] = ", Ω[1, 3])
