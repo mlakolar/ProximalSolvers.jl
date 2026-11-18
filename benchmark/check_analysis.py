@@ -7,12 +7,14 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
 
 from compare import FIELDS, compare
-from summarize import mean_interval, summarize
+from cross_solver import COPIED, FIELDS as CROSS_FIELDS, ISSUE_110 as ISSUE_LINK, readout, variant_labels
+from summarize import mean_interval, summarize, write_csv
 from validate import HEADERS, SERIES_SETTINGS, STATUSES, validate
 
 
@@ -54,20 +56,21 @@ def select(value, rep, case):
 
 
 def fixture(folder, factor=4, runs=3, allocated=0, cases=(DEFAULT_CASE,), status="ok",
-            accuracy=1e-9, version=VERSION, measure="relative_gap", target=1e-6):
+            accuracy=1e-9, version=VERSION, measure="relative_gap", target=1e-6, inputs=None):
     folder.mkdir(exist_ok=True)
     for rep in range(1, runs + 1):
         prefix = folder / f"julia-{version}-rep{rep:02d}"
         catalog, metrics, samples, errors = [], [], [], []
         for case in cases:
             group, problem, solver, variant, phase = case.split("/")
+            case_target = select(target, rep, case)
             catalog.append(dict(id=case, group=group, problem=problem, solver=solver,
                                 variant=variant, phase=phase, suite="quick", inputs="draw",
-                                issue="", measure=measure, target=target))
+                                issue="", measure=measure, target=case_target))
             outcome = select(status, rep, case)
             value = select(accuracy, rep, case) * rep
             if outcome == "target_missed":
-                value = target * 2
+                value = case_target * 2
             elif outcome in ("uncertifiable", "error"):
                 value = math.nan
             base = select(factor, rep, case) * 100 * rep
@@ -89,8 +92,10 @@ def fixture(folder, factor=4, runs=3, allocated=0, cases=(DEFAULT_CASE,), status
                 median_bytes=allocation if good else math.nan,
                 mean_bytes=allocation if good else math.nan,
                 min_bytes=allocation if good else math.nan, max_bytes=allocation if good else math.nan,
-                measure=measure, target=target, worst_value=value, median_value=value,
-                data_hash=hashlib.sha256(f"{case}:{rep}".encode()).hexdigest(),
+                measure=measure, target=case_target, worst_value=value, median_value=value,
+                # Cases given the same `inputs` label share their data hashes.
+                data_hash=hashlib.sha256(
+                    f"{case if inputs is None else select(inputs, rep, case)}:{rep}".encode()).hexdigest(),
             ))
             if not good:
                 errors.append(dict(id=case, rep=rep, status=outcome,
@@ -501,13 +506,174 @@ def selection_controls(root):
     assert validate(old, 3)["counts"] == validate(new, 3)["counts"]
 
 
+CROSS_CASES = {
+    # case: (inputs label, target). Real data hashes differ between precisions, starts and
+    # usually Julia versions; sharing a label here checks that the grouping separates them anyway.
+    "cd/lasso/cd/dense-f64/call": ("lasso-f64", 1e-6),
+    "cd/lasso/cd/sparse-f64/call": ("lasso-f64", 1e-6),
+    "gradient/lasso/pg/dense-f64/call": ("lasso-f64", 1e-6),
+    "gradient/lasso/apg/dense-f64/call": ("lasso-f64", 1e-6),
+    "gradient/lasso/apg/acc-dense-f64/call": ("lasso-f64", 1e-9),
+    "gradient/lasso/pg/acc-dense-f64/call": ("lasso-f64-other", 1e-6),
+    "cd/lasso/cd/dense-f32/call": ("lasso-f64", 1e-6),
+    "gradient/lasso/pg/dense-f32/call": ("lasso-f64", 1e-6),
+    "cd/lasso/cd/warm-dense-f64/call": ("lasso-f64", 1e-6),
+    "gradient/lasso/pg/warm-dense-f64/call": ("lasso-f64", 1e-6),
+    "cd/other/cd/dense-f64/call": ("lasso-f64", 1e-6),
+    "gradient/lasso/pg/R/call": ("historical", math.nan),
+}
+CROSS_VERSIONS = (VERSION, "1.11.0")
+PG_MISSED = "gradient/lasso/pg/dense-f64/call"
+
+
+def cross_fixture(folder, cases=CROSS_CASES, factor=4):
+    for version in CROSS_VERSIONS:
+        fixture(folder, cases=tuple(cases), version=version, factor=factor,
+                inputs=lambda rep, case: cases[case][0],
+                target=lambda rep, case: cases[case][1],
+                accuracy=lambda rep, case: 1e-13 if case.endswith("acc-dense-f64/call") else 1e-9,
+                status=lambda rep, case: "target_missed" if case == PG_MISSED and rep == 2 else "ok")
+
+
+def report_sections(text):
+    """Map each group heading to its lines."""
+    sections, heading = {}, None
+    for line in text.splitlines():
+        if line.startswith("### Group") or line.startswith("## "):
+            heading = line
+            sections[heading] = []
+        elif heading is not None:
+            sections[heading].append(line)
+    return sections
+
+
+def cross_solver_controls(root):
+    assert variant_labels("acc-warm-dense-f64") == ("f64", "warm", "acc-dense")
+    assert variant_labels("sparse-f32") == ("f32", "cold", "sparse")
+    assert variant_labels("block-f64") == ("f64", "cold", "block")
+    assert variant_labels("R") == ("not encoded", "not encoded", "R")
+    records = root / "cross"
+    cross_fixture(records)
+    assert validate(records, 3)["valid"]
+    summary = root / "cross-summary"
+    assert summarize(records, summary, 3)
+    summary_rows = {(row["julia"], row["id"]): row for row in read_rows(summary / "summary.csv", ",")}
+    output = root / "cross-out"
+    rows = readout(records, summary, output, 3)
+    assert {(row["julia"], row["id"]) for row in rows} == summary_rows.keys()
+    # Every copied value is the summary.csv string, unchanged, in the result and in the CSV.
+    written = read_rows(output / "cross_solver.csv", ",")
+    assert list(written[0]) == CROSS_FIELDS
+    for row, stored in zip(rows, written):
+        for field in COPIED:
+            assert row[field] == summary_rows[(row["julia"], row["id"])][field] == stored[field]
+    group = {(row["julia"], row["id"]): row["comparison_group"] for row in rows}
+    # Grouping: one Julia version, problem, precision, start, target and inputs per group.
+    for version in CROSS_VERSIONS:
+        same = {case for (julia, case), index in group.items()
+                if julia == version and index == group[(version, "cd/lasso/cd/dense-f64/call")]}
+        assert same == {"cd/lasso/cd/dense-f64/call", "cd/lasso/cd/sparse-f64/call",
+                        "gradient/lasso/pg/dense-f64/call", "gradient/lasso/apg/dense-f64/call"}
+        reference = group[(version, "cd/lasso/cd/dense-f64/call")]
+        # Each differs from the reference in one respect only.
+        for other in ("gradient/lasso/apg/acc-dense-f64/call",  # target
+                      "gradient/lasso/pg/acc-dense-f64/call",   # inputs
+                      "cd/lasso/cd/dense-f32/call",             # precision
+                      "cd/lasso/cd/warm-dense-f64/call",        # start
+                      "cd/other/cd/dense-f64/call"):            # problem
+            assert group[(version, other)] != reference, other
+        assert group[(version, "cd/lasso/cd/dense-f32/call")] == group[(version, "gradient/lasso/pg/dense-f32/call")]
+    for case in CROSS_CASES:  # the same inputs in both Julia versions
+        assert group[(CROSS_VERSIONS[0], case)] != group[(CROSS_VERSIONS[1], case)]
+    # Accuracy before time: a run that missed the target, or no target, excludes the time.
+    status = {(row["julia"], row["id"]): (row["timing"], row["exclusion"]) for row in rows}
+    assert status[(VERSION, PG_MISSED)] == ("excluded", "not every run ok")
+    assert status[(VERSION, "gradient/lasso/pg/R/call")] == ("excluded", "no accuracy target")
+    assert status[(VERSION, "cd/lasso/cd/dense-f64/call")] == ("shown", "")
+    assert status[(VERSION, "gradient/lasso/apg/acc-dense-f64/call")] == ("shown", "")
+    report = (output / "REPORT.md").read_text()
+    sections = report_sections(report)
+    missed = next(line for line in report.splitlines() if f"| {PG_MISSED} |" in line)
+    cells = [cell.strip() for cell in missed.split("|")[1:-1]]
+    assert cells[2:5] == ["2 / 3", "", ""] and cells[7] == "excluded: not every run ok"
+    assert "target_missed=1" in cells[6]
+    shown = next(line for line in report.splitlines() if "| cd/lasso/cd/dense-f64/call |" in line)
+    mean = float(summary_rows[(VERSION, "cd/lasso/cd/dense-f64/call")]["mean_ns"])
+    assert f"| {mean:.6g} |" in shown and shown.endswith("| shown |")
+    # Missing configurations: the Float32 group has no APG case and no acc- case.
+    f32 = next(lines for heading, lines in sections.items()
+               if heading.startswith("### Group") and f"Julia {VERSION}, precision f32" in heading)
+    for label in ("apg dense", "apg acc-dense", "pg acc-dense"):
+        assert f"| {label} | | | | | | | not recorded |" in f32, label
+    assert not any("pg R" in line for line in f32)
+    assert sum("same labels but different inputs" in " ".join(lines) for lines in sections.values()) == 2 * 2
+    assert "## Cases not grouped" in report and "| None | | |" in report
+    assert ISSUE_LINK in report
+    # Deterministic: the order of summary.csv rows does not change the output.
+    for name, order in (("reversed", reversed), ("sorted-by-time", lambda rows: sorted(
+            rows, key=lambda row: float(row["mean_ns"]) if row["mean_ns"] != "nan" else 0.0))):
+        shuffled = root / f"cross-summary-{name}"
+        shuffled.mkdir()
+        rows_in = read_rows(summary / "summary.csv", ",")
+        write_csv(shuffled / "summary.csv", list(rows_in[0]), list(order(rows_in)))
+        again = root / f"cross-out-{name}"
+        readout(records, shuffled, again, 3)
+        for file in ("REPORT.md", "cross_solver.csv"):
+            assert (again / file).read_bytes() == (output / file).read_bytes(), (name, file)
+    # No ranking: the order is the same when the times are reversed, and no comparative word appears.
+    slow_pg = root / "cross-slow-pg"
+    cross_fixture(slow_pg, factor=lambda rep, case: 40 if "/pg/" in case else 1)
+    assert summarize(slow_pg, root / "cross-slow-pg-summary", 3)
+    order = [row["id"] for row in readout(slow_pg, root / "cross-slow-pg-summary",
+                                            root / "cross-slow-pg-out", 3)]
+    assert order == [row["id"] for row in rows]
+    for text in (report, (output / "cross_solver.csv").read_text(),
+                 (root / "cross-slow-pg-out" / "REPORT.md").read_text()):
+        lowered = text.lower()
+        for word in ("faster", "slower", "fastest", "slowest", "speedup", "speed-up", "ratios?",
+                     "best", "winner", "ranked", "statistically significant"):
+            assert not re.search(rf"\b{word}\b", lowered), word
+    # Refusals: invalid records, a summary of other records, a target that disagrees.
+    expect_error(lambda: readout(root / "absent", summary, root / "cross-r1", 3), "Invalid results")
+    partial = root / "cross-summary-partial"
+    partial.mkdir()
+    rows_in = read_rows(summary / "summary.csv", ",")
+    write_csv(partial / "summary.csv", list(rows_in[0]), rows_in[1:])
+    expect_error(lambda: readout(records, partial, root / "cross-r2", 3), "does not match the records")
+    for field, value in (("target", "0.001"), ("measure", "kkt_residual"), ("runs", "2")):
+        edited = root / f"cross-summary-{field}"
+        edited.mkdir()
+        changed = [dict(row) for row in rows_in]
+        changed[0][field] = value
+        write_csv(edited / "summary.csv", list(rows_in[0]), changed)
+        expect_error(lambda: readout(records, edited, root / f"cross-r-{field}", 3),
+                     "runs" if field == "runs" else "disagrees with the catalog")
+    expect_error(lambda: readout(records, summary, output, 3), "fresh output directory")
+    # Two variants that name one configuration on the same inputs are ambiguous.
+    clash = root / "cross-clash"
+    clash_cases = {"cd/lasso/cd/warm-dense-f64/call": ("same", 1e-6),
+                   "cd/lasso/cd/dense-warm-f64/call": ("same", 1e-6)}
+    cross_fixture(clash, cases=clash_cases)
+    assert summarize(clash, root / "cross-clash-summary", 3)
+    expect_error(lambda: readout(clash, root / "cross-clash-summary", root / "cross-clash-out", 3),
+                 "share inputs")
+    # A case without a data hash is listed apart and never grouped.
+    lone = root / "cross-lone"
+    fixture(lone, cases=("cd/lasso/cd/dense-f64/call",), status="error")
+    edit_rows(lone, "metrics", lambda rows: rows[0].update(data_hash=""), rep=2)
+    assert summarize(lone, root / "cross-lone-summary", 3)
+    assert readout(lone, root / "cross-lone-summary", root / "cross-lone-out", 3) == []
+    text = (root / "cross-lone-out" / "REPORT.md").read_text()
+    assert f"| cd/lasso/cd/dense-f64/call | {VERSION} | rep02 has no data hash |" in text
+
+
 def cli_controls(root):
     scripts = Path(__file__).resolve().parent
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
     def run(script, *args):
         return subprocess.run([sys.executable, str(scripts / script), *map(str, args)],
                               capture_output=True, text=True, env=env, check=False)
-    for name in ("validate.py", "summarize.py", "compare.py"):
+    for name in ("validate.py", "summarize.py", "compare.py", "cross_solver.py"):
         assert run(name, "--help").returncode == 0
     valid = root / "failed-before-target_missed"
     report = root / "cli-validation.json"
@@ -525,6 +691,12 @@ def cli_controls(root):
     assert result.returncode == 0, result.stderr
     result = run("compare.py", root / "missing", valid, root / "cli-invalid", "--expected-runs", 3)
     assert result.returncode == 2 and "Invalid results" in result.stderr
+    result = run("cross_solver.py", valid, root / "cli-summary", root / "cli-cross", "--expected-runs", 3)
+    assert result.returncode == 0, result.stderr
+    assert {path.name for path in (root / "cli-cross").iterdir()} == {"REPORT.md", "cross_solver.csv"}
+    result = run("cross_solver.py", root / "missing", root / "cli-summary", root / "cli-cross-invalid",
+                 "--expected-runs", 3)
+    assert result.returncode == 2 and "Invalid results" in result.stderr
 
 
 def main():
@@ -539,10 +711,12 @@ def main():
         integrity_controls(root)
         compatibility_controls(root)
         selection_controls(root)
+        cross_solver_controls(root)
         cli_controls(root)
     print("ANALYSIS_CONTROLS_PASSED repetitions=1,3,5,10; medians,t-intervals,paired-ratios,"
           "allocations,statuses,all-failed,interrupted,corruption,coverage,provenance,"
-          "series-settings,case-selection,local-output,data-hashes,certificates,fresh-output,CLI")
+          "series-settings,case-selection,local-output,data-hashes,certificates,fresh-output,"
+          "cross-solver,CLI")
 
 
 if __name__ == "__main__":
