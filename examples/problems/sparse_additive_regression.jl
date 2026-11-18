@@ -15,9 +15,13 @@
 # [Lasso](lasso.md).
 #
 # What is penalized is the coefficient vector of each block in the orthonormal representation
-# built below, which is a group coefficient penalty on a fixed finite basis. It is not the
-# estimator of Ravikumar, Lafferty, Liu and Wasserman (2009), *Sparse additive models*, which
-# penalizes function norms and is fitted by backfitting with smoothers. The page shows what the
+# built below. In that representation `‖bⱼ‖₂` is the empirical norm of the fitted component of
+# predictor `j` on the sample, which is the penalty of the sparse additive model of Ravikumar,
+# Lafferty, Liu and Wasserman (2009), *Sparse additive models*, restricted to a fixed finite
+# basis; they note that a basis expansion of their model leads to a group lasso. This page is a
+# finite-basis group-lasso approximation, not their procedure: that procedure fits each
+# component nonparametrically, with smoothers in backfitting, while here each component is
+# confined to the span of a fixed set of four piecewise-linear functions. The page shows what the
 # group lasso does on such a basis, on one simulated data set.
 using LinearAlgebra, Random
 using ProximalBase, ProximalSolvers
@@ -31,8 +35,11 @@ avg(v) = sum(v) / length(v)
 # with `K = 4` columns. It has no constant column. A combination of the columns whose value is
 # constant on `[0, 1]` has slope zero on `[0, 0.25]`, which forces the coefficient of `x` to be
 # zero, and then the slope zero on each next interval forces the other coefficients to be zero.
-# The centered columns are therefore linearly independent when the sample has points in each
-# of the four intervals, which the rank check below confirms for this data.
+# On the sample, a combination is constant exactly when it takes one value at all sample points,
+# and a function that is linear on an interval and takes one value at two distinct points of it
+# has slope zero there. The centered columns are therefore linearly independent when the sample
+# has at least two distinct points in each of the four intervals, which the rank check below
+# confirms for this data.
 knots = [0.25, 0.5, 0.75]
 K = 1 + length(knots)
 basismatrix(x) = hcat(x, (max.(x .- t, 0) for t in knots)...)
@@ -243,7 +250,9 @@ println("nonzero coefficients per group: ", nonzero_per_group)
 #   not represented; a different basis gives a different estimate.
 # - The group norm `‖bⱼ‖₂` equals the empirical norm of the fitted component on the training
 #   sample, whose rows define the centering and the orthonormalization; at other points the
-#   empirical norm of the component is a different number. The estimator is not SpAM.
+#   empirical norm of the component is a different number. The penalty is the SpAM penalty on a
+#   fixed finite basis, and the fit is a finite-basis approximation, not the SpAM procedure,
+#   which fits the components nonparametrically with smoothers.
 # - The weights `wⱼ = √K` are equal across the predictors, so the penalty is `λ √K Σⱼ ‖bⱼ‖₂`, a
 #   rescaling of `λ`.
 # - The selected groups are reported for one simulated data set and compared with the truth.
