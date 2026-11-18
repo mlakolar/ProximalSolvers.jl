@@ -917,9 +917,14 @@ only on `converged`.
   - a step with a nonfinite entry is not scaled, and its trial is decided as before;
   - a step whose squared norm is subnormal or underflows to zero is not scaled
     ([#317](https://github.com/mlakolar/ProximalSolvers.jl/issues/317));
-  - an overflow of `⟨d̃, ∇f(x')⟩` or of `⟨∇f(x) - ∇f(x'), d̃⟩`, or a NaN from overflowed terms
-    of opposite sign, is not recovered by the scaling: the estimate is then infinite or NaN,
-    and is handled as such an estimate is without scaling;
+  - an overflow of `⟨d̃, ∇f(x')⟩` (in the function-value estimate) or of
+    `⟨∇f(x) - ∇f(x'), d̃⟩` (in the gradient estimate), or a NaN from overflowed terms of opposite
+    sign, is not recovered by the scaling. A `+Inf` function-value product gives `L̂ = L`, and a
+    `-Inf` gradient product gives `L̂ = -Inf`: both accept the trial without the check. A
+    `-Inf` function-value product or a `+Inf` gradient product gives `L̂ = Inf`: the check of
+    the rejection runs (in gradient mode only when `∇f(x)` is finite) and either accepts the
+    trial or replaces `L̂` by a finite `c`; without such a `c`, the error is raised unless a
+    finite `Lexact` caps `L`. A NaN gives a NaN `L̂`, which is kept and raises the error;
   - when `‖fl(X d̂)‖²` overflows for a representable `‖d̂‖²`, `c` is nonfinite and the check
     does not accept the trial;
   - for Float64 data, in a narrow band around the overflow threshold of `‖d‖²`,
