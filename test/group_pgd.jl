@@ -518,8 +518,8 @@ end
 # the file's own check that the flag checks were exercised
 @testset "the solves of this file were exercised" begin
   println("group PGD and APG: $(NSOLVES[]) solves checked, $(NCONV[]) with converged = true")
-  @test NSOLVES[] >= 35
-  @test NCONV[] >= 18
+  @test NSOLVES[] >= 59
+  @test NCONV[] >= 30
 end
 
 end
