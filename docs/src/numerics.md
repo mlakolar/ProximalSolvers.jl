@@ -67,7 +67,7 @@ code.
 Neither `converged=true` is a certificate of mathematical optimality. For
 PGD and APG it means that a test proposed a stop and that the computed
 KKT residual `‖G‖∞` at the returned point is below
-`max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λ` the ℓ1 level of the penalty (see [The stationarity check of a stop](@ref "The stationarity check of a stop")); it is a working-precision residual, not an exact-arithmetic
+`max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λ` the ℓ1 level of the penalty (for `GroupNormL2`, the group residual and scale; see [The stationarity check of a stop](@ref "The stationarity check of a stop")); it is a working-precision residual, not an exact-arithmetic
 certificate, and it does not bound the distance to a minimizer. The
 default `gradtol = 1e-5` is not a specified number of correct digits.
 Tighten tolerances for results you intend to report, then compute the
@@ -151,6 +151,17 @@ of the tests. What `converged=true` therefore says about the returned `x`:
   that `solve!` has checked: finite and, where `T(λ0)` and `wᵢ` are both positive, a normal number of `T`
   (a zero or subnormal product of positive factors is refused, and so is a subnormal `T(λ0)`); a zero level or weight gives
   `cᵢ = 0`. As above, a stop is refused where `τ S` is below `floatmin(T)`.
+- **Groups.** For `GroupNormL2(λ0, groups, w)` with `ProximalGradientDescent` (a `GroupNormL2{T}` whose groups
+  partition `1:p`), the coefficient of group `k` is `cₖ = T(λ0) wₖ` rounded in `T`, and `‖G‖∞` is replaced by
+  ProximalBase's group residual `kkt_violation(g, ∇f(x), x) = max(0, maxₖ scoreₖ)`, with
+  `scoreₖ = ‖∇_G f + cₖ x_G/‖x_G‖₂‖₂` at a group with a nonzero entry and `‖∇_G f‖₂ - cₖ` at a zero group
+  (a zero weight gives the score `‖∇_G f‖₂`). The scale is `S = max(maxₖ cₖ, Λ)` with
+  `Λ = maxₖ ‖[∇f(0)]_{Gₖ}‖₂ = α maxₖ ‖[Xᵀy]_{Gₖ}‖₂`, the group counterpart of `λmax` (`x = 0` is a minimizer iff
+  `‖[∇f(0)]_{Gₖ}‖₂ ≤ cₖ` for every `k`); each group norm is LinearAlgebra's `norm`, so a scale such as `α = 1e-300`
+  does not make `Λ` underflow to 0. `τ`, the threshold and the guards are those above. For singleton groups
+  with unit weights `S` is the `S` of `NormL1(λ0)`, while the iterates and the residuals of the two penalties
+  can differ by rounding (the scales agree where no entry of `∇f(0)` has a subnormal square). As for `NormL1`, a stop that counts says that the computed residual is below the computed
+  threshold, not that the residual in exact arithmetic is.
 - **The elastic net.** `ElasticNet(λ1, λ2)` on the loss `α/2 ‖Xb - y‖²` is the lasso with
   level `λ1` on the augmented data `X̃ = [√α X; √λ2 I]`, `ỹ = [√α y; 0]`: its loss
   `½‖X̃b - ỹ‖²` equals `α/2 ‖Xb - y‖² + (λ2/2)‖b‖²`, its gradient is `∇f(x) + λ2 x`, and its

@@ -13,6 +13,7 @@ standard = [
   "cd_numerics",
   "group_cd",
   "group_cd_preflight",
+  "group_pgd",
   "core_regressions",
   "sparse_cd",
   "accelerated_pgd",
