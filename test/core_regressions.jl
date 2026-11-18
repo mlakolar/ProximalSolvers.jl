@@ -1234,9 +1234,12 @@ end
 end
 
 @testset "PGD: a 1×1 Float64 solve at loss scale 1e-170 does not raise the line search's 0 · Inf error (#317)" begin
-  # With a zero start and the default options, a trial step has a subnormal squared norm and a zero
-  # gradient-difference product; scaling that product by the overflowing 2 / ‖d̂‖² gave NaN, and the
-  # solve raised "line search failed: nonfinite curvature estimate". Whether it converges is not asserted.
+  # Historical: at base 8cc0222 (initial curvature 1) this solve reached a trial with a subnormal
+  # squared step norm and a zero gradient-difference product; scaling that product by the
+  # overflowing 2 / ‖d̂‖² gave NaN, and the solve raised "line search failed: nonfinite curvature
+  # estimate". Whether a different initial curvature still reaches that trial is not assumed, and
+  # neither is whether the solve converges. The diag reproducer and the direct backtrack! test
+  # below are the defect coverage that does not depend on the initial curvature.
   x = [0.0]
   solve!(x, 1e-170 * LeastSquaresLoss([1.0], [1.0;;]), NormL1(0.0), ProximalGradientDescent())
   @test all(isfinite, x)

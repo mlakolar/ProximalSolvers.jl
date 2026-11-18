@@ -439,8 +439,11 @@ end
 end
 
 @testset "PGD strict at loss scale 1e-200, λ = 0: converged, within the stopping guarantee of the least-squares solution (#317)" begin
-  # A cold start at this scale gives subnormal squared steps, a zero gradient-difference product
-  # and, before #317, the line search's "nonfinite curvature estimate" error.
+  # Historical: at base 8cc0222 (initial curvature 1) this solve reached subnormal squared steps
+  # with a zero gradient-difference product and raised the line search's "nonfinite curvature
+  # estimate" error. The test asserts convergence and accuracy, not that it reaches that branch;
+  # the diag reproducer and the direct backtrack! test of core_regressions.jl are the defect
+  # coverage that does not depend on the initial curvature.
   X, y = data("base")
   α, λ = 1e-200, 0.0
   x = zeros(12)
@@ -450,8 +453,11 @@ end
   # The reference is the least-squares solution x* of the rounded data, in 256-bit BigFloat. With
   # λ = 0, G = α XᵀX (x - x*), so ‖x - x*‖₂ ≤ ‖G‖₂ / (α σmin²) ≤ √p ‖G‖∞ / (α σmin²). The invariant above
   # bounds ‖G‖∞ by U = eG + τ (1 + 4u)(S + eS) (the stopping threshold τ S plus the rounding
-  # estimates of kkt_excess). σmin is the least singular value of X from a backward stable SVD,
-  # which is exact for X + E with ‖E‖₂ ≤ p eps σmax, taken here as the error of σmin.
+  # estimates of kkt_excess). σlo is a candidate lower bound on σmin: the computed least singular
+  # value of X less p eps σmax. It is not claimed from the backward stability of the SVD; it is
+  # certified below by a Cholesky factorization of XᵀX - σlo² I in 256-bit BigFloat (XᵀX is
+  # exact at 256 bits for Float64 data of this size). Success certifies λmin(XᵀX) > σlo², up to
+  # the 256-bit rounding of the factorization, which is far below the margin.
   τ = max(STRICT.gradtol, 64 * eps())
   _, S, eG, eS, u = kkt_parts(X, y, α, λ, x, Float64)
   setprecision(BigFloat, 256) do
@@ -461,6 +467,7 @@ end
     σ = svdvals(X)
     σlo = BigFloat(last(σ)) - size(X, 2) * BigFloat(eps()) * BigFloat(first(σ))
     @test σlo > 0
+    @test isposdef(Symmetric(Xb' * Xb - σlo^2 * I))
     bound = sqrt(BigFloat(size(X, 2))) * U / (BigFloat(α) * σlo^2)
     @test norm(BigFloat.(x) - xstar) <= bound
   end

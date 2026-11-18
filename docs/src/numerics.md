@@ -799,15 +799,18 @@ What changes for the solvers:
   `floatmin(Float64)`) can make the line search's curvature estimates unreliable. Once the
   search uses gradients, it scales a gradient-difference product by `2/‖d̂‖²`, which
   overflows when `‖d̂‖² < 2/floatmax(Float64)` (about 1.1e-308). A zero product then gives
-  the estimate 0 and the trial is accepted; scaling it would give `0 · Inf = NaN` and the
-  error `line search failed: nonfinite curvature estimate`. The guard prevents that
-  exception and does not make a solve converge at such scales: a solve can still end with
-  `converged = false`. A subnormal `‖d̂‖²` with a nonzero product, or with rounding noise in the
-  function values, can give an infinite estimate, which the computed curvature of the step
-  decides again. When `sum(abs2, d̂)` underflows to 0 while `‖d̂‖² > 0` (every entry of `d̂`
-  below about 1.57e-162), that curvature is not finite, and the solve can still raise the
-  error above and restore the last accepted iterate; this case is documented and not handled.
-  See `LineSearches.BackTracking`.
+  the estimate 0 and the trial is accepted. Scaling it would give `0 · Inf = NaN`, and a NaN
+  estimate raises `line search failed: nonfinite curvature estimate` for a trial that is not
+  accepted first (accepted trials include `L ≥ Lexact`). The guard prevents that exception and
+  does not make a solve converge at such scales: a solve can still end with
+  `converged = false`. A subnormal `‖d̂‖²` with a nonzero product, or with rounding noise in
+  the function values, can give an infinite estimate. If `L < Lexact` and, in gradient mode,
+  the gradient at the trial is finite, that rejection is decided again by the computed
+  curvature `c` of the step. When that check runs and `sum(abs2, d̂)` underflows to 0 while `‖d̂‖² > 0` (every entry
+  of `d̂` below about 1.57e-162), `c` is not finite and the infinite estimate is kept; with the
+  default `Lexact = Inf` the solve can then still raise the error above and restore the last
+  accepted iterate, and a finite `Lexact` caps `L` instead. This case is documented and not
+  handled. See `LineSearches.BackTracking`.
 
 `Float32` has less precision and may stagnate earlier than `Float64`.
 Some solver tolerances, residual reports and other scalar diagnostics
