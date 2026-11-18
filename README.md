@@ -93,7 +93,7 @@ response and matching coefficients, where `T` is `Float32` or `Float64`.
 CD additionally accepts one-dimensional ProximalBase `SparseIterate`
 coefficients, and, for a group lasso, a ProximalBase `BlockIterate` with a
 `GroupNormL2` penalty; PGD and accelerated PGD (`AccProxGradDescent`) accept dense
-coefficients only. CD also minimizes the square-root lasso `norm(y - X*beta) + lambda * norm(beta, 1)`
+coefficients only, and also solve the group lasso on them with a `GroupNormL2{T}` penalty for data of type `T`. CD also minimizes the square-root lasso `norm(y - X*beta) + lambda * norm(beta, 1)`
 with ProximalBase's `SqrtLeastSquaresLoss(y, X)` and `NormL1(lambda)`, `lambda > 0`; there
 `converged = true` only when a duality certificate proves the relative gap to be at most `1e-4`, and
 `gap` reports that bound. Generalized models,
