@@ -77,9 +77,9 @@ pages display that residual next to the default-PGD convergence flag.
 PGD's printed `|g(x)|` label is an internal stopping residual, **not**
 the value of the user's L1 penalty.
 
-What the stopping tests imply and their measured limits (products that underflow or cancel, a warm
-start far above the solution scale, Float32, `ftol = 0`) are on the page
-[Limits of the stopping tests](stopping-limits.md).
+What the stopping tests imply and their measured limits (products that underflow or cancel, a
+cached residual of coordinate descent that is stale after a start far above the solution scale,
+Float32, `ftol = 0`) are on the page [Limits of the stopping tests](stopping-limits.md).
 
 ### The stationarity check of a stop
 
