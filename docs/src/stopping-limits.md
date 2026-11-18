@@ -16,10 +16,12 @@ certified optimum. The solvers stop on three kinds of evidence:
 
 | Solver | A stop is proposed by | Vetoed by | `converged = true` means | Kind of evidence |
 | --- | --- | --- | --- | --- |
-| `CDSolver`, least squares with `NormL1` or `ElasticNet` | a full pass whose largest change is below the threshold | nothing | each change of one full pass is below the effective threshold | a change test, with no independent check |
-| `CDSolver`, group lasso | the same, with the change of a group | nothing | the same, per group | a change test, with no independent check |
+| `CDSolver`, least squares with `NormL1` or `ElasticNet` | a full pass whose largest change, scaled when relative scaling is active, is below the threshold | nothing | with `relative = true` and `y ≠ 0`: each scaled change `abs(h_k) √(s a_k)` of one full pass is below `tol √s ‖y‖`, with `a_k = ‖X_k‖²`; with `relative = false`, or `y = 0`: each `abs(h_k)` is below `tol` | a change test, with no independent check |
+| `CDSolver`, group lasso | the same, with the change of a group | nothing | the same per group: the scaled change is `‖h_k‖ √(s ℓ_k)`, with `ℓ_k` the curvature bound of the group, and the unscaled one `‖h_k‖` | a change test, with no independent check |
 | `ProximalGradientDescent`, `AccProxGradDescent` | the `x`, objective or gradient test of an iteration | the stationarity check | a test proposed a stop and the computed `‖G‖∞` is below `max(gradtol, 64 eps(T)) * max(λ, λmax)` | a residual formed in working precision |
-| `CDSolver`, square-root lasso, `λ > 0` | a full pass below the threshold | the duality certificate | a proved `(P − P*)/P* < 1e-4`, with `gap` the bound | a bounded gap |
+| `CDSolver`, square-root lasso, `λ > 0` | a full pass below the threshold | the duality certificate | where the minimum `P*` is positive: a proved `(P − P*)/P* < 1e-4`, with `gap` the bound; for `y = 0` and `x = 0`, where `P* = 0`: exact optimality, with `gap = 0` | a bounded gap |
+
+In the CD rows, `h_k` is the change of coordinate (or group) `k` in the pass and `s` the loss scale.
 
 Of the problems audited, only the square-root lasso carries a certificate, and that
 certificate has the assumptions stated in [The certificate](@ref "The certificate") and
@@ -56,7 +58,7 @@ With the absolute threshold (`relative = false`, or `y = 0`) the scale `‖y‖`
 ‖G_k‖ ≤ s · tol · (ℓ_k + √ℓ_k Σ_{j visited after k} √ℓ_j)                            (group lasso)
 ~~~
 
-The bounds are not strict: both sides are 0 for `p = 1` and for a flat column. What remains
+The scalar bounds are not strict: both sides are 0 for `p = 1` and for a flat column. What remains
 unguaranteed, and why the flag is not a KKT certificate:
 
 - the factor `p − 1` or `K`;
