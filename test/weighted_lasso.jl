@@ -60,9 +60,12 @@ end
 # computed λmax, for the unit roundoff u = eps(T)/2 doubled as slack: with d = X x - y exact,
 #   eG = maxᵢ α Σⱼ |Xⱼᵢ| (e_j + (n+1) u (|d_j| + e_j)) + u (|gᵢ| + cᵢ) + tiny(T) /2,
 #   e_j = (p+1) u (Σₖ |Xⱼₖ||xₖ| + |y_j|),    eS = α (n+1) u maxᵢ Σⱼ |Xⱼᵢ||y_j|.
-# The term u cᵢ allows for the rounding of the coefficient to T: for a level of type T and an accepted coefficient
-# (0, or normal) |cᵢ - λ0 wᵢ| <= (eps(T)/2) cᵢ, also where the exact product is just below floatmin(T) and rounds up to
-# it, and a level of another type adds |T(λ0) - λ0| wᵢ, at most (eps(T)/2) T(λ0) wᵢ. The term tiny(T)/2 is slack.
+# The term u cᵢ is an allowance for the rounding of the coefficient to T. For an accepted coefficient (0, or normal)
+# |cᵢ - λ0 wᵢ| <= |T(λ0) - λ0| wᵢ + (eps(T)/2) cᵢ, also where the exact product is just below floatmin(T) and rounds up to
+# it. For a level of type T the first term is 0; for the other levels used here (a Float64, or an integer, converted
+# by round-to-nearest) it is at most (eps(T)/2) T(λ0) wᵢ, so the sum is at most about eps(T) cᵢ = u cᵢ (to second order).
+# That estimate does not hold for a Rational level, whose conversion error can be larger (testset "the conversion
+# of a level"). The term tiny(T)/2 is slack.
 function kktparts(X, y, α, λ0, w, x, ::Type{T}) where T
   big256() do
     Xb, yb, xb, a, l0, wb = big.(X), big.(y), big.(x), big(α), big(λ0), big.(w)
@@ -360,13 +363,35 @@ end
 # ---------------------------------------------------------------------------------------------------------
 
 # w ≡ 1, w ≡ 2 and w ≡ 1/2 (scalings by a power of two, exact) with the levels λ0, λ0 and 2 λ0 have the coefficients
-# λ0, 2 λ0 and λ0 of the unweighted runs with NormL1(λ0), NormL1(2 λ0) and NormL1(λ0). Both runs are checked
-# against the reference of the same problem, and their points and flags are compared: the weighted and the
-# unweighted kernels round differently, so bit equality is recorded and not required; PGD and APG must stop for
-# the same reason (the same tests propose the stop) with the same `converged` (D4).
-@testset "uniform weights reach the quality of the unweighted penalty, with the same stopping flags" begin
+# λ0, 2 λ0 and λ0 of the unweighted runs with NormL1(λ0), NormL1(2 λ0) and NormL1(λ0).
+#
+# Two kinds of assertion. (1) Both runs are checked against the reference of the same problem and against the
+# independent residual, and must agree in `converged`. The weighted and the unweighted kernels round differently, so
+# the two runs can follow different trajectories (bit equality is not required, and the auxiliary flags that depend
+# on the iterates, such as the gradient test, can differ between platforms): the flags and the iteration count are
+# compared only where the final points are bit-identical and the iteration counts are equal, and are otherwise
+# recorded in the counters printed at the end. (2) The stop rule is checked at fixed points, independently of any
+# trajectory (D4): at the zero vector, at the final points of both runs and at one fixed perturbed point, the stop scale
+# S = max(level, λmax), ProximalBase's `kkt_violation` of the converted penalty at the same gradient and the verdict of
+# `_stationary!` are equal for the weighted and the unweighted penalty. They are equal bit for bit because the
+# coefficients are the same numbers: T(λw) c = T(λu) for a power of two c, and the data, the point and the gradient are
+# the same.
+
+# The quantities of the stop rule of `s` (PGD or APG) for the penalty g at the point x, formed as `_stationary!` forms
+# them: the level of the converted penalty, λmax, S, ProximalBase's residual at the gradient at x, and the verdict.
+function stop_quantities(s::Spec, ::Type{T}, f, g, x, options) where T
+  state = PS.initial_state(method_of(s, T), options, f, g, copy(x))
+  λmax = PS._lambda_max!(state)
+  grad = copy(PS._gradient_at_x!(state, f))
+  gT = PS._converted_penalty(g, T)
+  λ = PS._l1_level(gT)
+  (; λ, λmax, S = max(λ, λmax), grad, residual = kkt_violation(gT, grad, state.x), verdict = PS._stationary!(state, f, g, options))
+end
+
+@testset "uniform weights reach the quality of the unweighted penalty and have its stop rule" begin
   n, p = 40, 8
-  stops = [0, 0]
+  counts = Dict(:pairs => 0, :same_iterations => 0, :identical => 0, :identical_flags => 0, :stop_points => 0,
+                :verdict_true => 0, :verdict_false => 0)
   for T in (Float32, Float64), (sname, α) in scales(T, n), s in SPECS, (c, λfactor) in ((1, 1), (2, 1), (1 // 2, 2))
     X, y = design(T, n, p, 14)
     λ0 = T(0.1 * lambdamax(X, y, α))
@@ -374,24 +399,43 @@ end
     λw, λu = λ0 * T(λfactor), λ0 * T(λfactor) * T(c)      # weighted level; the unweighted level (c λfactor λ0)
     wu = ones(T, p)
     wc = fill(T(c), p)
+    gw, gu = NormL1(λw, wc), NormL1(λu)
     β, ok = reference(X, y, α, λu, wu)
     @test ok
-    xw, rw = solve_spec(s, T, f, NormL1(λw, wc), zeros(T, p); seed = 4)
-    xu, ru = solve_spec(s, T, f, NormL1(λu), zeros(T, p); seed = 4)
+    xw, rw = solve_spec(s, T, f, gw, zeros(T, p); seed = 4)
+    xu, ru = solve_spec(s, T, f, gu, zeros(T, p); seed = 4)
     label = (T, sname, s.label, c)
     check_solution((label, :weighted), s, T, X, y, α, λw, wc, xw, rw, β)
     check_solution((label, :unweighted), s, T, X, y, α, λu, wu, xu, ru, β)
+    @test (label, rw.converged) == (label, ru.converged)
     NPAIR[] += 1
     BITEQ[] += xw == xu
     if s.kind !== :cd
       flags(r) = (r.converged, r.x_converged, r.f_converged, r.grad_converged, r.iteration_converged)
-      @test (label, flags(rw)) == (label, flags(ru))
-      stops[1] += 1
-      stops[2] += rw.iterations == ru.iterations
+      counts[:pairs] += 1
+      counts[:same_iterations] += rw.iterations == ru.iterations
+      if xw == xu && rw.iterations == ru.iterations
+        # the same iterates after the same number of iterations: the same flags
+        @test (label, flags(rw)) == (label, flags(ru))
+        counts[:identical] += 1
+        counts[:identical_flags] += flags(rw) == flags(ru)
+      end
+      options = gradient_options(T)
+      for x in (zeros(T, p), xu, xw, T.(0.1 .* sin.(1:p)))
+        qw, qu = stop_quantities(s, T, f, gw, x, options), stop_quantities(s, T, f, gu, x, options)
+        @test (label, qw.λ, qw.λmax, qw.S, qw.grad, qw.residual, qw.verdict) ==
+              (label, qu.λ, qu.λmax, qu.S, qu.grad, qu.residual, qu.verdict)
+        counts[:stop_points] += 1
+        counts[qw.verdict ? :verdict_true : :verdict_false] += 1
+      end
     end
   end
-  println("weighted (uniform) and unweighted runs: bit-identical points in $(BITEQ[]) of $(NPAIR[]) pairs, ",
-          "equal iteration counts in $(stops[2]) of $(stops[1]) PGD and APG pairs")
+  # the check of the stop rule is not vacuous: stationary and non-stationary points occur
+  @test counts[:verdict_true] > 0 && counts[:verdict_false] > 0
+  println("weighted (uniform) and unweighted runs: bit-identical points in $(BITEQ[]) of $(NPAIR[]) pairs; PGD and APG: ",
+          "equal iteration counts in $(counts[:same_iterations]) of $(counts[:pairs]), identical points and counts in ",
+          "$(counts[:identical]) with equal flags in $(counts[:identical_flags]); stop rule compared at ",
+          "$(counts[:stop_points]) points ($(counts[:verdict_true]) stationary, $(counts[:verdict_false]) not)")
 end
 
 # ---------------------------------------------------------------------------------------------------------
@@ -545,6 +589,40 @@ end
   end
 end
 
+# The conversion of a level to T. For a level converted by round-to-nearest (a Float16, Float32, Float64 or BigFloat, or
+# an integer) the error is at most (eps(T)/2) T(λ0). Julia's conversion of a Rational can round the numerator and the
+# denominator before dividing, so a Rational level can have a larger error: with the numerator and the denominator
+# 2^p + 1 and 2^p + 3 (p = 24 for Float32, 53 for Float64) both round and the ratio is off by about twice that bound.
+# Only the actual-error form |cⱼ - λ0 wⱼ| <= |T(λ0) - λ0| wⱼ + (eps(T)/2) cⱼ holds for every level; the exact value of the
+# Rational is computed in BigFloat at 256 bits from its numerator and denominator.
+@testset "the conversion of a level to T: the half-eps bound and the Rational counterexample ($T)" for T in (Float32, Float64)
+  rational = T === Float32 ? Rational{Int}(2^24 + 1, 2^24 + 3) : Rational{Int}(2^53 + 1, 2^53 + 3)
+  exact(λ0::Rational) = big256(() -> big(numerator(λ0)) / big(denominator(λ0)))
+  exact(λ0) = big(λ0)
+  half(λ0) = big(eps(T)) / 2 * big(T(λ0))                  # the half-eps bound on the conversion
+  nearest = [("Float16", Float16(0.1)), ("Float32", 0.1f0), ("Float64", 0.1), ("BigFloat", big"0.1"),
+             ("Int", 3), ("Int64 above 2^53", 2^53 + 1), ("Int128", (Int128(1) << 100) + (Int128(1) << 76) + 1),
+             ("Float64 just below floatmin(Float32)", Float64(floatmin(Float32)) * (1 - 2.0^-30)),
+             ("Float64 level", 0.3), ("Float64 level 2", 1e-3)]
+  for (name, λ0) in nearest
+    T(λ0) >= floatmin(T) || continue               # a level that rounds to a subnormal is refused with weights
+    @test (name, abs(big(T(λ0)) - exact(λ0)) <= half(λ0)) == (name, true)
+  end
+  # the Rational: the half-eps bound is exceeded, by a factor of about 2
+  err = abs(big(T(rational)) - exact(rational))
+  @test err > half(rational) && err < 3 * half(rational)
+  # the actual-error form holds for the coefficients, with the exact Rational: |c - λ0 w| <= |T(λ0) - λ0| w + (eps/2) c
+  big256() do
+    for wj in T[1, 3, 7, 0.3, 1e-3]
+      c = T(rational) * wj
+      @test abs(big(c) - exact(rational) * big(wj)) <= abs(big(T(rational)) - exact(rational)) * big(wj) + big(eps(T)) / 2 * big(c)
+    end
+  end
+  # solve! accepts the Rational level (it converts to a normal T(λ0)); the coefficient is T(λ0) w
+  X, y = T[1 0.2; 0.1 2; 0.3 0.4], T[1, -1, 0.5]
+  @test solve!(zeros(T, 2), LeastSquaresLoss(y, X), NormL1(rational, T[1, 3]), CDSolver(order = :cyclic)).converged
+end
+
 # ---------------------------------------------------------------------------------------------------------
 # 7. Flat columns
 # ---------------------------------------------------------------------------------------------------------
@@ -633,7 +711,8 @@ end
     w = weights(T, :somezero, p)
     λ0 = T(0.1 * lambdamax(X, y, 1.0))
     x, r = solve_spec(s, T, LeastSquaresLoss(y, X), NormL1(λ0, w), zeros(T, p); options = ProximalOptions(maxiter = 3))
-    @test !r.converged && r.iterations == 3 && r.iteration_converged
+    # the run stops at maxiter, or earlier for another reason; `iteration_converged` says which
+    @test !r.converged && r.iterations <= 3 && r.iteration_converged == (r.iterations == 3)
   end
 end
 
@@ -817,23 +896,43 @@ end
   @test checked > 1000
 end
 
-# the coordinate step itself, just inside and just outside both edges of the band: the unit-norm columns give
-# α a ≈ α, and α = t floatmin(T) and t / floatmin(T) with t = 0.5 and 2 put the product or its reciprocal
-# on either side of floatmin(T). The step (PB's weighted prox inside, the exceptional step outside) is compared
-# with the BigFloat shrink of the same centre at the exact threshold λ0 wₖ / (α a), the allowance being
-# 6 eps(T) τ (the rounded p, γ = 1/p, γλ0 and the product by wₖ of the inside; the bound of `_threshold` and
-# the coefficient rounding of the outside), 2 tiny, eps(T) of the result, and |cₖ - λ0 wₖ| / (α a).
+# the coordinate step itself, just inside and just outside both edges of the band. The step (PB's weighted prox
+# inside, the exceptional step outside) is compared with the BigFloat shrink of the same centre at the exact threshold
+# λ0 wₖ / (α a), the allowance being 6 eps(T) τ (the rounded p, γ = 1/p, γλ0 and the product by wₖ of the inside; the
+# bound of `_threshold` and the coefficient rounding of the outside), 2 tiny, eps(T) of the result, and
+# |cₖ - λ0 wₖ| / (α a). High edge: the unit-norm columns give α a ≈ α, and α = t / floatmin(T) with t = 0.5 and 2 puts
+# the reciprocal of the product on either side of floatmin(T); the level is a fraction of λmax, and cases whose level or
+# coefficient is subnormal, which `solve!` refuses, are skipped. Low edge: the levels of that design are subnormal for
+# α near floatmin(T), so a fixture with an accepted level is used: X = [1], y = [2], λ0 = floatmin(T), w = [1] and the
+# loss scales prevfloat(floatmin(T)) (the product α a is subnormal: outside) and floatmin(T) (inside), where the
+# threshold is about 1 and the step is about 1. A counter per edge and side asserts that all four are exercised.
 @testset "inside and outside the band, the weighted step agrees with BigFloat ($T)" for T in (Float32, Float64)
   tiny = nextfloat(zero(T))
+  seen = Dict{Tuple{Symbol, Bool}, Int}()
+  # one step from the state of the model m, against BigFloat
+  function check_step(form, label, m, g, x, k, λ0, wk, α)
+    a, b = PS._column_dot(m, k)
+    c = x[k] + b / a
+    p = m.s * a
+    inside = floatmin(T) <= p && floatmin(T) <= inv(p)
+    seen[(form, inside)] = get(seen, (form, inside), 0) + 1
+    PS.coordinate_step!(m, g, x, k)
+    big256() do
+      ck = λ0 * wk
+      τ = big(λ0) * big(wk) / (big(α) * big(a))
+      ref = shrink_big(big(c), τ)
+      allowed = 6 * big(eps(T)) * τ + 2 * big(tiny) + big(eps(T)) * abs(ref) + abs(big(ck) - big(λ0) * big(wk)) / (big(α) * big(a))
+      @test (T, label, inside, abs(big(x[k]) - ref) <= allowed) == (T, label, inside, true)
+    end
+  end
   rng = Xoshiro(41)
   X0 = randn(rng, 30, 3)
   X0 ./= sqrt.(sum(abs2, X0; dims = 1))
   y0 = X0 * [1.0, -2.0, 0.5] .+ 0.02 .* randn(rng, 30)
   X, y = Matrix{T}(X0), Vector{T}(y0 .* (0.5 / norm(y0)))
   w = T[0.5, 1, 2]
-  seen = Dict(:inside => 0, :outside => 0)
-  for (t, form) in ((0.5, :low), (2.0, :low), (0.5, :high), (2.0, :high))
-    α = form === :low ? T(t) * floatmin(T) : T(t) / floatmin(T)
+  for t in (0.5, 2.0)
+    α = T(t) / floatmin(T)
     for fraction in (0.1, 0.5), warm in (false, true)
       λ0 = big256(() -> T(big(fraction) * maximum(abs, big(α) .* (big.(X)' * big.(y)))))
       (isfinite(λ0) && !iszero(λ0)) || continue
@@ -843,24 +942,20 @@ end
         m = PS.LSModel(y, X, α)
         x = SparseIterate(warm ? T[0.1, -0.2, 0.05] : zeros(T, 3))
         PS.initialize!(m, x)
-        a, b = PS._column_dot(m, k)
-        c = x[k] + b / a
-        p = m.s * a
-        inside = floatmin(T) <= p && floatmin(T) <= inv(p)
-        seen[inside ? :inside : :outside] += 1
-        PS.coordinate_step!(m, g, x, k)
-        big256() do
-          ck = λ0 * w[k]
-          τ = big(λ0) * big(w[k]) / (big(α) * big(a))
-          ref = shrink_big(big(c), τ)
-          allowed = 6 * big(eps(T)) * τ + 2 * big(tiny) + big(eps(T)) * abs(ref) + abs(big(ck) - big(λ0) * big(w[k])) / (big(α) * big(a))
-          @test (T, form, t, fraction, warm, k, inside, abs(big(x[k]) - ref) <= allowed) ==
-                (T, form, t, fraction, warm, k, inside, true)
-        end
+        check_step(:high, (:high, t, fraction, warm, k), m, g, x, k, λ0, w[k], α)
       end
     end
   end
-  @test seen[:inside] > 0 && seen[:outside] > 0
+  fm = floatmin(T)
+  @test accepted_pair(fm, one(T))
+  for α in (prevfloat(fm), fm)
+    m = PS.LSModel(T[2], ones(T, 1, 1), α)
+    x = SparseIterate(zeros(T, 1))
+    PS.initialize!(m, x)
+    check_step(:low, (:low, α), m, NormL1(fm, T[1]), x, 1, fm, one(T), α)
+    @test x[1] > T(0.5)                  # the step is about 1, not 0 or 2: the threshold is about 1
+  end
+  @test all(key -> get(seen, key, 0) > 0, ((:high, true), (:high, false), (:low, true), (:low, false)))
 end
 
 # ---------------------------------------------------------------------------------------------------------

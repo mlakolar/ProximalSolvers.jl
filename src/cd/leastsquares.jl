@@ -137,11 +137,15 @@ end
 # With weights, the threshold of coordinate k is that of the unweighted method at the level cₖ = T(λ0) wₖ,
 # the coefficient that `solve!` validates (finite, and 0 or a normal number of T: zero only from a zero level or
 # weight) and that the stopping check of PGD and APG uses. So τ is within the bounds stated at `_threshold` of
-# cₖ/(α a), and within those bounds plus |cₖ - λ0 wₖ|/(α a) of λ0 wₖ/(α a). For a level λ0 of type T, cₖ is
-# λ0 wₖ rounded once to nearest, and a normal number, so |cₖ - λ0 wₖ| ≤ (eps(T)/2) cₖ: this holds also where the
-# exact product is slightly below floatmin(T) and rounds up to it, where the error is at most half the smallest
-# subnormal. A level of another type adds |T(λ0) - λ0| wₖ, at most (eps(T)/2) T(λ0) wₖ for the normal T(λ0)
-# that `solve!` requires.
+# cₖ/(α a), and within those bounds plus |cₖ - λ0 wₖ|/(α a) of λ0 wₖ/(α a). The error |cₖ - λ0 wₖ| is at most
+# |T(λ0) - λ0| wₖ, the conversion of the level (0 for a level of type T), plus |cₖ - T(λ0) wₖ|, the rounding of the
+# product to nearest, which is at most (eps(T)/2) cₖ because cₖ is a normal number; that holds also where the exact
+# product is slightly below floatmin(T) and rounds up to it, where the error is at most half the smallest subnormal.
+# For a level converted to T by round-to-nearest (a Float16, Float32, Float64 or BigFloat, or an integer, which
+# Julia converts correctly rounded) |T(λ0) - λ0| ≤ (eps(T)/2) T(λ0), the normal T(λ0) that `solve!` requires. A
+# Rational level is converted by Julia's Rational to float conversion, which can round the numerator and the
+# denominator before dividing, so its conversion error can be larger (about twice that bound for 16777217//16777219
+# in Float32); only the actual error |T(λ0) - λ0| bounds it.
 # A zero weight or a zero level gives cₖ = 0, τ = 0 and `shrink(c, 0) = c`: the coordinate is unpenalized.
 # In the comments of `coordinate_step!` above, λ is λ0 wₖ for a penalty with weights.
 @noinline _exceptional_step(g::NormL1{<:Real, Vector{T}}, c::T, α::T, a::T, k::Int) where {T<:Union{Float32, Float64}} =
