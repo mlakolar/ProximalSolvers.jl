@@ -1,0 +1,129 @@
+**Harness designs, Float32 PGD, harness settings H: T/F = `converged`**
+
+| design | draw | 637f06a + PB c123d56, 1.10.13: conv / stop / iter / gap / k* | dac9f4b + PB a19c59a, 1.10.13: conv / stop / iter / gap / k* | 637f06a + PB c123d56, 1.13.3: conv / stop / iter / gap / k* | dac9f4b + PB a19c59a, 1.13.3: conv / stop / iter / gap / k* |
+|---|---|---|---|---|---|
+| lasso | 1 | T / f / 13 / 2.22e-05 / 14 | T / f / 13 / 2.22e-05 / 14 | T / f / 10 / 2.94e-05 / 11 | T / f / 10 / 2.94e-05 / 11 |
+| lasso | 2 | T / f / 11 / 3.08e-05 / 13 | T / f / 11 / 3.08e-05 / 13 | T / f / 10 / 8.07e-06 / 10 | T / f / 10 / 8.07e-06 / 10 |
+| lasso | 3 | T / f / 9 / 2.80e-05 / 10 | T / f / 9 / 2.80e-05 / 10 | T / f / 12 / 1.51e-05 / 13 | T / f / 12 / 1.51e-05 / 13 |
+| lasso | 4 | F / f_increased / 13 / 9.23e-05 / 15 | F / f_increased / 13 / 9.23e-05 / 15 | T / f / 11 / 3.69e-06 / 10 | T / f / 11 / 3.69e-06 / 10 |
+| lasso | 5 | T / f / 11 / 3.81e-06 / 11 | T / f / 11 / 3.81e-06 / 11 | T / f / 9 / 7.71e-06 / 9 | T / f / 9 / 7.71e-06 / 9 |
+| lasso | 6 | T / f / 10 / 1.11e-05 / 11 | T / f / 10 / 1.11e-05 / 11 | F / f_increased / 11 / 4.02e-05 / 13 | F / f_increased / 11 / 4.02e-05 / 13 |
+| lasso | 7 | T / f / 11 / 2.32e-05 / 12 | T / f / 11 / 2.32e-05 / 12 | F / f_increased / 9 / 1.07e-04 / 12 | F / f_increased / 9 / 1.07e-04 / 12 |
+| lasso | 8 | T / f / 10 / 1.32e-06 / 9 | T / f / 10 / 1.32e-06 / 9 | T / f / 9 / 3.69e-05 / 11 | T / f / 9 / 3.69e-05 / 11 |
+| lasso | 9 | T / f / 10 / 2.83e-05 / 16 | T / f / 10 / 2.83e-05 / 16 | T / f / 9 / 3.41e-05 / 11 | T / f / 9 / 3.41e-05 / 11 |
+| lasso | 10 | F / f_increased / 9 / 5.90e-05 / 11 | F / f_increased / 9 / 5.90e-05 / 11 | T / f / 11 / 9.70e-07 / 11 | T / f / 11 / 9.70e-07 / 11 |
+| lasso-B | 1 | T / f / 37 / 2.66e-05 / 38 | T / f / 37 / 2.66e-05 / 38 | T / f / 26 / 8.55e-06 / 26 | T / f / 26 / 8.55e-06 / 26 |
+| lasso-B | 2 | T / f / 34 / 2.32e-05 / 35 | T / f / 34 / 2.32e-05 / 35 | T / f / 33 / 4.86e-06 / 33 | T / f / 39 / 3.00e-05 / 40 |
+| lasso-B | 3 | T / f / 39 / 3.07e-05 / 41 | T / f / 39 / 3.07e-05 / 41 | F / f_increased / 62 / 4.10e-05 / 68 | F / f_increased / 59 / 2.52e-04 / 75 |
+| lasso-B | 4 | F / f_increased / 47 / 1.02e-04 / 51 | F / f_increased / 47 / 1.02e-04 / 51 | F / f_increased / 56 / 1.56e-04 / 67 | F / f_increased / 56 / 1.56e-04 / 67 |
+| lasso-B | 5 | T / f / 42 / 2.20e-05 / 43 | T / f / 42 / 2.20e-05 / 43 | F / f_increased / 59 / 1.68e-04 / 73 | F / f_increased / 59 / 1.68e-04 / 73 |
+| lasso-B | 6 | F / f_increased / 36 / 2.38e-04 / 48 | F / f_increased / 36 / 2.38e-04 / 48 | F / f_increased / 49 / 2.76e-04 / 63 | F / f_increased / 49 / 2.76e-04 / 63 |
+| lasso-B | 7 | F / f_increased / 80 / 1.26e-04 / 98 | F / f_increased / 80 / 1.26e-04 / 98 | T / f / 34 / 2.80e-05 / 35 | T / f / 34 / 2.80e-05 / 35 |
+| lasso-B | 8 | F / f_increased / 36 / 2.20e-05 / 38 | F / f_increased / 36 / 2.20e-05 / 38 | F / f_increased / 49 / 8.40e-05 / 65 | F / f_increased / 49 / 8.40e-05 / 65 |
+| lasso-B | 9 | T / f / 32 / 3.73e-05 / 34 | T / f / 32 / 3.73e-05 / 34 | T / f / 48 / 3.55e-05 / 50 | T / f / 48 / 3.55e-05 / 50 |
+| lasso-B | 10 | F / f_increased / 48 / 1.85e-04 / 60 | F / f_increased / 55 / 1.51e-04 / 67 | T / f / 47 / 2.93e-05 / 49 | T / f / 54 / 2.06e-05 / 56 |
+| lasso-B-warm | 1 | F / f_increased / 11 / 5.95e-05 / 13 | T / f / 15 / 2.12e-05 / 16 | T / f / 6 / 3.05e-05 / 7 | T / f / 6 / 3.05e-05 / 7 |
+| lasso-B-warm | 2 | T / f / 14 / 2.08e-05 / 15 | T / f / 14 / 2.08e-05 / 15 | T / f / 12 / 2.02e-06 / 12 | T / f / 12 / 2.02e-06 / 12 |
+| lasso-B-warm | 3 | T / f / 15 / 2.21e-05 / 17 | T / f / 15 / 2.21e-05 / 17 | F / f_increased / 30 / 2.07e-04 / 45 | F / f_increased / 30 / 2.07e-04 / 45 |
+| lasso-B-warm | 4 | F / f_increased / 19 / 1.54e-04 / 23 | F / f_increased / 19 / 1.54e-04 / 23 | F / f_increased / 24 / 4.16e-04 / 48 | F / f_increased / 24 / 4.16e-04 / 48 |
+| lasso-B-warm | 5 | T / f / 12 / 3.19e-05 / 13 | T / f / 12 / 3.19e-05 / 13 | F / f_increased / 23 / 4.35e-04 / 42 | F / f_increased / 23 / 4.35e-04 / 42 |
+| lasso-B-warm | 6 | T / f / 24 / 3.75e-05 / 31 | T / f / 24 / 3.75e-05 / 31 | F / f_increased / 20 / 4.33e-04 / 37 | F / f_increased / 20 / 4.33e-04 / 37 |
+| lasso-B-warm | 7 | F / f_increased / 34 / 3.15e-04 / 58 | F / f_increased / 34 / 3.15e-04 / 58 | T / f / 11 / 1.15e-05 / 12 | T / f / 11 / 1.15e-05 / 12 |
+| lasso-B-warm | 8 | F / f_increased / 9 / 5.42e-05 / 12 | F / f_increased / 9 / 5.42e-05 / 12 | F / f_increased / 26 / 2.72e-04 / 44 | F / f_increased / 26 / 2.72e-04 / 44 |
+| lasso-B-warm | 9 | T / f / 7 / 7.53e-06 / 7 | T / f / 7 / 7.53e-06 / 7 | F / f_increased / 11 / 3.97e-04 / 20 | F / f_increased / 11 / 3.97e-04 / 20 |
+| lasso-B-warm | 10 | F / f_increased / 18 / 6.44e-04 / 31 | F / f_increased / 18 / 6.44e-04 / 31 | F / f_increased / 18 / 6.17e-05 / 21 | F / f_increased / 18 / 6.17e-05 / 21 |
+| lasso-C | 1 | T / f / 14 / 1.48e-05 / 15 | T / f / 14 / 1.48e-05 / 15 | T / f / 12 / 2.13e-05 / 13 | T / f / 12 / 2.13e-05 / 13 |
+| lasso-C | 2 | T / f / 9 / 6.27e-06 / 9 | T / f / 15 / 1.04e-06 / 15 | T / f / 16 / 2.42e-06 / 16 | T / f / 16 / 2.42e-06 / 16 |
+| lasso-C | 3 | T / f / 12 / 5.70e-06 / 12 | T / f / 12 / 5.70e-06 / 12 | F / f_increased / 9 / 2.24e-04 / 13 | F / f_increased / 9 / 2.24e-04 / 13 |
+| lasso-C | 4 | T / f / 17 / 1.69e-05 / 19 | T / f / 17 / 1.69e-05 / 19 | F / f_increased / 13 / 1.91e-04 / 21 | F / f_increased / 13 / 1.91e-04 / 21 |
+| lasso-C | 5 | T / f / 10 / 1.68e-05 / 11 | T / f / 10 / 1.68e-05 / 11 | F / f_increased / 10 / 7.52e-05 / 12 | F / f_increased / 10 / 7.52e-05 / 12 |
+| lasso-C | 6 | T / f / 13 / 5.51e-06 / 13 | T / f / 13 / 5.51e-06 / 13 | F / f_increased / 12 / 4.14e-04 / 18 | F / f_increased / 18 / 5.91e-05 / 19 |
+| lasso-C | 7 | T / f / 14 / 1.95e-06 / 14 | F / f_increased / 10 / 5.97e-05 / 12 | F / f_increased / 11 / 3.62e-05 / 12 | F / f_increased / 11 / 3.62e-05 / 12 |
+| lasso-C | 8 | T / f / 14 / 3.71e-05 / 16 | T / f / 14 / 3.71e-05 / 16 | T / f / 14 / 3.64e-05 / 16 | T / f / 14 / 3.64e-05 / 16 |
+| lasso-C | 9 | T / f / 10 / 2.17e-05 / 11 | T / f / 10 / 2.17e-05 / 11 | F / f_increased / 15 / 1.92e-04 / 18 | F / f_increased / 15 / 1.92e-04 / 18 |
+| lasso-C | 10 | F / f_increased / 11 / 1.63e-04 / 14 | F / f_increased / 11 / 1.63e-04 / 14 | T / f / 15 / 2.61e-05 / 17 | T / f / 13 / 1.37e-05 / 14 |
+| lasso-D | 1 | T / f / 18 / 2.39e-05 / 19 | T / f / 18 / 2.39e-05 / 19 | T / f / 14 / 4.12e-06 / 14 | T / f / 14 / 4.12e-06 / 14 |
+| lasso-D | 2 | T / f / 19 / 3.93e-06 / 19 | T / f / 13 / 1.07e-06 / 13 | T / f / 20 / 7.12e-06 / 20 | T / f / 20 / 7.12e-06 / 20 |
+| lasso-D | 3 | T / f / 14 / 8.96e-06 / 14 | T / f / 14 / 8.96e-06 / 14 | T / f / 13 / 9.28e-06 / 13 | T / f / 13 / 9.28e-06 / 13 |
+| lasso-D | 4 | T / f / 19 / 8.16e-06 / 19 | T / f / 19 / 8.16e-06 / 19 | T / f / 13 / 1.29e-05 / 14 | T / f / 13 / 1.29e-05 / 14 |
+| lasso-D | 5 | T / f / 13 / 2.42e-05 / 14 | T / f / 13 / 2.42e-05 / 14 | T / f / 14 / 9.91e-06 / 14 | T / f / 14 / 9.91e-06 / 14 |
+| lasso-D | 6 | F / f_increased / 12 / 8.38e-05 / 13 | F / f_increased / 12 / 8.38e-05 / 13 | F / f_increased / 20 / 1.28e-05 / 21 | F / f_increased / 20 / 1.28e-05 / 21 |
+| lasso-D | 7 | F / f_increased / 15 / 6.75e-06 / 15 | T / f / 21 / 1.36e-05 / 22 | F / f_increased / 13 / 6.83e-05 / 14 | F / f_increased / 20 / 6.36e-06 / 20 |
+| lasso-D | 8 | T / f / 20 / 1.86e-06 / 20 | T / f / 20 / 1.86e-06 / 20 | T / f / 15 / 1.07e-05 / 16 | T / f / 15 / 1.07e-05 / 16 |
+| lasso-D | 9 | T / f / 13 / 6.80e-06 / 13 | T / f / 19 / 1.63e-05 / 20 | T / f / 14 / 1.20e-06 / 14 | T / f / 14 / 1.20e-06 / 14 |
+| lasso-D | 10 | T / f / 14 / 4.69e-06 / 14 | T / f / 20 / 8.03e-06 / 20 | T / f / 19 / 2.99e-05 / 20 | T / f / 19 / 2.99e-05 / 20 |
+
+**Adverse set, Float32 PGD, harness settings H, master only**
+
+| design | draw | dac9f4b + PB a19c59a, 1.10.13: conv / stop / iter / gap / k* | dac9f4b + PB a19c59a, 1.13.3: conv / stop / iter / gap / k* |
+|---|---|---|---|
+| adv-cor-low-cold | 1 | F / f_increased / 86 / 6.59e-04 / 118 | F / f_increased / 111 / 8.40e-04 / 168 |
+| adv-cor-low-cold | 2 | F / f_increased / 129 / 1.52e-03 / 208 | F / f_increased / 106 / 3.61e-03 / 130 |
+| adv-cor-low-cold | 3 | T / f / 90 / 1.28e-04 / 101 | F / f_increased / 104 / 1.33e-03 / 191 |
+| adv-cor-low-cold | 4 | F / f_increased / 74 / 5.93e-04 / 99 | F / f_increased / 93 / 4.35e-04 / 123 |
+| adv-cor-low-cold | 5 | F / f_increased / 122 / 7.35e-04 / 148 | T / f / 77 / 2.03e-04 / 87 |
+| adv-cor-low-cold | 6 | F / f_increased / 98 / 1.42e-03 / 127 | F / f_increased / 82 / 6.50e-04 / 119 |
+| adv-cor-low-cold | 7 | F / f_increased / 90 / 5.09e-04 / 108 | F / f_increased / 78 / 5.78e-04 / 91 |
+| adv-cor-low-cold | 8 | F / f_increased / 96 / 7.20e-04 / 133 | T / f / 94 / 2.26e-04 / 113 |
+| adv-cor-low-cold | 9 | F / f_increased / 67 / 5.81e-04 / 87 | F / f_increased / 106 / 2.13e-03 / 164 |
+| adv-cor-low-cold | 10 | F / f_increased / 109 / 9.82e-04 / 159 | F / f_increased / 90 / 1.18e-03 / 129 |
+| adv-cor-low-warm | 1 | F / f_increased / 25 / 9.13e-04 / 59 | F / f_increased / 29 / 1.42e-03 / 94 |
+| adv-cor-low-warm | 2 | F / f_increased / 27 / 8.81e-04 / 113 | F / f_increased / 19 / 9.00e-04 / 54 |
+| adv-cor-low-warm | 3 | F / f_increased / 15 / 1.96e-04 / 29 | F / f_increased / 21 / 1.24e-03 / 103 |
+| adv-cor-low-warm | 4 | F / f_increased / 18 / 1.20e-03 / 41 | F / f_increased / 25 / 4.28e-04 / 58 |
+| adv-cor-low-warm | 5 | F / f_increased / 49 / 6.54e-04 / 79 | F / f_increased / 14 / 8.44e-04 / 39 |
+| adv-cor-low-warm | 6 | F / f_increased / 18 / 1.05e-03 / 49 | F / f_increased / 18 / 6.01e-04 / 43 |
+| adv-cor-low-warm | 7 | F / f_increased / 18 / 3.75e-04 / 42 | T / f / 20 / 3.14e-04 / 33 |
+| adv-cor-low-warm | 8 | F / f_increased / 23 / 1.48e-03 / 58 | F / f_increased / 18 / 4.71e-04 / 37 |
+| adv-cor-low-warm | 9 | F / f_increased / 15 / 5.76e-04 / 33 | F / f_increased / 24 / 1.45e-03 / 84 |
+| adv-cor-low-warm | 10 | F / f_increased / 20 / 6.24e-04 / 69 | F / f_increased / 23 / 5.31e-04 / 54 |
+| adv-equi-low-cold | 1 | F / f_increased / 231 / 2.47e-03 / 275 | F / f_increased / 138 / 3.65e-04 / 158 |
+| adv-equi-low-cold | 2 | F / f_increased / 227 / 1.00e-03 / 266 | F / f_increased / 187 / 2.79e-04 / 200 |
+| adv-equi-low-cold | 3 | F / f_increased / 209 / 8.84e-04 / 241 | F / f_increased / 236 / 6.16e-04 / 270 |
+| adv-equi-low-cold | 4 | F / f_increased / 209 / 2.37e-03 / 235 | F / f_increased / 166 / 3.05e-04 / 180 |
+| adv-equi-low-cold | 5 | F / f_increased / 201 / 1.03e-03 / 218 | F / f_increased / 141 / 3.91e-04 / 157 |
+| adv-equi-low-cold | 6 | F / f_increased / 215 / 2.53e-03 / 273 | F / f_increased / 207 / 1.34e-03 / 255 |
+| adv-equi-low-cold | 7 | F / f_increased / 199 / 5.49e-04 / 217 | T / f / 165 / 2.03e-04 / 177 |
+| adv-equi-low-cold | 8 | F / f_increased / 215 / 9.58e-04 / 242 | F / f_increased / 181 / 2.48e-03 / 224 |
+| adv-equi-low-cold | 9 | F / f_increased / 201 / 6.87e-04 / 211 | F / f_increased / 218 / 1.43e-03 / 285 |
+| adv-equi-low-cold | 10 | F / f_increased / 225 / 7.40e-04 / 259 | F / f_increased / 221 / 1.02e-03 / 265 |
+| adv-ill-mid-cold | 1 | F / f_increased / 72 / 1.32e-04 / 108 | F / f_increased / 77 / 2.15e-04 / 114 |
+| adv-ill-mid-cold | 2 | F / f_increased / 203 / 1.13e-03 / 379 | F / f_increased / 420 / 2.15e-03 / 1034 |
+| adv-ill-mid-cold | 3 | F / f_increased / 141 / 5.16e-04 / 229 | F / f_increased / 287 / 1.30e-03 / 579 |
+| adv-ill-mid-cold | 4 | F / f_increased / 127 / 2.16e-04 / 222 | F / f_increased / 40 / 1.84e-04 / 60 |
+| adv-ill-mid-cold | 5 | F / f_increased / 699 / 4.25e-03 / 1669 | F / f_increased / 15 / 1.03e-04 / 20 |
+| adv-ill-mid-cold | 6 | F / f_increased / 247 / 8.52e-04 / 457 | T / f / 10 / 3.32e-07 / 10 |
+| adv-ill-mid-cold | 7 | T / f / 13 / 7.28e-07 / 12 | F / f_increased / 735 / 3.70e-03 / 2096 |
+| adv-ill-mid-cold | 8 | F / f_increased / 68 / 6.51e-04 / 121 | F / f_increased / 122 / 9.95e-04 / 217 |
+| adv-ill-mid-cold | 9 | F / f_increased / 228 / 1.58e-03 / 515 | F / f_increased / 53 / 1.32e-04 / 76 |
+| adv-ill-mid-cold | 10 | F / f_increased / 44 / 6.45e-04 / 72 | F / f_increased / 200 / 4.83e-04 / 344 |
+| adv-ill-low-cold | 1 | F / f_increased / 1774 / 5.48e-03 / 4887 | F / f_increased / 3644 / 5.59e-03 / -1 |
+| adv-ill-low-cold | 2 | F / maxiter / 10000 / 5.22e-02 / -1 | F / maxiter / 10000 / 2.54e-02 / -1 |
+| adv-ill-low-cold | 3 | F / maxiter / 10000 / 1.60e-02 / -1 | F / f_increased / 894 / 1.30e-02 / 2294 |
+| adv-ill-low-cold | 4 | F / f_increased / 3323 / 5.21e-03 / 9847 | F / f_increased / 9995 / 1.30e-02 / -1 |
+| adv-ill-low-cold | 5 | F / f_increased / 9791 / 2.12e-02 / -1 | F / f_increased / 344 / 1.83e-03 / 628 |
+| adv-ill-low-cold | 6 | F / f_increased / 7962 / 1.74e-02 / -1 | F / f_increased / 1471 / 2.48e-03 / 3640 |
+| adv-ill-low-cold | 7 | F / f_increased / 1040 / 3.90e-03 / -1 | F / maxiter / 10000 / 3.08e-02 / -1 |
+| adv-ill-low-cold | 8 | F / f_increased / 2485 / 6.78e-03 / -1 | F / maxiter / 10000 / 2.58e-02 / -1 |
+| adv-ill-low-cold | 9 | F / f_increased / 1409 / 1.02e-02 / 3529 | F / f_increased / 596 / 3.53e-03 / 1315 |
+| adv-ill-low-cold | 10 | F / f_increased / 4782 / 9.73e-03 / -1 | F / f_increased / 7456 / 1.25e-02 / -1 |
+| adv-ill-low-warm | 1 | F / f_increased / 1122 / 3.08e-03 / 4001 | F / f_increased / 2494 / 7.06e-03 / 9430 |
+| adv-ill-low-warm | 2 | F / f_increased / 8456 / 3.03e-02 / -1 | F / f_increased / 6069 / 2.18e-02 / -1 |
+| adv-ill-low-warm | 3 | F / f_increased / 9481 / 2.05e-02 / -1 | F / f_increased / 461 / 9.17e-03 / 1968 |
+| adv-ill-low-warm | 4 | F / f_increased / 2718 / 5.73e-03 / 9317 | F / f_increased / 8851 / 1.29e-02 / -1 |
+| adv-ill-low-warm | 5 | F / f_increased / 3494 / 1.83e-02 / -1 | F / f_increased / 171 / 1.72e-03 / 482 |
+| adv-ill-low-warm | 6 | F / f_increased / 3661 / 1.44e-02 / -1 | F / f_increased / 862 / 3.79e-03 / 3185 |
+| adv-ill-low-warm | 7 | F / f_increased / 558 / 4.57e-03 / -1 | F / f_increased / 4665 / 2.24e-02 / -1 |
+| adv-ill-low-warm | 8 | F / f_increased / 2442 / 6.79e-03 / -1 | F / maxiter / 10000 / 2.47e-02 / -1 |
+| adv-ill-low-warm | 9 | F / f_increased / 717 / 7.62e-03 / 2995 | F / f_increased / 399 / 2.58e-03 / 1073 |
+| adv-ill-low-warm | 10 | F / f_increased / 2479 / 9.72e-03 / -1 | F / f_increased / 5356 / 9.44e-03 / -1 |
+| adv-wide-low-cold | 1 | F / f_increased / 53 / 5.86e-04 / 73 | F / f_increased / 56 / 2.73e-04 / 66 |
+| adv-wide-low-cold | 2 | F / f_increased / 49 / 2.65e-04 / 59 | F / f_increased / 45 / 3.35e-04 / 55 |
+| adv-wide-low-cold | 3 | T / f / 50 / 1.28e-04 / 60 | T / f / 58 / 1.33e-04 / 69 |
+| adv-wide-low-cold | 4 | T / f / 51 / 1.06e-04 / 59 | T / f / 43 / 1.28e-04 / 50 |
+| adv-wide-low-cold | 5 | F / f_increased / 64 / 2.07e-04 / 76 | F / f_increased / 41 / 3.30e-04 / 50 |
+| adv-wide-low-cold | 6 | F / f_increased / 76 / 4.83e-04 / 103 | T / f / 43 / 2.00e-04 / 52 |
+| adv-wide-low-cold | 7 | F / f_increased / 60 / 3.61e-04 / 73 | T / f / 49 / 1.70e-04 / 54 |
+| adv-wide-low-cold | 8 | T / f / 57 / 2.55e-04 / 70 | F / f_increased / 71 / 7.60e-04 / 89 |
+| adv-wide-low-cold | 9 | F / f_increased / 45 / 4.97e-04 / 56 | F / f_increased / 79 / 5.47e-04 / 109 |
+| adv-wide-low-cold | 10 | F / f_increased / 52 / 4.17e-04 / 66 | F / f_increased / 58 / 2.34e-04 / 69 |

@@ -1,0 +1,28 @@
+julia 1.13.3  cpu_name skylake-avx512  model Intel(R) Xeon(R) Silver 4116 CPU @ 2.10GHz
+threads 1  blas_threads 1  LBTConfig([ILP64] libopenblas64_.so)
+PS path <cluster-dir>/a320-refs/ps-dac9f4b  version 0.3.2
+PS fingerprint(sha1 of Project.toml+src, run.jl scheme) be88997a50372494e019f1cb1270e0e70f80ca8a
+PB path <cluster-dir>/shared-depot/packages/ProximalBase/2welE  version 0.6.0-DEV
+PB manifest <cluster-dir>/a320-envs/dac9f4b-1.13.3/Manifest.toml  repo-rev a19c59aa723d085d5d7cf5242895bda16eb77214  git-tree-sha1 138929aa27c6221284ee1763e66b1110dd6ec418
+project <cluster-dir>/a320-envs/dac9f4b-1.13.3/Project.toml
+harness <cluster-dir>/a320-code/benchmark
+  harness problems.jl sha1 03cde44d8e7362435dad8bd74eaf17be8289cdb6
+  harness certificates.jl sha1 78d12af7069e7cb99410213f8227c48068e94834
+  harness cases.jl sha1 eb6f1f9430f842e613a12c941e3ce41a2eded21c
+stationarity method 4-arg: true
+Julia Version 1.13.3
+Commit 67ac47b9cd8 (2026-10-25 15:28 UTC)
+Build Info:
+  Official https://julialang.org release
+Platform Info:
+  OS: Linux (x86_64-linux-gnu)
+  CPU: 24 × Intel(R) Xeon(R) Silver 4116 CPU @ 2.10GHz
+  WORD_SIZE: 64
+  LLVM: libLLVM-20.1.8 (ORCJIT, skylake-avx512)
+  GC: Built with stock GC
+Threads: 1 default, 0 interactive, 1 GC (on 24 virtual cores)
+Environment:
+  JULIA_DEPOT_PATH = <cluster-dir>/a320-depot-1.13.3:<cluster-dir>/shared-depot:
+  JULIA_PKG_SERVER = 
+  JULIA_PKG_OFFLINE = true
+  JULIA_NUM_THREADS = 1
