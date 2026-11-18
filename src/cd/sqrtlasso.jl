@@ -54,8 +54,8 @@ function _prepare!(m::SqrtLSModel{T}, g::NormL1, x::SparseIterate{T}) where T
     m.res64 = Vector{Float64}(undef, n)
     m.rowmag64 = Vector{Float64}(undef, n)
   end
-  ny, ey = _scaled_norm(m.ls.y, n)
-  m.floor64 = 16eps(T)*ldexp(ny, ey)
+  ny = _se_norm(Float64, m.ls.y)   # `nothing` for a y with an entry that is not finite, which `solve!` has refused
+  m.floor64 = 16eps(T)*ldexp(ny.s, ny.e)
   m.tightenings = 0
   m.gap = T(NaN)
   m.uncertified = false
@@ -81,24 +81,6 @@ function _level_brackets(λ0)
     hi = nextfloat(hi)
   end
   lo <= λ0 <= hi ? (lo, hi) : (NaN, NaN)
-end
-
-# ‖v[1:n]‖₂ as (s, e) with the norm s 2^e, in Float64: with M = max_i |v_i| and 2^e ≤ M < 2^(e+1), s is
-# the root of the sum of the squares of v_i 2^-e (each formed by `ldexp`), a sum between 1 and 4n where
-# M is finite and positive. (0.0, 0) for v = 0, and (M, 0) for an M that is Inf or NaN.
-function _scaled_norm(v::AbstractVector, n::Int)
-  M = 0.0
-  @inbounds for i in 1:n
-    M = max(M, abs(Float64(v[i])))
-  end
-  (iszero(M) || !isfinite(M)) && return (M, 0)
-  e = exponent(M)
-  s = 0.0
-  @inbounds for i in 1:n
-    w = ldexp(Float64(v[i]), -e)
-    s += w*w
-  end
-  (sqrt(s), e)
 end
 
 # The fused kernel of the step: a = ‖X_k‖² (only when the cache holds NaN), b = X_kᵀr and ρ² = ‖r‖², in T.
@@ -223,17 +205,21 @@ end
 # passes it). Then, with M = max_i |r_i| (finite: `coordinate_step!` has refused a residual that is not):
 # r = 0 (M = 0) gives b = 0 and d = 0, so the minimizer is c = old. Otherwise, with 2^er ≤ M < 2^(er+1)
 # and s = r 2^-er (into `res64`): b̃ = x̃ᵀs, ‖s‖² (between 1 and 4n) and q̃ = b̃/ã give
-# b/a = q̃ 2^(er − ex); d̃² = ‖s‖² − b̃ q̃, formed again as ‖s − q̃ x̃‖² by `_scaled_norm` (which scales by the
-# largest entry of the difference) where it is below ‖s‖²/16, gives d = d̃ 2^er. The step is
+# b/a = q̃ 2^(er − ex); d̃² = ‖s‖² − b̃ q̃, formed again as ‖s − q̃ x̃‖² by `_se_norm` (which divides by the
+# largest magnitude of the difference and returns the norm as a significand and an exponent) where it is
+# below ‖s‖²/16, gives d = d̃ 2^er. The step is
 # shrink(c, τ) with c = old + T(q̃ 2^(er − ex)) and τ = (λ̃/√ã)(d̃/√((√ã − λ̃)(√ã + λ̃))) 2^(er − ex), the
-# threshold of the scaled problem, from `_sqrt_band_step`. For each nonzero vector among x̃, s and the
-# difference, the largest magnitude of its normalized representation is in [1, 2); a zero vector is
-# returned as 0. Power-of-two scaling is exact when its exact result is in the normal Float64 range; below
+# threshold of the scaled problem, from `_sqrt_band_step`. The largest magnitude among the entries of x̃
+# and of s (neither is zero here) is in [1, 2). In `_se_norm` the scaled entries of the difference have
+# magnitude at most 1 and the significand of the norm is in [1, 2); a zero difference gives d̃ = 0.
+# Power-of-two scaling is exact when its exact result is in the normal Float64 range; below
 # that range it may lose bits or underflow to zero, with absolute error at most η/2 in the normalized
-# units (η = 2^-1074). For example, a residual [2^1000, 2^-1000] against the column [1, 0] gives d̃ = 0 for
-# d = 2^-1000, a relative change of 1 in d, while [1.5 2^1000, 2^-74] keeps 2^-74 as η. To first order in
+# units (η = 2^-1074), and the division by the largest magnitude in `_se_norm` has the same absolute
+# bound below that range (a relative 2^-53 per entry above it). For example, a residual [2^1000, 2^-1000]
+# against the column [1, 0] gives d̃ = 0 for d = 2^-1000, a relative change of 1 in d, while
+# [1.5 2^1000, 2^-74] keeps 2^-74 as η. To first order in
 # η, these errors change √a by at most √n η √a, and b/√a and d by at most 3 n η ‖r‖ (2^ex ≤ √a,
-# 2^er ≤ ‖r‖, ‖x̃‖ ≥ 1 and ‖s‖ < 2√n; d also through the scaling inside `_scaled_norm`): absolute errors
+# 2^er ≤ ‖r‖, ‖x̃‖ ≥ 1 and ‖s‖ < 2√n; d also through the scaling inside `_se_norm`): absolute errors
 # at the scales of the column and the residual, not relative to b or d. They are far below the terms
 # u max(‖ρ‖, ‖r‖) of the objective-error bound of the step (the comment of `step_bound` in
 # test/sqrt_lasso.jl), which covers them; for example a d computed as 0 moves the coordinate objective
@@ -271,7 +257,8 @@ end
     @inbounds for i in 1:n
       s[i] -= qs*ldexp(Float64(X[i, k]), -ex)
     end
-    ds, ed = _scaled_norm(s, n)
+    nd = _se_norm(Float64, s)      # the entries of s are finite here
+    ds, ed = nd.s, nd.e
   else
     ds, ed = sqrt(ds2), 0
   end
