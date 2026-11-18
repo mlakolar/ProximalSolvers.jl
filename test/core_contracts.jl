@@ -446,14 +446,38 @@ end
       e.msg
     end
   end
-  for α in (Float16(0.5), 1 // 4, 2^24 + 1, big(2), big(2.0), π)
-    @test occursin("Float64(α) * LeastSquaresLoss(y, X)", message(α))
+  # an integer that Float64 holds exactly: the hint is labelled and carries no rounding note
+  for (α, T) in ((2^24 + 1, Float32), (big(2), Float32), (big(2), Float64))
+    msg = message(α, T)
+    @test occursin(LOSS_SCALE_REFUSAL, msg)
+    @test occursin("Float64(α) * LeastSquaresLoss(y, X)", msg)
+    @test !occursin("round", msg)
+    @test !occursin("here α", msg)
   end
-  @test occursin("Float64(α) * LeastSquaresLoss(y, X)", message(2^53 + 1, Float64))
+  @test occursin("Float64(α) = 1.6777217e7", message(2^24 + 1))
+  @test occursin("Float64(α) = 2.0", message(big(2)))
+  # an integer that Float64 rounds: no hint, for either T
+  for (α, T) in ((2^53 + 1, Float64), (2^53 + 1, Float32), (big(2)^53 + 1, Float64), (big(2)^53 + 1, Float32),
+                 (Int128(2)^60 + 1, Float32))
+    msg = message(α, T)
+    @test occursin(LOSS_SCALE_REFUSAL, msg)
+    @test !occursin("Float64(α)", msg)
+    @test !occursin("here α", msg)
+  end
+  # any other type whose Float64 value is admissible: the hint names the value and notes that it may round α
+  for α in (Float16(0.5), 1 // 4, 1 // 3, big(2.0), π)
+    msg = message(α)
+    @test occursin(LOSS_SCALE_REFUSAL, msg)
+    @test occursin("Float64(α) * LeastSquaresLoss(y, X)", msg)
+    @test occursin("Float64(α) = ", msg)
+    @test occursin("may round α", msg)
+    @test !occursin("here α", msg)
+  end
   # Float64(α) is Inf, 0, or a scale that Float32 does not hold
   for α in (big(2.0)^2000, big(2)^2000, big(2.0)^-2000, big(10.0)^-300)
     @test occursin(LOSS_SCALE_REFUSAL, message(α))
     @test !occursin("Float64(α)", message(α))
+    @test !occursin("here α", message(α))
   end
   # the message names the type and the value
   @test occursin("Float16", message(Float16(0.5))) && occursin("0.5", message(Float16(0.5)))

@@ -117,7 +117,9 @@ refused with an `ArgumentError` before `solve!` writes to the coefficients.
 gradient were taken from ProximalBase's least-squares oracles. Convert the
 scale explicitly, for example `Float64(s) * LeastSquaresLoss(y, X)`, where
 `Float64(s)` is finite, positive and representable in `T` as above; the
-error message suggests this conversion when it passes that rule.
+error message suggests this conversion when it passes that rule and, for an
+integer scale, only when `Float64(s)` equals `s`; for other types it notes that
+the conversion may round `s`.
 The solvers use the supplied scale combined with `T` by Julia's promotion:
 a `Float64` scale in a `Float32` problem keeps its `Float64` value, also
 where that value is subnormal in `Float32`. The arrays and the coefficients

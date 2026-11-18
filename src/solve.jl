@@ -43,8 +43,12 @@ _float64_scale_ok(a::Float64, ::Type{T}) where T = isfinite(a) && a > 0 && (n = 
 
 @noinline function _loss_scale_error(α, ::Type{T}, why) where T
   a = try Float64(α) catch; nothing end
-  hint = a isa Float64 && _float64_scale_ok(a, T) ?
-    "; convert it explicitly with Float64(α) * LeastSquaresLoss(y, X), here α = $a" : ""
+  # the hint is offered when Float64(α) passes the rule of _check_loss_scale for T and, for an integer α, equals α;
+  # for an α that is not an integer the hint notes that the conversion may round α
+  ok = a isa Float64 && _float64_scale_ok(a, T) && (!(α isa Integer) || a == α)
+  hint = !ok ? "" :
+    "; convert it explicitly with Float64(α) * LeastSquaresLoss(y, X), where Float64(α) = $a" *
+    (α isa Integer ? "" : " (the conversion may round α)")
   throw(ArgumentError("loss scale $α of type $(typeof(α)) $why; only Float32 and Float64 scales and fixed-width integer scales that $T represents exactly are supported$hint"))
 end
 
