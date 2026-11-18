@@ -2,11 +2,11 @@ module ExamplesTest
 
 using Test
 
-# Every script under examples/, in subfolders too, runs to its end, which includes its own
+# Every `.jl` script under examples/, in subfolders too, runs to its end, which includes its own
 # checks of the result, each in a fresh module and with its printed output discarded.
 const DIR = joinpath(dirname(@__DIR__), "examples")
 
-# Paths of the scripts relative to examples/, with "/" as the separator on every platform.
+# Paths of the scripts relative to examples/, with "/" as the separator.
 function example_files(dir)
   files = String[]
   for (root, _, names) in walkdir(dir)
