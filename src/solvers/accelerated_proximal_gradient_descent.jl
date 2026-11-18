@@ -6,13 +6,13 @@
 """
     AccProxGradDescent(; β = 0.5, α = 0.9, preconditioner = :none)
 
-Accelerated proximal gradient descent (APG) for least-squares lasso or elastic net with a dense
+Accelerated proximal gradient descent (APG) for least-squares lasso (with optional weights) or elastic net with a dense
 `Vector{Float32}` or `Vector{Float64}` coefficient iterate (Parikh and Boyd,
 *Proximal Algorithms*, §4.3). Iteration `k` (counted from the start or the last
 restart) extrapolates `y = x + k/(k+3) (x - x')` from the last two accepted
 iterates and takes a proximal gradient step from `y`: a gradient step for the
-least-squares loss followed by the proximal operator of the penalty (soft thresholding, and for
-`ElasticNet` the ridge weight after it). It is a FISTA-family method; its
+least-squares loss followed by the proximal operator of the penalty (soft thresholding, at the level `λ wⱼ`
+of entry `j` for `NormL1(λ, w)`, and for `ElasticNet` the ridge weight after it). It is a FISTA-family method; its
 momentum sequence `k/(k+3)` is not the textbook FISTA recurrence.
 
 The step size `1/L` is found by backtracking on the least-squares bound
@@ -44,12 +44,13 @@ increase of `L`; `solve!` then restores the last accepted iterate and rethrows. 
 rejected. Pass `ProximalOptions(...)` as the fifth argument to [`solve!`](@ref).
 A stop that the `xtol`, `ftol` or `gradtol` test proposes counts only if the computed KKT
 residual at the accepted `x` is below `max(gradtol, 64 eps(T)) * max(λ, λmax)`, with
-`λmax = α‖Xᵀy‖∞` and `λ` the ℓ1 level of the penalty (`λ` of `NormL1`, `λ1` of `ElasticNet`;
-see [`ProximalOptions`](@ref)); `converged = true` guarantees only that the
+`λmax = α‖Xᵀy‖∞` and `λ` the ℓ1 level of the penalty (`λ` of `NormL1(λ)`, the largest coefficient
+`T(λ) * maximum(w)` of `NormL1(λ, w)`, `λ1` of `ElasticNet`; see [`ProximalOptions`](@ref)); `converged = true` guarantees only that the
 computed, normalized KKT residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the
 threshold is formed in `T`, which can round or overflow; see [`ProximalOptions`](@ref)). It is
 not an exact-arithmetic certificate and does not guarantee coefficient accuracy on
-ill-conditioned designs (see the [stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)). The check forms `∇f(x)` from the
+ill-conditioned designs (see the [stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)). In `Float32`, a solve can report `converged = true` at a relative duality gap above `1e-5`, as in measurements on small benchmark designs (see
+[the limits of the stopping tests](https://mlakolar.github.io/ProximalSolvers.jl/dev/stopping-limits/)). The check forms `∇f(x)` from the
 cached image `A x` and counts that evaluation in `grad_calls`. The gradient-mapping residual
 of the result, `L ‖x - y‖∞`, is measured from the extrapolated point `y`, not from `x`; check
 KKT conditions independently before reporting numerical results.

@@ -24,8 +24,12 @@ the stationarity check below passes.
 holds, the solver computes the minimal-norm KKT residual `G` at the accepted
 iterate `x`: the element of `∇f(x) + λ ∂‖x‖₁` of least infinity norm for
 `NormL1(λ)`, and the element of `∇f(x) + λ2 x + λ1 ∂‖x‖₁` of least infinity norm for
-`ElasticNet(λ1, λ2)` (`ProximalGradientDescent` and `AccProxGradDescent`). Below, `λ` is the ℓ1 level of the
-penalty (`λ` of `NormL1`, `λ1` of `ElasticNet`); `λ2` does not enter the bound. The stop counts only if
+`ElasticNet(λ1, λ2)` (`ProximalGradientDescent` and `AccProxGradDescent`). For `NormL1(λ, w)` with weights `w`
+it is the element of `∇f(x) + ∂(λ Σⱼ wⱼ |xⱼ|)` of least infinity norm, with the coefficient `T(λ) wⱼ` of entry `j`
+(`T` the element type; `w` is a `Vector{T}`); a zero weight gives the coefficient 0, so its entry is unpenalized
+and its score is `|∇fⱼ(x)|`. Below, `λ` is the ℓ1 level of the
+penalty (`λ` of `NormL1(λ)`, the largest coefficient `T(λ) * maximum(w)` of `NormL1(λ, w)`, `λ1` of `ElasticNet`);
+`λ2` does not enter the bound. The stop counts only if
 `‖G‖∞ < max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `T` the element type and
 `λmax = α‖Xᵀy‖∞` for the loss scale `α` (1 for a plain `LeastSquaresLoss`). The check
 also requires that `S = max(λ, λmax)` is finite, that the product
@@ -56,7 +60,11 @@ precision the conversion to `T` and the product can round, or overflow to `Inf` 
 `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))`, in that sense. It is not an exact-arithmetic
 certificate, it does not bound the distance to a minimizer, and it does not guarantee
 coefficient accuracy on ill-conditioned designs (see the
-[stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)). A `gradtol` below `64 eps(T)`, including
+[stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)).
+The check uses the solver's working-precision products, so a gradient product that underflows or
+cancels can pass it at a point that is not stationary (see
+[the limits of the stopping tests](https://mlakolar.github.io/ProximalSolvers.jl/dev/stopping-limits/)).
+A `gradtol` below `64 eps(T)`, including
 `0`, gives the bound `64 eps(T) max(λ, λmax)`. For `AccProxGradDescent` the check
 forms `∇f(x)` from the cached image `A x` at each iteration at which a stop is
 proposed, and counts that evaluation in `grad_calls`.

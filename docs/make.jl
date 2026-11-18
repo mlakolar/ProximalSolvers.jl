@@ -11,9 +11,13 @@ mkpath(GENERATED)
 # fails otherwise.
 const EXAMPLES = [
   (section = "Problems", path = "problems/lasso.jl", title = "Lasso", notebook = false),
+  (section = "Problems", path = "problems/weighted_lasso.jl", title = "Weighted lasso", notebook = false),
   (section = "Problems", path = "problems/elastic_net.jl", title = "Elastic net", notebook = false),
   (section = "Problems", path = "problems/group_lasso.jl", title = "Group lasso", notebook = false),
   (section = "Problems", path = "problems/square_root_lasso.jl", title = "Square-root lasso", notebook = false),
+  (section = "Statistical applications", path = "problems/change_point_detection.jl", title = "Change-point detection", notebook = false),
+  (section = "Statistical applications", path = "problems/nodewise_gaussian_graph.jl", title = "Gaussian graph: neighborhood selection", notebook = false),
+  (section = "Statistical applications", path = "problems/sparse_additive_regression.jl", title = "Sparse additive regression", notebook = false),
   (section = "Solver comparisons", path = "comparisons/lasso_solvers.jl",
    title = "Lasso: solvers at equal accuracy", notebook = true)]
 
@@ -50,9 +54,11 @@ makedocs(sitename = "ProximalSolvers.jl", authors = "Mladen Kolar",
     "What problem, which algorithm?" => "concepts.md",
     "Sparsity and an optimality check" => "sparsity-and-kkt.md",
     "Problems" => example_pages("Problems"),
+    "Statistical applications" => example_pages("Statistical applications"),
     "Solver comparisons" => example_pages("Solver comparisons"),
     "Algorithms" => ["Choosing a solver" => "choosing-solver.md",
-      "Numerical behavior" => "numerics.md"],
+      "Numerical behavior" => "numerics.md",
+      "Limits of the stopping tests" => "stopping-limits.md"],
     "Supported problems" => "support.md",
     "Results and troubleshooting" => "working-with-results.md",
     "Benchmarks and performance" => "benchmarks.md",

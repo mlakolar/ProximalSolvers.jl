@@ -40,17 +40,17 @@ const QUICK = sort!(vcat(
 @testset "supported and deferred cases" begin
   quick, extended = catalog(), catalog("extended")
   @test [s.meta.id for s in quick] == QUICK
-  @test length(extended) == 56
+  @test length(extended) == 62
   @test issubset(Set(s.meta.id for s in quick), Set(s.meta.id for s in extended))
   deferred = catalog("extended"; deferred = true)
   @test length(deferred) == 100
   @test all(s -> call(H.case_available, s), extended)
   @test all(s -> !isempty(call(H.missing_requirements, s)), deferred)
   # 102 historical IDs (2 supported, 100 deferred), 40 current-core IDs, the 4 group-lasso IDs of
-  # CDSolver on a BlockIterate (#275, quick suite) and the 10 Float64 `acc-` IDs of PGD and APG
-  # (#314, extended suite only), all distinct.
+  # CDSolver on a BlockIterate (#275, quick suite), the 10 Float64 `acc-` IDs of PGD and APG
+  # (#314, extended suite only) and the 6 weighted-lasso IDs (#331, extended suite only), all distinct.
   ids = [s.meta.id for s in vcat(extended, deferred)]
-  @test allunique(ids) && length(ids) == 156
+  @test allunique(ids) && length(ids) == 162
   group = sort!(["cd/group-lasso/cd/$(w)block-$t/call" for w in ("", "warm-") for t in ("f32", "f64")])
   @test sort!(filter(id -> occursin("block-f", id), ids)) == group
   # The historical group-lasso case stays deferred: it needs gap stopping.
@@ -58,8 +58,13 @@ const QUICK = sort!(vcat(
   acc = sort!(["gradient/$p/$solver/acc-$(w)dense-f64/call" for solver in ("pg", "apg")
                for (p, ws) in (("lasso", ("",)), ("lasso-B", ("", "warm-")), ("lasso-C", ("",)),
                                ("lasso-D", ("",))) for w in ws])
-  @test sort!(filter(id -> occursin("/acc-", id), ids)) == acc
+  weighted_acc = ["gradient/lasso-weighted/$solver/acc-dense-f64/call" for solver in ("pg", "apg")]
+  @test sort!(filter(id -> occursin("/acc-", id), ids)) == sort!(vcat(acc, weighted_acc))
   @test all(id -> id in [s.meta.id for s in extended], acc)
+  # the 6 weighted-lasso IDs, extended suite only
+  weighted = sort!(vcat(["cd/lasso-weighted/cd/$i-$t/call" for i in ("dense", "sparse") for t in ("f32", "f64")], weighted_acc))
+  @test sort!(filter(id -> occursin("lasso-weighted", id), ids)) == weighted
+  @test all(id -> id in [s.meta.id for s in extended] && !(id in [s.meta.id for s in catalog()]), weighted)
   for id in ("cd/lasso-dense/cd/B/call", "cd/lasso-dense/cd/R/workspace", "admm/lasso/admm/R/call",
              "gradient/lasso/apg/tight/call", "paths/lasso/cd/grid8/call", "cd/lasso-csc/cd/B/call")
     @test id in ids && !(id in [s.meta.id for s in extended])
@@ -215,6 +220,32 @@ end
   a32 = call(H.exact_problem, call(H.core_problem, a, Float32))
   @test 0 < call(H.certify, a32, Float64.(Float32.(ref))).value < 1e-6
   @test call(H.certify, a, ref .+ 1e-3).value > 1e-6
+end
+
+# The weighted-lasso cases (#331): the requirements, the penalty a case builds (weights in the type of the data) and
+# the certificate of each solve (the relative gap of the problem as received, with positive weights).
+@testset "weighted-lasso cases" begin
+  @test all(c -> c in H.CAPABILITIES, ("cd:weighted_l1", "random-cd:weighted_l1", "pg:weighted_l1", "apg:weighted_l1"))
+  @test spec("cd/lasso-weighted/cd/sparse-f32/call").requires == ["cd", "cd:lasso", "cd:weighted_l1", "cd:float32", "cd:sparse_iterate"]
+  @test spec("gradient/lasso-weighted/apg/acc-dense-f64/call").requires == ["apg", "apg:lasso", "apg:weighted_l1"]
+  # the historical weighted case still needs gap stopping and a workspace
+  @test call(H.missing_requirements, spec_deferred("cd/weighted-lasso/cd/tight/call")) ==
+        ["CDSolver: duality-gap stopping (gaptol > 0)"]
+  a = call(H.weighted_problem, 1, "core/lasso-weighted")
+  @test all(>(0), a.w) && !all(isone, a.w) && length(a.w) == size(a.X, 2)
+  for T in (Float32, Float64)
+    f, g = call(H.benchmark_model, call(H.core_problem, a, T))
+    @test g isa ProximalBase.NormL1{T, Vector{T}} && g.w == T.(a.w)
+  end
+  ids = filter(id -> occursin("lasso-weighted", id), [s.meta.id for s in catalog("extended")])
+  for s in catalog("extended")
+    s.meta.id in ids || continue
+    output, cert = call(observe, call(s.make, 1))
+    @test cert.status == :ok && isfinite(cert.value)
+    # CD and the accuracy settings of PGD and APG reach the target
+    @test call(H.certificate_status, cert, s.meta) == :ok
+    @test all(isfinite, Array(output.minimizer))
+  end
 end
 
 @testset "source identity checks" begin

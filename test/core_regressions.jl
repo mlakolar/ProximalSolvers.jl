@@ -1440,4 +1440,68 @@ end
   end
 end
 
+@testset "PGD: a 1×1 Float64 solve at loss scale 1e-170 does not raise the line search's 0 · Inf error (#317)" begin
+  # Historical: at base 8cc0222 (initial curvature 1) this solve reached a trial with a subnormal
+  # squared step norm and a zero gradient-difference product; scaling that product by the
+  # overflowing 2 / ‖d̂‖² gave NaN, and the solve raised "line search failed: nonfinite curvature
+  # estimate". Whether a different initial curvature still reaches that trial is not assumed, and
+  # neither is whether the solve converges. The diag reproducer and the direct backtrack! test
+  # below are the defect coverage that does not depend on the initial curvature.
+  x = [0.0]
+  solve!(x, 1e-170 * LeastSquaresLoss([1.0], [1.0;;]), NormL1(0.0), ProximalGradientDescent())
+  @test all(isfinite, x)
+end
+
+@testset "PGD: diag(1, 1e-6) with a solution at 1e-150 ends without the line search's 0 · Inf error, and a long run is accurate (#317)" begin
+  # X = diag(1, s), y = (0, s 1e-150): the solution of the rounded data is x* = (0, y₂ / s). ‖X‖_F² ≥ 1.
+  s = 1e-6
+  X, y = [1.0 0; 0 s], [0.0, s * 1e-150]
+  f, g = LeastSquaresLoss(y, X), NormL1(0.0)
+  # the default options: no exception and a finite result; whether the solve converges is not asserted
+  x = [0.0, 0.0]
+  solve!(x, f, g, ProximalGradientDescent())
+  @test all(isfinite, x)
+  # a longer run: converged = true means the computed residual ‖G‖∞ is below τ S, with
+  # τ = max(gradtol, 64 eps) and S = max(λ, λmax) = λmax = |X₂₂ y₂|. In exact arithmetic
+  # G₂ = X₂₂² (x₂ - x₂*), so |x₂ - x₂*| = |G₂| / X₂₂². The computed G₂ is s (fl(fl(s x₂) - y₂)) with three roundings, and the
+  # computed S has one: |G₂| ≤ (τ S + u X₂₂² |x₂|)(1 + 4u), u = eps(Float64), from first-order
+  # bounds with u twice the unit roundoff.
+  x = [0.0, 0.0]
+  options = ProximalOptions(maxiter = 20_000)
+  r = solve!(x, f, g, ProximalGradientDescent(), options)
+  @test r.converged
+  setprecision(BigFloat, 256) do
+    u, τ = BigFloat(eps(Float64)), BigFloat(max(options.gradtol, 64 * eps(Float64)))
+    s2, y2 = BigFloat(X[2, 2]), BigFloat(y[2])
+    xstar2 = y2 / s2
+    S = abs(s2 * y2)
+    bound = (τ * S / s2^2 + u * abs(BigFloat(x[2]))) * (1 + 4u)
+    @test abs(BigFloat(x[2]) - xstar2) <= bound
+    # the other coordinate: G₁ = x₁, and x₁* = 0
+    @test abs(BigFloat(x[1])) <= (τ * S + u * abs(BigFloat(x[1]))) * (1 + 4u)
+  end
+end
+
+@testset "backtrack!: a zero gradient-difference product and a subnormal ‖d̂‖² is accepted (#317)" begin
+  # Loss scale 1e-170 on a 1×1 problem from x = 0 at L = 3e-9: the trial step is 1e-170 / L, whose
+  # square is a nonzero subnormal, and the gradient at the trial differs from the gradient at 0 by
+  # less than the rounding of its entries, so the product of their difference with the step is 0
+  # (asserted below) while 2 / ‖d̂‖² is Inf.
+  f, g = 1e-170 * LeastSquaresLoss([1.0], [1.0;;]), NormL1(0.0)
+  method = ProximalGradientDescent()
+  st = pgd_trial(f, g, [0.0], 3e-9; gradient_mode = true)
+  # the preconditions: the state is the one backtrack! sees (gradient mode, ∇f at the trial formed
+  # as backtrack! forms it), and the branch of the guard is reached
+  @test !st.backtrack_simple
+  PS._sub!(st.delta_x, st.x, st.x_previous)
+  xy_sq = PS._norm(st.delta_x)^2
+  @test 0 < xy_sq
+  @test !isfinite(2 / xy_sq)
+  PS.LineSearches.value_and_gradient_at_x!(st, f)
+  @test PS._dot_diff(Float64, st.grad_f_x, st.grad_f_x_previous, st.delta_x) == 0
+  L = st.L
+  @test PS.LineSearches.backtrack!(st, method.ls, f, g)
+  @test st.L == L && isfinite(st.L)
+end
+
 end

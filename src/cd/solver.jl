@@ -8,18 +8,25 @@ Coordinate descent for the least-squares lasso and elastic net, and, with Proxim
 `solve!(beta, f, g, CDSolver())` with matching `Float32` or `Float64`
 design/response data and coefficients. The coefficient storage can be
 a dense `Vector` or a one-dimensional ProximalBase `SparseIterate`. With the least-squares
-loss, the penalty is an unweighted `NormL1(lambda)` or an unweighted `ElasticNet(lambda1, lambda2)`
-(the square-root lasso, below, takes an unweighted `NormL1` with a positive level);
-for an `ElasticNet` the coordinate step of a visit in the normal range is ProximalBase's
+loss, the penalty is `NormL1(lambda)`, `NormL1(lambda, w)` or an unweighted `ElasticNet(lambda1, lambda2)`
+(the square-root lasso, below, takes an unweighted `NormL1` with a positive level). The weights `w`
+of a `NormL1` are a `Vector{T}` (`T` the element type of the data) with finite nonnegative entries (see
+[`solve!`](@ref)): `solve!` checks the coefficient `T(lambda) w[j]` of entry `j`, the product rounded in `T`, to be zero
+or a normal number of `T` (with `T(lambda)` zero or normal as well), and a zero weight leaves it unpenalized. The
+coordinate step in the normal range is ProximalBase's `prox_block`, which forms its threshold from `lambda` and
+`w[j]` in its working type; see [Supported problems](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/#weighted-lasso-support)
+for how that threshold and the checked coefficient can differ.
+For an `ElasticNet` the coordinate step of a visit in the normal range is ProximalBase's
 `prox_block` of the penalty. Let `s` be the loss scale and `a` the squared norm of the
 column, finite and positive. At a visit where `s * a` or its reciprocal is below
 `floatmin` of the type that combines `s` with the working type, the step with
 `lambda2 = 0` is the lasso's range-safe form (the threshold formed without the product
 or its reciprocal), and with `lambda2 > 0` the visit is refused with an `ArgumentError`
-that names the coordinate. The refusal happens during the pass: the iterate passed to
+that names the coordinate; for a `NormL1` with weights the step there is the lasso's range-safe form at
+the coefficient `T(lambda) w[k]` of the coordinate. The refusal happens during the pass: the iterate passed to
 `solve!` is unchanged, and a borrowed RNG may have advanced. A visit to a flat column
-(all entries 0) sets its coordinate to 0, at the levels that `solve!` accepts, for either
-penalty; a visit to a column that is not flat and whose `a` underflows to 0 is refused
+(all entries 0) sets its coordinate to 0, at the levels that `solve!` accepts, for each of these
+penalties (also where a weight is zero); a visit to a column that is not flat and whose `a` underflows to 0 is refused
 as for the lasso. With `maxpasses = 0` no coordinate is visited.
 For a group lasso it can be a ProximalBase `BlockIterate`, as described below.
 
@@ -51,7 +58,11 @@ coordinate step forms its threshold `lambda / (s * a)` without them.
 `relative=false` makes the threshold an absolute change threshold;
 `maxpasses` limits the run. For least squares (lasso and elastic net) and the group lasso, an end-of-pass
 convergence flag does not guarantee a small KKT residual; for reported fits, check
-optimality independently. Anderson acceleration, a user-set gap target and screening
+optimality independently. What the change test implies, and where it can be met away
+from a minimizer (a product that underflows or cancels, a warm start far above the
+solution scale), is described in the
+[numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/stopping-limits/).
+Anderson acceleration, a user-set gap target and screening
 are not implemented: `anderson`, `gaptol` and `gapsafe` are accepted only
 at their defaults, are not stored, and other values are rejected.
 
@@ -85,8 +96,9 @@ the Gram matrix of the columns of the group; the forced full pass counts group v
 As for the lasso, `converged` reports this change test and is not a KKT certificate.
 The curvature of a flat group, and of a group of one column when `n eps(T) <= 1/8` (`n`
 the number of rows), is set before the first pass. That of any other group is computed
-at the first visit that needs it when cheap bounds show, under the eigenvalue model for groups of two or more columns, that no refusal can occur, and
-before the first pass otherwise. A visit to a nonflat group whose block is zero, active or
+at the first visit that needs it when cheap bounds show that no refusal can occur (under the
+eigenvalue model for groups of three or more columns and for groups of two columns outside the
+range of their closed-form bound), and before the first pass otherwise. A visit to a nonflat group whose block is zero, active or
 not, first applies ProximalBase's `prox_block!` to the correlations at the step `1/s`
 (skipped when `1/s` is not a normal number of the scale's arithmetic type, or when the
 correlations are not all zero and the largest magnitude is below `2^53 * floatmin(T)`) and ends without a
@@ -94,7 +106,8 @@ change, and without computing a still-deferred curvature, when the result is zer
 the first pass, and before any draw from the RNG, an `ArgumentError` that names the group
 refuses a curvature that underflows or overflows in `T` and a step outside the normal
 range, for each group whose curvature is computed then. An exception of the eigenvalue
-routine, a refusal of a lazily computed curvature, and a trial point or displacement that
+routine (which a group of two columns inside the range of its closed-form bound does not
+call), a refusal of a lazily computed curvature, and a trial point or displacement that
 is not finite can occur during a pass; `x` is then unchanged, and the RNG may have
 advanced. The curvature rule and the refusals are described in the numerical
 guide.
