@@ -238,7 +238,7 @@ ArgumentError.
 ## Deferred
 
 Sparse designs, sparse vectors and views as iterates, `SparseIterate` for proximal
-gradient descent (plain or accelerated), matrix-shaped, group and symmetric owners, weighted
+gradient descent (plain or accelerated), matrix-shaped owners (other than the `Matrix` coefficient of CD with a matrix response and a row-group `GroupNormL2`, #396), group and symmetric owners, weighted
 `ElasticNet`, `Scaled` penalties, group penalties other than `GroupNormL2` with CD, matrix responses other than least squares with CD and a row-group `GroupNormL2` (a private `BlockIterate` over `vec(B)`, #396), intercepts/offsets, generalized losses/compositions,
 monotone/active-set acceleration and APG diagonal preconditioning, ADMM/Newton,
 primal-dual/SLOPE/graphical models, paths/screening/workspaces/refit, certificates other

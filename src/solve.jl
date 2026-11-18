@@ -270,7 +270,8 @@ end
 # draw from the RNG, each refusal an ArgumentError unless noted, in this order: the loss; the types of X and Y;
 # the shapes (DimensionMismatch: positive sizes, the rows of X and Y, the size of x); the penalty type, level
 # and weights, and for a BlockIterate its groups against the penalty's (DimensionMismatch); the row layout of
-# the groups (DimensionMismatch); momentum; aliasing of x with X or Y; finite entries of x, X and Y.
+# the groups (DimensionMismatch); momentum; aliasing of x with X, Y, the scratch of the loss or the penalty
+# weights; finite entries of x, X and Y.
 function _check_multiresponse(x, f, g, method)
   T = eltype(x)
   _is_matrix_response(f) ||
@@ -295,8 +296,11 @@ function _check_multiresponse(x, f, g, method)
   _check_row_groups(g, p, K)
   method.momentum === true &&
     throw(ArgumentError("matrix-response coordinate descent does not support momentum; use momentum = false or nothing"))
-  (Base.mightalias(x, base.X) || Base.mightalias(x, base.Y)) &&
-    throw(ArgumentError("mutable x must not alias borrowed X or Y"))
+  # `loss_value` evaluates the loss, which writes its scratch `tmp` (n × K), and the final copy writes x: x must
+  # not share memory with X, Y, that scratch or the penalty weights.
+  (Base.mightalias(x, base.X) || Base.mightalias(x, base.Y) || Base.mightalias(x, base.tmp)) &&
+    throw(ArgumentError("mutable x must not alias borrowed X or Y or the scratch of the loss"))
+  Base.mightalias(x, g.w) && throw(ArgumentError("mutable x must not alias the penalty weights"))
   (x isa Array ? _allfinite(x) : all(isfinite, x)) && _allfinite(base.Y) && _allfinite(base.X) ||
     throw(ArgumentError("x, X and Y must contain only finite values"))
   nothing

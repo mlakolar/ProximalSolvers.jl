@@ -62,8 +62,8 @@ lasso (note e).
   against `BigFloat` references computed from the data. For `ProximalGradientDescent` and
   `AccProxGradDescent` they pass `allow_f_increases = true` and require `converged = true`; with
   the default options a `Float32` solve can end on the objective-increase exit, as in (a).
-- **(g)** The multi-response group lasso needs `X`, `Y` and the coefficients to be `Matrix{T}`, groups that
-  are the rows of the coefficients, and `momentum` other than `true`
+- **(g)** The multi-response group lasso needs `X` and `Y` to be `Matrix{T}`, the coefficients to be a `Matrix{T}` or
+  a `BlockIterate{T}` over `vec(B)` with the row groups of `B`, and `momentum` other than `true`
   ([the rules](@ref "Multi-response group lasso with coordinate descent")). The tests check the `Matrix` and the
   `BlockIterate` coefficients against an independent KKT residual and objective computed from `X` and `Y`.
 
@@ -200,8 +200,9 @@ The solver works from the original `X` and `Y`, without a Kronecker design or a 
 vector. It keeps an `n × K` residual and `O(p K)` further storage, and a visit to row `j` costs `O(n K)`. `solve!(B, f, g, CDSolver(...))` accepts this problem when
 
 - `B`, `X` and `Y` are `Matrix{T}` with `T` equal to `Float32` or `Float64`, with `size(B) == (p, K)`, finite
-  entries and positive sizes, and `B` does not alias `X` or `Y` (a `DimensionMismatch` for a wrong shape, an
-  `ArgumentError` for the others);
+  entries and positive sizes, and `B` shares no memory with `X`, `Y`, the penalty weights `g.w` or the scratch
+  array that the loss writes when it is evaluated (a `DimensionMismatch` for a wrong shape, an `ArgumentError`
+  for the others);
 - `f` is `LeastSquaresLoss(Y, X)` or one positive scalar multiple of it, with the loss scales of the lasso above;
 - `g` is a `GroupNormL2` whose element type is `Float32` or `Float64`, with a level and weights as for the group
   lasso above, and its groups are the rows of `B` in order: `g.groups[j] == j:p:p*K` for each `j`, otherwise `solve!`
@@ -214,8 +215,9 @@ A `BlockIterate` over `vec(B)` with the same groups and the same loss is accepte
 inputs above throw before `B` is copied or the random number generator is used. A column of `X` whose squared norm
 is not finite or is below `floatmin(T)` (a column of zeros is not refused), or whose step is outside the normal
 range of the arithmetic type, is refused with an `ArgumentError` that names the row, before the first pass and
-the first random draw. A column of zeros sets its row to 0
-where the level and the weight are positive and leaves the row as it is where either is zero. As for the other CD
+the first random draw, when `maxpasses > 0`. A column of zeros sets its row to 0 at a visit
+where the level and the weight are positive and leaves the row as it is where either is zero; with
+`maxpasses = 0` no row is visited, the column checks are not made and `B` keeps its values. As for the other CD
 problems, `converged` reports the change test and is not a KKT certificate: with `relative = true` and a positive
 response scale `sqrt(s * sum(abs2, Y))`, the change of row `j` is the norm of its displacement times
 `sqrt(s * a_j)`, with `a_j` the squared norm of column `j` of `X`. To check a fit, form `G = s * X' * (X * B - Y)`

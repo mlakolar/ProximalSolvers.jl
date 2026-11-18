@@ -416,6 +416,23 @@ for T in TYPES
     Ya = Matrix{T}(randn(Xoshiro(2), 4, 4))
     refused(ArgumentError, "alias", Xa, mkloss(Ya, Xa, 1/4), penalty(T, 0.1, 4, 4))
     refused(ArgumentError, "alias", Ya, mkloss(Ya, Xa, 1/4), penalty(T, 0.1, 4, 4))
+    # B sharing memory with the scratch that evaluating the loss writes (`f.tmp`, `f.f.tmp` for a scaled loss). The
+    # response is large enough for the objective to overflow, so that an unchecked solve would write 0 into the
+    # scratch, and then throw, with B changed
+    big = T === Float32 ? T(1e30) : T(1e200)
+    for α in (nothing, T(0.5))
+      floss = LeastSquaresLoss(fill(big, 1, 1), zeros(T, 1, 1))
+      Bs = floss.tmp
+      fill!(Bs, T(7))
+      refused(ArgumentError, "scratch of the loss", Bs, α === nothing ? floss : α * floss, GroupNormL2(T(1), [[1]]);
+              method = CDSolver(maxpasses = 0, relative = false))
+      @test all(==(T(7)), Bs)
+    end
+    # B sharing memory with the penalty weights (one response, one row)
+    gw = GroupNormL2(T(1), [[1]], T[1])
+    Bw = reshape(gw.w, 1, 1)
+    refused(ArgumentError, "penalty weights", Bw, mkloss(fill(T(-3), 1, 1), ones(T, 1, 1), nothing), gw)
+    @test gw.w == T[1] && Bw == fill(T(1), 1, 1)
     # a curvature or a step outside the normal range of T, refused before the first pass
     for kind in (:overflow, :underflow, :band_low, :band_high)
       Xc, Yc, αc, fragment = curvature_case(T, kind)
