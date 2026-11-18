@@ -61,6 +61,28 @@ coefficient accuracy on ill-conditioned designs (see the
 forms `∇f(x)` from the cached image `A x` at each iteration at which a stop is
 proposed, and counts that evaluation in `grad_calls`.
 
+**The stationarity check for `NormLinf(λ)`.** For this penalty the check uses the proximal-gradient mapping
+`G_t(x) = (x - prox_{tλ‖·‖∞}(x - t∇f(x))) / t` at the accepted iterate `x`, in place of the KKT residual above,
+with `t = 1/L` for the curvature `L` of the line search's accepted step, and the same `ProximalOptions`
+tests propose a stop. The check forms `∇f(x)` (for `AccProxGradDescent`, one gradient from the cached image
+`A x`, counted in `grad_calls`), the point `p = prox_{tλ‖·‖∞}(x - t∇f(x))` with ProximalBase's `value_and_prox!`
+(one proximal evaluation, counted in `prox_calls`) and `r = ‖G_t(x)‖₁ = L ‖x - p‖₁`. The stop counts only if
+`r + ρ < max(gradtol, 64 eps(T)) * max(λ, λcrit)`, with `λcrit = α‖Xᵀy‖₁ = ‖∇f(0)‖₁`, the smallest level
+at which the solution is 0 (the lasso's threshold `‖∇f(0)‖∞` does not apply), and
+`ρ = L eps(T) (‖x‖₁ + k s)`, a first-order allowance for the rounding of the displacement `x - p` and of the clip
+level of the proximal operator, with `k` the number of entries that the proximal operator changed and `s` the sum
+of their magnitudes before it. It also requires that `L` is finite and positive, that `1/L` is finite and at least
+`floatmin(T)`, that `max(λ, λcrit)` is finite, that the threshold, formed in `T`, is at least `floatmin(T)`, and
+that `r` and `ρ` are finite. `G_t(x) = 0` holds exactly when `x` minimizes the objective; for a gradient that is
+`L_f`-Lipschitz, `dist(0, ∂F(p)) ≤ (1 + L_f/L) ‖G_t(x)‖₂`, so a small accepted `L` (a large step) weakens what a small
+residual says. The residual is computed in working precision, not a certificate in exact arithmetic, and it
+does not cover the error of the computed gradient. The evaluations of the check are counted before the limits are
+compared, so a stop that passes can come with a call-limit flag, and a stop that the check refuses can reach
+`prox_calls_limit`. In `Float32` the allowance `ρ` makes the check refuse a stop at points whose residual is below the
+bound when `k eps(T)` is large: at `x = 0` above `λcrit` it is kept when `k eps(T) λcrit < τ S`, which holds if
+`k eps(T) < τ`, about 84 nonzero entries of `∇f(0)` at the default `gradtol`, and a solve with more tied or nonzero
+entries can report `converged = false`. See [the numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-for-NormLinf).
+
 The gradient test holds when `r < gradtol * m` or `r < gradtol * N`, with `r` the
 gradient/proximal residual of the iteration, `m` the largest `r` so far in the
 solve and `N` the larger of the gradient's and the proximal step's infinity
@@ -284,7 +306,9 @@ test proposed a stop and that the stationarity check passed (see
 `max(gradtol, 64 eps(T)) * max(λ, λmax)`. It is a working-precision value, not an
 exact-arithmetic certificate; it guarantees only that the computed, normalized residual
 `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the threshold is formed in `T`, see
-[`ProximalOptions`](@ref)), not coefficient accuracy on ill-conditioned designs. `iteration_converged` reports reaching the iteration limit,
+[`ProximalOptions`](@ref)), not coefficient accuracy on ill-conditioned designs. For a `NormLinf(λ)` penalty the
+residual is the ℓ1 norm of the proximal-gradient mapping at `minimizer` and the scale is `max(λ, ‖∇f(0)‖₁)`, with the
+allowance `ρ` of [`ProximalOptions`](@ref); the same limits apply. `iteration_converged` reports reaching the iteration limit,
 **not** successful convergence.
 
 The result also stores stopping flags, residuals and tolerances, optional
@@ -292,7 +316,8 @@ The result also stores stopping flags, residuals and tolerances, optional
 `grad_converged` are the flags after the stationarity check, so all three are
 `false` at an iteration where the check refused a proposed stop; the residual
 fields are those of the tests at the last iteration. `grad_calls` of
-`AccProxGradDescent` includes one gradient at `x` for each check. For PGD, `backtrack_steps`
+`AccProxGradDescent` includes one gradient at `x` for each check, and `prox_calls` includes one proximal evaluation for
+each check with a `NormLinf` penalty. For PGD, `backtrack_steps`
 includes accepted nonzero line-search trials; for APG it counts every trial,
 including the accepted one. `gap=NaN` means a dual
 gap was not calculated, not that the gap is zero.

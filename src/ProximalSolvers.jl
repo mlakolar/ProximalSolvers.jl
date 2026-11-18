@@ -3,6 +3,8 @@
 
 Least-squares lasso and elastic net (an unweighted `ElasticNet`) with dense Matrix designs, for
 [`CDSolver`](@ref), [`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref).
+[`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref) also solve the least-squares
+problem with a `NormLinf` penalty (the largest magnitude of the entries); [`CDSolver`](@ref) does not.
 [`CDSolver`](@ref) also solves the square-root lasso, with ProximalBase's `SqrtLeastSquaresLoss` and
 an unweighted `NormL1`, and reports `converged = true` for it only with a duality certificate.
 [`CDSolver`](@ref) accepts a dense
@@ -16,7 +18,7 @@ using LinearAlgebra
 using Printf
 using Random: AbstractRNG, default_rng, rand
 using SparseArrays: dropzeros!
-using ProximalBase: LeastSquaresLoss, SqrtLeastSquaresLoss, Scaled, NormL1, ElasticNet, SparseIterate,
+using ProximalBase: LeastSquaresLoss, SqrtLeastSquaresLoss, Scaled, NormL1, ElasticNet, NormLinf, SparseIterate,
   ncoordinates, nactive, activecoordinates, activevalues, prox_block,
   value_and_prox!, BlockIterate, GroupNormL2, blockindices, blockview, prox_block!, kkt_violation
 include("blocks.jl")
