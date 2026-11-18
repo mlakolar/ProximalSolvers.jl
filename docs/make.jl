@@ -16,6 +16,7 @@ const EXAMPLES = [
   (section = "Problems", path = "problems/square_root_lasso.jl", title = "Square-root lasso", notebook = false),
   (section = "Statistical applications", path = "problems/change_point_detection.jl", title = "Change-point detection", notebook = false),
   (section = "Statistical applications", path = "problems/nodewise_gaussian_graph.jl", title = "Gaussian graph: neighborhood selection", notebook = false),
+  (section = "Statistical applications", path = "problems/sparse_additive_regression.jl", title = "Sparse additive regression", notebook = false),
   (section = "Solver comparisons", path = "comparisons/lasso_solvers.jl",
    title = "Lasso: solvers at equal accuracy", notebook = true)]
 
