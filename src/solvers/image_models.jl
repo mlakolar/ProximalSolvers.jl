@@ -133,9 +133,8 @@ function _frobenius_upper(::Type{T}, X) where {T}
   _frobenius_upper(T, X, _sumsq64(X))
 end
 
-# For a Diagonal X, which has length(X.diag) entries that are not structurally zero: the bound of its diagonal
-# as a vector. The zeros of the matrix add exactly 0 to the sums, so the bound holds with the number of
-# terms length(X.diag) in place of length(X), and the scan of the p² entries is avoided.
+# For a Diagonal X: the Frobenius norm of X is the 2-norm of X.diag, so the bound for the vector X.diag, with
+# its length(X.diag) terms, is a bound for ‖X‖_F, and the scan of the p² entries of the matrix is avoided.
 _frobenius_upper(::Type{T}, X::Diagonal) where {T} = _frobenius_upper(T, X.diag)
 
 # The bound above from s = Σ Float64(Xᵢⱼ)², a one-pass sum of the squares in any order, which

@@ -67,7 +67,7 @@ lasso (note e).
   a level `alpha` accepted by the rule of the loss scale below, and an unweighted `NormL1(lambda)`; see
   [Centered squared norm](@ref centered-sqnorm-support). A `Float32` solve of the gradient methods is judged by the returned point, as in (a).
   The certified bound of `AccProxGradDescent` is that of a dense product, so in `Float32` it accepts a curvature `L`
-  only from about `1.13 alpha` at `p = 10^4`, `8.6 alpha` at `p = 10^5` and `5 * 10^3 alpha` at `p = 10^6`,
+  from about `1.13 alpha` at `p = 10^4`, `8.6 alpha` at `p = 10^5` and `5 * 10^3 alpha` at `p = 10^6`,
   and the method needs more iterations at large `p` (in `Float64` the factor is below `1 + 3e-7` up to `p = 10^6`).
   For a `Float32` level that is subnormal in `Float32` (about `1e-40`), `CDSolver` solves the problem to its tolerance, but the objective that the gradient methods compare is in the subnormal range, and their runs in the test fixture end at the start with `converged = false`.
 

@@ -161,9 +161,9 @@ function _scanned_initial_curvature(::Type{T}, X, α) where {T}
   _initial_curvature(T, _root_scale(T, α), _frobenius_upper(T, X, s))
 end
 
-# For a Diagonal X: the scan of the column of its diagonal, p entries, in place of the scan of the p² entries.
-# The sum s, the early exit and the bound are those of the dense scan of the p×1 matrix of the diagonal; the
-# zeros of the Diagonal add exactly 0 to s, so the bound holds with the number of terms p, as in `_frobenius_upper`.
+# For a Diagonal X: the scan of the p×1 matrix of its diagonal, p entries, in place of the scan of the p² entries.
+# The sum s, the early exit and the bound are those of that scan; ‖X‖_F is the 2-norm of the diagonal, so the
+# bound of `_frobenius_upper` for the vector of the diagonal (p terms) bounds it.
 _scanned_initial_curvature(::Type{T}, X::Diagonal, α) where {T} =
   _scanned_initial_curvature(T, reshape(X.diag, :, 1), α)
 
@@ -329,8 +329,8 @@ matrix is stored, and a call takes O(p) time per iteration or pass and O(p) stor
 operator is the identity `Diagonal(ones(T, p))`, the curvature estimate before the first iteration is
 `min(1, α p)` and `λmax` of [`ProximalOptions`](@ref) is `α ‖s‖∞`. `converged` has the meaning that it has for
 least squares (see [`CDSolver`](@ref)). In `Float32` the certified bound of `AccProxGradDescent` is that of a
-dense product and accepts a curvature only well above `α` at large `p`, which slows it (see
-[`AccProxGradDescent`](@ref) for the factors and the limit on `p`).
+dense product and, at large `p`, accepts a curvature above `α` by the factors that
+[`AccProxGradDescent`](@ref) lists, which slows it; that page also gives the limit on `p`.
 
 **CD on a dense vector.** A numerical error, including a nonfinite final
 objective, leaves `x` unchanged.

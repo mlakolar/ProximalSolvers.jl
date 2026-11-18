@@ -84,7 +84,9 @@ const METHODS = (
 )
 gradtol(::Type{Float64}) = 1e-10
 gradtol(::Type{Float32}) = 0.0
-pg_options(::Type{T}) where T = ProximalOptions(maxiter = 1000, gradtol = gradtol(T))
+# `allow_f_increases = true`: with gradtol near the rounding level of the objective, a solve can otherwise end on a
+# computed objective increase with converged = false (see docs/src/support.md, notes (a) and (f))
+pg_options(::Type{T}) where T = ProximalOptions(maxiter = 1000, gradtol = gradtol(T), allow_f_increases = true)
 
 solve_with(m, x, f, g, ::Type{T}) where T = m.kind === :cd ? solve!(x, f, g, m.make()) : solve!(x, f, g, m.make(), pg_options(T))
 
@@ -115,7 +117,7 @@ function check_solve(m, ::Type{T}, s, α, λ, x0) where T
     @test r.converged
     NCONV[] += r.converged
     @test all(err .<= tol)
-    note!(T, :cd, :point, maximum(err ./ tol))
+    note!(T, :cd, :point, maximum(err ./ max.(tol, floatmin(Float64))))
     L2tol = norm(tol)
     iszero(λ) && @test x == s
   else
@@ -236,7 +238,7 @@ end
   before = (Vector(xs), collect(ProximalBase.activecoordinates(xs)), collect(ProximalBase.activevalues(xs)))
   r = @test_logs (:warn, r"maxpasses = 0") solve!(xs, SqrNormL2(α, s), NormL1(λ), CDSolver(maxpasses = 0, order = :random, rng = Xoshiro(1)))
   @test (Vector(xs), collect(ProximalBase.activecoordinates(xs)), collect(ProximalBase.activevalues(xs))) == before && r.passes == 0
-  # s = 0: the response scale is 0, so the absolute tolerance is used, and the minimizer is 0 for every λ >= 0
+  # s = 0: the response scale is 0, so the absolute tolerance is used, and the minimizer is 0 for λ >= 0
   for λ0 in (zero(T), T(0.5)), x0 in (T[1, -2, 3], zeros(T, 3))
     for x in (copy(x0), SparseIterate(copy(x0)))
       r = solve!(x, SqrNormL2(1.0, zeros(T, 3)), NormL1(λ0), CDSolver(order = :cyclic))
@@ -368,7 +370,7 @@ receivers(T) = (
 end
 
 # A Float32 level on Float64 data, a Float64 level on Float32 data, an Integer level, and penalty levels of types other
-# than T (Float64, Float32, Integer, Rational) are accepted by every method, within the tolerances of the matrix
+# than T (Float64, Float32, Integer, Rational) are accepted by the six methods of the matrix, within the tolerances of the matrix
 # for the level and the penalty as passed (the threshold λ/α is formed from them as they are).
 @testset "levels and penalty levels of other types" begin
   s32 = centre(Float32, 10; seed = 21)
@@ -399,16 +401,18 @@ end
   for method in (ProximalGradientDescent(), AccProxGradDescent())
     @test refused(ArgumentError, "start from a point where f is finite", T[0], SqrNormL2(α, copy(s)), NormL1(zero(T)), method)
   end
-  # CD never forms f at the start: the first pass puts the coordinate at s and the objective there is finite
+  # CD does not form f at the start: the first pass puts the coordinate at s and the objective there is finite
   x = T[0]
   r = solve!(x, SqrNormL2(α, copy(s)), NormL1(zero(T)), CDSolver(order = :cyclic))
   @test x == s && r.converged && r.minimum == 0
 end
 
 @testset "a failed step restores the last accepted iterate ($T)" for T in (Float32, Float64)
-  # (1) the curvature that the line search needs exceeds floatmax(T): L / β overflows and the search raises
+  # (1) the curvature that the certified line search of APG needs exceeds floatmax(T): L / β overflows before L reaches
+  # α and the search raises; the same holds for PGD in Float32. PGD in Float64 replaces its estimate by the computed
+  # curvature of the rejected step, which is representable, and is not part of this test.
   α = T === Float32 ? 3f38 : 1.7e308
-  for method in (ProximalGradientDescent(), AccProxGradDescent())
+  for method in (T === Float32 ? (ProximalGradientDescent(), AccProxGradDescent()) : (AccProxGradDescent(),))
     accepted = Vector{T}[]
     options = ProximalOptions(maxiter = 100, extended_trace = true,
       callback = os -> (push!(accepted, copy(os.metadata["x"])); false))
@@ -442,7 +446,7 @@ end
 
 # The level α passes the loss-scale rule where T(α) is nonzero, also where it is subnormal in T. CD solves these problems
 # to the tolerance of the matrix. For PGD and APG in Float32 the computed objective (α/2 ‖x - s‖², about 1e-40) is in
-# the subnormal range, where the line search and the objective-increase test cannot tell steps apart: the runs
+# the subnormal range, where the computed values did not separate the steps of the line search in this fixture: the runs
 # of this fixture end at the start, with converged = false. The point is judged by the objective (no worse than the
 # start's, within rounding), not by `converged`; this is a limit of the gradient methods, stated in docs/src/support.md.
 @testset "a level that is subnormal in Float32 is accepted; the point is judged, not `converged`" begin
@@ -482,7 +486,9 @@ end
       T === Float32 && !(1e-30 < α < 1e30) && continue
       @test PS._scanned_initial_curvature(T, X, αT) === PS._scanned_initial_curvature(T, col, αT)
       L = PS._scanned_initial_curvature(T, X, αT)
-      @test L >= T(min(1.0, α * p) * (1 - 64 * unit(T))) && L <= T(min(1.0, α * p) * (1 + 64 * unit(T)))
+      ok = L >= T(min(1.0, α * p) * (1 - 64 * unit(T))) && L <= T(min(1.0, α * p) * (1 + 64 * unit(T)))
+      ok || @info "initial curvature outside its band" T p α L expected = min(1.0, α * p)
+      @test ok
     end
     # the model of the loss: the identity, the centre as the response, the level as passed
     s = T.(1:p)

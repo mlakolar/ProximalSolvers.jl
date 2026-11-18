@@ -20,8 +20,8 @@
 # `‖b − s‖²/2 + λ‖b‖₁`, which is the problem below. This is the centered squared norm row of
 # [Supported problems](../../support.md) (`CDSolver` on a dense `Vector` here, and the two gradient
 # methods once for comparison); the page adds no solver support. The `converged` flag of `CDSolver`
-# reports a small coordinate change and is not an optimality certificate, so every statement about the
-# solution below rests on a closed form and on optimality conditions computed from `s` and `λ`
+# reports a small coordinate change and is not an optimality certificate, so the statements about the
+# solution below rest on a closed form and on optimality conditions computed from `s` and `λ`
 # alone, not on that flag and not on a ProximalBase proximal operator.
 using LinearAlgebra, Random, ProximalBase, ProximalSolvers
 
@@ -95,9 +95,8 @@ end
 @assert kkt_residual(b, s, lambda) <= 1e-12
 @assert kkt_residual(s, s, lambda) >= lambda - 1e-12    # the unthresholded entries are not a solution
 
-# The gradient methods give the same point. Their stopping tests propose a stop only where a computed
-# residual is small (see [Numerical behavior](../../numerics.md)), and `gradtol = 1e-10` makes that
-# residual small.
+# The gradient methods give the same point. They count a stop only where a computed residual is below a
+# bound (see [Numerical behavior](../../numerics.md)), and `gradtol = 1e-10` sets that bound.
 options = ProximalOptions(maxiter = 1000, gradtol = 1e-10)
 b_pgd, b_apg = zeros(m), zeros(m)
 solve!(b_pgd, f, g, ProximalGradientDescent(), options)
