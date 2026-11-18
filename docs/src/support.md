@@ -68,7 +68,7 @@ lasso (note e).
   [Centered squared norm](@ref centered-sqnorm-support). A `Float32` solve of the gradient methods is judged by the returned point, as in (a).
   The certified bound of `AccProxGradDescent` is that of a dense product. In a measured fixture (exact identity product,
   `alpha = 1`, `x` of order 1 and a step of norm about `0.01 sqrt(p)`, so that no product underflows), its fresh-product test
-  accepted a `Float32` curvature `L` only from about `1.13 alpha` at `p = 10^4`, `8.6 alpha` at `p = 10^5` and
+  accepted a `Float32` curvature `L` from about `1.13 alpha` at `p = 10^4`, `8.6 alpha` at `p = 10^5` and
   `5 * 10^3 alpha` at `p = 10^6`, and in `Float64` from `(1 + 2.2e-7) alpha` at `p = 10^6`. These are measurements
   for that fixture, not thresholds that depend on `p` alone: the factor also grows when the step is tiny, through the absolute
   underflow term of the test. A larger accepted `L` is a shorter step, so a larger `p` can increase the iteration count in `Float32`.
