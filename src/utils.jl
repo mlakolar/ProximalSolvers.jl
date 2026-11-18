@@ -163,7 +163,8 @@ end
 # minimization for |M| ≤ 3.
 #
 # The stop is kept when r < τ S, with S = max(λ, λcrit), λcrit = ‖∇f(0)‖₁ = α‖Xᵀy‖₁ (_lambda_max! with the 1-norm)
-# and τ = max(gradtol, 64 eps(T)), all in T, as for the lasso check; it is not kept when S is not finite, when τ S is
+# and τ = max(gradtol, 64 eps(T)), all in T, as for the lasso check (λ here and below is λ_T = T(g.λ), the level of the
+# penalty converted once to T; "The original level" below relates it to g.λ); it is not kept when S is not finite, when τ S is
 # below floatmin(T) (a threshold that may have underflowed) or when r is not finite. For the penalty λ‖·‖∞, 0 is a minimizer
 # iff ‖∇f(0)‖₁ ≤ λ (the case x = 0 above), so λcrit is the smallest level for which 0 is a minimizer; it is an ℓ1
 # quantity, not the lasso's ‖∇f(0)‖∞. In exact arithmetic, the change (f, λ) → (c f, c λ) for a constant c > 0 scales g,
@@ -185,25 +186,26 @@ end
 # A = Float64 for Float32 and for Float64 data (each term is converted to A, which is exact for Float32, and then accumulated),
 # because the correction of a compensated sum is itself a sum in the accumulation type and stagnates when p eps(A) is of order 1
 # (in Float32 at p about 2^24, where a correction at -w stops changing under terms of 2^-24 w).
-# The error bound. For a Neumaier-compensated sum of the k terms xᵢ in IEEE arithmetic (no fused or reordered operations) with unit
-# roundoff u of the accumulator, whose result includes the final addition of the sum and its correction, |computed - exact| ≤
+# The error bound. For a Neumaier-compensated sum of the k terms xᵢ in IEEE binary arithmetic with round-to-nearest and gradual
+# underflow (no fused or reordered operations), with k u < 1 and no overflow in an intermediate result, and with unit roundoff u of
+# the accumulator, whose result includes the final addition of the sum and its correction, |computed - exact| ≤
 # u |S| + γ_{k-1}² Σ|xᵢ|, S the exact sum, γ_k = k u/(1 - k u) (Ogita, Rump and Oishi 2005, Proposition 4.5). The second term is
 # quadratic in the number of terms; it does not fold into a bound of order p u² Σ|xᵢ|. Here u = eps(Float64)/2 = 2^-53, B = γ_p², and
 # S below is max(λ, λcrit) of the threshold, not the sum of the proposition.
-# The residual. Let R be the exact residual of the supplied gradient (R = off + N + |D| at x ≠ 0, R = max(D0, 0) at x = 0, with the
-# exact D = λ - P and D0 = -λ + ‖g‖₁), and r_c the computed one, finite. At x ≠ 0 the sum a = off + N has p nonnegative terms, so
-# |â - a| ≤ (u + B) a. D has p + 1 terms with Σ|terms| = λ + P ≤ 2λ + |D| ≤ 2 S + |D| (P = λ - D ≤ λ + |D|, λ ≤ S), so
-# |D̂ - D| ≤ (u + B) |D| + 2 B S. Then â + |D̂| ≥ (1 - u - B) (a + |D|) - 2 B S = (1 - u - B) R - 2 B S, and the final
-# addition adds a relative error of at most u, so r_c ≥ (1 - u) ((1 - u - B) R - 2 B S) ≥ (1 - 2u - B) R - 2 B S (when the
-# bracket is negative, r_c ≥ 0 is already above the right side). At x = 0, D̂0 has p + 1 terms with Σ|terms| = λ + ‖g‖₁, and
+# The residual. Let R be the exact residual of the supplied gradient at the level λ_T (R = off + N + |D| at x ≠ 0, R = max(D0, 0)
+# at x = 0, with the exact D = λ - P and D0 = -λ + ‖g‖₁), and r_c the computed one, finite. At x ≠ 0 the sum a = off + N has p
+# nonnegative terms, so |â - a| ≤ (u + B) a. D has p + 1 terms with Σ|terms| = λ + P ≤ 2λ + |D| ≤ 2 S + |D| (P = λ - D ≤ λ + |D|,
+# λ ≤ S), so |D̂ - D| ≤ (u + B) |D| + 2 B S. Then â + |D̂| ≥ (1 - u - B) (a + |D|) - 2 B S = (1 - u - B) R - 2 B S, and the final
+# addition adds a relative error of at most u, so r_c ≥ (1 - u) ((1 - u - B) R - 2 B S) ≥ (1 - 2u - B) R - 2 B S (when the bracket
+# is negative, r_c ≥ 0 is already above the right side). At x = 0, D̂0 has p + 1 terms with Σ|terms| = λ + ‖g‖₁, and
 # r_c = max(D̂0, 0). If D0 ≥ 0, R = D0 and ‖g‖₁ = D0 + λ, so r_c ≥ D̂0 ≥ (1 - u - B) R - 2 B S; if D0 < 0, R = 0 ≤ r_c. So in both
 # branches, with no assumption on the size of R against S,
 #   r_c ≥ (1 - 2u - B) R - 2 B S.
 # The regime. Let F = 64 eps(T), a power of two, and H the computed threshold fl(τ S) in T, with τ ≥ F. If a stop is kept, r_c < H.
 # H passed the guard H ≥ floatmin(T), and τ S ≥ F S exactly. If F S ≥ floatmin(T), F S is S scaled by a power of two with a
-# normal result, so it is representable and monotonic rounding gives H = fl(τ S) ≥ F S. If F S < floatmin(T) (the scaling of a
-# small S underflows; F S can then round to 0), H ≥ floatmin(T) > F S directly. In both cases H ≥ F S (a larger gradtol makes
-# H larger still). B is required to satisfy 4 B ≤ 2^-10 F, so that 2 B S ≤ 2^-11 F S ≤ 2^-11 H; that is
+# normal result, so it is representable and monotonic rounding gives H = fl(τ S) ≥ F S. If F S < floatmin(T) (F S is then subnormal or
+# underflows, and its computed value may be inexact or 0), H ≥ floatmin(T) > F S directly. In both cases H ≥ F S (a larger
+# gradtol cannot decrease H). B is required to satisfy 4 B ≤ 2^-10 F, so that 2 B S ≤ 2^-11 F S ≤ 2^-11 H; that is
 #   γ_p² ≤ 2^-12 F = 2^-6 eps(T), that is γ_p ≤ 2^-3 sqrt(eps(T)).
 # For T = Float64, sqrt(eps) = 2^-26, so γ_p ≤ 2^-29, that is p u (1 + 2^-29) ≤ 2^-29, that is p ≤ 2^24/(1 + 2^-29) = 2^24 - 2^-5 + ...,
 # so the largest p is 2^24 - 1 (at p = 2^24, γ_p = 2^-29/(1 - 2^-29), a factor 1/(1 - 2^-29) above 2^-29). For T = Float32, sqrt(eps) =
@@ -215,23 +217,36 @@ end
 # What a kept stop gives within the regime, under the bound above. With r_c < H and 2 B S ≤ 2^-11 H,
 #   R < (H + 2 B S)/(1 - 2u - B) ≤ H (1 + 2^-11)/(1 - 2u - B) < (1 + 2^-10) H,
 # since u = 2^-53 and B ≤ 2^-12 F (B ≤ 2^-29 for Float32, 2^-58 for Float64, so 1 - 2u - B > 1 - 2^-28). That is, the exact residual R
-# of the supplied gradient is below the computed threshold times 1 + 2^-10, also when R is larger than S. If the threshold is infinite
-# the statement is vacuous. This is not a bound on the error of the computed gradient itself, which is not covered (below). An infinite
+# of the supplied gradient at the level λ_T is below the computed threshold times 1 + 2^-10, also when R is larger than S. If the
+# threshold is infinite the statement is vacuous. This is not a bound on the error of the computed gradient itself, which is not covered (below). An infinite
 # or NaN gradient entry, or an overflowing sum, makes the compensation NaN (Inf - Inf) or infinite, so that r is not finite and the
 # check refuses; a NaN or infinite entry of x gives r = NaN. r is returned in A, and the comparison with the threshold, a T converted
 # exactly to A, is made in A.
+# The original level. The level g.λ of the penalty is accepted in other types than T (Int, Rational, BigFloat, a Float64 level
+# with Float32 data), and λ_T = T(g.λ) can differ from it. For every v in ∂‖x‖∞, ‖v‖₁ ≤ 1, so ‖g + λ v‖₁ changes by at most
+# |λ - λ_T| when λ_T is replaced by λ, and so does its minimum over v (and max(‖g‖₁ - λ, 0) at x = 0): the residual at the
+# original level satisfies R(g.λ) ≤ R(λ_T) + |g.λ - λ_T|, for the same supplied gradient. When the conversion rounds g.λ to
+# nearest (Float16, Float32, Float64 and Int levels, a BigFloat level under BigFloat's default rounding mode, and a Rational of a
+# fixed-width integer type whose numerator and denominator are exact in T, which Julia converts by one division in T), |g.λ - λ_T|
+# ≤ (eps(T)/2) λ_T ≤ (eps(T)/2) S ≤ 2^-7 H if λ_T is normal (H ≥ F S = 64 eps(T) S), and |g.λ - λ_T| ≤ nextfloat(zero(T))/2 <
+# 2^-7 H otherwise (H ≥ floatmin(T)), so within the regime a kept stop gives R(g.λ) < (1 + 2^-10 + 2^-7) H. Another Rational level
+# (a numerator or denominator rounded in the conversion, or a Rational{BigInt} rounded through BigFloat) has only the first
+# inequality, with its own |g.λ - λ_T|.
 #
 # What it is and is not. r is computed from the computed gradient, so the rounding error of the gradient is not
 # covered (as for the lasso check): the true residual at a kept stop can be above τ S by the gradient's error, and by the summation's
 # error within the bounds above (a sweep of 1608 Float32 solves against a BigFloat reference found at most 1.002 τ S: a measured value
-# of that sweep, not a bound). The remaining error sources are that gradient error and the compensated summation's error above. It is not a certificate in exact arithmetic and it does not bound the distance to a minimizer. It
-# reads x and g in two passes (m, then the sums). ∇f(x) is _gradient_at_x! (PGD: the accepted gradient, no new
-# evaluation; APG: one gradient from the cached image A x, counted in grad_calls). ∇f(0) is computed first and once per solve, into
-# state.xhat, which the iterations write before they read. _linf_kkt_residual reads x and g and writes neither. _stationary!
+# of that sweep, not a bound). The remaining error sources are that gradient error, the compensated summation's error above and, for the
+# original level g.λ, its conversion to λ_T (above). It is not a certificate in exact arithmetic and it does not bound the distance
+# to a minimizer. It reads x and g in at most two passes (m, then the sums; the dimension cap returns before either, and a
+# non-finite m returns after the first). ∇f(x) is _gradient_at_x! (PGD: the accepted gradient, no new evaluation; APG: one
+# gradient from the cached image A x, counted in grad_calls). ∇f(0) is computed first, at most once per solve (at the first
+# check of the solve; a solve that never runs the check never forms it), into state.xhat, which the iterations write before
+# they read. _linf_kkt_residual reads x and g and writes neither. _stationary!
 # caches λcrit in the state, overwrites state.xhat and, for APG, writes the gradient and residual scratch of its accepted-point
 # gradient and counts one gradient; it leaves x, delta_x and the engines' gradients as they were, evaluates no proximal operator
-# and uses no other buffer. It allocates nothing for a level of type Float32, Float64, Int, Float16 or Rational{Int}; the
-# conversion of a BigFloat or a Rational{BigInt} level to T can allocate.
+# and uses no other buffer. Warm (compiled) on validated inputs, it allocates nothing for a level of type Float32, Float64, Int,
+# Float16 or Rational{Int}; the conversion of a BigFloat or a Rational{BigInt} level to T can allocate.
 function _stationary!(state, f, g::NormLinf, options::ProximalOptions)
   T = eltype(state.x)
   λcrit = _lambda_max!(state, v -> norm(v, 1))   # first: it uses xhat, which the gradient below may also use
@@ -298,8 +313,8 @@ function _linf_kkt_residual(x, grad, λ; p = length(x))
 end
 
 # α‖Xᵀy‖ = ‖∇f(0)‖ in the norm `nrm`: the ∞-norm by default (NormL1 and ElasticNet) and the 1-norm for
-# NormLinf (the dual norm of the penalty). It is computed once per solve (state.λmax is negative until
-# then; the penalty, and so the norm, is fixed in a solve) with the arithmetic of the
+# NormLinf (the dual norm of the penalty). It is computed at most once per solve, at the first check (state.λmax is
+# negative until then; the penalty, and so the norm, is fixed in a solve) with the arithmetic of the
 # gradient oracle at x = 0 (Xᵀ times a vector, then the scale α). It is formed in state.xhat. At
 # every use in the solvers xhat is written before it is read (the input of the proximal step in
 # PGD's update_state!, the same input and the difference x - y in APG's _prox_grad_step!), and
@@ -327,7 +342,8 @@ function _gradient_at_x!(state::AccProxGradDescentState, f)
 end
 
 # The penalty with its levels converted to T, for NormL1 (with or without weights) and ElasticNet (the penalties of
-# the KKT check above; a NormLinf has its own check and is not converted), and the ℓ1 level of a converted penalty
+# the KKT check above; a NormLinf object is not rebuilt: its check converts its scalar level itself), and the ℓ1 level of a
+# converted penalty
 _converted_penalty(g::NormL1{<:Real, Nothing}, ::Type{T}) where T = NormL1(T(g.λ0))
 # weights that are already in T are not converted or copied
 _converted_penalty(g::NormL1{<:Real, Vector{T}}, ::Type{T}) where T = NormL1(T(g.λ0), g.w)

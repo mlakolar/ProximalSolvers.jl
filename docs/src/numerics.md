@@ -262,22 +262,34 @@ formed in `T`, as for the lasso check; it is not kept when `max(λ, λcrit)` is 
   are formed in `Float64`, for `Float32` and for `Float64` data (each term is converted, exactly for `Float32`, and then accumulated),
   because the correction of a compensated sum is itself a sum in the accumulation type: in `Float32` it stagnates at about `2²⁴` entries,
   where a correction stops changing under terms of `2⁻²⁴` times its size.
-- **The error bound and the regime.** For a Neumaier-compensated sum of `k` terms `xᵢ` in IEEE arithmetic (no fused or reordered operations),
+- **The error bound and the regime.** For a Neumaier-compensated sum of `k` terms `xᵢ` in IEEE binary arithmetic with round-to-nearest and gradual
+  underflow (no fused or reordered operations), with `k u < 1` and no overflow in an intermediate result,
   with `u = 2⁻⁵³` the unit roundoff of `Float64`, whose result includes the final addition of the sum and its correction, the error is at most
   `u|S| + γ_{k-1}² Σ|xᵢ|`, with `S` the exact sum and `γ_k = k u/(1 - k u)` (Ogita, Rump and Oishi, 2005, Proposition 4.5). The second term
-  is quadratic in `k`, not of order `k u²`. Write `B = γ_p²`, `R` for the exact residual of the supplied gradient and `r` for the computed one.
+  is quadratic in `k`, not of order `k u²`. Write `B = γ_p²`, `R` for the exact residual of the supplied gradient at the level `λ_T = T(λ)`, the level
+  converted once to `T` with which the check computes, and `r` for the computed one.
   `D` has `p + 1` terms with `Σ|xᵢ| = λ + P ≤ 2 max(λ, λcrit) + |D|` (at `x = 0`, `λ + ‖g‖₁` with `‖g‖₁ ≤ λ + R`), so the sums give
   `r ≥ (1 - 2u - B) R - 2 B max(λ, λcrit)` in both branches: the compensated sums contribute `u + B` relative errors and the
   `2 B max(λ, λcrit)` term, and the final addition of `off + N` and `|D|` one more relative `u`. This needs no assumption on the size of `R`.
-  If a stop is kept, `r < H` with `H` the computed threshold, and `H ≥ 64 eps(T) max(λ, λcrit)` (the floor is a power of two). `B` is required
+  If a stop is kept, `r < H` with `H` the computed threshold, and `H ≥ 64 eps(T) max(λ, λcrit)`: when that product is normal it is a power-of-two scaling, exact in `T`, and
+  rounding is monotonic; when it is subnormal or underflows, the guard gives `H ≥ floatmin(T)`, which is above it. `B` is required
   to be at most `2⁻¹²` of that floor, `γ_p² ≤ 2⁻⁶ eps(T)`, that is `γ_p ≤ 2⁻³ sqrt(eps(T))`: then `2 B max(λ, λcrit) ≤ 2⁻¹¹ H`. For `Float64`,
   `sqrt(eps) = 2⁻²⁶`, so `γ_p ≤ 2⁻²⁹`, that is `p ≤ 2²⁴/(1 + 2⁻²⁹)`, whose largest integer is `p = 2²⁴ - 1`. For `Float32`,
   `sqrt(eps) = 2⁻¹¹·⁵` allows about `3.9·10¹¹` entries, and the cap `2³²` is used. A check on more entries of that type refuses (`r` is `NaN`,
   before any pass).
 - **What a kept stop says.** Within that regime, a kept stop has `R < (H + 2 B max(λ, λcrit))/(1 - 2u - B) < (1 + 2⁻¹⁰) H`: the exact
-  residual of the supplied gradient is below the computed threshold `H = max(gradtol, 64 eps(T)) max(λ, λcrit)` times `1 + 2⁻¹⁰`, also when `R` is
-  larger than `max(λ, λcrit)`. For an infinite threshold the statement is vacuous. The computed gradient's own rounding error is not covered, as
-  for the lasso check, so the true residual at a kept stop can exceed the bound by that and by this factor (a sweep of 1608 `Float32` solves
+  residual of the supplied gradient at `λ_T` is below the computed threshold `H` (the product `max(gradtol, 64 eps(T)) max(λ, λcrit)`
+  formed in `T`) times `1 + 2⁻¹⁰`, also when `R` is
+  larger than `max(λ, λcrit)`. For an infinite threshold the statement is vacuous.
+- **The level as given.** The level `λ` of the penalty is accepted in types other than `T` (an `Int`, `Rational` or `BigFloat` level, or a
+  `Float64` level with `Float32` data), and `λ_T = T(λ)` can differ from it. Since every `v ∈ ∂‖x‖∞` has `‖v‖₁ ≤ 1`, the residual is
+  1-Lipschitz in the level, so `R(λ) ≤ R(λ_T) + |λ - λ_T|` for the same supplied gradient. When the conversion rounds to nearest (`Float16`,
+  `Float32`, `Float64` and `Int` levels, a `BigFloat` level under BigFloat's default rounding mode, and a `Rational` of a fixed-width
+  integer type whose numerator and denominator are exact in `T`), `|λ - λ_T| ≤ (eps(T)/2) max(λ, λcrit) ≤ 2⁻⁷ H` for a normal `λ_T`,
+  and at most half the smallest subnormal, also below `2⁻⁷ H`, otherwise; a kept stop then has `R(λ) < (1 + 2⁻¹⁰ + 2⁻⁷) H`. For another
+  `Rational` level only the first inequality holds, with its own conversion error.
+- **Not covered.** The computed gradient's own rounding error is not covered, as
+  for the lasso check, so the true residual at a kept stop can exceed the computed threshold by that error, beyond the factors above (a sweep of 1608 `Float32` solves
   against a BigFloat reference found at most 1.002 times the bound, a value measured on that sweep, not a bound). An infinite or NaN gradient
   entry, or an overflowing sum, makes `r` non-finite and the check refuses. The check is not a certificate in exact arithmetic and does not bound the
   distance to a minimizer. Because it does not form a step, it does not depend on the accepted curvature `L`, and a small `L` does not weaken it.
@@ -286,9 +298,9 @@ formed in `T`, as for the lasso check; it is not kept when `max(λ, λcrit)` is 
 - **Counting.** For APG the check forms one gradient at `x` from the cached image `A x` (PGD uses the accepted gradient) and counts it
   in `grad_calls` when it runs, before the call limits are compared: a stop that passes can come with a gradient-limit flag, and a
   stop that the check refuses can reach `grad_calls_limit`. The check adds no proximal evaluation.
-- **Cost and buffers.** The residual reads `x` and the gradient in two passes and writes neither. The check caches `λcrit` in the state,
+- **Cost and buffers.** The residual reads `x` and the gradient in at most two passes and writes neither. The check caches `λcrit` in the state,
   overwrites the buffer `xhat` (which the iterations write before they read) and, for APG, writes the scratch of its accepted-point
-  gradient and counts one gradient; it leaves `x`, `delta_x` and the engines' gradients as they were. It allocates nothing for a `Float32`,
+  gradient and counts one gradient; it leaves `x`, `delta_x` and the engines' gradients as they were. Warm (compiled) on validated inputs, it allocates nothing for a `Float32`,
   `Float64`, `Int`, `Float16` or `Rational{Int}` level (the conversion of a `BigFloat` or `Rational{BigInt}` level to `T` can allocate).
   The iterations call ProximalBase's `value_and_prox!` for `NormLinf`, whose threshold selection takes O(p) expected time; the first
   ℓ∞ solve may compile that code. In its ordinary radius path it forms the radius `tλ` as a product in

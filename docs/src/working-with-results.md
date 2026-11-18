@@ -48,7 +48,9 @@ direct KKT residual `min over v ∈ ∂‖x‖∞ of ‖∇f(x) + λ v‖₁` (a
 `max(gradtol, 64eps(T)) * max(λ, ‖∇f(0)‖₁)` (see
 [the ℓ∞ check](numerics.md#The-stationarity-check-for-NormLinf)). It is a working-precision value computed from the computed
 gradient with compensated sums formed in `Float64` (the check refuses for more than `2^24 - 1` entries of `Float64` data and more than `2^32` of `Float32` data), not an
-exact-arithmetic certificate: within that range a kept stop has an exact residual (for the supplied gradient) below the computed threshold times `1 + 2^-10`,
+exact-arithmetic certificate: within that range a kept stop has an exact residual (for the supplied gradient, at the level converted to `T`) below the computed
+threshold times `1 + 2^-10`, and at the level as given below it times `1 + 2^-10 + 2^-7` when the conversion of the level rounds to
+nearest (an exactly representable level has no conversion error),
 and the computed gradient's own rounding error is not covered (see [the ℓ∞ check](numerics.md#The-stationarity-check-for-NormLinf)). A proposed stop costs one
 more gradient for APG (counted in `grad_calls` before the call limits are compared, so a stop that the check refuses can reach
 `grad_calls_limit`) and no proximal evaluation. A solve can also end through a limit, an objective increase or stagnation with

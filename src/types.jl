@@ -88,10 +88,13 @@ always (a point with `M = {1}` and a smaller entry whose gradient is 0 can have 
 (for `Float32` and `Float64` data), with `λ` folded into the sum it is cancelled against. The error of such a sum of `k` terms is at most
 `u|S| + γ_{k-1}² Σ|xᵢ|` (`S` the exact sum, `u = 2⁻⁵³`, `γ_k = k u/(1 - k u)`; Ogita, Rump and Oishi 2005), whose second term is quadratic in
 `k`. With `B = γ_p²`, the computed residual `r` satisfies `r ≥ (1 - 2u - B) R - 2 B max(λ, λcrit)` for the exact residual `R` of the supplied
-gradient, including the rounding of the final addition. `B` is required to be at most `2⁻¹²` of the floor `64 eps(T)` of the threshold, which holds for at most
+gradient at the level `λ_T = T(λ)` with which the check computes, including the rounding of the final addition. `B` is required to be at most `2⁻¹²` of the floor `64 eps(T)` of the threshold, which holds for at most
 `2²⁴ - 1` entries of `Float64` data and, with a cap, `2³²` entries of `Float32` data; a check on more entries refuses. Within that range, a kept
-stop (`r` below the computed threshold `H`) has `R < (1 + 2⁻¹⁰) H`, also when `R` exceeds `max(λ, λcrit)`; the statement is vacuous for an infinite threshold. The computed
-gradient's own rounding error is not covered, so the true residual at a kept stop can exceed `H` by that and by this factor (a sweep of 1608 `Float32` solves
+stop (`r` below the computed threshold `H`) has `R < (1 + 2⁻¹⁰) H`, also when `R` exceeds `max(λ, λcrit)`; the statement is vacuous for an infinite threshold. At the level `λ` as given, when
+it is not exactly representable in `T` (possible for an `Int`, `Rational` or `BigFloat` level, or a `Float64` level with `Float32` data), the
+residual can be larger by `|λ - λ_T|` (the residual is 1-Lipschitz in the level); for a conversion that rounds to nearest this is at
+most `2⁻⁷ H`, so that a kept stop has `R(λ) < (1 + 2⁻¹⁰ + 2⁻⁷) H` (see the numerical guide for the levels covered). The computed
+gradient's own rounding error is not covered, so the true residual at a kept stop can exceed `H` by that error, beyond the factors above (a sweep of 1608 `Float32` solves
 against a BigFloat reference found at most 1.002 times the bound, a value measured on that sweep); the check is not a certificate in exact arithmetic and it does not
 bound the distance to a minimizer. See [the numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-for-NormLinf).
 
