@@ -1,0 +1,21 @@
+Julia 1.13.4 PB <DEPOT>/packages/ProximalBase/2welE/src/ProximalBase.jl
+warm-cancel Float32 master x=Float32[1.048576f6, -1.048576f6] converged=true iter=1 minimum=2048.0
+  exact normalized KKT=1.0625 relative suboptimality=1.3854733938709676e8 true F=2048.0001220703125
+warm-cancel Float32 X1 x=Float32[1.048576f6, -1.048576f6] converged=true iter=1 minimum=2048.0
+  exact normalized KKT=1.0625 relative suboptimality=1.3854733938709676e8 true F=2048.0001220703125
+warm-cancel Float64 master x=[5.62949953421312e14, -5.62949953421312e14] converged=true iter=1 minimum=1.099511627776e12
+  exact normalized KKT=1.0625 relative suboptimality=7.438203255528046e16 true F=1.099511627776e12
+warm-cancel Float64 X1 x=[5.62949953421312e14, -5.62949953421312e14] converged=true iter=1 minimum=1.099511627776e12
+  exact normalized KKT=1.0625 relative suboptimality=7.438203255528046e16 true F=1.099511627776e12
+underflow-strict Float32 master pgd x=Float32[0.0] converged=false iter=20 minimum=8.077936e-28 gradients=21 stagnated=false
+underflow-strict Float32 master apg x=Float32[0.0] converged=false iter=20 minimum=8.077936e-28 gradients=20 stagnated=false
+underflow-strict Float32 X1 pgd x=Float32[0.0] converged=true iter=1 minimum=8.077936e-28 gradients=2 stagnated=false
+underflow-strict Float32 X1 apg x=Float32[0.0] converged=true iter=1 minimum=8.077936e-28 gradients=2 stagnated=false
+underflow-strict Float64 master pgd x=[0.0] converged=false iter=20 minimum=0.0 gradients=21 stagnated=false
+underflow-strict Float64 master apg x=[0.0] converged=false iter=20 minimum=0.0 gradients=20 stagnated=false
+underflow-strict Float64 X1 pgd x=[0.0] converged=true iter=1 minimum=0.0 gradients=2 stagnated=false
+underflow-strict Float64 X1 apg x=[0.0] converged=true iter=1 minimum=0.0 gradients=2 stagnated=false
+call-limit Float32 master x=Float32[1.0] converged=false iter=2 minimum=2.2351742e-8 gradients=2 stagnated=false
+call-limit Float32 X1 x=Float32[1.0] converged=true iter=1 minimum=2.2351742e-8 gradients=2 stagnated=false
+call-limit Float64 master x=[1.0] converged=false iter=2 minimum=4.163336342344337e-17 gradients=2 stagnated=false
+call-limit Float64 X1 x=[1.0] converged=true iter=1 minimum=4.163336342344337e-17 gradients=2 stagnated=false

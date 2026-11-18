@@ -1,0 +1,48 @@
+λ = 1e-03 λmax, tol = 1e-07: converged = true, passes = 3162, maxchange = 1.89e-06, tolerance = 1.9e-06
+  group 1: column norms 0.005 0.027 0.079, ‖x_k‖ = 0, KKT residual/λmax = 0, per entry [1.0e-6, 3.2e-6, 1.5e-6], bound tol·√ℓ‖y‖/λmax = 8.06e-12
+  group 2: column norms 0.25 1.1 4.2, ‖x_k‖ = 0, KKT residual/λmax = 0, per entry [7.2e-6, 3.6e-5, 3.8e-5], bound tol·√ℓ‖y‖/λmax = 4.24e-10
+  group 3: column norms 14 40 1.4e+02, ‖x_k‖ = 0.0068, KKT residual/λmax = 4.02e-10, per entry [2.9e-10, 2.6e-10, 1.1e-10], bound tol·√ℓ‖y‖/λmax = 1.47e-08
+  group 4: column norms 4.2e+02 1.6e+03 6.7e+03, ‖x_k‖ = 0.00786, KKT residual/λmax = 6.75e-07, per entry [6.7e-7, 4.2e-8, 7.1e-9], bound tol·√ℓ‖y‖/λmax = 6.82e-07
+  relative duality gap at x: 6.23e-07
+λ = 1e-03 λmax, tol = 1e-09: converged = true, passes = 4442, maxchange = 1.89e-08, tolerance = 1.9e-08
+  group 1: column norms 0.005 0.027 0.079, ‖x_k‖ = 0, KKT residual/λmax = 0, per entry [1.0e-6, 3.2e-6, 1.5e-6], bound tol·√ℓ‖y‖/λmax = 8.06e-14
+  group 2: column norms 0.25 1.1 4.2, ‖x_k‖ = 0, KKT residual/λmax = 0, per entry [7.2e-6, 3.6e-5, 3.8e-5], bound tol·√ℓ‖y‖/λmax = 4.24e-12
+  group 3: column norms 14 40 1.4e+02, ‖x_k‖ = 0.0068, KKT residual/λmax = 4.02e-12, per entry [2.9e-12, 2.6e-12, 1.1e-12], bound tol·√ℓ‖y‖/λmax = 1.47e-10
+  group 4: column norms 4.2e+02 1.6e+03 6.7e+03, ‖x_k‖ = 0.00786, KKT residual/λmax = 6.75e-09, per entry [6.7e-9, 4.2e-10, 7.1e-11], bound tol·√ℓ‖y‖/λmax = 6.82e-09
+  relative duality gap at x: 5.08e-09
+λ = 1e-03 λmax, tol = 1e-11: converged = true, passes = 5722, maxchange = 1.89e-10, tolerance = 1.9e-10
+  group 1: column norms 0.005 0.027 0.079, ‖x_k‖ = 0, KKT residual/λmax = 0, per entry [1.0e-6, 3.2e-6, 1.5e-6], bound tol·√ℓ‖y‖/λmax = 8.06e-16
+  group 2: column norms 0.25 1.1 4.2, ‖x_k‖ = 0, KKT residual/λmax = 0, per entry [7.2e-6, 3.6e-5, 3.8e-5], bound tol·√ℓ‖y‖/λmax = 4.24e-14
+  group 3: column norms 14 40 1.4e+02, ‖x_k‖ = 0.0068, KKT residual/λmax = 4.01e-14, per entry [2.9e-14, 2.6e-14, 1.1e-14], bound tol·√ℓ‖y‖/λmax = 1.47e-12
+  group 4: column norms 4.2e+02 1.6e+03 6.7e+03, ‖x_k‖ = 0.00786, KKT residual/λmax = 6.76e-11, per entry [6.7e-11, 4.2e-12, 7.0e-13], bound tol·√ℓ‖y‖/λmax = 6.82e-11
+  relative duality gap at x: 5.07e-11
+λ = 1e-03 λmax, tol = 1e-13: converged = true, passes = 7002, maxchange = 1.89e-12, tolerance = 1.9e-12
+  group 1: column norms 0.005 0.027 0.079, ‖x_k‖ = 0, KKT residual/λmax = 0, per entry [1.0e-6, 3.2e-6, 1.5e-6], bound tol·√ℓ‖y‖/λmax = 8.06e-18
+  group 2: column norms 0.25 1.1 4.2, ‖x_k‖ = 0, KKT residual/λmax = 0, per entry [7.2e-6, 3.6e-5, 3.8e-5], bound tol·√ℓ‖y‖/λmax = 4.24e-16
+  group 3: column norms 14 40 1.4e+02, ‖x_k‖ = 0.0068, KKT residual/λmax = 3.47e-16, per entry [2.7e-16, 2.1e-16, 5.3e-18], bound tol·√ℓ‖y‖/λmax = 1.47e-14
+  group 4: column norms 4.2e+02 1.6e+03 6.7e+03, ‖x_k‖ = 0.00786, KKT residual/λmax = 6.76e-13, per entry [6.7e-13, 4.3e-14, 1.1e-14], bound tol·√ℓ‖y‖/λmax = 6.82e-13
+  relative duality gap at x: 5.06e-13
+λ = 1e-01 λmax, tol = 1e-07: converged = true, passes = 446, maxchange = 1.84e-06, tolerance = 1.9e-06
+  group 1: column norms 0.005 0.027 0.079, ‖x_k‖ = 0, KKT residual/λmax = 0, per entry [1.0e-6, 3.6e-6, 9.1e-7], bound tol·√ℓ‖y‖/λmax = 8.06e-12
+  group 2: column norms 0.25 1.1 4.2, ‖x_k‖ = 0, KKT residual/λmax = 0, per entry [1.9e-6, 2.1e-6, 4.3e-5], bound tol·√ℓ‖y‖/λmax = 4.24e-10
+  group 3: column norms 14 40 1.4e+02, ‖x_k‖ = 0, KKT residual/λmax = 0, per entry [0.0012, 0.002, 0.0063], bound tol·√ℓ‖y‖/λmax = 1.47e-08
+  group 4: column norms 4.2e+02 1.6e+03 6.7e+03, ‖x_k‖ = 0.00274, KKT residual/λmax = 6.59e-07, per entry [6.4e-7, 1.6e-7, 4.1e-9], bound tol·√ℓ‖y‖/λmax = 6.82e-07
+  relative duality gap at x: 3.47e-12
+λ = 1e-01 λmax, tol = 1e-09: converged = true, passes = 626, maxchange = 1.85e-08, tolerance = 1.9e-08
+  group 1: column norms 0.005 0.027 0.079, ‖x_k‖ = 0, KKT residual/λmax = 0, per entry [1.0e-6, 3.6e-6, 9.1e-7], bound tol·√ℓ‖y‖/λmax = 8.06e-14
+  group 2: column norms 0.25 1.1 4.2, ‖x_k‖ = 0, KKT residual/λmax = 0, per entry [1.9e-6, 2.1e-6, 4.3e-5], bound tol·√ℓ‖y‖/λmax = 4.24e-12
+  group 3: column norms 14 40 1.4e+02, ‖x_k‖ = 0, KKT residual/λmax = 0, per entry [0.0012, 0.002, 0.0063], bound tol·√ℓ‖y‖/λmax = 1.47e-10
+  group 4: column norms 4.2e+02 1.6e+03 6.7e+03, ‖x_k‖ = 0.00274, KKT residual/λmax = 6.6e-09, per entry [6.4e-9, 1.6e-9, 4.1e-11], bound tol·√ℓ‖y‖/λmax = 6.82e-09
+  relative duality gap at x: 3.49e-16
+λ = 1e-01 λmax, tol = 1e-11: converged = true, passes = 807, maxchange = 1.8e-10, tolerance = 1.9e-10
+  group 1: column norms 0.005 0.027 0.079, ‖x_k‖ = 0, KKT residual/λmax = 0, per entry [1.0e-6, 3.6e-6, 9.1e-7], bound tol·√ℓ‖y‖/λmax = 8.06e-16
+  group 2: column norms 0.25 1.1 4.2, ‖x_k‖ = 0, KKT residual/λmax = 0, per entry [1.9e-6, 2.1e-6, 4.3e-5], bound tol·√ℓ‖y‖/λmax = 4.24e-14
+  group 3: column norms 14 40 1.4e+02, ‖x_k‖ = 0, KKT residual/λmax = 0, per entry [0.0012, 0.002, 0.0063], bound tol·√ℓ‖y‖/λmax = 1.47e-12
+  group 4: column norms 4.2e+02 1.6e+03 6.7e+03, ‖x_k‖ = 0.00274, KKT residual/λmax = 6.45e-11, per entry [6.3e-11, 1.6e-11, 4.0e-13], bound tol·√ℓ‖y‖/λmax = 6.82e-11
+  relative duality gap at x: 3.33e-20
+λ = 1e-01 λmax, tol = 1e-13: converged = true, passes = 987, maxchange = 1.81e-12, tolerance = 1.9e-12
+  group 1: column norms 0.005 0.027 0.079, ‖x_k‖ = 0, KKT residual/λmax = 0, per entry [1.0e-6, 3.6e-6, 9.1e-7], bound tol·√ℓ‖y‖/λmax = 8.06e-18
+  group 2: column norms 0.25 1.1 4.2, ‖x_k‖ = 0, KKT residual/λmax = 0, per entry [1.9e-6, 2.1e-6, 4.3e-5], bound tol·√ℓ‖y‖/λmax = 4.24e-16
+  group 3: column norms 14 40 1.4e+02, ‖x_k‖ = 0, KKT residual/λmax = 0, per entry [0.0012, 0.002, 0.0063], bound tol·√ℓ‖y‖/λmax = 1.47e-14
+  group 4: column norms 4.2e+02 1.6e+03 6.7e+03, ‖x_k‖ = 0.00274, KKT residual/λmax = 6.46e-13, per entry [6.3e-13, 1.6e-13, 1.9e-15], bound tol·√ℓ‖y‖/λmax = 6.82e-13
+  relative duality gap at x: 3.33e-24

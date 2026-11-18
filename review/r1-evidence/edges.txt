@@ -1,0 +1,5 @@
+absolute-bound conv=true passes=1 KKT=2.5e-8 claimed relative RHS=1.0e-19
+zero-weight/flat-group Float32 x=Float32[1.0, 0.0, 0.875] conv=true passes=3 F=4.96875 expected=[1,0,0.875], F=4.96875
+zero-weight/flat-group Float64 x=[1.0, 0.0, 0.875] conv=true passes=3 F=4.96875 expected=[1,0,0.875], F=4.96875
+callback master conv=true iterations=340 calls=48 cadence=true grad=343
+callback X1 conv=true iterations=340 calls=48 cadence=true grad=349

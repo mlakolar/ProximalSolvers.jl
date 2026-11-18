@@ -1,0 +1,7 @@
+Changed captured files:
+.codex-orchestrator/audit/report/part1.md
+.codex-orchestrator/audit/study/probe_cd_gate.jl
+Gate executable body byte-identical from first include through EOF.
+All other captured files unchanged.
+Review verdicts in rounds 1, 2 and 3: REQUEST_CHANGES.
+No new Julia runs.

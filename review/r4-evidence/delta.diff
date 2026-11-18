@@ -1,0 +1,79 @@
+--- revision3/.codex-orchestrator/audit/report/part1.md
+
++++ revision4/.codex-orchestrator/audit/report/part1.md
+
+@@ -61,7 +61,7 @@
+
+ - Mechanism: the residual is initialized as `y − Σ X_k x_k` in working precision, which loses `y` against `M`; each coordinate step is then smaller than half a unit in the last place of the coefficient, so `new == old`; a full pass with no change satisfies `0 < tol`.
+ - Related degradation is in the sweep. With `λ = 0` on the rank-deficient design, the exact least-squares minimizer has large cancelling coefficients, and the warm starts taken from it give 80 converged solves per precision at the default threshold with an exact KKT residual up to `0.063 λmax` (`0.089`) in Float64 and `0.16 λmax` (`0.15`) in Float32; the cold starts on the same problems end at `1.7e-8 λmax` or below in Float64 and `5.7e-8 λmax` or below in Float32. The stopping pass changed nothing in 24 (8) of the Float32 rows and in none of the Float64 rows; the others stopped on a small nonzero change. The empty-pass mechanism is therefore established for case B, not for all of these rows.
+ - Unlike F1, a working-precision check would refuse case B: computed from a fresh residual in the working type, its KKT residual is `1.06` of the scale.
+-- One such check was measured (`study/probe_cd_gate.jl`, 1.13.4). It is evaluated after the solve, at the returned point, from a fresh residual (one more pass of products): the statistic `max_k g_k / √(s a_k)`, the coordinate KKT residual in the units of the change test, compared with the solve's threshold with no precision floor. It refuses 91 of 480 converged Float32 solves at the default threshold with a positive penalty (89 within the target, 2 undecided, none above) and 14 of 480 in Float64 (all within the target). Only 9 of the 91 had a stopping pass that changed nothing (127 of the 480 did, and 66 of the Float64 ones, none refused). The others are refused because this is a stricter test than the change test: at the returned point the statistic contains the coupling with the coordinates visited later (the factor of F8), for the elastic net it carries the factor `1 + λ2/(s a_k)`, and the review gave an exact-arithmetic example in which it exceeds the threshold after a valid stopping pass. So the counts are those of this test. The statistic that a visit could form from its own `b` at `O(1)` was not instrumented, and whether a floor in units of `eps(T)`, a check restricted to empty passes, or another statistic keeps the Float32 solves is the question of the research issue.
++- One such check was measured (`study/probe_cd_gate.jl`, 1.13.4). It is evaluated after the solve, at the returned point, from a fresh residual (one more pass of products): the statistic `max_k g_k / √(s a_k)`, the coordinate KKT residual in the units of the change test, compared with the solve's threshold with no precision floor. It refuses 91 of 480 converged Float32 solves at the default threshold with a positive penalty (89 within the target, 2 undecided, none above) and 14 of 480 in Float64 (all within the target). Only 9 of the 91 had a stopping pass that changed nothing (127 of the 480 did, and 66 of the Float64 ones, none refused). The others are refused because this is a stricter test than the change test: at the returned point the statistic contains the coupling with the coordinates visited later (the factor of F8), and the review gave an exact-arithmetic example in which it exceeds the threshold after a valid stopping pass. (A separate point about any visit-level comparison: for the elastic net, the residual at the start of a visit is `1 + λ2/(s a_k)` times the scaled change of that visit when the sign does not change, not equal to it.) So the counts are those of this test. The statistic that a visit could form from its own `b` at `O(1)` was not instrumented, and whether a floor in units of `eps(T)`, a check restricted to empty passes, or another statistic keeps the Float32 solves is the question of the research issue.
+ - It is not a cure for ill-conditioning: of the converged solves above the target at `λ = 0` in that probe, 20 in Float64 and 36 in Float32, this check refuses 8 and 8; the others have a small residual and a flat objective direction.
+ 
+ **F3. A correlation that cancels at the rounding level gives `converged = true` at `x = 0` with a large KKT residual relative to `λmax`, in CD, PGD and APG.** Class: working-precision limitation, already described for the computed `λmax` in `numerics.md` (lines 144 to 148); decision D1. Found by the review of the first draft.
+@@ -123,7 +123,7 @@
+
+ 
+ - Why: the dual point is the residual scaled into the feasible set, so the bound loses `(1 − t) ‖r‖`, linear in the relative violation of `|X_kᵀr| ≤ λ ‖r‖`. Measured example (Float64, correlated design, level 0.001, `tol = 1e-4`, 12 solves): after both tightenings the gap of an independent dual point in the residual direction is `1.1e-4` to `2.6e-4`, while the point is within `9.1e-12` (`1.1e-11`) of the minimum. On the failing low-level cases in Float32, rounding of the iterate limits the violation that was reached, and the floor forbids tightening.
+ - The 14 uncertified Float64 solves at the default are on the design whose response dwarfs the residual, which the docstring names.
+-- Exact- and near-exact-fit designs (three: underdetermined with and without noise, and a tall noiseless design whose rounded response is within rounding of the column span, not in it; levels up to 0.3 or 0.7): every such solve stops uncertified, `converged = false`, `gap = NaN`, with the warning. The best point found is lower by up to about 17 % (16 % in Float64); that is a lower-bound evaluation of the error. For the interpolating designs this is the situation of #155; the tall design is a near fit, where the residual is at rounding level and the certificate's rounding allowance dominates. The status is truthful in all of them.
++- Exact- and near-exact-fit designs (three: underdetermined with and without noise, and a tall noiseless design whose rounded response is within rounding of the column span, not in it; levels up to 0.3 or 0.7): every such solve stops uncertified, `converged = false`, `gap = NaN`, with the warning. The best point found is lower by up to about 17 % (16 % in Float64); that is a lower-bound evaluation of the error. For the interpolating designs this is the situation of #155. The tall design is a near fit; its stop points also have weak residual-direction dual certificates (in the reviewer's probe an independent dual point in the residual direction gives a gap of 0.17 and more, far above `1e-4`, with the certificate's own error allowance negligible). Rounding of the iterate can affect the direction of a small residual; the contributions of that effect and of the certificate's allowances were not classified across the sweep. The status is truthful in all of them.
+ - With a tightened user threshold (`tol = 1e-10`) on the rank-deficient design, 26 Float64 solves run 100,000 passes without attempting the certificate, at points within `2.8e-8` (`5.3e-8`): the certificate runs only when the change test passes.
+ 
+ **F6. Float32 PGD and APG with the default options end on the objective-increase exit at points within the target.** PGD 70 of 570 (82), APG 67 (77), with the KKT residual a median 4 times above the bound. Class: documented trade-off, owned by #320 (option A). In Float64 the same exit appears at `gradtol = 1e-8`: 35 (37) PGD and 18 (21) APG solves within the target end on an increase.
+@@ -156,7 +156,7 @@
+
+ 
+ ## Keep unchanged
+ 
+-- The change test as the stop of least-squares and group CD. It implies the bounds of F8, and no converged scalar solve with a positive penalty and a tight reference missed the target at the default. The one check measured (F2) refuses Float32 solves that are within the target; F1 and F3 are invisible to a KKT calculation in working precision.
++- The change test as the stop of least-squares and group CD. It implies the bounds of F8, and no converged scalar solve with a positive penalty and a tight reference missed the target at the default. The one check measured (F2) refuses Float32 solves that are within the target; F1 and F3 are invisible to the KKT calculation that uses the existing working-precision products.
+ - The forced full pass after `20 p` active visits (#311).
+ - The square-root certificate: target `1e-4`, at most two tightenings, the floor, and uncertified meaning `converged = false`, `gap = NaN`.
+ - The stationarity check of PGD and APG: the threshold `max(gradtol, 64 eps) · max(λ, λmax)`, the `floatmin` requirement, and no convergence at a computed `S = 0`.
+@@ -172,7 +172,7 @@
+
+ 2. **One consolidated documentation PR** (approved; no code): the limitations F1 to F3 for CD, PGD and APG, with the difference between meeting the implemented stopping criterion and holding an independently certified optimum; what the change test of scalar and group CD implies (F8) and the measured group result; the Float32 limits (F5 to F7); extreme warm starts; the behaviour of `ftol = 0` (F4) as it is. Coordinated with #320 and with the text merged in #327.
+ 3. **F4 is not implemented.** The prototype X1 stays in the evidence archive with its measurements. An alternative would have to improve termination without extra gradient evaluations that matter, without changing call-budget behaviour, and without new misleading successes on the inputs of F1 and F3; none is proposed here. One untested idea for whoever takes it up: evaluate the check once per unchanged iterate, since the residual at `x` does not depend on the step size.
+ 4. Coordination only: #155 and #156 (exact-fit stops; F5 gives the counts), #320 (F6), #321 and PR #361 and #317 (extreme scales).
+-5. Unmerged code, to audit with the same scripts when it lands: weighted `NormL1` (#350; CD, PGD, APG), `NormLinf` for PGD and APG (#357). #361 changes iteration counts, not a stop test; #362 and #365 claim unchanged results.
++5. Unmerged code, to audit with the same scripts when it lands: weighted `NormL1` (#350; CD, PGD, APG), `NormLinf` for PGD and APG (#357). #361 changes iteration counts, not a stop test; #362 and #365 change numerical helpers (#365 claims unchanged outcome classes).
+ 
+ ## What was not done
+ 
+@@ -187,7 +187,7 @@
+
+ An independent reviewer (Codex `gpt-6.1-sol`, high effort) read the drafts against the code and the raw tables, with its own probes, and requested changes twice.
+ 
+ - Round 1 (7 blockers): the classifier now counts a point as above the target from a lower bound, without requiring a tight reference (group CD: 48 solves above the target, not 24); F2 and F3 are new; the two trade-offs of X1 are stated; the bounds of F8 are scoped, given for the absolute threshold, and their probe aligned with the formula; the validation claims are worded as high-precision checks; the D1 argument no longer claims that declining convergence is impossible; zero-weight groups are covered (part 2).
+-- Round 2 (3 blockers): the check measured in F2 is described as what it is (a final-point test with no floor, not a visit-level statistic), and its counts are no longer attributed to rounding; the exits of the extreme-scale probe are split correctly; the tall noiseless design is called a near-exact fit; several quantifiers and the remaining Julia 1.10 values were corrected.
++- Round 2 (3 blockers) and round 3 (1 blocker, an unsupported explanation of the near-fit design's uncertified stops, now removed): the check measured in F2 is described as what it is (a final-point test with no floor, not a visit-level statistic), and its counts are no longer attributed to rounding; the exits of the extreme-scale probe are split correctly; the tall noiseless design is called a near-exact fit; several quantifiers and the remaining Julia 1.10 values were corrected.
+ - REVIEW_STATUS
+ 
+-The decision table and the follow-up list were updated for the maintainer's ruling after round 2 began; the reviewer saw the recommendations, not the ruling column.
++Rounds 1 and 2 reviewed the recommendations before the ruling column was added; round 3 checked its statements of fact about the audit.
+
+--- revision3/.codex-orchestrator/audit/study/probe_cd_gate.jl
+
++++ revision4/.codex-orchestrator/audit/study/probe_cd_gate.jl
+
+@@ -3,11 +3,12 @@
+
+ # (one more pass of products, O(np)); it is not the statistic a visit could form from its own b.
+ # For every converged solve: wp = the KKT residual normalized by max(λ, computed λmax), and
+ # stat = max_k g_k/√(s a_k), the coordinate KKT residual in the units of the change test, compared with
+-# the solve's own threshold and no precision floor. For the lasso g_k/√(s a_k) equals the scaled change
+-# of a visit in exact arithmetic when the step does not cross zero; for the elastic net it is larger by
+-# the factor 1 + λ2/(s a_k); and at the returned point it also contains the coupling with the
+-# coordinates visited later (the factor of the bound F8), so it can exceed the threshold in exact
+-# arithmetic. "refused" counts the converged solves with stat >= threshold. A solve is within the
++# the solve's own threshold and no precision floor. At the returned point the statistic contains the
++# coupling with the coordinates visited later (the factor of the bound F8), so it can exceed the
++# threshold in exact arithmetic after a valid stopping pass. (For a visit-level comparison, which is
++# not what this probe measures: the residual at the START of a visit is, in exact arithmetic and when
++# the sign does not change, the scaled change of that visit for the lasso and 1 + λ2/(s a_k) times it
++# for the elastic net.) "refused" counts the converged solves with stat >= threshold. A solve is within the
+ # target when the upper bound of its suboptimality against a tight reference is below it, above the
+ # target when the lower bound against a reference with Fref > 1e-20 F(0) exceeds it (the sweep's rule).
+ include(joinpath(@__DIR__, "lib.jl"))

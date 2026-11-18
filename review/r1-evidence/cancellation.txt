@@ -1,0 +1,32 @@
+Float32 n=3 BLAS XTy=0.0 exact=1
+  cd x=Float32[0.0] conv=true its=1 exact KKT normalized=0.875
+  pgd x=Float32[0.0] conv=true its=1 exact KKT normalized=0.875
+  apg x=Float32[0.0] conv=true its=1 exact KKT normalized=0.875
+Float32 n=4 BLAS XTy=0.0 exact=1
+  cd x=Float32[1.5543122f-15] conv=true its=1 exact KKT normalized=1.5543122344752192e-15
+  pgd x=Float32[0.0] conv=true its=1 exact KKT normalized=0.875
+  apg x=Float32[0.0] conv=true its=1 exact KKT normalized=0.875
+Float32 n=5 BLAS XTy=0.0 exact=1
+  cd x=Float32[1.5543122f-15] conv=true its=1 exact KKT normalized=1.5543122344752192e-15
+  pgd x=Float32[0.0] conv=true its=1 exact KKT normalized=0.875
+  apg x=Float32[0.0] conv=true its=1 exact KKT normalized=0.875
+Float32 n=8 BLAS XTy=0.0 exact=1
+  cd x=Float32[1.5543122f-15] conv=true its=1 exact KKT normalized=1.5543122344752192e-15
+  pgd x=Float32[0.0] conv=true its=1 exact KKT normalized=0.875
+  apg x=Float32[0.0] conv=true its=1 exact KKT normalized=0.875
+Float64 n=3 BLAS XTy=0.0 exact=1
+  cd x=[0.0] conv=true its=1 exact KKT normalized=0.875
+  pgd x=[0.0] conv=true its=1 exact KKT normalized=0.875
+  apg x=[0.0] conv=true its=1 exact KKT normalized=0.875
+Float64 n=4 BLAS XTy=1.0 exact=1
+  cd x=[5.3926038442842604e-33] conv=true its=1 exact KKT normalized=5.3926038442842604e-33
+  pgd x=[8.188516364962888e-33] conv=false its=200 exact KKT normalized=0.45366274368305715
+  apg x=[9.567176411313204e-33] conv=false its=200 exact KKT normalized=0.6773631257971893
+Float64 n=5 BLAS XTy=1.0 exact=1
+  cd x=[5.3926038442842604e-33] conv=true its=1 exact KKT normalized=5.3926038442842604e-33
+  pgd x=[8.188516364962888e-33] conv=false its=200 exact KKT normalized=0.45366274368305715
+  apg x=[9.567176411313204e-33] conv=false its=200 exact KKT normalized=0.6773631257971893
+Float64 n=8 BLAS XTy=1.0 exact=1
+  cd x=[5.3926038442842604e-33] conv=true its=1 exact KKT normalized=5.3926038442842604e-33
+  pgd x=[8.188516364962888e-33] conv=false its=200 exact KKT normalized=0.45366274368305715
+  apg x=[9.567176411313204e-33] conv=false its=200 exact KKT normalized=0.6773631257971893

@@ -1,0 +1,34 @@
+Float32 X=Float32[1.0, 5.9604645f-8, -1.0] lambda=7.450581e-9 computed XTy=0.0 exact lambda_max=5.9604645e-8
+ master cd strict=false x=Float32[0.0] converged=true iterations=1
+ master pgd strict=false x=Float32[0.0] converged=true iterations=1
+ master pgd strict=true x=Float32[0.0] converged=false iterations=20
+ master apg strict=false x=Float32[0.0] converged=true iterations=1
+ master apg strict=true x=Float32[0.0] converged=false iterations=20
+ X1 cd strict=false x=Float32[0.0] converged=true iterations=1
+ X1 pgd strict=false x=Float32[0.0] converged=true iterations=1
+ X1 pgd strict=true x=Float32[0.0] converged=true iterations=1
+ X1 apg strict=false x=Float32[0.0] converged=true iterations=1
+ X1 apg strict=true x=Float32[0.0] converged=true iterations=1
+Float64 X=[1.0, 1.1102230246251565e-16, -1.0] lambda=1.3877787807814457e-17 computed XTy=0.0 exact lambda_max=1.1102230246251565e-16
+ master cd strict=false x=[0.0] converged=true iterations=1
+ master pgd strict=false x=[0.0] converged=true iterations=1
+ master pgd strict=true x=[0.0] converged=false iterations=20
+ master apg strict=false x=[0.0] converged=true iterations=1
+ master apg strict=true x=[0.0] converged=false iterations=20
+ X1 cd strict=false x=[0.0] converged=true iterations=1
+ X1 pgd strict=false x=[0.0] converged=true iterations=1
+ X1 pgd strict=true x=[0.0] converged=true iterations=1
+ X1 apg strict=false x=[0.0] converged=true iterations=1
+ X1 apg strict=true x=[0.0] converged=true iterations=1
+counter-example limit=0 master x=[0.5000048396436829] conv=true iter=340 grad=343 limited=false
+counter-example limit=0 X1 x=[0.5000048396436829] conv=true iter=340 grad=349 limited=false
+counter-example limit=2 master x=[1.0] conv=false iter=2 grad=2 limited=true
+counter-example limit=2 X1 x=[1.0] conv=false iter=1 grad=2 limited=true
+counter-example limit=3 master x=[1.0] conv=false iter=3 grad=3 limited=true
+counter-example limit=3 X1 x=[1.0] conv=false iter=2 grad=4 limited=true
+counter-example limit=344 master x=[0.5000048396436829] conv=true iter=340 grad=343 limited=false
+counter-example limit=344 X1 x=[0.5000393375970645] conv=false iter=336 grad=344 limited=true
+counter-example limit=350 master x=[0.5000048396436829] conv=true iter=340 grad=343 limited=false
+counter-example limit=350 X1 x=[0.5000048396436829] conv=true iter=340 grad=349 limited=false
+apg-x-equals-y master assessment=(false, false, true, true, false)
+apg-x-equals-y X1 assessment=(false, false, true, true, false)

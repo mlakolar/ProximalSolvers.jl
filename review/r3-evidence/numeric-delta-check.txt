@@ -1,0 +1,50 @@
+1. Raw source/data identity against the round-1 captured edition
+unchanged files 46 including all source/docs and 20 raw sweep TSVs
+2. Corrected default positive-penalty group counts / interval extrema
+release Float64 converged 1770 above 42
+ relative true n 12 max(lo),max(hi) 2.81876e-07 3.69397e-07
+ all converged relative true max upper 1.41795e-06
+ relative false n 30 max(lo),max(hi) 4.60708e-05 4.74953e-05
+ all converged relative false max upper 4.74953e-05
+release Float32 converged 1759 above 6
+ all converged relative true max upper 1.41779e-06
+ relative false n 6 max(lo),max(hi) 4.55517e-05 4.69763e-05
+ all converged relative false max upper 4.69763e-05
+lts Float64 converged 1770 above 42
+ relative true n 12 max(lo),max(hi) 2.81876e-07 3.69397e-07
+ all converged relative true max upper 1.41795e-06
+ relative false n 30 max(lo),max(hi) 4.60708e-05 4.74953e-05
+ all converged relative false max upper 4.74953e-05
+lts Float32 converged 1756 above 6
+ all converged relative true max upper 1.41779e-06
+ relative false n 6 max(lo),max(hi) 4.55496e-05 4.69741e-05
+ all converged relative false max upper 4.69741e-05
+3. Warm zero-penalty rankdef stop-pass changes
+release Float64 all tolerances 120 default 80 default empty pass 0 warm max KKT 0.0629926 cold max KKT 1.69411e-08
+release Float32 all tolerances 160 default 80 default empty pass 24 warm max KKT 0.158689 cold max KKT 2.49207e-08
+lts Float64 all tolerances 120 default 80 default empty pass 0 warm max KKT 0.0888861 cold max KKT 1.69411e-08
+lts Float32 all tolerances 160 default 80 default empty pass 8 warm max KKT 0.145118 cold max KKT 4.86058e-08
+4. Detailed replay of the CD gate experiment
+Float64 default positive converged 480 refused 14 proved within by upper 14 nonempty stopping passes among refused 14 zero-change among all 66
+Float64 lambda0 raw above 56 refused 8 using declared cutoff above 20 refused 8
+Float32 default positive converged 480 refused 91 proved within by upper 91 nonempty stopping passes among refused 82 zero-change among all 127
+Float32 lambda0 raw above 60 refused 18 using declared cutoff above 36 refused 8
+5. Exact-arithmetic distinction between visit and final residual
+exact scaled pass changes / tau: 1/2, 3sqrt(2)/5, 3sqrt(2)/5; final stat/tau = 6/5
+elastic net X=y=1, lambda1=1/10, lambda2=1, old=1: new=9/20; scaled step 11/20 previsit normalized KKT 11/10
+6. Scaling exit and accuracy claims
+Float64 pgd scaled-down 36 at maxiter 36 early false []
+Float64 apg scaled-down 36 at maxiter 36 early false []
+Float64 up/high-y PGD early 10 errors by multiplicity {'0.00221049': 10}
+Float32 pgd scaled-down 21 at maxiter 14 early false [('-20', '-60', '59'), ('-20', '-40', '69'), ('-20', '-20', '69'), ('-20', '0', '69'), ('-20', '20', '69'), ('-20', '40', '69'), ('-20', '60', '59')]
+Float32 apg scaled-down 21 at maxiter 14 early false [('-20', '-60', '46'), ('-20', '-40', '46'), ('-20', '-20', '46'), ('-20', '0', '46'), ('-20', '20', '46'), ('-20', '40', '46'), ('-20', '60', '46')]
+Float32 up/high-y PGD early 9 errors by multiplicity {'6.82635e-10': 3, '0.00221049': 6}
+7. Exact rational inconsistency of the rounded tall_exact fixture
+Float64 first 10 equations nonsingular; row 11 inconsistent; exact residual 8834343002087493447637678589204954587407503950324444580010250518662841620355078922812347334384692403345316027016796620773027907471093661487097029870189164547143401/14055861770076596060424974251971812630115026799439316155407333218547870903448980445461266359561506771460600657626498735359797262238384450855848240153068678153172661036987195588608 approx 6.285166392924303e-16
+Float32 first 10 equations nonsingular; row 11 inconsistent; exact residual 229341856714191110226840540988962330204299341500156573055401938647857223117211315/1380030881029384936609393225518217984430730505088653824437123339315622699225037263601664 approx 1.6618603240466744e-07
+8. Independent exact objective error of cancellation case A
+Float64 1.5728427879162425e-33
+Float32 4.53341068388605e-16
+9. Zero-weight coverage
+Float64 zero-weight solves 12 max normalized KKT 7.9e-07
+Float32 zero-weight solves 12 max normalized KKT 7.85e-06

@@ -1,0 +1,10 @@
+Julia 1.13.4
+Float64 fraction=0.001 converged=false passes=30 certificate=failed ratio=17.210656473389122 residual64_norm=3.173430151209488e-11 Eup=1.2898477842210585e-13 Eup/residual=0.004064522370941296 Eup/P=5.2465176119583635e-12 ideal_dual_positive=true independent_gap=17.21405446131257
+Float64 fraction=0.3 converged=false passes=20 certificate=failed ratio=0.9605573096754315 residual64_norm=8.882576897753764e-12 Eup=4.690355578979169e-14 Eup/residual=0.0052803996328647275 Eup/P=6.35941529542954e-15 ideal_dual_positive=true independent_gap=0.9604208413526297
+Float64 fraction=0.7 converged=false passes=90 certificate=failed ratio=0.1713278647209898 residual64_norm=5.425543321661543e-10 Eup=4.690355578900126e-14 Eup/residual=8.64495093085669e-5 Eup/P=2.7254636979849412e-15 ideal_dual_positive=true independent_gap=0.17132856345802724
+Float32 fraction=0.001 converged=false passes=19 certificate=failed ratio=78.76559084310352 residual64_norm=1.1139416665640204e-6 Eup=1.2898478007834395e-13 Eup/residual=1.1579132368412125e-7 Eup/P=5.246280028732398e-12 ideal_dual_positive=true independent_gap=78.76559123300854
+Float32 fraction=0.3 converged=false passes=14 certificate=failed ratio=NaN residual64_norm=8.245616201078775e-7 Eup=5.862944533764434e-14 Eup/residual=7.110377673165752e-8 Eup/P=7.949268316337681e-15 ideal_dual_positive=false independent_gap=NaN
+Float32 fraction=0.7 converged=false passes=59 certificate=failed ratio=0.28890098872798975 residual64_norm=4.465283521896637e-6 Eup=4.6903549320580595e-14 Eup/residual=1.0504047299701639e-8 Eup/P=2.725463154812074e-15 ideal_dual_positive=true independent_gap=0.28890098872788256
+scaled-reference precision:
+Float64 (Fref-Dref)/Dref=1.5541030314151737e-180
+Float32 (Fref-Dref)/Dref=2.486564875328089e-180

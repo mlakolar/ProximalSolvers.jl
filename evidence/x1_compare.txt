@@ -1,0 +1,30 @@
+===== Float64
+options default      solves 1140, identical outcome and returned point: 1140
+options default-20k  solves 1140, identical outcome and returned point: 1140
+options allow-inc    solves 1140, identical outcome and returned point: 1140
+options gradtol1e-8  solves 1140, identical outcome and returned point: 1140
+options ftol0        solves 1140, identical outcome and returned point: 725
+options strict       solves 1140, identical outcome and returned point: 693
+ pgd ftol0  master {'converged': 359, 'maxiter': 202, 'increase': 9} | X1 {'converged': 550, 'increase': 7, 'maxiter': 13}
+    total iterations 4148637 -> 368841; newly converged 191 ({'conv/good': 173, 'conv/noref': 18}), returned objective differs in 0 of them; lost 0; converged with exact KKT >= bound: 0 (worst ratio 1.000)
+ pgd strict master {'maxiter': 256, 'converged': 314} | X1 {'maxiter': 50, 'converged': 520}
+    total iterations 5250608 -> 1139841; newly converged 206 ({'conv/good': 184, 'conv/noref': 22}), returned objective differs in 0 of them; lost 0; converged with exact KKT >= bound: 0 (worst ratio 0.910)
+ apg ftol0  master {'converged': 358, 'maxiter': 206, 'increase': 6} | X1 {'converged': 554, 'increase': 4, 'maxiter': 12}
+    total iterations 4162770 -> 282967; newly converged 196 ({'conv/good': 178, 'conv/noref': 18}), returned objective differs in 0 of them; lost 0; converged with exact KKT >= bound: 0 (worst ratio 1.000)
+ apg strict master {'converged': 324, 'maxiter': 246} | X1 {'converged': 533, 'maxiter': 37}
+    total iterations 5015147 -> 859015; newly converged 209 ({'conv/good': 187, 'conv/noref': 22}), returned objective differs in 0 of them; lost 0; converged with exact KKT >= bound: 0 (worst ratio 0.999)
+===== Float32
+options default      solves 1140, identical outcome and returned point: 1140
+options default-20k  solves 1140, identical outcome and returned point: 1140
+options allow-inc    solves 1140, identical outcome and returned point: 1140
+options gradtol1e-8  solves 1140, identical outcome and returned point: 1140
+options ftol0        solves 1140, identical outcome and returned point: 726
+options strict       solves 1140, identical outcome and returned point: 348
+ pgd ftol0  master {'converged': 198, 'increase': 162, 'maxiter': 202, 'stagnated': 8} | X1 {'converged': 399, 'increase': 161, 'maxiter': 10}
+    total iterations 4088524 -> 248766; newly converged 201 ({'conv/good': 183, 'conv/noref': 18}), returned objective differs in 0 of them; lost 0; converged with exact KKT >= bound: 0 (worst ratio 0.601)
+ pgd strict master {'maxiter': 358, 'stagnated': 200, 'converged': 12} | X1 {'maxiter': 126, 'converged': 444}
+    total iterations 7497954 -> 2797287; newly converged 432 ({'conv/good': 400, 'conv/noref': 32}), returned objective differs in 1 of them; lost 0; converged with exact KKT >= bound: 0 (worst ratio 0.417)
+ apg ftol0  master {'converged': 220, 'increase': 143, 'maxiter': 207} | X1 {'converged': 418, 'increase': 140, 'maxiter': 12}
+    total iterations 4159577 -> 252830; newly converged 198 ({'conv/good': 180, 'conv/noref': 18}), returned objective differs in 0 of them; lost 0; converged with exact KKT >= bound: 0 (worst ratio 0.997)
+ apg strict master {'maxiter': 356, 'converged': 214} | X1 {'maxiter': 140, 'converged': 430}
+    total iterations 7425938 -> 3002457; newly converged 216 ({'conv/good': 193, 'conv/noref': 23}), returned objective differs in 0 of them; lost 0; converged with exact KKT >= bound: 0 (worst ratio 0.311)

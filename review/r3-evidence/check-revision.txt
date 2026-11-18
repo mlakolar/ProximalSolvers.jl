@@ -1,0 +1,14 @@
+Revised gate output independently checked against R2 per-solve replay:
+('Float32', 1e-05, 'λ=0') [120, 14, 6, 36, 8, 16, 16, 2, 2] 0.00011
+('Float32', 1e-05, 'λ>0') [480, 10, 8, 8, 2, 46, 38, 77, 0] 0.000108
+('Float32', 1e-07, 'λ=0') [120, 32, 14, 36, 8, 8, 8, 2, 2] 2.28e-06
+('Float32', 1e-07, 'λ>0') [480, 91, 89, 0, 0, 0, 0, 127, 9] 3.74e-06
+('Float64', 1e-10, 'λ=0') [108, 8, 8, 0, 0, 64, 0, 0, 0] 1.29e-09
+('Float64', 1e-10, 'λ>0') [470, 12, 12, 0, 0, 236, 0, 66, 0] 7.75e-10
+('Float64', 1e-07, 'λ=0') [120, 14, 6, 20, 8, 76, 8, 0, 0] 1.12e-06
+('Float64', 1e-07, 'λ>0') [480, 14, 14, 0, 0, 260, 0, 66, 0] 1.44e-06
+Changed captured files versus revision 2: ['.codex-orchestrator/audit/evidence/probe_cd_gate_release.txt', '.codex-orchestrator/audit/report/part1.md', '.codex-orchestrator/audit/report/part2.md', '.codex-orchestrator/audit/study/probe_cd_gate.jl']
+All other captured files unchanged, including source/docs and 20 sweep TSVs.
+Native Float64 evaluation counterexamples to universal precision-only invisibility:
+alpha * (2*x*y) = 0.0 but 2*(alpha*x)*y = 2.3661043723335494e-271
+(1+d)-1 = 0.0 but (1-1)+d = 1.1102230246251565e-16

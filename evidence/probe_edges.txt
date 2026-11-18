@@ -1,0 +1,43 @@
+Julia 1.13.4
+Float64 cd maxpasses=0                     converged=false passes=0      maxchange=NaN        tolerance=2.02e-06   gap=NaN   minimum=204.061 warnings=1 coordinate descent did not converge in maxpasses = 0 passes (last chan
+Float64 cd tol=0                           converged=false passes=1000   maxchange=2.02e-16   tolerance=0          gap=NaN   minimum=49.6218 warnings=1 coordinate descent did not converge in maxpasses = 1000 passes (last c
+Float64 cd λ=2λmax cold                    converged=true  passes=1      maxchange=0          tolerance=2.02e-06   gap=NaN   minimum=204.061 warnings=0 
+Float64 cd λ=2λmax from ones               converged=true  passes=3      maxchange=0          tolerance=2.02e-06   gap=NaN   minimum=204.061 warnings=0 
+Float64 cd maxpasses=1                     converged=false passes=1      maxchange=9.52       tolerance=2.02e-06   gap=NaN   minimum=56.544 warnings=1 coordinate descent did not converge in maxpasses = 1 passes (last chan
+Float64 cd y=0 cold                        converged=true  passes=1      maxchange=0          tolerance=1e-07      gap=NaN   minimum=0 warnings=0 
+Float64 cd y=0 λ=0 from ones               converged=true  passes=17     maxchange=2.99e-08   tolerance=1e-07      gap=NaN   minimum=8.5355e-15 warnings=0 
+Float64 sqrt maxpasses=0                   converged=false passes=0      maxchange=NaN        tolerance=2.02e-06   gap=NaN   minimum=20.202 warnings=1 coordinate descent did not converge in maxpasses = 0 passes (last chan
+Float64 sqrt maxpasses=2                   converged=false passes=2      maxchange=2.38       tolerance=2.02e-06   gap=NaN   minimum=10.0628 warnings=1 coordinate descent did not converge in maxpasses = 2 passes (last chan
+Float64 pgd λ=2λmax cold default           converged=true  iters=1     x=true f=true g=true f_increased=false at_maxiter=false stagnated=false grad_calls=2
+Float64 pgd λ=2λmax cold ftol=0            converged=false iters=200   x=false f=false g=false f_increased=false at_maxiter=true stagnated=false grad_calls=201
+Float64 pgd λ=2λmax from ones ftol=0       converged=false iters=2000  x=false f=false g=false f_increased=false at_maxiter=true stagnated=false grad_calls=2001
+Float64 pgd λ=0.1λmax maxiter=2            converged=false iters=2     x=false f=false g=false f_increased=false at_maxiter=true stagnated=false grad_calls=3
+Float64 pgd y=0 λ=0                        converged=false iters=200   x=false f=false g=false f_increased=false at_maxiter=true stagnated=false grad_calls=201
+Float64 pgd y=0 λ=1                        converged=true  iters=1     x=true f=true g=false f_increased=false at_maxiter=false stagnated=false grad_calls=2
+Float64 apg λ=2λmax cold default           converged=true  iters=1     x=true f=true g=true f_increased=false at_maxiter=false stagnated=false grad_calls=2
+Float64 apg λ=2λmax cold ftol=0            converged=false iters=200   x=false f=false g=false f_increased=false at_maxiter=true stagnated=false grad_calls=200
+Float64 apg λ=2λmax from ones ftol=0       converged=false iters=2000  x=false f=false g=false f_increased=false at_maxiter=true stagnated=false grad_calls=2000
+Float64 apg λ=0.1λmax maxiter=2            converged=false iters=2     x=false f=false g=false f_increased=false at_maxiter=true stagnated=false grad_calls=2
+Float64 apg y=0 λ=0                        converged=false iters=200   x=false f=false g=false f_increased=false at_maxiter=true stagnated=false grad_calls=400
+Float64 apg y=0 λ=1                        converged=true  iters=1     x=true f=true g=false f_increased=false at_maxiter=false stagnated=false grad_calls=2
+Float32 cd maxpasses=0                     converged=false passes=0      maxchange=NaN        tolerance=2.02e-06   gap=NaN   minimum=204.061 warnings=1 coordinate descent did not converge in maxpasses = 0 passes (last chan
+Float32 cd tol=0                           converged=false passes=1000   maxchange=0          tolerance=0          gap=NaN   minimum=49.6218 warnings=1 coordinate descent did not converge in maxpasses = 1000 passes (last c
+Float32 cd λ=2λmax cold                    converged=true  passes=1      maxchange=0          tolerance=2.02e-06   gap=NaN   minimum=204.061 warnings=0 
+Float32 cd λ=2λmax from ones               converged=true  passes=3      maxchange=0          tolerance=2.02e-06   gap=NaN   minimum=204.061 warnings=0 
+Float32 cd maxpasses=1                     converged=false passes=1      maxchange=9.52       tolerance=2.02e-06   gap=NaN   minimum=56.544 warnings=1 coordinate descent did not converge in maxpasses = 1 passes (last chan
+Float32 cd y=0 cold                        converged=true  passes=1      maxchange=0          tolerance=1e-07      gap=NaN   minimum=0 warnings=0 
+Float32 cd y=0 λ=0 from ones               converged=true  passes=17     maxchange=2.99e-08   tolerance=1e-07      gap=NaN   minimum=2.59249e-12 warnings=0 
+Float32 sqrt maxpasses=0                   converged=false passes=0      maxchange=NaN        tolerance=2.02e-06   gap=NaN   minimum=20.202 warnings=1 coordinate descent did not converge in maxpasses = 0 passes (last chan
+Float32 sqrt maxpasses=2                   converged=false passes=2      maxchange=2.38       tolerance=2.02e-06   gap=NaN   minimum=10.0628 warnings=1 coordinate descent did not converge in maxpasses = 2 passes (last chan
+Float32 pgd λ=2λmax cold default           converged=true  iters=1     x=true f=true g=true f_increased=false at_maxiter=false stagnated=false grad_calls=2
+Float32 pgd λ=2λmax cold ftol=0            converged=false iters=200   x=false f=false g=false f_increased=false at_maxiter=true stagnated=false grad_calls=201
+Float32 pgd λ=2λmax from ones ftol=0       converged=false iters=2000  x=false f=false g=false f_increased=false at_maxiter=true stagnated=false grad_calls=2001
+Float32 pgd λ=0.1λmax maxiter=2            converged=false iters=2     x=false f=false g=false f_increased=false at_maxiter=true stagnated=false grad_calls=3
+Float32 pgd y=0 λ=0                        converged=false iters=200   x=false f=false g=false f_increased=false at_maxiter=true stagnated=false grad_calls=201
+Float32 pgd y=0 λ=1                        converged=true  iters=1     x=true f=true g=false f_increased=false at_maxiter=false stagnated=false grad_calls=2
+Float32 apg λ=2λmax cold default           converged=true  iters=1     x=true f=true g=true f_increased=false at_maxiter=false stagnated=false grad_calls=2
+Float32 apg λ=2λmax cold ftol=0            converged=false iters=200   x=false f=false g=false f_increased=false at_maxiter=true stagnated=false grad_calls=200
+Float32 apg λ=2λmax from ones ftol=0       converged=false iters=2000  x=false f=false g=false f_increased=false at_maxiter=true stagnated=false grad_calls=2000
+Float32 apg λ=0.1λmax maxiter=2            converged=false iters=2     x=false f=false g=false f_increased=false at_maxiter=true stagnated=false grad_calls=2
+Float32 apg y=0 λ=0                        converged=false iters=200   x=false f=false g=false f_increased=false at_maxiter=true stagnated=false grad_calls=400
+Float32 apg y=0 λ=1                        converged=true  iters=1     x=true f=true g=false f_increased=false at_maxiter=false stagnated=false grad_calls=2

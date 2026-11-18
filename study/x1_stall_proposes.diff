@@ -1,0 +1,35 @@
+diff --git a/src/solve.jl b/src/solve.jl
+index e88a034..2ad0126 100644
+--- a/src/solve.jl
++++ b/src/solve.jl
+@@ -246,7 +246,7 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
+ 
+     # a numerical-stagnation stop (see _stagnated), checked after trace! and any callback call
+     # that is due at this iteration under print_every
+-    stagnated = _stagnated(state, options)
++    stagnated = !converged && _stagnated(state, options)
+ 
+     increased = f_increased && !options.allow_f_increases
+     if increased || stagnated || stopped_by_callback ||
+diff --git a/src/utils.jl b/src/utils.jl
+index edd03a2..caad6a5 100644
+--- a/src/utils.jl
++++ b/src/utils.jl
+@@ -47,7 +47,7 @@ function convergence_assessment(
+   # does not show equality.
+   stalled = iszero(options.ftol) && iszero(norm_dx) && _unchanged(state.x, state.x_previous)
+ 
+-  if !stalled && norm_dx < options.xtol * max( norm_x, 1. )
++  if norm_dx < options.xtol * max( norm_x, 1. )
+     x_converged = true
+   end
+ 
+@@ -65,7 +65,7 @@ function convergence_assessment(
+   end
+ 
+   # evaluated on a stalled iteration too, so max_residual is updated as without the rule
+-  grad_converged = gradient_converged!(state, options) && !stalled
++  grad_converged = gradient_converged!(state, options)
+ 
+   # A stop proposed by any of the three tests counts only if the accepted iterate is stationary
+   # for the lasso, to the working precision (see _stationary!); otherwise the solve continues.

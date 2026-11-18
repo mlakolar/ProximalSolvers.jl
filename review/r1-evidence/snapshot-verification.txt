@@ -1,0 +1,71 @@
+snapshot
+{
+  "project": {
+    "bundle_changed_files": [],
+    "bundle_missing_files": [],
+    "changed_files": [],
+    "missing_files": [],
+    "tracked_files": 106
+  },
+  "protocol": {
+    "bundle_changed_files": [],
+    "bundle_missing_files": [],
+    "changed_files": [],
+    "missing_files": [],
+    "tracked_files": 5
+  },
+  "protocol_membership_changed": false,
+  "repository_changes": [],
+  "skill_root_changed": false,
+  "valid": true,
+  "verified_at": "2026-11-18T06:05:08+00:00",
+  "worktree_status_changed": false
+}
+
+pb-snapshot
+{
+  "project": {
+    "bundle_changed_files": [],
+    "bundle_missing_files": [],
+    "changed_files": [],
+    "missing_files": [],
+    "tracked_files": 29
+  },
+  "protocol": {
+    "bundle_changed_files": [],
+    "bundle_missing_files": [],
+    "changed_files": [],
+    "missing_files": [],
+    "tracked_files": 5
+  },
+  "protocol_membership_changed": false,
+  "repository_changes": [],
+  "skill_root_changed": false,
+  "valid": true,
+  "verified_at": "2026-11-18T06:05:09+00:00",
+  "worktree_status_changed": false
+}
+
+x1-snapshot
+{
+  "project": {
+    "bundle_changed_files": [],
+    "bundle_missing_files": [],
+    "changed_files": [],
+    "missing_files": [],
+    "tracked_files": 14
+  },
+  "protocol": {
+    "bundle_changed_files": [],
+    "bundle_missing_files": [],
+    "changed_files": [],
+    "missing_files": [],
+    "tracked_files": 5
+  },
+  "protocol_membership_changed": false,
+  "repository_changes": [],
+  "skill_root_changed": false,
+  "valid": true,
+  "verified_at": "2026-11-18T06:05:09+00:00",
+  "worktree_status_changed": false
+}

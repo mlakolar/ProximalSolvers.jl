@@ -1,0 +1,158 @@
+
+VERSION release
+cd_scalar Float64 rows 22800 statuses {'ok': 22800}
+default positive 8760 conv 8760 tight 8160 bad 0 worst hi tight 1.15236e-09 max min_err inf
+absolute maxpasses 0 subopt hi max 0
+offset zero penalty default relative subopt range 1.50292e-20 0.00322444
+loose conv 5700 bad 680 positive bad 376
+cd_scalar Float32 rows 22800 statuses {'ok': 22800}
+default positive 8760 conv 8656 tight 8058 bad 0 worst hi tight 1.26328e-09 max min_err inf
+absolute maxpasses 130 subopt hi max 5.1216e-08
+offset zero penalty default relative subopt range 0.00181598 0.00480091
+loose conv 5700 bad 232 positive bad 44
+cd_group Float64 rows 4512 statuses {'ok': 4512}
+default positive 1776 conv 1770 tight 1680 bad 24 worst hi tight 2.53076e-07 max min_err 2.6047e-14
+loose conv 5700 bad 232 positive bad 44
+CORRECTED group default positive: proved misses 42 hidden by ref_tight 18 worst lo 4.60708e-05 worst hi 4.74953e-05
+cd_group Float32 rows 4512 statuses {'ok': 4512}
+default positive 1776 conv 1759 tight 1645 bad 0 worst hi tight 2.42424e-07 max min_err 0.000231798
+loose conv 5700 bad 232 positive bad 44
+CORRECTED group default positive: proved misses 6 hidden by ref_tight 6 worst lo 4.55517e-05 worst hi 4.69763e-05
+sqrt Float64 rows 7320 statuses {'ok': 7320}
+ certified 5866 gap<ideal gap STRICT 0 gap<subopt_lo STRICT 0
+ sqrt 0.001 default conv 196 of 210 unc hi 5.37363e-12
+ sqrt 0.001 0.0001 conv 178 of 210 unc hi 5.58276e-09
+ sqrt 0.05 default conv 210 of 210 unc hi 0
+ sqrt 0.05 0.0001 conv 192 of 210 unc hi 1.85688e-10
+ sqrt 0.3 default conv 210 of 210 unc hi 0
+ sqrt 0.3 0.0001 conv 206 of 210 unc hi 1.6392e-14
+ sqrt 0.7 default conv 210 of 210 unc hi 0
+ sqrt 0.7 0.0001 conv 210 of 210 unc hi 0
+ sqrt 1.01 default conv 210 of 210 unc hi 0
+ sqrt 1.01 0.0001 conv 210 of 210 unc hi 0
+ sqrt 2 default conv 210 of 210 unc hi 0
+ sqrt 2 0.0001 conv 210 of 210 unc hi 0
+corr95 loose uncert 12 gap range 0.000107641 0.000258692 max subopt hi 9.0561e-12
+sqrt tight maxpasses 0 max subopt hi 0
+sqrt Float32 rows 7320 statuses {'ok': 7320}
+ certified 4900 gap<ideal gap STRICT 0 gap<subopt_lo STRICT 0
+ sqrt 0.001 default conv 40 of 210 unc hi 6.51108e-05
+ sqrt 0.001 0.0001 conv 24 of 210 unc hi 0.00464737
+ sqrt 0.05 default conv 178 of 210 unc hi 3.6163e-08
+ sqrt 0.05 0.0001 conv 100 of 210 unc hi 1.90545e-06
+ sqrt 0.3 default conv 210 of 210 unc hi 0
+ sqrt 0.3 0.0001 conv 184 of 210 unc hi 2.15839e-07
+ sqrt 0.7 default conv 210 of 210 unc hi 0
+ sqrt 0.7 0.0001 conv 208 of 210 unc hi 8.3987e-09
+ sqrt 1.01 default conv 210 of 210 unc hi 0
+ sqrt 1.01 0.0001 conv 210 of 210 unc hi 0
+ sqrt 2 default conv 210 of 210 unc hi 0
+ sqrt 2 0.0001 conv 210 of 210 unc hi 0
+corr95 loose uncert 70 gap range 0.000350616 2.24506 max subopt hi 5.8786e-06
+sqrt tight maxpasses 0 max subopt hi 0
+grad Float64 rows 6840 statuses {'ok': 6840}
+ conv 5655 exact violations 0 max ratio 0.999978
+pgd default conv 515 nonconv-bound 8 at-maxiter 8 stagnated 0 st ratio max 0 increase-good 0 inc ratio median 0 conv-and-increase 16
+pgd gradtol1e-8 conv 515 nonconv-bound 8 at-maxiter 8 stagnated 0 st ratio max 0 increase-good 35 inc ratio median 4.09544 conv-and-increase 19
+pgd ftol0 conv 359 nonconv-bound 199 at-maxiter 197 stagnated 0 st ratio max 0 increase-good 2 inc ratio median 2.7670649999999994e-12 conv-and-increase 17
+pgd strict conv 314 nonconv-bound 223 at-maxiter 223 stagnated 0 st ratio max 0 increase-good 0 inc ratio median 0 conv-and-increase 68
+apg default conv 530 nonconv-bound 8 at-maxiter 8 stagnated 0 st ratio max 0 increase-good 0 inc ratio median 0 conv-and-increase 21
+apg gradtol1e-8 conv 532 nonconv-bound 8 at-maxiter 8 stagnated 0 st ratio max 0 increase-good 18 inc ratio median 1.573 conv-and-increase 25
+apg ftol0 conv 358 nonconv-bound 204 at-maxiter 202 stagnated 0 st ratio max 0 increase-good 2 inc ratio median 2.7670649999999994e-12 conv-and-increase 22
+apg strict conv 324 nonconv-bound 225 at-maxiter 225 stagnated 0 st ratio max 0 increase-good 0 inc ratio median 0 conv-and-increase 54
+grad Float32 rows 6840 statuses {'ok': 6840}
+ conv 4415 exact violations 8 max ratio 1.0253599999999998
+pgd default conv 440 nonconv-bound 15 at-maxiter 8 stagnated 0 st ratio max 0 increase-good 70 inc ratio median 4.055624999999999 conv-and-increase 38
+pgd gradtol1e-8 conv 421 nonconv-bound 27 at-maxiter 8 stagnated 0 st ratio max 0 increase-good 84 inc ratio median 5.203345221570794 conv-and-increase 36
+pgd ftol0 conv 198 nonconv-bound 259 at-maxiter 200 stagnated 8 st ratio max 0.025519699999999996 increase-good 115 inc ratio median 2.2286999999999995 conv-and-increase 32
+pgd strict conv 12 nonconv-bound 546 at-maxiter 346 stagnated 200 st ratio max 0.41705562305767563 increase-good 0 inc ratio median 0 conv-and-increase 0
+apg default conv 462 nonconv-bound 11 at-maxiter 8 stagnated 0 st ratio max 0 increase-good 67 inc ratio median 4.4490799999999995 conv-and-increase 40
+apg gradtol1e-8 conv 439 nonconv-bound 24 at-maxiter 8 stagnated 0 st ratio max 0 increase-good 88 inc ratio median 5.269045100591265 conv-and-increase 33
+apg ftol0 conv 220 nonconv-bound 257 at-maxiter 203 stagnated 0 st ratio max 0 increase-good 123 inc ratio median 1.7635399999999999 conv-and-increase 30
+apg strict conv 214 nonconv-bound 344 at-maxiter 344 stagnated 0 st ratio max 0 increase-good 0 inc ratio median 0 conv-and-increase 0
+TOTAL 82944
+X1 Float64 ftol>0 4560 ALL columns identical 4560 changes {}
+ X1 new Counter({'apg': 405, 'pgd': 397}) lost 0 viol 0 new obj changed 0 new bad 0 iterations 18577162 2650664
+ X1 ALL options exact violations 0
+X1 Float32 ftol>0 4560 ALL columns identical 4560 changes {}
+ X1 new Counter({'pgd': 633, 'apg': 414}) lost 0 viol 0 new obj changed 1 new bad 0 iterations 23171993 6301340
+ X1 ALL options exact violations 8
+
+VERSION lts
+cd_scalar Float64 rows 22800 statuses {'ok': 22800}
+default positive 8760 conv 8760 tight 8160 bad 0 worst hi tight 1.15236e-09 max min_err inf
+absolute maxpasses 0 subopt hi max 0
+offset zero penalty default relative subopt range 1.50292e-20 0.00322444
+loose conv 5700 bad 680 positive bad 376
+cd_scalar Float32 rows 22800 statuses {'ok': 22800}
+default positive 8760 conv 8622 tight 8022 bad 0 worst hi tight 1.18367e-09 max min_err inf
+absolute maxpasses 162 subopt hi max 3.66724e-07
+offset zero penalty default relative subopt range 0.00181598 0.00492802
+loose conv 5700 bad 232 positive bad 44
+cd_group Float64 rows 4512 statuses {'ok': 4512}
+default positive 1776 conv 1770 tight 1680 bad 24 worst hi tight 2.53076e-07 max min_err 1.85978e-14
+loose conv 5700 bad 232 positive bad 44
+CORRECTED group default positive: proved misses 42 hidden by ref_tight 18 worst lo 4.60708e-05 worst hi 4.74953e-05
+cd_group Float32 rows 4512 statuses {'ok': 4512}
+default positive 1776 conv 1756 tight 1654 bad 0 worst hi tight 2.42296e-07 max min_err 0.000232262
+loose conv 5700 bad 232 positive bad 44
+CORRECTED group default positive: proved misses 6 hidden by ref_tight 6 worst lo 4.55496e-05 worst hi 4.69741e-05
+sqrt Float64 rows 7320 statuses {'ok': 7320}
+ certified 5866 gap<ideal gap STRICT 0 gap<subopt_lo STRICT 0
+ sqrt 0.001 default conv 196 of 210 unc hi 5.37362e-12
+ sqrt 0.001 0.0001 conv 178 of 210 unc hi 5.58276e-09
+ sqrt 0.05 default conv 210 of 210 unc hi 0
+ sqrt 0.05 0.0001 conv 192 of 210 unc hi 1.85688e-10
+ sqrt 0.3 default conv 210 of 210 unc hi 0
+ sqrt 0.3 0.0001 conv 206 of 210 unc hi 1.6392e-14
+ sqrt 0.7 default conv 210 of 210 unc hi 0
+ sqrt 0.7 0.0001 conv 210 of 210 unc hi 0
+ sqrt 1.01 default conv 210 of 210 unc hi 0
+ sqrt 1.01 0.0001 conv 210 of 210 unc hi 0
+ sqrt 2 default conv 210 of 210 unc hi 0
+ sqrt 2 0.0001 conv 210 of 210 unc hi 0
+corr95 loose uncert 12 gap range 0.000107641 0.000258692 max subopt hi 1.0597e-11
+sqrt tight maxpasses 0 max subopt hi 0
+sqrt Float32 rows 7320 statuses {'ok': 7320}
+ certified 4912 gap<ideal gap STRICT 0 gap<subopt_lo STRICT 0
+ sqrt 0.001 default conv 42 of 210 unc hi 6.51108e-05
+ sqrt 0.001 0.0001 conv 24 of 210 unc hi 0.00464737
+ sqrt 0.05 default conv 178 of 210 unc hi 3.6163e-08
+ sqrt 0.05 0.0001 conv 100 of 210 unc hi 1.90488e-06
+ sqrt 0.3 default conv 210 of 210 unc hi 0
+ sqrt 0.3 0.0001 conv 184 of 210 unc hi 2.15815e-07
+ sqrt 0.7 default conv 210 of 210 unc hi 0
+ sqrt 0.7 0.0001 conv 208 of 210 unc hi 8.39871e-09
+ sqrt 1.01 default conv 210 of 210 unc hi 0
+ sqrt 1.01 0.0001 conv 210 of 210 unc hi 0
+ sqrt 2 default conv 210 of 210 unc hi 0
+ sqrt 2 0.0001 conv 210 of 210 unc hi 0
+corr95 loose uncert 70 gap range 0.000349566 2.24418 max subopt hi 5.87751e-06
+sqrt tight maxpasses 0 max subopt hi 0
+grad Float64 rows 6840 statuses {'ok': 6840}
+ conv 5652 exact violations 0 max ratio 0.999978
+pgd default conv 514 nonconv-bound 8 at-maxiter 8 stagnated 0 st ratio max 0 increase-good 0 inc ratio median 0 conv-and-increase 24
+pgd gradtol1e-8 conv 513 nonconv-bound 8 at-maxiter 8 stagnated 0 st ratio max 0 increase-good 37 inc ratio median 4.83709 conv-and-increase 28
+pgd ftol0 conv 361 nonconv-bound 197 at-maxiter 197 stagnated 0 st ratio max 0 increase-good 0 inc ratio median 0 conv-and-increase 25
+pgd strict conv 313 nonconv-bound 224 at-maxiter 224 stagnated 0 st ratio max 0 increase-good 0 inc ratio median 0 conv-and-increase 71
+apg default conv 530 nonconv-bound 8 at-maxiter 8 stagnated 0 st ratio max 0 increase-good 0 inc ratio median 0 conv-and-increase 20
+apg gradtol1e-8 conv 529 nonconv-bound 8 at-maxiter 8 stagnated 0 st ratio max 0 increase-good 21 inc ratio median 1.5285199999999999 conv-and-increase 24
+apg ftol0 conv 360 nonconv-bound 202 at-maxiter 200 stagnated 0 st ratio max 0 increase-good 2 inc ratio median 2.04654e-12 conv-and-increase 19
+apg strict conv 324 nonconv-bound 224 at-maxiter 224 stagnated 0 st ratio max 0 increase-good 0 inc ratio median 0 conv-and-increase 69
+grad Float32 rows 6840 statuses {'ok': 6840}
+ conv 4315 exact violations 8 max ratio 1.0406399999999998
+pgd default conv 429 nonconv-bound 12 at-maxiter 8 stagnated 0 st ratio max 0 increase-good 82 inc ratio median 4.186055 conv-and-increase 48
+pgd gradtol1e-8 conv 412 nonconv-bound 24 at-maxiter 8 stagnated 0 st ratio max 0 increase-good 95 inc ratio median 5.380836475786399 conv-and-increase 47
+pgd ftol0 conv 190 nonconv-bound 253 at-maxiter 197 stagnated 7 st ratio max 0.006585999999999999 increase-good 132 inc ratio median 2.472405 conv-and-increase 38
+pgd strict conv 12 nonconv-bound 546 at-maxiter 338 stagnated 208 st ratio max 0.4400482869534786 increase-good 0 inc ratio median 0 conv-and-increase 0
+apg default conv 449 nonconv-bound 13 at-maxiter 8 stagnated 0 st ratio max 0 increase-good 77 inc ratio median 4.42144 conv-and-increase 55
+apg gradtol1e-8 conv 430 nonconv-bound 24 at-maxiter 8 stagnated 0 st ratio max 0 increase-good 97 inc ratio median 5.260590951570178 conv-and-increase 49
+apg ftol0 conv 201 nonconv-bound 263 at-maxiter 201 stagnated 0 st ratio max 0 increase-good 139 inc ratio median 2.0244999999999997 conv-and-increase 38
+apg strict conv 209 nonconv-bound 349 at-maxiter 349 stagnated 0 st ratio max 0 increase-good 0 inc ratio median 0 conv-and-increase 0
+TOTAL 82944
+X1 Float64 ftol>0 4560 ALL columns identical 4560 changes {}
+ X1 new Counter({'apg': 397, 'pgd': 395}) lost 0 viol 0 new obj changed 0 new bad 0 iterations 18566192 2804377
+ X1 ALL options exact violations 0
+X1 Float32 ftol>0 4560 ALL columns identical 4560 changes {}
+ X1 new Counter({'pgd': 634, 'apg': 412}) lost 0 viol 0 new obj changed 1 new bad 2 iterations 23041689 6374021
+ X1 ALL options exact violations 8

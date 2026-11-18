@@ -1,0 +1,27 @@
+Julia 1.13.4, load average [5.22, 4.72, 3.18]
+fixture  T       sol  options         A ns  B/A med  B/A max A2/A med A2/A max
+gauss    Float64 pgd  default         3545    1.001    1.009    0.999    1.007
+gauss    Float64 pgd  gradtol1e-8       4960    1.002    1.006    1.008    1.016
+gauss    Float64 apg  default         6534    1.012    1.015    1.010    1.011
+gauss    Float64 apg  gradtol1e-8       9792    1.010    1.013    1.006    1.010
+wide     Float64 pgd  default        84103    0.992    0.993    1.001    1.002
+wide     Float64 pgd  gradtol1e-8     140841    0.994    0.995    1.001    1.004
+wide     Float64 apg  default        34140    1.001    1.004    1.007    1.009
+wide     Float64 apg  gradtol1e-8      48116    1.003    1.005    1.008    1.009
+corr95   Float64 pgd  default        54191    0.991    0.993    0.998    0.999
+corr95   Float64 pgd  gradtol1e-8     382711    0.994    1.017    1.005    1.007
+corr95   Float64 apg  default        74986    1.017    1.020    1.014    1.016
+corr95   Float64 apg  gradtol1e-8     119041    1.014    1.015    1.007    1.008
+gauss    Float32 pgd  default         3349    0.985    0.988    1.008    1.012
+gauss    Float32 pgd  gradtol1e-8       3350    0.987    0.991    1.012    1.016
+gauss    Float32 apg  default         6427    0.996    0.999    0.998    1.002
+gauss    Float32 apg  gradtol1e-8       6441    0.998    0.999    0.997    1.001
+wide     Float32 pgd  default        67542    0.988    0.990    0.996    0.998
+wide     Float32 pgd  gradtol1e-8      67703    0.988    0.991    0.996    0.999
+wide     Float32 apg  default        29791    0.994    0.996    0.990    0.995
+wide     Float32 apg  gradtol1e-8      29729    0.997    0.998    0.994    0.996
+corr95   Float32 pgd  default        55701    0.981    0.983    1.012    1.014
+corr95   Float32 pgd  gradtol1e-8     157949    0.983    0.987    1.011    1.012
+corr95   Float32 apg  default        49177    0.997    0.999    1.000    1.001
+corr95   Float32 apg  gradtol1e-8      49103    0.997    0.999    1.000    1.002
+load average [4.74, 4.65, 3.21]

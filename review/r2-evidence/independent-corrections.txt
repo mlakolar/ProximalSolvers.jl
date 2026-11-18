@@ -1,0 +1,66 @@
+VERSION release
+ group Float64 converged 1770 proved misses 42 hidden 18 by fixture/layout/relative {('wide', 'group-g3', 'true'): 6, ('wide', 'group-g3', 'false'): 6, ('wide_exact', 'group-g3', 'true'): 6, ('colscale', 'group-g3', 'false'): 12, ('colscale', 'group-mixed', 'false'): 12}
+ worst lo 4.60708e-05 hi 4.74953e-05
+ group Float32 converged 1759 proved misses 6 hidden 6 by fixture/layout/relative {('colscale', 'group-mixed', 'false'): 6}
+ worst lo 4.55517e-05 hi 4.69763e-05
+ loose scalar misses (positive Fref lower bounds) 756 positive 392 hidden positive 16
+ min_err cd_scalar Float64 all 1.08185e-12 line 7693
+ min_err cd_scalar Float64 default 9.34939e-15 line 6602
+ min_err cd_scalar Float64 default-converged 9.34939e-15 line 6602
+ min_err cd_scalar Float32 all 3.39824e-06 line 4451
+ min_err cd_scalar Float32 default 3.02976e-06 line 4447
+ min_err cd_scalar Float32 default-converged 3.02976e-06 line 4447
+ min_err cd_group Float64 all 2.6047e-14 line 3028
+ min_err cd_group Float64 default 2.6047e-14 line 3028
+ min_err cd_group Float64 default-converged 2.6047e-14 line 3028
+ min_err cd_group Float32 all 0.000231798 line 3266
+ min_err cd_group Float32 default 0.000231798 line 3266
+ min_err cd_group Float32 default-converged 0.000150275 line 3268
+ F5 scalar limit subopt_hi 5.1216e-08 line 15125
+ F6 offset all starts range 1.50292e-20 0.00322444
+ F3 exact-fit design max lower bound Float64 0.157139
+ F7 default converged & increase Float64 {'apg': 21, 'pgd': 16}
+ F2 Float64 pgd ftol0 count 199 undefined 0/0 rows 8 positive-scale count 191 at maxiter corrected 189
+ F2 Float64 pgd strict count 223 undefined 0/0 rows 8 positive-scale count 215 at maxiter corrected 215
+ F2 Float64 apg ftol0 count 204 undefined 0/0 rows 8 positive-scale count 196 at maxiter corrected 194
+ F2 Float64 apg strict count 225 undefined 0/0 rows 8 positive-scale count 217 at maxiter corrected 217
+ F6 offset all starts range 0.00181598 0.00480091
+ F3 exact-fit design max lower bound Float32 0.169928
+ F7 default converged & increase Float32 {'pgd': 38, 'apg': 40}
+ F2 Float32 pgd ftol0 count 259 undefined 0/0 rows 8 positive-scale count 251 at maxiter corrected 192
+ F2 Float32 pgd strict count 546 undefined 0/0 rows 8 positive-scale count 538 at maxiter corrected 338
+ F2 Float32 apg ftol0 count 257 undefined 0/0 rows 8 positive-scale count 249 at maxiter corrected 195
+ F2 Float32 apg strict count 344 undefined 0/0 rows 8 positive-scale count 336 at maxiter corrected 336
+VERSION lts
+ group Float64 converged 1770 proved misses 42 hidden 18 by fixture/layout/relative {('wide', 'group-g3', 'true'): 6, ('wide', 'group-g3', 'false'): 6, ('wide_exact', 'group-g3', 'true'): 6, ('colscale', 'group-g3', 'false'): 12, ('colscale', 'group-mixed', 'false'): 12}
+ worst lo 4.60708e-05 hi 4.74953e-05
+ group Float32 converged 1756 proved misses 6 hidden 6 by fixture/layout/relative {('colscale', 'group-mixed', 'false'): 6}
+ worst lo 4.55496e-05 hi 4.69741e-05
+ loose scalar misses (positive Fref lower bounds) 756 positive 392 hidden positive 16
+ min_err cd_scalar Float64 all 1.04744e-12 line 7693
+ min_err cd_scalar Float64 default 1.19028e-14 line 7682
+ min_err cd_scalar Float64 default-converged 1.19028e-14 line 7682
+ min_err cd_scalar Float32 all 3.29165e-06 line 4479
+ min_err cd_scalar Float32 default 3.29165e-06 line 4479
+ min_err cd_scalar Float32 default-converged 3.29165e-06 line 4479
+ min_err cd_group Float64 all 1.85978e-14 line 3028
+ min_err cd_group Float64 default 1.85978e-14 line 3028
+ min_err cd_group Float64 default-converged 1.85978e-14 line 3028
+ min_err cd_group Float32 all 0.000232262 line 3026
+ min_err cd_group Float32 default 0.000232262 line 3026
+ min_err cd_group Float32 default-converged 0.000150887 line 3028
+ F5 scalar limit subopt_hi 3.66724e-07 line 15125
+ F6 offset all starts range 1.50292e-20 0.00322444
+ F3 exact-fit design max lower bound Float64 0.157139
+ F7 default converged & increase Float64 {'pgd': 24, 'apg': 20}
+ F2 Float64 pgd ftol0 count 197 undefined 0/0 rows 8 positive-scale count 189 at maxiter corrected 189
+ F2 Float64 pgd strict count 224 undefined 0/0 rows 8 positive-scale count 216 at maxiter corrected 216
+ F2 Float64 apg ftol0 count 202 undefined 0/0 rows 8 positive-scale count 194 at maxiter corrected 192
+ F2 Float64 apg strict count 224 undefined 0/0 rows 8 positive-scale count 216 at maxiter corrected 216
+ F6 offset all starts range 0.00181598 0.00492802
+ F3 exact-fit design max lower bound Float32 0.169928
+ F7 default converged & increase Float32 {'pgd': 48, 'apg': 55}
+ F2 Float32 pgd ftol0 count 253 undefined 0/0 rows 8 positive-scale count 245 at maxiter corrected 189
+ F2 Float32 pgd strict count 546 undefined 0/0 rows 8 positive-scale count 538 at maxiter corrected 330
+ F2 Float32 apg ftol0 count 263 undefined 0/0 rows 8 positive-scale count 255 at maxiter corrected 193
+ F2 Float32 apg strict count 349 undefined 0/0 rows 8 positive-scale count 341 at maxiter corrected 341

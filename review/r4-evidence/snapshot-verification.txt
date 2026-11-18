@@ -1,0 +1,22 @@
+{
+  "project": {
+    "bundle_changed_files": [],
+    "bundle_missing_files": [],
+    "changed_files": [],
+    "missing_files": [],
+    "tracked_files": 117
+  },
+  "protocol": {
+    "bundle_changed_files": [],
+    "bundle_missing_files": [],
+    "changed_files": [],
+    "missing_files": [],
+    "tracked_files": 5
+  },
+  "protocol_membership_changed": false,
+  "repository_changes": [],
+  "skill_root_changed": false,
+  "valid": true,
+  "verified_at": "2026-11-18T06:54:07+00:00",
+  "worktree_status_changed": false
+}

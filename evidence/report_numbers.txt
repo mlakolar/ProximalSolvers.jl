@@ -1,0 +1,109 @@
+==================== release
+1. solves: 82944 {'cd_scalar': 45600, 'cd_group': 9024, 'grad': 13680, 'sqrt': 14640}
+2. Float64 PGD+APG converged 5655 exact KKT >= bound 0 max ratio 0.0000 options of exceedances {} | per solver converged {'pgd': 2803, 'apg': 2852} exceed {'pgd': 0, 'apg': 0}
+2. Float32 PGD+APG converged 4415 exact KKT >= bound 8 max ratio 1.0254 options of exceedances {'allow-inc': 8} | per solver converged {'pgd': 2064, 'apg': 2351} exceed {'pgd': 4, 'apg': 4}
+2. pgd both precisions: converged 4867 exceed 4 max ratio 1.0231
+2. apg both precisions: converged 5203 exceed 4 max ratio 1.0254
+3. Float64 sqrt rows 7320 certified 5866 gap < independent gap at x: 0 gap < lower bound of suboptimality: 0 gap >= 1e-4: 0 y=0 certified with gap 0: 80 | not certified: {'uncertified': 1428, 'maxpasses': 26}
+3. Float32 sqrt rows 7320 certified 4900 gap < independent gap at x: 0 gap < lower bound of suboptimality: 0 gap >= 1e-4: 0 y=0 certified with gap 0: 80 | not certified: {'uncertified': 2380, 'maxpasses': 40}
+4. Float64 scalar default lam>0 rows 8760 converged 8760 {'conv/good': 8160, 'conv/noref': 600} worst subopt_hi of good 1.15e-09 worst kkt_rel of good 1.44e-06 | noref by fixture {'rankdef': 240, 'yzero': 360} rankdef subopt_lo -4.8e-09..2.4e-09 hi max 1.2e-06 kkt max 1.7e-08 | at maxpasses rel=true 0
+4b. Float64 scalar default lam=0 converged 2640 above target 160 {('rankdef', 'cold'): 40, ('rankdef', 'ref'): 40, ('rankdef', 'pert'): 40, ('offset', 'cold'): 20, ('offset', 'pert'): 20} kkt_rel max by start {'cold': '1.7e-08', 'ref': '0.063', 'pert': '0.057'}
+4c. Float64 offset lam=0 subopt_lo by start {'cold': '9.79e-39..0.00322', 'ref': '4.79e-38..1.53e-20', 'pert': '3.21e-38..0.000351'}
+4. Float32 scalar default lam>0 rows 8760 converged 8656 {'conv/good': 8058, 'conv/noref': 598} worst subopt_hi of good 1.26e-09 worst kkt_rel of good 3.59e-06 | noref by fixture {'rankdef': 238, 'yzero': 360} rankdef subopt_lo -9.7e-09..2.9e-09 hi max 1.4e-06 kkt max 1.3e-07 | at maxpasses rel=true 0
+4b. Float32 scalar default lam=0 converged 2614 above target 360 {('rankdef', 'cold'): 40, ('rankdef', 'ref'): 40, ('rankdef', 'pert'): 40, ('tall_exact', 'cold'): 40, ('tall_exact', 'ref'): 40, ('tall_exact', 'pert'): 40, ('offset', 'cold'): 40, ('offset', 'ref'): 40, ('offset', 'pert'): 40} kkt_rel max by start {'cold': '5.1e-08', 'ref': '0.089', 'pert': '0.16'}
+4c. Float32 offset lam=0 subopt_lo by start {'cold': '1.23e-20..0.0048', 'ref': '1.23e-20..0.00184', 'pert': '1.23e-20..0.00227'}
+5. scalar F64 tol=1e-4 rows 5700 converged 5700 above target 696 positive penalty 392
+6. Float64 group default lam>0 rows 1776 converged 1770 above target 42 worst subopt_lo 4.61e-05 worst kkt_rel 0.000341 | relative=true: 12 worst 2.82e-07 | relative=false: 30 worst 4.61e-05 | by design {('wide', 'true'): 6, ('wide', 'false'): 6, ('wide_exact', 'true'): 6, ('colscale', 'false'): 24} classes {'conv/good': 1656, 'conv/BAD': 42, 'conv/noref': 72}
+6. Float32 group default lam>0 rows 1776 converged 1759 above target 6 worst subopt_lo 4.56e-05 worst kkt_rel 0.000526 | relative=true: 0 worst nan | relative=false: 6 worst 4.56e-05 | by design {('colscale', 'false'): 6} classes {'conv/good': 1645, 'conv/noref': 108, 'conv/BAD': 6}
+7. Float64 ftol0 pgd n 570 converged 359 S=0 rows 12 not converged, S>0, below bound 191 of those maxiter 189 stagnated 0 increase 2 | all stagnated 0 below bound 0 max ratio 0.000
+7. Float64 ftol0 apg n 570 converged 358 S=0 rows 12 not converged, S>0, below bound 196 of those maxiter 194 stagnated 0 increase 2 | all stagnated 0 below bound 0 max ratio 0.000
+7. Float64 strict pgd n 570 converged 314 S=0 rows 12 not converged, S>0, below bound 215 of those maxiter 215 stagnated 0 increase 0 | all stagnated 0 below bound 0 max ratio 0.000
+7. Float64 strict apg n 570 converged 324 S=0 rows 12 not converged, S>0, below bound 217 of those maxiter 217 stagnated 0 increase 0 | all stagnated 0 below bound 0 max ratio 0.000
+7. Float32 ftol0 pgd n 570 converged 198 S=0 rows 12 not converged, S>0, below bound 251 of those maxiter 192 stagnated 8 increase 51 | all stagnated 8 below bound 8 max ratio 0.026
+7. Float32 ftol0 apg n 570 converged 220 S=0 rows 12 not converged, S>0, below bound 249 of those maxiter 195 stagnated 0 increase 54 | all stagnated 0 below bound 0 max ratio 0.000
+7. Float32 strict pgd n 570 converged 12 S=0 rows 12 not converged, S>0, below bound 538 of those maxiter 338 stagnated 200 increase 0 | all stagnated 200 below bound 200 max ratio 0.417
+7. Float32 strict apg n 570 converged 214 S=0 rows 12 not converged, S>0, below bound 336 of those maxiter 336 stagnated 0 increase 0 | all stagnated 0 below bound 0 max ratio 0.000
+9. Float64 tol default 0.001: 196/210 worst 5.4e-12 | 0.05: 210/210 worst 0 | 0.3: 210/210 worst 0 | 0.7: 210/210 worst 0 | 1.01: 210/210 worst 0 | 2: 210/210 worst 0
+9. Float64 tol 0.0001 0.001: 178/210 worst 5.6e-09 | 0.05: 192/210 worst 1.9e-10 | 0.3: 206/210 worst 1.6e-14 | 0.7: 210/210 worst 0 | 1.01: 210/210 worst 0 | 2: 210/210 worst 0
+9b. Float64 default uncertified by design {'offset': 14}
+9c. Float64 exact-fit designs not converged 1320 {'uncertified': 1320} largest lower bound of suboptimality 0.1571 | maxpasses at tol=1e-10: 26 worst subopt_hi 2.8e-08 | relative=false default at maxpasses: 0 of 1830
+9d. Float64 corr95 0.001 tol=1e-4 uncertified 12 independent gap at x 0.000108..0.000259 subopt_hi max 9.06e-12
+9. Float32 tol default 0.001: 40/210 worst 6.5e-05 | 0.05: 178/210 worst 3.6e-08 | 0.3: 210/210 worst 0 | 0.7: 210/210 worst 0 | 1.01: 210/210 worst 0 | 2: 210/210 worst 0
+9. Float32 tol 0.0001 0.001: 24/210 worst 0.0046 | 0.05: 100/210 worst 1.9e-06 | 0.3: 184/210 worst 2.2e-07 | 0.7: 208/210 worst 8.4e-09 | 1.01: 210/210 worst 0 | 2: 210/210 worst 0
+9b. Float32 default uncertified by design {'orth': 18, 'gauss': 30, 'corr95': 32, 'rankdef': 28, 'zerocol': 28, 'colscale': 6, 'offset': 60}
+9c. Float32 exact-fit designs not converged 1326 {'uncertified': 1316, 'maxpasses': 10} largest lower bound of suboptimality 0.1699 | maxpasses at tol=1e-10: 0 worst subopt_hi nan | relative=false default at maxpasses: 40 of 1830
+9d. Float32 corr95 0.001 tol=1e-4 uncertified 30 independent gap at x 0.00113..2.25 subopt_hi max 5.88e-06
+10. Float64 default pgd increase exits within target 0 of 570 median kkt/bound nan
+10. Float64 default apg increase exits within target 0 of 570 median kkt/bound nan
+10. Float64 gradtol1e-8 pgd increase exits within target 35 of 570 median kkt/bound 4.1
+10. Float64 gradtol1e-8 apg increase exits within target 18 of 570 median kkt/bound 1.6
+10. Float32 default pgd increase exits within target 70 of 570 median kkt/bound 4.1
+10. Float32 default apg increase exits within target 67 of 570 median kkt/bound 4.4
+10. Float32 gradtol1e-8 pgd increase exits within target 84 of 570 median kkt/bound 5.2
+10. Float32 gradtol1e-8 apg increase exits within target 88 of 570 median kkt/bound 5.3
+11. F32 scalar relative=false default rows 5700 at maxpasses 130 classes {'notconv/good': 128, 'notconv/noref': 2} worst subopt_hi 5.122e-08
+13. Float64 default: converged and f_increased {'pgd': 16, 'apg': 21}
+13. Float64 cd_scalar positive penalty, max min_err: default tol 9.349e-15, all tols 1.082e-12, converged only 1.165e-14
+13. Float64 cd_group positive penalty, max min_err: default tol 2.605e-14, all tols 2.605e-14, converged only 2.605e-14
+13. Float32 default: converged and f_increased {'pgd': 38, 'apg': 40}
+13. Float32 cd_scalar positive penalty, max min_err: default tol 3.03e-06, all tols 3.398e-06, converged only 3.398e-06
+13. Float32 cd_group positive penalty, max min_err: default tol 0.0002318, all tols 0.0002318, converged only 0.0001986
+==================== lts
+1. solves: 82944 {'cd_scalar': 45600, 'cd_group': 9024, 'grad': 13680, 'sqrt': 14640}
+2. Float64 PGD+APG converged 5652 exact KKT >= bound 0 max ratio 0.0000 options of exceedances {} | per solver converged {'pgd': 2801, 'apg': 2851} exceed {'pgd': 0, 'apg': 0}
+2. Float32 PGD+APG converged 4315 exact KKT >= bound 8 max ratio 1.0406 options of exceedances {'allow-inc': 8} | per solver converged {'pgd': 2023, 'apg': 2292} exceed {'pgd': 5, 'apg': 3}
+2. pgd both precisions: converged 4824 exceed 5 max ratio 1.0213
+2. apg both precisions: converged 5143 exceed 3 max ratio 1.0406
+3. Float64 sqrt rows 7320 certified 5866 gap < independent gap at x: 0 gap < lower bound of suboptimality: 0 gap >= 1e-4: 0 y=0 certified with gap 0: 80 | not certified: {'uncertified': 1428, 'maxpasses': 26}
+3. Float32 sqrt rows 7320 certified 4912 gap < independent gap at x: 0 gap < lower bound of suboptimality: 0 gap >= 1e-4: 0 y=0 certified with gap 0: 80 | not certified: {'uncertified': 2376, 'maxpasses': 32}
+4. Float64 scalar default lam>0 rows 8760 converged 8760 {'conv/good': 8160, 'conv/noref': 600} worst subopt_hi of good 1.15e-09 worst kkt_rel of good 1.44e-06 | noref by fixture {'rankdef': 240, 'yzero': 360} rankdef subopt_lo -4.8e-09..2.4e-09 hi max 1.2e-06 kkt max 2.7e-08 | at maxpasses rel=true 0
+4b. Float64 scalar default lam=0 converged 2640 above target 160 {('rankdef', 'cold'): 40, ('rankdef', 'ref'): 40, ('rankdef', 'pert'): 40, ('offset', 'cold'): 20, ('offset', 'pert'): 20} kkt_rel max by start {'cold': '1.7e-08', 'ref': '0.065', 'pert': '0.089'}
+4c. Float64 offset lam=0 subopt_lo by start {'cold': '7.1e-39..0.00322', 'ref': '1.92e-38..1.53e-20', 'pert': '3.32e-38..0.000351'}
+4. Float32 scalar default lam>0 rows 8760 converged 8622 {'conv/good': 8022, 'conv/noref': 600} worst subopt_hi of good 1.18e-09 worst kkt_rel of good 3.01e-06 | noref by fixture {'rankdef': 240, 'yzero': 360} rankdef subopt_lo -9.7e-09..2.9e-09 hi max 1.4e-06 kkt max 2.3e-07 | at maxpasses rel=true 0
+4b. Float32 scalar default lam=0 converged 2616 above target 360 {('rankdef', 'cold'): 40, ('rankdef', 'ref'): 40, ('rankdef', 'pert'): 40, ('tall_exact', 'cold'): 40, ('tall_exact', 'ref'): 40, ('tall_exact', 'pert'): 40, ('offset', 'cold'): 40, ('offset', 'ref'): 40, ('offset', 'pert'): 40} kkt_rel max by start {'cold': '5.7e-08', 'ref': '0.089', 'pert': '0.15'}
+4c. Float32 offset lam=0 subopt_lo by start {'cold': '3.23e-20..0.00493', 'ref': '3.23e-20..0.00184', 'pert': '3.37e-20..0.00227'}
+5. scalar F64 tol=1e-4 rows 5700 converged 5700 above target 696 positive penalty 392
+6. Float64 group default lam>0 rows 1776 converged 1770 above target 42 worst subopt_lo 4.61e-05 worst kkt_rel 0.000341 | relative=true: 12 worst 2.82e-07 | relative=false: 30 worst 4.61e-05 | by design {('wide', 'true'): 6, ('wide', 'false'): 6, ('wide_exact', 'true'): 6, ('colscale', 'false'): 24} classes {'conv/good': 1656, 'conv/BAD': 42, 'conv/noref': 72}
+6. Float32 group default lam>0 rows 1776 converged 1756 above target 6 worst subopt_lo 4.55e-05 worst kkt_rel 0.00053 | relative=true: 0 worst nan | relative=false: 6 worst 4.55e-05 | by design {('colscale', 'false'): 6} classes {'conv/good': 1654, 'conv/noref': 96, 'conv/BAD': 6}
+7. Float64 ftol0 pgd n 570 converged 361 S=0 rows 12 not converged, S>0, below bound 189 of those maxiter 189 stagnated 0 increase 0 | all stagnated 0 below bound 0 max ratio 0.000
+7. Float64 ftol0 apg n 570 converged 360 S=0 rows 12 not converged, S>0, below bound 194 of those maxiter 192 stagnated 0 increase 2 | all stagnated 0 below bound 0 max ratio 0.000
+7. Float64 strict pgd n 570 converged 313 S=0 rows 12 not converged, S>0, below bound 216 of those maxiter 216 stagnated 0 increase 0 | all stagnated 0 below bound 0 max ratio 0.000
+7. Float64 strict apg n 570 converged 324 S=0 rows 12 not converged, S>0, below bound 216 of those maxiter 216 stagnated 0 increase 0 | all stagnated 0 below bound 0 max ratio 0.000
+7. Float32 ftol0 pgd n 570 converged 190 S=0 rows 12 not converged, S>0, below bound 245 of those maxiter 189 stagnated 7 increase 49 | all stagnated 7 below bound 7 max ratio 0.007
+7. Float32 ftol0 apg n 570 converged 201 S=0 rows 12 not converged, S>0, below bound 255 of those maxiter 193 stagnated 0 increase 62 | all stagnated 0 below bound 0 max ratio 0.000
+7. Float32 strict pgd n 570 converged 12 S=0 rows 12 not converged, S>0, below bound 538 of those maxiter 330 stagnated 208 increase 0 | all stagnated 208 below bound 208 max ratio 0.440
+7. Float32 strict apg n 570 converged 209 S=0 rows 12 not converged, S>0, below bound 341 of those maxiter 341 stagnated 0 increase 0 | all stagnated 0 below bound 0 max ratio 0.000
+9. Float64 tol default 0.001: 196/210 worst 5.4e-12 | 0.05: 210/210 worst 0 | 0.3: 210/210 worst 0 | 0.7: 210/210 worst 0 | 1.01: 210/210 worst 0 | 2: 210/210 worst 0
+9. Float64 tol 0.0001 0.001: 178/210 worst 5.6e-09 | 0.05: 192/210 worst 1.9e-10 | 0.3: 206/210 worst 1.6e-14 | 0.7: 210/210 worst 0 | 1.01: 210/210 worst 0 | 2: 210/210 worst 0
+9b. Float64 default uncertified by design {'offset': 14}
+9c. Float64 exact-fit designs not converged 1320 {'uncertified': 1320} largest lower bound of suboptimality 0.1571 | maxpasses at tol=1e-10: 26 worst subopt_hi 5.3e-08 | relative=false default at maxpasses: 0 of 1830
+9d. Float64 corr95 0.001 tol=1e-4 uncertified 12 independent gap at x 0.000108..0.000259 subopt_hi max 1.06e-11
+9. Float32 tol default 0.001: 42/210 worst 6.5e-05 | 0.05: 178/210 worst 3.6e-08 | 0.3: 210/210 worst 0 | 0.7: 210/210 worst 0 | 1.01: 210/210 worst 0 | 2: 210/210 worst 0
+9. Float32 tol 0.0001 0.001: 24/210 worst 0.0046 | 0.05: 100/210 worst 1.9e-06 | 0.3: 184/210 worst 2.2e-07 | 0.7: 208/210 worst 8.4e-09 | 1.01: 210/210 worst 0 | 2: 210/210 worst 0
+9b. Float32 default uncertified by design {'orth': 18, 'gauss': 30, 'corr95': 32, 'rankdef': 28, 'zerocol': 30, 'colscale': 2, 'offset': 60}
+9c. Float32 exact-fit designs not converged 1332 {'uncertified': 1320, 'maxpasses': 12} largest lower bound of suboptimality 0.1699 | maxpasses at tol=1e-10: 0 worst subopt_hi nan | relative=false default at maxpasses: 32 of 1830
+9d. Float32 corr95 0.001 tol=1e-4 uncertified 30 independent gap at x 0.00112..2.24 subopt_hi max 5.88e-06
+10. Float64 default pgd increase exits within target 0 of 570 median kkt/bound nan
+10. Float64 default apg increase exits within target 0 of 570 median kkt/bound nan
+10. Float64 gradtol1e-8 pgd increase exits within target 37 of 570 median kkt/bound 4.8
+10. Float64 gradtol1e-8 apg increase exits within target 21 of 570 median kkt/bound 1.5
+10. Float32 default pgd increase exits within target 82 of 570 median kkt/bound 4.2
+10. Float32 default apg increase exits within target 77 of 570 median kkt/bound 4.4
+10. Float32 gradtol1e-8 pgd increase exits within target 95 of 570 median kkt/bound 5.4
+10. Float32 gradtol1e-8 apg increase exits within target 97 of 570 median kkt/bound 5.3
+11. F32 scalar relative=false default rows 5700 at maxpasses 162 classes {'notconv/good': 162} worst subopt_hi 3.667e-07
+13. Float64 default: converged and f_increased {'pgd': 24, 'apg': 20}
+13. Float64 cd_scalar positive penalty, max min_err: default tol 1.19e-14, all tols 1.047e-12, converged only 1.497e-14
+13. Float64 cd_group positive penalty, max min_err: default tol 1.86e-14, all tols 1.86e-14, converged only 1.86e-14
+13. Float32 default: converged and f_increased {'pgd': 48, 'apg': 55}
+13. Float32 cd_scalar positive penalty, max min_err: default tol 3.292e-06, all tols 3.292e-06, converged only 3.292e-06
+13. Float32 cd_group positive penalty, max min_err: default tol 0.0002323, all tols 0.0002323, converged only 0.0001997
+==================== cross-version
+14. cd_scalar Float64 22800 same converged 22800
+14. cd_scalar Float32 22800 same converged 22576
+14. cd_group Float64 4512 same converged 4512
+14. cd_group Float32 4512 same converged 4493
+14. grad Float64 6840 same converged 6819
+14. grad Float32 6840 same converged 6406
+14. sqrt Float64 7320 same converged 7320
+14. sqrt Float32 7320 same converged 7240

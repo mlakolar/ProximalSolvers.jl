@@ -1,0 +1,29 @@
+Julia 1.13.4, tree master, package ProximalSolvers.jl-issue352-review-codex
+A Float64: computed Xᵀy = 0.0, exact = 1.11e-16, λ = 1.39e-17
+A Float64 cd         converged = true  its = 1     exact ‖G‖∞/max(λ, λmax) = 0.875, (F − F*)/F* = 1.57e-33 | wp_kkt = 0, stat = 0 against threshold 1.73e-07
+A Float64 pgd        converged = true  its = 1     exact ‖G‖∞/max(λ, λmax) = 0.875, (F − F*)/F* = 1.57e-33
+A Float64 apg        converged = true  its = 1     exact ‖G‖∞/max(λ, λmax) = 0.875, (F − F*)/F* = 1.57e-33
+A Float64 pgd-strict converged = false its = 2000  exact ‖G‖∞/max(λ, λmax) = 0.875, (F − F*)/F* = 1.57e-33
+A Float64 apg-strict converged = false its = 2000  exact ‖G‖∞/max(λ, λmax) = 0.875, (F − F*)/F* = 1.57e-33
+B Float64 cd         converged = true  its = 1     exact ‖G‖∞/max(λ, λmax) = 1.062, (F − F*)/F* = 7.44e+16 | wp_kkt = 1.06, stat = 0.0166 against threshold 1.56e-09
+B Float64 pgd        converged = false its = 200   exact ‖G‖∞/max(λ, λmax) = 1.062, (F − F*)/F* = 7.44e+16
+B Float64 apg        converged = false its = 200   exact ‖G‖∞/max(λ, λmax) = 1.062, (F − F*)/F* = 7.44e+16
+B Float64 pgd-strict converged = false its = 2000  exact ‖G‖∞/max(λ, λmax) = 1.062, (F − F*)/F* = 7.44e+16
+B Float64 apg-strict converged = false its = 2000  exact ‖G‖∞/max(λ, λmax) = 1.062, (F − F*)/F* = 7.44e+16
+A Float32: computed Xᵀy = 0.0, exact = 5.96e-08, λ = 7.45e-09
+A Float32 cd         converged = true  its = 1     exact ‖G‖∞/max(λ, λmax) = 0.875, (F − F*)/F* = 4.53e-16 | wp_kkt = 0, stat = 0 against threshold 1.73e-07
+A Float32 pgd        converged = true  its = 1     exact ‖G‖∞/max(λ, λmax) = 0.875, (F − F*)/F* = 4.53e-16
+A Float32 apg        converged = true  its = 1     exact ‖G‖∞/max(λ, λmax) = 0.875, (F − F*)/F* = 4.53e-16
+A Float32 pgd-strict converged = false its = 2000  exact ‖G‖∞/max(λ, λmax) = 0.875, (F − F*)/F* = 4.53e-16
+A Float32 apg-strict converged = false its = 2000  exact ‖G‖∞/max(λ, λmax) = 0.875, (F − F*)/F* = 4.53e-16
+B Float32 cd         converged = true  its = 1     exact ‖G‖∞/max(λ, λmax) = 1.062, (F − F*)/F* = 1.39e+08 | wp_kkt = 1.06, stat = 0.0166 against threshold 1.56e-09
+B Float32 pgd        converged = false its = 200   exact ‖G‖∞/max(λ, λmax) = 1.062, (F − F*)/F* = 1.39e+08
+B Float32 apg        converged = false its = 200   exact ‖G‖∞/max(λ, λmax) = 1.062, (F − F*)/F* = 1.39e+08
+B Float32 pgd-strict converged = false its = 7     exact ‖G‖∞/max(λ, λmax) = 1.062, (F − F*)/F* = 1.39e+08
+B Float32 apg-strict converged = false its = 2000  exact ‖G‖∞/max(λ, λmax) = 1.062, (F − F*)/F* = 1.39e+08
+C Float64 pgd-strict x = 0.0 converged = false iterations = 2000
+C Float64 apg-strict x = 0.0 converged = false iterations = 2000
+C Float32 pgd-strict x = 0.0 converged = false iterations = 2000
+C Float32 apg-strict x = 0.0 converged = false iterations = 2000
+D grad_calls_limit = 0: x = 0.5000048396436829 converged = true iterations = 340 grad_calls = 343 call_limit_reached = false
+D grad_calls_limit = 344: x = 0.5000048396436829 converged = true iterations = 340 grad_calls = 343 call_limit_reached = false

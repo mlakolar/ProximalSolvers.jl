@@ -1,0 +1,10 @@
+Julia 1.13.4
+T	tol	penalty	converged	refused by stat<threshold	refused and within target	above target	above target and refused	wp>=64eps	wp>=1e-5	worst wp within target
+Float32	1.0e-5	λ=0	120	14	6	60	8	16	16	0.00011
+Float32	1.0e-5	λ>0	480	10	8	8	2	46	38	0.000108
+Float32	1.0e-7	λ=0	120	32	14	60	18	8	8	2.28e-06
+Float32	1.0e-7	λ>0	480	91	91	0	0	0	0	3.74e-06
+Float64	1.0e-10	λ=0	108	8	8	36	0	64	0	1.29e-09
+Float64	1.0e-10	λ>0	470	12	12	0	0	236	0	7.75e-10
+Float64	1.0e-7	λ=0	120	14	6	56	8	76	8	1.12e-06
+Float64	1.0e-7	λ>0	480	14	14	0	0	260	0	1.44e-06

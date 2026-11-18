@@ -1,0 +1,6 @@
+scale -20 0 pgd converged=false its=69 increase=true maxiter=false norm_step=0.15105123817920685 Float32_stepnorm_squared=0.022816477
+scale -20 0 apg converged=false its=46 increase=true maxiter=false norm_step=0.013387596234679222 Float32_stepnorm_squared=0.00017922773
+scale 0 60 pgd converged=false its=9 increase=true maxiter=false norm_step=1.1196153462784e14 Float32_stepnorm_squared=1.2535385e28
+scale 0 60 apg converged=true its=10 increase=false maxiter=false norm_step=6.0726697787392e13 Float32_stepnorm_squared=3.6877317e27
+scale 20 -60 pgd converged=false its=6 increase=true maxiter=false norm_step=1.0606688465717006e-25 Float32_stepnorm_squared=0.0
+scale 20 -60 apg converged=true its=10 increase=true maxiter=false norm_step=2.814925965948016e-29 Float32_stepnorm_squared=0.0
