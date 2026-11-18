@@ -1,0 +1,6 @@
+1.13.4
+test 1: 1x1 default                     it=10 conv=true  gradient-mode estimates=0  guarded-branch entries=0
+test 2: 30x12 α=1e-200 strict           it=101 conv=true  gradient-mode estimates=56  guarded-branch entries=0
+test 3: diag default                    it=200 conv=false  gradient-mode estimates=195  guarded-branch entries=130
+test 3: diag maxiter=20000              it=269 conv=true  gradient-mode estimates=267  guarded-branch entries=130
+test 4: backtrack! unit                 returned=true  gradient-mode estimates=1  guarded-branch entries=1  L=3.0e-9

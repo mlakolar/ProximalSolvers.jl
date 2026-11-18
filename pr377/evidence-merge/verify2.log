@@ -1,0 +1,5 @@
+battery rc=0
+entry rc=0
+scan merged rc=0
+scan master rc=0
+VERIFY2 DONE

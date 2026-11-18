@@ -9,7 +9,9 @@ This branch holds the evidence for #317: Float64 PGD's line search raised `line 
 | research base (memo, recorded 448-solve base) | `b8a2c04205f6dc8aadeecc42f4971602ab1b5b89` |
 | PR base (master at start) | `8cc022222d3c90ef86a24ca0c957b02faaf4fc1f` |
 | measured head (executable source final) | `6e2f72857103b19be9375d90368a5b091940c4b0` |
-| final PR head (comments, docs and tests changed after 6e2f728) | `d96cc2ff722100ed3aea911735d5fb811fa76543` |
+| last PR commit before the catch-up merge (comments, docs and tests changed after 6e2f728) | `d96cc2ff722100ed3aea911735d5fb811fa76543` |
+| catch-up merge, final PR head | `9ca5c72eae0ec589c2a666749af896023b282b6d` (merges master `1baab8123c063f80e2b7ba6481eb37ae2aa9617b`) |
+| PR #361 as merged into master | head `6af5afaea12ba681ea4d5b1e45c909714ce711f7`, merge `16a0bb7baf81f1ec85bdf37831e001d663f1a90b` |
 | PR #361 head checked with the fix applied (detached copy, never pushed) | `045428f9b53072d8d118f0af681034eea4891f71` |
 | ProximalBase pin | `a19c59aa723d085d5d7cf5242895bda16eb77214` |
 | #296 evidence used by the research | branch `archive/issue-296-evidence` at `84399297` |
@@ -60,7 +62,13 @@ Also in `research/`: `R1.diff`, `R2g.diff`, and `comment.md` (the memo as posted
 - `pr361-verify.txt`: the four #317 testsets and the entry counts at #361's head with the fix applied.
 - `r2g-src.diff`, `verify.sh`, and the `verify-worktrees-*` checks.
 
-`reviews/`: the four terminal review payloads (Codex gpt-6.1-sol, high), as written by the reviewer. Their posted copies are on the PR.
+`evidence-merge/` (the catch-up merge, after #361 merged into master first):
+- `battery-impl2-9ca5c72*` and `battery-merge-summary.txt`: the battery at the merge, with `initial_curvature` added.
+- `entry-counts-merged.txt`: guarded-branch entries at the merge. The `diag` reproducer and the direct `backtrack!` test still reach the guard; the 1×1 and 30×12 cases converge without reaching it under #361's start.
+- `scan2-merged.tsv` and `scan2-master1baab.tsv`: the 448-solve scan at the merge and at master `1baab81`. Both have 0 errors, and they are identical on all 448 rows.
+- `verify2.log`, the `verify2-worktrees-*` checks, and `../verify2.sh`.
+
+`reviews/`: the five terminal review payloads (Codex gpt-6.1-sol, high), as written by the reviewer, rounds 1–5; round 5 reviews the merge. Their posted copies are on the PR.
 
 ## Limitations
 

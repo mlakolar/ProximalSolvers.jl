@@ -1,0 +1,5 @@
+battery battery-impl2-9ca5c72 at 9ca5c72: tests, local
+  lts        ok   exit 0  3465/3465  42s  evidence/battery-impl2-9ca5c72-lts.out
+  release    ok   exit 0  3462/3462  84s  evidence/battery-impl2-9ca5c72-release.out
+  runner: ProximalSolvers tests: tier full, filtered by core_regressions stopping_scale minimal_core_characterization core_contracts initial_curvature: 5 files; Julia 1.10.13 on x86_64-linux-gnu (13th Gen Intel(R) Core(TM) i5-13600K, 20 thr
+BATTERY PASS
