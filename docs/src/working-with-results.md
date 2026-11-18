@@ -43,6 +43,16 @@ use the separate [numerical KKT check](sparsity-and-kkt.md). For CD with the squ
 proved bound (see [`CDSolver`](@ref)). Otherwise a result's `gap=NaN` and CD's `kkt_checks=0` are
 placeholders: neither is a computed certificate.
 
+For PGD and APG with a `NormLinf(λ)` penalty, `converged=true` means that a stopping test proposed a stop and that the
+ℓ1 norm of the proximal-gradient mapping at the returned point, plus a rounding allowance, is below
+`max(gradtol, 64eps(T)) * max(λ, ‖∇f(0)‖₁)` (see
+[the ℓ∞ check](numerics.md#The-stationarity-check-for-NormLinf)). It is a working-precision value, not an
+exact-arithmetic certificate, and a small value says less when the accepted step is large. Each proposed stop costs one more proximal
+evaluation (and, for APG, one gradient), counted in `prox_calls` and `grad_calls` before the call limits are compared:
+a stop that the check passes can come with `call_limit_reached = true`, and a stop that it refuses can reach `prox_calls_limit`.
+`Float32` solves with many tied or nonzero entries can end with `converged=false` at a point whose residual is below the bound,
+because the allowance is too large to resolve it (about 84 nonzero entries of `∇f(0)` at `x = 0` with the default `gradtol`).
+
 ## Avoid accidentally overwriting results
 
 ~~~@example results_cd
@@ -78,7 +88,7 @@ diagnostics, not changes to the statistical model.
 | Symptom | Check |
 | --- | --- |
 | `DimensionMismatch` | `size(X, 1) == length(y)` and `size(X, 2) == length(beta)` |
-| Type/unsupported input error | Dense Float32 or Float64 `X` and `y` with matching coefficient type; only ordinary least squares + unweighted L1 (an unweighted `ElasticNet` is also accepted), with CD a `BlockIterate` and a `GroupNormL2` penalty, or with CD `SqrtLeastSquaresLoss` and an unweighted `NormL1` with a positive level |
+| Type/unsupported input error | Dense Float32 or Float64 `X` and `y` with matching coefficient type; only ordinary least squares + unweighted L1 (an unweighted `ElasticNet` is also accepted), with PGD or APG also `NormLinf`, with CD a `BlockIterate` and a `GroupNormL2` penalty, or with CD `SqrtLeastSquaresLoss` and an unweighted `NormL1` with a positive level; `CDSolver` refuses `NormLinf` |
 | Penalty seems too strong or too weak | `LeastSquaresLoss` is a sum; explicitly multiply by `1/n` for mean-normalized lasso |
 | PGD rejects `SparseIterate` | PGD needs a dense coefficient vector; CD supports one-dimensional `SparseIterate` |
 | PGD or APG rejects `BlockIterate` | Only CD solves the group lasso, with a `BlockIterate` and a `GroupNormL2` penalty |

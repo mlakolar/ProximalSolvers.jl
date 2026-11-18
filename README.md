@@ -74,6 +74,11 @@ pass: the iterate passed to `solve!` is unchanged and a borrowed RNG may have ad
 entries 0) sets its coordinate to 0, at the levels that `solve!` accepts. With `maxpasses = 0` no coordinate is visited. See
 [the elastic-net example](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples/07_elasticnet/).
 
+PGD and APG also solve least squares with an ℓ∞ penalty, `NormLinf(λ)` (`λ max|βᵢ|`, finite `λ ≥ 0`), whose stopping
+check is on the ℓ1 norm of the proximal-gradient mapping against `max(λ, ‖∇f(0)‖₁)` (see
+[the ℓ∞ example](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples/08_linf_regularized_regression/)); `CDSolver`
+refuses `NormLinf`.
+
 The supported problem uses a finite dense `Matrix{T}`, finite `Vector{T}`
 response and matching coefficients, where `T` is `Float32` or `Float64`.
 CD additionally accepts one-dimensional ProximalBase `SparseIterate`

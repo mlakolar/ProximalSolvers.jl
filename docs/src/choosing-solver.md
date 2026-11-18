@@ -172,7 +172,8 @@ residual that is checked does not bound the coefficient error.
 PGD's stopping tests combine by **OR**, so any one of them can propose a stop,
 and a proposed stop counts only if the computed KKT residual `‖G‖∞` is below
 `max(gradtol, 64eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞` and `λ` the ℓ1 level of the penalty
-(`λ1` for an `ElasticNet`, whose residual includes the ridge term `λ2 x`). A solve
+(`λ1` for an `ElasticNet`, whose residual includes the ridge term `λ2 x`; for a `NormLinf(λ)` penalty the check is
+instead on the proximal-gradient mapping, against `max(λ, ‖∇f(0)‖₁)`, see [Numerical behavior](numerics.md#The-stationarity-check-for-NormLinf)). A solve
 that the check keeps from stopping continues, and can end at `maxiter` with
 `converged=false`. `ftol = 0` switches the objective-change test off, as
 described under Strict accuracy in [Numerical behavior](numerics.md).
@@ -324,6 +325,15 @@ and the coefficients the same type, with `T` equal to Float32 or Float64.
 For a dense `Vector`, and for CD a one-dimensional `SparseIterate`, the penalty is an unweighted L1 or an
 unweighted `ElasticNet(lambda1, lambda2)`, for CD, PGD and APG. `CDSolver` stops by its change test for an `ElasticNet` too, not by a KKT check;
 with `lambda2 > 0` it refuses a coordinate step outside the normal range (see the numerical guide).
+For PGD and APG on a dense `Vector`, `NormLinf(lambda)` (`lambda * maximum(abs, beta)`, finite nonnegative `lambda`
+representable in `T`) is also accepted, with least squares or one positive scalar multiple of it; use `ProximalGradientDescent`
+or `AccProxGradDescent` for it, because `CDSolver` refuses `NormLinf` (it is not separable) for a dense `Vector`, a
+`SparseIterate` and a `BlockIterate`. The ℓ∞ penalty shrinks the largest coefficients to a common magnitude and does not in
+general give zeros; the solution is 0 when `lambda` is at least `‖∇f(0)‖₁ = α‖Xᵀy‖₁`. A solve stops by the ℓ∞ check
+of [Numerical behavior](numerics.md#The-stationarity-check-for-NormLinf), which adds one proximal evaluation (and for APG one
+gradient) to each proposed stop; ProximalBase's threshold selection costs O(p) expected time per proximal evaluation. The
+first ℓ∞ solve compiles that code, and a level that is not a `Float32` or `Float64` (a `BigFloat`, say) makes ProximalBase form each
+radius in that type. See [the ℓ∞ example](examples/08_linf_regularized_regression.md).
 The loss is ordinary least squares
 (or a single positive finite scalar multiple of it).
 
