@@ -47,7 +47,8 @@ function refused(E, fragment, x, f, g; momentum = nothing, maxpasses = 100, kwar
   @test rng == rng_before
 end
 
-# The message of the ArgumentError that solve! throws for a CDSolver on x, or nothing when it does not throw
+# The message of the ArgumentError that solve! throws for a CDSolver on x, or nothing when solve! throws no
+# ArgumentError (no exception, or an exception of another type)
 function refusal_message(x, f, g)
   err = try
     solve!(x, f, g, CDSolver(order = :random, rng = Xoshiro(11)))
@@ -98,6 +99,9 @@ accepted(x, f, g; method = CDSolver(order = :random)) = PS._check_block_problem(
       refused(ArgumentError, "GroupNormL2", iterate(T), f, GroupNormL2(Float16(0.1), GROUPS))
       refused(ArgumentError, "Float32 or Float64 parameters", iterate(T), f, GroupNormL2(Float16(0.1), GROUPS))
       refused(ArgumentError, "(got Float16 parameters)", iterate(T), f, GroupNormL2(Float16(0.1), GROUPS))
+      # the type parameter is reported, not the type of the level (0.125 is a Float64)
+      refused(ArgumentError, "(got Real parameters)", iterate(T), f,
+              GroupNormL2{Real, typeof(GROUPS)}(0.125, GROUPS, Real[1, 1, 1]))
       setprecision(BigFloat, 128) do
         refused(ArgumentError, "GroupNormL2", iterate(T), f, GroupNormL2(BigFloat(0.1), GROUPS))
         refused(ArgumentError, "Float32 or Float64 parameters", iterate(T), f, GroupNormL2(BigFloat(0.1), GROUPS))
