@@ -267,25 +267,25 @@ formed in `T`, as for the lasso check; it is not kept when `max(λ, λcrit)` is 
   with `u = 2⁻⁵³` the unit roundoff of `Float64`, whose result includes the final addition of the sum and its correction, the error is at most
   `u|S| + γ_{k-1}² Σ|xᵢ|`, with `S` the exact sum and `γ_k = k u/(1 - k u)` (Ogita, Rump and Oishi, 2005, Proposition 4.5). The second term
   is quadratic in `k`, not of order `k u²`. Write `B = γ_p²`, `R` for the exact residual of the supplied gradient at the level `λ_T = T(λ)`, the level
-  converted once to `T` with which the check computes, and `r` for the computed one.
-  `D` has `p + 1` terms with `Σ|xᵢ| = λ + P ≤ 2 max(λ, λcrit) + |D|` (at `x = 0`, `λ + ‖g‖₁` with `‖g‖₁ ≤ λ + R`), so the sums give
-  `r ≥ (1 - 2u - B) R - 2 B max(λ, λcrit)` in both branches: the compensated sums contribute `u + B` relative errors and the
-  `2 B max(λ, λcrit)` term, and the final addition of `off + N` and `|D|` one more relative `u`. This needs no assumption on the size of `R`.
-  If a stop is kept, `r < H` with `H` the computed threshold, and `H ≥ 64 eps(T) max(λ, λcrit)`: when that product is normal it is a power-of-two scaling, exact in `T`, and
+  converted once to `T` with which the check computes, `S_T = max(λ_T, λcrit)` and `r` for the computed residual.
+  `D` has `p + 1` terms with `Σ|xᵢ| = λ_T + P ≤ 2 S_T + |D|` (at `x = 0`, `λ_T + ‖g‖₁` with `‖g‖₁ ≤ λ_T + R`), so the sums give
+  `r ≥ (1 - 2u - B) R - 2 B S_T` in both branches: the compensated sums contribute `u + B` relative errors and the
+  `2 B S_T` term, and the final addition of `off + N` and `|D|` one more relative `u`. This needs no assumption on the size of `R`.
+  If a stop is kept, `r < H` with `H` the computed threshold, and `H ≥ 64 eps(T) S_T`: when that product is normal it is a power-of-two scaling, exact in `T`, and
   rounding is monotonic; when it is subnormal or underflows, the guard gives `H ≥ floatmin(T)`, which is above it. `B` is required
-  to be at most `2⁻¹²` of that floor, `γ_p² ≤ 2⁻⁶ eps(T)`, that is `γ_p ≤ 2⁻³ sqrt(eps(T))`: then `2 B max(λ, λcrit) ≤ 2⁻¹¹ H`. For `Float64`,
+  to be at most `2⁻¹²` of that floor, `γ_p² ≤ 2⁻⁶ eps(T)`, that is `γ_p ≤ 2⁻³ sqrt(eps(T))`: then `2 B S_T ≤ 2⁻¹¹ H`. For `Float64`,
   `sqrt(eps) = 2⁻²⁶`, so `γ_p ≤ 2⁻²⁹`, that is `p ≤ 2²⁴/(1 + 2⁻²⁹)`, whose largest integer is `p = 2²⁴ - 1`. For `Float32`,
   `sqrt(eps) = 2⁻¹¹·⁵` allows about `3.9·10¹¹` entries, and the cap `2³²` is used. A check on more entries of that type refuses (`r` is `NaN`,
   before any pass).
-- **What a kept stop says.** Within that regime, a kept stop has `R < (H + 2 B max(λ, λcrit))/(1 - 2u - B) < (1 + 2⁻¹⁰) H`: the exact
-  residual of the supplied gradient at `λ_T` is below the computed threshold `H` (the product `max(gradtol, 64 eps(T)) max(λ, λcrit)`
+- **What a kept stop says.** Within that regime, a kept stop has `R < (H + 2 B S_T)/(1 - 2u - B) < (1 + 2⁻¹⁰) H`: the exact
+  residual of the supplied gradient at `λ_T` is below the computed threshold `H` (the product `max(gradtol, 64 eps(T)) S_T`
   formed in `T`) times `1 + 2⁻¹⁰`, also when `R` is
-  larger than `max(λ, λcrit)`. For an infinite threshold the statement is vacuous.
+  larger than `S_T`. For an infinite threshold the statement is vacuous.
 - **The level as given.** The level `λ` of the penalty is accepted in types other than `T` (an `Int`, `Rational` or `BigFloat` level, or a
   `Float64` level with `Float32` data), and `λ_T = T(λ)` can differ from it. Since every `v ∈ ∂‖x‖∞` has `‖v‖₁ ≤ 1`, the residual is
   1-Lipschitz in the level, so `R(λ) ≤ R(λ_T) + |λ - λ_T|` for the same supplied gradient. When the conversion rounds to nearest (`Float16`,
   `Float32`, `Float64` and `Int` levels, a `BigFloat` level under BigFloat's default rounding mode, and a `Rational` of a fixed-width
-  integer type whose numerator and denominator are exact in `T`), `|λ - λ_T| ≤ (eps(T)/2) max(λ, λcrit) ≤ 2⁻⁷ H` for a normal `λ_T`,
+  integer type whose numerator and denominator are exact in `T`), `|λ - λ_T| ≤ (eps(T)/2) λ_T ≤ (eps(T)/2) S_T ≤ 2⁻⁷ H` for a normal `λ_T`,
   and at most half the smallest subnormal, also below `2⁻⁷ H`, otherwise; a kept stop then has `R(λ) < (1 + 2⁻¹⁰ + 2⁻⁷) H`. For another
   `Rational` level only the first inequality holds, with its own conversion error.
 - **Not covered.** The computed gradient's own rounding error is not covered, as

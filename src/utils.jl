@@ -227,7 +227,7 @@ end
 # |λ - λ_T| when λ_T is replaced by λ, and so does its minimum over v (and max(‖g‖₁ - λ, 0) at x = 0): the residual at the
 # original level satisfies R(g.λ) ≤ R(λ_T) + |g.λ - λ_T|, for the same supplied gradient. When the conversion rounds g.λ to
 # nearest (Float16, Float32, Float64 and Int levels, a BigFloat level under BigFloat's default rounding mode, and a Rational of a
-# fixed-width integer type whose numerator and denominator are exact in T, which Julia converts by one division in T), |g.λ - λ_T|
+# fixed-width integer type whose numerator and denominator are exact in T), |g.λ - λ_T|
 # ≤ (eps(T)/2) λ_T ≤ (eps(T)/2) S ≤ 2^-7 H if λ_T is normal (H ≥ F S = 64 eps(T) S), and |g.λ - λ_T| ≤ nextfloat(zero(T))/2 <
 # 2^-7 H otherwise (H ≥ floatmin(T)), so within the regime a kept stop gives R(g.λ) < (1 + 2^-10 + 2^-7) H. Another Rational level
 # (a numerator or denominator rounded in the conversion, or a Rational{BigInt} rounded through BigFloat) has only the first
