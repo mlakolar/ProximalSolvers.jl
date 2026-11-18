@@ -246,7 +246,7 @@ formed in `T`, as for the lasso check; it is not kept when `max(λ, λcrit)` is 
   infinite or NaN gradient entry, or an overflowing sum, makes `r` non-finite and the check refuses.
 - **What a kept stop says.** `r` is computed in working precision from the computed gradient, whose rounding error it does not cover,
   as the lasso check does not; the compensated sums add the small error above. The true residual at a kept stop can therefore be slightly
-  above the bound (a sweep of `Float32` solves against a BigFloat reference found at most 1.033 times the bound). It is not a certificate in
+  above the bound (a sweep of `Float32` solves against a BigFloat reference found at most 1.002 times the bound). It is not a certificate in
   exact arithmetic and does not bound the distance to a minimizer. Because it does not form a step, it does not depend on the accepted curvature `L`, and a small `L`
   does not weaken it.
 - **Float32 and many tied entries.** The check has no rounding allowance whose size grows with the number of entries, so a `Float32`

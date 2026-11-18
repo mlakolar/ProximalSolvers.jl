@@ -183,7 +183,7 @@ end
 #
 # What it is and is not. r is computed in T from the computed gradient, so the rounding error of the gradient is not
 # covered (as for the lasso check): the true residual at a kept stop can be slightly above τ S (a sweep of Float32 solves
-# against a BigFloat reference found at most 1.033 τ S). The remaining error sources are that gradient error and the
+# against a BigFloat reference found at most 1.002 τ S). The remaining error sources are that gradient error and the
 # compensated summation's error above. It is not a certificate in exact arithmetic and it does not bound the distance to a minimizer. It
 # reads x and g in two passes (m, then the sums, accumulated in T). ∇f(x) is _gradient_at_x! (PGD: the accepted gradient, no new
 # evaluation; APG: one gradient from the cached image A x, counted in grad_calls). ∇f(0) is computed first and once per solve, into

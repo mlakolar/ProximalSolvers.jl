@@ -80,7 +80,7 @@ always (a point with `M = {1}` and a smaller entry whose gradient is 0 can have 
 `λ` folded into the sum it is cancelled against, so that small terms are not lost before the subtraction. The residual is computed in working
 precision from the computed gradient, whose rounding error it does not cover, and the compensated sums have a small error of their own
 (about `eps(T)` times the magnitude of the result, plus a term of order `p eps(T)²` times the sum of the magnitudes of the terms), so the true
-residual at a kept stop can be slightly above the bound (a sweep of `Float32` solves against a BigFloat reference found at most 1.033 times the
+residual at a kept stop can be slightly above the bound (a sweep of `Float32` solves against a BigFloat reference found at most 1.002 times the
 bound); it is not a certificate in exact arithmetic and it does not bound the distance to a minimizer. See [the numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-for-NormLinf).
 
 The gradient test holds when `r < gradtol * m` or `r < gradtol * N`, with `r` the
