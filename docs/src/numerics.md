@@ -666,8 +666,9 @@ CD's scalar arithmetic `BigFloat`; an `Int`, `Rational{Int}`, `Irrational`,
 `Bool` or `Float16` scale was used there as `T(s)`). Convert the scale
 explicitly where the conversion is finite, positive and representable in `T`,
 for example `Float64(s) * LeastSquaresLoss(y, X)`; the error message suggests it
-when it passes that rule. After the check, CD, PGD and APG use the loss scale as
-supplied, combined with `T` by Julia's promotion: a `Float64` scale in a
+when it passes that rule and, for an integer scale, only when `Float64(s)` equals
+`s` (for other types it notes that the conversion may round `s`). After the
+check, CD, PGD and APG use the loss scale as supplied, combined with `T` by Julia's promotion: a `Float64` scale in a
 `Float32` solve keeps its `Float64` value (also where that value is subnormal in
 `Float32`). In CD, the coordinate step and the two stopping scales are formed
 from that value and rounded to `T` where they enter the iterate or the
