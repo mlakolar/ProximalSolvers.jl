@@ -216,8 +216,6 @@ struct _BoundConstants{T}
   under_extrapolation::_SE{T}  # 8p √n η + 2√p ‖X‖_F η: of an extrapolated image and y
 end
 
-# normX is the _SE upper bound on ‖X‖_F of _frobenius_upper; the method without it forms that bound.
-_bound_constants(::Type{T}, X) where {T} = _bound_constants(T, X, _frobenius_upper(T, X))
 function _bound_constants(::Type{T}, X, normX) where {T}
   n, p = size(X)
   u = _unit(T)
