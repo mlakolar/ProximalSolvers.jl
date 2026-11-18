@@ -69,12 +69,16 @@ lambda = 0.15
 #
 # `SqrNormL2(1.0, s)` is `‖b − s‖²/2`. Its centre `s` must be a `Vector` of the element type of `b`.
 # Cyclic order and no momentum make the run reproducible. For this loss each coordinate is its own
-# minimizer, so the second pass changes nothing and the run stops there.
+# minimizer, so the first pass, which visits every coordinate, reaches the point. The next pass visits only
+# the active coordinates and changes nothing, and a further full pass confirms the change test before
+# `converged = true`. That is three passes for this data, started from zero, as the assertion below checks;
+# the count is observed here and is not a rule for other starts.
 f = SqrNormL2(1.0, s)
 g = NormL1(lambda)
 b = zeros(m)
 result = solve!(b, f, g, CDSolver(order = :cyclic, momentum = false, tol = 1e-12))
 @assert result.converged && result.minimizer === b
+@assert result.passes == 3
 
 # ## Checking the solution independently
 #
@@ -96,9 +100,9 @@ end
 @assert kkt_residual(s, s, lambda) >= lambda - 1e-12    # the unthresholded entries are not a solution
 
 # The gradient methods give the same point. They count a stop only where a computed residual is below a
-# bound (see [Numerical behavior](../../numerics.md)), and `gradtol = 1e-10` sets that bound. That bound is
-# near the rounding level of the objective, so the run is allowed to continue through a computed
-# increase of the objective (`allow_f_increases = true`), which would otherwise end it.
+# bound (see [Numerical behavior](../../numerics.md)), and `gradtol = 1e-10` sets that bound. Near the
+# minimizer the computed objective can stop resolving improvements before that residual target is met;
+# `allow_f_increases = true` lets the solve continue past a computed increase, which would otherwise end it.
 options = ProximalOptions(maxiter = 1000, gradtol = 1e-10, allow_f_increases = true)
 b_pgd, b_apg = zeros(m), zeros(m)
 solve!(b_pgd, f, g, ProximalGradientDescent(), options)

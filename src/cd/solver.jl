@@ -36,8 +36,8 @@ For a group lasso it can be a ProximalBase `BlockIterate`, as described below.
 inputs and refusals are those of [`solve!`](@ref). Each coordinate step is the soft threshold of `s[k]` at
 `λ/α`, so a pass costs O(p) time and the model O(p) storage (the centre is borrowed; a `SparseIterate` is
 solved on a copy, as above). The coordinate step is that of least squares with the identity as design, in
-particular outside the normal range of the type of `α` (the step is then formed without `α` or its
-reciprocal, as above); an unweighted `NormL1` has no coordinate step that throws there, and there is
+particular outside the normal range of the type of `α` (the step is then formed from `λ`, `α` and the
+curvature 1 without the product or reciprocal that leaves the range, as above); an unweighted `NormL1` has no coordinate step that throws there, and there is
 no loss-dependent state that a momentum step moves, so `momentum = nothing` is `false`. With `relative = true`
 the stopping threshold is `tol` times `sqrt(α) ‖s‖` (`tol` itself for `s = 0`), each coordinate change being
 scaled by `sqrt(α)`; a response scale that is not a normal number of `T` is refused before the first pass, as

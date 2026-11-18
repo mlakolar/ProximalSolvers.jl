@@ -31,12 +31,15 @@ decreasing. The estimate before the first iteration is `min(1, α_f ‖X‖_F²)
 rounds below that; it is `1` when that product is at least 1 or `X = 0`.
 
 For the centered squared norm `SqrNormL2(α, s)` (see [`solve!`](@ref)) the operator is the identity of order
-`p = length(s)`, `Diagonal(ones(T, p))`, and the estimate before the first iteration is `min(1, α p)` up to that
-rounding. The certified bound is that of a dense product, with `‖X‖_F = √p`, and its error terms grow like
-`p^1.5 eps(T)`. For the exact identity product, the smallest curvature `L` that the test accepts is `ρ α`, with
-`ρ` about `1.00015` at `p = 10²`, `1.13` at `p = 10⁴`, `8.6` at `p = 10⁵` and `5.3 × 10³` at `p = 10⁶` in `Float32`
-(measured by bisection on the test), and `1 + 2.2 × 10⁻⁷` at `p = 10⁶` in `Float64`. A larger accepted `L` is a shorter
-step, so in `Float32` the iteration count grows with `p` at large `p`. The size of the problem is
+`p = length(s)`, `Diagonal(ones(T, p))`, and the estimate before the first iteration is `min(1, α p)`, formed from an upper bound of
+`‖X‖_F`, rounded to `T` and raised to `floatmin(T)` when it is positive and rounds below that. The certified bound is that of a dense product, with `‖X‖_F = √p`, and its error terms grow like
+`p^1.5 eps(T)`. In a fixture with an exact identity product, `α = 1`, a step `d = x - y` of norm about `0.01 √p` and `x`
+of order 1 (so that no product underflows), bisection on the fresh-product test found that the smallest accepted curvature
+is `ρ α`, with `ρ` about `1.00015` at `p = 10²`, `1.13` at `p = 10⁴`, `8.6` at `p = 10⁵` and `5.3 × 10³` at `p = 10⁶`
+in `Float32`, and `1 + 2.2 × 10⁻⁷` at `p = 10⁶` in `Float64`. These are measurements for that fixture, not thresholds
+that depend on `p` alone: the test adds an absolute term for underflow of the image (`2 p √p nextfloat(0)`) to the norm of
+the image, so `ρ` also grows when the step `d` is tiny. A larger accepted `L` is a shorter step, so a larger `p` can
+increase the iteration count in `Float32` (a start at the minimizer does not inherit the trend). The size of the problem is
 limited to `p + 4 < 1/(4 eps(T))` and `p + 3 < 1/(4 eps(Float64))` (`p < 2,097,148` for `Float32`).
 
 When an extrapolated step would increase the computed objective, the momentum is

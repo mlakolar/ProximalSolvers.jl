@@ -10,9 +10,11 @@ module CenteredSqNorm
 #
 # Tolerances, with u = eps(T)/2 the unit roundoff of the data type T:
 #   CD. Each coordinate is its own minimizer: a visit forms the soft threshold of sⱼ at the threshold λ/α by a prox step with
-#   the step 1/α, so a full pass reaches the point and the next pass changes nothing. The threshold carries at most
-#   three roundings (the step 1/α, the level λ in T, their product) and the difference one, so
-#   |xⱼ - b*ⱼ| <= 4u (|sⱼ| + λ/α).
+#   the step 1/α, so a full pass reaches the point and the next pass changes nothing. For the Float32, Float64 and
+#   Integer levels of the fixtures the threshold carries at most three roundings (the step 1/α, the level λ in T, their
+#   product) and the difference one, so |xⱼ - b*ⱼ| <= 4u (|sⱼ| + λ/α). A Rational level can be converted to T with
+#   more error (see `_threshold` in src/cd/leastsquares.jl); the Rational level of the test of levels of other types is
+#   1//5, whose conversion is correctly rounded, so the same tolerance applies there.
 #   PGD and APG. A stop counts only where the computed residual is below τ S, τ = max(gradtol, 64 eps(T)) and
 #   S = max(λ, α‖s‖∞); the independent residual of entry j is allowed the rounding of the computed gradient entry and
 #   of S, Gtolⱼ = τ S (1 + 8u) + 4u (α(|xⱼ| + |sⱼ|) + λ), and the point is judged by ‖x - b*‖₂ <= ‖Gtol‖₂/α with the
@@ -432,12 +434,28 @@ end
     @test_throws r"did not produce a finite objective" solve!(x, SqrNormL2(1.0, copy(s)), NormL1(T(0.8 * big)), method, pg_options(T))
     @test x == s
   end
-  # CD has no step that throws after the gate (an unweighted NormL1 has no throwing exceptional step); the failure that
-  # remains is the nonfinite final objective, which leaves a dense iterate and an owner as they were
+  # An unweighted NormL1 has no throwing exceptional step, so a CD step does not throw by itself, but `_visit!` refuses a
+  # displacement h = new - old or a scaled change that is not finite (see the next testset), and the final objective
+  # can be nonfinite; each leaves a dense iterate and an owner as they were
   xs = T === Float32 ? T[3e38, 1] : T[1.7e308, 1]
   for mk in (() -> zeros(T, 2), () -> SparseIterate(zeros(T, 2)))
     @test refused(ArgumentError, "nonfinite objective", mk(), SqrNormL2(1.0, copy(xs)), NormL1(T(10)),
                   CDSolver(order = :cyclic, rng = Xoshiro(1)))
+  end
+end
+
+# A displacement that overflows during a pass: the data pass validation (finite centre, α representable, λ = 0) and the
+# minimum is 0, but the step of the second coordinate, from -big to +big, is not finite. `_visit!` refuses it during the pass;
+# the caller's dense iterate and SparseIterate are unchanged. With order = :random the borrowed RNG may already have advanced,
+# which is not asserted (a refusal before the pass does not advance it, see the refusal tests).
+@testset "CD: a displacement that overflows during a pass leaves x unchanged ($T)" for T in (Float32, Float64)
+  big, α = T === Float32 ? (T(3e38), 1e-30) : (T(1e308), 1e-300)
+  s = T[1, big]
+  for mk in (() -> T[2, -big], () -> SparseIterate(T[2, -big])), order in (:cyclic, :random)
+    x = mk()
+    before = state(x)
+    @test_throws r"not finite" solve!(x, SqrNormL2(α, copy(s)), NormL1(zero(T)), CDSolver(; order, rng = Xoshiro(1)))
+    @test isequal(state(x), before)
   end
 end
 
@@ -446,7 +464,7 @@ end
 # ---------------------------------------------------------------------------------------------------------
 
 # The level α passes the loss-scale rule where T(α) is nonzero, also where it is subnormal in T. CD solves these problems
-# to the tolerance of the matrix. For PGD and APG in Float32 the computed objective (α/2 ‖x - s‖², about 1e-40) is in
+# to the tolerance of the matrix. For PGD and APG in Float32 the computed objective (α/2 ‖x - s‖², about 1e-40 for the centre of this fixture) is in
 # the subnormal range, where the computed values did not separate the steps of the line search in this fixture: the runs
 # of this fixture end at the start, with converged = false. The point is judged by the objective (no worse than the
 # start's, within rounding), not by `converged`; this is a limit of the gradient methods, stated in docs/src/support.md.

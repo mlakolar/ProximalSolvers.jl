@@ -66,10 +66,16 @@ lasso (note e).
 - **(g)** The centered squared norm needs a finite centre `s::Vector{T}` of the length of the coefficients,
   a level `alpha` accepted by the rule of the loss scale below, and an unweighted `NormL1(lambda)`; see
   [Centered squared norm](@ref centered-sqnorm-support). A `Float32` solve of the gradient methods is judged by the returned point, as in (a).
-  The certified bound of `AccProxGradDescent` is that of a dense product, so in `Float32` it accepts a curvature `L`
-  from about `1.13 alpha` at `p = 10^4`, `8.6 alpha` at `p = 10^5` and `5 * 10^3 alpha` at `p = 10^6`,
-  and the method needs more iterations at large `p` (in `Float64` the factor is below `1 + 3e-7` up to `p = 10^6`).
-  For a `Float32` level that is subnormal in `Float32` (about `1e-40`), `CDSolver` solves the problem to its tolerance, but the objective that the gradient methods compare is in the subnormal range, and their runs in the test fixture end at the start with `converged = false`.
+  The certified bound of `AccProxGradDescent` is that of a dense product. In a measured fixture (exact identity product,
+  `alpha = 1`, `x` of order 1 and a step of norm about `0.01 sqrt(p)`, so that no product underflows), its fresh-product test
+  accepted a `Float32` curvature `L` only from about `1.13 alpha` at `p = 10^4`, `8.6 alpha` at `p = 10^5` and
+  `5 * 10^3 alpha` at `p = 10^6`, and in `Float64` from `(1 + 2.2e-7) alpha` at `p = 10^6`. These are measurements
+  for that fixture, not thresholds that depend on `p` alone: the factor also grows when the step is tiny, through the absolute
+  underflow term of the test. A larger accepted `L` is a shorter step, so a larger `p` can increase the iteration count in `Float32`.
+  A `Float32` level that is subnormal (about `1e-40`) does not by itself make the loss subnormal; it depends on the centre
+  (`alpha = 1f-40`, `s = Float32[1f20]` and `x = 0` give a loss near 0.5). With the centre of the test fixture (entries of order 1)
+  the loss is about `1e-40`, in the subnormal range, `CDSolver` solves the problem to its tolerance, and the gradient methods
+  end at the start with `converged = false`.
 
 **Updating the matrix.** A pull request that adds or removes support for a combination
 changes its cell and its tutorial link in the same pull request, together with the test
@@ -238,9 +244,9 @@ with ProximalBase's `SqrNormL2(alpha, s)` and `NormL1(lambda)`. The minimizer is
 Refused with an `ArgumentError` (a `DimensionMismatch` for the length), before `x` or `s` changes and before the random
 number generator is used: a weighted `NormL1`, an `ElasticNet` or another penalty, `Scaled(SqrNormL2(alpha, s), c)` (for a
 positive finite `c`, use `SqrNormL2(c * alpha, s)`, the same function in exact arithmetic), a `BlockIterate`, a nonfinite
-centre or starting point, and a start where the objective is not finite for the gradient methods. No design matrix is
+centre or starting point, and a start where the loss `f` is not finite for the gradient methods (a start where only the penalty is not finite is accepted, as for least squares). No design matrix is
 stored: a call takes O(p) time per iteration or pass and O(p) storage. For the gradient methods the operator is
-`Diagonal(ones(T, p))`, the curvature estimate before the first iteration is `min(1, alpha p)` and the stationarity
+`Diagonal(ones(T, p))`, the curvature estimate before the first iteration is `min(1, alpha p)` (formed from an upper bound of `norm(X)_F`, rounded to `T` and raised to `floatmin(T)` when it is positive and rounds below that) and the stationarity
 check of a stop uses `lambda_max = alpha * norm(s, Inf)`. `CDSolver` takes each coordinate
 step as the soft threshold of `s[k]` at `lambda/alpha`, so a pass reaches the point; `converged` is its change test
 (with `relative = true` the threshold is `tol * sqrt(alpha) * norm(s)`, or `tol` for `s = 0`), not a KKT certificate. See (g)

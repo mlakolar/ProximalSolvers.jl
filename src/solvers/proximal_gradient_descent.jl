@@ -11,7 +11,8 @@ the step size.
 The curvature estimate before the first iteration is `min(1, α_f ‖X‖_F²)` for the loss scale
 `α_f`, with `‖X‖_F` an upper bound, rounded to `T` and raised to `floatmin(T)` when it is positive and
 rounds below that; it is `1` when that product is at least 1 or `X = 0`. For `SqrNormL2(α, s)` the matrix is
-the identity of order `p = length(s)`, so `‖X‖_F² = p` and the estimate is `min(1, α p)` up to that rounding.
+the identity of order `p = length(s)`, so `‖X‖_F² = p` and the estimate is `min(1, α p)`, formed from an upper bound of `‖X‖_F`, rounded to `T` and raised
+to `floatmin(T)` when it is positive and rounds below that (so `α = nextfloat(zero(T))` gives `floatmin(T)`).
 
 `ProximalGradientDescent()` uses the supported
 `LineSearches.BackTracking()` line search. A trial that it rejects is decided
@@ -327,10 +328,11 @@ a length that differs from that of `x`, a weighted `NormL1` or any other penalty
 `SqrNormL2(c α, s)`) and a `BlockIterate`. The loss is read through ProximalBase's `SqrNormL2` oracles; no design
 matrix is stored, and a call takes O(p) time per iteration or pass and O(p) storage. For the gradient methods the
 operator is the identity `Diagonal(ones(T, p))`, the curvature estimate before the first iteration is
-`min(1, α p)` and `λmax` of [`ProximalOptions`](@ref) is `α ‖s‖∞`. `converged` has the meaning that it has for
+`min(1, α p)` with the upper bound, rounding and `floatmin(T)` floor stated above, and `λmax` of
+[`ProximalOptions`](@ref) is `α ‖s‖∞`. `converged` has the meaning that it has for
 least squares (see [`CDSolver`](@ref)). In `Float32` the certified bound of `AccProxGradDescent` is that of a
-dense product and, at large `p`, accepts a curvature above `α` by the factors that
-[`AccProxGradDescent`](@ref) lists, which slows it; that page also gives the limit on `p`.
+dense product; [`AccProxGradDescent`](@ref) lists the factors by which it can accept a curvature above `α` in a
+measured fixture, the dependence on the step size, and the limit on `p`.
 
 **CD on a dense vector.** A numerical error, including a nonfinite final
 objective, leaves `x` unchanged.

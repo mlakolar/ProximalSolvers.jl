@@ -219,7 +219,7 @@ _is_sqr_loss(f) = f isa SqrNormL2
 # `_check_sqrt_data`, and PGD, APG and CDSolver all take this loss. Each refusal is an ArgumentError
 # (a DimensionMismatch for the length), in this order: a BlockIterate; a loss without a centre; a centre that
 # is not a Vector{T} (a different element type included); a centre whose length is zero or differs from that of x;
-# the level α, by `_check_loss_scale` (positive Float32 or Float64, or an integer that T represents exactly,
+# the level α, by `_check_loss_scale` (positive Float32 or Float64, or a fixed-width integer (Base.BitInteger or Bool) that T represents exactly,
 # with a conversion to T that is finite and nonzero); a penalty that is not an unweighted NormL1, whose level
 # must pass `_scalar_parameter` (a weighted NormL1, an ElasticNet and every other penalty are refused; this
 # does not call `_check_penalty`, whose rules are those of least squares); an x that may alias the centre.
