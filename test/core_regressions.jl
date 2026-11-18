@@ -645,14 +645,16 @@ end
 @testset "PGD line search: the top of the range, and a step with a nonfinite entry (#364)" begin
   # With x' = 0 and y = 0, f(x) = c ‖d‖²/2 for the curvature c = α‖X d‖²/‖d‖² along d, so a finite
   # f(x) gives c ≤ 2 floatmax/‖d‖²: the steps below have a curvature of the order of floatmin(T) or
-  # less. A trial at L = c/4 (the last two cases: L = c/80) is rejected and the check sets L to c,
-  # in each mode (c is twice α‖X d‖²/‖d‖² in gradient mode).
+  # less. A trial at L = c/4 (the third and fourth cases: L = c/80; the last two: L ≈ c/4) is
+  # rejected and the check sets L to c, in each mode (c is twice α‖X d‖²/‖d‖² in gradient mode).
   ls, g64, g32 = PS.LineSearches.BackTracking(), NormL1(0.0), NormL1(0f0)
   # (X, α, d, L, rtol, g)
   cases = ((fill(1e-150, 1, 1), 1e-6, [1e307], 0.25e-306, 1e-12, g64),                  # ‖d‖ = 1e307
            (fill(1f-18, 1, 1), 1f0, Float32[2f37], 0.25f-36, 1f-5, g32),                 # ‖d‖ = 2e37
-           (fill(1e-100, 1, 8), 1e-120, fill(1.5e308, 8), 1e-321, 1e-3, g64),            # exponent(max |dᵢ|) = 1023, s = 2^-1023 is subnormal
-           (fill(1e-100, 1, 8), 1e-120, fill(8e307, 8), 1e-321, 1e-3, g64))              # finite entries, norm(d) = Inf
+           (fill(1e-100, 1, 8), 1e-120, fill(1.5e308, 8), 1e-321, 1e-3, g64),            # exponent(max |dᵢ|) = 1023, s = 2^-1022
+           (fill(1e-100, 1, 8), 1e-120, fill(8e307, 8), 1e-321, 1e-3, g64),              # finite entries, norm(d) = Inf
+           (fill(1.55e-154, 1, 1), 1.0, [9e307], 6e-309, 1e-12, g64),                    # exponent 1023, c = 2.4e-308 is normal
+           (fill(1.14f-19, 1, 1), 1f0, Float32[1.75f38], 3f-39, 1f-4, g32))              # exponent 127, c = 1.3e-38 is normal
   for (X, α, d, L, rtol, g) in cases, gradient_mode in (false, true)
     T = eltype(d)
     f = T(α) * LeastSquaresLoss(zeros(T, 1), X)
@@ -675,6 +677,38 @@ end
     st.f_x = T(1)
     @test PS.LineSearches.backtrack!(st, ls, f, g)
     @test st.delta_x == T[Inf, 1] && st.verifications == 0
+  end
+end
+
+@testset "PGD: a step with the largest exponent of T, under a thread that flushes subnormals (#364)" begin
+  # With exponent(max |dᵢ|) = exponent(floatmax(T)) the scale is s = floatmin(T), a normal number, which a
+  # flushing thread keeps. For x' = 0 and y = 0, a finite f(x) bounds the curvature c by about
+  # 2 floatmin(T), so the cases below have c between floatmin(T) and 2 floatmin(T), and L = floatmin(T)
+  # is the least normal L. In gradient mode the estimate is 2c, above L and above L/β = 2 floatmin(T), so the
+  # trial is rejected and the retry is 2c. Float64: the check runs and sets L to the computed 2c. Float32: the
+  # check keeps TFOCS's estimate under a flushing thread, so the retry is that estimate.
+  ls, g64, g32 = PS.LineSearches.BackTracking(), NormL1(0.0), NormL1(0f0)
+  for (T, X, d, rtol, g) in ((Float64, fill(1.55e-154, 1, 1), [9e307], 1e-6, g64),
+                             (Float32, fill(1.14f-19, 1, 1), Float32[1.75f38], 1e-4, g32))
+    f = LeastSquaresLoss(zeros(T, 1), X)
+    st = pgd_pair_trial(f, g, zeros(T, 1), d, floatmin(T))
+    st.backtrack_simple = false
+    c2 = pgd_exact_curvature(st, 2)
+    @test exponent(maximum(d)) == exponent(floatmax(T)) && isinf(PS._norm(d)^2) && isfinite(st.f_x)
+    @test floatmin(T) < c2 / 2 < 2 * floatmin(T)
+    old = get_zero_subnormals()
+    try
+      if set_zero_subnormals(true)
+        @test !PS.LineSearches.backtrack!(st, ls, f, g)
+        @test st.verifications == 1
+        @test isfinite(st.L)
+        @test st.L ≈ c2 rtol = rtol
+      else
+        @info "set_zero_subnormals(true) is not available on this platform; flushing-thread step skipped"
+      end
+    finally
+      set_zero_subnormals(old)
+    end
   end
 end
 

@@ -55,15 +55,17 @@ from a gradient `∇f(x)` with a nonfinite entry. Accepted trials are not checke
 
 When the step `d = x - x'` of a trial has finite entries and `norm(d)^2` overflows in the
 type of `x` (the squared norm is `Inf`), the trial is decided on the scaled step `d̃ = s d`,
-`s = 2^(-e)` with `e = exponent(max |dᵢ|)`, so that the largest entry of `d̃` is in `[1, 2)`.
-`L̂` is formed from `d̃`, from `f(x)` and `f(x')` multiplied by `s²` (by shifting their
-exponents, since `s²` can underflow), and from the products of `d̃` and `∇f` multiplied by
-`s`; in exact arithmetic it equals the estimate at `d`. The trial is then decided as at a
-representable scale, up to the rounding of the computed `f` and `∇f` and underflow of an
-entry of `d̃`, of a scaled function value or of `L̂`. The check of a rejected trial reads `d̃`:
-`‖d̃‖²` is between 1 and about `4n`, and for Float32 data an entry of `d̃` that is subnormal
-keeps TFOCS's update. After an accepted trial the solver state holds `x - x'` again. A step
-with a nonfinite entry is not scaled, and neither is a step whose squared norm underflows.
+`s = 2^(-e)` with `e = min(exponent(max |dᵢ|), exponent(floatmax(T)) - 1)` for the type `T` of
+`x`, so that `s` is a normal number and the largest entry of `d̃` is in `[1, 2)`, or in `[2, 4)`
+when `exponent(max |dᵢ|)` is `exponent(floatmax(T))`. `L̂` is formed from `d̃`, from `f(x)` and
+`f(x')` multiplied by `s²` (by shifting their exponents, since `s²` can underflow), and from the
+products of `d̃` and `∇f` multiplied by `s`; in exact arithmetic it equals the estimate at
+`d`. The trial is then decided as at a representable scale, up to the rounding of the computed
+`f` and `∇f` and underflow of an entry of `d̃`, of a scaled function value or of `L̂`. The
+check of a rejected trial reads `d̃`: `‖d̃‖²` is between 1 and about `16n`, and for Float32 data
+an entry of `d̃` that is subnormal keeps TFOCS's update. After an accepted trial the solver
+state holds `x - x'` again. A step with a nonfinite entry is not scaled, and neither is a step
+whose squared norm underflows.
 See [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
 
 The object holds settings only and can be shared between solves; the
@@ -106,13 +108,15 @@ function value_and_gradient_at_x! end
 function check_rejection! end
 
 # The step of a trial whose squared norm overflowed while its entries are finite, with m the
-# largest absolute entry: scale state.delta_x in place by s = 2^k, k = -exponent(m), so that its
-# largest entry is in [1, 2), and return (s² f(x), s² f(x'), s, the squared norm of the scaled
-# step). The function values are scaled by shifting their exponents by 2k, since s² can underflow
-# while s² f does not. It is a separate, non-inlined function so that its code stays out of
-# backtrack!.
+# largest absolute entry: scale state.delta_x in place by s = 2^k, with
+# k = -min(exponent(m), exponent(floatmax(T)) - 1) for the type T of m, so that s ≥ floatmin(T)
+# is a normal number and the largest entry is in [1, 2), or in [2, 4) when exponent(m) is
+# exponent(floatmax(T)). It returns (s² f(x), s² f(x'), s, the squared norm of the scaled
+# step). The function values are scaled by shifting their exponents by 2k, since s² can
+# underflow while s² f does not. It is a separate, non-inlined function so that its code stays
+# out of backtrack!.
 @noinline function _scale_overflowing_step!(state, m::T) where T
-    k = -exponent(m)
+    k = -min(exponent(m), exponent(floatmax(T)) - 1)
     s = ldexp(one(T), k)
     state.delta_x .*= s
     ldexp(state.f_x, 2k), ldexp(state.f_x_previous, 2k), s, _norm(state.delta_x)^2

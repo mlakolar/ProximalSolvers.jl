@@ -900,8 +900,10 @@ only on `converged`.
   has finite entries and the computed `norm(d)^2` is `Inf` in `T`: a step above about
   1.3e154 in Float64 and about 1.8e19 in Float32, which includes a step whose norm
   is itself above `floatmax(T)`. The trial is then decided on the scaled step
-  `d̃ = s d`, with `s = 2^(-e)` and `e = exponent(max |dᵢ|)`, so that the largest
-  entry of `d̃` is in `[1, 2)`. The local estimate `L̂` is computed from `d̃` and from
+  `d̃ = s d`, with `s = 2^(-e)` and `e = min(exponent(max |dᵢ|), exponent(floatmax(T)) - 1)`,
+  so that `s` is a normal number and the largest entry of `d̃` is in `[1, 2)`, or in
+  `[2, 4)` when `exponent(max |dᵢ|)` is `exponent(floatmax(T))` (1023 in Float64, 127 in
+  Float32). The local estimate `L̂` is computed from `d̃` and from
   `f(x)` and `f(x')` multiplied by `s²` (by shifting their exponents, since `s²` can
   underflow), with the products of `d̃` and `∇f` multiplied by `s`; in exact
   arithmetic it equals the estimate at `d`. The check of a rejected trial reads `d̃`,
@@ -920,7 +922,8 @@ only on `converged`.
     `2 eps` of the threshold); the step is not scaled, and `c` can be zero and
     accept the trial;
   - for Float32 data, an entry of `d̃` that is subnormal (an entry of `d` more than
-    about 2^126 times smaller than the largest has one) makes the check keep
+    2^128 times smaller than the largest has one, and one more than 2^126 times
+    smaller can) makes the check keep
     TFOCS's update, as it does for any `d̂` with a subnormal entry, and the check does
     not accept the trial. The product `X d̃` is `s` times `X d`, so the absolute
     allowances of the Float32 check weigh more against it; they change `c` where
