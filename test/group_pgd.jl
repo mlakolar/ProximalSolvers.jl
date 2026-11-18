@@ -6,7 +6,7 @@ module GroupPGD
 #    group, ‖∇_G‖ - cₖ at a zero group, cₖ = λ wₖ) and the scale S = max(maxₖ cₖ, maxₖ ‖[∇f(0)]_G‖);
 #  * the closed-form block soft threshold for designs with block-orthogonal columns, a BigFloat proximal gradient
 #    reference for a correlated design, and the least-squares fit for λ = 0.
-# Every solve (either method) that reports converged = true is checked against the independent residual (`check_flag`); the
+# A solve through `gsolve` (either method) that reports converged = true is checked against the independent residual (`check_flag`); the
 # solver's flags are not otherwise used for acceptance.
 using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
