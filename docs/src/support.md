@@ -63,15 +63,7 @@ These checks run before `x` is copied or written and before the random number ge
 used. A zero weight leaves its coefficient unpenalized: it is not fixed at 0. With CD, a column of
 `X` that is zero gets the coefficient 0, also where its weight is zero.
 
-Where `c_j` is used, and where it is not. The stopping check of PGD and APG scores entry `j` with `c_j` and
-takes the largest `c_j` as the level `λ` of its scale
-([the stationarity check](@ref "The stationarity check of a stop")), and the coordinate step of CD uses `c_j`
-where it forms its threshold without the product `s * a` ([numerical behavior](numerics.md)). ProximalBase's ordinary
-proximal steps (CD's step inside the normal range of `s * a`, and the proximal step of PGD and APG) form their
-thresholds from `lambda` and `w_j` in ProximalBase's working type, not from the rounded `c_j`. For a `lambda` of
-type `T` the two thresholds are the same product up to rounding; for another `Real` type they can also differ by the
-conversion error `|T(lambda) - lambda| w_j` of the level, which can be larger for a `Rational` level than for a
-floating-point or integer one (see the [implementation notes](developer/implementation-notes.md)). CD's
+Where `c_j` is used, and where it is not. The checks above, the stopping check of PGD and APG (it scores entry `j` with `c_j` and takes the largest `c_j` as the level `λ` of its scale; see [the stationarity check](@ref "The stationarity check of a stop")), and the coordinate step of CD where it forms its threshold without the product `s * a` use the checked `c_j`. ProximalBase's proximal steps (the proximal step of PGD and APG, and the step of CD where it calls ProximalBase's `prox_block`) form their thresholds from `lambda` and `w_j` in ProximalBase's working type, not from `c_j`. These thresholds and those formed from `c_j` can differ by rounding and, for a `lambda` that is not of type `T`, by the error of converting the level to `T`. When CD takes each step is described in [numerical behavior](numerics.md); the error of `c_j` relative to `lambda * w_j` is described in the [implementation notes](developer/implementation-notes.md). CD's
 `converged` remains the change test. A scaled penalty such as `Scaled(NormL1(lambda, w), a)`, and `ElasticNet` with
 weights, are refused. [Example 8](examples/08_weighted_lasso.md) solves an adaptive lasso with a zero weight with all
 three solvers.
