@@ -754,8 +754,9 @@ What changes for the solvers:
   `NormL1(0.1 λmax)` after 7 (Julia 1.10.13 and 1.13.3 agree). PGD ends with
   `converged = true` after 10 iterations, and with `NormL1(0.1 λmax)` after 9 (Julia
   1.10.12 and 1.13.3 agree). Its backtracking test squares the step norm, which
-  overflows once a step exceeds about 1.3e154, and it decides such a trial on a scaled
-  step (see "Steps whose squared norm overflows" under "Results and failures").
+  overflows once a step exceeds about 1.3e154; a trial with a finite value and a step of
+  finite entries is then decided on a scaled step (see "Steps whose squared norm
+  overflows" under "Results and failures").
 - PGD and APG log no warning when they end at `maxiter`, so check `converged` and an
   [independent KKT residual](sparsity-and-kkt.md). CD logs a warning when a run ends with
   `converged = false`. CD solved the example above (`converged = true`, `x = [1.0e160]`);
@@ -896,24 +897,29 @@ only on `converged`.
   its condition, the exact-stall rule applies and the solve can run to
   `maxiter` with `converged = false`.
 
-  **Steps whose squared norm overflows.** Suppose the step `d = x - x'` of a trial
-  has finite entries and the computed `norm(d)^2` is `Inf` in `T`: a step above about
-  1.3e154 in Float64 and about 1.8e19 in Float32, which includes a step whose norm
-  is itself above `floatmax(T)`. The trial is then decided on the scaled step
-  `d̃ = s d`, with `s = 2^(-e)` and `e = min(exponent(max |dᵢ|), exponent(floatmax(T)) - 1)`,
-  so that `s` is a normal number and the largest entry of `d̃` is in `[1, 2)`, or in
-  `[2, 4)` when `exponent(max |dᵢ|)` is `exponent(floatmax(T))` (1023 in Float64, 127 in
-  Float32). The local estimate `L̂` is computed from `d̃` and from
-  `f(x)` and `f(x')` multiplied by `s²` (by shifting their exponents, since `s²` can
-  underflow), with the products of `d̃` and `∇f` multiplied by `s`; in exact
-  arithmetic it equals the estimate at `d`. The check of a rejected trial reads `d̃`,
-  and after an accepted trial the solver state holds `x - x'` again. The trial is
-  decided as at a representable scale, up to the rounding of the computed `f` and
-  `∇f` and underflow of an entry of the scaled step, of a scaled function value or
-  of `L̂`. Not changed:
+  **Steps whose squared norm overflows.** Suppose the step `d = x - x'` of a trial has
+  finite entries, the computed `norm(d)^2` is `Inf` in `T` (a step above about 1.3e154 in
+  Float64 and about 1.8e19 in Float32, which includes a step whose norm is itself above
+  `floatmax(T)`), and the trial value `f(x)` is finite. The trial is then decided on the
+  scaled step `d̃ = s d`, with `s = 2^(-e)` and
+  `e = min(exponent(max |dᵢ|), exponent(floatmax(T)) - 1)`, so that `s` is a normal number
+  and the largest entry of `d̃` is in `[1, 2)`, or in `[2, 4)` when `exponent(max |dᵢ|)` is
+  `exponent(floatmax(T))` (1023 in Float64, 127 in Float32). A trial whose `f(x)` is not
+  finite is not scaled: it gives no estimate and the search retries with `L ← L/β`, as before.
+  The local estimate `L̂` is computed from `d̃` and from `f(x)` and `f(x')` multiplied by `s²`
+  (by shifting their exponents, since `s²` can underflow), with the products of `d̃` and `∇f`
+  multiplied by `s`; in exact arithmetic it equals the estimate at `d`. The check of a
+  rejected trial reads `d̃`, and after an accepted trial the solver state holds `x - x'` again.
+  The trial is decided as at a representable scale, up to the rounding of the computed `f` and
+  `∇f`, overflow of the products `⟨d̃, ∇f(x')⟩` and `⟨∇f(x) - ∇f(x'), d̃⟩` before they are
+  multiplied by `s`, underflow of an entry of the scaled step, of a scaled function value or
+  of `L̂`, and, for Float32 data, the allowances of the check described above. Not changed:
   - a step with a nonfinite entry is not scaled, and its trial is decided as before;
   - a step whose squared norm is subnormal or underflows to zero is not scaled
     ([#317](https://github.com/mlakolar/ProximalSolvers.jl/issues/317));
+  - an overflow of `⟨d̃, ∇f(x')⟩` or of `⟨∇f(x) - ∇f(x'), d̃⟩`, or a NaN from overflowed terms
+    of opposite sign, is not recovered by the scaling: the estimate is then infinite or NaN,
+    and is handled as such an estimate is without scaling;
   - when `‖fl(X d̂)‖²` overflows for a representable `‖d̂‖²`, `c` is nonfinite and the check
     does not accept the trial;
   - for Float64 data, in a narrow band around the overflow threshold of `‖d‖²`,
@@ -921,13 +927,15 @@ only on `converged`.
     overflows (in a probe with random `d` of length 10, 100 and 1000, within about
     `2 eps` of the threshold); the step is not scaled, and `c` can be zero and
     accept the trial;
-  - for Float32 data, an entry of `d̃` that is subnormal (an entry of `d` more than
-    2^128 times smaller than the largest has one, and one more than 2^126 times
-    smaller can) makes the check keep
-    TFOCS's update, as it does for any `d̂` with a subnormal entry, and the check does
-    not accept the trial. The product `X d̃` is `s` times `X d`, so the absolute
-    allowances of the Float32 check weigh more against it; they change `c` where
-    `‖fl(X d̃)‖` is of the order of the allowances.
+  - for Float32 data, a subnormal entry of `d̃` (nonzero, below `floatmin(Float32)`) makes the
+    check keep TFOCS's update, as it does for any `d̂` with a subnormal entry, and the check
+    does not accept the trial. An entry of `d` with `|s dᵢ| ≤ 2^-150` (half the least positive
+    number) rounds to zero in `d̃`, which is not detected: it drops out of both sums of
+    squares and of the product (`d = [2^70, 2^-80]` scales to `[1, 0]`). In exact arithmetic
+    `X d̃` is `s` times `X d`; the stored product can differ when an entry of `d̃` has
+    underflowed (for `X = [0 1]` and the `d` above, `X d̃ = 0` while `s X d = 2^-150`). The
+    allowances of the Float32 check are absolute, so they weigh more against `‖fl(X d̃)‖` the
+    smaller it is, and they change `c` where it is of the order of the allowances.
 - APG handles a failed step in the same way. Its backtracking raises an error, after which the last
   accepted iterate is restored, when the next curvature estimate `L/β` is not a
   finite increase; a trial whose objective is not finite is never accepted.

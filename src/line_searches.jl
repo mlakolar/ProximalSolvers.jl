@@ -53,19 +53,24 @@ computed `‖d̂‖²` is zero (the zero-step exit, which includes a tiny nonzer
 whose square underflows), when `L̂` is NaN, or when a gradient estimate comes
 from a gradient `∇f(x)` with a nonfinite entry. Accepted trials are not checked.
 
-When the step `d = x - x'` of a trial has finite entries and `norm(d)^2` overflows in the
-type of `x` (the squared norm is `Inf`), the trial is decided on the scaled step `d̃ = s d`,
-`s = 2^(-e)` with `e = min(exponent(max |dᵢ|), exponent(floatmax(T)) - 1)` for the type `T` of
-`x`, so that `s` is a normal number and the largest entry of `d̃` is in `[1, 2)`, or in `[2, 4)`
-when `exponent(max |dᵢ|)` is `exponent(floatmax(T))`. `L̂` is formed from `d̃`, from `f(x)` and
-`f(x')` multiplied by `s²` (by shifting their exponents, since `s²` can underflow), and from the
-products of `d̃` and `∇f` multiplied by `s`; in exact arithmetic it equals the estimate at
-`d`. The trial is then decided as at a representable scale, up to the rounding of the computed
-`f` and `∇f` and underflow of an entry of `d̃`, of a scaled function value or of `L̂`. The
-check of a rejected trial reads `d̃`: `‖d̃‖²` is between 1 and about `16n`, and for Float32 data
-an entry of `d̃` that is subnormal keeps TFOCS's update. After an accepted trial the solver
-state holds `x - x'` again. A step with a nonfinite entry is not scaled, and neither is a step
-whose squared norm underflows.
+When the step `d = x - x'` of a trial has finite entries, `norm(d)^2` overflows in the type of
+`x` (the squared norm is `Inf`) and the trial value `f(x)` is finite, the trial is decided on the
+scaled step `d̃ = s d`, `s = 2^(-e)` with `e = min(exponent(max |dᵢ|), exponent(floatmax(T)) - 1)`
+for the type `T` of `x`, so that `s` is a normal number and the largest entry of `d̃` is in
+`[1, 2)`, or in `[2, 4)` when `exponent(max |dᵢ|)` is `exponent(floatmax(T))`. A trial whose
+value `f(x)` is not finite is not scaled: it gives no estimate and the search retries with
+`L ← L / β`, as above. `L̂` is formed from `d̃`, from `f(x)` and `f(x')` multiplied by `s²` (by
+shifting their exponents, since `s²` can underflow), and from the products of `d̃` and `∇f`
+multiplied by `s`; in exact arithmetic it equals the estimate at `d`. The trial is then decided
+as at a representable scale, up to the rounding of the computed `f` and `∇f`, overflow of the
+products `⟨d̃, ∇f(x')⟩` and `⟨∇f(x) - ∇f(x'), d̃⟩` before they are multiplied by `s` (an overflow,
+or a NaN from overflowed terms of opposite sign), and underflow of an entry of `d̃`, of a scaled
+function value or of `L̂`. The check of a rejected trial reads `d̃`, with `‖d̃‖²` between 1 and
+about `16n`; for Float32 data it is also subject to the allowances above, and an entry of `d̃`
+that is subnormal keeps TFOCS's update, while an entry of `d` with `|s dᵢ| ≤ 2^-150` rounds to zero
+in `d̃`, is not detected, and drops out of both sums of squares and of the product. After an
+accepted trial the solver state holds `x - x'` again. A step with a nonfinite entry is not
+scaled, and neither is a step whose squared norm underflows.
 See [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
 
 The object holds settings only and can be shared between solves; the
@@ -102,9 +107,10 @@ function value_and_gradient_at_x! end
 
 # check_rejection!(state, gradient_mode) returns (c ≤ L, c) for a rejected trial with d̂ ≠ 0,
 # with c the computed curvature of the step in the mode of its estimate (twice α‖X d̂‖²/‖d̂‖²
-# in gradient mode). d̂ is state.delta_x: the step x - x', or, when backtrack! has scaled it
-# because its squared norm overflows, that step times a power of two, for which c is the same in
-# exact arithmetic. The PGD state implements it with its LS model (proximal_gradient_descent.jl).
+# in gradient mode). d̂ is state.delta_x: the step x - x', or, when backtrack! has scaled it (its
+# squared norm overflows with finite entries and f(x) is finite), that step times a power of two,
+# for which c is the same in exact arithmetic. The PGD state implements it with its LS model
+# (proximal_gradient_descent.jl).
 function check_rejection! end
 
 # The step of a trial whose squared norm overflowed while its entries are finite, with m the
@@ -112,9 +118,9 @@ function check_rejection! end
 # k = -min(exponent(m), exponent(floatmax(T)) - 1) for the type T of m, so that s ≥ floatmin(T)
 # is a normal number and the largest entry is in [1, 2), or in [2, 4) when exponent(m) is
 # exponent(floatmax(T)). It returns (s² f(x), s² f(x'), s, the squared norm of the scaled
-# step). The function values are scaled by shifting their exponents by 2k, since s² can
-# underflow while s² f does not. It is a separate, non-inlined function so that its code stays
-# out of backtrack!.
+# step). The function values are scaled by shifting their exponents by 2k, so that s², which can
+# underflow, is not formed. It is a separate, non-inlined function so that its code stays out of
+# backtrack!.
 @noinline function _scale_overflowing_step!(state, m::T) where T
     k = -min(exponent(m), exponent(floatmax(T)) - 1)
     s = ldexp(one(T), k)
@@ -150,7 +156,8 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
         return false
     end
 
-    # When the squared norm of the step overflows while its entries are finite, the estimates
+    # When the squared norm of the step overflows while its entries are finite (and f(x) is
+    # finite, since a trial with a nonfinite f(x) has already returned above), the estimates
     # below and the check of a rejection use the step scaled by a power of two, with f(x) and
     # f(x') scaled to match (fx, fp) and the gradient products by sd; otherwise fx and fp are
     # f(x) and f(x'), sd is 1 and the step is unchanged. With a nonfinite entry the step is not
@@ -191,8 +198,9 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
 
     # Exit if Lipschitz criterion satisfied, or if we hit Lexact. After an acceptance of a
     # scaled step, state.delta_x is set back to x - x_previous, which the stopping tests read.
-    # A rejection returns with the scaled step in state.delta_x: the next trial starts with
-    # _sub!, and an error ends the update, after which solve! restores x from x_previous.
+    # A rejection after the scaling returns with the scaled step in state.delta_x: the next trial
+    # starts with _sub!, and an error ends the update, after which solve! restores x from
+    # x_previous.
     state.backtrack_steps += 1;
     if local_l <= state.L || state.L >= ls.Lexact
         scaled && _sub!(state.delta_x, state.x, state.x_previous)

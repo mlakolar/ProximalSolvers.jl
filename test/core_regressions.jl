@@ -567,10 +567,11 @@ function pgd_search(f, g, x0, L; gradient_mode = false, once = false)
 end
 
 @testset "PGD line search: a power-of-two scale of x and y does not change the decision, also when ‖x - x'‖² overflows (#364)" begin
-  # Scaling x and y by σ = 2^k scales f by σ², ∇f and the step by σ, and leaves the curvature
-  # along the step unchanged, so the decisions of the search agree in exact arithmetic. The loss
-  # scale α is a power of two and is the same at the scales of a case. The data scale of Xtiny keeps ‖X d‖²
-  # finite where ‖d‖² overflows (the step is about 2^332 times that of X0).
+  # Scaling x, y and the penalty level λ by σ = 2^k scales f by σ², ∇f and the step by σ, and
+  # leaves the curvature along the step unchanged, so the decisions of the search agree in exact
+  # arithmetic. The loss scale α is a power of two and is the same at the scales of a case. The
+  # data scale of Xtiny is such that ‖X d‖² is finite at k = 500, where ‖d‖² overflows (the step
+  # is about 2^332 times that of X0).
   X0 = [1.0 0.3 -0.2; 0.5 1.0 0.1; -0.4 0.2 1.0; 0.3 -0.6 0.5; 0.2 0.1 -0.3]
   y0 = [1.0, -2.0, 0.5, 3.0, -1.0]
   Xtiny = ldexp.(X0, -332)
@@ -582,7 +583,8 @@ end
       λ0 = T(λfrac * α * norm(X' * y0, Inf))
       problem(k) = (T(α) * LeastSquaresLoss(T.(ldexp.(y0, k)), T.(X)), NormL1(ldexp(λ0, k)))
       x0 = zeros(T, 3)
-      # the curvature along the first step, c, depends neither on L nor on k
+      # the curvature c along the first step from x0 = 0, in the mode of the estimate (twice
+      # α‖X d‖²/‖d‖² in gradient mode), depends neither on L nor on k
       f, g = problem(0)
       c = Float64(pgd_exact_curvature(pgd_trial(f, g, x0, one(T); gradient_mode), gradient_mode ? 2 : 1))
       for k in (0, ks...)
@@ -592,7 +594,8 @@ end
         @test r.overflowed == (k > 0)
         @test !r.accepted && r.verifications == 1
         @test r.L ≈ c rtol = rtol
-        # at 0.7c the first trial is rejected and L/β = 1.4c, away from a tie with c, is accepted
+        # at 0.7c the first trial is rejected, and the retry at L/β = 1.4c, away from a tie with c,
+        # is accepted
         r = pgd_search(f, g, x0, T(0.7c); gradient_mode)
         @test r.overflowed == (k > 0)
         @test r.accepted && r.trials == 2 && r.verifications == 1
@@ -645,8 +648,10 @@ end
 @testset "PGD line search: the top of the range, and a step with a nonfinite entry (#364)" begin
   # With x' = 0 and y = 0, f(x) = c ‖d‖²/2 for the curvature c = α‖X d‖²/‖d‖² along d, so a finite
   # f(x) gives c ≤ 2 floatmax/‖d‖²: the steps below have a curvature of the order of floatmin(T) or
-  # less. A trial at L = c/4 (the third and fourth cases: L = c/80; the last two: L ≈ c/4) is
-  # rejected and the check sets L to c, in each mode (c is twice α‖X d‖²/‖d‖² in gradient mode).
+  # less. The trial starts at an L below c: c/4 in the first two cases, c/80 in the third and
+  # fourth, about c/4 in the last two. It is rejected in both modes (the estimate is c in
+  # function-value mode and 2c in gradient mode), and L/β is below c, so the retry is the
+  # computed curvature of the mode, c or 2c.
   ls, g64, g32 = PS.LineSearches.BackTracking(), NormL1(0.0), NormL1(0f0)
   # (X, α, d, L, rtol, g)
   cases = ((fill(1e-150, 1, 1), 1e-6, [1e307], 0.25e-306, 1e-12, g64),                  # ‖d‖ = 1e307
@@ -682,7 +687,7 @@ end
 
 @testset "PGD: a step with the largest exponent of T, under a thread that flushes subnormals (#364)" begin
   # With exponent(max |dᵢ|) = exponent(floatmax(T)) the scale is s = floatmin(T), a normal number, which a
-  # flushing thread keeps. For x' = 0 and y = 0, a finite f(x) bounds the curvature c by about
+  # flushing thread keeps. For x' = 0 and y = 0, a finite f(x) bounds the curvature c below
   # 2 floatmin(T), so the cases below have c between floatmin(T) and 2 floatmin(T), and L = floatmin(T)
   # is the least normal L. In gradient mode the estimate is 2c, above L and above L/β = 2 floatmin(T), so the
   # trial is rejected and the retry is 2c. Float64: the check runs and sets L to the computed 2c. Float32: the
@@ -714,7 +719,8 @@ end
 
 @testset "PGD Float32: the function-value estimate of a step with a finite squared norm is formed as before (#364)" begin
   # The sum f(x') + ⟨d, ∇f(x')⟩ of the estimate is a Float32 sum, which rounds, before the Float64 term
-  # L ‖d‖²/2 is added. A subnormal entry of d keeps TFOCS's estimate L̂ as the retry, so L̂ is read from st.L.
+  # L ‖d‖²/2 is added. A subnormal entry of d keeps TFOCS's estimate L̂ as the retry when L̂ exceeds
+  # L/β, as it does here, so L̂ is read from st.L.
   f = LeastSquaresLoss(Float32[0], Float32[1 0])
   g0 = NormL1(0f0)
   st = pgd_pair_trial(f, g0, Float32[-1000.37, 0], Float32[-997.47, 1f-40], 0.1f0)

@@ -201,8 +201,9 @@ LineSearches.value_and_gradient_at_x!(state::ProximalGradientDescentState, f) =
 # read), with m = 1 in function-value mode and m = 2 in gradient mode. Returns (accepted, c):
 # accepted is the comparison of the curvature value with L (in Float64 for Float32 data), and c,
 # of type T, is the estimate that the caller uses after a rejection. When the squared norm of
-# the step x - x' overflowed in the element type of x with finite entries, backtrack! has scaled
-# state.delta_x by a power of two, so d̂ is that scaled step and its largest entry is in [1, 4).
+# the step x - x' overflowed in the element type of x with finite entries and f(x) is finite,
+# backtrack! has scaled state.delta_x by a power of two s, so d̂ is that scaled step and its
+# largest entry is in [1, 4).
 function LineSearches.check_rejection!(state::ProximalGradientDescentState, gradient_mode::Bool)
     mul!(state.dz, state.model.X, state.delta_x)
     state.verifications += 1
@@ -226,9 +227,9 @@ end
 # caller keeps TFOCS's estimate, when the calling thread flushes subnormals to zero
 # (get_zero_subnormals(), one read of the floating-point control register) or when d̂ has a
 # subnormal entry, which a flushing thread could drop from the product. For a scaled step d̂
-# (see check_rejection!), that is a nonzero entry of absolute value below floatmin(Float32): an
-# entry of x - x' more than 2^128 times smaller than the largest has one, and one more than 2^126
-# times smaller can. Otherwise the sums of
+# (see check_rejection!), that is a nonzero entry d̂ᵢ with |d̂ᵢ| < floatmin(Float32); an entry of
+# x - x' with |s (xᵢ - x'ᵢ)| ≤ 2^-150 (half the least positive number) rounds to zero in d̂, is not
+# detected, and drops out of both sums of squares and of the product. Otherwise the sums of
 # squares are accumulated in Float64, where the square of a finite Float32 is exact, so neither
 # sum overflows or underflows, and ‖d̂‖² > 0 for d̂ ≠ 0. An entry of fl(X d̂) that overflowed to
 # Inf or NaN makes the curvature nonfinite: the trial is not accepted and the caller keeps
