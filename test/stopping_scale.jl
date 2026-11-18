@@ -40,6 +40,16 @@ end
 # model, not guarantees for every BLAS kernel, and they do not make the computed residual an
 # exact one.
 function kkt_excess(X, y, α, λ, x, τ, ::Type{T}) where T
+  G, S, eG, eS, u = kkt_parts(X, y, α, λ, x, T)
+  iszero(S) && return Inf
+  setprecision(BigFloat, 256) do
+    Float64((G - eG - BigFloat(τ) * (1 + 4u) * (S + eS)) / S)
+  end
+end
+
+# The reference residual G = ‖G‖∞, evaluated in 256-bit BigFloat, S, and the rounding estimates eG, eS and u of kkt_excess
+# (the values keep the 256-bit precision they were formed in)
+function kkt_parts(X, y, α, λ, x, ::Type{T}) where T
   setprecision(BigFloat, 256) do
     Xb, yb, xb, a, l = BigFloat.(X), BigFloat.(y), BigFloat.(x), BigFloat(α), BigFloat(λ)
     n, p = size(Xb)
@@ -48,12 +58,11 @@ function kkt_excess(X, y, α, λ, x, τ, ::Type{T}) where T
     g = a .* (Xb' * d)
     G = maximum(j -> iszero(xb[j]) ? max(abs(g[j]) - l, zero(l)) : abs(g[j] + l * sign(xb[j])), eachindex(xb))
     S = max(l, maximum(abs, a .* (Xb' * yb)))
-    iszero(S) && return Inf
     absX = abs.(Xb)
     e = (p + 1) * u .* (absX * abs.(xb) + abs.(yb))
     eG = maximum(a .* (absX' * (e .+ (n + 1) * u .* (abs.(d) .+ e))) .+ u .* (abs.(g) .+ l))
     eS = a * (n + 1) * u * maximum(absX' * abs.(yb))
-    Float64((G - eG - BigFloat(τ) * (1 + 4u) * (S + eS)) / S)
+    G, S, eG, eS, u
   end
 end
 
@@ -427,6 +436,40 @@ end
   end
   @test !r.converged
   @test x[1] ≈ 0.7 atol = 1e-6
+end
+
+@testset "PGD strict at loss scale 1e-200, λ = 0: converged, within the stopping guarantee of the least-squares solution (#317)" begin
+  # Historical: at base 8cc0222 (initial curvature 1) this solve reached subnormal squared steps
+  # with a zero gradient-difference product and raised the line search's "nonfinite curvature
+  # estimate" error. The test asserts convergence and accuracy, not that it reaches that branch;
+  # the diag reproducer and the direct backtrack! test of core_regressions.jl are the defect
+  # coverage that does not depend on the initial curvature.
+  X, y = data("base")
+  α, λ = 1e-200, 0.0
+  x = zeros(12)
+  r = solve!(x, lossof(α, y, X), NormL1(λ), ProximalGradientDescent(), STRICT)
+  @test r.converged
+  invariant("strict 1e-200", r, X, y, α, λ, STRICT, Float64)
+  # The reference is the least-squares solution x* of the rounded data, in 256-bit BigFloat. With
+  # λ = 0, G = α XᵀX (x - x*), so ‖x - x*‖₂ ≤ ‖G‖₂ / (α σmin²) ≤ √p ‖G‖∞ / (α σmin²). The invariant above
+  # bounds ‖G‖∞ by U = eG + τ (1 + 4u)(S + eS) (the stopping threshold τ S plus the rounding
+  # estimates of kkt_excess). σlo is a candidate lower bound on σmin: the computed least singular
+  # value of X less p eps σmax. It is not claimed from the backward stability of the SVD; it is
+  # certified below by a Cholesky factorization of XᵀX - σlo² I in 256-bit BigFloat (for this fixture's values, XᵀX is exact at 256 bits). Success certifies λmin(XᵀX) > σlo², up to
+  # the 256-bit rounding of the factorization, which for this fixture is far below the margin.
+  τ = max(STRICT.gradtol, 64 * eps())
+  _, S, eG, eS, u = kkt_parts(X, y, α, λ, x, Float64)
+  setprecision(BigFloat, 256) do
+    Xb, yb = BigFloat.(X), BigFloat.(y)
+    xstar = (Xb' * Xb) \ (Xb' * yb)
+    U = eG + BigFloat(τ) * (1 + 4u) * (S + eS)
+    σ = svdvals(X)
+    σlo = BigFloat(last(σ)) - size(X, 2) * BigFloat(eps()) * BigFloat(first(σ))
+    @test σlo > 0
+    @test isposdef(Symmetric(Xb' * Xb - σlo^2 * I))
+    bound = sqrt(BigFloat(size(X, 2))) * U / (BigFloat(α) * σlo^2)
+    @test norm(BigFloat.(x) - xstar) <= bound
+  end
 end
 
 end

@@ -20,7 +20,7 @@ capability when the solver returns ([HARNESS.md](HARNESS.md#restoring-a-solver))
 | Formal harness: problems, certificates, cases, runner, local exploration | `problems.jl`, `certificates.jl`, `cases.jl`, `run.jl`, `setup.jl`, `local.jl` | Yes: 30 quick or 62 extended cases (extended includes quick) with `setup.jl ... pinned`; 100 historical cases deferred in the extended suite. Documented in [HARNESS.md](HARNESS.md); `test/benchmark_formal.jl` tests it. |
 | Historical environment template | `Project.toml` | Kept with ProximalBase 0.5 for full-package checkouts and Stage 2A verification (#225). |
 | Harness self-checks | `check_certificates.jl`, `check_local.jl` | No (deferred): they exercise historical solvers. |
-| Record validation, summaries, paired statistics | `validate.py`, `summarize.py`, `compare.py` | Yes. Python only; they read records and never load the package. |
+| Record validation, summaries, paired statistics, cross-solver readout | `validate.py`, `summarize.py`, `compare.py`, `cross_solver.py` | Yes. Python only; they read records and never load the package. `cross_solver.py` is descriptive ([HARNESS.md](HARNESS.md#cross-solver-readout)). |
 | Analysis controls of the above | `check_analysis.py` | Yes, in CI. |
 | Sparse-CD paired measurement and analysis | [`sparse_cd/`](sparse_cd/README.md) | Yes; analyzer controls in CI. |
 | Exploratory CD/PGD timing | [`minimal/explore.jl`](minimal/explore.jl) | Yes; tested by `test/benchmark_explore.jl`. |
@@ -64,7 +64,7 @@ alternative for CD owner and copy costs.
 The CI job `Benchmark analysis controls` runs these, with no Julia benchmark environment and no timing:
 
 ```sh
-python3 benchmark/check_analysis.py               # validate.py, summarize.py, compare.py on synthetic records
+python3 benchmark/check_analysis.py               # validate.py, summarize.py, compare.py, cross_solver.py on synthetic records
 python3 -I benchmark/sparse_cd/check_analysis.py  # sparse-CD analyzer refusal controls
 python3 -B benchmark/external/coordinatedescent/check_analysis.py  # external-comparison analysis controls
 julia --startup-file=no --project=@stdlib scripts/paired_master_diagnostics.jl
@@ -161,9 +161,10 @@ is done without changing `benchmark/Project.toml`, and steps 5 and 6 remain.
    stay until the formal harness shows equivalent coverage, diagnostics and usability for them
    (`sparse_cd/` measures owner and copy costs that are not harness phases yet).
 
-Records keep their format throughout, so `validate.py`, `summarize.py`, `compare.py` and
-`check_analysis.py` stay unchanged and continue to compare new records with historical ones where
-the catalog and data hashes match.
+Records keep their format throughout, so `validate.py`, `summarize.py` and `compare.py` stay
+unchanged and continue to compare new records with historical ones where the catalog and data
+hashes match. `check_analysis.py` keeps their controls and adds those of `cross_solver.py`, which
+reads the same records.
 
 ## History
 
