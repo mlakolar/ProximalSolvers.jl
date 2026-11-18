@@ -31,7 +31,8 @@
 #
 # A nonzero `θ̂ⱼ` is a change point between observations `j` and `j + 1`: the segment that follows
 # starts at observation `j + 1`. For the data `y = [0, 0, 0, 1, 1, 1]`, for example, the jump is
-# between observations 3 and 4, and the fit has `θ̂₃ ≠ 0` and a second segment that starts at 4.
+# between observations 3 and 4. For `λ < 1/4`, such as `λ = 0.1` below, the fit has `θ̂₃ ≠ 0` and a
+# second segment that starts at 4; for `λ ≥ 1/4` (the `λmax` of these data) the fit is the constant 0.5.
 using LinearAlgebra, Random
 using ProximalBase, ProximalSolvers
 
@@ -194,6 +195,7 @@ verify(data, λmax, fit_at.θ, fit_at.μ)
 @assert lasso_kkt_residual(data.X, data.z, n, λmax, fit_at.θ) <= 1e-12 * λmax
 for factor in (1 + 1e-6, 2.0)
   fit_above = tv_solve(data, factor * λmax)
+  verify(data, factor * λmax, fit_above.θ, fit_above.μ)
   @assert all(iszero, fit_above.θ) && all(==(data.ybar), fit_above.μ)
 end
 println("λmax = ", round(λmax; digits = 6), "; largest coefficient at λmax = ",
@@ -205,8 +207,8 @@ println("λmax = ", round(λmax; digits = 6), "; largest coefficient at λmax = 
 # between detected change points, and the table lists its first and last observation and its
 # fitted level. The estimated starts are compared with the true starts 31, 66 and 96: for each
 # true start, the distance to the nearest estimated start, and the number of estimated starts that
-# are more than 5 observations from every true start. These numbers describe this one data set at
-# these levels. They are not a statement about how often the lasso recovers the change points.
+# are more than 5 observations from all three of these true starts. These numbers describe this
+# one data set at these levels. They are not a statement about how often the lasso recovers the change points.
 function segments(μ, θ)
   first_obs = [1; findall(!iszero, θ) .+ 1]
   last_obs = [first_obs[2:end] .- 1; length(μ)]
@@ -218,11 +220,11 @@ for fraction in (0.4, 0.15, 0.05)
   checks = verify(data, λ, fit.θ, fit.μ)
   est_starts = findall(!iszero, fit.θ) .+ 1
   distance = [isempty(est_starts) ? nothing : minimum(abs.(est_starts .- t)) for t in starts_true[2:end]]
-  extra = count(e -> minimum(abs.(e .- starts_true)) > 5, est_starts)
+  extra = count(e -> minimum(abs.(e .- starts_true[2:end])) > 5, est_starts)
   println("λ = ", fraction, " λmax = ", round(λ; digits = 5), ": ", length(est_starts),
           " estimated change points, starts = ", est_starts)
   println("  distance from the true starts ", starts_true[2:end], " to the nearest estimated start = ",
-          distance, "; estimated starts more than 5 observations from every true start = ", extra)
+          distance, "; estimated starts more than 5 observations from all of these true starts = ", extra)
   println("  segments (first:last → level) = ",
           join(("$(s.first):$(s.last) → $(round(s.level; digits = 2))" for s in segments(fit.μ, fit.θ)), ", "))
   println("  mean squared error of the fit against the true signal = ",
