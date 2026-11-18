@@ -195,7 +195,7 @@ function _gradient_at_x!(state::AccProxGradDescentState, f)
   state.xhat
 end
 
-# The penalty with its levels converted to T, for the penalties that _check_penalty accepts for PGD and APG,
+# The penalty with its levels converted to T, for NormL1 and ElasticNet (the penalties of the dedicated check above),
 # and the ℓ1 level of a converted penalty
 _converted_penalty(g::NormL1{<:Real, Nothing}, ::Type{T}) where T = NormL1(T(g.λ0))
 # weights that are already in T are not converted or copied
