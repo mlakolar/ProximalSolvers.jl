@@ -85,7 +85,7 @@ diagnostics, not changes to the statistical model.
 | `DimensionMismatch` naming groups, or an error naming a group | The groups of `BlockIterate` and `GroupNormL2` must be equal in number, order and members; an error naming a group is a curvature or step refusal, see [Numerical behavior](numerics.md), or a weight or parameter refusal such as `group weight 2 …` |
 | Convergence flag is false | Inspect the solver's iteration/pass limit; check the [KKT residual](sparsity-and-kkt.md) |
 | `gap` is NaN | Gap certification is implemented only for the square-root lasso with CD; there, `NaN` means that the run stopped without a certificate |
-| Square-root lasso: `converged = false` with a warning about a missing duality certificate | The certificate did not pass, for example at an exact fit (`y = X*beta`), where coordinate descent can stop at a coordinatewise minimum that is not a minimum; see [`CDSolver`](@ref) |
+| Square-root lasso: `converged = false` with a warning about a missing duality certificate | The certificate did not pass, for example at an exact fit (`y = X*beta`), where coordinate descent can stop at a coordinatewise minimum that is not a minimum; see [`CDSolver`](@ref) and [an example](@ref sqrt-lasso-exact-fit) |
 | Float32 precision looks poor | Start with native Float32 inputs/scales, check the KKT residual; Float32 has lower precision |
 | Coefficients appear to change unexpectedly | `solve!` mutates the supplied coefficients; copy them to save the old solution |
 

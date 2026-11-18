@@ -5,8 +5,9 @@ Run `julia --project=. examples/01_cd_lasso.jl`,
 `julia --project=. examples/03_sparse_cd_lasso.jl`,
 `julia --project=. examples/04_lasso_solver_comparison.jl`,
 `julia --project=. examples/05_apg_lasso.jl`,
-`julia --project=. examples/06_group_cd_lasso.jl` or
-`julia --project=. examples/07_elasticnet.jl`. Each of the first three
+`julia --project=. examples/06_group_cd_lasso.jl`,
+`julia --project=. examples/07_elasticnet.jl` or
+`julia --project=. examples/09_square_root_lasso.jl`. Each of the first three
 checks an independent analytic solution; the third runs coordinate descent on a
 caller-owned `SparseIterate` and also checks that the result shares that owner. The
 fourth compares cyclic coordinate descent, random-order coordinate descent and dense
@@ -29,5 +30,9 @@ result with an independent group KKT residual computed from the data. The sevent
 seeded correlated elastic net (`ElasticNet(λ1, λ2)`) with both gradient methods, checks the
 objective from X and y and the KKT residual (ProximalBase's `kkt_violation` at the gradient from X and y), and checks that the elastic-net solution has a
 smaller Euclidean norm than the lasso solution with the same ℓ1 level; coordinate descent
-refuses an `ElasticNet` (support is planned). Historical feature
+refuses an `ElasticNet` (support is planned). `09_square_root_lasso.jl` solves a seeded square-root lasso
+(`SqrtLeastSquaresLoss` with `NormL1`) by cyclic coordinate descent, and checks the objective and a
+residual-direction duality gap computed from X, y, λ and the coefficients, not the solver's `converged` flag;
+it repeats the solve in Float32 on a `SparseIterate`, and shows two small exact fits (the loss is not
+differentiable where `y = Xβ`) on which the solver reports no certificate. Historical feature
 examples remain on legacy/full and protected archives.
