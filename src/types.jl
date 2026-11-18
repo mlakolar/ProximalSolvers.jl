@@ -69,34 +69,15 @@ A `gradtol` below `64 eps(T)`, including
 forms `∇f(x)` from the cached image `A x` at each iteration at which a stop is
 proposed, and counts that evaluation in `grad_calls`.
 
-**The stationarity check for `NormLinf(λ)`.** For this penalty the check is the direct KKT residual
-`r = min over v ∈ ∂‖x‖∞ of ‖∇f(x) + λ v‖₁` at the accepted iterate `x`, in place of the KKT residual above, and the same
-`ProximalOptions` tests propose a stop. Write `g = ∇f(x)`. At `x = 0` the subdifferential is the unit ℓ1 ball and
-`r = max(‖g‖₁ - λ, 0)` (at `λ = 0`, `r = ‖g‖₁` in both cases). At `x ≠ 0`, let `M` be the entries of maximal magnitude (found by exact equality of the stored values),
-`sᵢ = sign xᵢ`, `N = Σ_{i∈M} max(sᵢgᵢ, 0)` and `P = Σ_{i∈M} max(-sᵢgᵢ, 0)`; then `r = Σ_{i∉M} |gᵢ| + N + |λ - P|`. The stop counts
-only if `r < max(gradtol, 64 eps(T)) * max(λ, λcrit)`, with `λcrit = α‖Xᵀy‖₁ = ‖∇f(0)‖₁`, the smallest level for which 0 is
-a minimizer (the lasso's threshold `‖∇f(0)‖∞` does not apply); it also requires that `max(λ, λcrit)` is finite, that
-the threshold, formed in `T`, is at least `floatmin(T)`, and that `r` is finite. In exact arithmetic `r = 0` when and only when `x`
-minimizes the objective. The check uses no step size, no curvature `L` and no proximal evaluation. For `AccProxGradDescent` it forms
-one gradient at `x` from the cached image `A x` and counts it in `grad_calls`, before the call limits are compared (so a stop that
-the check refuses can reach `grad_calls_limit`); for `ProximalGradientDescent` it uses the accepted gradient. The active set `M`
-has no tolerance: the accepted iterate is the output of ProximalBase's `value_and_prox!`, which for a positive clip level stores each clipped entry as `±τ` with the same
-`τ`, so the entries that the clip ties at the maximum have equal magnitudes. Exact equality of the magnitudes makes the subdifferential,
-and so `r` in exact arithmetic, those of the stored point. An iterate whose entries near the maximum have unequal magnitudes has the smaller
-ones off `M`, so their `|gᵢ|` count in `r`; that can make the check refuse, when their gradient contribution is too large, but it does not
-always (a point with `M = {1}` and a smaller entry whose gradient is 0 can have `r = 0`). The sums in `r` are Neumaier-compensated and formed in `Float64`
-(for `Float32` and `Float64` data), with `λ` folded into the sum it is cancelled against. The error of such a sum of `k` terms is at most
-`u|S| + γ_{k-1}² Σ|xᵢ|` (`S` the exact sum, `u = 2⁻⁵³`, `γ_k = k u/(1 - k u)`; Ogita, Rump and Oishi 2005), whose second term is quadratic in
-`k`. With `B = γ_p²`, the computed residual `r` satisfies `r ≥ (1 - 2u - B) R - 2 B S_T` for the exact residual `R` of the supplied
-gradient at the level `λ_T = T(λ)` with which the check computes and `S_T = max(λ_T, λcrit)`, including the rounding of the final addition. `B` is required to be at most `2⁻¹²` of the floor `64 eps(T)` of the threshold, which holds for at most
-`2²⁴ - 1` entries of `Float64` data and, with a cap, `2³²` entries of `Float32` data; a check on more entries refuses. Within that range, a kept
-stop (`r` below the computed threshold `H`) has `R < (1 + 2⁻¹⁰) H`, also when `R` exceeds `S_T`; the statement is vacuous for an infinite threshold. At the level `λ` as given, when
-it is not exactly representable in `T` (possible for an `Int`, `Rational` or `BigFloat` level, or a `Float64` level with `Float32` data), the
-residual can be larger by `|λ - λ_T|` (the residual is 1-Lipschitz in the level); for a conversion that rounds to nearest this is at
-most `2⁻⁷ H`, so that a kept stop has `R(λ) < (1 + 2⁻¹⁰ + 2⁻⁷) H` (see the numerical guide for the levels covered). The computed
-gradient's own rounding error is not covered, so the true residual at a kept stop can exceed `H` by that error, beyond the factors above (a sweep of 1608 `Float32` solves
-against a BigFloat reference found at most 1.002 times the bound, a value measured on that sweep); the check is not a certificate in exact arithmetic and it does not
-bound the distance to a minimizer. See [the numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-for-NormLinf).
+**The generic check (`NormLinf(λ)`).** A penalty without a dedicated check above uses the proximal-gradient
+mapping at the accepted `x`: with `t = 1/L` (the accepted curvature), `r = ‖x - prox_{t g}(x - t ∇f(x))‖∞ / t`,
+computed with the same ProximalBase `value_and_prox!` as the iterations. The stop counts only if
+`r < max(gradtol, 64 eps(T)) * S` with `S = max(‖∇f(0)‖∞, ‖∇f(x)‖∞)`; it is refused when `t`, `S` or `r` is not
+finite, when that threshold is below `floatmin(T)` (so with `S = 0`, as for `y = 0` or `X = 0`, no stop counts), when it
+does not exceed `ρ = L eps(T) ‖x‖∞`, or when `t` times it is below `floatmin(T)/eps(T)`. Each proposed stop costs one
+proximal evaluation, counted in `prox_calls` (and for `AccProxGradDescent` one gradient, counted in `grad_calls`). A small
+accepted `L` makes `t` large and `r` a weaker measure of stationarity. `converged = true` is then a working-precision
+indication, not a certificate.
 
 The gradient test holds when `r < gradtol * m` or `r < gradtol * N`, with `r` the
 gradient/proximal residual of the iteration, `m` the largest `r` so far in the
@@ -321,10 +302,8 @@ test proposed a stop and that the stationarity check passed (see
 `max(gradtol, 64 eps(T)) * max(λ, λmax)`. It is a working-precision value, not an
 exact-arithmetic certificate; it guarantees only that the computed, normalized residual
 `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the threshold is formed in `T`, see
-[`ProximalOptions`](@ref)), not coefficient accuracy on ill-conditioned designs. For a `NormLinf(λ)` penalty the
-residual is the direct KKT residual `min over v ∈ ∂‖x‖∞ of ‖∇f(x) + λ v‖₁` at `minimizer` and the scale is `max(λ, ‖∇f(0)‖₁)`
-(see [`ProximalOptions`](@ref)); the same limits apply, and `converged = false` is also reported when a solve ends
-through a limit, an objective increase or stagnation without a stop that passed the check. `iteration_converged` reports reaching the iteration limit,
+[`ProximalOptions`](@ref)), not coefficient accuracy on ill-conditioned designs. For a `NormLinf` penalty the
+generic proximal-gradient check of [`ProximalOptions`](@ref) is used instead. `iteration_converged` reports reaching the iteration limit,
 **not** successful convergence.
 
 The result also stores stopping flags, residuals and tolerances, optional

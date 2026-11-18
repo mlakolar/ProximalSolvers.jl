@@ -68,8 +68,7 @@ function convergence_assessment(
   grad_converged = gradient_converged!(state, options) && !stalled
 
   # A stop proposed by any of the three tests counts only if the accepted iterate passes the
-  # stationarity check (_stationary!); otherwise the solve continues. The check's prox (and APG's
-  # gradient at x) are counted here, before the call limits are compared in _solve_gradient!.
+  # stationarity check of _stationary!, to the working precision; otherwise the solve continues.
   if (x_converged || f_converged || grad_converged) && !_stationary!(state, f, g, options)
     x_converged, f_converged, grad_converged = false, false, false
   end
@@ -94,27 +93,67 @@ end
 # when ρ is at least as large as both m and N.
 function _gradient_test(state::Union{ProximalGradientDescentState{T}, AccProxGradDescentState{T}},
                         options::ProximalOptions, residual, N) where T
-  ρ = _resolution(state)
+  ρ = state.L * eps(T) * _norm_inf(state.x)
   m = state.max_residual
   (residual < options.gradtol * m && ρ < m) || (residual < options.gradtol * N && ρ < N)
 end
 
-# ρ = L eps(T) ‖x‖∞, the rounding resolution of L x at the accepted x
-_resolution(state) = state.L * eps(eltype(state.x)) * _norm_inf(state.x)
+# ---- the stationarity check of a proposed stop -------------------------------------------------
+#
+# The check is for the least-squares problem ½α‖Xb - y‖² + h(b) (α = 1 for a raw LeastSquaresLoss),
+# whose gradient ∇f the solver forms, with h = λ‖·‖₁ for NormL1(λ), h = Σⱼ λ wⱼ |bⱼ| for NormL1(λ, w), or
+# h = λ1‖·‖₁ + (λ2/2)‖·‖² for ElasticNet(λ1, λ2). G is the element of ∇f(x) + ∂h(x) of least norm:
+# for NormL1, |∇fᵢ| - cᵢ clipped at 0 where xᵢ = 0 and |∇fᵢ + cᵢ sign xᵢ| otherwise, with cᵢ = λ (cᵢ = λ wᵢ
+# with weights); for ElasticNet, the same with cᵢ = λ1 and the term λ2 xᵢ added to ∇fᵢ where xᵢ ≠ 0 (the ridge
+# part has gradient λ2 x, which is 0 where xᵢ = 0). A zero weight leaves its entry unpenalized: cᵢ = 0 and
+# the score is |∇fᵢ|. The stop is kept when ‖G‖∞ < τ S, with S = max(λ1, λmax) (λ1 = λ for NormL1(λ); for
+# NormL1(λ, w) the largest coefficient, S = max(maxᵢ cᵢ, λmax)), λmax = α‖Xᵀy‖∞ = ‖∇f(0)‖∞, and
+# τ = max(gradtol, 64 eps(T)). S does not contain λ2: for
+# ElasticNet the problem is the lasso with level λ1 on the data [√α X; √λ2 I], [√α y; 0], whose
+# gradient is ∇f(x) + λ2 x and whose λmax is the λmax above. The threshold is relative to S, which a
+# common positive factor on the loss and the penalty levels scales alike (within the range of T), and
+# 64 eps(T) is a floor of a few dozen units of roundoff, chosen without a bound on the error of the
+# computed gradient. It is not kept when S is not finite, when τ S is below floatmin(T) (a threshold
+# that may have underflowed; a computed S = 0, as for λ1 = 0 and y = 0, is one) or when ‖G‖∞ is not finite.
+# ‖G‖∞ is ProximalBase's full-point kkt_violation(h, ∇f(x), x) for NormL1(T(λ0)), NormL1(T(λ0), w) or
+# ElasticNet(T(λ1), T(λ2)), the coefficients of the formulas above: each level is converted to T once, into
+# a penalty that gives both S and the residual, so that ProximalBase does not round the levels again.
+# For NormL1(λ0, w), solve! requires w to be a Vector{T}, so ProximalBase's coefficient of entry i is the product
+# T(λ0) wᵢ rounded in T: the cᵢ that solve! checked (finite and, where both factors are positive, a normal number of T).
+# Rounding is monotone, so T(λ0) maximum(w) is maxᵢ cᵢ. The weights are not converted or copied. A proposed
+# stop adds to the O(p) pass of kkt_violation one O(p) scan of w for `maximum` and one in the constructor of
+# the NormL1 that holds the converted level; for w ≡ 1 the coefficients and S are those of NormL1(λ0).
+# An infinite entry of x gives a non-finite residual (Inf, or NaN when a NaN is read), so such a stop is
+# not kept.
+# It is a computed residual, not a certificate in exact arithmetic.
+function _stationary!(state, f, g::Union{NormL1, ElasticNet}, options::ProximalOptions)
+  T = eltype(state.x)
+  λmax = _lambda_max!(state)       # first: it uses xhat, which APG's gradient below also uses
+  grad = _gradient_at_x!(state, f)
+  gT = _converted_penalty(g, T)
+  λ = _l1_level(gT)
+  residual = kkt_violation(gT, grad, state.x)
+  S = max(λ, λmax)
+  τ = T(max(options.gradtol, 64 * Float64(eps(T))))
+  threshold = τ * S
+  isfinite(S) && threshold >= floatmin(T) && isfinite(residual) && residual < threshold
+end
 
-# The stationarity check of a proposed stop, shared by every penalty of PGD and APG. At the accepted x, with
-# t = 1/L (the accepted curvature), it forms u = x - t ∇f(x) and p = prox_{t g}(u) with the iterations'
-# value_and_prox! call, and r = ‖x - p‖∞ / t, the ∞-norm of the proximal-gradient mapping G_t(x). The stop is
-# kept when r < τ S, with S = max(‖∇f(0)‖∞, ‖∇f(x)‖∞) and τ = max(gradtol, 64 eps(T)). It is refused when t is
-# not finite and positive, S or r is not finite, τ S is below floatmin(T), τ S does not exceed the rounding
-# resolution L eps(T) ‖x‖∞ of the gradient test, or the step t τ S at the threshold is below floatmin(T)/eps(T)
-# (a step that subnormal rounding can lose at x = 0). The prox counts in prox_calls; APG's gradient at x
-# (_gradient_at_x!) counts in grad_calls. u goes to xhat and p to delta_x, which is then restored to
-# x - x_previous. With a small accepted L the step t is large and G_t a weaker measure of stationarity than
-# with the true curvature. A kept stop is a working-precision indication, not a certificate.
+# The default stationarity check, for a penalty without a dedicated check above (today NormLinf): a new
+# proximable g needs no convergence code of its own. At the accepted x, with t = 1/L (the accepted curvature),
+# it forms u = x - t ∇f(x) and p = prox_{t g}(u) with the iterations' value_and_prox! call, and r = ‖x - p‖∞ / t,
+# the ∞-norm of the proximal-gradient mapping G_t(x). The stop is kept when r < τ S, with S = max(‖∇f(0)‖∞,
+# ‖∇f(x)‖∞) and τ = max(gradtol, 64 eps(T)). It is refused when t is not finite and positive (before the prox),
+# S or r is not finite, τ S is below floatmin(T) (so S = 0, as for y = 0 or X = 0, never converges), τ S does not
+# exceed the rounding resolution L eps(T) ‖x‖∞ of the gradient test, or the step t τ S is below floatmin(T)/eps(T)
+# (a step that subnormal rounding can lose at x = 0). The prox counts in prox_calls; APG's gradient at x counts in
+# grad_calls. u goes to xhat and p to delta_x, which is then restored to x - x_previous. A small accepted L makes
+# t large and ‖G_t‖ a weaker measure of stationarity; a penalty with curvature of its own, far above L, is the
+# extreme case. A kept stop is a working-precision indication, not a certificate.
 function _stationary!(state, f, g, options::ProximalOptions)
   T = eltype(state.x)
   t = one(T) / state.L
+  isfinite(t) && t > 0 || return false
   λmax = _lambda_max!(state)       # first: it uses xhat, which APG's gradient below also uses
   grad = _gradient_at_x!(state, f)
   S = max(λmax, _norm_inf(grad))
@@ -124,14 +163,17 @@ function _stationary!(state, f, g, options::ProximalOptions)
   r = _norm_diff(state.x, state.delta_x, Inf) / t
   _sub!(state.delta_x, state.x, state.x_previous)
   threshold = T(max(options.gradtol, 64 * Float64(eps(T)))) * S
-  isfinite(t) && t > 0 && isfinite(S) && isfinite(r) && threshold >= floatmin(T) &&
-    threshold > _resolution(state) && t * threshold >= floatmin(T) / eps(T) && r < threshold
+  ρ = state.L * eps(T) * _norm_inf(state.x)
+  isfinite(S) && isfinite(r) && threshold >= floatmin(T) && threshold > ρ &&
+    t * threshold >= floatmin(T) / eps(T) && r < threshold
 end
 
-# ‖∇f(0)‖∞ = α‖Xᵀy‖∞, computed at most once per solve, at the first check (state.λmax is negative
-# until then), with the arithmetic of the gradient oracle at x = 0, in state.xhat (written before it
-# is read at every use in the iterations; the convergence tests and the trace do not read it). It is
-# not a counted call.
+# α‖Xᵀy‖∞, computed once per solve (state.λmax is negative until then) with the arithmetic of the
+# gradient oracle at x = 0 (Xᵀ times a vector, then the scale α). It is formed in state.xhat. At
+# every use in the solvers xhat is written before it is read (the input of the proximal step in
+# PGD's update_state!, the same input and the difference x - y in APG's _prox_grad_step!), and
+# the convergence tests and the trace do not read it, so a stop that is assessed after an
+# iteration can overwrite it. It is not a counted call.
 function _lambda_max!(state)
   state.λmax < 0 || return state.λmax
   m = state.model
@@ -144,13 +186,31 @@ end
 _gradient_at_x!(state::ProximalGradientDescentState, f) = state.grad_f_x
 
 # APG holds ∇f(y), not ∇f(x). It forms ∇f(x) from the cached image A x with the gradient oracle,
-# in state.xhat with state.dz (scratch that APG writes before it reads it), and counts the
-# evaluation in grad_calls.
+# in state.xhat (the length-p buffer above) with state.dz, the image-length buffer that APG writes
+# before it reads it at each use (the value and gradient at y, the fresh product of the bound
+# test), and counts the evaluation in grad_calls.
 function _gradient_at_x!(state::AccProxGradDescentState, f)
   _value_and_gradient!(state.xhat, state.x, f, state.z_x, state.dz)
   state.grad_calls += 1
   state.xhat
 end
+
+# The penalty with its levels converted to T, for the penalties that _check_penalty accepts for PGD and APG,
+# and the ℓ1 level of a converted penalty
+_converted_penalty(g::NormL1{<:Real, Nothing}, ::Type{T}) where T = NormL1(T(g.λ0))
+# weights that are already in T are not converted or copied
+_converted_penalty(g::NormL1{<:Real, Vector{T}}, ::Type{T}) where T = NormL1(T(g.λ0), g.w)
+# Each ElasticNet level that is not of type T is converted in a call of its own (#351): when two conversions are
+# in one function, LLVM can combine them into one vector conversion, and the AArch64 NEON lowering of LLVM before
+# 21 (llvm/llvm-project#130665) converts a pair of Int64 to Float32 through Float64, which rounds twice (as for
+# Rational{Int64} levels). A level of type T is returned as it is.
+_converted_level(::Type{T}, λ::T) where T = λ
+@noinline _converted_level(::Type{T}, λ) where T = T(λ)
+_converted_penalty(g::ElasticNet, ::Type{T}) where T = ElasticNet(_converted_level(T, g.λ1), _converted_level(T, g.λ2))
+_l1_level(g::NormL1) = g.λ0
+# the largest coefficient λ0 wᵢ of a penalty with weights in T and a level in T
+_l1_level(g::NormL1{<:Real, <:Vector}) = g.λ0 * maximum(g.w)
+_l1_level(g::ElasticNet) = g.λ1
 
 # x == y elementwise, by value (so -0.0 == 0.0), without allocating
 function _unchanged(x::AbstractArray, y::AbstractArray)

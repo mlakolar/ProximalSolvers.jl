@@ -21,7 +21,7 @@ using Random: AbstractRNG, default_rng, rand
 using SparseArrays: dropzeros!
 using ProximalBase: LeastSquaresLoss, SqrtLeastSquaresLoss, Scaled, NormL1, ElasticNet, NormLinf, SparseIterate,
   ncoordinates, nactive, activecoordinates, activevalues, prox_block,
-  value_and_prox!, BlockIterate, GroupNormL2, blockindices, blockview, prox_block!
+  value_and_prox!, BlockIterate, GroupNormL2, blockindices, blockview, prox_block!, kkt_violation
 include("blocks.jl")
 using .Blocks
 include("line_searches.jl")

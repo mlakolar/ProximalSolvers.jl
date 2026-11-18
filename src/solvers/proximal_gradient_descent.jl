@@ -31,11 +31,8 @@ configure stopping tolerances and iteration limits. A stop that the `xtol`, `fto
 `gradtol` test proposes counts only if the computed KKT residual of the iterate is below
 `max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞` and `λ` the ℓ1 level of the penalty
 (`λ` of `NormL1(λ)`, the largest coefficient `T(λ) * maximum(w)` of `NormL1(λ, w)`, `λ1` of `ElasticNet`; see
-[`ProximalOptions`](@ref)). For a `NormLinf(λ)` penalty the check is
-instead on the direct KKT residual `min over v ∈ ∂‖x‖∞ of ‖∇f(x) + λ v‖₁` at the iterate, against `max(gradtol, 64 eps(T)) *
-max(λ, ‖∇f(0)‖₁)`, with no step, no proximal evaluation and no new gradient for PGD (see [`ProximalOptions`](@ref));
-`converged = true` then has the meaning and the limits stated there.
-For `NormL1` and `ElasticNet`, `converged=true` guarantees only that the computed, normalized KKT
+[`ProximalOptions`](@ref)); for `NormLinf` the generic proximal-gradient check of [`ProximalOptions`](@ref)
+applies instead. For `NormL1` and `ElasticNet`, `converged=true` guarantees only that the computed, normalized KKT
 residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the threshold is formed in
 `T`, which can round or overflow; see [`ProximalOptions`](@ref)); it is not an
 exact-arithmetic certificate, does not bound the distance to a minimizer and does not
@@ -82,7 +79,7 @@ mutable struct ProximalGradientDescentState{T, X<:Vector{T}, G<:Vector{T}, M, Z}
     delta_x::X
     L::T
     max_residual::T
-    λmax::T         # ‖∇f(0)‖∞ = α‖Xᵀy‖∞ for the stationarity check of a stop, -1 until it is computed
+    λmax::T         # α‖Xᵀy‖∞ for the stationarity check of a stop, -1 until it is computed
     backtrack_simple::Bool  # line search uses function values, not gradients
     backtrack_steps::Int
     f_calls::Int
@@ -309,7 +306,7 @@ or a `SparseIterate` (see [`CDSolver`](@ref)); the gradient methods refuse it, a
 Borrowed X/y must not alias mutable `x` or change during a solve. Results share
 `x`; copy it to retain earlier coefficients. Unsupported inputs/options fail
 before mutation. For PGD and APG, a stop of the stopping tests counts only at a point whose
-computed KKT residual (for a `NormLinf` penalty, the direct KKT residual of its subdifferential) meets the bound of
+computed KKT residual (for a `NormLinf` penalty, the proximal-gradient residual) meets the bound of
 [`ProximalOptions`](@ref), which is not an exact-arithmetic certificate; CD stops by its change test, and for the square-root loss reports
 `converged = true` only when a duality certificate passes (see [`CDSolver`](@ref)). Finite intermediate arithmetic is required. PGD step errors restore
 its last accepted `x` and rethrow, without a transaction guarantee for internal
