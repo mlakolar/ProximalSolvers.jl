@@ -1,0 +1,45 @@
+780 solves
+fam=correlated T=Float32 converged=false uncertified_stop=true capped=false : 10
+fam=correlated T=Float32 converged=true uncertified_stop=false capped=false : 44
+fam=correlated T=Float64 converged=false uncertified_stop=false capped=true : 1
+fam=correlated T=Float64 converged=false uncertified_stop=true capped=false : 9
+fam=correlated T=Float64 converged=true uncertified_stop=false capped=false : 44
+fam=noisy p>n T=Float32 converged=false uncertified_stop=true capped=false : 2
+fam=noisy p>n T=Float32 converged=true uncertified_stop=false capped=false : 94
+fam=noisy p>n T=Float64 converged=false uncertified_stop=true capped=false : 2
+fam=noisy p>n T=Float64 converged=true uncertified_stop=false capped=false : 94
+fam=ordinary n>p T=Float32 converged=false uncertified_stop=true capped=false : 7
+fam=ordinary n>p T=Float32 converged=true uncertified_stop=false capped=false : 233
+fam=ordinary n>p T=Float64 converged=true uncertified_stop=false capped=false : 240
+uncertified stops:
+ORD-n60p20-s0.1-f0.02-20002 Float32 cyclic 73 failed 
+ORD-n60p20-s0.1-f0.02-20003 Float32 cyclic 45 failed 
+ORD-n200p50-s0.1-f0.02-20031 Float32 cyclic 27 failed 
+ORD-n200p50-s0.1-f0.02-20031 Float32 default 33 failed 
+ORD-n200p50-s0.1-f0.02-20032 Float32 cyclic 37 failed 
+ORD-n100p40-s0.1-f0.02-20061 Float32 cyclic 56 failed 
+ORD-n100p40-s0.1-f0.02-20062 Float32 default 39 failed 
+WID-n40p120-s1.0-f0.3-20158 Float64 cyclic 2057 failed 
+WID-n40p120-s1.0-f0.3-20158 Float64 default 677 failed 
+WID-n40p120-s1.0-f0.3-20158 Float32 cyclic 984 failed 
+WID-n40p120-s1.0-f0.3-20158 Float32 default 446 failed 
+COR-n60p150-r0.7-f0.05-20187 Float64 cyclic 238 failed 
+COR-n60p150-r0.7-f0.05-20187 Float64 default 119 failed 
+COR-n60p150-r0.7-f0.05-20187 Float32 cyclic 144 failed 
+COR-n60p150-r0.7-f0.05-20187 Float32 default 82 failed 
+COR-n60p150-r0.7-f0.05-20188 Float64 cyclic 171 failed 
+COR-n60p150-r0.7-f0.05-20188 Float64 default 91 failed 
+COR-n60p150-r0.7-f0.05-20188 Float32 cyclic 107 failed 
+COR-n60p150-r0.7-f0.05-20188 Float32 default 65 failed 
+COR-n60p150-r0.7-f0.05-20189 Float64 cyclic 324 failed 
+COR-n60p150-r0.7-f0.05-20189 Float64 default 137 failed 
+COR-n60p150-r0.7-f0.05-20189 Float32 cyclic 196 failed 
+COR-n60p150-r0.7-f0.05-20189 Float32 default 101 failed 
+COR-n60p150-r0.7-f0.2-20190 Float64 cyclic 1652 failed 
+COR-n60p150-r0.7-f0.2-20190 Float64 default 642 failed 
+COR-n60p150-r0.7-f0.2-20190 Float32 cyclic 870 failed 
+COR-n60p150-r0.7-f0.2-20190 Float32 default 395 failed 
+COR-n60p150-r0.7-f0.2-20191 Float64 cyclic 20000 failed capped
+COR-n60p150-r0.7-f0.2-20191 Float64 default 2935 failed 
+COR-n60p150-r0.7-f0.2-20191 Float32 cyclic 8739 failed 
+COR-n60p150-r0.7-f0.2-20191 Float32 default 1543 failed 

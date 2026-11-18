@@ -1,0 +1,39 @@
+Julia 1.10.13  PS 0.3.2  PB 0.6.0-DEV
+PS path <WS>/ProximalSolvers.jl-issue155/src/ProximalSolvers.jl
+PB path <DEPOT>/packages/ProximalBase/2welE/src/ProximalBase.jl
+
+== T = Float64, owner = false
+#155 from [1,-1]: x = [1.0, -1.0] converged=false gap=NaN passes=1 minimum=0.2 F(x)=0.2 F(0)=0.01 ‖r̂‖=0.0
+   fields: (:minimizer, :minimum, :passes, :converged, :maxchange, :tolerance, :kkt_checks, :gap)
+#155 from 0: x = [0.0, 0.0] converged=true gap=4.440892098500642e-16
+#155 from [1,-1] order=cyclic default momentum: x=[1.0, -1.0] conv=false gap=NaN
+#155 from [1,-1] order=random default momentum: x=[1.0, -1.0] conv=false gap=NaN
+#156 from 0: x = [1.0, 0.0] converged=false gap=NaN passes=3 F(x)=0.1 θ'y=0.1 ‖θ‖=0.14142135623730953 ‖X'θ‖∞=0.1
+#156 from 0 random: x = [0.999999999963162, 1.753772089455164e-11] converged=false gap=NaN
+
+== T = Float64, owner = true
+#155 from [1,-1]: x = [1.0, -1.0] converged=false gap=NaN passes=1 minimum=0.2 F(x)=0.2 F(0)=0.01 ‖r̂‖=0.0
+   fields: (:minimizer, :minimum, :passes, :converged, :maxchange, :tolerance, :kkt_checks, :gap)
+#155 from 0: x = [0.0, 0.0] converged=true gap=4.440892098500642e-16
+#155 from [1,-1] order=cyclic default momentum: x=[1.0, -1.0] conv=false gap=NaN
+#155 from [1,-1] order=random default momentum: x=[1.0, -1.0] conv=false gap=NaN
+#156 from 0: x = [1.0, 0.0] converged=false gap=NaN passes=3 F(x)=0.1 θ'y=0.1 ‖θ‖=0.14142135623730953 ‖X'θ‖∞=0.1
+#156 from 0 random: x = [0.9999997198176589, 1.0956439960636421e-7] converged=true gap=1.0836504996232187e-6
+
+== T = Float32, owner = false
+#155 from [1,-1]: x = Float32[1.0, -1.0] converged=false gap=NaN passes=1 minimum=0.2 F(x)=0.20000000298023224 F(0)=0.009999999776482582 ‖r̂‖=0.0
+   fields: (:minimizer, :minimum, :passes, :converged, :maxchange, :tolerance, :kkt_checks, :gap)
+#155 from 0: x = Float32[0.0, 0.0] converged=true gap=4.4408926e-16
+#155 from [1,-1] order=cyclic default momentum: x=Float32[1.0, -1.0] conv=false gap=NaN
+#155 from [1,-1] order=random default momentum: x=Float32[1.0, -1.0] conv=false gap=NaN
+#156 from 0: x = Float32[1.0, 0.0] converged=false gap=NaN passes=3 F(x)=0.10000000149011612 θ'y=0.1 ‖θ‖=0.14142135623730953 ‖X'θ‖∞=0.1
+#156 from 0 random: x = Float32[1.0, 0.0] converged=false gap=NaN
+
+== T = Float32, owner = true
+#155 from [1,-1]: x = Float32[1.0, -1.0] converged=false gap=NaN passes=1 minimum=0.2 F(x)=0.20000000298023224 F(0)=0.009999999776482582 ‖r̂‖=0.0
+   fields: (:minimizer, :minimum, :passes, :converged, :maxchange, :tolerance, :kkt_checks, :gap)
+#155 from 0: x = Float32[0.0, 0.0] converged=true gap=4.4408926e-16
+#155 from [1,-1] order=cyclic default momentum: x=Float32[1.0, -1.0] conv=false gap=NaN
+#155 from [1,-1] order=random default momentum: x=Float32[1.0, -1.0] conv=false gap=NaN
+#156 from 0: x = Float32[1.0, 0.0] converged=false gap=NaN passes=3 F(x)=0.10000000149011612 θ'y=0.1 ‖θ‖=0.14142135623730953 ‖X'θ‖∞=0.1
+#156 from 0 random: x = Float32[0.9999999, 5.3008808f-8] converged=false gap=NaN

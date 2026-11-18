@@ -1,0 +1,5 @@
+Julia 1.13.4
+upper-bound comparison: P0=0.99999 Pb=1.0 P0up=1.001454843750001 Pbup=1.0000000000000013 accepts=true
+equality fixed-point check: beta=[0.0] certified=true
+empty-support-witness: Xd=[0.0] s'd=-2.0 G(kd)=[-0.2, -2.0, -20.0]
+independent wide-range validator checks: n=1500 t>1=872 violations=Dict(:feas => 0, :primal => 0, :ratio => 0, :dual => 0, :gap => 0)

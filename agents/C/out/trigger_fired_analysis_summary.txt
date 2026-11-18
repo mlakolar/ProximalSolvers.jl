@@ -1,0 +1,17 @@
+ORD-n60p20-s0.1-f0.02-20002    Float32 stuck: passes=   73 excess=3.7e-11 nnz= 19 | r*/y=1.7e-02 | H(track,c=1): cert=true  passes=    96 stages= 5 secs=0.000 ret_excess=1.3e-11
+ORD-n60p20-s0.1-f0.02-20003    Float32 stuck: passes=   45 excess=8.2e-12 nnz= 20 | r*/y=2.5e-02 | H(track,c=1): cert=false passes=    76 stages=16 secs=0.000 ret_excess=6.1e-12
+ORD-n200p50-s0.1-f0.02-20031   Float32 stuck: passes=   27 excess=5.0e-12 nnz= 43 | r*/y=2.6e-02 | H(track,c=1): cert=false passes=    57 stages=16 secs=0.000 ret_excess=4.6e-12
+ORD-n200p50-s0.1-f0.02-20032   Float32 stuck: passes=   37 excess=9.9e-12 nnz= 41 | r*/y=2.6e-02 | H(track,c=1): cert=true  passes=    52 stages= 4 secs=0.000 ret_excess=9.3e-12
+ORD-n100p40-s0.1-f0.02-20061   Float32 stuck: passes=   56 excess=2.5e-11 nnz= 37 | r*/y=2.2e-02 | H(track,c=1): cert=true  passes=    64 stages= 4 secs=0.000 ret_excess=1.9e-11
+WID-n40p120-s1.0-f0.3-20158    Float64 stuck: passes= 2057 excess=1.8e-03 nnz= 43 | r*/y=2.4e-15 | H(track,c=1): cert=true  passes=  7783 stages= 5 secs=0.010 ret_excess=1.8e-05
+WID-n40p120-s1.0-f0.3-20158    Float32 stuck: passes=  984 excess=1.8e-03 nnz= 43 | r*/y=2.3e-15 | H(track,c=1): cert=false passes=  6514 stages=16 secs=0.007 ret_excess=3.4e-06
+COR-n60p150-r0.7-f0.05-20187   Float64 stuck: passes=  238 excess=2.4e-01 nnz=148 | r*/y=7.5e-16 | H(track,c=1): cert=true  passes= 84388 stages= 5 secs=0.172 ret_excess=2.9e-05
+COR-n60p150-r0.7-f0.05-20187   Float32 stuck: passes=  144 excess=2.4e-01 nnz=148 | r*/y=6.7e-16 | H(track,c=1): cert=false passes= 47206 stages=16 secs=0.092 ret_excess=1.3e-05
+COR-n60p150-r0.7-f0.05-20188   Float64 stuck: passes=  171 excess=2.6e-01 nnz=150 | r*/y=5.4e-16 | H(track,c=1): cert=true  passes= 82529 stages= 5 secs=0.168 ret_excess=7.0e-05
+COR-n60p150-r0.7-f0.05-20188   Float32 stuck: passes=  107 excess=2.6e-01 nnz=147 | r*/y=6.1e-16 | H(track,c=1): cert=false passes= 39834 stages=16 secs=0.078 ret_excess=7.8e-05
+COR-n60p150-r0.7-f0.05-20189   Float64 stuck: passes=  324 excess=1.4e-01 nnz=137 | r*/y=4.9e-16 | H(track,c=1): cert=false passes=143055 stages=16 secs=0.302 ret_excess=1.2e-04
+COR-n60p150-r0.7-f0.05-20189   Float32 stuck: passes=  196 excess=1.4e-01 nnz=139 | r*/y=7.1e-16 | H(track,c=1): cert=false passes= 51005 stages=16 secs=0.099 ret_excess=1.3e-04
+COR-n60p150-r0.7-f0.2-20190    Float64 stuck: passes= 1652 excess=1.5e-02 nnz= 84 | r*/y=4.0e-15 | H(track,c=1): cert=false passes=138108 stages=16 secs=0.287 ret_excess=4.2e-05
+COR-n60p150-r0.7-f0.2-20190    Float32 stuck: passes=  870 excess=1.5e-02 nnz= 85 | r*/y=4.1e-15 | H(track,c=1): cert=false passes= 57295 stages=16 secs=0.109 ret_excess=5.2e-05
+COR-n60p150-r0.7-f0.2-20191    Float64 stuck: passes=20000 excess=1.4e-03 nnz= 68 | r*/y=5.7e-16 | H(track,c=1): cert=false passes=132946 stages=16 secs=0.267 ret_excess=3.6e-05
+COR-n60p150-r0.7-f0.2-20191    Float32 stuck: passes= 8739 excess=1.4e-03 nnz= 69 | r*/y=6.1e-16 | H(track,c=1): cert=false passes= 52811 stages=16 secs=0.105 ret_excess=4.4e-05

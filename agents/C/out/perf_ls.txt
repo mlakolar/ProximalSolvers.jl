@@ -1,0 +1,6 @@
+old median ratio to mean(old,ctl) = 0.998  IQR [0.995, 1.005]
+ctl median ratio to mean(old,ctl) = 1.002  IQR [0.995, 1.005]
+v1 median ratio to mean(old,ctl) = 0.998  IQR [0.989, 1.011]
+v1b median ratio to mean(old,ctl) = 0.998  IQR [0.992, 1.005]
+v2 median ratio to mean(old,ctl) = 0.996  IQR [0.993, 1.006]
+v2b median ratio to mean(old,ctl) = 0.997  IQR [0.991, 1.005]

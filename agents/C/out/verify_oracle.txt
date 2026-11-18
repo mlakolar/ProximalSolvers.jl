@@ -1,0 +1,4 @@
+records=160 weak-duality violations=0
+max |D_stored - D_exact|/D_exact = 1.6013442038931927e-16; max (D_stored - D_exact)/D_exact (positive means stored D is above the exact bound) = 1.6013442038931927e-16
+max (U - D_exact)/D_exact over all records = 6.526150835115434e-8
+alternative-formulation Clarabel solves: 44; max (P(β_alt) - D_exact)/D_exact = 2.5034736470776907e-7

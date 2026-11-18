@@ -1,0 +1,54 @@
+diff --git a/src/cd/sqrtlasso.jl b/src/cd/sqrtlasso.jl
+index 62b1b433..f69c1396 100644
+--- a/src/cd/sqrtlasso.jl
++++ b/src/cd/sqrtlasso.jl
+@@ -13,7 +13,7 @@
+ # certified bound, or NaN; whether the run stopped without a certificate). `res64` and `rowmag64` are
+ # Float64 vectors of length n (allocated by `_prepare!`): the certificate's residual and row
+ # magnitudes; `res64` is also the scaled residual of `_sqrt_offrange_step`.
+-mutable struct SqrtLSModel{T<:Union{Float32, Float64}, M<:LSModel{T, T}} <: CDModel{T}
++mutable struct SqrtLSModel{T<:Union{Float32, Float64}, M<:LSModel{T, T}, Sm} <: CDModel{T}
+   ls::M
+   gt::NormL1{T, Nothing}
+   lo64::Float64
+@@ -24,11 +24,12 @@ mutable struct SqrtLSModel{T<:Union{Float32, Float64}, M<:LSModel{T, T}} <: CDMo
+   uncertified::Bool
+   res64::Vector{Float64}
+   rowmag64::Vector{Float64}
++  δ2::T                      # PROTOTYPE (ii): smoothing δ², read only where the type parameter Sm is true
+ end
+ function cdmodel(f::SqrtLeastSquaresLoss{T, <:Vector{T}, <:Matrix{T}}, x::SparseIterate{T}) where {T<:Union{Float32, Float64}}
+   d = leastsquares_data(f)
+   ls = LSModel(d.Y, d.X, d.α)
+-  SqrtLSModel{T, typeof(ls)}(ls, NormL1(zero(T)), NaN, NaN, NaN, 0, T(NaN), false, Float64[], Float64[])
++  SqrtLSModel{T, typeof(ls), false}(ls, NormL1(zero(T)), NaN, NaN, NaN, 0, T(NaN), false, Float64[], Float64[], zero(T))
+ end
+ 
+ # The LS methods with the loss scale 1, forwarded: the `CDModel` defaults (unit coordinate scale, zero
+@@ -136,6 +137,9 @@ end
+ # underflow) change s by at most eps(T)²/2 relative.
+ @inline _clean_sum(s::T, n::Int) where T = isfinite(s) & (s >= n*(floatmin(T)/eps(T)))
+ 
++# PROTOTYPE (ii): the ordinary model (Sm = false) adds nothing; the smoothed one adds δ² to a sum of squares.
++@inline _smooth(m::SqrtLSModel{T, M, false}, s::T) where {T, M} = s
++@inline _smooth(m::SqrtLSModel{T, M, true}, s::T) where {T, M} = s + m.δ2
+ # The coordinate step: the minimizer of φ(z) = ‖r_k − X_k z‖₂ + λ|z| over the coordinate, computed up to
+ # rounding (bounded in the comment of `step_bound` in test/sqrt_lasso.jl), with r_k = r + X_k old the
+ # residual without coordinate k (Stage 0 of #332, §2). With a = ‖X_k‖², b = X_kᵀr,
+@@ -150,6 +154,7 @@ end
+ @inline function coordinate_step!(m::SqrtLSModel{T}, g, x::SparseIterate{T}, k::Int) where T
+   ls = m.ls
+   a, b, ρ2 = _column_dot_rsqr(ls.X, ls.r, k, ls.a[k])
++  ρ2 = _smooth(m, ρ2)        # PROTOTYPE (ii)
+   isfinite(ρ2) || _check_residual(ls.r, k)
+   iszero(a) && !_flat_column(ls, k) &&
+     throw(ArgumentError("the coordinate curvature underflows; rescale the data"))
+@@ -186,7 +191,7 @@ end
+   c = old + q
+   d2 = ρ2 - b*q
+   if d2 < ρ2/16
+-    d2 = _distance_sqr(ls.X, ls.r, k, q)
++    d2 = _smooth(m, _distance_sqr(ls.X, ls.r, k, q))    # PROTOTYPE (ii)
+     _clean_sum(d2, n) || return _sqrt_offrange_step(m, old, k)
+   end
+   d = sqrt(d2)

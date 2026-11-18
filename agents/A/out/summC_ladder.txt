@@ -1,0 +1,6 @@
+('M81', 'Float32', 'C-ladder-no', 'Bm-fail', 'Bcm-fail') 3
+('M81', 'Float32', 'C-ladder-ok', 'Bm-ok', 'Bcm-ok') 40
+('M81', 'Float64', 'C-ladder-no', 'Bm-fail', 'Bcm-fail') 3
+('M81', 'Float64', 'C-ladder-ok', 'Bm-ok', 'Bcm-ok') 35
+('OPTx', 'Float32', 'C-ladder-ok', 'Bm-ok', 'Bcm-ok') 59
+('OPTx', 'Float64', 'C-ladder-ok', 'Bm-ok', 'Bcm-ok') 60

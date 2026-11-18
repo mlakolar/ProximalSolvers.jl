@@ -1,0 +1,4 @@
+("A155", "Float32") storedD-minus-rederivedD=-6.248609201189889e-19 storedU-minus-P=-3.7829282371249396e-19
+("A155", "Float64") storedD-minus-rederivedD=2.7755575615662526e-19 storedU-minus-P=-2.5773245130260045e-19
+("A156", "Float32") storedD-minus-rederivedD=0.0 storedU-minus-P=-4.825728258697967e-18
+stored D above rederived witness in 101/160; stored U below P(oracle beta) in 86/160

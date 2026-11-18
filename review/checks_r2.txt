@@ -1,0 +1,3 @@
+Plo/Pup checks: 2000 lower violations=0 upper violations=0 accepted changes=683 nondecreases=0
+Round-one example: Plo(x0)=0.9999899999999993 Pup(new)=1.0000000000000013 gate accepts=false
+Consistent-support counterexample: theta from support=0.1 offsupport correlation=0.2 > lambda=0.1 null(X_S) dimension=0 Xd=[0.0] G(kd)=[-0.1, -1.0, -10.0]

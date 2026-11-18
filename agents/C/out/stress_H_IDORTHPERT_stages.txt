@@ -1,0 +1,60 @@
+== ID50 Float64 given fixed Pst/P*=1.0050000000052517 certified=true
+   (stage = 1, δ = 0.07106423150924801, passes = 229, sec = 0.000366058, conv = true, P = 7.0710678118654755, D = 7.0710678118654755, nnz = 0, prodcode = :certified, prodratio = 4.440892098500688e-16, ratio = 1.0e-60, improved = true)
+== ID50 Float64 given adaptive Pst/P*=1.0050000000052517 certified=true
+   (stage = 1, δ = 0.07106423150924801, passes = 229, sec = 0.000606069, conv = true, P = 7.0710678118654755, D = 7.0710678118654755, nnz = 0, prodcode = :certified, prodratio = 4.440892098500688e-16, ratio = 1.0e-60, improved = true)
+== ID50 Float32 given fixed Pst/P*=1.0050000321172172 certified=true
+   (stage = 1, δ = 0.07106423377990723, passes = 229, sec = 0.000375076, conv = true, P = 7.0710678118654755, D = 7.0710678118654755, nnz = 0, prodcode = :certified, prodratio = 4.440892098500688e-16, ratio = 1.0e-60, improved = true)
+== ID50 Float32 given adaptive Pst/P*=1.0050000321172172 certified=true
+   (stage = 1, δ = 0.07106423377990723, passes = 229, sec = 0.000405736, conv = true, P = 7.0710678118654755, D = 7.0710678118654755, nnz = 0, prodcode = :certified, prodratio = 4.440892098500688e-16, ratio = 1.0e-60, improved = true)
+== ID200 Float64 given fixed Pst/P*=1.001250000001213 certified=true
+   (stage = 1, δ = 0.14159813293260612, passes = 651, sec = 0.007392555, conv = true, P = 14.142135623730951, D = 14.142135623730951, nnz = 0, prodcode = :certified, prodratio = 4.440892098500835e-16, ratio = 1.0e-60, improved = true)
+== ID200 Float64 given adaptive Pst/P*=1.001250000001213 certified=true
+   (stage = 1, δ = 0.14159813293260612, passes = 651, sec = 0.007470612, conv = true, P = 14.142135623730951, D = 14.142135623730951, nnz = 0, prodcode = :certified, prodratio = 4.440892098500835e-16, ratio = 1.0e-60, improved = true)
+== ID200 Float32 given fixed Pst/P*=1.001250016266926 certified=true
+   (stage = 1, δ = 0.14159813523292542, passes = 651, sec = 0.004333152, conv = true, P = 14.142135623730951, D = 14.142135623730951, nnz = 0, prodcode = :certified, prodratio = 4.440892098500835e-16, ratio = 1.0e-60, improved = true)
+== ID200 Float32 given adaptive Pst/P*=1.001250016266926 certified=true
+   (stage = 1, δ = 0.14159813523292542, passes = 651, sec = 0.004367957, conv = true, P = 14.142135623730951, D = 14.142135623730951, nnz = 0, prodcode = :certified, prodratio = 4.440892098500835e-16, ratio = 1.0e-60, improved = true)
+== ID1000 Float64 given fixed Pst/P*=1.0002500000000423 certified=true
+   (stage = 1, δ = 0.3163068229583422, passes = 1792, sec = 0.410874961, conv = true, P = 31.622776601683793, D = 31.622776601683793, nnz = 0, prodcode = :certified, prodratio = 4.440892098501623e-16, ratio = 1.0e-60, improved = true)
+== ID1000 Float64 given adaptive Pst/P*=1.0002500000000423 certified=true
+   (stage = 1, δ = 0.3163068229583422, passes = 1792, sec = 0.386746109, conv = true, P = 31.622776601683793, D = 31.622776601683793, nnz = 0, prodcode = :certified, prodratio = 4.440892098501623e-16, ratio = 1.0e-60, improved = true)
+== ID1000 Float32 given fixed Pst/P*=1.0002500440972208 certified=true
+   (stage = 1, δ = 0.31630683690309525, passes = 1792, sec = 0.199156596, conv = true, P = 31.622776601683793, D = 31.622776601683793, nnz = 0, prodcode = :certified, prodratio = 4.440892098501623e-16, ratio = 1.0e-60, improved = true)
+== ID1000 Float32 given adaptive Pst/P*=1.0002500440972208 certified=true
+   (stage = 1, δ = 0.31630683690309525, passes = 1792, sec = 0.199795292, conv = true, P = 31.622776601683793, D = 31.622776601683793, nnz = 0, prodcode = :certified, prodratio = 4.440892098501623e-16, ratio = 1.0e-60, improved = true)
+== ORTH50 Float64 given fixed Pst/P*=1.0010000000000687 certified=true
+   (stage = 1, δ = 0.0707813887967735, passes = 748, sec = 0.001073026, conv = true, P = 7.0710678118654755, D = 7.0710678118654755, nnz = 0, prodcode = :certified, prodratio = 4.440892098500688e-16, ratio = 1.0e-60, improved = true)
+== ORTH50 Float64 given adaptive Pst/P*=1.0010000000000687 certified=true
+   (stage = 1, δ = 0.0707813887967735, passes = 748, sec = 0.001092799, conv = true, P = 7.0710678118654755, D = 7.0710678118654755, nnz = 0, prodcode = :certified, prodratio = 4.440892098500688e-16, ratio = 1.0e-60, improved = true)
+== ORTH50 Float32 given fixed Pst/P*=1.0010000693391605 certified=true
+   (stage = 1, δ = 0.07078139364401934, passes = 748, sec = 0.001119398, conv = true, P = 7.0710678062942085, D = 7.0710678062942085, nnz = 0, prodcode = :certified, prodratio = 4.440892098500688e-16, ratio = 1.0e-60, improved = true)
+== ORTH50 Float32 given adaptive Pst/P*=1.0010000693391605 certified=true
+   (stage = 1, δ = 0.07078139364401934, passes = 748, sec = 0.001107215, conv = true, P = 7.0710678062942085, D = 7.0710678062942085, nnz = 0, prodcode = :certified, prodratio = 4.440892098500688e-16, ratio = 1.0e-60, improved = true)
+== PERT0.1-50 Float64 given fixed Pst/P*=1.3272279680833443 certified=true
+   (stage = 1, δ = 0.09571333957752726, passes = 9, sec = 1.6108e-5, conv = true, P = 7.2115222011002365, D = 7.2115222011002365, nnz = 0, prodcode = :certified, prodratio = 4.440892098500688e-16, ratio = 1.0e-60, improved = true)
+== PERT0.1-50 Float64 given adaptive Pst/P*=1.3272279680833443 certified=true
+   (stage = 1, δ = 0.09571333957752726, passes = 9, sec = 1.4912e-5, conv = true, P = 7.2115222011002365, D = 7.2115222011002365, nnz = 0, prodcode = :certified, prodratio = 4.440892098500688e-16, ratio = 1.0e-60, improved = true)
+== PERT0.1-50 Float32 given fixed Pst/P*=1.327227907237309 certified=true
+   (stage = 1, δ = 0.09571333504290769, passes = 9, sec = 1.551e-5, conv = true, P = 7.211522190047558, D = 7.211522190047558, nnz = 0, prodcode = :certified, prodratio = 4.440892098500688e-16, ratio = 1.0e-60, improved = true)
+== PERT0.1-50 Float32 given adaptive Pst/P*=1.327227907237309 certified=true
+   (stage = 1, δ = 0.09571333504290769, passes = 9, sec = 1.5163e-5, conv = true, P = 7.211522190047558, D = 7.211522190047558, nnz = 0, prodcode = :certified, prodratio = 4.440892098500688e-16, ratio = 1.0e-60, improved = true)
+== PERT0.5-50 Float64 given fixed Pst/P*=2.1759542695117045 certified=true
+   (stage = 1, δ = 0.17949623125513012, passes = 6, sec = 9.747e-6, conv = true, P = 8.249081047829845, D = 8.249081047829845, nnz = 0, prodcode = :certified, prodratio = 4.440892098500691e-16, ratio = 1.0e-60, improved = true)
+== PERT0.5-50 Float64 given adaptive Pst/P*=2.1759542695117045 certified=true
+   (stage = 1, δ = 0.17949623125513012, passes = 6, sec = 8.074e-6, conv = true, P = 8.249081047829845, D = 8.249081047829845, nnz = 0, prodcode = :certified, prodratio = 4.440892098500691e-16, ratio = 1.0e-60, improved = true)
+== ORTH200 Float64 given fixed Pst/P*=1.0010000000116954 certified=true
+   (stage = 1, δ = 0.14156277759354727, passes = 760, sec = 0.008604018, conv = true, P = 14.142135623730951, D = 14.142135623730951, nnz = 0, prodcode = :certified, prodratio = 4.440892098500836e-16, ratio = 1.0e-60, improved = true)
+== ORTH200 Float64 given adaptive Pst/P*=1.0010000000116954 certified=true
+   (stage = 1, δ = 0.14156277759354727, passes = 760, sec = 0.008554925, conv = true, P = 14.142135623730951, D = 14.142135623730951, nnz = 0, prodcode = :certified, prodratio = 4.440892098500836e-16, ratio = 1.0e-60, improved = true)
+== ORTH200 Float32 given fixed Pst/P*=1.0010001097278378 certified=true
+   (stage = 1, δ = 0.14156279349650064, passes = 760, sec = 0.005065399, conv = true, P = 14.142135662366796, D = 14.142135662366796, nnz = 0, prodcode = :certified, prodratio = 4.440892098500836e-16, ratio = 1.0e-60, improved = true)
+== ORTH200 Float32 given adaptive Pst/P*=1.0010001097278378 certified=true
+   (stage = 1, δ = 0.14156279349650064, passes = 760, sec = 0.005051546, conv = true, P = 14.142135662366796, D = 14.142135662366796, nnz = 0, prodcode = :certified, prodratio = 4.440892098500836e-16, ratio = 1.0e-60, improved = true)
+== PERT0.1-200 Float64 given fixed Pst/P*=1.4124285254405518 certified=true
+   (stage = 1, δ = 0.19997682603731942, passes = 9, sec = 0.000123376, conv = true, P = 14.158367834927754, D = 14.158367834927754, nnz = 0, prodcode = :certified, prodratio = 4.440892098500836e-16, ratio = 1.0e-60, improved = true)
+== PERT0.1-200 Float64 given adaptive Pst/P*=1.4124285254405518 certified=true
+   (stage = 1, δ = 0.19997682603731942, passes = 9, sec = 0.000125246, conv = true, P = 14.158367834927754, D = 14.158367834927754, nnz = 0, prodcode = :certified, prodratio = 4.440892098500836e-16, ratio = 1.0e-60, improved = true)
+== PERT0.5-200 Float64 given fixed Pst/P*=2.6317370052170292 certified=true
+   (stage = 1, δ = 0.4122393033866145, passes = 5, sec = 7.2984e-5, conv = true, P = 15.664152708625947, D = 15.664152708625947, nnz = 0, prodcode = :certified, prodratio = 4.440892098500834e-16, ratio = 1.0e-60, improved = true)
+== PERT0.5-200 Float64 given adaptive Pst/P*=2.6317370052170292 certified=true
+   (stage = 1, δ = 0.4122393033866145, passes = 5, sec = 6.9725e-5, conv = true, P = 15.664152708625947, D = 15.664152708625947, nnz = 0, prodcode = :certified, prodratio = 4.440892098500834e-16, ratio = 1.0e-60, improved = true)

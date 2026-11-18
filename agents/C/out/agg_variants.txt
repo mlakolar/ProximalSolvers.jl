@@ -1,0 +1,11 @@
+variant T fired certified  (stress + hard + hard2 catalogues)
+('fix1', 'Float32') 97 89 max passes 135858
+('fix1', 'Float64') 103 99 max passes 133868
+('fix1h', 'Float32') 51 50 max passes 42237
+('fix1h', 'Float64') 57 57 max passes 42451
+('h0', 'Float32') 97 60 max passes 80632
+('h0', 'Float64') 103 96 max passes 140011
+('trk1', 'Float32') 97 89 max passes 135858
+('trk1', 'Float64') 103 99 max passes 133868
+('trkh', 'Float32') 97 90 max passes 150963
+('trkh', 'Float64') 103 99 max passes 240048

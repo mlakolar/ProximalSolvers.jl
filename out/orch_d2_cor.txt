@@ -1,0 +1,14 @@
+seed 20185 f 0.05 Float64 outcome=uncertified via=none   passes=134525 ratio=3.16e-04 excess=1.42e-05 nnz=118
+seed 20185 f 0.05 Float32 outcome=uncertified via=none   passes= 45148 ratio=5.83e-04 excess=2.83e-05 nnz=114
+seed 20187 f 0.05 Float64 outcome=certified   via=stage  passes=107342 ratio=8.59e-05 excess=2.80e-05 nnz=60
+seed 20187 f 0.05 Float32 outcome=uncertified via=none   passes= 59651 ratio=7.92e-04 excess=1.65e-05 nnz=131
+seed 20188 f 0.05 Float64 outcome=certified   via=stage  passes=112479 ratio=4.62e-05 excess=3.48e-05 nnz=63
+seed 20188 f 0.05 Float32 outcome=uncertified via=none   passes= 45977 ratio=3.94e-04 excess=2.70e-05 nnz=130
+seed 20189 f 0.05 Float64 outcome=uncertified via=none   passes=160146 ratio=9.08e-04 excess=3.18e-05 nnz=122
+seed 20189 f 0.05 Float32 outcome=uncertified via=none   passes= 68096 ratio=2.01e-03 excess=4.58e-05 nnz=119
+seed 20190 f 0.05 Float64 outcome=uncertified via=none   passes=160068 ratio=7.13e-03 excess=2.09e-05 nnz=147
+seed 20190 f 0.05 Float32 outcome=uncertified via=none   passes= 65630 ratio=6.46e-03 excess=4.43e-05 nnz=140
+seed 20190 f 0.20 Float64 outcome=uncertified via=none   passes=130734 ratio=1.93e-04 excess=1.76e-05 nnz=78
+seed 20190 f 0.20 Float32 outcome=uncertified via=none   passes= 66862 ratio=1.11e-03 excess=2.88e-05 nnz=75
+seed 20191 f 0.20 Float64 outcome=uncertified via=none   passes=131878 ratio=6.70e-04 excess=1.61e-05 nnz=68
+seed 20191 f 0.20 Float32 outcome=uncertified via=none   passes= 71751 ratio=4.29e-03 excess=2.45e-05 nnz=67

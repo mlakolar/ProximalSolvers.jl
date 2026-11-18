@@ -1,0 +1,13 @@
+problem T | base: passes sec | fallback: stages passes sec(stage solves) sec(certs) MB(alloc of stage solves) certified ratio | secs/pass base vs fallback
+n=20 p=80 k=3 Float64 | base passes=3 sec=0.0000 | fb stages=5 passes=12993 solve=0.0081s cert=0.0000s alloc=0.06MB cert=true ratio=6.8e-05 | sec/pass base=1.45e-05 fb=6.26e-07 | X MB=0.01
+n=20 p=80 k=3 Float32 | base passes=1 sec=0.0000 | fb stages=16 passes=13131 solve=0.0063s cert=0.0000s alloc=0.07MB cert=false ratio=3.6e-04 | sec/pass base=2.89e-05 fb=4.81e-07 | X MB=0.01
+n=50 p=200 k=5 Float64 | base passes=3 sec=0.0000 | fb stages=5 passes=53 solve=0.0001s cert=0.0000s alloc=0.05MB cert=true ratio=3.2e-05 | sec/pass base=1.30e-05 fb=1.94e-06 | X MB=0.08
+n=50 p=200 k=5 Float32 | base passes=1 sec=0.0000 | fb stages=5 passes=54 solve=0.0001s cert=0.0000s alloc=0.04MB cert=true ratio=3.3e-05 | sec/pass base=1.22e-05 fb=1.29e-06 | X MB=0.04
+n=100 p=400 k=10 Float64 | base passes=3 sec=0.0001 | fb stages=5 passes=50 solve=0.0003s cert=0.0000s alloc=0.08MB cert=true ratio=3.8e-05 | sec/pass base=2.71e-05 fb=5.63e-06 | X MB=0.31
+n=100 p=400 k=10 Float32 | base passes=1 sec=0.0000 | fb stages=5 passes=50 solve=0.0002s cert=0.0000s alloc=0.07MB cert=true ratio=4.0e-05 | sec/pass base=2.95e-05 fb=3.92e-06 | X MB=0.15
+n=200 p=800 k=10 Float64 | base passes=3 sec=0.0003 | fb stages=5 passes=44 solve=0.0007s cert=0.0001s alloc=0.16MB cert=true ratio=4.5e-05 | sec/pass base=8.95e-05 fb=1.57e-05 | X MB=1.22
+n=200 p=800 k=10 Float32 | base passes=1 sec=0.0001 | fb stages=5 passes=44 solve=0.0005s cert=0.0001s alloc=0.12MB cert=true ratio=4.6e-05 | sec/pass base=1.00e-04 fb=1.12e-05 | X MB=0.61
+n=200 p=2000 k=10 Float64 | base passes=3 sec=0.0009 | fb stages=5 passes=98 solve=0.0024s cert=0.0003s alloc=0.34MB cert=true ratio=2.4e-05 | sec/pass base=2.98e-04 fb=2.47e-05 | X MB=3.05
+n=200 p=2000 k=10 Float32 | base passes=3 sec=0.0003 | fb stages=5 passes=99 solve=0.0014s cert=0.0002s alloc=0.26MB cert=true ratio=4.3e-05 | sec/pass base=1.12e-04 fb=1.43e-05 | X MB=1.53
+n=500 p=2000 k=10 Float64 | base passes=3 sec=0.0032 | fb stages=5 passes=35 solve=0.0037s cert=0.0006s alloc=0.37MB cert=true ratio=6.4e-05 | sec/pass base=1.05e-03 fb=1.05e-04 | X MB=7.63
+n=500 p=2000 k=10 Float32 | base passes=1 sec=0.0005 | fb stages=5 passes=35 solve=0.0020s cert=0.0004s alloc=0.29MB cert=true ratio=6.7e-05 | sec/pass base=5.10e-04 fb=5.79e-05 | X MB=3.81

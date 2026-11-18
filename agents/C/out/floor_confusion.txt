@@ -1,0 +1,23 @@
+Baseline uncertified runs: residual at the Float32/Float64 rounding floor ('atfloor') vs optimal/nonoptimal
+T=Float32 atfloor=false optimal=true : 6
+T=Float32 atfloor=true optimal=false : 335
+T=Float32 atfloor=true optimal=true : 37
+T=Float64 atfloor=false optimal=false : 218
+T=Float64 atfloor=false optimal=true : 35
+T=Float64 atfloor=true optimal=false : 130
+T=Float64 atfloor=true optimal=true : 3
+
+rrel (‖r‖/‖y‖) ranges of uncertified runs at the floor, by optimality:
+T=Float64 optimal=true: n=0 (+3 exact zeros)
+T=Float64 optimal=false: n=126 (+4 exact zeros) rrel min=4.2e-17 median=2.3e-16 max=2.9e-15
+T=Float32 optimal=true: n=34 (+3 exact zeros) rrel min=2.6e-08 median=9.2e-08 max=2.5e-06
+T=Float32 optimal=false: n=331 (+4 exact zeros) rrel min=1.4e-08 median=9.7e-08 max=1.2e-06
+
+cert codes of uncertified runs at the floor:
+('Float32', 'false', 'failed') 331
+('Float32', 'false', 'undefined') 4
+('Float32', 'true', 'failed') 34
+('Float32', 'true', 'undefined') 3
+('Float64', 'false', 'failed') 126
+('Float64', 'false', 'undefined') 4
+('Float64', 'true', 'undefined') 3

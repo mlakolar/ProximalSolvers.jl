@@ -1,0 +1,35 @@
+diff --git a/src/cd/sqrtlasso.jl b/src/cd/sqrtlasso.jl
+index 62b1b433..d734c989 100644
+--- a/src/cd/sqrtlasso.jl
++++ b/src/cd/sqrtlasso.jl
+@@ -24,11 +24,12 @@ mutable struct SqrtLSModel{T<:Union{Float32, Float64}, M<:LSModel{T, T}} <: CDMo
+   uncertified::Bool
+   res64::Vector{Float64}
+   rowmag64::Vector{Float64}
++  δ2::T                      # PROTOTYPE (i): smoothing δ², zero on the ordinary path
+ end
+ function cdmodel(f::SqrtLeastSquaresLoss{T, <:Vector{T}, <:Matrix{T}}, x::SparseIterate{T}) where {T<:Union{Float32, Float64}}
+   d = leastsquares_data(f)
+   ls = LSModel(d.Y, d.X, d.α)
+-  SqrtLSModel{T, typeof(ls)}(ls, NormL1(zero(T)), NaN, NaN, NaN, 0, T(NaN), false, Float64[], Float64[])
++  SqrtLSModel{T, typeof(ls)}(ls, NormL1(zero(T)), NaN, NaN, NaN, 0, T(NaN), false, Float64[], Float64[], zero(T))
+ end
+ 
+ # The LS methods with the loss scale 1, forwarded: the `CDModel` defaults (unit coordinate scale, zero
+@@ -150,6 +151,7 @@ end
+ @inline function coordinate_step!(m::SqrtLSModel{T}, g, x::SparseIterate{T}, k::Int) where T
+   ls = m.ls
+   a, b, ρ2 = _column_dot_rsqr(ls.X, ls.r, k, ls.a[k])
++  ρ2 += m.δ2                 # PROTOTYPE (i)
+   isfinite(ρ2) || _check_residual(ls.r, k)
+   iszero(a) && !_flat_column(ls, k) &&
+     throw(ArgumentError("the coordinate curvature underflows; rescale the data"))
+@@ -186,7 +188,7 @@ end
+   c = old + q
+   d2 = ρ2 - b*q
+   if d2 < ρ2/16
+-    d2 = _distance_sqr(ls.X, ls.r, k, q)
++    d2 = _distance_sqr(ls.X, ls.r, k, q) + m.δ2    # PROTOTYPE (i)
+     _clean_sum(d2, n) || return _sqrt_offrange_step(m, old, k)
+   end
+   d = sqrt(d2)

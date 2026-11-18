@@ -1,0 +1,53 @@
+== T1 coverage: certified / N, false certs (ratio < (P-U)/U), unsound (float ratio < BigFloat ratio)
+set    T    R             A             ridge         B             Bm            Bcm           D             
+M81    64   0/38 f0 u0    18/38 f0 u0   18/38 f0 u0   29/38 f0 u0   35/38 f0 u0   35/38 f0 u0   29/38 f0 u0   
+M81    32   0/43 f0 u0    19/43 f0 u0   19/43 f0 u0   32/43 f0 u0   40/43 f0 u0   40/43 f0 u0   32/43 f0 u0   
+OPTx   64   0/60 f0 u0    36/60 f0 u0   36/60 f0 u0   60/60 f0 u0   60/60 f0 u0   60/60 f0 u0   56/60 f0 u0   
+OPTx   32   0/59 f0 u0    36/59 f0 u0   36/59 f0 u0   59/59 f0 u0   59/59 f0 u0   59/59 f0 u0   56/59 f0 u0   
+OPTn   64   20/20 f0 u0   1/20 f0 u0    1/20 f0 u0    1/20 f0 u0    1/20 f0 u0    1/20 f0 u0    1/20 f0 u0    
+OPTn   32   20/21 f0 u0   1/21 f0 u0    1/21 f0 u0    2/21 f0 u0    2/21 f0 u0    2/21 f0 u0    2/21 f0 u0    
+NEG    64   0/348 f0 u0   0/348 f0 u0   0/348 f0 u0   0/348 f0 u0   0/348 f0 u0   0/348 f0 u0   0/348 f0 u0   
+NEG    32   0/335 f0 u0   0/335 f0 u0   0/335 f0 u0   0/335 f0 u0   0/335 f0 u0   0/335 f0 u0   0/335 f0 u0   
+
+== T2 certified-ratio quantiles (q10/q50/q90/max)
+M81 A 37 4.1e-10 2.2e-07 9.5e-07 1.3e-06
+M81 Bm 75 5.5e-11 3.5e-07 9.4e-06 4.7e-05
+M81 Bcm 75 5.8e-11 3.5e-07 9.4e-06 4.7e-05
+M81 D 61 4.8e-07 6.0e-06 9.1e-05 9.7e-05
+OPTx A 72 2.7e-13 4.9e-08 3.2e-07 5.4e-07
+OPTx Bm 119 2.0e-13 4.9e-08 3.8e-07 5.4e-07
+OPTx Bcm 119 7.1e-13 4.9e-08 3.8e-07 5.4e-07
+OPTx D 112 2.0e-07 2.3e-05 9.9e-05 1.0e-04
+
+== T3 failure reasons
+M81 A {'ratio': 44}
+M81 Bm {'ratio': 6}
+M81 Bcm {'ratio': 6}
+M81 D {'refuted': 20}
+OPTx A {'ratio': 47}
+OPTx Bm {}
+OPTx Bcm {}
+OPTx D {'ratio': 7}
+
+== T4 work: D passes at certification; B sweeps; wall time per call (s)
+M81 D passes q50/q90/max 10 245 575
+M81 A sec q50 2.00e-05 q90 1.70e-04 max 2.10e-04
+M81 Bm sec q50 2.00e-05 q90 4.70e-04 max 2.67e-02
+M81 Bcm sec q50 1.00e-05 q90 1.40e-04 max 2.62e-02
+M81 D sec q50 2.00e-05 q90 9.60e-04 max 1.84e-03
+OPTx D passes q50/q90/max 15 575 1705
+OPTx A sec q50 1.00e-05 q90 1.60e-04 max 3.70e-04
+OPTx Bm sec q50 1.00e-05 q90 1.60e-04 max 3.30e-04
+OPTx Bcm sec q50 1.00e-05 q90 3.00e-05 max 2.20e-04
+OPTx D sec q50 2.00e-05 q90 2.38e-03 max 5.75e-03
+
+== T5 E (smoothing) : transplant-certified of original point; smoothed point itself certifies; passes
+E (native T)               M81   64   N= 38 transplant-ok= 38 false=0  smoothed-pt-ok= 38  passes q50=33 q90=2637 max=2664
+E (native T)               M81   32   N= 43 transplant-ok= 30 false=0  smoothed-pt-ok=  4  passes q50=30 q90=1410 max=3641
+E (native T)               OPTx  64   N= 60 transplant-ok= 59 false=0  smoothed-pt-ok= 57  passes q50=62 q90=12230 max=80454
+E (native T)               OPTx  32   N= 59 transplant-ok= 16 false=0  smoothed-pt-ok=  1  passes q50=40 q90=3297 max=6719
+E (native T)               NEG   64   N= 74 transplant-ok=  0 false=0  smoothed-pt-ok= 68  passes q50=2747 q90=35740 max=100000
+E (native T)               NEG   32   N= 63 transplant-ok=  0 false=0  smoothed-pt-ok=  3  passes q50=3168 q90=11879 max=60005
+E64 (promoted to Float64)  M81   32   N= 43 transplant-ok= 43 false=0  smoothed-pt-ok= 42  passes q50=33 q90=1806 max=2652
+E64 (promoted to Float64)  OPTx  32   N= 59 transplant-ok= 58 false=0  smoothed-pt-ok= 56  passes q50=60 q90=12230 max=80454
+E64 (promoted to Float64)  NEG   32   N= 63 transplant-ok=  0 false=0  smoothed-pt-ok= 56  passes q50=4260 q90=63389 max=100000

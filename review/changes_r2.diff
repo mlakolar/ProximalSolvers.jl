@@ -1,0 +1,189 @@
+--- round1/report155.md
++++ round2/report155.md
+@@ -32,22 +32,23 @@
+    - The support equations are solvable iff s ⊥ null(X_S). If |S| > rank X_S and a null vector z of X_S has sᵀz < 0, the point is not optimal: β + tz stays an exact fit with a smaller ℓ₁ norm.
+    - The solutions form θ₀ + N with θ₀ = (X_Sᵀ)⁺λs and N = range(X_S)^⊥. When rank X_S = n, θ₀ is the only candidate.
+    - The feasible set scales with λ. An exact fit is optimal iff it solves basis pursuit and λ ≤ 1/min‖ν‖ over the basis-pursuit dual certificates of (S, s). Exact-fit optimality is therefore a threshold in λ.
+-2. **A coordinatewise minimum is a weak property.** `F'(β; d) = ‖Xd‖ + λsᵀd_S + λ‖d_{S^c}‖₁`. For single coordinates, F'(β; ±e_j) ≥ 0 for every j iff ‖X_j‖ ≥ λ on S. Every exact fit with that property is a fixed point of CD, however far it is from optimal. The traps in the matrix have 14–20 nonzeros at n = 8.
+-3. **Minimum-norm certificate = directional lasso.** Let τ* = min{‖θ‖ : Xᵀθ ∈ λ∂‖β‖₁}. Then ½τ*² = −min_d G(d), with G(d) = ½‖Xd‖² + λsᵀd_S + λ‖d_{S^c}‖₁ and θ* = −Xd*.
++2. **A coordinatewise minimum is a weak property.** `F'(β; d) = ‖Xd‖ + λsᵀd_S + λ‖d_{S^c}‖₁`. For single coordinates, F'(β; ±e_j) ≥ 0 for every j iff ‖X_j‖ ≥ λ on S. In exact arithmetic, every exact fit with ‖X_j‖ > λ on S is a fixed point of the CD step (the step returns 0 when λ ≥ ‖X_j‖), however far it is from optimal. The traps in the matrix have 14–20 nonzeros at n = 8.
++3. **Minimum-norm certificate = directional lasso.** Let Θ = {θ : Xᵀθ ∈ λ∂‖β‖₁} and G(d) = ½‖Xd‖² + λsᵀd_S + λ‖d_{S^c}‖₁.
++   - If Θ is nonempty, τ* = min{‖θ‖ : θ ∈ Θ} satisfies ½τ*² = −min_d G(d), with θ* = −Xd*. At the minimizer, F'(β; d*) = ‖Xd*‖(1 − ‖Xd*‖), so d* is a descent direction iff τ* > 1.
++   - If Θ is empty (inconsistent support equations), τ* = +∞, inf G = −∞, and a null-space direction of item 1 descends.
+    - β is optimal iff τ* ≤ 1.
+-   - At the minimizer, F'(β; d*) = ‖Xd*‖(1 − ‖Xd*‖), so d* is a descent direction iff τ* > 1.
+-   - This was checked against Clarabel on 60 + 60 random exact-fit points: τ agrees to 3.8e-7 and θ to 4.1e-6.
++   - Two numerical checks: on 60 rounded oracle exact-fit optima, τ agrees with Clarabel to 3.8e-7 and θ to 4.1e-6; on 60 random exact-fit points (32 optimal), the test τ* ≤ 1 agrees with an SOCP oracle in 60/60.
+ 4. **Escapes need the residual to grow, and need unbounded blocks.**
+    - In #155, det X = 0.01, so there is no null-space move. The descent direction is d = −β, with F' = −0.19, and the exact line minimizer is β = 0 (F = 0.01).
+    - For X = I_n, y = 1 and λ ∈ (1/√n, 1/√(n−1)), every block of fewer than n coordinates is non-descent. The needed block size is ⌊1/λ²⌋ + 1, verified by enumeration for n = 2…7. No fixed block size works in general.
+ 5. **One validator for any dual candidate.** For any θ̂, any β and any t ≥ 0 with tθ̂ feasible, the following holds, with both brackets nonnegative:
+    `P(β) − tθ̂ᵀy = (‖r‖ − tθ̂ᵀr) + Σ_k (λ|β_k| − tβ_k X_kᵀθ̂)`.
+-   - The current `_certify!` is the case θ̂ = r̂/‖r̂‖. A 57-line Float64 outward-rounded generalization reproduced production's 184 certified baseline points with the same ratios, and was sound against BigFloat on about 5,000 points and 30,000 fuzz cases.
++   - The current `_certify!` is the case θ̂ = r̂/‖r̂‖. A 57-line Float64 outward-rounded generalization (which also uses the dual bound t·(θ̂ᵀy)_lo and the ratio (P_up − D_lo)/D_lo) reproduced production's 184-point certified set, with different bounds, and was sound against BigFloat on about 5,000 points and 30,000 fuzz cases.
+    - A dual lower bound D_lo found at one point certifies any other point β′ with a proved upper bound P_up(β′): ratio = (P_up(β′) − D_lo)/D_lo.
+ 6. **Smoothing.** F_δ(β) = √(‖r‖² + δ²) + λ‖β‖₁ is the square-root lasso on the augmented data [y; δ], [X; 0ᵀ], and F ≤ F_δ ≤ F + δ.
+-   - F_δ is differentiable, so a coordinatewise minimum of F_δ is a global minimum: CD on F_δ has no exact-fit traps.
++   - For δ > 0 the loss √(‖r‖² + δ²) is convex and differentiable and the penalty is convex and separable, so coordinatewise optimality gives every coordinate of the global subgradient condition and hence global optimality: CD on F_δ has no exact-fit traps.
+    - At the minimizer of F_δ, θ_δ = r_δ/√(‖r_δ‖² + δ²) is dual feasible for F, and F(β_δ) − θ_δᵀy ≤ δ.
+-   - In the coordinate step the only change is d² → d² + δ² (with ‖r‖² → ‖r‖² + δ² in the range tests). At r = 0 the step shrinks the old value instead of keeping it.
++   - Mathematically the coordinate step changes only by d² → d² + δ² (and ‖r‖² → ‖r‖² + δ²). At r = 0 the step shrinks the old value instead of keeping it. In the code, the scaled off-range branch would also need its r = 0 early return removed and a safely scaled δ (`_sqrt_offrange_step`).
+ 
+ Three notions are kept separate throughout:
+ - a coordinatewise minimum (item 2);
+@@ -63,7 +64,7 @@
+   - A λ sweep (0.1–0.4 λmax) across the interpolation threshold; equicorrelated ρ = 0.95; duplicate columns.
+   - Starts: 0, the least-norm interpolant X⁺y (an adversarial exact fit), and the oracle optimum plus a fixed perturbation.
+   - Both types; cyclic dense and random `SparseIterate`.
+-- **Oracle:** Clarabel primal and dual, re-validated in BigFloat. All 160 records (problem × type) have reference intervals no wider than 6.5e-8 relative. An independent 512-bit re-derivation found 0 weak-duality violations, and 44 records re-solved with another formulation agree. 119 of the 160 optima are exact fits.
++- **Oracle:** Clarabel primal and dual, re-evaluated in BigFloat. All 160 records (problem × type) have high-precision reference bands no wider than 6.5e-8 relative (stored as rounded Float64 endpoints; not outward-rounded intervals). An independent 512-bit re-derivation found 0 weak-duality violations, and 44 records re-solved with another formulation agree. 119 of the 160 optima are classified as exact fits (‖r*‖/‖y‖ < 1e-8).
+ 
+ **Baseline (current solver, 948 runs, Julia 1.13.4):**
+ 
+@@ -100,7 +101,7 @@
+ 
+ ### 5. Escape candidates (#155)
+ 
+-All candidates ran on the 763 triggered runs, i.e. those the current solver leaves uncertified. Each escape was accepted only on a strict decrease of the original objective, tested in Float64 with an error margin. The production certificate, or the validator of §2.5, decides certification.
++Agent B's comparison table below uses its own regenerated cohort: 763 triggered runs (386 F64, 377 F32). It rebuilt `Xoshiro(7)` per run, whereas the baseline shares one generator, so 14 class labels and 296 random-order points differ from the baseline. For A1, A2, B, C and E an escape was accepted only on a strict decrease of the original objective in Float64 with an error margin; D and D2 exit at the first certified point. Certification in rows A1–D is the production certificate; **the D2 row uses a BigFloat dual bound as a high-precision proxy**, not an outward-rounded certificate.
+ 
+ | candidate | F64 certified (of 386) | F32 certified (of 377) | F64 still nonoptimal |
+ |---|---|---|---|
+@@ -118,10 +119,10 @@
+ **D2 in detail.**
+ - **Schedule:** δ_j = 0.3·0.2^j·F̂(x₀) for j = 0…7, each stage a production CD solve warm-started from the previous one, then one polish solve on F.
+ - **Bank:** after each stage, the residual-direction dual lower bound D_j at the stage point; D = max_j D_j.
+-- **Return rule:** the stuck point x₀ unchanged if (P_up(x₀) − D)/D ≤ 1e-4, else the stage point on the same test. Otherwise, the point with the smaller rigorous objective, uncertified.
+-- **Float32:** the bank is what makes D2 work. The residual direction gives an accurate dual only at large δ (dual error ≈ 0.3–0.5·u₃₂‖μ‖/‖r‖), while the primal needs small δ, so the two must come from different stages.
+-
+-**Orchestrator re-check with rigorous Float64 bounds.** The agent's D2 used a BigFloat dual bound. I reran it with the outward-rounded validator of §2.5 in place of BigFloat, on the exact replay of the baseline's final points:
++- **Return rule (as used in the rigorous replay below):** the stuck point x₀ unchanged if (P_up(x₀) − D)/D ≤ 1e-4; else a changed point only on a proved decrease, P_up(new) < P_lo(x₀), certified if (P_up(new) − D)/D ≤ 1e-4; otherwise x₀ with its own status. Smoothing decreases F_δ, not necessarily F, so certification and decrease are tested separately. (Agent B's prototype exits at the first certified point without a decrease test; in one of its runs it returned a certified A156 point with excess 6.0e-5 in place of the optimal x₀.)
++- **Float32:** the bank is what makes D2 work. For these Float32 residual-direction candidates, the observed dual error was ≈ 0.3–0.5·u₃₂‖μ‖/‖r‖, accurate only at large δ, while the primal needs small δ; in these runs the two came from different stages.
++
++**Orchestrator re-check with rigorous Float64 bounds.** I reran D2 with the outward-rounded validator of §2.5 in place of the BigFloat bound, the return rule above, and B's schedule, on the exact replay of the baseline's final points (764 triggered runs). The same replay without the decrease gate gave identical rows, and no returned point was worse than its stuck point.
+ 
+ | | F64 (386 triggered) | F32 (378 triggered) |
+ |---|---|---|
+@@ -129,20 +130,20 @@
+ | uncertified | 0 | 60, honest ratio 1.04e-4 to 4.7e-4 |
+ | false certifications | 0 | 0 |
+ | returned excess ≤ 1e-4 | 386 | 378 |
+-| fallback passes q50 / q90 / max | 232 / 8,803 / 89,268 | 178 / 5,182 / 14,104 |
++| fallback passes: median / 90th-percentile run (upper order statistic) / max | 227.5 / 8,803 / 89,268 | 178 / 5,182 / 14,104 |
+ 
+ - Certified within a fallback budget of 500 / 1,000 / 2,000 / 5,000 / 20,000 passes:
+   - Float64: 236 / 262 / 309 / 335 / 368;
+   - Float32: 262 / 277 / 302 / 318 / 318.
+-- Optimal exact fits are kept: started at the rounded oracle optimum, D2 returns the point unchanged in 120/120 F64 runs (all certified) and 118/118 F32 runs (99 certified). It certifies A156 in 46 passes.
+-- On Julia 1.10.13 (126 triggered runs per type), D2 certified 126 (F64) and 105 (F32). Final classes agree with 1.13 on 282/288 rows.
++- Agent B's runs (BigFloat proxy bound): optimal exact fits are kept. Started at the rounded oracle optimum, D2 returns the point unchanged in 120/120 F64 runs (all certified) and 118/118 F32 runs (99 certified). It certifies A156 in 46 passes.
++- Agent B on Julia 1.10.13 (126 triggered runs per type, BigFloat proxy bound): D2 certified 126 (F64) and 105 (F32). Final classes agree with 1.13 on 282/288 rows.
+ 
+ **Where smoothing fails (adversarial search, 103 Float64 and 97 Float32 fired starts beyond the matrix):**
+ - **Survived:** X = I_n (n up to 1000), orthogonal and perturbed-orthogonal X, block-diagonal #155 copies, badly scaled columns, y scaled by 2^±66, exact and near-duplicate columns, cancelling pairs, Vandermonde, λ at 0.5–1.2× the interpolation threshold, n = 200 / p = 2000, and eight #156-type problems whose least-norm support dual is infeasible (n up to 200). The returned point was never worse than the stuck point.
+ - **Small λ (≤ 1e-3 λmax), noiseless n40p120 and n100p400:** no schedule certified. After 1.2e5–2.4e5 passes the excess was still 0.4–1.0. Plain CD from 0 also ends at a dense exact fit there.
+ - **Equicorrelated ρ = 0.7, n60p150, cold start** (reproduced by me, rigorous D2, B's schedule):
+   - 2 of 14 runs certified (F64 seeds 20187, 20188), each after more than 1e5 passes.
+-  - The other 12 return good points (excess ≤ 4.6e-5, against 0.14–0.37 when stuck) but stay uncertified (ratio 1.9e-4 to 7e-3), after 4.5e4–1.6e5 passes. The base solve takes about 250 passes.
++  - The other 12 return good points (excess ≤ 4.6e-5, against 1.4e-3 to 0.37 when stuck) but stay uncertified (ratio 1.9e-4 to 7e-3), after 4.5e4–1.6e5 passes. The base solves of the 0.05 λmax cases take 171–324 passes; seed 20191 at 0.2 λmax hit the 20,000-pass cap.
+   - The smoothed problem becomes ill-conditioned for δ ≲ 5e-4 P*, where CD stalls.
+ - **Scale:** δ relative to P(x₀) is a poor scale when P(x₀) ≫ P* (9e6× in one construction). Tracking the best objective found so far fixes it.
+ - **Unnecessary firing:** on an already-optimal LOWRANK point (κ = 1e10), the fallback needed 32,945 passes where the base solve took 3. On Float32 ordinary problems where the certificate floor is reached, it fires for 52–96 extra passes.
+@@ -156,44 +157,45 @@
+   Cases: n60p20, n200p50, n1000p200, and n200p600 with a non-exact-fit optimum; Float32 and Float64; cyclic and default order. Median ratios were 0.985–1.005 for (i) and 0.994–1.006 for (ii), against 0.992–1.007 for A/A. No cell is ≥ 5% slower. At δ = 0 both give bitwise-identical results, and least-squares CD is untouched (ratios 0.996–0.998). Caveat: other jobs ran concurrently, so the min/max spread is wide.
+ - **Trigger.** The trigger is the uncertified flag `_stop_check!` already computes, so ordinary solves pay nothing.
+ - **Fallback, with δ inside the step:** O(n + p) extra state, allocated lazily, 0.04–0.37 MB per fallback for n × p up to 500 × 2000. The augmented-data form copies X every stage, so production would need the in-step δ.
+-- **Estimated code, not prototyped in the source tree:** about 100–130 lines in `src/cd/`.
++- **Estimated code, not prototyped in the source tree** (an estimate, not a validated implementation size; the performance prototype did not complete the off-range branch with δ): about 100–130 lines in `src/cd/`.
+   - A δ² field and its use in `_sqrt_minimizer` and `_sqrt_offrange_step`.
+   - `_certify!` exposing D_lo and a rigorous P_up.
+   - A fallback driver of about 50 lines.
+   - No LAPACK and no new dependency.
+   
+-  For comparison, the historical witness (`legacy/full:src/cd/sqrtdual.jl`) is about 450 lines with LAPACK `syevr`, error-free transforms and unpenalized projection bounds.
++  For comparison, the historical witness (`legacy/full:src/cd/sqrtdual.jl`) is 456 lines with LAPACK `syevr`, error-free transforms and unpenalized projection bounds.
+ 
+ ### 7. Certification alternatives (#156)
+ 
+ Summary only; details are on #156.
+-- A support-equation certificate ("Bcm": Cholesky of the |S|×|S| Gram, a bounded null-space alternating projection, the validator of §2.5, gated to |S| ≤ n) certifies 75 of the 81 missed points and 119 of the 119 oracle exact-fit optima, with 0 false certifications in 683 nonoptimal controls.
++- A support-equation certificate ("Bcm": Cholesky of the |S|×|S| Gram, a bounded null-space alternating projection, the validator of §2.5; a gate |S_eff| ≤ n on each effective support after dropping, before the Gram factorization, is part of the proposed design but not of the prototype) certifies 75 of the 81 missed points and 119 of the 119 oracle exact-fit optima, with 0 false certifications in 683 nonoptimal controls.
+ - It helps only where CD already reached the right exact fit, which in the matrix is 77 of the 710 runs on problems with exact-fit optima (the other 633 are nonoptimal stops). In the λ/4 designs of §4 it would certify nothing.
+-- D2's transfer rule certifies the same missed points (38/38 F64, 43/43 F32) without a factorization.
++- D2 returns certified answers for all 81 missed baseline cases without a factorization: transfer retains all 38 Float64 and 41 of 43 Float32 original points, while two Float32 cases (SW0.3-s1) require a changed stage point.
+ 
+ ### 8. Decision
+ 
+ **#156 (certification), DOCUMENT ONLY now.**
+ - A standalone certificate does not deliver enough. It rescues the uncommon runs where CD lands on the correct exact fit, but adds a Cholesky, a projection loop and a generalized validator (about 100 lines).
+-- If #155 is pursued with smoothing, the transfer rule covers these cases at no extra certificate code.
++- If #155 is pursued with smoothing, D2 covered these cases in the replay (with the generalized validator; coverage with the production bounds alone is a confirmation-round check).
+ - If #155 is declined, "Bcm" is the recorded design for a later, separately approved certificate, for example for users who warm-start at a known solution.
+ 
+ **#155 (escape), RESEARCH FURTHER: one bounded confirmation round, then a decision on implementing D2.**
+-- Smoothing continuation with a dual bank is the only candidate that escapes in general. In one small mechanism it also handles #156, and it costs the ordinary path nothing measurable.
++- Among the tested candidates, smoothing continuation with a dual bank was the most effective on the matrix; it has no demonstrated general finite-budget escape guarantee. In one mechanism it also handles the #156 cases of the matrix, and it costs the ordinary path nothing measurable in the prototype.
++- Not tested: an iterative primal–dual splitting fallback (soft-thresholding for the ℓ₁ term, projection onto the residual dual unit ball), which also avoids exact-fit coordinate traps with matrix products, O(n + p) state and no factorization. The confirmation round could include it as a comparator.
+ - It is not yet ready for implementation:
+   1. Its schedule was tuned on the same matrix it was scored on.
+   2. Its pass cost has a heavy tail, and it fails to certify (while still escaping) on natural equicorrelated designs and at very small λ.
+-  3. The production form (in-step δ, exposed D_lo/P_up, a budget charged to `maxpasses`) has not been prototyped in the source tree.
++  3. The production form (in-step δ, exposed D_lo/P_up, a budget charged to `maxpasses`) has not been prototyped in the source tree. The rigorous replay used the generalized validator; whether the production `_certify!` bounds alone give the same coverage is a check for the confirmation round.
+ - Proposed confirmation round, research only. Preregister before running:
+   - **Schedule:** δ₀ = F̂(x₀), then δ_{j+1} = min(δ_j/5, best F̂ so far), at most 8 stages, plus a polish solve.
+   - **Budget:** for example min(remaining `maxpasses`, max(2,000, 20 × base passes)).
+   - **Held-out set:** new seeds of every matrix family, the realistic λ/4 designs, and the equicorrelated and small-λ failures.
+   - **Prototype:** the in-step δ in a research worktree, with D_lo/P_up exposed.
+-  - **Acceptance:** 0 false certifications; returned objective never above the stuck point; ordinary-path ratios inside A/A on the formal harness; the certified fraction and pass tail reported against the budget for the maintainer to accept.
++  - **Acceptance:** 0 false certifications; a changed point returned only on a proved decrease, P_up(new) < P_lo(x₀); ordinary-path ratios inside A/A on the formal harness; the certified fraction and pass tail reported against the budget for the maintainer to accept.
+ - **One PR if accepted:** in-step δ + bank + budget + tests + the example 09 update. No separate #156 PR.
+ 
+ **Leave unsupported** under any design:
+-- Certification of Float32 exact-fit optima where rounding exceeds the 1e-4 budget.
++- Certification of Float32 points whose true relative excess exceeds 1e-4 at the stored precision, and of Float32 points for which no sufficiently accurate witness is found.
+ - Very small λ (≲ 1e-3 λmax) in noiseless p > n.
+ - Guaranteed certification of ill-conditioned dense exact-fit optima.
+ - A general exact-fit certification engine (LP/SOCP, SVD, LAPACK), block-move search, restart heuristics.
+--- round1/summary156.md
++++ round2/summary156.md
+@@ -23,10 +23,10 @@
+ ### Mathematics
+ 
+ - At r = 0, β is optimal iff some θ satisfies `‖θ‖ ≤ 1`, `X_Sᵀθ = λs` and `‖X_{S^c}ᵀθ‖∞ ≤ λ`. Every such θ has θᵀy = P(β), so certification is feasibility.
+-- The candidates form θ₀ + range(X_S)^⊥ with θ₀ = (X_Sᵀ)⁺λs.
+-- The minimum-norm candidate is θ* = −Xd*, where d* minimizes ½‖Xd‖² + λsᵀd_S + λ‖d_{S^c}‖₁. β is optimal iff ‖θ*‖ ≤ 1; otherwise d* is a descent direction.
++- When the support equations are consistent (s ⊥ null(X_S)), the candidates form θ₀ + range(X_S)^⊥ with θ₀ = (X_Sᵀ)⁺λs; otherwise there is no candidate and β is not optimal.
++- If a candidate exists, the minimum-norm one is θ* = −Xd*, where d* minimizes ½‖Xd‖² + λsᵀd_S + λ‖d_{S^c}‖₁. β is optimal iff ‖θ*‖ ≤ 1; otherwise d* is a descent direction. (With inconsistent support equations that objective is unbounded below and a null-space direction descends.)
+ - **Validation of any candidate.** `P(β) − tθ̂ᵀy = (‖r‖ − tθ̂ᵀr) + Σ_k(λ|β_k| − tβ_k X_kᵀθ̂)`, valid for any θ̂ and β with tθ̂ feasible.
+-  - A 57-line Float64 outward-rounded validator built on this identity reproduces today's `_certify!` exactly when θ̂ = r̂/‖r̂‖. It was sound in about 5,000 BigFloat-checked points and 30,000 fuzz cases.
++  - A 57-line Float64 outward-rounded validator built on this identity reproduced today's 184-point certified set when θ̂ = r̂/‖r̂‖, with different bounds (it also uses t·(θ̂ᵀy)_lo and (P_up − D_lo)/D_lo). It was sound in about 5,000 BigFloat-checked points and 30,000 fuzz cases.
+   - About 70% of `_certify!` is reused. The new parts are one column loop on θ̂, two dot products, and no cap of t at 1.
+   - A search for θ̂ is never a proof. Only this validator decides.
+ 
+@@ -37,21 +37,21 @@
+ | residual direction (today) | 0 | 0 | 0 | — |
+ | A: least-norm support solution | 37 | 72 | 0 | thin SVD/QR of X_S |
+ | **Bcm**: A + bounded null-space correction (Cholesky of G_S + 1e-12 ridge, alternating projection onto violated slabs and the ball, ≤ 500 sweeps, small support-drop ladder) | **75** | **119** | 0 | \|S\|×\|S\| Cholesky, about 40 lines + validator |
+-| C: Clarabel feasibility (oracle only) | the ceiling: 75 on the point's own support | 119 | — | not for production |
++| C: Clarabel feasibility (oracle only) | 75 on the three tested support-drop choices (same as Bcm) | 119 | — | not for production |
+ | D: directional lasso by CD | 61 (+20 refuted) | 112 | 0 (683 refuted) | no factorization; slow on ill-conditioned supports |
+ | E: dual bound from a smoothed solve, transplanted to the point | 38/38 F64, 30/43 F32 (43/43 in Float64 working precision) | 59/60 F64, 16/59 F32 | 0 | a second solve |
+ 
+ Notes:
+-- **Bcm's 6 misses** have no support-equation certificate at any support affordable here (Clarabel). They are near-optimal points on a wrong support.
+-- **Gate:** Bcm needs |S| ≤ n before any factorization. At dense stuck points the Gram + Cholesky costs 0.07 s (|S| = 1000) to 6.1 s (|S| = 10,000).
++- **Bcm's 6 misses:** for each, Clarabel reported infeasibility on all three tested support-drop choices (drop budgets 1e-6, 1e-5, 3e-5 of ‖β‖₁). The 75 successes match Bcm on this ladder; this does not establish a ceiling over other supports or general approximate dual certificates.
++- **Gate:** the proposed design applies |S_eff| ≤ n to each effective support after dropping, before its Gram factorization (the prototype has no gate). At dense stuck points the Gram + Cholesky costs 0.07 s (|S| = 1000) to 6.1 s (|S| = 10,000).
+ - **Agent C's stress run:** in an independent run on 200 uncertified stuck points, Bcm made 0 false certifications on 152 nonoptimal points and certified 44 of 48 optimal ones (it missed a κ = 1e10 low-rank case and one |S| > n Float32 case).
+-- **Float32:** at the rounding floor, ‖r‖/P reaches 6.1e-5 among the missed Float32 points, i.e. up to 61% of the 1e-4 budget. A harder Float32 problem can be uncertifiable by any method.
++- **Float32:** among the missed Float32 points the residual-to-objective scale ‖r‖/P reaches 6.1e-5 (the true excess of that point is 1.8e-5). A stored Float32 point is intrinsically uncertifiable at 1e-4 only if its true relative excess exceeds 1e-4; failing to find an accurate witness does not establish that.
+ - **Residual size cannot replace a witness:** at the Float32 floor, 335 nonoptimal and 37 optimal uncertified runs have the same residual distribution.
+ 
+ ### Recommendation for #156: DOCUMENT ONLY now
+ 
+ - A standalone certificate does not pay for itself. It certifies only the uncommon runs where CD already found the correct exact fit, and it adds a factorization, a projection loop and a generalized validator.
+-- The smoothing-with-dual-bank escape proposed on #155 certifies the same missed points (38/38 F64, 43/43 F32 via its transfer rule, rigorous Float64 bounds) with no new certificate code beyond exposing `_certify!`'s dual lower bound and a primal upper bound.
++- The smoothing-with-dual-bank escape proposed on #155 returned certified answers for all 81 missed cases in the rigorous Float64 replay: the original point was kept in 38/38 Float64 and 41/43 Float32 cases, and two Float32 cases needed a changed stage point. The replay used the generalized validator; whether exposing `_certify!`'s dual lower bound and a primal upper bound alone gives the same coverage is a check for the proposed confirmation round.
+ - If #155's escape is declined, Bcm (as specified above, gated to |S| ≤ n, validator as final judge) is the recorded design for a separately approved certificate.
+ - Example 09's #156 section stays correct until either change lands.
+ 

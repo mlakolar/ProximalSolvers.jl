@@ -1,0 +1,39 @@
+BASE Counter({'nonoptimal(155)': 683, 'certified': 184, 'missed-cert(156)': 81})
+codesmiss Counter({'failed': 75, 'undefined': 6})
+Float64 Counter({'nonoptimal(155)': 348, 'certified': 88, 'missed-cert(156)': 38})
+Float32 Counter({'nonoptimal(155)': 335, 'certified': 96, 'missed-cert(156)': 43})
+nonopt all min median max 0.00031035476100492747 0.5771321513238084 19.000000745090333
+REAL 864
+1.0 Float64 144 Counter({'certified': 144}) Counter({'false': 144})
+1.0 Float32 144 Counter({'certified': 144}) Counter({'false': 144})
+0.5 Float64 144 Counter({'certified': 144}) Counter({'false': 144})
+0.5 Float32 144 Counter({'certified': 144}) Counter({'false': 144})
+0.25 Float64 144 Counter({'nonoptimal(155)': 120, 'certified': 24}) Counter({'true': 120, 'false': 24})
+0.0008010408729619425 0.02804405924482386 0.7474545448158221
+0.25 Float32 144 Counter({'nonoptimal(155)': 120, 'certified': 24}) Counter({'true': 120, 'false': 24})
+0.0008824052859337286 0.03028230682168169 0.7474550294511907
+D2 Float64 N 386 passes med 227.5 p90nearest 8803 max 89268 false 0
+budgets [236, 262, 309, 335, 368]
+missed breakdown Counter({('certified', 'x0'): 38})
+D2 Float32 N 378 passes med 178.0 p90nearest 4818 max 14104 false 0
+budgets [262, 277, 302, 318, 318]
+missed breakdown Counter({('certified', 'x0'): 41, ('certified', 'stage'): 2})
+184same set? True
+same ratios 0
+dual N 60 tau abs max 3.7830453902820693e-07 theta max 4.064517830032134e-06
+rPmax 6.112298348362668e-05
+candidate A1_113 Float64 386 Counter({'nonoptimal': 333, 'optimal-uncert': 39, 'certified': 14})
+candidate A1_113 Float32 377 Counter({'nonoptimal': 332, 'optimal-uncert': 39, 'certified': 6})
+candidate A2_113 Float64 386 Counter({'nonoptimal': 300, 'optimal-uncert': 58, 'certified': 28})
+candidate A2_113 Float32 377 Counter({'nonoptimal': 297, 'optimal-uncert': 61, 'certified': 19})
+candidate B113 Float64 386 Counter({'nonoptimal': 339, 'optimal-uncert': 45, 'certified': 2})
+candidate B113 Float32 377 Counter({'nonoptimal': 332, 'optimal-uncert': 43, 'certified': 2})
+candidate Cm_big Float64 386 Counter({'nonoptimal': 256, 'optimal-uncert': 102, 'certified': 28})
+candidate Cm_big Float32 377 Counter({'nonoptimal': 259, 'optimal-uncert': 99, 'certified': 19})
+candidate E113 Float64 386 Counter({'optimal-uncert': 319, 'nonoptimal': 39, 'certified': 28})
+candidate E113 Float32 377 Counter({'optimal-uncert': 318, 'nonoptimal': 40, 'certified': 19})
+candidate L1 Float64 386 Counter({'certified': 380, 'optimal-uncert': 6})
+candidate L1 Float32 377 Counter({'optimal-uncert': 354, 'certified': 23})
+candidate K7 Float64 386 Counter({'certified': 386})
+candidate K7 Float32 377 Counter({'certified': 325, 'optimal-uncert': 52})
+baseline110 Counter({'nonoptimal(155)': 686, 'certified': 185, 'missed-cert(156)': 77})

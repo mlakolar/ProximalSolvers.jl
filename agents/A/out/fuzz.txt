@@ -1,0 +1,1 @@
+trials with finite gap: 30000  certified-ok: 14  violations: Dict(:feas => 0, :dlo => 0, :nonfinite => 0, :gap => 0)

@@ -1,0 +1,3 @@
+Rigorous D2 (B schedule), certified within a fallback pass budget (matrix triggered runs)
+Float64 N=386 | ≤500: 236 | ≤1000: 262 | ≤2000: 309 | ≤5000: 335 | ≤20000: 368 | ≤inf: 386
+Float32 N=378 | ≤500: 262 | ≤1000: 277 | ≤2000: 302 | ≤5000: 318 | ≤20000: 318 | ≤inf: 318

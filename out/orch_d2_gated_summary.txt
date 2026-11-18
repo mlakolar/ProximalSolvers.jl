@@ -1,0 +1,12 @@
+gated D2 (P_up(new) < P_lo(x0) required for a changed point), rows 764
+Counter({('Float64', 'certified', 'stage'): 348, ('Float32', 'certified', 'stage'): 277, ('Float32', 'uncertified', 'none'): 60, ('Float32', 'certified', 'x0'): 41, ('Float64', 'certified', 'x0'): 38})
+false certs: 0
+returned excess > 1e-4: Counter({('Float64', False): 386, ('Float32', False): 378})
+returned worse than x0: 0
+rows differing from ungated replay: 0
+Float64 passes median 227.5 max 89268
+Float64 | <=500: 236 | <=1000: 262 | <=2000: 309 | <=5000: 335 | <=20000: 368 | <=inf: 386
+Float32 passes median 178.0 max 14104
+Float32 | <=500: 262 | <=1000: 277 | <=2000: 302 | <=5000: 318 | <=20000: 318 | <=inf: 318
+Float32 uncertified ratio range 0.00010405482204573581 0.0004670522367756434
+missed-cert cases: Counter({('Float32', 'certified', 'true'): 41, ('Float64', 'certified', 'true'): 38, ('Float32', 'certified', 'false'): 2})

@@ -1,0 +1,129 @@
+TABLE 1: all triggered runs (uncertified stage-1 stop), Julia 1.13, matrix of 948 runs (763 triggered: F64 386, F32 377)
+candidate            T    trig |  cert  optU nonop FALSE | base155->optimal | base156->(cert / same / moved / bad)
+A1 zero-compare      64    386 |    14    39   333     0 |  14/347          | 0 / 39 / 0 / 0  (n=39)
+A1 zero-compare      32    377 |     6    39   332     0 |   6/338          | 0 / 39 / 0 / 0  (n=39)
+A2 zero-restart      64    386 |    28    58   300     0 |  47/347          | 0 / 31 / 8 / 0  (n=39)
+A2 zero-restart      32    377 |    19    61   297     0 |  41/338          | 0 / 28 / 11 / 0  (n=39)
+B best-pair          64    386 |     2    45   339     0 |   8/347          | 0 / 38 / 1 / 0  (n=39)
+B best-pair          32    377 |     2    43   332     0 |   6/338          | 0 / 38 / 1 / 0  (n=39)
+C 1 dir-step x8      64    386 |    28    45   313     0 |  34/347          | 0 / 12 / 27 / 0  (n=39)
+C 1 dir-step x8      32    377 |    19    44   314     0 |  24/338          | 0 / 19 / 20 / 0  (n=39)
+C multi 30x8         64    386 |    28    92   266     0 |  81/347          | 0 / 12 / 27 / 0  (n=39)
+C multi 30x8         32    377 |    19    91   267     0 |  71/338          | 0 / 19 / 20 / 0  (n=39)
+C multi 100x100      64    386 |    28   102   256     0 |  91/347          | 0 / 12 / 27 / 0  (n=39)
+C multi 100x100      32    377 |    19    99   259     0 |  79/338          | 0 / 19 / 20 / 0  (n=39)
+E lambda-path        64    386 |    28   319    39     0 | 308/347          | 0 / 9 / 30 / 0  (n=39)
+E lambda-path        32    377 |    19   318    40     0 | 298/338          | 0 / 9 / 30 / 0  (n=39)
+D smooth, prod cert  64    386 |   380     6     0     0 | 347/347          | 39 / 0 / 0 / 0  (n=39)
+D smooth, prod cert  32    377 |    23   354     0     0 | 338/338          | 4 / 10 / 25 / 0  (n=39)
+D2 smooth+dual bank  64    386 |   386     0     0     0 | 347/347          | 39 / 0 / 0 / 0  (n=39)
+D2 smooth+dual bank  32    377 |   325    52     0     0 | 338/338          | 39 / 0 / 0 / 0  (n=39)
+
+TABLE 2: cost of the fallback on triggered runs (passes = all production/stage passes of the fallback; escape-only candidates add dirlasso passes), wall time and allocation (fallback only)
+candidate            T   | passes med p90 max | ratio to stage-1 passes med | esc/stages med max | sec med max | MB med max
+A1 zero-compare      64  |      0      0     995 |      0.0 |  0   1 | 0.0000 0.138 | 0.00 11.0
+A1 zero-compare      32  |      0      0     990 |      0.0 |  0   1 | 0.0000 0.160 | 0.00 18.2
+A2 zero-restart      64  |     43    248    5904 |      1.3 |  0   1 | 0.0001 0.103 | 0.01 9.6
+A2 zero-restart      32  |     29    204    2364 |      1.4 |  0   1 | 0.0001 0.156 | 0.01 17.0
+B best-pair          64  |      0      0      24 |      0.0 |  0   8 | 0.0001 0.834 | 0.39 77.9
+B best-pair          32  |      0      0       8 |      0.0 |  0   8 | 0.0001 0.978 | 0.38 106.2
+C 1 dir-step x8      64  |    226    579    5284 |      7.9 |  8   8 | 0.0006 1.081 | 0.30 74.6
+C 1 dir-step x8      32  |    155    367    1859 |      7.8 |  8   8 | 0.0003 0.739 | 0.28 72.7
+C multi 30x8         64  |   3027   9567   16520 |    137.8 |  8   8 | 0.0044 0.807 | 5.05 87.0
+C multi 30x8         32  |   2263   5555   11430 |    170.9 |  8   8 | 0.0029 0.416 | 4.22 85.2
+C multi 100x100      64  |  13642  88801  341260 |    699.3 | 16 100 | 0.0186 0.734 | 20.64 3601.1
+C multi 100x100      32  |   6308  16543   37421 |    438.6 |  8 100 | 0.0068 0.554 | 10.64 2788.4
+E lambda-path        64  |    232   1352    9220 |     11.9 |  1   1 | 0.0002 0.214 | 0.09 32.4
+E lambda-path        32  |    119   1087    4228 |      8.1 |  1   1 | 0.0001 0.246 | 0.07 38.2
+D smooth, prod cert  64  |    231   4190  109288 |     23.4 |  6   8 | 0.0003 0.349 | 0.23 53.8
+D smooth, prod cert  32  |    207   2906   13766 |     17.4 |  8   8 | 0.0002 0.371 | 0.19 58.4
+D2 smooth+dual bank  64  |    221   4144   89268 |     22.5 |  5   7 | 0.0043 0.537 | 13.06 243.0
+D2 smooth+dual bank  32  |    194   2724   13766 |     15.7 |  6   8 | 0.0042 0.478 | 13.00 242.0
+
+TABLE 3: D2 (K7: c0=0.3,q=0.2,J=8) and D (L1) by family, F64/F32 certified of triggered; untriggered rows by family
+K7
+  analytic-155 32                  {'untrig': 2, 'trig': 2, 'certified': 2}
+  analytic-155 64                  {'untrig': 2, 'trig': 2, 'certified': 2}
+  analytic-156 32                  {'trig': 4, 'certified': 4}
+  analytic-156 64                  {'trig': 4, 'certified': 4}
+  analytic-identity 32             {'untrig': 2, 'trig': 2, 'certified': 2}
+  analytic-identity 64             {'untrig': 2, 'trig': 2, 'certified': 2}
+  correlated ρ=.95 n40 p120  32    {'trig': 16, 'certified': 16, 'untrig': 20}
+  correlated ρ=.95 n40 p120  64    {'trig': 16, 'certified': 16, 'untrig': 20}
+  duplicate cols n20 p40 0.1 32    {'trig': 36, 'certified': 36}
+  duplicate cols n20 p40 0.1 64    {'trig': 36, 'certified': 36}
+  near-exact σ=0.0001 n30 p8 32    {'trig': 36, 'certified': 36}
+  near-exact σ=0.0001 n30 p8 64    {'trig': 36, 'certified': 36}
+  near-exact σ=1.0e-7 n30 p8 32    {'trig': 36, 'certified': 36}
+  near-exact σ=1.0e-7 n30 p8 64    {'trig': 36, 'certified': 36}
+  noiseless n100 p400 0.1λma 32    {'trig': 18, 'certified': 18}
+  noiseless n100 p400 0.1λma 64    {'trig': 18, 'certified': 18}
+  noiseless n40 p120 0.05λma 32    {'trig': 36, 'certified': 36}
+  noiseless n40 p120 0.05λma 64    {'trig': 36, 'certified': 36}
+  noiseless n40 p120 0.2λmax 32    {'trig': 36, 'certified': 36}
+  noiseless n40 p120 0.2λmax 64    {'trig': 36, 'certified': 36}
+  noiseless n8 p20 0.05λmax 32     {'trig': 48, 'certified': 43, 'optimal-uncert': 5}
+  noiseless n8 p20 0.05λmax 64     {'trig': 48, 'certified': 48}
+  noiseless n8 p20 0.2λmax 32      {'trig': 48, 'certified': 45, 'optimal-uncert': 3}
+  noiseless n8 p20 0.2λmax 64      {'trig': 48, 'certified': 48}
+  ordinary n60 p20 σ=1 0.1λm 32    {'untrig': 36}
+  ordinary n60 p20 σ=1 0.1λm 64    {'untrig': 36}
+  sweep noisy n40 p120 0.1λm 32    {'trig': 24, 'optimal-uncert': 21, 'certified': 3}
+  sweep noisy n40 p120 0.1λm 64    {'trig': 24, 'certified': 24}
+  sweep noisy n40 p120 0.2λm 32    {'trig': 24, 'optimal-uncert': 23, 'certified': 1}
+  sweep noisy n40 p120 0.2λm 64    {'trig': 24, 'certified': 24}
+  sweep noisy n40 p120 0.3λm 32    {'trig': 11, 'certified': 11, 'untrig': 13}
+  sweep noisy n40 p120 0.3λm 64    {'trig': 12, 'certified': 12, 'untrig': 12}
+  sweep noisy n40 p120 0.4λm 32    {'untrig': 24}
+  sweep noisy n40 p120 0.4λm 64    {'untrig': 16, 'trig': 8, 'certified': 8}
+L1
+  analytic-155 32                  {'untrig': 2, 'trig': 2, 'certified': 2}
+  analytic-155 64                  {'untrig': 2, 'trig': 2, 'certified': 2}
+  analytic-156 32                  {'trig': 4, 'certified': 4}
+  analytic-156 64                  {'trig': 4, 'certified': 4}
+  analytic-identity 32             {'untrig': 2, 'trig': 2, 'certified': 2}
+  analytic-identity 64             {'untrig': 2, 'trig': 2, 'certified': 2}
+  correlated ρ=.95 n40 p120  32    {'trig': 16, 'optimal-uncert': 6, 'untrig': 20, 'certified': 10}
+  correlated ρ=.95 n40 p120  64    {'trig': 16, 'certified': 16, 'untrig': 20}
+  duplicate cols n20 p40 0.1 32    {'trig': 36, 'optimal-uncert': 36}
+  duplicate cols n20 p40 0.1 64    {'trig': 36, 'certified': 36}
+  near-exact σ=0.0001 n30 p8 32    {'trig': 36, 'optimal-uncert': 36}
+  near-exact σ=0.0001 n30 p8 64    {'trig': 36, 'certified': 36}
+  near-exact σ=1.0e-7 n30 p8 32    {'trig': 36, 'optimal-uncert': 36}
+  near-exact σ=1.0e-7 n30 p8 64    {'trig': 36, 'certified': 36}
+  noiseless n100 p400 0.1λma 32    {'trig': 18, 'optimal-uncert': 18}
+  noiseless n100 p400 0.1λma 64    {'trig': 18, 'certified': 18}
+  noiseless n40 p120 0.05λma 32    {'trig': 36, 'optimal-uncert': 36}
+  noiseless n40 p120 0.05λma 64    {'trig': 36, 'certified': 36}
+  noiseless n40 p120 0.2λmax 32    {'trig': 36, 'optimal-uncert': 36}
+  noiseless n40 p120 0.2λmax 64    {'trig': 36, 'certified': 36}
+  noiseless n8 p20 0.05λmax 32     {'trig': 48, 'optimal-uncert': 48}
+  noiseless n8 p20 0.05λmax 64     {'trig': 48, 'certified': 48}
+  noiseless n8 p20 0.2λmax 32      {'trig': 48, 'optimal-uncert': 48}
+  noiseless n8 p20 0.2λmax 64      {'trig': 48, 'certified': 48}
+  ordinary n60 p20 σ=1 0.1λm 32    {'untrig': 36}
+  ordinary n60 p20 σ=1 0.1λm 64    {'untrig': 36}
+  sweep noisy n40 p120 0.1λm 32    {'trig': 24, 'optimal-uncert': 24}
+  sweep noisy n40 p120 0.1λm 64    {'trig': 24, 'certified': 21, 'optimal-uncert': 3}
+  sweep noisy n40 p120 0.2λm 32    {'trig': 24, 'optimal-uncert': 24}
+  sweep noisy n40 p120 0.2λm 64    {'trig': 24, 'certified': 21, 'optimal-uncert': 3}
+  sweep noisy n40 p120 0.3λm 32    {'trig': 11, 'optimal-uncert': 6, 'untrig': 13, 'certified': 5}
+  sweep noisy n40 p120 0.3λm 64    {'trig': 12, 'certified': 12, 'untrig': 12}
+  sweep noisy n40 p120 0.4λm 32    {'untrig': 24}
+  sweep noisy n40 p120 0.4λm 64    {'untrig': 16, 'trig': 8, 'certified': 8}
+
+TABLE 4: oracle-start experiment (start = oracle optimum rounded to T, exact-fit optima only; stage 1 = production CD)
+A2                             64  runs=120 base={'certified': 2, 'optimal-uncert': 118} final={'certified': 2, 'optimal-uncert': 118}  excess unchanged (|Δ|≤1e-12) in 118, max final excess 2.0e-08
+A2                             32  runs=118 base={'optimal-uncert': 118} final={'optimal-uncert': 118}  excess unchanged (|Δ|≤1e-12) in 118, max final excess 8.9e-07
+B                              64  runs=120 base={'certified': 2, 'optimal-uncert': 118} final={'certified': 2, 'optimal-uncert': 118}  excess unchanged (|Δ|≤1e-12) in 120, max final excess 2.0e-08
+B                              32  runs=118 base={'optimal-uncert': 118} final={'optimal-uncert': 118}  excess unchanged (|Δ|≤1e-12) in 114, max final excess 8.9e-07
+C multi                        64  runs=120 base={'certified': 2, 'optimal-uncert': 118} final={'certified': 2, 'optimal-uncert': 118}  excess unchanged (|Δ|≤1e-12) in 110, max final excess 2.0e-08
+C multi                        32  runs=118 base={'optimal-uncert': 118} final={'optimal-uncert': 118}  excess unchanged (|Δ|≤1e-12) in 12, max final excess 8.9e-07
+E                              64  runs=120 base={'certified': 2, 'optimal-uncert': 118} final={'certified': 2, 'optimal-uncert': 118}  excess unchanged (|Δ|≤1e-12) in 113, max final excess 2.0e-08
+E                              32  runs=118 base={'optimal-uncert': 118} final={'optimal-uncert': 118}  excess unchanged (|Δ|≤1e-12) in 89, max final excess 8.9e-07
+D prod cert (c0=.1,q=.3,J=20)  64  runs=120 base={'certified': 2, 'optimal-uncert': 118} final={'certified': 118, 'optimal-uncert': 2}  excess unchanged (|Δ|≤1e-12) in 4, max final excess 9.9e-05
+D prod cert (c0=.1,q=.3,J=20)  32  runs=118 base={'optimal-uncert': 118} final={'certified': 2, 'optimal-uncert': 116}  excess unchanged (|Δ|≤1e-12) in 101, max final excess 1.0e-04
+D (L1 cfg)                     64  runs=120 base={'certified': 2, 'optimal-uncert': 118} final={'certified': 118, 'optimal-uncert': 2}  excess unchanged (|Δ|≤1e-12) in 4, max final excess 9.6e-05
+D (L1 cfg)                     32  runs=118 base={'optimal-uncert': 118} final={'certified': 2, 'optimal-uncert': 116}  excess unchanged (|Δ|≤1e-12) in 99, max final excess 6.0e-05
+D2 (K7 cfg)                    64  runs=120 base={'certified': 2, 'optimal-uncert': 118} final={'certified': 120}  excess unchanged (|Δ|≤1e-12) in 120, max final excess 2.0e-08
+D2 (K7 cfg)                    32  runs=118 base={'optimal-uncert': 118} final={'certified': 99, 'optimal-uncert': 19}  excess unchanged (|Δ|≤1e-12) in 118, max final excess 8.9e-07

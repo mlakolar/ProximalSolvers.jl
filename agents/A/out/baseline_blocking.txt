@@ -1,0 +1,8 @@
+ALL                                runs  948 optimal<=1e-4 265 certified 184 missed  81 (30.6%) nonopt 683
+Float64                            runs  474 optimal<=1e-4 126 certified  88 missed  38 (30.2%) nonopt 348
+Float32                            runs  474 optimal<=1e-4 139 certified  96 missed  43 (30.9%) nonopt 335
+cyclic-dense                       runs  474 optimal<=1e-4 126 certified  92 missed  34 (27.0%) nonopt 348
+random-owner                       runs  474 optimal<=1e-4 139 certified  92 missed  47 (33.8%) nonopt 335
+exact-fit-optimum problems         runs  710 optimal<=1e-4  77 certified   0 missed  77 (100.0%) nonopt 633
+non-exact-optimum problems         runs  238 optimal<=1e-4 188 certified 184 missed   4 (2.1%) nonopt  50
+M81 by (problem has exact-fit optimum, method, certified): {('true', 'R', 'false'): 77, ('true', 'Bcm', 'true'): 71, ('true', 'Bcm', 'false'): 6, ('false', 'R', 'false'): 4, ('false', 'Bcm', 'true'): 4}

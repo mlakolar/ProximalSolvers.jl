@@ -1,0 +1,15 @@
+set T: N | status counts | tau<=1 | tau<=1 & oracle-ratio<=1e-4 | tau>1
+('M81', 'Float32') 43 {'OPTIMAL': 4, 'INFEASIBLE': 11, 'ALMOST_OPTIMAL': 28} 32 32 0
+('M81', 'Float64') 38 {'OPTIMAL': 5, 'INFEASIBLE': 9, 'ALMOST_OPTIMAL': 24} 29 29 0
+('NEG', 'Float32') 335 {'OPTIMAL': 4, 'INFEASIBLE': 327, 'ALMOST_INFEASIBLE': 4} 0 0 4
+('NEG', 'Float64') 348 {'OPTIMAL': 4, 'INFEASIBLE': 340, 'ALMOST_INFEASIBLE': 4} 0 0 4
+('OPTn', 'Float32') 21 {'OPTIMAL': 2, 'ALMOST_OPTIMAL': 19} 20 2 1
+('OPTn', 'Float64') 20 {'OPTIMAL': 2, 'ALMOST_OPTIMAL': 18} 19 1 1
+('OPTx', 'Float32') 59 {'OPTIMAL': 2, 'ALMOST_OPTIMAL': 57} 59 59 0
+('OPTx', 'Float64') 60 {'OPTIMAL': 1, 'ALMOST_OPTIMAL': 59} 60 60 0
+
+M81 detail: B ok? | C status tau ratio | excess
+('Float32', 'B-fail', 'C-no(INFEASIBLE)') 11
+('Float32', 'B-ok', 'C-ok') 32
+('Float64', 'B-fail', 'C-no(INFEASIBLE)') 9
+('Float64', 'B-ok', 'C-ok') 29

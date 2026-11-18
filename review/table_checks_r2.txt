@@ -1,0 +1,11 @@
+Byte-identical gated and ungated TSV: True
+Rows: 764
+Outcomes: Counter({('Float64', 'certified', 'stage'): 348, ('Float32', 'certified', 'stage'): 277, ('Float32', 'uncertified', 'none'): 60, ('Float32', 'certified', 'x0'): 41, ('Float64', 'certified', 'x0'): 38})
+Returned worse than x0: 0
+Recorded false certifications: 0
+Float64: median 227.5, upper q90 8803, max 89268
+Certified by budgets 500/1000/2000/5000/20000: [236, 262, 309, 335, 368]
+Float32: median 178.0, upper q90 5182, max 14104
+Certified by budgets 500/1000/2000/5000/20000: [262, 277, 302, 318, 318]
+Missed-cert outcomes: Counter({('Float32', 'certified', 'true'): 41, ('Float64', 'certified', 'true'): 38, ('Float32', 'certified', 'false'): 2})
+Changed missed-cert points: [('SW0.3-s1', 'Float32', 'zero', 'cyclic-dense'), ('SW0.3-s1', 'Float32', 'warm', 'cyclic-dense')]

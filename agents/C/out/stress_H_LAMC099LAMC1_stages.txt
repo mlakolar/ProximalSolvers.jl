@@ -1,0 +1,79 @@
+== LAMC0.99-n10p30-s1 Float64 lnfit fixed Pst/P*=1.265670327047206 certified=true
+   (stage = 1, δ = 0.08589315291701059, passes = 785, sec = 0.000208711, conv = true, P = 6.792404799343523, D = 6.786367928539, nnz = 6, prodcode = :failed, prodratio = 0.0008895584307090759, ratio = 0.0008895584306793153, improved = true)
+   (stage = 2, δ = 0.00858931529170106, passes = 680, sec = 0.000165551, conv = true, P = 6.7869796253314085, D = 6.786286830966296, nnz = 6, prodcode = :failed, prodratio = 0.00010208739809899337, ratio = 9.013610798142913e-5, improved = true)
+== LAMC0.99-n10p30-s1 Float64 lnfit adaptive Pst/P*=1.265670327047206 certified=true
+   (stage = 1, δ = 0.08589315291701059, passes = 785, sec = 0.000205485, conv = true, P = 6.792404799343523, D = 6.786367928539, nnz = 6, prodcode = :failed, prodratio = 0.0008895584307090759, ratio = 0.0008895584306793153, improved = true)
+   (stage = 2, δ = 0.006792404799343524, passes = 694, sec = 0.000175475, conv = true, P = 6.786853519615167, D = 6.786262790657129, nnz = 6, prodcode = :certified, prodratio = 8.704775755816104e-5, ratio = 7.155389764897372e-5, improved = true)
+== LAMC0.99-n10p30-s1 Float32 lnfit fixed Pst/P*=1.0000001260894678 certified=true
+   (stage = 1, δ = 0.06786377220009347, passes = 648, sec = 0.000109646, conv = true, P = 6.7911386006891705, D = 6.786338186940721, nnz = 6, prodcode = :failed, prodratio = 0.0007073643570959236, ratio = 5.751712860656928e-6, improved = false)
+== LAMC0.99-n10p30-s1 Float32 lnfit adaptive Pst/P*=1.0000001260894678 certified=true
+   (stage = 1, δ = 0.06786377220009347, passes = 648, sec = 0.000122586, conv = true, P = 6.7911386006891705, D = 6.786338186940721, nnz = 6, prodcode = :failed, prodratio = 0.0007073643570959236, ratio = 5.751712860656928e-6, improved = false)
+== LAMC1.01-n10p30-s1 Float64 lnfit fixed Pst/P*=1.2745100159769913 certified=true
+   (stage = 1, δ = 0.08762836812743834, passes = 37, sec = 1.1606e-5, conv = true, P = 6.875455522665404, D = 6.874661346990858, nnz = 5, prodcode = :failed, prodratio = 0.00011552215223059801, ratio = 0.00011552215221393599, improved = true)
+   (stage = 2, δ = 0.008762836812743834, passes = 14, sec = 1.5187e-5, conv = true, P = 6.875455432211775, D = 6.8754467861410085, nnz = 5, prodcode = :certified, prodratio = 1.2575285869384843e-6, ratio = 1.2575285702331663e-6, improved = true)
+== LAMC1.01-n10p30-s1 Float64 lnfit adaptive Pst/P*=1.2745100159769913 certified=true
+   (stage = 1, δ = 0.08762836812743834, passes = 37, sec = 1.1435e-5, conv = true, P = 6.875455522665404, D = 6.874661346990858, nnz = 5, prodcode = :failed, prodratio = 0.00011552215223059801, ratio = 0.00011552215221393599, improved = true)
+   (stage = 2, δ = 0.006875455522665404, passes = 14, sec = 3.992e-6, conv = true, P = 6.875455432206038, D = 6.875449835760878, nnz = 5, prodcode = :certified, prodratio = 8.139751445945206e-7, ratio = 8.139751279077889e-7, improved = true)
+== LAMC0.99-n10p30-s2 Float64 lnfit fixed Pst/P*=1.328523788063777 certified=true
+   (stage = 1, δ = 0.0504838873134449, passes = 2001, sec = 0.000509517, conv = true, P = 3.8035406313690165, D = 3.799990123087678, nnz = 10, prodcode = :failed, prodratio = 0.0009343467131522617, ratio = 0.000934346713105072, improved = true)
+   (stage = 2, δ = 0.00504838873134449, passes = 4988, sec = 0.001249941, conv = true, P = 3.800354155127827, D = 3.799773621207194, nnz = 10, prodcode = :failed, prodratio = 0.00015278118611426715, ratio = 9.579815429980275e-5, improved = true)
+== LAMC0.99-n10p30-s2 Float64 lnfit adaptive Pst/P*=1.328523788063777 certified=true
+   (stage = 1, δ = 0.0504838873134449, passes = 2001, sec = 0.000509466, conv = true, P = 3.8035406313690165, D = 3.799990123087678, nnz = 10, prodcode = :failed, prodratio = 0.0009343467131522617, ratio = 0.000934346713105072, improved = true)
+   (stage = 2, δ = 0.0038035406313690167, passes = 5122, sec = 0.001291415, conv = true, P = 3.800266793258666, D = 3.7996999992368763, nnz = 10, prodcode = :failed, prodratio = 0.00014916809807799953, ratio = 7.280812897570482e-5, improved = true)
+== LAMC0.99-n10p30-s2 Float32 lnfit fixed Pst/P*=1.3285235971165559 certified=true
+   (stage = 1, δ = 0.05048388236403427, passes = 1995, sec = 0.00043752, conv = true, P = 3.8035407212258563, D = 3.7999161084495388, nnz = 10, prodcode = :failed, prodratio = 0.0009538665257485578, ratio = 0.0009538665256997309, improved = true)
+   (stage = 2, δ = 0.005048388236403427, passes = 4879, sec = 0.001050232, conv = true, P = 3.800354590047661, D = 3.7996580306810643, nnz = 10, prodcode = :failed, prodratio = 0.00018332159398524685, ratio = 0.00011539244172967569, improved = true)
+   (stage = 3, δ = 0.0005048388236403427, passes = 3598, sec = 0.000780234, conv = false, P = 3.8000357482083316, D = 3.796992593560373, nnz = 10, prodcode = :failed, prodratio = 0.0008014644677819839, ratio = 3.148484213290343e-5, improved = true)
+== LAMC0.99-n10p30-s2 Float32 lnfit adaptive Pst/P*=1.3285235971165559 certified=true
+   (stage = 1, δ = 0.05048388236403427, passes = 1995, sec = 0.000441963, conv = true, P = 3.8035407212258563, D = 3.7999161084495388, nnz = 10, prodcode = :failed, prodratio = 0.0009538665257485578, ratio = 0.0009538665256997309, improved = true)
+   (stage = 2, δ = 0.0038035407212258566, passes = 5022, sec = 0.00108351, conv = false, P = 3.8002671914861215, D = 3.799472545227478, nnz = 10, prodcode = :failed, prodratio = 0.00020914646687628422, ratio = 9.239231250441614e-5, improved = true)
+== LAMC1.01-n10p30-s2 Float64 lnfit fixed Pst/P*=1.3297959776590886 certified=true
+   (stage = 1, δ = 0.05150376382482747, passes = 473, sec = 0.000122605, conv = true, P = 3.8731870404398325, D = 3.870075885715749, nnz = 9, prodcode = :failed, prodratio = 0.0008039001859741122, ratio = 0.0008039001859283, improved = true)
+   (stage = 2, δ = 0.005150376382482748, passes = 226, sec = 5.2808e-5, conv = true, P = 3.873057590067717, D = 3.8730103839144947, nnz = 9, prodcode = :certified, prodratio = 1.218849131133054e-5, ratio = 1.2188491262096135e-5, improved = true)
+== LAMC1.01-n10p30-s2 Float64 lnfit adaptive Pst/P*=1.3297959776590886 certified=true
+   (stage = 1, δ = 0.05150376382482747, passes = 473, sec = 0.000119418, conv = true, P = 3.8731870404398325, D = 3.870075885715749, nnz = 9, prodcode = :failed, prodratio = 0.0008039001859741122, ratio = 0.0008039001859283, improved = true)
+   (stage = 2, δ = 0.003873187040439833, passes = 226, sec = 5.2936e-5, conv = true, P = 3.8730575791094854, D = 3.873025095179907, nnz = 9, prodcode = :certified, prodratio = 8.387224188447572e-6, ratio = 8.387224141403581e-6, improved = true)
+== LAMC1.01-n10p30-s2 Float32 lnfit fixed Pst/P*=1.3297957631645236 certified=true
+   (stage = 1, δ = 0.051503757401721695, passes = 477, sec = 0.000108748, conv = true, P = 3.8731871732394114, D = 3.8700552744933425, nnz = 9, prodcode = :failed, prodratio = 0.0008092646032433056, ratio = 0.0008092646031984718, improved = true)
+   (stage = 2, δ = 0.00515037574017217, passes = 228, sec = 4.5744e-5, conv = true, P = 3.873057731726065, D = 3.873009710574467, nnz = 9, prodcode = :certified, prodratio = 1.2398923670292415e-5, ratio = 1.2398923624413062e-5, improved = true)
+== LAMC1.01-n10p30-s2 Float32 lnfit adaptive Pst/P*=1.3297957631645236 certified=true
+   (stage = 1, δ = 0.051503757401721695, passes = 477, sec = 0.000104499, conv = true, P = 3.8731871732394114, D = 3.8700552744933425, nnz = 9, prodcode = :failed, prodratio = 0.0008092646032433056, ratio = 0.0008092646031984718, improved = true)
+   (stage = 2, δ = 0.0038731871732394113, passes = 226, sec = 4.5476e-5, conv = true, P = 3.8730577208255648, D = 3.8730263107665586, nnz = 9, prodcode = :certified, prodratio = 8.109952440616233e-6, ratio = 8.109952395312435e-6, improved = true)
+== LAMC1.2-n10p30-s2 Float64 lnfit fixed Pst/P*=1.3931216928534833 certified=true
+   (stage = 1, δ = 0.06119259068294888, passes = 88, sec = 1.6976e-5, conv = true, P = 4.392480515404818, D = 4.391266824401101, nnz = 6, prodcode = :failed, prodratio = 0.00027638744179680455, ratio = 0.0002763874417680253, improved = true)
+   (stage = 2, δ = 0.006119259068294889, passes = 26, sec = 5.813e-6, conv = true, P = 4.392479925159669, D = 4.3924666307683164, nnz = 6, prodcode = :certified, prodratio = 3.0266345990829806e-6, ratio = 3.0266345701028584e-6, improved = true)
+== LAMC1.2-n10p30-s2 Float64 lnfit adaptive Pst/P*=1.3931216928534833 certified=true
+   (stage = 1, δ = 0.06119259068294888, passes = 88, sec = 1.6804e-5, conv = true, P = 4.392480515404818, D = 4.391266824401101, nnz = 6, prodcode = :failed, prodratio = 0.00027638744179680455, ratio = 0.0002763874417680253, improved = true)
+   (stage = 2, δ = 0.0043924805154048185, passes = 26, sec = 5.7e-6, conv = true, P = 4.392479925116432, D = 4.392472513563496, nnz = 6, prodcode = :certified, prodratio = 1.6873305510060185e-6, ratio = 1.687330521246168e-6, improved = true)
+== LAMC0.99-n10p30-s3 Float64 lnfit fixed Pst/P*=1.3323105240220146 certified=true
+   (stage = 1, δ = 0.05407672885623061, passes = 172, sec = 4.5895e-5, conv = true, P = 4.061173540063186, D = 4.0546495067846005, nnz = 9, prodcode = :failed, prodratio = 0.0016090252111438203, ratio = 0.00160902521109877, improved = true)
+   (stage = 2, δ = 0.0054076728856230615, passes = 639, sec = 0.000165822, conv = true, P = 4.059248069559721, D = 4.058810682584579, nnz = 10, prodcode = :failed, prodratio = 0.00010776234948731816, ratio = 0.00010776234945336783, improved = true)
+   (stage = 3, δ = 0.0005407672885623063, passes = 875, sec = 0.000220747, conv = true, P = 4.058906207143346, D = 4.05886202597355, nnz = 10, prodcode = :certified, prodratio = 1.088511261706356e-5, ratio = 1.0885112505472913e-5, improved = true)
+== LAMC0.99-n10p30-s3 Float64 lnfit adaptive Pst/P*=1.3323105240220146 certified=true
+   (stage = 1, δ = 0.05407672885623061, passes = 172, sec = 4.6561e-5, conv = true, P = 4.061173540063186, D = 4.0546495067846005, nnz = 9, prodcode = :failed, prodratio = 0.0016090252111438203, ratio = 0.00160902521109877, improved = true)
+   (stage = 2, δ = 0.004061173540063186, passes = 658, sec = 0.000166236, conv = true, P = 4.05915356740743, D = 4.058790948828572, nnz = 10, prodcode = :certified, prodratio = 8.934152647639245e-5, ratio = 8.934152643704466e-5, improved = true)
+== LAMC0.99-n10p30-s3 Float32 lnfit fixed Pst/P*=1.332310520332742 certified=true
+   (stage = 1, δ = 0.05407672858553271, passes = 173, sec = 4.0377e-5, conv = true, P = 4.061173526171667, D = 4.054628943487947, nnz = 9, prodcode = :failed, prodratio = 0.0016141015059838789, ratio = 0.0016141015059422175, improved = true)
+   (stage = 2, δ = 0.0054076728585532715, passes = 632, sec = 0.000138745, conv = true, P = 4.059248098906387, D = 4.058798968675523, nnz = 10, prodcode = :failed, prodratio = 0.00011065594391719837, ratio = 0.0001106559438716446, improved = true)
+   (stage = 3, δ = 0.0005407672858553272, passes = 573, sec = 0.000129328, conv = false, P = 4.058906470486556, D = 4.057778832480841, nnz = 10, prodcode = :failed, prodratio = 0.000277895383774017, ratio = 2.6486113715371358e-5, improved = true)
+== LAMC0.99-n10p30-s3 Float32 lnfit adaptive Pst/P*=1.332310520332742 certified=true
+   (stage = 1, δ = 0.05407672858553271, passes = 173, sec = 4.0107e-5, conv = true, P = 4.061173526171667, D = 4.054628943487947, nnz = 9, prodcode = :failed, prodratio = 0.0016141015059838789, ratio = 0.0016141015059422175, improved = true)
+   (stage = 2, δ = 0.004061173526171667, passes = 658, sec = 0.000146391, conv = true, P = 4.0591535535847, D = 4.058807710440808, nnz = 10, prodcode = :certified, prodratio = 8.520806324268907e-5, ratio = 8.520806319607802e-5, improved = true)
+== LAMC1.01-n10p30-s3 Float64 lnfit fixed Pst/P*=1.33296293557973 certified=true
+   (stage = 1, δ = 0.05516918802504318, passes = 183, sec = 4.8111e-5, conv = true, P = 4.1391955524729775, D = 4.132847224768588, nnz = 9, prodcode = :failed, prodratio = 0.001536066386996993, ratio = 0.0015360663869555848, improved = true)
+   (stage = 2, δ = 0.005516918802504318, passes = 68, sec = 1.6952e-5, conv = true, P = 4.138838910190438, D = 4.138751877134201, nnz = 9, prodcode = :certified, prodratio = 2.102881714136486e-5, ratio = 2.1028817097914238e-5, improved = true)
+== LAMC1.01-n10p30-s3 Float64 lnfit adaptive Pst/P*=1.33296293557973 certified=true
+   (stage = 1, δ = 0.05516918802504318, passes = 183, sec = 4.9738e-5, conv = true, P = 4.1391955524729775, D = 4.132847224768588, nnz = 9, prodcode = :failed, prodratio = 0.001536066386996993, ratio = 0.0015360663869555848, improved = true)
+   (stage = 2, δ = 0.004139195552472978, passes = 68, sec = 1.6943e-5, conv = true, P = 4.138838878885728, D = 4.13878395080059, nnz = 9, prodcode = :certified, prodratio = 1.32715517285969e-5, ratio = 1.3271551690151377e-5, improved = true)
+== LAMC1.01-n10p30-s3 Float32 lnfit fixed Pst/P*=1.3329629128653253 certified=true
+   (stage = 1, δ = 0.055169182629353206, passes = 183, sec = 4.2031e-5, conv = true, P = 4.139195213044667, D = 4.132812803273853, nnz = 9, prodcode = :failed, prodratio = 0.001544325880409412, ratio = 0.001544325880368458, improved = true)
+   (stage = 2, δ = 0.005516918262935321, passes = 68, sec = 1.447e-5, conv = true, P = 4.138838575938101, D = 4.138756043409016, nnz = 9, prodcode = :certified, prodratio = 1.9941385380434963e-5, ratio = 1.994138533878662e-5, improved = true)
+== LAMC1.01-n10p30-s3 Float32 lnfit adaptive Pst/P*=1.3329629128653253 certified=true
+   (stage = 1, δ = 0.055169182629353206, passes = 183, sec = 4.2263e-5, conv = true, P = 4.139195213044667, D = 4.132812803273853, nnz = 9, prodcode = :failed, prodratio = 0.001544325880409412, ratio = 0.001544325880368458, improved = true)
+   (stage = 2, δ = 0.004139195213044667, passes = 70, sec = 1.5571e-5, conv = true, P = 4.138838544639157, D = 4.138784262127892, nnz = 9, prodcode = :certified, prodratio = 1.3115569210706536e-5, ratio = 1.3115569168688387e-5, improved = true)
+== LAMC1.2-n10p30-s3 Float64 lnfit fixed Pst/P*=1.4032718483252504 certified=true
+   (stage = 1, δ = 0.06554755012875199, passes = 22, sec = 7.21e-6, conv = true, P = 4.6710514998826405, D = 4.67045863674064, nnz = 4, prodcode = :failed, prodratio = 0.00012693895571885564, ratio = 0.00012693895570268528, improved = true)
+   (stage = 2, δ = 0.0065547550128752, passes = 8, sec = 3.182e-6, conv = true, P = 4.671051457851237, D = 4.671045493105104, nnz = 4, prodcode = :certified, prodratio = 1.2769617031464286e-6, ratio = 1.2769616870264758e-6, improved = true)
+== LAMC1.2-n10p30-s3 Float64 lnfit adaptive Pst/P*=1.4032718483252504 certified=true
+   (stage = 1, δ = 0.06554755012875199, passes = 22, sec = 7.32e-6, conv = true, P = 4.6710514998826405, D = 4.67045863674064, nnz = 4, prodcode = :failed, prodratio = 0.00012693895571885564, ratio = 0.00012693895570268528, improved = true)
+   (stage = 2, δ = 0.00467105149988264, passes = 8, sec = 2.548e-6, conv = true, P = 4.671051457848107, D = 4.671048411851534, nnz = 4, prodcode = :certified, prodratio = 6.521012800084934e-7, ratio = 6.521012638989139e-7, improved = true)

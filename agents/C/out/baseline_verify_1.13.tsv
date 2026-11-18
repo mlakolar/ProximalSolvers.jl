@@ -1,0 +1,949 @@
+id	T	start	config	converged	gap	passes	excess_exact	class_exact	gap_ok	slack_excess_over_gap
+A155	Float64	zero	cyclic-dense	true	4.440892098500642e-16	1	1.614708367017435e-12	certified	true	1.614264277807585e-12
+A155	Float64	zero	random-owner	true	4.440892098500642e-16	1	1.614708367017435e-12	certified	true	1.614264277807585e-12
+A155	Float64	given	cyclic-dense	false	NaN	1	19.000000000032294	nonoptimal	missing	
+A155	Float64	given	random-owner	false	NaN	1	19.000000000032294	nonoptimal	missing	
+A155	Float32	zero	cyclic-dense	true	4.4408926e-16	1	1.6127099655731033e-12	certified	true	1.6122658763103137e-12
+A155	Float32	zero	random-owner	true	4.4408926e-16	1	1.6127099655731033e-12	certified	true	1.6122658763103137e-12
+A155	Float32	given	cyclic-dense	false	NaN	1	19.00000074509033	nonoptimal	missing	
+A155	Float32	given	random-owner	false	NaN	1	19.00000074509033	nonoptimal	missing	
+A156	Float64	zero	cyclic-dense	false	NaN	3	0.0	missed-cert	missing	
+A156	Float64	zero	random-owner	false	NaN	67	1.6936888972667866e-10	missed-cert	missing	
+A156	Float64	given	cyclic-dense	false	NaN	1	0.0	missed-cert	missing	
+A156	Float64	given	random-owner	false	NaN	1	0.0	missed-cert	missing	
+A156	Float32	zero	cyclic-dense	false	NaN	3	0.0	missed-cert	missing	
+A156	Float32	zero	random-owner	false	NaN	39	1.410287848133725e-6	missed-cert	missing	
+A156	Float32	given	cyclic-dense	false	NaN	1	0.0	missed-cert	missing	
+A156	Float32	given	random-owner	false	NaN	1	0.0	missed-cert	missing	
+AI3	Float64	zero	cyclic-dense	true	4.440892098500641e-16	1	1.7620996788071535e-14	certified	true	1.7176907578221473e-14
+AI3	Float64	zero	random-owner	true	4.440892098500641e-16	1	1.7620996788071535e-14	certified	true	1.7176907578221473e-14
+AI3	Float64	given	cyclic-dense	false	NaN	1	0.12583302491979012	nonoptimal	missing	
+AI3	Float64	given	random-owner	false	NaN	1	0.12583302491979012	nonoptimal	missing	
+AI3	Float32	zero	cyclic-dense	true	4.4408926e-16	1	1.7749194300497112e-14	certified	true	1.730510503770749e-14
+AI3	Float32	zero	random-owner	true	4.4408926e-16	1	1.7749194300497112e-14	certified	true	1.730510503770749e-14
+AI3	Float32	given	cyclic-dense	false	NaN	1	0.12583298362448098	nonoptimal	missing	
+AI3	Float32	given	random-owner	false	NaN	1	0.12583298362448098	nonoptimal	missing	
+N8p20-0.05-s1	Float64	zero	cyclic-dense	false	NaN	39	0.5583329811015962	nonoptimal	missing	
+N8p20-0.05-s1	Float64	zero	random-owner	false	NaN	35	1.0669126343122306	nonoptimal	missing	
+N8p20-0.05-s1	Float64	lnfit	cyclic-dense	false	NaN	3	0.40221121001919996	nonoptimal	missing	
+N8p20-0.05-s1	Float64	lnfit	random-owner	false	NaN	3	0.40221121001920024	nonoptimal	missing	
+N8p20-0.05-s1	Float64	warm	cyclic-dense	false	NaN	31	0.19858703689068127	nonoptimal	missing	
+N8p20-0.05-s1	Float64	warm	random-owner	false	NaN	29	0.1692197294711452	nonoptimal	missing	
+N8p20-0.05-s1	Float32	zero	cyclic-dense	false	NaN	27	0.558333761421667	nonoptimal	missing	
+N8p20-0.05-s1	Float32	zero	random-owner	false	NaN	21	1.4740072826709005	nonoptimal	missing	
+N8p20-0.05-s1	Float32	lnfit	cyclic-dense	false	NaN	1	0.402211465538731	nonoptimal	missing	
+N8p20-0.05-s1	Float32	lnfit	random-owner	false	NaN	1	0.4022115665076422	nonoptimal	missing	
+N8p20-0.05-s1	Float32	warm	cyclic-dense	false	NaN	19	0.19858751579947898	nonoptimal	missing	
+N8p20-0.05-s1	Float32	warm	random-owner	false	NaN	27	0.08107721365077775	nonoptimal	missing	
+N8p20-0.05-s2	Float64	zero	cyclic-dense	false	NaN	23	0.12954561079575497	nonoptimal	missing	
+N8p20-0.05-s2	Float64	zero	random-owner	false	NaN	28	1.027859795276386	nonoptimal	missing	
+N8p20-0.05-s2	Float64	lnfit	cyclic-dense	false	NaN	3	0.31632502425282927	nonoptimal	missing	
+N8p20-0.05-s2	Float64	lnfit	random-owner	false	NaN	3	0.31632502425283	nonoptimal	missing	
+N8p20-0.05-s2	Float64	warm	cyclic-dense	false	NaN	28	0.09679512588184487	nonoptimal	missing	
+N8p20-0.05-s2	Float64	warm	random-owner	false	NaN	20	0.10291492449881288	nonoptimal	missing	
+N8p20-0.05-s2	Float32	zero	cyclic-dense	false	NaN	14	0.1295459679060445	nonoptimal	missing	
+N8p20-0.05-s2	Float32	zero	random-owner	false	NaN	17	0.6816147371799223	nonoptimal	missing	
+N8p20-0.05-s2	Float32	lnfit	cyclic-dense	false	NaN	1	0.3163258964699734	nonoptimal	missing	
+N8p20-0.05-s2	Float32	lnfit	random-owner	false	NaN	1	0.316325841012517	nonoptimal	missing	
+N8p20-0.05-s2	Float32	warm	cyclic-dense	false	NaN	16	0.09679643104505777	nonoptimal	missing	
+N8p20-0.05-s2	Float32	warm	random-owner	false	NaN	14	0.09568688160423672	nonoptimal	missing	
+N8p20-0.05-s3	Float64	zero	cyclic-dense	false	NaN	23	0.3896266567755992	nonoptimal	missing	
+N8p20-0.05-s3	Float64	zero	random-owner	false	NaN	25	0.578063144890658	nonoptimal	missing	
+N8p20-0.05-s3	Float64	lnfit	cyclic-dense	false	NaN	3	0.230619522882348	nonoptimal	missing	
+N8p20-0.05-s3	Float64	lnfit	random-owner	false	NaN	3	0.2306195228823481	nonoptimal	missing	
+N8p20-0.05-s3	Float64	warm	cyclic-dense	false	NaN	22	0.1399911513957985	nonoptimal	missing	
+N8p20-0.05-s3	Float64	warm	random-owner	false	NaN	25	0.05606810880548902	nonoptimal	missing	
+N8p20-0.05-s3	Float32	zero	cyclic-dense	false	NaN	15	0.3896270539313401	nonoptimal	missing	
+N8p20-0.05-s3	Float32	zero	random-owner	false	NaN	22	0.41729162175539	nonoptimal	missing	
+N8p20-0.05-s3	Float32	lnfit	cyclic-dense	false	NaN	1	0.23062046522091362	nonoptimal	missing	
+N8p20-0.05-s3	Float32	lnfit	random-owner	false	NaN	1	0.2306203570296415	nonoptimal	missing	
+N8p20-0.05-s3	Float32	warm	cyclic-dense	false	NaN	14	0.13999191974105157	nonoptimal	missing	
+N8p20-0.05-s3	Float32	warm	random-owner	false	NaN	13	0.09097530046867854	nonoptimal	missing	
+N8p20-0.05-s4	Float64	zero	cyclic-dense	false	NaN	38	0.7496318816392746	nonoptimal	missing	
+N8p20-0.05-s4	Float64	zero	random-owner	false	NaN	30	1.090648315037112	nonoptimal	missing	
+N8p20-0.05-s4	Float64	lnfit	cyclic-dense	false	NaN	3	0.5902524338276743	nonoptimal	missing	
+N8p20-0.05-s4	Float64	lnfit	random-owner	false	NaN	3	0.590252433827675	nonoptimal	missing	
+N8p20-0.05-s4	Float64	warm	cyclic-dense	false	NaN	29	0.14080141760616632	nonoptimal	missing	
+N8p20-0.05-s4	Float64	warm	random-owner	false	NaN	29	0.16977835121079338	nonoptimal	missing	
+N8p20-0.05-s4	Float32	zero	cyclic-dense	false	NaN	24	0.7496322233755227	nonoptimal	missing	
+N8p20-0.05-s4	Float32	zero	random-owner	false	NaN	19	1.0791449337779055	nonoptimal	missing	
+N8p20-0.05-s4	Float32	lnfit	cyclic-dense	false	NaN	1	0.5902527303249168	nonoptimal	missing	
+N8p20-0.05-s4	Float32	lnfit	random-owner	false	NaN	1	0.5902527090062131	nonoptimal	missing	
+N8p20-0.05-s4	Float32	warm	cyclic-dense	false	NaN	18	0.14080218376162615	nonoptimal	missing	
+N8p20-0.05-s4	Float32	warm	random-owner	false	NaN	17	0.18749550561958025	nonoptimal	missing	
+N8p20-0.05-s5	Float64	zero	cyclic-dense	false	NaN	25	0.33835085134652176	nonoptimal	missing	
+N8p20-0.05-s5	Float64	zero	random-owner	false	NaN	33	0.8812558256215793	nonoptimal	missing	
+N8p20-0.05-s5	Float64	lnfit	cyclic-dense	false	NaN	3	0.5346573228897372	nonoptimal	missing	
+N8p20-0.05-s5	Float64	lnfit	random-owner	false	NaN	3	0.5346573228897361	nonoptimal	missing	
+N8p20-0.05-s5	Float64	warm	cyclic-dense	false	NaN	32	0.14501501233105327	nonoptimal	missing	
+N8p20-0.05-s5	Float64	warm	random-owner	false	NaN	21	0.2073750490058608	nonoptimal	missing	
+N8p20-0.05-s5	Float32	zero	cyclic-dense	false	NaN	15	0.3383515675619607	nonoptimal	missing	
+N8p20-0.05-s5	Float32	zero	random-owner	false	NaN	21	0.6167779593304259	nonoptimal	missing	
+N8p20-0.05-s5	Float32	lnfit	cyclic-dense	false	NaN	1	0.5346577701882144	nonoptimal	missing	
+N8p20-0.05-s5	Float32	lnfit	random-owner	false	NaN	1	0.5346576562234633	nonoptimal	missing	
+N8p20-0.05-s5	Float32	warm	cyclic-dense	false	NaN	21	0.1450155648633794	nonoptimal	missing	
+N8p20-0.05-s5	Float32	warm	random-owner	false	NaN	16	0.15191168757803977	nonoptimal	missing	
+N8p20-0.05-s6	Float64	zero	cyclic-dense	false	NaN	26	0.26048786758647724	nonoptimal	missing	
+N8p20-0.05-s6	Float64	zero	random-owner	false	NaN	32	0.6791050492218094	nonoptimal	missing	
+N8p20-0.05-s6	Float64	lnfit	cyclic-dense	false	NaN	3	0.3250385677654607	nonoptimal	missing	
+N8p20-0.05-s6	Float64	lnfit	random-owner	false	NaN	3	0.3250385677654612	nonoptimal	missing	
+N8p20-0.05-s6	Float64	warm	cyclic-dense	false	NaN	30	0.25594768506837073	nonoptimal	missing	
+N8p20-0.05-s6	Float64	warm	random-owner	false	NaN	23	0.3173114624387312	nonoptimal	missing	
+N8p20-0.05-s6	Float32	zero	cyclic-dense	false	NaN	15	0.26048834472197	nonoptimal	missing	
+N8p20-0.05-s6	Float32	zero	random-owner	false	NaN	25	0.6336762071196801	nonoptimal	missing	
+N8p20-0.05-s6	Float32	lnfit	cyclic-dense	false	NaN	1	0.32503954305179494	nonoptimal	missing	
+N8p20-0.05-s6	Float32	lnfit	random-owner	false	NaN	1	0.3250393051660035	nonoptimal	missing	
+N8p20-0.05-s6	Float32	warm	cyclic-dense	false	NaN	20	0.2559484779490623	nonoptimal	missing	
+N8p20-0.05-s6	Float32	warm	random-owner	false	NaN	15	0.20116400742715465	nonoptimal	missing	
+N8p20-0.05-s7	Float64	zero	cyclic-dense	false	NaN	15	0.14986539068009883	nonoptimal	missing	
+N8p20-0.05-s7	Float64	zero	random-owner	false	NaN	20	0.8222431340578413	nonoptimal	missing	
+N8p20-0.05-s7	Float64	lnfit	cyclic-dense	false	NaN	3	0.3515219866747129	nonoptimal	missing	
+N8p20-0.05-s7	Float64	lnfit	random-owner	false	NaN	3	0.35152198667471457	nonoptimal	missing	
+N8p20-0.05-s7	Float64	warm	cyclic-dense	false	NaN	15	0.19509743411768501	nonoptimal	missing	
+N8p20-0.05-s7	Float64	warm	random-owner	false	NaN	21	0.21753859946737172	nonoptimal	missing	
+N8p20-0.05-s7	Float32	zero	cyclic-dense	false	NaN	10	0.1498662601185219	nonoptimal	missing	
+N8p20-0.05-s7	Float32	zero	random-owner	false	NaN	18	0.8133862681708411	nonoptimal	missing	
+N8p20-0.05-s7	Float32	lnfit	cyclic-dense	false	NaN	1	0.3515226450497503	nonoptimal	missing	
+N8p20-0.05-s7	Float32	lnfit	random-owner	false	NaN	1	0.3515225686451095	nonoptimal	missing	
+N8p20-0.05-s7	Float32	warm	cyclic-dense	false	NaN	9	0.19509819810442017	nonoptimal	missing	
+N8p20-0.05-s7	Float32	warm	random-owner	false	NaN	13	0.19606221665659576	nonoptimal	missing	
+N8p20-0.05-s8	Float64	zero	cyclic-dense	false	NaN	23	0.16387803256378478	nonoptimal	missing	
+N8p20-0.05-s8	Float64	zero	random-owner	false	NaN	23	0.5640275322169047	nonoptimal	missing	
+N8p20-0.05-s8	Float64	lnfit	cyclic-dense	false	NaN	3	0.2611253482292449	nonoptimal	missing	
+N8p20-0.05-s8	Float64	lnfit	random-owner	false	NaN	3	0.2611253482292472	nonoptimal	missing	
+N8p20-0.05-s8	Float64	warm	cyclic-dense	false	NaN	24	0.24395538033157607	nonoptimal	missing	
+N8p20-0.05-s8	Float64	warm	random-owner	false	NaN	20	0.12509881503130263	nonoptimal	missing	
+N8p20-0.05-s8	Float32	zero	cyclic-dense	false	NaN	13	0.16387839990667055	nonoptimal	missing	
+N8p20-0.05-s8	Float32	zero	random-owner	false	NaN	20	0.6012669754408836	nonoptimal	missing	
+N8p20-0.05-s8	Float32	lnfit	cyclic-dense	false	NaN	1	0.26112645519586214	nonoptimal	missing	
+N8p20-0.05-s8	Float32	lnfit	random-owner	false	NaN	1	0.26112634168172216	nonoptimal	missing	
+N8p20-0.05-s8	Float32	warm	cyclic-dense	false	NaN	15	0.24395599043385838	nonoptimal	missing	
+N8p20-0.05-s8	Float32	warm	random-owner	false	NaN	16	0.21408799898538552	nonoptimal	missing	
+N8p20-0.2-s1	Float64	zero	cyclic-dense	false	NaN	89	0.0014359904592587702	nonoptimal	missing	
+N8p20-0.2-s1	Float64	zero	random-owner	false	NaN	82	0.12345759315323195	nonoptimal	missing	
+N8p20-0.2-s1	Float64	lnfit	cyclic-dense	false	NaN	3	0.4022112100191928	nonoptimal	missing	
+N8p20-0.2-s1	Float64	lnfit	random-owner	false	NaN	3	0.4022112100191929	nonoptimal	missing	
+N8p20-0.2-s1	Float64	warm	cyclic-dense	false	NaN	126	0.000310354761004867	nonoptimal	missing	
+N8p20-0.2-s1	Float64	warm	random-owner	false	NaN	52	0.04521817296411724	nonoptimal	missing	
+N8p20-0.2-s1	Float32	zero	cyclic-dense	false	NaN	73	0.0014360425376697514	nonoptimal	missing	
+N8p20-0.2-s1	Float32	zero	random-owner	false	NaN	56	0.4873085831948354	nonoptimal	missing	
+N8p20-0.2-s1	Float32	lnfit	cyclic-dense	false	NaN	1	0.4022112388591464	nonoptimal	missing	
+N8p20-0.2-s1	Float32	lnfit	random-owner	false	NaN	1	0.40221115434731386	nonoptimal	missing	
+N8p20-0.2-s1	Float32	warm	cyclic-dense	false	NaN	86	0.00031099465564769736	nonoptimal	missing	
+N8p20-0.2-s1	Float32	warm	random-owner	false	NaN	73	2.0525611123361305e-5	missed-cert	missing	
+N8p20-0.2-s2	Float64	zero	cyclic-dense	false	NaN	46	0.08904803913729278	nonoptimal	missing	
+N8p20-0.2-s2	Float64	zero	random-owner	false	NaN	94	0.03931250046672388	nonoptimal	missing	
+N8p20-0.2-s2	Float64	lnfit	cyclic-dense	false	NaN	3	0.3163250242528263	nonoptimal	missing	
+N8p20-0.2-s2	Float64	lnfit	random-owner	false	NaN	3	0.31632502425282655	nonoptimal	missing	
+N8p20-0.2-s2	Float64	warm	cyclic-dense	false	NaN	61	0.013984523318135423	nonoptimal	missing	
+N8p20-0.2-s2	Float64	warm	random-owner	false	NaN	38	0.0419573097190896	nonoptimal	missing	
+N8p20-0.2-s2	Float32	zero	cyclic-dense	false	NaN	29	0.08904814221128927	nonoptimal	missing	
+N8p20-0.2-s2	Float32	zero	random-owner	false	NaN	50	0.20809406744872563	nonoptimal	missing	
+N8p20-0.2-s2	Float32	lnfit	cyclic-dense	false	NaN	1	0.31632516537111693	nonoptimal	missing	
+N8p20-0.2-s2	Float32	lnfit	random-owner	false	NaN	1	0.31632517114661834	nonoptimal	missing	
+N8p20-0.2-s2	Float32	warm	cyclic-dense	false	NaN	43	0.01398494077252478	nonoptimal	missing	
+N8p20-0.2-s2	Float32	warm	random-owner	false	NaN	39	0.005317141990730634	nonoptimal	missing	
+N8p20-0.2-s3	Float64	zero	cyclic-dense	false	NaN	52	0.2209119274955983	nonoptimal	missing	
+N8p20-0.2-s3	Float64	zero	random-owner	false	NaN	47	0.08986120450748587	nonoptimal	missing	
+N8p20-0.2-s3	Float64	lnfit	cyclic-dense	false	NaN	3	0.23061952288223342	nonoptimal	missing	
+N8p20-0.2-s3	Float64	lnfit	random-owner	false	NaN	3	0.2306195228822331	nonoptimal	missing	
+N8p20-0.2-s3	Float64	warm	cyclic-dense	false	NaN	23	0.0709445974198064	nonoptimal	missing	
+N8p20-0.2-s3	Float64	warm	random-owner	false	NaN	29	0.06117632919651928	nonoptimal	missing	
+N8p20-0.2-s3	Float32	zero	cyclic-dense	false	NaN	38	0.22091204774889095	nonoptimal	missing	
+N8p20-0.2-s3	Float32	zero	random-owner	false	NaN	34	0.1787356025686769	nonoptimal	missing	
+N8p20-0.2-s3	Float32	lnfit	cyclic-dense	false	NaN	1	0.23061974809829486	nonoptimal	missing	
+N8p20-0.2-s3	Float32	lnfit	random-owner	false	NaN	1	0.23061971693232938	nonoptimal	missing	
+N8p20-0.2-s3	Float32	warm	cyclic-dense	false	NaN	14	0.07094477089916795	nonoptimal	missing	
+N8p20-0.2-s3	Float32	warm	random-owner	false	NaN	25	0.03502773998302653	nonoptimal	missing	
+N8p20-0.2-s4	Float64	zero	cyclic-dense	false	NaN	99	0.23444105409203436	nonoptimal	missing	
+N8p20-0.2-s4	Float64	zero	random-owner	false	NaN	88	6.170450535226964e-5	missed-cert	missing	
+N8p20-0.2-s4	Float64	lnfit	cyclic-dense	false	NaN	3	0.5902524338276479	nonoptimal	missing	
+N8p20-0.2-s4	Float64	lnfit	random-owner	false	NaN	3	0.590252433827648	nonoptimal	missing	
+N8p20-0.2-s4	Float64	warm	cyclic-dense	false	NaN	120	0.0004919346200109174	nonoptimal	missing	
+N8p20-0.2-s4	Float64	warm	random-owner	false	NaN	175	9.000752888073646e-7	missed-cert	missing	
+N8p20-0.2-s4	Float32	zero	cyclic-dense	false	NaN	62	0.234441646854409	nonoptimal	missing	
+N8p20-0.2-s4	Float32	zero	random-owner	false	NaN	36	1.1440212427147634e-7	missed-cert	missing	
+N8p20-0.2-s4	Float32	lnfit	cyclic-dense	false	NaN	1	0.5902524724200208	nonoptimal	missing	
+N8p20-0.2-s4	Float32	lnfit	random-owner	false	NaN	1	0.590252416258487	nonoptimal	missing	
+N8p20-0.2-s4	Float32	warm	cyclic-dense	false	NaN	89	0.0004919101921991619	nonoptimal	missing	
+N8p20-0.2-s4	Float32	warm	random-owner	false	NaN	52	2.400876960419793e-7	missed-cert	missing	
+N8p20-0.2-s5	Float64	zero	cyclic-dense	false	NaN	38	0.23619201302198842	nonoptimal	missing	
+N8p20-0.2-s5	Float64	zero	random-owner	false	NaN	37	0.4722589383312695	nonoptimal	missing	
+N8p20-0.2-s5	Float64	lnfit	cyclic-dense	false	NaN	3	0.5346573228896615	nonoptimal	missing	
+N8p20-0.2-s5	Float64	lnfit	random-owner	false	NaN	3	0.5346573228896602	nonoptimal	missing	
+N8p20-0.2-s5	Float64	warm	cyclic-dense	false	NaN	222	0.006815637180316566	nonoptimal	missing	
+N8p20-0.2-s5	Float64	warm	random-owner	false	NaN	54	0.04653121156834119	nonoptimal	missing	
+N8p20-0.2-s5	Float32	zero	cyclic-dense	false	NaN	22	0.2361921556267207	nonoptimal	missing	
+N8p20-0.2-s5	Float32	zero	random-owner	false	NaN	62	5.926518648709913e-7	missed-cert	missing	
+N8p20-0.2-s5	Float32	lnfit	cyclic-dense	false	NaN	1	0.5346574026133334	nonoptimal	missing	
+N8p20-0.2-s5	Float32	lnfit	random-owner	false	NaN	1	0.5346574328458987	nonoptimal	missing	
+N8p20-0.2-s5	Float32	warm	cyclic-dense	false	NaN	138	0.006816918738283085	nonoptimal	missing	
+N8p20-0.2-s5	Float32	warm	random-owner	false	NaN	48	0.010195302041273783	nonoptimal	missing	
+N8p20-0.2-s6	Float64	zero	cyclic-dense	false	NaN	69	0.06814130759658016	nonoptimal	missing	
+N8p20-0.2-s6	Float64	zero	random-owner	false	NaN	32	0.48866363388095296	nonoptimal	missing	
+N8p20-0.2-s6	Float64	lnfit	cyclic-dense	false	NaN	3	0.3250385677654468	nonoptimal	missing	
+N8p20-0.2-s6	Float64	lnfit	random-owner	false	NaN	3	0.3250385677654472	nonoptimal	missing	
+N8p20-0.2-s6	Float64	warm	cyclic-dense	false	NaN	43	0.09077032517624829	nonoptimal	missing	
+N8p20-0.2-s6	Float64	warm	random-owner	false	NaN	28	0.1600634528174118	nonoptimal	missing	
+N8p20-0.2-s6	Float32	zero	cyclic-dense	false	NaN	47	0.0681414829973427	nonoptimal	missing	
+N8p20-0.2-s6	Float32	zero	random-owner	false	NaN	40	0.2097111956844259	nonoptimal	missing	
+N8p20-0.2-s6	Float32	lnfit	cyclic-dense	false	NaN	1	0.3250388311108473	nonoptimal	missing	
+N8p20-0.2-s6	Float32	lnfit	random-owner	false	NaN	1	0.3250387296598344	nonoptimal	missing	
+N8p20-0.2-s6	Float32	warm	cyclic-dense	false	NaN	29	0.09077046317594313	nonoptimal	missing	
+N8p20-0.2-s6	Float32	warm	random-owner	false	NaN	19	0.08305561445271566	nonoptimal	missing	
+N8p20-0.2-s7	Float64	zero	cyclic-dense	false	NaN	35	0.11220223087345366	nonoptimal	missing	
+N8p20-0.2-s7	Float64	zero	random-owner	false	NaN	39	0.40767463498976864	nonoptimal	missing	
+N8p20-0.2-s7	Float64	lnfit	cyclic-dense	false	NaN	3	0.3515219866747107	nonoptimal	missing	
+N8p20-0.2-s7	Float64	lnfit	random-owner	false	NaN	3	0.35152198667471196	nonoptimal	missing	
+N8p20-0.2-s7	Float64	warm	cyclic-dense	false	NaN	23	0.1031533295441213	nonoptimal	missing	
+N8p20-0.2-s7	Float64	warm	random-owner	false	NaN	23	0.12033762143546743	nonoptimal	missing	
+N8p20-0.2-s7	Float32	zero	cyclic-dense	false	NaN	25	0.11220236441139807	nonoptimal	missing	
+N8p20-0.2-s7	Float32	zero	random-owner	false	NaN	23	0.2599524100276103	nonoptimal	missing	
+N8p20-0.2-s7	Float32	lnfit	cyclic-dense	false	NaN	1	0.3515220931463312	nonoptimal	missing	
+N8p20-0.2-s7	Float32	lnfit	random-owner	false	NaN	1	0.3515220755501174	nonoptimal	missing	
+N8p20-0.2-s7	Float32	warm	cyclic-dense	false	NaN	14	0.10315360298524516	nonoptimal	missing	
+N8p20-0.2-s7	Float32	warm	random-owner	false	NaN	26	0.12858680164587907	nonoptimal	missing	
+N8p20-0.2-s8	Float64	zero	cyclic-dense	false	NaN	51	0.13567003952205597	nonoptimal	missing	
+N8p20-0.2-s8	Float64	zero	random-owner	false	NaN	29	0.420994775085155	nonoptimal	missing	
+N8p20-0.2-s8	Float64	lnfit	cyclic-dense	false	NaN	3	0.261125348229242	nonoptimal	missing	
+N8p20-0.2-s8	Float64	lnfit	random-owner	false	NaN	3	0.26112534822924194	nonoptimal	missing	
+N8p20-0.2-s8	Float64	warm	cyclic-dense	false	NaN	40	0.11896944069774598	nonoptimal	missing	
+N8p20-0.2-s8	Float64	warm	random-owner	false	NaN	35	0.1257948441288659	nonoptimal	missing	
+N8p20-0.2-s8	Float32	zero	cyclic-dense	false	NaN	30	0.13567039663885133	nonoptimal	missing	
+N8p20-0.2-s8	Float32	zero	random-owner	false	NaN	60	9.418219618426486e-6	missed-cert	missing	
+N8p20-0.2-s8	Float32	lnfit	cyclic-dense	false	NaN	1	0.2611255547775164	nonoptimal	missing	
+N8p20-0.2-s8	Float32	lnfit	random-owner	false	NaN	1	0.2611255774878927	nonoptimal	missing	
+N8p20-0.2-s8	Float32	warm	cyclic-dense	false	NaN	31	0.11896917004666883	nonoptimal	missing	
+N8p20-0.2-s8	Float32	warm	random-owner	false	NaN	36	0.057448408204772594	nonoptimal	missing	
+N40p120-0.05-s1	Float64	zero	cyclic-dense	false	NaN	30	0.3831014469860876	nonoptimal	missing	
+N40p120-0.05-s1	Float64	zero	random-owner	false	NaN	33	1.7200109638261603	nonoptimal	missing	
+N40p120-0.05-s1	Float64	lnfit	cyclic-dense	false	NaN	3	1.2764265527007717	nonoptimal	missing	
+N40p120-0.05-s1	Float64	lnfit	random-owner	false	NaN	3	1.2764265527007732	nonoptimal	missing	
+N40p120-0.05-s1	Float64	warm	cyclic-dense	false	NaN	25	0.7656169815418592	nonoptimal	missing	
+N40p120-0.05-s1	Float64	warm	random-owner	false	NaN	25	0.8150866810759871	nonoptimal	missing	
+N40p120-0.05-s1	Float32	zero	cyclic-dense	false	NaN	19	0.3831027722964492	nonoptimal	missing	
+N40p120-0.05-s1	Float32	zero	random-owner	false	NaN	21	1.73141796378705	nonoptimal	missing	
+N40p120-0.05-s1	Float32	lnfit	cyclic-dense	false	NaN	1	1.2764280057492208	nonoptimal	missing	
+N40p120-0.05-s1	Float32	lnfit	random-owner	false	NaN	1	1.2764279607643325	nonoptimal	missing	
+N40p120-0.05-s1	Float32	warm	cyclic-dense	false	NaN	15	0.765618266149212	nonoptimal	missing	
+N40p120-0.05-s1	Float32	warm	random-owner	false	NaN	17	0.733841032655539	nonoptimal	missing	
+N40p120-0.05-s2	Float64	zero	cyclic-dense	false	NaN	36	0.2975704974741941	nonoptimal	missing	
+N40p120-0.05-s2	Float64	zero	random-owner	false	NaN	26	2.0717378838840226	nonoptimal	missing	
+N40p120-0.05-s2	Float64	lnfit	cyclic-dense	false	NaN	3	1.2552993676294115	nonoptimal	missing	
+N40p120-0.05-s2	Float64	lnfit	random-owner	false	NaN	3	1.2552993676294126	nonoptimal	missing	
+N40p120-0.05-s2	Float64	warm	cyclic-dense	false	NaN	27	0.7923966751576671	nonoptimal	missing	
+N40p120-0.05-s2	Float64	warm	random-owner	false	NaN	24	0.7115360442158536	nonoptimal	missing	
+N40p120-0.05-s2	Float32	zero	cyclic-dense	false	NaN	23	0.2975712539274152	nonoptimal	missing	
+N40p120-0.05-s2	Float32	zero	random-owner	false	NaN	21	1.6567125452258735	nonoptimal	missing	
+N40p120-0.05-s2	Float32	lnfit	cyclic-dense	false	NaN	1	1.2553008822575904	nonoptimal	missing	
+N40p120-0.05-s2	Float32	lnfit	random-owner	false	NaN	1	1.2553008539002308	nonoptimal	missing	
+N40p120-0.05-s2	Float32	warm	cyclic-dense	false	NaN	17	0.792397696787858	nonoptimal	missing	
+N40p120-0.05-s2	Float32	warm	random-owner	false	NaN	14	0.6123540513933982	nonoptimal	missing	
+N40p120-0.05-s3	Float64	zero	cyclic-dense	false	NaN	29	0.479200383257456	nonoptimal	missing	
+N40p120-0.05-s3	Float64	zero	random-owner	false	NaN	31	1.6105218965103125	nonoptimal	missing	
+N40p120-0.05-s3	Float64	lnfit	cyclic-dense	false	NaN	3	1.0914913510384774	nonoptimal	missing	
+N40p120-0.05-s3	Float64	lnfit	random-owner	false	NaN	3	1.0914913510384752	nonoptimal	missing	
+N40p120-0.05-s3	Float64	warm	cyclic-dense	false	NaN	32	0.644531638408649	nonoptimal	missing	
+N40p120-0.05-s3	Float64	warm	random-owner	false	NaN	23	0.6439394181011733	nonoptimal	missing	
+N40p120-0.05-s3	Float32	zero	cyclic-dense	false	NaN	18	0.47920110043278635	nonoptimal	missing	
+N40p120-0.05-s3	Float32	zero	random-owner	false	NaN	19	1.8059874317374056	nonoptimal	missing	
+N40p120-0.05-s3	Float32	lnfit	cyclic-dense	false	NaN	1	1.0914926427932614	nonoptimal	missing	
+N40p120-0.05-s3	Float32	lnfit	random-owner	false	NaN	1	1.0914926110457979	nonoptimal	missing	
+N40p120-0.05-s3	Float32	warm	cyclic-dense	false	NaN	22	0.64453276215113	nonoptimal	missing	
+N40p120-0.05-s3	Float32	warm	random-owner	false	NaN	19	0.5771321513238084	nonoptimal	missing	
+N40p120-0.05-s4	Float64	zero	cyclic-dense	false	NaN	27	0.8596340891424946	nonoptimal	missing	
+N40p120-0.05-s4	Float64	zero	random-owner	false	NaN	31	1.8251884711141753	nonoptimal	missing	
+N40p120-0.05-s4	Float64	lnfit	cyclic-dense	false	NaN	3	1.1433562206877839	nonoptimal	missing	
+N40p120-0.05-s4	Float64	lnfit	random-owner	false	NaN	3	1.1433562206877839	nonoptimal	missing	
+N40p120-0.05-s4	Float64	warm	cyclic-dense	false	NaN	31	0.726468469923448	nonoptimal	missing	
+N40p120-0.05-s4	Float64	warm	random-owner	false	NaN	21	0.8236713054884705	nonoptimal	missing	
+N40p120-0.05-s4	Float32	zero	cyclic-dense	false	NaN	18	0.8596351505060189	nonoptimal	missing	
+N40p120-0.05-s4	Float32	zero	random-owner	false	NaN	17	2.1167592212256343	nonoptimal	missing	
+N40p120-0.05-s4	Float32	lnfit	cyclic-dense	false	NaN	1	1.1433577433300661	nonoptimal	missing	
+N40p120-0.05-s4	Float32	lnfit	random-owner	false	NaN	1	1.1433578554304444	nonoptimal	missing	
+N40p120-0.05-s4	Float32	warm	cyclic-dense	false	NaN	20	0.7264698591973964	nonoptimal	missing	
+N40p120-0.05-s4	Float32	warm	random-owner	false	NaN	14	0.8438941910650113	nonoptimal	missing	
+N40p120-0.05-s5	Float64	zero	cyclic-dense	false	NaN	34	0.37374294454111967	nonoptimal	missing	
+N40p120-0.05-s5	Float64	zero	random-owner	false	NaN	27	2.110947031934684	nonoptimal	missing	
+N40p120-0.05-s5	Float64	lnfit	cyclic-dense	false	NaN	3	1.2942248729731511	nonoptimal	missing	
+N40p120-0.05-s5	Float64	lnfit	random-owner	false	NaN	3	1.294224872973151	nonoptimal	missing	
+N40p120-0.05-s5	Float64	warm	cyclic-dense	false	NaN	28	0.8165124505947932	nonoptimal	missing	
+N40p120-0.05-s5	Float64	warm	random-owner	false	NaN	25	0.7126707973143322	nonoptimal	missing	
+N40p120-0.05-s5	Float32	zero	cyclic-dense	false	NaN	24	0.37374406881409683	nonoptimal	missing	
+N40p120-0.05-s5	Float32	zero	random-owner	false	NaN	18	2.0197294102159873	nonoptimal	missing	
+N40p120-0.05-s5	Float32	lnfit	cyclic-dense	false	NaN	1	1.2942260858653567	nonoptimal	missing	
+N40p120-0.05-s5	Float32	lnfit	random-owner	false	NaN	1	1.294226027466779	nonoptimal	missing	
+N40p120-0.05-s5	Float32	warm	cyclic-dense	false	NaN	18	0.8165135331739084	nonoptimal	missing	
+N40p120-0.05-s5	Float32	warm	random-owner	false	NaN	15	0.7228965903722964	nonoptimal	missing	
+N40p120-0.05-s6	Float64	zero	cyclic-dense	false	NaN	39	0.6763230285528888	nonoptimal	missing	
+N40p120-0.05-s6	Float64	zero	random-owner	false	NaN	28	1.9067929092206453	nonoptimal	missing	
+N40p120-0.05-s6	Float64	lnfit	cyclic-dense	false	NaN	3	1.369800448260416	nonoptimal	missing	
+N40p120-0.05-s6	Float64	lnfit	random-owner	false	NaN	3	1.369800448260416	nonoptimal	missing	
+N40p120-0.05-s6	Float64	warm	cyclic-dense	false	NaN	32	0.7307153867475615	nonoptimal	missing	
+N40p120-0.05-s6	Float64	warm	random-owner	false	NaN	23	0.7869657203585342	nonoptimal	missing	
+N40p120-0.05-s6	Float32	zero	cyclic-dense	false	NaN	27	0.6763248805856868	nonoptimal	missing	
+N40p120-0.05-s6	Float32	zero	random-owner	false	NaN	19	1.3938329393987692	nonoptimal	missing	
+N40p120-0.05-s6	Float32	lnfit	cyclic-dense	false	NaN	1	1.369801764880479	nonoptimal	missing	
+N40p120-0.05-s6	Float32	lnfit	random-owner	false	NaN	1	1.3698016520349776	nonoptimal	missing	
+N40p120-0.05-s6	Float32	warm	cyclic-dense	false	NaN	21	0.7307165085733447	nonoptimal	missing	
+N40p120-0.05-s6	Float32	warm	random-owner	false	NaN	15	0.7901547740023784	nonoptimal	missing	
+N40p120-0.2-s1	Float64	zero	cyclic-dense	false	NaN	193	3.202487576583231e-5	missed-cert	missing	
+N40p120-0.2-s1	Float64	zero	random-owner	false	NaN	154	1.470123241162373e-6	missed-cert	missing	
+N40p120-0.2-s1	Float64	lnfit	cyclic-dense	false	NaN	3	1.2764265525729739	nonoptimal	missing	
+N40p120-0.2-s1	Float64	lnfit	random-owner	false	NaN	3	1.2764265525729745	nonoptimal	missing	
+N40p120-0.2-s1	Float64	warm	cyclic-dense	false	NaN	279	1.2751214881856756e-5	missed-cert	missing	
+N40p120-0.2-s1	Float64	warm	random-owner	false	NaN	142	1.5916974806455683e-7	missed-cert	missing	
+N40p120-0.2-s1	Float32	zero	cyclic-dense	false	NaN	142	3.4164416485891985e-5	missed-cert	missing	
+N40p120-0.2-s1	Float32	zero	random-owner	false	NaN	93	1.2605025209857726e-6	missed-cert	missing	
+N40p120-0.2-s1	Float32	lnfit	cyclic-dense	false	NaN	1	1.2764266227819512	nonoptimal	missing	
+N40p120-0.2-s1	Float32	lnfit	random-owner	false	NaN	1	1.2764264913389174	nonoptimal	missing	
+N40p120-0.2-s1	Float32	warm	cyclic-dense	false	NaN	132	1.5730838479915528e-5	missed-cert	missing	
+N40p120-0.2-s1	Float32	warm	random-owner	false	NaN	65	6.712021558494742e-7	missed-cert	missing	
+N40p120-0.2-s2	Float64	zero	cyclic-dense	false	NaN	102	1.4924677724480534e-8	missed-cert	missing	
+N40p120-0.2-s2	Float64	zero	random-owner	false	NaN	133	4.0475260323822296e-10	missed-cert	missing	
+N40p120-0.2-s2	Float64	lnfit	cyclic-dense	false	NaN	3	1.2552993676340192	nonoptimal	missing	
+N40p120-0.2-s2	Float64	lnfit	random-owner	false	NaN	3	1.2552993676340256	nonoptimal	missing	
+N40p120-0.2-s2	Float64	warm	cyclic-dense	false	NaN	180	3.383280961306696e-8	missed-cert	missing	
+N40p120-0.2-s2	Float64	warm	random-owner	false	NaN	90	7.191242020043935e-10	missed-cert	missing	
+N40p120-0.2-s2	Float32	zero	cyclic-dense	false	NaN	39	2.792815570107327e-7	missed-cert	missing	
+N40p120-0.2-s2	Float32	zero	random-owner	false	NaN	42	1.7897249836022662e-7	missed-cert	missing	
+N40p120-0.2-s2	Float32	lnfit	cyclic-dense	false	NaN	1	1.255299010126847	nonoptimal	missing	
+N40p120-0.2-s2	Float32	lnfit	random-owner	false	NaN	1	1.255298705432418	nonoptimal	missing	
+N40p120-0.2-s2	Float32	warm	cyclic-dense	false	NaN	62	6.289302296070103e-7	missed-cert	missing	
+N40p120-0.2-s2	Float32	warm	random-owner	false	NaN	22	1.5136092682167712e-7	missed-cert	missing	
+N40p120-0.2-s3	Float64	zero	cyclic-dense	false	NaN	274	0.011330920551898356	nonoptimal	missing	
+N40p120-0.2-s3	Float64	zero	random-owner	false	NaN	171	0.0029063208437554023	nonoptimal	missing	
+N40p120-0.2-s3	Float64	lnfit	cyclic-dense	false	NaN	3	1.0914913510338138	nonoptimal	missing	
+N40p120-0.2-s3	Float64	lnfit	random-owner	false	NaN	3	1.0914913510338093	nonoptimal	missing	
+N40p120-0.2-s3	Float64	warm	cyclic-dense	false	NaN	173	1.0645194886014898e-6	missed-cert	missing	
+N40p120-0.2-s3	Float64	warm	random-owner	false	NaN	83	6.22035245097871e-8	missed-cert	missing	
+N40p120-0.2-s3	Float32	zero	cyclic-dense	false	NaN	195	0.011332325219030364	nonoptimal	missing	
+N40p120-0.2-s3	Float32	zero	random-owner	false	NaN	74	9.506591675363151e-7	missed-cert	missing	
+N40p120-0.2-s3	Float32	lnfit	cyclic-dense	false	NaN	1	1.0914914695549003	nonoptimal	missing	
+N40p120-0.2-s3	Float32	lnfit	random-owner	false	NaN	1	1.0914913648446236	nonoptimal	missing	
+N40p120-0.2-s3	Float32	warm	cyclic-dense	false	NaN	82	1.915873432963189e-6	missed-cert	missing	
+N40p120-0.2-s3	Float32	warm	random-owner	false	NaN	37	3.498791096787647e-7	missed-cert	missing	
+N40p120-0.2-s4	Float64	zero	cyclic-dense	false	NaN	164	0.014495149599736084	nonoptimal	missing	
+N40p120-0.2-s4	Float64	zero	random-owner	false	NaN	125	0.0021898385689971085	nonoptimal	missing	
+N40p120-0.2-s4	Float64	lnfit	cyclic-dense	false	NaN	3	1.1433562206864571	nonoptimal	missing	
+N40p120-0.2-s4	Float64	lnfit	random-owner	false	NaN	3	1.1433562206864536	nonoptimal	missing	
+N40p120-0.2-s4	Float64	warm	cyclic-dense	false	NaN	128	1.1055479942058712e-6	missed-cert	missing	
+N40p120-0.2-s4	Float64	warm	random-owner	false	NaN	154	4.642883066664164e-9	missed-cert	missing	
+N40p120-0.2-s4	Float32	zero	cyclic-dense	false	NaN	132	0.014495750780359645	nonoptimal	missing	
+N40p120-0.2-s4	Float32	zero	random-owner	false	NaN	70	1.42897476741065e-6	missed-cert	missing	
+N40p120-0.2-s4	Float32	lnfit	cyclic-dense	false	NaN	1	1.1433561699023909	nonoptimal	missing	
+N40p120-0.2-s4	Float32	lnfit	random-owner	false	NaN	1	1.1433562392323273	nonoptimal	missing	
+N40p120-0.2-s4	Float32	warm	cyclic-dense	false	NaN	88	1.3589935878647344e-6	missed-cert	missing	
+N40p120-0.2-s4	Float32	warm	random-owner	false	NaN	65	6.750942714249586e-7	missed-cert	missing	
+N40p120-0.2-s5	Float64	zero	cyclic-dense	false	NaN	180	7.364574965735542e-8	missed-cert	missing	
+N40p120-0.2-s5	Float64	zero	random-owner	false	NaN	121	2.0226194854169006e-9	missed-cert	missing	
+N40p120-0.2-s5	Float64	lnfit	cyclic-dense	false	NaN	3	1.2942248731760766	nonoptimal	missing	
+N40p120-0.2-s5	Float64	lnfit	random-owner	false	NaN	3	1.2942248731760784	nonoptimal	missing	
+N40p120-0.2-s5	Float64	warm	cyclic-dense	false	NaN	133	2.122137682468858e-6	missed-cert	missing	
+N40p120-0.2-s5	Float64	warm	random-owner	false	NaN	88	3.839282955477099e-8	missed-cert	missing	
+N40p120-0.2-s5	Float32	zero	cyclic-dense	false	NaN	73	9.13576878155138e-7	missed-cert	missing	
+N40p120-0.2-s5	Float32	zero	random-owner	false	NaN	90	7.297609784146349e-6	missed-cert	missing	
+N40p120-0.2-s5	Float32	lnfit	cyclic-dense	false	NaN	1	1.2942248084407113	nonoptimal	missing	
+N40p120-0.2-s5	Float32	lnfit	random-owner	false	NaN	1	1.2942247231272153	nonoptimal	missing	
+N40p120-0.2-s5	Float32	warm	cyclic-dense	false	NaN	91	2.6198255032166682e-6	missed-cert	missing	
+N40p120-0.2-s5	Float32	warm	random-owner	false	NaN	64	4.251428189463504e-7	missed-cert	missing	
+N40p120-0.2-s6	Float64	zero	cyclic-dense	false	NaN	235	1.4295002198515392e-8	missed-cert	missing	
+N40p120-0.2-s6	Float64	zero	random-owner	false	NaN	126	1.4289052970131496e-8	missed-cert	missing	
+N40p120-0.2-s6	Float64	lnfit	cyclic-dense	false	NaN	3	1.369800447801256	nonoptimal	missing	
+N40p120-0.2-s6	Float64	lnfit	random-owner	false	NaN	3	1.3698004478012622	nonoptimal	missing	
+N40p120-0.2-s6	Float64	warm	cyclic-dense	false	NaN	117	2.604188770097395e-9	missed-cert	missing	
+N40p120-0.2-s6	Float64	warm	random-owner	false	NaN	68	4.1529889868011573e-10	missed-cert	missing	
+N40p120-0.2-s6	Float32	zero	cyclic-dense	false	NaN	80	1.0645825017482027e-6	missed-cert	missing	
+N40p120-0.2-s6	Float32	zero	random-owner	false	NaN	39	3.1593357017237854e-7	missed-cert	missing	
+N40p120-0.2-s6	Float32	lnfit	cyclic-dense	false	NaN	1	1.3698000787937248	nonoptimal	missing	
+N40p120-0.2-s6	Float32	lnfit	random-owner	false	NaN	1	1.3698000383152737	nonoptimal	missing	
+N40p120-0.2-s6	Float32	warm	cyclic-dense	false	NaN	26	2.388183749690122e-7	missed-cert	missing	
+N40p120-0.2-s6	Float32	warm	random-owner	false	NaN	20	1.8678608254227586e-7	missed-cert	missing	
+N100p400-s1	Float64	zero	cyclic-dense	false	NaN	40	0.5189498040951053	nonoptimal	missing	
+N100p400-s1	Float64	zero	random-owner	false	NaN	48	1.4602881936104886	nonoptimal	missing	
+N100p400-s1	Float64	lnfit	cyclic-dense	false	NaN	3	1.4233747689094585	nonoptimal	missing	
+N100p400-s1	Float64	lnfit	random-owner	false	NaN	3	1.423374768909457	nonoptimal	missing	
+N100p400-s1	Float64	warm	cyclic-dense	false	NaN	29	0.9117028496199542	nonoptimal	missing	
+N100p400-s1	Float64	warm	random-owner	false	NaN	32	1.009327544377874	nonoptimal	missing	
+N100p400-s1	Float32	zero	cyclic-dense	false	NaN	29	0.518950461959496	nonoptimal	missing	
+N100p400-s1	Float32	zero	random-owner	false	NaN	23	1.3879440520443498	nonoptimal	missing	
+N100p400-s1	Float32	lnfit	cyclic-dense	false	NaN	1	1.423375799583078	nonoptimal	missing	
+N100p400-s1	Float32	lnfit	random-owner	false	NaN	1	1.4233758065334818	nonoptimal	missing	
+N100p400-s1	Float32	warm	cyclic-dense	false	NaN	21	0.9117041135988116	nonoptimal	missing	
+N100p400-s1	Float32	warm	random-owner	false	NaN	27	0.8368607639176665	nonoptimal	missing	
+N100p400-s2	Float64	zero	cyclic-dense	false	NaN	33	0.3345301514435147	nonoptimal	missing	
+N100p400-s2	Float64	zero	random-owner	false	NaN	39	1.4858246910368427	nonoptimal	missing	
+N100p400-s2	Float64	lnfit	cyclic-dense	false	NaN	3	1.4031200703793747	nonoptimal	missing	
+N100p400-s2	Float64	lnfit	random-owner	false	NaN	3	1.4031200703793734	nonoptimal	missing	
+N100p400-s2	Float64	warm	cyclic-dense	false	NaN	24	1.092988374228775	nonoptimal	missing	
+N100p400-s2	Float64	warm	random-owner	false	NaN	26	1.091300396928788	nonoptimal	missing	
+N100p400-s2	Float32	zero	cyclic-dense	false	NaN	24	0.3345310382613496	nonoptimal	missing	
+N100p400-s2	Float32	zero	random-owner	false	NaN	33	1.3820451918150791	nonoptimal	missing	
+N100p400-s2	Float32	lnfit	cyclic-dense	false	NaN	1	1.4031214775500074	nonoptimal	missing	
+N100p400-s2	Float32	lnfit	random-owner	false	NaN	1	1.403121366451746	nonoptimal	missing	
+N100p400-s2	Float32	warm	cyclic-dense	false	NaN	17	1.092989329757861	nonoptimal	missing	
+N100p400-s2	Float32	warm	random-owner	false	NaN	22	0.9259573482908585	nonoptimal	missing	
+N100p400-s3	Float64	zero	cyclic-dense	false	NaN	38	0.47638862450891384	nonoptimal	missing	
+N100p400-s3	Float64	zero	random-owner	false	NaN	39	1.4395454697737213	nonoptimal	missing	
+N100p400-s3	Float64	lnfit	cyclic-dense	false	NaN	3	1.512904914157687	nonoptimal	missing	
+N100p400-s3	Float64	lnfit	random-owner	false	NaN	3	1.5129049141576862	nonoptimal	missing	
+N100p400-s3	Float64	warm	cyclic-dense	false	NaN	25	0.9903821616909312	nonoptimal	missing	
+N100p400-s3	Float64	warm	random-owner	false	NaN	25	1.0655160114109998	nonoptimal	missing	
+N100p400-s3	Float32	zero	cyclic-dense	false	NaN	27	0.4763895074413707	nonoptimal	missing	
+N100p400-s3	Float32	zero	random-owner	false	NaN	35	1.4040891001412543	nonoptimal	missing	
+N100p400-s3	Float32	lnfit	cyclic-dense	false	NaN	1	1.5129067480078844	nonoptimal	missing	
+N100p400-s3	Float32	lnfit	random-owner	false	NaN	1	1.512906621496883	nonoptimal	missing	
+N100p400-s3	Float32	warm	cyclic-dense	false	NaN	17	0.9903836479251134	nonoptimal	missing	
+N100p400-s3	Float32	warm	random-owner	false	NaN	16	1.1229864736995714	nonoptimal	missing	
+NE1.0e-7-s1	Float64	zero	cyclic-dense	false	NaN	38	0.3604678278512828	nonoptimal	missing	
+NE1.0e-7-s1	Float64	zero	random-owner	false	NaN	30	1.7478876870129623	nonoptimal	missing	
+NE1.0e-7-s1	Float64	lnfit	cyclic-dense	false	NaN	3	0.9973160322098238	nonoptimal	missing	
+NE1.0e-7-s1	Float64	lnfit	random-owner	false	NaN	3	0.9973160322098217	nonoptimal	missing	
+NE1.0e-7-s1	Float64	warm	cyclic-dense	false	NaN	27	0.5240679741984297	nonoptimal	missing	
+NE1.0e-7-s1	Float64	warm	random-owner	false	NaN	40	0.3519825878304449	nonoptimal	missing	
+NE1.0e-7-s1	Float32	zero	cyclic-dense	false	NaN	26	0.36046909614335637	nonoptimal	missing	
+NE1.0e-7-s1	Float32	zero	random-owner	false	NaN	20	1.5231976613576836	nonoptimal	missing	
+NE1.0e-7-s1	Float32	lnfit	cyclic-dense	false	NaN	1	0.997317139385368	nonoptimal	missing	
+NE1.0e-7-s1	Float32	lnfit	random-owner	false	NaN	1	0.9973171527705023	nonoptimal	missing	
+NE1.0e-7-s1	Float32	warm	cyclic-dense	false	NaN	17	0.5240689242110503	nonoptimal	missing	
+NE1.0e-7-s1	Float32	warm	random-owner	false	NaN	18	0.3940772386935425	nonoptimal	missing	
+NE1.0e-7-s2	Float64	zero	cyclic-dense	false	NaN	36	0.49663410403743713	nonoptimal	missing	
+NE1.0e-7-s2	Float64	zero	random-owner	false	NaN	32	1.6617909652734266	nonoptimal	missing	
+NE1.0e-7-s2	Float64	lnfit	cyclic-dense	false	NaN	3	1.0945487183067175	nonoptimal	missing	
+NE1.0e-7-s2	Float64	lnfit	random-owner	false	NaN	3	1.094548718306717	nonoptimal	missing	
+NE1.0e-7-s2	Float64	warm	cyclic-dense	false	NaN	27	0.5964909386512706	nonoptimal	missing	
+NE1.0e-7-s2	Float64	warm	random-owner	false	NaN	26	0.6096369774232178	nonoptimal	missing	
+NE1.0e-7-s2	Float32	zero	cyclic-dense	false	NaN	25	0.49663548159947657	nonoptimal	missing	
+NE1.0e-7-s2	Float32	zero	random-owner	false	NaN	19	1.6343317359044576	nonoptimal	missing	
+NE1.0e-7-s2	Float32	lnfit	cyclic-dense	false	NaN	1	1.0945502217416245	nonoptimal	missing	
+NE1.0e-7-s2	Float32	lnfit	random-owner	false	NaN	1	1.094550193214963	nonoptimal	missing	
+NE1.0e-7-s2	Float32	warm	cyclic-dense	false	NaN	17	0.5964919148847948	nonoptimal	missing	
+NE1.0e-7-s2	Float32	warm	random-owner	false	NaN	18	0.6198193945962492	nonoptimal	missing	
+NE1.0e-7-s3	Float64	zero	cyclic-dense	false	NaN	56	0.7463888165531144	nonoptimal	missing	
+NE1.0e-7-s3	Float64	zero	random-owner	false	NaN	37	1.223380104561057	nonoptimal	missing	
+NE1.0e-7-s3	Float64	lnfit	cyclic-dense	false	NaN	3	0.8422295918061984	nonoptimal	missing	
+NE1.0e-7-s3	Float64	lnfit	random-owner	false	NaN	3	0.8422295918061967	nonoptimal	missing	
+NE1.0e-7-s3	Float64	warm	cyclic-dense	false	NaN	35	0.6962276434073462	nonoptimal	missing	
+NE1.0e-7-s3	Float64	warm	random-owner	false	NaN	29	0.6395991058503127	nonoptimal	missing	
+NE1.0e-7-s3	Float32	zero	cyclic-dense	false	NaN	38	0.7463908831451508	nonoptimal	missing	
+NE1.0e-7-s3	Float32	zero	random-owner	false	NaN	21	1.1263606114732727	nonoptimal	missing	
+NE1.0e-7-s3	Float32	lnfit	cyclic-dense	false	NaN	1	0.8422309506109406	nonoptimal	missing	
+NE1.0e-7-s3	Float32	lnfit	random-owner	false	NaN	1	0.8422310040806653	nonoptimal	missing	
+NE1.0e-7-s3	Float32	warm	cyclic-dense	false	NaN	20	0.6962295959990965	nonoptimal	missing	
+NE1.0e-7-s3	Float32	warm	random-owner	false	NaN	20	0.6984601654910941	nonoptimal	missing	
+NE1.0e-7-s4	Float64	zero	cyclic-dense	false	NaN	42	0.30299027125633765	nonoptimal	missing	
+NE1.0e-7-s4	Float64	zero	random-owner	false	NaN	29	1.4844813908024	nonoptimal	missing	
+NE1.0e-7-s4	Float64	lnfit	cyclic-dense	false	NaN	3	0.9301094797296048	nonoptimal	missing	
+NE1.0e-7-s4	Float64	lnfit	random-owner	false	NaN	3	0.9301094797296058	nonoptimal	missing	
+NE1.0e-7-s4	Float64	warm	cyclic-dense	false	NaN	36	0.6515402718900183	nonoptimal	missing	
+NE1.0e-7-s4	Float64	warm	random-owner	false	NaN	26	0.5680763913798849	nonoptimal	missing	
+NE1.0e-7-s4	Float32	zero	cyclic-dense	false	NaN	29	0.3029909861054345	nonoptimal	missing	
+NE1.0e-7-s4	Float32	zero	random-owner	false	NaN	32	1.2474716250458138	nonoptimal	missing	
+NE1.0e-7-s4	Float32	lnfit	cyclic-dense	false	NaN	1	0.9301108206589012	nonoptimal	missing	
+NE1.0e-7-s4	Float32	lnfit	random-owner	false	NaN	1	0.9301107485202228	nonoptimal	missing	
+NE1.0e-7-s4	Float32	warm	cyclic-dense	false	NaN	22	0.651542198416503	nonoptimal	missing	
+NE1.0e-7-s4	Float32	warm	random-owner	false	NaN	22	0.45215739111335995	nonoptimal	missing	
+NE1.0e-7-s5	Float64	zero	cyclic-dense	false	NaN	41	0.43623680886815136	nonoptimal	missing	
+NE1.0e-7-s5	Float64	zero	random-owner	false	NaN	36	1.712824888459238	nonoptimal	missing	
+NE1.0e-7-s5	Float64	lnfit	cyclic-dense	false	NaN	3	1.2440182628598542	nonoptimal	missing	
+NE1.0e-7-s5	Float64	lnfit	random-owner	false	NaN	3	1.2440182628598544	nonoptimal	missing	
+NE1.0e-7-s5	Float64	warm	cyclic-dense	false	NaN	45	0.5033720364811602	nonoptimal	missing	
+NE1.0e-7-s5	Float64	warm	random-owner	false	NaN	29	0.49504290641065457	nonoptimal	missing	
+NE1.0e-7-s5	Float32	zero	cyclic-dense	false	NaN	28	0.4362378863687811	nonoptimal	missing	
+NE1.0e-7-s5	Float32	zero	random-owner	false	NaN	21	1.401707723629842	nonoptimal	missing	
+NE1.0e-7-s5	Float32	lnfit	cyclic-dense	false	NaN	1	1.2440192914606025	nonoptimal	missing	
+NE1.0e-7-s5	Float32	lnfit	random-owner	false	NaN	1	1.2440193487177378	nonoptimal	missing	
+NE1.0e-7-s5	Float32	warm	cyclic-dense	false	NaN	28	0.5033738226511574	nonoptimal	missing	
+NE1.0e-7-s5	Float32	warm	random-owner	false	NaN	18	0.5096953137510708	nonoptimal	missing	
+NE1.0e-7-s6	Float64	zero	cyclic-dense	false	NaN	37	0.38258318148541404	nonoptimal	missing	
+NE1.0e-7-s6	Float64	zero	random-owner	false	NaN	28	1.3838593970992723	nonoptimal	missing	
+NE1.0e-7-s6	Float64	lnfit	cyclic-dense	false	NaN	3	1.0130311731713182	nonoptimal	missing	
+NE1.0e-7-s6	Float64	lnfit	random-owner	false	NaN	3	1.0130311731713175	nonoptimal	missing	
+NE1.0e-7-s6	Float64	warm	cyclic-dense	false	NaN	34	0.469200709783162	nonoptimal	missing	
+NE1.0e-7-s6	Float64	warm	random-owner	false	NaN	28	0.5423762147549247	nonoptimal	missing	
+NE1.0e-7-s6	Float32	zero	cyclic-dense	false	NaN	24	0.3825847763501101	nonoptimal	missing	
+NE1.0e-7-s6	Float32	zero	random-owner	false	NaN	29	1.2394720801038763	nonoptimal	missing	
+NE1.0e-7-s6	Float32	lnfit	cyclic-dense	false	NaN	1	1.0130319786159367	nonoptimal	missing	
+NE1.0e-7-s6	Float32	lnfit	random-owner	false	NaN	1	1.0130319541448105	nonoptimal	missing	
+NE1.0e-7-s6	Float32	warm	cyclic-dense	false	NaN	23	0.46920255257212523	nonoptimal	missing	
+NE1.0e-7-s6	Float32	warm	random-owner	false	NaN	19	0.5007017576369603	nonoptimal	missing	
+NE0.0001-s1	Float64	zero	cyclic-dense	false	NaN	38	0.3603927935782949	nonoptimal	missing	
+NE0.0001-s1	Float64	zero	random-owner	false	NaN	34	1.40500288219864	nonoptimal	missing	
+NE0.0001-s1	Float64	lnfit	cyclic-dense	false	NaN	3	0.997216086446331	nonoptimal	missing	
+NE0.0001-s1	Float64	lnfit	random-owner	false	NaN	3	0.9972160864463291	nonoptimal	missing	
+NE0.0001-s1	Float64	warm	cyclic-dense	false	NaN	27	0.524000615920227	nonoptimal	missing	
+NE0.0001-s1	Float64	warm	random-owner	false	NaN	23	0.5972740566242928	nonoptimal	missing	
+NE0.0001-s1	Float32	zero	cyclic-dense	false	NaN	26	0.3603940546818	nonoptimal	missing	
+NE0.0001-s1	Float32	zero	random-owner	false	NaN	18	1.5240766074632972	nonoptimal	missing	
+NE0.0001-s1	Float32	lnfit	cyclic-dense	false	NaN	1	0.9972179908217051	nonoptimal	missing	
+NE0.0001-s1	Float32	lnfit	random-owner	false	NaN	1	0.99721772299273	nonoptimal	missing	
+NE0.0001-s1	Float32	warm	cyclic-dense	false	NaN	17	0.5240016745481033	nonoptimal	missing	
+NE0.0001-s1	Float32	warm	random-owner	false	NaN	19	0.3838597196878071	nonoptimal	missing	
+NE0.0001-s2	Float64	zero	cyclic-dense	false	NaN	36	0.49656232219422425	nonoptimal	missing	
+NE0.0001-s2	Float64	zero	random-owner	false	NaN	31	1.8438723947662004	nonoptimal	missing	
+NE0.0001-s2	Float64	lnfit	cyclic-dense	false	NaN	3	1.0944651616295797	nonoptimal	missing	
+NE0.0001-s2	Float64	lnfit	random-owner	false	NaN	3	1.0944651616295797	nonoptimal	missing	
+NE0.0001-s2	Float64	warm	cyclic-dense	false	NaN	27	0.5963869878824402	nonoptimal	missing	
+NE0.0001-s2	Float64	warm	random-owner	false	NaN	30	0.5804889666784903	nonoptimal	missing	
+NE0.0001-s2	Float32	zero	cyclic-dense	false	NaN	25	0.49656370901317815	nonoptimal	missing	
+NE0.0001-s2	Float32	zero	random-owner	false	NaN	27	1.3888765805699692	nonoptimal	missing	
+NE0.0001-s2	Float32	lnfit	cyclic-dense	false	NaN	1	1.0944665251628904	nonoptimal	missing	
+NE0.0001-s2	Float32	lnfit	random-owner	false	NaN	1	1.0944666160973042	nonoptimal	missing	
+NE0.0001-s2	Float32	warm	cyclic-dense	false	NaN	17	0.5963881943724532	nonoptimal	missing	
+NE0.0001-s2	Float32	warm	random-owner	false	NaN	17	0.6555461412182157	nonoptimal	missing	
+NE0.0001-s3	Float64	zero	cyclic-dense	false	NaN	56	0.7463133414127799	nonoptimal	missing	
+NE0.0001-s3	Float64	zero	random-owner	false	NaN	58	0.9480875413518615	nonoptimal	missing	
+NE0.0001-s3	Float64	lnfit	cyclic-dense	false	NaN	3	0.8421550845505901	nonoptimal	missing	
+NE0.0001-s3	Float64	lnfit	random-owner	false	NaN	3	0.8421550845505872	nonoptimal	missing	
+NE0.0001-s3	Float64	warm	cyclic-dense	false	NaN	35	0.696140776225775	nonoptimal	missing	
+NE0.0001-s3	Float64	warm	random-owner	false	NaN	31	0.6464189846537894	nonoptimal	missing	
+NE0.0001-s3	Float32	zero	cyclic-dense	false	NaN	38	0.7463148581712117	nonoptimal	missing	
+NE0.0001-s3	Float32	zero	random-owner	false	NaN	23	1.4229049073491684	nonoptimal	missing	
+NE0.0001-s3	Float32	lnfit	cyclic-dense	false	NaN	1	0.8421564586161457	nonoptimal	missing	
+NE0.0001-s3	Float32	lnfit	random-owner	false	NaN	1	0.8421566183015415	nonoptimal	missing	
+NE0.0001-s3	Float32	warm	cyclic-dense	false	NaN	20	0.6961426597173896	nonoptimal	missing	
+NE0.0001-s3	Float32	warm	random-owner	false	NaN	21	0.6375059331834444	nonoptimal	missing	
+NE0.0001-s4	Float64	zero	cyclic-dense	false	NaN	42	0.30290533632079186	nonoptimal	missing	
+NE0.0001-s4	Float64	zero	random-owner	false	NaN	31	1.2847209667607773	nonoptimal	missing	
+NE0.0001-s4	Float64	lnfit	cyclic-dense	false	NaN	3	0.9300197111862454	nonoptimal	missing	
+NE0.0001-s4	Float64	lnfit	random-owner	false	NaN	3	0.9300197111862456	nonoptimal	missing	
+NE0.0001-s4	Float64	warm	cyclic-dense	false	NaN	36	0.6514125750552489	nonoptimal	missing	
+NE0.0001-s4	Float64	warm	random-owner	false	NaN	28	0.5203999478242468	nonoptimal	missing	
+NE0.0001-s4	Float32	zero	cyclic-dense	false	NaN	29	0.3029060073105548	nonoptimal	missing	
+NE0.0001-s4	Float32	zero	random-owner	false	NaN	23	1.3521652623072185	nonoptimal	missing	
+NE0.0001-s4	Float32	lnfit	cyclic-dense	false	NaN	1	0.9300207342947701	nonoptimal	missing	
+NE0.0001-s4	Float32	lnfit	random-owner	false	NaN	1	0.9300207011710361	nonoptimal	missing	
+NE0.0001-s4	Float32	warm	cyclic-dense	false	NaN	23	0.6514138678696592	nonoptimal	missing	
+NE0.0001-s4	Float32	warm	random-owner	false	NaN	16	0.6882937013660243	nonoptimal	missing	
+NE0.0001-s5	Float64	zero	cyclic-dense	false	NaN	41	0.4361589295167464	nonoptimal	missing	
+NE0.0001-s5	Float64	zero	random-owner	false	NaN	34	1.9769325345882063	nonoptimal	missing	
+NE0.0001-s5	Float64	lnfit	cyclic-dense	false	NaN	3	1.243917831666719	nonoptimal	missing	
+NE0.0001-s5	Float64	lnfit	random-owner	false	NaN	3	1.2439178316667208	nonoptimal	missing	
+NE0.0001-s5	Float64	warm	cyclic-dense	false	NaN	45	0.5036535629752388	nonoptimal	missing	
+NE0.0001-s5	Float64	warm	random-owner	false	NaN	29	0.5207719340009187	nonoptimal	missing	
+NE0.0001-s5	Float32	zero	cyclic-dense	false	NaN	28	0.43616014294599476	nonoptimal	missing	
+NE0.0001-s5	Float32	zero	random-owner	false	NaN	27	1.697122207710138	nonoptimal	missing	
+NE0.0001-s5	Float32	lnfit	cyclic-dense	false	NaN	1	1.2439194701252423	nonoptimal	missing	
+NE0.0001-s5	Float32	lnfit	random-owner	false	NaN	1	1.2439194976147818	nonoptimal	missing	
+NE0.0001-s5	Float32	warm	cyclic-dense	false	NaN	26	0.5036573480208896	nonoptimal	missing	
+NE0.0001-s5	Float32	warm	random-owner	false	NaN	19	0.567822051907857	nonoptimal	missing	
+NE0.0001-s6	Float64	zero	cyclic-dense	false	NaN	38	0.3824955309020683	nonoptimal	missing	
+NE0.0001-s6	Float64	zero	random-owner	false	NaN	39	1.054840086237013	nonoptimal	missing	
+NE0.0001-s6	Float64	lnfit	cyclic-dense	false	NaN	3	1.0129227481819503	nonoptimal	missing	
+NE0.0001-s6	Float64	lnfit	random-owner	false	NaN	3	1.0129227481819514	nonoptimal	missing	
+NE0.0001-s6	Float64	warm	cyclic-dense	false	NaN	34	0.46910507513808614	nonoptimal	missing	
+NE0.0001-s6	Float64	warm	random-owner	false	NaN	26	0.6362194474507895	nonoptimal	missing	
+NE0.0001-s6	Float32	zero	cyclic-dense	false	NaN	25	0.3824970381862026	nonoptimal	missing	
+NE0.0001-s6	Float32	zero	random-owner	false	NaN	29	1.3982917977873823	nonoptimal	missing	
+NE0.0001-s6	Float32	lnfit	cyclic-dense	false	NaN	1	1.0129239264491963	nonoptimal	missing	
+NE0.0001-s6	Float32	lnfit	random-owner	false	NaN	1	1.0129237943598968	nonoptimal	missing	
+NE0.0001-s6	Float32	warm	cyclic-dense	false	NaN	23	0.46910656250990757	nonoptimal	missing	
+NE0.0001-s6	Float32	warm	random-owner	false	NaN	17	0.5106417376106227	nonoptimal	missing	
+O60p20-s1	Float64	zero	cyclic-dense	true	2.2277425944374613e-7	40	1.1047929661442644e-12	certified	true	-2.2277315465077997e-7
+O60p20-s1	Float64	zero	random-owner	true	4.1289243241131133e-7	28	1.1096458641986641e-12	certified	true	-4.128913227654471e-7
+O60p20-s1	Float64	lnfit	cyclic-dense	true	6.880394759950961e-7	27	1.1072499514540312e-12	certified	true	-6.880383687451446e-7
+O60p20-s1	Float64	lnfit	random-owner	true	3.8743905832703286e-7	28	1.1050358532040988e-12	certified	true	-3.8743795329117967e-7
+O60p20-s1	Float64	warm	cyclic-dense	true	6.880354885304502e-7	26	1.1072499254551712e-12	certified	true	-6.880343812805247e-7
+O60p20-s1	Float64	warm	random-owner	true	2.567869480208119e-7	25	1.1044704449941173e-12	certified	true	-2.5678584355036693e-7
+O60p20-s1	Float32	zero	cyclic-dense	true	1.8323645e-6	39	1.118387065609846e-12	certified	true	-1.8323634279299012e-6
+O60p20-s1	Float32	zero	random-owner	true	9.302208e-7	33	1.109395711333805e-12	certified	true	-9.302196692319881e-7
+O60p20-s1	Float32	lnfit	cyclic-dense	true	3.5721416e-6	27	1.1487501688555356e-12	certified	true	-3.572140473748579e-6
+O60p20-s1	Float32	lnfit	random-owner	true	1.253059e-6	30	1.1112930372483773e-12	certified	true	-1.25305794255872e-6
+O60p20-s1	Float32	warm	cyclic-dense	true	2.1636272e-6	26	1.1269774317660747e-12	certified	true	-2.1636260597690213e-6
+O60p20-s1	Float32	warm	random-owner	true	3.767312e-6	12	1.1254997012561822e-12	certified	true	-3.7673107840419028e-6
+O60p20-s2	Float64	zero	cyclic-dense	true	1.7739294376704525e-7	37	9.591525473283636e-13	certified	true	-1.7739198461449792e-7
+O60p20-s2	Float64	zero	random-owner	true	2.687592402430421e-7	43	9.600273967654964e-13	certified	true	-2.6875828021564536e-7
+O60p20-s2	Float64	lnfit	cyclic-dense	true	3.2837528652876024e-7	30	9.613112848901638e-13	certified	true	-3.283743252174754e-7
+O60p20-s2	Float64	lnfit	random-owner	true	1.4542131985094855e-6	32	9.760690087065398e-13	certified	true	-1.4542122224404767e-6
+O60p20-s2	Float64	warm	cyclic-dense	true	3.6219513695088203e-7	29	9.60736432378951e-13	certified	true	-3.6219417621444963e-7
+O60p20-s2	Float64	warm	random-owner	true	4.6120694294112106e-7	28	9.66203715909181e-13	certified	true	-4.612059767374051e-7
+O60p20-s2	Float32	zero	cyclic-dense	true	1.5610561e-6	37	9.80065943014945e-13	certified	true	-1.5610551576229225e-6
+O60p20-s2	Float32	zero	random-owner	true	7.8491536e-7	38	9.751720553805788e-13	certified	true	-7.849143824268922e-7
+O60p20-s2	Float32	lnfit	cyclic-dense	true	1.6978516e-6	30	9.867734480266874e-13	certified	true	-1.6978506573933555e-6
+O60p20-s2	Float32	lnfit	random-owner	true	9.533933e-7	26	9.802895228339742e-13	certified	true	-9.533923022538794e-7
+O60p20-s2	Float32	warm	cyclic-dense	true	2.4534163e-6	29	9.984217178330377e-13	certified	true	-2.453415301919187e-6
+O60p20-s2	Float32	warm	random-owner	true	1.6516892e-6	26	9.820210314372547e-13	certified	true	-1.6516882353757476e-6
+O60p20-s3	Float64	zero	cyclic-dense	true	2.1254539584535323e-7	27	2.6037873562092007e-13	certified	true	-2.125451354666176e-7
+O60p20-s3	Float64	zero	random-owner	true	6.160530310306809e-7	31	2.628137463825659e-13	certified	true	-6.160527682169346e-7
+O60p20-s3	Float64	lnfit	cyclic-dense	true	1.7332367921987943e-7	16	2.60684762399688e-13	certified	true	-1.7332341853511704e-7
+O60p20-s3	Float64	lnfit	random-owner	true	2.9505566266907094e-7	15	2.6093576335632664e-13	certified	true	-2.950554017333076e-7
+O60p20-s3	Float64	warm	cyclic-dense	true	3.347084740428337e-7	26	2.6188390983177316e-13	certified	true	-3.3470821215892385e-7
+O60p20-s3	Float64	warm	random-owner	true	4.4955513101115095e-7	15	2.6151867683712055e-13	certified	true	-4.495548694924741e-7
+O60p20-s3	Float32	zero	cyclic-dense	true	2.2797947e-6	28	2.7170010190757366e-13	certified	true	-2.279794399567053e-6
+O60p20-s3	Float32	zero	random-owner	true	1.01861e-6	33	2.6366367431974135e-13	certified	true	-1.0186097007124084e-6
+O60p20-s3	Float32	lnfit	cyclic-dense	true	1.8233778e-6	16	2.737016091887548e-13	certified	true	-1.8233775554671393e-6
+O60p20-s3	Float32	lnfit	random-owner	true	2.0271152e-6	14	2.6992692579436535e-13	certified	true	-2.0271149453148666e-6
+O60p20-s3	Float32	warm	cyclic-dense	true	2.7802712e-6	28	2.9144462717504624e-13	certified	true	-2.780270896940459e-6
+O60p20-s3	Float32	warm	random-owner	true	3.4095171e-7	16	2.6228846199432184e-13	certified	true	-3.409514525726865e-7
+O60p20-s4	Float64	zero	cyclic-dense	true	1.7447900171604474e-6	40	3.785674560474479e-12	certified	true	-1.744786231485887e-6
+O60p20-s4	Float64	zero	random-owner	true	6.4383186475766e-7	30	3.779554236284989e-12	certified	true	-6.438280852034238e-7
+O60p20-s4	Float64	lnfit	cyclic-dense	true	1.3634212763084268e-6	27	3.783290304165288e-12	certified	true	-1.3634174930181227e-6
+O60p20-s4	Float64	lnfit	random-owner	true	2.4789307069302324e-7	18	3.777890013415907e-12	certified	true	-2.4788929280300984e-7
+O60p20-s4	Float64	warm	cyclic-dense	true	4.527667442636995e-7	18	3.778452715453259e-12	certified	true	-4.5276296581098407e-7
+O60p20-s4	Float64	warm	random-owner	true	2.264331393085529e-7	18	3.77703206455938e-12	certified	true	-2.2642936227648835e-7
+O60p20-s4	Float32	zero	cyclic-dense	true	2.8827462e-6	40	3.8068250220051564e-12	certified	true	-2.8827424233455744e-6
+O60p20-s4	Float32	zero	random-owner	true	9.766987e-7	39	3.78189660495466e-12	certified	true	-9.766949613192153e-7
+O60p20-s4	Float32	lnfit	cyclic-dense	true	3.159418e-6	27	3.812444605147794e-12	certified	true	-3.1594141166104475e-6
+O60p20-s4	Float32	lnfit	random-owner	true	2.3703526e-6	27	3.791631892377818e-12	certified	true	-2.370348812343442e-6
+O60p20-s4	Float32	warm	cyclic-dense	true	2.2754696e-6	18	3.798008243701175e-12	certified	true	-2.2754657712046297e-6
+O60p20-s4	Float32	warm	random-owner	true	1.5633934e-6	17	3.789313400382277e-12	certified	true	-1.5633896360721838e-6
+O60p20-s5	Float64	zero	cyclic-dense	true	2.601124248806377e-7	32	1.1311027042376883e-12	certified	true	-2.601112937779334e-7
+O60p20-s5	Float64	zero	random-owner	true	3.863591526553145e-7	37	1.131207990616929e-12	certified	true	-3.863580214473239e-7
+O60p20-s5	Float64	lnfit	cyclic-dense	true	7.528852831749721e-7	18	1.1321109660974128e-12	certified	true	-7.528841510640061e-7
+O60p20-s5	Float64	lnfit	random-owner	true	5.040097915951088e-7	16	1.1325376488636679e-12	certified	true	-5.0400865905746e-7
+O60p20-s5	Float64	warm	cyclic-dense	true	1.0550524847049125e-6	17	1.1354918353595715e-12	certified	true	-1.0550513492130772e-6
+O60p20-s5	Float64	warm	random-owner	true	1.0421254248289698e-6	15	1.1352628707842813e-12	certified	true	-1.042124289566099e-6
+O60p20-s5	Float32	zero	cyclic-dense	true	4.699844e-6	32	1.1753887423235935e-12	certified	true	-4.699842709348023e-6
+O60p20-s5	Float32	zero	random-owner	true	5.545838e-7	34	1.1386587431111983e-12	certified	true	-5.545826393531314e-7
+O60p20-s5	Float32	lnfit	cyclic-dense	true	2.1736773e-6	18	1.14524839178902e-12	certified	true	-2.1736761853263274e-6
+O60p20-s5	Float32	lnfit	random-owner	true	1.5643818e-6	15	1.1397808014479539e-12	certified	true	-1.5643806789719343e-6
+O60p20-s5	Float32	warm	cyclic-dense	true	1.7246532e-6	18	1.1539050492055946e-12	certified	true	-1.7246520485677875e-6
+O60p20-s5	Float32	warm	random-owner	true	1.4918963e-6	17	1.1438306173240153e-12	certified	true	-1.4918951977460312e-6
+O60p20-s6	Float64	zero	cyclic-dense	true	3.256466837892853e-7	28	5.753783628706534e-13	certified	true	-3.2564610841092244e-7
+O60p20-s6	Float64	zero	random-owner	true	7.97092661889831e-7	29	5.881932684827443e-13	certified	true	-7.970920736965625e-7
+O60p20-s6	Float64	lnfit	cyclic-dense	true	7.656199312168641e-7	17	5.87754528107265e-13	certified	true	-7.65619343462336e-7
+O60p20-s6	Float64	lnfit	random-owner	true	6.898823104951234e-7	17	5.803673064690091e-13	certified	true	-6.898817301278169e-7
+O60p20-s6	Float64	warm	cyclic-dense	true	5.559883531483587e-7	30	5.77327141273724e-13	certified	true	-5.559877758212175e-7
+O60p20-s6	Float64	warm	random-owner	true	1.0629421798571034e-6	27	5.874499044402114e-13	certified	true	-1.062941592407199e-6
+O60p20-s6	Float32	zero	cyclic-dense	true	1.2243389e-6	28	6.024337524888118e-13	certified	true	-1.2243383140385814e-6
+O60p20-s6	Float32	zero	random-owner	true	1.0463064e-6	29	6.086823954687308e-13	certified	true	-1.0463057430994273e-6
+O60p20-s6	Float32	lnfit	cyclic-dense	true	1.3396891e-6	17	6.017399044998106e-13	certified	true	-1.3396885045767505e-6
+O60p20-s6	Float32	lnfit	random-owner	true	1.3453214e-6	18	5.861574288124323e-13	certified	true	-1.3453207934736303e-6
+O60p20-s6	Float32	warm	cyclic-dense	true	2.0227787e-6	30	5.946819544651878e-13	certified	true	-2.0227781498217848e-6
+O60p20-s6	Float32	warm	random-owner	true	1.4359044e-6	29	6.093847667926129e-13	certified	true	-1.4359038277456085e-6
+SW0.1-s1	Float64	zero	cyclic-dense	false	NaN	43	0.19980352595297687	nonoptimal	missing	
+SW0.1-s1	Float64	zero	random-owner	false	NaN	40	0.9348774689086642	nonoptimal	missing	
+SW0.1-s1	Float64	lnfit	cyclic-dense	false	NaN	3	0.7854962903127652	nonoptimal	missing	
+SW0.1-s1	Float64	lnfit	random-owner	false	NaN	3	0.7854962903127651	nonoptimal	missing	
+SW0.1-s1	Float64	warm	cyclic-dense	false	NaN	34	0.34187779963433684	nonoptimal	missing	
+SW0.1-s1	Float64	warm	random-owner	false	NaN	33	0.3724441231114009	nonoptimal	missing	
+SW0.1-s1	Float32	zero	cyclic-dense	false	NaN	32	0.19980428139852976	nonoptimal	missing	
+SW0.1-s1	Float32	zero	random-owner	false	NaN	20	0.8282026230621201	nonoptimal	missing	
+SW0.1-s1	Float32	lnfit	cyclic-dense	false	NaN	1	0.7854969469290388	nonoptimal	missing	
+SW0.1-s1	Float32	lnfit	random-owner	false	NaN	1	0.7854968581147999	nonoptimal	missing	
+SW0.1-s1	Float32	warm	cyclic-dense	false	NaN	22	0.34187875844191273	nonoptimal	missing	
+SW0.1-s1	Float32	warm	random-owner	false	NaN	24	0.2807745688157555	nonoptimal	missing	
+SW0.1-s2	Float64	zero	cyclic-dense	false	NaN	73	0.11854691101684203	nonoptimal	missing	
+SW0.1-s2	Float64	zero	random-owner	false	NaN	37	0.6703485593647099	nonoptimal	missing	
+SW0.1-s2	Float64	lnfit	cyclic-dense	false	NaN	3	0.7142698489462224	nonoptimal	missing	
+SW0.1-s2	Float64	lnfit	random-owner	false	NaN	3	0.7142698489462225	nonoptimal	missing	
+SW0.1-s2	Float64	warm	cyclic-dense	false	NaN	44	0.28387673144035114	nonoptimal	missing	
+SW0.1-s2	Float64	warm	random-owner	false	NaN	42	0.27849942826523716	nonoptimal	missing	
+SW0.1-s2	Float32	zero	cyclic-dense	false	NaN	55	0.11854749200239018	nonoptimal	missing	
+SW0.1-s2	Float32	zero	random-owner	false	NaN	41	0.4236008383565635	nonoptimal	missing	
+SW0.1-s2	Float32	lnfit	cyclic-dense	false	NaN	1	0.7142703116402592	nonoptimal	missing	
+SW0.1-s2	Float32	lnfit	random-owner	false	NaN	1	0.7142703490200007	nonoptimal	missing	
+SW0.1-s2	Float32	warm	cyclic-dense	false	NaN	31	0.2838771865933311	nonoptimal	missing	
+SW0.1-s2	Float32	warm	random-owner	false	NaN	29	0.3147491194642175	nonoptimal	missing	
+SW0.1-s3	Float64	zero	cyclic-dense	false	NaN	37	0.3701218575563805	nonoptimal	missing	
+SW0.1-s3	Float64	zero	random-owner	false	NaN	39	0.8095415796752624	nonoptimal	missing	
+SW0.1-s3	Float64	lnfit	cyclic-dense	false	NaN	3	0.8046470268477964	nonoptimal	missing	
+SW0.1-s3	Float64	lnfit	random-owner	false	NaN	3	0.8046470268477957	nonoptimal	missing	
+SW0.1-s3	Float64	warm	cyclic-dense	false	NaN	45	0.250332319989092	nonoptimal	missing	
+SW0.1-s3	Float64	warm	random-owner	false	NaN	52	0.16063080152556977	nonoptimal	missing	
+SW0.1-s3	Float32	zero	cyclic-dense	false	NaN	27	0.37012240161563165	nonoptimal	missing	
+SW0.1-s3	Float32	zero	random-owner	false	NaN	40	0.7445003027195208	nonoptimal	missing	
+SW0.1-s3	Float32	lnfit	cyclic-dense	false	NaN	1	0.8046475956858783	nonoptimal	missing	
+SW0.1-s3	Float32	lnfit	random-owner	false	NaN	1	0.8046475863896195	nonoptimal	missing	
+SW0.1-s3	Float32	warm	cyclic-dense	false	NaN	31	0.25033321964439353	nonoptimal	missing	
+SW0.1-s3	Float32	warm	random-owner	false	NaN	28	0.35180188775238147	nonoptimal	missing	
+SW0.1-s4	Float64	zero	cyclic-dense	false	NaN	58	0.08873793329250698	nonoptimal	missing	
+SW0.1-s4	Float64	zero	random-owner	false	NaN	49	0.7458981089214699	nonoptimal	missing	
+SW0.1-s4	Float64	lnfit	cyclic-dense	false	NaN	3	0.8060660895666473	nonoptimal	missing	
+SW0.1-s4	Float64	lnfit	random-owner	false	NaN	3	0.8060660895666468	nonoptimal	missing	
+SW0.1-s4	Float64	warm	cyclic-dense	false	NaN	48	0.304023468135158	nonoptimal	missing	
+SW0.1-s4	Float64	warm	random-owner	false	NaN	45	0.2844599221150402	nonoptimal	missing	
+SW0.1-s4	Float32	zero	cyclic-dense	false	NaN	40	0.08873853474583249	nonoptimal	missing	
+SW0.1-s4	Float32	zero	random-owner	false	NaN	24	0.7074583304578815	nonoptimal	missing	
+SW0.1-s4	Float32	lnfit	cyclic-dense	false	NaN	1	0.8060665450984298	nonoptimal	missing	
+SW0.1-s4	Float32	lnfit	random-owner	false	NaN	1	0.8060665088443094	nonoptimal	missing	
+SW0.1-s4	Float32	warm	cyclic-dense	false	NaN	30	0.3040246721014456	nonoptimal	missing	
+SW0.1-s4	Float32	warm	random-owner	false	NaN	23	0.29393357299540424	nonoptimal	missing	
+SW0.2-s1	Float64	zero	cyclic-dense	false	NaN	194	0.011544472983700899	nonoptimal	missing	
+SW0.2-s1	Float64	zero	random-owner	false	NaN	168	0.030771121976068218	nonoptimal	missing	
+SW0.2-s1	Float64	lnfit	cyclic-dense	false	NaN	3	0.7854962903117712	nonoptimal	missing	
+SW0.2-s1	Float64	lnfit	random-owner	false	NaN	3	0.7854962903117719	nonoptimal	missing	
+SW0.2-s1	Float64	warm	cyclic-dense	false	NaN	124	0.020193460057907946	nonoptimal	missing	
+SW0.2-s1	Float64	warm	random-owner	false	NaN	121	0.022546035573276203	nonoptimal	missing	
+SW0.2-s1	Float32	zero	cyclic-dense	false	NaN	164	0.011544838840660177	nonoptimal	missing	
+SW0.2-s1	Float32	zero	random-owner	false	NaN	110	0.03389980881696902	nonoptimal	missing	
+SW0.2-s1	Float32	lnfit	cyclic-dense	false	NaN	1	0.785496481387243	nonoptimal	missing	
+SW0.2-s1	Float32	lnfit	random-owner	false	NaN	1	0.7854963976616421	nonoptimal	missing	
+SW0.2-s1	Float32	warm	cyclic-dense	false	NaN	96	0.02019401820209008	nonoptimal	missing	
+SW0.2-s1	Float32	warm	random-owner	false	NaN	118	0.009180041111191719	nonoptimal	missing	
+SW0.2-s2	Float64	zero	cyclic-dense	false	NaN	273	0.010920728647669185	nonoptimal	missing	
+SW0.2-s2	Float64	zero	random-owner	false	NaN	260	0.00718556838793549	nonoptimal	missing	
+SW0.2-s2	Float64	lnfit	cyclic-dense	false	NaN	3	0.7142698489634915	nonoptimal	missing	
+SW0.2-s2	Float64	lnfit	random-owner	false	NaN	3	0.7142698489634937	nonoptimal	missing	
+SW0.2-s2	Float64	warm	cyclic-dense	false	NaN	170	0.02262445016330948	nonoptimal	missing	
+SW0.2-s2	Float64	warm	random-owner	false	NaN	136	0.01803884921482152	nonoptimal	missing	
+SW0.2-s2	Float32	zero	cyclic-dense	false	NaN	184	0.010921361174492819	nonoptimal	missing	
+SW0.2-s2	Float32	zero	random-owner	false	NaN	197	0.005527175590246001	nonoptimal	missing	
+SW0.2-s2	Float32	lnfit	cyclic-dense	false	NaN	1	0.7142698845479244	nonoptimal	missing	
+SW0.2-s2	Float32	lnfit	random-owner	false	NaN	1	0.7142699047525446	nonoptimal	missing	
+SW0.2-s2	Float32	warm	cyclic-dense	false	NaN	125	0.02262511525251216	nonoptimal	missing	
+SW0.2-s2	Float32	warm	random-owner	false	NaN	178	0.008193103455598063	nonoptimal	missing	
+SW0.2-s3	Float64	zero	cyclic-dense	false	NaN	267	0.009562468848596357	nonoptimal	missing	
+SW0.2-s3	Float64	zero	random-owner	false	NaN	245	0.004664419977762481	nonoptimal	missing	
+SW0.2-s3	Float64	lnfit	cyclic-dense	false	NaN	3	0.8046470268437874	nonoptimal	missing	
+SW0.2-s3	Float64	lnfit	random-owner	false	NaN	3	0.8046470268437856	nonoptimal	missing	
+SW0.2-s3	Float64	warm	cyclic-dense	false	NaN	267	0.008237184482824542	nonoptimal	missing	
+SW0.2-s3	Float64	warm	random-owner	false	NaN	181	0.010302705115760086	nonoptimal	missing	
+SW0.2-s3	Float32	zero	cyclic-dense	false	NaN	218	0.009562963989721802	nonoptimal	missing	
+SW0.2-s3	Float32	zero	random-owner	false	NaN	202	0.0063110927533930414	nonoptimal	missing	
+SW0.2-s3	Float32	lnfit	cyclic-dense	false	NaN	1	0.8046470766894552	nonoptimal	missing	
+SW0.2-s3	Float32	lnfit	random-owner	false	NaN	1	0.8046470318017533	nonoptimal	missing	
+SW0.2-s3	Float32	warm	cyclic-dense	false	NaN	223	0.008237628142637291	nonoptimal	missing	
+SW0.2-s3	Float32	warm	random-owner	false	NaN	165	0.005639614093342147	nonoptimal	missing	
+SW0.2-s4	Float64	zero	cyclic-dense	false	NaN	336	0.010506410854687365	nonoptimal	missing	
+SW0.2-s4	Float64	zero	random-owner	false	NaN	211	0.00539113177752064	nonoptimal	missing	
+SW0.2-s4	Float64	lnfit	cyclic-dense	false	NaN	3	0.8060660896519478	nonoptimal	missing	
+SW0.2-s4	Float64	lnfit	random-owner	false	NaN	3	0.8060660896519464	nonoptimal	missing	
+SW0.2-s4	Float64	warm	cyclic-dense	false	NaN	291	0.007726440152490589	nonoptimal	missing	
+SW0.2-s4	Float64	warm	random-owner	false	NaN	201	0.014218799149253546	nonoptimal	missing	
+SW0.2-s4	Float32	zero	cyclic-dense	false	NaN	252	0.010506905385882677	nonoptimal	missing	
+SW0.2-s4	Float32	zero	random-owner	false	NaN	222	0.005424226115203903	nonoptimal	missing	
+SW0.2-s4	Float32	lnfit	cyclic-dense	false	NaN	1	0.8060661945740142	nonoptimal	missing	
+SW0.2-s4	Float32	lnfit	random-owner	false	NaN	1	0.8060661305582325	nonoptimal	missing	
+SW0.2-s4	Float32	warm	cyclic-dense	false	NaN	220	0.00772702015731794	nonoptimal	missing	
+SW0.2-s4	Float32	warm	random-owner	false	NaN	132	0.00864358172336273	nonoptimal	missing	
+SW0.3-s1	Float64	zero	cyclic-dense	false	NaN	5904	1.664471995363371e-5	missed-cert	missing	
+SW0.3-s1	Float64	zero	random-owner	false	NaN	903	4.9069008439255246e-11	missed-cert	missing	
+SW0.3-s1	Float64	lnfit	cyclic-dense	false	NaN	3	0.785496290306592	nonoptimal	missing	
+SW0.3-s1	Float64	lnfit	random-owner	false	NaN	3	0.7854962903066027	nonoptimal	missing	
+SW0.3-s1	Float64	warm	cyclic-dense	false	NaN	3427	2.6641188021770792e-5	missed-cert	missing	
+SW0.3-s1	Float64	warm	random-owner	false	NaN	986	5.459187973943971e-11	missed-cert	missing	
+SW0.3-s1	Float32	zero	cyclic-dense	false	NaN	2364	1.773492417214414e-5	missed-cert	missing	
+SW0.3-s1	Float32	zero	random-owner	false	NaN	613	6.247883929538638e-7	missed-cert	missing	
+SW0.3-s1	Float32	lnfit	cyclic-dense	false	NaN	1	0.7854960822541558	nonoptimal	missing	
+SW0.3-s1	Float32	lnfit	random-owner	false	NaN	1	0.7854959467706237	nonoptimal	missing	
+SW0.3-s1	Float32	warm	cyclic-dense	false	NaN	1499	2.7468102164529083e-5	missed-cert	missing	
+SW0.3-s1	Float32	warm	random-owner	false	NaN	737	5.531488151790485e-7	missed-cert	missing	
+SW0.3-s2	Float64	zero	cyclic-dense	true	6.991413620046953e-6	733	4.9693177239801027e-11	certified	true	-6.991363926869713e-6
+SW0.3-s2	Float64	zero	random-owner	true	6.089601412335693e-6	338	3.0259840140598867e-11	certified	true	-6.089571152495553e-6
+SW0.3-s2	Float64	lnfit	cyclic-dense	false	NaN	3	0.721880678959762	nonoptimal	missing	
+SW0.3-s2	Float64	lnfit	random-owner	false	NaN	3	0.7218806789598057	nonoptimal	missing	
+SW0.3-s2	Float64	warm	cyclic-dense	true	3.886858360800558e-6	717	4.4457919067528965e-11	certified	true	-3.88681390288149e-6
+SW0.3-s2	Float64	warm	random-owner	true	5.943049311327654e-6	265	2.317650794714377e-11	certified	true	-5.943026134819707e-6
+SW0.3-s2	Float32	zero	cyclic-dense	true	2.2435157e-5	725	6.04215661783705e-11	certified	true	-2.2435096585273113e-5
+SW0.3-s2	Float32	zero	random-owner	true	7.831805e-6	333	2.966195712902283e-11	certified	true	-7.831775643656542e-6
+SW0.3-s2	Float32	lnfit	cyclic-dense	false	NaN	1	0.7218802751772159	nonoptimal	missing	
+SW0.3-s2	Float32	lnfit	random-owner	false	NaN	1	0.7218801779153113	nonoptimal	missing	
+SW0.3-s2	Float32	warm	cyclic-dense	true	1.4901069e-5	717	4.4014092752612854e-11	certified	true	-1.4901025320790024e-5
+SW0.3-s2	Float32	warm	random-owner	true	5.4719626e-6	302	2.2124628546854615e-11	certified	true	-5.471940470409802e-6
+SW0.3-s3	Float64	zero	cyclic-dense	true	2.1518804396779244e-5	350	2.639774266118298e-11	certified	true	-2.1518777999036583e-5
+SW0.3-s3	Float64	zero	random-owner	true	1.1934669020151957e-5	194	5.365083542255285e-12	certified	true	-1.1934663655068415e-5
+SW0.3-s3	Float64	lnfit	cyclic-dense	false	NaN	3	0.8094392086423432	nonoptimal	missing	
+SW0.3-s3	Float64	lnfit	random-owner	false	NaN	3	0.8094392086423122	nonoptimal	missing	
+SW0.3-s3	Float64	warm	cyclic-dense	true	2.0742887875654067e-5	260	2.613024788282154e-11	certified	true	-2.0742861745406186e-5
+SW0.3-s3	Float64	warm	random-owner	true	6.7436976800154155e-6	143	2.4392674644338805e-12	certified	true	-6.743695240747951e-6
+SW0.3-s3	Float32	zero	cyclic-dense	true	2.1227886e-5	358	1.4300746661831534e-11	certified	true	-2.122787216300163e-5
+SW0.3-s3	Float32	zero	random-owner	true	1.2641918e-5	171	3.3884344694365505e-12	certified	true	-1.264191475854832e-5
+SW0.3-s3	Float32	lnfit	cyclic-dense	false	NaN	1	0.8094386086915731	nonoptimal	missing	
+SW0.3-s3	Float32	lnfit	random-owner	false	NaN	1	0.8094386110115391	nonoptimal	missing	
+SW0.3-s3	Float32	warm	cyclic-dense	true	2.7947543e-5	264	1.6301669019128993e-11	certified	true	-2.794752624697627e-5
+SW0.3-s3	Float32	warm	random-owner	true	9.675838e-6	160	4.537749239430874e-12	certified	true	-9.675833108023606e-6
+SW0.3-s4	Float64	zero	cyclic-dense	true	3.2925522739629803e-6	98	1.1562508011175462e-12	certified	true	-3.2925511177121794e-6
+SW0.3-s4	Float64	zero	random-owner	true	2.700777927934084e-6	95	6.748290432608309e-13	certified	true	-2.7007772531050406e-6
+SW0.3-s4	Float64	lnfit	cyclic-dense	false	NaN	3	0.8406540158474193	nonoptimal	missing	
+SW0.3-s4	Float64	lnfit	random-owner	false	NaN	3	0.8406540158474131	nonoptimal	missing	
+SW0.3-s4	Float64	warm	cyclic-dense	true	3.916881414365753e-6	94	1.0668856338767702e-12	certified	true	-3.916880347480119e-6
+SW0.3-s4	Float64	warm	random-owner	true	2.609863758314385e-6	78	9.157383154009645e-13	certified	true	-2.6098628425760695e-6
+SW0.3-s4	Float32	zero	cyclic-dense	true	2.5853128e-6	98	1.089738422467748e-12	certified	true	-2.5853117238693204e-6
+SW0.3-s4	Float32	zero	random-owner	true	1.5694498e-6	74	5.440426236697575e-13	certified	true	-1.5694492065620664e-6
+SW0.3-s4	Float32	lnfit	cyclic-dense	false	NaN	1	0.8406537436943312	nonoptimal	missing	
+SW0.3-s4	Float32	lnfit	random-owner	false	NaN	1	0.8406535882658306	nonoptimal	missing	
+SW0.3-s4	Float32	warm	cyclic-dense	true	3.792278e-6	95	1.078679289029536e-12	certified	true	-3.792276915173333e-6
+SW0.3-s4	Float32	warm	random-owner	true	1.5851672e-6	77	5.167570104411073e-13	certified	true	-1.5851666665363684e-6
+SW0.4-s1	Float64	zero	cyclic-dense	true	1.8582620539609747e-6	134	1.5530010827321297e-11	certified	true	-1.8582465239501473e-6
+SW0.4-s1	Float64	zero	random-owner	true	1.9103082763135713e-6	82	1.5467577127724716e-11	certified	true	-1.9102928087364434e-6
+SW0.4-s1	Float64	lnfit	cyclic-dense	false	NaN	3	0.8302684845861363	nonoptimal	missing	
+SW0.4-s1	Float64	lnfit	random-owner	false	NaN	3	0.830268484586726	nonoptimal	missing	
+SW0.4-s1	Float64	warm	cyclic-dense	true	1.8677985174834658e-6	64	1.5536752165241513e-11	certified	true	-1.8677829807313005e-6
+SW0.4-s1	Float64	warm	random-owner	true	6.977829964928016e-7	50	1.5392104391953796e-11	certified	true	-6.977676043884096e-7
+SW0.4-s1	Float32	zero	cyclic-dense	true	2.2199458e-6	135	2.3866795859284985e-12	certified	true	-2.219943440484752e-6
+SW0.4-s1	Float32	zero	random-owner	true	2.164565e-6	75	2.237133858117875e-12	certified	true	-2.164562866023798e-6
+SW0.4-s1	Float32	lnfit	cyclic-dense	true	3.4378563e-6	141	2.394562969252782e-12	certified	true	-3.4378539268347337e-6
+SW0.4-s1	Float32	lnfit	random-owner	true	8.7479776e-7	71	2.1972633653451235e-12	certified	true	-8.7479556585402e-7
+SW0.4-s1	Float32	warm	cyclic-dense	true	3.7481911e-6	64	2.4881110609688642e-12	certified	true	-3.74818865956782e-6
+SW0.4-s1	Float32	warm	random-owner	true	8.866335e-7	78	2.259743897435132e-12	certified	true	-8.866312126750099e-7
+SW0.4-s2	Float64	zero	cyclic-dense	true	8.241741744190697e-7	141	3.966779136820263e-13	certified	true	-8.24173777741156e-7
+SW0.4-s2	Float64	zero	random-owner	true	1.4145919272093912e-6	76	2.0454405258007412e-13	certified	true	-1.4145917226653387e-6
+SW0.4-s2	Float64	lnfit	cyclic-dense	false	NaN	3	0.7908480291578036	nonoptimal	missing	
+SW0.4-s2	Float64	lnfit	random-owner	false	NaN	3	0.7908480291602225	nonoptimal	missing	
+SW0.4-s2	Float64	warm	cyclic-dense	true	8.382376413269416e-7	113	1.973518849028235e-13	certified	true	-8.382374439750567e-7
+SW0.4-s2	Float64	warm	random-owner	true	1.0900005241356605e-6	79	1.8495365334714714e-13	certified	true	-1.0900003391820073e-6
+SW0.4-s2	Float32	zero	cyclic-dense	true	2.3205218e-6	141	6.325494922502864e-13	certified	true	-2.3205212114630543e-6
+SW0.4-s2	Float32	zero	random-owner	true	8.517465e-7	89	1.888193420141639e-13	certified	true	-8.517463173947707e-7
+SW0.4-s2	Float32	lnfit	cyclic-dense	true	2.7682627e-6	134	5.443830164848214e-13	certified	true	-2.768262130707211e-6
+SW0.4-s2	Float32	lnfit	random-owner	true	1.3042919e-6	99	1.4829059937870934e-13	certified	true	-1.3042917652935664e-6
+SW0.4-s2	Float32	warm	cyclic-dense	true	2.3227176e-6	114	4.49242326264967e-13	certified	true	-2.3227171423539754e-6
+SW0.4-s2	Float32	warm	random-owner	true	6.9966745e-7	81	5.289121952720388e-14	certified	true	-6.996673999724308e-7
+SW0.4-s3	Float64	zero	cyclic-dense	true	9.248400440365235e-7	54	2.3841830353668957e-11	certified	true	-9.248162022061699e-7
+SW0.4-s3	Float64	zero	random-owner	true	3.2260833469858385e-7	72	2.3803465333888845e-11	certified	true	-3.2258453123324994e-7
+SW0.4-s3	Float64	lnfit	cyclic-dense	false	NaN	3	0.8722951440807168	nonoptimal	missing	
+SW0.4-s3	Float64	lnfit	random-owner	false	NaN	3	0.8722951440794989	nonoptimal	missing	
+SW0.4-s3	Float64	warm	cyclic-dense	true	6.5394135398709e-7	42	2.383681054408899e-11	certified	true	-6.539175171765459e-7
+SW0.4-s3	Float64	warm	random-owner	true	9.442540939388846e-7	53	2.3842958768109044e-11	certified	true	-9.442302509801165e-7
+SW0.4-s3	Float32	zero	cyclic-dense	true	1.0605105e-6	54	2.3830903388705277e-11	certified	true	-1.0604866680702105e-6
+SW0.4-s3	Float32	zero	random-owner	true	1.0853627e-6	53	2.384118801775861e-11	certified	true	-1.085338827885202e-6
+SW0.4-s3	Float32	lnfit	cyclic-dense	true	1.9808986e-6	63	2.399435797128142e-11	certified	true	-1.9808745654922036e-6
+SW0.4-s3	Float32	lnfit	random-owner	true	1.2532622e-6	45	2.3897466048701726e-11	certified	true	-1.253238314764717e-6
+SW0.4-s3	Float32	warm	cyclic-dense	true	3.6960598e-6	42	2.403681796265575e-11	certified	true	-3.6960357840499958e-6
+SW0.4-s3	Float32	warm	random-owner	true	9.405397e-7	40	2.3819192591535016e-11	certified	true	-9.405158589477481e-7
+SW0.4-s4	Float64	zero	cyclic-dense	true	5.95565104325142e-7	36	1.0978078952138732e-10	certified	true	-5.954553235356205e-7
+SW0.4-s4	Float64	zero	random-owner	true	1.883864514056008e-7	50	1.0975856665835127e-10	certified	true	-1.8827669283894244e-7
+SW0.4-s4	Float64	lnfit	cyclic-dense	false	NaN	3	0.9492459823736433	nonoptimal	missing	
+SW0.4-s4	Float64	lnfit	random-owner	false	NaN	3	0.9492459823735971	nonoptimal	missing	
+SW0.4-s4	Float64	warm	cyclic-dense	true	5.805222609852761e-7	38	1.0977100609724653e-10	certified	true	-5.804124899791788e-7
+SW0.4-s4	Float64	warm	random-owner	true	4.07544640049788e-7	31	1.0975220726605109e-10	certified	true	-4.0743488784252195e-7
+SW0.4-s4	Float32	zero	cyclic-dense	true	7.1859574e-7	36	7.15019487212287e-14	certified	true	-7.185956714081622e-7
+SW0.4-s4	Float32	zero	random-owner	true	1.1657801e-6	51	1.125557113409806e-13	certified	true	-1.165779964361433e-6
+SW0.4-s4	Float32	lnfit	cyclic-dense	true	1.66667e-6	46	1.61070337899586e-13	certified	true	-1.6666697983066939e-6
+SW0.4-s4	Float32	lnfit	random-owner	true	6.748329e-7	42	9.836505184860595e-14	certified	true	-6.748328058588247e-7
+SW0.4-s4	Float32	warm	cyclic-dense	true	1.153389e-6	38	1.0147294689665704e-13	certified	true	-1.1533889059404055e-6
+SW0.4-s4	Float32	warm	random-owner	true	9.012511e-7	45	9.540418047498472e-14	certified	true	-9.012510032352968e-7
+C95-s1	Float64	zero	cyclic-dense	false	NaN	1547	1.955024781307038e-10	missed-cert	missing	
+C95-s1	Float64	zero	random-owner	false	NaN	561	1.8745331980450823e-10	missed-cert	missing	
+C95-s1	Float64	lnfit	cyclic-dense	false	NaN	3	1.1067514962639373	nonoptimal	missing	
+C95-s1	Float64	lnfit	random-owner	false	NaN	3	1.1067514962639375	nonoptimal	missing	
+C95-s1	Float64	warm	cyclic-dense	false	NaN	1595	2.0343233197251694e-10	missed-cert	missing	
+C95-s1	Float64	warm	random-owner	false	NaN	396	2.2287813852873486e-10	missed-cert	missing	
+C95-s1	Float32	zero	cyclic-dense	false	NaN	934	1.2854780538790236e-6	missed-cert	missing	
+C95-s1	Float32	zero	random-owner	false	NaN	448	1.0199131808108237e-6	missed-cert	missing	
+C95-s1	Float32	lnfit	cyclic-dense	false	NaN	1	1.106751149401836	nonoptimal	missing	
+C95-s1	Float32	lnfit	random-owner	false	NaN	1	1.1067510926715607	nonoptimal	missing	
+C95-s1	Float32	warm	cyclic-dense	false	NaN	995	1.1872490873638901e-6	missed-cert	missing	
+C95-s1	Float32	warm	random-owner	false	NaN	256	5.382049246045517e-7	missed-cert	missing	
+C95-s2	Float64	zero	cyclic-dense	true	4.559056938658157e-6	287	1.1800058344631913e-12	certified	true	-4.559055758652322e-6
+C95-s2	Float64	zero	random-owner	true	1.6475617610169491e-6	229	3.967369179288232e-13	certified	true	-1.6475613642800311e-6
+C95-s2	Float64	lnfit	cyclic-dense	false	NaN	3	1.2573874695378653	nonoptimal	missing	
+C95-s2	Float64	lnfit	random-owner	false	NaN	3	1.257387469537869	nonoptimal	missing	
+C95-s2	Float64	warm	cyclic-dense	true	4.4880500926514235e-6	568	1.7612686868009636e-12	certified	true	-4.488048331382737e-6
+C95-s2	Float64	warm	random-owner	true	3.2541134917988455e-6	118	8.815494765022422e-13	certified	true	-3.254112610249369e-6
+C95-s2	Float32	zero	cyclic-dense	true	3.1964514e-6	285	1.6064704595748145e-12	certified	true	-3.1964498099724097e-6
+C95-s2	Float32	zero	random-owner	true	2.2483734e-6	259	7.860646791092592e-13	certified	true	-2.2483726622456244e-6
+C95-s2	Float32	lnfit	cyclic-dense	false	NaN	1	1.2573872755489122	nonoptimal	missing	
+C95-s2	Float32	lnfit	random-owner	false	NaN	1	1.257387219291678	nonoptimal	missing	
+C95-s2	Float32	warm	cyclic-dense	true	1.1255646e-5	562	2.113991096601965e-12	certified	true	-1.1255644199665957e-5
+C95-s2	Float32	warm	random-owner	true	2.1078354e-6	109	1.2972919870839737e-12	certified	true	-2.107834073842583e-6
+C95-s3	Float64	zero	cyclic-dense	true	2.0437816238327805e-6	995	7.626074244988096e-13	certified	true	-2.043780861225356e-6
+C95-s3	Float64	zero	random-owner	true	5.168158301920331e-6	284	2.0339150806876194e-12	certified	true	-5.16815626800525e-6
+C95-s3	Float64	lnfit	cyclic-dense	false	NaN	3	1.3741726687064737	nonoptimal	missing	
+C95-s3	Float64	lnfit	random-owner	false	NaN	3	1.3741726687064804	nonoptimal	missing	
+C95-s3	Float64	warm	cyclic-dense	true	2.516843682439464e-6	921	1.1992975972936833e-12	certified	true	-2.516842483141867e-6
+C95-s3	Float64	warm	random-owner	true	7.843591332378605e-7	198	4.876826296014789e-13	certified	true	-7.843586455552308e-7
+C95-s3	Float32	zero	cyclic-dense	true	3.0273304e-6	990	1.1643155267855205e-12	certified	true	-3.0273292575853154e-6
+C95-s3	Float32	zero	random-owner	true	3.109291e-6	303	1.356352104691748e-12	certified	true	-3.1092895448410578e-6
+C95-s3	Float32	lnfit	cyclic-dense	false	NaN	1	1.3741725271468324	nonoptimal	missing	
+C95-s3	Float32	lnfit	random-owner	false	NaN	3	1.374172035623984	nonoptimal	missing	
+C95-s3	Float32	warm	cyclic-dense	true	4.344585e-6	918	1.7702798874020998e-12	certified	true	-4.344583024755302e-6
+C95-s3	Float32	warm	random-owner	true	1.2906766e-6	273	7.549247158930837e-13	certified	true	-1.2906757956002338e-6
+C95-s4	Float64	zero	cyclic-dense	true	4.945901636966796e-6	1279	2.0662263891617236e-12	certified	true	-4.945899570740406e-6
+C95-s4	Float64	zero	random-owner	true	6.318103201699478e-7	325	1.943778459561089e-12	certified	true	-6.318083763914883e-7
+C95-s4	Float64	lnfit	cyclic-dense	false	NaN	3	1.2241311559184134	nonoptimal	missing	
+C95-s4	Float64	lnfit	random-owner	false	NaN	3	1.224131155918414	nonoptimal	missing	
+C95-s4	Float64	warm	cyclic-dense	true	3.6334676567944792e-6	1080	1.1018628916176158e-12	certified	true	-3.6334665549315876e-6
+C95-s4	Float64	warm	random-owner	true	2.067560046692937e-6	226	2.568865798130701e-12	certified	true	-2.067557477827139e-6
+C95-s4	Float32	zero	cyclic-dense	true	1.5812013e-5	1286	3.135199221853026e-12	certified	true	-1.5812009726516407e-5
+C95-s4	Float32	zero	random-owner	true	4.387225e-6	247	9.76675258143191e-13	certified	true	-4.387224113210502e-6
+C95-s4	Float32	lnfit	cyclic-dense	false	NaN	1	1.2241312082440854	nonoptimal	missing	
+C95-s4	Float32	lnfit	random-owner	false	NaN	1	1.2241312105818767	nonoptimal	missing	
+C95-s4	Float32	warm	cyclic-dense	true	8.459409e-6	1082	1.5036126109906524e-12	certified	true	-8.459407896917082e-6
+C95-s4	Float32	warm	random-owner	true	6.3115745e-6	124	1.2158753240351504e-12	certified	true	-6.311573236535827e-6
+C95-s5	Float64	zero	cyclic-dense	true	8.87904553984804e-6	824	2.941860797866451e-12	certified	true	-8.879042597987242e-6
+C95-s5	Float64	zero	random-owner	true	2.8851169947458648e-6	254	1.595094484926169e-12	certified	true	-2.88511539965138e-6
+C95-s5	Float64	lnfit	cyclic-dense	false	NaN	3	1.1012549658649622	nonoptimal	missing	
+C95-s5	Float64	lnfit	random-owner	false	NaN	3	1.1012549658649615	nonoptimal	missing	
+C95-s5	Float64	warm	cyclic-dense	true	1.0620294084023003e-5	541	2.1600275533573216e-12	certified	true	-1.062029192399545e-5
+C95-s5	Float64	warm	random-owner	true	2.7226091765028045e-6	185	1.1478090693098605e-12	certified	true	-2.722608028693735e-6
+C95-s5	Float32	zero	cyclic-dense	true	7.0245906e-6	830	2.8427732524263932e-12	certified	true	-7.02458771623947e-6
+C95-s5	Float32	zero	random-owner	true	7.657708e-6	276	6.444439732913484e-13	certified	true	-7.65770736636692e-6
+C95-s5	Float32	lnfit	cyclic-dense	false	NaN	1	1.1012548301965293	nonoptimal	missing	
+C95-s5	Float32	lnfit	random-owner	false	NaN	1	1.1012547688665912	nonoptimal	missing	
+C95-s5	Float32	warm	cyclic-dense	true	1.3136874e-5	544	2.1842715528834672e-12	certified	true	-1.3136872074363082e-5
+C95-s5	Float32	warm	random-owner	true	2.4279805e-6	177	8.257770544517913e-13	certified	true	-2.427979636239367e-6
+C95-s6	Float64	zero	cyclic-dense	true	3.0789867751757027e-6	467	1.1780055633671553e-12	certified	true	-3.078985597170139e-6
+C95-s6	Float64	zero	random-owner	true	2.5517946479869535e-6	283	8.375085438071302e-13	certified	true	-2.5517938104784098e-6
+C95-s6	Float64	lnfit	cyclic-dense	false	NaN	3	1.1639491176563468	nonoptimal	missing	
+C95-s6	Float64	lnfit	random-owner	false	NaN	3	1.1639491176563452	nonoptimal	missing	
+C95-s6	Float64	warm	cyclic-dense	true	1.6437990216711038e-6	764	4.072394790898819e-13	certified	true	-1.6437986144316246e-6
+C95-s6	Float64	warm	random-owner	true	3.987124122801539e-7	104	1.0026609081298643e-12	certified	true	-3.9871140961924575e-7
+C95-s6	Float32	zero	cyclic-dense	true	4.6143023e-6	466	1.3909331348780826e-12	certified	true	-4.614300879123079e-6
+C95-s6	Float32	zero	random-owner	true	6.520341e-7	311	3.866900335410581e-13	certified	true	-6.520337022537313e-7
+C95-s6	Float32	lnfit	cyclic-dense	false	NaN	1	1.1639488510874976	nonoptimal	missing	
+C95-s6	Float32	lnfit	random-owner	false	NaN	1	1.1639488744651616	nonoptimal	missing	
+C95-s6	Float32	warm	cyclic-dense	true	1.2880233e-6	759	6.452003008461738e-13	certified	true	-1.2880226819059017e-6
+C95-s6	Float32	warm	random-owner	true	3.3831117e-7	182	3.5176431368125317e-13	certified	true	-3.383108157604937e-7
+D10-s1	Float64	zero	cyclic-dense	false	NaN	178	0.06267097024926004	nonoptimal	missing	
+D10-s1	Float64	zero	random-owner	false	NaN	111	4.2457496381512326e-7	missed-cert	missing	
+D10-s1	Float64	lnfit	cyclic-dense	false	NaN	3	0.4452904682005568	nonoptimal	missing	
+D10-s1	Float64	lnfit	random-owner	false	NaN	3	0.4452904682005565	nonoptimal	missing	
+D10-s1	Float64	warm	cyclic-dense	false	NaN	169	0.13204357195449923	nonoptimal	missing	
+D10-s1	Float64	warm	random-owner	false	NaN	113	0.0423184751656039	nonoptimal	missing	
+D10-s1	Float32	zero	cyclic-dense	false	NaN	100	0.06267353942672296	nonoptimal	missing	
+D10-s1	Float32	zero	random-owner	false	NaN	72	0.45702179898974643	nonoptimal	missing	
+D10-s1	Float32	lnfit	cyclic-dense	false	NaN	1	0.44529096318804523	nonoptimal	missing	
+D10-s1	Float32	lnfit	random-owner	false	NaN	1	0.4452909616924985	nonoptimal	missing	
+D10-s1	Float32	warm	cyclic-dense	false	NaN	93	0.13204942811092332	nonoptimal	missing	
+D10-s1	Float32	warm	random-owner	false	NaN	64	0.09108236645907476	nonoptimal	missing	
+D10-s2	Float64	zero	cyclic-dense	false	NaN	160	0.2896883688268445	nonoptimal	missing	
+D10-s2	Float64	zero	random-owner	false	NaN	69	2.29253681908528e-7	missed-cert	missing	
+D10-s2	Float64	lnfit	cyclic-dense	false	NaN	3	0.4338564466051454	nonoptimal	missing	
+D10-s2	Float64	lnfit	random-owner	false	NaN	3	0.4338564466051432	nonoptimal	missing	
+D10-s2	Float64	warm	cyclic-dense	false	NaN	170	0.028939878438450826	nonoptimal	missing	
+D10-s2	Float64	warm	random-owner	false	NaN	159	0.0027669381791951093	nonoptimal	missing	
+D10-s2	Float32	zero	cyclic-dense	false	NaN	94	0.28969207754613613	nonoptimal	missing	
+D10-s2	Float32	zero	random-owner	false	NaN	47	0.13958347943662533	nonoptimal	missing	
+D10-s2	Float32	lnfit	cyclic-dense	false	NaN	1	0.43385671143978516	nonoptimal	missing	
+D10-s2	Float32	lnfit	random-owner	false	NaN	1	0.4338565714013644	nonoptimal	missing	
+D10-s2	Float32	warm	cyclic-dense	false	NaN	88	0.028944749216376398	nonoptimal	missing	
+D10-s2	Float32	warm	random-owner	false	NaN	40	1.2186471511495463e-6	missed-cert	missing	
+D10-s3	Float64	zero	cyclic-dense	false	NaN	178	0.15859001727802974	nonoptimal	missing	
+D10-s3	Float64	zero	random-owner	false	NaN	265	0.07754937546651325	nonoptimal	missing	
+D10-s3	Float64	lnfit	cyclic-dense	false	NaN	3	0.45600137085158987	nonoptimal	missing	
+D10-s3	Float64	lnfit	random-owner	false	NaN	3	0.45600137085158826	nonoptimal	missing	
+D10-s3	Float64	warm	cyclic-dense	false	NaN	362	0.06991173489880788	nonoptimal	missing	
+D10-s3	Float64	warm	random-owner	false	NaN	128	0.07090348007282367	nonoptimal	missing	
+D10-s3	Float32	zero	cyclic-dense	false	NaN	50	0.15859141301537574	nonoptimal	missing	
+D10-s3	Float32	zero	random-owner	false	NaN	82	0.03685522172424527	nonoptimal	missing	
+D10-s3	Float32	lnfit	cyclic-dense	false	NaN	1	0.45600180806499224	nonoptimal	missing	
+D10-s3	Float32	lnfit	random-owner	false	NaN	1	0.45600172934202393	nonoptimal	missing	
+D10-s3	Float32	warm	cyclic-dense	false	NaN	181	0.06992591427678528	nonoptimal	missing	
+D10-s3	Float32	warm	random-owner	false	NaN	69	0.11050066479173351	nonoptimal	missing	
+D10-s4	Float64	zero	cyclic-dense	false	NaN	839	0.012111734725520748	nonoptimal	missing	
+D10-s4	Float64	zero	random-owner	false	NaN	216	0.08687877978927096	nonoptimal	missing	
+D10-s4	Float64	lnfit	cyclic-dense	false	NaN	3	0.5810142652829217	nonoptimal	missing	
+D10-s4	Float64	lnfit	random-owner	false	NaN	3	0.5810142652829209	nonoptimal	missing	
+D10-s4	Float64	warm	cyclic-dense	false	NaN	625	0.08134122724242454	nonoptimal	missing	
+D10-s4	Float64	warm	random-owner	false	NaN	136	0.008682723198212764	nonoptimal	missing	
+D10-s4	Float32	zero	cyclic-dense	false	NaN	296	0.01212822086912229	nonoptimal	missing	
+D10-s4	Float32	zero	random-owner	false	NaN	122	0.006637243953253539	nonoptimal	missing	
+D10-s4	Float32	lnfit	cyclic-dense	false	NaN	1	0.5810146442433745	nonoptimal	missing	
+D10-s4	Float32	lnfit	random-owner	false	NaN	1	0.5810145689885868	nonoptimal	missing	
+D10-s4	Float32	warm	cyclic-dense	false	NaN	314	0.08135511449813795	nonoptimal	missing	
+D10-s4	Float32	warm	random-owner	false	NaN	65	0.13933164191069103	nonoptimal	missing	
+D10-s5	Float64	zero	cyclic-dense	false	NaN	200	4.398981711317335e-5	missed-cert	missing	
+D10-s5	Float64	zero	random-owner	false	NaN	57	2.1183533215375523e-9	missed-cert	missing	
+D10-s5	Float64	lnfit	cyclic-dense	false	NaN	3	0.45301262391498986	nonoptimal	missing	
+D10-s5	Float64	lnfit	random-owner	false	NaN	3	0.45301262391498875	nonoptimal	missing	
+D10-s5	Float64	warm	cyclic-dense	false	NaN	157	0.08870754748164701	nonoptimal	missing	
+D10-s5	Float64	warm	random-owner	false	NaN	86	0.07953595317527269	nonoptimal	missing	
+D10-s5	Float32	zero	cyclic-dense	false	NaN	107	4.673409716389664e-5	missed-cert	missing	
+D10-s5	Float32	zero	random-owner	false	NaN	56	6.38503357454943e-7	missed-cert	missing	
+D10-s5	Float32	lnfit	cyclic-dense	false	NaN	1	0.4530129325843827	nonoptimal	missing	
+D10-s5	Float32	lnfit	random-owner	false	NaN	1	0.453012977614344	nonoptimal	missing	
+D10-s5	Float32	warm	cyclic-dense	false	NaN	85	0.08871080819226045	nonoptimal	missing	
+D10-s5	Float32	warm	random-owner	false	NaN	139	0.027533757284371407	nonoptimal	missing	
+D10-s6	Float64	zero	cyclic-dense	false	NaN	127	0.0017334804522568666	nonoptimal	missing	
+D10-s6	Float64	zero	random-owner	false	NaN	68	0.652316687587323	nonoptimal	missing	
+D10-s6	Float64	lnfit	cyclic-dense	false	NaN	3	0.6034017747703241	nonoptimal	missing	
+D10-s6	Float64	lnfit	random-owner	false	NaN	3	0.6034017747703231	nonoptimal	missing	
+D10-s6	Float64	warm	cyclic-dense	false	NaN	78	0.13796039874308386	nonoptimal	missing	
+D10-s6	Float64	warm	random-owner	false	NaN	101	0.03439663941218136	nonoptimal	missing	
+D10-s6	Float32	zero	cyclic-dense	false	NaN	97	0.0017349517233767179	nonoptimal	missing	
+D10-s6	Float32	zero	random-owner	false	NaN	53	0.7670973798851707	nonoptimal	missing	
+D10-s6	Float32	lnfit	cyclic-dense	false	NaN	1	0.6034022440496802	nonoptimal	missing	
+D10-s6	Float32	lnfit	random-owner	false	NaN	1	0.603402211141705	nonoptimal	missing	
+D10-s6	Float32	warm	cyclic-dense	false	NaN	40	0.13796286150109469	nonoptimal	missing	
+D10-s6	Float32	warm	random-owner	false	NaN	54	9.07515010306212e-5	missed-cert	missing	

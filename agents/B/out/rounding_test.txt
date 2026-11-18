@@ -1,0 +1,6 @@
+Float32 naive-T says decrease but truth increase (fooled)                     1
+Float32 naive-T says no decrease but truth decrease (missed)                  21
+Float32 rigorous refuses a true increase (correct)                            2
+Float32 steps                                                                 1014
+Float32 true-increase-steps                                                   2
+Float64 steps                                                                 1047

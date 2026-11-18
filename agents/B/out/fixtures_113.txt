@@ -1,0 +1,54 @@
+== A155 Float64 stage1 x=[1.0, -1.0] conv=false F=0.2
+  C: (passes = 6, ρ = 2.2856162378720253, dstatus = :descent, visits = 12, accepted = true, t = 0.8336250243043402, Fold = 0.2, Fnew = 0.09218711305149563) β_new=[0.0832625024304341, 0.0]
+  B: (accepted = true, passes = 0, visits = 2, ρ = 20.00024999843862) β_new=[0.0, -4.999750012513182e-5]
+  A1: (accepted = true, passes = 0, visits = 0) β_new=[0.0, 0.0]
+  pipeline C: conv=true excess=1.6146806114418192e-12 nnz=0 (esc = 1, att = 1, escpasses = 6, escvisits = 12, respasses = 3, escsec = 2.141e-5)
+  pipeline B: conv=true excess=1.6146806114418192e-12 nnz=0 (esc = 1, att = 1, escpasses = 0, escvisits = 2, respasses = 3, escsec = 2.2986e-5)
+  pipeline D: conv=true excess=1.6146806114418192e-12 nnz=0 (esc = 1, att = 1, escpasses = 1196, escvisits = 2392, respasses = 0, escsec = 7.5102e-5)
+  pipeline E: conv=true excess=1.6146806114418192e-12 nnz=0 (esc = 1, att = 1, escpasses = 1, escvisits = 2, respasses = 0, escsec = 1.146e-5)
+  pipeline A2: conv=true excess=1.6146806114418192e-12 nnz=0 (esc = 1, att = 1, escpasses = 0, escvisits = 0, respasses = 1, escsec = 1.218e-5)
+== A156 Float64 stage1 x=[1.0, 0.0] conv=false F=0.1
+  C: (passes = 34, ρ = 0.14142135510016798, dstatus = :converged, visits = 68, accepted = false, t = NaN) β_new=nothing
+  B: (accepted = false, passes = 0, visits = 0, ρ = 0.0) β_new=nothing
+  A1: (accepted = false, passes = 0, visits = 0) β_new=nothing
+  pipeline C: conv=false excess=0.0 nnz=1 (esc = 0, att = 1, escpasses = 34, escvisits = 68, respasses = 0, escsec = 3.155e-6)
+  pipeline B: conv=false excess=0.0 nnz=1 (esc = 0, att = 1, escpasses = 0, escvisits = 0, respasses = 0, escsec = 1.1e-6)
+  pipeline D: conv=true excess=1.3348049176602611e-5 nnz=2 (esc = 3, att = 3, escpasses = 101, escvisits = 202, respasses = 0, escsec = 1.872e-5)
+  pipeline E: conv=false excess=0.0 nnz=1 (esc = 0, att = 1, escpasses = 1029, escvisits = 2058, respasses = 0, escsec = 5.3376e-5)
+  pipeline A2: conv=false excess=0.0 nnz=1 (esc = 0, att = 1, escpasses = 0, escvisits = 0, respasses = 3, escsec = 4.526e-6)
+== AI3 Float64 stage1 x=[1.0, 1.0, 1.0] conv=false F=1.9500000000000002
+  C: (passes = 2, ρ = 1.12583302491977, dstatus = :converged, visits = 6, accepted = true, t = 1.5384615384615383, Fold = 1.9500000000000002, Fnew = 1.7320508075688772) β_new=[0.0, 0.0, 0.0]
+  B: (accepted = false, passes = 0, visits = 4, ρ = 0.9192388155425119) β_new=nothing
+  A1: (accepted = true, passes = 0, visits = 0) β_new=[0.0, 0.0, 0.0]
+  pipeline C: conv=true excess=1.7620996788071535e-14 nnz=0 (esc = 1, att = 1, escpasses = 2, escvisits = 6, respasses = 1, escsec = 1.949e-6)
+  pipeline B: conv=false excess=0.12583302491979012 nnz=3 (esc = 0, att = 1, escpasses = 0, escvisits = 4, respasses = 0, escsec = 4.23e-7)
+  pipeline D: conv=true excess=1.7620996788071535e-14 nnz=0 (esc = 1, att = 1, escpasses = 13, escvisits = 39, respasses = 0, escsec = 2.744e-6)
+  pipeline E: conv=true excess=1.7620996788071535e-14 nnz=0 (esc = 1, att = 1, escpasses = 1, escvisits = 3, respasses = 0, escsec = 1.011e-6)
+  pipeline A2: conv=true excess=1.7620996788071535e-14 nnz=0 (esc = 1, att = 1, escpasses = 0, escvisits = 0, respasses = 1, escsec = 8.28e-7)
+== A155 Float32 stage1 x=Float32[1.0, -1.0] conv=false F=0.20000000298023224
+  C: (passes = 6, ρ = 2.2856154808758387, dstatus = :descent, visits = 12, accepted = true, t = 0.8336248854569336, Fold = 0.20000000298023224, Fnew = 0.09218714650207015) β_new=Float32[0.08326253, 0.0]
+  B: (accepted = true, passes = 0, visits = 2, ρ = 20.00025074350241) β_new=Float32[0.0, -4.998529f-5]
+  A1: (accepted = true, passes = 0, visits = 0) β_new=Float32[0.0, 0.0]
+  pipeline C: conv=true excess=1.612772451666512e-12 nnz=0 (esc = 1, att = 1, escpasses = 6, escvisits = 12, respasses = 3, escsec = 1.9517e-5)
+  pipeline B: conv=true excess=1.612772451666512e-12 nnz=0 (esc = 1, att = 1, escpasses = 0, escvisits = 2, respasses = 3, escsec = 4.5639e-5)
+  pipeline D: conv=true excess=1.612772451666512e-12 nnz=0 (esc = 1, att = 1, escpasses = 1196, escvisits = 2392, respasses = 0, escsec = 5.8553e-5)
+  pipeline E: conv=true excess=1.612772451666512e-12 nnz=0 (esc = 1, att = 1, escpasses = 1, escvisits = 2, respasses = 0, escsec = 1.1848e-5)
+  pipeline A2: conv=true excess=1.612772451666512e-12 nnz=0 (esc = 1, att = 1, escpasses = 0, escvisits = 0, respasses = 1, escsec = 1.2111e-5)
+== A156 Float32 stage1 x=Float32[1.0, 0.0] conv=false F=0.10000000149011612
+  C: (passes = 34, ρ = 0.14142135720806057, dstatus = :converged, visits = 68, accepted = false, t = NaN) β_new=nothing
+  B: (accepted = false, passes = 0, visits = 0, ρ = 0.0) β_new=nothing
+  A1: (accepted = false, passes = 0, visits = 0) β_new=nothing
+  pipeline C: conv=false excess=0.0 nnz=1 (esc = 0, att = 1, escpasses = 34, escvisits = 68, respasses = 0, escsec = 1.078e-6)
+  pipeline B: conv=false excess=0.0 nnz=1 (esc = 0, att = 1, escpasses = 0, escvisits = 0, respasses = 0, escsec = 9.3e-8)
+  pipeline D: conv=true excess=1.3393353311465866e-5 nnz=2 (esc = 3, att = 3, escpasses = 82, escvisits = 164, respasses = 0, escsec = 7.93e-6)
+  pipeline E: conv=false excess=0.0 nnz=1 (esc = 0, att = 1, escpasses = 1032, escvisits = 2064, respasses = 0, escsec = 4.2136e-5)
+  pipeline A2: conv=false excess=0.0 nnz=1 (esc = 0, att = 1, escpasses = 0, escvisits = 0, respasses = 3, escsec = 2.336e-6)
+== AI3 Float32 stage1 x=Float32[1.0, 1.0, 1.0] conv=false F=1.9499999284744263
+  C: (passes = 2, ρ = 1.1258329836244612, dstatus = :converged, visits = 6, accepted = true, t = 1.5384615948919735, Fold = 1.9499999284744263, Fnew = 1.7320508075688772) β_new=Float32[0.0, 0.0, 0.0]
+  B: (accepted = false, passes = 0, visits = 4, ρ = 0.919238781825033) β_new=nothing
+  A1: (accepted = true, passes = 0, visits = 0) β_new=Float32[0.0, 0.0, 0.0]
+  pipeline C: conv=true excess=1.7749194300497112e-14 nnz=0 (esc = 1, att = 1, escpasses = 2, escvisits = 6, respasses = 1, escsec = 2.21e-6)
+  pipeline B: conv=false excess=0.12583298362448098 nnz=3 (esc = 0, att = 1, escpasses = 0, escvisits = 4, respasses = 0, escsec = 4.02e-7)
+  pipeline D: conv=true excess=1.7749194300497112e-14 nnz=0 (esc = 1, att = 1, escpasses = 13, escvisits = 39, respasses = 0, escsec = 2.44e-6)
+  pipeline E: conv=true excess=1.7749194300497112e-14 nnz=0 (esc = 1, att = 1, escpasses = 1, escvisits = 3, respasses = 0, escsec = 9.96e-7)
+  pipeline A2: conv=true excess=1.7749194300497112e-14 nnz=0 (esc = 1, att = 1, escpasses = 0, escvisits = 0, respasses = 1, escsec = 8.28e-7)

@@ -1,0 +1,18 @@
+200 uncertified stuck points (cyclic production solver) over catalogues stress/hard/hard2
+optimal stuck points: 48  Bcm certified: 44
+nonoptimal stuck points: 152  Bcm certified (false certs): 0
+false_cert flags: 0
+Optimal but NOT certified by Bcm:
+   stress_ LOWRANK-n30p60-s1 Float64 lnfit n=30 p=60 |S|=5 excess=7.9e-05 ratio=0.018263 status=ok secs=0.0
+   stress_ LOWRANK-n30p60-s1 Float32 lnfit n=30 p=60 |S|=5 excess=7.9e-05 ratio=0.018263 status=ok secs=0.0
+   stress_ LOWRANK-n30p60-s3 Float32 lnfit n=30 p=60 |S|=5 excess=1.0e-09 ratio=0.024197 status=ok secs=0.0
+   hard2_ F156-n50p200k10-16004 Float32 lnfit n=50 p=200 |S|=62 excess=3.1e-05 ratio=0.914840 status=none secs=0.0001
+slowest Bcm calls:
+   WIDE-n100p10000 Float64 lnfit n=100 p=10000 |S|=10000 secs=6.0915 ok=false status=none sweeps=0 optimal=false
+   WIDE-n100p10000 Float32 lnfit n=100 p=10000 |S|=10000 secs=6.0247 ok=false status=none sweeps=0 optimal=false
+   HUGE-n20p60-s1 Float64 lnfit n=20 p=60 |S|=60 secs=1.08 ok=false status=none sweeps=0 optimal=false
+   LARGE-n200p2000-0.05 Float64 lnfit n=200 p=2000 |S|=2000 secs=0.1695 ok=false status=none sweeps=0 optimal=false
+   LARGE-n200p2000-0.05 Float32 lnfit n=200 p=2000 |S|=2000 secs=0.132 ok=false status=none sweeps=0 optimal=false
+   ID1000 Float32 given n=1000 p=1000 |S|=1000 secs=0.0793 ok=false status=none sweeps=0 optimal=false
+   CORR0.99-n100p1000 Float64 lnfit n=100 p=1000 |S|=1000 secs=0.0664 ok=false status=none sweeps=0 optimal=false
+   ID1000 Float64 given n=1000 p=1000 |S|=1000 secs=0.0528 ok=false status=none sweeps=0 optimal=false

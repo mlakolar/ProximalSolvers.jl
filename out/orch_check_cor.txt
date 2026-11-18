@@ -1,0 +1,14 @@
+seed 20185 f 0.05  opt exact=true  conv=false passes=294 excess=1.102e-01 nnz=131
+seed 20185 f 0.20  opt exact=false  conv=true passes=332 excess=1.167e-12 nnz=14
+seed 20186 f 0.05  opt exact=true  conv=false passes=266 excess=2.860e-01 nnz=142
+seed 20186 f 0.20  opt exact=false  conv=true passes=899 excess=4.930e-12 nnz=36
+seed 20187 f 0.05  opt exact=true  conv=false passes=238 excess=2.408e-01 nnz=148
+seed 20187 f 0.20  opt exact=false  conv=true passes=1112 excess=2.216e-12 nnz=28
+seed 20188 f 0.05  opt exact=true  conv=false passes=171 excess=2.622e-01 nnz=150
+seed 20188 f 0.20  opt exact=false  conv=true passes=1055 excess=1.082e-11 nnz=49
+seed 20189 f 0.05  opt exact=true  conv=false passes=324 excess=1.384e-01 nnz=137
+seed 20189 f 0.20  opt exact=false  conv=true passes=782 excess=1.427e-12 nnz=21
+seed 20190 f 0.05  opt exact=true  conv=false passes=176 excess=3.697e-01 nnz=150
+seed 20190 f 0.20  opt exact=true  conv=false passes=1652 excess=1.487e-02 nnz=84
+seed 20191 f 0.05  opt exact=true  conv=false passes=247 excess=3.402e-01 nnz=148
+seed 20191 f 0.20  opt exact=true  conv=false passes=20000 excess=1.387e-03 nnz=68

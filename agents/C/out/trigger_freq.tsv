@@ -1,0 +1,781 @@
+id	fam	T	config	converged	passes	capped	uncertified_stop	gap	cert_code_at_end
+ORD-n60p20-s0.1-f0.02-20001	ordinary n>p	Float64	cyclic	true	52	false	false	4.343845097592083e-5	certified
+ORD-n60p20-s0.1-f0.02-20001	ordinary n>p	Float64	default	true	50	false	false	3.993718961325256e-5	certified
+ORD-n60p20-s0.1-f0.02-20001	ordinary n>p	Float32	cyclic	true	52	false	false	5.1772582e-5	certified
+ORD-n60p20-s0.1-f0.02-20001	ordinary n>p	Float32	default	true	50	false	false	8.694345e-5	certified
+ORD-n60p20-s0.1-f0.02-20002	ordinary n>p	Float64	cyclic	true	90	false	false	1.431021170423464e-6	certified
+ORD-n60p20-s0.1-f0.02-20002	ordinary n>p	Float64	default	true	47	false	false	4.884778192489583e-5	certified
+ORD-n60p20-s0.1-f0.02-20002	ordinary n>p	Float32	cyclic	false	73	false	true	NaN	failed
+ORD-n60p20-s0.1-f0.02-20002	ordinary n>p	Float32	default	true	47	false	false	6.517575e-5	certified
+ORD-n60p20-s0.1-f0.02-20003	ordinary n>p	Float64	cyclic	true	54	false	false	9.74685892823782e-7	certified
+ORD-n60p20-s0.1-f0.02-20003	ordinary n>p	Float64	default	true	48	false	false	5.562235059033113e-5	certified
+ORD-n60p20-s0.1-f0.02-20003	ordinary n>p	Float32	cyclic	false	45	false	true	NaN	failed
+ORD-n60p20-s0.1-f0.02-20003	ordinary n>p	Float32	default	true	48	false	false	8.640017e-5	certified
+ORD-n60p20-s0.1-f0.05-20004	ordinary n>p	Float64	cyclic	true	43	false	false	1.6303363633670104e-5	certified
+ORD-n60p20-s0.1-f0.05-20004	ordinary n>p	Float64	default	true	30	false	false	6.896243777153838e-6	certified
+ORD-n60p20-s0.1-f0.05-20004	ordinary n>p	Float32	cyclic	true	43	false	false	3.455163e-5	certified
+ORD-n60p20-s0.1-f0.05-20004	ordinary n>p	Float32	default	true	31	false	false	1.7254739e-5	certified
+ORD-n60p20-s0.1-f0.05-20005	ordinary n>p	Float64	cyclic	true	29	false	false	1.29888872899124e-5	certified
+ORD-n60p20-s0.1-f0.05-20005	ordinary n>p	Float64	default	true	33	false	false	1.0397198961570944e-5	certified
+ORD-n60p20-s0.1-f0.05-20005	ordinary n>p	Float32	cyclic	true	29	false	false	2.9348015e-5	certified
+ORD-n60p20-s0.1-f0.05-20005	ordinary n>p	Float32	default	true	33	false	false	2.5702648e-5	certified
+ORD-n60p20-s0.1-f0.05-20006	ordinary n>p	Float64	cyclic	true	38	false	false	1.3482434265699498e-5	certified
+ORD-n60p20-s0.1-f0.05-20006	ordinary n>p	Float64	default	true	31	false	false	1.5907632804867418e-5	certified
+ORD-n60p20-s0.1-f0.05-20006	ordinary n>p	Float32	cyclic	true	38	false	false	2.801365e-5	certified
+ORD-n60p20-s0.1-f0.05-20006	ordinary n>p	Float32	default	true	31	false	false	2.2058075e-5	certified
+ORD-n60p20-s0.1-f0.1-20007	ordinary n>p	Float64	cyclic	true	23	false	false	1.9498573309267584e-6	certified
+ORD-n60p20-s0.1-f0.1-20007	ordinary n>p	Float64	default	true	29	false	false	5.1762941975413065e-6	certified
+ORD-n60p20-s0.1-f0.1-20007	ordinary n>p	Float32	cyclic	true	23	false	false	2.1856662e-5	certified
+ORD-n60p20-s0.1-f0.1-20007	ordinary n>p	Float32	default	true	29	false	false	3.8296475e-5	certified
+ORD-n60p20-s0.1-f0.1-20008	ordinary n>p	Float64	cyclic	true	30	false	false	4.811015541192623e-6	certified
+ORD-n60p20-s0.1-f0.1-20008	ordinary n>p	Float64	default	true	33	false	false	5.6400047293037595e-6	certified
+ORD-n60p20-s0.1-f0.1-20008	ordinary n>p	Float32	cyclic	true	30	false	false	1.727415e-5	certified
+ORD-n60p20-s0.1-f0.1-20008	ordinary n>p	Float32	default	true	33	false	false	1.52160355e-5	certified
+ORD-n60p20-s0.1-f0.1-20009	ordinary n>p	Float64	cyclic	true	31	false	false	4.715184262752561e-6	certified
+ORD-n60p20-s0.1-f0.1-20009	ordinary n>p	Float64	default	true	38	false	false	2.7291166505106655e-5	certified
+ORD-n60p20-s0.1-f0.1-20009	ordinary n>p	Float32	cyclic	true	31	false	false	1.4476258e-5	certified
+ORD-n60p20-s0.1-f0.1-20009	ordinary n>p	Float32	default	true	37	false	false	1.8180688e-5	certified
+ORD-n60p20-s0.1-f0.3-20010	ordinary n>p	Float64	cyclic	true	18	false	false	7.609458726556599e-7	certified
+ORD-n60p20-s0.1-f0.3-20010	ordinary n>p	Float64	default	true	23	false	false	5.45172314532592e-7	certified
+ORD-n60p20-s0.1-f0.3-20010	ordinary n>p	Float32	cyclic	true	18	false	false	1.9317376e-6	certified
+ORD-n60p20-s0.1-f0.3-20010	ordinary n>p	Float32	default	true	23	false	false	2.6255716e-6	certified
+ORD-n60p20-s0.1-f0.3-20011	ordinary n>p	Float64	cyclic	true	18	false	false	5.700954094592669e-7	certified
+ORD-n60p20-s0.1-f0.3-20011	ordinary n>p	Float64	default	true	31	false	false	2.183419422373755e-7	certified
+ORD-n60p20-s0.1-f0.3-20011	ordinary n>p	Float32	cyclic	true	18	false	false	3.945641e-6	certified
+ORD-n60p20-s0.1-f0.3-20011	ordinary n>p	Float32	default	true	31	false	false	4.251327e-6	certified
+ORD-n60p20-s0.1-f0.3-20012	ordinary n>p	Float64	cyclic	true	15	false	false	3.608616161353908e-7	certified
+ORD-n60p20-s0.1-f0.3-20012	ordinary n>p	Float64	default	true	19	false	false	3.397534931955984e-7	certified
+ORD-n60p20-s0.1-f0.3-20012	ordinary n>p	Float32	cyclic	true	15	false	false	3.7134428e-6	certified
+ORD-n60p20-s0.1-f0.3-20012	ordinary n>p	Float32	default	true	19	false	false	2.7140193e-6	certified
+ORD-n60p20-s0.1-f0.6-20013	ordinary n>p	Float64	cyclic	true	80	false	false	7.249726445638522e-7	certified
+ORD-n60p20-s0.1-f0.6-20013	ordinary n>p	Float64	default	true	50	false	false	6.375638522269064e-8	certified
+ORD-n60p20-s0.1-f0.6-20013	ordinary n>p	Float32	cyclic	true	81	false	false	6.9353416e-7	certified
+ORD-n60p20-s0.1-f0.6-20013	ordinary n>p	Float32	default	true	52	false	false	4.950913e-7	certified
+ORD-n60p20-s0.1-f0.6-20014	ordinary n>p	Float64	cyclic	true	19	false	false	1.2295238619868322e-7	certified
+ORD-n60p20-s0.1-f0.6-20014	ordinary n>p	Float64	default	true	15	false	false	1.1623143772055305e-8	certified
+ORD-n60p20-s0.1-f0.6-20014	ordinary n>p	Float32	cyclic	true	19	false	false	3.4075856e-7	certified
+ORD-n60p20-s0.1-f0.6-20014	ordinary n>p	Float32	default	true	16	false	false	3.4075856e-7	certified
+ORD-n60p20-s0.1-f0.6-20015	ordinary n>p	Float64	cyclic	true	24	false	false	2.694624925496291e-7	certified
+ORD-n60p20-s0.1-f0.6-20015	ordinary n>p	Float64	default	true	21	false	false	1.907370737065586e-7	certified
+ORD-n60p20-s0.1-f0.6-20015	ordinary n>p	Float32	cyclic	true	23	false	false	5.703822e-7	certified
+ORD-n60p20-s0.1-f0.6-20015	ordinary n>p	Float32	default	true	21	false	false	7.7769397e-7	certified
+ORD-n60p20-s1.0-f0.02-20016	ordinary n>p	Float64	cyclic	true	57	false	false	6.815871028262539e-6	certified
+ORD-n60p20-s1.0-f0.02-20016	ordinary n>p	Float64	default	true	42	false	false	3.3667989819841275e-6	certified
+ORD-n60p20-s1.0-f0.02-20016	ordinary n>p	Float32	cyclic	true	57	false	false	1.6784224e-5	certified
+ORD-n60p20-s1.0-f0.02-20016	ordinary n>p	Float32	default	true	44	false	false	5.0032304e-6	certified
+ORD-n60p20-s1.0-f0.02-20017	ordinary n>p	Float64	cyclic	true	46	false	false	8.515422128251522e-6	certified
+ORD-n60p20-s1.0-f0.02-20017	ordinary n>p	Float64	default	true	55	false	false	2.3131680390222807e-6	certified
+ORD-n60p20-s1.0-f0.02-20017	ordinary n>p	Float32	cyclic	true	46	false	false	1.890419e-5	certified
+ORD-n60p20-s1.0-f0.02-20017	ordinary n>p	Float32	default	true	54	false	false	1.1310295e-5	certified
+ORD-n60p20-s1.0-f0.02-20018	ordinary n>p	Float64	cyclic	true	47	false	false	1.229300556332303e-5	certified
+ORD-n60p20-s1.0-f0.02-20018	ordinary n>p	Float64	default	true	35	false	false	2.6532891245480756e-6	certified
+ORD-n60p20-s1.0-f0.02-20018	ordinary n>p	Float32	cyclic	true	47	false	false	1.1117652e-5	certified
+ORD-n60p20-s1.0-f0.02-20018	ordinary n>p	Float32	default	true	35	false	false	1.2202651e-5	certified
+ORD-n60p20-s1.0-f0.05-20019	ordinary n>p	Float64	cyclic	true	51	false	false	8.753775198110595e-7	certified
+ORD-n60p20-s1.0-f0.05-20019	ordinary n>p	Float64	default	true	51	false	false	6.472215783931473e-7	certified
+ORD-n60p20-s1.0-f0.05-20019	ordinary n>p	Float32	cyclic	true	51	false	false	5.5840483e-6	certified
+ORD-n60p20-s1.0-f0.05-20019	ordinary n>p	Float32	default	true	51	false	false	2.561384e-6	certified
+ORD-n60p20-s1.0-f0.05-20020	ordinary n>p	Float64	cyclic	true	38	false	false	2.483727825175456e-6	certified
+ORD-n60p20-s1.0-f0.05-20020	ordinary n>p	Float64	default	true	50	false	false	1.1195758132777286e-6	certified
+ORD-n60p20-s1.0-f0.05-20020	ordinary n>p	Float32	cyclic	true	38	false	false	6.4909264e-6	certified
+ORD-n60p20-s1.0-f0.05-20020	ordinary n>p	Float32	default	true	50	false	false	3.631556e-6	certified
+ORD-n60p20-s1.0-f0.05-20021	ordinary n>p	Float64	cyclic	true	22	false	false	6.7112347752167e-7	certified
+ORD-n60p20-s1.0-f0.05-20021	ordinary n>p	Float64	default	true	34	false	false	9.981530343364668e-7	certified
+ORD-n60p20-s1.0-f0.05-20021	ordinary n>p	Float32	cyclic	true	22	false	false	3.9090523e-6	certified
+ORD-n60p20-s1.0-f0.05-20021	ordinary n>p	Float32	default	true	34	false	false	5.059778e-6	certified
+ORD-n60p20-s1.0-f0.1-20022	ordinary n>p	Float64	cyclic	true	50	false	false	4.436055116190491e-7	certified
+ORD-n60p20-s1.0-f0.1-20022	ordinary n>p	Float64	default	true	34	false	false	3.210441081309318e-7	certified
+ORD-n60p20-s1.0-f0.1-20022	ordinary n>p	Float32	cyclic	true	50	false	false	1.8191067e-6	certified
+ORD-n60p20-s1.0-f0.1-20022	ordinary n>p	Float32	default	true	36	false	false	1.8038909e-6	certified
+ORD-n60p20-s1.0-f0.1-20023	ordinary n>p	Float64	cyclic	true	31	false	false	9.149210151438612e-7	certified
+ORD-n60p20-s1.0-f0.1-20023	ordinary n>p	Float64	default	true	36	false	false	7.151008033993142e-7	certified
+ORD-n60p20-s1.0-f0.1-20023	ordinary n>p	Float32	cyclic	true	31	false	false	4.912095e-6	certified
+ORD-n60p20-s1.0-f0.1-20023	ordinary n>p	Float32	default	true	38	false	false	2.2742024e-6	certified
+ORD-n60p20-s1.0-f0.1-20024	ordinary n>p	Float64	cyclic	true	43	false	false	1.12257854784972e-6	certified
+ORD-n60p20-s1.0-f0.1-20024	ordinary n>p	Float64	default	true	44	false	false	7.00210607766104e-7	certified
+ORD-n60p20-s1.0-f0.1-20024	ordinary n>p	Float32	cyclic	true	43	false	false	3.9662327e-6	certified
+ORD-n60p20-s1.0-f0.1-20024	ordinary n>p	Float32	default	true	33	false	false	2.563885e-6	certified
+ORD-n60p20-s1.0-f0.3-20025	ordinary n>p	Float64	cyclic	true	20	false	false	1.9058547039233203e-8	certified
+ORD-n60p20-s1.0-f0.3-20025	ordinary n>p	Float64	default	true	22	false	false	8.408268234515657e-9	certified
+ORD-n60p20-s1.0-f0.3-20025	ordinary n>p	Float32	cyclic	true	20	false	false	4.2133104e-7	certified
+ORD-n60p20-s1.0-f0.3-20025	ordinary n>p	Float32	default	true	22	false	false	1.8868471e-7	certified
+ORD-n60p20-s1.0-f0.3-20026	ordinary n>p	Float64	cyclic	true	15	false	false	7.608762827403544e-10	certified
+ORD-n60p20-s1.0-f0.3-20026	ordinary n>p	Float64	default	true	20	false	false	4.198000166987272e-9	certified
+ORD-n60p20-s1.0-f0.3-20026	ordinary n>p	Float32	cyclic	true	16	false	false	3.5584804e-7	certified
+ORD-n60p20-s1.0-f0.3-20026	ordinary n>p	Float32	default	true	20	false	false	1.6859197e-7	certified
+ORD-n60p20-s1.0-f0.3-20027	ordinary n>p	Float64	cyclic	true	28	false	false	4.3174996704786304e-8	certified
+ORD-n60p20-s1.0-f0.3-20027	ordinary n>p	Float64	default	true	22	false	false	3.180693507695706e-8	certified
+ORD-n60p20-s1.0-f0.3-20027	ordinary n>p	Float32	cyclic	true	28	false	false	7.50657e-7	certified
+ORD-n60p20-s1.0-f0.3-20027	ordinary n>p	Float32	default	true	22	false	false	3.2220126e-7	certified
+ORD-n60p20-s1.0-f0.6-20028	ordinary n>p	Float64	cyclic	true	21	false	false	1.4801041365991964e-8	certified
+ORD-n60p20-s1.0-f0.6-20028	ordinary n>p	Float64	default	true	21	false	false	8.081738641259534e-9	certified
+ORD-n60p20-s1.0-f0.6-20028	ordinary n>p	Float32	cyclic	true	20	false	false	2.339014e-7	certified
+ORD-n60p20-s1.0-f0.6-20028	ordinary n>p	Float32	default	true	21	false	false	1.020774e-7	certified
+ORD-n60p20-s1.0-f0.6-20029	ordinary n>p	Float64	cyclic	true	23	false	false	1.3622911744924499e-8	certified
+ORD-n60p20-s1.0-f0.6-20029	ordinary n>p	Float64	default	true	27	false	false	1.2321731753972613e-8	certified
+ORD-n60p20-s1.0-f0.6-20029	ordinary n>p	Float32	cyclic	true	24	false	false	8.805187e-8	certified
+ORD-n60p20-s1.0-f0.6-20029	ordinary n>p	Float32	default	true	25	false	false	9.497651e-8	certified
+ORD-n60p20-s1.0-f0.6-20030	ordinary n>p	Float64	cyclic	true	17	false	false	9.678790315114734e-10	certified
+ORD-n60p20-s1.0-f0.6-20030	ordinary n>p	Float64	default	true	22	false	false	5.299545195864821e-9	certified
+ORD-n60p20-s1.0-f0.6-20030	ordinary n>p	Float32	cyclic	true	17	false	false	3.0472225e-7	certified
+ORD-n60p20-s1.0-f0.6-20030	ordinary n>p	Float32	default	true	22	false	false	1.1347774e-7	certified
+ORD-n200p50-s0.1-f0.02-20031	ordinary n>p	Float64	cyclic	true	27	false	false	2.97345611654581e-5	certified
+ORD-n200p50-s0.1-f0.02-20031	ordinary n>p	Float64	default	true	33	false	false	2.6538689380000617e-5	certified
+ORD-n200p50-s0.1-f0.02-20031	ordinary n>p	Float32	cyclic	false	27	false	true	NaN	failed
+ORD-n200p50-s0.1-f0.02-20031	ordinary n>p	Float32	default	false	33	false	true	NaN	failed
+ORD-n200p50-s0.1-f0.02-20032	ordinary n>p	Float64	cyclic	true	36	false	false	2.337954092097371e-5	certified
+ORD-n200p50-s0.1-f0.02-20032	ordinary n>p	Float64	default	true	47	false	false	2.6675710809742207e-5	certified
+ORD-n200p50-s0.1-f0.02-20032	ordinary n>p	Float32	cyclic	false	37	false	true	NaN	failed
+ORD-n200p50-s0.1-f0.02-20032	ordinary n>p	Float32	default	true	47	false	false	4.5168115e-5	certified
+ORD-n200p50-s0.1-f0.02-20033	ordinary n>p	Float64	cyclic	true	42	false	false	7.549698420290423e-5	certified
+ORD-n200p50-s0.1-f0.02-20033	ordinary n>p	Float64	default	true	42	false	false	8.729956372471085e-5	certified
+ORD-n200p50-s0.1-f0.02-20033	ordinary n>p	Float32	cyclic	true	42	false	false	6.760573e-5	certified
+ORD-n200p50-s0.1-f0.02-20033	ordinary n>p	Float32	default	true	40	false	false	7.569482e-5	certified
+ORD-n200p50-s0.1-f0.05-20034	ordinary n>p	Float64	cyclic	true	32	false	false	7.622531663424867e-6	certified
+ORD-n200p50-s0.1-f0.05-20034	ordinary n>p	Float64	default	true	39	false	false	1.6629266591623244e-5	certified
+ORD-n200p50-s0.1-f0.05-20034	ordinary n>p	Float32	cyclic	true	32	false	false	3.1926542e-5	certified
+ORD-n200p50-s0.1-f0.05-20034	ordinary n>p	Float32	default	true	39	false	false	1.7177188e-5	certified
+ORD-n200p50-s0.1-f0.05-20035	ordinary n>p	Float64	cyclic	true	28	false	false	1.0305213584857602e-5	certified
+ORD-n200p50-s0.1-f0.05-20035	ordinary n>p	Float64	default	true	32	false	false	1.3976076339805148e-6	certified
+ORD-n200p50-s0.1-f0.05-20035	ordinary n>p	Float32	cyclic	true	28	false	false	1.4041979e-5	certified
+ORD-n200p50-s0.1-f0.05-20035	ordinary n>p	Float32	default	true	30	false	false	2.5131887e-5	certified
+ORD-n200p50-s0.1-f0.05-20036	ordinary n>p	Float64	cyclic	true	30	false	false	9.171426013876246e-6	certified
+ORD-n200p50-s0.1-f0.05-20036	ordinary n>p	Float64	default	true	32	false	false	4.5644778031909925e-6	certified
+ORD-n200p50-s0.1-f0.05-20036	ordinary n>p	Float32	cyclic	true	31	false	false	1.2971577e-5	certified
+ORD-n200p50-s0.1-f0.05-20036	ordinary n>p	Float32	default	true	32	false	false	1.1675531e-5	certified
+ORD-n200p50-s0.1-f0.1-20037	ordinary n>p	Float64	cyclic	true	22	false	false	8.621032601529917e-7	certified
+ORD-n200p50-s0.1-f0.1-20037	ordinary n>p	Float64	default	true	27	false	false	7.060816820862837e-7	certified
+ORD-n200p50-s0.1-f0.1-20037	ordinary n>p	Float32	cyclic	true	22	false	false	3.505533e-6	certified
+ORD-n200p50-s0.1-f0.1-20037	ordinary n>p	Float32	default	true	27	false	false	3.1596794e-6	certified
+ORD-n200p50-s0.1-f0.1-20038	ordinary n>p	Float64	cyclic	true	23	false	false	7.90110762845084e-7	certified
+ORD-n200p50-s0.1-f0.1-20038	ordinary n>p	Float64	default	true	22	false	false	1.5320377400144608e-6	certified
+ORD-n200p50-s0.1-f0.1-20038	ordinary n>p	Float32	cyclic	true	23	false	false	1.4541111e-5	certified
+ORD-n200p50-s0.1-f0.1-20038	ordinary n>p	Float32	default	true	23	false	false	1.5044475e-5	certified
+ORD-n200p50-s0.1-f0.1-20039	ordinary n>p	Float64	cyclic	true	23	false	false	3.061378022557435e-6	certified
+ORD-n200p50-s0.1-f0.1-20039	ordinary n>p	Float64	default	true	29	false	false	1.2903928776963772e-6	certified
+ORD-n200p50-s0.1-f0.1-20039	ordinary n>p	Float32	cyclic	true	23	false	false	7.90975e-6	certified
+ORD-n200p50-s0.1-f0.1-20039	ordinary n>p	Float32	default	true	29	false	false	7.548623e-6	certified
+ORD-n200p50-s0.1-f0.3-20040	ordinary n>p	Float64	cyclic	true	12	false	false	1.3798065791203927e-8	certified
+ORD-n200p50-s0.1-f0.3-20040	ordinary n>p	Float64	default	true	18	false	false	6.958121172697396e-8	certified
+ORD-n200p50-s0.1-f0.3-20040	ordinary n>p	Float32	cyclic	true	12	false	false	2.1076414e-6	certified
+ORD-n200p50-s0.1-f0.3-20040	ordinary n>p	Float32	default	true	17	false	false	3.6276763e-6	certified
+ORD-n200p50-s0.1-f0.3-20041	ordinary n>p	Float64	cyclic	true	10	false	false	5.121201276144637e-9	certified
+ORD-n200p50-s0.1-f0.3-20041	ordinary n>p	Float64	default	true	11	false	false	2.240948675905647e-9	certified
+ORD-n200p50-s0.1-f0.3-20041	ordinary n>p	Float32	cyclic	true	10	false	false	1.12948e-6	certified
+ORD-n200p50-s0.1-f0.3-20041	ordinary n>p	Float32	default	true	13	false	false	2.0618409e-6	certified
+ORD-n200p50-s0.1-f0.3-20042	ordinary n>p	Float64	cyclic	true	9	false	false	2.0991392862137588e-9	certified
+ORD-n200p50-s0.1-f0.3-20042	ordinary n>p	Float64	default	true	12	false	false	5.9219922089678043e-8	certified
+ORD-n200p50-s0.1-f0.3-20042	ordinary n>p	Float32	cyclic	true	9	false	false	2.7875678e-6	certified
+ORD-n200p50-s0.1-f0.3-20042	ordinary n>p	Float32	default	true	12	false	false	1.9841882e-6	certified
+ORD-n200p50-s0.1-f0.6-20043	ordinary n>p	Float64	cyclic	true	15	false	false	3.721974748893107e-8	certified
+ORD-n200p50-s0.1-f0.6-20043	ordinary n>p	Float64	default	true	14	false	false	1.9958683473694204e-8	certified
+ORD-n200p50-s0.1-f0.6-20043	ordinary n>p	Float32	cyclic	true	15	false	false	5.5173456e-7	certified
+ORD-n200p50-s0.1-f0.6-20043	ordinary n>p	Float32	default	true	14	false	false	1.4720322e-6	certified
+ORD-n200p50-s0.1-f0.6-20044	ordinary n>p	Float64	cyclic	true	14	false	false	8.399934341264193e-8	certified
+ORD-n200p50-s0.1-f0.6-20044	ordinary n>p	Float64	default	true	14	false	false	1.2647721619918118e-8	certified
+ORD-n200p50-s0.1-f0.6-20044	ordinary n>p	Float32	cyclic	true	15	false	false	1.0276016e-6	certified
+ORD-n200p50-s0.1-f0.6-20044	ordinary n>p	Float32	default	true	14	false	false	4.761302e-7	certified
+ORD-n200p50-s0.1-f0.6-20045	ordinary n>p	Float64	cyclic	true	17	false	false	2.2708101256287376e-7	certified
+ORD-n200p50-s0.1-f0.6-20045	ordinary n>p	Float64	default	true	17	false	false	5.0302918011342106e-8	certified
+ORD-n200p50-s0.1-f0.6-20045	ordinary n>p	Float32	cyclic	true	18	false	false	1.3993237e-6	certified
+ORD-n200p50-s0.1-f0.6-20045	ordinary n>p	Float32	default	true	17	false	false	1.1327455e-6	certified
+ORD-n200p50-s1.0-f0.02-20046	ordinary n>p	Float64	cyclic	true	32	false	false	5.1188895671817065e-6	certified
+ORD-n200p50-s1.0-f0.02-20046	ordinary n>p	Float64	default	true	42	false	false	1.948968887333864e-6	certified
+ORD-n200p50-s1.0-f0.02-20046	ordinary n>p	Float32	cyclic	true	32	false	false	1.5079451e-5	certified
+ORD-n200p50-s1.0-f0.02-20046	ordinary n>p	Float32	default	true	44	false	false	6.2757813e-6	certified
+ORD-n200p50-s1.0-f0.02-20047	ordinary n>p	Float64	cyclic	true	32	false	false	3.978604345480362e-6	certified
+ORD-n200p50-s1.0-f0.02-20047	ordinary n>p	Float64	default	true	45	false	false	4.086089384231332e-6	certified
+ORD-n200p50-s1.0-f0.02-20047	ordinary n>p	Float32	cyclic	true	32	false	false	1.2118671e-5	certified
+ORD-n200p50-s1.0-f0.02-20047	ordinary n>p	Float32	default	true	45	false	false	1.1457604e-5	certified
+ORD-n200p50-s1.0-f0.02-20048	ordinary n>p	Float64	cyclic	true	43	false	false	5.222727149475405e-6	certified
+ORD-n200p50-s1.0-f0.02-20048	ordinary n>p	Float64	default	true	45	false	false	4.4521224451010994e-6	certified
+ORD-n200p50-s1.0-f0.02-20048	ordinary n>p	Float32	cyclic	true	43	false	false	1.667527e-5	certified
+ORD-n200p50-s1.0-f0.02-20048	ordinary n>p	Float32	default	true	45	false	false	1.1471478e-5	certified
+ORD-n200p50-s1.0-f0.05-20049	ordinary n>p	Float64	cyclic	true	23	false	false	7.011867451925679e-7	certified
+ORD-n200p50-s1.0-f0.05-20049	ordinary n>p	Float64	default	true	29	false	false	6.620406139959533e-7	certified
+ORD-n200p50-s1.0-f0.05-20049	ordinary n>p	Float32	cyclic	true	23	false	false	3.6620054e-6	certified
+ORD-n200p50-s1.0-f0.05-20049	ordinary n>p	Float32	default	true	39	false	false	2.0531397e-6	certified
+ORD-n200p50-s1.0-f0.05-20050	ordinary n>p	Float64	cyclic	true	26	false	false	9.219632782472627e-7	certified
+ORD-n200p50-s1.0-f0.05-20050	ordinary n>p	Float64	default	true	38	false	false	2.4005760008076054e-6	certified
+ORD-n200p50-s1.0-f0.05-20050	ordinary n>p	Float32	cyclic	true	26	false	false	5.037848e-6	certified
+ORD-n200p50-s1.0-f0.05-20050	ordinary n>p	Float32	default	true	38	false	false	4.4071635e-6	certified
+ORD-n200p50-s1.0-f0.05-20051	ordinary n>p	Float64	cyclic	true	35	false	false	1.5757436662313605e-6	certified
+ORD-n200p50-s1.0-f0.05-20051	ordinary n>p	Float64	default	true	40	false	false	1.3046182527190229e-6	certified
+ORD-n200p50-s1.0-f0.05-20051	ordinary n>p	Float32	cyclic	true	35	false	false	6.5782174e-6	certified
+ORD-n200p50-s1.0-f0.05-20051	ordinary n>p	Float32	default	true	40	false	false	4.5518045e-6	certified
+ORD-n200p50-s1.0-f0.1-20052	ordinary n>p	Float64	cyclic	true	21	false	false	7.375028282114459e-8	certified
+ORD-n200p50-s1.0-f0.1-20052	ordinary n>p	Float64	default	true	26	false	false	1.6709166969312284e-7	certified
+ORD-n200p50-s1.0-f0.1-20052	ordinary n>p	Float32	cyclic	true	21	false	false	1.3631011e-6	certified
+ORD-n200p50-s1.0-f0.1-20052	ordinary n>p	Float32	default	true	26	false	false	8.56885e-7	certified
+ORD-n200p50-s1.0-f0.1-20053	ordinary n>p	Float64	cyclic	true	23	false	false	3.6560886793087166e-7	certified
+ORD-n200p50-s1.0-f0.1-20053	ordinary n>p	Float64	default	true	35	false	false	2.0124693515407697e-7	certified
+ORD-n200p50-s1.0-f0.1-20053	ordinary n>p	Float32	cyclic	true	23	false	false	2.718905e-6	certified
+ORD-n200p50-s1.0-f0.1-20053	ordinary n>p	Float32	default	true	35	false	false	1.8843883e-6	certified
+ORD-n200p50-s1.0-f0.1-20054	ordinary n>p	Float64	cyclic	true	29	false	false	1.175327640390093e-7	certified
+ORD-n200p50-s1.0-f0.1-20054	ordinary n>p	Float64	default	true	36	false	false	2.2501053939910406e-7	certified
+ORD-n200p50-s1.0-f0.1-20054	ordinary n>p	Float32	cyclic	true	29	false	false	2.1507567e-6	certified
+ORD-n200p50-s1.0-f0.1-20054	ordinary n>p	Float32	default	true	36	false	false	7.5753417e-7	certified
+ORD-n200p50-s1.0-f0.3-20055	ordinary n>p	Float64	cyclic	true	13	false	false	6.033332167336991e-9	certified
+ORD-n200p50-s1.0-f0.3-20055	ordinary n>p	Float64	default	true	19	false	false	3.9226276678071854e-9	certified
+ORD-n200p50-s1.0-f0.3-20055	ordinary n>p	Float32	cyclic	true	13	false	false	4.018564e-7	certified
+ORD-n200p50-s1.0-f0.3-20055	ordinary n>p	Float32	default	true	20	false	false	3.9918328e-7	certified
+ORD-n200p50-s1.0-f0.3-20056	ordinary n>p	Float64	cyclic	true	8	false	false	3.99556815543643e-10	certified
+ORD-n200p50-s1.0-f0.3-20056	ordinary n>p	Float64	default	true	11	false	false	9.59241785700841e-10	certified
+ORD-n200p50-s1.0-f0.3-20056	ordinary n>p	Float32	cyclic	true	8	false	false	1.4797948e-7	certified
+ORD-n200p50-s1.0-f0.3-20056	ordinary n>p	Float32	default	true	11	false	false	1.4797948e-7	certified
+ORD-n200p50-s1.0-f0.3-20057	ordinary n>p	Float64	cyclic	true	8	false	false	1.1039412673695732e-9	certified
+ORD-n200p50-s1.0-f0.3-20057	ordinary n>p	Float64	default	true	16	false	false	1.1665174306820943e-8	certified
+ORD-n200p50-s1.0-f0.3-20057	ordinary n>p	Float32	cyclic	true	8	false	false	1.736126e-7	certified
+ORD-n200p50-s1.0-f0.3-20057	ordinary n>p	Float32	default	true	16	false	false	4.4094818e-7	certified
+ORD-n200p50-s1.0-f0.6-20058	ordinary n>p	Float64	cyclic	true	14	false	false	8.361303632969979e-9	certified
+ORD-n200p50-s1.0-f0.6-20058	ordinary n>p	Float64	default	true	12	false	false	6.3322392534670384e-9	certified
+ORD-n200p50-s1.0-f0.6-20058	ordinary n>p	Float32	cyclic	true	14	false	false	2.814565e-7	certified
+ORD-n200p50-s1.0-f0.6-20058	ordinary n>p	Float32	default	true	12	false	false	3.8665024e-7	certified
+ORD-n200p50-s1.0-f0.6-20059	ordinary n>p	Float64	cyclic	true	25	false	false	2.077194549117493e-8	certified
+ORD-n200p50-s1.0-f0.6-20059	ordinary n>p	Float64	default	true	15	false	false	7.2995228138999315e-9	certified
+ORD-n200p50-s1.0-f0.6-20059	ordinary n>p	Float32	cyclic	true	25	false	false	1.1310759e-7	certified
+ORD-n200p50-s1.0-f0.6-20059	ordinary n>p	Float32	default	true	16	false	false	1.761735e-7	certified
+ORD-n200p50-s1.0-f0.6-20060	ordinary n>p	Float64	cyclic	true	12	false	false	3.5516386949422095e-9	certified
+ORD-n200p50-s1.0-f0.6-20060	ordinary n>p	Float64	default	true	12	false	false	7.379145259252312e-9	certified
+ORD-n200p50-s1.0-f0.6-20060	ordinary n>p	Float32	cyclic	true	12	false	false	2.2656317e-7	certified
+ORD-n200p50-s1.0-f0.6-20060	ordinary n>p	Float32	default	true	12	false	false	9.34783e-8	certified
+ORD-n100p40-s0.1-f0.02-20061	ordinary n>p	Float64	cyclic	true	56	false	false	8.623167389068527e-5	certified
+ORD-n100p40-s0.1-f0.02-20061	ordinary n>p	Float64	default	true	54	false	false	3.798388770061315e-5	certified
+ORD-n100p40-s0.1-f0.02-20061	ordinary n>p	Float32	cyclic	false	56	false	true	NaN	failed
+ORD-n100p40-s0.1-f0.02-20061	ordinary n>p	Float32	default	true	56	false	false	8.370743e-5	certified
+ORD-n100p40-s0.1-f0.02-20062	ordinary n>p	Float64	cyclic	true	52	false	false	6.062308616222217e-5	certified
+ORD-n100p40-s0.1-f0.02-20062	ordinary n>p	Float64	default	true	39	false	false	2.1924207340790427e-5	certified
+ORD-n100p40-s0.1-f0.02-20062	ordinary n>p	Float32	cyclic	true	53	false	false	9.517561e-5	certified
+ORD-n100p40-s0.1-f0.02-20062	ordinary n>p	Float32	default	false	39	false	true	NaN	failed
+ORD-n100p40-s0.1-f0.02-20063	ordinary n>p	Float64	cyclic	true	46	false	false	6.214708623070956e-5	certified
+ORD-n100p40-s0.1-f0.02-20063	ordinary n>p	Float64	default	true	57	false	false	3.2763590277474026e-5	certified
+ORD-n100p40-s0.1-f0.02-20063	ordinary n>p	Float32	cyclic	true	47	false	false	7.5396594e-5	certified
+ORD-n100p40-s0.1-f0.02-20063	ordinary n>p	Float32	default	true	59	false	false	6.053e-5	certified
+ORD-n100p40-s0.1-f0.05-20064	ordinary n>p	Float64	cyclic	true	41	false	false	2.821226275442876e-5	certified
+ORD-n100p40-s0.1-f0.05-20064	ordinary n>p	Float64	default	true	41	false	false	3.129123686976377e-5	certified
+ORD-n100p40-s0.1-f0.05-20064	ordinary n>p	Float32	cyclic	true	40	false	false	5.8627174e-5	certified
+ORD-n100p40-s0.1-f0.05-20064	ordinary n>p	Float32	default	true	41	false	false	5.991906e-5	certified
+ORD-n100p40-s0.1-f0.05-20065	ordinary n>p	Float64	cyclic	true	71	false	false	5.879023318552712e-5	certified
+ORD-n100p40-s0.1-f0.05-20065	ordinary n>p	Float64	default	true	54	false	false	3.227414892939561e-5	certified
+ORD-n100p40-s0.1-f0.05-20065	ordinary n>p	Float32	cyclic	true	72	false	false	3.999062e-5	certified
+ORD-n100p40-s0.1-f0.05-20065	ordinary n>p	Float32	default	true	56	false	false	6.185411e-5	certified
+ORD-n100p40-s0.1-f0.05-20066	ordinary n>p	Float64	cyclic	true	56	false	false	2.45594652731373e-5	certified
+ORD-n100p40-s0.1-f0.05-20066	ordinary n>p	Float64	default	true	53	false	false	2.0489501073492706e-5	certified
+ORD-n100p40-s0.1-f0.05-20066	ordinary n>p	Float32	cyclic	true	56	false	false	5.1118546e-5	certified
+ORD-n100p40-s0.1-f0.05-20066	ordinary n>p	Float32	default	true	53	false	false	5.013717e-5	certified
+ORD-n100p40-s0.1-f0.1-20067	ordinary n>p	Float64	cyclic	true	47	false	false	1.046442134668917e-5	certified
+ORD-n100p40-s0.1-f0.1-20067	ordinary n>p	Float64	default	true	38	false	false	9.827847154648905e-6	certified
+ORD-n100p40-s0.1-f0.1-20067	ordinary n>p	Float32	cyclic	true	47	false	false	1.6656553e-5	certified
+ORD-n100p40-s0.1-f0.1-20067	ordinary n>p	Float32	default	true	38	false	false	1.7344653e-5	certified
+ORD-n100p40-s0.1-f0.1-20068	ordinary n>p	Float64	cyclic	true	36	false	false	4.377481603277346e-6	certified
+ORD-n100p40-s0.1-f0.1-20068	ordinary n>p	Float64	default	true	39	false	false	9.211251761564296e-6	certified
+ORD-n100p40-s0.1-f0.1-20068	ordinary n>p	Float32	cyclic	true	37	false	false	1.037412e-5	certified
+ORD-n100p40-s0.1-f0.1-20068	ordinary n>p	Float32	default	true	39	false	false	1.5368383e-5	certified
+ORD-n100p40-s0.1-f0.1-20069	ordinary n>p	Float64	cyclic	true	19	false	false	2.9144353764327847e-6	certified
+ORD-n100p40-s0.1-f0.1-20069	ordinary n>p	Float64	default	true	31	false	false	1.4327618378871796e-6	certified
+ORD-n100p40-s0.1-f0.1-20069	ordinary n>p	Float32	cyclic	true	19	false	false	1.3913617e-5	certified
+ORD-n100p40-s0.1-f0.1-20069	ordinary n>p	Float32	default	true	33	false	false	9.278497e-6	certified
+ORD-n100p40-s0.1-f0.3-20070	ordinary n>p	Float64	cyclic	true	19	false	false	6.108901326385012e-7	certified
+ORD-n100p40-s0.1-f0.3-20070	ordinary n>p	Float64	default	true	14	false	false	7.217432163394107e-8	certified
+ORD-n100p40-s0.1-f0.3-20070	ordinary n>p	Float32	cyclic	true	19	false	false	1.3452467e-6	certified
+ORD-n100p40-s0.1-f0.3-20070	ordinary n>p	Float32	default	true	16	false	false	1.720613e-6	certified
+ORD-n100p40-s0.1-f0.3-20071	ordinary n>p	Float64	cyclic	true	17	false	false	3.026967659722572e-8	certified
+ORD-n100p40-s0.1-f0.3-20071	ordinary n>p	Float64	default	true	18	false	false	6.57871399109037e-8	certified
+ORD-n100p40-s0.1-f0.3-20071	ordinary n>p	Float32	cyclic	true	17	false	false	1.7543505e-6	certified
+ORD-n100p40-s0.1-f0.3-20071	ordinary n>p	Float32	default	true	18	false	false	2.1857827e-6	certified
+ORD-n100p40-s0.1-f0.3-20072	ordinary n>p	Float64	cyclic	true	13	false	false	1.1337327750130103e-8	certified
+ORD-n100p40-s0.1-f0.3-20072	ordinary n>p	Float64	default	true	18	false	false	2.308235613366878e-8	certified
+ORD-n100p40-s0.1-f0.3-20072	ordinary n>p	Float32	cyclic	true	13	false	false	4.589527e-6	certified
+ORD-n100p40-s0.1-f0.3-20072	ordinary n>p	Float32	default	true	18	false	false	2.5513846e-6	certified
+ORD-n100p40-s0.1-f0.6-20073	ordinary n>p	Float64	cyclic	true	20	false	false	1.9993429125427517e-8	certified
+ORD-n100p40-s0.1-f0.6-20073	ordinary n>p	Float64	default	true	17	false	false	1.878332453390605e-9	certified
+ORD-n100p40-s0.1-f0.6-20073	ordinary n>p	Float32	cyclic	true	21	false	false	2.2872919e-7	certified
+ORD-n100p40-s0.1-f0.6-20073	ordinary n>p	Float32	default	true	17	false	false	1.0048723e-7	certified
+ORD-n100p40-s0.1-f0.6-20074	ordinary n>p	Float64	cyclic	true	26	false	false	1.03616286546444e-7	certified
+ORD-n100p40-s0.1-f0.6-20074	ordinary n>p	Float64	default	true	17	false	false	5.2726400405548966e-8	certified
+ORD-n100p40-s0.1-f0.6-20074	ordinary n>p	Float32	cyclic	true	26	false	false	1.3311942e-6	certified
+ORD-n100p40-s0.1-f0.6-20074	ordinary n>p	Float32	default	true	17	false	false	1.2496903e-6	certified
+ORD-n100p40-s0.1-f0.6-20075	ordinary n>p	Float64	cyclic	true	108	false	false	3.5645425653112674e-7	certified
+ORD-n100p40-s0.1-f0.6-20075	ordinary n>p	Float64	default	true	48	false	false	1.0306671193485666e-7	certified
+ORD-n100p40-s0.1-f0.6-20075	ordinary n>p	Float32	cyclic	true	107	false	false	7.039669e-7	certified
+ORD-n100p40-s0.1-f0.6-20075	ordinary n>p	Float32	default	true	47	false	false	4.4079354e-7	certified
+ORD-n100p40-s1.0-f0.02-20076	ordinary n>p	Float64	cyclic	true	39	false	false	9.53250380800723e-6	certified
+ORD-n100p40-s1.0-f0.02-20076	ordinary n>p	Float64	default	true	62	false	false	2.5573714071042537e-6	certified
+ORD-n100p40-s1.0-f0.02-20076	ordinary n>p	Float32	cyclic	true	39	false	false	1.899097e-5	certified
+ORD-n100p40-s1.0-f0.02-20076	ordinary n>p	Float32	default	true	77	false	false	1.0190885e-5	certified
+ORD-n100p40-s1.0-f0.02-20077	ordinary n>p	Float64	cyclic	true	52	false	false	9.22628896610306e-6	certified
+ORD-n100p40-s1.0-f0.02-20077	ordinary n>p	Float64	default	true	64	false	false	5.190535508171344e-6	certified
+ORD-n100p40-s1.0-f0.02-20077	ordinary n>p	Float32	cyclic	true	52	false	false	2.6049918e-5	certified
+ORD-n100p40-s1.0-f0.02-20077	ordinary n>p	Float32	default	true	63	false	false	3.1132764e-5	certified
+ORD-n100p40-s1.0-f0.02-20078	ordinary n>p	Float64	cyclic	true	40	false	false	9.544015977621978e-6	certified
+ORD-n100p40-s1.0-f0.02-20078	ordinary n>p	Float64	default	true	55	false	false	5.524209373141909e-6	certified
+ORD-n100p40-s1.0-f0.02-20078	ordinary n>p	Float32	cyclic	true	40	false	false	2.123133e-5	certified
+ORD-n100p40-s1.0-f0.02-20078	ordinary n>p	Float32	default	true	57	false	false	6.432654e-6	certified
+ORD-n100p40-s1.0-f0.05-20079	ordinary n>p	Float64	cyclic	true	45	false	false	2.6882877573610377e-6	certified
+ORD-n100p40-s1.0-f0.05-20079	ordinary n>p	Float64	default	true	56	false	false	8.849414921597597e-7	certified
+ORD-n100p40-s1.0-f0.05-20079	ordinary n>p	Float32	cyclic	true	44	false	false	5.446542e-6	certified
+ORD-n100p40-s1.0-f0.05-20079	ordinary n>p	Float32	default	true	56	false	false	4.001339e-6	certified
+ORD-n100p40-s1.0-f0.05-20080	ordinary n>p	Float64	cyclic	true	41	false	false	2.236619841299732e-6	certified
+ORD-n100p40-s1.0-f0.05-20080	ordinary n>p	Float64	default	true	51	false	false	2.059866425160512e-6	certified
+ORD-n100p40-s1.0-f0.05-20080	ordinary n>p	Float32	cyclic	true	41	false	false	7.862798e-6	certified
+ORD-n100p40-s1.0-f0.05-20080	ordinary n>p	Float32	default	true	51	false	false	2.2172878e-6	certified
+ORD-n100p40-s1.0-f0.05-20081	ordinary n>p	Float64	cyclic	true	51	false	false	2.2785073070221654e-6	certified
+ORD-n100p40-s1.0-f0.05-20081	ordinary n>p	Float64	default	true	63	false	false	2.382158126203066e-6	certified
+ORD-n100p40-s1.0-f0.05-20081	ordinary n>p	Float32	cyclic	true	52	false	false	6.0935636e-6	certified
+ORD-n100p40-s1.0-f0.05-20081	ordinary n>p	Float32	default	true	62	false	false	3.834967e-6	certified
+ORD-n100p40-s1.0-f0.1-20082	ordinary n>p	Float64	cyclic	true	36	false	false	9.951442261045077e-7	certified
+ORD-n100p40-s1.0-f0.1-20082	ordinary n>p	Float64	default	true	43	false	false	2.1985714805985642e-7	certified
+ORD-n100p40-s1.0-f0.1-20082	ordinary n>p	Float32	cyclic	true	37	false	false	3.6419076e-6	certified
+ORD-n100p40-s1.0-f0.1-20082	ordinary n>p	Float32	default	true	43	false	false	1.3641692e-6	certified
+ORD-n100p40-s1.0-f0.1-20083	ordinary n>p	Float64	cyclic	true	44	false	false	7.751345509514796e-7	certified
+ORD-n100p40-s1.0-f0.1-20083	ordinary n>p	Float64	default	true	28	false	false	7.546277814413772e-7	certified
+ORD-n100p40-s1.0-f0.1-20083	ordinary n>p	Float32	cyclic	true	44	false	false	2.3548675e-6	certified
+ORD-n100p40-s1.0-f0.1-20083	ordinary n>p	Float32	default	true	43	false	false	1.3920132e-6	certified
+ORD-n100p40-s1.0-f0.1-20084	ordinary n>p	Float64	cyclic	true	36	false	false	6.803668113562853e-7	certified
+ORD-n100p40-s1.0-f0.1-20084	ordinary n>p	Float64	default	true	40	false	false	5.08673399504298e-7	certified
+ORD-n100p40-s1.0-f0.1-20084	ordinary n>p	Float32	cyclic	true	36	false	false	1.6448117e-6	certified
+ORD-n100p40-s1.0-f0.1-20084	ordinary n>p	Float32	default	true	40	false	false	1.1597176e-6	certified
+ORD-n100p40-s1.0-f0.3-20085	ordinary n>p	Float64	cyclic	true	25	false	false	3.489773982841546e-8	certified
+ORD-n100p40-s1.0-f0.3-20085	ordinary n>p	Float64	default	true	32	false	false	1.2663441559809183e-7	certified
+ORD-n100p40-s1.0-f0.3-20085	ordinary n>p	Float32	cyclic	true	25	false	false	6.305629e-7	certified
+ORD-n100p40-s1.0-f0.3-20085	ordinary n>p	Float32	default	true	29	false	false	3.6730572e-7	certified
+ORD-n100p40-s1.0-f0.3-20086	ordinary n>p	Float64	cyclic	true	8	false	false	1.0673778958737318e-9	certified
+ORD-n100p40-s1.0-f0.3-20086	ordinary n>p	Float64	default	true	11	false	false	6.278457865798502e-9	certified
+ORD-n100p40-s1.0-f0.3-20086	ordinary n>p	Float32	cyclic	true	8	false	false	9.414729e-8	certified
+ORD-n100p40-s1.0-f0.3-20086	ordinary n>p	Float32	default	true	11	false	false	8.530459e-8	certified
+ORD-n100p40-s1.0-f0.3-20087	ordinary n>p	Float64	cyclic	true	18	false	false	1.4631317129474267e-8	certified
+ORD-n100p40-s1.0-f0.3-20087	ordinary n>p	Float64	default	true	22	false	false	5.032925730676334e-8	certified
+ORD-n100p40-s1.0-f0.3-20087	ordinary n>p	Float32	cyclic	true	18	false	false	3.3458525e-7	certified
+ORD-n100p40-s1.0-f0.3-20087	ordinary n>p	Float32	default	true	22	false	false	2.0431976e-7	certified
+ORD-n100p40-s1.0-f0.6-20088	ordinary n>p	Float64	cyclic	true	24	false	false	3.7655495921930596e-8	certified
+ORD-n100p40-s1.0-f0.6-20088	ordinary n>p	Float64	default	true	28	false	false	6.5694180478045395e-9	certified
+ORD-n100p40-s1.0-f0.6-20088	ordinary n>p	Float32	cyclic	true	24	false	false	3.027915e-7	certified
+ORD-n100p40-s1.0-f0.6-20088	ordinary n>p	Float32	default	true	28	false	false	4.14752e-8	certified
+ORD-n100p40-s1.0-f0.6-20089	ordinary n>p	Float64	cyclic	true	29	false	false	6.452936651277473e-8	certified
+ORD-n100p40-s1.0-f0.6-20089	ordinary n>p	Float64	default	true	29	false	false	1.3489547354001833e-8	certified
+ORD-n100p40-s1.0-f0.6-20089	ordinary n>p	Float32	cyclic	true	30	false	false	1.4835727e-7	certified
+ORD-n100p40-s1.0-f0.6-20089	ordinary n>p	Float32	default	true	32	false	false	1.6467388e-7	certified
+ORD-n100p40-s1.0-f0.6-20090	ordinary n>p	Float64	cyclic	true	12	false	false	2.619798003056413e-9	certified
+ORD-n100p40-s1.0-f0.6-20090	ordinary n>p	Float64	default	true	13	false	false	5.594151352082514e-9	certified
+ORD-n100p40-s1.0-f0.6-20090	ordinary n>p	Float32	cyclic	true	12	false	false	2.2910184e-7	certified
+ORD-n100p40-s1.0-f0.6-20090	ordinary n>p	Float32	default	true	13	false	false	1.8613618e-7	certified
+ORD-n1000p200-s0.1-f0.02-20091	ordinary n>p	Float64	cyclic	true	27	false	false	1.62196922740352e-5	certified
+ORD-n1000p200-s0.1-f0.02-20091	ordinary n>p	Float64	default	true	32	false	false	8.809339661132065e-6	certified
+ORD-n1000p200-s0.1-f0.02-20091	ordinary n>p	Float32	cyclic	true	27	false	false	5.3674077e-5	certified
+ORD-n1000p200-s0.1-f0.02-20091	ordinary n>p	Float32	default	true	32	false	false	5.2408795e-5	certified
+ORD-n1000p200-s0.1-f0.02-20092	ordinary n>p	Float64	cyclic	true	26	false	false	2.9188836119005797e-5	certified
+ORD-n1000p200-s0.1-f0.02-20092	ordinary n>p	Float64	default	true	30	false	false	1.834378658653422e-5	certified
+ORD-n1000p200-s0.1-f0.02-20092	ordinary n>p	Float32	cyclic	true	26	false	false	3.6618483e-5	certified
+ORD-n1000p200-s0.1-f0.02-20092	ordinary n>p	Float32	default	true	30	false	false	3.5352343e-5	certified
+ORD-n1000p200-s0.1-f0.02-20093	ordinary n>p	Float64	cyclic	true	28	false	false	2.016791526314856e-5	certified
+ORD-n1000p200-s0.1-f0.02-20093	ordinary n>p	Float64	default	true	31	false	false	2.9357582676321523e-5	certified
+ORD-n1000p200-s0.1-f0.02-20093	ordinary n>p	Float32	cyclic	true	28	false	false	5.2816526e-5	certified
+ORD-n1000p200-s0.1-f0.02-20093	ordinary n>p	Float32	default	true	31	false	false	7.004619e-5	certified
+ORD-n1000p200-s0.1-f0.05-20094	ordinary n>p	Float64	cyclic	true	20	false	false	4.621231327229032e-6	certified
+ORD-n1000p200-s0.1-f0.05-20094	ordinary n>p	Float64	default	true	25	false	false	9.019218413503096e-7	certified
+ORD-n1000p200-s0.1-f0.05-20094	ordinary n>p	Float32	cyclic	true	20	false	false	1.7918437e-5	certified
+ORD-n1000p200-s0.1-f0.05-20094	ordinary n>p	Float32	default	true	25	false	false	1.2425856e-5	certified
+ORD-n1000p200-s0.1-f0.05-20095	ordinary n>p	Float64	cyclic	true	20	false	false	2.008126892323638e-6	certified
+ORD-n1000p200-s0.1-f0.05-20095	ordinary n>p	Float64	default	true	24	false	false	4.868392653247829e-7	certified
+ORD-n1000p200-s0.1-f0.05-20095	ordinary n>p	Float32	cyclic	true	20	false	false	1.9651885e-5	certified
+ORD-n1000p200-s0.1-f0.05-20095	ordinary n>p	Float32	default	true	25	false	false	2.0453226e-5	certified
+ORD-n1000p200-s0.1-f0.05-20096	ordinary n>p	Float64	cyclic	true	23	false	false	5.038493078740937e-6	certified
+ORD-n1000p200-s0.1-f0.05-20096	ordinary n>p	Float64	default	true	26	false	false	3.0433008429205664e-6	certified
+ORD-n1000p200-s0.1-f0.05-20096	ordinary n>p	Float32	cyclic	true	23	false	false	2.0259791e-5	certified
+ORD-n1000p200-s0.1-f0.05-20096	ordinary n>p	Float32	default	true	26	false	false	1.5398484e-5	certified
+ORD-n1000p200-s0.1-f0.1-20097	ordinary n>p	Float64	cyclic	true	12	false	false	1.927917080363612e-8	certified
+ORD-n1000p200-s0.1-f0.1-20097	ordinary n>p	Float64	default	true	15	false	false	1.0729839650754448e-7	certified
+ORD-n1000p200-s0.1-f0.1-20097	ordinary n>p	Float32	cyclic	true	12	false	false	4.4274034e-6	certified
+ORD-n1000p200-s0.1-f0.1-20097	ordinary n>p	Float32	default	true	15	false	false	1.8039091e-6	certified
+ORD-n1000p200-s0.1-f0.1-20098	ordinary n>p	Float64	cyclic	true	16	false	false	8.526482128481563e-9	certified
+ORD-n1000p200-s0.1-f0.1-20098	ordinary n>p	Float64	default	true	19	false	false	4.495828285105324e-8	certified
+ORD-n1000p200-s0.1-f0.1-20098	ordinary n>p	Float32	cyclic	true	16	false	false	1.469218e-6	certified
+ORD-n1000p200-s0.1-f0.1-20098	ordinary n>p	Float32	default	true	19	false	false	1.4948911e-6	certified
+ORD-n1000p200-s0.1-f0.1-20099	ordinary n>p	Float64	cyclic	true	16	false	false	8.359060367187932e-9	certified
+ORD-n1000p200-s0.1-f0.1-20099	ordinary n>p	Float64	default	true	20	false	false	6.28512668560279e-7	certified
+ORD-n1000p200-s0.1-f0.1-20099	ordinary n>p	Float32	cyclic	true	16	false	false	1.4767764e-5	certified
+ORD-n1000p200-s0.1-f0.1-20099	ordinary n>p	Float32	default	true	20	false	false	1.5615056e-5	certified
+ORD-n1000p200-s0.1-f0.3-20100	ordinary n>p	Float64	cyclic	true	8	false	false	2.5700649810175363e-9	certified
+ORD-n1000p200-s0.1-f0.3-20100	ordinary n>p	Float64	default	true	9	false	false	3.0351613133337537e-9	certified
+ORD-n1000p200-s0.1-f0.3-20100	ordinary n>p	Float32	cyclic	true	8	false	false	4.4337767e-6	certified
+ORD-n1000p200-s0.1-f0.3-20100	ordinary n>p	Float32	default	true	9	false	false	4.4337767e-6	certified
+ORD-n1000p200-s0.1-f0.3-20101	ordinary n>p	Float64	cyclic	true	8	false	false	1.7290498038859556e-9	certified
+ORD-n1000p200-s0.1-f0.3-20101	ordinary n>p	Float64	default	true	9	false	false	8.923333802701412e-9	certified
+ORD-n1000p200-s0.1-f0.3-20101	ordinary n>p	Float32	cyclic	true	8	false	false	2.8194925e-6	certified
+ORD-n1000p200-s0.1-f0.3-20101	ordinary n>p	Float32	default	true	9	false	false	1.3892762e-6	certified
+ORD-n1000p200-s0.1-f0.3-20102	ordinary n>p	Float64	cyclic	true	8	false	false	7.167539538394292e-10	certified
+ORD-n1000p200-s0.1-f0.3-20102	ordinary n>p	Float64	default	true	9	false	false	4.045223532743075e-9	certified
+ORD-n1000p200-s0.1-f0.3-20102	ordinary n>p	Float32	cyclic	true	8	false	false	9.643146e-7	certified
+ORD-n1000p200-s0.1-f0.3-20102	ordinary n>p	Float32	default	true	9	false	false	9.643146e-7	certified
+ORD-n1000p200-s0.1-f0.6-20103	ordinary n>p	Float64	cyclic	true	16	false	false	1.826687869663029e-7	certified
+ORD-n1000p200-s0.1-f0.6-20103	ordinary n>p	Float64	default	true	17	false	false	6.083851237810153e-8	certified
+ORD-n1000p200-s0.1-f0.6-20103	ordinary n>p	Float32	cyclic	true	16	false	false	1.4154267e-6	certified
+ORD-n1000p200-s0.1-f0.6-20103	ordinary n>p	Float32	default	true	17	false	false	1.0841181e-6	certified
+ORD-n1000p200-s0.1-f0.6-20104	ordinary n>p	Float64	cyclic	true	25	false	false	7.851770237408762e-8	certified
+ORD-n1000p200-s0.1-f0.6-20104	ordinary n>p	Float64	default	true	24	false	false	2.928494751873833e-8	certified
+ORD-n1000p200-s0.1-f0.6-20104	ordinary n>p	Float32	cyclic	true	25	false	false	2.5122628e-7	certified
+ORD-n1000p200-s0.1-f0.6-20104	ordinary n>p	Float32	default	true	24	false	false	8.0305466e-7	certified
+ORD-n1000p200-s0.1-f0.6-20105	ordinary n>p	Float64	cyclic	true	23	false	false	1.0996105034827817e-7	certified
+ORD-n1000p200-s0.1-f0.6-20105	ordinary n>p	Float64	default	true	20	false	false	2.928130806963744e-8	certified
+ORD-n1000p200-s0.1-f0.6-20105	ordinary n>p	Float32	cyclic	true	23	false	false	9.1400517e-7	certified
+ORD-n1000p200-s0.1-f0.6-20105	ordinary n>p	Float32	default	true	26	false	false	9.1400517e-7	certified
+ORD-n1000p200-s1.0-f0.02-20106	ordinary n>p	Float64	cyclic	true	23	false	false	8.112559740625803e-7	certified
+ORD-n1000p200-s1.0-f0.02-20106	ordinary n>p	Float64	default	true	36	false	false	9.548602422714272e-7	certified
+ORD-n1000p200-s1.0-f0.02-20106	ordinary n>p	Float32	cyclic	true	23	false	false	1.1097668e-5	certified
+ORD-n1000p200-s1.0-f0.02-20106	ordinary n>p	Float32	default	true	36	false	false	1.1773318e-5	certified
+ORD-n1000p200-s1.0-f0.02-20107	ordinary n>p	Float64	cyclic	true	30	false	false	1.618567606662477e-6	certified
+ORD-n1000p200-s1.0-f0.02-20107	ordinary n>p	Float64	default	true	42	false	false	4.153850147220399e-6	certified
+ORD-n1000p200-s1.0-f0.02-20107	ordinary n>p	Float32	cyclic	true	31	false	false	1.1935435e-5	certified
+ORD-n1000p200-s1.0-f0.02-20107	ordinary n>p	Float32	default	true	42	false	false	5.5877967e-6	certified
+ORD-n1000p200-s1.0-f0.02-20108	ordinary n>p	Float64	cyclic	true	29	false	false	2.0301360739065948e-6	certified
+ORD-n1000p200-s1.0-f0.02-20108	ordinary n>p	Float64	default	true	43	false	false	1.5895170394233975e-6	certified
+ORD-n1000p200-s1.0-f0.02-20108	ordinary n>p	Float32	cyclic	true	29	false	false	1.1216083e-5	certified
+ORD-n1000p200-s1.0-f0.02-20108	ordinary n>p	Float32	default	true	43	false	false	5.1613692e-6	certified
+ORD-n1000p200-s1.0-f0.05-20109	ordinary n>p	Float64	cyclic	true	16	false	false	1.5414226691301847e-7	certified
+ORD-n1000p200-s1.0-f0.05-20109	ordinary n>p	Float64	default	true	28	false	false	1.4385098276718447e-7	certified
+ORD-n1000p200-s1.0-f0.05-20109	ordinary n>p	Float32	cyclic	true	17	false	false	3.7951295e-6	certified
+ORD-n1000p200-s1.0-f0.05-20109	ordinary n>p	Float32	default	true	28	false	false	5.157165e-6	certified
+ORD-n1000p200-s1.0-f0.05-20110	ordinary n>p	Float64	cyclic	true	17	false	false	4.1329501221041943e-7	certified
+ORD-n1000p200-s1.0-f0.05-20110	ordinary n>p	Float64	default	true	30	false	false	2.7368764298341344e-7	certified
+ORD-n1000p200-s1.0-f0.05-20110	ordinary n>p	Float32	cyclic	true	17	false	false	4.1595436e-6	certified
+ORD-n1000p200-s1.0-f0.05-20110	ordinary n>p	Float32	default	true	30	false	false	1.6175139e-6	certified
+ORD-n1000p200-s1.0-f0.05-20111	ordinary n>p	Float64	cyclic	true	17	false	false	4.024868136553367e-7	certified
+ORD-n1000p200-s1.0-f0.05-20111	ordinary n>p	Float64	default	true	26	false	false	5.964593719616361e-7	certified
+ORD-n1000p200-s1.0-f0.05-20111	ordinary n>p	Float32	cyclic	true	17	false	false	6.093922e-6	certified
+ORD-n1000p200-s1.0-f0.05-20111	ordinary n>p	Float32	default	true	27	false	false	5.6540216e-6	certified
+ORD-n1000p200-s1.0-f0.1-20112	ordinary n>p	Float64	cyclic	true	12	false	false	1.1912086489996577e-9	certified
+ORD-n1000p200-s1.0-f0.1-20112	ordinary n>p	Float64	default	true	22	false	false	1.0973050313425325e-8	certified
+ORD-n1000p200-s1.0-f0.1-20112	ordinary n>p	Float32	cyclic	true	12	false	false	8.052669e-7	certified
+ORD-n1000p200-s1.0-f0.1-20112	ordinary n>p	Float32	default	true	22	false	false	8.4664896e-7	certified
+ORD-n1000p200-s1.0-f0.1-20113	ordinary n>p	Float64	cyclic	true	11	false	false	4.637543531077393e-9	certified
+ORD-n1000p200-s1.0-f0.1-20113	ordinary n>p	Float64	default	true	16	false	false	2.5000868149502345e-9	certified
+ORD-n1000p200-s1.0-f0.1-20113	ordinary n>p	Float32	cyclic	true	11	false	false	1.2100812e-6	certified
+ORD-n1000p200-s1.0-f0.1-20113	ordinary n>p	Float32	default	true	16	false	false	1.2776583e-6	certified
+ORD-n1000p200-s1.0-f0.1-20114	ordinary n>p	Float64	cyclic	true	13	false	false	2.3280629431043975e-9	certified
+ORD-n1000p200-s1.0-f0.1-20114	ordinary n>p	Float64	default	true	22	false	false	5.4319255971490645e-8	certified
+ORD-n1000p200-s1.0-f0.1-20114	ordinary n>p	Float32	cyclic	true	13	false	false	2.1992396e-6	certified
+ORD-n1000p200-s1.0-f0.1-20114	ordinary n>p	Float32	default	true	18	false	false	2.2390184e-6	certified
+ORD-n1000p200-s1.0-f0.3-20115	ordinary n>p	Float64	cyclic	true	8	false	false	6.470201381411397e-10	certified
+ORD-n1000p200-s1.0-f0.3-20115	ordinary n>p	Float64	default	true	11	false	false	9.108747353258899e-10	certified
+ORD-n1000p200-s1.0-f0.3-20115	ordinary n>p	Float32	cyclic	true	8	false	false	6.627863e-7	certified
+ORD-n1000p200-s1.0-f0.3-20115	ordinary n>p	Float32	default	true	11	false	false	6.627863e-7	certified
+ORD-n1000p200-s1.0-f0.3-20116	ordinary n>p	Float64	cyclic	true	7	false	false	4.750982200710101e-10	certified
+ORD-n1000p200-s1.0-f0.3-20116	ordinary n>p	Float64	default	true	10	false	false	6.579965340714947e-10	certified
+ORD-n1000p200-s1.0-f0.3-20116	ordinary n>p	Float32	cyclic	true	7	false	false	1.4832918e-7	certified
+ORD-n1000p200-s1.0-f0.3-20116	ordinary n>p	Float32	default	true	10	false	false	4.8025976e-7	certified
+ORD-n1000p200-s1.0-f0.3-20117	ordinary n>p	Float64	cyclic	true	7	false	false	2.3836872040073164e-12	certified
+ORD-n1000p200-s1.0-f0.3-20117	ordinary n>p	Float64	default	true	10	false	false	1.40610930894806e-9	certified
+ORD-n1000p200-s1.0-f0.3-20117	ordinary n>p	Float32	cyclic	true	7	false	false	2.5244503e-7	certified
+ORD-n1000p200-s1.0-f0.3-20117	ordinary n>p	Float32	default	true	9	false	false	1.794937e-7	certified
+ORD-n1000p200-s1.0-f0.6-20118	ordinary n>p	Float64	cyclic	true	14	false	false	5.748458503945498e-9	certified
+ORD-n1000p200-s1.0-f0.6-20118	ordinary n>p	Float64	default	true	16	false	false	2.0253135995261664e-9	certified
+ORD-n1000p200-s1.0-f0.6-20118	ordinary n>p	Float32	cyclic	true	14	false	false	1.11503816e-7	certified
+ORD-n1000p200-s1.0-f0.6-20118	ordinary n>p	Float32	default	true	16	false	false	2.4620866e-7	certified
+ORD-n1000p200-s1.0-f0.6-20119	ordinary n>p	Float64	cyclic	true	21	false	false	2.3068951293530626e-8	certified
+ORD-n1000p200-s1.0-f0.6-20119	ordinary n>p	Float64	default	true	23	false	false	4.809667889391443e-10	certified
+ORD-n1000p200-s1.0-f0.6-20119	ordinary n>p	Float32	cyclic	true	21	false	false	2.4617637e-7	certified
+ORD-n1000p200-s1.0-f0.6-20119	ordinary n>p	Float32	default	true	25	false	false	1.9345835e-7	certified
+ORD-n1000p200-s1.0-f0.6-20120	ordinary n>p	Float64	cyclic	true	13	false	false	1.037678750434426e-8	certified
+ORD-n1000p200-s1.0-f0.6-20120	ordinary n>p	Float64	default	true	12	false	false	4.8114142269880245e-9	certified
+ORD-n1000p200-s1.0-f0.6-20120	ordinary n>p	Float32	cyclic	true	13	false	false	1.5559384e-7	certified
+ORD-n1000p200-s1.0-f0.6-20120	ordinary n>p	Float32	default	true	12	false	false	1.903546e-7	certified
+WID-n100p300-s0.5-f0.3-20121	noisy p>n	Float64	cyclic	true	30	false	false	1.3968991198797698e-7	certified
+WID-n100p300-s0.5-f0.3-20121	noisy p>n	Float64	default	true	32	false	false	3.231285417060607e-7	certified
+WID-n100p300-s0.5-f0.3-20121	noisy p>n	Float32	cyclic	true	30	false	false	8.7831154e-7	certified
+WID-n100p300-s0.5-f0.3-20121	noisy p>n	Float32	default	true	33	false	false	9.0662945e-7	certified
+WID-n100p300-s0.5-f0.3-20122	noisy p>n	Float64	cyclic	true	41	false	false	3.884163181554257e-7	certified
+WID-n100p300-s0.5-f0.3-20122	noisy p>n	Float64	default	true	41	false	false	1.8501567826313366e-7	certified
+WID-n100p300-s0.5-f0.3-20122	noisy p>n	Float32	cyclic	true	41	false	false	1.0559844e-6	certified
+WID-n100p300-s0.5-f0.3-20122	noisy p>n	Float32	default	true	41	false	false	7.465361e-7	certified
+WID-n100p300-s0.5-f0.3-20123	noisy p>n	Float64	cyclic	true	30	false	false	4.719820915775335e-7	certified
+WID-n100p300-s0.5-f0.3-20123	noisy p>n	Float64	default	true	29	false	false	3.5298493833386015e-7	certified
+WID-n100p300-s0.5-f0.3-20123	noisy p>n	Float32	cyclic	true	30	false	false	6.724714e-7	certified
+WID-n100p300-s0.5-f0.3-20123	noisy p>n	Float32	default	true	29	false	false	5.620641e-7	certified
+WID-n100p300-s0.5-f0.5-20124	noisy p>n	Float64	cyclic	true	32	false	false	2.2885529759320508e-8	certified
+WID-n100p300-s0.5-f0.5-20124	noisy p>n	Float64	default	true	35	false	false	4.36973626889787e-8	certified
+WID-n100p300-s0.5-f0.5-20124	noisy p>n	Float32	cyclic	true	33	false	false	2.5698589e-7	certified
+WID-n100p300-s0.5-f0.5-20124	noisy p>n	Float32	default	true	35	false	false	2.9616464e-7	certified
+WID-n100p300-s0.5-f0.5-20125	noisy p>n	Float64	cyclic	true	25	false	false	6.423279896292001e-8	certified
+WID-n100p300-s0.5-f0.5-20125	noisy p>n	Float64	default	true	28	false	false	3.315559590670983e-8	certified
+WID-n100p300-s0.5-f0.5-20125	noisy p>n	Float32	cyclic	true	25	false	false	5.313486e-7	certified
+WID-n100p300-s0.5-f0.5-20125	noisy p>n	Float32	default	true	28	false	false	3.427185e-7	certified
+WID-n100p300-s0.5-f0.5-20126	noisy p>n	Float64	cyclic	true	35	false	false	5.371859241019536e-8	certified
+WID-n100p300-s0.5-f0.5-20126	noisy p>n	Float64	default	true	41	false	false	1.149147542492301e-7	certified
+WID-n100p300-s0.5-f0.5-20126	noisy p>n	Float32	cyclic	true	35	false	false	5.6641016e-7	certified
+WID-n100p300-s0.5-f0.5-20126	noisy p>n	Float32	default	true	41	false	false	4.0324795e-7	certified
+WID-n100p300-s0.5-f0.7-20127	noisy p>n	Float64	cyclic	true	8	false	false	1.2800385932823335e-9	certified
+WID-n100p300-s0.5-f0.7-20127	noisy p>n	Float64	default	true	12	false	false	3.0443898580807866e-9	certified
+WID-n100p300-s0.5-f0.7-20127	noisy p>n	Float32	cyclic	true	12	false	false	2.6230408e-8	certified
+WID-n100p300-s0.5-f0.7-20127	noisy p>n	Float32	default	true	12	false	false	1.562235e-8	certified
+WID-n100p300-s0.5-f0.7-20128	noisy p>n	Float64	cyclic	true	37	false	false	9.759294536600626e-8	certified
+WID-n100p300-s0.5-f0.7-20128	noisy p>n	Float64	default	true	31	false	false	6.537869247945084e-9	certified
+WID-n100p300-s0.5-f0.7-20128	noisy p>n	Float32	cyclic	true	38	false	false	1.7413302e-7	certified
+WID-n100p300-s0.5-f0.7-20128	noisy p>n	Float32	default	true	32	false	false	1.3833282e-7	certified
+WID-n100p300-s0.5-f0.7-20129	noisy p>n	Float64	cyclic	true	34	false	false	1.0840789088188139e-7	certified
+WID-n100p300-s0.5-f0.7-20129	noisy p>n	Float64	default	true	33	false	false	7.8850819100018e-9	certified
+WID-n100p300-s0.5-f0.7-20129	noisy p>n	Float32	cyclic	true	34	false	false	2.1229911e-7	certified
+WID-n100p300-s0.5-f0.7-20129	noisy p>n	Float32	default	true	33	false	false	1.4343082e-7	certified
+WID-n100p300-s0.5-f0.9-20130	noisy p>n	Float64	cyclic	true	3	false	false	5.708518967641353e-14	certified
+WID-n100p300-s0.5-f0.9-20130	noisy p>n	Float64	default	true	3	false	false	5.708518967641353e-14	certified
+WID-n100p300-s0.5-f0.9-20130	noisy p>n	Float32	cyclic	true	3	false	false	8.8336165e-8	certified
+WID-n100p300-s0.5-f0.9-20130	noisy p>n	Float32	default	true	3	false	false	8.8336165e-8	certified
+WID-n100p300-s0.5-f0.9-20131	noisy p>n	Float64	cyclic	true	13	false	false	3.808592528234699e-9	certified
+WID-n100p300-s0.5-f0.9-20131	noisy p>n	Float64	default	true	13	false	false	2.729505229821823e-10	certified
+WID-n100p300-s0.5-f0.9-20131	noisy p>n	Float32	cyclic	true	13	false	false	1.162779e-7	certified
+WID-n100p300-s0.5-f0.9-20131	noisy p>n	Float32	default	true	13	false	false	3.5971972e-8	certified
+WID-n100p300-s0.5-f0.9-20132	noisy p>n	Float64	cyclic	true	8	false	false	2.756887929533099e-10	certified
+WID-n100p300-s0.5-f0.9-20132	noisy p>n	Float64	default	true	11	false	false	4.0326807201091914e-11	certified
+WID-n100p300-s0.5-f0.9-20132	noisy p>n	Float32	cyclic	true	11	false	false	1.3544908e-8	certified
+WID-n100p300-s0.5-f0.9-20132	noisy p>n	Float32	default	true	20	false	false	9.928837e-9	certified
+WID-n100p300-s1.0-f0.3-20133	noisy p>n	Float64	cyclic	true	27	false	false	1.5804533303449153e-7	certified
+WID-n100p300-s1.0-f0.3-20133	noisy p>n	Float64	default	true	29	false	false	2.934583373408261e-7	certified
+WID-n100p300-s1.0-f0.3-20133	noisy p>n	Float32	cyclic	true	27	false	false	4.9327633e-7	certified
+WID-n100p300-s1.0-f0.3-20133	noisy p>n	Float32	default	true	29	false	false	4.2336902e-7	certified
+WID-n100p300-s1.0-f0.3-20134	noisy p>n	Float64	cyclic	true	43	false	false	2.5677545396716045e-7	certified
+WID-n100p300-s1.0-f0.3-20134	noisy p>n	Float64	default	true	42	false	false	1.4099020770353236e-7	certified
+WID-n100p300-s1.0-f0.3-20134	noisy p>n	Float32	cyclic	true	43	false	false	1.4492277e-6	certified
+WID-n100p300-s1.0-f0.3-20134	noisy p>n	Float32	default	true	42	false	false	5.921551e-7	certified
+WID-n100p300-s1.0-f0.3-20135	noisy p>n	Float64	cyclic	true	186	false	false	2.954400247740356e-6	certified
+WID-n100p300-s1.0-f0.3-20135	noisy p>n	Float64	default	true	137	false	false	2.440202351381779e-6	certified
+WID-n100p300-s1.0-f0.3-20135	noisy p>n	Float32	cyclic	true	186	false	false	5.206319e-6	certified
+WID-n100p300-s1.0-f0.3-20135	noisy p>n	Float32	default	true	139	false	false	2.051342e-6	certified
+WID-n100p300-s1.0-f0.5-20136	noisy p>n	Float64	cyclic	true	19	false	false	1.0379696930740245e-8	certified
+WID-n100p300-s1.0-f0.5-20136	noisy p>n	Float64	default	true	20	false	false	1.737732288353201e-8	certified
+WID-n100p300-s1.0-f0.5-20136	noisy p>n	Float32	cyclic	true	19	false	false	5.417692e-7	certified
+WID-n100p300-s1.0-f0.5-20136	noisy p>n	Float32	default	true	20	false	false	9.9689856e-8	certified
+WID-n100p300-s1.0-f0.5-20137	noisy p>n	Float64	cyclic	true	23	false	false	1.1090130300156838e-7	certified
+WID-n100p300-s1.0-f0.5-20137	noisy p>n	Float64	default	true	25	false	false	6.324612417028198e-8	certified
+WID-n100p300-s1.0-f0.5-20137	noisy p>n	Float32	cyclic	true	23	false	false	1.5878814e-7	certified
+WID-n100p300-s1.0-f0.5-20137	noisy p>n	Float32	default	true	24	false	false	2.1364039e-7	certified
+WID-n100p300-s1.0-f0.5-20138	noisy p>n	Float64	cyclic	true	13	false	false	2.160017761857919e-9	certified
+WID-n100p300-s1.0-f0.5-20138	noisy p>n	Float64	default	true	14	false	false	1.8513268448850884e-9	certified
+WID-n100p300-s1.0-f0.5-20138	noisy p>n	Float32	cyclic	true	13	false	false	1.719714e-7	certified
+WID-n100p300-s1.0-f0.5-20138	noisy p>n	Float32	default	true	14	false	false	2.8792425e-7	certified
+WID-n100p300-s1.0-f0.7-20139	noisy p>n	Float64	cyclic	true	12	false	false	3.865032997208238e-9	certified
+WID-n100p300-s1.0-f0.7-20139	noisy p>n	Float64	default	true	13	false	false	3.784343266148409e-9	certified
+WID-n100p300-s1.0-f0.7-20139	noisy p>n	Float32	cyclic	true	12	false	false	3.6376647e-8	certified
+WID-n100p300-s1.0-f0.7-20139	noisy p>n	Float32	default	true	13	false	false	2.2068484e-8	certified
+WID-n100p300-s1.0-f0.7-20140	noisy p>n	Float64	cyclic	true	8	false	false	1.505062917544186e-10	certified
+WID-n100p300-s1.0-f0.7-20140	noisy p>n	Float64	default	true	7	false	false	6.031223549354208e-9	certified
+WID-n100p300-s1.0-f0.7-20140	noisy p>n	Float32	cyclic	true	10	false	false	1.5064755e-8	certified
+WID-n100p300-s1.0-f0.7-20140	noisy p>n	Float32	default	true	20	false	false	1.32793385e-8	certified
+WID-n100p300-s1.0-f0.7-20141	noisy p>n	Float64	cyclic	true	30	false	false	5.3162987456352384e-8	certified
+WID-n100p300-s1.0-f0.7-20141	noisy p>n	Float64	default	true	32	false	false	3.5477296707932074e-8	certified
+WID-n100p300-s1.0-f0.7-20141	noisy p>n	Float32	cyclic	true	31	false	false	1.9805891e-7	certified
+WID-n100p300-s1.0-f0.7-20141	noisy p>n	Float32	default	true	32	false	false	1.10223894e-7	certified
+WID-n100p300-s1.0-f0.9-20142	noisy p>n	Float64	cyclic	true	14	false	false	5.794068581191665e-9	certified
+WID-n100p300-s1.0-f0.9-20142	noisy p>n	Float64	default	true	15	false	false	1.0076841701206656e-10	certified
+WID-n100p300-s1.0-f0.9-20142	noisy p>n	Float32	cyclic	true	15	false	false	5.6761618e-8	certified
+WID-n100p300-s1.0-f0.9-20142	noisy p>n	Float32	default	true	17	false	false	5.6761618e-8	certified
+WID-n100p300-s1.0-f0.9-20143	noisy p>n	Float64	cyclic	true	16	false	false	2.2176053212734284e-9	certified
+WID-n100p300-s1.0-f0.9-20143	noisy p>n	Float64	default	true	9	false	false	3.934489564167293e-10	certified
+WID-n100p300-s1.0-f0.9-20143	noisy p>n	Float32	cyclic	true	18	false	false	6.527725e-8	certified
+WID-n100p300-s1.0-f0.9-20143	noisy p>n	Float32	default	true	11	false	false	1.3362545e-7	certified
+WID-n100p300-s1.0-f0.9-20144	noisy p>n	Float64	cyclic	true	10	false	false	2.1018394608562824e-9	certified
+WID-n100p300-s1.0-f0.9-20144	noisy p>n	Float64	default	true	11	false	false	3.365040373828642e-10	certified
+WID-n100p300-s1.0-f0.9-20144	noisy p>n	Float32	cyclic	true	10	false	false	2.4324736e-9	certified
+WID-n100p300-s1.0-f0.9-20144	noisy p>n	Float32	default	true	13	false	false	7.964251e-9	certified
+WID-n40p120-s0.5-f0.3-20145	noisy p>n	Float64	cyclic	true	178	false	false	1.479453259297859e-6	certified
+WID-n40p120-s0.5-f0.3-20145	noisy p>n	Float64	default	true	108	false	false	1.0369339535052166e-6	certified
+WID-n40p120-s0.5-f0.3-20145	noisy p>n	Float32	cyclic	true	178	false	false	6.3512607e-6	certified
+WID-n40p120-s0.5-f0.3-20145	noisy p>n	Float32	default	true	112	false	false	1.2621698e-6	certified
+WID-n40p120-s0.5-f0.3-20146	noisy p>n	Float64	cyclic	true	69	false	false	1.5115502879640277e-6	certified
+WID-n40p120-s0.5-f0.3-20146	noisy p>n	Float64	default	true	63	false	false	1.1894156600636342e-6	certified
+WID-n40p120-s0.5-f0.3-20146	noisy p>n	Float32	cyclic	true	70	false	false	1.8804612e-6	certified
+WID-n40p120-s0.5-f0.3-20146	noisy p>n	Float32	default	true	63	false	false	1.11685e-6	certified
+WID-n40p120-s0.5-f0.3-20147	noisy p>n	Float64	cyclic	true	1155	false	false	6.037181537784272e-5	certified
+WID-n40p120-s0.5-f0.3-20147	noisy p>n	Float64	default	true	576	false	false	4.6658274201631615e-5	certified
+WID-n40p120-s0.5-f0.3-20147	noisy p>n	Float32	cyclic	true	1156	false	false	5.619864e-5	certified
+WID-n40p120-s0.5-f0.3-20147	noisy p>n	Float32	default	true	587	false	false	2.5705609e-5	certified
+WID-n40p120-s0.5-f0.5-20148	noisy p>n	Float64	cyclic	true	156	false	false	3.629182944024667e-6	certified
+WID-n40p120-s0.5-f0.5-20148	noisy p>n	Float64	default	true	94	false	false	3.438657972492484e-6	certified
+WID-n40p120-s0.5-f0.5-20148	noisy p>n	Float32	cyclic	true	154	false	false	4.1132184e-6	certified
+WID-n40p120-s0.5-f0.5-20148	noisy p>n	Float32	default	true	97	false	false	2.6731077e-6	certified
+WID-n40p120-s0.5-f0.5-20149	noisy p>n	Float64	cyclic	true	258	false	false	3.7493996464307474e-7	certified
+WID-n40p120-s0.5-f0.5-20149	noisy p>n	Float64	default	true	94	false	false	3.2914450728009096e-7	certified
+WID-n40p120-s0.5-f0.5-20149	noisy p>n	Float32	cyclic	true	257	false	false	2.306021e-6	certified
+WID-n40p120-s0.5-f0.5-20149	noisy p>n	Float32	default	true	95	false	false	7.023241e-7	certified
+WID-n40p120-s0.5-f0.5-20150	noisy p>n	Float64	cyclic	true	20	false	false	1.9250583783971646e-8	certified
+WID-n40p120-s0.5-f0.5-20150	noisy p>n	Float64	default	true	31	false	false	1.1151922279665175e-8	certified
+WID-n40p120-s0.5-f0.5-20150	noisy p>n	Float32	cyclic	true	20	false	false	1.7003525e-7	certified
+WID-n40p120-s0.5-f0.5-20150	noisy p>n	Float32	default	true	35	false	false	2.3373569e-7	certified
+WID-n40p120-s0.5-f0.7-20151	noisy p>n	Float64	cyclic	true	3	false	false	3.172251714978567e-14	certified
+WID-n40p120-s0.5-f0.7-20151	noisy p>n	Float64	default	true	3	false	false	3.172251714978567e-14	certified
+WID-n40p120-s0.5-f0.7-20151	noisy p>n	Float32	cyclic	true	3	false	false	8.299288e-8	certified
+WID-n40p120-s0.5-f0.7-20151	noisy p>n	Float32	default	true	3	false	false	8.299288e-8	certified
+WID-n40p120-s0.5-f0.7-20152	noisy p>n	Float64	cyclic	true	10	false	false	1.188526397063839e-9	certified
+WID-n40p120-s0.5-f0.7-20152	noisy p>n	Float64	default	true	14	false	false	3.397455485890108e-9	certified
+WID-n40p120-s0.5-f0.7-20152	noisy p>n	Float32	cyclic	true	10	false	false	1.4996738e-7	certified
+WID-n40p120-s0.5-f0.7-20152	noisy p>n	Float32	default	true	14	false	false	1.6703788e-7	certified
+WID-n40p120-s0.5-f0.7-20153	noisy p>n	Float64	cyclic	true	39	false	false	5.358875719212953e-8	certified
+WID-n40p120-s0.5-f0.7-20153	noisy p>n	Float64	default	true	19	false	false	2.5435833518448575e-8	certified
+WID-n40p120-s0.5-f0.7-20153	noisy p>n	Float32	cyclic	true	40	false	false	3.4343034e-7	certified
+WID-n40p120-s0.5-f0.7-20153	noisy p>n	Float32	default	true	21	false	false	6.3843174e-8	certified
+WID-n40p120-s0.5-f0.9-20154	noisy p>n	Float64	cyclic	true	3	false	false	3.036208214278443e-14	certified
+WID-n40p120-s0.5-f0.9-20154	noisy p>n	Float64	default	true	3	false	false	3.036208214278443e-14	certified
+WID-n40p120-s0.5-f0.9-20154	noisy p>n	Float32	cyclic	true	3	false	false	5.185839e-9	certified
+WID-n40p120-s0.5-f0.9-20154	noisy p>n	Float32	default	true	3	false	false	5.185839e-9	certified
+WID-n40p120-s0.5-f0.9-20155	noisy p>n	Float64	cyclic	true	3	false	false	2.864026398640653e-14	certified
+WID-n40p120-s0.5-f0.9-20155	noisy p>n	Float64	default	true	3	false	false	2.864026398640653e-14	certified
+WID-n40p120-s0.5-f0.9-20155	noisy p>n	Float32	cyclic	true	3	false	false	4.7003943e-9	certified
+WID-n40p120-s0.5-f0.9-20155	noisy p>n	Float32	default	true	3	false	false	4.7003943e-9	certified
+WID-n40p120-s0.5-f0.9-20156	noisy p>n	Float64	cyclic	true	3	false	false	3.1104799066354046e-14	certified
+WID-n40p120-s0.5-f0.9-20156	noisy p>n	Float64	default	true	3	false	false	3.1104799066354046e-14	certified
+WID-n40p120-s0.5-f0.9-20156	noisy p>n	Float32	cyclic	true	3	false	false	1.2497415e-7	certified
+WID-n40p120-s0.5-f0.9-20156	noisy p>n	Float32	default	true	3	false	false	1.2497415e-7	certified
+WID-n40p120-s1.0-f0.3-20157	noisy p>n	Float64	cyclic	true	144	false	false	1.0056582169758624e-6	certified
+WID-n40p120-s1.0-f0.3-20157	noisy p>n	Float64	default	true	109	false	false	5.885368149932248e-7	certified
+WID-n40p120-s1.0-f0.3-20157	noisy p>n	Float32	cyclic	true	142	false	false	3.2994817e-6	certified
+WID-n40p120-s1.0-f0.3-20157	noisy p>n	Float32	default	true	107	false	false	6.0465953e-7	certified
+WID-n40p120-s1.0-f0.3-20158	noisy p>n	Float64	cyclic	false	2057	false	true	NaN	failed
+WID-n40p120-s1.0-f0.3-20158	noisy p>n	Float64	default	false	677	false	true	NaN	failed
+WID-n40p120-s1.0-f0.3-20158	noisy p>n	Float32	cyclic	false	984	false	true	NaN	failed
+WID-n40p120-s1.0-f0.3-20158	noisy p>n	Float32	default	false	446	false	true	NaN	failed
+WID-n40p120-s1.0-f0.3-20159	noisy p>n	Float64	cyclic	true	331	false	false	2.658092859633057e-6	certified
+WID-n40p120-s1.0-f0.3-20159	noisy p>n	Float64	default	true	166	false	false	2.7967507312842534e-6	certified
+WID-n40p120-s1.0-f0.3-20159	noisy p>n	Float32	cyclic	true	330	false	false	4.3580444e-6	certified
+WID-n40p120-s1.0-f0.3-20159	noisy p>n	Float32	default	true	174	false	false	1.9239799e-6	certified
+WID-n40p120-s1.0-f0.5-20160	noisy p>n	Float64	cyclic	true	8	false	false	1.3406541603586668e-9	certified
+WID-n40p120-s1.0-f0.5-20160	noisy p>n	Float64	default	true	18	false	false	1.828061223543304e-9	certified
+WID-n40p120-s1.0-f0.5-20160	noisy p>n	Float32	cyclic	true	8	false	false	9.29162e-8	certified
+WID-n40p120-s1.0-f0.5-20160	noisy p>n	Float32	default	true	17	false	false	1.9455526e-7	certified
+WID-n40p120-s1.0-f0.5-20161	noisy p>n	Float64	cyclic	true	39	false	false	1.9327369878167472e-7	certified
+WID-n40p120-s1.0-f0.5-20161	noisy p>n	Float64	default	true	63	false	false	1.0870714941315868e-7	certified
+WID-n40p120-s1.0-f0.5-20161	noisy p>n	Float32	cyclic	true	38	false	false	7.3773816e-7	certified
+WID-n40p120-s1.0-f0.5-20161	noisy p>n	Float32	default	true	64	false	false	7.0694944e-7	certified
+WID-n40p120-s1.0-f0.5-20162	noisy p>n	Float64	cyclic	true	55	false	false	2.438063283200503e-7	certified
+WID-n40p120-s1.0-f0.5-20162	noisy p>n	Float64	default	true	39	false	false	2.983226330843613e-7	certified
+WID-n40p120-s1.0-f0.5-20162	noisy p>n	Float32	cyclic	true	55	false	false	4.7406738e-7	certified
+WID-n40p120-s1.0-f0.5-20162	noisy p>n	Float32	default	true	39	false	false	4.1711542e-7	certified
+WID-n40p120-s1.0-f0.7-20163	noisy p>n	Float64	cyclic	true	16	false	false	4.994734275736816e-10	certified
+WID-n40p120-s1.0-f0.7-20163	noisy p>n	Float64	default	true	14	false	false	1.1348501174450223e-8	certified
+WID-n40p120-s1.0-f0.7-20163	noisy p>n	Float32	cyclic	true	17	false	false	8.826966e-8	certified
+WID-n40p120-s1.0-f0.7-20163	noisy p>n	Float32	default	true	17	false	false	1.3508128e-7	certified
+WID-n40p120-s1.0-f0.7-20164	noisy p>n	Float64	cyclic	true	39	false	false	1.1389390197856042e-7	certified
+WID-n40p120-s1.0-f0.7-20164	noisy p>n	Float64	default	true	37	false	false	4.698594210159382e-8	certified
+WID-n40p120-s1.0-f0.7-20164	noisy p>n	Float32	cyclic	true	41	false	false	1.3535211e-7	certified
+WID-n40p120-s1.0-f0.7-20164	noisy p>n	Float32	default	true	32	false	false	7.9114976e-8	certified
+WID-n40p120-s1.0-f0.7-20165	noisy p>n	Float64	cyclic	true	15	false	false	1.8599208698656654e-8	certified
+WID-n40p120-s1.0-f0.7-20165	noisy p>n	Float64	default	true	24	false	false	4.8157840324649396e-9	certified
+WID-n40p120-s1.0-f0.7-20165	noisy p>n	Float32	cyclic	true	16	false	false	2.051067e-7	certified
+WID-n40p120-s1.0-f0.7-20165	noisy p>n	Float32	default	true	31	false	false	2.1254421e-7	certified
+WID-n40p120-s1.0-f0.9-20166	noisy p>n	Float64	cyclic	true	3	false	false	3.3512392852659954e-14	certified
+WID-n40p120-s1.0-f0.9-20166	noisy p>n	Float64	default	true	3	false	false	3.3512392852659954e-14	certified
+WID-n40p120-s1.0-f0.9-20166	noisy p>n	Float32	cyclic	true	3	false	false	1.5351947e-9	certified
+WID-n40p120-s1.0-f0.9-20166	noisy p>n	Float32	default	true	3	false	false	1.5351947e-9	certified
+WID-n40p120-s1.0-f0.9-20167	noisy p>n	Float64	cyclic	true	3	false	false	2.4542299759807194e-14	certified
+WID-n40p120-s1.0-f0.9-20167	noisy p>n	Float64	default	true	3	false	false	2.4542299759807194e-14	certified
+WID-n40p120-s1.0-f0.9-20167	noisy p>n	Float32	cyclic	true	3	false	false	7.730999e-8	certified
+WID-n40p120-s1.0-f0.9-20167	noisy p>n	Float32	default	true	3	false	false	7.730999e-8	certified
+WID-n40p120-s1.0-f0.9-20168	noisy p>n	Float64	cyclic	true	6	false	false	4.977231178072672e-12	certified
+WID-n40p120-s1.0-f0.9-20168	noisy p>n	Float64	default	true	9	false	false	4.946428008612694e-12	certified
+WID-n40p120-s1.0-f0.9-20168	noisy p>n	Float32	cyclic	true	6	false	false	2.0079807e-9	certified
+WID-n40p120-s1.0-f0.9-20168	noisy p>n	Float32	default	true	9	false	false	1.1460855e-8	certified
+COR-n100p40-r0.5-f0.05-20169	correlated	Float64	cyclic	true	291	false	false	4.918423444137147e-6	certified
+COR-n100p40-r0.5-f0.05-20169	correlated	Float64	default	true	89	false	false	4.108255723050053e-6	certified
+COR-n100p40-r0.5-f0.05-20169	correlated	Float32	cyclic	true	290	false	false	1.6683622e-5	certified
+COR-n100p40-r0.5-f0.05-20169	correlated	Float32	default	true	92	false	false	3.7859813e-6	certified
+COR-n100p40-r0.5-f0.05-20170	correlated	Float64	cyclic	true	335	false	false	9.41831457111681e-6	certified
+COR-n100p40-r0.5-f0.05-20170	correlated	Float64	default	true	92	false	false	6.0047281749706254e-6	certified
+COR-n100p40-r0.5-f0.05-20170	correlated	Float32	cyclic	true	334	false	false	2.9227733e-5	certified
+COR-n100p40-r0.5-f0.05-20170	correlated	Float32	default	true	94	false	false	4.475131e-6	certified
+COR-n100p40-r0.5-f0.05-20171	correlated	Float64	cyclic	true	271	false	false	1.2144780333720276e-5	certified
+COR-n100p40-r0.5-f0.05-20171	correlated	Float64	default	true	89	false	false	4.942229391498781e-6	certified
+COR-n100p40-r0.5-f0.05-20171	correlated	Float32	cyclic	true	268	false	false	2.039785e-5	certified
+COR-n100p40-r0.5-f0.05-20171	correlated	Float32	default	true	92	false	false	3.0492217e-6	certified
+COR-n100p40-r0.5-f0.2-20172	correlated	Float64	cyclic	true	149	false	false	2.2368486974693493e-6	certified
+COR-n100p40-r0.5-f0.2-20172	correlated	Float64	default	true	64	false	false	3.24065046876996e-7	certified
+COR-n100p40-r0.5-f0.2-20172	correlated	Float32	cyclic	true	149	false	false	2.2692689e-6	certified
+COR-n100p40-r0.5-f0.2-20172	correlated	Float32	default	true	44	false	false	1.2584853e-6	certified
+COR-n100p40-r0.5-f0.2-20173	correlated	Float64	cyclic	true	179	false	false	1.1216246079291068e-6	certified
+COR-n100p40-r0.5-f0.2-20173	correlated	Float64	default	true	76	false	false	2.927879700993919e-7	certified
+COR-n100p40-r0.5-f0.2-20173	correlated	Float32	cyclic	true	182	false	false	1.800252e-6	certified
+COR-n100p40-r0.5-f0.2-20173	correlated	Float32	default	true	76	false	false	8.0531936e-7	certified
+COR-n100p40-r0.5-f0.2-20174	correlated	Float64	cyclic	true	164	false	false	2.265916440132327e-6	certified
+COR-n100p40-r0.5-f0.2-20174	correlated	Float64	default	true	64	false	false	4.526968733915274e-7	certified
+COR-n100p40-r0.5-f0.2-20174	correlated	Float32	cyclic	true	161	false	false	2.2840845e-6	certified
+COR-n100p40-r0.5-f0.2-20174	correlated	Float32	default	true	64	false	false	1.0937284e-6	certified
+COR-n100p40-r0.5-f0.5-20175	correlated	Float64	cyclic	true	40	false	false	1.3822843142648518e-7	certified
+COR-n100p40-r0.5-f0.5-20175	correlated	Float64	default	true	23	false	false	6.386727351314963e-8	certified
+COR-n100p40-r0.5-f0.5-20175	correlated	Float32	cyclic	true	39	false	false	1.4313878e-7	certified
+COR-n100p40-r0.5-f0.5-20175	correlated	Float32	default	true	23	false	false	4.6203004e-7	certified
+COR-n100p40-r0.5-f0.5-20176	correlated	Float64	cyclic	true	47	false	false	2.696626790062328e-7	certified
+COR-n100p40-r0.5-f0.5-20176	correlated	Float64	default	true	48	false	false	8.523377925406327e-8	certified
+COR-n100p40-r0.5-f0.5-20176	correlated	Float32	cyclic	true	48	false	false	4.3900985e-7	certified
+COR-n100p40-r0.5-f0.5-20176	correlated	Float32	default	true	51	false	false	3.6275648e-7	certified
+COR-n100p40-r0.5-f0.5-20177	correlated	Float64	cyclic	true	38	false	false	1.3367517193159253e-7	certified
+COR-n100p40-r0.5-f0.5-20177	correlated	Float64	default	true	40	false	false	9.108147109478993e-8	certified
+COR-n100p40-r0.5-f0.5-20177	correlated	Float32	cyclic	true	39	false	false	3.634538e-7	certified
+COR-n100p40-r0.5-f0.5-20177	correlated	Float32	default	true	39	false	false	6.694407e-8	certified
+COR-n100p40-r0.9-f0.05-20178	correlated	Float64	cyclic	true	1307	false	false	1.0110281172279924e-5	certified
+COR-n100p40-r0.9-f0.05-20178	correlated	Float64	default	true	174	false	false	3.5732004443575164e-6	certified
+COR-n100p40-r0.9-f0.05-20178	correlated	Float32	cyclic	true	1314	false	false	8.512615e-5	certified
+COR-n100p40-r0.9-f0.05-20178	correlated	Float32	default	true	180	false	false	4.950868e-6	certified
+COR-n100p40-r0.9-f0.05-20179	correlated	Float64	cyclic	true	1626	false	false	1.3280156585076482e-5	certified
+COR-n100p40-r0.9-f0.05-20179	correlated	Float64	default	true	207	false	false	4.3133352308621076e-6	certified
+COR-n100p40-r0.9-f0.05-20179	correlated	Float32	cyclic	true	1641	false	false	9.383291e-5	certified
+COR-n100p40-r0.9-f0.05-20179	correlated	Float32	default	true	215	false	false	5.2709443e-6	certified
+COR-n100p40-r0.9-f0.05-20180	correlated	Float64	cyclic	true	1703	false	false	9.62003114159922e-6	certified
+COR-n100p40-r0.9-f0.05-20180	correlated	Float64	default	true	156	false	false	5.094031003309452e-6	certified
+COR-n100p40-r0.9-f0.05-20180	correlated	Float32	cyclic	true	1681	false	false	5.1823095e-5	certified
+COR-n100p40-r0.9-f0.05-20180	correlated	Float32	default	true	164	false	false	1.2331334e-5	certified
+COR-n100p40-r0.9-f0.2-20181	correlated	Float64	cyclic	true	180	false	false	1.1221087494179615e-6	certified
+COR-n100p40-r0.9-f0.2-20181	correlated	Float64	default	true	162	false	false	3.553668567048535e-8	certified
+COR-n100p40-r0.9-f0.2-20181	correlated	Float32	cyclic	true	182	false	false	1.9483539e-6	certified
+COR-n100p40-r0.9-f0.2-20181	correlated	Float32	default	true	164	false	false	8.377288e-7	certified
+COR-n100p40-r0.9-f0.2-20182	correlated	Float64	cyclic	true	90	false	false	7.049376786346589e-7	certified
+COR-n100p40-r0.9-f0.2-20182	correlated	Float64	default	true	79	false	false	4.5072739745354823e-7	certified
+COR-n100p40-r0.9-f0.2-20182	correlated	Float32	cyclic	true	90	false	false	1.2189706e-6	certified
+COR-n100p40-r0.9-f0.2-20182	correlated	Float32	default	true	88	false	false	6.389538e-7	certified
+COR-n100p40-r0.9-f0.2-20183	correlated	Float64	cyclic	true	207	false	false	4.877192805921682e-7	certified
+COR-n100p40-r0.9-f0.2-20183	correlated	Float64	default	true	88	false	false	6.949372869942285e-7	certified
+COR-n100p40-r0.9-f0.2-20183	correlated	Float32	cyclic	true	210	false	false	1.7491462e-6	certified
+COR-n100p40-r0.9-f0.2-20183	correlated	Float32	default	true	89	false	false	2.8930205e-7	certified
+COR-n100p40-r0.9-f0.5-20184	correlated	Float64	cyclic	true	6	false	false	1.241360315090252e-13	certified
+COR-n100p40-r0.9-f0.5-20184	correlated	Float64	default	true	9	false	false	1.241360315090252e-13	certified
+COR-n100p40-r0.9-f0.5-20184	correlated	Float32	cyclic	true	6	false	false	5.6924275e-8	certified
+COR-n100p40-r0.9-f0.5-20184	correlated	Float32	default	true	9	false	false	5.6924275e-8	certified
+COR-n100p40-r0.9-f0.5-20185	correlated	Float64	cyclic	true	6	false	false	1.0296058709396324e-13	certified
+COR-n100p40-r0.9-f0.5-20185	correlated	Float64	default	true	7	false	false	1.0296058709396324e-13	certified
+COR-n100p40-r0.9-f0.5-20185	correlated	Float32	cyclic	true	6	false	false	2.0451678e-8	certified
+COR-n100p40-r0.9-f0.5-20185	correlated	Float32	default	true	7	false	false	2.0451678e-8	certified
+COR-n100p40-r0.9-f0.5-20186	correlated	Float64	cyclic	true	62	false	false	6.02866901578981e-9	certified
+COR-n100p40-r0.9-f0.5-20186	correlated	Float64	default	true	40	false	false	2.741437463828739e-7	certified
+COR-n100p40-r0.9-f0.5-20186	correlated	Float32	cyclic	true	60	false	false	3.1516013e-8	certified
+COR-n100p40-r0.9-f0.5-20186	correlated	Float32	default	true	40	false	false	2.463386e-7	certified
+COR-n60p150-r0.7-f0.05-20187	correlated	Float64	cyclic	false	238	false	true	NaN	failed
+COR-n60p150-r0.7-f0.05-20187	correlated	Float64	default	false	119	false	true	NaN	failed
+COR-n60p150-r0.7-f0.05-20187	correlated	Float32	cyclic	false	144	false	true	NaN	failed
+COR-n60p150-r0.7-f0.05-20187	correlated	Float32	default	false	82	false	true	NaN	failed
+COR-n60p150-r0.7-f0.05-20188	correlated	Float64	cyclic	false	171	false	true	NaN	failed
+COR-n60p150-r0.7-f0.05-20188	correlated	Float64	default	false	91	false	true	NaN	failed
+COR-n60p150-r0.7-f0.05-20188	correlated	Float32	cyclic	false	107	false	true	NaN	failed
+COR-n60p150-r0.7-f0.05-20188	correlated	Float32	default	false	65	false	true	NaN	failed
+COR-n60p150-r0.7-f0.05-20189	correlated	Float64	cyclic	false	324	false	true	NaN	failed
+COR-n60p150-r0.7-f0.05-20189	correlated	Float64	default	false	137	false	true	NaN	failed
+COR-n60p150-r0.7-f0.05-20189	correlated	Float32	cyclic	false	196	false	true	NaN	failed
+COR-n60p150-r0.7-f0.05-20189	correlated	Float32	default	false	101	false	true	NaN	failed
+COR-n60p150-r0.7-f0.2-20190	correlated	Float64	cyclic	false	1652	false	true	NaN	failed
+COR-n60p150-r0.7-f0.2-20190	correlated	Float64	default	false	642	false	true	NaN	failed
+COR-n60p150-r0.7-f0.2-20190	correlated	Float32	cyclic	false	870	false	true	NaN	failed
+COR-n60p150-r0.7-f0.2-20190	correlated	Float32	default	false	395	false	true	NaN	failed
+COR-n60p150-r0.7-f0.2-20191	correlated	Float64	cyclic	false	20000	true	false	NaN	failed
+COR-n60p150-r0.7-f0.2-20191	correlated	Float64	default	false	2935	false	true	NaN	failed
+COR-n60p150-r0.7-f0.2-20191	correlated	Float32	cyclic	false	8739	false	true	NaN	failed
+COR-n60p150-r0.7-f0.2-20191	correlated	Float32	default	false	1543	false	true	NaN	failed
+COR-n60p150-r0.7-f0.2-20192	correlated	Float64	cyclic	true	1274	false	false	4.2100239764955465e-6	certified
+COR-n60p150-r0.7-f0.2-20192	correlated	Float64	default	true	375	false	false	2.441225869250531e-6	certified
+COR-n60p150-r0.7-f0.2-20192	correlated	Float32	cyclic	true	1324	false	false	2.8735773e-5	certified
+COR-n60p150-r0.7-f0.2-20192	correlated	Float32	default	true	393	false	false	3.1198706e-6	certified
+COR-n60p150-r0.7-f0.5-20193	correlated	Float64	cyclic	true	309	false	false	1.4390080630068256e-6	certified
+COR-n60p150-r0.7-f0.5-20193	correlated	Float64	default	true	150	false	false	2.075627118031958e-7	certified
+COR-n60p150-r0.7-f0.5-20193	correlated	Float32	cyclic	true	317	false	false	2.1054302e-6	certified
+COR-n60p150-r0.7-f0.5-20193	correlated	Float32	default	true	118	false	false	5.4503533e-7	certified
+COR-n60p150-r0.7-f0.5-20194	correlated	Float64	cyclic	true	5	false	false	6.138288727758818e-14	certified
+COR-n60p150-r0.7-f0.5-20194	correlated	Float64	default	true	7	false	false	6.157029558989601e-14	certified
+COR-n60p150-r0.7-f0.5-20194	correlated	Float32	cyclic	true	5	false	false	2.947575e-8	certified
+COR-n60p150-r0.7-f0.5-20194	correlated	Float32	default	true	7	false	false	8.1403584e-8	certified
+COR-n60p150-r0.7-f0.5-20195	correlated	Float64	cyclic	true	59	false	false	1.0436822212224729e-7	certified
+COR-n60p150-r0.7-f0.5-20195	correlated	Float64	default	true	45	false	false	1.1475151207796892e-8	certified
+COR-n60p150-r0.7-f0.5-20195	correlated	Float32	cyclic	true	59	false	false	9.436751e-8	certified
+COR-n60p150-r0.7-f0.5-20195	correlated	Float32	default	true	49	false	false	5.4411487e-8	certified
