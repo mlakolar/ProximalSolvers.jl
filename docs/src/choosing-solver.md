@@ -198,7 +198,7 @@ fewer iterations than PGD; on well-conditioned ones it can need more. An
 iteration evaluates the gradient at `y` and then backtracks; a restart adds a
 second gradient evaluation and line search in that iteration. Compare the two at
 the same independently measured accuracy, as in
-[the solver comparison](examples/04_lasso_solver_comparison.md), before
+[the solver comparison](examples/comparisons/lasso_solvers.md), before
 choosing one for speed.
 
 ~~~@example choosing_apg
@@ -236,7 +236,7 @@ model together. The penalty is `GroupNormL2(lambda, groups)`, that is
 penalty. Only `CDSolver` solves it, with a ProximalBase `BlockIterate` that has the
 groups of the penalty; `ProximalGradientDescent` and `AccProxGradDescent` refuse
 both. The groups may be any disjoint index sets, in any order, and together they must
-cover every coefficient. [Example 6](examples/06_group_cd_lasso.md) uses
+cover every coefficient. The [group lasso tutorial](examples/problems/group_lasso.md) uses
 noncontiguous groups; [Supported problems](support.md) lists the restrictions.
 
 ~~~@example choosing_group
@@ -320,27 +320,23 @@ group sizes, the layout and `λ`.
 
 ## What is supported now?
 
-`X` must be a finite dense `Matrix{T}`, `y` a finite `Vector{T}`,
-and the coefficients the same type, with `T` equal to Float32 or Float64.
-For a dense `Vector`, and for CD a one-dimensional `SparseIterate`, the penalty is an unweighted L1 or an
-unweighted `ElasticNet(lambda1, lambda2)`, for CD, PGD and APG. `CDSolver` stops by its change test for an `ElasticNet` too, not by a KKT check;
-with `lambda2 > 0` it refuses a coordinate step outside the normal range (see the numerical guide).
-For PGD and APG on a dense `Vector`, `NormLinf(lambda)` (`lambda * maximum(abs, beta)`, finite nonnegative `lambda`
-representable in `T`) is also accepted, with least squares or one positive scalar multiple of it; use `ProximalGradientDescent`
-or `AccProxGradDescent` for it, because this `CDSolver` needs a separable penalty for its coordinate step and refuses `NormLinf`
-for a dense `Vector`, a `SparseIterate` and a `BlockIterate`. The ℓ∞ penalty can tie the largest coefficients at a common
-magnitude and does not in general give zeros; in exact arithmetic, 0 is a minimizer exactly when `lambda` is at least `‖∇f(0)‖₁ = α‖Xᵀy‖₁`.
-A solve declares convergence only through the ℓ∞ check
-of [Numerical behavior](numerics.md#The-stationarity-check-for-NormLinf) (a solve can also end through a limit, an objective
-increase or stagnation without passing it). The check is the direct KKT residual of the ∞-norm's subdifferential at the accepted
-iterate: it adds one gradient for APG and no proximal evaluation to each proposed stop, and it allocates nothing for a
-`Float32`, `Float64`, `Int`, `Float16` or `Rational{Int}` level. ProximalBase's threshold selection in the iterations costs O(p) expected
-time per proximal evaluation, and the first ℓ∞ solve may compile that code. In its ordinary radius path ProximalBase forms the radius as a
+The [Problem × solver matrix](@ref "Problem × solver matrix") of
+[Supported problems](support.md) lists, for each problem, the solvers, iterates and
+element types with verified support, and the sections below it give the exact input rules.
+
+For PGD and APG on a dense `Vector`, `NormLinf(lambda)` (`lambda * maximum(abs, beta)`) is also accepted, with least squares or one
+positive scalar multiple of it; use `ProximalGradientDescent` or `AccProxGradDescent` for it, because this `CDSolver` needs a
+separable penalty for its coordinate step and refuses `NormLinf` for a dense `Vector`, a `SparseIterate` and a `BlockIterate`. The
+ℓ∞ penalty can tie the largest coefficients at a common magnitude and does not in general give zeros; in exact arithmetic, 0 is a
+minimizer exactly when `lambda` is at least `‖∇f(0)‖₁ = α‖Xᵀy‖₁`. A solve declares convergence only through the ℓ∞ check of
+[Numerical behavior](numerics.md#The-stationarity-check-for-NormLinf) (a solve can also end through a limit, an objective increase
+or stagnation without passing it). The check is the direct KKT residual of the ∞-norm's subdifferential at the accepted iterate:
+it adds one gradient for APG and no proximal evaluation to each proposed stop, and it allocates nothing for a `Float32`, `Float64`,
+`Int`, `Float16` or `Rational{Int}` level. ProximalBase's threshold selection in the iterations costs O(p) expected time per
+proximal evaluation, and the first ℓ∞ solve may compile that code. In its ordinary radius path ProximalBase forms the radius as a
 product in `promote_type(T, float(typeof(step)), float(typeof(level)))` and converts it to `T`; with a positive `BigFloat` or
 `Rational{BigInt}` level that product can allocate in the iterations, as it does for `NormL1` and `ElasticNet` with such levels.
-See [the ℓ∞ example](examples/08_linf_regularized_regression.md).
-The loss is ordinary least squares
-(or a single positive finite scalar multiple of it).
+See [the ℓ∞ tutorial](examples/problems/linf_regularized_regression.md).
 
 Coordinate descent can also solve a group lasso on a `BlockIterate` with a
 `GroupNormL2` penalty, as described above and in [Supported problems](support.md).
@@ -348,8 +344,8 @@ Coordinate descent can additionally store coefficients in a one-dimensional
 [ProximalBase SparseIterate](https://mlakolar.github.io/ProximalBase.jl/dev/).
 It tracks coordinates that are explicitly active, and can be helpful for
 a sparse result. It does **not** make the feature matrix sparse.
-In [Example 3](examples/03_sparse_cd_lasso.md), the first coefficient is
-exactly zero and the second is active.
+In the [SparseIterate section of the lasso tutorial](examples/problems/lasso.md#Coordinate-descent-on-a-SparseIterate),
+the first coefficient is exactly zero and the second is active.
 
 Unsupported historical knobs are listed in one
 [deferred-features table](support.md). Do not use gap, screening or

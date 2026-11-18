@@ -69,12 +69,7 @@ function _sqnorm!(m::LSModel{T}, k::Int) where T
   end
   a
 end
-function _flat_column(m::LSModel{T}, k::Int) where T
-  for i in axes(m.X, 1)
-    m.X[i, k] == zero(T) || return false
-  end
-  true
-end
+_flat_column(m::LSModel, k::Int) = all(iszero, view(m.X, :, k))
 # The coordinate step. With a = ‖X_k‖², b = rᵀX_k and the centre c = old + b/a, the step is the soft
 # threshold of c at τ = λ/(m.s a) (for an ElasticNet, followed by the ridge weight 1/(1 + λ2/(m.s a))).
 # A flat column (a = 0 and X_k = 0) takes the penalty's minimizer. A
@@ -342,12 +337,7 @@ end
   (floatmin(typeof(p)) <= p) & (floatmin(typeof(p)) <= inv(p)) || _refuse_group_step(typeof(p), k)
   nothing
 end
-function _flat_group(ls::LSModel, idx)
-  for j in idx
-    _flat_column(ls, Int(j)) || return false
-  end
-  true
-end
+_flat_group(ls::LSModel, idx) = all(j -> _flat_column(ls, Int(j)), idx)
 # ℓ = nextfloat(a (1 + 2 n eps(T))) for a = Σ x_i², the recursive sum of the n rounded squares of the
 # column in T. Where n eps(T) ≤ 1/8, that is n u ≤ 1/16 for u = eps(T)/2, the computed a satisfies
 # S (1 − γ_n) ≤ a + (n η/2)(1 + γ_n) for the exact sum S, with γ_n = n u/(1 − n u) ≤ 16 n u/15 = 8 n eps(T)/15 and

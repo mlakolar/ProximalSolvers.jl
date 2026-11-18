@@ -43,18 +43,6 @@ use the separate [numerical KKT check](sparsity-and-kkt.md). For CD with the squ
 proved bound (see [`CDSolver`](@ref)). Otherwise a result's `gap=NaN` and CD's `kkt_checks=0` are
 placeholders: neither is a computed certificate.
 
-For PGD and APG with a `NormLinf(λ)` penalty, `converged=true` means that a stopping test proposed a stop and that the
-direct KKT residual `min over v ∈ ∂‖x‖∞ of ‖∇f(x) + λ v‖₁` (an ℓ1 norm) at the returned point is below
-`max(gradtol, 64eps(T)) * max(λ, ‖∇f(0)‖₁)` (see
-[the ℓ∞ check](numerics.md#The-stationarity-check-for-NormLinf)). It is a working-precision value computed from the computed
-gradient with compensated sums, not an exact-arithmetic certificate: the true residual at a kept stop can be slightly above the bound (the computed
-gradient's rounding error, and a small error of the sums). A proposed stop costs one
-more gradient for APG (counted in `grad_calls` before the call limits are compared, so a stop that the check refuses can reach
-`grad_calls_limit`) and no proximal evaluation. A solve can also end through a limit, an objective increase or stagnation with
-`converged=false` and without a stop that passed the check. The active set is found by exact equality of magnitudes, without tolerance; the
-iterates of PGD and APG store the entries that the clip ties as `±τ` with the same `τ`. An iterate whose entries near the maximum have unequal
-magnitudes has the smaller ones off the active set, which can make the check refuse when their gradient contribution is too large.
-
 ## Avoid accidentally overwriting results
 
 ~~~@example results_cd
@@ -90,14 +78,14 @@ diagnostics, not changes to the statistical model.
 | Symptom | Check |
 | --- | --- |
 | `DimensionMismatch` | `size(X, 1) == length(y)` and `size(X, 2) == length(beta)` |
-| Type/unsupported input error | Dense Float32 or Float64 `X` and `y` with matching coefficient type; only ordinary least squares + unweighted L1 (an unweighted `ElasticNet` is also accepted), with PGD or APG also `NormLinf`, with CD a `BlockIterate` and a `GroupNormL2` penalty, or with CD `SqrtLeastSquaresLoss` and an unweighted `NormL1` with a positive level; `CDSolver` refuses `NormLinf` |
+| Type/unsupported input error | Compare the problem, solver, iterate and element type with the [Problem × solver matrix](@ref "Problem × solver matrix"), and the input with the rules of [Supported problems](support.md) |
 | Penalty seems too strong or too weak | `LeastSquaresLoss` is a sum; explicitly multiply by `1/n` for mean-normalized lasso |
 | PGD rejects `SparseIterate` | PGD needs a dense coefficient vector; CD supports one-dimensional `SparseIterate` |
 | PGD or APG rejects `BlockIterate` | Only CD solves the group lasso, with a `BlockIterate` and a `GroupNormL2` penalty |
 | `DimensionMismatch` naming groups, or an error naming a group | The groups of `BlockIterate` and `GroupNormL2` must be equal in number, order and members; an error naming a group is a curvature or step refusal, see [Numerical behavior](numerics.md), or a weight or parameter refusal such as `group weight 2 …` |
 | Convergence flag is false | Inspect the solver's iteration/pass limit; check the [KKT residual](sparsity-and-kkt.md) |
 | `gap` is NaN | Gap certification is implemented only for the square-root lasso with CD; there, `NaN` means that the run stopped without a certificate |
-| Square-root lasso: `converged = false` with a warning about a missing duality certificate | The certificate did not pass, for example at an exact fit (`y = X*beta`), where coordinate descent can stop at a coordinatewise minimum that is not a minimum; see [`CDSolver`](@ref) |
+| Square-root lasso: `converged = false` with a warning about a missing duality certificate | The certificate did not pass, for example at an exact fit (`y = X*beta`), where coordinate descent can stop at a coordinatewise minimum that is not a minimum; see [`CDSolver`](@ref) and [an example](@ref sqrt-lasso-exact-fit) |
 | Float32 precision looks poor | Start with native Float32 inputs/scales, check the KKT residual; Float32 has lower precision |
 | Coefficients appear to change unexpectedly | `solve!` mutates the supplied coefficients; copy them to save the old solution |
 
