@@ -1,0 +1,8 @@
+1x1 α=1.0e-150 maxiter=200: it=200 conv=false finc=false x=1.4174185489538519e-140
+1x1 α=1.0e-150 maxiter=2000: it=2000 conv=false finc=false x=3.2732646578710884e-58
+1x1 α=1.0e-160 maxiter=200: it=200 conv=false finc=false x=1.4174185489538516e-150
+1x1 α=1.0e-160 maxiter=2000: it=2000 conv=false finc=false x=3.2732646578710885e-68
+1x1 α=1.0e-170 maxiter=200: it=200 conv=false finc=false x=1.4174185489538515e-160
+1x1 α=1.0e-170 maxiter=2000: it=2000 conv=false finc=false x=3.273264657871088e-78
+1x1 α=1.0e-200 maxiter=200: it=200 conv=false finc=false x=1.4174185489538518e-190
+1x1 α=1.0e-200 maxiter=2000: it=2000 conv=false finc=false x=3.2732646578710884e-108

@@ -1,0 +1,13 @@
+diff --git a/src/line_searches.jl b/src/line_searches.jl
+index d93f5d5..802162b 100644
+--- a/src/line_searches.jl
++++ b/src/line_searches.jl
+@@ -95,7 +95,7 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
+     _sub!(state.delta_x, state.x, state.x_previous)
+     xy_sq = _norm(state.delta_x)^2
+ 
+-    if xy_sq == zero(T) && isfinite(state.f_x)
++    if xy_sq < floatmin(Float64) && isfinite(state.f_x)
+       # in the gradient mode, update_state! expects ∇f(x), but state.grad_f_x may
+       # hold the gradient at a rejected trial point
+       if !state.backtrack_simple

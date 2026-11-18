@@ -1,0 +1,19 @@
+045428f9b53072d8d118f0af681034eea4891f71
+ src/line_searches.jl | 19 +++++++++++++++++--
+ 1 file changed, 17 insertions(+), 2 deletions(-)
+=== core_regressions.jl
+Test Summary:                                                                                       | Pass  Total  Time
+PGD: a 1×1 Float64 solve at loss scale 1e-170 does not raise the line search's 0 · Inf error (#317) |    1      1  0.1s
+Test Summary:                                                                                                                | Pass  Total  Time
+PGD: diag(1, 1e-6) with a solution at 1e-150 ends without the line search's 0 · Inf error, and a long run is accurate (#317) |    4      4  0.4s
+Test Summary:                                                                           | Pass  Total  Time
+backtrack!: a zero gradient-difference product and a subnormal ‖d̂‖² is accepted (#317)  |    6      6  0.0s
+=== stopping_scale.jl
+Test Summary:                                                                                                         | Pass  Total  Time
+PGD strict at loss scale 1e-200, λ = 0: converged, within the stopping guarantee of the least-squares solution (#317) |    4      4  2.5s
+1.13.4
+test 1: 1x1 default                     it=10 conv=true  gradient-mode estimates=0  guarded-branch entries=0
+test 2: 30x12 α=1e-200 strict           it=101 conv=true  gradient-mode estimates=56  guarded-branch entries=0
+test 3: diag default                    it=200 conv=false  gradient-mode estimates=195  guarded-branch entries=130
+test 3: diag maxiter=20000              it=269 conv=true  gradient-mode estimates=267  guarded-branch entries=130
+test 4: backtrack! unit                 returned=true  gradient-mode estimates=1  guarded-branch entries=1  L=3.0e-9

@@ -1,0 +1,10 @@
+=== core_regressions.jl
+  line search failed: nonfinite curvature estimate
+TESTSET FAILED: PGD: a 1×1 Float64 solve at loss scale 1e-170 does not raise the line search's 0 · Inf error (#317) (0 failed, 1 errored)
+  line search failed: nonfinite curvature estimate
+TESTSET FAILED: PGD: diag(1, 1e-6) with a solution at 1e-150 ends without the line search's 0 · Inf error, and a long run is accurate (#317) (0 failed, 1 errored)
+  line search failed: nonfinite curvature estimate
+TESTSET FAILED: backtrack!: a zero gradient-difference product and a subnormal ‖d̂‖² is accepted (#317) (1 failed, 1 errored)
+=== stopping_scale.jl
+  line search failed: nonfinite curvature estimate
+TESTSET FAILED: PGD strict at loss scale 1e-200, λ = 0: converged, within the stopping guarantee of the least-squares solution (#317) (0 failed, 1 errored)

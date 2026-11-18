@@ -1,0 +1,7 @@
+scan2 head rc=0
+scan2 base rc=0
+f32 head rc=0
+f32 base rc=0
+pr361 newtests rc=0
+pr361 entry rc=0
+VERIFY DONE

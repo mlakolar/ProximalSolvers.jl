@@ -1,0 +1,8 @@
+M strict α=1.0 frac=0.0 it=100 conv=true relerr=3.268308914190952e-11
+M strict α=1.0 frac=0.1 it=28 conv=true
+M strict α=1.0e-158 frac=0.0 ERR line search failed: nonfinite curvature estimate
+M strict α=1.0e-158 frac=0.1 ERR line search failed: nonfinite curvature estimate
+M strict α=1.0e-200 frac=0.0 ERR line search failed: nonfinite curvature estimate
+M strict α=1.0e-200 frac=0.1 ERR line search failed: nonfinite curvature estimate
+M strict α=1.0e-300 frac=0.0 ERR line search failed: nonfinite curvature estimate
+M strict α=1.0e-300 frac=0.1 ERR line search failed: nonfinite curvature estimate

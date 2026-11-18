@@ -1,0 +1,8 @@
+R2g strict α=1.0 frac=0.0 it=100 conv=true relerr=3.268308914190952e-11
+R2g strict α=1.0 frac=0.1 it=28 conv=true
+R2g strict α=1.0e-158 frac=0.0 it=3501 conv=true relerr=5.991500351200955e-11
+R2g strict α=1.0e-158 frac=0.1 it=3456 conv=true
+R2g strict α=1.0e-200 frac=0.0 it=4412 conv=true relerr=5.592127203076031e-11
+R2g strict α=1.0e-200 frac=0.1 it=4374 conv=true
+R2g strict α=1.0e-300 frac=0.0 it=20000 conv=false relerr=4.707094625587576e-16
+R2g strict α=1.0e-300 frac=0.1 it=20000 conv=false

@@ -1,0 +1,13 @@
+diff --git a/src/line_searches.jl b/src/line_searches.jl
+index d93f5d5..c0b573e 100644
+--- a/src/line_searches.jl
++++ b/src/line_searches.jl
+@@ -137,7 +137,7 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
+         state.f_calls += 1
+         state.grad_calls += 1
+         local_l = _dot_diff(T, state.grad_f_x, state.grad_f_x_previous, state.delta_x)
+-        local_l *= 2. / xy_sq
++        iszero(local_l) || (local_l *= 2. / xy_sq)
+     end
+ 
+     # Exit if Lipschitz criterion satisfied, or if we hit Lexact

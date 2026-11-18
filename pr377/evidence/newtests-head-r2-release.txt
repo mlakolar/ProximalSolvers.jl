@@ -1,0 +1,9 @@
+Test Summary:                                                                                       | Pass  Total  Time
+PGD: a 1×1 Float64 solve at loss scale 1e-170 does not raise the line search's 0 · Inf error (#317) |    1      1  0.1s
+Test Summary:                                                                                                                | Pass  Total  Time
+PGD: diag(1, 1e-6) with a solution at 1e-150 ends without the line search's 0 · Inf error, and a long run is accurate (#317) |    4      4  0.4s
+Test Summary:                                                                           | Pass  Total  Time
+backtrack!: a zero gradient-difference product and a subnormal ‖d̂‖² is accepted (#317)  |    6      6  0.0s
+--
+Test Summary:                                                                                                         | Pass  Total  Time
+PGD strict at loss scale 1e-200, λ = 0: converged, within the stopping guarantee of the least-squares solution (#317) |    5      5  4.3s

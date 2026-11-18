@@ -1,0 +1,226 @@
+# variant=M T=Float64 julia=1.13.4
+data	lfrac	start	alpha	outcome	iters	converged	relerr	kkt	subnormal_hits
+base	0.0	cold	1e+00	ok	32	true	5.82e-05	9.45e-06	0
+base	0.0	cold	1e-100	ok	2166	true	4.89e-05	5.84e-06	0
+base	0.0	cold	1e-140	ok	3040	true	4.16e-05	4.69e-06	0
+base	0.0	cold	1e-150	ok	3259	true	4.94e-05	5.87e-06	0
+base	0.0	cold	1e-155	ok	3368	true	5.52e-05	8.76e-06	0
+base	0.0	cold	1e-158	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	1.00e+00	2
+base	0.0	cold	1e-160	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	1.00e+00	2
+base	0.0	cold	1e-162	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	1.00e+00	2
+base	0.0	cold	1e-165	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	1.00e+00	2
+base	0.0	cold	1e-170	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	1.00e+00	2
+base	0.0	cold	1e-180	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	1.00e+00	2
+base	0.0	cold	1e-200	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	1.00e+00	2
+base	0.0	cold	1e-250	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	1.00e+00	2
+base	0.0	cold	1e-300	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	1.00e+00	2
+base	0.0	warm	1e+00	ok	8	true	6.03e-05	9.58e-06	0
+base	0.0	warm	1e-100	ok	1850	false	7.91e-04	8.09e-04	0
+base	0.0	warm	1e-140	ok	2724	false	7.91e-04	8.09e-04	0
+base	0.0	warm	1e-150	ok	2943	false	7.91e-04	8.09e-04	0
+base	0.0	warm	1e-155	ok	3052	false	7.91e-04	8.09e-04	0
+base	0.0	warm	1e-158	ok	3118	false	7.91e-04	8.09e-04	0
+base	0.0	warm	1e-160	ok	3161	false	7.91e-04	8.09e-04	0
+base	0.0	warm	1e-162	ok	3205	false	7.91e-04	8.09e-04	0
+base	0.0	warm	1e-165	ok	3271	false	7.91e-04	8.09e-04	0
+base	0.0	warm	1e-170	ok	3380	false	7.91e-04	8.09e-04	0
+base	0.0	warm	1e-180	ok	3599	false	7.91e-04	8.09e-04	0
+base	0.0	warm	1e-200	ok	4036	false	7.91e-04	8.09e-04	0
+base	0.0	warm	1e-250	ok	5128	false	7.91e-04	8.09e-04	0
+base	0.0	warm	1e-300	ok	6221	false	7.91e-04	8.09e-04	0
+base	0.1	cold	1e+00	ok	12	true	2.41e-05	8.08e-06	0
+base	0.1	cold	1e-100	ok	1791	false	1.00e+00	9.00e-01	0
+base	0.1	cold	1e-140	ok	3032	true	2.74e-05	9.22e-06	0
+base	0.1	cold	1e-150	ok	2884	false	1.00e+00	9.00e-01	0
+base	0.1	cold	1e-155	ok	3360	true	2.23e-05	7.50e-06	0
+base	0.1	cold	1e-158	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+base	0.1	cold	1e-160	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+base	0.1	cold	1e-162	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+base	0.1	cold	1e-165	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+base	0.1	cold	1e-170	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+base	0.1	cold	1e-180	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+base	0.1	cold	1e-200	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+base	0.1	cold	1e-250	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+base	0.1	cold	1e-300	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+base	0.1	warm	1e+00	ok	4	true	2.40e-05	8.48e-06	0
+base	0.1	warm	1e-100	ok	1867	false	8.13e-04	7.11e-04	0
+base	0.1	warm	1e-140	ok	1	false	8.13e-04	7.11e-04	0
+base	0.1	warm	1e-150	ok	1	false	8.13e-04	7.11e-04	0
+base	0.1	warm	1e-155	ok	1	false	8.13e-04	7.11e-04	0
+base	0.1	warm	1e-158	ok	3127	false	8.13e-04	7.11e-04	0
+base	0.1	warm	1e-160	ok	3147	false	8.13e-04	7.11e-04	0
+base	0.1	warm	1e-162	ok	3206	false	8.13e-04	7.11e-04	0
+base	0.1	warm	1e-165	ok	1	false	8.13e-04	7.11e-04	0
+base	0.1	warm	1e-170	ok	1	false	8.13e-04	7.11e-04	0
+base	0.1	warm	1e-180	ok	3565	false	8.13e-04	7.11e-04	0
+base	0.1	warm	1e-200	ok	1	false	8.13e-04	7.11e-04	0
+base	0.1	warm	1e-250	ok	1	false	8.13e-04	7.11e-04	0
+base	0.1	warm	1e-300	ok	6206	false	8.13e-04	7.11e-04	0
+base	0.5	cold	1e+00	ok	13	true	1.53e-05	4.10e-06	0
+base	0.5	cold	1e-100	ok	1785	false	1.00e+00	5.00e-01	0
+base	0.5	cold	1e-140	ok	2658	false	1.00e+00	5.00e-01	0
+base	0.5	cold	1e-150	ok	2888	false	1.00e+00	5.00e-01	0
+base	0.5	cold	1e-155	ok	2985	false	1.00e+00	5.00e-01	0
+base	0.5	cold	1e-158	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+base	0.5	cold	1e-160	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+base	0.5	cold	1e-162	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+base	0.5	cold	1e-165	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+base	0.5	cold	1e-170	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+base	0.5	cold	1e-180	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+base	0.5	cold	1e-200	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+base	0.5	cold	1e-250	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+base	0.5	cold	1e-300	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+base	0.5	warm	1e+00	ok	4	true	1.43e-05	4.20e-06	0
+base	0.5	warm	1e-100	ok	1	false	8.57e-04	4.20e-04	0
+base	0.5	warm	1e-140	ok	1	false	8.57e-04	4.20e-04	0
+base	0.5	warm	1e-150	ok	2922	false	8.57e-04	4.20e-04	0
+base	0.5	warm	1e-155	ok	3041	false	8.57e-04	4.20e-04	0
+base	0.5	warm	1e-158	ok	3111	false	8.57e-04	4.20e-04	0
+base	0.5	warm	1e-160	ok	1	false	8.57e-04	4.20e-04	0
+base	0.5	warm	1e-162	ok	3165	false	8.57e-04	4.20e-04	0
+base	0.5	warm	1e-165	ok	3254	false	8.57e-04	4.20e-04	0
+base	0.5	warm	1e-170	ok	3427	false	8.57e-04	4.20e-04	0
+base	0.5	warm	1e-180	ok	3614	false	8.57e-04	4.20e-04	0
+base	0.5	warm	1e-200	ok	4028	false	8.57e-04	4.20e-04	0
+base	0.5	warm	1e-250	ok	5113	false	8.57e-04	4.20e-04	0
+base	0.5	warm	1e-300	ok	6204	false	8.57e-04	4.20e-04	0
+wide	0.1	cold	1e+00	ok	28	true	2.45e-05	8.75e-06	0
+wide	0.1	cold	1e-100	ok	1787	false	1.00e+00	9.00e-01	0
+wide	0.1	cold	1e-140	ok	2650	false	1.00e+00	9.00e-01	0
+wide	0.1	cold	1e-150	ok	3258	true	2.61e-05	9.23e-06	0
+wide	0.1	cold	1e-155	ok	2977	false	1.00e+00	9.00e-01	0
+wide	0.1	cold	1e-158	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+wide	0.1	cold	1e-160	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+wide	0.1	cold	1e-162	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+wide	0.1	cold	1e-165	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+wide	0.1	cold	1e-170	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+wide	0.1	cold	1e-180	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+wide	0.1	cold	1e-200	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+wide	0.1	cold	1e-250	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+wide	0.1	cold	1e-300	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+wide	0.1	warm	1e+00	ok	7	true	1.56e-05	8.89e-06	0
+wide	0.1	warm	1e-100	ok	1854	false	8.01e-04	6.62e-04	0
+wide	0.1	warm	1e-140	ok	2733	false	8.01e-04	6.62e-04	0
+wide	0.1	warm	1e-150	ok	2943	false	8.01e-04	6.62e-04	0
+wide	0.1	warm	1e-155	ok	1	false	8.01e-04	6.62e-04	0
+wide	0.1	warm	1e-158	ok	1	false	8.01e-04	6.62e-04	0
+wide	0.1	warm	1e-160	ok	1	false	8.01e-04	6.62e-04	0
+wide	0.1	warm	1e-162	ok	3180	false	8.01e-04	6.62e-04	0
+wide	0.1	warm	1e-165	ok	3265	false	8.01e-04	6.62e-04	0
+wide	0.1	warm	1e-170	ok	1	false	8.01e-04	6.62e-04	0
+wide	0.1	warm	1e-180	ok	3603	false	8.01e-04	6.62e-04	0
+wide	0.1	warm	1e-200	ok	1	false	8.01e-04	6.62e-04	0
+wide	0.1	warm	1e-250	ok	5128	false	8.01e-04	6.62e-04	0
+wide	0.1	warm	1e-300	ok	1	false	8.01e-04	6.62e-04	0
+wide	0.5	cold	1e+00	ok	12	true	9.45e-06	2.43e-06	0
+wide	0.5	cold	1e-100	ok	1783	false	1.00e+00	5.00e-01	0
+wide	0.5	cold	1e-140	ok	2657	false	1.00e+00	5.00e-01	0
+wide	0.5	cold	1e-150	ok	2877	false	1.00e+00	5.00e-01	0
+wide	0.5	cold	1e-155	ok	2994	false	1.00e+00	5.00e-01	0
+wide	0.5	cold	1e-158	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+wide	0.5	cold	1e-160	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+wide	0.5	cold	1e-162	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+wide	0.5	cold	1e-165	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+wide	0.5	cold	1e-170	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+wide	0.5	cold	1e-180	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+wide	0.5	cold	1e-200	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+wide	0.5	cold	1e-250	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+wide	0.5	cold	1e-300	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+wide	0.5	warm	1e+00	ok	5	true	2.43e-05	6.50e-06	0
+wide	0.5	warm	1e-100	ok	1870	false	8.33e-04	4.21e-04	0
+wide	0.5	warm	1e-140	ok	2725	false	8.33e-04	4.21e-04	0
+wide	0.5	warm	1e-150	ok	2945	false	8.33e-04	4.21e-04	0
+wide	0.5	warm	1e-155	ok	3062	false	8.33e-04	4.21e-04	0
+wide	0.5	warm	1e-158	ok	3132	false	8.33e-04	4.21e-04	0
+wide	0.5	warm	1e-160	ok	3175	false	8.33e-04	4.21e-04	0
+wide	0.5	warm	1e-162	ok	3215	false	8.33e-04	4.21e-04	0
+wide	0.5	warm	1e-165	ok	3278	false	8.33e-04	4.21e-04	0
+wide	0.5	warm	1e-170	ok	3387	false	8.33e-04	4.21e-04	0
+wide	0.5	warm	1e-180	ok	3616	false	8.33e-04	4.21e-04	0
+wide	0.5	warm	1e-200	ok	4051	false	8.33e-04	4.21e-04	0
+wide	0.5	warm	1e-250	ok	5137	false	8.33e-04	4.21e-04	0
+wide	0.5	warm	1e-300	ok	6228	false	8.33e-04	4.21e-04	0
+corr	0.0	cold	1e+00	ok	621	true	1.48e-04	9.76e-06	0
+corr	0.0	cold	1e-100	ok	1784	false	1.00e+00	1.00e+00	0
+corr	0.0	cold	1e-140	ok	2658	false	1.00e+00	1.00e+00	0
+corr	0.0	cold	1e-150	ok	2877	false	1.00e+00	1.00e+00	0
+corr	0.0	cold	1e-155	ok	2986	false	1.00e+00	1.00e+00	0
+corr	0.0	cold	1e-158	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	1.00e+00	2
+corr	0.0	cold	1e-160	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	1.00e+00	2
+corr	0.0	cold	1e-162	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	1.00e+00	2
+corr	0.0	cold	1e-165	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	1.00e+00	2
+corr	0.0	cold	1e-170	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	1.00e+00	2
+corr	0.0	cold	1e-180	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	1.00e+00	2
+corr	0.0	cold	1e-200	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	1.00e+00	2
+corr	0.0	cold	1e-250	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	1.00e+00	2
+corr	0.0	cold	1e-300	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	1.00e+00	2
+corr	0.0	warm	1e+00	ok	84	true	1.42e-04	9.80e-06	0
+corr	0.0	warm	1e-100	ok	1842	false	6.10e-04	2.27e-03	0
+corr	0.0	warm	1e-140	ok	2716	false	6.10e-04	2.27e-03	0
+corr	0.0	warm	1e-150	ok	2927	false	6.10e-04	2.27e-03	0
+corr	0.0	warm	1e-155	ok	3044	false	6.10e-04	2.27e-03	0
+corr	0.0	warm	1e-158	ok	3102	false	6.10e-04	2.27e-03	0
+corr	0.0	warm	1e-160	ok	3146	false	6.10e-04	2.27e-03	0
+corr	0.0	warm	1e-162	ok	3197	false	6.10e-04	2.27e-03	0
+corr	0.0	warm	1e-165	ok	3255	false	6.10e-04	2.27e-03	0
+corr	0.0	warm	1e-170	ok	3372	false	6.10e-04	2.27e-03	0
+corr	0.0	warm	1e-180	ok	3583	false	6.10e-04	2.27e-03	0
+corr	0.0	warm	1e-200	ok	4020	false	6.10e-04	2.27e-03	0
+corr	0.0	warm	1e-250	ok	5120	false	6.10e-04	2.27e-03	0
+corr	0.0	warm	1e-300	ok	6213	false	6.10e-04	2.27e-03	0
+corr	0.1	cold	1e+00	ok	159	true	8.18e-05	8.97e-06	0
+corr	0.1	cold	1e-100	ok	1761	false	1.00e+00	9.00e-01	0
+corr	0.1	cold	1e-140	ok	2635	false	1.00e+00	9.00e-01	0
+corr	0.1	cold	1e-150	ok	2854	false	1.00e+00	9.00e-01	0
+corr	0.1	cold	1e-155	ok	2963	false	1.00e+00	9.00e-01	0
+corr	0.1	cold	1e-158	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+corr	0.1	cold	1e-160	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+corr	0.1	cold	1e-162	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+corr	0.1	cold	1e-165	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+corr	0.1	cold	1e-170	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+corr	0.1	cold	1e-180	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+corr	0.1	cold	1e-200	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+corr	0.1	cold	1e-250	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+corr	0.1	cold	1e-300	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	9.00e-01	2
+corr	0.1	warm	1e+00	ok	21	true	2.76e-05	7.82e-06	0
+corr	0.1	warm	1e-100	ok	1846	false	6.21e-04	1.55e-03	0
+corr	0.1	warm	1e-140	ok	2702	false	6.21e-04	1.55e-03	0
+corr	0.1	warm	1e-150	ok	2928	false	6.21e-04	1.55e-03	0
+corr	0.1	warm	1e-155	ok	3031	false	6.21e-04	1.55e-03	0
+corr	0.1	warm	1e-158	ok	3099	false	6.21e-04	1.55e-03	0
+corr	0.1	warm	1e-160	ok	3156	false	6.21e-04	1.55e-03	0
+corr	0.1	warm	1e-162	ok	3190	false	6.21e-04	1.55e-03	0
+corr	0.1	warm	1e-165	ok	3281	false	6.21e-04	1.55e-03	0
+corr	0.1	warm	1e-170	ok	3398	false	6.21e-04	1.55e-03	0
+corr	0.1	warm	1e-180	ok	3590	false	6.21e-04	1.55e-03	0
+corr	0.1	warm	1e-200	ok	4019	false	6.21e-04	1.55e-03	0
+corr	0.1	warm	1e-250	ok	5132	false	6.21e-04	1.55e-03	0
+corr	0.1	warm	1e-300	ok	6209	false	6.21e-04	1.55e-03	0
+corr	0.5	cold	1e+00	ok	15	true	2.08e-05	8.20e-06	0
+corr	0.5	cold	1e-100	ok	1769	false	1.00e+00	5.00e-01	0
+corr	0.5	cold	1e-140	ok	2644	false	1.00e+00	5.00e-01	0
+corr	0.5	cold	1e-150	ok	2862	false	1.00e+00	5.00e-01	0
+corr	0.5	cold	1e-155	ok	2971	false	1.00e+00	5.00e-01	0
+corr	0.5	cold	1e-158	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+corr	0.5	cold	1e-160	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+corr	0.5	cold	1e-162	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+corr	0.5	cold	1e-165	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+corr	0.5	cold	1e-170	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+corr	0.5	cold	1e-180	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+corr	0.5	cold	1e-200	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+corr	0.5	cold	1e-250	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+corr	0.5	cold	1e-300	ERR:line search failed: nonfinite curvature estimate	-1	false	1.00e+00	5.00e-01	2
+corr	0.5	warm	1e+00	ok	3	true	1.24e-05	6.31e-06	0
+corr	0.5	warm	1e-100	ok	1873	false	4.31e-04	2.15e-04	0
+corr	0.5	warm	1e-140	ok	2718	false	4.31e-04	2.15e-04	0
+corr	0.5	warm	1e-150	ok	2960	false	4.31e-04	2.15e-04	0
+corr	0.5	warm	1e-155	ok	3049	false	4.31e-04	2.15e-04	0
+corr	0.5	warm	1e-158	ok	1	false	4.31e-04	2.15e-04	0
+corr	0.5	warm	1e-160	ok	3188	false	4.31e-04	2.15e-04	0
+corr	0.5	warm	1e-162	ok	1	false	4.31e-04	2.15e-04	0
+corr	0.5	warm	1e-165	ok	3273	false	4.31e-04	2.15e-04	0
+corr	0.5	warm	1e-170	ok	1	false	4.31e-04	2.15e-04	0
+corr	0.5	warm	1e-180	ok	3626	false	4.31e-04	2.15e-04	0
+corr	0.5	warm	1e-200	ok	4066	false	4.31e-04	2.15e-04	0
+corr	0.5	warm	1e-250	ok	5148	false	4.31e-04	2.15e-04	0
+corr	0.5	warm	1e-300	ok	6229	false	4.31e-04	2.15e-04	0

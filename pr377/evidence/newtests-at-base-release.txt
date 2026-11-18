@@ -1,0 +1,38 @@
+=== core_regressions.jl
+
+PGD: a 1×1 Float64 solve at loss scale 1e-170 does not raise the line search's 0 · Inf error (#317): Error During Test at none:1236
+  Got exception outside of a @test
+  line search failed: nonfinite curvature estimate
+Test Summary:                                                                                       | Error  Total  Time
+PGD: a 1×1 Float64 solve at loss scale 1e-170 does not raise the line search's 0 · Inf error (#317) |     1      1  0.5s
+RNG of the outermost testset: Random.Xoshiro(0x1a225dda603b875d, 0x37773ab3d89acd54, 0xf1331600aff8beed, 0x4c6b585b5b61e5c8, 0x8d76e678d994f272)
+TESTSET FAILED: PGD: a 1×1 Float64 solve at loss scale 1e-170 does not raise the line search's 0 · Inf error (#317) (0 failed, 1 errored)
+
+PGD: diag(1, 1e-6) with a solution at 1e-150 ends without the line search's 0 · Inf error, and a long run is accurate (#317): Error During Test at none:1245
+  Got exception outside of a @test
+  line search failed: nonfinite curvature estimate
+Test Summary:                                                                                                                | Error  Total  Time
+PGD: diag(1, 1e-6) with a solution at 1e-150 ends without the line search's 0 · Inf error, and a long run is accurate (#317) |     1      1  0.4s
+RNG of the outermost testset: Random.Xoshiro(0x1a225dda603b875d, 0x37773ab3d89acd54, 0xf1331600aff8beed, 0x4c6b585b5b61e5c8, 0x8d76e678d994f272)
+TESTSET FAILED: PGD: diag(1, 1e-6) with a solution at 1e-150 ends without the line search's 0 · Inf error, and a long run is accurate (#317) (0 failed, 1 errored)
+
+backtrack!: a zero gradient-difference product and a subnormal ‖d̂‖² is accepted (#317): Error During Test at none:1292
+  Test threw exception
+  Expression: PS.LineSearches.backtrack!(st, method.ls, f, g)
+  line search failed: nonfinite curvature estimate
+
+backtrack!: a zero gradient-difference product and a subnormal ‖d̂‖² is accepted (#317): Test Failed at none:1293
+  Expression: st.L == L && isfinite(st.L)
+Test Summary:                                                                           | Pass  Fail  Error  Total  Time
+backtrack!: a zero gradient-difference product and a subnormal ‖d̂‖² is accepted (#317)  |    4     1      1      6  0.9s
+RNG of the outermost testset: Random.Xoshiro(0x1a225dda603b875d, 0x37773ab3d89acd54, 0xf1331600aff8beed, 0x4c6b585b5b61e5c8, 0x8d76e678d994f272)
+TESTSET FAILED: backtrack!: a zero gradient-difference product and a subnormal ‖d̂‖² is accepted (#317) (1 failed, 1 errored)
+=== stopping_scale.jl
+
+PGD strict at loss scale 1e-200, λ = 0: converged, within the stopping guarantee of the least-squares solution (#317): Error During Test at none:441
+  Got exception outside of a @test
+  line search failed: nonfinite curvature estimate
+Test Summary:                                                                                                         | Error  Total  Time
+PGD strict at loss scale 1e-200, λ = 0: converged, within the stopping guarantee of the least-squares solution (#317) |     1      1  0.6s
+RNG of the outermost testset: Random.Xoshiro(0x1a225dda603b875d, 0x37773ab3d89acd54, 0xf1331600aff8beed, 0x4c6b585b5b61e5c8, 0x8d76e678d994f272)
+TESTSET FAILED: PGD strict at loss scale 1e-200, λ = 0: converged, within the stopping guarantee of the least-squares solution (#317) (0 failed, 1 errored)

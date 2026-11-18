@@ -1,0 +1,7 @@
+sha=879a8485fe7f3bdc89b4c4ee50955b635f3dd482
+dirty=no
+mode=tests where=local versions=lts,release
+started=2026-11-18T07:39:10Z
+args=--project=. scripts/test.jl --jobs=2 core_regressions stopping_scale minimal_core_characterization core_contracts
+exit lts rc=0 ok=yes pass=3228 total=3228 seconds=42 tag=impl2-lts
+exit release rc=0 ok=yes pass=3224 total=3224 seconds=82 tag=impl2-release
