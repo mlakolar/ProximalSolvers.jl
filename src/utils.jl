@@ -119,7 +119,7 @@ end
 # ElasticNet(T(λ1), T(λ2)), the coefficients of the formulas above: each level is converted to T once, into
 # a penalty that gives both S and the residual, so that ProximalBase does not round the levels again.
 # For NormL1(λ0, w), solve! requires w to be a Vector{T}, so ProximalBase's coefficient of entry i is the product
-# T(λ0) wᵢ rounded in T: the cᵢ that solve! checked (finite, and nonzero where both factors are positive).
+# T(λ0) wᵢ rounded in T: the cᵢ that solve! checked (finite and, where both factors are positive, a normal number of T).
 # Rounding is monotone, so T(λ0) maximum(w) is maxᵢ cᵢ. The weights are not converted or copied. A proposed
 # stop adds to the O(p) pass of kkt_violation one O(p) scan of w for `maximum` and one in the constructor of
 # the NormL1 that holds the converted level; for w ≡ 1 the coefficients and S are those of NormL1(λ0).

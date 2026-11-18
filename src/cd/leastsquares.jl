@@ -135,12 +135,13 @@ end
   shrink(c, min(_threshold(T, g.λ0, α, a), floatmax(T)))
 end
 # With weights, the threshold of coordinate k is that of the unweighted method at the level cₖ = T(λ0) wₖ,
-# the coefficient that `solve!` validates (finite, and nonzero where both factors are positive) and that
-# the stopping check of PGD and APG uses. So τ is within the bounds stated at `_threshold` of cₖ/(α a), and
-# within those bounds plus |cₖ - λ0 wₖ|/(α a) of λ0 wₖ/(α a). For a level λ0 of type T, cₖ is λ0 wₖ rounded
-# once to T (to nearest): |cₖ - λ0 wₖ| is at most eps(T)/2 times the exact product λ0 wₖ where that is at least
-# floatmin(T), and at most half the smallest subnormal, nextfloat(zero(T))/2, where the exact product is below
-# floatmin(T), whether cₖ is then subnormal or floatmin(T). A level of another type adds the rounding of T(λ0).
+# the coefficient that `solve!` validates (finite, and 0 or a normal number of T: zero only from a zero level or
+# weight) and that the stopping check of PGD and APG uses. So τ is within the bounds stated at `_threshold` of
+# cₖ/(α a), and within those bounds plus |cₖ - λ0 wₖ|/(α a) of λ0 wₖ/(α a). For a level λ0 of type T, cₖ is
+# λ0 wₖ rounded once to nearest, and a normal number, so |cₖ - λ0 wₖ| ≤ (eps(T)/2) cₖ: this holds also where the
+# exact product is slightly below floatmin(T) and rounds up to it, where the error is at most half the smallest
+# subnormal. A level of another type adds |T(λ0) - λ0| wₖ, at most (eps(T)/2) T(λ0) wₖ for the normal T(λ0)
+# that `solve!` requires.
 # A zero weight or a zero level gives cₖ = 0, τ = 0 and `shrink(c, 0) = c`: the coordinate is unpenalized.
 # In the comments of `coordinate_step!` above, λ is λ0 wₖ for a penalty with weights.
 @noinline _exceptional_step(g::NormL1{<:Real, Vector{T}}, c::T, α::T, a::T, k::Int) where {T<:Union{Float32, Float64}} =

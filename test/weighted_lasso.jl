@@ -1,9 +1,9 @@
 module WeightedLassoTests
 # The weighted lasso ½α‖Xb - y‖² + λ0 Σⱼ wⱼ|bⱼ| with CDSolver (dense Vector and SparseIterate, cyclic and random
 # order, with and without momentum), ProximalGradientDescent and AccProxGradDescent, on Float32 and Float64 data:
-# `NormL1(λ0, w)` with w a Vector{T}, finite and nonnegative, and the coefficient cⱼ = T(λ0) wⱼ finite and not
-# zero where both factors are positive (a subnormal coefficient is accepted; a zero weight leaves its entry
-# unpenalized).
+# `NormL1(λ0, w)` with w a Vector{T}, finite and nonnegative, the level T(λ0) zero or normal, and the coefficient
+# cⱼ = T(λ0) wⱼ finite and, where both factors are positive, normal (a zero or subnormal coefficient of positive
+# factors, and a subnormal level, are refused; a zero weight leaves its entry unpenalized).
 #
 # The references and the independent residual of a solution are computed in 256-bit BigFloat from the stored X, y, x
 # and the penalty, with the exact coefficient λ0 wⱼ, and do not use ProximalBase's `kkt_violation`, the solvers'
@@ -60,8 +60,9 @@ end
 # computed λmax, for the unit roundoff u = eps(T)/2 doubled as slack: with d = X x - y exact,
 #   eG = maxᵢ α Σⱼ |Xⱼᵢ| (e_j + (n+1) u (|d_j| + e_j)) + u (|gᵢ| + cᵢ) + tiny(T) /2,
 #   e_j = (p+1) u (Σₖ |Xⱼₖ||xₖ| + |y_j|),    eS = α (n+1) u maxᵢ Σⱼ |Xⱼᵢ||y_j|.
-# The terms u cᵢ and tiny(T)/2 allow for the rounding of the coefficient to T: at most eps(T)/2 times the exact
-# product where that is at least floatmin(T), and at most tiny(T)/2 where it is below floatmin(T).
+# The term u cᵢ allows for the rounding of the coefficient to T: for a level of type T and an accepted coefficient
+# (0, or normal) |cᵢ - λ0 wᵢ| <= (eps(T)/2) cᵢ, also where the exact product is just below floatmin(T) and rounds up to
+# it, and a level of another type adds |T(λ0) - λ0| wᵢ, at most (eps(T)/2) T(λ0) wᵢ. The term tiny(T)/2 is slack.
 function kktparts(X, y, α, λ0, w, x, ::Type{T}) where T
   big256() do
     Xb, yb, xb, a, l0, wb = big.(X), big.(y), big.(x), big(α), big(λ0), big.(w)
@@ -394,7 +395,7 @@ end
 end
 
 # ---------------------------------------------------------------------------------------------------------
-# 5. Factors far from 1 with a normal product, and a subnormal coefficient
+# 5. Factors far from 1 with a normal product, and the smallest accepted coefficient
 # ---------------------------------------------------------------------------------------------------------
 
 # λ0 = 2^k and w = w₀ 2^-k (and the reverse): the coefficients are those of the problem with λ0 = 1, w = w₀, since
@@ -419,62 +420,102 @@ end
   end
 end
 
-# a coefficient that is subnormal in T on entry 1 (and one that is not exactly representable on entry 2): the
-# penalty of those entries is negligible, the entries are fitted, the solve accepts the coefficients, and the
-# others are as above
-@testset "an accepted subnormal coefficient" begin
+# The smallest accepted coefficient is floatmin(T): entry 1 has λ0 w₁ = floatmin(T) exactly (λ0 = 2^-k and
+# w₁ = floatmin(T)/λ0, both normal), so its penalty is negligible and the entry is fitted. The other coefficients are
+# of the order of the level λ.
+@testset "the smallest accepted coefficient, floatmin(T), on entry 1 ($T)" for T in (Float32, Float64)
   n, p = 40, 8
-  for T in (Float32, Float64), s in SPECS
+  emin = T === Float32 ? -126 : -1022
+  k = T === Float32 ? 100 : 900
+  for s in SPECS
     X, y = design(T, n, p, 16)
     λ = T(0.1 * lambdamax(X, y, 1.0))
-    k = T === Float32 ? 100 : 900
     λ0 = ldexp(T(1), -k)
     w = ldexp.(weights(T, :positive, p), k) .* λ
-    w[1] = ldexp(T(1), T === Float32 ? -30 : -160)
-    w[2] = ldexp(T(1.2345), T === Float32 ? -30 : -160)
-    c = λ0 .* w
-    @test issubnormal(c[1]) && issubnormal(c[2]) && c[1] > 0 && c[2] > 0
-    @test all(isfinite, c)
-    f = LeastSquaresLoss(y, X)
-    x, r = solve_spec(s, T, f, NormL1(λ0, w), zeros(T, p); seed = 8)
-    # the level of the other coefficients is λ w₀, so β is the minimizer of the problem with those coefficients
-    # and the negligible penalty on entries 1 and 2: the oracle with the exact coefficients decides
+    w[1] = ldexp(T(1), emin + k)
+    @test λ0 * w[1] == floatmin(T) && all(c -> c == 0 || c >= floatmin(T), λ0 .* w)
+    x, r = solve_spec(s, T, LeastSquaresLoss(y, X), NormL1(λ0, w), zeros(T, p); seed = 8)
+    # the oracle with the exact coefficients decides; entry 1 is not 0 (the loss pulls it away)
     check_solution((T, s.label), s, T, X, y, one(T), λ0, w, x, r, nothing)
-    # entries 1 and 2 are unpenalized to within the coefficient: they are not 0 (the loss pulls them away)
-    @test !iszero(x[1]) && !iszero(x[2])
+    @test !iszero(x[1])
   end
 end
 
 # ---------------------------------------------------------------------------------------------------------
-# 6. The range rule of the coefficient (D3) at its boundaries
+# 6. The range rule of the level and of the coefficient (D3) at its boundaries
 # ---------------------------------------------------------------------------------------------------------
 
-function d3_cases(::Type{T}) where T
-  tiny, half = nextfloat(zero(T)), floatmax(T) / 2
-  # (label, λ0, w₁, accepted): entry 2 has the weight 1
-  [("coefficient floatmax", T(2), half, true),
-   ("coefficient just above floatmax overflows", T(2), nextfloat(half), false),
-   ("smallest subnormal coefficient", T(0.5), 2tiny, true),
-   ("0.75 of the smallest subnormal rounds to it", T(0.75), tiny, true),
-   ("half of the smallest subnormal rounds to 0", T(0.5), tiny, false),
-   ("a quarter of the smallest subnormal rounds to 0", T(0.25), tiny, false),
-   ("zero weight", T(2), zero(T), true),
-   ("zero level", zero(T), T(5), true),
-   ("level 2, weight smallest subnormal", T(2), tiny, true)]
+# The rule is on the rounded values in T: λ = T(λ0) must be zero or at least floatmin(T) (not subnormal), and each
+# coefficient cⱼ = λ wⱼ must be finite and, where λ and wⱼ are both positive, at least floatmin(T) (so not zero and not
+# subnormal). An exact product slightly below floatmin(T) that rounds up to floatmin(T) is accepted. The classification
+# here is from the exact product of the two T values in BigFloat, not from T arithmetic: the product rounds to Inf at
+# floatmax(T) + ulp/2, and below floatmin(T) - tiny/2 it rounds to a subnormal or to 0 (the tie rounds to floatmin(T),
+# which is even).
+function expected_accept(::Type{T}, λ0, w) where T
+  λ = T(λ0)
+  (iszero(λ) || λ >= floatmin(T)) || return false
+  ulp = big(floatmax(T)) - big(prevfloat(floatmax(T)))
+  for wj in w
+    (iszero(λ) | iszero(wj)) && continue
+    exact = big(λ) * big(wj)
+    exact >= big(floatmax(T)) + ulp / 2 && return false
+    exact < big(floatmin(T)) - big(nextfloat(zero(T))) / 2 && return false
+  end
+  true
 end
 
-@testset "the coefficient range rule at the overflow and underflow boundaries ($T)" for T in (Float32, Float64)
-  X, y = design(T, 12, 2, 17)
-  f = LeastSquaresLoss(y, X)
-  for (label, λ0, w1, accepted) in d3_cases(T)
-    w = T[w1, 1]
-    c1 = λ0 * w1
-    @test (label, accepted) == (label, isfinite(c1) && (!iszero(c1) || iszero(λ0) || iszero(w1)))
+# (label, level λ0, weights, message of the refusal or "" if accepted). `huge` makes a subnormal level times a weight
+# normal, so that only the rule on the level refuses; its Float32 value is the weight 2^126 of the analytical regression
+# for a Float64 level that converts to a subnormal Float32.
+function range_cases(::Type{T}) where T
+  fm, tiny, half = floatmin(T), nextfloat(zero(T)), floatmax(T) / 2
+  huge = ldexp(T(1), T === Float32 ? 126 : 1000)
+  wide(v) = T === Float32 ? Float64(v) : big(v)          # a number of a type wider than T
+  below = T === Float32 ? Float64(fm) * (1 - 2.0^-30) : big(fm) * (1 - big(2)^-60)
+  [("coefficient floatmax", T(2), T[half, 1], ""),
+   ("coefficient just above floatmax overflows", T(2), T[nextfloat(half), 1], "overflows"),
+   ("coefficient floatmin", T(1), T[fm, 1], ""),
+   ("coefficient prevfloat(floatmin) is subnormal", T(1), T[prevfloat(fm), 1], "is subnormal (below floatmin"),
+   ("smallest subnormal coefficient", T(0.5), T[2tiny, 1], "is subnormal (below floatmin"),
+   ("0.75 of the smallest subnormal rounds to it: subnormal (analytical regression)", T(0.75), T[tiny], "is subnormal (below floatmin"),
+   ("half of the smallest subnormal rounds to 0", T(0.5), T[tiny, 1], "underflows to zero"),
+   ("a quarter of the smallest subnormal rounds to 0", T(0.25), T[tiny, 1], "underflows to zero"),
+   ("level floatmin, weight tiny: the product underflows to 0", fm, T[tiny, 1], "underflows to zero"),
+   ("exact product just below floatmin rounds up to floatmin, accepted", prevfloat(one(T)), T[fm, 1], ""),
+   ("zero weight", T(2), T[0, 1], ""),
+   ("positive level, some zero weights", T(1), T[0, 1, 0], ""),
+   ("zero level, any finite nonnegative weights", zero(T), T[5, 0, floatmax(T)], ""),
+   ("level floatmin", fm, T[1, 2], ""),
+   ("level prevfloat(floatmin), the coefficients are normal", prevfloat(fm), T[huge, huge], "is subnormal in"),
+   ("level nextfloat(0), the coefficients are normal", tiny, T[huge, huge], "is subnormal in"),
+   ("a wider level that converts to a subnormal (analytical regression)", 0.75 * wide(tiny), T[huge, huge], "is subnormal in"),
+   ("a wider level just below floatmin(T) that rounds up to it, accepted", below, T[1, 2], "")]
+end
+
+@testset "the rule on the level and on the coefficient at its boundaries ($T)" for T in (Float32, Float64)
+  fm = floatmin(T)
+  cases = range_cases(T)
+  @test T(cases[end][2]) == fm && cases[end][2] < fm         # the wider level is below floatmin(T) and rounds up to it
+  @test prevfloat(one(T)) * fm == fm                         # the exact product is below floatmin(T): it rounds up
+  @test T(cases[end - 1][2]) == nextfloat(zero(T)) && issubnormal(T(cases[end - 1][2]))
+  # unweighted levels are not changed: a level that is subnormal in T is accepted without weights
+  let X = T[1 0.2; 0.1 2; 0.3 0.4], y = T[1, -1, 0.5]
+    r = solve!(zeros(T, 2), LeastSquaresLoss(y, X), NormL1(prevfloat(fm)), CDSolver(order = :cyclic))
+    @test r.converged
+  end
+  for (label, λ0, w, msg) in cases
+    accepted = isempty(msg)
+    @test (label, accepted) == (label, expected_accept(T, λ0, w))
+    p = length(w)
+    X, y = design(T, 12, p, 17)
+    f = LeastSquaresLoss(y, X)
     for s in SPECS
-      x0 = T[0.3, -0.2]
+      x0 = T[0.3, -0.2, 0.1][1:p]
       x = s.owner ? SparseIterate(copy(x0)) : copy(x0)
+      snapshot() = s.owner ? (collect(ProximalBase.activecoordinates(x)), collect(ProximalBase.activevalues(x))) : copy(x)
+      before = snapshot()
       rng = Xoshiro(3)
-      before = copy(rng)
+      rng_before = copy(rng)
       method = s.kind === :cd ? CDSolver(order = s.order, momentum = s.momentum, rng = rng) : method_of(s, T)
       call() = s.kind === :cd ? solve!(x, f, NormL1(λ0, w), method) :
                                 solve!(x, f, NormL1(λ0, w), method, gradient_options(T))
@@ -482,15 +523,24 @@ end
         r = call()
         @test (label, s.label, r.minimizer === x, all(isfinite, Vector(x))) == (label, s.label, true, true)
         # no claim of accuracy at these scales, but a converged = true must be within the solver's tolerance
-        r.converged && s.kind !== :cd &&
-          @test (label, s.label, begin
-            G, S, eG, eS = kktparts(X, y, 1, λ0, w, Vector(x), T)
-            G - eG <= max(big(gradient_options(T).gradtol), 64 * big(eps(T))) * (1 + 4 * big(eps(T))) * (S + eS)
-          end) == (label, s.label, true)
+        if r.converged && s.kind !== :cd
+          G, S, eG, eS = kktparts(X, y, 1, λ0, w, Vector(x), T)
+          @test (label, s.label, G - eG <= max(big(gradient_options(T).gradtol), 64 * big(eps(T))) * (1 + 4 * big(eps(T))) * (S + eS)) ==
+                (label, s.label, true)
+        end
       else
-        @test_throws ArgumentError call()
-        @test (label, s.label, isequal(Vector(x), x0), rng == before) == (label, s.label, true, true)
+        # refused before any write or draw from the generator: x or the owner and the generator are as they were
+        err = try call(); nothing catch e e end
+        @test (label, s.label, err isa ArgumentError && occursin(msg, err.msg)) == (label, s.label, true)
+        @test (label, s.label, isequal(snapshot(), before), rng == rng_before) == (label, s.label, true, true)
       end
+    end
+  end
+  # the rounding of the accepted coefficients: |cⱼ - λ0 wⱼ| <= (eps(T)/2) cⱼ, also where the exact product is just below floatmin(T)
+  big256() do
+    for (λ0, w1) in ((prevfloat(one(T)), fm), (T(1), fm), (T(0.3), T(1e-30)), (T(7), nextfloat(fm)))
+      c = λ0 * w1
+      c >= fm && @test abs(big(c) - big(λ0) * big(w1)) <= big(eps(T)) / 2 * big(c)
     end
   end
 end
@@ -501,7 +551,7 @@ end
 
 @testset "a flat column: zero and positive weight, levels below and above 1, start ≠ 0 ($T)" for T in (Float32, Float64)
   levels = T === Float32 ? T[1e-3, 0.5, 3, 1e10, 1e30] : T[1e-3, 0.5, 3, 1e10, 1e100]
-  for wk in (zero(T), T(2)), λ in vcat(zero(T), nextfloat(zero(T)), levels), start in (T(2), -T(0.5))
+  for wk in (zero(T), T(2)), λ in vcat(zero(T), floatmin(T), levels), start in (T(2), -T(0.5))
     # the minimizer along a flat column is the penalty's: 0, finite, from the proximal map at 0 and the step floatmax
     g = NormL1(λ, T[wk, 1])
     isfinite(λ * wk) || continue
@@ -645,16 +695,19 @@ end
 
 shrink_big(c, τ) = sign(c) * max(abs(c) - τ, 0)
 
-# a (λ0, wₖ) pair is accepted by the validation of `solve!`: its coefficient is finite, and nonzero where both
-# factors are positive
-accepted_pair(λ0::T, wk::T) where T = (c = λ0 * wk; isfinite(c) && (!iszero(c) || iszero(λ0) || iszero(wk)))
+# a (λ0, wₖ) pair is accepted by the validation of `solve!`: the level is zero or normal, and the coefficient is finite
+# and, where both factors are positive, normal
+accepted_pair(λ0::T, wk::T) where T =
+  (c = λ0 * wk; (iszero(λ0) || !issubnormal(λ0)) && isfinite(c) && (iszero(c) ? (iszero(λ0) | iszero(wk)) : floatmin(T) <= c))
 
 @testset "the exceptional step of a weighted coordinate: E1 against BigFloat ($T)" for T in (Float32, Float64)
   ks = T === Float32 ? (-140, -100, -60, -20, 0, 20, 60, 100, 120) : (-1070, -1000, -600, -300, -100, 0, 100, 300, 600, 1000, 1020)
   tiny = nextfloat(zero(T))
   mid = T === Float32 ? T(1e-30) : T(1e-300)
-  λs = T[0, tiny, 3tiny, mid, 0.3, 1e10, floatmax(T) / 4]
-  wks = T[0, tiny, 3tiny, mid, 0.3, 1, 7, 1e10, floatmax(T) / 4]
+  # the pairs outside the accepted domain (a subnormal level or coefficient) are skipped; floatmin(T) and
+  # prevfloat(1) give a coefficient that is floatmin(T) after rounding an exact product just below it
+  λs = T[0, tiny, 3tiny, mid, 0.3, prevfloat(one(T)), 1e10, floatmax(T) / 4, floatmin(T)]
+  wks = T[0, tiny, 3tiny, mid, 0.3, 1, 7, 1e10, floatmax(T) / 4, floatmin(T)]
   centres = T[0.3, -2, 1e5, 1e-30, -floatmax(T) / 2]
   counts = Dict(:cases => 0, :outside => 0, :zeroweight => 0, :unit => 0)
   worst = [0.0, 0.0]
@@ -703,6 +756,7 @@ accepted_pair(λ0::T, wk::T) where T = (c = λ0 * wk; isfinite(c) && (!iszero(c)
   end
   # w ≡ 1 out of band is the unweighted method bit for bit (the same coefficient T(λ0), a level of type T)
   for λ0 in λs, jα in ks, ja in ks
+    accepted_pair(λ0, one(T)) || continue
     α, a = ldexp(T(1.3), jα), ldexp(T(1.7), ja)
     (iszero(α) || iszero(a)) && continue
     for c in centres
@@ -728,8 +782,8 @@ end
   emin, emax = T === Float32 ? (-126, 127) : (-1022, 1023)
   tiny = nextfloat(zero(T))
   mid = T === Float32 ? T(1e-30) : T(1e-300)
-  λs = T[0, tiny, 3tiny, mid, 0.3, 1e10, floatmax(T) / 4]
-  wks = T[0, tiny, mid, 0.3, 1, 7, 1e10]
+  λs = T[0, tiny, 3tiny, mid, 0.3, prevfloat(one(T)), 1e10, floatmax(T) / 4, floatmin(T)]
+  wks = T[0, tiny, mid, 0.3, 1, 7, 1e10, floatmin(T)]
   centres = T[0.3, -2, 1e5, 1e-30, -floatmax(T) / 2]
   edges = vcat(collect(emin + 1:emin + 8), collect(-6:3:6), collect(-emin - 9:-emin - 1))
   bad = String[]
@@ -783,6 +837,7 @@ end
     for fraction in (0.1, 0.5), warm in (false, true)
       λ0 = big256(() -> T(big(fraction) * maximum(abs, big(α) .* (big.(X)' * big.(y)))))
       (isfinite(λ0) && !iszero(λ0)) || continue
+      all(k -> accepted_pair(λ0, w[k]), 1:3) || continue       # a subnormal level or coefficient is refused by solve!
       g = NormL1(λ0, w)
       for k in 1:3
         m = PS.LSModel(y, X, α)
@@ -863,7 +918,9 @@ function refusals(::Type{T}) where T
    (ArgumentError, "must be a Vector{$T}", NormL1(λ, T(1):T(2))),
    (ArgumentError, "must be a Vector{$T}", NormL1(λ, reshape(T[1, 1], 2, 1))),
    (ArgumentError, "overflows", NormL1(huge, T[floatmax(T), 1])),
-   (ArgumentError, "underflows to zero", NormL1(small, T[0.25, 1])),
+   (ArgumentError, "underflows to zero", NormL1(floatmin(T), T[small, 1])),
+   (ArgumentError, "is subnormal (below floatmin", NormL1(T(1), T[prevfloat(floatmin(T)), 1])),
+   (ArgumentError, "is subnormal in", NormL1(prevfloat(floatmin(T)), T[1, 1])),
    (ArgumentError, "penalty lambda must be finite and nonnegative", NormL1(T(Inf), T[1, 1])),
    (ArgumentError, "penalty lambda is not representable", NormL1(level, T[1, 1])),
    (ArgumentError, "", ElasticNet(λ, λ, T[1, 1])),

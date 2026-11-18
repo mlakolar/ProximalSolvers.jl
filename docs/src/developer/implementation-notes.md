@@ -113,11 +113,11 @@ before (a subnormal `p` with a finite reciprocal), and where `λ > 0` their bits
 can differ from before.
 `_exceptional_step` is written for `S == T`, for a `NormL1` whose weights are absent or a `Vector{T}`, and for an
 unweighted `ElasticNet` (at `λ2 = 0` the step of `NormL1(λ1)`; at `λ2 > 0` it throws an `ArgumentError`, see `CDSolver`). With
-weights the `NormL1` method forms `cₖ = T(λ0) wₖ` in `T`, the coefficient that `solve!` has checked (finite, and
-nonzero where `T(λ0)` and `wₖ` are both positive), and calls the unweighted method at the level `cₖ`: `τ` is within
+weights the `NormL1` method forms `cₖ = T(λ0) wₖ` in `T`, the coefficient that `solve!` has checked (finite and, where
+`T(λ0)` and `wₖ` are both positive, a normal number of `T`), and calls the unweighted method at the level `cₖ`: `τ` is within
 the bounds above of `cₖ / (s a)`, and within those bounds plus `|cₖ - λ0 wₖ| / (s a)` of `λ0 wₖ / (s a)`
-(for a level of type `T`, `cₖ` is `λ0 wₖ` rounded once to `T`, with an error of at most `eps(T)/2` times the exact product where
-that is at least `floatmin(T)`, and at most half the smallest subnormal where it is below `floatmin(T)`). A zero weight or level gives `τ = 0` and
+(`cₖ` is 0 or a normal number of `T`, which `solve!` checks; for a level of type `T` it is `λ0 wₖ` rounded once to
+nearest, so `|cₖ - λ0 wₖ| ≤ (eps(T)/2) cₖ`, also where the exact product is slightly below `floatmin(T)` and rounds up to it). A zero weight or level gives `τ = 0` and
 `shrink(c, 0) = c`. Inside the band the step is PB's weighted `prox_block`, whose threshold is `γ λ0 wₖ` formed
 in its own working type; the weighted step has no exponent-separated threshold of its own. A column of `X` that
 is zero takes `_coordinate_minimizer`, PB's `prox_block(g, 0, k, floatmax(T))`, which is 0 for a weighted `NormL1`
@@ -295,7 +295,7 @@ residual is ProximalBase's full-point `kkt_violation` of `NormL1(T(λ0))`, of `N
 (the check is the lasso check on the data augmented by `√λ2 I`, see `numerics.md`).
 The penalty is validated once by `_check_penalty` in `_check_data`. For an `x` that is not a `BlockIterate`
 it accepts a `NormL1` for all solvers (with weights, `_check_l1_weights`: a `Vector{T}` of the length of `x`, finite and nonnegative entries,
-no alias with `x`, and the coefficients `T(λ0) wⱼ` finite and nonzero for positive factors) or an unweighted `ElasticNet` for all solvers and refuses any other
+no alias with `x`, a level `T(λ0)` that is zero or normal, and the coefficients `T(λ0) wⱼ` finite and, for positive factors, normal) or an unweighted `ElasticNet` for all solvers and refuses any other
 penalty; a `BlockIterate` has its own method, for a `GroupNormL2`. The check requires `S =
 max(λ, λmax)` finite, that product, formed in `T`, at least `floatmin(T)` and the residual
 finite; it does not require the product to be finite. Otherwise the three flags are cleared and the solve continues. PGD uses the `∇f(x)` it holds. APG

@@ -261,7 +261,8 @@ finite and nonnegative and representable in `T` without overflow or underflow; f
 form takes a `GroupNormL2`. The weights `w` of `NormL1(λ, w)` are a
 `Vector{T}` with one finite nonnegative entry per entry of `x` (`T` the element type of the data and of `x`),
 and `x` must not alias them. The solvers use the coefficient `T(λ) wⱼ`, formed in `T`, for entry `j`; it must be
-finite, and not zero where `T(λ)` and `wⱼ` are both positive (a subnormal coefficient is accepted). A zero
+finite and, where `T(λ)` and `wⱼ` are both positive, a normal number of `T` (a zero or subnormal product, and a
+level `T(λ)` that is subnormal, are refused). A zero level or weight gives the coefficient 0, which is accepted; a zero
 weight leaves its entry unpenalized (it is not fixed at 0). Any other weight array type (a view, a range, a
 vector of another element type), a weighted `ElasticNet` and any `Scaled` penalty is refused. Use `(one(T)/T(n))*LeastSquaresLoss` for normalized lasso; raw LS keeps
 its unnormalized meaning. One positive finite scalar LS wrapper is supported.

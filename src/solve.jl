@@ -51,7 +51,8 @@ end
 # The penalty check of _check_data for an x that is not a BlockIterate: a NormL1, with or without weights,
 # or an unweighted ElasticNet, which the gradient solvers (PGD and APG) and CDSolver accept alike. The
 # levels must pass _scalar_parameter for the data type T (finite, nonnegative, representable without
-# overflow or underflow). A NormL1 with weights also passes _check_l1_weights.
+# overflow or underflow; a level that is subnormal in T passes it). A NormL1 with weights also passes
+# _check_l1_weights, which refuses a level that is subnormal in T.
 function _check_penalty(g, x, ::Type{T}) where T
   if g isa NormL1
     g.w === nothing ? _scalar_parameter(g.λ0, T, "penalty lambda") : _check_l1_weights(g, x, T)
@@ -66,32 +67,40 @@ end
 
 # The weights of a NormL1 for data of type T. They must be a Vector{T} with one entry per entry of x,
 # finite and nonnegative, and x must not alias them (x is the caller's array or owner, as for X and y).
-# The solvers use the coefficient cⱼ = T(λ0) wⱼ, formed in T, of the entry j: it must be finite, and
-# nonzero where T(λ0) and wⱼ are both positive (a product that is subnormal in T is accepted; a zero
-# level or weight gives the coefficient 0, which leaves the entry unpenalized when it comes from wⱼ = 0).
+# The level λ = T(λ0) must be zero or a normal number of T (not subnormal). The solvers use the coefficient
+# cⱼ = λ wⱼ, formed in T, of the entry j: it must be finite and, where λ and wⱼ are both positive, a normal
+# number of T (so not zero and not subnormal). The rule is on the rounded cⱼ: an exact product slightly
+# below floatmin(T) that rounds up to floatmin(T) passes. A zero level or weight gives the coefficient 0,
+# which leaves the entry unpenalized when it comes from wⱼ = 0.
 function _check_l1_weights(g, x, ::Type{T}) where T
   _scalar_parameter(g.λ0, T, "penalty lambda")
+  λ = T(g.λ0)
+  issubnormal(λ) && _l1_level_error(g.λ0, λ, T)
   w = g.w
   w isa Vector{T} ||
     throw(ArgumentError("penalty weights must be a Vector{$T} (the element type of the data); convert an array with collect($T, vec(w)), which takes it in linear order"))
   length(w) == length(x) ||
     throw(DimensionMismatch("the penalty has $(length(w)) weights but x has $(length(x)) entries"))
   Base.mightalias(x, w) && throw(ArgumentError("mutable x must not alias the penalty weights"))
-  λ = T(g.λ0)
   @inbounds for j in eachindex(w)
     wj = w[j]
     c = λ * wj
-    isfinite(wj) && wj >= 0 && isfinite(c) && (!iszero(c) || iszero(λ) || iszero(wj)) ||
+    isfinite(wj) && wj >= 0 && isfinite(c) && (iszero(c) ? (iszero(λ) | iszero(wj)) : floatmin(T) <= c) ||
       _l1_weight_error(λ, wj, j, T)
   end
   nothing
 end
 
+@noinline _l1_level_error(λ0, λ::T, ::Type{T}) where T =
+  throw(ArgumentError("penalty lambda $λ0 is subnormal in $T (it converts to $λ); with weights the level must be zero " *
+                      "or at least floatmin($T); rescale the level or the weights"))
+
 @noinline function _l1_weight_error(λ::T, wj::T, j, ::Type{T}) where T
   isfinite(wj) && wj >= 0 ||
     throw(ArgumentError("penalty weight $j must be finite and nonnegative"))
-  throw(ArgumentError("the penalty coefficient of entry $j, lambda * weight in $T, " *
-                      (isinf(λ * wj) ? "overflows" : "underflows to zero") * "; rescale the level or the weights"))
+  c = λ * wj
+  why = isinf(c) ? "overflows" : iszero(c) ? "underflows to zero" : "is subnormal (below floatmin($T))"
+  throw(ArgumentError("the penalty coefficient of entry $j, lambda * weight in $T, $why; rescale the level or the weights"))
 end
 
 # The penalty of group coordinate descent on a BlockIterate: a GroupNormL2 whose level and weights

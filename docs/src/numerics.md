@@ -143,8 +143,9 @@ of the tests. What `converged=true` therefore says about the returned `x`:
   full gradient `|∇fᵢ|`, so a stop at a point where that gradient is at least `τ S` is not accepted, also
   where `λ0` is large. A proposed stop adds two scans of `w` to the pass of `kkt_violation` (one for the
   maximum, one in the construction of `NormL1(T(λ0), w)`) and forms no array. Each `cᵢ` is a coefficient
-  that `solve!` has checked: finite, and nonzero where `T(λ0)` and `wᵢ` are both positive (a subnormal
-  `cᵢ` is accepted). As above, a stop is refused where `τ S` is below `floatmin(T)`.
+  that `solve!` has checked: finite and, where `T(λ0)` and `wᵢ` are both positive, a normal number of `T`
+  (a zero or subnormal product of positive factors is refused, and so is a subnormal `T(λ0)`); a zero level or weight gives
+  `cᵢ = 0`. As above, a stop is refused where `τ S` is below `floatmin(T)`.
 - **The elastic net.** `ElasticNet(λ1, λ2)` on the loss `α/2 ‖Xb - y‖²` is the lasso with
   level `λ1` on the augmented data `X̃ = [√α X; √λ2 I]`, `ỹ = [√α y; 0]`: its loss
   `½‖X̃b - ỹ‖²` equals `α/2 ‖Xb - y‖² + (λ2/2)‖b‖²`, its gradient is `∇f(x) + λ2 x`, and its

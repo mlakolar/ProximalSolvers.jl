@@ -9,7 +9,8 @@ design/response data and coefficients. The coefficient storage can be
 a dense `Vector` or a one-dimensional ProximalBase `SparseIterate`. The penalty
 is `NormL1(lambda)`, `NormL1(lambda, w)` or an unweighted `ElasticNet(lambda1, lambda2)`. The weights `w`
 of a `NormL1` are a `Vector{T}` (`T` the element type of the data) with finite nonnegative entries (see
-[`solve!`](@ref)): entry `j` uses the coefficient `T(lambda) w[j]`, and a zero weight leaves it unpenalized.
+[`solve!`](@ref)): entry `j` uses the coefficient `T(lambda) w[j]`, which `solve!` requires to be zero or a normal
+number of `T` (with `T(lambda)` zero or normal as well), and a zero weight leaves it unpenalized.
 For an `ElasticNet` the coordinate step of a visit in the normal range is ProximalBase's
 `prox_block` of the penalty. Let `s` be the loss scale and `a` the squared norm of the
 column, finite and positive. At a visit where `s * a` or its reciprocal is below

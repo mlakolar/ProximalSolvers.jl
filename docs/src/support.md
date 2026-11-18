@@ -48,10 +48,13 @@ or a `SparseIterate`), `ProximalGradientDescent` and `AccProxGradDescent`, on th
   coefficient. A `Vector` of the other precision, a view, a range or another array type is refused
   (`collect(T, vec(w))` converts, taking `w` in linear order);
 - every weight is finite and nonnegative (an infinite weight is refused);
-- the level `lambda` is accepted as above, and the coefficient `c_j = T(lambda) * w_j` of every
-  entry, formed in `T`, is finite and, where `T(lambda)` and `w_j` are both positive, not zero. A
-  coefficient that is subnormal in `T` is accepted. One that overflows or underflows to zero is
-  refused, with the entry `j` named. A zero level or a zero weight gives the coefficient 0;
+- the level `lambda` is accepted as above and `T(lambda)` is zero or a normal number of `T` (a level that
+  is subnormal in `T` is refused with weights, though an unweighted `NormL1` accepts it), and the coefficient
+  `c_j = T(lambda) * w_j` of every entry, formed in `T`, is finite and, where `T(lambda)` and `w_j` are both
+  positive, a normal number of `T`. A coefficient that overflows, underflows to zero or is subnormal is
+  refused, with the entry `j` named. The rule is on the rounded `c_j`: an exact product slightly below
+  `floatmin(T)` that rounds up to `floatmin(T)` is accepted. A zero level or a zero weight gives the
+  coefficient 0, which is accepted;
 - `x` does not alias `w`, as for `X` and `y`.
 
 These checks run before `x` is copied or written and before the random number generator is

@@ -79,7 +79,8 @@ change times an infinite scale makes
 not finite") and leave the starting point unchanged.
 
 The coordinate step soft-thresholds the unpenalized minimizer along the
-coordinate at `lambda / (s * a)` (with weights, `lambda` is the coefficient `lambda * w[k]` of the coordinate). Where `s * a` and its reciprocal are both at
+coordinate at `lambda / (s * a)` (with weights, `lambda` stands for the coefficient `lambda * w[k]` of the coordinate; where the step forms its
+threshold without the product, it uses `T(lambda) * w[k]` formed in `T`, which is 0 or a normal number on the inputs `solve!` accepts). Where `s * a` and its reciprocal are both at
 least the smallest normal number of the type that combines `s` with the working
 type, it applies the proximal operator with the coefficient `1 / (s * a)`.
 Where one of them is smaller (the product is zero or subnormal, or it is large
