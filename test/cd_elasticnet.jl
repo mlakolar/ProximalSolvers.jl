@@ -584,11 +584,11 @@ end
     X, y = T[1 0; 0 2; 1 1], T[1, -1, 0.5]
     f = LeastSquaresLoss(y, X)
     en = ElasticNet(T(0.1), T(0.2))
-    shared = "only unweighted NormL1 or unweighted ElasticNet is supported"
+    shared = "only NormL1 or unweighted ElasticNet is supported"
     for kind in (:dense, :warm)
       x0 = T[0.3, -0.2]
       for g in (ElasticNet(T(0.1), T(0.2), ones(T, 2)), ElasticNet(T(0.1), T(0.2), zeros(T, 2)), Scaled(en, 2),
-                NormL1(T(0.1), ones(T, 2)), SqrNormL2(T(0.1)))
+                Scaled(NormL1(T(0.1), ones(T, 2)), 2), SqrNormL2(T(0.1)))
         refused(ArgumentError, shared, startof(kind, x0), f, g)
       end
       refused(ArgumentError, "penalty lambda1 must be finite and nonnegative", startof(kind, x0), f, ElasticNet(T(Inf), zero(T)))

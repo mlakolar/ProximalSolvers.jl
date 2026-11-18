@@ -55,15 +55,16 @@ _float64_scale_ok(a::Float64, ::Type{T}) where T = isfinite(a) && a > 0 && (n = 
 end
 
 # The penalty check of _check_data for an x that is not a BlockIterate. `kind` is the gate's:
-# :gradient (PGD and APG) accepts an unweighted NormL1, an unweighted ElasticNet or a NormLinf;
-# :cd (CDSolver on a dense Vector or a SparseIterate, and the default of a call without `kind`) accepts
-# the first two and refuses a NormLinf with a message of its own (this CDSolver needs a separable penalty for
-# its coordinate step). The levels
-# must pass _scalar_parameter for the data type T (finite, nonnegative, representable without overflow
-# or underflow). A wrapper such as Scaled(NormLinf(λ)) is refused as any other penalty.
+# :gradient (PGD and APG) and :cd (CDSolver on a dense Vector or a SparseIterate, and the default of a call
+# without `kind`) both accept a NormL1, with or without weights, and an unweighted ElasticNet; :gradient also
+# accepts a NormLinf, which :cd refuses with a message of its own (this CDSolver needs a separable penalty for
+# its coordinate step). The levels must pass _scalar_parameter for the data type T (finite, nonnegative,
+# representable without overflow or underflow; a level that is subnormal in T passes it). A NormL1 with
+# weights also passes _check_l1_weights, which refuses a level that is subnormal in T. A wrapper such as
+# Scaled(NormLinf(λ)) is refused as any other penalty.
 function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
-  if g isa NormL1 && g.w === nothing
-    _scalar_parameter(g.λ0, T, "penalty lambda")
+  if g isa NormL1
+    g.w === nothing ? _scalar_parameter(g.λ0, T, "penalty lambda") : _check_l1_weights(g, x, T)
   elseif g isa ElasticNet && g.w === nothing
     _scalar_parameter(g.λ1, T, "penalty lambda1")
     _scalar_parameter(g.λ2, T, "penalty lambda2")
@@ -72,11 +73,50 @@ function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
   elseif g isa NormLinf
     throw(ArgumentError("CDSolver does not support NormLinf (its coordinate step needs a separable penalty); use ProximalGradientDescent or AccProxGradDescent"))
   elseif kind === :gradient
-    throw(ArgumentError("only unweighted NormL1, unweighted ElasticNet or NormLinf is supported"))
+    throw(ArgumentError("only NormL1, unweighted ElasticNet or NormLinf is supported"))
   else
-    throw(ArgumentError("only unweighted NormL1 or unweighted ElasticNet is supported"))
+    throw(ArgumentError("only NormL1 or unweighted ElasticNet is supported"))
   end
   nothing
+end
+
+# The weights of a NormL1 for data of type T. They must be a Vector{T} with one entry per entry of x,
+# finite and nonnegative, and x must not alias them (x is the caller's array or owner, as for X and y).
+# The level λ = T(λ0) must be zero or a normal number of T (not subnormal). The coefficient checked is
+# cⱼ = λ wⱼ of the entry j, the product rounded in T (the stopping check of PGD and APG and the exceptional CD step
+# use this cⱼ; ProximalBase's ordinary steps form their thresholds from λ0 and wⱼ in its working type): it must be
+# finite and, where λ and wⱼ are both positive, a normal number of T (so not zero and not subnormal). The rule is on the rounded cⱼ: an exact product slightly
+# below floatmin(T) that rounds up to floatmin(T) passes. A zero level or weight gives the coefficient 0,
+# which leaves the entry unpenalized when it comes from wⱼ = 0.
+function _check_l1_weights(g, x, ::Type{T}) where T
+  _scalar_parameter(g.λ0, T, "penalty lambda")
+  λ = T(g.λ0)
+  issubnormal(λ) && _l1_level_error(g.λ0, λ, T)
+  w = g.w
+  w isa Vector{T} ||
+    throw(ArgumentError("penalty weights must be a Vector{$T} (the element type of the data); convert an array with collect($T, vec(w)), which takes it in linear order"))
+  length(w) == length(x) ||
+    throw(DimensionMismatch("the penalty has $(length(w)) weights but x has $(length(x)) entries"))
+  Base.mightalias(x, w) && throw(ArgumentError("mutable x must not alias the penalty weights"))
+  @inbounds for j in eachindex(w)
+    wj = w[j]
+    c = λ * wj
+    isfinite(wj) && wj >= 0 && isfinite(c) && (iszero(c) ? (iszero(λ) | iszero(wj)) : floatmin(T) <= c) ||
+      _l1_weight_error(λ, wj, j, T)
+  end
+  nothing
+end
+
+@noinline _l1_level_error(λ0, λ::T, ::Type{T}) where T =
+  throw(ArgumentError("penalty lambda $λ0 is subnormal in $T (it converts to $λ); with weights the level must be zero " *
+                      "or at least floatmin($T); rescale the level or the weights"))
+
+@noinline function _l1_weight_error(λ::T, wj::T, j, ::Type{T}) where T
+  isfinite(wj) && wj >= 0 ||
+    throw(ArgumentError("penalty weight $j must be finite and nonnegative"))
+  c = λ * wj
+  why = isinf(c) ? "overflows" : iszero(c) ? "underflows to zero" : "is subnormal (below floatmin($T))"
+  throw(ArgumentError("the penalty coefficient of entry $j, lambda * weight in $T, $why; rescale the level or the weights"))
 end
 
 # The penalty of group coordinate descent on a BlockIterate: a GroupNormL2 whose level and weights

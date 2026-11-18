@@ -11,7 +11,10 @@ curvature overflow and rollback; trace, callbacks, limits and counters), the ini
 (`elasticnet`: the residual of the stopping check, closed-form and signed-support BigFloat minimizers, an
 independent residual check at each `converged = true` of the file's main solves, a false-stop guard, level types,
 rollback and allocations) and with CDSolver (`cd_elasticnet`: BigFloat residual and objective oracle, closed-form
-and signed-support references, `NormL1` equality at `λ2 = 0`, flat and out-of-range columns, refusals and rollback). Full adds every `.jl` script under `examples/`, including its subfolders, which
+and signed-support references, `NormL1` equality at `λ2 = 0`, flat and out-of-range columns, refusals and rollback) and the weighted lasso `NormL1(λ, w)` with CD, PGD and APG (`weighted_lasso`: a BigFloat
+oracle from the stored data with the exact coefficients λ wⱼ, closed-form and signed-support references, the
+coefficient range rule at its overflow and underflow boundaries, zero weights and flat columns, the stopping check, the
+exceptional coordinate step against BigFloat, refusals before any write or draw, rollback and allocations). Full adds every `.jl` script under `examples/`, including its subfolders, which
 `test/examples.jl` discovers by itself, the exploratory benchmark script
 (`benchmark_explore`) and the formal benchmark harness on the current core
 (`benchmark_formal`: case selection and deferral, inputs, certificates, resets,

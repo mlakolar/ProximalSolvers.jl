@@ -22,6 +22,7 @@ standard = [
   "cd_elasticnet",
   "linf",
   "sqrt_lasso",
+  "weighted_lasso",
 ]
 full = [
   "examples",

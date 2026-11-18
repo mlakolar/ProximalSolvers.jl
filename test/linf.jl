@@ -992,7 +992,7 @@ end
     f = LeastSquaresLoss(y, X)
     g = NormLinf(T(.1))
     @test solve!(copy(x), f, g, method).minimum isa T                  # the accepted problem
-    refused(x, f, Scaled(g, 2), method, "only unweighted NormL1, unweighted ElasticNet or NormLinf is supported")
+    refused(x, f, Scaled(g, 2), method, "only NormL1, unweighted ElasticNet or NormLinf is supported")
     # a negative or NaN level cannot be constructed (ProximalBase refuses it); an infinite one can
     @test_throws ArgumentError NormLinf(-one(T))
     @test_throws ArgumentError NormLinf(T(NaN))
@@ -1026,7 +1026,7 @@ end
     refused(SparseIterate(x), f, g, method, "x must be a dense Vector{Float32} or Vector{Float64}")
     refused(Int[0, 0], f, g, method, "x must be a dense Vector{Float32} or Vector{Float64}")
     # the gradient gate's message for an unsupported penalty names NormLinf
-    refused(x, f, SqrNormL2(T(.1)), method, "only unweighted NormL1, unweighted ElasticNet or NormLinf is supported")
+    refused(x, f, SqrNormL2(T(.1)), method, "only NormL1, unweighted ElasticNet or NormLinf is supported")
     @test x == T[.3, -.2]
     # a zero level is accepted; the solution is the least-squares one
     @test solve!(copy(x), f, NormLinf(zero(T)), method, TIGHT).converged
@@ -1059,7 +1059,7 @@ end
       @test rng == before
     end
     # the penalties that CD accepts keep their messages
-    refused(copy(x), f, SqrNormL2(T(.1)), CDSolver(), "only unweighted NormL1 or unweighted ElasticNet is supported")
+    refused(copy(x), f, SqrNormL2(T(.1)), CDSolver(), "only NormL1 or unweighted ElasticNet is supported")
   end
 end
 

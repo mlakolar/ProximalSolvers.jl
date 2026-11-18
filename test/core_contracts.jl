@@ -61,7 +61,10 @@ end
     for badscale in (-1., NaN)
       @test_throws ArgumentError Scaled(f, badscale)
     end
-    refused(x, f, NormL1(T(.1), ones(T, 2)), method)
+    # weights are accepted (test/weighted_lasso.jl); these are not: an infinite weight, and weights of the other
+    # precision
+    refused(x, f, NormL1(T(.1), T[1, Inf]), method)
+    refused(x, f, NormL1(T(.1), ones(opposite, 2)), method)
     refused(x, f, SqrNormL2(T(.1)), method)
     for keyword in (:intercept, :offset, :continuation, :screening)
       refused(x, f, g, method; keyword => true)
@@ -100,8 +103,8 @@ end
 # and refuse the other penalties with the messages below: the first for CDSolver, the second for the
 # gradient methods, which also accept a NormLinf (#338). The refusals tested here leave x unchanged. The
 # APG counterpart is in test/accelerated_pgd.jl; the CD solves are in test/cd_elasticnet.jl.
-const EN_PENALTY_REFUSAL = "only unweighted NormL1 or unweighted ElasticNet is supported"
-const EN_GRADIENT_REFUSAL = "only unweighted NormL1, unweighted ElasticNet or NormLinf is supported"
+const EN_PENALTY_REFUSAL = "only NormL1 or unweighted ElasticNet is supported"
+const EN_GRADIENT_REFUSAL = "only NormL1, unweighted ElasticNet or NormLinf is supported"
 
 function refused_with(x, f, g, method, msg)
   original = copy(x)
@@ -115,9 +118,13 @@ end
     f = LeastSquaresLoss(y, X)
     method = ProximalGradientDescent()
     en = ElasticNet(T(.1), T(.2))
-    for g in (ElasticNet(T(.1), T(.2), ones(T, 2)), Scaled(en, 2), NormL1(T(.1), ones(T, 2)), SqrNormL2(T(.1)))
+    for g in (ElasticNet(T(.1), T(.2), ones(T, 2)), Scaled(en, 2), Scaled(NormL1(T(.1), ones(T, 2)), 2), SqrNormL2(T(.1)))
       refused_with(x, f, g, method, EN_GRADIENT_REFUSAL)
     end
+    # a NormL1 with weights is accepted (#331); its solves are in test/weighted_lasso.jl. The options allow an increase
+    # of the computed objective, which under the default options can end a Float32 run before its stop is accepted.
+    r = solve!(copy(x), f, NormL1(T(.1), T[1, 2]), method, ProximalOptions(allow_f_increases = true))
+    @test r.converged && all(isfinite, r.minimizer)
     refused_with(x, f, ElasticNet(T(Inf), zero(T)), method, "penalty lambda1 must be finite and nonnegative")
     refused_with(x, f, ElasticNet(zero(T), T(Inf)), method, "penalty lambda2 must be finite and nonnegative")
     if T === Float32
@@ -147,13 +154,18 @@ end
       @test r.converged && r.minimizer === start && all(isfinite, Vector(start))
       @test Vector(start) != x
     end
-    for g in (ElasticNet(T(.1), T(.2), ones(T, 2)), Scaled(en, 2), NormL1(T(.1), ones(T, 2)), SqrNormL2(T(.1)))
+    for g in (ElasticNet(T(.1), T(.2), ones(T, 2)), Scaled(en, 2), Scaled(NormL1(T(.1), ones(T, 2)), 2), SqrNormL2(T(.1)))
       for start in (copy(x), SparseIterate(copy(x)))
         rng = Xoshiro(1)
         before = copy(rng)
         refused_with(start, f, g, CDSolver(rng = rng), EN_PENALTY_REFUSAL)
         @test rng == before && rand(rng) == rand(before)
       end
+    end
+    # a NormL1 with weights is accepted, on a dense vector and on an owner (#331)
+    for start in (copy(x), SparseIterate(copy(x)))
+      r = solve!(start, f, NormL1(T(.1), T[1, 2]), CDSolver(order = :cyclic))
+      @test r.converged && r.minimizer === start
     end
     for (g, msg) in ((ElasticNet(T(Inf), zero(T)), "penalty lambda1 must be finite and nonnegative"),
                      (ElasticNet(zero(T), T(Inf)), "penalty lambda2 must be finite and nonnegative"))
