@@ -11,6 +11,7 @@ mkpath(GENERATED)
 # fails otherwise.
 const EXAMPLES = [
   (section = "Problems", path = "problems/lasso.jl", title = "Lasso", notebook = false),
+  (section = "Problems", path = "problems/weighted_lasso.jl", title = "Weighted lasso", notebook = false),
   (section = "Problems", path = "problems/elastic_net.jl", title = "Elastic net", notebook = false),
   (section = "Problems", path = "problems/group_lasso.jl", title = "Group lasso", notebook = false),
   (section = "Problems", path = "problems/square_root_lasso.jl", title = "Square-root lasso", notebook = false),

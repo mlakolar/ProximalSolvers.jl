@@ -16,13 +16,15 @@ as supported in the table is not verified; the sections below give the exact inp
 | Problem | `CDSolver` on a `Vector` | `CDSolver` on a `SparseIterate` | `CDSolver` on a `BlockIterate` | `ProximalGradientDescent` on a `Vector` | `AccProxGradDescent` on a `Vector` | Tutorial |
 | --- | --- | --- | --- | --- | --- | --- |
 | Lasso: `LeastSquaresLoss`, `NormL1` | Float32, Float64 | Float32, Float64 | — | Float32 (a), Float64 | Float32 (a, b), Float64 (b) | [Lasso](examples/problems/lasso.md) |
+| Weighted lasso: `LeastSquaresLoss`, `NormL1(lambda, w)` | Float32, Float64 (f) | Float32, Float64 (f) | — | Float32 (a, f), Float64 (f) | Float32 (a, b, f), Float64 (b, f) | [Weighted lasso](examples/problems/weighted_lasso.md) |
 | Elastic net: `ElasticNet` | Float32, Float64 (c) | Float32, Float64 (c) | — | Float32 (a), Float64 | Float32 (a, b), Float64 (b) | [Elastic net](examples/problems/elastic_net.md) |
 | Group lasso: `GroupNormL2` | — | — | Float32, Float64 (d) | — | — | [Group lasso](examples/problems/group_lasso.md) |
 | Square-root lasso: `SqrtLeastSquaresLoss`, `NormL1` | Float32, Float64 (e) | Float32, Float64 (e) | — | — | — | [Square-root lasso](examples/problems/square_root_lasso.md) |
 
-`NormL1` and `ElasticNet` are unweighted where they appear in the table. `GroupNormL2` takes its group
+`NormL1` and `ElasticNet` are unweighted where they appear in the table, except in the weighted-lasso row,
+where `NormL1(lambda, w)` has one weight per coefficient. `GroupNormL2` takes its group
 weights, the default `sqrt(|G_k|)` or explicit finite nonnegative weights (see
-[Group lasso with coordinate descent](@ref)). The lasso, elastic net and group lasso rows use
+[Group lasso with coordinate descent](@ref)). The lasso, weighted lasso, elastic net and group lasso rows use
 `LeastSquaresLoss` or one positive finite scalar multiple of it, and the square-root lasso
 row uses the unscaled `SqrtLeastSquaresLoss`. The design is a dense `Matrix`. For `CDSolver`, `converged = true` is the test on the change of the
 coefficients over a pass and not a certificate of optimality, except for the square-root
@@ -30,8 +32,8 @@ lasso (note e).
 
 - **(a)** `ProximalGradientDescent` and `AccProxGradDescent` accept `Float32` data, and the
   tests check the returned point against `BigFloat` or `Float64` references with
-  `Float32`-sized tolerances, and do not require `converged = true`, because a `Float32`
-  solve can end without it: with `ftol = 0`, `ProximalGradientDescent` can stop at
+  `Float32`-sized tolerances, and (except for the weighted lasso, see (f)) do not require
+  `converged = true`, because a `Float32` solve can end without it: with `ftol = 0`, `ProximalGradientDescent` can stop at
   numerical stagnation with `stagnated = true` and `converged = false`, and with the default
   options a `Float32` solve can end on the objective-increase exit with `converged = false`. Assess the
   returned point with an independent residual; see [Numerical behavior](numerics.md).
@@ -51,6 +53,13 @@ lasso (note e).
   `converged = true` means that a duality certificate proved a relative gap of at most
   `1e-4`; a run without a certificate reports `converged = false`, and `Float32` runs can end
   uncertified.
+- **(f)** The weighted lasso needs `w` to be a `Vector{T}` of finite nonnegative entries, with the
+  level and the products `T(lambda) * w[j]` in the range that
+  [Weighted lasso](@ref weighted-lasso-support) states; `solve!` refuses other input with an
+  `ArgumentError`. A zero weight leaves its coordinate unpenalized. The tests check every cell
+  against `BigFloat` references computed from the data. For `ProximalGradientDescent` and
+  `AccProxGradDescent` they pass `allow_f_increases = true` and require `converged = true`; with
+  the default options a `Float32` solve can end on the objective-increase exit, as in (a).
 
 **Updating the matrix.** A pull request that adds or removes support for a combination
 changes its cell and its tutorial link in the same pull request, together with the test
@@ -120,8 +129,8 @@ used. A zero weight leaves its coefficient unpenalized: it is not fixed at 0. Wi
 
 Where `c_j` is used, and where it is not. The checks above, the stopping check of PGD and APG (it scores entry `j` with `c_j` and takes the largest `c_j` as the level `λ` of its scale; see [the stationarity check](@ref "The stationarity check of a stop")), and the coordinate step of CD where it forms its threshold without the product `s * a` use the checked `c_j`. ProximalBase's proximal steps (the proximal step of PGD and APG, and the step of CD where it calls ProximalBase's `prox_block`) form their thresholds from `lambda` and `w_j` in ProximalBase's working type, not from `c_j`. These thresholds and those formed from `c_j` can differ by rounding and, for a `lambda` that is not of type `T`, by the error of converting the level to `T`. When CD takes each step is described in [numerical behavior](numerics.md); the error of `c_j` relative to `lambda * w_j` is described in the [implementation notes](developer/implementation-notes.md). CD's
 `converged` remains the change test. A scaled penalty such as `Scaled(NormL1(lambda, w), a)`, and `ElasticNet` with
-weights, are refused. [Example 8](examples/08_weighted_lasso.md) solves an adaptive lasso with a zero weight with all
-three solvers.
+weights, are refused. [The weighted-lasso tutorial](examples/problems/weighted_lasso.md) solves an adaptive lasso with a zero
+weight with all three solvers.
 
 ### Group lasso with coordinate descent
 
