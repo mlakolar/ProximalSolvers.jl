@@ -101,7 +101,7 @@ mutable struct AccProxGradDescentState{T, X<:Vector{T}, M, Z}
     delta_x::X
     L::T
     max_residual::T
-    λmax::T           # ‖∇f(0)‖ = α‖Xᵀy‖ for the stationarity check of a stop: the ∞-norm for NormL1 and ElasticNet (the dual of their ℓ1 part), the 1-norm for NormLinf; -1 until it is computed
+    λmax::T           # ‖∇f(0)‖∞ = α‖Xᵀy‖∞ for the stationarity check of a stop, -1 until it is computed
     k::Int            # iterations since the start or the last restart
     restarts::Int
     backtrack_steps::Int

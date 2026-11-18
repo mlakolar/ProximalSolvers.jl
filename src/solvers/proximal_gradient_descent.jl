@@ -82,7 +82,7 @@ mutable struct ProximalGradientDescentState{T, X<:Vector{T}, G<:Vector{T}, M, Z}
     delta_x::X
     L::T
     max_residual::T
-    λmax::T         # ‖∇f(0)‖ = α‖Xᵀy‖ for the stationarity check of a stop: the ∞-norm for NormL1 and ElasticNet (the dual of their ℓ1 part), the 1-norm for NormLinf; -1 until it is computed
+    λmax::T         # ‖∇f(0)‖∞ = α‖Xᵀy‖∞ for the stationarity check of a stop, -1 until it is computed
     backtrack_simple::Bool  # line search uses function values, not gradients
     backtrack_steps::Int
     f_calls::Int
