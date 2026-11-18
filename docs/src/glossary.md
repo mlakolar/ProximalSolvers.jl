@@ -6,6 +6,11 @@ a linear model that can make some coefficients exactly zero.
 **L1 penalty:** The sum of absolute coefficient values, usually
 multiplied by the strength parameter `lambda`.
 
+**Weighted lasso:** The lasso with a weight per coefficient, `lambda * sum(w[j] * abs(beta[j]))`,
+`NormL1(lambda, w)`. The weights are a `Vector` of the element type of the data, finite and nonnegative; the
+coefficient that `solve!` checks for entry `j` is `T(lambda) * w[j]`, the product rounded in `T`, which must be zero or a
+normal number of `T` (see [Supported problems](support.md)), and a zero weight leaves the entry unpenalized.
+
 **Elastic net:** The penalty `lambda1 * sum(abs, beta) + lambda2/2 * sum(abs2, beta)`, an L1 term plus a
 ridge (squared L2) term, `ElasticNet(lambda1, lambda2)`. CD, PGD and APG accept it.
 

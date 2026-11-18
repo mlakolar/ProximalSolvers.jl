@@ -2,11 +2,11 @@
     ProximalGradientDescent(; ls=LineSearches.BackTracking(), normalized=false,
                              debias=0, preconditioner=:none)
 
-Proximal gradient descent (PGD) for least-squares lasso or elastic net with a dense
+Proximal gradient descent (PGD) for least-squares lasso (with optional weights) or elastic net with a dense
 `Vector{Float32}` or `Vector{Float64}` coefficient iterate. Each iteration
 takes a gradient step for the smooth least-squares loss and applies the
-proximal operator of the penalty, soft thresholding for `NormL1` and soft
-thresholding followed by the ridge weight for `ElasticNet`; backtracking adjusts
+proximal operator of the penalty, soft thresholding for `NormL1` (at the level `λ wⱼ` of entry `j` for
+`NormL1(λ, w)`) and soft thresholding followed by the ridge weight for `ElasticNet`; backtracking adjusts
 the step size.
 The curvature estimate before the first iteration is `min(1, α_f ‖X‖_F²)` for the loss scale
 `α_f`, with `‖X‖_F` an upper bound, rounded to `T` and raised to `floatmin(T)` when it is positive and
@@ -28,12 +28,14 @@ Pass `ProximalOptions(...)` as the fifth argument to `solve!` to
 configure stopping tolerances and iteration limits. A stop that the `xtol`, `ftol` or
 `gradtol` test proposes counts only if the computed KKT residual of the iterate is below
 `max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞` and `λ` the ℓ1 level of the penalty
-(`λ` of `NormL1`, `λ1` of `ElasticNet`; see [`ProximalOptions`](@ref)). `converged=true` guarantees only that the computed, normalized KKT
+(`λ` of `NormL1(λ)`, the largest coefficient `T(λ) * maximum(w)` of `NormL1(λ, w)`, `λ1` of `ElasticNet`; see
+[`ProximalOptions`](@ref)). `converged=true` guarantees only that the computed, normalized KKT
 residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the threshold is formed in
 `T`, which can round or overflow; see [`ProximalOptions`](@ref)); it is not an
 exact-arithmetic certificate, does not bound the distance to a minimizer and does not
 guarantee coefficient accuracy on ill-conditioned designs (see the
-[stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)), and the default tolerances are not a specified number of correct digits. Tighten tolerances and
+[stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)), and the default tolerances are not a specified number of correct digits. In `Float32`, a solve can report `converged = true` at a relative duality gap above `1e-5`, as in measurements on small benchmark designs (see
+[the limits of the stopping tests](https://mlakolar.github.io/ProximalSolvers.jl/dev/stopping-limits/)). Tighten tolerances and
 check KKT conditions independently before reporting numerical results.
 See the [solver guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/)
 and [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
@@ -274,20 +276,28 @@ end
     solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions())
     solve!(x::BlockIterate, f, g::GroupNormL2, CDSolver())
 
-Minimize a least-squares lasso or elastic net, or with `CDSolver` a square-root lasso, overwriting
-`x`. `x` is a dense `Vector{T}`,
+Minimize a least-squares lasso (with optional weights) or elastic net, or with `CDSolver` a square-root lasso,
+overwriting `x`. `x` is a dense `Vector{T}`,
 T=Float32 or Float64; `CDSolver` also accepts a one-dimensional `SparseIterate{T}`
 (see below), while the gradient methods (`ProximalGradientDescent`, `AccProxGradDescent`) refuse it.
 The `BlockIterate` form of `CDSolver` minimizes the group lasso with a `GroupNormL2` penalty on a
 `BlockIterate{T}` with the same groups; only `CDSolver` accepts it, and `CDSolver` describes it. The loss
-uses same-type `Matrix` X and `Vector` y. The penalty of the gradient methods is an
-unweighted `NormL1(λ)` or an unweighted `ElasticNet(λ1, λ2)` (`λ1 ‖x‖₁ + (λ2/2) ‖x‖²`), whose levels are
+uses same-type `Matrix` X and `Vector` y. The penalty of the gradient methods is a `NormL1(λ)` or
+`NormL1(λ, w)` or an unweighted `ElasticNet(λ1, λ2)` (`λ1 ‖x‖₁ + (λ2/2) ‖x‖²`), whose levels are
 finite and nonnegative and representable in `T` without overflow or underflow; for a dense `Vector` or a
-`SparseIterate`, `CDSolver` accepts the same two penalties (see [`CDSolver`](@ref)); its `BlockIterate`
-form takes a `GroupNormL2`. Use `(one(T)/T(n))*LeastSquaresLoss` for normalized lasso; raw LS keeps
+`SparseIterate`, `CDSolver` accepts the same penalties (see [`CDSolver`](@ref)); its `BlockIterate`
+form takes a `GroupNormL2`. The weights `w` of `NormL1(λ, w)` are a
+`Vector{T}` with one finite nonnegative entry per entry of `x` (`T` the element type of the data and of `x`),
+and `x` must not alias them. `solve!` checks the coefficient `T(λ) wⱼ` of entry `j`, the product rounded in `T`: it must be
+finite and, where `T(λ)` and `wⱼ` are both positive, a normal number of `T` (a zero or subnormal product, and a
+level `T(λ)` that is subnormal, are refused). The stopping check of PGD and APG uses it; ProximalBase's proximal
+steps form their thresholds from `λ` and `wⱼ` in their working type (see
+[Supported problems](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/#weighted-lasso-support)). A zero level or weight gives the coefficient 0, which is accepted; a zero
+weight leaves its entry unpenalized (it is not fixed at 0). Any other weight array type (a view, a range, a
+vector of another element type), a weighted `ElasticNet` and any `Scaled` penalty is refused. Use `(one(T)/T(n))*LeastSquaresLoss` for normalized lasso; raw LS keeps
 its unnormalized meaning. One positive finite scalar LS wrapper is supported. `CDSolver` also accepts
 ProximalBase's `SqrtLeastSquaresLoss(y, X)` with an unweighted `NormL1(λ)`, `λ > 0`, on a dense `Vector`
-or a `SparseIterate` (see [`CDSolver`](@ref)); the gradient methods refuse it.
+or a `SparseIterate` (see [`CDSolver`](@ref)); the gradient methods refuse it, and `CDSolver` refuses it with a weighted `NormL1`.
 Borrowed X/y must not alias mutable `x` or change during a solve. Results share
 `x`; copy it to retain earlier coefficients. Unsupported inputs/options fail
 before mutation. For PGD and APG, a stop of the stopping tests counts only at a point whose
@@ -327,7 +337,8 @@ used, and a refused call neither changes `x` nor advances the RNG. The curvature
 refusals that can be decided from the data follow, before the first pass, before any RNG draw and
 only when `maxpasses > 0`, with `x` unchanged; the curvature of a group that is neither flat nor
 a one-column group with `n eps(T) <= 1/8` is computed in that preparation, or at the first visit that
-needs it when cheap bounds exclude a refusal (under the eigenvalue model for groups of two or more columns), and an exception of its eigenvalue routine or a
+needs it when cheap bounds exclude a refusal (under the eigenvalue model for groups of three or more columns and for groups of two columns
+outside the range of their closed-form bound), and an exception of its eigenvalue routine or a
 refusal at that point happens during a pass, with `x` unchanged and the RNG possibly advanced. The solve
 then runs on `work = copy(x)` and `x` receives the final state of `work` by one `copyto!`.
 Zero groups are deactivated after a pass, so the active groups of `x` after a solve with at

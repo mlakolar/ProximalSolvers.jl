@@ -20,7 +20,8 @@ code.
   times an infinite scale (a computed scale that overflows the working type) is
   refused with an `ArgumentError`. The coordinate step forms its threshold
   `lambda / (s * a)` without the product or its reciprocal where either is
-  outside the normal range, and a column whose squared norm is not finite is
+  outside the normal range (with weights, outside that range `lambda` stands for the coefficient `T(lambda) * w[k]`
+  rounded in `T`; inside it ProximalBase's `prox_block` forms its threshold from `lambda` and `w[k]`), and a column whose squared norm is not finite is
   refused with an `ArgumentError` that names the curvature. For an `ElasticNet`,
   in the normal range the step of a visit is ProximalBase's `prox_block`. At a visit to a column
   with a finite positive `a` where `s * a` or its reciprocal is below `floatmin` of the type that
@@ -28,7 +29,7 @@ code.
   `lambda2 > 0` the visit is refused with an `ArgumentError` that names the coordinate, during the
   pass: the iterate passed to `solve!` is unchanged, and a borrowed RNG may have advanced.
   A visit to a flat column (all entries 0) sets its coordinate to 0 at the levels that `solve!`
-  accepts, and a visit to a column that is not flat whose `a` underflows to 0 is refused with an
+  accepts (also for a `NormL1` at a zero weight), and a visit to a column that is not flat whose `a` underflows to 0 is refused with an
   `ArgumentError` about the curvature, as for the lasso. With `maxpasses = 0` no coordinate is visited. With
   `relative=false`, or with `y = 0`, the coordinate scale is
   not used. If the computed `sqrt(s) * norm(y)`, after
@@ -88,13 +89,17 @@ solver computes the minimal-norm KKT residual `G` at the accepted iterate `x`.
 For `NormL1(λ)` it is the element of `∇f(x) + λ ∂‖x‖₁` of least infinity
 norm, that is `max(|∇fᵢ| - λ, 0)` where `xᵢ = 0` and `|∇fᵢ + λ sign(xᵢ)|`
 elsewhere, with `λ = T(λ0)`, the penalty level converted to the coefficient type `T`. For
+`NormL1(λ0, w)` the coefficient of entry `i` is `cᵢ = T(λ0) wᵢ`, formed in `T` (the weights are a
+`Vector{T}`), so that `G` is `max(|∇fᵢ| - cᵢ, 0)` where `xᵢ = 0` and `|∇fᵢ + cᵢ sign(xᵢ)|` elsewhere; a zero
+weight gives the coefficient 0 and the score `|∇fᵢ|`. For
 `ElasticNet(λ1, λ2)` (PGD and APG) it is the element of
 `∇f(x) + λ2 x + λ1 ∂‖x‖₁` of least infinity norm: `max(|∇fᵢ| - λ1, 0)` where
 `xᵢ = 0` and `|∇fᵢ + λ2 xᵢ + λ1 sign(xᵢ)|` elsewhere, with the levels `T(λ1)` and `T(λ2)`. The solver
-computes `‖G‖∞` with ProximalBase's `kkt_violation(NormL1(T(λ0)), ∇f(x), x)` or
+computes `‖G‖∞` with ProximalBase's `kkt_violation(NormL1(T(λ0)), ∇f(x), x)`, `kkt_violation(NormL1(T(λ0), w), ∇f(x), x)` or
 `kkt_violation(ElasticNet(T(λ1), T(λ2)), ∇f(x), x)`, passing the converted levels. An infinite entry of `x`
 gives a non-finite residual (`Inf`, or `NaN` when a `NaN` is read), so the stop does not count. Below,
-`λ` is the ℓ1 level of the penalty (`λ` of `NormL1`, `λ1` of `ElasticNet`). The stop counts only if
+`λ` is the ℓ1 level of the penalty (`λ` of `NormL1(λ)`, the largest coefficient `maxᵢ cᵢ = T(λ0) * maximum(w)` of
+`NormL1(λ0, w)`, `λ1` of `ElasticNet`). The stop counts only if
 
 ~~~
 ‖G‖∞ < max(gradtol, 64 eps(T)) * max(λ, λmax),    λmax = α ‖Xᵀy‖∞,
@@ -136,6 +141,16 @@ of the tests. What `converged=true` therefore says about the returned `x`:
 - Where `λ` and `λmax` are both 0 (for example `y = 0` and `λ = 0`), or where
   the bound is below `floatmin(T)`, no stop passes. The solve then ends at
   `maxiter` unless another exit applies.
+- **Weights.** For `NormL1(λ0, w)`, `S = max(maxᵢ cᵢ, λmax)`; rounding is monotone, so the
+  largest coefficient is `T(λ0) * maximum(w)`. For `w` all ones the coefficients and `S` are those of
+  `NormL1(λ0)`. With all weights 0 the penalty vanishes, `S = λmax` and the check is that of least squares;
+  with `y = 0` as well, `S` is 0 and no stop counts, as above. A zero-weight coordinate is scored with its
+  full gradient `|∇fᵢ|`, so a stop at a point where that gradient is at least `τ S` is not accepted, also
+  where `λ0` is large. A proposed stop adds two scans of `w` to the pass of `kkt_violation` (one for the
+  maximum, one in the construction of `NormL1(T(λ0), w)`) and forms no array. Each `cᵢ` is a coefficient
+  that `solve!` has checked: finite and, where `T(λ0)` and `wᵢ` are both positive, a normal number of `T`
+  (a zero or subnormal product of positive factors is refused, and so is a subnormal `T(λ0)`); a zero level or weight gives
+  `cᵢ = 0`. As above, a stop is refused where `τ S` is below `floatmin(T)`.
 - **The elastic net.** `ElasticNet(λ1, λ2)` on the loss `α/2 ‖Xb - y‖²` is the lasso with
   level `λ1` on the augmented data `X̃ = [√α X; √λ2 I]`, `ỹ = [√α y; 0]`: its loss
   `½‖X̃b - ỹ‖²` equals `α/2 ‖Xb - y‖² + (λ2/2)‖b‖²`, its gradient is `∇f(x) + λ2 x`, and its
@@ -472,16 +487,51 @@ that needs it.
   assume IEEE gradual underflow (subnormal numbers are not flushed to zero); the third
   assumes that the computed eigenvalues are exact eigenvalues of a nearby matrix, within a
   multiple of `eps(Float64)` times the trace, a model of the eigenvalue routine and not a
-  proved bound for every input.
+  proved bound for every input. This is the *general rule*; a group of two columns takes it
+  outside the range of the next item.
+- **Group of two columns** (on the Gram route). With `x` and `y` the two columns, the
+  entries `a = ‖x‖²`, `b = ‖y‖²` and `c = xᵀy` of the Gram matrix are accumulated in
+  `Float64` in one pass over the stored columns, without a copy, and `t = a + b` is their
+  computed trace. Where `2^-480 ≤ t ≤ 2^500`, the bound in `Float64` is the next number above
+  `(t + √((a − b)² + 4c²))/2 + (n + 4) eps(Float64) t`, evaluated in `Float64` and rounded
+  up to `T`, with no eigenvalue computation. The first term is the largest eigenvalue of
+  the computed Gram matrix in exact arithmetic. Inside this range the bound is proved, with
+  no eigenvalue model: assuming IEEE binary64 arithmetic with rounding to nearest and
+  gradual underflow, and `n eps(Float64) ≤ 1/8`, it exceeds the largest eigenvalue of the
+  exact Gram matrix of the stored columns by at least `((6/7) n + 3) u t`, with
+  `u = eps(Float64)/2`, for any order of the summation. The margin is a quarter of that of
+  the general rule. Under the same condition on `n`, finite `Float32` data in a group that
+  is not flat is inside this range. `Float64` data is outside it where `√t`, the Frobenius
+  norm of the two columns up to rounding, is below `2^-240` or above `2^250`, and data with
+  a `NaN` or infinite entry is outside it (`t` is then `NaN` or infinite). Outside the range
+  the general rule decides, with its refusals.
 
-**Lazy computation.** The eigenvalue computation is the expensive part, and a group that
-stays at zero may never need it. During the preparation, a group on the Gram route gets
-cheap bounds, formed in `Float64` from the sums of squares `q_c` of its columns (`n m`
-operations, no products between columns): with `t` the sum and `d` the largest of the
-`q_c`, a lower bound `lo = d (1 − 2 n eps(Float64)) − 2 n η` and an upper bound `hi = 4 t`
-on the curvature that the rule above would store (`η` the smallest positive `Float64`; the
-bounds assume gradual underflow, and the upper one the eigenvalue model, for groups of two
-or more columns). Under that model, the four conditions below exclude the refusals; a
+The two rules for a group of two columns compute slightly different bounds: the margins
+differ, and the computed eigenvalue differs from the closed form in the last bits. The
+refusal categories and messages are those of the table below, but where the two bounds,
+or the steps `s ℓ_k` formed from them and their reciprocals, fall on different sides of a
+refusal threshold, the decision can differ from the one that the general rule would make.
+For the bound in `Float64` before its rounding up to `T`, the thresholds are
+`prevfloat(floatmin(T))` and `floatmax(T)`: a bound at or below `prevfloat(floatmin(T))` is
+refused as underflow, a bound strictly above it rounds up to at least `floatmin(T)`, and a
+bound above `floatmax(T)` is refused as overflow. For `s ℓ_k` and its reciprocal the
+threshold is the smallest normal number of `S` (see below).
+Then a bound that the general rule refuses as overflow can be accepted (and then be
+refused by the step check, with the step message), a bound that it accepts can be refused
+as underflow, and a step decision can change in either direction. The gap between the two
+bounds scales with `t`, not with `ℓ_k`, so no fixed relative distance from a threshold is
+claimed.
+
+**Lazy computation.** Computing the bound of a group costs a pass over its columns, and on
+the general rule a copy of the columns, their Gram matrix and, for two or more columns, an
+eigenvalue computation; a group that stays at zero may never need it. During the
+preparation, a group on the Gram route gets cheap bounds, formed in `Float64` from the sums
+of squares `q_c` of its columns (`n m` operations, no products between columns): with `t`
+the sum and `d` the largest of the `q_c`, a lower bound `lo = d (1 − 2 n eps(Float64)) − 2 n η`
+and an upper bound `hi = 4 t` on the curvature that the rules above would store (`η` the
+smallest positive `Float64`; the bounds assume gradual underflow, and the upper one the
+eigenvalue model for a group that takes the eigenvalue computation: three or more columns,
+or two columns outside the range of their rule). Under these assumptions, the four conditions below exclude the refusals; a
 deferred group can still be refused during a pass through an eigenvalue routine that
 throws, or through a violation of the model. The curvature is left uncomputed (`NaN` in the model) only if the type `S` of the scale is `Float32` or
 `Float64`, `4 (n + m²) eps(Float64) ≤ 1/16`, `t` is finite, and all of these hold:
@@ -519,14 +569,14 @@ group, and they leave `x` unchanged. Those that are predictable, because the cur
 computed during the preparation or the four conditions above hold, happen before the first
 pass, and the random number generator is unused. A curvature computed lazily is computed
 in the same way, and an exception of the eigenvalue routine (which is not caught), a
-largest eigenvalue that is not finite, or a curvature or step refusal at that point (which
-the four conditions are meant to exclude) happens during a pass: `x` is still unchanged,
-but a random order may already have drawn from the generator.
+largest eigenvalue that is not finite (both on the general rule), or a curvature or step
+refusal at that point (which the four conditions are meant to exclude) happens during a
+pass: `x` is still unchanged, but a random order may already have drawn from the generator.
 
 | Category | Condition | Message contains |
 | --- | --- | --- |
-| Curvature underflow | the sum of squares of the column of a group of one column with `n eps(T) ≤ 1/8` is below `floatmin(T)`, the trace of `Ĝ` is below `m` times `floatmin(Float64)`, or `ℓ_k` is below `floatmin(T)` | `underflows` |
-| Curvature overflow | the sum of squares of that column, `Ĝ`, its trace or its largest eigenvalue is not finite, or `ℓ_k` is infinite in `T` | `overflows` |
+| Curvature underflow | the sum of squares of the column of a group of one column with `n eps(T) ≤ 1/8` is below `floatmin(T)`, the trace of `Ĝ` is below `m` times `floatmin(Float64)` (on the general rule), or `ℓ_k` is below `floatmin(T)` | `underflows` |
+| Curvature overflow | the sum of squares of that column, `Ĝ`, its trace or its largest eigenvalue is not finite (on the general rule), or `ℓ_k` is infinite in `T` | `overflows` |
 | Step | `s ℓ_k` or its reciprocal is outside the normal range | `step of group` |
 
 A group whose curvature bound is subnormal in `T` is refused here, where the scalar
@@ -808,6 +858,17 @@ What changes for the solvers:
     gradient was non-finite was rejected, the step raised
     `ErrorException("line search failed: nonfinite curvature estimate")`, and the last
     accepted iterate was restored; this is not a guarantee for every setting.
+- In Float64, a subnormal squared step norm `‖d̂‖²` of a PGD trial (a nonzero value below
+  `floatmin(Float64)`) can make the line search's curvature estimates unreliable. Once the
+  search uses gradients, it scales a gradient-difference product by `2/‖d̂‖²`, which
+  overflows when `‖d̂‖² < 2/floatmax(Float64)` (about 1.1e-308). A zero product is not
+  scaled: it gives the estimate 0 and the trial is accepted, where scaling would give
+  `0 · Inf = NaN`. This does not make a solve converge at such scales: a solve can still end
+  with `converged = false` or with a line-search error. One case is not handled: a nonzero
+  product, or rounding noise in the function values, can give an infinite estimate, and when
+  `sum(abs2, d̂)` underflows to 0 while `‖d̂‖² > 0` (every entry of `d̂` below about
+  1.57e-162), the computed curvature of the step is not finite and does not replace that
+  estimate. See `LineSearches.BackTracking`.
 
 `Float32` has less precision and may stagnate earlier than `Float64`.
 Some solver tolerances, residual reports and other scalar diagnostics

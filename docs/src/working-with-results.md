@@ -29,7 +29,7 @@ retains two algorithm-specific result types.
 **Warning:** for PGD and APG, `converged=true` means that a stopping test
 proposed a stop and that the computed KKT residual `‖G‖∞` at the returned point
 is below `max(gradtol, 64eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞` and `λ` the ℓ1 level of the
-penalty (`λ` of `NormL1`, `λ1` of `ElasticNet(λ1, λ2)`): a
+penalty (`λ` of `NormL1(λ)`, the largest coefficient `T(λ) * maximum(w)` of `NormL1(λ, w)`, `λ1` of `ElasticNet(λ1, λ2)`): a
 working-precision value. `converged = true` guarantees only that the computed,
 normalized KKT residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64eps(T))` (the
 threshold is formed in `T`, where it can round or overflow; see

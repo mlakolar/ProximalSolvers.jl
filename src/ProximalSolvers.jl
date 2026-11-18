@@ -1,7 +1,8 @@
 """
     ProximalSolvers
 
-Least-squares lasso and elastic net (an unweighted `ElasticNet`) with dense Matrix designs, for
+Least-squares lasso, with or without weights (`NormL1(λ)` or `NormL1(λ, w)`), and elastic net (an
+unweighted `ElasticNet`) with dense Matrix designs, for
 [`CDSolver`](@ref), [`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref).
 [`CDSolver`](@ref) also solves the square-root lasso, with ProximalBase's `SqrtLeastSquaresLoss` and
 an unweighted `NormL1`, and reports `converged = true` for it only with a duality certificate.

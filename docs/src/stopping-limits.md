@@ -5,7 +5,9 @@ the measured limits of their stopping tests. The numbers come from the Stage 0 a
 [issue #352](https://github.com/mlakolar/ProximalSolvers.jl/issues/352), run at revision
 `b8a2c04` on Julia 1.13.4; Julia 1.10.13 was run as well and gave close but not identical counts.
 The audit used 11 small designs (20 to 60 rows, 8 to 60 columns) and evaluated each solve in
-600-bit arithmetic on the rounded inputs the solver received. These are high-precision
+600-bit arithmetic on the rounded inputs the solver received. At that revision `solve!` refused a
+weighted `NormL1`, so the `NormL1` problems of the audit were unweighted, and the counts on this page
+do not cover a weighted `NormL1`. These are high-precision
 evaluations, not proofs, and the counts are for those designs: they are not rates to expect on
 other problems.
 
@@ -18,7 +20,7 @@ certified optimum. The solvers stop on three kinds of evidence:
 | --- | --- | --- | --- | --- |
 | `CDSolver`, least squares with `NormL1` or `ElasticNet` | a full pass whose largest change, scaled when relative scaling is active, is below the threshold | nothing | with `relative = true` and `y ≠ 0`: each scaled change `abs(h_k) √(s a_k)` of one full pass is below `tol √s ‖y‖`, with `a_k = ‖X_k‖²`; with `relative = false`, or `y = 0`: each `abs(h_k)` is below `tol` | a change test, with no independent check |
 | `CDSolver`, group lasso | the same, with the change of a group | nothing | the same per group: the scaled change is `‖h_k‖ √(s ℓ_k)`, with `ℓ_k` the curvature bound of the group, and the unscaled one `‖h_k‖` | a change test, with no independent check |
-| `ProximalGradientDescent`, `AccProxGradDescent` | the `x`, objective or gradient test of an iteration | the stationarity check | a test proposed a stop and the computed `‖G‖∞` is below `max(gradtol, 64 eps(T)) * max(λ, λmax)` | a residual formed in working precision |
+| `ProximalGradientDescent`, `AccProxGradDescent` | the `x`, objective or gradient test of an iteration | the stationarity check | a test proposed a stop and the computed `‖G‖∞` is below `max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λ` the ℓ1 level (for `NormL1(λ, w)`, the largest coefficient `maxⱼ cⱼ` with `cⱼ = T(λ) wⱼ`; each entry of `G` is scored with its own `cⱼ`; see [the stationarity check](@ref "The stationarity check of a stop")) | a residual formed in working precision |
 | `CDSolver`, square-root lasso, `λ > 0` | a full pass below the threshold | the duality certificate | where the minimum `P*` is positive: a proved `(P − P*)/P* < 1e-4`, with `gap` the bound; for `y = 0` and `x = 0`, where `P* = 0`: exact optimality, with `gap = 0` | a bounded gap |
 
 In the CD rows, `h_k` is the change of coordinate (or group) `k` in the pass and `s` the loss scale.
@@ -215,8 +217,14 @@ here is unchanged.
   solves ended on the objective-increase exit, with `converged = false`, at points within the `1e-5`
   benchmark target; the KKT residual there was a median of 4 times the bound. The exit is described in
   [PGD stops when the computed objective increases](@ref "PGD stops when the computed objective increases"),
-  which says that a Float32 solve can end on it. [Issue #320](https://github.com/mlakolar/ProximalSolvers.jl/issues/320)
-  has the measurements on the benchmark designs.
+  which says that a Float32 solve can end on it. On the five benchmark designs with the benchmark options (10 draws each,
+  Julia 1.10.13 and 1.13.3, before and after #319), Float32 PGD ended above the `1e-5` target in 36 to 39 of 50 solves
+  on 1.10.13 and in 37 of 50 on 1.13.3, and 22 to 25 and 15 to 16 of those solves had `converged = true`; Float32 APG missed
+  40 to 41 of 50, with 26 to 29 `converged = true`. For the Float32 PGD solves with `converged = true` that missed the target, the gap was
+  2.3 to 7.0 times the independent KKT residual, which was below the bound `64 eps(Float32) ≈ 7.63e-6`. The bound is on a KKT
+  residual and the target is on a duality gap, so a solve can meet the former and miss the latter. The conditions and counts are in the
+  [benchmark harness notes](https://github.com/mlakolar/ProximalSolvers.jl/blob/master/benchmark/HARNESS.md)
+  and in [issue #320](https://github.com/mlakolar/ProximalSolvers.jl/issues/320).
 - **Square-root lasso.** Certified solves at the default `tol` with `relative = true`, on the seven designs
   of the audit that are not exact or near-exact fits (210 solves per cell). The penalty level is
   a fraction of the level at which the solution is 0. The last column is an upper bound of the
