@@ -2,7 +2,9 @@ module InitialCurvatureTests
 # The curvature estimate with which ProximalGradientDescent (PGD) and AccProxGradDescent (APG) start,
 # for the loss f(x) = (α/2)‖y - X x‖² (α = 1 for a raw LeastSquaresLoss): min(1, α‖X‖_F²), with ‖X‖_F the
 # solvers' upper bound, which is 1 when that product is at least 1 or X = 0 (#321). The start is read
-# through `ProximalSolvers.initial_state`. Each testset that runs a solve states what it checks. The
+# through `ProximalSolvers.initial_state`. Each testset that runs a solve states what it checks. In the R5-type
+# cases and the Float32 R5-like cases the first steps of PGD have a squared norm that overflows (#364), and both
+# solvers must report `converged`. The
 # R5-type cases, the moderate-scale case and the Float32 R5-like cases compare, for each solver that reports
 # `converged = true`, the exact KKT residual of the returned point, computed here in 256-bit BigFloat from
 # the raw data, with the solver's bound max(gradtol, 64 eps(T)) max(λ, λmax) plus the allowance of `bound` below for the rounding of the
@@ -63,7 +65,7 @@ function standardized(::Type{T}, n, p; seed = 321) where T
   T.(X), T.(y)
 end
 
-@testset "R5 and the #327 case: the start is the curvature, APG converges, PGD stops at its range limit" begin
+@testset "R5 and the #327 case: the start is the curvature, and APG and PGD converge" begin
   R5 = (ones(5, 1), fill(1e160, 5), 1e-100)
   cases = (("R5, λ = 0", R5..., 0.0),
            ("R5, λ = 0.1 λmax", R5..., 0.1),
@@ -90,16 +92,17 @@ end
       PS.update_state!(f, g, st, AccProxGradDescent())
       @test st.backtrack_steps >= 2 && st.L > 0.9 * L0
 
-      # PGD ends at the objective increase. Its backtracking test forms the squared step norm, which overflows
-      # for a step beyond about 1.3e154, and the iterate is within 0.4% of the minimizer. This documents
-      # that range limit (#364); a range-safe line search would change these assertions.
+      # PGD's backtracking test forms the squared step norm, which overflows for a step beyond about
+      # 1.3e154 (#364), and decides such a trial on the step scaled by a power of two. The first iteration makes
+      # at least two trials, and the step it leaves in delta_x is unscaled and has an overflowing squared norm.
+      # PGD converges.
+      st = PS.initial_state(ProximalGradientDescent(), DEFAULT, f, g, zeros(1))
+      PS.update_state!(f, g, st, ProximalGradientDescent())
+      @test st.backtrack_steps >= 2 && isinf(PS._norm(st.delta_x)^2) && all(isfinite, st.delta_x)
       x = zeros(1)
       r = solve!(x, f, g, ProximalGradientDescent(), DEFAULT)
-      xstar = setprecision(BigFloat, 256) do
-        (BigFloat(α) * (BigFloat.(X)' * BigFloat.(y))[1] - BigFloat(λ)) / c
-      end
-      @test !r.converged && r.f_increased && !r.iteration_converged && !r.stagnated
-      @test abs(x[1] - xstar) / xstar < 0.004
+      @test r.converged && r.iterations <= 20
+      @test kkt_ratio(X, y, α, λ, 0, x) <= bound(DEFAULT, Float64)
     end
   end
 end
@@ -200,7 +203,7 @@ end
   end
 end
 
-@testset "ElasticNet at R5-like scale: the start is the curvature and APG converges" begin
+@testset "ElasticNet at R5-like scale: the start is the curvature, and APG and PGD converge" begin
   X, y, α = ones(5, 1), fill(1e160, 5), 1e-100
   λ1, λ2 = 0.1 * 5e60, 1e-101
   f, g = lossof(α, y, X), ElasticNet(λ1, λ2)
@@ -209,10 +212,12 @@ end
     L0 = start(method, f, g, zeros(1))
     @test c <= L0 <= 1.0001 * c
   end
-  x = zeros(1)
-  r = solve!(x, f, g, AccProxGradDescent(), DEFAULT)
-  @test r.converged
-  @test kkt_ratio(X, y, α, λ1, λ2, x) <= bound(DEFAULT, Float64)
+  for method in METHODS
+    x = zeros(1)
+    r = solve!(x, f, g, method, DEFAULT)
+    @test r.converged && r.iterations <= 20
+    @test kkt_ratio(X, y, α, λ1, λ2, x) <= bound(DEFAULT, Float64)
+  end
 end
 
 @testset "ElasticNet(0, 1) from a start whose penalty overflows: the scale-aware start solves it" begin
@@ -293,6 +298,44 @@ end
       @test r.converged
       @test kkt_ratio(X, y, α, 0f0, 0, x) <= bound(DEFAULT, Float32)
     end
+  end
+end
+
+@testset "Float32 R5-like data with a squared step norm beyond floatmax(Float32): PGD and APG converge (#364)" begin
+  for (Y, α) in ((1f25, 1f-20), (1f30, 1f-30))
+    X, y = ones(Float32, 5, 1), fill(Y, 5)
+    f, g = lossof(α, y, X), NormL1(0f0)
+    c = curvature(X, α)
+    for method in METHODS
+      @test c <= start(method, f, g, zeros(Float32, 1)) <= 1.0001 * c
+      x = zeros(Float32, 1)
+      r = solve!(x, f, g, method, DEFAULT)
+      @test r.converged && r.iterations <= 20
+      @test kkt_ratio(X, y, α, 0f0, 0, x) <= bound(DEFAULT, Float32)
+    end
+    # the first PGD iteration makes at least two trials, and its step has an overflowing squared norm
+    st = PS.initial_state(ProximalGradientDescent(), DEFAULT, f, g, zeros(Float32, 1))
+    PS.update_state!(f, g, st, ProximalGradientDescent())
+    @test st.backtrack_steps >= 2 && isinf(PS._norm(st.delta_x)^2) && all(isfinite, st.delta_x)
+  end
+end
+
+alloc_updates(st, f, g, method, n) = @allocated for _ in 1:n
+  PS.update_state!(f, g, st, method)
+end
+
+@testset "PGD: warmed iterations with an overflowing step allocate nothing (T = $T)" for T in (Float32, Float64)
+  # the first update_state! from the start rejects a trial whose step has an overflowing squared norm
+  # and accepts the retry, both decided on the scaled step
+  X, y, α = T === Float32 ? (ones(Float32, 5, 1), fill(1f25, 5), 1f-20) : (ones(5, 1), fill(1e160, 5), 1e-100)
+  f, g, method = lossof(α, y, X), NormL1(zero(T)), ProximalGradientDescent()
+  fresh() = PS.initial_state(method, DEFAULT, f, g, zeros(T, 1))
+  alloc_updates(fresh(), f, g, method, 3)
+  for _ in 1:3
+    st = fresh()
+    @test alloc_updates(st, f, g, method, 1) == 0
+    @test st.backtrack_steps == 2 && st.verifications == 1 && isinf(PS._norm(st.delta_x)^2)
+    @test alloc_updates(st, f, g, method, 3) == 0
   end
 end
 
