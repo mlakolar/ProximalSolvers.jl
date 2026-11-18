@@ -7,7 +7,7 @@
 Use the current development version if you want to study lasso algorithms, control their updates, or experiment with ProximalBase. If you mainly want a ready-to-use statistical modeling workflow with regularization paths and cross-validation, also consider [GLMNet.jl](https://github.com/JuliaStats/GLMNet.jl) and [Lasso.jl](https://github.com/JuliaStats/Lasso.jl). We make no comparative speed or accuracy claim.
 
 !!! note "Current development version"
-    This site documents the GitHub `master` branch, **not necessarily** the registered `ProximalSolvers` release. Development master currently supports dense Float32/Float64 least-squares lasso with unweighted L1 penalty, with CD, PGD or APG, with CD only, a group lasso on a ProximalBase `BlockIterate` with a `GroupNormL2` penalty, with CD only, the square-root lasso (ProximalBase's `SqrtLeastSquaresLoss` with an unweighted `NormL1`, `converged` only with a duality certificate), and least-squares elastic net (unweighted `ElasticNet`) with CD, PGD or APG. Its previously broader feature set, including paths and ADMM, is not in this branch. See [installation](getting-started.md).
+    This site documents the GitHub `master` branch, **not necessarily** the registered `ProximalSolvers` release. Development master currently supports dense Float32/Float64 least-squares lasso with an L1 penalty, weighted or not, with CD, PGD or APG, with CD only, a group lasso on a ProximalBase `BlockIterate` with a `GroupNormL2` penalty, with CD only, the square-root lasso (ProximalBase's `SqrtLeastSquaresLoss` with an unweighted `NormL1`, `converged` only with a duality certificate), and least-squares elastic net (unweighted `ElasticNet`) with CD, PGD or APG. Its previously broader feature set, including paths and ADMM, is not in this branch. See [installation](getting-started.md).
 
 ## Start here
 
@@ -16,7 +16,7 @@ Use the current development version if you want to study lasso algorithms, contr
 | Install into a Julia project and solve your first lasso | **[Getting started](getting-started.md)** |
 | Understand proximal operators, soft-thresholding, CD and PGD | [What problem, which algorithm?](concepts.md) |
 | See coefficients become zero and verify KKT conditions | [Sparsity and an optimality check](sparsity-and-kkt.md) |
-| Follow a complete tutorial for one problem | [Lasso](examples/problems/lasso.md), [Elastic net](examples/problems/elastic_net.md), [Group lasso](examples/problems/group_lasso.md), [Square-root lasso](examples/problems/square_root_lasso.md) |
+| Follow a complete tutorial for one problem | [Lasso](examples/problems/lasso.md), [Weighted lasso](examples/problems/weighted_lasso.md), [Elastic net](examples/problems/elastic_net.md), [Group lasso](examples/problems/group_lasso.md), [Square-root lasso](examples/problems/square_root_lasso.md) |
 | Compare solvers at equal accuracy | [Lasso: solvers at equal accuracy](examples/comparisons/lasso_solvers.md) |
 | Choose solver settings | [Choosing a solver](choosing-solver.md) |
 | Understand results and common errors | [Results and troubleshooting](working-with-results.md) |

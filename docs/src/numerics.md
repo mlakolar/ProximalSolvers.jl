@@ -20,7 +20,8 @@ code.
   times an infinite scale (a computed scale that overflows the working type) is
   refused with an `ArgumentError`. The coordinate step forms its threshold
   `lambda / (s * a)` without the product or its reciprocal where either is
-  outside the normal range, and a column whose squared norm is not finite is
+  outside the normal range (with weights, outside that range `lambda` stands for the coefficient `T(lambda) * w[k]`
+  rounded in `T`; inside it ProximalBase's `prox_block` forms its threshold from `lambda` and `w[k]`), and a column whose squared norm is not finite is
   refused with an `ArgumentError` that names the curvature. For an `ElasticNet`,
   in the normal range the step of a visit is ProximalBase's `prox_block`. At a visit to a column
   with a finite positive `a` where `s * a` or its reciprocal is below `floatmin` of the type that
@@ -28,7 +29,7 @@ code.
   `lambda2 > 0` the visit is refused with an `ArgumentError` that names the coordinate, during the
   pass: the iterate passed to `solve!` is unchanged, and a borrowed RNG may have advanced.
   A visit to a flat column (all entries 0) sets its coordinate to 0 at the levels that `solve!`
-  accepts, and a visit to a column that is not flat whose `a` underflows to 0 is refused with an
+  accepts (also for a `NormL1` at a zero weight), and a visit to a column that is not flat whose `a` underflows to 0 is refused with an
   `ArgumentError` about the curvature, as for the lasso. With `maxpasses = 0` no coordinate is visited. With
   `relative=false`, or with `y = 0`, the coordinate scale is
   not used. If the computed `sqrt(s) * norm(y)`, after
@@ -88,13 +89,17 @@ solver computes the minimal-norm KKT residual `G` at the accepted iterate `x`.
 For `NormL1(λ)` it is the element of `∇f(x) + λ ∂‖x‖₁` of least infinity
 norm, that is `max(|∇fᵢ| - λ, 0)` where `xᵢ = 0` and `|∇fᵢ + λ sign(xᵢ)|`
 elsewhere, with `λ = T(λ0)`, the penalty level converted to the coefficient type `T`. For
+`NormL1(λ0, w)` the coefficient of entry `i` is `cᵢ = T(λ0) wᵢ`, formed in `T` (the weights are a
+`Vector{T}`), so that `G` is `max(|∇fᵢ| - cᵢ, 0)` where `xᵢ = 0` and `|∇fᵢ + cᵢ sign(xᵢ)|` elsewhere; a zero
+weight gives the coefficient 0 and the score `|∇fᵢ|`. For
 `ElasticNet(λ1, λ2)` (PGD and APG) it is the element of
 `∇f(x) + λ2 x + λ1 ∂‖x‖₁` of least infinity norm: `max(|∇fᵢ| - λ1, 0)` where
 `xᵢ = 0` and `|∇fᵢ + λ2 xᵢ + λ1 sign(xᵢ)|` elsewhere, with the levels `T(λ1)` and `T(λ2)`. The solver
-computes `‖G‖∞` with ProximalBase's `kkt_violation(NormL1(T(λ0)), ∇f(x), x)` or
+computes `‖G‖∞` with ProximalBase's `kkt_violation(NormL1(T(λ0)), ∇f(x), x)`, `kkt_violation(NormL1(T(λ0), w), ∇f(x), x)` or
 `kkt_violation(ElasticNet(T(λ1), T(λ2)), ∇f(x), x)`, passing the converted levels. An infinite entry of `x`
 gives a non-finite residual (`Inf`, or `NaN` when a `NaN` is read), so the stop does not count. Below,
-`λ` is the ℓ1 level of the penalty (`λ` of `NormL1`, `λ1` of `ElasticNet`). The stop counts only if
+`λ` is the ℓ1 level of the penalty (`λ` of `NormL1(λ)`, the largest coefficient `maxᵢ cᵢ = T(λ0) * maximum(w)` of
+`NormL1(λ0, w)`, `λ1` of `ElasticNet`). The stop counts only if
 
 ~~~
 ‖G‖∞ < max(gradtol, 64 eps(T)) * max(λ, λmax),    λmax = α ‖Xᵀy‖∞,
@@ -136,6 +141,16 @@ of the tests. What `converged=true` therefore says about the returned `x`:
 - Where `λ` and `λmax` are both 0 (for example `y = 0` and `λ = 0`), or where
   the bound is below `floatmin(T)`, no stop passes. The solve then ends at
   `maxiter` unless another exit applies.
+- **Weights.** For `NormL1(λ0, w)`, `S = max(maxᵢ cᵢ, λmax)`; rounding is monotone, so the
+  largest coefficient is `T(λ0) * maximum(w)`. For `w` all ones the coefficients and `S` are those of
+  `NormL1(λ0)`. With all weights 0 the penalty vanishes, `S = λmax` and the check is that of least squares;
+  with `y = 0` as well, `S` is 0 and no stop counts, as above. A zero-weight coordinate is scored with its
+  full gradient `|∇fᵢ|`, so a stop at a point where that gradient is at least `τ S` is not accepted, also
+  where `λ0` is large. A proposed stop adds two scans of `w` to the pass of `kkt_violation` (one for the
+  maximum, one in the construction of `NormL1(T(λ0), w)`) and forms no array. Each `cᵢ` is a coefficient
+  that `solve!` has checked: finite and, where `T(λ0)` and `wᵢ` are both positive, a normal number of `T`
+  (a zero or subnormal product of positive factors is refused, and so is a subnormal `T(λ0)`); a zero level or weight gives
+  `cᵢ = 0`. As above, a stop is refused where `τ S` is below `floatmin(T)`.
 - **The elastic net.** `ElasticNet(λ1, λ2)` on the loss `α/2 ‖Xb - y‖²` is the lasso with
   level `λ1` on the augmented data `X̃ = [√α X; √λ2 I]`, `ỹ = [√α y; 0]`: its loss
   `½‖X̃b - ỹ‖²` equals `α/2 ‖Xb - y‖² + (λ2/2)‖b‖²`, its gradient is `∇f(x) + λ2 x`, and its

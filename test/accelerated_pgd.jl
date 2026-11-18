@@ -781,7 +781,9 @@ end
     refused(x, LeastSquaresLoss(reshape(y, 2, 1), X), g, method)
     refused(x, QuadraticFunction(Matrix{T}(I, 2, 2), zeros(T, 2)), g, method)
     refused(x, Scaled(Scaled(f, 1e-200), 1e-200), g, method)
-    refused(x, f, NormL1(T(.1), ones(T, 2)), method)
+    # weights are accepted (test/weighted_lasso.jl); an infinite weight and weights of the other precision are not
+    refused(x, f, NormL1(T(.1), T[1, Inf]), method)
+    refused(x, f, NormL1(T(.1), ones(T === Float32 ? Float64 : Float32, 2)), method)
     refused(x, f, SqrNormL2(T(.1)), method)
     refused(x, f, g, method; screening = true)
     for data in (T[NaN, 0], T[Inf, 0])
@@ -803,7 +805,7 @@ end
 end
 
 @testset "APG refuses the penalties it does not support, with the ElasticNet message (#324)" begin
-  msg = "only unweighted NormL1 or unweighted ElasticNet is supported"
+  msg = "only NormL1 or unweighted ElasticNet is supported"
   vector_msg = "x must be a dense Vector{Float32} or Vector{Float64}"
   method = AccProxGradDescent()
   refused_with(x, f, g, m, msg) = begin
@@ -815,7 +817,7 @@ end
     X, y, x = T[1 0; 0 2], T[1, -1], T[.3, -.2]
     f = LeastSquaresLoss(y, X)
     en = ElasticNet(T(.1), T(.2))
-    for g in (ElasticNet(T(.1), T(.2), ones(T, 2)), Scaled(en, 2), NormL1(T(.1), ones(T, 2)), SqrNormL2(T(.1)))
+    for g in (ElasticNet(T(.1), T(.2), ones(T, 2)), Scaled(en, 2), Scaled(NormL1(T(.1), ones(T, 2)), 2), SqrNormL2(T(.1)))
       refused_with(x, f, g, method, msg)
     end
     refused_with(x, f, ElasticNet(T(Inf), zero(T)), method, "penalty lambda1 must be finite and nonnegative")

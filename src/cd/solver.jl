@@ -8,18 +8,25 @@ Coordinate descent for the least-squares lasso and elastic net, and, with Proxim
 `solve!(beta, f, g, CDSolver())` with matching `Float32` or `Float64`
 design/response data and coefficients. The coefficient storage can be
 a dense `Vector` or a one-dimensional ProximalBase `SparseIterate`. With the least-squares
-loss, the penalty is an unweighted `NormL1(lambda)` or an unweighted `ElasticNet(lambda1, lambda2)`
-(the square-root lasso, below, takes an unweighted `NormL1` with a positive level);
-for an `ElasticNet` the coordinate step of a visit in the normal range is ProximalBase's
+loss, the penalty is `NormL1(lambda)`, `NormL1(lambda, w)` or an unweighted `ElasticNet(lambda1, lambda2)`
+(the square-root lasso, below, takes an unweighted `NormL1` with a positive level). The weights `w`
+of a `NormL1` are a `Vector{T}` (`T` the element type of the data) with finite nonnegative entries (see
+[`solve!`](@ref)): `solve!` checks the coefficient `T(lambda) w[j]` of entry `j`, the product rounded in `T`, to be zero
+or a normal number of `T` (with `T(lambda)` zero or normal as well), and a zero weight leaves it unpenalized. The
+coordinate step in the normal range is ProximalBase's `prox_block`, which forms its threshold from `lambda` and
+`w[j]` in its working type; see [Supported problems](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/#weighted-lasso-support)
+for how that threshold and the checked coefficient can differ.
+For an `ElasticNet` the coordinate step of a visit in the normal range is ProximalBase's
 `prox_block` of the penalty. Let `s` be the loss scale and `a` the squared norm of the
 column, finite and positive. At a visit where `s * a` or its reciprocal is below
 `floatmin` of the type that combines `s` with the working type, the step with
 `lambda2 = 0` is the lasso's range-safe form (the threshold formed without the product
 or its reciprocal), and with `lambda2 > 0` the visit is refused with an `ArgumentError`
-that names the coordinate. The refusal happens during the pass: the iterate passed to
+that names the coordinate; for a `NormL1` with weights the step there is the lasso's range-safe form at
+the coefficient `T(lambda) w[k]` of the coordinate. The refusal happens during the pass: the iterate passed to
 `solve!` is unchanged, and a borrowed RNG may have advanced. A visit to a flat column
-(all entries 0) sets its coordinate to 0, at the levels that `solve!` accepts, for either
-penalty; a visit to a column that is not flat and whose `a` underflows to 0 is refused
+(all entries 0) sets its coordinate to 0, at the levels that `solve!` accepts, for each of these
+penalties (also where a weight is zero); a visit to a column that is not flat and whose `a` underflows to 0 is refused
 as for the lasso. With `maxpasses = 0` no coordinate is visited.
 For a group lasso it can be a ProximalBase `BlockIterate`, as described below.
 

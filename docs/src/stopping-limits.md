@@ -5,7 +5,9 @@ the measured limits of their stopping tests. The numbers come from the Stage 0 a
 [issue #352](https://github.com/mlakolar/ProximalSolvers.jl/issues/352), run at revision
 `b8a2c04` on Julia 1.13.4; Julia 1.10.13 was run as well and gave close but not identical counts.
 The audit used 11 small designs (20 to 60 rows, 8 to 60 columns) and evaluated each solve in
-600-bit arithmetic on the rounded inputs the solver received. These are high-precision
+600-bit arithmetic on the rounded inputs the solver received. At that revision `solve!` refused a
+weighted `NormL1`, so the `NormL1` problems of the audit were unweighted, and the counts on this page
+do not cover a weighted `NormL1`. These are high-precision
 evaluations, not proofs, and the counts are for those designs: they are not rates to expect on
 other problems.
 
@@ -18,7 +20,7 @@ certified optimum. The solvers stop on three kinds of evidence:
 | --- | --- | --- | --- | --- |
 | `CDSolver`, least squares with `NormL1` or `ElasticNet` | a full pass whose largest change, scaled when relative scaling is active, is below the threshold | nothing | with `relative = true` and `y ≠ 0`: each scaled change `abs(h_k) √(s a_k)` of one full pass is below `tol √s ‖y‖`, with `a_k = ‖X_k‖²`; with `relative = false`, or `y = 0`: each `abs(h_k)` is below `tol` | a change test, with no independent check |
 | `CDSolver`, group lasso | the same, with the change of a group | nothing | the same per group: the scaled change is `‖h_k‖ √(s ℓ_k)`, with `ℓ_k` the curvature bound of the group, and the unscaled one `‖h_k‖` | a change test, with no independent check |
-| `ProximalGradientDescent`, `AccProxGradDescent` | the `x`, objective or gradient test of an iteration | the stationarity check | a test proposed a stop and the computed `‖G‖∞` is below `max(gradtol, 64 eps(T)) * max(λ, λmax)` | a residual formed in working precision |
+| `ProximalGradientDescent`, `AccProxGradDescent` | the `x`, objective or gradient test of an iteration | the stationarity check | a test proposed a stop and the computed `‖G‖∞` is below `max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λ` the ℓ1 level (for `NormL1(λ, w)`, the largest coefficient `maxⱼ cⱼ` with `cⱼ = T(λ) wⱼ`; each entry of `G` is scored with its own `cⱼ`; see [the stationarity check](@ref "The stationarity check of a stop")) | a residual formed in working precision |
 | `CDSolver`, square-root lasso, `λ > 0` | a full pass below the threshold | the duality certificate | where the minimum `P*` is positive: a proved `(P − P*)/P* < 1e-4`, with `gap` the bound; for `y = 0` and `x = 0`, where `P* = 0`: exact optimality, with `gap = 0` | a bounded gap |
 
 In the CD rows, `h_k` is the change of coordinate (or group) `k` in the pass and `s` the loss scale.

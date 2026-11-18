@@ -124,10 +124,27 @@ end
 # in the band of the fast path: α is representable in T (`solve!` checks it) and a is finite in T, so
 # p lies between about 1e-90 and 1e77 for S = Float64 on Float32 data. Another scale type (`solve!` refuses
 # one that is not Float32, Float64 or an integer; an LSModel built directly can have S = BigFloat), or a
-# penalty other than the unweighted NormL1, is refused.
+# penalty without a method below (an unweighted NormL1 or ElasticNet, or a NormL1 with a Vector{T} of weights,
+# has one), is refused.
 @noinline function _exceptional_step(g::NormL1{<:Real, Nothing}, c::T, α::T, a::T, k::Int) where {T<:Union{Float32, Float64}}
   shrink(c, min(_threshold(T, g.λ0, α, a), floatmax(T)))
 end
+# With weights, the threshold of coordinate k is that of the unweighted method at the level cₖ = T(λ0) wₖ,
+# the coefficient that `solve!` validates (finite, and 0 or a normal number of T: zero only from a zero level or
+# weight) and that the stopping check of PGD and APG uses. So τ is within the bounds stated at `_threshold` of
+# cₖ/(α a), and within those bounds plus |cₖ - λ0 wₖ|/(α a) of λ0 wₖ/(α a). The error |cₖ - λ0 wₖ| is at most
+# |T(λ0) - λ0| wₖ, the conversion of the level (0 for a level of type T), plus |cₖ - T(λ0) wₖ|, the rounding of the
+# product to nearest, which is at most (eps(T)/2) cₖ because cₖ is a normal number; that holds also where the exact
+# product is slightly below floatmin(T) and rounds up to it, where the error is at most half the smallest subnormal.
+# For a level converted to T by round-to-nearest (a Float16, Float32, Float64 or BigFloat, or an integer, which
+# Julia converts correctly rounded) |T(λ0) - λ0| ≤ (eps(T)/2) T(λ0), the normal T(λ0) that `solve!` requires. A
+# Rational level is converted by Julia's Rational to float conversion, which can round the numerator and the
+# denominator before dividing, so its conversion error can be larger (about twice that bound for 16777217//16777219
+# in Float32); only the actual error |T(λ0) - λ0| bounds it.
+# A zero weight or a zero level gives cₖ = 0, τ = 0 and `shrink(c, 0) = c`: the coordinate is unpenalized.
+# In the comments of `coordinate_step!` above, λ is λ0 wₖ for a penalty with weights.
+@noinline _exceptional_step(g::NormL1{<:Real, Vector{T}}, c::T, α::T, a::T, k::Int) where {T<:Union{Float32, Float64}} =
+  _exceptional_step(NormL1(T(g.λ0) * g.w[k]), c, α, a, k)
 # An unweighted ElasticNet with λ2 = 0 is the lasso at the level λ1, and its step is the NormL1 method's.
 # With λ2 > 0 the step is refused: the ridge weight 1/(1 + λ2/(α a)) has no form here that stays in range
 # where α a or its reciprocal is below floatmin(T). The same scale types as for NormL1 take this method.
