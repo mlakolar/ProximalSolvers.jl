@@ -27,12 +27,12 @@ using LinearAlgebra, Random, ProximalBase, ProximalSolvers
 
 # ## Data
 #
-# The data are drawn from a seeded generator: `n = 10` observations of `p = 12` variables, whose
+# The data are drawn from a seeded generator: `n = 10` observations of `p = 30` variables, whose
 # population covariance is the identity except for three correlated pairs. The columns are centered
 # and `S = XᵀX/(n − 1)`. With `n − 1 = 9` below `p`, the sample covariance matrix has rank at most 9
 # and is singular.
 rng = Xoshiro(2026)
-n, p = 10, 12
+n, p = 10, 30
 Sigma_true = Matrix{Float64}(I, p, p)
 for (i, j, correlation) in ((1, 2, 0.7), (3, 4, -0.6), (5, 6, 0.5))
   Sigma_true[i, j] = correlation
@@ -62,7 +62,7 @@ S = Matrix(Symmetric((X' * X) / (n - 1)))
 pairs = [(i, j) for j in 2:p for i in 1:j-1]
 s = [S[i, j] for (i, j) in pairs]
 m = length(s)
-lambda = 0.2
+lambda = 0.15
 @assert m == p * (p - 1) ÷ 2
 
 # ## Solving it with coordinate descent
@@ -96,8 +96,10 @@ end
 @assert kkt_residual(s, s, lambda) >= lambda - 1e-12    # the unthresholded entries are not a solution
 
 # The gradient methods give the same point. They count a stop only where a computed residual is below a
-# bound (see [Numerical behavior](../../numerics.md)), and `gradtol = 1e-10` sets that bound.
-options = ProximalOptions(maxiter = 1000, gradtol = 1e-10)
+# bound (see [Numerical behavior](../../numerics.md)), and `gradtol = 1e-10` sets that bound. That bound is
+# near the rounding level of the objective, so the run is allowed to continue through a computed
+# increase of the objective (`allow_f_increases = true`), which would otherwise end it.
+options = ProximalOptions(maxiter = 1000, gradtol = 1e-10, allow_f_increases = true)
 b_pgd, b_apg = zeros(m), zeros(m)
 solve!(b_pgd, f, g, ProximalGradientDescent(), options)
 solve!(b_apg, f, g, AccProxGradDescent(), options)
@@ -134,13 +136,13 @@ end
 #
 # Soft thresholding changes each entry separately and has no reason to keep the eigenvalues of the
 # sample covariance matrix nonnegative. `S` is positive semidefinite, and singular here. The
-# thresholded estimate has a negative smallest eigenvalue, so it is not a covariance matrix. This page
-# does not repair it: a projection onto the positive semidefinite matrices, or an estimator that
-# constrains the eigenvalues, is a different problem.
+# thresholded estimate has a negative smallest eigenvalue (about `-0.09`, printed at the end), so it is
+# not a covariance matrix. This page does not repair it: a projection onto the positive semidefinite
+# matrices, or an estimator that constrains the eigenvalues, is a different problem.
 lambda_min_S = eigmin(Symmetric(S))
 lambda_min_hat = eigmin(Symmetric(Sigma_hat))
 @assert lambda_min_S > -1e-12
-@assert lambda_min_hat < 0
+@assert lambda_min_hat < -0.05
 
 println("Distinct off-diagonal entries: ", m)
 println("Nonzero entries after thresholding: ", count(!iszero, b), " (true nonzero entries: 3)")

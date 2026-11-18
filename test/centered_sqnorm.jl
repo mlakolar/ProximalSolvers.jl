@@ -486,7 +486,10 @@ end
       T === Float32 && !(1e-30 < α < 1e30) && continue
       @test PS._scanned_initial_curvature(T, X, αT) === PS._scanned_initial_curvature(T, col, αT)
       L = PS._scanned_initial_curvature(T, X, αT)
-      ok = L >= T(min(1.0, α * p) * (1 - 64 * unit(T))) && L <= T(min(1.0, α * p) * (1 + 64 * unit(T)))
+      # the bound is an upper bound of ‖X‖_F: (1 + 8u_T) for the root and the conversion, and the factor 1/(1 - γ_{p+3})
+      # of the Float64 sum, whose relative size is about (p + 3) eps(Float64) (squared in L)
+      band = 64 * unit(T) + 4 * (p + 3) * Float64(eps(Float64))
+      ok = L >= T(min(1.0, α * p) * (1 - band)) && L <= T(min(1.0, α * p) * (1 + band))
       ok || @info "initial curvature outside its band" T p α L expected = min(1.0, α * p)
       @test ok
     end
