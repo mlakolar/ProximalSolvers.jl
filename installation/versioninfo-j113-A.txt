@@ -1,0 +1,17 @@
+Julia Version 1.13.3
+Commit 67ac47b9cd8 (2026-10-25 15:28 UTC)
+Build Info:
+  Official https://julialang.org release
+Platform Info:
+  OS: Linux (x86_64-linux-gnu)
+  CPU: 20 × Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz
+  WORD_SIZE: 64
+  LLVM: libLLVM-20.1.8 (ORCJIT, broadwell)
+  GC: Built with stock GC
+Threads: 1 default, 0 interactive, 1 GC (on 20 virtual cores)
+Environment:
+  LD_LIBRARY_PATH = <site library paths; identical in all four installations>
+  JULIA_DEPOT_PATH = <cluster-dir>/depot-j113-A
+  JULIA_NUM_THREADS = 1
+<cluster-dir>/ps-A/src/ProximalSolvers.jl
+<cluster-dir>/depot-j113-A/packages/ProximalBase/2welE/src/ProximalBase.jl

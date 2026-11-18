@@ -1,0 +1,49 @@
+{
+  "shared_measurements": 500,
+  "before_only": [],
+  "after_only": [],
+  "excluded": [
+    {
+      "julia": "1.10.13",
+      "id": "gradient/lasso-B/pg/dense-f64/call",
+      "before": [
+        "rep10: target_missed"
+      ],
+      "after": [
+        "rep10: target_missed"
+      ]
+    },
+    {
+      "julia": "1.10.13",
+      "id": "gradient/lasso-B/pg/warm-dense-f64/call",
+      "before": [
+        "rep06: target_missed",
+        "rep10: target_missed"
+      ],
+      "after": [
+        "rep06: target_missed",
+        "rep10: target_missed"
+      ]
+    },
+    {
+      "julia": "1.10.13",
+      "id": "gradient/lasso-D/pg/dense-f64/call",
+      "before": [
+        "rep03: target_missed"
+      ],
+      "after": [
+        "rep03: target_missed"
+      ]
+    },
+    {
+      "julia": "1.10.13",
+      "id": "gradient/lasso/apg/dense-f64/call",
+      "before": [
+        "rep03: target_missed"
+      ],
+      "after": [
+        "rep03: target_missed"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+j110 A rep 1 exit 0 wall 29.1 load 1.28 1.22 3.24
+j110 B rep 1 exit 0 wall 29.1 load 1.12 1.18 3.17
+j113 A rep 1 exit 2 wall 31.9 load 1.06 1.16 3.08
+j113 B rep 1 exit 2 wall 31.1 load 1.04 1.14 3.02
+j113 B rep 2 exit 0 wall 30.9 load 1.02 1.13 2.95
+j113 A rep 2 exit 0 wall 31.1 load 1.01 1.11 2.89
+j110 B rep 2 exit 0 wall 28.9 load 1.01 1.10 2.83
+j110 A rep 2 exit 0 wall 29.1 load 1.00 1.09 2.77
+j110 A rep 3 exit 2 wall 29.1 load 1.00 1.08 2.71
+j110 B rep 3 exit 2 wall 29.8 load 1.00 1.07 2.65
+j113 A rep 3 exit 2 wall 32.3 load 1.00 1.06 2.60
+j113 B rep 3 exit 2 wall 33.3 load 1.00 1.05 2.54
+j113 B rep 4 exit 0 wall 33.6 load 1.00 1.05 2.49
+j113 A rep 4 exit 0 wall 32.3 load 1.00 1.04 2.43
+j110 B rep 4 exit 0 wall 31.0 load 1.00 1.04 2.38
+j110 A rep 4 exit 0 wall 30.0 load 1.00 1.03 2.34
+j110 A rep 5 exit 0 wall 30.3 load 1.00 1.03 2.30
+j110 B rep 5 exit 0 wall 29.6 load 1.00 1.02 2.25
+j113 A rep 5 exit 2 wall 31.9 load 1.00 1.02 2.21
+j113 B rep 5 exit 2 wall 32.4 load 1.00 1.02 2.16
+j113 B rep 6 exit 2 wall 32.4 load 1.00 1.01 2.13
+j113 A rep 6 exit 2 wall 31.9 load 1.05 1.03 2.09
+j110 B rep 6 exit 2 wall 29.9 load 1.03 1.02 2.05
+j110 A rep 6 exit 2 wall 30.0 load 1.02 1.02 2.02
+j110 A rep 7 exit 0 wall 30.5 load 1.01 1.02 1.98
+j110 B rep 7 exit 0 wall 31.0 load 1.00 1.02 1.95
+j113 A rep 7 exit 0 wall 31.6 load 1.00 1.01 1.92
+j113 B rep 7 exit 0 wall 31.4 load 1.00 1.01 1.88
+j113 B rep 8 exit 2 wall 31.9 load 1.00 1.01 1.85
+j113 A rep 8 exit 2 wall 32.6 load 1.00 1.00 1.82
+j110 B rep 8 exit 0 wall 29.4 load 1.00 1.00 1.80
+j110 A rep 8 exit 0 wall 29.1 load 0.95 0.99 1.77
+j110 A rep 9 exit 0 wall 28.6 load 0.97 0.99 1.74
+j110 B rep 9 exit 0 wall 29.1 load 0.98 0.99 1.71
+j113 A rep 9 exit 0 wall 31.9 load 0.99 0.99 1.69
+j113 B rep 9 exit 0 wall 31.9 load 1.00 1.00 1.66
+j113 B rep 10 exit 0 wall 30.9 load 1.00 1.00 1.64
+j113 A rep 10 exit 0 wall 31.3 load 1.00 1.00 1.62
+j110 B rep 10 exit 2 wall 30.3 load 1.00 1.00 1.60
+j110 A rep 10 exit 2 wall 30.0 load 1.00 1.00 1.58
+work j110 A rep 1 exit 0
+work j110 A rep 2 exit 0
+work j110 A rep 3 exit 2
+work j110 A rep 4 exit 0
+work j110 A rep 5 exit 0
+work j110 A rep 6 exit 2
+work j110 A rep 7 exit 0
+work j110 A rep 8 exit 0
+work j110 A rep 9 exit 0
+work j110 A rep 10 exit 2
+work j110 B rep 1 exit 0
+work j110 B rep 2 exit 0
+work j110 B rep 3 exit 2
+work j110 B rep 4 exit 0
+work j110 B rep 5 exit 0
+work j110 B rep 6 exit 2
+work j110 B rep 7 exit 0
+work j110 B rep 8 exit 0
+work j110 B rep 9 exit 0
+work j110 B rep 10 exit 2
+work j113 A rep 1 exit 2
+work j113 A rep 2 exit 0
+work j113 A rep 3 exit 2
+work j113 A rep 4 exit 0
+work j113 A rep 5 exit 2
+work j113 A rep 6 exit 2
+work j113 A rep 7 exit 0
+work j113 A rep 8 exit 2
+work j113 A rep 9 exit 0
+work j113 A rep 10 exit 0
+work j113 B rep 1 exit 2
+work j113 B rep 2 exit 0
+work j113 B rep 3 exit 2
+work j113 B rep 4 exit 0
+work j113 B rep 5 exit 2
+work j113 B rep 6 exit 2
+work j113 B rep 7 exit 0
+work j113 B rep 8 exit 2
+work j113 B rep 9 exit 0
+work j113 B rep 10 exit 0

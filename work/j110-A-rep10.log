@@ -1,0 +1,162 @@
+CHECK cd/group-lasso/cd/block-f32/call status=ok relative_gap=1.37e-07 target=1e-05
+CHECK cd/group-lasso/cd/block-f64/call status=ok relative_gap=2.68e-12 target=1e-08
+CHECK cd/group-lasso/cd/warm-block-f32/call status=ok relative_gap=1.77e-07 target=1e-05
+CHECK cd/group-lasso/cd/warm-block-f64/call status=ok relative_gap=1.96e-12 target=1e-08
+CHECK cd/lasso-B/cd/dense-f32/call status=ok relative_gap=2.83e-07 target=1e-05
+CHECK cd/lasso-B/cd/dense-f64/call status=ok relative_gap=2.56e-12 target=1e-08
+CHECK cd/lasso-B/cd/sparse-f32/call status=ok relative_gap=2.83e-07 target=1e-05
+CHECK cd/lasso-B/cd/sparse-f64/call status=ok relative_gap=2.56e-12 target=1e-08
+CHECK cd/lasso-B/cd/warm-dense-f32/call status=ok relative_gap=8.84e-08 target=1e-05
+CHECK cd/lasso-B/cd/warm-dense-f64/call status=ok relative_gap=1.82e-13 target=1e-08
+CHECK cd/lasso-B/cd/warm-sparse-f32/call status=ok relative_gap=8.84e-08 target=1e-05
+CHECK cd/lasso-B/cd/warm-sparse-f64/call status=ok relative_gap=1.82e-13 target=1e-08
+CHECK cd/lasso-C/cd/dense-f32/call status=ok relative_gap=2.65e-07 target=1e-05
+CHECK cd/lasso-C/cd/dense-f64/call status=ok relative_gap=1.38e-14 target=1e-08
+CHECK cd/lasso-C/cd/sparse-f32/call status=ok relative_gap=2.65e-07 target=1e-05
+CHECK cd/lasso-C/cd/sparse-f64/call status=ok relative_gap=1.38e-14 target=1e-08
+CHECK cd/lasso-D/cd/dense-f32/call status=ok relative_gap=3.1e-07 target=1e-05
+CHECK cd/lasso-D/cd/dense-f64/call status=ok relative_gap=1.56e-13 target=1e-08
+CHECK cd/lasso-D/cd/sparse-f32/call status=ok relative_gap=3.1e-07 target=1e-05
+CHECK cd/lasso-D/cd/sparse-f64/call status=ok relative_gap=1.56e-13 target=1e-08
+CHECK cd/lasso-weighted/cd/dense-f32/call status=ok relative_gap=2.35e-07 target=1e-05
+CHECK cd/lasso-weighted/cd/dense-f64/call status=ok relative_gap=5.13e-13 target=1e-08
+CHECK cd/lasso-weighted/cd/sparse-f32/call status=ok relative_gap=2.35e-07 target=1e-05
+CHECK cd/lasso-weighted/cd/sparse-f64/call status=ok relative_gap=5.13e-13 target=1e-08
+CHECK cd/lasso/cd/dense-f32/call status=ok relative_gap=1.36e-07 target=1e-05
+CHECK cd/lasso/cd/dense-f64/call status=ok relative_gap=9.69e-13 target=1e-08
+CHECK cd/lasso/cd/sparse-f32/call status=ok relative_gap=1.36e-07 target=1e-05
+CHECK cd/lasso/cd/sparse-f64/call status=ok relative_gap=9.69e-13 target=1e-08
+CHECK gradient/lasso-B/apg/acc-dense-f64/call status=ok relative_gap=3.38e-10 target=1e-08
+CHECK gradient/lasso-B/apg/acc-warm-dense-f64/call status=ok relative_gap=1.24e-11 target=1e-08
+CHECK gradient/lasso-B/apg/dense-f64/call status=ok relative_gap=6.05e-10 target=1e-08
+CHECK gradient/lasso-B/apg/warm-dense-f64/call status=ok relative_gap=3.56e-09 target=1e-08
+CHECK gradient/lasso-B/pg/acc-dense-f64/call status=ok relative_gap=1.82e-10 target=1e-08
+CHECK gradient/lasso-B/pg/acc-warm-dense-f64/call status=ok relative_gap=6.42e-11 target=1e-08
+CHECK gradient/lasso-B/pg/dense-f64/call status=target_missed relative_gap=2.74e-08 target=1e-08
+CHECK gradient/lasso-B/pg/warm-dense-f64/call status=target_missed relative_gap=1.06e-08 target=1e-08
+CHECK gradient/lasso-C/apg/acc-dense-f64/call status=ok relative_gap=1.37e-10 target=1e-08
+CHECK gradient/lasso-C/apg/dense-f64/call status=ok relative_gap=1.66e-09 target=1e-08
+CHECK gradient/lasso-C/pg/acc-dense-f64/call status=ok relative_gap=1.19e-12 target=1e-08
+CHECK gradient/lasso-C/pg/dense-f64/call status=ok relative_gap=6.25e-11 target=1e-08
+CHECK gradient/lasso-D/apg/acc-dense-f64/call status=ok relative_gap=9.9e-11 target=1e-08
+CHECK gradient/lasso-D/apg/dense-f64/call status=ok relative_gap=1.42e-09 target=1e-08
+CHECK gradient/lasso-D/pg/acc-dense-f64/call status=ok relative_gap=1.15e-10 target=1e-08
+CHECK gradient/lasso-D/pg/dense-f64/call status=ok relative_gap=7.5e-12 target=1e-08
+CHECK gradient/lasso-weighted/apg/acc-dense-f64/call status=ok relative_gap=4.17e-11 target=1e-08
+CHECK gradient/lasso-weighted/pg/acc-dense-f64/call status=ok relative_gap=1.68e-11 target=1e-08
+CHECK gradient/lasso/apg/acc-dense-f64/call status=ok relative_gap=7.65e-11 target=1e-08
+CHECK gradient/lasso/apg/dense-f64/call status=ok relative_gap=2.21e-11 target=1e-08
+CHECK gradient/lasso/pg/acc-dense-f64/call status=ok relative_gap=9.7e-11 target=1e-08
+CHECK gradient/lasso/pg/dense-f64/call status=ok relative_gap=9.7e-11 target=1e-08
+
+EXPLORATORY local result: not a formal or statistical comparison (#110 Stage 1)
+julia 1.10.13 | Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz | threads julia=1 blas=1 | load 1.01 on 20 CPU threads
+ProximalSolvers a0a064778a src=d041e075ca at <cluster-dir>/ps-A
+ProximalBase 0.6.0-DEV | harness 11b2912509 | local.jl 6d3e2988b5 | source check static | fresh process
+case                                         status            first     median        min    n     alloc certificate
+cd/group-lasso/cd/block-f32/call             ok                3.71s     51.8µs     45.4µs    3   15.3KiB relative_gap 1.4e-07 <= 1e-05
+    work: passes=16 kkt_checks=0
+    note: noisy, median 14% above min
+cd/group-lasso/cd/block-f64/call             ok                1.35s     59.0µs     54.9µs    3   16.2KiB relative_gap 2.7e-12 <= 1e-08
+    work: passes=27 kkt_checks=0
+cd/group-lasso/cd/warm-block-f32/call        ok               71.0µs     36.6µs     36.0µs    3   13.1KiB relative_gap 1.8e-07 <= 1e-05
+    work: passes=13 kkt_checks=0
+cd/group-lasso/cd/warm-block-f64/call        ok               55.6µs     49.6µs     47.7µs    3   14.0KiB relative_gap 2e-12 <= 1e-08
+    work: passes=25 kkt_checks=0
+cd/lasso-B/cd/dense-f32/call                 ok             371.01ms     56.0µs     54.0µs    3    5.9KiB relative_gap 2.8e-07 <= 1e-05
+    work: passes=33 kkt_checks=0
+cd/lasso-B/cd/dense-f64/call                 ok             364.45ms     88.0µs     81.7µs    3    8.1KiB relative_gap 2.6e-12 <= 1e-08
+    work: passes=60 kkt_checks=0
+cd/lasso-B/cd/sparse-f32/call                ok              50.73ms     55.8µs     54.4µs    3    5.9KiB relative_gap 2.8e-07 <= 1e-05
+    work: passes=33 kkt_checks=0
+cd/lasso-B/cd/sparse-f64/call                ok              53.22ms     82.3µs     81.1µs    3    8.1KiB relative_gap 2.6e-12 <= 1e-08
+    work: passes=60 kkt_checks=0
+cd/lasso-B/cd/warm-dense-f32/call            ok               52.5µs     42.8µs     42.1µs    3    5.9KiB relative_gap 8.8e-08 <= 1e-05
+    work: passes=24 kkt_checks=0
+cd/lasso-B/cd/warm-dense-f64/call            ok               71.7µs     64.6µs     64.4µs    3    8.1KiB relative_gap 1.8e-13 <= 1e-08
+    work: passes=51 kkt_checks=0
+cd/lasso-B/cd/warm-sparse-f32/call           ok               47.6µs     42.2µs     41.8µs    3    5.9KiB relative_gap 8.8e-08 <= 1e-05
+    work: passes=24 kkt_checks=0
+cd/lasso-B/cd/warm-sparse-f64/call           ok               71.9µs     66.0µs     65.4µs    3    8.1KiB relative_gap 1.8e-13 <= 1e-08
+    work: passes=51 kkt_checks=0
+cd/lasso-C/cd/dense-f32/call                 ok               84.6µs     78.8µs     77.8µs    3    7.2KiB relative_gap 2.7e-07 <= 1e-05
+    work: passes=8 kkt_checks=0
+cd/lasso-C/cd/dense-f64/call                 ok              114.2µs    106.6µs    106.4µs    3   11.4KiB relative_gap 1.4e-14 <= 1e-08
+    work: passes=11 kkt_checks=0
+cd/lasso-C/cd/sparse-f32/call                ok               86.5µs     77.9µs     77.6µs    3    7.2KiB relative_gap 2.7e-07 <= 1e-05
+    work: passes=8 kkt_checks=0
+cd/lasso-C/cd/sparse-f64/call                ok              114.4µs    107.3µs    106.9µs    3   11.4KiB relative_gap 1.4e-14 <= 1e-08
+    work: passes=11 kkt_checks=0
+cd/lasso-D/cd/dense-f32/call                 ok              118.4µs    110.9µs    109.5µs    3   16.2KiB relative_gap 3.1e-07 <= 1e-05
+    work: passes=9 kkt_checks=0
+cd/lasso-D/cd/dense-f64/call                 ok              139.1µs    131.8µs    131.6µs    3   21.6KiB relative_gap 1.6e-13 <= 1e-08
+    work: passes=13 kkt_checks=0
+cd/lasso-D/cd/sparse-f32/call                ok              113.7µs    111.2µs    109.9µs    3   16.2KiB relative_gap 3.1e-07 <= 1e-05
+    work: passes=9 kkt_checks=0
+cd/lasso-D/cd/sparse-f64/call                ok              136.8µs    130.8µs    129.9µs    3   21.6KiB relative_gap 1.6e-13 <= 1e-08
+    work: passes=13 kkt_checks=0
+cd/lasso-weighted/cd/dense-f32/call          ok             555.17ms      9.1µs      8.6µs    3    2.3KiB relative_gap 2.3e-07 <= 1e-05
+    work: passes=9 kkt_checks=0
+cd/lasso-weighted/cd/dense-f64/call          ok             526.92ms     12.0µs     10.0µs    3    3.0KiB relative_gap 5.1e-13 <= 1e-08
+    work: passes=13 kkt_checks=0
+    note: noisy, median 20% above min
+cd/lasso-weighted/cd/sparse-f32/call         ok              52.33ms      9.3µs      9.2µs    3    2.3KiB relative_gap 2.3e-07 <= 1e-05
+    work: passes=9 kkt_checks=0
+cd/lasso-weighted/cd/sparse-f64/call         ok              53.71ms     11.4µs     11.1µs    3    3.0KiB relative_gap 5.1e-13 <= 1e-08
+    work: passes=13 kkt_checks=0
+cd/lasso/cd/dense-f32/call                   ok               18.0µs      9.0µs      8.9µs    3    2.3KiB relative_gap 1.4e-07 <= 1e-05
+    work: passes=10 kkt_checks=0
+cd/lasso/cd/dense-f64/call                   ok               20.7µs     11.0µs     10.9µs    3    3.0KiB relative_gap 9.7e-13 <= 1e-08
+    work: passes=15 kkt_checks=0
+cd/lasso/cd/sparse-f32/call                  ok               11.4µs      8.5µs      8.1µs    3    2.3KiB relative_gap 1.4e-07 <= 1e-05
+    work: passes=10 kkt_checks=0
+cd/lasso/cd/sparse-f64/call                  ok               14.2µs     11.6µs     10.5µs    3    3.0KiB relative_gap 9.7e-13 <= 1e-08
+    work: passes=15 kkt_checks=0
+gradient/lasso-B/apg/acc-dense-f64/call      ok               4.38ms     1.33ms     1.32ms    3   15.5KiB relative_gap 3.4e-10 <= 1e-08
+    work: iterations=58 f_calls=147 grad_calls=70 prox_calls=77 backtrack_steps=77
+gradient/lasso-B/apg/acc-warm-dense-f64/call ok              962.4µs    960.1µs    954.9µs    3   15.5KiB relative_gap 1.2e-11 <= 1e-08
+    work: iterations=43 f_calls=107 grad_calls=51 prox_calls=56 backtrack_steps=56
+gradient/lasso-B/apg/dense-f64/call          ok               1.35ms     1.35ms     1.35ms    3   15.5KiB relative_gap 6e-10 <= 1e-08
+    work: iterations=57 f_calls=145 grad_calls=83 prox_calls=76 backtrack_steps=76
+gradient/lasso-B/apg/warm-dense-f64/call     ok              891.7µs    898.5µs    893.9µs    3   15.5KiB relative_gap 3.6e-09 <= 1e-08
+    work: iterations=35 f_calls=89 grad_calls=49 prox_calls=47 backtrack_steps=47
+gradient/lasso-B/pg/acc-dense-f64/call       ok               6.01ms     2.07ms     2.03ms    3   11.2KiB relative_gap 1.8e-10 <= 1e-08
+    work: iterations=108 f_calls=231 grad_calls=109 prox_calls=122 backtrack_steps=122
+gradient/lasso-B/pg/acc-warm-dense-f64/call  ok               1.58ms     1.57ms     1.56ms    3   11.2KiB relative_gap 6.4e-11 <= 1e-08
+    work: iterations=84 f_calls=183 grad_calls=87 prox_calls=96 backtrack_steps=96
+gradient/lasso-B/pg/dense-f64/call           target_missed    1.65ms          -          -    0         - relative_gap 2.7e-08 <= 1e-08
+    work: iterations=87 f_calls=186 grad_calls=88 prox_calls=98 backtrack_steps=98
+    FAILURE (target_missed): certified relative_gap 2.74e-08 vs target 1e-08; no timing reported
+gradient/lasso-B/pg/warm-dense-f64/call      target_missed    1.21ms          -          -    0         - relative_gap 1.1e-08 <= 1e-08
+    work: iterations=64 f_calls=138 grad_calls=65 prox_calls=73 backtrack_steps=73
+    FAILURE (target_missed): certified relative_gap 1.06e-08 vs target 1e-08; no timing reported
+gradient/lasso-C/apg/acc-dense-f64/call      ok               1.36ms     1.34ms     1.34ms    3   31.8KiB relative_gap 1.4e-10 <= 1e-08
+    work: iterations=24 f_calls=61 grad_calls=29 prox_calls=32 backtrack_steps=32
+gradient/lasso-C/apg/dense-f64/call          ok               1.30ms     1.29ms     1.29ms    3   31.8KiB relative_gap 1.7e-09 <= 1e-08
+    work: iterations=22 f_calls=55 grad_calls=30 prox_calls=29 backtrack_steps=29
+gradient/lasso-C/pg/acc-dense-f64/call       ok               1.10ms     1.09ms     1.09ms    3   18.7KiB relative_gap 1.2e-12 <= 1e-08
+    work: iterations=22 f_calls=48 grad_calls=23 prox_calls=25 backtrack_steps=25
+gradient/lasso-C/pg/dense-f64/call           ok               1.06ms     1.06ms     1.06ms    3   18.7KiB relative_gap 6.3e-11 <= 1e-08
+    work: iterations=21 f_calls=46 grad_calls=22 prox_calls=24 backtrack_steps=24
+gradient/lasso-D/apg/acc-dense-f64/call      ok               1.72ms     1.71ms     1.71ms    3   31.4KiB relative_gap 9.9e-11 <= 1e-08
+    work: iterations=24 f_calls=63 grad_calls=30 prox_calls=33 backtrack_steps=33
+gradient/lasso-D/apg/dense-f64/call          ok               1.50ms     1.49ms     1.49ms    3   31.4KiB relative_gap 1.4e-09 <= 1e-08
+    work: iterations=21 f_calls=54 grad_calls=27 prox_calls=28 backtrack_steps=28
+gradient/lasso-D/pg/acc-dense-f64/call       ok               1.59ms     1.58ms     1.58ms    3   27.9KiB relative_gap 1.2e-10 <= 1e-08
+    work: iterations=26 f_calls=56 grad_calls=27 prox_calls=29 backtrack_steps=29
+gradient/lasso-D/pg/dense-f64/call           ok               1.67ms     1.66ms     1.66ms    3   27.9KiB relative_gap 7.5e-12 <= 1e-08
+    work: iterations=27 f_calls=58 grad_calls=28 prox_calls=30 backtrack_steps=30
+gradient/lasso-weighted/apg/acc-dense-f64/call ok             449.21ms     57.0µs     56.0µs    3    6.1KiB relative_gap 4.2e-11 <= 1e-08
+    work: iterations=23 f_calls=57 grad_calls=27 prox_calls=30 backtrack_steps=30
+gradient/lasso-weighted/pg/acc-dense-f64/call ok             151.52ms     39.8µs     39.0µs    3    4.0KiB relative_gap 1.7e-11 <= 1e-08
+    work: iterations=18 f_calls=43 grad_calls=21 prox_calls=22 backtrack_steps=22
+gradient/lasso/apg/acc-dense-f64/call        ok               63.7µs     50.4µs     49.4µs    3    6.1KiB relative_gap 7.6e-11 <= 1e-08
+    work: iterations=20 f_calls=54 grad_calls=26 prox_calls=28 backtrack_steps=28
+gradient/lasso/apg/dense-f64/call            ok               60.9µs     56.8µs     55.8µs    3    6.1KiB relative_gap 2.2e-11 <= 1e-08
+    work: iterations=21 f_calls=56 grad_calls=32 prox_calls=29 backtrack_steps=29
+gradient/lasso/pg/acc-dense-f64/call         ok               44.4µs     35.7µs     35.6µs    3    4.0KiB relative_gap 9.7e-11 <= 1e-08
+    work: iterations=18 f_calls=41 grad_calls=20 prox_calls=21 backtrack_steps=21
+gradient/lasso/pg/dense-f64/call             ok               37.5µs     35.9µs     35.8µs    3    4.0KiB relative_gap 9.7e-11 <= 1e-08
+    work: iterations=18 f_calls=41 grad_calls=20 prox_calls=21 backtrack_steps=21
+first = first certified call, including compilation (excluded from median).
+Ratios are single exploratory observations; use compare.py (README) for claims.

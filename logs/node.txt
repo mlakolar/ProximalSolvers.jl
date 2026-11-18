@@ -1,0 +1,37 @@
+<node>
+2026-11-18T10:23:04-08:00
+CPU(s):              20
+Thread(s) per core:  1
+Socket(s):           2
+Model name:          Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz
+CPU MHz:             3400.000
+CPU max MHz:         3400.0000
+CPU min MHz:         1200.0000
+JOB_ID=14345220
+7cff22e559fa0974053d526c0c5d539a4eeb50cb8db549c0a99bb2d334880f25  <cluster-dir>/PREREGISTRATION-aa110.md
+julia version 1.10.13
+julia version 1.13.3
+Python 3.11.9
+ps-H a0a064778acb34d0535408a31ab2f09ae657e4aa clean
+ps-A a0a064778acb34d0535408a31ab2f09ae657e4aa clean
+ps-B a0a064778acb34d0535408a31ab2f09ae657e4aa clean
+== start
+<node>
+2026-11-18T10:23:05-08:00
+0.00 0.43 4.35 1/450 427255
+14345220 <user> aa110-1118 20
+== after-setup
+<node>
+2026-11-18T10:29:57-08:00
+1.43 1.23 3.31 1/467 429673
+14345220 <user> aa110-1118 20
+== after-timing
+<node>
+2026-11-18T10:50:30-08:00
+1.00 1.00 1.58 1/461 430496
+14345220 <user> aa110-1118 20
+== end
+<node>
+2026-11-18T11:10:54-08:00
+0.85 0.97 1.12 1/455 431039
+14345220 <user> aa110-1118 20

@@ -1,0 +1,70 @@
+# Exploratory local results: not a formal benchmark record (#110 Stage 1).
+# blas_threads=1
+# cpu_model=Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz
+# cpu_threads=20
+# environment_hash=fd3a641b3db78d61fe134b4d035b85a4fa1b33da
+# execution=fresh process
+# format=proximalsolvers-local-exploratory-v1
+# harness_hash=11b291250927e604d7a6e6af3ea343258b775570
+# julia=1.13.3
+# julia_threads=1
+# load_average=1.0
+# local_hash=6d3e2988b57b6fa2c7b315a1a3be36dca6564040
+# proximalbase_hash=ba2f29532191ca55db58eaf2bed8d626d0ebd18a
+# proximalbase_version=0.6.0-DEV
+# proximalsolvers_dirty=false
+# proximalsolvers_hash=d041e075ca4af38e8580090dfabebbf11c56116e
+# proximalsolvers_path=<cluster-dir>/ps-A
+# proximalsolvers_sha=a0a064778acb34d0535408a31ab2f09ae657e4aa
+# source_check=static
+id	phase	status	construct_s	first_call_s	samples	median_ns	min_ns	max_ns	median_bytes	measure	target	worst_value	diagnostics	data_hash
+cd/group-lasso/cd/block-f32/call	call	ok	4.32410192489624	2.530863389	3	53816	45107	149940	14904	relative_gap	1.0e-5	2.1189777232080113e-7	passes=16 kkt_checks=0	12642aea0eaef79078a673c7eec2293c689efce1dee85f19bc2a83428cb481c9
+cd/group-lasso/cd/block-f64/call	call	ok	0.5729601383209229	1.38698423	3	60789	58811	116631	15736	relative_gap	1.0e-8	3.091651675555934e-12	passes=28 kkt_checks=0	c9555607400449f82c6409ed26ff18e021eb9888723e9ad74ef8bd4faee8a6bf
+cd/group-lasso/cd/warm-block-f32/call	call	ok	0.0014178752899169922	6.8439e-5	3	37224	35888	38703	14936	relative_gap	1.0e-5	3.1846599839278517e-7	passes=13 kkt_checks=0	4f40a7d43ec5a87a5382f5b83aa1b816f5ce9097b1624a17e46be90458a3814d
+cd/group-lasso/cd/warm-block-f64/call	call	ok	0.001361846923828125	6.0209e-5	3	55783	55165	56376	15736	relative_gap	1.0e-8	2.632319511530886e-12	passes=26 kkt_checks=0	4bb469c3f9d5cb2909ec5e5de95f0c1c75ff2de296aff9954b042ff98031a997
+cd/lasso-B/cd/dense-f32/call	call	ok	0.5174970626831055	0.374926761	3	30109	29588	53234	5824	relative_gap	1.0e-5	3.644112926271963e-7	passes=12 kkt_checks=0	fd698f155caccd8cd5398a5ae475f5537ee8f59ea64631236f484dc905fdb925
+cd/lasso-B/cd/dense-f64/call	call	ok	0.4235379695892334	0.373853029	3	45695	45140	75335	8256	relative_gap	1.0e-8	4.766202234851328e-15	passes=16 kkt_checks=0	e97f96ee350b9f15f5515d0a548f45417c9163e4954feadbc9a338b62227ed47
+cd/lasso-B/cd/sparse-f32/call	call	ok	0.009209871292114258	0.061762337	3	31014	29950	52343	5824	relative_gap	1.0e-5	3.644112926271963e-7	passes=12 kkt_checks=0	fd698f155caccd8cd5398a5ae475f5537ee8f59ea64631236f484dc905fdb925
+cd/lasso-B/cd/sparse-f64/call	call	ok	0.01007699966430664	0.062746416	3	46071	45012	150400	8256	relative_gap	1.0e-8	4.766202234851328e-15	passes=16 kkt_checks=0	e97f96ee350b9f15f5515d0a548f45417c9163e4954feadbc9a338b62227ed47
+cd/lasso-B/cd/warm-dense-f32/call	call	ok	0.0015017986297607422	3.1013e-5	3	23550	23047	24991	5824	relative_gap	1.0e-5	2.749891042146371e-7	passes=8 kkt_checks=0	25a659a1e3cf2d93261d27c99bc3fd76cba596a818decd96b1f25df3766c65d9
+cd/lasso-B/cd/warm-dense-f64/call	call	ok	0.0023250579833984375	4.4483e-5	3	37887	37054	38707	8256	relative_gap	1.0e-8	1.0167898101016165e-13	passes=11 kkt_checks=0	37a2991b4c4ab74d5571dac4168b3d89644d1a25145cd965d5903e312acbb3c4
+cd/lasso-B/cd/warm-sparse-f32/call	call	ok	0.0016350746154785156	2.5596e-5	3	24608	22666	25388	5824	relative_gap	1.0e-5	2.749891042146371e-7	passes=8 kkt_checks=0	25a659a1e3cf2d93261d27c99bc3fd76cba596a818decd96b1f25df3766c65d9
+cd/lasso-B/cd/warm-sparse-f64/call	call	ok	0.0026390552520751953	3.9712e-5	3	38290	37684	42476	8256	relative_gap	1.0e-8	1.0167898101016165e-13	passes=11 kkt_checks=0	37a2991b4c4ab74d5571dac4168b3d89644d1a25145cd965d5903e312acbb3c4
+cd/lasso-C/cd/dense-f32/call	call	ok	0.009383916854858398	5.1621e-5	3	44892	43334	46455	7096	relative_gap	1.0e-5	1.5861603786712054e-7	passes=8 kkt_checks=0	a79ceca0a39c7ae2e0cd441285e2a18622d0696ab3ccfa3918db934564f39ea7
+cd/lasso-C/cd/dense-f64/call	call	ok	0.010868072509765625	9.1025e-5	3	85273	84949	86540	11256	relative_gap	1.0e-8	2.0491078329023106e-14	passes=11 kkt_checks=0	a15888305f4dc7ba710d37b63d814da16005ea428b308e125f0900bd3b8d2073
+cd/lasso-C/cd/sparse-f32/call	call	ok	0.0035359859466552734	5.1396e-5	3	47979	45492	49738	7096	relative_gap	1.0e-5	1.5861603786712054e-7	passes=8 kkt_checks=0	a79ceca0a39c7ae2e0cd441285e2a18622d0696ab3ccfa3918db934564f39ea7
+cd/lasso-C/cd/sparse-f64/call	call	ok	0.031861066818237305	9.8687e-5	3	87105	86363	89666	11256	relative_gap	1.0e-8	2.0491078329023106e-14	passes=11 kkt_checks=0	a15888305f4dc7ba710d37b63d814da16005ea428b308e125f0900bd3b8d2073
+cd/lasso-D/cd/dense-f32/call	call	ok	0.010390043258666992	8.7397e-5	3	78359	73774	79466	16192	relative_gap	1.0e-5	3.0498121291339573e-7	passes=9 kkt_checks=0	0ae3966071b85a868ed688ec344ebab887135206e02a3ad3d8e11994fcdd7d1b
+cd/lasso-D/cd/dense-f64/call	call	ok	0.010334968566894531	0.000129092	3	112077	108815	115136	21632	relative_gap	1.0e-8	1.1736347301175955e-13	passes=11 kkt_checks=0	2958f755ba9023abdf3194bc566e409b90bfb7f6028a924a2c087ffad9d25fcd
+cd/lasso-D/cd/sparse-f32/call	call	ok	0.0030210018157958984	8.3233e-5	3	75462	73937	79578	16192	relative_gap	1.0e-5	3.0498121291339573e-7	passes=9 kkt_checks=0	0ae3966071b85a868ed688ec344ebab887135206e02a3ad3d8e11994fcdd7d1b
+cd/lasso-D/cd/sparse-f64/call	call	ok	0.005672931671142578	0.000116783	3	110308	109718	110416	21632	relative_gap	1.0e-8	1.1736347301175955e-13	passes=11 kkt_checks=0	2958f755ba9023abdf3194bc566e409b90bfb7f6028a924a2c087ffad9d25fcd
+cd/lasso-weighted/cd/dense-f32/call	call	ok	0.15811896324157715	0.57140601	3	8930	7751	18940	2112	relative_gap	1.0e-5	1.3139583419746236e-7	passes=13 kkt_checks=0	67f2c565217420fbfad9994cf4520db579af6109588d5918115bbca85c638b44
+cd/lasso-weighted/cd/dense-f64/call	call	ok	0.016451120376586914	0.569600624	3	13574	13003	23659	2848	relative_gap	1.0e-8	1.4499967787913145e-12	passes=22 kkt_checks=0	0b94dea32da845246a34dc6a3a6216fd033681e17c01943857619c7179c19b35
+cd/lasso-weighted/cd/sparse-f32/call	call	ok	0.009922981262207031	0.077080925	3	8786	8005	18065	2112	relative_gap	1.0e-5	1.3139583419746236e-7	passes=13 kkt_checks=0	67f2c565217420fbfad9994cf4520db579af6109588d5918115bbca85c638b44
+cd/lasso-weighted/cd/sparse-f64/call	call	ok	0.010538816452026367	0.078942519	3	14097	12875	24749	2848	relative_gap	1.0e-8	1.4499967787913145e-12	passes=22 kkt_checks=0	0b94dea32da845246a34dc6a3a6216fd033681e17c01943857619c7179c19b35
+cd/lasso/cd/dense-f32/call	call	ok	0.005300998687744141	2.0322e-5	3	6248	5606	7352	2096	relative_gap	1.0e-5	2.4057716118533375e-7	passes=9 kkt_checks=0	c12a596b90f6060b13f93bf814e2dce0e10c5d8c361944ff680df829d7f62ff2
+cd/lasso/cd/dense-f64/call	call	ok	0.004984140396118164	1.8365e-5	3	9635	9498	10514	2832	relative_gap	1.0e-8	1.0609643945125388e-12	passes=15 kkt_checks=0	abd796c708d63cbb8f25b3ec7c1fc7218eaf7e8e52807bb80630eba1d9c678fd
+cd/lasso/cd/sparse-f32/call	call	ok	0.00011587142944335938	1.04e-5	3	6632	6117	7322	2096	relative_gap	1.0e-5	2.4057716118533375e-7	passes=9 kkt_checks=0	c12a596b90f6060b13f93bf814e2dce0e10c5d8c361944ff680df829d7f62ff2
+cd/lasso/cd/sparse-f64/call	call	ok	0.00018310546875	1.2693e-5	3	9615	9251	9854	2832	relative_gap	1.0e-8	1.0609643945125388e-12	passes=15 kkt_checks=0	abd796c708d63cbb8f25b3ec7c1fc7218eaf7e8e52807bb80630eba1d9c678fd
+gradient/lasso-B/apg/acc-dense-f64/call	call	ok	0.04441213607788086	0.003915277	3	700584	681171	724106	16160	relative_gap	1.0e-8	1.053489567309972e-10	iterations=32 f_calls=82 grad_calls=39 prox_calls=43 backtrack_steps=43	e97f96ee350b9f15f5515d0a548f45417c9163e4954feadbc9a338b62227ed47
+gradient/lasso-B/apg/acc-warm-dense-f64/call	call	ok	0.0022640228271484375	0.000530515	3	502025	499487	516327	16160	relative_gap	1.0e-8	7.607199209839495e-12	iterations=24 f_calls=59 grad_calls=28 prox_calls=31 backtrack_steps=31	37a2991b4c4ab74d5571dac4168b3d89644d1a25145cd965d5903e312acbb3c4
+gradient/lasso-B/apg/dense-f64/call	call	ok	0.001775979995727539	0.000733682	3	725540	719603	729305	16160	relative_gap	1.0e-8	1.053489567309972e-10	iterations=32 f_calls=82 grad_calls=43 prox_calls=43 backtrack_steps=43	e97f96ee350b9f15f5515d0a548f45417c9163e4954feadbc9a338b62227ed47
+gradient/lasso-B/apg/warm-dense-f64/call	call	ok	0.002040863037109375	0.000535136	3	538535	533307	540165	16160	relative_gap	1.0e-8	8.890737471684957e-10	iterations=22 f_calls=55 grad_calls=30 prox_calls=29 backtrack_steps=29	37a2991b4c4ab74d5571dac4168b3d89644d1a25145cd965d5903e312acbb3c4
+gradient/lasso-B/pg/acc-dense-f64/call	call	ok	0.01007699966430664	0.005931466	3	775636	760893	807881	11696	relative_gap	1.0e-8	4.751029824403718e-11	iterations=42 f_calls=91 grad_calls=44 prox_calls=47 backtrack_steps=47	e97f96ee350b9f15f5515d0a548f45417c9163e4954feadbc9a338b62227ed47
+gradient/lasso-B/pg/acc-warm-dense-f64/call	call	ok	0.002048969268798828	0.000430501	3	420843	418333	423791	11696	relative_gap	1.0e-8	4.7509957801020406e-12	iterations=20 f_calls=45 grad_calls=22 prox_calls=23 backtrack_steps=23	37a2991b4c4ab74d5571dac4168b3d89644d1a25145cd965d5903e312acbb3c4
+gradient/lasso-B/pg/dense-f64/call	call	ok	0.0018110275268554688	0.00076639	3	752943	750982	762580	11696	relative_gap	1.0e-8	4.751029824403718e-11	iterations=42 f_calls=91 grad_calls=44 prox_calls=47 backtrack_steps=47	e97f96ee350b9f15f5515d0a548f45417c9163e4954feadbc9a338b62227ed47
+gradient/lasso-B/pg/warm-dense-f64/call	call	ok	0.0020360946655273438	0.000366315	3	358400	357904	360157	11696	relative_gap	1.0e-8	9.502105041209671e-12	iterations=19 f_calls=41 grad_calls=20 prox_calls=21 backtrack_steps=21	37a2991b4c4ab74d5571dac4168b3d89644d1a25145cd965d5903e312acbb3c4
+gradient/lasso-C/apg/acc-dense-f64/call	call	ok	0.01096796989440918	0.001311929	3	1298802	1296696	1298816	32032	relative_gap	1.0e-8	4.871578948885848e-11	iterations=24 f_calls=61 grad_calls=29 prox_calls=32 backtrack_steps=32	a15888305f4dc7ba710d37b63d814da16005ea428b308e125f0900bd3b8d2073
+gradient/lasso-C/apg/dense-f64/call	call	ok	0.005879878997802734	0.001439274	3	1435864	1430333	1438458	32032	relative_gap	1.0e-8	4.871578948885848e-11	iterations=24 f_calls=61 grad_calls=36 prox_calls=32 backtrack_steps=32	a15888305f4dc7ba710d37b63d814da16005ea428b308e125f0900bd3b8d2073
+gradient/lasso-C/pg/acc-dense-f64/call	call	ok	0.03193306922912598	0.001010757	3	993196	992190	1000372	18752	relative_gap	1.0e-8	3.00619112558717e-12	iterations=20 f_calls=44 grad_calls=21 prox_calls=23 backtrack_steps=23	a15888305f4dc7ba710d37b63d814da16005ea428b308e125f0900bd3b8d2073
+gradient/lasso-C/pg/dense-f64/call	call	ok	0.004517078399658203	0.000905502	3	898066	897804	898972	18752	relative_gap	1.0e-8	2.1980846361196183e-10	iterations=18 f_calls=40 grad_calls=19 prox_calls=21 backtrack_steps=21	a15888305f4dc7ba710d37b63d814da16005ea428b308e125f0900bd3b8d2073
+gradient/lasso-D/apg/acc-dense-f64/call	call	ok	0.011998176574707031	0.001698324	3	1684184	1677537	1686229	31384	relative_gap	1.0e-8	2.1521459875247725e-11	iterations=26 f_calls=65 grad_calls=31 prox_calls=34 backtrack_steps=34	2958f755ba9023abdf3194bc566e409b90bfb7f6028a924a2c087ffad9d25fcd
+gradient/lasso-D/apg/dense-f64/call	call	ok	0.0055310726165771484	0.001680874	3	1676630	1674691	1676728	31384	relative_gap	1.0e-8	3.1938004011310843e-10	iterations=25 f_calls=63 grad_calls=33 prox_calls=33 backtrack_steps=33	2958f755ba9023abdf3194bc566e409b90bfb7f6028a924a2c087ffad9d25fcd
+gradient/lasso-D/pg/acc-dense-f64/call	call	ok	0.006250143051147461	0.001545666	3	1539748	1536813	1553280	28008	relative_gap	1.0e-8	3.0370880102842175e-11	iterations=27 f_calls=58 grad_calls=28 prox_calls=30 backtrack_steps=30	2958f755ba9023abdf3194bc566e409b90bfb7f6028a924a2c087ffad9d25fcd
+gradient/lasso-D/pg/dense-f64/call	call	ok	0.006515026092529297	0.001547671	3	1545403	1538751	1554970	28008	relative_gap	1.0e-8	3.0370880102842175e-11	iterations=27 f_calls=58 grad_calls=28 prox_calls=30 backtrack_steps=30	2958f755ba9023abdf3194bc566e409b90bfb7f6028a924a2c087ffad9d25fcd
+gradient/lasso-weighted/apg/acc-dense-f64/call	call	ok	0.016155004501342773	0.619691674	3	59999	58821	79468	6272	relative_gap	1.0e-8	4.170933589019255e-11	iterations=26 f_calls=71 grad_calls=34 prox_calls=37 backtrack_steps=37	0b94dea32da845246a34dc6a3a6216fd033681e17c01943857619c7179c19b35
+gradient/lasso-weighted/pg/acc-dense-f64/call	call	ok	0.007586002349853516	0.203481686	3	50654	49723	65488	4080	relative_gap	1.0e-8	1.3128208661089768e-13	iterations=30 f_calls=65 grad_calls=31 prox_calls=34 backtrack_steps=34	0b94dea32da845246a34dc6a3a6216fd033681e17c01943857619c7179c19b35
+gradient/lasso/apg/acc-dense-f64/call	call	ok	0.005580902099609375	6.8303e-5	3	54578	53068	55260	6256	relative_gap	1.0e-8	3.053657493348206e-11	iterations=27 f_calls=65 grad_calls=31 prox_calls=34 backtrack_steps=34	abd796c708d63cbb8f25b3ec7c1fc7218eaf7e8e52807bb80630eba1d9c678fd
+gradient/lasso/apg/dense-f64/call	call	ok	0.00017786026000976562	6.6053e-5	3	58123	57835	58477	6256	relative_gap	1.0e-8	3.053657493348206e-11	iterations=27 f_calls=65 grad_calls=39 prox_calls=34 backtrack_steps=34	abd796c708d63cbb8f25b3ec7c1fc7218eaf7e8e52807bb80630eba1d9c678fd
+gradient/lasso/pg/acc-dense-f64/call	call	ok	0.00017404556274414062	3.5008e-5	3	31435	30877	32055	4064	relative_gap	1.0e-8	3.679221267821096e-11	iterations=19 f_calls=42 grad_calls=20 prox_calls=22 backtrack_steps=22	abd796c708d63cbb8f25b3ec7c1fc7218eaf7e8e52807bb80630eba1d9c678fd
+gradient/lasso/pg/dense-f64/call	call	ok	0.00016999244689941406	3.2284e-5	3	31878	31514	35743	4064	relative_gap	1.0e-8	3.679221267821096e-11	iterations=19 f_calls=42 grad_calls=20 prox_calls=22 backtrack_steps=22	abd796c708d63cbb8f25b3ec7c1fc7218eaf7e8e52807bb80630eba1d9c678fd
