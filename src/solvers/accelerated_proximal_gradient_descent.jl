@@ -6,12 +6,13 @@
 """
     AccProxGradDescent(; β = 0.5, α = 0.9, preconditioner = :none)
 
-Accelerated proximal gradient descent (APG) for least-squares lasso with a dense
+Accelerated proximal gradient descent (APG) for least-squares lasso (with optional weights) or elastic net with a dense
 `Vector{Float32}` or `Vector{Float64}` coefficient iterate (Parikh and Boyd,
 *Proximal Algorithms*, §4.3). Iteration `k` (counted from the start or the last
 restart) extrapolates `y = x + k/(k+3) (x - x')` from the last two accepted
 iterates and takes a proximal gradient step from `y`: a gradient step for the
-least-squares loss followed by soft thresholding. It is a FISTA-family method; its
+least-squares loss followed by the proximal operator of the penalty (soft thresholding, at the level `λ wⱼ`
+of entry `j` for `NormL1(λ, w)`, and for `ElasticNet` the ridge weight after it). It is a FISTA-family method; its
 momentum sequence `k/(k+3)` is not the textbook FISTA recurrence.
 
 The step size `1/L` is found by backtracking on the least-squares bound
@@ -25,7 +26,9 @@ See [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numer
 A trial with `x == y` entrywise is accepted when its value is finite. A rejected trial sets
 `L ← L/β`, `β ∈ (0, 1)`. Before each iteration `L ← α L`, `α ∈ (0, 1]`, so that the
 step can grow again where the curvature is smaller; `α = 1` keeps `L` from
-decreasing.
+decreasing. The estimate before the first iteration is `min(1, α_f ‖X‖_F²)` for the loss scale
+`α_f`, with `‖X‖_F` an upper bound, rounded to `T` and raised to `floatmin(T)` when it is positive and
+rounds below that; it is `1` when that product is at least 1 or `X = 0`.
 
 When an extrapolated step would increase the computed objective, the momentum is
 restarted: the step is repeated from `y = x'` and `k` returns to zero, so the next
@@ -41,11 +44,13 @@ increase of `L`; `solve!` then restores the last accepted iterate and rethrows. 
 rejected. Pass `ProximalOptions(...)` as the fifth argument to [`solve!`](@ref).
 A stop that the `xtol`, `ftol` or `gradtol` test proposes counts only if the computed KKT
 residual at the accepted `x` is below `max(gradtol, 64 eps(T)) * max(λ, λmax)`, with
-`λmax = α‖Xᵀy‖∞` (see [`ProximalOptions`](@ref)); `converged = true` guarantees only that the
+`λmax = α‖Xᵀy‖∞` and `λ` the ℓ1 level of the penalty (`λ` of `NormL1(λ)`, the largest coefficient
+`T(λ) * maximum(w)` of `NormL1(λ, w)`, `λ1` of `ElasticNet`; see [`ProximalOptions`](@ref)); `converged = true` guarantees only that the
 computed, normalized KKT residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the
 threshold is formed in `T`, which can round or overflow; see [`ProximalOptions`](@ref)). It is
 not an exact-arithmetic certificate and does not guarantee coefficient accuracy on
-ill-conditioned designs (see the [stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)). The check forms `∇f(x)` from the
+ill-conditioned designs (see the [stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)). In `Float32`, a solve can report `converged = true` at a relative duality gap above `1e-5`, as in measurements on small benchmark designs (see
+[the limits of the stopping tests](https://mlakolar.github.io/ProximalSolvers.jl/dev/stopping-limits/)). The check forms `∇f(x)` from the
 cached image `A x` and counts that evaluation in `grad_calls`. The gradient-mapping residual
 of the result, `L ‖x - y‖∞`, is measured from the extrapolated point `y`, not from `x`; check
 KKT conditions independently before reporting numerical results.
@@ -123,6 +128,8 @@ function initial_state(
     f_x = _value!(x0, f, model, z_x)
     _check_start(f_x)
     normx0 = _se_norm(T, x0)          # x0 is finite (checked before)
+    normX = _frobenius_upper(T, model.X)
+    rootα = _root_scale(T, model.α)
     AccProxGradDescentState(
                          x0,          # Maintain current state in state.x
                          f_x,
@@ -134,7 +141,7 @@ function initial_state(
                          _dense_similar(x0), # gradient of f at y
                          _similar(x0), # Temporary storage
                          _similar(x0), # x - x_previous
-                         one(T),      # L
+                         _initial_curvature(T, rootα, normX), # L
                          T(-Inf),     # max_residual
                          -one(T),     # λmax, not yet computed
                          0,           # k
@@ -148,8 +155,8 @@ function initial_state(
                          copy(z_x),   # A x_previous
                          similar(z_x), # A y
                          similar(z_x), # residual at A y
-                         _bound_constants(T, model.X),
-                         _root_scale(T, model.α),
+                         _bound_constants(T, model.X, normX),
+                         rootα,
                          _se_zero(T),
                          normx0,
                          normx0,
@@ -284,7 +291,7 @@ extended_trace!(dt, state::AccProxGradDescentState) = dt["grad_f(y)"] = _copy(st
 # r = ∇f(x) - ∇f(y) - L (x - y) ∈ ∇f(x) + ∂g(x). The reported residual does not evaluate
 # ∇f(x) (the stationarity check does, at each proposed stop, see _gradient_at_x!), but
 # ‖r‖ ≤ (L + L_f) ‖x - y‖ when ∇f is L_f-Lipschitz, so L ‖x - y‖∞ is used instead.
-g_residual(state::AccProxGradDescentState) = state.L * _maxabs_diff(state.x, state.y)
+g_residual(state::AccProxGradDescentState) = state.L * _norm_diff(state.x, state.y, Inf)
 
 function gradient_converged!(state::AccProxGradDescentState, options::ProximalOptions)
   residual = g_residual(state)
@@ -297,8 +304,7 @@ end
 """
     solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions())
 
-Minimize the same least-squares lasso or centered squared-norm + L1
-objective as [`ProximalGradientDescent`](@ref) with
+Minimize the same least-squares lasso or elastic net as [`ProximalGradientDescent`](@ref) with
 accelerated proximal gradient descent, overwriting `x`, a dense `Vector{T}` with
 `T = Float32` or `Float64`. The inputs, the options and their validation are those
 of `ProximalGradientDescent`; in addition `β` and `α` must satisfy their bounds after

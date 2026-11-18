@@ -11,14 +11,16 @@ Peak memory is recorded only as process-wide `maxrss_bytes`, not per case.
 
 ## Current core
 
-Master's core is `CDSolver` (dense `Vector` or vector `SparseIterate`) and
-`ProximalGradientDescent` (dense `Vector`) on Float32/Float64 least-squares lasso, with
-ProximalBase pinned to an exact development commit in the root `Project.toml` `[sources]`.
+Master's core is `CDSolver` (dense `Vector` or vector `SparseIterate` for least-squares
+lasso, and `BlockIterate` for group lasso), `ProximalGradientDescent`, and
+`AccProxGradDescent` (both with dense `Vector` for least-squares lasso), all on
+Float32/Float64. ProximalBase is pinned to an exact development commit in the root
+`Project.toml` `[sources]`.
 From the package root, with Julia 1.10 or later and Python 3.11 or later:
 
 ```sh
 julia benchmark/setup.jl "$PWD" benchmark/results/env-quick pinned
-JULIA_NUM_THREADS=1 PS_EXPECTED_PROXIMALBASE_REV=50db4b1ef376cbe01831c3dd019b6be0027db0b6 \
+JULIA_NUM_THREADS=1 PS_EXPECTED_PROXIMALBASE_REV=a19c59aa723d085d5d7cf5242895bda16eb77214 \
   julia --project=benchmark/results/env-quick benchmark/run.jl
 python3 benchmark/validate.py benchmark/results benchmark/results/validation.json
 python3 benchmark/summarize.py benchmark/results benchmark/results/summary
@@ -87,7 +89,7 @@ between-run interval.
 ## Supported and deferred cases
 
 Every case declares what it needs from the loaded package: its solver ID and, per feature,
-`solver:feature` (problem, `float32`, `sparse_iterate`, `gap` for duality-gap stopping,
+`solver:feature` (problem, `float32`, `sparse_iterate`, `block_iterate`, `weighted_l1`, `gap` for duality-gap stopping,
 `workspace`, `path`, `setup`). `CAPABILITIES` in `cases.jl` declares what the current core
 provides; it is a short explicit list, not inferred from the names the package defines, since a
 solver type can exist without supporting a problem, an iterate or a phase. A case with a
@@ -105,8 +107,9 @@ The 102 historical cases keep their IDs, inputs, settings, measures and targets.
 current core unchanged: `cd/lasso-dense/cd/R/call` and `gradient/lasso/pg/R/call` (default
 settings, accuracy recorded with target `NaN`). The other 100 are deferred: their solvers are
 not in the core (FISTA variants, ProxNewton/QUIC, ADMM, Condat–Vũ, SLOPE), or they need gap
-stopping, `SolverWorkspace`, paths, setup phases, weighted or sparse designs, or other losses
-and penalties.
+stopping, `SolverWorkspace`, paths, setup phases, sparse designs, or other losses
+and penalties (the historical weighted lasso, `cd/weighted-lasso/cd/tight`, needs gap stopping and a workspace; the
+weights themselves are supported, see below).
 
 The 40 current-core cases (`cd` and `gradient` groups) use one problem per design, shared by CD,
 PGD and APG, cold and warm starts, dense and `SparseIterate` iterates:
@@ -118,6 +121,28 @@ PGD and APG, cold and warm starts, dense and `SparseIterate` iterates:
 | `lasso-C` | 800×120, correlated ρ=0.5 | extended | as `lasso` |
 | `lasso-D` | 180×600, p > n | extended | as `lasso` |
 
+Four more current-core cases (quick suite) run `CDSolver` on a `BlockIterate` for the group lasso
+(#275). They need the capability `cd:block_iterate` (and `cd:float32` in Float32):
+
+| Problem | Design | Suite | Variants |
+|---|---|---|---|
+| `group-lasso` | 120×32, independent columns, contiguous groups of four with the default weights `√4` (`grouped_problem`, key `core/group-lasso`) | quick | CD `block-{f64,f32}`; `warm-` of each |
+
+Their IDs are `cd/group-lasso/cd/{,warm-}block-{f64,f32}/call`. The historical
+`cd/group-lasso/cd/tight/call` keeps its inputs and stays deferred: it needs `cd:group`
+(`GroupNormL2` on an `AtomIterate`) and `cd:gap`, which `CAPABILITIES` does not declare, and its
+draws differ from those of the current-core key. The penalty is `GroupNormL2` of the problem's element type, and the start is a
+`BlockIterate` with the groups of the problem, active where the start is nonzero. The settings,
+targets (`1e-8` in Float64 and `1e-5` in Float32) and the exact Float64 read-back of the rounded
+data are those of the lasso cases, and the certificate is `group_certificate`, the group-lasso
+relative duality gap of the problem the solver received, from the returned minimizer only. A warm
+start is the solution at 1.25λ from `group_warm_start`, cyclic block coordinate descent in Float64
+with the largest eigenvalue of each Gram matrix (from all its eigenvalues) as the curvature, written in `cases.jl` and
+stopped at a certified relative gap of `1e-12`; `cert_loading_refit` is lasso-only, and this start
+does not depend on the solver under test. The extended suite includes these quick cases, and
+there are no additional group-lasso cases exclusive to it. There are no PGD or APG group cases
+(those solvers do not accept a `BlockIterate`).
+
 The extended suite adds ten Float64 `acc-` cases for PGD and APG (#314):
 `gradient/<problem>/{pg,apg}/acc-{dense,warm-dense}-f64/call` on the problems, starts and inputs
 of the table, with the same target and certificate, under `accuracy_options()`
@@ -125,6 +150,28 @@ of the table, with the same target and certificate, under `accuracy_options()`
 names a setting, not a `converged = true` certification: the status is the certificate's, so a
 solve that ends `stagnated` or at `maxiter` with an accurate minimizer is `ok`, and a
 `converged = true` solve above the target is `target_missed`. There are no Float32 `acc-` cases.
+
+Six more current-core cases (extended suite, #331) solve the weighted lasso, `NormL1(λ, w)`, on the
+100×32 independent design of `lasso` with the positive weights `0.5, …, 2.5` (`weighted_problem`, key
+`core/lasso-weighted`; λ is 0.15 of the λmax of the unweighted problem), from a cold start (a warm start needs unit
+weights). They need `weighted_l1` for the solver (`cd:weighted_l1`, `pg:weighted_l1`, `apg:weighted_l1`; `random-cd:weighted_l1`
+is declared for the random-order CD ID, which has no current-core case) and `float32` in Float32. The relative gap
+certificate applies to positive weights; zero weights would need the KKT residual certificate:
+
+| Problem | Design | Suite | Variants |
+|---|---|---|---|
+| `lasso-weighted` | 100×32, independent columns, weights `0.5, …, 2.5` | extended | CD `{dense,sparse}-{f64,f32}`; PGD and APG `acc-dense-f64` |
+
+Their IDs are `cd/lasso-weighted/cd/{dense,sparse}-{f64,f32}/call` and
+`gradient/lasso-weighted/{pg,apg}/acc-dense-f64/call`. The settings, targets and certificate are those
+of the other current-core cases of the same solver and precision (`acc-dense-f64`: `accuracy_options`). As for the other
+`acc-` cases there are no Float32 PGD or APG cases.
+
+With all groups selected, the default quick suite has 30 supported cases: 24 standard
+lasso cases, 4 group-lasso CD `BlockIterate` cases, and 2 unchanged historical cases.
+The extended suite includes quick and has 62 supported cases: 40 standard lasso cases,
+10 Float64 PGD/APG `acc-` cases, 4 group-lasso CD cases, 6 weighted lasso cases, and the same 2 historical cases.
+The other 100 historical cases are deferred in the extended suite.
 
 Float32 inputs are the Float64 draw rounded once; the data hash covers the rounded values and
 the start. A warm start is the solution at 1.25λ, computed in Float64 by the certificate
@@ -154,7 +201,89 @@ PS_SUITE=extended PS_GROUPS=gradient PS_LIST=true \
 
 Each case builds its inputs from a seed keyed by its scenario and repetition, so a case
 selected alone has the same inputs, data hash and certificate as in the full suite.
-`PS_CASES='cd/lasso-B/cd/*-f64/call'` measures four of the 13 supported quick `cd` cases.
+`PS_CASES='cd/lasso-B/cd/*-f64/call'` measures four of the 17 supported quick `cd` cases.
+
+### Float32 PGD and APG against the `1e-5` target
+
+PGD and APG with the harness options (`benchmark_options(residual = true)`: `maxiter = 10_000`,
+`ftol = 1e-15`, `xtol = 1e-14`, `gradtol = 1e-11`, `allow_f_increases = false`) often end above
+the target in Float32, and the case is then recorded as `target_missed`. This subsection says
+which cases, why, and what it means. The target stays at `1e-5` and the recorded results are
+unchanged. The numbers are from the
+[Phase 0 report of issue #320](https://github.com/mlakolar/ProximalSolvers.jl/issues/320#issuecomment-6967100343);
+its scripts, configurations and summary tables are on the branch
+[`archive/issue-320-evidence`](https://github.com/mlakolar/ProximalSolvers.jl/tree/archive/issue-320-evidence).
+They hold for these conditions: the five designs `lasso`, `lasso-B` (cold and warm), `lasso-C` and
+`lasso-D`, 10 draws each (50 solves per cell); Julia 1.10.13 and 1.13.3; the revisions before and
+after #319 (master `dac9f4b` stopped at the same iterations as `9f86a80`); one CPU kind, the Intel
+Xeon E5-2640 v4 of the #319 report. Counts can differ slightly with the CPU kind and the Julia
+version: for Float32 PGD on master, the two CPU kinds of the report gave 214 and 215 misses of 240
+records (these designs and an adverse set), with 3 records changing status. The input hashes of
+the warm designs and of a few `lasso` draws differed between the two CPU kinds, so that
+comparison is of nearly identical inputs.
+
+| Solver, harness options | Julia | Misses of 50 | Of those, `converged = true` |
+| --- | --- | --- | --- |
+| Float32 PGD | 1.10.13 | 36 to 39 | 22 to 25 |
+| Float32 PGD | 1.13.3 | 37 | 15 to 16 |
+| Float32 APG | 1.10.13 | 40 | 26 |
+| Float32 APG | 1.13.3 | 41 | 29 |
+| Float64 PGD | 1.10.13 | 4 | 0 |
+| Float64 PGD | 1.13.3 | 5 | 0 |
+
+A miss is an independent relative duality gap above the target (`1e-5` in Float32, `1e-8` in
+Float64). The ranges in the PGD rows run from the revision before #319 to the one after it: the
+number of misses changed by at most 3 of 50 (36 to 39 on Julia 1.10.13, 37 and 37 on 1.13.3),
+and which draws miss changed too.
+
+**Why they miss, Float32 PGD.**
+
+- The objective test proposes the stop. In 237 of the 240 Float32 PGD records of the report
+  (these designs and the adverse set, both Julia versions, master), the first proposal came from
+  the objective test, through its one-ulp branch `|F - F'| < eps(|F| + |F'|)` (about two spacings
+  of `F` in the ordinary range; see [Strict accuracy](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#Strict-accuracy)),
+  because `ftol = 1e-15` is below the resolution of a Float32 objective. In the other 3 records no
+  test proposed a stop first.
+- The stationarity check accepts a proposal when its computed normalized KKT residual is below
+  `max(gradtol, 64 eps(T))`, which is `64 eps(Float32) ≈ 7.63e-6` here. The relative duality gap
+  of the target is a different quantity: a computed KKT residual can pass that threshold while the
+  independent relative gap exceeds `1e-5`. Among the 119 Float32 PGD `converged = true` records
+  that missed the target (summed over the six revision and Julia-version cells), the independent
+  relative gap was 1.07e-5 to 3.75e-5 and was 2.3 to 7.0 times the independent KKT residual. This
+  range is for Float32 PGD and is not a bound for APG.
+- On master and the five harness designs, the misses with `converged = false` ended on the
+  objective-increase stop: 14 of 50 solves on Julia 1.10.13 and 21 of 50 on 1.13.3. The stationarity
+  check had refused at least one earlier proposal in 14 and in 19 of them. The other 2 on 1.13.3
+  (`lasso-B-warm` draw 4 and `lasso-D` draw 6) ended on the increase with no proposal made. On the
+  adverse set of the report, on master, 63 (1.10.13) and 57 (1.13.3) of the 69 misses ended on the
+  objective-increase stop after refused proposals, and 2 and 4 at the iteration limit. On master,
+  all 156 objective-increase stops of the report (these designs and the adverse set) were
+  increases of 1 to 3 Float32 spacings of the objective, 142 of them of exactly 1.
+- The gradient evaluation was not the limit: the Float32 gradient of the solver differed from the
+  Float64 gradient of the same rounded data by at most `2.5e-7` of the residual's scale
+  `max(λ, λmax)`, over about 957,000 recorded iterations, which is 30 times below the threshold
+  of the check.
+
+**What the evidence shows.** In these measurements, the independent KKT residual of each Float32
+PGD `converged = true` record was below the threshold of the check (191 records on these designs,
+largest value `7.616e-6`), so those records meet the contract documented for `converged = true`.
+The measurements indicate a limit of the stopping criterion in Float32 relative to a stricter
+benchmark target, and do not show a solver defect. Float32 APG was measured for the counts in the
+table; the report did not classify its mechanism separately. For both solvers, a
+`target_missed` status on a default-settings Float32 case, or one record changing status between
+revisions, is not by itself evidence for or against a code change.
+
+**When the gap target is stricter than the stopping contract.** The contract of `converged = true`
+is in [Limits of the stopping tests](https://mlakolar.github.io/ProximalSolvers.jl/dev/stopping-limits/).
+On the Float32 PGD records above, meeting it did not imply meeting the independent `1e-5` gap
+target, so a gap target can be stricter than that contract. With the strict profiles S and A of
+the report (`ftol = 0`, `allow_f_increases = true`, with `xtol` and `gradtol` as listed there),
+Float32 PGD missed the target in 0 of 50 solves in each of the six revision and Julia-version
+cells and reported `converged = true` in none (all ended on the stagnation stop, a median of 10 to 14
+iterations after the target was reached); Float32 APG with the same profiles reported
+`converged = true` in 50 of 50 with no miss. On the adverse set of the report (ill-conditioned
+and low-penalty designs, not part of this suite), those profiles ended at the iteration limit
+in 40 or 41 of 70 Float32 PGD solves, so they are not a general remedy.
 
 ## Local exploration
 
@@ -362,6 +491,66 @@ all three files. Invalid records, mismatched settings, catalogs or data hashes p
 comparison. Intervals include input variability and machine noise, without corrections
 for correlated noise or multiple comparisons.
 
+## Cross-solver readout
+
+`cross_solver.py` sets the per-case summaries of different solvers and settings (CD, PGD, APG)
+side by side for the same problem and accuracy target. It reads existing records only: the
+results directory, for the catalog fields and the per-repetition data hashes, and the
+`summary.csv` that `summarize.py` wrote from that directory. It writes `REPORT.md` and
+`cross_solver.csv` to a fresh directory and changes no record.
+
+```sh
+python3 benchmark/summarize.py benchmark/results benchmark/results/summary --expected-runs 10
+python3 benchmark/cross_solver.py benchmark/results benchmark/results/summary \
+  benchmark/results/cross-solver --expected-runs 10
+```
+
+- **Groups.** A group holds the cases of one Julia version, problem, phase, certificate measure,
+  target and catalog input mode (`fixed`, `draw`) whose data hashes agree in every repetition. The
+  data hash covers the problem data the solver received, not the solver or its settings; for the
+  current-core cases it covers the data in the solver's precision, the penalty and the start, so
+  the cases of a group received the same inputs. Precision (`f64`, `f32`) and start (`cold`,
+  `warm`) are also read from the variant and kept apart; the solver with the rest of the variant
+  names the configuration (`cd sparse`, `pg acc-dense`). Variants without a precision suffix (the
+  historical `R`) show both as `not encoded`. Configurations are listed alphabetically.
+- **Values.** `cross_solver.csv` carries the target, runs, timing runs, mean time, CI95 bounds,
+  worst certificate and status counts of `summary.csv` as strings, unchanged, for every case.
+  `REPORT.md` shows the fields its tables list to six significant digits, as `SUMMARY.md` does.
+- **Failed and missing cases.** A time is shown only for a case with a finite target whose every
+  repetition is `ok`, that is, whose independent certificate met the target in every sample.
+  Other cases are listed with their status counts, worst certificate and the reason
+  (`not every run ok`, `no accuracy target`), without a time. `not recorded` marks a configuration
+  that another case of the same problem, phase and start has and this group lacks. A case with an
+  empty data hash in some repetition (a failure before the runner recorded its input hash) keeps
+  its row in `cross_solver.csv`; "Cases not grouped" lists its labels (including measure, target
+  and input mode), ok runs, worst certificate and status counts, and a group with all of those
+  labels marks the configuration `ungrouped`.
+- **Refusals** (exit 2): invalid records; a `summary.csv` that does not cover the records exactly,
+  or disagrees with their catalog (group, phase, measure, target), with `--expected-runs`, or with
+  the records' status counts, timing runs, worst certificate or mean time (for example a summary
+  of another series with other outcomes; the intervals are not rechecked); two cases of one group
+  that name the same configuration.
+
+The readout is descriptive and per case. Each interval is the case's own Student-t interval over
+repetitions, not a paired comparison between solvers, so overlapping or separate intervals are not
+a test. It does not rank solvers or compute ratios. A claim that one solver is faster at matched
+accuracy needs the protocol of #110 (paired runs within a series, A/A controls, hardware policy).
+
+One group of a 10-repetition extended run (Julia 1.13.3, `637f06a`):
+
+```text
+### Group 4: Julia 1.13.3, precision f32, start cold, relative_gap target 1e-05, inputs 4a1d7fea9474 (draw)
+
+| Configuration | Case | Ok runs / total | Mean time (ns) | 95% interval (ns) | Worst certificate | Status counts | Time |
+|---|---|---:|---:|---:|---:|---|---|
+| apg acc-dense | | | | | | | not recorded |
+| apg dense | gradient/lasso/apg/dense-f32/call | 1 / 10 |  |  | 9.67056e-05 | ok=1, target_missed=9 | excluded: not every run ok |
+| cd dense | cd/lasso/cd/dense-f32/call | 10 / 10 | 5242.6 | [5041.96, 5443.24] | 3.57172e-07 | ok=10 | shown |
+| cd sparse | cd/lasso/cd/sparse-f32/call | 10 / 10 | 5301.2 | [5053.68, 5548.72] | 3.57172e-07 | ok=10 | shown |
+| pg acc-dense | | | | | | | not recorded |
+| pg dense | gradient/lasso/pg/dense-f32/call | 4 / 10 |  |  | 0.00010668 | ok=4, target_missed=6 | excluded: not every run ok |
+```
+
 ## Records and evidence
 
 Each process writes `julia-<VERSION>-rep<NN>` files under `PS_OUTPUT` (two-digit reps).
@@ -402,6 +591,7 @@ Pass `--expected-runs N` to `validate.py`, `summarize.py` and `compare.py` for r
 series. Validation and summarization also accept `--versions VERSION ...`.
 `summarize.py` writes `SUMMARY.md`
 and `summary.csv`, retaining status counts and using the mean of repetition medians.
+`cross_solver.py` takes the same `--expected-runs` and `--versions` (see "Cross-solver readout").
 `check_analysis.py` tests synthetic records, including failures and interruptions. Generated
 results, environments and profiles are ignored by Git. Put concise findings and limitations
 in the pull request. Never select the fastest run or discard adverse runs.

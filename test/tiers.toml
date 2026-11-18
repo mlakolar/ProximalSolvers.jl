@@ -11,10 +11,18 @@ quick = [
 ]
 standard = [
   "cd_numerics",
+  "group_cd",
+  "group_cd_preflight",
   "core_regressions",
   "sparse_cd",
   "accelerated_pgd",
+  "initial_curvature",
   "stopping_scale",
+  "elasticnet",
+  "cd_elasticnet",
+  "sqrt_lasso",
+  "weighted_lasso",
+  "scaled_lasso",
 ]
 full = [
   "examples",

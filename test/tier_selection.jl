@@ -140,7 +140,7 @@ const STANDARD = TT.select(CI, "standard")
   @test classify("scripts/check_naming.py",".github/workflows/Documentation.yml") == ("none",String[])
   @test classify("test/core_contracts.jl")==("quick",["core_contracts"])
   @test classify("test/core_contracts.jl","test/minimal_core_characterization.jl")==("quick",["core_contracts","minimal_core_characterization"])
-  @test classify("examples/01_cd_lasso.jl")==("quick",["examples"])
+  @test classify("examples/problems/lasso.jl")==("quick",["examples"])
   @test classify("examples/README.md")==("none",String[])
   @test classify("test/removed_file.jl")==("quick",String[])
   for path in ("test/Project.toml","test/Manifest.toml","test/LocalPreferences.toml","test/data/x.csv",
@@ -151,7 +151,7 @@ const STANDARD = TT.select(CI, "standard")
     @test classify(path)[1]=="full"
   end
   for path in ("src/ProximalSolvers.jl","src/types.jl","src/solve.jl","src/blocks.jl","src/line_searches.jl",
-    "src/precompile.jl","src/cd/models.jl","src/cd/solver.jl","src/cd/leastsquares.jl","src/cd/squarednorm.jl",
+    "src/precompile.jl","src/cd/models.jl","src/cd/solver.jl","src/cd/leastsquares.jl",
     "src/utils.jl","src/solvers/image_models.jl","src/solvers/proximal_gradient_descent.jl")
     @test classify(path)==("full",String[])
   end

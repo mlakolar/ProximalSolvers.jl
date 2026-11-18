@@ -1,7 +1,7 @@
 # Developing the minimal dense core
 
 Keep PB's committed exact source pin fixed outside a reviewed integration PR. The supported surface is dense
-Float32/Float64 LS+unweighted L1; unsupported features need separate reviewed
+Float32/Float64 LS with an unweighted L1 penalty (and an unweighted ElasticNet, for CD, PGD and APG); unsupported features need separate reviewed
 restoration PRs. No version bump or release follows from the reduction.
 
 ```sh
@@ -69,7 +69,7 @@ extrapolation, objective-increase restart and backtracking that accepts a step o
 when the LS bound is certified by rounding-error bounds under the assumptions stated
 in the implementation notes; its
 tests in `test/accelerated_pgd.jl` check accuracy against BigFloat references from
-the raw data, never only against CD or PGD. Retain C0 numerical fixtures unchanged. Test correctness
+the raw data, never only against CD or PGD; `test/elasticnet.jl` checks its `ElasticNet` solves with PGD and APG against BigFloat references from the raw data. Retain C0 numerical fixtures unchanged. Test correctness
 independently using raw objective/KKT and analytic/finite-support references.
 The nonfinite-CD-objective refusal is a separate bounded guard, not range recovery.
 
@@ -101,7 +101,7 @@ snapshot `9be1773e911a44ec21d49df28cb01fea37c4316e`.
 Restore capabilities selectively with focused numerical checks.
 
 The ProximalBase source pin for this development branch is
-`50db4b1ef376cbe01831c3dd019b6be0027db0b6`;
+`a19c59aa723d085d5d7cf5242895bda16eb77214`;
 the isolated historical comparison baseline is
 `e8a45a8a6ffe2a6f92d83c4c77d62a9b7631e291`.
 Every relevant CI run performs exact-source independent probes in

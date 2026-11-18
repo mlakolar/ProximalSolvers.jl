@@ -10,15 +10,15 @@ Start Julia in your project directory:
 using Pkg
 Pkg.activate(".")
 Pkg.add(url="https://github.com/mlakolar/ProximalBase.jl",
-        rev="50db4b1ef376cbe01831c3dd019b6be0027db0b6")
+        rev="a19c59aa723d085d5d7cf5242895bda16eb77214")
 Pkg.add(url="https://github.com/mlakolar/ProximalSolvers.jl",
         rev="master")
 ~~~
 
-Add **both** packages: ProximalBase provides `LeastSquaresLoss`, `NormL1` and `SparseIterate`; ProximalSolvers provides `CDSolver`, `ProximalGradientDescent`, `AccProxGradDescent` and `solve!`. The long revision identifier specifies the ProximalBase source used by
+Add **both** packages: ProximalBase provides `LeastSquaresLoss`, `NormL1`, `SparseIterate` and, for the group lasso, `GroupNormL2` and `BlockIterate`; ProximalSolvers provides `CDSolver`, `ProximalGradientDescent`, `AccProxGradDescent` and `solve!`. The long revision identifier specifies the ProximalBase source used by
 the development core. The [ProximalBase `/dev/` manual](https://mlakolar.github.io/ProximalBase.jl/dev/)
 documents its **current `master`**, which can differ from the
-[pinned ProximalBase source](https://github.com/mlakolar/ProximalBase.jl/tree/50db4b1ef376cbe01831c3dd019b6be0027db0b6)
+[pinned ProximalBase source](https://github.com/mlakolar/ProximalBase.jl/tree/a19c59aa723d085d5d7cf5242895bda16eb77214)
 used by this solver. Check the pinned code for exact compatibility
 when those docs differ. The `master` branches of both repositories can
 change. Save `Project.toml` and `Manifest.toml` to reproduce your
@@ -33,10 +33,10 @@ If you are **contributing** to the repository instead, clone it and instantiate 
 git clone https://github.com/mlakolar/ProximalSolvers.jl.git
 cd ProximalSolvers.jl
 julia --project=. -e 'using Pkg; Pkg.instantiate()'
-julia --project=. examples/01_cd_lasso.jl
+julia --project=. examples/problems/lasso.jl
 ~~~
 
-The commands above are installation instructions, not CI tests that modify a project. The actual optimization examples below **execute during the documentation build**.
+The last command runs the whole lasso tutorial of `examples/problems/lasso.jl`. The commands above are installation instructions, not CI tests that modify a project. The actual optimization examples below **execute during the documentation build**.
 
 ## The optimization problem
 
@@ -90,7 +90,7 @@ pgd_kkt = [iszero(beta_pgd[j]) ?
 ~~~
 
 With the defaults, `converged=true` means that a stopping test proposed a stop and
-that the computed KKT residual is below `max(gradtol, 64eps(T)) * max(λ, λmax)`; the
+that the computed KKT residual is below `max(gradtol, 64eps(T)) * max(λ, λmax)` (`λ` the ℓ1 level of the penalty); the
 coefficients can still differ from the analytic answer, as the displayed errors show,
 and this is not a general guarantee. Tighten tolerances for results you plan to report
 and verify an independent KKT residual. See

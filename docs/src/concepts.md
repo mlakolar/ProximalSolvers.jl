@@ -22,7 +22,7 @@ For example, soft-thresholding `0.3` at threshold `0.5` gives `0`, while thresho
 
 ## Coordinate descent (CD)
 
-CD updates **one coefficient at a time** while holding the rest fixed, using a scalar soft-thresholding update for the lasso. It repeats sweeps (`passes`) over coordinates, sometimes focusing on the nonzero ones. It is a natural starting point for lasso and supports either a dense coefficient vector or a one-dimensional ProximalBase `SparseIterate`.
+CD updates **one coefficient at a time** while holding the rest fixed, using a scalar soft-thresholding update for the lasso. It repeats sweeps (`passes`) over coordinates, sometimes focusing on the nonzero ones. It is a natural starting point for lasso and supports either a dense coefficient vector or a one-dimensional ProximalBase `SparseIterate`. For a group lasso, CD updates one whole group of coefficients at a time on a ProximalBase `BlockIterate`; see [Choosing a solver](choosing-solver.md).
 
 ~~~@example concepts_cd
 using ProximalBase, ProximalSolvers
@@ -63,7 +63,7 @@ kkt = [iszero(beta[j]) ?
 
 With the default options, `converged=true` for PGD means that a stopping test
 proposed a stop and that the computed KKT residual is below
-`max(gradtol, 64eps(T)) * max(λ, λmax)`: a working-precision check, not an exact
+`max(gradtol, 64eps(T)) * max(λ, λmax)` (`λ` the ℓ1 level of the penalty): a working-precision check, not an exact
 optimality certificate. The displayed coefficient error and KKT violation can still
 be nonzero. **Tighten the tolerances and check optimality before reporting numerical
 results.** This is an illustration, not an accuracy guarantee for other problems. Here

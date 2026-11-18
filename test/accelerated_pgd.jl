@@ -284,7 +284,7 @@ function certified(T, X, x, xa, xb, ω, L, α; fresh_only = false)
   d = x .- y
   loss = LeastSquaresLoss(zeros(T, n), X)
   m = PS._image_model(isone(α) ? loss : α * loss)
-  bc = PS._bound_constants(T, X)
+  bc = PS._bound_constants(T, X, PS._frobenius_upper(T, X))
   # the iterate norms as the solver forms them (one pass when accurate)
   Ey = PS._image_error_bound(bc, PS._se_norm_onepass(T, sum(abs2, xa), xa),
                              PS._se_norm_onepass(T, sum(abs2, xb), xb), extrapolated)
@@ -358,7 +358,7 @@ end
     # images [t, t] (or three entries) of d = [t] with X = ones: the exact curvature is 2 (3)
     call(k, L) = PS._bound_certified!(zeros(T, k), PS._image_model(LeastSquaresLoss(zeros(T, k), ones(T, k, 1))),
       zeros(T, k), fill(t, k), T[t], PS._se_norm(T, T[t]), T(L), PS._se_zero(T),
-      PS._se_norm(T, T[t]), one_se, PS._bound_constants(T, ones(T, k, 1)), false)[1]
+      PS._se_norm(T, T[t]), one_se, PS._bound_constants(T, ones(T, k, 1), PS._frobenius_upper(T, ones(T, k, 1))), false)[1]
     # The underflow terms of the bounds are comparable to these subnormal images, so a
     # violated bound is rejected and here acceptance needs a margin above the curvature.
     @test !call(2, 1) && !call(2, 1.9)       # exact ratio 2 and 2/1.9: rejected
@@ -369,12 +369,12 @@ end
     @test iszero(sum(abs2, T[tiny]))
     @test call2 = PS._bound_certified!(zeros(T, 1), PS._image_model(LeastSquaresLoss(zeros(T, 1), ones(T, 1, 1))),
       zeros(T, 1), T[tiny], T[tiny], PS._se_norm(T, T[tiny]), T(1.01), PS._se_zero(T),
-      PS._se_norm(T, T[tiny]), one_se, PS._bound_constants(T, ones(T, 1, 1)), false)[1]
+      PS._se_norm(T, T[tiny]), one_se, PS._bound_constants(T, ones(T, 1, 1), PS._frobenius_upper(T, ones(T, 1, 1))), false)[1]
     # A nonfinite cached image gives no cheap decision; the fresh product X d, which does
     # not use the cached images, decides (the solver calls the test only with a finite
     # trial value). Here X d = [1, 1], so L = 1.5 is rejected and L = 2.01 accepted.
     m1 = PS._image_model(LeastSquaresLoss(zeros(T, 2), ones(T, 2, 1)))
-    bc1 = PS._bound_constants(T, ones(T, 2, 1))
+    bc1 = PS._bound_constants(T, ones(T, 2, 1), PS._frobenius_upper(T, ones(T, 2, 1)))
     for zw in (T[NaN, 1], T[Inf, 1])
       r1 = PS._bound_certified!(zeros(T, 2), m1, zeros(T, 2), zw, T[1], PS._se_norm(T, T[1]), T(1.5),
                                 PS._se_zero(T), PS._se_norm(T, T[1]), one_se, bc1, false)
@@ -477,7 +477,7 @@ end
   c = 0.7071977f0; v = Float32[1.4140569f0]
   Xb = fill(c, 1_000_000, 1); Xb[1] = 1
   z = Xb * v
-  bc = PS._bound_constants(Float32, Xb)
+  bc = PS._bound_constants(Float32, Xb, PS._frobenius_upper(Float32, Xb))
   E = PS._image_error_bound(bc, PS._se_norm(Float32, v), PS._se_norm(Float32, v), false)
   actual = sqrt(BigFloat(999_999)) * abs(BigFloat(z[2]) - BigFloat(c) * BigFloat(v[1]))
   @test actual <= ldexp(BigFloat(E.s), E.e)
@@ -781,7 +781,9 @@ end
     refused(x, LeastSquaresLoss(reshape(y, 2, 1), X), g, method)
     refused(x, QuadraticFunction(Matrix{T}(I, 2, 2), zeros(T, 2)), g, method)
     refused(x, Scaled(Scaled(f, 1e-200), 1e-200), g, method)
-    refused(x, f, NormL1(T(.1), ones(T, 2)), method)
+    # weights are accepted (test/weighted_lasso.jl); an infinite weight and weights of the other precision are not
+    refused(x, f, NormL1(T(.1), T[1, Inf]), method)
+    refused(x, f, NormL1(T(.1), ones(T === Float32 ? Float64 : Float32, 2)), method)
     refused(x, f, SqrNormL2(T(.1)), method)
     refused(x, f, g, method; screening = true)
     for data in (T[NaN, 0], T[Inf, 0])
@@ -800,6 +802,38 @@ end
   x = [1e200, 1e200]
   @test_throws ArgumentError solve!(x, LeastSquaresLoss([0.], [1e200 1e200]), NormL1(0.), AccProxGradDescent())
   @test x == [1e200, 1e200]
+end
+
+@testset "APG refuses the penalties it does not support, with the ElasticNet message (#324)" begin
+  msg = "only NormL1 or unweighted ElasticNet is supported"
+  vector_msg = "x must be a dense Vector{Float32} or Vector{Float64}"
+  method = AccProxGradDescent()
+  refused_with(x, f, g, m, msg) = begin
+    original = copy(x)
+    @test_throws ArgumentError(msg) solve!(x, f, g, m)
+    @test isequal(x, original)
+  end
+  for T in (Float64, Float32)
+    X, y, x = T[1 0; 0 2], T[1, -1], T[.3, -.2]
+    f = LeastSquaresLoss(y, X)
+    en = ElasticNet(T(.1), T(.2))
+    for g in (ElasticNet(T(.1), T(.2), ones(T, 2)), Scaled(en, 2), Scaled(NormL1(T(.1), ones(T, 2)), 2), SqrNormL2(T(.1)))
+      refused_with(x, f, g, method, msg)
+    end
+    refused_with(x, f, ElasticNet(T(Inf), zero(T)), method, "penalty lambda1 must be finite and nonnegative")
+    refused_with(x, f, ElasticNet(zero(T), T(Inf)), method, "penalty lambda2 must be finite and nonnegative")
+    if T === Float32
+      for a in (1e40, 1e-60)
+        refused_with(x, f, ElasticNet(a, 0.1), method, "penalty lambda1 is not representable without overflow or underflow in Float32")
+        refused_with(x, f, ElasticNet(0.1, a), method, "penalty lambda2 is not representable without overflow or underflow in Float32")
+      end
+    end
+    refused_with(SparseIterate(x), f, en, method, vector_msg)
+    refused_with(SparseIterate(x), f, ElasticNet(T(.1), T(.2), ones(T, 2)), method, vector_msg)
+    refused_with(Int[0, 0], f, en, method, vector_msg)
+    @test_throws DimensionMismatch solve!(zeros(T, 3), f, en, method)
+    @test x == T[.3, -.2]
+  end
 end
 
 @testset "trace, callbacks, limits, result identity and counters" begin

@@ -48,6 +48,7 @@ python3 -B stage2b_campaign.py preflight --config FILE --base BASE [--official -
 python3 -B stage2b_campaign.py prepare   --config FILE --base BASE --step fetch|finalize [--julia MM=PATH ...] [--archive FILE]
 python3 -B stage2b_campaign.py run       --config LOCK --base BASE --official --freeze-sha SHA [--julia MM=PATH ...]
 python3 -B stage2b_campaign.py pilot     --config PILOT --base BASE [--arms AB] [--julia MM=PATH ...]
+python3 -B stage2b_campaign.py recover   --config LOCK --base COPY --freeze-sha SHA [--campaign-dir DIR]
 python3 -B stage2b_campaign.py verify    --base BASE --out FILE [--config PILOT_CONFIG]
 ```
 
@@ -222,6 +223,23 @@ that `finalize` wrote: any change stops the attempt. Only a sealed `logs/complet
 **Interrupted or stopped runs.** A stopped run is preserved and never resumed or retried: `logs/STATE.json` says why,
 every record stays, the receipt has an event for every launched process, and the base refuses to launch again. Start a
 new base (a new `fetch`) for another attempt; the stopped one is kept as evidence of the stop.
+
+**Recovering a refused attempt (`recover`, #333).** An official attempt that measured every process and was then refused
+only because the comparator did not accept the metadata keys of the harness (every recorded problem is a
+`metadata_keys` refusal of those eleven keys) can be finished once, on a COPY of the base, with the corrected
+comparator: `recover` applies the official gate of `run` unchanged (so it needs a complete copy of the base, the private
+`installations/` included, and refuses an evidence-only copy), requires the attempt to verify as `refused` with a complete
+receipt (every process exit 0), moves `logs/STATE.json` and `checksums.sha256` aside byte for byte
+(`logs/STATE.original.json`, `logs/checksums.original.sha256`), writes `logs/recovery.json` (original digests, the
+freeze commit, the driver and comparator digests, the time, the ruling; the driver and comparator digests must be those of
+the committed files at the freeze commit, which must be a commit of the verifier's own checkout) and runs the same tail as `run` (declared
+differences, comparator, completion, seals). The roots, raw files, receipt and the seals of the measurements are never
+touched; `completion.json` and `STATE.json` carry `"recovered": true`. A comparator that still refuses is recorded
+and the recovery is not repeated. `verify` of the copy reports `verified_recovered` (`verified_recovered_non_ok` for a
+non-comparable outcome), checks that every original file is unchanged and the recorded tool digests against the
+freeze commit, requires the complete recovery records whenever any trace of a recovery (a recovery file, or `recovered` or
+`recovery_sha256` in a log record) remains, and never reports plain `verified` for it; the
+refused original keeps verifying as `refused`.
 
 **Verification and copies.** `verify` is read-only and needs no Julia. Run it on the base, copy the tree with `cp -a`
 (or `tar`, which keeps modes) and run it again on the copy with its own `--out`; the two classifications must agree. A

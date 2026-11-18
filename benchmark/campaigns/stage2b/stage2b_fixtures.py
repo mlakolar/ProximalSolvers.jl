@@ -40,6 +40,7 @@ import io
 import json
 import math
 import os
+import posixpath
 import re
 import shutil
 import sys
@@ -65,6 +66,10 @@ PS_UUID = "fc4971f5-6616-4709-9bfc-89a819252f6b"
 PS_A_PACKAGE_HASH = "f37fc61f300ad597a33c7ab5f448d38c865db854"
 PB_A_PACKAGE_HASH = "d4747f2ab51212b20d9adcf70e21c2200b090b2a"
 BLAS = "LBTConfig([ILP64] libopenblas64_.so)"
+# Values of the harness keys of a real run (benchmark/run.jl at 9f86a808; the Discovery smoke run of #330).
+CAPABILITIES = ("apg,apg:float32,apg:lasso,cd,cd:float32,cd:lasso,cd:sparse_iterate,pg,pg:float32,pg:lasso,"
+                "random-cd,random-cd:lasso")
+PB_URL = "https://github.com/mlakolar/ProximalBase.jl"
 CERTIFICATES_HASH = hashlib.sha256(b"certificates.jl").hexdigest()
 BANNED_WORDS = ("noninferior", "non-inferior", "no-regression", "significant", "equivalent")
 CSV_COLUMNS = ("julia, id, role, phase, class, reason, repetitions, a_ns, b_ns, ratio, abs_diff_ns, geomean_ratio, "
@@ -377,6 +382,7 @@ def stack_a(schedule, label, installation):
         label=label, installation=installation, dirty=False, blas=BLAS,
         checkout=f"/synthroot/{installation}/ProximalSolvers.jl", depot=f"/synthroot/{installation}/depot",
         depot_real=f"/synthroot/{installation}/depot",
+        pb_dir=f"/synthroot/{installation}/depot/packages/ProximalBase/synth",
         env=f"/synthroot/{installation}/envs/env-{{version}}/Project.toml",
         env_real=f"/synthroot/{installation}/envs/env-{{version}}/Project.toml",
         ps=dict(commit=ident["proximalsolvers"]["commit"], tree=ident["proximalsolvers"]["tree"],
@@ -736,6 +742,23 @@ class Campaign:
                 errors.append([case["id"], rep, status, ov.get("error_text", {}).get(orig, ERROR_TEXT[status]), ""])
         return catalog, metrics, samples, errors, nonok
 
+    def harness_meta(self, stack, jkey):
+        """The eleven keys that the harness at 9f86a808 writes next to validate.py's START_KEYS (#333), with the
+        values of a real run: a registered ProximalBase is loaded from the registry (no URL, revision or pin), a
+        development one from git at its commit, which the ProximalSolvers checkout pins."""
+        pb = stack["pb"]
+        registered = pb.get("release") == "registered"
+        return {
+            "active_manifest": posixpath.dirname(stack["env"].format(version=self.version(jkey))) + "/Manifest.toml",
+            "capabilities": CAPABILITIES,
+            "deferred_cases": load_tool().trusted_deferred(
+                load_tool().HARNESS_SUCCESSOR, self.sched["settings"]["suite"], self.sched["settings"]["groups"]),
+            "expected_package_revision": "", "expected_proximalbase_rev": "",
+            "proximalbase_path": stack["pb_dir"], "proximalbase_rev": "" if registered else pb["commit"],
+            "proximalbase_source": "registry" if registered else "git", "proximalbase_tree_sha1": pb["tree"],
+            "proximalbase_url": "" if registered else PB_URL,
+            "required_proximalbase_rev": "" if registered else pb["commit"]}
+
     def metadata(self, label, jkey, rep, ov, cases, nonok):
         s, stack = self.sched["settings"], self.stack(label)
         start = {
@@ -748,7 +771,8 @@ class Campaign:
             "blas_threads": s["blas_threads"], "blas": stack["blas"], "cpu": self.sched["machine"]["cpu"][jkey],
             "cpu_model": self.sched["machine"]["cpu_model"], "samples_target": s["samples_target"],
             "seconds_limit": s["seconds_limit"], "case_seconds": s["case_seconds"],
-            "profile_seconds": s["profile_seconds"], "seed_scheme": s["seed_scheme"], "job_id": "none"}
+            "profile_seconds": s["profile_seconds"], "seed_scheme": s["seed_scheme"], "job_id": "none",
+            **(self.harness_meta(stack, jkey) if self.model.get("harness_keys") else {})}
         start.update(ov.get("meta", {}))
         start.update(ov.get("start_meta", {}))
         final = dict(start)
@@ -850,6 +874,7 @@ class Campaign:
             "depot_path": [stack["depot"], "/synthroot/julia/depot"],
             "proximalbase_version": stack["pb"]["version"],
             "proximalbase_loaded_tree": stack["loaded_tree"] or stack["pb"]["tree"],
+            "proximalbase_dir": stack["pb_dir"],
             "proximalsolvers_dir": stack["checkout"], "threads": 1,
             "active_project": stack["env"].format(version=self.version(jkey)),
             "depot_realpath": stack["depot_real"], "cpu_name": self.sched["machine"]["cpu"][jkey]}
@@ -866,6 +891,8 @@ class Campaign:
                 item["git-tree-sha1"] = entry["tree"]
             if "path" in entry:
                 item["path"] = entry["path"]
+            if name == "ProximalBase" and self.stack(label)["pb"].get("release") != "registered":
+                item["repo-url"], item["repo-rev"] = PB_URL, self.stack(label)["pb"]["commit"]
             deps[name] = [dict(sorted(item.items()))]
         return {"julia_version": self.version(jkey), "manifest_format": "2.0",
                 "project_hash": sha1_text("project", label), "deps": deps}
@@ -1057,11 +1084,16 @@ def declared_differences(camp):
 # Building a set
 # --------------------------------------------------------------------------------------------------------------
 
-def build_campaign(dest, variant="migration", reps=None, schedule_edit=None):
+def build_campaign(dest, variant="migration", reps=None, schedule_edit=None, harness_keys=False,
+                   successor_harness=False):
     """Build a complete valid input set in `dest/campaign` and return its `Campaign`.
 
     `reps`: the number of repetition IDs (default: the schedule's eight; the schedule copy follows).
-    `schedule_edit`: a function applied to the schedule dict before anything is built."""
+    `schedule_edit`: a function applied to the schedule dict before anything is built.
+    `harness_keys`: the metadata of the successor harness (#333), the original eleven keys of the harness at 9f86a808
+    next to those of validate.py; the default is the metadata of the original harness (412063d8, b0de3f7).
+    `successor_harness`: both stacks carry the harness hash of 9f86a808, the one that the comparator knows writes
+    them (the schedule copy is edited); without it the comparator has to be told the synthetic hashes."""
     assert variant in ("migration", "manifest", "identical")
     base = Path(dest) / "campaign"
     base.mkdir(parents=True)
@@ -1074,7 +1106,9 @@ def build_campaign(dest, variant="migration", reps=None, schedule_edit=None):
                                           for rep in range(1, reps + 1)}
     if schedule_edit is not None:
         schedule_edit(schedule)
-    if reps is not None or schedule_edit is not None:
+    if successor_harness:
+        schedule["stack_a"]["harness_hash"] = load_tool().HARNESS_SUCCESSOR
+    if reps is not None or schedule_edit is not None or successor_harness:
         toml_write(base / "schedule.toml", schedule)
     cases = load_cases()
     declared_ids = schedule["settings"]["case_filter"].split(",")
@@ -1082,7 +1116,10 @@ def build_campaign(dest, variant="migration", reps=None, schedule_edit=None):
     stacks = {"a": stack_a(schedule, "a", "inst-a1"), "b": stack_b(schedule, "inst-b1", variant),
               "aa_a": stack_a(schedule, "aa_a", "inst-aa1"), "aa_b": stack_a(schedule, "aa_b", "inst-aa2")}
     stacks["b"]["label"] = "b"
-    camp = Campaign(base, {"schedule": schedule, "cases": cases, "stacks": stacks, "variant": variant})
+    if successor_harness:
+        stacks["b"]["harness"] = schedule["stack_a"]["harness_hash"]
+    camp = Campaign(base, {"schedule": schedule, "cases": cases, "stacks": stacks, "variant": variant,
+                           "harness_keys": harness_keys})
     camp.write_inputs()
     return camp
 

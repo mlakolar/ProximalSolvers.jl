@@ -1,0 +1,8 @@
+e5cd1afe0b38b812deefd0bb95fcaa9b870c7680aab28c730ebdd396e07f1a0c  ./stack-a/julia-1.10/Manifest.toml
+f85626cf5ad1996ae3a02d1ab3245982365af6fd7a2001add47c7b26b8026b16  ./stack-a/julia-1.10/Project.toml
+39f82d5c3b3510bb40e76982dcd44284754f98a0c773eb0141ee5999ae4abdfa  ./stack-a/julia-1.13/Manifest.toml
+00ab2ade5aa03c67697cf6de2cff74462b01626ad4b9c89ac5580bd3bcd6b875  ./stack-a/julia-1.13/Project.toml
+5bae2c5e274182505937c7c9a2556fdb419bb10be46ab3c7d0a5b38c4b0832e6  ./stack-b/julia-1.10/Manifest.toml
+c661df8a5893f4739b497443817a940bafd88714f183d2cfb5436ff3ac755729  ./stack-b/julia-1.10/Project.toml
+98608246ef318c97f93c9ab1c0772949d3b91881a312db3f89989151441ba68e  ./stack-b/julia-1.13/Manifest.toml
+ca8d89cc42fc418b28a62a92322054b985018fcba2a639f5d0f155637039aa3e  ./stack-b/julia-1.13/Project.toml

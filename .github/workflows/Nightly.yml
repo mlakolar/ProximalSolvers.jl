@@ -15,7 +15,7 @@ name: Nightly
 #
 # Triggers:
 # - the daily schedule (GitHub can delay or skip scheduled runs) and manual runs (`gh workflow run Nightly.yml --ref master`);
-# - a pull request that edits this workflow, Manifest-v1.10.toml or Project.toml, to show the
+# - a pull request that edits this workflow, Manifest-v1.10.toml, Project.toml or test/group_cd.jl, to show the
 #   results of the legs before merge. That run is advisory and reports no issue. With no
 #   tier-raising label (test:standard, test:full), a change to this file alone selects tier
 #   `none` in .github/tier-rules.toml, so CI.yml runs no package tests for it; this advisory run
@@ -46,6 +46,7 @@ on:
       - '.github/workflows/Nightly.yml'
       - 'Manifest-v1.10.toml'
       - 'Project.toml'
+      - 'test/group_cd.jl'
 permissions:
   contents: read
 concurrency:

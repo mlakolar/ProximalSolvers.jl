@@ -67,7 +67,10 @@ while CD's step and stopping arithmetic uses `T(s)`. For an integer or `Bool`
 scale the check in `src/solve.jl` makes the two real scales equal; the arithmetic
 precision can differ (Float32 data and the scale `3`: `Float32` in CD, `Float64`
 in the objective's product), and for `Float64` data both are `Float64`. `_root_scale`
-converts an integer or `Bool` scale at a scoped precision of 256 bits.
+rounds the scale once to `Float64` (exact for a `Float32` or `Float64` scale, for a `Bool`
+and for an integer of magnitude at most `2^53`; a larger integer is rounded once) and
+takes its significand and exponent there; a scale outside the range of `Float64` is not
+supported by `_root_scale`.
 The coordinate scale, with `a` the squared norm of the column, `p = s * a`
 in `S` and `q = T(p)`, is `sqrt(q)` where `q` is a normal number of `T`;
 otherwise `T(sqrt(p))` where `p` is not below `floatmin(S)` and is finite or `a`
@@ -111,13 +114,27 @@ which broke that agreement; for `λ = 0` PB's prox keeps a zero threshold for an
 `floatmin(S)` the step is the exceptional one, also for cases that were correct
 before (a subnormal `p` with a finite reciprocal), and where `λ > 0` their bits
 can differ from before.
-`_exceptional_step` is written for `S == T` and the unweighted `NormL1`. For a
+`_exceptional_step` is written for `S == T`, for a `NormL1` whose weights are absent or a `Vector{T}`, and for an
+unweighted `ElasticNet` (at `λ2 = 0` the step of `NormL1(λ1)`; at `λ2 > 0` it throws an `ArgumentError`, see `CDSolver`). With
+weights the `NormL1` method forms `cₖ = T(λ0) wₖ` in `T`, the coefficient that `solve!` has checked (finite and, where
+`T(λ0)` and `wₖ` are both positive, a normal number of `T`), and calls the unweighted method at the level `cₖ`: `τ` is within
+the bounds above of `cₖ / (s a)`, and within those bounds plus `|cₖ - λ0 wₖ| / (s a)` of `λ0 wₖ / (s a)`
+(`cₖ` is 0 or a normal number of `T`, which `solve!` checks. `|cₖ - λ0 wₖ|` is at most `|T(λ0) - λ0| wₖ`, the conversion of the level (0
+for a level of type `T`), plus the rounding of the product to nearest, at most `(eps(T)/2) cₖ`, also where the exact product is slightly below
+`floatmin(T)` and rounds up to it. For a level converted by round-to-nearest (a `Float16`, `Float32`, `Float64` or `BigFloat`, or an
+integer) `|T(λ0) - λ0| ≤ (eps(T)/2) T(λ0)`; a `Rational` level can have a larger conversion error, because Julia's
+conversion of a `Rational` can round the numerator and the denominator before dividing, so only the actual error bounds it). A zero weight or level gives `τ = 0` and
+`shrink(c, 0) = c`. Inside the band the step is PB's weighted `prox_block`, whose threshold is `γ λ0 wₖ` formed
+in its own working type from `λ0` and `wₖ`, not from the rounded `cₖ` (for a level of type `T` the two are the same product up to rounding;
+for another type they can differ by the conversion error above); the weighted step has no exponent-separated threshold of its own. A column of `X` that
+is zero takes `_coordinate_minimizer`, PB's `prox_block(g, 0, k, floatmax(T))`, which is 0 for a weighted `NormL1`
+also at a zero weight. For a
 finite `a`, an `S` wider than `T` keeps `p` inside the band: `solve!` requires a
 loss scale that is representable in `T`, and `a` is finite in `T`, so
 for `Float32` data with a `Float64` scale `p` is between about `1e-90` and
 `1e77`. A scale of another type, or
-a penalty other than the unweighted `NormL1`, makes the step throw an
-`ArgumentError`. A column whose `a` is not finite in `T` makes `coordinate_step!`
+a penalty without a method of `_exceptional_step` (an unweighted `NormL1` or `ElasticNet`, or a `NormL1` with a `Vector{T}` of weights, has one), makes
+the step throw an `ArgumentError`. A column whose `a` is not finite in `T` makes `coordinate_step!`
 throw an `ArgumentError` that names the curvature, before the coordinate, the
 residual or the curvature cache entry of that column changes, and `x` and an
 owner are not changed.
@@ -178,7 +195,7 @@ is a dense Vector of that type for every solver, and additionally a
 one-dimensional `SparseIterate` of that type for [`CDSolver`](@ref) only;
 [`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref) refuse every
 `SparseIterate`. Use raw PB LS or
-one positive finite scalar Scaled LS, and unweighted finite nonnegative NormL1.
+one positive finite scalar Scaled LS, and finite nonnegative NormL1 (with optional weights, a `Vector{T}`).
 Parameters must be representable; positive values must not round to zero.
 Scaling is explicit: raw LS means sum(abs2,y-X*x)/2; divide by n explicitly for
 normalized lasso. An accepted loss scale wider than `T` is used as supplied,
@@ -221,12 +238,13 @@ ArgumentError.
 ## Deferred
 
 Sparse designs, sparse vectors and views as iterates, `SparseIterate` for proximal
-gradient descent (plain or accelerated), matrix-shaped, group and symmetric owners, weighted/group
-penalties, matrix responses, intercepts/offsets, generalized losses/compositions,
+gradient descent (plain or accelerated), matrix-shaped, group and symmetric owners, weighted
+`ElasticNet`, `Scaled` penalties, group penalties other than `GroupNormL2` with CD, matrix responses, intercepts/offsets, generalized losses/compositions,
 monotone/active-set acceleration and APG diagonal preconditioning, ADMM/Newton,
-primal-dual/SLOPE/graphical models, paths/screening/certificates/workspaces/refit
-and reweighting are deferred. Nondefault feature requests are refused. gap=NaN
-and CD kkt_checks=0 are compatibility sentinels, not computed diagnostics.
+primal-dual/SLOPE/graphical models, paths/screening/workspaces/refit, certificates other
+than the duality certificate of square-root lasso CD, and reweighting are deferred. Nondefault
+feature requests are refused. CD kkt_checks=0 is a compatibility sentinel, and gap=NaN is one too,
+except after a certified square-root lasso run of CD, where gap is the certified bound.
 
 This is a breaking support reduction. Version/registration and any public
 release remain a separate decision; existing releases are untouched. Protected
@@ -275,7 +293,18 @@ residual, against a scale that exceeds `L eps(T) ‖x‖∞`. The iterate test k
 `xtol * max(‖x‖, 1)`, which for `‖x‖ < 1` is an absolute tolerance. A stop that any of them
 proposes is checked once in `_stationary!` (`src/utils.jl`): the minimal-norm KKT residual of
 the accepted `x` must be below `max(gradtol, 64 eps(T)) * max(λ, λmax)`, `λmax = α‖Xᵀy‖∞`
-(formed once per solve in `xhat` and kept in the state field `λmax`). The check requires `S =
+(formed once per solve in `xhat` and kept in the state field `λmax`), with `λ` the ℓ1 level of the
+penalty. `_stationary!` converts the levels of the penalty to `T` once (`_converted_penalty`; the weights of a
+`NormL1`, a `Vector{T}`, are kept as they are) and takes the
+level and the residual from that penalty: `_l1_level` is `T(λ0) * maximum(w)`, the largest coefficient, for a
+`NormL1` with weights. The
+residual is ProximalBase's full-point `kkt_violation` of `NormL1(T(λ0))`, of `NormL1(T(λ0), w)` or of
+`ElasticNet(T(λ1), T(λ2))`; for `ElasticNet` it adds `λ2 xᵢ` at the nonzero entries. `λ2` is not in `S`
+(the check is the lasso check on the data augmented by `√λ2 I`, see `numerics.md`).
+The penalty is validated once by `_check_penalty` in `_check_data`. For an `x` that is not a `BlockIterate`
+it accepts a `NormL1` for all solvers (with weights, `_check_l1_weights`: a `Vector{T}` of the length of `x`, finite and nonnegative entries,
+no alias with `x`, a level `T(λ0)` that is zero or normal, and the coefficients `T(λ0) wⱼ` finite and, for positive factors, normal) or an unweighted `ElasticNet` for all solvers and refuses any other
+penalty; a `BlockIterate` has its own method, for a `GroupNormL2`. The check requires `S =
 max(λ, λmax)` finite, that product, formed in `T`, at least `floatmin(T)` and the residual
 finite; it does not require the product to be finite. Otherwise the three flags are cleared and the solve continues. PGD uses the `∇f(x)` it holds. APG
 forms `∇f(x)` from the cached image `z_x` with `_value_and_gradient!` (ProximalBase's
@@ -348,11 +377,12 @@ is at most `(1 + 4eps)/(1 + κ) √L ‖d̂‖/((1 + γ_{p+4})(1 + u))`; reject 
 bound `‖Δz‖/((1 + γ_{n+4})(1 + u)) - E_x - E_y` exceeds `(1 + 4eps)(1 + κ) √L ‖d̂‖/((1 - γ_{p+4})(1 - u))`.
 Otherwise form `w = fl(X d̂)` in the residual buffer, with
 `‖w - X d‖ ≤ (γ_p + 2u)‖X‖_F ‖d̂‖/((1 - γ_{p+4})(1 - u)) + 2p√n η`, accept when its upper bound passes,
-and reject otherwise. `√α` (`_root_scale`) is formed from `α`'s significand and exponent:
-exact in its own type for a Float32 or Float64 scale, and otherwise (an integer or `Bool`
-scale) taken after rounding `α` once to 256 bits inside a scoped BigFloat precision
-(restored afterwards); the significand is rounded once to Float64 before its root. So
-neither the active BigFloat precision nor `α`'s range limits it.
+and reject otherwise. `√α` (`_root_scale`) is formed from `α`'s significand and exponent
+after `α` is rounded once to Float64 (exact for a Float32 or Float64 scale, for a `Bool` and
+for an integer of magnitude at most `2^53`; a larger integer is rounded once); the exponent
+is made even, the root of the significand is converted to `T`, and half the exponent is
+carried as the `Int` exponent of an `_SE` value, so the range of `T` does not limit `√α`.
+A scale outside the range of Float64 is not supported by `_root_scale`.
 `κ = 32u` covers the roundings of `√L`, of `√α`'s conversion to `T`
 and of the fixed number of `_SE` products and sums on each side; the dimension-dependent
 errors enter through the factors above. These are conservative bounds: in Float32 the
@@ -423,7 +453,7 @@ checks shared by both gates and an owner gate that inspects only public active
 values and tests aliasing against the original owner. PGD keeps the dense gate and
 refuses owners.
 
-The current exact PB pin is `50db4b1ef376cbe01831c3dd019b6be0027db0b6`. CD uses
+The current exact PB pin is `a19c59aa723d085d5d7cf5242895bda16eb77214`. CD uses
 its scalar `prox_block` oracle; PGD retains fused `value_and_prox!`. All three solvers take the least-squares value from the PB oracles named above, and PGD and APG take the coefficient gradient from them. The private PB
 SparseIterate contract remains unchanged. PR #237's group/workspace migration is
 not imported. The gated analysis job always runs isolated exact-source paired

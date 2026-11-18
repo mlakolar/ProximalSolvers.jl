@@ -31,15 +31,23 @@ const CASE_GROUPS = ("cd", "paths", "gradient", "newton", "admm", "primal_dual",
 # an iterate or a phase. Restoring a solver feature means adding its entries here (and
 # adapting its constructor in `benchmark_method` if its API changed).
 const CAPABILITIES = Set([
-  # CDSolver: dense Matrix least-squares lasso with unweighted NormL1, a dense Vector or a
+  # CDSolver: dense Matrix least-squares lasso with NormL1 (unweighted, or with weights: see
+  # "weighted_l1" below), a dense Vector or a
   # vector SparseIterate, Float32 or Float64, cyclic ("cd") or random ("random-cd") order;
-  # no gap stopping, workspaces or paths.
-  "cd", "cd:lasso", "cd:sparse_iterate", "cd:float32", "random-cd", "random-cd:lasso",
+  # no gap stopping, workspaces or paths. "cd:block_iterate": the least-squares group lasso on
+  # a BlockIterate with a GroupNormL2 penalty (#275), Float32 or Float64; no gap stopping.
+  "cd", "cd:lasso", "cd:sparse_iterate", "cd:float32", "cd:block_iterate", "random-cd",
+  "random-cd:lasso",
   # ProximalGradientDescent: the same problem with a dense Vector, Float32 or Float64.
   "pg", "pg:lasso", "pg:float32",
   # AccProxGradDescent: the same problem with a dense Vector, Float32 or Float64; no gap
   # stopping, workspaces or other problems.
   "apg", "apg:lasso", "apg:float32",
+  # "weighted_l1" (#331): the same lasso problems with NormL1(λ, w), w a Vector of the element
+  # type of the data with finite nonnegative entries; no gap stopping or workspaces. The
+  # historical `cd/weighted-lasso` case also needs gap stopping and a workspace, so it stays
+  # deferred.
+  "cd:weighted_l1", "random-cd:weighted_l1", "pg:weighted_l1", "apg:weighted_l1",
 ])
 
 const SOLVER_NAMES = Dict("cd" => "CDSolver", "random-cd" => "CDSolver(order = :random)",
@@ -52,6 +60,7 @@ const FEATURE_NOTES = Dict(
   "lasso" => "least-squares lasso, dense Matrix design, unweighted NormL1",
   "float32" => "Float32 data and iterate", "sparse_iterate" => "vector SparseIterate iterate",
   "gap" => "duality-gap stopping (gaptol > 0)",
+  "block_iterate" => "BlockIterate iterate with a GroupNormL2 penalty",
   "workspace" => "SolverWorkspace and reinit! (workspace phase)",
   "path" => "solve_path with screening", "setup" => "cached setup of the setup phase",
   "weighted_l1" => "weighted NormL1", "sparse_design" => "SparseMatrixCSC design",
@@ -300,9 +309,11 @@ const CORE_PRECISIONS = ((Float64, "f64"), (Float32, "f32"))
 const CORE_ITERATES = Dict("cd" => (:dense, :sparse), "pg" => (:dense,), "apg" => (:dense,))
 
 # The start of a warm case: the solution at 1.25λ, the previous level of a path with ratio
-# 0.8, computed in Float64 by the certificate module's own coordinate descent, so it does
-# not depend on the solver under test. It is part of the inputs and of their data hash.
+# 0.8, computed in Float64 by the certificate module's own coordinate descent (for a group
+# lasso, by `group_warm_start`), so it does not depend on the solver under test. It is part of
+# the inputs and of their data hash.
 function warm_start(a)
+  a.kind == :group && return group_warm_start(a)
   a.s == 1 / size(a.X, 1) && all(isone, a.w) || error("warm starts need s = 1/n and unit weights")
   refit = cert_loading_refit(a.X, a.y, 1.25a.λ, a.w, zeros(size(a.X, 2)); tol = 1e-12,
                              maxpasses = 100_000)
@@ -310,14 +321,53 @@ function warm_start(a)
   refit.β
 end
 
+# The group-lasso solution at 1.25λ by cyclic block coordinate descent in Float64, written for the
+# harness and independent of the solver under test: the curvature of a group is the largest
+# eigenvalue of the Gram matrix of its columns, the block update is the group soft threshold of
+# the trial point, and it stops when `group_certificate` gives a relative gap of at most 1e-12.
+function group_warm_start(a)
+  a.s == 1 / size(a.X, 1) || error("warm starts need s = 1/n")
+  λ = 1.25a.λ
+  β, residual = zeros(size(a.X, 2)), copy(a.y)
+  # All eigenvalues, not `eigmax`: on Julia 1.10 the selected-eigenvalue routine behind `eigmax` can throw a
+  # convergence error on a Gram matrix close to the identity.
+  curvature = [maximum(eigvals(Symmetric(a.X[:, g]' * a.X[:, g]))) for g in a.groups]
+  for pass in 1:100_000
+    for (k, g) in enumerate(a.groups)
+      block = view(a.X, :, g)
+      trial = β[g] .+ (block' * residual) ./ curvature[k]
+      next = max(0.0, 1 - λ * a.w_group[k] / (a.s * curvature[k] * norm(trial))) .* trial
+      residual .-= block * (next .- β[g])
+      β[g] .= next
+    end
+    if pass % 4 == 0
+      cert = group_certificate(a.X, a.y, a.s, λ, a.groups, a.w_group, β)
+      cert.status == :ok && cert.measure == :relative_gap && cert.value <= 1e-12 && return β
+    end
+  end
+  error("the group warm start did not certify")
+end
+
+# The `core/lasso` design with the positive weights 0.5, …, 2.5 (equally spaced) on the 32 coefficients: the
+# penalty is NormL1(λ, w) with λ the 0.15 λmax of the unweighted problem.
+function weighted_problem(rep, key)
+  a = regression_problem(rep, key)
+  merge(a, (; w = collect(range(0.5, 2.5; length = size(a.X, 2)))))
+end
+
 # The problem a current-core case gives its solver: the Float64 draw rounded once to T, with
 # its start. Certificates read the same values back exactly in Float64.
 function core_problem(a, ::Type{T}; warm = false) where T
   start = warm ? warm_start(a) : zeros(size(a.X, 2))
-  merge(a, (; X = T.(a.X), y = T.(a.y), s = T(a.s), λ = T(a.λ), w = T.(a.w), start = T.(start)))
+  rounded = merge(a, (; X = T.(a.X), y = T.(a.y), s = T(a.s), λ = T(a.λ), w = T.(a.w), start = T.(start)))
+  # The group weights are rounded too, so that the penalty has the precision of the data.
+  hasproperty(a, :w_group) ? merge(rounded, (; w_group = T.(a.w_group))) : rounded
 end
-exact_problem(a) = merge(a, (; X = Float64.(a.X), y = Float64.(a.y), s = Float64(a.s),
-                             λ = Float64(a.λ), w = Float64.(a.w), start = Float64.(a.start)))
+function exact_problem(a)
+  exact = merge(a, (; X = Float64.(a.X), y = Float64.(a.y), s = Float64(a.s),
+                    λ = Float64(a.λ), w = Float64.(a.w), start = Float64.(a.start)))
+  hasproperty(a, :w_group) ? merge(exact, (; w_group = Float64.(a.w_group))) : exact
+end
 
 function sparse_start(start::Vector{T}) where T
   x = ProximalBase.SparseIterate(T, length(start))
@@ -326,6 +376,10 @@ function sparse_start(start::Vector{T}) where T
   end
   x
 end
+
+# The start of a group-lasso case: a BlockIterate with the groups of the problem; a group that
+# holds a nonzero entry of the start is active.
+block_start(start, groups) = ProximalBase.BlockIterate(start, groups)
 
 function core_method(solver, ::Type{T}) where T
   PS = ProximalSolvers
@@ -350,7 +404,8 @@ function core_case_state(a, solver, iterate; options = benchmark_options(; resid
   T = eltype(a.X)
   f, g = benchmark_model(a)
   method = core_method(solver, T)
-  start = iterate == :sparse ? sparse_start(a.start) : copy(a.start)
+  start = iterate == :sparse ? sparse_start(a.start) :
+          iterate == :block ? block_start(a.start, a.groups) : copy(a.start)
   x = copy(start)
   # copyto! between SparseIterates of one size copies the state: values, active set, order.
   reset! = () -> (copyto!(x, start); reset_solver_rng!(method); nothing)
@@ -362,14 +417,26 @@ function core_case_state(a, solver, iterate; options = benchmark_options(; resid
 end
 
 function add_core_cases!(catalog, group, problem, solver, make_problem; warm = false,
-                         suite = "quick")
+                         suite = "quick", weighted = false)
   for (T, precision) in CORE_PRECISIONS, iterate in CORE_ITERATES[solver]
     variant = (warm ? "warm-" : "") * "$(iterate)-$(precision)"
-    needs = ["lasso"; T == Float32 ? ["float32"] : String[];
+    needs = ["lasso"; weighted ? ["weighted_l1"] : String[]; T == Float32 ? ["float32"] : String[];
              iterate == :sparse ? ["sparse_iterate"] : String[]]
     make = rep -> core_case_state(core_problem(make_problem(rep), T; warm), solver, iterate)
     add_case!(catalog, group, problem, solver, variant, make; suite, target = CORE_TARGETS[T],
               requires = case_requirements(solver, needs, "call"))
+  end
+end
+
+# CDSolver on a BlockIterate (#275): the group-lasso problem of `make_problem`, Float64 and Float32,
+# with the targets, CD settings and certificate scheme of the other current-core cases.
+function add_core_group_cases!(catalog, problem, make_problem; warm = false, suite = "quick")
+  for (T, precision) in CORE_PRECISIONS
+    variant = (warm ? "warm-" : "") * "block-$(precision)"
+    needs = ["block_iterate"; T == Float32 ? ["float32"] : String[]]
+    make = rep -> core_case_state(core_problem(make_problem(rep), T; warm), "cd", :block)
+    add_case!(catalog, "cd", problem, "cd", variant, make; suite, target = CORE_TARGETS[T],
+              requires = case_requirements("cd", needs, "call"))
   end
 end
 
@@ -544,6 +611,25 @@ function build_catalog(suite, groups; deferred = false)
     add_core_cases!(catalog, "cd", problem, "cd", make_problem; warm, suite)
     add_core_cases!(catalog, "gradient", problem, "pg", make_problem; warm, suite)
     add_core_cases!(catalog, "gradient", problem, "apg", make_problem; warm, suite)
+  end
+  # Weighted lasso (#331), extended suite: the 100×32 independent design of `core/lasso` with the weights of
+  # `weighted_problem`, cold start only (a warm start needs unit weights). CD (`{dense,sparse}-{f64,f32}`) and
+  # PGD and APG as the `acc-` cases (Float64, `accuracy_options`) need no gap stopping; like the other `acc-`
+  # cases they have no Float32 counterpart.
+  weighted_make = rep -> weighted_problem(rep, "core/lasso-weighted")
+  add_core_cases!(catalog, "cd", "lasso-weighted", "cd", weighted_make; suite = "extended", weighted = true)
+  for solver in ("pg", "apg")
+    make = rep -> core_case_state(core_problem(weighted_make(rep), Float64), solver, :dense;
+                                  options = accuracy_options())
+    add_case!(catalog, "gradient", "lasso-weighted", solver, "acc-dense-f64", make;
+              suite = "extended", target = CORE_TARGETS[Float64],
+              requires = case_requirements(solver, ["lasso", "weighted_l1"], "call"))
+  end
+  # CDSolver on a BlockIterate (#275): the 120×32 group-lasso design of `grouped_problem` with groups of
+  # four, cold and warm. The key `core/group-lasso` gives draws of its own, not those of the
+  # deferred `cd/group-lasso/cd/tight` case.
+  for warm in (false, true)
+    add_core_group_cases!(catalog, "group-lasso", rep -> grouped_problem(rep, "core/group-lasso"); warm)
   end
   # The same PGD and APG problems in Float64 under `accuracy_options` (#314), extended suite only.
   for (problem, make_problem, starts, _) in core_designs, warm in starts, solver in ("pg", "apg")

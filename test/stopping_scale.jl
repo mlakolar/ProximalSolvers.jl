@@ -40,6 +40,16 @@ end
 # model, not guarantees for every BLAS kernel, and they do not make the computed residual an
 # exact one.
 function kkt_excess(X, y, α, λ, x, τ, ::Type{T}) where T
+  G, S, eG, eS, u = kkt_parts(X, y, α, λ, x, T)
+  iszero(S) && return Inf
+  setprecision(BigFloat, 256) do
+    Float64((G - eG - BigFloat(τ) * (1 + 4u) * (S + eS)) / S)
+  end
+end
+
+# The reference residual G = ‖G‖∞, evaluated in 256-bit BigFloat, S, and the rounding estimates eG, eS and u of kkt_excess
+# (the values keep the 256-bit precision they were formed in)
+function kkt_parts(X, y, α, λ, x, ::Type{T}) where T
   setprecision(BigFloat, 256) do
     Xb, yb, xb, a, l = BigFloat.(X), BigFloat.(y), BigFloat.(x), BigFloat(α), BigFloat(λ)
     n, p = size(Xb)
@@ -48,12 +58,11 @@ function kkt_excess(X, y, α, λ, x, τ, ::Type{T}) where T
     g = a .* (Xb' * d)
     G = maximum(j -> iszero(xb[j]) ? max(abs(g[j]) - l, zero(l)) : abs(g[j] + l * sign(xb[j])), eachindex(xb))
     S = max(l, maximum(abs, a .* (Xb' * yb)))
-    iszero(S) && return Inf
     absX = abs.(Xb)
     e = (p + 1) * u .* (absX * abs.(xb) + abs.(yb))
     eG = maximum(a .* (absX' * (e .+ (n + 1) * u .* (abs.(d) .+ e))) .+ u .* (abs.(g) .+ l))
     eS = a * (n + 1) * u * maximum(absX' * abs.(yb))
-    Float64((G - eG - BigFloat(τ) * (1 + 4u) * (S + eS)) / S)
+    G, S, eG, eS, u
   end
 end
 
@@ -290,8 +299,9 @@ end
 alloc_check(state, f, g, options) = @allocated PS._stationary!(state, f, g, options)
 @testset "the stationarity check allocates nothing (#296)" begin
   o = ProximalOptions(gradtol = 1e-5)
-  for T in (Float64, Float32), method in METHODS
-    g = NormL1(T(.1))
+  # a level of type T, a BigFloat level and a Rational level
+  for T in (Float64, Float32), method in METHODS, level in (T(.1), big"0.1", 1 // 10)
+    g = NormL1(level)
     raw = LeastSquaresLoss(T[.6, 1], T[1 0; 0 1])
     # raw, a scale of type T, a Float64 (Float32 data) or Float32 (Float64 data) scale, an integer scale
     for f in (raw, T(.25) * raw, (T === Float32 ? 0.25 : 0.25f0) * raw, 3 * raw)
@@ -299,6 +309,166 @@ alloc_check(state, f, g, options) = @allocated PS._stationary!(state, f, g, opti
       PS._stationary!(state, f, g, o)
       @test alloc_check(state, f, g, o) == 0
     end
+  end
+end
+
+# The bytes of the conversions that one check must make: a Rational{BigInt} level allocates when it is converted
+# to T. The complete check converts each level once, so it allocates no more than the conversions themselves.
+convert_bytes(::Type{T}, λ) where T = minimum((@allocated T(λ)) for _ in 1:3)
+convert_bytes(::Type{T}, λ1, λ2) where T = minimum((@allocated (T(λ1), T(λ2))) for _ in 1:3)
+min_alloc_check(state, f, g, options) = minimum(alloc_check(state, f, g, options) for _ in 1:3)
+@testset "the stationarity check converts each level once: Rational{BigInt} levels" begin
+  o = ProximalOptions(gradtol = 1e-5)
+  λ1, λ2 = big(1) // big(3), big(1) // big(7)
+  for T in (Float64, Float32), method in METHODS
+    f = LeastSquaresLoss(T[.6, 1], T[1 0; 0 1])
+    for (g, bytes) in ((NormL1(λ1), convert_bytes(T, λ1)), (ElasticNet(λ1, λ2), convert_bytes(T, λ1, λ2)))
+      @test bytes > 0
+      state = PS.initial_state(method, o, f, g, T[.5, 0])
+      PS._stationary!(state, f, g, o)
+      @test min_alloc_check(state, f, g, o) <= bytes
+    end
+  end
+end
+
+# The residual of the check is ProximalBase's kkt_violation(NormL1(λ), ∇f(x), x) with λ = T(λ0). The
+# reference is a local loop of the documented formula with the coefficient c: max(|gᵢ| - c, 0) where
+# xᵢ = 0 and |gᵢ + c sign xᵢ| elsewhere, started at 0; the default coefficient is T(λ0), the one
+# the solver uses.
+function reference_residual(grad::Vector{T}, x::Vector{T}, λ0; c = T(λ0)) where T
+  λ = T(c)
+  m = zero(T)
+  for i in eachindex(grad, x)
+    r = iszero(x[i]) ? max(abs(grad[i]) - λ, zero(T)) : abs(grad[i] + λ * sign(x[i]))
+    m = max(m, r)
+  end
+  m
+end
+
+@testset "stationarity residual: ProximalBase kkt_violation" begin
+  rng = Xoshiro(341)
+  for T in (Float32, Float64), λ0 in (0.3, 0.3f0, 2, big"0.3"), n in (0, 1, 16, 17, 300)
+    λ = T(λ0)
+    for rep in 1:4
+      x = T[rand(rng) < 0.4 ? zero(T) : randn(rng, T) for _ in 1:n]
+      for i in eachindex(x)
+        iszero(x[i]) && rand(rng) < 0.3 && (x[i] = -zero(T))
+      end
+      # gradients: exactly at the boundary (±λ at zeros, -λ sign xᵢ at nonzeros) for some entries,
+      # a random value for the others
+      grad = Vector{T}(undef, n)
+      for i in 1:n
+        grad[i] = rand(rng) < 0.5 ? (iszero(x[i]) ? (rand(rng, Bool) ? λ : -λ) : -λ * sign(x[i])) : 2 * randn(rng, T)
+      end
+      # the coefficient is λ = T(λ0) on both sides and the entry formulas are evaluated in T, so the
+      # results are equal
+      @test kkt_violation(NormL1(T(λ0)), grad, x) === reference_residual(grad, x, λ0)
+    end
+  end
+end
+
+
+# The decision of _stationary! for a penalty level λ0 whose conversion to T depends on how it is
+# rounded. The one-column problem has λmax = 1 and x = 1; the gradient is -λ + δ, with the
+# coefficient λ = T(λ0) and a perturbation δ that is searched among a few values so that the
+# independent residual with the coefficient T(λ0) is below the threshold τ S (τ = 64 eps(T),
+# gradtol = 0) and the residual with the coefficient `other`, a different rounding of λ0, is not.
+# The solver must keep the stop: it uses the coefficient T(λ0).
+function level_decision(T, λ0, other; setup = f -> f())
+  o = ProximalOptions(gradtol = 0)
+  τ = T(64 * Float64(eps(T)))
+  λ = T(λ0)
+  @test λ != T(other)
+  S = max(λ, one(T))
+  threshold = τ * S
+  x = T[1]
+  found = false
+  for k in 2:24, s in (1, -1)
+    grad = T[-λ + s * (1 - T(2)^-k) * threshold]
+    r_true = reference_residual(grad, x, λ0)
+    r_other = reference_residual(grad, x, λ0; c = T(other))
+    if r_true < threshold <= r_other
+      found = true
+      ok = setup() do
+        f = LeastSquaresLoss(T[1], T[1;;])
+        g = NormL1(λ0)
+        state = PS.initial_state(ProximalGradientDescent(), o, f, g, copy(x))
+        state.grad_f_x .= grad
+        PS._stationary!(state, f, g, o)
+      end
+      @test ok === true
+      break
+    end
+  end
+  @test found
+end
+
+@testset "the stationarity check uses the coefficient T(λ0): levels that round differently" begin
+  # a BigFloat level stored at 256 bits and used while the precision is 24 (8 for Float32)
+  for (T, prec, other) in ((Float64, 24, 0.30000001192092896), (Float32, 8, 0.30078125f0))
+    λ0 = setprecision(() -> BigFloat("0.3"), BigFloat, 256)
+    @test precision(λ0) == 256 && T(λ0) == T(0.3)
+    level_decision(T, λ0, other; setup = f -> setprecision(f, BigFloat, prec))
+  end
+  # a Rational whose Float32 value is 1.0000001f0, where the rounding through Float64 gives 1.0f0
+  λ0 = 1152921573326323713 // 1152921504606846976
+  @test Float32(λ0) == 1.0000001f0 && Float32(Float64(λ0)) == 1f0
+  level_decision(Float32, λ0, Float32(Float64(λ0)))
+  # an Int128 level above the tie of Float32: directly rounded up, but a tie rounded to even after Float64
+  λ0 = (Int128(1) << 100) + (Int128(1) << 76) + 1
+  @test Float32(λ0) != Float32(Float64(λ0))
+  level_decision(Float32, λ0, Float32(Float64(λ0)))
+  # a UInt128 level that converts to floatmax(Float32); the penalty validation accepts it
+  λ0 = typemax(UInt128) - (UInt128(1) << 103)
+  @test Float32(λ0) == floatmax(Float32)
+  @test PS._check_penalty(NormL1(λ0), Float32[1], Float32) === nothing
+  level_decision(Float32, λ0, Inf32)
+end
+
+@testset "a BigFloat level stored at 256 bits, used at precision 24: no false convergence" begin
+  λ = setprecision(() -> BigFloat("0.3"), BigFloat, 256)
+  r, x = setprecision(BigFloat, 24) do
+    x = zeros(1)
+    f = LeastSquaresLoss([1.0], ones(1, 1))
+    method = ProximalGradientDescent(ls = PS.LineSearches.BackTracking(α = 1.0))
+    options = ProximalOptions(maxiter = 10, gradtol = 1e-10, allow_f_increases = true)
+    solve!(x, f, NormL1(λ), method, options), x
+  end
+  @test !r.converged
+  @test x[1] ≈ 0.7 atol = 1e-6
+end
+
+@testset "PGD strict at loss scale 1e-200, λ = 0: converged, within the stopping guarantee of the least-squares solution (#317)" begin
+  # Historical: at base 8cc0222 (initial curvature 1) this solve reached subnormal squared steps
+  # with a zero gradient-difference product and raised the line search's "nonfinite curvature
+  # estimate" error. The test asserts convergence and accuracy, not that it reaches that branch;
+  # the diag reproducer and the direct backtrack! test of core_regressions.jl are the defect
+  # coverage that does not depend on the initial curvature.
+  X, y = data("base")
+  α, λ = 1e-200, 0.0
+  x = zeros(12)
+  r = solve!(x, lossof(α, y, X), NormL1(λ), ProximalGradientDescent(), STRICT)
+  @test r.converged
+  invariant("strict 1e-200", r, X, y, α, λ, STRICT, Float64)
+  # The reference is the least-squares solution x* of the rounded data, in 256-bit BigFloat. With
+  # λ = 0, G = α XᵀX (x - x*), so ‖x - x*‖₂ ≤ ‖G‖₂ / (α σmin²) ≤ √p ‖G‖∞ / (α σmin²). The invariant above
+  # bounds ‖G‖∞ by U = eG + τ (1 + 4u)(S + eS) (the stopping threshold τ S plus the rounding
+  # estimates of kkt_excess). σlo is a candidate lower bound on σmin: the computed least singular
+  # value of X less p eps σmax. It is not claimed from the backward stability of the SVD; it is
+  # certified below by a Cholesky factorization of XᵀX - σlo² I in 256-bit BigFloat (for this fixture's values, XᵀX is exact at 256 bits). Success certifies λmin(XᵀX) > σlo², up to
+  # the 256-bit rounding of the factorization, which for this fixture is far below the margin.
+  τ = max(STRICT.gradtol, 64 * eps())
+  _, S, eG, eS, u = kkt_parts(X, y, α, λ, x, Float64)
+  setprecision(BigFloat, 256) do
+    Xb, yb = BigFloat.(X), BigFloat.(y)
+    xstar = (Xb' * Xb) \ (Xb' * yb)
+    U = eG + BigFloat(τ) * (1 + 4u) * (S + eS)
+    σ = svdvals(X)
+    σlo = BigFloat(last(σ)) - size(X, 2) * BigFloat(eps()) * BigFloat(first(σ))
+    @test σlo > 0
+    @test isposdef(Symmetric(Xb' * Xb - σlo^2 * I))
+    bound = sqrt(BigFloat(size(X, 2))) * U / (BigFloat(α) * σlo^2)
+    @test norm(BigFloat.(x) - xstar) <= bound
   end
 end
 

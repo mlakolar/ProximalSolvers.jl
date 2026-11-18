@@ -7,7 +7,14 @@ regressions, the vector `SparseIterate` coordinate-descent contracts
 (`sparse_cd`), the coordinate-descent loss-scale numerics (`cd_numerics`) and the accelerated proximal gradient contracts (`accelerated_pgd`:
 analytic, duality-gap, KKT and finite-support references from the raw data;
 momentum, rejected trials, restarts and image caches; refusals, nonfinite trials,
-curvature overflow and rollback; trace, callbacks, limits and counters). Full adds every runnable lasso example under `examples/`, which
+curvature overflow and rollback; trace, callbacks, limits and counters), the initial curvature estimate of PGD and APG (`initial_curvature`: the start `min(1, α‖X‖_F²)` at extreme and ordinary scales, an independent KKT residual of the solves that a testset names, and the allocations of the start) and the elastic net with PGD and APG
+(`elasticnet`: the residual of the stopping check, closed-form and signed-support BigFloat minimizers, an
+independent residual check at each `converged = true` of the file's main solves, a false-stop guard, level types,
+rollback and allocations) and with CDSolver (`cd_elasticnet`: BigFloat residual and objective oracle, closed-form
+and signed-support references, `NormL1` equality at `λ2 = 0`, flat and out-of-range columns, refusals and rollback) and the weighted lasso `NormL1(λ, w)` with CD, PGD and APG (`weighted_lasso`: a BigFloat
+oracle from the stored data with the exact coefficients λ wⱼ, closed-form and signed-support references, the
+coefficient range rule at its overflow and underflow boundaries, zero weights and flat columns, the stopping check, the
+exceptional coordinate step against BigFloat, refusals before any write or draw, rollback and allocations). Full adds every `.jl` script under `examples/`, including its subfolders, which
 `test/examples.jl` discovers by itself, the exploratory benchmark script
 (`benchmark_explore`) and the formal benchmark harness on the current core
 (`benchmark_formal`: case selection and deferral, inputs, certificates, resets,
@@ -150,9 +157,10 @@ format are fixed.
   The current tree must also have stopping flags that satisfy the relations below. Side A is not
   checked for them. For proximal gradient descent, `converged` is the disjunction of `x_converged`, `f_converged` and
   `grad_converged`, `iteration_converged` is `iterations == maxiter`, and a run that did not converge
-  reports `iteration_converged`, `f_increased` or `call_limit_reached`. For coordinate descent,
-  `converged` implies `maxchange < tolerance`, and a run that did not converge made `maxpasses`
-  passes. The source lines for these relations are cited in `check_flags` in
+  reports `iteration_converged`, `f_increased` or `call_limit_reached`. For least-squares coordinate
+  descent (the probe's problems), `converged` implies `maxchange < tolerance`, and a run that did not
+  converge made `maxpasses` passes; the square-root lasso, whose runs can also stop uncertified, is not
+  among them. The source lines for these relations are cited in `check_flags` in
   `scripts/paired_master_diagnostics.jl`. Both sides must have the same result fields. Bits,
   trajectories, iteration counts and random-number advancement may differ: a differing record is
   printed as a `diagnostic:` line and is not a failure.

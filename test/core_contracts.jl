@@ -61,7 +61,10 @@ end
     for badscale in (-1., NaN)
       @test_throws ArgumentError Scaled(f, badscale)
     end
-    refused(x, f, NormL1(T(.1), ones(T, 2)), method)
+    # weights are accepted (test/weighted_lasso.jl); these are not: an infinite weight, and weights of the other
+    # precision
+    refused(x, f, NormL1(T(.1), T[1, Inf]), method)
+    refused(x, f, NormL1(T(.1), ones(opposite, 2)), method)
     refused(x, f, SqrNormL2(T(.1)), method)
     for keyword in (:intercept, :offset, :continuation, :screening)
       refused(x, f, g, method; keyword => true)
@@ -93,6 +96,87 @@ end
     refused(x, Scaled(f, Inf), g, method)
     refused(x, f, NormL1(Inf), method)
     @test x == T[.3, -.2] && X == T[1 0; 0 2] && y == T[1, -1]
+  end
+end
+
+# ElasticNet (#324): ProximalGradientDescent, AccProxGradDescent and CDSolver accept an unweighted one
+# and refuse the other penalties with the message below. The refusals tested here leave x unchanged. The
+# APG counterpart is in test/accelerated_pgd.jl; the CD solves are in test/cd_elasticnet.jl.
+const EN_PENALTY_REFUSAL = "only NormL1 or unweighted ElasticNet is supported"
+
+function refused_with(x, f, g, method, msg)
+  original = copy(x)
+  @test_throws ArgumentError(msg) solve!(x, f, g, method)
+  @test isequal(x, original)
+end
+
+@testset "PGD refuses the penalties it does not support, with the ElasticNet message (#324)" begin
+  for T in (Float64, Float32)
+    X, y, x = T[1 0; 0 2], T[1, -1], T[.3, -.2]
+    f = LeastSquaresLoss(y, X)
+    method = ProximalGradientDescent()
+    en = ElasticNet(T(.1), T(.2))
+    for g in (ElasticNet(T(.1), T(.2), ones(T, 2)), Scaled(en, 2), Scaled(NormL1(T(.1), ones(T, 2)), 2), SqrNormL2(T(.1)))
+      refused_with(x, f, g, method, EN_PENALTY_REFUSAL)
+    end
+    # a NormL1 with weights is accepted (#331); its solves are in test/weighted_lasso.jl. The options allow an increase
+    # of the computed objective, which under the default options can end a Float32 run before its stop is accepted.
+    r = solve!(copy(x), f, NormL1(T(.1), T[1, 2]), method, ProximalOptions(allow_f_increases = true))
+    @test r.converged && all(isfinite, r.minimizer)
+    refused_with(x, f, ElasticNet(T(Inf), zero(T)), method, "penalty lambda1 must be finite and nonnegative")
+    refused_with(x, f, ElasticNet(zero(T), T(Inf)), method, "penalty lambda2 must be finite and nonnegative")
+    if T === Float32
+      for a in (1e40, 1e-60)
+        refused_with(x, f, ElasticNet(a, 0.1), method, "penalty lambda1 is not representable without overflow or underflow in Float32")
+        refused_with(x, f, ElasticNet(0.1, a), method, "penalty lambda2 is not representable without overflow or underflow in Float32")
+      end
+    end
+    # a SparseIterate is not an iterate of PGD, and the iterate is checked before the penalty
+    refused_with(SparseIterate(x), f, en, method, "x must be a dense Vector{Float32} or Vector{Float64}")
+    refused_with(SparseIterate(x), f, ElasticNet(T(.1), T(.2), ones(T, 2)), method,
+                 "x must be a dense Vector{Float32} or Vector{Float64}")
+    refused_with(Int[0, 0], f, en, method, "x must be a dense Vector{Float32} or Vector{Float64}")
+    # the loss and shape checks come before the penalty check, as for NormL1
+    @test_throws DimensionMismatch solve!(zeros(T, 3), f, en, method)
+    @test x == T[.3, -.2]
+  end
+end
+
+@testset "CD accepts an unweighted ElasticNet and refuses the other penalties before any copy, write or RNG use (#324)" begin
+  for T in (Float64, Float32)
+    X, y, x = T[1 0; 0 2], T[1, -1], T[.3, -.2]
+    f = LeastSquaresLoss(y, X)
+    en = ElasticNet(T(.1), T(.2))
+    for start in (copy(x), SparseIterate(copy(x)))
+      r = solve!(start, f, en, CDSolver(order = :cyclic, momentum = false, tol = 1e-6))
+      @test r.converged && r.minimizer === start && all(isfinite, Vector(start))
+      @test Vector(start) != x
+    end
+    for g in (ElasticNet(T(.1), T(.2), ones(T, 2)), Scaled(en, 2), Scaled(NormL1(T(.1), ones(T, 2)), 2), SqrNormL2(T(.1)))
+      for start in (copy(x), SparseIterate(copy(x)))
+        rng = Xoshiro(1)
+        before = copy(rng)
+        refused_with(start, f, g, CDSolver(rng = rng), EN_PENALTY_REFUSAL)
+        @test rng == before && rand(rng) == rand(before)
+      end
+    end
+    # a NormL1 with weights is accepted, on a dense vector and on an owner (#331)
+    for start in (copy(x), SparseIterate(copy(x)))
+      r = solve!(start, f, NormL1(T(.1), T[1, 2]), CDSolver(order = :cyclic))
+      @test r.converged && r.minimizer === start
+    end
+    for (g, msg) in ((ElasticNet(T(Inf), zero(T)), "penalty lambda1 must be finite and nonnegative"),
+                     (ElasticNet(zero(T), T(Inf)), "penalty lambda2 must be finite and nonnegative"))
+      for start in (copy(x), SparseIterate(copy(x)))
+        rng = Xoshiro(1)
+        before = copy(rng)
+        refused_with(start, f, g, CDSolver(rng = rng), msg)
+        @test rng == before && rand(rng) == rand(before)
+      end
+    end
+    # the iterate is checked before the penalty
+    refused_with(Int[0, 0], f, en, CDSolver(), "x must be a dense Vector{Float32} or Vector{Float64}")
+    @test x == T[.3, -.2]
   end
 end
 
@@ -314,6 +398,13 @@ end
 # before any write: this narrows the scales that were accepted before ProximalBase's oracles were used.
 const LOSS_SCALE_REFUSAL = r"only Float32 and Float64 scales and fixed-width integer scales that \w+ represents exactly are supported"
 
+# An Integer with a Float64 conversion (2.0) and no promotion with Float64, so that a == Float64(α) throws
+struct LossScaleTestInteger <: Integer end
+Base.Float64(::LossScaleTestInteger) = 2.0
+Base.:(>=)(::LossScaleTestInteger, ::Int) = true
+Base.iszero(::LossScaleTestInteger) = false
+Base.show(io::IO, ::LossScaleTestInteger) = print(io, "LossScaleTestInteger()")
+
 function scale_problem(::Type{T}) where T
   X = T[1 0 .2; 0 1 -.1; .3 .1 1; .5 -.4 .2; -.2 .3 .6; .1 .1 -.7]
   y = T[1, -.5, .7, .2, -.6, .4]
@@ -374,14 +465,47 @@ end
       e.msg
     end
   end
-  for α in (Float16(0.5), 1 // 4, 2^24 + 1, big(2), big(2.0), π)
-    @test occursin("Float64(α) * LeastSquaresLoss(y, X)", message(α))
+  # an integer that Float64 holds exactly: the hint is labelled and carries no rounding note
+  for (α, T) in ((2^24 + 1, Float32), (big(2), Float32), (big(2), Float64))
+    msg = message(α, T)
+    @test occursin(LOSS_SCALE_REFUSAL, msg)
+    @test occursin("Float64(α) * LeastSquaresLoss(y, X)", msg)
+    @test !occursin("round", msg)
+    @test !occursin("here α", msg)
   end
-  @test occursin("Float64(α) * LeastSquaresLoss(y, X)", message(2^53 + 1, Float64))
+  @test occursin("Float64(α) = 1.6777217e7", message(2^24 + 1))
+  @test occursin("Float64(α) = 2.0", message(big(2)))
+  # an Integer whose comparison with its Float64 value throws: still an ArgumentError, with no hint
+  let (X, y) = scale_problem(Float32)
+    @test_throws ArgumentError solve!(zeros(Float32, 3), Scaled(LeastSquaresLoss(y, X), LossScaleTestInteger()),
+                                      NormL1(0.01f0), CDSolver())
+  end
+  msg = message(LossScaleTestInteger())
+  @test occursin(LOSS_SCALE_REFUSAL, msg)
+  @test !occursin("Float64(α)", msg)
+  @test !occursin("here α", msg)
+  # an integer that Float64 rounds: no hint, for either T
+  for (α, T) in ((2^53 + 1, Float64), (2^53 + 1, Float32), (big(2)^53 + 1, Float64), (big(2)^53 + 1, Float32),
+                 (Int128(2)^60 + 1, Float32))
+    msg = message(α, T)
+    @test occursin(LOSS_SCALE_REFUSAL, msg)
+    @test !occursin("Float64(α)", msg)
+    @test !occursin("here α", msg)
+  end
+  # any other type whose Float64 value is admissible: the hint names the value and notes that it may round α
+  for α in (Float16(0.5), 1 // 4, 1 // 3, big(2.0), π)
+    msg = message(α)
+    @test occursin(LOSS_SCALE_REFUSAL, msg)
+    @test occursin("Float64(α) * LeastSquaresLoss(y, X)", msg)
+    @test occursin("Float64(α) = ", msg)
+    @test occursin("may round α", msg)
+    @test !occursin("here α", msg)
+  end
   # Float64(α) is Inf, 0, or a scale that Float32 does not hold
   for α in (big(2.0)^2000, big(2)^2000, big(2.0)^-2000, big(10.0)^-300)
     @test occursin(LOSS_SCALE_REFUSAL, message(α))
     @test !occursin("Float64(α)", message(α))
+    @test !occursin("here α", message(α))
   end
   # the message names the type and the value
   @test occursin("Float16", message(Float16(0.5))) && occursin("0.5", message(Float16(0.5)))

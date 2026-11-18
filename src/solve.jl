@@ -21,7 +21,7 @@ function _scalar_parameter(v, ::Type{T}, name; positive = false) where T
   nothing
 end
 
-# The loss scale of a Scaled loss or the level of SqrNormL2, for data of type T. A Float32 or Float64 scale must be finite and
+# The loss scale of a Scaled loss, for data of type T. A Float32 or Float64 scale must be finite and
 # positive with a conversion to T that is finite and nonzero (a value that is subnormal in T is
 # accepted). A fixed-width integer or Bool scale must be positive and equal to its conversion to T, so
 # that ProximalBase's oracles and the solvers' own T-valued scale use the same number. A scale of any
@@ -43,30 +43,106 @@ _float64_scale_ok(a::Float64, ::Type{T}) where T = isfinite(a) && a > 0 && (n = 
 
 @noinline function _loss_scale_error(α, ::Type{T}, why) where T
   a = try Float64(α) catch; nothing end
-  hint = a isa Float64 && _float64_scale_ok(a, T) ?
-    "; convert it explicitly with Float64(α) * LeastSquaresLoss(y, X), here α = $a" : ""
+  # the hint is offered when Float64(α) passes the rule of _check_loss_scale for T and, for an integer α, a == α
+  # returns true (a comparison that throws or returns another value omits the hint); for an α that is not an
+  # integer the hint notes that the conversion may round α
+  exact = !(α isa Integer) || (try (a == α) === true catch; false end)
+  ok = a isa Float64 && _float64_scale_ok(a, T) && exact
+  hint = !ok ? "" :
+    "; convert it explicitly with Float64(α) * LeastSquaresLoss(y, X), where Float64(α) = $a" *
+    (α isa Integer ? "" : " (the conversion may round α)")
   throw(ArgumentError("loss scale $α of type $(typeof(α)) $why; only Float32 and Float64 scales and fixed-width integer scales that $T represents exactly are supported$hint"))
+end
+
+# The penalty check of _check_data for an x that is not a BlockIterate: a NormL1, with or without weights,
+# or an unweighted ElasticNet, which the gradient solvers (PGD and APG) and CDSolver accept alike. The
+# levels must pass _scalar_parameter for the data type T (finite, nonnegative, representable without
+# overflow or underflow; a level that is subnormal in T passes it). A NormL1 with weights also passes
+# _check_l1_weights, which refuses a level that is subnormal in T.
+function _check_penalty(g, x, ::Type{T}) where T
+  if g isa NormL1
+    g.w === nothing ? _scalar_parameter(g.λ0, T, "penalty lambda") : _check_l1_weights(g, x, T)
+  elseif g isa ElasticNet && g.w === nothing
+    _scalar_parameter(g.λ1, T, "penalty lambda1")
+    _scalar_parameter(g.λ2, T, "penalty lambda2")
+  else
+    throw(ArgumentError("only NormL1 or unweighted ElasticNet is supported"))
+  end
+  nothing
+end
+
+# The weights of a NormL1 for data of type T. They must be a Vector{T} with one entry per entry of x,
+# finite and nonnegative, and x must not alias them (x is the caller's array or owner, as for X and y).
+# The level λ = T(λ0) must be zero or a normal number of T (not subnormal). The coefficient checked is
+# cⱼ = λ wⱼ of the entry j, the product rounded in T (the stopping check of PGD and APG and the exceptional CD step
+# use this cⱼ; ProximalBase's ordinary steps form their thresholds from λ0 and wⱼ in its working type): it must be
+# finite and, where λ and wⱼ are both positive, a normal number of T (so not zero and not subnormal). The rule is on the rounded cⱼ: an exact product slightly
+# below floatmin(T) that rounds up to floatmin(T) passes. A zero level or weight gives the coefficient 0,
+# which leaves the entry unpenalized when it comes from wⱼ = 0.
+function _check_l1_weights(g, x, ::Type{T}) where T
+  _scalar_parameter(g.λ0, T, "penalty lambda")
+  λ = T(g.λ0)
+  issubnormal(λ) && _l1_level_error(g.λ0, λ, T)
+  w = g.w
+  w isa Vector{T} ||
+    throw(ArgumentError("penalty weights must be a Vector{$T} (the element type of the data); convert an array with collect($T, vec(w)), which takes it in linear order"))
+  length(w) == length(x) ||
+    throw(DimensionMismatch("the penalty has $(length(w)) weights but x has $(length(x)) entries"))
+  Base.mightalias(x, w) && throw(ArgumentError("mutable x must not alias the penalty weights"))
+  @inbounds for j in eachindex(w)
+    wj = w[j]
+    c = λ * wj
+    isfinite(wj) && wj >= 0 && isfinite(c) && (iszero(c) ? (iszero(λ) | iszero(wj)) : floatmin(T) <= c) ||
+      _l1_weight_error(λ, wj, j, T)
+  end
+  nothing
+end
+
+@noinline _l1_level_error(λ0, λ::T, ::Type{T}) where T =
+  throw(ArgumentError("penalty lambda $λ0 is subnormal in $T (it converts to $λ); with weights the level must be zero " *
+                      "or at least floatmin($T); rescale the level or the weights"))
+
+@noinline function _l1_weight_error(λ::T, wj::T, j, ::Type{T}) where T
+  isfinite(wj) && wj >= 0 ||
+    throw(ArgumentError("penalty weight $j must be finite and nonnegative"))
+  c = λ * wj
+  why = isinf(c) ? "overflows" : iszero(c) ? "underflows to zero" : "is subnormal (below floatmin($T))"
+  throw(ArgumentError("the penalty coefficient of entry $j, lambda * weight in $T, $why; rescale the level or the weights"))
+end
+
+# The penalty of group coordinate descent on a BlockIterate: a GroupNormL2 whose level and weights
+# convert to T without overflow, or underflow to 0 from a nonzero value, and whose groups are those
+# of x, in the same order and with the same ordered members.
+function _check_penalty(g, x::BlockIterate, ::Type{T}) where T
+  g isa GroupNormL2{<:Union{Float32, Float64}} ||
+    throw(ArgumentError("a BlockIterate needs a GroupNormL2 penalty with Float32 or Float64 parameters"))
+  _scalar_parameter(g.λ0, T, "penalty lambda")
+  for k in eachindex(g.w)
+    _weight_ok(g.w[k], T) || _weight_error(g.w[k], k, T)
+  end
+  ncoordinates(x) == length(g.groups) ||
+    throw(DimensionMismatch("x has $(ncoordinates(x)) groups but the penalty has $(length(g.groups))"))
+  for k in 1:ncoordinates(x)
+    blockindices(x, k) == g.groups[k] ||
+      throw(DimensionMismatch("the groups of x and of the penalty differ at group $k"))
+  end
+  nothing
+end
+
+# The rule of _scalar_parameter for a nonnegative value
+function _weight_ok(w, ::Type{T}) where T
+  native = T(w)
+  isfinite(w) && w >= 0 && isfinite(native) && (iszero(w) ? iszero(native) : native > 0)
+end
+
+@noinline function _weight_error(w, k, ::Type{T}) where T
+  _scalar_parameter(w, T, "group weight $k")
+  throw(ArgumentError("group weight $k is not valid in $T"))
 end
 
 # Loss, data, shape, penalty and alias checks shared by the dense gate and the
 # CD owner gate; `x` is the caller's original array or owner, of length `length(x)`.
 function _check_data(x, f, g, ::Type{T}) where T
-  if f isa SqrNormL2
-    # A centered squared norm requires no design matrix. Borrow its center;
-    # the caller's mutable iterate cannot share storage with it.
-    y = f.y
-    y isa Vector{T} ||
-      throw(ArgumentError("SqrNormL2 requires a centered Vector{$T}"))
-    length(y) > 0 && length(x) == length(y) ||
-      throw(DimensionMismatch("x and the SqrNormL2 center must have the same positive length"))
-    _check_loss_scale(f.λ, T)
-    g isa NormL1 && g.w === nothing ||
-      throw(ArgumentError("only unweighted NormL1 is supported"))
-    _scalar_parameter(g.λ0, T, "penalty lambda")
-    Base.mightalias(x, y) &&
-      throw(ArgumentError("mutable x must not alias the SqrNormL2 center"))
-    return y
-  end
   base = if f isa LeastSquaresLoss
     f
   elseif f isa Scaled && f.f isa LeastSquaresLoss
@@ -80,20 +156,66 @@ function _check_data(x, f, g, ::Type{T}) where T
   n, p = size(base.X)
   n > 0 && p > 0 || throw(DimensionMismatch("X must have positive row and column counts"))
   length(base.Y) == n && length(x) == p || throw(DimensionMismatch("x/y dimensions do not match X"))
-  g isa NormL1 && g.w === nothing || throw(ArgumentError("only unweighted NormL1 is supported"))
-  _scalar_parameter(g.λ0, T, "penalty lambda")
+  _check_penalty(g, x, T)
   (Base.mightalias(x, base.X) || Base.mightalias(x, base.Y)) &&
     throw(ArgumentError("mutable x must not alias borrowed X or y"))
   base
 end
 
-function _check_problem(x, f, g)
+# The square-root least-squares loss, unwrapped or in one Scaled wrapper (which _check_sqrt_data refuses).
+_is_sqrt_loss(f) = f isa SqrtLeastSquaresLoss || (f isa Scaled && f.f isa SqrtLeastSquaresLoss)
+
+# The checks of _check_data for the square-root loss, used in its place by the gates below; `kind` is
+# :cd (CDSolver with a dense Vector or a one-dimensional SparseIterate), :block (a BlockIterate) or
+# :gradient (PGD and APG, whose calls of the dense gate take its default `kind`). Each refusal is an ArgumentError
+# (a DimensionMismatch for the shapes) with its own message, in this order: a BlockIterate; PGD and APG;
+# a Scaled wrapper; the data, read through `leastsquares_data` and checked as for least squares (types,
+# shapes), with the element type of the loss equal to T; the penalty (`_check_sqrt_penalty`); an x that
+# may alias X or y. It returns the data
+# `(; Y, X, α)`, whose `Y` and `X` the gates check for finite values.
+function _check_sqrt_data(x, f, g, ::Type{T}, kind::Symbol) where T
+  kind === :block &&
+    throw(ArgumentError("SqrtLeastSquaresLoss does not support a BlockIterate (there is no group square-root lasso); use a dense Vector or a one-dimensional SparseIterate"))
+  kind === :gradient &&
+    throw(ArgumentError("ProximalBase provides no gradient for SqrtLeastSquaresLoss (for X ≠ 0 it is not differentiable where y = X*x), so ProximalGradientDescent and AccProxGradDescent do not support it; use CDSolver"))
+  f isa Scaled &&
+    throw(ArgumentError("Scaled(SqrtLeastSquaresLoss, alpha) is not supported; for a positive finite alpha, use the unscaled SqrtLeastSquaresLoss with the penalty level lambda/alpha, which has the same minimizers (the scaled objective is alpha times the unscaled one)"))
+  d = leastsquares_data(f)
+  d.X isa Matrix{T} && d.Y isa Vector{T} && f isa SqrtLeastSquaresLoss{T} ||
+    throw(ArgumentError("X must be Matrix{$T} and y Vector{$T}; sparse designs, matrix responses and mixed array types are deferred"))
+  n, p = size(d.X)
+  n > 0 && p > 0 || throw(DimensionMismatch("X must have positive row and column counts"))
+  length(d.Y) == n && length(x) == p || throw(DimensionMismatch("x/y dimensions do not match X"))
+  _check_sqrt_penalty(g, T)
+  (Base.mightalias(x, d.X) || Base.mightalias(x, d.Y)) &&
+    throw(ArgumentError("mutable x must not alias borrowed X or y"))
+  d
+end
+
+# The penalty of the square-root loss: an unweighted NormL1 whose level is positive, finite and
+# representable in T without overflow or underflow. Refused in this order: an ElasticNet (which CDSolver
+# accepts with least squares, not with this loss); a penalty that
+# is not a NormL1; a weighted NormL1 (all-ones weights included); a zero level (-0.0 included), with a
+# pointer to LeastSquaresLoss; then the checks of `_scalar_parameter` with `positive = true`.
+function _check_sqrt_penalty(g, ::Type{T}) where T
+  g isa ElasticNet &&
+    throw(ArgumentError("SqrtLeastSquaresLoss with an ElasticNet penalty is not supported; use an unweighted NormL1"))
+  g isa NormL1 || throw(ArgumentError("only unweighted NormL1 is supported with SqrtLeastSquaresLoss"))
+  g.w === nothing ||
+    throw(ArgumentError("a weighted NormL1 with SqrtLeastSquaresLoss is deferred (weighted square-root lasso); use an unweighted NormL1"))
+  iszero(g.λ0) &&
+    throw(ArgumentError("SqrtLeastSquaresLoss needs a positive penalty level; at lambda = 0 use LeastSquaresLoss, which has the same minimizers"))
+  _scalar_parameter(g.λ0, T, "penalty lambda"; positive = true)
+  nothing
+end
+
+# The dense gate. `kind` matters only for the square-root loss: CDSolver passes :cd, and PGD and APG
+# use the default :gradient, under which `_check_sqrt_data` refuses that loss.
+function _check_problem(x, f, g, kind::Symbol = :gradient)
   x isa Vector && eltype(x) in (Float32, Float64) ||
     throw(ArgumentError("x must be a dense Vector{Float32} or Vector{Float64}"))
-  base = _check_data(x, f, g, eltype(x))
-  finite_data = f isa SqrNormL2 ? _allfinite(base) :
-                (_allfinite(base.Y) && _allfinite(base.X))
-  _allfinite(x) && finite_data ||
+  base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), kind) : _check_data(x, f, g, eltype(x))
+  _allfinite(x) && _allfinite(base.Y) && _allfinite(base.X) ||
     throw(ArgumentError("x, X and y must contain only finite values"))
   nothing
 end
@@ -105,10 +227,21 @@ _is_cd_owner(x) = x isa SparseIterate{<:Any, 1} && eltype(x) in (Float32, Float6
 function _check_owner_problem(x, f, g)
   _is_cd_owner(x) ||
     throw(ArgumentError("x must be a dense Vector or a one-dimensional SparseIterate of Float32 or Float64"))
-  base = _check_data(x, f, g, eltype(x))
-  finite_data = f isa SqrNormL2 ? _allfinite(base) :
-                (_allfinite(base.Y) && _allfinite(base.X))
-  all(isfinite, activevalues(x)) && finite_data ||
+  base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), :cd) : _check_data(x, f, g, eltype(x))
+  all(isfinite, activevalues(x)) && _allfinite(base.Y) && _allfinite(base.X) ||
+    throw(ArgumentError("x, X and y must contain only finite values"))
+  nothing
+end
+
+# Group-lasso block coordinate descent on a BlockIterate. Runs before any copy of x or draw from the
+# RNG; the entries of inactive groups are zero.
+function _check_block_problem(x, f, g, method)
+  x isa BlockIterate{<:Union{Float32, Float64}} ||
+    throw(ArgumentError("block coordinate descent needs a BlockIterate of Float32 or Float64"))
+  method.momentum === true &&
+    throw(ArgumentError("block coordinate descent does not support momentum; use momentum = false or nothing"))
+  base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), :block) : _check_data(x, f, g, eltype(x))
+  all(isfinite, x) && _allfinite(base.Y) && _allfinite(base.X) ||
     throw(ArgumentError("x, X and y must contain only finite values"))
   nothing
 end

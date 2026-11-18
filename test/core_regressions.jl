@@ -618,8 +618,10 @@ end
 
 # As pgd_strict_solve in Float32 with PGD, with a callback that records the first iteration at which
 # the caller's x (the solver iterates in it) differs from x0 and the first at which its independent
-# relative gap is at most `target` (0 if none)
-function pgd_recording_solve(X, y, s, λ, x0, maxiter; target = 1e-5)
+# relative gap is at most `target` (0 if none). With `L0` given, the curvature estimate at the start is
+# set to Float32(L0) in the state that `solve!` builds, and the solve then runs through the same
+# `_solve_gradient!` call that `solve!` makes.
+function pgd_recording_solve(X, y, s, λ, x0, maxiter; target = 1e-5, L0 = nothing)
   A, b = Float32.(X), Float32.(y)
   A64, b64 = Float64.(A), Float64.(b)
   s64, λ64 = Float64(Float32(s)), Float64(Float32(λ))
@@ -633,7 +635,15 @@ function pgd_recording_solve(X, y, s, λ, x0, maxiter; target = 1e-5)
     first_target == 0 && pgd_relative_gap(A64, b64, s64, λ64, x) <= target && (first_target = k)
     false
   end
-  r = solve!(x, f, g, ProximalGradientDescent(), pgd_strict(maxiter; callback))
+  method, options = ProximalGradientDescent(), pgd_strict(maxiter; callback)
+  if L0 === nothing
+    r = solve!(x, f, g, method, options)
+  else
+    PS._check_problem(x, f, g)
+    state = PS.initial_state(method, options, f, g, x)
+    state.L = Float32(L0)
+    r = PS._solve_gradient!(state, f, g, method, options)
+  end
   (; r, x, gap = pgd_relative_gap(A64, b64, s64, λ64, x), first_change, first_target)
 end
 
@@ -657,15 +667,16 @@ end
 
 @testset "PGD Float32 strict: an inflated initial curvature does not stop the solve during the initial stalls (#308)" begin
   # X and y scaled by c = 1e-6 and λ by c² (the objective is c² times the original, with the same
-  # minimizer), start at ones: the first L = 1 is far above the curvature of the problem, so the
-  # steps round to zero until L has fallen. Those iterations are exact stalls without a rejection
+  # minimizer), start at ones: the first L = 1 is set explicitly (it was the start before the scale-aware
+  # estimate of #321, which is now near the curvature), and it is far above the curvature of the problem,
+  # so the steps round to zero until L has fallen. Those iterations are exact stalls without a rejection
   # and must not stop the solve. The stall streak asserted below is at least 39 iterations and the
   # target is first met after it, so a rule that stopped after at most 39 consecutive stalls would
   # stop before the target.
   c = 1e-6
   for seed in (33, 34, 35)
     X, y, s, λ = pgd_lasso_design(seed, 100, 32)
-    o = pgd_recording_solve(c .* X, c .* y, s, c^2 * λ, ones(32), 2000)
+    o = pgd_recording_solve(c .* X, c .* y, s, c^2 * λ, ones(32), 2000; L0 = 1)
     @test o.first_change >= 40
     @test o.first_change < o.first_target
     @test 0 < o.first_target <= o.r.iterations
@@ -1233,64 +1244,68 @@ end
   end
 end
 
-@testset "centered squared norm + L1 reuses the CD/PGD/APG engines" begin
-  for T in (Float32, Float64)
-    y = T[2.4, -0.7, 0.05, -1.3, 0.0]
-    ybefore = copy(y)
-    alpha, lambda = T(1.5), T(0.2)
-    f, g = SqrNormL2(alpha, y), NormL1(lambda)
-    analytic = sign.(y) .* max.(abs.(y) .- lambda / alpha, zero(T))
-    original = T[0.3, 0.2, -0.5, 0.1, 0.4]
+@testset "PGD: a 1×1 Float64 solve at loss scale 1e-170 does not raise the line search's 0 · Inf error (#317)" begin
+  # Historical: at base 8cc0222 (initial curvature 1) this solve reached a trial with a subnormal
+  # squared step norm and a zero gradient-difference product; scaling that product by the
+  # overflowing 2 / ‖d̂‖² gave NaN, and the solve raised "line search failed: nonfinite curvature
+  # estimate". Whether a different initial curvature still reaches that trial is not assumed, and
+  # neither is whether the solve converges. The diag reproducer and the direct backtrack! test
+  # below are the defect coverage that does not depend on the initial curvature.
+  x = [0.0]
+  solve!(x, 1e-170 * LeastSquaresLoss([1.0], [1.0;;]), NormL1(0.0), ProximalGradientDescent())
+  @test all(isfinite, x)
+end
 
-    # Independent objective and KKT checks: no use of the solver's result flags
-    # or a ProximalBase proximal call to construct the reference.
-    objective(x) = Float64(alpha) * sum(abs2, Float64.(x) .- Float64.(y)) / 2 +
-                   Float64(lambda) * sum(abs, Float64.(x))
-    function kkt(x)
-      maximum(eachindex(x)) do k
-        grad = Float64(alpha) * (Float64(x[k]) - Float64(y[k]))
-        iszero(x[k]) ? max(abs(grad) - Float64(lambda), 0.0) :
-                       abs(grad + Float64(lambda) * sign(x[k]))
-      end
-    end
-
-    options = ProximalOptions(maxiter=5000, ftol=1e-10, xtol=1e-9,
-                             gradtol=1e-7, allow_f_increases=true)
-    for solver in (CDSolver(order=:cyclic, momentum=false, relative=false, tol=1e-7),
-                   ProximalGradientDescent(), AccProxGradDescent())
-      x = copy(original)
-      result = solver isa CDSolver ? solve!(x, f, g, solver) :
-                                     solve!(x, f, g, solver, options)
-      @test result.minimizer === x
-      @test isapprox(x, analytic; atol=(T === Float32 ? 1e-4 : 1e-6), rtol=0.0)
-      @test kkt(x) <= (T === Float32 ? 2e-4 : 2e-6)
-      @test isapprox(objective(x), objective(analytic); atol=1e-6, rtol=1e-6)
-      @test y == ybefore
-    end
-
-    # A one-dimensional SparseIterate continues through CD's unchanged
-    # private-copy / same-owner commit path.
-    xs = SparseIterate(copy(original))
-    rs = solve!(xs, f, g, CDSolver(order=:cyclic, momentum=false,
-                                   relative=false, tol=1e-7))
-    @test rs.minimizer === xs && rs.converged
-    @test isapprox(Vector(xs), analytic; atol=(T === Float32 ? 1e-5 : 1e-10))
-
-    # Input failures are before any mutation of the user's iterate.
-    for solver in (CDSolver(order=:cyclic, momentum=false),
-                   ProximalGradientDescent(), AccProxGradDescent())
-      x = copy(original)
-      @test_throws ArgumentError solve!(x, SqrNormL2(one(T)), g, solver)
-      @test isequal(x, original)
-      @test_throws DimensionMismatch solve!(x, SqrNormL2(one(T), y[1:2]), g, solver)
-      @test isequal(x, original)
-      @test_throws ArgumentError solve!(x, SqrNormL2(zero(T), y), g, solver)
-      @test isequal(x, original)
-      center_alias = copy(original)
-      @test_throws ArgumentError solve!(center_alias, SqrNormL2(one(T), center_alias), g, solver)
-      @test isequal(center_alias, original)
-    end
+@testset "PGD: diag(1, 1e-6) with a solution at 1e-150 ends without the line search's 0 · Inf error, and a long run is accurate (#317)" begin
+  # X = diag(1, s), y = (0, s 1e-150): the solution of the rounded data is x* = (0, y₂ / s). ‖X‖_F² ≥ 1.
+  s = 1e-6
+  X, y = [1.0 0; 0 s], [0.0, s * 1e-150]
+  f, g = LeastSquaresLoss(y, X), NormL1(0.0)
+  # the default options: no exception and a finite result; whether the solve converges is not asserted
+  x = [0.0, 0.0]
+  solve!(x, f, g, ProximalGradientDescent())
+  @test all(isfinite, x)
+  # a longer run: converged = true means the computed residual ‖G‖∞ is below τ S, with
+  # τ = max(gradtol, 64 eps) and S = max(λ, λmax) = λmax = |X₂₂ y₂|. In exact arithmetic
+  # G₂ = X₂₂² (x₂ - x₂*), so |x₂ - x₂*| = |G₂| / X₂₂². The computed G₂ is s (fl(fl(s x₂) - y₂)) with three roundings, and the
+  # computed S has one: |G₂| ≤ (τ S + u X₂₂² |x₂|)(1 + 4u), u = eps(Float64), from first-order
+  # bounds with u twice the unit roundoff.
+  x = [0.0, 0.0]
+  options = ProximalOptions(maxiter = 20_000)
+  r = solve!(x, f, g, ProximalGradientDescent(), options)
+  @test r.converged
+  setprecision(BigFloat, 256) do
+    u, τ = BigFloat(eps(Float64)), BigFloat(max(options.gradtol, 64 * eps(Float64)))
+    s2, y2 = BigFloat(X[2, 2]), BigFloat(y[2])
+    xstar2 = y2 / s2
+    S = abs(s2 * y2)
+    bound = (τ * S / s2^2 + u * abs(BigFloat(x[2]))) * (1 + 4u)
+    @test abs(BigFloat(x[2]) - xstar2) <= bound
+    # the other coordinate: G₁ = x₁, and x₁* = 0
+    @test abs(BigFloat(x[1])) <= (τ * S + u * abs(BigFloat(x[1]))) * (1 + 4u)
   end
+end
+
+@testset "backtrack!: a zero gradient-difference product and a subnormal ‖d̂‖² is accepted (#317)" begin
+  # Loss scale 1e-170 on a 1×1 problem from x = 0 at L = 3e-9: the trial step is 1e-170 / L, whose
+  # square is a nonzero subnormal, and the gradient at the trial differs from the gradient at 0 by
+  # less than the rounding of its entries, so the product of their difference with the step is 0
+  # (asserted below) while 2 / ‖d̂‖² is Inf.
+  f, g = 1e-170 * LeastSquaresLoss([1.0], [1.0;;]), NormL1(0.0)
+  method = ProximalGradientDescent()
+  st = pgd_trial(f, g, [0.0], 3e-9; gradient_mode = true)
+  # the preconditions: the state is the one backtrack! sees (gradient mode, ∇f at the trial formed
+  # as backtrack! forms it), and the branch of the guard is reached
+  @test !st.backtrack_simple
+  PS._sub!(st.delta_x, st.x, st.x_previous)
+  xy_sq = PS._norm(st.delta_x)^2
+  @test 0 < xy_sq
+  @test !isfinite(2 / xy_sq)
+  PS.LineSearches.value_and_gradient_at_x!(st, f)
+  @test PS._dot_diff(Float64, st.grad_f_x, st.grad_f_x_previous, st.delta_x) == 0
+  L = st.L
+  @test PS.LineSearches.backtrack!(st, method.ls, f, g)
+  @test st.L == L && isfinite(st.L)
 end
 
 end

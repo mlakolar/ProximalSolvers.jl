@@ -7,7 +7,8 @@ code.
 ## What does converged mean?
 
 - **Coordinate descent (CD):** the change during a full pass has fallen
-  below the effective `tol`. With `relative=true` this threshold is
+  below the effective `tol` (for the square-root lasso, a duality certificate must also pass; see
+  the square-root lasso section below). With `relative=true` this threshold is
   scaled by a response-dependent quantity, `sqrt(s * sum(abs2, y))`, formed
   so that the sum of squares and its product with the loss scale `s` may
   leave the range of the working type; the reported effective
@@ -19,8 +20,17 @@ code.
   times an infinite scale (a computed scale that overflows the working type) is
   refused with an `ArgumentError`. The coordinate step forms its threshold
   `lambda / (s * a)` without the product or its reciprocal where either is
-  outside the normal range, and a column whose squared norm is not finite is
-  refused with an `ArgumentError` that names the curvature. With
+  outside the normal range (with weights, outside that range `lambda` stands for the coefficient `T(lambda) * w[k]`
+  rounded in `T`; inside it ProximalBase's `prox_block` forms its threshold from `lambda` and `w[k]`), and a column whose squared norm is not finite is
+  refused with an `ArgumentError` that names the curvature. For an `ElasticNet`,
+  in the normal range the step of a visit is ProximalBase's `prox_block`. At a visit to a column
+  with a finite positive `a` where `s * a` or its reciprocal is below `floatmin` of the type that
+  combines `s` with the working type, the step with `lambda2 = 0` is the lasso's, and with
+  `lambda2 > 0` the visit is refused with an `ArgumentError` that names the coordinate, during the
+  pass: the iterate passed to `solve!` is unchanged, and a borrowed RNG may have advanced.
+  A visit to a flat column (all entries 0) sets its coordinate to 0 at the levels that `solve!`
+  accepts (also for a `NormL1` at a zero weight), and a visit to a column that is not flat whose `a` underflows to 0 is refused with an
+  `ArgumentError` about the curvature, as for the lasso. With `maxpasses = 0` no coordinate is visited. With
   `relative=false`, or with `y = 0`, the coordinate scale is
   not used. If the computed `sqrt(s) * norm(y)`, after
   rounding to the working type, is not a normal floating-point number, the
@@ -41,6 +51,8 @@ code.
   the run then ends at `maxpasses` without converging, with the warning. A
   threshold well above that rounding level avoids this; Float64 data has a much
   lower rounding level.
+  For a group lasso on a `BlockIterate`, the change is that of a whole group; see
+  [Group lasso on a BlockIterate](@ref "Group lasso on a BlockIterate").
 - **Proximal gradient descent (PGD):** the algorithm applies multiple
   stopping tests for relative coefficient change, objective change and
   a gradient/proximal residual. These combine by **OR**: any one of them
@@ -55,7 +67,7 @@ code.
 Neither `converged=true` is a certificate of mathematical optimality. For
 PGD and APG it means that a test proposed a stop and that the computed
 KKT residual `‖G‖∞` at the returned point is below
-`max(gradtol, 64 eps(T)) * max(λ, λmax)` (see [The stationarity check of a stop](@ref "The stationarity check of a stop")); it is a working-precision residual, not an exact-arithmetic
+`max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λ` the ℓ1 level of the penalty (see [The stationarity check of a stop](@ref "The stationarity check of a stop")); it is a working-precision residual, not an exact-arithmetic
 certificate, and it does not bound the distance to a minimizer. The
 default `gradtol = 1e-5` is not a specified number of correct digits.
 Tighten tolerances for results you intend to report, then compute the
@@ -65,14 +77,29 @@ pages display that residual next to the default-PGD convergence flag.
 PGD's printed `|g(x)|` label is an internal stopping residual, **not**
 the value of the user's L1 penalty.
 
+What the stopping tests imply and their measured limits (products that underflow or cancel, a
+cached residual of coordinate descent that is stale after a start far above the solution scale,
+Float32, `ftol = 0`) are on the page [Limits of the stopping tests](stopping-limits.md).
+
 ### The stationarity check of a stop
 
 PGD and APG verify a proposed stop. At an iteration at which the `x`, `f` or
 gradient test holds (under `ftol = 0`, after the exact-stall rule below), the
-solver computes the minimal-norm KKT residual `G` at the accepted iterate `x`
-for the penalty level `λ`: the element of `∇f(x) + λ ∂‖x‖₁` of least infinity
+solver computes the minimal-norm KKT residual `G` at the accepted iterate `x`.
+For `NormL1(λ)` it is the element of `∇f(x) + λ ∂‖x‖₁` of least infinity
 norm, that is `max(|∇fᵢ| - λ, 0)` where `xᵢ = 0` and `|∇fᵢ + λ sign(xᵢ)|`
-elsewhere. The stop counts only if
+elsewhere, with `λ = T(λ0)`, the penalty level converted to the coefficient type `T`. For
+`NormL1(λ0, w)` the coefficient of entry `i` is `cᵢ = T(λ0) wᵢ`, formed in `T` (the weights are a
+`Vector{T}`), so that `G` is `max(|∇fᵢ| - cᵢ, 0)` where `xᵢ = 0` and `|∇fᵢ + cᵢ sign(xᵢ)|` elsewhere; a zero
+weight gives the coefficient 0 and the score `|∇fᵢ|`. For
+`ElasticNet(λ1, λ2)` (PGD and APG) it is the element of
+`∇f(x) + λ2 x + λ1 ∂‖x‖₁` of least infinity norm: `max(|∇fᵢ| - λ1, 0)` where
+`xᵢ = 0` and `|∇fᵢ + λ2 xᵢ + λ1 sign(xᵢ)|` elsewhere, with the levels `T(λ1)` and `T(λ2)`. The solver
+computes `‖G‖∞` with ProximalBase's `kkt_violation(NormL1(T(λ0)), ∇f(x), x)`, `kkt_violation(NormL1(T(λ0), w), ∇f(x), x)` or
+`kkt_violation(ElasticNet(T(λ1), T(λ2)), ∇f(x), x)`, passing the converted levels. An infinite entry of `x`
+gives a non-finite residual (`Inf`, or `NaN` when a `NaN` is read), so the stop does not count. Below,
+`λ` is the ℓ1 level of the penalty (`λ` of `NormL1(λ)`, the largest coefficient `maxᵢ cᵢ = T(λ0) * maximum(w)` of
+`NormL1(λ0, w)`, `λ1` of `ElasticNet`). The stop counts only if
 
 ~~~
 ‖G‖∞ < max(gradtol, 64 eps(T)) * max(λ, λmax),    λmax = α ‖Xᵀy‖∞,
@@ -114,6 +141,34 @@ of the tests. What `converged=true` therefore says about the returned `x`:
 - Where `λ` and `λmax` are both 0 (for example `y = 0` and `λ = 0`), or where
   the bound is below `floatmin(T)`, no stop passes. The solve then ends at
   `maxiter` unless another exit applies.
+- **Weights.** For `NormL1(λ0, w)`, `S = max(maxᵢ cᵢ, λmax)`; rounding is monotone, so the
+  largest coefficient is `T(λ0) * maximum(w)`. For `w` all ones the coefficients and `S` are those of
+  `NormL1(λ0)`. With all weights 0 the penalty vanishes, `S = λmax` and the check is that of least squares;
+  with `y = 0` as well, `S` is 0 and no stop counts, as above. A zero-weight coordinate is scored with its
+  full gradient `|∇fᵢ|`, so a stop at a point where that gradient is at least `τ S` is not accepted, also
+  where `λ0` is large. A proposed stop adds two scans of `w` to the pass of `kkt_violation` (one for the
+  maximum, one in the construction of `NormL1(T(λ0), w)`) and forms no array. Each `cᵢ` is a coefficient
+  that `solve!` has checked: finite and, where `T(λ0)` and `wᵢ` are both positive, a normal number of `T`
+  (a zero or subnormal product of positive factors is refused, and so is a subnormal `T(λ0)`); a zero level or weight gives
+  `cᵢ = 0`. As above, a stop is refused where `τ S` is below `floatmin(T)`.
+- **The elastic net.** `ElasticNet(λ1, λ2)` on the loss `α/2 ‖Xb - y‖²` is the lasso with
+  level `λ1` on the augmented data `X̃ = [√α X; √λ2 I]`, `ỹ = [√α y; 0]`: its loss
+  `½‖X̃b - ỹ‖²` equals `α/2 ‖Xb - y‖² + (λ2/2)‖b‖²`, its gradient is `∇f(x) + λ2 x`, and its
+  `λ̃max = ‖X̃ᵀỹ‖∞ = α‖Xᵀy‖∞` is the `λmax` above. The check with `S = max(λ1, λmax)` is therefore
+  the lasso check on those data, and has the same properties: it is covariant under a common
+  positive factor on `α`, `λ1` and `λ2` (in exact arithmetic), and it refuses every stop where the
+  computed `S = max(T(λ1), λmax)` is 0, with `λmax` as the solver computes it. The scale does not
+  contain `λ2` or `λ2‖x‖∞`. With `λ1 = 0` and `y = 0`, the computed `S` is 0 although `x = 0` is the
+  ridge solution: no stop counts, and the solve runs to `maxiter` with `converged=false`, as
+  `NormL1(0)` does for `y = 0` (unless another exit applies). An exact `Xᵀy = 0` need not give a computed
+  `λmax = 0`: in `Float32`, `X = reshape(Float32[2^24, 1, -2^24, -1], 4, 1)` with `y = ones(Float32, 4)` has `Xᵀy = 0`,
+  but `2^24 + 1` rounds to `2^24` when the terms are summed in that order, so the computed `λmax` can be 1,
+  and the check then works with that rounded value; a stop can then count at a point whose residual for the
+  exact data is not small relative to the computed `S`.
+  A start `x0` with a finite `f(x0)` is accepted even if `g(x0)` overflows in `T` (for example a ridge term
+  `(λ2/2)‖x0‖²` above `floatmax(T)`). An error raised in the step of an iteration (its line search, or the
+  check that the accepted objective is finite) restores the last accepted iterate and is rethrown, as for `NormL1`. On a dense `Vector` or a one-dimensional `SparseIterate`, `CDSolver`
+  accepts an `ElasticNet` and stops by its change test, as for `NormL1`; this check is not applied there.
 - The check bounds the residual relative to `max(λ, λmax)`. A coordinate whose
   gradient is on a scale far below `λmax` can stay inaccurate when the check
   passes: for `X = diag(1e6, 1)`, `y = [1e6, 1]`, `λ = 0` from a cold start with
@@ -346,12 +401,302 @@ With the dual point `θ = κ s (y - Xx)`, where
 independent numerical check, **not** a rigorous floating-point certificate: the
 rounding errors of that evaluation are not bounded here.
 
+## Group lasso on a BlockIterate
+
+`CDSolver` accepts a `BlockIterate{T}` with a `GroupNormL2` penalty (see
+[Supported problems](support.md)); the coordinates of the solver are the groups. The pass
+schedule, `tol`, `relative`, `maxpasses`, the borrowed random number generator, the
+not-converged warning and the result type are those of the lasso. The result has
+`kkt_checks = 0` and `gap = NaN`, placeholders and not computed certificates, and
+`minimizer === x`. A random order permutes the groups.
+
+### The group step
+
+For a group `k` that is not flat (see below), with entries `G` and the current residual
+`r`, the solver uses a number `ℓ_k > 0`, computed as described below, that is meant to
+bound the largest eigenvalue of `X[:, G]' * X[:, G]` from above.
+A visit forms the trial point `u = x[G] + X[:, G]' * r / ℓ_k` in `T`, replaces the block
+by the proximal point of the penalty at `u` with the step `1 / (s ℓ_k)`, `s` the loss
+scale, and updates the residual for each entry of the block that changed. The change of
+the visit is the 2-norm `‖Δ_G‖₂` of the displacement of the block. A flat group has
+`ℓ_k = 0` and takes the proximal point at the step `Inf` instead, without a trial point
+(see below). A group whose block does not change is not written, which keeps an inactive
+group inactive. A trial point or displacement that is not finite stops the solve with an
+`ArgumentError` that names the group, and the iterate of the caller is unchanged; a change
+or stopping scale that is not finite is refused as for the lasso.
+
+**The zero-group screen.** When the block of a nonflat group is identically zero (whether
+or not the group is active), the visit first forms the correlations `b = X[:, G]' * r` and,
+if the two guards below allow, passes them to ProximalBase's `prox_block!` for the group
+with the step `1 / s`. If the result is entirely zero, the visit ends with no change:
+nothing is written to the iterate or the residual, and a deferred `ℓ_k` is not computed. A
+zero block that the screen returns as zero forms no trial point, so it is not refused where
+the trial point `b / ℓ_k` of the full step would overflow. In exact arithmetic, the full
+step gives a zero block, for any `ℓ_k > 0`, exactly when the norm of `b` is at most
+`λ w_k / s`, and the screen tests the same inequality. The guarantee is one-sided: where
+the screen returns zero, the positive excess of the norm of `b` over the threshold
+`λ w_k / s` is confined to a rounding band around the equality (a screened zero can also be
+far inside the zero ball, for example `b = 0`). A nonzero screen result does not imply a
+nonzero full step: `b / ℓ_k` can underflow, so the full step can return zero where the
+screen does not. Two guards restrict the screen to cases where an entirely zero result is
+meant to come from the threshold test, up to such a rounding band:
+
+- the reciprocal `1 / s` formed in the type `S` of the scale must be a finite positive normal
+  number of `S`; it is `Inf`, 0 or subnormal otherwise;
+- either every correlation `b_i` is zero, or the largest `|b_i|` of the group is at least a
+  floor, `2^53 floatmin(T)`, which is far above the underflow range of `T`. Otherwise
+  ProximalBase's shrinkage of a very small correlation could round every entry of the result
+  to zero although the norm of `b` exceeds the threshold, and a zero result would not certify
+  the zero block.
+
+Outside the guards, the screen is bypassed and the visit takes the full step, with the
+curvature computed if it is still deferred.
+
+### The curvature bound
+
+`ℓ_k` is a bound on the stored values of `X` in `T`, formed as follows. The preparation
+runs after the residual is set, before the first pass and any draw from the random number
+generator, and only when `maxpasses > 0`; with `maxpasses = 0` it is skipped and the
+preparation refusals below do not occur (the refusals of the inputs, the response scale
+and the final objective still apply). The preparation computes and checks `ℓ_k` for a flat
+group, for an ordinary one-column group and for a group that is not deferred; for a
+deferred group it checks only the bounds below, and `ℓ_k` stays `NaN` until the first visit
+that needs it.
+
+- **Flat group.** If every entry of `X[:, G]` is exactly 0, `ℓ_k = 0`, set during the
+  preparation. The visit takes the minimizer of the penalty alone: a zero block when the
+  level and the weight are positive, and the block unchanged when one of them is 0. Its
+  stopping scale is 0.
+- **Group of one column**, with `n` the number of rows and `n eps(T) ≤ 1/8`. `ℓ_k` is
+  computed during the preparation as the next floating-point number above
+  `a (1 + 2 n eps(T))`, where `a` is the sum of squares of the column accumulated in `T`.
+  The factor is a margin for the rounding of `a`, so `ℓ_k` is larger than the squared norm
+  by a relative amount of about `2 n eps(T)`; the scalar lasso step uses `a` itself. The
+  two sums are accumulated differently, so they can differ by rounding even before the
+  margin.
+- **Any other group**, and a group of one column with `n eps(T) > 1/8` (the *Gram route*).
+  The Gram matrix `Ĝ` of the columns is formed in `Float64` from a copy of the columns
+  (for `Float32` data too). With `t` the trace of `Ĝ`, `m` the size of the group and `d`
+  the largest diagonal entry, the bound in `Float64` is the next number above
+  `max(μ, d) + 4 (n + m²) eps(Float64) t`, rounded up to `T`, where `μ` is the largest
+  eigenvalue of `Ĝ`: all eigenvalues of `Ĝ` are computed and the largest is taken, for a
+  group of `m ≥ 2` columns. For a group of one column on this route, `μ` is the diagonal
+  entry `Ĝ[1, 1]`, with no eigenvalue computation and no eigenvalue model. The error terms
+  that the margin covers are the rounding of `Ĝ`, products that underflow, and, for
+  `m ≥ 2`, the eigenvalue computation. The first two follow from standard bounds and
+  assume IEEE gradual underflow (subnormal numbers are not flushed to zero); the third
+  assumes that the computed eigenvalues are exact eigenvalues of a nearby matrix, within a
+  multiple of `eps(Float64)` times the trace, a model of the eigenvalue routine and not a
+  proved bound for every input. This is the *general rule*; a group of two columns takes it
+  outside the range of the next item.
+- **Group of two columns** (on the Gram route). With `x` and `y` the two columns, the
+  entries `a = ‖x‖²`, `b = ‖y‖²` and `c = xᵀy` of the Gram matrix are accumulated in
+  `Float64` in one pass over the stored columns, without a copy, and `t = a + b` is their
+  computed trace. Where `2^-480 ≤ t ≤ 2^500`, the bound in `Float64` is the next number above
+  `(t + √((a − b)² + 4c²))/2 + (n + 4) eps(Float64) t`, evaluated in `Float64` and rounded
+  up to `T`, with no eigenvalue computation. The first term is the largest eigenvalue of
+  the computed Gram matrix in exact arithmetic. Inside this range the bound is proved, with
+  no eigenvalue model: assuming IEEE binary64 arithmetic with rounding to nearest and
+  gradual underflow, and `n eps(Float64) ≤ 1/8`, it exceeds the largest eigenvalue of the
+  exact Gram matrix of the stored columns by at least `((6/7) n + 3) u t`, with
+  `u = eps(Float64)/2`, for any order of the summation. The margin is a quarter of that of
+  the general rule. Under the same condition on `n`, finite `Float32` data in a group that
+  is not flat is inside this range. `Float64` data is outside it where `√t`, the Frobenius
+  norm of the two columns up to rounding, is below `2^-240` or above `2^250`, and data with
+  a `NaN` or infinite entry is outside it (`t` is then `NaN` or infinite). Outside the range
+  the general rule decides, with its refusals.
+
+The two rules for a group of two columns compute slightly different bounds: the margins
+differ, and the computed eigenvalue differs from the closed form in the last bits. The
+refusal categories and messages are those of the table below, but where the two bounds,
+or the steps `s ℓ_k` formed from them and their reciprocals, fall on different sides of a
+refusal threshold, the decision can differ from the one that the general rule would make.
+For the bound in `Float64` before its rounding up to `T`, the thresholds are
+`prevfloat(floatmin(T))` and `floatmax(T)`: a bound at or below `prevfloat(floatmin(T))` is
+refused as underflow, a bound strictly above it rounds up to at least `floatmin(T)`, and a
+bound above `floatmax(T)` is refused as overflow. For `s ℓ_k` and its reciprocal the
+threshold is the smallest normal number of `S` (see below).
+Then a bound that the general rule refuses as overflow can be accepted (and then be
+refused by the step check, with the step message), a bound that it accepts can be refused
+as underflow, and a step decision can change in either direction. The gap between the two
+bounds scales with `t`, not with `ℓ_k`, so no fixed relative distance from a threshold is
+claimed.
+
+**Lazy computation.** Computing the bound of a group costs a pass over its columns, and on
+the general rule a copy of the columns, their Gram matrix and, for two or more columns, an
+eigenvalue computation; a group that stays at zero may never need it. During the
+preparation, a group on the Gram route gets cheap bounds, formed in `Float64` from the sums
+of squares `q_c` of its columns (`n m` operations, no products between columns): with `t`
+the sum and `d` the largest of the `q_c`, a lower bound `lo = d (1 − 2 n eps(Float64)) − 2 n η`
+and an upper bound `hi = 4 t` on the curvature that the rules above would store (`η` the
+smallest positive `Float64`; the bounds assume gradual underflow, and the upper one the
+eigenvalue model for a group that takes the eigenvalue computation: three or more columns,
+or two columns outside the range of their rule). Under these assumptions, the four conditions below exclude the refusals; a
+deferred group can still be refused during a pass through an eigenvalue routine that
+throws, or through a violation of the model. The curvature is left uncomputed (`NaN` in the model) only if the type `S` of the scale is `Float32` or
+`Float64`, `4 (n + m²) eps(Float64) ≤ 1/16`, `t` is finite, and all of these hold:
+
+1. `lo ≥ 2 m floatmin(Float64)`, so that the trace underflow refusal is not made;
+2. `lo ≥ 2 floatmin(T)`, so that the curvature underflow refusal is not made;
+3. `hi ≤ floatmax(T) / 2`, so that no overflow refusal is made;
+4. `s lo ≥ 2 floatmin(S)` and `s hi ≤ 1 / (2 floatmin(S))`, so that the step band check
+   does not refuse.
+
+The curvature is then computed, once per solve, at the first visit that needs it: a visit
+whose block is nonzero, or whose block is zero and which the screen above does not remove,
+and the band check is made there. A deferred group that stays at zero and is screened out
+at each visit never computes its curvature. If any condition fails or the bounds do not
+apply, the group is not deferred: the curvature and the band are computed during the
+preparation, as for the other groups, and refuse as below, so such a group may already have
+a curvature when it is screened. A one-column group with `n eps(T) > 1/8` is on the Gram
+route and can be deferred. The bounds do not decide an eigenvalue routine that throws, or a
+largest eigenvalue that is not finite: these surface during the preparation for a group
+that is not deferred, and at the lazy computation, during a pass, for a deferred group.
+How much the lazy computation saves depends on how many groups fail the screen; see
+[Cost of the lazy curvature](choosing-solver.md#Cost-of-the-lazy-curvature).
+
+The step of a nonflat group also needs `s ℓ_k` and its reciprocal to be at least the
+smallest normal number of the type `S` that combines `s` with `T`. This band check is made
+where the curvature is computed: during the preparation, or at the lazy computation. It cannot fail when `S` is wider than `T`, for example `Float32`
+data with a `Float64` loss scale, because the scale then converts to a finite nonzero
+`Float32` and the curvature is a normal `Float32` number; it can fail only when `S` is `T`
+itself. The scale need not have the data type: `Float64` data `X = fill(2.0^-500, 1, 1)`
+with the `Float32` scale `nextfloat(0f0)` has `ℓ_k` about `2^-1000`, a normal `Float64`
+number, and `s ℓ_k` is below the smallest normal `Float64` number.
+
+**When the refusals happen.** The refusals below throw an `ArgumentError` that names the
+group, and they leave `x` unchanged. Those that are predictable, because the curvature is
+computed during the preparation or the four conditions above hold, happen before the first
+pass, and the random number generator is unused. A curvature computed lazily is computed
+in the same way, and an exception of the eigenvalue routine (which is not caught), a
+largest eigenvalue that is not finite (both on the general rule), or a curvature or step
+refusal at that point (which the four conditions are meant to exclude) happens during a
+pass: `x` is still unchanged, but a random order may already have drawn from the generator.
+
+| Category | Condition | Message contains |
+| --- | --- | --- |
+| Curvature underflow | the sum of squares of the column of a group of one column with `n eps(T) ≤ 1/8` is below `floatmin(T)`, the trace of `Ĝ` is below `m` times `floatmin(Float64)` (on the general rule), or `ℓ_k` is below `floatmin(T)` | `underflows` |
+| Curvature overflow | the sum of squares of that column, `Ĝ`, its trace or its largest eigenvalue is not finite (on the general rule), or `ℓ_k` is infinite in `T` | `overflows` |
+| Step | `s ℓ_k` or its reciprocal is outside the normal range | `step of group` |
+
+A group whose curvature bound is subnormal in `T` is refused here, where the scalar
+lasso accepts a subnormal squared norm of a column. Before these, `solve!` refuses a
+receiver that is not a `BlockIterate{Float32}` or `BlockIterate{Float64}`,
+`momentum = true`, a penalty that is not a `GroupNormL2{Float32}` or `GroupNormL2{Float64}`,
+a level or weight that is not finite, nonnegative and representable in `T` (messages
+`penalty lambda` and `group weight`), and groups of `x` and of the penalty that differ in
+number, order or membership (`DimensionMismatch`); these input refusals also apply with
+`maxpasses = 0`. No fallback rule replaces a refused curvature.
+
+### The stopping statistic
+
+With `relative = true` and a positive response scale, the change of a visit is
+`‖Δ_G‖₂ √(s ℓ_k)`, formed by the range-safe rule that the lasso uses for `√(s a)`, and it
+is compared with `tol` times the response scale of the lasso. For a group of one column
+this is the lasso statistic up to the margin and rounding noted above. A flat group has
+scale 0, so its change is 0. With `relative = false`, or for `y = 0`, the change is
+`‖Δ_G‖₂` itself. A pass reports the largest change among the groups it visited, and a
+full pass whose largest change is below the threshold ends the solve with
+`converged = true`.
+
+`converged = true` reports that change test only. It is not a certificate of optimality:
+compute the group KKT conditions from the data, as in
+the [group lasso tutorial](examples/problems/group_lasso.md), where for `∇ = s Xᵀ(Xβ − y)` a nonzero group
+needs `∇[G] + λ w β[G] / ‖β[G]‖ = 0` and a zero group needs `‖∇[G]‖ ≤ λ w`.
+What the change test implies, and how far group CD stopped from a minimizer in the audit, is in
+[What the change test of coordinate descent implies](@ref "What the change test of coordinate descent implies").
+
+The pass schedule is that of the lasso with groups as the coordinates. A full pass
+visits every group and an active pass visits the active groups; after each pass the
+groups whose block is entirely zero become inactive. The forced full pass counts group
+visits: once the active passes since the last full pass have together visited 20 times as
+many groups as there are groups, the next pass is a full pass, whatever the changes.
+
+### Result and failure
+
+The solve runs on a private copy of `x`. A finite completed run, including one that
+ends at `maxpasses` with the warning, replaces `x` by one same-layout copy of the final
+state; a refusal or numerical error before that leaves the values, the active groups and
+their order of `x` unchanged, though a random order may already have drawn from the
+generator. The entries of the groups that are inactive at the end are zero; their sign is
+not specified. After a solve, take `activecoordinates(x)` again, as for a `SparseIterate`.
+
+## Square-root lasso
+
+`CDSolver` with `SqrtLeastSquaresLoss` (see [Supported problems](support.md)) uses the pass schedule,
+momentum and change test of the lasso with the loss scale `s = 1`: with `relative=true` and `y ≠ 0` the
+threshold is `tol * norm(y)`, and a change is multiplied by `norm(X[:, k])`; with `relative=false`, or
+`y = 0`, the threshold is the absolute `tol` and a change is not scaled.
+
+### The coordinate step
+
+With `a = ‖X_k‖²`, `b = X_kᵀr`, the centre `c = old + b/a` and `d` the distance of `r` from the span of
+`X_k`, the objective along coordinate `k` is `√(a (z − c)² + d²) + λ|z|`. Its minimizer is 0 for `λ ≥ √a`
+and `shrink(c, λ d/√(a (a − λ²)))` otherwise; the step uses the level `T(lambda)`. It forms `a`, `b` and
+`‖r‖²` in one pass over the column and the residual, and `d² = ‖r‖² − b²/a`; where that is below
+`‖r‖²/16` it forms `d` again as the norm of `r − (b/a) X_k`, because the subtraction loses accuracy there.
+Where `a` is below `n floatmin(T)/eps(T)`, or `‖r‖²` or that recomputed `d²` is below it or not finite (a
+column whose squares can underflow, a residual whose squares underflow or overflow, and `r = 0`), the step
+is formed in `Float64` from the column and the residual scaled by powers of two. In that scaling a small
+entry can underflow or lose bits, which changes `√a`, `b/√a` and `d` by absolute amounts of at most
+`3n 2^-1074` times `‖X_k‖` or `‖r‖` (to first order); the error bound of the step, derived in the source, covers this (a
+tiny `d` can become 0). Where `d/√(a (a − λ²))` or its product with `λ` is outside the normal range of
+`T`, the threshold is formed in `Float64` without that product. At every visit, before any of these
+branches, a residual with an entry that is not finite is refused with an `ArgumentError`, and so are a
+column whose squared norm is 0 but which is not zero and a column whose squared norm is not finite; the
+coordinate and the residual are then unchanged.
+
+### The certificate
+
+At a full pass whose largest change is below the threshold, the residual `r̂ = y − Xβ` is recomputed in
+`Float64` over the nonzero coefficients, with the row magnitudes `|y_i| + Σ_k |X_ik β_k|`. The dual
+point is `θ = t r̂/‖r̂‖` with `t ≤ min(1, λ/max_k |X_kᵀr̂|/‖r̂‖)`, where the maximum is replaced by an upper
+bound and `t` is rounded down, so that `‖θ‖ ≤ 1` and `‖Xᵀθ‖∞ ≤ λ` hold exactly; weak duality then gives
+`P* ≥ θᵀy`. The gap `P − θᵀy` is bounded by a sum of terms that are nonnegative in exact arithmetic,
+`(1 − t)‖r̂‖ + Σ_k (λ|β_k| − t β_k X_kᵀr̂/‖r̂‖)` plus `(1 + t)` times a bound on the error of `r̂`, without
+a difference of `θᵀy` and `P`. Each computed term carries a relative and an absolute rounding allowance,
+and the operations after the passes over the data round outward. The run is certified when the resulting
+upper bound of `(P − P*)/P*` (with a lower bound of `θᵀy` as denominator), rounded up, is at most
+`1e-4`, and that bound is reported in `gap`. Not certified: a recomputed residual `r̂` that is 0 in every
+entry with a nonzero coefficient (the direction is undefined; this is the usual outcome at an exact fit
+`y = Xβ`, and `r̂` can also round to 0 where `y − Xβ` is not 0), a sum of squares of `r̂` below
+`n 2^-969` or not finite, and an intermediate value that is not finite. An exact fit whose `r̂` is not 0
+goes through the bound like any other point, and a certificate there is valid. The check also replaces the cached
+residual by `r̂` rounded to `T` when every entry is representable in `T`, and `minimum` is evaluated from
+it at a stop of the check. A check costs one pass over `X` and one over its columns with nonzero
+coefficients. The proof of the allowance is a comment in `src/cd/sqrtlasso.jl`.
+
+The rounding of `r̂` in `Float64` is of the order of `eps(Float64)` times the row magnitudes
+`|y_i| + Σ_k |X_ik β_k|` (larger than `eps(Float64) ‖Xβ‖` where terms of a row cancel). Where these
+magnitudes dwarf the residual, for example where the fitted values do, that rounding enters the bound,
+and a point that is optimal can fail to be certified.
+
+### Tightening and the uncertified stop
+
+A check that does not certify divides the threshold by 100 and the run continues, at most twice per solve
+and while `tolerance/100` is finite, positive, below `tolerance` (a threshold that overflowed to `Inf`
+is not lowered) and at least a floor in the units of the threshold: `16 eps(T)
+norm(y)` for a relative threshold (`relative=true` and `y ≠ 0`, where a change is scaled by
+`norm(X[:, k])`), and `16 eps(T)` times the largest `|β_k|` at the check for an absolute one
+(`relative=false`, or `y = 0`), with no tightening at `β = 0`. The run stops with `converged = false`,
+`gap = NaN` and the warning `coordinate descent stopped without a duality certificate` when the
+certificate is not defined (above), when the full pass changed nothing, or when no tightening is left.
+With `relative=true`, `y ≠ 0` and the default `tol = 1e-7`, `Float32` data get no tightening, because
+`1e-9` is below `16 eps(Float32)`; with `y = 0` the threshold and its floor are absolute, and a tightening
+can occur. With `y = 0` and a nonzero start, `P* = 0`, so no relative bound can be certified unless `β`
+reaches 0; coordinate descent can approach 0 without reaching it and then stops uncertified. At an exact
+fit with a positive penalty, coordinate descent can stop at a point that minimizes `P` along every
+coordinate but not overall; such a run, and one that stops at the minimizer at an exact fit, are
+reported uncertified where the recomputed residual is 0, which is the usual outcome. An uncertified stop at the last allowed
+pass gets the uncertified warning, and `passes == maxpasses` alone does not tell it apart from the limit.
+
 ## Working precision: Float32 and Float64
 
 A supported solve uses a single floating-point working type
 `T = Float32` or `T = Float64` for the design matrix `X`, response
 vector `y`, and coefficient iterate. `CDSolver` accepts either a
-dense `Vector{T}` or a one-dimensional `SparseIterate` of `T`;
+dense `Vector{T}`, a one-dimensional `SparseIterate` of `T`, or, for the group lasso, a
+`BlockIterate{T}`;
 `ProximalGradientDescent` and `AccProxGradDescent` accept only a dense `Vector{T}`.
 Mixed-precision arrays, such as `Float32` coefficients with a
 `Float64` design, are rejected. This is stricter than ProximalBase
@@ -377,8 +722,9 @@ CD's scalar arithmetic `BigFloat`; an `Int`, `Rational{Int}`, `Irrational`,
 `Bool` or `Float16` scale was used there as `T(s)`). Convert the scale
 explicitly where the conversion is finite, positive and representable in `T`,
 for example `Float64(s) * LeastSquaresLoss(y, X)`; the error message suggests it
-when it passes that rule. After the check, CD, PGD and APG use the loss scale as
-supplied, combined with `T` by Julia's promotion: a `Float64` scale in a
+when it passes that rule and, for an integer scale, only when `Float64(s)` equals
+`s` (for other types it notes that the conversion may round `s`). After the
+check, CD, PGD and APG use the loss scale as supplied, combined with `T` by Julia's promotion: a `Float64` scale in a
 `Float32` solve keeps its `Float64` value (also where that value is subnormal in
 `Float32`). In CD, the coordinate step and the two stopping scales are formed
 from that value and rounded to `T` where they enter the iterate or the
@@ -423,7 +769,7 @@ keeps the image `X x` (PGD, APG), the residual (CD), the steps, the line searche
 and the stopping rules. The exact
 accuracy and range statements are those of the section "Least squares at a
 predictor or residual that the caller holds" of the
-[ProximalBase guide to the smooth functions](https://github.com/mlakolar/ProximalBase.jl/blob/50db4b1ef376cbe01831c3dd019b6be0027db0b6/docs/src/smooth.md); they are not restated here.
+[ProximalBase guide to the smooth functions](https://github.com/mlakolar/ProximalBase.jl/blob/a19c59aa723d085d5d7cf5242895bda16eb77214/docs/src/smooth.md); they are not restated here.
 What changes for the solvers:
 
 - CD takes the loss part of its objective from `value_from_residual` of its
@@ -447,15 +793,82 @@ What changes for the solvers:
   start or trial whose value ProximalBase recovers, under the conditions of its
   guide, is evaluated finitely where the sum of squares overflows in `T`; before,
   the sum of squares was formed in `T` without that recovery.
+- A start accepted in this way can have a finite value while `Σ(z - y)²` overflows
+  in `T`. PGD and APG start their curvature estimate `L` at `min(1, α‖X‖_F²)` for the
+  loss scale `α` (1 for an unscaled loss), with `‖X‖_F` the solvers' upper bound on the
+  Frobenius norm of `X`. The start is `1` when that product is at least 1 or `X = 0`, and
+  a positive start that rounds below `floatmin(T)` is raised to `floatmin(T)`. `L` is then
+  multiplied by the line search's decrease factor (default 0.9) before each iteration and
+  raised on a rejected trial. The start is the Frobenius bound `α‖X‖_F²` when that is positive and below 1,
+  which exceeds the curvature `α‖X‖₂²` by the factor `‖X‖_F² / ‖X‖₂²` (at most the rank of `X`), up to
+  rounding and the floor; a problem whose positive Frobenius bound is far below 1 therefore starts
+  below 1, and one whose bound is 1 or more starts at 1 (for example `X = I(256)/16` with `α = 1` has
+  curvature `1/256` and starts at 1). For
+  `X = ones(5, 1)`, `y = fill(1e160, 5)`, loss scale `1e-100`, `NormL1(0.0)` and start 0,
+  the curvature `α‖X‖²` is `5.000000000000001e-100`, `X` has rank one, and both solvers start at
+  `5.000000000000014e-100`. APG ends with `converged = true` after 8 iterations, and with
+  `NormL1(0.1 λmax)` after 7 (Julia 1.10.13 and 1.13.3 agree). PGD ends with
+  `converged = false` after 7 iterations, stopped by the increase of the objective
+  (`f_increased = true`), at `x` ≈ 1.0034e160 against the minimizer `1e160`: its
+  backtracking test squares the step norm, which overflows once a step exceeds about
+  1.3e154, and then accepts a trial whose `L` is below the curvature, so `L` keeps
+  falling by the decrease factor until the objective increases. This limit of PGD's
+  line search is tracked in #364.
+- PGD and APG log no warning when they end at `maxiter`, so check `converged` and an
+  [independent KKT residual](sparsity-and-kkt.md). CD logs a warning when a run ends with
+  `converged = false`. CD solved the example above (`converged = true`, `x = [1.0e160]`);
+  this is not a statement about extreme-scale problems in general.
+- A rescaling can serve as a workaround where it keeps the minimizers. For a `NormL1`
+  penalty, `x = s u` with `s > 0` replaces `X` by `sX` and `λ` by `sλ`, multiplies the
+  curvature by `s²`, and turns a start `x₀` into `x₀ / s`. On the example with `s = 1e50`
+  and level `1.0e60` replaced by `1.0e110`, the curvature is above 1, the start is `1`,
+  and PGD and APG both returned `converged = true`, after 9 and 7 iterations. The
+  transformation `X′ = cX`, `y′ = cy`, loss scale `α/c²`, with the penalty unchanged,
+  keeps the objective and the curvature `α‖X‖²`, so it keeps the start up to rounding (with `c = 1e-80`
+  on the example, APG converged after 8 iterations and PGD ended as above).
 - The gradient is `α` times the rounded product `Xᵀd` with `d = z - y` for the
   image `z = X x`. An `Xᵀd` that overflows or underflows before the scaling is not
   recovered, also where `α` would bring the exact gradient into range.
 - Where `z - y` overflows with finite entries, `value_from_predictor` recovers the
   value, while `value_and_gradient_from_predictor!` returns a non-finite value
-  and non-finite gradient entries. In PGD a trial is evaluated by the former and
-  the gradient at an accepted trial by the latter, so an iterate accepted on a
-  finite value can hold a non-finite gradient; this combination is not covered
-  by a test.
+  and non-finite gradient entries.
+  - At a start where `z - y` overflows, PGD takes the start's value from
+    `value_and_gradient_from_predictor!` and refuses a non-finite one with
+    `ArgumentError("start from a point where f is finite")`, also where
+    `value_from_predictor` is finite. APG takes it from `value_from_predictor` and accepts
+    the start where that value is finite; its first step then fails with
+    `ErrorException("the gradient step did not produce a finite objective")`. Both leave
+    `x` unchanged (`Float32`, `X = [1;;]`, `y = [3f38]`, loss scale `1e-44`,
+    `NormL1(0f0)`, start `[-3f38]`).
+    [#328](https://github.com/mlakolar/ProximalSolvers.jl/issues/328) tracks the message
+    and the difference.
+  - In PGD a trial is evaluated by `value_from_predictor` and the gradient at an accepted
+    trial by `value_and_gradient_from_predictor!`. Where the line search decides from
+    function values, the code accepts a trial on its finite value, so an accepted iterate
+    can hold a non-finite gradient; this was not reproduced and is not covered by a test.
+    Expected from the code only: if another step is attempted from such an iterate,
+    `x - ∇f/L` is non-finite for every finite `L`, and for a penalty whose prox keeps
+    non-finite entries (as `NormL1` does) the trial values are non-finite, so the line
+    search raises `L` (`src/line_searches.jl:113-118`) until `next_curvature` cannot
+    increase it finitely and raises
+    `ErrorException("line search failed: the curvature estimate cannot increase finitely")`;
+    `solve!` then restores that iterate and rethrows (`src/solve.jl:223-231`); `maxiter`
+    or another stop can end the solve before that step.
+    In a `Float32` probe with `maxiter = 3000` (Julia 1.10.13 and 1.13.3), a trial whose
+    gradient was non-finite was rejected, the step raised
+    `ErrorException("line search failed: nonfinite curvature estimate")`, and the last
+    accepted iterate was restored; this is not a guarantee for every setting.
+- In Float64, a subnormal squared step norm `‖d̂‖²` of a PGD trial (a nonzero value below
+  `floatmin(Float64)`) can make the line search's curvature estimates unreliable. Once the
+  search uses gradients, it scales a gradient-difference product by `2/‖d̂‖²`, which
+  overflows when `‖d̂‖² < 2/floatmax(Float64)` (about 1.1e-308). A zero product is not
+  scaled: it gives the estimate 0 and the trial is accepted, where scaling would give
+  `0 · Inf = NaN`. This does not make a solve converge at such scales: a solve can still end
+  with `converged = false` or with a line-search error. One case is not handled: a nonzero
+  product, or rounding noise in the function values, can give an infinite estimate, and when
+  `sum(abs2, d̂)` underflows to 0 while `‖d̂‖² > 0` (every entry of `d̂` below about
+  1.57e-162), the computed curvature of the step is not finite and does not replace that
+  estimate. See `LineSearches.BackTracking`.
 
 `Float32` has less precision and may stagnate earlier than `Float64`.
 Some solver tolerances, residual reports and other scalar diagnostics
@@ -578,7 +991,8 @@ only on `converged`.
 - Reaching a pass or iteration limit is not convergence. CD can return
   a finite nonconverged solution with a warning.
 
-Gap certificates are not implemented: `gap=NaN` is a placeholder.
+Gap certificates are implemented only for the square-root lasso with CD (below); elsewhere `gap=NaN` is
+a placeholder.
 For more precise treatment of exceptional arithmetic, compaction,
 momentum, callbacks and test provenance, consult the
 [technical contract notes](developer/implementation-notes.md).

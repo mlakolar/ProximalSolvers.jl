@@ -1,0 +1,1158 @@
+# Case mapping of the CD-only successor campaign stage2b-cd-minimal-core-v1 (#333, under #110): the 21 current
+# cd-group case IDs of the benchmark harness at ProximalSolvers 9f86a808 (master after #307), in the order of
+# schedule.toml (the harness catalog order, which sorts by ID). This is NOT the original Stage 2B mapping
+# (../stage2b/case-mapping.toml, the 19 frozen Stage 2A cases): none of these IDs has a Stage 2A record.
+#
+# Every row is class A. The harness is the SAME four files on both stacks: Stack A is b0de3f7 with a harness-only
+# port (branch archive/stage2b-cd-stack-a-port) and Stack B is 9f86a808; the harness hash of both is
+# 164fab53cac906e52e5a75e8b93658c1d174c14e. The inputs, starts, targets, options and timing definitions are therefore the
+# same code, and the matching validation of the tooling PR certified all 21 cases on both stacks and both Julia versions
+# with identical data hashes and input fingerprints. What is NOT identical is the solver: the stopping behaviour of
+# CDSolver changed between the stacks (#293, #294, #295, #311), so a ratio is an accuracy-qualified end-to-end solve!
+# time, not a kernel comparison (the successor issue and the readout protocol of #330 say how it is read).
+#
+# `role` is the comparator's positional label (migration_compare.py: the first 14 declared cases primary, the rest
+# diagnostic). It carries no statistical meaning in this campaign: all 21 cases are read alike.
+#
+# Approval: the maintainer's Gate 0 ruling on #330, option (b). Citations are file:line of benchmark/ at 9f86a808.
+# Read by Python's tomllib (migration_compare.py read_mapping, test_stage2b_cd_files.py).
+
+schema = 1
+campaign_definition = "stage2b-cd-minimal-core-v1"
+harness_commit = "9f86a808bfac968f5421b9efeb6d0aecd7c1c775"
+harness_hash = "164fab53cac906e52e5a75e8b93658c1d174c14e"
+status = "definition of the CD-only successor campaign; no measurement is run or claimed by this file"
+
+[[case]]
+label = "C01"
+id = "cd/lasso-B/cd/dense-f32/call"
+role = "primary"
+family = "coordinate descent, lasso, design B (240 x 160), cold start, dense iterate, Float32, call phase"
+phase = "call"
+inputs = [
+  "draw: regression_problem(rep, \"extended/design-B\"; n = 240, p = 160, design = :B), kind :lasso, lambda = 0.15 * lambda_max (benchmark/problems.jl:128-149; registered at benchmark/cases.jl:537-538 in suite quick)",
+  "the Float64 draw rounded ONCE to Float32 (X, y, s, lambda, w, start): core_problem, benchmark/cases.jl:315-317",
+]
+seed_key = [
+  "scenario_rng(rep, \"extended/design-B\"): FNV-1a 64 of the key xor the repetition ID (benchmark/problems.jl:3-9; regression_problem :129); the repetition ID of the process (PS_REPETITION) changes the draw, identically on both stacks",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark_model, benchmark/cases.jl:95)",
+]
+penalty = [
+  "NormL1(lambda): all weights are one, so the unweighted constructor is used (benchmark/cases.jl:109-110)",
+]
+initial_state = [
+  "zeros(160) (core_problem, :316), held as a plain Vector of Float32",
+]
+working_set = [
+  "none held by the caller: a dense Vector iterate",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:356; Random.seed!(method.rng, 9) at :142-146). The timed call is PS.solve!(x, f, g, method) (:357-358)",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-6, rng = Xoshiro(9)) (core_method, benchmark/cases.jl:330-336); no ProximalOptions are passed (own options)",
+]
+certificate = [
+  "benchmark/cases.jl:360 check: certify(exact, Float64.(Array(output.minimizer))) on the Float64 problem (exact_problem, :319-320), independent of the solver and of ProximalBase iterates",
+  "lasso_certificate, relative_gap (benchmark/certificates.jl:64-83, :358-360)",
+]
+measure = "relative_gap, target 1e-05 (benchmark/cases.jl:298 CORE_TARGETS, passed at :371-372)"
+target = "1e-05"
+work_counters = [
+  "not in the formal record (benchmark/run.jl METRICS_HEADER stores time, GC share, bytes, certificate value and data_hash); passes and kkt checks come only from untimed diagnostics where available, as the Gate 0 ruling says, without a redesign of the engine",
+]
+sensitive_paths_06 = [
+  "not audited per path in this campaign: Stack B is ProximalBase 50db4b1 (0.6.0-DEV, tree 4556e470), identified by the lock (commit, tree, package hash, manifests); the case is certified on both stacks by the matching validation instead",
+]
+class = "A"
+approved = true
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+class_reason = "identical harness bytes on both stacks; inputs/starts/targets/options/timing definitions identical"
+verification_needed = [
+  "matching validation (nonofficial, evidence not committed): certificate ok on both stacks and both Julia versions, identical data hashes and input fingerprints between the stacks; the successor smoke run before the official campaign",
+]
+equivalence_check = [
+  "the fingerprint exporter (export_fingerprints.jl) writes the reset state, solver configuration, options and per-array input hashes of every case and repetition on both stacks outside any timed region; the comparator refuses a case whose fingerprints differ (migration_compare.py), and finalize checks the files before any measurement",
+]
+
+[[case]]
+label = "C02"
+id = "cd/lasso-B/cd/dense-f64/call"
+role = "primary"
+family = "coordinate descent, lasso, design B (240 x 160), cold start, dense iterate, Float64, call phase"
+phase = "call"
+inputs = [
+  "draw: regression_problem(rep, \"extended/design-B\"; n = 240, p = 160, design = :B), kind :lasso, lambda = 0.15 * lambda_max (benchmark/problems.jl:128-149; registered at benchmark/cases.jl:537-538 in suite quick)",
+  "the Float64 draw as drawn (core_problem with T = Float64, benchmark/cases.jl:315-317)",
+]
+seed_key = [
+  "scenario_rng(rep, \"extended/design-B\"): FNV-1a 64 of the key xor the repetition ID (benchmark/problems.jl:3-9; regression_problem :129); the repetition ID of the process (PS_REPETITION) changes the draw, identically on both stacks",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark_model, benchmark/cases.jl:95)",
+]
+penalty = [
+  "NormL1(lambda): all weights are one, so the unweighted constructor is used (benchmark/cases.jl:109-110)",
+]
+initial_state = [
+  "zeros(160) (core_problem, :316), held as a plain Vector of Float64",
+]
+working_set = [
+  "none held by the caller: a dense Vector iterate",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:356; Random.seed!(method.rng, 9) at :142-146). The timed call is PS.solve!(x, f, g, method) (:357-358)",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-11, rng = Xoshiro(9)) (core_method, benchmark/cases.jl:330-336); no ProximalOptions are passed (own options)",
+]
+certificate = [
+  "benchmark/cases.jl:360 check: certify(exact, Float64.(Array(output.minimizer))) on the Float64 problem (exact_problem, :319-320), independent of the solver and of ProximalBase iterates",
+  "lasso_certificate, relative_gap (benchmark/certificates.jl:64-83, :358-360)",
+]
+measure = "relative_gap, target 1e-08 (benchmark/cases.jl:298 CORE_TARGETS, passed at :371-372)"
+target = "1e-08"
+work_counters = [
+  "not in the formal record (benchmark/run.jl METRICS_HEADER stores time, GC share, bytes, certificate value and data_hash); passes and kkt checks come only from untimed diagnostics where available, as the Gate 0 ruling says, without a redesign of the engine",
+]
+sensitive_paths_06 = [
+  "not audited per path in this campaign: Stack B is ProximalBase 50db4b1 (0.6.0-DEV, tree 4556e470), identified by the lock (commit, tree, package hash, manifests); the case is certified on both stacks by the matching validation instead",
+]
+class = "A"
+approved = true
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+class_reason = "identical harness bytes on both stacks; inputs/starts/targets/options/timing definitions identical"
+verification_needed = [
+  "matching validation (nonofficial, evidence not committed): certificate ok on both stacks and both Julia versions, identical data hashes and input fingerprints between the stacks; the successor smoke run before the official campaign",
+]
+equivalence_check = [
+  "the fingerprint exporter (export_fingerprints.jl) writes the reset state, solver configuration, options and per-array input hashes of every case and repetition on both stacks outside any timed region; the comparator refuses a case whose fingerprints differ (migration_compare.py), and finalize checks the files before any measurement",
+]
+
+[[case]]
+label = "C03"
+id = "cd/lasso-B/cd/sparse-f32/call"
+role = "primary"
+family = "coordinate descent, lasso, design B (240 x 160), cold start, sparse iterate, Float32, call phase"
+phase = "call"
+inputs = [
+  "draw: regression_problem(rep, \"extended/design-B\"; n = 240, p = 160, design = :B), kind :lasso, lambda = 0.15 * lambda_max (benchmark/problems.jl:128-149; registered at benchmark/cases.jl:537-538 in suite quick)",
+  "the Float64 draw rounded ONCE to Float32 (X, y, s, lambda, w, start): core_problem, benchmark/cases.jl:315-317",
+]
+seed_key = [
+  "scenario_rng(rep, \"extended/design-B\"): FNV-1a 64 of the key xor the repetition ID (benchmark/problems.jl:3-9; regression_problem :129); the repetition ID of the process (PS_REPETITION) changes the draw, identically on both stacks",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark_model, benchmark/cases.jl:95)",
+]
+penalty = [
+  "NormL1(lambda): all weights are one, so the unweighted constructor is used (benchmark/cases.jl:109-110)",
+]
+initial_state = [
+  "zeros(160) (core_problem, :316), held as a vector SparseIterate with an empty working set (sparse_start, :322-328) of Float32",
+]
+working_set = [
+  "a vector ProximalBase SparseIterate owned by the caller (benchmark/cases.jl:353-354); the working set of the start is part of the reset (copyto! between SparseIterates copies values, active set and order, :355-356)",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:356; Random.seed!(method.rng, 9) at :142-146). The timed call is PS.solve!(x, f, g, method) (:357-358)",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-6, rng = Xoshiro(9)) (core_method, benchmark/cases.jl:330-336); no ProximalOptions are passed (own options)",
+]
+certificate = [
+  "benchmark/cases.jl:360 check: certify(exact, Float64.(Array(output.minimizer))) on the Float64 problem (exact_problem, :319-320), independent of the solver and of ProximalBase iterates",
+  "lasso_certificate, relative_gap (benchmark/certificates.jl:64-83, :358-360)",
+]
+measure = "relative_gap, target 1e-05 (benchmark/cases.jl:298 CORE_TARGETS, passed at :371-372)"
+target = "1e-05"
+work_counters = [
+  "not in the formal record (benchmark/run.jl METRICS_HEADER stores time, GC share, bytes, certificate value and data_hash); passes and kkt checks come only from untimed diagnostics where available, as the Gate 0 ruling says, without a redesign of the engine",
+]
+sensitive_paths_06 = [
+  "not audited per path in this campaign: Stack B is ProximalBase 50db4b1 (0.6.0-DEV, tree 4556e470), identified by the lock (commit, tree, package hash, manifests); the case is certified on both stacks by the matching validation instead",
+]
+class = "A"
+approved = true
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+class_reason = "identical harness bytes on both stacks; inputs/starts/targets/options/timing definitions identical"
+verification_needed = [
+  "matching validation (nonofficial, evidence not committed): certificate ok on both stacks and both Julia versions, identical data hashes and input fingerprints between the stacks; the successor smoke run before the official campaign",
+]
+equivalence_check = [
+  "the fingerprint exporter (export_fingerprints.jl) writes the reset state, solver configuration, options and per-array input hashes of every case and repetition on both stacks outside any timed region; the comparator refuses a case whose fingerprints differ (migration_compare.py), and finalize checks the files before any measurement",
+]
+
+[[case]]
+label = "C04"
+id = "cd/lasso-B/cd/sparse-f64/call"
+role = "primary"
+family = "coordinate descent, lasso, design B (240 x 160), cold start, sparse iterate, Float64, call phase"
+phase = "call"
+inputs = [
+  "draw: regression_problem(rep, \"extended/design-B\"; n = 240, p = 160, design = :B), kind :lasso, lambda = 0.15 * lambda_max (benchmark/problems.jl:128-149; registered at benchmark/cases.jl:537-538 in suite quick)",
+  "the Float64 draw as drawn (core_problem with T = Float64, benchmark/cases.jl:315-317)",
+]
+seed_key = [
+  "scenario_rng(rep, \"extended/design-B\"): FNV-1a 64 of the key xor the repetition ID (benchmark/problems.jl:3-9; regression_problem :129); the repetition ID of the process (PS_REPETITION) changes the draw, identically on both stacks",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark_model, benchmark/cases.jl:95)",
+]
+penalty = [
+  "NormL1(lambda): all weights are one, so the unweighted constructor is used (benchmark/cases.jl:109-110)",
+]
+initial_state = [
+  "zeros(160) (core_problem, :316), held as a vector SparseIterate with an empty working set (sparse_start, :322-328) of Float64",
+]
+working_set = [
+  "a vector ProximalBase SparseIterate owned by the caller (benchmark/cases.jl:353-354); the working set of the start is part of the reset (copyto! between SparseIterates copies values, active set and order, :355-356)",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:356; Random.seed!(method.rng, 9) at :142-146). The timed call is PS.solve!(x, f, g, method) (:357-358)",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-11, rng = Xoshiro(9)) (core_method, benchmark/cases.jl:330-336); no ProximalOptions are passed (own options)",
+]
+certificate = [
+  "benchmark/cases.jl:360 check: certify(exact, Float64.(Array(output.minimizer))) on the Float64 problem (exact_problem, :319-320), independent of the solver and of ProximalBase iterates",
+  "lasso_certificate, relative_gap (benchmark/certificates.jl:64-83, :358-360)",
+]
+measure = "relative_gap, target 1e-08 (benchmark/cases.jl:298 CORE_TARGETS, passed at :371-372)"
+target = "1e-08"
+work_counters = [
+  "not in the formal record (benchmark/run.jl METRICS_HEADER stores time, GC share, bytes, certificate value and data_hash); passes and kkt checks come only from untimed diagnostics where available, as the Gate 0 ruling says, without a redesign of the engine",
+]
+sensitive_paths_06 = [
+  "not audited per path in this campaign: Stack B is ProximalBase 50db4b1 (0.6.0-DEV, tree 4556e470), identified by the lock (commit, tree, package hash, manifests); the case is certified on both stacks by the matching validation instead",
+]
+class = "A"
+approved = true
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+class_reason = "identical harness bytes on both stacks; inputs/starts/targets/options/timing definitions identical"
+verification_needed = [
+  "matching validation (nonofficial, evidence not committed): certificate ok on both stacks and both Julia versions, identical data hashes and input fingerprints between the stacks; the successor smoke run before the official campaign",
+]
+equivalence_check = [
+  "the fingerprint exporter (export_fingerprints.jl) writes the reset state, solver configuration, options and per-array input hashes of every case and repetition on both stacks outside any timed region; the comparator refuses a case whose fingerprints differ (migration_compare.py), and finalize checks the files before any measurement",
+]
+
+[[case]]
+label = "C05"
+id = "cd/lasso-B/cd/warm-dense-f32/call"
+role = "primary"
+family = "coordinate descent, lasso, design B (240 x 160), warm start, dense iterate, Float32, call phase"
+phase = "call"
+inputs = [
+  "draw: regression_problem(rep, \"extended/design-B\"; n = 240, p = 160, design = :B), kind :lasso, lambda = 0.15 * lambda_max (benchmark/problems.jl:128-149; registered at benchmark/cases.jl:537-538 in suite quick)",
+  "the Float64 draw rounded ONCE to Float32 (X, y, s, lambda, w, start): core_problem, benchmark/cases.jl:315-317",
+]
+seed_key = [
+  "scenario_rng(rep, \"extended/design-B\"): FNV-1a 64 of the key xor the repetition ID (benchmark/problems.jl:3-9; regression_problem :129); the repetition ID of the process (PS_REPETITION) changes the draw, identically on both stacks",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark_model, benchmark/cases.jl:95)",
+]
+penalty = [
+  "NormL1(lambda): all weights are one, so the unweighted constructor is used (benchmark/cases.jl:109-110)",
+]
+initial_state = [
+  "warm: the solution at 1.25 * lambda, computed in Float64 by the certificate module's own coordinate descent (warm_start, benchmark/cases.jl:305-313), rounded to Float32, held as a plain Vector; it is part of the inputs and of their data hash",
+]
+working_set = [
+  "none held by the caller: a dense Vector iterate",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:356; Random.seed!(method.rng, 9) at :142-146). The timed call is PS.solve!(x, f, g, method) (:357-358)",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-6, rng = Xoshiro(9)) (core_method, benchmark/cases.jl:330-336); no ProximalOptions are passed (own options)",
+]
+certificate = [
+  "benchmark/cases.jl:360 check: certify(exact, Float64.(Array(output.minimizer))) on the Float64 problem (exact_problem, :319-320), independent of the solver and of ProximalBase iterates",
+  "lasso_certificate, relative_gap (benchmark/certificates.jl:64-83, :358-360)",
+]
+measure = "relative_gap, target 1e-05 (benchmark/cases.jl:298 CORE_TARGETS, passed at :371-372)"
+target = "1e-05"
+work_counters = [
+  "not in the formal record (benchmark/run.jl METRICS_HEADER stores time, GC share, bytes, certificate value and data_hash); passes and kkt checks come only from untimed diagnostics where available, as the Gate 0 ruling says, without a redesign of the engine",
+]
+sensitive_paths_06 = [
+  "not audited per path in this campaign: Stack B is ProximalBase 50db4b1 (0.6.0-DEV, tree 4556e470), identified by the lock (commit, tree, package hash, manifests); the case is certified on both stacks by the matching validation instead",
+]
+class = "A"
+approved = true
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+class_reason = "identical harness bytes on both stacks; inputs/starts/targets/options/timing definitions identical"
+verification_needed = [
+  "matching validation (nonofficial, evidence not committed): certificate ok on both stacks and both Julia versions, identical data hashes and input fingerprints between the stacks; the successor smoke run before the official campaign",
+]
+equivalence_check = [
+  "the fingerprint exporter (export_fingerprints.jl) writes the reset state, solver configuration, options and per-array input hashes of every case and repetition on both stacks outside any timed region; the comparator refuses a case whose fingerprints differ (migration_compare.py), and finalize checks the files before any measurement",
+]
+
+[[case]]
+label = "C06"
+id = "cd/lasso-B/cd/warm-dense-f64/call"
+role = "primary"
+family = "coordinate descent, lasso, design B (240 x 160), warm start, dense iterate, Float64, call phase"
+phase = "call"
+inputs = [
+  "draw: regression_problem(rep, \"extended/design-B\"; n = 240, p = 160, design = :B), kind :lasso, lambda = 0.15 * lambda_max (benchmark/problems.jl:128-149; registered at benchmark/cases.jl:537-538 in suite quick)",
+  "the Float64 draw as drawn (core_problem with T = Float64, benchmark/cases.jl:315-317)",
+]
+seed_key = [
+  "scenario_rng(rep, \"extended/design-B\"): FNV-1a 64 of the key xor the repetition ID (benchmark/problems.jl:3-9; regression_problem :129); the repetition ID of the process (PS_REPETITION) changes the draw, identically on both stacks",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark_model, benchmark/cases.jl:95)",
+]
+penalty = [
+  "NormL1(lambda): all weights are one, so the unweighted constructor is used (benchmark/cases.jl:109-110)",
+]
+initial_state = [
+  "warm: the solution at 1.25 * lambda, computed in Float64 by the certificate module's own coordinate descent (warm_start, benchmark/cases.jl:305-313), held as a plain Vector; it is part of the inputs and of their data hash",
+]
+working_set = [
+  "none held by the caller: a dense Vector iterate",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:356; Random.seed!(method.rng, 9) at :142-146). The timed call is PS.solve!(x, f, g, method) (:357-358)",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-11, rng = Xoshiro(9)) (core_method, benchmark/cases.jl:330-336); no ProximalOptions are passed (own options)",
+]
+certificate = [
+  "benchmark/cases.jl:360 check: certify(exact, Float64.(Array(output.minimizer))) on the Float64 problem (exact_problem, :319-320), independent of the solver and of ProximalBase iterates",
+  "lasso_certificate, relative_gap (benchmark/certificates.jl:64-83, :358-360)",
+]
+measure = "relative_gap, target 1e-08 (benchmark/cases.jl:298 CORE_TARGETS, passed at :371-372)"
+target = "1e-08"
+work_counters = [
+  "not in the formal record (benchmark/run.jl METRICS_HEADER stores time, GC share, bytes, certificate value and data_hash); passes and kkt checks come only from untimed diagnostics where available, as the Gate 0 ruling says, without a redesign of the engine",
+]
+sensitive_paths_06 = [
+  "not audited per path in this campaign: Stack B is ProximalBase 50db4b1 (0.6.0-DEV, tree 4556e470), identified by the lock (commit, tree, package hash, manifests); the case is certified on both stacks by the matching validation instead",
+]
+class = "A"
+approved = true
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+class_reason = "identical harness bytes on both stacks; inputs/starts/targets/options/timing definitions identical"
+verification_needed = [
+  "matching validation (nonofficial, evidence not committed): certificate ok on both stacks and both Julia versions, identical data hashes and input fingerprints between the stacks; the successor smoke run before the official campaign",
+]
+equivalence_check = [
+  "the fingerprint exporter (export_fingerprints.jl) writes the reset state, solver configuration, options and per-array input hashes of every case and repetition on both stacks outside any timed region; the comparator refuses a case whose fingerprints differ (migration_compare.py), and finalize checks the files before any measurement",
+]
+
+[[case]]
+label = "C07"
+id = "cd/lasso-B/cd/warm-sparse-f32/call"
+role = "primary"
+family = "coordinate descent, lasso, design B (240 x 160), warm start, sparse iterate, Float32, call phase"
+phase = "call"
+inputs = [
+  "draw: regression_problem(rep, \"extended/design-B\"; n = 240, p = 160, design = :B), kind :lasso, lambda = 0.15 * lambda_max (benchmark/problems.jl:128-149; registered at benchmark/cases.jl:537-538 in suite quick)",
+  "the Float64 draw rounded ONCE to Float32 (X, y, s, lambda, w, start): core_problem, benchmark/cases.jl:315-317",
+]
+seed_key = [
+  "scenario_rng(rep, \"extended/design-B\"): FNV-1a 64 of the key xor the repetition ID (benchmark/problems.jl:3-9; regression_problem :129); the repetition ID of the process (PS_REPETITION) changes the draw, identically on both stacks",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark_model, benchmark/cases.jl:95)",
+]
+penalty = [
+  "NormL1(lambda): all weights are one, so the unweighted constructor is used (benchmark/cases.jl:109-110)",
+]
+initial_state = [
+  "warm: the solution at 1.25 * lambda, computed in Float64 by the certificate module's own coordinate descent (warm_start, benchmark/cases.jl:305-313), rounded to Float32, held as a vector SparseIterate (sparse_start, :322-328); it is part of the inputs and of their data hash",
+]
+working_set = [
+  "a vector ProximalBase SparseIterate owned by the caller (benchmark/cases.jl:353-354); the working set of the start is part of the reset (copyto! between SparseIterates copies values, active set and order, :355-356)",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:356; Random.seed!(method.rng, 9) at :142-146). The timed call is PS.solve!(x, f, g, method) (:357-358)",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-6, rng = Xoshiro(9)) (core_method, benchmark/cases.jl:330-336); no ProximalOptions are passed (own options)",
+]
+certificate = [
+  "benchmark/cases.jl:360 check: certify(exact, Float64.(Array(output.minimizer))) on the Float64 problem (exact_problem, :319-320), independent of the solver and of ProximalBase iterates",
+  "lasso_certificate, relative_gap (benchmark/certificates.jl:64-83, :358-360)",
+]
+measure = "relative_gap, target 1e-05 (benchmark/cases.jl:298 CORE_TARGETS, passed at :371-372)"
+target = "1e-05"
+work_counters = [
+  "not in the formal record (benchmark/run.jl METRICS_HEADER stores time, GC share, bytes, certificate value and data_hash); passes and kkt checks come only from untimed diagnostics where available, as the Gate 0 ruling says, without a redesign of the engine",
+]
+sensitive_paths_06 = [
+  "not audited per path in this campaign: Stack B is ProximalBase 50db4b1 (0.6.0-DEV, tree 4556e470), identified by the lock (commit, tree, package hash, manifests); the case is certified on both stacks by the matching validation instead",
+]
+class = "A"
+approved = true
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+class_reason = "identical harness bytes on both stacks; inputs/starts/targets/options/timing definitions identical"
+verification_needed = [
+  "matching validation (nonofficial, evidence not committed): certificate ok on both stacks and both Julia versions, identical data hashes and input fingerprints between the stacks; the successor smoke run before the official campaign",
+]
+equivalence_check = [
+  "the fingerprint exporter (export_fingerprints.jl) writes the reset state, solver configuration, options and per-array input hashes of every case and repetition on both stacks outside any timed region; the comparator refuses a case whose fingerprints differ (migration_compare.py), and finalize checks the files before any measurement",
+]
+
+[[case]]
+label = "C08"
+id = "cd/lasso-B/cd/warm-sparse-f64/call"
+role = "primary"
+family = "coordinate descent, lasso, design B (240 x 160), warm start, sparse iterate, Float64, call phase"
+phase = "call"
+inputs = [
+  "draw: regression_problem(rep, \"extended/design-B\"; n = 240, p = 160, design = :B), kind :lasso, lambda = 0.15 * lambda_max (benchmark/problems.jl:128-149; registered at benchmark/cases.jl:537-538 in suite quick)",
+  "the Float64 draw as drawn (core_problem with T = Float64, benchmark/cases.jl:315-317)",
+]
+seed_key = [
+  "scenario_rng(rep, \"extended/design-B\"): FNV-1a 64 of the key xor the repetition ID (benchmark/problems.jl:3-9; regression_problem :129); the repetition ID of the process (PS_REPETITION) changes the draw, identically on both stacks",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark_model, benchmark/cases.jl:95)",
+]
+penalty = [
+  "NormL1(lambda): all weights are one, so the unweighted constructor is used (benchmark/cases.jl:109-110)",
+]
+initial_state = [
+  "warm: the solution at 1.25 * lambda, computed in Float64 by the certificate module's own coordinate descent (warm_start, benchmark/cases.jl:305-313), held as a vector SparseIterate (sparse_start, :322-328); it is part of the inputs and of their data hash",
+]
+working_set = [
+  "a vector ProximalBase SparseIterate owned by the caller (benchmark/cases.jl:353-354); the working set of the start is part of the reset (copyto! between SparseIterates copies values, active set and order, :355-356)",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:356; Random.seed!(method.rng, 9) at :142-146). The timed call is PS.solve!(x, f, g, method) (:357-358)",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-11, rng = Xoshiro(9)) (core_method, benchmark/cases.jl:330-336); no ProximalOptions are passed (own options)",
+]
+certificate = [
+  "benchmark/cases.jl:360 check: certify(exact, Float64.(Array(output.minimizer))) on the Float64 problem (exact_problem, :319-320), independent of the solver and of ProximalBase iterates",
+  "lasso_certificate, relative_gap (benchmark/certificates.jl:64-83, :358-360)",
+]
+measure = "relative_gap, target 1e-08 (benchmark/cases.jl:298 CORE_TARGETS, passed at :371-372)"
+target = "1e-08"
+work_counters = [
+  "not in the formal record (benchmark/run.jl METRICS_HEADER stores time, GC share, bytes, certificate value and data_hash); passes and kkt checks come only from untimed diagnostics where available, as the Gate 0 ruling says, without a redesign of the engine",
+]
+sensitive_paths_06 = [
+  "not audited per path in this campaign: Stack B is ProximalBase 50db4b1 (0.6.0-DEV, tree 4556e470), identified by the lock (commit, tree, package hash, manifests); the case is certified on both stacks by the matching validation instead",
+]
+class = "A"
+approved = true
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+class_reason = "identical harness bytes on both stacks; inputs/starts/targets/options/timing definitions identical"
+verification_needed = [
+  "matching validation (nonofficial, evidence not committed): certificate ok on both stacks and both Julia versions, identical data hashes and input fingerprints between the stacks; the successor smoke run before the official campaign",
+]
+equivalence_check = [
+  "the fingerprint exporter (export_fingerprints.jl) writes the reset state, solver configuration, options and per-array input hashes of every case and repetition on both stacks outside any timed region; the comparator refuses a case whose fingerprints differ (migration_compare.py), and finalize checks the files before any measurement",
+]
+
+[[case]]
+label = "C09"
+id = "cd/lasso-C/cd/dense-f32/call"
+role = "primary"
+family = "coordinate descent, lasso, design C (800 x 120), cold start, dense iterate, Float32, call phase"
+phase = "call"
+inputs = [
+  "draw: regression_problem(rep, \"extended/design-C\"; n = 800, p = 120, design = :C), kind :lasso, lambda = 0.15 * lambda_max (benchmark/problems.jl:128-149; registered at benchmark/cases.jl:539-540 in suite extended)",
+  "the Float64 draw rounded ONCE to Float32 (X, y, s, lambda, w, start): core_problem, benchmark/cases.jl:315-317",
+]
+seed_key = [
+  "scenario_rng(rep, \"extended/design-C\"): FNV-1a 64 of the key xor the repetition ID (benchmark/problems.jl:3-9; regression_problem :129); the repetition ID of the process (PS_REPETITION) changes the draw, identically on both stacks",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark_model, benchmark/cases.jl:95)",
+]
+penalty = [
+  "NormL1(lambda): all weights are one, so the unweighted constructor is used (benchmark/cases.jl:109-110)",
+]
+initial_state = [
+  "zeros(120) (core_problem, :316), held as a plain Vector of Float32",
+]
+working_set = [
+  "none held by the caller: a dense Vector iterate",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:356; Random.seed!(method.rng, 9) at :142-146). The timed call is PS.solve!(x, f, g, method) (:357-358)",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-6, rng = Xoshiro(9)) (core_method, benchmark/cases.jl:330-336); no ProximalOptions are passed (own options)",
+]
+certificate = [
+  "benchmark/cases.jl:360 check: certify(exact, Float64.(Array(output.minimizer))) on the Float64 problem (exact_problem, :319-320), independent of the solver and of ProximalBase iterates",
+  "lasso_certificate, relative_gap (benchmark/certificates.jl:64-83, :358-360)",
+]
+measure = "relative_gap, target 1e-05 (benchmark/cases.jl:298 CORE_TARGETS, passed at :371-372)"
+target = "1e-05"
+work_counters = [
+  "not in the formal record (benchmark/run.jl METRICS_HEADER stores time, GC share, bytes, certificate value and data_hash); passes and kkt checks come only from untimed diagnostics where available, as the Gate 0 ruling says, without a redesign of the engine",
+]
+sensitive_paths_06 = [
+  "not audited per path in this campaign: Stack B is ProximalBase 50db4b1 (0.6.0-DEV, tree 4556e470), identified by the lock (commit, tree, package hash, manifests); the case is certified on both stacks by the matching validation instead",
+]
+class = "A"
+approved = true
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+class_reason = "identical harness bytes on both stacks; inputs/starts/targets/options/timing definitions identical"
+verification_needed = [
+  "matching validation (nonofficial, evidence not committed): certificate ok on both stacks and both Julia versions, identical data hashes and input fingerprints between the stacks; the successor smoke run before the official campaign",
+]
+equivalence_check = [
+  "the fingerprint exporter (export_fingerprints.jl) writes the reset state, solver configuration, options and per-array input hashes of every case and repetition on both stacks outside any timed region; the comparator refuses a case whose fingerprints differ (migration_compare.py), and finalize checks the files before any measurement",
+]
+
+[[case]]
+label = "C10"
+id = "cd/lasso-C/cd/dense-f64/call"
+role = "primary"
+family = "coordinate descent, lasso, design C (800 x 120), cold start, dense iterate, Float64, call phase"
+phase = "call"
+inputs = [
+  "draw: regression_problem(rep, \"extended/design-C\"; n = 800, p = 120, design = :C), kind :lasso, lambda = 0.15 * lambda_max (benchmark/problems.jl:128-149; registered at benchmark/cases.jl:539-540 in suite extended)",
+  "the Float64 draw as drawn (core_problem with T = Float64, benchmark/cases.jl:315-317)",
+]
+seed_key = [
+  "scenario_rng(rep, \"extended/design-C\"): FNV-1a 64 of the key xor the repetition ID (benchmark/problems.jl:3-9; regression_problem :129); the repetition ID of the process (PS_REPETITION) changes the draw, identically on both stacks",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark_model, benchmark/cases.jl:95)",
+]
+penalty = [
+  "NormL1(lambda): all weights are one, so the unweighted constructor is used (benchmark/cases.jl:109-110)",
+]
+initial_state = [
+  "zeros(120) (core_problem, :316), held as a plain Vector of Float64",
+]
+working_set = [
+  "none held by the caller: a dense Vector iterate",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:356; Random.seed!(method.rng, 9) at :142-146). The timed call is PS.solve!(x, f, g, method) (:357-358)",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-11, rng = Xoshiro(9)) (core_method, benchmark/cases.jl:330-336); no ProximalOptions are passed (own options)",
+]
+certificate = [
+  "benchmark/cases.jl:360 check: certify(exact, Float64.(Array(output.minimizer))) on the Float64 problem (exact_problem, :319-320), independent of the solver and of ProximalBase iterates",
+  "lasso_certificate, relative_gap (benchmark/certificates.jl:64-83, :358-360)",
+]
+measure = "relative_gap, target 1e-08 (benchmark/cases.jl:298 CORE_TARGETS, passed at :371-372)"
+target = "1e-08"
+work_counters = [
+  "not in the formal record (benchmark/run.jl METRICS_HEADER stores time, GC share, bytes, certificate value and data_hash); passes and kkt checks come only from untimed diagnostics where available, as the Gate 0 ruling says, without a redesign of the engine",
+]
+sensitive_paths_06 = [
+  "not audited per path in this campaign: Stack B is ProximalBase 50db4b1 (0.6.0-DEV, tree 4556e470), identified by the lock (commit, tree, package hash, manifests); the case is certified on both stacks by the matching validation instead",
+]
+class = "A"
+approved = true
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+class_reason = "identical harness bytes on both stacks; inputs/starts/targets/options/timing definitions identical"
+verification_needed = [
+  "matching validation (nonofficial, evidence not committed): certificate ok on both stacks and both Julia versions, identical data hashes and input fingerprints between the stacks; the successor smoke run before the official campaign",
+]
+equivalence_check = [
+  "the fingerprint exporter (export_fingerprints.jl) writes the reset state, solver configuration, options and per-array input hashes of every case and repetition on both stacks outside any timed region; the comparator refuses a case whose fingerprints differ (migration_compare.py), and finalize checks the files before any measurement",
+]
+
+[[case]]
+label = "C11"
+id = "cd/lasso-C/cd/sparse-f32/call"
+role = "primary"
+family = "coordinate descent, lasso, design C (800 x 120), cold start, sparse iterate, Float32, call phase"
+phase = "call"
+inputs = [
+  "draw: regression_problem(rep, \"extended/design-C\"; n = 800, p = 120, design = :C), kind :lasso, lambda = 0.15 * lambda_max (benchmark/problems.jl:128-149; registered at benchmark/cases.jl:539-540 in suite extended)",
+  "the Float64 draw rounded ONCE to Float32 (X, y, s, lambda, w, start): core_problem, benchmark/cases.jl:315-317",
+]
+seed_key = [
+  "scenario_rng(rep, \"extended/design-C\"): FNV-1a 64 of the key xor the repetition ID (benchmark/problems.jl:3-9; regression_problem :129); the repetition ID of the process (PS_REPETITION) changes the draw, identically on both stacks",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark_model, benchmark/cases.jl:95)",
+]
+penalty = [
+  "NormL1(lambda): all weights are one, so the unweighted constructor is used (benchmark/cases.jl:109-110)",
+]
+initial_state = [
+  "zeros(120) (core_problem, :316), held as a vector SparseIterate with an empty working set (sparse_start, :322-328) of Float32",
+]
+working_set = [
+  "a vector ProximalBase SparseIterate owned by the caller (benchmark/cases.jl:353-354); the working set of the start is part of the reset (copyto! between SparseIterates copies values, active set and order, :355-356)",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:356; Random.seed!(method.rng, 9) at :142-146). The timed call is PS.solve!(x, f, g, method) (:357-358)",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-6, rng = Xoshiro(9)) (core_method, benchmark/cases.jl:330-336); no ProximalOptions are passed (own options)",
+]
+certificate = [
+  "benchmark/cases.jl:360 check: certify(exact, Float64.(Array(output.minimizer))) on the Float64 problem (exact_problem, :319-320), independent of the solver and of ProximalBase iterates",
+  "lasso_certificate, relative_gap (benchmark/certificates.jl:64-83, :358-360)",
+]
+measure = "relative_gap, target 1e-05 (benchmark/cases.jl:298 CORE_TARGETS, passed at :371-372)"
+target = "1e-05"
+work_counters = [
+  "not in the formal record (benchmark/run.jl METRICS_HEADER stores time, GC share, bytes, certificate value and data_hash); passes and kkt checks come only from untimed diagnostics where available, as the Gate 0 ruling says, without a redesign of the engine",
+]
+sensitive_paths_06 = [
+  "not audited per path in this campaign: Stack B is ProximalBase 50db4b1 (0.6.0-DEV, tree 4556e470), identified by the lock (commit, tree, package hash, manifests); the case is certified on both stacks by the matching validation instead",
+]
+class = "A"
+approved = true
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+class_reason = "identical harness bytes on both stacks; inputs/starts/targets/options/timing definitions identical"
+verification_needed = [
+  "matching validation (nonofficial, evidence not committed): certificate ok on both stacks and both Julia versions, identical data hashes and input fingerprints between the stacks; the successor smoke run before the official campaign",
+]
+equivalence_check = [
+  "the fingerprint exporter (export_fingerprints.jl) writes the reset state, solver configuration, options and per-array input hashes of every case and repetition on both stacks outside any timed region; the comparator refuses a case whose fingerprints differ (migration_compare.py), and finalize checks the files before any measurement",
+]
+
+[[case]]
+label = "C12"
+id = "cd/lasso-C/cd/sparse-f64/call"
+role = "primary"
+family = "coordinate descent, lasso, design C (800 x 120), cold start, sparse iterate, Float64, call phase"
+phase = "call"
+inputs = [
+  "draw: regression_problem(rep, \"extended/design-C\"; n = 800, p = 120, design = :C), kind :lasso, lambda = 0.15 * lambda_max (benchmark/problems.jl:128-149; registered at benchmark/cases.jl:539-540 in suite extended)",
+  "the Float64 draw as drawn (core_problem with T = Float64, benchmark/cases.jl:315-317)",
+]
+seed_key = [
+  "scenario_rng(rep, \"extended/design-C\"): FNV-1a 64 of the key xor the repetition ID (benchmark/problems.jl:3-9; regression_problem :129); the repetition ID of the process (PS_REPETITION) changes the draw, identically on both stacks",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark_model, benchmark/cases.jl:95)",
+]
+penalty = [
+  "NormL1(lambda): all weights are one, so the unweighted constructor is used (benchmark/cases.jl:109-110)",
+]
+initial_state = [
+  "zeros(120) (core_problem, :316), held as a vector SparseIterate with an empty working set (sparse_start, :322-328) of Float64",
+]
+working_set = [
+  "a vector ProximalBase SparseIterate owned by the caller (benchmark/cases.jl:353-354); the working set of the start is part of the reset (copyto! between SparseIterates copies values, active set and order, :355-356)",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:356; Random.seed!(method.rng, 9) at :142-146). The timed call is PS.solve!(x, f, g, method) (:357-358)",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-11, rng = Xoshiro(9)) (core_method, benchmark/cases.jl:330-336); no ProximalOptions are passed (own options)",
+]
+certificate = [
+  "benchmark/cases.jl:360 check: certify(exact, Float64.(Array(output.minimizer))) on the Float64 problem (exact_problem, :319-320), independent of the solver and of ProximalBase iterates",
+  "lasso_certificate, relative_gap (benchmark/certificates.jl:64-83, :358-360)",
+]
+measure = "relative_gap, target 1e-08 (benchmark/cases.jl:298 CORE_TARGETS, passed at :371-372)"
+target = "1e-08"
+work_counters = [
+  "not in the formal record (benchmark/run.jl METRICS_HEADER stores time, GC share, bytes, certificate value and data_hash); passes and kkt checks come only from untimed diagnostics where available, as the Gate 0 ruling says, without a redesign of the engine",
+]
+sensitive_paths_06 = [
+  "not audited per path in this campaign: Stack B is ProximalBase 50db4b1 (0.6.0-DEV, tree 4556e470), identified by the lock (commit, tree, package hash, manifests); the case is certified on both stacks by the matching validation instead",
+]
+class = "A"
+approved = true
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+class_reason = "identical harness bytes on both stacks; inputs/starts/targets/options/timing definitions identical"
+verification_needed = [
+  "matching validation (nonofficial, evidence not committed): certificate ok on both stacks and both Julia versions, identical data hashes and input fingerprints between the stacks; the successor smoke run before the official campaign",
+]
+equivalence_check = [
+  "the fingerprint exporter (export_fingerprints.jl) writes the reset state, solver configuration, options and per-array input hashes of every case and repetition on both stacks outside any timed region; the comparator refuses a case whose fingerprints differ (migration_compare.py), and finalize checks the files before any measurement",
+]
+
+[[case]]
+label = "C13"
+id = "cd/lasso-D/cd/dense-f32/call"
+role = "primary"
+family = "coordinate descent, lasso, design D (180 x 600), cold start, dense iterate, Float32, call phase"
+phase = "call"
+inputs = [
+  "draw: regression_problem(rep, \"extended/design-D\"; n = 180, p = 600, design = :D), kind :lasso, lambda = 0.15 * lambda_max (benchmark/problems.jl:128-149; registered at benchmark/cases.jl:541-542 in suite extended)",
+  "the Float64 draw rounded ONCE to Float32 (X, y, s, lambda, w, start): core_problem, benchmark/cases.jl:315-317",
+]
+seed_key = [
+  "scenario_rng(rep, \"extended/design-D\"): FNV-1a 64 of the key xor the repetition ID (benchmark/problems.jl:3-9; regression_problem :129); the repetition ID of the process (PS_REPETITION) changes the draw, identically on both stacks",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark_model, benchmark/cases.jl:95)",
+]
+penalty = [
+  "NormL1(lambda): all weights are one, so the unweighted constructor is used (benchmark/cases.jl:109-110)",
+]
+initial_state = [
+  "zeros(600) (core_problem, :316), held as a plain Vector of Float32",
+]
+working_set = [
+  "none held by the caller: a dense Vector iterate",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:356; Random.seed!(method.rng, 9) at :142-146). The timed call is PS.solve!(x, f, g, method) (:357-358)",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-6, rng = Xoshiro(9)) (core_method, benchmark/cases.jl:330-336); no ProximalOptions are passed (own options)",
+]
+certificate = [
+  "benchmark/cases.jl:360 check: certify(exact, Float64.(Array(output.minimizer))) on the Float64 problem (exact_problem, :319-320), independent of the solver and of ProximalBase iterates",
+  "lasso_certificate, relative_gap (benchmark/certificates.jl:64-83, :358-360)",
+]
+measure = "relative_gap, target 1e-05 (benchmark/cases.jl:298 CORE_TARGETS, passed at :371-372)"
+target = "1e-05"
+work_counters = [
+  "not in the formal record (benchmark/run.jl METRICS_HEADER stores time, GC share, bytes, certificate value and data_hash); passes and kkt checks come only from untimed diagnostics where available, as the Gate 0 ruling says, without a redesign of the engine",
+]
+sensitive_paths_06 = [
+  "not audited per path in this campaign: Stack B is ProximalBase 50db4b1 (0.6.0-DEV, tree 4556e470), identified by the lock (commit, tree, package hash, manifests); the case is certified on both stacks by the matching validation instead",
+]
+class = "A"
+approved = true
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+class_reason = "identical harness bytes on both stacks; inputs/starts/targets/options/timing definitions identical"
+verification_needed = [
+  "matching validation (nonofficial, evidence not committed): certificate ok on both stacks and both Julia versions, identical data hashes and input fingerprints between the stacks; the successor smoke run before the official campaign",
+]
+equivalence_check = [
+  "the fingerprint exporter (export_fingerprints.jl) writes the reset state, solver configuration, options and per-array input hashes of every case and repetition on both stacks outside any timed region; the comparator refuses a case whose fingerprints differ (migration_compare.py), and finalize checks the files before any measurement",
+]
+
+[[case]]
+label = "C14"
+id = "cd/lasso-D/cd/dense-f64/call"
+role = "primary"
+family = "coordinate descent, lasso, design D (180 x 600), cold start, dense iterate, Float64, call phase"
+phase = "call"
+inputs = [
+  "draw: regression_problem(rep, \"extended/design-D\"; n = 180, p = 600, design = :D), kind :lasso, lambda = 0.15 * lambda_max (benchmark/problems.jl:128-149; registered at benchmark/cases.jl:541-542 in suite extended)",
+  "the Float64 draw as drawn (core_problem with T = Float64, benchmark/cases.jl:315-317)",
+]
+seed_key = [
+  "scenario_rng(rep, \"extended/design-D\"): FNV-1a 64 of the key xor the repetition ID (benchmark/problems.jl:3-9; regression_problem :129); the repetition ID of the process (PS_REPETITION) changes the draw, identically on both stacks",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark_model, benchmark/cases.jl:95)",
+]
+penalty = [
+  "NormL1(lambda): all weights are one, so the unweighted constructor is used (benchmark/cases.jl:109-110)",
+]
+initial_state = [
+  "zeros(600) (core_problem, :316), held as a plain Vector of Float64",
+]
+working_set = [
+  "none held by the caller: a dense Vector iterate",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:356; Random.seed!(method.rng, 9) at :142-146). The timed call is PS.solve!(x, f, g, method) (:357-358)",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-11, rng = Xoshiro(9)) (core_method, benchmark/cases.jl:330-336); no ProximalOptions are passed (own options)",
+]
+certificate = [
+  "benchmark/cases.jl:360 check: certify(exact, Float64.(Array(output.minimizer))) on the Float64 problem (exact_problem, :319-320), independent of the solver and of ProximalBase iterates",
+  "lasso_certificate, relative_gap (benchmark/certificates.jl:64-83, :358-360)",
+]
+measure = "relative_gap, target 1e-08 (benchmark/cases.jl:298 CORE_TARGETS, passed at :371-372)"
+target = "1e-08"
+work_counters = [
+  "not in the formal record (benchmark/run.jl METRICS_HEADER stores time, GC share, bytes, certificate value and data_hash); passes and kkt checks come only from untimed diagnostics where available, as the Gate 0 ruling says, without a redesign of the engine",
+]
+sensitive_paths_06 = [
+  "not audited per path in this campaign: Stack B is ProximalBase 50db4b1 (0.6.0-DEV, tree 4556e470), identified by the lock (commit, tree, package hash, manifests); the case is certified on both stacks by the matching validation instead",
+]
+class = "A"
+approved = true
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+class_reason = "identical harness bytes on both stacks; inputs/starts/targets/options/timing definitions identical"
+verification_needed = [
+  "matching validation (nonofficial, evidence not committed): certificate ok on both stacks and both Julia versions, identical data hashes and input fingerprints between the stacks; the successor smoke run before the official campaign",
+]
+equivalence_check = [
+  "the fingerprint exporter (export_fingerprints.jl) writes the reset state, solver configuration, options and per-array input hashes of every case and repetition on both stacks outside any timed region; the comparator refuses a case whose fingerprints differ (migration_compare.py), and finalize checks the files before any measurement",
+]
+
+[[case]]
+label = "C15"
+id = "cd/lasso-D/cd/sparse-f32/call"
+role = "diagnostic"
+family = "coordinate descent, lasso, design D (180 x 600), cold start, sparse iterate, Float32, call phase"
+phase = "call"
+inputs = [
+  "draw: regression_problem(rep, \"extended/design-D\"; n = 180, p = 600, design = :D), kind :lasso, lambda = 0.15 * lambda_max (benchmark/problems.jl:128-149; registered at benchmark/cases.jl:541-542 in suite extended)",
+  "the Float64 draw rounded ONCE to Float32 (X, y, s, lambda, w, start): core_problem, benchmark/cases.jl:315-317",
+]
+seed_key = [
+  "scenario_rng(rep, \"extended/design-D\"): FNV-1a 64 of the key xor the repetition ID (benchmark/problems.jl:3-9; regression_problem :129); the repetition ID of the process (PS_REPETITION) changes the draw, identically on both stacks",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark_model, benchmark/cases.jl:95)",
+]
+penalty = [
+  "NormL1(lambda): all weights are one, so the unweighted constructor is used (benchmark/cases.jl:109-110)",
+]
+initial_state = [
+  "zeros(600) (core_problem, :316), held as a vector SparseIterate with an empty working set (sparse_start, :322-328) of Float32",
+]
+working_set = [
+  "a vector ProximalBase SparseIterate owned by the caller (benchmark/cases.jl:353-354); the working set of the start is part of the reset (copyto! between SparseIterates copies values, active set and order, :355-356)",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:356; Random.seed!(method.rng, 9) at :142-146). The timed call is PS.solve!(x, f, g, method) (:357-358)",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-6, rng = Xoshiro(9)) (core_method, benchmark/cases.jl:330-336); no ProximalOptions are passed (own options)",
+]
+certificate = [
+  "benchmark/cases.jl:360 check: certify(exact, Float64.(Array(output.minimizer))) on the Float64 problem (exact_problem, :319-320), independent of the solver and of ProximalBase iterates",
+  "lasso_certificate, relative_gap (benchmark/certificates.jl:64-83, :358-360)",
+]
+measure = "relative_gap, target 1e-05 (benchmark/cases.jl:298 CORE_TARGETS, passed at :371-372)"
+target = "1e-05"
+work_counters = [
+  "not in the formal record (benchmark/run.jl METRICS_HEADER stores time, GC share, bytes, certificate value and data_hash); passes and kkt checks come only from untimed diagnostics where available, as the Gate 0 ruling says, without a redesign of the engine",
+]
+sensitive_paths_06 = [
+  "not audited per path in this campaign: Stack B is ProximalBase 50db4b1 (0.6.0-DEV, tree 4556e470), identified by the lock (commit, tree, package hash, manifests); the case is certified on both stacks by the matching validation instead",
+]
+class = "A"
+approved = true
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+class_reason = "identical harness bytes on both stacks; inputs/starts/targets/options/timing definitions identical"
+verification_needed = [
+  "matching validation (nonofficial, evidence not committed): certificate ok on both stacks and both Julia versions, identical data hashes and input fingerprints between the stacks; the successor smoke run before the official campaign",
+]
+equivalence_check = [
+  "the fingerprint exporter (export_fingerprints.jl) writes the reset state, solver configuration, options and per-array input hashes of every case and repetition on both stacks outside any timed region; the comparator refuses a case whose fingerprints differ (migration_compare.py), and finalize checks the files before any measurement",
+]
+
+[[case]]
+label = "C16"
+id = "cd/lasso-D/cd/sparse-f64/call"
+role = "diagnostic"
+family = "coordinate descent, lasso, design D (180 x 600), cold start, sparse iterate, Float64, call phase"
+phase = "call"
+inputs = [
+  "draw: regression_problem(rep, \"extended/design-D\"; n = 180, p = 600, design = :D), kind :lasso, lambda = 0.15 * lambda_max (benchmark/problems.jl:128-149; registered at benchmark/cases.jl:541-542 in suite extended)",
+  "the Float64 draw as drawn (core_problem with T = Float64, benchmark/cases.jl:315-317)",
+]
+seed_key = [
+  "scenario_rng(rep, \"extended/design-D\"): FNV-1a 64 of the key xor the repetition ID (benchmark/problems.jl:3-9; regression_problem :129); the repetition ID of the process (PS_REPETITION) changes the draw, identically on both stacks",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark_model, benchmark/cases.jl:95)",
+]
+penalty = [
+  "NormL1(lambda): all weights are one, so the unweighted constructor is used (benchmark/cases.jl:109-110)",
+]
+initial_state = [
+  "zeros(600) (core_problem, :316), held as a vector SparseIterate with an empty working set (sparse_start, :322-328) of Float64",
+]
+working_set = [
+  "a vector ProximalBase SparseIterate owned by the caller (benchmark/cases.jl:353-354); the working set of the start is part of the reset (copyto! between SparseIterates copies values, active set and order, :355-356)",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:356; Random.seed!(method.rng, 9) at :142-146). The timed call is PS.solve!(x, f, g, method) (:357-358)",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-11, rng = Xoshiro(9)) (core_method, benchmark/cases.jl:330-336); no ProximalOptions are passed (own options)",
+]
+certificate = [
+  "benchmark/cases.jl:360 check: certify(exact, Float64.(Array(output.minimizer))) on the Float64 problem (exact_problem, :319-320), independent of the solver and of ProximalBase iterates",
+  "lasso_certificate, relative_gap (benchmark/certificates.jl:64-83, :358-360)",
+]
+measure = "relative_gap, target 1e-08 (benchmark/cases.jl:298 CORE_TARGETS, passed at :371-372)"
+target = "1e-08"
+work_counters = [
+  "not in the formal record (benchmark/run.jl METRICS_HEADER stores time, GC share, bytes, certificate value and data_hash); passes and kkt checks come only from untimed diagnostics where available, as the Gate 0 ruling says, without a redesign of the engine",
+]
+sensitive_paths_06 = [
+  "not audited per path in this campaign: Stack B is ProximalBase 50db4b1 (0.6.0-DEV, tree 4556e470), identified by the lock (commit, tree, package hash, manifests); the case is certified on both stacks by the matching validation instead",
+]
+class = "A"
+approved = true
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+class_reason = "identical harness bytes on both stacks; inputs/starts/targets/options/timing definitions identical"
+verification_needed = [
+  "matching validation (nonofficial, evidence not committed): certificate ok on both stacks and both Julia versions, identical data hashes and input fingerprints between the stacks; the successor smoke run before the official campaign",
+]
+equivalence_check = [
+  "the fingerprint exporter (export_fingerprints.jl) writes the reset state, solver configuration, options and per-array input hashes of every case and repetition on both stacks outside any timed region; the comparator refuses a case whose fingerprints differ (migration_compare.py), and finalize checks the files before any measurement",
+]
+
+[[case]]
+label = "C17"
+id = "cd/lasso-dense/cd/R/call"
+role = "diagnostic"
+family = "coordinate descent, lasso, dense X, call phase, release configuration (#108)"
+phase = "call"
+inputs = [
+  "fixed: release_problem(:cd), Xoshiro(90210), n = 120, p = 40, kind :lasso (benchmark/problems.jl:50-63; registered at benchmark/cases.jl:410-428 with inputs = \"fixed\")",
+]
+seed_key = [
+  "none: fixed input from Xoshiro(90210) (benchmark/problems.jl:51); the repetition ID does not change the input",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark_model, benchmark/cases.jl:95; problems.jl:62)",
+]
+penalty = [
+  "NormL1(0.05): all weights are one, so the unweighted constructor is used (benchmark/cases.jl:109-110; problems.jl:62)",
+]
+initial_state = [
+  "zeros(40), a plain Vector{Float64} (benchmark_start, benchmark/cases.jl:153-162); start = copy(x) (:169)",
+]
+working_set = [
+  "none held by the caller: a dense Vector iterate, the solver builds its own working set inside the call",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:182; Random.seed!(method.rng, 9) at :142-146). The timed call is PS.solve!(x, f, g, method) (own options, :184)",
+]
+solver_options = [
+  "CDSolver(rng = Xoshiro(9)) with every other option at its default (benchmark/cases.jl:121); no ProximalOptions are passed",
+]
+certificate = [
+  "benchmark/cases.jl:185-193 check: certify(a, Array(output.minimizer)), independent of the solver and of ProximalBase iterates (it reads plain arrays)",
+  "lasso_certificate, relative_gap (benchmark/certificates.jl:64-83, :358-360)",
+]
+measure = "relative_gap, target NaN (benchmark/cases.jl:410-428: the R variant has no target, the catalog records NaN; the certificate must still be a finite relative_gap value, benchmark/run.jl:242-248 certificate_status)"
+target = "NaN"
+work_counters = [
+  "not in the formal record (benchmark/run.jl METRICS_HEADER stores time, GC share, bytes, certificate value and data_hash); passes and kkt checks come only from untimed diagnostics where available, as the Gate 0 ruling says, without a redesign of the engine",
+]
+sensitive_paths_06 = [
+  "not audited per path in this campaign: Stack B is ProximalBase 50db4b1 (0.6.0-DEV, tree 4556e470), identified by the lock (commit, tree, package hash, manifests); the case is certified on both stacks by the matching validation instead",
+]
+class = "A"
+approved = true
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+class_reason = "identical harness bytes on both stacks; inputs/starts/targets/options/timing definitions identical"
+verification_needed = [
+  "matching validation (nonofficial, evidence not committed): certificate ok on both stacks and both Julia versions, identical data hashes and input fingerprints between the stacks; the successor smoke run before the official campaign",
+  "reporting class (maintainer ruling, #333): this case has no target (NaN) and is reported as Q1, default-setting runtime at the recorded accuracy; it is outside the accuracy-qualified conclusions, which cover the other 20 cases (Q2). The comparator labels its accuracy band missed/invalid because the target is NaN; that label is an artifact of the missing target, not a failed certificate (the certificate of the case is ok)",
+]
+equivalence_check = [
+  "the fingerprint exporter (export_fingerprints.jl) writes the reset state, solver configuration, options and per-array input hashes of every case and repetition on both stacks outside any timed region; the comparator refuses a case whose fingerprints differ (migration_compare.py), and finalize checks the files before any measurement",
+]
+
+[[case]]
+label = "C18"
+id = "cd/lasso/cd/dense-f32/call"
+role = "diagnostic"
+family = "coordinate descent, lasso, design A (100 x 32), cold start, dense iterate, Float32, call phase"
+phase = "call"
+inputs = [
+  "draw: regression_problem(rep, \"core/lasso\"; n = 100, p = 32, design = :A), kind :lasso, lambda = 0.15 * lambda_max (benchmark/problems.jl:128-149; registered at benchmark/cases.jl:536 in suite quick)",
+  "the Float64 draw rounded ONCE to Float32 (X, y, s, lambda, w, start): core_problem, benchmark/cases.jl:315-317",
+]
+seed_key = [
+  "scenario_rng(rep, \"core/lasso\"): FNV-1a 64 of the key xor the repetition ID (benchmark/problems.jl:3-9; regression_problem :129); the repetition ID of the process (PS_REPETITION) changes the draw, identically on both stacks",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark_model, benchmark/cases.jl:95)",
+]
+penalty = [
+  "NormL1(lambda): all weights are one, so the unweighted constructor is used (benchmark/cases.jl:109-110)",
+]
+initial_state = [
+  "zeros(32) (core_problem, :316), held as a plain Vector of Float32",
+]
+working_set = [
+  "none held by the caller: a dense Vector iterate",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:356; Random.seed!(method.rng, 9) at :142-146). The timed call is PS.solve!(x, f, g, method) (:357-358)",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-6, rng = Xoshiro(9)) (core_method, benchmark/cases.jl:330-336); no ProximalOptions are passed (own options)",
+]
+certificate = [
+  "benchmark/cases.jl:360 check: certify(exact, Float64.(Array(output.minimizer))) on the Float64 problem (exact_problem, :319-320), independent of the solver and of ProximalBase iterates",
+  "lasso_certificate, relative_gap (benchmark/certificates.jl:64-83, :358-360)",
+]
+measure = "relative_gap, target 1e-05 (benchmark/cases.jl:298 CORE_TARGETS, passed at :371-372)"
+target = "1e-05"
+work_counters = [
+  "not in the formal record (benchmark/run.jl METRICS_HEADER stores time, GC share, bytes, certificate value and data_hash); passes and kkt checks come only from untimed diagnostics where available, as the Gate 0 ruling says, without a redesign of the engine",
+]
+sensitive_paths_06 = [
+  "not audited per path in this campaign: Stack B is ProximalBase 50db4b1 (0.6.0-DEV, tree 4556e470), identified by the lock (commit, tree, package hash, manifests); the case is certified on both stacks by the matching validation instead",
+]
+class = "A"
+approved = true
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+class_reason = "identical harness bytes on both stacks; inputs/starts/targets/options/timing definitions identical"
+verification_needed = [
+  "matching validation (nonofficial, evidence not committed): certificate ok on both stacks and both Julia versions, identical data hashes and input fingerprints between the stacks; the successor smoke run before the official campaign",
+]
+equivalence_check = [
+  "the fingerprint exporter (export_fingerprints.jl) writes the reset state, solver configuration, options and per-array input hashes of every case and repetition on both stacks outside any timed region; the comparator refuses a case whose fingerprints differ (migration_compare.py), and finalize checks the files before any measurement",
+]
+
+[[case]]
+label = "C19"
+id = "cd/lasso/cd/dense-f64/call"
+role = "diagnostic"
+family = "coordinate descent, lasso, design A (100 x 32), cold start, dense iterate, Float64, call phase"
+phase = "call"
+inputs = [
+  "draw: regression_problem(rep, \"core/lasso\"; n = 100, p = 32, design = :A), kind :lasso, lambda = 0.15 * lambda_max (benchmark/problems.jl:128-149; registered at benchmark/cases.jl:536 in suite quick)",
+  "the Float64 draw as drawn (core_problem with T = Float64, benchmark/cases.jl:315-317)",
+]
+seed_key = [
+  "scenario_rng(rep, \"core/lasso\"): FNV-1a 64 of the key xor the repetition ID (benchmark/problems.jl:3-9; regression_problem :129); the repetition ID of the process (PS_REPETITION) changes the draw, identically on both stacks",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark_model, benchmark/cases.jl:95)",
+]
+penalty = [
+  "NormL1(lambda): all weights are one, so the unweighted constructor is used (benchmark/cases.jl:109-110)",
+]
+initial_state = [
+  "zeros(32) (core_problem, :316), held as a plain Vector of Float64",
+]
+working_set = [
+  "none held by the caller: a dense Vector iterate",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:356; Random.seed!(method.rng, 9) at :142-146). The timed call is PS.solve!(x, f, g, method) (:357-358)",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-11, rng = Xoshiro(9)) (core_method, benchmark/cases.jl:330-336); no ProximalOptions are passed (own options)",
+]
+certificate = [
+  "benchmark/cases.jl:360 check: certify(exact, Float64.(Array(output.minimizer))) on the Float64 problem (exact_problem, :319-320), independent of the solver and of ProximalBase iterates",
+  "lasso_certificate, relative_gap (benchmark/certificates.jl:64-83, :358-360)",
+]
+measure = "relative_gap, target 1e-08 (benchmark/cases.jl:298 CORE_TARGETS, passed at :371-372)"
+target = "1e-08"
+work_counters = [
+  "not in the formal record (benchmark/run.jl METRICS_HEADER stores time, GC share, bytes, certificate value and data_hash); passes and kkt checks come only from untimed diagnostics where available, as the Gate 0 ruling says, without a redesign of the engine",
+]
+sensitive_paths_06 = [
+  "not audited per path in this campaign: Stack B is ProximalBase 50db4b1 (0.6.0-DEV, tree 4556e470), identified by the lock (commit, tree, package hash, manifests); the case is certified on both stacks by the matching validation instead",
+]
+class = "A"
+approved = true
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+class_reason = "identical harness bytes on both stacks; inputs/starts/targets/options/timing definitions identical"
+verification_needed = [
+  "matching validation (nonofficial, evidence not committed): certificate ok on both stacks and both Julia versions, identical data hashes and input fingerprints between the stacks; the successor smoke run before the official campaign",
+]
+equivalence_check = [
+  "the fingerprint exporter (export_fingerprints.jl) writes the reset state, solver configuration, options and per-array input hashes of every case and repetition on both stacks outside any timed region; the comparator refuses a case whose fingerprints differ (migration_compare.py), and finalize checks the files before any measurement",
+]
+
+[[case]]
+label = "C20"
+id = "cd/lasso/cd/sparse-f32/call"
+role = "diagnostic"
+family = "coordinate descent, lasso, design A (100 x 32), cold start, sparse iterate, Float32, call phase"
+phase = "call"
+inputs = [
+  "draw: regression_problem(rep, \"core/lasso\"; n = 100, p = 32, design = :A), kind :lasso, lambda = 0.15 * lambda_max (benchmark/problems.jl:128-149; registered at benchmark/cases.jl:536 in suite quick)",
+  "the Float64 draw rounded ONCE to Float32 (X, y, s, lambda, w, start): core_problem, benchmark/cases.jl:315-317",
+]
+seed_key = [
+  "scenario_rng(rep, \"core/lasso\"): FNV-1a 64 of the key xor the repetition ID (benchmark/problems.jl:3-9; regression_problem :129); the repetition ID of the process (PS_REPETITION) changes the draw, identically on both stacks",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark_model, benchmark/cases.jl:95)",
+]
+penalty = [
+  "NormL1(lambda): all weights are one, so the unweighted constructor is used (benchmark/cases.jl:109-110)",
+]
+initial_state = [
+  "zeros(32) (core_problem, :316), held as a vector SparseIterate with an empty working set (sparse_start, :322-328) of Float32",
+]
+working_set = [
+  "a vector ProximalBase SparseIterate owned by the caller (benchmark/cases.jl:353-354); the working set of the start is part of the reset (copyto! between SparseIterates copies values, active set and order, :355-356)",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:356; Random.seed!(method.rng, 9) at :142-146). The timed call is PS.solve!(x, f, g, method) (:357-358)",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-6, rng = Xoshiro(9)) (core_method, benchmark/cases.jl:330-336); no ProximalOptions are passed (own options)",
+]
+certificate = [
+  "benchmark/cases.jl:360 check: certify(exact, Float64.(Array(output.minimizer))) on the Float64 problem (exact_problem, :319-320), independent of the solver and of ProximalBase iterates",
+  "lasso_certificate, relative_gap (benchmark/certificates.jl:64-83, :358-360)",
+]
+measure = "relative_gap, target 1e-05 (benchmark/cases.jl:298 CORE_TARGETS, passed at :371-372)"
+target = "1e-05"
+work_counters = [
+  "not in the formal record (benchmark/run.jl METRICS_HEADER stores time, GC share, bytes, certificate value and data_hash); passes and kkt checks come only from untimed diagnostics where available, as the Gate 0 ruling says, without a redesign of the engine",
+]
+sensitive_paths_06 = [
+  "not audited per path in this campaign: Stack B is ProximalBase 50db4b1 (0.6.0-DEV, tree 4556e470), identified by the lock (commit, tree, package hash, manifests); the case is certified on both stacks by the matching validation instead",
+]
+class = "A"
+approved = true
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+class_reason = "identical harness bytes on both stacks; inputs/starts/targets/options/timing definitions identical"
+verification_needed = [
+  "matching validation (nonofficial, evidence not committed): certificate ok on both stacks and both Julia versions, identical data hashes and input fingerprints between the stacks; the successor smoke run before the official campaign",
+]
+equivalence_check = [
+  "the fingerprint exporter (export_fingerprints.jl) writes the reset state, solver configuration, options and per-array input hashes of every case and repetition on both stacks outside any timed region; the comparator refuses a case whose fingerprints differ (migration_compare.py), and finalize checks the files before any measurement",
+]
+
+[[case]]
+label = "C21"
+id = "cd/lasso/cd/sparse-f64/call"
+role = "diagnostic"
+family = "coordinate descent, lasso, design A (100 x 32), cold start, sparse iterate, Float64, call phase"
+phase = "call"
+inputs = [
+  "draw: regression_problem(rep, \"core/lasso\"; n = 100, p = 32, design = :A), kind :lasso, lambda = 0.15 * lambda_max (benchmark/problems.jl:128-149; registered at benchmark/cases.jl:536 in suite quick)",
+  "the Float64 draw as drawn (core_problem with T = Float64, benchmark/cases.jl:315-317)",
+]
+seed_key = [
+  "scenario_rng(rep, \"core/lasso\"): FNV-1a 64 of the key xor the repetition ID (benchmark/problems.jl:3-9; regression_problem :129); the repetition ID of the process (PS_REPETITION) changes the draw, identically on both stacks",
+]
+objective = [
+  "s * LeastSquaresLoss(y, X) with s = 1/n (benchmark_model, benchmark/cases.jl:95)",
+]
+penalty = [
+  "NormL1(lambda): all weights are one, so the unweighted constructor is used (benchmark/cases.jl:109-110)",
+]
+initial_state = [
+  "zeros(32) (core_problem, :316), held as a vector SparseIterate with an empty working set (sparse_start, :322-328) of Float64",
+]
+working_set = [
+  "a vector ProximalBase SparseIterate owned by the caller (benchmark/cases.jl:353-354); the working set of the start is part of the reset (copyto! between SparseIterates copies values, active set and order, :355-356)",
+]
+reset = [
+  "copyto!(x, start); reset_solver_rng!(method)  (benchmark/cases.jl:356; Random.seed!(method.rng, 9) at :142-146). The timed call is PS.solve!(x, f, g, method) (:357-358)",
+]
+solver_options = [
+  "CDSolver(order = :cyclic, tol = 1e-11, rng = Xoshiro(9)) (core_method, benchmark/cases.jl:330-336); no ProximalOptions are passed (own options)",
+]
+certificate = [
+  "benchmark/cases.jl:360 check: certify(exact, Float64.(Array(output.minimizer))) on the Float64 problem (exact_problem, :319-320), independent of the solver and of ProximalBase iterates",
+  "lasso_certificate, relative_gap (benchmark/certificates.jl:64-83, :358-360)",
+]
+measure = "relative_gap, target 1e-08 (benchmark/cases.jl:298 CORE_TARGETS, passed at :371-372)"
+target = "1e-08"
+work_counters = [
+  "not in the formal record (benchmark/run.jl METRICS_HEADER stores time, GC share, bytes, certificate value and data_hash); passes and kkt checks come only from untimed diagnostics where available, as the Gate 0 ruling says, without a redesign of the engine",
+]
+sensitive_paths_06 = [
+  "not audited per path in this campaign: Stack B is ProximalBase 50db4b1 (0.6.0-DEV, tree 4556e470), identified by the lock (commit, tree, package hash, manifests); the case is certified on both stacks by the matching validation instead",
+]
+class = "A"
+approved = true
+approval_url = "https://github.com/mlakolar/ProximalSolvers.jl/issues/330#issuecomment-6910364487"
+class_reason = "identical harness bytes on both stacks; inputs/starts/targets/options/timing definitions identical"
+verification_needed = [
+  "matching validation (nonofficial, evidence not committed): certificate ok on both stacks and both Julia versions, identical data hashes and input fingerprints between the stacks; the successor smoke run before the official campaign",
+]
+equivalence_check = [
+  "the fingerprint exporter (export_fingerprints.jl) writes the reset state, solver configuration, options and per-array input hashes of every case and repetition on both stacks outside any timed region; the comparator refuses a case whose fingerprints differ (migration_compare.py), and finalize checks the files before any measurement",
+]

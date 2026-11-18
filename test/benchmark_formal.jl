@@ -27,33 +27,44 @@ groups() = collect(H.CASE_GROUPS)
 catalog(suite = "quick"; deferred = false) = call(H.build_catalog, suite, groups(); deferred)
 spec(id) = only(filter(s -> s.meta.id == id, catalog("extended")))
 spec_deferred(id) = only(filter(s -> s.meta.id == id, catalog("extended"; deferred = true)))
-const PB_REV = "50db4b1ef376cbe01831c3dd019b6be0027db0b6"
+const PB_REV = "a19c59aa723d085d5d7cf5242895bda16eb77214"
 
 const QUICK = sort!(vcat(
   ["cd/$p/cd/$(w)$i-$t/call" for (p, ws) in (("lasso", ("",)), ("lasso-B", ("", "warm-")))
    for w in ws for i in ("dense", "sparse") for t in ("f32", "f64")],
   ["gradient/$p/$solver/$(w)dense-$t/call" for solver in ("pg", "apg")
    for (p, ws) in (("lasso", ("",)), ("lasso-B", ("", "warm-"))) for w in ws for t in ("f32", "f64")],
+  ["cd/group-lasso/cd/$(w)block-$t/call" for w in ("", "warm-") for t in ("f32", "f64")],
   ["cd/lasso-dense/cd/R/call", "gradient/lasso/pg/R/call"]))
 
 @testset "supported and deferred cases" begin
   quick, extended = catalog(), catalog("extended")
   @test [s.meta.id for s in quick] == QUICK
-  @test length(extended) == 52
+  @test length(extended) == 62
   @test issubset(Set(s.meta.id for s in quick), Set(s.meta.id for s in extended))
   deferred = catalog("extended"; deferred = true)
   @test length(deferred) == 100
   @test all(s -> call(H.case_available, s), extended)
   @test all(s -> !isempty(call(H.missing_requirements, s)), deferred)
-  # 102 historical IDs (2 supported, 100 deferred), 40 current-core IDs and the 10 Float64
-  # `acc-` IDs of PGD and APG (#314, extended suite only), all distinct.
+  # 102 historical IDs (2 supported, 100 deferred), 40 current-core IDs, the 4 group-lasso IDs of
+  # CDSolver on a BlockIterate (#275, quick suite), the 10 Float64 `acc-` IDs of PGD and APG
+  # (#314, extended suite only) and the 6 weighted-lasso IDs (#331, extended suite only), all distinct.
   ids = [s.meta.id for s in vcat(extended, deferred)]
-  @test allunique(ids) && length(ids) == 152
+  @test allunique(ids) && length(ids) == 162
+  group = sort!(["cd/group-lasso/cd/$(w)block-$t/call" for w in ("", "warm-") for t in ("f32", "f64")])
+  @test sort!(filter(id -> occursin("block-f", id), ids)) == group
+  # The historical group-lasso case stays deferred: it needs gap stopping.
+  @test "cd/group-lasso/cd/tight/call" in [s.meta.id for s in deferred]
   acc = sort!(["gradient/$p/$solver/acc-$(w)dense-f64/call" for solver in ("pg", "apg")
                for (p, ws) in (("lasso", ("",)), ("lasso-B", ("", "warm-")), ("lasso-C", ("",)),
                                ("lasso-D", ("",))) for w in ws])
-  @test sort!(filter(id -> occursin("/acc-", id), ids)) == acc
+  weighted_acc = ["gradient/lasso-weighted/$solver/acc-dense-f64/call" for solver in ("pg", "apg")]
+  @test sort!(filter(id -> occursin("/acc-", id), ids)) == sort!(vcat(acc, weighted_acc))
   @test all(id -> id in [s.meta.id for s in extended], acc)
+  # the 6 weighted-lasso IDs, extended suite only
+  weighted = sort!(vcat(["cd/lasso-weighted/cd/$i-$t/call" for i in ("dense", "sparse") for t in ("f32", "f64")], weighted_acc))
+  @test sort!(filter(id -> occursin("lasso-weighted", id), ids)) == weighted
+  @test all(id -> id in [s.meta.id for s in extended] && !(id in [s.meta.id for s in catalog()]), weighted)
   for id in ("cd/lasso-dense/cd/B/call", "cd/lasso-dense/cd/R/workspace", "admm/lasso/admm/R/call",
              "gradient/lasso/apg/tight/call", "paths/lasso/cd/grid8/call", "cd/lasso-csc/cd/B/call")
     @test id in ids && !(id in [s.meta.id for s in extended])
@@ -61,6 +72,13 @@ const QUICK = sort!(vcat(
   # Requirements, not type names, gate a case: CDSolver exists, but its gap stopping does not.
   @test isdefined(ProximalSolvers, :CDSolver)
   @test "CDSolver: duality-gap stopping (gaptol > 0)" in call(H.missing_requirements, spec_deferred("cd/lasso-dense/cd/B/call"))
+  @test "cd:block_iterate" in H.CAPABILITIES
+  @test call(H.describe_requirement, "cd:block_iterate") ==
+        "CDSolver: BlockIterate iterate with a GroupNormL2 penalty"
+  @test call(H.missing_requirements, spec_deferred("cd/group-lasso/cd/tight/call")) ==
+        ["CDSolver: GroupNormL2 on an AtomIterate", "CDSolver: duality-gap stopping (gaptol > 0)"]
+  @test spec("cd/group-lasso/cd/block-f32/call").requires == ["cd", "cd:block_iterate", "cd:float32"]
+  @test spec("cd/group-lasso/cd/warm-block-f64/call").requires == ["cd", "cd:block_iterate"]
   # Targets per precision; current-core variants name the iterate and precision.
   for s in extended
     s.meta.variant == "R" && continue
@@ -102,6 +120,10 @@ end
   @test hash("cd/lasso/cd/dense-f64/call", 1) != hash("cd/lasso/cd/dense-f64/call", 2)
   @test hash("cd/lasso/cd/dense-f64/call") != hash("cd/lasso/cd/dense-f32/call")
   @test hash("cd/lasso-B/cd/dense-f64/call") != hash("cd/lasso-B/cd/warm-dense-f64/call")
+  @test hash("cd/group-lasso/cd/block-f64/call") != hash("cd/group-lasso/cd/block-f32/call")
+  @test hash("cd/group-lasso/cd/block-f64/call") != hash("cd/group-lasso/cd/warm-block-f64/call")
+  @test hash("cd/group-lasso/cd/block-f64/call") == hash("cd/group-lasso/cd/block-f64/call")
+  @test hash("cd/group-lasso/cd/block-f64/call") != hash("cd/lasso/cd/dense-f64/call")
   a = call(H.regression_problem, 1, "extended/design-B"; n = 240, p = 160, design = :B)
   a32 = call(H.core_problem, a, Float32)
   @test eltype(a32.X) == Float32 && a32.X == Float32.(a.X) && iszero(a32.start)
@@ -111,6 +133,31 @@ end
   w = call(H.warm_start, a)
   @test count(!iszero, w) > 0
   @test call(H.lasso_certificate, a.X, a.y, a.s, 1.25a.λ, a.w, w).value <= 1e-12
+end
+
+@testset "group-lasso inputs" begin
+  a = call(H.grouped_problem, 1, "core/group-lasso")
+  a32 = call(H.core_problem, a, Float32)
+  @test a32.w_group isa Vector{Float32} && a32.w_group == Float32.(a.w_group) && iszero(a32.start)
+  exact = call(H.exact_problem, a32)
+  @test exact.w_group isa Vector{Float64} && Float32.(exact.w_group) == a32.w_group
+  # The penalty a case builds has the precision of its data.
+  for (T, p) in ((Float32, a32), (Float64, call(H.core_problem, a, Float64)))
+    f, g = call(H.benchmark_model, p)
+    @test g isa ProximalBase.GroupNormL2{T}
+  end
+  # The warm start is the independently certified solution at 1.25λ; some groups are nonzero
+  # and some are zero.
+  w = call(H.warm_start, a)
+  @test call(H.group_certificate, a.X, a.y, a.s, 1.25a.λ, a.groups, a.w_group, w).value <= 1e-12
+  nonzero = [any(!iszero, w[g]) for g in a.groups]
+  @test any(nonzero) && !all(nonzero)
+  warm = call(H.core_problem, a, Float64; warm = true)
+  @test warm.start == w
+  # The start of a case is an iterate with the groups of the problem, active where the start is nonzero.
+  x = call(H.block_start, warm.start, a.groups)
+  @test x isa ProximalBase.BlockIterate{Float64} && Vector(x) == w
+  @test sort(collect(ProximalBase.activecoordinates(x))) == findall(nonzero)
 end
 
 # One timed-style observation as the runner makes it: reset, call, certify.
@@ -139,8 +186,10 @@ end
     s.meta.variant == "R" && continue
     T = endswith(s.meta.variant, "f32") ? Float32 : Float64
     sparse = occursin("sparse", s.meta.variant)
+    block = occursin("block", s.meta.variant)
     x = output.minimizer
-    @test eltype(x) == T && (x isa ProximalBase.SparseIterate) == sparse && x isa (sparse ? Any : Vector{T})
+    @test eltype(x) == T && (x isa ProximalBase.SparseIterate) == sparse &&
+          (x isa ProximalBase.BlockIterate) == block && x isa (sparse || block ? Any : Vector{T})
     @test (s.meta.solver == "cd" ? ProximalSolvers.CDResults : ProximalSolvers.OptimizationResults) == typeof(output).name.wrapper
     # The certificate reads only the returned point: a copy certifies identically, and the
     # start is not a solution.
@@ -153,6 +202,11 @@ end
     if sparse
       @test ProximalBase.nactive(x) == count(!iszero, start)
       @test sort(collect(ProximalBase.activecoordinates(x))) == findall(!iszero, start)
+    elseif block
+      groups = call(H.grouped_problem, 1, "core/group-lasso").groups
+      nonzero = [k for k in eachindex(groups) if any(!iszero, start[groups[k]])]
+      @test sort(collect(ProximalBase.activecoordinates(x))) == nonzero
+      @test x isa ProximalBase.BlockIterate{T}
     end
     again, _ = call(observe, state)
     @test Array(again.minimizer) == solution
@@ -166,6 +220,32 @@ end
   a32 = call(H.exact_problem, call(H.core_problem, a, Float32))
   @test 0 < call(H.certify, a32, Float64.(Float32.(ref))).value < 1e-6
   @test call(H.certify, a, ref .+ 1e-3).value > 1e-6
+end
+
+# The weighted-lasso cases (#331): the requirements, the penalty a case builds (weights in the type of the data) and
+# the certificate of each solve (the relative gap of the problem as received, with positive weights).
+@testset "weighted-lasso cases" begin
+  @test all(c -> c in H.CAPABILITIES, ("cd:weighted_l1", "random-cd:weighted_l1", "pg:weighted_l1", "apg:weighted_l1"))
+  @test spec("cd/lasso-weighted/cd/sparse-f32/call").requires == ["cd", "cd:lasso", "cd:weighted_l1", "cd:float32", "cd:sparse_iterate"]
+  @test spec("gradient/lasso-weighted/apg/acc-dense-f64/call").requires == ["apg", "apg:lasso", "apg:weighted_l1"]
+  # the historical weighted case still needs gap stopping and a workspace
+  @test call(H.missing_requirements, spec_deferred("cd/weighted-lasso/cd/tight/call")) ==
+        ["CDSolver: duality-gap stopping (gaptol > 0)"]
+  a = call(H.weighted_problem, 1, "core/lasso-weighted")
+  @test all(>(0), a.w) && !all(isone, a.w) && length(a.w) == size(a.X, 2)
+  for T in (Float32, Float64)
+    f, g = call(H.benchmark_model, call(H.core_problem, a, T))
+    @test g isa ProximalBase.NormL1{T, Vector{T}} && g.w == T.(a.w)
+  end
+  ids = filter(id -> occursin("lasso-weighted", id), [s.meta.id for s in catalog("extended")])
+  for s in catalog("extended")
+    s.meta.id in ids || continue
+    output, cert = call(observe, call(s.make, 1))
+    @test cert.status == :ok && isfinite(cert.value)
+    # CD and the accuracy settings of PGD and APG reach the target
+    @test call(H.certificate_status, cert, s.meta) == :ok
+    @test all(isfinite, Array(output.minimizer))
+  end
 end
 
 @testset "source identity checks" begin
@@ -182,7 +262,7 @@ end
   # registry sources and a tree other than the one the committed manifests record.
   pin = call(H.checkout_base_pin, dirname(@__DIR__))
   @test pin.rev == PB_REV && pin.url == "https://github.com/mlakolar/ProximalBase.jl"
-  @test pin.trees == ["4556e470aea2da876ea3b5a5998618f4c17326b1"] && base.tree in pin.trees
+  @test pin.trees == ["138929aa27c6221284ee1763e66b1110dd6ec418"] && base.tree in pin.trees
   @test call(H.check_proximalbase, base, "", pin) === nothing
   other = merge(base, (; rev = "eb74a914d779371a02e4a6637eaa724aeb66fdf5",
                          tree = "d1da2065a3895cb90aa5d0dd1a008c482602bd00"))
