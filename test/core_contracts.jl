@@ -101,10 +101,10 @@ end
 
 # ElasticNet (#324): ProximalGradientDescent, AccProxGradDescent and CDSolver accept an unweighted one
 # and refuse the other penalties with the messages below: the first for CDSolver, the second for the
-# gradient methods, whose message also names GroupNormL2 (#395). The refusals tested here leave x unchanged. The
+# gradient methods, whose message names GroupNormL2 as accepted (#395). The refusals tested here leave x unchanged. The
 # APG counterpart is in test/accelerated_pgd.jl; the CD solves are in test/cd_elasticnet.jl.
 const EN_PENALTY_REFUSAL = "only NormL1 or unweighted ElasticNet is supported"
-const EN_GRADIENT_REFUSAL = "only NormL1 or unweighted ElasticNet is supported (ProximalGradientDescent also accepts GroupNormL2)"
+const EN_GRADIENT_REFUSAL = "only NormL1, unweighted ElasticNet or GroupNormL2 is supported"
 
 function refused_with(x, f, g, method, msg)
   original = copy(x)

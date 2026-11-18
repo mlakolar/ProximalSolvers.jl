@@ -308,7 +308,8 @@ end
 Minimize the same least-squares lasso or elastic net as [`ProximalGradientDescent`](@ref) with
 accelerated proximal gradient descent, overwriting `x`, a dense `Vector{T}` with
 `T = Float32` or `Float64`. The inputs, the options and their validation are those
-of `ProximalGradientDescent`, except that a `GroupNormL2` penalty is refused; in addition `β` and `α` must satisfy their bounds after
+of `ProximalGradientDescent`, including a `GroupNormL2` penalty with its group stopping check (see `ProximalGradientDescent` and
+[`ProximalOptions`](@ref)); in addition `β` and `α` must satisfy their bounds after
 conversion to `T`, and the dimensions must satisfy `max(n, p) + 4 < 1/(4 eps(T))` and
 `n p + 3 < 1/(4 eps(Float64))` (for Float32, `max(n, p) < 2,097,148`), which the
 rounding-error bounds of the line search need. Every refusal of an input, option or
@@ -320,7 +321,6 @@ function solve!(x, f, g, method::AccProxGradDescent,
                 options::ProximalOptions = ProximalOptions(); kwargs...)
   _check_keywords(kwargs)
   _check_problem(x, f, g)
-  g isa GroupNormL2 && throw(ArgumentError("AccProxGradDescent does not support GroupNormL2; use ProximalGradientDescent on a dense Vector or CDSolver on a BlockIterate"))
   _check_method(method, eltype(x))
   _check_bound_size(f, eltype(x))
   t0 = time()

@@ -1,10 +1,10 @@
-# Group lasso by block coordinate descent on a `BlockIterate`, and by proximal gradient descent on
-# a dense vector. `GroupNormL2(λ, groups)` is the
+# Group lasso by block coordinate descent on a `BlockIterate`, and by proximal gradient descent
+# (plain or accelerated) on a dense vector. `GroupNormL2(λ, groups)` is the
 # penalty `λ Σₖ wₖ ‖β[Gₖ]‖₂` with the default weights `wₖ = √|Gₖ|`; the groups may be any
 # disjoint index sets, here not contiguous. For `CDSolver` the iterate is a `BlockIterate` with the
 # same groups, in the same order, and `CDSolver` updates one whole group at a time.
-# `CDSolver` on a `BlockIterate` and `ProximalGradientDescent` on a dense `Vector` accept a
-# `GroupNormL2` penalty; see [Supported problems](../../support.md) for the accepted inputs.
+# `CDSolver` on a `BlockIterate`, and `ProximalGradientDescent` and `AccProxGradDescent` on a dense
+# `Vector`, accept a `GroupNormL2` penalty; see [Supported problems](../../support.md) for the accepted inputs.
 using LinearAlgebra, Random
 using ProximalBase, ProximalSolvers
 
@@ -84,3 +84,12 @@ res_pgd = solve!(beta_pgd, f, g, ProximalGradientDescent(), ProximalOptions(maxi
 println("PGD: iterations = ", res_pgd.iterations, "; largest violation ",
         maximum(k -> violation(beta_pgd, k), eachindex(groups)),
         "; largest difference from the CD solution ", maximum(abs, beta_pgd - beta))
+
+# `AccProxGradDescent()` takes the place of `ProximalGradientDescent()` in this call, with the same
+# penalty and the same group stopping check, and the same independent check applies.
+beta_apg = zeros(p)
+res_apg = solve!(beta_apg, f, g, AccProxGradDescent(), ProximalOptions(maxiter = 20_000, gradtol = 1e-10))
+@assert res_apg.converged && maximum(k -> violation(beta_apg, k), eachindex(groups)) <= 1e-7
+@assert maximum(abs, beta_apg - beta) <= 1e-6
+println("APG: iterations = ", res_apg.iterations, "; largest violation ",
+        maximum(k -> violation(beta_apg, k), eachindex(groups)))

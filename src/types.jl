@@ -29,7 +29,7 @@ it is the element of `∇f(x) + ∂(λ Σⱼ wⱼ |xⱼ|)` of least infinity nor
 (`T` the element type; `w` is a `Vector{T}`); a zero weight gives the coefficient 0, so its entry is unpenalized
 and its score is `|∇fⱼ(x)|`. Below, `λ` is the ℓ1 level of the
 penalty (`λ` of `NormL1(λ)`, the largest coefficient `T(λ) * maximum(w)` of `NormL1(λ, w)`, `λ1` of `ElasticNet`);
-`λ2` does not enter the bound. For `GroupNormL2(λ, groups, w)` (`ProximalGradientDescent`), `‖G‖∞` below stands for
+`λ2` does not enter the bound. For `GroupNormL2(λ, groups, w)` (`ProximalGradientDescent` and `AccProxGradDescent`), `‖G‖∞` below stands for
 ProximalBase's group residual `max(0, maxₖ scoreₖ)`, with `scoreₖ = ‖∇_G f(x) + cₖ x_G/‖x_G‖₂‖₂` at a group with a
 nonzero entry and `‖∇_G f(x)‖₂ - cₖ` at a zero group (`cₖ = T(λ) wₖ` rounded in `T`), `λ` for the largest coefficient
 `T(λ) * maximum(w)` and `λmax` for `maxₖ α‖[Xᵀy]_{Gₖ}‖₂`, the largest group norm of `∇f(0)`. The stop counts only if

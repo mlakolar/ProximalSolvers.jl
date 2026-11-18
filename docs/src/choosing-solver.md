@@ -1,6 +1,6 @@
 # Choosing a solver
 
-The three supported algorithms solve the **same dense least-squares lasso**; CD and PGD
+The three supported algorithms solve the **same dense least-squares lasso**; CD, PGD and APG
 also solve a group lasso (see [Group lasso](choosing-solver.md#Group-lasso-with-block-coordinate-descent)), and CD
 also solves the square-root lasso `norm(y - X*beta) + lambda * norm(beta, 1)` (see [Supported problems](support.md)).
 The difference is how they update coefficients, not what objective is minimized.
@@ -236,8 +236,8 @@ model together. The penalty is `GroupNormL2(lambda, groups)`, that is
 `w_k = sqrt(length(G_k))`, and the objective is the least-squares loss plus this
 penalty. `CDSolver` solves it with a ProximalBase `BlockIterate` that has the
 groups of the penalty, and `ProximalGradientDescent` with a dense `Vector{T}` and a
-`GroupNormL2{T}` (level and weights of the element type of the data); `AccProxGradDescent`
-refuses it. The groups may be any disjoint index sets, in any order, and together they must
+`GroupNormL2{T}` (level and weights of the element type of the data), as does
+`AccProxGradDescent`. The groups may be any disjoint index sets, in any order, and together they must
 cover every coefficient. The [group lasso tutorial](examples/problems/group_lasso.md) uses
 noncontiguous groups; [Supported problems](support.md) lists the restrictions.
 
@@ -290,10 +290,10 @@ plain block coordinate descent. The stopping test works as in the relative-toler
 discussion above with the change of a group, the norm of its displacement; see
 [Numerical behavior](numerics.md). As for the lasso, `converged = true` is not an
 optimality certificate: check the group KKT conditions independently, as in the example.
-`ProximalGradientDescent` takes the block soft threshold of every group at each step and
-reports `converged = true` only where the group KKT residual passes its check; the
+`ProximalGradientDescent` and `AccProxGradDescent` take the block soft threshold of every group at each step and
+report `converged = true` only where the group KKT residual passes its check; the
 [group lasso tutorial](examples/problems/group_lasso.md) solves one problem both ways, and
-[Group lasso: CD and PGD](examples/comparisons/group_lasso_solvers.md) compares the two on one
+[Group lasso: CD, PGD and APG](examples/comparisons/group_lasso_solvers.md) compares the three on one
 seeded problem.
 
 ### Cost of the lazy curvature
