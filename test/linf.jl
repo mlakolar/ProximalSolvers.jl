@@ -646,21 +646,29 @@ Base.getindex(v::ConstVec, i::Int) = v.val
   # (a) the cutoffs, on short vectors with the keyword p
   x, g = ones(3), [-1.0, -0.5, 0.25]
   r = PS._linf_kkt_residual(x, g, 1.0)
-  @test isfinite(r) && PS._linf_kkt_residual(x, g, 1.0; p = 2^24 - 1) == r
-  @test isnan(PS._linf_kkt_residual(x, g, 1.0; p = 2^24)) && isnan(PS._linf_kkt_residual(zeros(3), g, 1.0; p = 2^24))
+  @test isfinite(r) && PS._linf_kkt_residual(x, g, 1.0; p = (Int64(1) << 24) - 1) == r
+  @test isnan(PS._linf_kkt_residual(x, g, 1.0; p = Int64(1) << 24)) && isnan(PS._linf_kkt_residual(zeros(3), g, 1.0; p = Int64(1) << 24))
   x32, g32 = ones(Float32, 3), Float32[-1, -0.5, 0.25]
   r32 = PS._linf_kkt_residual(x32, g32, 1f0)
-  @test isfinite(r32) && PS._linf_kkt_residual(x32, g32, 1f0; p = 2^32) == r32
-  @test isnan(PS._linf_kkt_residual(x32, g32, 1f0; p = 2^32 + 1)) && isnan(PS._linf_kkt_residual(zeros(Float32, 3), g32, 1f0; p = 2^33))
+  @test isfinite(r32) && PS._linf_kkt_residual(x32, g32, 1f0; p = Int64(1) << 32) == r32
+  @test isnan(PS._linf_kkt_residual(x32, g32, 1f0; p = (Int64(1) << 32) + 1)) && isnan(PS._linf_kkt_residual(zeros(Float32, 3), g32, 1f0; p = Int64(1) << 33))
   # the cutoff for Float64 from the bound: γ_p² ≤ 2^-6 eps, with γ_p = p u/(1 - p u), u = 2^-53
   γ(p) = p * big(2.0)^-53 / (1 - p * big(2.0)^-53)
   @test γ(2^24 - 1)^2 <= big(2.0)^-6 * eps(Float64) < γ(2^24)^2
+  # the caps are Int64 values, so that 2^32 is representable where Int is 32 bits wide (a 32-bit runtime is not available here: this is the
+  # evidence that the expression is computed in Int64, and not wrapped to 0 as the native Int32 power is: Int32(2)^Int32(32) == 0)
+  @test PS._linf_max_entries(Float32) isa Int64 && PS._linf_max_entries(Float32) == Int64(2)^32 > 0
+  @test PS._linf_max_entries(Float64) isa Int64 && PS._linf_max_entries(Float64) == Int64(2)^24 - 1
+  @test Int32(2)^Int32(32) == 0                    # the native-width power that the cap avoids
   # (b) Codex's counterexample, p = 2^32 (n = 2^32 - 1 entries q and b), in constant storage: the guard refuses it (the vector is not
   # traversed); the exact residual is 2.8e-14, 1.99 τ S, and the unguarded sum returned 1.5e-17
-  q, b = 0x1.feb9b7fbc58fcp-55, 0x1.fffff80519300p-1
-  n = 2^32 - 1
-  for rev in (false, true), x in (ConstVec(n + 1, 1.0), ConstVec(n + 1, 0.0))
-    @test isnan(PS._linf_kkt_residual(x, TailVec(n, -q, -b, rev), 1.0))
+  # The fixture needs lengths of 2^32 entries, which are representable only where Int is 64 bits wide.
+  if Sys.WORD_SIZE == 64
+    q, b = 0x1.feb9b7fbc58fcp-55, 0x1.fffff80519300p-1
+    n = 2^32 - 1
+    for rev in (false, true), x in (ConstVec(n + 1, 1.0), ConstVec(n + 1, 0.0))
+      @test isnan(PS._linf_kkt_residual(x, TailVec(n, -q, -b, rev), 1.0))
+    end
   end
 end
 
@@ -682,6 +690,29 @@ end
     r = PS._linf_kkt_residual(x, TailVec(n, -q, -b, rev), 1.0)
     @test abs(r - R) <= bound
     @test abs(r - R) <= budget
+  end
+end
+
+@testset "the final addition of the residual rounds too: Codex's three-coordinate case keeps the point and R ≤ (1 + 2^-10) H" begin
+  # X = diag(2^28, 1, 1), y = (3·2^26, 0, 3), x = ones, NormLinf(0), gradtol = 1: the supplied gradient is (2^54, 1, -2), so the exact residual
+  # is R = 2^54 + 3 while the computed one is 2^54 (the sum 2^54 + 1 + 2 rounds twice); the threshold is H = fl(S) = 3·2^54, so the stop is kept
+  # and R is far below (1 + 2^-10) H, the guarantee of the derivation (which holds without assuming R ≤ S)
+  X, y = Matrix(Diagonal([2.0^28, 1.0, 1.0])), [3 * 2.0^26, 0.0, 3.0]
+  x = ones(3)
+  gexact = Rational{BigInt}.(X)' * (Rational{BigInt}.(X) * Rational{BigInt}.(x) - Rational{BigInt}.(y))
+  @test gexact == [Rational{BigInt}(2)^54, 1, -2]
+  R = rkkt_ref(Rational{BigInt}.(x), gexact, Rational{BigInt}(0))
+  @test R == Rational{BigInt}(2)^54 + 3
+  @test PS._linf_kkt_residual(x, Float64.(gexact), 0.0) == 2.0^54
+  for method in METHODS
+    f, g = LeastSquaresLoss(y, X), NormLinf(0.0)
+    o = ProximalOptions(gradtol = 1.0)
+    st = PS.initial_state(method, o, f, g, copy(x))
+    st.x_previous .= x
+    @test PS._stationary!(st, f, g, o)
+    S = Float64(norm(Rational{BigInt}.(X)' * Rational{BigInt}.(y), 1))
+    H = 1.0 * S                                     # τ = max(gradtol, 64 eps) = 1
+    @test R <= (1 + Rational{BigInt}(2)^-10) * Rational{BigInt}(H)
   end
 end
 

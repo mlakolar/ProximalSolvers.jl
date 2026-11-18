@@ -79,12 +79,12 @@ ones off `M`, so their `|gᵢ|` count in `r`; that can make the check refuse, wh
 always (a point with `M = {1}` and a smaller entry whose gradient is 0 can have `r = 0`). The sums in `r` are Neumaier-compensated and formed in `Float64`
 (for `Float32` and `Float64` data), with `λ` folded into the sum it is cancelled against. The error of such a sum of `k` terms is at most
 `u|S| + γ_{k-1}² Σ|xᵢ|` (`S` the exact sum, `u = 2⁻⁵³`, `γ_k = k u/(1 - k u)`; Ogita, Rump and Oishi 2005), whose second term is quadratic in
-`k`. It is required to be at most `2⁻¹⁰` of the floor `64 eps(T) max(λ, λcrit)` of the threshold when the sum of the magnitudes of the terms is at
-most `4 max(λ, λcrit)` (as near a certification): this holds for at most `2²⁴ - 1` entries of `Float64` data and, with a cap, `2³²` entries of
-`Float32` data; a check on more entries refuses. Within that range, a kept stop has an exact residual (for the supplied gradient) below the bound
-times `1 + 2⁻¹⁰`, plus a relative first-order term of the size of the unit roundoff times the residual, and the computed gradient's own rounding error is
-not covered, so the true residual at a kept stop can exceed the bound by these amounts (a sweep of 1608 `Float32` solves against a BigFloat
-reference found at most 1.002 times the bound, a value measured on that sweep); the check is not a certificate in exact arithmetic and it does not
+`k`. With `B = γ_p²`, the computed residual `r` satisfies `r ≥ (1 - 2u - B) R - 2 B max(λ, λcrit)` for the exact residual `R` of the supplied
+gradient, including the rounding of the final addition. `B` is required to be at most `2⁻¹²` of the floor `64 eps(T)` of the threshold, which holds for at most
+`2²⁴ - 1` entries of `Float64` data and, with a cap, `2³²` entries of `Float32` data; a check on more entries refuses. Within that range, a kept
+stop (`r` below the computed threshold `H`) has `R < (1 + 2⁻¹⁰) H`, also when `R` exceeds `max(λ, λcrit)`; the statement is vacuous for an infinite threshold. The computed
+gradient's own rounding error is not covered, so the true residual at a kept stop can exceed `H` by that and by this factor (a sweep of 1608 `Float32` solves
+against a BigFloat reference found at most 1.002 times the bound, a value measured on that sweep); the check is not a certificate in exact arithmetic and it does not
 bound the distance to a minimizer. See [the numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-for-NormLinf).
 
 The gradient test holds when `r < gradtol * m` or `r < gradtol * N`, with `r` the

@@ -244,20 +244,24 @@ formed in `T`, as for the lasso check; it is not kept when `max(λ, λcrit)` is 
   because the correction of a compensated sum is itself a sum in the accumulation type: in `Float32` it stagnates at about `2²⁴` entries,
   where a correction stops changing under terms of `2⁻²⁴` times its size.
 - **The error bound and the regime.** For a Neumaier-compensated sum of `k` terms `xᵢ` in IEEE arithmetic (no fused or reordered operations),
-  with `u = 2⁻⁵³` the unit roundoff of `Float64`, the error is at most `u|S| + γ_{k-1}² Σ|xᵢ|`, with `S` the exact sum and
-  `γ_k = k u/(1 - k u)` (Ogita, Rump and Oishi, 2005, Proposition 4.5). The second term is quadratic in `k`, not of order `k u²`. `D` has
-  `p + 1` terms. Near a certification `Σ|xᵢ| = λ + P ≤ 2λ + r_true` (at `x = 0`, `λ + ‖g‖₁ ≤ 2λ + r_true`), which is at most
-  `4 max(λ, λcrit)` for `r_true ≤ max(λ, λcrit)`. The second-order term is required to be at most `2⁻¹⁰` of the floor `64 eps(T) max(λ, λcrit)`
-  of the threshold: `4γ_p² ≤ 2⁻¹⁰ · 64 eps(T)`, that is `γ_p ≤ 2⁻³ sqrt(eps(T))`. For `Float64`, `sqrt(eps) = 2⁻²⁶`, so `γ_p ≤ 2⁻²⁹`, that
-  is `p ≤ 2²⁴/(1 + 2⁻²⁹)`, whose largest integer is `p = 2²⁴ - 1`. For `Float32`, `sqrt(eps) = 2⁻¹¹·⁵` allows about `3.9·10¹¹` entries, and
-  the cap `2³²` is used. A check on more entries of that type refuses (`r` is `NaN`, before any pass).
-- **What a kept stop says.** Within that regime, a computed `r < max(gradtol, 64 eps(T)) max(λ, λcrit)` means that the exact residual of the
-  supplied gradient is below that bound times `1 + 2⁻¹⁰`, plus a relative first-order term of the size of the unit roundoff times the
-  residual. The computed gradient's own rounding error is not covered, as for the lasso check, so the true residual at a kept stop can exceed
-  the bound by these amounts (a sweep of 1608 `Float32` solves against a BigFloat reference found at most 1.002 times the bound, a value
-  measured on that sweep, not a bound). An infinite or NaN gradient entry, or an overflowing sum, makes `r` non-finite and the check
-  refuses. The check is not a certificate in exact arithmetic and does not bound the distance to a minimizer. Because it does not form a step,
-  it does not depend on the accepted curvature `L`, and a small `L` does not weaken it.
+  with `u = 2⁻⁵³` the unit roundoff of `Float64`, whose result includes the final addition of the sum and its correction, the error is at most
+  `u|S| + γ_{k-1}² Σ|xᵢ|`, with `S` the exact sum and `γ_k = k u/(1 - k u)` (Ogita, Rump and Oishi, 2005, Proposition 4.5). The second term
+  is quadratic in `k`, not of order `k u²`. Write `B = γ_p²`, `R` for the exact residual of the supplied gradient and `r` for the computed one.
+  `D` has `p + 1` terms with `Σ|xᵢ| = λ + P ≤ 2 max(λ, λcrit) + |D|` (at `x = 0`, `λ + ‖g‖₁` with `‖g‖₁ ≤ λ + R`), so the sums give
+  `r ≥ (1 - 2u - B) R - 2 B max(λ, λcrit)` in both branches: the compensated sums contribute `u + B` relative errors and the
+  `2 B max(λ, λcrit)` term, and the final addition of `off + N` and `|D|` one more relative `u`. This needs no assumption on the size of `R`.
+  If a stop is kept, `r < H` with `H` the computed threshold, and `H ≥ 64 eps(T) max(λ, λcrit)` (the floor is a power of two). `B` is required
+  to be at most `2⁻¹²` of that floor, `γ_p² ≤ 2⁻⁶ eps(T)`, that is `γ_p ≤ 2⁻³ sqrt(eps(T))`: then `2 B max(λ, λcrit) ≤ 2⁻¹¹ H`. For `Float64`,
+  `sqrt(eps) = 2⁻²⁶`, so `γ_p ≤ 2⁻²⁹`, that is `p ≤ 2²⁴/(1 + 2⁻²⁹)`, whose largest integer is `p = 2²⁴ - 1`. For `Float32`,
+  `sqrt(eps) = 2⁻¹¹·⁵` allows about `3.9·10¹¹` entries, and the cap `2³²` is used. A check on more entries of that type refuses (`r` is `NaN`,
+  before any pass).
+- **What a kept stop says.** Within that regime, a kept stop has `R < (H + 2 B max(λ, λcrit))/(1 - 2u - B) < (1 + 2⁻¹⁰) H`: the exact
+  residual of the supplied gradient is below the computed threshold `H = max(gradtol, 64 eps(T)) max(λ, λcrit)` times `1 + 2⁻¹⁰`, also when `R` is
+  larger than `max(λ, λcrit)`. For an infinite threshold the statement is vacuous. The computed gradient's own rounding error is not covered, as
+  for the lasso check, so the true residual at a kept stop can exceed the bound by that and by this factor (a sweep of 1608 `Float32` solves
+  against a BigFloat reference found at most 1.002 times the bound, a value measured on that sweep, not a bound). An infinite or NaN gradient
+  entry, or an overflowing sum, makes `r` non-finite and the check refuses. The check is not a certificate in exact arithmetic and does not bound the
+  distance to a minimizer. Because it does not form a step, it does not depend on the accepted curvature `L`, and a small `L` does not weaken it.
 - **Float32 and many tied entries.** The check has no rounding allowance whose size grows with the number of entries, so a `Float32`
   solve with many entries tied at the maximum is judged by the same rule as any other.
 - **Counting.** For APG the check forms one gradient at `x` from the cached image `A x` (PGD uses the accepted gradient) and counts it
