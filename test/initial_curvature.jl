@@ -4,8 +4,9 @@ module InitialCurvatureTests
 # solvers' upper bound, which is 1 when that product is at least 1 or X = 0 (#321). The start is read
 # through `ProximalSolvers.initial_state`. Where a solve is run, its quality is checked by the exact KKT
 # residual of the returned point, computed here in 256-bit BigFloat from the raw data, against the
-# solver's bound max(gradtol, 64 eps(T)) max(λ, λmax); the iteration counts and the bits of a
-# trajectory are not asserted. `converged` is a stopping flag and is asserted only where a case says so.
+# solver's bound max(gradtol, 64 eps(T)) max(λ, λmax). The bits of a trajectory are not asserted; an
+# iteration count appears as the loose limit that a case states. `converged` is a stopping flag, which a case
+# asserts where it says so.
 using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
 
@@ -78,11 +79,11 @@ end
       r = solve!(x, f, g, AccProxGradDescent(), DEFAULT)
       @test r.converged && r.iterations <= 12
       @test kkt_ratio(X, y, α, λ, 0, x) <= bound(DEFAULT, Float64)
-      # the first trial at 0.9 L0 is refused by the certified test, so there are more trials than iterations
+      # APG counts every trial, so a count above the iterations means that a trial was rejected
       @test r.backtrack_steps > r.iterations
 
-      # PGD ends at the objective increase of its backtracking test, which forms the squared step norm and
-      # cannot see a step beyond about 1e154; the iterate is within 0.4% of the minimizer. This documents
+      # PGD ends at the objective increase. Its backtracking test forms the squared step norm, which overflows
+      # for a step beyond about 1.3e154, and the iterate is within 0.4% of the minimizer. This documents
       # that range limit (#TBD); a range-safe line search would change these assertions.
       x = zeros(1)
       r = solve!(x, f, g, ProximalGradientDescent(), DEFAULT)
@@ -115,7 +116,7 @@ end
   for method in METHODS
     @test start(method, LeastSquaresLoss(y, X), NormL1(T(0.1)), zeros(T, 8)) === one(T)
     @test start(method, lossof(one(T) / T(n), y, X), NormL1(T(0.1)), zeros(T, 8)) === one(T)
-    # a single column with α‖X‖_F² = 1 exactly: the rounded-up bound is not below 1
+    # a single column with α‖X‖_F² = 4 (1/4) = 1: the rounded-up bound is not below 1
     f1 = lossof(T(1) / T(4), T[1, 2, 3, 4], ones(T, 4, 1))
     @test start(method, f1, NormL1(T(0.1)), zeros(T, 1)) === one(T)
     # large curvature
