@@ -223,10 +223,10 @@ r < max(gradtol, 64 eps(T)) * S,     S = max(‖∇f(0)‖∞, ‖∇f(x)‖∞)
 ~~~
 
 with the threshold formed in `T`. It is refused when `t` is not finite and positive, when `S` or `r` is not finite,
-when the threshold is below `floatmin(T)` (so a solve with `S = 0`, as for `y = 0` or `X = 0`, does not report
+when the threshold is below `floatmin(T)` (so a solve with `S = 0`, as for `X = 0` or at `x = 0` when `y = 0`, does not report
 convergence), when the threshold does not exceed `ρ = L eps(T) ‖x‖∞` (the rounding resolution of the gradient test),
 or when `t` times the threshold is below `floatmin(T)/eps(T)` (a step that subnormal rounding can lose at `x = 0`).
-Each proposed stop costs one proximal evaluation, counted in `prox_calls`, and for APG one gradient at `x`, counted
+Each proposed stop with a finite positive `t` costs one proximal evaluation, counted in `prox_calls`, and for APG one gradient at `x`, counted
 in `grad_calls`, before the call limits are compared.
 
 A small accepted `L` makes `t` large and `r` a weaker measure of stationarity than with the true curvature; a

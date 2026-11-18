@@ -73,8 +73,8 @@ proposed, and counts that evaluation in `grad_calls`.
 mapping at the accepted `x`: with `t = 1/L` (the accepted curvature), `r = ‖x - prox_{t g}(x - t ∇f(x))‖∞ / t`,
 computed with the same ProximalBase `value_and_prox!` as the iterations. The stop counts only if
 `r < max(gradtol, 64 eps(T)) * S` with `S = max(‖∇f(0)‖∞, ‖∇f(x)‖∞)`; it is refused when `t` is not finite and
-positive, when `S` or `r` is not finite, when that threshold is below `floatmin(T)` (so with `S = 0`, as for `y = 0` or `X = 0`, no stop counts), when it
-does not exceed `ρ = L eps(T) ‖x‖∞`, or when `t` times it is below `floatmin(T)/eps(T)`. Each proposed stop costs one
+positive, when `S` or `r` is not finite, when that threshold is below `floatmin(T)` (so with `S = 0`, as for `X = 0` or at `x = 0` when `y = 0`, no stop counts), when it
+does not exceed `ρ = L eps(T) ‖x‖∞`, or when `t` times it is below `floatmin(T)/eps(T)`. Each proposed stop with a finite positive `t` costs one
 proximal evaluation, counted in `prox_calls` (and for `AccProxGradDescent` one gradient, counted in `grad_calls`). A small
 accepted `L` makes `t` large and `r` a weaker measure of stationarity. `converged = true` is then a working-precision
 indication, not a certificate.

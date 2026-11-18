@@ -78,7 +78,7 @@ end
     X, y = T[1 1], T[2]
     x, r = solve_case(method, X, y, 1, T[50, -50], options)
     @test !r.converged && !r.x_converged && !r.f_converged && !r.grad_converged && r.iterations == 2
-    @test kkt(X, y, 1, x) >= 0.5          # the threshold is τ S = 1e-5 * 4
+    @test kkt(X, y, 1, x) >= 0.5          # the threshold is 64 eps(T) S (gradtol = 0), S ≥ ‖∇f(0)‖∞ = 2
   end
 end
 
@@ -141,6 +141,17 @@ function refused(x, f, g, method, msg, E = ArgumentError)
   original = copy(x)
   @test_throws E(msg) solve!(x, f, g, method)
   @test isequal(x, original)
+end
+
+@testset "a tiny accepted L with a large x: a step lost to rounding is not a stop" begin
+  # λ = 0, so the mapping is ∇f(x) for every t; the iterate does not move, and L eps(T) alone underflows
+  for (T, xv, yv, x0) in ((Float32, 1e-22, 1e8, 1.001e30), (Float64, 1e-160, 1e10, 1.00003e170)), method in METHODS, scale in (1, 2)
+    X, y = fill(T(xv), 1, 1), T[yv]
+    f = scale == 1 ? LeastSquaresLoss(y, X) : T(scale) * LeastSquaresLoss(y, X)
+    x = T[x0]
+    r = solve!(x, f, NormLinf(zero(T)), method, ProximalOptions(maxiter = 50))
+    @test !r.converged && !r.x_converged && !r.f_converged && !r.grad_converged
+  end
 end
 
 @testset "refusals before any change of x" begin

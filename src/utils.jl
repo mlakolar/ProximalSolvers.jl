@@ -144,7 +144,7 @@ end
 # it forms u = x - t ∇f(x) and p = prox_{t g}(u) with the iterations' value_and_prox! call, and r = ‖x - p‖∞ / t,
 # the ∞-norm of the proximal-gradient mapping G_t(x). The stop is kept when r < τ S, with S = max(‖∇f(0)‖∞,
 # ‖∇f(x)‖∞) and τ = max(gradtol, 64 eps(T)). It is refused when t is not finite and positive (before the prox),
-# S or r is not finite, τ S is below floatmin(T) (so S = 0, as for y = 0 or X = 0, never converges), τ S does not
+# S or r is not finite, τ S is below floatmin(T) (so S = 0, as for X = 0 or at x = 0 when y = 0, never converges), τ S does not
 # exceed the rounding resolution L eps(T) ‖x‖∞ of the gradient test, or the step t τ S is below floatmin(T)/eps(T)
 # (a step that subnormal rounding can lose at x = 0). The prox counts in prox_calls; APG's gradient at x counts in
 # grad_calls. u goes to xhat and p to delta_x, which is then restored to x - x_previous. A small accepted L makes
@@ -163,7 +163,8 @@ function _stationary!(state, f, g, options::ProximalOptions)
   r = _norm_diff(state.x, state.delta_x, Inf) / t
   _sub!(state.delta_x, state.x, state.x_previous)
   threshold = T(max(options.gradtol, 64 * Float64(eps(T)))) * S
-  ρ = state.L * eps(T) * _norm_inf(state.x)
+  # (L ‖x‖∞) eps(T): a product in this order underflows only where ρ < floatmin(T) ≤ τ S, and overflows to Inf (refused)
+  ρ = (state.L * _norm_inf(state.x)) * eps(T)
   isfinite(S) && isfinite(r) && threshold >= floatmin(T) && threshold > ρ &&
     t * threshold >= floatmin(T) / eps(T) && r < threshold
 end
