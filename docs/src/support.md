@@ -124,6 +124,8 @@ stops without a certificate reports `converged = false` and `gap = NaN`, with it
 fit (`y = X*beta`) with a positive penalty, coordinate descent can stop at a point that minimizes every
 coordinate but not `P`. [`CDSolver`](@ref) describes the stopping rule, and
 [Numerical behavior](numerics.md) the step and the certificate.
+[The square-root lasso example](examples/09_square_root_lasso.md) solves a seeded problem, checks it
+independently from the data, and shows two exact fits.
 
 The three numerical arrays use one common `T` (`Float32` or
 `Float64`); mixed-element-type `X`, `y` and coefficient arrays

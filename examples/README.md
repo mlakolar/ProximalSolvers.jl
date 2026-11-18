@@ -7,7 +7,8 @@ Run `julia --project=. examples/01_cd_lasso.jl`,
 `julia --project=. examples/05_apg_lasso.jl`,
 `julia --project=. examples/06_group_cd_lasso.jl`,
 `julia --project=. examples/07_elasticnet.jl` or
-`julia --project=. examples/08_weighted_lasso.jl`. Each of the first three
+`julia --project=. examples/08_weighted_lasso.jl` or
+`julia --project=. examples/09_square_root_lasso.jl`. Each of the first three
 checks an independent analytic solution; the third runs coordinate descent on a
 caller-owned `SparseIterate` and also checks that the result shares that owner. The
 fourth compares cyclic coordinate descent, random-order coordinate descent and dense
@@ -35,5 +36,9 @@ all three solvers: the weights are adaptive-lasso weights from a ridge pilot fit
 unpenalized coefficient). It checks the three solutions with a weighted KKT residual computed in the script from X, y and
 the coefficients `λ wⱼ`, the reported objectives, that the three agree, that the unpenalized coefficient is nonzero, that
 the weights keep fewer coefficients than the unweighted lasso with the same `λ`, and that weights of another element type
-are refused before `x` is touched. Historical feature
+are refused before `x` is touched. The ninth, `09_square_root_lasso.jl`, solves a seeded square-root lasso
+(`SqrtLeastSquaresLoss` with `NormL1`) by cyclic coordinate descent, and checks the objective and a
+residual-direction duality gap computed from X, y, λ and the coefficients, not the solver's `converged` flag;
+it repeats the solve in Float32 on a `SparseIterate`, and shows two small exact fits (the loss is not
+differentiable where `y = Xβ`) on which the solver reports no certificate. Historical feature
 examples remain on legacy/full and protected archives.

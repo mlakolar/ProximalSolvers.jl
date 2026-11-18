@@ -100,6 +100,8 @@ with ProximalBase's `SqrtLeastSquaresLoss(y, X)` and `NormL1(lambda)`, `lambda >
 sparse designs, penalty paths, ADMM and other algorithms are not part
 of this development branch; see
 [Supported problems](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/).
+The [square-root lasso example](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples/09_square_root_lasso/)
+checks a solution from the data.
 
 ProximalBase's linked `/dev/` documentation follows its evolving
 `master`, while ProximalSolvers uses a **fixed dependency commit**.
