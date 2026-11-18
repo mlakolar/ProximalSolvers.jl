@@ -744,8 +744,8 @@ What changes for the solvers:
   multiplied by the line search's decrease factor (default 0.9) before each iteration and
   raised on a rejected trial. The start is the Frobenius bound `α‖X‖_F²` when that is below 1,
   which exceeds the curvature `α‖X‖₂²` by the factor `‖X‖_F² / ‖X‖₂²` (at most the rank of `X`), up to
-  rounding and the floor; a problem whose Frobenius bound is far below 1 therefore no longer starts
-  at 1, and one whose bound is 1 or more still does (for example `X = I(256)/16` with `α = 1` has
+  rounding and the floor; a problem whose Frobenius bound is far below 1 therefore starts
+  below 1, and one whose bound is 1 or more starts at 1 (for example `X = I(256)/16` with `α = 1` has
   curvature `1/256` and starts at 1). For
   `X = ones(5, 1)`, `y = fill(1e160, 5)`, loss scale `1e-100`, `NormL1(0.0)` and start 0,
   the curvature `α‖X‖²` is `5.000000000000001e-100`, `X` has rank one, and both solvers start at
