@@ -58,6 +58,12 @@ that backs the new cell. A pull request that adds a problem adds a row, a tutori
 `examples/problems/` (or registers the path of its example) and its entry in the registry
 in `docs/make.jl`.
 
+### Statistical applications
+
+These tutorials apply rows of the matrix to statistical problems and add no solver support.
+
+- [Sparse additive regression](examples/problems/sparse_additive_regression.md): an additive model with one spline block per predictor, fitted as a group lasso (group lasso row, `CDSolver` on a `BlockIterate`, Float64).
+
 ## What works today?
 
 The supported objective is a lasso (CD also solves a group lasso on a `BlockIterate` and a
