@@ -67,7 +67,10 @@ while CD's step and stopping arithmetic uses `T(s)`. For an integer or `Bool`
 scale the check in `src/solve.jl` makes the two real scales equal; the arithmetic
 precision can differ (Float32 data and the scale `3`: `Float32` in CD, `Float64`
 in the objective's product), and for `Float64` data both are `Float64`. `_root_scale`
-converts an integer or `Bool` scale at a scoped precision of 256 bits.
+rounds the scale once to `Float64` (exact for a `Float32` or `Float64` scale, for a `Bool`
+and for an integer of magnitude at most `2^53`; a larger integer is rounded once) and
+takes its significand and exponent there; a scale outside the range of `Float64` is not
+supported by `_root_scale`.
 The coordinate scale, with `a` the squared norm of the column, `p = s * a`
 in `S` and `q = T(p)`, is `sqrt(q)` where `q` is a normal number of `T`;
 otherwise `T(sqrt(p))` where `p` is not below `floatmin(S)` and is finite or `a`
@@ -357,11 +360,12 @@ is at most `(1 + 4eps)/(1 + κ) √L ‖d̂‖/((1 + γ_{p+4})(1 + u))`; reject 
 bound `‖Δz‖/((1 + γ_{n+4})(1 + u)) - E_x - E_y` exceeds `(1 + 4eps)(1 + κ) √L ‖d̂‖/((1 - γ_{p+4})(1 - u))`.
 Otherwise form `w = fl(X d̂)` in the residual buffer, with
 `‖w - X d‖ ≤ (γ_p + 2u)‖X‖_F ‖d̂‖/((1 - γ_{p+4})(1 - u)) + 2p√n η`, accept when its upper bound passes,
-and reject otherwise. `√α` (`_root_scale`) is formed from `α`'s significand and exponent:
-exact in its own type for a Float32 or Float64 scale, and otherwise (an integer or `Bool`
-scale) taken after rounding `α` once to 256 bits inside a scoped BigFloat precision
-(restored afterwards); the significand is rounded once to Float64 before its root. So
-neither the active BigFloat precision nor `α`'s range limits it.
+and reject otherwise. `√α` (`_root_scale`) is formed from `α`'s significand and exponent
+after `α` is rounded once to Float64 (exact for a Float32 or Float64 scale, for a `Bool` and
+for an integer of magnitude at most `2^53`; a larger integer is rounded once); the exponent
+is made even, the root of the significand is converted to `T`, and half the exponent is
+carried as the `Int` exponent of an `_SE` value, so the range of `T` does not limit `√α`.
+A scale outside the range of Float64 is not supported by `_root_scale`.
 `κ = 32u` covers the roundings of `√L`, of `√α`'s conversion to `T`
 and of the fixed number of `_SE` products and sums on each side; the dimension-dependent
 errors enter through the factors above. These are conservative bounds: in Float32 the
