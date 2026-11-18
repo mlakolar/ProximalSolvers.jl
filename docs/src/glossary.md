@@ -14,6 +14,23 @@ normal number of `T` (see [Supported problems](support.md)), and a zero weight l
 **Elastic net:** The penalty `lambda1 * sum(abs, beta) + lambda2/2 * sum(abs2, beta)`, an L1 term plus a
 ridge (squared L2) term, `ElasticNet(lambda1, lambda2)`. CD, PGD and APG accept it.
 
+**Square-root lasso:** The optimization problem `min_β ‖y − Xβ‖₂/√n + λₙ‖β‖₁` (Belloni, Chernozhukov and
+Wang, 2011). In this package, `SqrtLeastSquaresLoss(y, X)` with `NormL1(λ)` is the unnormalized form
+`‖y − Xβ‖₂ + λ‖β‖₁`, which has the same minimizers at `λ = √n λₙ`; `CDSolver` solves it.
+
+**Scaled lasso:** The statistical estimator of Sun and Zhang (2012),
+`(β̂, σ̂) ∈ argmin_{β, σ > 0} ‖y − Xβ‖₂²/(2nσ) + σ/2 + λ₀‖β‖₁`, which estimates the coefficients and the
+noise level jointly. For fixed `β` with `y ≠ Xβ`, the minimum over `σ > 0` is at `σ = ‖y − Xβ‖₂/√n`, with
+value `‖y − Xβ‖₂/√n + λ₀‖β‖₁`; so `β̂` is a square-root lasso minimizer at `λₙ = λ₀` (that is,
+`λ = √n λ₀` in the unnormalized form), and `σ̂ = ‖y − Xβ̂‖₂/√n` when `y ≠ Xβ̂` (at an exact fit the
+infimum over `σ > 0` is not attained). ProximalSolvers does not provide the scaled lasso as a separate
+method. It is not `Scaled(LeastSquaresLoss(y, X), s)`, which is the least-squares loss multiplied by a fixed
+`s` (for example `s = 1/n` for the normalized lasso) and estimates no noise level.
+
+References: Belloni, A., Chernozhukov, V. and Wang, L. (2011), Square-root lasso: pivotal recovery of sparse
+signals via conic programming, *Biometrika* 98(4), 791–806. Sun, T. and Zhang, C.-H. (2012), Scaled sparse
+linear regression, *Biometrika* 99(4), 879–898.
+
 **Proximal operator:** A minimization step balancing closeness to an
 input point with the value of a penalty.
 

@@ -67,6 +67,12 @@ that backs the new cell. A pull request that adds a problem adds a row, a tutori
 `examples/problems/` (or registers the path of its example) and its entry in the registry
 in `docs/make.jl`.
 
+### Statistical applications
+
+These tutorials apply rows of the matrix to statistical problems and add no solver support.
+
+- [Change-point detection](examples/problems/change_point_detection.md): 1D total-variation denoising, rewritten as a lasso on a step design (lasso row, `CDSolver` on a `Vector`, Float64).
+
 ## What works today?
 
 The supported objective is a lasso (CD also solves a group lasso on a `BlockIterate` and a
@@ -174,8 +180,10 @@ with ProximalBase's [`SqrtLeastSquaresLoss(y, X)`](https://mlakolar.github.io/Pr
 when `x` is a dense `Vector{T}` or a one-dimensional `SparseIterate{T}`, `X` and `y` are as above, and
 `lambda` is positive, finite and representable in `T`. The normalized objective
 `‖y − Xβ‖₂/√n + λₙ‖β‖₁` (`Scaled(f, inv(sqrt(n)))` in ProximalBase) has the same minimizers as `P` at
-`lambda = sqrt(n) * λₙ`, and its values are those of `P` divided by `√n`; for the scaled lasso, the noise
-estimate at the solution is `norm(y - X*beta)/sqrt(n)`. Refused with an `ArgumentError`, before `x` is
+`lambda = sqrt(n) * λₙ`, and its values are those of `P` divided by `√n`. The [scaled lasso](glossary.md) at
+the level `λ₀` has as its coefficient estimate a minimizer of `P` at `lambda = sqrt(n) * λ₀`, and as its noise
+estimate `norm(y - X*beta)/sqrt(n)` when `y ≠ X*beta`; the package provides no separate scaled-lasso method.
+Refused with an `ArgumentError`, before `x` is
 copied or the random number generator is used: `Scaled(SqrtLeastSquaresLoss, alpha)` (for a positive
 finite `alpha`, use the unscaled loss at the level `lambda/alpha`), `lambda = 0` (use `LeastSquaresLoss`,
 which has the same minimizers), a weighted `NormL1` (also with all weights equal to one), an `ElasticNet`,
@@ -198,7 +206,9 @@ representable in `T` without overflow or rounding a nonzero scalar
 to zero; it may be supplied in a different scalar type, including
 a representable `Float64` literal in a `Float32` problem.
 
-The loss scale of `Scaled(LeastSquaresLoss(...), s)` is supported as
+The scale `s` of `Scaled(LeastSquaresLoss(...), s)` multiplies the loss by a fixed number (for example
+`s = 1/n`); it does not make the problem the [scaled lasso](glossary.md), which estimates a noise level.
+The loss scale is supported as
 
 - a positive finite `Float32` or `Float64` that converts to a finite nonzero
   number of `T` (a value that is subnormal in `T` is accepted, and a `Float64`
