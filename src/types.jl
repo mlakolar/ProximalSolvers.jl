@@ -67,13 +67,13 @@ with `t = 1/L` for the curvature `L` of the line search's accepted step, and the
 tests propose a stop. The check forms `∇f(x)` (for `AccProxGradDescent`, one gradient from the cached image
 `A x`, counted in `grad_calls`), the point `p = prox_{tλ‖·‖∞}(x - t∇f(x))` with ProximalBase's `value_and_prox!`
 (one proximal evaluation, counted in `prox_calls`) and `r = ‖G_t(x)‖₁ = L ‖x - p‖₁`. The stop counts only if
-`r + ρ < max(gradtol, 64 eps(T)) * max(λ, λcrit)`, with `λcrit = α‖Xᵀy‖₁ = ‖∇f(0)‖₁`, the smallest level
+`r + ρ < max(gradtol, 64 eps(T)) * max(λ, λcrit)` and the requirements below hold, with `λcrit = α‖Xᵀy‖₁ = ‖∇f(0)‖₁`, the smallest level
 at which the solution is 0 (the lasso's threshold `‖∇f(0)‖∞` does not apply), and
 `ρ = L eps(T) (‖x‖₁ + k s)`, a first-order allowance for the rounding of the displacement `x - p` and of the clip
 level of the proximal operator, with `k` the number of entries that the proximal operator changed and `s` the sum
 of their magnitudes before it. It also requires that `L` is finite and positive, that `1/L` is finite and at least
 `floatmin(T)`, that `max(λ, λcrit)` is finite, that the threshold, formed in `T`, is at least `floatmin(T)`, and
-that `r` and `ρ` are finite. `G_t(x) = 0` holds exactly when `x` minimizes the objective; for a gradient that is
+that `r` and `ρ` are finite. In exact arithmetic `G_t(x) = 0` holds when and only when `x` minimizes the objective; for a gradient that is
 `L_f`-Lipschitz, `dist(0, ∂F(p)) ≤ (1 + L_f/L) ‖G_t(x)‖₂`, so a small accepted `L` (a large step) weakens what a small
 residual says. The residual is computed in working precision, not a certificate in exact arithmetic, and it
 does not cover the error of the computed gradient. The evaluations of the check are counted before the limits are

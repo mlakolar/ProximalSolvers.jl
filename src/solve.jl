@@ -74,8 +74,8 @@ end
 
 # The penalty of group coordinate descent on a BlockIterate: a GroupNormL2 whose level and weights
 # convert to T without overflow, or underflow to 0 from a nonzero value, and whose groups are those
-# of x, in the same order and with the same ordered members. It ignores `kind`, so that a BlockIterate
-# reaches these checks, and not the generic method, from every gate.
+# of x, in the same order and with the same ordered members. It ignores `kind` and is more specific in x
+# than the generic method, so a call of _check_data with a BlockIterate reaches these checks for each `kind`.
 function _check_penalty(g, x::BlockIterate, ::Type{T}, kind::Symbol = :block) where T
   g isa GroupNormL2{<:Union{Float32, Float64}} ||
     throw(ArgumentError("a BlockIterate needs a GroupNormL2 penalty with Float32 or Float64 parameters"))

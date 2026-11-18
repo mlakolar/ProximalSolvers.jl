@@ -195,7 +195,7 @@ end
       end
     end
     # at the margin of c p eps(T) from a nonzero start the iterates approach 0 and PB's zero fill needs
-    # ‖∇f(0) + H x‖₁ ≤ λ, so only a small ‖x‖∞ is asked
+    # ‖∇f(0) + H x‖₁ ≤ λ, so the test asserts a small ‖x‖∞ at this margin
     x, r = solve_case(method, X, y, α, λ, T[0.1, -0.2, 0.05, 0.3, -0.1, 0.2], LONG)
     @test maximum(abs, x) <= (T === Float64 ? 1e-5 : 1e-3)
     # at λ = λcrit: a small ‖x‖∞ and a small gap (PB's zero fill may or may not apply)
@@ -268,7 +268,7 @@ end
       @test r.iterations == 1 && r.call_limit_reached           # a stop was proposed and counted
       @test !r.converged && !r.x_converged && !r.f_converged && !r.grad_converged
       @test relgap(X, y, one(T), 1, x) > 1e-2                    # the iterate is not stationary
-      # without the limit the solve goes on from that iterate, and converges only at a stationary point
+      # without the limit the solve goes on from that iterate, and a converged run has a small gap
       x = copy(far)
       r = solve!(x, f, g, method, ProximalOptions(; maxiter = 5_000, options...))
       @test r.iterations > 1
@@ -376,7 +376,7 @@ end
 @testset "Float32: a fixed point of the computed map with many clipped entries is not kept when k eps(T) is large" begin
   # X = I, α = 1, λ = a fraction of ‖y‖₁, L = 1: u = x - ∇f(x) = y, and x = the computed clip of y is a fixed
   # point of the computed map (r = 0). The BigFloat residual is far below τ S in both cases, and the clip-level
-  # term L eps(T) k s of ρ exceeds τ S only for the larger number k of clipped entries (about k > 84 at the
+  # term L eps(T) k s of ρ exceeds τ S for k = 200 clipped entries and not for k = 10 (about k > 84 at the
   # default gradtol, as ρ's other term is small here): the refusal is the check's guard and not a nonzero residual
   T = Float32
   for (A, frac, kept) in ((10, 0.5, true), (200, 0.9, false))
