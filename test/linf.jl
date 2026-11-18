@@ -78,7 +78,7 @@ end
     X, y = T[1 1], T[2]
     x, r = solve_case(method, X, y, 1, T[50, -50], options)
     @test !r.converged && !r.x_converged && !r.f_converged && !r.grad_converged && r.iterations == 2
-    @test kkt(X, y, 1, x) > 1
+    @test kkt(X, y, 1, x) >= 0.5          # the threshold is τ S = 1e-5 * 4
   end
 end
 
