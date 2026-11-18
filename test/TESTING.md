@@ -154,9 +154,10 @@ format are fixed.
   The current tree must also have stopping flags that satisfy the relations below. Side A is not
   checked for them. For proximal gradient descent, `converged` is the disjunction of `x_converged`, `f_converged` and
   `grad_converged`, `iteration_converged` is `iterations == maxiter`, and a run that did not converge
-  reports `iteration_converged`, `f_increased` or `call_limit_reached`. For coordinate descent,
-  `converged` implies `maxchange < tolerance`, and a run that did not converge made `maxpasses`
-  passes. The source lines for these relations are cited in `check_flags` in
+  reports `iteration_converged`, `f_increased` or `call_limit_reached`. For least-squares coordinate
+  descent (the probe's problems), `converged` implies `maxchange < tolerance`, and a run that did not
+  converge made `maxpasses` passes; the square-root lasso, whose runs can also stop uncertified, is not
+  among them. The source lines for these relations are cited in `check_flags` in
   `scripts/paired_master_diagnostics.jl`. Both sides must have the same result fields. Bits,
   trajectories, iteration counts and random-number advancement may differ: a differing record is
   printed as a `diagnostic:` line and is not a failure.

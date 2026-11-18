@@ -1,13 +1,13 @@
 # ProximalSolvers.jl
 
-**Learn least-squares lasso with coordinate descent (CD) and proximal gradient descent (PGD) in Julia.** The [ProximalBase.jl documentation](https://mlakolar.github.io/ProximalBase.jl/dev/) covers the loss, penalty and iterate types; this package supplies algorithms to optimize them.
+**Learn least-squares lasso with coordinate descent (CD) and proximal gradient descent (PGD) in Julia**, and the square-root lasso with CD. The [ProximalBase.jl documentation](https://mlakolar.github.io/ProximalBase.jl/dev/) covers the loss, penalty and iterate types; this package supplies algorithms to optimize them.
 
 ## Is this package for me?
 
 Use the current development version if you want to study lasso algorithms, control their updates, or experiment with ProximalBase. If you mainly want a ready-to-use statistical modeling workflow with regularization paths and cross-validation, also consider [GLMNet.jl](https://github.com/JuliaStats/GLMNet.jl) and [Lasso.jl](https://github.com/JuliaStats/Lasso.jl). We make no comparative speed or accuracy claim.
 
 !!! note "Current development version"
-    This site documents the GitHub `master` branch, **not necessarily** the registered `ProximalSolvers` release. Development master currently supports dense Float32/Float64 least-squares lasso with unweighted L1 penalty, with CD, PGD or APG, with CD only, a group lasso on a ProximalBase `BlockIterate` with a `GroupNormL2` penalty, and least-squares elastic net (unweighted `ElasticNet`) with CD, PGD or APG. Its previously broader feature set, including paths and ADMM, is not in this branch. See [installation](getting-started.md).
+    This site documents the GitHub `master` branch, **not necessarily** the registered `ProximalSolvers` release. Development master currently supports dense Float32/Float64 least-squares lasso with unweighted L1 penalty, with CD, PGD or APG, with CD only, a group lasso on a ProximalBase `BlockIterate` with a `GroupNormL2` penalty, with CD only, the square-root lasso (ProximalBase's `SqrtLeastSquaresLoss` with an unweighted `NormL1`, `converged` only with a duality certificate), and least-squares elastic net (unweighted `ElasticNet`) with CD, PGD or APG. Its previously broader feature set, including paths and ADMM, is not in this branch. See [installation](getting-started.md).
 
 ## Start here
 

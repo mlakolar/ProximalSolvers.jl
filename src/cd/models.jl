@@ -10,6 +10,16 @@ function cdmodel end
 # Per-solve preparation after `initialize!` and before the first pass (and its RNG draws), run
 # only when `maxpasses > 0`: a model caches and validates what depends only on the data here.
 _prepare!(m::CDModel, g, x) = m
+# The stop check at a full pass whose largest change `maxh` is below the threshold (`_cd_plain!`,
+# `_cd_momentum!`; `scaled` is that of `_tolerances`). It returns `:converged` (stop with
+# `converged = true`), `:uncertified` (stop with `converged = false`) or `:retry` (the check lowered
+# `st.tolerance`; the loop continues with it); a model with a certificate records its outcome itself, for
+# `_result_gap` and `_uncertified`. This method, for the models without a certificate (least squares,
+# group lasso), returns the constant `:converged` and changes nothing: their stop is the change test,
+# and their result has `gap = NaN` and no uncertified stop. `SqrtLSModel` has its own methods.
+_stop_check!(m::CDModel, g, x, st, maxh, scaled::Bool) = :converged
+_result_gap(m::CDModel{T}) where T = T(NaN)
+_uncertified(m::CDModel) = false
 cdmodel(f,x)=throw(ArgumentError("unsupported private coordinate-descent model"))
 # The coordinate along a flat LS column (zero slope and curvature), which does not enter the loss: the
 # prox of the penalty at the step floatmax(T) from 0. For an unweighted NormL1 or ElasticNet with finite

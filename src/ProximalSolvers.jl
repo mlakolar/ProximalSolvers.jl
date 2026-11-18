@@ -3,6 +3,8 @@
 
 Least-squares lasso and elastic net (an unweighted `ElasticNet`) with dense Matrix designs, for
 [`CDSolver`](@ref), [`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref).
+[`CDSolver`](@ref) also solves the square-root lasso, with ProximalBase's `SqrtLeastSquaresLoss` and
+an unweighted `NormL1`, and reports `converged = true` for it only with a duality certificate.
 [`CDSolver`](@ref) accepts a dense
 `Vector` or a one-dimensional `SparseIterate` as the iterate, and, for a group lasso with
 a `GroupNormL2` penalty, a `BlockIterate`. [`ProximalGradientDescent`](@ref) and
@@ -14,7 +16,7 @@ using LinearAlgebra
 using Printf
 using Random: AbstractRNG, default_rng, rand
 using SparseArrays: dropzeros!
-using ProximalBase: LeastSquaresLoss, Scaled, NormL1, ElasticNet, SparseIterate,
+using ProximalBase: LeastSquaresLoss, SqrtLeastSquaresLoss, Scaled, NormL1, ElasticNet, SparseIterate,
   ncoordinates, nactive, activecoordinates, activevalues, prox_block,
   value_and_prox!, BlockIterate, GroupNormL2, blockindices, blockview, prox_block!, kkt_violation
 include("blocks.jl")
@@ -34,6 +36,7 @@ include("solvers/accelerated_proximal_gradient_descent.jl")
 include("cd/models.jl")
 include("cd/solver.jl")
 include("cd/leastsquares.jl")
+include("cd/sqrtlasso.jl")
 include("utils.jl")
 include("precompile.jl")
 end
