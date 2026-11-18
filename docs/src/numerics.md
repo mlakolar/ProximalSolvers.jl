@@ -487,16 +487,51 @@ that needs it.
   assume IEEE gradual underflow (subnormal numbers are not flushed to zero); the third
   assumes that the computed eigenvalues are exact eigenvalues of a nearby matrix, within a
   multiple of `eps(Float64)` times the trace, a model of the eigenvalue routine and not a
-  proved bound for every input.
+  proved bound for every input. This is the *general rule*; a group of two columns takes it
+  outside the range of the next item.
+- **Group of two columns** (on the Gram route). With `x` and `y` the two columns, the
+  entries `a = ‖x‖²`, `b = ‖y‖²` and `c = xᵀy` of the Gram matrix are accumulated in
+  `Float64` in one pass over the stored columns, without a copy, and `t = a + b` is their
+  computed trace. Where `2^-480 ≤ t ≤ 2^500`, the bound in `Float64` is the next number above
+  `(t + √((a − b)² + 4c²))/2 + (n + 4) eps(Float64) t`, evaluated in `Float64` and rounded
+  up to `T`, with no eigenvalue computation. The first term is the largest eigenvalue of
+  the computed Gram matrix in exact arithmetic. Inside this range the bound is proved, with
+  no eigenvalue model: assuming IEEE binary64 arithmetic with rounding to nearest and
+  gradual underflow, and `n eps(Float64) ≤ 1/8`, it exceeds the largest eigenvalue of the
+  exact Gram matrix of the stored columns by at least `((6/7) n + 3) u t`, with
+  `u = eps(Float64)/2`, for any order of the summation. The margin is a quarter of that of
+  the general rule. Under the same condition on `n`, finite `Float32` data in a group that
+  is not flat is inside this range. `Float64` data is outside it where `√t`, the Frobenius
+  norm of the two columns up to rounding, is below `2^-240` or above `2^250`, and data with
+  a `NaN` or infinite entry is outside it (`t` is then `NaN` or infinite). Outside the range
+  the general rule decides, with its refusals.
 
-**Lazy computation.** The eigenvalue computation is the expensive part, and a group that
-stays at zero may never need it. During the preparation, a group on the Gram route gets
-cheap bounds, formed in `Float64` from the sums of squares `q_c` of its columns (`n m`
-operations, no products between columns): with `t` the sum and `d` the largest of the
-`q_c`, a lower bound `lo = d (1 − 2 n eps(Float64)) − 2 n η` and an upper bound `hi = 4 t`
-on the curvature that the rule above would store (`η` the smallest positive `Float64`; the
-bounds assume gradual underflow, and the upper one the eigenvalue model, for groups of two
-or more columns). Under that model, the four conditions below exclude the refusals; a
+The two rules for a group of two columns compute slightly different bounds: the margins
+differ, and the computed eigenvalue differs from the closed form in the last bits. The
+refusal categories and messages are those of the table below, but where the two bounds,
+or the steps `s ℓ_k` formed from them and their reciprocals, fall on different sides of a
+refusal threshold, the decision can differ from the one that the general rule would make.
+For the bound in `Float64` before its rounding up to `T`, the thresholds are
+`prevfloat(floatmin(T))` and `floatmax(T)`: a bound at or below `prevfloat(floatmin(T))` is
+refused as underflow, a bound strictly above it rounds up to at least `floatmin(T)`, and a
+bound above `floatmax(T)` is refused as overflow. For `s ℓ_k` and its reciprocal the
+threshold is the smallest normal number of `S` (see below).
+Then a bound that the general rule refuses as overflow can be accepted (and then be
+refused by the step check, with the step message), a bound that it accepts can be refused
+as underflow, and a step decision can change in either direction. The gap between the two
+bounds scales with `t`, not with `ℓ_k`, so no fixed relative distance from a threshold is
+claimed.
+
+**Lazy computation.** Computing the bound of a group costs a pass over its columns, and on
+the general rule a copy of the columns, their Gram matrix and, for two or more columns, an
+eigenvalue computation; a group that stays at zero may never need it. During the
+preparation, a group on the Gram route gets cheap bounds, formed in `Float64` from the sums
+of squares `q_c` of its columns (`n m` operations, no products between columns): with `t`
+the sum and `d` the largest of the `q_c`, a lower bound `lo = d (1 − 2 n eps(Float64)) − 2 n η`
+and an upper bound `hi = 4 t` on the curvature that the rules above would store (`η` the
+smallest positive `Float64`; the bounds assume gradual underflow, and the upper one the
+eigenvalue model for a group that takes the eigenvalue computation: three or more columns,
+or two columns outside the range of their rule). Under these assumptions, the four conditions below exclude the refusals; a
 deferred group can still be refused during a pass through an eigenvalue routine that
 throws, or through a violation of the model. The curvature is left uncomputed (`NaN` in the model) only if the type `S` of the scale is `Float32` or
 `Float64`, `4 (n + m²) eps(Float64) ≤ 1/16`, `t` is finite, and all of these hold:
@@ -534,14 +569,14 @@ group, and they leave `x` unchanged. Those that are predictable, because the cur
 computed during the preparation or the four conditions above hold, happen before the first
 pass, and the random number generator is unused. A curvature computed lazily is computed
 in the same way, and an exception of the eigenvalue routine (which is not caught), a
-largest eigenvalue that is not finite, or a curvature or step refusal at that point (which
-the four conditions are meant to exclude) happens during a pass: `x` is still unchanged,
-but a random order may already have drawn from the generator.
+largest eigenvalue that is not finite (both on the general rule), or a curvature or step
+refusal at that point (which the four conditions are meant to exclude) happens during a
+pass: `x` is still unchanged, but a random order may already have drawn from the generator.
 
 | Category | Condition | Message contains |
 | --- | --- | --- |
-| Curvature underflow | the sum of squares of the column of a group of one column with `n eps(T) ≤ 1/8` is below `floatmin(T)`, the trace of `Ĝ` is below `m` times `floatmin(Float64)`, or `ℓ_k` is below `floatmin(T)` | `underflows` |
-| Curvature overflow | the sum of squares of that column, `Ĝ`, its trace or its largest eigenvalue is not finite, or `ℓ_k` is infinite in `T` | `overflows` |
+| Curvature underflow | the sum of squares of the column of a group of one column with `n eps(T) ≤ 1/8` is below `floatmin(T)`, the trace of `Ĝ` is below `m` times `floatmin(Float64)` (on the general rule), or `ℓ_k` is below `floatmin(T)` | `underflows` |
+| Curvature overflow | the sum of squares of that column, `Ĝ`, its trace or its largest eigenvalue is not finite (on the general rule), or `ℓ_k` is infinite in `T` | `overflows` |
 | Step | `s ℓ_k` or its reciprocal is outside the normal range | `step of group` |
 
 A group whose curvature bound is subnormal in `T` is refused here, where the scalar

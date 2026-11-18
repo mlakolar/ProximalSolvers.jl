@@ -336,7 +336,8 @@ used, and a refused call neither changes `x` nor advances the RNG. The curvature
 refusals that can be decided from the data follow, before the first pass, before any RNG draw and
 only when `maxpasses > 0`, with `x` unchanged; the curvature of a group that is neither flat nor
 a one-column group with `n eps(T) <= 1/8` is computed in that preparation, or at the first visit that
-needs it when cheap bounds exclude a refusal (under the eigenvalue model for groups of two or more columns), and an exception of its eigenvalue routine or a
+needs it when cheap bounds exclude a refusal (under the eigenvalue model for groups of three or more columns and for groups of two columns
+outside the range of their closed-form bound), and an exception of its eigenvalue routine or a
 refusal at that point happens during a pass, with `x` unchanged and the RNG possibly advanced. The solve
 then runs on `work = copy(x)` and `x` receives the final state of `work` by one `copyto!`.
 Zero groups are deactivated after a pass, so the active groups of `x` after a solve with at

@@ -96,8 +96,9 @@ the Gram matrix of the columns of the group; the forced full pass counts group v
 As for the lasso, `converged` reports this change test and is not a KKT certificate.
 The curvature of a flat group, and of a group of one column when `n eps(T) <= 1/8` (`n`
 the number of rows), is set before the first pass. That of any other group is computed
-at the first visit that needs it when cheap bounds show, under the eigenvalue model for groups of two or more columns, that no refusal can occur, and
-before the first pass otherwise. A visit to a nonflat group whose block is zero, active or
+at the first visit that needs it when cheap bounds show that no refusal can occur (under the
+eigenvalue model for groups of three or more columns and for groups of two columns outside the
+range of their closed-form bound), and before the first pass otherwise. A visit to a nonflat group whose block is zero, active or
 not, first applies ProximalBase's `prox_block!` to the correlations at the step `1/s`
 (skipped when `1/s` is not a normal number of the scale's arithmetic type, or when the
 correlations are not all zero and the largest magnitude is below `2^53 * floatmin(T)`) and ends without a
@@ -105,7 +106,8 @@ change, and without computing a still-deferred curvature, when the result is zer
 the first pass, and before any draw from the RNG, an `ArgumentError` that names the group
 refuses a curvature that underflows or overflows in `T` and a step outside the normal
 range, for each group whose curvature is computed then. An exception of the eigenvalue
-routine, a refusal of a lazily computed curvature, and a trial point or displacement that
+routine (which a group of two columns inside the range of its closed-form bound does not
+call), a refusal of a lazily computed curvature, and a trial point or displacement that
 is not finite can occur during a pass; `x` is then unchanged, and the RNG may have
 advanced. The curvature rule and the refusals are described in the numerical
 guide.
