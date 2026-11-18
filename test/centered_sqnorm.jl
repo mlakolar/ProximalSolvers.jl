@@ -464,10 +464,11 @@ end
 # ---------------------------------------------------------------------------------------------------------
 
 # The level α passes the loss-scale rule where T(α) is nonzero, also where it is subnormal in T. CD solves these problems
-# to the tolerance of the matrix. For PGD and APG in Float32 the computed objective (α/2 ‖x - s‖², about 1e-40 for the centre of this fixture) is in
-# the subnormal range, where the computed values did not separate the steps of the line search in this fixture: the runs
-# of this fixture end at the start, with converged = false. The point is judged by the objective (no worse than the
-# start's, within rounding), not by `converged`; this is a limit of the gradient methods, stated in docs/src/support.md.
+# to the tolerance of the matrix. For PGD and APG in Float32 the objective at the start, α/2 ‖s‖² = 5.125 α for this
+# centre, is about 5.1e-40 for the first two levels and 5.1e-44 for α = 1f-44, so it is subnormal in these fixtures, where the
+# computed values did not separate the steps of the line search: the runs of these fixtures end at the start, with
+# converged = false. The point is judged by the objective (no worse than the start's, within rounding), not by
+# `converged`; this is a limit of the gradient methods in these fixtures, stated in docs/src/support.md.
 @testset "a level that is subnormal in Float32 is accepted; the point is judged, not `converged`" begin
   s = Float32[1, -3, 0.5]
   for (α, λ) in ((1e-40, 1f-41), (1f-40, 1f-41), (1f-44, 1f-45))

@@ -12,7 +12,7 @@ The curvature estimate before the first iteration is `min(1, α_f ‖X‖_F²)` 
 `α_f`, with `‖X‖_F` an upper bound, rounded to `T` and raised to `floatmin(T)` when it is positive and
 rounds below that; it is `1` when that product is at least 1 or `X = 0`. For `SqrNormL2(α, s)` the matrix is
 the identity of order `p = length(s)`, so `‖X‖_F² = p` and the estimate is `min(1, α p)`, formed from an upper bound of `‖X‖_F`, rounded to `T` and raised
-to `floatmin(T)` when it is positive and rounds below that (so `α = nextfloat(zero(T))` gives `floatmin(T)`).
+to `floatmin(T)` when it is positive and rounds below that.
 
 `ProximalGradientDescent()` uses the supported
 `LineSearches.BackTracking()` line search. A trial that it rejects is decided
