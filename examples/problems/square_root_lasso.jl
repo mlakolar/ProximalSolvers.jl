@@ -153,4 +153,4 @@ println("exact-fit optimum: β = ", β2, ", converged = ", r2.converged, ", gap 
 # and, with `CDSolver`, a weighted `NormL1`, `Scaled(SqrtLeastSquaresLoss, α)` (for a positive finite `α`,
 # use the unscaled loss at the level `λ/α`, which has the same minimizers), `λ = 0` (use
 # `LeastSquaresLoss`, which has the same minimizers), an `ElasticNet` penalty and a `BlockIterate`. The scaled-lasso estimator, which estimates the noise level as well, is a separate
-# computation and is not part of this page.
+# computation and is not part of this page; see [Scaled lasso](scaled_lasso.md).

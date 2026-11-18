@@ -24,7 +24,8 @@ noise level jointly. For fixed `β` with `y ≠ Xβ`, the minimum over `σ > 0` 
 value `‖y − Xβ‖₂/√n + λ₀‖β‖₁`; so `β̂` is a square-root lasso minimizer at `λₙ = λ₀` (that is,
 `λ = √n λ₀` in the unnormalized form), and `σ̂ = ‖y − Xβ̂‖₂/√n` when `y ≠ Xβ̂` (at an exact fit the
 infimum over `σ > 0` is not attained). ProximalSolvers does not provide the scaled lasso as a separate
-method. It is not `Scaled(LeastSquaresLoss(y, X), s)`, which is the least-squares loss multiplied by a fixed
+method; [the scaled-lasso tutorial](examples/problems/scaled_lasso.md) shows the computation. It is not
+`Scaled(LeastSquaresLoss(y, X), s)`, which is the least-squares loss multiplied by a fixed
 `s` (for example `s = 1/n` for the normalized lasso) and estimates no noise level.
 
 References: Belloni, A., Chernozhukov, V. and Wang, L. (2011), Square-root lasso: pivotal recovery of sparse
