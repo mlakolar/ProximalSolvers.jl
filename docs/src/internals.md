@@ -28,12 +28,15 @@ unweighted `ElasticNet`):
   `maxpasses > 0`), a `_prepare!` step sets the bound of a flat group and of an
   ordinary one-column group, and checks the step band; a group on the Gram route
   gets cheap bounds, and its curvature is left for the first visit that needs it
-  when the bounds rule out a refusal (under the eigenvalue model, for groups of two
-  or more columns), and computed in `_prepare!` otherwise. The
-  predictable curvature and step refusals therefore happen before any random draw.
-  A lazily computed curvature that refuses, or an exception of the eigenvalue
-  routine, happens during a pass. The default `_prepare!` of the scalar models
-  does nothing. A visit to a nonflat group whose block is zero first screens it,
+  when the bounds rule out a refusal (under the eigenvalue model, for groups of three
+  or more columns and for groups of two columns outside the range of their closed
+  form), and computed in `_prepare!` otherwise. The predictable curvature and step
+  refusals therefore happen before any random draw. A lazily computed curvature that
+  refuses, or an exception of the eigenvalue routine, happens during a pass. A group
+  of two columns takes its curvature in closed form from the three entries of its
+  Gram matrix, formed in one pass, where their trace is inside the range that its
+  proof covers (`_gram2_curvature`), and the general eigenvalue route otherwise. The
+  default `_prepare!` of the scalar models does nothing. A visit to a nonflat group whose block is zero first screens it,
   when the reciprocal `1 / s` is a normal number of the scale's type and either all
   correlations are zero or the largest magnitude is at least `2^53 floatmin(T)`, with ProximalBase's
   `prox_block!` at the step `1 / s`, and returns without computing a still-deferred

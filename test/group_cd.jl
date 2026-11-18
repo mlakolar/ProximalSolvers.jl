@@ -382,6 +382,127 @@ function step_allocations(m, g, x, ks)
   end
   total, computed
 end
+
+# ---------------------------------------------------------------------------
+# The closed-form curvature of a group of two columns (#339)
+# ---------------------------------------------------------------------------
+# A model whose only group is the two columns of X, built without `_prepare!`: its Float64 buffers stay empty
+# until a curvature takes the general route (`_gram_curvature!`), which tells the two routes apart.
+function pair_model(X::Matrix{T}, α = nothing) where T
+  g = GroupNormL2(T(0.1), [[1, 2]])
+  PS.cdmodel(mkloss(zeros(T, size(X, 1)), X, α), BlockIterate(T, 2, g))
+end
+gram2_allocations(m) = @allocated PS._group_curvature!(m, 1:2, 1)
+# The exact Gram entries (a, b, c) = (‖x‖², ‖y‖², xᵀy) of the two stored columns, in Rational{BigInt}.
+function exact_gram2(X)
+  x, y = Rational{BigInt}.(X[:, 1]), Rational{BigInt}.(X[:, 2])
+  (sum(abs2, x), sum(abs2, y), sum(x .* y))
+end
+# ℓ ≥ λmax([a c; c b]), decided exactly: ℓ ≥ a, ℓ ≥ b and (ℓ − a)(ℓ − b) ≥ c².
+function majorizes_exact(ℓ, (a, b, c))
+  L = Rational{BigInt}(ℓ)
+  L >= a && L >= b && (L - a) * (L - b) >= c^2
+end
+# `_gram2_curvature` on a fresh `pair_model(X)`: (:closed, ℓ) where it returned with the buffers still empty,
+# (:general, ℓ) where it took the general route, (:refused, message) for an ArgumentError.
+function closed_outcome(X)
+  m = pair_model(X)
+  try
+    ℓ = PS._gram2_curvature(m, 1:2, 1)
+    (isempty(m.colbuf) ? :closed : :general, ℓ)
+  catch e
+    e isa ArgumentError || rethrow()
+    (:refused, e.msg)
+  end
+end
+# The general route `_gram_curvature` on the same columns, with buffers of its own.
+function general_outcome(X)
+  m = pair_model(X)
+  n = size(X, 1)
+  try
+    (:general, PS._gram_curvature(m.ls, 1:2, 1, Matrix{Float64}(undef, n, 2), Matrix{Float64}(undef, 2, 2)))
+  catch e
+    e isa ArgumentError || rethrow()
+    (:refused, e.msg)
+  end
+end
+# Checks the curvature of the two columns of X, pushes each failure onto `failures` and returns the route.
+#  * The route: where the exact trace t = a + b is inside the gate 2^-480 ≤ t̂ ≤ 2^500 by a factor 2, the closed
+#    form; where it is outside by a factor 2, the general route (t̂ is within a relative 1e-10 of t here).
+#  * Exact majorization ℓ ≥ λmax of the exact Gram matrix.
+#  * Closed form: tightness, ℓ − λmax ≤ (n + 4) eps t + ((8/7) n + 5) u t + 2 eps(T) ℓ with u = eps(Float64)/2 (the
+#    margin of the code, the evaluation error of the proof and the rounding up to T), and agreement with the
+#    general route, |ℓ − ℓg| ≤ (n + 4) eps t + 4 (n + 4) eps t + 2 eps(T) max(ℓ, ℓg) (the two margins and the
+#    rounding of each to T), where eps = eps(Float64).
+#  * General route taken: ℓ is the value of `_gram_curvature`.
+function check_pair!(failures, label, X::Matrix{T}) where T
+  n = size(X, 1)
+  fail(what, v) = push!(failures, (label, T, n, what, v))
+  route, ℓ = closed_outcome(X)
+  route === :refused && (fail(:refused, ℓ); return route)
+  G = exact_gram2(X)
+  t = G[1] + G[2]
+  inside = Rational{BigInt}(0x1p-479) <= t <= Rational{BigInt}(0x1p499)
+  outside = t < Rational{BigInt}(0x1p-481) || t > Rational{BigInt}(0x1p501)
+  (inside && route !== :closed || outside && route !== :general) && fail(:route, route)
+  majorizes_exact(ℓ, G) || fail(:majorization, ℓ)
+  groute, ℓg = general_outcome(X)
+  groute === :refused && (fail(:general_refused, ℓg); return route)
+  if route === :closed
+    setprecision(BigFloat, 512) do
+      a, b, c = BigFloat.(G)
+      λ = (a + b) / 2 + sqrt(((a - b) / 2)^2 + c^2)
+      tb, e, u, ℓb, ℓgb = BigFloat(t), big(eps(Float64)), big(eps(Float64)) / 2, big(ℓ), big(ℓg)
+      ℓb - λ <= (n + 4) * e * tb + (big(8) / 7 * n + 5) * u * tb + 2 * big(eps(T)) * ℓb || fail(:tightness, ℓ)
+      abs(ℓb - ℓgb) <= 5 * (n + 4) * e * tb + 2 * big(eps(T)) * max(ℓb, ℓgb) || fail(:agreement, (ℓ, ℓg))
+    end
+  else
+    ℓ === ℓg || fail(:fallback_value, (ℓ, ℓg))
+  end
+  route
+end
+# The column pairs of the research probe of #339 for n rows.
+function gram2_families(::Type{T}, n, rng) where T
+  z, w = randn(rng, n), randn(rng, n)
+  col(v) = T.(v)
+  cases = Tuple{String, Matrix{T}}[
+    ("identical", hcat(col(z), col(z))),
+    ("negated", hcat(col(z), col(-z))),
+    ("nearly parallel", hcat(col(z), col(z .* (1 .+ 1e-7 .* randn(rng, n))))),
+    ("parallel, scale 2^-20", hcat(col(z), col(ldexp.(z, -20)))),
+    ("dominant c", hcat(col(z), col(z .+ 1e-3 .* w))),
+    ("norms 2^30 apart", hcat(col(z), col(ldexp.(w, -30)))),
+    ("one zero column", hcat(col(z), zeros(T, n))),
+    ("integers", T.(hcat(rand(rng, -3:3, n), rand(rng, -3:3, n))))]
+  if n >= 2
+    Q = Matrix(qr(randn(rng, n, 2)).Q)[:, 1:2]
+    push!(cases, ("orthogonal, equal norms", T.(Q)))
+    push!(cases, ("equal norms, small c", T.(hcat(Q[:, 1], Q[:, 2] .+ 1e-6 .* Q[:, 1]))))
+  end
+  if T === Float64
+    push!(cases, ("2^-230", hcat(ldexp.(z, -230), ldexp.(w, -230))))                # squares near 2^-460
+    push!(cases, ("2^-230 and 2^-900", hcat(ldexp.(z, -230), ldexp.(w, -900))))     # products underflow
+    push!(cases, ("2^-235 and 2^-560", hcat(ldexp.(z, -235), ldexp.(w, -560))))     # y² underflows
+  elseif n <= 7
+    push!(cases, ("2^60", hcat(col(ldexp.(z, 60)), col(ldexp.(w, 60)))))           # ℓ finite in Float32 for small n
+  end
+  cases
+end
+# Seeded random correlated pairs over the scale range of T (Float32: no curvature refusal; Float64: inside the
+# gate except near its ends).
+function gram2_random(::Type{T}, rng, count) where T
+  cases = Tuple{String, Matrix{T}}[]
+  for _ in 1:count
+    n = rand(rng, (1, 2, 5, 20, 100, 500))
+    ρ = rand(rng, (0.0, 0.5, 0.99, 0.999999, 1.0, -1.0, rand(rng)))
+    z = randn(rng, n)
+    w = ρ .* z .+ sqrt(max(0.0, 1 - ρ^2)) .* randn(rng, n)
+    sz, sw = T === Float32 ? rand(rng, -45:45, 2) : rand(rng, -235:245, 2)
+    push!(cases, ("random", hcat(T.(ldexp.(z, sz)), T.(ldexp.(w, sw)))))
+  end
+  cases
+end
+
 # ---------------------------------------------------------------------------
 # Numerical refusals and special groups
 # ---------------------------------------------------------------------------
@@ -836,6 +957,134 @@ end
       m = whitebox_model(X, y, α, g, BlockIterate(T, 5, g))
       @test m.ℓ[2] == 0 && m.ℓ[4] == 0
       @test m.ℓ[1] > 0 && m.ℓ[3] > 0
+    end
+  end
+end
+
+# A group of two columns takes the closed form `_gram2_curvature` where 2^-480 ≤ t̂ ≤ 2^500 for its computed
+# trace t̂, and the general route `_gram_curvature` elsewhere (maintainer ruling on #339).
+@testset "closed-form curvature of a group of two columns" begin
+  @testset "exact majorization, tightness and agreement with the general route" begin
+    rng = Xoshiro(339)
+    for T in TYPES
+      cases = Tuple{String, Matrix{T}}[]
+      for n in (1, 2, 3, 7, 64, 500)
+        append!(cases, gram2_families(T, n, rng))
+      end
+      append!(cases, gram2_random(T, rng, 100))
+      failures, routes = [], Symbol[]
+      for (label, X) in cases
+        all(iszero, X) && continue        # a flat group gets ℓ = 0 in `_prepare!`, not a curvature route
+        push!(routes, check_pair!(failures, label, X))
+      end
+      @test failures == []
+      @test length(routes) >= 150
+      # finite Float32 data is inside the gate, and most of the Float64 cases are
+      T === Float32 ? (@test all(==(:closed), routes)) : (@test count(==(:closed), routes) >= 0.9 * length(routes))
+    end
+  end
+
+  @testset "gate edges and fallback (Float64)" begin
+    # t̂ = 2^-480 and 2^500 exactly: one row with b = c = 0, so a = t̂ = x², μ̂ = a, and a + 5 eps a = a (1 + 5 eps)
+    # is exact, so ℓ = nextfloat(a (1 + 5 eps)) = a (1 + 6 eps); the general route gives a (1 + 21 eps)
+    for (x, expected) in ((2.0^-240, ldexp(1 + 6eps(Float64), -480)), (2.0^250, ldexp(1 + 6eps(Float64), 500)))
+      X = [x 0.0]
+      m = pair_model(X)
+      ℓ = PS._group_curvature!(m, 1:2, 1)
+      @test ℓ === expected
+      @test isempty(m.colbuf)             # the closed form, without the buffers of the general route
+      @test majorizes_exact(ℓ, exact_gram2(X))
+    end
+    # just outside the gate (t̂ = fl(x²) below 2^-480, at 2^520, or one ulp above 2^500): the general route, whose
+    # value is returned
+    for x in (sqrt(prevfloat(ldexp(1.0, -480))), 2.0^260, nextfloat(2.0^250))
+      X = [x 0.0]
+      @test !(0x1p-480 <= x * x <= 0x1p500)
+      m = pair_model(X)
+      ℓ = PS._group_curvature!(m, 1:2, 1)
+      @test ℓ === general_outcome(X)[2]
+      @test !isempty(m.colbuf)
+      @test majorizes_exact(ℓ, exact_gram2(X))
+    end
+  end
+
+  # `solve!` refuses data with a NaN or infinite entry before the preparation (`finite values`,
+  # test/group_cd_preflight.jl), so the model is called directly. t̂ is NaN or Inf, both comparisons of the gate
+  # are false, and the general route refuses the data as overflow.
+  @testset "nonfinite data and an infinite trace take the general route" begin
+    cases = Matrix[]
+    for T in TYPES, v in (T(NaN), T(Inf), -T(Inf))
+      X = T[1 2; 3 4]
+      X[2, 1] = v
+      push!(cases, X)
+    end
+    push!(cases, [2.0^520 0.0])           # finite Float64 data whose square overflows: t̂ = Inf
+    for X in cases
+      m = pair_model(X)
+      err = try PS._group_curvature!(m, 1:2, 1); nothing catch e; e end
+      ref = general_outcome(X)
+      @test err isa ArgumentError && ref[1] === :refused && err.msg == ref[2]
+      err isa ArgumentError && @test occursin("overflows in $(eltype(X))", err.msg)
+      @test !isempty(m.colbuf)
+    end
+  end
+
+  # D2 of the ruling on #339: where a curvature or a step is at a refusal threshold, the decision of the closed
+  # form can differ from that of the general route. The witnesses come from the independent review of the proof;
+  # the Gram entries of these Float32 columns are sums of exact products below 2^49 times a power of 2, exact in
+  # Float64 in any order, and the values below were recomputed from them. A refused solve has two groups, so that
+  # the random order would have drawn from the generator at the first pass.
+  @testset "D2: a Float32 curvature that the general route refuses as overflow" begin
+    X = hcat(ldexp.(Float32[16777215, 4095, 90, 8, 5], 40), zeros(Float32, 5))
+    m = pair_model(X)
+    @test PS._gram2_curvature(m, 1:2, 1) === floatmax(Float32)
+    @test majorizes_exact(floatmax(Float32), exact_gram2(X))
+    @test !PS._curvature_deferrable(m.ls, 1:2)
+    ref = general_outcome(X)
+    @test ref[1] === :refused && occursin("overflows in Float32", ref[2])
+    # at the loss scale 1 the band check refuses it: 1/floatmax(Float32) is below floatmin(Float32)
+    err = try PS._group_curvature!(pair_model(X), 1:2, 1); nothing catch e; e end
+    @test err isa ArgumentError && occursin("step of group 1", err.msg)
+    check_block_refusal(hcat(X, Float32[1, -2, 0.5, 3, -1]), Float32[1, 2, 3, 4, 5], nothing,
+                        GroupNormL2(0.5f0, [[1, 2], [3]]), Float32[0, 0, 0.25]; fragment = "step of group 1")
+  end
+
+  @testset "D2: a Float32 curvature that the general route accepts is refused as underflow" begin
+    X = hcat(ldexp.(Float32[16777214, 5792, 83, 15, 7], -87), zeros(Float32, 5))
+    err = try PS._gram2_curvature(pair_model(X), 1:2, 1); nothing catch e; e end
+    @test err isa ArgumentError && occursin("group 1", err.msg) && occursin("underflows in Float32", err.msg)
+    @test general_outcome(X) === (:general, floatmin(Float32))
+    @test !PS._curvature_deferrable(pair_model(X).ls, 1:2)
+    check_block_refusal(hcat(X, Float32[1, -2, 0.5, 3, -1]), Float32[1, 2, 3, 4, 5], nothing,
+                        GroupNormL2(0.5f0, [[1, 2], [3]]), Float32[0, 0, 0.25]; fragment = "underflows in Float32")
+  end
+
+  # s = prevfloat(floatmin(Float64), 10) = floatmin − 10η (η = nextfloat(0.0) = eps floatmin): the closed form gives
+  # ℓ = 1 + 6 eps and s ℓ rounds to floatmin − 4η, below floatmin; the general route gives 1 + 21 eps and
+  # s ℓ ≥ floatmin.
+  @testset "D2: a Float64 step that the general route accepts is refused by the band check" begin
+    s = prevfloat(floatmin(Float64), 10)
+    X = [1.0 0.0]
+    m = pair_model(X, s)
+    ℓ = PS._gram2_curvature(m, 1:2, 1)
+    @test ℓ === 1 + 6eps(Float64)
+    @test s * ℓ < floatmin(Float64)
+    err = try PS._group_curvature!(pair_model(X, s), 1:2, 1); nothing catch e; e end
+    @test err isa ArgumentError && occursin("step of group 1", err.msg)
+    ref = general_outcome(X)
+    @test ref === (:general, 1 + 21eps(Float64))
+    @test PS._check_step_band(m.ls, ref[2], 1) === nothing
+    check_block_refusal([1.0 0.0 4.0], [1.0], s, GroupNormL2(0.5, [[1, 2], [3]]), [0.0, 0.0, 0.25];
+                        fragment = "step of group 1")
+  end
+
+  @testset "a warmed closed-form curvature allocates nothing" begin
+    for T in TYPES
+      m = pair_model(T.(randn(Xoshiro(341), 40, 2)))
+      gram2_allocations(m)
+      gram2_allocations(m)
+      @test gram2_allocations(m) == 0
+      @test isempty(m.colbuf) && isempty(m.grambuf)
     end
   end
 end
