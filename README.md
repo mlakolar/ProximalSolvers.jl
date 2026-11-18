@@ -96,7 +96,11 @@ coefficients, and, for a group lasso, a ProximalBase `BlockIterate` with a
 coefficients only. CD also minimizes the square-root lasso `norm(y - X*beta) + lambda * norm(beta, 1)`
 with ProximalBase's `SqrtLeastSquaresLoss(y, X)` and `NormL1(lambda)`, `lambda > 0`; there
 `converged = true` only when a duality certificate proves the relative gap to be at most `1e-4`, and
-`gap` reports that bound. Generalized models,
+`gap` reports that bound. All three methods also minimize the centered squared norm
+`(alpha/2) * norm(b - s)^2 + lambda * norm(b, 1)` with ProximalBase's `SqrNormL2(alpha, s)`, a `Vector{T}` centre `s`
+and an unweighted `NormL1(lambda)`, in O(p) time per iteration or pass and O(p) storage (the
+[sparse covariance thresholding example](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples/problems/sparse_covariance_soft_thresholding/)).
+Generalized models,
 sparse designs, penalty paths, ADMM and other algorithms are not part
 of this development branch; see
 [Supported problems](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/).
