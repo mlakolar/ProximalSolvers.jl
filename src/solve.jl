@@ -54,16 +54,20 @@ _float64_scale_ok(a::Float64, ::Type{T}) where T = isfinite(a) && a > 0 && (n = 
   throw(ArgumentError("loss scale $α of type $(typeof(α)) $why; only Float32 and Float64 scales and fixed-width integer scales that $T represents exactly are supported$hint"))
 end
 
-# The penalty check of _check_data for an x that is not a BlockIterate: an unweighted NormL1 or an
-# unweighted ElasticNet, which the gradient solvers (PGD and APG) and CDSolver accept alike. The levels
-# must pass _scalar_parameter for the data type T (finite, nonnegative, representable without overflow
-# or underflow).
+# The penalty check of _check_data for an x that is not a BlockIterate (a dense Vector for PGD, APG and
+# CDSolver, or a one-dimensional SparseIterate for CDSolver): an unweighted NormL1 or an unweighted
+# ElasticNet, which the gradient solvers (PGD and APG) and CDSolver accept alike. The levels must pass
+# _scalar_parameter for the data type T (finite, nonnegative, representable without overflow or
+# underflow). A GroupNormL2 is refused with a pointer to CDSolver on a BlockIterate, and any other
+# penalty with the generic message.
 function _check_penalty(g, x, ::Type{T}) where T
   if g isa NormL1 && g.w === nothing
     _scalar_parameter(g.λ0, T, "penalty lambda")
   elseif g isa ElasticNet && g.w === nothing
     _scalar_parameter(g.λ1, T, "penalty lambda1")
     _scalar_parameter(g.λ2, T, "penalty lambda2")
+  elseif g isa GroupNormL2
+    throw(ArgumentError("GroupNormL2 (the group lasso) is supported by CDSolver on a BlockIterate, not on a dense Vector or a SparseIterate"))
   else
     throw(ArgumentError("only unweighted NormL1 or unweighted ElasticNet is supported"))
   end
@@ -72,10 +76,14 @@ end
 
 # The penalty of group coordinate descent on a BlockIterate: a GroupNormL2 whose level and weights
 # convert to T without overflow, or underflow to 0 from a nonzero value, and whose groups are those
-# of x, in the same order and with the same ordered members.
+# of x, in the same order and with the same ordered members. A penalty that is not a GroupNormL2 is
+# refused with its type name, and a GroupNormL2 whose parameter type is neither Float32 nor Float64
+# with that type.
 function _check_penalty(g, x::BlockIterate, ::Type{T}) where T
+  g isa GroupNormL2 ||
+    throw(ArgumentError("a BlockIterate needs a GroupNormL2 penalty (got $(nameof(typeof(g))))"))
   g isa GroupNormL2{<:Union{Float32, Float64}} ||
-    throw(ArgumentError("a BlockIterate needs a GroupNormL2 penalty with Float32 or Float64 parameters"))
+    throw(ArgumentError("a BlockIterate needs a GroupNormL2 penalty with Float32 or Float64 parameters (got $(typeof(g.λ0)) parameters)"))
   _scalar_parameter(g.λ0, T, "penalty lambda")
   for k in eachindex(g.w)
     _weight_ok(g.w[k], T) || _weight_error(g.w[k], k, T)

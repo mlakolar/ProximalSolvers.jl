@@ -47,6 +47,26 @@ function refused(E, fragment, x, f, g; momentum = nothing, maxpasses = 100, kwar
   @test rng == rng_before
 end
 
+# The message of the ArgumentError that solve! throws for a CDSolver on x, or nothing when it does not throw
+function refusal_message(x, f, g)
+  err = try
+    solve!(x, f, g, CDSolver(order = :random, rng = Xoshiro(11)))
+    nothing
+  catch e
+    e
+  end
+  err isa ArgumentError ? message(err) : nothing
+end
+
+# The refusal of a penalty that is not a GroupNormL2, on a BlockIterate: it names the penalty type,
+# and it has no precision clause
+function refused_not_group(x, f, g, name)
+  refused(ArgumentError, "needs a GroupNormL2 penalty", x, f, g)
+  msg = refusal_message(x, f, g)
+  @test msg !== nothing && occursin("(got $name)", msg)
+  @test msg !== nothing && !occursin("Float32 or Float64 parameters", msg)
+end
+
 accepted(x, f, g; method = CDSolver(order = :random)) = PS._check_block_problem(x, f, g, method) === nothing
 
 @testset "group_cd_preflight" begin
@@ -76,8 +96,12 @@ accepted(x, f, g; method = CDSolver(order = :random)) = PS._check_block_problem(
     @testset "penalty ($T)" begin
       refused(ArgumentError, "GroupNormL2", iterate(T), f, NormL1(T(0.1)))
       refused(ArgumentError, "GroupNormL2", iterate(T), f, GroupNormL2(Float16(0.1), GROUPS))
+      refused(ArgumentError, "Float32 or Float64 parameters", iterate(T), f, GroupNormL2(Float16(0.1), GROUPS))
+      refused(ArgumentError, "(got Float16 parameters)", iterate(T), f, GroupNormL2(Float16(0.1), GROUPS))
       setprecision(BigFloat, 128) do
         refused(ArgumentError, "GroupNormL2", iterate(T), f, GroupNormL2(BigFloat(0.1), GROUPS))
+        refused(ArgumentError, "Float32 or Float64 parameters", iterate(T), f, GroupNormL2(BigFloat(0.1), GROUPS))
+        refused(ArgumentError, "(got BigFloat parameters)", iterate(T), f, GroupNormL2(BigFloat(0.1), GROUPS))
       end
       @test accepted(iterate(T), f, GroupNormL2(0.1, GROUPS))   # a Float64 penalty, on either precision
       @test accepted(iterate(T), 0.5 * f, g)
@@ -176,11 +200,11 @@ accepted(x, f, g; method = CDSolver(order = :random)) = PS._check_block_problem(
       end
     end
 
-    @testset "other receivers keep their messages ($T)" begin
+    @testset "other receivers refuse a GroupNormL2 with a pointer to the block solver ($T)" begin
       for x in (zeros(T, 5), SparseIterate(T, 5))
         before = Vector(x)
         err = try solve!(x, f, g, CDSolver()) catch e e end
-        @test err isa ArgumentError && occursin("only unweighted NormL1 or unweighted ElasticNet is supported", message(err))
+        @test err isa ArgumentError && occursin("GroupNormL2 (the group lasso) is supported by CDSolver on a BlockIterate", message(err))
         @test Vector(x) == before
       end
       for method in (ProximalGradientDescent(), AccProxGradDescent())
@@ -193,17 +217,21 @@ accepted(x, f, g; method = CDSolver(order = :random)) = PS._check_block_problem(
     end
 
     @testset "ElasticNet on a BlockIterate ($T)" begin
-      # solve! with CDSolver on a BlockIterate refuses an ElasticNet penalty
-      refused(ArgumentError, "needs a GroupNormL2 penalty", iterate(T), f, ElasticNet(T(0.1), T(0.2)))
+      # solve! with CDSolver on a BlockIterate refuses an ElasticNet penalty, and a NormL1 penalty with
+      # or without weights, naming the penalty type
+      refused_not_group(iterate(T), f, ElasticNet(T(0.1), T(0.2)), "ElasticNet")
+      refused_not_group(iterate(T), f, NormL1(T(0.1)), "NormL1")
+      refused_not_group(iterate(T), f, NormL1(T(0.1), ones(T, 5)), "NormL1")
     end
 
     @testset "GroupNormL2 with PGD and APG on a Vector ($T)" begin
-      # solve! with PGD or APG refuses a GroupNormL2 penalty on a dense Vector, and the vector keeps its entries, signed zeros included
+      # solve! with PGD or APG refuses a GroupNormL2 penalty on a dense Vector with a pointer to CDSolver on a
+      # BlockIterate, and the vector keeps its entries, signed zeros included
       for method in (ProximalGradientDescent(), AccProxGradDescent()), start in (zeros(T, 5), T[0, 0, 0.5, 0, -0.25])
         x = copy(start)
         err = try solve!(x, f, g, method) catch e e end
         @test err isa ArgumentError
-        @test err !== nothing && occursin("only unweighted NormL1 or unweighted ElasticNet is supported", message(err))
+        @test err !== nothing && occursin("GroupNormL2 (the group lasso) is supported by CDSolver on a BlockIterate", message(err))
         @test isequal(x, start)
       end
     end
