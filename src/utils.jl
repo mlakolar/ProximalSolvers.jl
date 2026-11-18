@@ -172,20 +172,29 @@ end
 #
 # Summation. The residual is a difference of sums, r = off + N + |λ - P| (and max(‖g‖₁ - λ, 0) at x = 0), in which λ is
 # cancelled against P (resp. ‖g‖₁), so a plain sequential sum can lose small terms before the subtraction (a sum at 1 does not
-# change when 2^-24 is added to it in Float32, however many times). Each accumulator is therefore a Neumaier-compensated sum in T,
+# change when 2^-24 is added to it in Float32, however many times). Each accumulator is therefore a Neumaier-compensated sum,
 # written inline, with λ folded into it: D = λ - Σ_{i∈M} max(-sᵢgᵢ, 0) at x ≠ 0 and D0 = -λ + Σ|gᵢ| at x = 0, so that the
-# cancellation happens inside the compensated sum; off and N, which enter r with the same sign, share one. The error of a
-# compensated sum of p terms is about eps(T) times the magnitude of the exact result plus a term of order p eps(T)² times the sum
-# of the magnitudes of the terms (IEEE arithmetic without fused or reordered operations). The floor 64 eps(T) of τ is far above
-# the first, and covers the second when p eps(T) is well below 64; neither is the error of the computed gradient, which is
-# not covered (below). An infinite or NaN gradient entry, or an overflowing sum, makes the compensation NaN (Inf - Inf) or
-# infinite, so that r is not finite and the check refuses; a NaN or infinite entry of x gives r = NaN.
+# cancellation happens inside the compensated sum; off and N, which enter r with the same sign, share one. The sums are formed in
+# A = Float64 for Float32 and for Float64 data (each term is converted to A, which is exact for Float32, and then accumulated),
+# because the correction of a compensated sum is itself a sum in the accumulation type and stagnates when p eps(A) is of order 1
+# (in Float32 at p about 2^24, where a correction at -w stops changing under terms of 2^-24 w). The error of a compensated sum
+# of p terms in A is about 2 eps(A) times the magnitude of the exact result plus a term of order p eps(A)² times the sum of the
+# magnitudes of the terms (IEEE arithmetic without fused or reordered operations), for p eps(A) well below 1. The function is
+# therefore used only for p eps(Float64) ≤ 2^-20, that is p ≤ 2^32 entries; for a longer x it returns NaN and the check refuses.
+# Within that range the error is far below the floor 64 eps(T) of τ: near a certification the terms of D are λ and the terms
+# of P, with λ + P = 2λ + (P - λ) ≤ 2λ + r_true where r_true = |λ - P| is the residual (and at x = 0, λ and the terms of ‖g‖₁, with
+# ‖g‖₁ ≤ λ + r_true), so the second term is at most of order 2^-20 eps(A) (2λ + r_true), against 64 eps(T) max(λ, λcrit),
+# and the first is of order eps(A) r_true; the computed r is therefore within a small fraction of r_true plus a small fraction
+# of the floor. Neither is the error of the computed gradient, which is not covered (below). An infinite or NaN gradient entry,
+# or an overflowing sum, makes the compensation NaN (Inf - Inf) or infinite, so that r is not finite and the check refuses; a
+# NaN or infinite entry of x gives r = NaN. r is returned in A, and the comparison with the threshold, a T converted exactly
+# to A, is made in A.
 #
-# What it is and is not. r is computed in T from the computed gradient, so the rounding error of the gradient is not
+# What it is and is not. r is computed from the computed gradient, so the rounding error of the gradient is not
 # covered (as for the lasso check): the true residual at a kept stop can be slightly above τ S (a sweep of Float32 solves
 # against a BigFloat reference found at most 1.002 τ S). The remaining error sources are that gradient error and the
 # compensated summation's error above. It is not a certificate in exact arithmetic and it does not bound the distance to a minimizer. It
-# reads x and g in two passes (m, then the sums, accumulated in T). ∇f(x) is _gradient_at_x! (PGD: the accepted gradient, no new
+# reads x and g in two passes (m, then the sums). ∇f(x) is _gradient_at_x! (PGD: the accepted gradient, no new
 # evaluation; APG: one gradient from the cached image A x, counted in grad_calls). ∇f(0) is computed first and once per solve, into
 # state.xhat, which the iterations write before they read. _linf_kkt_residual reads x and g and writes neither. _stationary!
 # caches λcrit in the state, overwrites state.xhat and, for APG, writes the gradient and residual scratch of its accepted-point
@@ -195,26 +204,32 @@ end
 function _stationary!(state, f, g::NormLinf, options::ProximalOptions)
   T = eltype(state.x)
   λcrit = _lambda_max!(state, v -> norm(v, 1))   # first: it uses xhat, which the gradient below may also use
-  λ = T(g.λ)
+  λ = T(g.λ)                                     # the one level, converted once (not paired with another conversion, as in #351)
   S = max(λ, λcrit)
   τ = T(max(options.gradtol, 64 * Float64(eps(T))))
   threshold = τ * S
   grad = _gradient_at_x!(state, f)
   r = _linf_kkt_residual(state.x, grad, λ)
-  isfinite(S) && threshold >= floatmin(T) && isfinite(r) && r < threshold
+  isfinite(S) && threshold >= floatmin(T) && isfinite(r) && r < threshold    # r in Float64 (A), the threshold is converted exactly
 end
 
-# r = min over v in ∂‖x‖∞ of ‖grad + λ v‖₁ for the level λ ≥ 0, in the type of λ (see the comment above): the active set is the
-# set of entries of maximal magnitude, by exact equality; the sums are Neumaier-compensated, with λ folded into the one that
-# it is cancelled against. It reads x and grad and writes neither.
-function _linf_kkt_residual(x, grad, λ)
-  z = zero(λ)
+# r = min over v in ∂‖x‖∞ of ‖grad + λ v‖₁ for the level λ ≥ 0 (see the comment above): the active set is the set of entries of
+# maximal magnitude, by exact equality; the sums are Neumaier-compensated, with λ folded into the one that it is cancelled
+# against, and formed in A = Float64 for Float32 and Float64 data (and in the type of λ otherwise, as for the Rational inputs
+# of the tests). It is NaN for a non-finite entry of x, and for more than 2^32 entries (p eps(A) > 2^-20, where the error
+# model of the compensated sum does not hold); `p` is the number of entries, a keyword so that the guard can be tested. It reads
+# x and grad and writes neither.
+function _linf_kkt_residual(x, grad, λ; p = length(x))
+  A = typeof(λ) <: Union{Float32, Float64} ? Float64 : typeof(λ)
+  z = zero(A)
+  λ = A(λ)
   m = maximum(abs, x)
   isfinite(m) || return oftype(z, NaN)           # a NaN or infinite entry of x: no residual
+  A <: AbstractFloat && p * eps(A) > 2.0^-20 && return oftype(z, NaN)
   if iszero(m)
     s, c = -λ, z                                 # D0 = -λ + Σ|gᵢ|
     @inbounds for i in eachindex(grad)
-      t = abs(grad[i])
+      t = abs(A(grad[i]))
       u = s + t
       c += abs(s) >= t ? (s - u) + t : (t - u) + s
       s = u
@@ -224,8 +239,9 @@ function _linf_kkt_residual(x, grad, λ)
   d, cd = λ, z                                   # D = λ - Σ_{i∈M} max(-sᵢgᵢ, 0)
   a, ca = z, z                                   # off + N = Σ_{i∉M} |gᵢ| + Σ_{i∈M} max(sᵢgᵢ, 0)
   @inbounds for i in eachindex(x, grad)
+    gi = A(grad[i])
     if abs(x[i]) == m
-      sg = sign(x[i]) * grad[i]
+      sg = sign(x[i]) * gi
       q = max(-sg, z)
       if q > z
         u = d - q
@@ -234,7 +250,7 @@ function _linf_kkt_residual(x, grad, λ)
       end
       t = max(sg, z)
     else
-      t = abs(grad[i])
+      t = abs(gi)
     end
     u = a + t
     ca += abs(a) >= t ? (a - u) + t : (t - u) + a

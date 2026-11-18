@@ -43,6 +43,18 @@ use the separate [numerical KKT check](sparsity-and-kkt.md). For CD with the squ
 proved bound (see [`CDSolver`](@ref)). Otherwise a result's `gap=NaN` and CD's `kkt_checks=0` are
 placeholders: neither is a computed certificate.
 
+For PGD and APG with a `NormLinf(λ)` penalty, `converged=true` means that a stopping test proposed a stop and that the
+direct KKT residual `min over v ∈ ∂‖x‖∞ of ‖∇f(x) + λ v‖₁` (an ℓ1 norm) at the returned point is below
+`max(gradtol, 64eps(T)) * max(λ, ‖∇f(0)‖₁)` (see
+[the ℓ∞ check](numerics.md#The-stationarity-check-for-NormLinf)). It is a working-precision value computed from the computed
+gradient with compensated sums (formed in `Float64`, for at most `2^32` entries), not an exact-arithmetic certificate: the true residual at a kept
+stop can be slightly above the bound (the computed gradient's rounding error, and a small error of the sums). A proposed stop costs one
+more gradient for APG (counted in `grad_calls` before the call limits are compared, so a stop that the check refuses can reach
+`grad_calls_limit`) and no proximal evaluation. A solve can also end through a limit, an objective increase or stagnation with
+`converged=false` and without a stop that passed the check. The active set is found by exact equality of magnitudes, without tolerance; the
+iterates of PGD and APG store the entries that the clip ties as `±τ` with the same `τ`. An iterate whose entries near the maximum have unequal
+magnitudes has the smaller ones off the active set, which can make the check refuse when their gradient contribution is too large.
+
 ## Avoid accidentally overwriting results
 
 ~~~@example results_cd

@@ -500,7 +500,8 @@ function state_at(method, X, y, x, λ)
 end
 
 # Codex's fixtures. (1) x ≠ 0, all of the entries in M: X = I/1024, x = fill(1024, p), λ = 1, y[1] = 1025 and y[2:end] = 1 + δ. The gradient is
-# exactly (-1, -δ, …, -δ) (δ = 2^-14 for Float32, 2^-43 for Float64: the entries 1 + δ are normal and X is a power of two), so that
+# exactly (-1, -δ/1024, …, -δ/1024), that is (-1, -2^-24, …) for Float32 (δ = 2^-14) and (-1, -2^-53, …) for Float64 (δ = 2^-43; the entries
+# 1 + δ are normal and X is a power of two), so that
 # so P = 1 + (p - 1) 2^-24 (resp. 2^-53), a sequential P starts at 1 and does not change when 2^-24 (resp. 2^-53) is added, and
 # the exact residual is |λ - P| = (p - 1) 2^-24 (resp. 2^-53), about 3 τ S (Float32) and 3.95 τ S (Float64 with gradtol = 0).
 # (2) x = 0: X = I, y = (1, u, …, u) with u = 2^-24 (2^-53) and λ = 1: ‖∇f(0)‖₁ = 1 + (p - 1)u, and a sequential sum stays at 1.
@@ -586,6 +587,54 @@ end
       @test abs(rm - exm) <= 4 * Float64(eps(T)) * exm + 10 * p * Float64(eps(T))^2 * Σm + Float64(eps(T)) * Σm * 1e-3
     end
   end
+end
+
+@testset "the correction of the compensated sum at its own stagnation boundary (Float32, p = 2^24 + 4097): both branches, both orders" begin
+  # Codex's fixture: X = [t … t w] (one row), y = [1], x = ones, λ = 2w, with w = 2^-100 and t = 2^-124: the gradient is
+  # (-t, …, -t, -w) (n = 2^24 + 4096 entries t). All of the entries are in M, P = n t + w = 2w + 4096 t and the exact residual is
+  # |λ - P| = 4096 t = 2^-112, about 12.2 τ S with S = λcrit = ‖∇f(0)‖₁ = P. At x = 0 the residual is |-λ + ‖g‖₁|, the same value. A
+  # compensation accumulated in Float32 stops changing after 2^24 terms and gives 0 in both branches.
+  n = 2^24 + 4096
+  w, t = Float32(2.0^-100), Float32(2.0^-124)
+  grad = fill(-t, n + 1); grad[end] = -w
+  ref = 4096 * Float64(t)
+  S = Float64(n) * Float64(t) + Float64(w)
+  @test ref > 12 * 1e-5 * S                      # the exact residual is above τ S (12.2 times)
+  for g in (grad, reverse(grad))
+    @test PS._linf_kkt_residual(ones(Float32, n + 1), g, 2w) ≈ ref rtol = 1e-9
+    @test PS._linf_kkt_residual(zeros(Float32, n + 1), g, 2w) ≈ ref rtol = 1e-9
+  end
+  # the private check on a PGD state with these vectors (the state is built small and its vectors replaced; λcrit is set to S)
+  f0, g0 = LeastSquaresLoss(Float32[1], fill(1f0, 1, 1)), NormLinf(2w)
+  for gg in (grad, reverse(grad)), x in (ones(Float32, n + 1), zeros(Float32, n + 1))
+    st = PS.initial_state(ProximalGradientDescent(), ProximalOptions(), f0, g0, Float32[1])
+    st.x, st.grad_f_x, st.λmax = x, gg, Float32(S)
+    @test !PS._stationary!(st, f0, g0, ProximalOptions())
+    # the stationary twin: λ = P exactly (D = 0), kept
+    st2 = PS.initial_state(ProximalGradientDescent(), ProximalOptions(), f0, NormLinf(Float32(S)), Float32[1])
+    st2.x, st2.grad_f_x, st2.λmax = x, gg, Float32(S)
+    @test PS._stationary!(st2, f0, NormLinf(Float32(S)), ProximalOptions())
+  end
+end
+
+@testset "public PGD solve at p = 2^24 + 4097 (Float32): the unchanged iterate is not declared converged" begin
+  # Codex's reproducer, through solve! (about 0.4 s and 350 MB; APG's dimension gate excludes this p). The callback ends the solve after
+  # iteration 1, where the check was evaluated at the unchanged x = ones; the exact residual is 12.2 τ S.
+  n = 2^24 + 4096
+  w, t = Float32(2.0^-100), Float32(2.0^-124)
+  X = fill(t, 1, n + 1); X[end] = w
+  x = ones(Float32, n + 1)
+  r = solve!(x, LeastSquaresLoss(Float32[1], X), NormLinf(2w), ProximalGradientDescent(), ProximalOptions(callback = _ -> true))
+  @test r.iterations == 1 && !r.converged && all(==(1f0), x)
+end
+
+@testset "the regime guard: more than 2^32 entries gives no residual" begin
+  # p eps(Float64) > 2^-20 is p > 2^32; the guard takes p as a keyword, so the test does not build 2^32 entries
+  x, g = ones(Float32, 3), Float32[-1, -0.5, 0.25]
+  r = PS._linf_kkt_residual(x, g, 1f0)
+  @test isfinite(r) && PS._linf_kkt_residual(x, g, 1f0; p = 2^32) == r
+  @test isnan(PS._linf_kkt_residual(x, g, 1f0; p = 2^32 + 1)) && isnan(PS._linf_kkt_residual(zeros(Float32, 3), g, 1f0; p = 2^33))
+  @test isnan(PS._linf_kkt_residual(ones(3), [-1.0, -0.5, 0.25], 1.0; p = 2^40))
 end
 
 @testset "a point with unequal magnitudes near the maximum is not refused when its smaller entry has a zero gradient" begin

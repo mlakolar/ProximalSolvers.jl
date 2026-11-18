@@ -76,12 +76,13 @@ has no tolerance: the accepted iterate is the output of ProximalBase's `value_an
 `τ`, so the entries that the clip ties at the maximum have equal magnitudes. Exact equality of the magnitudes makes the subdifferential,
 and so `r` in exact arithmetic, those of the stored point. An iterate whose entries near the maximum have unequal magnitudes has the smaller
 ones off `M`, so their `|gᵢ|` count in `r`; that can make the check refuse, when their gradient contribution is too large, but it does not
-always (a point with `M = {1}` and a smaller entry whose gradient is 0 can have `r = 0`). The sums in `r` are Neumaier-compensated in `T`, with
-`λ` folded into the sum it is cancelled against, so that small terms are not lost before the subtraction. The residual is computed in working
-precision from the computed gradient, whose rounding error it does not cover, and the compensated sums have a small error of their own
-(about `eps(T)` times the magnitude of the result, plus a term of order `p eps(T)²` times the sum of the magnitudes of the terms), so the true
-residual at a kept stop can be slightly above the bound (a sweep of `Float32` solves against a BigFloat reference found at most 1.002 times the
-bound); it is not a certificate in exact arithmetic and it does not bound the distance to a minimizer. See [the numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-for-NormLinf).
+always (a point with `M = {1}` and a smaller entry whose gradient is 0 can have `r = 0`). The sums in `r` are Neumaier-compensated and formed in `Float64`
+(for `Float32` and `Float64` data), with `λ` folded into the sum it is cancelled against, so that small terms are not lost before the subtraction;
+a check on more than `2^32` entries refuses, because the error model of the compensated sum (about `2 eps(Float64)` times the magnitude of the
+result plus a term of order `p eps(Float64)²` times the sum of the magnitudes of the terms, for `p eps(Float64)` well below 1) is used only up to
+there. The residual is computed from the computed gradient, whose rounding error it does not cover, and the sums have a small error of their own
+within that range, so the true residual at a kept stop can be slightly above the bound (a sweep of `Float32` solves against a BigFloat reference
+found at most 1.002 times the bound); it is not a certificate in exact arithmetic and it does not bound the distance to a minimizer. See [the numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-for-NormLinf).
 
 The gradient test holds when `r < gradtol * m` or `r < gradtol * N`, with `r` the
 gradient/proximal residual of the iteration, `m` the largest `r` so far in the
