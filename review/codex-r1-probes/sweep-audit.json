@@ -1,0 +1,987 @@
+{
+  "counts": {
+    "rows": 1667350,
+    "conv": 1298052,
+    "group Float32 false": 58110,
+    "group Float32 ordinary conv": 23370,
+    "group Float32 ordinary empty": 484,
+    "group Float32 ordinary empty above": 0,
+    "false": 264795,
+    "group Float32 false empty": 6825,
+    "false without stale": 0,
+    "group Float32 keep": 8248,
+    "group Float64 false": 42784,
+    "group Float64 ordinary conv": 28000,
+    "group Float64 ordinary empty": 304,
+    "group Float64 ordinary empty above": 0,
+    "group Float64 false empty": 5428,
+    "group Float64 keep": 6678,
+    "scalar Float32 false": 88226,
+    "scalar Float32 ordinary conv": 115313,
+    "scalar Float32 ordinary empty": 7603,
+    "scalar Float32 ordinary empty above": 27,
+    "scalar Float32 false empty": 11433,
+    "scalar Float32 keep": 49974,
+    "ordinary positive false": 354,
+    "scalar Float64 false": 75675,
+    "scalar Float64 ordinary conv": 142728,
+    "scalar Float64 ordinary empty": 9389,
+    "scalar Float64 ordinary empty above": 5,
+    "scalar Float64 false empty": 6572,
+    "scalar Float64 keep": 42891
+  },
+  "starts": {
+    "group Float32 cold 0": {
+      "conv": 7676,
+      "false": 0
+    },
+    "group Float32 ref 0": {
+      "conv": 7881,
+      "false": 0
+    },
+    "group Float32 pert 0": {
+      "conv": 7813,
+      "false": 0
+    },
+    "group Float32 adv 0": {
+      "conv": 14732,
+      "false": 0
+    },
+    "group Float32 adv 4": {
+      "conv": 13794,
+      "false": 4
+    },
+    "group Float32 adv 8": {
+      "conv": 12758,
+      "false": 150
+    },
+    "group Float32 adv 10": {
+      "conv": 11603,
+      "false": 170
+    },
+    "group Float32 adv 12": {
+      "conv": 10604,
+      "false": 791
+    },
+    "group Float32 adv 14": {
+      "conv": 10239,
+      "false": 2508
+    },
+    "group Float32 adv 16": {
+      "conv": 10236,
+      "false": 7013
+    },
+    "group Float32 adv 18": {
+      "conv": 10362,
+      "false": 9259
+    },
+    "group Float32 adv 20": {
+      "conv": 10526,
+      "false": 9830
+    },
+    "group Float32 adv 22": {
+      "conv": 10501,
+      "false": 9841
+    },
+    "group Float32 adv 24": {
+      "conv": 10380,
+      "false": 9720
+    },
+    "group Float32 adv 28": {
+      "conv": 9484,
+      "false": 8824
+    },
+    "group Float64 cold 0": {
+      "conv": 9151,
+      "false": 0
+    },
+    "group Float64 ref 0": {
+      "conv": 9570,
+      "false": 0
+    },
+    "group Float64 pert 0": {
+      "conv": 9279,
+      "false": 0
+    },
+    "group Float64 adv 0": {
+      "conv": 14754,
+      "false": 0
+    },
+    "group Float64 adv 8": {
+      "conv": 12768,
+      "false": 0
+    },
+    "group Float64 adv 16": {
+      "conv": 10082,
+      "false": 0
+    },
+    "group Float64 adv 24": {
+      "conv": 9574,
+      "false": 0
+    },
+    "group Float64 adv 28": {
+      "conv": 9228,
+      "false": 0
+    },
+    "group Float64 adv 32": {
+      "conv": 8902,
+      "false": 0
+    },
+    "group Float64 adv 36": {
+      "conv": 8574,
+      "false": 654
+    },
+    "group Float64 adv 40": {
+      "conv": 8282,
+      "false": 3164
+    },
+    "group Float64 adv 44": {
+      "conv": 8144,
+      "false": 5086
+    },
+    "group Float64 adv 48": {
+      "conv": 8552,
+      "false": 7716
+    },
+    "group Float64 adv 52": {
+      "conv": 8788,
+      "false": 8032
+    },
+    "group Float64 adv 56": {
+      "conv": 9688,
+      "false": 8920
+    },
+    "group Float64 adv 60": {
+      "conv": 9976,
+      "false": 9212
+    },
+    "scalar Float32 cold 0": {
+      "conv": 27346,
+      "false": 0
+    },
+    "scalar Float32 ref 0": {
+      "conv": 27452,
+      "false": 64
+    },
+    "scalar Float32 pert 0": {
+      "conv": 27398,
+      "false": 64
+    },
+    "scalar Float32 path 0": {
+      "conv": 9037,
+      "false": 0
+    },
+    "scalar Float32 adv 0": {
+      "conv": 28881,
+      "false": 80
+    },
+    "scalar Float32 adv 4": {
+      "conv": 27961,
+      "false": 82
+    },
+    "scalar Float32 adv 8": {
+      "conv": 27086,
+      "false": 122
+    },
+    "scalar Float32 adv 10": {
+      "conv": 26105,
+      "false": 147
+    },
+    "scalar Float32 adv 12": {
+      "conv": 24922,
+      "false": 653
+    },
+    "scalar Float32 adv 14": {
+      "conv": 23921,
+      "false": 2229
+    },
+    "scalar Float32 adv 16": {
+      "conv": 23601,
+      "false": 7785
+    },
+    "scalar Float32 adv 18": {
+      "conv": 23519,
+      "false": 13592
+    },
+    "scalar Float32 adv 20": {
+      "conv": 23526,
+      "false": 15319
+    },
+    "scalar Float32 adv 22": {
+      "conv": 23637,
+      "false": 16151
+    },
+    "scalar Float32 adv 24": {
+      "conv": 23470,
+      "false": 16486
+    },
+    "scalar Float32 adv 28": {
+      "conv": 21978,
+      "false": 15294
+    },
+    "scalar Float32 ls 0": {
+      "conv": 24080,
+      "false": 158
+    },
+    "scalar Float64 cold 0": {
+      "conv": 33864,
+      "false": 0
+    },
+    "scalar Float64 ref 0": {
+      "conv": 34090,
+      "false": 32
+    },
+    "scalar Float64 pert 0": {
+      "conv": 33843,
+      "false": 32
+    },
+    "scalar Float64 path 0": {
+      "conv": 10976,
+      "false": 0
+    },
+    "scalar Float64 adv 0": {
+      "conv": 28930,
+      "false": 80
+    },
+    "scalar Float64 adv 8": {
+      "conv": 27244,
+      "false": 80
+    },
+    "scalar Float64 adv 16": {
+      "conv": 23848,
+      "false": 80
+    },
+    "scalar Float64 adv 24": {
+      "conv": 23078,
+      "false": 66
+    },
+    "scalar Float64 adv 28": {
+      "conv": 22904,
+      "false": 64
+    },
+    "scalar Float64 adv 32": {
+      "conv": 22732,
+      "false": 46
+    },
+    "scalar Float64 adv 36": {
+      "conv": 22454,
+      "false": 480
+    },
+    "scalar Float64 adv 40": {
+      "conv": 22256,
+      "false": 4154
+    },
+    "scalar Float64 adv 44": {
+      "conv": 22068,
+      "false": 8593
+    },
+    "scalar Float64 adv 48": {
+      "conv": 22197,
+      "false": 13920
+    },
+    "scalar Float64 adv 52": {
+      "conv": 22494,
+      "false": 15298
+    },
+    "scalar Float64 adv 56": {
+      "conv": 22716,
+      "false": 15991
+    },
+    "scalar Float64 adv 60": {
+      "conv": 23265,
+      "false": 16563
+    },
+    "scalar Float64 ls 0": {
+      "conv": 29955,
+      "false": 196
+    }
+  },
+  "rules": {
+    "group Float32 0 A": {
+      "keep": 130,
+      "caught": 8877
+    },
+    "group Float32 0 C352": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float32 0 K": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float32 0 R": {
+      "keep": 3182,
+      "caught": 58110
+    },
+    "group Float32 0 P": {
+      "keep": 2704,
+      "caught": 29526
+    },
+    "group Float32 0 G0": {
+      "keep": 2752,
+      "caught": 58110
+    },
+    "group Float32 0 Gpath": {
+      "keep": 3338,
+      "caught": 58110
+    },
+    "group Float32 16 A": {
+      "keep": 2,
+      "caught": 6138
+    },
+    "group Float32 16 C352": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float32 16 K": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float32 16 R": {
+      "keep": 661,
+      "caught": 58110
+    },
+    "group Float32 16 P": {
+      "keep": 130,
+      "caught": 9484
+    },
+    "group Float32 16 G0": {
+      "keep": 136,
+      "caught": 58110
+    },
+    "group Float32 16 Gpath": {
+      "keep": 400,
+      "caught": 58110
+    },
+    "group Float32 64 A": {
+      "keep": 0,
+      "caught": 5771
+    },
+    "group Float32 64 C352": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float32 64 K": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float32 64 R": {
+      "keep": 318,
+      "caught": 58104
+    },
+    "group Float32 64 P": {
+      "keep": 14,
+      "caught": 7825
+    },
+    "group Float32 64 G0": {
+      "keep": 14,
+      "caught": 58110
+    },
+    "group Float32 64 Gpath": {
+      "keep": 58,
+      "caught": 58110
+    },
+    "group Float32 256 A": {
+      "keep": 0,
+      "caught": 5700
+    },
+    "group Float32 256 C352": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float32 256 K": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float32 256 R": {
+      "keep": 148,
+      "caught": 58008
+    },
+    "group Float32 256 P": {
+      "keep": 0,
+      "caught": 6702
+    },
+    "group Float32 256 G0": {
+      "keep": 0,
+      "caught": 58106
+    },
+    "group Float32 256 Gpath": {
+      "keep": 4,
+      "caught": 58108
+    },
+    "group Float32 1024 A": {
+      "keep": 0,
+      "caught": 5642
+    },
+    "group Float32 1024 C352": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float32 1024 K": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float32 1024 R": {
+      "keep": 65,
+      "caught": 57848
+    },
+    "group Float32 1024 P": {
+      "keep": 0,
+      "caught": 6385
+    },
+    "group Float32 1024 G0": {
+      "keep": 0,
+      "caught": 58004
+    },
+    "group Float32 1024 Gpath": {
+      "keep": 0,
+      "caught": 58054
+    },
+    "group Float32 4096 A": {
+      "keep": 0,
+      "caught": 5573
+    },
+    "group Float32 4096 C352": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float32 4096 K": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float32 4096 R": {
+      "keep": 31,
+      "caught": 57674
+    },
+    "group Float32 4096 P": {
+      "keep": 0,
+      "caught": 6284
+    },
+    "group Float32 4096 G0": {
+      "keep": 0,
+      "caught": 57854
+    },
+    "group Float32 4096 Gpath": {
+      "keep": 0,
+      "caught": 57906
+    },
+    "group Float64 0 A": {
+      "keep": 0,
+      "caught": 5380
+    },
+    "group Float64 0 C352": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float64 0 K": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float64 0 R": {
+      "keep": 0,
+      "caught": 42784
+    },
+    "group Float64 0 P": {
+      "keep": 0,
+      "caught": 5404
+    },
+    "group Float64 0 G0": {
+      "keep": 0,
+      "caught": 42784
+    },
+    "group Float64 0 Gpath": {
+      "keep": 0,
+      "caught": 42784
+    },
+    "group Float64 16 A": {
+      "keep": 0,
+      "caught": 5380
+    },
+    "group Float64 16 C352": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float64 16 K": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float64 16 R": {
+      "keep": 0,
+      "caught": 42784
+    },
+    "group Float64 16 P": {
+      "keep": 0,
+      "caught": 5404
+    },
+    "group Float64 16 G0": {
+      "keep": 0,
+      "caught": 42784
+    },
+    "group Float64 16 Gpath": {
+      "keep": 0,
+      "caught": 42784
+    },
+    "group Float64 64 A": {
+      "keep": 0,
+      "caught": 5380
+    },
+    "group Float64 64 C352": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float64 64 K": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float64 64 R": {
+      "keep": 0,
+      "caught": 42784
+    },
+    "group Float64 64 P": {
+      "keep": 0,
+      "caught": 5404
+    },
+    "group Float64 64 G0": {
+      "keep": 0,
+      "caught": 42784
+    },
+    "group Float64 64 Gpath": {
+      "keep": 0,
+      "caught": 42784
+    },
+    "group Float64 256 A": {
+      "keep": 0,
+      "caught": 5380
+    },
+    "group Float64 256 C352": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float64 256 K": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float64 256 R": {
+      "keep": 0,
+      "caught": 42784
+    },
+    "group Float64 256 P": {
+      "keep": 0,
+      "caught": 5404
+    },
+    "group Float64 256 G0": {
+      "keep": 0,
+      "caught": 42784
+    },
+    "group Float64 256 Gpath": {
+      "keep": 0,
+      "caught": 42784
+    },
+    "group Float64 1024 A": {
+      "keep": 0,
+      "caught": 5380
+    },
+    "group Float64 1024 C352": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float64 1024 K": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float64 1024 R": {
+      "keep": 0,
+      "caught": 42784
+    },
+    "group Float64 1024 P": {
+      "keep": 0,
+      "caught": 5404
+    },
+    "group Float64 1024 G0": {
+      "keep": 0,
+      "caught": 42784
+    },
+    "group Float64 1024 Gpath": {
+      "keep": 0,
+      "caught": 42784
+    },
+    "group Float64 4096 A": {
+      "keep": 0,
+      "caught": 5380
+    },
+    "group Float64 4096 C352": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float64 4096 K": {
+      "keep": 0,
+      "caught": 0
+    },
+    "group Float64 4096 R": {
+      "keep": 0,
+      "caught": 42784
+    },
+    "group Float64 4096 P": {
+      "keep": 0,
+      "caught": 5404
+    },
+    "group Float64 4096 G0": {
+      "keep": 0,
+      "caught": 42784
+    },
+    "group Float64 4096 Gpath": {
+      "keep": 0,
+      "caught": 42784
+    },
+    "scalar Float32 0 A": {
+      "keep": 674,
+      "caught": 9812
+    },
+    "scalar Float32 0 C352": {
+      "keep": 8929,
+      "caught": 88226
+    },
+    "scalar Float32 0 K": {
+      "keep": 20287,
+      "caught": 88226
+    },
+    "scalar Float32 0 R": {
+      "keep": 14751,
+      "caught": 88226
+    },
+    "scalar Float32 0 P": {
+      "keep": 13468,
+      "caught": 36779
+    },
+    "scalar Float32 0 G0": {
+      "keep": 17076,
+      "caught": 88226
+    },
+    "scalar Float32 0 Gpath": {
+      "keep": 20514,
+      "caught": 88226
+    },
+    "scalar Float32 16 A": {
+      "keep": 0,
+      "caught": 5386
+    },
+    "scalar Float32 16 C352": {
+      "keep": 2003,
+      "caught": 88224
+    },
+    "scalar Float32 16 K": {
+      "keep": 6131,
+      "caught": 88224
+    },
+    "scalar Float32 16 R": {
+      "keep": 1457,
+      "caught": 88226
+    },
+    "scalar Float32 16 P": {
+      "keep": 586,
+      "caught": 9882
+    },
+    "scalar Float32 16 G0": {
+      "keep": 2650,
+      "caught": 88226
+    },
+    "scalar Float32 16 Gpath": {
+      "keep": 5361,
+      "caught": 88226
+    },
+    "scalar Float32 64 A": {
+      "keep": 0,
+      "caught": 5088
+    },
+    "scalar Float32 64 C352": {
+      "keep": 1643,
+      "caught": 88200
+    },
+    "scalar Float32 64 K": {
+      "keep": 5344,
+      "caught": 88208
+    },
+    "scalar Float32 64 R": {
+      "keep": 550,
+      "caught": 88224
+    },
+    "scalar Float32 64 P": {
+      "keep": 248,
+      "caught": 7164
+    },
+    "scalar Float32 64 G0": {
+      "keep": 1472,
+      "caught": 88224
+    },
+    "scalar Float32 64 Gpath": {
+      "keep": 2460,
+      "caught": 88226
+    },
+    "scalar Float32 256 A": {
+      "keep": 0,
+      "caught": 5080
+    },
+    "scalar Float32 256 C352": {
+      "keep": 1514,
+      "caught": 88164
+    },
+    "scalar Float32 256 K": {
+      "keep": 5041,
+      "caught": 88174
+    },
+    "scalar Float32 256 R": {
+      "keep": 278,
+      "caught": 88194
+    },
+    "scalar Float32 256 P": {
+      "keep": 0,
+      "caught": 5824
+    },
+    "scalar Float32 256 G0": {
+      "keep": 896,
+      "caught": 88224
+    },
+    "scalar Float32 256 Gpath": {
+      "keep": 1398,
+      "caught": 88224
+    },
+    "scalar Float32 1024 A": {
+      "keep": 0,
+      "caught": 5080
+    },
+    "scalar Float32 1024 C352": {
+      "keep": 1024,
+      "caught": 88108
+    },
+    "scalar Float32 1024 K": {
+      "keep": 4089,
+      "caught": 88124
+    },
+    "scalar Float32 1024 R": {
+      "keep": 114,
+      "caught": 88146
+    },
+    "scalar Float32 1024 P": {
+      "keep": 0,
+      "caught": 5383
+    },
+    "scalar Float32 1024 G0": {
+      "keep": 528,
+      "caught": 88200
+    },
+    "scalar Float32 1024 Gpath": {
+      "keep": 1020,
+      "caught": 88222
+    },
+    "scalar Float32 4096 A": {
+      "keep": 0,
+      "caught": 5080
+    },
+    "scalar Float32 4096 C352": {
+      "keep": 258,
+      "caught": 87636
+    },
+    "scalar Float32 4096 K": {
+      "keep": 853,
+      "caught": 87928
+    },
+    "scalar Float32 4096 R": {
+      "keep": 0,
+      "caught": 88088
+    },
+    "scalar Float32 4096 P": {
+      "keep": 0,
+      "caught": 5119
+    },
+    "scalar Float32 4096 G0": {
+      "keep": 80,
+      "caught": 88158
+    },
+    "scalar Float32 4096 Gpath": {
+      "keep": 472,
+      "caught": 88180
+    },
+    "scalar Float64 0 A": {
+      "keep": 0,
+      "caught": 5004
+    },
+    "scalar Float64 0 C352": {
+      "keep": 2396,
+      "caught": 75675
+    },
+    "scalar Float64 0 K": {
+      "keep": 7166,
+      "caught": 75675
+    },
+    "scalar Float64 0 R": {
+      "keep": 0,
+      "caught": 75675
+    },
+    "scalar Float64 0 P": {
+      "keep": 0,
+      "caught": 5036
+    },
+    "scalar Float64 0 G0": {
+      "keep": 72,
+      "caught": 75675
+    },
+    "scalar Float64 0 Gpath": {
+      "keep": 72,
+      "caught": 75675
+    },
+    "scalar Float64 16 A": {
+      "keep": 0,
+      "caught": 5004
+    },
+    "scalar Float64 16 C352": {
+      "keep": 2396,
+      "caught": 75675
+    },
+    "scalar Float64 16 K": {
+      "keep": 7166,
+      "caught": 75675
+    },
+    "scalar Float64 16 R": {
+      "keep": 0,
+      "caught": 75675
+    },
+    "scalar Float64 16 P": {
+      "keep": 0,
+      "caught": 5004
+    },
+    "scalar Float64 16 G0": {
+      "keep": 72,
+      "caught": 75675
+    },
+    "scalar Float64 16 Gpath": {
+      "keep": 72,
+      "caught": 75675
+    },
+    "scalar Float64 64 A": {
+      "keep": 0,
+      "caught": 5004
+    },
+    "scalar Float64 64 C352": {
+      "keep": 2396,
+      "caught": 75675
+    },
+    "scalar Float64 64 K": {
+      "keep": 7166,
+      "caught": 75675
+    },
+    "scalar Float64 64 R": {
+      "keep": 0,
+      "caught": 75675
+    },
+    "scalar Float64 64 P": {
+      "keep": 0,
+      "caught": 5004
+    },
+    "scalar Float64 64 G0": {
+      "keep": 72,
+      "caught": 75675
+    },
+    "scalar Float64 64 Gpath": {
+      "keep": 72,
+      "caught": 75675
+    },
+    "scalar Float64 256 A": {
+      "keep": 0,
+      "caught": 5004
+    },
+    "scalar Float64 256 C352": {
+      "keep": 2396,
+      "caught": 75675
+    },
+    "scalar Float64 256 K": {
+      "keep": 7166,
+      "caught": 75675
+    },
+    "scalar Float64 256 R": {
+      "keep": 0,
+      "caught": 75675
+    },
+    "scalar Float64 256 P": {
+      "keep": 0,
+      "caught": 5004
+    },
+    "scalar Float64 256 G0": {
+      "keep": 72,
+      "caught": 75675
+    },
+    "scalar Float64 256 Gpath": {
+      "keep": 72,
+      "caught": 75675
+    },
+    "scalar Float64 1024 A": {
+      "keep": 0,
+      "caught": 5004
+    },
+    "scalar Float64 1024 C352": {
+      "keep": 2396,
+      "caught": 75675
+    },
+    "scalar Float64 1024 K": {
+      "keep": 7166,
+      "caught": 75675
+    },
+    "scalar Float64 1024 R": {
+      "keep": 0,
+      "caught": 75675
+    },
+    "scalar Float64 1024 P": {
+      "keep": 0,
+      "caught": 5004
+    },
+    "scalar Float64 1024 G0": {
+      "keep": 72,
+      "caught": 75675
+    },
+    "scalar Float64 1024 Gpath": {
+      "keep": 72,
+      "caught": 75675
+    },
+    "scalar Float64 4096 A": {
+      "keep": 0,
+      "caught": 5004
+    },
+    "scalar Float64 4096 C352": {
+      "keep": 2396,
+      "caught": 75675
+    },
+    "scalar Float64 4096 K": {
+      "keep": 7166,
+      "caught": 75675
+    },
+    "scalar Float64 4096 R": {
+      "keep": 0,
+      "caught": 75675
+    },
+    "scalar Float64 4096 P": {
+      "keep": 0,
+      "caught": 5004
+    },
+    "scalar Float64 4096 G0": {
+      "keep": 72,
+      "caught": 75675
+    },
+    "scalar Float64 4096 Gpath": {
+      "keep": 72,
+      "caught": 75675
+    }
+  },
+  "maxima": {
+    "group Float32 P/epsresp": 125.07816167675686,
+    "group Float32 dres/epsresp": 13190.364465323382,
+    "group Float32 Rimg/epsresp": 13189.78982332021,
+    "group Float64 P/epsresp": 125.07831890251164,
+    "group Float64 dres/epsresp": 310.3647526316612,
+    "group Float64 Rimg/epsresp": 311.36919592949454,
+    "scalar Float32 P/epsresp": 113.64981611165864,
+    "scalar Float32 dres/epsresp": 3146.595657054344,
+    "scalar Float32 Rimg/epsresp": 3146.4117827117016,
+    "scalar Float64 P/epsresp": 113.72434218230588,
+    "scalar Float64 dres/epsresp": 1163.2361837759256,
+    "scalar Float64 Rimg/epsresp": 1163.2361837759256
+  }
+}

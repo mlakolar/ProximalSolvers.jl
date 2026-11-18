@@ -1,0 +1,273 @@
+Julia 1.13.4 znver3
+--- reproducer λ=1/1024 Float64 order=cyclic momentum=false tol=1.0e-7 relative=true dense
+  converged=true passes=1 maxchange=0 threshold=1.56e-09 same as solve!: true
+  truth: KKT/max(λ1,λmax)=1.06 (F−F*)/F*=7.44e+16 reported minimum error=1.11e-16
+  truth: E/threshold=1.06e+07 stale residual/threshold=1e+07 amplification=7.21e+16
+  stopping pass: absorbed visits=2 nonzero changes=0 fresh residual at its start=true
+  A/thr=6.25e+05 Aq=2.81e+14 Aq0=2.81e+14 | B: Bq=2.81e+14 | C: Cuq=4.79e+15 C352/thr=1.06e+07 K296=1.06
+  R/thr: image-first=1e+07 init-order=0 Float64=NaN | P/(eps resp): stop=7.21e+16 start=7.21e+16 path/resp=0
+  refresh + one pass: init-order change/thr=0 Aq=2.81e+14 | image-first change/thr=0 Aq=4.79e+15
+--- reproducer λ=1/1024 Float64 order=random momentum=nothing tol=1.0e-7 relative=true sparse
+  converged=true passes=1 maxchange=0 threshold=1.56e-09 same as solve!: true
+  truth: KKT/max(λ1,λmax)=1.06 (F−F*)/F*=7.44e+16 reported minimum error=1.11e-16
+  truth: E/threshold=1.06e+07 stale residual/threshold=1e+07 amplification=7.21e+16
+  stopping pass: absorbed visits=2 nonzero changes=0 fresh residual at its start=true
+  A/thr=6.25e+05 Aq=2.81e+14 Aq0=2.81e+14 | B: Bq=2.81e+14 | C: Cuq=4.79e+15 C352/thr=1.06e+07 K296=1.06
+  R/thr: image-first=1e+07 init-order=0 Float64=NaN | P/(eps resp): stop=7.21e+16 start=7.21e+16 path/resp=0
+  refresh + one pass: init-order change/thr=0 Aq=2.81e+14 | image-first change/thr=0 Aq=4.79e+15
+--- reproducer λ=1/1024 Float64 order=cyclic momentum=false tol=1.0e-7 relative=false dense
+  converged=true passes=1 maxchange=0 threshold=1e-07 same as solve!: true
+  truth: KKT/max(λ1,λmax)=1.06 (F−F*)/F*=7.44e+16 reported minimum error=1.11e-16
+  truth: E/threshold=1.66e+05 stale residual/threshold=1.56e+05 amplification=7.21e+16
+  stopping pass: absorbed visits=2 nonzero changes=0 fresh residual at its start=true
+  A/thr=9.77e+03 Aq=2.81e+14 Aq0=2.81e+14 | B: Bq=2.81e+14 | C: Cuq=4.79e+15 C352/thr=1.66e+05 K296=1.06
+  R/thr: image-first=1.56e+05 init-order=0 Float64=NaN | P/(eps resp): stop=7.21e+16 start=7.21e+16 path/resp=0
+  refresh + one pass: init-order change/thr=0 Aq=2.81e+14 | image-first change/thr=0 Aq=4.79e+15
+--- reproducer λ=0 Float64 order=cyclic momentum=false tol=1.0e-7 relative=true dense
+  converged=true passes=1 maxchange=0 threshold=1.56e-09 same as solve!: true
+  truth: KKT/max(λ1,λmax)=1 (F−F*)/F*=F*=0 reported minimum error=1
+  truth: E/threshold=1e+07 stale residual/threshold=1e+07 amplification=7.21e+16
+  stopping pass: absorbed visits=2 nonzero changes=0 fresh residual at its start=true
+  A/thr=0 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=4.5e+15 C352/thr=1e+07 K296=1
+  R/thr: image-first=1e+07 init-order=0 Float64=NaN | P/(eps resp): stop=7.21e+16 start=7.21e+16 path/resp=0
+  refresh + one pass: init-order change/thr=0 Aq=0 | image-first change/thr=0 Aq=4.5e+15
+--- reproducer λ=0 Float64 order=random momentum=nothing tol=1.0e-7 relative=true sparse
+  converged=true passes=1 maxchange=0 threshold=1.56e-09 same as solve!: true
+  truth: KKT/max(λ1,λmax)=1 (F−F*)/F*=F*=0 reported minimum error=1
+  truth: E/threshold=1e+07 stale residual/threshold=1e+07 amplification=7.21e+16
+  stopping pass: absorbed visits=2 nonzero changes=0 fresh residual at its start=true
+  A/thr=0 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=4.5e+15 C352/thr=1e+07 K296=1
+  R/thr: image-first=1e+07 init-order=0 Float64=NaN | P/(eps resp): stop=7.21e+16 start=7.21e+16 path/resp=0
+  refresh + one pass: init-order change/thr=0 Aq=0 | image-first change/thr=0 Aq=4.5e+15
+--- reproducer λ=0 Float64 order=cyclic momentum=false tol=1.0e-7 relative=false dense
+  converged=true passes=1 maxchange=0 threshold=1e-07 same as solve!: true
+  truth: KKT/max(λ1,λmax)=1 (F−F*)/F*=F*=0 reported minimum error=1
+  truth: E/threshold=1.56e+05 stale residual/threshold=1.56e+05 amplification=7.21e+16
+  stopping pass: absorbed visits=2 nonzero changes=0 fresh residual at its start=true
+  A/thr=0 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=4.5e+15 C352/thr=1.56e+05 K296=1
+  R/thr: image-first=1.56e+05 init-order=0 Float64=NaN | P/(eps resp): stop=7.21e+16 start=7.21e+16 path/resp=0
+  refresh + one pass: init-order change/thr=0 Aq=0 | image-first change/thr=0 Aq=4.5e+15
+--- reproducer elastic net Float64 order=cyclic momentum=false tol=1.0e-7 relative=true dense
+  converged=true passes=316 maxchange=0 threshold=1.56e-09 same as solve!: true
+  truth: KKT/max(λ1,λmax)=0.938 (F−F*)/F*=5.77 reported minimum error=1
+  truth: E/threshold=8.82e+06 stale residual/threshold=1e+07 amplification=0
+  stopping pass: absorbed visits=0 nonzero changes=0 fresh residual at its start=false
+  A/thr=0 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=3.97e+15 C352/thr=9.38e+06 K296=0.938
+  R/thr: image-first=1e+07 init-order=1e+07 Float64=NaN | P/(eps resp): stop=0 start=7.21e+16 path/resp=7.21e+16
+  refresh + one pass: init-order change/thr=8.82e+06 Aq=0 | image-first change/thr=8.82e+06 Aq=0
+--- reproducer elastic net Float64 order=random momentum=nothing tol=1.0e-7 relative=true sparse
+  converged=true passes=220 maxchange=6.75e-10 threshold=1.56e-09 same as solve!: true
+  truth: KKT/max(λ1,λmax)=4.06e-08 (F−F*)/F*=9.21e-14 reported minimum error=5.24e-18
+  truth: E/threshold=0.382 stale residual/threshold=5.55e-10 amplification=0.909
+  stopping pass: absorbed visits=0 nonzero changes=2 fresh residual at its start=true
+  A/thr=0 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=0 C352/thr=0.406 K296=4.06e-08
+  R/thr: image-first=0 init-order=5.55e-10 Float64=NaN | P/(eps resp): stop=0.909 start=7.21e+16 path/resp=4.72e+16
+  refresh + one pass: init-order change/thr=0.382 Aq=0 | image-first change/thr=0.382 Aq=0
+--- reproducer elastic net Float64 order=cyclic momentum=false tol=1.0e-7 relative=false dense
+  converged=true passes=316 maxchange=0 threshold=1e-07 same as solve!: true
+  truth: KKT/max(λ1,λmax)=0.938 (F−F*)/F*=5.77 reported minimum error=1
+  truth: E/threshold=1.38e+05 stale residual/threshold=1.56e+05 amplification=0
+  stopping pass: absorbed visits=0 nonzero changes=0 fresh residual at its start=false
+  A/thr=0 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=3.97e+15 C352/thr=1.46e+05 K296=0.938
+  R/thr: image-first=1.56e+05 init-order=1.56e+05 Float64=NaN | P/(eps resp): stop=0 start=7.21e+16 path/resp=7.21e+16
+  refresh + one pass: init-order change/thr=1.38e+05 Aq=0 | image-first change/thr=1.38e+05 Aq=0
+--- mixed pass λ=0.0009765625 Float64 order=cyclic momentum=false tol=1.0e-7 relative=true dense
+  converged=true passes=1 maxchange=4.44e-16 threshold=1e-07 same as solve!: true
+  truth: KKT/max(λ1,λmax)=0.0166 (F−F*)/F*=1.11e+15 reported minimum error=1.11e-16
+  truth: E/threshold=1.66e+05 stale residual/threshold=1.56e+05 amplification=1.13e+15
+  stopping pass: absorbed visits=2 nonzero changes=1 fresh residual at its start=true
+  A/thr=9.76e+03 Aq=4.4e+12 Aq0=4.4e+12 | B: Bq=4.4e+12 | C: Cuq=7.48e+13 C352/thr=1.66e+05 K296=0.0166
+  R/thr: image-first=1.56e+05 init-order=0 Float64=NaN | P/(eps resp): stop=1.13e+15 start=1.13e+15 path/resp=4.44e-16
+  refresh + one pass: init-order change/thr=0 Aq=4.4e+12 | image-first change/thr=0 Aq=7.48e+13
+--- mixed pass λ=0.0 Float64 order=cyclic momentum=false tol=1.0e-7 relative=true dense
+  converged=true passes=1 maxchange=4.44e-16 threshold=1e-07 same as solve!: true
+  truth: KKT/max(λ1,λmax)=0.0156 (F−F*)/F*=F*=0 reported minimum error=1
+  truth: E/threshold=1.56e+05 stale residual/threshold=1.56e+05 amplification=1.13e+15
+  stopping pass: absorbed visits=2 nonzero changes=1 fresh residual at its start=true
+  A/thr=0 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=7.04e+13 C352/thr=1.56e+05 K296=0.0156
+  R/thr: image-first=1.56e+05 init-order=0 Float64=NaN | P/(eps resp): stop=1.13e+15 start=1.13e+15 path/resp=4.44e-16
+  refresh + one pass: init-order change/thr=0 Aq=0 | image-first change/thr=0 Aq=7.04e+13
+--- gauss, x0 = 2^24 e_1 Float64 order=cyclic momentum=false tol=1.0e-7 relative=true dense
+  converged=true passes=16 maxchange=7.44e-09 threshold=2.02e-06 same as solve!: true
+  truth: KKT/max(λ1,λmax)=1.98e-10 (F−F*)/F*=9.39e-20 reported minimum error=2e-11
+  truth: E/threshold=0.00107 stale residual/threshold=0.00335 amplification=1.82
+  stopping pass: absorbed visits=0 nonzero changes=5 fresh residual at its start=false
+  A/thr=0 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=0 C352/thr=0.00107 K296=1.98e-10
+  R/thr: image-first=0.00335 init-order=0.00335 Float64=NaN | P/(eps resp): stop=1.82 start=5.34e+06 path/resp=5.34e+06
+  refresh + one pass: init-order change/thr=0.001 Aq=0 | image-first change/thr=0.001 Aq=0
+--- gauss, x0 = 2^24 e_1 Float64 order=random momentum=nothing tol=1.0e-7 relative=true sparse
+  converged=true passes=12 maxchange=1.22e-07 threshold=2.02e-06 same as solve!: true
+  truth: KKT/max(λ1,λmax)=1.97e-09 (F−F*)/F*=5.54e-18 reported minimum error=3.4e-17
+  truth: E/threshold=0.011 stale residual/threshold=8.52e-10 amplification=1.82
+  stopping pass: absorbed visits=0 nonzero changes=5 fresh residual at its start=true
+  A/thr=0 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=0 C352/thr=0.011 K296=1.97e-09
+  R/thr: image-first=1.32e-09 init-order=9.17e-10 Float64=NaN | P/(eps resp): stop=1.82 start=5.34e+06 path/resp=5.34e+06
+  refresh + one pass: init-order change/thr=0.011 Aq=0 | image-first change/thr=0.0107 Aq=0
+--- gauss, x0 = 2^40 e_1 Float64 order=cyclic momentum=false tol=1.0e-7 relative=true dense
+  converged=true passes=16 maxchange=7.44e-09 threshold=2.02e-06 same as solve!: true
+  truth: KKT/max(λ1,λmax)=1.01e-05 (F−F*)/F*=2.13e-10 reported minimum error=3.63e-07
+  truth: E/threshold=56.5 stale residual/threshold=192 amplification=1.82
+  stopping pass: absorbed visits=0 nonzero changes=5 fresh residual at its start=false
+  A/thr=0 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=2.54e+10 C352/thr=56.5 K296=1.01e-05
+  R/thr: image-first=192 init-order=192 Float64=NaN | P/(eps resp): stop=1.82 start=3.5e+11 path/resp=3.5e+11
+  refresh + one pass: init-order change/thr=55.7 Aq=0 | image-first change/thr=55.7 Aq=0
+--- gauss, x0 = 2^40 e_1 Float64 order=random momentum=nothing tol=1.0e-7 relative=true sparse
+  converged=true passes=15 maxchange=1.82e-07 threshold=2.02e-06 same as solve!: true
+  truth: KKT/max(λ1,λmax)=2.07e-09 (F−F*)/F*=1.08e-17 reported minimum error=1.04e-16
+  truth: E/threshold=0.0113 stale residual/threshold=7.41e-10 amplification=1.82
+  stopping pass: absorbed visits=0 nonzero changes=5 fresh residual at its start=true
+  A/thr=0 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=0 C352/thr=0.0113 K296=2.07e-09
+  R/thr: image-first=1e-09 init-order=9.57e-10 Float64=NaN | P/(eps resp): stop=1.82 start=3.5e+11 path/resp=3.5e+11
+  refresh + one pass: init-order change/thr=0.0119 Aq=0 | image-first change/thr=0.0116 Aq=0
+--- gauss, x0 = 2^50 e_1 Float64 order=cyclic momentum=false tol=1.0e-7 relative=true dense
+  converged=true passes=16 maxchange=8.59e-09 threshold=2.02e-06 same as solve!: true
+  truth: KKT/max(λ1,λmax)=0.00587 (F−F*)/F*=0.000109 reported minimum error=0.0111
+  truth: E/threshold=3.4e+04 stale residual/threshold=2.44e+05 amplification=1.82
+  stopping pass: absorbed visits=0 nonzero changes=5 fresh residual at its start=false
+  A/thr=0 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=1.53e+13 C352/thr=3.4e+04 K296=0.00587
+  R/thr: image-first=2.44e+05 init-order=2.44e+05 Float64=NaN | P/(eps resp): stop=1.82 start=3.58e+14 path/resp=3.58e+14
+  refresh + one pass: init-order change/thr=3.17e+04 Aq=0 | image-first change/thr=3.17e+04 Aq=0
+--- gauss, x0 = 2^50 e_1 Float64 order=random momentum=nothing tol=1.0e-7 relative=true sparse
+  converged=true passes=20 maxchange=1.04e-07 threshold=2.02e-06 same as solve!: true
+  truth: KKT/max(λ1,λmax)=2.34e-10 (F−F*)/F*=8.9e-20 reported minimum error=1.15e-16
+  truth: E/threshold=0.00131 stale residual/threshold=8.71e-10 amplification=1.82
+  stopping pass: absorbed visits=0 nonzero changes=5 fresh residual at its start=true
+  A/thr=0 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=0 C352/thr=0.00131 K296=2.34e-10
+  R/thr: image-first=1.14e-09 init-order=9.83e-10 Float64=NaN | P/(eps resp): stop=1.82 start=3.58e+14 path/resp=3.58e+14
+  refresh + one pass: init-order change/thr=0.00124 Aq=0 | image-first change/thr=0.00118 Aq=0
+--- reproducer λ=1/1024 Float32 order=cyclic momentum=false tol=1.0e-7 relative=true dense
+  converged=true passes=1 maxchange=0 threshold=1.56e-09 same as solve!: true
+  truth: KKT/max(λ1,λmax)=1.06 (F−F*)/F*=1.39e+08 reported minimum error=5.96e-08
+  truth: E/threshold=1.06e+07 stale residual/threshold=1e+07 amplification=1.34e+08
+  stopping pass: absorbed visits=2 nonzero changes=0 fresh residual at its start=true
+  A/thr=6.25e+05 Aq=5.24e+05 Aq0=5.24e+05 | B: Bq=5.24e+05 | C: Cuq=8.91e+06 C352/thr=1.06e+07 K296=1.06
+  R/thr: image-first=1e+07 init-order=0 Float64=1e+07 | P/(eps resp): stop=1.34e+08 start=1.34e+08 path/resp=0
+  refresh + one pass: init-order change/thr=0 Aq=5.24e+05 | image-first change/thr=0 Aq=8.91e+06
+--- reproducer λ=1/1024 Float32 order=random momentum=nothing tol=1.0e-7 relative=true sparse
+  converged=true passes=1 maxchange=0 threshold=1.56e-09 same as solve!: true
+  truth: KKT/max(λ1,λmax)=1.06 (F−F*)/F*=1.39e+08 reported minimum error=5.96e-08
+  truth: E/threshold=1.06e+07 stale residual/threshold=1e+07 amplification=1.34e+08
+  stopping pass: absorbed visits=2 nonzero changes=0 fresh residual at its start=true
+  A/thr=6.25e+05 Aq=5.24e+05 Aq0=5.24e+05 | B: Bq=5.24e+05 | C: Cuq=8.91e+06 C352/thr=1.06e+07 K296=1.06
+  R/thr: image-first=1e+07 init-order=0 Float64=1e+07 | P/(eps resp): stop=1.34e+08 start=1.34e+08 path/resp=0
+  refresh + one pass: init-order change/thr=0 Aq=5.24e+05 | image-first change/thr=0 Aq=8.91e+06
+--- reproducer λ=1/1024 Float32 order=cyclic momentum=false tol=1.0e-7 relative=false dense
+  converged=true passes=1 maxchange=0 threshold=1e-07 same as solve!: true
+  truth: KKT/max(λ1,λmax)=1.06 (F−F*)/F*=1.39e+08 reported minimum error=5.96e-08
+  truth: E/threshold=1.66e+05 stale residual/threshold=1.56e+05 amplification=1.34e+08
+  stopping pass: absorbed visits=2 nonzero changes=0 fresh residual at its start=true
+  A/thr=9.77e+03 Aq=5.24e+05 Aq0=5.24e+05 | B: Bq=5.24e+05 | C: Cuq=8.91e+06 C352/thr=1.66e+05 K296=1.06
+  R/thr: image-first=1.56e+05 init-order=0 Float64=1.56e+05 | P/(eps resp): stop=1.34e+08 start=1.34e+08 path/resp=0
+  refresh + one pass: init-order change/thr=0 Aq=5.24e+05 | image-first change/thr=0 Aq=8.91e+06
+--- reproducer λ=0 Float32 order=cyclic momentum=false tol=1.0e-7 relative=true dense
+  converged=true passes=1 maxchange=0 threshold=1.56e-09 same as solve!: true
+  truth: KKT/max(λ1,λmax)=1 (F−F*)/F*=F*=0 reported minimum error=1
+  truth: E/threshold=1e+07 stale residual/threshold=1e+07 amplification=1.34e+08
+  stopping pass: absorbed visits=2 nonzero changes=0 fresh residual at its start=true
+  A/thr=0 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=8.39e+06 C352/thr=1e+07 K296=1
+  R/thr: image-first=1e+07 init-order=0 Float64=1e+07 | P/(eps resp): stop=1.34e+08 start=1.34e+08 path/resp=0
+  refresh + one pass: init-order change/thr=0 Aq=0 | image-first change/thr=0 Aq=8.39e+06
+--- reproducer λ=0 Float32 order=random momentum=nothing tol=1.0e-7 relative=true sparse
+  converged=true passes=1 maxchange=0 threshold=1.56e-09 same as solve!: true
+  truth: KKT/max(λ1,λmax)=1 (F−F*)/F*=F*=0 reported minimum error=1
+  truth: E/threshold=1e+07 stale residual/threshold=1e+07 amplification=1.34e+08
+  stopping pass: absorbed visits=2 nonzero changes=0 fresh residual at its start=true
+  A/thr=0 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=8.39e+06 C352/thr=1e+07 K296=1
+  R/thr: image-first=1e+07 init-order=0 Float64=1e+07 | P/(eps resp): stop=1.34e+08 start=1.34e+08 path/resp=0
+  refresh + one pass: init-order change/thr=0 Aq=0 | image-first change/thr=0 Aq=8.39e+06
+--- reproducer λ=0 Float32 order=cyclic momentum=false tol=1.0e-7 relative=false dense
+  converged=true passes=1 maxchange=0 threshold=1e-07 same as solve!: true
+  truth: KKT/max(λ1,λmax)=1 (F−F*)/F*=F*=0 reported minimum error=1
+  truth: E/threshold=1.56e+05 stale residual/threshold=1.56e+05 amplification=1.34e+08
+  stopping pass: absorbed visits=2 nonzero changes=0 fresh residual at its start=true
+  A/thr=0 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=8.39e+06 C352/thr=1.56e+05 K296=1
+  R/thr: image-first=1.56e+05 init-order=0 Float64=1.56e+05 | P/(eps resp): stop=1.34e+08 start=1.34e+08 path/resp=0
+  refresh + one pass: init-order change/thr=0 Aq=0 | image-first change/thr=0 Aq=8.39e+06
+--- reproducer elastic net Float32 order=cyclic momentum=false tol=1.0e-7 relative=true dense
+  converged=true passes=152 maxchange=0 threshold=1.56e-09 same as solve!: true
+  truth: KKT/max(λ1,λmax)=0.938 (F−F*)/F*=5.77 reported minimum error=1
+  truth: E/threshold=8.82e+06 stale residual/threshold=1e+07 amplification=0
+  stopping pass: absorbed visits=0 nonzero changes=0 fresh residual at its start=false
+  A/thr=0 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=7.4e+06 C352/thr=9.38e+06 K296=0.938
+  R/thr: image-first=1e+07 init-order=1e+07 Float64=1e+07 | P/(eps resp): stop=0 start=1.34e+08 path/resp=1.34e+08
+  refresh + one pass: init-order change/thr=8.82e+06 Aq=0 | image-first change/thr=8.82e+06 Aq=0
+--- reproducer elastic net Float32 order=random momentum=nothing tol=1.0e-7 relative=true sparse
+  converged=true passes=152 maxchange=9.31e-10 threshold=1.56e-09 same as solve!: true
+  truth: KKT/max(λ1,λmax)=4.84e-08 (F−F*)/F*=9.61e-14 reported minimum error=4.58e-08
+  truth: E/threshold=0.456 stale residual/threshold=0 amplification=0.909
+  stopping pass: absorbed visits=1 nonzero changes=1 fresh residual at its start=true
+  A/thr=0.105 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=0 C352/thr=0.484 K296=4.84e-08
+  R/thr: image-first=0 init-order=0 Float64=0 | P/(eps resp): stop=0.909 start=1.34e+08 path/resp=8.8e+07
+  refresh + one pass: init-order change/thr=0.298 Aq=0 | image-first change/thr=0.596 Aq=0
+--- reproducer elastic net Float32 order=cyclic momentum=false tol=1.0e-7 relative=false dense
+  converged=true passes=152 maxchange=0 threshold=1e-07 same as solve!: true
+  truth: KKT/max(λ1,λmax)=0.938 (F−F*)/F*=5.77 reported minimum error=1
+  truth: E/threshold=1.38e+05 stale residual/threshold=1.56e+05 amplification=0
+  stopping pass: absorbed visits=0 nonzero changes=0 fresh residual at its start=false
+  A/thr=0 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=7.4e+06 C352/thr=1.46e+05 K296=0.938
+  R/thr: image-first=1.56e+05 init-order=1.56e+05 Float64=1.56e+05 | P/(eps resp): stop=0 start=1.34e+08 path/resp=1.34e+08
+  refresh + one pass: init-order change/thr=1.38e+05 Aq=0 | image-first change/thr=1.38e+05 Aq=0
+--- mixed pass λ=0.0009765625 Float32 order=cyclic momentum=false tol=1.0e-7 relative=true dense
+  converged=true passes=3 maxchange=0 threshold=1e-07 same as solve!: true
+  truth: KKT/max(λ1,λmax)=0.0166 (F−F*)/F*=2.07e+06 reported minimum error=5.94e-08
+  truth: E/threshold=1.66e+05 stale residual/threshold=1.56e+05 amplification=2.1e+06
+  stopping pass: absorbed visits=3 nonzero changes=0 fresh residual at its start=false
+  A/thr=9.76e+03 Aq=8.19e+03 Aq0=8.19e+03 | B: Bq=8.19e+03 | C: Cuq=1.39e+05 C352/thr=1.66e+05 K296=0.0166
+  R/thr: image-first=1.56e+05 init-order=0 Float64=1.56e+05 | P/(eps resp): stop=2.1e+06 start=2.1e+06 path/resp=2.38e-07
+  refresh + one pass: init-order change/thr=0 Aq=8.19e+03 | image-first change/thr=0 Aq=1.39e+05
+--- mixed pass λ=0.0 Float32 order=cyclic momentum=false tol=1.0e-7 relative=true dense
+  converged=true passes=3 maxchange=0 threshold=1e-07 same as solve!: true
+  truth: KKT/max(λ1,λmax)=0.0156 (F−F*)/F*=F*=0 reported minimum error=1
+  truth: E/threshold=1.56e+05 stale residual/threshold=1.56e+05 amplification=2.1e+06
+  stopping pass: absorbed visits=3 nonzero changes=0 fresh residual at its start=false
+  A/thr=0 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=1.31e+05 C352/thr=1.56e+05 K296=0.0156
+  R/thr: image-first=1.56e+05 init-order=0 Float64=1.56e+05 | P/(eps resp): stop=2.1e+06 start=2.1e+06 path/resp=2.38e-07
+  refresh + one pass: init-order change/thr=0 Aq=0 | image-first change/thr=0 Aq=1.31e+05
+--- gauss, x0 = 2^8 e_1 Float32 order=cyclic momentum=false tol=1.0e-7 relative=true dense
+  converged=true passes=16 maxchange=0 threshold=2.02e-06 same as solve!: true
+  truth: KKT/max(λ1,λmax)=1.79e-06 (F−F*)/F*=5.76e-12 reported minimum error=5.19e-07
+  truth: E/threshold=8.84 stale residual/threshold=27.6 amplification=1.82
+  stopping pass: absorbed visits=5 nonzero changes=0 fresh residual at its start=false
+  A/thr=0.196 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=7.38 C352/thr=8.8 K296=1.78e-06
+  R/thr: image-first=27.7 init-order=27.6 Float64=27.6 | P/(eps resp): stop=1.82 start=81.5 path/resp=83.8
+  refresh + one pass: init-order change/thr=8.42 Aq=0 | image-first change/thr=8.37 Aq=0
+--- gauss, x0 = 2^8 e_1 Float32 order=random momentum=nothing tol=1.0e-7 relative=true sparse
+  converged=true passes=14 maxchange=1.08e-07 threshold=2.02e-06 same as solve!: true
+  truth: KKT/max(λ1,λmax)=3.95e-08 (F−F*)/F*=3.85e-15 reported minimum error=5.74e-08
+  truth: E/threshold=0.213 stale residual/threshold=0.429 amplification=1.82
+  stopping pass: absorbed visits=4 nonzero changes=1 fresh residual at its start=false
+  A/thr=0.0913 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=0 C352/thr=0.284 K296=5.27e-08
+  R/thr: image-first=0.663 init-order=0.61 Float64=0.429 | P/(eps resp): stop=1.82 start=81.5 path/resp=83.6
+  refresh + one pass: init-order change/thr=0.107 Aq=0 | image-first change/thr=0.107 Aq=0
+--- gauss, x0 = 2^16 e_1 Float32 order=cyclic momentum=false tol=1.0e-7 relative=true dense
+  converged=true passes=16 maxchange=0 threshold=2.02e-06 same as solve!: true
+  truth: KKT/max(λ1,λmax)=0.000172 (F−F*)/F*=7.08e-08 reported minimum error=9.51e-05
+  truth: E/threshold=961 stale residual/threshold=5.61e+03 amplification=1.82
+  stopping pass: absorbed visits=5 nonzero changes=0 fresh residual at its start=false
+  A/thr=0.147 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=806 C352/thr=961 K296=0.000172
+  R/thr: image-first=5.61e+03 init-order=5.61e+03 Float64=5.61e+03 | P/(eps resp): stop=1.82 start=2.09e+04 path/resp=2.09e+04
+  refresh + one pass: init-order change/thr=878 Aq=0 | image-first change/thr=878 Aq=0
+--- gauss, x0 = 2^16 e_1 Float32 order=random momentum=nothing tol=1.0e-7 relative=true sparse
+  converged=true passes=18 maxchange=1.58e-06 threshold=2.02e-06 same as solve!: true
+  truth: KKT/max(λ1,λmax)=3.88e-08 (F−F*)/F*=3.33e-15 reported minimum error=5.74e-08
+  truth: E/threshold=0.209 stale residual/threshold=0.337 amplification=1.82
+  stopping pass: absorbed visits=3 nonzero changes=2 fresh residual at its start=true
+  A/thr=0.228 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=0 C352/thr=0.213 K296=3.95e-08
+  R/thr: image-first=0.513 init-order=0.304 Float64=0.337 | P/(eps resp): stop=1.82 start=2.09e+04 path/resp=2.09e+04
+  refresh + one pass: init-order change/thr=0.107 Aq=0 | image-first change/thr=0 Aq=0
+--- gauss, x0 = 2^22 e_1 Float32 order=cyclic momentum=false tol=1.0e-7 relative=true dense
+  converged=true passes=15 maxchange=0 threshold=2.02e-06 same as solve!: true
+  truth: KKT/max(λ1,λmax)=0.0113 (F−F*)/F*=0.000436 reported minimum error=0.0118
+  truth: E/threshold=5.74e+04 stale residual/threshold=4.23e+05 amplification=1.83
+  stopping pass: absorbed visits=5 nonzero changes=0 fresh residual at its start=false
+  A/thr=0.137 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=4.81e+04 C352/thr=5.74e+04 K296=0.0113
+  R/thr: image-first=4.23e+05 init-order=4.23e+05 Float64=4.23e+05 | P/(eps resp): stop=1.83 start=1.34e+06 path/resp=1.34e+06
+  refresh + one pass: init-order change/thr=6.18e+04 Aq=0 | image-first change/thr=6.18e+04 Aq=0
+--- gauss, x0 = 2^22 e_1 Float32 order=random momentum=nothing tol=1.0e-7 relative=true sparse
+  converged=true passes=20 maxchange=1.58e-06 threshold=2.02e-06 same as solve!: true
+  truth: KKT/max(λ1,λmax)=3.81e-08 (F−F*)/F*=3.04e-15 reported minimum error=5.74e-08
+  truth: E/threshold=0.206 stale residual/threshold=0.393 amplification=1.82
+  stopping pass: absorbed visits=2 nonzero changes=3 fresh residual at its start=true
+  A/thr=0.0484 Aq=0 Aq0=0 | B: Bq=0 | C: Cuq=0 C352/thr=0.213 K296=3.95e-08
+  R/thr: image-first=0.479 init-order=0.399 Float64=0.393 | P/(eps resp): stop=1.82 start=1.34e+06 path/resp=1.34e+06
+  refresh + one pass: init-order change/thr=0 Aq=0 | image-first change/thr=0.0536 Aq=0

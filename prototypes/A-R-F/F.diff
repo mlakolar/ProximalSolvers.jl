@@ -1,0 +1,341 @@
+diff -ru master/src/cd/leastsquares.jl F/src/cd/leastsquares.jl
+--- master/src/cd/leastsquares.jl	2026-11-17 22:33:28.000000000 -0800
++++ F/src/cd/leastsquares.jl	2026-11-18 00:51:06.060306746 -0800
+@@ -11,13 +11,21 @@
+   s::S
+   r::Vector{T}
+   a::Vector{T}
++  absorbed::T     # prototype: the largest absorbed-step ratio of the current full pass
++  thr::T          # prototype: the threshold of the solve, in the units of its change test
++  resp::T         # prototype: the response scale, when relative scaling is active
++  lim::T          # prototype: the limit max(tol, c eps(T)) √s‖y‖
++  lim2::T         # prototype: a coefficient with x² s a below this cannot hold a refusable absorbed step
++  scaled::Bool
++  stalled::Bool   # prototype: the stop was refused
++  rf::Vector{T}   # prototype: scratch for a fresh residual; it is `r` itself until one is needed
+ end
+ function _scale_type(::Type{T}, α) where T
+   S = promote_type(T, typeof(α))
+   isconcretetype(S) && S <: AbstractFloat ? S : T
+ end
+ LSModel(y::AbstractVector{T}, X::AbstractMatrix{T}, α::Real) where T =
+-  LSModel(X, y, convert(_scale_type(T, α), α), zeros(T, length(y)), fill(T(NaN), size(X, 2)))
++  (r = zeros(T, length(y)); LSModel(X, y, convert(_scale_type(T, α), α), r, fill(T(NaN), size(X, 2)), zero(T), zero(T), zero(T), T(Inf), T(Inf), false, false, r))
+ function cdmodel(f::Union{LeastSquaresLoss{T, <:AbstractVector}, Scaled{<:LeastSquaresLoss{T, <:AbstractVector}}}, x) where T
+   d = leastsquares_data(f)
+   LSModel(d.Y, d.X, d.α)
+@@ -96,7 +104,10 @@
+   new = iszero(a) ? _coordinate_minimizer(g, old, k) : _scaled_prox(m, g, old + b / a, k, a)
+   m.a[k] = a
+   h = new - old
+-  iszero(h) && return h      # x and the residuals do not change
++  if iszero(h)               # x and the residuals do not change
++    iszero(old) || !_absorbable(m, old, a) || _note_absorbed!(m, g, old, b, a)
++    return h
++  end
+   x[k] = new
+   _residual_axpy!(m, k, h)
+   h
+@@ -616,10 +627,168 @@
+     old[i] = d
+     iszero(d) || (moved = true)
+   end
+-  moved || return zero(T)
++  if !moved
++    zeroblock || !_absorbable(ls, norm(u), ℓ) || _note_absorbed_block!(m, g, k, mk, ℓ)
++    return zero(T)
++  end
+   copyto!(blockview(x, k), u)
+   for i in 1:mk
+     iszero(old[i]) || _residual_axpy!(ls, Int(idx[i]), old[i])
+   end
+   norm(old)
+ end
++
++# ---- prototype (#378) ----
++_l1l2(g::NormL1, ::Type{T}) where T = (T(g.λ0), zero(T))
++_l1l2(g::ElasticNet, ::Type{T}) where T = (T(g.λ1), T(g.λ2))
++# Called from `_tolerances` with the threshold and the response scale it computed. A visit whose computed
++# displacement is 0 has an unrounded step of at most about eps(T)|x_k| + eps(T) τ_k, so a coefficient with
++# eps(T) √(s a_k)|x_k| below half the limit max(tol, c eps(T)) √s‖y‖ cannot be refused: `lim2` is the
++# square of that bound on √(s a_k)|x_k|, compared without a square root (Inf when the check is off).
++function _arm!(m::LSModel{T}, tol, scaled::Bool, sy) where T
++  m.thr, m.scaled, m.stalled, m.absorbed = tol, scaled, false, zero(T)
++  m.resp = scaled ? T(sy) : zero(T)
++  m.lim = scaled ? max(tol, _ABSORB_FLOOR * eps(T) * m.resp) : T(Inf)
++  m.lim2 = scaled ? abs2(m.lim / (2 * eps(T))) : T(Inf)
++  m
++end
++_arm!(m::BlockLSModel, tol, scaled::Bool, sy) = (_arm!(m.ls, tol, scaled, sy); m)
++@inline _absorbable(m::LSModel, old, a) = abs2(old) * (m.s * a) >= m.lim2
++_pass_reset!(m::LSModel{T}) where T = (m.absorbed = zero(T); m)
++_pass_reset!(m::BlockLSModel) = (_pass_reset!(m.ls); m)
++_uncertified(m::LSModel) = m.stalled
++_uncertified(m::BlockLSModel) = m.ls.stalled
++# The step of a visit without the rounding of old + b/a, for a nonzero coefficient that keeps its sign.
++@inline function _unrounded_signed(old::T, b::T, a::T, p::T, l1::T, l2::T) where T
++  ρ = l2 / p
++  (b / a - (l1 / p) * sign(old) - ρ * old) / (one(T) + ρ)
++end
++@inline _unrounded(old::T, b::T, a::T, p::T, l1::T, l2::T) where T = abs(_unrounded_signed(old, b, a, p, l1, l2))
++
++# A visit whose computed displacement is 0 at a nonzero coefficient: record the unrounded step over its
++# unit max(√s‖y‖, λ1/√(s a)) when it is at or above the threshold.
++@noinline function _note_absorbed!(m::LSModel{T}, g, old::T, b::T, a::T) where T
++  m.scaled || return nothing
++  l1, l2 = _l1l2(g, T)
++  sc = _curvature_scale(m, a)
++  v = _unrounded(old, b, a, T(m.s * a), l1, l2) * sc
++  v >= m.thr || return nothing
++  q = v / max(m.resp, l1 / sc)
++  q > m.absorbed && (m.absorbed = q)
++  nothing
++end
++@noinline function _note_absorbed_block!(m::BlockLSModel{T}, g::GroupNormL2, k::Int, mk::Int, ℓ::T) where T
++  ls = m.ls
++  ls.scaled || return nothing
++  λw = T(g.λ0) * T(g.w[k])
++  c = λw / T(ls.s * ℓ)
++  nv = zero(T)
++  for i in 1:mk                      # m.u holds the block (its displacement is zero), m.b the correlations
++    v = m.u[i] + m.b[i] / ℓ
++    m.old[i] = v
++    nv += v * v
++  end
++  nv = sqrt(nv)
++  d = zero(T)
++  for i in 1:mk
++    di = nv > c ? m.b[i] / ℓ - (c / nv) * m.old[i] : -m.u[i]
++    d += di * di
++  end
++  sc = _curvature_scale(ls, ℓ)
++  v = sqrt(d) * sc
++  v >= ls.thr || return nothing
++  q = v / max(ls.resp, λw / sc)
++  q > ls.absorbed && (ls.absorbed = q)
++  nothing
++end
++function _stop_check!(m::LSModel{T}, g, x, st, maxh, scaled::Bool) where T
++  m.absorbed >= _ABSORB_FLOOR * eps(T) || return :converged
++  m.stalled = true
++  :uncertified
++end
++_stop_check!(m::BlockLSModel, g, x, st, maxh, scaled::Bool) = _stop_check!(m.ls, g, x, st, maxh, scaled)
++
++function _fresh_residual!(dest::Vector{T}, m::LSModel{T}, x) where T
++  X, y = m.X, m.y
++  fill!(dest, zero(T))
++  for k in _activeentries(x)
++    v = x[k]
++    iszero(v) && continue
++    @inbounds @simd for i in eachindex(dest)
++      dest[i] -= X[i, k] * v
++    end
++  end
++  @inbounds @simd for i in eachindex(dest)
++    dest[i] += y[i]
++  end
++  dest
++end
++
++# Whether the rounding carried by the cached residual can reach the limit max(tol, c eps) √s‖y‖: the
++# resolution eps √s (Σ‖X_k‖|x_k| + 2 path) bounds the resolution at the start plus the path.
++# First with the bound Σ√(s a_k)|x_k| ≤ √(nnz Σ s a_k x_k²), which needs one square root; the sum itself
++# only where that bound does not decide.
++function _resolution_gate(m::LSModel{T}, x, st) where T
++  m.scaled || return false
++  Q = zero(T)
++  nz = 0
++  for k in _activeentries(x)
++    v = x[k]
++    iszero(v) && continue
++    Q += T(m.s * m.a[k]) * v * v
++    nz += 1
++  end
++  eps(T) * (sqrt(nz * Q) + 2 * st.path) < m.lim && return false
++  P = zero(T)
++  for k in _activeentries(x)
++    v = x[k]
++    iszero(v) || (P += _curvature_scale(m, m.a[k]) * abs(v))
++  end
++  eps(T) * (P + 2 * st.path) >= m.lim
++end
++_stale(m::LSModel, x, st) = _resolution_gate(m, x, st)
++_refresh!(m::LSModel, x) = (_fresh_residual!(m.r, m, x); m)
++
++function _fresh_block_residual!(dest::Vector{T}, ls::LSModel{T}, x::BlockIterate{T}) where T
++  X, y = ls.X, ls.y
++  fill!(dest, zero(T))
++  for k in activecoordinates(x)
++    for j in blockindices(x, k)
++      v = x[j]
++      iszero(v) && continue
++      @inbounds @simd for i in eachindex(dest)
++        dest[i] -= X[i, j] * v
++      end
++    end
++  end
++  @inbounds @simd for i in eachindex(dest)
++    dest[i] += y[i]
++  end
++  dest
++end
++# The gate for groups: ‖X_g x_g‖ ≤ √ℓ_g ‖x_g‖ for the curvature bound ℓ_g.
++function _stale(m::BlockLSModel{T}, x, st) where T
++  ls = m.ls
++  ls.scaled || return false
++  Q = zero(T)
++  nz = 0
++  for k in activecoordinates(x)
++    ℓ = m.ℓ[k]
++    (iszero(ℓ) || isnan(ℓ)) && continue
++    q = zero(T)
++    for v in blockview(x, k)
++      q += v * v
++    end
++    Q += T(ls.s * ℓ) * q
++    nz += 1
++  end
++  eps(T) * (sqrt(nz * Q) + 2 * st.path) < ls.lim && return false
++  P = zero(T)
++  for k in activecoordinates(x)
++    ℓ = m.ℓ[k]
++    (iszero(ℓ) || isnan(ℓ)) && continue
++    P += _curvature_scale(ls, ℓ) * norm(blockview(x, k))
++  end
++  eps(T) * (P + 2 * st.path) >= ls.lim
++end
++_refresh!(m::BlockLSModel, x) = (_fresh_block_residual!(m.ls.r, m.ls, x); m)
+diff -ru master/src/cd/models.jl F/src/cd/models.jl
+--- master/src/cd/models.jl	2026-11-17 22:33:28.000000000 -0800
++++ F/src/cd/models.jl	2026-11-18 00:51:06.058092868 -0800
+@@ -36,3 +36,8 @@
+   isfinite(change) || throw(ArgumentError("a coordinate step or its stopping scale is not finite"))
+   change
+ end
++
++# ---- prototype hooks (#378) ----
++const _ABSORB_FLOOR = 64
++_arm!(m::CDModel, tol, scaled::Bool, sy) = m
++_pass_reset!(m::CDModel) = m
+diff -ru master/src/cd/solver.jl F/src/cd/solver.jl
+--- master/src/cd/solver.jl	2026-11-17 22:33:28.000000000 -0800
++++ F/src/cd/solver.jl	2026-11-18 00:51:06.060796589 -0800
+@@ -242,10 +242,11 @@
+   converged::Bool
+   maxchange::T
+   tolerance::T
++  path::T         # prototype: the sum of the changes of the visits since the last fresh residual
+ end
+ _CDState(::Type{T}, x, s::CDSolver) where T =
+   _CDState{T, typeof(s.rng)}(s.random, s.rng, Vector{Int}(undef, s.random ? ncoordinates(x) : 0),
+-                          _Momentum{T}(), 0, false, T(NaN), T(NaN))
++                          _Momentum{T}(), 0, false, T(NaN), T(NaN), zero(T))
+ function _shuffle!(order::Vector{Int}, n::Int, rng::AbstractRNG)
+   @inbounds for i in 1:n
+     order[i] = i
+@@ -260,6 +261,7 @@
+ # one pass over the candidate coordinates (full) or the active ones; returns the
+ # largest change of a coordinate, scaled if `scaled`
+ function _pass!(x, m, g, st::_CDState{T}, full::Bool, scaled::Bool) where {T}
++  full && _pass_reset!(m)
+   maxh = if full
+     _sweep!(x, m, g, st, scaled, Base.OneTo(ncoordinates(x)))
+   else
+@@ -276,18 +278,22 @@
+ function _sweep!(x, m, g, st::_CDState{T}, scaled::Bool, coords) where {T}
+   n = length(coords)
+   maxh = zero(T)
++  sumh = zero(T)
+   if st.random
+     order = _shuffle!(st.order, n, st.rng)
+     for i in 1:n
+       h = _visit!(m, g, x, @inbounds(coords[order[i]]), scaled)
+       h > maxh && (maxh = h)
++      sumh += h
+     end
+   else
+     for i in 1:n
+       h = _visit!(m, g, x, @inbounds(coords[i]), scaled)
+       h > maxh && (maxh = h)
++      sumh += h
+     end
+   end
++  st.path += sumh
+   maxh
+ end
+ function _cd!(x, m, g, st::_CDState{T}, s::CDSolver) where T
+@@ -302,6 +308,7 @@
+   sy = s.relative ? response_scale(m, x) : one(T)
+   scaled = s.relative && sy>0
+   u = scaled ? sy : one(T)
++  _arm!(m, T(s.tol)*u, scaled, sy)
+   T(s.tol)*u, scaled
+ end
+ # After each pass, the strict change test `maxh < tol` selects the next pass:
+@@ -325,7 +332,7 @@
+ function _cd_plain!(x, m, g, st::_CDState{T}, s::CDSolver) where {T}
+   tol, scaled = _tolerances(m, x, s, T)
+   st.passes, st.converged, st.maxchange, st.tolerance = 0, false, T(NaN), tol
+-  converged, visits = true, 0
++  converged, visits, fresh = true, 0, false
+   for pass in 1:s.maxpasses
+     full = converged || visits >= _FULL_PASS_WORK * ncoordinates(x)
+     visits = full ? 0 : visits + nactive(x)
+@@ -333,6 +340,12 @@
+     st.passes, st.maxchange = pass, maxh
+     converged = maxh<tol
+     if full && converged
++      if !fresh && _stale(m, x, st)
++        _refresh!(m, x)            # prototype: the next pass is a full pass from a fresh residual
++        st.path = zero(T)
++        fresh = true
++        continue
++      end
+       status = _stop_check!(m, g, x, st, maxh, scaled)
+       if status === :retry
+         tol = st.tolerance
+@@ -342,9 +355,12 @@
+         break
+       end
+     end
++    fresh = false
+   end
+   x
+ end
++_stale(m, x, st) = false
++_refresh!(m, x) = m
+ function _usemomentum(s::CDSolver, x, m)
+   s.momentum === false && return false
+   s.momentum === nothing && return s.random && x isa SparseIterate && _momentum_default(m)
+@@ -368,7 +384,7 @@
+   tol, scaled = _tolerances(m, x, s, T)
+   st.passes, st.converged, st.maxchange, st.tolerance = 0, false, T(NaN), tol
+   mom = _momentum_start!(st.momentum, x, m)
+-  converged, visits = true, 0
++  converged, visits, fresh = true, 0, false
+   for pass in 1:s.maxpasses
+     full = converged || visits >= _FULL_PASS_WORK * ncoordinates(x)
+     visits = full ? 0 : visits + nactive(x)
+@@ -381,6 +397,13 @@
+     st.passes, st.maxchange = pass, maxh
+     converged = maxh<tol
+     if full && converged
++      if !fresh && _stale(m, x, st)
++        _refresh!(m, x)            # prototype: as in the plain loop
++        st.path = zero(T)
++        fresh = true
++        _momentum_reset!(mom, x, m)
++        continue
++      end
+       status = _stop_check!(m, g, x, st, maxh, scaled)
+       if status === :retry
+         tol = st.tolerance
+@@ -390,6 +413,7 @@
+         break
+       end
+     end
++    fresh = false
+     if full
+       _momentum_reset!(mom, x, m)
+     elseif converged

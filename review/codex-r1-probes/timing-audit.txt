@@ -1,0 +1,29 @@
+r-epyc
+S256 initial 1 repeat 5 intersection 0
+table: 1.006 1.011 1.071 1
+median warm extra ns: 15
+S1024 initial 3 repeat 4 intersection 1
+repeated ('d40x12_r0', 'Float32', 'l1', '0.1', 'sparse', 'cyclic', 'warm') 1.055 1.060 controls 1.013 1.004
+table: 1.004 1.013 1.059 3
+median warm extra ns: 18
+r-xeon
+S256 initial 0 repeat 8 intersection 0
+table: 1.009 1.016 1.048 0
+median warm extra ns: 34
+S1024 initial 0 repeat 9 intersection 0
+table: 1.01 1.02 1.049 0
+median warm extra ns: 38
+l-epyc
+S256 initial 0 repeat 0 intersection 0
+table: 1.007 1.015 1.041 0
+median warm extra ns: 31
+S1024 initial 2 repeat 0 intersection 0
+table: 1.007 1.014 1.057 2
+median warm extra ns: 28
+l-xeon
+S256 initial 2 repeat 2 intersection 0
+table: 1.007 1.018 1.069 2
+median warm extra ns: 52
+S1024 initial 25 repeat 1 intersection 0
+table: 1.008 1.022 1.112 25
+median warm extra ns: 89

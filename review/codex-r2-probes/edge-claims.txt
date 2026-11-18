@@ -1,0 +1,6 @@
+counts {'false': 88226, 'A_without_floor_caught': 9812, 'A_c64_caught': 5088}
+A_without_floor_percent 11.121438124815814
+A_c64_percent 5.767007458118922
+early case scalar_Float32_10.tsv.gz {'design': 'offset', 'loss': 'raw', 'j': '4', 'dir': 'dense', 'container': 'sparse', 'order': 'random', 'momentum': 'false', 'seed': '2', 'tol': '1e-07', 'subopt_lo': '12.5281', 'E': '7.89176', 'tolerance': '0.707107'} sum start image ratio 28.883408043648277
+early case scalar_Float32_10.tsv.gz {'design': 'offset', 'loss': 'mean', 'j': '4', 'dir': 'dense', 'container': 'sparse', 'order': 'random', 'momentum': 'false', 'seed': '2', 'tol': '1e-07', 'subopt_lo': '12.5281', 'E': '1.11606', 'tolerance': '0.1'} sum start image ratio 28.883487293439998
+fourth_raw_hashes_checked 196 mismatches []

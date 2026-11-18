@@ -1,0 +1,63 @@
+# sweep-r-xeon: 196 files, 1667350 rows kept, 1298081 converged
+
+scalar Float32: keep fixtures 10636, keep generated 39338, bad 88235; max over must-keep of rho/(eps resp) 114, of rho0/(eps resp) 6.95e+06
+rule                                              c=16                      c=64                      c=256                     c=1024                    c=4096                    c=16384                   
+rho >= L (unverifiable at the stop)               0+586 | 9875 (9.5e+02)    0+248 | 7175 (9.5e+02)    0+0 | 5827 (9.5e+02)      0+0 | 5386 (9.5e+02)      0+0 | 5122 (9.5e+02)      0+0 | 5085 (9.5e+02)      
+rho0 >= L (start)                                 80+2344 | 88235           80+1296 | 88233 (1.4e-06) 80+816 | 88233 (1.4e-06)  80+448 | 88209 (1.6e-05)  80+0 | 88167 (8.6e-05)    80+0 | 88045 (8.2e-02)    
+G0: rho >= L or rho0 >= L                         80+2570 | 88235           80+1392 | 88233 (1.4e-06) 80+816 | 88233 (1.4e-06)  80+448 | 88209 (1.6e-05)  80+0 | 88167 (8.6e-05)    80+0 | 88045 (8.2e-02)    
+G: rho + 2 eps path >= L                          493+4868 | 88235          84+2376 | 88235           80+1318 | 88233 (1.4e-06) 80+940 | 88231 (5.6e-06)  80+392 | 88189 (2.0e-05)  80+88 | 88141 (1.4e-04)   
+G0 then R >= L                                    0+720 | 88235             0+230 | 88233 (1.4e-06)   0+102 | 88203 (1.6e-05)   0+4 | 88155 (8.6e-05)     0+0 | 88097 (4.7e-04)     0+0 | 87509 (8.2e-02)     
+rho >= L, or rho0 >= L and R >= L                 0+1102 | 88235            0+438 | 88233 (1.4e-06)   0+102 | 88203 (1.6e-05)   0+4 | 88155 (8.6e-05)     0+0 | 88097 (4.7e-04)     0+0 | 87509 (8.2e-02)     
+rho >= L, or rho0 >= L and confirm pass >= thr    4+1335 | 88235            4+690 | 88233 (1.4e-06)   4+305 | 88233 (1.4e-06)   4+126 | 88209 (1.6e-05)   4+0 | 88167 (8.6e-05)     4+0 | 88045 (8.2e-02)     
+#  must-keep on which G0(256) fires [rho0/(eps resp), rho/(eps resp), ..., passes, R/(eps resp)]: 6.95e+06 1.37 rankdef enetr 0.1 0.01 ls 0.0001 407 0.518
+#  must-keep on which G0(256) fires [rho0/(eps resp), rho/(eps resp), ..., passes, R/(eps resp)]: 6.95e+06 1.31 rankdef ridge 0 1 ls 0.0001 30 0.822
+#  must-keep on which G0(256) fires [rho0/(eps resp), rho/(eps resp), ..., passes, R/(eps resp)]: 6.95e+06 0.992 rankdef enetr 0.1 1 ls 1e-07 36 0.683
+#  must-keep on which G0(256) fires [rho0/(eps resp), rho/(eps resp), ..., passes, R/(eps resp)]: 6.95e+06 0.85 rankdef enet352 0.1 0.5 ls 1e-07 42 0.532
+#  must-keep on which G0(256) fires [rho0/(eps resp), rho/(eps resp), ..., passes, R/(eps resp)]: 6.95e+06 0.0376 rankdef enetr 0.1 100 ls 1e-07 17 0.677
+#  must-keep on which G0(256) fires [rho0/(eps resp), rho/(eps resp), ..., passes, R/(eps resp)]: 3.86e+03 0.862 gen_50x200_r0.999_s2 ridge 0 1 ls 1e-07 12685 711
+#  must-keep on which G0(1024) fires [rho0/(eps resp), rho/(eps resp), ..., passes, R/(eps resp)]: 6.95e+06 1.37 rankdef enetr 0.1 0.01 ls 0.0001 407 0.518
+#  must-keep on which G0(1024) fires [rho0/(eps resp), rho/(eps resp), ..., passes, R/(eps resp)]: 6.95e+06 1.31 rankdef ridge 0 1 ls 0.0001 30 0.822
+#  must-keep on which G0(1024) fires [rho0/(eps resp), rho/(eps resp), ..., passes, R/(eps resp)]: 6.95e+06 0.992 rankdef enetr 0.1 1 ls 1e-07 36 0.683
+#  must-keep on which G0(1024) fires [rho0/(eps resp), rho/(eps resp), ..., passes, R/(eps resp)]: 6.95e+06 0.85 rankdef enet352 0.1 0.5 ls 1e-07 42 0.532
+#  must-keep on which G0(1024) fires [rho0/(eps resp), rho/(eps resp), ..., passes, R/(eps resp)]: 6.95e+06 0.0376 rankdef enetr 0.1 100 ls 1e-07 17 0.677
+#  must-keep on which G0(1024) fires [rho0/(eps resp), rho/(eps resp), ..., passes, R/(eps resp)]: 3.86e+03 0.862 gen_50x200_r0.999_s2 ridge 0 1 ls 1e-07 12685 711
+
+scalar Float64: keep fixtures 9885, keep generated 33006, bad 75612; max over must-keep of rho/(eps resp) 114, of rho0/(eps resp) 1.95e+15
+rule                                              c=16                      c=64                      c=256                     c=1024                    c=4096                    c=16384                   
+rho >= L (unverifiable at the stop)               0+0 | 5030 (1.1e+04)      0+0 | 5030 (1.1e+04)      0+0 | 5030 (1.1e+04)      0+0 | 5030 (1.1e+04)      0+0 | 5030 (1.1e+04)      0+0 | 5030 (1.1e+04)      
+rho0 >= L (start)                                 72+0 | 75612              72+0 | 75612              72+0 | 75612              72+0 | 75612              72+0 | 75612              72+0 | 75612              
+G0: rho >= L or rho0 >= L                         72+0 | 75612              72+0 | 75612              72+0 | 75612              72+0 | 75612              72+0 | 75612              72+0 | 75612              
+G: rho + 2 eps path >= L                          72+0 | 75612              72+0 | 75612              72+0 | 75612              72+0 | 75612              72+0 | 75612              72+0 | 75612              
+G0 then R >= L                                    0+0 | 75612               0+0 | 75612               0+0 | 75612               0+0 | 75612               0+0 | 75612               0+0 | 75612               
+rho >= L, or rho0 >= L and R >= L                 0+0 | 75612               0+0 | 75612               0+0 | 75612               0+0 | 75612               0+0 | 75612               0+0 | 75612               
+rho >= L, or rho0 >= L and confirm pass >= thr    0+0 | 75612               0+0 | 75612               0+0 | 75612               0+0 | 75612               0+0 | 75612               0+0 | 75612               
+#  must-keep on which G0(256) fires [rho0/(eps resp), rho/(eps resp), ..., passes, R/(eps resp)]: 1.95e+15 1.37 rankdef enetr 0.1 0.01 ls 1e-07 1310 0.4
+#  must-keep on which G0(256) fires [rho0/(eps resp), rho/(eps resp), ..., passes, R/(eps resp)]: 1.95e+15 1.31 rankdef ridge 0 1 ls 0.0001 52 0.665
+#  must-keep on which G0(256) fires [rho0/(eps resp), rho/(eps resp), ..., passes, R/(eps resp)]: 1.95e+15 0.992 rankdef enetr 0.1 1 ls 1e-07 59 0.388
+#  must-keep on which G0(256) fires [rho0/(eps resp), rho/(eps resp), ..., passes, R/(eps resp)]: 1.95e+15 0.85 rankdef enet352 0.1 0.5 ls 1e-07 59 0.389
+#  must-keep on which G0(256) fires [rho0/(eps resp), rho/(eps resp), ..., passes, R/(eps resp)]: 1.95e+15 0.0376 rankdef enetr 0.1 100 ls 1e-07 23 0.821
+#  must-keep on which G0(1024) fires [rho0/(eps resp), rho/(eps resp), ..., passes, R/(eps resp)]: 1.95e+15 1.37 rankdef enetr 0.1 0.01 ls 1e-07 1310 0.4
+#  must-keep on which G0(1024) fires [rho0/(eps resp), rho/(eps resp), ..., passes, R/(eps resp)]: 1.95e+15 1.31 rankdef ridge 0 1 ls 0.0001 52 0.665
+#  must-keep on which G0(1024) fires [rho0/(eps resp), rho/(eps resp), ..., passes, R/(eps resp)]: 1.95e+15 0.992 rankdef enetr 0.1 1 ls 1e-07 59 0.388
+#  must-keep on which G0(1024) fires [rho0/(eps resp), rho/(eps resp), ..., passes, R/(eps resp)]: 1.95e+15 0.85 rankdef enet352 0.1 0.5 ls 1e-07 59 0.389
+#  must-keep on which G0(1024) fires [rho0/(eps resp), rho/(eps resp), ..., passes, R/(eps resp)]: 1.95e+15 0.0376 rankdef enetr 0.1 100 ls 1e-07 23 0.821
+
+group Float32: keep fixtures 1848, keep generated 6400, bad 58110; max over must-keep of rho/(eps resp) 125, of rho0/(eps resp) 125
+rule                                              c=16                      c=64                      c=256                     c=1024                    c=4096                    c=16384                   
+rho >= L (unverifiable at the stop)               0+130 | 9490 (9.6e+02)    0+14 | 7830 (9.6e+02)     0+0 | 6696 (9.6e+02)      0+0 | 6379 (9.6e+02)      0+0 | 6278 (9.6e+02)      0+0 | 6218 (9.6e+02)      
+rho0 >= L (start)                                 0+108 | 58110             0+10 | 58110              0+0 | 58106 (3.5e-06)     0+0 | 58004 (4.1e-05)     0+0 | 57854 (1.9e-04)     0+0 | 57494 (6.5e-03)     
+G0: rho >= L or rho0 >= L                         0+136 | 58110             0+14 | 58110              0+0 | 58106 (3.5e-06)     0+0 | 58004 (4.1e-05)     0+0 | 57854 (1.9e-04)     0+0 | 57494 (6.5e-03)     
+G: rho + 2 eps path >= L                          36+364 | 58110            0+58 | 58110              0+4 | 58108 (3.5e-06)     0+0 | 58054 (4.1e-05)     0+0 | 57906 (1.6e-04)     0+0 | 57748 (6.8e-04)     
+G0 then R >= L                                    0+113 | 58110             0+14 | 58104 (3.5e-06)    0+0 | 58008 (4.1e-05)     0+0 | 57848 (1.9e-04)     0+0 | 57674 (7.9e-04)     0+0 | 56622 (6.5e-03)     
+rho >= L, or rho0 >= L and R >= L                 0+136 | 58110             0+14 | 58108 (3.5e-06)    0+0 | 58048 (2.8e-05)     0+0 | 57900 (1.9e-04)     0+0 | 57722 (7.9e-04)     0+0 | 56674 (6.5e-03)     
+rho >= L, or rho0 >= L and confirm pass >= thr    0+136 | 58110             0+14 | 58110              0+0 | 58106 (3.5e-06)     0+0 | 58004 (4.1e-05)     0+0 | 57854 (1.9e-04)     0+0 | 57494 (6.5e-03)     
+
+group Float64: keep fixtures 1536, keep generated 5142, bad 42774; max over must-keep of rho/(eps resp) 125, of rho0/(eps resp) 125
+rule                                              c=16                      c=64                      c=256                     c=1024                    c=4096                    c=16384                   
+rho >= L (unverifiable at the stop)               0+0 | 5408 (7.2e+03)      0+0 | 5408 (7.2e+03)      0+0 | 5408 (7.2e+03)      0+0 | 5408 (7.2e+03)      0+0 | 5408 (7.2e+03)      0+0 | 5408 (7.2e+03)      
+rho0 >= L (start)                                 0+0 | 42774               0+0 | 42774               0+0 | 42774               0+0 | 42774               0+0 | 42774               0+0 | 42774               
+G0: rho >= L or rho0 >= L                         0+0 | 42774               0+0 | 42774               0+0 | 42774               0+0 | 42774               0+0 | 42774               0+0 | 42774               
+G: rho + 2 eps path >= L                          0+0 | 42774               0+0 | 42774               0+0 | 42774               0+0 | 42774               0+0 | 42774               0+0 | 42774               
+G0 then R >= L                                    0+0 | 42774               0+0 | 42774               0+0 | 42774               0+0 | 42774               0+0 | 42774               0+0 | 42774               
+rho >= L, or rho0 >= L and R >= L                 0+0 | 42774               0+0 | 42774               0+0 | 42774               0+0 | 42774               0+0 | 42774               0+0 | 42774               
+rho >= L, or rho0 >= L and confirm pass >= thr    0+0 | 42774               0+0 | 42774               0+0 | 42774               0+0 | 42774               0+0 | 42774               0+0 | 42774               

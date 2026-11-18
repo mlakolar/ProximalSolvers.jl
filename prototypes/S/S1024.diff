@@ -1,0 +1,252 @@
+diff -ru master/src/cd/leastsquares.jl S1024/src/cd/leastsquares.jl
+--- master/src/cd/leastsquares.jl	2026-11-17 22:33:28.000000000 -0800
++++ S1024/src/cd/leastsquares.jl	2026-11-18 02:30:28.923911279 -0800
+@@ -11,13 +11,17 @@
+   s::S
+   r::Vector{T}
+   a::Vector{T}
++  lim::T          # prototype: the limit max(tol, c eps(T)) √s‖y‖; Inf where the check is off
++  n1::T           # prototype: Σ|x_k| (groups: Σ‖x_g‖) at the point the residual was last computed from
++  unres::Bool     # prototype: the last converged full pass ended at a point where the test cannot be verified
++  stalled::Bool   # prototype: the stop was refused
+ end
+ function _scale_type(::Type{T}, α) where T
+   S = promote_type(T, typeof(α))
+   isconcretetype(S) && S <: AbstractFloat ? S : T
+ end
+ LSModel(y::AbstractVector{T}, X::AbstractMatrix{T}, α::Real) where T =
+-  LSModel(X, y, convert(_scale_type(T, α), α), zeros(T, length(y)), fill(T(NaN), size(X, 2)))
++  LSModel(X, y, convert(_scale_type(T, α), α), zeros(T, length(y)), fill(T(NaN), size(X, 2)), T(Inf), zero(T), false, false)
+ function cdmodel(f::Union{LeastSquaresLoss{T, <:AbstractVector}, Scaled{<:LeastSquaresLoss{T, <:AbstractVector}}}, x) where T
+   d = leastsquares_data(f)
+   LSModel(d.Y, d.X, d.α)
+@@ -27,11 +31,14 @@
+ function _initialize!(m::LSModel{T}, x::SparseIterate{T}, fresh::Bool) where T
+   length(x)==size(m.X,2) || throw(DimensionMismatch("iterate length differs from X columns"))
+   copyto!(m.r, m.y)
++  n1 = zero(T)
+   for k in _activeentries(x)
+     v = x[k]
+     iszero(v) && continue
++    n1 += abs(v)                 # prototype
+     _residual_axpy!(m, k, v)
+   end
++  m.n1 = n1
+   fill!(m.a, T(NaN))
+   m
+ end
+@@ -265,12 +272,18 @@
+   ls = m.ls
+   length(x)==size(ls.X, 2) || throw(DimensionMismatch("iterate length differs from X columns"))
+   copyto!(ls.r, ls.y)
++  n1 = zero(T)
+   for k in activecoordinates(x)
++    q = zero(T)
+     for j in blockindices(x, k)
+       v = x[j]
+-      iszero(v) || _residual_axpy!(ls, Int(j), v)
++      iszero(v) && continue
++      q += v * v                 # prototype
++      _residual_axpy!(ls, Int(j), v)
+     end
++    n1 += sqrt(q)
+   end
++  ls.n1 = n1
+   fill!(ls.a, T(NaN))
+   m
+ end
+@@ -623,3 +636,147 @@
+   end
+   norm(old)
+ end
++
++# ---- prototype S (#378) ----
++# Called from `_tolerances` with the threshold and the response scale it computed.
++function _arm!(m::LSModel{T}, tol, scaled::Bool, sy) where T
++  m.stalled = m.unres = false
++  m.lim = scaled ? max(tol, _ABSORB_FLOOR * eps(T) * T(sy)) : T(Inf)
++  m
++end
++_arm!(m::BlockLSModel, tol, scaled::Bool, sy) = (_arm!(m.ls, tol, scaled, sy); m)
++_uncertified(m::LSModel) = m.stalled
++_uncertified(m::BlockLSModel) = m.ls.stalled
++# The residual from x, image first.
++function _fresh_residual!(dest::Vector{T}, m::LSModel{T}, x) where T
++  X, y = m.X, m.y
++  fill!(dest, zero(T))
++  for k in _activeentries(x)
++    v = x[k]
++    iszero(v) && continue
++    @inbounds @simd for i in eachindex(dest)
++      dest[i] -= X[i, k] * v
++    end
++  end
++  @inbounds @simd for i in eachindex(dest)
++    dest[i] += y[i]
++  end
++  dest
++end
++function _fresh_block_residual!(dest::Vector{T}, ls::LSModel{T}, x::BlockIterate{T}) where T
++  X, y = ls.X, ls.y
++  fill!(dest, zero(T))
++  for k in activecoordinates(x)
++    for j in blockindices(x, k)
++      v = x[j]
++      iszero(v) && continue
++      @inbounds @simd for i in eachindex(dest)
++        dest[i] -= X[i, j] * v
++      end
++    end
++  end
++  @inbounds @simd for i in eachindex(dest)
++    dest[i] += y[i]
++  end
++  dest
++end
++# The state of the stop test at x, after a full pass (which leaves the curvature of every coordinate in
++# `m.a`): 2 where the resolution of a residual at x, eps √s Σ‖X_k‖|x_k|, reaches the limit; otherwise 1
++# where the bound eps √s max_k‖X_k‖ Σ|x0_k| on the resolution at the point x0 the cached residual was last
++# computed from reaches it; otherwise 0. Both tests are first tried with max_k a_k ≤ Σ_k a_k, which
++# needs two vectorized sums and one square root: Σ√(s a_k)|x_k| ≤ √(s max_k a_k) Σ|x_k|. Only where that
++# does not give 0 are the maximum and, for the first test, the sum itself formed.
++function _resolution_state(m::LSModel{T}, x) where T
++  isfinite(m.lim) || return 0
++  a = m.a
++  asum = zero(T)
++  @inbounds @simd for k in eachindex(a)
++    asum += ifelse(isnan(a[k]), zero(T), a[k])
++  end
++  vals = activevalues(x)
++  x1 = zero(T)
++  @inbounds @simd for i in 1:nactive(x)
++    x1 += abs(vals[i])
++  end
++  eps(T) * _curvature_scale(m, asum) * max(x1, m.n1) < m.lim && return 0
++  amax = zero(T)
++  @inbounds for k in eachindex(a)
++    a[k] > amax && (amax = a[k])
++  end
++  c = eps(T) * _curvature_scale(m, amax)
++  if !(c * x1 < m.lim)
++    P = zero(T)
++    for k in _activeentries(x)
++      v = x[k]
++      iszero(v) || (P += _curvature_scale(m, m.a[k]) * abs(v))
++    end
++    eps(T) * P >= m.lim && return 2
++  end
++  c * m.n1 >= m.lim ? 1 : 0
++end
++function _stale(m::LSModel, x)
++  st = _resolution_state(m, x)
++  m.unres = st == 2
++  st == 1
++end
++function _refresh!(m::LSModel{T}, x) where T
++  _fresh_residual!(m.r, m, x)
++  m.n1 = zero(T)
++  m
++end
++function _stop_check!(m::LSModel, g, x, st, maxh, scaled::Bool)
++  m.unres || return :converged
++  m.stalled = true
++  :uncertified
++end
++# The same for groups, with the curvature bound ℓ_g: ‖X_g x_g‖ ≤ √ℓ_g ‖x_g‖, and the first bound
++# Σ√(s ℓ_g)‖x_g‖ ≤ √(s max_g ℓ_g) √(number of active groups) ‖x‖.
++function _resolution_state(m::BlockLSModel{T}, x) where T
++  ls = m.ls
++  isfinite(ls.lim) || return 0
++  ℓs = m.ℓ
++  ℓsum = zero(T)
++  @inbounds @simd for k in eachindex(ℓs)
++    ℓsum += ifelse(isnan(ℓs[k]), zero(T), ℓs[k])
++  end
++  q = zero(T)
++  nz = 0
++  for k in activecoordinates(x)
++    for v in blockview(x, k)
++      q += v * v
++    end
++    nz += 1
++  end
++  g = sqrt(nz * q)                # Σ‖x_g‖ over the active groups is at most this
++  eps(T) * _curvature_scale(ls, ℓsum) * max(g, ls.n1) < ls.lim && return 0
++  ℓmax = zero(T)
++  @inbounds for k in eachindex(ℓs)
++    ℓs[k] > ℓmax && (ℓmax = ℓs[k])
++  end
++  c = eps(T) * _curvature_scale(ls, ℓmax)
++  if !(c * g < ls.lim)
++    P = zero(T)
++    for k in activecoordinates(x)
++      ℓ = m.ℓ[k]
++      (iszero(ℓ) || isnan(ℓ)) && continue
++      P += _curvature_scale(ls, ℓ) * norm(blockview(x, k))
++    end
++    eps(T) * P >= ls.lim && return 2
++  end
++  c * ls.n1 >= ls.lim ? 1 : 0
++end
++function _stale(m::BlockLSModel, x)
++  st = _resolution_state(m, x)
++  m.ls.unres = st == 2
++  st == 1
++end
++function _refresh!(m::BlockLSModel{T}, x) where T
++  _fresh_block_residual!(m.ls.r, m.ls, x)
++  m.ls.n1 = zero(T)
++  m
++end
++function _stop_check!(m::BlockLSModel, g, x, st, maxh, scaled::Bool)
++  m.ls.unres || return :converged
++  m.ls.stalled = true
++  :uncertified
++end
+diff -ru master/src/cd/models.jl S1024/src/cd/models.jl
+--- master/src/cd/models.jl	2026-11-17 22:33:28.000000000 -0800
++++ S1024/src/cd/models.jl	2026-11-18 02:30:28.924031217 -0800
+@@ -36,3 +36,9 @@
+   isfinite(change) || throw(ArgumentError("a coordinate step or its stopping scale is not finite"))
+   change
+ end
++
++# ---- prototype hooks (#378) ----
++const _ABSORB_FLOOR = 1024
++_arm!(m::CDModel, tol, scaled::Bool, sy) = m
++_stale(m::CDModel, x) = false
++_refresh!(m::CDModel, x) = m
+diff -ru master/src/cd/solver.jl S1024/src/cd/solver.jl
+--- master/src/cd/solver.jl	2026-11-17 22:33:28.000000000 -0800
++++ S1024/src/cd/solver.jl	2026-11-18 02:30:28.924201217 -0800
+@@ -302,6 +302,7 @@
+   sy = s.relative ? response_scale(m, x) : one(T)
+   scaled = s.relative && sy>0
+   u = scaled ? sy : one(T)
++  _arm!(m, T(s.tol)*u, scaled, sy)
+   T(s.tol)*u, scaled
+ end
+ # After each pass, the strict change test `maxh < tol` selects the next pass:
+@@ -333,6 +334,10 @@
+     st.passes, st.maxchange = pass, maxh
+     converged = maxh<tol
+     if full && converged
++      if _stale(m, x)
++        _refresh!(m, x)            # prototype: the next pass is a full pass from a recomputed residual
++        continue
++      end
+       status = _stop_check!(m, g, x, st, maxh, scaled)
+       if status === :retry
+         tol = st.tolerance
+@@ -381,6 +386,11 @@
+     st.passes, st.maxchange = pass, maxh
+     converged = maxh<tol
+     if full && converged
++      if _stale(m, x)
++        _refresh!(m, x)            # prototype: as in the plain loop
++        _momentum_reset!(mom, x, m)
++        continue
++      end
+       status = _stop_check!(m, g, x, st, maxh, scaled)
+       if status === :retry
+         tol = st.tolerance

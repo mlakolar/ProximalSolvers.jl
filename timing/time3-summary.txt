@@ -1,0 +1,37 @@
+evidence/time3-r-epyc/timing.txt: Julia 1.13.4 znver3, load average [0.28, 0.39, 4.86], floors
+  cases 260, control within 2%: 255; either build > 1.05: 4; both builds > 1.05: 0; both > 1.02: 19
+  mean of the two builds, median over cases (max): all 1.004 (1.045); cold 1.001 (1.026); warm 1.012 (1.045)
+    master < 1 us: 46 cases, median 1.022, max 1.045
+    1 to 10 us: 83 cases, median 1.009, max 1.041
+    >= 10 us: 131 cases, median 1.001, max 1.026
+  difference between the two builds: median 0.005, 90% 0.017, max 0.060; control: max |ratio - 1| 0.036
+  extra time on warm vector-penalty solves under 10 us: median 16 ns, 90% 31 ns
+  outcome differs from master: 0; allocation: +0 B, +16 B, +32 B, +48 B, +64 B
+evidence/time3-r-xeon/timing.txt: Julia 1.13.4 skylake-avx512, load average [0.28, 0.26, 1.72]
+  cases 260, control within 2%: 251; either build > 1.05: 0; both builds > 1.05: 0; both > 1.02: 45
+  mean of the two builds, median over cases (max): all 1.009 (1.048); cold 1.003 (1.040); warm 1.018 (1.048)
+    master < 1 us: 14 cases, median 1.036, max 1.048
+    1 to 10 us: 100 cases, median 1.018, max 1.039
+    >= 10 us: 146 cases, median 1.003, max 1.040
+  difference between the two builds: median 0.003, 90% 0.011, max 0.034; control: max |ratio - 1| 0.036
+  extra time on warm vector-penalty solves under 10 us: median 36 ns, 90% 58 ns
+  outcome differs from master: 0; allocation: +-16 B, +0 B, +16 B, +32 B, +48 B, +64 B
+evidence/time3-l-epyc/timing.txt: Julia 1.10.13 znver3, load average [0.28, 0.24, 1.39], floor
+  cases 260, control within 2%: 250; either build > 1.05: 2; both builds > 1.05: 0; both > 1.02: 20
+  mean of the two builds, median over cases (max): all 1.007 (1.039); cold 1.002 (1.031); warm 1.014 (1.039)
+    master < 1 us: 8 cases, median 1.023, max 1.036
+    1 to 10 us: 117 cases, median 1.014, max 1.039
+    >= 10 us: 135 cases, median 1.002, max 1.031
+  difference between the two builds: median 0.005, 90% 0.017, max 0.083; control: max |ratio - 1| 0.114
+  extra time on warm vector-penalty solves under 10 us: median 31 ns, 90% 50 ns
+  outcome differs from master: 0; allocation: +16 B, +32 B
+evidence/time3-l-xeon/timing.txt: Julia 1.10.13 skylake-avx512, load average [1.08, 0.44, 0.8]
+  cases 260, control within 2%: 260; either build > 1.05: 26; both builds > 1.05: 1; both > 1.02: 45
+  mean of the two builds, median over cases (max): all 1.008 (1.081); cold 1.002 (1.034); warm 1.022 (1.081)
+    1 to 10 us: 112 cases, median 1.023, max 1.081
+    >= 10 us: 148 cases, median 1.002, max 1.034
+  difference between the two builds: median 0.005, 90% 0.025, max 0.070; control: max |ratio - 1| 0.020
+  extra time on warm vector-penalty solves under 10 us: median 73 ns, 90% 141 ns
+  outcome differs from master: 0; allocation: +16 B, +32 B
+cases above 1.05 in both builds, by number of files: {1: 1}
+   d20x60_r0 Float32 enet 0.1 sparse random warm [('time3-l-xeon', '1.052', '1.057', '1.000', '5311')]

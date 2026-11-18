@@ -1,0 +1,154 @@
+diff -ru master/src/cd/leastsquares.jl A/src/cd/leastsquares.jl
+--- master/src/cd/leastsquares.jl	2026-11-17 22:33:28.000000000 -0800
++++ A/src/cd/leastsquares.jl	2026-11-18 00:51:06.034549287 -0800
+@@ -11,13 +11,21 @@
+   s::S
+   r::Vector{T}
+   a::Vector{T}
++  absorbed::T     # prototype: the largest absorbed-step ratio of the current full pass
++  thr::T          # prototype: the threshold of the solve, in the units of its change test
++  resp::T         # prototype: the response scale, when relative scaling is active
++  lim::T          # prototype: the limit max(tol, c eps(T)) √s‖y‖
++  lim2::T         # prototype: a coefficient with x² s a below this cannot hold a refusable absorbed step
++  scaled::Bool
++  stalled::Bool   # prototype: the stop was refused
++  rf::Vector{T}   # prototype: scratch for a fresh residual; it is `r` itself until one is needed
+ end
+ function _scale_type(::Type{T}, α) where T
+   S = promote_type(T, typeof(α))
+   isconcretetype(S) && S <: AbstractFloat ? S : T
+ end
+ LSModel(y::AbstractVector{T}, X::AbstractMatrix{T}, α::Real) where T =
+-  LSModel(X, y, convert(_scale_type(T, α), α), zeros(T, length(y)), fill(T(NaN), size(X, 2)))
++  (r = zeros(T, length(y)); LSModel(X, y, convert(_scale_type(T, α), α), r, fill(T(NaN), size(X, 2)), zero(T), zero(T), zero(T), T(Inf), T(Inf), false, false, r))
+ function cdmodel(f::Union{LeastSquaresLoss{T, <:AbstractVector}, Scaled{<:LeastSquaresLoss{T, <:AbstractVector}}}, x) where T
+   d = leastsquares_data(f)
+   LSModel(d.Y, d.X, d.α)
+@@ -96,7 +104,10 @@
+   new = iszero(a) ? _coordinate_minimizer(g, old, k) : _scaled_prox(m, g, old + b / a, k, a)
+   m.a[k] = a
+   h = new - old
+-  iszero(h) && return h      # x and the residuals do not change
++  if iszero(h)               # x and the residuals do not change
++    iszero(old) || !_absorbable(m, old, a) || _note_absorbed!(m, g, old, b, a)
++    return h
++  end
+   x[k] = new
+   _residual_axpy!(m, k, h)
+   h
+@@ -616,10 +627,83 @@
+     old[i] = d
+     iszero(d) || (moved = true)
+   end
+-  moved || return zero(T)
++  if !moved
++    zeroblock || !_absorbable(ls, norm(u), ℓ) || _note_absorbed_block!(m, g, k, mk, ℓ)
++    return zero(T)
++  end
+   copyto!(blockview(x, k), u)
+   for i in 1:mk
+     iszero(old[i]) || _residual_axpy!(ls, Int(idx[i]), old[i])
+   end
+   norm(old)
+ end
++
++# ---- prototype (#378) ----
++_l1l2(g::NormL1, ::Type{T}) where T = (T(g.λ0), zero(T))
++_l1l2(g::ElasticNet, ::Type{T}) where T = (T(g.λ1), T(g.λ2))
++# Called from `_tolerances` with the threshold and the response scale it computed. A visit whose computed
++# displacement is 0 has an unrounded step of at most about eps(T)|x_k| + eps(T) τ_k, so a coefficient with
++# eps(T) √(s a_k)|x_k| below half the limit max(tol, c eps(T)) √s‖y‖ cannot be refused: `lim2` is the
++# square of that bound on √(s a_k)|x_k|, compared without a square root (Inf when the check is off).
++function _arm!(m::LSModel{T}, tol, scaled::Bool, sy) where T
++  m.thr, m.scaled, m.stalled, m.absorbed = tol, scaled, false, zero(T)
++  m.resp = scaled ? T(sy) : zero(T)
++  m.lim = scaled ? max(tol, _ABSORB_FLOOR * eps(T) * m.resp) : T(Inf)
++  m.lim2 = scaled ? abs2(m.lim / (2 * eps(T))) : T(Inf)
++  m
++end
++_arm!(m::BlockLSModel, tol, scaled::Bool, sy) = (_arm!(m.ls, tol, scaled, sy); m)
++@inline _absorbable(m::LSModel, old, a) = abs2(old) * (m.s * a) >= m.lim2
++_pass_reset!(m::LSModel{T}) where T = (m.absorbed = zero(T); m)
++_pass_reset!(m::BlockLSModel) = (_pass_reset!(m.ls); m)
++_uncertified(m::LSModel) = m.stalled
++_uncertified(m::BlockLSModel) = m.ls.stalled
++# The step of a visit without the rounding of old + b/a, for a nonzero coefficient that keeps its sign.
++@inline function _unrounded_signed(old::T, b::T, a::T, p::T, l1::T, l2::T) where T
++  ρ = l2 / p
++  (b / a - (l1 / p) * sign(old) - ρ * old) / (one(T) + ρ)
++end
++@inline _unrounded(old::T, b::T, a::T, p::T, l1::T, l2::T) where T = abs(_unrounded_signed(old, b, a, p, l1, l2))
++
++# A visit whose computed displacement is 0 at a nonzero coefficient: record the unrounded step over its
++# unit max(√s‖y‖, λ1/√(s a)) when it is at or above the threshold.
++@noinline function _note_absorbed!(m::LSModel{T}, g, old::T, b::T, a::T) where T
++  m.scaled || return nothing
++  l1, l2 = _l1l2(g, T)
++  sc = _curvature_scale(m, a)
++  v = _unrounded(old, b, a, T(m.s * a), l1, l2) * sc
++  v >= m.thr || return nothing
++  q = v / max(m.resp, l1 / sc)
++  q > m.absorbed && (m.absorbed = q)
++  nothing
++end
++@noinline function _note_absorbed_block!(m::BlockLSModel{T}, g::GroupNormL2, k::Int, mk::Int, ℓ::T) where T
++  ls = m.ls
++  ls.scaled || return nothing
++  λw = T(g.λ0) * T(g.w[k])
++  c = λw / T(ls.s * ℓ)
++  nv = zero(T)
++  for i in 1:mk                      # m.u holds the block (its displacement is zero), m.b the correlations
++    v = m.u[i] + m.b[i] / ℓ
++    m.old[i] = v
++    nv += v * v
++  end
++  nv = sqrt(nv)
++  d = zero(T)
++  for i in 1:mk
++    di = nv > c ? m.b[i] / ℓ - (c / nv) * m.old[i] : -m.u[i]
++    d += di * di
++  end
++  sc = _curvature_scale(ls, ℓ)
++  v = sqrt(d) * sc
++  v >= ls.thr || return nothing
++  q = v / max(ls.resp, λw / sc)
++  q > ls.absorbed && (ls.absorbed = q)
++  nothing
++end
++function _stop_check!(m::LSModel{T}, g, x, st, maxh, scaled::Bool) where T
++  m.absorbed >= _ABSORB_FLOOR * eps(T) || return :converged
++  m.stalled = true
++  :uncertified
++end
++_stop_check!(m::BlockLSModel, g, x, st, maxh, scaled::Bool) = _stop_check!(m.ls, g, x, st, maxh, scaled)
+diff -ru master/src/cd/models.jl A/src/cd/models.jl
+--- master/src/cd/models.jl	2026-11-17 22:33:28.000000000 -0800
++++ A/src/cd/models.jl	2026-11-18 00:51:06.034022921 -0800
+@@ -36,3 +36,8 @@
+   isfinite(change) || throw(ArgumentError("a coordinate step or its stopping scale is not finite"))
+   change
+ end
++
++# ---- prototype hooks (#378) ----
++const _ABSORB_FLOOR = 64
++_arm!(m::CDModel, tol, scaled::Bool, sy) = m
++_pass_reset!(m::CDModel) = m
+diff -ru master/src/cd/solver.jl A/src/cd/solver.jl
+--- master/src/cd/solver.jl	2026-11-17 22:33:28.000000000 -0800
++++ A/src/cd/solver.jl	2026-11-18 00:51:06.034195208 -0800
+@@ -260,6 +260,7 @@
+ # one pass over the candidate coordinates (full) or the active ones; returns the
+ # largest change of a coordinate, scaled if `scaled`
+ function _pass!(x, m, g, st::_CDState{T}, full::Bool, scaled::Bool) where {T}
++  full && _pass_reset!(m)
+   maxh = if full
+     _sweep!(x, m, g, st, scaled, Base.OneTo(ncoordinates(x)))
+   else
+@@ -302,6 +303,7 @@
+   sy = s.relative ? response_scale(m, x) : one(T)
+   scaled = s.relative && sy>0
+   u = scaled ? sy : one(T)
++  _arm!(m, T(s.tol)*u, scaled, sy)
+   T(s.tol)*u, scaled
+ end
+ # After each pass, the strict change test `maxh < tol` selects the next pass:

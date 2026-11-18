@@ -1,0 +1,28 @@
+== evidence/time-l-xeon/timing.txt: Julia 1.10.13 skylake-avx512, load average [3.34, 9.42, 12.05], floors: A=64 R=256 F=64
+   260 cases; load average [1.0, 2.16, 6.8]
+   subset          cases  control: median, max, >1.05, >1.02 (control quiet)  A: median, max, >1.05, >1.02 (control quiet)        R: median, max, >1.05, >1.02 (control quiet)        F: median, max, >1.05, >1.02 (control quiet)        
+   all             260    1.000, 1.019, 0, 0 (260)                            1.005, 1.068, 3, 31 (260)                           1.010, 1.060, 2, 66 (260)                           1.013, 1.056, 3, 90 (260)                           
+   1 to 10 us      112    1.001, 1.019, 0, 0 (112)                            1.012, 1.068, 3, 31 (112)                           1.022, 1.060, 2, 64 (112)                           1.028, 1.056, 3, 82 (112)                           
+   10 to 1000 us   136    1.000, 1.018, 0, 0 (136)                            0.998, 1.015, 0, 0 (136)                            1.005, 1.021, 0, 2 (136)                            1.006, 1.032, 0, 8 (136)                            
+   >= 1 ms         12     1.000, 1.004, 0, 0 (12)                             1.001, 1.011, 0, 0 (12)                             1.001, 1.006, 0, 0 (12)                             1.003, 1.016, 0, 0 (12)                             
+   cold            132    1.000, 1.008, 0, 0 (132)                            0.998, 1.019, 0, 0 (132)                            1.005, 1.022, 0, 2 (132)                            1.006, 1.031, 0, 7 (132)                            
+   warm            128    1.001, 1.019, 0, 0 (128)                            1.010, 1.068, 3, 31 (128)                           1.020, 1.060, 2, 64 (128)                           1.026, 1.056, 3, 83 (128)                           
+   Float32         130    1.000, 1.019, 0, 0 (130)                            1.005, 1.068, 3, 30 (130)                           1.010, 1.060, 2, 27 (130)                           1.012, 1.056, 3, 45 (130)                           
+   Float64         130    1.001, 1.018, 0, 0 (130)                            1.004, 1.021, 0, 1 (130)                            1.010, 1.042, 0, 39 (130)                           1.014, 1.046, 0, 45 (130)                           
+   groups          36     1.000, 1.018, 0, 0 (36)                             1.003, 1.012, 0, 0 (36)                             1.003, 1.021, 0, 1 (36)                             1.011, 1.032, 0, 8 (36)                             
+   worst A: 1.068 (max 1.080; control 1.011) d40x12_r0 Float32 l1 0.1 sparse cyclic warm passes 1 master 1431 ns; outcome same; alloc 1520 -> 1552
+   worst A: 1.054 (max 1.057; control 0.999) d40x12_r95 Float32 l1 0.1 sparse cyclic warm passes 1 master 1367 ns; outcome same; alloc 1520 -> 1552
+   worst A: 1.051 (max 1.069; control 0.993) d40x12_r0 Float32 l1 0.1 dense cyclic warm passes 1 master 1375 ns; outcome same; alloc 1520 -> 1552
+   worst A: 1.043 (max 1.046; control 0.989) d40x12_r95 Float32 l1 0.1 dense cyclic warm passes 1 master 1286 ns; outcome same; alloc 1520 -> 1552
+   worst A: 1.042 (max 1.057; control 0.998) d40x12_r0 Float32 l1 0.1 sparse random warm passes 1 master 1747 ns; outcome same; alloc 2160 -> 2192
+   worst R: 1.060 (max 1.073; control 1.011) d40x12_r0 Float32 l1 0.1 sparse cyclic warm passes 1 master 1431 ns; outcome same; alloc 1520 -> 1552
+   worst R: 1.051 (max 1.057; control 1.006) d40x12_r0 Float32 l1 0.01 sparse cyclic warm passes 1 master 1697 ns; outcome same; alloc 1520 -> 1552
+   worst R: 1.043 (max 1.054; control 0.999) d40x12_r95 Float32 l1 0.1 sparse cyclic warm passes 1 master 1367 ns; outcome same; alloc 1520 -> 1552
+   worst R: 1.042 (max 1.046; control 1.001) d20x60_r0 Float64 enet 0.1 sparse cyclic warm passes 1 master 3947 ns; outcome same; alloc 3200 -> 3264
+   worst R: 1.037 (max 1.040; control 0.997) d40x12_r0 Float64 enet 0.1 dense cyclic warm passes 1 master 1772 ns; outcome same; alloc 1840 -> 1904
+   worst F: 1.056 (max 1.064; control 1.017) d40x12_r95 Float32 enet 0.1 sparse random warm passes 1 master 1860 ns; outcome same; alloc 2176 -> 2208
+   worst F: 1.055 (max 1.071; control 1.011) d40x12_r0 Float32 l1 0.1 sparse cyclic warm passes 1 master 1431 ns; outcome same; alloc 1520 -> 1552
+   worst F: 1.053 (max 1.060; control 1.006) d40x12_r0 Float32 l1 0.01 sparse cyclic warm passes 1 master 1697 ns; outcome same; alloc 1520 -> 1552
+   worst F: 1.050 (max 1.066; control 0.999) d40x12_r0 Float32 l1 0.01 dense cyclic warm passes 1 master 1627 ns; outcome same; alloc 1520 -> 1552
+   worst F: 1.046 (max 1.050; control 1.017) d40x12_r0 Float64 l1 0.01 dense cyclic warm passes 1 master 1780 ns; outcome same; alloc 1824 -> 1888
+   outcomes differing from master: 2 [('d200x1000_r50', 'Float32', 'F', 'passes=2176,converged=true'), ('d200x1000_r50', 'Float32', 'F', 'passes=428,converged=true')]; allocation differing: 780 [('d40x12_r0', 'Float64', 'cold', 'A', '1824', '1888'), ('d40x12_r0', 'Float64', 'cold', 'R', '1824', '1888'), ('d40x12_r0', 'Float64', 'cold', 'F', '1824', '1888'), ('d40x12_r0', 'Float64', 'cold', 'A', '1824', '1888')]

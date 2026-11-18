@@ -1,0 +1,24 @@
+== evidence/time2-r-epyc/timing.txt: Julia 1.13.4 znver3, load average [0.26, 4.07, 12.92], floors: S256=256 S1024=1024
+   260 cases; load average [1.0, 1.59, 8.05]
+   subset          cases  control: median, max, >1.05, >1.02 (control quiet)  S256: median, max, >1.05, >1.02 (control quiet)     S1024: median, max, >1.05, >1.02 (control quiet)    
+   all             260    1.001, 1.058, 0, 0 (232)                            1.005, 1.054, 1, 33 (232)                           1.005, 1.044, 0, 27 (232)                           
+   master < 1 us   46     1.013, 1.058, 0, 0 (27)                             1.021, 1.054, 1, 13 (27)                            1.024, 1.044, 0, 13 (27)                            
+   1 to 10 us      83     1.001, 1.051, 0, 0 (75)                             1.010, 1.048, 0, 20 (75)                            1.011, 1.044, 0, 14 (75)                            
+   10 to 1000 us   122    0.999, 1.015, 0, 0 (121)                            0.999, 1.015, 0, 0 (121)                            1.000, 1.015, 0, 0 (121)                            
+   >= 1 ms         9      1.003, 1.010, 0, 0 (9)                              1.001, 1.009, 0, 0 (9)                              1.000, 1.007, 0, 0 (9)                              
+   cold            132    0.999, 1.018, 0, 0 (130)                            0.999, 1.038, 0, 1 (130)                            0.999, 1.015, 0, 0 (130)                            
+   warm            128    1.002, 1.058, 0, 0 (102)                            1.015, 1.054, 1, 32 (102)                           1.018, 1.044, 0, 27 (102)                           
+   Float32         130    0.998, 1.051, 0, 0 (117)                            1.005, 1.054, 1, 20 (117)                           1.004, 1.044, 0, 13 (117)                           
+   Float64         130    1.003, 1.058, 0, 0 (115)                            1.004, 1.050, 0, 13 (115)                           1.005, 1.044, 0, 14 (115)                           
+   groups          36     1.003, 1.015, 0, 0 (36)                             0.999, 1.011, 0, 0 (36)                             1.002, 1.009, 0, 0 (36)                             
+   worst S256: 1.054 (max 1.056; control 1.047) d40x12_r0 Float32 enet 0.1 dense random warm passes 1 master 726 ns; outcome same; alloc 2096 -> 2112
+   worst S256: 1.054 (max 1.057; control 0.998) d40x12_r0 Float32 l1 0.1 sparse cyclic warm passes 1 master 514 ns; outcome same; alloc 1328 -> 1344
+   worst S256: 1.051 (max 1.054; control 1.047) d40x12_r95 Float32 enet 0.1 dense random warm passes 1 master 719 ns; outcome same; alloc 2096 -> 2112
+   worst S256: 1.050 (max 1.052; control 1.013) d40x12_r95 Float64 l1 0.1 dense cyclic warm passes 1 master 552 ns; outcome same; alloc 1632 -> 1664
+   worst S256: 1.048 (max 1.052; control 0.999) d40x12_r95 Float32 l1 0.1 sparse cyclic warm passes 1 master 489 ns; outcome same; alloc 1328 -> 1344
+   worst S1024: 1.044 (max 1.048; control 1.025) d20x60_r0 Float64 l1 0.1 dense cyclic warm passes 1 master 1356 ns; outcome same; alloc 3120 -> 3152
+   worst S1024: 1.044 (max 1.049; control 0.998) d40x12_r0 Float32 l1 0.1 sparse cyclic warm passes 1 master 514 ns; outcome same; alloc 1328 -> 1344
+   worst S1024: 1.043 (max 1.046; control 1.047) d40x12_r95 Float32 enet 0.1 dense random warm passes 1 master 719 ns; outcome same; alloc 2096 -> 2112
+   worst S1024: 1.042 (max 1.044; control 0.999) d40x12_r95 Float32 l1 0.1 sparse cyclic warm passes 1 master 489 ns; outcome same; alloc 1328 -> 1344
+   worst S1024: 1.040 (max 1.046; control 1.009) d40x12_r0 Float32 enet 0.1 sparse cyclic warm passes 1 master 607 ns; outcome same; alloc 1344 -> 1360
+   outcomes differing from master: 0 []; allocation differing: 519 [('d40x12_r0', 'Float64', 'cold', 'S256', '1632', '1664'), ('d40x12_r0', 'Float64', 'cold', 'S1024', '1632', '1664'), ('d40x12_r0', 'Float64', 'cold', 'S256', '1632', '1664'), ('d40x12_r0', 'Float64', 'cold', 'S1024', '1632', '1664')]

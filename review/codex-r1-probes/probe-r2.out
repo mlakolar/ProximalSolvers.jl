@@ -1,0 +1,8 @@
+(label = "exact group optimum with explicit unit weight", T = Float32, name = "master", converged = true, passes = 1, x = Float32[0.0, 1.048576f6], kkt = 0.0)
+(label = "exact group optimum with explicit unit weight", T = Float32, name = "S1024", converged = false, passes = 1, x = Float32[0.0, 1.048576f6], kkt = 0.0)
+(label = "exact group optimum with explicit unit weight", T = Float64, name = "master", converged = true, passes = 1, x = [0.0, 1.099511627776e12], kkt = 0.0)
+(label = "exact group optimum with explicit unit weight", T = Float64, name = "S1024", converged = false, passes = 1, x = [0.0, 1.099511627776e12], kkt = 0.0)
+(label = "group bound squares underflow", T = Float32, name = "master", converged = true, passes = 1, x = Float32[7.888609f-31, -7.888609f-31], rho_over_L = 2.097152e6, kkt_rel = 1.0, reported = 0.0f0, true_loss = 3.587324068671532e-43)
+(label = "group bound squares underflow", T = Float32, name = "S1024", converged = true, passes = 1, x = Float32[7.888609f-31, -7.888609f-31], rho_over_L = 2.097152e6, kkt_rel = 1.0, reported = 0.0f0, true_loss = 3.587324068671532e-43)
+(label = "group bound squares underflow", T = Float64, name = "master", converged = true, passes = 1, x = [2.409919865102884e-181, -2.409919865102884e-181], rho_over_L = 5.12e9, kkt_rel = 1.0, reported = 0.0, true_loss = 9.065110999561118e-218)
+(label = "group bound squares underflow", T = Float64, name = "S1024", converged = true, passes = 1, x = [2.409919865102884e-181, -2.409919865102884e-181], rho_over_L = 5.12e9, kkt_rel = 1.0, reported = 0.0, true_loss = 9.065110999561118e-218)

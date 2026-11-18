@@ -1,0 +1,419 @@
+# proto-r: 3648464 rows, 912116 inputs, 912116 with all of ['master', 'A', 'R', 'F']; errors: none
+# scalar, converged above target: E>p and KKT>10x ordinary 217314; E>p only 4014; KKT>10x only 25347; neither 188919
+
+P1. Outcomes by module (all inputs)
+family	T	starts	module	solves	converged	within	undecided	above	above and E>p thr (scalar)	above and KKT > 10x ordinary	stopped unconverged before the cap	of those: within	undecided	above	pass cap reached	passes, total
+group	Float32	adversarial	master	135168	89896	39270	5496	45130	0	40180	0	0	0	0	45272	289476102
+group	Float32	adversarial	A	135168	82862	39270	2354	41238	0	36292	7034	0	3142	3892	45272	289476102
+group	Float32	adversarial	R	135168	23752	20024	1090	2638	0	186	66143	19246	4406	42491	45273	289476102
+group	Float32	adversarial	F	135168	79956	71306	1434	7216	0	304	354	0	4	350	54858	332339827
+group	Float32	ordinary	master	8064	7762	6290	674	798	0	0	0	0	0	0	302	42742584
+group	Float32	ordinary	A	8064	7762	6290	674	798	0	0	0	0	0	0	302	42742584
+group	Float32	ordinary	R	8064	7760	6290	672	798	0	0	2	0	2	0	302	42742584
+group	Float32	ordinary	F	8064	7741	6280	663	798	0	0	0	0	0	0	323	43641601
+group	Float64	adversarial	master	146432	84600	27594	6864	50142	0	29954	0	0	0	0	61832	366352162
+group	Float64	adversarial	A	146432	78338	27594	4236	46508	0	26320	6262	0	2628	3634	61832	366352162
+group	Float64	adversarial	R	146432	42126	21266	2994	17866	0	106	42472	6326	3870	32276	61834	366352162
+group	Float64	adversarial	F	146432	77614	45108	3982	28524	0	226	48	0	6	42	68770	397540574
+group	Float64	ordinary	master	8064	7830	5096	688	2046	0	0	0	0	0	0	234	39127832
+group	Float64	ordinary	A	8064	7830	5096	688	2046	0	0	0	0	0	0	234	39127832
+group	Float64	ordinary	R	8064	7830	5096	688	2046	0	0	0	0	0	0	234	39127832
+group	Float64	ordinary	F	8064	7830	5096	688	2046	0	0	0	0	0	0	234	39127832
+scalar	Float32	adversarial	master	273456	229368	152066	6842	70460	60808	64953	0	0	0	0	44088	286521544
+scalar	Float32	adversarial	A	273456	222946	152066	3822	67058	57406	62293	6422	0	3020	3402	44088	286521544
+scalar	Float32	adversarial	R	273456	114535	109595	2018	2922	22	186	114832	42471	4824	67537	44089	286521544
+scalar	Float32	adversarial	F	273456	221042	213887	2392	4763	0	271	242	0	0	242	52172	328584585
+scalar	Float32	ordinary	master	22344	22137	20319	830	988	63	0	0	0	0	0	207	36281429
+scalar	Float32	ordinary	A	22344	22113	20319	830	964	39	0	24	0	0	24	207	36281429
+scalar	Float32	ordinary	R	22344	21997	20255	820	922	0	0	140	64	10	66	207	36281429
+scalar	Float32	ordinary	F	22344	22081	20355	802	924	0	0	8	0	0	8	255	41561593
+scalar	Float64	adversarial	master	296244	237774	131563	8576	97635	53120	58558	0	0	0	0	58470	370671851
+scalar	Float64	adversarial	A	296244	231868	131563	6022	94283	49770	55726	5906	0	2554	3352	58470	370671851
+scalar	Float64	adversarial	R	296244	154038	115154	4668	34216	0	270	83736	16409	3908	63419	58470	370671851
+scalar	Float64	adversarial	F	296244	230897	180984	5526	44387	0	404	230	0	0	230	65117	403127696
+scalar	Float64	ordinary	master	22344	22160	17226	879	4055	62	0	0	0	0	0	184	34173058
+scalar	Float64	ordinary	A	22344	22136	17226	879	4031	38	0	24	0	0	24	184	34173058
+scalar	Float64	ordinary	R	22344	22096	17226	879	3991	0	0	64	0	0	64	184	34173058
+scalar	Float64	ordinary	F	22344	22136	17262	879	3995	0	0	12	0	0	12	196	35378023
+
+P2. Each prototype against master on the same input
+family	T	starts	master	module	inputs	identical outcome (flag, passes, last change, KKT)	converged: within	undecided	above	stopped unconverged before the cap	pass cap	more passes	fewer passes	passes master	passes module
+group	Float32	adversarial	master converged, above target	A	45130	41238	0	0	41238	3892	0	0	0	37224286	37224286
+group	Float32	adversarial	master converged, above target	R	45130	2638	0	0	2638	42491	1	0	0	37224286	37224286
+group	Float32	adversarial	master converged, above target	F	45130	1940	32345	0	7216	350	5219	43189	0	37224286	59857549
+group	Float32	adversarial	master converged, not above target	A	44766	41624	39270	2354	0	3142	0	0	0	25891816	25891816
+group	Float32	adversarial	master converged, not above target	R	44766	21114	20024	1090	0	23652	0	0	0	25891816	25891816
+group	Float32	adversarial	master converged, not above target	F	44766	12294	38961	1434	0	4	4367	32472	0	25891816	46122278
+group	Float32	adversarial	master not converged	A	45272	45272	0	0	0	0	45272	0	0	226360000	226360000
+group	Float32	adversarial	master not converged	R	45272	45272	0	0	0	0	45272	0	0	226360000	226360000
+group	Float32	adversarial	master not converged	F	45272	45272	0	0	0	0	45272	0	0	226360000	226360000
+group	Float32	ordinary	master converged, above target	A	798	798	0	0	798	0	0	0	0	3611698	3611698
+group	Float32	ordinary	master converged, above target	R	798	798	0	0	798	0	0	0	0	3611698	3611698
+group	Float32	ordinary	master converged, above target	F	798	794	0	0	798	0	0	4	0	3611698	3612084
+group	Float32	ordinary	master converged, not above target	A	6964	6964	6290	674	0	0	0	0	0	8930886	8930886
+group	Float32	ordinary	master converged, not above target	R	6964	6962	6290	672	0	2	0	0	0	8930886	8930886
+group	Float32	ordinary	master converged, not above target	F	6964	6819	6280	663	0	0	21	145	0	8930886	9829517
+group	Float32	ordinary	master not converged	A	302	302	0	0	0	0	302	0	0	30200000	30200000
+group	Float32	ordinary	master not converged	R	302	302	0	0	0	0	302	0	0	30200000	30200000
+group	Float32	ordinary	master not converged	F	302	302	0	0	0	0	302	0	0	30200000	30200000
+group	Float64	adversarial	master converged, above target	A	50142	46508	0	0	46508	3634	0	0	0	35504304	35504304
+group	Float64	adversarial	master converged, above target	R	50142	17866	0	0	17866	32276	0	0	0	35504304	35504304
+group	Float64	adversarial	master converged, above target	F	50142	16302	17528	0	28524	42	4048	33840	0	35504304	53857636
+group	Float64	adversarial	master converged, not above target	A	34458	31830	27594	4236	0	2628	0	0	0	21687858	21687858
+group	Float64	adversarial	master converged, not above target	R	34458	24260	21266	2994	0	10196	2	0	0	21687858	21687858
+group	Float64	adversarial	master converged, not above target	F	34458	21732	27580	3982	0	6	2890	12724	0	21687858	34522938
+group	Float64	adversarial	master not converged	A	61832	61832	0	0	0	0	61832	0	0	309160000	309160000
+group	Float64	adversarial	master not converged	R	61832	61832	0	0	0	0	61832	0	0	309160000	309160000
+group	Float64	adversarial	master not converged	F	61832	61832	0	0	0	0	61832	0	0	309160000	309160000
+group	Float64	ordinary	master converged, above target	A	2046	2046	0	0	2046	0	0	0	0	5498756	5498756
+group	Float64	ordinary	master converged, above target	R	2046	2046	0	0	2046	0	0	0	0	5498756	5498756
+group	Float64	ordinary	master converged, above target	F	2046	2046	0	0	2046	0	0	0	0	5498756	5498756
+group	Float64	ordinary	master converged, not above target	A	5784	5784	5096	688	0	0	0	0	0	10229076	10229076
+group	Float64	ordinary	master converged, not above target	R	5784	5784	5096	688	0	0	0	0	0	10229076	10229076
+group	Float64	ordinary	master converged, not above target	F	5784	5784	5096	688	0	0	0	0	0	10229076	10229076
+group	Float64	ordinary	master not converged	A	234	234	0	0	0	0	234	0	0	23400000	23400000
+group	Float64	ordinary	master not converged	R	234	234	0	0	0	0	234	0	0	23400000	23400000
+group	Float64	ordinary	master not converged	F	234	234	0	0	0	0	234	0	0	23400000	23400000
+scalar	Float32	adversarial	master converged, above target	A	70460	67058	0	0	67058	3402	0	0	0	30286816	30286816
+scalar	Float32	adversarial	master converged, above target	R	70460	2922	0	0	2922	67537	1	0	0	30286816	30286816
+scalar	Float32	adversarial	master converged, above target	F	70460	1529	61879	0	4763	242	3576	68930	0	30286816	49800993
+scalar	Float32	adversarial	master converged, not above target	A	158908	155888	152066	3822	0	3020	0	0	0	35794728	35794728
+scalar	Float32	adversarial	master converged, not above target	R	158908	111613	109595	2018	0	47295	0	0	0	35794728	35794728
+scalar	Float32	adversarial	master converged, not above target	F	158908	29597	152008	2392	0	0	4508	129311	0	35794728	58343592
+scalar	Float32	adversarial	master not converged	A	44088	44088	0	0	0	0	44088	0	0	220440000	220440000
+scalar	Float32	adversarial	master not converged	R	44088	44088	0	0	0	0	44088	0	0	220440000	220440000
+scalar	Float32	adversarial	master not converged	F	44088	44088	0	0	0	0	44088	0	0	220440000	220440000
+scalar	Float32	ordinary	master converged, above target	A	988	964	0	0	964	24	0	0	0	3716191	3716191
+scalar	Float32	ordinary	master converged, above target	R	988	922	0	0	922	66	0	0	0	3716191	3716191
+scalar	Float32	ordinary	master converged, above target	F	988	882	40	0	924	8	16	106	0	3716191	5400723
+scalar	Float32	ordinary	master converged, not above target	A	21149	21149	20319	830	0	0	0	0	0	12025238	12025238
+scalar	Float32	ordinary	master converged, not above target	R	21149	21075	20255	820	0	74	0	0	0	12025238	12025238
+scalar	Float32	ordinary	master converged, not above target	F	21149	20010	20315	802	0	0	32	1139	0	12025238	15620870
+scalar	Float32	ordinary	master not converged	A	207	207	0	0	0	0	207	0	0	20540000	20540000
+scalar	Float32	ordinary	master not converged	R	207	207	0	0	0	0	207	0	0	20540000	20540000
+scalar	Float32	ordinary	master not converged	F	207	207	0	0	0	0	207	0	0	20540000	20540000
+scalar	Float64	adversarial	master converged, above target	A	97635	94283	0	0	94283	3352	0	0	0	47847672	47847672
+scalar	Float64	adversarial	master converged, above target	R	97635	34216	0	0	34216	63419	0	0	0	47847672	47847672
+scalar	Float64	adversarial	master converged, above target	F	97635	23636	49443	0	44387	230	3575	73999	0	47847672	65630892
+scalar	Float64	adversarial	master converged, not above target	A	140139	137585	131563	6022	0	2554	0	0	0	30474179	30474179
+scalar	Float64	adversarial	master converged, not above target	R	140139	119822	115154	4668	0	20317	0	0	0	30474179	30474179
+scalar	Float64	adversarial	master converged, not above target	F	140139	72000	131541	5526	0	0	3072	68139	0	30474179	45146804
+scalar	Float64	adversarial	master not converged	A	58470	58470	0	0	0	0	58470	0	0	292350000	292350000
+scalar	Float64	adversarial	master not converged	R	58470	58470	0	0	0	0	58470	0	0	292350000	292350000
+scalar	Float64	adversarial	master not converged	F	58470	58470	0	0	0	0	58470	0	0	292350000	292350000
+scalar	Float64	ordinary	master converged, above target	A	4055	4031	0	0	4031	24	0	0	0	5746697	5746697
+scalar	Float64	ordinary	master converged, above target	R	4055	3991	0	0	3991	64	0	0	0	5746697	5746697
+scalar	Float64	ordinary	master converged, above target	F	4055	3989	36	0	3995	12	12	66	0	5746697	6951644
+scalar	Float64	ordinary	master converged, not above target	A	18105	18105	17226	879	0	0	0	0	0	10186361	10186361
+scalar	Float64	ordinary	master converged, not above target	R	18105	18105	17226	879	0	0	0	0	0	10186361	10186361
+scalar	Float64	ordinary	master converged, not above target	F	18105	18087	17226	879	0	0	0	18	0	10186361	10186379
+scalar	Float64	ordinary	master not converged	A	184	184	0	0	0	0	184	0	0	18240000	18240000
+scalar	Float64	ordinary	master not converged	R	184	184	0	0	0	0	184	0	0	18240000	18240000
+scalar	Float64	ordinary	master not converged	F	184	184	0	0	0	0	184	0	0	18240000	18240000
+
+P3. Must-keep inputs: ordinary start, positive penalty, master converged and not above target
+family	T	designs	tol	module	inputs	no longer converged	identical outcome	more passes	largest increase in passes	passes master	passes module
+group	Float32	fixtures	0.0001	A	592	0	592	0	0	27008	27008
+group	Float32	fixtures	0.0001	R	592	0	592	0	0	27008	27008
+group	Float32	fixtures	0.0001	F	592	0	592	0	0	27008	27008
+group	Float32	fixtures	1e-07	A	640	0	640	0	0	753233	753233
+group	Float32	fixtures	1e-07	R	640	0	640	0	0	753233	753233
+group	Float32	fixtures	1e-07	F	640	0	640	0	0	753233	753233
+group	Float32	generated	0.0001	A	2030	0	2030	0	0	95263	95263
+group	Float32	generated	0.0001	R	2030	0	2030	0	0	95263	95263
+group	Float32	generated	0.0001	F	2030	0	2030	0	0	95263	95263
+group	Float32	generated	1e-07	A	2234	0	2234	0	0	5020208	5020208
+group	Float32	generated	1e-07	R	2234	2	2232	0	0	5020208	5020208
+group	Float32	generated	1e-07	F	2234	11	2183	51	95951	5020208	5513321
+group	Float64	fixtures	0.0001	A	400	0	400	0	0	1806	1806
+group	Float64	fixtures	0.0001	R	400	0	400	0	0	1806	1806
+group	Float64	fixtures	0.0001	F	400	0	400	0	0	1806	1806
+group	Float64	fixtures	1e-07	A	624	0	624	0	0	458556	458556
+group	Float64	fixtures	1e-07	R	624	0	624	0	0	458556	458556
+group	Float64	fixtures	1e-07	F	624	0	624	0	0	458556	458556
+group	Float64	generated	0.0001	A	1208	0	1208	0	0	23364	23364
+group	Float64	generated	0.0001	R	1208	0	1208	0	0	23364	23364
+group	Float64	generated	0.0001	F	1208	0	1208	0	0	23364	23364
+group	Float64	generated	1e-07	A	2216	0	2216	0	0	4897006	4897006
+group	Float64	generated	1e-07	R	2216	0	2216	0	0	4897006	4897006
+group	Float64	generated	1e-07	F	2216	0	2216	0	0	4897006	4897006
+scalar	Float32	fixtures	0.0001	A	1976	0	1976	0	0	48422	48422
+scalar	Float32	fixtures	0.0001	R	1976	0	1976	0	0	48422	48422
+scalar	Float32	fixtures	0.0001	F	1976	0	1966	10	1	48422	48432
+scalar	Float32	fixtures	1e-07	A	2002	0	2002	0	0	146295	146295
+scalar	Float32	fixtures	1e-07	R	2002	0	2002	0	0	146295	146295
+scalar	Float32	fixtures	1e-07	F	2002	0	1990	12	10	146295	146324
+scalar	Float32	generated	0.0001	A	7366	0	7366	0	0	409120	409120
+scalar	Float32	generated	0.0001	R	7366	2	7364	0	0	409120	409120
+scalar	Float32	generated	0.0001	F	7366	0	7190	176	38	409120	409380
+scalar	Float32	generated	1e-07	A	7842	0	7842	0	0	8873930	8873930
+scalar	Float32	generated	1e-07	R	7842	60	7782	0	0	8873930	8873930
+scalar	Float32	generated	1e-07	F	7842	6	7122	720	41886	8873930	9470874
+scalar	Float64	fixtures	0.0001	A	1697	0	1697	0	0	14777	14777
+scalar	Float64	fixtures	0.0001	R	1697	0	1697	0	0	14777	14777
+scalar	Float64	fixtures	0.0001	F	1697	0	1689	8	1	14777	14785
+scalar	Float64	fixtures	1e-07	A	2002	0	2002	0	0	146514	146514
+scalar	Float64	fixtures	1e-07	R	2002	0	2002	0	0	146514	146514
+scalar	Float64	fixtures	1e-07	F	2002	0	1992	10	1	146514	146524
+scalar	Float64	generated	0.0001	A	4926	0	4926	0	0	117250	117250
+scalar	Float64	generated	0.0001	R	4926	0	4926	0	0	117250	117250
+scalar	Float64	generated	0.0001	F	4926	0	4926	0	0	117250	117250
+scalar	Float64	generated	1e-07	A	7762	0	7762	0	0	6982584	6982584
+scalar	Float64	generated	1e-07	R	7762	0	7762	0	0	6982584	6982584
+scalar	Float64	generated	1e-07	F	7762	0	7762	0	0	6982584	6982584
+
+# must-keep inputs no longer converged, ('group', 'Float32', 'F'): 11; first: gen_40x12_r0.999_s2 raw group 0.001 0 cold block random default 1e-07; gen_40x12_r0.999_s2 mean group 0.001 0 cold block cyclic default 1e-07; gen_40x12_r0.999_s2 mean group 0.001 0 cold block random default 1e-07; gen_40x12_r0.999_s3 raw group 0.001 0 ref block random default 1e-07; gen_40x12_r0.999_s3 raw group 0.001 0 ref block cyclic default 1e-07; gen_40x12_r0.999_s3 mean group 0.001 0 ref block random default 1e-07; gen_40x12_r0.999_s3 mean group 0.001 0 ref block cyclic default 1e-07; gen_100x30_r0.95_s2 raw group 0.001 0 cold block cyclic default 1e-07
+
+# must-keep inputs no longer converged, ('group', 'Float32', 'R'): 2; first: gen_100x30_r0.999_s3 raw group 0.001 0 cold block random default 1e-07; gen_100x30_r0.999_s3 mean group 0.001 0 cold block random default 1e-07
+
+# must-keep inputs no longer converged, ('scalar', 'Float32', 'F'): 6; first: gen_40x12_r0.999_s3 raw l1 0.001 0 ls dense cyclic false 1e-07; gen_40x12_r0.999_s3 mean l1 0.001 0 ls dense cyclic false 1e-07; gen_50x200_r0.999_s3 raw l1 0.001 0 ref sparse random false 1e-07; gen_50x200_r0.999_s3 raw l1 0.001 0 pert sparse random false 1e-07; gen_50x200_r0.999_s3 mean l1 0.001 0 ref sparse random false 1e-07; gen_50x200_r0.999_s3 mean l1 0.001 0 pert sparse random false 1e-07
+
+# must-keep inputs no longer converged, ('scalar', 'Float32', 'R'): 62; first: gen_40x12_r0.999_s3 mean l1 0.001 0 cold dense cyclic false 1e-07; gen_100x30_r0.999_s1 raw l1 0.001 0 cold sparse random false 1e-07; gen_100x30_r0.999_s1 raw l1 0.001 0 path sparse random false 1e-07; gen_100x30_r0.999_s1 mean l1 0.001 0 cold sparse random false 1e-07; gen_100x30_r0.999_s1 mean l1 0.001 0 path sparse random false 1e-07; gen_100x30_r0.999_s3 raw l1 0.001 0 cold sparse random false 1e-07; gen_100x30_r0.999_s3 raw l1 0.001 0 path sparse random false 1e-07; gen_100x30_r0.999_s3 mean l1 0.001 0 cold sparse random false 1e-07
+
+P4. Starts xref + 2^j z: outcome by j
+family	T	j	module	solves	converged within	converged undecided	converged above target	of those E>p thr (scalar)	of those KKT > 10x ordinary	stopped unconverged before the cap	pass cap	largest KKT/max(l1,lmax) among converged above
+group	Float32	0	master	11264	8072	512	1220	0	12	0	1460	0.00353
+group	Float32	0	A	11264	8072	512	1220	0	12	0	1460	0.00353
+group	Float32	0	R	11264	8072	512	1220	0	12	0	1460	0.00353
+group	Float32	0	F	11264	8070	510	1220	0	12	0	1464	0.00353
+group	Float32	4	master	11264	7949	480	764	0	84	0	2071	0.00208
+group	Float32	4	A	11264	7949	480	764	0	84	0	2071	0.00208
+group	Float32	4	R	11264	7866	440	764	0	84	123	2071	0.00208
+group	Float32	4	F	11264	7935	290	760	0	40	0	2279	0.00208
+group	Float32	8	master	11264	7274	466	730	0	116	0	2794	0.00213
+group	Float32	8	A	11264	7274	466	728	0	114	2	2794	0.00213
+group	Float32	8	R	11264	3743	124	584	0	78	4019	2794	0.00213
+group	Float32	8	F	11264	7291	236	678	0	36	2	3057	0.00207
+group	Float32	10	master	11264	6471	458	776	0	132	0	3559	0.00448
+group	Float32	10	A	11264	6471	404	764	0	120	66	3559	0.00448
+group	Float32	10	R	11264	323	14	66	0	8	7302	3559	0.000786
+group	Float32	10	F	11264	6446	222	664	0	24	6	3926	0.00206
+group	Float32	12	master	11264	5084	456	1508	0	580	0	4216	0.0183
+group	Float32	12	A	11264	5084	282	1482	0	556	200	4216	0.0183
+group	Float32	12	R	11264	20	0	4	0	4	7024	4216	6.38e-05
+group	Float32	12	F	11264	5784	138	618	0	24	14	4710	0.00218
+group	Float32	14	master	11264	3170	454	3190	0	2492	0	4450	0.311
+group	Float32	14	A	11264	3170	162	3136	0	2438	346	4450	0.055
+group	Float32	14	R	11264	0	0	0	0	0	6813	4451	-
+group	Float32	14	F	11264	5549	36	588	0	38	22	5069	0.00225
+group	Float32	16	master	11264	1068	452	5282	0	5114	0	4462	0.957
+group	Float32	16	A	11264	1068	44	5130	0	4962	560	4462	0.286
+group	Float32	16	R	11264	0	0	0	0	0	6802	4462	-
+group	Float32	16	F	11264	5456	2	598	0	36	38	5170	0.00933
+group	Float32	18	master	11264	174	450	6261	0	6253	0	4379	4.59
+group	Float32	18	A	11264	174	4	5937	0	5929	770	4379	2.32
+group	Float32	18	R	11264	0	0	0	0	0	6885	4379	-
+group	Float32	18	F	11264	5374	0	574	0	24	46	5270	0.0162
+group	Float32	20	master	11264	8	448	6531	0	6531	0	4277	6.26
+group	Float32	20	A	11264	8	0	6017	0	6017	962	4277	3.94
+group	Float32	20	R	11264	0	0	0	0	0	6987	4277	-
+group	Float32	20	F	11264	5291	0	492	0	16	46	5435	0.00205
+group	Float32	22	master	11264	0	440	6536	0	6536	0	4288	52.6
+group	Float32	22	A	11264	0	0	5946	0	5946	1030	4288	14.2
+group	Float32	22	R	11264	0	0	0	0	0	6976	4288	-
+group	Float32	22	F	11264	5210	0	392	0	16	48	5614	0.00184
+group	Float32	24	master	11264	0	440	6461	0	6459	0	4363	202
+group	Float32	24	A	11264	0	0	5698	0	5698	1203	4363	42
+group	Float32	24	R	11264	0	0	0	0	0	6901	4363	-
+group	Float32	24	F	11264	5005	0	354	0	16	68	5837	0.00184
+group	Float32	28	master	11264	0	440	5871	0	5871	0	4953	3.32e+03
+group	Float32	28	A	11264	0	0	4416	0	4416	1895	4953	962
+group	Float32	28	R	11264	0	0	0	0	0	6311	4953	-
+group	Float32	28	F	11264	3895	0	278	0	22	64	7027	0.00186
+group	Float64	0	master	11264	5484	576	3758	0	12	0	1446	0.00653
+group	Float64	0	A	11264	5484	576	3758	0	12	0	1446	0.00653
+group	Float64	0	R	11264	5484	576	3758	0	12	0	1446	0.00653
+group	Float64	0	F	11264	5484	576	3758	0	12	0	1446	0.00653
+group	Float64	8	master	11264	4916	536	3028	0	12	0	2784	0.00232
+group	Float64	8	A	11264	4916	536	3028	0	12	0	2784	0.00232
+group	Float64	8	R	11264	4916	536	3028	0	12	0	2784	0.00232
+group	Float64	8	F	11264	4916	536	3028	0	12	0	2784	0.00232
+group	Float64	16	master	11264	3654	536	2508	0	12	0	4566	0.00219
+group	Float64	16	A	11264	3654	536	2508	0	12	0	4566	0.00219
+group	Float64	16	R	11264	3654	536	2508	0	12	0	4566	0.00219
+group	Float64	16	F	11264	3654	536	2508	0	12	0	4566	0.00219
+group	Float64	24	master	11264	3482	536	2340	0	12	0	4906	0.0022
+group	Float64	24	A	11264	3482	536	2340	0	12	0	4906	0.0022
+group	Float64	24	R	11264	3482	536	2340	0	12	0	4906	0.0022
+group	Float64	24	F	11264	3482	536	2340	0	12	0	4906	0.0022
+group	Float64	28	master	11264	3394	536	2200	0	12	0	5134	0.00219
+group	Float64	28	A	11264	3394	536	2200	0	12	0	5134	0.00219
+group	Float64	28	R	11264	2380	350	2200	0	12	1200	5134	0.00219
+group	Float64	28	F	11264	3394	534	2200	0	12	0	5136	0.00219
+group	Float64	32	master	11264	3264	536	2116	0	32	0	5348	0.00221
+group	Float64	32	A	11264	3264	496	2114	0	30	42	5348	0.00221
+group	Float64	32	R	11264	682	268	2068	0	16	2896	5350	0.00221
+group	Float64	32	F	11264	3262	376	2114	0	28	4	5508	0.00221
+group	Float64	36	master	11264	2754	536	2404	0	442	0	5570	0.00211
+group	Float64	36	A	11264	2754	310	2394	0	432	236	5570	0.00211
+group	Float64	36	R	11264	650	192	1948	0	22	2904	5570	0.00211
+group	Float64	36	F	11264	3234	304	1910	0	30	4	5812	0.00194
+group	Float64	40	master	11264	624	520	4354	0	2268	0	5766	0.00727
+group	Float64	40	A	11264	624	296	4340	0	2254	238	5766	0.00727
+group	Float64	40	R	11264	18	0	16	0	8	5464	5766	8.34e-05
+group	Float64	40	F	11264	3186	248	1766	0	16	4	6060	0.00214
+group	Float64	44	master	11264	22	518	4868	0	4586	0	5856	0.274
+group	Float64	44	A	11264	22	156	4822	0	4540	408	5856	0.155
+group	Float64	44	R	11264	0	0	0	0	0	5408	5856	-
+group	Float64	44	F	11264	3092	80	1748	0	28	10	6334	0.0037
+group	Float64	48	master	11264	0	510	5174	0	5174	0	5580	3.65
+group	Float64	48	A	11264	0	66	4796	0	4796	822	5580	2.06
+group	Float64	48	R	11264	0	0	0	0	0	5684	5580	-
+group	Float64	48	F	11264	2978	64	1786	0	16	6	6430	0.00208
+group	Float64	52	master	11264	0	504	5344	0	5344	0	5416	54.2
+group	Float64	52	A	11264	0	64	4752	0	4752	1032	5416	30.9
+group	Float64	52	R	11264	0	0	0	0	0	5848	5416	-
+group	Float64	52	F	11264	2872	64	1812	0	16	10	6506	0.00208
+group	Float64	56	master	11264	0	512	5928	0	5928	0	4824	1.17e+03
+group	Float64	56	A	11264	0	64	4736	0	4736	1640	4824	460
+group	Float64	56	R	11264	0	0	0	0	0	6440	4824	-
+group	Float64	56	F	11264	2796	64	1802	0	16	8	6594	0.00208
+group	Float64	60	master	11264	0	508	6120	0	6120	0	4636	8.74e+03
+group	Float64	60	A	11264	0	64	4720	0	4720	1844	4636	7.35e+03
+group	Float64	60	R	11264	0	0	0	0	0	6628	4636	-
+group	Float64	60	F	11264	2758	64	1752	0	16	2	6688	0.00214
+scalar	Float32	0	master	22788	19966	892	1117	60	18	0	813	0.197
+scalar	Float32	0	A	22788	19966	892	1057	0	18	60	813	0.033
+scalar	Float32	0	R	22788	19966	886	1057	0	18	66	813	0.033
+scalar	Float32	0	F	22788	19964	792	1057	0	18	6	969	0.033
+scalar	Float32	4	master	22788	19815	774	692	62	40	0	1507	0.178
+scalar	Float32	4	A	22788	19815	774	632	2	40	60	1507	0.0323
+scalar	Float32	4	R	22788	19681	744	632	2	40	224	1507	0.0323
+scalar	Float32	4	F	22788	19816	504	631	0	20	6	1831	0.032
+scalar	Float32	8	master	22788	19528	684	466	88	50	0	2110	0.148
+scalar	Float32	8	A	22788	19528	684	406	28	50	60	2110	0.0142
+scalar	Float32	8	R	22788	14236	332	371	20	42	5739	2110	0.00703
+scalar	Float32	8	F	22788	19552	452	374	0	22	12	2398	0.0142
+scalar	Float32	10	master	22788	18934	648	459	104	78	0	2747	0.277
+scalar	Float32	10	A	22788	18934	620	399	44	78	88	2747	0.00777
+scalar	Float32	10	R	22788	7760	46	127	0	18	12108	2747	0.000837
+scalar	Float32	10	F	22788	18974	374	338	0	22	8	3094	0.00684
+scalar	Float32	12	master	22788	17443	590	1157	455	660	0	3598	0.154
+scalar	Float32	12	A	22788	17443	490	1097	395	660	160	3598	0.0302
+scalar	Float32	12	R	22788	6368	6	102	0	12	12714	3598	0.000342
+scalar	Float32	12	F	22788	18205	210	314	0	24	8	4051	0.00661
+scalar	Float32	14	master	22788	14819	532	3072	1544	2512	0	4365	0.212
+scalar	Float32	14	A	22788	14819	256	3012	1484	2512	336	4365	0.146
+scalar	Float32	14	R	22788	6118	4	88	0	8	12213	4365	0.000355
+scalar	Float32	14	F	22788	17517	54	278	0	26	8	4931	0.0157
+scalar	Float32	16	master	22788	10578	466	7097	5262	6673	0	4647	0.561
+scalar	Float32	16	A	22788	10578	104	7015	5180	6657	444	4647	0.561
+scalar	Float32	16	R	22788	5980	0	85	0	8	12075	4648	0.000356
+scalar	Float32	16	F	22788	17275	6	273	0	21	22	5212	0.0178
+scalar	Float32	18	master	22788	7093	456	10533	9302	10156	0	4706	2.2
+scalar	Float32	18	A	22788	7093	2	10349	9118	10038	638	4706	2.2
+scalar	Float32	18	R	22788	5924	0	90	0	8	12068	4706	0.000436
+scalar	Float32	18	F	22788	17070	0	320	0	24	17	5381	0.0143
+scalar	Float32	20	master	22788	6130	452	11529	10600	11162	0	4677	5.31
+scalar	Float32	20	A	22788	6130	0	11175	10246	10888	806	4677	4.88
+scalar	Float32	20	R	22788	5900	0	90	0	8	12121	4677	0.00144
+scalar	Float32	20	F	22788	16947	0	307	0	24	26	5508	0.00627
+scalar	Float32	22	master	22788	5938	452	11812	11197	11456	0	4586	18.1
+scalar	Float32	22	A	22788	5938	0	11267	10652	10993	997	4586	18.1
+scalar	Float32	22	R	22788	5892	0	86	0	8	12224	4586	0.00101
+scalar	Float32	22	F	22788	16807	0	313	0	24	49	5619	0.00562
+scalar	Float32	24	master	22788	5930	448	11740	11461	11474	0	4670	61.2
+scalar	Float32	24	A	22788	5930	0	11092	10813	10892	1096	4670	61.2
+scalar	Float32	24	R	22788	5890	0	96	0	8	12132	4670	0.000967
+scalar	Float32	24	F	22788	16648	0	294	0	24	40	5806	0.00542
+scalar	Float32	28	master	22788	5892	448	10786	10673	10674	0	5662	947
+scalar	Float32	28	A	22788	5892	0	9557	9444	9467	1677	5662	947
+scalar	Float32	28	R	22788	5880	0	98	0	8	11148	5662	0.00141
+scalar	Float32	28	F	22788	15112	0	264	0	22	40	7372	0.00291
+scalar	Float64	0	master	22788	15902	964	5144	60	36	0	778	0.0674
+scalar	Float64	0	A	22788	15902	964	5084	0	36	60	778	0.033
+scalar	Float64	0	R	22788	15902	964	5084	0	36	60	778	0.033
+scalar	Float64	0	F	22788	15902	964	5084	0	36	30	808	0.033
+scalar	Float64	8	master	22788	15586	868	4372	60	32	0	1962	0.0859
+scalar	Float64	8	A	22788	15586	868	4312	0	32	60	1962	0.0142
+scalar	Float64	8	R	22788	15586	868	4312	0	32	60	1962	0.0142
+scalar	Float64	8	F	22788	15586	868	4312	0	32	30	1992	0.0142
+scalar	Float64	16	master	22788	13798	776	3814	60	20	0	4400	0.0885
+scalar	Float64	16	A	22788	13798	776	3754	0	20	60	4400	0.00849
+scalar	Float64	16	R	22788	13798	776	3754	0	20	60	4400	0.00849
+scalar	Float64	16	F	22788	13798	776	3754	0	20	30	4430	0.00849
+scalar	Float64	24	master	22788	13526	760	3640	50	26	0	4862	0.071
+scalar	Float64	24	A	22788	13526	760	3590	0	26	50	4862	0.00856
+scalar	Float64	24	R	22788	13520	760	3590	0	26	56	4862	0.00856
+scalar	Float64	24	F	22788	13526	760	3590	0	26	28	4884	0.00856
+scalar	Float64	28	master	22788	13482	756	3598	48	24	0	4952	0.0623
+scalar	Float64	28	A	22788	13482	756	3550	0	24	48	4952	0.00857
+scalar	Float64	28	R	22788	11793	524	3550	0	24	1969	4952	0.00857
+scalar	Float64	28	F	22788	13482	754	3550	0	22	30	4972	0.00857
+scalar	Float64	32	master	22788	13520	710	3492	34	40	0	5066	0.0621
+scalar	Float64	32	A	22788	13520	694	3458	0	40	50	5066	0.00859
+scalar	Float64	32	R	22788	8044	388	3442	0	24	5848	5066	0.00859
+scalar	Float64	32	F	22788	13646	458	3332	0	18	18	5334	0.00859
+scalar	Float64	36	master	22788	13049	634	3857	345	356	0	5248	0.103
+scalar	Float64	36	A	22788	13049	426	3825	313	356	240	5248	0.00872
+scalar	Float64	36	R	22788	7878	292	3276	0	28	6094	5248	0.00872
+scalar	Float64	36	F	22788	14122	402	2728	0	26	18	5518	0.00835
+scalar	Float64	40	master	22788	8632	616	8184	2944	4138	0	5356	0.0496
+scalar	Float64	40	A	22788	8632	392	8160	2920	4138	248	5356	0.00806
+scalar	Float64	40	R	22788	4791	16	1230	0	34	11395	5356	0.00395
+scalar	Float64	40	F	22788	13773	302	3011	0	24	10	5692	0.00852
+scalar	Float64	44	master	22788	4962	506	11811	6012	9413	0	5509	0.285
+scalar	Float64	44	A	22788	4962	194	11787	5988	9413	336	5509	0.285
+scalar	Float64	44	R	22788	4782	16	1198	0	14	11283	5509	0.00282
+scalar	Float64	44	F	22788	13638	50	3097	0	91	10	5993	0.0296
+scalar	Float64	48	master	22788	4854	498	12033	9809	10576	0	5403	2.23
+scalar	Float64	48	A	22788	4854	48	11817	9595	10402	666	5403	2.23
+scalar	Float64	48	R	22788	4820	16	1178	0	6	11371	5403	0.00324
+scalar	Float64	48	F	22788	13574	48	3062	0	38	14	6090	0.0258
+scalar	Float64	52	master	22788	4754	496	12348	10799	10979	0	5190	38.4
+scalar	Float64	52	A	22788	4754	48	11854	10305	10523	942	5190	38.4
+scalar	Float64	52	R	22788	4742	16	1212	0	12	11628	5190	0.00549
+scalar	Float64	52	F	22788	13432	48	3078	0	26	4	6226	0.00988
+scalar	Float64	56	master	22788	4764	496	12475	11260	11275	0	5053	688
+scalar	Float64	56	A	22788	4764	48	11625	10410	10449	1298	5053	688
+scalar	Float64	56	R	22788	4764	16	1182	0	6	11773	5053	0.00291
+scalar	Float64	56	F	22788	13301	48	2963	0	21	6	6470	0.00868
+scalar	Float64	60	master	22788	4734	496	12867	11639	11643	0	4691	1.1e+04
+scalar	Float64	60	A	22788	4734	48	11467	10239	10267	1848	4691	1.1e+04
+scalar	Float64	60	R	22788	4734	16	1208	0	8	12139	4691	0.00303
+scalar	Float64	60	F	22788	13204	48	2826	0	24	2	6708	0.00905
+
+P5. Starts xref + 2^j z: outcome by configuration
+family	T	container	order	momentum	module	solves	converged, not above	converged above target	of those E>p thr (scalar)	of those KKT > 10x ordinary	stopped unconverged before the cap	pass cap
+group	Float32	block	cyclic	default	master	67584	22283	22311	0	19924	0	22990
+group	Float32	block	cyclic	default	A	67584	20699	20339	0	17952	3556	22990
+group	Float32	block	cyclic	default	R	67584	10578	1280	0	90	32735	22991
+group	Float32	block	cyclic	default	F	67584	36140	3450	0	140	150	27844
+group	Float32	block	random	default	master	67584	22483	22819	0	20256	0	22282
+group	Float32	block	random	default	A	67584	20925	20899	0	18340	3478	22282
+group	Float32	block	random	default	R	67584	10536	1358	0	96	33408	22282
+group	Float32	block	random	default	F	67584	36600	3766	0	164	204	27014
+group	Float64	block	cyclic	default	master	73216	17106	24788	0	14878	0	31322
+group	Float64	block	cyclic	default	A	73216	15786	22950	0	13040	3158	31322
+group	Float64	block	cyclic	default	R	73216	12080	8788	0	54	21026	31322
+group	Float64	block	cyclic	default	F	73216	24406	13984	0	114	12	34814
+group	Float64	block	random	default	master	73216	17352	25354	0	15076	0	30510
+group	Float64	block	random	default	A	73216	16044	23558	0	13280	3104	30510
+group	Float64	block	random	default	R	73216	12180	9078	0	52	21446	30512
+group	Float64	block	random	default	F	73216	24684	14540	0	112	36	33956
+scalar	Float32	dense	cyclic	false	master	91152	40047	32120	28123	29911	0	18985
+scalar	Float32	dense	cyclic	false	A	91152	38549	30562	26565	28615	3056	18985
+scalar	Float32	dense	cyclic	false	R	91152	17727	852	10	50	53587	18986
+scalar	Float32	dense	cyclic	false	F	91152	66069	1971	0	86	48	23064
+scalar	Float32	dense	random	default	master	91152	76203	1947	434	324	0	13002
+scalar	Float32	dense	random	default	A	91152	76203	1637	124	234	310	13002
+scalar	Float32	dense	random	default	R	91152	75406	1493	0	92	1251	13002
+scalar	Float32	dense	random	default	F	91152	76243	1411	0	90	59	13439
+scalar	Float32	sparse	random	false	master	91152	42658	36393	32251	34718	0	12101
+scalar	Float32	sparse	random	false	A	91152	41136	34859	30717	33444	3056	12101
+scalar	Float32	sparse	random	false	R	91152	18480	577	12	44	59994	12101
+scalar	Float32	sparse	random	false	F	91152	73967	1381	0	95	135	15669
+scalar	Float64	dense	cyclic	false	master	98748	34905	36301	23178	25471	0	27542
+scalar	Float64	dense	cyclic	false	A	98748	33639	34711	21588	24065	2856	27542
+scalar	Float64	dense	cyclic	false	R	98748	25734	8657	0	56	36815	27542
+scalar	Float64	dense	cyclic	false	F	98748	54312	13720	0	131	10	30706
+scalar	Float64	dense	random	default	master	98748	65652	16608	340	376	0	16488
+scalar	Float64	dense	random	default	A	98748	65652	16434	166	350	174	16488
+scalar	Float64	dense	random	default	R	98748	65294	16220	0	146	746	16488
+scalar	Float64	dense	random	default	F	98748	67792	14210	0	128	78	16668
+scalar	Float64	sparse	random	false	master	98748	39582	44726	29602	32711	0	14440
+scalar	Float64	sparse	random	false	A	98748	38294	43138	28016	31311	2876	14440
+scalar	Float64	sparse	random	false	R	98748	28794	9339	0	68	46175	14440
+scalar	Float64	sparse	random	false	F	98748	64406	16457	0	145	142	17743
+
+# cross-check with evidence/sweep-r-epyc: 896500 inputs of 912116 found in the sweep; 896500 with the same flag, passes, last change and KKT
