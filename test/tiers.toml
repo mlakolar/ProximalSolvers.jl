@@ -19,6 +19,7 @@ standard = [
   "stopping_scale",
   "elasticnet",
   "cd_elasticnet",
+  "linf",
   "sqrt_lasso",
 ]
 full = [

@@ -803,7 +803,7 @@ end
 end
 
 @testset "APG refuses the penalties it does not support, with the ElasticNet message (#324)" begin
-  msg = "only unweighted NormL1 or unweighted ElasticNet is supported"
+  msg = "only unweighted NormL1, unweighted ElasticNet or NormLinf is supported"   # the gradient gate's message (#338)
   vector_msg = "x must be a dense Vector{Float32} or Vector{Float64}"
   method = AccProxGradDescent()
   refused_with(x, f, g, m, msg) = begin
