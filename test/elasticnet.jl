@@ -292,6 +292,8 @@ end
     l1 = with_precision(() -> residual_of(NormL1(λ), grad1, x, T))
     @test (name, en) == (name, zero(T))
     @test (name, l1) == (name, zero(T))
+    gT = with_precision(() -> PS._converted_penalty(ElasticNet(λ, λ), T))
+    @test (name, gT.λ1, gT.λ2) === (name, c, c)
   end
   @test Float32((Int128(1) << 100) + (Int128(1) << 76) + 1) != Float32(Float64((Int128(1) << 100) + (Int128(1) << 76) + 1))
   @test Float32(1152921573326323713 // 1152921504606846976) != Float32(Float64(1152921573326323713 // 1152921504606846976))
