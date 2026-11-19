@@ -73,10 +73,11 @@ samebits(a::Array{T}, b::Array{T}) where {T<:Union{Float32, Float64}} =
 samebits(a, b) = typeof(a) == typeof(b) && isequal(a, b)
 
 # Pre-registered acceptance bounds: absolute error and relative KKT score at most
-# 1e-8 in Float64, and relative error and relative KKT score at most 1e-3 in Float32.
+# 1e-8 in Float64, and error scaled by max(1, maximum(abs, reference)) and relative
+# KKT score at most 1e-3 in Float32.
 accuracy(::Type{Float64}) = 1e-8
 accuracy(::Type{Float32}) = 1e-3
-# Solver tolerances chosen to meet those bounds.
+# Solver tolerances chosen for these fixtures; their accuracy is checked independently.
 solver_tolerance(::Type{Float64}) = 1e-12
 solver_tolerance(::Type{Float32}) = 1e-6
 accurate_method(T; ρ = 1) = ADMMSolver(; ρ, abstol = solver_tolerance(T), reltol = solver_tolerance(T))
@@ -164,7 +165,7 @@ end
       @test all(Θ[i, j] == 0 for (i, j) in offdiagonal(4))
 
       # p = 2: W* = [S₁₁ soft(S₁₂, λ); soft(S₁₂, λ) S₂₂] and Θ* = inv(W*), in the
-      # zero regime |S₁₂| ≤ λ and in the nonzero regime |S₁₂| > λ.
+      # zero regime |S₁₂| ≤ λ and in the nonzero regime |S₁₂| > λ, for fixtures with W* ≻ 0.
       for (s12, λ) in ((0.3, 0.5), (0.8, 0.3), (-0.8, 0.3))
         S = T[1 s12; s12 2]
         Λ = T[0 λ; λ 0]
@@ -212,7 +213,8 @@ end
   end
 end
 
-# A sparse symmetric positive-definite precision matrix: a chain with three extra edges.
+# A sparse symmetric positive-definite precision matrix for the seeded p = 16 fixture:
+# a chain with three extra edges.
 function sparse_precision(p)
   Θ = Matrix(1.5I, p, p)
   for i in 1:p-1
@@ -310,8 +312,8 @@ end
     dual = T[0 1/16 0; 1/16 0 -1/16; 0 -1/16 0]
     f, g = LogDetLoss(S), NormL1(one(T), Λ)
     method = ADMMSolver(; abstol = 0, reltol = 0)
-    # ProximalOptions requires maxiter ≥ 2; zero iterations come from the call
-    # budget or a nonpositive time limit.
+    # ProximalOptions requires maxiter ≥ 2; in this testset zero iterations come
+    # from the call budget or a nonpositive time limit.
     for (options, status) in ((ProximalOptions(prox_calls_limit = 1), :prox_calls_limit),
                               (ProximalOptions(time_limit = 0), :time_limit),
                               (ProximalOptions(time_limit = -1), :time_limit))
@@ -623,7 +625,8 @@ end
     @test result.minimizer === z && result.minimizer isa Vector{T} && result.u isa Vector{T}
     @test result.converged
     # The positional constructor with the element type alone converts both arrays
-    # to Vector{T} and the scalar fields to T.
+    # to Vector{T}, the floating fields to T, the counts to Int, the flag to Bool
+    # and the status to Symbol.
     other = T === Float32 ? Float64 : Float32
     for (minimizer, dual) in ((T[1, 2], T[0, 0]), (other[1, 2], other[0, 0]),
                               (view(T[1, 2, 3], 1:2), view(T[0, 0, 0], 2:3)))

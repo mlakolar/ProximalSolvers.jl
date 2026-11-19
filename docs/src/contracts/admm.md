@@ -98,7 +98,7 @@ Limits return `:iteration_limit`, `:prox_calls_limit` or `:time_limit` in
 outputs, updated dual entries, residuals, tolerances or the final objective,
 raises an error before committing either caller buffer.
 
-**Applies to.** Every `ADMMSolver` solve and `ADMMResults`. For the graphical
+**Applies to.** Every `ADMMSolver` solve and the `ADMMResults` it returns. For the graphical
 lasso on a dense matrix, [ADM-04](@ref) replaces the stationarity score, requires
 a stored `α` equal to 1 and adds the symmetry and Cholesky rules.
 

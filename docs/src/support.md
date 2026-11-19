@@ -29,8 +29,9 @@ as supported in the table is not verified; the sections below give the exact inp
 | Sparse signal denoising: centered `SqrNormL2`, unweighted `NormL1` | — | — | — | — | — | — | Float32, Float64 | — | [Sparse signal denoising](examples/problems/sparse_signal_denoising.md) |
 | Graphical lasso: `LogDetLoss`, `NormL1(λ₀, Λ)` with symmetric zero-diagonal `Matrix` weights | — | — | — | — | — | — | — | Float32, Float64 (k) | [Graphical lasso](examples/problems/graphical_lasso.md) |
 
-`NormL1` and `ElasticNet` are unweighted where they appear in the table, except in the weighted-lasso row,
-where `NormL1(lambda, w)` has one weight per coefficient. `GroupNormL2` takes its group
+`ElasticNet` is unweighted where it appears in the table. `NormL1` is unweighted except in two rows: in the
+weighted-lasso row, `NormL1(lambda, w)` has one weight per coefficient, and in the graphical-lasso row,
+`NormL1(λ₀, Λ)` has a symmetric zero-diagonal weight matrix ([ADM-04](@ref)). `GroupNormL2` takes its group
 weights, the default `sqrt(|G_k|)` or explicit finite nonnegative weights (see
 [Group lasso with coordinate descent](@ref)). The lasso, weighted lasso, elastic net and group lasso rows use
 `LeastSquaresLoss` or one positive finite scalar multiple of it, and the square-root lasso
@@ -349,7 +350,7 @@ The current development core intentionally excludes the following:
 | Sparse design matrices; sparse or view-based dense coefficients | Deferred |
 | Generalized losses, intercepts/offsets; matrix responses other than least squares with `CDSolver`, a row-group `GroupNormL2` and a `Matrix` or `BlockIterate` coefficient | Deferred |
 | Group penalties other than `GroupNormL2` with `CDSolver` on a `BlockIterate`, weighted `ElasticNet`, `Scaled` penalties (including `Scaled(NormL1)` and `Scaled(ElasticNet)`), generalized penalty combinations | Deferred |
-| Observation weights; infinite penalty weights; penalty weights that are not a `Vector{T}` of the type of the data, other than the symmetric zero-diagonal `Matrix{T}` weights of the graphical lasso ([ADM-04](@ref)) | Deferred; the penalty weights are refused with an `ArgumentError` |
+| Observation weights; infinite penalty weights; penalty weight storage or types outside the solver's contract (for example, the graphical lasso accepts only the symmetric zero-diagonal `Matrix{T}` weights of [ADM-04](@ref)) | Deferred; each solver's contract lists the weights it accepts |
 | Penalty paths and screening; dual-gap certificates other than the one of the square-root lasso with `CDSolver` | Deferred |
 | Weighted square-root lasso, `Scaled(SqrtLeastSquaresLoss)`, `SqrtLeastSquaresLoss` with an `ElasticNet` or a `BlockIterate`, or with PGD or APG | Refused with an `ArgumentError` (weights and `Scaled` deferred) |
 | Newton, monotone or active-set accelerated gradient, primal-dual, SLOPE; graphical lasso (log-determinant estimation of a precision matrix) by a solver other than `ADMMSolver` on a dense `Matrix`, such as QUIC | Deferred |

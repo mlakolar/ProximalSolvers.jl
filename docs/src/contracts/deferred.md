@@ -26,8 +26,8 @@ The following remain deferred:
   constrained-penalty combinations excluded by [IN-07](@ref);
 - intercepts and offsets, generalized losses and compositions;
 - monotone or active-set acceleration, APG diagonal preconditioning, Newton,
-  primal-dual methods, SLOPE and graphical models other than the ADMM graphical
-  lasso in [ADM-04](@ref);
+  primal-dual methods, SLOPE and direct precision-matrix solvers other than the
+  ADMM graphical lasso in [ADM-04](@ref);
 - ADMM outside the centered quadratic and unweighted ℓ₁ problem in [ADM-01](@ref)
   and the graphical lasso in [ADM-04](@ref), including arbitrary function pairs,
   product spaces, linear constraints, custom norms, and over-relaxation or the
