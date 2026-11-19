@@ -30,6 +30,7 @@ For coefficients constrained to be nonnegative, see
 [nonnegative sparse regression](examples/problems/nonnegative_lasso.md), supported by PGD.
 For a centered quadratic with an ℓ₁ penalty, see
 [sparse signal denoising with ADMM](examples/problems/sparse_signal_denoising.md).
+For a sparse precision matrix, see [the graphical lasso](examples/problems/graphical_lasso.md).
 Learn [proximal operators](@ref learn-03) or
 [how sparsity and KKT checks work](@ref learn-02) before choosing an algorithm.
 

@@ -227,6 +227,14 @@ chooses a penalty parameter, reports the residual diagnostics, and checks the
 answer by soft thresholding and stationarity. See [the ADMM contract](@ref ADM-01)
 for input requirements, limits and warm starts.
 
+`ADMMSolver` also solves the graphical lasso, `LogDetLoss(S)` with a weighted
+`NormL1(λ₀, Λ)`, on a dense symmetric positive-definite `Matrix` start, with fixed
+`ρ`, `α = 1` and `adaptive = false`. On a normal return the estimate is exactly
+symmetric and passes a Cholesky factorization. The
+[graphical-lasso tutorial](examples/problems/graphical_lasso.md) checks its objective,
+KKT conditions and, when its dual matrix is positive definite, a duality gap;
+[ADM-04](@ref) gives the rules.
+
 ## What is supported now?
 
 The [Problem × solver matrix](@ref "Problem × solver matrix") on
