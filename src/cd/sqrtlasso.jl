@@ -585,8 +585,8 @@ end
 # δ_{j+1} = min(δ_j/5, the least finite P_up so far), each rounded to T. After each stage `_certify!` at
 # its point β gives P_up(β) and, where formed, D_lo; D is the largest D_lo so far (0 before one), a lower
 # bound of P*. With ratio(P, D) = up(up(P − D)/D) for D > 0, Inf for D = 0 (and P > 0), and 0 for P = 0,
-# which `_certify!` gives only at its special case y = 0, β = 0, where P(β) = P* = 0, the first of these
-# rules that holds ends the run:
+# which `_certify!` gives only at its special case y = 0, β = 0, where P(β) = P* = 0 (elsewhere P_up is
+# `_up` of a sum of nonnegative terms, or NaN), the first of these rules that holds ends the run:
 # 1. ratio(P_up(x₀), D) ≤ `_CERT_TARGET`: x₀, certified;
 # 2. P_up(β) is finite, P_up(β) < P_lo(x₀) and ratio(P_up(β), D) ≤ `_CERT_TARGET`: β, certified;
 # 3. after stage 9 or at the budget: β if P_up(β) is finite and P_up(β) < P_lo(x₀), x₀ otherwise, both
