@@ -88,6 +88,8 @@ end
     expect("PATH / DEV WORKSPACE", 0, "--strict", "--allow-path"; ordinary=path)
     dev_project = replace(PROJECT, "{rev = \"$PIN\", url = \"$URL\"}" => "{path = \"../ProximalBase.jl\"}")
     expect("PATH / DEV WORKSPACE", 0, "--strict", "--allow-path"; project=dev_project, ordinary=path)
+    expect("PATH / DEV WORKSPACE", 0, "--strict", "--allow-path";
+           project=dev_project, ordinary=replace(path, "../ProximalBase.jl" => "../ProximalBase.jl/"))
     expect("UNVERIFIABLE", 1, "--strict", "--allow-path"; project=dev_project, ordinary=matching)
     expect("UNVERIFIABLE", 1, "--strict", "--allow-path"; ordinary=HEADER * PB * "path = 42\n")
     expect("UNVERIFIABLE", 1, "--strict", "--allow-path";

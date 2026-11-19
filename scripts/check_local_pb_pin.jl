@@ -104,7 +104,8 @@ function check_local_pb_pin(io, dir)
         path = entry["path"]
         valid_path(path) && !any(key -> haskey(entry, key), ("repo-url", "repo-rev", "repo-subdir", "git-tree-sha1")) ||
             return finish("UNVERIFIABLE", "The ProximalBase path entry is malformed or has conflicting Git metadata.")
-        if path_source && normpath(joinpath(dir, project_path)) != normpath(joinpath(dirname(manifest), path))
+        if path_source && normpath(dir, project_path, "Project.toml") !=
+                          normpath(dirname(manifest), path, "Project.toml")
             return finish("UNVERIFIABLE", "The ProximalBase path differs between Project.toml and the manifest.")
         end
         finish("PATH / DEV WORKSPACE", "ProximalBase uses the local path $(repr(path)).")
