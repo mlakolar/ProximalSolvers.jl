@@ -17,6 +17,7 @@ over its entries) with a dense `X`, `Y` and `LeastSquaresLoss`. [`ProximalGradie
 [`AccProxGradDescent`](@ref) accept a dense `Vector` only, all through [`solve!`](@ref);
 [`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref) also solve the group lasso with a `GroupNormL2` penalty on it.
 [`ProximalGradientDescent`](@ref) also supports `IndNonnegative()` and unweighted `NormL1Nonneg` on a feasible dense `Vector`.
+[`ADMMSolver`](@ref) solves centered `SqrNormL2` with unweighted `NormL1` on dense vectors.
 Losses, proximal operators and coordinate storage belong to PB.
 """
 module ProximalSolvers
@@ -26,13 +27,13 @@ using Random: AbstractRNG, default_rng, rand
 using SparseArrays: dropzeros!
 using ProximalBase: LeastSquaresLoss, SqrtLeastSquaresLoss, Scaled, NormL1, NormL1Nonneg, IndNonnegative, ElasticNet, SqrNormL2, NormLinf, SparseIterate,
   ncoordinates, nactive, activecoordinates, activevalues, prox_block,
-  value_and_prox!, BlockIterate, GroupNormL2, blockindices, blockview, prox_block!, kkt_violation
+  prox!, value_and_prox!, BlockIterate, GroupNormL2, blockindices, blockview, prox_block!, kkt_violation
 include("blocks.jl")
 using .Blocks
 include("line_searches.jl")
 using .LineSearches
 export CDSolver, ProximalGradientDescent, AccProxGradDescent, solve!, ProximalSolver, ProximalOptions,
-       CDResults, OptimizationState, OptimizationTrace
+       ADMMSolver, ADMMResults, CDResults, OptimizationState, OptimizationTrace
 @static if VERSION >= v"1.11.0-DEV.469"
   eval(Expr(:public, :OptimizationResults, :LineSearches))
 end
@@ -41,6 +42,7 @@ include("solve.jl")
 include("solvers/image_models.jl")
 include("solvers/proximal_gradient_descent.jl")
 include("solvers/accelerated_proximal_gradient_descent.jl")
+include("solvers/admm.jl")
 include("cd/models.jl")
 include("cd/solver.jl")
 include("cd/multiresponse.jl")
