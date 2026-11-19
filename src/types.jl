@@ -57,6 +57,7 @@ check then uses the rounded `λmax`. `ElasticNet(λ1, λ2)` on the loss `½α‖
 one-dimensional `SparseIterate`, the coordinate descent solver accepts unweighted `NormL1(λ)`,
 weighted `NormL1(λ, w)`, or `ElasticNet(λ1, λ2)`;
 it stops by its change test, not by this check (see [`CDSolver`](@ref)).
+The same change test applies to least squares with an uncentered `SqrNormL2(λ)` penalty in `CDSolver`.
 A start `x0` with a finite `f(x0)` is accepted even if `g(x0)` overflows in `T` (for example a ridge
 term `(λ2/2)‖x0‖²` above `floatmax(T)`). An error raised in the step of an iteration (its line search, or the
 check that the accepted objective is finite) restores the last accepted iterate and is rethrown, as for `NormL1`. `converged=true` means that a test proposed a stop and that

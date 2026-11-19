@@ -1066,7 +1066,7 @@ end
     err isa E || continue
     text = err.msg
     # A weighted ElasticNet and a scaled penalty get each solver's supported-penalty list.
-    generic = s.kind === :cd ? "only NormL1 or unweighted ElasticNet is supported" :
+    generic = s.kind === :cd ? "CDSolver supports NormL1, unweighted ElasticNet, and uncentered SqrNormL2" :
               method isa ProximalGradientDescent ?
                 "only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2 or unweighted NormL1Nonneg is supported" :
                 "only NormL1, unweighted ElasticNet, NormLinf or GroupNormL2 is supported"

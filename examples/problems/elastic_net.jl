@@ -89,6 +89,17 @@ beta_lasso = zeros(p)
 solve!(beta_lasso, f, NormL1(lambda1), AccProxGradDescent(), options)
 @assert norm(beta_apg) < norm(beta_lasso)
 
+# ## Ridge with coordinate descent
+#
+# Setting the ℓ₁ level to zero gives ridge regression. With `CDSolver`, use
+# `SqrNormL2(lambda2)` to add the penalty ``\lambda_2 \|b\|_2^2/2`` to the
+# normalized least-squares loss.
+beta_ridge = zeros(p)
+ridge = solve!(beta_ridge, f, SqrNormL2(lambda2), cd_solver)
+beta_reference = (X' * X / n + lambda2 * I) \ (X' * y / n)
+@assert ridge.minimizer === beta_ridge
+@assert norm(beta_ridge - beta_reference, Inf) <= 1e-7
+
 # ## Reading the shrinkage paths
 #
 # A line follows one of the five planted signal coefficients. The level 0 is the
