@@ -159,8 +159,20 @@ required before publishing a preview.
 `docs/migration/baseline.json` records the immutable starting commit and original
 text. The CSV maps each baseline block to its authoritative destination. During
 the migration run `docs_ledger.py check` and `check_docs_layers.py --migration` as
-well: these check retained executable blocks, integrated example scripts, and source bytes
-outside docstrings. The workflow compares with the pull request base, pre-push commit, or default
+well: these check retained executable blocks, integrated example scripts, source bytes
+outside docstrings, and distinctive-token coverage. The full ledger check scans
+authored documentation and actual help text for baseline code/math spans,
+identifiers, issue references, error fragments, paths, and numbers with units or
+exponents. It excludes migration records, tests, generated pages and hidden
+comments. Missing information must be restored. An equivalent notation change
+needs an exact, individually explained entry in `docs/migration/token-waivers.txt`
+that identifies every originating block and replacement text in an existing
+contract clause; stale or unsupported waivers fail. Use
+`python3 scripts/docs_ledger.py check --token-report /tmp/docs-token-coverage.json`
+to inspect all retained, waived and missing tokens. The Documentation workflow
+preserves the report as an artifact during the introducing migration.
+
+The workflow compares with the pull request base, pre-push commit, or default
 branch for manual builds. It verifies the inventory against the recorded Git
 snapshots when first introduced, then freezes that historical inventory and uses
 structural checks on later changes. This keeps the

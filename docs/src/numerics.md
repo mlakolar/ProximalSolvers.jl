@@ -10,7 +10,8 @@ See the [current section](@ref contracts-index).
 
 ## What does converged mean?
 
-See the [current section](@ref RES-01).
+See the [current section](@ref RES-01). Scalar CD step and range rules,
+including ridge with uncentered `SqrNormL2`, are in [CD-01](@ref) and [CD-04](@ref).
 
 ### The stationarity check of a stop
 

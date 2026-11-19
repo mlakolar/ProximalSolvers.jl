@@ -70,7 +70,7 @@ jobs:
           # the migration. The immutable inventory remains checked on future PRs.
           if [[ "$docs_introduced" == true ]]; then
             python3 scripts/check_docs_layers.py --migration
-            python3 scripts/docs_ledger.py check
+            python3 scripts/docs_ledger.py check --token-report "$RUNNER_TEMP/docs-token-coverage.json"
           fi
       - name: Install the documentation environment
         run: julia --color=yes --project=docs -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate(); Pkg.status(; mode=Pkg.PKGMODE_MANIFEST)'
@@ -93,6 +93,14 @@ jobs:
         with:
           name: documentation-build-log-linux-current-julia
           path: ${{ runner.temp }}/ps-docs-build.log
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Preserve migration token coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: documentation-migration-token-coverage
+          path: ${{ runner.temp }}/docs-token-coverage.json
           if-no-files-found: ignore
           retention-days: 14
   preview:

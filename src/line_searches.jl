@@ -32,6 +32,8 @@ Step acceptance does not certify the returned optimum; see
 
 # Extended help
 
+The reference algorithm is TFOCS's `private/tfocs_backtrack.m`.
+
 - `α=0.9`: curvature reduction before an iteration; requires `0 < α <= 1`.
 - `β=0.5`: raises curvature after a rejection, shrinking the step;
   requires `0 < β < 1`.

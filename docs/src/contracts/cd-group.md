@@ -21,6 +21,9 @@ in `T` without overflow or rounding a nonzero value to zero. The groups of the p
 and iterate must agree in number, order and ordered members, otherwise the error is
 `DimensionMismatch`. A `BlockIterate` is a nonempty partition of `1:p`, so there are no
 coordinates outside its groups; `BlockIterate(T, p, g)` builds the matching layout.
+Construct that iterate as `x = BlockIterate(T, p, g)` and call
+`solve!(x, f, g, CDSolver(order=:cyclic, tol=1e-10))` for the baseline's cyclic
+example, with the supported solver settings below.
 
 `momentum = true` is refused with `ArgumentError`; `nothing` and `false` both mean
 plain block coordinate descent. Input refusals for receiver, momentum, penalty,

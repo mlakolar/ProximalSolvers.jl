@@ -18,7 +18,7 @@ Minimize `F(x) = s‖Xx - y‖²/2 + g(x)`. The supported penalties are `NormL1`
 
 **Statement.** `ProximalGradientDescent()` uses `LineSearches.BackTracking()`. `normalized=true`, `debias>0`, `preconditioner!=:none` and custom line searches are not implemented and are rejected. The compatibility keywords at their defaults are accepted and not stored; their complete unsupported-feature policy is [DEF-01](@ref).
 
-Solvers, options and `BackTracking` each have a validating inner constructor. Settings are checked as given and after conversion, so `solve!` does not revalidate constructed settings; APG separately checks its two factors in the iterate precision before constructing state. `ProximalOptions` shares the stopping rules in [STOP-01](@ref). Its compatibility gap keywords do not request a PGD/APG certificate: a positive `gaptol` is refused, `gapevery` must be positive but has no effect, and neither is stored. Float64 storage of some tolerances and diagnostics does not increase native Float32 coefficient accuracy.
+Solvers, options and `BackTracking` each have a validating inner constructor. Settings are checked as given and after conversion, so `solve!` does not revalidate constructed settings; APG separately checks its two factors in the iterate precision before constructing state. Construct `ProximalOptions(...)` to configure the shared stopping rules in [STOP-01](@ref). Its compatibility gap keywords do not request a PGD/APG certificate: a positive `gaptol` is refused, `gapevery` must be positive but has no effect, and neither is stored. Float64 storage of some tolerances and diagnostics does not increase native Float32 coefficient accuracy.
 
 **Applies to.** PGD and APG; dense Vector{T}; T = Float32 or Float64.
 

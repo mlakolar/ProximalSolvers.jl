@@ -19,6 +19,7 @@ as supported in the table is not verified; the sections below give the exact inp
 | Weighted lasso: `LeastSquaresLoss`, `NormL1(lambda, w)` | Float32, Float64 (f) | Float32, Float64 (f) | — | — | Float32 (a, f), Float64 (f) | Float32 (a, b, f), Float64 (b, f) | [Weighted lasso](examples/problems/weighted_lasso.md) |
 | Nonnegative lasso: `LeastSquaresLoss`, unweighted `NormL1Nonneg` | — | — | — | — | Float32 (a, i), Float64 (i) | — | [Nonnegative sparse regression](examples/problems/nonnegative_lasso.md) |
 | Elastic net: `ElasticNet` | Float32, Float64 (c) | Float32, Float64 (c) | — | — | Float32 (a), Float64 | Float32 (a, b), Float64 (b) | [Elastic net](examples/problems/elastic_net.md) |
+| Ridge: `LeastSquaresLoss`, uncentered `SqrNormL2` | Float32, Float64 (j) | Float32, Float64 (j) | — | — | — | — | [Ridge with coordinate descent](examples/problems/elastic_net.md#Ridge-with-coordinate-descent) |
 | Group lasso: `GroupNormL2` | — | — | Float32, Float64 (d) | — | Float32 (a, h), Float64 (h) | Float32 (a, b, h), Float64 (b, h) | [Group lasso](examples/problems/group_lasso.md) |
 | Multi-response group lasso: `LeastSquaresLoss` with a matrix response, `GroupNormL2` on the rows of the coefficients | — | — | Float32, Float64 (g) | Float32, Float64 (g) | — | — | [Multi-task group lasso](examples/problems/multitask_group_lasso.md) |
 | Square-root lasso: `SqrtLeastSquaresLoss`, `NormL1` | Float32, Float64 (e) | Float32, Float64 (e) | — | — | — | — | [Square-root lasso](examples/problems/square_root_lasso.md) |
@@ -34,8 +35,9 @@ response `Y` and `Matrix` coefficients (see [Multi-response group lasso with coo
 coefficients over a pass and not a certificate of optimality, except for the square-root
 lasso (note e).
 
-Nonnegative lasso uses the same least-squares loss and supported positive scaling;
-its PGD-only feasibility rules are specified in [IN-07](@ref).
+Ridge uses the same least-squares loss and supported positive scaling; its
+CD-only input rules are specified in [IN-01](@ref). Nonnegative lasso also uses
+that loss and scaling; its PGD-only feasibility rules are specified in [IN-07](@ref).
 
 - **(a)** `ProximalGradientDescent` and `AccProxGradDescent` accept `Float32` data, and the
   tests check the returned point against `BigFloat` or `Float64` references with
@@ -75,6 +77,15 @@ its PGD-only feasibility rules are specified in [IN-07](@ref).
 - **(h)** `ProximalGradientDescent` and `AccProxGradDescent` with `GroupNormL2` need a `GroupNormL2{T}` of the element type of the data
   whose groups partition `1:p`, with the level and coefficients in the range that
   [Group lasso with proximal gradient descent](@ref) states.
+- **(j)** With uncentered `SqrNormL2(lambda)`, the penalty is `(lambda / 2) * sum(abs2, beta)`.
+  Construct it with `SqrNormL2(lambda)` to select the `Nothing` center type used by the coordinate prox.
+  The level must be finite, nonnegative and representable in the coefficient type without overflow
+  or rounding a nonzero value to zero. For a finite positive squared column norm, the step outside
+  the normal range in (c) is refused at a positive level and is unpenalized at level zero.
+  A flat column sets its coordinate to zero. Centered penalties, even with an
+  all-zero center, are refused; so are `SqrNormL2` with PGD, APG, block or matrix
+  coefficients, or square-root loss. See [supported calls](@ref IN-01),
+  [scalar levels](@ref IN-02) and [coordinate range rules](@ref CD-04).
 
 ### Statistical applications
 
@@ -107,7 +118,10 @@ elastic net
 \min_\beta\quad \frac{s}{2}\|y-X\beta\|_2^2+\lambda_1\|\beta\|_1+\frac{\lambda_2}{2}\|\beta\|_2^2,
 ~~~
 
-with `ElasticNet(lambda1, lambda2)`. `ProximalGradientDescent` and `AccProxGradDescent` also solve the
+with `ElasticNet(lambda1, lambda2)`. `CDSolver` also accepts uncentered
+`SqrNormL2(lambda)` for ridge, the elastic-net objective with the L1 level set to
+zero. Its supported storage and center type are specified in [IN-01](@ref).
+`ProximalGradientDescent` and `AccProxGradDescent` also solve the
 ℓ∞-penalized problem (below). PGD additionally supports nonnegative coefficients
 with unweighted `NormL1Nonneg`; see [the nonnegative input rules](@ref IN-07).
 CD's numerical step restrictions and its change-test
@@ -120,6 +134,7 @@ meaning of `converged` are specified in [the scalar CD contract](@ref CD-01).
 | Coefficients `beta` | Same-type dense vector for CD, PGD or APG; alternatively, one-dimensional ProximalBase `SparseIterate` for CD only |
 | Loss | `LeastSquaresLoss` or one finite positive scalar multiple of it; for `CDSolver` on a dense vector or a `SparseIterate`, also ProximalBase's `SqrtLeastSquaresLoss` (unscaled; see below) |
 | Penalty | With the least-squares loss, `NormL1(lambda)` or `NormL1(lambda, w)` with nonnegative finite `lambda` and, for `w`, a `Vector{T}` of finite nonnegative weights (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`); an unweighted `NormL1(lambda)` with positive `lambda` with `SqrtLeastSquaresLoss`; unweighted `ElasticNet(lambda1, lambda2)` with nonnegative finite levels (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`, with the least-squares loss; with CD and `lambda2 > 0`, a coordinate step outside the normal range is refused, see [the numerical guide](numerics.md)); `NormLinf(lambda)` with a nonnegative finite `lambda` representable in `T` (PGD and APG on a dense vector, least-squares loss only; refused by `CDSolver`) |
+| Ridge penalty | Uncentered `SqrNormL2(lambda)` with the least-squares loss and `CDSolver` on a dense vector or a one-dimensional `SparseIterate` (note j above) |
 | Solvers | `CDSolver`, `ProximalGradientDescent`, `AccProxGradDescent` (APG also needs `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 3 < 1/(4 eps(Float64))`) |
 | Group lasso | `CDSolver` with a ProximalBase `BlockIterate{Float32}` or `BlockIterate{Float64}` as the coefficients and a `GroupNormL2{Float32}` or `GroupNormL2{Float64}` penalty, and `ProximalGradientDescent` or `AccProxGradDescent` with a dense `Vector{T}` and a `GroupNormL2{T}` penalty, on the same dense least-squares loss (see below) |
 | Nonnegative lasso | `ProximalGradientDescent` only, with unweighted `NormL1Nonneg(lambda)`, dense same-type least-squares data and a feasible nonnegative `Vector{T}` start; see note (i) |

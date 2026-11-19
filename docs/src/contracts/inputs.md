@@ -19,7 +19,7 @@ the design requirement.
 
 | Solver / problem | Coefficient storage | Penalty |
 | --- | --- | --- |
-| `CDSolver`, least squares | dense `Vector{T}` or one-dimensional `SparseIterate{T}` | `NormL1`, with or without weights, or unweighted `ElasticNet` |
+| `CDSolver`, least squares | dense `Vector{T}` or one-dimensional `SparseIterate{T}` | `NormL1`, with or without weights, unweighted `ElasticNet`, or uncentered `SqrNormL2` |
 | `CDSolver`, group least squares | `BlockIterate{T}` | matching `GroupNormL2`; see [CDG-01](@ref) |
 | `CDSolver`, matrix-response least squares | dense `Matrix{T}` or matching row-group `BlockIterate{T}` | native row-group `GroupNormL2`; see [CDM-01](@ref) |
 | `CDSolver`, square-root least squares | dense `Vector{T}` or one-dimensional `SparseIterate{T}` | unweighted `NormL1` with positive level; see [CDQ-01](@ref) |
@@ -34,6 +34,20 @@ Shape errors use `DimensionMismatch`; unsupported combinations and options use i
 `ArgumentError`s. Finite inputs alone do not promise finite intermediate arithmetic; see
 [FP-01](@ref).
 
+Least-squares ridge through `SqrNormL2` is supported only by `CDSolver` on a
+dense vector or one-dimensional `SparseIterate`, using the same raw loss or
+single supported positive scalar multiple. Construct it as
+`SqrNormL2(lambda)`: the coordinate prox requires the declared center type
+`Nothing`, that is, `SqrNormL2{<:Real, Nothing}`. A centered penalty is refused
+even with a zero center or zero level. A manually constructed union-center type
+such as `SqrNormL2{T, Union{Nothing, Vector{T}}}` is also refused even when its
+stored center is `nothing`; runtime value alone does not select the prox method.
+These are input refusals before copying the caller's owner, coefficient writes
+or RNG draws. PGD/APG, square-root loss, group/block coefficients, matrix-response
+coefficients and `Scaled(SqrNormL2(...), ...)` remain unsupported for this
+concrete penalty. [CD-01](@ref) specifies the objective and [CD-04](@ref) the
+separate numerical step refusals after validation.
+
 Raw `LeastSquaresLoss(y, X)` means `sum(abs2, y-X*x)/2`. A single supported positive
 scalar wrapper scales that loss; use `(one(T)/T(n))*LeastSquaresLoss(y, X)` when that
 native normalization is intended. This fixed scaling is distinct from the scaled lasso,
@@ -46,9 +60,9 @@ specified by their solver contracts. For complete runnable calls, see
 
 **Code.** `src/solve.jl`: `_check_data`, `_check_penalty` and the solver-specific owner gates; public `solve!` dispatch.
 
-**Tests.** `test/core_contracts.jl`, `test/sparse_cd.jl`, `test/group_cd.jl`, `test/multiresponse_cd.jl`, `test/linf.jl`, `test/nonnegative_lasso.jl`.
+**Tests.** `test/core_contracts.jl`, `test/sparse_cd.jl`, `test/group_cd.jl`, `test/multiresponse_cd.jl`, `test/linf.jl`, `test/nonnegative_lasso.jl`; `test/cd_elasticnet.jl` checks supported ridge solves plus centered and union-center refusals, while `test/sqrt_lasso.jl` explicitly refuses `SqrNormL2` with square-root loss. Existing generic gates refuse it for PGD/APG and unsupported storage.
 
-**Sources.** `docs/src/numerics.md:L732`, `docs/src/support.md:L316`, `docs/src/support.md:L323`, `docs/src/support.md:L356`, `docs/src/developer/implementation-notes.md:L7`, `docs/src/developer/implementation-notes.md:L192`, `docstring:src/solvers/proximal_gradient_descent.jl:L296`, `docs/src/index.md:L9`, `README.md:L79`, `README.md:L96`, `docs/src/support.md:L130`, `docstring:src/ProximalSolvers.jl:L4`; the later nonnegative-lasso addition is [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8).
+**Sources.** `docs/src/numerics.md:L732`, `docs/src/support.md:L316`, `docs/src/support.md:L323`, `docs/src/support.md:L356`, `docs/src/developer/implementation-notes.md:L7`, `docs/src/developer/implementation-notes.md:L192`, `docstring:src/solvers/proximal_gradient_descent.jl:L296`, `docs/src/index.md:L9`, `README.md:L79`, `README.md:L96`, `docs/src/support.md:L130`, `docstring:src/ProximalSolvers.jl:L4`; the later nonnegative-lasso addition is [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8). The ridge extension is [upstream #420 at 217cde72, exact penalty gate](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/src/solve.jl#L59-L100) and [support note (j)](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/docs/src/support.md#L75-L80).
 
 ## [IN-02 Penalty levels and the loss scale](@id IN-02)
 
@@ -57,8 +71,13 @@ specified by their solver contracts. For complete runnable calls, see
 Penalty levels must be finite nonnegative real scalars that convert to `T` without
 overflow or rounding a nonzero value to zero. A different scalar type is allowed,
 including a representable `Float64` literal in a `Float32` solve. A subnormal converted
-level is accepted for an unweighted `NormL1` or the supported unweighted
-`NormL1Nonneg` in [IN-07](@ref); weighted `NormL1` has the stricter [IN-03](@ref) rule.
+level is accepted for an unweighted `NormL1`, the supported unweighted
+`NormL1Nonneg` in [IN-07](@ref), or the uncentered `SqrNormL2` ridge penalty
+in [IN-01](@ref); weighted `NormL1` has the stricter [IN-03](@ref) rule.
+For ridge, zero is also accepted. Negative, NaN or infinite levels are refused,
+as are finite levels whose conversion overflows or turns a nonzero value into
+zero. A representable level of another real scalar type is allowed; validation
+does not globally replace the supplied penalty parameter by `T(lambda)`.
 
 For `Scaled(LeastSquaresLoss(...), s)`, the supported loss scale is either:
 
@@ -113,9 +132,9 @@ g = NormL1(lambda)
 
 **Code.** `src/solve.jl`: `_scalar_parameter`, `_check_loss_scale`, `_loss_scale_error`; `src/cd/leastsquares.jl`: `LSModel`; `src/solvers/image_models.jl`: scale consumers.
 
-**Tests.** `test/core_contracts.jl`, `test/cd_numerics.jl`, `test/initial_curvature.jl`, `test/stopping_scale.jl`.
+**Tests.** `test/core_contracts.jl`, `test/cd_numerics.jl`, `test/initial_curvature.jl`, `test/stopping_scale.jl`; ridge construction/validation in `test/cd_elasticnet.jl`, including negative/NaN constructors, an infinite level and Float32 conversions of `1e-60` and `1e40`, plus supported zero and mixed-scalar levels.
 
-**Sources.** `docs/src/numerics.md:L743`, `docs/src/numerics.md:L783`, `docs/src/support.md:L316`, `docs/src/support.md:L323`, `docs/src/support.md:L327`, `docs/src/support.md:L330`, `docs/src/support.md:L334`, `docs/src/developer/implementation-notes.md:L7`, `docstring:src/solvers/proximal_gradient_descent.jl:L296`, `docs/src/getting-started.md:L119`. The unweighted nonnegative-lasso level gate is added by [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8).
+**Sources.** `docs/src/numerics.md:L743`, `docs/src/numerics.md:L783`, `docs/src/support.md:L316`, `docs/src/support.md:L323`, `docs/src/support.md:L327`, `docs/src/support.md:L330`, `docs/src/support.md:L334`, `docs/src/developer/implementation-notes.md:L7`, `docstring:src/solvers/proximal_gradient_descent.jl:L296`, `docs/src/getting-started.md:L119`. The unweighted nonnegative-lasso level gate is added by [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8). Ridge reuses [`_scalar_parameter` at 217cde72](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/src/solve.jl#L11-L21), called by [its new penalty branch](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/src/solve.jl#L75-L79).
 
 ## [IN-03 Weighted lasso inputs and rounded coefficients](@id IN-03)
 
@@ -126,6 +145,8 @@ The weighted-lasso penalty is `lambda * sum(w[j] * abs(x[j]))`, represented by
 coefficient. An infinite weight, another precision, a view, a range or another array
 type is refused. `collect(T, vec(w))` converts another array, taking its entries in
 linear order. The mutable coefficients must not alias `w`.
+The public call is `solve!(x, f, g, method)`, with `g = NormL1(lambda, w)` and
+`method` one of the supported CD, PGD or APG methods.
 
 The level passes [IN-02](@ref), and `T(lambda)` must be zero or normal in `T`: a
 subnormal level is refused with weights. For every entry, the coefficient
@@ -150,7 +171,8 @@ the branch selection and the bound on that error. CD retains its change test.
 
 `Scaled(NormL1(lambda, w), a)` and weighted `ElasticNet` are refused. The
 [weighted-lasso tutorial](../examples/problems/weighted_lasso.md) demonstrates an
-adaptive lasso with a zero weight using all three solvers.
+adaptive lasso with a zero weight using all three solvers; its source script is
+`examples/problems/weighted_lasso.jl`.
 
 **Applies to.** Weighted `NormL1` with scalar least-squares CD, PGD or APG; group input checks reuse the rounded-coefficient rule in [IN-04](@ref).
 
@@ -170,6 +192,10 @@ its [dimension bounds](@ref APG-02). The penalty must be `GroupNormL2{T}`: its l
 and weights have the data's element type. Convert explicitly with
 `GroupNormL2(T(lambda), groups, T.(w))`. A `Float64` group penalty with `Float32`
 data is refused by these methods, although group CD supports it under [CDG-01](@ref).
+With `g = GroupNormL2(λ, groups, w)`, the explicit call forms are
+`solve!(x, f, g, ProximalGradientDescent(), options)` and
+`solve!(x, f, g, AccProxGradDescent(), options)`, subject to those type and
+dimension requirements.
 
 The groups partition `1:p` and agree with the layout stored in the penalty at
 construction. An index above `p` raises `DimensionMismatch`; an empty group, an index
@@ -231,6 +257,9 @@ unscaled loss. They require dense `Vector{T}` coefficients, common-type dense in
 and a finite nonnegative level representable under [IN-02](@ref). ProximalBase
 already refuses construction of a negative or `NaN` level; the other input refusals
 leave `x` unchanged. A wrapper such as `Scaled(NormLinf(lambda), c)` is unsupported.
+With `g = NormLinf(lambda)`, the default-option calls are
+`solve!(x, f, g, ProximalGradientDescent())` and
+`solve!(x, f, g, AccProxGradDescent())`.
 
 The ℓ∞ penalty can tie the largest coefficients at a common magnitude and does not
 in general give zeros. ProximalBase supplies the proximal operator. In exact arithmetic, zero is a minimizer

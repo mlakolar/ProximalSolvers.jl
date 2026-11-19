@@ -58,13 +58,24 @@ guards in [STOP-04](@ref). A kept stop is a working-precision stationarity check
 it does not supply an exact-arithmetic certificate or a calculated duality gap.
 The supported inputs and feasibility refusals are in [IN-07](@ref).
 
+Uncentered `SqrNormL2` ridge was also added after the table's baseline. Its
+scalar least-squares CD run uses the same full-pass change criterion as the
+first row, specified by [CD-03](@ref), with `passes` counting completed passes,
+`kkt_checks = 0` as a compatibility sentinel and `gap = NaN`. The result's
+`minimizer` is the caller's dense vector or owner, and `minimum` is the final
+finite objective evaluated from the cached least-squares residual plus the
+ridge penalty. [CDS-03](@ref)/[CDS-04](@ref) retain the owner commit and propagated
+failure boundary; adding a ridge penalty supplies no duality certificate.
+
 **Applies to.** All solver result types; each row retains its specified loss, penalty and precision scope.
 
 **Code.** `src/cd/solver.jl`: completed passes and CD results; `src/solve.jl`: gradient iteration/stationarity decisions; `src/types.jl`: result fields.
 
-**Tests.** `test/core_contracts.jl`, `test/stopping_scale.jl`, `test/group_pgd.jl`, `test/linf.jl`, `test/sqrt_lasso.jl`, `test/nonnegative_lasso.jl` and the solver-specific stopping tests.
+**Tests.** `test/core_contracts.jl`, `test/stopping_scale.jl`, `test/group_pgd.jl`, `test/linf.jl`, `test/sqrt_lasso.jl`, `test/nonnegative_lasso.jl` and the solver-specific stopping tests. The ridge cases in `test/cd_elasticnet.jl` reuse `check_result!` for the independently evaluated objective, caller identity, `kkt_checks == 0` and `isnan(gap)`.
 
 **Sources.** `docs/src/numerics.md:L853`, `docs/src/numerics.md:L1072`, `docs/src/numerics.md:L1075`, `docs/src/numerics.md:L1081`, `docs/src/stopping-limits.md:L17`, `docs/src/stopping-limits.md:L19`, `docs/src/stopping-limits.md:L22`, `docs/src/stopping-limits.md:L23`, `docs/src/stopping-limits.md:L24`, `docs/src/stopping-limits.md:L25`, `docs/src/stopping-limits.md:L26`, `docs/src/stopping-limits.md:L27`, `docs/src/stopping-limits.md:L28`, `docs/src/stopping-limits.md:L30`, `docs/src/stopping-limits.md:L35`, `docs/src/support.md:L385`, `docstring:src/types.jl:L298`, `docstring:src/types.jl:L300`. The later nonnegative-lasso result interpretation follows [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8). The square-root fallback qualification is from [f573224f](https://github.com/mlakolar/ProximalSolvers.jl/commit/f573224f70058be24b81378ab2d6e1c752eb93e8), as retained in [the integrated result guidance at ef8c9aae](https://github.com/mlakolar/ProximalSolvers.jl/blob/ef8c9aae0afd8dedf0b2f2b172f5a06da267c9d7/docs/src/stopping-limits.md#L35-L45).
+
+The later ridge result assertions are [217cde72, shared result checks](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/test/cd_elasticnet.jl#L217-L228) and [their ridge callers](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/test/cd_elasticnet.jl#L378-L408).
 
 ## [RES-02 Gradient result fields and counters](@id RES-02)
 

@@ -30,7 +30,7 @@ A PGD trial applies the penalty prox after a least-squares gradient step of leng
 
 ### [LS-02 TFOCS trial and retry policy](@id LS-02)
 
-**Statement.** Each iteration starts with `L ← α L`. TFOCS's local estimate `L̂` uses function values until they are too close for the floating-point comparison, then gradients. A finite trial is accepted when that estimate is no larger than `L`, or when `L ≥ Lexact`. Ordinary rejected trials retry with `L ← min(Lexact, max(L̂, L/β))`, except when the separate rejection check in [LS-03](@ref) accepts or replaces `L̂`.
+**Statement.** The backtracking policy follows TFOCS's reference routine `private/tfocs_backtrack.m`. Each iteration starts with `L ← α L`. TFOCS's local estimate `L̂` uses function values until they are too close for the floating-point comparison, then gradients. A finite trial is accepted when that estimate is no larger than `L`, or when `L ≥ Lexact`. Ordinary rejected trials retry with `L ← min(Lexact, max(L̂, L/β))`, except when the separate rejection check in [LS-03](@ref) accepts or replaces `L̂`.
 
 A nonfinite trial image or loss value supplies no estimate and is never accepted. The search retries with `L ← L/β`, beyond `Lexact` if necessary. The zero-step exit accepts a finite-value trial whose computed displacement norm squared is zero, including a nonzero step lost by squaring; in gradient mode it refreshes the gradient so that a previous rejected trial cannot leave a stale one.
 
@@ -46,11 +46,13 @@ Accepted trials are not checked again. In particular, a rounding-decided estimat
 
 ### [LS-03 Rechecking a rejected least-squares trial](@id LS-03)
 
-**Statement.** When eligible, a rejected trial is decided again from one product `X d̂`, using `c = m s ‖fl(X d̂)‖² / ‖d̂‖²`. Here `m = 1` for a function-value estimate and `m = 2` for a gradient estimate, matching TFOCS's gradient test `2s ‖X d‖² ≤ L ‖d‖²`.
+**Statement.** For an unscaled trial, `d̂ = x - x_previous`; when [LS-06](@ref) scales the trial displacement, `d̂` denotes that scaled vector. When eligible, a rejected trial is decided again from one product `X d̂`, using `c = m s ‖fl(X d̂)‖² / ‖d̂‖²`. Here `m = 1` for a function-value estimate and `m = 2` for a gradient estimate, matching TFOCS's gradient test `2s ‖X d‖² ≤ L ‖d‖²`.
 
 If `L ≥ c` in the comparison precision, accept and keep the current estimate mode. Otherwise, replace `L̂` only when the returned curvature in the working type is finite; if not, retain TFOCS's estimate. For Float32, the Float64 comparison value and the returned Float32 retry value are distinct, as specified in [LS-04](@ref).
 
-Do not run this check for a nonfinite trial value, the zero-step exit, a `NaN` local estimate, or a gradient-mode estimate formed from a gradient with a nonfinite entry. Every checked rejection costs one matrix-vector product. This check reduces inflated local estimates caused by subtracting nearby values or gradients; it provides no rounding certificate. A decision near directional curvature can go either way, and a direction nearly in the null space of `X` can have a large relative curvature error.
+With `c` denoting the finite returned curvature, the retry is `L ← min(Lexact, max(c, L/β))`.
+
+Do not run this check for a nonfinite trial value, the zero-step exit, a `NaN` local estimate, or a gradient-mode estimate formed from a gradient with a nonfinite entry. Every checked rejection costs one matrix-vector product. This check reduces inflated local estimates caused by rounding of `f(x) - q(x)` (loss minus the local quadratic model) or by differences of gradients. Near a minimizer that rounding can inflate `L̂` by orders of magnitude, shrinking the step until `x` stops moving. The check provides no rounding certificate. A decision near directional curvature can go either way, and a direction nearly in the null space of `X` can have a large relative curvature error.
 
 **Applies to.** ProximalGradientDescent with BackTracking.
 
@@ -100,7 +102,7 @@ Keep TFOCS's estimate when a product entry overflows, when the calling thread fl
 
 **Statement.** For Float64 data, the sums of squares remain in Float64. Over- or underflow in `‖fl(X d̂)‖²` or `‖d̂‖²` can make `c` infinite or `NaN`, retaining TFOCS's update, or spuriously zero, accepting a trial even when true curvature is large. This includes an underflowed numerator and an overflowed denominator.
 
-Scaling in [LS-06](@ref) keeps the squared norm of the scaled displacement between one and about `16 * length(d̂)`; it does not prevent the product norm from overflowing or underflowing. Without scaling, the denominator may overflow for nonfinite step entries or in the narrow band where `norm(d)^2` is finite but the check's sum of squares is not. The historical probes of that band are retained in [the evidence](evidence/strict-accuracy-config.md#PGD-rejection-check-measurements).
+Scaling in [LS-06](@ref) bounds the squared norm of the scaled displacement; it does not prevent the product norm from overflowing or underflowing. Without scaling, the denominator may overflow for nonfinite step entries or in the narrow band where `norm(d)^2` is finite but the check's `sum(abs2, d)` is not. The historical probes of that band are retained in [the evidence](evidence/strict-accuracy-config.md#PGD-rejection-check-measurements).
 
 **Applies to.** ProximalGradientDescent; Float64 data.
 
@@ -112,7 +114,7 @@ Scaling in [LS-06](@ref) keeps the squared norm of the scaled displacement betwe
 
 ### [LS-06 Scaling a displacement whose squared norm overflows](@id LS-06)
 
-**Statement.** If the trial displacement has finite entries, its computed `norm(d)^2` is `Inf` in `T`, and `f(x)` is finite, decide the trial using `d̃ = σ d`, where
+**Statement.** If the trial displacement `d = x - x_previous` has finite entries, its computed `norm(d)^2` is `Inf` in `T`, and `f(x)` is finite, decide the trial using `d̃ = σ d`, where
 
 ```
 σ = 2^(-e)
@@ -121,7 +123,9 @@ e = min(exponent(max |dᵢ|), exponent(floatmax(T)) - 1).
 
 The scale `σ` is normal, and the largest magnitude in `d̃` lies in `[1, 2)`, or `[2, 4)` when the original maximum has the largest exponent (1023 in Float64 and 127 in Float32). The overflow trigger is roughly a step magnitude of `1.3e154` in Float64 or `1.8e19` in Float32, and includes a norm itself above `floatmax(T)`.
 
-Form `L̂` using `d̃`, function values multiplied by `σ²` through exponent shifts (without forming a possibly underflowing square), and the displacement-gradient products multiplied by `σ`. In exact arithmetic this is the unscaled estimate. The rejection check reads `d̃`; after acceptance the solver restores `delta_x = x - x_previous` for subsequent diagnostics.
+The rejection check's squared norm `‖d̃‖²` is between one and about `16 * length(d̃)`. The baseline BackTracking docstring wrote this upper bound as `16n`; here the dimension is explicitly the displacement length (the number of coefficients), rather than the design-row count denoted by `n` elsewhere on this page.
+
+Form `L̂` using `d̃`, `f(x)` and `f(x_previous)` multiplied by `σ²` through exponent shifts (without forming a possibly underflowing square), and the displacement-gradient products multiplied by `σ`. In exact arithmetic this is the unscaled estimate. The rejection check reads `d̃`; after acceptance the solver restores `delta_x = x - x_previous` for subsequent diagnostics.
 
 Do not scale a nonfinite trial loss, a displacement with a nonfinite entry, or a squared displacement norm that is subnormal or underflows to zero. These retain their existing decisions.
 

@@ -330,13 +330,20 @@ Do not modify data during a solve, or alias `x` with the data, penalty weights
 or other disallowed mutable storage. Results share `x`; copying the result
 object alone does not preserve earlier coefficients.
 
-CD's numerical failures leave the caller's original coefficients unchanged;
-a completed finite run, including a pass-limit outcome, commits its final point.
+An exception escaping a CD solve leaves the caller's original coefficients
+unchanged; a completed finite run, including a pass-limit outcome, commits its final point.
 PGD/APG iteration errors restore the last accepted point and rethrow. Internal
 counters have no transaction guarantee. A borrowed CD RNG may have advanced
 when a numerical failure occurs during a pass. After a successful sparse/group
 solve, reacquire active-coordinate/value views because its active storage can
 change.
+
+Ridge via uncentered `SqrNormL2(lambda)` is supported with least squares and CD
+on a dense vector or one-dimensional `SparseIterate`. Its penalty is
+`(lambda/2) * sum(abs2, x)`; `lambda` must be finite, nonnegative and representable
+in the coefficient type. Centered penalties, including an all-zero center, and
+this penalty with PGD, APG, block/matrix coefficients or square-root loss are refused.
+See [supported inputs](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-01).
 
 Group CD requires a `BlockIterate` with the penalty's ordered groups; group
 PGD/APG require a same-type `GroupNormL2{T}` and dense coefficients.

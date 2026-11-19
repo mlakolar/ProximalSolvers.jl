@@ -13,6 +13,12 @@ A zero weight leaves an entry unpenalized. See [weight validation](@ref IN-03).
 **Elastic net:** The penalty `lambda1 * sum(abs, beta) + lambda2/2 * sum(abs2, beta)`, an L1 term plus a
 ridge (squared L2) term, `ElasticNet(lambda1, lambda2)`. CD, PGD and APG accept it.
 
+**Ridge:** Least-squares regression with the squared L2 penalty
+`(lambda/2) * sum(abs2, beta)`. CD accepts the uncentered `SqrNormL2(lambda)`;
+the same objective is an elastic net with its L1 level set to zero. Ridge
+shrinks coefficients continuously and does not generally produce exact zeros.
+See [the supported ridge interface](support.md).
+
 **Square-root lasso:** The optimization problem `min_β ‖y − Xβ‖₂/√n + λₙ‖β‖₁` (Belloni, Chernozhukov and
 Wang, 2011). In this package, `SqrtLeastSquaresLoss(y, X)` with `NormL1(λ)` is the unnormalized form
 `‖y − Xβ‖₂ + λ‖β‖₁`, which has the same minimizers at `λ = √n λₙ`; `CDSolver` solves it.

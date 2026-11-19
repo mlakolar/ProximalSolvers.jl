@@ -22,9 +22,10 @@ The immutable baseline continues to record the identities and hashes of its
 scripts with the accepted upstream integration snapshot. That separate check
 preserves the upstream tutorial changes without replacing the original historical
 script inventory. The accepted integration snapshot is now
-[ef8c9aae](https://github.com/mlakolar/ProximalSolvers.jl/commit/ef8c9aae0afd8dedf0b2f2b172f5a06da267c9d7),
+[217cde72](https://github.com/mlakolar/ProximalSolvers.jl/commit/217cde72cad2b324e174012accc949da59c1bba5),
 which also includes the bounded square-root-lasso fallback from f573224f and
-the updated square-root/scaled-lasso tutorial checks. The old exact-fit assertions
+the updated square-root/scaled-lasso tutorial checks, and the uncentered-ridge
+example added by #420. The old exact-fit assertions
 below remain historical; [EVIDENCE-SQRT-406](@ref) explains the change and
 [CDQ-05](@ref)/[CDQ-06](@ref) specify the current interpretation.
 

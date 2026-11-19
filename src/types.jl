@@ -28,8 +28,6 @@ options = ProximalOptions(maxiter=2000, ftol=1e-13, xtol=1e-11,
 A successful stopping flag is not an exact optimality certificate; see
 [the stopping rules](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-01).
 
-# Extended help
-
 ## Keywords
 
 - `maxiter=200`: iteration limit.
@@ -45,20 +43,24 @@ A successful stopping flag is not an exact optimality certificate; see
 - `print_every=1`: display and callback cadence.
 - `callback=nothing`: optional callback; receives the stored trace when tracing
   is enabled, otherwise the current state, and returning `true` requests a stop.
-- `time_limit=Inf`: elapsed-time limit.
-- `f_calls_limit=0`, `grad_calls_limit=0`, `prox_calls_limit=0`: oracle-call limits;
+- `time_limit=Inf`: elapsed-time limit in seconds.
+- `f_calls_limit=0`, `grad_calls_limit=0`, `prox_calls_limit=0`: limits on smooth-loss,
+  gradient and proximal calls, respectively;
   zero means unlimited. Limits are checked after complete iterations, so a count
   can exceed its limit by the work of one iteration.
-- `gaptol=0`, `gapevery=10`: compatibility arguments only, not stored.
-  Positive `gaptol` is refused; `gapevery` must be positive and has no effect.
+- `gaptol=0`: reserved dual-gap stopping target; only `0` is accepted.
+- `gapevery=10`: reserved interval between dual-gap checks; it must be positive
+  but has no effect. Neither gap-related argument is stored.
+
+# Extended help
 
 For `NormL1`, `ElasticNet` and `GroupNormL2`, a proposed stop is checked against
 the applicable computed KKT residual; `NormLinf` uses a proximal-gradient
 mapping check. Neither certifies coefficient error. Check optimality independently
 when the accuracy matters. These options do not configure coordinate descent:
-`CDSolver` accepts unweighted `NormL1(lambda)`, weighted `NormL1(lambda, w)`
-and `ElasticNet(lambda1, lambda2)` for dense or one-dimensional `SparseIterate`
-least-squares problems and stops by its change test.
+`CDSolver` accepts unweighted `NormL1(lambda)`, weighted `NormL1(lambda, w)`,
+`ElasticNet(lambda1, lambda2)` and uncentered `SqrNormL2(lambda)` for dense or
+one-dimensional `SparseIterate` least-squares problems and stops by its change test.
 
 For dense PGD with unweighted `NormL1Nonneg(lambda)`, the KKT score is
 `abs(grad[j] + T(lambda))` at a positive coefficient and

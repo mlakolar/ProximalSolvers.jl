@@ -1,6 +1,7 @@
 # Scalar coordinate descent
 
-These clauses cover least-squares lasso, weighted lasso and unweighted elastic net.
+These clauses cover least-squares lasso, weighted lasso, unweighted elastic net
+and ridge with an uncentered `SqrNormL2` penalty.
 Read the [input rules](@ref IN-01), [working precision](@ref FP-01), and
 [result and failure rules](@ref RES-01) with them. Specialized storage and losses have
 their own clauses: [SparseIterate](@ref CDS-01), [groups](@ref CDG-01),
@@ -11,9 +12,11 @@ their own clauses: [SparseIterate](@ref CDS-01), [groups](@ref CDG-01),
 **Statement.**
 
 For a loss scale `s`, the objective is `(s/2) * sum(abs2, y - X*beta) + g(beta)`.
+The public call is `solve!(beta, f, g, CDSolver())`.
 `CDSolver` accepts matching `Float32` or `Float64` dense design/response data and
 coefficients in a dense `Vector` or a one-dimensional `SparseIterate`. The penalty is
-`NormL1(lambda)`, `NormL1(lambda, w)` or an unweighted `ElasticNet(lambda1, lambda2)`.
+`NormL1(lambda)`, `NormL1(lambda, w)`, an unweighted `ElasticNet(lambda1, lambda2)`
+or an uncentered `SqrNormL2(lambda)`.
 The weights of `NormL1` are a `Vector{T}` of finite nonnegative entries. Input validation
 checks `T(lambda)` and the rounded coefficient `T(lambda) * w[k]` to be zero or normal
 numbers of `T`; a zero weight leaves its coordinate unpenalized.
@@ -23,18 +26,35 @@ coordinate minimizer at `lambda / (s * a)` in the lasso case. In the normal step
 ProximalBase's `prox_block` forms the threshold from the supplied level and weight in its
 working type, so its threshold need not equal one formed from the already-rounded checked
 coefficient. The [range rule](@ref CD-04) specifies the exceptional band and the
-elastic-net refusal. At every visit a flat column (all entries zero) sets its scalar
+positive-ridge refusal. At every visit a flat column (all entries zero) sets its scalar
 coordinate to zero for these accepted penalties, including a zero level or weight.
 A nonflat column whose squared norm underflows to zero is refused. With `maxpasses = 0`
 no coordinate is visited.
+
+For uncentered `SqrNormL2(lambda)`, `g(beta) = (lambda/2) * sum(abs2, beta)`:
+this is the elastic-net objective with zero L1 level. Construct the penalty as
+`SqrNormL2(lambda)`; the exact center-type and level checks are [IN-01](@ref)
+and [IN-02](@ref). In the normal step band, the implementation calls
+ProximalBase's `prox_block(g, c, k, gamma)` at `c = old + b/a`,
+`b = dot(X[:, k], r)` and `gamma = inv(s*a)`. In exact arithmetic this ridge
+prox is `c / (1 + gamma*lambda)`. The supplied penalty and scale participate
+in the oracle's working precision; equivalence to `ElasticNet(0, lambda)` is
+an objective equivalence, not a promise of bitwise-identical iterates.
+
+Ridge uses the same cached residual, pass schedule, optional momentum, stopping
+scales and owner transaction as the other scalar least-squares penalties.
+The ridge term does not replace the loss-column curvature in the change scale.
+At a flat column, the chosen penalty minimizer is zero even for `lambda = 0`,
+where the minimizer is nonunique. Nonflat zero/overflowed curvature and the
+exceptional step band remain subject to [CD-04](@ref).
 
 **Applies to.** `CDSolver`; vector response; dense `Vector{T}` or one-dimensional `SparseIterate{T}`; `T` is `Float32` or `Float64`.
 
 **Code.** `src/cd/leastsquares.jl`: `coordinate_step!`, `_sqnorm!`; `src/solve.jl`: input validation.
 
-**Tests.** `test/cd_numerics.jl`, `test/cd_elasticnet.jl` (flat columns and range refusals), `test/weighted_lasso.jl`.
+**Tests.** `test/cd_numerics.jl`, `test/cd_elasticnet.jl` (flat columns and range refusals), `test/weighted_lasso.jl`. The ridge testset "uncentered SqrNormL2 with normalized least squares" covers Float32/Float64 dense and warm-owner solves on ordinary, wide, correlated and flat-column designs, zero level, and a Float64 scale/level with Float32 data. It checks independent 256-bit normal-equation references, agreement within precision-based bounds with `ElasticNet(0, lambda)`, coefficient/objective agreement, result fields and flat-column zeros. `examples/problems/elastic_net.jl` also compares the normalized ridge solve with the normal-equation ridge reference.
 
-**Sources.** `docs/src/choosing-solver.md:L83`, `docs/src/numerics.md:L9`, `docstring:src/cd/solver.jl:L6`, `README.md:L79`, `docs/src/support.md:L107`.
+**Sources.** `docs/src/choosing-solver.md:L83`, `docs/src/numerics.md:L9`, `docstring:src/cd/solver.jl:L6`, `README.md:L79`, `docs/src/support.md:L107`. The later ridge addition is [upstream #420 at 217cde72](https://github.com/mlakolar/ProximalSolvers.jl/commit/217cde72cad2b324e174012accc949da59c1bba5), with [coordinate and range methods](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/src/cd/leastsquares.jl#L77-L166), [flat-column minimization](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/src/cd/models.jl#L26-L34), and [ridge tests](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/test/cd_elasticnet.jl#L378-L441). These sources extend the frozen baseline support.
 
 ## [CD-02 Order, active passes and momentum](@id CD-02)
 
@@ -103,17 +123,35 @@ threshold, also ending at `maxpasses`. A tolerance above that rounding level avo
 this particular stall; Float64 has a much lower rounding level. No bound on the KKT
 residual or distance to a minimizer follows from the convergence flag.
 
+This same change test applies to uncentered `SqrNormL2` ridge. The coordinate
+scale remains `sqrt(s*a)` with the loss-column squared norm `a`, without adding
+the ridge level. A reported convergence therefore supplies no independent ridge
+stationarity or objective-gap certificate. [RES-01](@ref) specifies the unchanged
+`passes`, `kkt_checks = 0` and `gap = NaN` interpretation for this addition.
+
 **Applies to.** Scalar least-squares `CDSolver`; the specialized group and square-root clauses define their visit changes.
 
 **Code.** `src/cd/leastsquares.jl`: `response_scale`, `_response_scale_exceptional`; `src/cd/solver.jl`: stopping comparisons.
 
 **Tests.** `test/cd_numerics.jl` (response/coordinate scales, zero response, range boundaries); `test/stopping_scale.jl`.
 
-**Sources.** `docs/src/choosing-solver.md:L51`, `docs/src/choosing-solver.md:L69`, `docs/src/numerics.md:L9`, `docstring:src/cd/solver.jl:L40`, `docstring:src/cd/solver.jl:L69`, `docstring:src/solvers/proximal_gradient_descent.jl:L343`.
+**Sources.** `docs/src/choosing-solver.md:L51`, `docs/src/choosing-solver.md:L69`, `docs/src/numerics.md:L9`, `docstring:src/cd/solver.jl:L40`, `docstring:src/cd/solver.jl:L69`, `docstring:src/solvers/proximal_gradient_descent.jl:L343`. Ridge uses the same rule in [the upstream CDSolver guidance at 217cde72](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/src/cd/solver.jl#L36-L66) and [ProximalOptions clarification](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/src/types.jl#L55-L60).
 
-## [CD-04 Range-safe scalar step and elastic-net refusal](@id CD-04)
+## [CD-04 Range-safe scalar step and positive-ridge refusal](@id CD-04)
 
 **Statement.**
+
+The threshold arithmetic below applies to lasso and weighted lasso, and to an
+elastic net with zero ridge level. For an uncentered `SqrNormL2`, the ordinary
+step remains ProximalBase's ridge prox in [CD-01](@ref). At a finite positive
+column squared norm `a`, when `p = s*a` or its reciprocal falls below
+`floatmin(S)`, `SqrNormL2(0)` takes the unpenalized center `c`, while a positive
+ridge level is refused with `ArgumentError` naming the coordinate and explaining
+that `SqrNormL2 with lambda > 0 has no range-safe step there`. This exceptional
+method is defined for `S == T`; the existing wider-scale qualification below
+still applies. The refusal occurs during a pass, before that coordinate and
+residual are changed; the public caller remains unchanged even if an earlier
+coordinate in the private pass moved. A borrowed RNG may already have advanced.
 
 The coordinate step is the soft threshold of the centre `c = x_k + b / a` at
 `τ = λ / (s * a)`, with `b` the inner product of the residual and the column.
@@ -167,14 +205,20 @@ throw an `ArgumentError` that names the curvature, before the coordinate, the
 residual or the curvature cache entry of that column changes, and `x` and an
 owner are not changed.
 
+The exceptional methods also include `SqrNormL2{<:Real, Nothing}` with the
+zero-level and positive-level behavior above. A nonflat column whose squared
+norm underflows to zero, or a column whose squared norm is nonfinite, is still
+refused before the coordinate/residual/cache-entry writes; a positive ridge
+level does not bypass those curvature gates. A genuinely flat column uses the
+zero minimizer of [CD-01](@ref), including at zero ridge level.
 
-**Applies to.** Lasso, weighted lasso and unweighted elastic net on scalar CD iterates.
+**Applies to.** Lasso, weighted lasso, unweighted elastic net and uncentered `SqrNormL2` ridge on scalar CD iterates.
 
 **Code.** `src/cd/leastsquares.jl`: `_threshold`, `coordinate_step!`, `_sqnorm!`.
 
-**Tests.** `test/cd_numerics.jl` (normal-band equivalence and threshold range); `test/cd_elasticnet.jl` (off-band refusals and rollback); `test/weighted_lasso.jl`.
+**Tests.** `test/cd_numerics.jl` (normal-band equivalence, threshold range and positive-ridge refusal for an overflowing scale-curvature product); `test/cd_elasticnet.jl` (off-band refusals and rollback), including "SqrNormL2 validation and exceptional coordinate steps": positive subnormal second-column curvature refuses the positive ridge level after the first private coordinate moves, preserving dense/owner entry state; zero level reaches the unpenalized solution, and a flat column is zeroed; `test/weighted_lasso.jl`.
 
-**Sources.** `docs/src/choosing-solver.md:L83`, `docs/src/numerics.md:L9`, `docs/src/developer/implementation-notes.md:L7`, `docstring:src/cd/solver.jl:L6`, `README.md:L79`, `docs/src/support.md:L107`.
+**Sources.** `docs/src/choosing-solver.md:L83`, `docs/src/numerics.md:L9`, `docs/src/developer/implementation-notes.md:L7`, `docstring:src/cd/solver.jl:L6`, `README.md:L79`, `docs/src/support.md:L107`. The additional ridge method and its limits are [217cde72, `_exceptional_step`](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/src/cd/leastsquares.jl#L157-L166) and [the updated numerical guidance](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/docs/src/numerics.md#L18-L38).
 
 ## [CD-05 Cached-residual limitation](@id CD-05)
 

@@ -6,7 +6,7 @@ and coordinate descent for the square-root lasso.**
 [Documentation](https://mlakolar.github.io/ProximalSolvers.jl/dev/) ·
 [Getting started](https://mlakolar.github.io/ProximalSolvers.jl/dev/getting-started/) ·
 [Choosing a solver](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/) ·
-[Sparsity and KKT checks](https://mlakolar.github.io/ProximalSolvers.jl/dev/sparsity-and-kkt/)
+[Sparsity and KKT checks](https://mlakolar.github.io/ProximalSolvers.jl/dev/learn/02-optimality-kkt/)
 
 The current GitHub **development** version solves
 
@@ -56,7 +56,7 @@ Choose a path:
 - **[Contracts](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/):** numerical guarantees, input requirements and failure behavior.
 
 The [support matrix](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/) also covers
-weighted and nonnegative lasso, elastic net, group and multi-response models,
+weighted and nonnegative lasso, elastic net, ridge, group and multi-response models,
 and ℓ∞ penalties.
 Browse the [worked examples](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples/)
 for statistical applications and convergence diagnostics.

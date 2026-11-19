@@ -20,6 +20,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 from check_docs_layers import active_headings, active_sections, migration_example_scripts, source_code_sha256
+from docs_tokens import check_token_coverage
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "docs/migration"
@@ -355,7 +356,7 @@ def source_ids(section):
     return result
 
 
-def check(report_only=False, structural=False):
+def check(report_only=False, structural=False, token_report=None):
     manifest = json.loads((MIGRATION / "baseline.json").read_text())
     with (MIGRATION / "ledger.csv").open(newline="") as stream:
         rows = list(csv.DictReader(stream))
@@ -426,6 +427,13 @@ def check(report_only=False, structural=False):
         for path, digest in examples.items():
             if not (ROOT / path).is_file() or hashlib.sha256((ROOT / path).read_bytes()).hexdigest() != digest:
                 errors.append(f"{label} example script changed or missing: {path}")
+        token_errors, coverage = check_token_coverage(ROOT, manifest, rows)
+        errors.extend(token_errors)
+        print(f"Token coverage: {coverage['summary']}; {len(coverage['documents'])} authored documents/help files.")
+        if token_report is not None:
+            Path(token_report).write_text(json.dumps(coverage, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    elif token_report is not None:
+        errors.append("--token-report requires the full migration check, not --structural")
     print(f"Ledger: {len(originals)} baseline blocks; {dict(Counter(r['disposition'] for r in rows))}; {len(errors)} errors.")
     for error in errors:
         print(error, file=sys.stderr)
@@ -476,6 +484,7 @@ def main():
     checking = sub.add_parser("check")
     checking.add_argument("--report-only", action="store_true")
     checking.add_argument("--structural", action="store_true", help="Check archival mappings without freezing future prose or examples")
+    checking.add_argument("--token-report", type=Path, help="Write per-token source/destination coverage JSON (full migration only)")
     links = sub.add_parser("check-urls")
     links.add_argument("--build", type=Path, default=ROOT / "docs/build")
     args = parser.parse_args()
@@ -485,7 +494,7 @@ def main():
     if args.command == "verify-baseline":
         return verify_baseline(args.previous_ref)
     if args.command == "check":
-        return check(args.report_only, args.structural)
+        return check(args.report_only, args.structural, args.token_report)
     return check_urls(args.build)
 
 

@@ -57,7 +57,7 @@ See [Choosing a solver](choosing-solver.md) for the difference between
 the settings.
 
 A larger L1 penalty can make coefficients **exactly zero**, as the
-[next tutorial](sparsity-and-kkt.md) shows.
+[next tutorial](@ref learn-02) shows.
 
 The **Problems** and **Solver comparisons** sections of the sidebar have runnable scripts. The introductory guide examples above and below also execute during the documentation CI build.
 

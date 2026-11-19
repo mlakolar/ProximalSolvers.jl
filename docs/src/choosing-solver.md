@@ -228,6 +228,12 @@ element-type combinations. Follow each section's links to the exact
 under [supported ℓ∞ problems](support.md#ℓ∞-penalty-with-PGD-and-APG) and
 [the stopping contract](@ref STOP-01).
 
+For ridge with `SqrNormL2(lambda)`, use `CDSolver` and dense or one-dimensional
+`SparseIterate` coefficients. Construct the uncentered penalty with one argument;
+a penalty carrying a center is refused even when the center is all zeros.
+See [the ridge example](examples/problems/elastic_net.md#Ridge-with-coordinate-descent)
+and [the input rules](@ref IN-01).
+
 For nonnegative coefficients, use `ProximalGradientDescent` with unweighted
 `NormL1Nonneg(lambda)` and a feasible dense starting vector, such as zeros.
 This combination is supported only by PGD; weighted penalties, sparse/block

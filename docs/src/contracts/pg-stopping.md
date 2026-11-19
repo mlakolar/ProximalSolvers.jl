@@ -40,7 +40,7 @@ Input acceptance is specified by [IN-01](@ref). Option validation and reporting 
 
 For `ftol > 0`, the objective test holds if either `abs(F - F_previous) / abs(F) < ftol` or `abs(F - F_previous) < eps(abs(F) + abs(F_previous))`. The quotient is evaluated as a diagnostic in Float64, is `0` when the objectives are equal (including both zero), and is `Inf` when `F = 0 ≠ F_previous`. There is no absolute term in the denominator. The second test holds for equal finite-sum objectives and, when both values are normal and their absolute-value sum is finite, permits a difference of about two units in the last place. If that sum overflows, `eps` is `NaN` and this second test does not hold. Neither form establishes accuracy by itself.
 
-For the gradient test, let `r` be the iteration's gradient/proximal residual, `m` the largest such residual so far, `N = max(‖∇f‖∞, ‖q‖∞)` with `q` the residual of the proximal step, and `ρ = L eps(T) ‖x‖∞`. APG uses `∇f` and the proximal step at its extrapolated point. The test is
+For the gradient test, let `r` be the iteration's gradient/proximal residual, `m` the largest such residual so far, `N = max(‖∇f‖∞, ‖q‖∞)` with `q` the residual of the proximal step, and `ρ = L eps(T) ‖x‖∞`, the rounding resolution of `L x`. APG uses `∇f` and the proximal step at its extrapolated point. The test is
 
 ```
 (r < gradtol * m  and  ρ < m)   or   (r < gradtol * N  and  ρ < N).
@@ -58,11 +58,11 @@ The comparisons use the floating-point products `gradtol * m` and `gradtol * N`;
 
 ### [STOP-03 Scalar and weighted lasso residuals](@id STOP-03)
 
-**Statement.** For `NormL1(λ0)`, the residual is the least-infinity-norm element of `∇f(x) + T(λ0) ∂‖x‖₁`: entry score `max(|∇fᵢ| - T(λ0), 0)` at zero and `|∇fᵢ + T(λ0) sign(xᵢ)|` elsewhere. With `NormL1(λ0, w)`, entry `i` instead uses `cᵢ = T(λ0) wᵢ`, multiplied and rounded in `T`. The solver uses ProximalBase's full-point `kkt_violation` on the penalty with its scalar level converted once; the `Vector{T}` weights are neither converted nor copied.
+**Statement.** For `NormL1(λ0)`, the residual is the least-infinity-norm element of `∇f(x) + T(λ0) ∂‖x‖₁`: entry score `max(|∇fᵢ| - T(λ0), 0)` at `xᵢ = 0` and `|∇fᵢ + T(λ0) sign(xᵢ)|` elsewhere. With `NormL1(λ0, w)`, entry `i` instead uses `cᵢ = T(λ0) wᵢ`, multiplied and rounded in `T`: its score is `max(|∇fᵢ| - cᵢ, 0)` at zero and `|∇fᵢ + cᵢ sign(xᵢ)|` elsewhere. The full-point calls are ProximalBase's `kkt_violation(NormL1(T(λ0)), ∇f(x), x)` and `kkt_violation(NormL1(T(λ0), w), ∇f(x), x)`. They convert the scalar level once; the `Vector{T}` weights are neither converted nor copied.
 
-The scale is `S = max(λ, λmax)`, where `λ = T(λ0)` without weights, `λ = T(λ0) * maximum(w) = maxᵢ cᵢ` with weights, and `λmax` is the computed `s‖Xᵀy‖∞`. The equality for the largest coefficient uses monotonicity of rounding. Unit weights reproduce the unweighted coefficients and scale. All-zero weights remove the penalty and give the least-squares scale; with zero response as well, the zero-scale rule in [STOP-04](@ref) applies.
+The scale is `S = max(λ, λmax)`, where `λ = T(λ0)` without weights and `λ = maxᵢ cᵢ` with weights, and `λmax` is the computed `s‖Xᵀy‖∞`. The equality `maxᵢ cᵢ = T(λ0) * maximum(w)` uses monotonicity of rounding. Unit weights reproduce the unweighted coefficients and scale. All-zero weights remove the penalty and give the least-squares scale `S = λmax`; with zero response as well, the zero-scale rule in [STOP-04](@ref) applies.
 
-A zero-weight coordinate is unpenalized and scored by its full `|∇fᵢ|`, even with a large `λ0`. Each coefficient must already satisfy [IN-01](@ref): it is finite and normal when both factors are positive; a zero level or weight gives zero. An infinite coefficient iterate gives a nonfinite residual (`Inf`, or `NaN` if a `NaN` is read), which cannot pass.
+A zero-weight coordinate has `cᵢ = 0`, is unpenalized and is scored by its full `|∇fᵢ|`, even with a large `λ0`. Each coefficient must already satisfy [IN-01](@ref): it is finite and normal when both factors are positive; a zero level or weight gives zero. An infinite coefficient iterate gives a nonfinite residual (`Inf`, or `NaN` if a `NaN` is read), which cannot pass.
 
 **Applies to.** PGD and APG; dense Vector{T}; T = Float32 or Float64.
 
@@ -90,11 +90,11 @@ The scale is `S = max(λ, λmax)`, where `λmax` is the computed symmetric magni
 
 **Statement.** For a dedicated KKT check, form `τ = T(max(gradtol, 64 eps(T)))` and `threshold = τ * S` in `T`. The stop passes precisely when `S` is finite, `threshold ≥ floatmin(T)`, the computed residual is finite, and that residual is **strictly below** `threshold`. The scale and residual are penalty-specific ([STOP-03](@ref), [STOP-05](@ref), [STOP-06](@ref), [STOP-16](@ref)).
 
-The threshold need not be finite: a huge `gradtol` can make conversion or multiplication produce `Inf`, and a finite residual then passes. Dividing the residual by `S` and comparing with the unrounded tolerance is the exact-arithmetic interpretation, not an additional floating-point guarantee. A `gradtol` below `64 eps(T)`, including zero, uses that floor.
+The threshold need not be finite: a huge `gradtol` can make conversion or multiplication produce `Inf`, and a finite residual then passes. Dividing the residual by `S` and comparing with the unrounded tolerance is the exact-arithmetic interpretation, not an additional floating-point guarantee. A `gradtol` below `64 eps(T)`, including `gradtol = 0`, uses that floor.
 
 Common positive rescaling of loss and penalty preserves the normalized inequality in exact arithmetic. In working precision the rounded quantities and the normal-threshold guard can change the outcome even when the scales remain representable. For Float32 `X = [1]`, response `y = [1]`, `x = 0` and default `gradtol`, `s = λ = 1` passes while `s = λ = 1f-35` does not: the latter threshold is below `floatmin(Float32)`.
 
-If both `λ` and `λmax` are zero, or the threshold is below `floatmin(T)`, no stop passes; the solve reaches `maxiter` unless another exit intervenes. For the unweighted lasso, starting at `x = 0` with `λ ≥ λmax` gives zero KKT residual and stops at the first proposal when `S > 0` and the normal-threshold guard holds. Under `ftol = 0`, the unchanged iterate makes no proposal and can instead run to `maxiter` with `converged=false`.
+If both `λ` and `λmax` are zero, or the threshold is below `floatmin(T)`, no stop passes; the solve reaches `maxiter` unless another exit intervenes. For the unweighted lasso, starting at `x = 0` with `λ ≥ λmax` gives `G = 0` and stops at the first proposal when `S > 0` and the normal-threshold guard holds. Under `ftol = 0`, the unchanged iterate makes no proposal and can instead run to `maxiter` with `converged=false`.
 
 **Applies to.** PGD and APG; dense Vector{T}; T = Float32 or Float64.
 
@@ -122,13 +122,13 @@ Each group norm is LinearAlgebra's `norm`: it scales a block before squaring whe
 
 ### [STOP-06 Elastic-net residual and ridge-independent scale](@id STOP-06)
 
-**Statement.** For `ElasticNet(λ1, λ2)`, use the least-infinity-norm element of `∇f(x) + T(λ2)x + T(λ1)∂‖x‖₁`: `max(|∇fᵢ| - T(λ1), 0)` at zero and `|∇fᵢ + T(λ2)xᵢ + T(λ1)sign(xᵢ)|` elsewhere. ProximalBase's `kkt_violation` receives both levels converted once to `T`.
+**Statement.** For `ElasticNet(λ1, λ2)`, use the least-infinity-norm element of `∇f(x) + T(λ2)x + T(λ1)∂‖x‖₁`: `max(|∇fᵢ| - T(λ1), 0)` at zero and `|∇fᵢ + T(λ2)xᵢ + T(λ1)sign(xᵢ)|` elsewhere. ProximalBase's `kkt_violation(ElasticNet(T(λ1), T(λ2)), ∇f(x), x)` receives both levels converted once to `T`.
 
 The scale is `S = max(T(λ1), λmax)` and contains neither `λ2` nor `λ2‖x‖∞`. In exact arithmetic the problem is the lasso at level `λ1` on `X̃ = [√s X; √λ2 I]`, `ỹ = [√s y; 0]`: its squared-error loss is `s‖Xx-y‖²/2 + λ2‖x‖²/2`, its gradient adds `λ2 x`, and its `λ̃max = s‖Xᵀy‖∞`. This explains the same scale covariance under a common positive factor on `s`, `λ1` and `λ2`.
 
-With `λ1 = 0` and zero response, computed `S = 0` refuses all stops even though zero is the ridge solution; the solve can run to `maxiter` with `converged=false`. The relevant zero is the *computed* scale. For `X = reshape(Float32[2^24, 1, -2^24, -1], 4, 1)` and response `ones(Float32, 4)`, the exact `Xᵀy` is zero but summation in that order can produce `λmax = 1`, because `2^24 + 1` rounds to `2^24`. The resulting check can pass at a point whose exact-data residual is not small relative to computed `S`.
+With `ElasticNet(0, λ2)` and zero response, computed `S = 0` refuses all stops even though zero is the ridge solution; the solve can run to `maxiter` with `converged=false`, as `NormL1(0)` does at zero response unless another exit applies. The relevant zero is the *computed* scale. For `X = reshape(Float32[2^24, 1, -2^24, -1], 4, 1)` and `y = ones(Float32, 4)`, the exact `Xᵀy = 0` need not give a computed `λmax = 0`: summation in that order can produce `λmax = 1`, because `2^24 + 1` rounds to `2^24`. The resulting check can pass at a point whose exact-data residual is not small relative to computed `S`.
 
-Initialization can accept a finite loss with an overflowing penalty (for example the ridge term `(λ2/2)‖x0‖²` above `floatmax(T)`); the common start and rollback policy is [RES-01](@ref). This KKT check is not the change test used by `CDSolver` on a dense vector or a one-dimensional `SparseIterate`.
+Initialization can accept finite `f(x0)` with `g(x0)` overflowing in `T` (for example the ridge term `(λ2/2)‖x0‖²` above `floatmax(T)`); the common start and rollback policy is [RES-01](@ref). This KKT check is not the change test used by `CDSolver` on a dense vector or a one-dimensional `SparseIterate`.
 
 **Applies to.** PGD and APG; dense Vector{T}; T = Float32 or Float64.
 
@@ -180,7 +180,7 @@ The dedicated NormL1Nonneg check [STOP-16](@ref) uses PGD's held gradient and do
 
 ### [STOP-09 Objective increases and simultaneous result flags](@id STOP-09)
 
-**Statement.** With `allow_f_increases=false`, the first iteration with computed `F > F_previous` ends the solve. This exit is not a convergence test. With `allow_f_increases=true`, it is removed, while `f_increased` still reports the final iteration's comparison.
+**Statement.** With `F = f(x) + g(x)` and `allow_f_increases=false`, the first iteration with computed `F > F_previous` ends the solve. This exit is not a convergence test. With `allow_f_increases=true`, it is removed, while `f_increased` still reports the final iteration's comparison.
 
 At any exit the flags describe that same iteration:
 
@@ -204,7 +204,7 @@ An increase normally exits with `converged=false`; it can coexist with `converge
 
 ### [STOP-10 Disabling the objective test and recognizing an exact stall](@id STOP-10)
 
-**Statement.** `ftol` is finite and nonnegative; `-0.0` is stored as `0.0`. A positive value that rounds to zero in Float64 is refused. `ftol = 0` turns off both objective-test forms and makes `f_converged=false` at every iteration; the reported `f_residual` is still computed. It does not disable objective-increase or limit exits, and the remaining proposals still require stationarity checks.
+**Statement.** `ftol` is finite and nonnegative; `-0.0` is stored as `0.0`. A positive value that rounds to zero in Float64 is refused. `ProximalOptions(ftol=0)` turns off both objective-test forms and makes `f_converged=false` at every iteration; the reported `f_residual` is still computed. It does not disable objective-increase or limit exits, and the remaining proposals still require stationarity checks.
 
 Only under `ftol = 0`, an accepted iterate equal to the previous iterate entrywise by value (`-0.0 == 0.0`) sets neither `x_converged` nor `grad_converged`. A difference in any entry is assessed normally, even if its norm rounds to zero. With `ftol > 0`, an unchanged iterate can propose an iterate stop, which is then checked.
 

@@ -14,6 +14,8 @@ comes from [scalar CD](@ref CD-02), while input and ownership rules also apply t
 `SparseIterate{T}` coefficient use one `T`, either `Float32` or `Float64`.
 `lambda` must be positive, finite and representable in `T`; another `Real` scalar type
 is accepted when representable.
+Use `f = SqrtLeastSquaresLoss(y, X)` and `g = NormL1(lambda)` in
+`solve!(x, f, g, CDSolver(...))` with the supported scalar coefficient storage.
 
 The normalized objective `norm(y - X*beta)/sqrt(n) + lambda_n * norm(beta, 1)` has the
 same minimizers at `lambda = sqrt(n) * lambda_n`, and its values are `P/sqrt(n)`.
@@ -27,7 +29,7 @@ There is no separate scaled-lasso solver; the
 [scaled-lasso tutorial](../examples/problems/scaled_lasso.md) shows the computation.
 
 Before copying the iterate or using the RNG, `ArgumentError` refuses a weighted
-`NormL1` even with all weights one, an `ElasticNet`, a `BlockIterate`, or
+`NormL1` even with all weights one, an `ElasticNet`, a `SqrNormL2`, a `BlockIterate`, or
 `Scaled(SqrtLeastSquaresLoss, alpha)`. For positive finite `alpha`, use the unscaled
 loss with level `lambda/alpha` instead. `lambda = 0` is refused; `LeastSquaresLoss`
 has the same unpenalized minimizers. `ProximalGradientDescent` and
@@ -45,9 +47,11 @@ to report convergence; otherwise [the bounded fallback](@ref CDQ-05) can run.
 
 **Code.** `src/solve.jl`: square-root preflight; `src/cd/sqrtlasso.jl`: `SqrtLSModel`.
 
-**Tests.** `test/sqrt_lasso.jl`: input refusals, scalar levels of other types, and analytic cases; `test/scaled_lasso.jl`.
+**Tests.** `test/sqrt_lasso.jl`: input refusals, scalar levels of other types, and analytic cases; `test/scaled_lasso.jl`. The ridge addition explicitly retains the `SqrNormL2` refusal for square-root loss.
 
 **Sources.** `docs/src/numerics.md:L661`, `docs/src/numerics.md:L663`, `docs/src/support.md:L285`, `docs/src/support.md:L287`, `docs/src/support.md:L291`, `docs/src/support.md:L307`, `docstring:src/cd/solver.jl:L138`, `README.md:L65`, `README.md:L96`, `docs/src/support.md:L130`.
+
+The later ridge scope is tested by [the explicit square-root refusal at 217cde72](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/test/sqrt_lasso.jl#L966-L974).
 
 ## [CDQ-02 Coordinate minimization and range rules](@id CDQ-02)
 

@@ -10,7 +10,7 @@ After this chapter you can:
 
 ## Proximal gradient descent (PGD)
 
-PGD updates **all coefficients together**. It first follows a gradient of the smooth squared-error loss, then soft-thresholds the proposed coefficient vector to account for the L1 penalty. Backtracking chooses a suitable step size. Here is the same objective:
+PGD updates **all coefficients together**. It first follows a gradient of the smooth squared-error loss, then soft-thresholds the proposed coefficient vector to account for the L1 penalty. Backtracking chooses a suitable step size. Here is PGD applied to the normalized least-squares lasso with `lambda = 1.0`:
 
 ~~~@example concepts_pgd
 using ProximalBase, ProximalSolvers

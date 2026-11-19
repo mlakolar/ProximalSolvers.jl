@@ -65,7 +65,7 @@ end
     # precision
     refused(x, f, NormL1(T(.1), T[1, Inf]), method)
     refused(x, f, NormL1(T(.1), ones(opposite, 2)), method)
-    refused(x, f, SqrNormL2(T(.1)), method)
+    refused(x, f, method isa CDSolver ? SqrNormL2(T(.1), zeros(T, 2)) : SqrNormL2(T(.1)), method)
     for keyword in (:intercept, :offset, :continuation, :screening)
       refused(x, f, g, method; keyword => true)
     end
@@ -103,7 +103,7 @@ end
 # and refuse the other penalties with the messages below: the first for CDSolver, the second for the
 # gradient methods, which also accept NormLinf and GroupNormL2; PGD additionally accepts unweighted NormL1Nonneg. The refusals
 # tested here leave x unchanged. The APG counterpart is in test/accelerated_pgd.jl; the CD solves are in test/cd_elasticnet.jl.
-const EN_PENALTY_REFUSAL = "only NormL1 or unweighted ElasticNet is supported"
+const EN_PENALTY_REFUSAL = "CDSolver supports NormL1, unweighted ElasticNet, and uncentered SqrNormL2"
 const EN_PGD_REFUSAL = "only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2 or unweighted NormL1Nonneg is supported"
 
 function refused_with(x, f, g, method, msg)
@@ -154,7 +154,7 @@ end
       @test r.converged && r.minimizer === start && all(isfinite, Vector(start))
       @test Vector(start) != x
     end
-    for g in (ElasticNet(T(.1), T(.2), ones(T, 2)), Scaled(en, 2), Scaled(NormL1(T(.1), ones(T, 2)), 2), SqrNormL2(T(.1)))
+    for g in (ElasticNet(T(.1), T(.2), ones(T, 2)), Scaled(en, 2), Scaled(NormL1(T(.1), ones(T, 2)), 2))
       for start in (copy(x), SparseIterate(copy(x)))
         rng = Xoshiro(1)
         before = copy(rng)

@@ -56,7 +56,7 @@ order is not sorted. After success, acquire `activevalues(x)` and
 
 **Code.** `src/solve.jl`: final objective check and owner commit; `src/cd/solver.jl`: compaction.
 
-**Tests.** `test/sparse_cd.jl`: "pass semantics: zero passes, limits, activation and compaction", "finite pass limits commit a nonconverged state", "the result is the caller’s owner, with an independent state".
+**Tests.** `test/sparse_cd.jl`: "pass semantics: zero passes, limits, activation and compaction", "finite pass limits commit a nonconverged state", "the result is the caller's owner, with an independent state".
 
 **Sources.** `docs/src/developer/implementation-notes.md:L224`, `docs/src/developer/implementation-notes.md:L235`, `docs/src/developer/implementation-notes.md:L260`, `docstring:src/cd/solver.jl:L79`, `docs/src/developer/implementation-notes.md:L442`, `docstring:src/solvers/proximal_gradient_descent.jl:L356`.
 

@@ -17,6 +17,10 @@ The following remain deferred:
   `BlockIterate` over `vec(B)`;
 - weighted `ElasticNet`, `Scaled` penalties, and CD group penalties other than
   `GroupNormL2`;
+- `SqrNormL2` whose declared center type is not `Nothing` (including a
+  zero-valued center or a union-typed center holding `nothing`), and
+  `SqrNormL2` with PGD/APG, square-root loss or group/matrix coefficients;
+  the supported uncentered scalar least-squares CD form is [IN-01](@ref);
 - weighted `NormL1Nonneg`, nonnegative lasso with APG or CD, and the other
   constrained-penalty combinations excluded by [IN-07](@ref);
 - intercepts and offsets, generalized losses and compositions;
@@ -44,4 +48,4 @@ workspace API; see [ARCH-03](@ref).
 
 **Tests.** `test/core_contracts.jl`, `test/naming.jl`, `test/nonnegative_lasso.jl` and solver-specific unsupported-input tests.
 
-**Sources.** `docs/src/support.md:L385`, `docs/src/developer/implementation-notes.md:L238`, `docs/src/developer/implementation-notes.md:L240`, `docs/src/developer/implementation-notes.md:L434`, `docs/src/index.md:L9`, `README.md:L96`; the later nonnegative-lasso refusals are specified by [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8).
+**Sources.** `docs/src/support.md:L385`, `docs/src/developer/implementation-notes.md:L238`, `docs/src/developer/implementation-notes.md:L240`, `docs/src/developer/implementation-notes.md:L434`, `docs/src/index.md:L9`, `README.md:L96`; the later nonnegative-lasso refusals are specified by [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8). The narrow ridge extension and remaining refusals are [upstream #420 at 217cde72](https://github.com/mlakolar/ProximalSolvers.jl/commit/217cde72cad2b324e174012accc949da59c1bba5).

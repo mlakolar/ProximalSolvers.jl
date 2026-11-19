@@ -4,7 +4,7 @@
                gaptol=0, gapsafe=false)
 
 Coordinate descent for dense Float32/Float64 least-squares lasso (including
-weights), elastic net, group lasso and square-root lasso. Use a dense vector
+weights), elastic net, ridge, group lasso and square-root lasso. Use a dense vector
 or one-dimensional `SparseIterate` for scalar problems, a `BlockIterate` for
 groups, or matrix coefficients for row-group multi-response regression.
 `solve!` updates the supplied coefficients. For deterministic scalar examples,
@@ -22,9 +22,7 @@ result = solve!(beta, (1/3)*LeastSquaresLoss(y, X), NormL1(0.1),
 `converged` is a change test, with an additional certificate for square-root
 lasso; see [result semantics](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/results-failures/#RES-01).
 
-# Extended help
-
-## Settings
+## Keywords
 
 - `maxpasses=100_000`: maximum number of coordinate passes.
 - `tol=1e-7`: change tolerance; it is not an independent accuracy target.
@@ -35,12 +33,19 @@ lasso; see [result semantics](https://mlakolar.github.io/ProximalSolvers.jl/dev/
   momentum. `true` is unsupported for cyclic order and group problems.
 - `rng=Random.default_rng()`: borrowed random generator, advanced when used.
   Create a fresh seeded generator to reproduce a random order.
-- `anderson=0`, `gaptol=0`, `gapsafe=false`: compatibility defaults only;
-  other values are rejected and these settings are not stored.
+- `anderson=0`: reserved Anderson-acceleration setting; only `0` is accepted.
+- `gaptol=0`: reserved dual-gap stopping target; only `0` is accepted.
+- `gapsafe=false`: reserved gap-safe screening switch; only `false` is accepted.
+  These three compatibility settings are not stored or used.
+
+# Extended help
 
 The data arrays share one `Float32` or `Float64` element type. With least squares,
-use `NormL1(lambda)`, `NormL1(lambda, w)` or an unweighted `ElasticNet` for scalar
-coefficients. Weights must be a matching `Vector{T}` satisfying the validated
+use `NormL1(lambda)`, `NormL1(lambda, w)`, an unweighted `ElasticNet` or an
+uncentered `SqrNormL2(lambda)` for scalar coefficients. Ridge via `SqrNormL2`
+is supported only by CD, for dense vectors or one-dimensional `SparseIterate`;
+a centered penalty is refused, even with an all-zero center. Weights must be a
+matching `Vector{T}` satisfying the validated
 coefficient-range rules; a zero weight leaves its coordinate unpenalized.
 Group penalties require matching partitions; matrix-response groups are the rows
 of the coefficient matrix, indexed through `vec(B)`.
@@ -118,7 +123,7 @@ sentinel. `gap` is `NaN` except after a certified square-root lasso run (see [`C
 where `converged = true` and `gap` is the certified upper bound on `(P - P*)/P*`. For the square-root
 lasso, `passes` includes the passes of the fallback after an uncertified stop, and is at most `maxpasses`.
 For the
-least-squares lasso and elastic net and the group lasso, `converged` reports the change test and
+least-squares lasso, elastic net, ridge and group lasso, `converged` reports the change test and
 `gap` is `NaN`.
 """
 struct CDResults{X, T}

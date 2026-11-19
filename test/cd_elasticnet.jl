@@ -375,6 +375,72 @@ end
   end
 end
 
+@testset "uncentered SqrNormL2 with normalized least squares" begin
+  for T in FLOATS
+    ordinary = design(T, 32, 8, 121)
+    wide = design(T, 4, 8, 122)
+    correlated_data = correlated(T, 32, 8, 123)
+    Xflat, yflat = design(T, 32, 8, 124)
+    Xflat[:, end] .= 0
+    for (name, (X, y), λ) in ((:ordinary, ordinary, T(0.5)), (:wide, wide, T(0.5)),
+                              (:correlated, correlated_data, T(0.5)), (:flat, (Xflat, yflat), T(0.5)),
+                              (:unpenalized, ordinary, zero(T)), (:mixed, ordinary, 0.5))
+      n, p = size(X)
+      α = name === :mixed ? 1 / n : one(T) / T(n)
+      f = α * LeastSquaresLoss(y, X)
+      β = normal_equations(X, y, α, λ)
+      for kind in (:dense, :warm)
+        label = (T, name, kind)
+        x0 = fill(T(0.3), p)
+        x = startof(kind, x0)
+        u = startof(kind, x0)
+        method = CDSolver(order = :cyclic, momentum = false, tol = cdtol(T))
+        r = solve!(x, f, SqrNormL2(λ), method)
+        en = solve!(u, f, ElasticNet(zero(λ), λ), method)
+        dx, nβ = distance(Vector(x), β)
+        @test (label, r.converged && en.converged) == (label, true)
+        @test (label, dx <= xbound(T) * nβ) == (label, true)
+        @test (label, norm(Vector(x) - Vector(u), Inf) <= 2xbound(T) * nβ) == (label, true)
+        check_result!(label, X, y, α, zero(λ), λ, x, r, T)
+        name === :flat && @test iszero(x[p])
+      end
+    end
+  end
+end
+
+@testset "SqrNormL2 validation and exceptional coordinate steps" begin
+  for T in FLOATS
+    @test_throws ArgumentError SqrNormL2(T(-1))
+    @test_throws ArgumentError SqrNormL2(T(NaN))
+    # The second column has positive subnormal curvature, and the first visit changes its coordinate.
+    tiny = T === Float32 ? T(1e-20) : T(1e-155)
+    X, y = T[1 0; 0 tiny; 0 0], T[2, tiny, 0]
+    f = LeastSquaresLoss(y, X)
+    flat = LeastSquaresLoss(y, T[1 0; 0 0; 0 0])
+    union_center = SqrNormL2{T, Union{Nothing, Vector{T}}}(T(0.5), nothing)
+    for kind in (:dense, :warm)
+      x = startof(kind, T[0.5, 0])
+      refused(ArgumentError, "requires an uncentered SqrNormL2", x, f, SqrNormL2(zero(T), zeros(T, 2)))
+      refused(ArgumentError, "constructed as SqrNormL2(lambda)", x, f, union_center)
+      refused(ArgumentError, "penalty lambda must be finite and nonnegative", x, f, SqrNormL2(T(Inf)))
+      if T === Float32
+        for λ in (1e-60, 1e40)
+          refused(ArgumentError, "penalty lambda is not representable", x, f, SqrNormL2(λ))
+        end
+      end
+      before = snap(x)
+      method = CDSolver(order = :cyclic, momentum = false, relative = false, tol = cdtol(T))
+      err, msg = failure(() -> solve!(x, f, SqrNormL2(T(0.5)), method))
+      @test err isa ArgumentError && occursin("coordinate 2 is outside the normal range", msg)
+      @test unchanged(snap(x), before)
+      r = solve!(x, f, SqrNormL2(zero(T)), method)
+      @test r.converged && Vector(x) == T[2, 1]
+      r = solve!(x, flat, SqrNormL2(zero(T)), method)
+      @test r.converged && iszero(x[2])
+    end
+  end
+end
+
 @testset "designs with a diagonal XᵀX against the closed form" begin
   for T in FLOATS, make in (orthogonal, diagonal), scale in scales(T, 8), (λ1, λ2) in ((0, 0), (0.5, 0), (0, 0.7), (0.5, 0.7), (3, 1)),
       kind in (:dense, :empty), order in (:cyclic, :random)
@@ -584,11 +650,11 @@ end
     X, y = T[1 0; 0 2; 1 1], T[1, -1, 0.5]
     f = LeastSquaresLoss(y, X)
     en = ElasticNet(T(0.1), T(0.2))
-    shared = "only NormL1 or unweighted ElasticNet is supported"
+    shared = "CDSolver supports NormL1, unweighted ElasticNet, and uncentered SqrNormL2"
     for kind in (:dense, :warm)
       x0 = T[0.3, -0.2]
       for g in (ElasticNet(T(0.1), T(0.2), ones(T, 2)), ElasticNet(T(0.1), T(0.2), zeros(T, 2)), Scaled(en, 2),
-                Scaled(NormL1(T(0.1), ones(T, 2)), 2), SqrNormL2(T(0.1)))
+                Scaled(NormL1(T(0.1), ones(T, 2)), 2), Scaled(SqrNormL2(T(0.1)), 2))
         refused(ArgumentError, shared, startof(kind, x0), f, g)
       end
       refused(ArgumentError, "penalty lambda1 must be finite and nonnegative", startof(kind, x0), f, ElasticNet(T(Inf), zero(T)))

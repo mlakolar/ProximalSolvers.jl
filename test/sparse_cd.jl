@@ -418,7 +418,7 @@ end
 
     # penalty and scalars
     refused(x, f, NormL1(T(.1), T[1, Inf]))      # an infinite weight (weights are accepted, test/weighted_lasso.jl)
-    refused(x, f, SqrNormL2(T(.1)))
+    refused(x, f, SqrNormL2(T(.1), zeros(T, 2)))
     refused(x, f, NormL1(Inf))
     if T === Float32
       for a in (1e-50, 1e40)
