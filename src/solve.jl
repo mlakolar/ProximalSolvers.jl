@@ -58,7 +58,8 @@ end
 # :gradient (PGD and APG) and :cd (CDSolver on a dense Vector or a SparseIterate, and the default of a call
 # without `kind`) both accept a NormL1, with or without weights, and an unweighted ElasticNet; :gradient also
 # accepts a NormLinf, which :cd refuses with a message of its own (this CDSolver needs a separable penalty for
-# its coordinate step), and a GroupNormL2 that passes _check_dense_group_penalty. The levels must pass _scalar_parameter for the data type T (finite, nonnegative,
+# its coordinate step), and a GroupNormL2 that passes _check_dense_group_penalty. Under :cd a GroupNormL2 is refused with a
+# pointer to the supported alternatives. The levels must pass _scalar_parameter for T (finite, nonnegative,
 # representable without overflow or underflow; a level that is subnormal in T passes it). A NormL1 with
 # weights also passes _check_l1_weights, which refuses a level that is subnormal in T. A wrapper such as
 # Scaled(NormLinf(λ)) is refused as any other penalty.
@@ -74,6 +75,8 @@ function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
     throw(ArgumentError("CDSolver does not support NormLinf (its coordinate step needs a separable penalty); use ProximalGradientDescent or AccProxGradDescent"))
   elseif g isa GroupNormL2 && kind === :gradient
     _check_dense_group_penalty(g, x, T)
+  elseif g isa GroupNormL2
+    throw(ArgumentError("CDSolver does not support GroupNormL2 (the group lasso) on a dense Vector or a SparseIterate; use CDSolver on a BlockIterate, or ProximalGradientDescent or AccProxGradDescent on a dense Vector"))
   elseif kind === :gradient
     throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf or GroupNormL2 is supported"))
   else
@@ -177,6 +180,9 @@ end
 @noinline _layout_error() =
   throw(ArgumentError("the groups of GroupNormL2 differ from the layout it was constructed with (they were changed after construction); construct the penalty again"))
 
+# The declared GroupNormL2 parameter type, which may differ from the runtime type of the level.
+_group_parameter_type(::GroupNormL2{P}) where P = P
+
 # The type, level and weights of a group penalty for data of type T: a GroupNormL2 with Float32 or Float64
 # parameters, whose level and weights convert to T without overflow, or underflow to 0 from a nonzero value.
 # `holder` names the coefficient storage in the message.
@@ -193,6 +199,10 @@ end
 # The penalty of group coordinate descent on a BlockIterate: a GroupNormL2 as above, whose groups are those
 # of x, in the same order and with the same ordered members.
 function _check_penalty(g, x::BlockIterate, ::Type{T}) where T
+  g isa GroupNormL2 ||
+    throw(ArgumentError("a BlockIterate needs a GroupNormL2 penalty (got $(nameof(typeof(g))))"))
+  g isa GroupNormL2{<:Union{Float32, Float64}} ||
+    throw(ArgumentError("a BlockIterate needs a GroupNormL2 penalty with Float32 or Float64 parameters (got $(_group_parameter_type(g)) parameters)"))
   _check_group_penalty(g, T, "a BlockIterate")
   ncoordinates(x) == length(g.groups) ||
     throw(DimensionMismatch("x has $(ncoordinates(x)) groups but the penalty has $(length(g.groups))"))
