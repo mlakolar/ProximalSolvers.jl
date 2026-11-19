@@ -4,6 +4,8 @@
 # observation a possible correction and penalize the corrections to keep most at zero.
 # We fit a sparse regression and flag unusual observations in one weighted lasso.
 #
+#md # ![Clean and fitted regression signals with flagged observations, plus estimated outlier corrections.](robust_sparse_regression.svg)
+#
 # ## A regression model with occasional contamination
 #
 # Write the response of observation ``i`` as
@@ -104,6 +106,8 @@ ordinary_signal = X * beta_ordinary
 #!jl   color=:crimson, markershape=:xcross, markersize=7, markerstrokewidth=2)
 #!jl robust_figure = plot(signalplot, correctionplot; layout=(2, 1), size=(1000, 750),
 #!jl   left_margin=5Plots.mm, bottom_margin=5Plots.mm)
+#!jl savefig(robust_figure, "robust_sparse_regression.svg")
+#!jl nothing
 
 # ## Independent numerical checks
 #

@@ -4,6 +4,8 @@
 # We first fit a seeded mixture and plot the component amplitudes. An exact control
 # below shows why fitting ordinary lasso and clipping its answer is not the estimator.
 #
+#md # ![True and fitted mixture amplitudes, with a signed ordinary-lasso comparison in an exact control.](nonnegative_lasso.svg)
+#
 # ## A sparse mixture model
 #
 # Write ``y = X\beta^\star + \varepsilon``, where each column of ``X`` is a known
@@ -74,8 +76,10 @@ solve!(figure_control_ordinary, figure_control_f, NormL1(0.1), ProximalGradientD
 #!jl   legend=:outertop, legendcolumns=3, bar_width=0.22, xticks=1:4,
 #!jl   xlims=(0.3, 4.7), ylims=(-1.8, 2.2))
 #!jl hline!(control_plot, [0]; color=:black, linewidth=0.7, label=false)
-#!jl plot(component_plot, control_plot; layout=grid(2, 1; heights=[0.6, 0.4]),
+#!jl mixture_figure = plot(component_plot, control_plot; layout=grid(2, 1; heights=[0.6, 0.4]),
 #!jl   size=(950, 780), margin=5Plots.mm)
+#!jl savefig(mixture_figure, "nonnegative_lasso.svg")
+#!jl nothing
 
 # ## Check the optimization independently
 #

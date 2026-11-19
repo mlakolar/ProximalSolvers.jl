@@ -8,29 +8,65 @@ mkpath(GENERATED)
 # The examples that become documentation pages. A path is relative to `examples/`, and a page
 # is written to `docs/src/examples/<the same path>.md`. With `notebook = true`, a notebook is
 # also written next to its page. When a script is added to `examples/` it is added here too, and the check below
-# fails otherwise.
+# fails otherwise. Gallery categories and descriptions live here with their example paths.
 const EXAMPLES = [
-  (section = "Problems", path = "problems/lasso.jl", title = "Lasso", notebook = false),
-  (section = "Problems", path = "problems/weighted_lasso.jl", title = "Weighted lasso", notebook = false),
-  (section = "Problems", path = "problems/nonnegative_lasso.jl", title = "Nonnegative sparse regression", notebook = false),
-  (section = "Problems", path = "problems/elastic_net.jl", title = "Elastic net", notebook = false),
-  (section = "Problems", path = "problems/group_lasso.jl", title = "Group lasso", notebook = false),
-  (section = "Problems", path = "problems/square_root_lasso.jl", title = "Square-root lasso", notebook = false),
-  (section = "Problems", path = "problems/linf_regularized_regression.jl", title = "Least squares with an ℓ∞ penalty", notebook = false),
-  (section = "Statistical applications", path = "problems/robust_sparse_regression.jl", title = "Robust sparse regression", notebook = false),
-  (section = "Statistical applications", path = "problems/scaled_lasso.jl", title = "Scaled lasso", notebook = false),
-  (section = "Statistical applications", path = "problems/sparse_deconvolution.jl", title = "Sparse deconvolution and event recovery", notebook = false),
-  (section = "Statistical applications", path = "problems/change_point_detection.jl", title = "Change-point detection", notebook = false),
-  (section = "Statistical applications", path = "problems/stability_selection.jl", title = "Stability selection with repeated lasso fits", notebook = false),
-  (section = "Statistical applications", path = "problems/nodewise_gaussian_graph.jl", title = "Gaussian graph: neighborhood selection", notebook = false),
-  (section = "Statistical applications", path = "problems/sparse_additive_regression.jl", title = "Sparse additive regression", notebook = false),
-  (section = "Statistical applications", path = "problems/multitask_group_lasso.jl", title = "Multi-task group lasso", notebook = false),
-  (section = "Statistical applications", path = "problems/categorical_group_selection.jl", title = "Categorical factor selection", notebook = false),
-  (section = "Statistical applications", path = "problems/sparse_covariance_soft_thresholding.jl", title = "Sparse covariance thresholding", notebook = false),
+  (section = "Problems", path = "problems/lasso.jl",
+   title = "Lasso", notebook = false,
+   gallery = "Sparse regression", description = "Choose a small set of predictors with an ℓ₁ penalty."),
+  (section = "Problems", path = "problems/weighted_lasso.jl",
+   title = "Weighted lasso", notebook = false,
+   gallery = "Sparse regression", description = "Shrink different coefficients by different amounts, including an unpenalized predictor."),
+  (section = "Problems", path = "problems/nonnegative_lasso.jl",
+   title = "Nonnegative sparse regression", notebook = false,
+   gallery = "Sparse regression", description = "Estimate the amounts of a few components in a noisy mixture."),
+  (section = "Problems", path = "problems/elastic_net.jl",
+   title = "Elastic net", notebook = false,
+   gallery = "Sparse regression", description = "See how adding a ridge penalty changes the coefficients of correlated predictors."),
+  (section = "Problems", path = "problems/group_lasso.jl",
+   title = "Group lasso", notebook = false,
+   gallery = "Structured regression", description = "Select entire blocks of regression coefficients with a group penalty."),
+  (section = "Problems", path = "problems/square_root_lasso.jl",
+   title = "Square-root lasso", notebook = false,
+   gallery = "Sparse regression", description = "Fit a sparse regression using a penalty calibrated without a known noise scale."),
+  (section = "Problems", path = "problems/linf_regularized_regression.jl",
+   title = "Least squares with an ℓ∞ penalty", notebook = false,
+   gallery = "Sparse regression", description = "Shrink the largest coefficient magnitudes with an ℓ∞ penalty."),
+  (section = "Statistical applications", path = "problems/robust_sparse_regression.jl",
+   title = "Robust sparse regression", notebook = false,
+   gallery = "Sparse regression", description = "Fit a sparse signal and flag unusually large response errors."),
+  (section = "Statistical applications", path = "problems/scaled_lasso.jl",
+   title = "Scaled lasso", notebook = false,
+   gallery = "Sparse regression", description = "Estimate the regression coefficients and noise scale from the same data."),
+  (section = "Statistical applications", path = "problems/sparse_deconvolution.jl",
+   title = "Sparse deconvolution and event recovery", notebook = false,
+   gallery = "Signal processing", description = "Recover the timing and strength of brief events from blurred measurements."),
+  (section = "Statistical applications", path = "problems/change_point_detection.jl",
+   title = "Change-point detection", notebook = false,
+   gallery = "Signal processing", description = "Find jumps in the level of a noisy time series."),
+  (section = "Statistical applications", path = "problems/stability_selection.jl",
+   title = "Stability selection with repeated lasso fits", notebook = false,
+   gallery = "Sparse regression", description = "See which predictors enter repeated lasso fits on random half-samples."),
+  (section = "Statistical applications", path = "problems/nodewise_gaussian_graph.jl",
+   title = "Gaussian graph: neighborhood selection", notebook = false,
+   gallery = "Covariance and graphs", description = "Infer conditional relationships with one lasso fit per variable."),
+  (section = "Statistical applications", path = "problems/sparse_additive_regression.jl",
+   title = "Sparse additive regression", notebook = false,
+   gallery = "Structured regression", description = "Select predictors whose effects may be nonlinear."),
+  (section = "Statistical applications", path = "problems/multitask_group_lasso.jl",
+   title = "Multi-task group lasso", notebook = false,
+   gallery = "Structured regression", description = "Find predictors shared across several related regression tasks."),
+  (section = "Statistical applications", path = "problems/categorical_group_selection.jl",
+   title = "Categorical factor selection", notebook = false,
+   gallery = "Structured regression", description = "Choose complete categorical factors by grouping their level contrasts."),
+  (section = "Statistical applications", path = "problems/sparse_covariance_soft_thresholding.jl",
+   title = "Sparse covariance thresholding", notebook = false,
+   gallery = "Covariance and graphs", description = "Use soft thresholding to remove small off-diagonal covariance estimates."),
   (section = "Solver comparisons", path = "comparisons/lasso_solvers.jl",
-   title = "Lasso: solvers at equal accuracy", notebook = true),
+   title = "Lasso: solvers at equal accuracy", notebook = true,
+   gallery = "Solver comparisons", description = "Compare how much work lasso solvers need to reach the same accuracy."),
   (section = "Solver comparisons", path = "comparisons/group_lasso_solvers.jl",
-   title = "Group lasso: CD, PGD and APG", notebook = false)]
+   title = "Group lasso: CD, PGD and APG", notebook = false,
+   gallery = "Solver comparisons", description = "Compare coordinate and gradient methods on one group-lasso problem.")]
 
 # The set of scripts under `examples/`, in subfolders too, equals the registry.
 let root = joinpath(@__DIR__, "..", "examples"), found = String[]
@@ -38,6 +74,7 @@ let root = joinpath(@__DIR__, "..", "examples"), found = String[]
     endswith(name, ".jl") && push!(found, replace(relpath(joinpath(dir, name), root), '\\' => '/'))
   end
   registered = [e.path for e in EXAMPLES]
+  allunique(registered) || error("docs/make.jl: duplicate script in the example registry.")
   unregistered, missing_files = sort(setdiff(found, registered)), sort(setdiff(registered, found))
   isempty(unregistered) && isempty(missing_files) ||
     error("docs/make.jl: the example registry differs from the scripts under examples/. ",
@@ -48,7 +85,8 @@ for e in EXAMPLES
   source = joinpath(@__DIR__, "..", "examples", e.path)
   outdir = joinpath(GENERATED, dirname(e.path))
   titled = s -> "# # $(e.title)\n#\n" * s
-  Literate.markdown(source, outdir; documenter = true, credit = false, preprocess = titled)
+  tutorial = s -> titled(s) * "\n\n# [Reproduce the figures locally](../index.md#Reproduce-the-figures).\n"
+  Literate.markdown(source, outdir; documenter = true, credit = false, preprocess = tutorial)
   # The notebook is written next to the generated Markdown file, and Documenter copies it
   # to the build; the page links to it by its file name relative to the page source.
   e.notebook && Literate.notebook(source, outdir; execute = false, credit = false, preprocess = titled)
@@ -57,13 +95,57 @@ example_pages(section) = [e.title => joinpath("examples", splitext(e.path)[1] * 
                           for e in EXAMPLES if e.section == section]
 
 const PRETTYURLS = get(ENV, "CI", "false") == "true"
+gallery_path(e) = splitext(e.path)[1]
+html_escape(s) = replace(s, '&' => "&amp;", '<' => "&lt;", '>' => "&gt;", '"' => "&quot;")
+
+open(joinpath(GENERATED, "index.md"), "w") do io
+  println(io, """
+# Examples Gallery
+
+Explore sparse regression, signal recovery, and structured models with examples you can run in Julia.
+Each tutorial explains the model, reproduces its figure, and checks the fitted result.
+""")
+  for group in unique(e.gallery for e in EXAMPLES)
+    println(io, "## $group\n")
+    println(io, "```@raw html")
+    println(io, "<div class=\"examples-gallery\">")
+    for e in filter(e -> e.gallery == group, EXAMPLES)
+      path = gallery_path(e)
+      page = PRETTYURLS ? "$path/" : "$path.html"
+      println(io, """
+<a class="examples-gallery-card" href="$page">
+  <img src="$path.svg" alt="" loading="lazy" decoding="async">
+  <span class="examples-gallery-title">$(html_escape(e.title))</span>
+  <span class="examples-gallery-description">$(html_escape(e.description))</span>
+</a>
+""")
+    end
+    println(io, "</div>\n```\n")
+  end
+  println(io, """
+## Reproduce the figures
+
+Install the documentation environment from the repository root and build the site:
+
+```sh
+julia --project=docs -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
+julia --project=docs docs/make.jl
+```
+
+To run a numerical example on its own, use `julia --project=. examples/<path>.jl`.
+The standalone scripts use the package environment. The documentation build uses Plots.
+""")
+end
+
 makedocs(sitename = "ProximalSolvers.jl", authors = "Mladen Kolar",
   repo = Documenter.Remotes.GitHub("mlakolar", "ProximalSolvers.jl"), modules = [ProximalSolvers],
-  format = Documenter.HTML(prettyurls = PRETTYURLS, edit_link = "master"),
+  format = Documenter.HTML(prettyurls = PRETTYURLS, edit_link = "master",
+    assets = ["assets/examples-gallery.css"]),
   pages = ["Home" => "index.md",
     "Getting started" => "getting-started.md",
     "What problem, which algorithm?" => "concepts.md",
     "Sparsity and an optimality check" => "sparsity-and-kkt.md",
+    "Examples" => "examples/index.md",
     "Problems" => example_pages("Problems"),
     "Statistical applications" => example_pages("Statistical applications"),
     "Solver comparisons" => example_pages("Solver comparisons"),
@@ -78,6 +160,18 @@ makedocs(sitename = "ProximalSolvers.jl", authors = "Mladen Kolar",
     "For contributors" => [
       "Developer architecture" => "internals.md",
       "Implementation notes" => "developer/implementation-notes.md"]], checkdocs = :exports)
+# Raw gallery links are relative to examples/index.html in both URL modes.
+# Catch a missing generated image or an incorrect card target in the docs build.
+let build = joinpath(@__DIR__, "build", "examples")
+  for e in EXAMPLES
+    path = gallery_path(e)
+    page = PRETTYURLS ? joinpath(build, path, "index.html") : joinpath(build, "$path.html")
+    svg = joinpath(build, "$path.svg")
+    isfile(page) || error("Missing example page for gallery: $page")
+    isfile(svg) && filesize(svg) > 0 || error("Missing generated figure for gallery: $svg")
+  end
+end
+
 # The pages of the flat example layout were published as `examples/<old>/` (`examples/<old>.html`
 # without pretty URLs). Each old page becomes a redirect stub with a relative target, so the stub
 # works under any version folder of the site; the lasso pages go to their sections. The notebook
