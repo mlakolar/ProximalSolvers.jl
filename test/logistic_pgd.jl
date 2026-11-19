@@ -111,8 +111,8 @@ end
   for b in (zeros(k), [0.4, -1.2, 0.8, 0.0, 2.5, -0.3])
     ref = oracle(X, y, b)
     state = PS.initial_state(method, TIGHT, f, g, copy(b))
-    # the value sums n terms of order |ηᵢ| ≤ 10 here, and each gradient entry n products of order one, so the
-    # Float64 results are within a relative 1e-13 and an absolute 1e-13 n of the BigFloat ones
+    # the value sums n terms of order |ηᵢ| (at most a few tens here), and each gradient entry n products of
+    # order one, so the Float64 results are within a relative 1e-13 and an absolute 1e-13 n of the BigFloat ones
     @test state.f_x ≈ Float64(ref.value) rtol = 1e-13
     @test maximum(abs, state.grad_f_x .- ref.gradient) <= 1e-13 * n
     if iszero(b)
@@ -198,8 +198,8 @@ end
     @test b[1] ≈ b0 atol = 1e-8
   end
   # with slopes: at a level of at least ‖Zᵀ(ȳ - y)‖∞ the slopes are zero at the minimizer and the intercept is
-  # logit(ȳ); from a start with nonzero slopes, a converged run has exact zeros (a nonzero slope would score at
-  # least level - |∂f/∂bⱼ| ≥ 0.05 level)
+  # logit(ȳ); from a start with nonzero slopes, a converged run has exact zeros (near the minimizer a nonzero
+  # slope would score at least about level - level/1.05 > 0.04 level)
   for factor in (1.05, 3.0)
     level = factor * slope_threshold(X, y)
     b = [0.0; fill(0.5, k - 1)]
@@ -450,7 +450,7 @@ end
   X, y = logistic_data(100, 8; seed = 13)
   k = size(X, 2)
   g = NormL1(1.0, [0.0; ones(k - 1)])
-  # without stopping proposals, and with a proposal (and so a stationarity check) at every iteration
+  # without stopping proposals, and with a proposal (and so a stationarity check) at each iteration that moves x
   for o in (ProximalOptions(maxiter = 30, ftol = 0, xtol = 1e-300, gradtol = 0, allow_f_increases = true),
             ProximalOptions(maxiter = 30, ftol = 0, xtol = 1e10, gradtol = 0, allow_f_increases = true))
     logistic = solve_bytes(LogisticLoss(y, X), g, zeros(k), o)

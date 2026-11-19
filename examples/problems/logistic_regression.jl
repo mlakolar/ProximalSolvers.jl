@@ -93,9 +93,9 @@ result = solve!(b, f, g, ProximalGradientDescent(), options)
 # - ``\max(|g_j|-n\lambda,0)`` for a slope that is exactly zero;
 # - ``|g_j+n\lambda\,\mathrm{sign}(b_j)|`` for a nonzero slope.
 #
-# The largest score is zero exactly at the minimizer. The solver stops only when its own
-# residual is below ``10^{-10}`` times a scale of order ``n``, so a residual below
-# ``10^{-8}n`` from these independent formulas leaves room for rounding.
+# The largest score is zero exactly at a minimizer. The solver reports `converged = true`
+# only when its own residual is below ``10^{-10}`` times a scale of order ``n`` here, so a
+# residual below ``10^{-8}n`` from these independent formulas leaves room for rounding.
 eta = X * b
 grad = X' * (sigmoid.(eta) .- y)
 scores = [j == 1 ? abs(grad[1]) :
@@ -127,8 +127,8 @@ end
 # difference between probability and outcome. The intercept-only model predicts
 # ``\bar y`` for every observation; its mean log-loss is
 # ``-\bar y\log\bar y-(1-\bar y)\log(1-\bar y)`` and its Brier score ``\bar y(1-\bar y)``.
-# The minimum of ``F`` is at most ``F`` at the intercept-only point, so the minimizer has a
-# smaller mean log-loss on these data whenever one of its slopes is nonzero. Both scores are
+# The minimum of ``F`` is at most ``F`` at the intercept-only point, so for ``\lambda>0`` a
+# minimizer has a smaller mean log-loss on these data when one of its slopes is nonzero. Both scores are
 # computed on the training data, so they measure fit, not prediction on new data.
 prob = sigmoid.(eta)
 mean_log_loss = sum(softplus.(eta) .- y .* eta) / n
@@ -177,6 +177,6 @@ solve!(b_null, f, NormL1(1.01 * n * lambda_max, w), ProximalGradientDescent(), o
 # ## What we learned
 #
 # `LogisticLoss` sums over the observations, so a mean-scale level ``\lambda`` enters as
-# ``n\lambda``, and a zero penalty weight leaves the intercept free. ``\lambda_{\max}``
+# ``n\lambda``, and a zero penalty weight leaves the intercept unpenalized. ``\lambda_{\max}``
 # follows from the gradient at the intercept-only fit. The objective and the stationarity
 # scores computed from the data confirm that the reported point solves the stated problem.

@@ -415,7 +415,7 @@ array types are refused.
 image `z = X x` once, in a private buffer, and takes its value from ProximalBase's
 `value_from_predictor(f, z)`. The gradient of an accepted point comes from
 `value_and_gradient_from_predictor!(G, d, f, z)` at the cached image, which writes
-`d = σ(z) - y` and `G = Xᵀ d`, without a second product with `X`. ProximalBase
+`d = σ(z) - y` and `G = Xᵀ d`, without forming `X x` again. ProximalBase
 evaluates the stable softplus and sigmoid. The image, derivative and gradient buffers
 are private to the solve and disjoint from `X`, `y`, `f.tmp` and `x`.
 
@@ -435,9 +435,9 @@ and `m = 2` in gradient mode). In exact arithmetic, for the trial `x` and the st
 - after a rejection, TFOCS's estimate is `L̂ = 2(f(x) - f(u) - ⟨∇f(u), d⟩)/‖d‖²` in
   function-value mode (where it exceeds `L`) and `L̂ = 2⟨∇f(x) - ∇f(u), d⟩/‖d‖²` in
   gradient mode; each is at most `c`, so the retry `min(Lexact, max(c, L/β))` is at
-  least TFOCS's `min(Lexact, max(L̂, L/β))`, and the next step is no longer.
+  least TFOCS's `min(Lexact, max(L̂, L/β))`, and the retry's step `1/L` is at most TFOCS's.
 
-A scaled displacement ([LS-06](@ref)) gives the same `c`. For least squares the
+A scaled displacement ([LS-06](@ref)) gives the same `c` in exact arithmetic. For least squares the
 inequalities hold with equality, with `s` in place of `¼`; for the logistic loss they
 are one-sided bounds, which is what the recheck needs. The recheck carries no rounding
 certificate, as for least squares. After a rejection the retry uses the global factor
@@ -449,8 +449,9 @@ search's `α` at each iteration lets it grow again.
 gradient and the guards of [STOP-04](@ref). The scale is `S = max(λ, λmax)`, with
 `λ = T(lambda) * maximum(w)` (`T(lambda)` without weights) and
 `λmax = ‖Xᵀ(½ - y)‖∞ = ‖∇f(0)‖∞`, since `σ(0) = ½`; each `½ - yᵢ` is `±½`, exact for a
-binary response. `λmax` is formed once per solve, with the difference `½ - y` in the
-state's image-length buffer, which the iterations write before they read it. An
+binary response. `λmax` is formed at the first stationarity check of a solve, with the
+difference `½ - y` in the state's image-length buffer, which the iterations write before
+they read it. An
 intercept column contributes `n |½ - ȳ|` to `λmax`. Results, counters and rollback
 follow [RES-01](@ref) and [RES-03](@ref).
 
