@@ -7,9 +7,10 @@ Solve `SqrNormL2(λ, c) + NormL1(τ)` by scaled consensus ADMM on a dense
 and relative tolerances control the primal and dual residual tests. Set
 `adaptive=true` to rebalance the penalty between iterations.
 
-On a dense symmetric positive-definite `Matrix{Float32}` or `Matrix{Float64}`,
-it solves the graphical lasso `LogDetLoss(S) + NormL1(λ₀, Λ)` with fixed `ρ`,
-`α = 1` and `adaptive = false`.
+With a dense `Matrix{Float32}` or `Matrix{Float64}` start, it applies to the
+graphical lasso `LogDetLoss(S) + NormL1(λ₀, Λ)` under the input rules of ADM-04:
+same-type weights `Λ` that are finite, nonnegative, exactly symmetric and zero
+on the diagonal, a fixed `ρ`, a stored `α` equal to 1 and `adaptive = false`.
 
 See [the ADMM contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-01)
 for the supported inputs and iteration rules, and
@@ -76,6 +77,12 @@ struct ADMMResults{T, A<:AbstractArray{T}}
   status::Symbol
 end
 
+# The positional form ADMMResults{T}(fields...) takes its array type from `minimizer`.
+ADMMResults{T}(minimizer::A, minimum, iterations, converged, r_norm, s_norm, eps_pri, eps_dual,
+               u, ρ, prox_calls, status) where {T, A<:AbstractArray{T}} =
+  ADMMResults{T, A}(minimizer, minimum, iterations, converged, r_norm, s_norm, eps_pri, eps_dual,
+                    u, ρ, prox_calls, status)
+
 Base.summary(::ADMMResults) = "ADMM"
 minimizer(r::ADMMResults) = r.minimizer
 minimum(r::ADMMResults) = r.minimum
@@ -127,11 +134,18 @@ buffer as `u` to start from its entries. Caller buffers are committed on
 normal return. Pass the returned iterate, scaled dual and penalty together to
 restart a solve. See [`ADMMResults`](@ref) and the
 [ADMM input and result contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-01).
+A dense `Matrix{Float32}` or `Matrix{Float64}` start selects the graphical lasso
+of ADM-04, whose inputs are listed under Extended help.
 
-For the graphical lasso, pass an exactly symmetric positive-definite
-`Matrix{T}` as `z`, `f = LogDetLoss(S)` and `g = NormL1(λ₀, Λ)` with symmetric,
-nonnegative, zero-diagonal `Matrix{T}` weights, `α = 1` and `adaptive = false`.
-See [ADM-04](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-04).
+# Extended help
+
+The graphical lasso uses one element type `T`, Float32 or Float64, for `z`,
+`S` and `Λ`: an exactly symmetric `Matrix{T}` start whose Cholesky
+factorization succeeds in `T`, `f = LogDetLoss(S)` with weight one, and
+`g = NormL1(λ₀, Λ)` with finite, nonnegative, exactly symmetric, zero-diagonal
+`Matrix{T}` weights and a level exactly representable in `T`. See
+[ADM-04](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-04)
+for all conditions, including the method settings.
 """
 function solve!(z, f, g, method::ADMMSolver, options::ProximalOptions = ProximalOptions(); u=nothing, kwargs...)
   _check_keywords(kwargs)
@@ -246,15 +260,16 @@ end
 # The graphical lasso LogDetLoss(S) + NormL1(λ₀, Λ) on a dense matrix (ADM-04).
 function _solve_admm!(initial_Θ::Matrix{T}, f, g, method, options, initial_u) where T
   f isa LogDetLoss{T} || throw(ArgumentError("ADMM on a matrix requires LogDetLoss with the element type of z"))
-  f.w == 1 || throw(ArgumentError("ADMM requires a LogDetLoss weight of one; put any scaling into S"))
-  g isa NormL1{<:Real, Matrix{T}} ||
-    throw(ArgumentError("ADMM on a matrix requires NormL1 with a dense $T matrix of weights"))
-  S, Λ = f.S, g.w
+  f.w == 1 ||
+    throw(ArgumentError("ADMM on a matrix requires a LogDetLoss weight of one; S is the sample covariance, for example X'X/n"))
+  g isa NormL1 && g.w isa Matrix{T} ||
+    throw(ArgumentError("ADMM on a matrix requires NormL1 whose stored weights are a dense $T matrix"))
+  S, Λ = f.S, g.w::Matrix{T}
   !isempty(initial_Θ) && size(initial_Θ, 1) == size(initial_Θ, 2) ||
     throw(DimensionMismatch("z must be a nonempty square matrix"))
   size(S) == size(initial_Θ) == size(Λ) ||
     throw(DimensionMismatch("z, S and the NormL1 weights must have the same size"))
-  isone(method.α) || throw(ArgumentError("ADMM on a matrix requires α = 1"))
+  isone(method.α) || throw(ArgumentError("ADMM on a matrix requires the α stored in the ADMMSolver to equal 1"))
   method.adaptive && throw(ArgumentError("ADMM on a matrix requires adaptive = false"))
   λ0 = _admm_level(g.λ0, T, "the NormL1 level")
   _allfinite(initial_Θ) && _allfinite(S) && _allfinite(Λ) ||
@@ -283,9 +298,10 @@ function _solve_admm!(initial_Θ::Matrix{T}, f, g, method, options, initial_u) w
   # Reused below for the Cholesky checks of the logdet prox outputs and the return point.
   scratch = copy(initial_Θ)
   issuccess(cholesky!(Symmetric(scratch); check=false)) ||
-    throw(ArgumentError("z must be positive definite: its Cholesky factorization failed in $T"))
+    throw(ArgumentError("z must have a successful Cholesky factorization in $T"))
 
   # Use the native level with the borrowed weights; f holds S and has weight one.
+  # The reconstruction gives the penalty the concrete weight type Matrix{T}.
   g = NormL1(λ0, Λ)
   t0 = time_ns()
   z = copy(initial_Θ)
@@ -311,11 +327,11 @@ function _solve_admm!(initial_Θ::Matrix{T}, f, g, method, options, initial_u) w
 
     _admm_subtract!(tmp, z, u) || error("ADMM formed a nonfinite x-prox argument")
     prox!(x, f, tmp, γ)
-    _admm_positive_definite!(scratch, x) ||
-      error("ADMM produced a logdet prox output that is not finite, exactly symmetric and positive definite in $T")
+    _admm_passes_cholesky!(scratch, x) ||
+      error("ADMM produced a logdet prox output that is not finite and exactly symmetric with a successful Cholesky factorization in $T")
     _admm_relaxed_argument!(tmp, x, z, u, α) || error("ADMM produced a nonfinite z-prox argument")
-    # The z-prox output can be indefinite. Its positive definiteness is checked
-    # after the loop, at the return point.
+    # The z-prox output can be indefinite. Its symmetry and Cholesky factorization
+    # are checked after the loop, at the return point.
     prox!(next_z, g, tmp, γ)
     # The argument was finite, so this check also rejects a nonfinite z-prox output.
     _admm_subtract!(u, tmp, next_z) ||
@@ -339,8 +355,8 @@ function _solve_admm!(initial_Θ::Matrix{T}, f, g, method, options, initial_u) w
   end
 
   # Before a commit at any status, z must be exactly symmetric and pass Cholesky in T.
-  _admm_positive_definite!(scratch, z) ||
-    error("ADMM reached a consensus iterate that is not exactly symmetric and positive definite in $T")
+  _admm_passes_cholesky!(scratch, z) ||
+    error("ADMM reached a consensus iterate that is not exactly symmetric with a successful Cholesky factorization in $T")
   if status === :converged && iszero(r_norm) && iszero(s_norm) &&
      !_admm_logdet_stationary(z, S, inv(cholesky(Symmetric(z))), λ0, Λ, eps_dual)
     status = :stagnated
@@ -456,7 +472,7 @@ end
 
 # Whether A is finite, exactly symmetric and has a successful Cholesky
 # factorization in its element type. The factorization overwrites scratch.
-function _admm_positive_definite!(scratch, A)
+function _admm_passes_cholesky!(scratch, A)
   _allfinite(A) && _admm_issymmetric(A) || return false
   copyto!(scratch, A)
   issuccess(cholesky!(Symmetric(scratch); check=false))
@@ -464,7 +480,7 @@ end
 
 # Rounded proximal updates can yield two zero residuals away from a stationary
 # point. Check the logdet/weighted-ℓ₁ stationarity violation with G = S - inv(z)
-# at the positive-definite z on that exit.
+# on that exit, at a z whose Cholesky factorization succeeded in its element type.
 function _admm_logdet_stationary(z, S, inverse, λ0, Λ, tolerance)
   stationary = true
   @inbounds for j in axes(z, 2), i in axes(z, 1)

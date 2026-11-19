@@ -15,12 +15,14 @@
 # The sum runs over the full matrix, so each off-diagonal pair is penalized twice, and the diagonal
 # is not penalized. ProximalBase writes the first two terms as `LogDetLoss(S)` and the penalty as
 # `NormL1(1.0, Λ)` with the weight matrix `Λ` equal to `λ` off the diagonal and zero on it.
-# `ADMMSolver` solves this problem on a dense symmetric positive-definite `Matrix` (see
-# [Supported problems](../../support.md) and the [graphical-lasso contract](@ref ADM-04)).
+# `ADMMSolver` applies to this problem with a supported dense `Matrix{Float64}` or
+# `Matrix{Float32}` start; [Supported problems](../../support.md) and the
+# [graphical-lasso contract](@ref ADM-04) give the remaining requirements.
 #
 # Two related pages solve different problems. [Neighborhood selection](nodewise_gaussian_graph.md)
-# fits one lasso regression per variable; it estimates neighborhoods, and the regressions do not
-# combine into one symmetric positive-definite precision matrix.
+# fits one lasso regression per variable; that page reports a graph and does not assemble a
+# precision matrix, and separately fitted regressions need not combine into a symmetric
+# positive-definite one.
 # [Covariance thresholding](sparse_covariance_soft_thresholding.md) soft-thresholds the sample
 # covariance; its zeros are zeros of the covariance, not of the precision matrix, and its estimate
 # can be indefinite.
@@ -30,9 +32,9 @@ using LinearAlgebra, Random, ProximalBase, ProximalSolvers
 # ## A sparse precision matrix and a sample
 #
 # The population precision matrix `Θ_true` has `p = 12` variables, a chain `1 − 2 − ⋯ − 12` with
-# entries `0.3` and three extra edges with entries `−0.25`. Each row's off-diagonal entries sum to
-# at most `0.85` in absolute value, less than the diagonal `1`, so `Θ_true` is diagonally dominant
-# and positive definite.
+# entries `0.3` and three extra edges with entries `−0.25`. In each row the sum of the absolute
+# values of the off-diagonal entries is at most `0.85`, less than the diagonal `1`, so `Θ_true` is
+# strictly diagonally dominant and positive definite.
 p, n = 12, 200
 Θ_true = Matrix(1.0I, p, p)
 for i in 1:p-1
@@ -90,8 +92,8 @@ end
 
 # ## Check the estimate independently
 #
-# The estimate is exactly symmetric and positive definite, and the objective recomputed from `S`,
-# `Λ` and `Θ` agrees with `result.minimum`.
+# For this fit, the checks below confirm exact symmetry, `isposdef` and a positive smallest
+# eigenvalue, and the objective recomputed from `S`, `Λ` and `Θ` agrees with `result.minimum`.
 @assert Θ == Θ' && isposdef(Θ)
 smallest_eigenvalue = eigmin(Symmetric(Θ))
 @assert smallest_eigenvalue > 0
@@ -101,7 +103,8 @@ objective = -logdet(cholesky(Symmetric(Θ))) + dot(S, Θ) + sum(Λ .* abs.(Θ))
 # With `G = S - Θ⁻¹`, the KKT conditions are `Gᵢᵢ = 0` on the diagonal,
 # `Gᵢⱼ = -Λᵢⱼ sign(Θᵢⱼ)` at a nonzero off-diagonal entry and `|Gᵢⱼ| ≤ Λᵢⱼ` at a zero. The violation
 # below takes the largest of `|Gᵢᵢ|`, `|Gᵢⱼ + Λᵢⱼ sign(Θᵢⱼ)|` and `max(|Gᵢⱼ| - Λᵢⱼ, 0)` over the
-# entries, divided by `max(1, maximum(abs, S))`; the tolerances above keep it below `1e-8` here.
+# entries, divided by `max(1, maximum(abs, S))`. The solver's residual tests do not bound this
+# violation; the assertion below is a separate check of this fit.
 G = S - inv(Θ)
 kkt = maximum(i == j ? abs(G[i, i]) :
               iszero(Θ[i, j]) ? max(abs(G[i, j]) - Λ[i, j], 0) : abs(G[i, j] + Λ[i, j] * sign(Θ[i, j]))
@@ -109,20 +112,24 @@ kkt = maximum(i == j ? abs(G[i, i]) :
 @assert kkt <= 1e-8
 
 # The dual problem maximizes `log det W + p` over `W = S + U` with `Uᵢᵢ = 0` and `|Uᵢⱼ| ≤ Λᵢⱼ`.
-# Clipping `Θ⁻¹ - S` into that box gives a feasible `U`. When `W` is positive definite, weak duality
-# bounds the objective error by the gap `P(Θ) - (log det W + p)`. If the clipped `W` is not
-# positive definite, the gap is not available and the estimate is reported as not certified.
+# Clipping `Θ⁻¹ - S` into that box gives a feasible `U`. The sum `S + U` is rounded, so the code
+# checks in exact (BigFloat) arithmetic that the stored `W` still satisfies the box. When it does
+# and `W` is positive definite, weak duality bounds the objective error by the gap
+# `P(Θ) - (log det W + p)`, which is evaluated here in Float64 as an estimate. Otherwise the
+# estimate is reported as not certified.
 inverse = inv(Θ)
 U_dual = zeros(p, p)
 for j in 2:p, i in 1:j-1
   U_dual[i, j] = U_dual[j, i] = clamp(inverse[i, j] - S[i, j], -Λ[i, j], Λ[i, j])
 end
 W = S + U_dual
-certified = isposdef(Symmetric(W))
+feasible = all(W[i, i] == S[i, i] for i in 1:p) &&
+           all(abs(big(W[i, j]) - big(S[i, j])) <= Λ[i, j] for i in 1:p, j in 1:p if i != j)
+certified = feasible && isposdef(Symmetric(W))
 gap = certified ? objective - (logdet(cholesky(Symmetric(W))) + p) : NaN
 certified && @assert -1e-10 <= gap <= 1e-8
 println((objective = objective, max_kkt_violation = kkt, smallest_eigenvalue = smallest_eigenvalue,
-         duality_gap = certified ? gap : "not certified"))
+         duality_gap_estimate = certified ? gap : "not certified"))
 
 # ## Compare with the true graph
 #
@@ -136,8 +143,10 @@ tp = count(e -> Θ_true[e...] != 0 && Θ[e...] != 0, edge_pairs)
 fp = count(e -> Θ_true[e...] == 0 && Θ[e...] != 0, edge_pairs)
 fn = count(e -> Θ_true[e...] != 0 && Θ[e...] == 0, edge_pairs)
 @assert true_edges == 14 && tp + fn == true_edges && tp + fp == estimated_edges
-largest_false_positive = maximum((abs(Θ[e...]) for e in edge_pairs if Θ_true[e...] == 0); init = 0.0)
-smallest_true_positive = minimum((abs(Θ[e...]) for e in edge_pairs if Θ_true[e...] != 0 && Θ[e...] != 0); init = Inf)
+largest_false_positive = fp == 0 ? "none" :
+  maximum(abs(Θ[e...]) for e in edge_pairs if Θ_true[e...] == 0 && Θ[e...] != 0)
+smallest_true_positive = tp == 0 ? "none" :
+  minimum(abs(Θ[e...]) for e in edge_pairs if Θ_true[e...] != 0 && Θ[e...] != 0)
 println((pairs = length(edge_pairs), true_edges = true_edges, estimated_edges = estimated_edges,
          true_positives = tp, false_positives = fp, false_negatives = fn,
          largest_false_positive = largest_false_positive, smallest_true_positive = smallest_true_positive))
@@ -148,17 +157,19 @@ errors = (frobenius = norm(Θ - Θ_true), spectral = opnorm(Θ - Θ_true),
 println(errors)
 
 # These numbers describe one simulated sample. The assertions check statistical sanity rather than
-# exact draws: at least 10 of the 14 true edges are found, and the Frobenius error is at most half of
-# `norm(Θ_true)`.
-@assert tp >= 10
+# exact draws: at least 10 of the 14 true edges are found, some pairs are zero, and the Frobenius
+# error is at most half of `norm(Θ_true)`.
+@assert tp >= 10 && estimated_edges < length(edge_pairs)
 @assert errors.frobenius <= norm(Θ_true) / 2
 
 # Small nonzero entries and finite-sample graph errors are normal. With `n = 200` observations the
-# sample covariance differs from `Σ_true`, and the estimate can have nonzero entries for pairs
-# that are conditionally independent in the population (the false positives printed above); the
-# printed magnitudes compare the largest of them with the smallest estimated true edge. A larger
-# `λ` sets more entries to zero and shrinks the true edges more; a smaller one keeps more of both.
-# The ℓ₁ penalty also shrinks the nonzero entries toward zero, which contributes to the error.
+# sample covariance differs from `Σ_true`, and the estimate can have nonzero entries for pairs that
+# are conditionally independent in the population (the false positives printed above, with the
+# largest of their magnitudes, or `"none"` when there are none). The edge counts and magnitudes
+# are observations for this sample and this `λ`. At exact minimizers, a larger `λ` gives a total
+# off-diagonal ℓ₁ norm `Σᵢ≠ⱼ |Θᵢⱼ|` that is no larger, but the number of zeros and the individual
+# entries need not change monotonically with `λ`. The penalty also biases the nonzero entries,
+# which contributes to the error.
 
 # ## Reading the figure
 #
@@ -185,11 +196,15 @@ println(errors)
 
 # ## What we learned
 #
-# The graphical lasso returns one sparse, symmetric, positive-definite precision matrix. The checks
-# on this page come from the data: the recomputed objective, the KKT violation, the smallest
-# eigenvalue and, when the clipped dual matrix is positive definite, a duality gap. `converged`
-# reports the ADMM residual tests and is not by itself a certificate. The edge counts and errors
-# depend on the sample, on `n` and on `λ`; this page does not choose `λ` from the data.
+# On this sample, the graphical lasso fit has zero entries, is exactly symmetric and passes the
+# checks `isposdef` and a positive smallest eigenvalue. In general, a normal return
+# of `solve!` guarantees an exactly symmetric matrix whose Cholesky factorization succeeds in its
+# element type; this working-precision test does not prove positive definiteness of a matrix close
+# to singular, and a small penalty can give a dense estimate. The checks on this page come from the
+# data: the recomputed objective, the KKT violation, the smallest eigenvalue and, when the stored
+# dual matrix is feasible and positive definite, a duality gap estimate. `converged` reports the
+# ADMM residual tests and is not by itself a certificate. The edge counts and errors depend on the
+# sample, on `n` and on `λ`; this page does not choose `λ` from the data.
 #
 # The figure is generated from this script during the documentation build. Run the script alone
 # for the same seeded calculations and checks without loading Plots.

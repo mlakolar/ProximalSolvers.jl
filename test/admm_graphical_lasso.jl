@@ -79,6 +79,8 @@ solver_tolerance(::Type{Float64}) = 1e-12
 solver_tolerance(::Type{Float32}) = 1e-6
 accurate_method(T; ρ = 1) = ADMMSolver(; ρ, abstol = solver_tolerance(T), reltol = solver_tolerance(T))
 const LONG = ProximalOptions(maxiter = 5000)
+final_error(T) = ErrorException("ADMM reached a consensus iterate that is not exactly symmetric with a successful Cholesky factorization in $T")
+logdet_error(T) = ErrorException("ADMM produced a logdet prox output that is not finite and exactly symmetric with a successful Cholesky factorization in $T")
 
 function within(Θ, reference, T)
   error = maximum(abs, BigFloat.(Θ) - BigFloat.(reference))
@@ -87,9 +89,11 @@ end
 
 offdiagonal(p) = [(i, j) for j in 1:p for i in 1:p if i != j]
 
-# Checks applied to each normal return in this file. The objective tolerance,
-# 32 p eps(T) times one plus the term magnitudes, allows for rounding in the
-# Cholesky-based logdet and the two sums in working precision.
+# Checks on a normal return, called by check_accurate and by the one-step and
+# limit testsets. They compare the residual tests with the reported residuals and
+# recompute eps_dual from the returned dual; the one-step testset replays both
+# residuals and both tolerances independently. The objective tolerance of these
+# fixtures is 32 p eps(T) times one plus the term magnitudes.
 function check_solution(result, Θ, S, Λ, method)
   T = eltype(Θ)
   p = size(Θ, 1)
@@ -139,14 +143,15 @@ end
     @testset "$T" begin
       method = accurate_method(T)
 
-      # p = 1: the diagonal is unpenalized, so Θ* = 1/S₁₁ for any level.
+      # p = 1 with S₁₁ > 0: the diagonal is unpenalized, so Θ* = 1/S₁₁ for any level.
       for s in (T(1/2), T(4))
         Θ, S, Λ = ones(T, 1, 1), fill(s, 1, 1), zeros(T, 1, 1)
         result = solve!(Θ, LogDetLoss(S), NormL1(T(0.75), Λ), method, LONG)
         check_accurate(result, Θ, S, effective(0.75, Λ), method; reference = inv.(BigFloat.(S)))
       end
 
-      # Diagonal S with λ > 0: Θ* = diag(1 ./ diag(S)) with exactly zero off-diagonals.
+      # Diagonal S with a positive diagonal and λ > 0: Θ* = diag(1 ./ diag(S)), whose
+      # off-diagonals are zero.
       S = Matrix(Diagonal(T[1/2, 1, 2, 4]))
       Λ = fill(T(0.3), 4, 4)
       Λ[diagind(Λ)] .= 0
@@ -177,14 +182,22 @@ end
         end
       end
 
-      # λ = 0: Θ* = inv(S), and W = S certifies a zero gap.
+      # Zero penalty with an SPD S: Θ* = inv(S). The certificate uses W = S, whose gap
+      # is zero at the exact inverse and positive at an approximate fit. The penalty is
+      # zero through zero weights or through a zero level with nonzero weights.
       S = T[2 1/2 1/4 0; 1/2 3/2 1/4 1/8; 1/4 1/4 1 3/8; 0 1/8 3/8 5/4]
-      Θ = Matrix{T}(I, 4, 4)
-      result = solve!(Θ, LogDetLoss(S), NormL1(one(T), zeros(T, 4, 4)), method, LONG)
-      outcome = check_accurate(result, Θ, S, zeros(BigFloat, 4, 4), method; reference = inv(BigFloat.(S)))
-      @test outcome.certificate.dual == logdet(cholesky(Symmetric(BigFloat.(S)))) + 4
+      @test isposdef(S)
+      nonzero_weights = fill(T(3/10), 4, 4)
+      nonzero_weights[diagind(nonzero_weights)] .= 0
+      for penalty in (NormL1(one(T), zeros(T, 4, 4)), NormL1(zero(T), nonzero_weights))
+        Θ = Matrix{T}(I, 4, 4)
+        result = solve!(Θ, LogDetLoss(S), penalty, method, LONG)
+        outcome = check_accurate(result, Θ, S, effective(penalty.λ0, penalty.w), method; reference = inv(BigFloat.(S)))
+        @test outcome.certificate.dual == logdet(cholesky(Symmetric(BigFloat.(S)))) + 4
+      end
 
-      # λ ≥ max_{i≠j} |Sᵢⱼ|: the diagonal-only optimum, with exactly zero off-diagonals.
+      # λ ≥ max_{i≠j} |Sᵢⱼ| and a positive diagonal: the diagonal optimum
+      # diag(1 ./ diag(S)), whose off-diagonals are zero.
       λ = T(5/4) * maximum(abs(S[i, j]) for (i, j) in offdiagonal(4))
       Λ = fill(λ, 4, 4)
       Λ[diagind(Λ)] .= 0
@@ -336,13 +349,24 @@ end
     @test result.iterations == 1 && result.r_norm == result.s_norm == 0 && Θ == ones(T, 1, 1)
     @test ProximalSolvers.f_calls(result) == 1 && ProximalSolvers.grad_calls(result) == 0
 
-    # At this penalty both prox updates round back to Θ = 1 although the
-    # stationarity score |S₁₁ - 1/Θ₁₁| is 1.
+    # At this penalty the logdet prox rounds back to Θ = 1 and the zero-weight
+    # penalty copies its input, although the stationarity score |S₁₁ - 1/Θ₁₁| is 1.
     Θ, S = ones(T, 1, 1), fill(T(2), 1, 1)
     result = solve!(Θ, LogDetLoss(S), NormL1(one(T), zeros(T, 1, 1)), ADMMSolver(; ρ = T(2)^100))
     @test Θ == ones(T, 1, 1) && result.r_norm == result.s_norm == 0
     @test kkt_scores(Θ, S, zeros(T, 1, 1)).abs == 1
     @test !result.converged && result.status === :stagnated && ProximalSolvers.stagnated(result)
+    @test result.iterations == 1 && result.prox_calls == 2
+
+    # An off-diagonal score: from the start diag(1, 4), the logdet prox returns the
+    # start (the asserted zero residuals check this), and the penalty keeps the zero
+    # off-diagonal entry, while max(|S₁₂| - λ₀Λ₁₂, 0) is 3/10.
+    start, S, Λ = Matrix(Diagonal(T[1, 4])), T[1 2/5; 2/5 1/4], T[0 1/10; 1/10 0]
+    Θ = copy(start)
+    result = solve!(Θ, LogDetLoss(S), NormL1(one(T), Λ), ADMMSolver(; ρ = T(2)^100))
+    @test Θ == start && result.r_norm == result.s_norm == 0
+    @test kkt_scores(Θ, S, Λ).abs ≈ 3/10
+    @test !result.converged && result.status === :stagnated
     @test result.iterations == 1 && result.prox_calls == 2
   end
 end
@@ -361,10 +385,11 @@ end
     z = soft_threshold.(x + Float64.(dual), γ .* Float64.(Λ))
     @test eigmin(Symmetric(x)) > 1 && eigmin(Symmetric(z)) < -1
 
-    # After one iteration the call budget ends the solve at that indefinite z.
+    # After one iteration the call budget ends the solve at that indefinite z, and
+    # the return-point check raises its error.
     f, g = LogDetLoss(S), NormL1(one(T), Λ)
     Θ, u = copy(start), copy(dual)
-    @test_throws ErrorException solve!(Θ, f, g, ADMMSolver(; ρ = rho), ProximalOptions(prox_calls_limit = 2); u)
+    @test_throws final_error(T) solve!(Θ, f, g, ADMMSolver(; ρ = rho), ProximalOptions(prox_calls_limit = 2); u)
     @test samebits(Θ, start) && samebits(u, dual)
 
     # The same start continues through the indefinite iterate to an SPD optimum.
@@ -394,10 +419,12 @@ end
     check_accurate(warm, Θ, S, effective(1, Λ), method)
     @test within(Θ, fresh.minimizer, T)
 
-    # Restarting from a converged result takes few iterations and stays there.
+    # Restarting from a converged result takes few iterations and agrees with it
+    # within the accuracy bound.
     Θ, u = copy(fresh.minimizer), copy(fresh.u)
     again = solve!(Θ, f, g, method, LONG; u)
-    @test again.converged && again.iterations <= 5 && again.u === u
+    @test again.iterations <= 5 && again.u === u
+    check_accurate(again, Θ, S, effective(1, Λ), method)
     @test within(Θ, fresh.minimizer, T)
   end
 end
@@ -477,6 +504,8 @@ end
       refuses(ArgumentError, Θ, f, g; u = g.w)
       refuses(ArgumentError, Θ, f, g; u = f.S)
       refuses(ArgumentError, f.S, f, g)
+      # Weights identical to Θ are refused by the zero-diagonal check before the
+      # alias check; the overlapping storage below reaches the alias check.
       refuses(ArgumentError, Θ, f, NormL1(one(T), Θ))
       graph = LogDetLoss(T[0 1; 1 0])
       refuses(ArgumentError, Matrix{T}(I, 2, 2), graph, NormL1(one(T), graph.S))
@@ -532,6 +561,12 @@ end
     Θ, u = fill(floatmax(T), 1, 1), fill(-floatmax(T), 1, 1)
     @test_throws ErrorException solve!(Θ, LogDetLoss(ones(T, 1, 1)), NormL1(one(T), zeros(T, 1, 1)), ADMMSolver(); u)
     @test samebits(Θ, fill(floatmax(T), 1, 1)) && samebits(u, fill(-floatmax(T), 1, 1))
+    # With ρ = floatmax(T) and u = floatmax(T), the logdet prox of 1 - u rounds to
+    # zero, which fails the Cholesky check of the logdet prox output.
+    Θ, u = ones(T, 1, 1), fill(floatmax(T), 1, 1)
+    @test_throws logdet_error(T) solve!(Θ, LogDetLoss(fill(T(2), 1, 1)), NormL1(one(T), zeros(T, 1, 1)),
+                                        ADMMSolver(; ρ = floatmax(T)); u)
+    @test samebits(Θ, ones(T, 1, 1)) && samebits(u, fill(floatmax(T), 1, 1))
   end
 end
 
@@ -550,6 +585,31 @@ end
   end
 end
 
+@testset "Graphical lasso: penalties with declared abstract weight types" begin
+  for T in (Float32, Float64)
+    S = T[2 1/2 0; 1/2 3/2 1/4; 0 1/4 1]
+    Λ = T[0 1/5 1/5; 1/5 0 1/5; 1/5 1/5 0]
+    f, method = LogDetLoss(S), accurate_method(T)
+    level = T(3/4)
+    reference = solve!(Matrix{T}(I, 3, 3), f, NormL1(level, Λ), method, LONG)
+    check_accurate(reference, reference.minimizer, S, effective(level, Λ), method)
+    # The stored weights are a Matrix{T} although the declared weight type is wider.
+    for g in (NormL1{T, AbstractMatrix{T}}(level, Λ), NormL1{T, Union{Nothing, Matrix{T}}}(level, Λ))
+      @test g.w === Λ
+      Θ = Matrix{T}(I, 3, 3)
+      result = solve!(Θ, f, g, method, LONG)
+      @test Θ == reference.minimizer && result.iterations == reference.iterations
+      @test result.minimum == reference.minimum && result.status === :converged
+    end
+    # Weights stored as a view are refused before any write.
+    for g in (NormL1(level, view(Λ, :, :)), NormL1{T, AbstractMatrix{T}}(level, view(Λ, :, :)))
+      Θ, u = Matrix{T}(I, 3, 3), zeros(T, 3, 3)
+      @test_throws ArgumentError solve!(Θ, f, g, method; u)
+      @test samebits(Θ, Matrix{T}(I, 3, 3)) && samebits(u, zeros(T, 3, 3))
+    end
+  end
+end
+
 @testset "Vector ADMM results keep vector fields" begin
   for T in (Float32, Float64)
     z = zeros(T, 3)
@@ -557,6 +617,12 @@ end
     @test result isa ADMMResults{T} && result isa ADMMResults{T, Vector{T}}
     @test result.minimizer === z && result.minimizer isa Vector{T} && result.u isa Vector{T}
     @test result.converged
+    # The positional constructor with the element type alone takes the array type
+    # from the minimizer and converts the scalar fields.
+    direct = ADMMResults{T}(T[1, 2], 1/2, 3, true, 0.0, 0.0, 1e-6, 1e-6, T[0, 0], 1.0, 6, :converged)
+    @test direct isa ADMMResults{T, Vector{T}}
+    @test direct.minimizer == T[1, 2] && direct.minimum === T(1/2) && direct.u == T[0, 0]
+    @test direct.iterations == 3 && direct.prox_calls == 6 && direct.status === :converged
   end
 end
 

@@ -144,85 +144,102 @@ and [archived ADMM](https://github.com/mlakolar/ProximalSolvers.jl/blob/9be1773e
 
 **Statement.** With a dense `Matrix{T}` start `Θ`, where `T` is `Float32` or
 `Float64`, `solve!(Θ, f, g, method::ADMMSolver, options=ProximalOptions(); u=nothing)`
-minimizes
+applies the iteration below to the problem
 
 ```math
-P(\Theta)=-\log\det\Theta+\operatorname{tr}(S\Theta)+\lambda_0\sum_{i\ne j}\Lambda_{ij}|\Theta_{ij}|
-\quad\text{over}\quad \Theta=\Theta^\top\succ0,
+\min_{\Theta=\Theta^\top\succ0}\;
+P(\Theta)=-\log\det\Theta+\operatorname{tr}(S\Theta)+\lambda_0\sum_{i\ne j}\Lambda_{ij}|\Theta_{ij}|,
 ```
 
-with ProximalBase `f = LogDetLoss(S)` and `g = NormL1(λ₀, Λ)`. The penalty sums
-over the full matrix, so each off-diagonal pair appears twice, and the zero
-diagonal of `Λ` leaves the diagonal unpenalized. A factor such as `1/n` belongs
-in `S`.
+with ProximalBase `f = LogDetLoss(S)` and `g = NormL1(λ₀, Λ)`, and stops by the
+residual tests, limits and working-precision exits of [ADM-02](@ref). The
+penalty sums over the full matrix, so each off-diagonal pair appears twice, and
+the zero diagonal of `Λ` leaves the diagonal unpenalized. `LogDetLoss` must have
+weight one; a normalization such as `1/n` is part of the sample covariance `S`.
 
-The solver checks, in this order: `f` is a `LogDetLoss{T}` with weight `w == 1`;
-`g` is a `NormL1` whose weights are a `Matrix{T}`; `Θ` is nonempty and square;
-`size(S) == size(Θ) == size(Λ)`; `method.α == 1` and `method.adaptive == false`;
-the level `λ₀` is finite, nonnegative and exactly representable in `T`; the
-entries of `Θ`, `S` and `Λ` are finite; `Λ` is nonnegative, exactly symmetric
-(`Λ[i,j] == Λ[j,i]` for all `i`, `j`) and zero on the diagonal; `S` and `Θ` are
-exactly symmetric; an explicit `u` is a `Matrix{T}` of the same size with finite,
-exactly symmetric entries; no pair among `Θ`, `u`, `S` and `Λ` aliases, by
-`Base.mightalias` or overlapping memory ranges; the [ADM-01](@ref) settings hold
-in `T`, with a finite positive `inv(ρ)`; and a Cholesky factorization of a private
-copy of `Θ` succeeds in `T`. These checks precede any write to `Θ` or `u`. An
-empty or non-square `Θ` and a size mismatch raise `DimensionMismatch`; the other
-refusals raise `ArgumentError`. The solver does not average or symmetrize its
-inputs. Other function pairs, other array types, mixed element types, `α ≠ 1`
-and `adaptive=true` are refused for matrix input.
+After the entry checks of `solve!` (keywords, options, and the storage and
+element type of the start), the matrix path checks, in this order: `f` is a
+`LogDetLoss{T}` with weight `w == 1`; `g` is a `NormL1` whose stored weights `g.w`
+are a `Matrix{T}`; `Θ` is nonempty and square; `size(S) == size(Θ) == size(Λ)`;
+the `α` stored in `method`, after the `ADMMSolver` constructor's conversion,
+equals 1, and `method.adaptive == false`; the level `λ₀` is finite, nonnegative
+and exactly representable in `T`; the entries of `Θ`, `S` and `Λ` are finite; `Λ`
+is nonnegative, exactly symmetric (`Λ[i,j] == Λ[j,i]` for all `i`, `j`) and zero
+on the diagonal; `S` and `Θ` are exactly symmetric; an explicit `u` is a
+`Matrix{T}` of the same size with finite, exactly symmetric entries; no pair among
+`Θ`, `u`, `S` and `Λ` aliases, by `Base.mightalias` or overlapping memory ranges;
+the [ADM-01](@ref) settings hold in `T`, with a finite positive `inv(ρ)`; and a
+Cholesky factorization of a private copy of `Θ` succeeds in `T`. These checks
+precede any write to `Θ` or `u`. The first failing check determines the
+exception: `DimensionMismatch` for an empty or non-square `Θ`, a size mismatch
+or a wrong-size `u`, and `ArgumentError` for the others. The solver does not
+average or symmetrize its inputs. Other function pairs, other start types, mixed
+element types, a stored `α` other than 1 and `adaptive=true` are refused.
 
-Ownership follows [ADM-01](@ref). The solver borrows `S`, stored in `f`, and
-`Λ`, retained by reference in `g`, for reads, and the caller must keep them
-unchanged during the solve.
+Ownership follows the protocol of [ADM-01](@ref) with matrices in place of
+vectors. The solve runs in private storage. With `u=nothing`, the initial scaled
+dual is the zero matrix; with explicit `u`, the solve starts from its entries.
+On normal return, the caller's `Θ` and explicit `u` receive the final iterates,
+and `result.minimizer` and `result.u` refer to those buffers. With `u=nothing`,
+`result.u` holds the solver's dual matrix. Reuse the returned `Θ`, `u` and `ρ`
+together for a warm start. The solver borrows `S`, stored in `f`, and `Λ`,
+retained by reference in `g`, for reads. During a solve the caller must keep the
+buffers and problem data unchanged.
 
 Each iteration applies the [ADM-02](@ref) recurrence with `α = 1`:
 `x = prox_{f/ρ}(z₀-u₀)` by the ProximalBase `LogDetLoss` `prox!`,
-`z = prox_{g/ρ}(x+u₀)` by the weighted `NormL1` `prox!` with `λ₀` converted to
-`T`, and `u = (x+u₀)-z`. After each logdet proximal step, `x` must be finite,
-exactly symmetric and pass a Cholesky factorization in `T`; otherwise the solve
-raises an error before any write to `Θ` or `u`. The consensus iterate `z` after
-the ℓ₁ step can be indefinite. The iteration does not check, clip or project it.
-The residuals and tolerances are those of [ADM-02](@ref) with Frobenius norms
-and `N = p²` for a `p × p` matrix, so `√N = p`. The limit order, counters and
-nonfinite failures are those of [ADM-02](@ref).
+`z = prox_{g/ρ}(x+u₀)` by the `prox!` of `NormL1(T(λ₀), Λ)`, and `u = (x+u₀)-z`.
+After each logdet proximal step, `x` must be finite, exactly symmetric and pass a
+Cholesky factorization in `T`; otherwise the solve raises an error before any
+write to `Θ` or `u`. The consensus iterate `z` after the ℓ₁ step can be
+indefinite. The loop does not test its definiteness and does not clip or project
+it; a nonfinite `z` fails the dual-update check of [ADM-02](@ref). The residuals
+and tolerances are those of [ADM-02](@ref) with Frobenius norms and `N = p²` for
+a `p × p` matrix, so `√N = p`. The limit order, counters and nonfinite failures
+are those of [ADM-02](@ref).
 
 The returned point is the consensus `z`. Before a normal return at any status,
 `z` must be exactly symmetric and pass a Cholesky factorization in `T`;
-otherwise the solve raises an error, with no write to `Θ` or `u`. After zero
-completed iterations the returned point is the validated start. `ProximalOptions`
-requires `maxiter ≥ 2`, so zero iterations follow from `prox_calls_limit = 1` or a
-nonpositive time limit.
+otherwise the solve raises an error, with no write to `Θ` or `u`. This is a
+working-precision test; it does not prove that a matrix close to singular is
+positive definite. On a normal return after zero completed iterations, the
+returned point is the validated start. `ProximalOptions` requires `maxiter ≥ 2`,
+so zero iterations follow from `prox_calls_limit = 1` or from a time limit that
+has expired before the first iteration, such as a nonpositive one.
 
 When both computed residuals are zero and pass their tolerances, the solver
-checks stationarity at the positive-definite `z`, in place of the
-[ADM-02](@ref) score. With `G = S - inv(z)`, the score of an entry is `|Gᵢᵢ|` on
-the diagonal, `|Gᵢⱼ + λ₀Λᵢⱼ sign(zᵢⱼ)|` at a nonzero off-diagonal entry and
-`max(|Gᵢⱼ| - λ₀Λᵢⱼ, 0)` at an off-diagonal exact zero, with `λ₀Λᵢⱼ` formed as
-a product in `T`. If a finite score exceeds `eps_dual`, the status is
-`:stagnated` and `converged=false`. A nonfinite score raises an error.
+checks stationarity at `z`, whose Cholesky factorization succeeded in `T`, in
+place of the [ADM-02](@ref) score. With `G = S - inv(z)`, the inverse formed from
+a Cholesky factorization, the score of an entry is `|Gᵢᵢ|` on the diagonal,
+`|Gᵢⱼ + λ₀Λᵢⱼ sign(zᵢⱼ)|` at a nonzero off-diagonal entry and
+`max(|Gᵢⱼ| - λ₀Λᵢⱼ, 0)` at an off-diagonal exact zero, with `λ₀Λᵢⱼ` formed as a
+product in `T`. A nonfinite score raises an error. Otherwise, if a score exceeds
+`eps_dual`, the status is `:stagnated` and `converged=false`.
 
 `status` is `:converged` when both residual tests pass and the stationarity check
-passes where it applies, `:stagnated` as above, and `:iteration_limit`,
-`:prox_calls_limit` or `:time_limit` at a limit, with `converged=false`. `minimum`
-is `f(z)+g(z)` evaluated once at the returned point; a nonfinite value raises an
-error before any write. The result is an `ADMMResults{T, Matrix{T}}` with
-`result.minimizer === Θ` and, with explicit `u`, `result.u === u`. A converged
-status reports these working-precision tests and is not an optimality
-certificate.
+passes where it applies, and `:stagnated` as above. `:iteration_limit`,
+`:prox_calls_limit` and `:time_limit` report termination by the limit checks of
+[ADM-02](@ref), with `converged=false`; a residual or stagnation decision on the
+last permitted iteration takes precedence. `minimum` follows the objective rule
+of [ADM-02](@ref) at the returned `z`. The result is an
+`ADMMResults{T, Matrix{T}}`. A converged status reports these working-precision
+tests and is not an optimality certificate.
 
 **Applies to.** `ADMMSolver` with a dense `Matrix{Float32}` or `Matrix{Float64}`
-start, `LogDetLoss` and weighted `NormL1`, fixed `ρ`, `α = 1` and
-`adaptive=false`.
+start, `LogDetLoss` and `NormL1` with `Matrix` weights, fixed `ρ`, a stored
+`α = 1` and `adaptive=false`.
 
 **Code.** `src/solvers/admm.jl`: the `Matrix` method of `_solve_admm!`,
-`_admm_issymmetric`, `_admm_positive_definite!` and `_admm_logdet_stationary`.
+`_admm_issymmetric`, `_admm_passes_cholesky!` and `_admm_logdet_stationary`.
 
 **Tests.** `test/admm_graphical_lasso.jl` compares with analytic optima (1×1,
-diagonal, 2×2 in both regimes, zero and large penalty) and a seeded sparse
-precision matrix using a BigFloat objective, KKT scores and a dual certificate,
-replays one step, and checks limits, stagnation, an indefinite intermediate `z`,
-warm starts, refusals and numerical failures without caller writes.
+diagonal, 2×2 in both regimes, zero penalty through zero weights or a zero level,
+and large penalty) and a seeded sparse precision matrix using a BigFloat
+objective, KKT scores and a dual certificate. It replays one step independently,
+and checks penalties with declared abstract weight types, limits, stagnation at
+diagonal and off-diagonal scores, an indefinite intermediate `z`, a logdet
+proximal output that fails the Cholesky check, warm starts, refusals and
+numerical failures without writes to the caller's buffers.
 
 **Sources.** [Issue #436](https://github.com/mlakolar/ProximalSolvers.jl/issues/436),
 [parent issue #425](https://github.com/mlakolar/ProximalSolvers.jl/issues/425) and

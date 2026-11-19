@@ -90,9 +90,10 @@ that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref
   all-zero center, are refused; so are `SqrNormL2` with PGD, APG, block or matrix
   coefficients, or square-root loss. See [supported calls](@ref IN-01),
   [scalar levels](@ref IN-02) and [coordinate range rules](@ref CD-04).
-- **(k)** The graphical lasso needs an exactly symmetric, positive-definite `Matrix{T}` start,
-  `LogDetLoss(S)` with weight one and `NormL1(λ₀, Λ)` with nonnegative, exactly symmetric,
-  zero-diagonal `Matrix{T}` weights, a fixed `ρ`, `α = 1` and `adaptive = false`. The tests check
+- **(k)** The graphical lasso needs an exactly symmetric `Matrix{T}` start whose Cholesky
+  factorization succeeds in `T`, `LogDetLoss(S)` with weight one and `NormL1(λ₀, Λ)` with finite,
+  nonnegative, exactly symmetric, zero-diagonal `Matrix{T}` weights, a fixed `ρ`, a stored `α`
+  equal to 1 and `adaptive = false` ([ADM-04](@ref) lists all conditions). The tests check
   each element type against analytic optima and a seeded problem with independently computed
   objective, KKT scores and duality gap. See [Graphical lasso with consensus ADMM](@ref).
 
@@ -166,15 +167,15 @@ and [ADM-02](@ref) for the residual tests and limits.
 
 for a sample covariance `S`. Use `LogDetLoss(S)` and `NormL1(λ₀, Λ)`, where `Λ` is a
 nonnegative, exactly symmetric `Matrix` with a zero diagonal, with `ADMMSolver` on a dense,
-exactly symmetric, positive-definite `Matrix` start such as the identity. The data, weights,
+exactly symmetric `Matrix` start whose Cholesky factorization succeeds, such as the identity. The data, weights,
 start and optional scaled dual share one `Float32` or `Float64` element type. The penalty runs
 over the full matrix, so each off-diagonal pair counts twice.
 
 Use a fixed `ρ` with `α = 1` and `adaptive = false`. On a normal return the matrix is exactly
 symmetric and passes a Cholesky factorization in its element type. `converged = true` reports
 the ADMM residual tests, with a stationarity check when both residuals are zero; it is not an
-optimality certificate. See [ADM-04](@ref) for the exact input, positive-definiteness and
-stopping rules. The [graphical-lasso tutorial](examples/problems/graphical_lasso.md) checks a
+optimality certificate. See [ADM-04](@ref) for the exact input, Cholesky and stopping
+rules. The [graphical-lasso tutorial](examples/problems/graphical_lasso.md) checks a
 fit independently with its objective, KKT conditions and, when its dual matrix is positive
 definite, a duality gap.
 
