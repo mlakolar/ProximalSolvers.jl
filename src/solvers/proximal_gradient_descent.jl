@@ -2,11 +2,14 @@
     ProximalGradientDescent(; ls=LineSearches.BackTracking(), normalized=false,
                              debias=0, preconditioner=:none)
 
-Proximal gradient descent (PGD) for least-squares lasso (with optional weights) or elastic net with a dense
-`Vector{Float32}` or `Vector{Float64}` coefficient iterate. Each iteration
-takes a gradient step for the smooth least-squares loss and applies the
-proximal operator of the penalty, soft thresholding for `NormL1` (at the level `λ wⱼ` of entry `j` for
-`NormL1(λ, w)`) and soft thresholding followed by the ridge weight for `ElasticNet`; backtracking adjusts
+Proximal gradient descent (PGD) for least squares with a `NormL1` (lasso, with optional weights), `ElasticNet`,
+`NormLinf` or `GroupNormL2` (group lasso) penalty and a dense `Vector{Float32}` or `Vector{Float64}` coefficient
+iterate. Each iteration takes a gradient step for the smooth least-squares loss and applies the
+proximal operator of the penalty (ProximalBase's `value_and_prox!`): soft thresholding for `NormL1` (at the level
+`λ wⱼ` of entry `j` for `NormL1(λ, w)`), soft thresholding followed by the ridge weight for `ElasticNet`, for
+`NormLinf`, the point minus its projection onto the ℓ1 ball of radius `λ/L` (a clip of the entries at a common
+level), and for `GroupNormL2` the block soft threshold (each group block `v_G` of the input scaled by
+`max(0, 1 - γ λ wₖ/‖v_G‖₂)` at the step `γ`; a zero block stays zero); backtracking adjusts
 the step size.
 The curvature estimate before the first iteration is `min(1, α_f ‖X‖_F²)` for the loss scale
 `α_f`, with `‖X‖_F` an upper bound, rounded to `T` and raised to `floatmin(T)` when it is positive and
@@ -29,7 +32,10 @@ configure stopping tolerances and iteration limits. A stop that the `xtol`, `fto
 `gradtol` test proposes counts only if the computed KKT residual of the iterate is below
 `max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞` and `λ` the ℓ1 level of the penalty
 (`λ` of `NormL1(λ)`, the largest coefficient `T(λ) * maximum(w)` of `NormL1(λ, w)`, `λ1` of `ElasticNet`; see
-[`ProximalOptions`](@ref)). `converged=true` guarantees only that the computed, normalized KKT
+[`ProximalOptions`](@ref)); for `GroupNormL2(λ, groups, w)` the residual is the group KKT residual,
+`λmax = maxₖ α‖[Xᵀy]_{Gₖ}‖₂` and `λ = T(λ) * maximum(w)`; for `NormLinf` the generic proximal-gradient check of
+[`ProximalOptions`](@ref) applies instead. For `NormL1`, `ElasticNet` and `GroupNormL2`, `converged=true` guarantees
+only that the computed, normalized KKT
 residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the threshold is formed in
 `T`, which can round or overflow; see [`ProximalOptions`](@ref)); it is not an
 exact-arithmetic certificate, does not bound the distance to a minimizer and does not
@@ -76,7 +82,8 @@ mutable struct ProximalGradientDescentState{T, X<:Vector{T}, G<:Vector{T}, M, Z}
     delta_x::X
     L::T
     max_residual::T
-    λmax::T         # α‖Xᵀy‖∞ for the stationarity check of a stop, -1 until it is computed
+    λmax::T         # ‖∇f(0)‖ for the stationarity check: the ∞-norm for NormL1, ElasticNet and NormLinf, the
+                    # largest group 2-norm for GroupNormL2 (_scale_norm); -1 until it is computed
     backtrack_simple::Bool  # line search uses function values, not gradients
     backtrack_steps::Int
     f_calls::Int
@@ -202,7 +209,10 @@ LineSearches.value_and_gradient_at_x!(state::ProximalGradientDescentState, f) =
 # the product X d̂ formed in dz (scratch: _value_and_gradient! writes it before any
 # read), with m = 1 in function-value mode and m = 2 in gradient mode. Returns (accepted, c):
 # accepted is the comparison of the curvature value with L (in Float64 for Float32 data), and c,
-# of type T, is the estimate that the caller uses after a rejection.
+# of type T, is the estimate that the caller uses after a rejection. When the squared norm of
+# the step x - x' overflowed in the element type of x with finite entries and f(x) is finite,
+# backtrack! has scaled state.delta_x by a power of two s, so d̂ is that scaled step and its
+# largest entry is in [1, 4).
 function LineSearches.check_rejection!(state::ProximalGradientDescentState, gradient_mode::Bool)
     mul!(state.dz, state.model.X, state.delta_x)
     state.verifications += 1
@@ -212,7 +222,11 @@ end
 # Float64 data: both sums of squares in Float64. Overflow or underflow of either sum can make c
 # nonfinite (Inf or NaN; the caller then keeps TFOCS's estimate) or spuriously zero (a finite
 # numerator over an overflowed denominator, or an underflowed numerator; the trial is then
-# accepted).
+# accepted). For a scaled step d̂ (see check_rejection!), ‖d̂‖² is at least 1 and at most about 16n,
+# so the denominator neither overflows nor underflows, while ‖fl(X d̂)‖² can still overflow or
+# underflow. For an unscaled step, the denominator can overflow when an entry of x - x' is not
+# finite, and in a narrow band around the overflow threshold, where norm(x - x')² can be finite
+# and the sum of squares not.
 function _step_curvature(state::ProximalGradientDescentState{T}, m) where T
     c = m * (T(state.model.α) * (sum(abs2, state.dz) / sum(abs2, state.delta_x)))
     c <= state.L, c
@@ -221,7 +235,10 @@ end
 # Float32 data. The computed curvature is not used, and the result is (false, Inf32) so that the
 # caller keeps TFOCS's estimate, when the calling thread flushes subnormals to zero
 # (get_zero_subnormals(), one read of the floating-point control register) or when d̂ has a
-# subnormal entry, which a flushing thread could drop from the product. Otherwise the sums of
+# subnormal entry, which a flushing thread could drop from the product. For a scaled step d̂
+# (see check_rejection!), that is a nonzero entry d̂ᵢ with |d̂ᵢ| < floatmin(Float32); an entry of
+# x - x' with |s (xᵢ - x'ᵢ)| ≤ 2^-150 (half the least positive number) rounds to zero in d̂, is not
+# detected, and drops out of both sums of squares and of the product. Otherwise the sums of
 # squares are accumulated in Float64, where the square of a finite Float32 is exact, so neither
 # sum overflows or underflows, and ‖d̂‖² > 0 for d̂ ≠ 0. An entry of fl(X d̂) that overflowed to
 # Inf or NaN makes the curvature nonfinite: the trial is not accepted and the caller keeps
@@ -276,17 +293,20 @@ end
     solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions())
     solve!(x::BlockIterate, f, g::GroupNormL2, CDSolver())
 
-Minimize a least-squares lasso (with optional weights) or elastic net, or with `CDSolver` a square-root lasso,
-overwriting `x`. `x` is a dense `Vector{T}`,
+Minimize a least-squares lasso (with optional weights), elastic net or ℓ∞-penalized problem (the last with
+`ProximalGradientDescent` and `AccProxGradDescent`), or with `CDSolver` a square-root lasso, overwriting `x`.
+`x` is a dense `Vector{T}`,
 T=Float32 or Float64; `CDSolver` also accepts a one-dimensional `SparseIterate{T}`
 (see below), while the gradient methods (`ProximalGradientDescent`, `AccProxGradDescent`) refuse it.
 The `BlockIterate` form of `CDSolver` minimizes the group lasso with a `GroupNormL2` penalty on a
-`BlockIterate{T}` with the same groups; only `CDSolver` accepts it, and `CDSolver` describes it. The loss
+`BlockIterate{T}` with the same groups; only `CDSolver` accepts a `BlockIterate`, and `CDSolver` describes it.
+`ProximalGradientDescent` and `AccProxGradDescent` also minimize the group lasso on a dense `Vector{T}` (see below). The loss
 uses same-type `Matrix` X and `Vector` y. The penalty of the gradient methods is a `NormL1(λ)` or
-`NormL1(λ, w)` or an unweighted `ElasticNet(λ1, λ2)` (`λ1 ‖x‖₁ + (λ2/2) ‖x‖²`), whose levels are
-finite and nonnegative and representable in `T` without overflow or underflow; for a dense `Vector` or a
-`SparseIterate`, `CDSolver` accepts the same penalties (see [`CDSolver`](@ref)); its `BlockIterate`
-form takes a `GroupNormL2`. The weights `w` of `NormL1(λ, w)` are a
+`NormL1(λ, w)`, an unweighted `ElasticNet(λ1, λ2)` (`λ1 ‖x‖₁ + (λ2/2) ‖x‖²`) or `NormLinf(λ)` (`λ max|xᵢ|`),
+whose levels are finite and nonnegative and representable in `T` without overflow or underflow; for a dense
+`Vector` or a `SparseIterate`, `CDSolver` accepts the same penalties except `NormLinf` (see [`CDSolver`](@ref)),
+which it refuses (its coordinate step needs a separable penalty) before it changes `x` or uses its RNG; its
+`BlockIterate` form takes a `GroupNormL2`. The weights `w` of `NormL1(λ, w)` are a
 `Vector{T}` with one finite nonnegative entry per entry of `x` (`T` the element type of the data and of `x`),
 and `x` must not alias them. `solve!` checks the coefficient `T(λ) wⱼ` of entry `j`, the product rounded in `T`: it must be
 finite and, where `T(λ)` and `wⱼ` are both positive, a normal number of `T` (a zero or subnormal product, and a
@@ -298,11 +318,24 @@ vector of another element type), a weighted `ElasticNet` and any `Scaled` penalt
 its unnormalized meaning. One positive finite scalar LS wrapper is supported. `CDSolver` also accepts
 ProximalBase's `SqrtLeastSquaresLoss(y, X)` with an unweighted `NormL1(λ)`, `λ > 0`, on a dense `Vector`
 or a `SparseIterate` (see [`CDSolver`](@ref)); the gradient methods refuse it, and `CDSolver` refuses it with a weighted `NormL1`.
+
+**Group lasso with `ProximalGradientDescent`.** On a dense `Vector{T}` with the least-squares loss above,
+`ProximalGradientDescent` accepts `g = GroupNormL2(λ, groups, w)` (or with the default weights) when `g` is a
+`GroupNormL2{T}` (its level and weights have the element type of the data; convert with
+`GroupNormL2(T(λ), groups, T.(w))`), its groups partition `1:p` (none empty, no index in two groups,
+none in no group, none above `p`) and match the layout stored in the penalty at construction (a change of `g.groups` after
+construction is refused where it disagrees with that layout; construct the penalty again), its weights are finite and nonnegative, `T(λ)` is zero or a normal number of `T`,
+each coefficient `λ wₖ`, rounded in `T`, is finite and, where `λ` and `wₖ` are both positive, a normal number of `T`,
+and `x` does not alias `w`. A zero weight leaves its group unpenalized. The proximal step is ProximalBase's block soft
+threshold, and the stopping check uses the group KKT residual of ProximalBase's `kkt_violation` (see
+[`ProximalOptions`](@ref)). `AccProxGradDescent` accepts the same `GroupNormL2` with the same stopping check;
+`CDSolver` on a dense `Vector` or a `SparseIterate` refuses it.
+
 Borrowed X/y must not alias mutable `x` or change during a solve. Results share
 `x`; copy it to retain earlier coefficients. Unsupported inputs/options fail
 before mutation. For PGD and APG, a stop of the stopping tests counts only at a point whose
-computed KKT residual meets the bound of [`ProximalOptions`](@ref), which is not an
-exact-arithmetic certificate; CD stops by its change test, and for the square-root loss reports
+computed KKT residual (for a `NormLinf` penalty, the proximal-gradient residual) meets the bound of
+[`ProximalOptions`](@ref), which is not an exact-arithmetic certificate; CD stops by its change test, and for the square-root loss reports
 `converged = true` only when a duality certificate passes (see [`CDSolver`](@ref)). Finite intermediate arithmetic is required. PGD step errors restore
 its last accepted `x` and rethrow, without a transaction guarantee for internal
 counters.

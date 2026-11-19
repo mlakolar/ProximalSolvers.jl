@@ -67,7 +67,7 @@ code.
 Neither `converged=true` is a certificate of mathematical optimality. For
 PGD and APG it means that a test proposed a stop and that the computed
 KKT residual `‖G‖∞` at the returned point is below
-`max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λ` the ℓ1 level of the penalty (see [The stationarity check of a stop](@ref "The stationarity check of a stop")); it is a working-precision residual, not an exact-arithmetic
+`max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λ` the ℓ1 level of the penalty (for `GroupNormL2`, the group residual and scale; for `NormLinf`, the residual and scale of the generic check; see [The stationarity check of a stop](@ref "The stationarity check of a stop")); it is a working-precision residual, not an exact-arithmetic
 certificate, and it does not bound the distance to a minimizer. The
 default `gradtol = 1e-5` is not a specified number of correct digits.
 Tighten tolerances for results you intend to report, then compute the
@@ -83,7 +83,8 @@ Float32, `ftol = 0`) are on the page [Limits of the stopping tests](stopping-lim
 
 ### The stationarity check of a stop
 
-PGD and APG verify a proposed stop. At an iteration at which the `x`, `f` or
+PGD and APG verify a proposed stop; this section is the check for `NormL1`, `ElasticNet` and, with PGD,
+`GroupNormL2` (the **Groups** item below), and other penalties use [the generic stationarity check](@ref "The generic stationarity check"). At an iteration at which the `x`, `f` or
 gradient test holds (under `ftol = 0`, after the exact-stall rule below), the
 solver computes the minimal-norm KKT residual `G` at the accepted iterate `x`.
 For `NormL1(λ)` it is the element of `∇f(x) + λ ∂‖x‖₁` of least infinity
@@ -151,6 +152,19 @@ of the tests. What `converged=true` therefore says about the returned `x`:
   that `solve!` has checked: finite and, where `T(λ0)` and `wᵢ` are both positive, a normal number of `T`
   (a zero or subnormal product of positive factors is refused, and so is a subnormal `T(λ0)`); a zero level or weight gives
   `cᵢ = 0`. As above, a stop is refused where `τ S` is below `floatmin(T)`.
+- **Groups.** For `GroupNormL2(λ0, groups, w)` with `ProximalGradientDescent` or `AccProxGradDescent` (a `GroupNormL2{T}` whose groups
+  partition `1:p`), the coefficient of group `k` is `cₖ = T(λ0) wₖ` rounded in `T`, and `‖G‖∞` is replaced by
+  ProximalBase's group residual `kkt_violation(g, ∇f(x), x) = max(0, maxₖ scoreₖ)`, with
+  `scoreₖ = ‖∇_G f + cₖ x_G/‖x_G‖₂‖₂` at a group with a nonzero entry and `‖∇_G f‖₂ - cₖ` at a zero group
+  (a zero weight gives the score `‖∇_G f‖₂`). The scale is `S = max(maxₖ cₖ, Λ)` with
+  `Λ = maxₖ ‖[∇f(0)]_{Gₖ}‖₂ = α maxₖ ‖[Xᵀy]_{Gₖ}‖₂`, the group counterpart of `λmax` (`x = 0` is a minimizer iff
+  `‖[∇f(0)]_{Gₖ}‖₂ ≤ cₖ` for every `k`); each group norm is LinearAlgebra's `norm`, which scales the block before
+  squaring where the square of its largest magnitude underflows to 0, so squaring the entries does not make `Λ` underflow to 0 at a scale
+  such as `α = 1e-300` (tested). It does not recover an entry of `α Xᵀy` that the product itself rounds to 0 or to a
+  subnormal number. `τ`, the threshold and the guards are those above. For singleton groups
+  with unit weights `S` is the `S` of `NormL1(λ0)`, while the iterates and the residuals of the two penalties
+  can differ by rounding (the scales agree where no entry of `∇f(0)` has a subnormal square). As for `NormL1`, a stop that counts says that the computed residual is below the computed
+  threshold, not that the residual in exact arithmetic is.
 - **The elastic net.** `ElasticNet(λ1, λ2)` on the loss `α/2 ‖Xb - y‖²` is the lasso with
   level `λ1` on the augmented data `X̃ = [√α X; √λ2 I]`, `ỹ = [√α y; 0]`: its loss
   `½‖X̃b - ỹ‖²` equals `α/2 ‖Xb - y‖² + (λ2/2)‖b‖²`, its gradient is `∇f(x) + λ2 x`, and its
@@ -208,6 +222,29 @@ can end on the objective-increase exit below, with `converged=false` and
 `f_increased=true`, where it used to stop on the objective test: the objective
 test proposes the stop, the check refuses it, and the computed objective then
 increases by rounding before the residual reaches the bound.
+
+### The generic stationarity check
+
+A penalty without a dedicated check (today `NormLinf`) uses one check that needs only the penalty's proximal
+operator, so a new proximable penalty needs no convergence code of its own. At the accepted `x`, with `t = 1/L`
+(the accepted curvature), the solver forms `p = prox_{t g}(x - t ∇f(x))` with the same ProximalBase
+`value_and_prox!` as the iterations, and the residual `r = ‖x - p‖∞ / t`, the ∞-norm of the proximal-gradient
+mapping. A proposed stop counts only if
+
+~~~
+r < max(gradtol, 64 eps(T)) * S,     S = max(‖∇f(0)‖∞, ‖∇f(x)‖∞),
+~~~
+
+with the threshold formed in `T`. It is refused when `t` is not finite and positive, when `S` or `r` is not finite,
+when the threshold is below `floatmin(T)` (so a solve with `S = 0`, as for `X = 0` or at `x = 0` when `y = 0`, does not report
+convergence), when the threshold does not exceed `ρ = L eps(T) ‖x‖∞` (the rounding resolution of the gradient test),
+or when `t` times the threshold is below `floatmin(T)/eps(T)` (a step that subnormal rounding can lose at `x = 0`).
+Each proposed stop with a finite positive `t` costs one proximal evaluation, counted in `prox_calls`, and for APG one gradient at `x`, counted
+in `grad_calls`, before the call limits are compared.
+
+A small accepted `L` makes `t` large and `r` a weaker measure of stationarity than with the true curvature; a
+penalty with curvature of its own far above `L` is the extreme case. `converged = true` is a working-precision
+indication, not a certificate, and it does not bound the distance to a minimizer.
 
 ### PGD stops when the computed objective increases
 
@@ -769,7 +806,7 @@ keeps the image `X x` (PGD, APG), the residual (CD), the steps, the line searche
 and the stopping rules. The exact
 accuracy and range statements are those of the section "Least squares at a
 predictor or residual that the caller holds" of the
-[ProximalBase guide to the smooth functions](https://github.com/mlakolar/ProximalBase.jl/blob/a19c59aa723d085d5d7cf5242895bda16eb77214/docs/src/smooth.md); they are not restated here.
+[ProximalBase guide to the smooth functions](https://github.com/mlakolar/ProximalBase.jl/blob/7d5d1e006b02814fb28f8cfb5eca20a05d73ee9e/docs/src/smooth.md); they are not restated here.
 What changes for the solvers:
 
 - CD takes the loss part of its objective from `value_from_residual` of its
@@ -808,12 +845,11 @@ What changes for the solvers:
   the curvature `α‖X‖²` is `5.000000000000001e-100`, `X` has rank one, and both solvers start at
   `5.000000000000014e-100`. APG ends with `converged = true` after 8 iterations, and with
   `NormL1(0.1 λmax)` after 7 (Julia 1.10.13 and 1.13.3 agree). PGD ends with
-  `converged = false` after 7 iterations, stopped by the increase of the objective
-  (`f_increased = true`), at `x` ≈ 1.0034e160 against the minimizer `1e160`: its
-  backtracking test squares the step norm, which overflows once a step exceeds about
-  1.3e154, and then accepts a trial whose `L` is below the curvature, so `L` keeps
-  falling by the decrease factor until the objective increases. This limit of PGD's
-  line search is tracked in #364.
+  `converged = true` after 10 iterations, and with `NormL1(0.1 λmax)` after 9 (Julia
+  1.10.12 and 1.13.3 agree). Its backtracking test squares the step norm, which
+  overflows once a step exceeds about 1.3e154; a trial with a finite value and a step of
+  finite entries is then decided on a scaled step (see "Steps whose squared norm
+  overflows" under "Results and failures").
 - PGD and APG log no warning when they end at `maxiter`, so check `converged` and an
   [independent KKT residual](sparsity-and-kkt.md). CD logs a warning when a run ends with
   `converged = false`. CD solved the example above (`converged = true`, `x = [1.0e160]`);
@@ -825,7 +861,7 @@ What changes for the solvers:
   and PGD and APG both returned `converged = true`, after 9 and 7 iterations. The
   transformation `X′ = cX`, `y′ = cy`, loss scale `α/c²`, with the penalty unchanged,
   keeps the objective and the curvature `α‖X‖²`, so it keeps the start up to rounding (with `c = 1e-80`
-  on the example, APG converged after 8 iterations and PGD ended as above).
+  on the example, APG converged after 8 iterations and PGD after 10; Julia 1.10.12 and 1.13.3 agree).
 - The gradient is `α` times the rounded product `Xᵀd` with `d = z - y` for the
   image `z = X x`. An `Xᵀd` that overflows or underflows before the scaling is not
   recovered, also where `α` would bring the exact gradient into range.
@@ -921,13 +957,16 @@ only on `converged`.
   is that value rounded to Float32, which may round to Inf. TFOCS's update is
   kept when an entry of `fl(X d̂)` overflowed, when the calling thread
   flushes subnormals to zero (`set_zero_subnormals(true)`), and when `d̂` has
-  a subnormal entry, which a flushing thread could drop. At ordinary scales
+  a subnormal entry, which a flushing thread could drop (for a trial whose
+  step was scaled, `d̂` is the scaled step of "Steps whose squared norm
+  overflows" below). At ordinary scales
   the allowances are negligible: with round-to-nearest they leave the
   computed norm `w = ‖fl(X d̂)‖` unchanged when their sum is below
   `eps(w)/2`. For Float64 data, over- or
   underflow of `‖fl(X d̂)‖²` or `‖d̂‖²` can make `c` infinite or NaN, which
   keeps TFOCS's update, or spuriously zero, which accepts the trial: with
-  extreme scalings, `‖fl(X d̂)‖²` can underflow (or `‖d̂‖²` overflow), so `c`
+  extreme scalings, `‖fl(X d̂)‖²` can underflow, or `‖d̂‖²` can overflow in the
+  band described under "Steps whose squared norm overflows" below, so `c`
   can be zero although the true curvature is large. In the
   package's probes (seeded Float32 and Float64 designs, including `p > n`,
   near-duplicate columns, column scales over `10^±3`, residuals orthogonal
@@ -961,6 +1000,48 @@ only on `converged`.
   `stagnated = true` and `converged = false`; without an iteration that meets
   its condition, the exact-stall rule applies and the solve can run to
   `maxiter` with `converged = false`.
+
+  **Steps whose squared norm overflows.** Suppose the step `d = x - x'` of a trial has
+  finite entries, the computed `norm(d)^2` is `Inf` in `T` (a step above about 1.3e154 in
+  Float64 and about 1.8e19 in Float32, which includes a step whose norm is itself above
+  `floatmax(T)`), and the trial value `f(x)` is finite. The trial is then decided on the
+  scaled step `d̃ = s d`, with `s = 2^(-e)` and
+  `e = min(exponent(max |dᵢ|), exponent(floatmax(T)) - 1)`, so that `s` is a normal number
+  and the largest entry of `d̃` is in `[1, 2)`, or in `[2, 4)` when `exponent(max |dᵢ|)` is
+  `exponent(floatmax(T))` (1023 in Float64, 127 in Float32). A trial whose `f(x)` is not
+  finite is not scaled: it takes the exit for a nonfinite trial value described above, as before.
+  The local estimate `L̂` is computed from `d̃` and from `f(x)` and `f(x')` multiplied by `s²`
+  (by shifting their exponents, since `s²` can underflow), with the products of `d̃` and `∇f`
+  multiplied by `s`; in exact arithmetic it equals the estimate at `d`. The check of a
+  rejected trial reads `d̃`, and after an accepted trial the solver state holds `x - x'` again.
+  The trial is decided as at a representable scale, up to the rounding of the computed `f` and
+  `∇f`, overflow of the products `⟨d̃, ∇f(x')⟩` and `⟨∇f(x) - ∇f(x'), d̃⟩` before they are
+  multiplied by `s`, underflow of an entry of the scaled step, of a scaled function value or
+  of `L̂`, and, for Float32 data, the allowances of the check described above. Not changed:
+  - a step with a nonfinite entry is not scaled, and its trial is decided as before;
+  - a step whose squared norm is subnormal or underflows to zero is not scaled
+    ([#317](https://github.com/mlakolar/ProximalSolvers.jl/issues/317));
+  - an overflow of `⟨d̃, ∇f(x')⟩` (in the function-value estimate) or of
+    `⟨∇f(x) - ∇f(x'), d̃⟩` (in the gradient estimate) before the factor `s`, or a NaN from
+    overflowed terms of opposite sign, is not recovered by the scaling. `L̂` is formed from
+    that infinite or NaN product by the same expressions as for an unscaled step, with the
+    scaled quantities, so it can be finite, infinite or NaN. For example, with finite `f(x)` and
+    `f(x')`, a `+Inf` function-value product gives `L̂ = L`, and the trial is accepted without
+    the check;
+  - an overflow of `‖fl(X d̂)‖²` for a representable `‖d̂‖²` is handled by the check as before;
+  - for Float64 data, in a narrow band around the overflow threshold of `‖d‖²`,
+    `norm(d)^2` can be finite while the sum of squares of `d` that the check forms
+    overflows (in a probe with random `d` of length 10, 100 and 1000, within about
+    `2 eps` of the threshold); the step is not scaled, and its trial is decided as before;
+  - for Float32 data, a subnormal entry of `d̃` (nonzero, below `floatmin(Float32)`) makes the
+    check keep TFOCS's update, as it does for any `d̂` with a subnormal entry, and the check
+    does not accept the trial. An entry of `d` with `|s dᵢ| ≤ 2^-150` (half the least positive
+    number) rounds to zero in `d̃`, which is not detected: it drops out of both sums of
+    squares and of the product (`d = [2^70, 2^-80]` scales to `[1, 0]`). In exact arithmetic
+    `X d̃` is `s` times `X d`; the stored product can differ when an entry of `d̃` has
+    underflowed (for `X = [0 1]` and the `d` above, `X d̃ = 0` while `s X d = 2^-150`). The
+    allowances of the Float32 check are absolute, so they weigh more against `‖fl(X d̃)‖` the
+    smaller it is, and they change `c` where it is of the order of the allowances.
 - APG handles a failed step in the same way. Its backtracking raises an error, after which the last
   accepted iterate is restored, when the next curvature estimate `L/β` is not a
   finite increase; a trial whose objective is not finite is never accepted.

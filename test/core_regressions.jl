@@ -539,6 +539,202 @@ end
   @test st.verifications == 1 && st.L == 1e157 && st.backtrack_simple
 end
 
+# ---- PGD backtracking when the squared norm of the step overflows (#364) ----------------------
+
+# A line search from x0 at the curvature L, as update_state! runs it with the BackTracking factor 1,
+# one trial at a time (`once`: the first trial only). It records whether the squared norm of the
+# step of some trial overflowed, and the least relative distance of L from the exact curvature of
+# the step in the mode of the estimate. In exact arithmetic a trial of a least-squares loss is
+# accepted when L reaches that curvature, so the distance measures how far each decision is from
+# a tie.
+function pgd_search(f, g, x0, L; gradient_mode = false, once = false)
+  ls = PS.LineSearches.BackTracking(α = 1.0)
+  st = pgd_trial(f, g, x0, L; gradient_mode, method = ProximalGradientDescent(ls = ls))
+  trials, overflowed, margin, accepted = 0, false, Inf, false
+  while true
+    trials += 1
+    overflowed |= isinf(PS._norm(st.x .- st.x_previous)^2)
+    c = pgd_exact_curvature(st, gradient_mode ? 2 : 1)
+    margin = min(margin, Float64(abs(c - BigFloat(st.L)) / BigFloat(st.L)))
+    accepted = PS.LineSearches.backtrack!(st, ls, f, g)
+    (accepted || once) && break
+    trials < 20 || error("the line search did not end")
+    PS._step!(st.xhat, st.x_previous, st.grad_f_x_previous, st.L)
+    st.g_x = convert(eltype(st.x), PS.value_and_prox!(st.x, g, st.xhat, one(st.L) / st.L))
+    st.f_x = PS._value!(st.x, f, st.model, st.z_x)
+  end
+  (; L = st.L, accepted, trials, verifications = st.verifications, overflowed, margin, state = st)
+end
+
+@testset "PGD line search: a power-of-two scale of x and y does not change the decision, also when ‖x - x'‖² overflows (#364)" begin
+  # Scaling x, y and the penalty level λ by σ = 2^k scales f by σ², ∇f and the step by σ, and
+  # leaves the curvature along the step unchanged, so the decisions of the search agree in exact
+  # arithmetic. The loss scale α is a power of two and is the same at the scales of a case. The
+  # data scale of Xtiny is such that ‖X d‖² is finite at k = 500, where ‖d‖² overflows (the step
+  # is about 2^332 times that of X0).
+  X0 = [1.0 0.3 -0.2; 0.5 1.0 0.1; -0.4 0.2 1.0; 0.3 -0.6 0.5; 0.2 0.1 -0.3]
+  y0 = [1.0, -2.0, 0.5, 3.0, -1.0]
+  Xtiny = ldexp.(X0, -332)
+  cases = ((Float64, X0, 2.0^-34, (520,), 1e-12), (Float64, X0, 2.0^-300, (640,), 1e-12),
+           (Float64, Xtiny, 2.0^-66, (500,), 1e-12), (Float32, X0, 2.0^-40, (70, 80), 1e-5))
+  for (T, X, α, ks, rtol) in cases, gradient_mode in (false, true), λfrac in (0.0, 0.05)
+    mode = gradient_mode ? "gradients" : "function values"
+    @testset "$T, α = $α, $(X === Xtiny ? "small X, " : "")$mode, λ = $λfrac λmax" begin
+      λ0 = T(λfrac * α * norm(X' * y0, Inf))
+      problem(k) = (T(α) * LeastSquaresLoss(T.(ldexp.(y0, k)), T.(X)), NormL1(ldexp(λ0, k)))
+      x0 = zeros(T, 3)
+      # the curvature c along the first step from x0 = 0, in the mode of the estimate (twice
+      # α‖X d‖²/‖d‖² in gradient mode), depends neither on L nor on k
+      f, g = problem(0)
+      c = Float64(pgd_exact_curvature(pgd_trial(f, g, x0, one(T); gradient_mode), gradient_mode ? 2 : 1))
+      for k in (0, ks...)
+        f, g = problem(k)
+        # at 0.4c the first trial is rejected, and the check replaces the estimate by c
+        r = pgd_search(f, g, x0, T(0.4c); gradient_mode, once = true)
+        @test r.overflowed == (k > 0)
+        @test !r.accepted && r.verifications == 1
+        @test r.L ≈ c rtol = rtol
+        # at 0.7c the first trial is rejected, and the retry at L/β = 1.4c, away from a tie with c,
+        # is accepted
+        r = pgd_search(f, g, x0, T(0.7c); gradient_mode)
+        @test r.overflowed == (k > 0)
+        @test r.accepted && r.trials == 2 && r.verifications == 1
+        @test r.margin > 0.05
+        @test r.L == 2 * T(0.7c)
+        @test r.state.delta_x == r.state.x .- r.state.x_previous
+        if X === Xtiny && k > 0
+          d = r.state.x .- r.state.x_previous
+          @test isfinite(sum(abs2, X * d)) && isinf(sum(abs2, d))
+        end
+      end
+    end
+  end
+end
+
+@testset "PGD: after an accepted trial with an overflowing step, delta_x is x - x_previous (#364)" begin
+  # R5-like data: the minimizer is at 1e160 (Float32: 1e25), with the curvature Lf = 5α along the steps.
+  for (T, y, α) in ((Float64, 1e160, 1e-100), (Float32, 1f25, 1f-20))
+    X, ls = ones(T, 5, 1), PS.LineSearches.BackTracking()
+    f, g = T(α) * LeastSquaresLoss(fill(y, 5), X), NormL1(zero(T))
+    Lf = 5 * Float64(α)
+    overflowing(st) = (d = st.x .- st.x_previous; all(isfinite, d) && isinf(PS._norm(d)^2))
+    restored(st) = st.delta_x == st.x .- st.x_previous
+    # accepted by TFOCS's test: L is above the curvature
+    st = pgd_trial(f, g, zeros(T, 1), T(2Lf))
+    @test overflowing(st)
+    @test PS.LineSearches.backtrack!(st, ls, f, g)
+    @test st.verifications == 0 && restored(st)
+    # accepted by the check: lowering f(x') raises TFOCS's estimate above L, which is above the curvature
+    st = pgd_trial(f, g, zeros(T, 1), T(2Lf))
+    st.f_x_previous /= 2
+    @test overflowing(st)
+    @test PS.LineSearches.backtrack!(st, ls, f, g)
+    @test st.verifications == 1 && restored(st)
+    # accepted at Lexact, with L below the curvature
+    lexact = PS.LineSearches.BackTracking(Lexact = Float64(T(0.4Lf)))
+    st = pgd_trial(f, g, zeros(T, 1), T(0.4Lf); method = ProximalGradientDescent(ls = lexact))
+    @test overflowing(st)
+    @test PS.LineSearches.backtrack!(st, lexact, f, g)
+    @test st.verifications == 0 && restored(st)
+    # an update_state! whose first trial is rejected and second accepted
+    method = ProximalGradientDescent()
+    st = PS.initial_state(method, ProximalOptions(), f, g, zeros(T, 1))
+    PS.update_state!(f, g, st, method)
+    @test st.backtrack_steps == 2 && st.verifications == 1
+    @test isinf(PS._norm(st.delta_x)^2) && restored(st)
+  end
+end
+
+@testset "PGD line search: the top of the range, and a step with a nonfinite entry (#364)" begin
+  # With x' = 0 and y = 0, f(x) = c ‖d‖²/2 for the curvature c = α‖X d‖²/‖d‖² along d, so a finite
+  # f(x) gives c ≤ 2 floatmax/‖d‖²: the steps below have a curvature of the order of floatmin(T) or
+  # less. The trial starts at an L below c: c/4 in the first two cases, c/80 in the third and
+  # fourth, about c/4 in the last two. It is rejected in both modes (the estimate is c in
+  # function-value mode and 2c in gradient mode), and L/β is below c, so the retry is the
+  # computed curvature of the mode, c or 2c.
+  ls, g64, g32 = PS.LineSearches.BackTracking(), NormL1(0.0), NormL1(0f0)
+  # (X, α, d, L, rtol, g)
+  cases = ((fill(1e-150, 1, 1), 1e-6, [1e307], 0.25e-306, 1e-12, g64),                  # ‖d‖ = 1e307
+           (fill(1f-18, 1, 1), 1f0, Float32[2f37], 0.25f-36, 1f-5, g32),                 # ‖d‖ = 2e37
+           (fill(1e-100, 1, 8), 1e-120, fill(1.5e308, 8), 1e-321, 1e-3, g64),            # exponent(max |dᵢ|) = 1023, s = 2^-1022
+           (fill(1e-100, 1, 8), 1e-120, fill(8e307, 8), 1e-321, 1e-3, g64),              # finite entries, norm(d) = Inf
+           (fill(1.55e-154, 1, 1), 1.0, [9e307], 6e-309, 1e-12, g64),                    # exponent 1023, c = 2.4e-308 is normal
+           (fill(1.14f-19, 1, 1), 1f0, Float32[1.75f38], 3f-39, 1f-4, g32))              # exponent 127, c = 1.3e-38 is normal
+  for (X, α, d, L, rtol, g) in cases, gradient_mode in (false, true)
+    T = eltype(d)
+    f = T(α) * LeastSquaresLoss(zeros(T, 1), X)
+    st = pgd_pair_trial(f, g, zeros(T, length(d)), d, L)
+    st.backtrack_simple = !gradient_mode
+    @test isfinite(st.f_x) && isinf(PS._norm(d)^2)
+    @test !PS.LineSearches.backtrack!(st, ls, f, g)
+    @test st.verifications == 1
+    @test isfinite(st.L)
+    @test st.L ≈ pgd_exact_curvature(st, gradient_mode ? 2 : 1) rtol = rtol
+  end
+  @test isinf(PS._norm(fill(8e307, 8)))
+  # A step with a nonfinite entry is not scaled: with f(x) set finite and ⟨d, ∇f(x')⟩ = Inf, TFOCS's
+  # estimate is L, and the trial is accepted with delta_x unchanged.
+  for T in (Float64, Float32)
+    f = LeastSquaresLoss(T[-1], T[1 1])
+    g = NormL1(zero(T))
+    st = pgd_pair_trial(f, g, zeros(T, 2), T[1, 1], T(1))
+    st.x[1] = T(Inf)
+    st.f_x = T(1)
+    @test PS.LineSearches.backtrack!(st, ls, f, g)
+    @test st.delta_x == T[Inf, 1] && st.verifications == 0
+  end
+end
+
+@testset "PGD: a step with the largest exponent of T, under a thread that flushes subnormals (#364)" begin
+  # With exponent(max |dᵢ|) = exponent(floatmax(T)) the scale is s = floatmin(T), a normal number, which a
+  # flushing thread keeps. For x' = 0 and y = 0, a finite f(x) bounds the curvature c below
+  # 2 floatmin(T), so the cases below have c between floatmin(T) and 2 floatmin(T), and L = floatmin(T)
+  # is the least normal L. In gradient mode the estimate is 2c, above L and above L/β = 2 floatmin(T), so the
+  # trial is rejected and the retry is 2c. Float64: the check runs and sets L to the computed 2c. Float32: the
+  # check keeps TFOCS's estimate under a flushing thread, so the retry is that estimate.
+  ls, g64, g32 = PS.LineSearches.BackTracking(), NormL1(0.0), NormL1(0f0)
+  for (T, X, d, rtol, g) in ((Float64, fill(1.55e-154, 1, 1), [9e307], 1e-6, g64),
+                             (Float32, fill(1.14f-19, 1, 1), Float32[1.75f38], 1e-4, g32))
+    f = LeastSquaresLoss(zeros(T, 1), X)
+    st = pgd_pair_trial(f, g, zeros(T, 1), d, floatmin(T))
+    st.backtrack_simple = false
+    c2 = pgd_exact_curvature(st, 2)
+    @test exponent(maximum(d)) == exponent(floatmax(T)) && isinf(PS._norm(d)^2) && isfinite(st.f_x)
+    @test floatmin(T) < c2 / 2 < 2 * floatmin(T)
+    old = get_zero_subnormals()
+    try
+      if set_zero_subnormals(true)
+        @test !PS.LineSearches.backtrack!(st, ls, f, g)
+        @test st.verifications == 1
+        @test isfinite(st.L)
+        @test st.L ≈ c2 rtol = rtol
+      else
+        @info "set_zero_subnormals(true) is not available on this platform; flushing-thread step skipped"
+      end
+    finally
+      set_zero_subnormals(old)
+    end
+  end
+end
+
+@testset "PGD Float32: the function-value estimate of a step with a finite squared norm is formed as before (#364)" begin
+  # The sum f(x') + ⟨d, ∇f(x')⟩ of the estimate is a Float32 sum, which rounds, before the Float64 term
+  # L ‖d‖²/2 is added. A subnormal entry of d keeps TFOCS's estimate L̂ as the retry when L̂ exceeds
+  # L/β, as it does here, so L̂ is read from st.L.
+  f = LeastSquaresLoss(Float32[0], Float32[1 0])
+  g0 = NormL1(0f0)
+  st = pgd_pair_trial(f, g0, Float32[-1000.37, 0], Float32[-997.47, 1f-40], 0.1f0)
+  d = st.x .- st.x_previous
+  xy_sq = PS._norm(d)^2
+  q = st.f_x_previous + PS._dot(d, st.grad_f_x_previous) + 0.5 * st.L * xy_sq
+  Lhat = st.L + 2. * max(st.f_x - q, 0f0) / xy_sq
+  q64 = Float64(st.f_x_previous) + Float64(PS._dot(d, st.grad_f_x_previous)) + 0.5 * st.L * xy_sq
+  Lhat64 = st.L + 2. * max(Float64(st.f_x) - q64, 0.0) / xy_sq
+  @test issubnormal(st.x[2]) && Float32(Lhat) != Float32(Lhat64)
+  @test !PS.LineSearches.backtrack!(st, PS.LineSearches.BackTracking(), f, g0)
+  @test st.verifications == 1 && st.L == Float32(Lhat)
+end
+
 @testset "PGD end to end under the strict ftol = 0 settings" begin
   # solve! with ftol = 0, allow_f_increases = true, xtol = 1e-300, gradtol = 1e-11 on the
   # Float32 design above. Float32 reaches its floating-point fixed point. At an unchanged

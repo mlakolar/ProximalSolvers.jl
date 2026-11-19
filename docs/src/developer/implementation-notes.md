@@ -238,8 +238,8 @@ ArgumentError.
 ## Deferred
 
 Sparse designs, sparse vectors and views as iterates, `SparseIterate` for proximal
-gradient descent (plain or accelerated), matrix-shaped, group and symmetric owners, weighted
-`ElasticNet`, `Scaled` penalties, group penalties other than `GroupNormL2` with CD, matrix responses, intercepts/offsets, generalized losses/compositions,
+gradient descent (plain or accelerated), matrix-shaped owners (other than the `Matrix` coefficient of CD with a matrix response and a row-group `GroupNormL2`, #396), group and symmetric owners, weighted
+`ElasticNet`, `Scaled` penalties, group penalties other than `GroupNormL2` with CD, matrix responses other than least squares with CD and a row-group `GroupNormL2` (a private `BlockIterate` over `vec(B)`, #396), intercepts/offsets, generalized losses/compositions,
 monotone/active-set acceleration and APG diagonal preconditioning, ADMM/Newton,
 primal-dual/SLOPE/graphical models, paths/screening/workspaces/refit, certificates other
 than the duality certificate of square-root lasso CD, and reweighting are deferred. Nondefault
@@ -453,7 +453,7 @@ checks shared by both gates and an owner gate that inspects only public active
 values and tests aliasing against the original owner. PGD keeps the dense gate and
 refuses owners.
 
-The current exact PB pin is `a19c59aa723d085d5d7cf5242895bda16eb77214`. CD uses
+The current exact PB pin is `7d5d1e006b02814fb28f8cfb5eca20a05d73ee9e`. CD uses
 its scalar `prox_block` oracle; PGD retains fused `value_and_prox!`. All three solvers take the least-squares value from the PB oracles named above, and PGD and APG take the coefficient gradient from them. The private PB
 SparseIterate contract remains unchanged. PR #237's group/workspace migration is
 not imported. The gated analysis job always runs isolated exact-source paired

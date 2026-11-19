@@ -29,8 +29,11 @@ it is the element of `∇f(x) + ∂(λ Σⱼ wⱼ |xⱼ|)` of least infinity nor
 (`T` the element type; `w` is a `Vector{T}`); a zero weight gives the coefficient 0, so its entry is unpenalized
 and its score is `|∇fⱼ(x)|`. Below, `λ` is the ℓ1 level of the
 penalty (`λ` of `NormL1(λ)`, the largest coefficient `T(λ) * maximum(w)` of `NormL1(λ, w)`, `λ1` of `ElasticNet`);
-`λ2` does not enter the bound. The stop counts only if
-`‖G‖∞ < max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `T` the element type and
+`λ2` does not enter the bound. For `GroupNormL2(λ, groups, w)` (`ProximalGradientDescent` and `AccProxGradDescent`), `‖G‖∞` below stands for
+ProximalBase's group residual `max(0, maxₖ scoreₖ)`, with `scoreₖ = ‖∇_G f(x) + cₖ x_G/‖x_G‖₂‖₂` at a group with a
+nonzero entry and `‖∇_G f(x)‖₂ - cₖ` at a zero group (`cₖ = T(λ) wₖ` rounded in `T`), `λ` for the largest coefficient
+`T(λ) * maximum(w)` and `λmax` for `maxₖ α‖[Xᵀy]_{Gₖ}‖₂`, the largest group norm of `∇f(0)`. The stop counts only if
+`‖G‖∞ < max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `T` the element type and, for `NormL1` and `ElasticNet`,
 `λmax = α‖Xᵀy‖∞` for the loss scale `α` (1 for a plain `LeastSquaresLoss`). The check
 also requires that `S = max(λ, λmax)` is finite, that the product
 `max(gradtol, 64 eps(T)) * S`, formed in `T`, is at least `floatmin(T)`, and that `‖G‖∞` is
@@ -68,6 +71,16 @@ A `gradtol` below `64 eps(T)`, including
 `0`, gives the bound `64 eps(T) max(λ, λmax)`. For `AccProxGradDescent` the check
 forms `∇f(x)` from the cached image `A x` at each iteration at which a stop is
 proposed, and counts that evaluation in `grad_calls`.
+
+**The generic check (`NormLinf(λ)`).** A penalty without a dedicated check above uses the proximal-gradient
+mapping at the accepted `x`: with `t = 1/L` (the accepted curvature), `r = ‖x - prox_{t g}(x - t ∇f(x))‖∞ / t`,
+computed with the same ProximalBase `value_and_prox!` as the iterations. The stop counts only if
+`r < max(gradtol, 64 eps(T)) * S` with `S = max(‖∇f(0)‖∞, ‖∇f(x)‖∞)`; it is refused when `t` is not finite and
+positive, when `S` or `r` is not finite, when that threshold is below `floatmin(T)` (so with `S = 0`, as for `X = 0` or at `x = 0` when `y = 0`, no stop counts), when it
+does not exceed `ρ = L eps(T) ‖x‖∞`, or when `t` times it is below `floatmin(T)/eps(T)`. Each proposed stop with a finite positive `t` costs one
+proximal evaluation, counted in `prox_calls` (and for `AccProxGradDescent` one gradient, counted in `grad_calls`). A small
+accepted `L` makes `t` large and `r` a weaker measure of stationarity. `converged = true` is then a working-precision
+indication, not a certificate.
 
 The gradient test holds when `r < gradtol * m` or `r < gradtol * N`, with `r` the
 gradient/proximal residual of the iteration, `m` the largest `r` so far in the
@@ -289,10 +302,12 @@ coefficient vector; `minimum` is the reported objective at that iterate.
 `iterations` counts steps and `converged` means that **at least one** stopping
 test proposed a stop and that the stationarity check passed (see
 [`ProximalOptions`](@ref)): the computed KKT residual at `minimizer` is below
-`max(gradtol, 64 eps(T)) * max(λ, λmax)`. It is a working-precision value, not an
+`max(gradtol, 64 eps(T)) * max(λ, λmax)` (for `GroupNormL2`, the group residual and scale that
+[`ProximalOptions`](@ref) defines). It is a working-precision value, not an
 exact-arithmetic certificate; it guarantees only that the computed, normalized residual
 `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the threshold is formed in `T`, see
-[`ProximalOptions`](@ref)), not coefficient accuracy on ill-conditioned designs. `iteration_converged` reports reaching the iteration limit,
+[`ProximalOptions`](@ref)), not coefficient accuracy on ill-conditioned designs. For a `NormLinf` penalty the
+generic proximal-gradient check of [`ProximalOptions`](@ref) is used instead. `iteration_converged` reports reaching the iteration limit,
 **not** successful convergence.
 
 The result also stores stopping flags, residuals and tolerances, optional
