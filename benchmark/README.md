@@ -33,9 +33,9 @@ capability when the solver returns ([HARNESS.md](HARNESS.md#restoring-a-solver))
 ```sh
 # Formal, independently certified records (HARNESS.md): environment, supported and deferred cases, a run
 julia benchmark/setup.jl "$PWD" benchmark/results/env pinned
-# Quick (default): 30 supported cases
+# Quick (default): 34 supported cases
 PS_LIST=true julia --project=benchmark/results/env benchmark/run.jl
-# Extended (includes quick): 62 supported cases
+# Extended (includes quick): 66 supported cases
 PS_SUITE=extended PS_LIST=true julia --project=benchmark/results/env benchmark/run.jl
 # Extended: 100 deferred historical cases, with missing capabilities
 PS_SUITE=extended PS_LIST=deferred julia --project=benchmark/results/env benchmark/run.jl

@@ -206,7 +206,7 @@ PS_SUITE=extended PS_GROUPS=gradient PS_LIST=true \
 
 Each case builds its inputs from a seed keyed by its scenario and repetition, so a case
 selected alone has the same inputs, data hash and certificate as in the full suite.
-`PS_CASES='cd/lasso-B/cd/*-f64/call'` measures four of the 17 supported quick `cd` cases.
+`PS_CASES='cd/lasso-B/cd/*-f64/call'` measures four of the 21 supported quick `cd` cases.
 
 ### Float32 PGD and APG against the `1e-5` target
 
