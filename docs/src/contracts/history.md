@@ -122,3 +122,35 @@ in the contract evidence pages.
 **Tests.** Existing CI tier, reuse and provenance tests; no additional platform or benchmark outcome is claimed.
 
 **Sources.** `docs/src/developer/implementation-notes.md:L466`, `docs/src/developer/implementation-notes.md:L471`.
+
+## [HIST-05 Float32 support-note wording before nonnegative lasso](@id HIST-05)
+
+**Statement.**
+
+The migration baseline's support note (a) listed weighted lasso as its exception
+to tests that did not require a successful convergence flag. The original wording
+is retained here as historical testing context:
+
+> - **(a)** `ProximalGradientDescent` and `AccProxGradDescent` accept `Float32` data, and the
+>   tests check the returned point against `BigFloat` or `Float64` references with
+>   `Float32`-sized tolerances, and (except for the weighted lasso, see (f)) do not require
+>   `converged = true`, because a `Float32` solve can end without it: with `ftol = 0`, `ProximalGradientDescent` can stop at
+>   numerical stagnation with `stagnated = true` and `converged = false`, and with the default
+>   options a `Float32` solve can end on the objective-increase exit with `converged = false`. Assess the
+>   returned point with an independent residual; see [Numerical behavior](../numerics.md).
+
+Upstream commit `fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8`
+([PR #413](https://github.com/mlakolar/ProximalSolvers.jl/pull/413)) adds
+`test/nonnegative_lasso.jl`, which explicitly requires `converged` in its case
+with an inactive coefficient and a positive loss derivative, for both element
+types. The current [support note (a)](../support.md#Problem-×-solver-matrix)
+therefore also names selected nonnegative-lasso checks. This adds test coverage;
+it does not turn all Float32 stopping flags into accuracy certificates.
+
+**Applies to.** Historical support-note wording and the subsequent nonnegative-lasso test addition.
+
+**Code.** Upstream `fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8`: `test/nonnegative_lasso.jl`.
+
+**Tests.** The upstream nonnegative-lasso test requires feasibility and independent objective/KKT checks, with the explicit convergence assertion described above.
+
+**Sources.** `docs/src/support.md:L36`.

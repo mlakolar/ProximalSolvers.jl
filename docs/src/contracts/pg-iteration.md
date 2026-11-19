@@ -6,7 +6,7 @@
 
 ## Problem
 
-Minimize `F(x) = s‖Xx - y‖²/2 + g(x)`. The supported penalties are `NormL1` (with optional weights), `ElasticNet`, `NormLinf` and `GroupNormL2`.
+Minimize `F(x) = s‖Xx - y‖²/2 + g(x)`. The supported penalties are `NormL1` (with optional weights), `ElasticNet`, `NormLinf`, `GroupNormL2` and unweighted `NormL1Nonneg`. The last penalty enforces `x ≥ 0` and is supported by PGD under [IN-07](@ref).
 
 ## Notation
 
@@ -45,13 +45,15 @@ The accepted point's gradient is refreshed if the line search did not already up
 
 The prox is soft thresholding for `NormL1`, with entry level `λ wⱼ` for weights; soft thresholding followed by the ridge weight for `ElasticNet`; the point minus its projection onto the ℓ1 ball of radius `λ/L` for `NormLinf` (a common clipping level); and block soft thresholding for `GroupNormL2`, scaling a block `v_G` by `max(0, 1 - γ λ wₖ/‖v_G‖₂)` at step `γ`, with a zero block left zero. The working-precision conventions for these oracles are [FP-01](@ref).
 
+For unweighted `NormL1Nonneg(λ)`, the prox is componentwise `max(v - λ/L, 0)`. It enforces nonnegativity at each step. The feasible-start and input requirements are [IN-07](@ref), and the dedicated constrained stationarity check is [STOP-16](@ref).
+
 **Applies to.** ProximalGradientDescent; dense Vector{T}; T = Float32 or Float64.
 
 **Code.** `src/solvers/proximal_gradient_descent.jl: initial_state, update_state!; src/solve.jl: _solve_gradient!`.
 
-**Tests.** test/minimal_core_characterization.jl: PGD LS image and recorded-trial testsets; test/core_regressions.jl: gradient/image refresh.
+**Tests.** test/minimal_core_characterization.jl: PGD LS image and recorded-trial testsets; test/core_regressions.jl: gradient/image refresh; test/nonnegative_lasso.jl: constrained solutions and feasibility in both precisions.
 
-**Sources.** `docs/src/developer/implementation-notes.md:L286`, `docstring:src/solvers/proximal_gradient_descent.jl:L5`, `docstring:src/solvers/proximal_gradient_descent.jl:L18`, `docs/src/numerics.md:L928`.
+**Sources.** `docs/src/developer/implementation-notes.md:L286`, `docstring:src/solvers/proximal_gradient_descent.jl:L5`, `docstring:src/solvers/proximal_gradient_descent.jl:L18`, `docs/src/numerics.md:L928`. The later nonnegative-lasso addition is documented in [upstream `fd45a427`, PGD docstring](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/src/solvers/proximal_gradient_descent.jl#L5-L18).
 
 ### [PGD-02 Initial curvature scale](@id PGD-02)
 

@@ -6,8 +6,9 @@
 """
     AccProxGradDescent(; β = 0.5, α = 0.9, preconditioner = :none)
 
-Accelerated proximal gradient descent for the same dense Float32/Float64
-least-squares penalties as [`ProximalGradientDescent`](@ref). It extrapolates
+Accelerated proximal gradient descent for dense Float32/Float64 least squares
+with `NormL1` (optional weights), unweighted `ElasticNet`, `NormLinf` or
+`GroupNormL2`. It extrapolates
 from previous accepted iterates, takes a backtracked proximal step, and restarts
 momentum on an objective increase. Pass [`ProximalOptions`](@ref) as the fifth
 argument to [`solve!`](@ref); the result and stopping interface are shared with PGD.
@@ -39,6 +40,8 @@ the last accepted coefficient vector and is rethrown.
 
 The supported penalties are `NormL1` with optional weights, unweighted
 `ElasticNet`, `NormLinf` and a matching `GroupNormL2{T}` on dense coefficients.
+Use [`ProximalGradientDescent`](@ref) for unweighted `NormL1Nonneg`;
+APG does not support that constrained penalty.
 A proposed stop is checked at the accepted point. The iteration's reported
 gradient-mapping residual is measured from the extrapolated point, so use the
 stopping documentation when interpreting it. The extra gradient for a proposed

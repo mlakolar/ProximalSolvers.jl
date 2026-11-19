@@ -109,13 +109,32 @@ class BaselineAnchoring(unittest.TestCase):
         self.manifest["implementation_baseline"] = self.git("rev-parse", "HEAD").strip()
         self.manifest["source_code_sha256"]["src/Demo.jl"] = ledger.source_code_sha256(changed)
         self.save()
-        result, output = self.verify()
+        result, output = self.verify(self.manifest["implementation_baseline"])
+        self.assertEqual(result, 0, output)
+        # The recorded implementation SHA can precede an event base that changed only docs.
+        self.write("README.md", "# Fixture\n\nUpdated upstream documentation.\n")
+        self.git("add", "README.md")
+        self.git("commit", "--quiet", "-m", "Upstream documentation change")
+        event_base = self.git("rev-parse", "HEAD").strip()
+        result, output = self.verify(event_base)
         self.assertEqual(result, 0, output)
         self.manifest["source_code_sha256"]["src/Demo.jl"] = ledger.source_code_sha256(SOURCE)
         self.save()
-        result, output = self.verify()
+        result, output = self.verify(event_base)
         self.assertEqual(result, 1, output)
         self.assertIn("source_code_sha256", output)
+
+    def test_changed_implementation_cannot_select_its_own_preservation_baseline(self):
+        changed = SOURCE.replace(b"x + 1", b"x + 2")
+        self.write("src/Demo.jl", changed)
+        self.git("add", "src/Demo.jl")
+        self.git("commit", "--quiet", "-m", "Implementation changed after the event base")
+        self.manifest["implementation_baseline"] = self.git("rev-parse", "HEAD").strip()
+        self.manifest["source_code_sha256"]["src/Demo.jl"] = ledger.source_code_sha256(changed)
+        self.save()
+        result, output = self.verify(self.before)
+        self.assertEqual(result, 1, output)
+        self.assertIn("source_code_sha256 differs from event base", output)
 
     def test_invalid_and_missing_refs_fail(self):
         for previous in ("missing-ref", "0" * 40, ""):

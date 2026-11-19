@@ -24,6 +24,7 @@ the design requirement.
 | `CDSolver`, matrix-response least squares | dense `Matrix{T}` or matching row-group `BlockIterate{T}` | native row-group `GroupNormL2`; see [CDM-01](@ref) |
 | `CDSolver`, square-root least squares | dense `Vector{T}` or one-dimensional `SparseIterate{T}` | unweighted `NormL1` with positive level; see [CDQ-01](@ref) |
 | `ProximalGradientDescent`, `AccProxGradDescent`, least squares | dense `Vector{T}` | `NormL1`, unweighted `ElasticNet`, `NormLinf`, or `GroupNormL2` under [IN-04](@ref) |
+| `ProximalGradientDescent`, nonnegative least squares or nonnegative lasso | feasible nonnegative dense `Vector{T}` | unweighted `NormL1Nonneg` under [IN-07](@ref) |
 
 The gradient methods refuse `SparseIterate` and `BlockIterate`; scalar CD refuses
 `GroupNormL2`, and all CD storage forms refuse `NormLinf` before any coefficient write
@@ -45,9 +46,9 @@ specified by their solver contracts. For complete runnable calls, see
 
 **Code.** `src/solve.jl`: `_check_data`, `_check_penalty` and the solver-specific owner gates; public `solve!` dispatch.
 
-**Tests.** `test/core_contracts.jl`, `test/sparse_cd.jl`, `test/group_cd.jl`, `test/multiresponse_cd.jl`, `test/linf.jl`.
+**Tests.** `test/core_contracts.jl`, `test/sparse_cd.jl`, `test/group_cd.jl`, `test/multiresponse_cd.jl`, `test/linf.jl`, `test/nonnegative_lasso.jl`.
 
-**Sources.** `docs/src/numerics.md:L732`, `docs/src/support.md:L316`, `docs/src/support.md:L323`, `docs/src/support.md:L356`, `docs/src/developer/implementation-notes.md:L7`, `docs/src/developer/implementation-notes.md:L192`, `docstring:src/solvers/proximal_gradient_descent.jl:L296`, `docs/src/index.md:L9`, `README.md:L79`, `README.md:L96`, `docs/src/support.md:L130`.
+**Sources.** `docs/src/numerics.md:L732`, `docs/src/support.md:L316`, `docs/src/support.md:L323`, `docs/src/support.md:L356`, `docs/src/developer/implementation-notes.md:L7`, `docs/src/developer/implementation-notes.md:L192`, `docstring:src/solvers/proximal_gradient_descent.jl:L296`, `docs/src/index.md:L9`, `README.md:L79`, `README.md:L96`, `docs/src/support.md:L130`, `docstring:src/ProximalSolvers.jl:L4`; the later nonnegative-lasso addition is [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8).
 
 ## [IN-02 Penalty levels and the loss scale](@id IN-02)
 
@@ -56,8 +57,8 @@ specified by their solver contracts. For complete runnable calls, see
 Penalty levels must be finite nonnegative real scalars that convert to `T` without
 overflow or rounding a nonzero value to zero. A different scalar type is allowed,
 including a representable `Float64` literal in a `Float32` solve. A subnormal converted
-level is accepted for an unweighted `NormL1`; weighted penalties have the stricter
-[IN-03](@ref) rule.
+level is accepted for an unweighted `NormL1` or the supported unweighted
+`NormL1Nonneg` in [IN-07](@ref); weighted `NormL1` has the stricter [IN-03](@ref) rule.
 
 For `Scaled(LeastSquaresLoss(...), s)`, the supported loss scale is either:
 
@@ -114,7 +115,7 @@ g = NormL1(lambda)
 
 **Tests.** `test/core_contracts.jl`, `test/cd_numerics.jl`, `test/initial_curvature.jl`, `test/stopping_scale.jl`.
 
-**Sources.** `docs/src/numerics.md:L743`, `docs/src/numerics.md:L783`, `docs/src/support.md:L316`, `docs/src/support.md:L323`, `docs/src/support.md:L327`, `docs/src/support.md:L330`, `docs/src/support.md:L334`, `docs/src/developer/implementation-notes.md:L7`, `docstring:src/solvers/proximal_gradient_descent.jl:L296`, `docs/src/getting-started.md:L119`.
+**Sources.** `docs/src/numerics.md:L743`, `docs/src/numerics.md:L783`, `docs/src/support.md:L316`, `docs/src/support.md:L323`, `docs/src/support.md:L327`, `docs/src/support.md:L330`, `docs/src/support.md:L334`, `docs/src/developer/implementation-notes.md:L7`, `docstring:src/solvers/proximal_gradient_descent.jl:L296`, `docs/src/getting-started.md:L119`. The unweighted nonnegative-lasso level gate is added by [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8).
 
 ## [IN-03 Weighted lasso inputs and rounded coefficients](@id IN-03)
 
@@ -246,3 +247,44 @@ mutation or RNG use, as specified in [IN-01](@ref). See the
 **Tests.** `test/linf.jl` (both gradient methods, zero-solution threshold, dispatch refusals and generic stopping).
 
 **Sources.** `docs/src/support.md:L158`, `docs/src/support.md:L162`, `docstring:src/solvers/proximal_gradient_descent.jl:L296`, `README.md:L91`, `docs/src/support.md:L107`, `docs/src/choosing-solver.md:L345`.
+
+## [IN-07 Nonnegative lasso and nonnegative least squares](@id IN-07)
+
+**Statement.**
+
+`ProximalGradientDescent` accepts the unweighted penalty `NormL1Nonneg(lambda)`
+with a dense least-squares loss. It minimizes
+`(s/2) * sum(abs2, y-X*x) + lambda * sum(x)` over `x >= 0`, where `s` is the
+accepted loss scale. `lambda = 0` gives nonnegative least squares. The data and
+coefficients use the same `Float32` or `Float64` type and the shapes, finite-data,
+scale and alias rules of [IN-01](@ref), [IN-02](@ref) and [IN-05](@ref).
+
+The coefficient start must be a finite dense `Vector{T}` whose every entry is
+nonnegative. A negative starting entry raises `ArgumentError` before any write;
+the solver does not project an infeasible start as an initialization step.
+The level must be finite, nonnegative and representable in `T` without overflow
+or rounding a nonzero value to zero. A representable level of another scalar type
+is allowed, as is a subnormal converted level under [IN-02](@ref).
+
+This support is through the concrete unweighted `NormL1Nonneg` penalty.
+`g.w` must be `nothing`: an explicit weight vector is refused even when all its
+entries are one. APG, coordinate descent, sparse or block coefficient owners,
+matrix responses, square-root loss and `Scaled` penalties are unsupported for
+this problem. These refusals precede writes. A standalone `IndNonnegative()` or
+a general penalty sum/composition does not enter the supported penalty gate;
+use `NormL1Nonneg(0)` for nonnegative least squares. No intercept is fitted.
+
+The proximal operator enforces feasibility during iterations; its update is
+specified in [PGD-01](@ref). A proposed stop uses the constrained stationarity
+check in [STOP-16](@ref), with the working-precision guards in [STOP-04](@ref).
+The result and failure rules are those of PGD in [RES-01](@ref) and [RES-03](@ref).
+The [nonnegative sparse-regression tutorial](../examples/problems/nonnegative_lasso.md)
+checks feasibility, the objective and a separately computed constrained KKT residual.
+
+**Applies to.** Dense-vector PGD with least squares and unweighted `NormL1Nonneg`, including the zero-level nonnegative-least-squares case.
+
+**Code.** `src/solve.jl`: `_check_penalty` with `kind = :pgd`, `_check_problem`; `src/solvers/proximal_gradient_descent.jl`: the PGD `solve!` gate; `src/utils.jl`: `_converted_penalty` and the dedicated stationarity dispatch.
+
+**Tests.** `test/nonnegative_lasso.jl` covers Float32 and Float64 identity-design references, zero and positive feasible starts, native/Float64/zero levels, objective and minimizer identity, a correlated design, and unchanged inputs after invalid levels, negative starts, weighted penalties and unsupported methods/storage/losses. `examples/problems/nonnegative_lasso.jl` independently checks its fitted example and both-precision exact controls.
+
+**Sources.** Added after the frozen documentation inventory by [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8): [input and refusal gates](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/src/solve.jl), [the support statement](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/docs/src/support.md#nonnegative-lasso-with-proximal-gradient-descent), and [regression coverage](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/test/nonnegative_lasso.jl).

@@ -25,6 +25,8 @@ statistical applications and solver comparisons. The original entry points remai
 [elastic net](examples/problems/elastic_net.md), [group lasso](examples/problems/group_lasso.md),
 [square-root lasso](examples/problems/square_root_lasso.md) and
 [solvers at equal accuracy](examples/comparisons/lasso_solvers.md).
+For coefficients constrained to be nonnegative, see
+[nonnegative sparse regression](examples/problems/nonnegative_lasso.md), supported by PGD.
 Learn [proximal operators](@ref learn-03) or
 [how sparsity and KKT checks work](@ref learn-02) before choosing an algorithm.
 

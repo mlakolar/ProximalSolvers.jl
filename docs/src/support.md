@@ -34,9 +34,13 @@ response `Y` and `Matrix` coefficients (see [Multi-response group lasso with coo
 coefficients over a pass and not a certificate of optimality, except for the square-root
 lasso (note e).
 
+Nonnegative lasso uses the same least-squares loss and supported positive scaling;
+its PGD-only feasibility rules are specified in [IN-07](@ref).
+
 - **(a)** `ProximalGradientDescent` and `AccProxGradDescent` accept `Float32` data, and the
   tests check the returned point against `BigFloat` or `Float64` references with
-  `Float32`-sized tolerances, and (except for the weighted lasso, see (f)) do not require
+  `Float32`-sized tolerances, and (except for the weighted lasso, see (f), and selected
+  nonnegative-lasso checks, see (i)) do not require
   `converged = true`, because a `Float32` solve can end without it: with `ftol = 0`, `ProximalGradientDescent` can stop at
   numerical stagnation with `stagnated = true` and `converged = false`, and with the default
   options a `Float32` solve can end on the objective-increase exit with `converged = false`. Assess the
@@ -104,7 +108,9 @@ elastic net
 ~~~
 
 with `ElasticNet(lambda1, lambda2)`. `ProximalGradientDescent` and `AccProxGradDescent` also solve the
-ℓ∞-penalized problem (below). CD's numerical step restrictions and its change-test
+ℓ∞-penalized problem (below). PGD additionally supports nonnegative coefficients
+with unweighted `NormL1Nonneg`; see [the nonnegative input rules](@ref IN-07).
+CD's numerical step restrictions and its change-test
 meaning of `converged` are specified in [the scalar CD contract](@ref CD-01).
 
 | Input | Supported |
@@ -116,6 +122,7 @@ meaning of `converged` are specified in [the scalar CD contract](@ref CD-01).
 | Penalty | With the least-squares loss, `NormL1(lambda)` or `NormL1(lambda, w)` with nonnegative finite `lambda` and, for `w`, a `Vector{T}` of finite nonnegative weights (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`); an unweighted `NormL1(lambda)` with positive `lambda` with `SqrtLeastSquaresLoss`; unweighted `ElasticNet(lambda1, lambda2)` with nonnegative finite levels (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`, with the least-squares loss; with CD and `lambda2 > 0`, a coordinate step outside the normal range is refused, see [the numerical guide](numerics.md)); `NormLinf(lambda)` with a nonnegative finite `lambda` representable in `T` (PGD and APG on a dense vector, least-squares loss only; refused by `CDSolver`) |
 | Solvers | `CDSolver`, `ProximalGradientDescent`, `AccProxGradDescent` (APG also needs `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 3 < 1/(4 eps(Float64))`) |
 | Group lasso | `CDSolver` with a ProximalBase `BlockIterate{Float32}` or `BlockIterate{Float64}` as the coefficients and a `GroupNormL2{Float32}` or `GroupNormL2{Float64}` penalty, and `ProximalGradientDescent` or `AccProxGradDescent` with a dense `Vector{T}` and a `GroupNormL2{T}` penalty, on the same dense least-squares loss (see below) |
+| Nonnegative lasso | `ProximalGradientDescent` only, with unweighted `NormL1Nonneg(lambda)`, dense same-type least-squares data and a feasible nonnegative `Vector{T}` start; see note (i) |
 | Multi-response group lasso | `CDSolver` only, with `X::Matrix{T}`, `Y::Matrix{T}`, `Matrix{T}` coefficients (or a `BlockIterate{T}` over their entries) and a `GroupNormL2` whose groups are the rows of the coefficients, on the least-squares loss (see below) |
 
 ### [Weighted lasso](@id weighted-lasso-support)
@@ -267,6 +274,12 @@ This scale uses the symmetric gradient magnitude, not the one-sided level at whi
 zero vector solves the constrained problem. A kept stop is a computed residual check,
 not an exact-arithmetic certificate. APG, coordinate descent, weighted `NormL1Nonneg`,
 sparse or block iterates, and square-root loss are refused. No intercept is fitted.
+
+See [the input contract](@ref IN-07), [the constrained stationarity check](@ref STOP-16)
+and the [nonnegative regression walkthrough](examples/problems/nonnegative_lasso.md).
+The tests include a successful convergence assertion for an inactive coefficient
+with a positive loss derivative; other cases also check feasibility, objective
+values and independently recomputed constrained KKT residuals.
 
 ## What is not supported yet?
 

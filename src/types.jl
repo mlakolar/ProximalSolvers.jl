@@ -57,6 +57,14 @@ the applicable computed KKT residual; `NormLinf` uses a proximal-gradient
 mapping check. Neither certifies coefficient error. Check optimality independently
 when the accuracy matters.
 
+For dense PGD with unweighted `NormL1Nonneg(lambda)`, the KKT score is
+`abs(grad[j] + T(lambda))` at a positive coefficient and
+`max(-(grad[j] + T(lambda)), 0)` at zero. The check uses the scale
+`max(T(lambda), s * norm(X'y, Inf))` and tolerance floor `64eps(T)`;
+the complete threshold guards are in
+[STOP-16](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-16).
+An infeasible starting point is refused before writes.
+
 With `ftol=0`, an unchanged accepted iterate does not by itself count as
 convergence. Float32 PGD can instead report `stagnated=true` and
 `converged=false` under the documented stagnation condition. An objective increase,

@@ -40,6 +40,13 @@ Use an [independent KKT check](@ref learn-02) or an appropriate
 not zero; CD's `kkt_checks=0` is also a placeholder. The square-root certificate
 is the documented exception; see [its contract](@ref CDQ-01).
 
+For nonnegative lasso, the independent check must include the coefficient
+constraint. At a positive coefficient the score is `abs(grad[j] + lambda)`;
+at zero it is `max(-(grad[j] + lambda), 0)`. A positive derivative at zero
+satisfies the constraint's optimality condition. See the
+[nonnegative example](examples/problems/nonnegative_lasso.md) and
+[the constrained stopping rule](@ref STOP-16).
+
 ## Avoid accidentally overwriting results
 
 ~~~@example results_cd

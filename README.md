@@ -56,7 +56,8 @@ Choose a path:
 - **[Contracts](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/):** numerical guarantees, input requirements and failure behavior.
 
 The [support matrix](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/) also covers
-weighted lasso, elastic net, group and multi-response models, and ℓ∞ penalties.
+weighted and nonnegative lasso, elastic net, group and multi-response models,
+and ℓ∞ penalties.
 Browse the [worked examples](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples-gallery/)
 for statistical applications and convergence diagnostics.
 

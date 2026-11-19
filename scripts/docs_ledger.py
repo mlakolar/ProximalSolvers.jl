@@ -274,9 +274,14 @@ def verify_baseline(previous_ref):
             expected["source_code_sha256"] = _implementation_fingerprints(implementation_revision)
         _validate_inventory(expected, "Reconstructed Git inventory")
         _compare_inventory(manifest, expected, "recorded Git snapshots")
+        event_base_sources = _implementation_fingerprints(previous)
+        if manifest["source_code_sha256"] != event_base_sources:
+            raise ValueError(f"source_code_sha256 differs from event base {previous_ref}; "
+                             "the recorded implementation must match the event-base source code")
         print(f"Baseline verification: {len(expected['blocks'])} blocks, "
               f"{len(expected['example_scripts'])} scripts, {len(expected['urls'])} URL fragments "
-              f"and {len(expected['source_code_sha256'])} implementation files anchored to Git.")
+              f"and {len(expected['source_code_sha256'])} implementation files anchored to Git "
+              "and the event base.")
         return 0
     except (OSError, UnicodeError, ValueError, TypeError) as exc:
         print(f"Baseline verification failed: {exc}", file=sys.stderr)

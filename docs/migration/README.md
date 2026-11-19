@@ -31,9 +31,9 @@ of the exact original block text. The final dispositions are:
 
 | Disposition | Count | Meaning and check |
 |:--|--:|:--|
-| `moved` | 471 | Verbatim text remains at the destination; recorded link-target adjustments are the only permitted substitutions. |
+| `moved` | 469 | Verbatim text remains at the destination; recorded link-target adjustments are the only permitted substitutions. |
 | `example` | 19 | The exact original block remains an active `@example` fence and executes in the documentation build. |
-| `merged` | 235 | The destination retains the substance in a named section or clause; contract Sources cite the exact original ID. |
+| `merged` | 237 | The destination retains the substance in a named section or clause; contract Sources cite the exact original ID. |
 
 A paragraph can contain several rules. Its primary destination is authoritative
 for the main rule; `additional_destinations` identifies the other clauses needed

@@ -3,7 +3,8 @@
                              debias=0, preconditioner=:none)
 
 Proximal gradient descent for least squares with `NormL1` (optionally weighted),
-unweighted `ElasticNet`, `NormLinf` or `GroupNormL2`. Coefficients are a dense
+unweighted `ElasticNet`, `NormLinf`, `GroupNormL2` or unweighted `NormL1Nonneg`.
+Coefficients are a dense
 `Vector{Float32}` or `Vector{Float64}` with same-type dense data.
 Each iteration combines a smooth-loss gradient step with the penalty's proximal
 operator, using backtracking. Pass [`ProximalOptions`](@ref) as the fifth argument
@@ -30,9 +31,19 @@ PGD requires dense coefficients and refuses `SparseIterate`, `BlockIterate`,
 matrix responses and square-root loss. A group penalty must have the same
 parameter type as the data and groups partitioning the coefficients.
 
+For nonnegative lasso, use unweighted `NormL1Nonneg(lambda)` and a nonnegative
+starting vector. Infeasible starts are refused before writes, and the proximal
+step `max(v - lambda/L, 0)` preserves feasibility. The level must be finite,
+nonnegative and representable in the working type. Weighted `NormL1Nonneg` is
+unsupported, including an all-ones weight vector. This penalty is supported
+only by PGD. See [the input contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-07).
+
 A stopping proposal from the iterate, objective or gradient test must pass the
-applicable stationarity check. `NormL1`, `ElasticNet` and `GroupNormL2` have KKT
-checks; `NormLinf` uses the generic proximal-gradient check. Assess fits with an
+applicable stationarity check. `NormL1`, `ElasticNet`, `GroupNormL2` and
+`NormL1Nonneg` have KKT checks; the nonnegative case uses the constrained
+scores at positive and zero coefficients specified by
+[STOP-16](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-16).
+`NormLinf` uses the generic proximal-gradient check. Assess fits with an
 independent diagnostic, particularly for Float32 or ill-conditioned designs.
 An error in an iteration restores the last accepted coefficient vector and
 is rethrown.
@@ -331,6 +342,14 @@ Group CD requires a `BlockIterate` with the penalty's ordered groups; group
 PGD/APG require a same-type `GroupNormL2{T}` and dense coefficients.
 Square-root lasso is available only with CD, an unscaled loss and an unweighted
 positive L1 level; its successful stopping flag requires a certificate.
+
+Nonnegative lasso uses unweighted `NormL1Nonneg(lambda)` with PGD only, dense
+same-type least-squares data and a nonnegative starting vector. An infeasible
+start is refused before writes. APG, CD, weighted `NormL1Nonneg`, sparse/block
+iterates and square-root loss are unsupported for this penalty. Its dedicated
+check uses the constrained KKT residual and the lasso's symmetric gradient scale;
+see [inputs](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-07)
+and [stopping](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-16).
 
 - [Supported inputs, dimensions and scalar parameters](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-01).
 - [Aliasing and borrowed input requirements](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-05).

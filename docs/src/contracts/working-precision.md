@@ -37,6 +37,8 @@ caller holds” in the pinned
 `converged` has the algorithm-specific meaning in [RES-01](@ref). Independently
 evaluate the objective and [KKT residual](../sparsity-and-kkt.md) when accuracy
 matters, especially for `Float32`.
+For nonnegative lasso, use the constrained residual in [STOP-16](@ref), which
+accounts for feasible directions at a zero coefficient.
 
 **Applies to.** All supported solvers and precisions.
 
@@ -44,7 +46,7 @@ matters, especially for `Float32`.
 
 **Tests.** `test/core_contracts.jl`, `test/core_regressions.jl`, `test/cd_numerics.jl`, `test/initial_curvature.jl` and the solver-specific numerical tests.
 
-**Sources.** `docs/src/numerics.md:L791`, `docs/src/numerics.md:L800`, `docs/src/numerics.md:L909`, `docs/src/developer/implementation-notes.md:L151`, `docs/src/developer/implementation-notes.md:L169`, `docs/src/getting-started.md:L119`.
+**Sources.** `docs/src/numerics.md:L791`, `docs/src/numerics.md:L800`, `docs/src/numerics.md:L909`, `docs/src/developer/implementation-notes.md:L151`, `docs/src/developer/implementation-notes.md:L169`, `docs/src/getting-started.md:L119`. The constrained-residual application is added by [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8).
 
 ## [FP-02 Recovered values and different oracle boundaries](@id FP-02)
 
