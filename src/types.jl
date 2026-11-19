@@ -55,7 +55,10 @@ A successful stopping flag is not an exact optimality certificate; see
 For `NormL1`, `ElasticNet` and `GroupNormL2`, a proposed stop is checked against
 the applicable computed KKT residual; `NormLinf` uses a proximal-gradient
 mapping check. Neither certifies coefficient error. Check optimality independently
-when the accuracy matters.
+when the accuracy matters. These options do not configure coordinate descent:
+`CDSolver` accepts unweighted `NormL1(lambda)`, weighted `NormL1(lambda, w)`
+and `ElasticNet(lambda1, lambda2)` for dense or one-dimensional `SparseIterate`
+least-squares problems and stops by its change test.
 
 For dense PGD with unweighted `NormL1Nonneg(lambda)`, the KKT score is
 `abs(grad[j] + T(lambda))` at a positive coefficient and

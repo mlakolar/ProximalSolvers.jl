@@ -126,10 +126,14 @@ stopping are in [the iteration contract](@ref PGD-01) and
 
 The [square-root lasso example](../examples/problems/square_root_lasso.md)
 changes the loss and therefore the dual problem. Its solver has a specific
-certificate and can return an uncertified stop when the certificate does not
-succeed. The [square-root certificate contract](@ref CDQ-01) states the
-conditions and meaning of its `gap` field. Do not transfer the least-squares
-dual formula above to a different loss.
+certificate. After an uncertified change-test stop, it can try a bounded
+[smoothing fallback](@ref CDQ-05). The smoothed problems propose candidate coefficients;
+certification and any proved improvement refer to the original square-root
+objective. Recovery at exact fits is not guaranteed, so the final result can
+still have `converged=false` and `gap=NaN`. The
+[square-root certificate contract](@ref CDQ-01) states the conditions and
+meaning of the `gap` field. Do not transfer the least-squares dual formula
+above to a different loss.
 
 A certificate addresses an optimization question. It does not establish that
 the chosen statistical model or penalty predicts well, identifies causes, or

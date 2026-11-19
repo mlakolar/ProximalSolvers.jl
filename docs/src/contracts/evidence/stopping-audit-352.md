@@ -89,6 +89,12 @@ empty-pass mechanism is therefore established for the [warm-start example](@ref 
 
 **Statement.**
 
+The square-root-lasso counts below were measured at the solve's stop check,
+before the bounded fallback added in f573224f. They do not count certifications
+or changed returned points obtained by that later fallback. Its current rules
+are [CDQ-05](@ref), and its separate reported evaluation is
+[EVIDENCE-SQRT-406](@ref). The original audit counts and qualifications follow.
+
 - **Coordinate descent with `relative = false`.** At the default `tol = 1e-7` with `relative = false`,
   130 of 5,700 Float32 scalar CD solves and 40 of 1,830 Float32 square-root solves ran to
   `maxpasses = 100000` in the sweep; the scalar ones that have a tight reference ended within
@@ -131,7 +137,7 @@ empty-pass mechanism is therefore established for the [warm-start example](@ref 
 
 **Tests.** The preserved tables and linked benchmark harness/issue #320 report measurements, not contract accuracy targets.
 
-**Sources.** `docs/src/stopping-limits.md:L358`, `docs/src/stopping-limits.md:L360`, `docs/src/stopping-limits.md:L367`, `docs/src/stopping-limits.md:L379`, `docs/src/stopping-limits.md:L384`, `docs/src/stopping-limits.md:L385`, `docs/src/stopping-limits.md:L386`, `docs/src/stopping-limits.md:L387`, `docs/src/stopping-limits.md:L388`, `docs/src/stopping-limits.md:L390`.
+**Sources.** `docs/src/stopping-limits.md:L358`, `docs/src/stopping-limits.md:L360`, `docs/src/stopping-limits.md:L367`, `docs/src/stopping-limits.md:L379`, `docs/src/stopping-limits.md:L384`, `docs/src/stopping-limits.md:L385`, `docs/src/stopping-limits.md:L386`, `docs/src/stopping-limits.md:L387`, `docs/src/stopping-limits.md:L388`, `docs/src/stopping-limits.md:L390`. The explicit pre-fallback qualification was added in [f573224f and retained at ef8c9aae](https://github.com/mlakolar/ProximalSolvers.jl/blob/ef8c9aae0afd8dedf0b2f2b172f5a06da267c9d7/docs/src/stopping-limits.md#L383-L397).
 
 ## [AUDIT-05 Fixed points with the objective test disabled](@id AUDIT-05)
 

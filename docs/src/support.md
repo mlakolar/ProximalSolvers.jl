@@ -235,10 +235,19 @@ Weighted penalties, elastic net, scaled square-root losses and gradient solvers
 are not supported here. The [square-root contract](@ref CDQ-01) gives the exact
 input rules, scaling equivalences and certificate semantics.
 
-A successful convergence flag requires the square-root certificate; an
-uncertified stop has `converged=false` and `gap=NaN`. Exact fits can be
-coordinatewise minima without minimizing the whole objective, so use
-[the worked square-root example](examples/problems/square_root_lasso.md).
+A successful convergence flag proves a relative objective error of at most
+`1e-4` when the minimum is positive. The certificate bound is rounded upward to
+the working type `T` for `gap`, so its stored Float32 value can be slightly above
+`1e-4`. After an uncertified change-test stop, a
+bounded smoothing fallback can run within `maxpasses`; it can certify the stopped
+point or return a point with a proved lower objective. Exact fits can be
+coordinatewise minima without minimizing the whole objective, and the fallback
+does not guarantee recovery. A final uncertified result has `converged=false`,
+`gap=NaN` and its own warning. See the [certificate](@ref CDQ-03) and [bounded recovery rules](@ref CDQ-05).
+
+[The worked square-root example](examples/problems/square_root_lasso.md) checks
+a seeded problem independently and shows three exact fits: two that the fallback
+certifies and one that it does not.
 The [scaled-lasso example](examples/problems/scaled_lasso.md) explains the
 related noise estimate; there is no separate scaled-lasso solver.
 

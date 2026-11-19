@@ -46,14 +46,23 @@ Group penalties require matching partitions; matrix-response groups are the rows
 of the coefficient matrix, indexed through `vec(B)`.
 
 Square-root lasso requires an unscaled `SqrtLeastSquaresLoss` and unweighted
-`NormL1(lambda)` with `lambda > 0`. A certified result reports its bound in
-`gap`; an uncertified stop returns `converged=false`, `gap=NaN` and a warning.
-For the normalized square-root objective, use `lambda = sqrt(n)*lambda_n` in
-this unnormalized interface.
+`NormL1(lambda)` with `lambda > 0`. For the normalized square-root objective,
+use `lambda = sqrt(n)*lambda_n` in this unnormalized interface.
+For a positive minimum, `converged=true` proves a relative objective error of at
+most `1e-4`. The certificate bound is rounded upward to the working type `T` for
+`gap`, so its stored Float32 value can be slightly above `1e-4`.
+After an uncertified change-test stop, a bounded smoothing
+fallback can certify the stopped point or return a point with a proved lower
+objective. It uses the remaining `maxpasses` budget and the solver's order,
+momentum, RNG and tolerances; its passes count in the result and its random
+passes advance the borrowed RNG. A run that reaches `maxpasses` does not start
+this fallback. Recovery at exact fits is not guaranteed: a final uncertified
+result has `converged=false`, `gap=NaN` and a warning. See the
+[bounded square-root fallback](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/cd-sqrt-lasso/#CDQ-05).
 
 CD commits coefficients only after a completed run with a finite objective.
-A numerical failure preserves the caller's starting coefficients, although a
-borrowed RNG may have advanced. After a successful sparse/group solve, obtain
+An exception escaping `solve!` preserves the caller's starting coefficients,
+although a borrowed RNG may have advanced. After a successful sparse/group solve, obtain
 fresh active-coordinate/value views because compaction can change the storage.
 
 Detailed rules:
@@ -106,7 +115,9 @@ Base.summary(::CDSolver) = "Coordinate Descent"
 Result sharing the caller's vector or `SparseIterate` as minimizer, with minimum,
 passes, converged, maxchange and tolerance. The compatibility field `kkt_checks = 0` is a
 sentinel. `gap` is `NaN` except after a certified square-root lasso run (see [`CDSolver`](@ref)),
-where `converged = true` and `gap` is the certified upper bound on `(P - P*)/P*`. For the
+where `converged = true` and `gap` is the certified upper bound on `(P - P*)/P*`. For the square-root
+lasso, `passes` includes the passes of the fallback after an uncertified stop, and is at most `maxpasses`.
+For the
 least-squares lasso and elastic net and the group lasso, `converged` reports the change test and
 `gap` is `NaN`.
 """
@@ -422,7 +433,8 @@ function _warn_not_converged(st::_CDState, s::CDSolver, uncertified::Bool)
   end
 end
 # The run shared by the dense and owner wrappers, on a private SparseIterate: the
-# solve, the not-converged warning and the finite-objective check. It returns the
+# solve, the model's fallback after an uncertified stop (`_fallback!`, which updates the state and the
+# model's outcome), the not-converged warning and the finite-objective check. It returns the
 # state, the final objective and the result's gap (`_result_gap` of the model); the caller commits
 # the point only afterwards.
 function _run_cd!(work::Union{SparseIterate, BlockIterate}, f, g, method::CDSolver)
@@ -431,6 +443,7 @@ function _run_cd!(work::Union{SparseIterate, BlockIterate}, f, g, method::CDSolv
   method.maxpasses > 0 && _prepare!(m, g, work)
   st = _CDState(eltype(work), work, method)
   _cd!(work, m, g, st, method)
+  _uncertified(m) && _fallback!(m, g, work, st, method)
   _warn_not_converged(st, method, _uncertified(m))
   result_value = loss_value(m, f, work)+g(work)
   isfinite(result_value) || throw(ArgumentError("coordinate descent produced a nonfinite objective; rescale the problem"))

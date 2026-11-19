@@ -52,7 +52,7 @@ not restored; compaction moves the last active coordinate into a removed slot, s
 order is not sorted. After success, acquire `activevalues(x)` and
 `activecoordinates(x)` again because their active lists may have been replaced or reordered.
 
-**Applies to.** Completed finite scalar CD owner solves, whether converged or at the pass limit.
+**Applies to.** Completed finite scalar CD owner solves, whether converged, uncertified after a square-root fallback, or at the pass limit.
 
 **Code.** `src/solve.jl`: final objective check and owner commit; `src/cd/solver.jl`: compaction.
 
@@ -64,11 +64,18 @@ order is not sorted. After success, acquire `activevalues(x)` and
 
 **Statement.**
 
-A numerical error, including a nonfinite coordinate step, an underflowing or nonfinite
-curvature, or a nonfinite final objective, leaves the caller's values, active set,
+A numerical exception propagated out of `solve!`, including a nonfinite coordinate
+step, an underflowing or nonfinite curvature, or a nonfinite final objective,
+leaves the caller's values, active set,
 signed zeros and slot order unchanged. A borrowed RNG can already have advanced;
 RNG rollback is not promised. Process termination, out-of-memory conditions and
 concurrent mutation of `x`, `X` or `y` are outside this transaction guarantee.
+
+A square-root fallback stage can instead catch an `ArgumentError` and return
+the initial stopped point as a completed uncertified result. That point can
+differ from the caller's original point and commits when its final objective
+is finite. [CDQ-05](@ref) owns this recovery rule, its pass accounting and RNG
+semantics; it does not weaken the guarantee for an exception that propagates.
 
 **Applies to.** Numerical failures of scalar CD owner solves.
 
@@ -76,4 +83,4 @@ concurrent mutation of `x`, `X` or `y` are outside this transaction guarantee.
 
 **Tests.** `test/sparse_cd.jl`: "nonfinite updates and objectives leave the owner unchanged", "a runtime failure may advance the RNG but preserves the owner".
 
-**Sources.** `docs/src/developer/implementation-notes.md:L230`, `docs/src/developer/implementation-notes.md:L260`, `docstring:src/solvers/proximal_gradient_descent.jl:L356`.
+**Sources.** `docs/src/developer/implementation-notes.md:L230`, `docs/src/developer/implementation-notes.md:L260`, `docstring:src/solvers/proximal_gradient_descent.jl:L356`. The later handled-stage refusal is [f573224f, `_fallback!`](https://github.com/mlakolar/ProximalSolvers.jl/blob/f573224f70058be24b81378ab2d6e1c752eb93e8/src/cd/sqrtlasso.jl#L602-L665), covered by its dense/owner refusal tests.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import copy
 import hashlib
+import html
 import io
 import json
 from pathlib import Path
@@ -42,6 +43,7 @@ class BaselineAnchoring(unittest.TestCase):
             self.manifest = ledger.inventory(self.before)
         self.manifest["implementation_baseline"] = self.before
         self.manifest["implementation_example_scripts"] = dict(self.manifest["example_scripts"])
+        self.manifest["implementation_urls"] = copy.deepcopy(self.manifest["urls"])
         self.manifest["url_basis"] = "Rendered URL explanation, not inventory data."
         self.manifest["implementation_baseline_note"] = "The implementation revision is recorded separately."
         self.save()
@@ -78,7 +80,7 @@ class BaselineAnchoring(unittest.TestCase):
 
     def test_first_introduction_rejects_dropped_or_rewritten_inventory(self):
         original = copy.deepcopy(self.manifest)
-        for field in ("blocks", "files", "example_scripts", "implementation_example_scripts", "urls", "source_code_sha256"):
+        for field in ("blocks", "files", "example_scripts", "implementation_example_scripts", "urls", "implementation_urls", "source_code_sha256"):
             with self.subTest(field=field):
                 self.manifest = copy.deepcopy(original)
                 value = self.manifest[field]
@@ -188,6 +190,54 @@ class BaselineAnchoring(unittest.TestCase):
         self.assertEqual(result, 1, output)
         self.assertIn("example scripts differ from event base", output)
 
+    def test_upstream_url_inventory_is_anchored_and_cannot_be_omitted(self):
+        historical = copy.deepcopy(self.manifest["urls"])
+        page = self.root / "docs/src/index.md"
+        page.write_text(page.read_text() + "\n## New upstream feature\n")
+        self.git("add", "docs/src/index.md")
+        self.git("commit", "--quiet", "-m", "Published upstream heading")
+        upstream = self.git("rev-parse", "HEAD").strip()
+        self.manifest["implementation_baseline"] = upstream
+        with patch.object(ledger, "ROOT", self.root):
+            self.manifest["implementation_urls"] = ledger.inventory(upstream)["urls"]
+        self.save()
+        result, output = self.verify(upstream)
+        self.assertEqual(result, 0, output)
+        self.assertEqual(self.manifest["urls"], historical)
+        approved = copy.deepcopy(self.manifest)
+        del self.manifest["implementation_urls"]
+        self.save()
+        result, output = self.verify(upstream)
+        self.assertEqual(result, 1, output)
+        self.assertIn("URL fragments differ from event base", output)
+        self.manifest = approved
+        self.manifest["implementation_urls"].pop()
+        self.save()
+        result, output = self.verify(upstream)
+        self.assertEqual(result, 1, output)
+        self.assertIn("implementation_urls", output)
+
+    def test_rendered_urls_retain_both_historical_and_upstream_fragments(self):
+        added = {"page": "index", "fragment": "New-upstream-feature", "heading": "New upstream feature"}
+        self.manifest["implementation_urls"].append(added)
+        # Also retain a historical URL removed from the integration snapshot.
+        removed = self.manifest["implementation_urls"].pop(0)
+        self.save()
+        for entry in self.manifest["urls"]:
+            self.write("docs/build/" + entry["page"] + "/index.html",
+                       '<h1 id="' + html.escape(entry["fragment"], quote=True) + '">Heading</h1>')
+        output = io.StringIO()
+        with patch.object(ledger, "MIGRATION", self.root / "docs/migration"), \
+                contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
+            self.assertTrue(ledger.check_urls(self.root / "docs/build"))
+            self.assertIn("index#New-upstream-feature", output.getvalue())
+            page = self.root / "docs/build/index/index.html"
+            page.write_text(page.read_text() + '<h2 id="New-upstream-feature">New heading</h2>')
+            self.assertFalse(ledger.check_urls(self.root / "docs/build"))
+            old_page = self.root / ("docs/build/" + removed["page"] + "/index.html")
+            old_page.write_text(old_page.read_text().replace(removed["fragment"], "Deleted-historical-fragment"))
+            self.assertTrue(ledger.check_urls(self.root / "docs/build"))
+
     def test_invalid_and_missing_refs_fail(self):
         for previous in ("missing-ref", "0" * 40, ""):
             with self.subTest(previous=previous):
@@ -205,7 +255,7 @@ class BaselineAnchoring(unittest.TestCase):
 
     def test_every_inventory_must_be_nonempty(self):
         original = copy.deepcopy(self.manifest)
-        for field in ("blocks", "files", "example_scripts", "implementation_example_scripts", "urls", "source_code_sha256"):
+        for field in ("blocks", "files", "example_scripts", "implementation_example_scripts", "urls", "implementation_urls", "source_code_sha256"):
             with self.subTest(field=field):
                 self.manifest = copy.deepcopy(original)
                 self.manifest[field] = type(self.manifest[field])()
@@ -227,12 +277,12 @@ class BaselineAnchoring(unittest.TestCase):
         previous = self.publish_manifest()
         original = copy.deepcopy(self.manifest)
         for field in ("baseline", "implementation_baseline", "files", "example_scripts", "implementation_example_scripts",
-                      "source_code_sha256", "urls"):
+                      "source_code_sha256", "urls", "implementation_urls"):
             with self.subTest(field=field):
                 self.manifest = copy.deepcopy(original)
                 if field in ("baseline", "implementation_baseline"):
                     self.manifest[field] = "0" * 40
-                elif field == "urls":
+                elif field in ("urls", "implementation_urls"):
                     self.manifest[field][0]["fragment"] = "Replaced-fragment"
                 else:
                     values = self.manifest[field]

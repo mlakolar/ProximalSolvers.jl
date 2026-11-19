@@ -40,6 +40,12 @@ Use an [independent KKT check](@ref learn-02) or an appropriate
 not zero; CD's `kkt_checks=0` is also a placeholder. The square-root certificate
 is the documented exception; see [its contract](@ref CDQ-01).
 
+Square-root lasso can try bounded smoothing recovery after an uncertified
+change-test stop. Its `passes` includes that work and stays within `maxpasses`.
+Recovery can certify the stopped point or return a point with a proved lower
+objective, but it need not recover an exact fit. Read `converged` and `gap`
+together; [the bounded recovery contract](@ref CDQ-05) specifies the return rule.
+
 For nonnegative lasso, the independent check must include the coefficient
 constraint. At a positive coefficient the score is `abs(grad[j] + lambda)`;
 at zero it is `max(-(grad[j] + lambda), 0)`. A positive derivative at zero
@@ -87,7 +93,7 @@ diagnostics, not changes to the statistical model.
 | `DimensionMismatch` naming groups, or an error naming a group | The groups of `BlockIterate` and `GroupNormL2` must be equal in number, order and members; an error naming a group is a curvature or step refusal, see [Numerical behavior](numerics.md), or a weight or parameter refusal such as `group weight 2 …` |
 | Convergence flag is false | Inspect the solver's iteration/pass limit; check the [KKT residual](sparsity-and-kkt.md) |
 | `gap` is NaN | Gap certification is implemented only for the square-root lasso with CD; there, `NaN` means that the run stopped without a certificate |
-| Square-root lasso: `converged = false` with a warning about a missing duality certificate | The certificate did not pass, for example at an exact fit (`y = X*beta`), where coordinate descent can stop at a coordinatewise minimum that is not a minimum; see [`CDSolver`](@ref) and [an example](@ref sqrt-lasso-exact-fit) |
+| Square-root lasso: `converged = false` with a warning about a missing duality certificate | No certificate was proved, at the stop or in the fallback that follows it (where the fallback runs), for example at an exact fit (`y = X*beta`), where coordinate descent can stop at a coordinatewise minimum that is not a minimum and the fallback need not recover; see [`CDSolver`](@ref) and [an example](@ref sqrt-lasso-exact-fit) |
 | Float32 precision looks poor | Start with native Float32 inputs/scales, check the KKT residual; Float32 has lower precision |
 | Coefficients appear to change unexpectedly | `solve!` mutates the supplied coefficients; copy them to save the old solution |
 

@@ -141,8 +141,9 @@ println("independent KKT / λ₀ = ", kkt / λ₀, "; scale stationarity = ", sc
 # `(L(β̂, σ̂) - inf L)/inf L ≤ gap` as well, with `gap ≤ 1e-4`; both hold for this page's data, where `y ≠ 0`
 # and the residual was checked above. For `y = 0`, `P* = 0` is
 # attained at `β = 0` with residual 0, so there is no relative gap and no `σ̂` (started at 0, the solver
-# certifies `β = 0` with `gap = 0`; from a nonzero start it can end without a certificate); the exact-fit
-# discussion below applies. The bound on the objective value does not say how far `σ̂` is from a
+# certifies `β = 0` with `gap = 0`; from a nonzero start, the fallback after a stop without a certificate
+# can reach `β = 0`, which is then certified with `gap = 0`, and it can also end without a certificate);
+# the exact-fit discussion below applies. The bound on the objective value does not say how far `σ̂` is from a
 # minimizing `σ`. The square-root page
 # [checks this certificate independently](square_root_lasso.md#Checking-the-answer-independently) from
 # `X`, `y`, `λ` and `β`. A run with `converged = false` and `gap = NaN` has no certificate: its `σ̂` is
@@ -154,9 +155,10 @@ println("relative gap bound for L(β̂, σ̂): ", result.gap)
 # ## [Exact fits](@id scaled-lasso-exact-fit)
 #
 # Take the second exact-fit case of the square-root page, `X = [1 2; 0 1]`, `y = (1, 0)`, `λ = 0.1`,
-# started at 0, so `n = 2` and `λ₀ = 0.1/sqrt(2)`. Its run is uncertified
-# (see [Limitation: exact fits](square_root_lasso.md#sqrt-lasso-exact-fit) for the reason), and the point
-# it returns has the stored residual `r = 0`.
+# started at 0, so `n = 2` and `λ₀ = 0.1/sqrt(2)`. Coordinate descent stops at `β = (1, 0)` without a
+# certificate, and the fallback after that stop certifies this point
+# (see [Limitation: exact fits](square_root_lasso.md#sqrt-lasso-exact-fit)); its stored residual is
+# `r = 0`.
 X2 = [1.0 2.0; 0.0 1.0]
 y2 = [1.0, 0.0]
 λ2 = 0.1
@@ -164,7 +166,7 @@ y2 = [1.0, 0.0]
 β2 = zeros(2)
 r2 = solve!(β2, SqrtLeastSquaresLoss(y2, X2), NormL1(λ2), CDSolver(order = :cyclic, momentum = false))
 println("β = ", β2, ", converged = ", r2.converged, ", gap = ", r2.gap, ", residual = ", y2 - X2 * β2)
-@assert !r2.converged && isnan(r2.gap)
+@assert r2.converged && 0 <= r2.gap <= 1e-4
 @assert iszero(y2 - X2 * β2)
 
 # At a point with `r = 0`, `L(β, σ) = σ/2 + λ₀‖β‖₁` decreases strictly as `σ` decreases and stays above
@@ -177,10 +179,11 @@ println("λ₀‖β‖₁ = ", λ₀2 * norm(β2, 1), ", L(β, σ) for σ = ", �
 @assert issorted(Ls; rev = true) && allunique(Ls)
 @assert all(>(λ₀2 * norm(β2, 1)), Ls)
 
-# The run is uncertified, so this candidate is not presented as a scaled-lasso solution. What it shows is
-# about this `β` only: the minimum of `L(β, ·)` over `σ > 0` is not attained. Whether the joint
-# minimum of `L` over `β` and `σ > 0` is attained is not decided by this candidate, because another
-# square-root lasso minimizer with a nonzero residual may exist. A very small but nonzero residual is not
+# The run certifies the square-root objective `P(β)`, but at this point the minimum of `L(β, ·)` over
+# `σ > 0` is not attained, so the point is not presented with a `σ̂`, and not as a scaled-lasso solution.
+# What it shows is about this `β` only. Whether the joint minimum of `L` over `β` and `σ > 0` is attained
+# is not decided by this point, because another square-root lasso minimizer with a nonzero residual may
+# exist. A very small but nonzero residual is not
 # an exact fit: then `σ̂ = norm(r)/sqrt(n) > 0` is the minimizer of `L(β, ·)`.
 
 # ## Statistical limitations

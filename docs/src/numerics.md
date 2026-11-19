@@ -64,6 +64,10 @@ See the [current section](@ref CDQ-03).
 
 See the [current section](@ref CDQ-04).
 
+### The fallback after an uncertified stop
+
+See the [bounded recovery rule](@ref CDQ-05).
+
 ## Working precision: Float32 and Float64
 
 See the [current section](@ref FP-01).

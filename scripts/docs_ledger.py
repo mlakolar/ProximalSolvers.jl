@@ -239,6 +239,11 @@ def _validate_inventory(manifest, label):
             raise ValueError(f"{label}: implementation_example_scripts must be a nonempty dict")
         if "implementation_baseline" not in manifest:
             raise ValueError(f"{label}: implementation_example_scripts requires implementation_baseline")
+    if "implementation_urls" in manifest:
+        if not isinstance(manifest["implementation_urls"], list) or not manifest["implementation_urls"]:
+            raise ValueError(f"{label}: implementation_urls must be a nonempty list")
+        if "implementation_baseline" not in manifest:
+            raise ValueError(f"{label}: implementation_urls requires implementation_baseline")
     for field in ("baseline", "implementation_baseline"):
         if field == "implementation_baseline" and field not in manifest:
             continue
@@ -285,6 +290,8 @@ def verify_baseline(previous_ref):
             expected["source_code_sha256"] = _implementation_fingerprints(implementation_revision)
         if "implementation_example_scripts" in manifest:
             expected["implementation_example_scripts"] = _example_fingerprints(implementation_revision)
+        if "implementation_urls" in manifest:
+            expected["implementation_urls"] = inventory(implementation_revision)["urls"]
         _validate_inventory(expected, "Reconstructed Git inventory")
         _compare_inventory(manifest, expected, "recorded Git snapshots")
         event_base_sources = _implementation_fingerprints(previous)
@@ -296,9 +303,14 @@ def verify_baseline(previous_ref):
         if effective_examples != event_base_examples:
             raise ValueError(f"Integration example scripts differ from event base {previous_ref}; "
                              "the recorded example snapshot must match all event-base example paths and bytes")
+        effective_urls = manifest.get("implementation_urls", manifest["urls"])
+        if effective_urls != inventory(previous)["urls"]:
+            raise ValueError(f"Integration URL fragments differ from event base {previous_ref}; "
+                             "the recorded URL snapshot must match the event-base page headings")
         print(f"Baseline verification: {len(expected['blocks'])} blocks, "
               f"{len(expected['example_scripts'])} historical scripts, "
-              f"{len(effective_examples)} integration scripts, {len(expected['urls'])} URL fragments "
+              f"{len(effective_examples)} integration scripts, {len(expected['urls'])} historical "
+              f"and {len(effective_urls)} integration URL fragments, "
               f"and {len(expected['source_code_sha256'])} implementation files anchored to Git "
               "and the event base.")
         return 0
@@ -432,7 +444,10 @@ class HTMLIds(HTMLParser):
 def check_urls(build):
     manifest = json.loads((MIGRATION / "baseline.json").read_text())
     errors, cache = [], {}
-    for entry in manifest["urls"]:
+    # Keep both snapshots: an upstream page rename must not erase an older URL.
+    entries = {(entry["page"], entry["fragment"]): entry
+               for entry in manifest["urls"] + manifest.get("implementation_urls", [])}
+    for entry in entries.values():
         candidates = [build / entry["page"] / "index.html", build / (entry["page"] + ".html")]
         path = next((p for p in candidates if p.is_file()), None)
         if path is None:
@@ -444,7 +459,8 @@ def check_urls(build):
             cache[path] = parser.ids
         if entry["fragment"] not in cache[path]:
             errors.append(f"Missing old fragment: {entry['page']}#{entry['fragment']}")
-    print(f"URL compatibility: {len(manifest['urls'])} baseline fragments; {len(errors)} errors.")
+    print(f"URL compatibility: {len(entries)} retained fragments "
+          f"({len(manifest['urls'])} historical); {len(errors)} errors.")
     for error in errors:
         print(error, file=sys.stderr)
     return bool(errors)

@@ -7014,10 +7014,10 @@
     "src/ProximalSolvers.jl": "f076aa924619f52d81e205e28af946ccca673d14ba2c7327594a64e6d7f38064",
     "src/blocks.jl": "cff290802d3f9b77af4382a837c5501cc94bab6157ed5b94feb610dfa3e0eea3",
     "src/cd/leastsquares.jl": "12d939af39e041a7aeeedfb3130935ff0d2aedc55059ca8cc3cc7748be4d0c2f",
-    "src/cd/models.jl": "5783b055c714ec3eb5f7da0b141f37d787845a6a8bcd8c3c87a5b21b0993c81d",
+    "src/cd/models.jl": "117d152d61d1c747929257385c8cd331443ca01188ecdbd6b056716b8eccae68",
     "src/cd/multiresponse.jl": "1f6d306a2af4a2241f314bdd8c10f3e682cefbd1aeed32c00452170d93d472cd",
-    "src/cd/solver.jl": "a351f3328a7ec55b72708ef1d0ea5c50d691943a1c311855bb41a8fd24f5a3ec",
-    "src/cd/sqrtlasso.jl": "8b0366855d11f2ae4b1c7230c092c9d1e6d50aebf766854e9d755ad2d9934dbe",
+    "src/cd/solver.jl": "56a02f8c4d9a8ea4ff7e2d419465308d77399b761278610bdb4cd7e6bc3404f2",
+    "src/cd/sqrtlasso.jl": "3bbe90f52c0dbca595a8b73e7de5378ada3466d588cfd6d6345ffb76fc0c5a2b",
     "src/line_searches.jl": "a9c591e8e2da9b895053790646ec6f8fddab1c408f4fcb160174787f4d000f47",
     "src/precompile.jl": "60673b8367c6cf81728eee1a30953803138cd1bcc3567203a3fa22556365eb65",
     "src/solve.jl": "78c9f7db1cb0b8c00ce9b31de8124d7f7b6ac09bcc7f7cd87b0abc24172b4b85",
@@ -7027,8 +7027,8 @@
     "src/types.jl": "6b1de93e482cea4412b8c506965108221d393bf2ecd0375b14a92304569e8273",
     "src/utils.jl": "8661cb00cbcd850d23fd78fd42926b105f1c69f1cbd429c00f60d9a3c481485d"
   },
-  "implementation_baseline": "1754dce716bff78faf425f211a6aafd8588be77a",
-  "implementation_baseline_note": "The migration integrated master through 1754dce, including separately reviewed gallery/tutorial changes in PR #417. Historical documentation/example inventory remains a6293e6. Runtime source and current example bytes are compared with the actual integrated event base.",
+  "implementation_baseline": "ef8c9aae0afd8dedf0b2f2b172f5a06da267c9d7",
+  "implementation_baseline_note": "The original text, URL and 14-script inventories remain anchored to a6293e6. The integration snapshot includes independently reviewed upstream additions through ef8c9aae: five tutorials, PGD-only nonnegative lasso, the Examples Gallery, bounded square-root-lasso smoothing fallback, and the weighted NormL1 documentation clarification. Current source outside docstrings and all 19 example scripts must match the actual event base.",
   "implementation_example_scripts": {
     "examples/comparisons/group_lasso_solvers.jl": "f894b8f187cde632e4e4ca0451e22bb05fe10dac0ec90f9a1b1f692325980991",
     "examples/comparisons/lasso_solvers.jl": "b5f9be7f6b4583f9558872afd99d873289e0409591d711fd8df074a3e4950e37",
@@ -7042,12 +7042,454 @@
     "examples/problems/nodewise_gaussian_graph.jl": "735b6382cfe218c711f186beb4f4552354a31f64c82fb17289da1ebb65af2f2b",
     "examples/problems/nonnegative_lasso.jl": "77ed8299c1de1e4d33c11fe28dcb2063c383d642e5fa89b9c45587ea50e7ea51",
     "examples/problems/robust_sparse_regression.jl": "712cc24f7ebbd605532f12b076974f71a91fc2b3e21119f10a60e5cb80780971",
-    "examples/problems/scaled_lasso.jl": "94cafbe4fb4b6515ee0d686b7302fa5eba2cab84cc9608d5afbba50d23eb195e",
+    "examples/problems/scaled_lasso.jl": "23a252939135d05f24b582222579db60136e324be2addd8373e2cb38fd73293b",
     "examples/problems/sparse_additive_regression.jl": "86ca6bf3099b92128eca30ff18340ab05f3a5351a6322b702008873a9a97ff69",
     "examples/problems/sparse_covariance_soft_thresholding.jl": "229f7def76c65f49b79e04abf756e7d1dbceae12d67cde62e8138105ba38c501",
     "examples/problems/sparse_deconvolution.jl": "4b421af72babfa38035e9f5a4cf0525037d67e9e6aacd7826950e8a1d910127b",
-    "examples/problems/square_root_lasso.jl": "1569ec1472c9f3d01df1c566fa579ee0c81d14ea0662a81860df594a5d4f9de1",
+    "examples/problems/square_root_lasso.jl": "3ac85143ea13dd452cd2d42ff7ff1a444c3e04c7ae5a21e276ebbfde6d436214",
     "examples/problems/stability_selection.jl": "13cadebb06e99bb0f665f9e62c9591d8bc752e462784fbb5207db856cdf638d4",
     "examples/problems/weighted_lasso.jl": "b77b163d7f8d15d0ced8b42fa7debc175f3821067bea6391fcdfc96b41d0e86b"
-  }
+  },
+  "implementation_urls": [
+    {
+      "page": "index",
+      "fragment": "ProximalSolvers.jl",
+      "heading": "ProximalSolvers.jl"
+    },
+    {
+      "page": "index",
+      "fragment": "Is-this-package-for-me?",
+      "heading": "Is this package for me?"
+    },
+    {
+      "page": "index",
+      "fragment": "Start-here",
+      "heading": "Start here"
+    },
+    {
+      "page": "index",
+      "fragment": "Your-first-solution",
+      "heading": "Your first solution"
+    },
+    {
+      "page": "index",
+      "fragment": "Package-API",
+      "heading": "Package API"
+    },
+    {
+      "page": "getting-started",
+      "fragment": "Getting-started",
+      "heading": "Getting started"
+    },
+    {
+      "page": "getting-started",
+      "fragment": "Install-into-your-project",
+      "heading": "Install into your project"
+    },
+    {
+      "page": "getting-started",
+      "fragment": "The-optimization-problem",
+      "heading": "The optimization problem"
+    },
+    {
+      "page": "getting-started",
+      "fragment": "Solve-an-example-by-hand",
+      "heading": "Solve an example by hand"
+    },
+    {
+      "page": "getting-started",
+      "fragment": "Try-PGD-using-the-defaults",
+      "heading": "Try PGD using the defaults"
+    },
+    {
+      "page": "getting-started",
+      "fragment": "Float32-data",
+      "heading": "Float32 data"
+    },
+    {
+      "page": "concepts",
+      "fragment": "What-problem,-which-algorithm?",
+      "heading": "What problem, which algorithm?"
+    },
+    {
+      "page": "concepts",
+      "fragment": "The-lasso",
+      "heading": "The lasso"
+    },
+    {
+      "page": "concepts",
+      "fragment": "Soft-thresholding-and-proximal-operators",
+      "heading": "Soft-thresholding and proximal operators"
+    },
+    {
+      "page": "concepts",
+      "fragment": "Coordinate-descent-(CD)",
+      "heading": "Coordinate descent (CD)"
+    },
+    {
+      "page": "concepts",
+      "fragment": "Proximal-gradient-descent-(PGD)",
+      "heading": "Proximal gradient descent (PGD)"
+    },
+    {
+      "page": "sparsity-and-kkt",
+      "fragment": "Sparsity,-lambda-and-a-KKT-check",
+      "heading": "Sparsity, lambda and a KKT check"
+    },
+    {
+      "page": "sparsity-and-kkt",
+      "fragment": "Start-with-the-3-by-2-example",
+      "heading": "Start with the 3-by-2 example"
+    },
+    {
+      "page": "sparsity-and-kkt",
+      "fragment": "A-larger-reproducible-problem",
+      "heading": "A larger reproducible problem"
+    },
+    {
+      "page": "sparsity-and-kkt",
+      "fragment": "Check-optimality-independently",
+      "heading": "Check optimality independently"
+    },
+    {
+      "page": "sparsity-and-kkt",
+      "fragment": "What-about-SparseIterate?",
+      "heading": "What about SparseIterate?"
+    },
+    {
+      "page": "choosing-solver",
+      "fragment": "Choosing-a-solver",
+      "heading": "Choosing a solver"
+    },
+    {
+      "page": "choosing-solver",
+      "fragment": "Coordinate-descent",
+      "heading": "Coordinate descent"
+    },
+    {
+      "page": "choosing-solver",
+      "fragment": "Proximal-gradient-descent",
+      "heading": "Proximal gradient descent"
+    },
+    {
+      "page": "choosing-solver",
+      "fragment": "Accelerated-proximal-gradient",
+      "heading": "Accelerated proximal gradient"
+    },
+    {
+      "page": "choosing-solver",
+      "fragment": "Group-lasso-with-block-coordinate-descent",
+      "heading": "Group lasso with block coordinate descent"
+    },
+    {
+      "page": "choosing-solver",
+      "fragment": "Cost-of-the-lazy-curvature",
+      "heading": "Cost of the lazy curvature"
+    },
+    {
+      "page": "choosing-solver",
+      "fragment": "What-is-supported-now?",
+      "heading": "What is supported now?"
+    },
+    {
+      "page": "numerics",
+      "fragment": "Numerical-behavior",
+      "heading": "Numerical behavior"
+    },
+    {
+      "page": "numerics",
+      "fragment": "What-does-converged-mean?",
+      "heading": "What does converged mean?"
+    },
+    {
+      "page": "numerics",
+      "fragment": "The-stationarity-check-of-a-stop",
+      "heading": "The stationarity check of a stop"
+    },
+    {
+      "page": "numerics",
+      "fragment": "The-generic-stationarity-check",
+      "heading": "The generic stationarity check"
+    },
+    {
+      "page": "numerics",
+      "fragment": "PGD-stops-when-the-computed-objective-increases",
+      "heading": "PGD stops when the computed objective increases"
+    },
+    {
+      "page": "numerics",
+      "fragment": "Strict-accuracy",
+      "heading": "Strict accuracy"
+    },
+    {
+      "page": "numerics",
+      "fragment": "Group-lasso-on-a-BlockIterate",
+      "heading": "Group lasso on a BlockIterate"
+    },
+    {
+      "page": "numerics",
+      "fragment": "The-group-step",
+      "heading": "The group step"
+    },
+    {
+      "page": "numerics",
+      "fragment": "The-curvature-bound",
+      "heading": "The curvature bound"
+    },
+    {
+      "page": "numerics",
+      "fragment": "The-stopping-statistic",
+      "heading": "The stopping statistic"
+    },
+    {
+      "page": "numerics",
+      "fragment": "Result-and-failure",
+      "heading": "Result and failure"
+    },
+    {
+      "page": "numerics",
+      "fragment": "Square-root-lasso",
+      "heading": "Square-root lasso"
+    },
+    {
+      "page": "numerics",
+      "fragment": "The-coordinate-step",
+      "heading": "The coordinate step"
+    },
+    {
+      "page": "numerics",
+      "fragment": "The-certificate",
+      "heading": "The certificate"
+    },
+    {
+      "page": "numerics",
+      "fragment": "Tightening-and-the-uncertified-stop",
+      "heading": "Tightening and the uncertified stop"
+    },
+    {
+      "page": "numerics",
+      "fragment": "The-fallback-after-an-uncertified-stop",
+      "heading": "The fallback after an uncertified stop"
+    },
+    {
+      "page": "numerics",
+      "fragment": "Working-precision:-Float32-and-Float64",
+      "heading": "Working precision: Float32 and Float64"
+    },
+    {
+      "page": "numerics",
+      "fragment": "Results-and-failures",
+      "heading": "Results and failures"
+    },
+    {
+      "page": "stopping-limits",
+      "fragment": "Limits-of-the-stopping-tests",
+      "heading": "Limits of the stopping tests"
+    },
+    {
+      "page": "stopping-limits",
+      "fragment": "The-criterion-and-a-certificate",
+      "heading": "The criterion and a certificate"
+    },
+    {
+      "page": "stopping-limits",
+      "fragment": "What-the-change-test-of-coordinate-descent-implies",
+      "heading": "What the change test of coordinate descent implies"
+    },
+    {
+      "page": "stopping-limits",
+      "fragment": "Products-formed-in-working-precision",
+      "heading": "Products formed in working precision"
+    },
+    {
+      "page": "stopping-limits",
+      "fragment": "A-warm-start-far-above-the-solution-scale-(coordinate-descent)",
+      "heading": "A warm start far above the solution scale (coordinate descent)"
+    },
+    {
+      "page": "stopping-limits",
+      "fragment": "The-cached-residual",
+      "heading": "The cached residual"
+    },
+    {
+      "page": "stopping-limits",
+      "fragment": "What-the-study-of-issue-#378-measured",
+      "heading": "What the study of issue #378 measured"
+    },
+    {
+      "page": "stopping-limits",
+      "fragment": "No-change-to-the-solver",
+      "heading": "No change to the solver"
+    },
+    {
+      "page": "stopping-limits",
+      "fragment": "Float32",
+      "heading": "Float32"
+    },
+    {
+      "page": "stopping-limits",
+      "fragment": "ftol-0-at-a-fixed-point",
+      "heading": "`ftol = 0` at a fixed point"
+    },
+    {
+      "page": "support",
+      "fragment": "Supported-problems",
+      "heading": "Supported problems"
+    },
+    {
+      "page": "support",
+      "fragment": "Problem-solver-matrix",
+      "heading": "Problem × solver matrix"
+    },
+    {
+      "page": "support",
+      "fragment": "Statistical-applications",
+      "heading": "Statistical applications"
+    },
+    {
+      "page": "support",
+      "fragment": "What-works-today?",
+      "heading": "What works today?"
+    },
+    {
+      "page": "support",
+      "fragment": "weighted-lasso-support",
+      "heading": "[Weighted lasso](@id weighted-lasso-support)"
+    },
+    {
+      "page": "support",
+      "fragment": "ℓ-penalty-with-PGD-and-APG",
+      "heading": "ℓ∞ penalty with PGD and APG"
+    },
+    {
+      "page": "support",
+      "fragment": "Group-lasso-with-coordinate-descent",
+      "heading": "Group lasso with coordinate descent"
+    },
+    {
+      "page": "support",
+      "fragment": "Group-lasso-with-proximal-gradient-descent",
+      "heading": "Group lasso with proximal gradient descent"
+    },
+    {
+      "page": "support",
+      "fragment": "Multi-response-group-lasso-with-coordinate-descent",
+      "heading": "Multi-response group lasso with coordinate descent"
+    },
+    {
+      "page": "support",
+      "fragment": "Square-root-lasso-with-coordinate-descent",
+      "heading": "Square-root lasso with coordinate descent"
+    },
+    {
+      "page": "support",
+      "fragment": "Nonnegative-lasso-with-proximal-gradient-descent",
+      "heading": "Nonnegative lasso with proximal gradient descent"
+    },
+    {
+      "page": "support",
+      "fragment": "What-is-not-supported-yet?",
+      "heading": "What is not supported yet?"
+    },
+    {
+      "page": "support",
+      "fragment": "About-previous-versions",
+      "heading": "About previous versions"
+    },
+    {
+      "page": "working-with-results",
+      "fragment": "Results-and-troubleshooting",
+      "heading": "Results and troubleshooting"
+    },
+    {
+      "page": "working-with-results",
+      "fragment": "Read-a-result",
+      "heading": "Read a result"
+    },
+    {
+      "page": "working-with-results",
+      "fragment": "Avoid-accidentally-overwriting-results",
+      "heading": "Avoid accidentally overwriting results"
+    },
+    {
+      "page": "working-with-results",
+      "fragment": "What-PGD's-output-labels-mean",
+      "heading": "What PGD's output labels mean"
+    },
+    {
+      "page": "working-with-results",
+      "fragment": "Common-problems",
+      "heading": "Common problems"
+    },
+    {
+      "page": "benchmarks",
+      "fragment": "Benchmarks-and-performance",
+      "heading": "Benchmarks and performance"
+    },
+    {
+      "page": "benchmarks",
+      "fragment": "Where-the-formal-evidence-is",
+      "heading": "Where the formal evidence is"
+    },
+    {
+      "page": "glossary",
+      "fragment": "Glossary",
+      "heading": "Glossary"
+    },
+    {
+      "page": "api",
+      "fragment": "API-reference",
+      "heading": "API reference"
+    },
+    {
+      "page": "internals",
+      "fragment": "Developer-architecture",
+      "heading": "Developer architecture"
+    },
+    {
+      "page": "internals",
+      "fragment": "High-level-organization",
+      "heading": "High-level organization"
+    },
+    {
+      "page": "developer/implementation-notes",
+      "fragment": "Implementation-notes-for-maintainers",
+      "heading": "Implementation notes for maintainers"
+    },
+    {
+      "page": "developer/implementation-notes",
+      "fragment": "Working-precision-and-numerical-boundaries",
+      "heading": "Working precision and numerical boundaries"
+    },
+    {
+      "page": "developer/implementation-notes",
+      "fragment": "support.md-(previous-detailed-notes)",
+      "heading": "support.md (previous detailed notes)"
+    },
+    {
+      "page": "developer/implementation-notes",
+      "fragment": "CD-on-a-SparseIterate",
+      "heading": "CD on a `SparseIterate`"
+    },
+    {
+      "page": "developer/implementation-notes",
+      "fragment": "Deferred",
+      "heading": "Deferred"
+    },
+    {
+      "page": "developer/implementation-notes",
+      "fragment": "numerics.md-(previous-detailed-notes)",
+      "heading": "numerics.md (previous detailed notes)"
+    },
+    {
+      "page": "developer/implementation-notes",
+      "fragment": "The-APG-bound-test",
+      "heading": "The APG bound test"
+    },
+    {
+      "page": "developer/implementation-notes",
+      "fragment": "internals.md-(previous-detailed-notes)",
+      "heading": "internals.md (previous detailed notes)"
+    }
+  ]
 }

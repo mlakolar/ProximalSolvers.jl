@@ -8,25 +8,30 @@ not a permanent freeze on later documentation or numerical development.
 The text, example and URL inventory comes from
 `a6293e6ff7e654a87babbc5de2314205be13d6c5`, the revision named in the migration
 plan. The implementation and current-example guards use
-`1754dce716bff78faf425f211a6aafd8588be77a`, the master revision integrated before
+`ef8c9aae0afd8dedf0b2f2b172f5a06da267c9d7`, the master revision integrated before
 publishing. The branch initially started at `debbc88`; subsequent upstream work
-added five tutorials, the narrow nonnegative-lasso PGD path, and the complete
-Examples Gallery in PR #417. Those independently reviewed changes are retained.
+added five tutorials, the narrow nonnegative-lasso PGD path, the complete
+Examples Gallery in PR #417, the square-root-lasso smoothing fallback in PR #406,
+and the weighted NormL1 clarification in PR #419. Those independently reviewed
+changes are retained.
 
-`source_code_sha256` and `implementation_example_scripts` describe the integrated
-snapshot. The original `example_scripts` hashes and all historical text remain
+`source_code_sha256`, `implementation_example_scripts` and `implementation_urls`
+describe the integrated snapshot. The original `example_scripts` hashes and all historical text remain
 anchored to the plan's revision. The migration itself leaves the 19 current scripts
 byte-identical to the integration base, including the gallery's upstream figure
 code and numerical checks. It does not undo their evolution after the plan's
-14-script snapshot. New nonnegative-lasso clauses cite their immutable current
-source separately from the 725 historical blocks; the original example index is
-retained as dated evidence.
+14-script snapshot. New nonnegative-lasso and square-root-lasso fallback clauses cite their immutable
+current source separately from the 725 historical blocks; the original example
+index is retained as dated evidence.
 
 `baseline.json` contains original text as well as SHA-256 fingerprints. It records
 725 blocks, 19 original inline executable examples, 14 example scripts, and
 86 published page-heading fragments. The fragments were checked against an
 actual Documenter build of the original revision, including its Unicode slug
-rules. The baseline does not include generated HTML or benchmark output.
+rules. The integration snapshot also records 88 heading fragments, including the
+new nonnegative-lasso and square-root-lasso fallback headings. The rendered-URL
+check retains the union of both snapshots. The baseline does not include generated
+HTML or benchmark output.
 
 ## Reading the ledger
 
@@ -36,9 +41,9 @@ of the exact original block text. The final dispositions are:
 
 | Disposition | Count | Meaning and check |
 |:--|--:|:--|
-| `moved` | 469 | Verbatim text remains at the destination; recorded link-target adjustments are the only permitted substitutions. |
+| `moved` | 471 | Verbatim text remains at the destination; recorded link-target adjustments are the only permitted substitutions. |
 | `example` | 19 | The exact original block remains an active `@example` fence and executes in the documentation build. |
-| `merged` | 237 | The destination retains the substance in a named section or clause; contract Sources cite the exact original ID. |
+| `merged` | 235 | The destination retains the substance in a named section or clause; contract Sources cite the exact original ID. |
 
 A paragraph can contain several rules. Its primary destination is authoritative
 for the main rule; `additional_destinations` identifies the other clauses needed

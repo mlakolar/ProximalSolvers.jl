@@ -69,12 +69,18 @@ rules in [CDG-07](@ref) and [CDG-08](@ref).
 Square-root-lasso CD uses the `SparseIterate` engine with a private `SqrtLSModel`.
 It wraps the least-squares model at loss scale one (data, residual, curvature cache,
 residual updates and stopping scales) and supplies its own coordinate step. A
-converged full pass calls `_stop_check!`, returning `:converged`, `:uncertified`,
+unsmoothed full-pass change stop calls `_stop_check!`, returning `:converged`, `:uncertified`,
 or `:retry`; the retry lowers the threshold, which the loop reads again. The
 generic hook returns the constant `:converged`, preserving the least-squares and
 group change tests. The square-root model performs its duality certificate there
 and records the certified bound in `gap`; [CDQ-03](@ref) and [CDQ-04](@ref) specify
-the numerical rules.
+the numerical rules. After a terminal uncertified stop, `_run_cd!` invokes the
+model's `_fallback!` before issuing the warning and checking the final objective.
+That hook is a no-op for models without a certificate. The square-root model
+supplies the bounded smoothing continuation in [CDQ-05](@ref), whose smoothed
+stages use the same private engine and whose original-objective bounds decide
+the returned point. The outer wrappers still commit only after a finite
+completed run.
 
 **Applies to.** Private CD engines, wrappers and model hooks.
 
@@ -82,7 +88,7 @@ the numerical rules.
 
 **Tests.** `test/sparse_cd.jl`, `test/group_cd.jl`, `test/group_cd_preflight.jl`, `test/multiresponse_cd.jl`, `test/sqrt_lasso.jl`.
 
-**Sources.** `docs/src/internals.md:L13`, `docs/src/internals.md:L23`, `docs/src/internals.md:L48`, `docs/src/developer/implementation-notes.md:L442`.
+**Sources.** `docs/src/internals.md:L13`, `docs/src/internals.md:L23`, `docs/src/internals.md:L48`, `docs/src/developer/implementation-notes.md:L442`. The later fallback seam is [f573224f, the generic model hook](https://github.com/mlakolar/ProximalSolvers.jl/blob/f573224f70058be24b81378ab2d6e1c752eb93e8/src/cd/models.jl#L20-L25) and [the private run boundary](https://github.com/mlakolar/ProximalSolvers.jl/blob/f573224f70058be24b81378ab2d6e1c752eb93e8/src/cd/solver.jl#L562-L577).
 
 ## [ARCH-03 Private seams and public support boundaries](@id ARCH-03)
 

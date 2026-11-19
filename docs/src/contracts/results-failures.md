@@ -26,7 +26,10 @@ say that this cache is close to `y − Xx` at the returned point (see
 
 Of the problems audited, only the square-root lasso carries a certificate, and that
 certificate has the assumptions stated in [The certificate](@ref CDQ-03) and
-[Tightening and the uncertified stop](@ref CDQ-04). For the
+[Tightening and the uncertified stop](@ref CDQ-04). After an uncertified stop,
+[the bounded fallback](@ref CDQ-05) can certify the stopped point or return a
+point with a proved lower objective. It does not guarantee recovery at exact
+fits, and a final `converged = false` can still mean a nonoptimal exact fit. For the
 other solvers `converged = true` reports that the criterion of its row was met. Check the
 returned point with the [independent KKT residual](../sparsity-and-kkt.md) when the result
 matters.
@@ -37,9 +40,14 @@ not log a warning merely because `maxiter` was reached. Gap certificates are
 implemented only for square-root-lasso CD. Elsewhere `gap = NaN` means that a gap
 was not calculated, and does not mean the gap is zero. CD's `kkt_checks = 0` is also
 a compatibility placeholder. [CDQ-03](@ref) and [CDQ-04](@ref) specify the certificate
-assumptions, tightening and uncertified stop.
+assumptions, tightening and uncertified stop. [CDQ-05](@ref) specifies the
+fallback's returned point, pass total, restored or final-stage change statistics,
+and RNG advancement. The original criterion table above is interpreted with
+that later fallback qualification: an initial uncertified stop need not be the
+final result. A square-root certificate at an exact fit supplies no positive
+scaled-lasso noise-scale minimizer; see [CDQ-06](@ref).
 
-The criterion table is preserved from the baseline. Its PGD/APG entries describe
+The criterion table above is preserved from the baseline. Its PGD/APG entries describe
 a product-threshold comparison in working precision; [STOP-04](@ref) defines its
 formation and guards. The historical normalized-residual assertion discussed under
 [Unreconciled](@ref RES-UNRECONCILED) must not be inferred from that comparison.
@@ -56,7 +64,7 @@ The supported inputs and feasibility refusals are in [IN-07](@ref).
 
 **Tests.** `test/core_contracts.jl`, `test/stopping_scale.jl`, `test/group_pgd.jl`, `test/linf.jl`, `test/sqrt_lasso.jl`, `test/nonnegative_lasso.jl` and the solver-specific stopping tests.
 
-**Sources.** `docs/src/numerics.md:L853`, `docs/src/numerics.md:L1072`, `docs/src/numerics.md:L1075`, `docs/src/numerics.md:L1081`, `docs/src/stopping-limits.md:L17`, `docs/src/stopping-limits.md:L19`, `docs/src/stopping-limits.md:L22`, `docs/src/stopping-limits.md:L23`, `docs/src/stopping-limits.md:L24`, `docs/src/stopping-limits.md:L25`, `docs/src/stopping-limits.md:L26`, `docs/src/stopping-limits.md:L27`, `docs/src/stopping-limits.md:L28`, `docs/src/stopping-limits.md:L30`, `docs/src/stopping-limits.md:L35`, `docs/src/support.md:L385`, `docstring:src/types.jl:L298`, `docstring:src/types.jl:L300`. The later nonnegative-lasso result interpretation follows [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8).
+**Sources.** `docs/src/numerics.md:L853`, `docs/src/numerics.md:L1072`, `docs/src/numerics.md:L1075`, `docs/src/numerics.md:L1081`, `docs/src/stopping-limits.md:L17`, `docs/src/stopping-limits.md:L19`, `docs/src/stopping-limits.md:L22`, `docs/src/stopping-limits.md:L23`, `docs/src/stopping-limits.md:L24`, `docs/src/stopping-limits.md:L25`, `docs/src/stopping-limits.md:L26`, `docs/src/stopping-limits.md:L27`, `docs/src/stopping-limits.md:L28`, `docs/src/stopping-limits.md:L30`, `docs/src/stopping-limits.md:L35`, `docs/src/support.md:L385`, `docstring:src/types.jl:L298`, `docstring:src/types.jl:L300`. The later nonnegative-lasso result interpretation follows [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8). The square-root fallback qualification is from [f573224f](https://github.com/mlakolar/ProximalSolvers.jl/commit/f573224f70058be24b81378ab2d6e1c752eb93e8), as retained in [the integrated result guidance at ef8c9aae](https://github.com/mlakolar/ProximalSolvers.jl/blob/ef8c9aae0afd8dedf0b2f2b172f5a06da267c9d7/docs/src/stopping-limits.md#L35-L45).
 
 ## [RES-02 Gradient result fields and counters](@id RES-02)
 
@@ -108,10 +116,17 @@ flag combinations.
 Input validation completes before mutation; the alias rules are in [IN-05](@ref).
 CD computes on private coefficient storage and commits only a finite completed
 run. Dense vectors therefore do not receive a partial numerical result. A caller's
-`SparseIterate` retains its original state on a numerical failure; a successful
+`SparseIterate` retains its original state when a numerical exception propagates
+out of `solve!`; a successful
 commit can remove active zeros and reorder slots. The RNG can still advance.
 The complete owner transaction is [CDS-03](@ref)/[CDS-04](@ref); group and matrix
 owners use the specialized rules in [CDG-08](@ref) and [CDM-02](@ref).
+
+Square-root CD can catch an `ArgumentError` inside a fallback stage and complete
+with the stopped point `x0`, as specified in [CDQ-05](@ref). That finite completed
+result commits `x0`, which may differ from the caller's starting point. A
+propagated exception, including a nonfinite final objective, retains the outer
+transaction guarantee.
 
 PGD and APG numerical step exceptions restore the last accepted coefficient point
 and rethrow. They do not provide a general transaction for internal counters or
@@ -130,7 +145,7 @@ a returned result, or the [Glossary](../glossary.md) for terminology.
 
 **Tests.** `test/sparse_cd.jl`, `test/group_cd.jl`, `test/multiresponse_cd.jl`, `test/core_contracts.jl`, `test/core_regressions.jl`.
 
-**Sources.** `docs/src/numerics.md:L921`, `docs/src/numerics.md:L923`, `docs/src/numerics.md:L1072`, `docs/src/numerics.md:L1075`, `docs/src/numerics.md:L1081`, `docs/src/developer/implementation-notes.md:L205`, `docstring:src/solvers/proximal_gradient_descent.jl:L334`.
+**Sources.** `docs/src/numerics.md:L921`, `docs/src/numerics.md:L923`, `docs/src/numerics.md:L1072`, `docs/src/numerics.md:L1075`, `docs/src/numerics.md:L1081`, `docs/src/developer/implementation-notes.md:L205`, `docstring:src/solvers/proximal_gradient_descent.jl:L334`. The later caught-stage refusal follows [the fallback at f573224f](https://github.com/mlakolar/ProximalSolvers.jl/blob/f573224f70058be24b81378ab2d6e1c752eb93e8/src/cd/sqrtlasso.jl#L602-L665) and its unchanged outer finite-objective commit boundary.
 
 ## [RES-UNRECONCILED Unreconciled: historical normalized-residual guarantee](@id RES-UNRECONCILED)
 
