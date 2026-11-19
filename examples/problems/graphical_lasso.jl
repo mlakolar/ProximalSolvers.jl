@@ -192,12 +192,13 @@ println(errors)
 #!jl limit = maximum(maximum(abs, matrix) for matrix in shown)
 #!jl panels = [heatmap(1:p, 1:p, matrix; title = title, color = :RdBu, clims = (-limit, limit),
 #!jl   aspect_ratio = 1, yflip = true, xlabel = "Variable", ylabel = "Variable", xticks = 1:p, yticks = 1:p)
-#!jl   for (title, matrix) in zip(("True precision", "Graphical lasso estimate"), shown)]
+#!jl   for (title, matrix) in zip(("True precision (off-diagonal)", "Estimate (off-diagonal)"), shown)]
 #!jl edges = [i < j ? Float64(Θ_true[i, j] != 0) : i > j ? Float64(Θ[i, j] != 0) : 0.0 for i in 1:p, j in 1:p]
-#!jl push!(panels, heatmap(1:p, 1:p, edges; title = "Edges: true (upper), estimated (lower)",
+#!jl push!(panels, heatmap(1:p, 1:p, edges; title = "Edges: upper true,\nlower estimated",
 #!jl   color = cgrad([:white, :darkorange]), clims = (0, 1), colorbar = false, aspect_ratio = 1,
 #!jl   yflip = true, xlabel = "Variable", ylabel = "Variable", xticks = 1:p, yticks = 1:p))
-#!jl figure = plot(panels...; layout = (1, 3), size = (1150, 380), left_margin = 4Plots.mm, bottom_margin = 5Plots.mm)
+#!jl figure = plot(panels...; layout = (1, 3), size = (1200, 420), titlefontsize = 12,
+#!jl   left_margin = 4Plots.mm, bottom_margin = 5Plots.mm, top_margin = 3Plots.mm)
 #!jl savefig(figure, "graphical_lasso.svg")
 #!jl nothing
 
