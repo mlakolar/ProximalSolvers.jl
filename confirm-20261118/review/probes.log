@@ -1,0 +1,5 @@
+Julia 1.13.4 BLAS threads 1
+zero certificate Float64 code=certified bounds=(0.21000000000000155, 0.2099999999999985, NaN) previous=(0.21000000000000155, 0.2099999999999985, NaN)
+zero certificate Float32 code=certified bounds=(0.21000000275671635, 0.21000000275671332, NaN) previous=(0.21000000275671635, 0.21000000275671332, NaN)
+OBJECTIVE SM40-0.001-s9962 Float64 random-sparse zero retx0=false minimum=0.09509770802716466 P=0.09509770802716713 rel=2.6002069068687378e-14
+replay count=599 mismatches=0 bounds_bad=0 result_bad=1 max_obj_rel=6.922850660230669e-7

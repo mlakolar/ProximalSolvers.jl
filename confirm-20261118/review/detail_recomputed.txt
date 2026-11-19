@@ -1,0 +1,30 @@
+M1 vs M1g rows differing (certified, via, excess, used): 0 of 599
+
+excess quantiles q10/q50/q90 among triggered runs
+  H-cor Float32 M0: 8.8e-02/1.4e-01/2.0e-01  M1: 3.4e-03/5.0e-02/1.2e-01  M1g: 3.4e-03/5.0e-02/1.2e-01  M2: 9.4e-03/2.9e-02/5.3e-02  M2g: 9.4e-03/2.9e-02/5.3e-02
+  H-cor Float64 M0: 8.8e-02/1.4e-01/2.0e-01  M1: 2.7e-03/5.0e-02/6.6e-02  M1g: 2.7e-03/5.0e-02/6.6e-02  M2: 2.8e-03/1.5e-02/2.9e-02  M2g: 2.8e-03/1.5e-02/2.9e-02
+  H-mat Float32 M0: 1.2e-06/4.2e-01/1.4e+00  M1: 1.1e-06/4.0e-05/2.6e-03  M1g: 1.1e-06/4.0e-05/2.6e-03  M2: 2.1e-07/7.0e-07/6.6e-05  M2g: 7.9e-07/2.1e-05/8.5e-05
+  H-mat Float64 M0: 3.4e-04/4.2e-01/1.4e+00  M1: 4.2e-08/3.6e-05/2.6e-03  M1g: 4.2e-08/3.6e-05/2.6e-03  M2: 6.4e-12/3.0e-08/5.7e-05  M2g: 1.6e-08/1.9e-05/8.3e-05
+  H-real Float32 M0: 5.5e-03/3.6e-02/4.5e-01  M1: 7.0e-06/2.1e-03/1.8e-02  M1g: 7.0e-06/2.1e-03/1.8e-02  M2: 1.2e-05/1.6e-04/1.2e-03  M2g: 1.2e-05/1.6e-04/1.2e-03
+  H-real Float64 M0: 5.5e-03/3.5e-02/4.5e-01  M1: 7.1e-06/2.0e-03/1.8e-02  M1g: 7.1e-06/2.0e-03/1.8e-02  M2: 7.5e-06/1.1e-04/1.2e-03  M2g: 9.5e-06/1.1e-04/1.2e-03
+  H-small Float32 M0: 3.5e-01/1.2e+00/2.9e+00  M1: 1.3e-06/2.5e-01/2.1e+00  M1g: 1.3e-06/2.5e-01/2.1e+00  M2: 3.2e-06/4.5e-05/1.3e+00  M2g: 9.4e-06/4.5e-05/1.3e+00
+  H-small Float64 M0: 3.5e-01/1.2e+00/2.9e+00  M1: 2.9e-05/2.5e-01/2.1e+00  M1g: 2.9e-05/2.5e-01/2.1e+00  M2: 5.4e-12/6.3e-10/1.3e+00  M2g: 4.0e-06/2.6e-05/1.3e+00
+  dev-fixture Float32 M0: 0.0e+00/0.0e+00/1.9e+01  M1: 0.0e+00/0.0e+00/1.6e-12  M1g: 0.0e+00/0.0e+00/1.6e-12  M2: 0.0e+00/0.0e+00/1.6e-12  M2g: 0.0e+00/0.0e+00/1.6e-12
+  dev-fixture Float64 M0: 0.0e+00/0.0e+00/1.9e+01  M1: 0.0e+00/0.0e+00/1.6e-12  M1g: 0.0e+00/0.0e+00/1.6e-12  M2: 0.0e+00/0.0e+00/1.6e-12  M2g: 0.0e+00/0.0e+00/1.6e-12
+
+via counts (held-out only)
+  M1 {'stage': 299, 'improved': 243, 'x0': 39, 'kept': 2}
+  M2 {'improved': 560, 'kept': 9, 'x0': 2, 'pdhg': 6, 'polish': 6}
+  M2g {'pdhg': 247, 'improved': 262, 'polish': 40, 'x0': 28, 'kept': 6}
+
+M1 exhausted runs by (family, stages started): [(('H-cor', '1'), 2), (('H-cor', '2'), 10), (('H-cor', '3'), 5), (('H-cor', '4'), 3), (('H-mat', '3'), 22), (('H-mat', '4'), 20), (('H-mat', '5'), 11), (('H-mat', '6'), 12), (('H-real', '2'), 16), (('H-real', '3'), 24), (('H-real', '4'), 57), (('H-real', '5'), 12), (('H-real', '6'), 6), (('H-real', '7'), 2), (('H-real', '8'), 2), (('H-small', '1'), 16)]
+
+M1 nonoptimal by (family, via): [(('H-cor', 'improved'), 18), (('H-cor', 'kept'), 2), (('H-mat', 'improved'), 63), (('H-real', 'improved'), 110), (('H-small', 'improved'), 16)]
+
+(M1 class, M2 class) pairs: [(('correct', 'correct'), 13), (('correct', 'nearopt'), 313), (('correct', 'nonopti'), 12), (('nearopt', 'correct'), 1), (('nearopt', 'nearopt'), 31), (('nearopt', 'nonopti'), 4), (('nonopti', 'nearopt'), 78), (('nonopti', 'nonopti'), 131)]
+(M1 class, M2g class) pairs: [(('correct', 'correct'), 291), (('correct', 'nearopt'), 35), (('correct', 'nonopti'), 12), (('nearopt', 'correct'), 10), (('nearopt', 'nearopt'), 22), (('nearopt', 'nonopti'), 4), (('nonopti', 'correct'), 14), (('nonopti', 'nearopt'), 64), (('nonopti', 'nonopti'), 131)]
+
+M1 by config: [(('cyclic-dense', 'correct'), 154), (('cyclic-dense', 'nearopt'), 7), (('cyclic-dense', 'nonopti'), 132), (('random-sparse', 'correct'), 184), (('random-sparse', 'nearopt'), 29), (('random-sparse', 'nonopti'), 77)]
+M1 H-mat by start: [(('lnfit', 'correct'), 105), (('lnfit', 'nearopt'), 4), (('lnfit', 'nonopti'), 24), (('warm', 'correct'), 101), (('warm', 'nearopt'), 2), (('warm', 'nonopti'), 18), (('zero', 'correct'), 100), (('zero', 'nonopti'), 21)]
+M1 H-mat by subfamily: [(('H-mat C95', 'correct'), 26), (('H-mat C95', 'nonopti'), 2), (('H-mat D10', 'correct'), 36), (('H-mat N100p400', 'correct'), 24), (('H-mat N40p120', 'correct'), 72), (('H-mat N8p20', 'correct'), 64), (('H-mat N8p20', 'nonopti'), 32), (('H-mat NE', 'correct'), 72), (('H-mat SW', 'correct'), 12), (('H-mat SW', 'nearopt'), 6), (('H-mat SW', 'nonopti'), 29)]
+M1 H-real by shape/rho: [(('R100x2000-r0.0', 'nonopti'), 16), (('R100x2000-r0.5', 'nonopti'), 16), (('R100x2000-r0.9', 'correct'), 5), (('R100x2000-r0.9', 'nearopt'), 1), (('R100x2000-r0.9', 'nonopti'), 10), (('R100x500-r0.0', 'correct'), 2), (('R100x500-r0.0', 'nearopt'), 3), (('R100x500-r0.0', 'nonopti'), 11), (('R100x500-r0.5', 'correct'), 3), (('R100x500-r0.5', 'nearopt'), 5), (('R100x500-r0.5', 'nonopti'), 8), (('R200x1000-r0.0', 'nearopt'), 8), (('R200x1000-r0.0', 'nonopti'), 8), (('R200x1000-r0.5', 'correct'), 2), (('R200x1000-r0.5', 'nearopt'), 9), (('R200x1000-r0.5', 'nonopti'), 5), (('R50x1000-r0.0', 'correct'), 2), (('R50x1000-r0.0', 'nonopti'), 14), (('R50x1000-r0.5', 'nonopti'), 16), (('R50x1000-r0.9', 'correct'), 8), (('R50x1000-r0.9', 'nearopt'), 2), (('R50x1000-r0.9', 'nonopti'), 6)]

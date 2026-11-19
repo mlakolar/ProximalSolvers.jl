@@ -1,0 +1,21 @@
+CHECK cd/lasso/cd/dense-f32/call status=ok relative_gap=2.4e-07 target=1e-05
+CHECK cd/lasso/cd/dense-f64/call status=ok relative_gap=5.23e-14 target=1e-08
+CHECK cd/lasso/cd/sparse-f32/call status=ok relative_gap=2.4e-07 target=1e-05
+CHECK cd/lasso/cd/sparse-f64/call status=ok relative_gap=5.23e-14 target=1e-08
+
+EXPLORATORY local result: not a formal or statistical comparison (#110 Stage 1)
+julia 1.13.4 | 13th Gen Intel(R) Core(TM) i5-13600K | threads julia=1 blas=1 | load 1.37 on 20 CPU threads
+ProximalSolvers f06dfaf0bf+dirty src=a8e50bfdc2 at <PROTO>
+ProximalBase 0.6.0-DEV | harness 11b2912509 | local.jl 6d3e2988b5 | source check static | fresh process
+case                                         status            first     median        min    n     alloc certificate
+cd/lasso/cd/dense-f32/call                   ok             199.42ms      2.3µs      2.0µs   25    2.0KiB relative_gap 2.4e-07 <= 1e-05
+    work: passes=7 kkt_checks=0
+    note: noisy, median 11% above min
+cd/lasso/cd/dense-f64/call                   ok             191.41ms      3.4µs      3.1µs   25    2.8KiB relative_gap 5.2e-14 <= 1e-08
+    work: passes=10 kkt_checks=0
+cd/lasso/cd/sparse-f32/call                  ok              31.80ms      2.2µs      2.0µs   25    2.0KiB relative_gap 2.4e-07 <= 1e-05
+    work: passes=7 kkt_checks=0
+cd/lasso/cd/sparse-f64/call                  ok              31.68ms      3.3µs      3.1µs   25    2.8KiB relative_gap 5.2e-14 <= 1e-08
+    work: passes=10 kkt_checks=0
+first = first certified call, including compilation (excluded from median).
+Ratios are single exploratory observations; use compare.py (README) for claims.

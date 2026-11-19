@@ -1,0 +1,244 @@
+diff --git a/src/cd/models.jl b/src/cd/models.jl
+index ea35d700..9e446745 100644
+--- a/src/cd/models.jl
++++ b/src/cd/models.jl
+@@ -20,6 +20,7 @@ _prepare!(m::CDModel, g, x) = m
+ _stop_check!(m::CDModel, g, x, st, maxh, scaled::Bool) = :converged
+ _result_gap(m::CDModel{T}) where T = T(NaN)
+ _uncertified(m::CDModel) = false
++_fallback!(m::CDModel, g, x, st, s) = nothing     # #155 research prototype
+ cdmodel(f,x)=throw(ArgumentError("unsupported private coordinate-descent model"))
+ # The coordinate along a flat LS column (zero slope and curvature), which does not enter the loss: the
+ # prox of the penalty at the step floatmax(T) from 0. For an unweighted NormL1 or ElasticNet with finite
+diff --git a/src/cd/solver.jl b/src/cd/solver.jl
+index 18f2482b..bc8c08a8 100644
+--- a/src/cd/solver.jl
++++ b/src/cd/solver.jl
+@@ -544,6 +544,7 @@ function _run_cd!(work::Union{SparseIterate, BlockIterate}, f, g, method::CDSolv
+   method.maxpasses > 0 && _prepare!(m, g, work)
+   st = _CDState(eltype(work), work, method)
+   _cd!(work, m, g, st, method)
++  _uncertified(m) && _fallback!(m, g, work, st, method)     # #155 research prototype
+   _warn_not_converged(st, method, _uncertified(m))
+   result_value = loss_value(m, f, work)+g(work)
+   isfinite(result_value) || throw(ArgumentError("coordinate descent produced a nonfinite objective; rescale the problem"))
+diff --git a/src/cd/sqrtlasso.jl b/src/cd/sqrtlasso.jl
+index 62b1b433..2bfe37d2 100644
+--- a/src/cd/sqrtlasso.jl
++++ b/src/cd/sqrtlasso.jl
+@@ -24,11 +24,19 @@ mutable struct SqrtLSModel{T<:Union{Float32, Float64}, M<:LSModel{T, T}} <: CDMo
+   uncertified::Bool
+   res64::Vector{Float64}
+   rowmag64::Vector{Float64}
++  # Research prototype (#155): the smoothing δ of the step (δ² in T, δ in Float64; 0 = the production
++  # step) and the bounds of the last certificate: P_up, P_lo of P at the point, D_lo (NaN if not valid).
++  δ2::T
++  δ64::Float64
++  cpup::Float64
++  cplo::Float64
++  cdlo::Float64
+ end
+ function cdmodel(f::SqrtLeastSquaresLoss{T, <:Vector{T}, <:Matrix{T}}, x::SparseIterate{T}) where {T<:Union{Float32, Float64}}
+   d = leastsquares_data(f)
+   ls = LSModel(d.Y, d.X, d.α)
+-  SqrtLSModel{T, typeof(ls)}(ls, NormL1(zero(T)), NaN, NaN, NaN, 0, T(NaN), false, Float64[], Float64[])
++  SqrtLSModel{T, typeof(ls)}(ls, NormL1(zero(T)), NaN, NaN, NaN, 0, T(NaN), false, Float64[], Float64[],
++                          zero(T), 0.0, NaN, NaN, NaN)
+ end
+ 
+ # The LS methods with the loss scale 1, forwarded: the `CDModel` defaults (unit coordinate scale, zero
+@@ -178,6 +186,7 @@ end
+ @inline function _sqrt_minimizer(m::SqrtLSModel{T}, old::T, a::T, b::T, ρ2::T, k::Int) where T
+   ls = m.ls
+   n = length(ls.r)
++  ρ2 += m.δ2                                   # #155 prototype: smoothing (0 in production)
+   (_clean_sum(a, n) & _clean_sum(ρ2, n)) || return _sqrt_offrange_step(m, old, k)
+   λ = m.gt.λ0
+   ra = sqrt(a)
+@@ -186,7 +195,7 @@ end
+   c = old + q
+   d2 = ρ2 - b*q
+   if d2 < ρ2/16
+-    d2 = _distance_sqr(ls.X, ls.r, k, q)
++    d2 = _distance_sqr(ls.X, ls.r, k, q) + m.δ2
+     _clean_sum(d2, n) || return _sqrt_offrange_step(m, old, k)
+   end
+   d = sqrt(d2)
+@@ -256,8 +265,9 @@ end
+   ras = sqrt(as)
+   λs = ldexp(Float64(m.gt.λ0), -ex)
+   λs >= ras && return zero(T)
+-  iszero(M) && return old
+-  er = exponent(M)
++  δ = m.δ64
++  iszero(M) && iszero(δ) && return old
++  er = exponent(max(M, δ))
+   bs, ss = 0.0, 0.0
+   @inbounds for i in 1:n
+     v = ldexp(Float64(r[i]), -er)
+@@ -265,6 +275,8 @@ end
+     bs += v*ldexp(Float64(X[i, k]), -ex)
+     ss += v*v
+   end
++  δs = ldexp(δ, -er)
++  ss += δs*δs
+   qs = bs/as
+   ds2 = ss - bs*qs
+   if ds2 < ss/16
+@@ -272,6 +284,7 @@ end
+       s[i] -= qs*ldexp(Float64(X[i, k]), -ex)
+     end
+     ds, ed = _scaled_norm(s, n)
++    iszero(δ) || ((ds, ed) = (hypot(ldexp(ds, ed), δs), 0))
+   else
+     ds, ed = sqrt(ds2), 0
+   end
+@@ -300,6 +313,7 @@ end
+ # false, or y = 0, the changes |h| themselves) it is 16 eps(T) max_k |β_k| at the check, a roundoff scale
+ # of the largest coefficient, and there is no tightening where every β_k is 0.
+ function _stop_check!(m::SqrtLSModel{T}, g, x::SparseIterate{T}, st, maxh, scaled::Bool) where T
++  m.δ64 > 0 && return :converged               # #155 prototype: a smoothing stage stops at the change test
+   code, ratio = _certify!(m, x)
+   if code === :certified
+     m.gap = T(ratio, RoundUp)
+@@ -459,6 +473,7 @@ function _certify!(m::SqrtLSModel{T}, x::SparseIterate{T}) where T
+   end
+   if nb == 0 && yzero
+     fill!(ls.r, zero(T))
++    m.cpup, m.cplo, m.cdlo = 0.0, 0.0, NaN       # #155 prototype (review r1, finding 1)
+     return :certified, 0.0
+   end
+   sr, smu, rmax = 0.0, 0.0, 0.0
+@@ -473,8 +488,21 @@ function _certify!(m::SqrtLSModel{T}, x::SparseIterate{T}) where T
+       ls.r[i] = T(res[i])
+     end
+   end
+-  iszero(rmax) && return :undefined, NaN
+   lo, hi = m.lo64, m.hi64
++  # #155 prototype: rigorous bounds on P at β, also at r̂ = 0 (steps 1, 2 and 5 of the proof, with the
++  # range-free forms of N_up and N_lo).
++  ε = eps(Float64)
++  η = nextfloat(0.0)
++  nη = n*η
++  ψ = (n + 1)*ε
++  Mup = _up(sqrt(_up(_up(smu*(1 + ψ)) + nη)))
++  Eup = _up(_up(((nb + 1)*ε)*Mup) + _up(_up(Float64(nb)*Float64(n))*η))
++  sbu = _up(sb*(1 + nb*ε))
++  sbl = _dn(sb*(1 - nb*ε))
++  m.cpup = _up(_up(_up(sqrt(_up(_up(sr*(1 + ψ)) + nη))) + Eup) + _up(hi*sbu))
++  m.cplo = _dn(max(0.0, _dn((sr >= ldexp(Float64(n), -969) ? _dn(sqrt(_dn(sr*(1 - ψ)))) : 0.0) - Eup)) + _dn(lo*sbl))
++  m.cdlo = NaN
++  iszero(rmax) && return :undefined, NaN
+   (isfinite(lo) & isfinite(hi) & isfinite(sr) & isfinite(smu) & (sr >= ldexp(Float64(n), -969))) ||
+     return :undefined, NaN
+   bmax, amax, q, finite = 0.0, 0.0, 0.0, true
+@@ -492,30 +520,101 @@ function _certify!(m::SqrtLSModel{T}, x::SparseIterate{T}) where T
+     iszero(v) || (q += Float64(v)*bk)
+   end
+   (finite & isfinite(q) & isfinite(sb)) || return :undefined, NaN
+-  ε = eps(Float64)
+-  η = nextfloat(0.0)
+-  nη = n*η
+-  ψ = (n + 1)*ε
+   Nup = _up(sqrt(_up(sr*(1 + ψ))))
+   Nlo = _dn(sqrt(_dn(sr*(1 - ψ))))
+-  Mup = _up(sqrt(_up(_up(smu*(1 + ψ)) + nη)))
+   Rup = _up(sqrt(_up(_up(amax*(1 + ψ)) + nη)))
+   G = _up(_up(_up(bmax + nη)/Nlo) + _up((n*ε)*Rup))
+   isfinite(G) || return :undefined, NaN
+   t = min(1.0, max(_dn(lo/G), 0.0))
+   T1 = _up(_up(1 - t)*Nup)
+-  sbu = _up(sb*(1 + nb*ε))
+-  sbl = _dn(sb*(1 - nb*ε))
+   S1 = _up(hi*sbu)
+   qn = _dn(q/(q >= 0 ? Nup : Nlo))
+   E2 = _up(_up(_up(_up(_up(_up((nb*ε)*bmax) + nη)*sbu) + nb*η)/Nlo) + _up((n*ε)*_up(Rup*sbu)))
+   S2 = _dn(_dn(t*qn) - _up(t*E2))
+-  Eup = _up(_up(((nb + 1)*ε)*Mup) + _up(_up(Float64(nb)*Float64(n))*η))
+   gap = _up(_up(T1 + _up(S1 - S2)) + _up(_up(1 + t)*Eup))
+   Plo = _dn(_dn(Nlo - Eup) + _dn(lo*sbl))
+   Dlo = _dn(Plo - gap)
+   (isfinite(gap) & isfinite(Dlo)) || return :undefined, NaN
+   Dlo > 0 || return :failed, NaN
++  m.cdlo = Dlo
+   ratio = _up(gap/Dlo)
+   ratio <= _CERT_TARGET ? (:certified, ratio) : (:failed, ratio)
+ end
++
++# ---------------------------------------------------------------------------------------------------
++# Research prototype for the #155 confirmation round (not production code): smoothing continuation with
++# a bank of dual bounds after an uncertified stop. Schedule, budget and return rule as preregistered.
++const _FALLBACK = Ref(:d2)               # research toggle: :d2 or :off
++const _FALLBACK_DUAL = Ref{Any}(nothing) # research only (M1g): extra dual bound f(m, x)::Float64
++const _FALLBACK_LOG = Ref{Any}(nothing)  # research only: a Vector that receives one record per fallback
++_fallback_ratio(P::Float64, D::Float64) = D > 0 ? _up(_up(P - D)/D) : Inf
++# The certificate at x, and the bank D raised by its dual lower bound (and the research hook's).
++function _fallback_bank!(m::SqrtLSModel, x, D::Float64)
++  _certify!(m, x)
++  isfinite(m.cdlo) && (D = max(D, m.cdlo))
++  f = _FALLBACK_DUAL[]
++  if f !== nothing
++    d = f(m, x)
++    isfinite(d) && (D = max(D, d))
++  end
++  D
++end
++function _fallback!(m::SqrtLSModel{T}, g, x::SparseIterate{T}, st, s::CDSolver) where T
++  _FALLBACK[] === :off && return nothing
++  base = st.passes
++  budget = min(s.maxpasses - base, max(2000, 20base))
++  budget > 0 || return nothing
++  t0 = time_ns()
++  D = _fallback_bank!(m, x, 0.0)
++  P0, L0 = m.cpup, m.cplo
++  # review r1, finding 2: no schedule without finite bounds and a positive finite δ₀ in T
++  (isfinite(P0) && isfinite(L0) && P0 > 0 && isfinite(T(P0))) || return nothing
++  x0 = copy(x)
++  Fbest, δ, used, stage = P0, P0, 0, 0
++  certified, via, ratio, maxh, tol = false, :none, Inf, st.maxchange, st.tolerance
++  while true
++    stage += 1
++    polish = stage > 8
++    m.δ64 = polish ? 0.0 : Float64(T(δ))
++    m.δ2 = T(m.δ64)^2
++    m.tightenings, m.gap, m.uncertified = 0, T(NaN), false
++    sub = CDSolver(budget - used, s.tol, s.random, s.relative, s.momentum, s.rng)
++    sst = _CDState(T, x, sub)
++    _cd!(x, m, g, sst, sub)
++    used += sst.passes
++    maxh, tol = sst.maxchange, sst.tolerance
++    m.δ64, m.δ2 = 0.0, zero(T)
++    D = _fallback_bank!(m, x, D)
++    Pb = m.cpup
++    Fbest = min(Fbest, Pb)
++    r0 = _fallback_ratio(P0, D)
++    if r0 <= _CERT_TARGET
++      copyto!(x, x0)
++      initialize!(m, x)
++      certified, via, ratio = true, :x0, r0
++      break
++    end
++    rb = _fallback_ratio(Pb, D)
++    if rb <= _CERT_TARGET && Pb < L0
++      certified, via, ratio = true, polish ? :polish : :stage, rb
++      break
++    end
++    if polish || used >= budget
++      if Pb < L0
++        via, ratio = :improved, rb
++      else
++        copyto!(x, x0)
++        initialize!(m, x)
++        via, ratio = :kept, r0
++      end
++      break
++    end
++    δ = min(δ/5, Fbest)
++  end
++  st.passes, st.converged, st.maxchange, st.tolerance = base + used, certified, maxh, tol
++  m.uncertified = !certified
++  m.gap = certified ? T(ratio, RoundUp) : T(NaN)
++  lg = _FALLBACK_LOG[]
++  lg === nothing || push!(lg, (; base, budget, used, stages = stage, certified, via, ratio, P0, L0, D, secs = (time_ns() - t0)/1e9))
++  nothing
++end

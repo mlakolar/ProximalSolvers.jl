@@ -1,0 +1,22 @@
+cell                                     perf_1.tsv: ctl  new  newb  perf_2.tsv: ctl  new  newb
+ls-n200p600 Float32 cyclic               0.999 0.997 0.996  1.000 1.000 1.000
+ls-n200p600 Float32 default              1.003 1.003 1.002  1.002 0.999 0.995
+ls-n200p600 Float64 cyclic               0.999 0.998 0.998  1.005 1.001 1.003
+ls-n200p600 Float64 default              1.000 1.001 0.997  1.000 1.001 1.002
+sqrt-n1000p200 Float32 cyclic            1.002 0.994 0.998  1.005 1.005 0.999
+sqrt-n1000p200 Float32 default           1.000 1.000 0.994  0.997 0.989 0.989
+sqrt-n1000p200 Float64 cyclic            1.004 1.002 0.995  0.994 0.998 0.996
+sqrt-n1000p200 Float64 default           0.989 0.991 0.995  1.000 0.991 0.987
+sqrt-n200p50 Float32 cyclic              1.004 0.996 0.998  0.999 0.994 0.995
+sqrt-n200p50 Float32 default             1.000 0.985 0.991  0.993 0.992 0.986
+sqrt-n200p50 Float64 cyclic              1.002 1.002 1.002  0.995 0.998 0.998
+sqrt-n200p50 Float64 default             0.995 0.991 0.990  1.004 1.002 1.001
+sqrt-n200p600 Float32 cyclic             0.996 0.994 0.993  1.004 0.992 0.994
+sqrt-n200p600 Float32 default            1.014 0.996 0.995  1.000 0.984 0.989
+sqrt-n200p600 Float64 cyclic             0.998 0.995 0.995  0.997 0.996 0.993
+sqrt-n200p600 Float64 default            1.000 0.996 0.996  1.003 0.997 1.000
+sqrt-n60p20 Float32 cyclic               1.005 1.001 1.002  1.003 1.000 1.001
+sqrt-n60p20 Float32 default              0.998 0.996 0.999  0.998 1.007 0.997
+sqrt-n60p20 Float64 cyclic               0.993 0.998 0.998  0.985 1.007 0.988
+sqrt-n60p20 Float64 default              1.026 0.997 1.001  1.012 1.014 1.013
+prototype ratios: min 0.984 max 1.014; A/A: min 0.985 max 1.026; flagged cells 0

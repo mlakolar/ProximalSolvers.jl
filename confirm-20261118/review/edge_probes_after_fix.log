@@ -1,0 +1,21 @@
+┌ Warning: Assignment to `X` in soft scope is ambiguous because a global variable by the same name exists: `X` will be treated as a new local. Disambiguate by using `local X` to suppress this warning or `global X` to assign to the existing global variable.
+└ @ <RUN>/review/edge_probes.jl:28
+┌ Warning: Assignment to `b` in soft scope is ambiguous because a global variable by the same name exists: `b` will be treated as a new local. Disambiguate by using `local b` to suppress this warning or `global b` to assign to the existing global variable.
+└ @ <RUN>/review/edge_probes.jl:28
+┌ Warning: Assignment to `y` in soft scope is ambiguous because a global variable by the same name exists: `y` will be treated as a new local. Disambiguate by using `local y` to suppress this warning or `global y` to assign to the existing global variable.
+└ @ <RUN>/review/edge_probes.jl:28
+┌ Warning: Assignment to `λ` in soft scope is ambiguous because a global variable by the same name exists: `λ` will be treated as a new local. Disambiguate by using `local λ` to suppress this warning or `global λ` to assign to the existing global variable.
+└ @ <RUN>/review/edge_probes.jl:28
+zero y Float64 off x=[1.0, -1.0] conv=false value=0.2 lg=nothing
+zero y Float64 d2 x=[0.0, 0.0] conv=false value=0.0 lg=(base = 1, budget = 2000, used = 36, stages = 9, certified = false, via = :improved, ratio = Inf, P0 = 0.20000000000000154, L0 = 0.19999999999999984, D = 0.0, secs = 5.597e-6)
+zero y Float32 off x=Float32[1.0, -1.0] conv=false value=0.2 lg=nothing
+zero y Float32 d2 x=Float32[0.0, 0.0] conv=false value=0.0 lg=(base = 1, budget = 2000, used = 36, stages = 9, certified = false, via = :improved, ratio = Inf, P0 = 0.20000000298023377, L0 = 0.20000000298023207, D = 0.0, secs = 4.304e-6)
+ERROR range 1.0e-200 off: ArgumentError: the coordinate curvature underflows; rescale the data
+ERROR range 1.0e-200 d2: ArgumentError: the coordinate curvature underflows; rescale the data
+ERROR range 1.0e200 off: ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finite in Float64; rescale the data
+ERROR range 1.0e200 d2: ArgumentError: the curvature of coordinate 1 (the squared norm of its column) is not finite in Float64; rescale the data
+coefficient range 1.0e-200 off conv=false minimum=2.0000000000000003e-201
+coefficient range 1.0e-200 d2 conv=false minimum=2.0000000000000003e-201
+coefficient range 1.0e200 off conv=false minimum=2.0e199
+coefficient range 1.0e200 d2 conv=false minimum=2.0e199
+zero-y stage points and exposed bounds: Any[([1.0, -1.0], 0.20000000000000154, 0.19999999999999984), ([0.0, 0.0], 0.0, 0.0), ([0.0, 0.0], 0.0, 0.0), ([0.0, 0.0], 0.0, 0.0), ([0.0, 0.0], 0.0, 0.0), ([0.0, 0.0], 0.0, 0.0), ([0.0, 0.0], 0.0, 0.0), ([0.0, 0.0], 0.0, 0.0), ([0.0, 0.0], 0.0, 0.0), ([0.0, 0.0], 0.0, 0.0)]

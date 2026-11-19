@@ -1,0 +1,38 @@
+total rows/base/triggered/heldout 3148 752 599 583
+M0 counts Counter({'nonoptimal': 540, 'nearopt-uncertified': 43}) work [28, 402, 70475] secs [0.000116783, 0.002110175, 1.255379937]
+false_cert 0; changed_nodecrease 0; worse 0; improved 0; exhausted 0; 
+H-mat median excess 0.41574475397420163 midpoint 0.41574475397420163
+H-real median excess 0.035561504616272575 midpoint 0.038257840149452174
+H-cor median excess 0.14310313727413143 midpoint 0.15462821174769537
+H-small median excess 1.2383977883496895 midpoint 1.8056370081995325
+M1 counts Counter({'correct-certified': 338, 'nonoptimal': 209, 'nearopt-uncertified': 36}) work [962, 5960, 33026] secs [0.000406033, 0.027272544, 0.33721327]
+false_cert 0; changed_nodecrease 0; worse 0; improved 542; exhausted 220; 
+H-mat median excess 4.02615848971127e-05 midpoint 4.02615848971127e-05
+H-real median excess 0.002017937468022874 midpoint 0.0020274529582393107
+H-cor median excess 0.05037434971142226 midpoint 0.05098652334842157
+H-small median excess 0.25220169688703986 midpoint 0.34805776888982465
+M1g counts Counter({'correct-certified': 338, 'nonoptimal': 209, 'nearopt-uncertified': 36}) work [962, 5960, 33026] secs [0.00058348, 0.0455794, 0.544104553]
+false_cert 0; changed_nodecrease 0; worse 0; improved 542; exhausted 220; 
+H-mat median excess 4.02615848971127e-05 midpoint 4.02615848971127e-05
+H-real median excess 0.002017937468022874 midpoint 0.0020274529582393107
+H-cor median excess 0.05037434971142226 midpoint 0.05098652334842157
+H-small median excess 0.25220169688703986 midpoint 0.34805776888982465
+M2 counts Counter({'nearopt-uncertified': 422, 'nonoptimal': 147, 'correct-certified': 14}) work [1012, 4065, 47800] secs [0.00165466, 0.057542912, 1.20291824]
+false_cert 0; changed_nodecrease 0; worse 0; improved 572; exhausted 6; 
+H-mat median excess 5.787887945361084e-07 midpoint 5.787887945361084e-07
+H-real median excess 0.00013621916894713903 midpoint 0.00014303322061179572
+H-cor median excess 0.024108893773762356 midpoint 0.024376551666495515
+H-small median excess 4.5086444274349834e-05 midpoint 0.006671959190363172
+M2g counts Counter({'correct-certified': 315, 'nonoptimal': 147, 'nearopt-uncertified': 121}) work [1007, 3991, 29525] secs [0.001098183, 0.065483994, 0.706642837]
+false_cert 0; changed_nodecrease 0; worse 0; improved 549; exhausted 4; 
+H-mat median excess 1.960384096997085e-05 midpoint 1.960384096997085e-05
+H-real median excess 0.00013621916894713903 midpoint 0.00014303322061179572
+H-cor median excess 0.024108893773762356 midpoint 0.024376551666495515
+H-small median excess 4.5086444274349834e-05 midpoint 0.006671959190363172
+work/base [20.0, 200.0, 2000.0]
+uncert ratios [0.00015613879548974266, 0.003426579214561108, 0.08196151818696787]
+small by lambda Counter({('0.001', 'nonoptimal'): 16, ('0.01', 'correct-certified'): 10, ('0.01', 'nearopt-uncertified'): 2})
+cross mismatch cfg Counter()
+Counter({'random-sparse': 29, 'cyclic-dense': 18})
+A1 cols ['id', 'phase', 'status', 'construct_s', 'first_call_s', 'samples', 'median_ns', 'min_ns', 'max_ns', 'median_bytes', 'measure', 'target', 'worst_value', 'diagnostics', 'data_hash']
+oracle max 1.0635241226296401e-07

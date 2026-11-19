@@ -1,0 +1,24 @@
+# Exploratory local results: not a formal benchmark record (#110 Stage 1).
+# blas_threads=1
+# cpu_model=13th Gen Intel(R) Core(TM) i5-13600K
+# cpu_threads=20
+# environment_hash=b73b6b3dda76fcbe835e953c10524da3b647b697
+# execution=fresh process
+# format=proximalsolvers-local-exploratory-v1
+# harness_hash=11b291250927e604d7a6e6af3ea343258b775570
+# julia=1.13.4
+# julia_threads=1
+# load_average=1.37
+# local_hash=6d3e2988b57b6fa2c7b315a1a3be36dca6564040
+# proximalbase_hash=ba2f29532191ca55db58eaf2bed8d626d0ebd18a
+# proximalbase_version=0.6.0-DEV
+# proximalsolvers_dirty=true
+# proximalsolvers_hash=a8e50bfdc2f6f2586ef2124df81363cb0db6a83e
+# proximalsolvers_path=<PROTO>
+# proximalsolvers_sha=f06dfaf0bfe7824c49eb77c20ef08bcd8085d474
+# source_check=static
+id	phase	status	construct_s	first_call_s	samples	median_ns	min_ns	max_ns	median_bytes	measure	target	worst_value	diagnostics	data_hash
+cd/lasso/cd/dense-f32/call	call	ok	1.3476099967956543	0.199416229	25	2261	2036	13894	2096	relative_gap	1.0e-5	2.4034156240504215e-7	passes=7 kkt_checks=0	acc4da9e3f8bc26ab4335fabe828459b7bbf7fb869b65c5285ee9c57f80eb811
+cd/lasso/cd/dense-f64/call	call	ok	0.2444920539855957	0.191410007	25	3389	3150	14796	2832	relative_gap	1.0e-8	5.226584232015381e-14	passes=10 kkt_checks=0	5524e1d66b6550fcdc48e97ef887146dba62f6f5fdc972429f03afeb67a8d958
+cd/lasso/cd/sparse-f32/call	call	ok	0.004680156707763672	0.031795862	25	2193	2005	12649	2096	relative_gap	1.0e-5	2.4034156240504215e-7	passes=7 kkt_checks=0	acc4da9e3f8bc26ab4335fabe828459b7bbf7fb869b65c5285ee9c57f80eb811
+cd/lasso/cd/sparse-f64/call	call	ok	0.004628896713256836	0.03168033	25	3335	3140	14317	2832	relative_gap	1.0e-8	5.226584232015381e-14	passes=10 kkt_checks=0	5524e1d66b6550fcdc48e97ef887146dba62f6f5fdc972429f03afeb67a8d958

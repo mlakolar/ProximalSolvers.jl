@@ -1,0 +1,5 @@
+rows compared 400; same class 400; same (class, certified, base, used) 353
+  M0 1.13: {('Float32', 'correct-certified'): 8, ('Float32', 'nearopt-uncertified'): 4, ('Float32', 'nonoptimal'): 92, ('Float64', 'correct-certified'): 8, ('Float64', 'nearopt-uncertified'): 4, ('Float64', 'nonoptimal'): 92} false_cert=0 changed_nodecrease=0
+  M0 1.10: {('Float32', 'correct-certified'): 8, ('Float32', 'nearopt-uncertified'): 4, ('Float32', 'nonoptimal'): 92, ('Float64', 'correct-certified'): 8, ('Float64', 'nearopt-uncertified'): 4, ('Float64', 'nonoptimal'): 92} false_cert=0 changed_nodecrease=0
+  M1 1.13: {('Float32', 'correct-certified'): 76, ('Float32', 'nonoptimal'): 20, ('Float64', 'correct-certified'): 76, ('Float64', 'nonoptimal'): 20} false_cert=0 changed_nodecrease=0
+  M1 1.10: {('Float32', 'correct-certified'): 76, ('Float32', 'nonoptimal'): 20, ('Float64', 'correct-certified'): 76, ('Float64', 'nonoptimal'): 20} false_cert=0 changed_nodecrease=0
