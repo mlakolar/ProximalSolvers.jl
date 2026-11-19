@@ -23,7 +23,7 @@ const EXAMPLES = [
   (section = "Solver comparisons", path = "comparisons/lasso_solvers.jl",
    title = "Lasso: solvers at equal accuracy", notebook = true),
   (section = "Solver comparisons", path = "comparisons/group_lasso_solvers.jl",
-   title = "Group lasso: CD and PGD", notebook = false)]
+   title = "Group lasso: CD, PGD and APG", notebook = false)]
 
 # The set of scripts under `examples/`, in subfolders too, equals the registry.
 let root = joinpath(@__DIR__, "..", "examples"), found = String[]

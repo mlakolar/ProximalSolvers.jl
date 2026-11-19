@@ -152,7 +152,7 @@ of the tests. What `converged=true` therefore says about the returned `x`:
   that `solve!` has checked: finite and, where `T(λ0)` and `wᵢ` are both positive, a normal number of `T`
   (a zero or subnormal product of positive factors is refused, and so is a subnormal `T(λ0)`); a zero level or weight gives
   `cᵢ = 0`. As above, a stop is refused where `τ S` is below `floatmin(T)`.
-- **Groups.** For `GroupNormL2(λ0, groups, w)` with `ProximalGradientDescent` (a `GroupNormL2{T}` whose groups
+- **Groups.** For `GroupNormL2(λ0, groups, w)` with `ProximalGradientDescent` or `AccProxGradDescent` (a `GroupNormL2{T}` whose groups
   partition `1:p`), the coefficient of group `k` is `cₖ = T(λ0) wₖ` rounded in `T`, and `‖G‖∞` is replaced by
   ProximalBase's group residual `kkt_violation(g, ∇f(x), x) = max(0, maxₖ scoreₖ)`, with
   `scoreₖ = ‖∇_G f + cₖ x_G/‖x_G‖₂‖₂` at a group with a nonzero entry and `‖∇_G f‖₂ - cₖ` at a zero group
