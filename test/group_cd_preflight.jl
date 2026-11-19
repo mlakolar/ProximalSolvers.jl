@@ -198,13 +198,17 @@ accepted(x, f, g; method = CDSolver(order = :random)) = PS._check_block_problem(
     end
 
     @testset "GroupNormL2 with PGD and APG on a Vector ($T)" begin
-      # solve! with PGD or APG refuses a GroupNormL2 penalty on a dense Vector, and the vector keeps its entries, signed zeros included
-      for method in (ProximalGradientDescent(), AccProxGradDescent()), start in (zeros(T, 5), T[0, 0, 0.5, 0, -0.25])
+      # PGD solves the group lasso on a dense Vector (test/group_pgd.jl checks its solutions); APG refuses a GroupNormL2
+      # penalty, and the vector keeps its entries, signed zeros included
+      for start in (zeros(T, 5), T[0, 0, 0.5, 0, -0.25])
         x = copy(start)
-        err = try solve!(x, f, g, method) catch e e end
+        res = solve!(x, f, g, ProximalGradientDescent())
+        @test res.minimizer === x
+        @test !isequal(x, start)
+        x = copy(start)
+        err = try solve!(x, f, g, AccProxGradDescent()) catch e e end
         @test err isa ArgumentError
-        # the gradient methods' gate also accepts a NormLinf (#338), so its refusal names it
-        @test err !== nothing && occursin("only NormL1, unweighted ElasticNet or NormLinf is supported", message(err))
+        @test err !== nothing && occursin("AccProxGradDescent does not support GroupNormL2", message(err))
         @test isequal(x, start)
       end
     end

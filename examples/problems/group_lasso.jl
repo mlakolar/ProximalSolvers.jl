@@ -1,9 +1,10 @@
-# Group lasso by block coordinate descent on a `BlockIterate`. `GroupNormL2(λ, groups)` is the
+# Group lasso by block coordinate descent on a `BlockIterate`, and by proximal gradient descent on
+# a dense vector. `GroupNormL2(λ, groups)` is the
 # penalty `λ Σₖ wₖ ‖β[Gₖ]‖₂` with the default weights `wₖ = √|Gₖ|`; the groups may be any
-# disjoint index sets, here not contiguous. The iterate is a `BlockIterate` with the same groups,
-# in the same order, and `CDSolver` updates one whole group at a time.
-# `CDSolver` is the solver that accepts a `GroupNormL2` penalty; see
-# [Supported problems](../../support.md) for the accepted inputs.
+# disjoint index sets, here not contiguous. For `CDSolver` the iterate is a `BlockIterate` with the
+# same groups, in the same order, and `CDSolver` updates one whole group at a time.
+# `CDSolver` on a `BlockIterate` and `ProximalGradientDescent` on a dense `Vector` accept a
+# `GroupNormL2` penalty; see [Supported problems](../../support.md) for the accepted inputs.
 using LinearAlgebra, Random
 using ProximalBase, ProximalSolvers
 
@@ -52,15 +53,34 @@ println("active groups = ", active)
 # `converged` reports that the change in a full pass was small, not that the point is optimal, so
 # the solution is checked independently from the data. With `∇ = s Xᵀ(Xβ − y)`, a nonzero group
 # satisfies `∇[G] + λ w β[G] / ‖β[G]‖ = 0`, and a zero group satisfies `‖∇[G]‖ ≤ λ w`.
-grad = s * (X' * (X * beta - y))
-function violation(k)
+function violation(b, k)
+  grad = s * (X' * (X * b - y))
   G = groups[k]
-  iszero(norm(beta[G])) && return norm(grad[G]) - lambda * w[k]
-  norm(grad[G] + lambda * w[k] * beta[G] / norm(beta[G]))
+  iszero(norm(b[G])) && return norm(grad[G]) - lambda * w[k]
+  norm(grad[G] + lambda * w[k] * b[G] / norm(b[G]))
 end
 zero_groups = [k for k in eachindex(groups) if iszero(norm(beta[groups[k]]))]
 nonzero_groups = setdiff(eachindex(groups), zero_groups)
-@assert maximum(violation, nonzero_groups) <= 1e-7
-@assert maximum(violation, zero_groups) <= 1e-7
-println("largest violation: nonzero groups ", maximum(violation, nonzero_groups),
-        ", zero groups ", maximum(violation, zero_groups))
+@assert maximum(k -> violation(beta, k), nonzero_groups) <= 1e-7
+@assert maximum(k -> violation(beta, k), zero_groups) <= 1e-7
+println("largest violation: nonzero groups ", maximum(k -> violation(beta, k), nonzero_groups),
+        ", zero groups ", maximum(k -> violation(beta, k), zero_groups))
+
+# ## Proximal gradient descent on a dense vector
+#
+# `ProximalGradientDescent` solves the same problem with a dense `Vector{Float64}` as the iterate
+# and the same penalty `g`. The penalty must have the element type of the data (here `Float64`)
+# and its groups must partition `1:p`. Each step applies the block soft threshold to every group.
+# A stop that a test proposes counts only where the solver's group KKT residual is below
+# `max(gradtol, 64 eps) * S`, with `S` the larger of the largest coefficient `λ wₖ` and the largest
+# group norm of `s Xᵀy`; `gradtol = 1e-10` asks for a small residual. The residual is computed
+# again from the data, as above.
+beta_pgd = zeros(p)
+res_pgd = solve!(beta_pgd, f, g, ProximalGradientDescent(), ProximalOptions(maxiter = 20_000, gradtol = 1e-10))
+@assert res_pgd.converged && res_pgd.minimizer === beta_pgd
+@assert maximum(k -> violation(beta_pgd, k), eachindex(groups)) <= 1e-7
+@assert [k for k in eachindex(groups) if iszero(norm(beta_pgd[groups[k]]))] == zero_groups
+@assert maximum(abs, beta_pgd - beta) <= 1e-6
+println("PGD: iterations = ", res_pgd.iterations, "; largest violation ",
+        maximum(k -> violation(beta_pgd, k), eachindex(groups)),
+        "; largest difference from the CD solution ", maximum(abs, beta_pgd - beta))

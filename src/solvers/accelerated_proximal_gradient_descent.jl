@@ -97,7 +97,8 @@ mutable struct AccProxGradDescentState{T, X<:Vector{T}, M, Z}
     delta_x::X
     L::T
     max_residual::T
-    λmax::T           # α‖Xᵀy‖∞ for the stationarity check of a stop, -1 until it is computed
+    λmax::T           # ‖∇f(0)‖ for the stationarity check: the ∞-norm for NormL1, ElasticNet and NormLinf, the
+                      # largest group 2-norm for GroupNormL2 (_scale_norm); -1 until it is computed
     k::Int            # iterations since the start or the last restart
     restarts::Int
     backtrack_steps::Int
@@ -309,7 +310,7 @@ end
 Minimize the same least-squares lasso, elastic net or `NormLinf` problem as [`ProximalGradientDescent`](@ref) with
 accelerated proximal gradient descent, overwriting `x`, a dense `Vector{T}` with
 `T = Float32` or `Float64`. The inputs, the options and their validation are those
-of `ProximalGradientDescent`; in addition `β` and `α` must satisfy their bounds after
+of `ProximalGradientDescent`, except that a `GroupNormL2` penalty is refused; in addition `β` and `α` must satisfy their bounds after
 conversion to `T`, and the dimensions must satisfy `max(n, p) + 4 < 1/(4 eps(T))` and
 `n p + 3 < 1/(4 eps(Float64))` (for Float32, `max(n, p) < 2,097,148`), which the
 rounding-error bounds of the line search need. Every refusal of an input, option or
@@ -321,6 +322,7 @@ function solve!(x, f, g, method::AccProxGradDescent,
                 options::ProximalOptions = ProximalOptions(); kwargs...)
   _check_keywords(kwargs)
   _check_problem(x, f, g)
+  g isa GroupNormL2 && throw(ArgumentError("AccProxGradDescent does not support GroupNormL2; use ProximalGradientDescent on a dense Vector or CDSolver on a BlockIterate"))
   _check_method(method, eltype(x))
   _check_bound_size(f, eltype(x))
   t0 = time()

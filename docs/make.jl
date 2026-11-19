@@ -22,7 +22,9 @@ const EXAMPLES = [
   (section = "Statistical applications", path = "problems/sparse_additive_regression.jl", title = "Sparse additive regression", notebook = false),
   (section = "Statistical applications", path = "problems/sparse_covariance_soft_thresholding.jl", title = "Sparse covariance thresholding", notebook = false),
   (section = "Solver comparisons", path = "comparisons/lasso_solvers.jl",
-   title = "Lasso: solvers at equal accuracy", notebook = true)]
+   title = "Lasso: solvers at equal accuracy", notebook = true),
+  (section = "Solver comparisons", path = "comparisons/group_lasso_solvers.jl",
+   title = "Group lasso: CD and PGD", notebook = false)]
 
 # The set of scripts under `examples/`, in subfolders too, equals the registry.
 let root = joinpath(@__DIR__, "..", "examples"), found = String[]
