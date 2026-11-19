@@ -358,4 +358,4 @@ The coordinate-descent solver and coefficient storage other than a dense
 
 **Tests.** `test/constrained_least_squares.jl` checks feasibility, optimality, input rules and both precisions.
 
-**Sources.** [Approved scope](https://github.com/mlakolar/ProximalSolvers.jl/issues/422#issuecomment-7001542566) and [ProximalBase numerical contract](https://github.com/mlakolar/ProximalBase.jl/blob/405780632bb5f4f5cfbb2193798c96945db602cf/docs/src/numerics.md#L176-L187).
+**Sources.** [Approved scope](https://github.com/mlakolar/ProximalSolvers.jl/issues/422#issuecomment-7001542566) and [ProximalBase numerical contract](https://github.com/mlakolar/ProximalBase.jl/blob/4a737a521d1028228da41e25c16cf963769cd891/docs/src/numerics.md#L176-L187).

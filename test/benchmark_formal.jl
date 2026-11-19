@@ -27,7 +27,7 @@ groups() = collect(H.CASE_GROUPS)
 catalog(suite = "quick"; deferred = false) = call(H.build_catalog, suite, groups(); deferred)
 spec(id) = only(filter(s -> s.meta.id == id, catalog("extended")))
 spec_deferred(id) = only(filter(s -> s.meta.id == id, catalog("extended"; deferred = true)))
-const PB_REV = "405780632bb5f4f5cfbb2193798c96945db602cf"
+const PB_REV = "4a737a521d1028228da41e25c16cf963769cd891"
 const GROUP_VARIANTS = ("block-f32", "block-f64", "warm-block-f32", "warm-block-f64")
 const TWO_COLUMN_IDS = ["cd/group-lasso-m2/cd/$variant/call" for variant in GROUP_VARIANTS]
 
