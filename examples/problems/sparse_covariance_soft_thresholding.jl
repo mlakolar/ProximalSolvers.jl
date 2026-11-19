@@ -1,7 +1,7 @@
 # Covariance thresholding (Rothman, Levina and Zhu, 2009,
 # [doi:10.1198/jasa.2009.0101](https://doi.org/10.1198/jasa.2009.0101)) estimates a covariance matrix
-# with exactly zero off-diagonal entries by soft-thresholding the entries of the sample covariance
-# matrix `S`. For a symmetric matrix `Σ`, the estimate minimizes
+# by soft-thresholding the off-diagonal entries of the sample covariance matrix `S`, which can set some of
+# them exactly to zero. For a symmetric matrix `Σ`, the estimate minimizes
 #
 # ``\tfrac12\|\Sigma - S\|_F^2 + \lambda \sum_{i \ne j} |\Sigma_{ij}|``,
 #
@@ -75,7 +75,8 @@ expected = sign.(s) .* max.(abs.(s) .- lambda, 0.0)
 #
 # A `SymmetricSparseIterate(p)` holds the `p(p + 1)/2` independent entries of a symmetric `p × p` matrix. It is not
 # an `AbstractArray`: a write `Σ̂[i, j] = v` sets the entries `(i, j)` and `(j, i)` together. A nonzero write makes the
-# coordinate active, so `nactive` counts the diagonal and the nonzero thresholded entries. Its documentation
+# coordinate active, so here, where the diagonal is nonzero and only nonzero thresholded entries are written, `nactive`
+# counts the diagonal and the nonzero thresholded entries (in general it also counts active coordinates that hold a zero). Its documentation
 # gives `O(p²)` reserved storage with `O(1)` access: the type records which coordinates are active and does not
 # reduce the memory in use, so it is a convenient representation here and not a saving.
 Sigma_hat = SymmetricSparseIterate(p)
