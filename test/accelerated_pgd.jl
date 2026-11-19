@@ -404,13 +404,27 @@ end
 end
 
 @testset "underflow, narrower loss scales and norm budgets" begin
-  # A trial whose products underflow to zero: no uphill step is accepted (BigFloat objective).
   t = nextfloat(0f0)
-  X = fill(0.25f0, 1, 1); Y = Float32[4t]; λ = 0.99 * Float64(t)
+  X = fill(0.25f0, 1, 1)
+  λwide = 0.99 * Float64(t)
+  λ = Float32(λwide)
+  @test λ == t
+  method = AccProxGradDescent(α = 0.01)
+  # At the zero-solution threshold, the mixed solve shares the native
+  # line-search refusal and rollback.
+  f = LeastSquaresLoss(Float32[4t], X)
+  for level in (λwide, λ)
+    x = zeros(Float32, 1)
+    @test_throws r"cannot increase finitely" solve!(x, f, NormL1(level), method)
+    @test x == Float32[0]
+  end
+  # Above the zero-solution threshold, a trial with underflowed products
+  # makes progress without raising the independent objective.
+  Y = Float32[12t]
   x = zeros(Float32, 1)
-  solve!(x, LeastSquaresLoss(Y, X), NormL1(λ), AccProxGradDescent(α = 0.01))
+  solve!(x, LeastSquaresLoss(Y, X), NormL1(λ), method)
   F(v) = big(0.5) * (big(X[1]) * big(v[1]) - big(Y[1]))^2 + big(λ) * abs(big(v[1]))
-  @test F(x) <= F(zeros(Float32, 1))
+  @test x[1] > 0 && F(x) < F(zeros(Float32, 1))
   for T in (Float32, Float64)
     tT = nextfloat(zero(T))
     # products that round to zero, and an extrapolated image of a subnormal rounded y

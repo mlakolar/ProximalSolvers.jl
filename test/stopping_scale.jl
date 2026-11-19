@@ -440,17 +440,21 @@ end
   level_decision(Float32, λ0, Inf32)
 end
 
-@testset "a BigFloat level stored at 256 bits, used at precision 24: no false convergence" begin
+@testset "a BigFloat level stored at 256 bits, used at precision 24: working-level convergence" begin
   λ = setprecision(() -> BigFloat("0.3"), BigFloat, 256)
-  r, x = setprecision(BigFloat, 24) do
-    x = zeros(1)
+  native_level = Float64(λ)
+  setprecision(BigFloat, 24) do
+    @test Float64(λ) === native_level
     f = LeastSquaresLoss([1.0], ones(1, 1))
     method = ProximalGradientDescent(ls = PS.LineSearches.BackTracking(α = 1.0))
-    options = ProximalOptions(maxiter = 10, gradtol = 1e-10, allow_f_increases = true)
-    solve!(x, f, NormL1(λ), method, options), x
+    options = ProximalOptions(maxiter = 10, gradtol = 1e-10)
+    r = solve!(zeros(1), f, NormL1(λ), method, options)
+    native = solve!(zeros(1), f, NormL1(native_level), method, options)
+    @test r.converged && native.converged && !r.f_increased && !native.f_increased
+    @test (r.minimizer, r.minimum, r.iterations, r.f_converged, r.f_residual) ==
+          (native.minimizer, native.minimum, native.iterations, native.f_converged, native.f_residual)
+    @test only(r.minimizer) ≈ 1 - native_level atol = 8eps()
   end
-  @test !r.converged
-  @test x[1] ≈ 0.7 atol = 1e-6
 end
 
 @testset "PGD strict at loss scale 1e-200, λ = 0: converged, within the stopping guarantee of the least-squares solution (#317)" begin
