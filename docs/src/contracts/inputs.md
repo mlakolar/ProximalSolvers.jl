@@ -374,9 +374,10 @@ F(b)=\sum_{i=1}^n \{\log(1+e^{\eta_i})-y_i\eta_i\}+\lambda\sum_{j=1}^{p} w_j|b_j
 
 with `w_j = 1` without weights. The loss is the **sum** over the observations, not
 the mean: `F/n` is the mean negative log likelihood plus `(lambda/n) * sum(w .* abs.(b))`,
-so a mean-scale level `λ` is passed as `n * λ`. An intercept is a column of ones in
-`X` whose penalty weight is zero. Penalty weights are the weights of `NormL1`; they
-are not the observation weights of `LogisticLoss`.
+so a mean-scale level `λ` is passed as `n * λ`. There is no automatic intercept: an
+intercept is an explicit column of ones in `X` whose penalty weight is zero. Penalty
+weights are the weights of `NormL1`; they are not the observation weights of
+`LogisticLoss`.
 
 The accepted inputs are:
 
@@ -392,11 +393,15 @@ The accepted inputs are:
   penalty weights.
 
 The gate runs on every solve, before any write to `x`. It reads `y` and `X` at that
-call, so an entry of `y` changed to `0.5` or `NaN`, or an entry of `X` changed to a
-nonfinite value, after the construction of the loss is refused. ProximalBase's
+call, so an entry of `y` changed to `0.5`, `2.0` or `NaN`, or an entry of `X` changed to
+a nonfinite value, after the construction of the loss is refused. ProximalBase's
 constructor accepts responses in `[0, 1]`; this solver accepts binary responses only.
-Each refusal is an `ArgumentError`, a `DimensionMismatch` for the shapes, checked in
-this order: a solver other than PGD; a `Scaled` wrapper; the element type of the loss
+Each refusal is an `ArgumentError`, a `DimensionMismatch` for the shapes. For a call
+with supported keywords and options, and with coefficient storage that the solver's
+gate accepts, the checks run in the order below; the keyword checks of `solve!`, the
+option check of `ADMMSolver` and the storage-type checks of the CD gates (a
+`SparseIterate` or `BlockIterate` of `Float32` or `Float64`) come first. The order is:
+a solver other than PGD; a `Scaled` wrapper; the element type of the loss
 and the array types of `X`, `y` and `x`; observation weights or an offset; the
 shapes; a penalty that is not a `NormL1`, then the rules of [IN-02](@ref) and
 [IN-03](@ref), including the alias check of the weights; aliasing of `x` with `X`, `y`
@@ -404,28 +409,46 @@ or `f.tmp`; nonfinite entries of `x` or `X`; an entry of `y` other than `0` and 
 
 `AccProxGradDescent` and `CDSolver` (dense `Vector`, `SparseIterate`, `BlockIterate`
 and `Matrix` coefficients) refuse a `LogisticLoss` or a `Scaled` one with an
-`ArgumentError` that names `ProximalGradientDescent`; `ADMMSolver` refuses it as any
-function other than its quadratic ([ADM-01](@ref)). `Scaled(LogisticLoss(y, X), a)`
-is refused because ProximalBase provides no predictor oracles for it; for a positive
-finite `a`, the raw loss with the level `lambda / a` has the same minimizers. Other
-penalties, including wrapped ones, `Float32` data, sparse designs, views and other
-array types are refused.
+`ArgumentError` that names `ProximalGradientDescent`, without a write to the
+coefficients or a draw from the RNG; for a `BlockIterate` this refusal comes before the
+momentum check. `ADMMSolver` refuses it as any function other than its quadratic
+([ADM-01](@ref)). `Scaled(LogisticLoss(y, X), a)` is refused because ProximalBase
+provides no predictor oracles for it. For a positive finite `a`, the raw loss with the
+level `lambda / a` has the same minimizers in exact arithmetic, and is accepted when
+`lambda / a` is a level of [IN-02](@ref) and, with weights, its coefficients
+`(lambda / a) * w[j]` pass [IN-03](@ref). Other penalties, including wrapped ones,
+`Float32` data, sparse designs, views and other array types are refused.
 
 **Iteration.** The trial sequence of [PGD-01](@ref) is unchanged. A trial forms the
 image `z = X x` once, in a private buffer, and takes its value from ProximalBase's
 `value_from_predictor(f, z)`. The gradient of an accepted point comes from
 `value_and_gradient_from_predictor!(G, d, f, z)` at the cached image, which writes
-`d = σ(z) - y` and `G = Xᵀ d`, without forming `X x` again. ProximalBase
-evaluates the stable softplus and sigmoid. The image, derivative and gradient buffers
-are private to the solve and disjoint from `X`, `y`, `f.tmp` and `x`.
+`d` and `G = Xᵀ d`, without forming `X x` again; `d = σ(z) - y` in exact arithmetic,
+and ProximalBase evaluates the loss and `d` with formulas that avoid cancellation in
+the saturated tails. The image, derivative and gradient buffers are private to the
+solve and disjoint from `X`, `y`, `f.tmp` and `x`.
 
-**Curvature factor.** For this loss, `∇²f(b) = Xᵀ diag(σᵢ(1 - σᵢ)) X ⪯ ¼ XᵀX`, since
-`0 ≤ σᵢ(1 - σᵢ) ≤ ¼`. The line search uses the factor `¼` where least squares uses
-its loss scale `s`: the initial inverse step is the `T`-rounded `min(1, ¼‖X‖_F²)`
-([PGD-02](@ref) with `s = ¼`), and a rejected trial is rechecked with
-`c = m ¼ ‖fl(X d̂)‖² / ‖d̂‖²` ([LS-03](@ref) with `s = ¼`; `m = 1` in function-value mode
-and `m = 2` in gradient mode). In exact arithmetic, for the trial `x` and the step
-`d = x - u` from the last accepted point `u` (`x_previous` in [LS-02](@ref)):
+**Overflowed images.** An image `z` with a nonfinite entry gives the loss value `Inf`
+without a call of ProximalBase, which returns a finite loss (zero for that entry) for
+an infinite predictor on the side of its label and `Inf` on the other side. At the
+start, `solve!` then refuses the coefficients with the `ArgumentError` "start from a
+point where f is finite", before any write. In a trial, the line search takes its
+nonfinite-value branch ([LS-02](@ref)) before its zero-step, curvature and `Lexact`
+exits: the trial is not accepted and the search retries with `L/β`, beyond `Lexact` if
+need be. The gradient is refreshed only at a trial with a finite value, so at an
+image that passed this check. A finite image, however large, goes to ProximalBase's
+stable loss; for example a logit of 800, beyond `log(floatmax(Float64)) ≈ 709.78`,
+gives the loss 800 for the label 0.
+
+**Curvature factor.** For this loss, in exact arithmetic,
+`∇²f(b) = Xᵀ diag(σᵢ(1 - σᵢ)) X ⪯ ¼ XᵀX`, since `0 ≤ σᵢ(1 - σᵢ) ≤ ¼`. The line search
+uses the factor `¼` where least squares uses its loss scale `s`. The initial inverse
+step is that of [PGD-02](@ref) with `s = ¼`: the `T`-rounded `min(1, ¼ B²)` for the
+rounded upper bound `B` on `‖X‖_F`, raised to `floatmin(T)` when positive and below it,
+and `1` when `X = 0`. A rejected trial that is eligible under [LS-03](@ref) is rechecked
+with `c = m ¼ ‖fl(X d̂)‖² / ‖d̂‖²` (`m = 1` in function-value mode and `m = 2` in gradient
+mode). In exact arithmetic, for the trial `x` and the step `d = x - u` from the last
+accepted point `u` (`x_previous` in [LS-02](@ref)):
 
 - `f(x) ≤ f(u) + ⟨∇f(u), d⟩ + ⅛‖X d‖²` (Taylor's formula with integral remainder and
   the Hessian bound), so with `m = 1`, `c ≤ L` implies TFOCS's function-value test
@@ -434,16 +457,20 @@ and `m = 2` in gradient mode). In exact arithmetic, for the trial `x` and the st
   test `2⟨∇f(x) - ∇f(u), d⟩ ≤ L‖d‖²`;
 - after a rejection, TFOCS's estimate is `L̂ = 2(f(x) - f(u) - ⟨∇f(u), d⟩)/‖d‖²` in
   function-value mode (where it exceeds `L`) and `L̂ = 2⟨∇f(x) - ∇f(u), d⟩/‖d‖²` in
-  gradient mode; each is at most `c`, so the retry `min(Lexact, max(c, L/β))` is at
-  least TFOCS's `min(Lexact, max(L̂, L/β))`, and the retry's step `1/L` is at most TFOCS's.
+  gradient mode; each is at most `c`. When the computed `c` is finite it replaces `L̂`,
+  and the retry `min(Lexact, max(c, L/β))` is at least TFOCS's
+  `min(Lexact, max(L̂, L/β))`, so the retry's step `1/L` is at most TFOCS's; `L/β` and
+  `Lexact` enter both. A nonfinite computed `c` leaves TFOCS's estimate.
 
-A scaled displacement ([LS-06](@ref)) gives the same `c` in exact arithmetic. For least squares the
-inequalities hold with equality, with `s` in place of `¼`; for the logistic loss they
-are one-sided bounds, which is what the recheck needs. The recheck carries no rounding
-certificate, as for least squares. After a rejection the retry uses the global factor
-`¼` along `d̂` rather than the local weights `σᵢ(1 - σᵢ)`, which can be smaller, so the
-step can be shorter than the local curvature allows; the decrease of `L` by the line
-search's `α` at each iteration lets it grow again.
+A scaled displacement ([LS-06](@ref)) gives the same `c` in exact arithmetic. For least
+squares the inequalities hold with equality, with `s` in place of `¼`; for the logistic
+loss they are one-sided bounds, which is what the recheck needs. These statements are
+in exact arithmetic: the computed `c` can be below the exact quotient after rounding or
+range loss ([LS-05](@ref)), and the recheck carries no rounding certificate, as for least
+squares. After a rejection the retry uses the global factor `¼` along `d̂` rather than
+the local weights `σᵢ(1 - σᵢ)`, which can be smaller, so the step can be shorter than
+the local curvature allows. With the line search's `α < 1`, the decrease of `L` at the
+start of each iteration lets the step grow again; with `α = 1` it does not.
 
 **Stopping.** A proposed stop passes the check of [STOP-03](@ref) with the logistic
 gradient and the guards of [STOP-04](@ref). The scale is `S = max(λ, λmax)`, with
@@ -451,14 +478,14 @@ gradient and the guards of [STOP-04](@ref). The scale is `S = max(λ, λmax)`, w
 `λmax = ‖Xᵀ(½ - y)‖∞ = ‖∇f(0)‖∞`, since `σ(0) = ½`; each `½ - yᵢ` is `±½`, exact for a
 binary response. `λmax` is formed at the first stationarity check of a solve, with the
 difference `½ - y` in the state's image-length buffer, which the iterations write before
-they read it. An
-intercept column contributes `n |½ - ȳ|` to `λmax`. Results, counters and rollback
+they read it. In exact arithmetic the entry of an intercept column in `Xᵀ(½ - y)` is
+`n (½ - ȳ)`, one of the candidates in that maximum. Results, counters and rollback
 follow [RES-01](@ref) and [RES-03](@ref).
 
 **Applies to.** `ProximalGradientDescent` with a raw `LogisticLoss{Float64}` and `NormL1` on a dense `Vector{Float64}`; the logistic refusals of `AccProxGradDescent`, `CDSolver` and `ADMMSolver`. The deferred logistic combinations are listed in [DEF-01](@ref).
 
 **Code.** `src/solve.jl`: `_is_logistic_loss`, `_check_logistic_problem`, `_logistic_method_error`, the logistic branch of `_check_data` and of `_check_problem`; `src/solvers/image_models.jl`: `_LogisticImage`, `_image_model`, `_image_buffer`, `_image!`; `src/utils.jl`: `_lambda_max!` and `_zero_gradient!`.
 
-**Tests.** `test/logistic_pgd.jl`: the stopping scale against `‖Xᵀ(½ - y)‖∞` and a stop through the engine; the value and gradient at zero and at a representative point against BigFloat formulas and central differences; the inequalities behind the factor `¼` and the initial curvature; a regularized nonseparable fit with an unpenalized intercept (objective, the KKT scores of the intercept and of the active and inactive slopes, `minimizer === b`, rejected trials, the `F/n` scaling); the intercept-only model and levels above the slope threshold; an unpenalized fit against a damped Newton reference; unit weights against the unweighted penalty; checked rejections; rollback after a fault and through `solve!`; iteration and call limits; steep, separated and almost separated regularized problems, including a start with logits beyond the range of `exp`; each refusal above with the coefficients unchanged; allocations of a warmed solve against the least-squares control. `examples/problems/logistic_regression.jl` checks its fit independently.
+**Tests.** `test/logistic_pgd.jl`: the stopping scale against `‖Xᵀ(½ - y)‖∞`, and a stop through the engine checked with ProximalBase's scorer and with the independent residual; the value and gradient at zero and at a representative point against label-wise BigFloat formulas and central differences; the inequalities behind the factor `¼`, the initial curvature, and the recheck of a rejected trial in each mode (`c = ¼` and `c = ½` for a unit step, at least TFOCS's estimate); a regularized nonseparable fit with an unpenalized intercept (objective, the KKT scores of the intercept and of the active and inactive slopes, `minimizer === b`, rejected trials, the `F/n` scaling); the intercept-only model and levels at and above the slope threshold; an unpenalized fit against a damped Newton reference, with a certificate that its data are not separable; unit weights against the unweighted penalty; checked rejections; rollback after a fault and through `solve!`; overflowed images at the start (refused, coefficients unchanged) and in a trial (retried, on the side of the label and against it), and a finite logit of 800; iteration and call limits; steep, separated and almost separated regularized problems, including a start with logits beyond `log(floatmax(Float64))`; the refusals above with the coefficients unchanged, including `CDSolver` on each storage with raw and scaled losses and an unchanged RNG; a warmed iteration that allocates nothing and whole solves against the least-squares control. The independent residual bound of these tests is justified by a rounding bound that each check asserts. `examples/problems/logistic_regression.jl` checks its fit independently.
 
 **Sources.** [Issue #438](https://github.com/mlakolar/ProximalSolvers.jl/issues/438) (scope, mathematical contract and tests) and [pull request #439](https://github.com/mlakolar/ProximalSolvers.jl/pull/439) (mini-design); ProximalBase [`LogisticLoss` at 4a737a52](https://github.com/mlakolar/ProximalBase.jl/blob/4a737a521d1028228da41e25c16cf963769cd891/src/functions/logisticloss.jl), the merge of [ProximalBase #1033](https://github.com/mlakolar/ProximalBase.jl/pull/1033).

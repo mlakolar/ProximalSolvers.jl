@@ -52,7 +52,7 @@ If `L ≥ c` in the comparison precision, accept and keep the current estimate m
 
 With `c` denoting the finite returned curvature, the retry is `L ← min(Lexact, max(c, L/β))`.
 
-For a raw `LogisticLoss` the check uses the factor `¼` in place of `s`; [IN-09](@ref) gives the bounds that make it conservative.
+For a raw `LogisticLoss` the check uses the factor `¼` in place of `s`; [IN-09](@ref) gives the bounds that make it conservative in exact arithmetic.
 
 Do not run this check for a nonfinite trial value, the zero-step exit, a `NaN` local estimate, or a gradient-mode estimate formed from a gradient with a nonfinite entry. Every checked rejection costs one matrix-vector product. This check reduces inflated local estimates caused by rounding of `f(x) - q(x)` (loss minus the local quadratic model) or by differences of gradients. Near a minimizer that rounding can inflate `L̂` by orders of magnitude, shrinking the step until `x` stops moving. The check provides no rounding certificate. A decision near directional curvature can go either way, and a direction nearly in the null space of `X` can have a large relative curvature error.
 

@@ -1,6 +1,7 @@
 # Logistic regression models the probability of a binary outcome from a linear
-# predictor. With many candidate covariates, an ℓ₁ penalty on the slopes sets most of
-# them to zero and shrinks the others, while the intercept stays unpenalized. This page
+# predictor. With many candidate covariates, an ℓ₁ penalty on the slopes encourages a
+# sparse fit: a large enough level sets slopes exactly to zero and shrinks the others,
+# while the intercept stays unpenalized. This page
 # fits such a model with `ProximalGradientDescent` and checks the fit with quantities
 # computed directly from the data.
 #
@@ -24,22 +25,26 @@
 # `w = [0; ones(p)]`, the weights are penalty weights: the first is zero, so the
 # intercept ``b_0`` is not penalized. They are not observation weights, which this solver
 # does not support. The solver also refuses the scaled loss `(1/n) * LogisticLoss(y, X̃)`;
-# the raw loss with the level ``n\lambda`` has the same minimizers. See the
-# [input contract](@ref IN-09) for the supported data and the refusals.
+# in exact arithmetic the raw loss with the level ``n\lambda`` has the same minimizers,
+# provided ``n\lambda`` is a level the solver accepts (finite, with weighted coefficients
+# in range). See the [input contract](@ref IN-09) for the supported data and the refusals.
 
 using LinearAlgebra, Printf, Random, ProximalBase, ProximalSolvers
 
 # Stable forms of the sigmoid and of ``\log(1+e^t)``: neither evaluates ``e^t`` for a
-# large positive ``t``.
+# large positive ``t``. With ``s_i=1-2y_i``, the loss term of observation ``i`` is
+# ``\log(1+e^{s_i\eta_i})`` and the derivative ``\sigma(\eta_i)-y_i`` is ``s_i\sigma(s_i\eta_i)``;
+# these label-wise forms avoid cancellation when ``|\eta_i|`` is large.
 sigmoid(t) = t >= 0 ? inv(1 + exp(-t)) : exp(t) / (1 + exp(t))
 softplus(t) = t > 0 ? t + log1p(exp(-t)) : log1p(exp(t))
 
 # ## Simulated data
 #
-# There are 300 observations and 30 covariates; neighbouring covariates have
+# There are 300 observations and 30 covariates; neighbouring covariates have population
 # correlation 0.5. Four covariates carry signal, and the true intercept is ``-0.5``.
-# The responses are drawn from the model, so the two classes overlap: the data are not
-# separable, and no coefficient needs to grow without bound to fit them.
+# The responses are drawn from the model. Its probabilities lie strictly between 0 and 1,
+# so the two classes can overlap, but a finite sample can still be separable by chance;
+# the next section checks this sample.
 rng = Xoshiro(438)
 n, p = 300, 30
 Z = randn(rng, n, p)
@@ -53,6 +58,32 @@ prob_true = sigmoid.(intercept_true .+ Z * beta_true)
 y = Float64.(rand(rng, n) .< prob_true)
 @assert 0 < sum(y) < n                    # both classes are present
 X = [ones(n) Z]
+
+# ## This sample is not separable
+#
+# With ``r_i=2y_i-1``, the data are separable, at least weakly, when some ``d\neq0`` has
+# ``r_i\tilde x_i^\top d\ge0`` for every ``i``: moving the coefficients along ``d`` never
+# increases a term of the loss, and the unpenalized loss can have no minimizer. Positive
+# weights ``u_i`` with ``\sum_i u_ir_i\tilde x_i=0`` rule this out: for such a ``d``,
+# ``0=\sum_i u_ir_i\tilde x_i^\top d`` would force ``\tilde Xd=0``, so ``d=0`` for a design of
+# full column rank. At any ``b`` the weights ``u_i=|y_i-\sigma(\eta_i)|`` are positive, and
+# ``\sum_i u_ir_i\tilde x_i`` is minus the gradient of the loss; near the unpenalized fit a
+# small least-squares correction ``c`` makes the sum zero in exact arithmetic. Newton steps
+# from zero give that fit, and the check is that the corrected weights stay positive,
+# with a margin far above rounding. This is a property of the sample. The penalized fit
+# below has a finite minimizer whenever both classes are present: the penalty bounds the
+# slopes, and then the two classes bound the intercept.
+b_newton = zeros(p + 1)
+for _ in 1:25
+  mu = sigmoid.(X * b_newton)
+  b_newton .-= (X' * (X .* (mu .* (1 .- mu)))) \ (X' * (mu .- y))
+end
+r = 2 .* y .- 1
+A = r .* X
+u = sigmoid.(-r .* (X * b_newton))        # |y_i - σ(η_i)|, without cancellation
+c = A * ((A' * A) \ (A' * u))
+@assert rank(X) == p + 1
+@assert minimum(u - c) > 0 && maximum(abs, c) < 1e-6 * minimum(u)
 
 # ## The level at which all slopes vanish
 #
@@ -70,8 +101,8 @@ lambda = 0.3 * lambda_max
 #
 # The coefficients are a dense `Vector{Float64}` and the design a dense `Matrix{Float64}`.
 # The options ask for a computed stationarity residual far below the scale of the
-# problem; `allow_f_increases = true` keeps a rounding-level increase of the objective
-# near the minimizer from ending the run.
+# problem. With `allow_f_increases = true`, an iteration that increases the objective does
+# not end the run; near the minimizer rounding can cause such increases.
 f = LogisticLoss(y, X)
 w = [0.0; ones(p)]
 g = NormL1(n * lambda, w)
@@ -94,26 +125,33 @@ result = solve!(b, f, g, ProximalGradientDescent(), options)
 # - ``|g_j+n\lambda\,\mathrm{sign}(b_j)|`` for a nonzero slope.
 #
 # The largest score is zero exactly at a minimizer. The solver reports `converged = true`
-# only when its own residual is below ``10^{-10}`` times a scale of order ``n`` here, so a
-# residual below ``10^{-8}n`` from these independent formulas leaves room for rounding.
+# only when its own residual is below ``10^{-10}S``, with the scale
+# ``S=\max(n\lambda,\|\tilde X^\top(\tfrac12-y)\|_\infty)`` printed below. The tolerance
+# ``10^{-8}n`` on the independent residual is our choice; here it is far above
+# ``10^{-10}S`` plus the rounding of the two computations.
 eta = X * b
-grad = X' * (sigmoid.(eta) .- y)
+s = 1 .- 2 .* y
+grad = X' * (s .* sigmoid.(s .* eta))
+S = max(n * lambda, norm(X' * (0.5 .- y), Inf))
+@assert 1e-10 * S <= 1e-9 * n                 # the tolerance is at least ten times the solver's threshold
 scores = [j == 1 ? abs(grad[1]) :
           iszero(b[j]) ? max(abs(grad[j]) - n * lambda, 0.0) :
           abs(grad[j] + n * lambda * sign(b[j])) for j in eachindex(b)]
 kkt = maximum(scores)
-objective = sum(softplus.(eta) .- y .* eta) + n * lambda * sum(abs, b[2:end])
+objective = sum(softplus.(s .* eta)) + n * lambda * sum(abs, b[2:end])
 @assert isapprox(result.minimum, objective; rtol = 1e-12)
 @assert kkt <= 1e-8 * n
 nonzero = count(!iszero, b[2:end])
 @assert 0 < nonzero < p                   # a sparse fit with some, but not all, slopes
 @printf("converged = %s after %d iterations; objective F = %.10g; KKT residual / n = %.2e\n",
         result.converged, result.iterations, objective, kkt / n)
+@printf("stopping scale S = %.4g, so 1e-10 S = %.2e and 1e-8 n = %.2e\n", S, 1e-10 * S, 1e-8 * n)
 @printf("lambda_max = %.4f, lambda = %.4f; %d of %d slopes are nonzero\n", lambda_max, lambda, nonzero, p)
 
 # The planted and the estimated coefficients, for the slopes that are nonzero in either.
-# The penalty shrinks the estimates towards zero, and a correlated neighbour of a planted
-# covariate can be selected in its place; the page asserts no particular support.
+# The penalty shrinks the slope vector as a whole; in a correlated design an individual
+# estimate need not be smaller than in another fit, and a correlated neighbour of a
+# planted covariate can be selected in its place. The page asserts no particular support.
 @printf("%-10s %9s %9s\n", "", "planted", "estimate")
 @printf("%-10s %9.3f %9.3f\n", "intercept", intercept_true, b[1])
 for j in 1:p
@@ -128,23 +166,27 @@ end
 # ``\bar y`` for every observation; its mean log-loss is
 # ``-\bar y\log\bar y-(1-\bar y)\log(1-\bar y)`` and its Brier score ``\bar y(1-\bar y)``.
 # The minimum of ``F`` is at most ``F`` at the intercept-only point, so for ``\lambda>0`` a
-# minimizer has a smaller mean log-loss on these data when one of its slopes is nonzero. Both scores are
-# computed on the training data, so they measure fit, not prediction on new data.
+# minimizer has a smaller mean log-loss on these data when one of its slopes is nonzero.
+# Both scores are computed on the training data, so they measure fit, not prediction on
+# new data. With ``n=300`` the median is the mean of the two middle probabilities.
 prob = sigmoid.(eta)
-mean_log_loss = sum(softplus.(eta) .- y .* eta) / n
+sorted_prob = sort(prob)
+median_prob = isodd(n) ? sorted_prob[(n + 1) ÷ 2] : (sorted_prob[n ÷ 2] + sorted_prob[n ÷ 2 + 1]) / 2
+mean_log_loss = sum(softplus.(s .* eta)) / n
 brier = sum(abs2, prob .- y) / n
 null_log_loss = -(ybar * log(ybar) + (1 - ybar) * log(1 - ybar))
 null_brier = ybar * (1 - ybar)
 @assert mean_log_loss < null_log_loss
 @printf("fitted probabilities: min %.3f, median %.3f, max %.3f, mean %.3f (fraction of ones %.3f)\n",
-        minimum(prob), sort(prob)[(n + 1) ÷ 2], maximum(prob), sum(prob) / n, ybar)
+        minimum(prob), median_prob, maximum(prob), sum(prob) / n, ybar)
 @printf("%-16s %14s %12s\n", "", "mean log-loss", "Brier score")
 @printf("%-16s %14.4f %12.4f\n", "sparse fit", mean_log_loss, brier)
 @printf("%-16s %14.4f %12.4f\n", "intercept only", null_log_loss, null_brier)
 
-# The same solver with a level just above ``\lambda_{\max}`` returns the intercept-only
-# model: zero slopes and ``b_0=\operatorname{logit}(\bar y)``. With the tight options the
-# intercept is accurate to far better than ``10^{-8}``.
+# At a level above ``\lambda_{\max}`` the minimizer, in exact arithmetic, is the
+# intercept-only model: zero slopes and ``b_0=\operatorname{logit}(\bar y)``. The script
+# checks that the solver returns exact zeros for the slopes and an intercept within
+# ``10^{-8}`` of ``\operatorname{logit}(\bar y)``.
 b_null = zeros(p + 1)
 solve!(b_null, f, NormL1(1.01 * n * lambda_max, w), ProximalGradientDescent(), options)
 @assert all(iszero, b_null[2:end])
@@ -171,12 +213,13 @@ solve!(b_null, f, NormL1(1.01 * n * lambda_max, w), ProximalGradientDescent(), o
 # The solver supports this model only with a dense `Float64` design, a binary response
 # and `ProximalGradientDescent`; observation weights, offsets, a scaled loss,
 # `AccProxGradDescent` and `CDSolver` are refused. The level ``\lambda`` here is fixed for
-# illustration. Choosing it for prediction needs validation on data not used for the
-# fit, and the selected covariates depend on the correlation between them.
+# illustration. Choosing it for prediction needs, for example, validation on data not
+# used for the fit, and the selected covariates depend on the correlation between them.
 #
 # ## What we learned
 #
 # `LogisticLoss` sums over the observations, so a mean-scale level ``\lambda`` enters as
 # ``n\lambda``, and a zero penalty weight leaves the intercept unpenalized. ``\lambda_{\max}``
 # follows from the gradient at the intercept-only fit. The objective and the stationarity
-# scores computed from the data confirm that the reported point solves the stated problem.
+# scores computed from the data agree with the reported objective and meet the tolerance
+# chosen here.
