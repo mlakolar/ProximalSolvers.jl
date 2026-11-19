@@ -42,6 +42,10 @@ tier = "none"
 paths = [
   "benchmark/**",
   "scripts/check_naming.py",
+  "scripts/check_docs_layers.py",
+  "scripts/docs_ledger.py",
+  "scripts/test_docs_checks.py",
+  "scripts/test_docs_baseline.py",
   "scripts/instantiate.jl",
   "scripts/master_dependencies.jl",
   "scripts/test_master.jl",
