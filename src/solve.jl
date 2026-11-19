@@ -289,7 +289,7 @@ function _check_data(x, f, g, ::Type{T}, kind::Symbol) where T
     _check_loss_scale(leastsquares_data(f).α, T)
     f.f
   else
-    # the CD owner and block gates reach this with a logistic loss
+    # the CD owner gate reaches this with a logistic loss (the block gate refuses it earlier)
     _is_logistic_loss(f) && _logistic_method_error(kind)
     throw(ArgumentError("only LeastSquaresLoss or one positive Scaled(LeastSquaresLoss) is supported"))
   end
@@ -370,9 +370,11 @@ function _check_logistic_problem(x, f, g, kind::Symbol)
   kind === :pgd || _logistic_method_error(kind)
   f isa Scaled &&
     throw(ArgumentError("Scaled(LogisticLoss) is not supported (ProximalBase provides no predictor oracles for it); " *
-                        "for a positive finite scale a, use the raw LogisticLoss(y, X) with the penalty level divided by a, " *
-                        "which has the same minimizers: for the mean loss (1/n) * LogisticLoss(y, X) with NormL1(lambda), " *
-                        "use LogisticLoss(y, X) with NormL1(n * lambda)"))
+                        "for a positive finite scale a, use the raw LogisticLoss(y, X) with the penalty level lambda/a, " *
+                        "which has the same minimizers in exact arithmetic when lambda/a is a level that solve! accepts " *
+                        "(finite and representable in Float64, and with weights, coefficients (lambda/a) * w[j] that are " *
+                        "finite and zero or normal): for the mean loss " *
+                        "(1/n) * LogisticLoss(y, X) with NormL1(lambda), use LogisticLoss(y, X) with NormL1(n * lambda)"))
   f isa LogisticLoss{Float64} && f.X isa Matrix{Float64} && f.y isa Vector{Float64} ||
     throw(ArgumentError("LogisticLoss needs X::Matrix{Float64} and y::Vector{Float64}; Float32 data, sparse designs " *
                         "and other array types are deferred"))
@@ -438,6 +440,8 @@ function _check_block_problem(x, f, g, method)
   x isa BlockIterate{<:Union{Float32, Float64}} ||
     throw(ArgumentError("block coordinate descent needs a BlockIterate of Float32 or Float64"))
   _is_matrix_response(f) && return _check_multiresponse(x, f, g, method)
+  # a logistic loss is refused with its own message before the momentum check
+  _is_logistic_loss(f) && _logistic_method_error(:block)
   method.momentum === true &&
     throw(ArgumentError("block coordinate descent does not support momentum; use momentum = false or nothing"))
   base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), :block) : _check_data(x, f, g, eltype(x), :block)

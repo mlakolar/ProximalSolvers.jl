@@ -36,8 +36,8 @@ PGD also fits sparse logistic regression with a raw `LogisticLoss(y, X)` (dense
 `Matrix{Float64}` design, binary `Vector{Float64}` response, no observation
 weights or offset) and `NormL1`, with or without penalty weights, on a
 `Vector{Float64}`. The loss is the sum over observations; a zero penalty weight
-leaves an intercept column unpenalized. Other logistic combinations are refused before
-writes. See [the logistic input contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-09).
+leaves an intercept column unpenalized. Unsupported logistic inputs are refused when
+`solve!` is called, before any write. See [the logistic input contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-09).
 
 For nonnegative least squares, use `IndNonnegative()` or `NormL1Nonneg(0)`.
 For nonnegative lasso, use unweighted `NormL1Nonneg(lambda)` with a positive level.
