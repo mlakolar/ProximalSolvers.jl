@@ -126,9 +126,21 @@ end
 # An infinite entry of x gives a non-finite residual (Inf, or NaN when a NaN is read), so such a stop is
 # not kept.
 # It is a computed residual, not a certificate in exact arithmetic.
-function _stationary!(state, f, g::Union{NormL1, ElasticNet}, options::ProximalOptions)
+#
+# GroupNormL2(λ0, groups, w) (ProximalGradientDescent; solve! requires a GroupNormL2{T} whose groups partition 1:p
+# and hold the members they were constructed with), h = Σₖ cₖ ‖b[Gₖ]‖₂ with cₖ = λ0 wₖ rounded in T. The residual is ProximalBase's full-point
+# kkt_violation(g, ∇f(x), x) = max(0, maxₖ scoreₖ), with scoreₖ = ‖∇_G f + cₖ x_G/‖x_G‖₂‖₂ at a group with a nonzero
+# entry and ‖∇_G f‖₂ - cₖ at a zero group (a zero weight gives the score ‖∇_G f‖₂). S = max(c_max, Λ), with
+# c_max = λ0 maximum(w) = maxₖ cₖ (rounding is monotone) and Λ = maxₖ ‖[∇f(0)]_{Gₖ}‖₂ = α maxₖ ‖[Xᵀy]_{Gₖ}‖₂
+# (_scale_norm, LinearAlgebra's norm of each block); 0 is a minimizer iff ‖[∇f(0)]_{Gₖ}‖₂ ≤ cₖ for each k. τ, the
+# threshold and the guards are those above. As for the ℓ1 penalties, a kept stop says that the computed residual is
+# below the computed threshold, not that the residual in exact arithmetic is. For singleton groups with unit weights,
+# S equals the S of NormL1(λ0) where no entry of ∇f(0) has a subnormal square (there the computed norm of a one-entry
+# block is its magnitude); the iterates and the residuals of the two penalties can differ by rounding, since
+# ProximalBase's group operations are not its ℓ1 operations.
+function _stationary!(state, f, g::Union{NormL1, ElasticNet, GroupNormL2}, options::ProximalOptions)
   T = eltype(state.x)
-  λmax = _lambda_max!(state)       # first: it uses xhat, which APG's gradient below also uses
+  λmax = _lambda_max!(state, _scale_norm(g))   # first: it uses xhat, which APG's gradient below also uses
   grad = _gradient_at_x!(state, f)
   gT = _converted_penalty(g, T)
   λ = _l1_level(gT)
@@ -169,19 +181,24 @@ function _stationary!(state, f, g, options::ProximalOptions)
     t * threshold >= floatmin(T) / eps(T) && r < threshold
 end
 
-# α‖Xᵀy‖∞, computed once per solve (state.λmax is negative until then) with the arithmetic of the
-# gradient oracle at x = 0 (Xᵀ times a vector, then the scale α). It is formed in state.xhat. At
+# α‖Xᵀy‖ = ‖∇f(0)‖ in the norm `nrm` (the ∞-norm by default, as in the default check; the dedicated check passes _scale_norm(g)),
+# computed once per solve (state.λmax is negative until then; the penalty, and so the norm, is fixed in a
+# solve) with the arithmetic of the gradient oracle at x = 0 (Xᵀ times a vector, then the scale α). It is formed in state.xhat. At
 # every use in the solvers xhat is written before it is read (the input of the proximal step in
 # PGD's update_state!, the same input and the difference x - y in APG's _prox_grad_step!), and
 # the convergence tests and the trace do not read it, so a stop that is assessed after an
 # iteration can overwrite it. It is not a counted call.
-function _lambda_max!(state)
+function _lambda_max!(state, nrm = _norm_inf)
   state.λmax < 0 || return state.λmax
   m = state.model
   mul!(state.xhat, transpose(m.X), m.Y)
   state.xhat .*= m.α
-  state.λmax = _norm_inf(state.xhat)
+  state.λmax = nrm(state.xhat)
 end
+
+# The norm of ∇f(0) in the stop scale S: the ∞-norm, and for GroupNormL2 the largest 2-norm of a group block
+_scale_norm(g) = _norm_inf
+_scale_norm(g::GroupNormL2) = v -> maximum(G -> norm(view(v, G)), g.groups)
 
 # ∇f at the accepted x. PGD holds it.
 _gradient_at_x!(state::ProximalGradientDescentState, f) = state.grad_f_x
@@ -196,7 +213,7 @@ function _gradient_at_x!(state::AccProxGradDescentState, f)
   state.xhat
 end
 
-# The penalty with its levels converted to T, for NormL1 and ElasticNet (the penalties of the dedicated check above),
+# The penalty with its levels converted to T, for NormL1, ElasticNet and GroupNormL2 (the penalties of the dedicated check above),
 # and the ℓ1 level of a converted penalty
 _converted_penalty(g::NormL1{<:Real, Nothing}, ::Type{T}) where T = NormL1(T(g.λ0))
 # weights that are already in T are not converted or copied
@@ -212,6 +229,9 @@ _l1_level(g::NormL1) = g.λ0
 # the largest coefficient λ0 wᵢ of a penalty with weights in T and a level in T
 _l1_level(g::NormL1{<:Real, <:Vector}) = g.λ0 * maximum(g.w)
 _l1_level(g::ElasticNet) = g.λ1
+# solve! requires the parameters of a GroupNormL2 to be of type T; the level of the scale is the largest coefficient
+_converted_penalty(g::GroupNormL2{T}, ::Type{T}) where T = g
+_l1_level(g::GroupNormL2) = g.λ0 * maximum(g.w)
 
 # x == y elementwise, by value (so -0.0 == 0.0), without allocating
 function _unchanged(x::AbstractArray, y::AbstractArray)

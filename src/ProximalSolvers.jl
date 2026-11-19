@@ -13,7 +13,8 @@ an unweighted `NormL1`, and reports `converged = true` for it only with a dualit
 a `GroupNormL2` penalty, a `BlockIterate`. For a matrix response `Y` and a `GroupNormL2` whose
 groups are the rows of the coefficients, it accepts a `Matrix` coefficient (or a `BlockIterate`
 over its entries) with a dense `X`, `Y` and `LeastSquaresLoss`. [`ProximalGradientDescent`](@ref) and
-[`AccProxGradDescent`](@ref) accept a dense `Vector` only, all through [`solve!`](@ref).
+[`AccProxGradDescent`](@ref) accept a dense `Vector` only, all through [`solve!`](@ref);
+[`ProximalGradientDescent`](@ref) also solves the group lasso with a `GroupNormL2` penalty on it.
 Losses, proximal operators and coordinate storage belong to PB.
 """
 module ProximalSolvers
