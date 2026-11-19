@@ -329,11 +329,13 @@ or the symmetric box from `IndBallLinf(r)`. The design, response and
 coefficient vector obey [IN-01](@ref) and [IN-05](@ref). The solver checks
 feasibility of the supplied starting vector before writing to it.
 
-Each bound can be a `Vector{T}` with one entry per coefficient or a
-Float32, Float64, fixed-width integer or Bool scalar that converts exactly
-to `T`. A lower bound of `-Inf` or an upper bound of `Inf` denotes an
+An array bound is copied by ProximalBase into a vector in linear order.
+The stored vector must have element type `T` and one entry per coefficient.
+Scalar bounds may be Float32, Float64, fixed-width integers or Bool and
+must convert exactly to `T`. A lower bound of `-Inf` or an upper bound of `Inf` denotes an
 unbounded side. Equal finite bounds fix the coefficient. The stored bounds
-must form valid intervals and must be disjoint from the coefficient storage.
+must form valid intervals and be disjoint from the coefficient storage.
+Treat the stored bounds as read-only during a solve.
 
 Use `IndBallL2(r)` for four coefficients and a finite nonnegative radius
 of the same type `T`. At the pinned ProximalBase revision, the rounded
