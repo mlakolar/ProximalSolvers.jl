@@ -2,54 +2,55 @@
     ProximalGradientDescent(; ls=LineSearches.BackTracking(), normalized=false,
                              debias=0, preconditioner=:none)
 
-Proximal gradient descent (PGD) for least squares with a `NormL1` (lasso, with optional weights), `ElasticNet`,
-`NormLinf`, `NormL1Nonneg` (unweighted nonnegative lasso) or `GroupNormL2` (group lasso) penalty and a dense `Vector{Float32}` or `Vector{Float64}` coefficient
-iterate. Each iteration takes a gradient step for the smooth least-squares loss and applies the
-proximal operator of the penalty (ProximalBase's `value_and_prox!`): soft thresholding for `NormL1` (at the level
-`λ wⱼ` of entry `j` for `NormL1(λ, w)`), soft thresholding followed by the ridge weight for `ElasticNet`, for
-`NormLinf`, the point minus its projection onto the ℓ1 ball of radius `λ/L` (a clip of the entries at a common
-level), and for `GroupNormL2` the block soft threshold (each group block `v_G` of the input scaled by
-`max(0, 1 - γ λ wₖ/‖v_G‖₂)` at the step `γ`; a zero block stays zero); backtracking adjusts
-the step size. For `NormL1Nonneg(λ)`, the proximal step is `max(v - λ/L, 0)`;
-the start must be nonnegative, and a negative start is refused before writes.
-APG, coordinate descent, weighted penalties and sparse iterates are not supported for this penalty.
-Its point-aware KKT residual uses `abs(grad[j] + λ)` at positive coefficients and
-`max(-(grad[j] + λ), 0)` at zero coefficients, with the same scale
-`max(λ, α‖Xᵀy‖∞)` and tolerance floor described below.
-The curvature estimate before the first iteration is `min(1, α_f ‖X‖_F²)` for the loss scale
-`α_f`, with `‖X‖_F` an upper bound, rounded to `T` and raised to `floatmin(T)` when it is positive and
-rounds below that; it is `1` when that product is at least 1 or `X = 0`.
+Proximal gradient descent for least squares with `NormL1` (optionally weighted),
+unweighted `ElasticNet`, `NormLinf`, `GroupNormL2` or unweighted `NormL1Nonneg`.
+Coefficients are a dense
+`Vector{Float32}` or `Vector{Float64}` with same-type dense data.
+Each iteration combines a smooth-loss gradient step with the penalty's proximal
+operator, using backtracking. Pass [`ProximalOptions`](@ref) as the fifth argument
+to [`solve!`](@ref) for stopping and tracing.
 
-`ProximalGradientDescent()` uses the supported
-`LineSearches.BackTracking()` line search. A trial that it rejects is decided
-again, except in the cases that the `LineSearches.BackTracking` docstring
-lists, by the computed curvature `c` of the step from one product `X d`: it is
-accepted when `L ≥ c`, and otherwise the retry uses `c` in place of the
-estimate `L̂` when `c` is finite (see `LineSearches.BackTracking` and
-[numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/)). The options
-`normalized=true`, `debias>0`, `preconditioner!=:none` and custom
-line searches are not implemented and are rejected. These constructor
-keywords remain for compatibility with earlier versions; their default values
-are accepted and not stored.
+```julia
+using ProximalBase, ProximalSolvers
+X = [1.0 0.0; 0.0 2.0; 0.0 0.0]
+y = [2.0, -2.0, 0.5]
+beta = zeros(2)
+result = solve!(beta, (1/3)*LeastSquaresLoss(y, X), NormL1(0.1),
+                ProximalGradientDescent())
+```
 
-Pass `ProximalOptions(...)` as the fifth argument to `solve!` to
-configure stopping tolerances and iteration limits. A stop that the `xtol`, `ftol` or
-`gradtol` test proposes counts only if the computed KKT residual of the iterate is below
-`max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞` and `λ` the ℓ1 level of the penalty
-(`λ` of `NormL1(λ)`, the largest coefficient `T(λ) * maximum(w)` of `NormL1(λ, w)`, `λ1` of `ElasticNet`; see
-[`ProximalOptions`](@ref)); for `GroupNormL2(λ, groups, w)` the residual is the group KKT residual,
-`λmax = maxₖ α‖[Xᵀy]_{Gₖ}‖₂` and `λ = T(λ) * maximum(w)`; for `NormLinf` the generic proximal-gradient check of
-[`ProximalOptions`](@ref) applies instead. For `NormL1`, `ElasticNet` and `GroupNormL2`, `converged=true` guarantees
-only that the computed, normalized KKT
-residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the threshold is formed in
-`T`, which can round or overflow; see [`ProximalOptions`](@ref)); it is not an
-exact-arithmetic certificate, does not bound the distance to a minimizer and does not
-guarantee coefficient accuracy on ill-conditioned designs (see the
-[stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)), and the default tolerances are not a specified number of correct digits. In `Float32`, a solve can report `converged = true` at a relative duality gap above `1e-5`, as in measurements on small benchmark designs (see
-[the limits of the stopping tests](https://mlakolar.github.io/ProximalSolvers.jl/dev/stopping-limits/)). Tighten tolerances and
-check KKT conditions independently before reporting numerical results.
-See the [solver guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/)
-and [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
+`converged` is a computed stopping decision, not a coefficient-accuracy promise;
+see [the stopping contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-01).
+
+# Extended help
+
+`ls` must be `LineSearches.BackTracking`; custom line searches are unsupported.
+The compatibility keywords `normalized=false`, `debias=0` and
+`preconditioner=:none` are accepted only at their defaults and are not stored.
+PGD requires dense coefficients and refuses `SparseIterate`, `BlockIterate`,
+matrix responses and square-root loss. A group penalty must have the same
+parameter type as the data and groups partitioning the coefficients.
+
+For nonnegative lasso, use unweighted `NormL1Nonneg(lambda)` and a nonnegative
+starting vector. Infeasible starts are refused before writes, and the proximal
+step `max(v - lambda/L, 0)` preserves feasibility. The level must be finite,
+nonnegative and representable in the working type. Weighted `NormL1Nonneg` is
+unsupported, including an all-ones weight vector. This penalty is supported
+only by PGD. See [the input contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-07).
+
+A stopping proposal from the iterate, objective or gradient test must pass the
+applicable stationarity check. `NormL1`, `ElasticNet`, `GroupNormL2` and
+`NormL1Nonneg` have KKT checks; the nonnegative case uses the constrained
+scores at positive and zero coefficients specified by
+[STOP-16](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-16).
+`NormLinf` uses the generic proximal-gradient check. Assess fits with an
+independent diagnostic, particularly for Float32 or ill-conditioned designs.
+An error in an iteration restores the last accepted coefficient vector and
+is rethrown.
+
+- [Iteration sequence, cache and tracing](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-iteration/#PGD-01).
+- [Backtracking and numerical range limits](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/line-search/#LS-01).
+- [Stopping criteria and result interpretation](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-01).
 """
 struct ProximalGradientDescent{L} <: ProximalSolver
   ls::L
@@ -298,99 +299,70 @@ end
     solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions())
     solve!(x::BlockIterate, f, g::GroupNormL2, CDSolver())
 
-Minimize a least-squares lasso (with optional weights), elastic net or ℓ∞-penalized problem (the last with
-`ProximalGradientDescent` and `AccProxGradDescent`), or with `CDSolver` a square-root lasso, overwriting `x`.
-`x` is a dense `Vector{T}`,
-T=Float32 or Float64; `CDSolver` also accepts a one-dimensional `SparseIterate{T}`
-(see below), while the gradient methods (`ProximalGradientDescent`, `AccProxGradDescent`) refuse it.
-The `BlockIterate` form of `CDSolver` minimizes the group lasso with a `GroupNormL2` penalty on a
-`BlockIterate{T}` with the same groups; only `CDSolver` accepts a `BlockIterate`, and `CDSolver` describes it.
-`ProximalGradientDescent` and `AccProxGradDescent` also minimize the group lasso on a dense `Vector{T}` (see below). The loss
-uses same-type `Matrix` X and `Vector` y. The penalty of the gradient methods is a `NormL1(λ)` or
-`NormL1(λ, w)`, an unweighted `ElasticNet(λ1, λ2)` (`λ1 ‖x‖₁ + (λ2/2) ‖x‖²`) or `NormLinf(λ)` (`λ max|xᵢ|`),
-whose levels are finite and nonnegative and representable in `T` without overflow or underflow; for a dense
-`Vector` or a `SparseIterate`, `CDSolver` accepts the same penalties except `NormLinf` (see [`CDSolver`](@ref)),
-which it refuses (its coordinate step needs a separable penalty) before it changes `x` or uses its RNG; its
-`BlockIterate` form takes a `GroupNormL2`. The weights `w` of `NormL1(λ, w)` are a
-`Vector{T}` with one finite nonnegative entry per entry of `x` (`T` the element type of the data and of `x`),
-and `x` must not alias them. `solve!` checks the coefficient `T(λ) wⱼ` of entry `j`, the product rounded in `T`: it must be
-finite and, where `T(λ)` and `wⱼ` are both positive, a normal number of `T` (a zero or subnormal product, and a
-level `T(λ)` that is subnormal, are refused). The stopping check of PGD and APG uses it; ProximalBase's proximal
-steps form their thresholds from `λ` and `wⱼ` in their working type (see
-[Supported problems](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/#weighted-lasso-support)). A zero level or weight gives the coefficient 0, which is accepted; a zero
-weight leaves its entry unpenalized (it is not fixed at 0). Any other weight array type (a view, a range, a
-vector of another element type), a weighted `ElasticNet` and any `Scaled` penalty is refused. Use `(one(T)/T(n))*LeastSquaresLoss` for normalized lasso; raw LS keeps
-its unnormalized meaning. One positive finite scalar LS wrapper is supported. `CDSolver` also accepts
-ProximalBase's `SqrtLeastSquaresLoss(y, X)` with an unweighted `NormL1(λ)`, `λ > 0`, on a dense `Vector`
-or a `SparseIterate` (see [`CDSolver`](@ref)); the gradient methods refuse it, and `CDSolver` refuses it with a weighted `NormL1`.
+Minimize a supported penalized regression objective, overwriting `x`, and return
+a result whose `minimizer` is that coefficient storage. Use matching
+Float32/Float64 data and coefficients. CD additionally accepts sparse/group
+iterate storage and row-group matrix-response problems; PGD and APG require a
+dense coefficient vector. Choose a method and penalty from the
+[support matrix](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/).
 
-**Nonnegative lasso with `ProximalGradientDescent`.** `NormL1Nonneg(λ)` is supported only with
-this method, dense same-type data and a feasible nonnegative `Vector{T}` start. The level is finite,
-nonnegative and representable in `T` without overflow or underflow to zero. Weighted `NormL1Nonneg`,
-APG, coordinate descent and sparse or block iterates are refused before writes. Its stationarity check
-uses the point-aware constrained KKT residual and scale `max(T(λ), α‖Xᵀy‖∞)`, with
-`max(gradtol, 64 eps(T))` as the relative tolerance.
+```julia
+using ProximalBase, ProximalSolvers
+X = [1.0 0.0; 0.0 2.0; 0.0 0.0]
+y = [2.0, -2.0, 0.5]
+beta = zeros(2)
+result = solve!(beta, (1/3)*LeastSquaresLoss(y, X), NormL1(0.1),
+                CDSolver(order=:cyclic, momentum=false))
+saved_beta = copy(result.minimizer)
+```
 
-**Group lasso with `ProximalGradientDescent`.** On a dense `Vector{T}` with the least-squares loss above,
-`ProximalGradientDescent` accepts `g = GroupNormL2(λ, groups, w)` (or with the default weights) when `g` is a
-`GroupNormL2{T}` (its level and weights have the element type of the data; convert with
-`GroupNormL2(T(λ), groups, T.(w))`), its groups partition `1:p` (none empty, no index in two groups,
-none in no group, none above `p`) and match the layout stored in the penalty at construction (a change of `g.groups` after
-construction is refused where it disagrees with that layout; construct the penalty again), its weights are finite and nonnegative, `T(λ)` is zero or a normal number of `T`,
-each coefficient `λ wₖ`, rounded in `T`, is finite and, where `λ` and `wₖ` are both positive, a normal number of `T`,
-and `x` does not alias `w`. A zero weight leaves its group unpenalized. The proximal step is ProximalBase's block soft
-threshold, and the stopping check uses the group KKT residual of ProximalBase's `kkt_violation` (see
-[`ProximalOptions`](@ref)). `AccProxGradDescent` accepts the same `GroupNormL2` with the same stopping check;
-`CDSolver` on a dense `Vector` or a `SparseIterate` refuses it.
+The meaning of `converged` depends on the method and loss; see
+[result semantics](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/results-failures/#RES-01).
 
-Borrowed X/y must not alias mutable `x` or change during a solve. Results share
-`x`; copy it to retain earlier coefficients. Unsupported inputs/options fail
-before mutation. For PGD and APG, a stop of the stopping tests counts only at a point whose
-computed KKT residual (for a `NormLinf` penalty, the proximal-gradient residual) meets the bound of
-[`ProximalOptions`](@ref), which is not an exact-arithmetic certificate; CD stops by its change test, and for the square-root loss reports
-`converged = true` only when a duality certificate passes (see [`CDSolver`](@ref)). Finite intermediate arithmetic is required. PGD step errors restore
-its last accepted `x` and rethrow, without a transaction guarantee for internal
-counters.
+# Extended help
 
-**CD on a dense vector.** A numerical error, including a nonfinite final
-objective, leaves `x` unchanged.
+`LeastSquaresLoss` is half the sum of squared residuals. Multiply by `1/n` for
+the conventional normalized lasso. One supported positive scalar loss wrapper
+is accepted. Penalty levels and weights must meet the relevant input rules;
+a zero weight leaves its coefficient or group unpenalized.
 
-**CD on a `SparseIterate`.** All checks of inputs, options, shapes, finiteness of
-the active values, representable parameters and detectable aliases of `x` with X
-or y (through its backing storage, whether or not it has active entries) happen
-before the iterate is copied and before the RNG is used, so a refused call neither changes `x` nor
-advances the RNG. The solve then runs on `work = copy(x)`, which keeps the
-values, active zeros and the order of the active coordinates, with the same
-passes, activation, per-pass removal of zero coordinates, momentum and stopping
-as for a dense vector. It needs O(p) extra storage, and nothing is reconstructed
-through a dense vector.
+Do not modify data during a solve, or alias `x` with the data, penalty weights
+or other disallowed mutable storage. Results share `x`; copying the result
+object alone does not preserve earlier coefficients.
 
-When the run completes, with a finite objective, `x` receives the whole final
-state of `work` by a same-shape `copyto!(x, work)`: this includes a finite
-`maxpasses` outcome with `converged = false` and its warning, and `maxpasses = 0`,
-which leaves exactly the entry state, including active zeros and slot order.
-Zeros that a pass removed from `work` are not restored, and the order is not
-sorted. The result's `minimizer` is `x` itself. A numerical error (such as a
-nonfinite step or objective) throws with the values, the active set, signed zeros
-and the order of `x` unchanged; the borrowed RNG may already have advanced.
-After a successful call, take `activevalues(x)` and `activecoordinates(x)` again:
-handles taken earlier may no longer describe the active set.
+An exception escaping a CD solve leaves the caller's original coefficients
+unchanged; a completed finite run, including a pass-limit outcome, commits its final point.
+PGD/APG iteration errors restore the last accepted point and rethrow. Internal
+counters have no transaction guarantee. A borrowed CD RNG may have advanced
+when a numerical failure occurs during a pass. After a successful sparse/group
+solve, reacquire active-coordinate/value views because its active storage can
+change.
 
-**CD on a `BlockIterate`.** The checks of the receiver, momentum, penalty, groups,
-parameters, aliasing and finiteness happen before the iterate is copied and before the RNG is
-used, and a refused call neither changes `x` nor advances the RNG. The curvature and step
-refusals that can be decided from the data follow, before the first pass, before any RNG draw and
-only when `maxpasses > 0`, with `x` unchanged; the curvature of a group that is neither flat nor
-a one-column group with `n eps(T) <= 1/8` is computed in that preparation, or at the first visit that
-needs it when cheap bounds exclude a refusal (under the eigenvalue model for groups of three or more columns and for groups of two columns
-outside the range of their closed-form bound), and an exception of its eigenvalue routine or a
-refusal at that point happens during a pass, with `x` unchanged and the RNG possibly advanced. The solve
-then runs on `work = copy(x)` and `x` receives the final state of `work` by one `copyto!`.
-Zero groups are deactivated after a pass, so the active groups of `x` after a solve with at
-least one pass are the groups with a nonzero block; with `maxpasses = 0` the entry state is kept,
-including active groups whose block is zero. A numerical error leaves
-the values and the active groups of `x` unchanged, though the borrowed RNG may already have
-advanced. The result's `minimizer` is `x` itself.
+Ridge via uncentered `SqrNormL2(lambda)` is supported with least squares and CD
+on a dense vector or one-dimensional `SparseIterate`. Its penalty is
+`(lambda/2) * sum(abs2, x)`; `lambda` must be finite, nonnegative and representable
+in the coefficient type. Centered penalties, including an all-zero center, and
+this penalty with PGD, APG, block/matrix coefficients or square-root loss are refused.
+See [supported inputs](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-01).
+
+Group CD requires a `BlockIterate` with the penalty's ordered groups; group
+PGD/APG require a same-type `GroupNormL2{T}` and dense coefficients.
+Square-root lasso is available only with CD, an unscaled loss and an unweighted
+positive L1 level; its successful stopping flag requires a certificate.
+
+Nonnegative lasso uses unweighted `NormL1Nonneg(lambda)` with PGD only, dense
+same-type least-squares data and a nonnegative starting vector. An infeasible
+start is refused before writes. APG, CD, weighted `NormL1Nonneg`, sparse/block
+iterates and square-root loss are unsupported for this penalty. Its dedicated
+check uses the constrained KKT residual and the lasso's symmetric gradient scale;
+see [inputs](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-07)
+and [stopping](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-16).
+
+- [Supported inputs, dimensions and scalar parameters](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-01).
+- [Aliasing and borrowed input requirements](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-05).
+- [Results, mutations and numerical failures](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/results-failures/#RES-01).
+- [Sparse iterate storage and commitment](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/cd-sparse-iterate/#CDS-01).
+- [Group steps and private storage](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/cd-group/#CDG-01).
 """
 function solve!(x, f, g, method::ProximalGradientDescent,
                 options::ProximalOptions = ProximalOptions(); kwargs...)

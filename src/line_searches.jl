@@ -15,81 +15,41 @@ export
 """
     BackTracking(; α = 0.9, β = 0.5, Lexact = Inf)
 
-The backtracking line search of TFOCS (`private/tfocs_backtrack.m`). Each
-iteration starts from `L ← α L`, where `1/L` is the step size, and while the
-local Lipschitz estimate `L̂` of the step exceeds `L` it retries with
-`L ← min(Lexact, max(L̂, L / β))`. `L̂` comes from function values until they
-are too close to compare in floating point, and from gradients after that.
-An LS trial whose image or value overflows is never accepted: it gives no
-estimate, and the search retries with `L ← L / β`.
+Backtracking settings for [`ProximalGradientDescent`](@ref ProximalSolvers.ProximalGradientDescent).
+The step size is `1/L`; each iteration initially replaces `L` by `α*L`, and
+rejected trials raise it using the local curvature estimate and `β`.
+The object stores settings only and can be shared between solves; iteration
+bookkeeping belongs to the solver state.
 
-For [`ProximalGradientDescent`](@ref ProximalSolvers.ProximalGradientDescent)
-on its supported least-squares model, a rejected trial with step `d̂ = x - x'`
-is decided again by the computed curvature of the step,
-`c = m α ‖fl(X d̂)‖²/‖d̂‖²`, from one product `X d̂`, with `m = 1` for
-function-value estimates and `m = 2` for gradient estimates (TFOCS's gradient
-test `2α ‖X d‖² ≤ L ‖d‖²`). When `L ≥ c` the trial is accepted and the estimate
-mode is unchanged; otherwise the retry uses `L ← min(Lexact, max(c, L / β))`
-when `c` is finite, and TFOCS's `L ← min(Lexact, max(L̂, L / β))` when it is
-not. `c` carries no rounding certificate: when `L` is within rounding of the
-curvature along `d̂`, the decision can go either way. For Float32 data the
-squared norms are accumulated in Float64, and two allowances are added to
-`‖fl(X d̂)‖` before squaring: `2√n p floatmin(Float32)` for underflow of the
-results, and `√n floatmin(Float32) ‖d̂‖₁` for subnormal entries of `X` that a
-thread flushing subnormals to zero (the calling thread or a BLAS thread) drops
-from the product. They assume that flushing affects only subnormal operands and
-results, and give no certificate. The curvature value compared with `L`, in
-Float64, is then positive when finite, so a product lost to underflow or
-flushing does not make it zero. The estimate used for a retry is that value
-rounded to Float32, which may round to Inf (when the conversion overflows).
-TFOCS's update is kept when the product overflowed, when the calling thread
-flushes subnormals to zero, and when `d̂` has a subnormal entry. For Float64 data,
-overflow or underflow of `‖fl(X d̂)‖²`, underflow of `‖d̂‖²`, and overflow of `‖d̂‖²` for a
-step with a nonfinite entry or in a narrow band around the overflow threshold of `‖d‖²`
-(where `norm(d)^2` can be finite and `sum(abs2, d)` not) can make `c` nonfinite (TFOCS's
-update is then kept) or spuriously zero (the trial is then accepted). A rejection is not
-checked, and keeps TFOCS's update, when its trial value is not finite, when the
-computed `‖d̂‖²` is zero (the zero-step exit, which includes a tiny nonzero step
-whose square underflows), when `L̂` is NaN, or when a gradient estimate comes
-from a gradient `∇f(x)` with a nonfinite entry. Accepted trials are not checked.
+```julia
+using ProximalSolvers
+ls = ProximalSolvers.LineSearches.BackTracking(α=0.9, β=0.5)
+method = ProximalGradientDescent(ls=ls)
+```
 
-When the step `d = x - x'` of a trial has finite entries, `norm(d)^2` overflows in the type of
-`x` (the squared norm is `Inf`) and the trial value `f(x)` is finite, the trial is decided on the
-scaled step `d̃ = s d`, `s = 2^(-e)` with `e = min(exponent(max |dᵢ|), exponent(floatmax(T)) - 1)`
-for the type `T` of `x`, so that `s` is a normal number and the largest entry of `d̃` is in
-`[1, 2)`, or in `[2, 4)` when `exponent(max |dᵢ|)` is `exponent(floatmax(T))`. A trial whose
-value `f(x)` is not finite is not scaled: it takes the exit for a nonfinite trial value described
-above. `L̂` is formed from `d̃`, from `f(x)` and `f(x')` multiplied by `s²` (by shifting their
-exponents, since `s²` can underflow), and from the products of `d̃` and `∇f` multiplied by `s`;
-in exact arithmetic it equals the estimate at `d`. The trial is then decided as at a
-representable scale, up to the rounding of the computed `f` and `∇f`, overflow of the products
-`⟨d̃, ∇f(x')⟩` and `⟨∇f(x) - ∇f(x'), d̃⟩` before they are multiplied by `s` (an infinite
-product, or a NaN from overflowed terms of opposite sign), and underflow of an entry of `d̃`, of
-a scaled function value or of `L̂`. Such a product is not recovered by the scaling: `L̂` is
-formed from it by the same expressions as for an unscaled step, with the scaled quantities, so
-it can be finite, infinite or NaN (for example, with finite `f(x)` and `f(x')`, a `+Inf`
-function-value product gives `L̂ = L`, and the trial is accepted without the check). The check
-of a rejected trial reads `d̃`, with `‖d̃‖²` between 1 and about `16n`; for Float32 data it is
-also subject to the allowances above, and an entry of `d̃` that is subnormal keeps TFOCS's
-update, while an entry of `d` with `|s dᵢ| ≤ 2^-150` rounds to zero in `d̃`, is not detected, and
-drops out of both sums of squares and of the product. After an accepted trial the solver state
-holds `x - x'` again. A step with a nonfinite entry is not scaled, and neither is a step whose
-squared norm underflows.
+Step acceptance does not certify the returned optimum; see
+[the line-search contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/line-search/#LS-01).
 
-In gradient mode a zero gradient-difference product gives `L̂ = 0`, and the trial is
-accepted. This includes Float64 data with `‖d̂‖²` below `2/floatmax(Float64)` (about
-1.1e-308), where `2/‖d̂‖²` overflows and scaling the product would give `0 · Inf = NaN`.
-A subnormal `‖d̂‖²` can make the Float64 estimates unreliable, and this does not make a
-solve converge at such scales: a solve can still end with `converged = false` or with a
-line-search error. One case is not handled: a subnormal `‖d̂‖²` with a nonzero product, or
-with function-value rounding noise (`f(x) > q`, with `q` the quadratic model at the trial
-`x`), can give `L̂ = Inf`, and when `sum(abs2, d̂)` underflows to 0 while `‖d̂‖² > 0` (every
-entry of `d̂` below about 1.57e-162), the computed curvature of the step is not finite and
-does not replace that estimate.
-See [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
+# Extended help
 
-The object holds settings only and can be shared between solves; the
-bookkeeping lives in the solver state.
+The reference algorithm is TFOCS's `private/tfocs_backtrack.m`.
+
+- `α=0.9`: curvature reduction before an iteration; requires `0 < α <= 1`.
+- `β=0.5`: raises curvature after a rejection, shrinking the step;
+  requires `0 < β < 1`.
+- `Lexact=Inf`: positive cap used by the curvature-estimate retry update.
+
+The search starts with function-value estimates and can switch to gradient
+estimates when values are too close to compare. The least-squares implementation
+can recheck a rejected trial using its computed curvature. A trial with a
+nonfinite image or value is not accepted. Certain overflowing step norms are
+rescaled, but the implementation does not recover every underflow, cancellation
+or nonfinite intermediate.
+
+These checks do not supply a general rounding certificate. A line-search error
+is propagated by `solve!` after restoring the last accepted coefficient vector.
+The precise update formulas, recheck exceptions and range limitations are in
+[LS-01](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/line-search/#LS-01).
 """
 struct BackTracking{T<:Real}
     α::T

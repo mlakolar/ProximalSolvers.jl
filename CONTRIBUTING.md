@@ -119,3 +119,64 @@ Historical measurements and the deferred macOS C0 warm-convergence
 case remain in the repository audits. No public release or
 registry version decision follows automatically from the rebuild.
 Existing release tags and preserved PR branches remain separate.
+
+## Learn, Use and Contracts documentation
+
+The site separates student lessons in `docs/src/learn/`, practitioner guidance in
+the existing flat pages, and numerical specifications in `docs/src/contracts/`.
+Read `AGENTS.md` and the contracts index before changing a routine. A full rule
+belongs in one numbered clause; summaries elsewhere link to that clause. Clause
+IDs are permanent, including retired clauses with explicit replacements.
+A pull request that changes a Statement needs owner review and a linked test
+change, or a Tests note explaining why none is needed. This migration reorganizes
+documentation only; linking every existing testset to a clause is follow-up work.
+
+### Support matrix updates
+
+**Updating the matrix.** A pull request that adds or removes support for a combination
+changes its cell and its tutorial link in the same pull request, together with the test
+that backs the new cell. A pull request that adds a problem adds a row, a tutorial under
+`examples/problems/` (or registers the path of its example) and its entry in the registry
+in `docs/make.jl`.
+
+### Documentation checks
+
+```sh
+python3 scripts/check_docs_layers.py
+python3 -m unittest discover -s scripts -p 'test_docs*.py'
+python3 scripts/docs_ledger.py verify-baseline --previous-ref origin/master
+python3 scripts/docs_ledger.py check --structural
+julia --project=docs docs/make.jl
+python3 scripts/docs_ledger.py check-urls
+```
+
+The layer checker rejects missing clause metadata, duplicate or removed IDs and
+missing Learn exercises. Word counts, long paragraphs and layer vocabulary are
+review reports. The Documentation workflow runs these checks and the full
+Documenter build, including the executable examples; a successful HTML build is
+required before publishing a preview.
+
+`docs/migration/baseline.json` records the immutable starting commit and original
+text. The CSV maps each baseline block to its authoritative destination. During
+the migration run `docs_ledger.py check` and `check_docs_layers.py --migration` as
+well: these check retained executable blocks, integrated example scripts, source bytes
+outside docstrings, and distinctive-token coverage. The full ledger check scans
+authored documentation and actual help text for baseline code/math spans,
+identifiers, issue references, error fragments, paths, and numbers with units or
+exponents. It excludes migration records, tests, generated pages and hidden
+comments. Missing information must be restored. An equivalent notation change
+needs an exact, individually explained entry in `docs/migration/token-waivers.txt`
+that identifies every originating block and replacement text in an existing
+contract clause; stale or unsupported waivers fail. Use
+`python3 scripts/docs_ledger.py check --token-report /tmp/docs-token-coverage.json`
+to inspect all retained, waived and missing tokens. The Documentation workflow
+preserves the report as an artifact during the introducing migration.
+
+The workflow compares with the pull request base, pre-push commit, or default
+branch for manual builds. It verifies the inventory against the recorded Git
+snapshots when first introduced, then freezes that historical inventory and uses
+structural checks on later changes. This keeps the
+migration auditable without preventing subsequent reviewed development.
+The URL check remains permanent: retained old pages and heading fragments are
+checked against rendered HTML. New contracts, tests and behavior changes are
+reviewed normally; the historical baseline is not regenerated to hide changes.

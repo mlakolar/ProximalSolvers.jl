@@ -68,6 +68,10 @@ Run a script from the repository root with `julia --project=. examples/<path>`.
 | `comparisons/lasso_solvers.jl` | Lasso on a seeded correlated design | Cyclic and random-order `CDSolver`; `ProximalGradientDescent` | The reference solution (cyclic `CDSolver` at a very small tolerance): it reports `converged`, its KKT violation is at most `1e-10 λ`, and its objective agrees with the independent objective; that each solver reaches the accuracy target at some setting of its sweep |
 | `comparisons/group_lasso_solvers.jl` | Group lasso with noncontiguous groups on a seeded correlated design | Cyclic `CDSolver` on a `BlockIterate`; `ProximalGradientDescent` and `AccProxGradDescent` on a dense `Vector` | The reference solution (cyclic `CDSolver` at a very small tolerance): it reports `converged` and its group KKT violation is at most `1e-10 λ`; that each solver reaches the accuracy target (objective gap and group KKT violation computed from the data) at some setting of its sweep |
 
+The elastic-net script also demonstrates uncentered `SqrNormL2` ridge with
+`CDSolver`. It checks the coefficient owner and agreement within `1e-7` in the
+infinity norm with the direct ridge normal-equation solution.
+
 Both solver comparisons measure the time to reach the same independently checked objective
 gap and KKT violation. The scripts print tables, and the documentation build adds figures.
 The lasso comparison also has a downloadable notebook that uses Plots. Times are illustrative,

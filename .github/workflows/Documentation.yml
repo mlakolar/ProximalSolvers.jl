@@ -27,12 +27,51 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          fetch-depth: 2
       - uses: julia-actions/setup-julia@v3
         with:
           version: '1'
       - uses: julia-actions/cache@v3
         with:
           delete-old-caches: false # deletion needs actions: write
+      - name: Check documentation structure and migration records
+        shell: bash
+        env:
+          DOCS_EVENT_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          DOCS_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          # PRs compare with their base; pushes compare with the pre-push commit.
+          # Manual builds compare with the published default branch, including
+          # when the selected branch has several migration commits already.
+          if [[ -n "$DOCS_EVENT_BASE" && ! "$DOCS_EVENT_BASE" =~ ^0+$ ]]; then
+            [[ "$DOCS_EVENT_BASE" =~ ^[0-9a-f]{40}$ ]]
+            docs_base="$DOCS_EVENT_BASE"
+            git fetch --no-tags --depth=1 origin "$docs_base"
+          else
+            git fetch --no-tags --depth=1 origin "refs/heads/$DOCS_DEFAULT_BRANCH"
+            docs_base="$(git rev-parse FETCH_HEAD)"
+          fi
+          docs_introduced=false
+          if ! git cat-file -e "$docs_base:docs/migration/baseline.json" 2>/dev/null; then
+            docs_introduced=true
+            mapfile -t docs_snapshots < <(python3 -c 'import json; m=json.load(open("docs/migration/baseline.json")); print(m["baseline"]); print(m["implementation_baseline"])')
+            [[ "${#docs_snapshots[@]}" -eq 2 ]]
+            for docs_snapshot in "${docs_snapshots[@]}"; do
+              [[ "$docs_snapshot" =~ ^[0-9a-f]{40}$ ]]
+              git fetch --no-tags --depth=1 origin "$docs_snapshot"
+            done
+          fi
+          python3 -m unittest discover -s scripts -p 'test_docs*.py'
+          python3 scripts/docs_ledger.py verify-baseline --previous-ref "$docs_base"
+          python3 scripts/check_docs_layers.py --previous-ref "$docs_base"
+          python3 scripts/docs_ledger.py check --structural
+          # Freeze integrated examples and non-docstring code only while introducing
+          # the migration. The immutable inventory remains checked on future PRs.
+          if [[ "$docs_introduced" == true ]]; then
+            python3 scripts/check_docs_layers.py --migration
+            python3 scripts/docs_ledger.py check --token-report "$RUNNER_TEMP/docs-token-coverage.json"
+          fi
       - name: Install the documentation environment
         run: julia --color=yes --project=docs -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate(); Pkg.status(; mode=Pkg.PKGMODE_MANIFEST)'
       - name: Build and check
@@ -40,6 +79,7 @@ jobs:
         run: |
           set -euo pipefail
           julia --project=docs docs/make.jl 2>&1 | tee "$RUNNER_TEMP/ps-docs-build.log"
+          python3 scripts/docs_ledger.py check-urls
       - name: Preserve rendered HTML
         uses: actions/upload-artifact@v7
         with:
@@ -53,6 +93,14 @@ jobs:
         with:
           name: documentation-build-log-linux-current-julia
           path: ${{ runner.temp }}/ps-docs-build.log
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Preserve migration token coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: documentation-migration-token-coverage
+          path: ${{ runner.temp }}/docs-token-coverage.json
           if-no-files-found: ignore
           retention-days: 14
   preview:

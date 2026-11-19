@@ -36,3 +36,6 @@
 *.jld2
 *.parquet
 *.npz
+
+# Local Python documentation-check caches
+/scripts/__pycache__/

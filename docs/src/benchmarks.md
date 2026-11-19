@@ -21,3 +21,11 @@ Its documentation is in the repository:
 
 A statement about the speed of one solver relative to another needs such a record, at the same
 independently measured accuracy, and this documentation does not make one.
+
+## Historical observations
+
+The [strict-accuracy configuration](@ref EVIDENCE-STRICT-01),
+[lazy-curvature measurements](@ref evidence-lazy-curvature-cost), and
+[cached-residual investigation](@ref evidence-cached-residual-378) retain the
+context of earlier measurements. Read their stated problems and environments
+before using them to choose a configuration.
