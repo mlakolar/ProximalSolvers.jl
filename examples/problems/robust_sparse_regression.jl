@@ -87,7 +87,8 @@ ordinary_signal = X * beta_ordinary
 #!jl display_rank = invperm(display_order)
 #!jl signalplot = plot(1:n, clean_signal[display_order]; label="Clean signal", color=:black,
 #!jl   linewidth=2.5, xlabel="Observation rank by clean signal", ylabel="Response",
-#!jl   title="A few large errors can distort ordinary lasso", legend=:topleft)
+#!jl   title="A few large errors can distort ordinary lasso", legend=:topleft,
+#!jl   ylims=(minimum(y) - 2, maximum(y) + 2))
 #!jl scatter!(signalplot, 1:n, y[display_order]; label="Observed response", color=:gray,
 #!jl   markersize=3, markerstrokewidth=0, alpha=0.65)
 #!jl plot!(signalplot, 1:n, ordinary_signal[display_order]; label="Ordinary lasso signal",
@@ -98,7 +99,7 @@ ordinary_signal = X * beta_ordinary
 #!jl   color=:crimson, markershape=:xcross, markersize=7, markerstrokewidth=2)
 #!jl correctionplot = bar(1:n, outlier_hat; label="Estimated correction", color=:royalblue,
 #!jl   xlabel="Original observation number", ylabel="Correction amplitude",
-#!jl   title="Sparse corrections locate unusual responses", legend=:bottomleft)
+#!jl   title="Sparse corrections locate unusual responses", legend=:bottomleft, ylims=(-18, 18))
 #!jl scatter!(correctionplot, contaminated, outlier_true[contaminated]; label="True contamination",
 #!jl   color=:crimson, markershape=:xcross, markersize=7, markerstrokewidth=2)
 #!jl robust_figure = plot(signalplot, correctionplot; layout=(2, 1), size=(1000, 750),
