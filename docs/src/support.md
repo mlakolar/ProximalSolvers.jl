@@ -81,9 +81,9 @@ in `docs/make.jl`.
 
 These tutorials apply rows of the matrix to statistical problems and add no solver support.
 
-- [Categorical factor selection](examples/problems/categorical_group_selection.md): reference-coded factors selected as complete blocks, with an unpenalized intercept handled by centering (group lasso row, `CDSolver` on a `BlockIterate`, Float64).
 - [Change-point detection](examples/problems/change_point_detection.md): 1D total-variation denoising, rewritten as a lasso on a step design (lasso row, `CDSolver` on a `Vector`, Float64).
 - [Gaussian graph: neighborhood selection](examples/problems/nodewise_gaussian_graph.md): the graph of a Gaussian vector from one lasso regression per variable (lasso row, `CDSolver` on a `Vector`, Float64).
+- [Categorical factor selection](examples/problems/categorical_group_selection.md): reference-coded factors selected as complete blocks, with an unpenalized intercept handled by centering (group lasso row, `CDSolver` on a `BlockIterate`, Float64).
 - [Sparse additive regression](examples/problems/sparse_additive_regression.md): an additive model with one spline block per predictor, fitted as a group lasso (group lasso row, `CDSolver` on a `BlockIterate`, Float64).
 - [Multi-task group lasso](examples/problems/multitask_group_lasso.md): several regression tasks on one design with a shared set of predictors, the row-sparse penalty `λ √K Σⱼ ‖B[j, :]‖₂` on the coefficient matrix `B` (multi-response group lasso row, `CDSolver` on a `Matrix`, Float64).
 

@@ -10,9 +10,9 @@
 #
 #md # ![Estimated group norms by factor, colored by true relevance, with true norms shown as diamonds.](categorical_group_norms.svg)
 #
-# Bars show fitted coefficient norms; diamonds show the true norms. A zero bar removes the
-# complete factor. Colors identify relevant (blue) and irrelevant (orange) factors in the
-# simulation. Below we construct the data, fit this model, and check its numerical accuracy.
+# Bars and squares show the fitted group norms. Diamonds show the true norms, shifted
+# slightly to the right so both marks remain visible at zero. Blue denotes relevant factors
+# and orange denotes irrelevant factors in the simulation.
 using LinearAlgebra, Random
 using ProximalBase, ProximalSolvers
 
@@ -108,26 +108,29 @@ selected = findall(!iszero, estimated_norms)
 
 # ## Which factors survive?
 #
-# A bar at zero means every estimated contrast for that factor is zero. Colors mark the
-# known relevance in the simulation; diamonds show the true coefficient norms in this same
-# reference coding. Shrinkage usually makes the fitted norms smaller than the true ones.
-# This plot compares *complete factors*, rather than counting selected dummy coefficients.
+# An estimated norm of zero means every contrast for that factor is zero. In the run shown,
+# Region and Channel are selected, and their fitted norms are smaller than the true norms.
+# Plan, Device and Cohort have zero fitted norms.
 # Plotting runs only in the documentation environment; the standalone script and tests do
 # not load Plots. To reproduce the figure locally, run `julia --project=docs docs/make.jl`
 # after installing the documentation environment.
 #!jl using Plots
 #!jl labels = ["$(factor_names[j])\n($(nlevels[j]) levels)" for j in eachindex(groups)]
+#!jl relevant = findall(true_relevant)
+#!jl irrelevant = findall(!, true_relevant)
 #!jl colors = [active ? :steelblue : :darkorange for active in true_relevant]
-#!jl fig = bar(1:length(groups), estimated_norms; color = colors, label = "",
-#!jl           xticks = (1:length(groups), labels), ylabel = "Coefficient group norm",
+#!jl fig = bar(eachindex(groups), estimated_norms; color = colors, label = "",
+#!jl           xticks = (eachindex(groups), labels), ylabel = "Coefficient group norm",
 #!jl           xlabel = "Categorical factor (reference level 1)",
 #!jl           title = "Group lasso selects complete factors", size = (850, 420),
-#!jl           ylims = (0, 1.2 * maximum(true_norms)), legend = :topright,
+#!jl           ylims = (-0.13, 1.2 * maximum(true_norms)), legend = :topright,
 #!jl           bottom_margin = 6Plots.mm)
-#!jl scatter!(fig, [NaN], [NaN]; marker = :rect, color = :steelblue, label = "Estimate: relevant factor")
-#!jl scatter!(fig, [NaN], [NaN]; marker = :rect, color = :darkorange, label = "Estimate: irrelevant factor")
-#!jl scatter!(fig, 1:length(groups), true_norms; marker = :diamond, color = :black,
-#!jl          markersize = 6, label = "True norm")
+#!jl scatter!(fig, relevant, estimated_norms[relevant]; marker = :rect, color = :steelblue,
+#!jl          label = "Fit: relevant factor")
+#!jl scatter!(fig, irrelevant, estimated_norms[irrelevant]; marker = :rect, color = :darkorange,
+#!jl          label = "Fit: irrelevant factor")
+#!jl scatter!(fig, eachindex(groups) .+ 0.17, true_norms; marker = :diamond, color = :black,
+#!jl          markersize = 5, label = "True norm")
 #!jl savefig(fig, "categorical_group_norms.svg"); nothing
 
 println("λmax = ", lambdamax, "; λ = 0.12 λmax = ", lambda)
@@ -176,8 +179,8 @@ println("reference-level intercept: true = ", a_true, "; estimated = ", ahat)
 # \|h_{G_j}\|_2\le\lambda w_j\quad (\beta_{G_j}=0).
 # ```
 #
-# The largest residual below measures violation of these equations/inequalities. For this
-# convex problem they certify approximate numerical optimality, not statistical correctness.
+# The largest residual below measures violation of these equations and inequalities. A zero
+# residual characterizes a minimizer of this convex objective.
 objective(Z, z, b, groups, lambda) =
   sum(abs2, Z * b - z) / (2 * size(Z, 1)) +
   lambda * sum(sqrt(length(G)) * norm(b[G]) for G in groups)
