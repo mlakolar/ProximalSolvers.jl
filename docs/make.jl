@@ -15,11 +15,17 @@ const EXAMPLES = [
   (section = "Problems", path = "problems/elastic_net.jl", title = "Elastic net", notebook = false),
   (section = "Problems", path = "problems/group_lasso.jl", title = "Group lasso", notebook = false),
   (section = "Problems", path = "problems/square_root_lasso.jl", title = "Square-root lasso", notebook = false),
+  (section = "Problems", path = "problems/linf_regularized_regression.jl", title = "Least squares with an ℓ∞ penalty", notebook = false),
+  (section = "Statistical applications", path = "problems/scaled_lasso.jl", title = "Scaled lasso", notebook = false),
   (section = "Statistical applications", path = "problems/change_point_detection.jl", title = "Change-point detection", notebook = false),
   (section = "Statistical applications", path = "problems/nodewise_gaussian_graph.jl", title = "Gaussian graph: neighborhood selection", notebook = false),
   (section = "Statistical applications", path = "problems/sparse_additive_regression.jl", title = "Sparse additive regression", notebook = false),
+  (section = "Statistical applications", path = "problems/multitask_group_lasso.jl", title = "Multi-task group lasso", notebook = false),
+  (section = "Statistical applications", path = "problems/sparse_covariance_soft_thresholding.jl", title = "Sparse covariance thresholding", notebook = false),
   (section = "Solver comparisons", path = "comparisons/lasso_solvers.jl",
-   title = "Lasso: solvers at equal accuracy", notebook = true)]
+   title = "Lasso: solvers at equal accuracy", notebook = true),
+  (section = "Solver comparisons", path = "comparisons/group_lasso_solvers.jl",
+   title = "Group lasso: CD, PGD and APG", notebook = false)]
 
 # The set of scripts under `examples/`, in subfolders too, equals the registry.
 let root = joinpath(@__DIR__, "..", "examples"), found = String[]

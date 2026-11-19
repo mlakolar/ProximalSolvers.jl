@@ -88,12 +88,17 @@ pass: the iterate passed to `solve!` is unchanged and a borrowed RNG may have ad
 entries 0) sets its coordinate to 0, at the levels that `solve!` accepts. With `maxpasses = 0` no coordinate is visited. See
 [the elastic-net example](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples/problems/elastic_net/).
 
+PGD and APG also solve least squares with an ℓ∞ penalty, `NormLinf(λ)` (`λ max|βᵢ|`, finite `λ ≥ 0`), whose stopping
+check is the generic proximal-gradient check (see
+[the ℓ∞ example](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples/problems/linf_regularized_regression/)); `CDSolver`
+refuses `NormLinf`.
+
 The supported problem uses a finite dense `Matrix{T}`, finite `Vector{T}`
 response and matching coefficients, where `T` is `Float32` or `Float64`.
 CD additionally accepts one-dimensional ProximalBase `SparseIterate`
 coefficients, and, for a group lasso, a ProximalBase `BlockIterate` with a
 `GroupNormL2` penalty; PGD and accelerated PGD (`AccProxGradDescent`) accept dense
-coefficients only. CD also minimizes the square-root lasso `norm(y - X*beta) + lambda * norm(beta, 1)`
+coefficients only, and also solve the group lasso on them with a `GroupNormL2{T}` penalty for data of type `T`. CD also minimizes the square-root lasso `norm(y - X*beta) + lambda * norm(beta, 1)`
 with ProximalBase's `SqrtLeastSquaresLoss(y, X)` and `NormL1(lambda)`, `lambda > 0`; there
 `converged = true` only when a duality certificate proves the relative gap to be at most `1e-4`, and
 `gap` reports that bound. Generalized models,

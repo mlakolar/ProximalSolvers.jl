@@ -99,7 +99,7 @@ accepted(x, f, g; method = CDSolver(order = :random)) = PS._check_block_problem(
       refused(ArgumentError, "GroupNormL2", iterate(T), f, GroupNormL2(Float16(0.1), GROUPS))
       refused(ArgumentError, "Float32 or Float64 parameters", iterate(T), f, GroupNormL2(Float16(0.1), GROUPS))
       refused(ArgumentError, "(got Float16 parameters)", iterate(T), f, GroupNormL2(Float16(0.1), GROUPS))
-      # the type parameter is reported, not the type of the level (0.125 is a Float64)
+      # The declared type parameter, Real, differs from the runtime Float64 level type.
       refused(ArgumentError, "(got Real parameters)", iterate(T), f,
               GroupNormL2{Real, typeof(GROUPS)}(0.125, GROUPS, Real[1, 1, 1]))
       setprecision(BigFloat, 128) do
@@ -204,11 +204,13 @@ accepted(x, f, g; method = CDSolver(order = :random)) = PS._check_block_problem(
       end
     end
 
-    @testset "other receivers refuse a GroupNormL2 with a pointer to the block solver ($T)" begin
+    @testset "CDSolver GroupNormL2 receiver diagnostics ($T)" begin
       for x in (zeros(T, 5), SparseIterate(T, 5))
         before = Vector(x)
         err = try solve!(x, f, g, CDSolver()) catch e e end
-        @test err isa ArgumentError && occursin("GroupNormL2 (the group lasso) is supported by CDSolver on a BlockIterate", message(err))
+        @test err isa ArgumentError && occursin("CDSolver does not support GroupNormL2 (the group lasso)", message(err))
+        @test occursin("CDSolver on a BlockIterate", message(err))
+        @test occursin("ProximalGradientDescent or AccProxGradDescent on a dense Vector", message(err))
         @test Vector(x) == before
       end
       for method in (ProximalGradientDescent(), AccProxGradDescent())
@@ -221,22 +223,19 @@ accepted(x, f, g; method = CDSolver(order = :random)) = PS._check_block_problem(
     end
 
     @testset "ElasticNet on a BlockIterate ($T)" begin
-      # solve! with CDSolver on a BlockIterate refuses an ElasticNet penalty, and a NormL1 penalty with
-      # or without weights, naming the penalty type
+      # Refuse a non-group penalty with its type name, but without the precision clause.
       refused_not_group(iterate(T), f, ElasticNet(T(0.1), T(0.2)), "ElasticNet")
       refused_not_group(iterate(T), f, NormL1(T(0.1)), "NormL1")
       refused_not_group(iterate(T), f, NormL1(T(0.1), ones(T, 5)), "NormL1")
     end
 
     @testset "GroupNormL2 with PGD and APG on a Vector ($T)" begin
-      # solve! with PGD or APG refuses a GroupNormL2 penalty on a dense Vector with a pointer to CDSolver on a
-      # BlockIterate, and the vector keeps its entries, signed zeros included
-      for method in (ProximalGradientDescent(), AccProxGradDescent()), start in (zeros(T, 5), T[0, 0, 0.5, 0, -0.25])
+      # PGD and APG solve the group lasso on a dense Vector (test/group_pgd.jl checks the solutions)
+      for start in (zeros(T, 5), T[0, 0, 0.5, 0, -0.25]), method in (ProximalGradientDescent(), AccProxGradDescent())
         x = copy(start)
-        err = try solve!(x, f, g, method) catch e e end
-        @test err isa ArgumentError
-        @test err !== nothing && occursin("GroupNormL2 (the group lasso) is supported by CDSolver on a BlockIterate", message(err))
-        @test isequal(x, start)
+        res = solve!(x, f, g, method)
+        @test res.minimizer === x
+        @test !isequal(x, start)
       end
     end
   end

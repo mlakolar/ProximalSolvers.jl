@@ -14,7 +14,7 @@ rollback and allocations) and with CDSolver (`cd_elasticnet`: BigFloat residual 
 and signed-support references, `NormL1` equality at `λ2 = 0`, flat and out-of-range columns, refusals and rollback) and the weighted lasso `NormL1(λ, w)` with CD, PGD and APG (`weighted_lasso`: a BigFloat
 oracle from the stored data with the exact coefficients λ wⱼ, closed-form and signed-support references, the
 coefficient range rule at its overflow and underflow boundaries, zero weights and flat columns, the stopping check, the
-exceptional coordinate step against BigFloat, refusals before any write or draw, rollback and allocations). Full adds every `.jl` script under `examples/`, including its subfolders, which
+exceptional coordinate step against BigFloat, refusals before any write or draw, rollback and allocations) and the group lasso with PGD and APG on a dense Vector (`group_pgd`: independent BigFloat references and residual check, a false-stop guard, refusals before any write and allocations) and the matrix-response row-group lasso with CDSolver (`multiresponse_cd`: an independent row-wise KKT residual and BigFloat objective, `λmax`, an orthogonal-design reference, agreement with the Kronecker formulation and with the lasso for one response, zero columns, ownership, refusals before any write or draw, and allocations). Full adds every `.jl` script under `examples/`, including its subfolders, which
 `test/examples.jl` discovers by itself, the exploratory benchmark script
 (`benchmark_explore`) and the formal benchmark harness on the current core
 (`benchmark_formal`: case selection and deferral, inputs, certificates, resets,

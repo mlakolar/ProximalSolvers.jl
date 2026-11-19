@@ -24,7 +24,8 @@ noise level jointly. For fixed `β` with `y ≠ Xβ`, the minimum over `σ > 0` 
 value `‖y − Xβ‖₂/√n + λ₀‖β‖₁`; so `β̂` is a square-root lasso minimizer at `λₙ = λ₀` (that is,
 `λ = √n λ₀` in the unnormalized form), and `σ̂ = ‖y − Xβ̂‖₂/√n` when `y ≠ Xβ̂` (at an exact fit the
 infimum over `σ > 0` is not attained). ProximalSolvers does not provide the scaled lasso as a separate
-method. It is not `Scaled(LeastSquaresLoss(y, X), s)`, which is the least-squares loss multiplied by a fixed
+method; [the scaled-lasso tutorial](examples/problems/scaled_lasso.md) shows the computation. It is not
+`Scaled(LeastSquaresLoss(y, X), s)`, which is the least-squares loss multiplied by a fixed
 `s` (for example `s = 1/n` for the normalized lasso) and estimates no noise level.
 
 References: Belloni, A., Chernozhukov, V. and Wang, L. (2011), Square-root lasso: pivotal recovery of sparse
@@ -64,7 +65,8 @@ groups and an active coordinate is a group number.
 
 **BlockIterate:** A ProximalBase coefficient vector whose coordinates for
 coordinate descent are groups of entries that partition `1:p`. `CDSolver`
-uses it with a `GroupNormL2` penalty for the group lasso.
+uses it with a `GroupNormL2` penalty for the group lasso; PGD and APG solve the group lasso on a dense
+`Vector` instead and refuse a `BlockIterate`.
 
 **Compaction:** Removing zero-valued coordinates from the list of
 active coordinates, possibly changing their storage order.

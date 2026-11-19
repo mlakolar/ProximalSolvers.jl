@@ -1,8 +1,8 @@
 # Choosing a solver
 
-The three supported algorithms solve the **same dense least-squares lasso**; CD
-also solves a group lasso (see [Group lasso](choosing-solver.md#Group-lasso-with-block-coordinate-descent))
-and the square-root lasso `norm(y - X*beta) + lambda * norm(beta, 1)` (see [Supported problems](support.md)).
+The three supported algorithms solve the **same dense least-squares lasso**; CD, PGD and APG
+also solve a group lasso (see [Group lasso](choosing-solver.md#Group-lasso-with-block-coordinate-descent)), and CD
+also solves the square-root lasso `norm(y - X*beta) + lambda * norm(beta, 1)` (see [Supported problems](support.md)).
 The difference is how they update coefficients, not what objective is minimized.
 For definitions of soft-thresholding, CD and PGD, see [What problem, which algorithm?](concepts.md).
 
@@ -173,7 +173,9 @@ residual that is checked does not bound the coefficient error.
 PGD's stopping tests combine by **OR**, so any one of them can propose a stop,
 and a proposed stop counts only if the computed KKT residual `‖G‖∞` is below
 `max(gradtol, 64eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞` and `λ` the ℓ1 level of the penalty
-(`λ1` for an `ElasticNet`, whose residual includes the ridge term `λ2 x`). A solve
+(`λ1` for an `ElasticNet`, whose residual includes the ridge term `λ2 x`; for a `GroupNormL2`, the group residual
+and scale of [the stationarity check](@ref "The stationarity check of a stop"); a `NormLinf` penalty uses the
+[generic check](numerics.md#The-generic-stationarity-check)). A solve
 that the check keeps from stopping continues, and can end at `maxiter` with
 `converged=false`. `ftol = 0` switches the objective-change test off, as
 described under Strict accuracy in [Numerical behavior](numerics.md).
@@ -233,9 +235,10 @@ Use it when the coefficients come in known groups that should enter or leave the
 model together. The penalty is `GroupNormL2(lambda, groups)`, that is
 `lambda * sum_k w_k * norm(beta[G_k])` with the default weights
 `w_k = sqrt(length(G_k))`, and the objective is the least-squares loss plus this
-penalty. Only `CDSolver` solves it, with a ProximalBase `BlockIterate` that has the
-groups of the penalty; `ProximalGradientDescent` and `AccProxGradDescent` refuse
-both. The groups may be any disjoint index sets, in any order, and together they must
+penalty. `CDSolver` solves it with a ProximalBase `BlockIterate` that has the
+groups of the penalty, and `ProximalGradientDescent` with a dense `Vector{T}` and a
+`GroupNormL2{T}` (level and weights of the element type of the data), as does
+`AccProxGradDescent`. The groups may be any disjoint index sets, in any order, and together they must
 cover every coefficient. The [group lasso tutorial](examples/problems/group_lasso.md) uses
 noncontiguous groups; [Supported problems](support.md) lists the restrictions.
 
@@ -288,6 +291,11 @@ plain block coordinate descent. The stopping test works as in the relative-toler
 discussion above with the change of a group, the norm of its displacement; see
 [Numerical behavior](numerics.md). As for the lasso, `converged = true` is not an
 optimality certificate: check the group KKT conditions independently, as in the example.
+`ProximalGradientDescent` and `AccProxGradDescent` take the block soft threshold of every group at each step and
+report `converged = true` only where the group KKT residual passes its check; the
+[group lasso tutorial](examples/problems/group_lasso.md) solves one problem with all three solvers, and
+[Group lasso: CD, PGD and APG](examples/comparisons/group_lasso_solvers.md) compares the three on one
+seeded problem.
 
 ### Cost of the lazy curvature
 
@@ -333,6 +341,13 @@ group sizes, the layout and `λ`.
 The [Problem × solver matrix](@ref "Problem × solver matrix") of
 [Supported problems](support.md) lists, for each problem, the solvers, iterates and
 element types with verified support, and the sections below it give the exact input rules.
+
+For PGD and APG on a dense `Vector`, `NormLinf(lambda)` (`lambda * maximum(abs, beta)`) is also accepted, with least squares or one
+positive scalar multiple of it; use `ProximalGradientDescent` or `AccProxGradDescent` for it, because this `CDSolver` needs a
+separable penalty for its coordinate step and refuses `NormLinf` for a dense `Vector`, a `SparseIterate` and a `BlockIterate`. The
+ℓ∞ penalty can tie the largest coefficients at a common magnitude and does not in general give zeros; in exact arithmetic, 0 is a
+minimizer exactly when `lambda` is at least `‖∇f(0)‖₁ = α‖Xᵀy‖₁`. A proposed stop is verified by the
+[generic proximal-gradient check](numerics.md#The-generic-stationarity-check). See [the ℓ∞ tutorial](examples/problems/linf_regularized_regression.md).
 
 Coordinate descent can also solve a group lasso on a `BlockIterate` with a
 `GroupNormL2` penalty, as described above and in [Supported problems](support.md).

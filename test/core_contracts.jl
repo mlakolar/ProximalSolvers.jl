@@ -100,9 +100,11 @@ end
 end
 
 # ElasticNet (#324): ProximalGradientDescent, AccProxGradDescent and CDSolver accept an unweighted one
-# and refuse the other penalties with the message below. The refusals tested here leave x unchanged. The
-# APG counterpart is in test/accelerated_pgd.jl; the CD solves are in test/cd_elasticnet.jl.
+# and refuse the other penalties with the messages below: the first for CDSolver, the second for the
+# gradient methods, which also accept a NormLinf (#338) and a GroupNormL2 (#395), and whose message names both. The refusals
+# tested here leave x unchanged. The APG counterpart is in test/accelerated_pgd.jl; the CD solves are in test/cd_elasticnet.jl.
 const EN_PENALTY_REFUSAL = "only NormL1 or unweighted ElasticNet is supported"
+const EN_GRADIENT_REFUSAL = "only NormL1, unweighted ElasticNet, NormLinf or GroupNormL2 is supported"
 
 function refused_with(x, f, g, method, msg)
   original = copy(x)
@@ -117,7 +119,7 @@ end
     method = ProximalGradientDescent()
     en = ElasticNet(T(.1), T(.2))
     for g in (ElasticNet(T(.1), T(.2), ones(T, 2)), Scaled(en, 2), Scaled(NormL1(T(.1), ones(T, 2)), 2), SqrNormL2(T(.1)))
-      refused_with(x, f, g, method, EN_PENALTY_REFUSAL)
+      refused_with(x, f, g, method, EN_GRADIENT_REFUSAL)
     end
     # a NormL1 with weights is accepted (#331); its solves are in test/weighted_lasso.jl. The options allow an increase
     # of the computed objective, which under the default options can end a Float32 run before its stop is accepted.
