@@ -349,13 +349,11 @@ rounding errors of that evaluation are not bounded here.
 
 The clause-level references identify existing tests; this relocation adds no solver behavior or test obligation. Important suites are `test/stopping_scale.jl`, `test/weighted_lasso.jl`, `test/nonnegative_lasso.jl`, `test/elasticnet.jl`, `test/group_pgd.jl`, `test/linf.jl`, `test/core_regressions.jl` and `test/accelerated_pgd.jl`.
 
-## Unreconciled
+## Retired historical wording
 
-### [Preserved normalized-inequality wording](@id STOP-UNRECONCILED)
+### [Retired: normalized-inequality shorthand](@id STOP-UNRECONCILED)
 
-Owner reconciliation is tracked in [issue #416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416).
-
-These baseline quotations are retained as **non-normative historical wording**. The detailed numerical rule and existing `_stationary!` implementation compare with a product formed in `T`, as stated in [STOP-04](@ref). They do not separately test an unrounded normalized inequality. The stronger shorthand below needs editorial reconciliation; this migration does not change the comparison.
+**Retired by [issue #416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416).** The baseline quotations below remain verbatim as **non-normative historical evidence**, not current stopping guarantees. The authoritative dedicated KKT rule is [STOP-04](@ref): form `τ = T(max(gradtol, 64 eps(T)))` and `threshold = τ * S` in the working type, require a finite scale and residual, `threshold ≥ floatmin(T)`, and compare `residual < threshold` strictly. The product may round or overflow to `Inf`. No separately divided, unrounded normalized inequality is checked or guaranteed. The generic mapping check has the additional guards of [STOP-07](@ref). This reconciliation changes no numerical behavior.
 
 From `README.md`, baseline lines 57–58:
 
@@ -391,7 +389,7 @@ From `src/solvers/accelerated_proximal_gradient_descent.jl`, baseline lines 53�
 > threshold is formed in `T`, which can round or overflow; see [`ProximalOptions`](@ref)). It is
 > not an exact-arithmetic certificate and does not guarantee coefficient accuracy on
 
-The opening sentence of the old stationarity section mentions group lasso only with PGD, while its Groups paragraph explicitly includes PGD and APG. The current methods and `test/group_pgd.jl` include both; the restricted introductory wording is preserved here:
+The older introductory limitation to PGD for group lasso is also **retired**: [IN-01](@ref) and [STOP-05](@ref) cover `GroupNormL2` with both PGD and APG. The original, internally inconsistent introductory wording is preserved here:
 
 > PGD and APG verify a proposed stop; this section is the check for `NormL1`, `ElasticNet` and, with PGD,
 > `GroupNormL2` (the **Groups** item below), and other penalties use [the generic stationarity check](@ref "The generic stationarity check"). At an iteration at which the `x`, `f` or
@@ -400,4 +398,4 @@ The opening sentence of the old stationarity section mentions group lasso only w
 
 ## Change log
 
-This migration consolidates the baseline stopping specifications without changing solver logic. Historical strict-configuration results remain separate from the current contract. The two retained wording conflicts are tracked for editorial follow-up.
+This migration consolidates the baseline stopping specifications without changing solver logic. Historical strict-configuration results remain separate from the current contract. The historical normalized-residual and group-support formulations were retired under [#416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416); the original quotations and anchor remain available for provenance.

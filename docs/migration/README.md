@@ -55,8 +55,11 @@ The pull request remains the place for owner approval of the wording.
 The mechanical checkpoints precede normalization in the branch history:
 `b1a1ba2` inventories the baseline, `e9fb17d` stages Learn and solver excerpts,
 and `bcb808f` stages shared input, precision and failure specifications. Historical
-wording that conflicts with other sources remains in Unreconciled sections and is
-tracked in [issue #416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416).
+wording that conflicted with other sources was first retained under Unreconciled
+sections, then resolved in [issue #416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416). The original quotations
+and five historical anchor IDs are preserved in explicitly retired sections;
+STOP-04, IN-01, APG-04 and ARCH-01 are the authoritative current clauses.
+This resolution changes documentation only, not numerical behavior.
 There are no silently superseded or dropped rows.
 
 ## Checks and their lifetime

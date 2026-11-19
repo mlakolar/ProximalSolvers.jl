@@ -196,13 +196,11 @@ The proof assumptions include IEEE arithmetic with gradual underflow and matrix-
 
 `test/accelerated_pgd.jl` uses independent BigFloat references from raw data, rather than agreement with another solver alone. The preserved proof paragraph details the sampled conditions and their limits. `test/elasticnet.jl`, `test/group_pgd.jl` and `test/linf.jl` cover the supported penalties.
 
-## Unreconciled
+## Retired historical wording
 
-### [Historical unqualified count identities](@id APG-UNRECONCILED)
+### [Retired: unqualified count identities](@id APG-UNRECONCILED)
 
-Owner reconciliation is tracked in [issue #416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416).
-
-The older implementation note gave the following identities without distinguishing the later generic stationarity check. They remain here as **non-normative provenance**; [APG-04](@ref) states the identities with that distinction, as implemented by the existing generic-check counter increments.
+**Retired by [issue #416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416).** The quotation below is preserved verbatim as **non-normative historical provenance**. [APG-04](@ref) is the authoritative reporting contract: `prox_calls = backtrack_steps + C_prox`; the older equality holds only for dedicated KKT checks with `C_prox = 0`. With a generic stationarity check, an extra prox evaluation need not represent a line-search trial or objective call. The scoped gradient and objective identities in APG-04 already match the implementation; no counters are changed.
 
 > `backtrack_steps` counts every trial, including the accepted one, so it equals
 > `prox_calls`. With `C` the number of stationarity checks of the solve (each evaluates
@@ -213,7 +211,7 @@ The older implementation note gave the following identities without distinguishi
 
 **Sources.** `docs/src/developer/implementation-notes.md:L320`.
 
-The normalized-KKT shorthand is retained separately in [STOP-UNRECONCILED](@ref).
+The retired normalized-KKT shorthand remains separately available as [historical evidence](@ref STOP-UNRECONCILED).
 
 ## Change log
 
