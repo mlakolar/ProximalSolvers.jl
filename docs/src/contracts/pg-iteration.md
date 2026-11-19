@@ -117,13 +117,11 @@ Native Float32 can stagnate before a requested accuracy is attained. The relevan
 
 Existing tests listed at each clause cover image order, fused prox, counts, constructors, callbacks and rollback. No numerical implementation or new test tier is introduced here.
 
-## Unreconciled
+## Retired historical wording
 
-### [Preserved older penalty inventory](@id PGD-UNRECONCILED)
+### [Retired: older penalty inventory](@id PGD-UNRECONCILED)
 
-Owner reconciliation is tracked in [issue #416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416).
-
-The following baseline implementation note is **historical, not a current support restriction**. It conflicts with the current PGD/APG docstrings, `src/solve.jl` dispatch and the `test/linf.jl` and `test/group_pgd.jl` suites. Current supported inputs are [IN-01](@ref).
+**Retired by [issue #416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416).** The quotation below is preserved verbatim as **historical provenance**, not a current support restriction. The authoritative supported combinations are in [IN-01](@ref), consistent with current `src/solve.jl` dispatch and the `test/linf.jl` and `test/group_pgd.jl` suites: `NormLinf` and `GroupNormL2` are supported by both PGD and APG. The older inventory omitted these already-supported cases; no solver feature is added by retiring it.
 
 > The penalty is validated once by `_check_penalty` in `_check_data`. For an `x` that is not a `BlockIterate`
 > it accepts a `NormL1` for all solvers (with weights, `_check_l1_weights`: a `Vector{T}` of the length of `x`, finite and nonnegative entries,
@@ -134,4 +132,4 @@ The following baseline implementation note is **historical, not a current suppor
 
 ## Change log
 
-The shared image engine and scalar APIs are retained. The historical support wording above is preserved for explicit reconciliation rather than used to infer an unsupported numerical restoration.
+The shared image engine and scalar APIs are retained. The historical support wording above was retired under [#416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416) and remains only as provenance; no numerical restoration is inferred.

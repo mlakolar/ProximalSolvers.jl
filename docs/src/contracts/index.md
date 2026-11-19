@@ -22,9 +22,12 @@ may expand a clause. Sources refer to immutable baseline blocks in
 records where each original block went.
 
 A source citation records provenance. It does not certify that two formulations
-are equivalent. The migration keeps conflicting wording under an
-**Unreconciled** heading for owner review. Evidence pages retain measured outcomes,
-platforms, dates and revisions; those observations are not new solver guarantees.
+are equivalent. The migration initially preserved conflicting wording under
+**Unreconciled** headings. The four historical specification conflicts were
+resolved in [issue #416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416); their original quotations and
+permanent anchors remain under **Retired historical wording**, with links to the
+authoritative clauses. Evidence pages retain measured outcomes, platforms, dates
+and revisions; those observations are not new solver guarantees.
 
 Clause IDs are permanent. When a clause is replaced, keep its heading, mark it
 **Retired**, and link explicitly to the replacement. New clauses receive new IDs.
