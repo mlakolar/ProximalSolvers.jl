@@ -423,14 +423,18 @@ end
     res = solve!(x, f, GroupNormL2(λ, gs), method)
     @test res.minimizer === x && any(!iszero, x)
   end
-  # the solvers and penalties that refuse
-  err = refused(ArgumentError, "only NormL1 or unweighted ElasticNet is supported", start(), f, GroupNormL2(λ, gs), CDSolver())
-  @test !occursin("GroupNormL2", message(err))
+  # CDSolver refuses GroupNormL2 on dense and sparse coefficients, naming its supported alternatives.
+  # The refusal must preserve the caller, while PGD and APG above continue accepting dense group lasso.
+  err = refused(ArgumentError, "CDSolver does not support GroupNormL2", start(), f, GroupNormL2(λ, gs), CDSolver())
+  @test occursin("CDSolver on a BlockIterate", message(err))
+  @test occursin("ProximalGradientDescent or AccProxGradDescent on a dense Vector", message(err))
   xs = SparseIterate(T, p)
   xs[3] = T(0.5)
   before = Vector(xs)
   err = try solve!(xs, f, GroupNormL2(λ, gs), CDSolver()) catch e e end
-  @test err isa ArgumentError && err.msg == "only NormL1 or unweighted ElasticNet is supported"
+  @test err isa ArgumentError
+  @test err !== nothing && occursin("CDSolver does not support GroupNormL2", message(err))
+  @test err !== nothing && occursin("CDSolver on a BlockIterate", message(err))
   @test isequal(Vector(xs), before)
   for method in METHODS
     refused(ArgumentError, "only NormL1, unweighted ElasticNet, NormLinf or GroupNormL2 is supported", start(), f, ProximalBase.NormL2(λ), method)
