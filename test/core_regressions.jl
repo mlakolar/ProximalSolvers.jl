@@ -86,6 +86,92 @@ end
   end
 end
 
+function check_working_l1_solve(method, penalty, level, X, y, x0, options)
+  T = eltype(x0)
+  g = penalty(level)
+  f = LeastSquaresLoss(y, X)
+  x, native_x = copy(x0), copy(x0)
+  r = solve!(x, f, g, method, options)
+  native = solve!(native_x, f, penalty(T(level)), method, options)
+  @test r.minimizer === x
+  @test native.minimizer === native_x
+  @test g.λ0 === level
+  for field in fieldnames(typeof(r))
+    field in (:method, :trace) && continue
+    @test isequal(getfield(r, field), getfield(native, field))
+  end
+  trace_values(r) = [(s.iteration, s.fg_x, s.dxx, s.L, s.metadata) for s in r.trace]
+  @test isequal(trace_values(r), trace_values(native))
+  r
+end
+
+const WORKING_L1_SOLVERS = ((ProximalGradientDescent(), NormL1),
+                            (AccProxGradDescent(), NormL1),
+                            (ProximalGradientDescent(), NormL1Nonneg))
+
+@testset "Working ℓ₁ levels in $T" for T in (Float32, Float64)
+  W = T === Float32 ? Float64 : BigFloat
+  for penalty in (NormL1, NormL1Nonneg)
+    # Reconstructing a native isbits penalty also passes a value identity check.
+    native_method = which(PS._converted_penalty, (penalty{T, Nothing}, Type{T}))
+    mixed_method = which(PS._converted_penalty, (penalty{W, Nothing}, Type{T}))
+    @test native_method !== mixed_method
+  end
+  δ = nextfloat(zero(T))
+  a = T(2)^(T === Float32 ? -60 : -507)
+  options = ProximalOptions(maxiter=8, store_trace=true, extended_trace=true)
+
+  @testset "$penalty with $(nameof(typeof(method)))" for (method, penalty) in WORKING_L1_SOLVERS
+    for (level, effective) in ((W(1.25) * W(δ), δ), (W(1.5) * W(δ), 2δ))
+      @test T(level) === effective
+      # Both starts are exact fits. Shrinkage rounds away at either point.
+      for (scale, start) in ((a, T(4)), (one(T), T(2)))
+        X, y, x0 = reshape(T[scale], 1, 1), T[scale * start], T[start]
+        r = check_working_l1_solve(method, penalty, level, X, y, x0, options)
+        @test !r.f_increased
+        @test iszero(r.f_residual)
+        @test r.minimizer == x0
+        @test r.minimum === effective * abs(start)
+        @test all(s -> s.fg_x == r.minimum && s.metadata["x"] == x0, r.trace)
+      end
+    end
+
+    X = T[1 0; 0 2; 1 1]
+    y = T[2, -4, -0.5]
+    native = T(0.1)
+    midpoint = (W(native) + W(nextfloat(native))) / 2
+    options_ordinary = ProximalOptions(maxiter=100, store_trace=true, extended_trace=true)
+    for x0 in (zeros(T, 2), T[0.5, 0.25]),
+        level in (W(0.1), nextfloat(midpoint), native, zero(W), zero(T))
+      r = check_working_l1_solve(method, penalty, level, X, y, x0, options_ordinary)
+      x = r.minimizer
+      @test x[1] > 0
+      @test penalty === NormL1 ? x[2] < 0 : all(>=(0), x)
+      # Evaluate the raw loss and the effective working-level penalty independently.
+      reference = sum(abs2, BigFloat.(X) * BigFloat.(x) - BigFloat.(y)) / 2 +
+                  BigFloat(T(level)) * sum(abs, BigFloat.(x))
+      @test r.minimum ≈ reference rtol=32eps(T) atol=0
+    end
+
+    @test_throws ArgumentError penalty(-one(W))
+    @test_throws ArgumentError penalty(W(NaN))
+    f = LeastSquaresLoss(y, X)
+    for level in (W(Inf), 2 * W(floatmax(T)), W(δ) / 4)
+      x = T[0.5, 0.25]
+      @test_throws ArgumentError solve!(x, f, penalty(level), method)
+      @test x == T[0.5, 0.25]
+    end
+    g = penalty(W(0.1))
+    x = T[0.5]
+    @test_throws DimensionMismatch solve!(x, f, g, method)
+    @test x == T[0.5]
+    x = T[0.5, 0.25]
+    alias_loss = LeastSquaresLoss(T[1], reshape(x, 1, 2))
+    @test_throws ArgumentError solve!(x, alias_loss, g, method)
+    @test x == T[0.5, 0.25]
+  end
+end
+
 @testset "retained dense primitives and result accessors" begin
   for T in (Float32, Float64)
     a, b = T[3, 4], T[0, 0]

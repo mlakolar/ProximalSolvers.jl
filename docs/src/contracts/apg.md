@@ -36,7 +36,7 @@ The error bounds require `max(n, p) + 4 < 1/(4 eps(T))` and `n*p + 3 < 1/(4 eps(
 
 Form `y = x + k/(k+3) * (x - x_previous)` from the two accepted iterates, then take a gradient and proximal step from `y`. The first iteration has no momentum. Before each iteration use `L ← α L`, allowing the step to grow again; `α = 1` keeps this estimate from decreasing. A rejected trial uses `L ← L/β`; a `β` near one makes growth slow. Initial curvature is [PGD-02](@ref).
 
-The image `X y` is formed by the same linear combination of cached `X x` and `X x_previous`, without a new product. Form `y` before saving `x_previous ← x`, then make trials; the saved point is the last accepted point if a trial throws. Each trial uses the fused penalty prox and a fresh image of its candidate. Nonzero trial displacements are accepted only by [APG-06](@ref); a point equal to `y` entrywise is accepted when its value is finite. The shared engine then applies [STOP-01](@ref).
+The image `X y` is formed by the same linear combination of cached `X x` and `X x_previous`, without a new product. Form `y` before saving `x_previous ← x`, then make trials; the saved point is the last accepted point if a trial throws. Each trial uses the fused penalty prox and a fresh image of its candidate. The unweighted lasso level follows [IN-02](@ref). Nonzero trial displacements are accepted only by [APG-06](@ref); a point equal to `y` entrywise is accepted when its value is finite. The shared engine then applies [STOP-01](@ref).
 
 **Applies to.** AccProxGradDescent; supported dense least-squares problems.
 

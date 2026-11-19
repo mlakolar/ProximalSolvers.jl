@@ -374,8 +374,9 @@ function solve!(x, f, g, method::ProximalGradientDescent,
   _check_keywords(kwargs)
   _check_problem(x, f, g, :pgd)
   t0 = time()
-  state = initial_state(method, options, f, g, x)
-  _solve_gradient!(state, f, g, method, options, t0)
+  g_work = _working_gradient_penalty(g, eltype(x))
+  state = initial_state(method, options, f, g_work, x)
+  _solve_gradient!(state, f, g_work, method, options, t0)
 end
 
 # Numerical stagnation, after an iteration of _solve_gradient!: true for Float32 PGD with ftol = 0
