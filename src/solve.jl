@@ -98,7 +98,7 @@ function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
   elseif g isa IndNonnegative
     kind === :pgd || throw(ArgumentError("IndNonnegative is supported only by ProximalGradientDescent on a dense Vector"))
   elseif kind === :pgd
-    throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2, unweighted NormL1Nonneg IndNonnegative, IndBox or IndBallL2 is supported"))
+    throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2, unweighted NormL1Nonneg, IndNonnegative, IndBox or IndBallL2 is supported"))
   elseif kind === :gradient
     throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2, IndBox or IndBallL2 is supported"))
   else
