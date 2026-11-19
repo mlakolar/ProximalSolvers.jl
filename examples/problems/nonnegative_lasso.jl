@@ -37,14 +37,26 @@ options = ProximalOptions(maxiter=20_000, ftol=0, xtol=1e-14, gradtol=1e-9,
                           allow_f_increases=true)
 result = solve!(beta, f, g, ProximalGradientDescent(), options)
 ordinary = zeros(p)
-ordinary_result = solve!(ordinary, f, NormL1(lambda), ProximalGradientDescent(), options);
+ordinary_result = solve!(ordinary, f, NormL1(lambda), ProximalGradientDescent(), options)
+# A small exact control makes the effect of the constraint visible in the figure.
+figure_control_y = [2.0, -1.5, 0.1, -0.2]
+figure_control_X = Matrix{Float64}(I, 4, 4)
+figure_control_f = (1/4) * LeastSquaresLoss(figure_control_y, figure_control_X)
+figure_control_beta, figure_control_ordinary = zeros(4), zeros(4)
+solve!(figure_control_beta, figure_control_f, NormL1Nonneg(0.1), ProximalGradientDescent(), options)
+solve!(figure_control_ordinary, figure_control_f, NormL1(0.1), ProximalGradientDescent(), options)
+@assert isapprox(figure_control_beta, max.(figure_control_y .- 0.4, 0); atol=1e-8)
+@assert isapprox(figure_control_ordinary, sign.(figure_control_y) .* max.(abs.(figure_control_y) .- 0.4, 0); atol=1e-8);
 
 # ## Component amplitudes
 #
-# The bars show actual fitted coefficients, alongside the generating amplitudes.
-# Shrinkage lowers several signal amplitudes. Ordinary lasso allows negative
-# contributions; on this positive mixture it may nevertheless give a similar fit.
-# The exact control later makes the difference between the estimators explicit.
+# The upper panel shows actual fitted coefficients alongside the generating amplitudes.
+# Shrinkage lowers several signal amplitudes; ordinary and constrained lasso give
+# similar answers on this positive mixture. The lower panel makes their difference
+# visible on the exact identity-dictionary control: gray bars are the observed response
+# `y`, not true component amplitudes. Ordinary lasso retains a negative coefficient;
+# the constrained fit cannot. Both fits shrink the positive response. The closed forms
+# and the role of correlation are explained below.
 # Plotting runs in the documentation environment; ordinary script execution and
 # tests need no plotting package. To reproduce the figure, build `docs/make.jl`
 # using the repository's documentation environment.
@@ -52,9 +64,18 @@ ordinary_result = solve!(ordinary, f, NormL1(lambda), ProximalGradientDescent(),
 #!jl component_plot = bar(collect(1:p) .+ [-0.24 0 0.24], hcat(beta_true, beta, ordinary);
 #!jl   label=["True amplitude" "Nonnegative lasso" "Ordinary lasso"],
 #!jl   xlabel="Dictionary component", ylabel="Amplitude", color=[:gray65 :teal :orange],
-#!jl   size=(900, 400), legend=:outertop, legendcolumns=3, bar_width=0.22,
-#!jl   xlims=(0.3, p+0.7), xticks=1:3:p)
-#!jl component_plot
+#!jl   title="Seeded mixture: component amplitudes", legend=:outertop, legendcolumns=3,
+#!jl   bar_width=0.22, xlims=(0.3, p+0.7), xticks=1:3:p)
+#!jl control_plot = bar(collect(1:4) .+ [-0.24 0 0.24],
+#!jl   hcat(figure_control_y, figure_control_beta, figure_control_ordinary);
+#!jl   label=["Observed response y" "Nonnegative lasso" "Ordinary lasso"],
+#!jl   xlabel="Coordinate of identity dictionary", ylabel="Response or coefficient",
+#!jl   color=[:gray65 :teal :orange], title="Exact control: the constraint changes the fit",
+#!jl   legend=:outertop, legendcolumns=3, bar_width=0.22, xticks=1:4,
+#!jl   xlims=(0.3, 4.7), ylims=(-1.8, 2.2))
+#!jl hline!(control_plot, [0]; color=:black, linewidth=0.7, label=false)
+#!jl plot(component_plot, control_plot; layout=grid(2, 1; heights=[0.6, 0.4]),
+#!jl   size=(950, 780), margin=5Plots.mm)
 
 # ## Check the optimization independently
 #
