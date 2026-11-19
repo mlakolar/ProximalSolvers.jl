@@ -225,7 +225,8 @@ _working_gradient_penalty(g::Union{NormL1{<:Real, Nothing}, NormL1Nonneg{<:Real,
   _converted_penalty(g, T)
 
 # Penalties with levels in T for the dedicated stationarity check.
-_converted_penalty(g::NormL1{T, Nothing}, ::Type{T}) where T = g
+# The Real bound makes the native identity methods more specific than the mixed conversions.
+_converted_penalty(g::NormL1{T, Nothing}, ::Type{T}) where {T<:Real} = g
 _converted_penalty(g::NormL1{<:Real, Nothing}, ::Type{T}) where T = NormL1(T(g.λ0))
 # weights that are already in T are not converted or copied
 _converted_penalty(g::NormL1{<:Real, Vector{T}}, ::Type{T}) where T = NormL1(T(g.λ0), g.w)
@@ -236,7 +237,7 @@ _converted_penalty(g::NormL1{<:Real, Vector{T}}, ::Type{T}) where T = NormL1(T(g
 _converted_level(::Type{T}, λ::T) where T = λ
 @noinline _converted_level(::Type{T}, λ) where T = T(λ)
 _converted_penalty(g::ElasticNet, ::Type{T}) where T = ElasticNet(_converted_level(T, g.λ1), _converted_level(T, g.λ2))
-_converted_penalty(g::NormL1Nonneg{T, Nothing}, ::Type{T}) where T = g
+_converted_penalty(g::NormL1Nonneg{T, Nothing}, ::Type{T}) where {T<:Real} = g
 _converted_penalty(g::NormL1Nonneg{<:Real, Nothing}, ::Type{T}) where T = NormL1Nonneg(T(g.λ0))
 # For stopping, the indicator and NormL1Nonneg(0) have the same normal cone.
 # This uses the point-aware score at positive and zero coordinates.
