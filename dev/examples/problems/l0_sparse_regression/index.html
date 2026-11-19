@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="referrer" content="no-referrer"/><title>ℓ₀-penalized sparse regression · ProximalSolvers.jl</title><meta name="title" content="ℓ₀-penalized sparse regression · ProximalSolvers.jl"/><meta property="og:title" content="ℓ₀-penalized sparse regression · ProximalSolvers.jl"/><meta property="twitter:title" content="ℓ₀-penalized sparse regression · ProximalSolvers.jl"/><meta name="description" content="Documentation for ProximalSolvers.jl."/><meta property="og:description" content="Documentation for ProximalSolvers.jl."/><meta property="twitter:description" content="Documentation for ProximalSolvers.jl."/><script data-outdated-warner src="../../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../../assets/documenter.js"></script><script src="../../../search_index.js"></script><script src="../../../siteinfo.js"></script><script src="../../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../../assets/themeswap.js"></script><link href="../../../assets/examples-gallery.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../../">ProximalSolvers.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../../">Home</a></li><li><span class="tocitem">Learn</span><ul><li><a class="tocitem" href="../../../learn/01-lasso-problem/">1: The lasso problem</a></li><li><a class="tocitem" href="../../../learn/02-optimality-kkt/">2: Optimality and KKT conditions</a></li><li><a class="tocitem" href="../../../learn/03-proximal-operator/">3: The proximal operator</a></li><li><a class="tocitem" href="../../../learn/04-proximal-gradient/">4: Proximal gradient descent</a></li><li><a class="tocitem" href="../../../learn/05-acceleration/">5: Acceleration</a></li><li><a class="tocitem" href="../../../learn/06-coordinate-descent/">6: Coordinate descent</a></li><li><a class="tocitem" href="../../../learn/07-duality-certificates/">7: Duality and certificates</a></li><li><a class="tocitem" href="../../../learn/08-floating-point/">8: Floating-point computation</a></li></ul></li><li><span class="tocitem">Use</span><ul><li><a class="tocitem" href="../../../getting-started/">Getting started</a></li><li><a class="tocitem" href="../../../choosing-solver/">Choosing a solver</a></li><li><a class="tocitem" href="../../../support/">Supported problems</a></li><li><a class="tocitem" href="../../../working-with-results/">Results and troubleshooting</a></li><li><a class="tocitem" href="../../../benchmarks/">Benchmarks and performance</a></li><li><a class="tocitem" href="../../../glossary/">Glossary</a></li></ul></li><li><a class="tocitem" href="../../">Examples Gallery</a></li><li><span class="tocitem">Problems</span><ul><li><a class="tocitem" href="../lasso/">Lasso</a></li><li><a class="tocitem" href="../weighted_lasso/">Weighted lasso</a></li><li><a class="tocitem" href="../nonnegative_lasso/">Nonnegative sparse regression</a></li><li><a class="tocitem" href="../elastic_net/">Elastic net</a></li><li class="is-active"><a class="tocitem" href>ℓ₀-penalized sparse regression</a><ul class="internal"><li><a class="tocitem" href="#A-proximal-step-and-its-acceptance-test"><span>A proximal step and its acceptance test</span></a></li><li><a class="tocitem" href="#Independent-checks-on-small-problems"><span>Independent checks on small problems</span></a></li><li><a class="tocitem" href="#Sparse-recovery-with-correlated-predictors"><span>Sparse recovery with correlated predictors</span></a></li><li><a class="tocitem" href="#Comparing-starts-at-the-same-penalty-level"><span>Comparing starts at the same penalty level</span></a></li><li><a class="tocitem" href="#Limitations-and-exercises"><span>Limitations and exercises</span></a></li></ul></li><li><a class="tocitem" href="../group_lasso/">Group lasso</a></li><li><a class="tocitem" href="../square_root_lasso/">Square-root lasso</a></li><li><a class="tocitem" href="../linf_regularized_regression/">Least squares with an ℓ∞ penalty</a></li></ul></li><li><span class="tocitem">Statistical applications</span><ul><li><a class="tocitem" href="../robust_sparse_regression/">Robust sparse regression</a></li><li><a class="tocitem" href="../scaled_lasso/">Scaled lasso</a></li><li><a class="tocitem" href="../sparse_deconvolution/">Sparse deconvolution and event recovery</a></li><li><a class="tocitem" href="../change_point_detection/">Change-point detection</a></li><li><a class="tocitem" href="../stability_selection/">Stability selection with repeated lasso fits</a></li><li><a class="tocitem" href="../nodewise_gaussian_graph/">Gaussian graph: neighborhood selection</a></li><li><a class="tocitem" href="../sparse_additive_regression/">Sparse additive regression</a></li><li><a class="tocitem" href="../multitask_group_lasso/">Multi-task group lasso</a></li><li><a class="tocitem" href="../categorical_group_selection/">Categorical factor selection</a></li><li><a class="tocitem" href="../sparse_covariance_soft_thresholding/">Sparse covariance thresholding</a></li></ul></li><li><span class="tocitem">Solver comparisons</span><ul><li><a class="tocitem" href="../../comparisons/lasso_solvers/">Lasso: solvers at equal accuracy</a></li><li><a class="tocitem" href="../../comparisons/group_lasso_solvers/">Group lasso: CD, PGD and APG</a></li></ul></li><li><a class="tocitem" href="../../../api/">API reference</a></li><li><span class="tocitem">Contracts</span><ul><li><a class="tocitem" href="../../../contracts/">How to read a contract</a></li><li><a class="tocitem" href="../../../contracts/inputs/">Inputs</a></li><li><a class="tocitem" href="../../../contracts/working-precision/">Working precision</a></li><li><a class="tocitem" href="../../../contracts/cd-scalar/">Scalar coordinate descent</a></li><li><a class="tocitem" href="../../../contracts/cd-sparse-iterate/">SparseIterate coordinate descent</a></li><li><a class="tocitem" href="../../../contracts/cd-group/">Group coordinate descent</a></li><li><a class="tocitem" href="../../../contracts/cd-multiresponse/">Multiresponse coordinate descent</a></li><li><a class="tocitem" href="../../../contracts/cd-sqrt-lasso/">Square-root lasso</a></li><li><a class="tocitem" href="../../../contracts/pg-iteration/">Proximal gradient iteration</a></li><li><a class="tocitem" href="../../../contracts/apg/">Accelerated proximal gradient</a></li><li><a class="tocitem" href="../../../contracts/line-search/">Line search</a></li><li><a class="tocitem" href="../../../contracts/pg-stopping/">PG stopping</a></li><li><a class="tocitem" href="../../../contracts/results-failures/">Results and failures</a></li><li><a class="tocitem" href="../../../contracts/deferred/">Deferred surface</a></li><li><a class="tocitem" href="../../../contracts/architecture/">Architecture</a></li><li><a class="tocitem" href="../../../contracts/history/">History</a></li><li><input class="collapse-toggle" id="menuitem-9-17" type="checkbox"/><label class="tocitem" for="menuitem-9-17"><span class="docs-label">Evidence</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../../contracts/evidence/stopping-audit-352/">Stopping audit</a></li><li><a class="tocitem" href="../../../contracts/evidence/cached-residual-378/">Cached-residual investigation</a></li><li><a class="tocitem" href="../../../contracts/evidence/strict-accuracy-config/">Strict-accuracy configuration</a></li><li><a class="tocitem" href="../../../contracts/evidence/lazy-curvature-cost/">Lazy-curvature cost</a></li><li><a class="tocitem" href="../../../contracts/evidence/oracle-range-observations/">Oracle range observations</a></li><li><a class="tocitem" href="../../../contracts/evidence/examples-index-baseline/">Historical example index</a></li><li><a class="tocitem" href="../../../contracts/evidence/sqrt-fallback-406/">Square-root fallback history</a></li></ul></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Problems</a></li><li class="is-active"><a href>ℓ₀-penalized sparse regression</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>ℓ₀-penalized sparse regression</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/mlakolar/ProximalSolvers.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/mlakolar/ProximalSolvers.jl/blob/master/examples/problems/l0_sparse_regression.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="ℓ-penalized-sparse-regression"><a class="docs-heading-anchor" href="#ℓ-penalized-sparse-regression">ℓ₀-penalized sparse regression</a><a id="ℓ-penalized-sparse-regression-1"></a><a class="docs-heading-anchor-permalink" href="#ℓ-penalized-sparse-regression" title="Permalink"></a></h1><p>Lasso and elastic net shrink coefficient magnitudes. A cardinality penalty instead charges the same amount for each nonzero coefficient. For a zero-intercept model, the objective is</p><p><span>$F_0(\beta) = \|y-X\beta\|_2^2/(2n) + \lambda_0\,\#\{j:\beta_j\ne 0\}.$</span></p><p>We use iterative hard thresholding (IHT) with ProximalBase&#39;s <code>NormL0</code> proximal operator. The IHT routine belongs to this example. See <a href="../../../support/">Supported problems</a> for the available <code>solve!</code> combinations.</p><p><img src="../l0_sparse_regression.svg" alt="Support size and holdout prediction error over the cardinality penalty levels, with curves for three starts and reference lines for the convex fits."/></p><pre><code class="language-julia hljs">using LinearAlgebra, Printf, Random, ProximalBase, ProximalSolvers</code></pre><h2 id="A-proximal-step-and-its-acceptance-test"><a class="docs-heading-anchor" href="#A-proximal-step-and-its-acceptance-test">A proximal step and its acceptance test</a><a id="A-proximal-step-and-its-acceptance-test-1"></a><a class="docs-heading-anchor-permalink" href="#A-proximal-step-and-its-acceptance-test" title="Permalink"></a></h2><p>Let <span>$f(\beta)=\|X\beta-y\|^2/(2n)$</span> and <span>$t=1/L$</span>. The proximal step minimizes the linearization of <span>$f$</span> plus <span>$\|z-\beta\|^2/(2t)+\lambda_0\|z\|_0$</span> over <span>$z$</span>. ProximalBase keeps entries of <span>$\beta-t\nabla f(\beta)$</span> whose magnitudes exceed <span>$\sqrt{2t\lambda_0}$</span> for positive <span>$\lambda_0$</span>. It returns positive zero at an exact tie. At level zero the map is the identity.</p><p>For least squares, the remainder after linearization is exactly <span>$\|X(z-\beta)\|^2/(2n)$</span>. If this is at most <span>$\|z-\beta\|^2/(2t)$</span>, comparing the proximal model at its minimizer and at the current point gives <span>$F_0(z)\le F_0(\beta)$</span> in exact arithmetic. Start with a conservative inverse step, twice the computed spectral curvature (or 1 if larger). Check the directional inequality and the objective at each trial. On rejection double the inverse step, up to a finite trial limit. The computed objective may increase by at most <code>64eps(T)</code> times the larger objective magnitude to allow for rounding on these moderate-scale examples.</p><p>Use the same conservative reference step <span>$t_*$</span> throughout a fit for the residual <span>$\|\beta-\operatorname{prox}_{t_*\lambda_0\|\cdot\|_0} (\beta-t_*\nabla f(\beta))\|_\infty/t_*$</span>. Check it at the initial point and after each accepted step. A large inverse step chosen by backtracking does not relax this test. A small residual settles the example&#39;s tolerance check at this step size and gives no global certificate.</p><pre><code class="language-julia hljs">reference_inverse_step(X::Matrix{T}) where {T} = max(one(T), 2 * opnorm(X)^2 / size(X, 1))
+training_loss(X, y, beta) = sum(abs2, y - X * beta) / (2 * length(y))
+l0_objective(X, y, beta, lambda0) = training_loss(X, y, beta) + lambda0 * count(!iszero, beta)
+rounding_allowance(a::T, b::T) where {T} = 64eps(T) * max(abs(a), abs(b))
+
+function iht(X::Matrix{T}, y::Vector{T}, lambda0::T, start::Vector{T};
+             Lref = reference_inverse_step(X), initial_L = Lref,
+             tol = T(1e-8), maxiter = 10_000, max_trials = 16) where {T&lt;:Union{Float32, Float64}}
+  n, p = size(X)
+  n &gt; 0 &amp;&amp; p &gt; 0 &amp;&amp; length(y) == n &amp;&amp; length(start) == p ||
+    throw(DimensionMismatch(&quot;incompatible design, response or start&quot;))
+  all(isfinite, X) &amp;&amp; all(isfinite, y) &amp;&amp; all(isfinite, start) ||
+    throw(ArgumentError(&quot;use finite tutorial data&quot;))
+  0 &lt;= lambda0 &lt; Inf &amp;&amp; 0 &lt; Lref &lt; Inf &amp;&amp; 0 &lt; initial_L &lt; Inf &amp;&amp;
+    0 &lt;= tol &lt; Inf &amp;&amp; maxiter &gt;= 0 &amp;&amp; max_trials &gt; 0 ||
+    throw(ArgumentError(&quot;invalid level, inverse step, tolerance or work limit&quot;))
+
+  g = NormL0(lambda0)
+  beta = copy(start)
+  r = X * beta - y
+  current = dot(r, r) / (2n) + lambda0 * count(!iszero, beta)
+  objectives = T[current]
+  L = T(initial_L)
+  t_ref = inv(T(Lref))
+  rejected = 0
+  residual = T(Inf)
+  status = :iteration_limit
+  for k in 0:maxiter
+    grad = (X&#39; * r) / n
+    ref_input = beta - t_ref * grad
+    if !(isfinite(current) &amp;&amp; 0 &lt; t_ref &lt; Inf &amp;&amp; all(isfinite, ref_input))
+      status = :numerical_failure
+      break
+    end
+    residual = norm(beta - prox(g, ref_input, t_ref), Inf) / t_ref
+    if !isfinite(residual)
+      status = :numerical_failure
+      break
+    elseif residual &lt;= tol
+      status = :stationary_within_tolerance
+      break
+    end
+    k == maxiter &amp;&amp; break
+
+    accepted = false
+    for _ in 1:max_trials
+      t = inv(L)
+      isfinite(L) &amp;&amp; isfinite(t) &amp;&amp; t &gt; 0 || break
+      input = beta - t * grad
+      if all(isfinite, input)
+        z = prox(g, input, t)
+        d = z - beta
+        image_sq = sum(abs2, X * d) / n
+        step_sq = sum(abs2, d)
+        r_next = X * z - y
+        trial = dot(r_next, r_next) / (2n) + lambda0 * count(!iszero, z)
+        if isfinite(image_sq) &amp;&amp; isfinite(step_sq) &amp;&amp; isfinite(trial) &amp;&amp;
+            t * image_sq &lt;= step_sq &amp;&amp;
+            trial - current &lt;= rounding_allowance(trial, current)
+          push!(objectives, trial)
+          if z == beta
+            status = :numerical_stagnation
+          end
+          beta, r, current = z, r_next, trial
+          accepted = true
+          break
+        end
+      end
+      rejected += 1
+      L *= 2
+    end
+    if !accepted
+      status = :line_search_failed
+      break
+    end
+    status == :numerical_stagnation &amp;&amp; break
+  end
+  (; beta, objective = current, residual, t_ref, status,
+     iterations = length(objectives) - 1, rejected, objectives)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">iht (generic function with 1 method)</code></pre><h2 id="Independent-checks-on-small-problems"><a class="docs-heading-anchor" href="#Independent-checks-on-small-problems">Independent checks on small problems</a><a id="Independent-checks-on-small-problems-1"></a><a class="docs-heading-anchor-permalink" href="#Independent-checks-on-small-problems" title="Permalink"></a></h2><p>For every subset, solve least squares on those columns and count the actual nonzeros of the resulting vector. A restricted least-squares fit to a candidate&#39;s support can only lower its loss and can only retain or reduce its support size. Thus the best enumerated objective is the global reference in exact arithmetic. We use full-rank designs and solve the reference problems in Float64 from the supplied data, including for Float32 inputs. Enumeration costs exponentially many fits.</p><pre><code class="language-julia hljs">function exhaustive_support(X, y, lambda0)
+  A, b = Float64.(X), Float64.(y)
+  p = size(A, 2)
+  best = (beta = zeros(p), objective = Inf)
+  for mask in 0:((1 &lt;&lt; p) - 1)
+    support = [j for j in 1:p if !iszero(mask &amp; (1 &lt;&lt; (j - 1)))]
+    beta = zeros(p)
+    if !isempty(support)
+      beta[support] = A[:, support] \ b
+    end
+    objective = l0_objective(A, b, beta, Float64(lambda0))
+    if objective &lt; best.objective
+      best = (; beta, objective)
+    end
+  end
+  best
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">exhaustive_support (generic function with 1 method)</code></pre><p>Recompute the fixed-point residual from X and y in higher precision. This reference uses the scalar minimizer directly to check the PB-based iterate.</p><pre><code class="language-julia hljs">function independent_residual(X, y, beta, lambda0, t)
+  A, b, x = BigFloat.(X), BigFloat.(y), BigFloat.(beta)
+  step = BigFloat(t)
+  v = x - step * (A&#39; * (A * x - b) / length(y))
+  cutoff_squared = 2 * step * BigFloat(lambda0)
+  z = [abs2(vj) &gt; cutoff_squared ? vj : zero(vj) for vj in v]
+  Float64(norm(x - z, Inf) / step)
+end
+
+function check_iht(X, y, lambda0, fit; checktol)
+  beta = fit.beta
+  objective = l0_objective(Float64.(X), Float64.(y), Float64.(beta), Float64(lambda0))
+  residual = independent_residual(X, y, beta, lambda0, fit.t_ref)
+  @assert eltype(beta) === eltype(X) &amp;&amp; all(isfinite, beta) &amp;&amp; all(isfinite, fit.objectives)
+  @assert isfinite(fit.objective) &amp;&amp; isfinite(fit.residual) &amp;&amp; isfinite(residual)
+  @assert isapprox(fit.objective, objective; atol = checktol, rtol = checktol)
+  @assert isapprox(fit.residual, residual; atol = checktol, rtol = checktol)
+  @assert all(b - a &lt;= rounding_allowance(a, b) for (a, b) in zip(fit.objectives, @view(fit.objectives[2:end])))
+  (; objective, residual)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">check_iht (generic function with 1 method)</code></pre><p>With the two correlated columns below, the best singleton fits are <span>$(1,0)$</span> and <span>$(0,0.8)$</span>. At the reference step each fit&#39;s active entry stays above threshold while the inactive entry&#39;s gradient step stays below it. They are distinct fixed points. The second pays the same cardinality cost and leaves more residual loss. Starts on either side of this support choice can therefore settle on different solutions.</p><pre><code class="language-julia hljs">function small_checks(::Type{T}) where {T}
+  tol = T === Float32 ? T(8e-6) : T(1e-8)
+  checktol = T === Float32 ? 2e-6 : 2e-12
+
+  # At t = 1/2 and λ = 1 the threshold is exactly 1. Check both signs,
+  # their adjacent magnitudes, the stored zero sign, and the fused value.
+  input = T[prevfloat(one(T)), -prevfloat(one(T)), 1, -1,
+            nextfloat(one(T)), -nextfloat(one(T)), -zero(T)]
+  expected = T[0, 0, 0, 0, input[5], input[6], 0]
+  @assert isequal(prox(NormL0(one(T)), input, T(0.5)), expected)
+  output = similar(input)
+  @assert value_and_prox!(output, NormL0(one(T)), input, T(0.5)) === T(2)
+  @assert isequal(output, expected)
+  @assert isequal(prox(NormL0(zero(T)), input, T(0.5)), input)
+
+  rho, lambda0 = T(0.8), T(0.1)
+  X = sqrt(T(2)) * T[1 rho; 0 sqrt(1 - rho^2)]
+  truth = T[1, 0]
+  y = X * truth
+  global_fit = exhaustive_support(X, y, lambda0)
+  @assert isapprox(global_fit.objective, 0.10; atol = checktol)
+  for (start, support, target) in ((zeros(T, 2), [1], 0.10), (T[0, 0.7], [2], 0.28))
+    fit = iht(X, y, lambda0, start; tol)
+    verified = check_iht(X, y, lambda0, fit; checktol)
+    @assert fit.status == :stationary_within_tolerance &amp;&amp; verified.residual &lt;= tol + checktol
+    @assert findall(!iszero, fit.beta) == support
+    @assert isapprox(verified.objective, target; atol = checktol)
+    gap = verified.objective - global_fit.objective
+    @assert gap &gt;= -checktol
+    @printf(&quot;%s trap, start=%s, support=%s, F0=%.7f, global gap=%.7f, residual=%.3g, accepted=%d, rejected=%d, %s\n&quot;,
+            T, start, support, verified.objective, gap, verified.residual, fit.iterations, fit.rejected, fit.status)
+  end
+
+  # A second full-rank design gives a separate exhaustive reference.
+  A = T[2 1 0 0; 0 2 1 0; 0 0 2 1; 0 0 0 2; 1 0 1 0]
+  b = A * T[1, 0, -0.8, 0] + T[0, 0.02, 0, -0.01, 0]
+  for level in T[0, 0.12]
+    reference = exhaustive_support(A, b, level)
+    for start in (zeros(T, 4), T[1, 0.1, -0.5, 0.05])
+      fit = iht(A, b, level, start; tol)
+      verified = check_iht(A, b, level, fit; checktol)
+      @assert fit.status == :stationary_within_tolerance &amp;&amp; verified.residual &lt;= tol + checktol
+      @assert verified.objective &gt;= reference.objective - checktol
+      if iszero(level)
+        @assert norm(fit.beta - (Float64.(A) \ Float64.(b)), Inf) &lt;= 5tol
+      end
+      @printf(&quot;%s reference, level=%.2f, F0=%.7f, exhaustive=%.7f, residual=%.3g, accepted=%d, rejected=%d, %s\n&quot;,
+              T, level, verified.objective, reference.objective, verified.residual, fit.iterations, fit.rejected, fit.status)
+    end
+  end
+
+  # A one-dimensional quadratic with curvature 4 rejects inverse steps
+  # 1/2, 1, and 2. At 4 the zero-level prox takes the exact minimizer.
+  A, b, start = reshape(T[2], 1, 1), T[2], zeros(T, 1)
+  fit = iht(A, b, zero(T), start; initial_L = T(0.5), max_trials = 4, tol)
+  @assert fit.status == :stationary_within_tolerance &amp;&amp; fit.beta == T[1]
+  @assert fit.iterations == 1 &amp;&amp; fit.rejected == 3
+  check_iht(A, b, zero(T), fit; checktol)
+
+  refused = iht(A, b, zero(T), start; initial_L = T(0.5), max_trials = 3, tol)
+  @assert refused.status == :line_search_failed &amp;&amp; refused.beta == start
+  @assert refused.iterations == 0 &amp;&amp; refused.rejected == 3
+  @assert check_iht(A, b, zero(T), refused; checktol).residual == 4
+
+  limited = iht(A, b, zero(T), start; maxiter = 1, tol)
+  @assert limited.status == :iteration_limit &amp;&amp; limited.iterations == 1
+  @assert check_iht(A, b, zero(T), limited; checktol).residual == 2
+
+  stalled = iht(A, b, zero(T), T[0.5]; initial_L = T(1e20), tol)
+  @assert stalled.status == :numerical_stagnation &amp;&amp; stalled.beta == T[0.5]
+  @assert check_iht(A, b, zero(T), stalled; checktol).residual == 2
+  @printf(&quot;%s work checks, trials accepted/rejected=%d/%d, bounded failure=%s, limit=%s, stall=%s\n&quot;,
+          T, fit.iterations, fit.rejected, refused.status, limited.status, stalled.status)
+end
+
+small_checks(Float32)
+small_checks(Float64)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Float32 trap, start=Float32[0.0, 0.0], support=[1], F0=0.1000000, global gap=0.0000000, residual=5.9e-06, accepted=37, rejected=0, stationary_within_tolerance
+Float32 trap, start=Float32[0.0, 0.7], support=[2], F0=0.2800000, global gap=0.1800000, residual=7.99e-06, accepted=29, rejected=0, stationary_within_tolerance
+Float32 reference, level=0.00, F0=0.0000002, exhaustive=0.0000002, residual=7.34e-06, accepted=58, rejected=0, stationary_within_tolerance
+Float32 reference, level=0.00, F0=0.0000002, exhaustive=0.0000002, residual=7.83e-06, accepted=55, rejected=0, stationary_within_tolerance
+Float32 reference, level=0.12, F0=0.7208500, exhaustive=0.2400431, residual=0, accepted=0, rejected=0, stationary_within_tolerance
+Float32 reference, level=0.12, F0=0.2400431, exhaustive=0.2400431, residual=6.09e-06, accepted=36, rejected=0, stationary_within_tolerance
+Float32 work checks, trials accepted/rejected=1/3, bounded failure=line_search_failed, limit=iteration_limit, stall=numerical_stagnation
+Float64 trap, start=[0.0, 0.0], support=[1], F0=0.1000000, global gap=0.0000000, residual=8.8e-09, accepted=57, rejected=0, stationary_within_tolerance
+Float64 trap, start=[0.0, 0.7], support=[2], F0=0.2800000, global gap=0.1800000, residual=8.58e-09, accepted=50, rejected=0, stationary_within_tolerance
+Float64 reference, level=0.00, F0=0.0000002, exhaustive=0.0000002, residual=8.85e-09, accepted=104, rejected=0, stationary_within_tolerance
+Float64 reference, level=0.00, F0=0.0000002, exhaustive=0.0000002, residual=8.79e-09, accepted=102, rejected=0, stationary_within_tolerance
+Float64 reference, level=0.12, F0=0.7208500, exhaustive=0.2400431, residual=0, accepted=0, rejected=0, stationary_within_tolerance
+Float64 reference, level=0.12, F0=0.2400431, exhaustive=0.2400431, residual=8.49e-09, accepted=60, rejected=0, stationary_within_tolerance
+Float64 work checks, trials accepted/rejected=1/3, bounded failure=line_search_failed, limit=iteration_limit, stall=numerical_stagnation</code></pre><h2 id="Sparse-recovery-with-correlated-predictors"><a class="docs-heading-anchor" href="#Sparse-recovery-with-correlated-predictors">Sparse recovery with correlated predictors</a><a id="Sparse-recovery-with-correlated-predictors-1"></a><a class="docs-heading-anchor-permalink" href="#Sparse-recovery-with-correlated-predictors" title="Permalink"></a></h2><p>Use 200 training observations, 50 predictors with AR(1) correlation <span>$\rho^{|j-k|}$</span>, and independent Gaussian training noise with standard deviation 0.15. The five planted coefficients are known. Measure prediction error on 1,000 fresh predictor rows against their noiseless means, so this diagnostic estimates error in the fitted mean. Count exact zeros in each method&#39;s own representation. Tuning levels are illustrative and specified before fitting.</p><pre><code class="language-julia hljs">function correlated_design(rng, n, p, rho)
+  X = randn(rng, n, p)
+  for j in 2:p
+    X[:, j] .= rho .* X[:, j - 1] .+ sqrt(1 - rho^2) .* X[:, j]
+  end
+  X
+end
+
+rng = Xoshiro(423)
+n, p, rho, sigma = 200, 50, 0.8, 0.15
+X = correlated_design(rng, n, p, rho)
+truth = zeros(p)
+truth[[2, 10, 19, 31, 45]] = [1.6, -1.3, 1.0, -0.75, 0.5]
+y = X * truth + sigma * randn(rng, n)
+X_holdout = correlated_design(rng, 1_000, p, rho)
+
+function recovery_metrics(beta, truth, X_holdout)
+  selected, planted = findall(!iszero, beta), findall(!iszero, truth)
+  error = beta - truth
+  (; size = length(selected), tp = length(intersect(selected, planted)),
+     fp = length(setdiff(selected, planted)), fn = length(setdiff(planted, selected)),
+     coefficient_error = norm(error), prediction_rmse = norm(X_holdout * error) / sqrt(size(X_holdout, 1)))
+end
+
+function print_recovery(name, beta, truth, X_holdout)
+  m = recovery_metrics(beta, truth, X_holdout)
+  @printf(&quot;%-20s support=%2d TP/FP/FN=%d/%d/%d coefficient L2=%.5f holdout RMSE=%.5f&quot;,
+          name, m.size, m.tp, m.fp, m.fn, m.coefficient_error, m.prediction_rmse)
+  m
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">print_recovery (generic function with 1 method)</code></pre><p>Fit lasso and elastic net through the supported dense PGD interface. Check their own objectives and the convex coordinate optimality equations from the raw data. Their penalized objectives have different definitions and units of tuning. We compare recovery and prediction on shared scales.</p><pre><code class="language-julia hljs">function convex_fit(X, y, penalty, lambda1, lambda2)
+  f = (1 / length(y)) * LeastSquaresLoss(y, X)
+  beta = zeros(size(X, 2))
+  options = ProximalOptions(maxiter = 10_000, ftol = 1e-14, xtol = 1e-12, gradtol = 1e-9)
+  fit = solve!(beta, f, penalty, ProximalGradientDescent(), options)
+  own_objective = training_loss(X, y, beta) + lambda1 * sum(abs, beta) + (lambda2 / 2) * sum(abs2, beta)
+  grad = X&#39; * (X * beta - y) / length(y) + lambda2 * beta
+  kkt = maximum(iszero(beta[j]) ? max(abs(grad[j]) - lambda1, 0.0) :
+                abs(grad[j] + lambda1 * sign(beta[j])) for j in eachindex(beta))
+  @assert isapprox(fit.minimum, own_objective; rtol = 1e-10) &amp;&amp; kkt &lt;= 1e-7
+  (; beta, own_objective, kkt, fit)
+end
+
+lambda1, lambda2 = 0.045, 0.08
+lasso = convex_fit(X, y, NormL1(lambda1), lambda1, 0.0)
+elastic = convex_fit(X, y, ElasticNet(lambda1, lambda2), lambda1, lambda2)
+for (name, model) in ((&quot;Lasso&quot;, lasso), (&quot;Elastic net&quot;, elastic))
+  print_recovery(name, model.beta, truth, X_holdout)
+  reason = model.fit.converged ? :solver_stop_passed :
+           model.fit.iteration_converged ? :iteration_limit : :solver_stopped_without_convergence
+  @printf(&quot; own objective=%.7f, KKT=%.3g, iterations=%d, line-search trials=%d, %s\n&quot;,
+          model.own_objective, model.kkt, model.fit.iterations, model.fit.backtrack_steps, reason)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Lasso                support= 7 TP/FP/FN=5/2/0 coefficient L2=0.14398 holdout RMSE=0.11793 own objective=0.2357293, KKT=1.3e-09, iterations=133, line-search trials=150, solver_stop_passed
+Elastic net          support=15 TP/FP/FN=5/10/0 coefficient L2=0.78466 holdout RMSE=0.37207 own objective=0.4044684, KKT=2.84e-09, iterations=143, line-search trials=164, solver_stopped_without_convergence</code></pre><h2 id="Comparing-starts-at-the-same-penalty-level"><a class="docs-heading-anchor" href="#Comparing-starts-at-the-same-penalty-level">Comparing starts at the same penalty level</a><a id="Comparing-starts-at-the-same-penalty-level-1"></a><a class="docs-heading-anchor-permalink" href="#Comparing-starts-at-the-same-penalty-level" title="Permalink"></a></h2><p>Use zero, a lasso warm start and a perturbed lasso start that swaps a signal coefficient to an adjacent predictor. For each fixed <span>$\lambda_0$</span> we score all candidates, including the two convex fits, under the same <span>$F_0$</span>. These evaluations of the convex fits are reference scores under <span>$F_0$</span>, while their own optimization objectives were reported above. The level-zero solution is an unpenalized baseline. The positive levels show how changing the entry cost changes the recovery and prediction tradeoff.</p><pre><code class="language-julia hljs">perturbed = copy(lasso.beta)
+perturbed[3] += perturbed[2]
+perturbed[2] = 0
+starts = (&quot;Zero&quot; =&gt; zeros(p), &quot;Lasso warm start&quot; =&gt; lasso.beta, &quot;Perturbed lasso&quot; =&gt; perturbed)
+levels = [0.0, 0.008, 0.025, 0.06]
+Lref = reference_inverse_step(X)
+records = map(levels) do level
+  map(starts) do (name, start)
+    fit = iht(X, y, level, start; Lref)
+    verified = check_iht(X, y, level, fit; checktol = 2e-12)
+    @assert fit.status == :stationary_within_tolerance &amp;&amp; verified.residual &lt;= 1e-8 + 2e-12
+    @printf(&quot;lambda0=%.3f &quot;, level)
+    m = print_recovery(name, fit.beta, truth, X_holdout)
+    @printf(&quot; F0=%.7f, residual=%.3g, accepted=%d, rejected=%d, %s\n&quot;,
+            verified.objective, verified.residual, fit.iterations, fit.rejected, fit.status)
+    m
+  end
+end
+
+for level in levels
+  @printf(&quot;lambda0=%.3f, lasso scored under F0=%.7f, elastic net scored under F0=%.7f\n&quot;,
+          level, l0_objective(X, y, lasso.beta, level), l0_objective(X, y, elastic.beta, level))
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">lambda0=0.000 Zero                 support=50 TP/FP/FN=5/45/0 coefficient L2=0.15038 holdout RMSE=0.08074 F0=0.0086919, residual=1e-08, accepted=4054, rejected=0, stationary_within_tolerance
+lambda0=0.000 Lasso warm start     support=50 TP/FP/FN=5/45/0 coefficient L2=0.15038 holdout RMSE=0.08074 F0=0.0086919, residual=9.97e-09, accepted=3324, rejected=0, stationary_within_tolerance
+lambda0=0.000 Perturbed lasso      support=50 TP/FP/FN=5/45/0 coefficient L2=0.15038 holdout RMSE=0.08074 F0=0.0086919, residual=9.97e-09, accepted=4018, rejected=0, stationary_within_tolerance
+lambda0=0.008 Zero                 support= 5 TP/FP/FN=4/1/1 coefficient L2=0.51785 holdout RMSE=0.51651 F0=0.1616534, residual=9.91e-09, accepted=1649, rejected=0, stationary_within_tolerance
+lambda0=0.008 Lasso warm start     support= 5 TP/FP/FN=5/0/0 coefficient L2=0.02397 holdout RMSE=0.02308 F0=0.0509420, residual=9.72e-09, accepted=312, rejected=0, stationary_within_tolerance
+lambda0=0.008 Perturbed lasso      support= 6 TP/FP/FN=4/2/1 coefficient L2=1.96808 holdout RMSE=0.76001 F0=0.3104731, residual=9.9e-09, accepted=862, rejected=0, stationary_within_tolerance
+lambda0=0.025 Zero                 support= 5 TP/FP/FN=4/1/1 coefficient L2=0.51785 holdout RMSE=0.51651 F0=0.2466534, residual=9.96e-09, accepted=1559, rejected=0, stationary_within_tolerance
+lambda0=0.025 Lasso warm start     support= 5 TP/FP/FN=5/0/0 coefficient L2=0.02397 holdout RMSE=0.02308 F0=0.1359420, residual=9.72e-09, accepted=312, rejected=0, stationary_within_tolerance
+lambda0=0.025 Perturbed lasso      support= 5 TP/FP/FN=4/1/1 coefficient L2=2.08568 holdout RMSE=0.97739 F0=0.5735650, residual=9.75e-09, accepted=359, rejected=0, stationary_within_tolerance
+lambda0=0.060 Zero                 support= 1 TP/FP/FN=1/0/4 coefficient L2=1.87782 holdout RMSE=1.72274 F0=1.6702173, residual=9.49e-09, accepted=303, rejected=0, stationary_within_tolerance
+lambda0=0.060 Lasso warm start     support= 5 TP/FP/FN=5/0/0 coefficient L2=0.02397 holdout RMSE=0.02308 F0=0.3109420, residual=9.72e-09, accepted=312, rejected=0, stationary_within_tolerance
+lambda0=0.060 Perturbed lasso      support= 5 TP/FP/FN=4/1/1 coefficient L2=2.08568 holdout RMSE=0.97739 F0=0.7485650, residual=9.75e-09, accepted=359, rejected=0, stationary_within_tolerance
+lambda0=0.000, lasso scored under F0=0.0163553, elastic net scored under F0=0.0602979
+lambda0=0.008, lasso scored under F0=0.0723553, elastic net scored under F0=0.1802979
+lambda0=0.025, lasso scored under F0=0.1913553, elastic net scored under F0=0.4352979
+lambda0=0.060, lasso scored under F0=0.4363553, elastic net scored under F0=0.9602979</code></pre><p>The plot separates size from prediction error. Horizontal lines are the fixed lasso and elastic-net fits. Overlapping curves mean the displayed metric agrees at those levels. Equal support size alone can hide different selected predictors, so check the discovery counts and fixed-point example.</p><pre><code class="language-julia hljs">using Plots
+size_plot = plot(; ylabel = &quot;Support size&quot;, legend = :topright)
+error_plot = plot(; xlabel = &quot;Cardinality penalty λ₀&quot;, ylabel = &quot;Holdout RMSE&quot;, legend = false)
+for (j, (label, _)) in enumerate(starts)
+  plot!(size_plot, levels, [r[j].size for r in records]; label, marker = :circle, linewidth = 2)
+  plot!(error_plot, levels, [r[j].prediction_rmse for r in records]; label, marker = :circle, linewidth = 2)
+end
+for (label, model, color) in ((&quot;Lasso&quot;, lasso, :black), (&quot;Elastic net&quot;, elastic, :gray))
+  m = recovery_metrics(model.beta, truth, X_holdout)
+  hline!(size_plot, [m.size]; label, color, linestyle = :dash, linewidth = 2)
+  hline!(error_plot, [m.prediction_rmse]; label, color, linestyle = :dash, linewidth = 2)
+end
+primary_figure = plot(size_plot, error_plot; layout = (2, 1), size = (850, 580))
+savefig(primary_figure, &quot;l0_sparse_regression.svg&quot;)
+nothing</code></pre><h2 id="Limitations-and-exercises"><a class="docs-heading-anchor" href="#Limitations-and-exercises">Limitations and exercises</a><a id="Limitations-and-exercises-1"></a><a class="docs-heading-anchor-permalink" href="#Limitations-and-exercises" title="Permalink"></a></h2><p>Correlation can support several nearly interchangeable sparse fits. The tiny example certifies a positive optimization gap for one start. On the larger design the exhaustive search is impractical, so the residuals describe computed IHT fixed points and the support and prediction metrics describe statistical recovery on this simulated sample.</p><ol><li>Increase the correlation and compare false discoveries with holdout prediction error.</li><li>On the tiny design, change the starting support or the conservative step and check which fixed point you obtain against the same exhaustive reference.</li><li>Select tuning levels using a separate validation sample and compare recovery on several fresh training and holdout samples.</li></ol><p><a href="../../#Reproduce-the-figures">Reproduce the figures locally</a>.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../elastic_net/">« Elastic net</a><a class="docs-footer-nextpage" href="../group_lasso/">Group lasso »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Thursday 19 November 2026 07:18">Thursday 19 November 2026</span>. Using Julia version 1.13.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
