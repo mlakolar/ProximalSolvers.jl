@@ -32,6 +32,13 @@ PGD requires dense coefficients and refuses `SparseIterate`, `BlockIterate`,
 matrix responses and square-root loss. A group penalty must have the same
 parameter type as the data and groups partitioning the coefficients.
 
+PGD also fits sparse logistic regression with a raw `LogisticLoss(y, X)` (dense
+`Matrix{Float64}` design, binary `Vector{Float64}` response, no observation
+weights or offset) and `NormL1`, with or without penalty weights, on a
+`Vector{Float64}`. The loss is the sum over observations; a zero penalty weight
+leaves an intercept column unpenalized. Other logistic combinations are refused before
+writes. See [the logistic input contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-09).
+
 For nonnegative least squares, use `IndNonnegative()` or `NormL1Nonneg(0)`.
 For nonnegative lasso, use unweighted `NormL1Nonneg(lambda)` with a positive level.
 Both require a nonnegative starting vector. Infeasible starts are refused before writes, and the proximal
@@ -102,7 +109,7 @@ mutable struct ProximalGradientDescentState{T, X<:Vector{T}, G<:Vector{T}, M, Z}
     prox_calls::Int
     model::M
     z_x::Z            # A x
-    dz::Z             # F' at A x; buffer of the product A d of a checked rejection
+    dz::Z             # F' at A x; buffer of the product A d of a checked rejection and, for a logistic loss, of ½ - y (_zero_gradient!)
     verifications::Int  # rejections checked by the computed curvature (one product A d each)
     # true when the last rejection of the current iteration's line search replaced its estimate L̂
     # by the finite computed curvature c of the rejected step (the retry's L is then

@@ -17,6 +17,9 @@ over its entries) with a dense `X`, `Y` and `LeastSquaresLoss`. [`ProximalGradie
 [`AccProxGradDescent`](@ref) accept a dense `Vector` only, all through [`solve!`](@ref);
 [`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref) also solve the group lasso with a `GroupNormL2` penalty on it.
 [`ProximalGradientDescent`](@ref) also supports `IndNonnegative()` and unweighted `NormL1Nonneg` on a feasible dense `Vector`.
+[`ProximalGradientDescent`](@ref) also fits sparse logistic regression: a raw `LogisticLoss` without observation
+weights or offset, with dense `Float64` data and a binary response, and `NormL1` with or without penalty weights,
+on a `Vector{Float64}`.
 [`ADMMSolver`](@ref) solves centered `SqrNormL2` with unweighted `NormL1` on dense vectors.
 Losses, proximal operators and coordinate storage belong to PB.
 """
@@ -25,7 +28,7 @@ using LinearAlgebra
 using Printf
 using Random: AbstractRNG, default_rng, rand
 using SparseArrays: dropzeros!
-using ProximalBase: LeastSquaresLoss, SqrtLeastSquaresLoss, Scaled, NormL1, NormL1Nonneg, IndNonnegative, IndBox, IndBallL2, ElasticNet, SqrNormL2, NormLinf, SparseIterate,
+using ProximalBase: LeastSquaresLoss, SqrtLeastSquaresLoss, LogisticLoss, Scaled, NormL1, NormL1Nonneg, IndNonnegative, IndBox, IndBallL2, ElasticNet, SqrNormL2, NormLinf, SparseIterate,
   ncoordinates, nactive, activecoordinates, activevalues, prox_block,
   prox!, value_and_prox!, BlockIterate, GroupNormL2, blockindices, blockview, prox_block!, kkt_violation
 include("blocks.jl")

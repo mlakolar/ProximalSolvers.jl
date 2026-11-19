@@ -14,9 +14,27 @@ function _image_model(f)
 end
 _image_buffer(m::_LSImage{TY, TX, A, T}) where {TY, TX, A, T} = zeros(T, size(m.Y))
 _image!(z, m::_LSImage, x) = mul!(z, m.X, x)
+# The image model of PGD for a raw LogisticLoss, which the gate of solve! accepts with PGD only and
+# without observation weights or offset (IN-09): Y = f.y, X = f.X and the image z = X x. α is not a
+# loss scale but the factor 1/4 of the Hessian bound ∇²f(b) = Xᵀ diag(σᵢ(1 - σᵢ)) X ⪯ ¼ XᵀX, read where
+# least squares reads its scale: the initial curvature min(1, α‖X‖_F²) and the recheck
+# c = m α ‖fl(X d̂)‖²/‖d̂‖² of a rejected trial (_step_curvature). In exact arithmetic the bound gives
+# f(x) ≤ f(y) + ⟨∇f(y), d⟩ + ⅛‖X d‖² and ⟨∇f(x) - ∇f(y), d⟩ ≤ ¼‖X d‖² for d = x - y, so c ≤ L
+# (m = 1 in function-value mode, m = 2 in gradient mode) implies the acceptance test of that mode, and
+# after a rejection c ≥ L̂, TFOCS's estimate, so the retry's L is at least TFOCS's.
+struct _LogisticImage{TY<:AbstractVector, TX<:AbstractMatrix}
+  Y::TY
+  X::TX
+  α::Float64
+end
+_image_model(f::LogisticLoss) = _LogisticImage(f.y, f.X, 0.25)
+_image_buffer(m::_LogisticImage) = zeros(eltype(m.X), length(m.Y))
+_image!(z, m::_LogisticImage, x) = mul!(z, m.X, x)
+
 # The loss value at x: the image z = X x is formed here and the value is ProximalBase's.
 _value!(x, f, m, z) = (_image!(z, m, x); convert(_eltype(x), value_from_predictor(f, z)))
-# The value at the image z, with d = z - Y and G the gradient, both written by ProximalBase.
+# The value at the image z, with G the gradient and d its observation derivative, both written by
+# ProximalBase: d = z - Y for least squares and d = σ(z) - Y for a logistic loss.
 _value_and_gradient!(G, x, f, z, d) = convert(_eltype(x), value_and_gradient_from_predictor!(G, d, f, z))
 
 # ---- The accelerated method's certified backtracking test ----------------------------

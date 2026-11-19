@@ -289,6 +289,8 @@ function _check_data(x, f, g, ::Type{T}, kind::Symbol) where T
     _check_loss_scale(leastsquares_data(f).α, T)
     f.f
   else
+    # the CD owner and block gates reach this with a logistic loss
+    _is_logistic_loss(f) && _logistic_method_error(kind)
     throw(ArgumentError("only LeastSquaresLoss or one positive Scaled(LeastSquaresLoss) is supported"))
   end
   base.X isa Matrix{T} && base.Y isa Vector{T} ||
@@ -349,10 +351,60 @@ function _check_sqrt_penalty(g, ::Type{T}) where T
   nothing
 end
 
+# A LogisticLoss, unwrapped or in one Scaled wrapper (which _check_logistic_problem refuses).
+_is_logistic_loss(f) = f isa LogisticLoss || (f isa Scaled && f.f isa LogisticLoss)
+
+@noinline _logistic_method_error(kind::Symbol) =
+  throw(ArgumentError("LogisticLoss is supported only by ProximalGradientDescent, on a dense Vector{Float64} with a NormL1 " *
+                      "penalty; $(kind === :gradient ? "AccProxGradDescent" : "CDSolver") does not support it"))
+
+# The gate of a logistic loss (IN-09), in place of the checks below, on every solve and before any write to x. Each
+# refusal is an ArgumentError (a DimensionMismatch for the shapes), in this order: a solver other than PGD (`kind` is
+# not :pgd); a Scaled wrapper; a loss, X, y or x that is not LogisticLoss{Float64}, Matrix{Float64}, Vector{Float64} and
+# Vector{Float64}; observation weights or an offset; X without rows or columns, y without one entry per row of X, x
+# without one entry per column; a penalty that is not a NormL1, then the NormL1 rules of _check_penalty (with weights,
+# _check_l1_weights, which also refuses an x that may alias the weights); an x that may alias X, y or the scratch
+# f.tmp of the loss; a nonfinite entry of x or X; an entry of y other than 0 and 1 (a NaN included), read at this
+# call, so a change of y after the construction of the loss is checked.
+function _check_logistic_problem(x, f, g, kind::Symbol)
+  kind === :pgd || _logistic_method_error(kind)
+  f isa Scaled &&
+    throw(ArgumentError("Scaled(LogisticLoss) is not supported (ProximalBase provides no predictor oracles for it); " *
+                        "for a positive finite scale a, use the raw LogisticLoss(y, X) with the penalty level divided by a, " *
+                        "which has the same minimizers: for the mean loss (1/n) * LogisticLoss(y, X) with NormL1(lambda), " *
+                        "use LogisticLoss(y, X) with NormL1(n * lambda)"))
+  f isa LogisticLoss{Float64} && f.X isa Matrix{Float64} && f.y isa Vector{Float64} ||
+    throw(ArgumentError("LogisticLoss needs X::Matrix{Float64} and y::Vector{Float64}; Float32 data, sparse designs " *
+                        "and other array types are deferred"))
+  x isa Vector{Float64} ||
+    throw(ArgumentError("LogisticLoss needs x to be a dense Vector{Float64}"))
+  f.weights === nothing && f.offset === nothing ||
+    throw(ArgumentError("LogisticLoss with observation weights or an offset is not supported; construct the loss " *
+                        "without them (penalty weights are given to NormL1(lambda, w))"))
+  n, p = size(f.X)
+  n > 0 && p > 0 || throw(DimensionMismatch("X must have positive row and column counts"))
+  length(f.y) == n && length(x) == p || throw(DimensionMismatch("x/y dimensions do not match X"))
+  g isa NormL1 ||
+    throw(ArgumentError("only NormL1, with or without weights, is supported with LogisticLoss"))
+  _check_penalty(g, x, Float64, kind)
+  (Base.mightalias(x, f.X) || Base.mightalias(x, f.y) || Base.mightalias(x, f.tmp)) &&
+    throw(ArgumentError("mutable x must not alias borrowed X or y or the scratch of the loss"))
+  _allfinite(x) && _allfinite(f.X) || throw(ArgumentError("x and X must contain only finite values"))
+  y = f.y
+  @inbounds for i in eachindex(y)
+    yi = y[i]
+    iszero(yi) || isone(yi) ||
+      throw(ArgumentError("LogisticLoss with ProximalGradientDescent needs a binary response: entry $i of y is $yi, not 0 or 1"))
+  end
+  nothing
+end
+
 # The dense gate: :cd for CDSolver, :pgd for PGD and :gradient (the default) for APG.
 # Both gradient kinds refuse square-root loss and accept NormLinf and GroupNormL2;
 # only :pgd also accepts IndNonnegative and unweighted NormL1Nonneg, with a feasible start.
+# A logistic loss goes to _check_logistic_problem, whatever the kind.
 function _check_problem(x, f, g, kind::Symbol = :gradient)
+  _is_logistic_loss(f) && return _check_logistic_problem(x, f, g, kind)
   x isa Vector && eltype(x) in (Float32, Float64) ||
     throw(ArgumentError("x must be a dense Vector{Float32} or Vector{Float64}"))
   base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), kind) : _check_data(x, f, g, eltype(x), kind)

@@ -127,6 +127,8 @@ end
 # An infinite entry of x gives a non-finite residual (Inf, or NaN when a NaN is read), so such a stop is
 # not kept.
 # It is a computed residual, not a certificate in exact arithmetic.
+# For a logistic loss with NormL1 (PGD only, IN-09) the check is the same with the logistic gradient ∇f and
+# λmax = ‖Xᵀ(½ - y)‖∞ = ‖∇f(0)‖∞ (see _zero_gradient!).
 #
 # GroupNormL2(λ0, groups, w) (ProximalGradientDescent and AccProxGradDescent; solve! requires a GroupNormL2{T} whose groups partition 1:p
 # and match the layout stored in the penalty at construction), h = Σₖ cₖ ‖b[Gₖ]‖₂ with cₖ = λ0 wₖ rounded in T. The residual is ProximalBase's full-point
@@ -186,19 +188,34 @@ function _stationary!(state, f, g, options::ProximalOptions)
     t * threshold >= floatmin(T) / eps(T) && r < threshold
 end
 
-# α‖Xᵀy‖ = ‖∇f(0)‖ in the norm `nrm` (the ∞-norm by default, as in the default check; the dedicated check passes _scale_norm(g)),
+# ‖∇f(0)‖ in the norm `nrm` (the ∞-norm by default, as in the default check; the dedicated check passes _scale_norm(g)),
 # computed once per solve (state.λmax is negative until then; the penalty, and so the norm, is fixed in a
-# solve) with the arithmetic of the gradient oracle at x = 0 (Xᵀ times a vector, then the scale α). It is formed in state.xhat. At
+# solve) by _zero_gradient! below. It is formed in state.xhat. At
 # every use in the solvers xhat is written before it is read (the input of the proximal step in
 # PGD's update_state!, the same input and the difference x - y in APG's _prox_grad_step!), and
 # the convergence tests and the trace do not read it, so a stop that is assessed after an
 # iteration can overwrite it. It is not a counted call.
 function _lambda_max!(state, nrm = _norm_inf)
   state.λmax < 0 || return state.λmax
-  m = state.model
-  mul!(state.xhat, transpose(m.X), m.Y)
-  state.xhat .*= m.α
+  _zero_gradient!(state.xhat, state, state.model)
   state.λmax = nrm(state.xhat)
+end
+
+# Least squares: α Xᵀy = -∇f(0), whose norm is ‖∇f(0)‖, with the arithmetic of the gradient oracle at x = 0
+# (Xᵀ times a vector, then the scale α).
+function _zero_gradient!(G, state, m::_LSImage)
+  mul!(G, transpose(m.X), m.Y)
+  G .*= m.α
+end
+
+# Logistic loss without observation weights or offset (the only logistic loss that solve! accepts, with PGD):
+# ∇f(0) = Xᵀ(σ(0) - y) = Xᵀ(½ - y), with ½ - yᵢ = ±½ exact for a binary yᵢ. The difference is written
+# to state.dz, PGD's image-length buffer. On the PGD path that buffer is written before it is read at its
+# other uses (by ProximalBase as the derivative d in _value_and_gradient!, and by the product X d̂ in
+# check_rejection!), so its content is not needed when this runs between iterations.
+function _zero_gradient!(G, state, m::_LogisticImage)
+  state.dz .= 0.5 .- m.Y
+  mul!(G, transpose(m.X), state.dz)
 end
 
 # The norm of ∇f(0) in the stop scale S: the ∞-norm, and for GroupNormL2 the largest 2-norm of a group block
