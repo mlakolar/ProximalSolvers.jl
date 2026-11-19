@@ -90,6 +90,18 @@ Git HEADs and source digests, then compares fresh child-process diagnostics.
 Version-only fingerprints or unverified sibling checkouts are insufficient. Old workspace helper scripts
 are historical conveniences, not proof a sibling directory is current master.
 
+## Julia performance and correctness
+
+Use Julia 1.13.4 for performance benchmarks and optimization decisions.
+Use Julia 1.10.13 to verify correctness. Performance parity on Julia 1.10.13
+is outside the performance gate.
+
+Investigate and escalate repeatable slowdowns above 5% on ordinary Julia 1.13
+paths. Compare equivalent workloads and consider the absolute cost and how
+often the workload runs. Prioritize bottlenecks on Julia 1.13.4. Add
+version-specific complexity only when it delivers a substantial improvement
+on Julia 1.13.
+
 ## Rebuild provenance and repository maintenance
 
 The current `master` is a reviewed minimal solver core; `refactor/minimal-core`

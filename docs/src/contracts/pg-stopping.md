@@ -58,7 +58,7 @@ The comparisons use the floating-point products `gradtol * m` and `gradtol * N`;
 
 ### [STOP-03 Scalar and weighted lasso residuals](@id STOP-03)
 
-**Statement.** For `NormL1(λ0)`, the residual is the least-infinity-norm element of `∇f(x) + T(λ0) ∂‖x‖₁`: entry score `max(|∇fᵢ| - T(λ0), 0)` at `xᵢ = 0` and `|∇fᵢ + T(λ0) sign(xᵢ)|` elsewhere. With `NormL1(λ0, w)`, entry `i` instead uses `cᵢ = T(λ0) wᵢ`, multiplied and rounded in `T`: its score is `max(|∇fᵢ| - cᵢ, 0)` at zero and `|∇fᵢ + cᵢ sign(xᵢ)|` elsewhere. The full-point calls are ProximalBase's `kkt_violation(NormL1(T(λ0)), ∇f(x), x)` and `kkt_violation(NormL1(T(λ0), w), ∇f(x), x)`. They convert the scalar level once; the `Vector{T}` weights are neither converted nor copied.
+**Statement.** For `NormL1(λ0)`, the residual is the least-infinity-norm element of `∇f(x) + λ ∂‖x‖₁`, with the working level `λ` from [IN-02](@ref). The entry score is `max(|∇fᵢ| - λ, 0)` at `xᵢ = 0` and `|∇fᵢ + λ sign(xᵢ)|` elsewhere. The full-point call is ProximalBase's `kkt_violation` with the working penalty used for the objective. With `NormL1(λ0, w)`, the call is `kkt_violation(NormL1(T(λ0), w), ∇f(x), x)`. Entry `i` uses `cᵢ = T(λ0) wᵢ`, multiplied and rounded in `T`. Its score is `max(|∇fᵢ| - cᵢ, 0)` at zero and `|∇fᵢ + cᵢ sign(xᵢ)|` elsewhere. The `Vector{T}` weights are used as supplied.
 
 The scale is `S = max(λ, λmax)`, where `λ = T(λ0)` without weights and `λ = maxᵢ cᵢ` with weights, and `λmax` is the computed `s‖Xᵀy‖∞`. The equality `maxᵢ cᵢ = T(λ0) * maximum(w)` uses monotonicity of rounding. Unit weights reproduce the unweighted coefficients and scale. All-zero weights remove the penalty and give the least-squares scale `S = λmax`; with zero response as well, the zero-scale rule in [STOP-04](@ref) applies.
 
@@ -70,13 +70,13 @@ A zero-weight coordinate has `cᵢ = 0`, is unpenalized and is scored by its ful
 
 **Code.** `src/utils.jl: convergence_assessment, _stationary!`.
 
-**Tests.** test/stopping_scale.jl; test/weighted_lasso.jl; test/logistic_pgd.jl (the logistic scale `‖Xᵀ(½ - y)‖∞` and independent KKT scores).
+**Tests.** `test/core_regressions.jl`, “Working ℓ₁ levels”, checks stopping flags and residuals against explicit working-level controls. See also `test/stopping_scale.jl`, `test/weighted_lasso.jl` and `test/logistic_pgd.jl` (the logistic scale `‖Xᵀ(½ - y)‖∞` and independent KKT scores).
 
 **Sources.** `docs/src/numerics.md:L86`, `docs/src/numerics.md:L145`, `docs/src/developer/implementation-notes.md:L286`, `docstring:src/types.jl:L23`.
 
 ### [STOP-16 Nonnegative-lasso residual and scale](@id STOP-16)
 
-**Statement.** For unweighted `NormL1Nonneg(λ0)`, PGD checks the accepted point with ProximalBase's full-point `kkt_violation`. At each check it converts the scalar level once into `NormL1Nonneg(T(λ0))`. For `IndNonnegative()`, PGD uses `NormL1Nonneg(zero(T))` for the check because both penalties have the same value and normal cone on the feasible set. With `λ = T(λ0)`, the entry score is `abs(∇f(x)[j] + λ)` when `x[j] > 0`, and `max(-(∇f(x)[j] + λ), 0)` when `x[j] == 0`. The residual is the maximum entry score. An infeasible point has residual `Inf` and cannot pass. A positive derivative at a zero coordinate can satisfy constrained stationarity.
+**Statement.** For unweighted `NormL1Nonneg(λ0)`, PGD checks the accepted point with ProximalBase's full-point `kkt_violation` using the working penalty from [IN-02](@ref). For `IndNonnegative()`, PGD uses `NormL1Nonneg(zero(T))` for the check because both penalties have the same value and normal cone on the feasible set. With `λ` the level of that penalty, the entry score is `abs(∇f(x)[j] + λ)` when `x[j] > 0`, and `max(-(∇f(x)[j] + λ), 0)` when `x[j] == 0`. The residual is the maximum entry score. An infeasible point has residual `Inf` and cannot pass. A positive derivative at a zero coordinate can satisfy constrained stationarity.
 
 The scale is `S = max(λ, λmax)`, where `λmax` is the computed symmetric magnitude `s‖Xᵀy‖∞`. This is not the one-sided penalty level at which zero solves the constrained problem. Apply the computed threshold, tolerance floor, strict comparison and scale guards of [STOP-04](@ref). Passing records a computed residual check, with the working-precision limitations of [STOP-12](@ref).
 
@@ -84,7 +84,7 @@ The scale is `S = max(λ, λmax)`, where `λmax` is the computed symmetric magni
 
 **Code.** `src/utils.jl`: dedicated `_stationary!`, `_converted_penalty`, `_l1_level`, `_scale_norm` and `_lambda_max!`.
 
-**Tests.** `test/nonnegative_lasso.jl`: both precisions, zero and positive starts, zero and converted levels, inactive-coordinate KKT, correlated designs, independent residual/objective checks and refusals. `test/nonnegative_least_squares.jl` checks both precisions against independent gradients and objectives, including a positive derivative at a positive coefficient that must veto an objective-change stopping proposal.
+**Tests.** `test/core_regressions.jl`, “Working ℓ₁ levels”, checks stopping flags and residuals with subnormal and ordinary levels in both precisions. `test/nonnegative_lasso.jl` checks zero and positive starts, inactive-coordinate KKT, correlated designs, independent residuals and objectives, and refusals. `test/nonnegative_least_squares.jl` checks both precisions against independent gradients and objectives, including a positive derivative at a positive coefficient that must veto an objective-change stopping proposal.
 
 **Sources.** Current-source addition after the historical migration baseline: upstream `fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8`, [`src/utils.jl` dedicated check and constrained-residual rule](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/src/utils.jl#L141-L156), [level conversion](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/src/utils.jl#L232-L233), and [`test/nonnegative_lasso.jl`](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/test/nonnegative_lasso.jl#L12-L67).
 

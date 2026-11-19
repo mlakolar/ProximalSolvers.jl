@@ -321,6 +321,7 @@ function solve!(x, f, g, method::AccProxGradDescent,
   _check_method(method, eltype(x))
   _check_bound_size(f, eltype(x))
   t0 = time()
-  state = initial_state(method, options, f, g, x)
-  _solve_gradient!(state, f, g, method, options, t0)
+  g_work = _working_gradient_penalty(g, eltype(x))
+  state = initial_state(method, options, f, g_work, x)
+  _solve_gradient!(state, f, g_work, method, options, t0)
 end
