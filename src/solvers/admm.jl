@@ -132,12 +132,12 @@ function _solve_admm!(initial_z::Vector{T}, f, g, method, options, initial_u) wh
   c = f.y
   !isempty(initial_z) && length(initial_z) == length(c) ||
     throw(DimensionMismatch("z and the center must have the same positive length"))
-  Base.mightalias(initial_z, c) && throw(ArgumentError("z must not alias the center"))
+  _admm_mightalias(initial_z, c) && throw(ArgumentError("z must not alias the center"))
   _allfinite(initial_z) && _allfinite(c) || throw(ArgumentError("z and the center must contain only finite values"))
   if initial_u !== nothing
     initial_u isa Vector{T} || throw(ArgumentError("u must be a dense $T vector like z"))
     length(initial_u) == length(initial_z) || throw(DimensionMismatch("u and z must have the same length"))
-    (Base.mightalias(initial_u, initial_z) || Base.mightalias(initial_u, c)) &&
+    (_admm_mightalias(initial_u, initial_z) || _admm_mightalias(initial_u, c)) &&
       throw(ArgumentError("u must not alias z or the center"))
     _allfinite(initial_u) || throw(ArgumentError("u must contain only finite values"))
   end
@@ -226,6 +226,16 @@ function _solve_admm!(initial_z::Vector{T}, f, g, method, options, initial_u) wh
   end
   ADMMResults(initial_z, objective, iterations, status === :converged,
               r_norm, s_norm, eps_pri, eps_dual, u, ρ, calls, status)
+end
+
+function _admm_mightalias(a::Vector, b::Vector)
+  Base.mightalias(a, b) && return true
+  # Separately wrapped dense vectors can overlap despite distinct storage identities.
+  GC.@preserve a b begin
+    a_start = UInt(pointer(a))
+    b_start = UInt(pointer(b))
+    a_start <= b_start ? b_start - a_start < UInt(sizeof(a)) : a_start - b_start < UInt(sizeof(b))
+  end
 end
 
 function _admm_subtract!(out, a, b)

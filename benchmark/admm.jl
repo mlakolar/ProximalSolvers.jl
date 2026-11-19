@@ -15,10 +15,9 @@ function admm_benchmark_model(c, λ, τ, ρ, abstol, reltol, adaptive)
    ProximalSolvers.ProximalOptions(; maxiter = 5000))
 end
 
-function admm_case_state(rep, n, ::Type{T}, adaptive, start) where {T}
+function admm_case_state(rep, n, ::Type{T}, ρ::T, adaptive, start) where {T}
   c = admm_center(rep, n, T)
   λ, τ = T(2), T(0.8125)
-  ρ = adaptive ? T(64) : T(2)
   tolerance = max(T(4) * eps(T), T(1e-13))
   c64, λ64, τ64 = Float64.(c), Float64(λ), Float64(τ)
   reference = cert_soft.(c64, τ64 / λ64)
@@ -57,22 +56,23 @@ function admm_case_state(rep, n, ::Type{T}, adaptive, start) where {T}
                             measure = :kkt_residual)
     residual_certificate(kkt, objective)
   end
-  CaseState(reset!, call!, check, data_hash((; c, λ, τ, z0, u0, ρ, tolerance, adaptive)))
+  CaseState(reset!, call!, check, data_hash((; c, λ, τ, z0, u0)))
 end
 
 function admm_catalog()
   catalog = CaseSpec[]
-  for n in (32, 8192), T in (Float32, Float64), adaptive in (false, true),
+  for n in (32, 8192), T in (Float32, Float64),
+      (ρ, adaptive) in ((2, false), (64, false), (64, true)),
       start in ("fresh", "prebuilt", "warm")
     problem = "centered-l1-$n"
     policy = adaptive ? "adaptive" : "fixed"
     precision = T == Float32 ? "f32" : "f64"
-    variant = "$start-$policy-$precision"
+    variant = "$start-$policy-rho$ρ-$precision"
     target = T == Float32 ? 2e-5 : 1e-10
     meta = (id = "admm/$problem/admm/$variant/call", group = "admm", problem,
             solver = "admm", variant, phase = "call", suite = "quick", inputs = "draw",
             issue = "#433", measure = "kkt_residual", target)
-    push!(catalog, CaseSpec(meta, rep -> admm_case_state(rep, n, T, adaptive, start)))
+    push!(catalog, CaseSpec(meta, rep -> admm_case_state(rep, n, T, T(ρ), adaptive, start)))
   end
   catalog
 end
@@ -83,7 +83,7 @@ function run_admm_benchmarks()
   isempty(settings.cases) || (catalog = select_cases(catalog, settings.cases))
   Threads.nthreads() == 1 || error("run with JULIA_NUM_THREADS=1")
   BLAS.set_num_threads(1)
-  run_records(settings, catalog)
+  run_records(settings, catalog; extra_harness_files=("admm.jl",))
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__

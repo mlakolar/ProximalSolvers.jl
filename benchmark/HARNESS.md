@@ -500,8 +500,9 @@ for correlated noise or multiple comparisons.
 
 `benchmark/admm.jl` uses the formal runner and its record format for
 `SqrNormL2(λ, c) + NormL1(τ)` at sizes 32 and 8192 in Float32 and Float64.
-Fixed and adaptive cases start at `ρ = 2` and `ρ = 64`, respectively. Both
-use `α = 1.4`. The variants measure three ways of calling the solver:
+The ordinary fixed penalty is `ρ = 2`. Fixed and adaptive cases also start
+at the same `ρ = 64` to compare the policies at matched accuracy. Every
+case uses `α = 1.4`. The variants measure three ways of calling the solver:
 
 | Variant prefix | What goes into each timed call |
 |---|---|
@@ -542,8 +543,8 @@ python3 benchmark/admm_compare.py "$archive_out" "$current_out" "$comparison" \
 ```
 
 This comparison matches inputs and accuracy targets and attributes the timing
-ratio to the whole stack. Keep the harness commit and the SHA-256 of
-`benchmark/admm.jl` with the records.
+ratio to the whole stack. The per-repetition harness hash includes
+`benchmark/admm.jl`. Keep the harness commit with the records.
 
 ## Cross-solver readout
 

@@ -8,8 +8,9 @@ The center `c`, initial consensus variable `z` and any explicit scaled dual
 `u` must be finite nonempty `Vector{T}` buffers of equal length, with one common
 `T` of `Float32` or `Float64`. The loss level `λ` must be finite and strictly
 positive and the penalty level `τ` finite and nonnegative. Both levels must
-convert exactly to `T`. The solver borrows `c` for reads. It refuses possible
-aliasing among `z`, `c` and explicit `u` using `Base.mightalias`.
+convert exactly to `T`. The solver borrows `c` for reads. It checks each pair
+among `z`, `c` and explicit `u`. A pair is refused when `Base.mightalias`
+reports an alias or the vectors' memory ranges overlap.
 
 `ADMMSolver(; ρ=1, α=1, abstol=1e-6, reltol=1e-4, abstol_dual=abstol, adaptive=false)`
 takes a finite positive penalty, relaxation strictly between 0 and 2, and finite

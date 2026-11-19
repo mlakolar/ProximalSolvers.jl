@@ -112,10 +112,12 @@ end
     @test result.status === :prox_calls_limit && !result.converged
 
     z = T[1]
-    large = T(2)^(T === Float32 ? 30 : 60)
-    method = ADMMSolver(; α = T(2)^(-100), abstol = 0, reltol = 0)
-    result = solve!(z, SqrNormL2(1, T[large]), NormL1(0), method, options)
-    @test z == T[1] && result.s_norm == 0 < result.r_norm
+    center = T[T(2)^(T === Float32 ? 30 : 60)]
+    α = T(2)^(-100)
+    method = ADMMSolver(; α, abstol = 0, reltol = 0)
+    expected_z = T.(reference_step(z, T[0], center, 1, 0, 1, α).z)
+    result = solve!(z, SqrNormL2(1, center), NormL1(0), method, options)
+    @test z == expected_z && result.s_norm == abs(only(expected_z) - one(T)) < result.r_norm
     @test result.status === :prox_calls_limit && !result.converged
   end
 end
@@ -387,6 +389,27 @@ end
     z, u = T[floatmax(T)], T[-floatmax(T)]
     @test_throws ErrorException solve!(z, f, g, ADMMSolver(); u)
     @test z == T[floatmax(T)] && u == T[-floatmax(T)]
+  end
+end
+
+@testset "Independently wrapped vector storage" begin
+  for T in (Float32, Float64)
+    backing = T[1, -1, 2, -2]
+    GC.@preserve backing begin
+      first = unsafe_wrap(Vector{T}, pointer(backing), 2)
+      overlapping = unsafe_wrap(Vector{T}, pointer(backing, 2), 2)
+      adjacent = unsafe_wrap(Vector{T}, pointer(backing, 3), 2)
+      f, g = SqrNormL2(1, T[3, -3]), NormL1(1)
+      method = ADMMSolver()
+      @test_throws ArgumentError solve!(first, f, g, method; u = overlapping)
+      @test_throws ArgumentError solve!(overlapping, SqrNormL2(1, first), g, method)
+      @test_throws ArgumentError solve!(T[0, 0], SqrNormL2(1, overlapping), g, method; u = first)
+      @test backing == T[1, -1, 2, -2]
+
+      result = solve!(first, f, g, method; u = adjacent)
+      @test result.converged && result.minimizer === first && result.u === adjacent
+      @test backing[1:2] ≈ T[2, -2] atol = T(1e-3)
+    end
   end
 end
 
