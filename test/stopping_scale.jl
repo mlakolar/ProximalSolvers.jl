@@ -236,6 +236,21 @@ end
     # a residual that is not small against either normalizer
     @test !test(0.9, 1, 1, 1, 1)
   end
+  @testset "resolution with tiny L and large x ($T)" for (T, L, x) in
+      ((Float32, 1f-40, 1f30), (Float64, 1e-310, 1e300))
+    options = ProximalOptions(gradtol = 1e-5)
+    state, _ = pgd_state(T, 1, 1, 1, .1, 0, options)
+    state.x[1], state.L = x, L
+    @test L * eps(T) == 0
+    ρ = (L * abs(x)) * eps(T)
+    @test 0 < ρ < Inf
+    below, above = ρ / T(10), T(10) * ρ
+    state.max_residual = below
+    @test !PS._gradient_test(state, options, zero(T), below)
+    @test PS._gradient_test(state, options, zero(T), above)
+    state.max_residual = above
+    @test PS._gradient_test(state, options, zero(T), below)
+  end
   # the resolution is the one in the memo case: Float64, a normalizer of 1e-300
   options = ProximalOptions(gradtol = 1e-5)
   state, _ = pgd_state(Float64, 1.0, 1, 1, .1, 0, options)

@@ -88,12 +88,13 @@ end
 # The gradient test of PGD and APG, for the residual r of the iteration, the largest residual so
 # far m = state.max_residual and the scale N of the gradient and the proximal step. It holds
 # when r < gradtol m or r < gradtol N, with no absolute term added to m or N (a test on a scale
-# of 0 does not hold), and only against a scale that exceeds ρ = L eps(T) ‖x‖∞, the rounding
-# resolution of L x. A residual that is zero because a step rounded to nothing does not hold
+# of 0 does not hold), and only against a scale that exceeds ρ = (L ‖x‖∞) eps(T), the rounding
+# resolution of L x. Form L ‖x‖∞ first to avoid premature underflow of L eps(T).
+# A residual that is zero because a step rounded to nothing does not hold
 # when ρ is at least as large as both m and N.
 function _gradient_test(state::Union{ProximalGradientDescentState{T}, AccProxGradDescentState{T}},
                         options::ProximalOptions, residual, N) where T
-  ρ = state.L * eps(T) * _norm_inf(state.x)
+  ρ = (state.L * _norm_inf(state.x)) * eps(T)
   m = state.max_residual
   (residual < options.gradtol * m && ρ < m) || (residual < options.gradtol * N && ρ < N)
 end
