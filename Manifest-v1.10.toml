@@ -1,8 +1,8 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.10.12"
+julia_version = "1.10.13"
 manifest_format = "2.0"
-project_hash = "901a76833d9f6ba1a0af57cc08f7320a02d6dec3"
+project_hash = "8842fa1d885c09daffd1fe1075daa5e64f90a8a5"
 
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
@@ -46,8 +46,8 @@ uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [[deps.ProximalBase]]
 deps = ["LinearAlgebra", "PrecompileTools", "SparseArrays"]
-git-tree-sha1 = "686ead109dce9c9e72790e6b9c7571e87799602c"
-repo-rev = "fc13ace163d219da0668b7f18be54ce6043edbf7"
+git-tree-sha1 = "1b6dab757300df2569e65bb09ec39e16b37ddc4f"
+repo-rev = "405780632bb5f4f5cfbb2193798c96945db602cf"
 repo-url = "https://github.com/mlakolar/ProximalBase.jl"
 uuid = "0a755509-c5b1-5d6f-9b24-59bcda3c37a3"
 version = "0.6.0-DEV"

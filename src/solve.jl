@@ -85,6 +85,12 @@ function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
     _check_dense_group_penalty(g, x, T)
   elseif g isa GroupNormL2
     throw(ArgumentError("CDSolver does not support GroupNormL2 (the group lasso) on a dense Vector or a SparseIterate; use CDSolver on a BlockIterate, or ProximalGradientDescent or AccProxGradDescent on a dense Vector"))
+  elseif g isa IndBox && kind in (:gradient, :pgd)
+    _check_box(g, x, T)
+  elseif g isa IndBallL2 && kind in (:gradient, :pgd)
+    length(x) == 4 || throw(ArgumentError("IndBallL2 requires four coefficients"))
+    g.r isa T || throw(ArgumentError("IndBallL2 requires a radius of type $T"))
+    _scalar_parameter(g.r, T, "ball radius")
   elseif g isa NormL1Nonneg
     kind === :pgd || throw(ArgumentError("NormL1Nonneg is supported only by ProximalGradientDescent on a dense Vector"))
     g.w === nothing || throw(ArgumentError("weighted NormL1Nonneg is not supported"))
@@ -92,11 +98,41 @@ function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
   elseif g isa IndNonnegative
     kind === :pgd || throw(ArgumentError("IndNonnegative is supported only by ProximalGradientDescent on a dense Vector"))
   elseif kind === :pgd
-    throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2, unweighted NormL1Nonneg or IndNonnegative is supported"))
+    throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2, unweighted NormL1Nonneg IndNonnegative, IndBox or IndBallL2 is supported"))
   elseif kind === :gradient
-    throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf or GroupNormL2 is supported"))
+    throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2, IndBox or IndBallL2 is supported"))
   else
     throw(ArgumentError("CDSolver supports NormL1, unweighted ElasticNet, and uncentered SqrNormL2"))
+  end
+  nothing
+end
+
+# The projection stores bounds in T, while the value compares to the original bounds.
+# Exact scalar conversion makes these two operations agree at a face of the box.
+function _check_box_bound(bound::Union{Float32, Float64, Base.BitInteger, Bool}, x, ::Type{T}) where T
+  T(bound) == bound || throw(ArgumentError("box scalar bounds must be exactly representable in $T"))
+  nothing
+end
+
+function _check_box_bound(bound::Vector{T}, x, ::Type{T}) where T
+  length(bound) == length(x) ||
+    throw(DimensionMismatch("box bounds must have one entry per coefficient"))
+  Base.mightalias(x, bound) && throw(ArgumentError("mutable x must not alias the box bounds"))
+  nothing
+end
+
+_check_box_bound(bound, x, ::Type{T}) where T =
+  throw(ArgumentError("box bounds must be Float32, Float64, a fixed-width integer, Bool, or Vector{$T}"))
+
+function _check_box(g, x, ::Type{T}) where T
+  _check_box_bound(g.l, x, T)
+  _check_box_bound(g.u, x, T)
+  # Stored array bounds can be mutated after the constructor has validated them.
+  for i in eachindex(x)
+    lo = g.l isa Real ? g.l : g.l[i]
+    hi = g.u isa Real ? g.u : g.u[i]
+    lo <= hi && lo < Inf && hi > -Inf ||
+      throw(ArgumentError("box bounds must define nonempty intervals and contain no NaNs"))
   end
   nothing
 end
@@ -325,6 +361,8 @@ function _check_problem(x, f, g, kind::Symbol = :gradient)
   if g isa Union{NormL1Nonneg, IndNonnegative}
     all(>=(zero(eltype(x))), x) ||
       throw(ArgumentError("$(nameof(typeof(g))) requires a feasible starting point: x must be nonnegative"))
+  elseif g isa Union{IndBox, IndBallL2}
+    iszero(g(x)) || throw(ArgumentError("$(nameof(typeof(g))) requires a feasible starting point"))
   end
   nothing
 end

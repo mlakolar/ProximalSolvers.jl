@@ -24,6 +24,7 @@ as supported in the table is not verified; the sections below give the exact inp
 | Group lasso: `GroupNormL2` | — | — | Float32, Float64 (d) | — | Float32 (a, h), Float64 (h) | Float32 (a, b, h), Float64 (b, h) | [Group lasso](examples/problems/group_lasso.md) |
 | Multi-response group lasso: `LeastSquaresLoss` with a matrix response, `GroupNormL2` on the rows of the coefficients | — | — | Float32, Float64 (g) | Float32, Float64 (g) | — | — | [Multi-task group lasso](examples/problems/multitask_group_lasso.md) |
 | Square-root lasso: `SqrtLeastSquaresLoss`, `NormL1` | Float32, Float64 (e) | Float32, Float64 (e) | — | — | — | — | [Square-root lasso](examples/problems/square_root_lasso.md) |
+| Box- and ball-constrained least squares: `LeastSquaresLoss`, `IndBox`, `IndBallLinf`, or four-coefficient `IndBallL2` ([IN-08](@ref)) | — | — | — | — | Float32, Float64 | Float32, Float64 | [Constrained least squares](examples/problems/constrained_least_squares.md) |
 | ℓ∞-penalized least squares: `LeastSquaresLoss`, `NormLinf` | — | — | — | — | Float32 (a), Float64 | Float32 (a, b), Float64 (b) | [ℓ∞ penalty](examples/problems/linf_regularized_regression.md) |
 
 `NormL1` and `ElasticNet` are unweighted where they appear in the table, except in the weighted-lasso row,
