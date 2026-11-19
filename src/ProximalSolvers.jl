@@ -17,9 +17,8 @@ over its entries) with a dense `X`, `Y` and `LeastSquaresLoss`. [`ProximalGradie
 [`AccProxGradDescent`](@ref) accept a dense `Vector` only, all through [`solve!`](@ref);
 [`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref) also solve the group lasso with a `GroupNormL2` penalty on it.
 [`ProximalGradientDescent`](@ref) also supports `IndNonnegative()` and unweighted `NormL1Nonneg` on a feasible dense `Vector`.
-[`ProximalGradientDescent`](@ref) also fits sparse logistic regression: a raw `LogisticLoss` without observation
-weights or offset, with dense `Float64` data and a binary response, and `NormL1` with or without penalty weights,
-on a `Vector{Float64}`.
+[`ProximalGradientDescent`](@ref) also fits sparse logistic regression with a raw `LogisticLoss` (binary
+response, no observation weights or offset), dense `Float64` data and `NormL1`.
 [`ADMMSolver`](@ref) solves centered `SqrNormL2` with unweighted `NormL1` on dense vectors.
 Losses, proximal operators and coordinate storage belong to PB.
 """

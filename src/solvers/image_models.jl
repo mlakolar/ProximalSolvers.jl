@@ -18,10 +18,11 @@ _image!(z, m::_LSImage, x) = mul!(z, m.X, x)
 # without observation weights or offset (IN-09): Y = f.y, X = f.X and the image z = X x. α is not a
 # loss scale but the factor 1/4 of the Hessian bound ∇²f(b) = Xᵀ diag(σᵢ(1 - σᵢ)) X ⪯ ¼ XᵀX, read where
 # least squares reads its scale: the initial curvature min(1, α‖X‖_F²) and the recheck
-# c = m α ‖fl(X d̂)‖²/‖d̂‖² of a rejected trial (_step_curvature). In exact arithmetic the bound gives
-# f(x) ≤ f(y) + ⟨∇f(y), d⟩ + ⅛‖X d‖² and ⟨∇f(x) - ∇f(y), d⟩ ≤ ¼‖X d‖² for d = x - y, so c ≤ L
-# (m = 1 in function-value mode, m = 2 in gradient mode) implies the acceptance test of that mode, and
-# after a rejection c ≥ L̂, TFOCS's estimate, so the retry's L is at least TFOCS's.
+# c = m α ‖fl(X d̂)‖²/‖d̂‖² of a rejected trial (_step_curvature). In exact arithmetic the bound gives,
+# for a trial x and the step d = x - u from the last accepted point u, f(x) ≤ f(u) + ⟨∇f(u), d⟩ + ⅛‖X d‖²
+# and ⟨∇f(x) - ∇f(u), d⟩ ≤ ¼‖X d‖²; so c ≤ L (m = 1 in function-value mode, m = 2 in gradient mode)
+# implies the acceptance test of that mode, and after a rejection c ≥ L̂, TFOCS's estimate, so the
+# retry's L is at least TFOCS's (IN-09 has the argument in full).
 struct _LogisticImage{TY<:AbstractVector, TX<:AbstractMatrix}
   Y::TY
   X::TX
