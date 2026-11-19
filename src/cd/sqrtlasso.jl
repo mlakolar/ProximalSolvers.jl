@@ -157,7 +157,8 @@ end
 # appended row (response δ, design entry 0), whose residual is (r, δ). Its a and b are those above, and
 # ‖r‖² and d² gain δ², so the formulas, and the rounding analysis of `step_bound` in test/sqrt_lasso.jl
 # with n + 1 rows and the residual (r, δ), apply: δ is a value of T, and its square rounded in T (`δ2`)
-# is the rounding of the square of the appended entry. Certification and the decrease test of
+# is the rounding of the square of the appended entry (`_clean_sum` still counts n terms, which changes a
+# second-order term only; see the test of the smoothed step). Certification and the decrease test of
 # `_fallback!` use only the bounds of `_certify!`, which are of the original objective, so the validity
 # of a result does not depend on the accuracy of the smoothed step. At δ = 0 the computed step is, bit
 # for bit, the one without the δ terms: each added term is +0.0 on a nonnegative sum, max(M, 0.0) = M for
