@@ -482,10 +482,47 @@ they read it. In exact arithmetic the entry of an intercept column in `Xᵀ(½ -
 `n (½ - ȳ)`, one of the candidates in that maximum. Results, counters and rollback
 follow [RES-01](@ref) and [RES-03](@ref).
 
+**Unattained minima.** The problem need not have a minimizer. Let `rᵢ = 2yᵢ - 1` and
+call coordinate `j` free when its coefficient `cⱼ = λ wⱼ` is zero. In exact arithmetic:
+
+- if some direction `d` that moves only free coordinates has `rᵢ xᵢᵀd ≥ 0` for every
+  observation and `X d ≠ 0` (the data are separated along unpenalized directions), then
+  no loss term increases along `d` and at least one decreases, so `F` decreases strictly
+  along `d` and its infimum is not attained;
+- if no direction `d ≠ 0` that moves only free coordinates has `rᵢ xᵢᵀd ≥ 0` for every
+  observation, the sublevel sets of `F` are bounded and a minimizer exists. This
+  includes separated data with an intercept column of weight zero, positive weights on
+  all other coefficients, a positive level and both classes present: the only candidate
+  directions move the intercept alone, and the two classes rule them out.
+
+The simplest unattained case is a one-class sample (all `yᵢ = 1`, or all `yᵢ = 0`) with an
+unpenalized intercept column: `F` decreases toward its infimum as the intercept grows
+in magnitude, and the derivative of the loss in the intercept tends to zero. The
+computed KKT residual can then become arbitrarily small, and it underflows to zero in
+`Float64` at a large intercept, so it can fall below the threshold of [STOP-04](@ref):
+`converged = true` can be reported at a finite point although no minimizer exists. The
+solver does not detect this case; `converged` records only the outcome of the computed
+checks of [STOP-01](@ref) and [STOP-03](@ref), and it is not evidence that a minimizer
+exists or that the returned point is accurate.
+
+**Shared stopping scale.** The scale `S = max(λ, λmax)` of [STOP-03](@ref) is one number
+for all coordinates, and `λ` is the largest coefficient `T(lambda) * maximum(w)`. With an
+extreme weight on one coordinate, the threshold `τ S` can exceed the derivative of a free
+coordinate at points far from the minimizer, and a proposed stop then passes there. For
+`X = [fill(1e150, 5) zeros(5)]`, `y = [0, 1, 1, 1, 1]` and `NormL1(1e300, [0, 1])`, the
+minimizer has the second coefficient zero and the predictor `log 4 ≈ 1.386` in the
+first column (the logit of `ȳ = 4/5`). With the default options, PGD can stop after
+one iteration at the predictor `1.2`, with `converged = true` and an objective above
+the minimum by about `0.014`: `S = 1e300` gives the threshold `τ S = 1e295`, while the
+derivative in the free intercept is still about a tenth of its value at zero. The
+same scale applies to the weighted lasso with PGD and APG ([STOP-03](@ref)), where an
+extreme weight can mask an inaccurate free coordinate in the same way. Assess the free
+coordinates with an independent residual on their own scale.
+
 **Applies to.** `ProximalGradientDescent` with a raw `LogisticLoss{Float64}` and `NormL1` on a dense `Vector{Float64}`; the logistic refusals of `AccProxGradDescent`, `CDSolver` and `ADMMSolver`. The deferred logistic combinations are listed in [DEF-01](@ref).
 
 **Code.** `src/solve.jl`: `_is_logistic_loss`, `_check_logistic_problem`, `_logistic_method_error`, the logistic branch of `_check_data` and of `_check_problem`; `src/solvers/image_models.jl`: `_LogisticImage`, `_image_model`, `_image_buffer`, `_image!`; `src/utils.jl`: `_lambda_max!` and `_zero_gradient!`.
 
-**Tests.** `test/logistic_pgd.jl`: the stopping scale against `‖Xᵀ(½ - y)‖∞`, and a stop through the engine checked with ProximalBase's scorer and with the independent residual; the value and gradient at zero and at a representative point against label-wise BigFloat formulas and central differences; the inequalities behind the factor `¼`, the initial curvature, and the recheck of a rejected trial in each mode (`c = ¼` and `c = ½` for a unit step, at least TFOCS's estimate); a regularized nonseparable fit with an unpenalized intercept (objective, the KKT scores of the intercept and of the active and inactive slopes, `minimizer === b`, rejected trials, the `F/n` scaling); the intercept-only model and levels at and above the slope threshold; an unpenalized fit against a damped Newton reference, with a certificate that its data are not separable; unit weights against the unweighted penalty; checked rejections; rollback after a fault and through `solve!`; overflowed images at the start (refused, coefficients unchanged) and in a trial (retried, on the side of the label and against it), and a finite logit of 800; iteration and call limits; steep, separated and almost separated regularized problems, including a start with logits beyond `log(floatmax(Float64))`; the refusals above with the coefficients unchanged, including `CDSolver` on each storage with raw and scaled losses and an unchanged RNG; a warmed iteration that allocates nothing and whole solves against the least-squares control. The independent residual bound of these tests is justified by a rounding bound that each check asserts. `examples/problems/logistic_regression.jl` checks its fit independently.
+**Tests.** `test/logistic_pgd.jl`: the stopping scale against `‖Xᵀ(½ - y)‖∞`, and a stop through the engine checked with ProximalBase's scorer and with the independent residual; the value and gradient at zero and at a representative point against label-wise BigFloat formulas and central differences; the inequalities behind the factor `¼`, the initial curvature, and the recheck of a rejected trial in each mode (`c = ¼` and `c = ½` for a unit step, at least TFOCS's estimate); a regularized nonseparable fit with an unpenalized intercept (objective, the KKT scores of the intercept and of the active and inactive slopes, `minimizer === b`, rejected trials, the `F/n` scaling); the intercept-only model and levels at and above the slope threshold; an unpenalized fit against a damped Newton reference, with a certificate that its data are not separable; unit weights against the unweighted penalty; checked rejections; rollback after a fault and through `solve!`; overflowed images at the start (refused, coefficients unchanged) and in a trial (retried, on the side of the label and against it), and a finite logit of 800; iteration and call limits; steep, separated and almost separated regularized problems, including a start with logits beyond `log(floatmax(Float64))`; a one-class sample with an unpenalized intercept (finite results, and a reported convergence consistent with the stationarity criterion recomputed from the data, without requiring either outcome); the refusals above with the coefficients unchanged, including `CDSolver` on each storage with raw and scaled losses and an unchanged RNG; a warmed iteration that allocates nothing and whole solves against the least-squares control. The independent residual bound of these tests is justified by a rounding bound that each check asserts. `examples/problems/logistic_regression.jl` checks its fit independently.
 
 **Sources.** [Issue #438](https://github.com/mlakolar/ProximalSolvers.jl/issues/438) (scope, mathematical contract and tests) and [pull request #439](https://github.com/mlakolar/ProximalSolvers.jl/pull/439) (mini-design); ProximalBase [`LogisticLoss` at 4a737a52](https://github.com/mlakolar/ProximalBase.jl/blob/4a737a521d1028228da41e25c16cf963769cd891/src/functions/logisticloss.jl), the merge of [ProximalBase #1033](https://github.com/mlakolar/ProximalBase.jl/pull/1033).

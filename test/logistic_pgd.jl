@@ -243,8 +243,8 @@ end
     @test b[1] ≈ b0 atol = 1e-8
   end
   # with slopes: at a level of at least ‖Zᵀ(ȳ - y)‖∞ the slopes are zero at the minimizer and the intercept is
-  # logit(ȳ); from a start with nonzero slopes, a converged run has exact zeros (near the minimizer a nonzero
-  # slope would score at least about level - level/1.05 > 0.04 level)
+  # logit(ȳ). From a start with nonzero slopes the run is expected to end with exact zeros: near the minimizer a
+  # nonzero slope would score at least about level - level/1.05 > 0.04 level, far above the stop threshold.
   for factor in (1.05, 3.0)
     level = factor * slope_threshold(X, y)
     b = [0.0; fill(0.5, k - 1)]
@@ -470,6 +470,33 @@ end
   check_hard_case("separated, regularized", X, y, 0.01 * slope_threshold(X, y), [0.0, 1.0], zeros(2))
   y[10], y[12] = 1.0, 0.0
   check_hard_case("almost separated, regularized", X, y, 0.01 * slope_threshold(X, y), [0.0, 1.0], zeros(2))
+end
+
+@testset "one class with an unpenalized intercept: no finite minimizer" begin
+  # y = ones(8) with an intercept column of ones and weight zero: F(b₀) = 8 log(1 + e^{-b₀}) decreases toward 0 as
+  # b₀ grows, its derivative -8σ(-b₀) is negative at every finite b₀, and no minimizer exists (IN-09). The
+  # computed residual can still fall below the threshold, so neither outcome of `converged` is required. The
+  # results must be finite, and a reported convergence must agree with the stationarity criterion recomputed
+  # from the data: the KKT residual below τ S, with τ = max(gradtol, 64 eps) and S = max(λ maxⱼ wⱼ, ‖Xᵀ(½ - y)‖∞).
+  X1, y1 = ones(8, 1), ones(8)
+  λ, w = 0.1, [0.0]
+  options = ProximalOptions(maxiter = 1000, gradtol = 1e-10)
+  τ, S = max(options.gradtol, 64eps()), stop_scale(X1, y1, λ, w)
+  # from zero, and from a start where σ(-b₀) underflows in Float64
+  for start in ([0.0], [1000.0])
+    b = copy(start)
+    r = solve!(b, LogisticLoss(y1, X1), NormL1(λ, w), ProximalGradientDescent(), options)
+    @test r.minimizer === b
+    @test all(isfinite, b) && isfinite(r.minimum)
+    @test !isnan(r.g_residual) && !isnan(r.f_residual) && !isnan(r.x_residual)
+    G = oracle(X1, y1, b).gradient
+    @test G[1] < 0                     # in BigFloat, nonzero where the Float64 derivative underflows
+    println("logistic PGD, one class from $start: converged = $(r.converged), iterations = $(r.iterations), ",
+            "b₀ = $(b[1]), independent residual = $(Float64(-G[1])), τ S = $(τ * S)")
+    # the residual of the solver's check is computed in Float64; the factor 1 + 1e-12 allows for its rounding
+    # (a sum of eight derivatives, each evaluated without cancellation)
+    @test !r.converged || Float64(maximum(scores(G, b, λ, w))) <= τ * S * (1 + 1e-12)
+  end
 end
 
 # The exception of a refused call and whether x kept its entries (isequal: NaN entries compare equal)
