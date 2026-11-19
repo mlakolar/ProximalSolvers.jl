@@ -40,7 +40,7 @@ Input acceptance is specified by [IN-01](@ref). Option validation and reporting 
 
 For `ftol > 0`, the objective test holds if either `abs(F - F_previous) / abs(F) < ftol` or `abs(F - F_previous) < eps(abs(F) + abs(F_previous))`. The quotient is evaluated as a diagnostic in Float64, is `0` when the objectives are equal (including both zero), and is `Inf` when `F = 0 ≠ F_previous`. There is no absolute term in the denominator. The second test holds for equal finite-sum objectives and, when both values are normal and their absolute-value sum is finite, permits a difference of about two units in the last place. If that sum overflows, `eps` is `NaN` and this second test does not hold. Neither form establishes accuracy by itself.
 
-For the gradient test, let `r` be the iteration's gradient/proximal residual, `m` the largest such residual so far, `N = max(‖∇f‖∞, ‖q‖∞)` with `q` the residual of the proximal step, and `ρ = L eps(T) ‖x‖∞`, the rounding resolution of `L x`. APG uses `∇f` and the proximal step at its extrapolated point. The test is
+For the gradient test, let `r` be the iteration's gradient/proximal residual, `m` the largest such residual so far, `N = max(‖∇f‖∞, ‖q‖∞)` with `q` the residual of the proximal step, and `ρ = (L * ‖x‖∞) * eps(T)`, the rounding resolution of `L x`. Form `L * ‖x‖∞` first to avoid premature underflow of `L * eps(T)`. If the first product overflows to `Inf`, the resolution comparison rejects both normalizers. APG uses `∇f` and the proximal step at its extrapolated point. The test is
 
 ```
 (r < gradtol * m  and  ρ < m)   or   (r < gradtol * N  and  ρ < N).
@@ -52,7 +52,7 @@ The comparisons use the floating-point products `gradtol * m` and `gradtol * N`;
 
 **Code.** `src/utils.jl: convergence_assessment, f_residual, gradient_converged!, _gradient_test`.
 
-**Tests.** test/stopping_scale.jl; test/core_regressions.jl; test/accelerated_pgd.jl.
+**Tests.** test/stopping_scale.jl covers the resolution with tiny `L` and large `x` in Float32 and Float64. See also test/core_regressions.jl and test/accelerated_pgd.jl.
 
 **Sources.** `docs/src/numerics.md:L201`, `docs/src/numerics.md:L207`, `docs/src/numerics.md:L211`, `docs/src/numerics.md:L260`, `docs/src/numerics.md:L261`, `docs/src/numerics.md:L262`, `docs/src/numerics.md:L263`, `docs/src/numerics.md:L264`, `docs/src/numerics.md:L265`, `docs/src/numerics.md:L266`, `docs/src/numerics.md:L267`, `docs/src/numerics.md:L268`, `docs/src/developer/implementation-notes.md:L286`, `docstring:src/types.jl:L85`, `docstring:src/types.jl:L94`, `docstring:src/types.jl:L109`, `docstring:src/types.jl:L123`.
 
