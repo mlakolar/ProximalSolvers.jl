@@ -1,3 +1,11 @@
+# Some predictors belong together: several basis functions can describe one curve,
+# or several indicators can describe one categorical factor. Selecting individual
+# coefficients may break that structure. Group lasso penalizes each coefficient
+# block by its Euclidean norm, encouraging entire groups to become zero together.
+# The figure compares the sizes of the true and fitted groups in a small simulation.
+#
+#md # ![True and fitted coefficient norms for three predefined groups; groups one and three contain simulated signal.](group_lasso.svg)
+#
 # Group lasso by block coordinate descent on a `BlockIterate`, and by proximal gradient descent
 # (plain or accelerated) on a dense vector. `GroupNormL2(λ, groups)` is the
 # penalty `λ Σₖ wₖ ‖β[Gₖ]‖₂` with the default weights `wₖ = √|Gₖ|`; the groups may be any
@@ -5,6 +13,20 @@
 # same groups, in the same order, and `CDSolver` updates one whole group at a time.
 # `CDSolver` on a `BlockIterate`, and `ProximalGradientDescent` and `AccProxGradDescent` on a dense
 # `Vector`, accept a `GroupNormL2` penalty; see [Supported problems](../../support.md) for the accepted inputs.
+# ## The statistical objective
+#
+# For a zero-intercept regression ``y=X\beta+\varepsilon``, minimize
+#
+# ```math
+# \frac{1}{2n}\|y-X\beta\|_2^2+\lambda\sum_k w_k\|\beta_{G_k}\|_2.
+# ```
+#
+# The disjoint groups partition the predictors. The default weights
+# ``w_k=\sqrt{|G_k|}`` account for different group sizes. We simulate 60 independent
+# observations, eight independent standard-normal predictors, and noise with
+# standard deviation 0.1. Groups 1 and 3 carry signal; group 2 is irrelevant.
+#
+# ## Simulating and fitting the grouped model
 using LinearAlgebra, Random
 using ProximalBase, ProximalSolvers
 
@@ -50,6 +72,24 @@ for k in eachindex(groups)
 end
 println("active groups = ", active)
 
+# ## Reading the group-norm figure
+#
+# A zero fitted norm removes a whole group. A positive norm keeps the group, but
+# does not imply that every coefficient in it is scientifically important: the
+# third simulated group even contains one coefficient whose true value is zero.
+# The shorter estimated bars show the shrinkage induced by regularization.
+#!jl using Plots
+#!jl primary_figure = bar(hcat((1:length(groups)) .- 0.18, (1:length(groups)) .+ 0.18),
+#!jl   hcat([norm(beta_true[G]) for G in groups],
+#!jl   [norm(beta[G]) for G in groups]); bar_width=0.34, label=["True group norm" "Estimated group norm"],
+#!jl   color=[:gray :royalblue], xlabel="Predictor group", ylabel="Euclidean coefficient norm",
+#!jl   xticks=(1:3, ["1: signal" "2: noise" "3: signal"][:]),
+#!jl   title="Group lasso selects coefficient blocks", legend=:outertopright, size=(900, 430))
+#!jl savefig(primary_figure, "group_lasso.svg")
+#!jl nothing
+
+# ## Independent objective and group KKT checks
+#
 # `converged` reports that the change in a full pass was small, not that the point is optimal, so
 # the solution is checked independently from the data. With `∇ = s Xᵀ(Xβ − y)`, a nonzero group
 # satisfies `∇[G] + λ w β[G] / ‖β[G]‖ = 0`, and a zero group satisfies `‖∇[G]‖ ≤ λ w`.
@@ -59,6 +99,9 @@ function violation(b, k)
   iszero(norm(b[G])) && return norm(grad[G]) - lambda * w[k]
   norm(grad[G] + lambda * w[k] * b[G] / norm(b[G]))
 end
+group_objective(b) = sum(abs2, y - X * b) / (2n) +
+                     lambda * sum(w[k] * norm(b[groups[k]]) for k in eachindex(groups))
+@assert isapprox(res.minimum, group_objective(beta); rtol=1e-10)
 zero_groups = [k for k in eachindex(groups) if iszero(norm(beta[groups[k]]))]
 nonzero_groups = setdiff(eachindex(groups), zero_groups)
 @assert maximum(k -> violation(beta, k), nonzero_groups) <= 1e-7
@@ -78,6 +121,7 @@ println("largest violation: nonzero groups ", maximum(k -> violation(beta, k), n
 beta_pgd = zeros(p)
 res_pgd = solve!(beta_pgd, f, g, ProximalGradientDescent(), ProximalOptions(maxiter = 20_000, gradtol = 1e-10))
 @assert res_pgd.converged && res_pgd.minimizer === beta_pgd
+@assert isapprox(res_pgd.minimum, group_objective(beta_pgd); rtol=1e-10)
 @assert maximum(k -> violation(beta_pgd, k), eachindex(groups)) <= 1e-7
 @assert [k for k in eachindex(groups) if iszero(norm(beta_pgd[groups[k]]))] == zero_groups
 @assert maximum(abs, beta_pgd - beta) <= 1e-6
@@ -92,7 +136,21 @@ println("PGD: iterations = ", res_pgd.iterations, "; largest violation ",
 beta_apg = zeros(p)
 res_apg = solve!(beta_apg, f, g, AccProxGradDescent(),
                  ProximalOptions(maxiter = 20_000, gradtol = 1e-10, allow_f_increases = true))
+@assert isapprox(res_apg.minimum, group_objective(beta_apg); rtol=1e-10)
 @assert res_apg.converged && maximum(k -> violation(beta_apg, k), eachindex(groups)) <= 1e-7
 @assert maximum(abs, beta_apg - beta) <= 1e-6
 println("APG: iterations = ", res_apg.iterations, "; largest violation ",
         maximum(k -> violation(beta_apg, k), eachindex(groups)))
+
+# ## Limitations
+#
+# Group selection depends on the chosen grouping, predictor scaling, and penalty
+# level. A block penalty does not select variables within a retained block. Overlapping
+# groups are outside this example's supported partition, and a small KKT residual
+# certifies the optimization rather than the scientific relevance of a group.
+#
+# ## What we learned
+#
+# Replacing individual magnitudes by block norms changes the unit of selection from
+# a coefficient to a predefined group. The figure reports that selection at the
+# group level; the independent checks apply the corresponding block conditions.

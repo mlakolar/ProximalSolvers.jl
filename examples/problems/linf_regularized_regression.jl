@@ -1,3 +1,11 @@
+# Sparsity is not always the goal. When a regression should avoid a few very large
+# coefficients, an infinity-norm penalty can limit the largest magnitude while
+# spreading the fit across predictors. Unlike lasso, it need not remove predictors.
+# The figure shows the resulting shared cap on a seeded regression and compares
+# its coefficients with the generating values.
+#
+#md # ![Known and fitted coefficients under an infinity-norm penalty, with dashed lines marking the common fitted magnitude cap.](linf_regularized_regression.svg)
+#
 # Least squares with an ℓ∞ penalty, with proximal gradient descent and accelerated proximal
 # gradient descent:
 #
@@ -54,6 +62,8 @@ lambda_crit = norm(X' * y, 1) / n
 lambda = 0.3 * lambda_crit
 g = NormLinf(lambda)
 
+# ## Independent objective and duality checks
+#
 # The objective from the data, and a duality gap. For `u = (Xb - y)/n` scaled by `min(1, λ/‖Xᵀu‖₁)`, the
 # dual objective is ``-y^T u - n\|u\|^2/2``, which is at most the optimal value; the gap is the
 # primal value minus it, and it is nonnegative.
@@ -79,6 +89,25 @@ for (name, method) in (("ProximalGradientDescent", ProximalGradientDescent()), (
 end
 @assert maximum(abs, betas[1] - betas[2]) <= 1e-3                    # both reach the same point, up to the gap's accuracy
 
+# ## Reading the common-cap figure
+#
+# The dashed lines mark ``\pm\|\widehat\beta\|_\infty`` for the accelerated
+# solution. Several large coefficients reach this common magnitude, whereas the
+# smaller coefficients remain nonzero. The cap can reduce a large effect, but it
+# does not select a short model. Our zero-intercept simulation uses comparable
+# predictor scales; rescaling a predictor would change this penalty's meaning.
+#!jl using Plots
+#!jl primary_figure = bar(hcat((1:p) .- 0.18, (1:p) .+ 0.18), hcat(beta_true, betas[2]);
+#!jl   bar_width=0.34,
+#!jl   label=["True coefficient" "Infinity-norm estimate"], color=[:gray :royalblue],
+#!jl   xlabel="Predictor index", ylabel="Coefficient", title="An infinity-norm penalty caps large coefficients",
+#!jl   legend=:outertopright, size=(1100, 430))
+#!jl coefficient_cap = maximum(abs, betas[2])
+#!jl hline!(primary_figure, [coefficient_cap, -coefficient_cap]; color=:crimson,
+#!jl   linestyle=:dash, label=["Fitted magnitude cap" ""])
+#!jl savefig(primary_figure, "linf_regularized_regression.svg")
+#!jl nothing
+
 # In this problem the ℓ∞ solution has no zero coefficient, and several of its largest coefficients are tied at the maximum.
 for ((name, r), b) in zip(results, betas)
   top = maximum(abs, b)
@@ -91,3 +120,18 @@ for ((name, r), b) in zip(results, betas)
 end
 println("lambda = ", round(lambda; digits = 6), ", lambda_crit = ", round(lambda_crit; digits = 6),
         "; max|b_true| = ", maximum(abs, beta_true))
+
+# ## Limitations
+#
+# This penalty controls the largest coefficient rather than the number of selected
+# variables. It can therefore retain many noise predictors and bias large true
+# effects toward a common magnitude. Results depend on predictor scaling and the
+# penalty level; the fixed level here is illustrative. A numerical duality gap
+# assesses the computed optimum, not generalization or scientific relevance.
+#
+# ## What we learned
+#
+# Different coefficient norms express different modeling priorities. The infinity
+# norm can produce tied coefficient magnitudes without sparse selection. Its
+# independent dual certificate matches that objective rather than using the
+# lasso's coordinatewise threshold conditions.

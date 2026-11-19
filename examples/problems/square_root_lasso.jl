@@ -1,3 +1,11 @@
+# Ordinary lasso penalty choices often depend on the noise scale. Square-root
+# lasso uses the residual norm instead of its square, which permits theoretical
+# penalty levels that do not require the unknown noise standard deviation under
+# suitable design and noise assumptions. We illustrate its coefficient recovery,
+# then check numerical accuracy with an independent dual bound.
+#
+#md # ![Known and estimated square-root-lasso coefficients: the first five predictors carry signal and the remaining predictors have true coefficient zero.](square_root_lasso.svg)
+#
 # The square-root lasso minimizes the unnormalized objective
 #
 # ``P(\beta) = \|y - X\beta\|_2 + \lambda \|\beta\|_1``,
@@ -19,6 +27,10 @@ using LinearAlgebra, Random, ProximalBase, ProximalSolvers
 # scaled to `sum(abs2, X[:, j]) ≈ n` (up to rounding), five nonzero coefficients and noise of standard deviation 0.5. The
 # level is `λ = sqrt(n)*λₙ` with `λₙ = 1.1*sqrt(2 log(2p/0.05)/n)`; it does not use the noise level. Any
 # level at or above `λmax = ‖Xᵀy‖∞/‖y‖` gives the solution `β = 0`, so the script checks that `λ < λmax`.
+# The model has a zero intercept, Gaussian predictors, and Gaussian noise. Column
+# normalization gives comparable predictor scales. The chosen formula illustrates
+# a conservative theoretical level; it does not guarantee support recovery for this
+# finite sample or provide a universal penalty recommendation.
 rng = Xoshiro(2026)
 n, p = 200, 50
 X = randn(rng, n, p)
@@ -43,6 +55,22 @@ println("minimum = ", result.minimum, ", converged = ", result.converged, ", gap
         ", passes = ", result.passes)
 println("indices of the nonzero coefficients: ", findall(!iszero, β))
 @assert result.converged && 0 <= result.gap <= 1e-4
+
+# ## Reading the coefficient figure
+#
+# The plot compares the returned coefficients with the known simulated truth.
+# Shrinkage is expected: minimizing the penalized objective is different from
+# reproducing the generating coefficients. The signal/noise boundary is known only
+# because we generated the data; it is not supplied to the estimator.
+#!jl using Plots
+#!jl primary_figure = bar(hcat((1:p) .- 0.18, (1:p) .+ 0.18), hcat(βtrue, β);
+#!jl   bar_width=0.34, label=["True coefficient" "Square-root lasso"],
+#!jl   color=[:gray :royalblue], xlabel="Predictor index", ylabel="Coefficient",
+#!jl   title="Square-root lasso: coefficient recovery without a supplied noise level",
+#!jl   legend=:outertopright, size=(1000, 430))
+#!jl vline!(primary_figure, [5.5]; color=:black, linestyle=:dash, label="Signal / noise boundary")
+#!jl savefig(primary_figure, "square_root_lasso.svg")
+#!jl nothing
 
 # ## Checking the answer independently
 #
@@ -154,3 +182,18 @@ println("exact-fit optimum: β = ", β2, ", converged = ", r2.converged, ", gap 
 # use the unscaled loss at the level `λ/α`, which has the same minimizers), `λ = 0` (use
 # `LeastSquaresLoss`, which has the same minimizers), an `ElasticNet` penalty and a `BlockIterate`. The scaled-lasso estimator, which estimates the noise level as well, is a separate
 # computation and is not part of this page; see [Scaled lasso](scaled_lasso.md).
+
+# ## Statistical limitations
+#
+# Avoiding a supplied noise scale does not remove the assumptions behind a penalty
+# formula. Correlation, heavy-tailed errors, poor scaling, or misspecification can
+# affect selection and prediction. A sparse fit is not a test of which predictors
+# are truly relevant, and the exact-fit examples above show why numerical
+# certification must also be examined.
+#
+# ## What we learned
+#
+# Changing squared error to a residual norm changes both penalty scaling and the
+# optimality certificate. We saw coefficient shrinkage in a reproducible regression,
+# checked an independent duality gap, and separated the statistical interpretation
+# from the solver's behavior at exact fits.

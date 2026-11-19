@@ -1,3 +1,11 @@
+# Sometimes a common penalty shrinks all predictors too uniformly. Weighted lasso
+# lets us penalize weak pilot effects more heavily and strong pilot effects less.
+# This example uses a ridge pilot to build adaptive weights, then compares the fit
+# with ordinary lasso. The weights govern coefficient shrinkage, not how much each
+# observation counts in the squared-error loss.
+#
+#md # ![True, ordinary-lasso, and adaptively weighted lasso coefficients for twenty predictors, with predictor one left unpenalized.](weighted_lasso.svg)
+#
 # The weighted lasso minimizes `(s/2)‖y − Xβ‖² + λ Σⱼ wⱼ|βⱼ|` over `β`, with `s = 1` for the raw sum
 # of squares and `s = 1/n` for the normalized form used on this page. ProximalBase's
 # `LeastSquaresLoss(y, X)` is half the sum of squares, so `s * LeastSquaresLoss(y, X)` is the smooth part
@@ -23,6 +31,15 @@
 # coefficients and noise of standard deviation 0.5. The adaptive weights are `wⱼ = 1/|β̂ⱼ|` for the
 # coefficients `β̂` of a ridge pilot fit, and the first weight is set to 0, so coefficient 1 carries no
 # penalty. The level is `λ = 0.02`.
+# The normalized objective is
+#
+# ```math
+# \frac{1}{2n}\|y-X\beta\|_2^2+\lambda\sum_j w_j|\beta_j|.
+# ```
+#
+# We simulate a zero-intercept model with independent standard-normal predictors.
+# A larger weight makes that coefficient harder to retain. A zero weight leaves it
+# unpenalized; it does not force the coefficient to zero.
 using LinearAlgebra, Random, ProximalBase, ProximalSolvers
 
 rng = Xoshiro(2026)
@@ -89,6 +106,23 @@ beta_lasso = zeros(p)
 solve!(beta_lasso, f, NormL1(lambda), CDSolver(order = :cyclic, momentum = false, tol = 1e-12))
 @assert count(!iszero, beta_cd) < count(!iszero, beta_lasso)
 
+# ## Reading the coefficient comparison
+#
+# The bars compare the same data at the same base penalty level, although the
+# coordinate thresholds differ: ``\lambda w_j`` for the adaptive fit versus
+# ``\lambda`` for ordinary lasso. Predictor 1 is deliberately left unpenalized.
+# The adaptive fit retains fewer noise predictors in this seeded data set. This
+# observation illustrates a possible effect of the weights, not a general guarantee.
+#!jl using Plots
+#!jl primary_figure = bar(hcat((1:p) .- 0.26, Float64.(1:p), (1:p) .+ 0.26),
+#!jl   hcat(beta_true, beta_lasso, beta_cd); bar_width=0.24,
+#!jl   label=["True coefficient" "Ordinary lasso" "Adaptive weighted lasso"],
+#!jl   color=[:gray :darkorange :royalblue], xlabel="Predictor index", ylabel="Coefficient",
+#!jl   title="Adaptive penalties change coefficient shrinkage", legend=:outertopright, size=(1000, 430))
+#!jl vline!(primary_figure, [4.5]; color=:black, linestyle=:dash, label="Signal / noise boundary")
+#!jl savefig(primary_figure, "weighted_lasso.svg")
+#!jl nothing
+
 # ## Weights of another element type
 #
 # The weights must have the element type of the data. Weights of another type are refused with an
@@ -104,3 +138,19 @@ for (name, r, beta) in (("CDSolver", res_cd, beta_cd), ("ProximalGradientDescent
           ", nonzeros = ", count(!iszero, beta))
 end
 println("unweighted lasso with the same λ: nonzeros = ", count(!iszero, beta_lasso))
+
+# ## Limitations
+#
+# Pilot estimates are noisy. Inverse-magnitude weights can become large when a
+# pilot coefficient is close to zero, making the resulting selection sensitive to
+# the pilot and its regularization. Our seeded pilot has finite weights; practical
+# choices may use a prespecified stabilizing offset. The unpenalized first predictor
+# is an illustrative modeling decision, not evidence that it must always be retained.
+# A good optimization certificate does not validate the pilot, the chosen penalty,
+# or the assumption of a sparse linear model.
+#
+# ## What we learned
+#
+# Weighted lasso changes the coordinate thresholds within an ordinary lasso problem.
+# It can express different prior shrinkage preferences while retaining the same
+# loss, solver APIs, and independently computed weighted KKT conditions.
