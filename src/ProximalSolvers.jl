@@ -15,6 +15,7 @@ groups are the rows of the coefficients, it accepts a `Matrix` coefficient (or a
 over its entries) with a dense `X`, `Y` and `LeastSquaresLoss`. [`ProximalGradientDescent`](@ref) and
 [`AccProxGradDescent`](@ref) accept a dense `Vector` only, all through [`solve!`](@ref);
 [`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref) also solve the group lasso with a `GroupNormL2` penalty on it.
+[`ProximalGradientDescent`](@ref) also supports unweighted `NormL1Nonneg` on a feasible dense `Vector`.
 Losses, proximal operators and coordinate storage belong to PB.
 """
 module ProximalSolvers
@@ -22,7 +23,7 @@ using LinearAlgebra
 using Printf
 using Random: AbstractRNG, default_rng, rand
 using SparseArrays: dropzeros!
-using ProximalBase: LeastSquaresLoss, SqrtLeastSquaresLoss, Scaled, NormL1, ElasticNet, NormLinf, SparseIterate,
+using ProximalBase: LeastSquaresLoss, SqrtLeastSquaresLoss, Scaled, NormL1, NormL1Nonneg, ElasticNet, NormLinf, SparseIterate,
   ncoordinates, nactive, activecoordinates, activevalues, prox_block,
   value_and_prox!, BlockIterate, GroupNormL2, blockindices, blockview, prox_block!, kkt_violation
 include("blocks.jl")
