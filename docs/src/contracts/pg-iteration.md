@@ -6,7 +6,7 @@
 
 ## Problem
 
-Minimize `F(x) = s‖Xx - y‖²/2 + g(x)`. The supported penalties are `NormL1` (with optional weights), `ElasticNet`, `NormLinf`, `GroupNormL2`, unweighted `NormL1Nonneg` and `IndNonnegative()`. The last two penalties enforce `x ≥ 0` and are supported by PGD under [IN-07](@ref).
+Minimize `F(x) = s‖Xx - y‖²/2 + g(x)`. The supported penalties are `NormL1` (with optional weights), `ElasticNet`, `NormLinf`, `GroupNormL2`, unweighted `NormL1Nonneg` and `IndNonnegative()`. `NormL1Nonneg` and `IndNonnegative()` enforce `x ≥ 0` under [IN-07](@ref). PGD also accepts `IndBox` (including `IndBallLinf`) and four-coefficient `IndBallL2` under [IN-08](@ref).
 
 ## Notation
 
@@ -46,6 +46,8 @@ The accepted point's gradient is refreshed if the line search did not already up
 The prox is soft thresholding for `NormL1`, with entry level `λ wⱼ` for weights; soft thresholding followed by the ridge weight for `ElasticNet`; the point minus its projection onto the ℓ1 ball of radius `λ/L` for `NormLinf` (a common clipping level); and block soft thresholding for `GroupNormL2`, scaling a block `v_G` by `max(0, 1 - γ λ wₖ/‖v_G‖₂)` at step `γ`, with a zero block left zero. The working-precision conventions for these oracles are [FP-01](@ref).
 
 For unweighted `NormL1Nonneg(λ)`, the prox is componentwise `max(v - λ/L, 0)`. For `IndNonnegative()`, ProximalBase projects componentwise with `max(v, 0)`. Both operators enforce nonnegativity at each step. The feasible-start and input requirements are [IN-07](@ref), and the dedicated constrained stationarity check is [STOP-16](@ref).
+
+For the box and ball indicators in [IN-08](@ref), the proximal step projects onto the corresponding set using ProximalBase. The generic stationarity check is [STOP-07](@ref).
 
 **Applies to.** ProximalGradientDescent; dense Vector{T}; T = Float32 or Float64.
 

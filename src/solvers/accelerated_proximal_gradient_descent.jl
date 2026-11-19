@@ -40,6 +40,9 @@ the last accepted coefficient vector and is rethrown.
 
 The supported penalties are `NormL1` with optional weights, unweighted
 `ElasticNet`, `NormLinf` and a matching `GroupNormL2{T}` on dense coefficients.
+Box constraints use `IndBox` or `IndBallLinf`. Euclidean-ball constraints use
+`IndBallL2` with four coefficients and a radius of the same type. These
+indicators require a feasible starting vector.
 Use [`ProximalGradientDescent`](@ref) for unweighted `NormL1Nonneg`;
 APG does not support that constrained penalty.
 A proposed stop is checked at the accepted point. The iteration's reported
