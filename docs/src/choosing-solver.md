@@ -228,13 +228,14 @@ answer by soft thresholding and stationarity. See [the ADMM contract](@ref ADM-0
 for input requirements, limits and warm starts.
 
 `ADMMSolver` also applies to the graphical lasso, `LogDetLoss(S)` with
-`NormL1(λ₀, Λ)`, for the inputs in [ADM-04](@ref): a dense `Matrix{Float32}` or
-`Matrix{Float64}` start, same-type weights `Λ` that are nonnegative, exactly
-symmetric and zero on the diagonal, fixed `ρ`, `α = 1` and `adaptive = false`.
-On a normal return the estimate is exactly symmetric and passes a Cholesky
-factorization. The
-[graphical-lasso tutorial](examples/problems/graphical_lasso.md) checks its objective,
-KKT conditions and, when its dual matrix is positive definite, a duality gap;
+`NormL1(λ₀, Λ)`, for the inputs in [ADM-04](@ref), which include a dense
+`Matrix{Float32}` or `Matrix{Float64}` start, same-type weights `Λ` that are
+finite, nonnegative, exactly symmetric and zero on the diagonal, fixed `ρ`, an
+`α` stored as 1 by the constructor and `adaptive = false`. On a normal return the estimate is exactly
+symmetric and passes a Cholesky factorization in its element type. The
+[graphical-lasso tutorial](examples/problems/graphical_lasso.md) checks its
+objective and KKT conditions and, when its stored dual matrix passes an exact box
+check and a Cholesky test, reports a numerical estimate of the duality gap;
 [ADM-04](@ref) gives the rules.
 
 ## What is supported now?

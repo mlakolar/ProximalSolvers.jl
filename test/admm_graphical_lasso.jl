@@ -47,9 +47,11 @@ function kkt_scores(Θ, S, Λ)
   (; abs = Float64(worst), rel = Float64(worst / max(1, maximum(abs, Sb))))
 end
 
-# A dual-feasible W = S + U with Uᵢᵢ = 0 and |Uᵢⱼ| ≤ Λᵢⱼ, from the KKT relation
-# U = inv(Θ) - S clipped into the box. When W is positive definite, weak duality
-# gives P(Θ) ≥ D(W) = logdet W + p. Otherwise the point is not certified.
+# A candidate dual W = S + U, formed in BigFloat, with Uᵢᵢ = 0 and off-diagonal
+# entries of inv(Θ) - S clipped into [-Λᵢⱼ, Λᵢⱼ]. When W passes a BigFloat Cholesky
+# factorization, the gap P(Θ) - D(W) with D(W) = logdet W + p is returned; in exact
+# arithmetic weak duality makes it nonnegative for a feasible W ≻ 0. Otherwise the
+# point is not certified.
 function dual_certificate(Θ, S, Λ)
   Sb, Λb = BigFloat.(S), BigFloat.(Λ)
   inverse = inv(BigFloat.(Θ))
@@ -79,8 +81,8 @@ solver_tolerance(::Type{Float64}) = 1e-12
 solver_tolerance(::Type{Float32}) = 1e-6
 accurate_method(T; ρ = 1) = ADMMSolver(; ρ, abstol = solver_tolerance(T), reltol = solver_tolerance(T))
 const LONG = ProximalOptions(maxiter = 5000)
-final_error(T) = ErrorException("ADMM reached a consensus iterate that is not exactly symmetric with a successful Cholesky factorization in $T")
-logdet_error(T) = ErrorException("ADMM produced a logdet prox output that is not finite and exactly symmetric with a successful Cholesky factorization in $T")
+final_error(T) = ErrorException("ADMM requires the returned consensus iterate to be exactly symmetric and to have a successful Cholesky factorization in $T")
+logdet_error(T) = ErrorException("ADMM requires each logdet prox output to be finite, exactly symmetric and to have a successful Cholesky factorization in $T")
 
 function within(Θ, reference, T)
   error = maximum(abs, BigFloat.(Θ) - BigFloat.(reference))
@@ -128,7 +130,7 @@ function check_accurate(result, Θ, S, Λ, method; reference = nothing)
   @test scores.rel <= accuracy(T)
   certificate = dual_certificate(Θ, S, Λ)
   # In exact arithmetic weak duality gives P(Θ) ≥ D(W) for a positive-definite Θ
-  # and a feasible W; the slack allows for BigFloat rounding.
+  # and a feasible W ≻ 0; the slack allows for BigFloat rounding.
   @test certificate.certified
   if certificate.certified
     @test certificate.gap >= -1e-30
@@ -182,9 +184,10 @@ end
         end
       end
 
-      # Zero penalty with an SPD S: Θ* = inv(S). The certificate uses W = S, whose gap
-      # is zero at the exact inverse and positive at an approximate fit. The penalty is
-      # zero through zero weights or through a zero level with nonzero weights.
+      # Zero penalty with an SPD S: Θ* = inv(S). The certificate uses W = S; in exact
+      # arithmetic its gap is zero at the inverse and strictly positive at any other
+      # SPD point, and check_accurate compares the computed gap with a slack. The
+      # penalty is zero through zero weights or through a zero level with nonzero weights.
       S = T[2 1/2 1/4 0; 1/2 3/2 1/4 1/8; 1/4 1/4 1 3/8; 0 1/8 3/8 5/4]
       @test isposdef(S)
       nonzero_weights = fill(T(3/10), 4, 4)
@@ -360,7 +363,8 @@ end
 
     # An off-diagonal score: from the start diag(1, 4), the logdet prox returns the
     # start (the asserted zero residuals check this), and the penalty keeps the zero
-    # off-diagonal entry, while max(|S₁₂| - λ₀Λ₁₂, 0) is 3/10.
+    # off-diagonal entry, while max(|S₁₂| - λ₀Λ₁₂, 0) is about 3/10 (the stored
+    # values round 2/5 and 1/10).
     start, S, Λ = Matrix(Diagonal(T[1, 4])), T[1 2/5; 2/5 1/4], T[0 1/10; 1/10 0]
     Θ = copy(start)
     result = solve!(Θ, LogDetLoss(S), NormL1(one(T), Λ), ADMMSolver(; ρ = T(2)^100))
@@ -392,7 +396,8 @@ end
     @test_throws final_error(T) solve!(Θ, f, g, ADMMSolver(; ρ = rho), ProximalOptions(prox_calls_limit = 2); u)
     @test samebits(Θ, start) && samebits(u, dual)
 
-    # The same start continues through the indefinite iterate to an SPD optimum.
+    # The same start continues through the indefinite iterate to a converged fit that
+    # passes the Cholesky check and meets the independent accuracy bounds.
     method = accurate_method(T; ρ = rho)
     result = solve!(Θ, f, g, method, LONG; u)
     @test result.u === u
@@ -617,12 +622,16 @@ end
     @test result isa ADMMResults{T} && result isa ADMMResults{T, Vector{T}}
     @test result.minimizer === z && result.minimizer isa Vector{T} && result.u isa Vector{T}
     @test result.converged
-    # The positional constructor with the element type alone takes the array type
-    # from the minimizer and converts the scalar fields.
-    direct = ADMMResults{T}(T[1, 2], 1/2, 3, true, 0.0, 0.0, 1e-6, 1e-6, T[0, 0], 1.0, 6, :converged)
-    @test direct isa ADMMResults{T, Vector{T}}
-    @test direct.minimizer == T[1, 2] && direct.minimum === T(1/2) && direct.u == T[0, 0]
-    @test direct.iterations == 3 && direct.prox_calls == 6 && direct.status === :converged
+    # The positional constructor with the element type alone converts both arrays
+    # to Vector{T} and the scalar fields to T.
+    other = T === Float32 ? Float64 : Float32
+    for (minimizer, dual) in ((T[1, 2], T[0, 0]), (other[1, 2], other[0, 0]),
+                              (view(T[1, 2, 3], 1:2), view(T[0, 0, 0], 2:3)))
+      direct = ADMMResults{T}(minimizer, 1/2, 3, true, 0.0, 0.0, 1e-6, 1e-6, dual, 1.0, 6, :converged)
+      @test direct isa ADMMResults{T, Vector{T}}
+      @test direct.minimizer == T[1, 2] && direct.minimum === T(1/2) && direct.u == T[0, 0]
+      @test direct.iterations == 3 && direct.prox_calls == 6 && direct.status === :converged
+    end
   end
 end
 

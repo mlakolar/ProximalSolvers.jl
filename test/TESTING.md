@@ -38,8 +38,9 @@ The standard `admm_graphical_lasso` tests cover the graphical lasso with
 `LogDetLoss` and a matrix-weighted `NormL1` on a dense matrix in Float32 and
 Float64. They compare with analytic optima (1×1, diagonal, 2×2 in both regimes,
 zero and large penalty) and a seeded sparse precision matrix, and check a
-BigFloat objective, the KKT scores, a dual certificate when the candidate dual
-matrix is positive definite, graph counts, one independently replayed step,
+BigFloat objective, the KKT scores and, on those fixtures, a candidate dual
+matrix that must pass a BigFloat Cholesky check, with its gap compared against a
+roundoff allowance. They also check graph counts, one independently replayed step,
 limits, stagnation, an indefinite intermediate iterate, a logdet prox output
 that fails the Cholesky check, warm starts, and refusals and numerical failures
 without writes to the caller's buffers.

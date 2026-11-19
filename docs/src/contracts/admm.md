@@ -100,7 +100,7 @@ raises an error before committing either caller buffer.
 
 **Applies to.** Every `ADMMSolver` solve and `ADMMResults`. For the graphical
 lasso on a dense matrix, [ADM-04](@ref) replaces the stationarity score, requires
-`α=1` and adds the positive-definiteness rules.
+a stored `α` equal to 1 and adds the symmetry and Cholesky rules.
 
 **Code.** `src/solvers/admm.jl`.
 
@@ -155,7 +155,8 @@ with ProximalBase `f = LogDetLoss(S)` and `g = NormL1(λ₀, Λ)`, and stops by 
 residual tests, limits and working-precision exits of [ADM-02](@ref). The
 penalty sums over the full matrix, so each off-diagonal pair appears twice, and
 the zero diagonal of `Λ` leaves the diagonal unpenalized. `LogDetLoss` must have
-weight one; a normalization such as `1/n` is part of the sample covariance `S`.
+weight one; when `S` is a sample covariance, a normalization such as `1/n` is part
+of `S`.
 
 After the entry checks of `solve!` (keywords, options, and the storage and
 element type of the start), the matrix path checks, in this order: `f` is a
@@ -173,8 +174,10 @@ Cholesky factorization of a private copy of `Θ` succeeds in `T`. These checks
 precede any write to `Θ` or `u`. The first failing check determines the
 exception: `DimensionMismatch` for an empty or non-square `Θ`, a size mismatch
 or a wrong-size `u`, and `ArgumentError` for the others. The solver does not
-average or symmetrize its inputs. Other function pairs, other start types, mixed
-element types, a stored `α` other than 1 and `adaptive=true` are refused.
+average or symmetrize its inputs. With a matrix start, other function pairs,
+mixed element types, a stored `α` other than 1 and `adaptive=true` are refused.
+The entry check refuses start types other than the dense vectors of
+[ADM-01](@ref) and these dense matrices.
 
 Ownership follows the protocol of [ADM-01](@ref) with matrices in place of
 vectors. The solve runs in private storage. With `u=nothing`, the initial scaled
@@ -207,8 +210,8 @@ returned point is the validated start. `ProximalOptions` requires `maxiter ≥ 2
 so zero iterations follow from `prox_calls_limit = 1` or from a time limit that
 has expired before the first iteration, such as a nonpositive one.
 
-When both computed residuals are zero and pass their tolerances, the solver
-checks stationarity at `z`, whose Cholesky factorization succeeded in `T`, in
+When both computed residuals are zero and pass their tolerances, and `z` has
+passed the return-point check above, the solver checks stationarity at `z` in
 place of the [ADM-02](@ref) score. With `G = S - inv(z)`, the inverse formed from
 a Cholesky factorization, the score of an entry is `|Gᵢᵢ|` on the diagonal,
 `|Gᵢⱼ + λ₀Λᵢⱼ sign(zᵢⱼ)|` at a nonzero off-diagonal entry and
@@ -216,13 +219,14 @@ a Cholesky factorization, the score of an entry is `|Gᵢᵢ|` on the diagonal,
 product in `T`. A nonfinite score raises an error. Otherwise, if a score exceeds
 `eps_dual`, the status is `:stagnated` and `converged=false`.
 
-`status` is `:converged` when both residual tests pass and the stationarity check
-passes where it applies, and `:stagnated` as above. `:iteration_limit`,
-`:prox_calls_limit` and `:time_limit` report termination by the limit checks of
-[ADM-02](@ref), with `converged=false`; a residual or stagnation decision on the
-last permitted iteration takes precedence. `minimum` follows the objective rule
-of [ADM-02](@ref) at the returned `z`. The result is an
-`ADMMResults{T, Matrix{T}}`. A converged status reports these working-precision
+On a normal return, `status` is `:converged` when both residual tests passed and
+the stationarity check passed where it applies, and `:stagnated` as above.
+`:iteration_limit`, `:prox_calls_limit` and `:time_limit` report termination by
+the limit checks of [ADM-02](@ref), with `converged=false`; a residual or
+stagnation decision on the last permitted iteration takes precedence. `minimum`
+follows the objective rule of [ADM-02](@ref) at the returned `z`, so a nonfinite
+objective raises an error after the status decision and before any write. The
+result is an `ADMMResults{T, Matrix{T}}`. A converged status reports these working-precision
 tests and is not an optimality certificate.
 
 **Applies to.** `ADMMSolver` with a dense `Matrix{Float32}` or `Matrix{Float64}`
@@ -235,7 +239,9 @@ start, `LogDetLoss` and `NormL1` with `Matrix` weights, fixed `ρ`, a stored
 **Tests.** `test/admm_graphical_lasso.jl` compares with analytic optima (1×1,
 diagonal, 2×2 in both regimes, zero penalty through zero weights or a zero level,
 and large penalty) and a seeded sparse precision matrix using a BigFloat
-objective, KKT scores and a dual certificate. It replays one step independently,
+objective, KKT scores and, on those fixtures, a candidate dual matrix that must
+pass a BigFloat Cholesky check, with its gap compared against a roundoff
+allowance. It replays one step independently,
 and checks penalties with declared abstract weight types, limits, stagnation at
 diagonal and off-diagonal scores, an indefinite intermediate `z`, a logdet
 proximal output that fails the Cholesky check, warm starts, refusals and

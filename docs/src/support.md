@@ -94,8 +94,10 @@ that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref
   factorization succeeds in `T`, `LogDetLoss(S)` with weight one and `NormL1(λ₀, Λ)` with finite,
   nonnegative, exactly symmetric, zero-diagonal `Matrix{T}` weights, a fixed `ρ`, a stored `α`
   equal to 1 and `adaptive = false` ([ADM-04](@ref) lists all conditions). The tests check
-  each element type against analytic optima and a seeded problem with independently computed
-  objective, KKT scores and duality gap. See [Graphical lasso with consensus ADMM](@ref).
+  each element type against analytic optima and a seeded problem with an independently computed
+  objective and KKT scores, and, on those fixtures, a candidate dual matrix that must pass a
+  Cholesky check, with its gap compared against a roundoff allowance. See
+  [Graphical lasso with consensus ADMM](@ref).
 
 ### Statistical applications
 
@@ -165,19 +167,20 @@ and [ADM-02](@ref) for the residual tests and limits.
 \min_{\Theta=\Theta^\top\succ0}\quad -\log\det\Theta+\operatorname{tr}(S\Theta)+\lambda_0\sum_{i\ne j}\Lambda_{ij}|\Theta_{ij}|,
 ~~~
 
-for a sample covariance `S`. Use `LogDetLoss(S)` and `NormL1(λ₀, Λ)`, where `Λ` is a
-nonnegative, exactly symmetric `Matrix` with a zero diagonal, with `ADMMSolver` on a dense,
-exactly symmetric `Matrix` start whose Cholesky factorization succeeds, such as the identity. The data, weights,
-start and optional scaled dual share one `Float32` or `Float64` element type. The penalty runs
-over the full matrix, so each off-diagonal pair counts twice.
+where `S` is typically a sample covariance. Use `LogDetLoss(S)` and `NormL1(λ₀, Λ)`, where `Λ`
+is a finite, nonnegative, exactly symmetric `Matrix` with a zero diagonal, with `ADMMSolver` on
+a dense, exactly symmetric `Matrix` start whose Cholesky factorization succeeds, such as the
+identity. The data, weights, start and optional scaled dual share one `Float32` or `Float64`
+element type. The penalty runs over the full matrix, so each off-diagonal pair counts twice.
 
-Use a fixed `ρ` with `α = 1` and `adaptive = false`. On a normal return the matrix is exactly
-symmetric and passes a Cholesky factorization in its element type. `converged = true` reports
+Use a fixed `ρ`, an `α` stored as 1 by the `ADMMSolver` constructor and `adaptive = false`.
+On a normal return the matrix is exactly symmetric and passes a Cholesky factorization in its
+element type. `converged = true` reports
 the ADMM residual tests, with a stationarity check when both residuals are zero; it is not an
 optimality certificate. See [ADM-04](@ref) for the exact input, Cholesky and stopping
 rules. The [graphical-lasso tutorial](examples/problems/graphical_lasso.md) checks a
-fit independently with its objective, KKT conditions and, when its dual matrix is positive
-definite, a duality gap.
+fit independently with its objective and KKT conditions and, when its stored dual matrix passes
+an exact box check and a Cholesky test, reports a numerical estimate of the duality gap.
 
 ### [Weighted lasso](@id weighted-lasso-support)
 

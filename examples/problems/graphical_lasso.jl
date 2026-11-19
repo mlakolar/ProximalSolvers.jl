@@ -48,7 +48,7 @@ end
 
 # With `Σ_true = inv(Θ_true) = UᵀU` from the Cholesky factor `U`, each row of `randn(n, p) * U` is
 # `zᵀU` for a standard normal `z`, whose covariance is `UᵀU = Σ_true`. After centering the columns,
-# `S = XᵀX/n`. The `1/n` belongs in `S`: `LogDetLoss(S)` has weight one.
+# `S = XᵀX/n`. The normalization `1/n` is part of `S`, and `LogDetLoss(S)` has weight one.
 Σ_true = inv(Θ_true)
 U = cholesky(Symmetric(Σ_true)).U
 @assert U' * U ≈ Σ_true
@@ -61,11 +61,13 @@ S = Matrix(Symmetric(X' * X / n))
 # ## The solve
 #
 # The penalty level is `λ = 0.12` on each off-diagonal entry. ADMM splits the objective into the
-# log-determinant part, updated by its proximal operator (computed from an eigendecomposition; the
-# solver checks the result with a Cholesky factorization), and the penalty, updated by soft
-# thresholding. The consensus iterate after soft thresholding can be indefinite during the
-# iteration; the returned matrix is the consensus iterate, and `solve!` returns it only after a
-# Cholesky factorization succeeds. The identity is a valid symmetric positive-definite start.
+# log-determinant part, updated by its proximal operator (computed by ProximalBase from an
+# eigendecomposition; the solver requires the result to be finite, exactly symmetric and to pass a
+# Cholesky factorization), and the penalty, updated by soft thresholding. The consensus iterate
+# after soft thresholding can be indefinite during the iteration. The returned matrix is the
+# consensus iterate, and `solve!` returns it only if it is exactly symmetric and its Cholesky
+# factorization succeeds in Float64. The identity is an exactly symmetric start whose Cholesky
+# factorization succeeds.
 λ = 0.12
 Λ = fill(λ, p, p)
 Λ[diagind(Λ)] .= 0
@@ -111,21 +113,25 @@ kkt = maximum(i == j ? abs(G[i, i]) :
               for i in 1:p, j in 1:p) / max(1, maximum(abs, S))
 @assert kkt <= 1e-8
 
-# The dual problem maximizes `log det W + p` over `W = S + U` with `Uᵢᵢ = 0` and `|Uᵢⱼ| ≤ Λᵢⱼ`.
-# Clipping `Θ⁻¹ - S` into that box gives a feasible `U`. The sum `S + U` is rounded, so the code
-# checks in exact (BigFloat) arithmetic that the stored `W` still satisfies the box. When it does
-# and `W` is positive definite, weak duality bounds the objective error by the gap
-# `P(Θ) - (log det W + p)`, which is evaluated here in Float64 as an estimate. Otherwise the
-# estimate is reported as not certified.
+# The dual problem maximizes `log det W + p` over symmetric `W = S + U ≻ 0` with `Uᵢᵢ = 0` and
+# `|Uᵢⱼ| ≤ Λᵢⱼ` (the level of `g` is one). Below, `U` has a zero diagonal and its off-diagonal
+# entries are those of `Θ⁻¹ - S` clipped into `[-Λᵢⱼ, Λᵢⱼ]`. The sum `W = S + U` is rounded, so the
+# code checks the stored floats in exact rational arithmetic: `Wᵢᵢ = Sᵢᵢ` and
+# `|Wᵢⱼ - Sᵢⱼ| ≤ Λᵢⱼ`, the right side being the exact value of the stored weight. It then applies the
+# Float64 Cholesky test to `W`, which is a working-precision test rather than a proof that `W ≻ 0`.
+# For an exactly feasible `W ≻ 0`, weak duality bounds the objective error by the gap
+# `P(Θ) - (log det W + p)`. After both checks, the script reports that gap evaluated in Float64, as a
+# numerical estimate. If a check fails, it reports "not certified".
 inverse = inv(Θ)
 U_dual = zeros(p, p)
 for j in 2:p, i in 1:j-1
   U_dual[i, j] = U_dual[j, i] = clamp(inverse[i, j] - S[i, j], -Λ[i, j], Λ[i, j])
 end
 W = S + U_dual
-feasible = all(W[i, i] == S[i, i] for i in 1:p) &&
-           all(abs(big(W[i, j]) - big(S[i, j])) <= Λ[i, j] for i in 1:p, j in 1:p if i != j)
-certified = feasible && isposdef(Symmetric(W))
+exact(x) = Rational{BigInt}(x)
+in_box = all(exact(W[i, i]) == exact(S[i, i]) for i in 1:p) &&
+         all(abs(exact(W[i, j]) - exact(S[i, j])) <= exact(Λ[i, j]) for i in 1:p, j in 1:p if i != j)
+certified = in_box && isposdef(Symmetric(W))
 gap = certified ? objective - (logdet(cholesky(Symmetric(W))) + p) : NaN
 certified && @assert -1e-10 <= gap <= 1e-8
 println((objective = objective, max_kkt_violation = kkt, smallest_eigenvalue = smallest_eigenvalue,
@@ -151,7 +157,8 @@ println((pairs = length(edge_pairs), true_edges = true_edges, estimated_edges = 
          true_positives = tp, false_positives = fp, false_negatives = fn,
          largest_false_positive = largest_false_positive, smallest_true_positive = smallest_true_positive))
 
-# The errors of `Θ` against `Θ_true` are compared with those of `inv(S)`, the solution at `λ = 0`.
+# The errors of `Θ` against `Θ_true` are compared with those of `inv(S)`, which minimizes the
+# objective at `λ = 0` when `S` is positive definite.
 errors = (frobenius = norm(Θ - Θ_true), spectral = opnorm(Θ - Θ_true),
           frobenius_inv_S = norm(inv(S) - Θ_true), spectral_inv_S = opnorm(inv(S) - Θ_true))
 println(errors)
@@ -168,8 +175,8 @@ println(errors)
 # largest of their magnitudes, or `"none"` when there are none). The edge counts and magnitudes
 # are observations for this sample and this `λ`. At exact minimizers, a larger `λ` gives a total
 # off-diagonal ℓ₁ norm `Σᵢ≠ⱼ |Θᵢⱼ|` that is no larger, but the number of zeros and the individual
-# entries need not change monotonically with `λ`. The penalty also biases the nonzero entries,
-# which contributes to the error.
+# entries need not change monotonically with `λ`. Regularization changes the fitted magnitudes and
+# can bias them; the errors printed above are differences on this one sample.
 
 # ## Reading the figure
 #
@@ -197,14 +204,16 @@ println(errors)
 # ## What we learned
 #
 # On this sample, the graphical lasso fit has zero entries, is exactly symmetric and passes the
-# checks `isposdef` and a positive smallest eigenvalue. In general, a normal return
-# of `solve!` guarantees an exactly symmetric matrix whose Cholesky factorization succeeds in its
-# element type; this working-precision test does not prove positive definiteness of a matrix close
-# to singular, and a small penalty can give a dense estimate. The checks on this page come from the
-# data: the recomputed objective, the KKT violation, the smallest eigenvalue and, when the stored
-# dual matrix is feasible and positive definite, a duality gap estimate. `converged` reports the
-# ADMM residual tests and is not by itself a certificate. The edge counts and errors depend on the
-# sample, on `n` and on `λ`; this page does not choose `λ` from the data.
+# checks `isposdef` and a positive smallest eigenvalue. In general, a normal return of `solve!` on
+# this graphical-lasso path gives an exactly symmetric matrix whose Cholesky factorization succeeds
+# in its element type; this working-precision test does not prove positive definiteness of a
+# matrix close to singular, and a small penalty can give a dense estimate. The checks on this page
+# come from the data: the recomputed objective, the KKT violation, the smallest eigenvalue and,
+# when the stored dual matrix passes the exact box check and the Cholesky test, a numerical
+# estimate of the duality gap. `converged` reports the ADMM residual tests, with a stationarity
+# check when both computed residuals are zero; it is not by itself a certificate, and the residual
+# tests do not enforce the normalized `1e-8` KKT bound asserted above. The edge counts and errors
+# depend on the sample, on `n` and on `λ`; this page does not choose `λ` from the data.
 #
 # The figure is generated from this script during the documentation build. Run the script alone
 # for the same seeded calculations and checks without loading Plots.
