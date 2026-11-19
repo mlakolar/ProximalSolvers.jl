@@ -23,8 +23,8 @@ r = solve!(beta, f, penalty,
 Every solver reports `minimizer`, `minimum` and `converged`.
 Coordinate descent also provides `passes`, `maxchange`, and `tolerance`.
 PGD and APG provide `iterations`, more detailed stopping residuals and
-an optional iteration `trace`. These differ because the current package
-retains two algorithm-specific result types.
+an optional iteration `trace`. ADMM provides `iterations`, `status`, and
+primal and dual residuals with their tolerances.
 
 A convergence flag reports the solver's implemented stopping criterion;
 [the result contract](@ref RES-01) gives the precise meaning and qualifications.
@@ -34,6 +34,7 @@ A convergence flag reports the solver's implemented stopping criterion;
 | Least-squares CD, including group and multi-response fits | The pass-change test succeeded; it is not an independent optimality check |
 | PGD/APG | A stopping proposal passed the applicable computed stationarity check |
 | Square-root lasso with CD | The square-root certificate succeeded under its documented conditions |
+| Consensus ADMM | The primal and dual residual tests and any required stagnation check passed. See [ADM-02](@ref) |
 
 Use an [independent KKT check](@ref learn-02) or an appropriate
 [duality gap](@ref learn-07) when assessing a fit. An unavailable `gap` is `NaN`,
@@ -65,7 +66,8 @@ new_result = solve!(beta, f, NormL1(1.0),
 ~~~
 
 The old `r.minimizer` points to the same `beta` that the second solve
-overwrote. Save a copy when keeping past fits.
+overwrote. Save a copy when keeping past fits. For ADMM, the same applies
+to the scaled dual if you pass it as `u` in another solve.
 
 ## What PGD's output labels mean
 

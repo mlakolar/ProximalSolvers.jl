@@ -17,15 +17,17 @@ The following remain deferred:
   `BlockIterate` over `vec(B)`;
 - weighted `ElasticNet`, `Scaled` penalties, and CD group penalties other than
   `GroupNormL2`;
-- `SqrNormL2` whose declared center type is not `Nothing` (including a
-  zero-valued center or a union-typed center holding `nothing`), and
-  `SqrNormL2` with PGD/APG, square-root loss or group/matrix coefficients;
-  the supported uncentered scalar least-squares CD form is [IN-01](@ref);
+- `SqrNormL2` as a CD penalty with a declared center type other than `Nothing`,
+  including a zero-valued center or a union-typed center holding `nothing`.
+  The uncentered scalar least-squares CD form is specified in [IN-01](@ref).
+  PGD/APG, square-root CD and group/matrix CD also exclude `SqrNormL2` penalties;
 - weighted `NormL1Nonneg`, nonnegative least squares or nonnegative lasso with APG or CD, and the other
   constrained-penalty combinations excluded by [IN-07](@ref);
 - intercepts and offsets, generalized losses and compositions;
-- monotone or active-set acceleration, APG diagonal preconditioning, ADMM/Newton,
+- monotone or active-set acceleration, APG diagonal preconditioning, Newton,
   primal-dual methods, SLOPE and graphical models;
+- ADMM outside the centered quadratic and unweighted ℓ₁ problem in [ADM-01](@ref),
+  including arbitrary function pairs, product spaces, linear constraints and custom norms;
 - paths, screening, public workspaces, refitting, reweighting, and certificates
   other than the square-root-lasso CD duality certificate;
 - generic block, metric, certificate and logging frameworks, and extension

@@ -4,7 +4,8 @@
 Solve `SqrNormL2(λ, c) + NormL1(τ)` by scaled consensus ADMM on a dense
 `Vector{Float32}` or `Vector{Float64}` with a same-type center `c`.
 `ρ` is the positive penalty and `α ∈ (0, 2)` controls relaxation. The absolute
-and relative tolerances control the primal and dual residual tests.
+and relative tolerances control the primal and dual residual tests. Set
+`adaptive=true` to rebalance the penalty between iterations.
 
 See [the ADMM contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-01)
 for the supported inputs and iteration rules.
@@ -47,7 +48,8 @@ completed iterations, with two proximal calls each in `prox_calls`.
 `r_norm`, `s_norm`, `eps_pri` and `eps_dual` describe the final residual tests.
 They are `NaN` if no iteration ran. `u` is the final scaled dual variable and
 `ρ` is the penalty used for the final tests, or the starting penalty if no
-iteration ran. `status` records the exit and `converged` is true for
+iteration ran. An explicit dual buffer passed to `solve!` also aliases the
+result. `status` records the exit and `converged` is true for
 `:converged`. See the [ADMM contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-01).
 """
 struct ADMMResults{T}
@@ -111,19 +113,20 @@ Minimize `f(z) + g(z)` and store the returned consensus iterate in `z`.
 Use `f = SqrNormL2(λ, c)` with a finite positive level and an unweighted
 `g = NormL1(τ)` with a finite nonnegative level. The levels must be exactly
 representable in the common Float32 or Float64 element type of `z` and `c`.
-Caller buffers are committed on return. See [`ADMMResults`](@ref) and the
+The initial scaled dual is zero by default. Pass an independent, same-type
+buffer as `u` to start from its entries. Caller buffers are committed on
+normal return. Pass the returned iterate, scaled dual and penalty together to
+restart a solve. See [`ADMMResults`](@ref) and the
 [ADMM input and result contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-01).
 """
 function solve!(z, f, g, method::ADMMSolver, options::ProximalOptions = ProximalOptions(); u=nothing, kwargs...)
   _check_keywords(kwargs)
   _check_admm_options(options)
-  method.adaptive && throw(ArgumentError("adaptive ADMM requires the residual-balancing extension"))
-  u === nothing || throw(ArgumentError("explicit u requires the ADMM warm-start extension"))
-  z isa Vector{<:Union{Float32, Float64}} || throw(ArgumentError("z must be a dense Float32 or Float64 vector"))
-  _solve_admm!(z, f, g, method, options)
+  z isa Union{Vector{Float32}, Vector{Float64}} || throw(ArgumentError("z must be a dense Float32 or Float64 vector"))
+  _solve_admm!(z, f, g, method, options, u)
 end
 
-function _solve_admm!(initial_z::Vector{T}, f, g, method, options) where T
+function _solve_admm!(initial_z::Vector{T}, f, g, method, options, initial_u) where T
   f isa SqrNormL2{<:Real, Vector{T}} || throw(ArgumentError("ADMM requires SqrNormL2 with a same-type dense vector center"))
   g isa NormL1{<:Real, Nothing} || throw(ArgumentError("ADMM requires an unweighted NormL1 penalty"))
   c = f.y
@@ -131,6 +134,13 @@ function _solve_admm!(initial_z::Vector{T}, f, g, method, options) where T
     throw(DimensionMismatch("z and the center must have the same positive length"))
   Base.mightalias(initial_z, c) && throw(ArgumentError("z must not alias the center"))
   _allfinite(initial_z) && _allfinite(c) || throw(ArgumentError("z and the center must contain only finite values"))
+  if initial_u !== nothing
+    initial_u isa Vector{T} || throw(ArgumentError("u must be a dense $T vector like z"))
+    length(initial_u) == length(initial_z) || throw(DimensionMismatch("u and z must have the same length"))
+    (Base.mightalias(initial_u, initial_z) || Base.mightalias(initial_u, c)) &&
+      throw(ArgumentError("u must not alias z or the center"))
+    _allfinite(initial_u) || throw(ArgumentError("u must contain only finite values"))
+  end
 
   λ = _admm_level(f.λ, T, "λ"; positive=true)
   τ = _admm_level(g.λ0, T, "τ")
@@ -145,13 +155,13 @@ function _solve_admm!(initial_z::Vector{T}, f, g, method, options) where T
   z = copy(initial_z)
   next_z = similar(z)
   x = similar(z)
-  u = zeros(T, length(z))
+  u = initial_u === nothing ? zeros(T, length(z)) : copy(initial_u)
   tmp = similar(z)
   sqrt_n = sqrt(T(length(z)))
   abs_pri, abs_dual = sqrt_n * abstol, sqrt_n * abstol_dual
   max_prox_pairs = options.prox_calls_limit == 0 ? typemax(Int) : options.prox_calls_limit ÷ 2
 
-  iterations = 0
+  iterations = penalty_changes = 0
   r_norm = s_norm = eps_pri = eps_dual = T(NaN)
   status = :iteration_limit
   while iterations < options.maxiter
@@ -163,22 +173,27 @@ function _solve_admm!(initial_z::Vector{T}, f, g, method, options) where T
       break
     end
 
-    _sub!(tmp, z, u)
-    _allfinite(tmp) || error("ADMM formed a nonfinite x-prox argument")
-    prox!(x, f, tmp, γ)
-    _allfinite(x) || error("ADMM produced a nonfinite x-prox output")
-
-    if isone(α)
-      @. tmp = x + u
-    else
-      # Center the relaxation at x so equal x and z give back x exactly.
-      @. tmp = (x + (α - one(T)) * (x - z)) + u
+    # Apply a change only when an iteration can use it. On exit ρ, u and
+    # the residual diagnostics correspond to the same completed iteration.
+    if method.adaptive && iterations > 0 && penalty_changes < 50
+      balance = _admm_balance(r_norm, eps_pri, s_norm, eps_dual)
+      candidate_ρ, candidate_γ = _admm_adjust_penalty!(tmp, u, ρ, γ, balance)
+      if candidate_ρ != ρ
+        ρ, γ = candidate_ρ, candidate_γ
+        u, tmp = tmp, u
+        penalty_changes += 1
+      end
     end
-    _allfinite(tmp) || error("ADMM formed a nonfinite z-prox argument")
+
+    _admm_subtract!(tmp, z, u) || error("ADMM formed a nonfinite x-prox argument")
+    prox!(x, f, tmp, γ)
+    # A nonfinite x-prox output also makes its relaxed argument nonfinite.
+    _admm_relaxed_argument!(tmp, x, z, u, α) ||
+      error("ADMM produced a nonfinite x-prox output or z-prox argument")
     prox!(next_z, g, tmp, γ)
-    _allfinite(next_z) || error("ADMM produced a nonfinite z-prox output")
-    _sub!(u, tmp, next_z)
-    _allfinite(u) || error("ADMM produced a nonfinite scaled dual variable")
+    # The argument was finite, so this check also rejects a nonfinite z-prox output.
+    _admm_subtract!(u, tmp, next_z) ||
+      error("ADMM produced a nonfinite z-prox output or scaled dual variable")
 
     r_norm = _norm_diff(x, next_z)
     s_norm = ρ * _norm_diff(next_z, z)
@@ -205,8 +220,79 @@ function _solve_admm!(initial_z::Vector{T}, f, g, method, options) where T
   isfinite(objective) || error("ADMM produced a nonfinite objective at the return point")
   calls = Base.checked_mul(2, iterations)
   copyto!(initial_z, z)
+  if initial_u !== nothing
+    copyto!(initial_u, u)
+    u = initial_u
+  end
   ADMMResults(initial_z, objective, iterations, status === :converged,
               r_norm, s_norm, eps_pri, eps_dual, u, ρ, calls, status)
+end
+
+function _admm_subtract!(out, a, b)
+  finite = true
+  @inbounds @simd for i in eachindex(out, a, b)
+    value = a[i] - b[i]
+    out[i] = value
+    finite &= isfinite(value)
+  end
+  finite
+end
+
+function _admm_relaxed_argument!(out, x, z, u, α)
+  finite = true
+  if isone(α)
+    @inbounds @simd for i in eachindex(out, x, u)
+      value = x[i] + u[i]
+      out[i] = value
+      finite &= isfinite(value)
+    end
+  else
+    # Anchor at z below one to retain α when subtracting one would round it away.
+    anchor, weight = α < one(α) ? (z, α) : (x, α - one(α))
+    @inbounds @simd for i in eachindex(out, x, z, u)
+      value = (anchor[i] + weight * (x[i] - z[i])) + u[i]
+      out[i] = value
+      finite &= isfinite(value)
+    end
+  end
+  finite
+end
+
+# Compare r / ep and s / ed without dividing by zero or forming unbounded ratios.
+function _admm_balance(r, ep, s, ed)
+  iszero(r) && return iszero(s) ? 0 : -1
+  iszero(s) && return 1
+  iszero(ep) && return iszero(ed) ? 0 : 1
+  iszero(ed) && return -1
+
+  r_mantissa, r_exponent = frexp(r)
+  s_mantissa, s_exponent = frexp(s)
+  ep_mantissa, ep_exponent = frexp(ep)
+  ed_mantissa, ed_exponent = frexp(ed)
+  exponent = r_exponent + ed_exponent - s_exponent - ep_exponent
+  # The ratio of the two mantissa products is between 1/4 and 4.
+  exponent >= 6 && return 1
+  exponent <= -6 && return -1
+  primal = ldexp(r_mantissa * ed_mantissa, exponent)
+  dual = s_mantissa * ep_mantissa
+  primal > 10 * dual ? 1 : dual > 10 * primal ? -1 : 0
+end
+
+function _admm_adjust_penalty!(trial, u, ρ::T, γ, balance) where T
+  iszero(balance) && return ρ, γ
+  multiplier = balance > 0 ? T(2) : T(0.5)
+  candidate_ρ = ρ * multiplier
+  # Reversibility also rejects a rounded halving in the subnormal range.
+  (isfinite(candidate_ρ) && candidate_ρ > zero(T) && candidate_ρ / multiplier == ρ) || return ρ, γ
+  candidate_γ = inv(candidate_ρ)
+  (isfinite(candidate_γ) && candidate_γ > zero(T)) || return ρ, γ
+  valid = true
+  @inbounds @simd for i in eachindex(trial, u)
+    value = u[i] / multiplier
+    trial[i] = value
+    valid &= isfinite(value) & (!iszero(value) | iszero(u[i]))
+  end
+  valid ? (candidate_ρ, candidate_γ) : (ρ, γ)
 end
 
 # Rounded proximal updates can yield two zero residuals away from a stationary

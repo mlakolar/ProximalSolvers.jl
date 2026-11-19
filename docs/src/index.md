@@ -28,6 +28,8 @@ statistical applications and solver comparisons. The original entry points remai
 [solvers at equal accuracy](examples/comparisons/lasso_solvers.md).
 For coefficients constrained to be nonnegative, see
 [nonnegative sparse regression](examples/problems/nonnegative_lasso.md), supported by PGD.
+For a centered quadratic with an ℓ₁ penalty, see
+[sparse signal denoising with ADMM](examples/problems/sparse_signal_denoising.md).
 Learn [proximal operators](@ref learn-03) or
 [how sparsity and KKT checks work](@ref learn-02) before choosing an algorithm.
 

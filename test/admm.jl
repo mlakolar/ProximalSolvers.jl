@@ -2,6 +2,7 @@ module ADMMTests
 
 using LinearAlgebra: norm
 using ProximalBase: LeastSquaresLoss, NormL1, SqrNormL2
+import ProximalSolvers
 using ProximalSolvers: ADMMResults, ADMMSolver, ProximalOptions, solve!
 using SparseArrays: sparsevec
 using Test
@@ -99,6 +100,26 @@ end
   end
 end
 
+@testset "Representable relaxation close to zero" begin
+  for T in (Float32, Float64)
+    z = T[0]
+    α = eps(T) / 8
+    method = ADMMSolver(; α, abstol = 0, reltol = 0)
+    options = ProximalOptions(prox_calls_limit = 2)
+    result = solve!(z, SqrNormL2(1, T[2]), NormL1(0), method, options)
+    @test z == T[α] && result.u == T[0]
+    @test result.r_norm == one(T) - α && result.s_norm == α
+    @test result.status === :prox_calls_limit && !result.converged
+
+    z = T[1]
+    large = T(2)^(T === Float32 ? 30 : 60)
+    method = ADMMSolver(; α = T(2)^(-100), abstol = 0, reltol = 0)
+    result = solve!(z, SqrNormL2(1, T[large]), NormL1(0), method, options)
+    @test z == T[1] && result.s_norm == 0 < result.r_norm
+    @test result.status === :prox_calls_limit && !result.converged
+  end
+end
+
 @testset "Limits, zero tolerances and stagnation" begin
   for T in (Float32, Float64)
     start, center = T[3, -3], T[1, -1]
@@ -124,6 +145,7 @@ end
     @test z == T[3/2, -3/2]
     @test result.r_norm == result.eps_pri == result.eps_dual == 0
     @test result.s_norm > 0
+    @test ProximalSolvers.iteration_limit_reached(result)
 
     # An exact fixed point can pass a zero tolerance, even with a subnormal reciprocal.
     result = solve!(copy(center), f, g, ADMMSolver(; ρ = floatmax(T), abstol = 0, reltol = 0))
@@ -140,6 +162,135 @@ end
     @test raw_stationarity(z, center, 1, 0) == 1
     @test !result.converged && result.status === :stagnated
     @test result.iterations == 1 && result.prox_calls == 2
+  end
+end
+
+@testset "Warm starts, borrowed dual storage and stopping precedence" begin
+  for T in (Float32, Float64)
+    center = T[2, -3/2, 1/4, -3/4]
+    original_center = copy(center)
+    curvature, penalty = T(2), T(3/4)
+    f, g = SqrNormL2(curvature, center), NormL1(penalty)
+    tol = T === Float32 ? T(3e-7) : T(1e-12)
+    accuracy = T === Float32 ? 2e-5 : 1e-9
+    setup = (; α = T(5/4), abstol = tol, reltol = tol)
+    first = solve!(zeros(T, length(center)), f, g, ADMMSolver(; ρ = 64, adaptive = true, setup...),
+                   ProximalOptions(maxiter = 3))
+    @test first.status === :iteration_limit && first.ρ < 64 && !first.converged
+    z, u = copy(first.minimizer), copy(first.u)
+    initial_z, initial_u = copy(z), copy(u)
+    partial = solve!(z, f, g, ADMMSolver(; ρ = first.ρ, setup...), ProximalOptions(time_limit = 0); u)
+    @test partial.minimizer === z && partial.u === u
+    @test z == initial_z && u == initial_u && partial.status === :time_limit
+    warm = solve!(z, f, g, ADMMSolver(; ρ = first.ρ, setup...), ProximalOptions(maxiter = 500); u)
+    fresh = solve!(zeros(T, length(center)), f, g, ADMMSolver(; ρ = curvature, setup...))
+    @test warm.converged && fresh.converged
+    @test warm.minimizer === z && warm.u === u
+    @test z != initial_z && u != initial_u
+    @test first.minimizer == initial_z && first.u == initial_u && center == original_center
+    @test norm(warm.minimizer - fresh.minimizer, Inf) <= 2accuracy
+    check_accurate(warm, center, curvature, penalty, accuracy)
+    check_accurate(fresh, center, curvature, penalty, accuracy)
+
+    # The nonzero explicit u gives z = 2 on the first step and an exact
+    # fixed point on the second, where both limits also become binding.
+    z, u = T[3/2], T[1/2]
+    method = ADMMSolver(; abstol = 0, reltol = 0)
+    exact = solve!(z, SqrNormL2(1, T[2]), NormL1(0), method,
+                   ProximalOptions(maxiter = 2, prox_calls_limit = 4); u)
+    @test exact.converged && exact.status === :converged
+    @test exact.iterations == 2 && exact.prox_calls == 4
+    @test exact.minimizer === z && z == T[2]
+    @test exact.u === u && u == T[0]
+    @test exact.r_norm == exact.s_norm == 0
+    @test ProximalSolvers.f_calls(exact) == 1 && ProximalSolvers.grad_calls(exact) == 0
+    @test ProximalSolvers.prox_calls(exact) == 4
+    @test !ProximalSolvers.iteration_limit_reached(exact) && !ProximalSolvers.call_limit_reached(exact)
+  end
+end
+
+@testset "Adaptive balancing agrees with independently replayed steps" begin
+  for T in (Float32, Float64)
+    center = T[2]
+    δ = nextfloat(zero(T))
+    # With zero tolerances, a positive residual scores Inf, a zero residual scores
+    # zero, and two infinite scores tie. The tiny positive tolerances exercise
+    # balancing when computing each normalized residual directly would overflow.
+    for (penalty, abstol, abstol_dual, rho_next) in ((4, 0, 0, 2), (0, 0, 0, 1/2),
+        (1/4, 0, 0, 1), (1/4, δ, 128δ, 2), (1/4, 128δ, δ, 1/2))
+      z = T[0]
+      g = NormL1(T(penalty))
+      method = ADMMSolver(; adaptive = true, ρ = one(T), abstol = T(abstol),
+                          abstol_dual = T(abstol_dual), reltol = 0)
+      first = reference_step(z, T[0], center, 1, penalty, 1, 1)
+      oracle = reference_step(first.z, first.u / rho_next, center, 1, penalty, rho_next, 1)
+      result = solve!(z, SqrNormL2(1, center), g, method, ProximalOptions(maxiter = 2))
+      comparison_rtol = 16eps(T)
+      @test result.ρ === T(rho_next)
+      @test z ≈ oracle.z rtol = comparison_rtol
+      @test result.u ≈ oracle.u rtol = comparison_rtol
+      @test result.r_norm ≈ oracle.r_norm atol = comparison_rtol
+      @test result.s_norm ≈ oracle.s_norm rtol = comparison_rtol
+      @test result.eps_pri === T(abstol) && result.eps_dual === T(abstol_dual)
+      @test !result.converged && result.status === :iteration_limit
+      @test result.iterations == 2 && result.prox_calls == 4
+    end
+
+    # Keep a nonzero primal residual and an identically zero dual residual.
+    # After 60 iterations an uncapped policy would have made 59 doublings.
+    center = T[1]
+    f, g = SqrNormL2(T(2)^80, center), NormL1(T(2)^81)
+    method = ADMMSolver(; adaptive = true, abstol = 0, reltol = 0)
+    limited = solve!(T[0], f, g, method, ProximalOptions(maxiter = 60))
+    @test limited.ρ === T(2)^50
+    @test limited.minimizer == T[0] && limited.r_norm > 0 && limited.s_norm == 0
+    @test limited.status === :iteration_limit && !limited.converged
+    @test limited.iterations == 60 && limited.prox_calls == 120
+  end
+end
+
+@testset "Adaptive proposals outside working range" begin
+  for T in (Float32, Float64)
+    options = ProximalOptions(maxiter = 2)
+    # The dual residual proposes an invalid halving. The first candidate's
+    # reciprocal overflows. The second halving rounds to a different ratio.
+    small_rho = floatmin(T) / 2
+    odd_rho = prevfloat(floatmin(T))
+    @test isfinite(inv(small_rho)) && isinf(inv(small_rho / 2))
+    @test isfinite(inv(odd_rho / 2)) && 2 * (odd_rho / 2) != odd_rho
+    for rho in (small_rho, odd_rho)
+      method = ADMMSolver(; adaptive = true, ρ = rho, abstol = 0, reltol = 0)
+      result = solve!(T[0], SqrNormL2(1, T[2]), NormL1(0), method, options)
+      @test result.ρ === rho && result.converged
+      @test result.minimizer == T[2] && result.prox_calls == 4
+    end
+
+    # The primal residual asks for a doubling of the largest finite penalty.
+    large_rho = floatmax(T)
+    method = ADMMSolver(; adaptive = true, ρ = large_rho, abstol = 0, reltol = 0)
+    f, g = SqrNormL2(large_rho, T[1/2]), NormL1(large_rho)
+    result = solve!(T[0], f, g, method, options)
+    @test result.ρ === large_rho && result.status === :iteration_limit
+    @test result.minimizer == T[0] && result.r_norm > 0 && result.s_norm == 0
+    @test result.prox_calls == 4
+
+    # Both candidate penalty and reciprocal are representable. Doubling the
+    # scaled dual at the first update would overflow, so keep the old penalty.
+    high = ldexp(one(T), exponent(floatmax(T)))
+    rho = floatmin(T)
+    method = ADMMSolver(; adaptive = true, ρ = rho, abstol = 0, reltol = 0)
+    z, u = T[-high / 4], T[high]
+    result = solve!(z, SqrNormL2(rho, T[T(5/4) * high]), NormL1(T(2)), method, options; u)
+    @test result.ρ === rho && result.status === :iteration_limit
+    @test result.u === u && u == T[high]
+    @test z == T[high / 8] && result.r_norm == 0 && result.s_norm == T(1/4)
+    @test result.prox_calls == 4 && isfinite(result.minimum)
+
+    # A proposed doubling must preserve a nonzero subnormal scaled dual entry.
+    δ = nextfloat(zero(T))
+    method = ADMMSolver(; adaptive = true, abstol = 0, reltol = 0)
+    result = solve!(T[0], SqrNormL2(1, T[2δ]), NormL1(δ), method, options)
+    @test result.ρ === one(T) && result.prox_calls == 4
   end
 end
 
@@ -181,11 +332,19 @@ end
     @test_throws ArgumentError solve!(z, f, NormL1(1, ones(T, 2)), method)
     @test_throws ArgumentError solve!(z, f, NormL1(Inf), method)
     @test_throws ArgumentError solve!(z, f, NormL1(1//3), method)
+    @test_throws DimensionMismatch solve!(z, f, g, method; u = T[1])
+    @test_throws ArgumentError solve!(z, f, g, method; u = BigFloat.(z))
+    @test_throws ArgumentError solve!(z, f, g, method; u = view(z, :))
+    @test_throws ArgumentError solve!(z, f, g, method; u = z)
+    @test_throws ArgumentError solve!(z, f, g, method; u = center)
+    @test center == T[1, -1]
     for nonfinite in (T(Inf), T(NaN))
       invalid = T[8, nonfinite]
       @test_throws ArgumentError solve!(invalid, f, g, method)
       @test isequal(invalid, T[8, nonfinite])
       @test_throws ArgumentError solve!(z, SqrNormL2(1, invalid), g, method)
+      @test_throws ArgumentError solve!(z, f, g, method; u = invalid)
+      @test isequal(invalid, T[8, nonfinite])
     end
     for (option, value) in ((:ftol, 0.0), (:xtol, 1e-4), (:gradtol, 0.0),
                             (:f_calls_limit, 1), (:grad_calls_limit, 1), (:allow_f_increases, true),
@@ -195,6 +354,11 @@ end
     end
     @test z == initial
   end
+
+  union_z = Union{Float32, Float64}[1.0f0, 2.0]
+  union_center = Union{Float32, Float64}[2.0f0, 1.0]
+  @test_throws ArgumentError solve!(union_z, SqrNormL2(1, union_center), NormL1(1), ADMMSolver())
+  @test union_z == Union{Float32, Float64}[1.0f0, 2.0]
 
   center32, z32 = Float32[1], Float32[2]
   f, g = SqrNormL2(1, center32), NormL1(0)
@@ -215,10 +379,14 @@ end
 
     # A complete iterate and its diagnostic norms are finite, but its value is not.
     large = T(2)^(T === Float32 ? 90 : 700)
-    z = T[large]
+    z, u = T[large], T[large / 4]
     f = SqrNormL2(1, T[0])
-    @test_throws ErrorException solve!(z, f, g, ADMMSolver(), ProximalOptions(prox_calls_limit = 2))
-    @test z == T[large]
+    @test_throws ErrorException solve!(z, f, g, ADMMSolver(), ProximalOptions(prox_calls_limit = 2); u)
+    @test z == T[large] && u == T[large / 4]
+
+    z, u = T[floatmax(T)], T[-floatmax(T)]
+    @test_throws ErrorException solve!(z, f, g, ADMMSolver(); u)
+    @test z == T[floatmax(T)] && u == T[-floatmax(T)]
   end
 end
 

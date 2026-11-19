@@ -57,7 +57,7 @@ Choose a path:
 
 The [support matrix](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/) also covers
 weighted and nonnegative lasso, elastic net, ridge, group and multi-response models,
-and ℓ∞ penalties.
+ℓ∞ penalties, and sparse signal denoising with consensus ADMM.
 Browse the [worked examples](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples/)
 for statistical applications and convergence diagnostics.
 

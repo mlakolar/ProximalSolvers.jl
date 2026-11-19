@@ -3,13 +3,14 @@
 These are the common boundary rules for `solve!`. Solver-specific requirements supplement
 them: [scalar CD](@ref CD-01), [sparse CD](@ref CDS-01), [group CD](@ref CDG-01),
 [matrix-response CD](@ref CDM-01), [square-root lasso](@ref CDQ-01),
-[proximal gradient](@ref PGD-01) and [accelerated proximal gradient](@ref APG-01).
+[proximal gradient](@ref PGD-01), [accelerated proximal gradient](@ref APG-01)
+and [consensus ADMM](@ref ADM-01).
 
 ## [IN-01 Array types, dimensions and supported combinations](@id IN-01)
 
 **Statement.**
 
-A supported vector-response solve uses a dense `Matrix{T}` design `X`, a dense `Vector{T}`
+A supported vector-response regression solve uses a dense `Matrix{T}` design `X`, a dense `Vector{T}`
 response `y`, and coefficients of the same `T`, where `T` is `Float32` or `Float64`.
 Dimensions must be positive and consistent, and the supplied data and coefficient entries
 must be finite. The sparse-owner gate inspects active values as specified in [CDS-01](@ref).
@@ -25,6 +26,7 @@ the design requirement.
 | `CDSolver`, square-root least squares | dense `Vector{T}` or one-dimensional `SparseIterate{T}` | unweighted `NormL1` with positive level; see [CDQ-01](@ref) |
 | `ProximalGradientDescent`, `AccProxGradDescent`, least squares | dense `Vector{T}` | `NormL1`, unweighted `ElasticNet`, `NormLinf`, or `GroupNormL2` under [IN-04](@ref) |
 | `ProximalGradientDescent`, nonnegative least squares or nonnegative lasso | feasible nonnegative dense `Vector{T}` | `IndNonnegative()` or unweighted `NormL1Nonneg` under [IN-07](@ref) |
+| `ADMMSolver`, centered `SqrNormL2` | dense `Vector{T}` | unweighted `NormL1` under [ADM-01](@ref) |
 
 The gradient methods refuse `SparseIterate` and `BlockIterate`; scalar CD refuses
 `GroupNormL2`, and all CD storage forms refuse `NormLinf` before any coefficient write
@@ -68,7 +70,7 @@ specified by their solver contracts. For complete runnable calls, see
 
 **Statement.**
 
-Penalty levels must be finite nonnegative real scalars that convert to `T` without
+For regression solvers, penalty levels must be finite nonnegative real scalars that convert to `T` without
 overflow or rounding a nonzero value to zero. A different scalar type is allowed,
 including a representable `Float64` literal in a `Float32` solve. A subnormal converted
 level is accepted for an unweighted `NormL1`, the supported unweighted
@@ -78,6 +80,7 @@ For ridge, zero is also accepted. Negative, NaN or infinite levels are refused,
 as are finite levels whose conversion overflows or turns a nonzero value into
 zero. A representable level of another real scalar type is allowed; validation
 does not globally replace the supplied penalty parameter by `T(lambda)`.
+ADMM has its own scalar-parameter rules in [ADM-01](@ref).
 
 For `Scaled(LeastSquaresLoss(...), s)`, the supported loss scale is either:
 

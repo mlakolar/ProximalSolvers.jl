@@ -21,7 +21,7 @@ representable results. ProximalSolvers adds its own matrix products, curvature
 computations, state updates, stopping and finiteness checks, and does not promise
 end-to-end recovery of every failed product, curvature, step or objective.
 
-All three solvers read `Y`, `X` and the stored loss scale through
+The least-squares solvers read `Y`, `X` and the stored loss scale through
 `ProximalBase.leastsquares_data`. ProximalBase owns the least-squares value in all
 three solvers and the coefficient gradient in PGD/APG, with the scale as its
 computation uses it. PGD/APG use `value_from_predictor` and
@@ -33,6 +33,8 @@ certified bound, stopping rules and rollback. Exact oracle accuracy and range
 statements belong to the section “Least squares at a predictor or residual that the
 caller holds” in the pinned
 [ProximalBase smooth-function guide](https://github.com/mlakolar/ProximalBase.jl/blob/7d5d1e006b02814fb28f8cfb5eca20a05d73ee9e/docs/src/smooth.md).
+ADMM's use of proximal operators and working-precision diagnostics is specified
+in [ADM-02](@ref).
 
 `converged` has the algorithm-specific meaning in [RES-01](@ref). Independently
 evaluate the objective and [KKT residual](../sparsity-and-kkt.md) when accuracy

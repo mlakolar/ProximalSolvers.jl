@@ -45,6 +45,7 @@ Clause IDs are permanent. When a clause is replaced, keep its heading, mark it
 | `CDQ` | Square-root lasso and certificates | [Square-root lasso](@ref CDQ-01) |
 | `PGD` | Iteration, initialization, traces and limits | [PGD iteration](@ref PGD-01) |
 | `APG` | Extrapolation, restart and the bound test | [Accelerated PG](@ref APG-01) |
+| `ADM` | Two-function consensus ADMM | [Consensus ADMM](@ref ADM-01) |
 | `LS` | Backtracking, acceptance and range recovery | [Line search](@ref LS-01) |
 | `STOP` | Proposals, stationarity checks and separate exits | [PG stopping](@ref STOP-01) |
 | `RES` | Results, diagnostics and mutation on failure | [Results and failures](@ref RES-01) |
@@ -72,8 +73,8 @@ constructor keywords and stored fields retain their API spelling.
 ## Historical records
 
 The repository's [archived contracts](https://github.com/mlakolar/ProximalSolvers.jl/blob/master/docs/audit/20261026/contracts.md)
-are historical evidence. They describe ADMM, QUIC, SLOPE and other algorithms
-that are not part of the current master branch. Use the clauses here and the
+are historical evidence. They describe a wider implementation of ADMM as well as
+deferred algorithms including QUIC and SLOPE. Use the clauses here and the
 [current support matrix](../support.md) for the implemented surface. The archive
 is intentionally unchanged. [History](history.md) records earlier branches and
 dependency provenance; [architecture](architecture.md) describes the source layout.
