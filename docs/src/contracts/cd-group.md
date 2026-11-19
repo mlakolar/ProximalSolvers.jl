@@ -1,17 +1,44 @@
-# [Group coordinate descent](@id CDG-01)
+# Group coordinate descent
 
-<!-- Migration source: docs/src/numerics.md:L441-L660 -->
+This is block coordinate descent for a vector-response least-squares loss and a
+ProximalBase `BlockIterate`. [CDM-01](@ref) covers matrix responses. Read the shared
+[input](@ref IN-01), [precision](@ref FP-01), and [result](@ref RES-01) clauses alongside it.
 
-## Group lasso on a BlockIterate
+## [CDG-01 Problem, layouts and input refusals](@id CDG-01)
 
-`CDSolver` accepts a `BlockIterate{T}` with a `GroupNormL2` penalty (see
-[Supported problems](../support.md)); the coordinates of the solver are the groups. The pass
-schedule, `tol`, `relative`, `maxpasses`, the borrowed random number generator, the
-not-converged warning and the result type are those of the lasso. The result has
-`kkt_checks = 0` and `gap = NaN`, placeholders and not computed certificates, and
-`minimizer === x`. A random order permutes the groups.
+**Statement.**
 
-### The group step
+The objective is `(s/2) * sum(abs2, y - X*beta) + lambda * sum(w[k] * norm(beta[G_k]))`.
+`GroupNormL2(lambda, groups)` uses `w[k] = sqrt(length(G_k))`; explicit weights are allowed.
+The iterate is a `BlockIterate{T}` and the finite dense design/response arrays have the
+common element type `T`, either `Float32` or `Float64`. The loss and its scale satisfy
+[IN-01](@ref).
+
+The explicit-weight constructor is `GroupNormL2(lambda, groups, w)`.
+The penalty has element type `Float32` or `Float64`; a Float64 penalty on Float32 data
+is accepted. Its level and each weight must be finite, nonnegative and representable
+in `T` without overflow or rounding a nonzero value to zero. The groups of the penalty
+and iterate must agree in number, order and ordered members, otherwise the error is
+`DimensionMismatch`. A `BlockIterate` is a nonempty partition of `1:p`, so there are no
+coordinates outside its groups; `BlockIterate(T, p, g)` builds the matching layout.
+
+`momentum = true` is refused with `ArgumentError`; `nothing` and `false` both mean
+plain block coordinate descent. Input refusals for receiver, momentum, penalty,
+weights, layout, aliasing with `X` or `y`, and nonfinite values happen before copying
+`x` and before using the RNG. They also apply when `maxpasses = 0`. Level and weight
+messages contain `penalty lambda` and `group weight`, respectively.
+
+**Applies to.** Vector-response `CDSolver` with `BlockIterate` and `GroupNormL2`.
+
+**Code.** `src/solve.jl`: group validation and wrapper; `src/cd/leastsquares.jl`: `BlockLSModel`.
+
+**Tests.** `test/group_cd_preflight.jl`: receiver, level/weights, layout, aliasing and keyword tests.
+
+**Sources.** `docs/src/numerics.md:L441`, `docs/src/numerics.md:L443`, `docs/src/numerics.md:L619`, `docs/src/support.md:L174`, `docs/src/support.md:L176`, `docs/src/support.md:L180`, `docs/src/support.md:L184`, `docs/src/support.md:L186`, `docs/src/support.md:L190`, `docs/src/support.md:L195`, `docs/src/support.md:L198`, `docstring:src/cd/solver.jl:L84`, `docstring:src/solvers/proximal_gradient_descent.jl:L367`.
+
+## [CDG-02 Group update](@id CDG-02)
+
+**Statement.**
 
 For a group `k` that is not flat (see below), with entries `G` and the current residual
 `r`, the solver uses a number `ℓ_k > 0`, computed as described below, that is meant to
@@ -25,6 +52,18 @@ the visit is the 2-norm `‖Δ_G‖₂` of the displacement of the block. A flat
 group inactive. A trial point or displacement that is not finite stops the solve with an
 `ArgumentError` that names the group, and the iterate of the caller is unchanged; a change
 or stopping scale that is not finite is refused as for the lasso.
+
+**Applies to.** A visit of a vector-response block-CD group.
+
+**Code.** `src/cd/leastsquares.jl`: `coordinate_step!(::BlockLSModel, ...)`.
+
+**Tests.** `test/group_cd.jl`: "residual after initialization and single steps", "an inactive group with a zero step stays inactive", "coordinate_step! returns the norm of the group change".
+
+**Sources.** `docs/src/numerics.md:L450`, `docs/src/numerics.md:L452`, `docstring:src/cd/solver.jl:L84`.
+
+## [CDG-03 Zero-group screen](@id CDG-03)
+
+**Statement.**
 
 **The zero-group screen.** When the block of a nonflat group is identically zero (whether
 or not the group is active), the visit first forms the correlations `b = X[:, G]' * r` and,
@@ -53,7 +92,17 @@ meant to come from the threshold test, up to such a rounding band:
 Outside the guards, the screen is bypassed and the visit takes the full step, with the
 curvature computed if it is still deferred.
 
-### The curvature bound
+**Applies to.** Nonflat groups whose current block is identically zero, active or inactive.
+
+**Code.** `src/cd/leastsquares.jl`: `_screen_floor`, `coordinate_step!`.
+
+**Tests.** `test/group_cd.jl`: screening, underflow, activation and bypass cases.
+
+**Sources.** `docs/src/choosing-solver.md:L263`, `docs/src/numerics.md:L465`, `docs/src/numerics.md:L481`, `docs/src/numerics.md:L483`, `docs/src/numerics.md:L489`, `docstring:src/cd/solver.jl:L84`, `docs/src/internals.md:L23`.
+
+## [CDG-04 Curvature preparation and bounds](@id CDG-04)
+
+**Statement.**
 
 `ℓ_k` is a bound on the stored values of `X` in `T`, formed as follows. The preparation
 runs after the residual is set, before the first pass and any draw from the random number
@@ -123,6 +172,18 @@ as underflow, and a step decision can change in either direction. The gap betwee
 bounds scales with `t`, not with `ℓ_k`, so no fixed relative distance from a threshold is
 claimed.
 
+**Applies to.** Vector-response block CD; the arithmetic/model assumptions stated for each bound.
+
+**Code.** `src/cd/leastsquares.jl`: `_prepare!`, `_singleton_curvature`, `_gram_curvature`, `_gram2_curvature`.
+
+**Tests.** `test/group_cd.jl`: "curvature majorization", "closed-form curvature of a group of two columns", and gate/refusal boundary cases.
+
+**Sources.** `docs/src/choosing-solver.md:L263`, `docs/src/numerics.md:L492`, `docs/src/numerics.md:L494`, `docs/src/numerics.md:L503`, `docs/src/numerics.md:L507`, `docs/src/numerics.md:L514`, `docs/src/numerics.md:L529`, `docs/src/numerics.md:L546`, `docstring:src/cd/solver.jl:L84`, `docs/src/internals.md:L23`.
+
+## [CDG-05 Deferred curvature and workspace](@id CDG-05)
+
+**Statement.**
+
 **Lazy computation.** Computing the bound of a group costs a pass over its columns, and on
 the general rule a copy of the columns, their Gram matrix and, for two or more columns, an
 eigenvalue computation; a group that stays at zero may never need it. During the
@@ -156,6 +217,24 @@ that is not deferred, and at the lazy computation, during a pass, for a deferred
 How much the lazy computation saves depends on how many groups fail the screen; see
 [Cost of the lazy curvature](../choosing-solver.md#Cost-of-the-lazy-curvature).
 
+The Float64 copy of the columns and the Gram matrix are solver workspace, allocated
+when the first bound that uses them is computed. They are sized by the largest group:
+`n` times that size and its square, respectively, in Float64. The solver keeps no other
+copy of the columns. [Lazy-curvature measurements](evidence/lazy-curvature-cost.md)
+describe costs on particular designs and are not general performance guarantees.
+
+**Applies to.** Groups taking the Gram route, including one-column groups with `n eps(T) > 1/8`.
+
+**Code.** `src/cd/leastsquares.jl`: `_curvature_deferrable`, `_group_curvature!`, lazy workspaces.
+
+**Tests.** `test/group_cd.jl`: "screened zero groups never compute a curvature (orthogonal designs)", "a screened group activates on a later visit", allocation checks.
+
+**Sources.** `docs/src/choosing-solver.md:L263`, `docs/src/numerics.md:L562`, `docs/src/numerics.md:L576`, `docs/src/numerics.md:L577`, `docs/src/numerics.md:L578`, `docs/src/numerics.md:L579`, `docs/src/numerics.md:L582`, `docstring:src/cd/solver.jl:L84`, `docs/src/internals.md:L23`, `docstring:src/solvers/proximal_gradient_descent.jl:L367`.
+
+## [CDG-06 Step band and numerical refusals](@id CDG-06)
+
+**Statement.**
+
 The step of a nonflat group also needs `s ℓ_k` and its reciprocal to be at least the
 smallest normal number of the type `S` that combines `s` with `T`. This band check is made
 where the curvature is computed: during the preparation, or at the lazy computation. It cannot fail when `S` is wider than `T`, for example `Float32`
@@ -180,16 +259,21 @@ pass: `x` is still unchanged, but a random order may already have drawn from the
 | Curvature overflow | the sum of squares of that column, `Ĝ`, its trace or its largest eigenvalue is not finite (on the general rule), or `ℓ_k` is infinite in `T` | `overflows` |
 | Step | `s ℓ_k` or its reciprocal is outside the normal range | `step of group` |
 
-A group whose curvature bound is subnormal in `T` is refused here, where the scalar
-lasso accepts a subnormal squared norm of a column. Before these, `solve!` refuses a
-receiver that is not a `BlockIterate{Float32}` or `BlockIterate{Float64}`,
-`momentum = true`, a penalty that is not a `GroupNormL2{Float32}` or `GroupNormL2{Float64}`,
-a level or weight that is not finite, nonnegative and representable in `T` (messages
-`penalty lambda` and `group weight`), and groups of `x` and of the penalty that differ in
-number, order or membership (`DimensionMismatch`); these input refusals also apply with
-`maxpasses = 0`. No fallback rule replaces a refused curvature.
+A group whose curvature is subnormal in `T` is refused, whereas scalar lasso CD accepts
+a subnormal squared column norm. No fallback rule replaces a refused curvature.
+The preflight input refusals are specified in [CDG-01](@ref).
 
-### The stopping statistic
+**Applies to.** Nonflat vector-response block-CD groups, at eager or deferred curvature computation.
+
+**Code.** `src/cd/leastsquares.jl`: `_check_step_band`, curvature routines and refusal helpers.
+
+**Tests.** `test/group_cd.jl`: curvature underflow/overflow, step-band and later-pass rollback cases; `test/group_cd_preflight.jl`.
+
+**Sources.** `docs/src/numerics.md:L595`, `docs/src/numerics.md:L604`, `docs/src/numerics.md:L613`, `docs/src/numerics.md:L614`, `docs/src/numerics.md:L615`, `docs/src/numerics.md:L616`, `docs/src/numerics.md:L617`, `docs/src/numerics.md:L619`, `docstring:src/cd/solver.jl:L84`.
+
+## [CDG-07 Stopping and group visits](@id CDG-07)
+
+**Statement.**
 
 With `relative = true` and a positive response scale, the change of a visit is
 `‖Δ_G‖₂ √(s ℓ_k)`, formed by the range-safe rule that the lasso uses for `√(s a)`, and it
@@ -205,7 +289,7 @@ compute the group KKT conditions from the data, as in
 the [group lasso tutorial](../examples/problems/group_lasso.md), where for `∇ = s Xᵀ(Xβ − y)` a nonzero group
 needs `∇[G] + λ w β[G] / ‖β[G]‖ = 0` and a zero group needs `‖∇[G]‖ ≤ λ w`.
 What the change test implies, and how far group CD stopped from a minimizer in the audit, is in
-[What the change test of coordinate descent implies](@ref "What the change test of coordinate descent implies").
+[What the change test of coordinate descent implies](@ref CD-06).
 
 The pass schedule is that of the lasso with groups as the coordinates. A full pass
 visits every group and an active pass visits the active groups; after each pass the
@@ -213,117 +297,44 @@ groups whose block is entirely zero become inactive. The forced full pass counts
 visits: once the active passes since the last full pass have together visited 20 times as
 many groups as there are groups, the next pass is a full pass, whatever the changes.
 
-### Result and failure
+For singleton groups with default weights the mathematical penalty equals `NormL1`,
+but the curvature margin and rounding in [CDG-04](@ref) can change numerical iterates.
+`ProximalGradientDescent` and `AccProxGradDescent` instead update all groups with block soft thresholding and apply their
+[stationarity check](@ref STOP-01); the
+[group tutorial](../examples/problems/group_lasso.md) and
+[solver comparison](../examples/comparisons/group_lasso_solvers.md) demonstrate these choices.
+
+**Applies to.** Vector-response group CD; `relative`, `tol` and pass limits have the scalar meanings.
+
+**Code.** `src/cd/solver.jl`: common pass schedule; `src/cd/leastsquares.jl`: group displacement norm and scale.
+
+**Tests.** `test/group_cd.jl`: "the stopping statistic of the first pass on an orthogonal design", independently checked KKT/objective and singleton cases.
+
+**Sources.** `docs/src/choosing-solver.md:L263`, `docs/src/numerics.md:L628`, `docs/src/numerics.md:L630`, `docs/src/numerics.md:L639`, `docs/src/numerics.md:L646`, `docs/src/stopping-limits.md:L95`, `docstring:src/cd/solver.jl:L84`.
+
+## [CDG-08 Results and commit boundary](@id CDG-08)
+
+**Statement.**
 
 The solve runs on a private copy of `x`. A finite completed run, including one that
 ends at `maxpasses` with the warning, replaces `x` by one same-layout copy of the final
 state; a refusal or numerical error before that leaves the values, the active groups and
 their order of `x` unchanged, though a random order may already have drawn from the
-generator. The entries of the groups that are inactive at the end are zero; their sign is
-not specified. After a solve, take `activecoordinates(x)` again, as for a `SparseIterate`.
+generator. After at least one pass, zero groups are deactivated, so the active groups
+are exactly those with a nonzero block. With `maxpasses = 0`, the complete entry state
+is kept, including active groups whose block is zero. The entries of the groups that
+are inactive at the end are zero; their sign is not specified. After a solve, take
+`activecoordinates(x)` again, as for a `SparseIterate`.
 
-<!-- Migration source: docs/src/choosing-solver.md:L263-L299 -->
+The result type is the scalar lasso's `CDResults`. `passes` counts group passes,
+active coordinates are group numbers, and random order permutes the groups.
+`minimizer === x`, `kkt_checks = 0`, and `gap = NaN`; the last two are placeholders,
+not computed certificates. The nonconverged warning is the scalar lasso's warning.
 
-A coordinate of the solver is a group, so `passes` counts passes over groups and the
-active coordinates are group numbers. Each group needs, at most once per solve, a bound
-on the largest eigenvalue of `X[:, G]' * X[:, G]`. With `maxpasses = 0` none is prepared.
-A group whose columns are all zero needs no product and no eigenvalue computation, and a
-group of one column (when `n eps(T) ≤ 1/8`, `n` the number of rows) takes the sum of
-squares of its column, as the lasso does. A group of two columns takes the three entries
-of its Gram matrix in one pass over its columns and its bound in closed form; inside the
-range of that rule (finite `Float32` data, and `Float64` data whose columns are not
-extremely small or large, see [Numerical behavior](../numerics.md#The-curvature-bound)) it
-needs no eigenvalue computation and no `Float64` copy of its columns. Any other group, and
-a group of two columns outside that range, needs the Gram matrix of its columns in
-`Float64` from a copy of the columns and, for two or more columns, an eigenvalue
-computation. These are done at the first visit that needs them, so a group that stays at
-zero and is screened out at each visit never pays for them, except where cheap bounds
-cannot rule out a refusal (under the eigenvalue model, for a group that takes the eigenvalue
-computation), in which case the bound is computed before the first pass (such a group, or
-an ordinary one-column group, already has its bound when it is screened). A visit to a
-nonflat group whose block is zero is screened this way, whether or not the group is active,
-when the reciprocal of the loss scale is a normal number of its type and either all
-correlations of the group are zero or the largest magnitude is at least `2^53 floatmin(T)`;
-otherwise the visit takes the full step. The `Float64` copy of the columns and the Gram
-matrix are workspace of the solver, allocated when the first bound that uses them is
-computed and sized by the largest group of the iterate: `n` times that size, and its
-square, in `Float64`. The solver keeps no other copy of the columns. For a group of one coefficient, the penalty is a term of an L1 penalty, and
-with the default weights `GroupNormL2` with only singleton groups is the same problem
-as `NormL1`, which the dense-vector solvers accept. Momentum does not apply:
-`momentum = true` is refused for a `BlockIterate`, and `nothing` or `false` both mean
-plain block coordinate descent. The stopping test works as in the relative-tolerance
-discussion above with the change of a group, the norm of its displacement; see
-[Numerical behavior](../numerics.md). As for the lasso, `converged = true` is not an
-optimality certificate: check the group KKT conditions independently, as in the example.
-`ProximalGradientDescent` and `AccProxGradDescent` take the block soft threshold of every group at each step and
-report `converged = true` only where the group KKT residual passes its check; the
-[group lasso tutorial](../examples/problems/group_lasso.md) solves one problem with all three solvers, and
-[Group lasso: CD, PGD and APG](../examples/comparisons/group_lasso_solvers.md) compares the three on one
-seeded problem.
+**Applies to.** Successful, pass-limited and failed vector-response block-CD runs.
 
-<!-- Migration source: docs/src/support.md:L174-L204 -->
+**Code.** `src/solve.jl`: private block iterate and finite completed-run commit; `src/cd/solver.jl`: result construction.
 
-### Group lasso with coordinate descent
+**Tests.** `test/group_cd.jl`: zero-pass ownership, finite one-pass commits and numerical rollback.
 
-~~~math
-\min_\beta\quad \frac{s}{2}\|y-X\beta\|_2^2+\lambda\sum_k w_k\|\beta_{G_k}\|_2,
-~~~
-
-with the groups `G_k` of a `GroupNormL2(lambda, groups)` or
-`GroupNormL2(lambda, groups, w)`; the default weights are `w_k = sqrt(|G_k|)`.
-`solve!(x, f, g, CDSolver(...))` accepts this problem when
-
-- `x` is a `BlockIterate{T}` and the data, the loss and the scale are as above, with
-  `T` equal to `Float32` or `Float64`;
-- `g` is a `GroupNormL2` whose element type is `Float32` or `Float64`. A `Float64`
-  penalty on `Float32` data is accepted. The level `lambda` and every weight must be
-  finite, nonnegative and representable in `T` without overflow, and a nonzero value
-  must not round to zero;
-- the groups of `g` and of `x` are the same, group by group, in the same order and with
-  the same ordered members, otherwise `solve!` throws a `DimensionMismatch`. A
-  `BlockIterate` is a nonempty partition of `1:p` into disjoint groups, so there are no
-  unpenalized coefficients outside the groups; `BlockIterate(T, p, g)` builds one with
-  the groups of `g`;
-- the solver does not use momentum: `momentum = true` is refused with an
-  `ArgumentError`, and `nothing` or `false` both give plain block coordinate descent.
-
-The coordinates of the solver are the groups: a pass visits whole groups, `passes`
-counts passes, and the active coordinates of the iterate are group numbers. All
-refusals of these inputs (receiver, momentum, penalty, weights, layout, aliasing of
-`x` with `X` or `y`, nonfinite values) throw before `x` is copied or the random number
-generator is used. [Numerical behavior](../numerics.md) lists the refusals that depend on
-the values of `X` and describes the curvature and the stopping statistic of a group.
-
-<!-- Migration source: src/cd/solver.jl:L84-L113 -->
-
-**Group lasso.** With `T` equal to `Float32` or `Float64`, `x = BlockIterate(T, p, g)`
-and `g = GroupNormL2(lambda, groups)` (or with weights), the call
-`solve!(x, f, g, CDSolver(order=:cyclic, tol=1e-10))` minimizes the least-squares
-loss plus `lambda * sum(w[k] * norm(x[groups[k]]))`. The loss is as for the lasso. `g` is a
-`GroupNormL2{Float32}` or `GroupNormL2{Float64}` whose level and weights are finite,
-nonnegative and representable in `T`, and its groups and those of `x` agree in number,
-order and ordered members, otherwise a `DimensionMismatch` is thrown. The coordinates are
-the groups, and a pass visits whole groups. `momentum = true` is refused with an
-`ArgumentError`; `nothing` and `false` give plain block coordinate descent. The change of
-a group is `norm` of its displacement, which `relative=true` multiplies by
-`sqrt(s * l)` for a positive response scale, where `l` bounds the largest eigenvalue of
-the Gram matrix of the columns of the group; the forced full pass counts group visits.
-As for the lasso, `converged` reports this change test and is not a KKT certificate.
-The curvature of a flat group, and of a group of one column when `n eps(T) <= 1/8` (`n`
-the number of rows), is set before the first pass. That of any other group is computed
-at the first visit that needs it when cheap bounds show that no refusal can occur (under the
-eigenvalue model for groups of three or more columns and for groups of two columns outside the
-range of their closed-form bound), and before the first pass otherwise. A visit to a nonflat group whose block is zero, active or
-not, first applies ProximalBase's `prox_block!` to the correlations at the step `1/s`
-(skipped when `1/s` is not a normal number of the scale's arithmetic type, or when the
-correlations are not all zero and the largest magnitude is below `2^53 * floatmin(T)`) and ends without a
-change, and without computing a still-deferred curvature, when the result is zero. Before
-the first pass, and before any draw from the RNG, an `ArgumentError` that names the group
-refuses a curvature that underflows or overflows in `T` and a step outside the normal
-range, for each group whose curvature is computed then. An exception of the eigenvalue
-routine (which a group of two columns inside the range of its closed-form bound does not
-call), a refusal of a lazily computed curvature, and a trial point or displacement that
-is not finite can occur during a pass; `x` is then unchanged, and the RNG may have
-advanced. The curvature rule and the refusals are described in the numerical
-guide.
-
+**Sources.** `docs/src/numerics.md:L443`, `docs/src/numerics.md:L652`, `docs/src/numerics.md:L654`, `docs/src/support.md:L195`, `docs/src/support.md:L198`, `docstring:src/solvers/proximal_gradient_descent.jl:L367`.

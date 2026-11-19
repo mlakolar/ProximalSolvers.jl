@@ -1,158 +1,176 @@
-# [Backtracking line search](@id LS-01)
+# Backtracking line search
 
-This relocation checkpoint preserves baseline text before normalization.
+## Scope
 
-<!-- Baseline: src/line_searches.jl:L16-L92; a6293e6ff7e654a87babbc5de2314205be13d6c5 -->
+`LineSearches.BackTracking` is the supported PGD line search for the least-squares image model. APG has its own [certified bound test](apg.md); it does not use the TFOCS acceptance rule on this page.
 
-    BackTracking(; α = 0.9, β = 0.5, Lexact = Inf)
+## Problem
 
-The backtracking line search of TFOCS (`private/tfocs_backtrack.m`). Each
-iteration starts from `L ← α L`, where `1/L` is the step size, and while the
-local Lipschitz estimate `L̂` of the step exceeds `L` it retries with
-`L ← min(Lexact, max(L̂, L / β))`. `L̂` comes from function values until they
-are too close to compare in floating point, and from gradients after that.
-An LS trial whose image or value overflows is never accepted: it gives no
-estimate, and the search retries with `L ← L / β`.
+A PGD trial applies the penalty prox after a least-squares gradient step of length `1/L`. The line search chooses the accepted inverse step.
 
-For [`ProximalGradientDescent`](@ref ProximalSolvers.ProximalGradientDescent)
-on its supported least-squares model, a rejected trial with step `d̂ = x - x'`
-is decided again by the computed curvature of the step,
-`c = m α ‖fl(X d̂)‖²/‖d̂‖²`, from one product `X d̂`, with `m = 1` for
-function-value estimates and `m = 2` for gradient estimates (TFOCS's gradient
-test `2α ‖X d‖² ≤ L ‖d‖²`). When `L ≥ c` the trial is accepted and the estimate
-mode is unchanged; otherwise the retry uses `L ← min(Lexact, max(c, L / β))`
-when `c` is finite, and TFOCS's `L ← min(Lexact, max(L̂, L / β))` when it is
-not. `c` carries no rounding certificate: when `L` is within rounding of the
-curvature along `d̂`, the decision can go either way. For Float32 data the
-squared norms are accumulated in Float64, and two allowances are added to
-`‖fl(X d̂)‖` before squaring: `2√n p floatmin(Float32)` for underflow of the
-results, and `√n floatmin(Float32) ‖d̂‖₁` for subnormal entries of `X` that a
-thread flushing subnormals to zero (the calling thread or a BLAS thread) drops
-from the product. They assume that flushing affects only subnormal operands and
-results, and give no certificate. The curvature value compared with `L`, in
-Float64, is then positive when finite, so a product lost to underflow or
-flushing does not make it zero. The estimate used for a retry is that value
-rounded to Float32, which may round to Inf (when the conversion overflows).
-TFOCS's update is kept when the product overflowed, when the calling thread
-flushes subnormals to zero, and when `d̂` has a subnormal entry. For Float64 data,
-overflow or underflow of `‖fl(X d̂)‖²`, underflow of `‖d̂‖²`, and overflow of `‖d̂‖²` for a
-step with a nonfinite entry or in a narrow band around the overflow threshold of `‖d‖²`
-(where `norm(d)^2` can be finite and `sum(abs2, d)` not) can make `c` nonfinite (TFOCS's
-update is then kept) or spuriously zero (the trial is then accepted). A rejection is not
-checked, and keeps TFOCS's update, when its trial value is not finite, when the
-computed `‖d̂‖²` is zero (the zero-step exit, which includes a tiny nonzero step
-whose square underflows), when `L̂` is NaN, or when a gradient estimate comes
-from a gradient `∇f(x)` with a nonfinite entry. Accepted trials are not checked.
+## Notation
 
-When the step `d = x - x'` of a trial has finite entries, `norm(d)^2` overflows in the type of
-`x` (the squared norm is `Inf`) and the trial value `f(x)` is finite, the trial is decided on the
-scaled step `d̃ = s d`, `s = 2^(-e)` with `e = min(exponent(max |dᵢ|), exponent(floatmax(T)) - 1)`
-for the type `T` of `x`, so that `s` is a normal number and the largest entry of `d̃` is in
-`[1, 2)`, or in `[2, 4)` when `exponent(max |dᵢ|)` is `exponent(floatmax(T))`. A trial whose
-value `f(x)` is not finite is not scaled: it takes the exit for a nonfinite trial value described
-above. `L̂` is formed from `d̃`, from `f(x)` and `f(x')` multiplied by `s²` (by shifting their
-exponents, since `s²` can underflow), and from the products of `d̃` and `∇f` multiplied by `s`;
-in exact arithmetic it equals the estimate at `d`. The trial is then decided as at a
-representable scale, up to the rounding of the computed `f` and `∇f`, overflow of the products
-`⟨d̃, ∇f(x')⟩` and `⟨∇f(x) - ∇f(x'), d̃⟩` before they are multiplied by `s` (an infinite
-product, or a NaN from overflowed terms of opposite sign), and underflow of an entry of `d̃`, of
-a scaled function value or of `L̂`. Such a product is not recovered by the scaling: `L̂` is
-formed from it by the same expressions as for an unscaled step, with the scaled quantities, so
-it can be finite, infinite or NaN (for example, with finite `f(x)` and `f(x')`, a `+Inf`
-function-value product gives `L̂ = L`, and the trial is accepted without the check). The check
-of a rejected trial reads `d̃`, with `‖d̃‖²` between 1 and about `16n`; for Float32 data it is
-also subject to the allowances above, and an entry of `d̃` that is subnormal keeps TFOCS's
-update, while an entry of `d` with `|s dᵢ| ≤ 2^-150` rounds to zero in `d̃`, is not detected, and
-drops out of both sums of squares and of the product. After an accepted trial the solver state
-holds `x - x'` again. A step with a nonfinite entry is not scaled, and neither is a step whose
-squared norm underflows.
+`s` is the loss scale; `α` and `β` are line-search settings. `d = x - x_previous` is the trial displacement. `d̂` is the displacement used by the rejection check, possibly scaled under [LS-06](@ref). `L̂` is TFOCS's local estimate and `c` is the separate computed directional curvature. `n` and `p` are design rows and columns.
 
-In gradient mode a zero gradient-difference product gives `L̂ = 0`, and the trial is
-accepted. This includes Float64 data with `‖d̂‖²` below `2/floatmax(Float64)` (about
-1.1e-308), where `2/‖d̂‖²` overflows and scaling the product would give `0 · Inf = NaN`.
-A subnormal `‖d̂‖²` can make the Float64 estimates unreliable, and this does not make a
-solve converge at such scales: a solve can still end with `converged = false` or with a
-line-search error. One case is not handled: a subnormal `‖d̂‖²` with a nonzero product, or
-with function-value rounding noise (`f(x) > q`, with `q` the quadratic model at the trial
-`x`), can give `L̂ = Inf`, and when `sum(abs2, d̂)` underflows to 0 while `‖d̂‖² > 0` (every
-entry of `d̂` below about 1.57e-162), the computed curvature of the step is not finite and
-does not replace that estimate.
-See [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
+## Preconditions and refusals
 
-The object holds settings only and can be shared between solves; the
-bookkeeping lives in the solver state.
+### [LS-01 Settings and shared ownership](@id LS-01)
 
-<!-- Baseline: docs/src/numerics.md:L1004-L1074; a6293e6ff7e654a87babbc5de2314205be13d6c5 -->
+**Statement.** `BackTracking(; α = 0.9, β = 0.5, Lexact = Inf)` holds settings only and can be shared between solves; bookkeeping is in the solver state. Its validating constructors require `0 < α ≤ 1`, `0 < β < 1` and `Lexact > 0`, both before and after conversion. The numerical retry and failure rules below apply after construction.
 
-  **Steps whose squared norm overflows.** Suppose the step `d = x - x'` of a trial has
-  finite entries, the computed `norm(d)^2` is `Inf` in `T` (a step above about 1.3e154 in
-  Float64 and about 1.8e19 in Float32, which includes a step whose norm is itself above
-  `floatmax(T)`), and the trial value `f(x)` is finite. The trial is then decided on the
-  scaled step `d̃ = s d`, with `s = 2^(-e)` and
-  `e = min(exponent(max |dᵢ|), exponent(floatmax(T)) - 1)`, so that `s` is a normal number
-  and the largest entry of `d̃` is in `[1, 2)`, or in `[2, 4)` when `exponent(max |dᵢ|)` is
-  `exponent(floatmax(T))` (1023 in Float64, 127 in Float32). A trial whose `f(x)` is not
-  finite is not scaled: it takes the exit for a nonfinite trial value described above, as before.
-  The local estimate `L̂` is computed from `d̃` and from `f(x)` and `f(x')` multiplied by `s²`
-  (by shifting their exponents, since `s²` can underflow), with the products of `d̃` and `∇f`
-  multiplied by `s`; in exact arithmetic it equals the estimate at `d`. The check of a
-  rejected trial reads `d̃`, and after an accepted trial the solver state holds `x - x'` again.
-  The trial is decided as at a representable scale, up to the rounding of the computed `f` and
-  `∇f`, overflow of the products `⟨d̃, ∇f(x')⟩` and `⟨∇f(x) - ∇f(x'), d̃⟩` before they are
-  multiplied by `s`, underflow of an entry of the scaled step, of a scaled function value or
-  of `L̂`, and, for Float32 data, the allowances of the check described above. Not changed:
-  - a step with a nonfinite entry is not scaled, and its trial is decided as before;
-  - a step whose squared norm is subnormal or underflows to zero is not scaled
-    ([#317](https://github.com/mlakolar/ProximalSolvers.jl/issues/317));
-  - an overflow of `⟨d̃, ∇f(x')⟩` (in the function-value estimate) or of
-    `⟨∇f(x) - ∇f(x'), d̃⟩` (in the gradient estimate) before the factor `s`, or a NaN from
-    overflowed terms of opposite sign, is not recovered by the scaling. `L̂` is formed from
-    that infinite or NaN product by the same expressions as for an unscaled step, with the
-    scaled quantities, so it can be finite, infinite or NaN. For example, with finite `f(x)` and
-    `f(x')`, a `+Inf` function-value product gives `L̂ = L`, and the trial is accepted without
-    the check;
-  - an overflow of `‖fl(X d̂)‖²` for a representable `‖d̂‖²` is handled by the check as before;
-  - for Float64 data, in a narrow band around the overflow threshold of `‖d‖²`,
-    `norm(d)^2` can be finite while the sum of squares of `d` that the check forms
-    overflows (in a probe with random `d` of length 10, 100 and 1000, within about
-    `2 eps` of the threshold); the step is not scaled, and its trial is decided as before;
-  - for Float32 data, a subnormal entry of `d̃` (nonzero, below `floatmin(Float32)`) makes the
-    check keep TFOCS's update, as it does for any `d̂` with a subnormal entry, and the check
-    does not accept the trial. An entry of `d` with `|s dᵢ| ≤ 2^-150` (half the least positive
-    number) rounds to zero in `d̃`, which is not detected: it drops out of both sums of
-    squares and of the product (`d = [2^70, 2^-80]` scales to `[1, 0]`). In exact arithmetic
-    `X d̃` is `s` times `X d`; the stored product can differ when an entry of `d̃` has
-    underflowed (for `X = [0 1]` and the `d` above, `X d̃ = 0` while `s X d = 2^-150`). The
-    allowances of the Float32 check are absolute, so they weigh more against `‖fl(X d̃)‖` the
-    smaller it is, and they change `c` where it is of the order of the allowances.
-- APG handles a failed step in the same way. Its backtracking raises an error, after which the last
-  accepted iterate is restored, when the next curvature estimate `L/β` is not a
-  finite increase; a trial whose objective is not finite is never accepted.
-  An extrapolated point whose objective or gradient is not finite restarts the
-  momentum when the step uses momentum; without momentum the step fails, with the
-  same rollback. Its line search accepts a step only when the least-squares bound
-  `√α ‖X(x - y)‖ ≤ (1 + 4eps) √L ‖x - y‖` is certified by conservative
-  floating-point error bounds for the stored `x` and `y`, so it does not subtract
-  nearly equal objective values and does not accept a step whose bound check is
-  dominated by rounding. It first uses the difference of the cached images `X x`
-  and `X y`, whose error is bounded through `‖X‖_F` and the iterate norms; when
-  that bound leaves the decision open it computes `X(x - y)` afresh, one extra
-  matrix-vector product whose error bound is a relative term proportional to the
-  step plus an absolute underflow term, and rejects a step that is still undecided.
-  The norms and the bound arithmetic are carried as significand and binary
-  exponent, so they do not overflow or round to subnormal values in `T`; the native
-  products and their underflow enter only through the bounds. A curvature above
-  `floatmax(T)` is never certified, so backtracking then ends in its error with
-  rollback. These bounds assume IEEE arithmetic with gradual underflow and a
-  matrix-vector product evaluated as dot products; the native products and the
-  extrapolation are computed in `T` and enter only through the bounds. The extra
-  product is needed more often in Float32, where the bounds are wider relative to
-  small late steps; for data deep in the subnormal range, where the underflow terms
-  can dominate the bounds, a step may need `L` far above the curvature, or the solve
-  may fail with rollback. APG also
-  requires `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 3 < 1/(4 eps(Float64))`; larger
-  problems are refused before `x` is modified.
-- Reaching a pass or iteration limit is not convergence. CD can return
-  a finite nonconverged solution with a warning.
+**Applies to.** LineSearches.BackTracking with ProximalGradientDescent.
 
+**Code.** `src/line_searches.jl: BackTracking`.
 
+**Tests.** test/core_contracts.jl; test/minimal_core_characterization.jl.
+
+**Sources.** `docstring:src/line_searches.jl:L16`, `docstring:src/line_searches.jl:L18`, `docstring:src/line_searches.jl:L91`, `docs/src/developer/implementation-notes.md:L418`.
+
+## Algorithm
+
+### [LS-02 TFOCS trial and retry policy](@id LS-02)
+
+**Statement.** Each iteration starts with `L ← α L`. TFOCS's local estimate `L̂` uses function values until they are too close for the floating-point comparison, then gradients. A finite trial is accepted when that estimate is no larger than `L`, or when `L ≥ Lexact`. Ordinary rejected trials retry with `L ← min(Lexact, max(L̂, L/β))`, except when the separate rejection check in [LS-03](@ref) accepts or replaces `L̂`.
+
+A nonfinite trial image or loss value supplies no estimate and is never accepted. The search retries with `L ← L/β`, beyond `Lexact` if necessary. The zero-step exit accepts a finite-value trial whose computed displacement norm squared is zero, including a nonzero step lost by squaring; in gradient mode it refreshes the gradient so that a previous rejected trial cannot leave a stale one.
+
+Accepted trials are not checked again. In particular, a rounding-decided estimate that accepts below the true curvature remains accepted, as do the finite-value `Lexact` and zero-step exits.
+
+**Applies to.** ProximalGradientDescent with BackTracking.
+
+**Code.** `src/line_searches.jl: backtrack!, has_updated_gradient; src/solvers/proximal_gradient_descent.jl: update_state!`.
+
+**Tests.** test/minimal_core_characterization.jl: recorded trials, both modes and zero-step refresh; test/core_regressions.jl: checked rejection testsets.
+
+**Sources.** `docstring:src/line_searches.jl:L18`, `docstring:src/line_searches.jl:L26`, `docs/src/numerics.md:L928`, `docs/src/developer/implementation-notes.md:L286`.
+
+### [LS-03 Rechecking a rejected least-squares trial](@id LS-03)
+
+**Statement.** When eligible, a rejected trial is decided again from one product `X d̂`, using `c = m s ‖fl(X d̂)‖² / ‖d̂‖²`. Here `m = 1` for a function-value estimate and `m = 2` for a gradient estimate, matching TFOCS's gradient test `2s ‖X d‖² ≤ L ‖d‖²`.
+
+If `L ≥ c` in the comparison precision, accept and keep the current estimate mode. Otherwise, replace `L̂` only when the returned curvature in the working type is finite; if not, retain TFOCS's estimate. For Float32, the Float64 comparison value and the returned Float32 retry value are distinct, as specified in [LS-04](@ref).
+
+Do not run this check for a nonfinite trial value, the zero-step exit, a `NaN` local estimate, or a gradient-mode estimate formed from a gradient with a nonfinite entry. Every checked rejection costs one matrix-vector product. This check reduces inflated local estimates caused by subtracting nearby values or gradients; it provides no rounding certificate. A decision near directional curvature can go either way, and a direction nearly in the null space of `X` can have a large relative curvature error.
+
+**Applies to.** ProximalGradientDescent with BackTracking.
+
+**Code.** `src/solvers/proximal_gradient_descent.jl: LineSearches.check_rejection!, _step_curvature; src/line_searches.jl: backtrack!`.
+
+**Tests.** test/core_regressions.jl: PGD checked rejections and nonfinite-gradient/tiny-step cases.
+
+**Sources.** `docstring:src/line_searches.jl:L26`, `docs/src/numerics.md:L928`, `docstring:src/solvers/proximal_gradient_descent.jl:L18`.
+
+## Stopping
+
+A line-search acceptance is an iteration decision. Convergence, exact stalls and stagnation are separately specified by [STOP-01](@ref), [STOP-10](@ref) and [STOP-11](@ref). An inflated `L` can make a step round to zero without establishing stationarity; the stationarity check can refuse its proposal, followed later by a limit or an objective-increase exit.
+
+## Postconditions
+
+### [LS-09 Failure and restoration boundary](@id LS-09)
+
+**Statement.** A search that keeps rejecting ends in an error when `next_curvature` cannot make `L/β` a finite strict increase, or when TFOCS's update yields a nonfinite `L`. The gradient engine restores the last accepted iterate and rethrows. Counters and other internal state are not transactional. A curvature along trial steps above `floatmax(T)` can cause this failure, unless TFOCS's estimate, `Lexact` or the zero-step exit accepts a trial first. Full ownership and exception semantics are [RES-01](@ref).
+
+**Applies to.** ProximalGradientDescent with BackTracking.
+
+**Code.** `src/line_searches.jl: next_curvature, backtrack!; src/solve.jl: _solve_gradient!`.
+
+**Tests.** test/core_regressions.jl: checked rejection before unrepresentable curvature; test/minimal_core_characterization.jl: numerical failure restores accepted point.
+
+**Sources.** `docs/src/numerics.md:L928`, `docs/src/developer/implementation-notes.md:L286`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L44`.
+
+## Floating-point rules
+
+### [LS-04 Float32 curvature check and flushing allowances](@id LS-04)
+
+**Statement.** Accumulate the two squared norms in Float64, where the square of a finite Float32 is exact. Before squaring `w = ‖fl(X d̂)‖`, add `2√n p floatmin(Float32)` for underflow of product results and `√n floatmin(Float32) ‖d̂‖₁` for subnormal matrix entries that a flushing calling or BLAS thread can drop. These allowances assume flushing affects only subnormal operands and results. They bound those effects, not the full rounding error of the matrix-vector product, and give no certificate.
+
+Compare the resulting curvature `c64` with `L` in Float64. It is positive when finite, so a product lost to underflow or flushing does not make it zero. The returned retry value is `cT = Float32(c64)`, used only after a rejection. It replaces `L̂` only when `cT` is finite; if a finite `c64` overflows in that conversion, TFOCS's estimate is retained. Under round-to-nearest, if the allowances sum to less than `eps(w)/2`, they leave the computed norm unchanged.
+
+Keep TFOCS's estimate when a product entry overflows, when the calling thread flushes subnormals (`set_zero_subnormals(true)`), or when `d̂` has a nonzero subnormal entry that a flushing thread could lose. These cases do not accept through the curvature check. For a scaled displacement, `d̂` is the scaled vector; the undetected zero-rounding limitation is [LS-07](@ref).
+
+**Applies to.** ProximalGradientDescent; Float32 data.
+
+**Code.** `src/solvers/proximal_gradient_descent.jl: _step_curvature(::ProximalGradientDescentState{Float32}), _step_norms64`.
+
+**Tests.** test/core_regressions.jl: Float32 computed curvature under over/underflow, BLAS flushing and overflowing-step testsets.
+
+**Sources.** `docstring:src/line_searches.jl:L26`, `docs/src/numerics.md:L928`, `docs/src/numerics.md:L1036`.
+
+### [LS-05 Float64 curvature range limitations](@id LS-05)
+
+**Statement.** For Float64 data, the sums of squares remain in Float64. Over- or underflow in `‖fl(X d̂)‖²` or `‖d̂‖²` can make `c` infinite or `NaN`, retaining TFOCS's update, or spuriously zero, accepting a trial even when true curvature is large. This includes an underflowed numerator and an overflowed denominator.
+
+Scaling in [LS-06](@ref) keeps the squared norm of the scaled displacement between one and about `16 * length(d̂)`; it does not prevent the product norm from overflowing or underflowing. Without scaling, the denominator may overflow for nonfinite step entries or in the narrow band where `norm(d)^2` is finite but the check's sum of squares is not. The historical probes of that band are retained in [the evidence](evidence/strict-accuracy-config.md#PGD-rejection-check-measurements).
+
+**Applies to.** ProximalGradientDescent; Float64 data.
+
+**Code.** `src/solvers/proximal_gradient_descent.jl: _step_curvature; src/line_searches.jl: backtrack!`.
+
+**Tests.** test/core_regressions.jl: checked rejections and top-of-range steps.
+
+**Sources.** `docstring:src/line_searches.jl:L26`, `docs/src/numerics.md:L928`, `docs/src/numerics.md:L1031`, `docs/src/numerics.md:L1032`.
+
+### [LS-06 Scaling a displacement whose squared norm overflows](@id LS-06)
+
+**Statement.** If the trial displacement has finite entries, its computed `norm(d)^2` is `Inf` in `T`, and `f(x)` is finite, decide the trial using `d̃ = σ d`, where
+
+```
+σ = 2^(-e)
+e = min(exponent(max |dᵢ|), exponent(floatmax(T)) - 1).
+```
+
+The scale `σ` is normal, and the largest magnitude in `d̃` lies in `[1, 2)`, or `[2, 4)` when the original maximum has the largest exponent (1023 in Float64 and 127 in Float32). The overflow trigger is roughly a step magnitude of `1.3e154` in Float64 or `1.8e19` in Float32, and includes a norm itself above `floatmax(T)`.
+
+Form `L̂` using `d̃`, function values multiplied by `σ²` through exponent shifts (without forming a possibly underflowing square), and the displacement-gradient products multiplied by `σ`. In exact arithmetic this is the unscaled estimate. The rejection check reads `d̃`; after acceptance the solver restores `delta_x = x - x_previous` for subsequent diagnostics.
+
+Do not scale a nonfinite trial loss, a displacement with a nonfinite entry, or a squared displacement norm that is subnormal or underflows to zero. These retain their existing decisions.
+
+**Applies to.** ProximalGradientDescent; Float32 or Float64.
+
+**Code.** `src/line_searches.jl: _scale_overflowing_step!, backtrack!`.
+
+**Tests.** test/core_regressions.jl: power-of-two scale invariance, restored delta_x and top-of-range steps; test/initial_curvature.jl: overflowing-step cases.
+
+**Sources.** `docstring:src/line_searches.jl:L56`, `docs/src/numerics.md:L1004`, `docs/src/numerics.md:L1021`, `docs/src/numerics.md:L1022`.
+
+## Known limits
+
+### [LS-07 Limits of the overflow scaling](@id LS-07)
+
+**Statement.** The scaled decision still contains rounding in `f` and `∇f`, underflow of a displacement entry, a scaled function value or `L̂`, and overflow in `⟨d̃, ∇f(x_previous)⟩` or `⟨∇f(x)-∇f(x_previous), d̃⟩` *before* multiplication by `σ`. It does not recover an infinite product or cancellation of opposite infinite terms. The unchanged formulas can produce finite, infinite or `NaN` estimates; for example, finite function values and a `+Inf` function-value product give `L̂ = L`, accepting without the rejection check. Overflow of `‖fl(X d̂)‖²` with a representable denominator remains subject to [LS-05](@ref).
+
+In Float32, a nonzero subnormal entry in `d̃` makes the check retain TFOCS's update. An entry satisfying `|σ dᵢ| ≤ 2^-150` instead rounds to zero and is not detected: it disappears from the product and both norm sums. For example, `d = [2^70, 2^-80]` scales to `[1, 0]`; with `X = [0 1]`, `X d̃ = 0` while the exact `σ X d = 2^-150`. Thus a stored scaled product need not equal the exact scaled original product. The Float32 allowances are absolute, weigh more against a smaller product norm, and change `c` when it is of their order.
+
+**Applies to.** ProximalGradientDescent; the final paragraph concerns Float32.
+
+**Code.** `src/line_searches.jl: _scale_overflowing_step!, backtrack!; src/solvers/proximal_gradient_descent.jl: _step_curvature`.
+
+**Tests.** test/core_regressions.jl: overflowing-step and subnormal tests.
+
+**Sources.** `docstring:src/line_searches.jl:L56`, `docs/src/numerics.md:L1004`, `docs/src/numerics.md:L1021`, `docs/src/numerics.md:L1022`, `docs/src/numerics.md:L1024`, `docs/src/numerics.md:L1031`, `docs/src/numerics.md:L1032`, `docs/src/numerics.md:L1036`.
+
+### [LS-08 Zero products and subnormal squared displacements](@id LS-08)
+
+**Statement.** In gradient mode a zero gradient-difference product leaves `L̂ = 0` and accepts the trial. This covers Float64 `‖d̂‖² < 2/floatmax(Float64)` (about `1.1e-308`), where multiplying zero by the overflowing factor `2/‖d̂‖²` would instead create `NaN`.
+
+This special case does not make subnormal estimates reliable or guarantee convergence: a solve can still return `converged=false` or fail its line search. A subnormal squared norm with a nonzero gradient product, or function-value rounding noise `f(x) > q` in the quadratic model, can give `L̂ = Inf`. If `sum(abs2, d̂)` underflows to zero while `norm(d̂)^2 > 0`, as can happen with every entry below about `1.57e-162`, the separate curvature is nonfinite and cannot replace that estimate.
+
+**Applies to.** ProximalGradientDescent; Float64.
+
+**Code.** `src/line_searches.jl: backtrack!; src/solvers/proximal_gradient_descent.jl: _step_curvature`.
+
+**Tests.** test/core_regressions.jl: 1×1 and diagonal tiny-scale cases; test/stopping_scale.jl: strict small-scale PGD.
+
+**Sources.** `docstring:src/line_searches.jl:L56`, `docstring:src/line_searches.jl:L79`, `docs/src/numerics.md:L897`.
+
+## Tests
+
+Existing characterization, regression and initial-curvature suites exercise both modes, rejection checks, counts, gradient refresh, range cases and rollback. Historical acceptance measurements are retained in [line-search evidence](evidence/strict-accuracy-config.md#PGD-rejection-check-measurements); they are not certificates.
+
+## Unreconciled
+
+None beyond the support and stopping-wording conflicts recorded in [PGD](pg-iteration.md#PGD-UNRECONCILED) and [stopping](pg-stopping.md#STOP-UNRECONCILED).
+
+## Change log
+
+The overflow-scaling migration retains the deferred underflow limitation recorded in [issue #317](https://github.com/mlakolar/ProximalSolvers.jl/issues/317). APG failure and certified-bound details are authoritative in [APG-03](@ref) and [APG-06](@ref).

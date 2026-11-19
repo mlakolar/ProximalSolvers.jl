@@ -1,13 +1,13 @@
-# [Stopping audit: observations and limitations](@id evidence-stopping-352)
+# Stopping audit: observations and limitations
 
-Verbatim migration checkpoint; source provenance is recorded below.
+This is historical numerical evidence, not a new test run or a solver guarantee.
+The current criterion table and its qualifications are in [RES-01](@ref).
 
-<!-- baseline: docs/src/stopping-limits.md:1-16 -->
+## [evidence-stopping-352 Audit population and provenance](@id evidence-stopping-352)
 
-# Limits of the stopping tests
+**Statement.**
 
-This page collects what `converged = true` says for scalar CD, group CD, PGD and APG, and
-the measured limits of their stopping tests. The numbers come from the Stage 0 audit of
+This page preserves measured limits of the stopping tests for scalar CD, group CD, PGD and APG. The numbers come from the Stage 0 audit of
 [issue #352](https://github.com/mlakolar/ProximalSolvers.jl/issues/352), run at revision
 `b8a2c04` on Julia 1.13.4; Julia 1.10.13 was run as well and gave close but not identical counts.
 The audit used 11 small designs (20 to 60 rows, 8 to 60 columns) and evaluated each solve in
@@ -15,12 +15,22 @@ The audit used 11 small designs (20 to 60 rows, 8 to 60 columns) and evaluated e
 weighted `NormL1`, so the `NormL1` problems of the audit were unweighted, and the counts on this page
 do not cover a weighted `NormL1`. These are high-precision
 evaluations, not proofs, and the counts are for those designs: they are not rates to expect on
-other problems. The subsections from [The cached residual](@ref "The cached residual") on report a
+other problems. The [cached-residual evidence](cached-residual-378.md) reports a
 separate, later study ([issue #378](https://github.com/mlakolar/ProximalSolvers.jl/issues/378),
 revision `8cc0222`) with its own designs and starts; its counts are a different population and are
 not to be combined with those of the audit.
 
-<!-- baseline: docs/src/stopping-limits.md:79-98 -->
+**Applies to.** Stage 0 audit of issue #352 at revision `b8a2c04`; the separate #378 population is explicitly excluded.
+
+**Code.** Solver source at the recorded audit revision; historical audit material linked above.
+
+**Tests.** 11 small designs, 600-bit evaluations of rounded inputs, Julia 1.13.4 and a comparison run on Julia 1.10.13. Counts are not expected rates for other problems.
+
+**Sources.** `docs/src/stopping-limits.md:L1`, `docs/src/stopping-limits.md:L3`.
+
+## [AUDIT-02 Positive-penalty change-test observations](@id AUDIT-02)
+
+**Statement.**
 
 **Measured at the default threshold, with a positive penalty.** The benchmark target of
 the repository, a relative suboptimality of `1e-8` in Float64 and `1e-5` in Float32, is a
@@ -40,10 +50,24 @@ target of the repository's benchmark. It is not part of the documented contract 
 
 These group results are inside the contract of `converged = true`: the flag reports the
 change test, and the bounds above are not a bound on the suboptimality. See also
-[The stopping statistic](@ref "The stopping statistic") of the group lasso.
+[The stopping statistic](@ref CDG-07) of the group lasso.
 
-<!-- baseline: docs/src/stopping-limits.md:200-207 -->
+The scale `s * norm(X_k) * norm(y)` and `lambda_max` differed by a factor of 5.5
+on the equicorrelated audit design with correlation 0.95. This measured factor is
+specific to that design. The general scale-mismatch and cancellation limits are
+specified by [CD-06](@ref).
 
+**Applies to.** The audit population at the default change threshold with a positive unweighted penalty; no weighted `NormL1` coverage is claimed.
+
+**Code.** Historical scalar/group CD solves; current change rules are [CD-03](@ref), [CD-06](@ref) and [CDG-07](@ref).
+
+**Tests.** Historical high-precision audit comparisons and the tight-reference qualifications retained above.
+
+**Sources.** `docs/src/stopping-limits.md:L74`, `docs/src/stopping-limits.md:L79`, `docs/src/stopping-limits.md:L84`, `docs/src/stopping-limits.md:L88`, `docs/src/stopping-limits.md:L95`.
+
+## [AUDIT-03 Rank-deficient warm starts](@id AUDIT-03)
+
+**Statement.**
 
 Related degradation appears in the sweep. With `λ = 0` on the rank-deficient design, the exact
 least-squares minimizer has large cancelling coefficients, and the warm starts taken from it give 80
@@ -51,23 +75,30 @@ converged solves per precision at the default threshold, with an exact KKT resid
 in Float64 and `0.16 λmax` in Float32; the cold starts on the same problems end at `1.7e-8 λmax` or
 below in Float64 and `5.7e-8 λmax` or below in Float32. The stopping pass changed nothing in 24 of the
 Float32 rows and in none of the Float64 rows; the others stopped on a small nonzero change. The
-empty-pass mechanism is therefore established for the example above, not for all of these rows.
+empty-pass mechanism is therefore established for the [warm-start example](@ref CD-07), not for all of these rows.
 
-<!-- baseline: docs/src/stopping-limits.md:358-430 -->
+**Applies to.** The audit sweep with `lambda = 0` on the rank-deficient design and the stated warm/cold starts.
 
-## Float32
+**Code.** Historical scalar CD sweep; the explicit empty-pass mechanism is [CD-07](@ref).
+
+**Tests.** 600-bit reference residuals from the historical sweep; no universal empty-pass claim is inferred.
+
+**Sources.** `docs/src/stopping-limits.md:L201`.
+
+## [AUDIT-04 Float32 observations](@id AUDIT-04)
+
+**Statement.**
 
 - **Coordinate descent with `relative = false`.** At the default `tol = 1e-7` with `relative = false`,
   130 of 5,700 Float32 scalar CD solves and 40 of 1,830 Float32 square-root solves ran to
   `maxpasses = 100000` in the sweep; the scalar ones that have a tight reference ended within
   `5.1e-8` of the minimum. With the default `relative = true`, no scalar solve of the sweep reached `maxpasses`
-  in Float32. The CD bullet under [What does converged mean?](@ref "What does converged mean?")
-  says that Float32 rounding of the coefficients can keep the change above the threshold. Keep
+  in Float32. [CD-03](@ref) specifies that Float32 rounding of the coefficients can keep the change above the threshold. Keep
   `relative = true`, or choose a `tol` well above `eps(Float32)` times the size of the coefficients.
 - **PGD and APG with the default options.** In the sweep, 70 of 570 Float32 PGD solves and 67 of 570 Float32 APG
   solves ended on the objective-increase exit, with `converged = false`, at points within the `1e-5`
   benchmark target; the KKT residual there was a median of 4 times the bound. The exit is described in
-  [PGD stops when the computed objective increases](@ref "PGD stops when the computed objective increases"),
+  [PGD stops when the computed objective increases](@ref STOP-09),
   which says that a Float32 solve can end on it. On the five benchmark designs with the benchmark options (10 draws each,
   Julia 1.10.13 and 1.13.3, before and after #319), Float32 PGD ended above the `1e-5` target in 36 to 39 of 50 solves
   on 1.10.13 and in 37 of 50 on 1.13.3, and 22 to 25 and 15 to 16 of those solves had `converged = true`; Float32 APG missed
@@ -88,16 +119,25 @@ empty-pass mechanism is therefore established for the example above, not for all
   | 0.3 and above | 210 / 210 | 210 / 210 | |
 
   The 14 uncertified Float64 solves at level 0.001 are on the design whose response dwarfs the residual,
-  which [The certificate](@ref "The certificate") describes. The bound of the certificate loses the term
+  which [The certificate](@ref CDQ-03) describes. The bound of the certificate loses the term
   `(1 − t) ‖r̂‖`, which is linear in the relative violation of the dual constraint
   `|X_kᵀr̂| ≤ λ ‖r̂‖`; and in Float32 the floor forbids tightening, as
-  [Tightening and the uncertified stop](@ref "Tightening and the uncertified stop") states. An
+  [Tightening and the uncertified stop](@ref CDQ-04) states. An
   uncertified point is reported with `converged = false` and `gap = NaN`.
 
-## `ftol = 0` at a fixed point
+**Applies to.** The recorded Float32 audit and benchmark populations, options, Julia versions and square-root-lasso design exclusions.
 
-Under `ftol = 0` an iteration whose accepted iterate equals the previous one proposes no stop (the
-bullet "An exact stall" under [Strict accuracy](@ref "Strict accuracy")), so the stationarity check,
+**Code.** Historical CD, PGD/APG and square-root-lasso runs; current rules are [CD-03](@ref), [STOP-09](@ref), [CDQ-03](@ref), [CDQ-04](@ref).
+
+**Tests.** The preserved tables and linked benchmark harness/issue #320 report measurements, not contract accuracy targets.
+
+**Sources.** `docs/src/stopping-limits.md:L358`, `docs/src/stopping-limits.md:L360`, `docs/src/stopping-limits.md:L367`, `docs/src/stopping-limits.md:L379`, `docs/src/stopping-limits.md:L384`, `docs/src/stopping-limits.md:L385`, `docs/src/stopping-limits.md:L386`, `docs/src/stopping-limits.md:L387`, `docs/src/stopping-limits.md:L388`, `docs/src/stopping-limits.md:L390`.
+
+## [AUDIT-05 Fixed points with the objective test disabled](@id AUDIT-05)
+
+**Statement.**
+
+Under `ftol = 0` an iteration whose accepted iterate equals the previous one proposes no stop (see [STOP-10](@ref)), so the stationarity check,
 which runs where a test proposes a stop, is not asked there. A solve that reaches its floating-point
 fixed point can then run to `maxiter`, or end with `stagnated = true`, with `converged = false`, at a point
 whose exact KKT residual is below the bound. This behaviour is kept.
@@ -126,5 +166,43 @@ bound.
 
 What you can do: with `ftol = 0`, a result with `converged = false` at `maxiter`, or with
 `stagnated = true`, can be at a point whose KKT residual is below the bound; evaluate it
-[independently](sparsity-and-kkt.md). With the default `ftol > 0` an unchanged iterate proposes a stop,
+[independently](../../sparsity-and-kkt.md). With the default `ftol > 0` an unchanged iterate proposes a stop,
 and the stationarity check decides.
+
+**Applies to.** The audit configurations `ftol = 0` and the stated strict settings, with positive stop scale and the zero-scale exclusions retained.
+
+**Code.** Historical PGD/APG sweep; canonical exact-stall and stagnation rules are [STOP-10](@ref) and [STOP-11](@ref).
+
+**Tests.** The exact-residual comparison is not a replay of the computed stationarity check; counts and exclusions are retained above.
+
+**Sources.** `docs/src/stopping-limits.md:L397`, `docs/src/stopping-limits.md:L399`, `docs/src/stopping-limits.md:L405`, `docs/src/stopping-limits.md:L414`, `docs/src/stopping-limits.md:L415`, `docs/src/stopping-limits.md:L416`, `docs/src/stopping-limits.md:L417`, `docs/src/stopping-limits.md:L418`, `docs/src/stopping-limits.md:L419`, `docs/src/stopping-limits.md:L421`, `docs/src/stopping-limits.md:L427`.
+
+## [AUDIT-06 The choosing-solver strict PGD observation](@id AUDIT-06)
+
+**Statement.**
+
+The original choosing-solver example uses
+`X = [1.0 0.0; 0.0 2.0; 0.0 0.0]`, `y = [2.0, -2.0, 0.5]`,
+loss scale `1/length(y)`, and `NormL1(0.1)`. Its known solution is
+`[1.7, -0.925]`. With the stricter options
+`ProximalOptions(maxiter=2000, ftol=1e-14, xtol=1e-12, gradtol=1e-10, store_trace=true)`
+and the default `allow_f_increases=false`, PGD ended on the objective-increase
+exit with `converged=false` in a test run on Julia 1.13.3. Allowing objective
+increases let that solve continue to a stop that passed the check. This is the
+recorded run, not a universal outcome for those options.
+
+The example reports both coefficient error, available because its analytic answer
+is known, and an independently computed KKT violation. The default options
+`maxiter=200`, `ftol=1e-6`, `xtol=1e-8`, `gradtol=1e-5` target convenience;
+neither they nor smaller tolerances promise a specified number of accurate digits.
+The normative stopping and accuracy limits are [STOP-01](@ref), [STOP-09](@ref)
+and [STOP-12](@ref). The executable comparison is retained in the
+[solver guide](../../choosing-solver.md).
+
+**Applies to.** The original two-coefficient example and its historical Julia 1.13.3 test run.
+
+**Code.** Historical choosing-solver example; current objective-increase exit is [STOP-09](@ref).
+
+**Tests.** Historical observation explicitly retained as such; the example reports independent KKT and analytic coefficient errors.
+
+**Sources.** `docs/src/choosing-solver.md:L167`, `docs/src/choosing-solver.md:L126`, `docs/src/choosing-solver.md:L148`.

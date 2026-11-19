@@ -1,101 +1,135 @@
-# [Proximal gradient iteration](@id PGD-01)
+# Proximal gradient iteration
 
-This relocation checkpoint preserves baseline text before normalization.
+## Scope
 
-<!-- Baseline: docs/src/developer/implementation-notes.md:L286-L318; a6293e6ff7e654a87babbc5de2314205be13d6c5 -->
+`ProximalGradientDescent` uses dense `Vector{Float32}` or `Vector{Float64}` coefficients for the supported least-squares problems and penalties in the [support matrix](../support.md). PGD and APG share `_solve_gradient!`, stopping, reporting and result types; their iteration algorithms differ.
 
-PGD retains the native image-then-value-and-gradient order (the value and gradient themselves are ProximalBase's oracles), scalar steps, fused PB prox,
-TFOCS objective-to-gradient checks, finite curvature-growth refusal and zero-step
-gradient refresh. Objective/iterate/FASTA convergence tests combine by OR. The objective
-denominator and the gradient normalizers carry no absolute term: the objective test is
-`|F - F'| / |F| < ftol` or the flat form, and the gradient test compares the residual with
-`gradtol` times the largest residual so far or times the larger of ‖∇f‖∞ and the proximal-step
-residual, against a scale that exceeds `L eps(T) ‖x‖∞`. The iterate test keeps
-`xtol * max(‖x‖, 1)`, which for `‖x‖ < 1` is an absolute tolerance. A stop that any of them
-proposes is checked once in `_stationary!` (`src/utils.jl`): the minimal-norm KKT residual of
-the accepted `x` must be below `max(gradtol, 64 eps(T)) * max(λ, λmax)`, `λmax = α‖Xᵀy‖∞`
-(formed once per solve in `xhat` and kept in the state field `λmax`), with `λ` the ℓ1 level of the
-penalty. `_stationary!` converts the levels of the penalty to `T` once (`_converted_penalty`; the weights of a
-`NormL1`, a `Vector{T}`, are kept as they are) and takes the
-level and the residual from that penalty: `_l1_level` is `T(λ0) * maximum(w)`, the largest coefficient, for a
-`NormL1` with weights. The
-residual is ProximalBase's full-point `kkt_violation` of `NormL1(T(λ0))`, of `NormL1(T(λ0), w)` or of
-`ElasticNet(T(λ1), T(λ2))`; for `ElasticNet` it adds `λ2 xᵢ` at the nonzero entries. `λ2` is not in `S`
-(the check is the lasso check on the data augmented by `√λ2 I`, see `numerics.md`).
-The penalty is validated once by `_check_penalty` in `_check_data`. For an `x` that is not a `BlockIterate`
-it accepts a `NormL1` for all solvers (with weights, `_check_l1_weights`: a `Vector{T}` of the length of `x`, finite and nonnegative entries,
-no alias with `x`, a level `T(λ0)` that is zero or normal, and the coefficients `T(λ0) wⱼ` finite and, for positive factors, normal) or an unweighted `ElasticNet` for all solvers and refuses any other
-penalty; a `BlockIterate` has its own method, for a `GroupNormL2`. The check requires `S =
-max(λ, λmax)` finite, that product, formed in `T`, at least `floatmin(T)` and the residual
-finite; it does not require the product to be finite. Otherwise the three flags are cleared and the solve continues. PGD uses the `∇f(x)` it holds. APG
-forms `∇f(x)` from the cached image `z_x` with `_value_and_gradient!` (ProximalBase's
-`value_and_gradient_from_predictor!`), into `xhat`
-and `dz`, which the next iteration overwrites before reading, and counts it in `grad_calls`.
-The check is a computed working-precision residual, not an exact-arithmetic certificate.
-Objective rounding can still end a solve with an objective increase; `ftol = 0`
-disables the objective test. Check objective/KKT independently. Native
-Float32 may stagnate earlier. Finite inputs do not ensure finite intermediates: the
-value is ProximalBase's, which recovers a value whose squares leave the range of `T`,
-but the image `X x` and the gradient `α fl(Xᵀd)` are not recovered.
+## Problem
 
-<!-- Baseline: docs/src/developer/implementation-notes.md:L418-L426; a6293e6ff7e654a87babbc5de2314205be13d6c5 -->
+Minimize `F(x) = s‖Xx - y‖²/2 + g(x)`. The supported penalties are `NormL1` (with optional weights), `ElasticNet`, `NormLinf` and `GroupNormL2`.
 
-Callbacks/display sample `print_every`; stored traces include each iteration. A
-callback receives the trace when storing, otherwise a state. Limits are checked
-after an iteration and counts may overshoot. iteration_converged means a limit,
-not success. `ProximalOptions` refuses positive gaptol at construction and does
-not store gaptol or gapevery. Solvers, options and `BackTracking` each have one
-validating inner constructor (settings are checked as given and after conversion),
-so `solve!` does not re-check them; APG still checks β and α in the precision of
-the iterate before any state is created.
-The retained scalar APIs/results do not introduce a new stopping/logging engine.
+## Notation
 
-<!-- Baseline: src/solvers/proximal_gradient_descent.jl:L2-L47; a6293e6ff7e654a87babbc5de2314205be13d6c5 -->
+`s` denotes the loss scale. `L` is inverse step size, and `α` and `β` are line-search settings. The retained source uses `α_f` or `model.α` for `s`. See [working precision](working-precision.md).
 
-    ProximalGradientDescent(; ls=LineSearches.BackTracking(), normalized=false,
-                             debias=0, preconditioner=:none)
+## Preconditions and refusals
 
-Proximal gradient descent (PGD) for least squares with a `NormL1` (lasso, with optional weights), `ElasticNet`,
-`NormLinf` or `GroupNormL2` (group lasso) penalty and a dense `Vector{Float32}` or `Vector{Float64}` coefficient
-iterate. Each iteration takes a gradient step for the smooth least-squares loss and applies the
-proximal operator of the penalty (ProximalBase's `value_and_prox!`): soft thresholding for `NormL1` (at the level
-`λ wⱼ` of entry `j` for `NormL1(λ, w)`), soft thresholding followed by the ridge weight for `ElasticNet`, for
-`NormLinf`, the point minus its projection onto the ℓ1 ball of radius `λ/L` (a clip of the entries at a common
-level), and for `GroupNormL2` the block soft threshold (each group block `v_G` of the input scaled by
-`max(0, 1 - γ λ wₖ/‖v_G‖₂)` at the step `γ`; a zero block stays zero); backtracking adjusts
-the step size.
-The curvature estimate before the first iteration is `min(1, α_f ‖X‖_F²)` for the loss scale
-`α_f`, with `‖X‖_F` an upper bound, rounded to `T` and raised to `floatmin(T)` when it is positive and
-rounds below that; it is `1` when that product is at least 1 or `X = 0`.
+### [PGD-05 Construction and supported settings](@id PGD-05)
 
-`ProximalGradientDescent()` uses the supported
-`LineSearches.BackTracking()` line search. A trial that it rejects is decided
-again, except in the cases that the `LineSearches.BackTracking` docstring
-lists, by the computed curvature `c` of the step from one product `X d`: it is
-accepted when `L ≥ c`, and otherwise the retry uses `c` in place of the
-estimate `L̂` when `c` is finite (see `LineSearches.BackTracking` and
-[numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/)). The options
-`normalized=true`, `debias>0`, `preconditioner!=:none` and custom
-line searches are not implemented and are rejected. These constructor
-keywords remain for compatibility with earlier versions; their default values
-are accepted and not stored.
+**Statement.** `ProximalGradientDescent()` uses `LineSearches.BackTracking()`. `normalized=true`, `debias>0`, `preconditioner!=:none` and custom line searches are not implemented and are rejected. The compatibility keywords at their defaults are accepted and not stored; their complete unsupported-feature policy is [DEF-01](@ref).
 
-Pass `ProximalOptions(...)` as the fifth argument to `solve!` to
-configure stopping tolerances and iteration limits. A stop that the `xtol`, `ftol` or
-`gradtol` test proposes counts only if the computed KKT residual of the iterate is below
-`max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞` and `λ` the ℓ1 level of the penalty
-(`λ` of `NormL1(λ)`, the largest coefficient `T(λ) * maximum(w)` of `NormL1(λ, w)`, `λ1` of `ElasticNet`; see
-[`ProximalOptions`](@ref)); for `GroupNormL2(λ, groups, w)` the residual is the group KKT residual,
-`λmax = maxₖ α‖[Xᵀy]_{Gₖ}‖₂` and `λ = T(λ) * maximum(w)`; for `NormLinf` the generic proximal-gradient check of
-[`ProximalOptions`](@ref) applies instead. For `NormL1`, `ElasticNet` and `GroupNormL2`, `converged=true` guarantees
-only that the computed, normalized KKT
-residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the threshold is formed in
-`T`, which can round or overflow; see [`ProximalOptions`](@ref)); it is not an
-exact-arithmetic certificate, does not bound the distance to a minimizer and does not
-guarantee coefficient accuracy on ill-conditioned designs (see the
-[stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)), and the default tolerances are not a specified number of correct digits. In `Float32`, a solve can report `converged = true` at a relative duality gap above `1e-5`, as in measurements on small benchmark designs (see
-[the limits of the stopping tests](https://mlakolar.github.io/ProximalSolvers.jl/dev/stopping-limits/)). Tighten tolerances and
-check KKT conditions independently before reporting numerical results.
-See the [solver guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/)
-and [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
+Solvers, options and `BackTracking` each have a validating inner constructor. Settings are checked as given and after conversion, so `solve!` does not revalidate constructed settings; APG separately checks its two factors in the iterate precision before constructing state. `ProximalOptions` shares the stopping rules in [STOP-01](@ref). Its compatibility gap keywords do not request a PGD/APG certificate: a positive `gaptol` is refused, `gapevery` must be positive but has no effect, and neither is stored. Float64 storage of some tolerances and diagnostics does not increase native Float32 coefficient accuracy.
 
+**Applies to.** PGD and APG; dense Vector{T}; T = Float32 or Float64.
+
+**Code.** `src/solvers/proximal_gradient_descent.jl: ProximalGradientDescent; src/types.jl: ProximalOptions`.
+
+**Tests.** test/core_contracts.jl; test/accelerated_pgd.jl: constructor and method settings.
+
+**Sources.** `docstring:src/solvers/proximal_gradient_descent.jl:L18`, `docs/src/developer/implementation-notes.md:L418`, `docstring:src/types.jl:L174`.
+
+## Algorithm
+
+### [PGD-01 Image, loss, gradient and proximal iteration order](@id PGD-01)
+
+**Statement.** PGD keeps the native least-squares image buffers and uses ProximalBase's value and gradient oracles. It forms the image before value and gradient, takes scalar steps, and uses fused `value_and_prox!` for each penalty step.
+
+At an iteration it saves the last accepted point, objective components and gradient; multiplies `L` by the line search's `α`; then repeats the following trial until [LS-01](@ref) accepts it:
+
+1. Form the gradient-step point `xhat = x_previous - ∇f(x_previous)/L`.
+2. Apply `value_and_prox!` with step `1/L` into the caller's iterate.
+3. Form the trial's least-squares image and value.
+4. Apply the line-search decision, refreshing the gradient when its mode requires it.
+
+The accepted point's gradient is refreshed if the line search did not already update it, including a zero-step exit in gradient mode. The gradient engine then checks the accepted objective for finiteness, assesses stopping, traces/calls back, and checks limits and separate exits in that order.
+
+The prox is soft thresholding for `NormL1`, with entry level `λ wⱼ` for weights; soft thresholding followed by the ridge weight for `ElasticNet`; the point minus its projection onto the ℓ1 ball of radius `λ/L` for `NormLinf` (a common clipping level); and block soft thresholding for `GroupNormL2`, scaling a block `v_G` by `max(0, 1 - γ λ wₖ/‖v_G‖₂)` at step `γ`, with a zero block left zero. The working-precision conventions for these oracles are [FP-01](@ref).
+
+**Applies to.** ProximalGradientDescent; dense Vector{T}; T = Float32 or Float64.
+
+**Code.** `src/solvers/proximal_gradient_descent.jl: initial_state, update_state!; src/solve.jl: _solve_gradient!`.
+
+**Tests.** test/minimal_core_characterization.jl: PGD LS image and recorded-trial testsets; test/core_regressions.jl: gradient/image refresh.
+
+**Sources.** `docs/src/developer/implementation-notes.md:L286`, `docstring:src/solvers/proximal_gradient_descent.jl:L5`, `docstring:src/solvers/proximal_gradient_descent.jl:L18`, `docs/src/numerics.md:L928`.
+
+### [PGD-02 Initial curvature scale](@id PGD-02)
+
+**Statement.** Before the first iteration, the inverse step is the `T`-rounded `min(1, s ‖X‖_F²)`, using an upper bound for `‖X‖_F`. A positive result that rounds below `floatmin(T)` is raised to that value. If the product is at least one, or `X = 0`, the start is `1`.
+
+When the positive Frobenius bound is below one, it exceeds the spectral curvature `s ‖X‖₂²` by the factor `‖X‖_F² / ‖X‖₂²`, at most the rank of `X`, up to rounding and the floor. A positive bound far below one therefore starts below one; a bound at least one starts at one. For example, `X = I(256)/16` with `s = 1` has curvature `1/256` and starts at `1`. The line search multiplies this estimate by its decrease factor (default `0.9`) before each iteration and raises it on rejected trials. Historical extreme-scale measurements are retained in [ORACLE-01](@ref).
+
+PGD obtains the same initialization through a column-wise scan, with the Frobenius-bound calculation when required; APG uses the shared bound machinery directly. This is an initial estimate, not a change to the subsequent acceptance tests. A finite starting loss is required; penalty overflow at a finite starting point follows [RES-01](@ref).
+
+**Applies to.** PGD and APG; dense Vector{T}; T = Float32 or Float64.
+
+**Code.** `src/solvers/proximal_gradient_descent.jl: _scanned_initial_curvature; src/solvers/image_models.jl: _initial_curvature, _frobenius_upper`.
+
+**Tests.** test/initial_curvature.jl: initial scale, floor, wide-scale and zero-design testsets.
+
+**Sources.** `docstring:src/solvers/proximal_gradient_descent.jl:L5`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L21`, `docs/src/numerics.md:L168`, `docs/src/numerics.md:L833`.
+
+## Stopping
+
+The complete shared policy is [STOP-01](@ref), including the three OR-combined proposals, the independent check of the accepted point and the separate objective-increase and stagnation exits.
+
+## Postconditions
+
+### [PGD-04 Trace, callback and limit sequencing](@id PGD-04)
+
+**Statement.** `store_trace` stores an entry for every completed iteration; display and callback invocation are sampled by `print_every`. When storing, a callback receives the trace; otherwise it receives the current trace state. A callback returning `true` stops the solve. `extended_trace` requests the additional diagnostic data. These options use the existing engine and do not introduce a separate logging framework.
+
+Call and time limits are checked after a complete iteration, including any proposed-stop check and callback. A zero call limit is unlimited; counts can overshoot a positive limit by the work of one iteration. `maxiter` caps completed iterations, and `iteration_converged` means `iterations == maxiter`, not successful convergence. The Float32 stagnation check follows tracing and any callback due at that iteration; it does not change cadence.
+
+The displayed `|g(x)|` is an internal gradient/proximal stopping residual, not the user's penalty value. Displayed `|x - x'|` and trace `dxx` are iterate-change diagnostics, and `backtrack_steps` counts line-search trials subject to each method's zero-step and stationarity-check rules. They do not describe changes in the statistical model.
+
+**Applies to.** PGD and APG; dense Vector{T}; T = Float32 or Float64.
+
+**Code.** `src/utils.jl: trace!; src/solve.jl: _solve_gradient!`.
+
+**Tests.** test/minimal_core_characterization.jl: PGD limits, stopping flags, trace and callback ownership; test/accelerated_pgd.jl: trace, callbacks, limits, result identity and counters; test/core_regressions.jl: stagnation callbacks and limits.
+
+**Sources.** `docs/src/developer/implementation-notes.md:L418`, `docstring:src/types.jl:L168`, `docstring:src/types.jl:L174`, `docs/src/working-with-results.md:L65`, `docs/src/working-with-results.md:L75`, `docs/src/numerics.md:L67`, `docs/src/numerics.md:L393`.
+
+The returned minimizer aliases caller storage, and numerical-step rollback restores only the last accepted iterate, not every counter or internal buffer; the complete mutation contract is [RES-01](@ref).
+
+## Floating-point rules
+
+### [PGD-03 Native products and diagnostics](@id PGD-03)
+
+**Statement.** The coefficient, residual and image buffers keep `T` arithmetic. ProximalBase evaluates the loss value and can recover a value whose intermediate squares leave the range of `T`; PGD does not recover an overflowing or underflowing image `X x` or gradient `s fl(Xᵀd)`. Finite inputs therefore do not imply finite intermediates. The explicit range-safe and residual qualifications are in [FP-01](@ref), [LS-04](@ref) and [STOP-04](@ref).
+
+**Applies to.** PGD and APG; dense Vector{T}; T = Float32 or Float64.
+
+**Code.** `src/solvers/image_models.jl: _image!, _value!, _value_and_gradient!`.
+
+**Tests.** test/core_regressions.jl: oracle values/gradients and native diagnostics.
+
+**Sources.** `docs/src/developer/implementation-notes.md:L286`, `docstring:src/types.jl:L174`.
+
+## Known limits
+
+Native Float32 can stagnate before a requested accuracy is attained. The relevant exits and accuracy limitations are [STOP-11](@ref) and [STOP-12](@ref); line-search limitations are recorded in [LS-07](@ref) and [LS-08](@ref).
+
+## Tests
+
+Existing tests listed at each clause cover image order, fused prox, counts, constructors, callbacks and rollback. No numerical implementation or new test tier is introduced here.
+
+## Unreconciled
+
+### [Preserved older penalty inventory](@id PGD-UNRECONCILED)
+
+Owner reconciliation is tracked in [issue #416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416).
+
+The following baseline implementation note is **historical, not a current support restriction**. It conflicts with the current PGD/APG docstrings, `src/solve.jl` dispatch and the `test/linf.jl` and `test/group_pgd.jl` suites. Current supported inputs are [IN-01](@ref).
+
+> The penalty is validated once by `_check_penalty` in `_check_data`. For an `x` that is not a `BlockIterate`
+> it accepts a `NormL1` for all solvers (with weights, `_check_l1_weights`: a `Vector{T}` of the length of `x`, finite and nonnegative entries,
+> no alias with `x`, a level `T(λ0)` that is zero or normal, and the coefficients `T(λ0) wⱼ` finite and, for positive factors, normal) or an unweighted `ElasticNet` for all solvers and refuses any other
+> penalty; a `BlockIterate` has its own method, for a `GroupNormL2`.
+
+**Sources.** `docs/src/developer/implementation-notes.md:L286`.
+
+## Change log
+
+The shared image engine and scalar APIs are retained. The historical support wording above is preserved for explicit reconciliation rather than used to infer an unsupported numerical restoration.

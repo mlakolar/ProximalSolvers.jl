@@ -1,34 +1,79 @@
-# [Coordinate descent on a SparseIterate](@id CDS-01)
+# Coordinate descent on a SparseIterate
 
-<!-- Migration source: docs/src/developer/implementation-notes.md:L215-L237 -->
+The scalar algorithm is specified in [CD-01](@ref). These clauses specify the
+additional ownership and transaction behavior of a one-dimensional ProximalBase
+`SparseIterate`, together with the shared [inputs](@ref IN-01) and [results](@ref RES-01).
 
-## CD on a `SparseIterate`
+## [CDS-01 Validation before ownership or RNG changes](@id CDS-01)
 
-- Only the public active values are checked for finiteness. Every validation
-  failure (unsupported owner, element type, shape, active NaN/Inf, data, loss,
-  penalty, scalar, option, keyword or alias) happens before the owner is copied
-  and before any RNG draw, and leaves the owner untouched.
-- The run uses `work = copy(x)`, which keeps the active zeros and the slot order,
-  and nothing is rebuilt through a dense vector. Passes, momentum and stopping
-  are those of the dense wrapper; the extra storage is O(p).
-- A run that completes with a finite objective commits the complete final state
-  with a same-shape `copyto!(x, work)` and returns `x` itself as `minimizer`.
-  This covers a finite `maxpasses` limit (`converged = false`, with a warning)
-  and `maxpasses = 0`, which leaves exactly the entry state, including active
-  zeros, signed zeros and order. A normal pass compacts zero coordinates, and
-  they are not restored; the order is not sorted.
-- A numerical error, such as a nonfinite step, a curvature that underflows or is
-  not finite, or a nonfinite final objective, leaves the values, active set, signed zeros and
-  order of `x` unchanged. The borrowed RNG may already have advanced; no rollback
-  of the RNG is promised. Process termination, out-of-memory conditions and
-  concurrent mutation of x, X or y are not covered.
-- After a successful call take `activevalues(x)` and `activecoordinates(x)` again:
-  the active list may have been replaced or reordered.
+**Statement.**
 
-<!-- Migration source: src/cd/solver.jl:L79-L82 -->
+Only public active values of a `SparseIterate` are checked for finiteness. Every input
+validation failure occurs before copying the owner and before any RNG draw, leaving the
+owner untouched. This includes an unsupported owner, element type or shape; active
+NaN/Inf; invalid data, loss, penalty, scalar, option or keyword; and prohibited aliasing.
 
-A `SparseIterate` is solved on a private copy retaining its initial
-active zeros and coordinate order. After a completed finite run the caller
-receives the complete final state, including any zero-coordinate
-compaction. The copy needs `O(p)` extra storage.
+**Applies to.** One-dimensional `SparseIterate{Float32}` or `SparseIterate{Float64}` passed to `CDSolver`.
 
+**Code.** `src/solve.jl`: owner preflight and `solve!` wrapper.
+
+**Tests.** `test/sparse_cd.jl`: "owner refusals happen before copying, mutation or RNG draws", "buffers of the owner cannot be borrowed as data".
+
+**Sources.** `docs/src/developer/implementation-notes.md:L215`, `docs/src/developer/implementation-notes.md:L217`, `docs/src/developer/implementation-notes.md:L221`, `docstring:src/solvers/proximal_gradient_descent.jl:L346`.
+
+## [CDS-02 Private work and initial ordering](@id CDS-02)
+
+**Statement.**
+
+The solve uses `work = copy(x)`, retaining the initial active zeros and slot order.
+It does not rebuild the owner through a dense vector and needs `O(p)` extra storage.
+Passes, momentum and stopping are those of the dense wrapper. A dense solve and an
+owner solve from the same canonical state have the same arithmetic and RNG schedule;
+another slot order of the same active set can produce another trajectory and final point.
+
+**Applies to.** Scalar CD owner solves with the supported least-squares or square-root loss.
+
+**Code.** `src/solve.jl`: private owner copy; `src/cd/solver.jl`: common engine.
+
+**Tests.** `test/sparse_cd.jl`: "dense and owner solves agree from the same state", "slot order changes the trajectory, not the accuracy".
+
+**Sources.** `docs/src/developer/implementation-notes.md:L221`, `docs/src/developer/implementation-notes.md:L260`, `docstring:src/cd/solver.jl:L79`, `docs/src/developer/implementation-notes.md:L442`, `docstring:src/solvers/proximal_gradient_descent.jl:L346`.
+
+## [CDS-03 Commit after a finite completed run](@id CDS-03)
+
+**Statement.**
+
+A run that completes with a finite objective commits its complete final state through
+a same-shape `copyto!(x, work)` and returns the caller's `x` itself as `minimizer`.
+This includes a finite pass-limit return (`converged = false`, with a warning).
+With `maxpasses = 0`, the entry state is preserved exactly, including active zeros,
+signed zeros and order. After a normal pass, zero coordinates are compacted and are
+not restored; compaction moves the last active coordinate into a removed slot, so the
+order is not sorted. After success, acquire `activevalues(x)` and
+`activecoordinates(x)` again because their active lists may have been replaced or reordered.
+
+**Applies to.** Completed finite scalar CD owner solves, whether converged or at the pass limit.
+
+**Code.** `src/solve.jl`: final objective check and owner commit; `src/cd/solver.jl`: compaction.
+
+**Tests.** `test/sparse_cd.jl`: "pass semantics: zero passes, limits, activation and compaction", "finite pass limits commit a nonconverged state", "the result is the caller’s owner, with an independent state".
+
+**Sources.** `docs/src/developer/implementation-notes.md:L224`, `docs/src/developer/implementation-notes.md:L235`, `docs/src/developer/implementation-notes.md:L260`, `docstring:src/cd/solver.jl:L79`, `docs/src/developer/implementation-notes.md:L442`, `docstring:src/solvers/proximal_gradient_descent.jl:L356`.
+
+## [CDS-04 Failure leaves the caller owner unchanged](@id CDS-04)
+
+**Statement.**
+
+A numerical error, including a nonfinite coordinate step, an underflowing or nonfinite
+curvature, or a nonfinite final objective, leaves the caller's values, active set,
+signed zeros and slot order unchanged. A borrowed RNG can already have advanced;
+RNG rollback is not promised. Process termination, out-of-memory conditions and
+concurrent mutation of `x`, `X` or `y` are outside this transaction guarantee.
+
+**Applies to.** Numerical failures of scalar CD owner solves.
+
+**Code.** `src/solve.jl`: private run and finite-objective commit boundary.
+
+**Tests.** `test/sparse_cd.jl`: "nonfinite updates and objectives leave the owner unchanged", "a runtime failure may advance the RNG but preserves the owner".
+
+**Sources.** `docs/src/developer/implementation-notes.md:L230`, `docs/src/developer/implementation-notes.md:L260`, `docstring:src/solvers/proximal_gradient_descent.jl:L356`.

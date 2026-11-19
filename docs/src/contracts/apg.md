@@ -1,34 +1,120 @@
-# [Accelerated proximal gradient](@id APG-01)
+# Accelerated proximal gradient
 
-This relocation checkpoint preserves baseline text before normalization.
+## Scope
 
-<!-- Baseline: docs/src/developer/implementation-notes.md:L320-L416; a6293e6ff7e654a87babbc5de2314205be13d6c5 -->
+`AccProxGradDescent` supports dense `Vector{Float32}` and `Vector{Float64}` coefficients for the least-squares penalties in the [support matrix](../support.md). It uses the common least-squares image model, gradient engine, options and results. It has no metric, tuple, owner or generic smooth-loss path.
 
-APG (`AccProxGradDescent`) is the historical accelerated method narrowed to the
-dense LS core: extrapolation `y = x + k/(k+3)(x - x_previous)`, `L ← αL` before each
-iteration, backtracking `L ← L/β` until the LS bound test accepts the trial (see
-"The APG bound test" below), and one restart from `y = x_previous` when an extrapolated step raises the computed
-objective. `X y` is formed from `X x` and `X x_previous` without a product; a restart
-copies `X x_previous`. Departures from `legacy/full`: no metric, tuple, owner or
-generic smooth-loss path; β and α are validated and used in `T` (`T(β) < 1` and
-`T(α) > 0` after rounding); the objective-scale bound that only guarded a nonfinite
-value is dropped, so a nonfinite trial raises `L` through `next_curvature` (which
-raises once `L/β` is not a finite increase) instead of failing at once; a trial is
-accepted only when the bound is certified by rounding-error bounds ("The APG bound
-test" below), where legacy compared rounded squares of cached-image differences with
-an 8eps image allowance; a step with `x == y` entrywise is accepted with a
-finite value, where legacy raised; a
-nonfinite gradient at `y` is treated like a nonfinite value (restart, or failure
-without momentum). Each step writes `x_previous ← x` after forming `y` and before the
-first trial, so the shared engine's rollback restores the last accepted iterate.
-`backtrack_steps` counts every trial, including the accepted one, so it equals
-`prox_calls`. With `C` the number of stationarity checks of the solve (each evaluates
-`∇f(x)` once, counted in `grad_calls` and not in `f_calls`), `grad_calls = iterations +
-restarts + C` and `f_calls = 1 + grad_calls + prox_calls - C`. Its reported gradient residual
-`L‖x - y‖∞` is a stopping quantity measured from `y`; it is not an independent KKT residual
-at `x` (the check evaluates `∇f(x)` separately).
+## Problem
 
-### The APG bound test
+Minimize `s‖Xx - response‖²/2 + g(x)` with `NormL1` (optional weights), `ElasticNet`, `NormLinf` or `GroupNormL2`. The penalty prox is described in [PGD-01](@ref).
+
+## Notation
+
+`s` denotes the loss scale; constructor `α` and `β` are backtracking factors. Here `y` is the extrapolated coefficient point, `x_previous` is the preceding accepted point and `k` counts momentum steps since initialization or restart. The preserved proof in [APG-06](@ref) uses its original `α` for the loss scale `s`; it does not denote the constructor factor in that proof.
+
+## Preconditions and refusals
+
+### [APG-02 Method factors and dimension limits](@id APG-02)
+
+**Statement.** The defaults are `AccProxGradDescent(β=0.5, α=0.9, preconditioner=:none)`. Require `0 < β < 1` and `0 < α ≤ 1`; the factors are validated as given and after promotion, and then again in the iterate type before state creation (`T(β) < 1` and `T(α) > 0` must survive rounding). `preconditioner=:diagonal` is deferred and rejected.
+
+The error bounds require `max(n, p) + 4 < 1/(4 eps(T))` and `n*p + 3 < 1/(4 eps(Float64))`. This refuses `max(n, p) ≥ 2,097,148` for Float32. Oversize problems are refused before the caller's iterate changes. Input shape, scale and ownership conditions are [IN-01](@ref).
+
+**Applies to.** AccProxGradDescent; dense Vector{T}; T = Float32 or Float64.
+
+**Code.** `src/solvers/accelerated_proximal_gradient_descent.jl: AccProxGradDescent, _check_method, _check_bound_size, solve!`.
+
+**Tests.** test/accelerated_pgd.jl: constructor/method settings, norm budgets and unsupported-input preflight.
+
+**Sources.** `docs/src/developer/implementation-notes.md:L320`, `docs/src/developer/implementation-notes.md:L346`, `docs/src/developer/implementation-notes.md:L352`, `docs/src/developer/implementation-notes.md:L418`, `docs/src/numerics.md:L1045`, `docs/src/choosing-solver.md:L193`, `docs/src/choosing-solver.md:L224`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L44`.
+
+## Algorithm
+
+### [APG-01 Extrapolation, cached images and trial sequence](@id APG-01)
+
+**Statement.** The method follows the accelerated proximal-gradient construction in Parikh and Boyd, *Proximal Algorithms*, §4.3, with momentum `k/(k+3)`. It is a FISTA-family method; this is not the textbook FISTA recurrence.
+
+Form `y = x + k/(k+3) * (x - x_previous)` from the two accepted iterates, then take a gradient and proximal step from `y`. The first iteration has no momentum. Before each iteration use `L ← α L`, allowing the step to grow again; `α = 1` keeps this estimate from decreasing. A rejected trial uses `L ← L/β`; a `β` near one makes growth slow. Initial curvature is [PGD-02](@ref).
+
+The image `X y` is formed by the same linear combination of cached `X x` and `X x_previous`, without a new product. Form `y` before saving `x_previous ← x`, then make trials; the saved point is the last accepted point if a trial throws. Each trial uses the fused penalty prox and a fresh image of its candidate. Nonzero trial displacements are accepted only by [APG-06](@ref); a point equal to `y` entrywise is accepted when its value is finite. The shared engine then applies [STOP-01](@ref).
+
+**Applies to.** AccProxGradDescent; supported dense least-squares problems.
+
+**Code.** `src/solvers/accelerated_proximal_gradient_descent.jl: initial_state, update_state!, _prox_grad_step!`.
+
+**Tests.** test/accelerated_pgd.jl: momentum, backtracking rejection, restart and image caches.
+
+**Sources.** `docs/src/developer/implementation-notes.md:L320`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L7`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L9`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L21`, `docs/src/choosing-solver.md:L193`, `docs/src/choosing-solver.md:L224`.
+
+### [APG-03 Restart and failure boundary](@id APG-03)
+
+**Statement.** If an extrapolated step raises the computed objective, repeat it once without momentum from `y = x_previous`, copy the cached image of that point, and reset `k` to zero. The next iteration then extrapolates with `1/4`. An accepted step that used momentum does not increase the computed objective. A first or restarted step without momentum can increase it through rounding, invoking the common objective-increase exit unless `allow_f_increases=true`.
+
+A nonfinite value or gradient at the extrapolated point is treated the same way: restart when momentum was used, otherwise fail. A nonfinite trial value is rejected, raising `L` through `next_curvature` rather than immediately accepting or silently ending. If `L/β` cannot increase finitely, the search errors; [RES-01](@ref) specifies restoration of the last accepted iterate and rethrow. A trial with a nonfinite value is never accepted.
+
+**Applies to.** AccProxGradDescent; supported dense least-squares problems.
+
+**Code.** `src/solvers/accelerated_proximal_gradient_descent.jl: update_state!, _prox_grad_step!; src/solve.jl: _solve_gradient!`.
+
+**Tests.** test/accelerated_pgd.jl: nonfinite extrapolated values, nonfinite trials, curvature overflow and step-error rollback.
+
+**Sources.** `docs/src/developer/implementation-notes.md:L320`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L21`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L36`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L44`, `docs/src/numerics.md:L1045`.
+
+## Stopping
+
+### [APG-05 Iteration residual versus accepted-point check](@id APG-05)
+
+**Statement.** The iteration's gradient/proximal residual is `L ‖x-y‖∞`, measured from the extrapolated point. It is a stopping quantity, not an independent KKT residual at accepted `x`. The common proposal tests and exact-stall rule use [STOP-02](@ref) and [STOP-10](@ref); proposed stops are checked at `x` under [STOP-03](@ref)–[STOP-07](@ref). The additional accepted-point gradient and its count are [STOP-08](@ref).
+
+**Applies to.** AccProxGradDescent.
+
+**Code.** `src/solvers/accelerated_proximal_gradient_descent.jl: g_residual, gradient_converged!; src/utils.jl: _gradient_at_x!`.
+
+**Tests.** test/accelerated_pgd.jl: proposed stop clearing and gradient counts.
+
+**Sources.** `docs/src/numerics.md:L62`, `docs/src/developer/implementation-notes.md:L320`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L44`, `docs/src/choosing-solver.md:L224`.
+
+## Postconditions
+
+### [APG-04 Trial and oracle counts](@id APG-04)
+
+**Statement.** `backtrack_steps` counts every APG trial, including accepted trials. Let `C` count stationarity checks that evaluate the gradient at accepted `x`, and `C_prox` count additional proximal evaluations by the generic check. On a completed solve,
+
+```
+grad_calls = iterations + restarts + C
+prox_calls = backtrack_steps + C_prox
+f_calls = 1 + grad_calls + backtrack_steps - C
+```
+
+For a dedicated KKT check `C_prox = 0`, so `backtrack_steps == prox_calls` and the last identity is equivalently `f_calls = 1 + grad_calls + prox_calls - C`. A generic check can add a proximal call without a trial or function call; its guards and counting are [STOP-07](@ref) and [STOP-08](@ref). These counters describe the existing implementation; errors do not transactionally restore them.
+
+**Applies to.** Completed AccProxGradDescent solves.
+
+**Code.** `src/solvers/accelerated_proximal_gradient_descent.jl: _prox_grad_step!; src/utils.jl: _gradient_at_x!, _stationary!`.
+
+**Tests.** test/accelerated_pgd.jl: image-cache counters and trace/limits; test/linf.jl: one extra prox for a proposed stop.
+
+**Sources.** `docs/src/developer/implementation-notes.md:L320`, `docs/src/numerics.md:L194`, `docs/src/numerics.md:L238`, `docstring:src/types.jl:L75`.
+
+Result identity, trace/callback ownership, limit ordering and mutation rules are [PGD-04](@ref) and [RES-01](@ref).
+
+## Floating-point rules
+
+### [APG-06 Certified least-squares bound](@id APG-06)
+
+**Statement.** A nonzero displacement is accepted only when the least-squares bound, with relative slack `4eps(T)` on `√L`, is certified for the stored trial and extrapolated points under the assumptions below. Use the cached-image difference first, then a fresh product when the bounds are inconclusive; reject a still-inconclusive trial. This avoids subtracting nearly equal objective values. It is a certificate for this line-search inequality, not a solver optimality certificate.
+
+The complete baseline proof sketch follows without rewriting. In this proof `α` is the loss scale `s`, and all dimensions, rounding assumptions, underflow terms and exponent arithmetic are part of the stated conditions. Its final validation paragraph is historical empirical evidence, not an additional guarantee.
+
+**Applies to.** AccProxGradDescent least-squares line-search trials under the stated arithmetic and size assumptions.
+
+**Code.** `src/solvers/image_models.jl: _bound_certified!, _frobenius_upper, _root_scale; src/solvers/accelerated_proximal_gradient_descent.jl: _check_bound_size`.
+
+**Tests.** test/accelerated_pgd.jl: certified backtracking against BigFloat, subnormal norms, wide scales, nonfinite inputs and fresh-product reference.
+
+**Sources.** `docs/src/developer/implementation-notes.md:L344`, `docs/src/developer/implementation-notes.md:L346`, `docs/src/developer/implementation-notes.md:L352`, `docs/src/developer/implementation-notes.md:L361`, `docs/src/developer/implementation-notes.md:L375`, `docs/src/developer/implementation-notes.md:L394`, `docs/src/developer/implementation-notes.md:L401`, `docs/src/developer/implementation-notes.md:L406`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L21`, `docs/src/numerics.md:L1045`.
+
+#### Preserved proof sketch
 
 For least squares, `f(x) ≤ f(y) + ⟨∇f(y), d⟩ + L‖d‖²/2` (`d = x - y`) holds iff
 `√α ‖X d‖ ≤ √L ‖d‖`. The target is that inequality relaxed by legacy's slack, `√α ‖X d‖
@@ -102,88 +188,33 @@ needed the fresh product; every solve is bit-identical to the fresh-product-only
 571 are bit-identical to `legacy/full`, and the 5 that differ (Float32) change the objective
 by at most 2e-7 relative.
 
-<!-- Baseline: src/solvers/accelerated_proximal_gradient_descent.jl:L7-L63; a6293e6ff7e654a87babbc5de2314205be13d6c5 -->
+## Known limits
 
-    AccProxGradDescent(; β = 0.5, α = 0.9, preconditioner = :none)
+The proof assumptions include IEEE arithmetic with gradual underflow and matrix-vector products evaluated as dot products. Native products and extrapolation still use `T`; exponent-separated bound arithmetic does not recover those products. Deep subnormal data can make the absolute error terms dominate, requiring a curvature far above the true curvature or ending in rollback. A curvature above `floatmax(T)` is not certified. Float32 more often needs the fresh-product decision late in a solve. General coefficient-accuracy limitations are [STOP-12](@ref).
 
-Accelerated proximal gradient descent (APG) for least squares with a `NormL1` (lasso, with optional weights),
-`ElasticNet`, `NormLinf` or group lasso (`GroupNormL2`, see [`ProximalGradientDescent`](@ref)) penalty and a dense
-`Vector{Float32}` or `Vector{Float64}` coefficient iterate (Parikh
-and Boyd, *Proximal Algorithms*, §4.3). Iteration `k` (counted from the start or the last
-restart) extrapolates `y = x + k/(k+3) (x - x')` from the last two accepted
-iterates and takes a proximal gradient step from `y`: a gradient step for the
-least-squares loss followed by the proximal operator of the penalty (soft thresholding for `NormL1`, at the level
-`λ wⱼ` of entry `j` for `NormL1(λ, w)`, with the ridge weight after it for `ElasticNet`, for `GroupNormL2` ProximalBase's
-block soft threshold, and for `NormLinf` the
-point minus its projection onto the ℓ1 ball of radius `λ/L`). It is a FISTA-family method; its
-momentum sequence `k/(k+3)` is not the textbook FISTA recurrence.
+## Tests
 
-The step size `1/L` is found by backtracking on the least-squares bound
-`f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + L/2 ‖x - y‖²`, which holds exactly when
-`√α_f ‖X(x - y)‖ ≤ √L ‖x - y‖`. A trial is accepted only when that inequality, with
-a relative slack of `4eps` on `√L`, is certified by conservative rounding-error
-bounds (assuming IEEE arithmetic with gradual underflow): first from the difference
-of cached products, and when that is inconclusive from a freshly computed `X(x - y)`;
-a trial that is still inconclusive is rejected.
-See [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
-A trial with `x == y` entrywise is accepted when its value is finite. A rejected trial sets
-`L ← L/β`, `β ∈ (0, 1)`. Before each iteration `L ← α L`, `α ∈ (0, 1]`, so that the
-step can grow again where the curvature is smaller; `α = 1` keeps `L` from
-decreasing. The estimate before the first iteration is `min(1, α_f ‖X‖_F²)` for the loss scale
-`α_f`, with `‖X‖_F` an upper bound, rounded to `T` and raised to `floatmin(T)` when it is positive and
-rounds below that; it is `1` when that product is at least 1 or `X = 0`.
+`test/accelerated_pgd.jl` uses independent BigFloat references from raw data, rather than agreement with another solver alone. The preserved proof paragraph details the sampled conditions and their limits. `test/elasticnet.jl`, `test/group_pgd.jl` and `test/linf.jl` cover the supported penalties.
 
-When an extrapolated step would increase the computed objective, the momentum is
-restarted: the step is repeated from `y = x'` and `k` returns to zero, so the next
-iteration extrapolates with `1/4`. An accepted step that used momentum therefore
-never increases the computed objective. A step without momentum (the first
-iteration, and a step repeated after a restart) can increase it through rounding of
-the step and of the objective; as for [`ProximalGradientDescent`](@ref), that
-stops the solve unless `allow_f_increases = true` in [`ProximalOptions`](@ref).
+## Unreconciled
 
-Backtracking raises an error when the next curvature estimate `L/β` is not a finite
-increase of `L`; `solve!` then restores the last accepted iterate and rethrows. A
-`β` close to one makes each rejected trial raise `L` only slightly. `preconditioner = :diagonal` is deferred and
-rejected. Pass `ProximalOptions(...)` as the fifth argument to [`solve!`](@ref).
-A stop that the `xtol`, `ftol` or `gradtol` test proposes counts only if the computed KKT
-residual at the accepted `x` is below `max(gradtol, 64 eps(T)) * max(λ, λmax)`, with
-`λ` the ℓ1 level of the penalty (`λ` of `NormL1(λ)`, the largest coefficient
-`T(λ) * maximum(w)` of `NormL1(λ, w)`, `λ1` of `ElasticNet`) and, for `NormL1` and `ElasticNet`, `λmax = α‖Xᵀy‖∞` (see [`ProximalOptions`](@ref)); for `GroupNormL2(λ, groups, w)` the residual is the
-group KKT residual and `λmax = maxₖ α‖[Xᵀy]_{Gₖ}‖₂`, `λ = T(λ) * maximum(w)`; for `NormLinf` the
-generic proximal-gradient check of [`ProximalOptions`](@ref) applies instead. For `NormL1`, `ElasticNet` and `GroupNormL2`, `converged = true` guarantees only that the
-computed, normalized KKT residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the
-threshold is formed in `T`, which can round or overflow; see [`ProximalOptions`](@ref)). It is
-not an exact-arithmetic certificate and does not guarantee coefficient accuracy on
-ill-conditioned designs (see the [stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)). In `Float32`, a solve can report `converged = true` at a relative duality gap above `1e-5`, as in measurements on small benchmark designs (see
-[the limits of the stopping tests](https://mlakolar.github.io/ProximalSolvers.jl/dev/stopping-limits/)). The check forms `∇f(x)` from the
-cached image `A x` and counts that evaluation in `grad_calls`. The gradient-mapping residual
-of the result, `L ‖x - y‖∞`, is measured from the extrapolated point `y`, not from `x`; check
-KKT conditions independently before reporting numerical results.
-See the [solver guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/)
-and [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
+### [Historical unqualified count identities](@id APG-UNRECONCILED)
 
-<!-- Baseline: docs/src/choosing-solver.md:L193-L204; a6293e6ff7e654a87babbc5de2314205be13d6c5 -->
+Owner reconciliation is tracked in [issue #416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416).
 
-`AccProxGradDescent` takes the same inputs, `ProximalOptions` and result type
-as PGD, up to a dimension limit that its line search needs (for Float32,
-`max(n, p) < 2,097,148`; see [Numerical behavior](numerics.md)). Each step starts from the extrapolated point
-`y = x + k/(k+3) (x - x_previous)`, where `k` counts iterations since the start
-or the last restart, and the momentum is restarted when an extrapolated step
-would increase the objective. On ill-conditioned problems this can need
-fewer iterations than PGD; on well-conditioned ones it can need more. An
-iteration evaluates the gradient at `y` and then backtracks; a restart adds a
-second gradient evaluation and line search in that iteration. Compare the two at
-the same independently measured accuracy, as in
-[the solver comparison](examples/comparisons/lasso_solvers.md), before
-choosing one for speed.
+The older implementation note gave the following identities without distinguishing the later generic stationarity check. They remain here as **non-normative provenance**; [APG-04](@ref) states the identities with that distinction, as implemented by the existing generic-check counter increments.
 
-<!-- Baseline: docs/src/choosing-solver.md:L224-L230; a6293e6ff7e654a87babbc5de2314205be13d6c5 -->
+> `backtrack_steps` counts every trial, including the accepted one, so it equals
+> `prox_calls`. With `C` the number of stationarity checks of the solve (each evaluates
+> `∇f(x)` once, counted in `grad_calls` and not in `f_calls`), `grad_calls = iterations +
+> restarts + C` and `f_calls = 1 + grad_calls + prox_calls - C`. Its reported gradient residual
+> `L‖x - y‖∞` is a stopping quantity measured from `y`; it is not an independent KKT residual
+> at `x` (the check evaluates `∇f(x)` separately).
 
-The constructor keywords are the backtracking factor `β ∈ (0, 1)`, which
-shrinks the step `1/L` after a rejected trial, and `α ∈ (0, 1]`, which lets the
-step grow again before each iteration (`AccProxGradDescent(β=0.5, α=0.9)` by
-default). APG uses PGD's stopping tests, so the remarks above about defaults,
-the OR combination and the objective-change test apply unchanged; its
-gradient-mapping residual is measured at the extrapolated point. See
-[Numerical behavior](numerics.md).
+**Sources.** `docs/src/developer/implementation-notes.md:L320`.
 
+The normalized-KKT shorthand is retained separately in [STOP-UNRECONCILED](@ref).
+
+## Change log
+
+Relative to `legacy/full`, the dense method removed metric, tuple, owner and generic smooth-loss paths; validates its factors in `T`; retries a nonfinite trial through finite curvature growth; replaces the old rounded-square/8eps cached-image allowance by the proof above; and accepts a finite-value point with `x == y`, where the legacy path raised. A nonfinite extrapolated gradient follows the same restart/failure path as a nonfinite value. These are baseline differences, not changes introduced by this migration.

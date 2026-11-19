@@ -1,15 +1,54 @@
-# [Square-root lasso coordinate descent](@id CDQ-01)
+# Square-root lasso coordinate descent
 
-<!-- Migration source: docs/src/numerics.md:L661-L729 -->
+This loss has its own coordinate step and duality certificate. Its ordinary scheduling
+comes from [scalar CD](@ref CD-02), while input and ownership rules also apply through
+[IN-01](@ref), [CDS-01](@ref) and [RES-01](@ref).
 
-## Square-root lasso
+## [CDQ-01 Objective, normalization and supported calls](@id CDQ-01)
 
-`CDSolver` with `SqrtLeastSquaresLoss` (see [Supported problems](../support.md)) uses the pass schedule,
-momentum and change test of the lasso with the loss scale `s = 1`: with `relative=true` and `y ≠ 0` the
-threshold is `tol * norm(y)`, and a change is multiplied by `norm(X[:, k])`; with `relative=false`, or
-`y = 0`, the threshold is the absolute `tol` and a change is not scaled.
+**Statement.**
 
-### The coordinate step
+`CDSolver` with `SqrtLeastSquaresLoss(y, X)` and an unweighted `NormL1(lambda)` solves
+`P(beta) = norm(y - X*beta) + lambda * norm(beta, 1)`, with no `1/sqrt(n)` factor.
+`X::Matrix{T}`, `y::Vector{T}` and the dense `Vector{T}` or one-dimensional
+`SparseIterate{T}` coefficient use one `T`, either `Float32` or `Float64`.
+`lambda` must be positive, finite and representable in `T`; another `Real` scalar type
+is accepted when representable.
+
+The normalized objective `norm(y - X*beta)/sqrt(n) + lambda_n * norm(beta, 1)` has the
+same minimizers at `lambda = sqrt(n) * lambda_n`, and its values are `P/sqrt(n)`.
+ProximalBase can express the normalized loss as `Scaled(f, inv(sqrt(n)))`; the solver
+accepts the equivalent unscaled problem with the transformed level, as specified below.
+The scaled-lasso coefficient estimate at level `lambda_0` uses the same transformation,
+and its noise estimate is `norm(y - X*beta)/sqrt(n)` when `y != X*beta`. There is no
+separate scaled-lasso solver; the [scaled-lasso tutorial](../examples/problems/scaled_lasso.md)
+shows that computation.
+
+Before copying the iterate or using the RNG, `ArgumentError` refuses a weighted
+`NormL1` even with all weights one, an `ElasticNet`, a `BlockIterate`, or
+`Scaled(SqrtLeastSquaresLoss, alpha)`. For positive finite `alpha`, use the unscaled
+loss with level `lambda/alpha` instead. `lambda = 0` is refused; `LeastSquaresLoss`
+has the same unpenalized minimizers. `ProximalGradientDescent` and
+`AccProxGradDescent` are refused because ProximalBase
+provides no gradient for this loss and, for `X != 0`, it is nondifferentiable at
+`y = X*beta`.
+
+The order, momentum and pass limits are those of scalar CD, with loss scale `s = 1`.
+For `relative = true` and `y != 0`, the threshold is `tol * norm(y)` and a coordinate
+change is scaled by `norm(X[:, k])`; otherwise the threshold is absolute `tol` and
+changes are unscaled. A change-based stop must also pass [the certificate](@ref CDQ-03).
+
+**Applies to.** Unscaled square-root loss, positive unweighted L1 penalty, scalar CD iterates.
+
+**Code.** `src/solve.jl`: square-root preflight; `src/cd/sqrtlasso.jl`: `SqrtLSModel`.
+
+**Tests.** `test/sqrt_lasso.jl`: input refusals, scalar levels of other types, and analytic cases; `test/scaled_lasso.jl`.
+
+**Sources.** `docs/src/numerics.md:L661`, `docs/src/numerics.md:L663`, `docs/src/support.md:L285`, `docs/src/support.md:L287`, `docs/src/support.md:L291`, `docs/src/support.md:L307`, `docstring:src/cd/solver.jl:L138`, `README.md:L65`, `README.md:L96`, `docs/src/support.md:L130`.
+
+## [CDQ-02 Coordinate minimization and range rules](@id CDQ-02)
+
+**Statement.**
 
 With `a = ‖X_k‖²`, `b = X_kᵀr`, the centre `c = old + b/a` and `d` the distance of `r` from the span of
 `X_k`, the objective along coordinate `k` is `√(a (z − c)² + d²) + λ|z|`. Its minimizer is 0 for `λ ≥ √a`
@@ -27,7 +66,20 @@ branches, a residual with an entry that is not finite is refused with an `Argume
 column whose squared norm is 0 but which is not zero and a column whose squared norm is not finite; the
 coordinate and the residual are then unchanged.
 
-### The certificate
+**Applies to.** Each square-root CD coordinate visit, with the supplied level converted to `T`.
+
+**Code.** `src/cd/sqrtlasso.jl`: coordinate step, `_sqrt_threshold64` and its rounding-bound derivation.
+
+**Tests.** `test/sqrt_lasso.jl`: one-column step cases, random steps against the derived bound, nonfinite-residual preflight.
+
+**Sources.** `docs/src/numerics.md:L668`, `docs/src/numerics.md:L670`, `docstring:src/cd/solver.jl:L138`.
+
+## [CDQ-03 Outward-bounded duality certificate](@id CDQ-03)
+
+**Statement.**
+
+`converged = true` is reported only when the certificate proves
+`(P(beta) - P*)/P* <= 1e-4`; `gap` then holds the proved upper bound, rounded up.
 
 At a full pass whose largest change is below the threshold, the residual `r̂ = y − Xβ` is recomputed in
 `Float64` over the nonzero coefficients, with the row magnitudes `|y_i| + Σ_k |X_ik β_k|`. The dual
@@ -52,7 +104,17 @@ The rounding of `r̂` in `Float64` is of the order of `eps(Float64)` times the r
 magnitudes dwarf the residual, for example where the fitted values do, that rounding enters the bound,
 and a point that is optimal can fail to be certified.
 
-### Tightening and the uncertified stop
+**Applies to.** A square-root CD full pass whose largest change is below the effective threshold.
+
+**Code.** `src/cd/sqrtlasso.jl`: `_certify!`, `_stop_check!` and the proof comment for the rounding allowance.
+
+**Tests.** `test/sqrt_lasso.jl`: independent BigFloat certificates, perturbed optima, extreme scales, exact-data special cases and fits dwarfing the residual.
+
+**Sources.** `docs/src/numerics.md:L686`, `docs/src/numerics.md:L688`, `docs/src/numerics.md:L706`, `docs/src/support.md:L307`, `docstring:src/cd/solver.jl:L155`, `docs/src/index.md:L9`, `README.md:L96`.
+
+## [CDQ-04 Tightening, uncertified stops and result flags](@id CDQ-04)
+
+**Statement.**
 
 A check that does not certify divides the threshold by 100 and the run continues, at most twice per solve
 and while `tolerance/100` is finite, positive, below `tolerance` (a threshold that overflowed to `Inf`
@@ -71,80 +133,17 @@ coordinate but not overall; such a run, and one that stops at the minimizer at a
 reported uncertified where the recomputed residual is 0, which is the usual outcome. An uncertified stop at the last allowed
 pass gets the uncertified warning, and `passes == maxpasses` alone does not tell it apart from the limit.
 
-<!-- Migration source: docs/src/support.md:L285-L315 -->
+With `tol = 0`, or a threshold below the changes produced by rounding, the change test
+does not pass, the certificate does not run, and the solve ends at `maxpasses` with
+the pass-limit warning. At a stop of the certificate check, `minimum` is evaluated
+from its recomputed residual when every entry is representable in `T`, as specified
+in [CDQ-03](@ref). The [square-root tutorial](../examples/problems/square_root_lasso.md)
+checks a seeded problem independently and includes two exact-fit examples.
 
-### Square-root lasso with coordinate descent
+**Applies to.** Square-root CD after a full-pass change stop, including exact-fit and zero-response limitations.
 
-~~~math
-\min_\beta\quad P(\beta) = \|y-X\beta\|_2+\lambda\|\beta\|_1
-~~~
+**Code.** `src/cd/sqrtlasso.jl`: `_stop_check!`, `_above_floor`; `src/cd/solver.jl`: warning/result paths.
 
-with ProximalBase's [`SqrtLeastSquaresLoss(y, X)`](https://mlakolar.github.io/ProximalBase.jl/dev/)
-(the loss is unnormalized) and `NormL1(lambda)`. `solve!(x, f, g, CDSolver(...))` accepts this problem
-when `x` is a dense `Vector{T}` or a one-dimensional `SparseIterate{T}`, `X` and `y` are as above, and
-`lambda` is positive, finite and representable in `T`. The normalized objective
-`‖y − Xβ‖₂/√n + λₙ‖β‖₁` (`Scaled(f, inv(sqrt(n)))` in ProximalBase) has the same minimizers as `P` at
-`lambda = sqrt(n) * λₙ`, and its values are those of `P` divided by `√n`. The [scaled lasso](../glossary.md) at
-the level `λ₀` has as its coefficient estimate a minimizer of `P` at `lambda = sqrt(n) * λ₀`, and as its noise
-estimate `norm(y - X*beta)/sqrt(n)` when `y ≠ X*beta`; the package provides no separate scaled-lasso method,
-and [the scaled-lasso tutorial](../examples/problems/scaled_lasso.md) shows the computation.
-Refused with an `ArgumentError`, before `x` is
-copied or the random number generator is used: `Scaled(SqrtLeastSquaresLoss, alpha)` (for a positive
-finite `alpha`, use the unscaled loss at the level `lambda/alpha`), `lambda = 0` (use `LeastSquaresLoss`,
-which has the same minimizers), a weighted `NormL1` (also with all weights equal to one), an `ElasticNet`,
-a `BlockIterate`, and `ProximalGradientDescent` or `AccProxGradDescent` (ProximalBase provides no gradient
-for this loss; for `X ≠ 0` it is not differentiable where `y = X*beta`).
+**Tests.** `test/sqrt_lasso.jl`: "stop check: certified, tightened, uncertified", "overflowed threshold: no retry, in both loops", zero-response, pass-limit and warning cases.
 
-For this loss, `converged = true` means that a duality certificate proved
-`(P(beta) − P*)/P* ≤ 1e-4`, with `P*` the minimum, and `gap` then holds that proved bound. A run that
-stops without a certificate reports `converged = false` and `gap = NaN`, with its own warning: at an exact
-fit (`y = X*beta`) with a positive penalty, coordinate descent can stop at a point that minimizes every
-coordinate but not `P`. [`CDSolver`](@ref) describes the stopping rule, and
-[Numerical behavior](../numerics.md) the step and the certificate.
-[The square-root lasso tutorial](../examples/problems/square_root_lasso.md) solves a seeded problem, checks it
-independently from the data, and shows two exact fits.
-
-<!-- Migration source: src/cd/solver.jl:L138-L178 -->
-
-**Square-root lasso.** With `T` equal to `Float32` or `Float64`, `X::Matrix{T}`, `y::Vector{T}`,
-ProximalBase's `f = SqrtLeastSquaresLoss(y, X)` and `g = NormL1(lambda)`, the call
-`solve!(x, f, g, CDSolver(...))` minimizes `P(beta) = norm(y - X*beta) + lambda * norm(beta, 1)`,
-without a `1/sqrt(n)` factor, for a dense `Vector{T}` or a one-dimensional `SparseIterate{T}` `x`.
-The normalized objective `norm(y - X*beta)/sqrt(n) + lambda_n * norm(beta, 1)` has the same
-minimizers at `lambda = sqrt(n) * lambda_n`, and its values are those of `P` divided by `sqrt(n)`; a
-scaled-lasso noise estimate is then `norm(y - X*beta)/sqrt(n)` at the solution. `lambda` must be
-positive (at `lambda = 0`, use `LeastSquaresLoss`, which has the same minimizers), finite and
-representable in `T`; it may be given in another `Real` type. A weighted `NormL1`, an `ElasticNet`,
-`Scaled(SqrtLeastSquaresLoss, alpha)` (for a positive finite `alpha`, use the unscaled loss at the
-level `lambda/alpha`), a `BlockIterate`, and `ProximalGradientDescent` or `AccProxGradDescent`
-(ProximalBase provides no gradient for this loss; for `X != 0` it is not differentiable where
-`y = X*beta`) are refused with an `ArgumentError` before `x` changes. A visit computes the minimizer
-of `P` over its coordinate, up to rounding: a soft threshold at the least-squares centre with a threshold
-that depends on the residual. The order, momentum, the change threshold and `maxpasses` are as for least
-squares.
-
-A full pass whose largest change is below the threshold runs a duality certificate: a dual point along
-the residual `y - X*beta`, recomputed in `Float64`, with a proved bound on the rounding of each computed
-term. `converged = true` only when it proves `(P(beta) - P*)/P* <= 1e-4`, `P*` the minimum, and `gap`
-then holds that bound, rounded up; its denominator is a lower bound of `P*` from the dual point. When
-the certificate does not pass, the change threshold (the reported `tolerance`) is divided by 100 and the
-run continues, at most twice per solve, where `tolerance/100` is finite, positive and below `tolerance`
-(an effective threshold that overflowed to `Inf` is not lowered), and not below a floor in the units of
-the threshold: with a
-relative threshold (`relative=true` and `y != 0`), `16 eps(T)` times `norm(y)`; with an absolute one
-(`relative=false`, or `y = 0`), `16 eps(T)` times the largest `abs(beta[k])` at the check, and no
-tightening at `beta = 0`. Otherwise the run stops with `converged = false`, `gap = NaN` and a warning that
-differs from the `maxpasses` warning. This happens where the recomputed residual is 0 with a nonzero
-coefficient, so that the dual direction is undefined: the usual outcome at an exact fit (`y = X*beta`)
-with a positive penalty, where a coordinatewise minimum need not be a minimum (the residual can also
-round to 0 where `y - X*beta` is not 0, and an exact fit whose recomputed residual is not 0 can be
-certified, validly); after a full pass that changed nothing; with `y = 0` and a nonzero start, where `P* = 0`, so that no relative bound
-can be certified unless `beta` reaches 0, and coordinate descent can approach 0 without reaching it; and
-when the threshold cannot be lowered further, for example where the rounding of the recomputed residual
-is not small against the residual itself (as where the fitted values dwarf it), or for `Float32` data
-at the default `tol` with a relative threshold, where `tol/100` is below that floor. With `tol = 0`, or
-a threshold below the changes that rounding produces, the change test does not pass, the certificate
-does not run, and the run ends at `maxpasses` with that warning. At a stop of the certificate,
-`minimum` is evaluated from the residual that it recomputed, when every entry of it is representable
-in `T`.
-
+**Sources.** `docs/src/numerics.md:L711`, `docs/src/numerics.md:L713`, `docs/src/support.md:L307`, `docstring:src/cd/solver.jl:L155`.

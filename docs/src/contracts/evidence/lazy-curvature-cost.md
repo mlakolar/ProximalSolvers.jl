@@ -40,4 +40,3 @@ about 5% of the groups were active at the solution (`λ / λmax` about 0.06 to 0
 
 These are measurements on these designs, not general claims: the ratio depends on `n`, the
 group sizes, the layout and `λ`.
-

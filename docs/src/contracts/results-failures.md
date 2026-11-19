@@ -1,34 +1,12 @@
-# [Results, mutation and failures](@id RES-01)
+# Results, mutation and failures
 
-Verbatim migration checkpoint; source provenance is recorded below.
+`converged` reports the implemented criterion for the selected solver. Read its
+meaning together with the [working-precision limits](@ref FP-01), the method's
+contract, and the independently evaluated residual when accuracy matters.
 
-<!-- baseline: docs/src/numerics.md:921-927 -->
+## [RES-01 Convergence, limits and certificates](@id RES-01)
 
-- CD on dense coefficients calculates on private storage, avoiding a
-  partially written dense result if a numerical failure occurs.
-- CD on a `SparseIterate` uses a **private copy** and commits the final
-  set of active coordinates only after finite completion. This means
-  the original coefficient storage is unchanged if the numerical
-  solve fails. A pass can remove zeros from the active list and
-  change the order of stored coordinates. The RNG can still advance.
-
-<!-- baseline: docs/src/numerics.md:1072-1082 -->
-
-- Reaching a pass or iteration limit is not convergence. CD can return
-  a finite nonconverged solution with a warning.
-
-Gap certificates are implemented only for the square-root lasso with CD (below); elsewhere `gap=NaN` is
-a placeholder.
-For more precise treatment of exceptional arithmetic, compaction,
-momentum, callbacks and test provenance, consult the
-[technical contract notes](developer/implementation-notes.md).
-
-Continue with [Results and troubleshooting](working-with-results.md)
-or the [Glossary](glossary.md).
-
-<!-- baseline: docs/src/stopping-limits.md:17-41 -->
-
-## The criterion and a certificate
+**Statement.**
 
 Meeting the implemented stopping criterion is not the same as holding an independently
 certified optimum. The solvers stop on three kinds of evidence:
@@ -37,71 +15,143 @@ certified optimum. The solvers stop on three kinds of evidence:
 | --- | --- | --- | --- | --- |
 | `CDSolver`, least squares with `NormL1` or `ElasticNet` | a full pass whose largest change, scaled when relative scaling is active, is below the threshold | nothing | with `relative = true` and `y ≠ 0`: each scaled change `abs(h_k) √(s a_k)` of one full pass is below `tol √s ‖y‖`, with `a_k = ‖X_k‖²`; with `relative = false`, or `y = 0`: each `abs(h_k)` is below `tol` | a change test, with no independent check |
 | `CDSolver`, group lasso | the same, with the change of a group | nothing | the same per group: the scaled change is `‖h_k‖ √(s ℓ_k)`, with `ℓ_k` the curvature bound of the group, and the unscaled one `‖h_k‖` | a change test, with no independent check |
-| `ProximalGradientDescent`, `AccProxGradDescent` | the `x`, objective or gradient test of an iteration | the stationarity check | a test proposed a stop and the computed `‖G‖∞` is below `max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λ` the ℓ1 level (for `NormL1(λ, w)`, the largest coefficient `maxⱼ cⱼ` with `cⱼ = T(λ) wⱼ`; each entry of `G` is scored with its own `cⱼ`; for `GroupNormL2` with PGD, the group residual and the group scale; see [the stationarity check](@ref "The stationarity check of a stop")) | a residual formed in working precision |
-| `ProximalGradientDescent`, `AccProxGradDescent`, `NormLinf` | the same | the generic check | a test proposed a stop and the proximal-gradient residual is below `max(gradtol, 64 eps(T)) * max(‖∇f(0)‖∞, ‖∇f(x)‖∞)` (see [the generic check](numerics.md#The-generic-stationarity-check)) | a working-precision indication; weaker when the accepted `L` is small |
+| `ProximalGradientDescent`, `AccProxGradDescent` | the `x`, objective or gradient test of an iteration | the stationarity check | a test proposed a stop and the computed `‖G‖∞` is below `max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λ` the ℓ1 level (for `NormL1(λ, w)`, the largest coefficient `maxⱼ cⱼ` with `cⱼ = T(λ) wⱼ`; each entry of `G` is scored with its own `cⱼ`; for `GroupNormL2` with PGD, the group residual and the group scale; see [the stationarity check](@ref STOP-03)) | a residual formed in working precision |
+| `ProximalGradientDescent`, `AccProxGradDescent`, `NormLinf` | the same | the generic check | a test proposed a stop and the proximal-gradient residual is below `max(gradtol, 64 eps(T)) * max(‖∇f(0)‖∞, ‖∇f(x)‖∞)` (see [the generic check](@ref STOP-07)) | a working-precision indication; weaker when the accepted `L` is small |
 | `CDSolver`, square-root lasso, `λ > 0` | a full pass below the threshold | the duality certificate | where the minimum `P*` is positive: a proved `(P − P*)/P* < 1e-4`, with `gap` the bound; for `y = 0` and `x = 0`, where `P* = 0`: exact optimality, with `gap = 0` | a bounded gap |
 
 In the CD rows, `h_k` is the change of coordinate (or group) `k` in the pass and `s` the loss scale.
 In the first two rows the changes are computed from the solver's cached residual, and the flag does not
 say that this cache is close to `y − Xx` at the returned point (see
-[The cached residual](@ref "The cached residual")).
+[The cached residual](@ref CD-05)).
 
 Of the problems audited, only the square-root lasso carries a certificate, and that
-certificate has the assumptions stated in [The certificate](@ref "The certificate") and
-[Tightening and the uncertified stop](@ref "Tightening and the uncertified stop"). For the
+certificate has the assumptions stated in [The certificate](@ref CDQ-03) and
+[Tightening and the uncertified stop](@ref CDQ-04). For the
 other solvers `converged = true` reports that the criterion of its row was met. Check the
-returned point with the [independent KKT residual](sparsity-and-kkt.md) when the result
+returned point with the [independent KKT residual](../sparsity-and-kkt.md) when the result
 matters.
 
-<!-- baseline: src/types.jl:298-347 -->
+Reaching a pass or iteration limit is not convergence. CD can return a finite
+nonconverged solution and logs a warning when `converged = false`; PGD and APG do
+not log a warning merely because `maxiter` was reached. Gap certificates are
+implemented only for square-root-lasso CD. Elsewhere `gap = NaN` means that a gap
+was not calculated, and does not mean the gap is zero. CD's `kkt_checks = 0` is also
+a compatibility placeholder. [CDQ-03](@ref) and [CDQ-04](@ref) specify the certificate
+assumptions, tightening and uncertified stop.
 
-    OptimizationResults
+The criterion table is preserved from the baseline. Its PGD/APG entries describe
+a product-threshold comparison in working precision; [STOP-04](@ref) defines its
+formation and guards. The historical normalized-residual assertion discussed under
+[Unreconciled](@ref RES-UNRECONCILED) must not be inferred from that comparison.
 
-Result from proximal gradient descent, plain or accelerated. `minimizer` aliases the caller's
-coefficient vector; `minimum` is the reported objective at that iterate.
-`iterations` counts steps and `converged` means that **at least one** stopping
-test proposed a stop and that the stationarity check passed (see
-[`ProximalOptions`](@ref)): the computed KKT residual at `minimizer` is below
-`max(gradtol, 64 eps(T)) * max(λ, λmax)` (for `GroupNormL2`, the group residual and scale that
-[`ProximalOptions`](@ref) defines). It is a working-precision value, not an
-exact-arithmetic certificate; it guarantees only that the computed, normalized residual
-`‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the threshold is formed in `T`, see
-[`ProximalOptions`](@ref)), not coefficient accuracy on ill-conditioned designs. For a `NormLinf` penalty the
-generic proximal-gradient check of [`ProximalOptions`](@ref) is used instead. `iteration_converged` reports reaching the iteration limit,
-**not** successful convergence.
+**Applies to.** All solver result types; each row retains its specified loss, penalty and precision scope.
 
-The result also stores stopping flags, residuals and tolerances, optional
-`trace`, call counts and backtracking counts. `x_converged`, `f_converged` and
-`grad_converged` are the flags after the stationarity check, so all three are
-`false` at an iteration where the check refused a proposed stop; the residual
-fields are those of the tests at the last iteration. `grad_calls` of
-`AccProxGradDescent` includes one gradient at `x` for each check. For PGD, `backtrack_steps`
-includes accepted nonzero line-search trials; for APG it counts every trial,
-including the accepted one. `gap=NaN` means a dual
-gap was not calculated, not that the gap is zero.
+**Code.** `src/cd/solver.jl`: completed passes and CD results; `src/solve.jl`: gradient iteration/stationarity decisions; `src/types.jl`: result fields.
 
-`f_increased` is `F > F'` at the last iteration, where `F` is the computed
-objective and `F'` the previous one. It reports the comparison: an increase
-stops the solve only when `allow_f_increases=false`, a setting the result does
-not store. With `ftol = 0` (see [`ProximalOptions`](@ref)), `f_tol` is `0.0` and
-`f_converged` is `false`, because the objective test is off. `f_residual` is
-then reported only and does not decide a stop; it is `|F - F'| / |F|`, with the
-value `0.0` for `F = F' = 0` and `Inf` for `F = 0` and `F' != 0`. With `ftol > 0`
-it is the same quantity, the one that the objective test compares with `ftol`. On an iteration whose iterate equals the
-previous one elementwise, `ftol = 0` sets neither `x_converged` nor
-`grad_converged` (see [`ProximalOptions`](@ref) for the accelerated method's
-case `x == y`).
+**Tests.** `test/core_contracts.jl`, `test/stopping_scale.jl`, `test/group_pgd.jl`, `test/linf.jl`, `test/sqrt_lasso.jl` and the solver-specific stopping tests.
 
-`stagnated` is `true` when `ProximalGradientDescent` on `Vector{Float32}` data with
-`ftol = 0` stopped after an iteration in which both of these held: the accepted iterate
-equals the previous one elementwise, and the last rejection of that iteration's line search
-replaced the line search's curvature estimate `L̂` by the finite computed curvature of the
-rejected step (see [`ProximalOptions`](@ref) for the condition). At such a stop `converged`,
-`x_converged`, `f_converged` and `grad_converged` are `false` and `x_residual` is `0`.
-`stagnated=true` is **not** a certificate of convergence or accuracy: it reports that an
-iteration left the iterate unchanged after the last rejection of its line search was decided
-by that step's computed curvature, and the returned point need not meet any accuracy target.
-`stagnated` is `false` for `AccProxGradDescent`, for `Float64` data and with `ftol > 0`. Each
-stopping flag reports its own condition, so `stagnated` can be `true` together with
-`call_limit_reached`, with `iteration_converged`, or at an iteration at which the callback
-returned `true`.
+**Sources.** `docs/src/numerics.md:L853`, `docs/src/numerics.md:L1072`, `docs/src/numerics.md:L1075`, `docs/src/numerics.md:L1081`, `docs/src/stopping-limits.md:L17`, `docs/src/stopping-limits.md:L19`, `docs/src/stopping-limits.md:L22`, `docs/src/stopping-limits.md:L23`, `docs/src/stopping-limits.md:L24`, `docs/src/stopping-limits.md:L25`, `docs/src/stopping-limits.md:L26`, `docs/src/stopping-limits.md:L27`, `docs/src/stopping-limits.md:L28`, `docs/src/stopping-limits.md:L30`, `docs/src/stopping-limits.md:L35`, `docs/src/support.md:L385`, `docstring:src/types.jl:L298`, `docstring:src/types.jl:L300`.
+
+## [RES-02 Gradient result fields and counters](@id RES-02)
+
+**Statement.**
+
+`OptimizationResults` is the result of plain or accelerated proximal gradient.
+`minimizer` aliases the caller's coefficient vector and `minimum` is the reported
+objective at that iterate. `iterations` counts steps. `iteration_converged` reports
+reaching the iteration limit; it does not report successful convergence.
+
+The result stores stopping flags, residuals and tolerances, an optional `trace`,
+oracle call counts and backtracking counts. `x_converged`, `f_converged` and
+`grad_converged` are the flags after the stationarity check, so all three are false
+when that check vetoed a proposed stop. Residual fields retain the last iteration's
+test residuals. APG's `grad_calls` includes one gradient at the accepted `x` for
+each stationarity check. PGD's `backtrack_steps` includes accepted nonzero
+line-search trials; APG counts every trial, including the accepted one. Detailed
+APG accounting is in [APG-04](@ref).
+
+`f_increased` records `F > F_previous` for the last computed objectives. An increase
+ends the solve only if `allow_f_increases = false`; the result does not store that
+option. `f_residual` is `abs(F-F_previous)/abs(F)`, with `0.0` when both values are
+zero and `Inf` when `F = 0` but the previous value is nonzero. With `ftol > 0`, this
+is the quantity compared with `ftol`. With `ftol = 0`, the objective test is off:
+`f_tol = 0.0`, `f_converged = false`, and `f_residual` is reported without deciding
+a stop. An iteration whose iterate equals the preceding one elementwise sets
+neither `x_converged` nor `grad_converged` under `ftol = 0`; [STOP-10](@ref) also
+specifies the accelerated method's `x == y` case.
+
+`stagnated` reports the specific Float32 PGD exit whose full condition, flags and
+scope are specified in [STOP-11](@ref). Its `x_residual` is zero; it does not certify
+convergence or an accuracy target. Flags report independent conditions, so
+`stagnated` can coincide with `call_limit_reached`, `iteration_converged`, or an
+iteration whose callback returned true. [STOP-09](@ref) specifies simultaneous
+flag combinations.
+
+**Applies to.** `OptimizationResults` from PGD or APG, including nonconverged finite returns.
+
+**Code.** `src/types.jl`: `OptimizationResults`; `src/solve.jl`: stopping/result construction; gradient solver iteration state.
+
+**Tests.** `test/core_contracts.jl`, `test/core_regressions.jl`, `test/accelerated_pgd.jl`, `test/stopping_scale.jl`.
+
+**Sources.** `docstring:src/solvers/proximal_gradient_descent.jl:L334`, `docstring:src/types.jl:L298`, `docstring:src/types.jl:L300`, `docstring:src/types.jl:L313`, `docstring:src/types.jl:L323`, `docstring:src/types.jl:L335`.
+
+## [RES-03 Mutation and numerical failure boundaries](@id RES-03)
+
+**Statement.**
+
+Input validation completes before mutation; the alias rules are in [IN-05](@ref).
+CD computes on private coefficient storage and commits only a finite completed
+run. Dense vectors therefore do not receive a partial numerical result. A caller's
+`SparseIterate` retains its original state on a numerical failure; a successful
+commit can remove active zeros and reorder slots. The RNG can still advance.
+The complete owner transaction is [CDS-03](@ref)/[CDS-04](@ref); group and matrix
+owners use the specialized rules in [CDG-08](@ref) and [CDM-02](@ref).
+
+PGD and APG numerical step exceptions restore the last accepted coefficient point
+and rethrow. They do not provide a general transaction for internal counters or
+buffers. The line-search boundary is [LS-09](@ref) and the accelerated trial/restart
+boundary is [APG-03](@ref). A finite run that reaches a limit may still commit or
+return its point with `converged = false`; this is distinct from a thrown numerical
+error. Results share the mutable coefficient storage; copy it when retaining
+earlier coefficients. Extended traces copy coefficients and gradients.
+
+Continue with [Results and troubleshooting](../working-with-results.md) for reading
+a returned result, or the [Glossary](../glossary.md) for terminology.
+
+**Applies to.** Public solve wrappers; numerical exceptions and completed finite returns.
+
+**Code.** `src/solve.jl`: validation, solve wrappers and restoration; `src/cd/solver.jl`: private run and finite-objective completion.
+
+**Tests.** `test/sparse_cd.jl`, `test/group_cd.jl`, `test/multiresponse_cd.jl`, `test/core_contracts.jl`, `test/core_regressions.jl`.
+
+**Sources.** `docs/src/numerics.md:L921`, `docs/src/numerics.md:L923`, `docs/src/numerics.md:L1072`, `docs/src/numerics.md:L1075`, `docs/src/numerics.md:L1081`, `docs/src/developer/implementation-notes.md:L205`, `docstring:src/solvers/proximal_gradient_descent.jl:L334`.
+
+## [RES-UNRECONCILED Unreconciled: historical normalized-residual guarantee](@id RES-UNRECONCILED)
+
+Owner reconciliation is tracked in [issue #416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416).
+
+**Statement.**
+
+**Historical wording retained for review; not an active guarantee.** The baseline
+`OptimizationResults` docstring said:
+
+> It is a working-precision value, not an exact-arithmetic certificate; it guarantees
+> only that the computed, normalized residual `‖G‖∞ / max(λ, λmax)` is below
+> `max(gradtol, 64 eps(T))` (the threshold is formed in `T`, see `ProximalOptions`),
+> not coefficient accuracy on ill-conditioned designs.
+
+That normalization statement does not in general follow from the implemented
+rounded product-threshold comparison and its underflow/overflow behavior. The
+current arithmetic and guards are specified in [STOP-04](@ref); the related
+baseline claims are collected in [STOP-UNRECONCILED](@ref). This documentation
+migration preserves the contradiction without changing solver behavior. The
+qualification about coefficient accuracy on ill-conditioned designs remains valid
+as a limit; the normalized inequality is not promoted to a guarantee.
+
+**Applies to.** Provenance of the baseline PGD/APG `OptimizationResults` documentation.
+
+**Code.** `src/types.jl`: baseline `OptimizationResults` docstring; `src/solve.jl` and the stationarity helpers implement the product comparison.
+
+**Tests.** No new test or behavior is claimed by this historical note; [STOP-04](@ref) records the implementation and its existing coverage.
+
+**Sources.** `docstring:src/types.jl:L300`.

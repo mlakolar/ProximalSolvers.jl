@@ -21,7 +21,7 @@ first visit would change a coefficient or group by more than `p` times the thres
 unit of the change test, with `p` the number of columns. In exact arithmetic a converged full pass
 does not leave that much: a visit changes its coordinate by at most the KKT residual divided by the curvature, so
 the bounds of
-[What the change test of coordinate descent implies](@ref "What the change test of coordinate descent implies")
+[What the change test of coordinate descent implies](@ref CD-06)
 limit that change to `p − 1` times the threshold for the lasso and the elastic net, and to the number
 of groups times the threshold for the group lasso.
 
@@ -130,4 +130,3 @@ What you can do:
 - Calling `solve!` again from the returned point also computes the cache from the returned
   coefficients. The study did not measure this, and it is not guaranteed to improve the result: it
   still fails on the example above, which returns its start.
-

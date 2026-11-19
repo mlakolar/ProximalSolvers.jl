@@ -1,58 +1,218 @@
-# [Scalar coordinate descent](@id CD-01)
+# Scalar coordinate descent
 
-<!-- Migration source: docs/src/numerics.md:L9-L55 -->
+These clauses cover least-squares lasso, weighted lasso and unweighted elastic net.
+Read the [input rules](@ref IN-01), [working precision](@ref FP-01), and
+[result and failure rules](@ref RES-01) with them. Specialized storage and losses have
+their own clauses: [SparseIterate](@ref CDS-01), [groups](@ref CDG-01),
+[matrix responses](@ref CDM-01), and [square-root lasso](@ref CDQ-01).
 
-- **Coordinate descent (CD):** the change during a full pass has fallen
-  below the effective `tol` (for the square-root lasso, a duality certificate must also pass; see
-  the square-root lasso section below). With `relative=true` this threshold is
-  scaled by a response-dependent quantity, `sqrt(s * sum(abs2, y))`, formed
-  so that the sum of squares and its product with the loss scale `s` may
-  leave the range of the working type; the reported effective
-  tolerance can differ from the value passed to the constructor. When
-  relative scaling is active (`relative=true` and a positive response scale),
-  each coordinate change is also multiplied by `sqrt(s * a)` for the squared
-  norm `a` of its column, formed from the two square roots where the product
-  `s * a` is zero, subnormal or overflowing for a finite `a`; a nonzero change
-  times an infinite scale (a computed scale that overflows the working type) is
-  refused with an `ArgumentError`. The coordinate step forms its threshold
-  `lambda / (s * a)` without the product or its reciprocal where either is
-  outside the normal range (with weights, outside that range `lambda` stands for the coefficient `T(lambda) * w[k]`
-  rounded in `T`; inside it ProximalBase's `prox_block` forms its threshold from `lambda` and `w[k]`), and a column whose squared norm is not finite is
-  refused with an `ArgumentError` that names the curvature. For an `ElasticNet`,
-  in the normal range the step of a visit is ProximalBase's `prox_block`. At a visit to a column
-  with a finite positive `a` where `s * a` or its reciprocal is below `floatmin` of the type that
-  combines `s` with the working type, the step with `lambda2 = 0` is the lasso's, and with
-  `lambda2 > 0` the visit is refused with an `ArgumentError` that names the coordinate, during the
-  pass: the iterate passed to `solve!` is unchanged, and a borrowed RNG may have advanced.
-  A visit to a flat column (all entries 0) sets its coordinate to 0 at the levels that `solve!`
-  accepts (also for a `NormL1` at a zero weight), and a visit to a column that is not flat whose `a` underflows to 0 is refused with an
-  `ArgumentError` about the curvature, as for the lasso. With `maxpasses = 0` no coordinate is visited. With
-  `relative=false`, or with `y = 0`, the coordinate scale is
-  not used. If the computed `sqrt(s) * norm(y)`, after
-  rounding to the working type, is not a normal floating-point number, the
-  solve is refused with an `ArgumentError` before the first pass (rescale, or
-  use `relative=false`, which can still end in the `nonfinite objective`
-  refusal described below); a value within a rounding error of the limits can
-  fall on either side. `y = 0` uses the absolute threshold. `tol` times a
-  normal scale can be subnormal or 0; the test `change < threshold` cannot hold
-  for a threshold of 0, so such a run cannot converge by it and ends at
-  `maxpasses` with a warning, unless an independent numerical failure (for
-  example a non-finite coordinate step) stops it first with an error. Once the
-  active passes since the last full pass have together visited 20 times as many
-  coordinates as a full pass, the next pass is a full pass even when the active
-  changes have not fallen below the threshold. Float32 rounding of the
-  coefficients can also keep the largest change of every full pass at or above
-  the effective threshold (the reported `tolerance`, against which the change is
-  compared after the scaling described above when relative scaling is active);
-  the run then ends at `maxpasses` without converging, with the warning. A
-  threshold well above that rounding level avoids this; Float64 data has a much
-  lower rounding level.
-  For a group lasso on a `BlockIterate`, the change is that of a whole group; see
-  [Group lasso on a BlockIterate](@ref "Group lasso on a BlockIterate").
+## [CD-01 Problem and scalar coordinate update](@id CD-01)
 
-<!-- Migration source: docs/src/stopping-limits.md:L42-L98 -->
+**Statement.**
 
-## What the change test of coordinate descent implies
+For a loss scale `s`, the objective is `(s/2) * sum(abs2, y - X*beta) + g(beta)`.
+`CDSolver` accepts matching `Float32` or `Float64` dense design/response data and
+coefficients in a dense `Vector` or a one-dimensional `SparseIterate`. The penalty is
+`NormL1(lambda)`, `NormL1(lambda, w)` or an unweighted `ElasticNet(lambda1, lambda2)`.
+The weights of `NormL1` are a `Vector{T}` of finite nonnegative entries. Input validation
+checks `T(lambda)` and the rounded coefficient `T(lambda) * w[k]` to be zero or normal
+numbers of `T`; a zero weight leaves its coordinate unpenalized.
+
+For a finite positive column squared norm `a`, the step soft-thresholds the unpenalized
+coordinate minimizer at `lambda / (s * a)` in the lasso case. In the normal step band,
+ProximalBase's `prox_block` forms the threshold from the supplied level and weight in its
+working type, so its threshold need not equal one formed from the already-rounded checked
+coefficient. The [range rule](@ref CD-04) specifies the exceptional band and the
+elastic-net refusal. At every visit a flat column (all entries zero) sets its scalar
+coordinate to zero for these accepted penalties, including a zero level or weight.
+A nonflat column whose squared norm underflows to zero is refused. With `maxpasses = 0`
+no coordinate is visited.
+
+**Applies to.** `CDSolver`; vector response; dense `Vector{T}` or one-dimensional `SparseIterate{T}`; `T` is `Float32` or `Float64`.
+
+**Code.** `src/cd/leastsquares.jl`: `coordinate_step!`, `_sqnorm!`; `src/solve.jl`: input validation.
+
+**Tests.** `test/cd_numerics.jl`, `test/cd_elasticnet.jl` (flat columns and range refusals), `test/weighted_lasso.jl`.
+
+**Sources.** `docs/src/choosing-solver.md:L83`, `docs/src/numerics.md:L9`, `docstring:src/cd/solver.jl:L6`, `README.md:L79`, `docs/src/support.md:L107`.
+
+## [CD-02 Order, active passes and momentum](@id CD-02)
+
+**Statement.**
+
+`CDSolver()` uses `order = :random` and the historical default momentum behavior.
+Random order borrows the supplied RNG, which advances when used; `rng = Xoshiro(seed)`
+makes the random schedule repeatable. `order = :cyclic` supports `momentum = nothing`
+or `false`, and rejects `momentum = true`. The deterministic tutorial configuration is
+`CDSolver(order = :cyclic, momentum = false)`.
+
+A full pass visits all coordinates and admits new active coordinates. Active passes
+refine the active coordinates. Only a full pass whose largest change is strictly below
+the effective tolerance can converge. Once the active passes since the last full pass
+have together visited 20 times as many coordinates as a full pass, the next pass is full,
+even if the active changes are still above the threshold. Random least-squares momentum
+can extrapolate active passes and restart when the active set changes; residual refresh
+is specified in [CD-05](@ref).
+
+Every pass compacts zero coordinates from the private iterate, moving the last active
+coordinate into the slot of a removed coordinate; the resulting order is not sorted.
+Dense and owner solves from the same canonical state run the same arithmetic and RNG
+schedule. A different slot order of the same active set can change the trajectory and
+the final point. [CDS-02](@ref) specifies preservation of a caller's initial owner state.
+
+`anderson = 0`, `gaptol = 0` and `gapsafe = false` are compatibility defaults only:
+these features are not implemented or stored, and nondefault values are refused.
+
+**Applies to.** Scalar least-squares `CDSolver`; square-root lasso uses this schedule with its additional certificate.
+
+**Code.** `src/cd/solver.jl`: `_run_cd!`, `_pass!`; `src/cd/models.jl`: private state and active ordering.
+
+**Tests.** `test/cd_numerics.jl` (forced full passes and cache refresh), `test/sparse_cd.jl` (state/order agreement).
+
+**Sources.** `docs/src/numerics.md:L9`, `docs/src/developer/implementation-notes.md:L260`, `docstring:src/cd/solver.jl:L33`, `docstring:src/cd/solver.jl:L40`, `docstring:src/cd/solver.jl:L69`.
+
+## [CD-03 Change test and its scale](@id CD-03)
+
+**Statement.**
+
+`tol` defaults to `1e-7`. It bounds the largest computed change in a full pass, not an
+independent optimality residual. With `relative = true` and `y != 0`, the effective
+threshold is `tol` times the response scale `sqrt(s * sum(abs2, y))`; the reported
+`tolerance` can therefore differ from the constructor value. The sum of squares and its
+product with `s` need not stay in the range of `T`: wider or exponent-separated
+arithmetic forms the scale where needed. The computed `sqrt(s) * norm(y)`, rounded to
+`T`, must be a normal number; otherwise an `ArgumentError` occurs before the first pass
+and the starting point is unchanged. A value within a rounding error of a range
+boundary can fall on either side. Rescale the data/loss or use `relative = false`;
+an overflowing final objective remains a refusal (`nonfinite objective`) with either setting.
+
+`relative = false`, or `y = 0`, uses the absolute threshold `tol` and no coordinate
+scale. Otherwise a coordinate displacement is multiplied by `sqrt(s * a)`, where `a`
+is its column's squared norm. Where `s * a` is zero, subnormal or overflowing for a
+finite `a`, the two square roots are formed separately and multiplied. The computed
+scale is still zero when the root is at most half the smallest subnormal number, and
+infinite when the rounded scale overflows `T`. A nonzero displacement multiplied by an
+infinite scale raises `ArgumentError` with `a coordinate step or its stopping scale is
+not finite`; the caller's iterate is unchanged.
+
+Multiplying `tol` by a normal response scale can produce a subnormal threshold or zero.
+`change < threshold` cannot hold for a zero threshold, including `tol = 0`: the run
+ends at `maxpasses` with a warning unless another numerical failure raises an error.
+Float32 rounding can keep every full pass's largest scaled change at or above the
+threshold, also ending at `maxpasses`. A tolerance above that rounding level avoids
+this particular stall; Float64 has a much lower rounding level. No bound on the KKT
+residual or distance to a minimizer follows from the convergence flag.
+
+**Applies to.** Scalar least-squares `CDSolver`; the specialized group and square-root clauses define their visit changes.
+
+**Code.** `src/cd/leastsquares.jl`: `response_scale`, `_response_scale_exceptional`; `src/cd/solver.jl`: stopping comparisons.
+
+**Tests.** `test/cd_numerics.jl` (response/coordinate scales, zero response, range boundaries); `test/stopping_scale.jl`.
+
+**Sources.** `docs/src/choosing-solver.md:L51`, `docs/src/choosing-solver.md:L69`, `docs/src/numerics.md:L9`, `docstring:src/cd/solver.jl:L40`, `docstring:src/cd/solver.jl:L69`, `docstring:src/solvers/proximal_gradient_descent.jl:L343`.
+
+## [CD-04 Range-safe scalar step and elastic-net refusal](@id CD-04)
+
+**Statement.**
+
+The coordinate step is the soft threshold of the centre `c = x_k + b / a` at
+`τ = λ / (s * a)`, with `b` the inner product of the residual and the column.
+With `p = s * a` and `γ = inv(p)` in `S`, it is `prox_block(g, c, k, γ)`, the
+step as it was, with the same bits, where `p` and `γ` are both at least
+`floatmin(S)`. Otherwise `_exceptional_step` applies `shrink(c, min(τ,
+floatmax(T)))`, with `τ` formed from `g.λ0` converted to `Float64` and from `s`
+and `a` without `p` or `γ`: for `Float32` in `Float64`, where the product of two
+`Float32` values is exact and the quotient is rounded to `Float64` and then to
+`Float32` (the double rounding keeps it within one `Float32` ulp of the quotient
+where that is below `floatmax`, not always the correctly rounded value), and for
+`Float64` from significands and exponents (`_threshold`), with a relative error
+below `3 * eps(Float64)` where `τ` is normal. For `τ` in
+`[0, floatmax(T)]`, `shrink(c, τ)` is what PB's `NormL1` prox returns at the
+level `τ` and the step 1. The cap at `floatmax(T)` leaves a finite `c` at 0, as
+an infinite `τ` does, and keeps a `c` that is infinite or NaN non-finite, so
+that `_visit!` refuses it; an infinite level in PB's prox would set that entry
+to 0. In exact arithmetic a fixed point of `x = shrink(x + b / a′, λ / (s a′))`
+satisfies `s b ∈ λ ∂|x|` for any positive `a′` used in both places, so a
+curvature that is rounded or subnormal does not move the fixed point (whether
+and how fast the iteration reaches it can change). For `λ > 0` the coefficient `γ` of the previous step was
+0 where `p` overflows (the penalty was ignored) and infinite where `p` is below
+`1 / floatmax(S)` (the threshold was infinite, which sets a finite centre to 0),
+which broke that agreement; for `λ = 0` PB's prox keeps a zero threshold for any
+`γ`. Where `p` or `γ` is below
+`floatmin(S)` the step is the exceptional one, also for cases that were correct
+before (a subnormal `p` with a finite reciprocal), and where `λ > 0` their bits
+can differ from before.
+`_exceptional_step` is written for `S == T`, for a `NormL1` whose weights are absent or a `Vector{T}`, and for an
+unweighted `ElasticNet` (at `λ2 = 0` the step of `NormL1(λ1)`; at `λ2 > 0` it throws an `ArgumentError`, see `CDSolver`). With
+weights the `NormL1` method forms `cₖ = T(λ0) wₖ` in `T`, the coefficient that `solve!` has checked (finite and, where
+`T(λ0)` and `wₖ` are both positive, a normal number of `T`), and calls the unweighted method at the level `cₖ`: `τ` is within
+the bounds above of `cₖ / (s a)`, and within those bounds plus `|cₖ - λ0 wₖ| / (s a)` of `λ0 wₖ / (s a)`
+(`cₖ` is 0 or a normal number of `T`, which `solve!` checks. `|cₖ - λ0 wₖ|` is at most `|T(λ0) - λ0| wₖ`, the conversion of the level (0
+for a level of type `T`), plus the rounding of the product to nearest, at most `(eps(T)/2) cₖ`, also where the exact product is slightly below
+`floatmin(T)` and rounds up to it. For a level converted by round-to-nearest (a `Float16`, `Float32`, `Float64` or `BigFloat`, or an
+integer) `|T(λ0) - λ0| ≤ (eps(T)/2) T(λ0)`; a `Rational` level can have a larger conversion error, because Julia's
+conversion of a `Rational` can round the numerator and the denominator before dividing, so only the actual error bounds it). A zero weight or level gives `τ = 0` and
+`shrink(c, 0) = c`. Inside the band the step is PB's weighted `prox_block`, whose threshold is `γ λ0 wₖ` formed
+in its own working type from `λ0` and `wₖ`, not from the rounded `cₖ` (for a level of type `T` the two are the same product up to rounding;
+for another type they can differ by the conversion error above); the weighted step has no exponent-separated threshold of its own. A column of `X` that
+is zero takes `_coordinate_minimizer`, PB's `prox_block(g, 0, k, floatmax(T))`, which is 0 for a weighted `NormL1`
+also at a zero weight. For a
+finite `a`, an `S` wider than `T` keeps `p` inside the band: `solve!` requires a
+loss scale that is representable in `T`, and `a` is finite in `T`, so
+for `Float32` data with a `Float64` scale `p` is between about `1e-90` and
+`1e77`. A scale of another type, or
+a penalty without a method of `_exceptional_step` (an unweighted `NormL1` or `ElasticNet`, or a `NormL1` with a `Vector{T}` of weights, has one), makes
+the step throw an `ArgumentError`. A column whose `a` is not finite in `T` makes `coordinate_step!`
+throw an `ArgumentError` that names the curvature, before the coordinate, the
+residual or the curvature cache entry of that column changes, and `x` and an
+owner are not changed.
+
+
+**Applies to.** Lasso, weighted lasso and unweighted elastic net on scalar CD iterates.
+
+**Code.** `src/cd/leastsquares.jl`: `_threshold`, `coordinate_step!`, `_sqnorm!`.
+
+**Tests.** `test/cd_numerics.jl` (normal-band equivalence and threshold range); `test/cd_elasticnet.jl` (off-band refusals and rollback); `test/weighted_lasso.jl`.
+
+**Sources.** `docs/src/choosing-solver.md:L83`, `docs/src/numerics.md:L9`, `docs/src/developer/implementation-notes.md:L7`, `docstring:src/cd/solver.jl:L6`, `README.md:L79`, `docs/src/support.md:L107`.
+
+## [CD-05 Cached-residual limitation](@id CD-05)
+
+**Statement.**
+
+The example is one form of a wider limit. For a least-squares loss, CD keeps the residual
+`r = y − Xx` in a cache. `solve!` computes the cache from the start in working precision, and each
+coordinate or group step then subtracts its own change from it. The steps read the cache, and the
+change test reads the steps. In a solve without momentum, which includes every group-lasso solve,
+the cache is not computed again from the coefficients. With momentum (the default for a vector
+iterate with the random order) it is computed again before a full pass when an extrapolation has
+moved it since it was last computed; the first pass of a solve is a full pass, and no such
+computation precedes it.
+
+The intermediate sums of `y − Σ X_k x_k` can be much larger than the residual itself, and their
+rounding can then lose `y`; this happens where column images `X_k x_k` of the start are much larger
+than `y`. In exact arithmetic a step changes the cache and `y − Xx` by the same amount, so an
+error `e` of the cache is not removed by the steps that follow: until the cache is computed again,
+the passes are those of the problem with the response `y + e`, and the change test can be met at a point that is not near a minimizer
+of the problem that was posed. For `CDSolver` with a least-squares loss, `converged = true` reports
+the change test as computed from the cached residual. It is not a certificate of stationarity, and
+it does not say that the cache is close to `y − Xx` at the returned point.
+
+The [cached-residual investigation](evidence/cached-residual-378.md) records the tested
+starts, measured false stops, rejected remedies and practical guidance. Those
+measurements do not give a generally safe warm-start size.
+
+**Applies to.** Least-squares CD with scalar or group penalties; working-precision cached residuals.
+
+**Code.** `src/cd/leastsquares.jl`: `_initialize!`, `coordinate_step!`; `src/cd/solver.jl`: momentum and full-pass refresh.
+
+**Tests.** `test/cd_numerics.jl` (forced full-pass refresh), `test/sparse_cd.jl`; the historical campaign is linked from the evidence page.
+
+**Sources.** `docs/src/stopping-limits.md:L209`, `docs/src/stopping-limits.md:L211`, `docs/src/stopping-limits.md:L220`, `docs/src/developer/implementation-notes.md:L260`.
+
+## [CD-06 Exact-arithmetic interpretation of the change test](@id CD-06)
+
+**Statement.**
 
 Assume exact arithmetic, a full pass without extrapolation, exact minimization at each
 scalar visit, and relative scaling (`relative = true`, `y ≠ 0`), so that the threshold is
@@ -83,35 +243,24 @@ With the absolute threshold (`relative = false`, or `y = 0`) the scale `‖y‖`
 The scalar bounds are not strict: both sides are 0 for `p = 1` and for a flat column. What remains
 unguaranteed, and why the flag is not a KKT certificate:
 
-- the factor `p − 1` or `K`;
-- the unit `s ‖X_k‖ ‖y‖` in place of `λmax` (a factor 5.5 on the equicorrelated design with
-  correlation 0.95 of the audit, and unbounded in the cancellation example below);
-- rounding (see the warm start below);
-- range (see the underflow example below).
+The factors `p - 1` and `K`, the use of the scale `s ‖X_k‖ ‖y‖` instead of `λmax`,
+rounding and range all limit the interpretation. The scale ratio can be unbounded
+under cancellation. [Working-precision limits](@ref FP-01), the
+[warm-start example](@ref CD-07), and the [stopping audit](evidence/stopping-audit-352.md)
+give the corresponding examples and measurements. These bounds are not suboptimality
+guarantees and the repository's benchmark accuracy target is not a convergence contract.
 
-**Measured at the default threshold, with a positive penalty.** The benchmark target of
-the repository, a relative suboptimality of `1e-8` in Float64 and `1e-5` in Float32, is a
-target of the repository's benchmark. It is not part of the documented contract of
-`converged = true`.
+**Applies to.** The assumptions stated above; scalar lasso/elastic net and the stated group-majorization interpretation.
 
-- Scalar CD (lasso and elastic net): all 16,218 converged solves that have a tight reference
-  were within the benchmark target, and the worst was `1.3e-9`. A further 478 converged solves on
-  the rank-deficient design have no tight reference; their suboptimality is between 0 and `1.4e-6`,
-  which does not decide the comparison with `1e-8`.
-- Group CD: 48 of 3,529 converged solves were above the benchmark target. With `relative = true`
-  these are 12 solves, in Float64 only, with the largest excess between `2.8e-7` and `3.7e-7`
-  (a lower and an upper bound; two underdetermined designs at the lowest penalty level). With
-  `relative = false` they are 36 solves, with the largest excess between `4.6e-5` and `4.7e-5`,
-  on the design whose column norms span six decades; its KKT residual was `3.4e-4 λmax` in
-  Float64 and `5.3e-4 λmax` in Float32.
+**Code.** `src/cd/leastsquares.jl`: scalar and group `coordinate_step!`; `src/cd/solver.jl`: full-pass change test.
 
-These group results are inside the contract of `converged = true`: the flag reports the
-change test, and the bounds above are not a bound on the suboptimality. See also
-[The stopping statistic](@ref "The stopping statistic") of the group lasso.
+**Tests.** `test/cd_numerics.jl`, `test/group_cd.jl` (first-pass stopping statistic and independently checked solutions). This is a preserved derivation, not a behavior change.
 
-<!-- Migration source: docs/src/stopping-limits.md:L170-L228 -->
+**Sources.** `docs/src/stopping-limits.md:L42`, `docs/src/stopping-limits.md:L44`, `docs/src/stopping-limits.md:L51`, `docs/src/stopping-limits.md:L56`, `docs/src/stopping-limits.md:L63`, `docs/src/stopping-limits.md:L65`, `docs/src/stopping-limits.md:L70`, `docs/src/stopping-limits.md:L73`, `docs/src/stopping-limits.md:L74`, `docs/src/stopping-limits.md:L76`, `docs/src/stopping-limits.md:L77`.
 
-## A warm start far above the solution scale (coordinate descent)
+## [CD-07 A warm start far above the solution scale](@id CD-07)
+
+**Statement.**
 
 The start of `solve!` can place coefficients far above the scale of the solution. With
 `X = ones(1, 2)`, `y = [1/64]`, `λ = 1/1024` and the start `[2.0^49, -2.0^49]`
@@ -142,187 +291,119 @@ residual is initialized as `y − Σ X_k x_k` in working precision, which loses 
 coefficients `M`; each coordinate step is then smaller than half a unit in the last place of the
 coefficient, so the new value equals the old one; and a full pass with no change satisfies `0 < tol`.
 
-Related degradation appears in the sweep. With `λ = 0` on the rank-deficient design, the exact
-least-squares minimizer has large cancelling coefficients, and the warm starts taken from it give 80
-converged solves per precision at the default threshold, with an exact KKT residual up to `0.063 λmax`
-in Float64 and `0.16 λmax` in Float32; the cold starts on the same problems end at `1.7e-8 λmax` or
-below in Float64 and `5.7e-8 λmax` or below in Float32. The stopping pass changed nothing in 24 of the
-Float32 rows and in none of the Float64 rows; the others stopped on a small nonzero change. The
-empty-pass mechanism is therefore established for the example above, not for all of these rows.
+The [stopping audit](evidence/stopping-audit-352.md) records related rank-deficient
+designs, and [CD-05](@ref) explains the wider cached-residual limitation. Evaluate
+optimality independently from the returned coefficients; the change flag alone does
+not detect this example.
 
-### The cached residual
+**Applies to.** The supplied Float64 and Float32 example; no general safe-start bound is claimed.
 
-The example is one form of a wider limit. For a least-squares loss, CD keeps the residual
-`r = y − Xx` in a cache. `solve!` computes the cache from the start in working precision, and each
-coordinate or group step then subtracts its own change from it. The steps read the cache, and the
-change test reads the steps. In a solve without momentum, which includes every group-lasso solve,
-the cache is not computed again from the coefficients. With momentum (the default for a vector
-iterate with the random order) it is computed again before a full pass when an extrapolation has
-moved it since it was last computed; the first pass of a solve is a full pass, and no such
-computation precedes it.
+**Code.** `src/cd/leastsquares.jl`: residual initialization and coordinate steps; `src/cd/solver.jl`: full-pass stop.
 
-The intermediate sums of `y − Σ X_k x_k` can be much larger than the residual itself, and their
-rounding can then lose `y`; this happens where column images `X_k x_k` of the start are much larger
-than `y`. In exact arithmetic a step changes the cache and `y − Xx` by the same amount, so an
-error `e` of the cache is not removed by the steps that follow: until the cache is computed again,
-the passes are those of the problem with the response `y + e`, and the change test can be met at a point that is not near a minimizer
-of the problem that was posed. For `CDSolver` with a least-squares loss, `converged = true` reports
-the change test as computed from the cached residual. It is not a certificate of stationarity, and
-it does not say that the cache is close to `y − Xx` at the returned point.
+**Tests.** The preserved example above is a documented limitation. Existing numerical fixtures are unchanged.
 
-<!-- Migration source: docs/src/developer/implementation-notes.md:L260-L284 -->
+**Sources.** `docs/src/stopping-limits.md:L170`, `docs/src/stopping-limits.md:L172`, `docs/src/stopping-limits.md:L176`, `docs/src/stopping-limits.md:L194`.
 
-CD runs on a PB SparseIterate that retains stored activation/compaction order: a
-private one for a dense vector, and a private copy of the caller's owner for a
-`SparseIterate`, which starts with that owner's active zeros and slot order and
-which the caller's owner receives, whole, only after a finite completed run. First
-full passes admit coordinates, active passes refine them, and only a full pass
-strictly below the change tolerance converges. Once the active passes since the
-last full pass have together visited 20 times as many coordinates as a full pass,
-the next pass is full. Random LS uses historical momentum/restarts and refreshes
-moved residual caches before full checks, including before such a forced full
-pass; the borrowed RNG advances.
-Cyclic and explicit momentum=false remain supported.
-Zero columns choose the nearest-zero penalty minimizer, including lambda=0.
-Nonzero-column curvature underflow, and a curvature that is not finite, are errors. tol=0 stays strict; maxpasses=0
-returns unconverged with no updates, and an owner then keeps its exact entry state.
-After every pass zero coordinates leave the active set, so an owner that completed
-at least one pass has none and their order follows from compaction, which moves the
-last active coordinate into the place of a removed one. A nonfinite returned
-objective is refused before dense scatter or owner commit; this is not robust
-dynamic-range recovery. A nonconverged finite pass-limit return warns, then commits.
-A numerical error leaves a caller's owner unchanged but may advance the RNG.
-Dense and owner solves from the same canonical state (the owner built from the
-dense vector) run the same arithmetic and RNG schedule. A different slot order of
-the same active set can change the trajectory and the final point, and the change
-stopping rule gives no general bound on the distance to a minimizer or on the KKT
-violation: assess accuracy with an independent objective/KKT check.
 
-<!-- Migration source: docs/src/choosing-solver.md:L51-L97 -->
+## [CD-08 Detailed stopping-scale arithmetic](@id CD-08)
 
-CD forms this scale without the sum of squares `sum(abs2, y)` or its product
-with `s` having to stay in the range of `Float32` or `Float64`: where either
-overflows or underflows it uses wider or exponent-separated arithmetic. There
-are three outcomes. A scale that is a normal floating-point number of the
-working type is used. For `y = 0` the scale is 0 and CD uses the absolute
-threshold. If the computed `sqrt(s) * norm(y)`, after rounding to the working
-type, is not a normal number (above its largest finite value or below its
-smallest normal number), `solve!` throws an `ArgumentError` before the first
-pass and leaves the starting point unchanged. A value within a rounding error
-of those limits can fall on either side. In that case rescale the data or the
-loss, or use `relative=false`; with `relative=false` a problem whose objective
-overflows can still end in the `nonfinite objective` error described in
-[Numerical behavior](../numerics.md). A normal scale can still give a threshold
-`tol * scale` that is subnormal or 0. The change test `change < threshold`
-cannot hold for a threshold of 0, so the solve cannot converge by this test:
-it ends at `maxpasses` with a warning, unless an independent numerical failure
-(for example a non-finite coordinate step) stops it first with an error.
+**Statement.**
 
-When relative scaling is active (`relative=true` and a positive response
-scale), each coordinate change is also multiplied by `sqrt(s * a)`, where `a` is
-the squared norm of the column. With `relative=false`, or with `y = 0`, the
-coordinate scale is not used. Where the product `s * a` is zero, subnormal or
-overflowing for a finite `a` (in the type that combines `s` with the working
-type), CD takes the square roots of `s` and of `a` separately and multiplies
-them, so the scale does not become 0 or infinite because the product left the
-range. The computed scale is still 0 where the root is at most half the
-smallest subnormal number, and infinite where the computed, rounded scale
-overflows the working type; with relative scaling active a nonzero coordinate
-change times an infinite scale makes
-`solve!` throw an `ArgumentError` ("a coordinate step or its stopping scale is
-not finite") and leave the starting point unchanged.
+Let `S` be the stored loss-scale type described in [IN-01](@ref).
+The following branch rules supplement the meaning of the change test in [CD-03](@ref).
 
-The coordinate step soft-thresholds the unpenalized minimizer along the
-coordinate at `lambda / (s * a)` (with weights, `lambda` stands for the coefficient `lambda * w[k]` of the coordinate; where the step forms its
-threshold without the product, it uses `T(lambda) * w[k]` formed in `T`, which is 0 or a normal number on the inputs `solve!` accepts). Where `s * a` and its reciprocal are both at
-least the smallest normal number of the type that combines `s` with the working
-type, it applies the proximal operator with the coefficient `1 / (s * a)`.
-Where one of them is smaller (the product is zero or subnormal, or it is large
-enough that its reciprocal is subnormal or zero), that coefficient can be 0,
-infinite or inexact. With a positive penalty, 0 would ignore the penalty and an
-infinite coefficient would set a finite unpenalized minimizer to 0; a zero
-penalty stays unpenalized for any coefficient. The step then forms the
-threshold without the product and its reciprocal. A threshold above the largest finite number sets a
-finite unpenalized minimizer to 0. A column whose squared norm `a` is not finite
-in the working type makes `solve!` throw an `ArgumentError` that names the
-curvature, with the starting point unchanged.
+The response
+scale `sqrt(s * sum(abs2, y))` is formed in one of three ways, with the sum
+in `T`. Let it be clean if it is finite and at least `4 length(y) floatmin(T)`
+(the bound of `_se_norm_onepass`), `p = s * sum(abs2, y)` in `S` and
+`q = T(p)`. If the sum is clean and `q` is a normal number of `T`, the scale
+is `sqrt(q)`. Else, if `S` is wider than `T`, the sum is clean, `p` is a
+normal number of `S` and `T(sqrt(p))` is a normal number of `T`, the scale is
+`T(sqrt(p))`. Otherwise the scale is `sqrt(s) * norm(y)` carried as exponent
+and significand with the helpers of `src/solvers/image_models.jl` (`_SE`,
+`_root_scale`, `_se_norm`), in `Float64` for `Float32` data and in `T`
+otherwise, rounded once to `T`. The sums of squares of that last form are
+`@simd`, so its value can differ in the last bits between CPUs. For `y = 0`
+that value is 0, which selects the absolute stopping threshold. If the
+rounded value is not a normal number of `T`, `response_scale` throws an
+`ArgumentError` from `_run_cd!`, before momentum or any shuffle, so that `x`,
+an owner and the RNG are unchanged; a value within a rounding error of
+`floatmin(T)` or `floatmax(T)` can fall on either side. `relative=false` is
+the alternative, and it can still end in the nonfinite-objective refusal below.
+The threshold `tol * scale` is formed in `T` and can still be subnormal or 0.
+The test `change < threshold` cannot hold for a threshold of 0, so that run
+cannot converge by it and reaches `maxpasses`, unless an independent
+numerical failure (for example a non-finite coordinate step) stops it first.
 
-<!-- Migration source: src/cd/solver.jl:L6-L31 -->
+`_root_scale`
+rounds the scale once to `Float64` (exact for a `Float32` or `Float64` scale, for a `Bool`
+and for an integer of magnitude at most `2^53`; a larger integer is rounded once) and
+takes its significand and exponent there; a scale outside the range of `Float64` is not
+supported by `_root_scale`.
 
-Coordinate descent for the least-squares lasso and elastic net, and, with ProximalBase's
-`SqrtLeastSquaresLoss`, the square-root lasso (described below). Call
-`solve!(beta, f, g, CDSolver())` with matching `Float32` or `Float64`
-design/response data and coefficients. The coefficient storage can be
-a dense `Vector` or a one-dimensional ProximalBase `SparseIterate`. With the least-squares
-loss, the penalty is `NormL1(lambda)`, `NormL1(lambda, w)` or an unweighted `ElasticNet(lambda1, lambda2)`
-(the square-root lasso, below, takes an unweighted `NormL1` with a positive level). The weights `w`
-of a `NormL1` are a `Vector{T}` (`T` the element type of the data) with finite nonnegative entries (see
-[`solve!`](@ref)): `solve!` checks the coefficient `T(lambda) w[j]` of entry `j`, the product rounded in `T`, to be zero
-or a normal number of `T` (with `T(lambda)` zero or normal as well), and a zero weight leaves it unpenalized. The
-coordinate step in the normal range is ProximalBase's `prox_block`, which forms its threshold from `lambda` and
-`w[j]` in its working type; see [Supported problems](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/#weighted-lasso-support)
-for how that threshold and the checked coefficient can differ.
-For an `ElasticNet` the coordinate step of a visit in the normal range is ProximalBase's
-`prox_block` of the penalty. Let `s` be the loss scale and `a` the squared norm of the
-column, finite and positive. At a visit where `s * a` or its reciprocal is below
-`floatmin` of the type that combines `s` with the working type, the step with
-`lambda2 = 0` is the lasso's range-safe form (the threshold formed without the product
-or its reciprocal), and with `lambda2 > 0` the visit is refused with an `ArgumentError`
-that names the coordinate; for a `NormL1` with weights the step there is the lasso's range-safe form at
-the coefficient `T(lambda) w[k]` of the coordinate. The refusal happens during the pass: the iterate passed to
-`solve!` is unchanged, and a borrowed RNG may have advanced. A visit to a flat column
-(all entries 0) sets its coordinate to 0, at the levels that `solve!` accepts, for each of these
-penalties (also where a weight is zero); a visit to a column that is not flat and whose `a` underflows to 0 is refused
-as for the lasso. With `maxpasses = 0` no coordinate is visited.
-For a group lasso it can be a ProximalBase `BlockIterate`, as described below.
+The coordinate scale, with `a` the squared norm of the column, `p = s * a`
+in `S` and `q = T(p)`, is `sqrt(q)` where `q` is a normal number of `T`;
+otherwise `T(sqrt(p))` where `p` is not below `floatmin(S)` and is finite or `a`
+is infinite; otherwise (`p` zero or subnormal in `S`, or infinite for a finite
+`a`) `T(sqrt(s) * sqrt(S(a)))`, formed in `S` from the two roots, so the
+rounded product `p` does not enter it. That last form is 0 for `a = 0` and 0
+where its value is at most half of `nextfloat(zero(T))`, and its rounding to `T`
+is infinite where the value overflows. For `S == T` the first two forms have the
+same value where `p` is normal. The second form is infinite where `a` is infinite
+and where `S` is wider than `T` and the rounded root of `p` overflows `T`. Where
+`scaled` holds in `_tolerances` (`relative=true` and a positive response scale),
+`_visit!` multiplies a nonzero change by the coordinate scale and refuses an
+infinite product with `ArgumentError("a coordinate step or its stopping scale
+is not finite")`, and `x` and an owner are not changed (the solve works on a
+private copy). With `relative=false` or `y = 0` the coordinate
+scale is not used.
 
-<!-- Migration source: src/cd/solver.jl:L33-L38 -->
+`X`, `y`, the residual, the
+curvature cache and the iterate stay in `T`. A scale of type `T`, a
+`Float32` scale on `Float64` data, or a fixed-width integer or `Bool` scale
+(accepted only where `T` represents it exactly) gives `S = T` and the arithmetic
+of `T` in CD's step and stopping computations; a `Float64` scale on `Float32`
+data gives `S = Float64`. `S` does not describe the reported objective's
+product, which ProximalBase forms (see above). This accepted
+wider-scalar behavior is a narrow compatibility exception, not a generic
+mixed-precision guarantee.
 
-`CDSolver()` uses random coordinate order and the algorithm's default
-momentum behavior, a reasonable exploratory choice. For deterministic
-tutorial examples use `CDSolver(order=:cyclic, momentum=false)`;
-for repeatable random order supply `rng=Xoshiro(seed)` from `Random`.
-The borrowed RNG advances when used. Cyclic order does not support
-`momentum=true`.
+**Applies to.** The scalar least-squares CD model and the shared stopping-scale helpers.
 
-<!-- Migration source: src/cd/solver.jl:L40-L77 -->
+**Code.** `src/cd/leastsquares.jl`: `response_scale`, `_response_scale_exceptional`, coordinate scaling; `src/solvers/image_models.jl`: `_SE`, `_root_scale`, `_se_norm`, `_se_norm_onepass`.
 
-`tol` (default `1e-7`) measures coefficient change, **not** independent
-optimality (the square-root lasso adds a certificate, below). With `relative=true`, the
-stopping threshold is `tol` times the
-response scale `sqrt(s * sum(abs2, y))`, `s` the loss scale; the sum of
-squares and its product with `s` may leave the range of the working type.
-For `y = 0` the threshold is the absolute `tol`. A response scale whose
-computed value, rounded to the working type, is not a normal number is refused
-with an `ArgumentError` before the first pass: rescale the data or use
-`relative=false` (an objective that overflows is still refused). `tol` times a
-normal response scale can be subnormal or 0. The test `change < threshold`
-cannot hold for a threshold of 0, so the run cannot converge by it and ends at
-`maxpasses` with a warning, unless an independent numerical failure (for
-example a non-finite coordinate step) stops it first with an error.
-A column whose squared norm `a` is not finite in the working type is refused with
-an `ArgumentError` before the first change of its coordinate, and the starting
-point is unchanged. Where the product `s * a` or its reciprocal is outside the
-normal range of the type that combines `s` with the working type, the
-coordinate step forms its threshold `lambda / (s * a)` without them.
-`relative=false` makes the threshold an absolute change threshold;
-`maxpasses` limits the run. For least squares (lasso and elastic net) and the group lasso, an end-of-pass
-convergence flag does not guarantee a small KKT residual; for reported fits, check
-optimality independently. What the change test implies, and where it can be met away
-from a minimizer (a product that underflows or cancels, a warm start far above the
-solution scale), is described in the
-[numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/stopping-limits/).
-Anderson acceleration, a user-set gap target and screening
-are not implemented: `anderson`, `gaptol` and `gapsafe` are accepted only
-at their defaults, are not stored, and other values are rejected.
+**Tests.** `test/cd_numerics.jl`: response/coordinate scales over their ranges, native and wider scalar cases, boundary refusals and zero response.
 
-Once the active passes since the last full pass have together visited 20 times
-as many coordinates as a full pass, the next pass is a full pass even when the
-active changes have not fallen below the threshold. Float32 rounding of the
-coefficients can also keep the largest change of every full pass at or above the
-effective threshold (the reported `tolerance`; with `relative=true` and a
-positive response scale, each coordinate change is first multiplied by
-`sqrt(s * a)`, `a` the squared norm of its column); the run then ends at
-`maxpasses` without converging, with the warning. A threshold well above that
-rounding level avoids this; Float64 data has a much lower rounding level.
+**Sources.** `docs/src/choosing-solver.md:L51`, `docs/src/choosing-solver.md:L69`, `docs/src/numerics.md:L9`, `docs/src/developer/implementation-notes.md:L7`.
 
+## [CD-09 Objective from the cached residual](@id CD-09)
+
+**Statement.**
+
+The loss part of the reported objective is
+`ProximalBase.value_from_residual(f, r)` of the cached residual, with the
+original loss `f` passed to `loss_value` from `_run_cd!` (once per solve; `f` is
+not stored in `LSModel`). ProximalBase forms the sum of squares and its product
+with the scale, and recomputes exceptional values under the conditions that its
+guide states ("Least squares at a predictor or residual that the caller holds",
+"Value and rounding"). The
+finished solve is refused with a nonfinite-objective error where the loss plus
+the penalty, in `_run_cd!`, is not finite; the loss itself can be `Inf` near the
+overflow threshold, where the guide does not decide between a finite value and
+`Inf`. Where the value is below `floatmin(T)` the guide's bound for the loss is
+`(n + 8) eps(T) |v|` plus `2 nextfloat(zero(T))` (`v` the exact value at the
+cached residual), so the loss part of the reported minimum can be 0. For an
+integer or `Bool` scale ProximalBase converts the scale to `Float64` and forms
+the product in the promoted type of that scale and `T` before rounding to `T`,
+while CD's step and stopping arithmetic uses `T(s)`. For an integer or `Bool`
+scale the check in `src/solve.jl` makes the two real scales equal; the arithmetic
+precision can differ (Float32 data and the scale `3`: `Float32` in CD, `Float64`
+in the objective's product), and for `Float64` data both are `Float64`.
+
+**Applies to.** Least-squares CD result construction, including accepted integer and Bool loss scales.
+
+**Code.** `src/cd/leastsquares.jl`: `loss_value`; `src/cd/solver.jl`: `_run_cd!`; ProximalBase `value_from_residual`.
+
+**Tests.** `test/cd_numerics.jl`: oracle residual values, reported objective boundaries, underflow and nonfinite-objective refusals.
+
+**Sources.** `docs/src/developer/implementation-notes.md:L7`.

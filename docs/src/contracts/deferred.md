@@ -1,33 +1,45 @@
-# [Deferred and refused features](@id DEF-01)
+# Deferred and refused features
 
-Verbatim migration checkpoint; source provenance is recorded below.
+The current supported combinations are [IN-01](@ref) and the specialized solver
+contracts. A retained constructor keyword is not evidence of implemented support.
 
-<!-- baseline: docs/src/developer/implementation-notes.md:238-256 -->
+## [DEF-01 Unsupported capabilities and compatibility sentinels](@id DEF-01)
 
-## Deferred
+**Statement.**
 
-Sparse designs, sparse vectors and views as iterates, `SparseIterate` for proximal
-gradient descent (plain or accelerated), matrix-shaped owners (other than the `Matrix` coefficient of CD with a matrix response and a row-group `GroupNormL2`, #396), group and symmetric owners, weighted
-`ElasticNet`, `Scaled` penalties, group penalties other than `GroupNormL2` with CD, matrix responses other than least squares with CD and a row-group `GroupNormL2` (a private `BlockIterate` over `vec(B)`, #396), intercepts/offsets, generalized losses/compositions,
-monotone/active-set acceleration and APG diagonal preconditioning, ADMM/Newton,
-primal-dual/SLOPE/graphical models, paths/screening/workspaces/refit, certificates other
-than the duality certificate of square-root lasso CD, and reweighting are deferred. Nondefault
-feature requests are refused. CD kkt_checks=0 is a compatibility sentinel, and gap=NaN is one too,
-except after a certified square-root lasso run of CD, where gap is the certified bound.
+The following remain deferred:
 
-This is a breaking support reduction. Version/registration and any public
-release remain a separate decision; existing releases are untouched. Protected
-archive refs preserve the complete snapshot; legacy/full remains the historical
-working branch. Restore capabilities selectively; do not merge it wholesale.
+- sparse design matrices; sparse vectors and views as coefficient iterates;
+  `SparseIterate` for PGD/APG; other group and symmetric owner types;
+- matrix-shaped coefficient owners except the dense `Matrix` coefficient of
+  least-squares CD with a matrix response and native row-group `GroupNormL2`
+  ([CDM-01](@ref), #396); matrix responses outside that case, which uses a private
+  `BlockIterate` over `vec(B)`;
+- weighted `ElasticNet`, `Scaled` penalties, and CD group penalties other than
+  `GroupNormL2`;
+- intercepts and offsets, generalized losses and compositions;
+- monotone or active-set acceleration, APG diagonal preconditioning, ADMM/Newton,
+  primal-dual methods, SLOPE and graphical models;
+- paths, screening, public workspaces, refitting, reweighting, and certificates
+  other than the square-root-lasso CD duality certificate;
+- generic block, metric, certificate and logging frameworks, and extension
+  promises based on the private model/state hooks.
 
+Nondefault requests for deferred features are refused. Some constructor keywords
+remain accepted only at their compatibility defaults, so historical signatures can
+give informative errors. The solver/options objects do not store those unavailable
+features. CD's `kkt_checks = 0` is a compatibility sentinel. `gap = NaN` is also a
+placeholder unless square-root-lasso CD has certified its result and stores the
+bound; see [RES-01](@ref).
 
----
+This support reduction and the relation to historical branches are recorded in
+[HIST-01](@ref). The private CD model hooks do not establish a public custom-loss or
+workspace API; see [ARCH-03](@ref).
 
-<!-- baseline: docs/src/support.md:385-390 -->
+**Applies to.** Current development-core constructors, options and public solve dispatch.
 
-Some rejected keywords remain accepted by *constructors*, at their default
-values only, to provide informative errors and compatibility with historical
-signatures; the solvers and options do not store them.
-Do not interpret their presence as available functionality.
-CD's `kkt_checks=0` is a placeholder, and so is `gap=NaN`, except that a
-certified square-root lasso run of `CDSolver` reports its certified bound in `gap`.
+**Code.** `src/types.jl`: constructor validation; `src/solve.jl`: supported dispatch and input gates; `src/cd/models.jl`: private seams.
+
+**Tests.** `test/core_contracts.jl`, `test/naming.jl` and solver-specific unsupported-input tests.
+
+**Sources.** `docs/src/support.md:L385`, `docs/src/developer/implementation-notes.md:L238`, `docs/src/developer/implementation-notes.md:L240`, `docs/src/developer/implementation-notes.md:L434`, `docs/src/index.md:L9`, `README.md:L96`.
