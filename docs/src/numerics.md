@@ -715,17 +715,66 @@ and while `tolerance/100` is finite, positive, below `tolerance` (a threshold th
 is not lowered) and at least a floor in the units of the threshold: `16 eps(T)
 norm(y)` for a relative threshold (`relative=true` and `y ≠ 0`, where a change is scaled by
 `norm(X[:, k])`), and `16 eps(T)` times the largest `|β_k|` at the check for an absolute one
-(`relative=false`, or `y = 0`), with no tightening at `β = 0`. The run stops with `converged = false`,
-`gap = NaN` and the warning `coordinate descent stopped without a duality certificate` when the
-certificate is not defined (above), when the full pass changed nothing, or when no tightening is left.
+(`relative=false`, or `y = 0`), with no tightening at `β = 0`. The solve stops without a certificate (an
+uncertified stop) when the certificate is not defined (above), when the full pass changed nothing, or
+when no tightening is left, and the fallback below runs. A run that ends without a certificate reports
+`converged = false`, `gap = NaN` and the warning `coordinate descent stopped without a duality
+certificate`.
 With `relative=true`, `y ≠ 0` and the default `tol = 1e-7`, `Float32` data get no tightening, because
 `1e-9` is below `16 eps(Float32)`; with `y = 0` the threshold and its floor are absolute, and a tightening
 can occur. With `y = 0` and a nonzero start, `P* = 0`, so no relative bound can be certified unless `β`
-reaches 0; coordinate descent can approach 0 without reaching it and then stops uncertified. At an exact
+reaches 0; coordinate descent can approach 0 without reaching it and then stops uncertified. The fallback
+can then reach 0, which is certified with `gap = 0`; it need not reach it. At an exact
 fit with a positive penalty, coordinate descent can stop at a point that minimizes `P` along every
-coordinate but not overall; such a run, and one that stops at the minimizer at an exact fit, are
-reported uncertified where the recomputed residual is 0, which is the usual outcome. An uncertified stop at the last allowed
-pass gets the uncertified warning, and `passes == maxpasses` alone does not tell it apart from the limit.
+coordinate but not overall; such a stop, and one at the minimizer at an exact fit, are uncertified where
+the recomputed residual is 0, which is the usual outcome. An uncertified stop at the last allowed pass
+(where the fallback has no budget) and a fallback that reaches `maxpasses` get the uncertified warning,
+and `passes == maxpasses` alone does not tell them apart from the limit.
+
+### The fallback after an uncertified stop
+
+After an uncertified stop (a run that reaches `maxpasses` makes no such stop), the run continues with a
+smoothing continuation from the stopped point `x₀`, within one budget of
+`B = min(maxpasses − passes, max(2000, 20 passes))` further passes, `passes` those of the stop, shared by
+all stages. Nothing runs where `B = 0`, or where the certificate's upper bound `P_up(x₀)` of the
+objective is not finite in `T` (for example where it overflows `Float64`).
+
+- **Stages.** Stages 1 to 8 run coordinate descent with the solver's order, momentum, `rng`, `tol` and
+  `relative`, with the coordinate step of `‖y − Xβ‖` replaced by that of `√(‖y − Xβ‖² + δ²)`, the step of
+  the problem with one appended row (response `δ`, design entry 0). A stage ends at its first full pass
+  that passes the change test, without a certificate, or at the end of the budget. Stage 9 is the
+  unsmoothed solve with its stop check and tightenings. `δ` starts at `P_up(x₀)` and is then the smaller
+  of `δ/5` and the least finite `P_up` found so far, each rounded to `T`.
+- **Bounds.** After each stage the certificate is formed at the stage's point `β`. It gives bounds
+  `P_lo(β) ≤ P(β) ≤ P_up(β)` of the original objective, also where the recomputed residual is 0, and,
+  where it is formed and positive, its dual lower bound of `P*`. `D` is the largest dual lower bound
+  found so far, at the stop or at a stage.
+- **Return rule.** With `ratio(P, D) = (P − D)/D`, rounded up (infinite before a positive `D`), the
+  first rule that holds ends the run: `x₀` is returned certified if `ratio(P_up(x₀), D) ≤ prevfloat(1e-4)`;
+  `β` is returned certified if `ratio(P_up(β), D) ≤ prevfloat(1e-4)` and `P_up(β) < P_lo(x₀)`; after
+  stage 9 or at the end of the budget, `β` is returned uncertified if `P_up(β) < P_lo(x₀)`, and `x₀`
+  otherwise. At `y = 0` the certificate gives `P_up = 0` at `β = 0`, where `P = P* = 0`; this counts as
+  ratio 0, so that point is returned certified with `gap = 0` where `P_lo(x₀) > 0`.
+- **What is proved.** A returned point other than `x₀` has a lower objective than `x₀`, by
+  `P(β) ≤ P_up(β) < P_lo(x₀) ≤ P(x₀)`. A certified result has `gap` at least `(P − P*)/P*` at the
+  returned point (other than at `P = P* = 0`), because `D ≤ P*`. The smoothed stages only propose points:
+  certification and the decrease test use the bounds of the original objective. For the point of stage 9,
+  `(P_up − D)/D` is at least that point's own certificate ratio where `D` is its own dual bound, so a point
+  whose own certificate passes by a margin of the order of `(P_up − P_lo)/D` can be returned uncertified.
+- **Result.** `passes` includes the passes of the fallback and is at most `maxpasses`. `maxchange` and
+  `tolerance` are those of the stop when `x₀` is returned and those of the last stage otherwise, and
+  `minimum` is evaluated from the residual that the certificate recomputed at the returned point (when
+  it is representable in `T`). The RNG advances further.
+
+**The fallback does not guarantee recovery at exact fits.** It can end uncertified, at the stopped point
+or at a point with a proved lower objective that is not optimal, so `converged = false` can still mean a
+nonoptimal exact fit; check such a point by other means. In the
+[evaluation of #155](https://github.com/mlakolar/ProximalSolvers.jl/issues/155#issuecomment-6995966493)
+(synthetic problems, `Float32` and `Float64`), it certified 82% of the runs on noiseless, near-exact and
+adversarial exact-fit starts and 39 of 43 stops at a near-optimal point, but 22 of 160 runs on realistic
+designs at a quarter of the theoretical level, none of 20 on equicorrelated designs (correlation 0.7),
+and none of 16 at `1e-3 λmax` in noiseless problems with `p > n`, where every run used its budget in the
+first stage. The budget was used up in 38% of the runs that reached the fallback.
 
 ## Working precision: Float32 and Float64
 

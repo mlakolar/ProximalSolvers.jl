@@ -9,7 +9,7 @@
 # `Scaled(LeastSquaresLoss)`. A level `λₙ` of the order `sqrt(2 log(2p/δ)/n)` can be chosen without
 # knowing the noise level σ, which is the usual reason to use this loss. This page solves one seeded
 # problem with coordinate descent, checks the answer from `X`, `y`, `λ` and `β` alone, repeats the solve in
-# `Float32` on a `SparseIterate`, and then shows a limitation at exact fits. See
+# `Float32` on a `SparseIterate`, and then shows exact fits, where a run can end without a certificate. See
 # [Supported problems](../../support.md) for the accepted inputs.
 using LinearAlgebra, Random, ProximalBase, ProximalSolvers
 
@@ -101,39 +101,35 @@ println("active coordinates: ", collect(activecoordinates(x32)))
 #
 # For `X ≠ 0`, the loss `‖y - Xβ‖` is not differentiable at a point with `y = Xβ` (an exact fit), where the
 # residual is zero. The solver forms its certificate from the residual recomputed in `Float64` and the
-# direction `r/‖r‖` of that residual (the dual point above). At the two points below that residual is 0,
-# so the direction cannot be formed. Two things can happen at an exact fit. Coordinate descent can stop at
-# a point that minimizes `P` along every coordinate but not overall. And a point that is optimal can remain
-# uncertified. In the two cases below the run reports `converged = false` and `gap = NaN`, which means that
-# no certificate was proved; by itself it does not say whether the point is wrong. A point reported this way
-# should be checked by other means. The two cases are small; the rest of this page does not depend on
-# them, and each solve logs a warning about the missing certificate. Related issues:
+# direction `r/‖r‖` of that residual (the dual point above); where that residual is 0, the direction cannot
+# be formed. Two things can happen at an exact fit. Coordinate descent can stop at a point that minimizes
+# `P` along every coordinate but not overall. And a point that is optimal can remain uncertified. After a
+# stop without a certificate, the solver runs a fallback within the pass budget (described in
+# [`CDSolver`](@ref)): coordinate descent on smoothed versions of `P`, with the certificate's bounds
+# computed at the points it reaches. It returns a changed point only when these bounds prove that its
+# objective is lower than that of the stopped point. Related issues:
 # [#155](https://github.com/mlakolar/ProximalSolvers.jl/issues/155),
 # [#156](https://github.com/mlakolar/ProximalSolvers.jl/issues/156).
 #
-# In the first case, `y = Xβ₀` with `β₀ = (1, -1)` and `λ = 0.1`, started at `β₀`: the solver stays at `β₀`
-# and reports no certificate, although `P(β₀) = λ‖β₀‖₁ = 0.2` is larger than `P(0) = ‖y‖ = 0.01`. The
-# point is not a minimizer, and the comparison with `P(0)` shows it without a certificate. Started from `0`,
-# the same problem is certified at `β = 0`.
+# In the first case, `y = Xβ₀` with `β₀ = (1, -1)` and `λ = 0.1`, started at `β₀`: no single coordinate
+# improves `P(β₀) = λ‖β₀‖₁ = 0.2`, while `P(0) = ‖y‖ = 0.01`. Coordinate descent stops at `β₀` without a
+# certificate after one pass, and the fallback reaches `β = 0`, which is certified.
 X1 = [1.0 1.0; 0.0 0.01]
 y1 = X1 * [1.0, -1.0]
 λ1 = 0.1
 β1 = [1.0, -1.0]
 r1 = solve!(β1, SqrtLeastSquaresLoss(y1, X1), NormL1(λ1), CDSolver(order = :cyclic, momentum = false))
 println("start at the exact fit: β = ", β1, ", converged = ", r1.converged, ", gap = ", r1.gap,
-        ", P(β) = ", objective(X1, y1, λ1, β1), ", P(0) = ", objective(X1, y1, λ1, zeros(2)))
-@assert !r1.converged && isnan(r1.gap)
-@assert objective(X1, y1, λ1, β1) > objective(X1, y1, λ1, zeros(2))
-β1_zero = zeros(2)
-r1_zero = solve!(β1_zero, SqrtLeastSquaresLoss(y1, X1), NormL1(λ1), CDSolver(order = :cyclic, momentum = false))
-println("start at 0: β = ", β1_zero, ", converged = ", r1_zero.converged)
-@assert r1_zero.converged && iszero(β1_zero)
+        ", passes = ", r1.passes, ", P(β) = ", objective(X1, y1, λ1, β1))
+@assert r1.converged && 0 <= r1.gap <= 1e-4 && iszero(β1)
+@assert objective(X1, y1, λ1, β1) < objective(X1, y1, λ1, [1.0, -1.0])
 
-# In the second case, `X = [1 2; 0 1]`, `y = (1, 0)`, `λ = 0.1`, started at 0: the solver reaches
-# `β = (1, 0)`, which fits `y` exactly, and reports no certificate. This point is optimal. The dual point
-# `θ = (0.1, -0.1)` has `‖θ‖ ≈ 0.1414 ≤ 1` and `Xᵀθ = (0.1, 0.1)`, so `‖Xᵀθ‖∞ = 0.1 ≤ λ`, and
+# In the second case, `X = [1 2; 0 1]`, `y = (1, 0)`, `λ = 0.1`, started at 0: coordinate descent reaches
+# `β = (1, 0)`, which fits `y` exactly, and stops there without a certificate. This point is optimal. The
+# dual point `θ = (0.1, -0.1)` has `‖θ‖ ≈ 0.1414 ≤ 1` and `Xᵀθ = (0.1, 0.1)`, so `‖Xᵀθ‖∞ = 0.1 ≤ λ`, and
 # `θᵀy = 0.1 = P(β)`; by the weak-duality bound above, `P* ≥ 0.1 = P(β)`. A certificate of the
-# residual-direction form cannot be formed because `r = y - Xβ = 0`.
+# residual-direction form cannot be formed at this point, because `r = y - Xβ = 0`. The fallback returns
+# the point, certified with a dual lower bound from a point that it visits, where the residual is not 0.
 X2 = [1.0 2.0; 0.0 1.0]
 y2 = [1.0, 0.0]
 λ2 = 0.1
@@ -142,9 +138,27 @@ r2 = solve!(β2, SqrtLeastSquaresLoss(y2, X2), NormL1(λ2), CDSolver(order = :cy
 θ2 = [0.1, -0.1]
 println("exact-fit optimum: β = ", β2, ", converged = ", r2.converged, ", gap = ", r2.gap,
         ", P(β) = ", objective(X2, y2, λ2, β2), ", θᵀy = ", dot(θ2, y2))
-@assert !r2.converged && isnan(r2.gap)
+@assert r2.converged && 0 <= r2.gap <= 1e-4
 @assert norm(θ2) <= 1 + 1e-12 && maximum(abs, X2' * θ2) <= λ2 * (1 + 1e-12)
 @assert isapprox(objective(X2, y2, λ2, β2), dot(θ2, y2); rtol = 1e-12)
+
+# The fallback does not guarantee recovery at exact fits: it can end without a certificate, at the stopped
+# point or at a point with a proved lower objective that is not optimal. The problem below has no noise and
+# more features than observations (`n = 40`, `p = 120`, `y = Xβ` with five nonzero coefficients), at a
+# level of `1e-3 λmax`, solved from 0. Coordinate descent stops without a certificate, the fallback runs
+# within its budget of `max(2000, 20 * passes)` further passes (`passes` those of the stop, a budget below
+# the default `maxpasses` here) and ends without one, and the run reports `converged = false` and
+# `gap = NaN`, with a warning. Such a point should be checked by other means.
+rng3 = Xoshiro(155)
+n3, p3 = 40, 120
+X3 = randn(rng3, n3, p3)
+y3 = X3 * [[2.0, -1.5, 1.0, -1.0, 0.75]; zeros(p3 - 5)]
+λ3 = 1e-3 * maximum(abs, X3' * y3) / norm(y3)
+β3 = zeros(p3)
+r3 = solve!(β3, SqrtLeastSquaresLoss(y3, X3), NormL1(λ3), CDSolver(order = :cyclic, momentum = false))
+println("noiseless, p > n, small level: converged = ", r3.converged, ", gap = ", r3.gap,
+        ", passes = ", r3.passes, ", P(β) = ", objective(X3, y3, λ3, β3))
+@assert !r3.converged && isnan(r3.gap)
 
 # ## Not supported
 #

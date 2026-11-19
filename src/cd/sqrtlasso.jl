@@ -12,7 +12,11 @@
 # of the solve. `gap` and `uncertified` record the outcome of the stop check for the result (the
 # certified bound, or NaN; whether the run stopped without a certificate). `res64` and `rowmag64` are
 # Float64 vectors of length n (allocated by `_prepare!`): the certificate's residual and row
-# magnitudes; `res64` is also the scaled residual of `_sqrt_offrange_step`.
+# magnitudes; `res64` is also the scaled residual of `_sqrt_offrange_step`. `δ64` is the smoothing level δ
+# of the coordinate step (a value of T, stored in Float64) and `δ2` = δ² rounded in T; both are 0 outside
+# the smoothing stages of `_fallback!`. `pup64`, `plo64` and `dlo64` are bounds from the last `_certify!`:
+# P_up ≥ P(β) ≥ P_lo at its point, and the dual lower bound D_lo ≤ P* (NaN where it was not formed or is
+# not positive).
 mutable struct SqrtLSModel{T<:Union{Float32, Float64}, M<:LSModel{T, T}} <: CDModel{T}
   ls::M
   gt::NormL1{T, Nothing}
@@ -24,11 +28,17 @@ mutable struct SqrtLSModel{T<:Union{Float32, Float64}, M<:LSModel{T, T}} <: CDMo
   uncertified::Bool
   res64::Vector{Float64}
   rowmag64::Vector{Float64}
+  δ2::T
+  δ64::Float64
+  pup64::Float64
+  plo64::Float64
+  dlo64::Float64
 end
 function cdmodel(f::SqrtLeastSquaresLoss{T, <:Vector{T}, <:Matrix{T}}, x::SparseIterate{T}) where {T<:Union{Float32, Float64}}
   d = leastsquares_data(f)
   ls = LSModel(d.Y, d.X, d.α)
-  SqrtLSModel{T, typeof(ls)}(ls, NormL1(zero(T)), NaN, NaN, NaN, 0, T(NaN), false, Float64[], Float64[])
+  SqrtLSModel{T, typeof(ls)}(ls, NormL1(zero(T)), NaN, NaN, NaN, 0, T(NaN), false, Float64[], Float64[],
+                          zero(T), 0.0, NaN, NaN, NaN)
 end
 
 # The LS methods with the loss scale 1, forwarded: the `CDModel` defaults (unit coordinate scale, zero
@@ -142,6 +152,16 @@ end
 # the centre c = old + b/a and d = ‖r − (b/a) X_k‖ (the distance of r from the span of X_k),
 # ‖r_k − X_k z‖² = a (z − c)² + d², so the minimizer is 0 for λ ≥ √a and shrink(c, τ) with
 # τ = λ d/√(a (a − λ²)) for λ < √a. The level λ is T(λ0), from `gt`, in the comparison and in the prox.
+# With a smoothing level δ = `δ64` > 0 (the stages of `_fallback!`), the step minimizes
+# φ_δ(z) = √(‖r_k − X_k z‖² + δ²) + λ|z| instead: the coordinate objective of the same problem with one
+# appended row (response δ, design entry 0), whose residual is (r, δ). Its a and b are those above, and
+# ‖r‖² and d² gain δ², so the formulas, and the rounding analysis of `step_bound` in test/sqrt_lasso.jl
+# with n + 1 rows and the residual (r, δ), apply: δ is a value of T, and its square rounded in T (`δ2`)
+# is the rounding of the square of the appended entry. Certification and the decrease test of
+# `_fallback!` use only the bounds of `_certify!`, which are of the original objective, so the validity
+# of a result does not depend on the accuracy of the smoothed step. At δ = 0 the computed step is, bit
+# for bit, the one without the δ terms: each added term is +0.0 on a nonnegative sum, max(M, 0.0) = M for
+# M > 0, and the `hypot` is skipped.
 # Refused, before the coordinate or the residual changes and before any other branch: a residual with an
 # entry that is not finite (a computed ρ² that is not finite is checked entry by entry, because the
 # squares of a finite residual can overflow), then, in the order of the LS step, a curvature that is 0 for
@@ -174,10 +194,15 @@ end
 # pass `_clean_sum` (a subnormal curvature, whose squares can underflow, a tiny residual, r = 0
 # included, or one whose squares overflow), and a recomputed d² that does not, take
 # `_sqrt_offrange_step`. So the d² of the fast path passes `_clean_sum` or is at least ρ²/16 with ρ²
-# passing it: it is positive, and it is not a value that underflowed to 0.
+# passing it: it is positive, and it is not a value that underflowed to 0. With smoothing, ρ² and the
+# recomputed d² include `δ2` before these tests: a `δ2` that overflowed to Inf in T sends the step to
+# `_sqrt_offrange_step` (which uses δ in Float64). An exact δ² below floatmin(T) is at most eps(T)/n
+# relative to a sum that passes `_clean_sum`, so the fast path then loses the smoothing up to that
+# amount, and the rounding of δ² there (at most nextfloat(zero(T))/2) is that of an underflowing square.
 @inline function _sqrt_minimizer(m::SqrtLSModel{T}, old::T, a::T, b::T, ρ2::T, k::Int) where T
   ls = m.ls
   n = length(ls.r)
+  ρ2 += m.δ2
   (_clean_sum(a, n) & _clean_sum(ρ2, n)) || return _sqrt_offrange_step(m, old, k)
   λ = m.gt.λ0
   ra = sqrt(a)
@@ -186,7 +211,7 @@ end
   c = old + q
   d2 = ρ2 - b*q
   if d2 < ρ2/16
-    d2 = _distance_sqr(ls.X, ls.r, k, q)
+    d2 = _distance_sqr(ls.X, ls.r, k, q) + m.δ2
     _clean_sum(d2, n) || return _sqrt_offrange_step(m, old, k)
   end
   d = sqrt(d2)
@@ -237,7 +262,9 @@ end
 # at the scales of the column and the residual, not relative to b or d. They are far below the terms
 # u max(‖ρ‖, ‖r‖) of the objective-error bound of the step (the comment of `step_bound` in
 # test/sqrt_lasso.jl), which covers them; for example a d computed as 0 moves the coordinate objective
-# by at most 2d.
+# by at most 2d. With smoothing (δ = `δ64` > 0) the residual is (r, δ), of n + 1 entries: M is replaced by
+# max(M, δ), so r = 0 gives b = 0 and d = δ (no return of old), δ̃ = δ 2^-er enters ‖s‖², and the
+# recomputed d̃ is `hypot` of the norm of the difference and δ̃.
 @noinline function _sqrt_offrange_step(m::SqrtLSModel{T}, old::T, k::Int) where T
   ls = m.ls
   X, r, s = ls.X, ls.r, m.res64
@@ -256,8 +283,9 @@ end
   ras = sqrt(as)
   λs = ldexp(Float64(m.gt.λ0), -ex)
   λs >= ras && return zero(T)
-  iszero(M) && return old
-  er = exponent(M)
+  δ = m.δ64
+  iszero(M) && iszero(δ) && return old
+  er = exponent(max(M, δ))
   bs, ss = 0.0, 0.0
   @inbounds for i in 1:n
     v = ldexp(Float64(r[i]), -er)
@@ -265,6 +293,8 @@ end
     bs += v*ldexp(Float64(X[i, k]), -ex)
     ss += v*v
   end
+  δs = ldexp(δ, -er)
+  ss += δs*δs
   qs = bs/as
   ds2 = ss - bs*qs
   if ds2 < ss/16
@@ -272,6 +302,7 @@ end
       s[i] -= qs*ldexp(Float64(X[i, k]), -ex)
     end
     ds, ed = _scaled_norm(s, n)
+    iszero(δ) || ((ds, ed) = (hypot(ldexp(ds, ed), δs), 0))
   else
     ds, ed = sqrt(ds2), 0
   end
@@ -285,7 +316,9 @@ end
   nothing
 end
 
-# The stop check at a converged full pass (see `_stop_check!` in models.jl), in this order:
+# The stop check at a converged full pass (see `_stop_check!` in models.jl). In a smoothing stage of
+# `_fallback!` (`δ64` > 0) it returns `:converged` at once: the stage ends at its first converged full
+# pass, without a certificate (`_fallback!` evaluates the point). Otherwise, in this order:
 # 1. the certificate `_certify!` runs (also where the pass changed nothing, so that y = 0 and λ0 ≥ λmax
 #    from 0 can be certified at the first pass); certified: `m.gap` holds the certified bound rounded up
 #    to T, and the run stops with `converged = true`;
@@ -300,6 +333,7 @@ end
 # false, or y = 0, the changes |h| themselves) it is 16 eps(T) max_k |β_k| at the check, a roundoff scale
 # of the largest coefficient, and there is no tightening where every β_k is 0.
 function _stop_check!(m::SqrtLSModel{T}, g, x::SparseIterate{T}, st, maxh, scaled::Bool) where T
+  m.δ64 > 0 && return :converged
   code, ratio = _certify!(m, x)
   if code === :certified
     m.gap = T(ratio, RoundUp)
@@ -346,7 +380,8 @@ const _CERT_TARGET = prevfloat(1e-4)
 # sum of squares is outside the range of the proof, the level has no brackets, or an aggregate is not
 # finite (tested explicitly, not through a comparison with NaN). A true exact fit whose computed r̂ is
 # not 0 goes through the bound like any other point, and a certificate there is valid. It also refreshes the residual cache `ls.r` with T.(r̂) where every r̂_i is finite and
-# at most floatmax(T) in magnitude; x is not changed.
+# at most floatmax(T) in magnitude, and it stores the bounds of step 7 in `pup64`, `plo64` and `dlo64`;
+# x is not changed.
 #
 # Problem. P(β) = ‖y − Xβ‖₂ + λ0 ‖β‖₁ for the stored β (exact values of T) and the level λ0 = g.λ0 that
 # the objective `g(work)` evaluates, P* = min P. Dual: maximize θᵀy subject to ‖θ‖₂ ≤ 1 and
@@ -430,6 +465,19 @@ const _CERT_TARGET = prevfloat(1e-4)
 # 1e-4). Then P* ≥ θᵀy ≥ D_lo > 0 and P(β) − P* ≤ P(β) − θᵀy ≤ gap_hi, so
 # (P(β) − P*)/P* ≤ gap_hi/D_lo ≤ ratio < 1e-4. The denominator is a dual lower bound, not P(β).
 #
+# Step 7, stored bounds (for `_fallback!`), formed before the tests of r̂ = 0 and of the range of ŝ_r.
+# Without a range condition, the steps of step 2 for ‖μ̂‖₂ give N² ≤ ŝ_r (1 + ψ) + n η, so with
+# ‖r‖ ≤ N + ‖e‖, ‖e‖ ≤ E_up (step 1) and λ0 ‖β‖₁ ≤ S₁ (step 5),
+#   P(β) ≤ P_up = up(up(up(√up(up(ŝ_r (1 + ψ)) + n η)) + E_up) + up(hi Σ_up))   (`pup64`).
+# With N_lo′ = N_lo where ŝ_r ≥ n 2^-969 (by step 2 a lower bound of N where ŝ_r is also finite) and
+# N_lo′ = 0 otherwise, and λ0 ‖β‖₁ ≥ lo Σ_lo as in step 6,
+#   P(β) ≥ max(0, N − ‖e‖) + λ0 ‖β‖₁ ≥ P_lo′ = dn(max(0, dn(N_lo′ − E_up)) + dn(lo Σ_lo))   (`plo64`).
+# Steps 1, 2 and 5 apply where ŝ_r, ŝ_μ and Σ̂ are finite and the level has brackets. Where one of them is
+# not finite, or there are no brackets, P_up is Inf or NaN (through √ŝ_r, E_up, S₁ or hi), and
+# `_fallback!` uses neither bound of that point. `dlo64` holds D_lo of step 6 where D_lo > 0 (after the
+# finiteness tests of the certificate) and NaN otherwise. At the special case below, P_up = P_lo′ = 0 =
+# P(β) and `dlo64` is NaN.
+#
 # Special cases, decided from exact data: y = 0 (every entry) and every β_k = 0 give P(β) = 0 = P*:
 # (:certified, 0.0). A computed r̂ that is 0 in every entry with some β_k ≠ 0 is :undefined (with every
 # β_k = 0, r̂ = y exactly, so this case is the first one).
@@ -459,6 +507,7 @@ function _certify!(m::SqrtLSModel{T}, x::SparseIterate{T}) where T
   end
   if nb == 0 && yzero
     fill!(ls.r, zero(T))
+    m.pup64, m.plo64, m.dlo64 = 0.0, 0.0, NaN
     return :certified, 0.0
   end
   sr, smu, rmax = 0.0, 0.0, 0.0
@@ -473,8 +522,20 @@ function _certify!(m::SqrtLSModel{T}, x::SparseIterate{T}) where T
       ls.r[i] = T(res[i])
     end
   end
-  iszero(rmax) && return :undefined, NaN
   lo, hi = m.lo64, m.hi64
+  ε = eps(Float64)
+  η = nextfloat(0.0)
+  nη = n*η
+  ψ = (n + 1)*ε
+  Mup = _up(sqrt(_up(_up(smu*(1 + ψ)) + nη)))
+  Eup = _up(_up(((nb + 1)*ε)*Mup) + _up(_up(Float64(nb)*Float64(n))*η))
+  sbu = _up(sb*(1 + nb*ε))
+  sbl = _dn(sb*(1 - nb*ε))
+  # step 7: P_up and P_lo, also where r̂ = 0
+  m.pup64 = _up(_up(_up(sqrt(_up(_up(sr*(1 + ψ)) + nη))) + Eup) + _up(hi*sbu))
+  m.plo64 = _dn(max(0.0, _dn((sr >= ldexp(Float64(n), -969) ? _dn(sqrt(_dn(sr*(1 - ψ)))) : 0.0) - Eup)) + _dn(lo*sbl))
+  m.dlo64 = NaN
+  iszero(rmax) && return :undefined, NaN
   (isfinite(lo) & isfinite(hi) & isfinite(sr) & isfinite(smu) & (sr >= ldexp(Float64(n), -969))) ||
     return :undefined, NaN
   bmax, amax, q, finite = 0.0, 0.0, 0.0, true
@@ -492,30 +553,94 @@ function _certify!(m::SqrtLSModel{T}, x::SparseIterate{T}) where T
     iszero(v) || (q += Float64(v)*bk)
   end
   (finite & isfinite(q) & isfinite(sb)) || return :undefined, NaN
-  ε = eps(Float64)
-  η = nextfloat(0.0)
-  nη = n*η
-  ψ = (n + 1)*ε
   Nup = _up(sqrt(_up(sr*(1 + ψ))))
   Nlo = _dn(sqrt(_dn(sr*(1 - ψ))))
-  Mup = _up(sqrt(_up(_up(smu*(1 + ψ)) + nη)))
   Rup = _up(sqrt(_up(_up(amax*(1 + ψ)) + nη)))
   G = _up(_up(_up(bmax + nη)/Nlo) + _up((n*ε)*Rup))
   isfinite(G) || return :undefined, NaN
   t = min(1.0, max(_dn(lo/G), 0.0))
   T1 = _up(_up(1 - t)*Nup)
-  sbu = _up(sb*(1 + nb*ε))
-  sbl = _dn(sb*(1 - nb*ε))
   S1 = _up(hi*sbu)
   qn = _dn(q/(q >= 0 ? Nup : Nlo))
   E2 = _up(_up(_up(_up(_up(_up((nb*ε)*bmax) + nη)*sbu) + nb*η)/Nlo) + _up((n*ε)*_up(Rup*sbu)))
   S2 = _dn(_dn(t*qn) - _up(t*E2))
-  Eup = _up(_up(((nb + 1)*ε)*Mup) + _up(_up(Float64(nb)*Float64(n))*η))
   gap = _up(_up(T1 + _up(S1 - S2)) + _up(_up(1 + t)*Eup))
   Plo = _dn(_dn(Nlo - Eup) + _dn(lo*sbl))
   Dlo = _dn(Plo - gap)
   (isfinite(gap) & isfinite(Dlo)) || return :undefined, NaN
   Dlo > 0 || return :failed, NaN
+  m.dlo64 = Dlo
   ratio = _up(gap/Dlo)
   ratio <= _CERT_TARGET ? (:certified, ratio) : (:failed, ratio)
+end
+
+# The fallback after a stop of `_stop_check!` without a certificate (called by `_run_cd!`; a run that ends
+# at maxpasses does not set `uncertified`): a smoothing continuation from the stopped point x₀. With
+# `base` the passes of the solve, the budget is B = min(maxpasses − base, max(2000, 20 base)) further
+# passes for all stages together. Nothing runs, and the result is unchanged, where B ≤ 0, where P_up(x₀)
+# or P_lo(x₀) (step 7 of `_certify!`) is not finite, or where P_up(x₀) is not positive or not finite in T.
+# Stages 1 to 8 run coordinate descent with the caller's order, momentum, rng, tol and `relative`, and the
+# step smoothed by δ_j (see the coordinate step), each to its first converged full pass or the end of the
+# budget; stage 9 is the unsmoothed solve with its stop check and tightenings. δ_1 = P_up(x₀) and
+# δ_{j+1} = min(δ_j/5, the least finite P_up so far), each rounded to T. After each stage `_certify!` at
+# its point β gives P_up(β) and, where formed, D_lo; D is the largest D_lo so far (0 before one), a lower
+# bound of P*. With ratio(P, D) = up(up(P − D)/D) for D > 0, Inf for D = 0 (and P > 0), and 0 for P = 0,
+# which `_certify!` gives only at its special case y = 0, β = 0, where P(β) = P* = 0, the first of these
+# rules that holds ends the run:
+# 1. ratio(P_up(x₀), D) ≤ `_CERT_TARGET`: x₀, certified;
+# 2. P_up(β) is finite, P_up(β) < P_lo(x₀) and ratio(P_up(β), D) ≤ `_CERT_TARGET`: β, certified;
+# 3. after stage 9 or at the budget: β if P_up(β) is finite and P_up(β) < P_lo(x₀), x₀ otherwise, both
+#    uncertified.
+# So a point other than x₀ is returned only with P(β) ≤ P_up(β) < P_lo(x₀) ≤ P(x₀), a proved decrease of
+# the objective. A certified ratio other than 0 is at least (P_up − D)/D ≥ (P − P*)/P* for the returned
+# point, as 0 < D ≤ P*. #155 has the evaluation of this rule.
+_fallback_ratio(P::Float64, D::Float64) = iszero(P) ? 0.0 : D > 0 ? _up(_up(P - D)/D) : Inf
+function _fallback!(m::SqrtLSModel{T}, g, x::SparseIterate{T}, st, s::CDSolver) where T
+  base = st.passes
+  budget = min(s.maxpasses - base, max(2000, 20base))
+  budget > 0 || return nothing
+  _certify!(m, x)
+  D = isfinite(m.dlo64) ? max(0.0, m.dlo64) : 0.0
+  P0, L0 = m.pup64, m.plo64
+  (isfinite(P0) && isfinite(L0) && P0 > 0 && isfinite(T(P0))) || return nothing
+  x0, maxh0, tol0 = copy(x), st.maxchange, st.tolerance
+  δ, Fbest, used, j = P0, P0, 0, 0
+  certified, keep, ratio = false, false, Inf
+  while true
+    j += 1
+    polish = j > 8
+    m.δ64 = polish ? 0.0 : Float64(T(δ))
+    m.δ2 = T(m.δ64)^2
+    m.tightenings, m.gap, m.uncertified = 0, T(NaN), false
+    _cd!(x, m, g, st, CDSolver(budget - used, s.tol, s.random, s.relative, s.momentum, s.rng))
+    used += st.passes
+    m.δ64, m.δ2 = 0.0, zero(T)
+    _certify!(m, x)
+    isfinite(m.dlo64) && (D = max(D, m.dlo64))
+    Pb = m.pup64
+    isfinite(Pb) && (Fbest = min(Fbest, Pb))
+    decrease = isfinite(Pb) && Pb < L0
+    r0, rb = _fallback_ratio(P0, D), _fallback_ratio(Pb, D)
+    if r0 <= _CERT_TARGET
+      certified, ratio = true, r0
+    elseif decrease && rb <= _CERT_TARGET
+      certified, keep, ratio = true, true, rb
+    elseif polish || used >= budget
+      keep = decrease
+    else
+      δ = min(δ/5, Fbest)
+      continue
+    end
+    break
+  end
+  if !keep                      # x₀, with its residual cache and the statistics of the stop
+    copyto!(x, x0)
+    initialize!(m, x)
+    _certify!(m, x)
+    st.maxchange, st.tolerance = maxh0, tol0
+  end
+  st.passes, st.converged = base + used, certified
+  m.uncertified = !certified
+  m.gap = certified ? T(ratio, RoundUp) : T(NaN)
+  nothing
 end
