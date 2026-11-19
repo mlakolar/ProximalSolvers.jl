@@ -234,13 +234,12 @@ a penalty carrying a center is refused even when the center is all zeros.
 See [the ridge example](examples/problems/elastic_net.md#Ridge-with-coordinate-descent)
 and [the input rules](@ref IN-01).
 
-For nonnegative coefficients, use `ProximalGradientDescent` with unweighted
-`NormL1Nonneg(lambda)` and a feasible dense starting vector, such as zeros.
-This combination is supported only by PGD; weighted penalties, sparse/block
-iterates and square-root loss are refused. The
-[nonnegative regression example](examples/problems/nonnegative_lasso.md)
-explains the constrained KKT check. Exact input and stopping rules are
-[IN-07](@ref) and [STOP-16](@ref).
+For nonnegative least squares, use `ProximalGradientDescent` with
+`IndNonnegative()` or `NormL1Nonneg(0)`. Use unweighted `NormL1Nonneg(lambda)`
+with a positive level to encourage sparsity. Start with a feasible dense vector,
+such as zeros. The [NNLS example](examples/problems/nonnegative_least_squares.md)
+compares the two models. See [IN-07](@ref) for input rules and [STOP-16](@ref)
+for the constrained KKT check.
 
 CD solves group lasso on a `BlockIterate` with `GroupNormL2`, as in the
 [group example above](#Group-lasso-with-block-coordinate-descent).

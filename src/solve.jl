@@ -54,7 +54,7 @@ _float64_scale_ok(a::Float64, ::Type{T}) where T = isfinite(a) && a > 0 && (n = 
   throw(ArgumentError("loss scale $α of type $(typeof(α)) $why; only Float32 and Float64 scales and fixed-width integer scales that $T represents exactly are supported$hint"))
 end
 
-# NormL1Nonneg is accepted only under :pgd, unweighted, with a nonnegative feasible start
+# IndNonnegative and unweighted NormL1Nonneg are accepted only under :pgd, with a feasible start
 # checked by _check_problem. :gradient retains the APG gate.
 # The penalty check of _check_data for an x that is not a BlockIterate. `kind` is the gate's:
 # :gradient (APG), :pgd (PGD) and :cd (CDSolver on a dense Vector or a SparseIterate, and the default of a call
@@ -89,8 +89,10 @@ function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
     kind === :pgd || throw(ArgumentError("NormL1Nonneg is supported only by ProximalGradientDescent on a dense Vector"))
     g.w === nothing || throw(ArgumentError("weighted NormL1Nonneg is not supported"))
     _scalar_parameter(g.λ0, T, "penalty lambda")
+  elseif g isa IndNonnegative
+    kind === :pgd || throw(ArgumentError("IndNonnegative is supported only by ProximalGradientDescent on a dense Vector"))
   elseif kind === :pgd
-    throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2 or unweighted NormL1Nonneg is supported"))
+    throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2, unweighted NormL1Nonneg or IndNonnegative is supported"))
   elseif kind === :gradient
     throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf or GroupNormL2 is supported"))
   else
@@ -313,16 +315,16 @@ end
 
 # The dense gate: :cd for CDSolver, :pgd for PGD and :gradient (the default) for APG.
 # Both gradient kinds refuse square-root loss and accept NormLinf and GroupNormL2;
-# only :pgd also accepts unweighted NormL1Nonneg, with a feasible start.
+# only :pgd also accepts IndNonnegative and unweighted NormL1Nonneg, with a feasible start.
 function _check_problem(x, f, g, kind::Symbol = :gradient)
   x isa Vector && eltype(x) in (Float32, Float64) ||
     throw(ArgumentError("x must be a dense Vector{Float32} or Vector{Float64}"))
   base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), kind) : _check_data(x, f, g, eltype(x), kind)
   _allfinite(x) && _allfinite(base.Y) && _allfinite(base.X) ||
     throw(ArgumentError("x, X and y must contain only finite values"))
-  if g isa NormL1Nonneg
+  if g isa Union{NormL1Nonneg, IndNonnegative}
     all(>=(zero(eltype(x))), x) ||
-      throw(ArgumentError("NormL1Nonneg requires a feasible starting point: x must be nonnegative"))
+      throw(ArgumentError("$(nameof(typeof(g))) requires a feasible starting point: x must be nonnegative"))
   end
   nothing
 end

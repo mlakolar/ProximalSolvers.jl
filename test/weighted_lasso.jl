@@ -1068,7 +1068,7 @@ end
     # A weighted ElasticNet and a scaled penalty get each solver's supported-penalty list.
     generic = s.kind === :cd ? "CDSolver supports NormL1, unweighted ElasticNet, and uncentered SqrNormL2" :
               method isa ProximalGradientDescent ?
-                "only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2 or unweighted NormL1Nonneg is supported" :
+                "only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2, unweighted NormL1Nonneg or IndNonnegative is supported" :
                 "only NormL1, unweighted ElasticNet, NormLinf or GroupNormL2 is supported"
     expected = g isa Union{ElasticNet, Scaled} ? generic : msg
     @test (label, occursin(expected, text)) == (label, true)

@@ -61,7 +61,7 @@ a product-threshold comparison in working precision; [STOP-04](@ref) defines its
 formation and guards. The historical normalized-residual assertion discussed under
 [Unreconciled](@ref RES-UNRECONCILED) must not be inferred from that comparison.
 
-Nonnegative lasso was added after this table's baseline. Its dense PGD path uses
+For nonnegative least squares and nonnegative lasso, dense PGD uses
 the constrained residual in [STOP-16](@ref), subject to the same computed-threshold
 guards in [STOP-04](@ref). A kept stop is a working-precision stationarity check;
 it does not supply an exact-arithmetic certificate or a calculated duality gap.
