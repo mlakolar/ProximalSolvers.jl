@@ -87,7 +87,7 @@ yfit = H * β;
 #!jl scatter!(estimate_panel, findall(!iszero, β), β[findall(!iszero, β)];
 #!jl   color=:darkorange, markersize=3, label=false)
 #!jl plot(observation_panel, truth_panel, estimate_panel; layout=(3, 1), link=:x,
-#!jl   xlims=(1, n), size=(940, 800), legend=:topright,
+#!jl   xlims=(1, n), size=(940, 800), legend=:outertop, legend_columns=3, titlefontsize=12,
 #!jl   left_margin=7Plots.mm, bottom_margin=4Plots.mm)
 
 # The fitted impulses need not equal the true ones: lasso shrinks amplitudes, and noise can
