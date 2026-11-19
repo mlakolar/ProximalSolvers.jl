@@ -45,7 +45,10 @@ applicable stationarity check. `NormL1`, `ElasticNet`, `GroupNormL2`,
 `NormL1Nonneg`, and `IndNonnegative()` have KKT checks; the nonnegative case uses the constrained
 scores at positive and zero coefficients specified by
 [STOP-16](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-16).
-`NormLinf` uses the generic proximal-gradient check. Assess fits with an
+Use `IndBox` or `IndBallLinf` for box constraints and `IndBallL2` for a
+four-coefficient Euclidean ball with a same-type radius. These indicators
+require a feasible start and use the generic proximal-gradient check, as does
+`NormLinf`. Assess fits with an
 independent diagnostic, particularly for Float32 or ill-conditioned designs.
 An error in an iteration restores the last accepted coefficient vector and
 is rethrown.

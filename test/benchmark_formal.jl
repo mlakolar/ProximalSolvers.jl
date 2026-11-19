@@ -27,7 +27,7 @@ groups() = collect(H.CASE_GROUPS)
 catalog(suite = "quick"; deferred = false) = call(H.build_catalog, suite, groups(); deferred)
 spec(id) = only(filter(s -> s.meta.id == id, catalog("extended")))
 spec_deferred(id) = only(filter(s -> s.meta.id == id, catalog("extended"; deferred = true)))
-const PB_REV = "fc13ace163d219da0668b7f18be54ce6043edbf7"
+const PB_REV = "405780632bb5f4f5cfbb2193798c96945db602cf"
 const GROUP_VARIANTS = ("block-f32", "block-f64", "warm-block-f32", "warm-block-f64")
 const TWO_COLUMN_IDS = ["cd/group-lasso-m2/cd/$variant/call" for variant in GROUP_VARIANTS]
 
@@ -339,7 +339,7 @@ end
   # registry sources and a tree other than the one the committed manifests record.
   pin = call(H.checkout_base_pin, dirname(@__DIR__))
   @test pin.rev == PB_REV && pin.url == "https://github.com/mlakolar/ProximalBase.jl"
-  @test pin.trees == ["686ead109dce9c9e72790e6b9c7571e87799602c"] && base.tree in pin.trees
+  @test pin.trees == ["1b6dab757300df2569e65bb09ec39e16b37ddc4f"] && base.tree in pin.trees
   @test call(H.check_proximalbase, base, "", pin) === nothing
   other = merge(base, (; rev = "eb74a914d779371a02e4a6637eaa724aeb66fdf5",
                          tree = "d1da2065a3895cb90aa5d0dd1a008c482602bd00"))

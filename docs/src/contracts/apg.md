@@ -6,7 +6,7 @@
 
 ## Problem
 
-Minimize `s‖Xx - response‖²/2 + g(x)` with `NormL1` (optional weights), `ElasticNet`, `NormLinf` or `GroupNormL2`. The penalty prox is described in [PGD-01](@ref).
+Minimize `s‖Xx - response‖²/2 + g(x)` with `NormL1` (optional weights), `ElasticNet`, `NormLinf` or `GroupNormL2`. The constrained variants use `IndBox` (including `IndBallLinf`) or four-coefficient `IndBallL2` under [IN-08](@ref). The penalty prox is described in [PGD-01](@ref).
 
 ## Notation
 

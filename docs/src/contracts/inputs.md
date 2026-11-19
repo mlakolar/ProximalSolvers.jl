@@ -25,6 +25,7 @@ the design requirement.
 | `CDSolver`, matrix-response least squares | dense `Matrix{T}` or matching row-group `BlockIterate{T}` | native row-group `GroupNormL2`; see [CDM-01](@ref) |
 | `CDSolver`, square-root least squares | dense `Vector{T}` or one-dimensional `SparseIterate{T}` | unweighted `NormL1` with positive level; see [CDQ-01](@ref) |
 | `ProximalGradientDescent`, `AccProxGradDescent`, least squares | dense `Vector{T}` | `NormL1`, unweighted `ElasticNet`, `NormLinf`, or `GroupNormL2` under [IN-04](@ref) |
+| `ProximalGradientDescent`, `AccProxGradDescent`, constrained least squares | feasible dense `Vector{T}` | `IndBox` (including `IndBallLinf`) or four-coefficient `IndBallL2` under [IN-08](@ref) |
 | `ProximalGradientDescent`, nonnegative least squares or nonnegative lasso | feasible nonnegative dense `Vector{T}` | `IndNonnegative()` or unweighted `NormL1Nonneg` under [IN-07](@ref) |
 | `ADMMSolver`, centered `SqrNormL2` | dense `Vector{T}` | unweighted `NormL1` under [ADM-01](@ref) |
 
@@ -320,3 +321,41 @@ checks feasibility, the objective and a separately computed constrained KKT resi
 **Tests.** `test/nonnegative_lasso.jl` covers Float32 and Float64 identity-design references, zero and positive feasible starts, native/Float64/zero levels, objective and minimizer identity, a correlated design, and unchanged inputs after invalid levels, negative starts, weighted penalties and unsupported methods/storage/losses. `examples/problems/nonnegative_lasso.jl` independently checks its fitted example and both-precision exact controls. `test/nonnegative_least_squares.jl` checks direct indicator support with both precisions, scaled and unscaled loss, zero and positive starts, and refusals before writes for invalid data, aliasing, unsupported owners, losses and solvers.
 
 **Sources.** Added after the frozen documentation inventory by [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8): [input and refusal gates](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/src/solve.jl), [the support statement](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/docs/src/support.md#nonnegative-lasso-with-proximal-gradient-descent), and [regression coverage](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/test/nonnegative_lasso.jl).
+
+
+## [IN-08 Box- and ball-constrained least squares](@id IN-08)
+
+**Statement.**
+
+For dense least squares and either gradient solver, use `IndBox(l, u)`
+or the symmetric box from `IndBallLinf(r)`. The design, response and
+coefficient vector obey [IN-01](@ref) and [IN-05](@ref). The solver checks
+feasibility of the supplied starting vector before writing to it.
+
+An array bound is copied by ProximalBase into a vector in linear order.
+The stored vector must have element type `T` and one entry per coefficient.
+Scalar bounds may be Float32, Float64, fixed-width integers or Bool and
+must convert exactly to `T`. A lower bound of `-Inf` or an upper bound of `Inf` denotes an
+unbounded side. Equal finite bounds fix the coefficient. The stored bounds
+must form valid intervals and be disjoint from the coefficient storage.
+Treat the stored bounds as read-only during a solve.
+
+Use `IndBallL2(r)` for four coefficients and a finite nonnegative radius
+of the same type `T`. At the pinned ProximalBase revision, the rounded
+projection is checked and corrected for ordinary trial sums of squares and
+positive radii of at least `2sqrt(4floatmin(T) / eps(T))`. Zero radius gives
+the singleton at zero. At exceptional scales the upstream oracle can
+return `Inf` after projection. In that case an iteration with a nonfinite
+objective raises and restores the last accepted point.
+
+The coordinate-descent solver and coefficient storage other than a dense
+`Vector{T}` are unsupported for this indicator. Stopping proposals use the
+[generic proximal-gradient check](@ref STOP-07).
+
+**Applies to.** Dense Float32 and Float64 PGD and APG with a least-squares loss and the concrete indicators above.
+
+**Code.** `src/solve.jl`: `_check_penalty`, `_check_box`, `_check_problem`.
+
+**Tests.** `test/constrained_least_squares.jl` checks feasibility, optimality, input rules and both precisions.
+
+**Sources.** [Approved scope](https://github.com/mlakolar/ProximalSolvers.jl/issues/422#issuecomment-7001542566) and [ProximalBase numerical contract](https://github.com/mlakolar/ProximalBase.jl/blob/405780632bb5f4f5cfbb2193798c96945db602cf/docs/src/numerics.md#L176-L187).

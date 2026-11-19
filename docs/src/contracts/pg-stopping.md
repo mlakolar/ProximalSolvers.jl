@@ -140,7 +140,7 @@ Initialization can accept finite `f(x0)` with `g(x0)` overflowing in `T` (for ex
 
 ### [STOP-07 Generic proximal-gradient stationarity check](@id STOP-07)
 
-**Statement.** For a supported penalty without a dedicated KKT check (currently `NormLinf`), use the accepted inverse step `L`, `t = 1/L`, and
+**Statement.** For a supported penalty without a dedicated KKT check (currently `NormLinf`, `IndBox` including `IndBallLinf`, and `IndBallL2`), use the accepted inverse step `L`, `t = 1/L`, and
 
 ```
 p = prox_{t g}(x - t ∇f(x))
