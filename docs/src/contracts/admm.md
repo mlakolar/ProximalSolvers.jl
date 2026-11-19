@@ -30,7 +30,9 @@ returned `z`, `u` and `ρ` together for a warm start. Copy the buffers to retain
 the previous result's vectors. During a solve the caller must keep the buffers
 and problem data stable.
 
-**Applies to.** `ADMMSolver` with centered `SqrNormL2` and unweighted `NormL1`.
+**Applies to.** `ADMMSolver` on a dense vector with centered `SqrNormL2` and
+unweighted `NormL1`. [ADM-04](@ref) states the inputs for the graphical lasso on
+a dense matrix.
 
 **Code.** `src/solvers/admm.jl`.
 
@@ -96,7 +98,9 @@ Limits return `:iteration_limit`, `:prox_calls_limit` or `:time_limit` in
 outputs, updated dual entries, residuals, tolerances or the final objective,
 raises an error before committing either caller buffer.
 
-**Applies to.** Every `ADMMSolver` solve and `ADMMResults`.
+**Applies to.** Every `ADMMSolver` solve and `ADMMResults`. For the graphical
+lasso on a dense matrix, [ADM-04](@ref) replaces the stationarity score, requires
+`α=1` and adds the positive-definiteness rules.
 
 **Code.** `src/solvers/admm.jl`.
 
@@ -125,7 +129,8 @@ nonzero to zero. Updates occur between
 iterations. The reported `ρ` was used for the final completed iteration and
 matches both the diagnostics and the returned scaled dual.
 
-**Applies to.** `ADMMSolver(adaptive=true)`.
+**Applies to.** `ADMMSolver(adaptive=true)` on a dense vector. [ADM-04](@ref)
+refuses it for a matrix.
 
 **Code.** `src/solvers/admm.jl`.
 
@@ -134,3 +139,91 @@ zero tolerances, range limits and agreement at independently measured accuracy.
 
 **Sources.** [Issue #433](https://github.com/mlakolar/ProximalSolvers.jl/issues/433)
 and [archived ADMM](https://github.com/mlakolar/ProximalSolvers.jl/blob/9be1773e911a44ec21d49df28cb01fea37c4316e/src/solvers/admm.jl).
+
+## [ADM-04 Graphical lasso on dense matrices](@id ADM-04)
+
+**Statement.** With a dense `Matrix{T}` start `Θ`, where `T` is `Float32` or
+`Float64`, `solve!(Θ, f, g, method::ADMMSolver, options=ProximalOptions(); u=nothing)`
+minimizes
+
+```math
+P(\Theta)=-\log\det\Theta+\operatorname{tr}(S\Theta)+\lambda_0\sum_{i\ne j}\Lambda_{ij}|\Theta_{ij}|
+\quad\text{over}\quad \Theta=\Theta^\top\succ0,
+```
+
+with ProximalBase `f = LogDetLoss(S)` and `g = NormL1(λ₀, Λ)`. The penalty sums
+over the full matrix, so each off-diagonal pair appears twice, and the zero
+diagonal of `Λ` leaves the diagonal unpenalized. A factor such as `1/n` belongs
+in `S`.
+
+The solver checks, in this order: `f` is a `LogDetLoss{T}` with weight `w == 1`;
+`g` is a `NormL1` whose weights are a `Matrix{T}`; `Θ` is nonempty and square;
+`size(S) == size(Θ) == size(Λ)`; `method.α == 1` and `method.adaptive == false`;
+the level `λ₀` is finite, nonnegative and exactly representable in `T`; the
+entries of `Θ`, `S` and `Λ` are finite; `Λ` is nonnegative, exactly symmetric
+(`Λ[i,j] == Λ[j,i]` for all `i`, `j`) and zero on the diagonal; `S` and `Θ` are
+exactly symmetric; an explicit `u` is a `Matrix{T}` of the same size with finite,
+exactly symmetric entries; no pair among `Θ`, `u`, `S` and `Λ` aliases, by
+`Base.mightalias` or overlapping memory ranges; the [ADM-01](@ref) settings hold
+in `T`, with a finite positive `inv(ρ)`; and a Cholesky factorization of a private
+copy of `Θ` succeeds in `T`. These checks precede any write to `Θ` or `u`. An
+empty or non-square `Θ` and a size mismatch raise `DimensionMismatch`; the other
+refusals raise `ArgumentError`. The solver does not average or symmetrize its
+inputs. Other function pairs, other array types, mixed element types, `α ≠ 1`
+and `adaptive=true` are refused for matrix input.
+
+Ownership follows [ADM-01](@ref). The solver borrows `S`, stored in `f`, and
+`Λ`, retained by reference in `g`, for reads, and the caller must keep them
+unchanged during the solve.
+
+Each iteration applies the [ADM-02](@ref) recurrence with `α = 1`:
+`x = prox_{f/ρ}(z₀-u₀)` by the ProximalBase `LogDetLoss` `prox!`,
+`z = prox_{g/ρ}(x+u₀)` by the weighted `NormL1` `prox!` with `λ₀` converted to
+`T`, and `u = (x+u₀)-z`. After each logdet proximal step, `x` must be finite,
+exactly symmetric and pass a Cholesky factorization in `T`; otherwise the solve
+raises an error before any write to `Θ` or `u`. The consensus iterate `z` after
+the ℓ₁ step can be indefinite. The iteration does not check, clip or project it.
+The residuals and tolerances are those of [ADM-02](@ref) with Frobenius norms
+and `N = p²` for a `p × p` matrix, so `√N = p`. The limit order, counters and
+nonfinite failures are those of [ADM-02](@ref).
+
+The returned point is the consensus `z`. Before a normal return at any status,
+`z` must be exactly symmetric and pass a Cholesky factorization in `T`;
+otherwise the solve raises an error, with no write to `Θ` or `u`. After zero
+completed iterations the returned point is the validated start. `ProximalOptions`
+requires `maxiter ≥ 2`, so zero iterations follow from `prox_calls_limit = 1` or a
+nonpositive time limit.
+
+When both computed residuals are zero and pass their tolerances, the solver
+checks stationarity at the positive-definite `z`, in place of the
+[ADM-02](@ref) score. With `G = S - inv(z)`, the score of an entry is `|Gᵢᵢ|` on
+the diagonal, `|Gᵢⱼ + λ₀Λᵢⱼ sign(zᵢⱼ)|` at a nonzero off-diagonal entry and
+`max(|Gᵢⱼ| - λ₀Λᵢⱼ, 0)` at an off-diagonal exact zero, with `λ₀Λᵢⱼ` formed as
+a product in `T`. If a finite score exceeds `eps_dual`, the status is
+`:stagnated` and `converged=false`. A nonfinite score raises an error.
+
+`status` is `:converged` when both residual tests pass and the stationarity check
+passes where it applies, `:stagnated` as above, and `:iteration_limit`,
+`:prox_calls_limit` or `:time_limit` at a limit, with `converged=false`. `minimum`
+is `f(z)+g(z)` evaluated once at the returned point; a nonfinite value raises an
+error before any write. The result is an `ADMMResults{T, Matrix{T}}` with
+`result.minimizer === Θ` and, with explicit `u`, `result.u === u`. A converged
+status reports these working-precision tests and is not an optimality
+certificate.
+
+**Applies to.** `ADMMSolver` with a dense `Matrix{Float32}` or `Matrix{Float64}`
+start, `LogDetLoss` and weighted `NormL1`, fixed `ρ`, `α = 1` and
+`adaptive=false`.
+
+**Code.** `src/solvers/admm.jl`: the `Matrix` method of `_solve_admm!`,
+`_admm_issymmetric`, `_admm_positive_definite!` and `_admm_logdet_stationary`.
+
+**Tests.** `test/admm_graphical_lasso.jl` compares with analytic optima (1×1,
+diagonal, 2×2 in both regimes, zero and large penalty) and a seeded sparse
+precision matrix using a BigFloat objective, KKT scores and a dual certificate,
+replays one step, and checks limits, stagnation, an indefinite intermediate `z`,
+warm starts, refusals and numerical failures without caller writes.
+
+**Sources.** [Issue #436](https://github.com/mlakolar/ProximalSolvers.jl/issues/436),
+[parent issue #425](https://github.com/mlakolar/ProximalSolvers.jl/issues/425) and
+[the Stage 0 report](https://github.com/mlakolar/ProximalSolvers.jl/issues/436#issuecomment-7019530001).

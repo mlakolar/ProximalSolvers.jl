@@ -22,6 +22,7 @@ standard = [
   "sparse_cd",
   "accelerated_pgd",
   "admm",
+  "admm_graphical_lasso",
   "initial_curvature",
   "stopping_scale",
   "elasticnet",

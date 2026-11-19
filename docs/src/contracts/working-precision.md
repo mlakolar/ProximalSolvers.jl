@@ -34,7 +34,8 @@ statements belong to the section “Least squares at a predictor or residual tha
 caller holds” in the pinned
 [ProximalBase smooth-function guide](https://github.com/mlakolar/ProximalBase.jl/blob/7d5d1e006b02814fb28f8cfb5eca20a05d73ee9e/docs/src/smooth.md).
 ADMM's use of proximal operators and working-precision diagnostics is specified
-in [ADM-02](@ref).
+in [ADM-02](@ref), and its Cholesky checks in `T` for the graphical lasso in
+[ADM-04](@ref).
 
 `converged` has the algorithm-specific meaning in [RES-01](@ref). Independently
 evaluate the objective and [KKT residual](../sparsity-and-kkt.md) when accuracy

@@ -13,7 +13,8 @@ The following remain deferred:
   `SparseIterate` for PGD/APG; other group and symmetric owner types;
 - matrix-shaped coefficient owners except the dense `Matrix` coefficient of
   least-squares CD with a matrix response and native row-group `GroupNormL2`
-  ([CDM-01](@ref), #396); matrix responses outside that case, which uses a private
+  ([CDM-01](@ref), #396) and the dense `Matrix` iterate of the ADMM graphical
+  lasso ([ADM-04](@ref)); matrix responses outside the CD case, which uses a private
   `BlockIterate` over `vec(B)`;
 - weighted `ElasticNet`, `Scaled` penalties, and CD group penalties other than
   `GroupNormL2`;
@@ -25,9 +26,12 @@ The following remain deferred:
   constrained-penalty combinations excluded by [IN-07](@ref);
 - intercepts and offsets, generalized losses and compositions;
 - monotone or active-set acceleration, APG diagonal preconditioning, Newton,
-  primal-dual methods, SLOPE and graphical models;
-- ADMM outside the centered quadratic and unweighted ℓ₁ problem in [ADM-01](@ref),
-  including arbitrary function pairs, product spaces, linear constraints and custom norms;
+  primal-dual methods, SLOPE and graphical models other than the ADMM graphical
+  lasso in [ADM-04](@ref);
+- ADMM outside the centered quadratic and unweighted ℓ₁ problem in [ADM-01](@ref)
+  and the graphical lasso in [ADM-04](@ref), including arbitrary function pairs,
+  product spaces, linear constraints, custom norms, and over-relaxation or the
+  adaptive penalty on a matrix;
 - paths, screening, public workspaces, refitting, reweighting, and certificates
   other than the square-root-lasso CD duality certificate;
 - generic block, metric, certificate and logging frameworks, and extension

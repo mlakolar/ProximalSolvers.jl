@@ -34,6 +34,14 @@ proposals outside the penalty, reciprocal and scaled dual's ranges. Restart
 tests check that resuming with the returned penalty and scaled dual agrees
 with an independently verified fresh solution.
 
+The standard `admm_graphical_lasso` tests cover the graphical lasso with
+`LogDetLoss` and a weighted `NormL1` on a dense matrix in Float32 and Float64.
+They compare with analytic optima (1×1, diagonal, 2×2 in both regimes, zero and
+large penalty) and a seeded sparse precision matrix, and check a BigFloat
+objective, the KKT scores, a dual certificate when one is positive definite,
+graph counts, one replayed step, limits, stagnation, an indefinite intermediate
+iterate, warm starts, refusals and numerical failures before any write.
+
 The separately approved Linux-only matrix and required gate graph remain
 unchanged: stable Julia1 Linux x64 for every tier, full master checks, coverage,
 required jobs/merge gate, benchmark analysis and provenance-aware nightly reuse.

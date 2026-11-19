@@ -78,6 +78,8 @@ failure boundary; adding a ridge penalty supplies no duality certificate.
 
 For consensus ADMM, [ADM-02](@ref) specifies the computed residual tests,
 the stagnation guard, counters, limit statuses and numerical failure boundary.
+For the graphical lasso, [ADM-04](@ref) replaces the stagnation score and adds
+the positive-definiteness rules.
 
 **Applies to.** All solver result types; each solver retains its specified loss, penalty and precision scope.
 
