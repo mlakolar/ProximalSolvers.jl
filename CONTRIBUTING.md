@@ -159,7 +159,7 @@ required before publishing a preview.
 `docs/migration/baseline.json` records the immutable starting commit and original
 text. The CSV maps each baseline block to its authoritative destination. During
 the migration run `docs_ledger.py check` and `check_docs_layers.py --migration` as
-well: these check retained executable blocks, original scripts, and source bytes
+well: these check retained executable blocks, integrated example scripts, and source bytes
 outside docstrings. The workflow compares with the pull request base, pre-push commit, or default
 branch for manual builds. It verifies the inventory against the recorded Git
 snapshots when first introduced, then freezes that historical inventory and uses

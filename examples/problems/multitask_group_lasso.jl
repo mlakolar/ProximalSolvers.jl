@@ -1,9 +1,19 @@
+# Several responses may depend on the same predictors with different effect sizes. Fitting
+# every response separately can discard this shared structure. A row-group penalty pools
+# evidence across tasks, selecting predictors jointly while retaining a coefficient for
+# each response.
+#
+#md # ![True and estimated coefficient heatmaps showing shared predictor rows across three tasks](multitask_group_lasso.svg)
+#
 # Multi-task regression with shared row sparsity, fitted as a group lasso on the rows of the
 # coefficient matrix. There are `K` regression tasks on the same `n × p` design `X`, with
 # responses `Y ∈ ℝⁿˣᴷ` (one column per task) and coefficients `B ∈ ℝᵖˣᴷ` (one column per task,
 # one row per predictor). The fit minimizes
 #
-# `(1/(2n)) ‖Y − X B‖²_F + λ √K Σⱼ ‖B[j, :]‖₂`.
+# ```math
+# \min_{B\in\mathbb R^{p\times K}}\;\frac{1}{2n}\|Y-XB\|_F^2
+# +\lambda\sqrt K\sum_{j=1}^p\|B_{j,:}\|_2.
+# ```
 #
 # The penalty acts on the rows of `B`: a zero row removes predictor `j` from all `K` tasks at
 # once, while a selected row has separate coefficients in each task. This is the penalty
@@ -17,6 +27,8 @@
 # the multi-response group lasso row of [Supported problems](../../support.md), whose rules
 # are stated in [Multi-response group lasso with coordinate descent](@ref). The solver works
 # from `X` and `Y` directly, without a Kronecker design or a vectorized response.
+#
+
 using LinearAlgebra, Random
 using ProximalBase, ProximalSolvers
 
@@ -184,6 +196,25 @@ println("intercepts: true ", a_true, ", estimated ", round.(ahat, digits = 2))
 println("prediction error per task: ", round.(mse, digits = 4),
         " (intercept-only fit: ", round.(mse0, digits = 4), ")")
 
+
+# ## Reading the figure
+#
+# Each row is one predictor, and each column is a task. Both heatmaps use the same diverging
+# color scale: white means zero, while opposite colors mark opposite signs. The estimate
+# removes rows jointly rather than shrinking each task to an independently selected set.
+# Nonzero rows may still have different signs and sizes across tasks. Shrinkage is visible
+# even when the selected rows agree with the known simulation truth.
+#!jl using Plots
+#!jl coefficient_limit = max(maximum(abs, B_true), maximum(abs, Bhat))
+#!jl coefficient_panels = [heatmap(1:K, 1:p, coefficients; title=title,
+#!jl   color=:RdBu, clims=(-coefficient_limit, coefficient_limit),
+#!jl   xlabel="Task", ylabel="Predictor", xticks=1:K, yticks=1:p, yflip=true)
+#!jl   for (title, coefficients) in (("True coefficients", B_true), ("Row-group estimate", Bhat))]
+#!jl plot(coefficient_panels...; layout=(1, 2), size=(940, 430),
+#!jl   left_margin=5Plots.mm, bottom_margin=5Plots.mm)
+#!jl savefig("multitask_group_lasso.svg")
+#!jl nothing
+
 # ## Shared sparsity and separate fits
 #
 # Fitting each task alone, for example by a lasso on each column of `Y`, chooses a set of
@@ -202,3 +233,13 @@ println("prediction error per task: ", round.(mse, digits = 4),
 #   this page come from `violations`, computed from `X` and `Y`.
 # - The data are dense `Float64`; the `Float32` and `BlockIterate` forms that the solver also
 #   accepts are not run here.
+
+# ## What we learned
+#
+# A row-group penalty shares predictor selection across related responses without forcing
+# their coefficient values to match. The heatmaps expose the selected rows and task-specific
+# effects. Matrix-objective and row KKT checks certify optimization accuracy; whether sharing
+# predictors is useful remains a statistical assumption about the tasks.
+#
+# The figure is generated from this script during the documentation build. Run the script
+# alone for the same seeded calculations and checks without loading Plots.

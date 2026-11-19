@@ -7,15 +7,20 @@ not a permanent freeze on later documentation or numerical development.
 
 The text, example and URL inventory comes from
 `a6293e6ff7e654a87babbc5de2314205be13d6c5`, the revision named in the migration
-plan. The implementation guard uses
-`fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8`, the current master revision integrated
-before publishing. The branch initially started at `debbc88`; the later upstream
-changes add five tutorials and the narrow nonnegative-lasso PGD path. They are
-preserved. `source_code_sha256` uses the integrated implementation snapshot;
-all historical text and example records still use the plan's baseline.
-New nonnegative-lasso clauses cite their immutable current-source commit separately
-from the 725 historical blocks. The original 14 scripts remain unchanged, and all
-five newer upstream scripts remain registered and executable.
+plan. The implementation and current-example guards use
+`1754dce716bff78faf425f211a6aafd8588be77a`, the master revision integrated before
+publishing. The branch initially started at `debbc88`; subsequent upstream work
+added five tutorials, the narrow nonnegative-lasso PGD path, and the complete
+Examples Gallery in PR #417. Those independently reviewed changes are retained.
+
+`source_code_sha256` and `implementation_example_scripts` describe the integrated
+snapshot. The original `example_scripts` hashes and all historical text remain
+anchored to the plan's revision. The migration itself leaves the 19 current scripts
+byte-identical to the integration base, including the gallery's upstream figure
+code and numerical checks. It does not undo their evolution after the plan's
+14-script snapshot. New nonnegative-lasso clauses cite their immutable current
+source separately from the 725 historical blocks; the original example index is
+retained as dated evidence.
 
 `baseline.json` contains original text as well as SHA-256 fingerprints. It records
 725 blocks, 19 original inline executable examples, 14 example scripts, and
@@ -62,8 +67,8 @@ python3 scripts/docs_ledger.py check-urls
 
 For the introducing change, the verifier reconstructs the inventories from the
 recorded Git snapshots and checks the original source bytes outside docstring
-bodies. It also checks exact example-script bytes and active inline-example
-identity, so hiding a block in a comment or literal fence does not preserve it.
+bodies. It also checks exact example-script bytes against the recorded integration
+snapshot and active original inline-example identity, so hiding a block in a comment or literal fence does not preserve it.
 For later changes, CI compares the immutable inventory with the previous
 published inventory and uses `check --structural`. It does not require future
 examples or numerical implementations to remain frozen at the migration revision.
@@ -82,8 +87,8 @@ direct-link reports likewise guide review; a CD-specific clause link can be more
 precise than a generic result link. Exact text preservation and semantic review
 remain separate checks.
 
-Executable code is kept in its intended layer. The original 14 scripts are
-unchanged and remain the source for Literate pages and package example tests.
-Learn adds reference implementations and plots. The gallery executes the original
-lasso and group-lasso scripts to generate its two figures, using the existing
-documentation-only plotting dependency.
+Executable code is kept in its intended layer. The 19 current scripts remain
+the single source for Literate pages, the upstream Examples Gallery and package
+example tests. Learn adds reference implementations and plots. The gallery and
+its figure-generation checks remain intact in the new navigation, using the
+existing documentation-only plotting dependency.

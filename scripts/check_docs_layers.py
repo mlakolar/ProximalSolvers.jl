@@ -4,10 +4,11 @@
 The permanent checks concern real Markdown headings, clause metadata, the Learn
 chapters and retained IDs. --previous-ref compares the registry with a prior Git
 revision so removing an ID from both the registry and the pages cannot hide it.
---migration additionally checks original example
-bytes against the documentation baseline and source bytes outside standalone
-docstring bodies against the recorded pre-edit implementation_baseline. Those
-revisions can differ when an upstream implementation change preceded this work.
+--migration additionally checks example bytes against the recorded integration
+snapshot (or the historical example snapshot for older manifests) and source
+bytes outside standalone docstring bodies against implementation_baseline. The
+historical documentation snapshot remains separate when approved upstream work
+precedes this migration.
 Ordinary future code/documentation changes do not use that flag.
 """
 from __future__ import annotations
@@ -334,13 +335,27 @@ def _reference_ids(text):
     return result
 
 
+def migration_example_scripts(manifest):
+    """Select integration examples without discarding the historical inventory."""
+    historical = manifest.get("example_scripts")
+    if not isinstance(historical, dict) or not historical:
+        raise ValueError("Migration manifest lacks original example-script fingerprints")
+    if "implementation_example_scripts" not in manifest:
+        return historical
+    integration = manifest["implementation_example_scripts"]
+    if not isinstance(integration, dict) or not integration:
+        raise ValueError("Migration manifest implementation_example_scripts must be a nonempty dict")
+    if not manifest.get("implementation_baseline"):
+        raise ValueError("Migration manifest implementation_example_scripts needs implementation_baseline")
+    return integration
+
+
 def _migration_checks(root, errors):
     manifest = _read_json(root / "docs/migration/baseline.json", errors)
     if not isinstance(manifest, dict):
         return
     files = manifest.get("files", {})
     sources = manifest.get("source_code_sha256")
-    examples = manifest.get("example_scripts")
     documented_sources = {path for path in files if path.startswith("src/") and path.endswith(".jl")}
     if not isinstance(sources, dict) or not sources:
         errors.append("Migration manifest lacks source_code_sha256 fingerprints")
@@ -362,17 +377,20 @@ def _migration_checks(root, errors):
                 continue
             if actual != expected:
                 errors.append(f"Source bytes outside docstring bodies changed: {path}")
-    if not isinstance(examples, dict) or not examples:
-        errors.append("Migration manifest lacks original example-script fingerprints")
-    else:
-        for path, expected in sorted(examples.items()):
-            try:
-                actual = hashlib.sha256((root / path).read_bytes()).hexdigest()
-            except OSError as exc:
-                errors.append(f"Original example script missing or unreadable: {path}: {exc}")
-                continue
-            if actual != expected:
-                errors.append(f"Original example script bytes changed: {path}")
+    try:
+        examples = migration_example_scripts(manifest)
+    except ValueError as exc:
+        errors.append(str(exc))
+        return
+    label = "Integration" if "implementation_example_scripts" in manifest else "Original"
+    for path, expected in sorted(examples.items()):
+        try:
+            actual = hashlib.sha256((root / path).read_bytes()).hexdigest()
+        except OSError as exc:
+            errors.append(f"{label} example script missing or unreadable: {path}: {exc}")
+            continue
+        if actual != expected:
+            errors.append(f"{label} example script bytes changed: {path}")
 
 
 def run_checks(root=ROOT, migration=False, previous_ref=None):
@@ -499,8 +517,10 @@ def main(argv=None):
     if args.migration:
         try:
             manifest = json.loads((ROOT / "docs/migration/baseline.json").read_text(encoding="utf-8"))
-            print("Preservation baselines: text/examples=" + str(manifest.get("baseline", "missing"))
-                  + "; implementation=" + str(manifest.get("implementation_baseline", manifest.get("baseline", "missing"))) + ".")
+            implementation = manifest.get("implementation_baseline", manifest.get("baseline", "missing"))
+            examples = implementation if "implementation_example_scripts" in manifest else manifest.get("baseline", "missing")
+            print("Preservation baselines: historical text/examples=" + str(manifest.get("baseline", "missing"))
+                  + "; implementation=" + str(implementation) + "; current examples=" + str(examples) + ".")
         except (OSError, ValueError):
             pass  # The check already reported the missing or unreadable manifest.
     for error in errors:

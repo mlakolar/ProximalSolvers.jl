@@ -17,9 +17,10 @@ Use the current development version if you want to study lasso algorithms, contr
 | --- | --- |
 | **Learn** the mathematics and statistics | [The lasso problem](@ref learn-01), then seven chapters with derivations, plots and exercises |
 | **Use** the package for a supported problem | [Getting started](getting-started.md), [choosing a solver](choosing-solver.md), [supported problems](support.md) and [reading results](working-with-results.md) |
+| Browse runnable statistical tutorials and their figures | [Examples Gallery](examples/index.md) |
 | **Implement or review** a numerical routine | [Contracts](contracts/index.md): inputs, stopping, precision and failure behavior |
 
-The [example gallery](examples-gallery.md) organizes complete worked problems,
+The gallery organizes complete worked problems,
 statistical applications and solver comparisons. The original entry points remain:
 [lasso](examples/problems/lasso.md), [weighted lasso](examples/problems/weighted_lasso.md),
 [elastic net](examples/problems/elastic_net.md), [group lasso](examples/problems/group_lasso.md),

@@ -66,7 +66,7 @@ jobs:
           python3 scripts/docs_ledger.py verify-baseline --previous-ref "$docs_base"
           python3 scripts/check_docs_layers.py --previous-ref "$docs_base"
           python3 scripts/docs_ledger.py check --structural
-          # Freeze original examples and non-docstring code only while introducing
+          # Freeze integrated examples and non-docstring code only while introducing
           # the migration. The immutable inventory remains checked on future PRs.
           if [[ "$docs_introduced" == true ]]; then
             python3 scripts/check_docs_layers.py --migration

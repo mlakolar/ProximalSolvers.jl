@@ -8,6 +8,8 @@
 # shifted to its possible occurrence time. This makes deconvolution a regression problem,
 # with one potential coefficient per time point.
 #
+#md # ![Aligned panels of blurred observations, true impulses, and recovered impulses.](sparse_deconvolution.svg)
+#
 # ## A reproducible experiment
 #
 # We observe 100 time points, with five separated events and a six-point causal kernel.
@@ -86,9 +88,11 @@ yfit = H * β;
 #!jl   ylims=(-amplitude_limit, amplitude_limit))
 #!jl scatter!(estimate_panel, findall(!iszero, β), β[findall(!iszero, β)];
 #!jl   color=:darkorange, markersize=3, label=false)
-#!jl plot(observation_panel, truth_panel, estimate_panel; layout=(3, 1), link=:x,
+#!jl event_figure = plot(observation_panel, truth_panel, estimate_panel; layout=(3, 1), link=:x,
 #!jl   xlims=(1, n), size=(940, 800), legend=:outertop, titlefontsize=12,
 #!jl   left_margin=7Plots.mm, bottom_margin=4Plots.mm)
+#!jl savefig(event_figure, "sparse_deconvolution.svg")
+#!jl nothing
 
 # The fitted impulses need not equal the true ones: lasso shrinks amplitudes, and noise can
 # create small extra events. The next summary distinguishes recovery of the inputs from

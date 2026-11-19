@@ -97,6 +97,39 @@ class DocumentationChecks(unittest.TestCase):
                             for message in layers.run_checks(self.root, migration=True)[0]))
         self.assertEqual(layers.run_checks(self.root)[0], [])
 
+    def test_integration_examples_are_preserved_without_reverting_approved_upstream_work(self):
+        approved = EXAMPLE + b"# Approved upstream plot.\n"
+        added = b"@assert 2 + 2 == 4\n"
+        self.manifest["implementation_baseline"] = "approved-upstream-fixture"
+        self.manifest["implementation_example_scripts"] = {
+            "examples/demo.jl": hashlib.sha256(approved).hexdigest(),
+            "examples/added.jl": hashlib.sha256(added).hexdigest(),
+        }
+        self.write("examples/demo.jl", approved)
+        self.write("examples/added.jl", added)
+        self.save_manifest()
+        # Empty block rows isolate the script-preservation check in the ledger.
+        with (self.root / "docs/migration/ledger.csv").open("w", newline="") as stream:
+            csv.DictWriter(stream, fieldnames=ledger.FIELDS).writeheader()
+        self.assertEqual(layers.run_checks(self.root, migration=True)[0], [])
+        self.assertEqual(self.run_ledger()[0], 0)
+        self.assertEqual(self.manifest["example_scripts"]["examples/demo.jl"],
+                         hashlib.sha256(EXAMPLE).hexdigest())
+        self.write("examples/added.jl", added + b"# Unapproved migration edit.\n")
+        self.assertTrue(any("Integration example script bytes changed" in message
+                            for message in layers.run_checks(self.root, migration=True)[0]))
+        result, output = self.run_ledger()
+        self.assertEqual(result, 1, output)
+        self.assertIn("Integration example script changed or missing", output)
+        self.write("examples/added.jl", added)
+        del self.manifest["example_scripts"]
+        self.save_manifest()
+        self.assertTrue(any("lacks original example-script fingerprints" in message
+                            for message in layers.run_checks(self.root, migration=True)[0]))
+        result, output = self.run_ledger()
+        self.assertEqual(result, 1, output)
+        self.assertIn("lacks original example-script fingerprints", output)
+
     def test_code_fences_cannot_define_ids_or_exercises(self):
         fake = '\n````julia\n# [Not a heading](@id REQ-01)\n```\n# still code\n````\n'
         self.write("docs/src/contracts/demo.md", CLAUSE + fake)

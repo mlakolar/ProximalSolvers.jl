@@ -3,6 +3,8 @@
 # similar information may compete to explain the same variation. We refit the lasso on
 # many half-samples and count how often each variable enters.
 #
+#md # ![Selection frequencies for the 28 predictors, sorted from most to least frequently selected](stability_selection.svg)
+#
 # ## Simulate correlated measurements
 #
 # Generate 120 independent observations of 28 predictors. Each set of four predictors
@@ -95,8 +97,6 @@ order = sortperm(frequencies; rev = true);
 #!jl   nothing #hide
 #!jl end #hide
 
-#md # ![Selection frequencies for the 28 predictors, sorted from most to least frequently selected](stability_selection.svg)
-#
 # The table gives the counts and marks the variables selected in the full-data fit.
 @printf("λ = %.4f, half-samples = %d\n", λ, B)
 println("Predictor   Signal   Full fit   Selected / $B   Frequency")

@@ -58,7 +58,7 @@ Choose a path:
 The [support matrix](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/) also covers
 weighted and nonnegative lasso, elastic net, group and multi-response models,
 and ℓ∞ penalties.
-Browse the [worked examples](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples-gallery/)
+Browse the [worked examples](https://mlakolar.github.io/ProximalSolvers.jl/dev/examples/)
 for statistical applications and convergence diagnostics.
 
 `converged` reports each solver's own stopping rule; check optimality independently

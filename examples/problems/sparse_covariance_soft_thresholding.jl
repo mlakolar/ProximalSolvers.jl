@@ -1,9 +1,18 @@
+# With many variables and few observations, a sample covariance contains many noisy
+# off-diagonal entries. If most population covariances are zero, shrinking small entries to
+# zero can simplify that estimate. This example illustrates both the entrywise calculation
+# and a crucial limitation: the resulting symmetric matrix can have a negative eigenvalue.
+#
+#md # ![Population, sample, and soft-thresholded off-diagonal covariance heatmaps on a common color scale](sparse_covariance_soft_thresholding.svg)
+#
 # Covariance thresholding (Rothman, Levina and Zhu, 2009,
 # [doi:10.1198/jasa.2009.0101](https://doi.org/10.1198/jasa.2009.0101)) estimates a covariance matrix
 # by soft-thresholding the off-diagonal entries of the sample covariance matrix `S`, which can set some of
 # them exactly to zero. For a symmetric matrix `Σ`, the estimate minimizes
 #
-# ``\tfrac12\|\Sigma - S\|_F^2 + \lambda \sum_{i \ne j} |\Sigma_{ij}|``,
+# ```math
+# \min_{\Sigma=\Sigma^\top}\;\frac12\|\Sigma-S\|_F^2+\lambda\sum_{i\ne j}|\Sigma_{ij}|,
+# ```
 #
 # and the diagonal is left out of the penalty.
 #
@@ -16,6 +25,8 @@
 # `SymmetricSparseIterate`, the storage type for a symmetric matrix. The estimate **is not guaranteed to be positive
 # semidefinite**, and no projection onto the positive semidefinite matrices is applied; the last section shows an
 # estimate with a negative eigenvalue.
+#
+
 using LinearAlgebra, Random, ProximalBase
 
 # ## Data
@@ -102,6 +113,45 @@ end
 @assert Sigma_dense == reconstructed
 @assert count(iszero, [Sigma_dense[i, j] for (i, j) in pairs]) == count(iszero, b)
 
+
+# ## Independent objective and stationarity checks
+#
+# Every off-diagonal entry is counted twice in the symmetric matrix objective, so it equals
+# twice the reduced vector objective. At a nonzero `bⱼ`, stationarity requires
+# `bⱼ - sⱼ + λ sign(bⱼ) = 0`; at zero it requires `|sⱼ| ≤ λ`. These checks use the
+# original sample covariance and the returned entries rather than a proximal diagnostic.
+vector_objective = sum(abs2, b - s) / 2 + lambda * sum(abs, b)
+matrix_objective = sum(abs2, Sigma_dense - S) / 2 +
+  lambda * sum(abs(Sigma_dense[i, j]) for i in 1:p for j in 1:p if i != j)
+kkt = maximum(iszero(b[j]) ? max(abs(s[j]) - lambda, 0.0) :
+  abs(b[j] - s[j] + lambda * sign(b[j])) for j in eachindex(b))
+@assert isfinite(vector_objective) && isfinite(matrix_objective) && isfinite(kkt)
+@assert isapprox(matrix_objective, 2vector_objective; rtol=1e-12, atol=1e-14)
+@assert kkt <= 1e-12
+println("matrix objective = ", matrix_objective, "; entrywise KKT residual = ", kkt)
+
+# ## Reading the figure
+#
+# The three heatmaps share one color scale. Their diagonals are hidden (displayed as zero)
+# to make the off-diagonal structure visible; the estimator itself preserves the sample
+# diagonal. Thresholding removes weak sample covariances and shrinks surviving ones. With
+# only ten observations the sample is noisy, so many visible entries need not correspond
+# to the three correlated population pairs. Sparsity alone does not ensure a valid covariance.
+#!jl using Plots
+#!jl covariance_matrices = [copy(Sigma_true), copy(S), copy(Sigma_dense)]
+#!jl for matrix in covariance_matrices
+#!jl   matrix[diagind(matrix)] .= 0.0
+#!jl end
+#!jl covariance_limit = maximum(maximum(abs, matrix) for matrix in covariance_matrices)
+#!jl covariance_panels = [heatmap(1:p, 1:p, matrix; title=title, color=:RdBu,
+#!jl   clims=(-covariance_limit, covariance_limit), aspect_ratio=1, yflip=true,
+#!jl   xlabel="Variable", ylabel="Variable", xticks=[1, 10, 20, 30], yticks=[1, 10, 20, 30])
+#!jl   for (title, matrix) in zip(("Population", "Sample covariance", "Soft-thresholded"), covariance_matrices)]
+#!jl plot(covariance_panels...; layout=(1, 3), size=(1080, 370),
+#!jl   left_margin=4Plots.mm, bottom_margin=5Plots.mm)
+#!jl savefig("sparse_covariance_soft_thresholding.svg")
+#!jl nothing
+
 # ## The estimate need not be positive semidefinite
 #
 # Soft thresholding changes each entry separately, and nothing in it keeps the eigenvalues of the sample covariance
@@ -120,3 +170,22 @@ println("Largest difference from the closed form: ", maximum(abs, b - expected))
 println("Frobenius error of the sample covariance: ", norm(S - Sigma_true))
 println("Frobenius error of the thresholded estimate: ", norm(Sigma_dense - Sigma_true))
 println("Smallest eigenvalue of S: ", lambda_min_S, ", of the estimate: ", lambda_min_hat)
+
+# ## Statistical limitations
+#
+# This simulation has far fewer observations than variables, so its noisy entries are not
+# reliable estimates of individual associations. The fixed threshold is measured in covariance
+# units and is sensitive to variable scales. Covariance zeros describe marginal association,
+# whereas conditional independence in a Gaussian model is read from the inverse covariance.
+# A positive-semidefinite constraint or repair would define a different estimator.
+#
+# ## What we learned
+#
+# Covariance soft thresholding reduces to independent scalar proximal operations on the
+# unique off-diagonal entries. The matrix and vector objectives agree, and their entrywise
+# stationarity conditions can be checked without a solver. Symmetry and sparse entries do
+# not ensure positive semidefiniteness: the eigenvalue check is essential before treating the
+# estimate as a covariance matrix.
+#
+# The figure is generated from this script during the documentation build. Run the script
+# alone for the same seeded calculations and checks without loading Plots.

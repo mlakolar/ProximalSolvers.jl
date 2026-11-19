@@ -19,7 +19,7 @@ from collections import Counter
 from html.parser import HTMLParser
 from pathlib import Path
 
-from check_docs_layers import active_headings, active_sections, source_code_sha256
+from check_docs_layers import active_headings, active_sections, migration_example_scripts, source_code_sha256
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "docs/migration"
@@ -169,6 +169,12 @@ def _implementation_fingerprints(revision):
             for path in tree if path.startswith("src/") and path.endswith(".jl")}
 
 
+def _example_fingerprints(revision):
+    tree = _git_bytes("ls-tree", "-r", "--name-only", revision).decode("utf-8").splitlines()
+    return {path: hashlib.sha256(_git_bytes("show", f"{revision}:{path}")).hexdigest()
+            for path in tree if path.startswith("examples/") and path.endswith(".jl")}
+
+
 def inventory(ref):
     """Reconstruct the immutable inventory from one commit, without writing it."""
     revision = _commit(ref)
@@ -228,6 +234,11 @@ def _validate_inventory(manifest, label):
                         ("urls", list), ("source_code_sha256", dict)):
         if not isinstance(manifest.get(field), kind) or not manifest[field]:
             raise ValueError(f"{label}: {field} must be a nonempty {kind.__name__}")
+    if "implementation_example_scripts" in manifest:
+        if not isinstance(manifest["implementation_example_scripts"], dict) or not manifest["implementation_example_scripts"]:
+            raise ValueError(f"{label}: implementation_example_scripts must be a nonempty dict")
+        if "implementation_baseline" not in manifest:
+            raise ValueError(f"{label}: implementation_example_scripts requires implementation_baseline")
     for field in ("baseline", "implementation_baseline"):
         if field == "implementation_baseline" and field not in manifest:
             continue
@@ -272,14 +283,22 @@ def verify_baseline(previous_ref):
             expected["implementation_baseline"] = implementation_revision
         if implementation_revision != expected["baseline"]:
             expected["source_code_sha256"] = _implementation_fingerprints(implementation_revision)
+        if "implementation_example_scripts" in manifest:
+            expected["implementation_example_scripts"] = _example_fingerprints(implementation_revision)
         _validate_inventory(expected, "Reconstructed Git inventory")
         _compare_inventory(manifest, expected, "recorded Git snapshots")
         event_base_sources = _implementation_fingerprints(previous)
         if manifest["source_code_sha256"] != event_base_sources:
             raise ValueError(f"source_code_sha256 differs from event base {previous_ref}; "
                              "the recorded implementation must match the event-base source code")
+        event_base_examples = _example_fingerprints(previous)
+        effective_examples = migration_example_scripts(manifest)
+        if effective_examples != event_base_examples:
+            raise ValueError(f"Integration example scripts differ from event base {previous_ref}; "
+                             "the recorded example snapshot must match all event-base example paths and bytes")
         print(f"Baseline verification: {len(expected['blocks'])} blocks, "
-              f"{len(expected['example_scripts'])} scripts, {len(expected['urls'])} URL fragments "
+              f"{len(expected['example_scripts'])} historical scripts, "
+              f"{len(effective_examples)} integration scripts, {len(expected['urls'])} URL fragments "
               f"and {len(expected['source_code_sha256'])} implementation files anchored to Git "
               "and the event base.")
         return 0
@@ -386,9 +405,15 @@ def check(report_only=False, structural=False):
         else:
             errors.append(f"{block['id']}: unknown disposition {disposition!r}")
     if not structural:
-        for path, digest in manifest["example_scripts"].items():
+        try:
+            examples = migration_example_scripts(manifest)
+        except ValueError as exc:
+            errors.append(str(exc))
+            examples = {}
+        label = "Integration" if "implementation_example_scripts" in manifest else "Original"
+        for path, digest in examples.items():
             if not (ROOT / path).is_file() or hashlib.sha256((ROOT / path).read_bytes()).hexdigest() != digest:
-                errors.append(f"Original example script changed or missing: {path}")
+                errors.append(f"{label} example script changed or missing: {path}")
     print(f"Ledger: {len(originals)} baseline blocks; {dict(Counter(r['disposition'] for r in rows))}; {len(errors)} errors.")
     for error in errors:
         print(error, file=sys.stderr)

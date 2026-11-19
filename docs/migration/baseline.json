@@ -7027,6 +7027,27 @@
     "src/types.jl": "6b1de93e482cea4412b8c506965108221d393bf2ecd0375b14a92304569e8273",
     "src/utils.jl": "8661cb00cbcd850d23fd78fd42926b105f1c69f1cbd429c00f60d9a3c481485d"
   },
-  "implementation_baseline": "fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8",
-  "implementation_baseline_note": "The migration branch integrated the current master tutorials and nonnegative-lasso support through fd45a427. Its implementation bytes are preserved; the documentation inventory remains at the plan's a6293e6 baseline."
+  "implementation_baseline": "1754dce716bff78faf425f211a6aafd8588be77a",
+  "implementation_baseline_note": "The migration integrated master through 1754dce, including separately reviewed gallery/tutorial changes in PR #417. Historical documentation/example inventory remains a6293e6. Runtime source and current example bytes are compared with the actual integrated event base.",
+  "implementation_example_scripts": {
+    "examples/comparisons/group_lasso_solvers.jl": "f894b8f187cde632e4e4ca0451e22bb05fe10dac0ec90f9a1b1f692325980991",
+    "examples/comparisons/lasso_solvers.jl": "b5f9be7f6b4583f9558872afd99d873289e0409591d711fd8df074a3e4950e37",
+    "examples/problems/categorical_group_selection.jl": "af849ba00dd59ad908a8aff117f544855b3ed1bf93df933735c42d72bf9aebd2",
+    "examples/problems/change_point_detection.jl": "fb54c9e18269444e6c34dd44607d45e4bc056416351d59cd99fbc038af92369a",
+    "examples/problems/elastic_net.jl": "87ebe73825baa6f6bcc02f5f9ee6173ab3c69db7d607e35e423c9a25f0b90f31",
+    "examples/problems/group_lasso.jl": "e35ef5fd5acbcabbb5d0a13292d90c8464a457ff4768da7c5c2263a753a60b0d",
+    "examples/problems/lasso.jl": "a9a286038193bd648fc2a32466a4b1572b382cef16ea9a3e2933ffcb3e4ee2f1",
+    "examples/problems/linf_regularized_regression.jl": "af38aa9598f8591233b88041d8aa94de56bc543f01ecf701ec1a49685fcc7166",
+    "examples/problems/multitask_group_lasso.jl": "55b267d21d3a49fc7cd6a16578c326057fff086f6114f1a98b96c9835e2dab77",
+    "examples/problems/nodewise_gaussian_graph.jl": "735b6382cfe218c711f186beb4f4552354a31f64c82fb17289da1ebb65af2f2b",
+    "examples/problems/nonnegative_lasso.jl": "77ed8299c1de1e4d33c11fe28dcb2063c383d642e5fa89b9c45587ea50e7ea51",
+    "examples/problems/robust_sparse_regression.jl": "712cc24f7ebbd605532f12b076974f71a91fc2b3e21119f10a60e5cb80780971",
+    "examples/problems/scaled_lasso.jl": "94cafbe4fb4b6515ee0d686b7302fa5eba2cab84cc9608d5afbba50d23eb195e",
+    "examples/problems/sparse_additive_regression.jl": "86ca6bf3099b92128eca30ff18340ab05f3a5351a6322b702008873a9a97ff69",
+    "examples/problems/sparse_covariance_soft_thresholding.jl": "229f7def76c65f49b79e04abf756e7d1dbceae12d67cde62e8138105ba38c501",
+    "examples/problems/sparse_deconvolution.jl": "4b421af72babfa38035e9f5a4cf0525037d67e9e6aacd7826950e8a1d910127b",
+    "examples/problems/square_root_lasso.jl": "1569ec1472c9f3d01df1c566fa579ee0c81d14ea0662a81860df594a5d4f9de1",
+    "examples/problems/stability_selection.jl": "13cadebb06e99bb0f665f9e62c9591d8bc752e462784fbb5207db856cdf638d4",
+    "examples/problems/weighted_lasso.jl": "b77b163d7f8d15d0ced8b42fa7debc175f3821067bea6391fcdfc96b41d0e86b"
+  }
 }

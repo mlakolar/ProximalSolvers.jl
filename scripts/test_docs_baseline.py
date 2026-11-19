@@ -41,6 +41,7 @@ class BaselineAnchoring(unittest.TestCase):
         with patch.object(ledger, "ROOT", self.root):
             self.manifest = ledger.inventory(self.before)
         self.manifest["implementation_baseline"] = self.before
+        self.manifest["implementation_example_scripts"] = dict(self.manifest["example_scripts"])
         self.manifest["url_basis"] = "Rendered URL explanation, not inventory data."
         self.manifest["implementation_baseline_note"] = "The implementation revision is recorded separately."
         self.save()
@@ -77,7 +78,7 @@ class BaselineAnchoring(unittest.TestCase):
 
     def test_first_introduction_rejects_dropped_or_rewritten_inventory(self):
         original = copy.deepcopy(self.manifest)
-        for field in ("blocks", "files", "example_scripts", "urls", "source_code_sha256"):
+        for field in ("blocks", "files", "example_scripts", "implementation_example_scripts", "urls", "source_code_sha256"):
             with self.subTest(field=field):
                 self.manifest = copy.deepcopy(original)
                 value = self.manifest[field]
@@ -136,6 +137,57 @@ class BaselineAnchoring(unittest.TestCase):
         self.assertEqual(result, 1, output)
         self.assertIn("source_code_sha256 differs from event base", output)
 
+    def test_approved_upstream_examples_have_separate_historical_and_integration_snapshots(self):
+        historical = dict(self.manifest["example_scripts"])
+        approved = EXAMPLE + b"# Approved upstream plot.\r\n"
+        added = b"@assert 2 + 2 == 4\n"
+        self.write("examples/demo.jl", approved)
+        self.write("examples/added.jl", added)
+        self.git("add", "examples/demo.jl", "examples/added.jl")
+        self.git("commit", "--quiet", "-m", "Approved upstream example additions")
+        upstream = self.git("rev-parse", "HEAD").strip()
+        self.manifest["implementation_baseline"] = upstream
+        self.manifest["implementation_example_scripts"] = {
+            "examples/demo.jl": hashlib.sha256(approved).hexdigest(),
+            "examples/added.jl": hashlib.sha256(added).hexdigest(),
+        }
+        self.save()
+        result, output = self.verify(upstream)
+        self.assertEqual(result, 0, output)
+        self.assertEqual(self.manifest["example_scripts"], historical)
+        approved_manifest = copy.deepcopy(self.manifest)
+        # Omitting the new field must not bypass comparison with the event base.
+        del self.manifest["implementation_example_scripts"]
+        self.save()
+        result, output = self.verify(upstream)
+        self.assertEqual(result, 1, output)
+        self.assertIn("example scripts differ from event base", output)
+        # The whole integration inventory is anchored, including upstream additions.
+        self.manifest = copy.deepcopy(approved_manifest)
+        del self.manifest["implementation_example_scripts"]["examples/added.jl"]
+        self.save()
+        result, output = self.verify(upstream)
+        self.assertEqual(result, 1, output)
+        self.assertIn("implementation_example_scripts", output)
+        self.manifest = copy.deepcopy(approved_manifest)
+        del self.manifest["example_scripts"]
+        self.save()
+        result, output = self.verify(upstream)
+        self.assertEqual(result, 1, output)
+        self.assertIn("example_scripts", output)
+
+    def test_changed_examples_cannot_select_their_own_integration_baseline(self):
+        changed = EXAMPLE + b"# A change made during the migration.\n"
+        self.write("examples/demo.jl", changed)
+        self.git("add", "examples/demo.jl")
+        self.git("commit", "--quiet", "-m", "Example changed after the event base")
+        self.manifest["implementation_baseline"] = self.git("rev-parse", "HEAD").strip()
+        self.manifest["implementation_example_scripts"]["examples/demo.jl"] = hashlib.sha256(changed).hexdigest()
+        self.save()
+        result, output = self.verify(self.before)
+        self.assertEqual(result, 1, output)
+        self.assertIn("example scripts differ from event base", output)
+
     def test_invalid_and_missing_refs_fail(self):
         for previous in ("missing-ref", "0" * 40, ""):
             with self.subTest(previous=previous):
@@ -153,7 +205,7 @@ class BaselineAnchoring(unittest.TestCase):
 
     def test_every_inventory_must_be_nonempty(self):
         original = copy.deepcopy(self.manifest)
-        for field in ("blocks", "files", "example_scripts", "urls", "source_code_sha256"):
+        for field in ("blocks", "files", "example_scripts", "implementation_example_scripts", "urls", "source_code_sha256"):
             with self.subTest(field=field):
                 self.manifest = copy.deepcopy(original)
                 self.manifest[field] = type(self.manifest[field])()
@@ -174,7 +226,7 @@ class BaselineAnchoring(unittest.TestCase):
     def test_prior_inventory_rejects_changed_snapshot_refs_and_hashes(self):
         previous = self.publish_manifest()
         original = copy.deepcopy(self.manifest)
-        for field in ("baseline", "implementation_baseline", "files", "example_scripts",
+        for field in ("baseline", "implementation_baseline", "files", "example_scripts", "implementation_example_scripts",
                       "source_code_sha256", "urls"):
             with self.subTest(field=field):
                 self.manifest = copy.deepcopy(original)
@@ -197,6 +249,7 @@ class BaselineAnchoring(unittest.TestCase):
         self.save()
         with patch.object(ledger, "inventory", side_effect=AssertionError("must not reconstruct")), \
                 patch.object(ledger, "_implementation_fingerprints", side_effect=AssertionError("must not reload source")), \
+                patch.object(ledger, "_example_fingerprints", side_effect=AssertionError("must not reload examples")), \
                 patch.object(ledger, "_commit", wraps=ledger._commit) as resolve:
             result, output = self.verify(previous)
         self.assertEqual(result, 0, output)
