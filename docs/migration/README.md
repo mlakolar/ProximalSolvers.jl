@@ -7,11 +7,15 @@ not a permanent freeze on later documentation or numerical development.
 
 The text, example and URL inventory comes from
 `a6293e6ff7e654a87babbc5de2314205be13d6c5`, the revision named in the migration
-plan. The implementation branch starts at
-`debbc88bed9c356bea197c6380662d3482e234f4`, which already includes the subsequent
-BlockIterate / GroupNormL2 refusal-message change. The migration preserves that
-upstream change. `source_code_sha256` therefore uses this implementation baseline;
-all other historical text and example records use the plan's baseline.
+plan. The implementation guard uses
+`fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8`, the current master revision integrated
+before publishing. The branch initially started at `debbc88`; the later upstream
+changes add five tutorials and the narrow nonnegative-lasso PGD path. They are
+preserved. `source_code_sha256` uses the integrated implementation snapshot;
+all historical text and example records still use the plan's baseline.
+New nonnegative-lasso clauses cite their immutable current-source commit separately
+from the 725 historical blocks. The original 14 scripts remain unchanged, and all
+five newer upstream scripts remain registered and executable.
 
 `baseline.json` contains original text as well as SHA-256 fingerprints. It records
 725 blocks, 19 original inline executable examples, 14 example scripts, and

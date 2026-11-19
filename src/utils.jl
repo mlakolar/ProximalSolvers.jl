@@ -138,7 +138,7 @@ end
 # S equals the S of NormL1(λ0) where no entry of ∇f(0) has a subnormal square (there the computed norm of a one-entry
 # block is its magnitude); the iterates and the residuals of the two penalties can differ by rounding, since
 # ProximalBase's group operations are not its ℓ1 operations.
-function _stationary!(state, f, g::Union{NormL1, ElasticNet, GroupNormL2}, options::ProximalOptions)
+function _stationary!(state, f, g::Union{NormL1, NormL1Nonneg, ElasticNet, GroupNormL2}, options::ProximalOptions)
   T = eltype(state.x)
   λmax = _lambda_max!(state, _scale_norm(g))   # first: it uses xhat, which APG's gradient below also uses
   grad = _gradient_at_x!(state, f)
@@ -150,6 +150,10 @@ function _stationary!(state, f, g::Union{NormL1, ElasticNet, GroupNormL2}, optio
   threshold = τ * S
   isfinite(S) && threshold >= floatmin(T) && isfinite(residual) && residual < threshold
 end
+
+# For NormL1Nonneg, ProximalBase uses the point-aware constrained residual: abs(∇fᵢ + λ)
+# at xᵢ > 0 and max(-(∇fᵢ + λ), 0) at xᵢ = 0, with Inf for an infeasible point.
+# The scale is S = max(λ, α‖Xᵀy‖∞), as above; this is not the one-sided zero-solution threshold.
 
 # The default stationarity check, for a penalty without a dedicated check above (today NormLinf): a new
 # proximable g needs no convergence code of its own. At the accepted x, with t = 1/L (the accepted curvature),
@@ -225,6 +229,8 @@ _converted_penalty(g::NormL1{<:Real, Vector{T}}, ::Type{T}) where T = NormL1(T(g
 _converted_level(::Type{T}, λ::T) where T = λ
 @noinline _converted_level(::Type{T}, λ) where T = T(λ)
 _converted_penalty(g::ElasticNet, ::Type{T}) where T = ElasticNet(_converted_level(T, g.λ1), _converted_level(T, g.λ2))
+_converted_penalty(g::NormL1Nonneg{<:Real, Nothing}, ::Type{T}) where T = NormL1Nonneg(T(g.λ0))
+_l1_level(g::NormL1Nonneg) = g.λ0
 _l1_level(g::NormL1) = g.λ0
 # the largest coefficient λ0 wᵢ of a penalty with weights in T and a level in T
 _l1_level(g::NormL1{<:Real, <:Vector}) = g.λ0 * maximum(g.w)

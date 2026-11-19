@@ -7011,7 +7011,7 @@
   ],
   "url_basis": "Documenter 1.20.0 build of baseline a6293e6; all recorded fragments checked against rendered HTML.",
   "source_code_sha256": {
-    "src/ProximalSolvers.jl": "fbdbf51b5cb83a3667470ce5f2553e989c9f033e76e0fdfff541338bed2bc1f2",
+    "src/ProximalSolvers.jl": "f076aa924619f52d81e205e28af946ccca673d14ba2c7327594a64e6d7f38064",
     "src/blocks.jl": "cff290802d3f9b77af4382a837c5501cc94bab6157ed5b94feb610dfa3e0eea3",
     "src/cd/leastsquares.jl": "12d939af39e041a7aeeedfb3130935ff0d2aedc55059ca8cc3cc7748be4d0c2f",
     "src/cd/models.jl": "5783b055c714ec3eb5f7da0b141f37d787845a6a8bcd8c3c87a5b21b0993c81d",
@@ -7020,13 +7020,13 @@
     "src/cd/sqrtlasso.jl": "8b0366855d11f2ae4b1c7230c092c9d1e6d50aebf766854e9d755ad2d9934dbe",
     "src/line_searches.jl": "a9c591e8e2da9b895053790646ec6f8fddab1c408f4fcb160174787f4d000f47",
     "src/precompile.jl": "60673b8367c6cf81728eee1a30953803138cd1bcc3567203a3fa22556365eb65",
-    "src/solve.jl": "f3fac3f8014697da995bb4a64332f7a392f46ab3a292c1b2e784cbbfa88fd8b6",
+    "src/solve.jl": "78c9f7db1cb0b8c00ce9b31de8124d7f7b6ac09bcc7f7cd87b0abc24172b4b85",
     "src/solvers/accelerated_proximal_gradient_descent.jl": "b368f43ee6bc1de372be611550fbcc904a1bc663d321a3e74be5945adde6ccc5",
     "src/solvers/image_models.jl": "c39bbda1848089516f9d209967ff63d0b1e7cee4289fd45eaa2075b4e5986523",
-    "src/solvers/proximal_gradient_descent.jl": "1325f6980d974d1d7cd7e7e86170396f15ccf1e69e0dbe5e54efc982c169370f",
+    "src/solvers/proximal_gradient_descent.jl": "be351b636dee27e7f816e7825b73047a0363182d85353ed95d95d635b1e97713",
     "src/types.jl": "6b1de93e482cea4412b8c506965108221d393bf2ecd0375b14a92304569e8273",
-    "src/utils.jl": "b0d5f5eb5e2683f1b7f4a51cceb270374f1493413eb1b8d09eafae8b21bc094b"
+    "src/utils.jl": "8661cb00cbcd850d23fd78fd42926b105f1c69f1cbd429c00f60d9a3c481485d"
   },
-  "implementation_baseline": "debbc88bed9c356bea197c6380662d3482e234f4",
-  "implementation_baseline_note": "The branch starts after upstream PR #384. Its refusal-message changes and tests are preserved; the documentation inventory remains at the plan's a6293e6 baseline."
+  "implementation_baseline": "fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8",
+  "implementation_baseline_note": "The migration branch integrated the current master tutorials and nonnegative-lasso support through fd45a427. Its implementation bytes are preserved; the documentation inventory remains at the plan's a6293e6 baseline."
 }

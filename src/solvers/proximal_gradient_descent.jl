@@ -341,7 +341,7 @@ positive L1 level; its successful stopping flag requires a certificate.
 function solve!(x, f, g, method::ProximalGradientDescent,
                 options::ProximalOptions = ProximalOptions(); kwargs...)
   _check_keywords(kwargs)
-  _check_problem(x, f, g)
+  _check_problem(x, f, g, :pgd)
   t0 = time()
   state = initial_state(method, options, f, g, x)
   _solve_gradient!(state, f, g, method, options, t0)

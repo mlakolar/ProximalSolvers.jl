@@ -17,6 +17,7 @@ as supported in the table is not verified; the sections below give the exact inp
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Lasso: `LeastSquaresLoss`, `NormL1` | Float32, Float64 | Float32, Float64 | — | — | Float32 (a), Float64 | Float32 (a, b), Float64 (b) | [Lasso](examples/problems/lasso.md) |
 | Weighted lasso: `LeastSquaresLoss`, `NormL1(lambda, w)` | Float32, Float64 (f) | Float32, Float64 (f) | — | — | Float32 (a, f), Float64 (f) | Float32 (a, b, f), Float64 (b, f) | [Weighted lasso](examples/problems/weighted_lasso.md) |
+| Nonnegative lasso: `LeastSquaresLoss`, unweighted `NormL1Nonneg` | — | — | — | — | Float32 (a, i), Float64 (i) | — | [Nonnegative sparse regression](examples/problems/nonnegative_lasso.md) |
 | Elastic net: `ElasticNet` | Float32, Float64 (c) | Float32, Float64 (c) | — | — | Float32 (a), Float64 | Float32 (a, b), Float64 (b) | [Elastic net](examples/problems/elastic_net.md) |
 | Group lasso: `GroupNormL2` | — | — | Float32, Float64 (d) | — | Float32 (a, h), Float64 (h) | Float32 (a, b, h), Float64 (b, h) | [Group lasso](examples/problems/group_lasso.md) |
 | Multi-response group lasso: `LeastSquaresLoss` with a matrix response, `GroupNormL2` on the rows of the coefficients | — | — | Float32, Float64 (g) | Float32, Float64 (g) | — | — | [Multi-task group lasso](examples/problems/multitask_group_lasso.md) |
@@ -75,9 +76,13 @@ lasso (note e).
 
 These tutorials apply rows of the matrix to statistical problems and add no solver support.
 
+- [Robust sparse regression](examples/problems/robust_sparse_regression.md): sparse response contamination fitted as a weighted lasso on `[X I]`, with separate penalties for predictors and observation corrections (weighted lasso row, `CDSolver` on a `Vector`, Float64).
 - [Change-point detection](examples/problems/change_point_detection.md): 1D total-variation denoising, rewritten as a lasso on a step design (lasso row, `CDSolver` on a `Vector`, Float64).
+- [Stability selection with repeated lasso fits](examples/problems/stability_selection.md) compares a full-data lasso fit with selection frequencies from repeated half-samples (`CDSolver` on a dense `Vector`, Float64).
 - [Gaussian graph: neighborhood selection](examples/problems/nodewise_gaussian_graph.md): the graph of a Gaussian vector from one lasso regression per variable (lasso row, `CDSolver` on a `Vector`, Float64).
+- [Categorical factor selection](examples/problems/categorical_group_selection.md): reference-coded factors selected as complete blocks, with an unpenalized intercept handled by centering (group lasso row, `CDSolver` on a `BlockIterate`, Float64).
 - [Sparse additive regression](examples/problems/sparse_additive_regression.md): an additive model with one spline block per predictor, fitted as a group lasso (group lasso row, `CDSolver` on a `BlockIterate`, Float64).
+- [Sparse deconvolution and event recovery](examples/problems/sparse_deconvolution.md): signed sparse events from blurred observations using a dense causal convolution design (lasso row, `CDSolver` on a `Vector`, Float64).
 - [Multi-task group lasso](examples/problems/multitask_group_lasso.md): several regression tasks on one design with a shared set of predictors, the row-sparse penalty `λ √K Σⱼ ‖B[j, :]‖₂` on the coefficient matrix `B` (multi-response group lasso row, `CDSolver` on a `Matrix`, Float64).
 
 ## What works today?
@@ -247,6 +252,21 @@ For an executable complete example, see [Getting started](getting-started.md).
 For using sparse **coefficients**, see the
 [sparsity tutorial](sparsity-and-kkt.md). The design matrix still must be
 dense, even when the coefficients use `SparseIterate`.
+
+### Nonnegative lasso with proximal gradient descent
+
+**(i)** `ProximalGradientDescent` accepts unweighted `NormL1Nonneg(lambda)` with the same
+dense least-squares data and positive loss scales as lasso. `lambda` is finite, nonnegative,
+and representable in `T` without overflow or rounding a nonzero level to zero. The dense
+`Vector{T}` start must be nonnegative; an infeasible start is refused before writes.
+The proximal operator enforces feasibility at each step. At positive coefficients the
+point-aware KKT residual is `abs(grad[j] + T(lambda))`; at zero coefficients it is
+`max(-(grad[j] + T(lambda)), 0)`. A proposed stop must pass the same threshold as
+lasso: `max(gradtol, 64 eps(T)) * max(T(lambda), s * norm(X'y, Inf))`.
+This scale uses the symmetric gradient magnitude, not the one-sided level at which the
+zero vector solves the constrained problem. A kept stop is a computed residual check,
+not an exact-arithmetic certificate. APG, coordinate descent, weighted `NormL1Nonneg`,
+sparse or block iterates, and square-root loss are refused. No intercept is fitted.
 
 ## What is not supported yet?
 
