@@ -121,15 +121,20 @@ PGD and APG, cold and warm starts, dense and `SparseIterate` iterates:
 | `lasso-C` | 800×120, correlated ρ=0.5 | extended | as `lasso` |
 | `lasso-D` | 180×600, p > n | extended | as `lasso` |
 
-Four more current-core cases (quick suite) run `CDSolver` on a `BlockIterate` for the group lasso
+Eight more current-core cases (quick suite) run `CDSolver` on a `BlockIterate` for the group lasso
 (#275). They need the capability `cd:block_iterate` (and `cd:float32` in Float32):
 
 | Problem | Design | Suite | Variants |
 |---|---|---|---|
 | `group-lasso` | 120×32, independent columns, contiguous groups of four with the default weights `√4` (`grouped_problem`, key `core/group-lasso`) | quick | CD `block-{f64,f32}`; `warm-` of each |
+| `group-lasso-m2` | 120×32, independent columns, 16 contiguous groups of two with weights `√2` (`grouped_problem`, key `core/group-lasso-m2`) | quick | CD `block-{f64,f32}`; `warm-` of each |
 
-Their IDs are `cd/group-lasso/cd/{,warm-}block-{f64,f32}/call`. The historical
-`cd/group-lasso/cd/tight/call` keeps its inputs and stays deferred: it needs `cd:group`
+Their IDs are `cd/group-lasso/cd/{,warm-}block-{f64,f32}/call` and
+`cd/group-lasso-m2/cd/{,warm-}block-{f64,f32}/call`. The two-column fixture exercises
+the closed-form curvature (#339, #387). Its separate seed key gives cold and warm cases
+the same draw at each repetition and keeps the four-column inputs and hashes fixed for
+revision comparisons. The historical `cd/group-lasso/cd/tight/call` keeps its inputs and
+stays deferred: it needs `cd:group`
 (`GroupNormL2` on an `AtomIterate`) and `cd:gap`, which `CAPABILITIES` does not declare, and its
 draws differ from those of the current-core key. The penalty is `GroupNormL2` of the problem's element type, and the start is a
 `BlockIterate` with the groups of the problem, active where the start is nonzero. The settings,
@@ -167,10 +172,10 @@ Their IDs are `cd/lasso-weighted/cd/{dense,sparse}-{f64,f32}/call` and
 of the other current-core cases of the same solver and precision (`acc-dense-f64`: `accuracy_options`). As for the other
 `acc-` cases there are no Float32 PGD or APG cases.
 
-With all groups selected, the default quick suite has 30 supported cases: 24 standard
-lasso cases, 4 group-lasso CD `BlockIterate` cases, and 2 unchanged historical cases.
-The extended suite includes quick and has 62 supported cases: 40 standard lasso cases,
-10 Float64 PGD/APG `acc-` cases, 4 group-lasso CD cases, 6 weighted lasso cases, and the same 2 historical cases.
+With all groups selected, the default quick suite has 34 supported cases: 24 standard
+lasso cases, 8 group-lasso CD `BlockIterate` cases, and 2 unchanged historical cases.
+The extended suite includes quick and has 66 supported cases: 40 standard lasso cases,
+10 Float64 PGD/APG `acc-` cases, 8 group-lasso CD cases, 6 weighted lasso cases, and the same 2 historical cases.
 The other 100 historical cases are deferred in the extended suite.
 
 Float32 inputs are the Float64 draw rounded once; the data hash covers the rounded values and
@@ -201,7 +206,7 @@ PS_SUITE=extended PS_GROUPS=gradient PS_LIST=true \
 
 Each case builds its inputs from a seed keyed by its scenario and repetition, so a case
 selected alone has the same inputs, data hash and certificate as in the full suite.
-`PS_CASES='cd/lasso-B/cd/*-f64/call'` measures four of the 17 supported quick `cd` cases.
+`PS_CASES='cd/lasso-B/cd/*-f64/call'` measures four of the 21 supported quick `cd` cases.
 
 ### Float32 PGD and APG against the `1e-5` target
 

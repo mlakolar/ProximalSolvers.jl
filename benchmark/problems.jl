@@ -158,9 +158,10 @@ function logistic_problem(rep, key; n = 120, p = 24, weighted = false)
   (; key = String(key), kind = :logistic, X, y, s = 1 / n, λ = 0.04, w_obs, offset)
 end
 
-function grouped_problem(rep, key; n = 120, p = 32, sparse_group = false)
+function grouped_problem(rep, key; n = 120, p = 32, sparse_group = false, group_size::Int = 4)
+  group_size > 0 || throw(ArgumentError("group size must be positive"))
   a = regression_problem(rep, key; n, p)
-  groups = [collect(j:min(j + 3, p)) for j in 1:4:p]
+  groups = [collect(j:min(j + group_size - 1, p)) for j in 1:group_size:p]
   w_group = sqrt.(Float64.(length.(groups)))
   merge(a, (; kind = sparse_group ? :sparse_group : :group, groups, w_group, α = 0.5))
 end

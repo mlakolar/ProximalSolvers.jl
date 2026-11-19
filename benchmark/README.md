@@ -17,7 +17,7 @@ capability when the solver returns ([HARNESS.md](HARNESS.md#restoring-a-solver))
 
 | Component | Path | Runs against master? |
 |---|---|---|
-| Formal harness: problems, certificates, cases, runner, local exploration | `problems.jl`, `certificates.jl`, `cases.jl`, `run.jl`, `setup.jl`, `local.jl` | Yes: 30 quick or 62 extended cases (extended includes quick) with `setup.jl ... pinned`; 100 historical cases deferred in the extended suite. Documented in [HARNESS.md](HARNESS.md); `test/benchmark_formal.jl` tests it. |
+| Formal harness: problems, certificates, cases, runner, local exploration | `problems.jl`, `certificates.jl`, `cases.jl`, `run.jl`, `setup.jl`, `local.jl` | Yes: 34 quick or 66 extended cases (extended includes quick) with `setup.jl ... pinned`; 100 historical cases deferred in the extended suite. Documented in [HARNESS.md](HARNESS.md); `test/benchmark_formal.jl` tests it. |
 | Historical environment template | `Project.toml` | Kept with ProximalBase 0.5 for full-package checkouts and Stage 2A verification (#225). |
 | Harness self-checks | `check_certificates.jl`, `check_local.jl` | No (deferred): they exercise historical solvers. |
 | Record validation, summaries, paired statistics, cross-solver readout | `validate.py`, `summarize.py`, `compare.py`, `cross_solver.py` | Yes. Python only; they read records and never load the package. `cross_solver.py` is descriptive ([HARNESS.md](HARNESS.md#cross-solver-readout)). |
@@ -33,9 +33,9 @@ capability when the solver returns ([HARNESS.md](HARNESS.md#restoring-a-solver))
 ```sh
 # Formal, independently certified records (HARNESS.md): environment, supported and deferred cases, a run
 julia benchmark/setup.jl "$PWD" benchmark/results/env pinned
-# Quick (default): 30 supported cases
+# Quick (default): 34 supported cases
 PS_LIST=true julia --project=benchmark/results/env benchmark/run.jl
-# Extended (includes quick): 62 supported cases
+# Extended (includes quick): 66 supported cases
 PS_SUITE=extended PS_LIST=true julia --project=benchmark/results/env benchmark/run.jl
 # Extended: 100 deferred historical cases, with missing capabilities
 PS_SUITE=extended PS_LIST=deferred julia --project=benchmark/results/env benchmark/run.jl
@@ -83,13 +83,18 @@ current stable; `benchmark/Project.toml` keeps ProximalBase 0.5 for the historic
 refuses a ProximalBase other than the loaded checkout's pin (URL, commit and committed manifest
 tree), at a moving revision or outside its manifest tree, records its manifest identity, and checks `PS_EXPECTED_PROXIMALBASE_REV` and `PS_EXPECTED_PACKAGE_REVISION` when set.
 `cases.jl` declares the core's capabilities. With all groups selected, the default quick suite
-supports 30 cases: 24 standard least-squares lasso cases, 4 group-lasso CD cases on a
+supports 34 cases: 24 standard least-squares lasso cases, 8 group-lasso CD cases on a
 `BlockIterate`, and 2 unchanged historical cases. The extended suite includes quick and
-supports 62 cases: 40 standard least-squares lasso cases (dense and `SparseIterate` CD,
+supports 66 cases: 40 standard least-squares lasso cases (dense and `SparseIterate` CD,
 dense PGD and APG, Float32/Float64), 10 accuracy-focused Float64 PGD/APG `acc-` cases,
-4 group-lasso CD cases, 6 weighted lasso cases (#331), and the same 2 historical cases. The other 100 historical
+8 group-lasso CD cases, 6 weighted lasso cases (#331), and the same 2 historical cases. The other 100 historical
 cases are deferred in the extended suite (`PS_LIST=deferred`). Requesting a deferred
 case stops the runner with what it lacks.
+
+The cases `cd/group-lasso-m2/cd/{,warm-}block-{f32,f64}/call` cover the two-column
+curvature with 16 contiguous pairs of columns on a 120×32 design. The separate seed key
+`core/group-lasso-m2` gives cold and warm cases the same draw at each repetition and
+preserves the four-column cases' data hashes for revision comparisons.
 
 **Frozen identities.** The Stage 2B harness identities are verified against pinned historical
 commits, not against the working tree, so the four harness files (`problems.jl`, `certificates.jl`,
@@ -151,9 +156,8 @@ is done without changing `benchmark/Project.toml`, and steps 5 and 6 remain.
    the hard-coded `Union`. Start metadata records the capabilities and the deferred count.
 4. **Current API.** Done for #110: 40 standard least-squares lasso cases, 10 of them for APG
    (HARNESS.md, "Supported and deferred cases"). Later restorations added 10 extended
-   accuracy-focused PGD/APG cases (#314, #318) and 4 group-lasso CD cases (#275, #326).
-   `problems.jl` and `certificates.jl` are unchanged; Float32 problems are certified in exact
-   Float64.
+   accuracy-focused PGD/APG cases (#314, #318) and 8 group-lasso CD cases (#275, #326, #387).
+   Certificates use the exact Float64 values of the rounded Float32 inputs.
 5. **External suite.** Its analysis already works on current records and runs in CI. Port
    `current.jl` (and the `current/` environment) to the master API when a comparison is wanted,
    keeping the catalog and the analysis.
