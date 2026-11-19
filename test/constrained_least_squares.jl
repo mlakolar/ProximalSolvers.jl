@@ -17,6 +17,31 @@ function certificate(X, y, beta, project)
      stationarity=norm(v - project(v - t * gradient), Inf) / t)
 end
 
+# Solves from each feasible start and checks the result against the raw data,
+# the independent projection `project` and the known minimizer `reference`.
+function check_solves(X, y, g, project, reference, starts, method, options, tolerance)
+  T = eltype(X)
+  inputs = (copy(X), copy(y), g isa IndBox ? (copy(g.l), copy(g.u)) : nothing)
+  ref = certificate(X, y, reference, project)
+  for start in starts
+    @test iszero(g(start)) && certificate(X, y, start, project).feasibility == 0
+    beta = copy(start)
+    result = solve!(beta, inv(T(size(X, 1))) * LeastSquaresLoss(y, X), g, method, options)
+    c = certificate(X, y, beta, project)
+    @test result.minimizer === beta
+    @test iszero(g(beta))
+    @test c.feasibility <= 8eps(T) * max(1, norm(beta, Inf))
+    @test c.stationarity <= tolerance
+    @test result.minimum ≈ c.objective atol=tolerance rtol=0
+    @test c.objective ≈ ref.objective atol=tolerance rtol=0
+    @test beta ≈ reference atol=tolerance rtol=0
+    @test X == inputs[1] && y == inputs[2]
+    if g isa IndBox
+      @test (g.l, g.u) == inputs[3]
+    end
+  end
+end
+
 @testset "Dense constrained least squares $T / $(summary(method))" for
     T in (Float64, Float32), method in (ProximalGradientDescent(), AccProxGradDescent())
   X = Matrix(T(2) * I, 4, 4)
@@ -62,6 +87,61 @@ end
         @test (g.l, g.u) == (inputs[3].l, inputs[3].u)
       end
     end
+  end
+
+  # With X = sqrt(p) I and n = p the loss is ‖β - c‖²/2, so each constrained
+  # minimizer is the coordinatewise clamp of c. Box and infinity-ball support is
+  # not limited to four coefficients.
+  @testset "Orthogonal dimensions p = $p" for p in (2, 5, 20)
+    D = sqrt(T(p)) * Matrix{T}(I, p, p)
+    c = T[(j % 4 == 1) ? 2 : (j % 4 == 2) ? -2 : (j % 4 == 3) ? 0.25 : 0 for j in 1:p]
+    r = D * c
+    cases = Any[
+      ("asymmetric box", IndBox(T(-0.5), one(T)), fill(T(-0.5), p), fill(one(T), p), true),
+      ("loose box", IndBox(T(-3), T(3)), fill(T(-3), p), fill(T(3), p), false),
+      ("active infinity ball", IndBallLinf(one(T)), fill(-one(T), p), fill(one(T), p), true),
+      ("inactive infinity ball", IndBallLinf(T(3)), fill(T(-3), p), fill(T(3), p), false)]
+    if p == 20
+      lo = T[j % 4 == 0 ? 0 : isodd(j) ? -0.75 : -1.5 for j in 1:p]
+      hi = T[j % 4 == 0 ? 0 : isodd(j) ? 1 : 0.5 for j in 1:p]
+      @test all(lo .<= 0 .<= hi) && any(lo .== hi)
+      push!(cases, ("coordinatewise box", IndBox(copy(lo), copy(hi)), lo, hi, true))
+    end
+    @testset "$label" for (label, g, lo, hi, active) in cases
+      project = v -> clamp.(v, lo, hi)
+      reference = clamp.(c, lo, hi)
+      if active
+        @test norm(reference - c, Inf) >= 0.25
+      else
+        @test all(lo .+ 1 .<= c .<= hi .- 1)
+      end
+      starts = (zeros(T, p), clamp.(fill(T(0.25), p), lo, hi))
+      check_solves(D, r, g, project, reference, starts, method, options, tolerance)
+    end
+  end
+
+  # A nonorthogonal 8 × 4 design whose Euclidean-ball minimizer β⋆ is built from
+  # the KKT conditions: y = X(β⋆ + w) with X'Xw = nμβ⋆ gives ∇F(β⋆) = -μβ⋆, μ > 0,
+  # and ‖β⋆‖₂ = r. X'X has eigenvalues 1, 3, 3, 5, so β⋆ is the unique minimizer.
+  @testset "Rectangular Euclidean ball" begin
+    R = T[1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1; 1 1 0 0; 0 1 1 0; 0 0 1 1; 1 0 0 1]
+    βstar, radius, μ = T[1, 0, 0, 0], one(T), T(0.5)
+    n = size(R, 1)
+    w = (R' * R) \ (T(n) * μ * βstar)
+    s = R * (βstar + w)
+    A, b = Float64.(R), Float64.(s)
+    gradient = A' * (A * βstar - b) / n
+    multiplier = -dot(gradient, βstar) / norm(βstar)^2
+    @test minimum(eigvals(Symmetric(A' * A))) ≈ 1
+    @test norm(βstar) == radius
+    @test multiplier ≈ μ atol=16eps(T) rtol=0
+    @test norm(gradient + multiplier * βstar, Inf) <= 16eps(T)
+    unconstrained = A \ b
+    @test norm(unconstrained) >= 2radius
+    @test norm(project_ball(unconstrained, radius) - βstar, Inf) >= 0.1
+    starts = (zeros(T, 4), T.(project_ball(fill(T(0.25), 4), radius)))
+    check_solves(R, s, IndBallL2(radius), v -> project_ball(v, radius), βstar,
+      starts, method, options, tolerance)
   end
 
   @testset "Refusals before writes" begin
