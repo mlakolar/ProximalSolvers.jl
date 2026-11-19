@@ -89,14 +89,11 @@ pgd_kkt = [iszero(beta_pgd[j]) ?
    max_kkt_violation=maximum(pgd_kkt))
 ~~~
 
-With the defaults, `converged=true` means that a stopping test proposed a stop and
-that the computed KKT residual is below `max(gradtol, 64eps(T)) * max(λ, λmax)` (`λ` the ℓ1 level of the penalty); the
-coefficients can still differ from the analytic answer, as the displayed errors show,
-and this is not a general guarantee. Tighten tolerances for results you plan to report
-and verify an independent KKT residual. See
-[Choosing a solver](choosing-solver.md) for tighter settings.
-The solver's `converged` flag is a working-precision check of the KKT residual, not an
-exact optimality certificate.
+With the defaults, `converged=true` reports a stopping proposal that passed the
+computed stationarity check; it does not promise a fixed coefficient accuracy.
+See [the stopping contract](@ref STOP-01). Compare the independent KKT residual
+with your accuracy needs, and see [Choosing a solver](choosing-solver.md) for
+tighter settings.
 
 ## Float32 data
 
@@ -116,18 +113,11 @@ result = solve!(beta, f, penalty, CDSolver(order=:cyclic, momentum=false))
 beta
 ~~~
 
-The shorthand `1/n` produces a `Float64` scalar. The solver may accept
-that scalar when it is representable in the Float32 working type without
-overflow or losing a nonzero value to zero, and then uses it as supplied,
-combined with `T` by Julia's promotion (it is not first rounded to
-`Float32`). This is a convenience for scalar parameters, **not** a
-mixed-precision solver mode; the arrays must all use the same `T`.
-`one(T)/T(n)` is an explicit choice of a native `T` scale: `n` is
-converted to `T` and the division is done in `T`, so the scale can differ
-from the `Float64` `1/n`. The solve then uses that value, and its products
-with the loss scale are formed in `T`.
-`Float32` iterates still have `Float32` accuracy limits, even though
-some solver tolerances and reported diagnostics use `Float64`.
-See [Numerical behavior](numerics.md) for recovery and stopping limits.
+Keep all data and coefficient arrays in the same element type. Prefer native
+`Float32` scales and penalty levels for a Float32 problem; a representable scalar
+of another type can be accepted without first rounding it to `Float32`, as
+specified in [the scalar and loss-scale rules](@ref IN-02).
+Using such a scalar does not increase coefficient precision; see
+[working precision](@ref FP-01).
 
 Next, try [a realistic sparse example with an independent KKT check](sparsity-and-kkt.md).

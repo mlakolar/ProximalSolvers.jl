@@ -3,179 +3,66 @@
                momentum=nothing, rng=Random.default_rng(), anderson=0,
                gaptol=0, gapsafe=false)
 
-Coordinate descent for the least-squares lasso and elastic net, and, with ProximalBase's
-`SqrtLeastSquaresLoss`, the square-root lasso (described below). Call
-`solve!(beta, f, g, CDSolver())` with matching `Float32` or `Float64`
-design/response data and coefficients. The coefficient storage can be
-a dense `Vector` or a one-dimensional ProximalBase `SparseIterate`. With the least-squares
-loss, the penalty is `NormL1(lambda)`, `NormL1(lambda, w)` or an unweighted `ElasticNet(lambda1, lambda2)`
-(the square-root lasso, below, takes an unweighted `NormL1` with a positive level). The weights `w`
-of a `NormL1` are a `Vector{T}` (`T` the element type of the data) with finite nonnegative entries (see
-[`solve!`](@ref)): `solve!` checks the coefficient `T(lambda) w[j]` of entry `j`, the product rounded in `T`, to be zero
-or a normal number of `T` (with `T(lambda)` zero or normal as well), and a zero weight leaves it unpenalized. The
-coordinate step in the normal range is ProximalBase's `prox_block`, which forms its threshold from `lambda` and
-`w[j]` in its working type; see [Supported problems](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/#weighted-lasso-support)
-for how that threshold and the checked coefficient can differ.
-For an `ElasticNet` the coordinate step of a visit in the normal range is ProximalBase's
-`prox_block` of the penalty. Let `s` be the loss scale and `a` the squared norm of the
-column, finite and positive. At a visit where `s * a` or its reciprocal is below
-`floatmin` of the type that combines `s` with the working type, the step with
-`lambda2 = 0` is the lasso's range-safe form (the threshold formed without the product
-or its reciprocal), and with `lambda2 > 0` the visit is refused with an `ArgumentError`
-that names the coordinate; for a `NormL1` with weights the step there is the lasso's range-safe form at
-the coefficient `T(lambda) w[k]` of the coordinate. The refusal happens during the pass: the iterate passed to
-`solve!` is unchanged, and a borrowed RNG may have advanced. A visit to a flat column
-(all entries 0) sets its coordinate to 0, at the levels that `solve!` accepts, for each of these
-penalties (also where a weight is zero); a visit to a column that is not flat and whose `a` underflows to 0 is refused
-as for the lasso. With `maxpasses = 0` no coordinate is visited.
-For a group lasso it can be a ProximalBase `BlockIterate`, as described below.
+Coordinate descent for dense Float32/Float64 least-squares lasso (including
+weights), elastic net, group lasso and square-root lasso. Use a dense vector
+or one-dimensional `SparseIterate` for scalar problems, a `BlockIterate` for
+groups, or matrix coefficients for row-group multi-response regression.
+`solve!` updates the supplied coefficients. For deterministic scalar examples,
+choose `order=:cyclic, momentum=false`.
 
-`CDSolver()` uses random coordinate order and the algorithm's default
-momentum behavior, a reasonable exploratory choice. For deterministic
-tutorial examples use `CDSolver(order=:cyclic, momentum=false)`;
-for repeatable random order supply `rng=Xoshiro(seed)` from `Random`.
-The borrowed RNG advances when used. Cyclic order does not support
-`momentum=true`.
+```julia
+using ProximalBase, ProximalSolvers
+X = [1.0 0.0; 0.0 2.0; 0.0 0.0]
+y = [2.0, -2.0, 0.5]
+beta = zeros(2)
+result = solve!(beta, (1/3)*LeastSquaresLoss(y, X), NormL1(0.1),
+                CDSolver(order=:cyclic, momentum=false))
+```
 
-`tol` (default `1e-7`) measures coefficient change, **not** independent
-optimality (the square-root lasso adds a certificate, below). With `relative=true`, the
-stopping threshold is `tol` times the
-response scale `sqrt(s * sum(abs2, y))`, `s` the loss scale; the sum of
-squares and its product with `s` may leave the range of the working type.
-For `y = 0` the threshold is the absolute `tol`. A response scale whose
-computed value, rounded to the working type, is not a normal number is refused
-with an `ArgumentError` before the first pass: rescale the data or use
-`relative=false` (an objective that overflows is still refused). `tol` times a
-normal response scale can be subnormal or 0. The test `change < threshold`
-cannot hold for a threshold of 0, so the run cannot converge by it and ends at
-`maxpasses` with a warning, unless an independent numerical failure (for
-example a non-finite coordinate step) stops it first with an error.
-A column whose squared norm `a` is not finite in the working type is refused with
-an `ArgumentError` before the first change of its coordinate, and the starting
-point is unchanged. Where the product `s * a` or its reciprocal is outside the
-normal range of the type that combines `s` with the working type, the
-coordinate step forms its threshold `lambda / (s * a)` without them.
-`relative=false` makes the threshold an absolute change threshold;
-`maxpasses` limits the run. For least squares (lasso and elastic net) and the group lasso, an end-of-pass
-convergence flag does not guarantee a small KKT residual; for reported fits, check
-optimality independently. What the change test implies, and where it can be met away
-from a minimizer (a product that underflows or cancels, a warm start far above the
-solution scale), is described in the
-[numerical guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/stopping-limits/).
-Anderson acceleration, a user-set gap target and screening
-are not implemented: `anderson`, `gaptol` and `gapsafe` are accepted only
-at their defaults, are not stored, and other values are rejected.
+`converged` is a change test, with an additional certificate for square-root
+lasso; see [result semantics](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/results-failures/#RES-01).
 
-Once the active passes since the last full pass have together visited 20 times
-as many coordinates as a full pass, the next pass is a full pass even when the
-active changes have not fallen below the threshold. Float32 rounding of the
-coefficients can also keep the largest change of every full pass at or above the
-effective threshold (the reported `tolerance`; with `relative=true` and a
-positive response scale, each coordinate change is first multiplied by
-`sqrt(s * a)`, `a` the squared norm of its column); the run then ends at
-`maxpasses` without converging, with the warning. A threshold well above that
-rounding level avoids this; Float64 data has a much lower rounding level.
+# Extended help
 
-A `SparseIterate` is solved on a private copy retaining its initial
-active zeros and coordinate order. After a completed finite run the caller
-receives the complete final state, including any zero-coordinate
-compaction. The copy needs `O(p)` extra storage.
+## Settings
 
-**Group lasso.** With `T` equal to `Float32` or `Float64`, `x = BlockIterate(T, p, g)`
-and `g = GroupNormL2(lambda, groups)` (or with weights), the call
-`solve!(x, f, g, CDSolver(order=:cyclic, tol=1e-10))` minimizes the least-squares
-loss plus `lambda * sum(w[k] * norm(x[groups[k]]))`. The loss is as for the lasso. `g` is a
-`GroupNormL2{Float32}` or `GroupNormL2{Float64}` whose level and weights are finite,
-nonnegative and representable in `T`, and its groups and those of `x` agree in number,
-order and ordered members, otherwise a `DimensionMismatch` is thrown. The coordinates are
-the groups, and a pass visits whole groups. `momentum = true` is refused with an
-`ArgumentError`; `nothing` and `false` give plain block coordinate descent. The change of
-a group is `norm` of its displacement, which `relative=true` multiplies by
-`sqrt(s * l)` for a positive response scale, where `l` bounds the largest eigenvalue of
-the Gram matrix of the columns of the group; the forced full pass counts group visits.
-As for the lasso, `converged` reports this change test and is not a KKT certificate.
-The curvature of a flat group, and of a group of one column when `n eps(T) <= 1/8` (`n`
-the number of rows), is set before the first pass. That of any other group is computed
-at the first visit that needs it when cheap bounds show that no refusal can occur (under the
-eigenvalue model for groups of three or more columns and for groups of two columns outside the
-range of their closed-form bound), and before the first pass otherwise. A visit to a nonflat group whose block is zero, active or
-not, first applies ProximalBase's `prox_block!` to the correlations at the step `1/s`
-(skipped when `1/s` is not a normal number of the scale's arithmetic type, or when the
-correlations are not all zero and the largest magnitude is below `2^53 * floatmin(T)`) and ends without a
-change, and without computing a still-deferred curvature, when the result is zero. Before
-the first pass, and before any draw from the RNG, an `ArgumentError` that names the group
-refuses a curvature that underflows or overflows in `T` and a step outside the normal
-range, for each group whose curvature is computed then. An exception of the eigenvalue
-routine (which a group of two columns inside the range of its closed-form bound does not
-call), a refusal of a lazily computed curvature, and a trial point or displacement that
-is not finite can occur during a pass; `x` is then unchanged, and the RNG may have
-advanced. The curvature rule and the refusals are described in the numerical
-guide.
+- `maxpasses=100_000`: maximum number of coordinate passes.
+- `tol=1e-7`: change tolerance; it is not an independent accuracy target.
+- `order=:random`: random coordinate order; `:cyclic` is deterministic.
+- `relative=true`: scale the change test using the response and coordinate curvature;
+  `false` uses an absolute change threshold.
+- `momentum=nothing`: use the algorithm's default momentum policy. `false` disables
+  momentum. `true` is unsupported for cyclic order and group problems.
+- `rng=Random.default_rng()`: borrowed random generator, advanced when used.
+  Create a fresh seeded generator to reproduce a random order.
+- `anderson=0`, `gaptol=0`, `gapsafe=false`: compatibility defaults only;
+  other values are rejected and these settings are not stored.
 
-**Multi-response group lasso.** With `T` equal to `Float32` or `Float64`, `X::Matrix{T}` (`n` by `p`),
-`Y::Matrix{T}` (`n` by `K`), `B::Matrix{T}` (`p` by `K`), `f = LeastSquaresLoss(Y, X)` (or one positive scalar
-multiple of it, with loss scale `s`) and
-`g = GroupNormL2(lambda, [collect(j:p:p*K) for j in 1:p])` (or with weights, by default `sqrt(K)`), the call
-`solve!(B, f, g, CDSolver(order=:cyclic, momentum=false))` minimizes
-`(s/2) * sum(abs2, Y - X*B) + lambda * sum(w[j] * norm(B[j, :]) for j in 1:p)` from the original `X` and `Y`, without a
-Kronecker design, and returns `B` itself as `minimizer`. The groups of `g` must be the rows of `B`,
-`g.groups[j] == j:p:p*K`, in this order, otherwise a `DimensionMismatch` is thrown. A visit to row `j` costs
-`O(n K)`, and the solver keeps an `n` by `K` residual and `O(p K)` further storage. The run is on a private
-`BlockIterate` over `vec(B)`, and `B` is written only after a completed run with a finite objective. A
-`BlockIterate` over `vec(B)` with the same groups and loss is accepted too. The penalty, the loss scale,
-the refusal of `momentum = true` and the meaning of `converged` (the change test, not a KKT certificate) are
-those of the group lasso above. `B` must share no memory with `X`, `Y`, the penalty weights or the scratch array
-of the loss. With `maxpasses > 0`, an `ArgumentError` that names the row refuses, before the first pass, a column
-of `X` whose squared norm `a` is not finite or is below `floatmin(T)`, unless the column is zero, and a column
-for which `s * a` or its reciprocal is below `floatmin` of the type that combines `s` with `T`. With
-`relative=true` and a positive response scale, the change of row `j` is `norm` of its displacement times
-`sqrt(s * a)` and the response scale is `sqrt(s * sum(abs2, Y))`, both up to rounding in the normal range.
-A zero column of `X` sets its row to 0 at a visit where the level and the weight are positive, and leaves the
-row as it is where either is 0; with `maxpasses = 0` no row is visited, the column checks are not made and `B`
-keeps its values. `ProximalGradientDescent`, `AccProxGradDescent`, a `NormL1` or `ElasticNet` penalty,
-`SqrtLeastSquaresLoss` and a vector response with a `Matrix` coefficient are refused with an `ArgumentError`.
+The data arrays share one `Float32` or `Float64` element type. With least squares,
+use `NormL1(lambda)`, `NormL1(lambda, w)` or an unweighted `ElasticNet` for scalar
+coefficients. Weights must be a matching `Vector{T}` satisfying the validated
+coefficient-range rules; a zero weight leaves its coordinate unpenalized.
+Group penalties require matching partitions; matrix-response groups are the rows
+of the coefficient matrix, indexed through `vec(B)`.
 
-**Square-root lasso.** With `T` equal to `Float32` or `Float64`, `X::Matrix{T}`, `y::Vector{T}`,
-ProximalBase's `f = SqrtLeastSquaresLoss(y, X)` and `g = NormL1(lambda)`, the call
-`solve!(x, f, g, CDSolver(...))` minimizes `P(beta) = norm(y - X*beta) + lambda * norm(beta, 1)`,
-without a `1/sqrt(n)` factor, for a dense `Vector{T}` or a one-dimensional `SparseIterate{T}` `x`.
-The normalized objective `norm(y - X*beta)/sqrt(n) + lambda_n * norm(beta, 1)` has the same
-minimizers at `lambda = sqrt(n) * lambda_n`, and its values are those of `P` divided by `sqrt(n)`; a
-scaled-lasso noise estimate is then `norm(y - X*beta)/sqrt(n)` at the solution. `lambda` must be
-positive (at `lambda = 0`, use `LeastSquaresLoss`, which has the same minimizers), finite and
-representable in `T`; it may be given in another `Real` type. A weighted `NormL1`, an `ElasticNet`,
-`Scaled(SqrtLeastSquaresLoss, alpha)` (for a positive finite `alpha`, use the unscaled loss at the
-level `lambda/alpha`), a `BlockIterate`, and `ProximalGradientDescent` or `AccProxGradDescent`
-(ProximalBase provides no gradient for this loss; for `X != 0` it is not differentiable where
-`y = X*beta`) are refused with an `ArgumentError` before `x` changes. A visit computes the minimizer
-of `P` over its coordinate, up to rounding: a soft threshold at the least-squares centre with a threshold
-that depends on the residual. The order, momentum, the change threshold and `maxpasses` are as for least
-squares.
+Square-root lasso requires an unscaled `SqrtLeastSquaresLoss` and unweighted
+`NormL1(lambda)` with `lambda > 0`. A certified result reports its bound in
+`gap`; an uncertified stop returns `converged=false`, `gap=NaN` and a warning.
+For the normalized square-root objective, use `lambda = sqrt(n)*lambda_n` in
+this unnormalized interface.
 
-A full pass whose largest change is below the threshold runs a duality certificate: a dual point along
-the residual `y - X*beta`, recomputed in `Float64`, with a proved bound on the rounding of each computed
-term. `converged = true` only when it proves `(P(beta) - P*)/P* <= 1e-4`, `P*` the minimum, and `gap`
-then holds that bound, rounded up; its denominator is a lower bound of `P*` from the dual point. When
-the certificate does not pass, the change threshold (the reported `tolerance`) is divided by 100 and the
-run continues, at most twice per solve, where `tolerance/100` is finite, positive and below `tolerance`
-(an effective threshold that overflowed to `Inf` is not lowered), and not below a floor in the units of
-the threshold: with a
-relative threshold (`relative=true` and `y != 0`), `16 eps(T)` times `norm(y)`; with an absolute one
-(`relative=false`, or `y = 0`), `16 eps(T)` times the largest `abs(beta[k])` at the check, and no
-tightening at `beta = 0`. Otherwise the run stops with `converged = false`, `gap = NaN` and a warning that
-differs from the `maxpasses` warning. This happens where the recomputed residual is 0 with a nonzero
-coefficient, so that the dual direction is undefined: the usual outcome at an exact fit (`y = X*beta`)
-with a positive penalty, where a coordinatewise minimum need not be a minimum (the residual can also
-round to 0 where `y - X*beta` is not 0, and an exact fit whose recomputed residual is not 0 can be
-certified, validly); after a full pass that changed nothing; with `y = 0` and a nonzero start, where `P* = 0`, so that no relative bound
-can be certified unless `beta` reaches 0, and coordinate descent can approach 0 without reaching it; and
-when the threshold cannot be lowered further, for example where the rounding of the recomputed residual
-is not small against the residual itself (as where the fitted values dwarf it), or for `Float32` data
-at the default `tol` with a relative threshold, where `tol/100` is below that floor. With `tol = 0`, or
-a threshold below the changes that rounding produces, the change test does not pass, the certificate
-does not run, and the run ends at `maxpasses` with that warning. At a stop of the certificate,
-`minimum` is evaluated from the residual that it recomputed, when every entry of it is representable
-in `T`.
+CD commits coefficients only after a completed run with a finite objective.
+A numerical failure preserves the caller's starting coefficients, although a
+borrowed RNG may have advanced. After a successful sparse/group solve, obtain
+fresh active-coordinate/value views because compaction can change the storage.
+
+Detailed rules:
+
+- [Scalar steps, schedules and change tests](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/cd-scalar/#CD-01).
+- [Sparse storage and commit semantics](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/cd-sparse-iterate/#CDS-01).
+- [Group steps, curvature and refusals](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/cd-group/#CDG-01).
+- [Multi-response shapes and row groups](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/cd-multiresponse/#CDM-01).
+- [Square-root steps and bounded certificate](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/cd-sqrt-lasso/#CDQ-01).
 
 See [`solve!`](@ref)
 and the [solver guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/).

@@ -6,61 +6,47 @@
 """
     AccProxGradDescent(; β = 0.5, α = 0.9, preconditioner = :none)
 
-Accelerated proximal gradient descent (APG) for least squares with a `NormL1` (lasso, with optional weights),
-`ElasticNet`, `NormLinf` or group lasso (`GroupNormL2`, see [`ProximalGradientDescent`](@ref)) penalty and a dense
-`Vector{Float32}` or `Vector{Float64}` coefficient iterate (Parikh
-and Boyd, *Proximal Algorithms*, §4.3). Iteration `k` (counted from the start or the last
-restart) extrapolates `y = x + k/(k+3) (x - x')` from the last two accepted
-iterates and takes a proximal gradient step from `y`: a gradient step for the
-least-squares loss followed by the proximal operator of the penalty (soft thresholding for `NormL1`, at the level
-`λ wⱼ` of entry `j` for `NormL1(λ, w)`, with the ridge weight after it for `ElasticNet`, for `GroupNormL2` ProximalBase's
-block soft threshold, and for `NormLinf` the
-point minus its projection onto the ℓ1 ball of radius `λ/L`). It is a FISTA-family method; its
-momentum sequence `k/(k+3)` is not the textbook FISTA recurrence.
+Accelerated proximal gradient descent for the same dense Float32/Float64
+least-squares penalties as [`ProximalGradientDescent`](@ref). It extrapolates
+from previous accepted iterates, takes a backtracked proximal step, and restarts
+momentum on an objective increase. Pass [`ProximalOptions`](@ref) as the fifth
+argument to [`solve!`](@ref); the result and stopping interface are shared with PGD.
 
-The step size `1/L` is found by backtracking on the least-squares bound
-`f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + L/2 ‖x - y‖²`, which holds exactly when
-`√α_f ‖X(x - y)‖ ≤ √L ‖x - y‖`. A trial is accepted only when that inequality, with
-a relative slack of `4eps` on `√L`, is certified by conservative rounding-error
-bounds (assuming IEEE arithmetic with gradual underflow): first from the difference
-of cached products, and when that is inconclusive from a freshly computed `X(x - y)`;
-a trial that is still inconclusive is rejected.
-See [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
-A trial with `x == y` entrywise is accepted when its value is finite. A rejected trial sets
-`L ← L/β`, `β ∈ (0, 1)`. Before each iteration `L ← α L`, `α ∈ (0, 1]`, so that the
-step can grow again where the curvature is smaller; `α = 1` keeps `L` from
-decreasing. The estimate before the first iteration is `min(1, α_f ‖X‖_F²)` for the loss scale
-`α_f`, with `‖X‖_F` an upper bound, rounded to `T` and raised to `floatmin(T)` when it is positive and
-rounds below that; it is `1` when that product is at least 1 or `X = 0`.
+```julia
+using ProximalBase, ProximalSolvers
+X = [1.0 0.0; 0.0 2.0; 0.0 0.0]
+y = [2.0, -2.0, 0.5]
+beta = zeros(2)
+result = solve!(beta, (1/3)*LeastSquaresLoss(y, X), NormL1(0.1),
+                AccProxGradDescent())
+```
 
-When an extrapolated step would increase the computed objective, the momentum is
-restarted: the step is repeated from `y = x'` and `k` returns to zero, so the next
-iteration extrapolates with `1/4`. An accepted step that used momentum therefore
-never increases the computed objective. A step without momentum (the first
-iteration, and a step repeated after a restart) can increase it through rounding of
-the step and of the objective; as for [`ProximalGradientDescent`](@ref), that
-stops the solve unless `allow_f_increases = true` in [`ProximalOptions`](@ref).
+`converged` reports the computed stopping criterion, not coefficient accuracy;
+see [the stopping contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-01).
 
-Backtracking raises an error when the next curvature estimate `L/β` is not a finite
-increase of `L`; `solve!` then restores the last accepted iterate and rethrows. A
-`β` close to one makes each rejected trial raise `L` only slightly. `preconditioner = :diagonal` is deferred and
-rejected. Pass `ProximalOptions(...)` as the fifth argument to [`solve!`](@ref).
-A stop that the `xtol`, `ftol` or `gradtol` test proposes counts only if the computed KKT
-residual at the accepted `x` is below `max(gradtol, 64 eps(T)) * max(λ, λmax)`, with
-`λ` the ℓ1 level of the penalty (`λ` of `NormL1(λ)`, the largest coefficient
-`T(λ) * maximum(w)` of `NormL1(λ, w)`, `λ1` of `ElasticNet`) and, for `NormL1` and `ElasticNet`, `λmax = α‖Xᵀy‖∞` (see [`ProximalOptions`](@ref)); for `GroupNormL2(λ, groups, w)` the residual is the
-group KKT residual and `λmax = maxₖ α‖[Xᵀy]_{Gₖ}‖₂`, `λ = T(λ) * maximum(w)`; for `NormLinf` the
-generic proximal-gradient check of [`ProximalOptions`](@ref) applies instead. For `NormL1`, `ElasticNet` and `GroupNormL2`, `converged = true` guarantees only that the
-computed, normalized KKT residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the
-threshold is formed in `T`, which can round or overflow; see [`ProximalOptions`](@ref)). It is
-not an exact-arithmetic certificate and does not guarantee coefficient accuracy on
-ill-conditioned designs (see the [stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)). In `Float32`, a solve can report `converged = true` at a relative duality gap above `1e-5`, as in measurements on small benchmark designs (see
-[the limits of the stopping tests](https://mlakolar.github.io/ProximalSolvers.jl/dev/stopping-limits/)). The check forms `∇f(x)` from the
-cached image `A x` and counts that evaluation in `grad_calls`. The gradient-mapping residual
-of the result, `L ‖x - y‖∞`, is measured from the extrapolated point `y`, not from `x`; check
-KKT conditions independently before reporting numerical results.
-See the [solver guide](https://mlakolar.github.io/ProximalSolvers.jl/dev/choosing-solver/)
-and [numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/).
+# Extended help
+
+- `β=0.5`: factor shrinking the step after a rejected trial; `0 < β < 1`.
+- `α=0.9`: factor reducing curvature before each iteration; `0 < α <= 1`.
+  At `α=1` this adjustment does not grow the step.
+- `preconditioner=:none`: only supported value; other choices are rejected.
+
+Parameter bounds must also hold after conversion to the working type, and
+additional dimension bounds apply. The extrapolation weight is `k/(k+3)`,
+counting from the start or last restart; this is not the textbook FISTA recurrence.
+A restart repeats the step without momentum. An error in backtracking restores
+the last accepted coefficient vector and is rethrown.
+
+The supported penalties are `NormL1` with optional weights, unweighted
+`ElasticNet`, `NormLinf` and a matching `GroupNormL2{T}` on dense coefficients.
+A proposed stop is checked at the accepted point. The iteration's reported
+gradient-mapping residual is measured from the extrapolated point, so use the
+stopping documentation when interpreting it. The extra gradient for a proposed
+stop is included in `grad_calls`.
+
+- [Extrapolation, restarts and dimension limits](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-01).
+- [Certified local bound test and assumptions](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-01).
+- [Shared stopping and exceptional exits](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-01).
 """
 struct AccProxGradDescent{T<:AbstractFloat} <: ProximalSolver
   β::T          # factor by which the step size 1/L shrinks during backtracking

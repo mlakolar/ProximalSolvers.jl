@@ -6,10 +6,9 @@ a linear model that can make some coefficients exactly zero.
 **L1 penalty:** The sum of absolute coefficient values, usually
 multiplied by the strength parameter `lambda`.
 
-**Weighted lasso:** The lasso with a weight per coefficient, `lambda * sum(w[j] * abs(beta[j]))`,
-`NormL1(lambda, w)`. The weights are a `Vector` of the element type of the data, finite and nonnegative; the
-coefficient that `solve!` checks for entry `j` is `T(lambda) * w[j]`, the product rounded in `T`, which must be zero or a
-normal number of `T` (see [Supported problems](support.md)), and a zero weight leaves the entry unpenalized.
+**Weighted lasso:** Lasso with one weight per coefficient,
+`lambda * sum(w[j] * abs(beta[j]))`, represented by `NormL1(lambda, w)`.
+A zero weight leaves an entry unpenalized. See [weight validation](@ref IN-03).
 
 **Elastic net:** The penalty `lambda1 * sum(abs, beta) + lambda2/2 * sum(abs2, beta)`, an L1 term plus a
 ridge (squared L2) term, `ElasticNet(lambda1, lambda2)`. CD, PGD and APG accept it.
@@ -71,33 +70,8 @@ uses it with a `GroupNormL2` penalty for the group lasso; PGD and APG solve the 
 **Compaction:** Removing zero-valued coordinates from the list of
 active coordinates, possibly changing their storage order.
 
-**Owner:** An internal name for the caller's mutable coefficient
-storage. In beginner-facing pages, we call it the *coefficient
-vector* or *coefficient storage*.
-
-**Sentinel:** A placeholder value, such as `kkt_checks=0`, or `gap=NaN` where no
-certificate was computed or none passed, indicating that a diagnostic is not available.
-
 **Gradient residual:** A numerical measure used by an optimizer's
 stopping test. It is not the value of your penalty object.
-
-**TFOCS:** *Templates for First-Order Conic Solvers*. A historical
-first-order optimization framework; the name appears in descriptions
-of PGD's inherited backtracking behavior. It is not a separate solver
-offered by this minimal version.
-
-**FASTA:** *Fast Adaptive Shrinkage/Thresholding Algorithm*. Historical
-terminology for a first-order algorithm and a residual-style stopping
-test. Its appearance in implementation notes does not mean this
-package exposes a separate FASTA solver.
-
-**IHT:** *Iterative hard thresholding*, a method for imposing a fixed
-sparsity budget by retaining selected entries. `normalized=true`
-IHT-style behavior is not supported by the current PGD constructor.
-
-**C0:** An internal project label for the frozen baseline
-characterization and regression tests used during the minimal-core
-rebuild. It is **not** a solver option or a user-facing algorithm.
 
 Start with [What problem, which algorithm?](concepts.md) and
 [Getting started](getting-started.md).

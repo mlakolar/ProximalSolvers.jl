@@ -71,12 +71,6 @@ lasso (note e).
   whose groups partition `1:p`, with the level and coefficients in the range that
   [Group lasso with proximal gradient descent](@ref) states.
 
-**Updating the matrix.** A pull request that adds or removes support for a combination
-changes its cell and its tutorial link in the same pull request, together with the test
-that backs the new cell. A pull request that adds a problem adds a row, a tutorial under
-`examples/problems/` (or registers the path of its example) and its entry in the registry
-in `docs/make.jl`.
-
 ### Statistical applications
 
 These tutorials apply rows of the matrix to statistical problems and add no solver support.
@@ -105,10 +99,8 @@ elastic net
 ~~~
 
 with `ElasticNet(lambda1, lambda2)`. `ProximalGradientDescent` and `AccProxGradDescent` also solve the
-ℓ∞-penalized problem (below). In the normal range, `CDSolver` takes the coordinate step of a visit from
-ProximalBase's `prox_block` of the penalty; out of range, the step of a visit with `lambda2 = 0` is the lasso's
-range-safe form and a visit with `lambda2 > 0` is refused (see [the numerical guide](numerics.md)). Its `converged` is the change test, not a KKT
-certificate.
+ℓ∞-penalized problem (below). CD's numerical step restrictions and its change-test
+meaning of `converged` are specified in [the scalar CD contract](@ref CD-01).
 
 | Input | Supported |
 | --- | --- |
@@ -127,31 +119,16 @@ certificate.
 \min_\beta\quad \frac{s}{2}\|y-X\beta\|_2^2+\lambda\sum_j w_j|\beta_j|,
 ~~~
 
-with `NormL1(lambda, w)`. `solve!(x, f, g, method)` accepts it for `CDSolver` (a dense vector
-or a `SparseIterate`), `ProximalGradientDescent` and `AccProxGradDescent`, with the least-squares loss above (a weighted
-`NormL1` with `SqrtLeastSquaresLoss` is refused, see below), when
+Use `NormL1(lambda, w)` with one finite nonnegative `Vector{T}` weight per
+coefficient and data of the same element type. A zero weight leaves that
+coefficient unpenalized. The accepted levels, rounded products, alias checks and
+preflight behavior are specified in [the weighted-input contract](@ref IN-03).
 
-- `w` is a `Vector{T}` with the element type `T` of the data and the coefficients, and one entry per
-  coefficient. A `Vector` of the other precision, a view, a range or another array type is refused
-  (`collect(T, vec(w))` converts, taking `w` in linear order);
-- every weight is finite and nonnegative (an infinite weight is refused);
-- the level `lambda` is accepted as above and `T(lambda)` is zero or a normal number of `T` (a level that
-  is subnormal in `T` is refused with weights, though an unweighted `NormL1` accepts it), and the coefficient
-  `c_j = T(lambda) * w_j` of every entry, the product rounded in `T`, is finite and, where `T(lambda)` and `w_j` are
-  both positive, a normal number of `T`. A coefficient that overflows, underflows to zero or is subnormal is
-  refused, with the entry `j` named. The rule is on the rounded `c_j`: an exact product slightly below
-  `floatmin(T)` that rounds up to `floatmin(T)` is accepted. A zero level or a zero weight gives the
-  coefficient 0, which is accepted;
-- `x` does not alias `w`, as for `X` and `y`.
-
-These checks run before `x` is copied or written and before the random number generator is
-used. A zero weight leaves its coefficient unpenalized: it is not fixed at 0. With CD, a column of
-`X` that is zero gets the coefficient 0, also where its weight is zero.
-
-Where `c_j` is used, and where it is not. The checks above, the stopping check of PGD and APG (it scores entry `j` with `c_j` and takes the largest `c_j` as the level `λ` of its scale; see [the stationarity check](@ref "The stationarity check of a stop")), and the coordinate step of CD where it forms its threshold without the product `s * a` use the checked `c_j`. ProximalBase's proximal steps (the proximal step of PGD and APG, and the step of CD where it calls ProximalBase's `prox_block`) form their thresholds from `lambda` and `w_j` in ProximalBase's working type, not from `c_j`. These thresholds and those formed from `c_j` can differ by rounding and, for a `lambda` that is not of type `T`, by the error of converting the level to `T`. When CD takes each step is described in [numerical behavior](numerics.md); the error of `c_j` relative to `lambda * w_j` is described in the [implementation notes](developer/implementation-notes.md). CD's
-`converged` remains the change test. A scaled penalty such as `Scaled(NormL1(lambda, w), a)`, and `ElasticNet` with
-weights, are refused. [The weighted-lasso tutorial](examples/problems/weighted_lasso.md) solves an adaptive lasso with a zero
-weight with all three solvers.
+CD, PGD and APG accept this penalty for least squares; weighted square-root
+lasso, weighted elastic net and wrapped penalties remain unsupported.
+[The weighted-lasso example](examples/problems/weighted_lasso.md) demonstrates
+an adaptive fit with a zero weight. The relationship between checked weights
+and proximal thresholds is described in [working precision](@ref FP-01).
 
 ### ℓ∞ penalty with PGD and APG
 
@@ -159,17 +136,14 @@ weight with all three solvers.
 \min_\beta\quad \frac{s}{2}\|y-X\beta\|_2^2+\lambda\|\beta\|_\infty,\qquad \|\beta\|_\infty=\max_j|\beta_j|,
 ~~~
 
-with `NormLinf(lambda)`, `s = 1` for a raw `LeastSquaresLoss` and the loss scale of one positive `Scaled(LeastSquaresLoss)`
-otherwise (`s = 1/n` for the normalized convention). `solve!(x, f, g, ProximalGradientDescent())` and
-`solve!(x, f, g, AccProxGradDescent())` accept it when `x` is a dense `Vector{T}`, `X` and `y` are as above with the same `T`,
-and `lambda` is finite, nonnegative and representable in `T` without overflow or underflow of a nonzero value; a negative or `NaN`
-level cannot be constructed (ProximalBase refuses it), and the other refusals leave `x` unchanged. A wrapper such as
-`Scaled(NormLinf(lambda), c)` is refused with the other unsupported penalties. `CDSolver` refuses
-`NormLinf` for a dense `Vector`, a `SparseIterate` and a `BlockIterate`, before it changes `x` or draws from its random number
-generator: this `CDSolver` needs a separable penalty for its coordinate oracle.
-The proximal operator is ProximalBase's. In exact arithmetic, 0 is a minimizer exactly when `lambda ≥ ‖∇f(0)‖₁ = s‖Xᵀy‖₁` (not the lasso's
-`‖∇f(0)‖∞`). A proposed stop is verified by [the generic check](numerics.md#The-generic-stationarity-check). For an example with both solvers, see
-[the ℓ∞ tutorial](examples/problems/linf_regularized_regression.md).
+Use `NormLinf(lambda)` with PGD or APG, a dense coefficient vector and a finite
+nonnegative level satisfying [the input rules](@ref IN-01). `CDSolver` refuses
+this nonseparable penalty, and a `Scaled` penalty wrapper is unsupported.
+
+In exact arithmetic, zero is a minimizer exactly when
+`lambda >= s * norm(X' * y, 1)`. A stopping proposal is checked by
+[the generic proximal-gradient rule](@ref STOP-01). See the
+[ℓ∞ tutorial](examples/problems/linf_regularized_regression.md) for both solvers.
 
 ### Group lasso with coordinate descent
 
@@ -177,61 +151,28 @@ The proximal operator is ProximalBase's. In exact arithmetic, 0 is a minimizer e
 \min_\beta\quad \frac{s}{2}\|y-X\beta\|_2^2+\lambda\sum_k w_k\|\beta_{G_k}\|_2,
 ~~~
 
-with the groups `G_k` of a `GroupNormL2(lambda, groups)` or
-`GroupNormL2(lambda, groups, w)`; the default weights are `w_k = sqrt(|G_k|)`.
-`solve!(x, f, g, CDSolver(...))` accepts this problem when
+Use `GroupNormL2(lambda, groups)` or `GroupNormL2(lambda, groups, w)`;
+default weights are `sqrt(length(group))`. CD requires a `BlockIterate` with
+identical groups, in the same order, covering all coefficients. `BlockIterate(T,
+p, g)` constructs matching storage. Both data precisions are supported, and
+CD can accept a Float64 group penalty with Float32 data.
 
-- `x` is a `BlockIterate{T}` and the data, the loss and the scale are as above, with
-  `T` equal to `Float32` or `Float64`;
-- `g` is a `GroupNormL2` whose element type is `Float32` or `Float64`. A `Float64`
-  penalty on `Float32` data is accepted. The level `lambda` and every weight must be
-  finite, nonnegative and representable in `T` without overflow, and a nonzero value
-  must not round to zero;
-- the groups of `g` and of `x` are the same, group by group, in the same order and with
-  the same ordered members, otherwise `solve!` throws a `DimensionMismatch`. A
-  `BlockIterate` is a nonempty partition of `1:p` into disjoint groups, so there are no
-  unpenalized coefficients outside the groups; `BlockIterate(T, p, g)` builds one with
-  the groups of `g`;
-- the solver does not use momentum: `momentum = true` is refused with an
-  `ArgumentError`, and `nothing` or `false` both give plain block coordinate descent.
-
-The coordinates of the solver are the groups: a pass visits whole groups, `passes`
-counts passes, and the active coordinates of the iterate are group numbers. All
-refusals of these inputs (receiver, momentum, penalty, weights, layout, aliasing of
-`x` with `X` or `y`, nonfinite values) throw before `x` is copied or the random number
-generator is used. [Numerical behavior](numerics.md) lists the refusals that depend on
-the values of `X` and describes the curvature and the stopping statistic of a group.
+Set `momentum=false` or leave it as `nothing`; `momentum=true` is refused.
+A pass visits groups, and `converged` reports a group-change test. The complete
+parameter, layout, curvature and transaction rules are in
+[the group CD contract](@ref CDG-01).
 
 ### Group lasso with proximal gradient descent
 
-`solve!(x, f, g, ProximalGradientDescent(), options)` and `solve!(x, f, g, AccProxGradDescent(), options)` minimize the
-same group lasso when `x` is a dense `Vector{T}` (`T` equal to `Float32` or `Float64`), the data, the loss and the scale
-are as above (for `AccProxGradDescent`, with the size bounds of (b)), and
+PGD and APG solve the same group objective on a dense `Vector{T}` with a
+`GroupNormL2{T}` penalty: its level and weights must use the data's element type.
+Use `GroupNormL2(T(lambda), groups, T.(w))` when converting a penalty.
 
-- `g` is a `GroupNormL2{T}`: its level and weights have the element type of the data (convert with
-  `GroupNormL2(T(lambda), groups, T.(w))`; unlike `CDSolver` on a `BlockIterate`, a `Float64` penalty with
-  `Float32` data is refused);
-- the groups of `g` partition `1:p` and match the layout stored in the penalty at construction: an index above `p` is
-  refused with a `DimensionMismatch`, and an empty group, an index in two groups or in no group, and a change of
-  `g.groups` after construction where it disagrees with that layout (ProximalBase's extent and free-coordinate
-  logic use the arrays stored at construction) with an `ArgumentError`;
-- the level and the weights pass the rules of the [weighted lasso](@ref weighted-lasso-support), with one coefficient
-  `c_k = T(lambda) * w_k` per group in place of one per entry (a zero weight leaves its group unpenalized);
-- `x` does not alias `X`, `y` or the weights.
-
-These checks run before `x` is written. The proximal step is ProximalBase's block soft threshold. A proposed
-stop counts only if ProximalBase's group KKT residual is below `max(gradtol, 64 eps(T)) * S` (for
-`AccProxGradDescent`, the check forms `∇f(x)` once per proposed stop and counts it in `grad_calls`), with
-`S = max(max_k c_k, max_k ‖[∇f(0)]_{G_k}‖₂)` (see [the stationarity check](@ref "The stationarity check of a stop")).
-`test/group_pgd.jl` checks `Float32` and `Float64` solves against references computed from the data in `BigFloat`.
-Both `ProximalGradientDescent` and `AccProxGradDescent` run: the closed form on designs with block-orthogonal columns
-(raw and `1/n`-scaled loss, default weights and weights with a zero), a correlated design (also against `CDSolver` on a
-`BlockIterate`), singleton groups with unit weights against `NormL1(lambda)`, a zero weight, `lambda = 0` against the
-least-squares fit, a level above the smallest level with a zero solution, a huge `xtol` or `ftol` that must not stop at a point
-that fails the check, and the stop check just below and just above its threshold. Only `ProximalGradientDescent` runs the
-contiguous, permuted and single-group layouts given as ranges or as vectors, a group of zero columns, and a `Float64` loss scale
-of `1e-300`. Singleton groups with unit weights have the stop scale of `NormL1(lambda)` where no entry of `∇f(0)` has a
-subnormal square.
+The groups must partition `1:p` and agree with the penalty's stored layout;
+construct a new penalty rather than modifying that layout in place. A zero
+weight leaves its group unpenalized. Weight ranges and alias restrictions are
+specified in [the group input contract](@ref IN-04), and proposed stops must
+pass [the group stationarity check](@ref STOP-01).
 
 ### Multi-response group lasso with coordinate descent
 
@@ -251,36 +192,20 @@ r = solve!(B, f, g, CDSolver(order = :cyclic, momentum = false))
 r.minimizer === B
 ```
 
-The solver works from the original `X` and `Y`, without a Kronecker design or a response flattened into a
-vector. It keeps an `n × K` residual and `O(p K)` further storage, and a visit to row `j` costs `O(n K)`. `solve!(B, f, g, CDSolver(...))` accepts this problem when
+The design, response and coefficient matrices use the same `Float32` or
+`Float64` element type. Groups index the rows through `vec(B)`, exactly as in
+the code above, and momentum is unsupported. A `BlockIterate` over those same
+entries and groups is also accepted.
 
-- `B`, `X` and `Y` are `Matrix{T}` with `T` equal to `Float32` or `Float64`, with `size(B) == (p, K)`, finite
-  entries and positive sizes, and `B` shares no memory with `X`, `Y`, the penalty weights `g.w` or the scratch
-  array that the loss writes when it is evaluated (a `DimensionMismatch` for a wrong shape, an `ArgumentError`
-  for the others);
-- `f` is `LeastSquaresLoss(Y, X)` or one positive scalar multiple of it, with the loss scales of the lasso above;
-- `g` is a `GroupNormL2` whose element type is `Float32` or `Float64`, with a level and weights as for the group
-  lasso above, and its groups are the rows of `B` in order: `g.groups[j] == j:p:p*K` for each `j`, otherwise `solve!`
-  throws a `DimensionMismatch`. The groups index the entries of `vec(B)`, not the columns of `X`;
-- the solver does not use momentum: `momentum = true` is refused with an `ArgumentError`.
+The returned minimizer shares the supplied coefficients; copy them to keep an
+older fit. A completed finite CD run commits its result, while a numerical
+failure leaves the caller's coefficients unchanged. The precise shape, alias,
+range and mutation rules are in [the multi-response contract](@ref CDM-01).
 
-A `BlockIterate` over `vec(B)` with the same groups and the same loss is accepted as well; the iterate is then the
-`BlockIterate`, as for the group lasso. `B` is written only after a completed run with a finite objective, and
-`minimizer` is `B` itself; a refusal, or a run that fails numerically, leaves `B` unchanged. The refusals of the
-inputs above throw before `B` is copied or the random number generator is used. A column of `X` whose squared norm
-is not finite or is below `floatmin(T)` (a column of zeros is not refused), or whose step is outside the normal
-range of the arithmetic type, is refused with an `ArgumentError` that names the row, before the first pass and
-the first random draw, when `maxpasses > 0`. A column of zeros sets its row to 0 at a visit
-where the level and the weight are positive and leaves the row as it is where either is zero; with
-`maxpasses = 0` no row is visited, the column checks are not made and `B` keeps its values. As for the other CD
-problems, `converged` reports the change test and is not a KKT certificate: with `relative = true` and a positive
-response scale `sqrt(s * sum(abs2, Y))`, the change of row `j` is the norm of its displacement times
-`sqrt(s * a_j)`, with `a_j` the squared norm of column `j` of `X`. To check a fit, form `G = s * X' * (X * B - Y)`
-for the loss scale `s` and test, for each row, `norm(G[j, :] + lambda * w[j] * B[j, :] / norm(B[j, :]))` where
-the row is not zero and `norm(G[j, :]) <= lambda * w[j]` where it is; with positive weights, `B = 0` is the solution
-at `lambda >= s * maximum(norm((X' * Y)[j, :]) / w[j] for j in 1:p)`. There is no intercept: center the columns of `X`
-and `Y` first. `ProximalGradientDescent` and `AccProxGradDescent`, a `NormL1` or `ElasticNet` penalty, the
-square-root loss, and a vector response with a `Matrix` coefficient are refused with an `ArgumentError`.
+Here `converged` reports the row-change test, so check row-group KKT conditions
+independently. There is no intercept: center the columns of `X` and `Y` for a
+centered model. PGD, APG, scalar penalties and square-root loss are unsupported
+for this matrix-response interface.
 
 ### Square-root lasso with coordinate descent
 
@@ -288,70 +213,35 @@ square-root loss, and a vector response with a `Matrix` coefficient are refused 
 \min_\beta\quad P(\beta) = \|y-X\beta\|_2+\lambda\|\beta\|_1
 ~~~
 
-with ProximalBase's [`SqrtLeastSquaresLoss(y, X)`](https://mlakolar.github.io/ProximalBase.jl/dev/)
-(the loss is unnormalized) and `NormL1(lambda)`. `solve!(x, f, g, CDSolver(...))` accepts this problem
-when `x` is a dense `Vector{T}` or a one-dimensional `SparseIterate{T}`, `X` and `y` are as above, and
-`lambda` is positive, finite and representable in `T`. The normalized objective
-`‖y − Xβ‖₂/√n + λₙ‖β‖₁` (`Scaled(f, inv(sqrt(n)))` in ProximalBase) has the same minimizers as `P` at
-`lambda = sqrt(n) * λₙ`, and its values are those of `P` divided by `√n`. The [scaled lasso](glossary.md) at
-the level `λ₀` has as its coefficient estimate a minimizer of `P` at `lambda = sqrt(n) * λ₀`, and as its noise
-estimate `norm(y - X*beta)/sqrt(n)` when `y ≠ X*beta`; the package provides no separate scaled-lasso method,
-and [the scaled-lasso tutorial](examples/problems/scaled_lasso.md) shows the computation.
-Refused with an `ArgumentError`, before `x` is
-copied or the random number generator is used: `Scaled(SqrtLeastSquaresLoss, alpha)` (for a positive
-finite `alpha`, use the unscaled loss at the level `lambda/alpha`), `lambda = 0` (use `LeastSquaresLoss`,
-which has the same minimizers), a weighted `NormL1` (also with all weights equal to one), an `ElasticNet`,
-a `BlockIterate`, and `ProximalGradientDescent` or `AccProxGradDescent` (ProximalBase provides no gradient
-for this loss; for `X ≠ 0` it is not differentiable where `y = X*beta`).
+Use ProximalBase's `SqrtLeastSquaresLoss(y, X)` with an unweighted
+`NormL1(lambda)`, where `lambda > 0`, and CD on a dense vector or one-dimensional
+`SparseIterate`. The normalized objective
+`norm(y-X*beta)/sqrt(n) + lambda_n*norm(beta,1)` has the same minimizers at
+`lambda = sqrt(n)*lambda_n` in this unnormalized interface.
 
-For this loss, `converged = true` means that a duality certificate proved
-`(P(beta) − P*)/P* ≤ 1e-4`, with `P*` the minimum, and `gap` then holds that proved bound. A run that
-stops without a certificate reports `converged = false` and `gap = NaN`, with its own warning: at an exact
-fit (`y = X*beta`) with a positive penalty, coordinate descent can stop at a point that minimizes every
-coordinate but not `P`. [`CDSolver`](@ref) describes the stopping rule, and
-[Numerical behavior](numerics.md) the step and the certificate.
-[The square-root lasso tutorial](examples/problems/square_root_lasso.md) solves a seeded problem, checks it
-independently from the data, and shows two exact fits.
+Weighted penalties, elastic net, scaled square-root losses and gradient solvers
+are not supported here. The [square-root contract](@ref CDQ-01) gives the exact
+input rules, scaling equivalences and certificate semantics.
 
-The three numerical arrays use one common `T` (`Float32` or
-`Float64`); mixed-element-type `X`, `y` and coefficient arrays
-are not supported. The penalty levels must be finite, nonnegative and
-representable in `T` without overflow or rounding a nonzero scalar
-to zero; it may be supplied in a different scalar type, including
-a representable `Float64` literal in a `Float32` problem.
+A successful convergence flag requires the square-root certificate; an
+uncertified stop has `converged=false` and `gap=NaN`. Exact fits can be
+coordinatewise minima without minimizing the whole objective, so use
+[the worked square-root example](examples/problems/square_root_lasso.md).
+The [scaled-lasso example](examples/problems/scaled_lasso.md) explains the
+related noise estimate; there is no separate scaled-lasso solver.
 
-The scale `s` of `Scaled(LeastSquaresLoss(...), s)` multiplies the loss by a fixed number (for example
-`s = 1/n`); it does not make the problem the [scaled lasso](glossary.md), which estimates a noise level.
-The loss scale is supported as
+The data and coefficients use one common `Float32` or `Float64` element type.
+Finite nonnegative penalty levels can be supplied in another scalar type when
+they satisfy [the scalar-parameter rules](@ref IN-02).
 
-- a positive finite `Float32` or `Float64` that converts to a finite nonzero
-  number of `T` (a value that is subnormal in `T` is accepted, and a `Float64`
-  scale in a `Float32` problem is accepted), or
-- a positive fixed-width integer (`Int`, `UInt8` and the other `Base.BitInteger`
-  types) or `Bool` that `T` represents exactly: `2^24` for `Float32` data, not
-  `2^24 + 1`, and `2^53` for `Float64` data, not `2^53 + 1`.
+A supported positive loss scale multiplies the objective by a fixed number;
+it does not estimate a noise level. Use native floating-point scales when
+possible, and consult [the exact loss-scale rules](@ref IN-02) for integer and
+other scalar types. Mixed-element-type data arrays are unsupported.
 
-A scale of any other type (`BigInt`, `BigFloat`, `Rational`, `Float16`,
-`Irrational` or another `Real`), and an integer that `T` would round, is
-refused with an `ArgumentError` before `solve!` writes to the coefficients.
-**This narrows the API:** such scales were accepted before the loss value and
-gradient were taken from ProximalBase's least-squares oracles. Convert the
-scale explicitly, for example `Float64(s) * LeastSquaresLoss(y, X)`, where
-`Float64(s)` is finite, positive and representable in `T` as above; the
-error message suggests this conversion when it passes that rule and, for an
-integer scale, only when `Float64(s)` equals `s`; for other types it notes that
-the conversion may round `s`.
-The solvers use the supplied scale combined with `T` by Julia's promotion:
-a `Float64` scale in a `Float32` problem keeps its `Float64` value, also
-where that value is subnormal in `Float32`. The arrays and the coefficients
-stay in `T`, so this does not imply mixed-precision array support or a
-guarantee about every intermediate arithmetic type.
-
-The data must not be modified while a solve is running. The coefficient
-vector (or the supported CD `SparseIterate`) is mutated in place, so do
-not alias it to `X` or `y`. To retain a result, save `copy(beta)`.
-See [Numerical behavior](numerics.md) for numerical recovery limits,
-solver stopping and diagnostics.
+Do not mutate data during a solve or alias coefficients with inputs or penalty
+weights. Save `copy(beta)` when retaining fits. See [the alias rules](@ref IN-05)
+and [result and failure semantics](@ref RES-01).
 
 For an executable complete example, see [Getting started](getting-started.md).
 For using sparse **coefficients**, see the
@@ -382,20 +272,18 @@ The current development core intentionally excludes the following:
 | PGD `normalized=true`, `debias>0`, `preconditioner != :none` | Rejected; not implemented |
 | APG `preconditioner != :none` | Rejected; not implemented |
 
-Some rejected keywords remain accepted by *constructors*, at their default
-values only, to provide informative errors and compatibility with historical
-signatures; the solvers and options do not store them.
-Do not interpret their presence as available functionality.
-CD's `kkt_checks=0` is a placeholder, and so is `gap=NaN`, except that a
-certified square-root lasso run of `CDSolver` reports its certified bound in `gap`.
+Some historical keywords remain in signatures only at their defaults;
+their presence does not mean the feature is implemented. See
+[unsupported features and compatibility keywords](@ref DEF-01).
+`kkt_checks=0` and an unavailable `gap` are placeholders, with the certified
+square-root exception described in [the result contract](@ref RES-01).
 
 ## About previous versions
 
-The registered package and historical `legacy/full` branch may expose
-features that this development branch intentionally does not. These
-are different development stages; this documentation **does not provide
-a migration procedure** for every historical algorithm. Consult
-[Getting started](getting-started.md) for source installation.
+Historical releases and archival branches can expose different features.
+Their context is preserved in [the history page](contracts/history.md);
+this guide does not provide a migration procedure for every old algorithm.
+Use [Getting started](getting-started.md) for the documented development version.
 
 See [Numerical behavior](numerics.md) for stopping and precision.
 Detailed implementation, failure transaction and internal algorithm

@@ -17,7 +17,9 @@ For definitions of soft-thresholding, CD and PGD, see [What problem, which algor
 The APIs differ because they preserve the historical algorithm implementations;
 the present minimal core does not yet provide a unified options/result wrapper.
 No approach is always faster. For a new lasso experiment, CD is a
-reasonable first choice.
+reasonable first choice, especially when you want active-coordinate storage.
+PGD offers full-vector gradient iterations and detailed traces. APG accelerates
+those updates while sharing PGD's options and results.
 
 ## Coordinate descent
 
@@ -48,52 +50,10 @@ to use the unscaled coefficient-change threshold. This is a
 **step-change stopping test**, not an optimality certificate; for the square-root lasso, CD
 reports `converged = true` only when a duality certificate also passes (see [`CDSolver`](@ref)).
 
-CD forms this scale without the sum of squares `sum(abs2, y)` or its product
-with `s` having to stay in the range of `Float32` or `Float64`: where either
-overflows or underflows it uses wider or exponent-separated arithmetic. There
-are three outcomes. A scale that is a normal floating-point number of the
-working type is used. For `y = 0` the scale is 0 and CD uses the absolute
-threshold. If the computed `sqrt(s) * norm(y)`, after rounding to the working
-type, is not a normal number (above its largest finite value or below its
-smallest normal number), `solve!` throws an `ArgumentError` before the first
-pass and leaves the starting point unchanged. A value within a rounding error
-of those limits can fall on either side. In that case rescale the data or the
-loss, or use `relative=false`; with `relative=false` a problem whose objective
-overflows can still end in the `nonfinite objective` error described in
-[Numerical behavior](numerics.md). A normal scale can still give a threshold
-`tol * scale` that is subnormal or 0. The change test `change < threshold`
-cannot hold for a threshold of 0, so the solve cannot converge by this test:
-it ends at `maxpasses` with a warning, unless an independent numerical failure
-(for example a non-finite coordinate step) stops it first with an error.
-
-When relative scaling is active (`relative=true` and a positive response
-scale), each coordinate change is also multiplied by `sqrt(s * a)`, where `a` is
-the squared norm of the column. With `relative=false`, or with `y = 0`, the
-coordinate scale is not used. Where the product `s * a` is zero, subnormal or
-overflowing for a finite `a` (in the type that combines `s` with the working
-type), CD takes the square roots of `s` and of `a` separately and multiplies
-them, so the scale does not become 0 or infinite because the product left the
-range. The computed scale is still 0 where the root is at most half the
-smallest subnormal number, and infinite where the computed, rounded scale
-overflows the working type; with relative scaling active a nonzero coordinate
-change times an infinite scale makes
-`solve!` throw an `ArgumentError` ("a coordinate step or its stopping scale is
-not finite") and leave the starting point unchanged.
-
-The coordinate step soft-thresholds the unpenalized minimizer along the
-coordinate at `lambda / (s * a)` (with weights, `lambda` stands for the coefficient `lambda * w[k]` of the coordinate; where the step forms its
-threshold without the product, it uses `T(lambda) * w[k]` formed in `T`, which is 0 or a normal number on the inputs `solve!` accepts). Where `s * a` and its reciprocal are both at
-least the smallest normal number of the type that combines `s` with the working
-type, it applies the proximal operator with the coefficient `1 / (s * a)`.
-Where one of them is smaller (the product is zero or subnormal, or it is large
-enough that its reciprocal is subnormal or zero), that coefficient can be 0,
-infinite or inexact. With a positive penalty, 0 would ignore the penalty and an
-infinite coefficient would set a finite unpenalized minimizer to 0; a zero
-penalty stays unpenalized for any coefficient. The step then forms the
-threshold without the product and its reciprocal. A threshold above the largest finite number sets a
-finite unpenalized minimizer to 0. A column whose squared norm `a` is not finite
-in the working type makes `solve!` throw an `ArgumentError` that names the
-curvature, with the starting point unchanged.
+The response scale, per-coordinate scaling and range-sensitive refusals are
+specified together in [the scalar CD contract](@ref CD-01). Rescale the problem
+or consider `relative=false` when a response scale is refused; a smaller
+tolerance alone does not establish optimality.
 
 **Randomness and momentum:** By default `order=:random`, and the
 historical CD algorithm can apply momentum to active passes and restart
@@ -117,11 +77,10 @@ coordinate order and no momentum, use
 
 ## Proximal gradient descent
 
-Defaults are useful for an **exploratory first run**, not for claiming
-coefficient accuracy. With them, `converged=true` means that the computed
-KKT residual `‖G‖∞` is below `max(gradtol, 64eps(T)) * max(λ, λmax)` (`λ` the ℓ1 level of the penalty), which
-does not bound the coefficient error, shown here next to the KKT violation
-on this two-coefficient problem:
+Defaults are useful for an exploratory first run. The meaning of `converged`
+is given by [the stopping contract](@ref STOP-01); the example displays both
+coefficient error and an independent KKT residual for a problem with a known
+answer.
 
 ~~~@example choosing_pgd
 using ProximalBase, ProximalSolvers
@@ -164,44 +123,27 @@ strict_kkt = maximum([
    stored_steps=length(stricter_result.trace))
 ~~~
 
-The default `maxiter=200`, `ftol=1e-6`, `xtol=1e-8`
-and `gradtol=1e-5` target convenience, **not a specified number of
-accurate digits**. Tighten them for results you intend to report, but do
-not assume smaller tolerances guarantee a correspondingly smaller error:
-`gradtol` below `64eps(T)` is not resolved by the check of a stop, and the
-residual that is checked does not bound the coefficient error.
-PGD's stopping tests combine by **OR**, so any one of them can propose a stop,
-and a proposed stop counts only if the computed KKT residual `‖G‖∞` is below
-`max(gradtol, 64eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞` and `λ` the ℓ1 level of the penalty
-(`λ1` for an `ElasticNet`, whose residual includes the ridge term `λ2 x`; for a `GroupNormL2`, the group residual
-and scale of [the stationarity check](@ref "The stationarity check of a stop"); a `NormLinf` penalty uses the
-[generic check](numerics.md#The-generic-stationarity-check)). A solve
-that the check keeps from stopping continues, and can end at `maxiter` with
-`converged=false`. `ftol = 0` switches the objective-change test off, as
-described under Strict accuracy in [Numerical behavior](numerics.md).
-With these stricter tolerances and the default `allow_f_increases=false`, PGD on
-this problem ended on the objective-increase stop with `converged=false` in a
-test run on Julia 1.13.3; `allow_f_increases=true` lets it continue to a stop
-that passes the check (see "Strict accuracy" in [Numerical behavior](numerics.md)).
-The two results above report both coefficient error (possible here because
-the analytic answer is known) and an independently computed
-[KKT violation](sparsity-and-kkt.md). On other problems, evaluate the KKT
-condition directly instead of trusting `converged` alone.
+The defaults are `maxiter=200`, `ftol=1e-6`, `xtol=1e-8` and `gradtol=1e-5`.
+Tighter tolerances can be useful, but they do not promise a corresponding number
+of correct digits. The three tests combine by OR, followed by a stationarity
+check; `ftol=0` disables the objective-change test. See
+[the stopping contract](@ref STOP-01).
+
+With `allow_f_increases=false`, a computed objective increase can end a strict
+solve before a convergence test succeeds. Allowing increases removes that exit;
+it does not certify the answer. Compare the independent errors displayed above,
+or check a [KKT residual](@ref learn-02) on a problem without an analytic solution.
+The historical strict-configuration observations are in
+[the evidence record](contracts/evidence/strict-accuracy-config.md).
 
 ## Accelerated proximal gradient
 
-`AccProxGradDescent` takes the same inputs, `ProximalOptions` and result type
-as PGD, up to a dimension limit that its line search needs (for Float32,
-`max(n, p) < 2,097,148`; see [Numerical behavior](numerics.md)). Each step starts from the extrapolated point
-`y = x + k/(k+3) (x - x_previous)`, where `k` counts iterations since the start
-or the last restart, and the momentum is restarted when an extrapolated step
-would increase the objective. On ill-conditioned problems this can need
-fewer iterations than PGD; on well-conditioned ones it can need more. An
-iteration evaluates the gradient at `y` and then backtracks; a restart adds a
-second gradient evaluation and line search in that iteration. Compare the two at
-the same independently measured accuracy, as in
-[the solver comparison](examples/comparisons/lasso_solvers.md), before
-choosing one for speed.
+`AccProxGradDescent` uses the same options and result type as PGD, and updates
+from an extrapolated point with objective-based restart. The exact extrapolation,
+size limits and bound test are in [the APG contract](@ref APG-01).
+Acceleration can change the iteration count in either direction, so compare
+solvers at the same independently measured accuracy, as in
+[the solver comparison](examples/comparisons/lasso_solvers.md).
 
 ~~~@example choosing_apg
 using ProximalBase, ProximalSolvers
@@ -221,13 +163,11 @@ kkt = maximum([iszero(beta[j]) ? max(abs(grad[j]) - lambda, 0.0) :
    max_kkt_violation=kkt)
 ~~~
 
-The constructor keywords are the backtracking factor `β ∈ (0, 1)`, which
-shrinks the step `1/L` after a rejected trial, and `α ∈ (0, 1]`, which lets the
-step grow again before each iteration (`AccProxGradDescent(β=0.5, α=0.9)` by
-default). APG uses PGD's stopping tests, so the remarks above about defaults,
-the OR combination and the objective-change test apply unchanged; its
-gradient-mapping residual is measured at the extrapolated point. See
-[Numerical behavior](numerics.md).
+The constructor defaults are `AccProxGradDescent(β=0.5, α=0.9)`: `β` shrinks the
+step after a rejected trial and `α` lets it grow before the next iteration.
+APG shares [PGD's stopping rules](@ref STOP-01), while its reported
+iteration residual is measured from the extrapolated point; see
+[the APG contract](@ref APG-01).
 
 ## Group lasso with block coordinate descent
 
@@ -260,103 +200,43 @@ result = solve!(x, LeastSquaresLoss(y, X), g,
 (; coefficients=Vector(x), active_groups=sort(collect(activecoordinates(x))))
 ~~~
 
-A coordinate of the solver is a group, so `passes` counts passes over groups and the
-active coordinates are group numbers. Each group needs, at most once per solve, a bound
-on the largest eigenvalue of `X[:, G]' * X[:, G]`. With `maxpasses = 0` none is prepared.
-A group whose columns are all zero needs no product and no eigenvalue computation, and a
-group of one column (when `n eps(T) ≤ 1/8`, `n` the number of rows) takes the sum of
-squares of its column, as the lasso does. A group of two columns takes the three entries
-of its Gram matrix in one pass over its columns and its bound in closed form; inside the
-range of that rule (finite `Float32` data, and `Float64` data whose columns are not
-extremely small or large, see [Numerical behavior](numerics.md#The-curvature-bound)) it
-needs no eigenvalue computation and no `Float64` copy of its columns. Any other group, and
-a group of two columns outside that range, needs the Gram matrix of its columns in
-`Float64` from a copy of the columns and, for two or more columns, an eigenvalue
-computation. These are done at the first visit that needs them, so a group that stays at
-zero and is screened out at each visit never pays for them, except where cheap bounds
-cannot rule out a refusal (under the eigenvalue model, for a group that takes the eigenvalue
-computation), in which case the bound is computed before the first pass (such a group, or
-an ordinary one-column group, already has its bound when it is screened). A visit to a
-nonflat group whose block is zero is screened this way, whether or not the group is active,
-when the reciprocal of the loss scale is a normal number of its type and either all
-correlations of the group are zero or the largest magnitude is at least `2^53 floatmin(T)`;
-otherwise the visit takes the full step. The `Float64` copy of the columns and the Gram
-matrix are workspace of the solver, allocated when the first bound that uses them is
-computed and sized by the largest group of the iterate: `n` times that size, and its
-square, in `Float64`. The solver keeps no other copy of the columns. For a group of one coefficient, the penalty is a term of an L1 penalty, and
-with the default weights `GroupNormL2` with only singleton groups is the same problem
-as `NormL1`, which the dense-vector solvers accept. Momentum does not apply:
-`momentum = true` is refused for a `BlockIterate`, and `nothing` or `false` both mean
-plain block coordinate descent. The stopping test works as in the relative-tolerance
-discussion above with the change of a group, the norm of its displacement; see
-[Numerical behavior](numerics.md). As for the lasso, `converged = true` is not an
-optimality certificate: check the group KKT conditions independently, as in the example.
-`ProximalGradientDescent` and `AccProxGradDescent` take the block soft threshold of every group at each step and
-report `converged = true` only where the group KKT residual passes its check; the
-[group lasso tutorial](examples/problems/group_lasso.md) solves one problem with all three solvers, and
-[Group lasso: CD, PGD and APG](examples/comparisons/group_lasso_solvers.md) compares the three on one
-seeded problem.
+A coordinate is a whole group: `passes` counts group passes and the iterate's
+active coordinates are group numbers. CD does not support group momentum.
+The group update, curvature preparation and change test are specified in
+[the group CD contract](@ref CDG-01).
+
+Check group KKT conditions independently when assessing a fit. PGD and APG also
+solve the group lasso with dense coefficients and a same-type `GroupNormL2`;
+their stopping proposal must pass [the group stationarity check](@ref STOP-01).
+The [group tutorial](examples/problems/group_lasso.md) and
+[group solver comparison](examples/comparisons/group_lasso_solvers.md) demonstrate
+all three algorithms.
 
 ### Cost of the lazy curvature
 
-The measurements in this section were made before groups of two columns had their own
-rule: the bound of a group of two columns, like that of a larger group, took the copy of
-its columns, the Gram matrix and an eigenvalue computation.
-
-The lazy curvature and the zero-group screen save the curvature of a Gram-route group only
-while that group passes the screen at every visit. A screened visit still computes the
-correlations of the group. In one profile, a screened visit took 155 ns and a visit to a
-zero group whose curvature was already computed took 135 ns (neither changed a
-coefficient), so these zero-group visits cost about the same in that profile: the screen
-saves the curvature, not the visit.
-
-From a cold start (`x = 0`, residual `y`), the first full pass starts at the residual `y`
-and screens each eligible group against the current residual, after the updates of the
-groups before it; the guards of the screen can bypass it for a group. A group that fails the
-screen needs its curvature, and it can leave the active set again later. The saving
-therefore depends on how many groups ever fail the screen, not on the number of active
-groups at the solution. In the low-occupancy designs measured below, many groups entered the
-active set in the first pass at a small `λ / λmax` and left it later. Starting a path from a
-nearby solution can reduce the number of groups that fail the screen in the first pass; this
-has not been measured.
-
-Measured on these designs, with `n = 500` rows, groups of 2 or 8 columns, and `λ` set so that
-about 5% of the groups were active at the solution (`λ / λmax` about 0.06 to 0.10):
-
-- On one exclusive node, with one thread, Julia 1.10 and 1.13, the solve was 1.05 to 1.45
-  times faster than computing every curvature before the first pass at `p = 1024`, and 1.5
-  to 3.3 times at `p = 256`, except 1.2 to 1.3 times in one layout and group size on Julia
-  1.13. At high occupancy the largest slowdown against computing every curvature before the
-  first pass was about 4%. The two computations gave bit-identical iterates in every cell.
-- A separate diagnostic profile on a shared node (absolute times noisy) found that 40% to 68%
-  of the groups computed a curvature in the first pass. In a `λ` sweep on one of these
-  designs (`p = 1024`) in that profile, the ratio was about 1.9 to 3.6 for `λ / λmax ≥ 0.2`,
-  and about 1 for `λ / λmax ≤ 0.04`.
-
-These are measurements on these designs, not general claims: the ratio depends on `n`, the
-group sizes, the layout and `λ`.
+Curvature work depends on the groups visited and screened during the whole
+solve. The original measurements and their limitations are preserved in
+[the lazy-curvature evidence](contracts/evidence/lazy-curvature-cost.md).
 
 ## What is supported now?
 
-The [Problem × solver matrix](@ref "Problem × solver matrix") of
-[Supported problems](support.md) lists, for each problem, the solvers, iterates and
-element types with verified support, and the sections below it give the exact input rules.
+The [Problem × solver matrix](@ref "Problem × solver matrix") on
+[Supported problems](support.md) lists verified problem, solver, storage and
+element-type combinations. Follow each section's links to the exact
+[input rules](@ref IN-01). In addition to the lasso family, PGD and APG accept
+`NormLinf`; its zero-solution threshold and stopping interpretation are described
+under [supported ℓ∞ problems](support.md#ℓ∞-penalty-with-PGD-and-APG) and
+[the stopping contract](@ref STOP-01).
 
-For PGD and APG on a dense `Vector`, `NormLinf(lambda)` (`lambda * maximum(abs, beta)`) is also accepted, with least squares or one
-positive scalar multiple of it; use `ProximalGradientDescent` or `AccProxGradDescent` for it, because this `CDSolver` needs a
-separable penalty for its coordinate step and refuses `NormLinf` for a dense `Vector`, a `SparseIterate` and a `BlockIterate`. The
-ℓ∞ penalty can tie the largest coefficients at a common magnitude and does not in general give zeros; in exact arithmetic, 0 is a
-minimizer exactly when `lambda` is at least `‖∇f(0)‖₁ = α‖Xᵀy‖₁`. A proposed stop is verified by the
-[generic proximal-gradient check](numerics.md#The-generic-stationarity-check). See [the ℓ∞ tutorial](examples/problems/linf_regularized_regression.md).
-
-Coordinate descent can also solve a group lasso on a `BlockIterate` with a
-`GroupNormL2` penalty, as described above and in [Supported problems](support.md).
-Coordinate descent can additionally store coefficients in a one-dimensional
-[ProximalBase SparseIterate](https://mlakolar.github.io/ProximalBase.jl/dev/).
-It tracks coordinates that are explicitly active, and can be helpful for
-a sparse result. It does **not** make the feature matrix sparse.
-In the [SparseIterate section of the lasso tutorial](examples/problems/lasso.md#Coordinate-descent-on-a-SparseIterate),
-the first coefficient is exactly zero and the second is active.
+CD solves group lasso on a `BlockIterate` with `GroupNormL2`, as in the
+[group example above](#Group-lasso-with-block-coordinate-descent).
+It also supports one-dimensional
+[ProximalBase SparseIterate](https://mlakolar.github.io/ProximalBase.jl/dev/)
+coefficient storage. It tracks active coefficients while the design remains
+dense, which can be useful for a sparse fit. In the
+[worked sparse-iterate example](examples/problems/lasso.md#Coordinate-descent-on-a-SparseIterate),
+the first coefficient is exactly zero and the second is active. See also
+[the storage contract](@ref CDS-01).
 
 Unsupported historical knobs are listed in one
 [deferred-features table](support.md). Do not use gap, screening or

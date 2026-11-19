@@ -26,25 +26,19 @@ PGD and APG provide `iterations`, more detailed stopping residuals and
 an optional iteration `trace`. These differ because the current package
 retains two algorithm-specific result types.
 
-**Warning:** for PGD and APG, `converged=true` means that a stopping test
-proposed a stop and that the computed KKT residual `‖G‖∞` at the returned point
-is below `max(gradtol, 64eps(T)) * max(λ, λmax)`, with `λmax = α‖Xᵀy‖∞` and `λ` the ℓ1 level of the
-penalty (`λ` of `NormL1(λ)`, the largest coefficient `T(λ) * maximum(w)` of `NormL1(λ, w)`, `λ1` of `ElasticNet(λ1, λ2)`): a
-working-precision value. `converged = true` guarantees only that the computed,
-normalized KKT residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64eps(T))` (the
-threshold is formed in `T`, where it can round or overflow; see
-[the stationarity check](numerics.md)). It is not
-an exact-arithmetic certificate, not a bound on the distance to a minimizer, and
-does not guarantee coefficient accuracy on ill-conditioned designs (see
-[the stationarity check](numerics.md)). For CD with least squares or the group lasso it
-means that a stopping rule was satisfied. Neither certifies the output as optimal. For the lasso,
-use the separate [numerical KKT check](sparsity-and-kkt.md). For CD with the square-root loss,
-`converged=true` means that a duality certificate proved `(P − P*)/P* ≤ 1e-4`, and `gap` holds the
-proved bound (see [`CDSolver`](@ref)). Otherwise a result's `gap=NaN` and CD's `kkt_checks=0` are
-placeholders: neither is a computed certificate.
+A convergence flag reports the solver's implemented stopping criterion;
+[the result contract](@ref RES-01) gives the precise meaning and qualifications.
 
-For PGD and APG with a `NormLinf` penalty, `converged=true` means that a stopping test proposed a stop and that the
-[generic proximal-gradient check](numerics.md#The-generic-stationarity-check) passed: a working-precision indication, not a certificate.
+| Solver/problem | Meaning of `converged=true` |
+| --- | --- |
+| Least-squares CD, including group and multi-response fits | The pass-change test succeeded; it is not an independent optimality check |
+| PGD/APG | A stopping proposal passed the applicable computed stationarity check |
+| Square-root lasso with CD | The square-root certificate succeeded under its documented conditions |
+
+Use an [independent KKT check](@ref learn-02) or an appropriate
+[duality gap](@ref learn-07) when assessing a fit. An unavailable `gap` is `NaN`,
+not zero; CD's `kkt_checks=0` is also a placeholder. The square-root certificate
+is the documented exception; see [its contract](@ref CDQ-01).
 
 ## Avoid accidentally overwriting results
 
@@ -67,10 +61,8 @@ gradient/proximal stopping residual**, **not** the value of your
 penalty object, even if you named that object `g`. Likewise,
 the displayed `|x - x'|` abbreviates a stopping diagnostic;
 see the [API documentation](api.md) for precise definitions.
-PGD can propose a stop when **any** of its stopping criteria is met, and the
-stop counts only if the computed KKT residual `‖G‖∞` is below
-`max(gradtol, 64eps(T)) * max(λ, λmax)`; `gradtol` below `64eps(T)` is
-not resolved by that check. See [Numerical behavior](numerics.md).
+PGD's stopping tests combine by OR and a proposal must pass the applicable
+stationarity check; see [the stopping contract](@ref STOP-01).
 
 Trace fields such as `dxx` describe relative iterate changes, and
 `backtrack_steps` counts line-search trials. These are solver

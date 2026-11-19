@@ -13,171 +13,63 @@ abstract type ProximalSolver end
       extended_trace=false, print_every=1, callback=nothing, time_limit=Inf,
       f_calls_limit=0, grad_calls_limit=0, prox_calls_limit=0, gaptol=0, gapevery=10)
 
-Options for proximal gradient descent (PGD); `AccProxGradDescent` uses the
-same options and tests. The defaults prioritize an
-exploratory solve rather than a guaranteed number of accurate digits.
-PGD stops when **any** of the iterate-change (`xtol`), objective-change
-(`ftol`), or gradient/proximal-residual (`gradtol`) criteria proposes a stop and
-the stationarity check below passes.
+Options for [`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref).
+Configure iteration limits, stopping tolerances, traces and callbacks. Any one
+of the iterate, objective or gradient tests can propose a stop; the applicable
+computed stationarity check must also pass. Defaults are suitable for an initial
+exploratory solve, without promising a particular coefficient accuracy.
 
-**The stationarity check.** At an iteration at which one of the three tests
-holds, the solver computes the minimal-norm KKT residual `G` at the accepted
-iterate `x`: the element of `∇f(x) + λ ∂‖x‖₁` of least infinity norm for
-`NormL1(λ)`, and the element of `∇f(x) + λ2 x + λ1 ∂‖x‖₁` of least infinity norm for
-`ElasticNet(λ1, λ2)` (`ProximalGradientDescent` and `AccProxGradDescent`). For `NormL1(λ, w)` with weights `w`
-it is the element of `∇f(x) + ∂(λ Σⱼ wⱼ |xⱼ|)` of least infinity norm, with the coefficient `T(λ) wⱼ` of entry `j`
-(`T` the element type; `w` is a `Vector{T}`); a zero weight gives the coefficient 0, so its entry is unpenalized
-and its score is `|∇fⱼ(x)|`. Below, `λ` is the ℓ1 level of the
-penalty (`λ` of `NormL1(λ)`, the largest coefficient `T(λ) * maximum(w)` of `NormL1(λ, w)`, `λ1` of `ElasticNet`);
-`λ2` does not enter the bound. For `GroupNormL2(λ, groups, w)` (`ProximalGradientDescent` and `AccProxGradDescent`), `‖G‖∞` below stands for
-ProximalBase's group residual `max(0, maxₖ scoreₖ)`, with `scoreₖ = ‖∇_G f(x) + cₖ x_G/‖x_G‖₂‖₂` at a group with a
-nonzero entry and `‖∇_G f(x)‖₂ - cₖ` at a zero group (`cₖ = T(λ) wₖ` rounded in `T`), `λ` for the largest coefficient
-`T(λ) * maximum(w)` and `λmax` for `maxₖ α‖[Xᵀy]_{Gₖ}‖₂`, the largest group norm of `∇f(0)`. The stop counts only if
-`‖G‖∞ < max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `T` the element type and, for `NormL1` and `ElasticNet`,
-`λmax = α‖Xᵀy‖∞` for the loss scale `α` (1 for a plain `LeastSquaresLoss`). The check
-also requires that `S = max(λ, λmax)` is finite, that the product
-`max(gradtol, 64 eps(T)) * S`, formed in `T`, is at least `floatmin(T)`, and that `‖G‖∞` is
-finite; it does not require that product to be finite (for a huge `gradtol` it can be
-`Inf`). Otherwise
-`x_converged`, `f_converged` and `grad_converged` are all `false`, and the solve
-continues. With `y = 0` and `λ = 0` both `λ` and `λmax` are 0, and nothing
-converges. This holds when the computed `S = max(λ, λmax)` is 0, with `λmax` as the solver
-computes it: for example `ElasticNet(0, λ2)` with `y = 0`,
-where the ridge solution is `x = 0` but the solve runs to `maxiter` with `converged=false`, unless another
-exit applies. An exact `Xᵀy = 0` need not give a computed `λmax = 0` (rounding), and the
-check then uses the rounded `λmax`. `ElasticNet(λ1, λ2)` on the loss `½α‖Xb - y‖²` is the lasso with level `λ1` on the data
-`X̃ = [√α X; √λ2 I]`, `ỹ = [√α y; 0]`, whose gradient is `∇f(x) + λ2 x` and whose `λmax` is the
-`λmax` above: the check is that of the lasso on those data. For a dense `Vector` or a
-one-dimensional `SparseIterate`, the coordinate descent solver accepts an unweighted `NormL1` or `ElasticNet`;
-it stops by its change test, not by this check (see [`CDSolver`](@ref)).
-A start `x0` with a finite `f(x0)` is accepted even if `g(x0)` overflows in `T` (for example a ridge
-term `(λ2/2)‖x0‖²` above `floatmax(T)`). An error raised in the step of an iteration (its line search, or the
-check that the accepted objective is finite) restores the last accepted iterate and is rethrown, as for `NormL1`. `converged=true` means that a test proposed a stop and that
-the computed (working-precision) KKT residual `‖G‖∞` at the returned `x` is
-below that bound. The code forms `τ = T(max(gradtol, 64 eps(T)))` and the threshold
-`τ * max(λ, λmax)` in `T`, and compares `‖G‖∞` with it. The normalized form
-`‖G‖∞ / max(λ, λmax) < max(gradtol, 64 eps(T))` is the exact-arithmetic reading: in working
-precision the conversion to `T` and the product can round, or overflow to `Inf` for a huge
-`gradtol`, in which case a finite residual passes against the infinite threshold.
-`converged = true` guarantees only that the computed, normalized KKT residual
-`‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))`, in that sense. It is not an exact-arithmetic
-certificate, it does not bound the distance to a minimizer, and it does not guarantee
-coefficient accuracy on ill-conditioned designs (see the
-[stationarity check](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/#The-stationarity-check-of-a-stop)).
-The check uses the solver's working-precision products, so a gradient product that underflows or
-cancels can pass it at a point that is not stationary (see
-[the limits of the stopping tests](https://mlakolar.github.io/ProximalSolvers.jl/dev/stopping-limits/)).
-A `gradtol` below `64 eps(T)`, including
-`0`, gives the bound `64 eps(T) max(λ, λmax)`. For `AccProxGradDescent` the check
-forms `∇f(x)` from the cached image `A x` at each iteration at which a stop is
-proposed, and counts that evaluation in `grad_calls`.
+```julia
+using ProximalSolvers
+options = ProximalOptions(maxiter=2000, ftol=1e-13, xtol=1e-11,
+                         gradtol=1e-9, store_trace=true)
+```
 
-**The generic check (`NormLinf(λ)`).** A penalty without a dedicated check above uses the proximal-gradient
-mapping at the accepted `x`: with `t = 1/L` (the accepted curvature), `r = ‖x - prox_{t g}(x - t ∇f(x))‖∞ / t`,
-computed with the same ProximalBase `value_and_prox!` as the iterations. The stop counts only if
-`r < max(gradtol, 64 eps(T)) * S` with `S = max(‖∇f(0)‖∞, ‖∇f(x)‖∞)`; it is refused when `t` is not finite and
-positive, when `S` or `r` is not finite, when that threshold is below `floatmin(T)` (so with `S = 0`, as for `X = 0` or at `x = 0` when `y = 0`, no stop counts), when it
-does not exceed `ρ = L eps(T) ‖x‖∞`, or when `t` times it is below `floatmin(T)/eps(T)`. Each proposed stop with a finite positive `t` costs one
-proximal evaluation, counted in `prox_calls` (and for `AccProxGradDescent` one gradient, counted in `grad_calls`). A small
-accepted `L` makes `t` large and `r` a weaker measure of stationarity. `converged = true` is then a working-precision
-indication, not a certificate.
+A successful stopping flag is not an exact optimality certificate; see
+[the stopping rules](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-01).
 
-The gradient test holds when `r < gradtol * m` or `r < gradtol * N`, with `r` the
-gradient/proximal residual of the iteration, `m` the largest `r` so far in the
-solve and `N` the larger of the gradient's and the proximal step's infinity
-norms, each only against a scale that exceeds `ρ = L eps(T) ‖x‖∞`, the rounding
-resolution of `L x`. No absolute term is added to `m` or `N`. The comparisons use the
-floating-point products `gradtol * m` and `gradtol * N`: a residual of 0 holds only against
-a positive product, so it does not hold against `m = N = 0` or against a product that
-underflows to 0.
+# Extended help
 
-`ftol` must be finite and nonnegative. With `ftol > 0`, including the default,
-the objective test holds when `|F - F'| / |F| < ftol` or
-`|F - F'| < eps(|F| + |F'|)`, where `F = f(x) + g(x)` is the computed objective and
-`F'` the previous one. The quotient is `0` when `F == F'` and `Inf` when
-`F = 0 ≠ F'`. The second form holds when `F == F'` and `|F| + |F'|` is finite,
-so a flat computed objective proposes a stop through the objective test, which is
-not evidence of an accurate point (the stationarity check decides); in the ordinary
-range, where `F` and `F'` are normal
-floating-point numbers and `|F| + |F'|` is finite, it is about two units in the last
-place of `F`. (If `|F| + |F'|`
-overflows, `eps` is `NaN` and the second form does not hold.) `ftol = 0` switches
-the objective test off: `f_converged` is `false` at every iteration. A positive
-`ftol` that rounds to 0 in `Float64` is refused, so that a tiny value does not
-mean "off", and `-0.0` is stored as `0.0`.
+## Keywords
 
-With `ftol = 0` only, an iteration whose accepted iterate equals the previous one
-elementwise (compared by value, so `-0.0 == 0.0`) is no progress: it sets neither
-`x_converged` nor `grad_converged`, and the solve continues, subject to the other
-tests, the limits and, with `allow_f_increases=false`, the objective-increase stop.
-A solve whose iterate stays unchanged until `maxiter`, and does not stop as described
-below, ends with `converged=false` and `iteration_converged=true`; the flags then report
-no progress, not that the point is wrong. An iterate that differs from the previous
-one in any entry is evaluated as usual, including when the norm of the difference
-rounds to 0. With `ftol > 0`, an unchanged iterate proposes a stop through the `xtol` test,
-and the stationarity check decides. For
-`AccProxGradDescent`, an extrapolated point `y` equal to `x` while `x` differs from
-the previous iterate is not a stall: its residual `L * maximum(abs, x - y)` is 0, so
-the gradient test holds when `0 < gradtol * N` and `ρ < N`, or `0 < gradtol * m` and `ρ < m`.
+- `maxiter=200`: iteration limit.
+- `ftol=1e-6`: nonnegative objective-change tolerance; `0` disables that test.
+- `xtol=1e-8`: iterate-change tolerance.
+- `gradtol=1e-5`: gradient/proximal-residual tolerance; the final stationarity
+  check has its own working-precision floor.
+- `allow_f_increases=false`: stop on a computed objective increase;
+  `true` removes that exit without certifying the result.
+- `store_trace=false`: retain iteration states in the returned `trace`.
+- `show_trace=false`: print the iteration trace.
+- `extended_trace=false`: include copied iterates and gradients in trace metadata.
+- `print_every=1`: display and callback cadence.
+- `callback=nothing`: optional callback; receives the stored trace when tracing
+  is enabled, otherwise the current state, and returning `true` requests a stop.
+- `time_limit=Inf`: elapsed-time limit.
+- `f_calls_limit=0`, `grad_calls_limit=0`, `prox_calls_limit=0`: oracle-call limits;
+  zero means unlimited. Limits are checked after complete iterations, so a count
+  can exceed its limit by the work of one iteration.
+- `gaptol=0`, `gapevery=10`: compatibility arguments only, not stored.
+  Positive `gaptol` is refused; `gapevery` must be positive and has no effect.
 
-With `ftol = 0`, `ProximalGradientDescent` on `Vector{Float32}` data also stops at an
-iteration in which both of these hold: the accepted iterate equals the previous one
-elementwise, and the last rejection of that iteration's line search was decided by the
-computed curvature of the rejected step, which was finite and replaced the line search's
-curvature estimate `L̂` (the retry's `L` is then `min(Lexact, max(c, L / β))` for the
-rejected trial's `L`, so it need not equal the curvature `c`). A rejection that is not
-checked (a trial value that is not finite, a NaN estimate, a gradient estimate from a
-gradient with a nonfinite entry) or whose computed curvature is not finite does not count,
-and neither does an iteration whose first trial is already a zero step (it has no
-rejection). A later rejection of the same iteration replaces an earlier one, and nothing
-carries over from an earlier iteration. The stagnation check comes after tracing and after
-any callback call that is due at that iteration under `print_every`; it does not change
-the callback cadence. The result then has
-`stagnated=true` and `converged=false` (see [`OptimizationResults`](@ref)); this is not a
-convergence or accuracy certificate. For `Float64` data, for `AccProxGradDescent` and with
-`ftol > 0`, `stagnated` is `false` and the stopping behavior is as described above.
+For `NormL1`, `ElasticNet` and `GroupNormL2`, a proposed stop is checked against
+the applicable computed KKT residual; `NormLinf` uses a proximal-gradient
+mapping check. Neither certifies coefficient error. Check optimality independently
+when the accuracy matters.
 
-With `allow_f_increases=false` (the default), PGD also stops at the first
-iteration whose computed objective `F = f(x) + g(x)`, in the working
-precision, exceeds the previous iteration's `F'`. This stop is **not** a
-convergence test. At the iteration where any stop occurs, the result
-reports `f_increased = F > F'` and
-`converged = x_converged || f_converged || grad_converged`, so an
-objective-increase stop reports `converged=false` unless one of those
-tests also held and the stationarity check passed. With `ftol > 0`, in the ordinary
-range (`F` and `F'` normal floating-point numbers, `|F| + |F'|` finite), an
-increase smaller than about two units in the last place of `F` passes the objective
-test, and the result reports both `converged=true` and `f_increased=true` if the
-stationarity check also passes, and `converged=false` with `f_increased=true` if it
-does not. A `Float32` solve with the default options can therefore end on the
-objective-increase stop, with `converged=false`, where it used to stop on the objective
-test. With `ftol = 0`, `f_converged` is
-`false`, so an increase of any size reports `converged=false` unless the `x` or
-gradient test held and the check passed. Near a minimizer the computed
-change in `F` is of the size of the rounding error of evaluating `F`, so
-whether a strict-tolerance solve ends with `converged=true` or with an
-objective-increase stop can depend on the last bits of its trajectory
-(CPU, BLAS kernel, compilation) rather than on the accuracy of the point.
-`allow_f_increases=true` removes this stop; `f_increased` then only reports
-the comparison at the last iteration. `iteration_converged` is
-`iterations == maxiter`, which also holds when a test succeeded at that
-last iteration. See the
-[numerical behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/numerics/)
-page, which also describes a strict-accuracy configuration with `ftol = 0`.
+With `ftol=0`, an unchanged accepted iterate does not by itself count as
+convergence. Float32 PGD can instead report `stagnated=true` and
+`converged=false` under the documented stagnation condition. An objective increase,
+an iteration/call limit and convergence are separate conditions; inspect the
+individual result flags rather than inferring one from another.
 
-`maxiter` caps iterations; `store_trace`, `show_trace` and
-`extended_trace` control reporting. `print_every` sets display/callback
-cadence; a callback receives the trace when it is stored, otherwise the
-current state. The result display labels an internal gradient/proximal
-residual as `|g(x)|`: it is **not** the value of the supplied penalty.
+The display label `|g(x)|` denotes an internal stopping residual, not the value
+of the supplied penalty. Data and iterate buffers keep their working type;
+Float64 tolerances or diagnostics do not increase Float32 coefficient accuracy.
 
-Call/time limits are checked after complete iterations, so counts can exceed
-limits by one iteration. A zero call limit means unlimited. Float32/Float64
-iterate buffers retain native arithmetic; some scalar tolerances and diagnostics
-are held in Float64, without increasing coefficient accuracy.
-Gap certificates are not implemented: `gaptol` and `gapevery` are accepted
-for compatibility but not stored, a positive `gaptol` is refused when the
-options are constructed, and `gapevery` (which must be positive) has no effect.
+- [Exact stopping formulas and exceptional exits](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-01).
+- [Iteration order, traces, callbacks and limits](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-iteration/#PGD-01).
+- [Result fields and failure behavior](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/results-failures/#RES-01).
 """
 struct ProximalOptions{TCallback}
   maxiter::Int64
@@ -297,54 +189,42 @@ end
 """
     OptimizationResults
 
-Result from proximal gradient descent, plain or accelerated. `minimizer` aliases the caller's
-coefficient vector; `minimum` is the reported objective at that iterate.
-`iterations` counts steps and `converged` means that **at least one** stopping
-test proposed a stop and that the stationarity check passed (see
-[`ProximalOptions`](@ref)): the computed KKT residual at `minimizer` is below
-`max(gradtol, 64 eps(T)) * max(λ, λmax)` (for `GroupNormL2`, the group residual and scale that
-[`ProximalOptions`](@ref) defines). It is a working-precision value, not an
-exact-arithmetic certificate; it guarantees only that the computed, normalized residual
-`‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the threshold is formed in `T`, see
-[`ProximalOptions`](@ref)), not coefficient accuracy on ill-conditioned designs. For a `NormLinf` penalty the
-generic proximal-gradient check of [`ProximalOptions`](@ref) is used instead. `iteration_converged` reports reaching the iteration limit,
-**not** successful convergence.
+Result from plain or accelerated proximal gradient descent. `minimizer` aliases
+the caller's coefficient vector; `minimum` is the reported objective there.
+`iterations` counts steps. `converged` means that a stopping proposal passed
+the applicable computed stationarity check. Copy `minimizer` before reusing the
+coefficient array for another solve.
 
-The result also stores stopping flags, residuals and tolerances, optional
-`trace`, call counts and backtracking counts. `x_converged`, `f_converged` and
-`grad_converged` are the flags after the stationarity check, so all three are
-`false` at an iteration where the check refused a proposed stop; the residual
-fields are those of the tests at the last iteration. `grad_calls` of
-`AccProxGradDescent` includes one gradient at `x` for each check. For PGD, `backtrack_steps`
-includes accepted nonzero line-search trials; for APG it counts every trial,
-including the accepted one. `gap=NaN` means a dual
-gap was not calculated, not that the gap is zero.
+`iteration_converged` reports reaching the iteration limit, not successful
+optimization; see [result semantics](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/results-failures/#RES-01).
 
-`f_increased` is `F > F'` at the last iteration, where `F` is the computed
-objective and `F'` the previous one. It reports the comparison: an increase
-stops the solve only when `allow_f_increases=false`, a setting the result does
-not store. With `ftol = 0` (see [`ProximalOptions`](@ref)), `f_tol` is `0.0` and
-`f_converged` is `false`, because the objective test is off. `f_residual` is
-then reported only and does not decide a stop; it is `|F - F'| / |F|`, with the
-value `0.0` for `F = F' = 0` and `Inf` for `F = 0` and `F' != 0`. With `ftol > 0`
-it is the same quantity, the one that the objective test compares with `ftol`. On an iteration whose iterate equals the
-previous one elementwise, `ftol = 0` sets neither `x_converged` nor
-`grad_converged` (see [`ProximalOptions`](@ref) for the accelerated method's
-case `x == y`).
+# Extended help
 
-`stagnated` is `true` when `ProximalGradientDescent` on `Vector{Float32}` data with
-`ftol = 0` stopped after an iteration in which both of these held: the accepted iterate
-equals the previous one elementwise, and the last rejection of that iteration's line search
-replaced the line search's curvature estimate `L̂` by the finite computed curvature of the
-rejected step (see [`ProximalOptions`](@ref) for the condition). At such a stop `converged`,
-`x_converged`, `f_converged` and `grad_converged` are `false` and `x_residual` is `0`.
-`stagnated=true` is **not** a certificate of convergence or accuracy: it reports that an
-iteration left the iterate unchanged after the last rejection of its line search was decided
-by that step's computed curvature, and the returned point need not meet any accuracy target.
-`stagnated` is `false` for `AccProxGradDescent`, for `Float64` data and with `ftol > 0`. Each
-stopping flag reports its own condition, so `stagnated` can be `true` together with
-`call_limit_reached`, with `iteration_converged`, or at an iteration at which the callback
-returned `true`.
+## Fields to inspect
+
+- `method`, `minimizer`, `minimum`: solver, shared coefficients and objective.
+- `iterations`, `iteration_converged`: work completed and whether `maxiter` was reached.
+- `converged`, `x_converged`, `f_converged`, `grad_converged`: the final stopping
+  flags after the stationarity check; the last three are all false when it fails.
+- `x_tol`, `f_tol`, `g_tol`, `x_residual`, `f_residual`, `g_residual`: thresholds
+  and reported diagnostics, defined precisely by the stopping contract.
+- `f_increased`: whether the last computed objective exceeded its predecessor;
+  this can coexist with convergence. The result does not store `allow_f_increases`.
+- `trace`: stored iteration states when requested.
+- `f_calls`, `grad_calls`, `prox_calls`, `backtrack_steps`: oracle and line-search
+  counts. PGD and APG do not count every kind of trial identically.
+- `call_limit_reached`: a call limit was reached.
+- `stagnated`: the documented Float32 PGD stagnation exit; this is not a
+  convergence or accuracy certificate, and other exit flags can also be true.
+- `gap`: `NaN`, because this result type does not compute a certified duality gap.
+
+For `NormL1`, `ElasticNet` and `GroupNormL2`, the stop check uses the applicable
+computed KKT residual; `NormLinf` uses the generic proximal-gradient check.
+A small residual does not bound coefficient error on an ill-conditioned design.
+With `ftol=0`, `f_converged` is false and the objective residual is reported only.
+
+See [the exact stopping definitions](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-01)
+and [results and failure rules](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/results-failures/#RES-01).
 """
 mutable struct OptimizationResults{O<:ProximalSolver, T, N, M, X<:AbstractArray{T, N}}
     method::O
