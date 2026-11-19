@@ -339,7 +339,7 @@ end
   # registry sources and a tree other than the one the committed manifests record.
   pin = call(H.checkout_base_pin, dirname(@__DIR__))
   @test pin.rev == PB_REV && pin.url == "https://github.com/mlakolar/ProximalBase.jl"
-  @test pin.trees == ["1b6dab757300df2569e65bb09ec39e16b37ddc4f"] && base.tree in pin.trees
+  @test pin.trees == ["29f446657057806e31acb4067902ca2ac848cdf0"] && base.tree in pin.trees
   @test call(H.check_proximalbase, base, "", pin) === nothing
   other = merge(base, (; rev = "eb74a914d779371a02e4a6637eaa724aeb66fdf5",
                          tree = "d1da2065a3895cb90aa5d0dd1a008c482602bd00"))
