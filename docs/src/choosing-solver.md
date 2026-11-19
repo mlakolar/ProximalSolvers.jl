@@ -1,7 +1,7 @@
 # Choosing a solver
 
-The three supported algorithms solve the **same dense least-squares lasso**; CD, PGD and APG
-also solve a group lasso (see [Group lasso](choosing-solver.md#Group-lasso-with-block-coordinate-descent)), and CD
+CD, PGD and APG solve the **same dense least-squares lasso** and
+a group lasso (see [Group lasso](choosing-solver.md#Group-lasso-with-block-coordinate-descent)). CD
 also solves the square-root lasso `norm(y - X*beta) + lambda * norm(beta, 1)` (see [Supported problems](support.md)).
 The difference is how they update coefficients, not what objective is minimized.
 For definitions of soft-thresholding, CD and PGD, see [What problem, which algorithm?](concepts.md).
@@ -217,6 +217,15 @@ all three algorithms.
 Curvature work depends on the groups visited and screened during the whole
 solve. The original measurements and their limitations are preserved in
 [the lazy-curvature evidence](contracts/evidence/lazy-curvature-cost.md).
+
+## Consensus ADMM
+
+Use `ADMMSolver()` for a centered squared Euclidean loss `SqrNormL2(λ, c)`
+with unweighted `NormL1(τ)` on a dense vector. It alternates two proximal
+updates and monitors agreement between them. The [denoising tutorial](examples/problems/sparse_signal_denoising.md)
+chooses a penalty parameter, reports the residual diagnostics, and checks the
+answer by soft thresholding and stationarity. See [the ADMM contract](@ref ADM-01)
+for input requirements, limits and warm starts.
 
 ## What is supported now?
 

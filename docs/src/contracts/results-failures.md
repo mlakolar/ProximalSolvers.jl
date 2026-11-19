@@ -76,7 +76,10 @@ finite objective evaluated from the cached least-squares residual plus the
 ridge penalty. [CDS-03](@ref)/[CDS-04](@ref) retain the owner commit and propagated
 failure boundary; adding a ridge penalty supplies no duality certificate.
 
-**Applies to.** All solver result types; each row retains its specified loss, penalty and precision scope.
+For consensus ADMM, [ADM-02](@ref) specifies the computed residual tests,
+the stagnation guard, counters, limit statuses and numerical failure boundary.
+
+**Applies to.** All solver result types; each solver retains its specified loss, penalty and precision scope.
 
 **Code.** `src/cd/solver.jl`: completed passes and CD results; `src/solve.jl`: gradient iteration/stationarity decisions; `src/types.jl`: result fields.
 

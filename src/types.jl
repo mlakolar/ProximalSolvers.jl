@@ -1,8 +1,7 @@
 """
     ProximalSolver
 
-Abstract supertype of CDSolver, ProximalGradientDescent and AccProxGradDescent,
-passed to solve!.
+Abstract supertype of the solvers passed to [`solve!`](@ref).
 """
 abstract type ProximalSolver end
 
@@ -27,6 +26,10 @@ options = ProximalOptions(maxiter=2000, ftol=1e-13, xtol=1e-11,
 
 A successful stopping flag is not an exact optimality certificate; see
 [the stopping rules](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-01).
+
+[`ADMMSolver`](@ref) uses `maxiter`, `prox_calls_limit` and `time_limit`. It
+checks the limits before starting the next pair of proximal calls. See
+[the ADMM options contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-02).
 
 ## Keywords
 

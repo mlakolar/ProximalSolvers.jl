@@ -21,6 +21,7 @@ standard = [
   "core_regressions",
   "sparse_cd",
   "accelerated_pgd",
+  "admm",
   "initial_curvature",
   "stopping_scale",
   "elasticnet",

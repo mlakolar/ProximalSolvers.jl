@@ -203,14 +203,14 @@ function select_cases(catalog, filter::AbstractString)
   [spec for spec in catalog if any(matcher -> matcher(spec.meta.id), matchers)]
 end
 
-function start_metadata(settings)
+function start_metadata(settings, extra_harness_files=())
   s = settings
   base_root = realpath(dirname(dirname(pathof(ProximalBase))))
   revision, dirty = git_identity(s.root)
+  harness_files = ("problems.jl", "certificates.jl", "cases.jl", "run.jl", extra_harness_files...)
   Dict{String,Any}("julia" => string(VERSION), "rep" => s.rep, "suite" => s.suite,
     "groups" => join(s.groups, ','), "case_filter" => s.cases,
-    "harness_hash" => fingerprint(@__DIR__, [joinpath(@__DIR__, name) for name in
-      ("problems.jl", "certificates.jl", "cases.jl", "run.jl")]),
+    "harness_hash" => fingerprint(@__DIR__, [joinpath(@__DIR__, name) for name in harness_files]),
     "proximalsolvers_path" => s.root, "proximalsolvers_sha" => revision,
     "proximalsolvers_dirty" => dirty, "proximalsolvers_hash" => package_fingerprint(s.root),
     "proximalbase_version" => string(pkgversion(ProximalBase)),
@@ -370,14 +370,14 @@ function record_case!(metrics, raw, errors, spec, settings, result)
   flush(errors)
 end
 
-function run_records(settings, catalog)
+function run_records(settings, catalog; extra_harness_files=())
   started = time()
   mkpath(settings.output)
   stem = "julia-$(VERSION)-rep$(lpad(settings.rep, 2, '0'))"
   any(name -> startswith(name, stem), readdir(settings.output)) &&
     error("Refusing to overwrite files with prefix $stem; use a fresh PS_OUTPUT")
   prefix = joinpath(settings.output, stem)
-  metadata = start_metadata(settings)
+  metadata = start_metadata(settings, extra_harness_files)
   write_metadata(prefix * "-metadata-start.toml", metadata)
   open(prefix * "-catalog.tsv", "w") do io
     tsv_line(io, CATALOG_HEADER...)

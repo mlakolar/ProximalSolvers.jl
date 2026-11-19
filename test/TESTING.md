@@ -23,6 +23,17 @@ comparison); a PR that edits a harness file runs the latter. Tiers are cumulativ
 Pkg.test defaults full. Every regular file is listed once, missing/duplicate/
 unlisted tests and empty selections fail; unknown source defaults full.
 
+The standard `admm` tests cover centered quadratic denoising with an unweighted
+ℓ₁ penalty in Float32 and Float64. They compare against BigFloat soft thresholding,
+check the raw objective and coordinatewise KKT conditions, and independently
+replay a fixed-penalty step to check primal and dual residuals and tolerances.
+They also check input refusals, transaction behavior, limits, proximal call
+counts, a rounded fixed point with large `ρ`, and extreme relaxation.
+Adaptive tests replay the balancing steps, check the update cap and exercise
+proposals outside the penalty, reciprocal and scaled dual's ranges. Restart
+tests check that resuming with the returned penalty and scaled dual agrees
+with an independently verified fresh solution.
+
 The separately approved Linux-only matrix and required gate graph remain
 unchanged: stable Julia1 Linux x64 for every tier, full master checks, coverage,
 required jobs/merge gate, benchmark analysis and provenance-aware nightly reuse.

@@ -1,8 +1,9 @@
 # Developing the minimal dense core
 
-Keep PB's committed exact source pin fixed outside a reviewed integration PR. The supported surface is dense
-Float32/Float64 LS with an unweighted L1 penalty (and an unweighted ElasticNet, for CD, PGD and APG); unsupported features need separate reviewed
-restoration PRs. No version bump or release follows from the reduction.
+Keep PB's committed exact source pin fixed outside a reviewed integration PR.
+The [support matrix](docs/src/support.md) lists supported solver and problem
+combinations. Unsupported features need separate reviewed restoration PRs.
+No version bump or release follows from the reduction.
 
 ```sh
 julia --project=. -e 'using Pkg; Pkg.instantiate()'

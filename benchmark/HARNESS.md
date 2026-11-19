@@ -496,6 +496,56 @@ all three files. Invalid records, mismatched settings, catalogs or data hashes p
 comparison. Intervals include input variability and machine noise, without corrections
 for correlated noise or multiple comparisons.
 
+## Centered-quadratic ADMM measurements
+
+`benchmark/admm.jl` uses the formal runner and its record format for
+`SqrNormL2(λ, c) + NormL1(τ)` at sizes 32 and 8192 in Float32 and Float64.
+The ordinary fixed penalty is `ρ = 2`. Fixed and adaptive cases also start
+at the same `ρ = 64` to compare the policies at matched accuracy. Every
+case uses `α = 1.4`. The variants measure three ways of calling the solver:
+
+| Variant prefix | What goes into each timed call |
+|---|---|
+| `fresh` | Construct the two functions, the method and options, and a zero primal vector, then solve. |
+| `prebuilt` | Solve using prebuilt functions, method and options. Reset the caller's primal and dual vectors to zero outside the timer. |
+| `warm` | Solve from the analytic primal and scaled-dual solution using prebuilt functions, method and options. Reset both vectors outside the timer. |
+
+Compilation, fixture generation and the independent checks run outside measured
+samples. Every sample must meet the maximum coordinate KKT residual target
+(`2e-5` in Float32, `1e-10` in Float64), agree with the analytic soft threshold
+within that residual's point-error bound, and return the independently evaluated
+objective to the stated working-precision allowance.
+
+Use one clean harness checkout for all arms. For each arm, instantiate a fresh
+environment with `benchmark/setup.jl CHECKOUT NEW_ENV pinned`. A historical
+checkout that supports centered-quadratic ADMM can use its own pinned
+ProximalBase revision. Repeat this command with the appropriate checkout,
+environment and output directory for each arm:
+
+```sh
+PS_OUTPUT="$out" PS_REPETITION="$rep" JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
+  PS_EXPECTED_PACKAGE_ROOT="$checkout" \
+  PS_EXPECTED_PACKAGE_REVISION="$(git -C "$checkout" rev-parse HEAD)" \
+  julia --startup-file=no --project="$env" "$harness/benchmark/admm.jl"
+```
+
+Alternate arm order as in [Compare revisions](#compare-revisions), with separate
+output directories for the A/A control and the revision comparison. Use
+`PS_CASES` to select case IDs or glob patterns. Run `benchmark/validate.py` on
+each arm and use `benchmark/compare.py` for the A/A control or comparisons
+sharing the same ProximalBase pin. If the archive uses a different pin, declare
+both stacks explicitly:
+
+```sh
+python3 benchmark/admm_compare.py "$archive_out" "$current_out" "$comparison" \
+  --expected-runs "$runs" --before-ps "$archive_ps" --before-pb "$archive_pb" \
+  --after-ps "$current_ps" --after-pb "$current_pb"
+```
+
+This comparison matches inputs and accuracy targets and attributes the timing
+ratio to the whole stack. The per-repetition harness hash includes
+`benchmark/admm.jl`. Keep the harness commit with the records.
+
 ## Cross-solver readout
 
 `cross_solver.py` sets the per-case summaries of different solvers and settings (CD, PGD, APG)

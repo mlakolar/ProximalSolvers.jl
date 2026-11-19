@@ -1,6 +1,9 @@
 {
   "version": 1,
   "clause_ids": [
+    "ADM-01",
+    "ADM-02",
+    "ADM-03",
     "APG-01",
     "APG-02",
     "APG-03",
