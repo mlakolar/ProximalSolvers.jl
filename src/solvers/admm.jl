@@ -7,8 +7,16 @@ Solve `SqrNormL2(λ, c) + NormL1(τ)` by scaled consensus ADMM on a dense
 and relative tolerances control the primal and dual residual tests. Set
 `adaptive=true` to rebalance the penalty between iterations.
 
+With a dense `Matrix{Float32}` or `Matrix{Float64}` start, it applies to the
+graphical lasso `LogDetLoss(S) + NormL1(λ₀, Λ)` under the input rules of ADM-04,
+which include same-type weights `Λ` that are finite, nonnegative, exactly
+symmetric and zero on the diagonal, a fixed `ρ`, a stored `α` equal to 1 and
+`adaptive = false`.
+
 See [the ADMM contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-01)
-for the supported inputs and iteration rules.
+for the supported inputs and iteration rules, and
+[ADM-04](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-04)
+for the graphical lasso.
 """
 struct ADMMSolver{T<:AbstractFloat} <: ProximalSolver
   ρ::T
@@ -42,18 +50,22 @@ end
     ADMMResults
 
 The result of [`solve!`](@ref) with an [`ADMMSolver`](@ref). `minimizer` aliases
-the caller's vector and `minimum` is the objective there. `iterations` counts
-completed iterations, with two proximal calls each in `prox_calls`.
+the caller's vector or matrix and `minimum` is the objective there. `iterations`
+counts completed iterations, with two proximal calls each in `prox_calls`.
 
 `r_norm`, `s_norm`, `eps_pri` and `eps_dual` describe the final residual tests.
 They are `NaN` if no iteration ran. `u` is the final scaled dual variable and
 `ρ` is the penalty used for the final tests, or the starting penalty if no
 iteration ran. An explicit dual buffer passed to `solve!` also aliases the
 result. `status` records the exit and `converged` is true for
-`:converged`. See the [ADMM contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-01).
+`:converged`. In a result of `solve!`, `minimizer` and `u` have the array type
+`A` of the iterate: `Vector{T}` for the vector problem and `Matrix{T}` for the
+graphical lasso. See
+the [ADMM contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-01)
+and [ADM-04](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-04).
 """
-struct ADMMResults{T}
-  minimizer::Vector{T}
+struct ADMMResults{T, A<:AbstractArray{T}}
+  minimizer::A
   minimum::T
   iterations::Int
   converged::Bool
@@ -61,11 +73,17 @@ struct ADMMResults{T}
   s_norm::T
   eps_pri::T
   eps_dual::T
-  u::Vector{T}
+  u::A
   ρ::T
   prox_calls::Int
   status::Symbol
 end
+
+# The positional vector form ADMMResults{T}(fields...) converts both arrays to Vector{T}.
+ADMMResults{T}(minimizer::AbstractVector, minimum, iterations, converged, r_norm, s_norm, eps_pri, eps_dual,
+               u::AbstractVector, ρ, prox_calls, status) where {T} =
+  ADMMResults{T, Vector{T}}(minimizer, minimum, iterations, converged, r_norm, s_norm, eps_pri, eps_dual,
+                            u, ρ, prox_calls, status)
 
 Base.summary(::ADMMResults) = "ADMM"
 minimizer(r::ADMMResults) = r.minimizer
@@ -118,11 +136,24 @@ buffer as `u` to start from its entries. Caller buffers are committed on
 normal return. Pass the returned iterate, scaled dual and penalty together to
 restart a solve. See [`ADMMResults`](@ref) and the
 [ADMM input and result contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-01).
+A dense `Matrix{Float32}` or `Matrix{Float64}` start selects the graphical lasso
+of ADM-04; Extended help summarizes its inputs.
+
+# Extended help
+
+In summary, the graphical lasso uses one element type `T`, Float32 or Float64,
+for `z`, `S` and `Λ`: an exactly symmetric `Matrix{T}` start whose Cholesky
+factorization succeeds in `T`, `f = LogDetLoss(S)` with weight one, and
+`g = NormL1(λ₀, Λ)` with finite, nonnegative, exactly symmetric, zero-diagonal
+`Matrix{T}` weights and a finite, nonnegative level exactly representable in
+`T`. See [ADM-04](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-04)
+for the complete conditions, including the method settings.
 """
 function solve!(z, f, g, method::ADMMSolver, options::ProximalOptions = ProximalOptions(); u=nothing, kwargs...)
   _check_keywords(kwargs)
   _check_admm_options(options)
-  z isa Union{Vector{Float32}, Vector{Float64}} || throw(ArgumentError("z must be a dense Float32 or Float64 vector"))
+  z isa Union{Vector{Float32}, Vector{Float64}, Matrix{Float32}, Matrix{Float64}} ||
+    throw(ArgumentError("z must be a dense Float32 or Float64 vector, or a dense Float32 or Float64 matrix for the graphical lasso"))
   _solve_admm!(z, f, g, method, options, u)
 end
 
@@ -228,9 +259,125 @@ function _solve_admm!(initial_z::Vector{T}, f, g, method, options, initial_u) wh
               r_norm, s_norm, eps_pri, eps_dual, u, ρ, calls, status)
 end
 
-function _admm_mightalias(a::Vector, b::Vector)
+# The graphical lasso LogDetLoss(S) + NormL1(λ₀, Λ) on a dense matrix (ADM-04).
+function _solve_admm!(initial_Θ::Matrix{T}, f, g, method, options, initial_u) where T
+  f isa LogDetLoss{T} || throw(ArgumentError("ADMM on a matrix requires LogDetLoss with the element type of z"))
+  f.w == 1 ||
+    throw(ArgumentError("ADMM on a matrix requires a LogDetLoss weight of one, as in LogDetLoss(S) with S = X'X/n for centered X"))
+  g isa NormL1 && g.w isa Matrix{T} ||
+    throw(ArgumentError("ADMM on a matrix requires NormL1 whose stored weights are a dense $T matrix"))
+  S, Λ = f.S, g.w::Matrix{T}
+  !isempty(initial_Θ) && size(initial_Θ, 1) == size(initial_Θ, 2) ||
+    throw(DimensionMismatch("z must be a nonempty square matrix"))
+  size(S) == size(initial_Θ) == size(Λ) ||
+    throw(DimensionMismatch("z, S and the NormL1 weights must have the same size"))
+  isone(method.α) || throw(ArgumentError("ADMM on a matrix requires the α stored in the ADMMSolver to equal 1"))
+  method.adaptive && throw(ArgumentError("ADMM on a matrix requires adaptive = false"))
+  λ0 = _admm_level(g.λ0, T, "the NormL1 level")
+  _allfinite(initial_Θ) && _allfinite(S) && _allfinite(Λ) ||
+    throw(ArgumentError("z, S and the NormL1 weights must contain only finite values"))
+  all(>=(zero(T)), Λ) || throw(ArgumentError("the NormL1 weights must be nonnegative"))
+  _admm_issymmetric(Λ) || throw(ArgumentError("the NormL1 weights must be exactly symmetric"))
+  all(i -> iszero(Λ[i, i]), axes(Λ, 1)) || throw(ArgumentError("the NormL1 weights must be zero on the diagonal"))
+  _admm_issymmetric(S) || throw(ArgumentError("S must be exactly symmetric"))
+  _admm_issymmetric(initial_Θ) || throw(ArgumentError("z must be exactly symmetric"))
+  if initial_u !== nothing
+    initial_u isa Matrix{T} || throw(ArgumentError("u must be a dense $T matrix like z"))
+    size(initial_u) == size(initial_Θ) || throw(DimensionMismatch("u and z must have the same size"))
+    _allfinite(initial_u) || throw(ArgumentError("u must contain only finite values"))
+    _admm_issymmetric(initial_u) || throw(ArgumentError("u must be exactly symmetric"))
+  end
+  (_admm_mightalias(initial_Θ, S) || _admm_mightalias(initial_Θ, Λ)) &&
+    throw(ArgumentError("z must not alias S or the NormL1 weights"))
+  _admm_mightalias(S, Λ) && throw(ArgumentError("S must not alias the NormL1 weights"))
+  if initial_u !== nothing
+    (_admm_mightalias(initial_u, initial_Θ) || _admm_mightalias(initial_u, S) || _admm_mightalias(initial_u, Λ)) &&
+      throw(ArgumentError("u must not alias z, S or the NormL1 weights"))
+  end
+  ρ, α, abstol, reltol, abstol_dual = _admm_settings(T, method.ρ, method.α, method.abstol, method.reltol, method.abstol_dual)
+  γ = inv(ρ)
+  isfinite(γ) && γ > zero(T) || throw(ArgumentError("1/ρ must be finite and positive in $T"))
+  # Reused below for the Cholesky checks of the logdet prox outputs and the return point.
+  scratch = copy(initial_Θ)
+  issuccess(cholesky!(Symmetric(scratch); check=false)) ||
+    throw(ArgumentError("z must have a successful Cholesky factorization in $T"))
+
+  # Use the native level with the borrowed weights; f holds S and has weight one.
+  # The reconstruction gives the penalty the concrete weight type Matrix{T}.
+  g = NormL1(λ0, Λ)
+  t0 = time_ns()
+  z = copy(initial_Θ)
+  next_z = similar(z)
+  x = similar(z)
+  u = initial_u === nothing ? zeros(T, size(z)) : copy(initial_u)
+  tmp = similar(z)
+  sqrt_n = sqrt(T(length(z)))
+  abs_pri, abs_dual = sqrt_n * abstol, sqrt_n * abstol_dual
+  max_prox_pairs = options.prox_calls_limit == 0 ? typemax(Int) : options.prox_calls_limit ÷ 2
+
+  iterations = 0
+  r_norm = s_norm = eps_pri = eps_dual = T(NaN)
+  status = :iteration_limit
+  while iterations < options.maxiter
+    if iterations == max_prox_pairs
+      status = :prox_calls_limit
+      break
+    elseif options.time_limit < Inf && (time_ns() - t0) * 1e-9 >= options.time_limit
+      status = :time_limit
+      break
+    end
+
+    _admm_subtract!(tmp, z, u) || error("ADMM formed a nonfinite x-prox argument")
+    prox!(x, f, tmp, γ)
+    _admm_passes_cholesky!(scratch, x) ||
+      error("ADMM requires each logdet prox output to be finite, exactly symmetric and to have a successful Cholesky factorization in $T")
+    _admm_relaxed_argument!(tmp, x, z, u, α) || error("ADMM produced a nonfinite z-prox argument")
+    # The z-prox output can be indefinite. Its symmetry and Cholesky factorization
+    # are checked after the loop, at the return point.
+    prox!(next_z, g, tmp, γ)
+    # The argument was finite, so this check also rejects a nonfinite z-prox output.
+    _admm_subtract!(u, tmp, next_z) ||
+      error("ADMM produced a nonfinite z-prox output or scaled dual variable")
+
+    r_norm = _norm_diff(x, next_z)
+    s_norm = ρ * _norm_diff(next_z, z)
+    eps_pri, eps_dual = abs_pri, abs_dual
+    if !iszero(reltol)
+      eps_pri += reltol * max(_norm(x), _norm(next_z))
+      eps_dual += reltol * (ρ * _norm(u))
+    end
+    all(isfinite, (r_norm, s_norm, eps_pri, eps_dual)) || error("ADMM produced nonfinite residual diagnostics")
+    iterations += 1
+    z, next_z = next_z, z
+
+    if r_norm <= eps_pri && s_norm <= eps_dual
+      status = :converged
+      break
+    end
+  end
+
+  # Before a commit at any status, z must be exactly symmetric and pass Cholesky in T.
+  _admm_passes_cholesky!(scratch, z) ||
+    error("ADMM requires the returned consensus iterate to be exactly symmetric and to have a successful Cholesky factorization in $T")
+  if status === :converged && iszero(r_norm) && iszero(s_norm) &&
+     !_admm_logdet_stationary(z, S, inv(cholesky(Symmetric(z))), λ0, Λ, eps_dual)
+    status = :stagnated
+  end
+  objective = f(z) + g(z)
+  isfinite(objective) || error("ADMM produced a nonfinite objective at the return point")
+  calls = Base.checked_mul(2, iterations)
+  copyto!(initial_Θ, z)
+  if initial_u !== nothing
+    copyto!(initial_u, u)
+    u = initial_u
+  end
+  ADMMResults(initial_Θ, objective, iterations, status === :converged,
+              r_norm, s_norm, eps_pri, eps_dual, u, ρ, calls, status)
+end
+
+function _admm_mightalias(a::Array, b::Array)
   Base.mightalias(a, b) && return true
-  # Separately wrapped dense vectors can overlap despite distinct storage identities.
+  # Separately wrapped dense arrays can overlap despite distinct storage identities.
   GC.@preserve a b begin
     a_start = UInt(pointer(a))
     b_start = UInt(pointer(b))
@@ -312,6 +459,40 @@ function _admm_stationary(z, c, λ, τ, tolerance)
   @inbounds for i in eachindex(z, c)
     grad = λ * (z[i] - c[i])
     violation = iszero(z[i]) ? max(abs(grad) - τ, zero(τ)) : abs(grad + copysign(τ, z[i]))
+    isfinite(violation) || error("ADMM produced a nonfinite stationarity diagnostic")
+    stationary &= violation <= tolerance
+  end
+  stationary
+end
+
+function _admm_issymmetric(A::Matrix)
+  @inbounds for j in axes(A, 2), i in 1:j-1
+    A[i, j] == A[j, i] || return false
+  end
+  true
+end
+
+# Whether A is finite, exactly symmetric and has a successful Cholesky
+# factorization in its element type. The factorization overwrites scratch.
+function _admm_passes_cholesky!(scratch, A)
+  _allfinite(A) && _admm_issymmetric(A) || return false
+  copyto!(scratch, A)
+  issuccess(cholesky!(Symmetric(scratch); check=false))
+end
+
+# Rounded proximal updates can yield two zero residuals away from a stationary
+# point. Check the logdet/weighted-ℓ₁ stationarity violation with G = S - inv(z)
+# on that exit, at a z whose Cholesky factorization succeeded in its element type.
+function _admm_logdet_stationary(z, S, inverse, λ0, Λ, tolerance)
+  stationary = true
+  @inbounds for j in axes(z, 2), i in axes(z, 1)
+    grad = S[i, j] - inverse[i, j]
+    violation = if i == j
+      abs(grad)
+    else
+      level = λ0 * Λ[i, j]
+      iszero(z[i, j]) ? max(abs(grad) - level, zero(level)) : abs(grad + copysign(level, z[i, j]))
+    end
     isfinite(violation) || error("ADMM produced a nonfinite stationarity diagnostic")
     stationary &= violation <= tolerance
   end
