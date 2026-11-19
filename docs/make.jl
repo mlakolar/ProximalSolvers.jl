@@ -125,7 +125,7 @@ Each tutorial explains the model, reproduces its figure, and checks the fitted r
   println(io, """
 ## Reproduce the figures
 
-Install the documentation environment from the repository root and build the site:
+From the repository root, run these commands to build the documentation.
 
 ```sh
 julia --project=docs -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
