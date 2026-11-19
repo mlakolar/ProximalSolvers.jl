@@ -6,15 +6,18 @@ module LogisticPGDTest
 using Test, LinearAlgebra, Random, SparseArrays, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
 
-# Stable scalar formulas, for Float64 and BigFloat arguments
+# Stable scalar formulas, for Float64 and BigFloat arguments: neither evaluates exp of a large positive number
 sigmoid(t) = t >= 0 ? inv(1 + exp(-t)) : (e = exp(t); e / (1 + e))
 softplus(t) = t > 0 ? t + log1p(exp(-t)) : log1p(exp(t))
 
-# The raw loss Σᵢ softplus(ηᵢ) - yᵢηᵢ, η = X b, and its gradient Xᵀ(σ(η) - y), in BigFloat from the stored data
+# The raw loss and its gradient at b, in BigFloat from the stored data, for a binary y. With η = X b and
+# sᵢ = 1 - 2yᵢ, the term of observation i is softplus(sᵢηᵢ) = log(1 + e^{ηᵢ}) - yᵢηᵢ, and the derivative
+# σ(ηᵢ) - yᵢ is sᵢ σ(sᵢηᵢ). These label-wise forms keep the tail of an observation on the side of its label,
+# which softplus(η) - yη and σ(η) - 1 lose to cancellation at large logits, even in BigFloat.
 function oracle(X, y, b)
-  A, t = big.(X), big.(y)
+  A, s = big.(X), big.(1 .- 2 .* y)
   η = A * big.(b)
-  (; value = sum(softplus.(η) .- t .* η), gradient = A' * (sigmoid.(η) .- t))
+  (; value = sum(softplus.(s .* η)), gradient = A' * (s .* sigmoid.(s .* η)))
 end
 
 # cⱼ = λ wⱼ in BigFloat (cⱼ = λ without weights)
@@ -34,30 +37,55 @@ objective(X, y, b, λ, w = nothing) =
 stop_scale(X, y, λ, w = nothing) = max(λ * (w === nothing ? 1 : maximum(w)), norm(X' * (0.5 .- y), Inf))
 
 # The minimizer of the unpenalized raw loss by damped Newton in BigFloat (backtracking on the loss), with the
-# ∞-norm of its gradient. It ends when that norm is below 1e-30.
+# ∞-norm of its gradient. It stops when that norm is below 1e-30 or after `iterations` steps; a small
+# gradient alone does not show that a minimizer exists (see `nonseparable`).
 function newton(X, y; iterations = 100)
-  A, t = big.(X), big.(y)
-  loss(v) = (η = A * v; sum(softplus.(η) .- t .* η))
+  A, s = big.(X), big.(1 .- 2 .* y)
+  loss(v) = sum(softplus.(s .* (A * v)))
+  gradient(v) = A' * (s .* sigmoid.(s .* (A * v)))
   b = zeros(BigFloat, size(A, 2))
-  G = A' * (sigmoid.(A * b) .- t)
+  G = gradient(b)
   for _ in 1:iterations
     norm(G, Inf) < big(10)^-30 && break
-    μ = sigmoid.(A * b)
-    step = (A' * (A .* (μ .* (1 .- μ)))) \ G
-    s, f0 = big(1), loss(b)
-    while loss(b - s * step) > f0 - s * dot(G, step) / 4
-      s /= 2
-      s < big(10)^-20 && error("damped Newton made no progress")
+    η = A * b
+    step = (A' * (A .* (sigmoid.(η) .* sigmoid.(-η)))) \ G
+    t, f0 = big(1), loss(b)
+    while loss(b - t * step) > f0 - t * dot(G, step) / 4
+      t /= 2
+      t < big(10)^-20 && error("damped Newton made no progress")
     end
-    b -= s * step
-    G = A' * (sigmoid.(A * b) .- t)
+    b -= t * step
+    G = gradient(b)
   end
   b, norm(G, Inf)
 end
 
-# Seeded data: an intercept column of ones, then p standard normal covariates with correlation 1/2 between
-# neighbours, multiplied by `scale`, and responses drawn from the logistic model with intercept -0.3 and the
-# planted slopes `signal` on the first covariates.
+# A certificate, in BigFloat, that the data (X, y) are not separable, even weakly. At any b the weights
+# uᵢ = |yᵢ - σ(ηᵢ)| = σ(-rᵢηᵢ), rᵢ = 2yᵢ - 1, are positive and satisfy Aᵀu = -∇f(b) for A = diag(r) X. The
+# least-squares correction c = A (AᵀA)⁻¹ Aᵀu gives Aᵀ(u - c) = 0 in exact arithmetic. If u - c > 0 and X has
+# full column rank, no d ≠ 0 has rᵢ xᵢᵀd ≥ 0 for every i: 0 = Σᵢ (uᵢ - cᵢ) rᵢ xᵢᵀd would force X d = 0. Then the
+# unpenalized loss grows without bound along every direction and has a finite minimizer. The correction is
+# small only at a b with a small gradient, such as the Newton point. Returns min(u - c) / max|c|.
+function nonseparable(X, y, b)
+  r = big.(2 .* y .- 1)
+  A = r .* big.(X)
+  rank(X) == size(X, 2) || return big(0)
+  u = sigmoid.(-r .* (big.(X) * big.(b)))
+  c = A * ((A' * A) \ (A' * u))
+  minimum(u - c) / maximum(abs, c)
+end
+
+# A lower bound on the smallest eigenvalue of the Hessian Xᵀ diag(σ(ηᵢ)σ(-ηᵢ)) X on the segment from a to b:
+# along it each ηᵢ moves linearly from (X a)ᵢ to (X b)ᵢ, and σ(t)σ(-t) decreases in |t|, so the smallest weight
+# of observation i on the segment is at one of the two ends.
+function segment_curvature(X, a, b)
+  w(t) = sigmoid(t) * sigmoid(-t)
+  eigmin(Symmetric(X' * (X .* min.(w.(X * a), w.(X * b)))))
+end
+
+# Seeded data: an intercept column of ones, then p covariates with population correlation 1/2 between neighbours
+# (standard normal before the scaling), multiplied by `scale`, and responses drawn from the logistic model with
+# intercept -0.3 and the planted slopes `signal` on the first covariates.
 function logistic_data(n, p; seed, signal = [1.0, -0.8, 0.6], scale = 1.0)
   rng = Xoshiro(seed)
   Z = randn(rng, n, p)
@@ -77,11 +105,21 @@ slope_threshold(X, y) = norm(X[:, 2:end]' * (sum(y) / length(y) .- y), Inf)
 # Tight options for the accuracy checks: a stop needs a computed KKT residual below 1e-10 S (STOP-04)
 const TIGHT = ProximalOptions(maxiter = 20_000, ftol = 1e-15, xtol = 1e-12, gradtol = 1e-10, allow_f_increases = true)
 
-# The independent residual bound used with TIGHT. A stop needs the solver's residual, formed from the Float64
-# gradient Xᵀ(σ(X b) - y), below 1e-10 S. That gradient differs from the BigFloat one by rounding of order
-# n max|Xᵢⱼ| ‖b‖ eps, below 1e-11 for the fixtures here, while S is at least of order one; 1e-8 S leaves a margin
-# of a factor of 100 over the stopping threshold.
+# The independent residual bound used with TIGHT. A stop needs the solver's residual, formed from its Float64
+# gradient Xᵀd with d = σ(X b) - y, below 1e-10 S. With u = eps/2, |dᵢ| ≤ 1 and M = maxᵢ Σⱼ |Xᵢⱼ||bⱼ|, each entry of
+# that gradient differs from the exact one by at most about n u max|Xᵢⱼ| (n + p M / 4 + 2): the rounding of the
+# product Xᵀd, of the image X b (σ has slope at most ¼) and of d. `rounding_bound` is this number; each accuracy
+# check below asserts that it is at most 1e-9 and that S ≥ 1, so a residual below 1e-10 S in Float64 is below
+# 1e-10 S + 1e-9 ≤ 1e-8 S in exact arithmetic. KKT_TOL = 1e-8 is that bound.
 const KKT_TOL = 1e-8
+rounding_bound(X, b) = (n = size(X, 1); M = maximum(abs.(X) * abs.(b)); n * eps() / 2 * maximum(abs, X) * (n + size(X, 2) * M / 4 + 2))
+
+# The independent residual of b for NormL1(λ, w), with the conditions of the KKT_TOL argument checked
+function residual_check(X, y, b, λ, w = nothing)
+  S = stop_scale(X, y, λ, w)
+  @test rounding_bound(X, b) <= 1e-9 && S >= 1
+  Float64(maximum(scores(oracle(X, y, b).gradient, b, λ, w))), KKT_TOL * S
+end
 
 @testset "the stopping scale is the norm of the logistic gradient at zero" begin
   X, y = logistic_data(120, 6; seed = 1)
@@ -100,7 +138,11 @@ const KKT_TOL = 1e-8
   r = PS._solve_gradient!(state, f, g, method, TIGHT)
   @test r.converged
   @test state.λmax ≈ ref rtol = 1e-13
+  # wiring: ProximalBase's scorer on the solver's stored gradient, as in the solver's check
   @test kkt_violation(g, state.grad_f_x, state.x) < max(TIGHT.gradtol, 64eps()) * max(2.0, state.λmax)
+  # and the independent residual of the same accepted point
+  residual, tol = residual_check(X, y, state.x, 2.0, w)
+  @test residual <= tol
 end
 
 @testset "loss value and gradient at zero and at a representative point" begin
@@ -147,7 +189,9 @@ end
   Xs = X ./ 64
   state = PS.initial_state(ProximalGradientDescent(), TIGHT, LogisticLoss(y, Xs), NormL1(0.1), zeros(k))
   @test state.model.α == 0.25
-  # ¼‖X‖_F² with one rounding; the solver's upper bound exceeds it by its error allowance γ_{N+3} ≈ 3e-14 (N = 250)
+  # ¼‖X‖_F² with one rounding. The solver's bound is above it by its rounding allowances (PGD-02): the factor
+  # 1/(1 - γ_{N+3}), with γ_{N+3} ≈ 3e-14 for N = 250, two factors within 1e-15 of one and the final rounding;
+  # rtol = 1e-12 covers them.
   q = Float64(sum(abs2, big.(Xs)) / 4)
   @test q < 1
   @test state.L >= q
@@ -164,10 +208,11 @@ end
   r = solve!(b, LogisticLoss(y, X), NormL1(level, w), ProximalGradientDescent(), TIGHT)
   @test r.minimizer === b
   @test r.converged
-  # the first trial (L = 0.9) is rejected: the curvature along it is far above 1 for this design
+  # more trials than iterations: some trials were rejected (the start L = 1 is far below ¼‖X‖₂² here)
   @test r.backtrack_steps > r.iterations
   s = scores(oracle(X, y, b).gradient, b, level, w)
   S = stop_scale(X, y, level, w)
+  @test rounding_bound(X, b) <= 1e-9 && S >= 1      # the conditions of KKT_TOL
   active = findall(!iszero, b[2:end]) .+ 1
   inactive = findall(iszero, b[2:end]) .+ 1
   @test !isempty(active) && !isempty(inactive)
@@ -178,7 +223,7 @@ end
   @test r.minimum ≈ Float64(objective(X, y, b, level, w)) rtol = 1e-12
   # F/n is the mean negative log likelihood plus (level/n) ‖b₁:ₚ‖₁
   η = X * b
-  @test r.minimum / n ≈ sum(softplus.(η) .- y .* η) / n + (level / n) * sum(abs, b[2:end]) rtol = 1e-12
+  @test r.minimum / n ≈ sum(softplus.((1 .- 2 .* y) .* η)) / n + (level / n) * sum(abs, b[2:end]) rtol = 1e-12
 end
 
 @testset "intercept-only model and a level above the slope threshold" begin
@@ -208,25 +253,38 @@ end
     @test all(iszero, b[2:end])
     @test b[1] ≈ b0 atol = 1e-8
   end
+  # At the computed threshold itself the zero slopes are optimal in exact arithmetic; the computed level can be a
+  # rounding below the exact threshold, so the slopes are checked against a small tolerance, with the intercept
+  # and the independent residual
+  level = slope_threshold(X, y)
+  w = [0.0; ones(k - 1)]
+  b = [0.0; fill(0.5, k - 1)]
+  r = solve!(b, LogisticLoss(y, X), NormL1(level, w), ProximalGradientDescent(), TIGHT)
+  @test r.converged
+  @test maximum(abs, b[2:end]) <= 1e-8
+  @test b[1] ≈ b0 atol = 1e-8
+  residual, tol = residual_check(X, y, b, level, w)
+  @test residual <= tol
 end
 
 @testset "unpenalized fit against a damped Newton reference" begin
   X, y = logistic_data(200, 4; seed = 6)
   n, k = size(X)
   bref, gnorm = newton(X, y)
-  @test gnorm < 1e-30            # a finite minimizer exists: the data are not separable
+  @test gnorm < 1e-30
+  # the data are not separable (certificate at the Newton point), so the loss has a finite minimizer, near bref
+  @test nonseparable(X, y, bref) > 1
   b64 = Float64.(bref)
-  μ = sigmoid.(X * b64)
-  λmin = eigmin(Symmetric(X' * (X .* (μ .* (1 .- μ)))))
-  @test λmin > 0
+  Gref = oracle(X, y, b64).gradient
   for g in (NormL1(0.0), NormL1(0.0, zeros(k)))
     b = zeros(k)
     r = solve!(b, LogisticLoss(y, X), g, ProximalGradientDescent(), TIGHT)
     @test r.converged
-    G = Float64.(oracle(X, y, b).gradient)
-    # strong convexity near the minimizer: ‖b - b*‖₂ ≤ ‖∇f(b)‖₂ / λmin(∇²f), with a factor 2 for the change of
-    # the Hessian along the segment and 1e-12 for the rounding of b* to Float64
-    @test norm(b - b64) <= 2 * norm(G) / λmin + 1e-12
+    G = oracle(X, y, b).gradient
+    # μ bounds the curvature on the segment from b to b64, so ‖b - b64‖₂ ≤ ‖∇f(b) - ∇f(b64)‖₂ / μ; the
+    # gradient at the stop keeps this bound below the tolerance, and the distance itself is checked as well
+    μ = segment_curvature(X, b, b64)
+    @test μ > 0 && Float64(norm(G - Gref)) / μ <= 1e-7 * max(1, norm(b64, Inf))
     @test norm(b - b64, Inf) <= 1e-7 * max(1, norm(b64, Inf))
     @test r.minimum ≈ Float64(oracle(X, y, bref).value) rtol = 1e-12
   end
@@ -241,13 +299,17 @@ end
   r2 = solve!(b2, LogisticLoss(y, X), NormL1(level, ones(k)), ProximalGradientDescent(), TIGHT)
   @test r1.minimizer === b1 && r2.minimizer === b2
   @test r1.converged && r2.converged
-  S = stop_scale(X, y, level)
-  for (r, b) in ((r1, b1), (r2, b2))
-    @test maximum(scores(oracle(X, y, b).gradient, b, level)) <= KKT_TOL * S
+  residuals = map(((r1, b1), (r2, b2))) do (r, b)
+    residual, tol = residual_check(X, y, b, level)
+    @test residual <= tol
     @test r.minimum ≈ Float64(objective(X, y, b, level)) rtol = 1e-12
+    residual
   end
-  # n > k and X has full column rank, so the loss is strictly convex and the minimizer is unique; both points
-  # have independent residuals below 1e-8 S, which bounds their distance far below 1e-6 for this design
+  # The objective is strongly convex on the segment between the two points, with modulus at least μ, and each
+  # point has a subgradient of ∞-norm equal to its residual; so ‖b1 - b2‖₂ ≤ √k (r₁ + r₂) / μ, which the
+  # residuals keep below 1e-6
+  μ = segment_curvature(X, b1, b2)
+  @test μ > 0 && sqrt(k) * sum(residuals) / μ <= 1e-6
   @test r1.minimum ≈ r2.minimum rtol = 1e-10
   @test norm(b1 - b2, Inf) <= 1e-6
 end
@@ -263,7 +325,32 @@ end
   @test r.converged
   @test r.backtrack_steps > r.iterations    # some trials were rejected
   @test state.verifications > 0             # and rechecked by c = m ¼‖X d̂‖²/‖d̂‖²
-  @test maximum(scores(oracle(X, y, state.x).gradient, state.x, level)) <= KKT_TOL * stop_scale(X, y, level)
+  residual, tol = residual_check(X, y, state.x, level)
+  @test residual <= tol
+end
+
+@testset "the recheck of a rejected trial uses the factor 1/4 in each mode" begin
+  # One observation, X = [1], y = [1]: the step d = 1 from u = 0 has ¼‖X d‖²/‖d‖² = ¼. TFOCS's estimates for it,
+  # from the independent loss, are at most m ¼ (m = 1 in function-value mode, m = 2 in gradient mode); with L = 0.1
+  # the trial is rejected, the recheck returns c = m ¼, and the retry is L = max(c, L/β) = c.
+  X1, y1 = fill(1.0, 1, 1), [1.0]
+  f, g = LogisticLoss(y1, X1), NormL1(0.0)
+  method = ProximalGradientDescent()
+  f0, f1 = oracle(X1, y1, [0.0]), oracle(X1, y1, [1.0])
+  estimates = (2 * (f1.value - f0.value - f0.gradient[1]), 2 * (f1.gradient[1] - f0.gradient[1]))
+  for (gradient_mode, c, estimate) in ((false, 0.25, estimates[1]), (true, 0.5, estimates[2]))
+    @test 0.1 < estimate <= c
+    state = PS.initial_state(method, ProximalOptions(), f, g, [0.0])
+    state.x_previous .= state.x
+    state.f_x_previous = state.f_x
+    state.grad_f_x_previous .= state.grad_f_x
+    state.x .= 1.0
+    state.f_x = PS._value!(state.x, f, state.model, state.z_x)
+    state.L = 0.1
+    state.backtrack_simple = !gradient_mode
+    @test !PS.LineSearches.backtrack!(state, method.ls, f, g)
+    @test state.verifications == 1 && state.L == c
+  end
 end
 
 @testset "an error in an iteration restores the last accepted point" begin
@@ -290,6 +377,44 @@ end
   @test isequal(x, x0)
 end
 
+@testset "an overflowed image is a nonfinite start or trial" begin
+  method = ProximalGradientDescent()
+  # At the start: X b = [Inf]. ProximalBase gives the loss 0 for an infinite predictor on the side of the label
+  # (y = 1) and Inf on the other (y = 0); both starts are refused with the coefficients unchanged.
+  for y1 in (1.0, 0.0)
+    b = [floatmax(Float64) / 2]
+    err = try
+      solve!(b, LogisticLoss([y1], fill(8.0, 1, 1)), NormL1(1.0, [0.0]), method)
+      nothing
+    catch e
+      e
+    end
+    @test err isa ArgumentError && occursin("start from a point where f is finite", sprint(showerror, err))
+    @test b == [floatmax(Float64) / 2]
+  end
+  # In a trial: from zero with X = 2e154 in every row, the first trial is x = ±1e154/0.9 and its image overflows.
+  # With Lexact = 0.9 the line search accepts a trial with a finite value at L = 0.9; the overflowed trial is
+  # retried at L = 1.8 instead (LS-02), and the image of that retry, about ±1.1e308, is finite. For y = [1] and
+  # y = [0] the overflow is on the side of each label, where ProximalBase returns the loss 0; for y = [1, 1, 0]
+  # it is against the third label, where ProximalBase returns Inf.
+  for (y1, sign) in (([1.0], 1), ([0.0], -1), ([1.0, 1.0, 0.0], 1))
+    X1 = fill(2e154, length(y1), 1)
+    f, g = LogisticLoss(y1, X1), NormL1(0.0)
+    m = ProximalGradientDescent(ls = PS.LineSearches.BackTracking(Lexact = 0.9))
+    state = PS.initial_state(m, ProximalOptions(), f, g, [0.0])
+    PS.update_state!(f, g, state, m)
+    @test all(isfinite, X1 * state.x) && isfinite(state.f_x)
+    @test state.L == 1.8 && state.backtrack_steps == 2
+    @test state.x ≈ [sign * 1e154 / 1.8] rtol = 1e-15
+  end
+  # a large finite image still gets ProximalBase's stable loss: |η| = 800 is beyond log(floatmax(Float64)) ≈ 709.78
+  X2, y2, b2 = [1.0 0.0; 0.0 1.0], [0.0, 1.0], [800.0, 800.0]
+  state = PS.initial_state(method, ProximalOptions(), LogisticLoss(y2, X2), NormL1(0.0), copy(b2))
+  @test state.f_x ≈ Float64(oracle(X2, y2, b2).value) rtol = 1e-15
+  @test state.f_x ≈ 800 rtol = 1e-15
+  @test state.grad_f_x ≈ Float64.(oracle(X2, y2, b2).gradient) rtol = 1e-15
+end
+
 @testset "iteration and call limits report nonconvergence" begin
   X, y = logistic_data(200, 12; seed = 10)
   n, k = size(X)
@@ -312,19 +437,18 @@ end
 function check_hard_case(label, X, y, level, w, start)
   b = copy(start)
   r = solve!(b, LogisticLoss(y, X), NormL1(level, w), ProximalGradientDescent(), TIGHT)
-  kkt = Float64(maximum(scores(oracle(X, y, b).gradient, b, level, w)))
-  S = stop_scale(X, y, level, w)
-  println("logistic PGD, $label: converged = $(r.converged), iterations = $(r.iterations), ",
-          "KKT residual / S = $(kkt / S), max |X b| = $(maximum(abs, X * b))")
   @test all(isfinite, b) && isfinite(r.minimum)
+  kkt, tol = residual_check(X, y, b, level, w)
+  println("logistic PGD, $label: converged = $(r.converged), iterations = $(r.iterations), ",
+          "KKT residual / S = $(kkt / (tol / KKT_TOL)), max |X b| = $(maximum(abs, X * b))")
   @test !isnan(r.g_residual) && !isnan(r.f_residual) && !isnan(r.x_residual)
-  @test !r.converged || kkt <= KKT_TOL * S
+  @test !r.converged || kkt <= tol
   @test r.minimum ≈ Float64(objective(X, y, b, level, w)) rtol = 1e-10
 end
 
 @testset "strong finite logits and almost separated regularized problems" begin
   # A steep model on covariates of scale 20, from zero and from a start where |X b| is in the thousands, beyond
-  # the range where exp(|η|) is finite in Float64 (|η| ≤ 709)
+  # log(floatmax(Float64)) ≈ 709.78, above which exp(|η|) overflows in Float64
   rng = Xoshiro(11)
   n = 80
   X = [ones(n) 20 .* randn(rng, n, 2)]
@@ -332,13 +456,14 @@ end
   @test 0 < sum(y) < n
   level = 0.02 * slope_threshold(X, y)
   start = [0.0, 40.0, -40.0]
-  @test maximum(abs, X * start) > 709
+  @test maximum(abs, X * start) > log(floatmax(Float64))
   for s in (zeros(3), start)
     check_hard_case("steep model from $s", X, y, level, [0.0, 1.0, 1.0], s)
   end
   # One covariate on an even grid with a penalized slope and an unpenalized intercept: classes separated by
-  # the sign of the covariate, and the same with two labels near zero exchanged. Both classes are present, so the
-  # intercept is bounded, and the penalty bounds the slope: each problem has a finite minimizer.
+  # the sign of the covariate, and the same with two labels near zero exchanged. On each sublevel set of the
+  # objective the positive slope penalty bounds the slope; with the slope bounded and both classes present, the
+  # loss grows without bound with |b₀|, so the sublevel sets are bounded and each problem has a finite minimizer.
   z = collect(range(-2.0, 2.0; length = 21))
   X = [ones(21) z]
   y = Float64.(z .> 0)
@@ -373,6 +498,8 @@ end
   fsq = LogisticLoss(ysq, Xsq)
   wv = copy(w)
   mutated(change!) = (Xc = copy(X); yc = copy(y); fc = LogisticLoss(yc, Xc); change!(Xc, yc); fc)
+  # a NormL1 whose second weight is changed after construction
+  reweighted(v) = (wm = copy(w); gm = NormL1(1.0, wm); wm[2] = v; gm)
   cases = [
     # solvers other than PGD, for each coefficient storage
     (copy(start), f, g, AccProxGradDescent(), ArgumentError, "LogisticLoss is supported only by ProximalGradientDescent"),
@@ -383,6 +510,7 @@ end
     (zeros(k, 2), f, GroupNormL2(1.0, [collect(j:k:2k) for j in 1:k]), CDSolver(), ArgumentError,
      "CDSolver does not support it"),
     (copy(start), f, NormL1(1.0), ADMMSolver(), ArgumentError, "ADMM requires SqrNormL2"),
+    (copy(start), (1 / n) * f, NormL1(1.0), ADMMSolver(), ArgumentError, "ADMM requires SqrNormL2"),
     (copy(start), (1 / n) * f, g, AccProxGradDescent(), ArgumentError, "supported only by ProximalGradientDescent"),
     (copy(start), (1 / n) * f, g, CDSolver(), ArgumentError, "CDSolver does not support it"),
     # the loss and the arrays
@@ -399,6 +527,8 @@ end
     (copy(start), LogisticLoss(y, X; offset = zeros(n)), g, pgd, ArgumentError, "observation weights or an offset"),
     # shapes
     (zeros(k + 1), f, NormL1(1.0), pgd, DimensionMismatch, "x/y dimensions do not match X"),
+    (zeros(k - 1), f, NormL1(1.0), pgd, DimensionMismatch, "x/y dimensions do not match X"),
+    (zeros(k), LogisticLoss(zeros(0), zeros(0, k)), NormL1(1.0), pgd, DimensionMismatch, "positive row and column counts"),
     (zeros(0), LogisticLoss(y, zeros(n, 0)), NormL1(1.0), pgd, DimensionMismatch, "positive row and column counts"),
     (copy(start), mutated((Xc, yc) -> resize!(yc, n - 1)), g, pgd, DimensionMismatch, "x/y dimensions do not match X"),
     # penalties other than NormL1, then the NormL1 rules
@@ -413,6 +543,9 @@ end
     (copy(start), f, NormL1(1.0, [0.0, 1.0, 1.0]), pgd, DimensionMismatch, "3 weights"),
     (copy(start), f, NormL1(1.0, Float32.(w)), pgd, ArgumentError, "penalty weights must be a Vector{Float64}"),
     (copy(start), f, NormL1(1e300, [0.0, 1e10, 1.0, 1.0]), pgd, ArgumentError, "overflows"),
+    (copy(start), f, reweighted(-1.0), pgd, ArgumentError, "penalty weight 2 must be finite and nonnegative"),
+    (copy(start), f, reweighted(Inf), pgd, ArgumentError, "penalty weight 2 must be finite and nonnegative"),
+    (copy(start), f, reweighted(NaN), pgd, ArgumentError, "penalty weight 2 must be finite and nonnegative"),
     # aliasing
     (wv, f, NormL1(1.0, wv), pgd, ArgumentError, "must not alias the penalty weights"),
     (vec(row), LogisticLoss([1.0], row), g, pgd, ArgumentError, "must not alias borrowed X or y"),
@@ -425,6 +558,7 @@ end
     (copy(start), mutated((Xc, yc) -> (Xc[5, 2] = NaN)), g, pgd, ArgumentError, "finite"),
     (copy(start), mutated((Xc, yc) -> (yc[3] = 0.5)), g, pgd, ArgumentError, "binary response"),
     (copy(start), mutated((Xc, yc) -> (yc[3] = NaN)), g, pgd, ArgumentError, "binary response"),
+    (copy(start), mutated((Xc, yc) -> (yc[3] = 2.0)), g, pgd, ArgumentError, "binary response"),
     (copy(start), LogisticLoss(fill(0.25, n), X), g, pgd, ArgumentError, "binary response"),
   ]
   for (i, (x, loss, penalty, method, E, message)) in enumerate(cases)
@@ -439,18 +573,56 @@ end
   @test solve!(b, f, g, pgd).minimizer === b
 end
 
-# The bytes of a warmed solve, measured inside a function; the minimum of three runs after one warm-up run
+@testset "CDSolver refuses a logistic loss before any write or draw from its RNG" begin
+  X, y = logistic_data(40, 3; seed = 12)
+  n, k = size(X)
+  start = [0.1, -0.2, 0.3, 0.0]
+  groups = [[1, 2], [3, 4]]
+  rows = [collect(j:k:2k) for j in 1:k]                 # the rows of a k × 2 coefficient matrix
+  storages = [(() -> copy(start), NormL1(1.0), nothing),
+              (() -> SparseIterate(copy(start)), NormL1(1.0), nothing),
+              (() -> BlockIterate(copy(start), groups), GroupNormL2(1.0, groups), false),
+              (() -> BlockIterate(copy(start), groups), GroupNormL2(1.0, groups), true),   # before the momentum check
+              (() -> zeros(k, 2), GroupNormL2(1.0, rows), nothing)]
+  for loss in (LogisticLoss(y, X), (1 / n) * LogisticLoss(y, X)), (make, g, momentum) in storages
+    x = make()
+    rng = Xoshiro(5)
+    rng_before = copy(rng)
+    err, unchanged = refusal(x, loss, g, CDSolver(order = :random, momentum = momentum, rng = rng))
+    @test err isa ArgumentError && occursin("CDSolver does not support it", sprint(showerror, err))
+    @test unchanged && rng == rng_before
+  end
+end
+
+# The bytes of a warmed solve, setup included, measured inside a function; the minimum of three runs after one
+# warm-up run
 function solve_bytes(f, g, x0, o)
   run() = (x = copy(x0); @allocated solve!(x, f, g, ProximalGradientDescent(), o))
   run()
   minimum(run() for _ in 1:3)
 end
 
+# The largest number of bytes of one of ten warmed iterations (update_state!), measured inside a function
+function iteration_bytes(f, g, x0)
+  method = ProximalGradientDescent()
+  state = PS.initial_state(method, ProximalOptions(), f, g, copy(x0))
+  PS.update_state!(f, g, state, method)
+  bytes = 0
+  for _ in 1:10
+    bytes = max(bytes, @allocated PS.update_state!(f, g, state, method))
+  end
+  bytes
+end
+
 @testset "a warmed logistic solve allocates no more than the least-squares control" begin
   X, y = logistic_data(100, 8; seed = 13)
   k = size(X, 2)
   g = NormL1(1.0, [0.0; ones(k - 1)])
-  # without stopping proposals, and with a proposal (and so a stationarity check) at each iteration that moves x
+  # an ordinary iteration allocates nothing, as for least squares
+  @test iteration_bytes(LogisticLoss(y, X), g, zeros(k)) == 0
+  @test iteration_bytes(LeastSquaresLoss(y, X), g, zeros(k)) == 0
+  # whole solves of at most 30 iterations each, setup included: without stopping proposals, and with a proposal (and so
+  # a stationarity check) at each iteration that moves x
   for o in (ProximalOptions(maxiter = 30, ftol = 0, xtol = 1e-300, gradtol = 0, allow_f_increases = true),
             ProximalOptions(maxiter = 30, ftol = 0, xtol = 1e10, gradtol = 0, allow_f_increases = true))
     logistic = solve_bytes(LogisticLoss(y, X), g, zeros(k), o)
