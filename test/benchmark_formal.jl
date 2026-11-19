@@ -28,30 +28,32 @@ catalog(suite = "quick"; deferred = false) = call(H.build_catalog, suite, groups
 spec(id) = only(filter(s -> s.meta.id == id, catalog("extended")))
 spec_deferred(id) = only(filter(s -> s.meta.id == id, catalog("extended"; deferred = true)))
 const PB_REV = "fc13ace163d219da0668b7f18be54ce6043edbf7"
+const GROUP_VARIANTS = ("block-f32", "block-f64", "warm-block-f32", "warm-block-f64")
+const TWO_COLUMN_IDS = ["cd/group-lasso-m2/cd/$variant/call" for variant in GROUP_VARIANTS]
 
 const QUICK = sort!(vcat(
   ["cd/$p/cd/$(w)$i-$t/call" for (p, ws) in (("lasso", ("",)), ("lasso-B", ("", "warm-")))
    for w in ws for i in ("dense", "sparse") for t in ("f32", "f64")],
   ["gradient/$p/$solver/$(w)dense-$t/call" for solver in ("pg", "apg")
    for (p, ws) in (("lasso", ("",)), ("lasso-B", ("", "warm-"))) for w in ws for t in ("f32", "f64")],
-  ["cd/group-lasso/cd/$(w)block-$t/call" for w in ("", "warm-") for t in ("f32", "f64")],
+  ["cd/group-lasso/cd/$variant/call" for variant in GROUP_VARIANTS], TWO_COLUMN_IDS,
   ["cd/lasso-dense/cd/R/call", "gradient/lasso/pg/R/call"]))
 
 @testset "supported and deferred cases" begin
   quick, extended = catalog(), catalog("extended")
   @test [s.meta.id for s in quick] == QUICK
-  @test length(extended) == 62
+  @test length(extended) == 66
   @test issubset(Set(s.meta.id for s in quick), Set(s.meta.id for s in extended))
   deferred = catalog("extended"; deferred = true)
   @test length(deferred) == 100
   @test all(s -> call(H.case_available, s), extended)
   @test all(s -> !isempty(call(H.missing_requirements, s)), deferred)
-  # 102 historical IDs (2 supported, 100 deferred), 40 current-core IDs, the 4 group-lasso IDs of
-  # CDSolver on a BlockIterate (#275, quick suite), the 10 Float64 `acc-` IDs of PGD and APG
+  # 102 historical IDs (2 supported, 100 deferred), 40 current-core IDs, the 8 group-lasso IDs of
+  # CDSolver on a BlockIterate (#275, #387, quick suite), the 10 Float64 `acc-` IDs of PGD and APG
   # (#314, extended suite only) and the 6 weighted-lasso IDs (#331, extended suite only), all distinct.
   ids = [s.meta.id for s in vcat(extended, deferred)]
-  @test allunique(ids) && length(ids) == 162
-  group = sort!(["cd/group-lasso/cd/$(w)block-$t/call" for w in ("", "warm-") for t in ("f32", "f64")])
+  @test allunique(ids) && length(ids) == 166
+  group = sort!(vcat(["cd/group-lasso/cd/$variant/call" for variant in GROUP_VARIANTS], TWO_COLUMN_IDS))
   @test sort!(filter(id -> occursin("block-f", id), ids)) == group
   # The historical group-lasso case stays deferred: it needs gap stopping.
   @test "cd/group-lasso/cd/tight/call" in [s.meta.id for s in deferred]
@@ -79,6 +81,12 @@ const QUICK = sort!(vcat(
         ["CDSolver: GroupNormL2 on an AtomIterate", "CDSolver: duality-gap stopping (gaptol > 0)"]
   @test spec("cd/group-lasso/cd/block-f32/call").requires == ["cd", "cd:block_iterate", "cd:float32"]
   @test spec("cd/group-lasso/cd/warm-block-f64/call").requires == ["cd", "cd:block_iterate"]
+  for (id, variant) in zip(TWO_COLUMN_IDS, GROUP_VARIANTS)
+    pair, four = spec(id), spec("cd/group-lasso/cd/$variant/call")
+    @test pair.requires == four.requires
+    @test pair.meta.variant == variant && pair.meta.suite == "quick"
+    @test pair.meta.solver == "cd" && pair.meta.target == four.meta.target
+  end
   # Targets per precision; current-core variants name the iterate and precision.
   for s in extended
     s.meta.variant == "R" && continue
@@ -137,6 +145,7 @@ end
 
 @testset "group-lasso inputs" begin
   a = call(H.grouped_problem, 1, "core/group-lasso")
+  @test a.groups == [collect(j:j+3) for j in 1:4:32]
   a32 = call(H.core_problem, a, Float32)
   @test a32.w_group isa Vector{Float32} && a32.w_group == Float32.(a.w_group) && iszero(a32.start)
   exact = call(H.exact_problem, a32)
@@ -158,6 +167,54 @@ end
   x = call(H.block_start, warm.start, a.groups)
   @test x isa ProximalBase.BlockIterate{Float64} && Vector(x) == w
   @test sort(collect(ProximalBase.activecoordinates(x))) == findall(nonzero)
+end
+
+@testset "two-column group-lasso inputs and existing hashes" begin
+  pairs = [call(H.grouped_problem, rep, "core/group-lasso-m2"; group_size = 2) for rep in 1:2]
+  baseline = map(1:2) do rep
+    # Reconstruct the old fixture on this runtime. BLAS-dependent low bits of the response
+    # and the independent warm start can differ across machines and Julia versions.
+    draw = call(H.regression_problem, rep, "core/group-lasso"; n = 120, p = 32)
+    groups = [collect(j:j+3) for j in 1:4:32]
+    merge(draw, (; kind = :group, groups, w_group = fill(2.0, 8), α = 0.5))
+  end
+  for (a, old) in zip(pairs, baseline)
+    @test a.key == "core/group-lasso-m2" && a.kind == :group
+    @test size(a.X) == (120, 32) && a.X != old.X
+    @test a.groups == [collect(j:j+1) for j in 1:2:32]
+    @test a.w_group == fill(sqrt(2), 16)
+  end
+  for (id, variant) in zip(TWO_COLUMN_IDS, GROUP_VARIANTS)
+    pair, four = spec(id), spec("cd/group-lasso/cd/$variant/call")
+    T = endswith(variant, "f32") ? Float32 : Float64
+    warm = startswith(variant, "warm-")
+    hash(rep) = call(pair.make, rep).problem_hash
+    @test hash(1) != hash(2)
+    for rep in 1:2
+      a = pairs[rep]
+      p = call(H.core_problem, a, T; warm)
+      expected = call(H.data_hash, p)
+      old = call(H.core_problem, baseline[rep], T; warm)
+      old_hash = call(H.data_hash, old)
+      @test call(four.make, rep).problem_hash == old_hash
+      @test hash(rep) == hash(rep) == expected != old_hash
+      @test p.X == T.(a.X) && p.y == T.(a.y) && eltype(p.X) == eltype(p.y) == T
+      @test p.s === T(a.s) && p.λ === T(a.λ)
+      _, g = call(H.benchmark_model, p)
+      @test g isa ProximalBase.GroupNormL2{T} && g.groups == a.groups
+      @test g.λ0 === T(a.λ) && g.w == T.(a.w_group) && eltype(g.w) == T
+      if warm
+        w = call(H.warm_start, a)
+        cert = call(H.group_certificate, a.X, a.y, a.s, 1.25a.λ, a.groups, a.w_group, w)
+        @test cert.status == :ok && cert.measure == :relative_gap && cert.value <= 1e-12
+        @test p.start == T.(w) && !iszero(p.start)
+        @test call(H.data_hash, merge(p, (; start = zeros(T, 32)))) ==
+              call(spec(replace(id, "warm-" => "")).make, rep).problem_hash
+      else
+        @test iszero(p.start)
+      end
+    end
+  end
 end
 
 # One timed-style observation as the runner makes it: reset, call, certify.
@@ -203,13 +260,33 @@ end
       @test ProximalBase.nactive(x) == count(!iszero, start)
       @test sort(collect(ProximalBase.activecoordinates(x))) == findall(!iszero, start)
     elseif block
-      groups = call(H.grouped_problem, 1, "core/group-lasso").groups
-      nonzero = [k for k in eachindex(groups) if any(!iszero, start[groups[k]])]
+      two_columns = s.meta.problem == "group-lasso-m2"
+      a = call(H.grouped_problem, 1, "core/$(s.meta.problem)"; group_size = two_columns ? 2 : 4)
+      p = call(H.core_problem, a, T; warm = startswith(s.meta.variant, "warm-"))
+      nonzero = findall(g -> any(!iszero, p.start[g]), p.groups)
+      @test start == p.start
       @test sort(collect(ProximalBase.activecoordinates(x))) == nonzero
       @test x isa ProximalBase.BlockIterate{T}
+      @test [ProximalBase.blockindices(x, k) for k in 1:ProximalBase.ncoordinates(x)] == p.groups
+      @test all(isfinite, solution) && isfinite(output.minimum)
+      if two_columns
+        # Run the solver's first full sweep on the reset inputs with its model visible.
+        # A group must acquire curvature, and the general Gram route would fill the buffers.
+        f, g = call(H.benchmark_model, p)
+        work = copy(x)
+        model = ProximalSolvers.cdmodel(f, work)
+        ProximalSolvers.initialize!(model, work)
+        ProximalSolvers._prepare!(model, g, work)
+        method = call(H.core_method, s.meta.solver, T)
+        st = ProximalSolvers._CDState(T, work, method)
+        ProximalSolvers._pass!(work, model, g, st, true, false)
+        @test any(ℓ -> isfinite(ℓ) && ℓ > 0, model.ℓ)
+        @test isempty(model.colbuf) && isempty(model.grambuf)
+      end
     end
-    again, _ = call(observe, state)
+    again, replay_cert = call(observe, state)
     @test Array(again.minimizer) == solution
+    block && @test replay_cert.value == cert.value && replay_cert.status == cert.status
   end
   # Certificates: the Float64 reference solution, its Float32 rounding, and a perturbation.
   a = call(H.regression_problem, 1, "core/lasso")
@@ -320,8 +397,16 @@ end
 @testset "formal records" begin
   mktempdir() do dir
     out = joinpath(dir, "records")
-    selected = join(["cd/lasso/cd/dense-f64/call", "cd/lasso/cd/sparse-f32/call",
-                     "gradient/lasso/pg/dense-f64/call", "gradient/lasso/pg/dense-f32/call"], ',')
+    ids = vcat(["cd/lasso/cd/dense-f64/call", "cd/lasso/cd/sparse-f32/call",
+                "gradient/lasso/pg/dense-f64/call", "gradient/lasso/pg/dense-f32/call"], TWO_COLUMN_IDS)
+    selected = join(ids, ',')
+    for id in TWO_COLUMN_IDS
+      listing = joinpath(dir, "listing")
+      withenv("PS_OUTPUT" => out, "PS_CASES" => id, "PS_LIST" => "true") do
+        @test redirect_stdio(() -> call(H.main); stdout = listing) == 0
+      end
+      @test first(split(only(readlines(listing)), '\t')) == id
+    end
     threads = LinearAlgebra.BLAS.get_num_threads()
     code = try
       withenv("PS_OUTPUT" => out, "PS_CASES" => selected, "PS_SAMPLES" => "5", "PS_SECONDS" => "0.001",
@@ -334,7 +419,7 @@ end
     # Exit 2: complete records with a non-ok case (PGD in Float32 misses its target).
     @test code in (0, 2)
     meta = H.TOML.parsefile(only(filter(endswith("-metadata.toml"), readdir(out; join = true))))
-    @test meta["finished"] && meta["cases"] == 4 && meta["proximalbase_rev"] == PB_REV
+    @test meta["finished"] && meta["cases"] == length(ids) && meta["proximalbase_rev"] == PB_REV
     @test meta["proximalbase_source"] == "git" && meta["case_filter"] == selected
     @test meta["harness_hash"] == call(H.fingerprint, BENCHMARK,
       [joinpath(BENCHMARK, f) for f in ("problems.jl", "certificates.jl", "cases.jl", "run.jl")])

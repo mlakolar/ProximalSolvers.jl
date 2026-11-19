@@ -625,11 +625,12 @@ function build_catalog(suite, groups; deferred = false)
               suite = "extended", target = CORE_TARGETS[Float64],
               requires = case_requirements(solver, ["lasso", "weighted_l1"], "call"))
   end
-  # CDSolver on a BlockIterate (#275): the 120×32 group-lasso design of `grouped_problem` with groups of
-  # four, cold and warm. The key `core/group-lasso` gives draws of its own, not those of the
-  # deferred `cd/group-lasso/cd/tight` case.
+  # CDSolver on a BlockIterate: keep the four-column draws (#275) and seed the two-column
+  # curvature fixture (#387) separately.
   for warm in (false, true)
     add_core_group_cases!(catalog, "group-lasso", rep -> grouped_problem(rep, "core/group-lasso"); warm)
+    add_core_group_cases!(catalog, "group-lasso-m2",
+      rep -> grouped_problem(rep, "core/group-lasso-m2"; group_size = 2); warm)
   end
   # The same PGD and APG problems in Float64 under `accuracy_options` (#314), extended suite only.
   for (problem, make_problem, starts, _) in core_designs, warm in starts, solver in ("pg", "apg")
